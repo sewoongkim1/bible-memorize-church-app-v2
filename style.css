@@ -1238,6 +1238,8 @@ h1 {
   background:rgba(255,255,255,.85); border-radius:12px; padding:8px 12px;
   backdrop-filter:blur(2px); box-shadow:0 2px 12px rgba(0,0,0,.12); }
 .splash-ver{ color:rgba(255,255,255,.6); font-size:.78rem; margin-top:10px; letter-spacing:.5px; }
+.app-status{ font-size:.78rem; color:var(--gray); text-align:center; margin:2px 0 8px; }
+.dark .app-status{ color:#aeb8c8; }
 @keyframes splashPop{ from{ transform:scale(.92); opacity:0 } to{ transform:scale(1); opacity:1 } }
 
 /* 화면 전환 로딩(로고 + 불러오는 중...) */

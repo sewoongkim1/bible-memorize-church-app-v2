@@ -695,6 +695,7 @@ function renderSettings() {
         <button class="summary-install" id="change-user">👤 로그인 정보변경</button>
         <button class="summary-install" id="privacy-info">🔐 개인정보 안내 보기</button>
         <button class="summary-install" id="enable-push">🔔 매일 암송 알림 받기</button>
+        <div class="app-status" id="app-status"></div>
         <button class="summary-install" id="install-btn">⛪ 홈 화면에 추가</button>
         <button class="summary-install" id="share-btn">🔗 공유하기</button>
         <a class="summary-install" href="admin.html">📊 관리자 페이지</a>
@@ -709,10 +710,23 @@ function renderSettings() {
   document.getElementById("privacy-info").addEventListener("click", () => renderPrivacyInfo(renderSettings));
   document.getElementById("share-btn").addEventListener("click", shareApp);
   document.getElementById("enable-push").addEventListener("click", () => { if (typeof enablePush === "function") enablePush(); });
+  updateAppStatus();
   setupSyncRetry();
   setupThemeSetting();
   setupTtsRate();
   setupInstallButton();
+}
+
+// 설정 화면 하단: 현재 실행 모드/알림 권한 상태 표시(설치 확인용)
+function updateAppStatus() {
+  const el = document.getElementById("app-status");
+  if (!el) return;
+  const standalone =
+    (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
+    window.navigator.standalone === true;
+  const perm = (window.Notification && Notification.permission) || "default";
+  const permTxt = perm === "granted" ? "허용됨" : perm === "denied" ? "거부됨" : "미설정";
+  el.textContent = `실행 모드: ${standalone ? "📱 설치된 앱" : "🌐 브라우저"} · 알림 권한: ${permTxt}`;
 }
 
 // 화면 밝기(다크 모드) 선택 UI
