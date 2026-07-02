@@ -411,8 +411,9 @@ function rangeFilter(q: any, b: any) {
 // 도전/복습(학습 제외) 로그만
 const isChallengeMode = (m: string) => !String(m).startsWith("learn-");
 
-// ---------- ranking: 도전/복습 순위(학습 제외) ----------
+// ---------- ranking: 순위. includeLearn=true면 암송(학습) 기록도 포함 ----------
 async function ranking(b: any) {
+  const includeLearn = !!b.includeLearn; // 앱 도전순위=true, 관리자 도전현황=false
   let q = db.from("challenge_log")
     .select("user_id, mode, created_at, users(name,type,gu,mok,bu,grade)");
   q = rangeFilter(q, b);
@@ -421,7 +422,7 @@ async function ranking(b: any) {
 
   const map = new Map<string, any>();
   for (const row of (data ?? []) as any[]) {
-    if (!isChallengeMode(row.mode)) continue;
+    if (!includeLearn && !isChallengeMode(row.mode)) continue;
     const u = row.users ?? {};
     const e = map.get(row.user_id) ?? {
       name: u.name, gubun: u.type,

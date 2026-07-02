@@ -2062,7 +2062,7 @@ function rankRangeFor(key) {
   return { key: "yday", from: ymdKo(y), to: ymdKo(now) };
 }
 async function callRanking(from, to) {
-  return api.ranking(from, to); // { ok, list:[{rank,name,gubun,sosok,sebu,count,...}] }
+  return api.ranking(from, to, true); // 암송(학습) 기록도 포함해 순위 집계
 }
 
 function renderRanking(range) {
