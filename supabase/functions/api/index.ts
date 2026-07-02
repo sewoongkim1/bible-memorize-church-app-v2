@@ -6,6 +6,14 @@
 //   (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY 자동 주입 / ADMIN_SECRET 은 시크릿 설정)
 // ============================================================
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import webpush from "npm:web-push@3.6.7";
+
+const VAPID_PUBLIC = Deno.env.get("VAPID_PUBLIC");
+const VAPID_PRIVATE = Deno.env.get("VAPID_PRIVATE");
+const VAPID_SUBJECT = Deno.env.get("VAPID_SUBJECT") || "mailto:admin@example.com";
+if (VAPID_PUBLIC && VAPID_PRIVATE) {
+  try { webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE); } catch (_) {}
+}
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -61,6 +69,9 @@ Deno.serve(async (req) => {
       case "verses":        return json(await verseStats(body));
       case "cleanupDummy":  return json(await cleanupDummy());
       case "importV1":      return json(await importV1(body));
+      // ---- Web Push ----
+      case "savePush":      return json(await savePush(body));
+      case "sendPush":      return json(await sendPush(body));
       default:              return json({ error: `unknown action: ${body.action}` }, 400);
     }
   } catch (e) {
@@ -159,6 +170,46 @@ async function importV1(b: any) {
   }
 
   return { ok: true, users: userRows.length, progress: progMap.size, logs: inserted };
+}
+
+// ---------- savePush: 푸시 구독 저장 ----------
+async function savePush(b: any) {
+  const s = b.subscription || {};
+  if (!s.endpoint) return { ok: false, error: "no-subscription" };
+  const { error } = await db.from("push_subscriptions").upsert({
+    user_id: b.user_id,
+    endpoint: s.endpoint,
+    p256dh: s.keys && s.keys.p256dh,
+    auth: s.keys && s.keys.auth,
+  }, { onConflict: "endpoint" });
+  if (error) throw error;
+  return { ok: true };
+}
+
+// ---------- sendPush: 구독자 전체에 알림 발송 (ADMIN_SECRET / cron) ----------
+async function sendPush(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const { data: subs } = await db.from("push_subscriptions").select("id,endpoint,p256dh,auth");
+  const payload = JSON.stringify({
+    title: b.title || "성경말씀 암송",
+    body: b.body || "오늘의 말씀을 암송해요! 🙌",
+    url: b.url || "https://sewoongkim1.github.io/bible-memorize-church-app-v2/",
+  });
+  let sent = 0, failed = 0;
+  for (const s of (subs ?? []) as any[]) {
+    try {
+      await webpush.sendNotification(
+        { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+        payload,
+      );
+      sent++;
+    } catch (e: any) {
+      failed++;
+      const code = e && (e.statusCode || e.status);
+      if (code === 404 || code === 410) await db.from("push_subscriptions").delete().eq("id", s.id);
+    }
+  }
+  return { ok: true, sent, failed, total: (subs ?? []).length };
 }
 
 // ---------- login ----------
