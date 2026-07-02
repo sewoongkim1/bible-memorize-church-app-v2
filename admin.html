@@ -40,20 +40,25 @@
 
   /* 카드 메뉴 */
   .section-title{font-weight:800;color:var(--navy);font-size:1.05rem;margin:6px 2px 14px;}
-  .card-grid{display:flex;flex-direction:column;gap:12px;}
+  .card-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   .privacy-notice{background:#fff8e8;border:1px solid #e5c978;border-radius:12px;padding:12px 14px;
     color:#6f5614;font-size:.84rem;line-height:1.55;margin-bottom:14px;}
   .privacy-notice b{color:#4b390b;}
-  .rep-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px 20px;
-    cursor:pointer;transition:transform .12s,box-shadow .12s;box-shadow:0 2px 10px rgba(26,58,107,.06);}
-  .rep-card:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(26,58,107,.14);}
-  .rep-card .ic{font-size:26px;}
-  .rep-card .ti{font-weight:800;color:var(--navy);margin-top:8px;font-size:1.02rem;}
-  .rep-card .de{color:var(--gray);font-size:.83rem;margin-top:4px;line-height:1.45;}
+  .rep-card{display:flex;align-items:center;gap:13px;background:#fff;border:1px solid var(--border);
+    border-radius:14px;padding:15px 16px;cursor:pointer;transition:transform .12s,box-shadow .12s,border-color .12s;
+    box-shadow:0 2px 10px rgba(26,58,107,.06);}
+  .rep-card:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(26,58,107,.14);border-color:#c3d0e8;}
+  .rep-card .ic{flex:none;width:46px;height:46px;display:flex;align-items:center;justify-content:center;
+    font-size:23px;background:var(--cream);border:1px solid var(--border);border-radius:12px;}
+  .rep-card .rep-text{flex:1;min-width:0;}
+  .rep-card .ti{font-weight:800;color:var(--navy);font-size:1rem;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .rep-card .de{color:var(--gray);font-size:.8rem;margin-top:3px;line-height:1.4;}
+  .rep-card .rep-arrow{flex:none;color:#c3ccdb;font-size:24px;font-weight:700;line-height:1;}
+  .rep-card:hover .rep-arrow{color:var(--navy);}
   .rep-card.soon{opacity:.55;cursor:default;}
-  .rep-card.soon:hover{transform:none;box-shadow:0 2px 10px rgba(26,58,107,.06);}
-  .badge-soon{display:inline-block;margin-top:10px;font-size:.72rem;color:var(--gray);
-    background:var(--light);border-radius:999px;padding:2px 9px;}
+  .rep-card.soon:hover{transform:none;box-shadow:0 2px 10px rgba(26,58,107,.06);border-color:var(--border);}
+  @media (max-width:560px){ .card-grid{grid-template-columns:1fr;} }
 
   /* 리포트 */
   .rep-head{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
@@ -86,7 +91,7 @@
   .summary-row{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;}
   .kpi{flex:1;min-width:120px;background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px 14px;text-align:center;}
   .kpi .n{font-size:1.5rem;font-weight:800;color:var(--navy);}
-  .kpi .l{font-size:.76rem;color:var(--gray);margin-top:2px;}
+  .kpi .l{font-size:.76rem;color:var(--gray);margin-top:2px;white-space:nowrap;}
 
   .table-wrap{overflow-x:auto;background:#fff;border:1px solid var(--border);border-radius:12px;}
   table{width:100%;border-collapse:collapse;min-width:560px;}
@@ -186,23 +191,35 @@ function renderMenu(){
     <div class="card-grid">
       <div class="rep-card" id="rep-usage">
         <div class="ic">📅</div>
-        <div class="ti">기간별 사용현황</div>
-        <div class="de">기간을 정해 구분·소속별 신규/참여 인원과 타이핑·음성 횟수를 봅니다.</div>
+        <div class="rep-text">
+          <div class="ti">기간별 사용현황</div>
+          <div class="de">구분·소속별 신규/참여 인원과 타이핑·음성 횟수</div>
+        </div>
+        <div class="rep-arrow">›</div>
       </div>
       <div class="rep-card" id="rep-participants">
         <div class="ic">👥</div>
-        <div class="ti">참여자 현황</div>
-        <div class="de">기간·구분·소속으로 걸러 개인별 타이핑·음성·총횟수를 봅니다.</div>
+        <div class="rep-text">
+          <div class="ti">참여자 현황</div>
+          <div class="de">개인별 타이핑·음성·총횟수</div>
+        </div>
+        <div class="rep-arrow">›</div>
       </div>
       <div class="rep-card" id="rep-verses">
         <div class="ic">📖</div>
-        <div class="ti">구절별 현황</div>
-        <div class="de">기간 내 구절마다 참여자 수와 참여횟수를 봅니다.</div>
+        <div class="rep-text">
+          <div class="ti">구절별 현황</div>
+          <div class="de">구절마다 참여자 수와 참여횟수</div>
+        </div>
+        <div class="rep-arrow">›</div>
       </div>
       <div class="rep-card" id="rep-challenge">
         <div class="ic">🔥</div>
-        <div class="ti">도전 현황</div>
-        <div class="de">기간·구분·소속으로 '말씀 도전' 참여자별 도전 횟수를 봅니다.</div>
+        <div class="rep-text">
+          <div class="ti">도전 현황</div>
+          <div class="de">'말씀 도전' 참여자별 도전 횟수</div>
+        </div>
+        <div class="rep-arrow">›</div>
       </div>
     </div>`;
   document.getElementById("rep-usage").addEventListener("click", renderUsageReport);
