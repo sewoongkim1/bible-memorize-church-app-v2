@@ -27,6 +27,7 @@ const api = {
   ranking: (from, to) => supaCall("ranking", { from, to }),   // 날짜(YYYY-MM-DD), 없으면 전체
   mydays: (user_id, from, to) => supaCall("mydays", { user_id, from, to }),
   savePush: (user_id, subscription) => supaCall("savePush", { user_id, subscription }),
+  removePush: (endpoint) => supaCall("removePush", { endpoint }),
 };
 
 window.api = api;

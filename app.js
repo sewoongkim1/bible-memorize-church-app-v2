@@ -696,6 +696,7 @@ function renderSettings() {
         <button class="summary-install" id="privacy-info">🔐 개인정보 안내 보기</button>
         <button class="summary-install" id="enable-push">🔔 매일 암송 알림 받기</button>
         <div class="app-status" id="app-status"></div>
+        <button class="push-off" id="disable-push">🔕 알림 끄기</button>
         <button class="summary-install" id="install-btn">⛪ 홈 화면에 추가</button>
         <button class="summary-install" id="share-btn">🔗 공유하기</button>
         <a class="summary-install" href="admin.html">📊 관리자 페이지</a>
@@ -710,6 +711,7 @@ function renderSettings() {
   document.getElementById("privacy-info").addEventListener("click", () => renderPrivacyInfo(renderSettings));
   document.getElementById("share-btn").addEventListener("click", shareApp);
   document.getElementById("enable-push").addEventListener("click", () => { if (typeof enablePush === "function") enablePush(); });
+  document.getElementById("disable-push").addEventListener("click", () => { if (typeof disablePush === "function") disablePush(); });
   updateAppStatus();
   setupSyncRetry();
   setupThemeSetting();

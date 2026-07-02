@@ -1240,6 +1240,10 @@ h1 {
 .splash-ver{ color:rgba(255,255,255,.6); font-size:.78rem; margin-top:10px; letter-spacing:.5px; }
 .app-status{ font-size:.78rem; color:var(--gray); text-align:center; margin:2px 0 8px; }
 .dark .app-status{ color:#aeb8c8; }
+.push-off{ display:block; margin:0 auto 8px; background:none; border:none; color:var(--gray);
+  font-size:.85rem; font-weight:600; text-decoration:underline; cursor:pointer; font-family:inherit; padding:4px; }
+.push-off:hover{ color:var(--error); }
+.dark .push-off{ color:#aeb8c8; }
 @keyframes splashPop{ from{ transform:scale(.92); opacity:0 } to{ transform:scale(1); opacity:1 } }
 
 /* 화면 전환 로딩(로고 + 불러오는 중...) */

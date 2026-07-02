@@ -71,6 +71,7 @@ Deno.serve(async (req) => {
       case "importV1":      return json(await importV1(body));
       // ---- Web Push ----
       case "savePush":      return json(await savePush(body));
+      case "removePush":    return json(await removePush(body));
       case "sendPush":      return json(await sendPush(body));
       default:              return json({ error: `unknown action: ${body.action}` }, 400);
     }
@@ -201,6 +202,14 @@ async function latestVerse(): Promise<{ ref: string; text: string } | null> {
     for (const x of list) { if (x.t <= now) cur = x; else break; }
     return { ref: cur.v.refShort || cur.v.refFull || "", text: cur.v.text || "" };
   } catch (_) { return null; }
+}
+
+// ---------- removePush: 구독 해제(본인 endpoint 삭제) ----------
+async function removePush(b: any) {
+  if (!b.endpoint) return { ok: false, error: "no-endpoint" };
+  const { error } = await db.from("push_subscriptions").delete().eq("endpoint", b.endpoint);
+  if (error) throw error;
+  return { ok: true };
 }
 
 // ---------- sendPush: 구독자 전체에 알림 발송 (ADMIN_SECRET / cron) ----------

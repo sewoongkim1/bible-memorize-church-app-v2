@@ -41,3 +41,21 @@ async function enablePush() {
   }
 }
 window.enablePush = enablePush;
+
+// 알림 끄기(구독 해제) — 로컬 구독 취소 + 서버 삭제
+async function disablePush() {
+  try {
+    const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
+    let endpoint = null;
+    if (reg) {
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) { endpoint = sub.endpoint; await sub.unsubscribe(); }
+    }
+    if (endpoint) await api.removePush(endpoint).catch(() => {});
+    alert("🔕 매일 암송 알림이 해제되었습니다.");
+    if (typeof updateAppStatus === "function") updateAppStatus();
+  } catch (e) {
+    alert("알림 해제에 실패했습니다: " + (e && e.message ? e.message : e));
+  }
+}
+window.disablePush = disablePush;
