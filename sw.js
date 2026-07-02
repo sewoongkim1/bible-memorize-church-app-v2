@@ -2,6 +2,13 @@
 self.addEventListener("install", (e) => self.skipWaiting());
 self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
 
+// 설치(WebAPK) 조건 충족용 fetch 핸들러 — 네트워크 그대로 전달(오프라인 시 무시)
+self.addEventListener("fetch", (e) => {
+  // GET만 통과 처리(그 외는 브라우저 기본 동작)
+  if (e.request.method !== "GET") return;
+  e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+});
+
 self.addEventListener("push", (e) => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch (_) { d = { body: e.data ? e.data.text() : "" }; }
