@@ -29,6 +29,9 @@ const api = {
   savePush: (user_id, subscription) => supaCall("savePush", { user_id, subscription }),
   removePush: (endpoint) => supaCall("removePush", { endpoint }),
   testPush: (endpoint) => supaCall("testPush", { endpoint }),
+  getVerses: () => supaCall("getVerses", {}),
+  saveVerse: (pw, verse) => supaCall("saveVerse", { pw, verse }),
+  seedVerses: (pw) => supaCall("seedVerses", { pw }),
 };
 
 window.api = api;

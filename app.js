@@ -45,6 +45,20 @@ async function loadVerses() {
   const appEl = document.getElementById("app");
   appEl.innerHTML = LOADING_HTML;
 
+  // 1) DB(관리자 편집 반영) 우선
+  try {
+    if (window.api && api.getVerses) {
+      const d = await api.getVerses();
+      if (d && d.ok && d.verses && d.verses.length) {
+        verses = d.verses;
+        dismissSplash();
+        routeAfterLoad();
+        return;
+      }
+    }
+  } catch (e) { /* DB 실패 → 아래 정적 폴백 */ }
+
+  // 2) 폴백: 정적 verses.json (→ 구 API)
   for (const url of [DATA_URL, API_URL]) {
     try {
       const res = await fetch(url, { cache: "no-cache" });

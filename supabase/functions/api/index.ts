@@ -67,6 +67,10 @@ Deno.serve(async (req) => {
       case "stats":         return json(await stats(body));
       case "participants":  return json(await participants(body));
       case "verses":        return json(await verseStats(body));
+      // ---- 말씀/설교 관리(CMS) ----
+      case "getVerses":     return json(await getVerses());
+      case "saveVerse":     return json(await saveVerse(body));
+      case "seedVerses":    return json(await seedVerses(body));
       case "cleanupDummy":  return json(await cleanupDummy());
       case "importV1":      return json(await importV1(body));
       // ---- Web Push ----
@@ -188,12 +192,12 @@ async function savePush(b: any) {
   return { ok: true };
 }
 
-// verses.json에서 '이번 주(=오늘 기준 최신) 말씀'을 읽어 {ref,text} 반환
+// DB verses에서 '이번 주(=오늘 기준 최신) 말씀'을 읽어 {ref,text} 반환
 async function latestVerse(): Promise<{ ref: string; text: string } | null> {
   try {
-    const res = await fetch("https://sewoongkim1.github.io/bible-memorize-church-app-v2/verses.json", { cache: "no-store" });
-    const d = await res.json();
-    const list = (d.verses ?? [])
+    const { data } = await db.from("verses")
+      .select("ref_short,ref_full,ref,text,date").eq("is_active", true);
+    const list = (data ?? [])
       .filter((v: any) => v.date)
       .map((v: any) => ({ v, t: Date.parse(v.date) }))
       .sort((a: any, b: any) => a.t - b.t);
@@ -201,7 +205,7 @@ async function latestVerse(): Promise<{ ref: string; text: string } | null> {
     const now = Date.now();
     let cur = list[0];
     for (const x of list) { if (x.t <= now) cur = x; else break; }
-    return { ref: cur.v.refShort || cur.v.refFull || "", text: cur.v.text || "" };
+    return { ref: cur.v.ref_short || cur.v.ref_full || cur.v.ref || "", text: cur.v.text || "" };
   } catch (_) { return null; }
 }
 
@@ -264,6 +268,67 @@ async function sendPush(b: any) {
     }
   }
   return { ok: true, sent, failed, total: (subs ?? []).length };
+}
+
+// ---------- getVerses: 앱 표시용 말씀 목록(verses.json과 동일 형태) ----------
+async function getVerses() {
+  const { data, error } = await db.from("verses")
+    .select("no,date,ref_short,ref_full,ref,text,hint,pastor,sermon_title,sermon_url")
+    .eq("is_active", true).order("no");
+  if (error) throw error;
+  const verses = (data ?? []).map((v: any) => ({
+    no: v.no, date: v.date,
+    refShort: v.ref_short || v.ref || "",
+    refFull: v.ref_full || v.ref || "",
+    text: v.text || "",
+    hintText: v.hint || "",
+    sermonTitle: v.sermon_title || "",
+    pastor: v.pastor || "",
+    url: v.sermon_url || "",
+  }));
+  return { ok: true, verses };
+}
+
+// ---------- saveVerse: 말씀/설교 추가·수정 (ADMIN_SECRET) ----------
+async function saveVerse(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const v = b.verse || {};
+  if (v.no == null || v.no === "") return { ok: false, error: "no-required" };
+  const row = {
+    no: Number(v.no),
+    week: v.week != null && v.week !== "" ? Number(v.week) : Number(v.no),
+    date: v.date || null,
+    ref_short: v.refShort || null,
+    ref_full: v.refFull || null,
+    ref: v.refFull || v.refShort || "",
+    text: v.text || "",
+    hint: v.hintText || null,
+    pastor: v.pastor || null,
+    sermon_title: v.sermonTitle || null,
+    sermon_url: v.url || null,
+    is_active: v.is_active !== false,
+  };
+  const { error } = await db.from("verses").upsert(row, { onConflict: "no" });
+  if (error) throw error;
+  return { ok: true };
+}
+
+// ---------- seedVerses: verses.json → DB 일괄 적재(초기 1회, ADMIN_SECRET) ----------
+async function seedVerses(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const res = await fetch("https://sewoongkim1.github.io/bible-memorize-church-app-v2/verses.json", { cache: "no-store" });
+  const d = await res.json();
+  const rows = (d.verses ?? []).map((v: any) => ({
+    no: v.no, week: v.no, date: v.date || null,
+    ref_short: v.refShort || null, ref_full: v.refFull || null, ref: v.refFull || v.refShort || "",
+    text: v.text || "", hint: v.hintText || null, pastor: v.pastor || null,
+    sermon_title: v.sermonTitle || null, sermon_url: v.url || null, is_active: true,
+  }));
+  if (rows.length) {
+    const { error } = await db.from("verses").upsert(rows, { onConflict: "no" });
+    if (error) throw error;
+  }
+  return { ok: true, count: rows.length };
 }
 
 // ---------- login ----------

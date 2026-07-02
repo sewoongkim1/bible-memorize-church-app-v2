@@ -314,12 +314,21 @@ function renderMenu(){
         </div>
         <div class="rep-arrow">›</div>
       </div>
+      <div class="rep-card" id="rep-content">
+        <div class="ic">📖</div>
+        <div class="rep-text">
+          <div class="ti">설교/말씀 관리</div>
+          <div class="de">주간 말씀·설교영상 추가·수정</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
     </div>`;
   document.getElementById("rep-usage").addEventListener("click", renderUsageReport);
   document.getElementById("rep-participants").addEventListener("click", renderParticipants);
   document.getElementById("rep-verses").addEventListener("click", renderVerses);
   document.getElementById("rep-challenge").addEventListener("click", renderChallengeReport);
   document.getElementById("rep-push").addEventListener("click", renderPush);
+  document.getElementById("rep-content").addEventListener("click", renderContent);
   loadDashboard();
 }
 
@@ -374,6 +383,92 @@ async function fillLatestVerse(){
     document.getElementById("p-body").value=cur.v.text||"";
     if(r){ r.className="msg"; r.textContent="이번 주 말씀을 채웠습니다. 확인 후 보내세요."; }
   }catch(e){ if(r){r.className="msg err";r.textContent="불러오기 실패: "+(e&&e.message?e.message:e);} }
+}
+
+// ---------- 설교/말씀 관리(CMS) ----------
+function isoDateInput(d){ // 'YYYY-MM-DDTHH:mm' → date input용 'YYYY-MM-DD'
+  if(!d) return ""; const x=new Date(d); if(isNaN(x)) return "";
+  return x.toISOString().slice(0,10);
+}
+async function renderContent(){
+  app.innerHTML=`
+    <div class="rep-head">
+      <button class="back-btn" id="back">← 메뉴</button>
+      <h2>📖 설교/말씀 관리</h2>
+    </div>
+    <div id="cms-body"><div class="msg">불러오는 중...</div></div>`;
+  document.getElementById("back").addEventListener("click", renderMenu);
+  loadContentList();
+}
+async function loadContentList(selNo){
+  const body=document.getElementById("cms-body");
+  const data=await callApi({action:"getVerses"}).catch(()=>({ok:false,error:"network"}));
+  const list=(data&&data.verses)||[];
+  const opts=`<option value="">+ 새 말씀 추가</option>`+list.map(v=>`<option value="${v.no}">${v.no}. ${htmlEsc(v.refShort||"")} — ${htmlEsc(v.sermonTitle||"")}</option>`).join("");
+  body.innerHTML=`
+    <div class="push-card">
+      <label class="push-lb">편집할 말씀 선택</label>
+      <select id="c-sel" class="push-in">${opts}</select>
+      ${list.length? "" : `<p class="push-hint">아직 DB에 말씀이 없어요. 아래 '초기 적재'로 verses.json을 불러오세요.</p>
+        <button class="push-fill" id="c-seed">⬇️ verses.json → DB 초기 적재</button>`}
+      <hr style="border:none;border-top:1px solid var(--border);margin:14px 0;">
+      <label class="push-lb">순번(no) *</label><input id="c-no" class="push-in" inputmode="numeric" placeholder="예: 27">
+      <label class="push-lb">날짜(주일) *</label><input id="c-date" class="push-in" type="date">
+      <label class="push-lb">출처(짧게, refShort) *</label><input id="c-refshort" class="push-in" placeholder="예: 딤전 1:11">
+      <label class="push-lb">출처(전체, refFull)</label><input id="c-reffull" class="push-in" placeholder="예: 디모데전서 1장 11절">
+      <label class="push-lb">말씀 본문 *</label><textarea id="c-text" class="push-in" rows="3"></textarea>
+      <label class="push-lb">힌트(선택)</label><input id="c-hint" class="push-in" placeholder="예: 이 OOO OO">
+      <label class="push-lb">설교 제목</label><input id="c-sermon" class="push-in" placeholder="예: 유리 보석에 속지 마십시오">
+      <label class="push-lb">설교자</label><input id="c-pastor" class="push-in" placeholder="예: 차동혁 담임목사">
+      <label class="push-lb">설교 영상 URL</label><input id="c-url" class="push-in" placeholder="https://www.youtube.com/...">
+      <label class="chk" style="margin:10px 0;"><input type="checkbox" id="c-active" checked> 활성(앱에 표시)</label>
+      <button class="push-send" id="c-save">💾 저장</button>
+      <div id="c-result" class="msg"></div>
+    </div>`;
+  const sel=document.getElementById("c-sel");
+  function fill(v){
+    document.getElementById("c-no").value=v?v.no:"";
+    document.getElementById("c-date").value=v?isoDateInput(v.date):"";
+    document.getElementById("c-refshort").value=v?(v.refShort||""):"";
+    document.getElementById("c-reffull").value=v?(v.refFull||""):"";
+    document.getElementById("c-text").value=v?(v.text||""):"";
+    document.getElementById("c-hint").value=v?(v.hintText||""):"";
+    document.getElementById("c-sermon").value=v?(v.sermonTitle||""):"";
+    document.getElementById("c-pastor").value=v?(v.pastor||""):"";
+    document.getElementById("c-url").value=v?(v.url||""):"";
+    document.getElementById("c-active").checked=true;
+  }
+  sel.addEventListener("change",()=>{ const v=list.find(x=>String(x.no)===sel.value); fill(v); });
+  if(selNo!=null){ sel.value=String(selNo); fill(list.find(x=>String(x.no)===String(selNo))); }
+  const seed=document.getElementById("c-seed");
+  if(seed) seed.addEventListener("click",async()=>{
+    seed.disabled=true; seed.textContent="적재 중...";
+    const r=await callApi({action:"seedVerses",pw:getPw()}).catch(()=>({ok:false,error:"network"}));
+    if(r.ok){ alert("초기 적재 완료: "+r.count+"개"); loadContentList(); }
+    else { seed.disabled=false; seed.textContent="⬇️ verses.json → DB 초기 적재"; alert("실패: "+(r.error||"오류")); }
+  });
+  document.getElementById("c-save").addEventListener("click",async()=>{
+    const verse={
+      no:document.getElementById("c-no").value.trim(),
+      date:document.getElementById("c-date").value ? document.getElementById("c-date").value+"T00:00:00+09:00" : null,
+      refShort:document.getElementById("c-refshort").value.trim(),
+      refFull:document.getElementById("c-reffull").value.trim(),
+      text:document.getElementById("c-text").value.trim(),
+      hintText:document.getElementById("c-hint").value.trim(),
+      sermonTitle:document.getElementById("c-sermon").value.trim(),
+      pastor:document.getElementById("c-pastor").value.trim(),
+      url:document.getElementById("c-url").value.trim(),
+      is_active:document.getElementById("c-active").checked
+    };
+    const r=document.getElementById("c-result");
+    if(!verse.no||!verse.refShort||!verse.text){ r.className="msg err"; r.textContent="순번·출처(짧게)·말씀 본문은 필수예요."; return; }
+    const btn=document.getElementById("c-save"); btn.disabled=true; r.className="msg"; r.textContent="저장 중...";
+    const data=await callApi({action:"saveVerse",pw:getPw(),verse}).catch(()=>({ok:false,error:"network"}));
+    btn.disabled=false;
+    if(!data.ok){ if(data.error==="unauthorized"){sessionStorage.removeItem(PW_KEY);renderLogin();return;} r.className="msg err"; r.textContent="저장 실패: "+(data.error||"오류"); return; }
+    r.className="msg"; r.textContent="✅ 저장되었습니다.";
+    loadContentList(verse.no);
+  });
 }
 
 function weekStart(d){
