@@ -846,7 +846,7 @@ h1 {
 .weekly-primary:hover { background: var(--navy-dark); border-color: var(--navy-dark); }
 .weekly-secondary:hover { background: #eef2f8; }
 @media (max-width: 360px) {
-  .weekly-topline { align-items: flex-start; flex-direction: column; }
+  .weekly-topline { flex-direction: row; align-items: center; gap: 6px; }
 }
 
 .summary-next {
