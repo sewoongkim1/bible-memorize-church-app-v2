@@ -132,6 +132,12 @@
   .push-in:focus{outline:none;border-color:var(--navy);background:#fff;}
   textarea.push-in{resize:vertical;line-height:1.5;}
   .push-hint{font-size:.8rem;color:var(--gray);margin:9px 2px 14px;}
+  .push-send{width:100%;padding:14px;font-size:1.05rem;font-weight:800;color:#fff;
+    background:linear-gradient(135deg,#1a3a6b 0%,#0d4a7a 100%);border:none;border-radius:12px;
+    cursor:pointer;font-family:inherit;box-shadow:0 4px 14px rgba(13,74,122,.28);transition:filter .15s,transform .1s;}
+  .push-send:hover{filter:brightness(1.08);}
+  .push-send:active{transform:translateY(1px);}
+  .push-send:disabled{opacity:.6;cursor:wait;filter:none;}
   #p-result{padding:14px 0 0;}
 
   .table-wrap{overflow-x:auto;background:#fff;border:1px solid var(--border);border-radius:12px;}
@@ -327,7 +333,7 @@ function renderPush(){
       <label class="push-lb">내용</label>
       <textarea id="p-body" class="push-in" rows="3" maxlength="180">오늘의 말씀을 암송해요! 🙌</textarea>
       <p class="push-hint">알림을 켠 모든 구독자에게 즉시 발송됩니다.</p>
-      <button class="go" id="p-send" style="width:100%;">지금 보내기</button>
+      <button class="push-send" id="p-send">🔔 지금 보내기</button>
       <div id="p-result" class="msg"></div>
     </div>`;
   document.getElementById("back").addEventListener("click", renderMenu);
@@ -339,7 +345,7 @@ function renderPush(){
     if(!body){ r.className="msg err"; r.textContent="내용을 입력하세요."; return; }
     btn.disabled=true; r.className="msg"; r.textContent="보내는 중...";
     const data=await callApi({action:"sendPush",pw:getPw(),title,body,
-      url:"https://sewoongkim1.github.io/bible-memorize-church-app-v2/"}).catch(()=>({ok:false,error:"network"}));
+      url:"https://bit.ly/withbible"}).catch(()=>({ok:false,error:"network"}));
     btn.disabled=false;
     if(!data.ok){
       if(data.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }

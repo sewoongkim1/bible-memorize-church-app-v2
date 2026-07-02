@@ -193,7 +193,7 @@ async function sendPush(b: any) {
   const payload = JSON.stringify({
     title: b.title || "성경말씀 암송",
     body: b.body || "오늘의 말씀을 암송해요! 🙌",
-    url: b.url || "https://sewoongkim1.github.io/bible-memorize-church-app-v2/",
+    url: b.url || "https://bit.ly/withbible",
   });
   let sent = 0, failed = 0;
   for (const s of (subs ?? []) as any[]) {

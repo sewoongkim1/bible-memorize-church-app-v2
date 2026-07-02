@@ -18,7 +18,7 @@ select cron.schedule(
       'pw','Godislove',
       'title','성경말씀 암송',
       'body','오늘의 말씀을 암송해요! 🙌',
-      'url','https://sewoongkim1.github.io/bible-memorize-church-app-v2/'
+      'url','https://bit.ly/withbible'
     )
   );
   $$
