@@ -2,5 +2,5 @@
 // ↓ Supabase 대시보드 > Project Settings > API 에서 복사해 채우세요.
 window.SUPA = {
   URL: "https://xnomlgydifiqiybervtf.supabase.co", // Project URL
-  ANON: "YOUR-ANON-PUBLIC-KEY",                     // anon public key (대시보드 > Settings > API)
+  ANON: "sb_publishable_oLtieT_jw7Gjb8etEsy0jw_thBaDjl-", // publishable(client) key — 공개 안전
 };
