@@ -131,6 +131,9 @@
     background:var(--cream);font-family:inherit;font-size:.98rem;color:#222;}
   .push-in:focus{outline:none;border-color:var(--navy);background:#fff;}
   textarea.push-in{resize:vertical;line-height:1.5;}
+  .push-fill{width:100%;padding:10px;margin-bottom:14px;font-size:.9rem;font-weight:700;
+    color:var(--navy);background:#eef1f8;border:1.5px solid var(--navy);border-radius:10px;cursor:pointer;font-family:inherit;}
+  .push-fill:hover{background:var(--navy);color:#fff;}
   .push-hint{font-size:.8rem;color:var(--gray);margin:9px 2px 14px;}
   .push-send{width:100%;padding:14px;font-size:1.05rem;font-weight:800;color:#fff;
     background:linear-gradient(135deg,#1a3a6b 0%,#0d4a7a 100%);border:none;border-radius:12px;
@@ -328,6 +331,7 @@ function renderPush(){
       <h2>🔔 알림 보내기</h2>
     </div>
     <div class="push-card">
+      <button class="push-fill" id="p-fill">📖 이번 주 말씀 자동 넣기</button>
       <label class="push-lb">제목</label>
       <input id="p-title" class="push-in" value="성경말씀 암송" maxlength="60" />
       <label class="push-lb">내용</label>
@@ -337,6 +341,7 @@ function renderPush(){
       <div id="p-result" class="msg"></div>
     </div>`;
   document.getElementById("back").addEventListener("click", renderMenu);
+  document.getElementById("p-fill").addEventListener("click", fillLatestVerse);
   document.getElementById("p-send").addEventListener("click", async ()=>{
     const title=document.getElementById("p-title").value.trim();
     const body=document.getElementById("p-body").value.trim();
@@ -353,6 +358,22 @@ function renderPush(){
     }
     r.className="msg"; r.innerHTML=`✅ 발송 완료 — 성공 <b>${data.sent}</b> · 실패 ${data.failed} · 구독 ${data.total}명`;
   });
+}
+
+// verses.json에서 '이번 주(오늘 기준 최신) 말씀'을 읽어 제목/내용 입력창에 채움
+async function fillLatestVerse(){
+  const r=document.getElementById("p-result");
+  try{
+    const res=await fetch("verses.json",{cache:"no-store"});
+    const d=await res.json();
+    const list=(d.verses||[]).filter(v=>v.date).map(v=>({v,t:Date.parse(v.date)})).sort((a,b)=>a.t-b.t);
+    if(!list.length){ if(r){r.className="msg err";r.textContent="말씀 데이터를 찾지 못했습니다.";} return; }
+    const now=Date.now(); let cur=list[0];
+    for(const x of list){ if(x.t<=now) cur=x; else break; }
+    document.getElementById("p-title").value=cur.v.refShort||cur.v.refFull||"";
+    document.getElementById("p-body").value=cur.v.text||"";
+    if(r){ r.className="msg"; r.textContent="이번 주 말씀을 채웠습니다. 확인 후 보내세요."; }
+  }catch(e){ if(r){r.className="msg err";r.textContent="불러오기 실패: "+(e&&e.message?e.message:e);} }
 }
 
 function weekStart(d){

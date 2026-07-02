@@ -186,13 +186,35 @@ async function savePush(b: any) {
   return { ok: true };
 }
 
+// verses.json에서 '이번 주(=오늘 기준 최신) 말씀'을 읽어 {ref,text} 반환
+async function latestVerse(): Promise<{ ref: string; text: string } | null> {
+  try {
+    const res = await fetch("https://sewoongkim1.github.io/bible-memorize-church-app-v2/verses.json", { cache: "no-store" });
+    const d = await res.json();
+    const list = (d.verses ?? [])
+      .filter((v: any) => v.date)
+      .map((v: any) => ({ v, t: Date.parse(v.date) }))
+      .sort((a: any, b: any) => a.t - b.t);
+    if (!list.length) return null;
+    const now = Date.now();
+    let cur = list[0];
+    for (const x of list) { if (x.t <= now) cur = x; else break; }
+    return { ref: cur.v.refShort || cur.v.refFull || "", text: cur.v.text || "" };
+  } catch (_) { return null; }
+}
+
 // ---------- sendPush: 구독자 전체에 알림 발송 (ADMIN_SECRET / cron) ----------
 async function sendPush(b: any) {
   const err = adminError(b); if (err) return { ok: false, error: err };
+  let title = b.title, body = b.body;
+  if (b.latest) {
+    const v = await latestVerse();
+    if (v) { title = v.ref; body = v.text; }
+  }
   const { data: subs } = await db.from("push_subscriptions").select("id,endpoint,p256dh,auth");
   const payload = JSON.stringify({
-    title: b.title || "성경말씀 암송",
-    body: b.body || "오늘의 말씀을 암송해요! 🙌",
+    title: title || "성경말씀 암송",
+    body: body || "오늘의 말씀을 암송해요! 🙌",
     url: b.url || "https://bit.ly/withbible",
   });
   let sent = 0, failed = 0;
