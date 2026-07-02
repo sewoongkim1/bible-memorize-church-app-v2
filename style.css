@@ -1233,8 +1233,8 @@ h1 {
   font-weight:800; letter-spacing:.5px; line-height:1.4; padding:0 10px;
 }
 .splash-sub{ color:rgba(255,255,255,.8); font-size:.95rem; margin-top:12px; }
-.splash-denom{ display:block; width:220px; max-width:72vw; height:auto; margin:24px auto 0;
-  background:#fff; border-radius:10px; padding:9px 12px; box-shadow:0 2px 10px rgba(0,0,0,.15); }
+.splash-denom{ display:block; width:220px; max-width:72vw; height:auto;
+  margin:calc(24px + 2cm) auto 0; background:transparent; }
 .splash-ver{ color:rgba(255,255,255,.6); font-size:.78rem; margin-top:10px; letter-spacing:.5px; }
 @keyframes splashPop{ from{ transform:scale(.92); opacity:0 } to{ transform:scale(1); opacity:1 } }
 
