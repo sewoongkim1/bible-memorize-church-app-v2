@@ -1,0 +1,18 @@
+# 의존성
+node_modules/
+# 환경변수/비밀 (Supabase 키 등 — 절대 커밋 금지)
+.env
+.env.*
+!.env.example
+# 빌드 산출물
+dist/
+build/
+# OS/에디터
+.DS_Store
+Thumbs.db
+.vscode/
+# 내부 문서(공개 저장소에 포함하지 않음)
+보고서_*.html
+추가제안_*.html
+기술구조제안_*.html
+*.pptx
