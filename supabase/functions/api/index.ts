@@ -59,12 +59,21 @@ Deno.serve(async (req) => {
       case "stats":         return json(await stats(body));
       case "participants":  return json(await participants(body));
       case "verses":        return json(await verseStats(body));
+      case "cleanupDummy":  return json(await cleanupDummy());
       default:              return json({ error: `unknown action: ${body.action}` }, 400);
     }
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e) }, 500);
   }
 });
+
+// ---------- cleanupDummy: 테스트 더미 사용자 삭제(cascade) ----------
+async function cleanupDummy() {
+  const { data, error } = await db.from("users")
+    .delete().eq("identity_key", "교구|테스트|99|||테스트유저").select("id");
+  if (error) throw error;
+  return { ok: true, deleted: (data ?? []).length };
+}
 
 // ---------- login ----------
 async function login(b: any) {
