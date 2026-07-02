@@ -124,6 +124,15 @@
   .download-btn{border:1.5px solid var(--navy);background:#eef1f8;color:var(--navy);
     border-radius:999px;padding:7px 13px;font-size:.8rem;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap;}
   .download-btn:hover{background:var(--navy);color:#fff;}
+  .push-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px 18px 20px;box-shadow:0 2px 10px rgba(26,58,107,.06);}
+  .push-lb{display:block;font-size:.82rem;color:var(--gray);font-weight:700;margin:10px 2px 5px;}
+  .push-lb:first-child{margin-top:0;}
+  .push-in{width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:10px;
+    background:var(--cream);font-family:inherit;font-size:.98rem;color:#222;}
+  .push-in:focus{outline:none;border-color:var(--navy);background:#fff;}
+  textarea.push-in{resize:vertical;line-height:1.5;}
+  .push-hint{font-size:.8rem;color:var(--gray);margin:9px 2px 14px;}
+  #p-result{padding:14px 0 0;}
 
   .table-wrap{overflow-x:auto;background:#fff;border:1px solid var(--border);border-radius:12px;}
   table{width:100%;border-collapse:collapse;min-width:560px;}
@@ -288,12 +297,56 @@ function renderMenu(){
         </div>
         <div class="rep-arrow">›</div>
       </div>
+      <div class="rep-card" id="rep-push">
+        <div class="ic">🔔</div>
+        <div class="rep-text">
+          <div class="ti">알림 보내기</div>
+          <div class="de">구독자에게 푸시 알림 즉시 발송</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
     </div>`;
   document.getElementById("rep-usage").addEventListener("click", renderUsageReport);
   document.getElementById("rep-participants").addEventListener("click", renderParticipants);
   document.getElementById("rep-verses").addEventListener("click", renderVerses);
   document.getElementById("rep-challenge").addEventListener("click", renderChallengeReport);
+  document.getElementById("rep-push").addEventListener("click", renderPush);
   loadDashboard();
+}
+
+// ---------- 알림 보내기 (Web Push 수동 발송) ----------
+function renderPush(){
+  app.innerHTML=`
+    <div class="rep-head">
+      <button class="back-btn" id="back">← 메뉴</button>
+      <h2>🔔 알림 보내기</h2>
+    </div>
+    <div class="push-card">
+      <label class="push-lb">제목</label>
+      <input id="p-title" class="push-in" value="성경말씀 암송" maxlength="60" />
+      <label class="push-lb">내용</label>
+      <textarea id="p-body" class="push-in" rows="3" maxlength="180">오늘의 말씀을 암송해요! 🙌</textarea>
+      <p class="push-hint">알림을 켠 모든 구독자에게 즉시 발송됩니다.</p>
+      <button class="go" id="p-send" style="width:100%;">지금 보내기</button>
+      <div id="p-result" class="msg"></div>
+    </div>`;
+  document.getElementById("back").addEventListener("click", renderMenu);
+  document.getElementById("p-send").addEventListener("click", async ()=>{
+    const title=document.getElementById("p-title").value.trim();
+    const body=document.getElementById("p-body").value.trim();
+    const r=document.getElementById("p-result");
+    const btn=document.getElementById("p-send");
+    if(!body){ r.className="msg err"; r.textContent="내용을 입력하세요."; return; }
+    btn.disabled=true; r.className="msg"; r.textContent="보내는 중...";
+    const data=await callApi({action:"sendPush",pw:getPw(),title,body,
+      url:"https://sewoongkim1.github.io/bible-memorize-church-app-v2/"}).catch(()=>({ok:false,error:"network"}));
+    btn.disabled=false;
+    if(!data.ok){
+      if(data.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }
+      r.className="msg err"; r.textContent="발송 실패: "+(data.error||"오류"); return;
+    }
+    r.className="msg"; r.innerHTML=`✅ 발송 완료 — 성공 <b>${data.sent}</b> · 실패 ${data.failed} · 구독 ${data.total}명`;
+  });
 }
 
 function weekStart(d){
