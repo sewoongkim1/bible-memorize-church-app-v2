@@ -241,7 +241,7 @@ async function sendPush(b: any) {
   let title = b.title, body = b.body;
   if (b.latest) {
     const v = await latestVerse();
-    if (v) { title = v.ref; body = v.text; }
+    if (v) { if (!title) title = v.ref; body = v.text; } // 제목 주면 유지, 본문은 이번 주 말씀
   }
   const { data: subs } = await db.from("push_subscriptions").select("id,endpoint,p256dh,auth");
   const payload = JSON.stringify({

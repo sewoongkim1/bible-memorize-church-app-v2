@@ -16,7 +16,8 @@ select cron.schedule(
     body := jsonb_build_object(
       'action','sendPush',
       'pw','Godislove',
-      'latest', true,        -- 이번 주 최신 말씀(요절→제목, 본문→내용)으로 자동 발송
+      'latest', true,                          -- 본문 = 이번 주 최신 말씀(자동)
+      'title','오직 성경, 말씀이 답이다!',       -- 제목 고정
       'url','https://bit.ly/withbible'
     )
   );
