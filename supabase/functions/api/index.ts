@@ -348,6 +348,18 @@ async function login(b: any) {
 
   const { data: prog } = await db.from("progress")
     .select("verse_no,stage").eq("user_id", user.id);
+
+  // 복습 서버 단일화: 완료(3단계)했는데 복습 예약이 없는 구절에 자동 예약(box1, 3일 후)
+  const { data: existRev } = await db.from("reviews").select("verse_no").eq("user_id", user.id);
+  const revSet = new Set((existRev ?? []).map((r: any) => r.verse_no));
+  const due = new Date(); due.setDate(due.getDate() + REVIEW_DAYS[0]);
+  const toAdd = (prog ?? [])
+    .filter((p: any) => p.stage === 3 && !revSet.has(p.verse_no))
+    .map((p: any) => ({ user_id: user.id, verse_no: p.verse_no, box: 1, due_at: ymd(due) }));
+  if (toAdd.length) {
+    await db.from("reviews").upsert(toAdd, { onConflict: "user_id,verse_no", ignoreDuplicates: true });
+  }
+
   const { data: revs } = await db.from("reviews")
     .select("verse_no,box,due_at,last_at").eq("user_id", user.id);
 
@@ -440,7 +452,7 @@ async function ranking(b: any) {
   return { ok: true, list };
 }
 
-// ---------- mydays: 본인 도전/복습 일자별 횟수(학습 제외) ----------
+// ---------- mydays: 본인 일자별 참여 횟수(암송·도전·복습 전부) ----------
 async function mydays(b: any) {
   let q = db.from("challenge_log").select("created_at, mode").eq("user_id", b.user_id);
   q = rangeFilter(q, b);
@@ -448,7 +460,6 @@ async function mydays(b: any) {
   if (error) throw error;
   const days: Record<string, number> = {};
   for (const row of (data ?? []) as any[]) {
-    if (!isChallengeMode(row.mode)) continue;
     const k = kstDay(row.created_at);
     days[k] = (days[k] || 0) + 1;
   }

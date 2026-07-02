@@ -141,9 +141,9 @@ function getWeeklyVerseInfo() {
 async function enterAfterLogin() {
   renderSummary(); // 로컬 진행 기록으로 곧바로 표시
 
-  // 서버에 더 높은 진도가 있으면 병합 후, 요약 화면이 아직 떠 있을 때만 갱신
-  const changed = await syncProgress();
-  if (changed && document.getElementById("go-list")) renderSummary();
+  // 서버(진도·복습) 동기화 후, 요약 화면이 아직 떠 있으면 갱신(복습 due 반영)
+  await syncProgress();
+  if (document.getElementById("go-list")) renderSummary();
 }
 
 // 서버(시트)의 본인 기록을 받아 로컬 진행과 더 높은 단계로 병합.
@@ -187,18 +187,16 @@ async function syncProgress() {
   }
 }
 
-// 서버 복습 목록을 로컬 복습 저장소에 병합(없는 항목만 추가)
+// 복습은 서버가 소스 오브 트루스 — 서버 목록으로 로컬을 완전 교체(기기 간 동일)
 function mergeServerReviews(reviews) {
-  if (!reviews || !reviews.length) return;
-  const r = loadReview();
-  let changed = false;
+  if (!reviews) return;
+  const r = {};
   reviews.forEach((sv) => {
-    if (!r[sv.verse_no]) {
-      r[sv.verse_no] = { level: Math.max(0, (sv.box || 1) - 1), next: sv.due_at };
-      changed = true;
-    }
+    // due_at: "YYYY-MM-DD..." → 앞 10자리(로컬 비교 형식과 동일)
+    const next = String(sv.due_at || "").slice(0, 10);
+    r[sv.verse_no] = { level: Math.max(0, (sv.box || 1) - 1), next };
   });
-  if (changed) saveReviewData(r);
+  saveReviewData(r);
 }
 
 // ------------------------------------------------------------
