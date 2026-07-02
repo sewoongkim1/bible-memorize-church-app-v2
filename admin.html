@@ -462,8 +462,12 @@ async function loadContentList(selNo){
     };
     const r=document.getElementById("c-result");
     if(!verse.no||!verse.refShort||!verse.text){ r.className="msg err"; r.textContent="순번·출처(짧게)·말씀 본문은 필수예요."; return; }
+    // 실수 방지: 저장 전 관리자 비밀번호 재확인
+    const confirmPw = prompt("⚠️ 저장하면 앱 전체(목록·이번 주 말씀·알림)에 즉시 반영됩니다.\n확인을 위해 관리자 비밀번호를 다시 입력하세요:");
+    if(confirmPw === null) return; // 취소
+    if(confirmPw !== getPw()){ r.className="msg err"; r.textContent="비밀번호가 일치하지 않아 저장을 취소했습니다."; return; }
     const btn=document.getElementById("c-save"); btn.disabled=true; r.className="msg"; r.textContent="저장 중...";
-    const data=await callApi({action:"saveVerse",pw:getPw(),verse}).catch(()=>({ok:false,error:"network"}));
+    const data=await callApi({action:"saveVerse",pw:confirmPw,verse}).catch(()=>({ok:false,error:"network"}));
     btn.disabled=false;
     if(!data.ok){ if(data.error==="unauthorized"){sessionStorage.removeItem(PW_KEY);renderLogin();return;} r.className="msg err"; r.textContent="저장 실패: "+(data.error||"오류"); return; }
     r.className="msg"; r.textContent="✅ 저장되었습니다.";
