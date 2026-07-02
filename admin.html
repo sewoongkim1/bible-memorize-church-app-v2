@@ -44,6 +44,24 @@
   .privacy-notice{background:#fff8e8;border:1px solid #e5c978;border-radius:12px;padding:12px 14px;
     color:#6f5614;font-size:.84rem;line-height:1.55;margin-bottom:14px;}
   .privacy-notice b{color:#4b390b;}
+  .dash{margin-bottom:16px;}
+  .dash-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 2px 10px;}
+  .dash-title{font-weight:800;color:var(--navy);font-size:1.05rem;}
+  .dash-sub{color:var(--gray);font-size:.78rem;white-space:nowrap;}
+  .dash-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:10px;}
+  .dash-kpi{background:#fff;border:1px solid var(--border);border-radius:14px;padding:13px 14px;
+    box-shadow:0 2px 10px rgba(26,58,107,.05);min-width:0;}
+  .dash-kpi .n{font-size:1.55rem;font-weight:800;color:var(--navy);line-height:1.15;}
+  .dash-kpi .l{font-size:.78rem;color:var(--gray);margin-top:4px;line-height:1.35;}
+  .dash-panels{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .dash-panel{background:#fff;border:1px solid var(--border);border-radius:14px;padding:13px 14px;min-width:0;}
+  .dash-panel .h{font-weight:800;color:var(--navy);font-size:.92rem;margin-bottom:8px;}
+  .dash-list{display:flex;flex-direction:column;gap:7px;}
+  .dash-item{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;font-size:.84rem;}
+  .dash-item .rank{font-weight:800;color:var(--gold);min-width:22px;}
+  .dash-item .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#333;}
+  .dash-item .cnt{font-weight:800;color:var(--navy);white-space:nowrap;}
+  .dash-msg{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;text-align:center;color:var(--gray);font-size:.86rem;}
   .rep-card{display:flex;align-items:center;gap:13px;background:#fff;border:1px solid var(--border);
     border-radius:14px;padding:15px 16px;cursor:pointer;transition:transform .12s,box-shadow .12s,border-color .12s;
     box-shadow:0 2px 10px rgba(26,58,107,.06);}
@@ -58,7 +76,7 @@
   .rep-card:hover .rep-arrow{color:var(--navy);}
   .rep-card.soon{opacity:.55;cursor:default;}
   .rep-card.soon:hover{transform:none;box-shadow:0 2px 10px rgba(26,58,107,.06);border-color:var(--border);}
-  @media (max-width:560px){ .card-grid{grid-template-columns:1fr;} }
+  @media (max-width:560px){ .card-grid{grid-template-columns:1fr;} .dash-grid{grid-template-columns:repeat(2,1fr);} .dash-panels{grid-template-columns:1fr;} }
 
   /* 리포트 */
   .rep-head{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
@@ -92,6 +110,11 @@
   .kpi{flex:1;min-width:120px;background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px 14px;text-align:center;}
   .kpi .n{font-size:1.5rem;font-weight:800;color:var(--navy);}
   .kpi .l{font-size:.76rem;color:var(--gray);margin-top:2px;white-space:nowrap;}
+  .report-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    font-size:.82rem;color:var(--gray);margin:2px 2px 10px;}
+  .download-btn{border:1.5px solid var(--navy);background:#eef1f8;color:var(--navy);
+    border-radius:999px;padding:7px 13px;font-size:.8rem;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap;}
+  .download-btn:hover{background:var(--navy);color:#fff;}
 
   .table-wrap{overflow-x:auto;background:#fff;border:1px solid var(--border);border-radius:12px;}
   table{width:100%;border-collapse:collapse;min-width:560px;}
@@ -105,6 +128,29 @@
   .gubun-교회학교{background:#f4e3ad;color:var(--navy-dark);}
   .msg{text-align:center;color:var(--gray);padding:30px;}
   .err{color:var(--error);}
+  @media (max-width:700px){
+    .topbar{padding:14px 14px;}
+    .topbar h1{font-size:1.02rem;}
+    main{padding:16px 12px 44px;}
+    .dash-head{align-items:flex-start;flex-direction:column;gap:2px;}
+    .dash-sub{white-space:normal;}
+    .dash-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+    .dash-kpi{padding:12px 10px;}
+    .dash-kpi .n{font-size:1.35rem;}
+    .dash-panels{grid-template-columns:1fr;}
+    .dash-panel{padding:12px;}
+    .dash-item{font-size:.82rem;}
+    .privacy-notice{font-size:.8rem;}
+    .rep-card{padding:15px 16px;}
+    .filters{padding:12px;gap:10px;}
+    .filters .fld{flex:1 1 140px;}
+    .filters input[type=date], .filters .go{width:100%;}
+    .report-toolbar{align-items:flex-start;flex-direction:column;}
+    .download-btn{width:100%;}
+  }
+  @media (max-width:380px){
+    .dash-grid{grid-template-columns:1fr;}
+  }
 </style>
 </head>
 <body>
@@ -141,6 +187,10 @@ logoutBtn.addEventListener("click", () => {
 });
 
 function getPw(){ return sessionStorage.getItem(PW_KEY) || ""; }
+
+function htmlEsc(v){
+  return String(v==null?"":v).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
+}
 
 async function callStats(from, to){
   return callApi({ action:"stats", pw:getPw(), from:from||"", to:to||"" });
@@ -182,6 +232,13 @@ function renderLogin(){
 function renderMenu(){
   logoutBtn.hidden = false;
   app.innerHTML = `
+    <div class="dash" id="dash">
+      <div class="dash-head">
+        <div class="dash-title">운영 대시보드</div>
+        <div class="dash-sub">오늘과 이번 주 흐름을 빠르게 확인합니다.</div>
+      </div>
+      <div class="dash-msg">대시보드를 불러오는 중...</div>
+    </div>
     <div class="section-title">통계 리포트</div>
     <div class="privacy-notice">
       <b>개인정보 취급 주의</b><br>
@@ -226,12 +283,131 @@ function renderMenu(){
   document.getElementById("rep-participants").addEventListener("click", renderParticipants);
   document.getElementById("rep-verses").addEventListener("click", renderVerses);
   document.getElementById("rep-challenge").addEventListener("click", renderChallengeReport);
+  loadDashboard();
+}
+
+function weekStart(d){
+  const x=new Date(d);
+  const day=x.getDay();
+  const diff=day===0?6:day-1;
+  x.setDate(x.getDate()-diff);
+  return x;
+}
+function sumStatsList(list){
+  return (list||[]).reduce((a,r)=>({
+    newCount:a.newCount+(r.newCount||0),
+    participants:a.participants+(r.participants||0),
+    typing:a.typing+(r.typing||0),
+    voice:a.voice+(r.voice||0),
+    total:a.total+(r.total||0)
+  }),{newCount:0,participants:0,typing:0,voice:0,total:0});
+}
+function sumChallenge(list){
+  return (list||[]).reduce((a,r)=>({
+    people:a.people+1,
+    count:a.count+(r.count||0),
+    typing:a.typing+(r.typing||0),
+    voice:a.voice+(r.voice||0)
+  }),{people:0,count:0,typing:0,voice:0});
+}
+async function loadDashboard(){
+  const dash=document.getElementById("dash");
+  if(!dash) return;
+  const today=ymd(new Date());
+  const wk=ymd(weekStart(new Date()));
+  try{
+    const [todayStats,weekStats,allStats,todayChallenge,weekChallenge,verseMap,weekVerses]=await Promise.all([
+      callStats(today,today),
+      callStats(wk,today),
+      callStats("",""),
+      callChallengeRanking(today,today),
+      callChallengeRanking(wk,today),
+      loadVerseMap(),
+      callVerses(wk,today)
+    ]);
+    if(todayStats.error==="unauthorized"||weekStats.error==="unauthorized"||allStats.error==="unauthorized"){
+      sessionStorage.removeItem(PW_KEY); renderLogin(); return;
+    }
+    const ts=sumStatsList(todayStats.list||[]);
+    const ws=sumStatsList(weekStats.list||[]);
+    const as=sumStatsList(allStats.list||[]);
+    const tc=sumChallenge(todayChallenge.list||[]);
+    const wc=sumChallenge(weekChallenge.list||[]);
+    const topVerses=(weekVerses.list||[]).slice().sort((a,b)=>(b.count-a.count)).slice(0,5);
+    const topVerseHtml=topVerses.length ? topVerses.map((r,i)=>`
+      <div class="dash-item">
+        <span class="rank">${i+1}</span>
+        <span class="name">${htmlEsc(verseLabel(verseMap,r.no))}</span>
+        <span class="cnt">${r.count}회</span>
+      </div>`).join("") : `<div class="dash-msg">이번 주 구절 기록이 없습니다.</div>`;
+    const topChallenge=(weekChallenge.list||[]).slice().sort((a,b)=>(b.count-a.count)).slice(0,5);
+    const topChallengeHtml=topChallenge.length ? topChallenge.map((r,i)=>`
+      <div class="dash-item">
+        <span class="rank">${i+1}</span>
+        <span class="name">${htmlEsc((r.sosok||"")+" "+(r.name||""))}</span>
+        <span class="cnt">${r.count}회</span>
+      </div>`).join("") : `<div class="dash-msg">이번 주 도전 기록이 없습니다.</div>`;
+    dash.innerHTML=`
+      <div class="dash-head">
+        <div class="dash-title">운영 대시보드</div>
+        <div class="dash-sub">오늘 ${today} · 이번 주 ${wk} ~ ${today}</div>
+      </div>
+      <div class="dash-grid">
+        <div class="dash-kpi"><div class="n">${ts.participants}</div><div class="l">오늘 참여자</div></div>
+        <div class="dash-kpi"><div class="n">${ws.participants}</div><div class="l">이번 주 참여자</div></div>
+        <div class="dash-kpi"><div class="n">${as.participants}</div><div class="l">전체 누적 참여자</div></div>
+        <div class="dash-kpi"><div class="n">${tc.count}</div><div class="l">오늘 도전 횟수</div></div>
+        <div class="dash-kpi"><div class="n">${ws.total}</div><div class="l">이번 주 암송 활동</div></div>
+        <div class="dash-kpi"><div class="n">${wc.count}</div><div class="l">이번 주 도전 횟수</div></div>
+        <div class="dash-kpi"><div class="n">${as.total}</div><div class="l">전체 암송 활동</div></div>
+        <div class="dash-kpi"><div class="n">${weekVerses.list?weekVerses.list.length:0}</div><div class="l">이번 주 사용 구절</div></div>
+      </div>
+      <div class="dash-panels">
+        <div class="dash-panel"><div class="h">이번 주 많이 참여한 말씀</div><div class="dash-list">${topVerseHtml}</div></div>
+        <div class="dash-panel"><div class="h">이번 주 도전 Top 5</div><div class="dash-list">${topChallengeHtml}</div></div>
+      </div>`;
+  }catch(e){
+    dash.innerHTML=`
+      <div class="dash-head">
+        <div class="dash-title">운영 대시보드</div>
+        <div class="dash-sub">잠시 후 다시 확인해 주세요.</div>
+      </div>
+      <div class="dash-msg err">대시보드를 불러오지 못했습니다.</div>`;
+  }
 }
 
 // ---------- 리포트 1: 기간별 사용현황 ----------
 function ymd(d){
   const z=n=>String(n).padStart(2,"0");
   return d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate());
+}
+function fileDate(){
+  return ymd(new Date()).replaceAll("-","");
+}
+function rangeForName(from,to){
+  if(!from&&!to) return "전체";
+  return (from||"처음")+"_"+(to||"오늘");
+}
+function csvEscape(v){
+  const s=String(v==null?"":v);
+  return /[",\r\n]/.test(s) ? `"${s.replaceAll('"','""')}"` : s;
+}
+function downloadCsv(filename, headers, rows){
+  const lines=[headers, ...rows].map(row=>row.map(csvEscape).join(","));
+  const blob=new Blob(["\ufeff"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;
+  a.download=filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+function attachCsvButton(id, filename, headers, rows){
+  const btn=document.getElementById(id);
+  if(!btn) return;
+  btn.addEventListener("click",()=>downloadCsv(filename,headers,rows));
 }
 function renderUsageReport(){
   const today = new Date();
@@ -305,7 +481,10 @@ async function runUsage(){
       <div class="kpi"><div class="n">${sum.voice}</div><div class="l">음성</div></div>
       <div class="kpi"><div class="n">${sum.total}</div><div class="l">총횟수</div></div>
     </div>
-    <div style="font-size:.82rem;color:var(--gray);margin:2px 2px 10px;">기간: <b>${rangeTxt}</b> · 그룹 ${list.length}개</div>
+    <div class="report-toolbar">
+      <span>기간: <b>${rangeTxt}</b> · 그룹 ${list.length}개</span>
+      <button class="download-btn" id="download-usage">CSV 다운로드</button>
+    </div>
     <div class="table-wrap">
       <table>
         <thead><tr>
@@ -320,6 +499,13 @@ async function runUsage(){
         </tr></tfoot>
       </table>
     </div>`;
+  attachCsvButton(
+    "download-usage",
+    `성경암송_기간별사용현황_${rangeForName(from,to)}_${fileDate()}.csv`,
+    ["구분","교구/교회학교","신규인원","참여인원","타이핑횟수","음성횟수","총횟수"],
+    list.map(r=>[r.gubun,r.sosok||"",r.newCount,r.participants,r.typing,r.voice,r.total])
+      .concat([["합계","",sum.newCount,sum.participants,sum.typing,sum.voice,sum.total]])
+  );
 }
 
 // ---------- 리포트 2: 참여자 현황 ----------
@@ -426,7 +612,10 @@ async function runParticipants(){
       <div class="kpi"><div class="n">${sum.voice}</div><div class="l">음성</div></div>
       <div class="kpi"><div class="n">${sum.total}</div><div class="l">총횟수</div></div>
     </div>
-    <div style="font-size:.82rem;color:var(--gray);margin:2px 2px 10px;">기간: <b>${rangeTxt}</b> · 참여자 ${list.length}명</div>
+    <div class="report-toolbar">
+      <span>기간: <b>${rangeTxt}</b> · 참여자 ${list.length}명</span>
+      <button class="download-btn" id="download-participants">CSV 다운로드</button>
+    </div>
     <div class="table-wrap"><table>
       <thead><tr>
         <th>#</th><th class="l">구분</th><th class="l">교구/교회학교</th><th>목장/학년</th>
@@ -438,6 +627,13 @@ async function runParticipants(){
         <td>${sum.typing}</td><td>${sum.voice}</td><td>${sum.total}</td>
       </tr></tfoot>
     </table></div>`;
+  attachCsvButton(
+    "download-participants",
+    `성경암송_참여자현황_${rangeForName(from,to)}_${fileDate()}.csv`,
+    ["번호","구분","교구/교회학교","목장/학년","성명","타이핑횟수","음성횟수","총횟수"],
+    list.map((r,i)=>[i+1,r.gubun,r.sosok||"",r.sebu||"",r.name||"",r.typing,r.voice,r.total])
+      .concat([["","합계","","","",sum.typing,sum.voice,sum.total]])
+  );
 }
 
 // ---------- 리포트 3: 구절별 현황 ----------
@@ -445,12 +641,27 @@ let VERSE_MAP=null;
 async function loadVerseMap(){
   if(VERSE_MAP) return VERSE_MAP;
   VERSE_MAP={};
-  try{
-    const res=await fetch("verses.json",{cache:"no-cache"});
-    const d=await res.json();
-    (d.verses||[]).forEach(v=>{ VERSE_MAP[String(v.no)]=v.refShort || ("No."+v.no); });
-  }catch{ /* 매핑 실패 시 순번만 표시 */ }
+  const urls=[
+    "verses.json?v="+Date.now(),
+    "https://sewoongkim1.github.io/bible-memorize-church-app/verses.json?v="+Date.now()
+  ];
+  for(const url of urls){
+    try{
+      const res=await fetch(url,{cache:"no-cache"});
+      if(!res.ok) throw new Error("HTTP "+res.status);
+      const d=await res.json();
+      (d.verses||[]).forEach(v=>{
+        const label=[v.refShort||v.refFull||("No."+v.no), v.sermonTitle].filter(Boolean).join(" · ");
+        VERSE_MAP[String(Number(v.no))]=label;
+      });
+      if(Object.keys(VERSE_MAP).length) break;
+    }catch{ /* 다음 경로로 재시도 */ }
+  }
   return VERSE_MAP;
+}
+function verseLabel(map,no){
+  const key=String(Number(no));
+  return map[key] || ("No."+no);
 }
 
 async function callVerses(from,to){
@@ -508,7 +719,7 @@ async function runVerses(){
   const rows=list.map(r=>`
     <tr>
       <td>${r.no}</td>
-      <td class="l">${map[String(r.no)]||"-"}</td>
+      <td class="l">${verseLabel(map,r.no)}</td>
       <td>${r.participants}</td>
       <td><b>${r.count}</b></td>
     </tr>`).join("");
@@ -517,12 +728,22 @@ async function runVerses(){
       <div class="kpi"><div class="n">${list.length}</div><div class="l">사용된 구절 수</div></div>
       <div class="kpi"><div class="n">${sum.count}</div><div class="l">총 참여횟수</div></div>
     </div>
-    <div style="font-size:.82rem;color:var(--gray);margin:2px 2px 10px;">기간: <b>${rangeTxt}</b></div>
+    <div class="report-toolbar">
+      <span>기간: <b>${rangeTxt}</b></span>
+      <button class="download-btn" id="download-verses">CSV 다운로드</button>
+    </div>
     <div class="table-wrap"><table>
       <thead><tr><th>말씀 순번</th><th class="l">말씀</th><th>참여자</th><th>참여횟수</th></tr></thead>
       <tbody>${rows}</tbody>
       <tfoot><tr><td></td><td class="l">합계</td><td></td><td>${sum.count}</td></tr></tfoot>
     </table></div>`;
+  attachCsvButton(
+    "download-verses",
+    `성경암송_구절별현황_${rangeForName(from,to)}_${fileDate()}.csv`,
+    ["말씀순번","말씀","참여자","참여횟수"],
+    list.map(r=>[r.no,verseLabel(map,r.no),r.participants,r.count])
+      .concat([["","합계","",sum.count]])
+  );
 }
 
 // ---------- 리포트 4: 도전 현황 (공개 ranking 엔드포인트 재사용) ----------
@@ -617,7 +838,10 @@ async function runChallengeReport(){
       <div class="kpi"><div class="n">${sum.voice}</div><div class="l">음성</div></div>
       <div class="kpi"><div class="n">${sum.cnt}</div><div class="l">총 도전횟수</div></div>
     </div>
-    <div style="font-size:.82rem;color:var(--gray);margin:2px 2px 10px;">기간: <b>${rangeTxt}</b> · 참여자 ${list.length}명</div>
+    <div class="report-toolbar">
+      <span>기간: <b>${rangeTxt}</b> · 참여자 ${list.length}명</span>
+      <button class="download-btn" id="download-challenge">CSV 다운로드</button>
+    </div>
     <div class="table-wrap"><table>
       <thead><tr>
         <th>#</th><th class="l">구분</th><th class="l">교구/교회학교</th><th>목장/학년</th>
@@ -629,6 +853,13 @@ async function runChallengeReport(){
         <td>${sum.typing}</td><td>${sum.voice}</td><td>${sum.cnt}</td>
       </tr></tfoot>
     </table></div>`;
+  attachCsvButton(
+    "download-challenge",
+    `성경암송_도전현황_${rangeForName(from,to)}_${fileDate()}.csv`,
+    ["번호","구분","교구/교회학교","목장/학년","성명","타이핑","음성","도전횟수"],
+    list.map((r,i)=>[i+1,r.gubun,r.sosok||"",r.sebu||"",r.name||"",r.typing||0,r.voice||0,r.count])
+      .concat([["","합계","","","",sum.typing,sum.voice,sum.cnt]])
+  );
 }
 
 // ---------- 시작 ----------
