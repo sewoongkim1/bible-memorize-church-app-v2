@@ -694,8 +694,9 @@ function renderSettings() {
         </div>
         <button class="summary-install" id="change-user">👤 로그인 정보변경</button>
         <button class="summary-install" id="privacy-info">🔐 개인정보 안내 보기</button>
-        <button class="summary-install" id="enable-push">🔔 매일 암송 알림 받기</button>
+        <button class="summary-install" id="enable-push">🔔 매일 암송 알림 받기 (오전 7시)</button>
         <div class="app-status" id="app-status"></div>
+        <button class="summary-install" id="test-push">🧪 내 기기로 테스트 알림</button>
         <button class="push-off" id="disable-push">🔕 알림 끄기</button>
         <button class="summary-install" id="install-btn">⛪ 홈 화면에 추가</button>
         <button class="summary-install" id="share-btn">🔗 공유하기</button>
@@ -712,6 +713,7 @@ function renderSettings() {
   document.getElementById("share-btn").addEventListener("click", shareApp);
   document.getElementById("enable-push").addEventListener("click", () => { if (typeof enablePush === "function") enablePush(); });
   document.getElementById("disable-push").addEventListener("click", () => { if (typeof disablePush === "function") disablePush(); });
+  document.getElementById("test-push").addEventListener("click", () => { if (typeof testMyPush === "function") testMyPush(); });
   updateAppStatus();
   setupSyncRetry();
   setupThemeSetting();

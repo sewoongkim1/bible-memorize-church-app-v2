@@ -33,7 +33,10 @@ async function enablePush() {
       });
     }
     await api.savePush(u.user_id, sub.toJSON());
-    alert("🔔 매일 암송 알림이 설정되었습니다!");
+    // 설정 직후 본인 기기로 확인용 테스트 발송
+    api.testPush(sub.endpoint).catch(() => {});
+    alert("🔔 알림이 설정되었습니다!\n확인용 테스트 알림을 방금 보냈어요 — 잠시 후 이 기기에 오는지 봐주세요.");
+    if (typeof updateAppStatus === "function") updateAppStatus();
     return true;
   } catch (e) {
     alert("알림 설정에 실패했습니다: " + (e && e.message ? e.message : e));
@@ -59,3 +62,15 @@ async function disablePush() {
   }
 }
 window.disablePush = disablePush;
+
+// 내 기기로 테스트 알림 보내기(설정 확인용)
+async function testMyPush() {
+  if (!("serviceWorker" in navigator)) { alert("이 브라우저는 알림을 지원하지 않습니다."); return; }
+  const reg = await navigator.serviceWorker.getRegistration();
+  const sub = reg && await reg.pushManager.getSubscription();
+  if (!sub) { alert("먼저 '매일 암송 알림 받기'를 켜주세요."); return; }
+  const data = await api.testPush(sub.endpoint).catch(() => ({ ok: false, error: "network" }));
+  if (data.ok) alert("🔔 테스트 알림을 보냈어요!\n몇 초 뒤 이 기기에 알림이 오는지 확인해줘요.");
+  else alert("테스트 실패: " + (data.error || "오류") + "\n'알림 받기'를 다시 켜보세요.");
+}
+window.testMyPush = testMyPush;

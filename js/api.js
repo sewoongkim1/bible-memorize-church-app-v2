@@ -28,6 +28,7 @@ const api = {
   mydays: (user_id, from, to) => supaCall("mydays", { user_id, from, to }),
   savePush: (user_id, subscription) => supaCall("savePush", { user_id, subscription }),
   removePush: (endpoint) => supaCall("removePush", { endpoint }),
+  testPush: (endpoint) => supaCall("testPush", { endpoint }),
 };
 
 window.api = api;

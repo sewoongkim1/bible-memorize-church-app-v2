@@ -72,6 +72,7 @@ Deno.serve(async (req) => {
       // ---- Web Push ----
       case "savePush":      return json(await savePush(body));
       case "removePush":    return json(await removePush(body));
+      case "testPush":      return json(await testPush(body));
       case "sendPush":      return json(await sendPush(body));
       default:              return json({ error: `unknown action: ${body.action}` }, 400);
     }
@@ -210,6 +211,28 @@ async function removePush(b: any) {
   const { error } = await db.from("push_subscriptions").delete().eq("endpoint", b.endpoint);
   if (error) throw error;
   return { ok: true };
+}
+
+// ---------- testPush: 본인 기기(endpoint)에만 테스트 발송 ----------
+async function testPush(b: any) {
+  if (!b.endpoint) return { ok: false, error: "no-endpoint" };
+  const { data: sub } = await db.from("push_subscriptions")
+    .select("endpoint,p256dh,auth").eq("endpoint", b.endpoint).maybeSingle();
+  if (!sub) return { ok: false, error: "not-subscribed" };
+  const payload = JSON.stringify({
+    title: "성경암송 — 알림 설정 완료 ✅",
+    body: "알림이 정상 작동해요! 매일 오전 7시에 그 주 말씀을 보내드릴게요. 🙌",
+    url: "https://bit.ly/withbible",
+  });
+  try {
+    await webpush.sendNotification(
+      { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, payload);
+    return { ok: true, sent: 1 };
+  } catch (e: any) {
+    const code = e && (e.statusCode || e.status);
+    if (code === 404 || code === 410) await db.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
+    return { ok: false, error: "send-failed:" + code };
+  }
 }
 
 // ---------- sendPush: 구독자 전체에 알림 발송 (ADMIN_SECRET / cron) ----------
