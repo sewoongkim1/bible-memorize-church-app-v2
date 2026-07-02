@@ -2126,8 +2126,7 @@ async function loadRankingBody(r) {
     return;
   }
 
-  const top = list.slice(0, 10);
-  const rows = top.map((x) => {
+  const rows = list.map((x) => {
     const isMe = keyOf(x.gubun, x.sosok, x.sebu, x.name) === myKey;
     return `<div class="rank-row ${x.rank <= 3 ? "top" : ""} ${isMe ? "me" : ""}">
       <span class="rk-no">${medal(x.rank)}</span>
@@ -2138,7 +2137,7 @@ async function loadRankingBody(r) {
   }).join("");
 
   body.innerHTML = myHtml + `<div class="rank-list">${rows}</div>` +
-    (list.length > 10 ? `<p class="rank-more">외 ${list.length - 10}명 참여</p>` : "");
+    `<p class="rank-more">전체 ${list.length}명 참여</p>`;
 }
 
 // ---- 순위/내참여 모드 전환 바 ----
