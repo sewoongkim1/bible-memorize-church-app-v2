@@ -60,6 +60,7 @@ Deno.serve(async (req) => {
       case "participants":  return json(await participants(body));
       case "verses":        return json(await verseStats(body));
       case "cleanupDummy":  return json(await cleanupDummy());
+      case "importV1":      return json(await importV1(body));
       default:              return json({ error: `unknown action: ${body.action}` }, 400);
     }
   } catch (e) {
@@ -73,6 +74,91 @@ async function cleanupDummy() {
     .delete().eq("identity_key", "교구|테스트|99|||테스트유저").select("id");
   if (error) throw error;
   return { ok: true, deleted: (data ?? []).length };
+}
+
+// ---------- importV1: v1 시트(dump) → Supabase 이관 (ADMIN_SECRET 보호) ----------
+// body: { pw, rows:[{when,type,sosok,sebu,name,no,stage,mode}], challenge:[{when,type,sosok,sebu,name,no,mode}] }
+function dumpUser(x: any) {
+  const isGu = x.type === "교구";
+  return {
+    type: x.type,
+    gu: isGu ? norm(x.sosok) || null : null,
+    mok: isGu ? norm(x.sebu) || null : null,
+    bu: isGu ? null : norm(x.sosok) || null,
+    grade: isGu ? null : norm(x.sebu) || null,
+    name: norm(x.name),
+  };
+}
+async function importV1(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const rows = (b.rows ?? []).filter((r: any) => r.mode !== "test" && r.name);
+  const chal = (b.challenge ?? []).filter((r: any) => r.name);
+
+  // 1) 사용자 upsert (양 탭의 신원 합집합)
+  const users = new Map<string, any>();
+  for (const x of [...rows, ...chal]) {
+    const u = dumpUser(x);
+    const key = [u.type, u.gu, u.mok, u.bu, u.grade, u.name].map(norm).join("|");
+    if (!users.has(key)) users.set(key, { ...u, identity_key: key });
+  }
+  const userRows = [...users.values()];
+  if (userRows.length) {
+    const { error } = await db.from("users").upsert(userRows, { onConflict: "identity_key" });
+    if (error) throw error;
+  }
+  // identity_key → id
+  const { data: allUsers, error: e2 } = await db.from("users").select("id, identity_key");
+  if (e2) throw e2;
+  const idOf = new Map<string, string>();
+  (allUsers ?? []).forEach((u: any) => idOf.set(u.identity_key, u.id));
+  const keyOf = (x: any) => {
+    const u = dumpUser(x);
+    return [u.type, u.gu, u.mok, u.bu, u.grade, u.name].map(norm).join("|");
+  };
+
+  // 존재하는 구절No만 이관(FK 오류 방지)
+  const { data: vs } = await db.from("verses").select("no");
+  const verseSet = new Set((vs ?? []).map((v: any) => Number(v.no)));
+
+  // 2) 진도: (user, verse) 최고 단계
+  const progMap = new Map<string, any>();
+  for (const r of rows) {
+    const uid = idOf.get(keyOf(r)); if (!uid) continue;
+    const no = Number(r.no); const stage = parseInt(r.stage, 10);
+    if (!no || isNaN(stage) || !verseSet.has(no)) continue;
+    const k = uid + "|" + no;
+    const cur = progMap.get(k);
+    if (!cur || stage > cur.stage) progMap.set(k, { user_id: uid, verse_no: no, stage });
+  }
+  if (progMap.size) {
+    const arr = [...progMap.values()];
+    for (let i = 0; i < arr.length; i += 500) {
+      const { error } = await db.from("progress").upsert(arr.slice(i, i + 500), { onConflict: "user_id,verse_no" });
+      if (error) throw error;
+    }
+  }
+
+  // 3) 활동 로그: 기록 탭→learn-*, 도전기록 탭→typing/voice (일시 보존)
+  const logs: any[] = [];
+  for (const r of rows) {
+    const uid = idOf.get(keyOf(r)); if (!uid) continue;
+    const no = Number(r.no); if (!no || !verseSet.has(no)) continue;
+    logs.push({ user_id: uid, verse_no: no, mode: r.mode === "voice" ? "learn-voice" : "learn-typing", created_at: r.when });
+  }
+  for (const r of chal) {
+    const uid = idOf.get(keyOf(r)); if (!uid) continue;
+    const no = Number(r.no); if (!no || !verseSet.has(no)) continue;
+    logs.push({ user_id: uid, verse_no: no, mode: r.mode === "voice" ? "voice" : "typing", created_at: r.when });
+  }
+  let inserted = 0;
+  for (let i = 0; i < logs.length; i += 500) {
+    const chunk = logs.slice(i, i + 500);
+    const { error } = await db.from("challenge_log").insert(chunk);
+    if (error) throw error;
+    inserted += chunk.length;
+  }
+
+  return { ok: true, users: userRows.length, progress: progMap.size, logs: inserted };
 }
 
 // ---------- login ----------

@@ -14,6 +14,8 @@ supabase/.branches/
 .DS_Store
 Thumbs.db
 .vscode/
+# 이관 덤프(개인정보) — 커밋 금지
+migrate/v1dump.json
 # 내부 문서(공개 저장소에 포함하지 않음)
 보고서_*.html
 추가제안_*.html
