@@ -37,6 +37,9 @@
     border:none;border-radius:12px;cursor:pointer;font-family:inherit;transition:background .15s;}
   .login-card button:hover{background:var(--navy-dark);}
   .login-err{color:var(--error);font-size:.85rem;margin-bottom:10px;min-height:1.1em;}
+  .home-link{display:inline-block;margin-top:14px;color:var(--gray);font-size:.85rem;
+    font-weight:700;text-decoration:none;}
+  .home-link:hover{color:var(--navy);text-decoration:underline;}
 
   /* 카드 메뉴 */
   .section-title{font-weight:800;color:var(--navy);font-size:1.05rem;margin:6px 2px 14px;}
@@ -56,7 +59,7 @@
   .dash-kpi .k-head{display:flex;align-items:center;gap:5px;margin-bottom:5px;min-width:0;}
   .dash-kpi .ic{font-size:14px;line-height:1;flex:none;}
   .dash-kpi .l{font-size:.74rem;color:var(--gray);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .dash-kpi .n{font-size:1.65rem;font-weight:800;color:var(--navy);line-height:1;}
+  .dash-kpi .n{font-size:1.65rem;font-weight:800;color:var(--navy);line-height:1;text-align:right;}
   .dash-kpi.k-people{--acc:#2b5fb0;} .dash-kpi.k-fire{--acc:#d98a2b;}
   .dash-kpi.k-study{--acc:#2f6b4f;} .dash-kpi.k-verse{--acc:#7a5bb0;}
   .dash-panels{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -213,6 +216,7 @@ function renderLogin(){
       <div class="login-err" id="lerr"></div>
       <input type="password" id="pw" placeholder="비밀번호" autocomplete="current-password" />
       <button id="login">로그인</button>
+      <a class="home-link" href="index.html">← 첫 화면으로</a>
     </div>`;
   const pwInput = document.getElementById("pw");
   const err = document.getElementById("lerr");
