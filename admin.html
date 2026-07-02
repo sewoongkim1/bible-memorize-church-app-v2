@@ -48,15 +48,15 @@
   .dash-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 2px 10px;}
   .dash-title{font-weight:800;color:var(--navy);font-size:1.05rem;}
   .dash-sub{color:var(--gray);font-size:.78rem;white-space:nowrap;}
-  .dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px;}
+  .dash-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px;}
+  @media (min-width:600px){ .dash-grid{grid-template-columns:repeat(4,1fr);} }
   .dash-kpi{position:relative;overflow:hidden;background:#fff;border:1px solid var(--border);border-radius:14px;
-    padding:12px 12px 12px 16px;box-shadow:0 2px 10px rgba(26,58,107,.05);min-width:0;
-    display:flex;flex-direction:column;align-items:flex-start;gap:2px;}
+    padding:11px 12px 11px 15px;box-shadow:0 2px 10px rgba(26,58,107,.05);min-width:0;}
   .dash-kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--acc,#1a3a6b);}
-  .dash-kpi .ic{font-size:15px;line-height:1;opacity:.9;}
-  .dash-kpi .n{font-size:1.7rem;font-weight:800;color:var(--navy);line-height:1.1;}
-  .dash-kpi .l{font-size:.76rem;color:var(--gray);line-height:1.25;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+  .dash-kpi .k-head{display:flex;align-items:center;gap:5px;margin-bottom:5px;min-width:0;}
+  .dash-kpi .ic{font-size:14px;line-height:1;flex:none;}
+  .dash-kpi .l{font-size:.74rem;color:var(--gray);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .dash-kpi .n{font-size:1.65rem;font-weight:800;color:var(--navy);line-height:1;}
   .dash-kpi.k-people{--acc:#2b5fb0;} .dash-kpi.k-fire{--acc:#d98a2b;}
   .dash-kpi.k-study{--acc:#2f6b4f;} .dash-kpi.k-verse{--acc:#7a5bb0;}
   .dash-panels{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -240,7 +240,6 @@ function renderMenu(){
   app.innerHTML = `
     <div class="dash" id="dash">
       <div class="dash-head">
-        <div class="dash-title">운영 대시보드</div>
         <div class="dash-sub">오늘과 이번 주 흐름을 빠르게 확인합니다.</div>
       </div>
       <div class="dash-msg">대시보드를 불러오는 중...</div>
@@ -355,18 +354,17 @@ async function loadDashboard(){
       </div>`).join("") : `<div class="dash-msg">이번 주 도전 기록이 없습니다.</div>`;
     dash.innerHTML=`
       <div class="dash-head">
-        <div class="dash-title">운영 대시보드</div>
         <div class="dash-sub">오늘 ${today} · 이번 주 ${wk} ~ ${today}</div>
       </div>
       <div class="dash-grid">
-        <div class="dash-kpi k-people"><div class="ic">🙋</div><div class="n">${ts.participants}</div><div class="l">오늘 참여자</div></div>
-        <div class="dash-kpi k-people"><div class="ic">📅</div><div class="n">${ws.participants}</div><div class="l">주간 참여자</div></div>
-        <div class="dash-kpi k-people"><div class="ic">👥</div><div class="n">${as.participants}</div><div class="l">누적 참여자</div></div>
-        <div class="dash-kpi k-fire"><div class="ic">🔥</div><div class="n">${tc.count}</div><div class="l">오늘 도전</div></div>
-        <div class="dash-kpi k-study"><div class="ic">📖</div><div class="n">${ws.total}</div><div class="l">주간 활동</div></div>
-        <div class="dash-kpi k-fire"><div class="ic">🔥</div><div class="n">${wc.count}</div><div class="l">주간 도전</div></div>
-        <div class="dash-kpi k-study"><div class="ic">📖</div><div class="n">${as.total}</div><div class="l">누적 활동</div></div>
-        <div class="dash-kpi k-verse"><div class="ic">✝️</div><div class="n">${weekVerses.list?weekVerses.list.length:0}</div><div class="l">주간 구절</div></div>
+        <div class="dash-kpi k-people"><div class="k-head"><span class="ic">🙋</span><span class="l">오늘 참여자</span></div><div class="n">${ts.participants}</div></div>
+        <div class="dash-kpi k-people"><div class="k-head"><span class="ic">📅</span><span class="l">주간 참여자</span></div><div class="n">${ws.participants}</div></div>
+        <div class="dash-kpi k-people"><div class="k-head"><span class="ic">👥</span><span class="l">누적 참여자</span></div><div class="n">${as.participants}</div></div>
+        <div class="dash-kpi k-fire"><div class="k-head"><span class="ic">🔥</span><span class="l">오늘 도전</span></div><div class="n">${tc.count}</div></div>
+        <div class="dash-kpi k-study"><div class="k-head"><span class="ic">📖</span><span class="l">주간 활동</span></div><div class="n">${ws.total}</div></div>
+        <div class="dash-kpi k-fire"><div class="k-head"><span class="ic">🔥</span><span class="l">주간 도전</span></div><div class="n">${wc.count}</div></div>
+        <div class="dash-kpi k-study"><div class="k-head"><span class="ic">📖</span><span class="l">누적 활동</span></div><div class="n">${as.total}</div></div>
+        <div class="dash-kpi k-verse"><div class="k-head"><span class="ic">✝️</span><span class="l">주간 구절</span></div><div class="n">${weekVerses.list?weekVerses.list.length:0}</div></div>
       </div>
       <div class="dash-panels">
         <div class="dash-panel"><div class="h">이번 주 많이 참여한 말씀</div><div class="dash-list">${topVerseHtml}</div></div>
@@ -375,7 +373,6 @@ async function loadDashboard(){
   }catch(e){
     dash.innerHTML=`
       <div class="dash-head">
-        <div class="dash-title">운영 대시보드</div>
         <div class="dash-sub">잠시 후 다시 확인해 주세요.</div>
       </div>
       <div class="dash-msg err">대시보드를 불러오지 못했습니다.</div>`;
