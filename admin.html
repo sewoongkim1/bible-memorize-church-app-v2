@@ -110,7 +110,19 @@
   <main id="app"></main>
 
 <script>
-const API = "https://script.google.com/macros/s/AKfycbyRcm6xnF-CdTj-wO2WYtxJOH-j2mcHWqzoS3pasMQ8MCt1qIeVJj0D5S4KqYmPtfWTGw/exec";
+// v2: Supabase Edge Function(api) 호출
+const API = "https://xnomlgydifiqiybervtf.supabase.co/functions/v1/api";
+const ANON = "sb_publishable_oLtieT_jw7Gjb8etEsy0jw_thBaDjl-";
+async function callApi(payload){
+  const res = await fetch(API, {
+    method:"POST",
+    headers:{ "Content-Type":"application/json", "apikey":ANON, "Authorization":"Bearer "+ANON },
+    body: JSON.stringify(payload),
+  });
+  let data={}; try{ data=await res.json(); }catch(_){}
+  if(!res.ok && !data.error) data={ ok:false, error:"HTTP "+res.status };
+  return data;
+}
 const PW_KEY = "admin-pw";
 const GU_LIST = ["믿음","소망","사랑","섬김","은혜","화평","기쁨","새가족"];
 const BU_LIST = ["사랑부","영아부","유아부","유치부","유년부","초등부","중등부","고등부","청년부"];
@@ -126,11 +138,7 @@ logoutBtn.addEventListener("click", () => {
 function getPw(){ return sessionStorage.getItem(PW_KEY) || ""; }
 
 async function callStats(from, to){
-  const params = new URLSearchParams({ action:"stats", pw:getPw() });
-  if (from) params.set("from", from);
-  if (to) params.set("to", to);
-  const res = await fetch(API + "?" + params.toString(), { cache:"no-cache" });
-  return res.json();
+  return callApi({ action:"stats", pw:getPw(), from:from||"", to:to||"" });
 }
 
 // ---------- 로그인 ----------
@@ -299,13 +307,7 @@ async function runUsage(){
 
 // ---------- 리포트 2: 참여자 현황 ----------
 async function callParticipants(from,to,gubun,sosok){
-  const params=new URLSearchParams({action:"participants",pw:getPw()});
-  if(from)params.set("from",from);
-  if(to)params.set("to",to);
-  if(gubun&&gubun!=="전체")params.set("gubun",gubun);
-  if(sosok&&sosok!=="전체")params.set("sosok",sosok);
-  const res=await fetch(API+"?"+params.toString(),{cache:"no-cache"});
-  return res.json();
+  return callApi({ action:"participants", pw:getPw(), from:from||"", to:to||"", gubun:gubun||"", sosok:sosok||"" });
 }
 
 function renderParticipants(){
@@ -435,11 +437,7 @@ async function loadVerseMap(){
 }
 
 async function callVerses(from,to){
-  const params=new URLSearchParams({action:"verses",pw:getPw()});
-  if(from)params.set("from",from);
-  if(to)params.set("to",to);
-  const res=await fetch(API+"?"+params.toString(),{cache:"no-cache"});
-  return res.json();
+  return callApi({ action:"verses", pw:getPw(), from:from||"", to:to||"" });
 }
 
 function renderVerses(){
@@ -512,11 +510,7 @@ async function runVerses(){
 
 // ---------- 리포트 4: 도전 현황 (공개 ranking 엔드포인트 재사용) ----------
 async function callChallengeRanking(from,to){
-  const params=new URLSearchParams({action:"ranking"});
-  if(from)params.set("from",from);
-  if(to)params.set("to",to);
-  const res=await fetch(API+"?"+params.toString(),{cache:"no-cache"});
-  return res.json();
+  return callApi({ action:"ranking", from:from||"", to:to||"" });
 }
 
 function renderChallengeReport(){

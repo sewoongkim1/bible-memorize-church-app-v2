@@ -50,7 +50,7 @@ create table if not exists public.challenge_log (
   id          bigint generated always as identity primary key,
   user_id     uuid not null references public.users(id) on delete cascade,
   verse_no    integer not null references public.verses(no) on delete cascade,
-  mode        text not null check (mode in ('typing','voice','review-typing','review-voice')),
+  mode        text not null check (mode in ('typing','voice','review-typing','review-voice','learn-typing','learn-voice')),
   score       smallint,                 -- 음성 채점 점수 등(선택)
   created_at  timestamptz not null default now()
 );

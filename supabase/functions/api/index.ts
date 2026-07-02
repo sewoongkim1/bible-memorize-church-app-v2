@@ -1,9 +1,9 @@
 // ============================================================
 // 성경말씀 암송 앱 v2 — API 미들웨어 (Supabase Edge Function)
-//   클라이언트(PWA)의 모든 데이터 요청을 이 함수가 대신 처리한다.
+//   클라이언트(PWA)/관리자 화면의 데이터 요청을 이 함수가 처리한다.
 //   service_role 키로 접속하여 RLS(기본 차단)를 우회한다.
 //   배포: supabase functions deploy api --no-verify-jwt
-//   (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY 는 Edge 런타임이 자동 주입)
+//   (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY 자동 주입 / ADMIN_SECRET 은 시크릿 설정)
 // ============================================================
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -19,20 +19,29 @@ const db = createClient(
   { auth: { persistSession: false } },
 );
 
-// 복습(Leitner) 간격(일): box 1..5 → 다음 복습까지
-const REVIEW_DAYS = [3, 7, 14, 30, 60];
-const KST = "+09:00"; // 한국 시간대(날짜 경계 보정)
+const REVIEW_DAYS = [3, 7, 14, 30, 60]; // 복습(Leitner) 간격(일)
+const KST = "+09:00";
 
 const norm = (s: unknown) => (s ?? "").toString().trim().replace(/\s+/g, " ");
 const identityKey = (u: any) =>
   [u.type, u.gu, u.mok, u.bu, u.grade, u.name].map(norm).join("|");
 const ymd = (d: Date) => d.toISOString().slice(0, 10);
+const kstDay = (iso: string) =>
+  new Date(new Date(iso).getTime() + 9 * 3600 * 1000).toISOString().slice(0, 10);
 
 function json(obj: unknown, status = 200) {
   return new Response(JSON.stringify(obj), {
     status,
     headers: { ...cors, "Content-Type": "application/json" },
   });
+}
+
+// 관리자 비밀 확인 → null이면 통과, 아니면 에러코드
+function adminError(b: any): string | null {
+  const secret = Deno.env.get("ADMIN_SECRET");
+  if (!secret) return "no-password-set";
+  if ((b.pw ?? "") !== secret) return "unauthorized";
+  return null;
 }
 
 Deno.serve(async (req) => {
@@ -46,6 +55,10 @@ Deno.serve(async (req) => {
       case "advanceReview": return json(await advanceReview(body));
       case "ranking":       return json(await ranking(body));
       case "mydays":        return json(await mydays(body));
+      // ---- 관리자 통계 ----
+      case "stats":         return json(await stats(body));
+      case "participants":  return json(await participants(body));
+      case "verses":        return json(await verseStats(body));
       default:              return json({ error: `unknown action: ${body.action}` }, 400);
     }
   } catch (e) {
@@ -53,7 +66,7 @@ Deno.serve(async (req) => {
   }
 });
 
-// ---------- login: 식별→upsert→진도·복습 반환(기기간 동기화) ----------
+// ---------- login ----------
 async function login(b: any) {
   const key = identityKey(b);
   const { data: user, error } = await db.from("users").upsert({
@@ -78,13 +91,19 @@ async function login(b: any) {
   return { ok: true, user_id: user.id, user, progress, reviews: revs ?? [] };
 }
 
-// ---------- saveProgress: 단계 저장(3단계면 복습 1회차 예약) ----------
+// ---------- saveProgress: 단계 저장 + 학습 통과 이벤트 기록(통계용) ----------
 async function saveProgress(b: any) {
   const { error } = await db.from("progress").upsert({
     user_id: b.user_id, verse_no: b.verse_no, stage: b.stage,
     updated_at: new Date().toISOString(),
   }, { onConflict: "user_id,verse_no" });
   if (error) throw error;
+
+  // 학습 통과를 활동 이벤트로 남긴다(관리자 사용현황/참여자/구절별 통계 원천)
+  const m = b.mode === "voice" ? "learn-voice" : "learn-typing";
+  await db.from("challenge_log").insert({
+    user_id: b.user_id, verse_no: b.verse_no, mode: m,
+  });
 
   if (Number(b.stage) === 3) {
     const due = new Date(); due.setDate(due.getDate() + REVIEW_DAYS[0]);
@@ -95,7 +114,7 @@ async function saveProgress(b: any) {
   return { ok: true };
 }
 
-// ---------- challenge: 도전/암송 기록(순위·통계 원천) ----------
+// ---------- challenge: 도전/복습 완료 기록(순위 원천) ----------
 async function challenge(b: any) {
   const { error } = await db.from("challenge_log").insert({
     user_id: b.user_id, verse_no: b.verse_no,
@@ -105,7 +124,7 @@ async function challenge(b: any) {
   return { ok: true };
 }
 
-// ---------- advanceReview: 복습 성공→다음 상자·예정일 ----------
+// ---------- advanceReview ----------
 async function advanceReview(b: any) {
   const { data: r } = await db.from("reviews")
     .select("box").eq("user_id", b.user_id).eq("verse_no", b.verse_no).maybeSingle();
@@ -118,17 +137,26 @@ async function advanceReview(b: any) {
   return { ok: true, box };
 }
 
-// ---------- ranking: 기간(from~to, KST)별 순위 — 클라이언트 형태로 반환 ----------
+// 기간 필터 적용(challenge_log)
+function rangeFilter(q: any, b: any) {
+  if (b.from) q = q.gte("created_at", `${b.from}T00:00:00${KST}`);
+  if (b.to)   q = q.lte("created_at", `${b.to}T23:59:59${KST}`);
+  return q;
+}
+// 도전/복습(학습 제외) 로그만
+const isChallengeMode = (m: string) => !String(m).startsWith("learn-");
+
+// ---------- ranking: 도전/복습 순위(학습 제외) ----------
 async function ranking(b: any) {
   let q = db.from("challenge_log")
     .select("user_id, mode, created_at, users(name,type,gu,mok,bu,grade)");
-  if (b.from) q = q.gte("created_at", `${b.from}T00:00:00${KST}`);
-  if (b.to)   q = q.lte("created_at", `${b.to}T23:59:59${KST}`);
+  q = rangeFilter(q, b);
   const { data, error } = await q;
   if (error) throw error;
 
   const map = new Map<string, any>();
   for (const row of (data ?? []) as any[]) {
+    if (!isChallengeMode(row.mode)) continue;
     const u = row.users ?? {};
     const e = map.get(row.user_id) ?? {
       name: u.name, gubun: u.type,
@@ -146,19 +174,118 @@ async function ranking(b: any) {
   return { ok: true, list };
 }
 
-// ---------- mydays: 본인 일자별 도전 횟수(KST) — {ymd: count} ----------
+// ---------- mydays: 본인 도전/복습 일자별 횟수(학습 제외) ----------
 async function mydays(b: any) {
-  let q = db.from("challenge_log").select("created_at").eq("user_id", b.user_id);
-  if (b.from) q = q.gte("created_at", `${b.from}T00:00:00${KST}`);
-  if (b.to)   q = q.lte("created_at", `${b.to}T23:59:59${KST}`);
+  let q = db.from("challenge_log").select("created_at, mode").eq("user_id", b.user_id);
+  q = rangeFilter(q, b);
   const { data, error } = await q;
   if (error) throw error;
-
   const days: Record<string, number> = {};
   for (const row of (data ?? []) as any[]) {
-    const d = new Date(row.created_at);
-    const k = new Date(d.getTime() + 9 * 3600 * 1000).toISOString().slice(0, 10); // KST 날짜
+    if (!isChallengeMode(row.mode)) continue;
+    const k = kstDay(row.created_at);
     days[k] = (days[k] || 0) + 1;
   }
   return { ok: true, days };
+}
+
+// ============================================================
+// 관리자 통계 (learn-* = 학습 통과 활동 기준, v1 '진행기록' 탭에 대응)
+// ============================================================
+
+// ---------- stats: 기간별 사용현황 (구분·소속별) ----------
+async function stats(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+
+  let q = db.from("challenge_log")
+    .select("user_id, mode, users(type,gu,bu)");
+  q = rangeFilter(q, b);
+  const { data, error } = await q;
+  if (error) throw error;
+
+  const g = new Map<string, any>();
+  const seen = new Map<string, Set<string>>(); // group → set(user_id)
+  for (const row of (data ?? []) as any[]) {
+    if (!String(row.mode).startsWith("learn-")) continue;
+    const u = row.users ?? {};
+    const gubun = u.type, sosok = u.gu || u.bu || "";
+    const key = gubun + "|" + sosok;
+    const e = g.get(key) ?? { gubun, sosok, newCount: 0, participants: 0, typing: 0, voice: 0, total: 0 };
+    e.total++;
+    if (row.mode === "learn-typing") e.typing++;
+    if (row.mode === "learn-voice") e.voice++;
+    g.set(key, e);
+    if (!seen.has(key)) seen.set(key, new Set());
+    seen.get(key)!.add(row.user_id);
+  }
+  for (const [key, e] of g) e.participants = seen.get(key)!.size;
+
+  // 신규 인원(기간 내 가입) — 구분·소속별
+  let uq = db.from("users").select("type,gu,bu,created_at");
+  if (b.from) uq = uq.gte("created_at", `${b.from}T00:00:00${KST}`);
+  if (b.to)   uq = uq.lte("created_at", `${b.to}T23:59:59${KST}`);
+  const { data: newUsers } = await uq;
+  for (const u of (newUsers ?? []) as any[]) {
+    const key = u.type + "|" + (u.gu || u.bu || "");
+    const e = g.get(key) ?? { gubun: u.type, sosok: u.gu || u.bu || "", newCount: 0, participants: 0, typing: 0, voice: 0, total: 0 };
+    e.newCount++;
+    g.set(key, e);
+  }
+
+  const list = [...g.values()].sort((a, b) =>
+    a.gubun === b.gubun ? a.sosok.localeCompare(b.sosok) : a.gubun.localeCompare(b.gubun));
+  return { ok: true, list };
+}
+
+// ---------- participants: 참여자별 현황 ----------
+async function participants(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+
+  let q = db.from("challenge_log")
+    .select("user_id, mode, users(type,gu,mok,bu,grade,name)");
+  q = rangeFilter(q, b);
+  const { data, error } = await q;
+  if (error) throw error;
+
+  const map = new Map<string, any>();
+  for (const row of (data ?? []) as any[]) {
+    if (!String(row.mode).startsWith("learn-")) continue;
+    const u = row.users ?? {};
+    const e = map.get(row.user_id) ?? {
+      gubun: u.type, sosok: u.gu || u.bu || "", sebu: u.mok || u.grade || "",
+      name: u.name, typing: 0, voice: 0, total: 0,
+    };
+    e.total++;
+    if (row.mode === "learn-typing") e.typing++;
+    if (row.mode === "learn-voice") e.voice++;
+    map.set(row.user_id, e);
+  }
+  let list = [...map.values()];
+  if (b.gubun && b.gubun !== "전체") list = list.filter((x) => x.gubun === b.gubun);
+  list.sort((a, b) => b.total - a.total);
+  return { ok: true, list };
+}
+
+// ---------- verses: 구절별 현황 ----------
+async function verseStats(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+
+  let q = db.from("challenge_log").select("verse_no, mode, user_id");
+  q = rangeFilter(q, b);
+  const { data, error } = await q;
+  if (error) throw error;
+
+  const map = new Map<number, any>();
+  const seen = new Map<number, Set<string>>();
+  for (const row of (data ?? []) as any[]) {
+    if (!String(row.mode).startsWith("learn-")) continue;
+    const e = map.get(row.verse_no) ?? { no: row.verse_no, participants: 0, count: 0 };
+    e.count++;
+    map.set(row.verse_no, e);
+    if (!seen.has(row.verse_no)) seen.set(row.verse_no, new Set());
+    seen.get(row.verse_no)!.add(row.user_id);
+  }
+  for (const [no, e] of map) e.participants = seen.get(no)!.size;
+  const list = [...map.values()].sort((a, b) => a.no - b.no);
+  return { ok: true, list };
 }

@@ -173,6 +173,18 @@ h1 {
   border-color: var(--gold);
   background: #fffdf6;
 }
+.verse-card.weekly-verse {
+  border: 2px solid var(--gold);
+  background: #fffaf0;
+  padding-top: 18px;
+}
+.weekly-list-badge {
+  position: absolute; top: -8px; left: 12px;
+  background: var(--gold); color: var(--navy-dark);
+  border-radius: 999px; padding: 2px 9px;
+  font-size: 10px; font-weight: 800; line-height: 1.4;
+  box-shadow: 0 2px 8px rgba(200,162,75,.25);
+}
 
 .verse-no {
   font-family: "Nanum Myeongjo", serif;
@@ -651,6 +663,33 @@ h1 {
 .setting-label {
   font-weight: 700; color: var(--navy); font-size: .96rem; margin-bottom: 8px;
 }
+.sync-status {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  border: 1px solid var(--border); border-radius: 12px;
+  background: var(--white); padding: 10px 11px; margin: 0 0 10px;
+  text-align: left;
+}
+.sync-status.compact { margin: 0 0 10px; padding: 9px 10px; }
+.sync-title {
+  color: var(--navy); font-size: .9rem; font-weight: 800; line-height: 1.3;
+}
+.sync-detail {
+  color: var(--gray); font-size: .76rem; line-height: 1.45; margin-top: 2px;
+}
+.sync-retry {
+  flex: 0 0 auto; border: 1px solid var(--border); border-radius: 999px;
+  background: #eef1f8; color: var(--navy); font-family: inherit;
+  font-size: .76rem; font-weight: 800; padding: 6px 10px; cursor: pointer;
+}
+.sync-retry:hover { background: #dde4f2; }
+.sync-retry:disabled { opacity: .55; cursor: wait; }
+.sync-status.success { border-color: #bcdfc1; background: #f3fbf5; }
+.sync-status.success .sync-title { color: var(--green); }
+.sync-status.error { border-color: #f0c9c6; background: #fff5f4; }
+.sync-status.error .sync-title { color: var(--error); }
+.sync-status.saving { border-color: #ecd9a0; background: #fffaf0; }
+.sync-status.saving .sync-title { color: #9a7b28; }
+.sync-status.local { border-color: #d6dbe5; background: #f7f8fb; }
 .tts-rate-row { display: flex; gap: 6px; margin-bottom: 8px; }
 .tts-rate-row button {
   flex: 1; padding: 9px 4px; font-size: .86rem; font-weight: 700;
@@ -712,6 +751,103 @@ h1 {
 .stat-box.status-done .stat-num { color: var(--green); }
 .stat-box.status-s2 { background: #fff6e0; border-color: #ecd9a0; }
 .stat-box.status-s1 { background: #f0f4fb; border-color: #c9d8ef; }
+
+.weekly-card {
+  border: 1.5px solid var(--gold);
+  border-radius: 14px;
+  background: #fffaf0;
+  padding: 12px;
+  margin: 0 0 12px;
+  text-align: left;
+}
+.weekly-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.weekly-kicker {
+  display: inline-block;
+  background: var(--gold);
+  color: var(--navy-dark);
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: .75rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.weekly-ref {
+  color: var(--navy);
+  font-family: "Nanum Myeongjo", serif;
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+.weekly-title {
+  color: #6b5a2a;
+  font-size: .86rem;
+  font-weight: 700;
+  margin-top: 2px;
+}
+.weekly-text {
+  color: #333;
+  font-size: .9rem;
+  line-height: 1.55;
+  margin: 8px 0;
+}
+.weekly-state {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: .76rem;
+  font-weight: 800;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(13,27,62,.08);
+}
+.weekly-state.status-none { color: var(--gray); background: var(--light); }
+.weekly-state.status-s1 { color: var(--navy); background: #e7ecf5; }
+.weekly-state.status-s2 { color: var(--white); background: var(--navy); }
+.weekly-state.status-done {
+  color: var(--navy-dark);
+  background: linear-gradient(135deg,#ffe7a8 0%,#f4c95d 100%);
+  border: 1px solid #d6a928;
+  font-size: .82rem;
+}
+.weekly-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+.weekly-actions.single { grid-template-columns: 1fr; }
+.weekly-actions .weekly-primary,
+.weekly-actions .weekly-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: .9rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+.weekly-primary {
+  background: var(--navy);
+  color: #fff;
+  border: 1.5px solid var(--navy);
+  cursor: pointer;
+}
+.weekly-secondary {
+  background: #fff;
+  color: var(--navy);
+  border: 1.5px solid var(--border);
+}
+.weekly-primary:hover { background: var(--navy-dark); border-color: var(--navy-dark); }
+.weekly-secondary:hover { background: #eef2f8; }
+@media (max-width: 360px) {
+  .weekly-topline { align-items: flex-start; flex-direction: column; }
+}
 
 .summary-next {
   font-size: .92rem; color: #444; margin-bottom: 12px;
@@ -1192,6 +1328,25 @@ h1 {
 .dark .privacy-box p, .dark .privacy-consent{ color:#cdd3dd; }
 .dark .privacy-more{ background:#232c3f; color:#cdd9f2; border-color:#3a4a68; }
 .dark .privacy-more:hover{ background:#2e3a52; color:#fff; }
+.dark .verse-card.weekly-verse{ background:#2b2717; border-color:#8d7531; }
+.dark .weekly-list-badge, .dark .weekly-kicker{ background:#d3b45b; color:#17213a; }
+.dark .weekly-card{ background:#2b2717; border-color:#8d7531; }
+.dark .weekly-ref{ color:#e8d9a3; }
+.dark .weekly-title{ color:#d7c78e; }
+.dark .weekly-text{ color:#e6e9ef; }
+.dark .weekly-secondary{ background:#232c3f; color:#cdd9f2; border-color:#3a4a68; }
+.dark .weekly-secondary:hover{ background:#2e3a52; color:#fff; }
+.dark .sync-status{ background:#1b2333; border-color:#33465f; }
+.dark .sync-title{ color:#cdd9f2; }
+.dark .sync-detail{ color:#aeb8c8; }
+.dark .sync-retry{ background:#232c3f; color:#cdd9f2; border-color:#3a4a68; }
+.dark .sync-retry:hover{ background:#2e3a52; color:#fff; }
+.dark .sync-status.success{ background:#17301f; border-color:#2c5f2d; }
+.dark .sync-status.success .sync-title{ color:#8fd7a0; }
+.dark .sync-status.error{ background:#3a2020; border-color:#6b2f2f; }
+.dark .sync-status.error .sync-title{ color:#ffaaa2; }
+.dark .sync-status.saving{ background:#2b2717; border-color:#4a4327; }
+.dark .sync-status.saving .sync-title{ color:#e8d9a3; }
 
 /* 복습 모드 버튼/배지 (요약 화면 + 복습 화면) */
 .summary-go.review-cta{
