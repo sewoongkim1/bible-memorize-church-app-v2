@@ -1,0 +1,28 @@
+-- 매일 정해진 시각에 전체 구독자에게 암송 알림 발송 (pg_cron + pg_net)
+-- 준비: 대시보드 > Database > Extensions 에서 pg_cron, pg_net 활성화 후 실행.
+-- 시각: 아래는 매일 08:00 KST(=23:00 UTC). 다른 시각은 cron 식(UTC 기준)만 바꾸세요.
+
+select cron.schedule(
+  'daily-memorize-push',
+  '0 23 * * *',   -- UTC 23:00 = KST 08:00
+  $$
+  select net.http_post(
+    url := 'https://xnomlgydifiqiybervtf.supabase.co/functions/v1/api',
+    headers := jsonb_build_object(
+      'Content-Type','application/json',
+      'apikey','sb_publishable_oLtieT_jw7Gjb8etEsy0jw_thBaDjl-',
+      'Authorization','Bearer sb_publishable_oLtieT_jw7Gjb8etEsy0jw_thBaDjl-'
+    ),
+    body := jsonb_build_object(
+      'action','sendPush',
+      'pw','Godislove',
+      'title','성경말씀 암송',
+      'body','오늘의 말씀을 암송해요! 🙌',
+      'url','https://sewoongkim1.github.io/bible-memorize-church-app-v2/'
+    )
+  );
+  $$
+);
+
+-- 확인:  select * from cron.job;
+-- 해제:  select cron.unschedule('daily-memorize-push');
