@@ -8,9 +8,7 @@
 const DATA_URL = "verses.json";
 const API_URL = "https://script.google.com/macros/s/AKfycbzO4GDAy0hJBbZ-L3hVuZQI4cqnjiZdy2afUujnxmmAr8NAh1lJURhrfT37PaFanPR4PA/exec";
 
-// 진행기록 저장 엔드포인트(Apps Script doPost). setup 후 배포한 /exec URL을 넣는다.
-// 비어 있으면 서버 저장은 건너뛰고 localStorage만 사용한다.
-const POST_URL = "https://script.google.com/macros/s/AKfycbyRcm6xnF-CdTj-wO2WYtxJOH-j2mcHWqzoS3pasMQ8MCt1qIeVJj0D5S4KqYmPtfWTGw/exec";
+// v2: 데이터 저장/조회는 Supabase API 미들웨어(js/api.js의 window.api)를 통해 이뤄진다.
 
 // 식별 항목 (summer-bible 등록 화면과 동일)
 const GU_LIST = ["믿음", "소망", "사랑", "섬김", "은혜", "화평", "기쁨", "새가족"];
@@ -88,25 +86,22 @@ async function enterAfterLogin() {
 // 이를 통해 다른 기기/브라우저에서 로그인해도 진도가 따라온다.
 async function syncProgress() {
   const u = loadUser();
-  if (!u || !POST_URL) return false;
-
-  const params = new URLSearchParams({ action: "progress", type: u.type, name: u.name });
-  if (u.type === "교구") {
-    params.set("gu", u.gu);
-    params.set("mok", u.mok);
-  } else {
-    params.set("bu", u.bu);
-    params.set("grade", u.grade);
-  }
+  if (!u) return false;
 
   try {
-    const res = await fetch(POST_URL + "?" + params.toString(), { cache: "no-cache" });
-    const data = await res.json();
-    if (!data.ok || !data.progress) return false;
+    const data = await api.login({
+      type: u.type, gu: u.gu, mok: u.mok, bu: u.bu, grade: u.grade, name: u.name,
+    });
+    // 서버 사용자 id 저장(이후 저장/도전/복습 API에 사용)
+    if (data.user_id && u.user_id !== data.user_id) {
+      u.user_id = data.user_id;
+      saveUser(u);
+    }
 
+    // 진도 병합(서버가 더 높은 단계면 반영)
     const local = loadProgress();
     let changed = false;
-    Object.keys(data.progress).forEach((no) => {
+    Object.keys(data.progress || {}).forEach((no) => {
       const serverStage = Number(data.progress[no]);
       const cur = local[no]?.stage || 0;
       if (serverStage > cur) {
@@ -115,17 +110,30 @@ async function syncProgress() {
       }
     });
     if (changed) {
-      try {
-        localStorage.setItem(progressKey(), JSON.stringify(local));
-      } catch {
-        /* 저장 실패 무시 */
-      }
+      try { localStorage.setItem(progressKey(), JSON.stringify(local)); } catch {}
     }
+
+    // 복습 일정 병합(서버→로컬, 다른 기기에서 완료한 복습 예약 반영)
+    mergeServerReviews(data.reviews || []);
     return changed;
   } catch {
-    /* 네트워크/CORS 오류 시 로컬 기록만으로 진행 */
+    /* 네트워크 오류 시 로컬 기록만으로 진행 */
     return false;
   }
+}
+
+// 서버 복습 목록을 로컬 복습 저장소에 병합(없는 항목만 추가)
+function mergeServerReviews(reviews) {
+  if (!reviews.length) return;
+  const r = loadReview();
+  let changed = false;
+  reviews.forEach((sv) => {
+    if (!r[sv.verse_no]) {
+      r[sv.verse_no] = { level: Math.max(0, (sv.box || 1) - 1), next: sv.due_at };
+      changed = true;
+    }
+  });
+  if (changed) saveReviewData(r);
 }
 
 // ------------------------------------------------------------
@@ -241,20 +249,11 @@ function getPassedStage(no) {
   return loadProgress()[no]?.stage || 0;
 }
 
-// 통과 기록을 Apps Script로 전송 (text/plain → CORS 프리플라이트 회피)
+// 통과 단계를 Supabase(API 미들웨어)에 저장
 function postProgress(no, stage, mode) {
   const u = loadUser();
-  if (!u || !POST_URL) return; // URL 미설정 시 로컬만 사용
-  const payload = Object.assign({}, u, { no, stage, mode });
-  try {
-    fetch(POST_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(payload),
-    }).catch(() => {});
-  } catch {
-    /* 네트워크 오류는 무시 — 로컬 진행은 유지 */
-  }
+  if (!u || !u.user_id) return; // 첫 동기화 전이면 스킵(다음 로그인 때 서버 반영)
+  api.saveProgress(u.user_id, no, stage).catch(() => {});
 }
 
 const STATUS_LABEL = {
@@ -306,6 +305,8 @@ function advanceReview(no) {
   const level = Math.min(((r[no] && r[no].level) || 0) + 1, REVIEW_INTERVALS.length - 1);
   r[no] = { level, next: afterDaysStr(REVIEW_INTERVALS[level]) };
   saveReviewData(r);
+  const u = loadUser();
+  if (u && u.user_id) api.advanceReview(u.user_id, no).catch(() => {});
 }
 
 // ------------------------------------------------------------
@@ -1818,18 +1819,11 @@ function challengeComplete(verse, mode) {
   renderChallengeDone(verse, mode, n);
 }
 
-// 도전 완료를 서버('도전기록' 탭)에 저장
+// 도전/복습 완료를 Supabase(challenge_log)에 저장
 function postChallenge(verse, mode) {
   const u = loadUser();
-  if (!u || !POST_URL) return;
-  const payload = Object.assign({}, u, { action: "challenge", no: verse.no, mode });
-  try {
-    fetch(POST_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(payload),
-    }).catch(() => {});
-  } catch { /* 무시 */ }
+  if (!u || !u.user_id) return;
+  api.challenge(u.user_id, verse.no, mode).catch(() => {});
 }
 
 function renderChallengeDone(verse, mode, todayCount) {
@@ -1865,11 +1859,7 @@ function rankRangeFor(key) {
   return { key: "yday", from: ymdKo(y), to: ymdKo(now) };
 }
 async function callRanking(from, to) {
-  const params = new URLSearchParams({ action: "ranking" });
-  if (from) params.set("from", from);
-  if (to) params.set("to", to);
-  const res = await fetch(POST_URL + "?" + params.toString(), { cache: "no-cache" });
-  return res.json();
+  return api.ranking(from, to); // { ok, list:[{rank,name,gubun,sosok,sebu,count,...}] }
 }
 
 function renderRanking(range) {
@@ -1983,11 +1973,8 @@ function shiftPeriod(s, dir) {
   return { mode: s.mode, anchor: a };
 }
 async function callMyDays(u, from, to) {
-  const params = new URLSearchParams({ action: "mydays", type: u.type, name: u.name, from, to });
-  if (u.type === "교구") { params.set("gu", u.gu); params.set("mok", u.mok); }
-  else { params.set("bu", u.bu); params.set("grade", u.grade); }
-  const res = await fetch(POST_URL + "?" + params.toString(), { cache: "no-cache" });
-  return res.json();
+  if (!u || !u.user_id) return { ok: false };
+  return api.mydays(u.user_id, from, to); // { ok, days:{ymd:count} }
 }
 
 function renderMyRecord(state) {

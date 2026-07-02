@@ -24,7 +24,8 @@ const api = {
   saveProgress: (user_id, verse_no, stage) => supaCall("saveProgress", { user_id, verse_no, stage }),
   challenge: (user_id, verse_no, mode, score) => supaCall("challenge", { user_id, verse_no, mode, score }),
   advanceReview: (user_id, verse_no) => supaCall("advanceReview", { user_id, verse_no }),
-  ranking: (period) => supaCall("ranking", { period }), // 'today' | 'week' | 'all'
+  ranking: (from, to) => supaCall("ranking", { from, to }),   // 날짜(YYYY-MM-DD), 없으면 전체
+  mydays: (user_id, from, to) => supaCall("mydays", { user_id, from, to }),
 };
 
 window.api = api;

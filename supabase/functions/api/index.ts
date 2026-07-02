@@ -2,8 +2,8 @@
 // 성경말씀 암송 앱 v2 — API 미들웨어 (Supabase Edge Function)
 //   클라이언트(PWA)의 모든 데이터 요청을 이 함수가 대신 처리한다.
 //   service_role 키로 접속하여 RLS(기본 차단)를 우회한다.
-//   배포: supabase functions deploy api
-//   시크릿: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, (선택) ADMIN_SECRET
+//   배포: supabase functions deploy api --no-verify-jwt
+//   (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY 는 Edge 런타임이 자동 주입)
 // ============================================================
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -19,8 +19,9 @@ const db = createClient(
   { auth: { persistSession: false } },
 );
 
-// 복습(Leitner) 간격: box 1..5 → 다음 복습까지 일수
-const REVIEW_DAYS = [7, 14, 30, 60, 120];
+// 복습(Leitner) 간격(일): box 1..5 → 다음 복습까지
+const REVIEW_DAYS = [3, 7, 14, 30, 60];
+const KST = "+09:00"; // 한국 시간대(날짜 경계 보정)
 
 const norm = (s: unknown) => (s ?? "").toString().trim().replace(/\s+/g, " ");
 const identityKey = (u: any) =>
@@ -44,6 +45,7 @@ Deno.serve(async (req) => {
       case "challenge":     return json(await challenge(body));
       case "advanceReview": return json(await advanceReview(body));
       case "ranking":       return json(await ranking(body));
+      case "mydays":        return json(await mydays(body));
       default:              return json({ error: `unknown action: ${body.action}` }, 400);
     }
   } catch (e) {
@@ -73,7 +75,7 @@ async function login(b: any) {
 
   const progress: Record<number, number> = {};
   (prog ?? []).forEach((r: any) => { progress[r.verse_no] = r.stage; });
-  return { user_id: user.id, user, progress, reviews: revs ?? [] };
+  return { ok: true, user_id: user.id, user, progress, reviews: revs ?? [] };
 }
 
 // ---------- saveProgress: 단계 저장(3단계면 복습 1회차 예약) ----------
@@ -116,18 +118,12 @@ async function advanceReview(b: any) {
   return { ok: true, box };
 }
 
-// ---------- ranking: 기간별 도전 순위(타이핑/음성 구분) ----------
+// ---------- ranking: 기간(from~to, KST)별 순위 — 클라이언트 형태로 반환 ----------
 async function ranking(b: any) {
-  const period = b.period || "all"; // today | week | all
   let q = db.from("challenge_log")
     .select("user_id, mode, created_at, users(name,type,gu,mok,bu,grade)");
-  if (period === "today") {
-    const d = new Date(); d.setHours(0, 0, 0, 0);
-    q = q.gte("created_at", d.toISOString());
-  } else if (period === "week") {
-    const d = new Date(); d.setDate(d.getDate() - 6); d.setHours(0, 0, 0, 0);
-    q = q.gte("created_at", d.toISOString());
-  }
+  if (b.from) q = q.gte("created_at", `${b.from}T00:00:00${KST}`);
+  if (b.to)   q = q.lte("created_at", `${b.to}T23:59:59${KST}`);
   const { data, error } = await q;
   if (error) throw error;
 
@@ -135,15 +131,34 @@ async function ranking(b: any) {
   for (const row of (data ?? []) as any[]) {
     const u = row.users ?? {};
     const e = map.get(row.user_id) ?? {
-      user_id: row.user_id, name: u.name, type: u.type,
-      gu: u.gu, mok: u.mok, bu: u.bu, grade: u.grade,
-      total: 0, typing: 0, voice: 0,
+      name: u.name, gubun: u.type,
+      sosok: u.gu || u.bu || "", sebu: u.mok || u.grade || "",
+      count: 0, typing: 0, voice: 0,
     };
-    e.total++;
+    e.count++;
     if (String(row.mode).includes("typing")) e.typing++;
     if (String(row.mode).includes("voice")) e.voice++;
     map.set(row.user_id, e);
   }
-  const arr = [...map.values()].sort((a, b) => b.total - a.total);
-  return { period, ranking: arr };
+  const list = [...map.values()]
+    .sort((a, b) => b.count - a.count)
+    .map((x, i) => ({ rank: i + 1, ...x }));
+  return { ok: true, list };
+}
+
+// ---------- mydays: 본인 일자별 도전 횟수(KST) — {ymd: count} ----------
+async function mydays(b: any) {
+  let q = db.from("challenge_log").select("created_at").eq("user_id", b.user_id);
+  if (b.from) q = q.gte("created_at", `${b.from}T00:00:00${KST}`);
+  if (b.to)   q = q.lte("created_at", `${b.to}T23:59:59${KST}`);
+  const { data, error } = await q;
+  if (error) throw error;
+
+  const days: Record<string, number> = {};
+  for (const row of (data ?? []) as any[]) {
+    const d = new Date(row.created_at);
+    const k = new Date(d.getTime() + 9 * 3600 * 1000).toISOString().slice(0, 10); // KST 날짜
+    days[k] = (days[k] || 0) + 1;
+  }
+  return { ok: true, days };
 }
