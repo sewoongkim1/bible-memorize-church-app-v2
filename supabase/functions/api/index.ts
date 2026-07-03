@@ -67,6 +67,7 @@ Deno.serve(async (req) => {
       case "stats":         return json(await stats(body));
       case "participants":  return json(await participants(body));
       case "verses":        return json(await verseStats(body));
+      case "weeklyReport":  return json(await weeklyReport(body));
       // ---- 말씀/설교 관리(CMS) ----
       case "getVerses":     return json(await getVerses());
       case "saveVerse":     return json(await saveVerse(body));
@@ -80,6 +81,8 @@ Deno.serve(async (req) => {
       case "sendPush":      return json(await sendPush(body));
       // ---- 장애 모니터링 ----
       case "monitor":       return json(await monitor(body));
+      // ---- 주간 리포트 메일 ----
+      case "weeklyReport":  return json(await weeklyReport(body));
       default:              return json({ error: `unknown action: ${body.action}` }, 400);
     }
   } catch (e) {
@@ -635,4 +638,263 @@ async function verseStats(b: any) {
   for (const [no, e] of map) e.participants = seen.get(no)!.size;
   const list = [...map.values()].sort((a, b) => a.no - b.no);
   return { ok: true, list };
+}
+
+// ---------- weeklyReport: 주간 리포트 자동 발송용 요약 + CSV ----------
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function kstDateOnly(d: Date) {
+  const kst = new Date(d.getTime() + 9 * 3600 * 1000);
+  return new Date(Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate()));
+}
+
+function defaultWeeklyRange(now = new Date()) {
+  const today = kstDateOnly(now);
+  const day = today.getUTCDay(); // 0=Sun, 1=Mon
+  const thisMondayOffset = day === 0 ? -6 : 1 - day;
+  const thisMonday = new Date(today.getTime() + thisMondayOffset * DAY_MS);
+  const prevMonday = new Date(thisMonday.getTime() - 7 * DAY_MS);
+  const prevSunday = new Date(thisMonday.getTime() - DAY_MS);
+  return { from: ymd(prevMonday), to: ymd(prevSunday) };
+}
+
+const num = (n: unknown) => Number(n ?? 0).toLocaleString("ko-KR");
+const pct = (n: number, d: number) => d ? `${Math.round((n / d) * 100)}%` : "0%";
+
+function csvCell(v: unknown) {
+  const s = String(v ?? "");
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function csvLine(row: unknown[]) {
+  return row.map(csvCell).join(",");
+}
+
+function verseReportLabel(v: any) {
+  return [v?.ref_short || v?.ref_full || v?.ref || (v?.no ? `No.${v.no}` : ""), v?.sermon_title]
+    .filter(Boolean).join(" · ");
+}
+
+async function verseLabelMap() {
+  const { data, error } = await db.from("verses")
+    .select("no,ref_short,ref_full,ref,sermon_title");
+  if (error) throw error;
+  const map = new Map<number, string>();
+  for (const v of (data ?? []) as any[]) map.set(Number(v.no), verseReportLabel(v));
+  return map;
+}
+
+function buildWeeklyCsv(report: any) {
+  const lines: string[] = [];
+  const add = (row: unknown[] = []) => lines.push(csvLine(row));
+  add(["성경암송 주간 리포트", `${report.from} ~ ${report.to}`]);
+  add();
+  add(["요약"]);
+  add(["신규인원", "학습참여자", "학습횟수", "타이핑", "음성", "도전참여자", "도전횟수", "사용구절"]);
+  add([
+    report.summary.newUsers,
+    report.summary.learners,
+    report.summary.learnTotal,
+    report.summary.learnTyping,
+    report.summary.learnVoice,
+    report.summary.challengeUsers,
+    report.summary.challengeTotal,
+    report.summary.verseCount,
+  ]);
+  add();
+  add(["소속별 사용현황"]);
+  add(["구분", "교구/교회학교", "신규인원", "참여인원", "타이핑횟수", "음성횟수", "총횟수"]);
+  for (const r of report.usage) add([r.gubun, r.sosok, r.newCount, r.participants, r.typing, r.voice, r.total]);
+  add();
+  add(["참여자 TOP 30"]);
+  add(["순위", "구분", "교구/교회학교", "목장/학년", "성명", "타이핑횟수", "음성횟수", "총횟수"]);
+  report.topParticipants.forEach((r: any, i: number) =>
+    add([i + 1, r.gubun, r.sosok, r.sebu, r.name, r.typing, r.voice, r.total]));
+  add();
+  add(["구절별 현황"]);
+  add(["말씀순번", "말씀", "참여자", "참여횟수"]);
+  for (const r of report.verses) add([r.no, r.label, r.participants, r.count]);
+  add();
+  add(["도전 TOP 30"]);
+  add(["순위", "구분", "교구/교회학교", "목장/학년", "성명", "타이핑", "음성", "도전횟수"]);
+  report.topChallenge.forEach((r: any, i: number) =>
+    add([i + 1, r.gubun, r.sosok, r.sebu, r.name, r.typing, r.voice, r.count]));
+  return "\uFEFF" + lines.join("\n");
+}
+
+function buildWeeklyText(report: any) {
+  const s = report.summary;
+  const topGroups = report.usage
+    .slice().sort((a: any, b: any) => b.total - a.total).slice(0, 5)
+    .map((r: any, i: number) => `${i + 1}. ${r.sosok || r.gubun}: ${num(r.total)}회/${num(r.participants)}명`);
+  const topPeople = report.topParticipants.slice(0, 5)
+    .map((r: any, i: number) => `${i + 1}. ${r.name}(${r.sosok || r.gubun}) ${num(r.total)}회`);
+  const topVerses = report.verses.slice().sort((a: any, b: any) => b.count - a.count).slice(0, 5)
+    .map((r: any, i: number) => `${i + 1}. ${r.label || `No.${r.no}`} ${num(r.count)}회`);
+
+  return [
+    `[성경암송 주간 리포트]`,
+    `${report.from} ~ ${report.to}`,
+    "",
+    `신규 ${num(s.newUsers)}명 · 학습참여 ${num(s.learners)}명 · 학습 ${num(s.learnTotal)}회`,
+    `타이핑 ${num(s.learnTyping)}회(${pct(s.learnTyping, s.learnTotal)}) · 음성 ${num(s.learnVoice)}회(${pct(s.learnVoice, s.learnTotal)})`,
+    `도전참여 ${num(s.challengeUsers)}명 · 도전 ${num(s.challengeTotal)}회 · 사용구절 ${num(s.verseCount)}개`,
+    "",
+    "소속 TOP",
+    ...(topGroups.length ? topGroups : ["기록 없음"]),
+    "",
+    "참여자 TOP",
+    ...(topPeople.length ? topPeople : ["기록 없음"]),
+    "",
+    "구절 TOP",
+    ...(topVerses.length ? topVerses : ["기록 없음"]),
+  ].join("\n");
+}
+
+// 토요일 발송 기준: 이번 주 월요일 ~ 오늘(토요일) (KST)
+function currentWeekRange(now = new Date()) {
+  const today = kstDateOnly(now);
+  const day = today.getUTCDay(); // 0=Sun..6=Sat
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  const monday = new Date(today.getTime() + mondayOffset * DAY_MS);
+  return { from: ymd(monday), to: ymd(today) };
+}
+
+function esc(s: unknown) {
+  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// 핵심 요약 HTML 이메일 (KPI + 이번 주 말씀 + 참여자 TOP 10 + 관리자 링크)
+function buildWeeklyHtml(report: any, verse: { ref: string; text: string } | null) {
+  const s = report.summary;
+  const top = report.topParticipants.slice(0, 10);
+  const rows = top.length
+    ? top.map((r: any, i: number) => `
+        <tr>
+          <td style="padding:8px 10px;border-bottom:1px solid #eef1f8;font-weight:700;color:#1a3a6b;width:34px">${i + 1}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #eef1f8">${esc(r.name)} <span style="color:#8a93a5;font-size:12px">${esc(r.sosok || r.gubun || "")}</span></td>
+          <td style="padding:8px 10px;border-bottom:1px solid #eef1f8;text-align:right;font-weight:700">${num(r.total)}회</td>
+        </tr>`).join("")
+    : `<tr><td colspan="3" style="padding:14px;text-align:center;color:#8a93a5">이번 주 기록이 아직 없습니다.</td></tr>`;
+
+  const verseBlock = verse
+    ? `<div style="background:#fdf9ef;border:1px solid #e7d9ad;border-radius:10px;padding:14px 16px;margin:0 0 18px">
+         <div style="font-size:12px;color:#9a7b28;font-weight:700;margin-bottom:5px">이번 주 말씀</div>
+         <div style="color:#20304a;line-height:1.7">${esc(verse.text)}${verse.ref ? ` <b style="color:#1a3a6b">(${esc(verse.ref)})</b>` : ""}</div>
+       </div>` : "";
+
+  const kpi = (label: string, val: string) => `
+    <td style="padding:5px" width="25%">
+      <div style="background:#f4f6fb;border:1px solid #dde3ee;border-radius:10px;padding:12px 4px;text-align:center">
+        <div style="font-size:21px;font-weight:800;color:#1a3a6b">${val}</div>
+        <div style="font-size:11px;color:#5c6a80;margin-top:2px">${label}</div>
+      </div>
+    </td>`;
+
+  return `<div style="background:#eef1f6;padding:22px 12px;font-family:'Noto Sans KR',AppleSDGothicNeo,sans-serif">
+    <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden">
+      <div style="background:#1a3a6b;color:#fff;padding:18px 20px">
+        <div style="font-size:18px;font-weight:800">📖 성경암송 주간 리포트</div>
+        <div style="font-size:12px;opacity:.85;margin-top:3px">${report.from} ~ ${report.to} · 고척교회 제자양육부 신앙운동팀</div>
+      </div>
+      <div style="padding:20px">
+        ${verseBlock}
+        <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:18px"><tr>
+          ${kpi("학습 참여자", num(s.learners) + "명")}
+          ${kpi("학습 활동", num(s.learnTotal) + "회")}
+          ${kpi("도전", num(s.challengeTotal) + "회")}
+          ${kpi("신규", num(s.newUsers) + "명")}
+        </tr></table>
+        <div style="font-size:13px;font-weight:800;color:#1a3a6b;margin:0 0 6px">🔥 참여자 TOP 10</div>
+        <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #eef1f8;border-radius:8px;font-size:14px">
+          ${rows}
+        </table>
+        <div style="text-align:center;margin:22px 0 4px">
+          <a href="https://gocheok.onlybible.kr/admin.html" style="display:inline-block;background:#1a3a6b;color:#fff;text-decoration:none;font-weight:700;padding:11px 22px;border-radius:22px;font-size:14px">📊 관리자 페이지에서 자세히 보기</a>
+        </div>
+      </div>
+      <div style="background:#f4f6fb;color:#8a93a5;font-size:11px;text-align:center;padding:12px">
+        성경암송 앱에서 매주 자동 발송됩니다 · gocheok.onlybible.kr
+      </div>
+    </div>
+  </div>`;
+}
+
+// Resend로 이메일 발송 (RESEND_API_KEY / REPORT_RECIPIENTS / REPORT_FROM 시크릿 필요)
+async function sendEmailResend(subject: string, html: string, text: string) {
+  const key = Deno.env.get("RESEND_API_KEY");
+  const recipients = (Deno.env.get("REPORT_RECIPIENTS") || "").split(",").map((x) => x.trim()).filter(Boolean);
+  const from = Deno.env.get("REPORT_FROM") || "성경암송 리포트 <onboarding@resend.dev>";
+  if (!key) return { ok: false, error: "no-resend-key" };
+  if (!recipients.length) return { ok: false, error: "no-recipients" };
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from, to: recipients, subject, html, text }),
+  });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) return { ok: false, error: `resend:${res.status}`, detail: j };
+  return { ok: true, id: (j as any).id, recipients: recipients.length };
+}
+
+async function weeklyReport(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const range = b.from || b.to ? { from: b.from || "", to: b.to || "" } : currentWeekRange();
+  const q = { ...b, from: range.from, to: range.to };
+
+  const [usageRes, participantsRes, versesRes, challengeRes, labels, verse] = await Promise.all([
+    stats(q),
+    participants(q),
+    verseStats(q),
+    ranking({ from: range.from, to: range.to }),
+    verseLabelMap(),
+    latestVerse(),
+  ]);
+
+  if (!usageRes.ok) return usageRes;
+  if (!participantsRes.ok) return participantsRes;
+  if (!versesRes.ok) return versesRes;
+
+  const usage = usageRes.list ?? [];
+  const participantsList = participantsRes.list ?? [];
+  const verses = (versesRes.list ?? []).map((r: any) => ({
+    ...r,
+    label: labels.get(Number(r.no)) || `No.${r.no}`,
+  }));
+  const challenge = challengeRes.list ?? [];
+
+  const usageTotal = usage.reduce((a: any, r: any) => ({
+    newUsers: a.newUsers + (r.newCount || 0),
+    learners: a.learners + (r.participants || 0),
+    learnTyping: a.learnTyping + (r.typing || 0),
+    learnVoice: a.learnVoice + (r.voice || 0),
+    learnTotal: a.learnTotal + (r.total || 0),
+  }), { newUsers: 0, learners: 0, learnTyping: 0, learnVoice: 0, learnTotal: 0 });
+  const challengeTotal = challenge.reduce((sum: number, r: any) => sum + (r.count || 0), 0);
+
+  const report = {
+    from: range.from,
+    to: range.to,
+    summary: {
+      ...usageTotal,
+      challengeUsers: challenge.length,
+      challengeTotal,
+      verseCount: verses.length,
+    },
+    usage,
+    topParticipants: participantsList.slice().sort((a: any, b: any) => b.total - a.total).slice(0, 30),
+    verses,
+    topChallenge: challenge.slice().sort((a: any, b: any) => b.count - a.count).slice(0, 30),
+  };
+
+  const html = buildWeeklyHtml(report, verse);
+  const text = buildWeeklyText(report);
+  const subject = `📖 성경암송 주간 리포트 (${range.from} ~ ${range.to})`;
+
+  // send=true → 실제 발송(cron·관리자). 아니면 미리보기 데이터 반환.
+  if (b.send) {
+    const sent = await sendEmailResend(subject, html, text);
+    return { ok: sent.ok, sent, range, subject };
+  }
+  return { ok: true, report, html, text, csv: buildWeeklyCsv(report), subject };
 }

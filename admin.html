@@ -330,6 +330,14 @@ function renderMenu(){
         </div>
         <div class="rep-arrow">›</div>
       </div>
+      <div class="rep-card" id="rep-report">
+        <div class="ic">📧</div>
+        <div class="rep-text">
+          <div class="ti">주간 리포트 메일</div>
+          <div class="de">이번 주 요약을 미리보고 이메일로 발송</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
     </div>`;
   document.getElementById("rep-usage").addEventListener("click", renderUsageReport);
   document.getElementById("rep-participants").addEventListener("click", renderParticipants);
@@ -338,6 +346,7 @@ function renderMenu(){
   document.getElementById("rep-push").addEventListener("click", renderPush);
   document.getElementById("rep-content").addEventListener("click", renderContent);
   document.getElementById("rep-monitor").addEventListener("click", renderMonitor);
+  document.getElementById("rep-report").addEventListener("click", renderReportMail);
   loadDashboard();
 }
 
@@ -443,6 +452,54 @@ async function loadMonitor(){
     + rows.map(([k,v])=>`<tr><th style="text-align:left;white-space:nowrap">${k}</th><td>${v}</td></tr>`).join("")
     + `</table></div>` + problemsHtml
     + `<p class="push-hint" style="margin-top:10px">매일 오전 7:05에 자동 점검되며, 문제 발생 시 텔레그램으로 경보가 발송됩니다.</p>`;
+}
+
+// ---------- 주간 리포트 메일 ----------
+function renderReportMail(){
+  app.innerHTML=`
+    <div class="rep-head">
+      <button class="back-btn" id="back">← 메뉴</button>
+      <h2>📧 주간 리포트 메일</h2>
+    </div>
+    <div class="push-card">
+      <p class="push-hint">이번 주(월~오늘) 요약을 미리보고, 등록된 수신자에게 이메일로 보냅니다.<br>매주 <b>토요일 오전 8시</b> 자동 발송됩니다.</p>
+      <button class="push-fill" id="r-preview">🔍 미리보기</button>
+      <button class="push-send" id="r-send">📧 지금 발송</button>
+      <div id="r-result" class="msg"></div>
+      <iframe id="r-frame" style="width:100%;border:1px solid #dde3ee;border-radius:10px;margin-top:12px;min-height:520px;display:none;background:#eef1f6"></iframe>
+    </div>`;
+  document.getElementById("back").addEventListener("click", renderMenu);
+  document.getElementById("r-preview").addEventListener("click", loadReportPreview);
+  document.getElementById("r-send").addEventListener("click", sendReportNow);
+  loadReportPreview();
+}
+async function loadReportPreview(){
+  const r=document.getElementById("r-result");
+  const frame=document.getElementById("r-frame");
+  r.className="msg"; r.textContent="이번 주 리포트를 불러오는 중...";
+  const d=await callApi({action:"weeklyReport",pw:getPw()}).catch(()=>({ok:false,error:"network"}));
+  if(d.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }
+  if(!d.ok){ r.className="msg err"; r.textContent="불러오기 실패: "+(d.error||"오류"); return; }
+  frame.style.display="block"; frame.srcdoc=d.html||"<p>내용 없음</p>";
+  const s=(d.report&&d.report.summary)||{};
+  r.className="msg"; r.innerHTML=`기간 <b>${d.report.from} ~ ${d.report.to}</b> · 학습참여 ${s.learners||0}명 · 학습 ${s.learnTotal||0}회 · 신규 ${s.newUsers||0}명`;
+}
+async function sendReportNow(){
+  const r=document.getElementById("r-result");
+  const confirmPw=prompt("⚠️ 등록된 수신자 전원에게 지금 이메일을 발송합니다.\n확인을 위해 관리자 비밀번호를 다시 입력하세요:");
+  if(confirmPw===null) return;
+  if(confirmPw!==getPw()){ r.className="msg err"; r.textContent="비밀번호가 일치하지 않아 발송을 취소했습니다."; return; }
+  const btn=document.getElementById("r-send"); btn.disabled=true; r.className="msg"; r.textContent="발송 중...";
+  const d=await callApi({action:"weeklyReport",pw:getPw(),send:true}).catch(()=>({ok:false,error:"network"}));
+  btn.disabled=false;
+  if(!d.ok){
+    const err=(d.sent&&d.sent.error)||d.error||"오류";
+    let msg="발송 실패: "+err;
+    if(err==="no-resend-key") msg="발송 실패: RESEND_API_KEY 시크릿이 설정되지 않았습니다.";
+    if(err==="no-recipients") msg="발송 실패: REPORT_RECIPIENTS(수신자) 시크릿이 비어 있습니다.";
+    r.className="msg err"; r.textContent=msg; return;
+  }
+  r.className="msg"; r.innerHTML=`✅ 발송 완료 — 수신자 <b>${(d.sent&&d.sent.recipients)||"?"}</b>명에게 전송했습니다.`;
 }
 
 // ---------- 설교/말씀 관리(CMS) ----------
