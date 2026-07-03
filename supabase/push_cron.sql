@@ -18,7 +18,7 @@ select cron.schedule(
       'pw','Godislove',
       'latest', true,                          -- 본문 = 이번 주 최신 말씀(자동)
       'title','오직 성경, 말씀이 답이다!',       -- 제목 고정
-      'url','https://bit.ly/withbible'
+      'url','https://gocheok.onlybible.kr/'
     )
   );
   $$

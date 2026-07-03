@@ -359,7 +359,7 @@ function renderPush(){
     if(!body){ r.className="msg err"; r.textContent="내용을 입력하세요."; return; }
     btn.disabled=true; r.className="msg"; r.textContent="보내는 중...";
     const data=await callApi({action:"sendPush",pw:getPw(),title,body,
-      url:"https://bit.ly/withbible"}).catch(()=>({ok:false,error:"network"}));
+      url:"https://gocheok.onlybible.kr/"}).catch(()=>({ok:false,error:"network"}));
     btn.disabled=false;
     if(!data.ok){
       if(data.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }

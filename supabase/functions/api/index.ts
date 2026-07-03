@@ -226,7 +226,7 @@ async function testPush(b: any) {
   const payload = JSON.stringify({
     title: "성경암송 — 알림 설정 완료 ✅",
     body: "알림이 정상 작동해요! 매일 오전 7시에 그 주 말씀을 보내드릴게요. 🙌",
-    url: "https://bit.ly/withbible",
+    url: "https://gocheok.onlybible.kr/",
   });
   try {
     await webpush.sendNotification(
@@ -254,7 +254,7 @@ async function sendPush(b: any) {
   const payload = JSON.stringify({
     title: title || "성경말씀 암송",
     body: body || "오늘의 말씀을 암송해요! 🙌",
-    url: b.url || "https://bit.ly/withbible",
+    url: b.url || "https://gocheok.onlybible.kr/",
   });
   let sent = 0, failed = 0;
   for (const s of (subs ?? []) as any[]) {
