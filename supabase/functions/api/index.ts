@@ -750,21 +750,28 @@ function buildWeeklyText(report: any) {
   ].join("\n");
 }
 
-// 토요일 발송 기준: 이번 주 월요일 ~ 오늘(토요일) (KST)
-function currentWeekRange(now = new Date()) {
+// 발송(토요일) 기준: 지난 토요일 ~ 어제(금요일) = 최근 완료된 7일(토~금)
+const WEEKDAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
+function reportWeekRange(now = new Date()) {
   const today = kstDateOnly(now);
-  const day = today.getUTCDay(); // 0=Sun..6=Sat
-  const mondayOffset = day === 0 ? -6 : 1 - day;
-  const monday = new Date(today.getTime() + mondayOffset * DAY_MS);
-  return { from: ymd(monday), to: ymd(today) };
+  const dow = today.getUTCDay(); // 0=Sun..6=Sat
+  const offsetToFri = (dow - 5 + 7) % 7; // 오늘에서 가장 최근 금요일까지 뒤로 며칠
+  const to = new Date(today.getTime() - offsetToFri * DAY_MS);
+  const from = new Date(to.getTime() - 6 * DAY_MS);
+  return { from: ymd(from), to: ymd(to) };
 }
 
 function esc(s: unknown) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-// 핵심 요약 HTML 이메일 (KPI + 이번 주 말씀 + 참여자 TOP 10 + 관리자 링크)
-function buildWeeklyHtml(report: any, verse: { ref: string; text: string } | null) {
+// 핵심 요약 HTML 이메일 (KPI + 말씀 + 일자별/주차별 그래프 + 참여자 TOP 10 + 관리자 링크)
+function buildWeeklyHtml(
+  report: any,
+  verse: { ref: string; text: string } | null,
+  daily: { date: string; count: number }[],
+  weekly: { from: string; to: string; count: number }[],
+) {
   const s = report.summary;
   const top = report.topParticipants.slice(0, 10);
   const rows = top.length
@@ -775,6 +782,35 @@ function buildWeeklyHtml(report: any, verse: { ref: string; text: string } | nul
           <td style="padding:8px 10px;border-bottom:1px solid #eef1f8;text-align:right;font-weight:700">${num(r.total)}회</td>
         </tr>`).join("")
     : `<tr><td colspan="3" style="padding:14px;text-align:center;color:#8a93a5">이번 주 기록이 아직 없습니다.</td></tr>`;
+
+  // 가로 막대그래프(이메일 안전: table 배경색 셀)
+  const barRows = (items: { label: string; count: number }[], color: string) => {
+    const max = Math.max(1, ...items.map((x) => x.count));
+    return items.map((x) => {
+      const w = Math.round((x.count / max) * 100);
+      const bar = w > 0
+        ? `<td width="${w}%" style="background:${color};height:15px;border-radius:8px;font-size:0;line-height:15px">&nbsp;</td><td style="font-size:0;line-height:15px"></td>`
+        : `<td style="font-size:0;line-height:15px"></td>`;
+      return `<tr>
+        <td style="padding:3px 8px 3px 0;font-size:12px;color:#5c6a80;white-space:nowrap;width:84px">${esc(x.label)}</td>
+        <td style="padding:3px 0">
+          <table cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse"><tr>${bar}</tr></table>
+        </td>
+        <td style="padding:3px 0 3px 8px;font-size:13px;font-weight:700;color:#20304a;text-align:right;width:32px">${num(x.count)}</td>
+      </tr>`;
+    }).join("");
+  };
+  const chart = (title: string, rowsHtml: string) =>
+    `<div style="font-size:13px;font-weight:800;color:#1a3a6b;margin:0 0 8px">${title}</div>
+     <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:22px">${rowsHtml}</table>`;
+
+  const dLabel = (dstr: string) => {
+    const d = new Date(dstr + "T00:00:00Z");
+    return `${WEEKDAY_KO[d.getUTCDay()]} ${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
+  };
+  const md = (dstr: string) => { const d = new Date(dstr + "T00:00:00Z"); return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`; };
+  const dailyRows = barRows(daily.map((x) => ({ label: dLabel(x.date), count: x.count })), "#2f6b8f");
+  const weeklyRows = barRows(weekly.map((x) => ({ label: `${md(x.from)}~${md(x.to)}`, count: x.count })), "#c8a24b");
 
   const verseBlock = verse
     ? `<div style="background:#fdf9ef;border:1px solid #e7d9ad;border-radius:10px;padding:14px 16px;margin:0 0 18px">
@@ -798,12 +834,14 @@ function buildWeeklyHtml(report: any, verse: { ref: string; text: string } | nul
       </div>
       <div style="padding:20px">
         ${verseBlock}
-        <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:18px"><tr>
+        <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:22px"><tr>
           ${kpi("학습 참여자", num(s.learners) + "명")}
           ${kpi("학습 활동", num(s.learnTotal) + "회")}
           ${kpi("도전", num(s.challengeTotal) + "회")}
           ${kpi("신규", num(s.newUsers) + "명")}
         </tr></table>
+        ${chart("📅 일자별 참여 인원", dailyRows)}
+        ${chart("📈 주차별 참여 추이 (최근 8주)", weeklyRows)}
         <div style="font-size:13px;font-weight:800;color:#1a3a6b;margin:0 0 6px">🔥 참여자 TOP 10</div>
         <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #eef1f8;border-radius:8px;font-size:14px">
           ${rows}
@@ -838,7 +876,7 @@ async function sendEmailResend(subject: string, html: string, text: string) {
 
 async function weeklyReport(b: any) {
   const err = adminError(b); if (err) return { ok: false, error: err };
-  const range = b.from || b.to ? { from: b.from || "", to: b.to || "" } : currentWeekRange();
+  const range = b.from || b.to ? { from: b.from || "", to: b.to || "" } : reportWeekRange();
   const q = { ...b, from: range.from, to: range.to };
 
   const [usageRes, participantsRes, versesRes, challengeRes, labels, verse] = await Promise.all([
@@ -891,7 +929,31 @@ async function weeklyReport(b: any) {
     topChallenge: sortedChallenge.slice(0, 30),
   };
 
-  const html = buildWeeklyHtml(report, verse);
+  // 일자별/주차별 참여 인원 (최근 8주 활동을 1회 조회 후 버킷팅)
+  const WEEKS = 8;
+  const satMs = Date.parse(range.from + "T00:00:00Z");
+  const weekStart0 = new Date(satMs - (WEEKS - 1) * 7 * DAY_MS);
+  const { data: acts } = await db.from("challenge_log")
+    .select("user_id, created_at")
+    .gte("created_at", `${ymd(weekStart0)}T00:00:00${KST}`)
+    .lte("created_at", `${range.to}T23:59:59${KST}`);
+  const weekBuckets = Array.from({ length: WEEKS }, (_, w) => {
+    const ws = new Date(satMs - (WEEKS - 1 - w) * 7 * DAY_MS);
+    return { from: ymd(ws), to: ymd(new Date(ws.getTime() + 6 * DAY_MS)), set: new Set<string>() };
+  });
+  const dayBuckets = Array.from({ length: 7 }, (_, d) => ({
+    date: ymd(new Date(satMs + d * DAY_MS)), set: new Set<string>(),
+  }));
+  for (const r of (acts ?? []) as any[]) {
+    const d = kstDay(r.created_at);
+    for (const wk of weekBuckets) { if (d >= wk.from && d <= wk.to) { wk.set.add(r.user_id); break; } }
+    const db2 = dayBuckets.find((x) => x.date === d);
+    if (db2) db2.set.add(r.user_id);
+  }
+  const daily = dayBuckets.map((x) => ({ date: x.date, count: x.set.size }));
+  const weekly = weekBuckets.map((x) => ({ from: x.from, to: x.to, count: x.set.size }));
+
+  const html = buildWeeklyHtml(report, verse, daily, weekly);
   const text = buildWeeklyText(report);
   const subject = `📖 성경암송 주간 리포트 (${range.from} ~ ${range.to})`;
 
