@@ -982,12 +982,12 @@ function renderTestScreen(verse, stage) {
           </div>
           <button class="back-btn" id="back-to-list-btn">← 목록</button>
         </div>
-        <div class="test-sentence">${wordsHtml}</div>
         <div class="btn-row">
           <button class="answer-btn" id="show-answer-btn">보기</button>
           <button class="answer-btn" id="listen-answer-btn" aria-label="정답 음성으로 듣기">🔊 듣기</button>
           <button class="voice-btn" id="voice-toggle">🎤 암송시작</button>
         </div>
+        <div class="test-sentence">${wordsHtml}</div>
         <div id="result-area"></div>
         <div id="answer-panel" class="answer-panel" hidden>
           <div class="answer-title">정답</div>
@@ -1856,13 +1856,13 @@ function renderChallenge(verse) {
           <button class="back-btn" id="ch-exit">← 뒤로</button>
         </div>
         <div class="challenge-hint-line">출처만 보고 전체를 외워보세요!</div>
-        <div class="test-sentence">${wordsHtml}</div>
-        <div class="challenge-remain" id="ch-remain"></div>
         <div class="btn-row" style="flex-wrap:wrap;">
           <button class="answer-btn" id="hint-btn">💡 힌트</button>
           <button class="answer-btn" id="ch-shuffle">🔀 다른말씀</button>
           <button class="voice-btn" id="voice-toggle">🎤 암송시작</button>
         </div>
+        <div class="test-sentence">${wordsHtml}</div>
+        <div class="challenge-remain" id="ch-remain"></div>
         <div id="result-area"></div>
         <div id="voice-panel" class="voice-panel" hidden>
           <div class="voice-status" id="voice-status">🎙️ 듣고 있어요… <b>‘암송 종료’</b>를 누를 때까지 계속 들어요</div>
@@ -1912,13 +1912,13 @@ function renderReview(queue, idx) {
           <button class="back-btn" id="rv-exit">← 뒤로</button>
         </div>
         <div class="challenge-hint-line">복습 ${idx + 1} / ${queue.length} · 다시 외워볼까요?</div>
-        <div class="test-sentence">${wordsHtml}</div>
-        <div class="challenge-remain" id="ch-remain"></div>
         <div class="btn-row">
           <button class="answer-btn" id="show-answer-btn">보기</button>
           <button class="answer-btn" id="listen-answer-btn" aria-label="정답 음성으로 듣기">🔊 듣기</button>
           <button class="voice-btn" id="voice-toggle">🎤 암송시작</button>
         </div>
+        <div class="test-sentence">${wordsHtml}</div>
+        <div class="challenge-remain" id="ch-remain"></div>
         <div id="result-area"></div>
         <div id="answer-panel" class="answer-panel" hidden>
           <div class="answer-title">정답</div>
