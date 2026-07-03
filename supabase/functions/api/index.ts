@@ -78,6 +78,8 @@ Deno.serve(async (req) => {
       case "removePush":    return json(await removePush(body));
       case "testPush":      return json(await testPush(body));
       case "sendPush":      return json(await sendPush(body));
+      // ---- 장애 모니터링 ----
+      case "monitor":       return json(await monitor(body));
       default:              return json({ error: `unknown action: ${body.action}` }, 400);
     }
   } catch (e) {
@@ -270,7 +272,72 @@ async function sendPush(b: any) {
       if (code === 404 || code === 410) await db.from("push_subscriptions").delete().eq("id", s.id);
     }
   }
-  return { ok: true, sent, failed, total: (subs ?? []).length };
+  const total = (subs ?? []).length;
+  // 장애 모니터링용 발송 로그 기록(실패해도 발송 결과에는 영향 없음)
+  try {
+    await db.from("push_log").insert({
+      mode: b.mode || (b.latest ? "daily" : "manual"),
+      title: title || "성경말씀 암송",
+      sent, failed, total, ok: sent > 0,
+    });
+  } catch (_) { /* 로그 실패 무시 */ }
+  return { ok: true, sent, failed, total };
+}
+
+// ---------- monitor: 백엔드/발송/데이터 상태 종합 점검 (ADMIN_SECRET 보호) ----------
+// GitHub Action(매일 7:05)과 관리자 대시보드가 호출. 문제 있으면 problems 배열로 반환.
+async function monitor(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const problems: string[] = [];
+
+  // KST 기준 오늘 0시(UTC 환산)
+  const now = new Date();
+  const kstNow = new Date(now.getTime() + 9 * 3600 * 1000);
+  const y = kstNow.getUTCFullYear(), mo = kstNow.getUTCMonth(), d = kstNow.getUTCDate();
+  const kstMidnightUtc = new Date(Date.UTC(y, mo, d) - 9 * 3600 * 1000);
+  const kstHM = kstNow.getUTCHours() * 60 + kstNow.getUTCMinutes();
+
+  // 1) 구독자 수 (DB 연결 확인 겸용)
+  const { count: subCount, error: subErr } =
+    await db.from("push_subscriptions").select("*", { count: "exact", head: true });
+  if (subErr) throw subErr; // DB 오류 → 500 → Action이 '백엔드 이상'으로 감지
+  const subscribers = subCount ?? 0;
+  if (subscribers === 0) problems.push("구독자 0명 — 알림 받을 사람이 없습니다");
+
+  // 2) 이번 주(최신, 오늘 이하) 말씀 신선도
+  let latestVerseDate: string | null = null;
+  const { data: vs } = await db.from("verses").select("date").eq("is_active", true);
+  const ts = (vs ?? []).map((v: any) => v.date).filter(Boolean)
+    .map((s: string) => Date.parse(s)).filter((t: number) => t <= now.getTime())
+    .sort((a: number, b: number) => b - a);
+  if (ts.length) {
+    latestVerseDate = new Date(ts[0]).toISOString().slice(0, 10);
+    const ageDays = Math.floor((now.getTime() - ts[0]) / 86400000);
+    if (ageDays > 14) problems.push(`최신 말씀이 ${ageDays}일 지났습니다 — CMS 업데이트 필요?`);
+  } else {
+    problems.push("표시할 이번 주 말씀이 없습니다");
+  }
+
+  // 3) 오늘 정기 알림 발송 여부 (07:08 이후에만 미발송 판정)
+  const { data: pl } = await db.from("push_log")
+    .select("sent,failed,total,sent_at").eq("mode", "daily")
+    .gte("sent_at", kstMidnightUtc.toISOString())
+    .order("sent_at", { ascending: false }).limit(1);
+  const todayPush = (pl && pl[0]) || null;
+  if (kstHM >= 7 * 60 + 8) { // 오전 7시 8분 이후
+    if (!todayPush) problems.push("오늘 아침 정기 알림이 발송되지 않았습니다");
+    else if ((todayPush.sent ?? 0) === 0) problems.push(`오늘 알림 발송 0건 (실패 ${todayPush.failed ?? 0}건)`);
+  }
+
+  return {
+    ok: problems.length === 0,
+    serverTimeKST: kstNow.toISOString().replace("T", " ").slice(0, 16) + " KST",
+    db: "up",
+    subscribers,
+    latestVerseDate,
+    todayPush,
+    problems,
+  };
 }
 
 // ---------- getVerses: 앱 표시용 말씀 목록(verses.json과 동일 형태) ----------

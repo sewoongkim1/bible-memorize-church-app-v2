@@ -1,0 +1,62 @@
+name: 장애 모니터 (매일 아침 점검 + 텔레그램 경보)
+
+on:
+  schedule:
+    - cron: '5 22 * * *'   # 매일 22:05 UTC = 07:05 KST (정기 발송 7:00 직후 점검)
+  workflow_dispatch:        # 수동 실행(테스트)용
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 백엔드 상태 점검 + 문제 시 텔레그램 경보
+        env:
+          API_URL: https://xnomlgydifiqiybervtf.supabase.co/functions/v1/api
+          ANON: sb_publishable_oLtieT_jw7Gjb8etEsy0jw_thBaDjl-
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+          TG_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          set -uo pipefail
+
+          # 0) 아직 설정(시크릿) 전이면 조용히 스킵 (실패 알림 방지)
+          if [ -z "${ADMIN_SECRET:-}" ] || [ -z "${TG_TOKEN:-}" ] || [ -z "${TG_CHAT:-}" ]; then
+            echo "⏭️  시크릿(ADMIN_SECRET/TELEGRAM_TOKEN/TELEGRAM_CHAT_ID) 미설정 — 점검 건너뜀"
+            exit 0
+          fi
+
+          # 1) monitor 엔드포인트 호출 (백엔드/DB/발송/데이터 종합 점검)
+          resp=$(curl -s -m 30 -w $'\n%{http_code}' -X POST "$API_URL" \
+            -H "Content-Type: application/json" \
+            -H "apikey: $ANON" -H "Authorization: Bearer $ANON" \
+            -d "{\"action\":\"monitor\",\"pw\":\"$ADMIN_SECRET\"}")
+          code=$(printf '%s' "$resp" | tail -n1)
+          json=$(printf '%s' "$resp" | sed '$d')
+
+          # 2) 경보 문구 결정
+          alert=""
+          if [ "$code" != "200" ]; then
+            alert="🔴 백엔드 응답 이상 (HTTP ${code:-timeout})"$'\n'"— Edge Function / Supabase 확인 필요"
+          else
+            ok=$(printf '%s' "$json" | jq -r '.ok // false')
+            if [ "$ok" != "true" ]; then
+              probs=$(printf '%s' "$json" | jq -r '.problems[]? | "• " + .')
+              alert="🔴 장애 감지"$'\n'"$probs"
+            fi
+          fi
+
+          # 3) 문제 있으면 텔레그램 발송, 없으면 정상 종료
+          if [ -n "$alert" ]; then
+            nowkst=$(date -u -d '+9 hours' '+%m-%d %H:%M')
+            text="[성경암송 모니터] ${nowkst} KST"$'\n'"$alert"
+            if [ -n "${TG_TOKEN:-}" ] && [ -n "${TG_CHAT:-}" ]; then
+              curl -s -m 20 "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
+                --data-urlencode "chat_id=${TG_CHAT}" \
+                --data-urlencode "text=${text}" >/dev/null || true
+            fi
+            echo "::error::$alert"
+            echo "$json"
+            exit 1
+          fi
+
+          echo "✅ 정상: $json"

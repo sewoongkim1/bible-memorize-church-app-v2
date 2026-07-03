@@ -322,6 +322,14 @@ function renderMenu(){
         </div>
         <div class="rep-arrow">›</div>
       </div>
+      <div class="rep-card" id="rep-monitor">
+        <div class="ic">🩺</div>
+        <div class="rep-text">
+          <div class="ti">시스템 상태</div>
+          <div class="de">백엔드·알림 발송·데이터 상태 점검</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
     </div>`;
   document.getElementById("rep-usage").addEventListener("click", renderUsageReport);
   document.getElementById("rep-participants").addEventListener("click", renderParticipants);
@@ -329,6 +337,7 @@ function renderMenu(){
   document.getElementById("rep-challenge").addEventListener("click", renderChallengeReport);
   document.getElementById("rep-push").addEventListener("click", renderPush);
   document.getElementById("rep-content").addEventListener("click", renderContent);
+  document.getElementById("rep-monitor").addEventListener("click", renderMonitor);
   loadDashboard();
 }
 
@@ -388,6 +397,52 @@ async function fillLatestVerse(){
     document.getElementById("p-body").value=ref?`${text} (${ref})`:text;
     if(r){ r.className="msg"; r.textContent="이번 주 말씀을 채웠습니다. 확인 후 보내세요."; }
   }catch(e){ if(r){r.className="msg err";r.textContent="불러오기 실패: "+(e&&e.message?e.message:e);} }
+}
+
+// ---------- 시스템 상태(장애 모니터링) ----------
+async function renderMonitor(){
+  app.innerHTML=`
+    <div class="rep-head">
+      <button class="back-btn" id="back">← 메뉴</button>
+      <h2>🩺 시스템 상태</h2>
+    </div>
+    <div class="push-card">
+      <button class="push-fill" id="m-refresh">🔄 다시 점검</button>
+      <div id="m-body"><p class="push-hint">점검 중...</p></div>
+    </div>`;
+  document.getElementById("back").addEventListener("click", renderMenu);
+  document.getElementById("m-refresh").addEventListener("click", loadMonitor);
+  loadMonitor();
+}
+async function loadMonitor(){
+  const el=document.getElementById("m-body");
+  el.innerHTML=`<p class="push-hint">점검 중...</p>`;
+  const d=await callApi({action:"monitor",pw:getPw()}).catch(()=>({ok:false,error:"network"}));
+  if(d.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }
+  if(d.error){ el.innerHTML=`<div class="msg err">점검 실패: ${htmlEsc(d.error)}<br><small>백엔드(Edge/Supabase) 응답 이상일 수 있어요.</small></div>`; return; }
+  const okBadge = d.ok
+    ? `<div class="msg" style="font-size:1.1em"><b>✅ 정상</b> — 모든 항목 이상 없음</div>`
+    : `<div class="msg err" style="font-size:1.1em"><b>⚠️ 점검 필요</b> — 아래 문제를 확인하세요</div>`;
+  const tp=d.todayPush;
+  const pushLine = tp
+    ? `성공 <b>${tp.sent}</b> · 실패 ${tp.failed} · 대상 ${tp.total}명`
+    : `<span style="color:#c0392b">오늘 발송 기록 없음</span>`;
+  const rows=[
+    ["서버 시각", htmlEsc(d.serverTimeKST||"-")],
+    ["백엔드/DB", d.db==="up"?"🟢 정상":"🔴 이상"],
+    ["알림 구독자", `${d.subscribers}명`],
+    ["최신 말씀 날짜", htmlEsc(d.latestVerseDate||"없음")],
+    ["오늘 아침 알림", pushLine],
+  ];
+  const problemsHtml = (d.problems&&d.problems.length)
+    ? `<div class="dash-panel" style="margin-top:12px"><div class="h" style="color:#c0392b">감지된 문제</div>`
+      + d.problems.map(p=>`<div class="dash-item">⚠️ ${htmlEsc(p)}</div>`).join("")+`</div>`
+    : "";
+  el.innerHTML = okBadge
+    + `<div class="table-wrap" style="margin-top:8px"><table>`
+    + rows.map(([k,v])=>`<tr><th style="text-align:left;white-space:nowrap">${k}</th><td>${v}</td></tr>`).join("")
+    + `</table></div>` + problemsHtml
+    + `<p class="push-hint" style="margin-top:10px">매일 오전 7:05에 자동 점검되며, 문제 발생 시 텔레그램으로 경보가 발송됩니다.</p>`;
 }
 
 // ---------- 설교/말씀 관리(CMS) ----------
