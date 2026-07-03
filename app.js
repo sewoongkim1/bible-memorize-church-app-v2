@@ -975,17 +975,17 @@ function renderTestScreen(verse, stage) {
   appEl.innerHTML = `
     <div class="test-screen">
       <div class="test-card">
+        <div class="btn-row">
+          <button class="answer-btn" id="show-answer-btn">보기</button>
+          <button class="answer-btn" id="listen-answer-btn" aria-label="정답 음성으로 듣기">🔊 듣기</button>
+          <button class="voice-btn" id="voice-toggle">🎤 암송시작</button>
+        </div>
         <div class="test-top">
           <div class="test-head">
             <div class="test-stage">${stage}단계</div>
             <div class="test-ref">${verse.refShort}</div>
           </div>
           <button class="back-btn" id="back-to-list-btn">← 목록</button>
-        </div>
-        <div class="btn-row">
-          <button class="answer-btn" id="show-answer-btn">보기</button>
-          <button class="answer-btn" id="listen-answer-btn" aria-label="정답 음성으로 듣기">🔊 듣기</button>
-          <button class="voice-btn" id="voice-toggle">🎤 암송시작</button>
         </div>
         <div class="test-sentence">${wordsHtml}</div>
         <div id="result-area"></div>
@@ -1848,6 +1848,11 @@ function renderChallenge(verse) {
   appEl.innerHTML = `
     <div class="test-screen">
       <div class="test-card">
+        <div class="btn-row" style="flex-wrap:wrap;">
+          <button class="answer-btn" id="hint-btn">💡 힌트</button>
+          <button class="answer-btn" id="ch-shuffle">🔀 다른말씀</button>
+          <button class="voice-btn" id="voice-toggle">🎤 암송시작</button>
+        </div>
         <div class="test-top">
           <div class="test-head">
             <div class="test-stage challenge-badge">🔥 도전</div>
@@ -1856,11 +1861,6 @@ function renderChallenge(verse) {
           <button class="back-btn" id="ch-exit">← 뒤로</button>
         </div>
         <div class="challenge-hint-line">출처만 보고 전체를 외워보세요!</div>
-        <div class="btn-row" style="flex-wrap:wrap;">
-          <button class="answer-btn" id="hint-btn">💡 힌트</button>
-          <button class="answer-btn" id="ch-shuffle">🔀 다른말씀</button>
-          <button class="voice-btn" id="voice-toggle">🎤 암송시작</button>
-        </div>
         <div class="test-sentence">${wordsHtml}</div>
         <div class="challenge-remain" id="ch-remain"></div>
         <div id="result-area"></div>
@@ -1904,6 +1904,11 @@ function renderReview(queue, idx) {
   appEl.innerHTML = `
     <div class="test-screen">
       <div class="test-card">
+        <div class="btn-row">
+          <button class="answer-btn" id="show-answer-btn">보기</button>
+          <button class="answer-btn" id="listen-answer-btn" aria-label="정답 음성으로 듣기">🔊 듣기</button>
+          <button class="voice-btn" id="voice-toggle">🎤 암송시작</button>
+        </div>
         <div class="test-top">
           <div class="test-head">
             <div class="test-stage review-badge">📖 복습</div>
@@ -1912,11 +1917,6 @@ function renderReview(queue, idx) {
           <button class="back-btn" id="rv-exit">← 뒤로</button>
         </div>
         <div class="challenge-hint-line">복습 ${idx + 1} / ${queue.length} · 다시 외워볼까요?</div>
-        <div class="btn-row">
-          <button class="answer-btn" id="show-answer-btn">보기</button>
-          <button class="answer-btn" id="listen-answer-btn" aria-label="정답 음성으로 듣기">🔊 듣기</button>
-          <button class="voice-btn" id="voice-toggle">🎤 암송시작</button>
-        </div>
         <div class="test-sentence">${wordsHtml}</div>
         <div class="challenge-remain" id="ch-remain"></div>
         <div id="result-area"></div>
