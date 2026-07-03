@@ -67,7 +67,6 @@ Deno.serve(async (req) => {
       case "stats":         return json(await stats(body));
       case "participants":  return json(await participants(body));
       case "verses":        return json(await verseStats(body));
-      case "weeklyReport":  return json(await weeklyReport(body));
       // ---- 말씀/설교 관리(CMS) ----
       case "getVerses":     return json(await getVerses());
       case "saveVerse":     return json(await saveVerse(body));
@@ -706,18 +705,18 @@ function buildWeeklyCsv(report: any) {
   add(["구분", "교구/교회학교", "신규인원", "참여인원", "타이핑횟수", "음성횟수", "총횟수"]);
   for (const r of report.usage) add([r.gubun, r.sosok, r.newCount, r.participants, r.typing, r.voice, r.total]);
   add();
-  add(["참여자 TOP 30"]);
+  add(["참여자 전체"]);
   add(["순위", "구분", "교구/교회학교", "목장/학년", "성명", "타이핑횟수", "음성횟수", "총횟수"]);
-  report.topParticipants.forEach((r: any, i: number) =>
+  report.participants.forEach((r: any, i: number) =>
     add([i + 1, r.gubun, r.sosok, r.sebu, r.name, r.typing, r.voice, r.total]));
   add();
   add(["구절별 현황"]);
   add(["말씀순번", "말씀", "참여자", "참여횟수"]);
   for (const r of report.verses) add([r.no, r.label, r.participants, r.count]);
   add();
-  add(["도전 TOP 30"]);
+  add(["도전 전체"]);
   add(["순위", "구분", "교구/교회학교", "목장/학년", "성명", "타이핑", "음성", "도전횟수"]);
-  report.topChallenge.forEach((r: any, i: number) =>
+  report.challenge.forEach((r: any, i: number) =>
     add([i + 1, r.gubun, r.sosok, r.sebu, r.name, r.typing, r.voice, r.count]));
   return "\uFEFF" + lines.join("\n");
 }
@@ -872,6 +871,9 @@ async function weeklyReport(b: any) {
   }), { newUsers: 0, learners: 0, learnTyping: 0, learnVoice: 0, learnTotal: 0 });
   const challengeTotal = challenge.reduce((sum: number, r: any) => sum + (r.count || 0), 0);
 
+  const sortedParticipants = participantsList.slice().sort((a: any, b: any) => b.total - a.total);
+  const sortedChallenge = challenge.slice().sort((a: any, b: any) => b.count - a.count);
+
   const report = {
     from: range.from,
     to: range.to,
@@ -882,9 +884,11 @@ async function weeklyReport(b: any) {
       verseCount: verses.length,
     },
     usage,
-    topParticipants: participantsList.slice().sort((a: any, b: any) => b.total - a.total).slice(0, 30),
+    participants: sortedParticipants,
+    topParticipants: sortedParticipants.slice(0, 30),
     verses,
-    topChallenge: challenge.slice().sort((a: any, b: any) => b.count - a.count).slice(0, 30),
+    challenge: sortedChallenge,
+    topChallenge: sortedChallenge.slice(0, 30),
   };
 
   const html = buildWeeklyHtml(report, verse);
