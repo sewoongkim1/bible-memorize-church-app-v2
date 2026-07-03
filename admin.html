@@ -369,18 +369,23 @@ function renderPush(){
   });
 }
 
-// verses.json에서 '이번 주(오늘 기준 최신) 말씀'을 읽어 제목/내용 입력창에 채움
+// '이번 주(오늘 기준 최신) 말씀'을 읽어 제목/내용 입력창에 채움
+// 제목: "성경암송" 고정 / 내용: 말씀 본문 + " (요절)"
 async function fillLatestVerse(){
   const r=document.getElementById("p-result");
   try{
-    const res=await fetch("verses.json",{cache:"no-store"});
-    const d=await res.json();
-    const list=(d.verses||[]).filter(v=>v.date).map(v=>({v,t:Date.parse(v.date)})).sort((a,b)=>a.t-b.t);
+    // 데이터는 CMS 단일 소스(DB=getVerses) 우선, 없으면 verses.json 폴백
+    let verses=null;
+    try{ const d=await callApi({action:"getVerses"}); if(d&&d.ok) verses=d.verses; }catch{}
+    if(!verses||!verses.length){ const res=await fetch("verses.json",{cache:"no-store"}); verses=((await res.json()).verses)||[]; }
+    const list=verses.filter(v=>v.date).map(v=>({v,t:Date.parse(v.date)})).sort((a,b)=>a.t-b.t);
     if(!list.length){ if(r){r.className="msg err";r.textContent="말씀 데이터를 찾지 못했습니다.";} return; }
     const now=Date.now(); let cur=list[0];
     for(const x of list){ if(x.t<=now) cur=x; else break; }
-    document.getElementById("p-title").value=cur.v.refShort||cur.v.refFull||"";
-    document.getElementById("p-body").value=cur.v.text||"";
+    const ref=cur.v.refShort||cur.v.refFull||"";
+    const text=cur.v.text||"";
+    document.getElementById("p-title").value="성경암송";
+    document.getElementById("p-body").value=ref?`${text} (${ref})`:text;
     if(r){ r.className="msg"; r.textContent="이번 주 말씀을 채웠습니다. 확인 후 보내세요."; }
   }catch(e){ if(r){r.className="msg err";r.textContent="불러오기 실패: "+(e&&e.message?e.message:e);} }
 }
