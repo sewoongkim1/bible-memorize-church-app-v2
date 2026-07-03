@@ -1486,3 +1486,33 @@ html[data-fs="xl"] h1, html[data-fs="xl"] .page-title { font-size: 17px; }
 /* 글씨 크게 모드에서는 듣기 버튼도 더 크게 */
 html[data-fs="lg"] .card-listen { width: 48px; height: 48px; font-size: 24px; }
 html[data-fs="xl"] .card-listen { width: 54px; height: 54px; font-size: 27px; }
+
+/* =====================================================================
+   암송 화면 상단 액션 바 정돈 (버튼이 문장·단계 표시 위로 올라간 뒤 여백/간격)
+   ===================================================================== */
+.test-screen { margin-top: 6px; }
+
+/* 상단 버튼 줄: 넉넉한 간격 + 줄바꿈 여유 + 아래 구분선으로 분리 */
+.test-card .btn-row {
+  gap: 8px;
+  flex-wrap: wrap;
+  row-gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+/* 버튼 세로 높이·모서리 통일감(디자인 정돈) */
+.test-card .btn-row .answer-btn,
+.test-card .btn-row .voice-btn,
+.test-card .btn-row .voice-stop {
+  padding-top: 9px;
+  padding-bottom: 9px;
+  border-radius: 22px;
+}
+/* 단계 표시 줄과 위 버튼 바 사이 살짝 숨 쉴 공간 */
+.test-card .test-top { margin-top: 2px; }
+.dark .test-card .btn-row { border-bottom-color: rgba(255,255,255,0.12); }
+
+/* 글씨 크게 모드: 상단 바 간격도 함께 넉넉히 */
+html[data-fs="lg"] .test-card .btn-row,
+html[data-fs="xl"] .test-card .btn-row { row-gap: 10px; margin-bottom: 18px; padding-bottom: 16px; }
