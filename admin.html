@@ -828,21 +828,15 @@ let VERSE_MAP=null;
 async function loadVerseMap(){
   if(VERSE_MAP) return VERSE_MAP;
   VERSE_MAP={};
-  const urls=[
-    "verses.json?v="+Date.now(),
-    "https://sewoongkim1.github.io/bible-memorize-church-app/verses.json?v="+Date.now()
-  ];
-  for(const url of urls){
-    try{
-      const res=await fetch(url,{cache:"no-cache"});
-      if(!res.ok) throw new Error("HTTP "+res.status);
-      const d=await res.json();
-      (d.verses||[]).forEach(v=>{
-        const label=[v.refShort||v.refFull||("No."+v.no), v.sermonTitle].filter(Boolean).join(" · ");
-        VERSE_MAP[String(Number(v.no))]=label;
-      });
-      if(Object.keys(VERSE_MAP).length) break;
-    }catch{ /* 다음 경로로 재시도 */ }
+  const build=(arr)=>{(arr||[]).forEach(v=>{
+    const label=[v.refShort||v.refFull||("No."+v.no), v.sermonTitle].filter(Boolean).join(" · ");
+    VERSE_MAP[String(Number(v.no))]=label;
+  });};
+  // 1) DB(getVerses) 우선 — CMS 편집 반영
+  try{ const d=await callApi({action:"getVerses"}); if(d&&d.ok) build(d.verses); }catch{}
+  // 2) 폴백: 같은 도메인의 verses.json
+  if(!Object.keys(VERSE_MAP).length){
+    try{ const res=await fetch("verses.json?v="+Date.now(),{cache:"no-cache"}); build((await res.json()).verses); }catch{}
   }
   return VERSE_MAP;
 }
