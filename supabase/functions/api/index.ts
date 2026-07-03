@@ -245,7 +245,10 @@ async function sendPush(b: any) {
   let title = b.title, body = b.body;
   if (b.latest) {
     const v = await latestVerse();
-    if (v) { if (!title) title = v.ref; body = v.text; } // 제목 주면 유지, 본문은 이번 주 말씀
+    if (v) { // 제목 기본값은 표어(서버 소스=UTF-8), 본문 = 이번 주 말씀 + 요절
+      if (!title) title = "오직 성경, 말씀이 답이다!";
+      body = v.ref ? `${v.text} (${v.ref})` : v.text;
+    }
   }
   const { data: subs } = await db.from("push_subscriptions").select("id,endpoint,p256dh,auth");
   const payload = JSON.stringify({
@@ -316,7 +319,7 @@ async function saveVerse(b: any) {
 // ---------- seedVerses: verses.json → DB 일괄 적재(초기 1회, ADMIN_SECRET) ----------
 async function seedVerses(b: any) {
   const err = adminError(b); if (err) return { ok: false, error: err };
-  const res = await fetch("https://sewoongkim1.github.io/bible-memorize-church-app-v2/verses.json", { cache: "no-store" });
+  const res = await fetch("https://gocheok.onlybible.kr/verses.json", { cache: "no-store" });
   const d = await res.json();
   const rows = (d.verses ?? []).map((v: any) => ({
     no: v.no, week: v.no, date: v.date || null,

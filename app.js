@@ -1454,7 +1454,7 @@ function checkAllComplete(inputs, verse, stage) {
 // 공유하기 — Web Share API(모바일) 우선, 미지원 시 URL 복사
 // ------------------------------------------------------------
 function shareApp() {
-  const shareUrl = "https://sewoongkim1.github.io/bible-memorize-church-app-v2/";
+  const shareUrl = "https://gocheok.onlybible.kr/";
   const shareTitle = "[고척교회]  오직 성경, 말씀이 답이다!";
   const shareText = "성경 말씀암송 앱입니다. 함께 말씀을 암송해요!";
 
