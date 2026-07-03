@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '5 22 * * *'   # 매일 22:05 UTC = 07:05 KST (정기 발송 7:00 직후 점검)
   workflow_dispatch:        # 수동 실행(테스트)용
+    inputs:
+      force_alert:
+        description: '경보 채널 테스트(텔레그램으로 샘플 경보 발송)'
+        type: boolean
+        default: false
 
 jobs:
   monitor:
@@ -16,6 +21,7 @@ jobs:
           ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
           TG_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+          FORCE_ALERT: ${{ github.event.inputs.force_alert }}
         run: |
           set -uo pipefail
 
@@ -23,6 +29,15 @@ jobs:
           if [ -z "${ADMIN_SECRET:-}" ] || [ -z "${TG_TOKEN:-}" ] || [ -z "${TG_CHAT:-}" ]; then
             echo "⏭️  시크릿(ADMIN_SECRET/TELEGRAM_TOKEN/TELEGRAM_CHAT_ID) 미설정 — 점검 건너뜀"
             exit 0
+          fi
+
+          # 0-1) 경보 채널 테스트 모드: 샘플 경보만 보내고 종료
+          if [ "${FORCE_ALERT:-false}" = "true" ]; then
+            text="[성경암송 모니터] 🔔 경보 채널 테스트"$'\n'"이 메시지가 보이면 장애 경보가 정상 작동합니다."
+            curl -s -m 20 "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
+              --data-urlencode "chat_id=${TG_CHAT}" \
+              --data-urlencode "text=${text}" >/dev/null || true
+            echo "테스트 경보 발송 완료"; exit 0
           fi
 
           # 1) monitor 엔드포인트 호출 (백엔드/DB/발송/데이터 종합 점검)
