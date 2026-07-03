@@ -1410,3 +1410,79 @@ h1 {
   color:#555; font-size:.88rem; line-height:1.6;
 }
 .dark .lh-tip{ color:#aeb8c8; }
+
+/* =====================================================================
+   고령 성도 배려: 글씨 크기 3단계 (환경설정 → 크게 / 아주 크게)
+   html[data-fs="lg"] = 크게, html[data-fs="xl"] = 아주 크게
+   본문(암송 문장)·목록·주요 버튼이 함께 커집니다.
+   ===================================================================== */
+
+/* --- 암송 문장 / 입력 단어 (가장 많이 읽는 본문) --- */
+html[data-fs="lg"] .test-sentence,
+html[data-fs="lg"] .word-input { font-size: 23px; }
+html[data-fs="xl"] .test-sentence,
+html[data-fs="xl"] .word-input { font-size: 27px; }
+
+/* --- 정답 보기 본문 --- */
+html[data-fs="lg"] .answer-text { font-size: 19px; }
+html[data-fs="xl"] .answer-text { font-size: 22px; }
+
+/* --- 테스트 화면 상단 출처 --- */
+html[data-fs="lg"] .test-ref { font-size: 18px; }
+html[data-fs="xl"] .test-ref { font-size: 21px; }
+
+/* --- 말씀 목록 카드 (출처·힌트·번호) --- */
+html[data-fs="lg"] .verse-ref  { font-size: 18px; }
+html[data-fs="xl"] .verse-ref  { font-size: 21px; }
+html[data-fs="lg"] .verse-hint { font-size: 15px; }
+html[data-fs="xl"] .verse-hint { font-size: 18px; }
+html[data-fs="lg"] .verse-no   { font-size: 17px; }
+html[data-fs="xl"] .verse-no   { font-size: 20px; }
+
+/* --- 주요 버튼: 글씨·높이 함께 확대 (큰 버튼) --- */
+html[data-fs="lg"] .answer-btn,
+html[data-fs="lg"] .back-btn { font-size: 16px; padding: 11px 18px; }
+html[data-fs="xl"] .answer-btn,
+html[data-fs="xl"] .back-btn { font-size: 18px; padding: 13px 20px; }
+html[data-fs="lg"] .btn-row .answer-btn,
+html[data-fs="lg"] .btn-row .voice-btn,
+html[data-fs="lg"] .btn-row .voice-stop { font-size: 15px; padding: 12px 6px; }
+html[data-fs="xl"] .btn-row .answer-btn,
+html[data-fs="xl"] .btn-row .voice-btn,
+html[data-fs="xl"] .btn-row .voice-stop { font-size: 17px; padding: 14px 6px; }
+
+/* --- 설정/요약 화면 버튼 --- */
+html[data-fs="lg"] .summary-install,
+html[data-fs="lg"] .remind-cta { font-size: 17px; padding: 15px; }
+html[data-fs="xl"] .summary-install,
+html[data-fs="xl"] .remind-cta { font-size: 19px; padding: 17px; }
+
+/* --- 상단 제목 --- */
+html[data-fs="lg"] h1, html[data-fs="lg"] .page-title { font-size: 15px; }
+html[data-fs="xl"] h1, html[data-fs="xl"] .page-title { font-size: 17px; }
+
+/* =====================================================================
+   듣기(TTS) 버튼 크게 / 강조 — 고령 성도가 쉽게 찾도록
+   ===================================================================== */
+
+/* 목록 카드의 🔊 버튼: 더 크고 눈에 띄는 금색 강조 */
+.card-listen {
+  width: 42px; height: 42px;
+  font-size: 21px;
+  background: #fdf3d6;
+  border: 1.5px solid var(--gold);
+}
+.card-listen:hover { background: #f7e6b0; }
+
+/* 테스트/정답 화면의 '🔊 듣기' 버튼: 채워진 강조 스타일로 눈에 띄게 */
+#listen-answer-btn {
+  background: var(--navy);
+  color: var(--white);
+  border-color: var(--navy);
+  font-weight: 800;
+}
+#listen-answer-btn:hover { background: var(--navy-dark, #0d1b3e); color: var(--white); }
+
+/* 글씨 크게 모드에서는 듣기 버튼도 더 크게 */
+html[data-fs="lg"] .card-listen { width: 48px; height: 48px; font-size: 24px; }
+html[data-fs="xl"] .card-listen { width: 54px; height: 54px; font-size: 27px; }

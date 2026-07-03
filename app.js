@@ -695,6 +695,14 @@ function renderSettings() {
           </div>
         </div>
         <div class="setting-block">
+          <div class="setting-label">🔎 글씨 크기</div>
+          <div class="tts-rate-row" id="fontsize-row">
+            <button data-fs="normal">보통</button>
+            <button data-fs="lg">크게</button>
+            <button data-fs="xl">아주 크게</button>
+          </div>
+        </div>
+        <div class="setting-block">
           <div class="setting-label">🔊 말씀 듣기 속도</div>
           <div class="tts-rate-row" id="tts-rate-row">
             <button data-rate="0.5">느리게</button>
@@ -729,8 +737,28 @@ function renderSettings() {
   updateAppStatus();
   setupSyncRetry();
   setupThemeSetting();
+  setupFontSize();
   setupTtsRate();
   setupInstallButton();
+}
+
+// 글씨 크기(고령 성도 배려) 선택 UI — normal/lg/xl. 본문·버튼이 함께 커짐
+function setupFontSize() {
+  const row = document.getElementById("fontsize-row");
+  if (!row) return;
+  const btns = Array.from(row.querySelectorAll("button"));
+  let cur = "normal";
+  try { const s = localStorage.getItem("fontscale"); if (s === "lg" || s === "xl") cur = s; } catch (e) {}
+  const sync = (v) => btns.forEach((b) => b.classList.toggle("on", b.dataset.fs === v));
+  sync(cur);
+  btns.forEach((b) => {
+    b.addEventListener("click", () => {
+      const v = b.dataset.fs;
+      if (v === "normal") { document.documentElement.removeAttribute("data-fs"); try { localStorage.removeItem("fontscale"); } catch (e) {} }
+      else { document.documentElement.setAttribute("data-fs", v); try { localStorage.setItem("fontscale", v); } catch (e) {} }
+      sync(v);
+    });
+  });
 }
 
 // 설정 화면 하단: 현재 실행 모드/알림 권한 상태 표시(설치 확인용)
