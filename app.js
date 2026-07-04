@@ -787,6 +787,7 @@ async function submitBoardPost() {
   const content = document.getElementById("bp-content").value.trim();
   const msg = document.getElementById("bp-msg");
   if (!content) { msg.className = "msg err"; msg.textContent = "내용을 입력해주세요."; return; }
+  if (!confirm("이 내용으로 글을 올릴까요?\n작성한 글은 모든 분에게 공개됩니다.")) return;
   const btn = document.getElementById("bp-submit"); btn.disabled = true; msg.className = "msg"; msg.textContent = "등록 중...";
   try { await api.boardPost(boardWho(), content, myUserId()); }
   catch (e) { btn.disabled = false; msg.className = "msg err"; msg.textContent = "등록 실패: " + (e && e.message ? e.message : e); return; }
@@ -800,6 +801,7 @@ async function submitBoardReply(btn) {
   const contentEl = post.querySelector(".br-content");
   const content = contentEl.value.trim();
   if (!content) { contentEl.focus(); return; }
+  if (!confirm("답글을 등록할까요?\n작성한 답글은 모든 분에게 공개됩니다.")) return;
   btn.disabled = true;
   try { await api.boardReply(Number(btn.dataset.id), boardWho(), content, myUserId()); }
   catch (e) { btn.disabled = false; alert("답글 등록 실패: " + (e && e.message ? e.message : e)); return; }
