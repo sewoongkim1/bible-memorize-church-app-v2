@@ -1,6 +1,27 @@
 // Web Push 구독 — 서비스워커 등록 → 권한 요청 → 구독 → 서버 저장
 const VAPID_PUBLIC = "BGiUBhcC_utl3JD9XEoTLPe50bjLZGMOSRYozEbj_K4G4pqcq57rQO5WNLTT884Yl0nlMuT2iSMs2NejrFihGdg";
 
+// 알림 받을 시간(5·6·7·8시). 기본 7시. localStorage에 보관.
+function getPushHour() {
+  try { const h = Number(localStorage.getItem("pushHour")); return [5, 6, 7, 8].includes(h) ? h : 7; }
+  catch (e) { return 7; }
+}
+window.getPushHour = getPushHour;
+
+// 알림 시간 변경 — 로컬 저장 + (이미 구독 중이면) 서버 반영
+async function setPushHour(hour) {
+  hour = Number(hour); if (![5, 6, 7, 8].includes(hour)) hour = 7;
+  try { localStorage.setItem("pushHour", String(hour)); } catch (e) {}
+  try {
+    const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
+    const sub = reg && await reg.pushManager.getSubscription();
+    const u = (typeof loadUser === "function") ? loadUser() : null;
+    if (sub && u && u.user_id) { await api.savePush(u.user_id, sub.toJSON(), hour); return { updated: true, hour }; }
+  } catch (e) {}
+  return { updated: false, hour };
+}
+window.setPushHour = setPushHour;
+
 function urlB64ToUint8Array(base64) {
   const pad = "=".repeat((4 - (base64.length % 4)) % 4);
   const b64 = (base64 + pad).replace(/-/g, "+").replace(/_/g, "/");
@@ -32,10 +53,11 @@ async function enablePush() {
         applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC),
       });
     }
-    await api.savePush(u.user_id, sub.toJSON());
+    const hour = getPushHour();
+    await api.savePush(u.user_id, sub.toJSON(), hour);
     // 설정 직후 본인 기기로 확인용 테스트 발송
     api.testPush(sub.endpoint).catch(() => {});
-    alert("🔔 알림이 설정되었습니다!\n확인용 테스트 알림을 방금 보냈어요 — 잠시 후 이 기기에 오는지 봐주세요.");
+    alert("🔔 알림이 설정되었습니다!\n매일 오전 " + hour + "시에 말씀을 보내드려요.\n확인용 테스트 알림을 방금 보냈어요 — 잠시 후 이 기기에 오는지 봐주세요.");
     if (typeof updateAppStatus === "function") updateAppStatus();
     return true;
   } catch (e) {

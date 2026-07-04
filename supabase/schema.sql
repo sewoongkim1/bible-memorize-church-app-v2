@@ -72,6 +72,7 @@ create table if not exists public.push_subscriptions (
   endpoint    text not null unique,
   p256dh      text,
   auth        text,
+  hour        smallint not null default 7,   -- 알림 받을 시간(5·6·7·8시)
   created_at  timestamptz not null default now()
 );
 

@@ -714,7 +714,17 @@ function renderSettings() {
         </div>
         <button class="summary-install" id="change-user">👤 로그인 정보변경</button>
         <button class="summary-install" id="privacy-info">🔐 개인정보 안내 보기</button>
-        <button class="summary-install" id="enable-push">🔔 매일 암송 알림 받기<br><span class="btn-sub">( 매일 오전 7시 )</span></button>
+        <div class="setting-block">
+          <div class="setting-label">🕖 알림 시간 (아침)</div>
+          <div class="tts-rate-row" id="pushhour-row">
+            <button data-hour="5">5시</button>
+            <button data-hour="6">6시</button>
+            <button data-hour="7">7시</button>
+            <button data-hour="8">8시</button>
+          </div>
+          <div id="pushhour-msg" class="btn-sub" style="text-align:center;color:#2f6b4f;min-height:16px"></div>
+        </div>
+        <button class="summary-install" id="enable-push">🔔 매일 암송 알림 받기<br><span class="btn-sub">( 매일 아침 · 위에서 시간 선택 )</span></button>
         <div class="app-status" id="app-status"></div>
         <button class="summary-install" id="test-push">🧪 내 기기로 테스트 알림</button>
         <button class="push-off" id="disable-push">🔕 알림 끄기</button>
@@ -739,7 +749,31 @@ function renderSettings() {
   setupThemeSetting();
   setupFontSize();
   setupTtsRate();
+  setupPushHour();
   setupInstallButton();
+}
+
+// 알림 시간(5·6·7·8시) 선택 UI — 고르면 즉시 서버 반영(구독 중일 때)
+function setupPushHour() {
+  const row = document.getElementById("pushhour-row");
+  if (!row) return;
+  const msg = document.getElementById("pushhour-msg");
+  const btns = Array.from(row.querySelectorAll("button"));
+  const cur = (typeof getPushHour === "function") ? getPushHour() : 7;
+  const sync = (h) => btns.forEach((b) => b.classList.toggle("on", Number(b.dataset.hour) === h));
+  sync(cur);
+  btns.forEach((b) => {
+    b.addEventListener("click", async () => {
+      const h = Number(b.dataset.hour);
+      sync(h);
+      if (msg) msg.textContent = "저장 중...";
+      let r = { updated: false, hour: h };
+      if (typeof setPushHour === "function") r = await setPushHour(h);
+      if (msg) msg.textContent = r.updated
+        ? `✅ 매일 오전 ${h}시에 받도록 변경됐어요.`
+        : `오전 ${h}시로 설정했어요. 아래 '알림 받기'를 켜면 적용돼요.`;
+    });
+  });
 }
 
 // 글씨 크기(고령 성도 배려) 선택 UI — normal/lg/xl. 본문·버튼이 함께 커짐

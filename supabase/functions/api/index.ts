@@ -186,14 +186,20 @@ async function importV1(b: any) {
 async function savePush(b: any) {
   const s = b.subscription || {};
   if (!s.endpoint) return { ok: false, error: "no-subscription" };
-  const { error } = await db.from("push_subscriptions").upsert({
+  const hour = [5, 6, 7, 8].includes(Number(b.hour)) ? Number(b.hour) : 7;
+  const base = {
     user_id: b.user_id,
     endpoint: s.endpoint,
     p256dh: s.keys && s.keys.p256dh,
     auth: s.keys && s.keys.auth,
-  }, { onConflict: "endpoint" });
+  };
+  let { error } = await db.from("push_subscriptions").upsert({ ...base, hour }, { onConflict: "endpoint" });
+  if (error && /hour/i.test(String(error.message || ""))) {
+    // hour 컬럼 마이그레이션 전이면 시간 없이 저장(폴백)
+    ({ error } = await db.from("push_subscriptions").upsert(base, { onConflict: "endpoint" }));
+  }
   if (error) throw error;
-  return { ok: true };
+  return { ok: true, hour };
 }
 
 // DB verses에서 '이번 주(=오늘 기준 최신) 말씀'을 읽어 {ref,text} 반환
@@ -254,7 +260,10 @@ async function sendPush(b: any) {
       body = v.ref ? `${v.text} (${v.ref})` : v.text;
     }
   }
-  const { data: subs } = await db.from("push_subscriptions").select("id,endpoint,p256dh,auth");
+  // hour 지정 시 그 시간을 고른 구독자에게만(시간대별 cron), 없으면 전체(관리자 수동 발송)
+  let subQ = db.from("push_subscriptions").select("id,endpoint,p256dh,auth");
+  if (b.hour) subQ = subQ.eq("hour", Number(b.hour));
+  const { data: subs } = await subQ;
   const payload = JSON.stringify({
     title: title || "성경말씀 암송",
     body: body || "오늘의 말씀을 암송해요! 🙌",
@@ -328,7 +337,7 @@ async function monitor(b: any) {
   const todayPush = (pl && pl[0]) || null;
   if (kstHM >= 7 * 60 + 8) { // 오전 7시 8분 이후
     if (!todayPush) problems.push("오늘 아침 정기 알림이 발송되지 않았습니다");
-    else if ((todayPush.sent ?? 0) === 0) problems.push(`오늘 알림 발송 0건 (실패 ${todayPush.failed ?? 0}건)`);
+    else if ((todayPush.total ?? 0) > 0 && (todayPush.sent ?? 0) === 0) problems.push(`오늘 알림 발송 0건 (실패 ${todayPush.failed ?? 0}건)`);
   }
 
   return {
