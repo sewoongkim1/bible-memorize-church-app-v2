@@ -1035,10 +1035,11 @@ async function boardModerate(b: any) {
   const table = b.kind === "reply" ? "board_replies" : "board_posts";
   const id = Number(b.id);
   if (!id) return { ok: false, error: "no-id" };
-  if (b.action === "delete") {
+  // op: 'hide' | 'show' | 'delete' (라우터의 action과 충돌 방지로 op 사용)
+  if (b.op === "delete") {
     const { error } = await db.from(table).delete().eq("id", id); if (error) throw error;
   } else {
-    const { error } = await db.from(table).update({ hidden: b.action === "hide" }).eq("id", id); if (error) throw error;
+    const { error } = await db.from(table).update({ hidden: b.op === "hide" }).eq("id", id); if (error) throw error;
   }
   return { ok: true };
 }

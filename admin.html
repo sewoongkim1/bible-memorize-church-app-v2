@@ -584,7 +584,7 @@ async function loadBoardAdmin(){
 }
 async function moderateBoard(btn){
   if(btn.dataset.act==="delete" && !confirm("정말 삭제할까요? 되돌릴 수 없습니다.")) return;
-  const d=await callApi({action:"boardModerate",pw:getPw(),kind:btn.dataset.kind,id:Number(btn.dataset.id),action:btn.dataset.act}).catch(()=>({ok:false}));
+  const d=await callApi({action:"boardModerate",pw:getPw(),kind:btn.dataset.kind,id:Number(btn.dataset.id),op:btn.dataset.act}).catch(()=>({ok:false}));
   if(d.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }
   loadBoardAdmin();
 }
