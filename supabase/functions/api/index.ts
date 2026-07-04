@@ -992,15 +992,16 @@ async function boardList(b: any) {
   let pq = db.from("board_posts").select("*")
     .order("created_at", { ascending: false }).limit(300);
   if (!isAdmin) pq = pq.eq("hidden", false);
-  const { data: posts, error } = await pq;
+  let { data: posts, error } = await pq;
   if (error) throw error;
+  if (!isAdmin) posts = (posts ?? []).filter((p: any) => !p.deleted); // 본인삭제 태그 제외(공개 관점)
   const ids = (posts ?? []).map((p: any) => p.id);
   let replies: any[] = [];
   if (ids.length) {
     let rq = db.from("board_replies").select("*")
       .in("post_id", ids).order("created_at", { ascending: true });
     if (!isAdmin) rq = rq.eq("hidden", false);
-    const r = await rq; replies = r.data ?? [];
+    const r = await rq; replies = (r.data ?? []).filter((x: any) => isAdmin || !x.deleted);
   }
   const byPost = new Map<number, any[]>();
   for (const r of replies) { if (!byPost.has(r.post_id)) byPost.set(r.post_id, []); byPost.get(r.post_id)!.push(r); }
@@ -1039,12 +1040,16 @@ async function boardReply(b: any) {
   return { ok: true, is_admin: isAdmin };
 }
 
-// 본인 글/답글 삭제 (user_id 일치해야만)
+// 본인 글/답글 삭제 — 물리삭제가 아니라 deleted 태그(관리자 확인·복구 가능). user_id 일치해야만.
 async function boardDeleteMine(b: any) {
   if (!b.user_id) return { ok: false, error: "no-user" };
   const table = b.kind === "reply" ? "board_replies" : "board_posts";
-  const { data, error } = await db.from(table).delete()
+  let { data, error } = await db.from(table).update({ deleted: true })
     .eq("id", Number(b.id)).eq("user_id", b.user_id).select("id");
+  if (error && /deleted/i.test(String(error.message || ""))) { // 컬럼 마이그레이션 전 폴백
+    ({ data, error } = await db.from(table).update({ hidden: true })
+      .eq("id", Number(b.id)).eq("user_id", b.user_id).select("id"));
+  }
   if (error) throw error;
   if (!(data && data.length)) return { ok: false, error: "not-owner" };
   return { ok: true };
@@ -1055,9 +1060,11 @@ async function boardModerate(b: any) {
   const table = b.kind === "reply" ? "board_replies" : "board_posts";
   const id = Number(b.id);
   if (!id) return { ok: false, error: "no-id" };
-  // op: 'hide' | 'show' | 'delete' (라우터의 action과 충돌 방지로 op 사용)
+  // op: 'hide' | 'show' | 'delete'(물리삭제) | 'undelete'(본인삭제 태그 복구)
   if (b.op === "delete") {
     const { error } = await db.from(table).delete().eq("id", id); if (error) throw error;
+  } else if (b.op === "undelete") {
+    const { error } = await db.from(table).update({ deleted: false }).eq("id", id); if (error) throw error;
   } else {
     const { error } = await db.from(table).update({ hidden: b.op === "hide" }).eq("id", id); if (error) throw error;
   }

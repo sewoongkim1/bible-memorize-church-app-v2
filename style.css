@@ -1522,6 +1522,16 @@ html[data-fs="xl"] .card-listen { width: 54px; height: 54px; font-size: 27px; }
 textarea.board-in { resize: vertical; }
 .dark .board-in { background: #16233d; color: #e6ecf7; border-color: #2b3a5a; }
 
+.board-filter { display: flex; gap: 6px; margin-bottom: 12px; }
+.bf-btn {
+  flex: 1; padding: 8px; border: 1.5px solid var(--border); border-radius: 9px;
+  background: var(--white); color: var(--gray); font-weight: 700; font-size: 13px;
+  cursor: pointer; font-family: inherit;
+}
+.bf-btn.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+.dark .bf-btn { background: #16233d; color: #9fb0cc; border-color: #2b3a5a; }
+.dark .bf-btn.on { background: var(--navy); color: #fff; }
+
 .board-post {
   border: 1px solid var(--border); border-radius: 12px;
   padding: 12px 14px; margin-bottom: 12px; background: var(--white);

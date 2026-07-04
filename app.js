@@ -704,6 +704,7 @@ function myUserId() {
   const u = (typeof loadUser === "function") ? loadUser() : null;
   return u && u.user_id ? u.user_id : null;
 }
+let boardMineOnly = false; // 게시판 '내 글만 보기' 상태
 function renderBoard() {
   const appEl = document.getElementById("app");
   appEl.innerHTML = `
@@ -714,12 +715,16 @@ function renderBoard() {
           <button class="settings-back-btn" id="board-back">← 뒤로</button>
         </div>
         <p class="board-intro">궁금한 점이나 건의사항을 자유롭게 남겨주세요. 모든 글과 답글은 공개됩니다. 🙌</p>
-        <p class="board-notice">🙏 <b>성경암송</b>과 관련된 질문·제안을 남겨주세요.<br>주제와 관련 없는 글은 부득이 삭제될 수 있는 점, 너그러이 양해 부탁드립니다.</p>
+        <p class="board-notice">🙏 <b>성경암송</b>과 관련된 질문·제안을 남겨주세요. 주제와 관련 없는 글은 부득이 삭제될 수 있습니다.<br>⚠️ 전화번호 등 <b>민감한 개인정보</b>는 올리지 말아주세요.</p>
         <div class="board-form">
           <div class="board-who" id="bp-who"></div>
           <textarea id="bp-content" class="board-in" rows="3" maxlength="2000" placeholder="질문이나 제안을 적어주세요"></textarea>
           <button class="summary-go" id="bp-submit">✏️ 글 남기기</button>
           <div id="bp-msg" class="msg"></div>
+        </div>
+        <div class="board-filter">
+          <button id="bf-all" class="bf-btn">전체 보기</button>
+          <button id="bf-mine" class="bf-btn">내 글만 보기</button>
         </div>
         <div id="board-list"><p style="text-align:center;color:#888;padding:16px 0">불러오는 중...</p></div>
       </div>
@@ -730,16 +735,28 @@ function renderBoard() {
     ? `✍️ <b>${boardEsc(who)}</b> <span class="board-who-sub">성도님</span>`
     : `✍️ <b>익명</b>`;
   document.getElementById("bp-submit").addEventListener("click", submitBoardPost);
-  loadBoard();
+  const setFilter = (mine) => {
+    boardMineOnly = mine;
+    document.getElementById("bf-all").classList.toggle("on", !mine);
+    document.getElementById("bf-mine").classList.toggle("on", mine);
+    loadBoard();
+  };
+  document.getElementById("bf-all").addEventListener("click", () => setFilter(false));
+  document.getElementById("bf-mine").addEventListener("click", () => setFilter(true));
+  setFilter(boardMineOnly);
 }
 async function loadBoard() {
   const box = document.getElementById("board-list");
   let d;
   try { d = await api.boardList(); }
   catch (e) { box.innerHTML = `<p class="msg err">게시판을 불러오지 못했습니다.</p>`; return; }
-  const posts = (d && d.posts) || [];
-  if (!posts.length) { box.innerHTML = `<p style="text-align:center;color:#888;padding:24px 0">아직 글이 없어요.<br>첫 글을 남겨보세요!</p>`; return; }
+  let posts = (d && d.posts) || [];
   const myUid = myUserId();
+  if (boardMineOnly) posts = posts.filter((p) => p.user_id && p.user_id === myUid);
+  if (!posts.length) {
+    box.innerHTML = `<p style="text-align:center;color:#888;padding:24px 0">${boardMineOnly ? "작성하신 글이 없어요." : "아직 글이 없어요.<br>첫 글을 남겨보세요!"}</p>`;
+    return;
+  }
   const delBtn = (kind, id, uid) => (myUid && uid && uid === myUid)
     ? ` · <button class="board-del" data-kind="${kind}" data-id="${id}">삭제</button>` : "";
   box.innerHTML = posts.map((p) => {
