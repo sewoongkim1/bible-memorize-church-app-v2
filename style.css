@@ -646,12 +646,12 @@ h1 {
 .dark .summary-icon { background: #223049; border-color: #33465f; color: #e6e9ef; }
 /* 설정 화면 헤더: 제목 중앙 + 우측 작은 '뒤로' 버튼 */
 .settings-head {
-  position: relative; display: flex; align-items: center;
-  justify-content: center; margin: 2px 0 12px;
+  display: flex; align-items: center;
+  justify-content: space-between; gap: 10px; margin: 2px 0 12px;
 }
-.settings-head .rank-title { margin: 0; }
+.settings-head .rank-title { margin: 0; text-align: left; }
 .settings-back-btn {
-  position: absolute; right: 0;
+  flex-shrink: 0;
   padding: 6px 12px; border: 1px solid var(--border); border-radius: 8px;
   background: var(--bg); color: var(--navy);
   font-size: 14px; font-weight: 700; cursor: pointer;
