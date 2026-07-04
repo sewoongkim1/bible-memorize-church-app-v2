@@ -868,9 +868,11 @@ function buildWeeklyHtml(
 }
 
 // Resend로 이메일 발송 (RESEND_API_KEY / REPORT_RECIPIENTS / REPORT_FROM 시크릿 필요)
-async function sendEmailResend(subject: string, html: string, text: string) {
+async function sendEmailResend(subject: string, html: string, text: string, extra?: string) {
   const key = Deno.env.get("RESEND_API_KEY");
-  const recipients = (Deno.env.get("REPORT_RECIPIENTS") || "").split(",").map((x) => x.trim()).filter(Boolean);
+  const base = (Deno.env.get("REPORT_RECIPIENTS") || "").split(",").map((x) => x.trim()).filter(Boolean);
+  const extras = String(extra || "").split(",").map((x) => x.trim()).filter(Boolean);
+  const recipients = [...new Set([...base, ...extras])].filter((e) => /.+@.+\..+/.test(e));
   const from = Deno.env.get("REPORT_FROM") || "성경암송 리포트 <onboarding@resend.dev>";
   if (!key) return { ok: false, error: "no-resend-key" };
   if (!recipients.length) return { ok: false, error: "no-recipients" };
@@ -969,7 +971,7 @@ async function weeklyReport(b: any) {
 
   // send=true → 실제 발송(cron·관리자). 아니면 미리보기 데이터 반환.
   if (b.send) {
-    const sent = await sendEmailResend(subject, html, text);
+    const sent = await sendEmailResend(subject, html, text, b.extra);
     return { ok: sent.ok, sent, range, subject };
   }
   return { ok: true, report, html, text, csv: buildWeeklyCsv(report), subject };
