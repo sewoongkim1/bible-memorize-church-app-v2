@@ -82,6 +82,11 @@ Deno.serve(async (req) => {
       case "monitor":       return json(await monitor(body));
       // ---- 주간 리포트 메일 ----
       case "weeklyReport":  return json(await weeklyReport(body));
+      // ---- 질문·제안 게시판 ----
+      case "boardList":     return json(await boardList(body));
+      case "boardPost":     return json(await boardPost(body));
+      case "boardReply":    return json(await boardReply(body));
+      case "boardModerate": return json(await boardModerate(body));
       default:              return json({ error: `unknown action: ${body.action}` }, 400);
     }
   } catch (e) {
@@ -975,4 +980,65 @@ async function weeklyReport(b: any) {
     return { ok: sent.ok, sent, range, subject };
   }
   return { ok: true, report, html, text, csv: buildWeeklyCsv(report), subject };
+}
+
+// ============================================================
+// 질문·제안 공개 게시판 (누구나 글/답글, 관리자 숨김·삭제)
+// ============================================================
+async function boardList(b: any) {
+  const isAdmin = !adminError(b); // 관리자면 숨김글도 조회
+  let pq = db.from("board_posts")
+    .select("id,name,content,hidden,created_at")
+    .order("created_at", { ascending: false }).limit(300);
+  if (!isAdmin) pq = pq.eq("hidden", false);
+  const { data: posts, error } = await pq;
+  if (error) throw error;
+  const ids = (posts ?? []).map((p: any) => p.id);
+  let replies: any[] = [];
+  if (ids.length) {
+    let rq = db.from("board_replies")
+      .select("id,post_id,name,content,is_admin,hidden,created_at")
+      .in("post_id", ids).order("created_at", { ascending: true });
+    if (!isAdmin) rq = rq.eq("hidden", false);
+    const r = await rq; replies = r.data ?? [];
+  }
+  const byPost = new Map<number, any[]>();
+  for (const r of replies) { if (!byPost.has(r.post_id)) byPost.set(r.post_id, []); byPost.get(r.post_id)!.push(r); }
+  return { ok: true, isAdmin, posts: (posts ?? []).map((p: any) => ({ ...p, replies: byPost.get(p.id) || [] })) };
+}
+
+async function boardPost(b: any) {
+  const content = String(b.content || "").trim();
+  if (!content) return { ok: false, error: "empty" };
+  if (content.length > 2000) return { ok: false, error: "too-long" };
+  const name = (String(b.name || "").trim().slice(0, 40)) || "익명";
+  const { data, error } = await db.from("board_posts").insert({ name, content }).select("id").single();
+  if (error) throw error;
+  return { ok: true, id: data.id };
+}
+
+async function boardReply(b: any) {
+  if (!b.post_id) return { ok: false, error: "no-post" };
+  const content = String(b.content || "").trim();
+  if (!content) return { ok: false, error: "empty" };
+  if (content.length > 2000) return { ok: false, error: "too-long" };
+  const isAdmin = !adminError(b); // 관리자 답글이면 배지
+  const name = isAdmin ? "관리자" : ((String(b.name || "").trim().slice(0, 40)) || "익명");
+  const { error } = await db.from("board_replies")
+    .insert({ post_id: Number(b.post_id), name, content, is_admin: isAdmin });
+  if (error) throw error;
+  return { ok: true, is_admin: isAdmin };
+}
+
+async function boardModerate(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const table = b.kind === "reply" ? "board_replies" : "board_posts";
+  const id = Number(b.id);
+  if (!id) return { ok: false, error: "no-id" };
+  if (b.action === "delete") {
+    const { error } = await db.from(table).delete().eq("id", id); if (error) throw error;
+  } else {
+    const { error } = await db.from(table).update({ hidden: b.action === "hide" }).eq("id", id); if (error) throw error;
+  }
+  return { ok: true };
 }

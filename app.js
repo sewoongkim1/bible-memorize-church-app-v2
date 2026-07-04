@@ -664,17 +664,107 @@ function renderSummary() {
 ${dueCount > 0 ? `<button class="summary-go review-cta" id="go-review">📖 오늘 복습 (${dueCount}구절)</button>` : ""}
 <button class="summary-go challenge-cta" id="go-challenge">🔥 오늘의 말씀 도전</button>
 <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
+<button class="summary-help" id="open-board">💬 질문·제안 게시판</button>
   </div>
 </div>
 `;
 
   document.getElementById("go-list").addEventListener("click", renderVerseList);
+  document.getElementById("open-board").addEventListener("click", renderBoard);
   if (weeklyVerse) document.getElementById("weekly-start").addEventListener("click", () => startTest(weeklyVerse));
   if (dueCount > 0) document.getElementById("go-review").addEventListener("click", startReview);
   document.getElementById("go-challenge").addEventListener("click", startChallenge);
   document.getElementById("open-ranking").addEventListener("click", () => renderRanking());
   document.getElementById("open-help-summary").addEventListener("click", () => renderHelp(renderSummary));
   document.getElementById("open-settings").addEventListener("click", renderSettings);
+}
+
+// ---------- 질문·제안 공개 게시판 ----------
+function boardTime(iso) {
+  try {
+    const k = new Date(new Date(iso).getTime() + 9 * 3600 * 1000);
+    const z = (n) => String(n).padStart(2, "0");
+    return `${k.getUTCMonth() + 1}/${k.getUTCDate()} ${z(k.getUTCHours())}:${z(k.getUTCMinutes())}`;
+  } catch (e) { return ""; }
+}
+function boardEsc(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
+}
+function renderBoard() {
+  const appEl = document.getElementById("app");
+  appEl.innerHTML = `
+    <div class="summary-screen">
+      <div class="summary-card">
+        <div class="settings-head">
+          <h2 class="rank-title">💬 질문·제안</h2>
+          <button class="settings-back-btn" id="board-back">← 뒤로</button>
+        </div>
+        <p class="board-intro">궁금한 점이나 건의사항을 자유롭게 남겨주세요.<br>모든 글과 답글은 공개됩니다. 🙌</p>
+        <div class="board-form">
+          <input id="bp-name" class="board-in" maxlength="40" placeholder="이름 (선택)" autocomplete="off" />
+          <textarea id="bp-content" class="board-in" rows="3" maxlength="2000" placeholder="질문이나 제안을 적어주세요"></textarea>
+          <button class="summary-go" id="bp-submit">✏️ 글 남기기</button>
+          <div id="bp-msg" class="msg"></div>
+        </div>
+        <div id="board-list"><p style="text-align:center;color:#888;padding:16px 0">불러오는 중...</p></div>
+      </div>
+    </div>`;
+  document.getElementById("board-back").addEventListener("click", renderSummary);
+  const u = (typeof loadUser === "function") ? loadUser() : null;
+  if (u && u.name) document.getElementById("bp-name").value = u.name;
+  document.getElementById("bp-submit").addEventListener("click", submitBoardPost);
+  loadBoard();
+}
+async function loadBoard() {
+  const box = document.getElementById("board-list");
+  let d;
+  try { d = await api.boardList(); }
+  catch (e) { box.innerHTML = `<p class="msg err">게시판을 불러오지 못했습니다.</p>`; return; }
+  const posts = (d && d.posts) || [];
+  if (!posts.length) { box.innerHTML = `<p style="text-align:center;color:#888;padding:24px 0">아직 글이 없어요.<br>첫 글을 남겨보세요!</p>`; return; }
+  box.innerHTML = posts.map((p) => {
+    const replies = (p.replies || []).map((r) => `
+      <div class="board-reply${r.is_admin ? " admin" : ""}">
+        <div class="board-meta"><b>${boardEsc(r.name)}</b>${r.is_admin ? ' <span class="board-badge">관리자</span>' : ""} · ${boardTime(r.created_at)}</div>
+        <div class="board-text">${boardEsc(r.content)}</div>
+      </div>`).join("");
+    return `
+      <div class="board-post" data-id="${p.id}">
+        <div class="board-meta"><b>${boardEsc(p.name)}</b> · ${boardTime(p.created_at)}</div>
+        <div class="board-text">${boardEsc(p.content)}</div>
+        ${replies}
+        <div class="board-reply-row">
+          <input class="board-in br-content" maxlength="2000" placeholder="답글 달기" autocomplete="off" />
+          <button class="board-reply-btn" data-id="${p.id}">등록</button>
+        </div>
+      </div>`;
+  }).join("");
+  box.querySelectorAll(".board-reply-btn").forEach((btn) => btn.addEventListener("click", () => submitBoardReply(btn)));
+}
+async function submitBoardPost() {
+  const name = document.getElementById("bp-name").value.trim();
+  const content = document.getElementById("bp-content").value.trim();
+  const msg = document.getElementById("bp-msg");
+  if (!content) { msg.className = "msg err"; msg.textContent = "내용을 입력해주세요."; return; }
+  const btn = document.getElementById("bp-submit"); btn.disabled = true; msg.className = "msg"; msg.textContent = "등록 중...";
+  try { await api.boardPost(name, content); }
+  catch (e) { btn.disabled = false; msg.className = "msg err"; msg.textContent = "등록 실패: " + (e && e.message ? e.message : e); return; }
+  document.getElementById("bp-content").value = "";
+  msg.className = "msg"; msg.textContent = "✅ 등록되었습니다.";
+  btn.disabled = false;
+  loadBoard();
+}
+async function submitBoardReply(btn) {
+  const post = btn.closest(".board-post");
+  const contentEl = post.querySelector(".br-content");
+  const content = contentEl.value.trim();
+  if (!content) { contentEl.focus(); return; }
+  const u = (typeof loadUser === "function") ? loadUser() : null;
+  btn.disabled = true;
+  try { await api.boardReply(Number(btn.dataset.id), u && u.name ? u.name : "", content); }
+  catch (e) { btn.disabled = false; alert("답글 등록 실패: " + (e && e.message ? e.message : e)); return; }
+  loadBoard();
 }
 
 // 설정 화면 — 로그인 정보변경 · 알림 · 홈 화면 추가 · 공유 (요약에서 분리)

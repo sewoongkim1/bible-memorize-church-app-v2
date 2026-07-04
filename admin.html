@@ -338,6 +338,14 @@ function renderMenu(){
         </div>
         <div class="rep-arrow">›</div>
       </div>
+      <div class="rep-card" id="rep-board">
+        <div class="ic">💬</div>
+        <div class="rep-text">
+          <div class="ti">게시판 관리</div>
+          <div class="de">질문·제안 답글·숨김·삭제</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
     </div>`;
   document.getElementById("rep-usage").addEventListener("click", renderUsageReport);
   document.getElementById("rep-participants").addEventListener("click", renderParticipants);
@@ -347,6 +355,7 @@ function renderMenu(){
   document.getElementById("rep-content").addEventListener("click", renderContent);
   document.getElementById("rep-monitor").addEventListener("click", renderMonitor);
   document.getElementById("rep-report").addEventListener("click", renderReportMail);
+  document.getElementById("rep-board").addEventListener("click", renderBoardAdmin);
   loadDashboard();
 }
 
@@ -504,6 +513,88 @@ async function sendReportNow(){
     r.className="msg err"; r.textContent=msg; return;
   }
   r.className="msg"; r.innerHTML=`✅ 발송 완료 — 수신자 <b>${(d.sent&&d.sent.recipients)||"?"}</b>명에게 전송했습니다.`;
+}
+
+// ---------- 질문·제안 게시판 관리 ----------
+function boardT(iso){ try{ const k=new Date(new Date(iso).getTime()+9*3600*1000); const z=n=>String(n).padStart(2,"0"); return `${k.getUTCMonth()+1}/${k.getUTCDate()} ${z(k.getUTCHours())}:${z(k.getUTCMinutes())}`; }catch(e){ return ""; } }
+function boardE(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>"); }
+function renderBoardAdmin(){
+  app.innerHTML=`
+    <style>
+      .ba-post{border:1px solid #dde3ee;border-radius:12px;padding:12px 14px;margin-bottom:12px;background:#fff}
+      .ba-post.hidden,.ba-reply.hidden{opacity:.55}
+      .ba-meta{font-size:12px;color:#5c6a80;margin-bottom:5px}
+      .ba-meta b{color:#1a3a6b}
+      .ba-reply{margin-top:9px;padding:8px 10px;border-radius:9px;background:#f4f6fb;border-left:3px solid #dde3ee;font-size:14px}
+      .ba-reply.adm{background:#fdf9ef;border-left-color:#c8a24b}
+      .board-badge{display:inline-block;background:#c8a24b;color:#fff;font-size:10px;font-weight:800;padding:1px 7px;border-radius:10px}
+      .ba-actions{display:flex;gap:6px;margin-top:8px}
+      .ba-actions button{padding:4px 10px;border:1px solid #dde3ee;background:#fff;border-radius:8px;font-size:12px;cursor:pointer}
+      .ba-del{color:#b94a3a;border-color:#e6c3bc!important}
+      .ba-reply-row{display:flex;gap:6px;margin-top:10px}
+      .ba-in{flex:1;padding:8px 10px;border:1.5px solid #dde3ee;border-radius:9px;font-size:13px;font-family:inherit}
+      .ba-reply-btn{padding:0 14px;border:none;border-radius:9px;background:#1a3a6b;color:#fff;font-weight:700;font-size:13px;cursor:pointer}
+    </style>
+    <div class="rep-head">
+      <button class="back-btn" id="back">← 메뉴</button>
+      <h2>💬 게시판 관리</h2>
+    </div>
+    <div class="push-card">
+      <p class="push-hint">숨김 글도 모두 표시됩니다. 여기서 다는 답글은 <b>관리자</b> 배지가 붙어요.</p>
+      <button class="push-fill" id="ba-refresh">🔄 새로고침</button>
+      <div id="ba-list"><p style="text-align:center;color:#888;padding:16px">불러오는 중...</p></div>
+    </div>`;
+  document.getElementById("back").addEventListener("click", renderMenu);
+  document.getElementById("ba-refresh").addEventListener("click", loadBoardAdmin);
+  loadBoardAdmin();
+}
+async function loadBoardAdmin(){
+  const box=document.getElementById("ba-list");
+  const d=await callApi({action:"boardList",pw:getPw()}).catch(()=>({ok:false,error:"network"}));
+  if(d.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }
+  const posts=(d&&d.posts)||[];
+  if(!posts.length){ box.innerHTML=`<p style="text-align:center;color:#888;padding:20px 0">아직 글이 없습니다.</p>`; return; }
+  box.innerHTML=posts.map(p=>{
+    const replies=(p.replies||[]).map(r=>`
+      <div class="ba-reply${r.is_admin?" adm":""}${r.hidden?" hidden":""}">
+        <div class="ba-meta"><b>${boardE(r.name)}</b>${r.is_admin?' <span class="board-badge">관리자</span>':''} · ${boardT(r.created_at)}${r.hidden?' · <span style="color:#b94a3a">숨김</span>':''}</div>
+        <div>${boardE(r.content)}</div>
+        <div class="ba-actions">
+          <button data-kind="reply" data-id="${r.id}" data-act="${r.hidden?'show':'hide'}">${r.hidden?'숨김해제':'숨기기'}</button>
+          <button data-kind="reply" data-id="${r.id}" data-act="delete" class="ba-del">삭제</button>
+        </div>
+      </div>`).join("");
+    return `
+      <div class="ba-post${p.hidden?" hidden":""}">
+        <div class="ba-meta"><b>${boardE(p.name)}</b> · ${boardT(p.created_at)}${p.hidden?' · <span style="color:#b94a3a">숨김</span>':''}</div>
+        <div>${boardE(p.content)}</div>
+        ${replies}
+        <div class="ba-reply-row">
+          <input class="ba-in" placeholder="관리자 답글 달기" maxlength="2000" />
+          <button class="ba-reply-btn" data-id="${p.id}">답글</button>
+        </div>
+        <div class="ba-actions">
+          <button data-kind="post" data-id="${p.id}" data-act="${p.hidden?'show':'hide'}">${p.hidden?'숨김해제':'숨기기'}</button>
+          <button data-kind="post" data-id="${p.id}" data-act="delete" class="ba-del">글 삭제</button>
+        </div>
+      </div>`;
+  }).join("");
+  box.querySelectorAll(".ba-actions button").forEach(b=>b.addEventListener("click",()=>moderateBoard(b)));
+  box.querySelectorAll(".ba-reply-btn").forEach(b=>b.addEventListener("click",()=>adminBoardReply(b)));
+}
+async function moderateBoard(btn){
+  if(btn.dataset.act==="delete" && !confirm("정말 삭제할까요? 되돌릴 수 없습니다.")) return;
+  const d=await callApi({action:"boardModerate",pw:getPw(),kind:btn.dataset.kind,id:Number(btn.dataset.id),action:btn.dataset.act}).catch(()=>({ok:false}));
+  if(d.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }
+  loadBoardAdmin();
+}
+async function adminBoardReply(btn){
+  const el=btn.closest(".ba-post").querySelector(".ba-in"); const content=el.value.trim();
+  if(!content){ el.focus(); return; }
+  btn.disabled=true;
+  const d=await callApi({action:"boardReply",pw:getPw(),post_id:Number(btn.dataset.id),content}).catch(()=>({ok:false}));
+  if(d.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }
+  loadBoardAdmin();
 }
 
 // ---------- 설교/말씀 관리(CMS) ----------
