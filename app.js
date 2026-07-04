@@ -687,6 +687,8 @@ function renderSettings() {
           <h2 class="rank-title">⚙️ 설정</h2>
           <button class="settings-back-btn" id="settings-back">← 뒤로</button>
         </div>
+        <button class="summary-install" id="change-user">👤 로그인 정보변경</button>
+        <button class="summary-install" id="install-btn">⛪ 홈 화면에 추가</button>
         <div class="setting-block">
           <div class="setting-label">🌙 화면 밝기</div>
           <div class="tts-rate-row" id="theme-row">
@@ -712,8 +714,6 @@ function renderSettings() {
           </div>
           <button class="tts-preview" id="tts-preview">🔊 이 속도로 들어보기</button>
         </div>
-        <button class="summary-install" id="change-user">👤 로그인 정보변경</button>
-        <button class="summary-install" id="privacy-info">🔐 개인정보 안내 보기</button>
         <div class="setting-block">
           <div class="setting-label">🕖 알림 시간 (아침)</div>
           <div class="tts-rate-row" id="pushhour-row">
@@ -726,11 +726,11 @@ function renderSettings() {
         </div>
         <button class="summary-install" id="enable-push">🔔 매일 암송 알림 받기<br><span class="btn-sub">( 매일 아침 · 위에서 시간 선택 )</span></button>
         <div class="app-status" id="app-status"></div>
-        <button class="summary-install" id="test-push">🧪 내 기기로 테스트 알림</button>
         <button class="push-off" id="disable-push">🔕 알림 끄기</button>
-        <button class="summary-install" id="install-btn">⛪ 홈 화면에 추가</button>
         <button class="summary-install" id="share-btn">🔗 공유하기</button>
+        <button class="summary-install" id="test-push">🧪 내 기기로 테스트 알림</button>
         <a class="summary-install" href="admin.html">📊 관리자 페이지</a>
+        <button class="summary-install" id="privacy-info">🔐 개인정보 안내 보기</button>
         <div class="setting-block">
           <div class="setting-label">☁️ 동기화 상태</div>
           ${syncStatusHtml()}
