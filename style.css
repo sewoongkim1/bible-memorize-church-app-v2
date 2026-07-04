@@ -333,6 +333,10 @@ h1 {
 .sermon-banner-text { display: flex; flex-direction: column; gap: 1px; line-height: 1.35; }
 .sermon-banner-title { font-size: 14px; font-weight: 700; }
 .sermon-banner-pastor { font-size: 11px; color: rgba(255, 255, 255, 0.7); }
+/* 설교 영상 준비 중(URL 없음) — 회색 안내, 클릭 불가 */
+.sermon-banner-soon { background: linear-gradient(135deg, #6b7280 0%, #8a93a5 100%); cursor: default; }
+.sermon-banner-soon:hover { filter: none; }
+.sermon-banner-soon .sermon-banner-icon { background: #e5e7eb; color: #6b7280; }
 
 .test-stage {
   display: inline-block;

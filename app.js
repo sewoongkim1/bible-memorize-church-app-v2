@@ -1004,7 +1004,12 @@ function renderTestScreen(verse, stage) {
            <span class="sermon-banner-title">${verse.sermonTitle || "설교 영상 보기"}</span>
          </span>
        </a>`
-    : "";
+    : `<div class="sermon-banner sermon-banner-soon">
+         <span class="sermon-banner-icon">⏳</span>
+         <span class="sermon-banner-text">
+           <span class="sermon-banner-title">${verse.sermonTitle ? verse.sermonTitle + " · " : ""}설교 영상 준비 중</span>
+         </span>
+       </div>`;
 
   appEl.innerHTML = `
     <div class="test-screen">
