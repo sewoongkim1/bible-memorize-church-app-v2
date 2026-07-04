@@ -233,9 +233,10 @@ async function testPush(b: any) {
   const { data: sub } = await db.from("push_subscriptions")
     .select("endpoint,p256dh,auth").eq("endpoint", b.endpoint).maybeSingle();
   if (!sub) return { ok: false, error: "not-subscribed" };
+  const hour = [5, 6, 7, 8].includes(Number(b.hour)) ? Number(b.hour) : 7;
   const payload = JSON.stringify({
     title: "성경암송 — 알림 설정 완료 ✅",
-    body: "알림이 정상 작동해요! 매일 오전 7시에 그 주 말씀을 보내드릴게요. 🙌",
+    body: `알림이 정상 작동해요! 매일 오전 ${hour}시에 그 주 말씀을 보내드릴게요. 🙌`,
     url: "https://gocheok.onlybible.kr/",
   });
   try {

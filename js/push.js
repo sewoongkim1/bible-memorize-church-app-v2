@@ -56,7 +56,7 @@ async function enablePush() {
     const hour = getPushHour();
     await api.savePush(u.user_id, sub.toJSON(), hour);
     // 설정 직후 본인 기기로 확인용 테스트 발송
-    api.testPush(sub.endpoint).catch(() => {});
+    api.testPush(sub.endpoint, hour).catch(() => {});
     alert("🔔 알림이 설정되었습니다!\n매일 오전 " + hour + "시에 말씀을 보내드려요.\n확인용 테스트 알림을 방금 보냈어요 — 잠시 후 이 기기에 오는지 봐주세요.");
     if (typeof updateAppStatus === "function") updateAppStatus();
     return true;
@@ -91,7 +91,7 @@ async function testMyPush() {
   const reg = await navigator.serviceWorker.getRegistration();
   const sub = reg && await reg.pushManager.getSubscription();
   if (!sub) { alert("먼저 '매일 암송 알림 받기'를 켜주세요."); return; }
-  const data = await api.testPush(sub.endpoint).catch(() => ({ ok: false, error: "network" }));
+  const data = await api.testPush(sub.endpoint, getPushHour()).catch(() => ({ ok: false, error: "network" }));
   if (data.ok) alert("🔔 테스트 알림을 보냈어요!\n몇 초 뒤 이 기기에 알림이 오는지 확인해줘요.");
   else alert("테스트 실패: " + (data.error || "오류") + "\n'알림 받기'를 다시 켜보세요.");
 }
