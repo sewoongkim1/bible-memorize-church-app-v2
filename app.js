@@ -664,7 +664,7 @@ function renderSummary() {
 ${dueCount > 0 ? `<button class="summary-go review-cta" id="go-review">📖 오늘 복습 (${dueCount}구절)</button>` : ""}
 <button class="summary-go challenge-cta" id="go-challenge">🔥 오늘의 말씀 도전</button>
 <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
-<button class="summary-help" id="open-board">💬 질문·제안 게시판</button>
+<button class="summary-help board-cta" id="open-board">💬 질문·제안 게시판</button>
   </div>
 </div>
 `;

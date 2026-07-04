@@ -950,6 +950,11 @@ h1 {
   transition: background .15s, color .15s;
 }
 .summary-help:hover { background: var(--navy); color: #fff; }
+/* 질문·제안 게시판 버튼 — 초록 계열로 구분 */
+.summary-help.board-cta { background: #eaf3ee; color: #2f6b4f; border-color: #2f6b4f; }
+.summary-help.board-cta:hover { background: #2f6b4f; color: #fff; }
+.dark .summary-help.board-cta { background: #1c3328; color: #7fc7a0; border-color: #2f6b4f; }
+.dark .summary-help.board-cta:hover { background: #2f6b4f; color: #fff; }
 
 /* ---------- 목록 상단 네비 ---------- */
 .list-nav {
