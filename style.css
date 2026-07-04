@@ -1494,7 +1494,19 @@ html[data-fs="xl"] .card-listen { width: 54px; height: 54px; font-size: 27px; }
 /* =====================================================================
    질문·제안 게시판
    ===================================================================== */
-.board-intro { font-size: 13px; color: var(--gray); text-align: center; line-height: 1.6; margin: 4px 0 14px; }
+.board-intro { font-size: 13px; color: var(--gray); text-align: center; line-height: 1.6; margin: 4px 0 8px; }
+.board-notice {
+  font-size: 12.5px; color: #8a6d1f; background: #fdf9ef; border: 1px solid #eadfbf;
+  border-radius: 8px; padding: 9px 12px; line-height: 1.6; text-align: center; margin: 0 0 14px;
+}
+.dark .board-notice { background: #2a2415; border-color: #4a4225; color: #cdbb88; }
+.board-who {
+  font-size: 13px; color: var(--navy); background: var(--light);
+  border-radius: 8px; padding: 9px 12px;
+}
+.board-who b { font-weight: 700; }
+.board-who-sub { color: var(--gray); font-size: 12px; }
+.dark .board-who { background: #1b2a47; color: #a8c4f0; }
 .board-form { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
 .board-in {
   width: 100%; box-sizing: border-box; padding: 10px 12px;

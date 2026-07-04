@@ -691,6 +691,15 @@ function boardEsc(s) {
   return String(s == null ? "" : s)
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
 }
+// 로그인 정보로 '소속 이름' 생성(게시판 작성자 표시용, 수정 불가)
+function boardWho() {
+  const u = (typeof loadUser === "function") ? loadUser() : null;
+  if (!u || !u.name) return "";
+  const affil = u.type === "교구"
+    ? `${u.gu || ""}-${u.mok || ""}`
+    : `${u.bu || ""}${u.grade ? " " + u.grade : ""}`;
+  return `${affil} ${u.name}`.trim().replace(/^-\s*/, "");
+}
 function renderBoard() {
   const appEl = document.getElementById("app");
   appEl.innerHTML = `
@@ -700,9 +709,10 @@ function renderBoard() {
           <h2 class="rank-title">💬 질문·제안</h2>
           <button class="settings-back-btn" id="board-back">← 뒤로</button>
         </div>
-        <p class="board-intro">궁금한 점이나 건의사항을 자유롭게 남겨주세요.<br>모든 글과 답글은 공개됩니다. 🙌</p>
+        <p class="board-intro">궁금한 점이나 건의사항을 자유롭게 남겨주세요. 모든 글과 답글은 공개됩니다. 🙌</p>
+        <p class="board-notice">🙏 <b>성경암송</b>과 관련된 질문·제안을 남겨주세요.<br>주제와 관련 없는 글은 부득이 삭제될 수 있는 점, 너그러이 양해 부탁드립니다.</p>
         <div class="board-form">
-          <input id="bp-name" class="board-in" maxlength="40" placeholder="이름 (선택)" autocomplete="off" />
+          <div class="board-who" id="bp-who"></div>
           <textarea id="bp-content" class="board-in" rows="3" maxlength="2000" placeholder="질문이나 제안을 적어주세요"></textarea>
           <button class="summary-go" id="bp-submit">✏️ 글 남기기</button>
           <div id="bp-msg" class="msg"></div>
@@ -711,8 +721,10 @@ function renderBoard() {
       </div>
     </div>`;
   document.getElementById("board-back").addEventListener("click", renderSummary);
-  const u = (typeof loadUser === "function") ? loadUser() : null;
-  if (u && u.name) document.getElementById("bp-name").value = u.name;
+  const who = boardWho();
+  document.getElementById("bp-who").innerHTML = who
+    ? `✍️ <b>${boardEsc(who)}</b> <span class="board-who-sub">성도님</span>`
+    : `✍️ <b>익명</b>`;
   document.getElementById("bp-submit").addEventListener("click", submitBoardPost);
   loadBoard();
 }
@@ -743,12 +755,11 @@ async function loadBoard() {
   box.querySelectorAll(".board-reply-btn").forEach((btn) => btn.addEventListener("click", () => submitBoardReply(btn)));
 }
 async function submitBoardPost() {
-  const name = document.getElementById("bp-name").value.trim();
   const content = document.getElementById("bp-content").value.trim();
   const msg = document.getElementById("bp-msg");
   if (!content) { msg.className = "msg err"; msg.textContent = "내용을 입력해주세요."; return; }
   const btn = document.getElementById("bp-submit"); btn.disabled = true; msg.className = "msg"; msg.textContent = "등록 중...";
-  try { await api.boardPost(name, content); }
+  try { await api.boardPost(boardWho(), content); }
   catch (e) { btn.disabled = false; msg.className = "msg err"; msg.textContent = "등록 실패: " + (e && e.message ? e.message : e); return; }
   document.getElementById("bp-content").value = "";
   msg.className = "msg"; msg.textContent = "✅ 등록되었습니다.";
@@ -760,9 +771,8 @@ async function submitBoardReply(btn) {
   const contentEl = post.querySelector(".br-content");
   const content = contentEl.value.trim();
   if (!content) { contentEl.focus(); return; }
-  const u = (typeof loadUser === "function") ? loadUser() : null;
   btn.disabled = true;
-  try { await api.boardReply(Number(btn.dataset.id), u && u.name ? u.name : "", content); }
+  try { await api.boardReply(Number(btn.dataset.id), boardWho(), content); }
   catch (e) { btn.disabled = false; alert("답글 등록 실패: " + (e && e.message ? e.message : e)); return; }
   loadBoard();
 }
