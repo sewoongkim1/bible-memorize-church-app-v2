@@ -86,6 +86,7 @@ Deno.serve(async (req) => {
       case "boardList":     return json(await boardList(body));
       case "boardPost":     return json(await boardPost(body));
       case "boardReply":    return json(await boardReply(body));
+      case "boardDeleteMine": return json(await boardDeleteMine(body));
       case "boardModerate": return json(await boardModerate(body));
       default:              return json({ error: `unknown action: ${body.action}` }, 400);
     }
@@ -987,8 +988,8 @@ async function weeklyReport(b: any) {
 // ============================================================
 async function boardList(b: any) {
   const isAdmin = !adminError(b); // 관리자면 숨김글도 조회
-  let pq = db.from("board_posts")
-    .select("id,name,content,hidden,created_at")
+  // select("*") 로 마이그레이션 전/후(user_id 유무) 모두 안전하게 조회
+  let pq = db.from("board_posts").select("*")
     .order("created_at", { ascending: false }).limit(300);
   if (!isAdmin) pq = pq.eq("hidden", false);
   const { data: posts, error } = await pq;
@@ -996,8 +997,7 @@ async function boardList(b: any) {
   const ids = (posts ?? []).map((p: any) => p.id);
   let replies: any[] = [];
   if (ids.length) {
-    let rq = db.from("board_replies")
-      .select("id,post_id,name,content,is_admin,hidden,created_at")
+    let rq = db.from("board_replies").select("*")
       .in("post_id", ids).order("created_at", { ascending: true });
     if (!isAdmin) rq = rq.eq("hidden", false);
     const r = await rq; replies = r.data ?? [];
@@ -1012,7 +1012,12 @@ async function boardPost(b: any) {
   if (!content) return { ok: false, error: "empty" };
   if (content.length > 2000) return { ok: false, error: "too-long" };
   const name = (String(b.name || "").trim().slice(0, 40)) || "익명";
-  const { data, error } = await db.from("board_posts").insert({ name, content }).select("id").single();
+  const row: any = { name, content };
+  if (b.user_id) row.user_id = b.user_id;
+  let { data, error } = await db.from("board_posts").insert(row).select("id").single();
+  if (error && /user_id/i.test(String(error.message || ""))) { // user_id 컬럼 마이그레이션 전 폴백
+    ({ data, error } = await db.from("board_posts").insert({ name, content }).select("id").single());
+  }
   if (error) throw error;
   return { ok: true, id: data.id };
 }
@@ -1024,10 +1029,25 @@ async function boardReply(b: any) {
   if (content.length > 2000) return { ok: false, error: "too-long" };
   const isAdmin = !adminError(b); // 관리자 답글이면 배지
   const name = isAdmin ? "관리자" : ((String(b.name || "").trim().slice(0, 40)) || "익명");
-  const { error } = await db.from("board_replies")
-    .insert({ post_id: Number(b.post_id), name, content, is_admin: isAdmin });
+  const row: any = { post_id: Number(b.post_id), name, content, is_admin: isAdmin };
+  if (b.user_id) row.user_id = b.user_id;
+  let { error } = await db.from("board_replies").insert(row);
+  if (error && /user_id/i.test(String(error.message || ""))) {
+    ({ error } = await db.from("board_replies").insert({ post_id: Number(b.post_id), name, content, is_admin: isAdmin }));
+  }
   if (error) throw error;
   return { ok: true, is_admin: isAdmin };
+}
+
+// 본인 글/답글 삭제 (user_id 일치해야만)
+async function boardDeleteMine(b: any) {
+  if (!b.user_id) return { ok: false, error: "no-user" };
+  const table = b.kind === "reply" ? "board_replies" : "board_posts";
+  const { data, error } = await db.from(table).delete()
+    .eq("id", Number(b.id)).eq("user_id", b.user_id).select("id");
+  if (error) throw error;
+  if (!(data && data.length)) return { ok: false, error: "not-owner" };
+  return { ok: true };
 }
 
 async function boardModerate(b: any) {

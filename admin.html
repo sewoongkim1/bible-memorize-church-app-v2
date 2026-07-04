@@ -557,7 +557,7 @@ async function loadBoardAdmin(){
   box.innerHTML=posts.map(p=>{
     const replies=(p.replies||[]).map(r=>`
       <div class="ba-reply${r.is_admin?" adm":""}${r.hidden?" hidden":""}">
-        <div class="ba-meta"><b>${boardE(r.name)}</b>${r.is_admin?' <span class="board-badge">관리자</span>':''} · ${boardT(r.created_at)}${r.hidden?' · <span style="color:#b94a3a">숨김</span>':''}</div>
+        <div class="ba-meta">${r.is_admin?'<span class="board-badge">관리자</span>':`<b>${boardE(r.name)}</b>`} · ${boardT(r.created_at)}${r.hidden?' · <span style="color:#b94a3a">숨김</span>':''}</div>
         <div>${boardE(r.content)}</div>
         <div class="ba-actions">
           <button data-kind="reply" data-id="${r.id}" data-act="${r.hidden?'show':'hide'}">${r.hidden?'숨김해제':'숨기기'}</button>

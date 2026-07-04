@@ -700,6 +700,10 @@ function boardWho() {
     : `${u.bu || ""}${u.grade ? " " + u.grade : ""}`;
   return `${affil} ${u.name}`.trim().replace(/^-\s*/, "");
 }
+function myUserId() {
+  const u = (typeof loadUser === "function") ? loadUser() : null;
+  return u && u.user_id ? u.user_id : null;
+}
 function renderBoard() {
   const appEl = document.getElementById("app");
   appEl.innerHTML = `
@@ -735,15 +739,18 @@ async function loadBoard() {
   catch (e) { box.innerHTML = `<p class="msg err">게시판을 불러오지 못했습니다.</p>`; return; }
   const posts = (d && d.posts) || [];
   if (!posts.length) { box.innerHTML = `<p style="text-align:center;color:#888;padding:24px 0">아직 글이 없어요.<br>첫 글을 남겨보세요!</p>`; return; }
+  const myUid = myUserId();
+  const delBtn = (kind, id, uid) => (myUid && uid && uid === myUid)
+    ? ` · <button class="board-del" data-kind="${kind}" data-id="${id}">삭제</button>` : "";
   box.innerHTML = posts.map((p) => {
     const replies = (p.replies || []).map((r) => `
       <div class="board-reply${r.is_admin ? " admin" : ""}">
-        <div class="board-meta"><b>${boardEsc(r.name)}</b>${r.is_admin ? ' <span class="board-badge">관리자</span>' : ""} · ${boardTime(r.created_at)}</div>
+        <div class="board-meta">${r.is_admin ? '<span class="board-badge">관리자</span>' : `<b>${boardEsc(r.name)}</b>`} · ${boardTime(r.created_at)}${delBtn("reply", r.id, r.user_id)}</div>
         <div class="board-text">${boardEsc(r.content)}</div>
       </div>`).join("");
     return `
       <div class="board-post" data-id="${p.id}">
-        <div class="board-meta"><b>${boardEsc(p.name)}</b> · ${boardTime(p.created_at)}</div>
+        <div class="board-meta"><b>${boardEsc(p.name)}</b> · ${boardTime(p.created_at)}${delBtn("post", p.id, p.user_id)}</div>
         <div class="board-text">${boardEsc(p.content)}</div>
         ${replies}
         <div class="board-reply-row">
@@ -753,13 +760,14 @@ async function loadBoard() {
       </div>`;
   }).join("");
   box.querySelectorAll(".board-reply-btn").forEach((btn) => btn.addEventListener("click", () => submitBoardReply(btn)));
+  box.querySelectorAll(".board-del").forEach((btn) => btn.addEventListener("click", () => deleteMine(btn)));
 }
 async function submitBoardPost() {
   const content = document.getElementById("bp-content").value.trim();
   const msg = document.getElementById("bp-msg");
   if (!content) { msg.className = "msg err"; msg.textContent = "내용을 입력해주세요."; return; }
   const btn = document.getElementById("bp-submit"); btn.disabled = true; msg.className = "msg"; msg.textContent = "등록 중...";
-  try { await api.boardPost(boardWho(), content); }
+  try { await api.boardPost(boardWho(), content, myUserId()); }
   catch (e) { btn.disabled = false; msg.className = "msg err"; msg.textContent = "등록 실패: " + (e && e.message ? e.message : e); return; }
   document.getElementById("bp-content").value = "";
   msg.className = "msg"; msg.textContent = "✅ 등록되었습니다.";
@@ -772,8 +780,14 @@ async function submitBoardReply(btn) {
   const content = contentEl.value.trim();
   if (!content) { contentEl.focus(); return; }
   btn.disabled = true;
-  try { await api.boardReply(Number(btn.dataset.id), boardWho(), content); }
+  try { await api.boardReply(Number(btn.dataset.id), boardWho(), content, myUserId()); }
   catch (e) { btn.disabled = false; alert("답글 등록 실패: " + (e && e.message ? e.message : e)); return; }
+  loadBoard();
+}
+async function deleteMine(btn) {
+  if (!confirm("이 글을 삭제할까요?")) return;
+  try { await api.boardDeleteMine(btn.dataset.kind, Number(btn.dataset.id), myUserId()); }
+  catch (e) { alert("삭제 실패: " + (e && e.message ? e.message : e)); return; }
   loadBoard();
 }
 
