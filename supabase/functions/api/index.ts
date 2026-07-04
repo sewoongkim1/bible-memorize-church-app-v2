@@ -1042,13 +1042,17 @@ async function boardReply(b: any) {
 
 // 본인 글/답글 삭제 — 물리삭제가 아니라 deleted 태그(관리자 확인·복구 가능). user_id 일치해야만.
 async function boardDeleteMine(b: any) {
-  if (!b.user_id) return { ok: false, error: "no-user" };
+  const who = String(b.who || "").trim();
+  if (!who && !b.user_id) return { ok: false, error: "no-owner" };
   const table = b.kind === "reply" ? "board_replies" : "board_posts";
+  // 소유 확인: 소속+이름(name=boardWho) 우선 → 옛 글(user_id 없음)도 매칭. 없으면 user_id.
+  const ownerCol = who ? "name" : "user_id";
+  const ownerVal = who || b.user_id;
   let { data, error } = await db.from(table).update({ deleted: true })
-    .eq("id", Number(b.id)).eq("user_id", b.user_id).select("id");
-  if (error && /deleted/i.test(String(error.message || ""))) { // 컬럼 마이그레이션 전 폴백
+    .eq("id", Number(b.id)).eq(ownerCol, ownerVal).select("id");
+  if (error && /deleted/i.test(String(error.message || ""))) { // deleted 컬럼 마이그레이션 전 폴백
     ({ data, error } = await db.from(table).update({ hidden: true })
-      .eq("id", Number(b.id)).eq("user_id", b.user_id).select("id"));
+      .eq("id", Number(b.id)).eq(ownerCol, ownerVal).select("id"));
   }
   if (error) throw error;
   if (!(data && data.length)) return { ok: false, error: "not-owner" };

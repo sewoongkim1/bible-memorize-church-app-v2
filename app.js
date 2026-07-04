@@ -705,6 +705,11 @@ function myUserId() {
   return u && u.user_id ? u.user_id : null;
 }
 let boardMineOnly = false; // 게시판 '내 글만 보기' 상태
+// 본인 글 판별: 소속+이름 일치(옛 글 포함) 또는 user_id 일치
+function boardIsMine(item) {
+  const who = boardWho(); const uid = myUserId();
+  return (!!who && item.name === who) || (!!uid && !!item.user_id && item.user_id === uid);
+}
 function renderBoard() {
   const appEl = document.getElementById("app");
   appEl.innerHTML = `
@@ -751,23 +756,22 @@ async function loadBoard() {
   try { d = await api.boardList(); }
   catch (e) { box.innerHTML = `<p class="msg err">게시판을 불러오지 못했습니다.</p>`; return; }
   let posts = (d && d.posts) || [];
-  const myUid = myUserId();
-  if (boardMineOnly) posts = posts.filter((p) => p.user_id && p.user_id === myUid);
+  if (boardMineOnly) posts = posts.filter((p) => boardIsMine(p));
   if (!posts.length) {
     box.innerHTML = `<p style="text-align:center;color:#888;padding:24px 0">${boardMineOnly ? "작성하신 글이 없어요." : "아직 글이 없어요.<br>첫 글을 남겨보세요!"}</p>`;
     return;
   }
-  const delBtn = (kind, id, uid) => (myUid && uid && uid === myUid)
-    ? ` · <button class="board-del" data-kind="${kind}" data-id="${id}">삭제</button>` : "";
+  const delBtn = (kind, item) => boardIsMine(item)
+    ? ` · <button class="board-del" data-kind="${kind}" data-id="${item.id}">삭제</button>` : "";
   box.innerHTML = posts.map((p) => {
     const replies = (p.replies || []).map((r) => `
       <div class="board-reply${r.is_admin ? " admin" : ""}">
-        <div class="board-meta">${r.is_admin ? '<span class="board-badge">관리자</span>' : `<b>${boardEsc(r.name)}</b>`} · ${boardTime(r.created_at)}${delBtn("reply", r.id, r.user_id)}</div>
+        <div class="board-meta">${r.is_admin ? '<span class="board-badge">관리자</span>' : `<b>${boardEsc(r.name)}</b>`} · ${boardTime(r.created_at)}${r.is_admin ? "" : delBtn("reply", r)}</div>
         <div class="board-text">${boardEsc(r.content)}</div>
       </div>`).join("");
     return `
       <div class="board-post" data-id="${p.id}">
-        <div class="board-meta"><b>${boardEsc(p.name)}</b> · ${boardTime(p.created_at)}${delBtn("post", p.id, p.user_id)}</div>
+        <div class="board-meta"><b>${boardEsc(p.name)}</b> · ${boardTime(p.created_at)}${delBtn("post", p)}</div>
         <div class="board-text">${boardEsc(p.content)}</div>
         ${replies}
         <div class="board-reply-row">
@@ -803,7 +807,7 @@ async function submitBoardReply(btn) {
 }
 async function deleteMine(btn) {
   if (!confirm("이 글을 삭제할까요?")) return;
-  try { await api.boardDeleteMine(btn.dataset.kind, Number(btn.dataset.id), myUserId()); }
+  try { await api.boardDeleteMine(btn.dataset.kind, Number(btn.dataset.id), myUserId(), boardWho()); }
   catch (e) { alert("삭제 실패: " + (e && e.message ? e.message : e)); return; }
   loadBoard();
 }
