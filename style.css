@@ -1519,7 +1519,8 @@ html[data-fs="xl"] .card-listen { width: 54px; height: 54px; font-size: 27px; }
   font-family: inherit; font-size: 14px; background: var(--white); color: var(--ink);
 }
 .board-in:focus { outline: none; border-color: var(--navy); }
-textarea.board-in { resize: vertical; }
+textarea.board-in { resize: vertical; min-height: 60px; line-height: 1.5; }
+textarea.board-in-lg { min-height: 120px; }
 .dark .board-in { background: #16233d; color: #e6ecf7; border-color: #2b3a5a; }
 
 .board-filter { display: flex; gap: 6px; margin-bottom: 12px; }
@@ -1558,10 +1559,11 @@ textarea.board-in { resize: vertical; }
   display: inline-block; background: var(--gold); color: #fff;
   font-size: 10px; font-weight: 800; padding: 1px 7px; border-radius: 10px; vertical-align: middle;
 }
-.board-reply-row { display: flex; gap: 6px; margin-top: 10px; }
-.board-reply-row .board-in { flex: 1; padding: 8px 10px; font-size: 13px; }
+.board-reply-form { margin-top: 12px; }
+.board-reply-form .board-in { width: 100%; box-sizing: border-box; padding: 8px 10px; font-size: 13px; }
 .board-reply-btn {
-  flex-shrink: 0; padding: 0 14px; border: none; border-radius: 9px;
+  display: block; margin-left: auto; margin-top: 8px;
+  padding: 8px 18px; border: none; border-radius: 9px;
   background: var(--navy); color: #fff; font-weight: 700; font-size: 13px; cursor: pointer;
 }
 .board-reply-btn:hover { filter: brightness(1.1); }

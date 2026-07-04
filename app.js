@@ -723,7 +723,7 @@ function renderBoard() {
         <p class="board-notice">🙏 <b>성경암송</b>과 관련된 질문·제안을 남겨주세요. 주제와 관련 없는 글은 부득이 삭제될 수 있습니다.<br>⚠️ 전화번호 등 <b>민감한 개인정보</b>는 올리지 말아주세요.</p>
         <div class="board-form">
           <div class="board-who" id="bp-who"></div>
-          <textarea id="bp-content" class="board-in" rows="3" maxlength="2000" placeholder="질문이나 제안을 적어주세요"></textarea>
+          <textarea id="bp-content" class="board-in board-in-lg" rows="5" maxlength="2000" placeholder="질문이나 제안을 적어주세요"></textarea>
           <button class="summary-go" id="bp-submit">✏️ 글 남기기</button>
           <div id="bp-msg" class="msg"></div>
         </div>
@@ -774,9 +774,9 @@ async function loadBoard() {
         <div class="board-meta"><b>${boardEsc(p.name)}</b> · ${boardTime(p.created_at)}${delBtn("post", p)}</div>
         <div class="board-text">${boardEsc(p.content)}</div>
         ${replies}
-        <div class="board-reply-row">
-          <input class="board-in br-content" maxlength="2000" placeholder="답글 달기" autocomplete="off" />
-          <button class="board-reply-btn" data-id="${p.id}">등록</button>
+        <div class="board-reply-form">
+          <textarea class="board-in br-content" rows="2" maxlength="2000" placeholder="답글 달기"></textarea>
+          <button class="board-reply-btn" data-id="${p.id}">답글 등록</button>
         </div>
       </div>`;
   }).join("");
