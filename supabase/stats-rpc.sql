@@ -83,3 +83,12 @@ language sql stable security definer set search_path = public as $$
   group by c.verse_no
   order by (c.verse_no)::int;
 $$;
+
+-- 5) 보안: anon/공개 롤에서 실행 권한 회수 → Edge Function(service_role)만 호출 가능
+--    (이 함수들은 참여자 실명 등 개인정보를 집계하므로 외부 직접 호출을 반드시 차단)
+revoke all on function v2_stats(text, text)                 from public, anon, authenticated;
+revoke all on function v2_participants(text, text, text)    from public, anon, authenticated;
+revoke all on function v2_verse_stats(text, text)           from public, anon, authenticated;
+grant execute on function v2_stats(text, text)              to service_role;
+grant execute on function v2_participants(text, text, text) to service_role;
+grant execute on function v2_verse_stats(text, text)        to service_role;
