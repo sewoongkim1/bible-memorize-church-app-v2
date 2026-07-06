@@ -516,8 +516,8 @@ h1 {
 
 .complete-badge {
   display: inline-block;
-  background: var(--navy);
-  color: var(--gold);
+  background: var(--gold);
+  color: var(--navy);
   font-weight: 800;
   font-size: 16px;
   padding: 9px 20px;
@@ -525,6 +525,9 @@ h1 {
   margin-bottom: 12px;
   font-family: "Nanum Myeongjo", serif;
 }
+/* 암송 완료 배지 + 반복 버튼을 한 줄에 */
+.complete-row { display: flex; gap: 10px; justify-content: center; align-items: center; flex-wrap: wrap; }
+.complete-row .complete-badge { margin-bottom: 0; }
 .sermon-link {
   display: block;
   margin-top: 8px;

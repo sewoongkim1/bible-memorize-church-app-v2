@@ -1433,8 +1433,10 @@ function setupVoice(verse, stage, onPass) {
       ? ""
       : stage < 3
       ? `<button class="next-btn" id="voice-next-stage">${stage + 1}단계로</button>`
-      : `<div class="complete-badge">암송 완료 🙌</div>
-         <button class="next-btn" id="voice-repeat-stage3">암송 반복하기</button>`;
+      : `<div class="complete-row">
+           <div class="complete-badge">암송 완료 🙌</div>
+           <button class="next-btn" id="voice-repeat-stage3">암송 반복하기</button>
+         </div>`;
     const topArea = document.getElementById("result-area");
     if (topArea) topArea.innerHTML = nav;
     if (passed && stage < 3) {
@@ -1638,8 +1640,10 @@ function checkAllComplete(inputs, verse, stage) {
     ${
       stage < 3
         ? `<button class="next-btn" id="next-stage-btn">${stage + 1}단계로</button>`
-        : `<div class="complete-badge">암송 완료 🙌</div>
-           <button class="next-btn" id="repeat-stage3-btn">암송 반복하기</button>`
+        : `<div class="complete-row">
+             <div class="complete-badge">암송 완료 🙌</div>
+             <button class="next-btn" id="repeat-stage3-btn">암송 반복하기</button>
+           </div>`
     }
   `;
 
