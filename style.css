@@ -525,9 +525,10 @@ h1 {
   margin-bottom: 12px;
   font-family: "Nanum Myeongjo", serif;
 }
-/* 암송 완료 배지 + 반복 버튼을 한 줄에 */
-.complete-row { display: flex; gap: 10px; justify-content: center; align-items: center; flex-wrap: wrap; }
-.complete-row .complete-badge { margin-bottom: 0; }
+/* 암송 완료 배지 + 반복 버튼을 한 줄에 (줄바꿈 금지) */
+.complete-row { display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: nowrap; }
+.complete-row .complete-badge { margin-bottom: 0; font-size: 14px; padding: 8px 14px; white-space: nowrap; }
+.complete-row .next-btn { padding: 9px 14px; font-size: 13px; white-space: nowrap; }
 .sermon-link {
   display: block;
   margin-top: 8px;
