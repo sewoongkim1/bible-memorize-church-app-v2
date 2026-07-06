@@ -561,7 +561,19 @@ async function mydays(b: any) {
 // ---------- stats: 기간별 사용현황 (구분·소속별) ----------
 async function stats(b: any) {
   const err = adminError(b); if (err) return { ok: false, error: err };
+  // 빠른 경로: DB 집계 RPC (미설치 시 아래 기존 방식으로 폴백)
+  try {
+    const { data, error } = await db.rpc("v2_stats", { p_from: b.from || "", p_to: b.to || "" });
+    if (error) throw error;
+    const list = ((data ?? []) as any[])
+      .map((r) => ({ gubun: r.gubun, sosok: r.sosok, newCount: r.new_count, participants: r.participants, typing: r.typing, voice: r.voice, total: r.total }))
+      .sort((a, b) => (a.gubun === b.gubun ? String(a.sosok).localeCompare(b.sosok) : String(a.gubun).localeCompare(b.gubun)));
+    return { ok: true, list };
+  } catch (_) { /* RPC 미설치 → 폴백 */ }
+  return await statsSlow(b);
+}
 
+async function statsSlow(b: any) {
   let q = db.from("challenge_log")
     .select("user_id, mode, users(type,gu,bu)");
   q = rangeFilter(q, b);
@@ -605,7 +617,16 @@ async function stats(b: any) {
 // ---------- participants: 참여자별 현황 ----------
 async function participants(b: any) {
   const err = adminError(b); if (err) return { ok: false, error: err };
+  try {
+    const { data, error } = await db.rpc("v2_participants", { p_from: b.from || "", p_to: b.to || "", p_gubun: b.gubun || "" });
+    if (error) throw error;
+    const list = ((data ?? []) as any[]).map((r) => ({ gubun: r.gubun, sosok: r.sosok, sebu: r.sebu, name: r.name, typing: r.typing, voice: r.voice, total: r.total }));
+    return { ok: true, list };
+  } catch (_) { /* 폴백 */ }
+  return await participantsSlow(b);
+}
 
+async function participantsSlow(b: any) {
   let q = db.from("challenge_log")
     .select("user_id, mode, users(type,gu,mok,bu,grade,name)");
   q = rangeFilter(q, b);
@@ -634,7 +655,16 @@ async function participants(b: any) {
 // ---------- verses: 구절별 현황 ----------
 async function verseStats(b: any) {
   const err = adminError(b); if (err) return { ok: false, error: err };
+  try {
+    const { data, error } = await db.rpc("v2_verse_stats", { p_from: b.from || "", p_to: b.to || "" });
+    if (error) throw error;
+    const list = ((data ?? []) as any[]).map((r) => ({ no: r.no, participants: r.participants, count: r.cnt }));
+    return { ok: true, list };
+  } catch (_) { /* 폴백 */ }
+  return await verseStatsSlow(b);
+}
 
+async function verseStatsSlow(b: any) {
   let q = db.from("challenge_log").select("verse_no, mode, user_id");
   q = rangeFilter(q, b);
   const { data, error } = await q;
