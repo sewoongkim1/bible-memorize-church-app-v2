@@ -1434,8 +1434,7 @@ function setupVoice(verse, stage, onPass) {
       : stage < 3
       ? `<button class="next-btn" id="voice-next-stage">${stage + 1}단계로</button>`
       : `<div class="complete-badge">암송 완료 🙌</div>
-         <button class="next-btn" id="voice-repeat-stage3">🔁 암송 반복하기</button>
-         <button class="next-btn" id="voice-to-summary">내 기록 보기</button>`;
+         <button class="next-btn" id="voice-repeat-stage3">암송 반복하기</button>`;
     const topArea = document.getElementById("result-area");
     if (topArea) topArea.innerHTML = nav;
     if (passed && stage < 3) {
@@ -1446,9 +1445,6 @@ function setupVoice(verse, stage, onPass) {
       document
         .getElementById("voice-repeat-stage3")
         .addEventListener("click", () => renderTestScreen(verse, 3));
-      document
-        .getElementById("voice-to-summary")
-        .addEventListener("click", renderSummary);
     }
   }
 
@@ -1643,8 +1639,7 @@ function checkAllComplete(inputs, verse, stage) {
       stage < 3
         ? `<button class="next-btn" id="next-stage-btn">${stage + 1}단계로</button>`
         : `<div class="complete-badge">암송 완료 🙌</div>
-           <button class="next-btn" id="repeat-stage3-btn">🔁 암송 반복하기</button>
-           <button class="next-btn" id="to-summary-btn">내 기록 보기</button>`
+           <button class="next-btn" id="repeat-stage3-btn">암송 반복하기</button>`
     }
   `;
 
@@ -1656,9 +1651,6 @@ function checkAllComplete(inputs, verse, stage) {
     document
       .getElementById("repeat-stage3-btn")
       .addEventListener("click", () => renderTestScreen(verse, 3));
-    document
-      .getElementById("to-summary-btn")
-      .addEventListener("click", renderSummary);
   }
 }
 
