@@ -632,13 +632,33 @@ h1 {
   border: 1px solid var(--border); border-radius: 16px;
   padding: 16px 18px; box-shadow: 0 6px 20px rgba(13,27,62,.06); text-align: center;
 }
-/* 인사말(왼쪽 가운데) + 아이콘(오른쪽)을 같은 줄에 */
+/* 인사말(왼쪽 가운데) + 아이콘(오른쪽)을 같은 줄에 — 스크롤해도 상단 고정 */
 .summary-headrow {
-  display: flex; align-items: center; gap: 4px; margin-bottom: 6px;
+  display: flex; align-items: center; gap: 4px;
+  position: sticky; top: 0; z-index: 6;
+  margin: -16px -18px 8px;            /* 카드 상단·좌우 패딩만큼 확장 */
+  padding: 11px 18px;
+  background: var(--white);
+  border-radius: 16px 16px 0 0;
+  border-bottom: 1px solid var(--border);
 }
 .summary-icons {
   display: flex; gap: 5px; flex: none;
 }
+/* 알림·공유 강조 아이콘(참여 독려) */
+.summary-icon.icon-alarm { background: #fff4dc; border-color: #ecd39a; color: #9a7614; }
+.summary-icon.icon-share { background: #e8f0fb; border-color: #c3d5ef; color: var(--navy); }
+.summary-icon.icon-alarm:hover { background: #ffeec4; }
+.summary-icon.icon-share:hover { background: #dbe7f8; }
+.dark .summary-icon.icon-alarm { background: #3a3320; border-color: #5a4e2a; color: #eccf87; }
+.dark .summary-icon.icon-share { background: #22314c; border-color: #35507a; color: #bcd2f2; }
+/* 아직 알림 안 켠 사람에게만 은은한 강조 */
+.summary-icon.pulse { animation: bellPulse 2.2s ease-in-out infinite; }
+@keyframes bellPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(200,168,75,.0); }
+  50%      { box-shadow: 0 0 0 5px rgba(200,168,75,.28); }
+}
+@media (prefers-reduced-motion: reduce) { .summary-icon.pulse { animation: none; } }
 .summary-icon {
   width: 34px; height: 34px; padding: 0;
   border: 1px solid var(--border); border-radius: 50%;
