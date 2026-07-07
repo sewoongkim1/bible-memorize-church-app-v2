@@ -740,16 +740,16 @@ h1 {
 .dark .tts-rate-row button.on { background: #3a4a68; color: #fff; border-color: #4a5f8a; }
 .dark .tts-preview { background: #232c3f; color: #cdd9f2; border-color: #3a4a68; }
 .summary-hello {
-  flex: 1; /* 아이콘 영역을 제외한 나머지 폭에서 가운데 정렬 */
+  flex: 1;
   font-family: "Nanum Myeongjo", serif; color: var(--navy);
-  font-size: 0.82rem; /* 0.91rem의 0.9배 */ line-height: 1.35; margin-bottom: 0;
+  font-size: 1rem; line-height: 1.4; margin-bottom: 0;
 }
-/* 인사 문구 내 소속(화평-20 등)과 '성도님'은 작게, 이름만 크게 */
+/* 인사 문구 내 소속(화평-20 등)과 '성도님' */
 .summary-hello .summary-affil,
-.summary-hello .summary-honor { font-size: 0.8rem; font-weight: 600; color: var(--navy); }
-/* 인사 문구 내 로그인 정보(이름·소속) 강조 */
+.summary-hello .summary-honor { font-size: 0.95rem; font-weight: 600; color: var(--navy); }
+/* 인사 문구 내 로그인 정보(이름) 강조 */
 .summary-hello .summary-user {
-  font-size: 1rem; /* 기존 1.25rem의 0.8배 */ font-weight: 800; color: var(--navy);
+  font-size: 1.3rem; font-weight: 800; color: var(--navy);
   letter-spacing: -0.3px;
 }
 .gauge-wrap { margin-bottom: 6px; }
