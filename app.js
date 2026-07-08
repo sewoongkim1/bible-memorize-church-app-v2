@@ -667,6 +667,7 @@ function renderSummary() {
 ${dueCount > 0 ? `<button class="summary-go review-cta" id="go-review">📖 오늘 복습 (${dueCount}구절)</button>` : ""}
 <button class="summary-go challenge-cta" id="go-challenge">🔥 오늘의 말씀 도전</button>
 <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
+<button class="summary-help praise-cta" id="open-praise">🎵 고척 찬양 아카이브</button>
 <button class="summary-help board-cta" id="open-board">💬 질문·제안 게시판</button>
   </div>
 </div>
@@ -678,6 +679,7 @@ ${dueCount > 0 ? `<button class="summary-go review-cta" id="go-review">📖 오�
   if (dueCount > 0) document.getElementById("go-review").addEventListener("click", startReview);
   document.getElementById("go-challenge").addEventListener("click", startChallenge);
   document.getElementById("open-ranking").addEventListener("click", () => renderRanking());
+  document.getElementById("open-praise").addEventListener("click", () => window.open("https://worship.onlybible.kr/", "_blank", "noopener"));
   document.getElementById("open-help-summary").addEventListener("click", () => renderHelp(renderSummary));
   document.getElementById("open-settings").addEventListener("click", renderSettings);
   document.getElementById("open-share").addEventListener("click", shareApp);
