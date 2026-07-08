@@ -277,6 +277,8 @@ async function sendPush(b: any) {
     url: b.url || "https://gocheok.onlybible.kr/",
   });
   let sent = 0, failed = 0;
+  const errs: string[] = [];
+  const vapidReady = !!(VAPID_PUBLIC && VAPID_PRIVATE);
   for (const s of (subs ?? []) as any[]) {
     try {
       await webpush.sendNotification(
@@ -287,10 +289,13 @@ async function sendPush(b: any) {
     } catch (e: any) {
       failed++;
       const code = e && (e.statusCode || e.status);
+      if (errs.length < 3) errs.push(`[${code || e?.name || "ERR"}] ${(e?.body || e?.message || String(e)).toString().slice(0, 200)}`);
       if (code === 404 || code === 410) await db.from("push_subscriptions").delete().eq("id", s.id);
     }
   }
   const total = (subs ?? []).length;
+  // 진단 모드: 실제 에러/설정 상태를 반환(관리자 호출 시에만 노출)
+  if (b.diag) return { ok: true, sent, failed, total, vapidReady, vapidSubject: VAPID_SUBJECT, errors: errs };
   // 장애 모니터링용 발송 로그 기록(실패해도 발송 결과에는 영향 없음)
   try {
     await db.from("push_log").insert({

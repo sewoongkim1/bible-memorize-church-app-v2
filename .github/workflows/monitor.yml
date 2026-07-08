@@ -9,6 +9,10 @@ on:
         description: '경보 채널 테스트(텔레그램으로 샘플 경보 발송)'
         type: boolean
         default: false
+      diag_send:
+        description: '발송 진단(sendPush diag — 실제 web-push 에러 확인)'
+        type: boolean
+        default: false
 
 jobs:
   monitor:
@@ -22,13 +26,26 @@ jobs:
           TG_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
           FORCE_ALERT: ${{ github.event.inputs.force_alert }}
+          DIAG_SEND: ${{ github.event.inputs.diag_send }}
         run: |
           set -uo pipefail
 
           # 0) 아직 설정(시크릿) 전이면 조용히 스킵 (실패 알림 방지)
-          if [ -z "${ADMIN_SECRET:-}" ] || [ -z "${TG_TOKEN:-}" ] || [ -z "${TG_CHAT:-}" ]; then
-            echo "⏭️  시크릿(ADMIN_SECRET/TELEGRAM_TOKEN/TELEGRAM_CHAT_ID) 미설정 — 점검 건너뜀"
-            exit 0
+          if [ -z "${ADMIN_SECRET:-}" ]; then
+            echo "⏭️  ADMIN_SECRET 미설정 — 점검 건너뜀"; exit 0
+          fi
+
+          # 0-2) 발송 진단 모드: sendPush를 diag로 호출해 실제 web-push 에러/설정 상태만 출력(텔레그램 없음)
+          if [ "${DIAG_SEND:-false}" = "true" ]; then
+            echo "🔧 발송 진단 실행..."
+            curl -s -m 40 -X POST "$API_URL" -H "Content-Type: application/json" \
+              -H "apikey: $ANON" -H "Authorization: Bearer $ANON" \
+              -d "{\"action\":\"sendPush\",\"pw\":\"$ADMIN_SECRET\",\"hour\":8,\"latest\":true,\"diag\":true,\"mode\":\"diag\"}"
+            echo ""; exit 0
+          fi
+
+          if [ -z "${TG_TOKEN:-}" ] || [ -z "${TG_CHAT:-}" ]; then
+            echo "⏭️  텔레그램 시크릿 미설정 — 점검 건너뜀"; exit 0
           fi
 
           # 0-1) 경보 채널 테스트 모드: 샘플 경보만 보내고 종료
