@@ -40,7 +40,7 @@ jobs:
             echo "🔧 발송 진단 실행..."
             curl -s -m 40 -X POST "$API_URL" -H "Content-Type: application/json" \
               -H "apikey: $ANON" -H "Authorization: Bearer $ANON" \
-              -d "{\"action\":\"sendPush\",\"pw\":\"$ADMIN_SECRET\",\"hour\":8,\"latest\":true,\"diag\":true,\"mode\":\"diag\"}"
+              -d "{\"action\":\"sendPush\",\"pw\":\"$ADMIN_SECRET\",\"latest\":true,\"diag\":true,\"mode\":\"diag\"}"
             echo ""; exit 0
           fi
 
