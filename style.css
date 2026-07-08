@@ -529,6 +529,21 @@ h1 {
 .complete-row { display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: nowrap; }
 .complete-row .complete-badge { margin-bottom: 0; font-size: 14px; padding: 8px 14px; white-space: nowrap; }
 .complete-row .next-btn { padding: 9px 14px; font-size: 13px; white-space: nowrap; }
+/* 3단계 완료 네비: 이전 암송 · 다시 암송 · 다음 암송 */
+.complete-nav { display: flex; gap: 8px; justify-content: center; flex-wrap: nowrap; margin-top: 2px; }
+.nav3-btn {
+  flex: 1; min-width: 0; padding: 11px 6px; font-size: 13.5px; font-weight: 700;
+  border-radius: 10px; cursor: pointer; font-family: inherit; white-space: nowrap;
+  background: #eef1f8; color: var(--navy); border: 1.5px solid var(--navy);
+  transition: background .15s, color .15s, transform .1s;
+}
+.nav3-btn:hover:not(:disabled) { background: var(--navy); color: #fff; }
+.nav3-btn:active:not(:disabled) { transform: translateY(1px); }
+.nav3-btn.redo { background: var(--navy); color: #fff; }
+.nav3-btn.redo:hover { background: var(--navy-dark); }
+.nav3-btn:disabled { opacity: .38; cursor: default; }
+.dark .nav3-btn { background: #223049; color: #cdd9f2; border-color: #3a4a68; }
+.dark .nav3-btn.redo { background: #3a4a68; color: #fff; }
 .sermon-link {
   display: block;
   margin-top: 8px;
@@ -977,15 +992,11 @@ h1 {
   transition: background .15s, color .15s;
 }
 .summary-help:hover { background: var(--navy); color: #fff; }
-/* 고척 찬양 아카이브 버튼 — 금색 그라디언트(교회 브랜드) */
-.summary-help.praise-cta {
-  background: linear-gradient(135deg, #e6c063, #c8a24a);
-  color: var(--navy); border-color: #c8a24a; font-weight: 800;
-  box-shadow: 0 3px 12px rgba(200,162,74,.30);
-}
-.summary-help.praise-cta:hover { background: linear-gradient(135deg, #dcb452, #b8923f); color: var(--navy); }
-.dark .summary-help.praise-cta { background: linear-gradient(135deg, #c8a24a, #9c7c33); color: #1a1200; border-color: #9c7c33; }
-.dark .summary-help.praise-cta:hover { background: linear-gradient(135deg, #d3ae54, #a9873a); color: #1a1200; }
+/* 고척교회 찬양 아카이브 버튼 — 은은한 금색 톤(주변 버튼과 조화) */
+.summary-help.praise-cta { background: #f7efda; color: #8a6a1e; border-color: #d9b96a; }
+.summary-help.praise-cta:hover { background: #d9b96a; color: #fff; }
+.dark .summary-help.praise-cta { background: #2a271b; color: #d9b96a; border-color: #5a4e2a; }
+.dark .summary-help.praise-cta:hover { background: #5a4e2a; color: #fff; }
 /* 질문·제안 게시판 버튼 — 초록 계열로 구분 */
 .summary-help.board-cta { background: #eaf3ee; color: #2f6b4f; border-color: #2f6b4f; }
 .summary-help.board-cta:hover { background: #2f6b4f; color: #fff; }

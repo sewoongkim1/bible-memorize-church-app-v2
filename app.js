@@ -667,7 +667,7 @@ function renderSummary() {
 ${dueCount > 0 ? `<button class="summary-go review-cta" id="go-review">📖 오늘 복습 (${dueCount}구절)</button>` : ""}
 <button class="summary-go challenge-cta" id="go-challenge">🔥 오늘의 말씀 도전</button>
 <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
-<button class="summary-help praise-cta" id="open-praise">🎵 고척 찬양 아카이브</button>
+<button class="summary-help praise-cta" id="open-praise">🎵 고척교회 찬양 아카이브</button>
 <button class="summary-help board-cta" id="open-board">💬 질문·제안 게시판</button>
   </div>
 </div>
@@ -1485,13 +1485,18 @@ function setupVoice(verse, stage, onPass) {
 
     // (연습 모드) 저장 + 다음 단계 네비
     if (passed) saveProgress(verse.no, stage, "voice");
+    const vIdx = verses.findIndex((v) => v.no === verse.no);
+    const vPrev = vIdx > 0 ? verses[vIdx - 1] : null;
+    const vNext = (vIdx >= 0 && vIdx < verses.length - 1) ? verses[vIdx + 1] : null;
     const nav = !passed
       ? ""
       : stage < 3
       ? `<button class="next-btn" id="voice-next-stage">${stage + 1}단계로</button>`
-      : `<div class="complete-row">
-           <div class="complete-badge">암송 완료 🙌</div>
-           <button class="next-btn" id="voice-repeat-stage3">암송 반복하기</button>
+      : `<div class="complete-badge">암송 완료 🙌</div>
+         <div class="complete-nav">
+           <button class="nav3-btn" id="voice-prev-verse" ${vPrev ? "" : "disabled"}>◀ 이전 암송</button>
+           <button class="nav3-btn redo" id="voice-redo-verse">🔁 다시 암송</button>
+           <button class="nav3-btn" id="voice-next-verse" ${vNext ? "" : "disabled"}>다음 암송 ▶</button>
          </div>`;
     const topArea = document.getElementById("result-area");
     if (topArea) topArea.innerHTML = nav;
@@ -1500,9 +1505,9 @@ function setupVoice(verse, stage, onPass) {
         .getElementById("voice-next-stage")
         .addEventListener("click", () => renderTestScreen(verse, stage + 1));
     } else if (passed) {
-      document
-        .getElementById("voice-repeat-stage3")
-        .addEventListener("click", () => renderTestScreen(verse, 3));
+      document.getElementById("voice-redo-verse").addEventListener("click", () => renderTestScreen(verse, 3));
+      if (vPrev) document.getElementById("voice-prev-verse").addEventListener("click", () => startTest(vPrev));
+      if (vNext) document.getElementById("voice-next-verse").addEventListener("click", () => startTest(vNext));
     }
   }
 
@@ -1692,26 +1697,25 @@ function checkAllComplete(inputs, verse, stage) {
   saveProgress(verse.no, stage, "typing");
 
   const resultEl = document.getElementById("result-area");
-  resultEl.innerHTML = `
-    ${
-      stage < 3
-        ? `<button class="next-btn" id="next-stage-btn">${stage + 1}단계로</button>`
-        : `<div class="complete-row">
-             <div class="complete-badge">암송 완료 🙌</div>
-             <button class="next-btn" id="repeat-stage3-btn">암송 반복하기</button>
-           </div>`
-    }
-  `;
-
   if (stage < 3) {
-    document
-      .getElementById("next-stage-btn")
-      .addEventListener("click", () => renderTestScreen(verse, stage + 1));
-  } else {
-    document
-      .getElementById("repeat-stage3-btn")
-      .addEventListener("click", () => renderTestScreen(verse, 3));
+    resultEl.innerHTML = `<button class="next-btn" id="next-stage-btn">${stage + 1}단계로</button>`;
+    document.getElementById("next-stage-btn").addEventListener("click", () => renderTestScreen(verse, stage + 1));
+    return;
   }
+  // 3단계 완료 → 이전 암송 · 다시 암송 · 다음 암송
+  const idx = verses.findIndex((v) => v.no === verse.no);
+  const prev = idx > 0 ? verses[idx - 1] : null;
+  const next = (idx >= 0 && idx < verses.length - 1) ? verses[idx + 1] : null;
+  resultEl.innerHTML = `
+    <div class="complete-badge">암송 완료 🙌</div>
+    <div class="complete-nav">
+      <button class="nav3-btn" id="prev-verse-btn" ${prev ? "" : "disabled"}>◀ 이전 암송</button>
+      <button class="nav3-btn redo" id="redo-verse-btn">🔁 다시 암송</button>
+      <button class="nav3-btn" id="next-verse-btn" ${next ? "" : "disabled"}>다음 암송 ▶</button>
+    </div>`;
+  document.getElementById("redo-verse-btn").addEventListener("click", () => renderTestScreen(verse, 3));
+  if (prev) document.getElementById("prev-verse-btn").addEventListener("click", () => startTest(prev));
+  if (next) document.getElementById("next-verse-btn").addEventListener("click", () => startTest(next));
 }
 
 // ------------------------------------------------------------
