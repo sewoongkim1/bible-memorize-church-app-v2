@@ -280,18 +280,25 @@ async function sendPush(b: any) {
   const errs: string[] = [];
   const vapidReady = !!(VAPID_PUBLIC && VAPID_PRIVATE);
   for (const s of (subs ?? []) as any[]) {
-    try {
-      await webpush.sendNotification(
-        { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-        payload,
-      );
-      sent++;
-    } catch (e: any) {
-      failed++;
-      const code = e && (e.statusCode || e.status);
-      if (errs.length < 3) errs.push(`[${code || e?.name || "ERR"}] ${(e?.body || e?.message || String(e)).toString().slice(0, 200)}`);
-      if (code === 404 || code === 410) await db.from("push_subscriptions").delete().eq("id", s.id);
+    let ok = false, lastCode: any = null, lastMsg = "";
+    for (let attempt = 1; attempt <= 2; attempt++) {   // 일시적 오류 대비 1회 재시도
+      try {
+        await webpush.sendNotification(
+          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+          payload,
+        );
+        ok = true; break;
+      } catch (e: any) {
+        lastCode = e && (e.statusCode || e.status);
+        lastMsg = (e?.body || e?.message || String(e)).toString().slice(0, 200);
+        if (lastCode === 404 || lastCode === 410) {      // 만료/삭제된 구독 → 정리 후 중단
+          await db.from("push_subscriptions").delete().eq("id", s.id); break;
+        }
+        // 그 외(일시적 오류)는 재시도
+      }
     }
+    if (ok) sent++;
+    else { failed++; if (errs.length < 3) errs.push(`[${lastCode || "ERR"}] ${lastMsg}`); }
   }
   const total = (subs ?? []).length;
   // 진단 모드: 실제 에러/설정 상태를 반환(관리자 호출 시에만 노출)

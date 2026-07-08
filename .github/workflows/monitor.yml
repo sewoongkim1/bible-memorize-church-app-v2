@@ -2,7 +2,7 @@ name: 장애 모니터 (매일 아침 점검 + 텔레그램 경보)
 
 on:
   schedule:
-    - cron: '5 22 * * *'   # 매일 22:05 UTC = 07:05 KST (정기 발송 7:00 직후 점검)
+    - cron: '12 22 * * *'   # 매일 22:12 UTC = 07:12 KST (정기 발송 7:00 직후, 미발송 판정 07:08 이후에 점검)
   workflow_dispatch:        # 수동 실행(테스트)용
     inputs:
       force_alert:
