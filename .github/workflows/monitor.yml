@@ -13,6 +13,10 @@ on:
         description: '발송 진단(sendPush diag — 실제 web-push 에러 확인)'
         type: boolean
         default: false
+      weekly_test:
+        description: '주간 리포트 테스트 발송(지금 이메일 보내기)'
+        type: boolean
+        default: false
 
 jobs:
   monitor:
@@ -27,12 +31,22 @@ jobs:
           TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
           FORCE_ALERT: ${{ github.event.inputs.force_alert }}
           DIAG_SEND: ${{ github.event.inputs.diag_send }}
+          WEEKLY_TEST: ${{ github.event.inputs.weekly_test }}
         run: |
           set -uo pipefail
 
           # 0) 아직 설정(시크릿) 전이면 조용히 스킵 (실패 알림 방지)
           if [ -z "${ADMIN_SECRET:-}" ]; then
             echo "⏭️  ADMIN_SECRET 미설정 — 점검 건너뜀"; exit 0
+          fi
+
+          # 0-0) 주간 리포트 테스트 발송(지금 이메일 전송) — 기간은 서버가 '전주 금~이번주 목'으로 자동 계산
+          if [ "${WEEKLY_TEST:-false}" = "true" ]; then
+            echo "📧 주간 리포트 테스트 발송..."
+            curl -s -m 60 -X POST "$API_URL" -H "Content-Type: application/json" \
+              -H "apikey: $ANON" -H "Authorization: Bearer $ANON" \
+              -d "{\"action\":\"weeklyReport\",\"pw\":\"$ADMIN_SECRET\",\"send\":true}"
+            echo ""; exit 0
           fi
 
           # 0-2) 발송 진단 모드: sendPush를 diag로 호출해 실제 web-push 에러/설정 상태만 출력(텔레그램 없음)
