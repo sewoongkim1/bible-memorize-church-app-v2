@@ -706,13 +706,13 @@ function kstDateOnly(d: Date) {
 }
 
 function defaultWeeklyRange(now = new Date()) {
+  // 집계 기준: 전주 금요일 ~ 이번주 목요일 (금요일 오전 발송 기준, 총 7일)
   const today = kstDateOnly(now);
-  const day = today.getUTCDay(); // 0=Sun, 1=Mon
-  const thisMondayOffset = day === 0 ? -6 : 1 - day;
-  const thisMonday = new Date(today.getTime() + thisMondayOffset * DAY_MS);
-  const prevMonday = new Date(thisMonday.getTime() - 7 * DAY_MS);
-  const prevSunday = new Date(thisMonday.getTime() - DAY_MS);
-  return { from: ymd(prevMonday), to: ymd(prevSunday) };
+  const dow = today.getUTCDay();                       // 0=일 ~ 6=토
+  const daysBack = ((dow - 4 + 7) % 7) || 7;           // 직전 '목요일'까지 (오늘이 목요일이면 지난주 목요일)
+  const to = new Date(today.getTime() - daysBack * DAY_MS);   // 이번주 목요일
+  const from = new Date(to.getTime() - 6 * DAY_MS);           // 전주 금요일
+  return { from: ymd(from), to: ymd(to) };
 }
 
 const num = (n: unknown) => Number(n ?? 0).toLocaleString("ko-KR");
