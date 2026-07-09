@@ -57,6 +57,10 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     switch (body.action) {
+      case "authCheck": {   // 관리자 비번 검증(허브 로그인용)
+        const e = adminError(body);
+        return json(e ? { ok: false, error: e } : { ok: true }, e ? 403 : 200);
+      }
       case "login":         return json(await login(body));
       case "saveProgress":  return json(await saveProgress(body));
       case "challenge":     return json(await challenge(body));
