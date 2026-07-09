@@ -45,7 +45,7 @@ jobs:
             echo "📧 주간 리포트 테스트 발송..."
             curl -s -m 60 -X POST "$API_URL" -H "Content-Type: application/json" \
               -H "apikey: $ANON" -H "Authorization: Bearer $ANON" \
-              -d "{\"action\":\"weeklyReport\",\"pw\":\"$ADMIN_SECRET\",\"send\":true}"
+              -d "{\"action\":\"weeklyReport\",\"pw\":\"$ADMIN_SECRET\",\"send\":false}"
             echo ""; exit 0
           fi
 
