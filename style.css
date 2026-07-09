@@ -1164,9 +1164,10 @@ h1 {
 /* 내 순위 (최상단 고정) */
 .my-rank{
   display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-  background:linear-gradient(135deg,#3a63a0 0%,#5b86c4 100%); color:#fff;
+  background:linear-gradient(135deg,#2e5188 0%,#4d76b0 100%); color:#fff;
+  border:1.5px solid var(--gold);
   border-radius:14px; padding:14px 16px; margin-bottom:14px;
-  box-shadow:0 4px 16px rgba(58,99,160,.22);
+  box-shadow:0 4px 16px rgba(26,58,107,.24);
 }
 .my-rank .mr-label{ font-size:.78rem; color:rgba(255,255,255,.88); }
 .my-rank .mr-rank{ font-size:1.3rem; font-weight:800; min-width:1.6em; text-align:center; }
