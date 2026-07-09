@@ -833,8 +833,9 @@ function buildWeeklyHtml(
   report: any,
   verse: { ref: string; text: string } | null,
   daily: { date: string; count: number }[],
-  weekly: { from: string; to: string; count: number }[],
+  weekly: { from: string; to: string; count: number; newCount: number }[],
 ) {
+  const C_PART = "#3a6ea5", C_NEW = "#b5891f"; // 데이터시각화 검증 통과 팔레트(참여/신규)
   const s = report.summary;
   const top = report.participants; // 전체 참여자(인원이 적어 전부 표시)
   const th = "padding:7px 8px;border-bottom:2px solid #e3e8f2;font-size:12px;color:#5c6a80;text-align:center;font-weight:700";
@@ -873,17 +874,33 @@ function buildWeeklyHtml(
       </tr>`;
     }).join("");
   };
+  const heading = (t: string) => `<div style="font-size:13.5px;font-weight:800;color:#1a3a6b;margin:0 0 9px;padding-left:9px;border-left:3px solid ${C_NEW}">${t}</div>`;
   const chart = (title: string, rowsHtml: string) =>
-    `<div style="font-size:13px;font-weight:800;color:#1a3a6b;margin:0 0 8px">${title}</div>
-     <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:22px">${rowsHtml}</table>`;
+    `${heading(title)}<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:22px">${rowsHtml}</table>`;
 
   const dLabel = (dstr: string) => {
     const d = new Date(dstr + "T00:00:00Z");
     return `${WEEKDAY_KO[d.getUTCDay()]} ${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
   };
   const md = (dstr: string) => { const d = new Date(dstr + "T00:00:00Z"); return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`; };
-  const dailyRows = barRows(daily.map((x) => ({ label: dLabel(x.date), count: x.count })), "#2f6b8f");
-  const weeklyRows = barRows(weekly.map((x) => ({ label: `${md(x.from)}~${md(x.to)}`, count: x.count })), "#c8a24b");
+  const dailyRows = barRows(daily.map((x) => ({ label: dLabel(x.date), count: x.count })), C_PART);
+  // 주차별 누적 막대: 참여인원 = 신규(금색) + 기존(파랑)
+  const wkMax = Math.max(1, ...weekly.map((x) => x.count));
+  const weeklyRows = weekly.map((x) => {
+    const totalW = Math.round((x.count / wkMax) * 100);
+    const newW = x.count > 0 ? Math.min(totalW, Math.round((x.newCount / x.count) * totalW)) : 0;
+    const oldW = Math.max(0, totalW - newW);
+    const cell = (w: number, color: string, radius: string) => w > 0 ? `<td width="${w}%" style="background:${color};height:14px;font-size:0;line-height:14px;border-radius:${radius}">&nbsp;</td>` : "";
+    const gap = (newW > 0 && oldW > 0) ? `<td width="1" style="font-size:0;background:#fff">&nbsp;</td>` : "";
+    const bars = `${cell(newW, C_NEW, oldW ? "7px 0 0 7px" : "7px")}${gap}${cell(oldW, C_PART, newW ? "0 7px 7px 0" : "7px")}${totalW < 100 ? '<td style="font-size:0"></td>' : ""}`;
+    return `<tr>
+      <td style="padding:5px 8px 5px 0;font-size:12px;color:#5c6a80;white-space:nowrap;width:74px">${esc(`${md(x.from)}~${md(x.to)}`)}</td>
+      <td style="padding:4px 0"><table cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse"><tr>${bars}</tr></table></td>
+      <td style="padding:4px 0 4px 8px;text-align:right;white-space:nowrap;width:84px"><span style="font-size:13px;font-weight:800;color:#20304a">${num(x.count)}</span><span style="font-size:11px;font-weight:700;color:${C_NEW}"> 신규${num(x.newCount)}</span></td>
+    </tr>`;
+  }).join("");
+  const weeklyLegend = `<div style="margin:0 0 9px;font-size:11.5px;color:#5c6a80">
+    <span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${C_NEW};vertical-align:middle;margin-right:4px"></span>신규 유입&nbsp;&nbsp;<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${C_PART};vertical-align:middle;margin-right:4px"></span>기존 참여<span style="color:#9aa4b4">&nbsp;(막대 = 참여인원)</span></div>`;
 
   const verseBlock = verse
     ? `<div style="background:#fdf9ef;border:1px solid #e7d9ad;border-radius:10px;padding:14px 16px;margin:0 0 18px">
@@ -891,19 +908,19 @@ function buildWeeklyHtml(
          <div style="color:#20304a;line-height:1.7">${esc(verse.text)}${verse.ref ? ` <b style="color:#1a3a6b">(${esc(verse.ref)})</b>` : ""}</div>
        </div>` : "";
 
-  const kpi = (label: string, val: string) => `
+  const kpi = (label: string, val: string, accent = false) => `
     <td style="padding:5px" width="25%">
-      <div style="background:#f4f6fb;border:1px solid #dde3ee;border-radius:10px;padding:12px 4px;text-align:center">
-        <div style="font-size:21px;font-weight:800;color:#1a3a6b">${val}</div>
+      <div style="background:${accent ? "#fdf6e7" : "#f4f6fb"};border:1px solid ${accent ? "#ecd9a8" : "#dde3ee"};border-radius:10px;padding:12px 4px;text-align:center">
+        <div style="font-size:21px;font-weight:800;color:${accent ? C_NEW : "#1a3a6b"}">${val}</div>
         <div style="font-size:11px;color:#5c6a80;margin-top:2px">${label}</div>
       </div>
     </td>`;
 
   return `<div style="background:#eef1f6;padding:22px 12px;font-family:'Noto Sans KR',AppleSDGothicNeo,sans-serif">
     <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden">
-      <div style="background:#1a3a6b;color:#fff;padding:18px 20px">
-        <div style="font-size:18px;font-weight:800">📖 성경암송 주간 리포트</div>
-        <div style="font-size:12px;opacity:.85;margin-top:3px">${report.from} ~ ${report.to} · 고척교회 제자양육부 신앙운동팀</div>
+      <div style="background:linear-gradient(135deg,#1a3a6b,#12294d);color:#fff;padding:20px 22px;border-bottom:3px solid ${C_NEW}">
+        <div style="font-size:18px;font-weight:800;letter-spacing:.3px">📖 성경암송 주간 리포트</div>
+        <div style="font-size:12px;opacity:.85;margin-top:4px">${report.from} ~ ${report.to} · 고척교회 제자양육부 신앙운동팀</div>
       </div>
       <div style="padding:20px">
         ${verseBlock}
@@ -911,10 +928,11 @@ function buildWeeklyHtml(
           ${kpi("학습 참여자", num(s.learners) + "명")}
           ${kpi("학습 활동", num(s.learnTotal) + "회")}
           ${kpi("도전", num(s.challengeTotal) + "회")}
-          ${kpi("신규", num(s.newUsers) + "명")}
+          ${kpi("신규 유입", num(s.newUsers) + "명", true)}
         </tr></table>
         ${chart("📅 일자별 참여 인원", dailyRows)}
-        ${chart("📈 주차별 참여 추이 (최근 8주)", weeklyRows)}
+        ${heading("📈 주차별 참여 · 신규 유입 (최근 8주)")}${weeklyLegend}
+        <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:22px">${weeklyRows}</table>
         <div style="font-size:13px;font-weight:800;color:#1a3a6b;margin:0 0 6px">🙌 참여자 전체 (${report.participants.length}명)</div>
         <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #eef1f8;border-radius:8px;font-size:14px">
           ${rows}
@@ -1039,7 +1057,12 @@ async function weeklyReport(b: any) {
     if (db2) db2.set.add(r.user_id);
   }
   const daily = dayBuckets.map((x) => ({ date: x.date, count: x.set.size }));
-  const weekly = weekBuckets.map((x) => ({ from: x.from, to: x.to, count: x.set.size }));
+  // 주차별 신규 유입(첫 암송이 그 주에 속하는 인원) — stats RPC 재사용
+  const weekNew = await Promise.all(weekBuckets.map(async (wk) => {
+    const r: any = await stats({ from: wk.from, to: wk.to });
+    return r.ok ? (r.list || []).reduce((sum: number, x: any) => sum + (x.newCount || 0), 0) : 0;
+  }));
+  const weekly = weekBuckets.map((x, i) => ({ from: x.from, to: x.to, count: x.set.size, newCount: weekNew[i] }));
 
   const html = buildWeeklyHtml(report, verse, daily, weekly);
   const text = buildWeeklyText(report);
