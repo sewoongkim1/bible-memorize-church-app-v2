@@ -811,11 +811,12 @@ function buildWeeklyText(report: any) {
 // 발송(토요일) 기준: 지난 토요일 ~ 어제(금요일) = 최근 완료된 7일(토~금)
 const WEEKDAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
 function reportWeekRange(now = new Date()) {
+  // 집계 기준: 전주 금요일 ~ 이번주 목요일 (금요일 오전 발송 기준, 총 7일)
   const today = kstDateOnly(now);
   const dow = today.getUTCDay(); // 0=Sun..6=Sat
-  const offsetToFri = (dow - 5 + 7) % 7; // 오늘에서 가장 최근 금요일까지 뒤로 며칠
-  const to = new Date(today.getTime() - offsetToFri * DAY_MS);
-  const from = new Date(to.getTime() - 6 * DAY_MS);
+  const daysBack = ((dow - 4 + 7) % 7) || 7; // 직전 '목요일'까지 (오늘이 목요일이면 지난주 목요일)
+  const to = new Date(today.getTime() - daysBack * DAY_MS); // 이번주 목요일
+  const from = new Date(to.getTime() - 6 * DAY_MS);         // 전주 금요일
   return { from: ymd(from), to: ymd(to) };
 }
 
@@ -993,10 +994,23 @@ async function weeklyReport(b: any) {
   const WEEKS = 8;
   const satMs = Date.parse(range.from + "T00:00:00Z");
   const weekStart0 = new Date(satMs - (WEEKS - 1) * 7 * DAY_MS);
-  const { data: acts } = await db.from("challenge_log")
-    .select("user_id, created_at")
-    .gte("created_at", `${ymd(weekStart0)}T00:00:00${KST}`)
-    .lte("created_at", `${range.to}T23:59:59${KST}`);
+  // 8주 추이 원본 조회 — 1000행 제한 회피 위해 전체 페이지네이션(모든 기록 포함)
+  const acts: any[] = [];
+  {
+    const gte = `${ymd(weekStart0)}T00:00:00${KST}`;
+    const lte = `${range.to}T23:59:59${KST}`;
+    const PAGE = 1000;
+    for (let off = 0; ; off += PAGE) {
+      const { data, error } = await db.from("challenge_log")
+        .select("user_id, created_at")
+        .gte("created_at", gte).lte("created_at", lte)
+        .order("created_at", { ascending: true })
+        .range(off, off + PAGE - 1);
+      if (error) break;
+      acts.push(...(data ?? []));
+      if (!data || data.length < PAGE) break;
+    }
+  }
   const weekBuckets = Array.from({ length: WEEKS }, (_, w) => {
     const ws = new Date(satMs - (WEEKS - 1 - w) * 7 * DAY_MS);
     return { from: ymd(ws), to: ymd(new Date(ws.getTime() + 6 * DAY_MS)), set: new Set<string>() };
