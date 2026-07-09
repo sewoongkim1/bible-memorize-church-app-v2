@@ -832,7 +832,7 @@ function buildWeeklyHtml(
   weekly: { from: string; to: string; count: number }[],
 ) {
   const s = report.summary;
-  const top = report.topParticipants.slice(0, 10);
+  const top = report.participants; // 전체 참여자(인원이 적어 전부 표시)
   const rows = top.length
     ? top.map((r: any, i: number) => `
         <tr>
@@ -901,7 +901,7 @@ function buildWeeklyHtml(
         </tr></table>
         ${chart("📅 일자별 참여 인원", dailyRows)}
         ${chart("📈 주차별 참여 추이 (최근 8주)", weeklyRows)}
-        <div style="font-size:13px;font-weight:800;color:#1a3a6b;margin:0 0 6px">🔥 참여자 TOP 10</div>
+        <div style="font-size:13px;font-weight:800;color:#1a3a6b;margin:0 0 6px">🙌 참여자 전체 (${report.participants.length}명)</div>
         <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #eef1f8;border-radius:8px;font-size:14px">
           ${rows}
         </table>
