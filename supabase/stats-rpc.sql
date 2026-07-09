@@ -29,11 +29,17 @@ language sql stable security definer set search_path = public as $$
       count(distinct user_id)::int as participants
     from lg group by gubun, sosok
   ),
-  newu as (
+  newu as (   -- 신규 = 기간 내 '처음 암송'한 인원 (첫 learn 기록이 이 기간에 속하는 사용자)
     select u.type as gubun, coalesce(nullif(u.gu,''), u.bu, '') as sosok, count(*)::int as new_count
     from users u
-    where (p_from = '' or u.created_at >= (p_from || 'T00:00:00+09:00')::timestamptz)
-      and (p_to   = '' or u.created_at <= (p_to   || 'T23:59:59+09:00')::timestamptz)
+    join (
+      select user_id, min(created_at) as first_mem
+      from challenge_log
+      where mode like 'learn-%'
+      group by user_id
+    ) fm on fm.user_id = u.id
+    where (p_from = '' or fm.first_mem >= (p_from || 'T00:00:00+09:00')::timestamptz)
+      and (p_to   = '' or fm.first_mem <= (p_to   || 'T23:59:59+09:00')::timestamptz)
     group by u.type, coalesce(nullif(u.gu,''), u.bu, '')
   )
   select coalesce(a.gubun, n.gubun) as gubun,
