@@ -43,9 +43,14 @@
     .ord-num { width:24px; text-align:center; font-weight:800; color:var(--navy); font-size:13px; flex:none; }
     .ord-name { flex:1; min-width:0; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .ord-item button.ghost { padding:5px 10px; flex:none; min-width:38px; }
+    html.autologin #gate { display:none !important; }   /* 자동로그인 중엔 로그인 화면 안 보이게 */
+    #autoload { display:none; position:fixed; inset:0; align-items:center; justify-content:center; color:var(--sub); font-size:14px; }
+    html.autologin #autoload { display:flex; }
   </style>
 </head>
 <body>
+  <script>try{ if(sessionStorage.getItem("admin-pw")) document.documentElement.classList.add("autologin"); }catch(e){}</script>
+  <div id="autoload">불러오는 중… ⏳</div>
   <!-- 로그인 게이트 -->
   <div id="gate" class="gate">
     <h1>🎵 찬양 아카이브 관리자</h1>
@@ -184,6 +189,7 @@
       // 검증: adminList 시도
       API.adminList(SECRET).then((songs) => {
         LIST = songs;
+        document.documentElement.classList.remove("autologin");
         $("gate").style.display = "none";
         $("main").style.display = "block";
         sessionStorage.setItem("admin-pw", SECRET);
@@ -191,6 +197,8 @@
         buildOrderLists();
         loadUsage();
       }).catch(() => {
+        document.documentElement.classList.remove("autologin"); // 실패 시 로그인 화면 복귀
+        $("gate").style.display = "";
         $("gate-msg").className = "msg err";
         $("gate-msg").textContent = "비밀번호가 틀렸습니다.";
       });
