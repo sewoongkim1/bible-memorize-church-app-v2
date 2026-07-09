@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>관리자 통계 | 성경암송</title>
+<link rel="icon" href="favicon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@700;800&family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --navy:#1a3a6b; --navy-dark:#0d1b3e; --gold:#c8a84b;
+    --cream:#fdf8f0; --gray:#6b7280; --border:#ddd6c8; --light:#f3f0ea;
+    --green:#2c5f2d; --error:#c0392b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:"Noto Sans KR",sans-serif;background:var(--cream);color:#222;min-height:100vh;}
+  .topbar{
+    background:linear-gradient(135deg,#0d1b3e 0%,#1a3a6b 100%); color:#fff;
+    padding:16px 20px; display:flex; align-items:center; justify-content:space-between;
+  }
+  .topbar h1{font-family:"Nanum Myeongjo",serif;font-size:1.2rem;font-weight:800;letter-spacing:.5px;}
+  .topbar .logout{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.35);color:#fff;
+    border-radius:999px;padding:6px 13px;font-size:.82rem;cursor:pointer;font-family:inherit;}
+  .topbar .logout:hover{background:rgba(255,255,255,.28);}
+  main{max-width:900px;margin:0 auto;padding:22px 16px 60px;}
+
+  /* 로그인 */
+  .login-card{max-width:360px;margin:8vh auto 0;background:#fff;border:1px solid var(--border);
+    border-radius:16px;padding:30px 24px;box-shadow:0 6px 20px rgba(13,27,62,.07);text-align:center;}
+  .login-card h2{font-family:"Nanum Myeongjo",serif;color:var(--navy);font-size:1.3rem;margin-bottom:8px;}
+  .login-card p{color:var(--gray);font-size:.85rem;margin-bottom:20px;}
+  .login-card input{width:100%;padding:12px 13px;font-size:1rem;border:1px solid var(--border);
+    border-radius:10px;background:var(--cream);font-family:inherit;margin-bottom:12px;}
+  .login-card input:focus{outline:none;border-color:var(--navy);background:#fff;}
+  .login-card button{width:100%;padding:13px;font-size:1.02rem;font-weight:700;color:#fff;background:var(--navy);
+    border:none;border-radius:12px;cursor:pointer;font-family:inherit;transition:background .15s;}
+  .login-card button:hover{background:var(--navy-dark);}
+  .login-err{color:var(--error);font-size:.85rem;margin-bottom:10px;min-height:1.1em;}
+  .home-link{display:inline-block;margin-top:14px;color:var(--gray);font-size:.85rem;
+    font-weight:700;text-decoration:none;}
+  .home-link:hover{color:var(--navy);text-decoration:underline;}
+
+  /* 카드 메뉴 */
+  .section-title{font-weight:800;color:var(--navy);font-size:1.05rem;margin:6px 2px 14px;}
+  .card-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .privacy-notice{background:#fff8e8;border:1px solid #e5c978;border-radius:12px;padding:12px 14px;
+    color:#6f5614;font-size:.84rem;line-height:1.55;margin-bottom:14px;}
+  .privacy-notice b{color:#4b390b;}
+  .dash{margin-bottom:16px;}
+  .dash-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 2px 10px;}
+  .dash-title{font-weight:800;color:var(--navy);font-size:1.05rem;}
+  .dash-sub{color:var(--gray);font-size:.78rem;white-space:nowrap;}
+  .dash-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px;}
+  @media (min-width:600px){ .dash-grid{grid-template-columns:repeat(4,1fr);} }
+  .dash-kpi{position:relative;overflow:hidden;background:#fff;border:1px solid var(--border);border-radius:14px;
+    padding:11px 12px 11px 15px;box-shadow:0 2px 10px rgba(26,58,107,.05);min-width:0;}
+  .dash-kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--acc,#1a3a6b);}
+  .dash-kpi .k-head{display:flex;align-items:center;gap:5px;margin-bottom:5px;min-width:0;}
+  .dash-kpi .ic{font-size:14px;line-height:1;flex:none;}
+  .dash-kpi .l{font-size:.74rem;color:var(--gray);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .dash-kpi .n{font-size:1.65rem;font-weight:800;color:var(--navy);line-height:1;text-align:right;}
+  .dash-kpi.k-people{--acc:#2b5fb0;} .dash-kpi.k-fire{--acc:#d98a2b;}
+  .dash-kpi.k-study{--acc:#2f6b4f;} .dash-kpi.k-verse{--acc:#7a5bb0;}
+  .dash-panels{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .dash-panel{background:#fff;border:1px solid var(--border);border-radius:14px;padding:13px 14px;min-width:0;}
+  .dash-panel .h{font-weight:800;color:var(--navy);font-size:.92rem;margin-bottom:8px;}
+  .dash-list{display:flex;flex-direction:column;gap:7px;}
+  .dash-item{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;font-size:.84rem;}
+  .dash-item .rank{font-weight:800;color:var(--gold);min-width:22px;}
+  .dash-item .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#333;}
+  .dash-item .cnt{font-weight:800;color:var(--navy);white-space:nowrap;}
+  .dash-msg{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;text-align:center;color:var(--gray);font-size:.86rem;}
+  .rep-card{display:flex;align-items:center;gap:13px;background:#fff;border:1px solid var(--border);
+    border-radius:14px;padding:15px 16px;cursor:pointer;transition:transform .12s,box-shadow .12s,border-color .12s;
+    box-shadow:0 2px 10px rgba(26,58,107,.06);}
+  .rep-card:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(26,58,107,.14);border-color:#c3d0e8;}
+  .rep-card .ic{flex:none;width:46px;height:46px;display:flex;align-items:center;justify-content:center;
+    font-size:23px;background:var(--cream);border:1px solid var(--border);border-radius:12px;}
+  .rep-card .rep-text{flex:1;min-width:0;}
+  .rep-card .ti{font-weight:800;color:var(--navy);font-size:1rem;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .rep-card .de{color:var(--gray);font-size:.8rem;margin-top:3px;line-height:1.4;}
+  .rep-card .rep-arrow{flex:none;color:#c3ccdb;font-size:24px;font-weight:700;line-height:1;}
+  .rep-card:hover .rep-arrow{color:var(--navy);}
+  .rep-card.soon{opacity:.55;cursor:default;}
+  .rep-card.soon:hover{transform:none;box-shadow:0 2px 10px rgba(26,58,107,.06);border-color:var(--border);}
+  @media (max-width:560px){ .card-grid{grid-template-columns:1fr;} .dash-panels{grid-template-columns:1fr;} }
+
+  /* 리포트 */
+  .rep-head{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+  .back-btn{background:#eef1f8;border:1.5px solid var(--navy);color:var(--navy);border-radius:999px;
+    padding:7px 14px;font-size:.85rem;font-weight:700;cursor:pointer;font-family:inherit;}
+  .back-btn:hover{background:var(--navy);color:#fff;}
+  .rep-head h2{font-family:"Nanum Myeongjo",serif;color:var(--navy);font-size:1.2rem;}
+
+  .filters{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;background:#fff;border:1px solid var(--border);
+    border-radius:12px;padding:14px 16px;margin-bottom:16px;}
+  .filters .fld{display:flex;flex-direction:column;gap:5px;}
+  .filters label{font-size:.8rem;color:var(--gray);font-weight:600;}
+  .filters input[type=date]{padding:9px 11px;border:1px solid var(--border);border-radius:9px;
+    background:var(--cream);font-family:inherit;font-size:.92rem;}
+  .filters .go{padding:10px 20px;font-weight:700;color:#fff;background:var(--navy);border:none;
+    border-radius:10px;cursor:pointer;font-family:inherit;}
+  .filters .go:hover{background:var(--navy-dark);}
+  .filters .quick{display:flex;gap:6px;}
+  .filters .quick button{font-size:.78rem;padding:7px 10px;border:1px solid var(--border);background:#fff;
+    color:var(--navy);border-radius:8px;cursor:pointer;font-family:inherit;}
+  .filters .quick button:hover{background:var(--cream);}
+  .chk-box{display:flex;flex-wrap:wrap;gap:6px;padding:8px;border:1px solid var(--border);
+    border-radius:9px;background:var(--cream);min-width:240px;}
+  .chk{display:inline-flex;align-items:center;gap:5px;font-size:.85rem;background:#fff;
+    border:1px solid var(--border);border-radius:999px;padding:5px 11px;cursor:pointer;user-select:none;}
+  .chk input{cursor:pointer;margin:0;}
+  .chk.all{font-weight:700;color:var(--navy);}
+  .chk-hint{font-size:.82rem;color:var(--gray);padding:2px 4px;}
+
+  .summary-row{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;}
+  .kpi{flex:1;min-width:120px;background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px 14px;text-align:center;}
+  .kpi .n{font-size:1.5rem;font-weight:800;color:var(--navy);}
+  .kpi .l{font-size:.76rem;color:var(--gray);margin-top:2px;white-space:nowrap;}
+  .report-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    font-size:.82rem;color:var(--gray);margin:2px 2px 10px;}
+  .download-btn{border:1.5px solid var(--navy);background:#eef1f8;color:var(--navy);
+    border-radius:999px;padding:7px 13px;font-size:.8rem;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap;}
+  .download-btn:hover{background:var(--navy);color:#fff;}
+  .push-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px 18px 20px;box-shadow:0 2px 10px rgba(26,58,107,.06);}
+  .push-lb{display:block;font-size:.82rem;color:var(--gray);font-weight:700;margin:10px 2px 5px;}
+  .push-lb:first-child{margin-top:0;}
+  .push-in{width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:10px;
+    background:var(--cream);font-family:inherit;font-size:.98rem;color:#222;}
+  .push-in:focus{outline:none;border-color:var(--navy);background:#fff;}
+  textarea.push-in{resize:vertical;line-height:1.5;}
+  .push-fill{width:100%;padding:10px;margin-bottom:14px;font-size:.9rem;font-weight:700;
+    color:var(--navy);background:#eef1f8;border:1.5px solid var(--navy);border-radius:10px;cursor:pointer;font-family:inherit;}
+  .push-fill:hover{background:var(--navy);color:#fff;}
+  .push-hint{font-size:.8rem;color:var(--gray);margin:9px 2px 14px;}
+  .push-send{width:100%;padding:14px;font-size:1.05rem;font-weight:800;color:#fff;
+    background:linear-gradient(135deg,#1a3a6b 0%,#0d4a7a 100%);border:none;border-radius:12px;
+    cursor:pointer;font-family:inherit;box-shadow:0 4px 14px rgba(13,74,122,.28);transition:filter .15s,transform .1s;}
+  .push-send:hover{filter:brightness(1.08);}
+  .push-send:active{transform:translateY(1px);}
+  .push-send:disabled{opacity:.6;cursor:wait;filter:none;}
+  #p-result{padding:14px 0 0;}
+
+  .table-wrap{overflow-x:auto;background:#fff;border:1px solid var(--border);border-radius:12px;}
+  table{width:100%;border-collapse:collapse;min-width:560px;}
+  th,td{padding:11px 12px;text-align:center;font-size:.9rem;border-bottom:1px solid var(--light);white-space:nowrap;}
+  thead th{background:var(--navy);color:#fff;font-weight:700;position:sticky;top:0;}
+  tbody tr:hover{background:var(--cream);}
+  td.l,th.l{text-align:left;}
+  tfoot td{font-weight:800;color:var(--navy);background:var(--light);border-top:2px solid var(--border);}
+  .gubun-tag{display:inline-block;font-size:.78rem;font-weight:700;padding:2px 9px;border-radius:999px;}
+  .gubun-교구{background:#e7ecf5;color:var(--navy);}
+  .gubun-교회학교{background:#f4e3ad;color:var(--navy-dark);}
+  .msg{text-align:center;color:var(--gray);padding:30px;}
+  .err{color:var(--error);}
+  @media (max-width:700px){
+    .topbar{padding:14px 14px;}
+    .topbar h1{font-size:1.02rem;}
+    main{padding:16px 12px 44px;}
+    .dash-head{align-items:flex-start;flex-direction:column;gap:2px;}
+    .dash-sub{white-space:normal;}
+    .dash-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+    .dash-kpi{padding:12px 10px;}
+    .dash-kpi .n{font-size:1.35rem;}
+    .dash-panels{grid-template-columns:1fr;}
+    .dash-panel{padding:12px;}
+    .dash-item{font-size:.82rem;}
+    .privacy-notice{font-size:.8rem;}
+    .rep-card{padding:15px 16px;}
+    .filters{padding:12px;gap:10px;}
+    .filters .fld{flex:1 1 140px;}
+    .filters input[type=date], .filters .go{width:100%;}
+    .report-toolbar{align-items:flex-start;flex-direction:column;}
+    .download-btn{width:100%;}
+  }
+  @media (max-width:380px){
+    .dash-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .dash-kpi .n{font-size:1.25rem;}
+  }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>📊 성경암송 관리자 통계</h1>
+    <div style="display:flex;align-items:center;gap:8px;flex:none">
+      <a href="admin.html" style="padding:8px 13px;border:1.5px solid rgba(255,255,255,.5);border-radius:9px;color:#fff;text-decoration:none;font-weight:700;font-size:.82rem;white-space:nowrap">← 관리자 허브</a>
+      <button class="logout" id="logout" hidden>로그아웃</button>
+    </div>
+  </div>
+  <main id="app"></main>
+
+<script>
+// v2: Supabase Edge Function(api) 호출
+const API = "https://xnomlgydifiqiybervtf.supabase.co/functions/v1/api";
+const ANON = "sb_publishable_oLtieT_jw7Gjb8etEsy0jw_thBaDjl-";
+async function callApi(payload){
+  const res = await fetch(API, {
+    method:"POST",
+    headers:{ "Content-Type":"application/json", "apikey":ANON, "Authorization":"Bearer "+ANON },
+    body: JSON.stringify(payload),
+  });
+  let data={}; try{ data=await res.json(); }catch(_){}
+  if(!res.ok && !data.error) data={ ok:false, error:"HTTP "+res.status };
+  return data;
+}
+const PW_KEY = "admin-pw";
+const GU_LIST = ["믿음","소망","사랑","섬김","은혜","화평","기쁨","새가족"];
+const BU_LIST = ["사랑부","영아부","유아부","유치부","유년부","초등부","중등부","고등부","청년부"];
+const app = document.getElementById("app");
+const logoutBtn = document.getElementById("logout");
+
+logoutBtn.addEventListener("click", () => {
+  sessionStorage.removeItem(PW_KEY);
+  logoutBtn.hidden = true;
+  renderLogin();
+});
+
+function getPw(){ return sessionStorage.getItem(PW_KEY) || ""; }
+
+function htmlEsc(v){
+  return String(v==null?"":v).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
+}
+
+async function callStats(from, to){
+  return callApi({ action:"stats", pw:getPw(), from:from||"", to:to||"" });
+}
+
+// ---------- 로그인 ----------
+function renderLogin(){
+  logoutBtn.hidden = true;
+  app.innerHTML = `
+    <div class="login-card">
+      <h2>🔒 관리자 로그인</h2>
+      <p>통계를 보려면 관리자 비밀번호를 입력하세요.</p>
+      <div class="login-err" id="lerr"></div>
+      <input type="password" id="pw" placeholder="비밀번호" autocomplete="current-password" />
+      <button id="login">로그인</button>
+      <a class="home-link" href="index.html">← 첫 화면으로</a>
+    </div>`;
+  const pwInput = document.getElementById("pw");
+  const err = document.getElementById("lerr");
+  async function tryLogin(){
+    const pw = pwInput.value.trim();
+    if(!pw){ err.textContent="비밀번호를 입력하세요."; return; }
+    err.textContent = "확인 중...";
+    sessionStorage.setItem(PW_KEY, pw);
+    const data = await callStats("","").catch(()=>({ok:false,error:"network"}));
+    if(data.ok){ logoutBtn.hidden=false; renderMenu(); }
+    else {
+      sessionStorage.removeItem(PW_KEY);
+      err.textContent = data.error==="unauthorized" ? "비밀번호가 올바르지 않습니다."
+        : data.error==="no-password-set" ? "서버에 비밀번호가 설정되지 않았습니다(관리자 설정 필요)."
+        : "연결 오류입니다. 잠시 후 다시 시도하세요.";
+    }
+  }
+  document.getElementById("login").addEventListener("click", tryLogin);
+  pwInput.addEventListener("keydown", e=>{ if(e.key==="Enter") tryLogin(); });
+  pwInput.focus();
+}
+
+// ---------- 카드 메뉴 ----------
+function renderMenu(){
+  logoutBtn.hidden = false;
+  app.innerHTML = `
+    <div class="dash" id="dash">
+      <div class="dash-head">
+        <div class="dash-sub">오늘과 이번 주 흐름을 빠르게 확인합니다.</div>
+      </div>
+      <div class="dash-msg">대시보드를 불러오는 중...</div>
+    </div>
+    <div class="section-title">통계 리포트</div>
+    <div class="privacy-notice">
+      <b>개인정보 취급 주의</b><br>
+      관리자 통계에는 성명, 소속, 암송·도전 기록이 포함됩니다.
+      암송 프로그램 운영과 참여 격려 목적 외에는 사용하지 말고, 외부 공유 시 필요한 범위로만 최소화해 주세요.
+    </div>
+    <div class="card-grid">
+      <div class="rep-card" id="rep-usage">
+        <div class="ic">📅</div>
+        <div class="rep-text">
+          <div class="ti">기간별 사용현황</div>
+          <div class="de">구분·소속별 신규/참여 인원과 타이핑·음성 횟수</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
+      <div class="rep-card" id="rep-participants">
+        <div class="ic">👥</div>
+        <div class="rep-text">
+          <div class="ti">참여자 현황</div>
+          <div class="de">개인별 타이핑·음성·총횟수</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
+      <div class="rep-card" id="rep-verses">
+        <div class="ic">📖</div>
+        <div class="rep-text">
+          <div class="ti">구절별 현황</div>
+          <div class="de">구절마다 참여자 수와 참여횟수</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
+      <div class="rep-card" id="rep-challenge">
+        <div class="ic">🔥</div>
+        <div class="rep-text">
+          <div class="ti">도전 현황</div>
+          <div class="de">'말씀 도전' 참여자별 도전 횟수</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
+      <div class="rep-card" id="rep-push">
+        <div class="ic">🔔</div>
+        <div class="rep-text">
+          <div class="ti">알림 보내기</div>
+          <div class="de">구독자에게 푸시 알림 즉시 발송</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
+      <div class="rep-card" id="rep-content">
+        <div class="ic">📖</div>
+        <div class="rep-text">
+          <div class="ti">설교/말씀 관리</div>
+          <div class="de">주간 말씀·설교영상 추가·수정</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
+      <div class="rep-card" id="rep-monitor">
+        <div class="ic">🩺</div>
+        <div class="rep-text">
+          <div class="ti">시스템 상태</div>
+          <div class="de">백엔드·알림 발송·데이터 상태 점검</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
+      <div class="rep-card" id="rep-report">
+        <div class="ic">📧</div>
+        <div class="rep-text">
+          <div class="ti">주간 리포트 메일</div>
+          <div class="de">이번 주 요약을 미리보고 이메일로 발송</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
+      <div class="rep-card" id="rep-board">
+        <div class="ic">💬</div>
+        <div class="rep-text">
+          <div class="ti">게시판 관리</div>
+          <div class="de">질문·제안 답글·숨김·삭제</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
+    </div>`;
+  document.getElementById("rep-usage").addEventListener("click", renderUsageReport);
+  document.getElementById("rep-participants").addEventListener("click", renderParticipants);
+  document.getElementById("rep-verses").addEventListener("click", renderVerses);
+  document.getElementById("rep-challenge").addEventListener("click", renderChallengeReport);
+  document.getElementById("rep-push").addEventListener("click", renderPush);
+  document.getElementById("rep-content").addEventListener("click", renderContent);
+  document.getElementById("rep-monitor").addEventListener("click", renderMonitor);
+  document.getElementById("rep-report").addEventListener("click", renderReportMail);
+  document.getElementById("rep-board").addEventListener("click", renderBoardAdmin);
+  loadDashboard();
+}
+
+// ---------- 알림 보내기 (Web Push 수동 발송) ----------
+function renderPush(){
+  app.innerHTML=`
+    <div class="rep-head">
+      <button class="back-btn" id="back">← 메뉴</button>
+      <h2>🔔 알림 보내기</h2>
+    </div>
+    <div class="push-card">
+      <button class="push-fill" id="p-fill">📖 이번 주 말씀 자동 넣기</button>
+      <label class="push-lb">제목</label>
+      <input id="p-title" class="push-in" value="성경말씀 암송" maxlength="60" />
+      <label class="push-lb">내용</label>
+      <textarea id="p-body" class="push-in" rows="3" maxlength="180">오늘의 말씀을 암송해요! 🙌</textarea>
+      <p class="push-hint">알림을 켠 모든 구독자에게 즉시 발송됩니다.</p>
+      <button class="push-send" id="p-send">🔔 지금 보내기</button>
+      <div id="p-result" class="msg"></div>
+    </div>`;
+  document.getElementById("back").addEventListener("click", renderMenu);
+  document.getElementById("p-fill").addEventListener("click", fillLatestVerse);
+  document.getElementById("p-send").addEventListener("click", async ()=>{
+    const title=document.getElementById("p-title").value.trim();
+    const body=document.getElementById("p-body").value.trim();
+    const r=document.getElementById("p-result");
+    const btn=document.getElementById("p-send");
+    if(!body){ r.className="msg err"; r.textContent="내용을 입력하세요."; return; }
+    btn.disabled=true; r.className="msg"; r.textContent="보내는 중...";
+    const data=await callApi({action:"sendPush",pw:getPw(),title,body,
+      url:"https://gocheok.onlybible.kr/"}).catch(()=>({ok:false,error:"network"}));
+    btn.disabled=false;
+    if(!data.ok){
+      if(data.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }
+      r.className="msg err"; r.textContent="발송 실패: "+(data.error||"오류"); return;
+    }
+    r.className="msg"; r.innerHTML=`✅ 발송 완료 — 성공 <b>${data.sent}</b> · 실패 ${data.failed} · 구독 ${data.total}명`;
+  });
+}
+
+// '이번 주(오늘 기준 최신) 말씀'을 읽어 제목/내용 입력창에 채움
+// 제목: "성경암송" 고정 / 내용: 말씀 본문 + " (요절)"
+async function fillLatestVerse(){
+  const r=document.getElementById("p-result");
+  try{
+    // 데이터는 CMS 단일 소스(DB=getVerses) 우선, 없으면 verses.json 폴백
+    let verses=null;
+    try{ const d=await callApi({action:"getVerses"}); if(d&&d.ok) verses=d.verses; }catch{}
+    if(!verses||!verses.length){ const res=await fetch("verses.json",{cache:"no-store"}); verses=((await res.json()).verses)||[]; }
+    const list=verses.filter(v=>v.date).map(v=>({v,t:Date.parse(v.date)})).sort((a,b)=>a.t-b.t);
+    if(!list.length){ if(r){r.className="msg err";r.textContent="말씀 데이터를 찾지 못했습니다.";} return; }
+    const now=Date.now(); let cur=list[0];
+    for(const x of list){ if(x.t<=now) cur=x; else break; }
+    const ref=cur.v.refShort||cur.v.refFull||"";
+    const text=cur.v.text||"";
+    document.getElementById("p-title").value="성경암송";
+    document.getElementById("p-body").value=ref?`${text} (${ref})`:text;
+    if(r){ r.className="msg"; r.textContent="이번 주 말씀을 채웠습니다. 확인 후 보내세요."; }
+  }catch(e){ if(r){r.className="msg err";r.textContent="불러오기 실패: "+(e&&e.message?e.message:e);} }
+}
+
+// ---------- 시스템 상태(장애 모니터링) ----------
+async function renderMonitor(){
+  app.innerHTML=`
+    <div class="rep-head">
+      <button class="back-btn" id="back">← 메뉴</button>
+      <h2>🩺 시스템 상태</h2>
+    </div>
+    <div class="push-card">
+      <button class="push-fill" id="m-refresh">🔄 다시 점검</button>
+      <div id="m-body"><p class="push-hint">점검 중...</p></div>
+    </div>`;
+  document.getElementById("back").addEventListener("click", renderMenu);
+  document.getElementById("m-refresh").addEventListener("click", loadMonitor);
+  loadMonitor();
+}
+async function loadMonitor(){
+  const el=document.getElementById("m-body");
+  el.innerHTML=`<p class="push-hint">점검 중...</p>`;
+  const d=await callApi({action:"monitor",pw:getPw()}).catch(()=>({ok:false,error:"network"}));
+  if(d.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }
+  if(d.error){ el.innerHTML=`<div class="msg err">점검 실패: ${htmlEsc(d.error)}<br><small>백엔드(Edge/Supabase) 응답 이상일 수 있어요.</small></div>`; return; }
+  const okBadge = d.ok
+    ? `<div class="msg" style="font-size:1.1em"><b>✅ 정상</b> — 모든 항목 이상 없음</div>`
+    : `<div class="msg err" style="font-size:1.1em"><b>⚠️ 점검 필요</b> — 아래 문제를 확인하세요</div>`;
+  const tp=d.todayPush;
+  const pushLine = tp
+    ? `성공 <b>${tp.sent}</b> · 실패 ${tp.failed} · 대상 ${tp.total}명`
+    : `<span style="color:#c0392b">오늘 발송 기록 없음</span>`;
+  const rows=[
+    ["서버 시각", htmlEsc(d.serverTimeKST||"-")],
+    ["백엔드/DB", d.db==="up"?"🟢 정상":"🔴 이상"],
+    ["알림 구독자", `${d.subscribers}명`],
+    ["최신 말씀 날짜", htmlEsc(d.latestVerseDate||"없음")],
+    ["오늘 아침 알림", pushLine],
+  ];
+  const problemsHtml = (d.problems&&d.problems.length)
+    ? `<div class="dash-panel" style="margin-top:12px"><div class="h" style="color:#c0392b">감지된 문제</div>`
+      + d.problems.map(p=>`<div class="dash-item">⚠️ ${htmlEsc(p)}</div>`).join("")+`</div>`
+    : "";
+  el.innerHTML = okBadge
+    + `<div class="table-wrap" style="margin-top:8px"><table>`
+    + rows.map(([k,v])=>`<tr><th style="text-align:left;white-space:nowrap">${k}</th><td>${v}</td></tr>`).join("")
+    + `</table></div>` + problemsHtml
+    + `<p class="push-hint" style="margin-top:10px">매일 오전 7:05에 자동 점검되며, 문제 발생 시 텔레그램으로 경보가 발송됩니다.</p>`;
+}
+
+// ---------- 주간 리포트 메일 ----------
+function renderReportMail(){
+  app.innerHTML=`
+    <div class="rep-head">
+      <button class="back-btn" id="back">← 메뉴</button>
+      <h2>📧 주간 리포트 메일</h2>
+    </div>
+    <div class="push-card">
+      <p class="push-hint">지난 <b>토요일~금요일</b> 요약을 미리보고, 등록된 수신자에게 이메일로 보냅니다.<br>매주 <b>토요일 오전 8시</b> 자동 발송됩니다.</p>
+      <button class="push-fill" id="r-preview">🔍 미리보기</button>
+      <label class="push-lb">추가 수신 이메일 (선택)</label>
+      <input id="r-extra" class="push-in" placeholder="예: name@example.com (쉼표로 여러 명)" autocomplete="off" />
+      <button class="push-send" id="r-send">📧 지금 발송</button>
+      <div id="r-result" class="msg"></div>
+      <iframe id="r-frame" style="width:100%;border:1px solid #dde3ee;border-radius:10px;margin-top:12px;min-height:520px;display:none;background:#eef1f6"></iframe>
+    </div>`;
+  document.getElementById("back").addEventListener("click", renderMenu);
+  document.getElementById("r-preview").addEventListener("click", loadReportPreview);
+  document.getElementById("r-send").addEventListener("click", sendReportNow);
+  loadReportPreview();
+}
+async function loadReportPreview(){
+  const r=document.getElementById("r-result");
+  const frame=document.getElementById("r-frame");
+  r.className="msg"; r.textContent="이번 주 리포트를 불러오는 중...";
+  const d=await callApi({action:"weeklyReport",pw:getPw()}).catch(()=>({ok:false,error:"network"}));
+  if(d.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }
+  if(!d.ok){ r.className="msg err"; r.textContent="불러오기 실패: "+(d.error||"오류"); return; }
+  frame.style.display="block"; frame.srcdoc=d.html||"<p>내용 없음</p>";
+  const s=(d.report&&d.report.summary)||{};
+  r.className="msg"; r.innerHTML=`기간 <b>${d.report.from} ~ ${d.report.to}</b> · 학습참여 ${s.learners||0}명 · 학습 ${s.learnTotal||0}회 · 신규 ${s.newUsers||0}명`;
+}
+async function sendReportNow(){
+  const r=document.getElementById("r-result");
+  const confirmPw=prompt("⚠️ 등록된 수신자 전원에게 지금 이메일을 발송합니다.\n확인을 위해 관리자 비밀번호를 다시 입력하세요:");
+  if(confirmPw===null) return;
+  if(confirmPw!==getPw()){ r.className="msg err"; r.textContent="비밀번호가 일치하지 않아 발송을 취소했습니다."; return; }
+  const extraEl=document.getElementById("r-extra");
+  const extra=extraEl && extraEl.value ? extraEl.value.trim() : "";
+  const btn=document.getElementById("r-send"); btn.disabled=true; r.className="msg"; r.textContent="발송 중...";
+  const d=await callApi({action:"weeklyReport",pw:getPw(),send:true,extra}).catch(()=>({ok:false,error:"network"}));
+  btn.disabled=false;
+  if(!d.ok){
+    const err=(d.sent&&d.sent.error)||d.error||"오류";
+    let msg="발송 실패: "+err;
+    if(err==="no-resend-key") msg="발송 실패: RESEND_API_KEY 시크릿이 설정되지 않았습니다.";
+    if(err==="no-recipients") msg="발송 실패: REPORT_RECIPIENTS(수신자) 시크릿이 비어 있습니다.";
+    r.className="msg err"; r.textContent=msg; return;
+  }
+  r.className="msg"; r.innerHTML=`✅ 발송 완료 — 수신자 <b>${(d.sent&&d.sent.recipients)||"?"}</b>명에게 전송했습니다.`;
+}
+
+// ---------- 질문·제안 게시판 관리 ----------
+function boardT(iso){ try{ const k=new Date(new Date(iso).getTime()+9*3600*1000); const z=n=>String(n).padStart(2,"0"); return `${k.getUTCMonth()+1}/${k.getUTCDate()} ${z(k.getUTCHours())}:${z(k.getUTCMinutes())}`; }catch(e){ return ""; } }
+function boardE(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>"); }
+function renderBoardAdmin(){
+  app.innerHTML=`
+    <style>
+      .ba-post{border:1px solid #dde3ee;border-radius:12px;padding:12px 14px;margin-bottom:12px;background:#fff}
+      .ba-post.hidden,.ba-reply.hidden{opacity:.55}
+      .ba-meta{font-size:12px;color:#5c6a80;margin-bottom:5px}
+      .ba-meta b{color:#1a3a6b}
+      .ba-reply{margin-top:9px;padding:8px 10px;border-radius:9px;background:#f4f6fb;border-left:3px solid #dde3ee;font-size:14px}
+      .ba-reply.adm{background:#fdf9ef;border-left-color:#c8a24b}
+      .board-badge{display:inline-block;background:#c8a24b;color:#fff;font-size:10px;font-weight:800;padding:1px 7px;border-radius:10px}
+      .ba-actions{display:flex;gap:6px;margin-top:8px}
+      .ba-actions button{padding:4px 10px;border:1px solid #dde3ee;background:#fff;border-radius:8px;font-size:12px;cursor:pointer}
+      .ba-del{color:#b94a3a;border-color:#e6c3bc!important}
+      .ba-reply-row{display:flex;gap:6px;margin-top:10px}
+      .ba-in{flex:1;padding:8px 10px;border:1.5px solid #dde3ee;border-radius:9px;font-size:13px;font-family:inherit}
+      .ba-reply-btn{padding:0 14px;border:none;border-radius:9px;background:#1a3a6b;color:#fff;font-weight:700;font-size:13px;cursor:pointer}
+    </style>
+    <div class="rep-head">
+      <button class="back-btn" id="back">← 메뉴</button>
+      <h2>💬 게시판 관리</h2>
+    </div>
+    <div class="push-card">
+      <p class="push-hint">숨김 글도 모두 표시됩니다. 여기서 다는 답글은 <b>관리자</b> 배지가 붙어요.</p>
+      <button class="push-fill" id="ba-refresh">🔄 새로고침</button>
+      <div id="ba-list"><p style="text-align:center;color:#888;padding:16px">불러오는 중...</p></div>
+    </div>`;
+  document.getElementById("back").addEventListener("click", renderMenu);
+  document.getElementById("ba-refresh").addEventListener("click", loadBoardAdmin);
+  loadBoardAdmin();
+}
+async function loadBoardAdmin(){
+  const box=document.getElementById("ba-list");
+  const d=await callApi({action:"boardList",pw:getPw()}).catch(()=>({ok:false,error:"network"}));
+  if(d.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }
+  const posts=(d&&d.posts)||[];
+  if(!posts.length){ box.innerHTML=`<p style="text-align:center;color:#888;padding:20px 0">아직 글이 없습니다.</p>`; return; }
+  box.innerHTML=posts.map(p=>{
+    const replies=(p.replies||[]).map(r=>`
+      <div class="ba-reply${r.is_admin?" adm":""}${(r.hidden||r.deleted)?" hidden":""}">
+        <div class="ba-meta">${r.is_admin?'<span class="board-badge">관리자</span>':`<b>${boardE(r.name)}</b>`} · ${boardT(r.created_at)}${r.hidden?' · <span style="color:#b94a3a">숨김</span>':''}${r.deleted?' · <span style="color:#b94a3a">본인삭제</span>':''}</div>
+        <div>${boardE(r.content)}</div>
+        <div class="ba-actions">
+          <button data-kind="reply" data-id="${r.id}" data-act="${r.hidden?'show':'hide'}">${r.hidden?'숨김해제':'숨기기'}</button>
+          ${r.deleted?`<button data-kind="reply" data-id="${r.id}" data-act="undelete">복구</button>`:''}
+          <button data-kind="reply" data-id="${r.id}" data-act="delete" class="ba-del">완전삭제</button>
+        </div>
+      </div>`).join("");
+    return `
+      <div class="ba-post${(p.hidden||p.deleted)?" hidden":""}">
+        <div class="ba-meta"><b>${boardE(p.name)}</b> · ${boardT(p.created_at)}${p.hidden?' · <span style="color:#b94a3a">숨김</span>':''}${p.deleted?' · <span style="color:#b94a3a">본인삭제</span>':''}</div>
+        <div>${boardE(p.content)}</div>
+        ${replies}
+        <div class="ba-reply-row">
+          <input class="ba-in" placeholder="관리자 답글 달기" maxlength="2000" />
+          <button class="ba-reply-btn" data-id="${p.id}">답글</button>
+        </div>
+        <div class="ba-actions">
+          <button data-kind="post" data-id="${p.id}" data-act="${p.hidden?'show':'hide'}">${p.hidden?'숨김해제':'숨기기'}</button>
+          ${p.deleted?`<button data-kind="post" data-id="${p.id}" data-act="undelete">복구</button>`:''}
+          <button data-kind="post" data-id="${p.id}" data-act="delete" class="ba-del">완전삭제</button>
+        </div>
+      </div>`;
+  }).join("");
+  box.querySelectorAll(".ba-actions button").forEach(b=>b.addEventListener("click",()=>moderateBoard(b)));
+  box.querySelectorAll(".ba-reply-btn").forEach(b=>b.addEventListener("click",()=>adminBoardReply(b)));
+}
+async function moderateBoard(btn){
+  if(btn.dataset.act==="delete" && !confirm("정말 삭제할까요? 되돌릴 수 없습니다.")) return;
+  const d=await callApi({action:"boardModerate",pw:getPw(),kind:btn.dataset.kind,id:Number(btn.dataset.id),op:btn.dataset.act}).catch(()=>({ok:false}));
+  if(d.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }
+  loadBoardAdmin();
+}
+async function adminBoardReply(btn){
+  const el=btn.closest(".ba-post").querySelector(".ba-in"); const content=el.value.trim();
+  if(!content){ el.focus(); return; }
+  btn.disabled=true;
+  const d=await callApi({action:"boardReply",pw:getPw(),post_id:Number(btn.dataset.id),content}).catch(()=>({ok:false}));
+  if(d.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }
+  loadBoardAdmin();
+}
+
+// ---------- 설교/말씀 관리(CMS) ----------
+function isoDateInput(d){ // 'YYYY-MM-DDTHH:mm' → date input용 'YYYY-MM-DD'
+  if(!d) return ""; const x=new Date(d); if(isNaN(x)) return "";
+  return x.toISOString().slice(0,10);
+}
+async function renderContent(){
+  app.innerHTML=`
+    <div class="rep-head">
+      <button class="back-btn" id="back">← 메뉴</button>
+      <h2>📖 설교/말씀 관리</h2>
+    </div>
+    <div id="cms-body"><div class="msg">불러오는 중...</div></div>`;
+  document.getElementById("back").addEventListener("click", renderMenu);
+  loadContentList();
+}
+async function loadContentList(selNo){
+  const body=document.getElementById("cms-body");
+  const data=await callApi({action:"getVerses"}).catch(()=>({ok:false,error:"network"}));
+  const list=(data&&data.verses)||[];
+  const opts=`<option value="">+ 새 말씀 추가</option>`+list.map(v=>`<option value="${v.no}">${v.no}. ${htmlEsc(v.refShort||"")} — ${htmlEsc(v.sermonTitle||"")}</option>`).join("");
+  body.innerHTML=`
+    <div class="push-card">
+      <label class="push-lb">편집할 말씀 선택</label>
+      <select id="c-sel" class="push-in">${opts}</select>
+      ${list.length? "" : `<p class="push-hint">아직 DB에 말씀이 없어요. 아래 '초기 적재'로 verses.json을 불러오세요.</p>
+        <button class="push-fill" id="c-seed">⬇️ verses.json → DB 초기 적재</button>`}
+      <hr style="border:none;border-top:1px solid var(--border);margin:14px 0;">
+      <label class="push-lb">순번(no) *</label><input id="c-no" class="push-in" inputmode="numeric" placeholder="예: 27">
+      <label class="push-lb">날짜(주일) *</label><input id="c-date" class="push-in" type="date">
+      <label class="push-lb">출처(짧게, refShort) *</label><input id="c-refshort" class="push-in" placeholder="예: 딤전 1:11">
+      <label class="push-lb">출처(전체, refFull)</label><input id="c-reffull" class="push-in" placeholder="예: 디모데전서 1장 11절">
+      <label class="push-lb">말씀 본문 *</label><textarea id="c-text" class="push-in" rows="3"></textarea>
+      <label class="push-lb">힌트(선택)</label><input id="c-hint" class="push-in" placeholder="예: 이 OOO OO">
+      <label class="push-lb">설교 제목</label><input id="c-sermon" class="push-in" placeholder="예: 유리 보석에 속지 마십시오">
+      <label class="push-lb">설교자</label><input id="c-pastor" class="push-in" placeholder="예: 차동혁 담임목사">
+      <label class="push-lb">설교 영상 URL</label><input id="c-url" class="push-in" placeholder="https://www.youtube.com/...">
+      <label class="chk" style="margin:10px 0;"><input type="checkbox" id="c-active" checked> 활성(앱에 표시)</label>
+      <button class="push-send" id="c-save">💾 저장</button>
+      <div id="c-result" class="msg"></div>
+    </div>`;
+  const sel=document.getElementById("c-sel");
+  function fill(v){
+    document.getElementById("c-no").value=v?v.no:"";
+    document.getElementById("c-date").value=v?isoDateInput(v.date):"";
+    document.getElementById("c-refshort").value=v?(v.refShort||""):"";
+    document.getElementById("c-reffull").value=v?(v.refFull||""):"";
+    document.getElementById("c-text").value=v?(v.text||""):"";
+    document.getElementById("c-hint").value=v?(v.hintText||""):"";
+    document.getElementById("c-sermon").value=v?(v.sermonTitle||""):"";
+    document.getElementById("c-pastor").value=v?(v.pastor||""):"";
+    document.getElementById("c-url").value=v?(v.url||""):"";
+    document.getElementById("c-active").checked=true;
+  }
+  sel.addEventListener("change",()=>{ const v=list.find(x=>String(x.no)===sel.value); fill(v); });
+  if(selNo!=null){ sel.value=String(selNo); fill(list.find(x=>String(x.no)===String(selNo))); }
+  const seed=document.getElementById("c-seed");
+  if(seed) seed.addEventListener("click",async()=>{
+    seed.disabled=true; seed.textContent="적재 중...";
+    const r=await callApi({action:"seedVerses",pw:getPw()}).catch(()=>({ok:false,error:"network"}));
+    if(r.ok){ alert("초기 적재 완료: "+r.count+"개"); loadContentList(); }
+    else { seed.disabled=false; seed.textContent="⬇️ verses.json → DB 초기 적재"; alert("실패: "+(r.error||"오류")); }
+  });
+  document.getElementById("c-save").addEventListener("click",async()=>{
+    const verse={
+      no:document.getElementById("c-no").value.trim(),
+      date:document.getElementById("c-date").value ? document.getElementById("c-date").value+"T00:00:00+09:00" : null,
+      refShort:document.getElementById("c-refshort").value.trim(),
+      refFull:document.getElementById("c-reffull").value.trim(),
+      text:document.getElementById("c-text").value.trim(),
+      hintText:document.getElementById("c-hint").value.trim(),
+      sermonTitle:document.getElementById("c-sermon").value.trim(),
+      pastor:document.getElementById("c-pastor").value.trim(),
+      url:document.getElementById("c-url").value.trim(),
+      is_active:document.getElementById("c-active").checked
+    };
+    const r=document.getElementById("c-result");
+    if(!verse.no||!verse.refShort||!verse.text){ r.className="msg err"; r.textContent="순번·출처(짧게)·말씀 본문은 필수예요."; return; }
+    // 실수 방지: 저장 전 관리자 비밀번호 재확인
+    const confirmPw = prompt("⚠️ 저장하면 앱 전체(목록·이번 주 말씀·알림)에 즉시 반영됩니다.\n확인을 위해 관리자 비밀번호를 다시 입력하세요:");
+    if(confirmPw === null) return; // 취소
+    if(confirmPw !== getPw()){ r.className="msg err"; r.textContent="비밀번호가 일치하지 않아 저장을 취소했습니다."; return; }
+    const btn=document.getElementById("c-save"); btn.disabled=true; r.className="msg"; r.textContent="저장 중...";
+    const data=await callApi({action:"saveVerse",pw:confirmPw,verse}).catch(()=>({ok:false,error:"network"}));
+    btn.disabled=false;
+    if(!data.ok){ if(data.error==="unauthorized"){sessionStorage.removeItem(PW_KEY);renderLogin();return;} r.className="msg err"; r.textContent="저장 실패: "+(data.error||"오류"); return; }
+    r.className="msg"; r.textContent="✅ 저장되었습니다.";
+    loadContentList(verse.no);
+  });
+}
+
+function weekStart(d){
+  const x=new Date(d);
+  const day=x.getDay();
+  const diff=day===0?6:day-1;
+  x.setDate(x.getDate()-diff);
+  return x;
+}
+function sumStatsList(list){
+  return (list||[]).reduce((a,r)=>({
+    newCount:a.newCount+(r.newCount||0),
+    participants:a.participants+(r.participants||0),
+    typing:a.typing+(r.typing||0),
+    voice:a.voice+(r.voice||0),
+    total:a.total+(r.total||0)
+  }),{newCount:0,participants:0,typing:0,voice:0,total:0});
+}
+function sumChallenge(list){
+  return (list||[]).reduce((a,r)=>({
+    people:a.people+1,
+    count:a.count+(r.count||0),
+    typing:a.typing+(r.typing||0),
+    voice:a.voice+(r.voice||0)
+  }),{people:0,count:0,typing:0,voice:0});
+}
+async function loadDashboard(){
+  const dash=document.getElementById("dash");
+  if(!dash) return;
+  const today=ymd(new Date());
+  const wk=ymd(weekStart(new Date()));
+  try{
+    const [todayStats,weekStats,allStats,todayChallenge,weekChallenge,verseMap,weekVerses]=await Promise.all([
+      callStats(today,today),
+      callStats(wk,today),
+      callStats("",""),
+      callChallengeRanking(today,today),
+      callChallengeRanking(wk,today),
+      loadVerseMap(),
+      callVerses(wk,today)
+    ]);
+    if(todayStats.error==="unauthorized"||weekStats.error==="unauthorized"||allStats.error==="unauthorized"){
+      sessionStorage.removeItem(PW_KEY); renderLogin(); return;
+    }
+    const ts=sumStatsList(todayStats.list||[]);
+    const ws=sumStatsList(weekStats.list||[]);
+    const as=sumStatsList(allStats.list||[]);
+    const tc=sumChallenge(todayChallenge.list||[]);
+    const wc=sumChallenge(weekChallenge.list||[]);
+    const topVerses=(weekVerses.list||[]).slice().sort((a,b)=>(b.count-a.count)).slice(0,5);
+    const topVerseHtml=topVerses.length ? topVerses.map((r,i)=>`
+      <div class="dash-item">
+        <span class="rank">${i+1}</span>
+        <span class="name">${htmlEsc(verseLabel(verseMap,r.no))}</span>
+        <span class="cnt">${r.count}회</span>
+      </div>`).join("") : `<div class="dash-msg">이번 주 구절 기록이 없습니다.</div>`;
+    const topChallenge=(weekChallenge.list||[]).slice().sort((a,b)=>(b.count-a.count)).slice(0,5);
+    const topChallengeHtml=topChallenge.length ? topChallenge.map((r,i)=>`
+      <div class="dash-item">
+        <span class="rank">${i+1}</span>
+        <span class="name">${htmlEsc((r.sosok||"")+" "+(r.name||""))}</span>
+        <span class="cnt">${r.count}회</span>
+      </div>`).join("") : `<div class="dash-msg">이번 주 도전 기록이 없습니다.</div>`;
+    dash.innerHTML=`
+      <div class="dash-head">
+        <div class="dash-sub">오늘 ${today} · 이번 주 ${wk} ~ ${today}</div>
+      </div>
+      <div class="dash-grid">
+        <div class="dash-kpi k-people"><div class="k-head"><span class="ic">🙋</span><span class="l">오늘 참여자</span></div><div class="n">${ts.participants}</div></div>
+        <div class="dash-kpi k-people"><div class="k-head"><span class="ic">📅</span><span class="l">주간 참여자</span></div><div class="n">${ws.participants}</div></div>
+        <div class="dash-kpi k-people"><div class="k-head"><span class="ic">👥</span><span class="l">누적 참여자</span></div><div class="n">${as.participants}</div></div>
+        <div class="dash-kpi k-fire"><div class="k-head"><span class="ic">🔥</span><span class="l">오늘 도전</span></div><div class="n">${tc.count}</div></div>
+        <div class="dash-kpi k-study"><div class="k-head"><span class="ic">📖</span><span class="l">주간 활동</span></div><div class="n">${ws.total}</div></div>
+        <div class="dash-kpi k-fire"><div class="k-head"><span class="ic">🔥</span><span class="l">주간 도전</span></div><div class="n">${wc.count}</div></div>
+        <div class="dash-kpi k-study"><div class="k-head"><span class="ic">📖</span><span class="l">누적 활동</span></div><div class="n">${as.total}</div></div>
+        <div class="dash-kpi k-verse"><div class="k-head"><span class="ic">✝️</span><span class="l">주간 구절</span></div><div class="n">${weekVerses.list?weekVerses.list.length:0}</div></div>
+      </div>
+      <div class="dash-panels">
+        <div class="dash-panel"><div class="h">이번 주 많이 참여한 말씀</div><div class="dash-list">${topVerseHtml}</div></div>
+        <div class="dash-panel"><div class="h">이번 주 도전 Top 5</div><div class="dash-list">${topChallengeHtml}</div></div>
+      </div>`;
+  }catch(e){
+    dash.innerHTML=`
+      <div class="dash-head">
+        <div class="dash-sub">잠시 후 다시 확인해 주세요.</div>
+      </div>
+      <div class="dash-msg err">대시보드를 불러오지 못했습니다.</div>`;
+  }
+}
+
+// ---------- 리포트 1: 기간별 사용현황 ----------
+function ymd(d){
+  const z=n=>String(n).padStart(2,"0");
+  return d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate());
+}
+function fileDate(){
+  return ymd(new Date()).replaceAll("-","");
+}
+function rangeForName(from,to){
+  if(!from&&!to) return "전체";
+  return (from||"처음")+"_"+(to||"오늘");
+}
+function csvEscape(v){
+  const s=String(v==null?"":v);
+  return /[",\r\n]/.test(s) ? `"${s.replaceAll('"','""')}"` : s;
+}
+function downloadCsv(filename, headers, rows){
+  const lines=[headers, ...rows].map(row=>row.map(csvEscape).join(","));
+  const blob=new Blob(["\ufeff"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;
+  a.download=filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+function attachCsvButton(id, filename, headers, rows){
+  const btn=document.getElementById(id);
+  if(!btn) return;
+  btn.addEventListener("click",()=>downloadCsv(filename,headers,rows));
+}
+function renderUsageReport(){
+  const today = new Date();
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  app.innerHTML = `
+    <div class="rep-head">
+      <button class="back-btn" id="back">← 메뉴</button>
+      <h2>📅 기간별 사용현황</h2>
+    </div>
+    <div class="filters">
+      <div class="fld"><label>시작일 (From)</label><input type="date" id="from" value="${ymd(monthStart)}"></div>
+      <div class="fld"><label>종료일 (To)</label><input type="date" id="to" value="${ymd(today)}"></div>
+      <button class="go" id="go">조회</button>
+      <div class="quick">
+        <button data-q="all">전체</button>
+        <button data-q="month">이번 달</button>
+        <button data-q="week">최근 7일</button>
+      </div>
+    </div>
+    <div id="result"><div class="msg">기간을 선택하고 <b>조회</b>를 누르세요.</div></div>`;
+
+  document.getElementById("back").addEventListener("click", renderMenu);
+  document.getElementById("go").addEventListener("click", runUsage);
+  document.querySelectorAll(".quick button").forEach(b=>b.addEventListener("click",()=>{
+    const q=b.dataset.q, f=document.getElementById("from"), t=document.getElementById("to");
+    const now=new Date();
+    if(q==="all"){ f.value=""; t.value=""; }
+    else if(q==="month"){ f.value=ymd(new Date(now.getFullYear(),now.getMonth(),1)); t.value=ymd(now); }
+    else if(q==="week"){ const w=new Date(now); w.setDate(w.getDate()-6); f.value=ymd(w); t.value=ymd(now); }
+    runUsage();
+  }));
+  runUsage();
+}
+
+async function runUsage(){
+  const from=document.getElementById("from").value;
+  const to=document.getElementById("to").value;
+  const result=document.getElementById("result");
+  result.innerHTML = `<div class="msg">불러오는 중...</div>`;
+  const data = await callStats(from,to).catch(()=>({ok:false,error:"network"}));
+  if(!data.ok){
+    if(data.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }
+    result.innerHTML = `<div class="msg err">조회 실패: ${data.error||"오류"}</div>`;
+    return;
+  }
+  const list=data.list||[];
+  if(!list.length){ result.innerHTML=`<div class="msg">해당 기간에 기록이 없습니다.</div>`; return; }
+
+  const sum=list.reduce((a,r)=>({newCount:a.newCount+r.newCount,participants:a.participants+r.participants,
+    typing:a.typing+r.typing,voice:a.voice+r.voice,total:a.total+r.total}),
+    {newCount:0,participants:0,typing:0,voice:0,total:0});
+
+  const rangeTxt = (from||to) ? `${from||"처음"} ~ ${to||"오늘"}` : "전체 기간";
+
+  let rows = list.map(r=>`
+    <tr>
+      <td class="l"><span class="gubun-tag gubun-${r.gubun}">${r.gubun}</span></td>
+      <td class="l">${r.sosok||"-"}</td>
+      <td>${r.newCount}</td>
+      <td>${r.participants}</td>
+      <td>${r.typing}</td>
+      <td>${r.voice}</td>
+      <td><b>${r.total}</b></td>
+    </tr>`).join("");
+
+  result.innerHTML = `
+    <div class="summary-row">
+      <div class="kpi"><div class="n">${sum.participants}</div><div class="l">참여인원(합)</div></div>
+      <div class="kpi"><div class="n">${sum.newCount}</div><div class="l">신규인원(합)</div></div>
+      <div class="kpi"><div class="n">${sum.typing}</div><div class="l">타이핑</div></div>
+      <div class="kpi"><div class="n">${sum.voice}</div><div class="l">음성</div></div>
+      <div class="kpi"><div class="n">${sum.total}</div><div class="l">총횟수</div></div>
+    </div>
+    <div class="report-toolbar">
+      <span>기간: <b>${rangeTxt}</b> · 그룹 ${list.length}개</span>
+      <button class="download-btn" id="download-usage">CSV 다운로드</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="l">구분</th><th class="l">교구/교회학교</th>
+          <th>신규인원</th><th>참여인원</th><th>타이핑횟수</th><th>음성횟수</th><th>총횟수</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr>
+          <td class="l">합계</td><td></td>
+          <td>${sum.newCount}</td><td>${sum.participants}</td>
+          <td>${sum.typing}</td><td>${sum.voice}</td><td>${sum.total}</td>
+        </tr></tfoot>
+      </table>
+    </div>`;
+  attachCsvButton(
+    "download-usage",
+    `성경암송_기간별사용현황_${rangeForName(from,to)}_${fileDate()}.csv`,
+    ["구분","교구/교회학교","신규인원","참여인원","타이핑횟수","음성횟수","총횟수"],
+    list.map(r=>[r.gubun,r.sosok||"",r.newCount,r.participants,r.typing,r.voice,r.total])
+      .concat([["합계","",sum.newCount,sum.participants,sum.typing,sum.voice,sum.total]])
+  );
+}
+
+// ---------- 리포트 2: 참여자 현황 ----------
+async function callParticipants(from,to,gubun,sosok){
+  return callApi({ action:"participants", pw:getPw(), from:from||"", to:to||"", gubun:gubun||"", sosok:sosok||"" });
+}
+
+function renderParticipants(){
+  const today=new Date();
+  const monthStart=new Date(today.getFullYear(),today.getMonth(),1);
+  app.innerHTML=`
+    <div class="rep-head">
+      <button class="back-btn" id="back">← 메뉴</button>
+      <h2>👥 참여자 현황</h2>
+    </div>
+    <div class="filters">
+      <div class="fld"><label>시작일 (From)</label><input type="date" id="from" value="${ymd(monthStart)}"></div>
+      <div class="fld"><label>종료일 (To)</label><input type="date" id="to" value="${ymd(today)}"></div>
+      <div class="fld"><label>구분</label><select id="gubun"><option>전체</option><option>교구</option><option>교회학교</option></select></div>
+      <button class="go" id="go">조회</button>
+      <div class="quick">
+        <button data-q="all">전체기간</button>
+        <button data-q="month">이번 달</button>
+        <button data-q="week">최근 7일</button>
+      </div>
+      <div class="fld" style="flex-basis:100%;"><label>교구/교회학교 (다중 선택)</label>
+        <div id="sosok-box" class="chk-box"></div></div>
+    </div>
+    <div id="result"><div class="msg">조건을 선택하고 <b>조회</b>를 누르세요.</div></div>`;
+
+  const gubunSel=document.getElementById("gubun");
+  const sosokBox=document.getElementById("sosok-box");
+  function fillSosok(){
+    const g=gubunSel.value;
+    let opts=[];
+    if(g==="교구") opts=GU_LIST;
+    else if(g==="교회학교") opts=BU_LIST;
+    if(!opts.length){
+      sosokBox.innerHTML=`<span class="chk-hint">‘전체’ 구분에서는 모든 소속이 집계됩니다. (교구 또는 교회학교를 고르면 선택 가능)</span>`;
+      return;
+    }
+    sosokBox.innerHTML =
+      `<label class="chk all"><input type="checkbox" id="sosok-all" checked>전체</label>`+
+      opts.map(o=>`<label class="chk"><input type="checkbox" class="sosok-c" value="${o}">${o}</label>`).join("");
+    const all=sosokBox.querySelector("#sosok-all");
+    const cs=[...sosokBox.querySelectorAll(".sosok-c")];
+    // '전체' 체크 시 개별 해제 / 개별 선택 시 '전체' 자동 해제(없으면 다시 전체)
+    all.addEventListener("change",()=>{ if(all.checked) cs.forEach(c=>c.checked=false); else if(!cs.some(x=>x.checked)) all.checked=true; });
+    cs.forEach(c=>c.addEventListener("change",()=>{ all.checked = !cs.some(x=>x.checked); }));
+  }
+  fillSosok();
+  gubunSel.addEventListener("change",fillSosok);
+  document.getElementById("back").addEventListener("click",renderMenu);
+  document.getElementById("go").addEventListener("click",runParticipants);
+  document.querySelectorAll(".quick button").forEach(b=>b.addEventListener("click",()=>{
+    const q=b.dataset.q,f=document.getElementById("from"),t=document.getElementById("to"),now=new Date();
+    if(q==="all"){f.value="";t.value="";}
+    else if(q==="month"){f.value=ymd(new Date(now.getFullYear(),now.getMonth(),1));t.value=ymd(now);}
+    else if(q==="week"){const w=new Date(now);w.setDate(w.getDate()-6);f.value=ymd(w);t.value=ymd(now);}
+    runParticipants();
+  }));
+  runParticipants();
+}
+
+function getSelectedSosok(){
+  const all=document.getElementById("sosok-all");
+  if(!all || all.checked) return []; // 전체
+  return [...document.querySelectorAll(".sosok-c:checked")].map(c=>c.value);
+}
+
+async function runParticipants(){
+  const from=document.getElementById("from").value;
+  const to=document.getElementById("to").value;
+  const gubun=document.getElementById("gubun").value;
+  const selSosok=getSelectedSosok(); // 다중 선택(빈 배열=전체)
+  const result=document.getElementById("result");
+  result.innerHTML=`<div class="msg">불러오는 중...</div>`;
+  // 소속 다중 필터는 화면에서 처리(서버는 구분까지만 필터)
+  const data=await callParticipants(from,to,gubun,"").catch(()=>({ok:false,error:"network"}));
+  if(!data.ok){
+    if(data.error==="unauthorized"){sessionStorage.removeItem(PW_KEY);renderLogin();return;}
+    result.innerHTML=`<div class="msg err">조회 실패: ${data.error||"오류"}</div>`;return;
+  }
+  let list=data.list||[];
+  if(selSosok.length) list=list.filter(r=>selSosok.includes(r.sosok));
+  if(!list.length){result.innerHTML=`<div class="msg">해당 조건에 참여자가 없습니다.</div>`;return;}
+  const sum=list.reduce((a,r)=>({typing:a.typing+r.typing,voice:a.voice+r.voice,total:a.total+r.total}),{typing:0,voice:0,total:0});
+  const rangeTxt=(from||to)?`${from||"처음"} ~ ${to||"오늘"}`:"전체 기간";
+  const rows=list.map((r,i)=>`
+    <tr>
+      <td>${i+1}</td>
+      <td class="l"><span class="gubun-tag gubun-${r.gubun}">${r.gubun}</span></td>
+      <td class="l">${r.sosok||"-"}</td>
+      <td>${r.sebu||"-"}</td>
+      <td class="l">${r.name||"-"}</td>
+      <td>${r.typing}</td>
+      <td>${r.voice}</td>
+      <td><b>${r.total}</b></td>
+    </tr>`).join("");
+  result.innerHTML=`
+    <div class="summary-row">
+      <div class="kpi"><div class="n">${list.length}</div><div class="l">참여자 수</div></div>
+      <div class="kpi"><div class="n">${sum.typing}</div><div class="l">타이핑</div></div>
+      <div class="kpi"><div class="n">${sum.voice}</div><div class="l">음성</div></div>
+      <div class="kpi"><div class="n">${sum.total}</div><div class="l">총횟수</div></div>
+    </div>
+    <div class="report-toolbar">
+      <span>기간: <b>${rangeTxt}</b> · 참여자 ${list.length}명</span>
+      <button class="download-btn" id="download-participants">CSV 다운로드</button>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr>
+        <th>#</th><th class="l">구분</th><th class="l">교구/교회학교</th><th>목장/학년</th>
+        <th class="l">성명</th><th>타이핑횟수</th><th>음성횟수</th><th>총횟수</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr>
+        <td></td><td class="l">합계</td><td></td><td></td><td></td>
+        <td>${sum.typing}</td><td>${sum.voice}</td><td>${sum.total}</td>
+      </tr></tfoot>
+    </table></div>`;
+  attachCsvButton(
+    "download-participants",
+    `성경암송_참여자현황_${rangeForName(from,to)}_${fileDate()}.csv`,
+    ["번호","구분","교구/교회학교","목장/학년","성명","타이핑횟수","음성횟수","총횟수"],
+    list.map((r,i)=>[i+1,r.gubun,r.sosok||"",r.sebu||"",r.name||"",r.typing,r.voice,r.total])
+      .concat([["","합계","","","",sum.typing,sum.voice,sum.total]])
+  );
+}
+
+// ---------- 리포트 3: 구절별 현황 ----------
+let VERSE_MAP=null;
+async function loadVerseMap(){
+  if(VERSE_MAP) return VERSE_MAP;
+  VERSE_MAP={};
+  const build=(arr)=>{(arr||[]).forEach(v=>{
+    const label=[v.refShort||v.refFull||("No."+v.no), v.sermonTitle].filter(Boolean).join(" · ");
+    VERSE_MAP[String(Number(v.no))]=label;
+  });};
+  // 1) DB(getVerses) 우선 — CMS 편집 반영
+  try{ const d=await callApi({action:"getVerses"}); if(d&&d.ok) build(d.verses); }catch{}
+  // 2) 폴백: 같은 도메인의 verses.json
+  if(!Object.keys(VERSE_MAP).length){
+    try{ const res=await fetch("verses.json?v="+Date.now(),{cache:"no-cache"}); build((await res.json()).verses); }catch{}
+  }
+  return VERSE_MAP;
+}
+function verseLabel(map,no){
+  const key=String(Number(no));
+  return map[key] || ("No."+no);
+}
+
+async function callVerses(from,to){
+  return callApi({ action:"verses", pw:getPw(), from:from||"", to:to||"" });
+}
+
+function renderVerses(){
+  const today=new Date();
+  const monthStart=new Date(today.getFullYear(),today.getMonth(),1);
+  app.innerHTML=`
+    <div class="rep-head">
+      <button class="back-btn" id="back">← 메뉴</button>
+      <h2>📖 구절별 현황</h2>
+    </div>
+    <div class="filters">
+      <div class="fld"><label>시작일 (From)</label><input type="date" id="from" value="${ymd(monthStart)}"></div>
+      <div class="fld"><label>종료일 (To)</label><input type="date" id="to" value="${ymd(today)}"></div>
+      <button class="go" id="go">조회</button>
+      <div class="quick">
+        <button data-q="all">전체기간</button>
+        <button data-q="month">이번 달</button>
+        <button data-q="week">최근 7일</button>
+      </div>
+    </div>
+    <div id="result"><div class="msg">기간을 선택하고 <b>조회</b>를 누르세요.</div></div>`;
+  document.getElementById("back").addEventListener("click",renderMenu);
+  document.getElementById("go").addEventListener("click",runVerses);
+  document.querySelectorAll(".quick button").forEach(b=>b.addEventListener("click",()=>{
+    const q=b.dataset.q,f=document.getElementById("from"),t=document.getElementById("to"),now=new Date();
+    if(q==="all"){f.value="";t.value="";}
+    else if(q==="month"){f.value=ymd(new Date(now.getFullYear(),now.getMonth(),1));t.value=ymd(now);}
+    else if(q==="week"){const w=new Date(now);w.setDate(w.getDate()-6);f.value=ymd(w);t.value=ymd(now);}
+    runVerses();
+  }));
+  runVerses();
+}
+
+async function runVerses(){
+  const from=document.getElementById("from").value;
+  const to=document.getElementById("to").value;
+  const result=document.getElementById("result");
+  result.innerHTML=`<div class="msg">불러오는 중...</div>`;
+  const [map,data]=await Promise.all([
+    loadVerseMap(),
+    callVerses(from,to).catch(()=>({ok:false,error:"network"}))
+  ]);
+  if(!data.ok){
+    if(data.error==="unauthorized"){sessionStorage.removeItem(PW_KEY);renderLogin();return;}
+    result.innerHTML=`<div class="msg err">조회 실패: ${data.error||"오류"}</div>`;return;
+  }
+  const list=data.list||[];
+  if(!list.length){result.innerHTML=`<div class="msg">해당 기간에 기록이 없습니다.</div>`;return;}
+  const sum=list.reduce((a,r)=>({count:a.count+r.count}),{count:0});
+  const rangeTxt=(from||to)?`${from||"처음"} ~ ${to||"오늘"}`:"전체 기간";
+  const rows=list.map(r=>`
+    <tr>
+      <td>${r.no}</td>
+      <td class="l">${verseLabel(map,r.no)}</td>
+      <td>${r.participants}</td>
+      <td><b>${r.count}</b></td>
+    </tr>`).join("");
+  result.innerHTML=`
+    <div class="summary-row">
+      <div class="kpi"><div class="n">${list.length}</div><div class="l">사용된 구절 수</div></div>
+      <div class="kpi"><div class="n">${sum.count}</div><div class="l">총 참여횟수</div></div>
+    </div>
+    <div class="report-toolbar">
+      <span>기간: <b>${rangeTxt}</b></span>
+      <button class="download-btn" id="download-verses">CSV 다운로드</button>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>말씀 순번</th><th class="l">말씀</th><th>참여자</th><th>참여횟수</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr><td></td><td class="l">합계</td><td></td><td>${sum.count}</td></tr></tfoot>
+    </table></div>`;
+  attachCsvButton(
+    "download-verses",
+    `성경암송_구절별현황_${rangeForName(from,to)}_${fileDate()}.csv`,
+    ["말씀순번","말씀","참여자","참여횟수"],
+    list.map(r=>[r.no,verseLabel(map,r.no),r.participants,r.count])
+      .concat([["","합계","",sum.count]])
+  );
+}
+
+// ---------- 리포트 4: 도전 현황 (공개 ranking 엔드포인트 재사용) ----------
+async function callChallengeRanking(from,to){
+  return callApi({ action:"ranking", from:from||"", to:to||"" });
+}
+
+function renderChallengeReport(){
+  const today=new Date();
+  const monthStart=new Date(today.getFullYear(),today.getMonth(),1);
+  app.innerHTML=`
+    <div class="rep-head">
+      <button class="back-btn" id="back">← 메뉴</button>
+      <h2>🔥 도전 현황</h2>
+    </div>
+    <div class="filters">
+      <div class="fld"><label>시작일 (From)</label><input type="date" id="from" value="${ymd(monthStart)}"></div>
+      <div class="fld"><label>종료일 (To)</label><input type="date" id="to" value="${ymd(today)}"></div>
+      <div class="fld"><label>구분</label><select id="gubun"><option>전체</option><option>교구</option><option>교회학교</option></select></div>
+      <button class="go" id="go">조회</button>
+      <div class="quick">
+        <button data-q="all">전체기간</button>
+        <button data-q="month">이번 달</button>
+        <button data-q="week">최근 7일</button>
+      </div>
+      <div class="fld" style="flex-basis:100%;"><label>교구/교회학교 (다중 선택)</label>
+        <div id="sosok-box" class="chk-box"></div></div>
+    </div>
+    <div id="result"><div class="msg">조건을 선택하고 <b>조회</b>를 누르세요.</div></div>`;
+
+  const gubunSel=document.getElementById("gubun");
+  const sosokBox=document.getElementById("sosok-box");
+  function fillSosok(){
+    const g=gubunSel.value;
+    let opts=[];
+    if(g==="교구") opts=GU_LIST;
+    else if(g==="교회학교") opts=BU_LIST;
+    if(!opts.length){ sosokBox.innerHTML=`<span class="chk-hint">‘전체’ 구분에서는 모든 소속이 집계됩니다. (교구 또는 교회학교를 고르면 선택 가능)</span>`; return; }
+    sosokBox.innerHTML =
+      `<label class="chk all"><input type="checkbox" id="sosok-all" checked>전체</label>`+
+      opts.map(o=>`<label class="chk"><input type="checkbox" class="sosok-c" value="${o}">${o}</label>`).join("");
+    const all=sosokBox.querySelector("#sosok-all");
+    const cs=[...sosokBox.querySelectorAll(".sosok-c")];
+    all.addEventListener("change",()=>{ if(all.checked) cs.forEach(c=>c.checked=false); else if(!cs.some(x=>x.checked)) all.checked=true; });
+    cs.forEach(c=>c.addEventListener("change",()=>{ all.checked=!cs.some(x=>x.checked); }));
+  }
+  fillSosok();
+  gubunSel.addEventListener("change",fillSosok);
+  document.getElementById("back").addEventListener("click",renderMenu);
+  document.getElementById("go").addEventListener("click",runChallengeReport);
+  document.querySelectorAll(".quick button").forEach(b=>b.addEventListener("click",()=>{
+    const q=b.dataset.q,f=document.getElementById("from"),t=document.getElementById("to"),now=new Date();
+    if(q==="all"){f.value="";t.value="";}
+    else if(q==="month"){f.value=ymd(new Date(now.getFullYear(),now.getMonth(),1));t.value=ymd(now);}
+    else if(q==="week"){const w=new Date(now);w.setDate(w.getDate()-6);f.value=ymd(w);t.value=ymd(now);}
+    runChallengeReport();
+  }));
+  runChallengeReport();
+}
+
+async function runChallengeReport(){
+  const from=document.getElementById("from").value;
+  const to=document.getElementById("to").value;
+  const gubun=document.getElementById("gubun").value;
+  const selSosok=getSelectedSosok();
+  const result=document.getElementById("result");
+  result.innerHTML=`<div class="msg">불러오는 중...</div>`;
+  const data=await callChallengeRanking(from,to).catch(()=>({ok:false,error:"network"}));
+  if(!data.ok){ result.innerHTML=`<div class="msg err">조회 실패: ${data.error||"오류"}</div>`; return; }
+  let list=data.list||[];
+  if(gubun&&gubun!=="전체") list=list.filter(r=>r.gubun===gubun);
+  if(selSosok.length) list=list.filter(r=>selSosok.includes(r.sosok));
+  if(!list.length){ result.innerHTML=`<div class="msg">해당 조건에 도전 기록이 없습니다.</div>`; return; }
+  list.sort((a,b)=> (b.count-a.count) || (a.name<b.name?-1:(a.name>b.name?1:0)));
+  const sum=list.reduce((a,r)=>({typing:a.typing+(r.typing||0),voice:a.voice+(r.voice||0),cnt:a.cnt+r.count}),{typing:0,voice:0,cnt:0});
+  const rangeTxt=(from||to)?`${from||"처음"} ~ ${to||"오늘"}`:"전체 기간";
+  const rows=list.map((r,i)=>`
+    <tr>
+      <td>${i+1}</td>
+      <td class="l"><span class="gubun-tag gubun-${r.gubun}">${r.gubun}</span></td>
+      <td class="l">${r.sosok||"-"}</td>
+      <td>${r.sebu||"-"}</td>
+      <td class="l">${r.name||"-"}</td>
+      <td>${r.typing||0}</td>
+      <td>${r.voice||0}</td>
+      <td><b>${r.count}</b></td>
+    </tr>`).join("");
+  result.innerHTML=`
+    <div class="summary-row">
+      <div class="kpi"><div class="n">${list.length}</div><div class="l">참여자 수</div></div>
+      <div class="kpi"><div class="n">${sum.typing}</div><div class="l">타이핑</div></div>
+      <div class="kpi"><div class="n">${sum.voice}</div><div class="l">음성</div></div>
+      <div class="kpi"><div class="n">${sum.cnt}</div><div class="l">총 도전횟수</div></div>
+    </div>
+    <div class="report-toolbar">
+      <span>기간: <b>${rangeTxt}</b> · 참여자 ${list.length}명</span>
+      <button class="download-btn" id="download-challenge">CSV 다운로드</button>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr>
+        <th>#</th><th class="l">구분</th><th class="l">교구/교회학교</th><th>목장/학년</th>
+        <th class="l">성명</th><th>타이핑</th><th>음성</th><th>도전횟수</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr>
+        <td></td><td class="l">합계</td><td></td><td></td><td></td>
+        <td>${sum.typing}</td><td>${sum.voice}</td><td>${sum.cnt}</td>
+      </tr></tfoot>
+    </table></div>`;
+  attachCsvButton(
+    "download-challenge",
+    `성경암송_도전현황_${rangeForName(from,to)}_${fileDate()}.csv`,
+    ["번호","구분","교구/교회학교","목장/학년","성명","타이핑","음성","도전횟수"],
+    list.map((r,i)=>[i+1,r.gubun,r.sosok||"",r.sebu||"",r.name||"",r.typing||0,r.voice||0,r.count])
+      .concat([["","합계","","","",sum.typing,sum.voice,sum.cnt]])
+  );
+}
+
+// ---------- 시작 ----------
+if(getPw()) { logoutBtn.hidden=false; renderMenu(); } else { renderLogin(); }
+</script>
+</body>
+</html>
