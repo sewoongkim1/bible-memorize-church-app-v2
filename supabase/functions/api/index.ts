@@ -632,7 +632,7 @@ async function participants(b: any) {
   try {
     const { data, error } = await db.rpc("v2_participants", { p_from: b.from || "", p_to: b.to || "", p_gubun: b.gubun || "" });
     if (error) throw error;
-    const list = ((data ?? []) as any[]).map((r) => ({ gubun: r.gubun, sosok: r.sosok, sebu: r.sebu, name: r.name, typing: r.typing, voice: r.voice, total: r.total }));
+    const list = ((data ?? []) as any[]).map((r) => ({ gubun: r.gubun, sosok: r.sosok, sebu: r.sebu, name: r.name, typing: r.typing, voice: r.voice, total: r.total, days: r.days, isNew: r.is_new }));
     return { ok: true, list };
   } catch (_) { /* 폴백 */ }
   return await participantsSlow(b);
@@ -764,9 +764,9 @@ function buildWeeklyCsv(report: any) {
   for (const r of report.usage) add([r.gubun, r.sosok, r.newCount, r.participants, r.typing, r.voice, r.total]);
   add();
   add(["참여자 전체"]);
-  add(["순위", "구분", "교구/교회학교", "목장/학년", "성명", "타이핑횟수", "음성횟수", "총횟수"]);
+  add(["순위", "구분", "교구/교회학교", "목장/학년", "성명", "신규여부", "참여일수", "타이핑횟수", "음성횟수", "총횟수"]);
   report.participants.forEach((r: any, i: number) =>
-    add([i + 1, r.gubun, r.sosok, r.sebu, r.name, r.typing, r.voice, r.total]));
+    add([i + 1, r.gubun, r.sosok, r.sebu, r.name, r.isNew ? "신규" : "", r.days ?? 0, r.typing, r.voice, r.total]));
   add();
   add(["구절별 현황"]);
   add(["말씀순번", "말씀", "참여자", "참여횟수"]);
@@ -833,14 +833,24 @@ function buildWeeklyHtml(
 ) {
   const s = report.summary;
   const top = report.participants; // 전체 참여자(인원이 적어 전부 표시)
+  const th = "padding:7px 8px;border-bottom:2px solid #e3e8f2;font-size:12px;color:#5c6a80;text-align:center;font-weight:700";
+  const headRow = `<tr style="background:#f5f7fb">
+    <td style="${th};width:30px">#</td>
+    <td style="${th};text-align:left">이름</td>
+    <td style="${th};width:44px">신규</td>
+    <td style="${th};width:52px">참여일</td>
+    <td style="${th};width:56px">총횟수</td>
+  </tr>`;
   const rows = top.length
-    ? top.map((r: any, i: number) => `
+    ? headRow + top.map((r: any, i: number) => `
         <tr>
-          <td style="padding:8px 10px;border-bottom:1px solid #eef1f8;font-weight:700;color:#1a3a6b;width:34px">${i + 1}</td>
-          <td style="padding:8px 10px;border-bottom:1px solid #eef1f8">${esc(r.name)} <span style="color:#8a93a5;font-size:12px">${esc(r.sosok || r.gubun || "")}</span></td>
-          <td style="padding:8px 10px;border-bottom:1px solid #eef1f8;text-align:right;font-weight:700">${num(r.total)}회</td>
+          <td style="padding:8px 8px;border-bottom:1px solid #eef1f8;font-weight:700;color:#1a3a6b;text-align:center">${i + 1}</td>
+          <td style="padding:8px 8px;border-bottom:1px solid #eef1f8">${esc(r.name)} <span style="color:#8a93a5;font-size:12px">${esc(r.sosok || r.gubun || "")}</span></td>
+          <td style="padding:8px 8px;border-bottom:1px solid #eef1f8;text-align:center">${r.isNew ? '<span style="background:#e9f2ff;color:#1a3a6b;font-size:11px;font-weight:800;padding:1px 6px;border-radius:8px">신규</span>' : ''}</td>
+          <td style="padding:8px 8px;border-bottom:1px solid #eef1f8;text-align:center">${num(r.days || 0)}일</td>
+          <td style="padding:8px 8px;border-bottom:1px solid #eef1f8;text-align:right;font-weight:700">${num(r.total)}회</td>
         </tr>`).join("")
-    : `<tr><td colspan="3" style="padding:14px;text-align:center;color:#8a93a5">이번 주 기록이 아직 없습니다.</td></tr>`;
+    : `<tr><td colspan="5" style="padding:14px;text-align:center;color:#8a93a5">이번 주 기록이 아직 없습니다.</td></tr>`;
 
   // 가로 막대그래프(이메일 안전: table 배경색 셀)
   const barRows = (items: { label: string; count: number }[], color: string) => {

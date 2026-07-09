@@ -53,25 +53,35 @@ language sql stable security definer set search_path = public as $$
   full outer join newu n on a.gubun = n.gubun and a.sosok = n.sosok;
 $$;
 
--- 3) 참여자별 통계
+-- 3) 참여자별 통계 (+ 참여일수 days, 신규여부 is_new)
 create or replace function v2_participants(p_from text default '', p_to text default '', p_gubun text default '')
-returns table(gubun text, sosok text, sebu text, name text, typing int, voice int, total int)
+returns table(gubun text, sosok text, sebu text, name text, typing int, voice int, total int, days int, is_new boolean)
 language sql stable security definer set search_path = public as $$
+  with fm as (   -- 사용자별 '첫 암송' 시각(전체 기록 기준)
+    select user_id, min(created_at) as first_mem
+    from challenge_log where mode like 'learn-%'
+    group by user_id
+  )
   select u.type as gubun,
          coalesce(nullif(u.gu,''), u.bu, '')       as sosok,
          coalesce(nullif(u.mok,''), u.grade, '')   as sebu,
          u.name,
          count(*) filter (where c.mode = 'learn-typing')::int as typing,
          count(*) filter (where c.mode = 'learn-voice')::int  as voice,
-         count(*)::int as total
+         count(*)::int as total,
+         count(distinct (c.created_at at time zone 'Asia/Seoul')::date)::int as days,
+         (p_from <> ''
+           and fm.first_mem >= (p_from || 'T00:00:00+09:00')::timestamptz
+           and (p_to = '' or fm.first_mem <= (p_to || 'T23:59:59+09:00')::timestamptz)) as is_new
   from challenge_log c
   join users u on u.id = c.user_id
+  left join fm on fm.user_id = c.user_id
   where c.mode like 'learn-%'
     and (p_from = '' or c.created_at >= (p_from || 'T00:00:00+09:00')::timestamptz)
     and (p_to   = '' or c.created_at <= (p_to   || 'T23:59:59+09:00')::timestamptz)
     and (p_gubun = '' or p_gubun = '전체' or u.type = p_gubun)
   group by c.user_id, u.type, coalesce(nullif(u.gu,''), u.bu, ''),
-           coalesce(nullif(u.mok,''), u.grade, ''), u.name
+           coalesce(nullif(u.mok,''), u.grade, ''), u.name, fm.first_mem
   order by total desc;
 $$;
 
