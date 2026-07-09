@@ -17,6 +17,14 @@ on:
         description: '주간 리포트 테스트 발송(지금 이메일 보내기)'
         type: boolean
         default: false
+      report_from:
+        description: '주간 리포트 시작일(YYYY-MM-DD, 비우면 자동=전주금~이번주목)'
+        type: string
+        default: ''
+      report_to:
+        description: '주간 리포트 종료일(YYYY-MM-DD)'
+        type: string
+        default: ''
 
 jobs:
   monitor:
@@ -32,6 +40,8 @@ jobs:
           FORCE_ALERT: ${{ github.event.inputs.force_alert }}
           DIAG_SEND: ${{ github.event.inputs.diag_send }}
           WEEKLY_TEST: ${{ github.event.inputs.weekly_test }}
+          REPORT_FROM: ${{ github.event.inputs.report_from }}
+          REPORT_TO: ${{ github.event.inputs.report_to }}
         run: |
           set -uo pipefail
 
@@ -43,9 +53,12 @@ jobs:
           # 0-0) 주간 리포트 테스트 발송(지금 이메일 전송) — 기간은 서버가 '전주 금~이번주 목'으로 자동 계산
           if [ "${WEEKLY_TEST:-false}" = "true" ]; then
             echo "📧 주간 리포트 테스트 발송..."
+            body="{\"action\":\"weeklyReport\",\"pw\":\"$ADMIN_SECRET\",\"send\":true"
+            [ -n "${REPORT_FROM:-}" ] && body="$body,\"from\":\"$REPORT_FROM\""
+            [ -n "${REPORT_TO:-}" ] && body="$body,\"to\":\"$REPORT_TO\""
+            body="$body}"
             curl -s -m 60 -X POST "$API_URL" -H "Content-Type: application/json" \
-              -H "apikey: $ANON" -H "Authorization: Bearer $ANON" \
-              -d "{\"action\":\"weeklyReport\",\"pw\":\"$ADMIN_SECRET\",\"send\":true}"
+              -H "apikey: $ANON" -H "Authorization: Bearer $ANON" -d "$body"
             echo ""; exit 0
           fi
 
