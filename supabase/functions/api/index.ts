@@ -900,7 +900,7 @@ function buildWeeklyHtml(
     return `<tr>
       <td style="padding:5px 8px 5px 0;font-size:12px;color:#5c6a80;white-space:nowrap;width:74px">${esc(`${md(x.from)}~${md(x.to)}`)}</td>
       <td style="padding:4px 0"><table cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse"><tr>${bars}</tr></table></td>
-      <td style="padding:4px 0 4px 8px;text-align:right;white-space:nowrap;width:84px"><span style="font-size:13px;font-weight:800;color:#20304a">${num(x.count)}</span><span style="font-size:11px;font-weight:700;color:${C_NEW}"> 신규${num(x.newCount)}</span></td>
+      <td style="padding:4px 0 4px 8px;text-align:right;white-space:nowrap;width:76px;font-size:13px;font-weight:800"><span style="color:${C_PART}">${num(x.count)}</span> <span style="color:#b0b8c4">/</span> <span style="color:${C_NEW}">${num(x.newCount)}</span></td>
     </tr>`;
   }).join("");
   const weeklyLegend = `<div style="margin:0 0 9px;font-size:11.5px;color:#5c6a80">
@@ -913,8 +913,8 @@ function buildWeeklyHtml(
        </div>` : "";
 
   // admin 대시보드 카드 스타일(좌측 컬러 액센트 바 + 아이콘 + 큰 숫자)
-  const kpi = (icon: string, label: string, val: string, acc: string) => `
-    <td width="25%" valign="top" style="padding:4px">
+  const kpi = (icon: string, label: string, val: string, acc: string, w = "25%") => `
+    <td width="${w}" valign="top" style="padding:4px">
       <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;background:#fff;border:1px solid #e3e8f0;border-radius:12px;box-shadow:0 2px 8px rgba(26,58,107,.05)">
         <tr>
           <td width="5" style="background:${acc};border-radius:12px 0 0 12px;font-size:0;line-height:0">&nbsp;</td>
@@ -928,17 +928,20 @@ function buildWeeklyHtml(
 
   return `<div style="background:#eef1f6;padding:22px 12px;font-family:'Noto Sans KR',AppleSDGothicNeo,sans-serif">
     <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden">
-      <div style="background:linear-gradient(135deg,#1a3a6b,#12294d);color:#fff;padding:20px 22px;border-bottom:3px solid ${C_NEW}">
-        <div style="font-size:18px;font-weight:800;letter-spacing:.3px">📖 성경암송 주간 리포트</div>
-        <div style="font-size:12px;opacity:.85;margin-top:4px">${report.from} ~ ${report.to} · 고척교회 제자양육부 신앙운동팀</div>
+      <div style="background:#1a3a6b;color:#ffffff;padding:20px 22px;border-bottom:3px solid ${C_NEW}">
+        <div style="font-size:18px;font-weight:800;letter-spacing:.3px;color:#ffffff">📖 성경암송 주간 리포트</div>
+        <div style="font-size:12px;color:#ffffff;opacity:.85;margin-top:4px">${report.from} ~ ${report.to} · 고척교회 제자양육부 신앙운동팀</div>
       </div>
       <div style="padding:20px">
         ${verseBlock}
+        <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:8px"><tr>
+          ${kpi("🏆", "누적 참여자", num(s.cumParticipants) + "명", "#7a5bb0", "33.33%")}
+          ${kpi("👥", "주간 참여자", num(s.learners) + "명", "#2b5fb0", "33.33%")}
+          ${kpi("🌱", "신규 유입", num(s.newUsers) + "명", C_NEW, "33.33%")}
+        </tr></table>
         <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:22px"><tr>
-          ${kpi("👥", "학습 참여자", num(s.learners) + "명", "#2b5fb0")}
-          ${kpi("📖", "학습 활동", num(s.learnTotal) + "회", "#2f6b4f")}
-          ${kpi("🔥", "도전", num(s.challengeTotal) + "회", "#d98a2b")}
-          ${kpi("🌱", "신규 유입", num(s.newUsers) + "명", C_NEW)}
+          ${kpi("📖", "주간 활동", num(s.learnTotal) + "회", "#2f6b4f", "50%")}
+          ${kpi("🔥", "도전", num(s.challengeTotal) + "회", "#d98a2b", "50%")}
         </tr></table>
         ${chart("📅 일자별 참여 인원", dailyRows)}
         ${heading(weeklyTitle)}${weeklyLegend}
@@ -1011,6 +1014,9 @@ async function weeklyReport(b: any) {
     learnTotal: a.learnTotal + (r.total || 0),
   }), { newUsers: 0, learners: 0, learnTyping: 0, learnVoice: 0, learnTotal: 0 });
   const challengeTotal = challenge.reduce((sum: number, r: any) => sum + (r.count || 0), 0);
+  // 누적 참여자(전체 기간 동안 암송한 총 인원, 중복 제거)
+  const cumRes: any = await stats({ pw: b.pw, from: "", to: "" });
+  const cumParticipants = cumRes.ok ? (cumRes.list || []).reduce((sm: number, x: any) => sm + (x.participants || 0), 0) : 0;
 
   const sortedParticipants = participantsList.slice().sort((a: any, b: any) => b.total - a.total);
   const sortedChallenge = challenge.slice().sort((a: any, b: any) => b.count - a.count);
@@ -1020,6 +1026,7 @@ async function weeklyReport(b: any) {
     to: range.to,
     summary: {
       ...usageTotal,
+      cumParticipants,
       challengeUsers: challenge.length,
       challengeTotal,
       verseCount: verses.length,
