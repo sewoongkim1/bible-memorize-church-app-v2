@@ -53,7 +53,7 @@ jobs:
           # 0-0) 주간 리포트 테스트 발송(지금 이메일 전송) — 기간은 서버가 '전주 금~이번주 목'으로 자동 계산
           if [ "${WEEKLY_TEST:-false}" = "true" ]; then
             echo "📧 주간 리포트 테스트 발송..."
-            body="{\"action\":\"weeklyReport\",\"pw\":\"$ADMIN_SECRET\",\"send\":false"
+            body="{\"action\":\"weeklyReport\",\"pw\":\"$ADMIN_SECRET\",\"send\":true"
             [ -n "${REPORT_FROM:-}" ] && body="$body,\"from\":\"$REPORT_FROM\""
             [ -n "${REPORT_TO:-}" ] && body="$body,\"to\":\"$REPORT_TO\""
             body="$body}"

@@ -908,12 +908,18 @@ function buildWeeklyHtml(
          <div style="color:#20304a;line-height:1.7">${esc(verse.text)}${verse.ref ? ` <b style="color:#1a3a6b">(${esc(verse.ref)})</b>` : ""}</div>
        </div>` : "";
 
-  const kpi = (label: string, val: string, accent = false) => `
-    <td style="padding:5px" width="25%">
-      <div style="background:${accent ? "#fdf6e7" : "#f4f6fb"};border:1px solid ${accent ? "#ecd9a8" : "#dde3ee"};border-radius:10px;padding:12px 4px;text-align:center">
-        <div style="font-size:21px;font-weight:800;color:${accent ? C_NEW : "#1a3a6b"}">${val}</div>
-        <div style="font-size:11px;color:#5c6a80;margin-top:2px">${label}</div>
-      </div>
+  // admin 대시보드 카드 스타일(좌측 컬러 액센트 바 + 아이콘 + 큰 숫자)
+  const kpi = (icon: string, label: string, val: string, acc: string) => `
+    <td width="25%" valign="top" style="padding:4px">
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;background:#fff;border:1px solid #e3e8f0;border-radius:12px;box-shadow:0 2px 8px rgba(26,58,107,.05)">
+        <tr>
+          <td width="5" style="background:${acc};border-radius:12px 0 0 12px;font-size:0;line-height:0">&nbsp;</td>
+          <td style="padding:10px 11px">
+            <div style="font-size:11px;color:#6a7688;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${icon} ${label}</div>
+            <div style="font-size:21px;font-weight:800;color:#1a3a6b;text-align:right;margin-top:7px">${val}</div>
+          </td>
+        </tr>
+      </table>
     </td>`;
 
   return `<div style="background:#eef1f6;padding:22px 12px;font-family:'Noto Sans KR',AppleSDGothicNeo,sans-serif">
@@ -925,10 +931,10 @@ function buildWeeklyHtml(
       <div style="padding:20px">
         ${verseBlock}
         <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:22px"><tr>
-          ${kpi("학습 참여자", num(s.learners) + "명")}
-          ${kpi("학습 활동", num(s.learnTotal) + "회")}
-          ${kpi("도전", num(s.challengeTotal) + "회")}
-          ${kpi("신규 유입", num(s.newUsers) + "명", true)}
+          ${kpi("👥", "학습 참여자", num(s.learners) + "명", "#2b5fb0")}
+          ${kpi("📖", "학습 활동", num(s.learnTotal) + "회", "#2f6b4f")}
+          ${kpi("🔥", "도전", num(s.challengeTotal) + "회", "#d98a2b")}
+          ${kpi("🌱", "신규 유입", num(s.newUsers) + "명", C_NEW)}
         </tr></table>
         ${chart("📅 일자별 참여 인원", dailyRows)}
         ${heading("📈 주차별 참여 · 신규 유입 (최근 8주)")}${weeklyLegend}
