@@ -885,8 +885,12 @@ function buildWeeklyHtml(
   const md = (dstr: string) => { const d = new Date(dstr + "T00:00:00Z"); return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`; };
   const dailyRows = barRows(daily.map((x) => ({ label: dLabel(x.date), count: x.count })), C_PART);
   // 주차별 누적 막대: 참여인원 = 신규(금색) + 기존(파랑)
-  const wkMax = Math.max(1, ...weekly.map((x) => x.count));
-  const weeklyRows = weekly.map((x) => {
+  // 데이터 있는 주만 표시(앞쪽 빈 주 제외)
+  const wkShow = weekly.filter((x) => x.count > 0);
+  const wkList = wkShow.length ? wkShow : weekly.slice(-4);
+  const weeklyTitle = `📈 주차별 참여 · 신규 유입 (최근 ${wkList.length}주)`;
+  const wkMax = Math.max(1, ...wkList.map((x) => x.count));
+  const weeklyRows = wkList.map((x) => {
     const totalW = Math.round((x.count / wkMax) * 100);
     const newW = x.count > 0 ? Math.min(totalW, Math.round((x.newCount / x.count) * totalW)) : 0;
     const oldW = Math.max(0, totalW - newW);
@@ -937,7 +941,7 @@ function buildWeeklyHtml(
           ${kpi("🌱", "신규 유입", num(s.newUsers) + "명", C_NEW)}
         </tr></table>
         ${chart("📅 일자별 참여 인원", dailyRows)}
-        ${heading("📈 주차별 참여 · 신규 유입 (최근 8주)")}${weeklyLegend}
+        ${heading(weeklyTitle)}${weeklyLegend}
         <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:22px">${weeklyRows}</table>
         <div style="font-size:13px;font-weight:800;color:#1a3a6b;margin:0 0 6px">🙌 참여자 전체 (${report.participants.length}명)</div>
         <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #eef1f8;border-radius:8px;font-size:14px">
