@@ -888,7 +888,7 @@ function buildWeeklyHtml(
   // 데이터 있는 주만 표시(앞쪽 빈 주 제외)
   const wkShow = weekly.filter((x) => x.count > 0);
   const wkList = wkShow.length ? wkShow : weekly.slice(-4);
-  const weeklyTitle = `📈 주차별 참여 · 신규 유입 (최근 ${wkList.length}주)`;
+  const weeklyTitle = `📈 주차별 참여 · 신규 참여자 (최근 ${wkList.length}주)`;
   const wkMax = Math.max(1, ...wkList.map((x) => x.count));
   const weeklyRows = wkList.map((x) => {
     const totalW = Math.round((x.count / wkMax) * 100);
@@ -904,7 +904,7 @@ function buildWeeklyHtml(
     </tr>`;
   }).join("");
   const weeklyLegend = `<div style="margin:0 0 9px;font-size:11.5px;color:#5c6a80">
-    <span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${C_NEW};vertical-align:middle;margin-right:4px"></span>신규 유입&nbsp;&nbsp;<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${C_PART};vertical-align:middle;margin-right:4px"></span>기존 참여<span style="color:#9aa4b4">&nbsp;(막대 = 참여인원)</span></div>`;
+    <span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${C_NEW};vertical-align:middle;margin-right:4px"></span>신규 참여자&nbsp;&nbsp;<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${C_PART};vertical-align:middle;margin-right:4px"></span>기존 참여<span style="color:#9aa4b4">&nbsp;(막대 = 참여인원)</span></div>`;
 
   const verseBlock = verse
     ? `<div style="background:#fdf9ef;border:1px solid #e7d9ad;border-radius:10px;padding:14px 16px;margin:0 0 18px">
@@ -934,14 +934,11 @@ function buildWeeklyHtml(
       </div>
       <div style="padding:20px">
         ${verseBlock}
-        <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:8px"><tr>
-          ${kpi("🏆", "누적 참여자", num(s.cumParticipants) + "명", "#7a5bb0", "33.33%")}
-          ${kpi("👥", "주간 참여자", num(s.learners) + "명", "#2b5fb0", "33.33%")}
-          ${kpi("🌱", "신규 유입", num(s.newUsers) + "명", C_NEW, "33.33%")}
-        </tr></table>
         <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:22px"><tr>
-          ${kpi("📖", "주간 활동", num(s.learnTotal) + "회", "#2f6b4f", "50%")}
-          ${kpi("🔥", "도전", num(s.challengeTotal) + "회", "#d98a2b", "50%")}
+          ${kpi("🌱", "신규 참여자", num(s.newUsers) + "명", C_NEW, "25%")}
+          ${kpi("👥", "주간 참여자", num(s.learners) + "명", "#2b5fb0", "25%")}
+          ${kpi("🏆", "누적 참여자", num(s.cumParticipants) + "명", "#7a5bb0", "25%")}
+          ${kpi("📖", "주간 활동", num(s.learnTotal) + "회", "#2f6b4f", "25%")}
         </tr></table>
         ${chart("📅 일자별 참여 인원", dailyRows)}
         ${heading(weeklyTitle)}${weeklyLegend}
