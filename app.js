@@ -1492,10 +1492,9 @@ function setupVoice(verse, stage, onPass) {
       ? ""
       : stage < 3
       ? `<button class="next-btn" id="voice-next-stage">${stage + 1}단계로</button>`
-      : `<div class="complete-badge">암송 완료 🙌</div>
-         <div class="complete-nav">
+      : `<div class="complete-nav">
            <button class="nav3-btn" id="voice-prev-verse" ${vPrev ? "" : "disabled"}>◀ 이전</button>
-           <button class="nav3-btn redo" id="voice-redo-verse">🔁 다시 암송</button>
+           <button class="nav3-btn redo" id="voice-redo-verse">다시 암송</button>
            <button class="nav3-btn" id="voice-next-verse" ${vNext ? "" : "disabled"}>다음 ▶</button>
          </div>`;
     const topArea = document.getElementById("result-area");
@@ -1707,10 +1706,9 @@ function checkAllComplete(inputs, verse, stage) {
   const prev = idx > 0 ? verses[idx - 1] : null;
   const next = (idx >= 0 && idx < verses.length - 1) ? verses[idx + 1] : null;
   resultEl.innerHTML = `
-    <div class="complete-badge">암송 완료 🙌</div>
     <div class="complete-nav">
       <button class="nav3-btn" id="prev-verse-btn" ${prev ? "" : "disabled"}>◀ 이전</button>
-      <button class="nav3-btn redo" id="redo-verse-btn">🔁 다시 암송</button>
+      <button class="nav3-btn redo" id="redo-verse-btn">다시 암송</button>
       <button class="nav3-btn" id="next-verse-btn" ${next ? "" : "disabled"}>다음 ▶</button>
     </div>`;
   document.getElementById("redo-verse-btn").addEventListener("click", () => renderTestScreen(verse, 3));
