@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>말씀 아카이브 관리</title>
+<style>
+  :root { --navy:#1a3a6b; --gold:#a67c12; --line:#e2ded2; --ink:#17223a; --mute:#7c8598; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,"Malgun Gothic",sans-serif; background:#f4f2ec; color:var(--ink); }
+  header { background:var(--navy); color:#fff; padding:14px 18px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:10; }
+  header h1 { font-size:16px; margin:0; flex:1; }
+  header a, header button { color:#fff; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2); border-radius:8px; padding:6px 12px; font-size:13px; text-decoration:none; cursor:pointer; }
+  main { max-width:920px; margin:0 auto; padding:16px; }
+  .bar { display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
+  .bar input { flex:1; min-width:180px; padding:9px 12px; border:1px solid var(--line); border-radius:8px; }
+  .count { font-size:12px; color:var(--mute); font-family:ui-monospace,monospace; }
+  .row { background:#fff; border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:10px; }
+  .row.hidden-row { opacity:.55; }
+  .grid { display:grid; grid-template-columns:1fr 120px 130px; gap:8px; }
+  @media (max-width:640px){ .grid { grid-template-columns:1fr; } }
+  .grid label { font-size:11px; color:var(--mute); display:block; margin-bottom:3px; }
+  .grid input, .grid select { width:100%; padding:7px 9px; border:1px solid var(--line); border-radius:7px; font-size:14px; }
+  .meta { font-size:11px; color:var(--mute); font-family:ui-monospace,monospace; margin-top:6px; }
+  .actions { display:flex; gap:8px; margin-top:10px; }
+  .actions button { padding:7px 14px; border-radius:8px; border:0; font-size:13px; font-weight:600; cursor:pointer; }
+  .save { background:var(--navy); color:#fff; }
+  .hide { background:#eee; color:#555; }
+  .del { background:#fff; color:#c0392b; border:1px solid #e6b0aa; }
+  .login { max-width:320px; margin:60px auto; text-align:center; }
+  .login input { width:100%; padding:11px; border:1px solid var(--line); border-radius:8px; margin:10px 0; }
+  .login button { width:100%; padding:11px; background:var(--navy); color:#fff; border:0; border-radius:8px; font-weight:700; cursor:pointer; }
+  .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#222; color:#fff; padding:10px 18px; border-radius:20px; font-size:13px; opacity:0; transition:opacity .3s; pointer-events:none; }
+  .toast.show { opacity:1; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+<script>
+const FN = "https://xnomlgydifiqiybervtf.supabase.co/functions/v1/sermon";
+const KEY = "sb_publishable_oLtieT_jw7Gjb8etEsy0jw_thBaDjl-";
+const CATS = ["주일설교","금요성령집회","새벽기도회","송구영신예배","특별집회","청년예배"];
+let pw = sessionStorage.getItem("admin-pw") || "";
+let all = [];
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s==null?"":s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+async function call(action, body={}) {
+  const r = await fetch(FN, { method:"POST", headers:{ "Content-Type":"application/json", apikey:KEY, Authorization:"Bearer "+KEY },
+    body: JSON.stringify({ action, secret:pw, ...body }) });
+  return r.json();
+}
+function toast(m){ const t=$("toast"); t.textContent=m; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1800); }
+
+function renderLogin(msg){
+  $("app").innerHTML = `<div class="login"><h2>말씀 아카이브 관리</h2>
+    ${msg?`<p style="color:#c0392b;font-size:13px">${msg}</p>`:""}
+    <input id="pw" type="password" placeholder="관리자 비밀번호" />
+    <button id="go">로그인</button></div>`;
+  $("go").onclick = tryLogin;
+  $("pw").onkeydown = (e)=>{ if(e.key==="Enter") tryLogin(); };
+}
+async function tryLogin(){
+  pw = $("pw") ? $("pw").value : pw;
+  const j = await call("authCheck");
+  if(j.ok){ sessionStorage.setItem("admin-pw", pw); load(); }
+  else renderLogin("비밀번호가 틀렸어요.");
+}
+async function load(){
+  $("app").innerHTML = "<main><p>불러오는 중…</p></main>";
+  const j = await call("adminList");
+  if(!j.ok){ renderLogin(j.error||"인증 필요"); return; }
+  all = j.sermons || [];
+  render();
+}
+function render(){
+  const q = ($("q")?$("q").value:"").trim().toLowerCase();
+  const list = all.filter(s=>!q || (s.title||"").toLowerCase().includes(q) || (s.category||"").includes(q));
+  $("app").innerHTML = `<header>
+      <h1>📜 말씀 아카이브 관리</h1>
+      <span class="count">${all.length}편</span>
+      <a href="admin.html">← 허브</a>
+    </header>
+    <main>
+      <div class="bar"><input id="q" placeholder="제목·구분 검색" value="${esc(q)}" /></div>
+      <div id="rows"></div>
+    </main>`;
+  $("q").oninput = render;
+  $("rows").innerHTML = list.map(rowHtml).join("");
+  list.forEach(s=>{
+    $("save-"+s.id).onclick = ()=>save(s.id);
+    $("hide-"+s.id).onclick = ()=>toggleHide(s.id);
+    $("del-"+s.id).onclick = ()=>del(s.id);
+  });
+}
+function rowHtml(s){
+  return `<div class="row ${s.hidden?'hidden-row':''}">
+    <div class="grid">
+      <div><label>제목</label><input id="t-${s.id}" value="${esc(s.title)}" /></div>
+      <div><label>예배일</label><input id="d-${s.id}" type="date" value="${esc(s.date)}" /></div>
+      <div><label>구분</label><select id="c-${s.id}">${CATS.map(c=>`<option ${c===s.category?"selected":""}>${c}</option>`).join("")}</select></div>
+    </div>
+    <div class="meta">${s.id} · 📖 ${esc(s.scripture||"")} ${s.memRef?"· 암송 "+esc(s.memRef):""} ${s.hidden?"· 숨김":""}</div>
+    <div class="actions">
+      <button class="save" id="save-${s.id}">저장</button>
+      <button class="hide" id="hide-${s.id}">${s.hidden?"공개":"숨김"}</button>
+      <button class="del" id="del-${s.id}">삭제</button>
+    </div>
+  </div>`;
+}
+async function save(id){
+  const s = all.find(x=>x.id===id);
+  s.title = $("t-"+id).value.trim();
+  s.date = $("d-"+id).value;
+  s.category = $("c-"+id).value;
+  const j = await call("saveSermon", { sermon:s });
+  toast(j.ok?"저장됨":"실패: "+(j.error||""));
+}
+async function toggleHide(id){
+  const s = all.find(x=>x.id===id); s.hidden = !s.hidden;
+  const j = await call("saveSermon", { sermon:s });
+  if(j.ok){ toast(s.hidden?"숨김 처리":"공개 처리"); render(); } else toast("실패");
+}
+async function del(id){
+  if(!confirm("이 설교를 삭제할까요?")) return;
+  const j = await call("deleteSermon", { id });
+  if(j.ok){ all = all.filter(x=>x.id!==id); toast("삭제됨"); render(); } else toast("실패");
+}
+// 허브에서 넘어오면 자동 로그인
+if(pw) tryLogin(); else renderLogin();
+</script>
+</body>
+</html>
