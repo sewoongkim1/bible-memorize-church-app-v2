@@ -82,10 +82,28 @@ async function loadVerses() {
 
 // 사용자 정보가 있으면 (서버 기록 동기화 후) 본인 기록 요약, 없으면 진입 화면
 function routeAfterLoad() {
+  // 딥링크(?v=구절번호): 설교 아카이브 등 외부에서 특정 구절로 바로 진입
+  const deepNo = getDeepLinkVerseNo();
+  if (deepNo != null) {
+    const v = verses.find((x) => x.no === deepNo);
+    if (v) { startTest(v); return; } // 로그인 없이도 암송 화면 진입(완료 시 로그인 유도)
+  }
   maybeShowIntro(() => {
     if (loadUser()) enterAfterLogin();
     else renderEntryScreen();
   });
+}
+
+// URL의 ?v=<구절번호>를 1회 읽어 반환(읽은 뒤 URL은 정리해 새로고침 시 재진입 방지)
+function getDeepLinkVerseNo() {
+  try {
+    const n = parseInt(new URLSearchParams(location.search).get("v") || "", 10);
+    if (Number.isFinite(n) && n > 0) {
+      history.replaceState(null, "", location.pathname);
+      return n;
+    }
+  } catch (e) {}
+  return null;
 }
 
 function kstDateParts(raw) {
