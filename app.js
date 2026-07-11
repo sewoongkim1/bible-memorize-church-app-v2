@@ -498,7 +498,7 @@ function renderEntryScreen() {
           </div>
           <div class="entry-field inline">
             <div class="entry-label">목장</div>
-            <input class="entry-input" id="mok" inputmode="numeric" placeholder="예: 3" value="${u.mok || ""}"/>
+            <input class="entry-input" id="mok" placeholder="예: 3 (남성목장 → 남성)" value="${u.mok || ""}"/>
           </div>
         </div>
 
