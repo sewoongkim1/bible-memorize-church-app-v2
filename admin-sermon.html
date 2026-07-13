@@ -12,6 +12,13 @@
   header h1 { font-size:16px; margin:0; flex:1; }
   header a, header button { color:#fff; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2); border-radius:8px; padding:6px 12px; font-size:13px; text-decoration:none; cursor:pointer; }
   main { max-width:920px; margin:0 auto; padding:16px; }
+  .addbox { background:#eef4ff; border:1px solid #cfe0f7; border-radius:12px; padding:12px 14px; margin-bottom:14px; }
+  .addlabel { font-size:13px; font-weight:700; color:var(--navy); margin-bottom:8px; }
+  .addlabel span { font-weight:400; color:var(--mute); font-size:11px; }
+  .addrow { display:flex; gap:8px; }
+  .addrow input { flex:1; padding:9px 12px; border:1px solid var(--line); border-radius:8px; font-size:14px; }
+  .addrow button { padding:9px 20px; background:var(--gold); color:#fff; border:0; border-radius:8px; font-weight:700; cursor:pointer; }
+  .addrow button:disabled { opacity:.6; cursor:default; }
   .bar { display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
   .bar input { flex:1; min-width:180px; padding:9px 12px; border:1px solid var(--line); border-radius:8px; }
   .count { font-size:12px; color:var(--mute); font-family:ui-monospace,monospace; }
@@ -83,10 +90,18 @@ function render(){
       <a href="admin.html">← 허브</a>
     </header>
     <main>
+      <div class="addbox">
+        <div class="addlabel">➕ 유튜브 링크로 새 설교 추가 <span>(자막→AI노트→3분음성→테이블까지 자동, 2~3분 소요)</span></div>
+        <div class="addrow">
+          <input id="addurl" placeholder="유튜브 설교 링크 붙여넣기 (예: https://youtu.be/xxxx)" />
+          <button id="addbtn">추가</button>
+        </div>
+      </div>
       <div class="bar"><input id="q" placeholder="제목·구분 검색" value="${esc(q)}" /></div>
       <div id="rows"></div>
     </main>`;
   $("q").oninput = render;
+  $("addbtn").onclick = addByUrl;
   $("rows").innerHTML = list.map(rowHtml).join("");
   list.forEach(s=>{
     $("save-"+s.id).onclick = ()=>save(s.id);
@@ -126,6 +141,15 @@ async function del(id){
   if(!confirm("이 설교를 삭제할까요?")) return;
   const j = await call("deleteSermon", { id });
   if(j.ok){ all = all.filter(x=>x.id!==id); toast("삭제됨"); render(); } else toast("실패");
+}
+async function addByUrl(){
+  const url = $("addurl").value.trim();
+  if(!url){ toast("유튜브 링크를 넣으세요"); return; }
+  const btn = $("addbtn"); btn.disabled = true; btn.textContent = "요청 중…";
+  const j = await call("addByUrl", { url });
+  btn.disabled = false; btn.textContent = "추가";
+  if(j.ok){ $("addurl").value = ""; toast("✅ 처리 시작됨! 2~3분 뒤 목록에 반영돼요 (새로고침)"); }
+  else toast("실패: " + (j.error||""));
 }
 // 허브에서 넘어오면 자동 로그인
 if(pw) tryLogin(); else renderLogin();
