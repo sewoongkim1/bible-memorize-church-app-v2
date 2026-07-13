@@ -39,6 +39,18 @@
   .login button { width:100%; padding:11px; background:var(--navy); color:#fff; border:0; border-radius:8px; font-weight:700; cursor:pointer; }
   .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#222; color:#fff; padding:10px 18px; border-radius:20px; font-size:13px; opacity:0; transition:opacity .3s; pointer-events:none; }
   .toast.show { opacity:1; }
+  #report { position:fixed; inset:0; background:rgba(23,34,58,.45); display:flex; align-items:center; justify-content:center; z-index:50; padding:16px; }
+  .rp-card { background:#fff; border-radius:14px; max-width:560px; width:100%; max-height:80vh; overflow:auto; box-shadow:0 20px 50px rgba(0,0,0,.3); }
+  .rp-head { display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid var(--line); font-weight:700; color:var(--navy); position:sticky; top:0; background:#fff; }
+  .rp-head button { border:1px solid var(--line); background:#f4f2ec; border-radius:8px; padding:5px 12px; cursor:pointer; font-size:13px; }
+  .rp-sum { padding:14px 18px; font-size:15px; }
+  .rp-sum .ok { color:#2f7a4f; } .rp-sum .bad { color:#c0392b; }
+  .rp-note { padding:0 18px 10px; font-size:12px; color:var(--mute); }
+  .rp-list { padding:0 12px 14px; }
+  .rp-ok { text-align:center; padding:24px; color:#2f7a4f; font-weight:600; }
+  .rp-row { border:1px solid #f0d9d5; background:#fdf5f4; border-radius:10px; padding:10px 12px; margin:6px; }
+  .rp-row b { color:var(--ink); } .rp-date { font-size:11px; color:var(--mute); font-family:ui-monospace,monospace; margin-left:6px; }
+  .rp-err { display:inline-block; background:#c0392b; color:#fff; font-size:11px; padding:2px 8px; border-radius:10px; margin:6px 4px 0 0; }
 </style>
 </head>
 <body>
@@ -87,6 +99,7 @@ function render(){
   $("app").innerHTML = `<header>
       <h1>📜 말씀 아카이브 관리</h1>
       <span class="count">${all.length}편</span>
+      <button id="checkbtn">🩺 점검</button>
       <a href="admin.html">← 허브</a>
     </header>
     <main>
@@ -102,6 +115,7 @@ function render(){
     </main>`;
   $("q").oninput = render;
   $("addbtn").onclick = addByUrl;
+  $("checkbtn").onclick = checkAll;
   $("rows").innerHTML = list.map(rowHtml).join("");
   list.forEach(s=>{
     $("save-"+s.id).onclick = ()=>save(s.id);
@@ -150,6 +164,58 @@ async function addByUrl(){
   btn.disabled = false; btn.textContent = "추가";
   if(j.ok){ $("addurl").value = ""; toast("✅ 처리 시작됨! 2~3분 뒤 목록에 반영돼요 (새로고침)"); }
   else toast("실패: " + (j.error||""));
+}
+
+// ── 설교 연결 점검(오디오 재생 · 노트 완성 · 암송 연결) ──
+const SITE = "https://sermon.onlybible.kr/";
+function testAudio(url){
+  return new Promise(res=>{
+    const a = new Audio();
+    let done = false;
+    const fin = ok => { if(done) return; done = true; a.src = ""; res(ok); };
+    a.onloadedmetadata = () => fin(true);
+    a.onerror = () => fin(false);
+    setTimeout(() => fin(false), 8000);
+    a.src = url;
+  });
+}
+async function checkAll(){
+  const btn = $("checkbtn"); btn.disabled = true; btn.textContent = "점검 중…";
+  const results = await Promise.all(all.map(async s => {
+    const note = !!(s.summary && (s.points||[]).length && s.keyVerse);
+    const script = !!s.audioScript;
+    const hasAudio = !!s.audio;
+    const audioOk = hasAudio ? await testAudio(SITE + s.audio) : false;
+    const verse = !!s.memVerseNo;
+    const errs = [];
+    if(!note) errs.push("노트");
+    if(!script) errs.push("대본");
+    if(!hasAudio) errs.push("오디오없음");
+    else if(!audioOk) errs.push("오디오재생불가");
+    return { s, errs, verse };
+  }));
+  btn.disabled = false; btn.textContent = "🩺 점검";
+  renderReport(results);
+}
+function renderReport(results){
+  const bad = results.filter(r => r.errs.length);
+  const linked = results.filter(r => r.verse).length;
+  const rowsHtml = bad.length
+    ? bad.map(r => `<div class="rp-row"><b>${esc(r.s.title)}</b> <span class="rp-date">${esc(r.s.date||"")}</span><div>${r.errs.map(e=>`<span class="rp-err">${e}</span>`).join("")}</div></div>`).join("")
+    : `<div class="rp-ok">✅ 모든 설교가 정상이에요!</div>`;
+  const el = document.createElement("div");
+  el.id = "report";
+  el.innerHTML = `<div class="rp-card">
+    <div class="rp-head">🩺 점검 결과 <button id="rp-close">닫기</button></div>
+    <div class="rp-sum">
+      총 <b>${results.length}</b>편 · 정상 <b class="ok">${results.length-bad.length}</b> · 문제 <b class="bad">${bad.length}</b> · 📖 암송연결 <b>${linked}</b>
+    </div>
+    <div class="rp-note">※ '암송연결'은 성경암송 구절이 있는 설교 수예요(없어도 정상). 아래는 <b>실제 문제</b>만 표시.</div>
+    <div class="rp-list">${rowsHtml}</div>
+  </div>`;
+  document.body.appendChild(el);
+  document.getElementById("rp-close").onclick = () => el.remove();
+  el.onclick = (e) => { if(e.target === el) el.remove(); };
 }
 // 허브에서 넘어오면 자동 로그인
 if(pw) tryLogin(); else renderLogin();
