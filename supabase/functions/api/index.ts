@@ -67,10 +67,14 @@ Deno.serve(async (req) => {
       case "advanceReview": return json(await advanceReview(body));
       case "ranking":       return json(await ranking(body));
       case "mydays":        return json(await mydays(body));
+      case "verseCounts":   return json(await verseCounts(body));
       // ---- 관리자 통계 ----
       case "stats":         return json(await stats(body));
       case "participants":  return json(await participants(body));
       case "verses":        return json(await verseStats(body));
+      // ---- 조회(MCP 학습용) ----
+      case "findMember":          return json(await findMember(body));
+      case "memberParticipation": return json(await memberParticipation(body));
       // ---- 말씀/설교 관리(CMS) ----
       case "getVerses":     return json(await getVerses());
       case "saveVerse":     return json(await saveVerse(body));
@@ -570,6 +574,18 @@ async function mydays(b: any) {
   return { ok: true, days };
 }
 
+// ---------- verseCounts: 본인 구절별 암송 횟수(암송·도전·복습 전부) ----------
+async function verseCounts(b: any) {
+  const { data, error } = await db.from("challenge_log")
+    .select("verse_no").eq("user_id", b.user_id);
+  if (error) throw error;
+  const counts: Record<number, number> = {};
+  for (const row of (data ?? []) as any[]) {
+    counts[row.verse_no] = (counts[row.verse_no] || 0) + 1;
+  }
+  return { ok: true, counts };
+}
+
 // ============================================================
 // 관리자 통계 (learn-* = 학습 통과 활동 기준, v1 '진행기록' 탭에 대응)
 // ============================================================
@@ -666,6 +682,43 @@ async function participantsSlow(b: any) {
   if (b.gubun && b.gubun !== "전체") list = list.filter((x) => x.gubun === b.gubun);
   list.sort((a, b) => b.total - a.total);
   return { ok: true, list };
+}
+
+// ---------- 조회(MCP 학습용) ----------
+// 이름으로 성도 등록 여부·소속 조회
+async function findMember(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const name = norm(b.name);
+  if (!name) return { ok: false, error: "name 필요" };
+  // 한글 이름은 NFC/NFD 정규화 차이로 ilike가 어긋날 수 있어 전체를 받아 JS에서 정규화 비교
+  const q = name.normalize("NFC");
+  const { data, error } = await db.from("users").select("id, name, identity_key");
+  if (error) return { ok: false, error: error.message };
+  const members = (data ?? [])
+    .filter((u: any) => String(u.name || "").normalize("NFC").includes(q))
+    .map((u: any) => {
+      const [type, gu, mok, bu, grade] = String(u.identity_key || "").split("|");
+      return {
+        id: u.id, name: u.name || "", gubun: type,
+        sosok: type === "교구" ? `${gu || ""}교구 ${mok || ""}목장` : `${bu || ""} ${grade || ""}`.trim(),
+      };
+    });
+  return { ok: true, count: members.length, members };
+}
+
+// 특정 성도의 최근 N일 참여(암송·도전 횟수, 참여일수)
+async function memberParticipation(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  if (!b.user_id) return { ok: false, error: "user_id 필요" };
+  const days = Number(b.days || 7);
+  const since = new Date(Date.now() - days * 86400000).toISOString();
+  const { data, error } = await db.from("challenge_log")
+    .select("mode, created_at").eq("user_id", b.user_id).gte("created_at", since);
+  if (error) return { ok: false, error: error.message };
+  const rows = (data ?? []) as any[];
+  const learn = rows.filter((r) => String(r.mode).startsWith("learn-")).length;
+  const activeDays = new Set(rows.map((r) => kstDay(r.created_at))).size;
+  return { ok: true, days, total: rows.length, learn, challenge: rows.length - learn, activeDays };
 }
 
 // ---------- verses: 구절별 현황 ----------

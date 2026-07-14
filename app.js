@@ -1121,6 +1121,27 @@ function setupInstallButton() {
 // ------------------------------------------------------------
 // 화면 2: 구절 목록
 // ------------------------------------------------------------
+// 구절별 암송 횟수(암송·도전·복습 전부) 캐시. { verse_no: n } — 서버 challenge_log 집계.
+let verseCountCache = null;
+
+// 카드 상태 배지에 " · N회" 병기. data-base(단계 텍스트) 기준이라 여러 번 호출해도 안전.
+function applyVerseCounts() {
+  if (!verseCountCache) return;
+  document.querySelectorAll("#verse-list .verse-status[data-no]").forEach((el) => {
+    const base = el.dataset.base || el.textContent;
+    const n = verseCountCache[el.dataset.no] || 0;
+    el.textContent = n > 0 ? `${base} · ${n}회` : base;
+  });
+}
+
+// 서버에서 구절별 횟수를 불러와 캐시에 담고 배지를 갱신(비동기, 실패해도 조용히 무시).
+function loadVerseCounts(u) {
+  if (!u || !u.user_id || !window.api || !api.verseCounts) return;
+  api.verseCounts(u.user_id)
+    .then((d) => { verseCountCache = d.counts || {}; applyVerseCounts(); })
+    .catch(() => {});
+}
+
 function renderVerseList() {
   const u = loadUser();
   const appEl = document.getElementById("app");
@@ -1149,7 +1170,7 @@ function renderVerseList() {
       <div class="verse-no">${String(v.no).padStart(2, "0")}</div>
       <div class="verse-ref">${v.refShort}</div>
       <div class="verse-hint">${v.hintText || ""}</div>
-      <div class="verse-status ${status.cls}">${status.text}</div>
+      <div class="verse-status ${status.cls}" data-no="${v.no}" data-base="${status.text}">${status.text}</div>
       <button class="card-listen" aria-label="${v.refShort} 듣기" title="듣기">🔊</button>
     `;
     card.addEventListener("click", () => startTest(v));
@@ -1169,6 +1190,9 @@ function renderVerseList() {
     });
     listEl.appendChild(card);
   });
+
+  applyVerseCounts();   // 캐시가 있으면 즉시 반영(재방문 시 깜빡임 없음)
+  loadVerseCounts(u);   // 서버에서 최신 횟수 갱신
 }
 
 // ------------------------------------------------------------
