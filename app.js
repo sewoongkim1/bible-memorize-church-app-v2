@@ -142,7 +142,7 @@ function getWeeklyVerseInfo() {
     const diff = today - current.day;
     return {
       verse: current.verse,
-      label: diff <= 6 ? "이번 주 말씀" : "최근 말씀",
+      label: "이번주 말씀",
       isCurrentWeek: diff <= 6,
     };
   }
@@ -425,7 +425,7 @@ const STATUS_LABEL = {
   0: { cls: "status-none", text: "미시도" },
   1: { cls: "status-s1", text: "1단계 완료" },
   2: { cls: "status-s2", text: "2단계 완료" },
-  3: { cls: "status-done", text: "암송 완료 🙌" },
+  3: { cls: "status-done", text: "완료" },
 };
 
 // ------------------------------------------------------------
@@ -1132,6 +1132,12 @@ function applyVerseCounts() {
     const n = verseCountCache[el.dataset.no] || 0;
     el.textContent = n > 0 ? `${base} · ${n}회` : base;
   });
+  // 성도님 이름 뒤 총 암송 횟수(모든 구절 합계)
+  const totalEl = document.getElementById("nav-total");
+  if (totalEl) {
+    const total = Object.values(verseCountCache).reduce((a, b) => a + b, 0);
+    totalEl.textContent = total > 0 ? ` · 총 ${total}회` : "";
+  }
 }
 
 // 서버에서 구절별 횟수를 불러와 캐시에 담고 배지를 갱신(비동기, 실패해도 조용히 무시).
@@ -1147,7 +1153,7 @@ function renderVerseList() {
   const appEl = document.getElementById("app");
   appEl.innerHTML = `
     <div class="list-nav">
-      <button class="remind-cta nav-record" id="to-summary">← ${userLabel(u)} 성도님</button>
+      <button class="remind-cta nav-record" id="to-summary">← ${userLabel(u)} 성도님<span id="nav-total" class="nav-total"></span></button>
     </div>
     <div id="verse-list" class="verse-grid"></div>
   `;
@@ -2058,7 +2064,7 @@ function renderHelp(onClose) {
 
         <section class="help-section">
           <h3>🏷️ 내 기록 & 진행 표시</h3>
-          <p><b>기록보기</b>에서 전체 완료율과 단계별 개수를 한눈에 볼 수 있어요. 카드 배지는 <b>미시도 · 1단계 · 2단계 · 암송 완료 🙌</b>를 나타내요.</p>
+          <p><b>기록보기</b>에서 전체 완료율과 단계별 개수를 한눈에 볼 수 있어요. 카드 배지는 <b>미시도 · 1단계 · 2단계 · 완료</b>(+ 암송 횟수)를 나타내요.</p>
         </section>
 
         <section class="help-section">
