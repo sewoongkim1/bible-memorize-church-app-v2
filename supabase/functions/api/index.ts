@@ -543,6 +543,22 @@ async function advanceReview(b: any) {
   return { ok: true, box };
 }
 
+// PostgREST는 한 번에 최대 1000행만 반환한다. 집계는 전체 행을 세야 정확하므로
+// 1000행씩 이어 받는다. 이걸 안 쓰면 로그가 1000행을 넘는 순간 조용히 잘린 값이 나온다.
+// build()는 호출할 때마다 새 쿼리를 만들어야 한다(쿼리 빌더는 재사용 불가).
+const PAGE_SIZE = 1000;
+async function fetchAllRows(build: () => any): Promise<any[]> {
+  const out: any[] = [];
+  for (let off = 0; ; off += PAGE_SIZE) {
+    const { data, error } = await build().range(off, off + PAGE_SIZE - 1);
+    if (error) throw error;
+    const rows = (data ?? []) as any[];
+    out.push(...rows);
+    if (rows.length < PAGE_SIZE) break;
+  }
+  return out;
+}
+
 // 기간 필터 적용(challenge_log)
 function rangeFilter(q: any, b: any) {
   if (b.from) q = q.gte("created_at", `${b.from}T00:00:00${KST}`);
@@ -555,14 +571,11 @@ const isChallengeMode = (m: string) => !String(m).startsWith("learn-");
 // ---------- ranking: 순위. includeLearn=true면 암송(학습) 기록도 포함 ----------
 async function ranking(b: any) {
   const includeLearn = !!b.includeLearn; // 앱 도전순위=true, 관리자 도전현황=false
-  let q = db.from("challenge_log")
-    .select("user_id, mode, created_at, users(name,type,gu,mok,bu,grade)");
-  q = rangeFilter(q, b);
-  const { data, error } = await q;
-  if (error) throw error;
+  const data = await fetchAllRows(() => rangeFilter(
+    db.from("challenge_log").select("user_id, mode, created_at, users(name,type,gu,mok,bu,grade)"), b));
 
   const map = new Map<string, any>();
-  for (const row of (data ?? []) as any[]) {
+  for (const row of data) {
     if (!includeLearn && !isChallengeMode(row.mode)) continue;
     const u = row.users ?? {};
     const e = map.get(row.user_id) ?? {
@@ -585,13 +598,11 @@ async function ranking(b: any) {
 // 참여율은 낼 수 없다 — 각 교구의 실제 성도 수(분모)가 DB에 없다.
 // 그래서 총 횟수로 순위를 매기고, 참여 인원·1인당 평균을 함께 준다.
 async function guRanking(b: any) {
-  let q = db.from("challenge_log").select("user_id, users(type,gu)");
-  q = rangeFilter(q, b);
-  const { data, error } = await q;
-  if (error) throw error;
+  const data = await fetchAllRows(() => rangeFilter(
+    db.from("challenge_log").select("user_id, users(type,gu)"), b));
 
   const map = new Map<string, { gu: string; count: number; users: Set<string> }>();
-  for (const row of (data ?? []) as any[]) {
+  for (const row of data) {
     const u = row.users ?? {};
     if (u.type !== "교구" || !u.gu) continue; // 교구 소속만(교회학교 제외)
     const e = map.get(u.gu) ?? { gu: u.gu, count: 0, users: new Set<string>() };
@@ -613,12 +624,10 @@ async function guRanking(b: any) {
 
 // ---------- mydays: 본인 일자별 참여 횟수(암송·도전·복습 전부) ----------
 async function mydays(b: any) {
-  let q = db.from("challenge_log").select("created_at, mode").eq("user_id", b.user_id);
-  q = rangeFilter(q, b);
-  const { data, error } = await q;
-  if (error) throw error;
+  const data = await fetchAllRows(() => rangeFilter(
+    db.from("challenge_log").select("created_at, mode").eq("user_id", b.user_id), b));
   const days: Record<string, number> = {};
-  for (const row of (data ?? []) as any[]) {
+  for (const row of data) {
     const k = kstDay(row.created_at);
     days[k] = (days[k] || 0) + 1;
   }
@@ -627,11 +636,10 @@ async function mydays(b: any) {
 
 // ---------- verseCounts: 본인 구절별 암송 횟수(암송·도전·복습 전부) ----------
 async function verseCounts(b: any) {
-  const { data, error } = await db.from("challenge_log")
-    .select("verse_no").eq("user_id", b.user_id);
-  if (error) throw error;
+  const data = await fetchAllRows(() =>
+    db.from("challenge_log").select("verse_no").eq("user_id", b.user_id));
   const counts: Record<number, number> = {};
-  for (const row of (data ?? []) as any[]) {
+  for (const row of data) {
     counts[row.verse_no] = (counts[row.verse_no] || 0) + 1;
   }
   return { ok: true, counts };
@@ -657,15 +665,12 @@ async function stats(b: any) {
 }
 
 async function statsSlow(b: any) {
-  let q = db.from("challenge_log")
-    .select("user_id, mode, users(type,gu,bu)");
-  q = rangeFilter(q, b);
-  const { data, error } = await q;
-  if (error) throw error;
+  const data = await fetchAllRows(() => rangeFilter(
+    db.from("challenge_log").select("user_id, mode, users(type,gu,bu)"), b));
 
   const g = new Map<string, any>();
   const seen = new Map<string, Set<string>>(); // group → set(user_id)
-  for (const row of (data ?? []) as any[]) {
+  for (const row of data) {
     if (!String(row.mode).startsWith("learn-")) continue;
     const u = row.users ?? {};
     const gubun = u.type, sosok = u.gu || u.bu || "";
@@ -710,14 +715,11 @@ async function participants(b: any) {
 }
 
 async function participantsSlow(b: any) {
-  let q = db.from("challenge_log")
-    .select("user_id, mode, users(type,gu,mok,bu,grade,name)");
-  q = rangeFilter(q, b);
-  const { data, error } = await q;
-  if (error) throw error;
+  const data = await fetchAllRows(() => rangeFilter(
+    db.from("challenge_log").select("user_id, mode, users(type,gu,mok,bu,grade,name)"), b));
 
   const map = new Map<string, any>();
-  for (const row of (data ?? []) as any[]) {
+  for (const row of data) {
     if (!String(row.mode).startsWith("learn-")) continue;
     const u = row.users ?? {};
     const e = map.get(row.user_id) ?? {
@@ -743,9 +745,8 @@ async function findMember(b: any) {
   if (!name) return { ok: false, error: "name 필요" };
   // 한글 이름은 NFC/NFD 정규화 차이로 ilike가 어긋날 수 있어 전체를 받아 JS에서 정규화 비교
   const q = name.normalize("NFC");
-  const { data, error } = await db.from("users").select("id, name, identity_key");
-  if (error) return { ok: false, error: error.message };
-  const members = (data ?? [])
+  const data = await fetchAllRows(() => db.from("users").select("id, name, identity_key"));
+  const members = data
     .filter((u: any) => String(u.name || "").normalize("NFC").includes(q))
     .map((u: any) => {
       const [type, gu, mok, bu, grade] = String(u.identity_key || "").split("|");
@@ -785,14 +786,12 @@ async function verseStats(b: any) {
 }
 
 async function verseStatsSlow(b: any) {
-  let q = db.from("challenge_log").select("verse_no, mode, user_id");
-  q = rangeFilter(q, b);
-  const { data, error } = await q;
-  if (error) throw error;
+  const data = await fetchAllRows(() => rangeFilter(
+    db.from("challenge_log").select("verse_no, mode, user_id"), b));
 
   const map = new Map<number, any>();
   const seen = new Map<number, Set<string>>();
-  for (const row of (data ?? []) as any[]) {
+  for (const row of data) {
     if (!String(row.mode).startsWith("learn-")) continue;
     const e = map.get(row.verse_no) ?? { no: row.verse_no, participants: 0, count: 0 };
     e.count++;
