@@ -2735,15 +2735,15 @@ async function loadGuRankingBody(r) {
   const rows = list.map((x) => `
     <div class="rank-row ${x.rank <= 3 ? "top" : ""} ${x.gu === myGu ? "me" : ""}">
       <span class="rk-no">${medal(x.rank)}</span>
-      <span class="rk-name">${x.gu}교구</span>
-      <span class="rk-so">${x.people}명 · 1인당 ${x.avg}회</span>
+      <span class="rk-name">${x.gu}</span>
+      <span class="rk-so">${x.people}명</span>
       <span class="rk-cnt">${x.count}회</span>
     </div>`).join("");
 
   const total = list.reduce((s, x) => s + x.count, 0);
   body.innerHTML = `<div class="rank-list">${rows}</div>` +
     `<p class="rank-more">${list.length}개 교구 · 총 ${total}회</p>` +
-    `<p class="rank-note">암송·도전·복습을 모두 합한 횟수예요. 교구마다 인원이 다르니 <b>1인당 평균</b>도 함께 봐주세요 🙌</p>`;
+    `<p class="rank-note">암송 · 도전 · 복습을 <b>모두 합한 횟수</b>예요 🙌</p>`;
 }
 
 // ---- 내 참여(주간/월간 달력) ----
