@@ -88,10 +88,34 @@ function routeAfterLoad() {
     const v = verses.find((x) => x.no === deepNo);
     if (v) { startTest(v); return; } // 로그인 없이도 암송 화면 진입(완료 시 로그인 유도)
   }
+  // 미리보기(?preview=intro|blessing): 관리자 허브에서 확인용으로 강제 노출.
+  // "이미 봤음" 상태를 건드리지 않아 성도님들 화면에는 영향이 없다.
+  const preview = getPreviewKind();
+  if (preview === "intro") {
+    renderIntro(() => { if (loadUser()) enterAfterLogin(); else renderEntryScreen(); });
+    return;
+  }
+  if (preview === "blessing" && loadUser()) {
+    renderBlessing(() => enterAfterLogin()); // markBlessingSeen 호출 안 함 = 상태 불변
+    return;
+  }
+
   maybeShowIntro(() => {
     if (loadUser()) enterAfterLogin();
     else renderEntryScreen();
   });
+}
+
+// URL의 ?preview=<종류>를 1회 읽어 반환(읽은 뒤 URL 정리 → 새로고침 시 재진입 방지)
+function getPreviewKind() {
+  try {
+    const p = new URLSearchParams(location.search).get("preview");
+    if (p === "intro" || p === "blessing") {
+      history.replaceState(null, "", location.pathname);
+      return p;
+    }
+  } catch (e) {}
+  return null;
 }
 
 // URL의 ?v=<구절번호>를 1회 읽어 반환(읽은 뒤 URL은 정리해 새로고침 시 재진입 방지)
