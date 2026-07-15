@@ -63,6 +63,7 @@ Deno.serve(async (req) => {
       }
       case "login":         return json(await login(body));
       case "saveProgress":  return json(await saveProgress(body));
+      case "saveHeart":     return json(await saveHeart(body));
       case "challenge":     return json(await challenge(body));
       case "advanceReview": return json(await advanceReview(body));
       case "ranking":       return json(await ranking(body));
@@ -454,8 +455,10 @@ async function login(b: any) {
   }, { onConflict: "identity_key" }).select().single();
   if (error) throw error;
 
+  // select("*") — hearted 컬럼이 아직 없어도(마이그레이션 전) 에러 없이 undefined로 읽혀
+  // 로그인이 깨지지 않는다. 배포 순서에 의존하지 않기 위함.
   const { data: prog } = await db.from("progress")
-    .select("verse_no,stage").eq("user_id", user.id);
+    .select("*").eq("user_id", user.id);
 
   // 복습 서버 단일화: 완료(3단계)했는데 복습 예약이 없는 구절에 자동 예약(box1, 3일 후)
   const { data: existRev } = await db.from("reviews").select("verse_no").eq("user_id", user.id);
@@ -471,9 +474,26 @@ async function login(b: any) {
   const { data: revs } = await db.from("reviews")
     .select("verse_no,box,due_at,last_at").eq("user_id", user.id);
 
+  // progress는 기존 형태({구절:단계} 숫자 맵) 유지 — 구버전 클라이언트 호환.
+  // "마음에 둠"은 별도 배열로만 덧붙인다(비파괴).
   const progress: Record<number, number> = {};
   (prog ?? []).forEach((r: any) => { progress[r.verse_no] = r.stage; });
-  return { ok: true, user_id: user.id, user, progress, reviews: revs ?? [] };
+  const hearted = (prog ?? []).filter((r: any) => r.hearted).map((r: any) => r.verse_no);
+  return { ok: true, user_id: user.id, user, progress, hearted, reviews: revs ?? [] };
+}
+
+// ---------- saveHeart: "이 말씀을 내 마음에 두었나이다" 체크/해제 ----------
+async function saveHeart(b: any) {
+  const on = !!b.hearted;
+  const { error } = await db.from("progress").upsert({
+    user_id: b.user_id, verse_no: b.verse_no,
+    stage: 3,                       // 3단계를 통과해야만 체크 가능
+    hearted: on,
+    hearted_at: on ? new Date().toISOString() : null,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "user_id,verse_no" });
+  if (error) throw error;
+  return { ok: true, hearted: on };
 }
 
 // ---------- saveProgress: 단계 저장 + 학습 통과 이벤트 기록(통계용) ----------

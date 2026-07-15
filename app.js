@@ -197,6 +197,8 @@ async function syncProgress() {
 
     // 서버 복습 일정 병합(다른 기기에서 완료한 복습 예약 반영)
     mergeServerReviews(data.reviews || []);
+    // "마음에 둠" 체크도 서버 기준으로 반영(구버전 응답이면 hearted 없음 → 건너뜀)
+    if (Array.isArray(data.hearted)) mergeServerHearted(data.hearted);
     saveSyncStatus("success", changed ? "서버 기록을 가져와 반영했습니다." : "서버와 기록을 확인했습니다.");
     return changed;
   } catch {
@@ -419,6 +421,43 @@ function postProgress(no, stage, mode) {
   api.saveProgress(u.user_id, no, stage, mode)
     .then(() => saveSyncStatus("success", "방금 통과한 기록이 서버에 저장되었습니다."))
     .catch(() => saveSyncStatus("error", "서버 저장에 실패했습니다. 기록은 이 기기에 저장되어 있습니다."));
+}
+
+// ------------------------------------------------------------
+// "이 말씀을 내 마음에 두었나이다" 체크 — 금배지 + 3단계 직행.
+//   key: "memorize-hearted::<사용자>" → { "7": true, ... }
+//   progress와 분리 저장: saveProgress가 progress[no]를 통째로 덮어써서
+//   같이 두면 다음 통과 때 조용히 날아간다.
+// ------------------------------------------------------------
+const HEART_KEY = "memorize-hearted";
+
+function heartKey() {
+  const u = loadUser();
+  if (!u) return HEART_KEY;
+  const id = u.type === "교구" ? `g|${u.gu}|${u.mok}|${u.name}` : `s|${u.bu}|${u.grade}|${u.name}`;
+  return HEART_KEY + "::" + id;
+}
+function loadHearted() {
+  try { return JSON.parse(localStorage.getItem(heartKey())) || {}; } catch { return {}; }
+}
+function isHearted(no) {
+  return !!loadHearted()[no];
+}
+// 체크/해제 → 로컬 즉시 반영 + 서버 저장(실패해도 로컬은 유지)
+function setHearted(no, on) {
+  const h = loadHearted();
+  if (on) h[no] = true; else delete h[no];
+  try { localStorage.setItem(heartKey(), JSON.stringify(h)); } catch {}
+  const u = loadUser();
+  if (u && u.user_id && window.api && api.saveHeart) {
+    api.saveHeart(u.user_id, no, on).catch(() => {});
+  }
+}
+// 로그인 시 서버의 체크 목록으로 로컬을 교체(기기 간 동일)
+function mergeServerHearted(list) {
+  const h = {};
+  (list || []).forEach((no) => { h[no] = true; });
+  try { localStorage.setItem(heartKey(), JSON.stringify(h)); } catch {}
 }
 
 const STATUS_LABEL = {
@@ -1164,15 +1203,22 @@ function renderVerseList() {
   const weeklyNo = weeklyInfo && weeklyInfo.verse ? weeklyInfo.verse.no : null;
   const weeklyBadge = weeklyInfo ? weeklyInfo.label : "이번 주";
 
+  const heartMap = loadHearted();
+
   [...verses].reverse().forEach((v) => {
     const passed = getPassedStage(v.no);
     const status = STATUS_LABEL[passed];
     const isWeekly = v.no === weeklyNo;
+    const isHeart = !!heartMap[v.no];
 
     const card = document.createElement("div");
-    card.className = `verse-card ${status.cls}${isWeekly ? " weekly-verse" : ""}`;
+    card.className = `verse-card ${status.cls}${isWeekly ? " weekly-verse" : ""}${isHeart ? " hearted-verse" : ""}`;
+    // 주간·금배지는 좌상단에 나란히(절대배치) — 한 줄 폭에 영향 없어 🔊 아이콘이 밀리지 않는다.
     card.innerHTML = `
-      ${isWeekly ? `<div class="weekly-list-badge">${weeklyBadge}</div>` : ""}
+      ${isWeekly || isHeart ? `<div class="card-badges">
+        ${isWeekly ? `<div class="weekly-list-badge">${weeklyBadge}</div>` : ""}
+        ${isHeart ? `<div class="heart-ribbon">👑 마음에 둠</div>` : ""}
+      </div>` : ""}
       <div class="verse-no">${String(v.no).padStart(2, "0")}</div>
       <div class="verse-ref">${v.refShort}</div>
       <div class="verse-hint">${v.hintText || ""}</div>
@@ -1205,6 +1251,8 @@ function renderVerseList() {
 // 화면 3: 테스트 (익명 버전과 동일)
 // ------------------------------------------------------------
 function startTest(verse) {
+  // 마음에 둔 구절은 곧바로 3단계(전체 빈칸)로 — 체크 해제도 여기서 바로 가능
+  if (isHearted(verse.no)) return renderTestScreen(verse, 3);
   const passed = getPassedStage(verse.no);
   const startStage = passed >= 3 ? 1 : passed + 1;
   renderTestScreen(verse, startStage);
@@ -1252,6 +1300,16 @@ function renderTestScreen(verse, stage) {
          </span>
        </div>`;
 
+  // 3단계에만: "내 마음에 두었나이다" 체크. 아직 통과 전이면 비활성(안내문 노출),
+  // 이미 체크한 구절은 처음부터 활성 → 바로 해제 가능.
+  const heartOn = isHearted(verse.no);
+  const heartHtml = stage === 3 ? `
+        <label class="heart-check${heartOn ? " on" : " locked"}" id="heart-label">
+          <input type="checkbox" id="heart-check" ${heartOn ? "checked" : "disabled"} />
+          <span class="heart-text">👑 이 말씀을 내 마음에 두었나이다</span>
+          <span class="heart-hint" id="heart-hint"${heartOn ? " hidden" : ""}>암송을 마치면 체크할 수 있어요</span>
+        </label>` : "";
+
   appEl.innerHTML = `
     <div class="test-screen">
       <div class="test-card">
@@ -1269,6 +1327,7 @@ function renderTestScreen(verse, stage) {
         </div>
         <div class="test-sentence">${wordsHtml}</div>
         <div id="result-area"></div>
+        ${heartHtml}
         <div id="answer-panel" class="answer-panel" hidden>
           <div class="answer-title">정답</div>
           <div class="answer-text">${answerHtml}</div>
@@ -1289,6 +1348,15 @@ function renderTestScreen(verse, stage) {
   document
     .getElementById("back-to-list-btn")
     .addEventListener("click", () => { stopSpeaking(); renderVerseList(); });
+
+  // "내 마음에 두었나이다" 체크/해제
+  const heartInput = document.getElementById("heart-check");
+  if (heartInput) {
+    heartInput.addEventListener("change", () => {
+      setHearted(verse.no, heartInput.checked);
+      document.getElementById("heart-label").classList.toggle("on", heartInput.checked);
+    });
+  }
 
   // 시각장애인 등을 위한 '정답 듣기'(TTS): 출처 + 본문을 음성으로 읽어준다.
   const listenBtn = document.getElementById("listen-answer-btn");
@@ -1533,6 +1601,7 @@ function setupVoice(verse, stage, onPass) {
 
     // (연습 모드) 저장 + 다음 단계 네비
     if (passed) saveProgress(verse.no, stage, "voice");
+    if (passed && stage === 3) unlockHeartCheck(); // 음성으로 3단계 통과해도 체크 가능
     const vIdx = verses.findIndex((v) => v.no === verse.no);
     const vPrev = vIdx > 0 ? verses[vIdx - 1] : null;
     const vNext = (vIdx >= 0 && vIdx < verses.length - 1) ? verses[vIdx + 1] : null;
@@ -1737,6 +1806,17 @@ function setupAutoCheck(verse, stage) {
   if (inputs[0]) inputs[0].focus();
 }
 
+// 3단계 통과 → 체크박스 잠금 해제(타이핑·음성 공통)
+function unlockHeartCheck() {
+  const el = document.getElementById("heart-check");
+  if (!el) return;
+  el.disabled = false;
+  const label = document.getElementById("heart-label");
+  if (label) label.classList.remove("locked");
+  const hint = document.getElementById("heart-hint");
+  if (hint) hint.hidden = true;
+}
+
 function checkAllComplete(inputs, verse, stage) {
   const allCorrect = inputs.every((inp) => inp.classList.contains("correct"));
   if (!allCorrect) return;
@@ -1749,6 +1829,7 @@ function checkAllComplete(inputs, verse, stage) {
     document.getElementById("next-stage-btn").addEventListener("click", () => renderTestScreen(verse, stage + 1));
     return;
   }
+  unlockHeartCheck(); // 3단계 통과 → "마음에 두었나이다" 체크 가능
   // 3단계 완료 → 이전 암송 · 다시 암송 · 다음 암송
   const idx = verses.findIndex((v) => v.no === verse.no);
   const prev = idx > 0 ? verses[idx - 1] : null;

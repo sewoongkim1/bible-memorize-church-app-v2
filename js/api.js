@@ -22,6 +22,7 @@ const api = {
   // 식별→진도·복습 동기화. u = {type, gu, mok, bu, grade, name}
   login: (u) => supaCall("login", u),
   saveProgress: (user_id, verse_no, stage, mode) => supaCall("saveProgress", { user_id, verse_no, stage, mode }),
+  saveHeart: (user_id, verse_no, hearted) => supaCall("saveHeart", { user_id, verse_no, hearted }),   // 내 마음에 두었나이다 체크/해제
   challenge: (user_id, verse_no, mode, score) => supaCall("challenge", { user_id, verse_no, mode, score }),
   advanceReview: (user_id, verse_no) => supaCall("advanceReview", { user_id, verse_no }),
   ranking: (from, to, includeLearn) => supaCall("ranking", { from, to, includeLearn }),   // 날짜(YYYY-MM-DD), includeLearn=학습 포함

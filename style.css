@@ -178,13 +178,27 @@ h1 {
   background: #fffaf0;
   padding-top: 18px;
 }
-.weekly-list-badge {
+/* 카드 좌상단 배지들(주간·금배지) — 절대배치라 한 줄 폭에 영향 없음 */
+.card-badges {
   position: absolute; top: -8px; left: 12px;
+  display: flex; align-items: center; gap: 4px;
+}
+.weekly-list-badge {
   background: var(--gold); color: var(--navy-dark);
   border-radius: 999px; padding: 2px 9px;
   font-size: 10px; font-weight: 800; line-height: 1.4;
   box-shadow: 0 2px 8px rgba(200,162,75,.25);
 }
+/* 금배지 — "내 마음에 두었나이다" 체크한 구절 */
+.heart-ribbon {
+  background: linear-gradient(135deg, #f5d271, #c8a24b);
+  color: #4a3610;
+  border-radius: 999px; padding: 2px 9px;
+  font-size: 10px; font-weight: 800; line-height: 1.4;
+  border: 1px solid #b8933f;
+  box-shadow: 0 2px 8px rgba(200,162,75,.4);
+}
+.verse-card.hearted-verse { padding-top: 18px; }
 
 .verse-no {
   font-family: "Nanum Myeongjo", serif;
@@ -235,6 +249,32 @@ h1 {
   transition: background 0.15s;
 }
 .card-listen:hover { background: #dde4f2; }
+
+/* 3단계 "이 말씀을 내 마음에 두었나이다" 체크 */
+.heart-check {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin: 12px 0 2px; padding: 10px 12px;
+  border: 1px dashed var(--border); border-radius: 10px;
+  background: var(--light); cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.heart-check input { width: 18px; height: 18px; flex-shrink: 0; cursor: pointer; accent-color: #c8a24b; }
+.heart-check input:disabled { cursor: not-allowed; }
+.heart-check.locked { opacity: .55; cursor: default; }
+.heart-text { font-size: 14px; font-weight: 700; color: var(--navy); }
+.heart-hint { font-size: 11.5px; color: var(--gray); margin-left: auto; }
+/* 체크 완료 — 금색 강조 */
+.heart-check.on {
+  border: 1px solid #b8933f; border-style: solid;
+  background: #fffaf0;
+}
+.heart-check.on .heart-text { color: #6b4e14; }
+
+.dark .heart-check { background: #232c3f; border-color: #3a4a68; }
+.dark .heart-text { color: #cdd9f2; }
+.dark .heart-hint { color: #aeb8c8; }
+.dark .heart-check.on { background: #2b2717; border-color: #8d7531; }
+.dark .heart-check.on .heart-text { color: #e8d9a3; }
 
 /* ---------- 화면 2: 테스트 ---------- */
 .test-top {
