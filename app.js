@@ -680,10 +680,14 @@ function renderSummary() {
   const weeklyStage = weeklyVerse ? getPassedStage(weeklyVerse.no) : 0;
   const weeklyStatus = weeklyVerse ? STATUS_LABEL[weeklyStage] : null;
   const weeklyActionText = weeklyStage >= 3 ? "다시 복습하기" : "바로 암송하기";
+  const weeklyHeart = weeklyVerse ? isHearted(weeklyVerse.no) : false;
   const weeklyHtml = weeklyVerse ? `
-    <div class="weekly-card">
+    <div class="weekly-card${weeklyHeart ? " hearted" : ""}">
       <div class="weekly-topline">
-        <div class="weekly-kicker">${weeklyInfo.label}</div>
+        <div class="weekly-kicks">
+          <div class="weekly-kicker">${weeklyInfo.label}</div>
+          ${weeklyHeart ? `<div class="heart-ribbon">👑 마음에 둠</div>` : ""}
+        </div>
         <div class="weekly-state ${weeklyStatus.cls}">${weeklyStatus.text}</div>
       </div>
       <div class="weekly-ref">${weeklyVerse.refShort}</div>
@@ -1308,6 +1312,7 @@ function renderTestScreen(verse, stage) {
           <input type="checkbox" id="heart-check" ${heartOn ? "checked" : "disabled"} />
           <span class="heart-text">👑 이 말씀을 내 마음에 두었나이다</span>
           <span class="heart-hint" id="heart-hint"${heartOn ? " hidden" : ""}>암송을 마치면 체크할 수 있어요</span>
+          <span class="heart-desc">이 말씀을 <b>완전히 암송했다</b>는 뜻이에요. 체크하면 목록에 👑 금배지가 달리고, 다음부터 바로 3단계로 시작해요.</span>
         </label>` : "";
 
   appEl.innerHTML = `

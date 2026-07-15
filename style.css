@@ -199,6 +199,11 @@ h1 {
   box-shadow: 0 2px 8px rgba(200,162,75,.4);
 }
 .verse-card.hearted-verse { padding-top: 18px; }
+/* 배지는 카드 위로 8px 솟는데 카드 간격은 6px이라 위 카드에 닿는다.
+   목록 전체를 느슨하게 만들지 않도록 배지 달린 카드에만 여유를 준다. */
+.verse-card.weekly-verse,
+.verse-card.hearted-verse { margin-top: 12px; }
+.verse-grid > .verse-card:first-child { margin-top: 0; }
 
 .verse-no {
   font-family: "Nanum Myeongjo", serif;
@@ -263,6 +268,13 @@ h1 {
 .heart-check.locked { opacity: .55; cursor: default; }
 .heart-text { font-size: 14px; font-weight: 700; color: var(--navy); }
 .heart-hint { font-size: 11.5px; color: var(--gray); margin-left: auto; }
+/* 체크의 의미 설명 — 한 줄 전체 차지(flex-basis:100%) */
+.heart-desc {
+  flex-basis: 100%;
+  font-size: 12px; line-height: 1.6; color: var(--gray);
+  padding-left: 26px;   /* 체크박스(18px) + gap(8px) 만큼 들여쓰기 */
+}
+.heart-desc b { color: var(--navy); font-weight: 800; }
 /* 체크 완료 — 금색 강조 */
 .heart-check.on {
   border: 1px solid #b8933f; border-style: solid;
@@ -273,6 +285,9 @@ h1 {
 .dark .heart-check { background: #232c3f; border-color: #3a4a68; }
 .dark .heart-text { color: #cdd9f2; }
 .dark .heart-hint { color: #aeb8c8; }
+.dark .heart-desc { color: #aeb8c8; }
+.dark .heart-desc b { color: #cdd9f2; }
+.dark .heart-check.on .heart-desc b { color: #e8d9a3; }
 .dark .heart-check.on { background: #2b2717; border-color: #8d7531; }
 .dark .heart-check.on .heart-text { color: #e8d9a3; }
 
@@ -853,6 +868,8 @@ h1 {
   gap: 8px;
   margin-bottom: 8px;
 }
+/* 좌측 배지 묶음(이번주 라벨 + 금배지) — 상태 배지는 오른쪽 유지 */
+.weekly-kicks { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .weekly-kicker {
   display: inline-block;
   background: var(--gold);
