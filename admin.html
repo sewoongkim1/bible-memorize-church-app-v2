@@ -24,6 +24,8 @@
   .gate button{width:100%;margin-top:12px;padding:13px;background:var(--navy);color:#fff;border:none;border-radius:11px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit}
   .gate button:hover{background:var(--navy-d)}
   .err{color:#c0392b;font-size:.85rem;margin-top:10px;min-height:18px}
+  .gate-home{display:inline-block;margin-top:4px;color:var(--sub);font-size:.85rem;font-weight:700;text-decoration:none}
+  .gate-home:hover{color:var(--navy);text-decoration:underline}
   /* 도구 */
   .tools{display:flex;flex-direction:column;gap:12px}
   .tool{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);border-radius:15px;padding:17px 18px;text-decoration:none;color:inherit;box-shadow:0 4px 14px rgba(13,27,62,.05);transition:transform .12s, box-shadow .12s, border-color .12s}
@@ -52,6 +54,7 @@
     <input type="password" id="pw" placeholder="비밀번호" autocomplete="current-password" />
     <button id="enter">입장</button>
     <div class="err" id="err"></div>
+    <a class="gate-home" href="index.html">← 첫화면으로 가기</a>
   </div>
 
   <!-- 도구 목록 -->

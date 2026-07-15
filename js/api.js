@@ -26,6 +26,7 @@ const api = {
   challenge: (user_id, verse_no, mode, score) => supaCall("challenge", { user_id, verse_no, mode, score }),
   advanceReview: (user_id, verse_no) => supaCall("advanceReview", { user_id, verse_no }),
   ranking: (from, to, includeLearn) => supaCall("ranking", { from, to, includeLearn }),   // 날짜(YYYY-MM-DD), includeLearn=학습 포함
+  guRanking: (from, to) => supaCall("guRanking", { from, to }),   // 교구별 순위 { ok, list:[{rank,gu,count,people,avg}] }
   mydays: (user_id, from, to) => supaCall("mydays", { user_id, from, to }),
   verseCounts: (user_id) => supaCall("verseCounts", { user_id }),   // { ok, counts:{ verse_no:n } } 암송·도전·복습 전부
   savePush: (user_id, subscription, hour) => supaCall("savePush", { user_id, subscription, hour }),

@@ -2677,14 +2677,73 @@ async function loadRankingBody(r) {
 // ---- 순위/내참여 모드 전환 바 ----
 function rankModeBar(active) {
   return `<div class="rank-mode">
-    <button class="${active === "rank" ? "on" : ""}" data-m="rank">🏆 전체 순위</button>
+    <button class="${active === "rank" ? "on" : ""}" data-m="rank">🏆 개인</button>
+    <button class="${active === "gu" ? "on" : ""}" data-m="gu">⛪ 교구</button>
     <button class="${active === "mine" ? "on" : ""}" data-m="mine">📅 내 참여</button>
   </div>`;
 }
 function wireRankMode() {
   document.querySelectorAll(".rank-mode button").forEach((b) =>
-    b.addEventListener("click", () => (b.dataset.m === "mine" ? renderMyRecord() : renderRanking()))
+    b.addEventListener("click", () => {
+      if (b.dataset.m === "mine") return renderMyRecord();
+      if (b.dataset.m === "gu") return renderGuRanking();
+      renderRanking();
+    })
   );
+}
+
+// ---- 교구별 순위 ----
+function renderGuRanking(range) {
+  const r = range || rankRangeFor("all"); // 교구 대항은 누적이 기본
+  const u = loadUser();
+  const appEl = document.getElementById("app");
+  const tabs = [["today", "오늘"], ["week", "이번주"], ["all", "전체"]];
+  appEl.innerHTML = `
+    <div class="rank-screen">
+      <div class="list-nav">
+        <button class="remind-cta nav-record" id="gk-back">← ${userLabel(u)} 성도님</button>
+      </div>
+      ${rankModeBar("gu")}
+      <h2 class="rank-title">⛪ 교구별 순위</h2>
+      <div class="rank-filter" id="gk-filter">
+        ${tabs.map(([k, l]) => `<button data-k="${k}" class="${r.key === k ? "on" : ""}">${l}</button>`).join("")}
+      </div>
+      <div id="gu-body"><p class="rank-msg">불러오는 중...</p></div>
+    </div>`;
+  document.getElementById("gk-back").addEventListener("click", renderSummary);
+  wireRankMode();
+  document.getElementById("gk-filter").querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => renderGuRanking(rankRangeFor(b.dataset.k)))
+  );
+  loadGuRankingBody(r);
+}
+
+async function loadGuRankingBody(r) {
+  const body = document.getElementById("gu-body");
+  const u = loadUser();
+  const data = await api.guRanking(r.from, r.to).catch(() => ({ ok: false }));
+  if (!data || !data.ok) { body.innerHTML = `<p class="rank-msg err">순위를 불러오지 못했습니다.</p>`; return; }
+
+  const list = data.list || [];
+  if (!list.length) {
+    body.innerHTML = `<p class="rank-msg">아직 기록이 없어요.<br>우리 교구가 첫 주인공이 되어보세요! 🔥</p>`;
+    return;
+  }
+  const medal = (n) => (n === 1 ? "🥇" : n === 2 ? "🥈" : n === 3 ? "🥉" : n);
+  const myGu = u && u.type === "교구" ? u.gu : null;
+
+  const rows = list.map((x) => `
+    <div class="rank-row ${x.rank <= 3 ? "top" : ""} ${x.gu === myGu ? "me" : ""}">
+      <span class="rk-no">${medal(x.rank)}</span>
+      <span class="rk-name">${x.gu}교구</span>
+      <span class="rk-so">${x.people}명 · 1인당 ${x.avg}회</span>
+      <span class="rk-cnt">${x.count}회</span>
+    </div>`).join("");
+
+  const total = list.reduce((s, x) => s + x.count, 0);
+  body.innerHTML = `<div class="rank-list">${rows}</div>` +
+    `<p class="rank-more">${list.length}개 교구 · 총 ${total}회</p>` +
+    `<p class="rank-note">암송·도전·복습을 모두 합한 횟수예요. 교구마다 인원이 다르니 <b>1인당 평균</b>도 함께 봐주세요 🙌</p>`;
 }
 
 // ---- 내 참여(주간/월간 달력) ----

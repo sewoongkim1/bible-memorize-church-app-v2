@@ -67,6 +67,7 @@ Deno.serve(async (req) => {
       case "challenge":     return json(await challenge(body));
       case "advanceReview": return json(await advanceReview(body));
       case "ranking":       return json(await ranking(body));
+      case "guRanking":     return json(await guRanking(body));
       case "mydays":        return json(await mydays(body));
       case "verseCounts":   return json(await verseCounts(body));
       // ---- 관리자 통계 ----
@@ -575,6 +576,36 @@ async function ranking(b: any) {
     map.set(row.user_id, e);
   }
   const list = [...map.values()]
+    .sort((a, b) => b.count - a.count)
+    .map((x, i) => ({ rank: i + 1, ...x }));
+  return { ok: true, list };
+}
+
+// ---------- guRanking: 교구별 순위(암송·도전·복습 전부) ----------
+// 참여율은 낼 수 없다 — 각 교구의 실제 성도 수(분모)가 DB에 없다.
+// 그래서 총 횟수로 순위를 매기고, 참여 인원·1인당 평균을 함께 준다.
+async function guRanking(b: any) {
+  let q = db.from("challenge_log").select("user_id, users(type,gu)");
+  q = rangeFilter(q, b);
+  const { data, error } = await q;
+  if (error) throw error;
+
+  const map = new Map<string, { gu: string; count: number; users: Set<string> }>();
+  for (const row of (data ?? []) as any[]) {
+    const u = row.users ?? {};
+    if (u.type !== "교구" || !u.gu) continue; // 교구 소속만(교회학교 제외)
+    const e = map.get(u.gu) ?? { gu: u.gu, count: 0, users: new Set<string>() };
+    e.count++;
+    e.users.add(row.user_id);
+    map.set(u.gu, e);
+  }
+  const list = [...map.values()]
+    .map((e) => ({
+      gu: e.gu,
+      count: e.count,
+      people: e.users.size,
+      avg: Math.round((e.count / e.users.size) * 10) / 10,
+    }))
     .sort((a, b) => b.count - a.count)
     .map((x, i) => ({ rank: i + 1, ...x }));
   return { ok: true, list };

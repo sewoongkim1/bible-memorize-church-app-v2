@@ -1302,6 +1302,15 @@ h1 {
 .rank-msg{ text-align:center; color:var(--gray); padding:30px 10px; line-height:1.6; }
 .rank-msg.err{ color:var(--error); }
 .rank-more{ text-align:center; color:var(--gray); font-size:.82rem; margin-top:10px; }
+/* 교구 순위 하단 안내(집계 기준 설명) */
+.rank-note{
+  margin-top:10px; padding:10px 12px; border-radius:9px;
+  background:var(--cream); color:var(--gray);
+  font-size:.79rem; line-height:1.6; text-align:center;
+}
+.rank-note b{ color:var(--navy); }
+.dark .rank-note{ background:#232c3f; color:#aeb8c8; }
+.dark .rank-note b{ color:#cdd9f2; }
 
 /* 도전 화면 — 남은 빈칸 표시 */
 .challenge-remain{
