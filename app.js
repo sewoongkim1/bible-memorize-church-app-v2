@@ -516,6 +516,10 @@ function advanceReview(no) {
 // ------------------------------------------------------------
 // 화면 0: 진입(식별) 화면 — 구분(교구/교회학교) 분기 입력
 // ------------------------------------------------------------
+// 목장 허용 형식: 숫자만(3, 99) 또는 "남성". 서버가 아닌 입력 폼에서만 검사한다
+// — 서버에서 막으면 기존에 다른 표기로 가입한 분들이 로그인조차 못 하게 된다.
+const MOK_RE = /^(\d+|남성)$/;
+
 function renderEntryScreen() {
   const u = loadUser() || { type: "교구" };
   const appEl = document.getElementById("app");
@@ -555,7 +559,7 @@ function renderEntryScreen() {
           </div>
           <div class="entry-field inline">
             <div class="entry-label">목장</div>
-            <input class="entry-input" id="mok" placeholder="예: 3 (남성목장 → 남성)" value="${u.mok || ""}"/>
+            <input class="entry-input" id="mok" placeholder="숫자 또는 남성 (예: 3, 남성, 없으면 99)" value="${u.mok || ""}"/>
           </div>
         </div>
 
@@ -640,6 +644,11 @@ function renderEntryScreen() {
       const mok = document.getElementById("mok").value.trim();
       if (!gu) return fail("교구를 선택해 주세요.");
       if (!mok) return fail("목장을 입력해 주세요.");
+      // 목장은 숫자(3목장→3, 없으면→99) 또는 "남성"(남성목장)만 허용.
+      // identity_key(g|교구|목장|이름)의 일부라 표기가 흔들리면 같은 사람이 다른 사람으로 갈린다.
+      if (!MOK_RE.test(mok)) {
+        return fail("목장은 숫자 또는 '남성'만 입력할 수 있어요. (예: 3목장 → 3, 남성목장 → 남성, 없으면 → 99)");
+      }
       user = { type, gu, mok, name };
     } else {
       const bu = document.querySelector('input[name="bu"]:checked')?.value;
