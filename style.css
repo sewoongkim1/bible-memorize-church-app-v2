@@ -917,6 +917,29 @@ h1 {
   border: 1px solid #d6a928;
   font-size: .82rem;
 }
+/* 이번주 말씀 공유(목장 단톡방 전파) — 주 버튼을 가리지 않게 옅은 금색 아웃라인 */
+.weekly-share {
+  width: 100%; margin-top: 7px; padding: 10px;
+  background: #fffaf0; border: 1px dashed var(--gold); border-radius: 10px;
+  color: #8a6d1f; font-size: .86rem; font-weight: 800;
+  cursor: pointer; font-family: inherit;
+  transition: background .15s;
+}
+.weekly-share:hover { background: #fdf3d6; }
+.dark .weekly-share { background: #232012; border-color: #8d7531; color: #e8d9a3; }
+
+/* 암송 완료 직후 나눔 — 공유 동기가 가장 높은 순간 */
+.share-brag {
+  width: 100%; margin-top: 8px; padding: 12px;
+  background: linear-gradient(135deg, #f5d271, #c8a24b);
+  border: 1px solid #b8933f; border-radius: 11px;
+  color: #4a3610; font-size: .95rem; font-weight: 800;
+  cursor: pointer; font-family: inherit;
+  box-shadow: 0 3px 12px rgba(200,162,75,.3);
+  transition: filter .15s;
+}
+.share-brag:hover { filter: brightness(1.05); }
+
 .weekly-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
