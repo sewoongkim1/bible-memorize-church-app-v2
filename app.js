@@ -688,7 +688,7 @@ function renderSummary() {
           <div class="weekly-kicker">${weeklyInfo.label}</div>
           ${weeklyHeart ? `<div class="heart-ribbon">👑 마음에 둠</div>` : ""}
         </div>
-        <div class="weekly-state ${weeklyStatus.cls}">${weeklyStatus.text}</div>
+        ${weeklyHeart ? "" : `<div class="weekly-state ${weeklyStatus.cls}">${weeklyStatus.text}</div>`}
       </div>
       <div class="weekly-ref">${weeklyVerse.refShort}</div>
       <div class="weekly-title">${weeklyVerse.sermonTitle || weeklyVerse.refFull || ""}</div>
