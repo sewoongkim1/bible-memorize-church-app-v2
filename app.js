@@ -200,9 +200,8 @@ function renderBlessing(next) {
     : `${u.bu}${u.grade ? " " + u.grade : ""}`;
 
   appEl.innerHTML = `
-    <div class="intro-screen">
+    <div class="intro-screen bless-screen">
       <div class="intro-card bless-card">
-        <div class="intro-icon">🙏</div>
         <div class="bless-affil">${affil}</div>
         <div class="intro-title bless-title"><b>${u.name}</b> 성도님,<br>환영합니다</div>
         <div class="bless-verse">
