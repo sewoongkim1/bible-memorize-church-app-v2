@@ -156,12 +156,70 @@ function getWeeklyVerseInfo() {
 
 // 로그인 직후: 로컬 기록으로 요약 화면을 즉시 띄우고,
 // 서버 동기화는 백그라운드로 진행한다(Apps Script 콜드 스타트로 화면이 지연되지 않도록).
-async function enterAfterLogin() {
+// opts.fresh = 로그인 폼으로 방금 들어온 경우에만 true.
+// 앱 실행 때마다 호출되는 경로(routeAfterLoad)에서는 축복 화면을 띄우지 않는다
+// — 기존 성도님 전원에게 축복 카드가 뜨는 걸 막기 위함.
+async function enterAfterLogin(opts) {
+  if (opts && opts.fresh && !blessingSeen()) {
+    renderBlessing(() => { markBlessingSeen(); enterAfterLogin(); });
+    return;
+  }
   renderSummary(); // 로컬 진행 기록으로 곧바로 표시
 
   // 서버(진도·복습) 동기화 후, 요약 화면이 아직 떠 있으면 갱신(복습 due 반영)
   await syncProgress();
   if (document.getElementById("go-list")) renderSummary();
+}
+
+// ------------------------------------------------------------
+// 첫 로그인 축복 인사 (사용자별 1회)
+//   key: "memorize-blessing-seen::<사용자>" — 공용 기기에서도 각자 한 번씩 받도록
+//   사용자별 키는 REVIEW_KEY·HEART_KEY와 같은 방식.
+// ------------------------------------------------------------
+const BLESS_KEY = "memorize-blessing-seen";
+
+function blessKey() {
+  const u = loadUser();
+  if (!u) return BLESS_KEY;
+  const id = u.type === "교구" ? `g|${u.gu}|${u.mok}|${u.name}` : `s|${u.bu}|${u.grade}|${u.name}`;
+  return BLESS_KEY + "::" + id;
+}
+function blessingSeen() {
+  if (!loadUser()) return true; // 사용자 정보 없으면 축복 화면 자체가 의미 없음
+  try { return localStorage.getItem(blessKey()) === "1"; } catch { return true; }
+}
+function markBlessingSeen() {
+  try { localStorage.setItem(blessKey(), "1"); } catch {}
+}
+
+function renderBlessing(next) {
+  const u = loadUser();
+  const appEl = document.getElementById("app");
+  const affil = u.type === "교구"
+    ? `${u.gu}-${u.mok}`
+    : `${u.bu}${u.grade ? " " + u.grade : ""}`;
+
+  appEl.innerHTML = `
+    <div class="intro-screen">
+      <div class="intro-card bless-card">
+        <div class="intro-icon">🙏</div>
+        <div class="bless-affil">${affil}</div>
+        <div class="intro-title bless-title"><b>${u.name}</b> 성도님,<br>환영합니다</div>
+        <div class="bless-verse">
+          여호와는 네게 복을 주시고<br>너를 지키시기를 원하며<br>
+          여호와는 그의 얼굴을 네게 비추사<br>은혜 베푸시기를 원하며<br>
+          여호와는 그 얼굴을 네게로 향하여 드사<br>평강 주시기를 원하노라
+        </div>
+        <div class="bless-ref">민수기 6:24-26</div>
+        <div class="bless-msg">
+          오늘부터 주의 말씀을 마음에 새기는<br>은혜의 여정을 함께해요. 🌿
+        </div>
+        <div class="bless-from">고척교회 제자양육부 신앙운동팀</div>
+        <button class="intro-next bless-go" id="bless-go">아멘, 시작하기</button>
+      </div>
+    </div>`;
+
+  document.getElementById("bless-go").addEventListener("click", next);
 }
 
 // 서버(시트)의 본인 기록을 받아 로컬 진행과 더 높은 단계로 병합.
@@ -662,7 +720,7 @@ function renderEntryScreen() {
     if (prev && prev.cid) user.cid = prev.cid; // 기존 기기 식별자 유지
     savePrivacyConsent();
     saveUser(user);
-    enterAfterLogin(); // 서버 기록 동기화 후 요약 화면
+    enterAfterLogin({ fresh: true }); // 첫 로그인이면 축복 인사 → 서버 동기화 후 요약 화면
   });
 }
 
@@ -1991,6 +2049,7 @@ function markIntroSeen() {
 // 첫 방문 3슬라이드 인트로
 function renderIntro(next) {
   const slides = [
+    { icon: "🙏", title: "환영합니다", body: "고척교회 <b>성경말씀 암송</b>에<br>오신 것을 진심으로 환영합니다.<br><br>주의 말씀을 마음에 새기는 이 길에<br>하나님의 은혜가 함께하시기를<br>기도합니다. 🌿" },
     { icon: "📖", title: "성경말씀 암송하기", body: "성경 구절을 단계별로 직접 채우며 암송해요.<br>교구·교회학교로 로그인하면 내 진도가 저장돼요." },
     { icon: "✍️", title: "3단계로 익혀요", body: "① 빈칸 맛보기 (약 25%)<br>② 빈칸 늘리기 (약 65%)<br>③ 전체 암송 (100%)<br><br>맞으면 다음 칸으로, 틀리면 다시 입력해요." },
     { icon: "🔊", title: "듣고, 말하며 암송", body: "🔊 듣기로 말씀을 들어요 (빠르게 여러 번 누르면 반복).<br>🎤 음성 암송으로 직접 말해서 점검해요." },
