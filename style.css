@@ -437,8 +437,30 @@ h1 {
 .dark .sermon-connect { background: #1b2333; border-color: #33465f; }
 .dark .sc-topic-title { color: #cdd9f2; }
 
-/* 설교 요약 화면 */
-.sermon-sum-card { text-align: left; }
+/* ============================================================
+   설교 요약 화면 — 말씀 아카이브(sermon.onlybible.kr) 상세 페이지 어법을 따름.
+   그쪽 브랜드 토큰을 이 화면에만 들여와 두 앱의 설교 화면이 같아 보이게 한다.
+   ============================================================ */
+.sermon-sum-card {
+  text-align: left;
+  --ss-ink: #17223a;        /* 제목·소제목 */
+  --ss-ink-soft: #48526a;   /* 본문 */
+  --ss-ink-mute: #7c8598;   /* 라벨 */
+  --ss-line: #e2ded2;       /* 테두리 */
+  --ss-surface: #fffdf8;    /* 포인트 카드 바탕 */
+  --ss-raise: #faf8f2;      /* 요약 박스 바탕 */
+  --ss-gold: #9c740f;       /* 번호·요약 좌측선 */
+  --ss-mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+}
+.dark .sermon-sum-card {
+  --ss-ink: #e9ecf4;
+  --ss-ink-soft: #aeb7ca;
+  --ss-ink-mute: #7b8398;
+  --ss-line: #25314a;
+  --ss-surface: #141d30;
+  --ss-raise: #101828;
+  --ss-gold: #d9b44d;
+}
 /* 상단 두 버튼('읽어주기'·'뒤로')을 같은 크기·같은 스타일로.
    둘 다 누르는 것이므로 보조 버튼 어법(연파랑 + 네이비 라인)으로 통일. */
 .sermon-sum-card .test-top { align-items: stretch; gap: 8px; }
@@ -457,14 +479,14 @@ h1 {
 /* --- 머리말: 예배일·설교자 → 제목 --- */
 .ss-head { margin: 14px 0 18px; }
 .ss-meta {
-  font-size: .76rem; font-weight: 700; color: var(--gray);
-  letter-spacing: .04em; margin-bottom: 5px;
+  font-size: .875rem; color: var(--ss-ink-soft);
+  margin-bottom: 6px;
 }
-/* 제목·요약은 핵심 포인트와 같은 고딕. 크기로만 위계를 준다
-   (제목 1.3 > 요약 1.05 > 포인트 제목 1 > 포인트 본문 .93) */
+/* 제목은 핵심 포인트와 같은 고딕. 크기·굵기로만 위계 */
 .ss-title {
-  font-weight: 800;
-  font-size: 1.3rem; color: var(--navy); line-height: 1.45;
+  font-weight: 700;
+  font-size: 1.35rem; color: var(--ss-ink); line-height: 1.4;
+  letter-spacing: -.015em;
   margin: 0; word-break: keep-all;
 }
 
@@ -478,88 +500,74 @@ h1 {
 .dark .ss-read { background: #232c3f; color: #cdd9f2; border-color: #3a4a68; }
 .dark .ss-read:hover { background: #2e3a52; color: #fff; }
 
-/* --- 섹션 라벨: 골드 눈썹 + 짧은 규칙선 --- */
-.ss-section { margin-bottom: 22px; }
+/* --- 섹션 라벨: mono · 넓은 자간 · 흐린 회색 (아카이브와 동일) --- */
+.ss-section { margin-bottom: 26px; }
 .ss-section:last-child { margin-bottom: 0; }
 .ss-label {
-  display: flex; align-items: center; gap: 8px;
-  font-size: .72rem; font-weight: 800; color: var(--gold);
-  letter-spacing: .12em; margin-bottom: 9px;
-}
-.ss-label::after {
-  content: ""; flex: 1; height: 1px; background: var(--border);
+  font-family: var(--ss-mono);
+  font-size: .75rem; font-weight: 500; color: var(--ss-ink-mute);
+  letter-spacing: .12em; margin-bottom: 11px;
 }
 
-/* --- 성경말씀: 누를 수 있는 본문 칩 --- */
+/* --- 성경말씀: 누를 수 있는 본문 칩 (포인트 카드와 같은 면·테두리) --- */
 .ss-scripture {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  padding: 12px 14px; background: var(--cream); border-radius: 10px;
-  border: 1px solid #eadfbf;
+  padding: 13px 16px; border-radius: 12px;
+  background: var(--ss-surface); border: 1px solid var(--ss-line);
 }
 .ss-scripture-ref {
-  font-family: "Nanum Myeongjo", serif; font-weight: 800;
-  color: var(--navy-dark); font-size: 1.05rem;
+  font-weight: 600; color: var(--ss-ink); font-size: 1rem;
+  letter-spacing: -.01em;
 }
 .ss-scripture-link { text-decoration: none; cursor: pointer; transition: background .15s; }
-.ss-scripture-link:hover { background: #f7ecd2; }
+.ss-scripture-link:hover { background: var(--ss-raise); }
 .ss-scripture-ext {
   flex-shrink: 0;
-  font-size: .72rem; font-weight: 800; color: #8a6d1f;
-  background: #fff; border: 1px solid #eadfbf; border-radius: 999px; padding: 3px 9px;
+  font-family: var(--ss-mono);
+  font-size: .7rem; font-weight: 700; color: var(--ss-gold);
+  border: 1px solid var(--ss-line); border-radius: 999px; padding: 3px 9px;
   white-space: nowrap;
 }
 
 /* --- 설교 요약: 설교의 논지. 말씀과 같은 명조로 무게를 준다 --- */
+/* 요약: 골드 좌측선 + 옅은 바탕 + 라운드 박스 (아카이브 '한 줄 요약'과 동일) */
 .ss-summary {
-  margin: 0; padding: 2px 0 2px 15px;
-  border-left: 3px solid var(--gold);
-  font-size: 1.05rem; font-weight: 500; line-height: 1.8; color: var(--navy-dark);
+  margin: 0; padding: 13px 16px;
+  border-radius: 12px;
+  border-left: 3px solid var(--ss-gold);
+  background: var(--ss-raise);
+  font-size: 1.02rem; line-height: 1.75; color: var(--ss-ink-soft);
   word-break: keep-all;
 }
 
-/* --- 핵심 포인트(대지): 번호는 순서가 있는 전개라서 쓴다.
-       세로 실선이 1·2·3대지를 잇고 마지막에서 끊긴다 = 설교의 흐름 --- */
-.ss-points { list-style: none; counter-reset: sp; margin: 0; padding: 0; }
+/* --- 핵심 포인트: 대지마다 독립 카드 + 골드 mono 번호 (아카이브와 동일) --- */
+.ss-points {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 16px;
+}
 .ss-points li {
-  counter-increment: sp; position: relative;
-  padding: 0 0 20px 36px;
+  border: 1px solid var(--ss-line); border-radius: 12px;
+  background: var(--ss-surface); padding: 16px;
 }
-.ss-points li:last-child { padding-bottom: 0; }
-.ss-points li::before {           /* 번호 뱃지 */
-  content: counter(sp);
-  position: absolute; left: 0; top: 0;
-  width: 24px; height: 24px; border-radius: 50%;
-  background: var(--navy); color: #fff;
-  font-size: .76rem; font-weight: 800;
-  display: flex; align-items: center; justify-content: center;
+.ss-point-top { display: flex; align-items: baseline; gap: 10px; }
+.ss-point-no {
+  flex-shrink: 0;
+  font-family: var(--ss-mono);
+  font-size: .875rem; font-weight: 700; color: var(--ss-gold);
 }
-.ss-points li::after {            /* 대지를 잇는 실 */
-  content: ""; position: absolute; left: 11px; top: 28px; bottom: 2px;
-  width: 2px; background: var(--border); border-radius: 1px;
-}
-.ss-points li:last-child::after { display: none; }
 .ss-point-head {
-  font-size: 1rem; font-weight: 800; color: var(--navy);
-  margin: 2px 0 5px; line-height: 1.45; word-break: keep-all;
+  margin: 0; font-size: 1rem; font-weight: 600; color: var(--ss-ink);
+  letter-spacing: -.01em; line-height: 1.45; word-break: keep-all;
 }
 .ss-point-body {
-  margin: 0; color: #4a5261; font-size: .93rem; line-height: 1.75;
+  margin: 8px 0 0; padding-left: 24px;   /* 번호 폭만큼 들여써 제목과 정렬 */
+  color: var(--ss-ink-soft); font-size: .95rem; line-height: 1.75;
   word-break: keep-all;
 }
 
-.dark .ss-meta { color: #aeb8c8; }
-.dark .ss-label::after { background: #3a4a68; }
-.dark .ss-scripture { background: #232012; border-color: #4a4225; }
-.dark .ss-scripture-ref { color: #e8d9a3; }
-.dark .ss-scripture-link:hover { background: #2c2717; }
-.dark .ss-scripture-ext { background: #1b2333; color: #e8d9a3; border-color: #4a4225; }
-.dark .ss-summary { color: #e6e9ef; }
-.dark .ss-points li::after { background: #3a4a68; }
-.dark .ss-point-head { color: #cdd9f2; }
-.dark .ss-point-body { color: #aeb8c8; }
+/* 다크는 .dark .sermon-sum-card 의 --ss-* 토큰이 처리한다.
+   여기서 개별 색을 다시 지정하면 토큰을 덮어써 라이트/다크가 어긋난다. */
 
-.dark .ss-title { color: #cdd9f2; }
-.dark .ss-points li::before { background: #3a4a68; }
 
 .test-stage {
   display: inline-block;

@@ -1440,9 +1440,12 @@ function renderSermonSummary(verse, sermon, onBack, backLabel) {
         <section class="ss-section">
           <div class="ss-label">핵심 포인트</div>
           <ol class="ss-points">
-            ${points.map((p) => `
+            ${points.map((p, i) => `
               <li>
-                <h3 class="ss-point-head">${boardEsc(p.heading || "")}</h3>
+                <div class="ss-point-top">
+                  <span class="ss-point-no">${i + 1}</span>
+                  <h3 class="ss-point-head">${boardEsc(p.heading || "")}</h3>
+                </div>
                 <p class="ss-point-body">${boardEsc(p.body || "")}</p>
               </li>`).join("")}
           </ol>
