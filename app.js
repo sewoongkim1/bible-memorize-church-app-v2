@@ -2897,7 +2897,8 @@ function renderGuRanking(range) {
   const r = range || rankRangeFor("all"); // 교구 대항은 누적이 기본
   const u = loadUser();
   const appEl = document.getElementById("app");
-  const tabs = [["today", "오늘"], ["week", "이번주"], ["all", "전체"]];
+  // 조회 조건은 개인 순위와 동일(같은 탭 + 날짜 직접 지정)
+  const tabs = [["today", "오늘"], ["yday", "전일~당일"], ["week", "이번주"], ["all", "전체"]];
   appEl.innerHTML = `
     <div class="rank-screen">
       <div class="list-nav">
@@ -2908,6 +2909,12 @@ function renderGuRanking(range) {
       <div class="rank-filter" id="gk-filter">
         ${tabs.map(([k, l]) => `<button data-k="${k}" class="${r.key === k ? "on" : ""}">${l}</button>`).join("")}
       </div>
+      <div class="rank-dates">
+        <input type="date" id="gk-from" value="${r.from || ""}" />
+        <span class="rd-sep">~</span>
+        <input type="date" id="gk-to" value="${r.to || ""}" />
+        <button class="rd-go" id="gk-go">조회</button>
+      </div>
       <div id="gu-body"><p class="rank-msg">불러오는 중...</p></div>
     </div>`;
   document.getElementById("gk-back").addEventListener("click", renderSummary);
@@ -2915,6 +2922,11 @@ function renderGuRanking(range) {
   document.getElementById("gk-filter").querySelectorAll("button").forEach((b) =>
     b.addEventListener("click", () => renderGuRanking(rankRangeFor(b.dataset.k)))
   );
+  document.getElementById("gk-go").addEventListener("click", () => {
+    const from = document.getElementById("gk-from").value;
+    const to = document.getElementById("gk-to").value;
+    renderGuRanking({ key: "custom", from, to });
+  });
   loadGuRankingBody(r);
 }
 
