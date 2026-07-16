@@ -433,6 +433,22 @@ h1 {
 
 /* 설교 요약 화면 */
 .sermon-sum-card { text-align: left; }
+/* 상단 '📄 설교 요약' 라벨과 '← 암송으로' 버튼을 같은 높이·폭으로.
+   색은 그대로 구분(라벨=채움, 버튼=테두리)하되 크기만 통일한다. */
+.sermon-sum-card .test-top { align-items: stretch; gap: 8px; }
+.sermon-sum-card .test-head { flex: 1; display: flex; }
+.sermon-sum-card .test-stage,
+.sermon-sum-card .back-btn {
+  flex: 1;
+  box-sizing: border-box;
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  padding: 8px 12px;
+  font-size: 13px; font-weight: 700; letter-spacing: 0;
+  border-radius: 999px;
+  border: 1.5px solid transparent;   /* 테두리 두께를 맞춰 높이 일치 */
+  white-space: nowrap;
+}
+.sermon-sum-card .back-btn { border-color: var(--navy); }
 .ss-title {
   font-family: "Nanum Myeongjo", serif; font-weight: 800;
   font-size: 1.15rem; color: var(--navy); margin: 6px 0 14px; line-height: 1.5;
