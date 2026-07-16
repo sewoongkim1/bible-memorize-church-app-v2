@@ -408,9 +408,10 @@ h1 {
 .sc-buttons { display: flex; gap: 8px; }
 /* 두 버튼 완전히 동일: 같은 크기(flex:1)·같은 스타일 */
 .sc-btn {
-  flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px;
-  padding: 12px; border-radius: 11px;
+  flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 5px;
+  padding: 12px 8px; border-radius: 11px;
   font-size: 14px; font-weight: 800; font-family: inherit; line-height: 1.2;
+  white-space: nowrap;
   cursor: pointer; text-decoration: none; border: 1px solid transparent;
   background: linear-gradient(135deg, #0d1b3e 0%, #1a3a6b 100%); color: #fff;
   transition: filter .15s;
