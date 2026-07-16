@@ -1492,6 +1492,8 @@ html[data-fs="xl"] .sermon-sum-card .ss-top > .back-btn { font-size: 17px; paddi
 .rank-msg{ text-align:center; color:var(--gray); padding:30px 10px; line-height:1.6; }
 .rank-msg.err{ color:var(--error); }
 .rank-more{ text-align:center; color:var(--gray); font-size:.82rem; margin-top:10px; }
+.rank-more b{ color:var(--navy); font-weight:800; }
+.dark .rank-more b{ color:#cdd9f2; }
 /* 교구 순위 하단 안내(집계 기준 설명) */
 .rank-note{
   margin-top:10px; padding:10px 12px; border-radius:9px;

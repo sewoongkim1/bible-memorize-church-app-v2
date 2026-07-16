@@ -2953,8 +2953,10 @@ async function loadGuRankingBody(r) {
     </div>`).join("");
 
   const total = list.reduce((s, x) => s + x.count, 0);
+  // 성도는 교구를 하나만 가지므로 교구별 인원을 더하면 곧 전체 참여 인원(중복 없음)
+  const people = list.reduce((s, x) => s + x.people, 0);
   body.innerHTML = `<div class="rank-list">${rows}</div>` +
-    `<p class="rank-more">${list.length}개 교구 · 총 ${total}회</p>` +
+    `<p class="rank-more">${list.length}개 교구 · 총 참여 <b>${people}명</b> · 총 <b>${total}회</b></p>` +
     `<p class="rank-note">암송 · 도전 · 복습을 <b>모두 합한 횟수</b>예요 🙌</p>`;
 }
 
