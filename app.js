@@ -1381,7 +1381,7 @@ function fillSermonSummaryBtn(verse, stage) {
   loadSermons().then((sermons) => {
     const s = findSermonForVerse(verse.no, sermons);
     if (!s || !document.getElementById("sermon-summary-slot")) return;
-    slot.innerHTML = `<button class="sermon-summary-btn" id="sermon-summary-btn">📄 설교 요약 보기</button>`;
+    slot.innerHTML = `<button class="sc-btn sc-summary" id="sermon-summary-btn">📄 설교요약</button>`;
     document.getElementById("sermon-summary-btn")
       .addEventListener("click", () => renderSermonSummary(verse, stage, s));
   });
@@ -1457,19 +1457,18 @@ function renderTestScreen(verse, stage) {
     )
     .join(" ");
 
-  const sermonBanner = verse.url
-    ? `<a class="sermon-banner" href="${verse.url}" target="_blank" rel="noopener">
-         <span class="sermon-banner-icon">▶</span>
-         <span class="sermon-banner-text">
-           <span class="sermon-banner-title">${verse.sermonTitle || "설교 영상 보기"}</span>
-         </span>
-       </a>`
-    : `<div class="sermon-banner sermon-banner-soon">
-         <span class="sermon-banner-icon">⏳</span>
-         <span class="sermon-banner-text">
-           <span class="sermon-banner-title">${verse.sermonTitle ? verse.sermonTitle + " · " : ""}설교 영상 준비 중</span>
-         </span>
-       </div>`;
+  // 설교 연결: 주제(제목) 텍스트 + [설교보기][설교요약] 대등한 2버튼.
+  // 설교요약 버튼은 매칭되는 요약이 있을 때만 slot에 비동기로 채워진다.
+  const sermonConnect = `
+    <div class="sermon-connect">
+      ${verse.sermonTitle ? `<div class="sc-topic"><span class="sc-topic-label">📖 이번 설교</span><span class="sc-topic-title">${verse.sermonTitle}</span></div>` : ""}
+      <div class="sc-buttons">
+        ${verse.url
+          ? `<a class="sc-btn sc-watch" href="${verse.url}" target="_blank" rel="noopener">▶ 설교보기</a>`
+          : `<span class="sc-btn sc-soon">⏳ 설교 영상 준비 중</span>`}
+        <span id="sermon-summary-slot"></span>
+      </div>
+    </div>`;
 
   // 3단계에만: "내 마음에 두었나이다" 체크. 아직 통과 전이면 비활성(안내문 노출),
   // 이미 체크한 구절은 처음부터 활성 → 바로 해제 가능.
@@ -1512,8 +1511,7 @@ function renderTestScreen(verse, stage) {
         </div>
         <div id="voice-result" class="voice-result"></div>
 
-        ${sermonBanner}
-        <div id="sermon-summary-slot"></div>
+        ${sermonConnect}
       </div>
     </div>
   `;
