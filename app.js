@@ -1467,6 +1467,7 @@ function renderSermonSummary(verse, sermon, onBack, backLabel) {
           ${meta ? `<div class="ss-meta">${boardEsc(meta)}</div>` : ""}
           ${sermon.title ? `<h2 class="ss-title">${boardEsc(sermon.title)}</h2>` : ""}
         </header>
+        <button class="ss-read" id="ss-read">🔊 읽어주기</button>
         ${sermon.scripture ? `
         <section class="ss-section">
           <div class="ss-label">성경말씀</div>
@@ -1488,6 +1489,25 @@ function renderSermonSummary(verse, sermon, onBack, backLabel) {
       </div>
     </div>`;
   document.getElementById("ss-back").addEventListener("click", onBack);
+
+  // 화면에 보이는 그대로(제목 → 요약 → 핵심 포인트) 읽어준다.
+  const readText = [
+    sermon.title || "",
+    sermon.summary || "",
+    points.length ? "핵심 포인트." : "",
+    ...points.map((p, i) => `${i + 1}. ${p.heading || ""}. ${p.body || ""}`),
+  ].filter(Boolean).join("\n");
+
+  const readBtn = document.getElementById("ss-read");
+  readBtn.addEventListener("click", () => {
+    if (window.speechSynthesis && window.speechSynthesis.speaking) {
+      stopSpeaking();                       // 재생 중이면 정지(토글)
+      readBtn.textContent = "🔊 읽어주기";
+      return;
+    }
+    readBtn.textContent = "■ 정지";
+    speakLong(readText, () => { readBtn.textContent = "🔊 읽어주기"; });
+  });
 }
 
 function renderTestScreen(verse, stage) {
@@ -1648,6 +1668,48 @@ function speakText(text, onEnd, times = 1) {
     }
     window.speechSynthesis.speak(ut); // speak 는 큐에 쌓이므로 순서대로 N번 재생
   }
+}
+
+// 긴 글을 문장 단위로 쪼갠다. 크롬은 발화 하나가 길면(~15초) 조용히 끊기므로
+// 쪼개서 큐에 넣어야 끝까지 읽는다.
+// ※ lookbehind(?<=)는 사파리 16.4 미만에서 파싱 자체가 실패해 앱이 죽으므로 쓰지 않는다.
+function splitForSpeech(text, max = 150) {
+  const out = [];
+  String(text || "").split(/\n+/).forEach((para) => {
+    // 문장부호를 남기면서 자르기(구분자 보존 후 분리)
+    para.replace(/([.!?])\s+/g, "$1\u0001").split("\u0001").forEach((sent) => {
+      let s = String(sent).trim();
+      if (!s) return;
+      while (s.length > max) {          // 한 문장이 너무 길면 쉼표에서 한 번 더
+        let cut = s.lastIndexOf(",", max);
+        if (cut < max * 0.5) cut = max - 1;
+        out.push(s.slice(0, cut + 1).trim());
+        s = s.slice(cut + 1).trim();
+      }
+      if (s) out.push(s);
+    });
+  });
+  return out;
+}
+
+// 긴 글 읽어주기(설교 요약 등). 마지막 조각이 끝나면 onEnd.
+function speakLong(text, onEnd) {
+  if (!("speechSynthesis" in window)) {
+    alert("이 브라우저는 읽어주기(음성 합성)를 지원하지 않습니다.\n크롬·사파리에서 이용해 주세요.");
+    if (onEnd) onEnd();
+    return;
+  }
+  const parts = splitForSpeech(text);
+  if (!parts.length) { if (onEnd) onEnd(); return; }
+  window.speechSynthesis.cancel();
+  parts.forEach((p, i) => {
+    const ut = new SpeechSynthesisUtterance(p);
+    ut.lang = "ko-KR";
+    ut.rate = getSpeakRate();
+    ut.pitch = 1;
+    if (i === parts.length - 1 && onEnd) { ut.onend = onEnd; ut.onerror = onEnd; }
+    window.speechSynthesis.speak(ut);
+  });
 }
 
 function stopSpeaking() {

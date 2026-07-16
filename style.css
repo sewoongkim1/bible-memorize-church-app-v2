@@ -469,6 +469,17 @@ h1 {
   margin: 0; word-break: keep-all;
 }
 
+/* 읽어주기 — 보조 버튼 어법(연파랑 + 네이비 라인). 고령 성도 배려로 넓은 탭 영역 */
+.ss-read {
+  width: 100%; margin-bottom: 20px; padding: 11px;
+  background: #eef1f8; border: 1.5px solid var(--navy); border-radius: 999px;
+  color: var(--navy); font-size: .95rem; font-weight: 700; font-family: inherit;
+  cursor: pointer; transition: background .15s, color .15s;
+}
+.ss-read:hover { background: var(--navy); color: #fff; }
+.dark .ss-read { background: #232c3f; color: #cdd9f2; border-color: #3a4a68; }
+.dark .ss-read:hover { background: #2e3a52; color: #fff; }
+
 /* --- 섹션 라벨: 골드 눈썹 + 짧은 규칙선 --- */
 .ss-section { margin-bottom: 22px; }
 .ss-section:last-child { margin-bottom: 0; }
