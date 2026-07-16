@@ -1525,7 +1525,7 @@ function renderTestScreen(verse, stage) {
       ${verse.sermonTitle ? `<div class="sc-topic"><span class="sc-topic-label">📖 설교</span><span class="sc-topic-title">${verse.sermonTitle}</span></div>` : ""}
       <div class="sc-buttons">
         ${verse.url
-          ? `<a class="sc-btn sc-watch" href="${verse.url}" target="_blank" rel="noopener">▶ 설교보기</a>`
+          ? `<a class="sc-btn sc-watch" href="${verse.url}" target="_blank" rel="noopener">▶️ 설교보기</a>`
           : `<span class="sc-btn sc-soon">⏳ 설교 영상 준비 중</span>`}
         <span id="sermon-summary-slot"></span>
       </div>
