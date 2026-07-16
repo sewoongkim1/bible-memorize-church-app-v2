@@ -183,11 +183,12 @@ h1 {
   position: absolute; top: -8px; left: 12px;
   display: flex; align-items: center; gap: 4px;
 }
+/* 라벨(못 누르는 정보)은 옅은 네이비 틴트 — 네이비 채움은 '누르는 것' 전용.
+   금색은 '마음에 둠'(성취) 전용이라 여기서 안 쓴다. */
 .weekly-list-badge {
-  background: var(--navy); color: #fff;
+  background: #e7ecf5; color: var(--navy);
   border-radius: 999px; padding: 2px 9px;
   font-size: 10px; font-weight: 800; line-height: 1.4;
-  box-shadow: 0 2px 8px rgba(13,27,62,.25);
 }
 /* 금배지 — "내 마음에 두었나이다" 체크한 구절 */
 .heart-ribbon {
@@ -551,8 +552,8 @@ h1 {
 
 .test-stage {
   display: inline-block;
-  background: var(--navy);
-  color: var(--white);
+  background: #e7ecf5;          /* 라벨 틴트 — 옆의 '← 목록'(버튼)과 구별 */
+  color: var(--navy);
   font-size: 11px;
   font-weight: 700;
   padding: 3px 12px;
@@ -1029,8 +1030,8 @@ h1 {
 /* '이번주 말씀'은 구조 라벨이라 네이비 — 성취 배지인 금색 '마음에 둠'과 구별 */
 .weekly-kicker {
   display: inline-block;
-  background: var(--navy);
-  color: #fff;
+  background: #e7ecf5;          /* 라벨 틴트 — 아래 '복습하기'(네이비 채움 버튼)와 구별 */
+  color: var(--navy);
   border-radius: 999px;
   padding: 2px 9px;
   font-size: .75rem;
@@ -1684,8 +1685,13 @@ h1 {
 .dark .privacy-more{ background:#232c3f; color:#cdd9f2; border-color:#3a4a68; }
 .dark .privacy-more:hover{ background:#2e3a52; color:#fff; }
 .dark .verse-card.weekly-verse{ background:#2b2717; border-color:#8d7531; }
-/* 다크에서도 '이번주 말씀'은 네이비 계열 — 금색 '마음에 둠'과 구별 유지 */
-.dark .weekly-list-badge, .dark .weekly-kicker{ background:#3a4a68; color:#e6e9ef; box-shadow:none; }
+/* 라벨(못 누름) 다크: 조용한 면 + 테두리 없음.
+   다크 버튼은 #232c3f + 테두리(#3a4a68)라 서로 구별된다.
+   ※ 위쪽 '.dark .test-stage{color}' 규칙보다 뒤에 있어야 배경까지 먹는다.
+   ※ 도전(금색)·복습(청록) 배지는 고유색이라 제외한다. */
+.dark .weekly-list-badge,
+.dark .weekly-kicker,
+.dark .test-stage:not(.challenge-badge):not(.review-badge){ background:#2e3950; color:#cdd9f2; box-shadow:none; }
 .dark .weekly-card{ background:#2b2717; border-color:#8d7531; }
 .dark .weekly-ref{ color:#e8d9a3; }
 .dark .weekly-title{ color:#d7c78e; }
