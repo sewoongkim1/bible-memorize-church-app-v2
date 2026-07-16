@@ -430,9 +430,18 @@ h1 {
 .ss-section { margin-bottom: 16px; }
 .ss-label { font-size: .82rem; font-weight: 800; color: var(--gold); margin-bottom: 6px; }
 .ss-scripture {
-  font-weight: 700; color: var(--navy); font-size: 1rem;
+  display: block; font-weight: 700; color: var(--navy); font-size: 1rem;
   padding: 10px 12px; background: var(--cream); border-radius: 9px;
 }
+.ss-scripture-link { text-decoration: none; cursor: pointer; transition: background .15s; }
+.ss-scripture-link:hover { background: #f2e6c9; }
+.ss-scripture-ext {
+  margin-left: 6px; font-size: .74rem; font-weight: 800; color: #8a6d1f;
+  background: #fff; border: 1px solid #eadfbf; border-radius: 999px; padding: 1px 8px;
+  white-space: nowrap;
+}
+.dark .ss-scripture-link:hover { background: #2b3244; }
+.dark .ss-scripture-ext { background: #1b2333; color: #e8d9a3; border-color: #4a4225; }
 .ss-summary { color: #333; font-size: .98rem; line-height: 1.8; }
 /* 핵심 포인트 — 번호 + 굵은 제목 + 본문 */
 .ss-points { list-style: none; counter-reset: sp; margin: 0; padding: 0; }
