@@ -18,6 +18,23 @@ async function supaCall(action, payload = {}) {
   return data;
 }
 
+// 말씀 아카이브(형제 앱) Edge Function 'sermon' 호출 — 설교 요약 참조용(읽기 전용).
+async function sermonCall(action, payload = {}) {
+  const res = await fetch(`${window.SUPA.URL}/functions/v1/sermon`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${window.SUPA.ANON}`,
+      "apikey": window.SUPA.ANON,
+    },
+    body: JSON.stringify({ action, ...payload }),
+  });
+  let data = {};
+  try { data = await res.json(); } catch (_) {}
+  if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
 const api = {
   // 식별→진도·복습 동기화. u = {type, gu, mok, bu, grade, name}
   login: (u) => supaCall("login", u),
@@ -37,6 +54,7 @@ const api = {
   boardReply: (post_id, name, content, user_id) => supaCall("boardReply", { post_id, name, content, user_id }),
   boardDeleteMine: (kind, id, user_id, who) => supaCall("boardDeleteMine", { kind, id, user_id, who }),
   getVerses: () => supaCall("getVerses", {}),
+  getSermons: () => sermonCall("getSermons"),   // 말씀 아카이브 설교 목록 { ok, sermons:[{memVerseNo,scripture,summary,title,...}] }
   saveVerse: (pw, verse) => supaCall("saveVerse", { pw, verse }),
   seedVerses: (pw) => supaCall("seedVerses", { pw }),
 };

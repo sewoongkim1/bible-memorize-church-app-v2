@@ -393,6 +393,36 @@ h1 {
 .sermon-banner-soon:hover { filter: none; }
 .sermon-banner-soon .sermon-banner-icon { background: #e5e7eb; color: #6b7280; }
 
+/* 설교 요약 보기 버튼(배너 아래, 보조) */
+.sermon-summary-btn {
+  width: 100%; margin-top: 8px; padding: 11px;
+  background: #eef1f8; border: 1px solid var(--border); border-radius: 12px;
+  color: var(--navy); font-size: 14px; font-weight: 800;
+  cursor: pointer; font-family: inherit; transition: background .15s;
+}
+.sermon-summary-btn:hover { background: #dde4f2; }
+.dark .sermon-summary-btn { background: #232c3f; color: #cdd9f2; border-color: #3a4a68; }
+
+/* 설교 요약 화면 */
+.sermon-sum-card { text-align: left; }
+.ss-title {
+  font-family: "Nanum Myeongjo", serif; font-weight: 800;
+  font-size: 1.15rem; color: var(--navy); margin: 6px 0 14px; line-height: 1.5;
+}
+.ss-section { margin-bottom: 16px; }
+.ss-label { font-size: .82rem; font-weight: 800; color: var(--gold); margin-bottom: 6px; }
+.ss-scripture {
+  font-weight: 700; color: var(--navy); font-size: 1rem;
+  padding: 10px 12px; background: var(--cream); border-radius: 9px;
+}
+.ss-summary { color: #333; font-size: .98rem; line-height: 1.8; }
+.ss-note { margin-top: 6px; font-size: .76rem; color: var(--gray); text-align: center; }
+
+.dark .ss-title { color: #cdd9f2; }
+.dark .ss-scripture { background: #232c3f; color: #cdd9f2; }
+.dark .ss-summary { color: #dbe2ee; }
+.dark .ss-note { color: #aeb8c8; }
+
 .test-stage {
   display: inline-block;
   background: var(--navy);

@@ -1354,6 +1354,73 @@ function startTest(verse) {
   renderTestScreen(verse, startStage);
 }
 
+// ------------------------------------------------------------
+// 설교 요약(말씀 아카이브 연동, 읽기 전용) — 암송 화면 설교 연결에서 참조
+//   getSermons 1회 로드 → memVerseNo로 이번 구절과 매칭. 요약이 있는 구절만 버튼 노출.
+// ------------------------------------------------------------
+let sermonsCache = null; // [{ memVerseNo, scripture, summary, title, ... }]
+
+async function loadSermons() {
+  if (sermonsCache) return sermonsCache;
+  if (!window.api || !api.getSermons) return [];
+  try {
+    const d = await api.getSermons();
+    sermonsCache = (d && d.sermons) || [];
+  } catch { sermonsCache = []; }
+  return sermonsCache;
+}
+// 이번 구절(no)에 대응하는 설교 중 요약이 있는 것
+function findSermonForVerse(no, sermons) {
+  return (sermons || []).find((s) => s.memVerseNo === no && s.summary);
+}
+
+// 암송 화면 설교 배너 옆 '설교 요약 보기' 버튼을 비동기로 채운다(있을 때만).
+function fillSermonSummaryBtn(verse, stage) {
+  const slot = document.getElementById("sermon-summary-slot");
+  if (!slot) return;
+  loadSermons().then((sermons) => {
+    const s = findSermonForVerse(verse.no, sermons);
+    if (!s || !document.getElementById("sermon-summary-slot")) return;
+    slot.innerHTML = `<button class="sermon-summary-btn" id="sermon-summary-btn">📄 설교 요약 보기</button>`;
+    document.getElementById("sermon-summary-btn")
+      .addEventListener("click", () => renderSermonSummary(verse, stage, s));
+  });
+}
+
+function renderSermonSummary(verse, stage, sermon) {
+  stopSpeaking();
+  const appEl = document.getElementById("app");
+  appEl.innerHTML = `
+    <div class="test-screen">
+      <div class="test-card sermon-sum-card">
+        <div class="test-top">
+          <div class="test-head">
+            <div class="test-stage">📄 설교 요약</div>
+            <div class="test-ref">${verse.refShort}</div>
+          </div>
+          <button class="back-btn" id="ss-back">← 암송으로</button>
+        </div>
+        ${sermon.title ? `<div class="ss-title">${boardEsc(sermon.title)}</div>` : ""}
+        ${sermon.scripture ? `
+        <div class="ss-section">
+          <div class="ss-label">📖 성경말씀</div>
+          <div class="ss-scripture">${boardEsc(sermon.scripture)}</div>
+        </div>` : ""}
+        <div class="ss-section">
+          <div class="ss-label">📝 설교 요약</div>
+          <div class="ss-summary">${boardEsc(sermon.summary)}</div>
+        </div>
+        ${verse.url ? `<a class="sermon-banner" href="${verse.url}" target="_blank" rel="noopener">
+          <span class="sermon-banner-icon">▶</span>
+          <span class="sermon-banner-text"><span class="sermon-banner-title">설교 영상 보기</span></span>
+        </a>` : ""}
+        <div class="ss-note">말씀 아카이브(sermon.onlybible.kr)에서 가져온 요약이에요 🙌</div>
+      </div>
+    </div>`;
+  document.getElementById("ss-back")
+    .addEventListener("click", () => renderTestScreen(verse, stage));
+}
+
 function renderTestScreen(verse, stage) {
   stopSpeaking(); // 화면 전환 시 읽어주기 정지
   const appEl = document.getElementById("app");
@@ -1438,6 +1505,7 @@ function renderTestScreen(verse, stage) {
         <div id="voice-result" class="voice-result"></div>
 
         ${sermonBanner}
+        <div id="sermon-summary-slot"></div>
       </div>
     </div>
   `;
@@ -1445,6 +1513,9 @@ function renderTestScreen(verse, stage) {
   document
     .getElementById("back-to-list-btn")
     .addEventListener("click", () => { stopSpeaking(); renderVerseList(); });
+
+  // 이 구절에 대응하는 설교 요약이 있으면 배너 아래에 '설교 요약 보기' 버튼을 채운다.
+  fillSermonSummaryBtn(verse, stage);
 
   // "내 마음에 두었나이다" 체크/해제
   const heartInput = document.getElementById("heart-check");
