@@ -1383,7 +1383,7 @@ function fillSermonSummaryBtn(verse, stage) {
   loadSermons().then((sermons) => {
     const s = findSermonForVerse(verse.no, sermons);
     if (!s || !document.getElementById("sermon-summary-slot")) return;
-    slot.innerHTML = `<button class="sc-btn sc-summary" id="sermon-summary-btn">📄 설교요약</button>`;
+    slot.innerHTML = `<button class="sc-btn sc-summary" id="sermon-summary-btn">📄 요약보기</button>`;
     document.getElementById("sermon-summary-btn")
       .addEventListener("click", () =>
         renderSermonSummary(verse, s, () => renderTestScreen(verse, stage), "← 암송으로"));
@@ -1545,8 +1545,8 @@ function renderTestScreen(verse, stage) {
       ${verse.sermonTitle ? `<div class="sc-topic"><span class="sc-topic-label">📖 설교</span><span class="sc-topic-title">${verse.sermonTitle}</span></div>` : ""}
       <div class="sc-buttons">
         ${verse.url
-          ? `<a class="sc-btn sc-watch" href="${verse.url}" target="_blank" rel="noopener">▶️ 설교보기</a>`
-          : `<span class="sc-btn sc-soon">⏳ 설교 영상 준비 중</span>`}
+          ? `<a class="sc-btn sc-watch" href="${verse.url}" target="_blank" rel="noopener">▶️ 영상보기</a>`
+          : `<span class="sc-btn sc-soon">⏳ 영상 준비 중</span>`}
         <span id="sermon-summary-slot"></span>
       </div>
     </div>`;
@@ -2894,7 +2894,7 @@ function wireRankMode() {
 
 // ---- 교구별 순위 ----
 function renderGuRanking(range) {
-  const r = range || rankRangeFor("all"); // 교구 대항은 누적이 기본
+  const r = range || rankRangeFor("yday"); // 개인 순위와 같은 기본값(전일~당일)
   const u = loadUser();
   const appEl = document.getElementById("app");
   // 조회 조건은 개인 순위와 동일(같은 탭 + 날짜 직접 지정)

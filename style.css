@@ -398,7 +398,7 @@ h1 {
 .sermon-connect {
   margin-top: 18px; padding: 14px;
   border: 1px solid var(--border); border-radius: 14px;
-  background: #fbfcfe;
+  background: var(--light);   /* 카드(흰색)와 확실히 갈라지는 톤 */
 }
 .sc-topic {
   display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap;
@@ -434,7 +434,8 @@ h1 {
 .dark .sc-btn { background: #232c3f; color: #cdd9f2; border-color: #3a4a68; }
 .dark .sc-btn:hover { background: #2e3a52; color: #fff; }
 .dark .sc-soon, .dark .sc-soon:hover { background: #1b2333; color: #6a7688; border-color: #33465f; }
-.dark .sermon-connect { background: #1b2333; border-color: #33465f; }
+/* 다크도 카드(--white:#1b2233)와 겹치지 않게 한 단계 밝은 면으로 */
+.dark .sermon-connect { background: #262f44; border-color: #3a4a68; }
 .dark .sc-topic-title { color: #cdd9f2; }
 
 /* ============================================================
