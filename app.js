@@ -1459,7 +1459,7 @@ function renderSermonSummary(verse, sermon, onBack, backLabel) {
       <div class="test-card sermon-sum-card">
         <div class="test-top">
           <div class="test-head">
-            <div class="test-stage">📄 설교 요약</div>
+            <button class="ss-read" id="ss-read">🔊 읽어주기</button>
           </div>
           <button class="back-btn" id="ss-back">${backLabel || "← 뒤로"}</button>
         </div>
@@ -1467,7 +1467,6 @@ function renderSermonSummary(verse, sermon, onBack, backLabel) {
           ${meta ? `<div class="ss-meta">${boardEsc(meta)}</div>` : ""}
           ${sermon.title ? `<h2 class="ss-title">${boardEsc(sermon.title)}</h2>` : ""}
         </header>
-        <button class="ss-read" id="ss-read">🔊 읽어주기</button>
         ${sermon.scripture ? `
         <section class="ss-section">
           <div class="ss-label">성경말씀</div>
