@@ -393,33 +393,42 @@ h1 {
 .sermon-banner-soon:hover { filter: none; }
 .sermon-banner-soon .sermon-banner-icon { background: #e5e7eb; color: #6b7280; }
 
-/* 설교 연결: 주제 텍스트 + 설교보기·설교요약 2버튼 */
-.sermon-connect { margin-top: 18px; }
+/* 설교 구역: 하나의 박스로 묶고, 주제 텍스트 + 크기·스타일 같은 2버튼 */
+.sermon-connect {
+  margin-top: 18px; padding: 14px;
+  border: 1px solid var(--border); border-radius: 14px;
+  background: #fbfcfe;
+}
 .sc-topic {
   display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap;
-  padding: 10px 12px 11px; margin-bottom: 8px;
-  background: var(--cream); border-radius: 10px;
+  margin-bottom: 11px;
 }
 .sc-topic-label { font-size: .74rem; font-weight: 800; color: var(--gold); flex-shrink: 0; }
 .sc-topic-title { font-size: 1rem; font-weight: 800; color: var(--navy); }
 .sc-buttons { display: flex; gap: 8px; }
+/* 두 버튼 완전히 동일: 같은 크기(flex:1)·같은 스타일 */
 .sc-btn {
   flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px;
   padding: 12px; border-radius: 11px;
-  font-size: 14px; font-weight: 800; font-family: inherit;
+  font-size: 14px; font-weight: 800; font-family: inherit; line-height: 1.2;
   cursor: pointer; text-decoration: none; border: 1px solid transparent;
-  transition: filter .15s, background .15s;
+  background: linear-gradient(135deg, #0d1b3e 0%, #1a3a6b 100%); color: #fff;
+  transition: filter .15s;
 }
-.sc-watch { background: linear-gradient(135deg, #0d1b3e 0%, #1a3a6b 100%); color: #fff; }
-.sc-watch:hover { filter: brightness(1.12); }
-.sc-summary { background: #eef1f8; color: var(--navy); border-color: var(--border); }
-.sc-summary:hover { background: #dde4f2; }
-.sc-soon { flex: 1; background: #eef0f4; color: #8a93a5; cursor: default; }
+.sc-btn:hover { filter: brightness(1.12); }
+/* 요약 버튼이 슬롯 안에서도 동일 너비를 받도록 */
+#sermon-summary-slot { flex: 1; display: flex; }
+#sermon-summary-slot:empty { display: none; }
+#sermon-summary-slot .sc-btn { flex: 1; }
+.sc-soon {
+  flex: 1; background: #eef0f4; color: #8a93a5;
+  cursor: default; filter: none;
+}
+.sc-soon:hover { filter: none; }
 
-.dark .sc-topic { background: #232c3f; }
+.dark .sermon-connect { background: #1b2333; border-color: #33465f; }
 .dark .sc-topic-title { color: #cdd9f2; }
-.dark .sc-summary { background: #232c3f; color: #cdd9f2; border-color: #3a4a68; }
-.dark .sc-soon { background: #1b2333; color: #6a7688; }
+.dark .sc-soon { background: #232c3f; color: #6a7688; }
 
 /* 설교 요약 화면 */
 .sermon-sum-card { text-align: left; }
