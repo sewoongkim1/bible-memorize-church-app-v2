@@ -449,48 +449,101 @@ h1 {
   white-space: nowrap;
 }
 .sermon-sum-card .back-btn { border-color: var(--navy); }
+/* --- 머리말: 예배일·설교자 → 제목 --- */
+.ss-head { margin: 14px 0 18px; }
+.ss-meta {
+  font-size: .76rem; font-weight: 700; color: var(--gray);
+  letter-spacing: .04em; margin-bottom: 5px;
+}
 .ss-title {
   font-family: "Nanum Myeongjo", serif; font-weight: 800;
-  font-size: 1.15rem; color: var(--navy); margin: 6px 0 14px; line-height: 1.5;
+  font-size: 1.42rem; color: var(--navy); line-height: 1.45;
+  margin: 0; word-break: keep-all;
 }
-.ss-section { margin-bottom: 16px; }
-.ss-label { font-size: .82rem; font-weight: 800; color: var(--gold); margin-bottom: 6px; }
+
+/* --- 섹션 라벨: 골드 눈썹 + 짧은 규칙선 --- */
+.ss-section { margin-bottom: 22px; }
+.ss-section:last-child { margin-bottom: 0; }
+.ss-label {
+  display: flex; align-items: center; gap: 8px;
+  font-size: .72rem; font-weight: 800; color: var(--gold);
+  letter-spacing: .12em; margin-bottom: 9px;
+}
+.ss-label::after {
+  content: ""; flex: 1; height: 1px; background: var(--border);
+}
+
+/* --- 성경말씀: 누를 수 있는 본문 칩 --- */
 .ss-scripture {
-  display: block; font-weight: 700; color: var(--navy); font-size: 1rem;
-  padding: 10px 12px; background: var(--cream); border-radius: 9px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 12px 14px; background: var(--cream); border-radius: 10px;
+  border: 1px solid #eadfbf;
+}
+.ss-scripture-ref {
+  font-family: "Nanum Myeongjo", serif; font-weight: 800;
+  color: var(--navy-dark); font-size: 1.05rem;
 }
 .ss-scripture-link { text-decoration: none; cursor: pointer; transition: background .15s; }
-.ss-scripture-link:hover { background: #f2e6c9; }
+.ss-scripture-link:hover { background: #f7ecd2; }
 .ss-scripture-ext {
-  margin-left: 6px; font-size: .74rem; font-weight: 800; color: #8a6d1f;
-  background: #fff; border: 1px solid #eadfbf; border-radius: 999px; padding: 1px 8px;
+  flex-shrink: 0;
+  font-size: .72rem; font-weight: 800; color: #8a6d1f;
+  background: #fff; border: 1px solid #eadfbf; border-radius: 999px; padding: 3px 9px;
   white-space: nowrap;
 }
-.dark .ss-scripture-link:hover { background: #2b3244; }
-.dark .ss-scripture-ext { background: #1b2333; color: #e8d9a3; border-color: #4a4225; }
-.ss-summary { color: #333; font-size: .98rem; line-height: 1.8; }
-/* 핵심 포인트 — 번호 + 굵은 제목 + 본문 */
+
+/* --- 설교 요약: 설교의 논지. 말씀과 같은 명조로 무게를 준다 --- */
+.ss-summary {
+  margin: 0; padding: 2px 0 2px 15px;
+  border-left: 3px solid var(--gold);
+  font-family: "Nanum Myeongjo", serif;
+  font-size: 1.06rem; line-height: 1.9; color: var(--navy-dark);
+  word-break: keep-all;
+}
+
+/* --- 핵심 포인트(대지): 번호는 순서가 있는 전개라서 쓴다.
+       세로 실선이 1·2·3대지를 잇고 마지막에서 끊긴다 = 설교의 흐름 --- */
 .ss-points { list-style: none; counter-reset: sp; margin: 0; padding: 0; }
 .ss-points li {
   counter-increment: sp; position: relative;
-  padding: 0 0 14px 30px; margin-bottom: 4px;
+  padding: 0 0 20px 36px;
 }
-.ss-points li::before {
-  content: counter(sp); position: absolute; left: 0; top: 1px;
-  width: 21px; height: 21px; border-radius: 50%;
+.ss-points li:last-child { padding-bottom: 0; }
+.ss-points li::before {           /* 번호 뱃지 */
+  content: counter(sp);
+  position: absolute; left: 0; top: 0;
+  width: 24px; height: 24px; border-radius: 50%;
   background: var(--navy); color: #fff;
-  font-size: .74rem; font-weight: 800;
+  font-size: .76rem; font-weight: 800;
   display: flex; align-items: center; justify-content: center;
 }
-.ss-point-head { font-weight: 800; color: var(--navy); font-size: .98rem; margin-bottom: 4px; }
-.ss-point-body { color: #444; font-size: .92rem; line-height: 1.7; }
+.ss-points li::after {            /* 대지를 잇는 실 */
+  content: ""; position: absolute; left: 11px; top: 28px; bottom: 2px;
+  width: 2px; background: var(--border); border-radius: 1px;
+}
+.ss-points li:last-child::after { display: none; }
+.ss-point-head {
+  font-size: 1rem; font-weight: 800; color: var(--navy);
+  margin: 2px 0 5px; line-height: 1.45; word-break: keep-all;
+}
+.ss-point-body {
+  margin: 0; color: #4a5261; font-size: .93rem; line-height: 1.75;
+  word-break: keep-all;
+}
+
+.dark .ss-meta { color: #aeb8c8; }
+.dark .ss-label::after { background: #3a4a68; }
+.dark .ss-scripture { background: #232012; border-color: #4a4225; }
+.dark .ss-scripture-ref { color: #e8d9a3; }
+.dark .ss-scripture-link:hover { background: #2c2717; }
+.dark .ss-scripture-ext { background: #1b2333; color: #e8d9a3; border-color: #4a4225; }
+.dark .ss-summary { color: #e6e9ef; }
+.dark .ss-points li::after { background: #3a4a68; }
+.dark .ss-point-head { color: #cdd9f2; }
+.dark .ss-point-body { color: #aeb8c8; }
 
 .dark .ss-title { color: #cdd9f2; }
-.dark .ss-scripture { background: #232c3f; color: #cdd9f2; }
-.dark .ss-summary { color: #dbe2ee; }
 .dark .ss-points li::before { background: #3a4a68; }
-.dark .ss-point-head { color: #cdd9f2; }
-.dark .ss-point-body { color: #c3cbd8; }
 
 .test-stage {
   display: inline-block;

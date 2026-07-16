@@ -1420,16 +1420,22 @@ function renderSermonSummary(verse, stage, sermon) {
   const appEl = document.getElementById("app");
   const points = Array.isArray(sermon.points) ? sermon.points : [];
   const pointsHtml = points.length ? `
-        <div class="ss-section">
+        <section class="ss-section">
           <div class="ss-label">핵심 포인트</div>
           <ol class="ss-points">
             ${points.map((p) => `
               <li>
-                <div class="ss-point-head">${boardEsc(p.heading || "")}</div>
-                <div class="ss-point-body">${boardEsc(p.body || "")}</div>
+                <h3 class="ss-point-head">${boardEsc(p.heading || "")}</h3>
+                <p class="ss-point-body">${boardEsc(p.body || "")}</p>
               </li>`).join("")}
           </ol>
-        </div>` : "";
+        </section>` : "";
+
+  // 예배일·설교자 — 있는 것만 눈썹 정보로(맥락 제공)
+  const meta = [
+    sermon.date ? String(sermon.date).replace(/-/g, ".") : "",
+    sermon.preacher || "",
+  ].filter(Boolean).join(" · ");
 
   appEl.innerHTML = `
     <div class="test-screen">
@@ -1440,23 +1446,27 @@ function renderSermonSummary(verse, stage, sermon) {
           </div>
           <button class="back-btn" id="ss-back">← 암송으로</button>
         </div>
-        ${sermon.title ? `<div class="ss-title">${boardEsc(sermon.title)}</div>` : ""}
+        <header class="ss-head">
+          ${meta ? `<div class="ss-meta">${boardEsc(meta)}</div>` : ""}
+          ${sermon.title ? `<h2 class="ss-title">${boardEsc(sermon.title)}</h2>` : ""}
+        </header>
         ${sermon.scripture ? `
-        <div class="ss-section">
-          <div class="ss-label">📖 성경말씀</div>
+        <section class="ss-section">
+          <div class="ss-label">성경말씀</div>
           ${(() => {
             const url = scriptureUrl(sermon.scripture);
+            const inner = `<span class="ss-scripture-ref">${boardEsc(sermon.scripture)}</span>`;
             return url
               ? `<a class="ss-scripture ss-scripture-link" href="${url}" target="_blank" rel="noopener">
-                   ${boardEsc(sermon.scripture)} <span class="ss-scripture-ext">개역개정 ↗</span>
+                   ${inner}<span class="ss-scripture-ext">개역개정 ↗</span>
                  </a>`
-              : `<div class="ss-scripture">${boardEsc(sermon.scripture)}</div>`;
+              : `<div class="ss-scripture">${inner}</div>`;
           })()}
-        </div>` : ""}
-        <div class="ss-section">
-          <div class="ss-label">📝 설교 요약</div>
-          <div class="ss-summary">${boardEsc(sermon.summary)}</div>
-        </div>
+        </section>` : ""}
+        <section class="ss-section">
+          <div class="ss-label">설교 요약</div>
+          <blockquote class="ss-summary">${boardEsc(sermon.summary)}</blockquote>
+        </section>
         ${pointsHtml}
       </div>
     </div>`;
