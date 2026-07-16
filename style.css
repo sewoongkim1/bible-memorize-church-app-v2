@@ -416,12 +416,28 @@ h1 {
   padding: 10px 12px; background: var(--cream); border-radius: 9px;
 }
 .ss-summary { color: #333; font-size: .98rem; line-height: 1.8; }
-.ss-note { margin-top: 6px; font-size: .76rem; color: var(--gray); text-align: center; }
+/* 핵심 포인트 — 번호 + 굵은 제목 + 본문 */
+.ss-points { list-style: none; counter-reset: sp; margin: 0; padding: 0; }
+.ss-points li {
+  counter-increment: sp; position: relative;
+  padding: 0 0 14px 30px; margin-bottom: 4px;
+}
+.ss-points li::before {
+  content: counter(sp); position: absolute; left: 0; top: 1px;
+  width: 21px; height: 21px; border-radius: 50%;
+  background: var(--navy); color: #fff;
+  font-size: .74rem; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+}
+.ss-point-head { font-weight: 800; color: var(--navy); font-size: .98rem; margin-bottom: 4px; }
+.ss-point-body { color: #444; font-size: .92rem; line-height: 1.7; }
 
 .dark .ss-title { color: #cdd9f2; }
 .dark .ss-scripture { background: #232c3f; color: #cdd9f2; }
 .dark .ss-summary { color: #dbe2ee; }
-.dark .ss-note { color: #aeb8c8; }
+.dark .ss-points li::before { background: #3a4a68; }
+.dark .ss-point-head { color: #cdd9f2; }
+.dark .ss-point-body { color: #c3cbd8; }
 
 .test-stage {
   display: inline-block;

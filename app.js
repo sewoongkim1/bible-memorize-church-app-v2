@@ -1390,13 +1390,25 @@ function fillSermonSummaryBtn(verse, stage) {
 function renderSermonSummary(verse, stage, sermon) {
   stopSpeaking();
   const appEl = document.getElementById("app");
+  const points = Array.isArray(sermon.points) ? sermon.points : [];
+  const pointsHtml = points.length ? `
+        <div class="ss-section">
+          <div class="ss-label">핵심 포인트</div>
+          <ol class="ss-points">
+            ${points.map((p) => `
+              <li>
+                <div class="ss-point-head">${boardEsc(p.heading || "")}</div>
+                <div class="ss-point-body">${boardEsc(p.body || "")}</div>
+              </li>`).join("")}
+          </ol>
+        </div>` : "";
+
   appEl.innerHTML = `
     <div class="test-screen">
       <div class="test-card sermon-sum-card">
         <div class="test-top">
           <div class="test-head">
             <div class="test-stage">📄 설교 요약</div>
-            <div class="test-ref">${verse.refShort}</div>
           </div>
           <button class="back-btn" id="ss-back">← 암송으로</button>
         </div>
@@ -1410,11 +1422,7 @@ function renderSermonSummary(verse, stage, sermon) {
           <div class="ss-label">📝 설교 요약</div>
           <div class="ss-summary">${boardEsc(sermon.summary)}</div>
         </div>
-        ${verse.url ? `<a class="sermon-banner" href="${verse.url}" target="_blank" rel="noopener">
-          <span class="sermon-banner-icon">▶</span>
-          <span class="sermon-banner-text"><span class="sermon-banner-title">설교 영상 보기</span></span>
-        </a>` : ""}
-        <div class="ss-note">말씀 아카이브(sermon.onlybible.kr)에서 가져온 요약이에요 🙌</div>
+        ${pointsHtml}
       </div>
     </div>`;
   document.getElementById("ss-back")
