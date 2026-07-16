@@ -413,16 +413,18 @@ h1 {
   flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 5px;
   padding: 12px 8px; border-radius: 11px;
   font-size: 14px; font-weight: 700; font-family: inherit; line-height: 1.2;
-  white-space: nowrap;
+  white-space: nowrap; overflow: hidden;   /* 초협소 화면에서 테두리 밖 삐짐 방지 */
   cursor: pointer; text-decoration: none;
   background: #eef1f8; border: 1.5px solid var(--navy); color: var(--navy);
   transition: background .15s, color .15s;
 }
 .sc-btn:hover { background: var(--navy); color: #fff; }
 /* 요약 버튼이 슬롯 안에서도 동일 너비를 받도록 */
-#sermon-summary-slot { flex: 1; display: flex; }
+/* 슬롯도 min-width:0 이어야 한다. 기본값 auto면 내용(nowrap)보다 못 줄어들어
+   좁은 화면에서 설교요약이 제 몫보다 넓어지고 설교보기가 밀린다. */
+#sermon-summary-slot { flex: 1; min-width: 0; display: flex; }
 #sermon-summary-slot:empty { display: none; }
-#sermon-summary-slot .sc-btn { flex: 1; }
+#sermon-summary-slot .sc-btn { flex: 1; min-width: 0; }
 .sc-soon {
   flex: 1; background: #eef0f4; color: #8a93a5;
   border-color: #d7dbe3; cursor: default;
