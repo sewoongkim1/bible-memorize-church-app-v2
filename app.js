@@ -1460,10 +1460,8 @@ function renderSermonSummary(verse, sermon, onBack, backLabel) {
   appEl.innerHTML = `
     <div class="test-screen">
       <div class="test-card sermon-sum-card">
-        <div class="test-top">
-          <div class="test-head">
-            <button class="ss-read" id="ss-read">🔊 읽어주기</button>
-          </div>
+        <div class="ss-top">
+          <button class="ss-read" id="ss-read">🔊 읽어주기</button>
           <button class="back-btn" id="ss-back">${backLabel || "← 뒤로"}</button>
         </div>
         <header class="ss-head">

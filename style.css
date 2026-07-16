@@ -461,21 +461,31 @@ h1 {
   --ss-raise: #101828;
   --ss-gold: #d9b44d;
 }
-/* 상단 두 버튼('읽어주기'·'뒤로')을 같은 크기·같은 스타일로.
-   둘 다 누르는 것이므로 보조 버튼 어법(연파랑 + 네이비 라인)으로 통일. */
-.sermon-sum-card .test-top { align-items: stretch; gap: 8px; }
-.sermon-sum-card .test-head { flex: 1; min-width: 0; display: flex; }
-.sermon-sum-card .ss-read,
-.sermon-sum-card .back-btn {
-  flex: 1; min-width: 0;
+/* 상단 두 버튼('읽어주기'·'뒤로') — 같은 부모의 직계 형제로 두어 균등을 구조로 보장.
+   (예전엔 읽어주기만 .test-head 래퍼 안에 있었고, 그 래퍼의 align-items:center 탓에
+    세로로 늘어나지 않아 높이가 어긋났다. 래퍼를 없애 원인을 제거.) */
+.ss-top {
+  display: flex; align-items: stretch; gap: 8px;
+  margin-bottom: 16px;
+}
+/* 특이도 (0,3,0) — 뒤쪽 html[data-fs] .back-btn (0,2,0)이 '뒤로'에만 걸려
+   비대칭이 되던 것을 이기기 위함. 글씨 크기별 값도 아래에서 둘을 함께 키운다. */
+.sermon-sum-card .ss-top > .ss-read,
+.sermon-sum-card .ss-top > .back-btn {
+  flex: 1 1 0; min-width: 0;          /* basis 0 + grow 1 → 내용과 무관하게 정확히 반반 */
   box-sizing: border-box;
   display: flex; align-items: center; justify-content: center; gap: 4px;
-  padding: 8px 12px;
+  padding: 9px 12px;
   font-size: 13px; font-weight: 700; letter-spacing: 0;
   border-radius: 999px;
   border: 1.5px solid var(--navy);
   white-space: nowrap; overflow: hidden;
 }
+/* 고령 성도 글씨 크기 설정 — 두 버튼을 반드시 같이 키운다 */
+html[data-fs="lg"] .sermon-sum-card .ss-top > .ss-read,
+html[data-fs="lg"] .sermon-sum-card .ss-top > .back-btn { font-size: 15px; padding: 11px 14px; }
+html[data-fs="xl"] .sermon-sum-card .ss-top > .ss-read,
+html[data-fs="xl"] .sermon-sum-card .ss-top > .back-btn { font-size: 17px; padding: 13px 16px; }
 /* --- 머리말: 예배일·설교자 → 제목 --- */
 .ss-head { margin: 14px 0 18px; }
 .ss-meta {
