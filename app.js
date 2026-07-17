@@ -761,6 +761,14 @@ function renderSummary() {
     counts[getPassedStage(v.no)]++;
   });
   const done = counts[3];
+  // 통계 4칸은 서로 겹치지 않게 나눈다(합 = 전체 구절 수).
+  //   마음에 둠 → 완료 → 진행중 → 미시도 의 성장 사다리.
+  //   '마음에 둠'은 3단계를 통과해야 체크할 수 있어 done의 부분집합이므로
+  //   '완료'에서 빼야 중복 계산이 안 된다.
+  const heartMapS = loadHearted();
+  const heartCount = verses.filter((v) => heartMapS[v.no] && getPassedStage(v.no) === 3).length;
+  const doneOnly = done - heartCount;      // 완료했지만 아직 체크 안 함
+  const inProgress = counts[1] + counts[2]; // 1·2단계
   const pct = total ? Math.round((done / total) * 100) : 0;
   // 이미 완료(3단계)한 구절을 복습 일정에 등록(과거 완료분도 포함, 중복 없음)
   verses.forEach((v) => { if (getPassedStage(v.no) === 3) ensureReviewScheduled(v.no); });
@@ -810,9 +818,9 @@ function renderSummary() {
       <div class="gauge-sub">전체 ${total}구절 중 <b>${done}구절</b> 암송 완료</div>
     </div>
     <div class="stat-grid">
-      <div class="stat-box status-done"><div class="stat-num">${counts[3]}</div><div class="stat-lbl">완료</div></div>
-      <div class="stat-box status-s2"><div class="stat-num">${counts[2]}</div><div class="stat-lbl">2단계</div></div>
-      <div class="stat-box status-s1"><div class="stat-num">${counts[1]}</div><div class="stat-lbl">1단계</div></div>
+      <div class="stat-box status-heart"><div class="stat-num">${heartCount}</div><div class="stat-lbl">마음에 둠</div></div>
+      <div class="stat-box status-done"><div class="stat-num">${doneOnly}</div><div class="stat-lbl">완료</div></div>
+      <div class="stat-box status-s1"><div class="stat-num">${inProgress}</div><div class="stat-lbl">진행중</div></div>
       <div class="stat-box status-none"><div class="stat-num">${counts[0]}</div><div class="stat-lbl">미시도</div></div>
     </div>
     ${weeklyHtml}

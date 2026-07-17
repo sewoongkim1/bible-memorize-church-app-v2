@@ -1035,6 +1035,10 @@ html[data-fs="xl"] .sermon-sum-card .ss-top > .back-btn { font-size: 17px; paddi
 }
 .stat-num { font-size: 1.5rem; font-weight: 800; color: var(--navy); }
 .stat-lbl { font-size: .72rem; color: var(--gray); margin-top: 2px; }
+/* 통계 4칸 색 사다리: 마음에 둠(금) → 완료(초록) → 진행중(파랑) → 미시도(회색).
+   금색은 '마음에 둠'(성취) 전용 — 👑 금배지와 같은 어법. */
+.stat-box.status-heart { background: #fdf3d6; border-color: #e3c777; }
+.stat-box.status-heart .stat-num { color: #8a6d1f; }
 .stat-box.status-done { background: #eaf5ec; border-color: #bcdfc1; }
 .stat-box.status-done .stat-num { color: var(--green); }
 .stat-box.status-s2 { background: #fff6e0; border-color: #ecd9a0; }
@@ -1694,6 +1698,8 @@ html[data-fs="xl"] .sermon-sum-card .ss-top > .back-btn { font-size: 17px; paddi
 .dark .mc-cell.done{ background:#17301f; border-color:#2c5f2d; }
 .dark .mc-cell.miss{ background:#3a2020; border-color:#6b2f2f; }
 .dark .mc-cell.future{ background:#171c26; }
+.dark .stat-box.status-heart{ background:#2b2717; border-color:#8d7531; }
+.dark .stat-box.status-heart .stat-num{ color:#e8d9a3; }
 .dark .stat-box.status-done{ background:#17301f; }
 
 .page-header{ position: relative; }
