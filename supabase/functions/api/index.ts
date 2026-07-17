@@ -671,14 +671,13 @@ async function statsSlow(b: any) {
   const g = new Map<string, any>();
   const seen = new Map<string, Set<string>>(); // group → set(user_id)
   for (const row of data) {
-    if (!String(row.mode).startsWith("learn-")) continue;
     const u = row.users ?? {};
     const gubun = u.type, sosok = u.gu || u.bu || "";
     const key = gubun + "|" + sosok;
     const e = g.get(key) ?? { gubun, sosok, newCount: 0, participants: 0, typing: 0, voice: 0, total: 0 };
     e.total++;
-    if (row.mode === "learn-typing") e.typing++;
-    if (row.mode === "learn-voice") e.voice++;
+    if (String(row.mode).includes("typing")) e.typing++;
+    if (String(row.mode).includes("voice")) e.voice++;
     g.set(key, e);
     if (!seen.has(key)) seen.set(key, new Set());
     seen.get(key)!.add(row.user_id);
@@ -720,15 +719,14 @@ async function participantsSlow(b: any) {
 
   const map = new Map<string, any>();
   for (const row of data) {
-    if (!String(row.mode).startsWith("learn-")) continue;
     const u = row.users ?? {};
     const e = map.get(row.user_id) ?? {
       gubun: u.type, sosok: u.gu || u.bu || "", sebu: u.mok || u.grade || "",
       name: u.name, typing: 0, voice: 0, total: 0,
     };
     e.total++;
-    if (row.mode === "learn-typing") e.typing++;
-    if (row.mode === "learn-voice") e.voice++;
+    if (String(row.mode).includes("typing")) e.typing++;
+    if (String(row.mode).includes("voice")) e.voice++;
     map.set(row.user_id, e);
   }
   let list = [...map.values()];
@@ -792,7 +790,6 @@ async function verseStatsSlow(b: any) {
   const map = new Map<number, any>();
   const seen = new Map<number, Set<string>>();
   for (const row of data) {
-    if (!String(row.mode).startsWith("learn-")) continue;
     const e = map.get(row.verse_no) ?? { no: row.verse_no, participants: 0, count: 0 };
     e.count++;
     map.set(row.verse_no, e);
