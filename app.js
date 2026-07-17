@@ -819,7 +819,7 @@ function renderSummary() {
     </div>
     <div class="stat-grid">
       <div class="stat-box status-heart"><div class="stat-num">${heartCount}</div><div class="stat-lbl">마음에 둠</div></div>
-      <div class="stat-box status-done"><div class="stat-num">${doneOnly}</div><div class="stat-lbl">완료</div></div>
+      <div class="stat-box status-done"><div class="stat-num">${doneOnly}</div><div class="stat-lbl">암송</div></div>
       <div class="stat-box status-s1"><div class="stat-num">${inProgress}</div><div class="stat-lbl">진행중</div></div>
       <div class="stat-box status-none"><div class="stat-num">${counts[0]}</div><div class="stat-lbl">미시도</div></div>
     </div>
