@@ -301,7 +301,11 @@ h1 {
   font-family: "Nanum Myeongjo", serif; font-weight: 800;
   font-size: 1.1rem; color: var(--navy-dark); margin: 2px 0 10px; line-height: 1.4;
 }
-.dmsg-body { white-space: normal; }
+.dmsg-body {
+  white-space: normal;
+  font-family: "Noto Sans KR", sans-serif; /* 이번주 말씀의 성경말씀과 동일 폰트 */
+  font-size: .95rem;                         /* 한 사이즈 축소(1.05→.95) */
+}
 /* 내용이 길면 모달 안에서 스크롤(화면 밖으로 넘치지 않게) */
 .dmsg-card { max-height: 85vh; overflow-y: auto; }
 .dmsg-body a { color: inherit; text-decoration: underline; }
