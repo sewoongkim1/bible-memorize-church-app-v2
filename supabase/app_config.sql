@@ -1,6 +1,8 @@
 -- ============================================================
 -- 앱 설정 저장소(키-값). 관리자가 배포 없이 편집하는 값들을 담는다.
---   첫 용도: heartMessages("마음에 둠" 체크 시 감사·응원 메시지 목록)
+--   주요 키: heartMessages(마음에 둠), dailyMessage(오늘의 메시지),
+--            introSlides(첫 방문 안내),
+--            milestoneMessages(10·20·30회 등 일일 달성 응원 문구)
 -- Supabase SQL Editor에서 1회 실행. value 는 jsonb.
 -- ============================================================
 create table if not exists public.app_config (
