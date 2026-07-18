@@ -533,11 +533,10 @@ async function saveProgress(b: any) {
   }, { onConflict: "user_id,verse_no" });
   if (error) throw error;
 
-  // 학습 통과를 활동 이벤트로 남긴다(관리자 사용현황/참여자/구절별 통계 원천)
-  // 단계 정보를 mode에 함께 남긴다. 기존 통계의 learn-/typing/voice 판별은 그대로 유지하면서
-  // 일일 동기부여 집계에서는 최종 3단계만 '일반 암송 완료 1회'로 셀 수 있다.
-  const stage = Math.max(1, Math.min(3, Number(b.stage) || 1));
-  const m = `learn-${b.mode === "voice" ? "voice" : "typing"}-stage${stage}`;
+  // 학습 통과를 활동 이벤트로 남긴다(관리자 사용현황/참여자/구절별 통계 원천).
+  // ⚠️ mode는 challenge_log_mode_check 제약이 허용하는 값만 써야 한다.
+  //    (한때 learn-typing-stage3 처럼 단계를 붙였다가 제약 위반으로 기록이 전부 막혔음)
+  const m = b.mode === "voice" ? "learn-voice" : "learn-typing";
   const { error: logError } = await db.from("challenge_log").insert({
     user_id: b.user_id, verse_no: b.verse_no, mode: m,
   });
@@ -563,20 +562,17 @@ async function challenge(b: any) {
 }
 
 // 일반 암송 완료(3단계)·말씀 도전·복습을 모두 합친 오늘의 완료 횟수.
-// challenge_log가 세 활동의 공통 원천이며, learn-* 중에서는 stage3만 완료로 센다.
+// challenge_log가 세 활동(암송·도전·복습)의 공통 원천 — 오늘 총 활동 횟수를 센다.
 async function dailyActivityMilestone(userId: string) {
   const today = kstDay(new Date().toISOString());
   const from = `${today}T00:00:00${KST}`;
   const to = `${today}T23:59:59.999${KST}`;
-  const base = () => db.from("challenge_log").select("*", { count: "exact", head: true })
+  // 오늘의 모든 활동(암송·도전·복습)을 센다 — 첫 화면 '오늘 N회' 띠(mydays)와 같은 기준.
+  const { count, error } = await db.from("challenge_log").select("*", { count: "exact", head: true })
     .eq("user_id", userId).gte("created_at", from).lte("created_at", to);
-  const [activity, learningDone] = await Promise.all([
-    base().not("mode", "like", "learn-%"),
-    base().like("mode", "learn-%-stage3"),
-  ]);
   // 응원 집계가 일시적으로 실패해도 이미 저장된 활동 기록은 성공으로 응답한다.
-  if (activity.error || learningDone.error) return { todayCount: null, milestone: null };
-  const todayCount = (activity.count ?? 0) + (learningDone.count ?? 0);
+  if (error) return { todayCount: null, milestone: null };
+  const todayCount = count ?? 0;
   return {
     todayCount,
     milestone: todayCount > 0 && todayCount % 10 === 0 ? todayCount : null,
