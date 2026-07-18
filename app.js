@@ -1690,6 +1690,11 @@ function renderSermonSummary(verse, sermon, onBack, backLabel) {
           <blockquote class="ss-summary">${boardEsc(sermon.summary)}</blockquote>
         </section>
         ${pointsHtml}
+        ${sermon.conclusion ? `
+        <section class="ss-section">
+          <div class="ss-label">맺음말</div>
+          <blockquote class="ss-summary ss-conclusion">${boardEsc(sermon.conclusion)}</blockquote>
+        </section>` : ""}
       </div>
     </div>`;
   document.getElementById("ss-back").addEventListener("click", onBack);

@@ -611,6 +611,12 @@ html[data-fs="xl"] .sermon-sum-card .ss-top > .back-btn { font-size: 17px; paddi
   font-size: 1.02rem; line-height: 1.75; color: var(--ss-ink-soft);
   word-break: keep-all;
 }
+/* 맺음말 — 요약과 구분: 네이비 좌측선 + 명조체 */
+.ss-conclusion {
+  border-left-color: var(--ss-navy, #1a3a6b);
+  font-family: "Nanum Myeongjo", serif;
+  color: var(--ss-ink);
+}
 
 /* --- 핵심 포인트: 대지마다 독립 카드 + 골드 mono 번호 (아카이브와 동일) --- */
 .ss-points {
