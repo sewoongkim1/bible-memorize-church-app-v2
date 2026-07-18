@@ -2599,7 +2599,7 @@ function showDailyMessage(m) {
         <div class="cheer-icon">${isNotice ? "📢" : "🌿"}</div>
         <div class="cheer-ref dmsg-badge">${isNotice ? "공지" : "격려"}</div>
         ${m.title ? `<div class="dmsg-title">${boardEsc(m.title)}</div>` : ""}
-        <div class="cheer-msg dmsg-body">${boardEsc(m.body).replace(/\n/g, "<br>")}</div>
+        <div class="cheer-msg dmsg-body">${String(m.body || "").replace(/\n/g, "<br>")}</div>
         <button class="cheer-ok" id="dmsg-ok">확인</button>
       </div>`;
     document.body.appendChild(wrap);

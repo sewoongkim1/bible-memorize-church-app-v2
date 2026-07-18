@@ -825,7 +825,7 @@ function dmRender(){
             <span class="dm-item-status ${s.c}">${s.t}</span>
           </div>
           ${m.title?`<div class="dm-item-title">${dmEsc(m.title)}</div>`:''}
-          <div class="dm-item-body">${dmEsc(m.body).slice(0,80)}${m.body.length>80?'…':''}</div>
+          <div class="dm-item-body">${dmEsc(String(m.body||'').replace(/<[^>]+>/g,' ')).slice(0,80)}${(m.body||'').length>80?'…':''}</div>
           <div class="dm-item-period">🗓 ${period}</div>
           <div class="dm-item-actions">
             <button class="dm-mini" data-edit="${m.id}">수정</button>
@@ -855,8 +855,9 @@ function dmRenderForm(root){
     </div>
     <label class="push-lb">제목 (선택)</label>
     <input id="dm-title" class="push-in" value="${dmEsc(m.title).replace(/"/g,'&quot;')}" placeholder="예: 이번 주 특별새벽기도 안내" autocomplete="off" />
-    <label class="push-lb">내용</label>
-    <textarea id="dm-body" class="push-in" style="min-height:150px;line-height:1.7;font-family:inherit" placeholder="성도에게 보여줄 내용 (줄바꿈 가능)">${dmEsc(m.body)}</textarea>
+    <label class="push-lb">내용 (HTML 태그 사용 가능)</label>
+    <div class="dm-hint">줄바꿈 그대로 적용. &lt;b&gt;굵게&lt;/b&gt;, &lt;a href="..."&gt;링크&lt;/a&gt;, &lt;span style="color:#c00"&gt;색&lt;/span&gt; 등 HTML 가능. 저장 전 <b>미리보기</b>로 확인하세요.</div>
+    <textarea id="dm-body" class="push-in" style="min-height:150px;line-height:1.7;font-family:inherit" placeholder="성도에게 보여줄 내용 (줄바꿈·HTML 가능)">${dmEsc(m.body)}</textarea>
     <label class="push-lb">표시 기간 (선택 · 비우면 무제한)</label>
     <div class="dm-dates">
       <input type="date" id="dm-from" class="push-in" value="${m.from||''}" />
@@ -894,7 +895,7 @@ function dmPreview(){
     <div class="dm-pv-icon">${m.type==='notice'?'📢':'🌿'}</div>
     <div class="dm-pv-badge">${m.type==='notice'?'공지':'격려'}</div>
     ${m.title?`<div class="dm-pv-title">${dmEsc(m.title)}</div>`:''}
-    <div class="dm-pv-body">${dmEsc(m.body).replace(/\n/g,'<br>')}</div>
+    <div class="dm-pv-body">${String(m.body||'').replace(/\n/g,'<br>')}</div>
     <button class="dm-pv-ok">확인</button></div>`;
   document.body.appendChild(ov);
   const close=()=>ov.remove();
