@@ -1933,11 +1933,12 @@ function speakLong(text, onEnd) {
     ut.onerror = () => { i++; speakNext(); }; // 한 조각 실패해도 계속 진행
     window.speechSynthesis.speak(ut);
   };
-  // 크롬 15초 자동 정지 방어 — 말하는 중이면 주기적으로 깨워둔다.
+  // 크롬 자동 정지 방어 — resume()만 사용(모바일에선 pause()가 재생을 끊으므로 금지).
+  // 재생 중이 아니면 resume()은 무해한 no-op.
   _ttsKeepAlive = setInterval(() => {
     const ss = window.speechSynthesis;
-    if (ss && ss.speaking) { ss.pause(); ss.resume(); }
-  }, 8000);
+    if (ss && ss.speaking) ss.resume();
+  }, 5000);
   speakNext();
 }
 
