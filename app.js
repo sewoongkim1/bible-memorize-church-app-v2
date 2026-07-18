@@ -1905,6 +1905,12 @@ function splitForSpeech(text, max = 150) {
 }
 
 // 긴 글 읽어주기(설교 요약 등). 마지막 조각이 끝나면 onEnd.
+// 크롬은 (1) 발화 하나가 길면 ~15초에서 끊고, (2) 여러 발화를 한꺼번에 큐에 넣으면
+// ~15초 뒤 세션 자체를 멈춰 나머지를 버린다. 그래서 ① 문장 단위로 쪼개 ② 한 개씩
+// 순차 재생(onend에서 다음)하고 ③ 주기적으로 resume해 자동 정지를 막는다.
+let _ttsKeepAlive = null;
+function _ttsStopKeepAlive() { if (_ttsKeepAlive) { clearInterval(_ttsKeepAlive); _ttsKeepAlive = null; } }
+
 function speakLong(text, onEnd) {
   if (!("speechSynthesis" in window)) {
     alert("이 브라우저는 읽어주기(음성 합성)를 지원하지 않습니다.\n크롬·사파리에서 이용해 주세요.");
@@ -1914,17 +1920,29 @@ function speakLong(text, onEnd) {
   const parts = splitForSpeech(text);
   if (!parts.length) { if (onEnd) onEnd(); return; }
   window.speechSynthesis.cancel();
-  parts.forEach((p, i) => {
-    const ut = new SpeechSynthesisUtterance(p);
+  _ttsStopKeepAlive();
+
+  let i = 0;
+  const speakNext = () => {
+    if (i >= parts.length) { _ttsStopKeepAlive(); if (onEnd) onEnd(); return; }
+    const ut = new SpeechSynthesisUtterance(parts[i]);
     ut.lang = "ko-KR";
     ut.rate = getSpeakRate();
     ut.pitch = 1;
-    if (i === parts.length - 1 && onEnd) { ut.onend = onEnd; ut.onerror = onEnd; }
+    ut.onend = () => { i++; speakNext(); };
+    ut.onerror = () => { i++; speakNext(); }; // 한 조각 실패해도 계속 진행
     window.speechSynthesis.speak(ut);
-  });
+  };
+  // 크롬 15초 자동 정지 방어 — 말하는 중이면 주기적으로 깨워둔다.
+  _ttsKeepAlive = setInterval(() => {
+    const ss = window.speechSynthesis;
+    if (ss && ss.speaking) { ss.pause(); ss.resume(); }
+  }, 8000);
+  speakNext();
 }
 
 function stopSpeaking() {
+  _ttsStopKeepAlive(); // 긴 낭독 keep-alive 타이머 정리
   if (window.speechSynthesis) window.speechSynthesis.cancel();
   killVoice(); // 화면 전환 시 음성인식(입력)도 함께 중단
 }
