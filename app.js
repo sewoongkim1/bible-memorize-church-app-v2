@@ -499,13 +499,17 @@ function getPassedStage(no) {
 function postProgress(no, stage, mode) {
   const u = loadUser();
   if (!u || !u.user_id) return; // 첫 동기화 전이면 스킵(다음 로그인 때 서버 반영)
+  bumpTodayCount(); // 오늘 N회 즉시 +1(서버 커밋 전에 실시간 반영)
   saveSyncStatus("saving", "통과 기록을 서버에 저장하고 있습니다.");
   api.saveProgress(u.user_id, no, stage, mode)
     .then((d) => {
       saveSyncStatus("success", "방금 통과한 기록이 서버에 저장되었습니다.");
       maybeShowDailyMilestone(d);
     })
-    .catch(() => saveSyncStatus("error", "서버 저장에 실패했습니다. 기록은 이 기기에 저장되어 있습니다."));
+    .catch(() => {
+      unbumpTodayCount(); // 저장 실패 → 낙관적 +1 취소
+      saveSyncStatus("error", "서버 저장에 실패했습니다. 기록은 이 기기에 저장되어 있습니다.");
+    });
 }
 
 // ------------------------------------------------------------
@@ -1376,6 +1380,12 @@ let verseCountCache = null;
 
 // 첫 화면 '오늘 N회' 띠. 횟수(암송·도전·복습 전부, KST)에 따라 짧은 격려어가 달라진다.
 let todayCountCache = null; // 오늘 활동 횟수(숫자) 또는 null(미로드)
+let todayCountDay = null;   // 그 캐시가 속한 KST 날짜(YYYY-MM-DD) — 자정 넘김 판별용
+
+function todayYmd() {
+  const p = kstDateParts() || {};
+  return [p.y, String(p.m).padStart(2, "0"), String(p.d).padStart(2, "0")].join("-");
+}
 
 function todayTier(n) {
   if (n <= 0)  return { word: "오늘 첫 말씀을 시작해요", emoji: "🌱", cls: "t0" };
@@ -1397,14 +1407,35 @@ function applyTodayStrip() {
     : `<span class="today-word">${t.word} ${t.emoji}</span>`;
 }
 
+// 활동(암송·도전·복습) 완료 시 즉시 +1. 서버 커밋을 기다리지 않아 '실시간'으로 느껴진다.
+// 캐시 미로드/날짜 바뀜이면 건너뛰고 다음 mydays가 채운다.
+function bumpTodayCount() {
+  if (todayCountCache == null || todayCountDay !== todayYmd()) return;
+  todayCountCache += 1;
+  applyTodayStrip(); // 홈 화면이면 즉시 반영, 아니면 다음 renderSummary에서 보임
+}
+// 저장 실패 시 낙관적 +1 되돌리기(과다 계상 방지)
+function unbumpTodayCount() {
+  if (todayCountCache == null || todayCountDay !== todayYmd()) return;
+  todayCountCache = Math.max(0, todayCountCache - 1);
+  applyTodayStrip();
+}
+
 function loadTodayCount(u) {
   applyTodayStrip(); // 캐시 있으면 즉시(재방문 깜빡임 방지)
   if (!u || !u.user_id || !window.api || !api.mydays) return;
-  const p = kstDateParts() || {};
-  const ymd = [p.y, String(p.m).padStart(2, "0"), String(p.d).padStart(2, "0")].join("-");
+  const ymd = todayYmd();
   api.mydays(u.user_id, ymd, ymd)
     .then((d) => {
-      todayCountCache = (d && d.days && Number(d.days[ymd])) || 0;
+      const serverVal = (d && d.days && Number(d.days[ymd])) || 0;
+      if (todayCountDay === ymd && todayCountCache != null) {
+        // 같은 날: 방금 낙관적 +1을 경합하던 mydays가 옛 값으로 되돌리지 않게 큰 값 유지
+        todayCountCache = Math.max(todayCountCache, serverVal);
+      } else {
+        // 첫 로드 또는 자정 넘김 → 서버값으로 리셋
+        todayCountCache = serverVal;
+        todayCountDay = ymd;
+      }
       applyTodayStrip();
     })
     .catch(() => {});
@@ -2906,6 +2937,7 @@ function challengeComplete(verse, mode) {
 function postChallenge(verse, mode) {
   const u = loadUser();
   if (!u || !u.user_id) return Promise.resolve(null);
+  bumpTodayCount(); // 오늘 N회 즉시 +1(도전·복습 완료)
   saveSyncStatus("saving", "도전 기록을 서버에 저장하고 있습니다.");
   return api.challenge(u.user_id, verse.no, mode)
     .then((d) => {
@@ -2918,6 +2950,7 @@ function postChallenge(verse, mode) {
       return d;
     })
     .catch(() => {
+      unbumpTodayCount(); // 저장 실패 → 낙관적 +1 취소
       saveSyncStatus("error", "도전 기록 서버 저장에 실패했습니다. 기록은 이 기기에 저장되어 있습니다.");
       return null;
     });
