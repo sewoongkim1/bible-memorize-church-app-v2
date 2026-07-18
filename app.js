@@ -877,7 +877,6 @@ function renderSummary() {
   const heartCount = verses.filter((v) => heartMapS[v.no] && getPassedStage(v.no) === 3).length;
   const doneOnly = done - heartCount;      // 완료했지만 아직 체크 안 함
   const inProgress = counts[1] + counts[2]; // 1·2단계
-  const pct = total ? Math.round((done / total) * 100) : 0;
   // 이미 완료(3단계)한 구절을 복습 일정에 등록(과거 완료분도 포함, 중복 없음)
   verses.forEach((v) => { if (getPassedStage(v.no) === 3) ensureReviewScheduled(v.no); });
   const dueCount = dueReviewNos().length; // 오늘 복습할 구절 수
@@ -922,10 +921,6 @@ function renderSummary() {
       </div>
     </div>
     <div class="today-strip" id="today-strip"><span class="today-txt">오늘의 말씀 활동을 불러오는 중…</span></div>
-    <div class="gauge-wrap">
-      <div class="gauge-bar"><div class="gauge-fill" style="width:${pct}%"></div></div>
-      <div class="gauge-sub">전체 ${total}구절 중 <b>${done}구절</b> 암송 완료</div>
-    </div>
     <div class="stat-grid">
       <div class="stat-box status-heart"><div class="stat-num">${heartCount}</div><div class="stat-lbl">마음에 둠</div></div>
       <div class="stat-box status-done"><div class="stat-num">${doneOnly}</div><div class="stat-lbl">암송</div></div>
