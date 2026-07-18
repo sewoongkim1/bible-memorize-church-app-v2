@@ -256,6 +256,50 @@ h1 {
 }
 .card-listen:hover { background: #dde4f2; }
 
+/* "마음에 둠" 체크 시 감사·응원 모달 */
+.cheer-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  background: rgba(13, 27, 62, .45);
+  opacity: 0; transition: opacity .25s;
+}
+.cheer-overlay.show { opacity: 1; }
+.cheer-card {
+  width: 100%; max-width: 340px; text-align: center;
+  background: linear-gradient(180deg, #fffdf6 0%, #fff 65%);
+  border: 1.5px solid var(--gold); border-radius: 18px;
+  padding: 26px 22px 22px;
+  box-shadow: 0 12px 40px rgba(13, 27, 62, .28);
+  transform: scale(.9); transition: transform .25s cubic-bezier(.2,.9,.3,1.2);
+}
+.cheer-overlay.show .cheer-card { transform: scale(1); }
+.cheer-icon { font-size: 46px; line-height: 1; margin-bottom: 8px; }
+.cheer-ref {
+  display: inline-block; margin-bottom: 12px; padding: 2px 12px;
+  background: var(--gold); color: var(--navy-dark);
+  border-radius: 999px; font-size: .78rem; font-weight: 800;
+}
+.cheer-msg {
+  font-family: "Nanum Myeongjo", serif;
+  font-size: 1.05rem; line-height: 1.75; color: var(--navy-dark);
+  margin-bottom: 20px; word-break: keep-all;
+}
+.cheer-ok {
+  width: 100%; padding: 12px;
+  background: var(--gold); color: var(--navy-dark);
+  border: none; border-radius: 12px;
+  font-size: 1rem; font-weight: 800; font-family: inherit; cursor: pointer;
+  transition: filter .15s;
+}
+.cheer-ok:hover { filter: brightness(1.05); }
+.dark .cheer-card { background: #2b2717; border-color: #8d7531; }
+.dark .cheer-msg { color: #e8d9a3; }
+@media (prefers-reduced-motion: reduce) {
+  .cheer-overlay, .cheer-card { transition: none; }
+  .cheer-overlay.show .cheer-card { transform: none; }
+}
+
 /* 3단계 "이 말씀을 내 마음에 두었나이다" 체크 */
 .heart-check {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;

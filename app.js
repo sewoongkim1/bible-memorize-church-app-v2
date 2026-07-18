@@ -525,6 +525,40 @@ function isHearted(no) {
   return !!loadHearted()[no];
 }
 // 체크/해제 → 로컬 즉시 반영 + 서버 저장(실패해도 로컬은 유지)
+// "마음에 둠" 체크 시 감사·응원 메시지(랜덤). 암송의 수고를 격려한다.
+const HEART_MESSAGES = [
+  "말씀 한 구절을 마음에 새기셨네요 🌱\n그 수고를 주님이 기억하십니다.",
+  "잘하셨어요! 오늘 새긴 말씀이\n삶의 길에 등불이 될 거예요 💛",
+  "한 구절 한 구절, 성도님의 정성이\n마음의 밭에 씨앗으로 심겼어요 🌾",
+  "수고 많으셨어요 🙌\n외운 말씀은 어디서도 빼앗기지 않는 보물이에요.",
+  "마음에 새긴 이 말씀이\n힘든 날 성도님을 붙들어 줄 거예요 🤍",
+  "귀한 걸음이에요 👑\n말씀을 사랑하는 그 마음, 참 아름답습니다.",
+];
+
+// 축하 모달 표시(체크 켤 때만). 확인 누르면 닫힘.
+function showHeartCheer(verse) {
+  const msg = HEART_MESSAGES[Math.floor(Math.random() * HEART_MESSAGES.length)];
+  const existing = document.getElementById("heart-cheer");
+  if (existing) existing.remove();
+  const wrap = document.createElement("div");
+  wrap.id = "heart-cheer";
+  wrap.className = "cheer-overlay";
+  wrap.innerHTML = `
+    <div class="cheer-card" role="dialog" aria-modal="true">
+      <div class="cheer-icon">👑</div>
+      <div class="cheer-ref">${boardEsc(verse.refShort || "")}</div>
+      <div class="cheer-msg">${boardEsc(msg).replace(/\n/g, "<br>")}</div>
+      <button class="cheer-ok" id="cheer-ok">아멘 🙏</button>
+    </div>`;
+  document.body.appendChild(wrap);
+  requestAnimationFrame(() => wrap.classList.add("show"));
+  const close = () => { wrap.classList.remove("show"); setTimeout(() => wrap.remove(), 250); };
+  const okBtn = document.getElementById("cheer-ok");
+  okBtn.addEventListener("click", close);
+  okBtn.focus(); // 키보드로도 바로 확인
+  wrap.addEventListener("click", (e) => { if (e.target === wrap) close(); }); // 바깥 탭 닫기
+}
+
 function setHearted(no, on) {
   const h = loadHearted();
   if (on) h[no] = true; else delete h[no];
@@ -1619,6 +1653,7 @@ function renderTestScreen(verse, stage) {
     heartInput.addEventListener("change", () => {
       setHearted(verse.no, heartInput.checked);
       document.getElementById("heart-label").classList.toggle("on", heartInput.checked);
+      if (heartInput.checked) showHeartCheer(verse); // 체크(마음에 둠)할 때만 축하
     });
   }
 
