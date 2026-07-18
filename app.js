@@ -501,8 +501,67 @@ function postProgress(no, stage, mode) {
   if (!u || !u.user_id) return; // 첫 동기화 전이면 스킵(다음 로그인 때 서버 반영)
   saveSyncStatus("saving", "통과 기록을 서버에 저장하고 있습니다.");
   api.saveProgress(u.user_id, no, stage, mode)
-    .then(() => saveSyncStatus("success", "방금 통과한 기록이 서버에 저장되었습니다."))
+    .then((d) => {
+      saveSyncStatus("success", "방금 통과한 기록이 서버에 저장되었습니다.");
+      maybeShowDailyMilestone(d);
+    })
     .catch(() => saveSyncStatus("error", "서버 저장에 실패했습니다. 기록은 이 기기에 저장되어 있습니다."));
+}
+
+// ------------------------------------------------------------
+// 오늘의 완료 10회 단위 응원 — 일반 암송(3단계 완료)·말씀 도전·복습을 모두 합산.
+// 서버가 KST 기준 누적 횟수를 계산하고, 클라이언트는 같은 단계의 중복 표시만 막는다.
+// ------------------------------------------------------------
+const DAILY_MILESTONE_KEY = "memorize-daily-milestone";
+
+function dailyMilestoneStorageKey() {
+  const u = loadUser();
+  const p = kstDateParts() || {};
+  const day = [p.y, String(p.m || "").padStart(2, "0"), String(p.d || "").padStart(2, "0")].join("-");
+  return `${DAILY_MILESTONE_KEY}::${u && u.user_id ? u.user_id : "guest"}::${day}`;
+}
+
+function dailyMilestoneMessage(count) {
+  if (count >= 50) return `${count}번의 귀한 암송이 쌓였어요!\n말씀을 향한 열정이 참 아름답습니다. 👑`;
+  if (count >= 30) return `오늘 ${count}회 달성!\n꾸준히 말씀을 붙드는 모습이 정말 멋져요. 🔥`;
+  if (count >= 20) return `벌써 오늘 ${count}번이나 말씀과 함께했어요!\n귀한 걸음을 힘껏 응원합니다. 🙌`;
+  return `오늘 말씀 활동 ${count}회를 달성했어요!\n한 번 한 번의 수고가 귀한 열매가 됩니다. 🌱`;
+}
+
+function maybeShowDailyMilestone(data) {
+  const count = Number(data && data.milestone);
+  if (!count || count % 10 !== 0) return;
+  const key = dailyMilestoneStorageKey();
+  let shown = 0;
+  try { shown = Number(localStorage.getItem(key) || 0); } catch {}
+  if (shown >= count) return;
+  try { localStorage.setItem(key, String(count)); } catch {}
+
+  // '마음에 둠' 축하창과 겹치면 먼저 열린 창을 닫은 뒤 이어서 보여준다.
+  const openWhenReady = () => {
+    if (document.querySelector(".cheer-overlay")) {
+      setTimeout(openWhenReady, 300);
+      return;
+    }
+    const wrap = document.createElement("div");
+    wrap.id = "daily-milestone";
+    wrap.className = "cheer-overlay";
+    wrap.innerHTML = `
+      <div class="cheer-card" role="dialog" aria-modal="true" aria-labelledby="daily-milestone-title">
+        <div class="cheer-icon">🎉</div>
+        <div class="cheer-ref" id="daily-milestone-title">오늘 ${count}회 달성</div>
+        <div class="cheer-msg">${boardEsc(dailyMilestoneMessage(count)).replace(/\n/g, "<br>")}</div>
+        <button class="cheer-ok" id="daily-milestone-ok">계속 도전하기 💪</button>
+      </div>`;
+    document.body.appendChild(wrap);
+    requestAnimationFrame(() => wrap.classList.add("show"));
+    const close = () => { wrap.classList.remove("show"); setTimeout(() => wrap.remove(), 250); };
+    const okBtn = document.getElementById("daily-milestone-ok");
+    okBtn.addEventListener("click", close);
+    okBtn.focus();
+    wrap.addEventListener("click", (e) => { if (e.target === wrap) close(); });
+  };
+  openWhenReady();
 }
 
 // ------------------------------------------------------------
@@ -2813,11 +2872,22 @@ function challengeComplete(verse, mode) {
 // 도전/복습 완료를 Supabase(challenge_log)에 저장
 function postChallenge(verse, mode) {
   const u = loadUser();
-  if (!u || !u.user_id) return;
+  if (!u || !u.user_id) return Promise.resolve(null);
   saveSyncStatus("saving", "도전 기록을 서버에 저장하고 있습니다.");
-  api.challenge(u.user_id, verse.no, mode)
-    .then(() => saveSyncStatus("success", "도전 기록이 서버에 저장되었습니다."))
-    .catch(() => saveSyncStatus("error", "도전 기록 서버 저장에 실패했습니다. 기록은 이 기기에 저장되어 있습니다."));
+  return api.challenge(u.user_id, verse.no, mode)
+    .then((d) => {
+      saveSyncStatus("success", "도전 기록이 서버에 저장되었습니다.");
+      maybeShowDailyMilestone(d);
+      const countEl = document.getElementById("cd-today-count");
+      if (countEl && d && d.todayCount != null && Number.isFinite(Number(d.todayCount))) {
+        countEl.textContent = `${d.todayCount}회`;
+      }
+      return d;
+    })
+    .catch(() => {
+      saveSyncStatus("error", "도전 기록 서버 저장에 실패했습니다. 기록은 이 기기에 저장되어 있습니다.");
+      return null;
+    });
 }
 
 function renderChallengeDone(verse, mode, todayCount) {
@@ -2828,7 +2898,7 @@ function renderChallengeDone(verse, mode, todayCount) {
         <div class="cd-emoji">🎉</div>
         <div class="cd-title">도전 완료!</div>
         <div class="cd-sub">${verse.refShort} · ${mode === "voice" ? "음성" : "타이핑"} 암송</div>
-        <div class="cd-count">오늘 <b>${todayCount}회</b> 완료</div>
+        <div class="cd-count">오늘 <b id="cd-today-count">${todayCount}회</b> 완료</div>
         <button class="summary-go challenge-cta" id="cd-again">🔥 한 번 더 도전</button>
         <button class="summary-help" id="cd-rank">🏆 순위 보기</button>
         <button class="summary-change" id="cd-home">기록 화면으로</button>
