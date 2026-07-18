@@ -1665,7 +1665,7 @@ function renderSermonSummary(verse, sermon, onBack, backLabel) {
     <div class="test-screen">
       <div class="test-card sermon-sum-card">
         <div class="ss-top">
-          <button class="ss-read" id="ss-read">🔊 읽어주기</button>
+          <button class="ss-read" id="ss-read">${sermon.audio ? "🎧 요약 듣기" : "🔊 읽어주기"}</button>
           <button class="back-btn" id="ss-back">${backLabel || "← 뒤로"}</button>
         </div>
         <header class="ss-head">
@@ -1709,14 +1709,22 @@ function renderSermonSummary(verse, sermon, onBack, backLabel) {
   ].filter(Boolean).join("\n");
 
   const readBtn = document.getElementById("ss-read");
+  const audioUrl = sermon.audio ? (SERMON_AUDIO_BASE + sermon.audio + "?v3") : null;
+  const IDLE = audioUrl ? "🎧 요약 듣기" : "🔊 읽어주기";
   readBtn.addEventListener("click", () => {
-    if (window.speechSynthesis && window.speechSynthesis.speaking) {
-      stopSpeaking();                       // 재생 중이면 정지(토글)
-      readBtn.textContent = "🔊 읽어주기";
-      return;
+    if (audioUrl) {
+      // 3분 요약 MP3(안정적) — 재생/정지 토글
+      if (sermonAudio && !sermonAudio.paused) { stopSermonAudio(); readBtn.textContent = IDLE; return; }
+      readBtn.textContent = "■ 정지";
+      playSermonAudio(audioUrl, () => { readBtn.textContent = IDLE; });
+    } else {
+      // MP3 없는 설교는 브라우저 TTS 폴백
+      if (window.speechSynthesis && window.speechSynthesis.speaking) {
+        stopSpeaking(); readBtn.textContent = IDLE; return;
+      }
+      readBtn.textContent = "■ 정지";
+      speakLong(readText, () => { readBtn.textContent = IDLE; });
     }
-    readBtn.textContent = "■ 정지";
-    speakLong(readText, () => { readBtn.textContent = "🔊 읽어주기"; });
   });
 }
 
@@ -1911,6 +1919,20 @@ function splitForSpeech(text, max = 150) {
 let _ttsKeepAlive = null;
 function _ttsStopKeepAlive() { if (_ttsKeepAlive) { clearInterval(_ttsKeepAlive); _ttsKeepAlive = null; } }
 
+// 설교 3분 요약 MP3(아카이브, Azure 뉴럴 음성) — <audio>라 어느 기기서도 안 끊긴다.
+const SERMON_AUDIO_BASE = "https://sermon.onlybible.kr/";
+let sermonAudio = null; // 재사용 <audio> 엘리먼트
+function stopSermonAudio() {
+  if (sermonAudio) { try { sermonAudio.pause(); } catch (e) {} }
+}
+function playSermonAudio(url, onEnd) {
+  stopSpeaking(); // TTS 중이면 중단(오디오와 겹치지 않게)
+  if (!sermonAudio) sermonAudio = new Audio();
+  if (sermonAudio.src !== url) sermonAudio.src = url;
+  sermonAudio.onended = () => { if (onEnd) onEnd(); };
+  sermonAudio.play().catch(() => { if (onEnd) onEnd(); });
+}
+
 function speakLong(text, onEnd) {
   if (!("speechSynthesis" in window)) {
     alert("이 브라우저는 읽어주기(음성 합성)를 지원하지 않습니다.\n크롬·사파리에서 이용해 주세요.");
@@ -1945,6 +1967,7 @@ function speakLong(text, onEnd) {
 function stopSpeaking() {
   _ttsStopKeepAlive(); // 긴 낭독 keep-alive 타이머 정리
   if (window.speechSynthesis) window.speechSynthesis.cancel();
+  if (sermonAudio) { try { sermonAudio.pause(); } catch (e) {} } // 설교 MP3도 정지
   killVoice(); // 화면 전환 시 음성인식(입력)도 함께 중단
 }
 
