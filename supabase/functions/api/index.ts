@@ -487,7 +487,7 @@ async function login(b: any) {
 
 // ---------- app_config: 관리자가 배포 없이 편집하는 설정(키-값) ----------
 // 공개로 읽어도 되는 키만 화이트리스트로 허용(임의 키 노출 방지).
-const PUBLIC_CONFIG_KEYS = new Set(["heartMessages", "dailyMessage"]);
+const PUBLIC_CONFIG_KEYS = new Set(["heartMessages", "dailyMessage", "introSlides", "milestoneMessages"]);
 
 async function getConfig(b: any) {
   const key = String(b.key || "");

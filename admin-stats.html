@@ -205,10 +205,38 @@
   .dm-item-body{color:var(--ink);font-size:.88rem;line-height:1.5;}
   .dm-item-period{font-size:.78rem;color:var(--sub);margin-top:6px;}
   .dm-item-actions{display:flex;gap:8px;margin-top:10px;}
+  /* 10회 단위 달성 응원 문구 */
+  .mm-list{display:flex;flex-direction:column;gap:11px;margin:12px 0;}
+  .mm-item{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff;}
+  .mm-top{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+  .mm-count{width:84px!important;margin:0!important;text-align:center;font-weight:800;color:var(--navy);}
+  .mm-unit{font-size:.88rem;font-weight:800;color:var(--navy);white-space:nowrap;}
+  .mm-del{margin-left:auto;border:1px solid #e2b6b0;border-radius:8px;background:#fff;color:#b94a3a;
+    padding:6px 10px;font-family:inherit;font-weight:700;cursor:pointer;}
+  .mm-msg{min-height:76px!important;margin:0!important;line-height:1.65;font-family:inherit;}
+  .mm-actions{display:flex;gap:8px;margin-top:8px;}
+  .mm-actions button{flex:1;}
   .dm-mini{padding:6px 14px;border:1px solid var(--line);border-radius:9px;background:#fff;
     font-size:.82rem;font-weight:700;color:var(--navy);cursor:pointer;font-family:inherit;}
   .dm-mini.del{color:var(--sub);}
   .dm-mini.del:hover{color:#c0392b;border-color:#e2b6b0;}
+  .dm-mini:disabled{opacity:.35;cursor:default;}
+  /* 인트로 슬라이드 목록 */
+  .in-list{display:flex;flex-direction:column;gap:10px;margin-bottom:12px;}
+  .in-item{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fff;}
+  .in-item-main{display:flex;align-items:center;gap:12px;}
+  .in-item-icon{font-size:1.7rem;flex:none;width:40px;text-align:center;}
+  .in-item-tx{min-width:0;}
+  .in-item-title{font-weight:800;color:var(--navy);font-size:.95rem;}
+  .in-item-body{color:var(--sub);font-size:.82rem;line-height:1.4;margin-top:2px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .in-item-actions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
+  .in-preview-card{width:100%;max-width:340px;text-align:center;background:#fff;
+    border:1px solid var(--line);border-radius:18px;padding:34px 24px 24px;
+    box-shadow:0 12px 40px rgba(13,27,62,.28);}
+  .in-pv-icon{font-size:52px;line-height:1;margin-bottom:14px;}
+  .in-pv-title{font-family:"Nanum Myeongjo",serif;font-weight:800;font-size:1.4rem;color:var(--navy);margin-bottom:14px;}
+  .in-pv-body{color:#444;font-size:.98rem;line-height:1.65;}
   /* 미리보기 오버레이 */
   .dm-preview-ov{position:fixed;inset:0;z-index:2000;display:flex;align-items:center;justify-content:center;
     padding:24px;background:rgba(13,27,62,.45);}
@@ -412,6 +440,22 @@ function renderMenu(){
         </div>
         <div class="rep-arrow">›</div>
       </div>
+      <div class="rep-card" id="rep-milestone">
+        <div class="ic">🎉</div>
+        <div class="rep-text">
+          <div class="ti">10회 단위 응원</div>
+          <div class="de">오늘 10·20·30회 달성 시 표시할 문구</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
+      <div class="rep-card" id="rep-intro">
+        <div class="ic">🎬</div>
+        <div class="rep-text">
+          <div class="ti">환영 인트로</div>
+          <div class="de">첫 방문 슬라이드 — 순서·아이콘·문구 편집</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
     </div>`;
   document.getElementById("rep-usage").addEventListener("click", renderUsageReport);
   document.getElementById("rep-participants").addEventListener("click", renderParticipants);
@@ -424,6 +468,8 @@ function renderMenu(){
   document.getElementById("rep-board").addEventListener("click", renderBoardAdmin);
   document.getElementById("rep-cheer").addEventListener("click", renderCheerMessages);
   document.getElementById("rep-daily").addEventListener("click", renderDailyMessage);
+  document.getElementById("rep-milestone").addEventListener("click", renderMilestoneMessages);
+  document.getElementById("rep-intro").addEventListener("click", renderIntroSlides);
   loadDashboard();
 }
 
@@ -635,6 +681,107 @@ async function cheerSave(){
   r.className="msg"; r.innerHTML=`✅ 저장 완료 — <b>${lines.length}개</b> 메시지. 성도 앱은 새로고침(재접속) 후 반영됩니다.`;
 }
 
+// ---------- 오늘 10회 단위 달성 응원 메시지 ----------
+const MM_DEFAULTS = [
+  {count:10,message:"오늘 말씀 활동 {count}회를 달성했어요!\n한 번 한 번의 수고가 귀한 열매가 됩니다. 🌱"},
+  {count:20,message:"벌써 오늘 {count}번이나 말씀과 함께했어요!\n귀한 걸음을 힘껏 응원합니다. 🙌"},
+  {count:30,message:"오늘 {count}회 달성!\n꾸준히 말씀을 붙드는 모습이 정말 멋져요. 🔥"},
+  {count:40,message:"오늘 {count}회 달성!\n꾸준히 말씀을 붙드는 모습이 정말 멋져요. 🔥"},
+  {count:50,message:"{count}번의 귀한 암송이 쌓였어요!\n말씀을 향한 열정이 참 아름답습니다. 👑"},
+];
+let mmList=[];
+function renderMilestoneMessages(){
+  app.innerHTML=`
+    <div class="rep-head">
+      <button class="back-btn" id="back">← 메뉴</button>
+      <h2>🎉 10회 단위 응원</h2>
+    </div>
+    <div class="push-card">
+      <p class="push-hint">일반 암송·말씀 도전·복습을 합친 오늘 횟수가 <b>10·20·30회</b> 등에 도달할 때 표시됩니다.<br>
+        횟수는 <b>10의 배수</b>로 입력하고, 문구의 <code>{count}</code>는 실제 횟수로 바뀝니다.</p>
+      <div id="mm-list" class="mm-list"><p class="msg">불러오는 중...</p></div>
+      <button class="push-fill" id="mm-add">➕ 다음 10회 단계 추가</button>
+      <button class="push-send" id="mm-save">💾 전체 저장</button>
+      <button class="dm-clear" id="mm-default">기본 문구로 되돌리기</button>
+      <div id="mm-result" class="msg"></div>
+    </div>`;
+  document.getElementById("back").addEventListener("click",renderMenu);
+  document.getElementById("mm-add").addEventListener("click",mmAdd);
+  document.getElementById("mm-save").addEventListener("click",mmSave);
+  document.getElementById("mm-default").addEventListener("click",()=>{ mmList=MM_DEFAULTS.map(x=>({...x})); mmDraw(); });
+  loadMilestoneMessages();
+}
+async function loadMilestoneMessages(){
+  const r=document.getElementById("mm-result"); r.className="msg"; r.textContent="불러오는 중...";
+  const d=await callApi({action:"getConfig",key:"milestoneMessages"}).catch(()=>({ok:false,error:"network"}));
+  if(!d.ok){ r.className="msg err"; r.textContent="불러오기 실패: "+(d.error||"오류"); return; }
+  mmList=Array.isArray(d.value)&&d.value.length
+    ? d.value.map(x=>({count:Number(x.count)||10,message:String(x.message||"")}))
+    : MM_DEFAULTS.map(x=>({...x}));
+  r.className="msg"; r.textContent=Array.isArray(d.value)&&d.value.length ? "" : "저장된 설정이 없어 기본 문구를 보여드려요.";
+  mmDraw();
+}
+function mmDraw(){
+  const box=document.getElementById("mm-list"); if(!box) return;
+  mmList.sort((a,b)=>a.count-b.count);
+  box.innerHTML=mmList.length?mmList.map((x,i)=>`
+    <div class="mm-item" data-i="${i}">
+      <div class="mm-top">
+        <input class="push-in mm-count" type="number" min="10" step="10" value="${x.count}" inputmode="numeric" aria-label="달성 횟수">
+        <span class="mm-unit">회 달성</span>
+        <button class="mm-del" type="button" title="삭제">삭제</button>
+      </div>
+      <textarea class="push-in mm-msg" placeholder="이 단계에서 보여줄 응원 문구">${dmEsc(x.message)}</textarea>
+      <div class="mm-actions"><button class="push-fill mm-preview" type="button">👀 미리보기</button></div>
+    </div>`).join(""):`<p class="push-hint" style="text-align:center">단계를 추가해 주세요.</p>`;
+  box.querySelectorAll(".mm-item").forEach(item=>{
+    const i=Number(item.dataset.i);
+    item.querySelector(".mm-count").addEventListener("input",e=>{ mmList[i].count=Number(e.target.value)||0; });
+    item.querySelector(".mm-msg").addEventListener("input",e=>{ mmList[i].message=e.target.value; });
+    item.querySelector(".mm-del").addEventListener("click",()=>{ mmList.splice(i,1); mmDraw(); });
+    item.querySelector(".mm-preview").addEventListener("click",()=>mmPreview(i));
+  });
+}
+function mmAdd(){
+  const max=mmList.reduce((n,x)=>Math.max(n,Number(x.count)||0),0);
+  mmList.push({count:Math.max(10,Math.ceil((max+1)/10)*10),message:"오늘 {count}회 달성!\n말씀을 향한 귀한 걸음을 응원합니다. 🙌"});
+  mmDraw();
+  const items=document.querySelectorAll(".mm-item"); if(items.length) items[items.length-1].scrollIntoView({behavior:"smooth",block:"center"});
+}
+function mmPreview(i){
+  const x=mmList[i]; const count=Number(x.count)||0; const message=String(x.message||"").trim();
+  const r=document.getElementById("mm-result");
+  if(!message){ r.className="msg err"; r.textContent="미리볼 문구를 입력하세요."; return; }
+  const ov=document.createElement("div"); ov.className="dm-preview-ov";
+  ov.innerHTML=`<div class="dm-preview-card cheer"><div class="dm-pv-icon">🎉</div>
+    <div class="dm-pv-badge">오늘 ${count}회 달성</div>
+    <div class="dm-pv-body">${dmEsc(message.replace(/\{count\}/g,String(count))).replace(/\n/g,"<br>")}</div>
+    <button class="dm-pv-ok">계속 도전하기 💪</button></div>`;
+  document.body.appendChild(ov); const close=()=>ov.remove();
+  ov.querySelector(".dm-pv-ok").addEventListener("click",close); ov.addEventListener("click",e=>{if(e.target===ov)close();});
+}
+function mmValidated(){
+  const out=[]; const seen=new Set();
+  for(const x of mmList){
+    const count=Number(x.count); const message=String(x.message||"").trim();
+    if(!Number.isInteger(count)||count<10||count%10!==0) throw new Error("횟수는 10 이상의 10단위로 입력하세요.");
+    if(seen.has(count)) throw new Error(`${count}회가 중복되었습니다.`);
+    if(!message) throw new Error(`${count}회 응원 문구를 입력하세요.`);
+    seen.add(count); out.push({count,message});
+  }
+  return out.sort((a,b)=>a.count-b.count);
+}
+async function mmSave(){
+  const r=document.getElementById("mm-result"); let next;
+  try{ next=mmValidated(); }catch(e){ r.className="msg err"; r.textContent=e.message; return; }
+  const btn=document.getElementById("mm-save"); btn.disabled=true; r.className="msg"; r.textContent="저장 중...";
+  const d=await callApi({action:"saveConfig",pw:getPw(),key:"milestoneMessages",value:next}).catch(()=>({ok:false,error:"network"}));
+  btn.disabled=false;
+  if(d.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }
+  if(!d.ok){ r.className="msg err"; r.textContent="저장 실패: "+(d.error||"오류"); return; }
+  mmList=next; mmDraw(); r.className="msg"; r.innerHTML=`✅ 저장 완료 — <b>${next.length}개 단계</b>. 성도 앱은 재접속 후 반영됩니다.`;
+}
+
 // ---------- 오늘의 메시지(공지·격려) — 목록형 ----------
 let dmList = [];
 let dmEditing = null; // null=목록, "new"=추가, id=수정
@@ -774,6 +921,138 @@ async function dmDelete(id){
   if(d.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }
   if(!d.ok){ alert("삭제 실패: "+(d.error||"오류")); return; }
   dmList=next; dmEditing=null; dmRender();
+}
+
+// ---------- 환영 인트로 슬라이드(목록·순서) ----------
+const INTRO_DEFAULTS = [
+  { icon: "🙏", title: "환영합니다", body: "고척교회 <b>성경말씀 암송</b>에<br>오신 것을 진심으로 환영합니다.<br><br>주의 말씀을 마음에 새기는 이 길에<br>하나님의 은혜가 함께하시기를<br>기도합니다. 🌿" },
+  { icon: "📖", title: "성경말씀 암송하기", body: "성경 구절을 단계별로 직접 채우며 암송해요.<br>교구·교회학교로 로그인하면 내 진도가 저장돼요." },
+  { icon: "✍️", title: "3단계로 익혀요", body: "① 빈칸 맛보기 (약 25%)<br>② 빈칸 늘리기 (약 65%)<br>③ 전체 암송 (100%)<br><br>맞으면 다음 칸으로, 틀리면 다시 입력해요." },
+  { icon: "🔊", title: "듣고, 말하며 암송", body: "🔊 듣기로 말씀을 들어요 (빠르게 여러 번 누르면 반복).<br>🎤 음성 암송으로 직접 말해서 점검해요." },
+];
+let inList = [];
+let inEditing = null; // null=목록, "new"=추가, idx(숫자)=수정
+function inEsc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function inBodyToText(html){ return String(html||"").replace(/<br\s*\/?>/gi,"\n"); }   // 편집칸용
+function inTextToBody(t){ return String(t||"").replace(/\n/g,"<br>"); }                 // 저장용
+function renderIntroSlides(){
+  app.innerHTML=`
+    <div class="rep-head">
+      <button class="back-btn" id="back">← 메뉴</button>
+      <h2>🎬 환영 인트로</h2>
+    </div>
+    <div class="push-card" id="in-root"><p class="msg">불러오는 중...</p></div>`;
+  document.getElementById("back").addEventListener("click", renderMenu);
+  loadIntroList();
+}
+async function loadIntroList(){
+  const d=await callApi({action:"getConfig",key:"introSlides"}).catch(()=>({ok:false,error:"network"}));
+  const root=document.getElementById("in-root"); if(!root) return;
+  if(!d.ok){ root.innerHTML=`<p class="msg err">불러오기 실패: ${d.error||"오류"}</p>`; return; }
+  const v=d.value;
+  inList = (Array.isArray(v) && v.length) ? v.slice() : INTRO_DEFAULTS.slice(); // 없으면 현재 기본값 노출
+  inEditing=null; inRender();
+}
+function inRender(){
+  const root=document.getElementById("in-root"); if(!root) return;
+  if(inEditing!==null){ inRenderForm(root); return; }
+  const rows = inList.map((s,i)=>`
+    <div class="in-item">
+      <div class="in-item-main">
+        <div class="in-item-icon">${s.icon||"•"}</div>
+        <div class="in-item-tx">
+          <div class="in-item-title">${i+1}. ${inEsc(s.title)}</div>
+          <div class="in-item-body">${inEsc(inBodyToText(s.body)).slice(0,70).replace(/\n/g," ")}${(s.body||"").length>70?"…":""}</div>
+        </div>
+      </div>
+      <div class="in-item-actions">
+        <button class="dm-mini" data-up="${i}" ${i===0?"disabled":""}>▲</button>
+        <button class="dm-mini" data-down="${i}" ${i===inList.length-1?"disabled":""}>▼</button>
+        <button class="dm-mini" data-edit="${i}">수정</button>
+        <button class="dm-mini del" data-del="${i}">삭제</button>
+      </div>
+    </div>`).join("");
+  root.innerHTML=`
+    <p class="push-hint">첫 방문 성도가 보는 슬라이드예요. <b>위에서 아래 순서</b>대로 넘어갑니다.</p>
+    <div class="in-list">${rows}</div>
+    <button class="push-send" id="in-add">➕ 슬라이드 추가</button>
+    <button class="dm-mini" id="in-reset" style="width:100%;margin-top:8px">↺ 기본값 불러오기</button>
+    <div id="in-result" class="msg"></div>`;
+  document.getElementById("in-add").addEventListener("click",()=>{ inEditing="new"; inRender(); });
+  document.getElementById("in-reset").addEventListener("click",()=>{
+    if(!confirm("편집칸을 기본 슬라이드 4개로 되돌립니다(저장 전).")) return;
+    inList=INTRO_DEFAULTS.slice(); inRender();
+  });
+  root.querySelectorAll("[data-up]").forEach(b=>b.addEventListener("click",()=>inMove(+b.dataset.up,-1)));
+  root.querySelectorAll("[data-down]").forEach(b=>b.addEventListener("click",()=>inMove(+b.dataset.down,1)));
+  root.querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click",()=>{ inEditing=+b.dataset.edit; inRender(); }));
+  root.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click",()=>inDelete(+b.dataset.del)));
+}
+function inMove(i,dir){
+  const j=i+dir; if(j<0||j>=inList.length) return;
+  const t=inList[i]; inList[i]=inList[j]; inList[j]=t;
+  inSave("순서 변경됨");
+}
+function inRenderForm(root){
+  const editing = inEditing!=="new";
+  const s = editing ? (inList[inEditing]||{}) : {icon:"",title:"",body:""};
+  root.innerHTML=`
+    <button class="dm-mini" id="in-cancel">← 목록</button>
+    <label class="push-lb">아이콘 (이모지 1개)</label>
+    <input id="in-icon" class="push-in" value="${inEsc(s.icon).replace(/"/g,'&quot;')}" placeholder="예: 📖" maxlength="4" style="width:100px;text-align:center;font-size:1.3rem" />
+    <label class="push-lb">제목</label>
+    <input id="in-title" class="push-in" value="${inEsc(s.title).replace(/"/g,'&quot;')}" placeholder="예: 성경말씀 암송하기" autocomplete="off" />
+    <label class="push-lb">본문 (줄바꿈 그대로 적용, &lt;b&gt;굵게&lt;/b&gt; 가능)</label>
+    <textarea id="in-body" class="push-in" style="min-height:140px;line-height:1.7;font-family:inherit">${inEsc(inBodyToText(s.body))}</textarea>
+    <button class="push-fill" id="in-preview">👀 미리보기</button>
+    <button class="push-send" id="in-savebtn">💾 ${editing?"수정 저장":"추가"}</button>
+    <div id="in-result" class="msg"></div>`;
+  document.getElementById("in-cancel").addEventListener("click",()=>{ inEditing=null; inRender(); });
+  document.getElementById("in-preview").addEventListener("click", inPreview);
+  document.getElementById("in-savebtn").addEventListener("click",()=>inSaveItem(editing?inEditing:null));
+}
+function inFormRead(){
+  return {
+    icon: document.getElementById("in-icon").value.trim(),
+    title: document.getElementById("in-title").value.trim(),
+    body: inTextToBody(document.getElementById("in-body").value.trim()),
+  };
+}
+function inPreview(){
+  const s=inFormRead();
+  const r=document.getElementById("in-result");
+  if(!s.title && !s.body){ r.className="msg err"; r.textContent="제목이나 본문을 입력하세요."; return; }
+  const ov=document.createElement("div"); ov.className="dm-preview-ov";
+  ov.innerHTML=`<div class="in-preview-card">
+    <div class="in-pv-icon">${s.icon||"•"}</div>
+    <div class="in-pv-title">${inEsc(s.title)}</div>
+    <div class="in-pv-body">${s.body}</div>
+    <button class="dm-pv-ok" style="margin-top:18px">확인</button></div>`;
+  document.body.appendChild(ov);
+  const close=()=>ov.remove();
+  ov.querySelector(".dm-pv-ok").addEventListener("click",close);
+  ov.addEventListener("click",e=>{ if(e.target===ov) close(); });
+}
+async function inSaveItem(idx){
+  const r=document.getElementById("in-result");
+  const s=inFormRead();
+  if(!s.title && !s.body){ r.className="msg err"; r.textContent="제목이나 본문을 입력하세요."; return; }
+  if(idx!==null) inList[idx]=s; else inList.push(s);
+  await inSave(idx!==null?"수정 저장됨":"추가됨", true);
+}
+async function inDelete(idx){
+  if(inList.length<=1){ alert("최소 1개는 있어야 합니다."); return; }
+  if(!confirm(`${idx+1}번 슬라이드를 삭제할까요?`)) return;
+  inList.splice(idx,1);
+  await inSave("삭제됨");
+}
+async function inSave(note, backToList){
+  const r=document.getElementById("in-result");
+  const d=await callApi({action:"saveConfig",pw:getPw(),key:"introSlides",value:inList}).catch(()=>({ok:false,error:"network"}));
+  if(d.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }
+  if(!d.ok){ if(r){ r.className="msg err"; r.textContent="저장 실패: "+(d.error||"오류"); } return; }
+  inEditing=null; inRender();
+  const r2=document.getElementById("in-result"); if(r2){ r2.className="msg"; r2.innerHTML=`✅ ${note} — 슬라이드 <b>${inList.length}개</b> 저장됨. 성도 앱은 재접속 후 반영.`; }
 }
 
 // ---------- 질문·제안 게시판 관리 ----------

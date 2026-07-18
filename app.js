@@ -48,7 +48,9 @@ async function loadVerses() {
   // 1) DB(관리자 편집 반영) 우선
   try {
     if (window.api && api.getVerses) {
+      const introP = loadIntroSlides(); // 인트로 슬라이드도 병렬 로드(첫 화면/미리보기 전에 준비)
       const d = await api.getVerses();
+      await introP;
       if (d && d.ok && d.verses && d.verses.length) {
         verses = d.verses;
         dismissSplash();
@@ -190,6 +192,7 @@ async function enterAfterLogin(opts) {
   }
   renderSummary(); // 로컬 진행 기록으로 곧바로 표시
   loadHeartMessages(); // 축하 메시지(관리자 설정) 백그라운드 로드
+  loadDailyMilestoneMessages(); // 10·20·30회 달성 응원 문구 백그라운드 로드
   maybeShowDailyMessage(); // 관리자 '오늘의 메시지'(공지·격려) 하루 1회
 
   // 서버(진도·복습) 동기화 후, 요약 화면이 아직 떠 있으면 갱신(복습 due 반영)
@@ -518,6 +521,24 @@ function postProgress(no, stage, mode) {
 // 서버가 KST 기준 누적 횟수를 계산하고, 클라이언트는 같은 단계의 중복 표시만 막는다.
 // ------------------------------------------------------------
 const DAILY_MILESTONE_KEY = "memorize-daily-milestone";
+let dailyMilestoneMessages = {};
+
+// app_config.milestoneMessages = [{ count:10, message:"..." }, ...]
+// 설정을 읽지 못했거나 해당 단계가 비어 있으면 기존 기본 문구를 사용한다.
+function loadDailyMilestoneMessages() {
+  if (!window.api || !api.getConfig) return;
+  api.getConfig("milestoneMessages").then((d) => {
+    const list = d && d.value;
+    if (!Array.isArray(list)) return;
+    const next = {};
+    list.forEach((item) => {
+      const count = Number(item && item.count);
+      const message = String((item && item.message) || "").trim();
+      if (count > 0 && count % 10 === 0 && message) next[count] = message;
+    });
+    dailyMilestoneMessages = next;
+  }).catch(() => {});
+}
 
 function dailyMilestoneStorageKey() {
   const u = loadUser();
@@ -527,6 +548,8 @@ function dailyMilestoneStorageKey() {
 }
 
 function dailyMilestoneMessage(count) {
+  const custom = dailyMilestoneMessages[count];
+  if (custom) return custom.replace(/\{count\}/g, String(count));
   if (count >= 50) return `${count}번의 귀한 암송이 쌓였어요!\n말씀을 향한 열정이 참 아름답습니다. 👑`;
   if (count >= 30) return `오늘 ${count}회 달성!\n꾸준히 말씀을 붙드는 모습이 정말 멋져요. 🔥`;
   if (count >= 20) return `벌써 오늘 ${count}번이나 말씀과 함께했어요!\n귀한 걸음을 힘껏 응원합니다. 🙌`;
@@ -2555,14 +2578,30 @@ function markIntroSeen() {
   try { localStorage.setItem(INTRO_KEY, "1"); } catch {}
 }
 
-// 첫 방문 3슬라이드 인트로
+// 인트로 기본값(폴백) — 관리자가 introSlides를 안 넣었거나 못 불러올 때 사용.
+const INTRO_SLIDES_DEFAULT = [
+  { icon: "🙏", title: "환영합니다", body: "고척교회 <b>성경말씀 암송</b>에<br>오신 것을 진심으로 환영합니다.<br><br>주의 말씀을 마음에 새기는 이 길에<br>하나님의 은혜가 함께하시기를<br>기도합니다. 🌿" },
+  { icon: "📖", title: "성경말씀 암송하기", body: "성경 구절을 단계별로 직접 채우며 암송해요.<br>교구·교회학교로 로그인하면 내 진도가 저장돼요." },
+  { icon: "✍️", title: "3단계로 익혀요", body: "① 빈칸 맛보기 (약 25%)<br>② 빈칸 늘리기 (약 65%)<br>③ 전체 암송 (100%)<br><br>맞으면 다음 칸으로, 틀리면 다시 입력해요." },
+  { icon: "🔊", title: "듣고, 말하며 암송", body: "🔊 듣기로 말씀을 들어요 (빠르게 여러 번 누르면 반복).<br>🎤 음성 암송으로 직접 말해서 점검해요." },
+];
+let introSlidesCache = null; // 관리자 설정(app_config.introSlides) 캐시
+
+// 인트로 슬라이드를 미리 로드해 캐시. 실패/빈값이면 기본값 유지. (프로미스 반환 — 시작 시 대기용)
+function loadIntroSlides() {
+  if (!window.api || !api.getConfig) return Promise.resolve();
+  return api.getConfig("introSlides").then((d) => {
+    const arr = d && d.value;
+    if (Array.isArray(arr)) {
+      const clean = arr.filter((s) => s && (s.title || s.body));
+      if (clean.length) introSlidesCache = clean;
+    }
+  }).catch(() => {});
+}
+
+// 첫 방문 인트로 (관리자 편집 가능, 없으면 기본값)
 function renderIntro(next) {
-  const slides = [
-    { icon: "🙏", title: "환영합니다", body: "고척교회 <b>성경말씀 암송</b>에<br>오신 것을 진심으로 환영합니다.<br><br>주의 말씀을 마음에 새기는 이 길에<br>하나님의 은혜가 함께하시기를<br>기도합니다. 🌿" },
-    { icon: "📖", title: "성경말씀 암송하기", body: "성경 구절을 단계별로 직접 채우며 암송해요.<br>교구·교회학교로 로그인하면 내 진도가 저장돼요." },
-    { icon: "✍️", title: "3단계로 익혀요", body: "① 빈칸 맛보기 (약 25%)<br>② 빈칸 늘리기 (약 65%)<br>③ 전체 암송 (100%)<br><br>맞으면 다음 칸으로, 틀리면 다시 입력해요." },
-    { icon: "🔊", title: "듣고, 말하며 암송", body: "🔊 듣기로 말씀을 들어요 (빠르게 여러 번 누르면 반복).<br>🎤 음성 암송으로 직접 말해서 점검해요." },
-  ];
+  const slides = (introSlidesCache && introSlidesCache.length) ? introSlidesCache : INTRO_SLIDES_DEFAULT;
   let idx = 0;
   const appEl = document.getElementById("app");
 
