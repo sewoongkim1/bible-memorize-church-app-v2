@@ -101,6 +101,13 @@ function routeAfterLoad() {
     renderBlessing(() => enterAfterLogin()); // markBlessingSeen 호출 안 함 = 상태 불변
     return;
   }
+  if (preview === "daily") {
+    _skipAutoDaily = true;                              // enterAfterLogin의 자동 표시는 막고
+    if (loadUser()) enterAfterLogin(); else renderEntryScreen();
+    _skipAutoDaily = false;                             // (maybeShowDailyMessage는 위에서 동기 호출됨)
+    previewDailyMessage();                              // 하루1회 상태 안 건드리고 강제 표시
+    return;
+  }
 
   maybeShowIntro(() => {
     if (loadUser()) enterAfterLogin();
@@ -112,7 +119,7 @@ function routeAfterLoad() {
 function getPreviewKind() {
   try {
     const p = new URLSearchParams(location.search).get("preview");
-    if (p === "intro" || p === "blessing") {
+    if (p === "intro" || p === "blessing" || p === "daily") {
       history.replaceState(null, "", location.pathname);
       return p;
     }
@@ -2571,19 +2578,34 @@ function dailyMsgActive(m) {
   if (m.to && today > m.to) return false;      // 종료 후
   return true;
 }
+let _skipAutoDaily = false; // 미리보기(?preview=daily) 때 자동 표시를 막아 중복 노출 방지
+
+// 활성(기간 내) 목록에서 표시할 하나 고르기 — 겹치면 가장 최근 등록(id 큰 것)
+function pickActiveDailyMessage(value) {
+  const list = Array.isArray(value) ? value : (value && value.body ? [value] : []);
+  const active = list.filter(dailyMsgActive);
+  if (!active.length) return null;
+  return active.reduce((a, b) => (Number(b.id) > Number(a.id) ? b : a));
+}
+
 function maybeShowDailyMessage() {
-  if (!window.api || !api.getConfig) return;
+  if (_skipAutoDaily || !window.api || !api.getConfig) return;
   api.getConfig("dailyMessage").then((d) => {
-    const v = d && d.value;
-    // 목록형(배열). 구버전 단일 객체도 허용.
-    const list = Array.isArray(v) ? v : (v && v.body ? [v] : []);
-    const active = list.filter(dailyMsgActive);
-    if (!active.length) return;
-    // 같은 날 여러 개가 겹치면 가장 최근 등록(id 큰 것) 하나만
-    const m = active.reduce((a, b) => (Number(b.id) > Number(a.id) ? b : a));
+    const m = pickActiveDailyMessage(d && d.value);
+    if (!m) return;
     const key = dailyMsgSeenKey(m.id || "x");
     try { if (localStorage.getItem(key) === "1") return; } catch {}
     try { localStorage.setItem(key, "1"); } catch {}
+    showDailyMessage(m);
+  }).catch(() => {});
+}
+
+// 관리자 미리보기 — 하루1회 상태(localStorage) 안 건드리고 강제 표시
+function previewDailyMessage() {
+  if (!window.api || !api.getConfig) return;
+  api.getConfig("dailyMessage").then((d) => {
+    const m = pickActiveDailyMessage(d && d.value);
+    if (!m) { alert("지금 표시할 '오늘의 메시지'가 없어요.\n(등록 안 됐거나 표시 기간 밖입니다)"); return; }
     showDailyMessage(m);
   }).catch(() => {});
 }
