@@ -1053,6 +1053,35 @@ html[data-fs="xl"] .sermon-sum-card .ss-top > .back-btn { font-size: 17px; paddi
   font-size: 1.3rem; font-weight: 800; color: var(--navy);
   letter-spacing: -0.3px;
 }
+/* 첫 화면 '오늘 N회' 띠 — 매일 리셋되는 순간 지표. 누적(게이지·통계)과 분리. */
+.today-strip {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  flex-wrap: wrap;
+  margin: 2px 0 12px; padding: 9px 14px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #fff6df, #fdeec2);
+  border: 1px solid #ecd9a0;
+}
+.today-count { font-size: .95rem; color: #6b4e14; font-weight: 700; }
+.today-count b { color: #8a6d1f; font-weight: 800; }
+.today-word { font-size: .95rem; font-weight: 800; color: #8a6d1f; }
+/* 0회: 은은한 독려 톤(성취 아님) */
+.today-strip.t0 {
+  background: var(--light); border-color: var(--border);
+}
+.today-strip.t0 .today-word { color: var(--navy); }
+/* 고단계일수록 살짝 진하게 */
+.today-strip.t4, .today-strip.t5 {
+  background: linear-gradient(135deg, #ffeeb8, #f6d67c); border-color: #e0bd5c;
+}
+
+.dark .today-strip { background: #2b2717; border-color: #6b5a2c; }
+.dark .today-count { color: #e8d9a3; }
+.dark .today-count b, .dark .today-word { color: #f0dc9a; }
+.dark .today-strip.t0 { background: #232c3f; border-color: #3a4a68; }
+.dark .today-strip.t0 .today-word { color: #cdd9f2; }
+.dark .today-strip.t4, .dark .today-strip.t5 { background: #332d15; border-color: #8d7531; }
+
 .gauge-wrap { margin-bottom: 6px; }
 .gauge-pct {
   font-size: 2.6rem; font-weight: 800; color: var(--gold);
