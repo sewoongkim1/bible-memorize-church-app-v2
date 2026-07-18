@@ -179,6 +179,39 @@
     .dash-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
     .dash-kpi .n{font-size:1.25rem;}
   }
+  /* 오늘의 메시지 편집 */
+  .dm-types{display:flex;gap:8px;margin-bottom:4px;}
+  .dm-type{flex:1;padding:11px;border:1.5px solid var(--line);border-radius:11px;background:#fff;
+    font-size:.92rem;font-weight:700;color:var(--sub);cursor:pointer;font-family:inherit;}
+  .dm-type.on{border-color:var(--navy);background:#eef2f8;color:var(--navy);}
+  .dm-dates{display:flex;align-items:center;gap:8px;}
+  .dm-dates .push-in{margin-bottom:0;}
+  .dm-sep{color:var(--sub);}
+  .dm-hint{font-size:.78rem;color:var(--sub);margin:6px 2px 12px;}
+  .dm-clear{width:100%;padding:11px;margin-top:8px;border:1px solid var(--line);border-radius:11px;
+    background:#fff;color:var(--sub);font-size:.9rem;font-weight:700;cursor:pointer;font-family:inherit;}
+  .dm-clear:hover{color:#c0392b;border-color:#e2b6b0;}
+  .dm-current{margin-top:14px;padding:12px 14px;background:var(--bg);border:1px solid var(--line);
+    border-radius:11px;font-size:.86rem;line-height:1.6;}
+  .dm-cur-head{font-weight:800;color:var(--navy);margin-bottom:4px;}
+  .dm-cur-body{color:var(--sub);margin-top:4px;}
+  /* 미리보기 오버레이 */
+  .dm-preview-ov{position:fixed;inset:0;z-index:2000;display:flex;align-items:center;justify-content:center;
+    padding:24px;background:rgba(13,27,62,.45);}
+  .dm-preview-card{width:100%;max-width:340px;text-align:center;background:linear-gradient(180deg,#fffdf6,#fff 65%);
+    border:1.5px solid var(--gold);border-radius:18px;padding:26px 22px 22px;box-shadow:0 12px 40px rgba(13,27,62,.28);}
+  .dm-preview-card.notice{background:#fff;border-color:var(--navy);}
+  .dm-pv-icon{font-size:44px;line-height:1;margin-bottom:8px;}
+  .dm-pv-badge{display:inline-block;margin-bottom:12px;padding:2px 12px;border-radius:999px;
+    background:var(--gold);color:var(--navy-d);font-size:.74rem;font-weight:800;}
+  .dm-preview-card.notice .dm-pv-badge{background:var(--navy);color:#fff;}
+  .dm-pv-title{font-weight:800;color:var(--navy-d);font-size:1.1rem;margin-bottom:10px;}
+  .dm-preview-card.notice .dm-pv-title{color:var(--navy);}
+  .dm-pv-body{color:var(--navy-d);font-size:1rem;line-height:1.7;margin-bottom:20px;}
+  .dm-preview-card.notice .dm-pv-body{color:#333;}
+  .dm-pv-ok{width:100%;padding:12px;border:none;border-radius:12px;background:var(--gold);color:var(--navy-d);
+    font-size:1rem;font-weight:800;cursor:pointer;}
+  .dm-preview-card.notice .dm-pv-ok{background:var(--navy);color:#fff;}
 </style>
 </head>
 <body>
@@ -357,6 +390,14 @@ function renderMenu(){
         </div>
         <div class="rep-arrow">›</div>
       </div>
+      <div class="rep-card" id="rep-daily">
+        <div class="ic">📢</div>
+        <div class="rep-text">
+          <div class="ti">오늘의 메시지</div>
+          <div class="de">첫 접속 1회 모달 — 공지·격려(기간 설정)</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
     </div>`;
   document.getElementById("rep-usage").addEventListener("click", renderUsageReport);
   document.getElementById("rep-participants").addEventListener("click", renderParticipants);
@@ -368,6 +409,7 @@ function renderMenu(){
   document.getElementById("rep-report").addEventListener("click", renderReportMail);
   document.getElementById("rep-board").addEventListener("click", renderBoardAdmin);
   document.getElementById("rep-cheer").addEventListener("click", renderCheerMessages);
+  document.getElementById("rep-daily").addEventListener("click", renderDailyMessage);
   loadDashboard();
 }
 
@@ -577,6 +619,121 @@ async function cheerSave(){
   if(d.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }
   if(!d.ok){ r.className="msg err"; r.textContent="저장 실패: "+(d.error||"오류"); return; }
   r.className="msg"; r.innerHTML=`✅ 저장 완료 — <b>${lines.length}개</b> 메시지. 성도 앱은 새로고침(재접속) 후 반영됩니다.`;
+}
+
+// ---------- 오늘의 메시지(공지·격려) ----------
+function renderDailyMessage(){
+  app.innerHTML=`
+    <div class="rep-head">
+      <button class="back-btn" id="back">← 메뉴</button>
+      <h2>📢 오늘의 메시지</h2>
+    </div>
+    <div class="push-card">
+      <p class="push-hint">성도가 <b>그날 첫 접속 시 1회</b> 모달로 봅니다. 등록 안 하면 안 뜨고, 기간을 벗어나면 자동 종료돼요.</p>
+      <label class="push-lb">유형</label>
+      <div class="dm-types">
+        <button type="button" class="dm-type on" data-t="cheer">🌿 격려</button>
+        <button type="button" class="dm-type" data-t="notice">📢 공지</button>
+      </div>
+      <label class="push-lb">제목 (선택)</label>
+      <input id="dm-title" class="push-in" placeholder="예: 이번 주 특별새벽기도 안내" autocomplete="off" />
+      <label class="push-lb">내용</label>
+      <textarea id="dm-body" class="push-in" style="min-height:150px;line-height:1.7;font-family:inherit" placeholder="성도에게 보여줄 내용 (줄바꿈 가능)"></textarea>
+      <label class="push-lb">표시 기간 (선택 · 비우면 무제한)</label>
+      <div class="dm-dates">
+        <input type="date" id="dm-from" class="push-in" />
+        <span class="dm-sep">~</span>
+        <input type="date" id="dm-to" class="push-in" />
+      </div>
+      <div class="dm-hint">시작 비움 = 즉시 · 종료 비움 = 계속</div>
+      <button class="push-fill" id="dm-preview">👀 미리보기</button>
+      <button class="push-send" id="dm-save">💾 저장</button>
+      <button class="dm-clear" id="dm-clear">🗑 지금 내리기 (안 뜨게)</button>
+      <div id="dm-result" class="msg"></div>
+      <div id="dm-current" class="dm-current"></div>
+    </div>`;
+  document.getElementById("back").addEventListener("click", renderMenu);
+  app.querySelectorAll(".dm-type").forEach(b=>b.addEventListener("click",()=>{
+    app.querySelectorAll(".dm-type").forEach(x=>x.classList.remove("on")); b.classList.add("on");
+  }));
+  document.getElementById("dm-preview").addEventListener("click", dmPreview);
+  document.getElementById("dm-save").addEventListener("click", dmSave);
+  document.getElementById("dm-clear").addEventListener("click", dmClear);
+  loadDailyMessage();
+}
+function dmType(){ const on=document.querySelector(".dm-type.on"); return on?on.dataset.t:"cheer"; }
+function dmSetType(t){ app.querySelectorAll(".dm-type").forEach(x=>x.classList.toggle("on", x.dataset.t===t)); }
+function dmBuild(){
+  return {
+    id: String(Date.now()),
+    type: dmType(),
+    title: document.getElementById("dm-title").value.trim(),
+    body: document.getElementById("dm-body").value.trim(),
+    from: document.getElementById("dm-from").value || "",
+    to: document.getElementById("dm-to").value || "",
+  };
+}
+async function loadDailyMessage(){
+  const r=document.getElementById("dm-result"); r.className="msg"; r.textContent="불러오는 중...";
+  const d=await callApi({action:"getConfig",key:"dailyMessage"}).catch(()=>({ok:false,error:"network"}));
+  if(!d.ok){ r.className="msg err"; r.textContent="불러오기 실패: "+(d.error||"오류"); return; }
+  const m=d.value;
+  const cur=document.getElementById("dm-current");
+  if(m && m.body){
+    dmSetType(m.type||"cheer");
+    document.getElementById("dm-title").value=m.title||"";
+    document.getElementById("dm-body").value=m.body||"";
+    document.getElementById("dm-from").value=m.from||"";
+    document.getElementById("dm-to").value=m.to||"";
+    const period=(m.from||"즉시")+" ~ "+(m.to||"계속");
+    cur.innerHTML=`<div class="dm-cur-head">지금 등록된 메시지</div><div>${m.type==="notice"?"📢 공지":"🌿 격려"} · ${period}</div><div class="dm-cur-body">"${(m.body||"").slice(0,60)}${(m.body||"").length>60?"…":""}"</div>`;
+    r.className="msg"; r.textContent="";
+  } else {
+    cur.innerHTML=`<div class="dm-cur-head">지금 등록된 메시지 없음</div><div style="color:#6a7688">등록 전이라 성도 앱엔 아무것도 안 떠요.</div>`;
+    r.className="msg"; r.textContent="";
+  }
+}
+function dmPreview(){
+  const m=dmBuild();
+  const r=document.getElementById("dm-result");
+  if(!m.body){ r.className="msg err"; r.textContent="내용을 먼저 입력하세요."; return; }
+  const ov=document.createElement("div"); ov.className="dm-preview-ov";
+  ov.innerHTML=`<div class="dm-preview-card ${m.type==='notice'?'notice':'cheer'}">
+    <div class="dm-pv-icon">${m.type==='notice'?'📢':'🌿'}</div>
+    <div class="dm-pv-badge">${m.type==='notice'?'공지':'격려'}</div>
+    ${m.title?`<div class="dm-pv-title">${m.title.replace(/</g,'&lt;')}</div>`:''}
+    <div class="dm-pv-body">${m.body.replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div>
+    <button class="dm-pv-ok">확인</button></div>`;
+  document.body.appendChild(ov);
+  const close=()=>ov.remove();
+  ov.querySelector(".dm-pv-ok").addEventListener("click",close);
+  ov.addEventListener("click",e=>{ if(e.target===ov) close(); });
+}
+async function dmSave(){
+  const r=document.getElementById("dm-result");
+  const m=dmBuild();
+  if(!m.body){ r.className="msg err"; r.textContent="내용을 입력하세요."; return; }
+  if(m.from && m.to && m.from>m.to){ r.className="msg err"; r.textContent="종료일이 시작일보다 빠릅니다."; return; }
+  const btn=document.getElementById("dm-save"); btn.disabled=true; r.className="msg"; r.textContent="저장 중...";
+  const d=await callApi({action:"saveConfig",pw:getPw(),key:"dailyMessage",value:m}).catch(()=>({ok:false,error:"network"}));
+  btn.disabled=false;
+  if(d.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }
+  if(!d.ok){ r.className="msg err"; r.textContent="저장 실패: "+(d.error||"오류"); return; }
+  r.className="msg"; r.innerHTML=`✅ 저장 완료 — 표시 기간 <b>${m.from||"즉시"} ~ ${m.to||"계속"}</b>. 오늘 이미 본 사람도 다시 보게 됩니다.`;
+  loadDailyMessage();
+}
+async function dmClear(){
+  const r=document.getElementById("dm-result");
+  if(!confirm("지금 내리면 성도 앱에 더 이상 안 뜹니다. 진행할까요?")) return;
+  const btn=document.getElementById("dm-clear"); btn.disabled=true; r.className="msg"; r.textContent="내리는 중...";
+  const d=await callApi({action:"saveConfig",pw:getPw(),key:"dailyMessage",value:{id:String(Date.now()),type:"cheer",title:"",body:"",from:"",to:""}}).catch(()=>({ok:false,error:"network"}));
+  btn.disabled=false;
+  if(d.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }
+  if(!d.ok){ r.className="msg err"; r.textContent="실패: "+(d.error||"오류"); return; }
+  document.getElementById("dm-title").value=""; document.getElementById("dm-body").value="";
+  document.getElementById("dm-from").value=""; document.getElementById("dm-to").value="";
+  r.className="msg"; r.textContent="✅ 내렸습니다 — 이제 성도 앱에 안 뜹니다.";
+  loadDailyMessage();
 }
 
 // ---------- 질문·제안 게시판 관리 ----------

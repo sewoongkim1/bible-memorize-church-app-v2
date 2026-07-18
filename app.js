@@ -190,6 +190,7 @@ async function enterAfterLogin(opts) {
   }
   renderSummary(); // 로컬 진행 기록으로 곧바로 표시
   loadHeartMessages(); // 축하 메시지(관리자 설정) 백그라운드 로드
+  maybeShowDailyMessage(); // 관리자 '오늘의 메시지'(공지·격려) 하루 1회
 
   // 서버(진도·복습) 동기화 후, 요약 화면이 아직 떠 있으면 갱신(복습 due 반영)
   await syncProgress();
@@ -2481,6 +2482,61 @@ window.addEventListener("appinstalled", () => {
 // ------------------------------------------------------------
 // 첫 방문 인트로 + 도움말
 // ------------------------------------------------------------
+// ------------------------------------------------------------
+// 관리자 '오늘의 메시지'(공지·격려) — 그날 첫 접속 1회 모달.
+//   app_config.dailyMessage = { id, type:"notice"|"cheer", title, body, from, to }
+//   표시 조건: from<=오늘<=to (각 비면 무제한) AND 그 메시지를 오늘 아직 안 봄
+//   하루 1회 판별: localStorage "memorize-dailymsg::<사용자>::<id>::<날짜>"
+// ------------------------------------------------------------
+function dailyMsgSeenKey(id) {
+  const u = loadUser();
+  const uid = u && u.user_id ? u.user_id : "guest";
+  return `memorize-dailymsg::${uid}::${id}::${todayYmd()}`;
+}
+function dailyMsgActive(m) {
+  if (!m || !m.body) return false;
+  const today = todayYmd();
+  if (m.from && today < m.from) return false; // 시작 전
+  if (m.to && today > m.to) return false;      // 종료 후
+  return true;
+}
+function maybeShowDailyMessage() {
+  if (!window.api || !api.getConfig) return;
+  api.getConfig("dailyMessage").then((d) => {
+    const m = d && d.value;
+    if (!dailyMsgActive(m)) return;
+    const key = dailyMsgSeenKey(m.id || "x");
+    try { if (localStorage.getItem(key) === "1") return; } catch {}
+    try { localStorage.setItem(key, "1"); } catch {}
+    showDailyMessage(m);
+  }).catch(() => {});
+}
+function showDailyMessage(m) {
+  const isNotice = m.type === "notice";
+  const open = () => {
+    if (document.querySelector(".cheer-overlay")) { setTimeout(open, 300); return; } // 다른 모달과 안 겹치게
+    const wrap = document.createElement("div");
+    wrap.id = "daily-message";
+    wrap.className = "cheer-overlay";
+    wrap.innerHTML = `
+      <div class="cheer-card dmsg-card${isNotice ? " notice" : ""}" role="dialog" aria-modal="true">
+        <div class="cheer-icon">${isNotice ? "📢" : "🌿"}</div>
+        <div class="cheer-ref dmsg-badge">${isNotice ? "공지" : "격려"}</div>
+        ${m.title ? `<div class="dmsg-title">${boardEsc(m.title)}</div>` : ""}
+        <div class="cheer-msg dmsg-body">${boardEsc(m.body).replace(/\n/g, "<br>")}</div>
+        <button class="cheer-ok" id="dmsg-ok">확인</button>
+      </div>`;
+    document.body.appendChild(wrap);
+    requestAnimationFrame(() => wrap.classList.add("show"));
+    const close = () => { wrap.classList.remove("show"); setTimeout(() => wrap.remove(), 250); };
+    const ok = document.getElementById("dmsg-ok");
+    ok.addEventListener("click", close);
+    ok.focus();
+    wrap.addEventListener("click", (e) => { if (e.target === wrap) close(); });
+  };
+  open();
+}
+
 const INTRO_KEY = "memorize-intro-seen";
 
 function maybeShowIntro(next) {

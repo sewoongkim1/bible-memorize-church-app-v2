@@ -295,6 +295,23 @@ h1 {
 .cheer-ok:hover { filter: brightness(1.05); }
 .dark .cheer-card { background: #2b2717; border-color: #8d7531; }
 .dark .cheer-msg { color: #e8d9a3; }
+
+/* 오늘의 메시지 — 격려(금색, 축하 톤 기본) / 공지(네이비) */
+.dmsg-title {
+  font-family: "Nanum Myeongjo", serif; font-weight: 800;
+  font-size: 1.1rem; color: var(--navy-dark); margin: 2px 0 10px; line-height: 1.4;
+}
+.dmsg-body { white-space: normal; }
+/* 공지 유형: 네이비 톤으로 전환 */
+.cheer-card.notice { background: #fff; border-color: var(--navy); }
+.cheer-card.notice .dmsg-badge { background: var(--navy); color: #fff; }
+.cheer-card.notice .dmsg-title { color: var(--navy); }
+.cheer-card.notice .cheer-msg { color: #333; }
+.cheer-card.notice .cheer-ok { background: var(--navy); color: #fff; }
+.dark .cheer-card.notice { background: #1b2333; border-color: #3a4a68; }
+.dark .cheer-card.notice .dmsg-title { color: #cdd9f2; }
+.dark .cheer-card.notice .cheer-msg { color: #dbe2ee; }
+.dark .cheer-card.notice .dmsg-badge { background: #3a4a68; color: #e6e9ef; }
 @media (prefers-reduced-motion: reduce) {
   .cheer-overlay, .cheer-card { transition: none; }
   .cheer-overlay.show .cheer-card { transform: none; }
