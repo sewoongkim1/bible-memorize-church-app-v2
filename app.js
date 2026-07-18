@@ -1705,6 +1705,7 @@ function renderSermonSummary(verse, sermon, onBack, backLabel) {
     sermon.summary || "",
     points.length ? "핵심 포인트." : "",
     ...points.map((p, i) => `${i + 1}. ${p.heading || ""}. ${p.body || ""}`),
+    sermon.conclusion ? `맺음말. ${sermon.conclusion}` : "",
   ].filter(Boolean).join("\n");
 
   const readBtn = document.getElementById("ss-read");
