@@ -189,6 +189,7 @@ async function enterAfterLogin(opts) {
     return;
   }
   renderSummary(); // 로컬 진행 기록으로 곧바로 표시
+  loadHeartMessages(); // 축하 메시지(관리자 설정) 백그라운드 로드
 
   // 서버(진도·복습) 동기화 후, 요약 화면이 아직 떠 있으면 갱신(복습 due 반영)
   await syncProgress();
@@ -526,7 +527,8 @@ function isHearted(no) {
 }
 // 체크/해제 → 로컬 즉시 반영 + 서버 저장(실패해도 로컬은 유지)
 // "마음에 둠" 체크 시 감사·응원 메시지(랜덤). 암송의 수고를 격려한다.
-const HEART_MESSAGES = [
+// 기본값(폴백) — 관리자가 설정을 안 넣었거나 DB를 못 불러올 때 이걸 쓴다.
+const HEART_MESSAGES_DEFAULT = [
   "말씀 한 구절을 마음에 새기셨네요 🌱\n그 수고를 주님이 기억하십니다.",
   "잘하셨어요! 오늘 새긴 말씀이\n삶의 길에 등불이 될 거예요 💛",
   "한 구절 한 구절, 성도님의 정성이\n마음의 밭에 씨앗으로 심겼어요 🌾",
@@ -534,10 +536,23 @@ const HEART_MESSAGES = [
   "마음에 새긴 이 말씀이\n힘든 날 성도님을 붙들어 줄 거예요 🤍",
   "귀한 걸음이에요 👑\n말씀을 사랑하는 그 마음, 참 아름답습니다.",
 ];
+// 관리자 설정(app_config.heartMessages)을 1회 로드해 캐시. 실패·빈값이면 기본값 유지.
+let heartMessages = HEART_MESSAGES_DEFAULT;
+function loadHeartMessages() {
+  if (!window.api || !api.getConfig) return;
+  api.getConfig("heartMessages").then((d) => {
+    const arr = d && d.value;
+    if (Array.isArray(arr)) {
+      const clean = arr.map((s) => String(s).trim()).filter(Boolean);
+      if (clean.length) heartMessages = clean;
+    }
+  }).catch(() => {});
+}
 
 // 축하 모달 표시(체크 켤 때만). 확인 누르면 닫힘.
 function showHeartCheer(verse) {
-  const msg = HEART_MESSAGES[Math.floor(Math.random() * HEART_MESSAGES.length)];
+  const pool = heartMessages.length ? heartMessages : HEART_MESSAGES_DEFAULT;
+  const msg = pool[Math.floor(Math.random() * pool.length)];
   const existing = document.getElementById("heart-cheer");
   if (existing) existing.remove();
   const wrap = document.createElement("div");

@@ -349,6 +349,14 @@ function renderMenu(){
         </div>
         <div class="rep-arrow">›</div>
       </div>
+      <div class="rep-card" id="rep-cheer">
+        <div class="ic">🌱</div>
+        <div class="rep-text">
+          <div class="ti">축하 메시지</div>
+          <div class="de">'마음에 둠' 체크 시 뜨는 감사·응원 문구</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
     </div>`;
   document.getElementById("rep-usage").addEventListener("click", renderUsageReport);
   document.getElementById("rep-participants").addEventListener("click", renderParticipants);
@@ -359,6 +367,7 @@ function renderMenu(){
   document.getElementById("rep-monitor").addEventListener("click", renderMonitor);
   document.getElementById("rep-report").addEventListener("click", renderReportMail);
   document.getElementById("rep-board").addEventListener("click", renderBoardAdmin);
+  document.getElementById("rep-cheer").addEventListener("click", renderCheerMessages);
   loadDashboard();
 }
 
@@ -516,6 +525,58 @@ async function sendReportNow(){
     r.className="msg err"; r.textContent=msg; return;
   }
   r.className="msg"; r.innerHTML=`✅ 발송 완료 — 수신자 <b>${(d.sent&&d.sent.recipients)||"?"}</b>명에게 전송했습니다.`;
+}
+
+// ---------- 축하 메시지('마음에 둠' 체크 시) ----------
+function renderCheerMessages(){
+  app.innerHTML=`
+    <div class="rep-head">
+      <button class="back-btn" id="back">← 메뉴</button>
+      <h2>🌱 축하 메시지</h2>
+    </div>
+    <div class="push-card">
+      <p class="push-hint">성도가 <b>'마음에 둠'</b>을 체크할 때 이 중 <b>하나가 랜덤</b>으로 뜹니다.<br>
+        <b>한 줄에 메시지 하나씩</b> 적으세요. 줄바꿈은 <code>\\n</code> 으로 넣습니다(예: <code>수고했어요 🙌\\n참 잘하셨어요</code>).<br>
+        비워 두면 앱 기본 문구가 쓰입니다.</p>
+      <textarea id="cheer-ta" class="push-in" style="min-height:240px;line-height:1.7;font-family:inherit" placeholder="한 줄에 메시지 하나씩..."></textarea>
+      <div class="cheer-count" id="cheer-count" style="font-size:.82rem;color:#6a7688;margin:6px 2px"></div>
+      <button class="push-fill" id="cheer-preview">👀 미리보기(랜덤)</button>
+      <button class="push-send" id="cheer-save">💾 저장</button>
+      <div id="cheer-result" class="msg"></div>
+    </div>`;
+  document.getElementById("back").addEventListener("click", renderMenu);
+  const ta=document.getElementById("cheer-ta");
+  const upd=()=>{ document.getElementById("cheer-count").textContent = ta.value.split("\n").map(s=>s.trim()).filter(Boolean).length + "개 메시지"; };
+  ta.addEventListener("input", upd);
+  document.getElementById("cheer-preview").addEventListener("click", cheerPreview);
+  document.getElementById("cheer-save").addEventListener("click", cheerSave);
+  loadCheerMessages();
+}
+async function loadCheerMessages(){
+  const r=document.getElementById("cheer-result"); r.className="msg"; r.textContent="불러오는 중...";
+  const d=await callApi({action:"getConfig",key:"heartMessages"}).catch(()=>({ok:false,error:"network"}));
+  if(!d.ok){ r.className="msg err"; r.textContent="불러오기 실패: "+(d.error||"오류"); return; }
+  const arr=Array.isArray(d.value)?d.value:[];
+  document.getElementById("cheer-ta").value = arr.join("\n");
+  document.getElementById("cheer-count").textContent = arr.length + "개 메시지";
+  r.className="msg"; r.textContent = arr.length ? "" : "아직 저장된 문구가 없어요(앱 기본 문구 사용 중).";
+}
+function cheerPreview(){
+  const lines=document.getElementById("cheer-ta").value.split("\n").map(s=>s.trim()).filter(Boolean);
+  const r=document.getElementById("cheer-result");
+  if(!lines.length){ r.className="msg err"; r.textContent="메시지를 먼저 입력하세요."; return; }
+  const msg=lines[Math.floor(Math.random()*lines.length)].replace(/\\n/g,"\n");
+  r.className="msg"; r.textContent="미리보기 › "+msg;
+}
+async function cheerSave(){
+  const r=document.getElementById("cheer-result");
+  const lines=document.getElementById("cheer-ta").value.split("\n").map(s=>s.trim()).filter(Boolean);
+  const btn=document.getElementById("cheer-save"); btn.disabled=true; r.className="msg"; r.textContent="저장 중...";
+  const d=await callApi({action:"saveConfig",pw:getPw(),key:"heartMessages",value:lines}).catch(()=>({ok:false,error:"network"}));
+  btn.disabled=false;
+  if(d.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }
+  if(!d.ok){ r.className="msg err"; r.textContent="저장 실패: "+(d.error||"오류"); return; }
+  r.className="msg"; r.innerHTML=`✅ 저장 완료 — <b>${lines.length}개</b> 메시지. 성도 앱은 새로고침(재접속) 후 반영됩니다.`;
 }
 
 // ---------- 질문·제안 게시판 관리 ----------

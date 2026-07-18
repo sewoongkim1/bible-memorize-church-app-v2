@@ -64,6 +64,8 @@ Deno.serve(async (req) => {
       case "login":         return json(await login(body));
       case "saveProgress":  return json(await saveProgress(body));
       case "saveHeart":     return json(await saveHeart(body));
+      case "getConfig":     return json(await getConfig(body));
+      case "saveConfig":    return json(await saveConfig(body));
       case "challenge":     return json(await challenge(body));
       case "advanceReview": return json(await advanceReview(body));
       case "ranking":       return json(await ranking(body));
@@ -481,6 +483,32 @@ async function login(b: any) {
   (prog ?? []).forEach((r: any) => { progress[r.verse_no] = r.stage; });
   const hearted = (prog ?? []).filter((r: any) => r.hearted).map((r: any) => r.verse_no);
   return { ok: true, user_id: user.id, user, progress, hearted, reviews: revs ?? [] };
+}
+
+// ---------- app_config: 관리자가 배포 없이 편집하는 설정(키-값) ----------
+// 공개로 읽어도 되는 키만 화이트리스트로 허용(임의 키 노출 방지).
+const PUBLIC_CONFIG_KEYS = new Set(["heartMessages"]);
+
+async function getConfig(b: any) {
+  const key = String(b.key || "");
+  if (!PUBLIC_CONFIG_KEYS.has(key)) return { ok: false, error: "허용되지 않은 키" };
+  // 테이블 미생성(마이그레이션 전)이어도 앱이 안 깨지게 조용히 null 반환
+  try {
+    const { data, error } = await db.from("app_config").select("value").eq("key", key).maybeSingle();
+    if (error) return { ok: true, value: null };
+    return { ok: true, value: data?.value ?? null };
+  } catch { return { ok: true, value: null }; }
+}
+
+async function saveConfig(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const key = String(b.key || "");
+  if (!PUBLIC_CONFIG_KEYS.has(key)) return { ok: false, error: "허용되지 않은 키" };
+  const { error } = await db.from("app_config").upsert({
+    key, value: b.value ?? null, updated_at: new Date().toISOString(),
+  }, { onConflict: "key" });
+  if (error) throw error;
+  return { ok: true };
 }
 
 // ---------- saveHeart: "이 말씀을 내 마음에 두었나이다" 체크/해제 ----------

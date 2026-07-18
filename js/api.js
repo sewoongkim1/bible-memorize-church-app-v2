@@ -40,6 +40,8 @@ const api = {
   login: (u) => supaCall("login", u),
   saveProgress: (user_id, verse_no, stage, mode) => supaCall("saveProgress", { user_id, verse_no, stage, mode }),
   saveHeart: (user_id, verse_no, hearted) => supaCall("saveHeart", { user_id, verse_no, hearted }),   // 내 마음에 두었나이다 체크/해제
+  getConfig: (key) => supaCall("getConfig", { key }),                    // 앱 설정 읽기(공개 키)
+  saveConfig: (pw, key, value) => supaCall("saveConfig", { pw, key, value }),   // 앱 설정 저장(관리자)
   challenge: (user_id, verse_no, mode, score) => supaCall("challenge", { user_id, verse_no, mode, score }),
   advanceReview: (user_id, verse_no) => supaCall("advanceReview", { user_id, verse_no }),
   ranking: (from, to, includeLearn) => supaCall("ranking", { from, to, includeLearn }),   // 날짜(YYYY-MM-DD), includeLearn=학습 포함
