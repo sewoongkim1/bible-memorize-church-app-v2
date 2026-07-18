@@ -2503,8 +2503,13 @@ function dailyMsgActive(m) {
 function maybeShowDailyMessage() {
   if (!window.api || !api.getConfig) return;
   api.getConfig("dailyMessage").then((d) => {
-    const m = d && d.value;
-    if (!dailyMsgActive(m)) return;
+    const v = d && d.value;
+    // 목록형(배열). 구버전 단일 객체도 허용.
+    const list = Array.isArray(v) ? v : (v && v.body ? [v] : []);
+    const active = list.filter(dailyMsgActive);
+    if (!active.length) return;
+    // 같은 날 여러 개가 겹치면 가장 최근 등록(id 큰 것) 하나만
+    const m = active.reduce((a, b) => (Number(b.id) > Number(a.id) ? b : a));
     const key = dailyMsgSeenKey(m.id || "x");
     try { if (localStorage.getItem(key) === "1") return; } catch {}
     try { localStorage.setItem(key, "1"); } catch {}
