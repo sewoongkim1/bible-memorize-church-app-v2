@@ -956,9 +956,9 @@ function renderSummary() {
       <div class="stat-box status-none"><div class="stat-num">${counts[0]}</div><div class="stat-lbl">미시도</div></div>
     </div>
     <div class="summary-actions">
-      <button class="summary-go act-btn" id="go-list"><span class="act-ic">📖</span><span class="act-tx">암송하기</span></button>
+      <button class="summary-go act-btn" id="go-list"><span class="act-ic">📖</span><span class="act-tx">암송<br>하기</span></button>
       ${dueCount > 0 ? `<button class="summary-go review-cta act-btn" id="go-review"><span class="act-ic">📖</span><span class="act-tx">복습</span><span class="act-sub">${dueCount}구절</span></button>` : ""}
-      <button class="summary-go challenge-cta act-btn" id="go-challenge"><span class="act-ic">🔥</span><span class="act-tx">말씀도전</span></button>
+      <button class="summary-go challenge-cta act-btn" id="go-challenge"><span class="act-ic">🔥</span><span class="act-tx">말씀<br>도전</span></button>
     </div>
     ${weeklyHtml}
     <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
