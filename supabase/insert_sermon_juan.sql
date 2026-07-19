@@ -8,7 +8,7 @@ alter table public.sermons add column if not exists conclusion text;
 
 insert into public.sermons
   (id, title, svc_date, category, preacher, scripture, summary, points, conclusion,
-   mem_verse_no, mem_ref, mem_text, audio, hidden, updated_at)
+   mem_verse_no, mem_ref, mem_text, audio, questions, hidden, updated_at)
 values (
   'SqMbhfxvLDc',
   $T$주 안에서, 주께 하듯$T$,
@@ -27,6 +27,11 @@ values (
   $MR$골로새서 3:23$MR$,
   $MT$무슨 일을 하든지 마음을 다하여 주께 하듯 하고 사람에게 하듯 하지 말라$MT$,
   'audio/SqMbhfxvLDc.mp3',
+  $Q$[
+    "우리 가정에서 나는 '주 안에서' 살고 있나요? 이번 한 주, 배우자와 자녀의 말을 마리아처럼 주님의 발치에서 듣는 '마리아 대화법'을 하루만이라도 실천해 봅시다.",
+    "나는 사람의 눈치를 보며 일하나요, 아니면 누가 보든 보지 않든 '주께 하듯' 일하나요? 내 일터에 예수님의 깃발을 꽂는다는 것은 구체적으로 어떤 모습일지 적어 봅시다.",
+    "아무도 알아주지 않아도 하나님은 나의 수고를 기억하신다는 약속을 믿나요? 사람의 인정이 아니라 하늘의 상급을 바라보며, 오늘 묵묵히 감당할 섬김 하나는 무엇인가요?"
+  ]$Q$::jsonb,
   false,
   now()
 )
@@ -43,6 +48,7 @@ on conflict (id) do update set
   mem_ref    = excluded.mem_ref,
   mem_text   = excluded.mem_text,
   audio      = excluded.audio,
+  questions  = excluded.questions,
   hidden     = false,
   updated_at = now();
 

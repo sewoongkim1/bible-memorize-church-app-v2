@@ -309,6 +309,19 @@ h1 {
 /* 내용이 길면 모달 안에서 스크롤(화면 밖으로 넘치지 않게) */
 .dmsg-card { max-height: 85vh; overflow-y: auto; }
 .dmsg-body a { color: inherit; text-decoration: underline; }
+/* 오늘의 묵상(공지 없는 날 폴백) — 초록 톤 + 적용질문 구분선 */
+.cheer-card.med .dmsg-badge { background: #e7f6ee; color: #1f7a4d; }
+.cheer-card.med .dmsg-title { color: #1f7a4d; }
+.dmsg-body .med-msg { line-height: 1.75; }
+.dmsg-body .med-q {
+  margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);
+  line-height: 1.75; color: var(--navy); text-align: left;
+}
+.dmsg-body .med-q b { color: #1f7a4d; }
+.dark .cheer-card.med .dmsg-title { color: #8fd6ab; }
+.dark .cheer-card.med .dmsg-badge { background: #17311f; color: #8fd6ab; }
+.dark .dmsg-body .med-q { color: #cdd9f2; border-color: #3a4a68; }
+.dark .dmsg-body .med-q b { color: #8fd6ab; }
 /* 공지 유형: 네이비 톤으로 전환 */
 .cheer-card.notice { background: #fff; border-color: var(--navy); }
 .cheer-card.notice .dmsg-badge { background: var(--navy); color: #fff; }

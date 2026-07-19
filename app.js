@@ -2638,11 +2638,58 @@ function maybeShowDailyMessage() {
   if (_skipAutoDaily || !window.api || !api.getConfig) return;
   api.getConfig("dailyMessage").then((d) => {
     const m = pickActiveDailyMessage(d && d.value);
-    if (!m) return;
-    const key = dailyMsgSeenKey(m.id || "x");
-    try { if (localStorage.getItem(key) === "1") return; } catch {}
-    try { localStorage.setItem(key, "1"); } catch {}
-    showDailyMessage(m);
+    if (m) {                                     // ① 관리자 공지·격려가 있으면 우선
+      const key = dailyMsgSeenKey(m.id || "x");
+      try { if (localStorage.getItem(key) === "1") return; } catch {}
+      try { localStorage.setItem(key, "1"); } catch {}
+      showDailyMessage(m);
+      return;
+    }
+    maybeShowWeeklyMeditation();                  // ② 공지 없으면 이번주 말씀 묵상(매일 다름)
+  }).catch(() => { maybeShowWeeklyMeditation(); });
+}
+
+// 공지가 없는 날: 이번주 말씀 + 연결 설교의 핵심포인트·적용질문으로 '오늘의 묵상'을 매일 다르게 보여준다.
+function buildWeeklyMeditations(verse, sermon) {
+  const items = [];
+  const pts = (sermon && sermon.points) || [];
+  const qs = (sermon && sermon.questions) || [];
+  const n = Math.max(pts.length, qs.length);
+  for (let i = 0; i < n; i++) {
+    const p = pts[i];
+    const q = qs.length ? qs[i % qs.length] : "";
+    const message = p ? (p.body || "") : ((sermon && sermon.summary) || verse.text);
+    if (!message && !q) continue;
+    items.push({ heading: p ? (p.heading || "") : "", message, question: q });
+  }
+  if (!items.length) {
+    items.push({ heading: "", message: verse.text, question: "오늘 이 말씀을 삶의 어느 자리에 적용할 수 있을까요?" });
+  }
+  return items;
+}
+
+function maybeShowWeeklyMeditation(force) {
+  const info = getWeeklyVerseInfo();
+  if (!info || !info.verse) return;
+  const verse = info.verse;
+  loadSermons().then((sermons) => {
+    const sermon = findSermonForVerse(verse.no, sermons);
+    const items = buildWeeklyMeditations(verse, sermon);
+    if (!items.length) return;
+    const day = kstDayNumber();                  // 하루 단위로 증가하는 정수 → 매일 다른 항목
+    const pick = ((day % items.length) + items.length) % items.length;
+    const item = items[pick];
+    if (!force) {                                // 하루 1회만 자동 표시(미리보기는 무시)
+      const key = dailyMsgSeenKey(`med-${verse.no}-${pick}`);
+      try { if (localStorage.getItem(key) === "1") return; } catch {}
+      try { localStorage.setItem(key, "1"); } catch {}
+    }
+    showDailyMessage({
+      type: "meditation",
+      title: `${verse.refShort}${item.heading ? " · " + item.heading : ""}`,
+      body: `<div class="med-msg">${item.message}</div>` +
+            (item.question ? `<div class="med-q"><b>💬 오늘의 적용 질문</b><br>${item.question}</div>` : ""),
+    });
   }).catch(() => {});
 }
 
@@ -2651,21 +2698,24 @@ function previewDailyMessage() {
   if (!window.api || !api.getConfig) return;
   api.getConfig("dailyMessage").then((d) => {
     const m = pickActiveDailyMessage(d && d.value);
-    if (!m) { alert("지금 표시할 '오늘의 메시지'가 없어요.\n(등록 안 됐거나 표시 기간 밖입니다)"); return; }
-    showDailyMessage(m);
+    if (m) { showDailyMessage(m); return; }
+    maybeShowWeeklyMeditation(true); // 공지 없으면 '오늘의 묵상' 미리보기(하루1회 상태 무시)
   }).catch(() => {});
 }
 function showDailyMessage(m) {
   const isNotice = m.type === "notice";
+  const isMed = m.type === "meditation";
+  const icon = isNotice ? "📢" : "🌿";
+  const badge = isNotice ? "공지" : isMed ? "오늘의 묵상" : "격려";
   const open = () => {
     if (document.querySelector(".cheer-overlay")) { setTimeout(open, 300); return; } // 다른 모달과 안 겹치게
     const wrap = document.createElement("div");
     wrap.id = "daily-message";
     wrap.className = "cheer-overlay";
     wrap.innerHTML = `
-      <div class="cheer-card dmsg-card${isNotice ? " notice" : ""}" role="dialog" aria-modal="true">
-        <div class="cheer-icon">${isNotice ? "📢" : "🌿"}</div>
-        <div class="cheer-ref dmsg-badge">${isNotice ? "공지" : "격려"}</div>
+      <div class="cheer-card dmsg-card${isNotice ? " notice" : ""}${isMed ? " med" : ""}" role="dialog" aria-modal="true">
+        <div class="cheer-icon">${icon}</div>
+        <div class="cheer-ref dmsg-badge">${badge}</div>
         ${m.title ? `<div class="dmsg-title">${boardEsc(m.title)}</div>` : ""}
         <div class="cheer-msg dmsg-body">${String(m.body || "").replace(/\n/g, "<br>")}</div>
         <button class="cheer-ok" id="dmsg-ok">확인</button>
