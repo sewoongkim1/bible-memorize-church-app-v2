@@ -2698,7 +2698,7 @@ function maybeShowWeeklyMeditation(force) {
     }
     showDailyMessage({
       type: "meditation",
-      title: `${verse.refShort}${item.heading ? " · " + item.heading : ""}`,
+      title: item.heading || "오늘의 묵상",   // 말씀출처(골 3:23)는 빼고 핵심 제목만
       body: `<div class="med-msg">${item.message}</div>` +
             (item.question ? `<div class="med-q"><b>💬 오늘의 적용 질문</b><br>${item.question}</div>` : ""),
     });

@@ -311,7 +311,7 @@ h1 {
 .dmsg-body a { color: inherit; text-decoration: underline; }
 /* 오늘의 묵상(공지 없는 날 폴백) — 초록 톤 + 적용질문 구분선 */
 .cheer-card.med .dmsg-badge { background: #e7f6ee; color: #1f7a4d; }
-.cheer-card.med .dmsg-title { color: #1f7a4d; }
+.cheer-card.med .dmsg-title { color: #1f7a4d; font-size: .98rem; }
 .dmsg-body .med-msg { line-height: 1.75; }
 .dmsg-body .med-q {
   margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);
