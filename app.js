@@ -930,7 +930,6 @@ function renderSummary() {
         </div>
         ${weeklyHeart ? "" : `<div class="weekly-state ${weeklyStatus.cls}">${weeklyStatus.text}</div>`}
       </div>
-      <div class="weekly-ref">${weeklyVerse.refShort}</div>
       <div class="weekly-title">${weeklyVerse.sermonTitle || weeklyVerse.refFull || ""}</div>
       <div class="weekly-text">${weeklyVerse.text} <span class="weekly-inref">(${weeklyVerse.refShort})</span></div>
       <div class="weekly-actions ${weeklyVerse.url ? "" : "single"}">

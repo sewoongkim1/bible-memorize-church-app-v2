@@ -8,7 +8,7 @@ alter table public.sermons add column if not exists conclusion text;
 
 insert into public.sermons
   (id, title, svc_date, category, preacher, scripture, summary, points, conclusion,
-   mem_verse_no, mem_ref, mem_text, hidden, updated_at)
+   mem_verse_no, mem_ref, mem_text, audio, hidden, updated_at)
 values (
   'SqMbhfxvLDc',
   $T$주 안에서, 주께 하듯$T$,
@@ -26,6 +26,7 @@ values (
   29,
   $MR$골로새서 3:23$MR$,
   $MT$무슨 일을 하든지 마음을 다하여 주께 하듯 하고 사람에게 하듯 하지 말라$MT$,
+  'audio/SqMbhfxvLDc.mp3',
   false,
   now()
 )
@@ -41,6 +42,7 @@ on conflict (id) do update set
   mem_verse_no = excluded.mem_verse_no,
   mem_ref    = excluded.mem_ref,
   mem_text   = excluded.mem_text,
+  audio      = excluded.audio,
   hidden     = false,
   updated_at = now();
 
