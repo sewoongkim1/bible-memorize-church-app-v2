@@ -1287,12 +1287,12 @@ html[data-fs="xl"] .sermon-sum-card .ss-top > .back-btn { font-size: 17px; paddi
 /* 첫화면 메인 액션(암송하기·복습·말씀도전) — 한 줄, 화면 꽉차게 */
 .summary-actions { display: flex; gap: 10px; margin: 8px 0 12px; }
 .summary-actions .summary-go {
-  flex: 1; width: auto; margin: 0; padding: 12px 6px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-  min-height: 90px;
+  flex: 1; width: auto; margin: 0; padding: 14px 6px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-height: 92px;
 }
-.summary-actions .act-ic { font-size: 1.4rem; line-height: 1; }
-.summary-actions .act-tx { font-size: 1.02rem; font-weight: 800; line-height: 1.14; }
+.summary-actions .act-ic { font-size: 1.45rem; line-height: 1; margin-bottom: 6px; }
+.summary-actions .act-tx { font-size: .97rem; font-weight: 800; line-height: 1.14; white-space: nowrap; }
 .summary-actions .act-sub { font-size: .82rem; font-weight: 700; opacity: .92; }
 
 .summary-go {
