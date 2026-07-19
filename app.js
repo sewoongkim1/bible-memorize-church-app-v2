@@ -1745,6 +1745,11 @@ function renderSermonSummary(verse, sermon, onBack, backLabel) {
   });
 }
 
+// 3단계 '반복해서 쓰기' — 켜두면 정답을 맞힐 때마다 자동으로 새 3단계가 나온다(외울 때까지).
+const REPEAT_KEY = "repeat-practice";
+function isRepeatPractice() { try { return localStorage.getItem(REPEAT_KEY) === "1"; } catch (e) { return false; } }
+function setRepeatPractice(on) { try { localStorage.setItem(REPEAT_KEY, on ? "1" : "0"); } catch (e) {} }
+
 function renderTestScreen(verse, stage) {
   stopSpeaking(); // 화면 전환 시 읽어주기 정지
   const appEl = document.getElementById("app");
@@ -1798,6 +1803,14 @@ function renderTestScreen(verse, stage) {
           <span class="heart-desc">이 말씀을 <b>완전히 암송했다</b>는 뜻이에요. 체크하면 목록에 👑 금배지가 달리고, 다음부터 바로 3단계로 시작해요.</span>
         </label>` : "";
 
+  // 3단계에만: '반복해서 쓰기' 토글. 켜두면 정답 후 자동으로 새 3단계가 나온다.
+  const repeatHtml = stage === 3 ? `
+        <label class="repeat-toggle" id="repeat-label">
+          <input type="checkbox" id="repeat-check"${isRepeatPractice() ? " checked" : ""} />
+          <span class="repeat-text">🔁 반복해서 쓰기</span>
+          <span class="repeat-desc">외울 때까지, 정답을 맞히면 자동으로 다시 써요</span>
+        </label>` : "";
+
   appEl.innerHTML = `
     <div class="test-screen">
       <div class="test-card">
@@ -1814,6 +1827,7 @@ function renderTestScreen(verse, stage) {
           <button class="back-btn" id="back-to-list-btn">← 목록</button>
         </div>
         <div class="test-sentence">${wordsHtml}</div>
+        ${repeatHtml}
         <div id="result-area"></div>
         ${heartHtml}
         <div id="answer-panel" class="answer-panel" hidden>
@@ -1839,6 +1853,12 @@ function renderTestScreen(verse, stage) {
 
   // 이 구절에 대응하는 설교 요약이 있으면 배너 아래에 '설교 요약 보기' 버튼을 채운다.
   fillSermonSummaryBtn(verse, stage);
+
+  // '반복해서 쓰기' 토글 저장
+  const repeatInput = document.getElementById("repeat-check");
+  if (repeatInput) {
+    repeatInput.addEventListener("change", () => setRepeatPractice(repeatInput.checked));
+  }
 
   // "내 마음에 두었나이다" 체크/해제
   const heartInput = document.getElementById("heart-check");
@@ -2403,7 +2423,25 @@ function checkAllComplete(inputs, verse, stage) {
     return;
   }
   unlockHeartCheck(); // 3단계 통과 → "마음에 두었나이다" 체크 가능
-  // 3단계 완료 → 이전 암송 · 다시 암송 · 다음 암송
+
+  // '반복해서 쓰기'가 켜져 있으면 완료 네비 대신 "정답!" 잠깐 → 자동으로 새 3단계
+  // (정답마다 위의 saveProgress가 실행되므로 도전 기록에 '매번' 카운트된다)
+  if (isRepeatPractice()) {
+    resultEl.innerHTML = `
+      <div class="repeat-flash">✓ 정답! <span class="rf-sub">다시 써볼까요…</span>
+        <button class="nav3-btn" id="repeat-stop-btn">그만</button></div>`;
+    const t = setTimeout(() => renderTestScreen(verse, 3), 1100);
+    const stopBtn = document.getElementById("repeat-stop-btn");
+    if (stopBtn) stopBtn.addEventListener("click", () => { clearTimeout(t); renderCompleteNav(verse); });
+    return;
+  }
+  renderCompleteNav(verse);
+}
+
+// 3단계 완료 네비 — 이전 · 다시 암송 · 다음 + 말씀 나누기
+function renderCompleteNav(verse) {
+  const resultEl = document.getElementById("result-area");
+  if (!resultEl) return;
   const idx = verses.findIndex((v) => v.no === verse.no);
   const prev = idx > 0 ? verses[idx - 1] : null;
   const next = (idx >= 0 && idx < verses.length - 1) ? verses[idx + 1] : null;
