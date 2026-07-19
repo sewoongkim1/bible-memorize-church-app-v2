@@ -352,6 +352,23 @@ h1 {
 .dark .repeat-text { color: #bcd2f2; }
 .dark .repeat-desc { color: #93a3ba; }
 
+/* 새 버전 알림 배너(화면 하단 고정) */
+#update-banner {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 9999;
+  display: flex; align-items: center; gap: 10px; padding: 11px 14px;
+  background: var(--navy); color: #fff; box-shadow: 0 -4px 16px rgba(13,27,62,.28);
+  transform: translateY(110%); transition: transform .25s ease;
+}
+#update-banner.show { transform: translateY(0); }
+#update-banner .ub-text { flex: 1; font-weight: 700; font-size: .92rem; }
+#update-banner .ub-btn {
+  background: var(--gold); color: var(--navy-dark); border: none;
+  padding: 8px 16px; border-radius: 8px; font-weight: 800; font-size: .92rem; cursor: pointer; font-family: inherit;
+}
+#update-banner .ub-x {
+  background: transparent; border: none; color: #cdd9f2; font-size: 1rem; cursor: pointer; padding: 4px 6px;
+}
+
 .heart-check {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   margin: 12px 0 2px; padding: 10px 12px;
@@ -1420,6 +1437,11 @@ html[data-fs="xl"] .sermon-sum-card .ss-top > .back-btn { font-size: 17px; paddi
 .summary-help.praise-cta:hover { background: #d9b96a; color: #fff; }
 .dark .summary-help.praise-cta { background: #2a271b; color: #d9b96a; border-color: #5a4e2a; }
 .dark .summary-help.praise-cta:hover { background: #5a4e2a; color: #fff; }
+/* 매일 묵상 버튼 — 묵상 모달과 같은 초록 톤 */
+.summary-help.med-cta { background: #eaf6ee; color: #1f7a4d; border-color: #1f7a4d; }
+.summary-help.med-cta:hover { background: #1f7a4d; color: #fff; }
+.dark .summary-help.med-cta { background: #17311f; color: #8fd6ab; border-color: #2f5a42; }
+.dark .summary-help.med-cta:hover { background: #2f5a42; color: #fff; }
 /* 질문·제안 게시판 버튼 — 초록 계열로 구분 */
 .summary-help.board-cta { background: #eaf3ee; color: #2f6b4f; border-color: #2f6b4f; }
 .summary-help.board-cta:hover { background: #2f6b4f; color: #fff; }

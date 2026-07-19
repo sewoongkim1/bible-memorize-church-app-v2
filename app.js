@@ -960,6 +960,7 @@ function renderSummary() {
       <button class="summary-go challenge-cta act-btn" id="go-challenge"><span class="act-ic">🔥</span><span class="act-tx">말씀<br>도전</span></button>
     </div>
     ${weeklyHtml}
+    <button class="summary-help med-cta" id="open-meditation">🌿 매일 묵상</button>
     <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
 <button class="summary-help praise-cta" id="open-praise">🎵 고척교회 찬양 아카이브</button>
 <button class="summary-help board-cta" id="open-board">💬 질문·제안 게시판</button>
@@ -982,6 +983,7 @@ function renderSummary() {
   fillWeeklySummaryBtn(weeklyVerse); // 요약이 있으면 '설교보기' 옆에 요약보기 버튼 추가
   if (dueCount > 0) document.getElementById("go-review").addEventListener("click", startReview);
   document.getElementById("go-challenge").addEventListener("click", startChallenge);
+  document.getElementById("open-meditation").addEventListener("click", () => maybeShowWeeklyMeditation(true));
   document.getElementById("open-ranking").addEventListener("click", () => renderRanking());
   document.getElementById("open-praise").addEventListener("click", () => window.open("https://worship.onlybible.kr/", "_blank", "noopener"));
   document.getElementById("open-help-summary").addEventListener("click", () => renderHelp(renderSummary));
@@ -3560,6 +3562,56 @@ function renderCalendar(start, end, days, mode) {
   const summary = `<div class="mc-summary">참여 <b class="done">${participated}일</b> · 미참여 <b class="miss">${missed}일</b> <span class="mc-sub">(지난 ${total}일 기준)</span></div>`;
   return summary + head + `<div class="mc-grid">${cellsHtml}</div>`;
 }
+
+// ------------------------------------------------------------
+// 새 버전 자동 감지 → '새로고침' 배너
+//   실행 중 app.js 버전(캐시된 index.html의 <script> ?v=)과
+//   서버 최신 index.html(no-store)의 app.js ?v= 를 비교. 다르면 배너.
+//   '새로고침'은 브라우저 HTTP 캐시(약 10분)를 우회하려 캐시버스트 URL로 재진입 + SW 캐시 정리.
+// ------------------------------------------------------------
+let _updateBannerShown = false;
+function currentAppVersion() {
+  const s = document.querySelector('script[src*="app.js"]');
+  const m = s && s.src.match(/[?&]v=([^&"']+)/);
+  return m ? m[1] : null;
+}
+function checkForUpdate() {
+  if (_updateBannerShown) return;
+  const cur = currentAppVersion();
+  if (!cur) return;
+  fetch("index.html", { cache: "no-store" })
+    .then((r) => (r.ok ? r.text() : Promise.reject()))
+    .then((html) => {
+      const m = html.match(/app\.js\?v=([^"'&]+)/);
+      const fresh = m ? m[1] : null;
+      if (fresh && fresh !== cur) showUpdateBanner();
+    })
+    .catch(() => {});
+}
+function showUpdateBanner() {
+  if (_updateBannerShown || document.getElementById("update-banner")) return;
+  _updateBannerShown = true;
+  const bar = document.createElement("div");
+  bar.id = "update-banner";
+  bar.innerHTML =
+    `<span class="ub-text">🔄 새 버전이 나왔어요</span>` +
+    `<button class="ub-btn" id="ub-refresh">새로고침</button>` +
+    `<button class="ub-x" id="ub-close" aria-label="닫기">✕</button>`;
+  document.body.appendChild(bar);
+  requestAnimationFrame(() => bar.classList.add("show"));
+  document.getElementById("ub-refresh").addEventListener("click", () => {
+    try { if (window.caches) caches.keys().then((ks) => ks.forEach((k) => caches.delete(k))); } catch (e) {}
+    const base = location.pathname.replace(/index\.html$/, "");
+    location.replace(base + "?u=" + Date.now()); // 캐시버스트 URL → 서버 최신 index.html
+  });
+  document.getElementById("ub-close").addEventListener("click", () => {
+    bar.classList.remove("show");
+    setTimeout(() => bar.remove(), 250);
+    _updateBannerShown = false;
+  });
+}
+setTimeout(checkForUpdate, 4000); // 시작 몇 초 뒤 1회
+document.addEventListener("visibilitychange", () => { if (!document.hidden) checkForUpdate(); }); // 앱 복귀 시
 
 promptOpenExternal();
 loadVerses();
