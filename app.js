@@ -955,11 +955,13 @@ function renderSummary() {
       <div class="stat-box status-s1"><div class="stat-num">${inProgress}</div><div class="stat-lbl">진행중</div></div>
       <div class="stat-box status-none"><div class="stat-num">${counts[0]}</div><div class="stat-lbl">미시도</div></div>
     </div>
+    <div class="summary-actions">
+      <button class="summary-go act-btn" id="go-list"><span class="act-ic">📖</span><span class="act-tx">암송하기</span></button>
+      ${dueCount > 0 ? `<button class="summary-go review-cta act-btn" id="go-review"><span class="act-ic">📖</span><span class="act-tx">복습</span><span class="act-sub">${dueCount}구절</span></button>` : ""}
+      <button class="summary-go challenge-cta act-btn" id="go-challenge"><span class="act-ic">🔥</span><span class="act-tx">말씀<br>도전</span></button>
+    </div>
     ${weeklyHtml}
-    <button class="summary-go" id="go-list">📖 암송하러 가기</button>
-${dueCount > 0 ? `<button class="summary-go review-cta" id="go-review">📖 오늘 복습 (${dueCount}구절)</button>` : ""}
-<button class="summary-go challenge-cta" id="go-challenge">🔥 오늘의 말씀 도전</button>
-<button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
+    <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
 <button class="summary-help praise-cta" id="open-praise">🎵 고척교회 찬양 아카이브</button>
 <button class="summary-help board-cta" id="open-board">💬 질문·제안 게시판</button>
     <div class="summary-icons summary-icons-bottom">
