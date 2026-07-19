@@ -2649,6 +2649,17 @@ function maybeShowDailyMessage() {
   }).catch(() => { maybeShowWeeklyMeditation(); });
 }
 
+// 긴 본문을 문장 경계에서 약 절반으로 줄인다(오늘의 묵상이 너무 길지 않게).
+function halfText(text) {
+  const t = String(text || "").trim();
+  const parts = t.match(/[^.!?。]+[.!?。]*\s*/g);
+  if (!parts || parts.length <= 1) return t;
+  const target = t.length * 0.5;
+  let out = "";
+  for (const p of parts) { out += p; if (out.length >= target) break; }
+  return out.trim();
+}
+
 // 공지가 없는 날: 이번주 말씀 + 연결 설교의 핵심포인트·적용질문으로 '오늘의 묵상'을 매일 다르게 보여준다.
 function buildWeeklyMeditations(verse, sermon) {
   const items = [];
@@ -2658,7 +2669,8 @@ function buildWeeklyMeditations(verse, sermon) {
   for (let i = 0; i < n; i++) {
     const p = pts[i];
     const q = qs.length ? qs[i % qs.length] : "";
-    const message = p ? (p.body || "") : ((sermon && sermon.summary) || verse.text);
+    const full = p ? (p.body || "") : ((sermon && sermon.summary) || verse.text);
+    const message = halfText(full);            // 핵심포인트 전문 대신 절반 분량으로
     if (!message && !q) continue;
     items.push({ heading: p ? (p.heading || "") : "", message, question: q });
   }
