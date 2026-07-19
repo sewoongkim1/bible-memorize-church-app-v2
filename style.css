@@ -338,17 +338,6 @@ h1 {
 .dark .repeat-toggle { background: #1f2a3f; border-color: #33465f; }
 .dark .repeat-text { color: #bcd2f2; }
 .dark .repeat-desc { color: #93a3ba; }
-/* 반복 연습 정답 플래시 */
-.repeat-flash {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  margin: 12px 0; padding: 12px 14px; border-radius: 12px;
-  background: #e7f6ee; border: 1px solid #bfe3cf; color: #1f7a4d;
-  font-weight: 800; font-size: 1.05rem;
-}
-.repeat-flash .rf-sub { font-weight: 600; color: #2f6b4f; font-size: .9rem; }
-.repeat-flash .nav3-btn { margin-left: auto; }
-.dark .repeat-flash { background: #17311f; border-color: #2f5a42; color: #8fd6ab; }
-.dark .repeat-flash .rf-sub { color: #7fc7a0; }
 
 .heart-check {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;

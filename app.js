@@ -2424,15 +2424,10 @@ function checkAllComplete(inputs, verse, stage) {
   }
   unlockHeartCheck(); // 3단계 통과 → "마음에 두었나이다" 체크 가능
 
-  // '반복해서 쓰기'가 켜져 있으면 완료 네비 대신 "정답!" 잠깐 → 자동으로 새 3단계
-  // (정답마다 위의 saveProgress가 실행되므로 도전 기록에 '매번' 카운트된다)
+  // '반복해서 쓰기'가 켜져 있으면 아무것도 띄우지 않고 바로 새 3단계로 넘어간다.
+  // (정답마다 위의 saveProgress가 실행되므로 도전 기록에 '매번' 카운트된다. 멈추려면 체크박스 해제)
   if (isRepeatPractice()) {
-    resultEl.innerHTML = `
-      <div class="repeat-flash">✓ 정답! <span class="rf-sub">다시 써볼까요…</span>
-        <button class="nav3-btn" id="repeat-stop-btn">그만</button></div>`;
-    const t = setTimeout(() => renderTestScreen(verse, 3), 1100);
-    const stopBtn = document.getElementById("repeat-stop-btn");
-    if (stopBtn) stopBtn.addEventListener("click", () => { clearTimeout(t); renderCompleteNav(verse); });
+    setTimeout(() => renderTestScreen(verse, 3), 350); // 마지막 글자 정답 표시가 잠깐 보이도록만
     return;
   }
   renderCompleteNav(verse);
