@@ -8,7 +8,7 @@ alter table public.sermons add column if not exists conclusion text;
 
 insert into public.sermons
   (id, title, svc_date, category, preacher, scripture, summary, points, conclusion,
-   mem_ref, mem_text, hidden, updated_at)
+   mem_verse_no, mem_ref, mem_text, hidden, updated_at)
 values (
   'SqMbhfxvLDc',
   $T$주 안에서, 주께 하듯$T$,
@@ -23,6 +23,7 @@ values (
     {"heading":"상은 — 주께서 주십니다","body":"24~25절은 그 상을 ‘주께서’ 기업의 상으로 주신다고 약속합니다. 기업의 상은 일을 얼마나 잘했는지 따져 주는 임금이 아니라, 자녀에게 물려주는 상속입니다. 하나님은 외모로 취하지 않으시며, 우리가 잘해서가 아니라 그분의 자녀이기에 우리를 예뻐하십니다. 사람은 몰라줘도 하나님은 주 안에서 주께 하듯 한 우리의 섬김을 결코 잊지 않으시고 하늘의 상급으로 갚아 주십니다."}
   ]$P$::jsonb,
   $C$아프리카에서 50년을 섬기고 은퇴한 노 선교사 부부를 아무도 마중 나오지 않았을 때, 하나님은 ‘너는 아직 집에 온 것이 아니다, 내가 줄 상이 있다’고 하셨습니다. 아무도 보지 않는 교회 마당에서 땀 흘려 그늘막을 고치던 성도들의 수고를, 하나님은 하늘에서 사진으로 찍어 천국 사진첩에 차곡차곡 쌓아 두십니다. 그러니 이 한 주도 가정 생활은 주 안에서, 사회생활은 주께 하듯 하시기 바랍니다. 우리 가정과 일터에 예수님의 깃발을 꽂아 그곳이 하나님의 영토임을 선포하는 복된 한 주 되시기를 예수님의 이름으로 축복합니다.$C$,
+  29,
   $MR$골로새서 3:23$MR$,
   $MT$무슨 일을 하든지 마음을 다하여 주께 하듯 하고 사람에게 하듯 하지 말라$MT$,
   false,
@@ -36,7 +37,8 @@ on conflict (id) do update set
   scripture  = excluded.scripture,
   summary    = excluded.summary,
   points     = excluded.points,
-  conclusion = excluded.conclusion,
+  conclusion   = excluded.conclusion,
+  mem_verse_no = excluded.mem_verse_no,
   mem_ref    = excluded.mem_ref,
   mem_text   = excluded.mem_text,
   hidden     = false,

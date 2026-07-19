@@ -919,7 +919,7 @@ function renderSummary() {
   const weeklyVerse = weeklyInfo && weeklyInfo.verse;
   const weeklyStage = weeklyVerse ? getPassedStage(weeklyVerse.no) : 0;
   const weeklyStatus = weeklyVerse ? STATUS_LABEL[weeklyStage] : null;
-  const weeklyActionText = weeklyStage >= 3 ? "복습하기" : "바로 암송하기";
+  const weeklyActionText = weeklyStage >= 3 ? "복습하기" : "암송하기";
   const weeklyHeart = weeklyVerse ? isHearted(weeklyVerse.no) : false;
   const weeklyHtml = weeklyVerse ? `
     <div class="weekly-card${weeklyHeart ? " hearted" : ""}">
