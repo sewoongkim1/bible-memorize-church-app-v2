@@ -976,6 +976,10 @@ html[data-fs="xl"] .sermon-sum-card .ss-top > .back-btn { font-size: 17px; paddi
 .summary-icons {
   display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;
 }
+/* 맨 아래로 내린 아이콘 행: 위 버튼들과 간격 + 상단 구분선 */
+.summary-icons-bottom {
+  margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); gap: 10px;
+}
 /* 알림·공유 강조 아이콘(참여 독려) */
 .summary-icon.icon-alarm { background: #fff4dc; border-color: #ecd39a; color: #9a7614; }
 .summary-icon.icon-share { background: #e8f0fb; border-color: #c3d5ef; color: var(--navy); }
