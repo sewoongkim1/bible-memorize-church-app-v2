@@ -1198,6 +1198,9 @@ html[data-fs="xl"] .sermon-sum-card .ss-top > .back-btn { font-size: 17px; paddi
   line-height: 1.55;
   margin: 8px 0;
 }
+/* 본문 끝 성경 참조 — 인용처럼 살짝 연하게 */
+.weekly-inref { color: var(--navy); font-weight: 700; white-space: nowrap; opacity: .8; }
+.dark .weekly-inref { color: #9db6df; }
 .weekly-state {
   display: inline-block;
   border-radius: 999px;

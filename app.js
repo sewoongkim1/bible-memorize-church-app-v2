@@ -932,7 +932,7 @@ function renderSummary() {
       </div>
       <div class="weekly-ref">${weeklyVerse.refShort}</div>
       <div class="weekly-title">${weeklyVerse.sermonTitle || weeklyVerse.refFull || ""}</div>
-      <div class="weekly-text">${weeklyVerse.text}</div>
+      <div class="weekly-text">${weeklyVerse.text} <span class="weekly-inref">(${weeklyVerse.refShort})</span></div>
       <div class="weekly-actions ${weeklyVerse.url ? "" : "single"}">
         <button class="weekly-primary" id="weekly-start">${weeklyActionText}</button>
         ${weeklyVerse.url ? `<a class="weekly-secondary" id="weekly-sermon" href="${weeklyVerse.url}" target="_blank" rel="noopener">설교보기</a>` : ""}
