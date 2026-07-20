@@ -1827,7 +1827,7 @@ function renderTestScreen(verse, stage) {
         <div class="btn-row">
           <button class="answer-btn" id="show-answer-btn">보기</button>
           <button class="answer-btn" id="listen-answer-btn" aria-label="정답 음성으로 듣기">🔊 듣기</button>
-          <button class="voice-btn" id="voice-toggle">🎤 암송시작</button>
+          <button class="voice-btn" id="voice-toggle">🎤 암송</button>
           <button class="answer-btn mode-btn" id="mode-toggle">${isCardMode() ? "⌨️ 쓰기" : "👆 카드"}</button>
         </div>
         <div class="test-top">
@@ -2184,11 +2184,11 @@ function setupVoice(verse, stage, onPass) {
     running = on;
     panel.hidden = !on;
     if (on) {
-      toggleBtn.textContent = "■ 암송 종료";
+      toggleBtn.textContent = "■ 종료";
       toggleBtn.classList.remove("voice-btn");
       toggleBtn.classList.add("voice-stop");
     } else {
-      toggleBtn.textContent = "🎤 암송시작";
+      toggleBtn.textContent = "🎤 암송";
       toggleBtn.classList.remove("voice-stop");
       toggleBtn.classList.add("voice-btn");
     }
@@ -3042,7 +3042,7 @@ function renderHelp(onClose) {
 
         <section class="help-section">
           <h3>🎤 음성 암송</h3>
-          <p><b>🎤 암송 시작</b>을 누르고 말씀을 소리 내어 외운 뒤 <b>■ 암송 종료</b>를 누르면 정확도를 알려줘요 (정확도가 충분히 높으면 통과). 크롬·사파리에서 마이크를 허용해 주세요.</p>
+          <p><b>🎤 암송 시작</b>을 누르고 말씀을 소리 내어 외운 뒤 <b>■ 종료</b>를 누르면 정확도를 알려줘요 (정확도가 충분히 높으면 통과). 크롬·사파리에서 마이크를 허용해 주세요.</p>
         </section>
 
         <section class="help-section">
@@ -3120,7 +3120,7 @@ function renderChallenge(verse) {
         <div class="btn-row" style="flex-wrap:wrap;">
           <button class="answer-btn" id="hint-btn">💡 힌트</button>
           <button class="answer-btn" id="ch-shuffle">🔀 다른말씀</button>
-          <button class="voice-btn" id="voice-toggle">🎤 암송시작</button>
+          <button class="voice-btn" id="voice-toggle">🎤 암송</button>
         </div>
         <div class="test-top">
           <div class="test-head">
@@ -3176,7 +3176,7 @@ function renderReview(queue, idx) {
         <div class="btn-row">
           <button class="answer-btn" id="show-answer-btn">보기</button>
           <button class="answer-btn" id="listen-answer-btn" aria-label="정답 음성으로 듣기">🔊 듣기</button>
-          <button class="voice-btn" id="voice-toggle">🎤 암송시작</button>
+          <button class="voice-btn" id="voice-toggle">🎤 암송</button>
         </div>
         <div class="test-top">
           <div class="test-head">

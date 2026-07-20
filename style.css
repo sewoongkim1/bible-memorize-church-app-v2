@@ -466,9 +466,11 @@ h1 {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
   flex-wrap: nowrap;
 }
+/* 버튼 4개가 어떤 화면 폭에서도 한 줄에 들어가고, 글자가 박스를 넘지 않게:
+   폭에 따라 글자 크기를 자동 조절(clamp) + 넘칠 경우 숨김 */
 .btn-row .answer-btn,
 .btn-row .voice-btn,
 .btn-row .voice-stop {
@@ -477,9 +479,11 @@ h1 {
   min-width: 0;
   max-width: 170px;
   justify-content: center;
-  padding: 9px 6px;
-  font-size: 12px;
+  padding: 9px 4px;
+  font-size: clamp(10px, 2.9vw, 13px);
   white-space: nowrap;
+  overflow: hidden;
+  gap: 3px;
 }
 .btn-row .voice-stop { border-radius: 22px; }
 .voice-btn:disabled,
