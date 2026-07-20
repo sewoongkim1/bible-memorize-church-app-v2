@@ -89,6 +89,11 @@ Deno.serve(async (req) => {
       case "savePush":      return json(await savePush(body));
       case "removePush":    return json(await removePush(body));
       case "testPush":      return json(await testPush(body));
+      // 어드민 '자동 넣기'용 — 매일 아침 실제로 나가는 문구(오늘의 묵상 + 이번주 말씀)를 그대로 반환
+      case "pushPreview": {
+        const c = await dailyPushContent();
+        return json(c ? { ok: true, title: c.title, body: c.body } : { ok: false, error: "no-content" });
+      }
       case "sendPush":      return json(await sendPush(body));
       // ---- 장애 모니터링 ----
       case "monitor":       return json(await monitor(body));
