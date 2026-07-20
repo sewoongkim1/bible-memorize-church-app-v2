@@ -1840,14 +1840,14 @@ function renderTestScreen(verse, stage) {
         </div>
         <div class="test-sentence">${wordsHtml}</div>
         <div id="card-tray" class="card-tray"></div>
-        ${repeatHtml}
-        <div id="result-area"></div>
-        ${heartHtml}
         <div id="answer-panel" class="answer-panel" hidden>
           <div class="answer-title">정답</div>
           <div class="answer-text">${answerHtml}</div>
           <button class="back-to-test-btn" id="back-to-test-btn">돌아가서 계속하기</button>
         </div>
+        ${repeatHtml}
+        <div id="result-area"></div>
+        ${heartHtml}
 
         <div id="voice-panel" class="voice-panel" hidden>
           <div class="voice-status" id="voice-status">🎙️ 듣고 있어요… <b>‘암송 종료’</b>를 누를 때까지 계속 들어요</div>
