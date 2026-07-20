@@ -3418,7 +3418,6 @@ function renderAlbum(filter) {
         : `<p class="album-empty">${f === "heart"
             ? "아직 '마음에 둠'으로 체크한 구절이 없어요.<br>3단계까지 암송하면 체크할 수 있습니다 🙌"
             : "아직 완료한 구절이 없어요.<br>첫 구절을 암송해 보세요 📖"}</p>`}
-      <button class="summary-help med-cta" id="ab-share">🙌 내 말씀 앨범 나누기</button>
     </div>`;
 
   document.getElementById("ab-back").addEventListener("click", renderSummary);
@@ -3429,14 +3428,6 @@ function renderAlbum(filter) {
       const v = verses.find((x) => x.no === Number(c.dataset.no));
       if (v) startTest(v);
     }));
-  document.getElementById("ab-share").addEventListener("click", () => {
-    shareLink(
-      `[고척교회] 오직 성경, 말씀이 답이다!\n` +
-      `저는 지금까지 ${done.length}구절을 암송하고, 그중 ${hearted.length}구절을 마음에 두었습니다 🙌\n` +
-      `함께 말씀을 마음에 새겨요.`,
-      SHARE_HOME
-    );
-  });
 }
 
 function renderRanking(range) {
