@@ -2759,16 +2759,16 @@ function maybeShowWeeklyMeditation(force) {
       try { if (localStorage.getItem(key) === "1") return; } catch {}
       try { localStorage.setItem(key, "1"); } catch {}
     }
-    showMeditationModal(items, pick, verse, sermon); // 이번주 전체를 탭으로, 오늘 것이 기본 선택
+    // 첫화면 자동 팝업은 '오늘 것 하나만'. 요일 탭은 매일 묵상 버튼(force)으로 열 때만 보여준다.
+    showMeditationModal(items, pick, verse, sermon, !!force);
   }).catch(() => {});
 }
 
 // 오늘의 묵상 모달 — 이번주 묵상 전체를 탭으로 넘겨볼 수 있다(기본은 오늘 것).
-function showMeditationModal(items, startIdx, verse, sermon) {
-  const tabLabel = (it, i) => {
-    const h = String(it.heading || "").split("—")[0].trim();
-    return h || `${i + 1}`;
-  };
+function showMeditationModal(items, startIdx, verse, sermon, showTabs) {
+  // 탭은 요일 한 글자(7일치일 때). 그 외에는 번호 — 제목을 쓰면 너무 길어 화면을 잡아먹는다.
+  const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
+  const tabLabel = (i) => (items.length === 7 ? DAYS[i] : String(i + 1));
   const open = () => {
     if (document.querySelector(".cheer-overlay")) { setTimeout(open, 300); return; }
     const wrap = document.createElement("div");
@@ -2777,8 +2777,10 @@ function showMeditationModal(items, startIdx, verse, sermon) {
     wrap.innerHTML = `
       <div class="cheer-card dmsg-card med" role="dialog" aria-modal="true">
         <div class="cheer-ref dmsg-badge">🌿 오늘의 묵상</div>
-        <div class="med-tabs">${items.map((it, i) =>
-          `<button class="med-tab" data-i="${i}">${tabLabel(it, i)}</button>`).join("")}</div>
+        ${showTabs && items.length > 1
+          ? `<div class="med-tabs">${items.map((it, i) =>
+              `<button class="med-tab${i === startIdx ? " today" : ""}" data-i="${i}">${tabLabel(i)}</button>`).join("")}</div>`
+          : ""}
         <div class="dmsg-title" id="med-title"></div>
         <div class="cheer-msg dmsg-body" id="med-body"></div>
         <div class="med-actions">

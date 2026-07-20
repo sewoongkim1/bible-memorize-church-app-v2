@@ -325,13 +325,19 @@ h1 {
 .med-actions .med-more:hover { background: #1f7a4d; color: #fff; }
 .dark .med-actions .med-more { background: #17311f; color: #8fd6ab; border-color: #2f5a42; }
 .dark .med-actions .med-more:hover { background: #2f5a42; color: #fff; }
-/* 이번주 묵상 전체를 넘겨보는 탭 */
-.med-tabs { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin: 10px 0 4px; }
+/* 이번주 묵상 요일 탭 — 일~토 한 글자로 한 줄에(제목은 아래 타이틀에 나온다) */
+.med-tabs { display: flex; gap: 4px; justify-content: center; flex-wrap: nowrap; margin: 8px 0 2px; }
 .med-tab {
-  padding: 6px 12px; border-radius: 999px; border: 1px solid #bfe3cf; background: #fff;
-  color: #1f7a4d; font-weight: 700; font-size: .82rem; cursor: pointer; font-family: inherit;
+  flex: 1 1 0; min-width: 0; padding: 6px 2px; border-radius: 8px;
+  border: 1px solid #bfe3cf; background: #fff; position: relative;
+  color: #1f7a4d; font-weight: 700; font-size: .84rem; cursor: pointer; font-family: inherit;
 }
 .med-tab.on { background: #1f7a4d; color: #fff; border-color: #1f7a4d; }
+/* 오늘 요일 표시(점) — 다른 요일을 보고 있어도 오늘이 어디인지 알 수 있게 */
+.med-tab.today::after {
+  content: ""; position: absolute; left: 50%; bottom: 3px; transform: translateX(-50%);
+  width: 3px; height: 3px; border-radius: 50%; background: currentColor; opacity: .75;
+}
 .dark .med-tab { background: #17311f; border-color: #2f5a42; color: #8fd6ab; }
 .dark .med-tab.on { background: #2f5a42; color: #fff; }
 .dmsg-body .med-msg { line-height: 1.75; }
