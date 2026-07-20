@@ -2698,13 +2698,55 @@ function maybeShowWeeklyMeditation(force) {
       try { if (localStorage.getItem(key) === "1") return; } catch {}
       try { localStorage.setItem(key, "1"); } catch {}
     }
-    showDailyMessage({
-      type: "meditation",
-      title: item.heading || "오늘의 묵상",   // 말씀출처(골 3:23)는 빼고 핵심 제목만
-      body: `<div class="med-msg">${item.message}</div>` +
-            (item.question ? `<div class="med-q"><b>💬 오늘의 적용 질문</b><br>${item.question}</div>` : ""),
-    });
+    showMeditationModal(items, pick);            // 이번주 전체를 탭으로, 오늘 것이 기본 선택
   }).catch(() => {});
+}
+
+// 오늘의 묵상 모달 — 이번주 묵상 전체를 탭으로 넘겨볼 수 있다(기본은 오늘 것).
+function showMeditationModal(items, startIdx) {
+  const tabLabel = (it, i) => {
+    const h = String(it.heading || "").split("—")[0].trim();
+    return h || `${i + 1}`;
+  };
+  const open = () => {
+    if (document.querySelector(".cheer-overlay")) { setTimeout(open, 300); return; }
+    const wrap = document.createElement("div");
+    wrap.id = "daily-message";
+    wrap.className = "cheer-overlay";
+    wrap.innerHTML = `
+      <div class="cheer-card dmsg-card med" role="dialog" aria-modal="true">
+        <div class="cheer-icon">🌿</div>
+        <div class="cheer-ref dmsg-badge">오늘의 묵상</div>
+        <div class="med-tabs">${items.map((it, i) =>
+          `<button class="med-tab" data-i="${i}">${tabLabel(it, i)}</button>`).join("")}</div>
+        <div class="dmsg-title" id="med-title"></div>
+        <div class="cheer-msg dmsg-body" id="med-body"></div>
+        <button class="cheer-ok" id="dmsg-ok">확인</button>
+      </div>`;
+    document.body.appendChild(wrap);
+    const card = wrap.querySelector(".dmsg-card");
+    const toTop = () => { if (card) { card.scrollTop = 0; requestAnimationFrame(() => { card.scrollTop = 0; }); } };
+    const render = (i) => {
+      const it = items[i];
+      wrap.querySelector("#med-title").textContent = it.heading || "오늘의 묵상";
+      wrap.querySelector("#med-body").innerHTML =
+        `<div class="med-msg">${it.message}</div>` +
+        (it.question ? `<div class="med-q"><b>💬 오늘의 적용 질문</b><br>${it.question}</div>` : "");
+      wrap.querySelectorAll(".med-tab").forEach((b) => b.classList.toggle("on", Number(b.dataset.i) === i));
+      toTop();
+    };
+    render(startIdx);
+    wrap.querySelectorAll(".med-tab").forEach((b) =>
+      b.addEventListener("click", () => render(Number(b.dataset.i))));
+    requestAnimationFrame(() => wrap.classList.add("show"));
+    const close = () => { wrap.classList.remove("show"); setTimeout(() => wrap.remove(), 250); };
+    const ok = wrap.querySelector("#dmsg-ok");
+    ok.addEventListener("click", close);
+    try { ok.focus({ preventScroll: true }); } catch (e) {}
+    toTop();
+    wrap.addEventListener("click", (e) => { if (e.target === wrap) close(); });
+  };
+  open();
 }
 
 // 관리자 미리보기 — 하루1회 상태(localStorage) 안 건드리고 강제 표시
@@ -2739,7 +2781,9 @@ function showDailyMessage(m) {
     const close = () => { wrap.classList.remove("show"); setTimeout(() => wrap.remove(), 250); };
     const ok = document.getElementById("dmsg-ok");
     ok.addEventListener("click", close);
-    ok.focus();
+    try { ok.focus({ preventScroll: true }); } catch (e) { ok.focus(); } // 포커스로 하단 스크롤되지 않게
+    const card = wrap.querySelector(".dmsg-card");
+    if (card) { card.scrollTop = 0; requestAnimationFrame(() => { card.scrollTop = 0; }); } // 항상 맨 위부터
     wrap.addEventListener("click", (e) => { if (e.target === wrap) close(); });
   };
   open();
