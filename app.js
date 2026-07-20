@@ -1751,6 +1751,11 @@ function renderSermonSummary(verse, sermon, onBack, backLabel) {
 }
 
 // 3단계 '반복해서 쓰기' — 켜두면 정답을 맞힐 때마다 자동으로 새 3단계가 나온다(외울 때까지).
+// 👆 카드 모드 — 타이핑이 어려운 성도용. 빈칸에 들어갈 정답 단어를 카드로 띄워 순서대로 탭한다.
+const CARD_MODE_KEY = "input-card-mode";
+function isCardMode() { try { return localStorage.getItem(CARD_MODE_KEY) === "1"; } catch (e) { return false; } }
+function setCardMode(on) { try { localStorage.setItem(CARD_MODE_KEY, on ? "1" : "0"); } catch (e) {} }
+
 const REPEAT_KEY = "repeat-practice";
 function isRepeatPractice() { try { return localStorage.getItem(REPEAT_KEY) === "1"; } catch (e) { return false; } }
 function setRepeatPractice(on) { try { localStorage.setItem(REPEAT_KEY, on ? "1" : "0"); } catch (e) {} }
@@ -1823,6 +1828,7 @@ function renderTestScreen(verse, stage) {
           <button class="answer-btn" id="show-answer-btn">보기</button>
           <button class="answer-btn" id="listen-answer-btn" aria-label="정답 음성으로 듣기">🔊 듣기</button>
           <button class="voice-btn" id="voice-toggle">🎤 암송시작</button>
+          <button class="answer-btn mode-btn" id="mode-toggle">${isCardMode() ? "⌨️ 쓰기" : "👆 카드"}</button>
         </div>
         <div class="test-top">
           <div class="test-head">
@@ -1832,6 +1838,7 @@ function renderTestScreen(verse, stage) {
           <button class="back-btn" id="back-to-list-btn">← 목록</button>
         </div>
         <div class="test-sentence">${wordsHtml}</div>
+        <div id="card-tray" class="card-tray"></div>
         ${repeatHtml}
         <div id="result-area"></div>
         ${heartHtml}
@@ -1858,6 +1865,15 @@ function renderTestScreen(verse, stage) {
 
   // 이 구절에 대응하는 설교 요약이 있으면 배너 아래에 '설교 요약 보기' 버튼을 채운다.
   fillSermonSummaryBtn(verse, stage);
+
+  // '쓰기 ↔ 카드' 입력 방식 전환(설정 저장 후 화면 다시 그림)
+  const modeBtn = document.getElementById("mode-toggle");
+  if (modeBtn) {
+    modeBtn.addEventListener("click", () => {
+      setCardMode(!isCardMode());
+      renderTestScreen(verse, stage);
+    });
+  }
 
   // '반복해서 쓰기' 토글 저장
   const repeatInput = document.getElementById("repeat-check");
@@ -2401,7 +2417,38 @@ function setupAutoCheck(verse, stage) {
     input.addEventListener("focus", () => scrollIntoCenter(input));
   });
 
-  if (inputs[0]) inputs[0].focus();
+  // 👆 카드 모드 — 정답 단어만 섞어 카드로 띄우고, 순서대로 탭해 빈칸을 채운다.
+  //   채점/기록은 위 accept()를 그대로 써서 쓰기 모드와 완전히 동일하게 동작한다.
+  const tray = document.getElementById("card-tray");
+  if (isCardMode() && tray && inputs.length) {
+    inputs.forEach((inp) => { inp.readOnly = true; inp.setAttribute("inputmode", "none"); });
+    const shuffled = inputs
+      .map((inp) => norm(inp.dataset.answer))
+      .map((w) => ({ w, r: Math.random() }))
+      .sort((a, b) => a.r - b.r)
+      .map((x) => x.w);
+    tray.innerHTML = shuffled
+      .map((w, k) => `<button type="button" class="wcard" data-k="${k}">${w}</button>`)
+      .join("");
+    tray.querySelectorAll(".wcard").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const idx = inputs.findIndex((inp) => !inp.disabled); // 다음 빈칸
+        if (idx < 0) return;
+        const target = inputs[idx];
+        if (shuffled[Number(btn.dataset.k)] === norm(target.dataset.answer)) {
+          btn.classList.add("used");
+          btn.disabled = true;
+          accept(target, idx);
+        } else {
+          btn.classList.add("shake");
+          target.classList.add("wrong");
+          setTimeout(() => { btn.classList.remove("shake"); target.classList.remove("wrong"); }, 450);
+        }
+      });
+    });
+  }
+
+  if (!isCardMode() && inputs[0]) inputs[0].focus(); // 카드 모드에선 키보드를 띄우지 않는다
 }
 
 // 3단계 통과 → 체크박스 잠금 해제(타이핑·음성 공통)

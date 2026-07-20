@@ -360,6 +360,28 @@ h1 {
 }
 
 /* 3단계 "이 말씀을 내 마음에 두었나이다" 체크 */
+/* 👆 단어 카드 배열 모드 — 타이핑이 어려운 성도용(정답 단어만 섞어 순서 맞추기) */
+.card-tray { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 14px 0 2px; }
+.card-tray:empty { display: none; }
+.wcard {
+  padding: 12px 15px; border-radius: 12px;
+  border: 1.5px solid var(--navy); background: var(--bg); color: var(--navy);
+  font-family: inherit; font-size: 1.05rem; font-weight: 700; line-height: 1.2;
+  cursor: pointer; transition: transform .1s, background .15s, opacity .2s;
+}
+.wcard:hover { background: #eef2f8; }
+.wcard:active { transform: scale(.96); }
+.wcard.used { opacity: .25; text-decoration: line-through; pointer-events: none; }
+.wcard.shake { animation: wshake .4s; border-color: #c0392b; color: #c0392b; }
+@keyframes wshake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+.dark .wcard { background: #232c3f; color: #cdd9f2; border-color: #3a4a68; }
+.dark .wcard:hover { background: #2e3a52; }
+@media (prefers-reduced-motion: reduce) { .wcard.shake { animation: none; } }
+
 /* 3단계 '반복해서 쓰기' 토글 */
 .repeat-toggle {
   display: flex; align-items: center; gap: 4px 8px; flex-wrap: wrap;
