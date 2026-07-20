@@ -221,10 +221,10 @@ async function savePush(b: any) {
 }
 
 // DB verses에서 '이번 주(=오늘 기준 최신) 말씀'을 읽어 {ref,text} 반환
-async function latestVerse(): Promise<{ ref: string; text: string } | null> {
+async function latestVerse(): Promise<{ no: number | null; ref: string; text: string } | null> {
   try {
     const { data } = await db.from("verses")
-      .select("ref_short,ref_full,ref,text,date").eq("is_active", true);
+      .select("no,ref_short,ref_full,ref,text,date").eq("is_active", true);
     const list = (data ?? [])
       .filter((v: any) => v.date)
       .map((v: any) => ({ v, t: Date.parse(v.date) }))
@@ -233,8 +233,41 @@ async function latestVerse(): Promise<{ ref: string; text: string } | null> {
     const now = Date.now();
     let cur = list[0];
     for (const x of list) { if (x.t <= now) cur = x; else break; }
-    return { ref: cur.v.ref_short || cur.v.ref_full || cur.v.ref || "", text: cur.v.text || "" };
+    return {
+      no: cur.v.no ?? null,
+      ref: cur.v.ref_short || cur.v.ref_full || cur.v.ref || "",
+      text: cur.v.text || "",
+    };
   } catch (_) { return null; }
+}
+
+// 매일 아침 푸시 문구 — 오늘의 묵상(요일별) 뒤에 이번주 말씀을 붙인다.
+//   제목: 🌿 오늘의 묵상 · <주제>
+//   본문: <적용질문>  +  📖 <이번주 말씀> (<출처>)
+// 묵상이 없으면(예전 설교) 기존처럼 말씀만 보낸다.
+async function dailyPushContent(): Promise<{ title: string; body: string } | null> {
+  const v = await latestVerse();
+  if (!v) return null;
+  const verseLine = v.ref ? `${v.text} (${v.ref})` : v.text;
+  let title = "오직 성경, 말씀이 답이다!";
+  let body = verseLine;
+  try {
+    if (v.no != null) {
+      const { data } = await db.from("sermons")
+        .select("daily_meditations").eq("mem_verse_no", v.no).limit(5);
+      const rows = (data ?? []).map((r: any) => (r.daily_meditations || []))
+        .filter((arr: any[]) => Array.isArray(arr) && arr.length);
+      const items = (rows[0] || []).filter((d: any) => d && (d.question || d.message));
+      if (items.length) {
+        // KST 요일(일=0 … 토=6)로 오늘 묵상 선택
+        const kst = new Date(Date.now() + 9 * 3600 * 1000);
+        const it = items[kst.getUTCDay() % items.length];
+        title = `🌿 오늘의 묵상 · ${it.heading || "오늘의 묵상"}`;
+        body = `${it.question || it.message}\n\n📖 ${verseLine}`;
+      }
+    }
+  } catch (_) { /* 묵상 조회 실패 시 말씀만 */ }
+  return { title, body };
 }
 
 // ---------- removePush: 구독 해제(본인 endpoint 삭제) ----------
@@ -252,11 +285,17 @@ async function testPush(b: any) {
     .select("endpoint,p256dh,auth").eq("endpoint", b.endpoint).maybeSingle();
   if (!sub) return { ok: false, error: "not-subscribed" };
   const hour = [5, 6, 7, 8].includes(Number(b.hour)) ? Number(b.hour) : 7;
-  const payload = JSON.stringify({
+  // preview=true → 실제 매일 발송되는 문구(오늘의 묵상+말씀)를 이 기기에만 보내 확인
+  let payloadObj: Record<string, string> = {
     title: "성경암송 — 알림 설정 완료 ✅",
     body: `알림이 정상 작동해요! 매일 오전 ${hour}시에 그 주 말씀을 보내드릴게요. 🙌`,
     url: "https://gocheok.onlybible.kr/",
-  });
+  };
+  if (b.preview) {
+    const c = await dailyPushContent();
+    if (c) payloadObj = { title: c.title, body: c.body, url: "https://gocheok.onlybible.kr/" };
+  }
+  const payload = JSON.stringify(payloadObj);
   try {
     await webpush.sendNotification(
       { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, payload);
@@ -273,11 +312,9 @@ async function sendPush(b: any) {
   const err = adminError(b); if (err) return { ok: false, error: err };
   let title = b.title, body = b.body;
   if (b.latest) {
-    const v = await latestVerse();
-    if (v) { // 제목 기본값은 표어(서버 소스=UTF-8), 본문 = 이번 주 말씀 + 요절
-      if (!title) title = "오직 성경, 말씀이 답이다!";
-      body = v.ref ? `${v.text} (${v.ref})` : v.text;
-    }
+    // 오늘의 묵상(요일별) + 이번주 말씀. 묵상이 없으면 말씀만.
+    const c = await dailyPushContent();
+    if (c) { title = title || c.title; body = c.body; }
   }
   // hour 지정 시 그 시간을 고른 구독자에게만(시간대별 cron), 없으면 전체(관리자 수동 발송)
   let subQ = db.from("push_subscriptions").select("id,endpoint,p256dh,auth");

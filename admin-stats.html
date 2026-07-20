@@ -488,10 +488,32 @@ function renderPush(){
       <textarea id="p-body" class="push-in" rows="3" maxlength="180">오늘의 말씀을 암송해요! 🙌</textarea>
       <p class="push-hint">알림을 켠 모든 구독자에게 즉시 발송됩니다.</p>
       <button class="push-send" id="p-send">🔔 지금 보내기</button>
+      <p class="push-hint" style="margin-top:16px">매일 아침 실제로 나가는 문구(오늘의 묵상 + 이번주 말씀)를 <b>이 기기에만</b> 보내 확인합니다.</p>
+      <button class="push-fill" id="p-me">📱 내 기기로만 테스트 발송</button>
       <div id="p-result" class="msg"></div>
     </div>`;
   document.getElementById("back").addEventListener("click", renderMenu);
   document.getElementById("p-fill").addEventListener("click", fillLatestVerse);
+  document.getElementById("p-me").addEventListener("click", async ()=>{
+    const r=document.getElementById("p-result");
+    const btn=document.getElementById("p-me");
+    btn.disabled=true; r.className="msg"; r.textContent="이 기기의 알림 구독 확인 중...";
+    try{
+      const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
+      const sub = reg && await reg.pushManager.getSubscription();
+      if(!sub){
+        r.className="msg err";
+        r.textContent="이 기기는 알림이 꺼져 있습니다. 앱 첫화면에서 🔔 알림을 먼저 켜주세요.";
+        btn.disabled=false; return;
+      }
+      r.textContent="보내는 중...";
+      const data=await callApi({action:"testPush",endpoint:sub.endpoint,preview:true})
+        .catch(()=>({ok:false,error:"network"}));
+      btn.disabled=false;
+      if(data && data.ok){ r.className="msg"; r.innerHTML="✅ <b>이 기기로만</b> 보냈습니다 — 알림을 확인해보세요."; }
+      else { r.className="msg err"; r.textContent="발송 실패: "+((data&&data.error)||"오류"); }
+    }catch(e){ btn.disabled=false; r.className="msg err"; r.textContent="오류: "+(e&&e.message||e); }
+  });
   document.getElementById("p-send").addEventListener("click", async ()=>{
     const title=document.getElementById("p-title").value.trim();
     const body=document.getElementById("p-body").value.trim();
