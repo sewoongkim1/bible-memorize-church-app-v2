@@ -310,8 +310,21 @@ h1 {
 .dmsg-card { max-height: 85vh; overflow-y: auto; }
 .dmsg-body a { color: inherit; text-decoration: underline; }
 /* 오늘의 묵상(공지 없는 날 폴백) — 초록 톤 + 적용질문 구분선 */
-.cheer-card.med .dmsg-badge { background: #e7f6ee; color: #1f7a4d; }
-.cheer-card.med .dmsg-title { color: #1f7a4d; font-size: .98rem; }
+/* 묵상 카드: 상단 여백 축소(큰 아이콘 줄을 배지로 합쳐 스크롤 줄임) */
+.cheer-card.med { padding: 14px 20px 18px; }
+.cheer-card.med .dmsg-badge { background: #e7f6ee; color: #1f7a4d; margin-bottom: 6px; }
+.cheer-card.med .dmsg-title { color: #1f7a4d; font-size: .98rem; margin: 2px 0 8px; }
+/* 하단 버튼 줄: 설교 요약 + 확인 */
+.med-actions { display: flex; gap: 8px; margin-top: 6px; }
+.med-actions .cheer-ok { width: auto; flex: 1; }
+.med-actions .med-more {
+  flex: 1; padding: 12px 8px; border-radius: 12px; cursor: pointer; font-family: inherit;
+  font-size: .95rem; font-weight: 800;
+  background: #eaf6ee; color: #1f7a4d; border: 1.5px solid #1f7a4d;
+}
+.med-actions .med-more:hover { background: #1f7a4d; color: #fff; }
+.dark .med-actions .med-more { background: #17311f; color: #8fd6ab; border-color: #2f5a42; }
+.dark .med-actions .med-more:hover { background: #2f5a42; color: #fff; }
 /* 이번주 묵상 전체를 넘겨보는 탭 */
 .med-tabs { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin: 10px 0 4px; }
 .med-tab {

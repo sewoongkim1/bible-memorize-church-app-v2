@@ -2698,12 +2698,12 @@ function maybeShowWeeklyMeditation(force) {
       try { if (localStorage.getItem(key) === "1") return; } catch {}
       try { localStorage.setItem(key, "1"); } catch {}
     }
-    showMeditationModal(items, pick);            // 이번주 전체를 탭으로, 오늘 것이 기본 선택
+    showMeditationModal(items, pick, verse, sermon); // 이번주 전체를 탭으로, 오늘 것이 기본 선택
   }).catch(() => {});
 }
 
 // 오늘의 묵상 모달 — 이번주 묵상 전체를 탭으로 넘겨볼 수 있다(기본은 오늘 것).
-function showMeditationModal(items, startIdx) {
+function showMeditationModal(items, startIdx, verse, sermon) {
   const tabLabel = (it, i) => {
     const h = String(it.heading || "").split("—")[0].trim();
     return h || `${i + 1}`;
@@ -2715,13 +2715,15 @@ function showMeditationModal(items, startIdx) {
     wrap.className = "cheer-overlay";
     wrap.innerHTML = `
       <div class="cheer-card dmsg-card med" role="dialog" aria-modal="true">
-        <div class="cheer-icon">🌿</div>
-        <div class="cheer-ref dmsg-badge">오늘의 묵상</div>
+        <div class="cheer-ref dmsg-badge">🌿 오늘의 묵상</div>
         <div class="med-tabs">${items.map((it, i) =>
           `<button class="med-tab" data-i="${i}">${tabLabel(it, i)}</button>`).join("")}</div>
         <div class="dmsg-title" id="med-title"></div>
         <div class="cheer-msg dmsg-body" id="med-body"></div>
-        <button class="cheer-ok" id="dmsg-ok">확인</button>
+        <div class="med-actions">
+          ${sermon ? `<button class="med-more" id="med-sermon">📄 설교 요약</button>` : ""}
+          <button class="cheer-ok" id="dmsg-ok">확인</button>
+        </div>
       </div>`;
     document.body.appendChild(wrap);
     const card = wrap.querySelector(".dmsg-card");
@@ -2742,6 +2744,11 @@ function showMeditationModal(items, startIdx) {
     const close = () => { wrap.classList.remove("show"); setTimeout(() => wrap.remove(), 250); };
     const ok = wrap.querySelector("#dmsg-ok");
     ok.addEventListener("click", close);
+    const sBtn = wrap.querySelector("#med-sermon");   // 묵상 → 설교 요약으로 이동
+    if (sBtn) sBtn.addEventListener("click", () => {
+      close();
+      setTimeout(() => renderSermonSummary(verse, sermon, renderSummary, "← 뒤로"), 260);
+    });
     try { ok.focus({ preventScroll: true }); } catch (e) {}
     toTop();
     wrap.addEventListener("click", (e) => { if (e.target === wrap) close(); });
