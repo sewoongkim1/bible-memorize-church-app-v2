@@ -985,7 +985,7 @@ function renderSummary() {
   fillWeeklySummaryBtn(weeklyVerse); // 요약이 있으면 '설교보기' 옆에 요약보기 버튼 추가
   if (dueCount > 0) document.getElementById("go-review").addEventListener("click", startReview);
   document.getElementById("go-challenge").addEventListener("click", startChallenge);
-  document.getElementById("open-meditation").addEventListener("click", () => maybeShowWeeklyMeditation(true));
+  document.getElementById("open-meditation").addEventListener("click", () => maybeShowWeeklyMeditation(true, true));
   document.getElementById("open-album").addEventListener("click", () => renderAlbum());
   document.getElementById("open-ranking").addEventListener("click", () => renderRanking());
   document.getElementById("open-praise").addEventListener("click", () => window.open("https://worship.onlybible.kr/", "_blank", "noopener"));
@@ -2741,7 +2741,9 @@ function buildWeeklyMeditations(verse, sermon) {
   return items;
 }
 
-function maybeShowWeeklyMeditation(force) {
+// force   : '하루 1회' 제한을 무시하고 무조건 표시(미리보기·버튼)
+// withTabs: 요일 탭 표시 여부 — 자동 팝업/어드민 미리보기는 false(성도가 보는 그대로), 매일묵상 버튼만 true
+function maybeShowWeeklyMeditation(force, withTabs) {
   const info = getWeeklyVerseInfo();
   if (!info || !info.verse) return;
   const verse = info.verse;
@@ -2759,8 +2761,8 @@ function maybeShowWeeklyMeditation(force) {
       try { if (localStorage.getItem(key) === "1") return; } catch {}
       try { localStorage.setItem(key, "1"); } catch {}
     }
-    // 첫화면 자동 팝업은 '오늘 것 하나만'. 요일 탭은 매일 묵상 버튼(force)으로 열 때만 보여준다.
-    showMeditationModal(items, pick, verse, sermon, !!force);
+    // 자동 팝업·어드민 미리보기는 '오늘 것 하나만'. 요일 탭은 매일 묵상 버튼으로 열 때만.
+    showMeditationModal(items, pick, verse, sermon, !!withTabs);
   }).catch(() => {});
 }
 
