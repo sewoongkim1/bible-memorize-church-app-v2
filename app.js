@@ -2786,7 +2786,8 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs) {
         <div class="dmsg-title" id="med-title"></div>
         <div class="cheer-msg dmsg-body" id="med-body"></div>
         <div class="med-actions">
-          ${sermon ? `<button class="med-more" id="med-sermon">📄 설교 요약</button>` : ""}
+          ${verse && verse.url ? `<a class="med-more" id="med-watch" href="${verse.url}" target="_blank" rel="noopener">설교</a>` : ""}
+          ${sermon ? `<button class="med-more" id="med-sermon">요약</button>` : ""}
           <button class="cheer-ok" id="dmsg-ok">확인</button>
         </div>
       </div>`;

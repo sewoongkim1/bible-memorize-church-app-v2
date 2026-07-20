@@ -318,9 +318,10 @@ h1 {
 .med-actions { display: flex; gap: 8px; margin-top: 6px; }
 .med-actions .cheer-ok { width: auto; flex: 1; }
 .med-actions .med-more {
-  flex: 1; padding: 12px 8px; border-radius: 12px; cursor: pointer; font-family: inherit;
-  font-size: .95rem; font-weight: 800;
+  flex: 1; padding: 12px 6px; border-radius: 12px; cursor: pointer; font-family: inherit;
+  font-size: .95rem; font-weight: 800; white-space: nowrap;
   background: #eaf6ee; color: #1f7a4d; border: 1.5px solid #1f7a4d;
+  display: inline-flex; align-items: center; justify-content: center; text-decoration: none;
 }
 .med-actions .med-more:hover { background: #1f7a4d; color: #fff; }
 .dark .med-actions .med-more { background: #17311f; color: #8fd6ab; border-color: #2f5a42; }
