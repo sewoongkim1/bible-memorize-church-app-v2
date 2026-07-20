@@ -1566,6 +1566,7 @@ function renderVerseList() {
 // 화면 3: 테스트 (익명 버전과 동일)
 // ------------------------------------------------------------
 function startTest(verse) {
+  setCardMode(false); // 암송화면 기본은 '쓰기' — 카드 모드는 그 구절 안에서만 유지된다
   // 마음에 둔 구절은 곧바로 3단계(전체 빈칸)로 — 체크 해제도 여기서 바로 가능
   if (isHearted(verse.no)) return renderTestScreen(verse, 3);
   const passed = getPassedStage(verse.no);
