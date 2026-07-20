@@ -2714,6 +2714,14 @@ function halfText(text) {
 
 // 공지가 없는 날: 이번주 말씀 + 연결 설교의 핵심포인트·적용질문으로 '오늘의 묵상'을 매일 다르게 보여준다.
 function buildWeeklyMeditations(verse, sermon) {
+  // ① 설교에 7일치 묵상(dailyMeditations)이 있으면 그것을 그대로 쓴다(요일별로 하나씩).
+  const daily = (sermon && sermon.dailyMeditations) || [];
+  if (daily.length) {
+    return daily
+      .filter((d) => d && (d.message || d.question))
+      .map((d) => ({ heading: d.heading || "", message: d.message || "", question: d.question || "" }));
+  }
+  // ② 없으면(예전 설교) 기존처럼 핵심포인트+적용질문으로 구성한다.
   const items = [];
   const pts = (sermon && sermon.points) || [];
   const qs = (sermon && sermon.questions) || [];
@@ -2740,8 +2748,10 @@ function maybeShowWeeklyMeditation(force) {
     const sermon = findSermonForVerse(verse.no, sermons);
     const items = buildWeeklyMeditations(verse, sermon);
     if (!items.length) return;
-    const day = kstDayNumber();                  // 하루 단위로 증가하는 정수 → 매일 다른 항목
-    const pick = ((day % items.length) + items.length) % items.length;
+    // 요일별로 하나씩(주일=0 … 토=6). 7개면 요일마다 고정, 그보다 적으면 순환.
+    const p = kstDateParts() || {};
+    const dow = p.y ? new Date(p.y, (p.m || 1) - 1, p.d || 1).getDay() : (kstDayNumber() % 7);
+    const pick = ((dow % items.length) + items.length) % items.length;
     const item = items[pick];
     if (!force) {                                // 하루 1회만 자동 표시(미리보기는 무시)
       const key = dailyMsgSeenKey(`med-${verse.no}-${pick}`);
