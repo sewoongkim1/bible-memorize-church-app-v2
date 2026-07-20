@@ -489,7 +489,8 @@ function saveProgress(no, stage, mode = "typing") {
   const progress = loadProgress();
   const prev = progress[no]?.stage || 0;
   if (stage > prev) {
-    progress[no] = { stage, passed: true };
+    // at: 통과한 날짜(말씀 앨범에 표시). 기존 기록엔 없을 수 있어 앨범에서 없으면 생략한다.
+    progress[no] = { stage, passed: true, at: todayYmd() };
     try {
       localStorage.setItem(progressKey(), JSON.stringify(progress));
     } catch {
@@ -961,6 +962,7 @@ function renderSummary() {
     </div>
     ${weeklyHtml}
     <button class="summary-help med-cta" id="open-meditation">🌿 매일 묵상</button>
+    <button class="summary-help album-cta" id="open-album">📖 나의 말씀 앨범</button>
     <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
 <button class="summary-help praise-cta" id="open-praise">🎵 고척교회 찬양 아카이브</button>
 <button class="summary-help board-cta" id="open-board">💬 질문·제안 게시판</button>
@@ -984,6 +986,7 @@ function renderSummary() {
   if (dueCount > 0) document.getElementById("go-review").addEventListener("click", startReview);
   document.getElementById("go-challenge").addEventListener("click", startChallenge);
   document.getElementById("open-meditation").addEventListener("click", () => maybeShowWeeklyMeditation(true));
+  document.getElementById("open-album").addEventListener("click", () => renderAlbum());
   document.getElementById("open-ranking").addEventListener("click", () => renderRanking());
   document.getElementById("open-praise").addEventListener("click", () => window.open("https://worship.onlybible.kr/", "_blank", "noopener"));
   document.getElementById("open-help-summary").addEventListener("click", () => renderHelp(renderSummary));
@@ -3321,6 +3324,72 @@ function rankRangeFor(key) {
 }
 async function callRanking(from, to) {
   return api.ranking(from, to, true); // 암송(학습) 기록도 포함해 순위 집계
+}
+
+// ------------------------------------------------------------
+// 나의 말씀 앨범 — 3단계 완료 구절을 모아 보고(👑 마음에 둠 필터), 공유한다.
+//   완료일(at)은 saveProgress가 기록. 이전에 완료한 구절은 없을 수 있어 있을 때만 표시.
+// ------------------------------------------------------------
+function renderAlbum(filter) {
+  const f = filter === "heart" ? "heart" : "all";
+  const u = loadUser();
+  const appEl = document.getElementById("app");
+  const prog = loadProgress();
+  const done = verses.filter((v) => getPassedStage(v.no) >= 3);
+  const hearted = done.filter((v) => isHearted(v.no));
+  const list = f === "heart" ? hearted : done;
+
+  const cards = list.map((v) => {
+    const raw = prog[v.no] && prog[v.no].at ? String(prog[v.no].at) : "";
+    const at = raw ? raw.slice(5).replace("-", ".") : ""; // YYYY-MM-DD → MM.DD
+    const heart = isHearted(v.no);
+    return `
+      <button class="album-card${heart ? " hearted" : ""}" data-no="${v.no}">
+        ${heart ? `<span class="album-crown">👑</span>` : ""}
+        <span class="album-ref">${v.refShort}</span>
+        <span class="album-text">${v.text}</span>
+        ${at ? `<span class="album-at">${at} 완료</span>` : ""}
+      </button>`;
+  }).join("");
+
+  appEl.innerHTML = `
+    <div class="album-screen">
+      <div class="list-nav">
+        <button class="remind-cta nav-record" id="ab-back">← ${userLabel(u)} 성도님</button>
+      </div>
+      <h2 class="rank-title">📖 나의 말씀 앨범</h2>
+      <div class="album-banner">
+        <div class="ab-line"><b class="ab-num">${hearted.length}</b>구절을 마음에 두었습니다 👑</div>
+        <div class="ab-sub">암송 완료 ${done.length}구절 · 전체 ${verses.length}구절</div>
+      </div>
+      <div class="rank-filter album-filter" id="ab-filter">
+        <button data-f="all" class="${f === "all" ? "on" : ""}">전체 ${done.length}</button>
+        <button data-f="heart" class="${f === "heart" ? "on" : ""}">👑 마음에 둠 ${hearted.length}</button>
+      </div>
+      ${list.length
+        ? `<div class="album-grid">${cards}</div>`
+        : `<p class="album-empty">${f === "heart"
+            ? "아직 '마음에 둠'으로 체크한 구절이 없어요.<br>3단계까지 암송하면 체크할 수 있습니다 🙌"
+            : "아직 완료한 구절이 없어요.<br>첫 구절을 암송해 보세요 📖"}</p>`}
+      <button class="summary-help med-cta" id="ab-share">🙌 내 말씀 앨범 나누기</button>
+    </div>`;
+
+  document.getElementById("ab-back").addEventListener("click", renderSummary);
+  document.getElementById("ab-filter").querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => renderAlbum(b.dataset.f)));
+  appEl.querySelectorAll(".album-card").forEach((c) =>
+    c.addEventListener("click", () => {
+      const v = verses.find((x) => x.no === Number(c.dataset.no));
+      if (v) startTest(v);
+    }));
+  document.getElementById("ab-share").addEventListener("click", () => {
+    shareLink(
+      `[고척교회] 오직 성경, 말씀이 답이다!\n` +
+      `저는 지금까지 ${done.length}구절을 암송하고, 그중 ${hearted.length}구절을 마음에 두었습니다 🙌\n` +
+      `함께 말씀을 마음에 새겨요.`,
+      SHARE_HOME
+    );
+  });
 }
 
 function renderRanking(range) {

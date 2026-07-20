@@ -1459,6 +1459,47 @@ html[data-fs="xl"] .sermon-sum-card .ss-top > .back-btn { font-size: 17px; paddi
 .summary-help.praise-cta:hover { background: #d9b96a; color: #fff; }
 .dark .summary-help.praise-cta { background: #2a271b; color: #d9b96a; border-color: #5a4e2a; }
 .dark .summary-help.praise-cta:hover { background: #5a4e2a; color: #fff; }
+/* 나의 말씀 앨범 버튼 — 보라 톤으로 구분 */
+.summary-help.album-cta { background: #f2eefb; color: #5b3fa8; border-color: #5b3fa8; }
+.summary-help.album-cta:hover { background: #5b3fa8; color: #fff; }
+.dark .summary-help.album-cta { background: #251f39; color: #c3b0ee; border-color: #4a3d6b; }
+.dark .summary-help.album-cta:hover { background: #4a3d6b; color: #fff; }
+
+/* ---------- 나의 말씀 앨범 화면 ---------- */
+.album-banner {
+  background: linear-gradient(180deg, #fffdf6 0%, #fff 100%);
+  border: 1.5px solid var(--gold); border-radius: 14px;
+  padding: 14px; text-align: center; margin: 10px 0 12px;
+}
+.album-banner .ab-line { font-size: 1rem; font-weight: 700; color: var(--navy-dark); }
+.album-banner .ab-num { font-size: 1.6rem; color: var(--navy); font-family: "Nanum Myeongjo", serif; }
+.album-banner .ab-sub { font-size: .82rem; color: #6a7688; margin-top: 4px; }
+.album-filter { margin-bottom: 10px; }
+.album-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.album-card {
+  position: relative; text-align: left; cursor: pointer; font-family: inherit;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+  padding: 12px 10px; display: flex; flex-direction: column; gap: 4px;
+  transition: transform .12s, box-shadow .12s, border-color .12s;
+}
+.album-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(13,27,62,.14); border-color: var(--navy); }
+.album-card.hearted { border-color: #c8a24b; background: #fffdf6; }
+.album-crown { position: absolute; top: 8px; right: 8px; font-size: .9rem; }
+.album-ref { font-weight: 800; color: var(--navy); font-size: .9rem; }
+.album-text {
+  font-size: .8rem; color: #444; line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.album-at { font-size: .72rem; color: #8b95a6; }
+.album-empty { text-align: center; color: #6a7688; padding: 28px 10px; line-height: 1.7; }
+.dark .album-card { background: #232c3f; border-color: #3a4a68; }
+.dark .album-card.hearted { background: #2b2717; border-color: #8d7531; }
+.dark .album-ref { color: #cdd9f2; }
+.dark .album-text { color: #dbe2ee; }
+.dark .album-banner { background: #2b2717; border-color: #8d7531; }
+.dark .album-banner .ab-line, .dark .album-banner .ab-num { color: #e8d9a3; }
+.dark .album-empty { color: #93a3ba; }
+
 /* 매일 묵상 버튼 — 묵상 모달과 같은 초록 톤 */
 .summary-help.med-cta { background: #eaf6ee; color: #1f7a4d; border-color: #1f7a4d; }
 .summary-help.med-cta:hover { background: #1f7a4d; color: #fff; }
