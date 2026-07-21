@@ -1884,7 +1884,7 @@ function easyEnNorm(s) {
 }
 
 // NIV 저작권 표기(Biblica 인용 조건) — 영어 모드 화면 하단, '영어' 도우미 버튼에 공통 사용
-const NIV_ATTRIBUTION_TEXT = "Scripture quotations taken from The Holy Bible, New International Version® NIV®. Copyright © 1973, 1978, 1984, 2011 by Biblica, Inc. Used with permission. All rights reserved worldwide.";
+const NIV_ATTRIBUTION_TEXT = "NIV® Copyright © 1973, 1978, 1984, 2011 by Biblica, Inc. Used by permission.";
 function nivAttributionHtml(verse) {
   if (!isEnMode(verse)) return "";
   return `<div class="niv-attribution">${NIV_ATTRIBUTION_TEXT}</div>`;
