@@ -2284,3 +2284,27 @@ textarea.board-in-lg { min-height: 120px; }
 /* 글씨 크게 모드: 상단 바 간격도 함께 넉넉히 */
 html[data-fs="lg"] .test-card .btn-row,
 html[data-fs="xl"] .test-card .btn-row { row-gap: 10px; margin-bottom: 18px; padding-bottom: 16px; }
+
+/* =====================================================================
+   영어(NIV) 암송 모드 — EN 배지 · 저작권 표기
+   ===================================================================== */
+
+/* 목록 카드: 영어 본문이 있는 구절 표시 */
+.en-chip {
+  display: inline-block;
+  font-size: 10px; font-weight: 800;
+  color: #2f6b4f; background: #e8f4ec;
+  border: 1px solid #bcd9c6; border-radius: 8px;
+  padding: 1px 6px; margin-left: 4px;
+  vertical-align: 2px; letter-spacing: 0.5px;
+}
+.dark .en-chip { background: #17311f; color: #8fd6ab; border-color: #2f5a42; }
+
+/* NIV 저작권 표기(Biblica) — 영어 모드 암송/도전/복습 화면 하단 */
+.niv-attribution {
+  margin-top: 14px; padding-top: 10px;
+  border-top: 1px dashed var(--border);
+  font-size: 10px; line-height: 1.5;
+  color: var(--gray);
+}
+.dark .niv-attribution { border-top-color: rgba(255,255,255,0.15); }

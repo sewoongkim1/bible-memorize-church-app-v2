@@ -1375,6 +1375,10 @@ async function loadContentList(selNo){
       <label class="push-lb">출처(짧게, refShort) *</label><input id="c-refshort" class="push-in" placeholder="예: 딤전 1:11">
       <label class="push-lb">출처(전체, refFull)</label><input id="c-reffull" class="push-in" placeholder="예: 디모데전서 1장 11절">
       <label class="push-lb">말씀 본문 *</label><textarea id="c-text" class="push-in" rows="3"></textarea>
+      <label class="push-lb">영어 출처(NIV, 선택)</label><input id="c-refen" class="push-in" placeholder="예: 1 Timothy 1:11">
+      <label class="push-lb">영어 본문(NIV, 선택)</label><textarea id="c-texten" class="push-in" rows="3"></textarea>
+      <button class="push-fill" id="c-gen-niv">🤖 NIV 생성 (AI)</button>
+      <p class="push-hint">AI가 만든 본문은 실제 NIV와 다를 수 있어요. 성경과 대조·검수 후 저장하세요. 영어 본문이 있는 구절만 앱에서 한/영 전환이 나타납니다.</p>
       <label class="push-lb">힌트(선택)</label><input id="c-hint" class="push-in" placeholder="예: 이 OOO OO">
       <label class="push-lb">설교 제목</label><input id="c-sermon" class="push-in" placeholder="예: 유리 보석에 속지 마십시오">
       <label class="push-lb">설교자</label><input id="c-pastor" class="push-in" placeholder="예: 차동혁 담임목사">
@@ -1390,6 +1394,8 @@ async function loadContentList(selNo){
     document.getElementById("c-refshort").value=v?(v.refShort||""):"";
     document.getElementById("c-reffull").value=v?(v.refFull||""):"";
     document.getElementById("c-text").value=v?(v.text||""):"";
+    document.getElementById("c-refen").value=v?(v.refEn||""):"";
+    document.getElementById("c-texten").value=v?(v.textEn||""):"";
     document.getElementById("c-hint").value=v?(v.hintText||""):"";
     document.getElementById("c-sermon").value=v?(v.sermonTitle||""):"";
     document.getElementById("c-pastor").value=v?(v.pastor||""):"";
@@ -1405,6 +1411,22 @@ async function loadContentList(selNo){
     if(r.ok){ alert("초기 적재 완료: "+r.count+"개"); loadContentList(); }
     else { seed.disabled=false; seed.textContent="⬇️ verses.json → DB 초기 적재"; alert("실패: "+(r.error||"오류")); }
   });
+  const gen=document.getElementById("c-gen-niv");
+  gen.addEventListener("click",async()=>{
+    const refShort=document.getElementById("c-refshort").value.trim();
+    const refFull=document.getElementById("c-reffull").value.trim();
+    const text=document.getElementById("c-text").value.trim();
+    const r=document.getElementById("c-result");
+    if(!refShort&&!text){ r.className="msg err"; r.textContent="먼저 출처(짧게)나 말씀 본문을 입력하세요."; return; }
+    if(document.getElementById("c-texten").value.trim() && !confirm("이미 영어 본문이 있어요. AI 생성 결과로 덮어쓸까요?")) return;
+    gen.disabled=true; gen.textContent="생성 중... (10초쯤 걸려요)"; r.className="msg"; r.textContent="";
+    const data=await callApi({action:"generateNiv",pw:getPw(),refShort,refFull,text}).catch(()=>({ok:false,error:"network"}));
+    gen.disabled=false; gen.textContent="🤖 NIV 생성 (AI)";
+    if(!data.ok){ if(data.error==="unauthorized"){sessionStorage.removeItem(PW_KEY);renderLogin();return;} r.className="msg err"; r.textContent="생성 실패: "+(data.error||"오류"); return; }
+    document.getElementById("c-refen").value=data.refEn;
+    document.getElementById("c-texten").value=data.textEn;
+    r.className="msg"; r.textContent="✅ 생성했어요. 실제 NIV 성경과 대조·검수한 뒤 저장하세요.";
+  });
   document.getElementById("c-save").addEventListener("click",async()=>{
     const verse={
       no:document.getElementById("c-no").value.trim(),
@@ -1412,6 +1434,8 @@ async function loadContentList(selNo){
       refShort:document.getElementById("c-refshort").value.trim(),
       refFull:document.getElementById("c-reffull").value.trim(),
       text:document.getElementById("c-text").value.trim(),
+      refEn:document.getElementById("c-refen").value.trim(),
+      textEn:document.getElementById("c-texten").value.trim(),
       hintText:document.getElementById("c-hint").value.trim(),
       sermonTitle:document.getElementById("c-sermon").value.trim(),
       pastor:document.getElementById("c-pastor").value.trim(),
@@ -1420,6 +1444,7 @@ async function loadContentList(selNo){
     };
     const r=document.getElementById("c-result");
     if(!verse.no||!verse.refShort||!verse.text){ r.className="msg err"; r.textContent="순번·출처(짧게)·말씀 본문은 필수예요."; return; }
+    if(verse.textEn&&!verse.refEn){ r.className="msg err"; r.textContent="영어 본문이 있으면 영어 출처도 입력하세요. (예: John 3:16)"; return; }
     // 실수 방지: 저장 전 관리자 비밀번호 재확인
     const confirmPw = prompt("⚠️ 저장하면 앱 전체(목록·이번 주 말씀·알림)에 즉시 반영됩니다.\n확인을 위해 관리자 비밀번호를 다시 입력하세요:");
     if(confirmPw === null) return; // 취소

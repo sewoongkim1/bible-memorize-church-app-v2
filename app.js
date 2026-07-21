@@ -128,10 +128,13 @@ function getPreviewKind() {
 }
 
 // URL의 ?v=<구절번호>를 1회 읽어 반환(읽은 뒤 URL은 정리해 새로고침 시 재진입 방지)
+// ?v=N&lang=en 이면 영어(NIV) 모드로 열어준다.
 function getDeepLinkVerseNo() {
   try {
-    const n = parseInt(new URLSearchParams(location.search).get("v") || "", 10);
+    const q = new URLSearchParams(location.search);
+    const n = parseInt(q.get("v") || "", 10);
     if (Number.isFinite(n) && n > 0) {
+      if (q.get("lang") === "en") setLang("en");
       history.replaceState(null, "", location.pathname);
       return n;
     }
@@ -1234,6 +1237,14 @@ function renderSettings() {
           </div>
         </div>
         <div class="setting-block">
+          <div class="setting-label">🌐 암송 언어</div>
+          <div class="tts-rate-row" id="lang-row">
+            <button data-lang="ko">한국어</button>
+            <button data-lang="en">English (NIV)</button>
+          </div>
+          <div class="btn-sub" style="text-align:center;">영어 본문이 있는 구절(EN 표시)만 영어로 나와요</div>
+        </div>
+        <div class="setting-block">
           <div class="setting-label">🔊 말씀 듣기 속도</div>
           <div class="tts-rate-row" id="tts-rate-row">
             <button data-rate="0.5">느리게</button>
@@ -1277,9 +1288,22 @@ function renderSettings() {
   setupSyncRetry();
   setupThemeSetting();
   setupFontSize();
+  setupLangSetting();
   setupTtsRate();
   setupPushHour();
   setupInstallButton();
+}
+
+// 암송 언어(한국어/영어 NIV) 선택 UI — 영어 본문이 있는 구절에만 적용된다
+function setupLangSetting() {
+  const row = document.getElementById("lang-row");
+  if (!row) return;
+  const btns = Array.from(row.querySelectorAll("button"));
+  const sync = () => btns.forEach((b) => b.classList.toggle("on", b.dataset.lang === getLang()));
+  sync();
+  btns.forEach((b) => {
+    b.addEventListener("click", () => { setLang(b.dataset.lang); sync(); });
+  });
 }
 
 // 알림 시간(5·6·7·8시) 선택 UI — 고르면 즉시 서버 반영(구독 중일 때)
@@ -1562,7 +1586,7 @@ function renderVerseList() {
         ${isHeart ? `<div class="heart-ribbon">👑 마음에 둠</div>` : ""}
       </div>` : ""}
       <div class="verse-no">${String(v.no).padStart(2, "0")}</div>
-      <div class="verse-ref">${v.refShort}</div>
+      <div class="verse-ref">${v.refShort}${hasEn(v) ? ` <span class="en-chip">EN</span>` : ""}</div>
       <div class="verse-hint">${v.hintText || ""}</div>
       <div class="verse-status ${status.cls}" data-no="${v.no}" data-base="${status.text}">${status.text}</div>
       <button class="card-listen" aria-label="${v.refShort} 듣기" title="듣기">🔊</button>
@@ -1823,10 +1847,50 @@ const REPEAT_KEY = "repeat-practice";
 function isRepeatPractice() { try { return localStorage.getItem(REPEAT_KEY) === "1"; } catch (e) { return false; } }
 function setRepeatPractice(on) { try { localStorage.setItem(REPEAT_KEY, on ? "1" : "0"); } catch (e) {} }
 
+// 🌐 암송 언어 — 영어(NIV) 본문이 있는 구절은 한/영을 오가며 암송할 수 있다.
+//   기록(진행 단계·복습·랭킹)은 언어와 무관하게 구절 번호 하나로 쌓인다.
+const LANG_KEY = "memorize-lang"; // "ko" | "en"
+function getLang() { try { return localStorage.getItem(LANG_KEY) === "en" ? "en" : "ko"; } catch (e) { return "ko"; } }
+function setLang(v) { try { localStorage.setItem(LANG_KEY, v === "en" ? "en" : "ko"); } catch (e) {} }
+function hasEn(verse) { return !!(verse && verse.textEn && verse.textEn.trim()); }
+function isEnMode(verse) { return getLang() === "en" && hasEn(verse); } // 영어 없는 구절은 자동 한국어
+function verseText(verse) { return isEnMode(verse) ? verse.textEn : verse.text; }
+function verseRefShort(verse) { return isEnMode(verse) ? (verse.refEn || verse.refShort) : verse.refShort; }
+function verseRefFull(verse) { return isEnMode(verse) ? (verse.refEn || verse.refFull) : verse.refFull; }
+function verseTtsLang(verse) { return isEnMode(verse) ? "en-US" : "ko-KR"; }
+
+// 영어 관용 비교용 정규화 — 대소문자·문장부호·스마트따옴표 차이는 정답으로 인정
+function easyEnNorm(s) {
+  return String(s || "").trim().normalize("NFC").toLowerCase()
+    .replace(/[‘’“”]/g, "'")
+    .replace(/[.,;:!?"'()\[\]–—-]/g, "");
+}
+
+// NIV 저작권 표기(Biblica 인용 조건) — 영어 모드 화면 하단에만 표시
+function nivAttributionHtml(verse) {
+  if (!isEnMode(verse)) return "";
+  return `<div class="niv-attribution">Scripture quotations taken from The Holy Bible, New International Version&reg; NIV&reg;. Copyright &copy; 1973, 1978, 1984, 2011 by Biblica, Inc. Used with permission. All rights reserved worldwide.</div>`;
+}
+
+// 한/EN 전환 버튼(영어 본문이 있는 구절만) — 누르면 rerender로 화면을 다시 그린다
+function langToggleHtml(verse) {
+  return hasEn(verse) ? `<button class="answer-btn mode-btn" id="lang-toggle">${isEnMode(verse) ? "🇰🇷 한글" : "🌐 EN"}</button>` : "";
+}
+function setupLangToggle(verse, rerender) {
+  const btn = document.getElementById("lang-toggle");
+  if (!btn) return;
+  btn.addEventListener("click", () => {
+    setLang(isEnMode(verse) ? "ko" : "en");
+    stopSpeaking();
+    rerender();
+  });
+}
+
 function renderTestScreen(verse, stage) {
   stopSpeaking(); // 화면 전환 시 읽어주기 정지
   const appEl = document.getElementById("app");
-  const tokens = verse.text.trim().split(/\s+/);
+  const en = isEnMode(verse);
+  const tokens = verseText(verse).trim().split(/\s+/);
 
   const blankRatio = stage === 1 ? 0.25 : stage === 2 ? 0.65 : 1.0;
   const blankFlags = pickBlankIndices(tokens, blankRatio);
@@ -1837,8 +1901,9 @@ function renderTestScreen(verse, stage) {
       if (blankFlags[i]) {
         const blankIndex = blanks.length;
         blanks.push(word);
-        const width = Array.from(word).length + 1;
-        return `<input class="word-input" data-blank="${blankIndex}" data-answer="${word}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="width:${width}em" />`;
+        // 영어는 글자폭이 좁아 em 기준이 과대 — ch 단위로 잰다
+        const style = en ? `width:${Array.from(word).length + 2}ch` : `width:${Array.from(word).length + 1}em`;
+        return `<input class="word-input" data-blank="${blankIndex}" data-answer="${word}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="${style}" />`;
       } else {
         return `<span class="word-fixed">${word}</span>`;
       }
@@ -1892,11 +1957,12 @@ function renderTestScreen(verse, stage) {
           <button class="answer-btn" id="listen-answer-btn" aria-label="정답 음성으로 듣기">🔊 듣기</button>
           <button class="voice-btn" id="voice-toggle">🎤 암송</button>
           <button class="answer-btn mode-btn" id="mode-toggle">${isCardMode() ? "⌨️ 쓰기" : "👆 카드"}</button>
+          ${langToggleHtml(verse)}
         </div>
         <div class="test-top">
           <div class="test-head">
             <div class="test-stage">${stage}단계</div>
-            <div class="test-ref">${verse.refShort}</div>
+            <div class="test-ref">${verseRefShort(verse)}</div>
           </div>
           <button class="back-btn" id="back-to-list-btn">← 목록</button>
         </div>
@@ -1919,6 +1985,7 @@ function renderTestScreen(verse, stage) {
         <div id="voice-result" class="voice-result"></div>
 
         ${sermonConnect}
+        ${nivAttributionHtml(verse)}
       </div>
     </div>
   `;
@@ -1967,15 +2034,16 @@ function renderTestScreen(verse, stage) {
         return;
       }
       listenBtn.textContent = "⏹ 정지";
-      speakText(`${verse.refFull}. ${verse.text}`, () => {
+      speakText(`${verseRefFull(verse)}. ${verseText(verse)}`, () => {
         listenBtn.textContent = "🔊 듣기";
-      });
+      }, 1, verseTtsLang(verse));
     });
   }
 
   setupAnswerToggle();
   setupAutoCheck(verse, stage);
   setupVoice(verse, stage);
+  setupLangToggle(verse, () => renderTestScreen(verse, stage)); // 한/EN 전환(단계 유지)
 }
 
 // ------------------------------------------------------------
@@ -1992,7 +2060,7 @@ function setSpeakRate(v) {
 }
 
 // text 를 times 번 연속해서 읽어준다. (빠르게 N번 클릭하면 N번 반복)
-function speakText(text, onEnd, times = 1) {
+function speakText(text, onEnd, times = 1, lang = "ko-KR") {
   if (!("speechSynthesis" in window)) {
     alert("이 브라우저는 읽어주기(음성 합성)를 지원하지 않습니다.\n크롬·사파리에서 이용해 주세요.");
     if (onEnd) onEnd();
@@ -2002,7 +2070,7 @@ function speakText(text, onEnd, times = 1) {
   const n = Math.max(1, times);
   for (let i = 0; i < n; i++) {
     const ut = new SpeechSynthesisUtterance(text);
-    ut.lang = "ko-KR";
+    ut.lang = lang;
     ut.rate = getSpeakRate();
     ut.pitch = 1;
     if (onEnd && i === n - 1) {
@@ -2130,6 +2198,7 @@ const VOICE_PASS = 85;
 function normalizeWords(s) {
   return String(s || "")
     .normalize("NFC") // 분리형(NFD) 한글도 완성형으로 맞춰 가-힣 범위에 매칭되게
+    .toLowerCase()    // 영어(NIV) 음성 채점용 — 한글에는 영향 없음
     .replace(/[^가-힣a-zA-Z0-9\s]/g, " ")
     .trim()
     .split(/\s+/)
@@ -2262,7 +2331,7 @@ function setupVoice(verse, stage, onPass) {
 
   function evaluateAndShow() {
     const heard = collapseRepeats(finalText); // 반복 정리된 인식 결과
-    const { accuracy, marks, ansWords } = scoreSpoken(verse.text, heard);
+    const { accuracy, marks, ansWords } = scoreSpoken(verseText(verse), heard);
     const wordsHtml = ansWords
       .map((w, i) => `<span class="${marks[i] ? "v-ok" : "v-no"}">${w}</span>`)
       .join(" ");
@@ -2309,7 +2378,7 @@ function setupVoice(verse, stage, onPass) {
 
   function newSession() {
     const r = new SR();
-    r.lang = "ko-KR";
+    r.lang = verseTtsLang(verse); // 영어(NIV) 모드면 en-US로 인식
     r.interimResults = true;
     r.continuous = true; // 계속 듣기(말이 끝나기 전에 멈추지 않도록)
 
@@ -2401,10 +2470,12 @@ function pickBlankIndices(tokens, ratio) {
 // ------------------------------------------------------------
 function setupAutoCheck(verse, stage) {
   const inputs = Array.from(document.querySelectorAll(".word-input"));
+  const en = isEnMode(verse); // 영어 모드면 대소문자·문장부호 차이는 관용 처리
 
   // 모바일 키보드(3벌식·iOS 등)는 한글을 NFD(자모 분리형)로 입력할 수 있어
   // NFC(완성형)로 정규화한 뒤 비교해야 정답 판정이 된다.
   const norm = (s) => String(s || "").trim().normalize("NFC");
+  const same = (a, b) => (en ? easyEnNorm(a) === easyEnNorm(b) : norm(a) === norm(b));
   const len = (s) => Array.from(s).length;
   // 아이폰 천지인 등은 조합 중 낱자모(ㆍ U+318D, ㄱ~ㅣ 등 호환 자모)가 칸에 남는다.
   // 이게 남아 있으면 "아직 조합 중"으로 보고 오답 삭제를 하지 않는다.
@@ -2449,7 +2520,7 @@ function setupAutoCheck(verse, stage) {
     // 정답이면 즉시 통과(조합 상태와 무관). 매 입력마다 검사.
     function checkAccept() {
       if (input.disabled) return false;
-      if (norm(input.value) === norm(input.dataset.answer)) {
+      if (same(input.value, input.dataset.answer)) {
         clearTimeout(timer);
         accept(input, idx);
         return true;
@@ -3186,12 +3257,13 @@ function startChallenge() {
 // 도전 화면 — 3단계(전체 빈칸) 고정 + 힌트 버튼 + 음성
 function renderChallenge(verse) {
   const appEl = document.getElementById("app");
-  const tokens = verse.text.trim().split(/\s+/);
+  const en = isEnMode(verse);
+  const tokens = verseText(verse).trim().split(/\s+/);
 
   const wordsHtml = tokens
     .map((word) => {
-      const width = Array.from(word).length + 1;
-      return `<input class="word-input" data-answer="${word}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="width:${width}em" />`;
+      const style = en ? `width:${Array.from(word).length + 2}ch` : `width:${Array.from(word).length + 1}em`;
+      return `<input class="word-input" data-answer="${word}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="${style}" />`;
     })
     .join(" ");
 
@@ -3202,11 +3274,12 @@ function renderChallenge(verse) {
           <button class="answer-btn" id="hint-btn">💡 힌트</button>
           <button class="answer-btn" id="ch-shuffle">🔀 다른말씀</button>
           <button class="voice-btn" id="voice-toggle">🎤 암송</button>
+          ${langToggleHtml(verse)}
         </div>
         <div class="test-top">
           <div class="test-head">
             <div class="test-stage challenge-badge">🔥 도전</div>
-            <div class="test-ref">${verse.refShort}</div>
+            <div class="test-ref">${verseRefShort(verse)}</div>
           </div>
           <button class="back-btn" id="ch-exit">← 뒤로</button>
         </div>
@@ -3219,6 +3292,7 @@ function renderChallenge(verse) {
           <div class="voice-live" id="voice-live"></div>
         </div>
         <div id="voice-result" class="voice-result"></div>
+        ${nivAttributionHtml(verse)}
       </div>
     </div>`;
 
@@ -3227,6 +3301,7 @@ function renderChallenge(verse) {
   setupHint();
   setupChallengeTyping(verse, (mode) => challengeComplete(verse, mode));
   setupVoice(verse, 3, () => challengeComplete(verse, "voice"));
+  setupLangToggle(verse, () => renderChallenge(verse));
 }
 
 // ------------------------------------------------------------
@@ -3242,11 +3317,12 @@ function startReview() {
 function renderReview(queue, idx) {
   const verse = queue[idx];
   const appEl = document.getElementById("app");
-  const tokens = verse.text.trim().split(/\s+/);
+  const en = isEnMode(verse);
+  const tokens = verseText(verse).trim().split(/\s+/);
   const wordsHtml = tokens
     .map((word) => {
-      const width = Array.from(word).length + 1;
-      return `<input class="word-input" data-answer="${word}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="width:${width}em" />`;
+      const style = en ? `width:${Array.from(word).length + 2}ch` : `width:${Array.from(word).length + 1}em`;
+      return `<input class="word-input" data-answer="${word}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="${style}" />`;
     })
     .join(" ");
   const answerHtml = tokens.map((word) => `<strong class="ans-word">${word}</strong>`).join(" ");
@@ -3258,11 +3334,12 @@ function renderReview(queue, idx) {
           <button class="answer-btn" id="show-answer-btn">보기</button>
           <button class="answer-btn" id="listen-answer-btn" aria-label="정답 음성으로 듣기">🔊 듣기</button>
           <button class="voice-btn" id="voice-toggle">🎤 암송</button>
+          ${langToggleHtml(verse)}
         </div>
         <div class="test-top">
           <div class="test-head">
             <div class="test-stage review-badge">📖 복습</div>
-            <div class="test-ref">${verse.refShort}</div>
+            <div class="test-ref">${verseRefShort(verse)}</div>
           </div>
           <button class="back-btn" id="rv-exit">← 뒤로</button>
         </div>
@@ -3280,6 +3357,7 @@ function renderReview(queue, idx) {
           <div class="voice-live" id="voice-live"></div>
         </div>
         <div id="voice-result" class="voice-result"></div>
+        ${nivAttributionHtml(verse)}
       </div>
     </div>`;
 
@@ -3295,7 +3373,7 @@ function renderReview(queue, idx) {
         return;
       }
       listenBtn.textContent = "⏹ 정지";
-      speakText(`${verse.refFull}. ${verse.text}`, () => { listenBtn.textContent = "🔊 듣기"; });
+      speakText(`${verseRefFull(verse)}. ${verseText(verse)}`, () => { listenBtn.textContent = "🔊 듣기"; }, 1, verseTtsLang(verse));
     });
   }
   const onDone = (mode) => {
@@ -3305,6 +3383,7 @@ function renderReview(queue, idx) {
   };
   setupChallengeTyping(verse, onDone);
   setupVoice(verse, 3, onDone);
+  setupLangToggle(verse, () => renderReview(queue, idx));
 }
 
 function reviewNext(queue, idx) {
@@ -3348,6 +3427,7 @@ function setupHint() {
 function setupChallengeTyping(verse, onComplete) {
   const inputs = Array.from(document.querySelectorAll(".word-input"));
   const remainEl = document.getElementById("ch-remain");
+  const en = isEnMode(verse); // 영어 모드면 대소문자·문장부호 차이는 관용 처리
   let done = false;
   function updateRemain() {
     const left = inputs.filter((i) => !i.classList.contains("correct")).length;
@@ -3361,7 +3441,7 @@ function setupChallengeTyping(verse, onComplete) {
     if (input.disabled) return;
     const val = input.value.trim();
     const answer = input.dataset.answer;
-    if (val === answer) {
+    if (en ? easyEnNorm(val) === easyEnNorm(answer) : val === answer) {
       input.value = answer;
       input.classList.add("correct");
       input.classList.remove("wrong");

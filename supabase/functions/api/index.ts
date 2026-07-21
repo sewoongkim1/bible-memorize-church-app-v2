@@ -83,6 +83,7 @@ Deno.serve(async (req) => {
       case "getVerses":     return json(await getVerses());
       case "saveVerse":     return json(await saveVerse(body));
       case "seedVerses":    return json(await seedVerses(body));
+      case "generateNiv":   return json(await generateNiv(body));
       case "cleanupDummy":  return json(await cleanupDummy());
       case "importV1":      return json(await importV1(body));
       // ---- Web Push ----
@@ -485,7 +486,7 @@ async function monitor(b: any) {
 // ---------- getVerses: 앱 표시용 말씀 목록(verses.json과 동일 형태) ----------
 async function getVerses() {
   const { data, error } = await db.from("verses")
-    .select("no,date,ref_short,ref_full,ref,text,hint,pastor,sermon_title,sermon_url")
+    .select("no,date,ref_short,ref_full,ref,text,text_en,ref_en,hint,pastor,sermon_title,sermon_url")
     .eq("is_active", true).order("no");
   if (error) throw error;
   const verses = (data ?? []).map((v: any) => ({
@@ -493,6 +494,8 @@ async function getVerses() {
     refShort: v.ref_short || v.ref || "",
     refFull: v.ref_full || v.ref || "",
     text: v.text || "",
+    textEn: v.text_en || "",
+    refEn: v.ref_en || "",
     hintText: v.hint || "",
     sermonTitle: v.sermon_title || "",
     pastor: v.pastor || "",
@@ -514,6 +517,8 @@ async function saveVerse(b: any) {
     ref_full: v.refFull || null,
     ref: v.refFull || v.refShort || "",
     text: v.text || "",
+    text_en: v.textEn || null,
+    ref_en: v.refEn || null,
     hint: v.hintText || null,
     pastor: v.pastor || null,
     sermon_title: v.sermonTitle || null,
@@ -541,6 +546,62 @@ async function seedVerses(b: any) {
     if (error) throw error;
   }
   return { ok: true, count: rows.length };
+}
+
+// ---------- generateNiv: 한국어 구절 → NIV 영어 본문 AI 생성 (ADMIN_SECRET) ----------
+// DB에 저장하지 않고 반환만 한다 — 어드민이 실제 NIV 성경과 대조·검수 후 saveVerse로 저장.
+async function generateNiv(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
+  if (!apiKey) return { ok: false, error: "ANTHROPIC_API_KEY 시크릿 미설정" };
+  const ref = (b.refFull || b.refShort || "").toString().trim();
+  const text = (b.text || "").toString().trim();
+  if (!ref && !text) return { ok: false, error: "ref-or-text-required" };
+
+  const schema = {
+    type: "object",
+    additionalProperties: false,
+    required: ["textEn", "refEn"],
+    properties: {
+      textEn: { type: "string" },
+      refEn: { type: "string" },
+    },
+  };
+  const system = [
+    "You are a Bible reference assistant for a Korean church scripture-memorization app.",
+    "Given a Korean Bible verse (개역개정) with its reference, return the exact corresponding",
+    "NIV (New International Version, 2011) text and the English reference.",
+    "- textEn: the verse text exactly as printed in the NIV — no paraphrase, no summary,",
+    "  no verse numbers inside the text. If the reference spans multiple verses, include them all.",
+    "- refEn: standard English reference like \"John 3:16\" or \"Psalm 23:1-2\".",
+  ].join("\n");
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: Deno.env.get("NIV_MODEL") || "claude-opus-4-8",
+      max_tokens: 1000,
+      system,
+      output_config: { format: { type: "json_schema", schema } },
+      messages: [{ role: "user", content: `[출처] ${ref}\n[개역개정 본문] ${text}` }],
+    }),
+  });
+  if (!res.ok) return { ok: false, error: `anthropic-${res.status}: ${(await res.text()).slice(0, 300)}` };
+  const d = await res.json();
+  let out: any = {};
+  try { out = JSON.parse((d.content ?? []).find((x: any) => x.type === "text")?.text ?? "{}"); } catch (_) {}
+  const textEn = (out.textEn || "").toString().trim();
+  const refEn = (out.refEn || "").toString().trim();
+  // 불량 출력 가드 — 스키마는 통과해도 내용이 부실하면 거른다 (4b-versehelp.mjs 패턴)
+  if (textEn.length < 10 || !/^[1-3]?\s?[A-Za-z ]+\d+:\d+/.test(refEn)) {
+    return { ok: false, error: "output-too-short" };
+  }
+  return { ok: true, textEn, refEn };
 }
 
 // ---------- login ----------
