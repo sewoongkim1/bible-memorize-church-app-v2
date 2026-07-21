@@ -147,6 +147,10 @@
   .pl-sent{margin-left:auto;}
   .pl-title{font-weight:800;color:#1f7a4d;font-size:.95rem;line-height:1.4;}
   .pl-msg{margin-top:5px;font-size:.86rem;color:var(--ink,#1c2430);line-height:1.6;}
+  .ml-head{font-weight:800;color:var(--navy);font-size:1rem;margin:12px 2px 12px;line-height:1.4;}
+  .ml-head .ml-ref{display:inline-block;font-size:.8rem;font-weight:700;color:#1f7a4d;background:#e7f6ee;border-radius:999px;padding:1px 9px;margin-left:4px;}
+  .ml-q{margin-top:6px;padding-top:8px;border-top:1px dashed var(--border);font-size:.85rem;color:var(--navy);line-height:1.6;}
+  #ml-week{margin-bottom:6px;}
   .push-send{width:100%;padding:14px;font-size:1.05rem;font-weight:800;color:#fff;
     background:linear-gradient(135deg,#1a3a6b 0%,#0d4a7a 100%);border:none;border-radius:12px;
     cursor:pointer;font-family:inherit;box-shadow:0 4px 14px rgba(13,74,122,.28);transition:filter .15s,transform .1s;}
@@ -281,6 +285,7 @@
 <script>
 // v2: Supabase Edge Function(api) 호출
 const API = "https://xnomlgydifiqiybervtf.supabase.co/functions/v1/api";
+const SERMON_FN = "https://xnomlgydifiqiybervtf.supabase.co/functions/v1/sermon";
 const ANON = "sb_publishable_oLtieT_jw7Gjb8etEsy0jw_thBaDjl-";
 async function callApi(payload){
   const res = await fetch(API, {
@@ -404,8 +409,16 @@ function renderMenu(){
         </div>
         <div class="rep-arrow">›</div>
       </div>
-      <div class="rep-card" id="rep-pushlog">
+      <div class="rep-card" id="rep-medlib">
         <div class="ic">🌿</div>
+        <div class="rep-text">
+          <div class="ti">매일 묵상 조회</div>
+          <div class="de">주차별 7일 묵상 내용(주제·메시지·질문)</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
+      <div class="rep-card" id="rep-pushlog">
+        <div class="ic">📨</div>
         <div class="rep-text">
           <div class="ti">매일 묵상 발송 이력</div>
           <div class="de">그날 어떤 묵상이 몇 명에게 나갔는지</div>
@@ -482,6 +495,7 @@ function renderMenu(){
   document.getElementById("rep-verses").addEventListener("click", renderVerses);
   document.getElementById("rep-challenge").addEventListener("click", renderChallengeReport);
   document.getElementById("rep-push").addEventListener("click", renderPush);
+  document.getElementById("rep-medlib").addEventListener("click", renderMedLibrary);
   document.getElementById("rep-pushlog").addEventListener("click", renderPushLog);
   document.getElementById("rep-content").addEventListener("click", renderContent);
   document.getElementById("rep-monitor").addEventListener("click", renderMonitor);
@@ -557,6 +571,56 @@ function renderPush(){
 
 // '이번 주(오늘 기준 최신) 말씀'을 읽어 제목/내용 입력창에 채움
 // 제목: "성경암송" 고정 / 내용: 말씀 본문 + " (요절)"
+// ---------- 매일 묵상 조회(주차별 7일) ----------
+let _medSermons=null;
+function renderMedLibrary(){
+  app.innerHTML=`
+    <div class="rep-head">
+      <button class="back-btn" id="back">← 메뉴</button>
+      <h2>🌿 매일 묵상 조회</h2>
+    </div>
+    <div class="push-card">
+      <label class="push-lb">주차 선택 (설교)</label>
+      <select id="ml-week" class="push-in"></select>
+      <div id="ml-body"><div class="msg">불러오는 중...</div></div>
+    </div>`;
+  document.getElementById("back").addEventListener("click", renderMenu);
+  loadMedLibrary();
+}
+async function loadMedLibrary(){
+  const sel=document.getElementById("ml-week");
+  const bd=document.getElementById("ml-body");
+  try{
+    const res=await fetch(SERMON_FN,{method:"POST",headers:{"Content-Type":"application/json","apikey":ANON,"Authorization":"Bearer "+ANON},body:JSON.stringify({action:"getSermons"})});
+    const d=await res.json();
+    const all=(d&&d.sermons)||[];
+    // 7일치 묵상이 있는 설교만, 최신순
+    _medSermons=all.filter(s=>Array.isArray(s.dailyMeditations)&&s.dailyMeditations.length)
+      .sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")));
+    if(!_medSermons.length){ sel.style.display="none"; bd.innerHTML=`<div class="msg">아직 7일치 매일 묵상이 있는 설교가 없습니다.</div>`; return; }
+    sel.innerHTML=_medSermons.map((s,i)=>{
+      const ref=s.memRef||s.scripture||"";
+      return `<option value="${i}">${htmlEsc((s.date||"")+" · "+(s.title||"")+(ref?" ("+ref+")":""))}</option>`;
+    }).join("");
+    sel.addEventListener("change",()=>renderMedWeek(Number(sel.value)));
+    renderMedWeek(0);
+  }catch(e){ bd.innerHTML=`<div class="msg err">불러오기 실패: ${(e&&e.message)||e}</div>`; }
+}
+function renderMedWeek(i){
+  const bd=document.getElementById("ml-body");
+  const s=_medSermons[i]; if(!s){ bd.innerHTML=""; return; }
+  const DAYS=["일","월","화","수","목","금","토"];
+  const dm=s.dailyMeditations||[];
+  bd.innerHTML=`<div class="ml-head">📖 ${htmlEsc(s.title||"")} <span class="ml-ref">${htmlEsc(s.memRef||s.scripture||"")}</span></div>`
+    +`<div class="pl-list">`+dm.map((m,k)=>`
+      <div class="pl-item daily">
+        <div class="pl-top"><span class="pl-badge">${DAYS[k]||("D"+(k+1))}</span>
+          <span class="pl-when">${htmlEsc(m.heading||"")}</span></div>
+        ${m.message?`<div class="pl-msg">${htmlEsc(m.message)}</div>`:""}
+        ${m.question?`<div class="ml-q">💬 ${htmlEsc(m.question)}</div>`:""}
+      </div>`).join("")+`</div>`;
+}
+
 // ---------- 매일 묵상 발송 이력 ----------
 function renderPushLog(){
   app.innerHTML=`
