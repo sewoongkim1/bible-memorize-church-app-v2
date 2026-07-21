@@ -1872,19 +1872,6 @@ function nivAttributionHtml(verse) {
   return `<div class="niv-attribution">Scripture quotations taken from The Holy Bible, New International Version&reg; NIV&reg;. Copyright &copy; 1973, 1978, 1984, 2011 by Biblica, Inc. Used with permission. All rights reserved worldwide.</div>`;
 }
 
-// 한/EN 전환 버튼(영어 본문이 있는 구절만) — 누르면 rerender로 화면을 다시 그린다
-function langToggleHtml(verse) {
-  return hasEn(verse) ? `<button class="answer-btn mode-btn" id="lang-toggle">${isEnMode(verse) ? "🇰🇷 한글" : "🌐 EN"}</button>` : "";
-}
-function setupLangToggle(verse, rerender) {
-  const btn = document.getElementById("lang-toggle");
-  if (!btn) return;
-  btn.addEventListener("click", () => {
-    setLang(isEnMode(verse) ? "ko" : "en");
-    stopSpeaking();
-    rerender();
-  });
-}
 
 function renderTestScreen(verse, stage) {
   stopSpeaking(); // 화면 전환 시 읽어주기 정지
@@ -1957,7 +1944,6 @@ function renderTestScreen(verse, stage) {
           <button class="answer-btn" id="listen-answer-btn" aria-label="정답 음성으로 듣기">🔊 듣기</button>
           <button class="voice-btn" id="voice-toggle">🎤 암송</button>
           <button class="answer-btn mode-btn" id="mode-toggle">${isCardMode() ? "⌨️ 쓰기" : "👆 카드"}</button>
-          ${langToggleHtml(verse)}
         </div>
         <div class="test-top">
           <div class="test-head">
@@ -2043,7 +2029,6 @@ function renderTestScreen(verse, stage) {
   setupAnswerToggle();
   setupAutoCheck(verse, stage);
   setupVoice(verse, stage);
-  setupLangToggle(verse, () => renderTestScreen(verse, stage)); // 한/EN 전환(단계 유지)
 }
 
 // ------------------------------------------------------------
@@ -3274,7 +3259,6 @@ function renderChallenge(verse) {
           <button class="answer-btn" id="hint-btn">💡 힌트</button>
           <button class="answer-btn" id="ch-shuffle">🔀 다른말씀</button>
           <button class="voice-btn" id="voice-toggle">🎤 암송</button>
-          ${langToggleHtml(verse)}
         </div>
         <div class="test-top">
           <div class="test-head">
@@ -3301,7 +3285,6 @@ function renderChallenge(verse) {
   setupHint();
   setupChallengeTyping(verse, (mode) => challengeComplete(verse, mode));
   setupVoice(verse, 3, () => challengeComplete(verse, "voice"));
-  setupLangToggle(verse, () => renderChallenge(verse));
 }
 
 // ------------------------------------------------------------
@@ -3334,7 +3317,6 @@ function renderReview(queue, idx) {
           <button class="answer-btn" id="show-answer-btn">보기</button>
           <button class="answer-btn" id="listen-answer-btn" aria-label="정답 음성으로 듣기">🔊 듣기</button>
           <button class="voice-btn" id="voice-toggle">🎤 암송</button>
-          ${langToggleHtml(verse)}
         </div>
         <div class="test-top">
           <div class="test-head">
@@ -3383,7 +3365,6 @@ function renderReview(queue, idx) {
   };
   setupChallengeTyping(verse, onDone);
   setupVoice(verse, 3, onDone);
-  setupLangToggle(verse, () => renderReview(queue, idx));
 }
 
 function reviewNext(queue, idx) {
