@@ -138,6 +138,13 @@
   .sub-stat{background:#eef4ff;border:1px solid #cfe0f5;border-radius:10px;padding:11px 13px;margin-bottom:14px;font-size:.92rem;color:var(--navy);font-weight:700;}
   .sub-stat b{font-size:1.1rem;}
   .sub-stat .ss-sub{display:block;margin-top:3px;font-size:.78rem;font-weight:600;color:var(--gray);}
+  .sub-list{margin:-6px 0 14px;border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+  .sub-row{display:flex;align-items:center;gap:8px;padding:9px 11px;font-size:.86rem;border-top:1px solid var(--border);}
+  .sub-row:first-child{border-top:none;}
+  .sub-row .sr-no{color:var(--gray);font-size:.78rem;min-width:16px;}
+  .sub-row .sr-name{font-weight:700;color:var(--navy);}
+  .sub-row .sr-sosok{color:var(--gray);font-size:.8rem;}
+  .sub-row .sr-hour{margin-left:auto;background:#eef4ff;color:var(--navy);border-radius:999px;padding:1px 8px;font-size:.76rem;font-weight:700;}
   .pl-list{display:flex;flex-direction:column;gap:10px;}
   .pl-item{border:1px solid var(--border);border-radius:11px;padding:12px 13px;background:#fafbfe;}
   .pl-item.daily{border-color:#bfe3cf;background:#f3fbf6;}
@@ -517,6 +524,8 @@ function renderPush(){
     </div>
     <div class="push-card">
       <div id="sub-stat" class="sub-stat">🔔 구독자 수 불러오는 중…</div>
+      <button class="push-fill" id="p-list">👥 구독자 명단 보기</button>
+      <div id="sub-list"></div>
       <button class="push-fill" id="p-fill">📖 오늘 나갈 문구 자동 넣기 (묵상+말씀)</button>
       <label class="push-lb">제목</label>
       <input id="p-title" class="push-in" value="성경말씀 암송" maxlength="60" />
@@ -530,6 +539,7 @@ function renderPush(){
     </div>`;
   document.getElementById("back").addEventListener("click", renderMenu);
   loadSubStat(document.getElementById("sub-stat"));
+  document.getElementById("p-list").addEventListener("click", toggleSubList);
   document.getElementById("p-fill").addEventListener("click", fillLatestVerse);
   document.getElementById("p-me").addEventListener("click", async ()=>{
     const r=document.getElementById("p-result");
@@ -657,6 +667,26 @@ async function loadPushLog(){
       <div class="pl-title">${esc(r.title)}</div>
       ${r.body?`<div class="pl-msg">${esc(r.body).replace(/\n/g,"<br>")}</div>`:""}
     </div>`;
+  }).join("")+`</div>`;
+}
+
+// 구독자 명단 펼치기/접기
+async function toggleSubList(){
+  const box=document.getElementById("sub-list");
+  const btn=document.getElementById("p-list");
+  if(box.innerHTML){ box.innerHTML=""; btn.textContent="👥 구독자 명단 보기"; return; }
+  btn.textContent="⏳ 불러오는 중...";
+  const d=await callApi({action:"pushSubscribers",pw:getPw()}).catch(()=>({ok:false,error:"network"}));
+  btn.textContent="👥 구독자 명단 접기";
+  if(!d||!d.ok){ box.innerHTML=`<div class="msg err">불러오기 실패: ${(d&&d.error)||"오류"}</div>`; return; }
+  const list=d.list||[];
+  if(!list.length){ box.innerHTML=`<div class="msg">구독자가 없습니다.</div>`; return; }
+  box.innerHTML=`<div class="sub-list">`+list.map((s,i)=>{
+    const h=(s.hour!=null)?`${s.hour}시`:"미지정";
+    return `<div class="sub-row"><span class="sr-no">${i+1}</span>
+      <span class="sr-name">${htmlEsc(s.name)}</span>
+      <span class="sr-sosok">${htmlEsc(s.sosok||"")}</span>
+      <span class="sr-hour">${h}</span></div>`;
   }).join("")+`</div>`;
 }
 

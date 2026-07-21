@@ -96,6 +96,7 @@ Deno.serve(async (req) => {
       }
       case "pushStats":     return json(await pushStats(body));
       case "pushHistory":   return json(await pushHistory(body));
+      case "pushSubscribers": return json(await pushSubscribers(body));
       case "sendPush":      return json(await sendPush(body));
       // ---- 장애 모니터링 ----
       case "monitor":       return json(await monitor(body));
@@ -329,6 +330,28 @@ async function pushHistory(b: any) {
       .order("sent_at", { ascending: false }).limit(lim));
   }
   return { ok: true, rows: data ?? [] };
+}
+
+// ---------- pushSubscribers: 구독자 명단(이름·소속·시간) — 관리자 ----------
+async function pushSubscribers(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const { data: subs } = await db.from("push_subscriptions").select("hour,user_id,created_at");
+  const rows = (subs ?? []) as any[];
+  const ids = [...new Set(rows.map((r) => r.user_id).filter(Boolean))];
+  const umap = new Map<string, any>();
+  if (ids.length) {
+    const { data: us } = await db.from("users").select("id,type,gu,mok,bu,grade,name").in("id", ids);
+    for (const u of (us ?? []) as any[]) umap.set(u.id, u);
+  }
+  const list = rows.map((r) => {
+    const u = umap.get(r.user_id) || {};
+    const mokLabel = u.mok ? (/목장/.test(String(u.mok)) ? String(u.mok) : u.mok + "목장") : "";
+    const sosok = u.type === "교구"
+      ? [u.gu, mokLabel].filter(Boolean).join(" ")
+      : [u.bu, u.grade].filter(Boolean).join(" ");
+    return { name: u.name || "(미상)", type: u.type || "", sosok, hour: r.hour ?? null };
+  }).sort((a, b) => (Number(a.hour) || 0) - (Number(b.hour) || 0));
+  return { ok: true, total: list.length, list };
 }
 
 // ---------- pushStats: 발송 없이 구독자 수만(시간대별) — 관리자 ----------
