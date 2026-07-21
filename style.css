@@ -405,7 +405,13 @@ h1 {
 
 /* 암송 도우미(쉬운 풀이 · 기억법) — 눌러야 펴지므로 평소엔 자리를 거의 차지하지 않음 */
 .help-slot:empty { display: none; }
-.help-slot .help-tabs { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+/* 버튼 3개(쉬운 풀이·기억법·영어/한글)가 늘어도 작은 폰에서 줄바꿈되지 않게 —
+   못 담으면 줄바꿈 대신 살짝 가로 스크롤(거의 발생하지 않음) */
+.help-slot .help-tabs {
+  display: flex; gap: 6px; margin-top: 12px;
+  flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
+}
+.help-slot .help-btn { flex-shrink: 0; white-space: nowrap; padding: 6px 11px; }
 .help-slot .help-btn.on { background: var(--navy); color: #fff; }
 .help-slot .help-body {
   margin-top: 8px; padding: 13px 14px;
