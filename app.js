@@ -955,6 +955,7 @@ function renderSummary() {
       <div class="stat-box status-s1"><div class="stat-num">${inProgress}</div><div class="stat-lbl">진행중</div></div>
       <div class="stat-box status-none"><div class="stat-num">${counts[0]}</div><div class="stat-lbl">미시도</div></div>
     </div>
+    <div id="push-nudge"></div>
     <div class="summary-actions">
       <button class="summary-go act-btn" id="go-list"><span class="act-ic">📖</span><span class="act-tx">암송<br>하기</span></button>
       ${dueCount > 0 ? `<button class="summary-go review-cta act-btn" id="go-review"><span class="act-ic">📖</span><span class="act-tx">복습</span><span class="act-sub">${dueCount}구절</span></button>` : ""}
@@ -997,15 +998,41 @@ function renderSummary() {
   // 이미 설치(홈 화면 앱)된 경우 바로가기 아이콘 숨김
   const standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true;
   if (standalone) { const ib = document.getElementById("open-install"); if (ib) ib.hidden = true; }
-  // 아직 알림을 안 켠 사람에게만 종 아이콘을 살짝 강조(독려). 이미 켠 사람은 손대지 않음.
+  // 아직 알림을 안 켠 사람: 종 아이콘 강조 + 상단 '알림 켜기' 배너(미구독자에게만).
   (async () => {
     try {
       const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
       const sub = reg && await reg.pushManager.getSubscription();
       const bell = document.getElementById("open-alarm");
       if (bell && !sub) bell.classList.add("pulse");
+      if (!sub) showPushNudge();
     } catch (e) {}
   })();
+}
+
+// 첫화면 상단 '알림 켜기' 배너 — 미구독자에게만. 켜면 사라지고, ✕로 14일간 접어둘 수 있다.
+const PUSH_NUDGE_SNOOZE = "push-nudge-snooze";
+function showPushNudge() {
+  const slot = document.getElementById("push-nudge");
+  if (!slot) return;
+  try {
+    const until = Number(localStorage.getItem(PUSH_NUDGE_SNOOZE) || 0);
+    if (until && Date.now() < until) return; // 최근에 ✕로 닫음
+  } catch (e) {}
+  slot.innerHTML = `
+    <div class="push-nudge">
+      <button class="pn-x" id="pn-x" aria-label="닫기">✕</button>
+      <div class="pn-title">🔔 매일 아침, 오늘의 묵상을 받아보세요</div>
+      <div class="pn-sub">하루 한 구절 · 짧은 묵상으로 하루를 시작해요</div>
+      <button class="pn-btn" id="pn-on">🔔 알림 켜기</button>
+    </div>`;
+  document.getElementById("pn-on").addEventListener("click", async () => {
+    await alarmFromHome();       // 권한 요청 + 구독 → 성공 시 renderSummary가 배너를 자동 제거
+  });
+  document.getElementById("pn-x").addEventListener("click", () => {
+    try { localStorage.setItem(PUSH_NUDGE_SNOOZE, String(Date.now() + 14 * 864e5)); } catch (e) {}
+    slot.innerHTML = "";
+  });
 }
 
 // 첫화면 📲 바로가기: 홈 화면에 앱 추가(설치 프롬프트 또는 방법 안내)
