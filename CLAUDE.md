@@ -7,7 +7,7 @@
 ## 스택 · 도메인
 - **Vanilla JS PWA**(프레임워크 없음) — `index.html` + `app.js`(대형 단일 파일) + `sw.js`
 - **GitHub Pages** 배포: repo `sewoongkim1/bible-memorize-church-app-v2`, 도메인 **gocheok.onlybible.kr**(CNAME), push→Actions 배포
-- 배포 규칙: `app.js`/`style.css` 바꾸면 **index.html의 `?v=` 캐시태그 갱신**, 스플래시 `.splash-ver`는 배포마다 **+0.01**
+- 배포 규칙: `app.js`/`style.css` 바꾸면 **index.html의 `?v=` 캐시태그 갱신**, 스플래시 `.splash-ver`는 배포마다 **+0.01** (항상 **소수점 2자리** 유지: 예 `v3.00 → v3.01 → v3.02`, 절대 `v3.0`/`v3.1`로 줄이지 않음)
 
 ## 백엔드 (Supabase 통합 프로젝트 `xnomlgydifiqiybervtf`)
 성경암송·찬양·말씀 3앱이 공유하는 프로젝트. 이 앱은 Edge Function **`api`** 사용.
