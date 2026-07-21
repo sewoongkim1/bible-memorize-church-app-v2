@@ -569,11 +569,24 @@ async function generateNiv(b: any) {
   };
   const system = [
     "You are a Bible reference assistant for a Korean church scripture-memorization app.",
-    "Given a Korean Bible verse (개역개정) with its reference, return the exact corresponding",
-    "NIV (New International Version, 2011) text and the English reference.",
-    "- textEn: the verse text exactly as printed in the NIV — no paraphrase, no summary,",
-    "  no verse numbers inside the text. If the reference spans multiple verses, include them all.",
-    "- refEn: standard English reference like \"John 3:16\" or \"Psalm 23:1-2\".",
+    "You are given a Korean Bible quotation (개역개정) with its reference. IMPORTANT: this Korean",
+    "text is often NOT the complete verse — it is a shortened phrase the pastor emphasized that week,",
+    "with narrative attribution (이르되/가라사대/하시니라 = 'he said'/'they replied'/narrative framing)",
+    "and surrounding clauses already trimmed out. Your job is to return the NIV (2011) wording for",
+    "EXACTLY that same scope — not the full verse, not with narrative attribution added back in —",
+    "unless the given Korean text already IS the complete verse (in which case return the complete verse).",
+    "- textEn: the verbatim NIV wording matching the Korean text's scope, word for word from the real NIV",
+    "  translation (never paraphrase or invent wording). No verse numbers inside the text.",
+    "  Do NOT prepend narrative framing like \"Jesus said,\" \"They replied,\" \"he said,\" etc. unless the",
+    "  Korean text itself contains the equivalent Korean framing.",
+    "  Do NOT append trailing clauses/sentences that exist in the full verse but are absent from the",
+    "  given Korean text.",
+    "  If the reference is a range (e.g. spans verses 16-18) and the Korean text quotes all of that",
+    "  range, include all of it.",
+    "- refEn: use the standard ABBREVIATED English book name (matching how the Korean refShort is also",
+    "  abbreviated, e.g. 골 3:23 not 골로새서 3장), like \"Gen 12:2\", \"Ps 119:105\", \"Josh 1:8\",",
+    "  \"1 Pet 4:16\", \"1 Thess 5:16-18\", \"Col 3:23\", \"Matt 28:19\", \"Rev 2:7\". Do not spell out the",
+    "  full book name (no \"Genesis\", \"Psalm\", \"Colossians\", etc.).",
   ].join("\n");
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
