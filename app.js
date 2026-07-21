@@ -1668,11 +1668,13 @@ function fillVerseHelp(verse) {
     const s = (sermons || []).find(
       (x) => x.memVerseNo === verse.no && (x.easyExplain || x.memoryTip));
     const el = document.getElementById("help-slot");
-    if (!s || !el) return;
+    if (!el) return;
 
     const items = [];
-    if (s.easyExplain) items.push({ k: "easy", label: "💡 쉬운 풀이", text: s.easyExplain });
-    if (s.memoryTip)   items.push({ k: "tip",  label: "🧠 기억법",   text: s.memoryTip });
+    if (s && s.easyExplain) items.push({ k: "easy", label: "💡 쉬운 풀이", text: s.easyExplain });
+    if (s && s.memoryTip)   items.push({ k: "tip",  label: "🧠 기억법",   text: s.memoryTip });
+    if (hasEn(verse))       items.push({ k: "en",   label: "🌐 영어",     text: verse.textEn });
+    if (!items.length) return;
 
     el.innerHTML = `
       <div class="help-tabs">
@@ -1687,7 +1689,17 @@ function fillVerseHelp(verse) {
         el.querySelectorAll(".help-btn").forEach((b) => b.classList.remove("on"));
         if (wasOn) { body.hidden = true; return; }   // 같은 버튼 다시 누르면 접기
         btn.classList.add("on");
-        body.textContent = (items.find((i) => i.k === btn.dataset.k) || {}).text || "";
+        const item = items.find((i) => i.k === btn.dataset.k) || {};
+        body.innerHTML = "";
+        const textEl = document.createElement("div");
+        textEl.textContent = item.text || "";
+        body.appendChild(textEl);
+        if (item.k === "en") {
+          const attr = document.createElement("div");
+          attr.className = "niv-attribution";
+          attr.textContent = NIV_ATTRIBUTION_TEXT;
+          body.appendChild(attr);
+        }
         body.hidden = false;
       });
     });
@@ -1866,10 +1878,11 @@ function easyEnNorm(s) {
     .replace(/[.,;:!?"'()\[\]–—-]/g, "");
 }
 
-// NIV 저작권 표기(Biblica 인용 조건) — 영어 모드 화면 하단에만 표시
+// NIV 저작권 표기(Biblica 인용 조건) — 영어 모드 화면 하단, '영어' 도우미 버튼에 공통 사용
+const NIV_ATTRIBUTION_TEXT = "Scripture quotations taken from The Holy Bible, New International Version® NIV®. Copyright © 1973, 1978, 1984, 2011 by Biblica, Inc. Used with permission. All rights reserved worldwide.";
 function nivAttributionHtml(verse) {
   if (!isEnMode(verse)) return "";
-  return `<div class="niv-attribution">Scripture quotations taken from The Holy Bible, New International Version&reg; NIV&reg;. Copyright &copy; 1973, 1978, 1984, 2011 by Biblica, Inc. Used with permission. All rights reserved worldwide.</div>`;
+  return `<div class="niv-attribution">${NIV_ATTRIBUTION_TEXT}</div>`;
 }
 
 
