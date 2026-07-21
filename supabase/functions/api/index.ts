@@ -94,6 +94,8 @@ Deno.serve(async (req) => {
         const c = await dailyPushContent();
         return json(c ? { ok: true, title: c.title, body: c.body } : { ok: false, error: "no-content" });
       }
+      case "pushStats":     return json(await pushStats(body));
+      case "pushHistory":   return json(await pushHistory(body));
       case "sendPush":      return json(await sendPush(body));
       // ---- 장애 모니터링 ----
       case "monitor":       return json(await monitor(body));
@@ -313,13 +315,43 @@ async function testPush(b: any) {
 }
 
 // ---------- sendPush: 구독자 전체에 알림 발송 (ADMIN_SECRET / cron) ----------
+// ---------- pushHistory: 발송 이력(최근 N건) — 관리자 ----------
+async function pushHistory(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const lim = Math.min(200, Math.max(1, Number(b.limit) || 60));
+  // body 컬럼이 있으면 함께, 없으면(구 스키마) 제목·수량만
+  let { data, error } = await db.from("push_log")
+    .select("sent_at,mode,title,body,sent,failed,total")
+    .order("sent_at", { ascending: false }).limit(lim);
+  if (error) {
+    ({ data } = await db.from("push_log")
+      .select("sent_at,mode,title,sent,failed,total")
+      .order("sent_at", { ascending: false }).limit(lim));
+  }
+  return { ok: true, rows: data ?? [] };
+}
+
+// ---------- pushStats: 발송 없이 구독자 수만(시간대별) — 관리자 ----------
+async function pushStats(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const { data } = await db.from("push_subscriptions").select("hour");
+  const rows = (data ?? []) as any[];
+  const byHour: Record<string, number> = {};
+  for (const r of rows) {
+    const h = (r.hour === null || r.hour === undefined) ? "미지정" : String(r.hour);
+    byHour[h] = (byHour[h] || 0) + 1;
+  }
+  return { ok: true, total: rows.length, byHour };
+}
+
 async function sendPush(b: any) {
   const err = adminError(b); if (err) return { ok: false, error: err };
   let title = b.title, body = b.body;
   if (b.latest) {
     // 오늘의 묵상(요일별) + 이번주 말씀. 묵상이 없으면 말씀만.
+    // 크론이 기본 제목(표어)을 함께 보내므로, latest일 땐 묵상 제목(🌿…)이 그것을 대체한다.
     const c = await dailyPushContent();
-    if (c) { title = title || c.title; body = c.body; }
+    if (c) { title = c.title; body = c.body; }
   }
   // hour 지정 시 그 시간을 고른 구독자에게만(시간대별 cron), 없으면 전체(관리자 수동 발송)
   let subQ = db.from("push_subscriptions").select("id,endpoint,p256dh,auth");
@@ -359,11 +391,14 @@ async function sendPush(b: any) {
   if (b.diag) return { ok: true, sent, failed, total, vapidReady, vapidSubject: VAPID_SUBJECT, errors: errs };
   // 장애 모니터링용 발송 로그 기록(실패해도 발송 결과에는 영향 없음)
   try {
-    await db.from("push_log").insert({
+    const logBase: Record<string, unknown> = {
       mode: b.mode || (b.latest ? "daily" : "manual"),
       title: title || "성경말씀 암송",
       sent, failed, total, ok: sent > 0,
-    });
+    };
+    // body 컬럼이 있으면 본문까지 기록(이력 관리용). 없으면(구 스키마) 본문 없이 재시도.
+    const { error } = await db.from("push_log").insert({ ...logBase, body: body || null });
+    if (error) await db.from("push_log").insert(logBase);
   } catch (_) { /* 로그 실패 무시 */ }
   return { ok: true, sent, failed, total };
 }

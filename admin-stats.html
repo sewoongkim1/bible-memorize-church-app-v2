@@ -135,6 +135,18 @@
     color:var(--navy);background:#eef1f8;border:1.5px solid var(--navy);border-radius:10px;cursor:pointer;font-family:inherit;}
   .push-fill:hover{background:var(--navy);color:#fff;}
   .push-hint{font-size:.8rem;color:var(--gray);margin:9px 2px 14px;}
+  .sub-stat{background:#eef4ff;border:1px solid #cfe0f5;border-radius:10px;padding:11px 13px;margin-bottom:14px;font-size:.92rem;color:var(--navy);font-weight:700;}
+  .sub-stat b{font-size:1.1rem;}
+  .sub-stat .ss-sub{display:block;margin-top:3px;font-size:.78rem;font-weight:600;color:var(--gray);}
+  .pl-list{display:flex;flex-direction:column;gap:10px;}
+  .pl-item{border:1px solid var(--border);border-radius:11px;padding:12px 13px;background:#fafbfe;}
+  .pl-item.daily{border-color:#bfe3cf;background:#f3fbf6;}
+  .pl-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:.78rem;color:var(--gray);margin-bottom:5px;}
+  .pl-when{font-weight:700;color:var(--navy);}
+  .pl-badge{background:#e7f6ee;color:#1f7a4d;border-radius:999px;padding:1px 8px;font-weight:700;}
+  .pl-sent{margin-left:auto;}
+  .pl-title{font-weight:800;color:#1f7a4d;font-size:.95rem;line-height:1.4;}
+  .pl-msg{margin-top:5px;font-size:.86rem;color:var(--ink,#1c2430);line-height:1.6;}
   .push-send{width:100%;padding:14px;font-size:1.05rem;font-weight:800;color:#fff;
     background:linear-gradient(135deg,#1a3a6b 0%,#0d4a7a 100%);border:none;border-radius:12px;
     cursor:pointer;font-family:inherit;box-shadow:0 4px 14px rgba(13,74,122,.28);transition:filter .15s,transform .1s;}
@@ -392,6 +404,14 @@ function renderMenu(){
         </div>
         <div class="rep-arrow">›</div>
       </div>
+      <div class="rep-card" id="rep-pushlog">
+        <div class="ic">🌿</div>
+        <div class="rep-text">
+          <div class="ti">매일 묵상 발송 이력</div>
+          <div class="de">그날 어떤 묵상이 몇 명에게 나갔는지</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
       <div class="rep-card" id="rep-content">
         <div class="ic">📖</div>
         <div class="rep-text">
@@ -462,6 +482,7 @@ function renderMenu(){
   document.getElementById("rep-verses").addEventListener("click", renderVerses);
   document.getElementById("rep-challenge").addEventListener("click", renderChallengeReport);
   document.getElementById("rep-push").addEventListener("click", renderPush);
+  document.getElementById("rep-pushlog").addEventListener("click", renderPushLog);
   document.getElementById("rep-content").addEventListener("click", renderContent);
   document.getElementById("rep-monitor").addEventListener("click", renderMonitor);
   document.getElementById("rep-report").addEventListener("click", renderReportMail);
@@ -481,6 +502,7 @@ function renderPush(){
       <h2>🔔 알림 보내기</h2>
     </div>
     <div class="push-card">
+      <div id="sub-stat" class="sub-stat">🔔 구독자 수 불러오는 중…</div>
       <button class="push-fill" id="p-fill">📖 오늘 나갈 문구 자동 넣기 (묵상+말씀)</button>
       <label class="push-lb">제목</label>
       <input id="p-title" class="push-in" value="성경말씀 암송" maxlength="60" />
@@ -493,6 +515,7 @@ function renderPush(){
       <div id="p-result" class="msg"></div>
     </div>`;
   document.getElementById("back").addEventListener("click", renderMenu);
+  loadSubStat(document.getElementById("sub-stat"));
   document.getElementById("p-fill").addEventListener("click", fillLatestVerse);
   document.getElementById("p-me").addEventListener("click", async ()=>{
     const r=document.getElementById("p-result");
@@ -534,6 +557,57 @@ function renderPush(){
 
 // '이번 주(오늘 기준 최신) 말씀'을 읽어 제목/내용 입력창에 채움
 // 제목: "성경암송" 고정 / 내용: 말씀 본문 + " (요절)"
+// ---------- 매일 묵상 발송 이력 ----------
+function renderPushLog(){
+  app.innerHTML=`
+    <div class="rep-head">
+      <button class="back-btn" id="back">← 메뉴</button>
+      <h2>🌿 매일 묵상 발송 이력</h2>
+    </div>
+    <div class="push-card">
+      <p class="push-hint">매일 아침 자동 발송된 알림 기록입니다. 제목에 그날의 묵상 주제(🌿 …)가 담깁니다.</p>
+      <div id="pl-body"><div class="msg">불러오는 중...</div></div>
+    </div>`;
+  document.getElementById("back").addEventListener("click", renderMenu);
+  loadPushLog();
+}
+async function loadPushLog(){
+  const el=document.getElementById("pl-body");
+  const d=await callApi({action:"pushHistory",pw:getPw(),limit:60}).catch(()=>({ok:false,error:"network"}));
+  if(!d||!d.ok){
+    if(d&&d.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }
+    el.innerHTML=`<div class="msg err">불러오기 실패: ${(d&&d.error)||"오류"}</div>`; return;
+  }
+  const rows=d.rows||[];
+  if(!rows.length){ el.innerHTML=`<div class="msg">아직 발송 이력이 없습니다.</div>`; return; }
+  const fmt=(ts)=>{ try{ const t=new Date(ts); const k=new Date(t.getTime()+9*3600*1000);
+    return `${k.getUTCFullYear()}.${String(k.getUTCMonth()+1).padStart(2,"0")}.${String(k.getUTCDate()).padStart(2,"0")} (${["일","월","화","수","목","금","토"][k.getUTCDay()]}) ${String(k.getUTCHours()).padStart(2,"0")}:${String(k.getUTCMinutes()).padStart(2,"0")}`;
+  }catch(_){ return ts||""; } };
+  const esc=(s)=>String(s==null?"":s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+  el.innerHTML=`<div class="pl-list">`+rows.map(r=>{
+    const daily = r.mode==="daily";
+    return `<div class="pl-item${daily?" daily":""}">
+      <div class="pl-top"><span class="pl-when">${fmt(r.sent_at)}</span>
+        <span class="pl-badge">${daily?"자동":"수동"}</span>
+        <span class="pl-sent">👥 ${r.sent}/${r.total}${r.failed?` · 실패 ${r.failed}`:""}</span></div>
+      <div class="pl-title">${esc(r.title)}</div>
+      ${r.body?`<div class="pl-msg">${esc(r.body).replace(/\n/g,"<br>")}</div>`:""}
+    </div>`;
+  }).join("")+`</div>`;
+}
+
+// 현재 알림 구독자 수(시간대별)를 배지 요소에 채운다. 두 화면(알림·리포트)에서 공용.
+async function loadSubStat(el){
+  if(!el) return;
+  try{
+    const d=await callApi({action:"pushStats",pw:getPw()});
+    if(!d||!d.ok){ el.textContent="🔔 구독자 수를 불러오지 못했습니다."; return; }
+    const bh=d.byHour||{};
+    const parts=Object.keys(bh).sort().map(h=>`${/^\d+$/.test(h)?h+"시":h} ${bh[h]}명`);
+    el.innerHTML=`🔔 현재 알림 구독 <b>${d.total}명</b>`+(parts.length?` <span class="ss-sub">(${parts.join(" · ")})</span>`:"");
+  }catch(_){ el.textContent="🔔 구독자 수를 불러오지 못했습니다."; }
+}
+
 async function fillLatestVerse(){
   const r=document.getElementById("p-result");
   // ① 서버가 만드는 실제 발송 문구(오늘의 묵상 + 이번주 말씀)를 그대로 받아 채운다.
@@ -618,6 +692,7 @@ function renderReportMail(){
       <h2>📧 주간 리포트 메일</h2>
     </div>
     <div class="push-card">
+      <div id="sub-stat" class="sub-stat">🔔 구독자 수 불러오는 중…</div>
       <p class="push-hint">지난 <b>토요일~금요일</b> 요약을 미리보고, 등록된 수신자에게 이메일로 보냅니다.<br>매주 <b>토요일 오전 8시</b> 자동 발송됩니다.</p>
       <button class="push-fill" id="r-preview">🔍 미리보기</button>
       <label class="push-lb">추가 수신 이메일 (선택)</label>
@@ -627,6 +702,7 @@ function renderReportMail(){
       <iframe id="r-frame" style="width:100%;border:1px solid #dde3ee;border-radius:10px;margin-top:12px;min-height:520px;display:none;background:#eef1f6"></iframe>
     </div>`;
   document.getElementById("back").addEventListener("click", renderMenu);
+  loadSubStat(document.getElementById("sub-stat"));
   document.getElementById("r-preview").addEventListener("click", loadReportPreview);
   document.getElementById("r-send").addEventListener("click", sendReportNow);
   loadReportPreview();
