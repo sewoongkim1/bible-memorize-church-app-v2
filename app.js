@@ -1635,6 +1635,41 @@ function fillSermonSummaryBtn(verse, stage) {
   });
 }
 
+// 암송 도우미 — '쉬운 풀이'(구절 뜻을 쉬운 말로) · '기억법'(외우는 요령).
+//   말씀 아카이브에 설교 등록 시 미리 생성돼 sermons에 저장된 내용을 읽어와,
+//   암송 화면에서 접었다 펴는 형태로 보여준다(필요할 때만 펴니 화면을 차지하지 않음).
+function fillVerseHelp(verse) {
+  if (!document.getElementById("help-slot")) return;
+  loadSermons().then((sermons) => {
+    const s = (sermons || []).find(
+      (x) => x.memVerseNo === verse.no && (x.easyExplain || x.memoryTip));
+    const el = document.getElementById("help-slot");
+    if (!s || !el) return;
+
+    const items = [];
+    if (s.easyExplain) items.push({ k: "easy", label: "💡 쉬운 풀이", text: s.easyExplain });
+    if (s.memoryTip)   items.push({ k: "tip",  label: "🧠 기억법",   text: s.memoryTip });
+
+    el.innerHTML = `
+      <div class="help-tabs">
+        ${items.map((i) => `<button class="help-btn" data-k="${i.k}">${i.label}</button>`).join("")}
+      </div>
+      <div class="help-body" id="help-body" hidden></div>`;
+
+    const body = document.getElementById("help-body");
+    el.querySelectorAll(".help-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const wasOn = btn.classList.contains("on");
+        el.querySelectorAll(".help-btn").forEach((b) => b.classList.remove("on"));
+        if (wasOn) { body.hidden = true; return; }   // 같은 버튼 다시 누르면 접기
+        btn.classList.add("on");
+        body.textContent = (items.find((i) => i.k === btn.dataset.k) || {}).text || "";
+        body.hidden = false;
+      });
+    });
+  });
+}
+
 // 이번주 말씀 카드에서도 요약을 열 수 있게 — 뒤로는 요약 화면으로
 function fillWeeklySummaryBtn(verse) {
   if (!verse || !document.getElementById("weekly-summary-slot")) return;
@@ -1872,6 +1907,7 @@ function renderTestScreen(verse, stage) {
           <div class="answer-text">${answerHtml}</div>
           <button class="back-to-test-btn" id="back-to-test-btn">돌아가서 계속하기</button>
         </div>
+        <div id="help-slot" class="help-slot"></div>
         ${repeatHtml}
         <div id="result-area"></div>
         ${heartHtml}
@@ -1893,6 +1929,8 @@ function renderTestScreen(verse, stage) {
 
   // 이 구절에 대응하는 설교 요약이 있으면 배너 아래에 '설교 요약 보기' 버튼을 채운다.
   fillSermonSummaryBtn(verse, stage);
+  // 쉬운 풀이·기억법(있는 구절만)
+  fillVerseHelp(verse);
 
   // '쓰기 ↔ 카드' 입력 방식 전환(설정 저장 후 화면 다시 그림)
   const modeBtn = document.getElementById("mode-toggle");

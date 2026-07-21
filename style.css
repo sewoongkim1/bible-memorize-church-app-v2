@@ -403,6 +403,19 @@ h1 {
 .dark .repeat-text { color: #bcd2f2; }
 .dark .repeat-desc { color: #93a3ba; }
 
+/* 암송 도우미(쉬운 풀이 · 기억법) — 눌러야 펴지므로 평소엔 자리를 거의 차지하지 않음 */
+.help-slot:empty { display: none; }
+.help-slot .help-tabs { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.help-slot .help-btn.on { background: var(--navy); color: #fff; }
+.help-slot .help-body {
+  margin-top: 8px; padding: 13px 14px;
+  background: #fbf7ea; border: 1px solid #e6d9ae; border-left: 4px solid var(--gold);
+  border-radius: 10px;
+  font-size: .93rem; line-height: 1.75; color: #3a3323; white-space: pre-wrap;
+}
+.help-slot .help-body[hidden] { display: none; }
+.dark .help-slot .help-body { background: #2a2617; border-color: #4a4227; color: #e4dcc4; }
+
 /* 새 버전 알림 배너(화면 하단 고정) */
 #update-banner {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 9999;
