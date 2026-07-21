@@ -1673,7 +1673,12 @@ function fillVerseHelp(verse) {
     const items = [];
     if (s && s.easyExplain) items.push({ k: "easy", label: "💡 쉬운 풀이", text: s.easyExplain });
     if (s && s.memoryTip)   items.push({ k: "tip",  label: "🧠 기억법",   text: s.memoryTip });
-    if (hasEn(verse))       items.push({ k: "en",   label: "🌐 영어",     text: verse.textEn });
+    // 지금 암송 중인 언어의 반대쪽을 살짝 보여준다 — 한글 화면엔 영어를, 영어 화면엔 한글을
+    if (hasEn(verse)) {
+      items.push(isEnMode(verse)
+        ? { k: "ko", label: "🇰🇷 한글", text: verse.text }
+        : { k: "en", label: "🌐 영어", text: verse.textEn });
+    }
     if (!items.length) return;
 
     el.innerHTML = `
