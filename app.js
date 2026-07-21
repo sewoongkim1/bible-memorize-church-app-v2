@@ -1586,7 +1586,7 @@ function renderVerseList() {
         ${isHeart ? `<div class="heart-ribbon">👑 마음에 둠</div>` : ""}
       </div>` : ""}
       <div class="verse-no">${String(v.no).padStart(2, "0")}</div>
-      <div class="verse-ref">${v.refShort}${hasEn(v) ? ` <span class="en-chip">EN</span>` : ""}</div>
+      <div class="verse-ref">${v.refShort}</div>
       <div class="verse-hint">${v.hintText || ""}</div>
       <div class="verse-status ${status.cls}" data-no="${v.no}" data-base="${status.text}">${status.text}</div>
       <button class="card-listen" aria-label="${v.refShort} 듣기" title="듣기">🔊</button>
