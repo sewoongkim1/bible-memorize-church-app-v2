@@ -2830,14 +2830,16 @@ function maybeShowDailyMessage() {
   if (_skipAutoDaily || !window.api || !api.getConfig) return;
   api.getConfig("dailyMessage").then((d) => {
     const m = pickActiveDailyMessage(d && d.value);
-    if (m) {                                     // ① 관리자 공지·격려가 있으면 우선
+    if (m) {                                     // ① 관리자 공지·격려가 있으면 표시(하루 1회)
       const key = dailyMsgSeenKey(m.id || "x");
-      try { if (localStorage.getItem(key) === "1") return; } catch {}
-      try { localStorage.setItem(key, "1"); } catch {}
-      showDailyMessage(m);
-      return;
+      let seen = false;
+      try { seen = localStorage.getItem(key) === "1"; } catch {}
+      if (!seen) {
+        try { localStorage.setItem(key, "1"); } catch {}
+        showDailyMessage(m);
+      }
     }
-    maybeShowWeeklyMeditation();                  // ② 공지 없으면 이번주 말씀 묵상(매일 다름)
+    maybeShowWeeklyMeditation();                  // ② 공지 유무와 무관하게 오늘의 묵상은 항상 표시(모달은 겹치지 않게 순서대로 뜸)
   }).catch(() => { maybeShowWeeklyMeditation(); });
 }
 
@@ -2966,8 +2968,8 @@ function previewDailyMessage() {
   if (!window.api || !api.getConfig) return;
   api.getConfig("dailyMessage").then((d) => {
     const m = pickActiveDailyMessage(d && d.value);
-    if (m) { showDailyMessage(m); return; }
-    maybeShowWeeklyMeditation(true); // 공지 없으면 '오늘의 묵상' 미리보기(하루1회 상태 무시)
+    if (m) showDailyMessage(m);        // 공지·격려가 있으면 미리보기
+    maybeShowWeeklyMeditation(true);   // 공지 유무와 무관하게 오늘의 묵상도 항상 미리보기(하루1회 상태 무시)
   }).catch(() => {});
 }
 function showDailyMessage(m) {
