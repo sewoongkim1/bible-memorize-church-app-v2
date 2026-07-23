@@ -1879,10 +1879,23 @@ function renderPassageList() {
       card.innerHTML = `
         <div class="pg-card-main">
           <div class="pg-card-title">${p.title}</div>
-          ${p.ref ? `<div class="pg-card-ref">${p.ref}</div>` : ""}
+          ${p.ref ? `<div class="pg-card-ref">📖 ${p.ref}</div>` : ""}
         </div>
-        ${status}`;
+        ${status}
+        <button class="card-listen" aria-label="${p.title} 듣기" title="듣기">🔊</button>`;
       card.addEventListener("click", () => startPassage(p));
+      // 듣기: 카드 클릭(암송 시작)으로 번지지 않게 막고 본문 전체를 읽어준다(연속 클릭 N번 → N번 반복).
+      const listenBtn = card.querySelector(".card-listen");
+      let clickCount = 0, clickTimer = null;
+      listenBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        clickCount++;
+        if (clickTimer) clearTimeout(clickTimer);
+        clickTimer = setTimeout(() => {
+          speakText(`${p.title}. ${passageChunks(p).join(" ")}`, null, clickCount, "ko-KR");
+          clickCount = 0;
+        }, 350);
+      });
       listEl.appendChild(card);
     });
   });
