@@ -1221,9 +1221,14 @@ function scSelectTopic(i, btn) {
 async function scAsk() {
   const message = document.getElementById("sc-q").value.trim();
   if (!message) return;
+  // 예제 목록을 접어 답변이 밀리지 않게 하고, 답변 영역으로 스크롤한다.
+  document.getElementById("sc-tqs").innerHTML = "";
+  document.querySelectorAll("#sc-cloud button.on").forEach((b) => b.classList.remove("on"));
   const btn = document.getElementById("sc-send");
   btn.disabled = true; btn.textContent = "찾는 중…";
-  document.getElementById("sc-out").innerHTML = `<div class="sc-empty">설교를 찾고 있어요… 잠시만 기다려 주세요 🔎</div>`;
+  const out = document.getElementById("sc-out");
+  out.innerHTML = `<div class="sc-empty">설교를 찾고 있어요… 잠시만 기다려 주세요 🔎</div>`;
+  out.scrollIntoView({ behavior: "smooth", block: "start" });
   try {
     const j = await api.sermonChat(message, myUserId());
     scSources = j.sources || [];
@@ -1237,13 +1242,14 @@ async function scAsk() {
         </span>
         <span class="sc-src-arrow">›</span>
       </button>`).join("");
-    document.getElementById("sc-out").innerHTML = `
+    out.innerHTML = `
       <div class="sc-answer">${boardEsc(j.answer)}</div>
       ${srcHtml ? `<div class="sc-sources">${srcHtml}</div>` : ""}
       <div class="sc-disc">※ 이 답변은 설교 아카이브를 검색한 AI 요약입니다. 정확한 내용은 원 설교를 확인하세요.</div>`;
+    out.scrollIntoView({ behavior: "smooth", block: "start" });
     document.querySelectorAll("#sc-out .sc-src").forEach((b) => { b.onclick = () => scOpenSermon(scSources[+b.dataset.i]); });
   } catch (e) {
-    document.getElementById("sc-out").innerHTML = `<div class="sc-empty">잠시 후 다시 시도해 주세요.</div>`;
+    out.innerHTML = `<div class="sc-empty">잠시 후 다시 시도해 주세요.</div>`;
   } finally {
     btn.disabled = false; btn.textContent = "질문";
   }
