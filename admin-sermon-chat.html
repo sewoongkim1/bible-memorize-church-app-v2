@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>설교말씀 도우미</title>
+<title>내게 주시는 말씀</title>
 <style>
   :root { --navy:#1a3a6b; --gold:#a67c12; --line:#e2ded2; --ink:#17223a; --mute:#7c8598; }
   * { box-sizing:border-box; }
@@ -119,7 +119,7 @@ function toast(m){ const t=$("toast"); t.textContent=m; t.classList.add("show");
 function renderLogin(msg){
   $("app").innerHTML = `<div class="login">
     <img src="https://summer.onlybible.kr/logo3.png" alt="고척교회" style="height:48px;margin-bottom:6px" />
-    <h2>설교말씀 도우미</h2>
+    <h2>내게 주시는 말씀</h2>
     ${msg?`<p style="color:#c0392b;font-size:13px">${esc(msg)}</p>`:""}
     <input id="pw" type="password" placeholder="관리자 비밀번호" />
     <button id="go">로그인</button></div>`;
@@ -144,7 +144,7 @@ function renderMain(){
   $("app").innerHTML = `<header>
       <div class="brand-row">
         <img class="brand-logo" src="https://summer.onlybible.kr/logo3.png" alt="고척교회" />
-        <h1>설교말씀 도우미</h1>
+        <h1>내게 주시는 말씀</h1>
       </div>
       ${headerRight}
     </header>

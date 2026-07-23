@@ -983,7 +983,7 @@ function promoCardHtml() {
       <button class="promo-x" id="promo-x" aria-label="닫기">✕</button>
       <div class="promo-title">✨ 새로워진 기능을 만나보세요</div>
       <div class="promo-btns">
-        <button class="promo-btn sermon" id="promo-sermon">💬 설교말씀 도우미</button>
+        <button class="promo-btn sermon" id="promo-sermon">💬 내게 주시는 말씀</button>
       </div>
     </div>`;
 }
@@ -1058,7 +1058,7 @@ function renderSummary() {
     </div>
     ${weeklyHtml}
     <div class="summary-actions feat-actions">
-      <button class="summary-go sermon-act act-btn" id="open-sermon-chat"><span class="act-ic">💬</span><span class="act-tx">설교말씀<br>도우미</span>${newBadge("sermon")}</button>
+      <button class="summary-go sermon-act act-btn" id="open-sermon-chat"><span class="act-ic">💬</span><span class="act-tx">내게 주시는<br>말씀</span>${newBadge("sermon")}</button>
       <button class="summary-go med-act act-btn" id="open-meditation"><span class="act-ic">🌿</span><span class="act-tx">매일<br>묵상</span>${newBadge("meditation")}</button>
     </div>
     ${passagesVisible() ? `<button class="summary-help passages-cta" id="open-passages">📜 핵심 암송 (긴 말씀)</button>` : ""}
@@ -1213,7 +1213,7 @@ function boardIsMine(item) {
   const who = boardWho(); const uid = myUserId();
   return (!!who && item.name === who) || (!!uid && !!item.user_id && item.user_id === uid);
 }
-// ── 설교말씀 도우미 (인앱 RAG 챗봇 화면) — 게시판 등과 같은 공통 헤더 사용 ──
+// ── 내게 주시는 말씀 (인앱 RAG 챗봇 화면, 구 '설교말씀 도우미') — 게시판 등과 같은 공통 헤더 사용 ──
 const SERMON_TOPICS = [
   { t:"기도", qs:["기도가 잘 안 될 때 어떻게 해야 하나요?","응답이 없는 기도는 어떻게 붙들어야 하나요?","기도의 능력에 대해 목사님은 뭐라고 하셨나요?"] },
   { t:"순종", qs:["하나님께 순종하기 어려울 때 어떻게 해야 하나요?","순종이 왜 그렇게 중요한가요?"] },
@@ -1239,7 +1239,7 @@ function renderSermonChat() {
   document.getElementById("app").innerHTML = `
     <div class="summary-screen"><div class="summary-card">
       <div class="settings-head sc-head">
-        <h2 class="rank-title">💬 설교말씀 도우미</h2>
+        <h2 class="rank-title">💬 내게 주시는 말씀</h2>
         <button class="settings-back-btn" id="sc-back">← 뒤로</button>
       </div>
       <div class="sc-ask">
