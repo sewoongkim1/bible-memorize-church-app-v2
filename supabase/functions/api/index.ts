@@ -747,7 +747,8 @@ async function embedSermons(b: any) {
       youtube_id: s.id, // sermons.id가 유튜브 영상 ID
     }));
     // 멱등: 해당 설교의 기존 청크를 지우고 다시 넣는다(설교 내용 수정 반영).
-    await db.from("sermon_chunks").delete().eq("sermon_id", s.id);
+    const { error: delErr } = await db.from("sermon_chunks").delete().eq("sermon_id", s.id);
+    if (delErr) throw delErr;
     const { error: insErr } = await db.from("sermon_chunks").insert(rows);
     if (insErr) throw insErr;
     totalChunks += rows.length;
