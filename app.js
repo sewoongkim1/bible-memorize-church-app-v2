@@ -84,6 +84,8 @@ async function loadVerses() {
 
 // 사용자 정보가 있으면 (서버 기록 동기화 후) 본인 기록 요약, 없으면 진입 화면
 function routeAfterLoad() {
+  _passagesPreview = getPassagesPreview();
+  refreshPassagesPublic();
   // 딥링크(?v=구절번호): 설교 아카이브 등 외부에서 특정 구절로 바로 진입
   const deepNo = getDeepLinkVerseNo();
   if (deepNo != null) {
@@ -140,6 +142,58 @@ function getDeepLinkVerseNo() {
     }
   } catch (e) {}
   return null;
+}
+
+// 📜 핵심 암송(긴 본문) — 사용자 노출 게이트 & 데이터 로더 & 진행 기록
+let _passagesPreview = false; // ?passages=1 이면 공개 플래그와 무관하게 노출(어드민 미리보기)
+function getPassagesPreview() {
+  try {
+    if (new URLSearchParams(location.search).get("passages") === "1") {
+      history.replaceState(null, "", location.pathname);
+      return true;
+    }
+  } catch (e) {}
+  return false;
+}
+const PASSAGES_PUB_KEY = "passages-public";
+function passagesPublicCached() { try { return localStorage.getItem(PASSAGES_PUB_KEY) === "1"; } catch (e) { return false; } }
+function refreshPassagesPublic() {
+  if (!window.api || !api.getConfig) return;
+  api.getConfig("passagesPublic").then((d) => {
+    try { localStorage.setItem(PASSAGES_PUB_KEY, d && d.value ? "1" : "0"); } catch (e) {}
+  }).catch(() => {});
+}
+function passagesVisible() { return _passagesPreview || passagesPublicCached(); }
+
+let passagesCache = null;
+async function loadPassages() {
+  if (passagesCache) return passagesCache;
+  if (!window.api || !api.getPassages) return [];
+  try { const d = await api.getPassages(); passagesCache = (d && d.passages) || []; }
+  catch (e) { passagesCache = []; }
+  return passagesCache;
+}
+
+// 진행 기록(로컬) — { [passageId]: { done:[0,1,...], completed:bool } }
+const PASSAGE_KEY = "memorize-passage";
+function passageProgKey() { const u = loadUser(); return `${PASSAGE_KEY}::${u && u.user_id ? u.user_id : "guest"}`; }
+function loadPassageProg() { try { return JSON.parse(localStorage.getItem(passageProgKey()) || "{}"); } catch (e) { return {}; } }
+function savePassageProg(obj) { try { localStorage.setItem(passageProgKey(), JSON.stringify(obj)); } catch (e) {} }
+function passageDone(id) { const p = loadPassageProg()[id]; return p && Array.isArray(p.done) ? p.done : []; }
+function passageCompleted(id) { const p = loadPassageProg()[id]; return !!(p && p.completed); }
+function syncPassageProgress(id, cur) {
+  const u = loadUser();
+  if (!u || !u.user_id || !api.savePassageProgress) return;
+  api.savePassageProgress(u.user_id, id, cur.done, !!cur.completed).catch(() => {});
+}
+function markLineDone(id, seq) {
+  const all = loadPassageProg(); const cur = all[id] || { done: [], completed: false };
+  if (!cur.done.includes(seq)) cur.done.push(seq);
+  all[id] = cur; savePassageProg(all); syncPassageProgress(id, cur);
+}
+function markPassageCompleted(id) {
+  const all = loadPassageProg(); const cur = all[id] || { done: [], completed: false };
+  cur.completed = true; all[id] = cur; savePassageProg(all); syncPassageProgress(id, cur);
 }
 
 function kstDateParts(raw) {
@@ -966,6 +1020,7 @@ function renderSummary() {
     </div>
     ${weeklyHtml}
     <button class="summary-help med-cta" id="open-meditation">🌿 매일 묵상</button>
+    ${passagesVisible() ? `<button class="summary-help passages-cta" id="open-passages">📜 핵심 암송 (긴 말씀)</button>` : ""}
     <button class="summary-help album-cta" id="open-album">📖 나의 말씀 앨범</button>
     <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
 <button class="summary-help praise-cta" id="open-praise">🎵 고척교회 찬양 아카이브</button>
@@ -991,6 +1046,7 @@ function renderSummary() {
   document.getElementById("go-challenge").addEventListener("click", startChallenge);
   document.getElementById("open-meditation").addEventListener("click", () => maybeShowWeeklyMeditation(true, true));
   document.getElementById("open-album").addEventListener("click", () => renderAlbum());
+  { const b = document.getElementById("open-passages"); if (b) b.addEventListener("click", renderPassageList); }
   document.getElementById("open-ranking").addEventListener("click", () => renderRanking());
   document.getElementById("open-praise").addEventListener("click", () => window.open("https://worship.onlybible.kr/", "_blank", "noopener"));
   document.getElementById("open-help-summary").addEventListener("click", () => renderHelp(renderSummary));
@@ -1611,6 +1667,42 @@ function renderVerseList() {
 
   applyVerseCounts();   // 캐시가 있으면 즉시 반영(재방문 시 깜빡임 없음)
   loadVerseCounts(u);   // 서버에서 최신 횟수 갱신
+}
+
+// 📜 핵심 암송 — 본문 목록
+function renderPassageList() {
+  const appEl = document.getElementById("app");
+  appEl.innerHTML = `
+    <div class="list-nav">
+      <button class="remind-cta nav-record" id="pg-back">← 뒤로</button>
+    </div>
+    <div class="pg-list-title">📜 핵심 암송 <span class="pg-list-sub">긴 말씀을 절마다 익히고 이어서 외워요</span></div>
+    <div id="pg-list" class="pg-list"><div class="pg-empty">불러오는 중…</div></div>
+  `;
+  document.getElementById("pg-back").addEventListener("click", renderSummary);
+  const listEl = document.getElementById("pg-list");
+  loadPassages().then((passages) => {
+    if (!passages.length) { listEl.innerHTML = `<div class="pg-empty">아직 등록된 본문이 없어요.</div>`; return; }
+    listEl.innerHTML = "";
+    passages.forEach((p) => {
+      const total = (p.lines || []).length;
+      const done = passageDone(p.id).length;
+      const complete = passageCompleted(p.id);
+      const status = complete ? `<span class="pg-badge done">👑 외운 말씀</span>`
+        : done > 0 ? `<span class="pg-badge prog">${done}/${total}절</span>`
+        : `<span class="pg-badge">${total}절</span>`;
+      const card = document.createElement("div");
+      card.className = `pg-card${complete ? " complete" : ""}`;
+      card.innerHTML = `
+        <div class="pg-card-main">
+          <div class="pg-card-title">${p.title}</div>
+          ${p.ref ? `<div class="pg-card-ref">${p.ref}</div>` : ""}
+        </div>
+        ${status}`;
+      card.addEventListener("click", () => renderPassageSteps(p));
+      listEl.appendChild(card);
+    });
+  });
 }
 
 // ------------------------------------------------------------
