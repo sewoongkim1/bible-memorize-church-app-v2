@@ -1972,10 +1972,14 @@ function renderPassageFinal(p) {
   }).join("");
   const fullText = lines.join(" ");
   const fullVerse = { no: p.id * 1000, text: fullText, refShort: p.title };
+  const answerHtml = lines.map((line) =>
+    `<div class="pg-final-line">${line.trim().split(/\s+/).map((w) => `<strong class="ans-word">${w}</strong>`).join(" ")}</div>`
+  ).join("");
   appEl.innerHTML = `
     <div class="test-screen">
       <div class="test-card">
         <div class="btn-row">
+          <button class="answer-btn" id="show-answer-btn">보기</button>
           <button class="answer-btn" id="listen-answer-btn" aria-label="정답 음성으로 듣기">🔊 듣기</button>
           <button class="voice-btn" id="voice-toggle">🎤 암송</button>
         </div>
@@ -1990,6 +1994,11 @@ function renderPassageFinal(p) {
         <div class="test-sentence pg-final-sentence">${linesHtml}</div>
         <div class="challenge-remain" id="ch-remain"></div>
         <div id="result-area"></div>
+        <div id="answer-panel" class="answer-panel" hidden>
+          <div class="answer-title">정답</div>
+          <div class="answer-text pg-final-sentence">${answerHtml}</div>
+          <button class="back-to-test-btn" id="back-to-test-btn">돌아가서 계속하기</button>
+        </div>
         <div id="voice-panel" class="voice-panel" hidden>
           <div class="voice-status" id="voice-status">🎙️ 듣고 있어요… <b>‘암송 종료’</b>를 누를 때까지 계속 들어요</div>
           <div class="voice-live" id="voice-live"></div>
@@ -1998,6 +2007,7 @@ function renderPassageFinal(p) {
       </div>
     </div>`;
   document.getElementById("pg-final-back").addEventListener("click", () => { stopSpeaking(); renderPassageList(); });
+  setupAnswerToggle();
   const listenBtn = document.getElementById("listen-answer-btn");
   listenBtn.addEventListener("click", () => {
     if (window.speechSynthesis && window.speechSynthesis.speaking) { stopSpeaking(); listenBtn.textContent = "🔊 듣기"; return; }
