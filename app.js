@@ -105,6 +105,15 @@ function routeAfterLoad() {
     renderBlessing(() => enterAfterLogin()); // markBlessingSeen 호출 안 함 = 상태 불변
     return;
   }
+  if (preview === "promo") {
+    // 홍보 카드·NEW 배지를 이 기기에서 초기화해 다시 표시(다른 상태는 불변)
+    try {
+      localStorage.removeItem(PROMO_KEY);
+      ["sermon", "meditation", "passages"].forEach((k) => localStorage.removeItem("feat-seen-" + k));
+    } catch (e) {}
+    if (loadUser()) enterAfterLogin(); else renderEntryScreen();
+    return;
+  }
   if (preview === "daily") {
     _skipAutoDaily = true;                              // enterAfterLogin의 자동 표시는 막고
     if (loadUser()) enterAfterLogin(); else renderEntryScreen();
@@ -123,7 +132,7 @@ function routeAfterLoad() {
 function getPreviewKind() {
   try {
     const p = new URLSearchParams(location.search).get("preview");
-    if (p === "intro" || p === "blessing" || p === "daily") {
+    if (p === "intro" || p === "blessing" || p === "daily" || p === "promo") {
       history.replaceState(null, "", location.pathname);
       return p;
     }
@@ -1510,6 +1519,7 @@ function renderSettings() {
         <div class="app-status" id="app-status"></div>
         <button class="push-off" id="disable-push">🔕 알림 끄기</button>
         <button class="summary-install" id="share-btn">🔗 공유하기</button>
+        <button class="summary-install" id="reset-promo">✨ 신기능 안내 다시 보기<br><span class="btn-sub">( 홍보 카드 · NEW 배지를 이 기기에서 다시 표시 )</span></button>
         <button class="summary-install" id="test-push">🧪 내 기기로 테스트 알림</button>
         <a class="summary-install" href="admin.html">📊 관리자 페이지</a>
         <button class="summary-install" id="privacy-info">🔐 개인정보 안내 보기</button>
@@ -1523,6 +1533,13 @@ function renderSettings() {
   document.getElementById("change-user").addEventListener("click", renderEntryScreen);
   document.getElementById("privacy-info").addEventListener("click", () => renderPrivacyInfo(renderSettings));
   document.getElementById("share-btn").addEventListener("click", shareApp);
+  document.getElementById("reset-promo").addEventListener("click", () => {
+    try {
+      localStorage.removeItem(PROMO_KEY);
+      ["sermon", "meditation", "passages"].forEach((k) => localStorage.removeItem("feat-seen-" + k));
+    } catch (e) {}
+    renderSummary(); // 홈으로 — 홍보 카드·NEW 배지가 바로 다시 보인다
+  });
   document.getElementById("enable-push").addEventListener("click", () => { if (typeof enablePush === "function") enablePush(); });
   document.getElementById("disable-push").addEventListener("click", () => { if (typeof disablePush === "function") disablePush(); });
   document.getElementById("test-push").addEventListener("click", () => { if (typeof testMyPush === "function") testMyPush(); });
