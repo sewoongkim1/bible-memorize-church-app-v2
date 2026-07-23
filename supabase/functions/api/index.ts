@@ -738,6 +738,9 @@ async function embedSermons(b: any) {
     if (purgeErr) throw purgeErr;
   }
 
+  // 재색인하면 설교 내용이 바뀌었을 수 있으므로 AI 캐시(요약·답변)를 비운다.
+  try { await db.from("sermon_ai_cache").delete().neq("kind", "__none__"); } catch (_) { /* 무시 */ }
+
   let totalChunks = 0;
   for (const s of sermons) {
     const chunks = chunkSermon(s);
@@ -791,6 +794,12 @@ async function sermonChat(b: any) {
   try {
     await db.from("sermon_chat_log").insert({ name: logName, gu: logGu, mok: logMok, question: message.slice(0, 500) });
   } catch (_) { /* 로그 실패 무시 */ }
+
+  // 캐시: 같은 질문(공백 정규화 후 동일)이면 저장된 답변을 그대로 반환(AI 재호출 없음).
+  const qkey = message.replace(/\s+/g, " ").slice(0, 500);
+  const { data: chatCached } = await db.from("sermon_ai_cache")
+    .select("answer, sources").eq("kind", "chat").eq("cache_key", qkey).maybeSingle();
+  if (chatCached) return { ok: true, answer: chatCached.answer, sources: chatCached.sources ?? [] };
 
   // 1) 질문 임베딩 → 벡터 검색
   const [qvec] = await embedVoyage([message], "query");
@@ -857,6 +866,11 @@ async function sermonChat(b: any) {
     summary: metaOf.get(m.sermon_id)?.summary ?? "",
   }));
 
+  // 생성한 답변을 질문 단위로 캐시(다음 동일 질문은 AI 재호출 없이 재사용).
+  if (answer) {
+    try { await db.from("sermon_ai_cache").upsert({ kind: "chat", cache_key: qkey, answer, sources }, { onConflict: "kind,cache_key" }); } catch (_) { /* 무시 */ }
+  }
+
   return { ok: true, answer, sources };
 }
 
@@ -873,6 +887,13 @@ async function sermonSummary(b: any) {
   }
   const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
   if (!apiKey) return { ok: false, error: "ANTHROPIC_API_KEY 시크릿 미설정" };
+
+  // 캐시: 같은 설교 요약은 이미 만든 게 있으면 AI 재호출 없이 그대로 반환한다.
+  const sid = (b.sermonId ?? "").toString();
+  const { data: cached } = await db.from("sermon_ai_cache")
+    .select("answer").eq("kind", "summary").eq("cache_key", sid).maybeSingle();
+  if (cached) return { ok: true, summary: cached.answer };
+
   const { data: s, error } = await db.from("sermons")
     .select("title, scripture, summary, points, easy_explain")
     .eq("id", b.sermonId).single();
@@ -903,7 +924,12 @@ async function sermonSummary(b: any) {
   if (!res.ok) return { ok: false, error: `anthropic-${res.status}` };
   const d = await res.json();
   const summary = ((d.content ?? []).find((x: any) => x.type === "text")?.text ?? "").trim();
-  return { ok: true, summary: summary || (s.summary ?? "") };
+  const finalSummary = summary || (s.summary ?? "");
+  // 생성한 요약을 캐시에 저장(다음부터 AI 재호출 없이 재사용).
+  if (summary && sid) {
+    try { await db.from("sermon_ai_cache").upsert({ kind: "summary", cache_key: sid, answer: finalSummary }, { onConflict: "kind,cache_key" }); } catch (_) { /* 무시 */ }
+  }
+  return { ok: true, summary: finalSummary };
 }
 
 // ---------- sermonChatLog: 설교말씀 도우미 사용 로그 조회 (관리자) ----------
