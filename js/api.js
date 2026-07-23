@@ -59,6 +59,11 @@ const api = {
   getSermons: () => sermonCall("getSermons"),   // 말씀 아카이브 설교 목록 { ok, sermons:[{memVerseNo,scripture,summary,title,...}] }
   saveVerse: (pw, verse) => supaCall("saveVerse", { pw, verse }),
   seedVerses: (pw) => supaCall("seedVerses", { pw }),
+  getPassages: () => supaCall("getPassages", {}),
+  savePassage: (pw, passage) => supaCall("savePassage", { pw, passage }),
+  deletePassage: (pw, id) => supaCall("deletePassage", { pw, id }),
+  savePassageProgress: (user_id, passage_id, doneSeq, completed) =>
+    supaCall("savePassageProgress", { user_id, passage_id, doneSeq, completed }),
 };
 
 window.api = api;
