@@ -1854,15 +1854,18 @@ function renderVerseList() {
 
 // 📜 핵심 암송 — 본문 목록
 function renderPassageList() {
+  const u = loadUser();
   const appEl = document.getElementById("app");
+  const backLabel = u ? `← ${userLabel(u)} 성도님<span id="nav-total" class="nav-total"></span>` : "← 뒤로";
   appEl.innerHTML = `
     <div class="list-nav">
-      <button class="remind-cta nav-record" id="pg-back">← 뒤로</button>
+      <button class="remind-cta nav-record" id="pg-back">${backLabel}</button>
     </div>
     <div class="pg-list-title">📜 핵심 암송 <span class="pg-list-sub">긴 말씀을 마디로 나눠 자동으로 이어서 외워요</span></div>
     <div id="pg-list" class="pg-list"><div class="pg-empty">불러오는 중…</div></div>
   `;
   document.getElementById("pg-back").addEventListener("click", renderSummary);
+  if (u) { applyVerseCounts(); loadVerseCounts(u); } // 뒤로 버튼의 '· 총 N회'를 일반 목록과 동일하게 채움
   const listEl = document.getElementById("pg-list");
   loadPassages().then((passages) => {
     if (!passages.length) { listEl.innerHTML = `<div class="pg-empty">아직 등록된 본문이 없어요.</div>`; return; }
@@ -1878,8 +1881,7 @@ function renderPassageList() {
       card.className = `pg-card${complete ? " complete" : ""}`;
       card.innerHTML = `
         <div class="pg-card-main">
-          <div class="pg-card-title">${p.title}</div>
-          ${p.ref ? `<div class="pg-card-ref">📖 ${p.ref}</div>` : ""}
+          <span class="pg-card-title">${p.title}</span>${p.ref ? ` <span class="pg-card-ref">${p.ref}</span>` : ""}
         </div>
         ${status}
         <button class="card-listen" aria-label="${p.title} 듣기" title="듣기">🔊</button>`;

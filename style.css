@@ -2412,9 +2412,9 @@ html[data-fs="xl"] .test-card .btn-row { row-gap: 10px; margin-bottom: 18px; pad
   border-radius: 14px; cursor: pointer;
 }
 .pg-card.complete { border-color: var(--gold); background: #fdf9ee; }
-.pg-card-main { flex: 1; min-width: 0; }
+.pg-card-main { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pg-card-title { font-weight: 700; color: var(--navy); }
-.pg-card-ref { font-size: .8rem; color: var(--gray); margin-top: 2px; }
+.pg-card-ref { font-size: .85rem; color: var(--gray); margin-left: 7px; }
 .pg-badge { flex-shrink: 0; font-size: 12px; font-weight: 700; color: var(--gray); background: var(--light); border-radius: 999px; padding: 4px 11px; }
 .pg-badge.prog { color: var(--navy); background: #eef1f8; }
 .pg-badge.done { color: #8a6d1f; background: #faf1d3; }
