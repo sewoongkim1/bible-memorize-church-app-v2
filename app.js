@@ -212,7 +212,8 @@ function resetPassageProgress(id) {
   const u = loadUser();
   if (u && u.user_id && api && api.savePassageProgress) api.savePassageProgress(u.user_id, id, [], false).catch(() => {});
 }
-// 핵심 암송 활동을 통계에 반영 — challenge_log에 verse_no=null, 학습(learn-*) 모드로 기록해 일반 암송에 합산.
+// 내 안에 거하는 말씀 활동을 통계에 반영 — 마디 1·2·3단계와 전체 이어서, 매 단계 통과마다 1회씩
+// challenge_log(verse_no=null, learn-* 모드)로 기록해 일반 암송에 합산.
 // (오늘 N회·출석/스트릭·랭킹에 들어가고, 구절별 통계는 verse_no null이라 제외됨)
 function logPassageActivity(mode) {
   const u = loadUser();
@@ -2034,21 +2035,22 @@ function renderPassageChunk(p, idx, stage, heartReady) {
     }, 450);
   };
   const onDone = (mode) => {
+    // 모든 단계 통과를 각각 통계(암송)에 1회씩 반영 — 중복 진행 가드 뒤에서 기록
     if (mode === "typing") {
-      if (stage < 3) { if (moved) return; moved = true; stopSpeaking(); setTimeout(() => renderPassageChunk(p, idx, stage + 1), 400); return; }
-      completionMode = "typing"; enablePassageHeart(); return; // 3단계 다 채움 → '마음에 둠' 체크 활성화(자동 진행 안 함)
+      if (stage < 3) { if (moved) return; moved = true; logPassageActivity("typing"); stopSpeaking(); setTimeout(() => renderPassageChunk(p, idx, stage + 1), 400); return; }
+      completionMode = "typing"; logPassageActivity("typing"); enablePassageHeart(); return; // 3단계 다 채움 → '마음에 둠' 체크 활성화(자동 진행 안 함)
     }
     // 음성: 마디를 통째로 외운 것 → 3단계 화면에서 '마음에 둠' 바로 활성화
     completionMode = "voice";
-    if (stage < 3) { if (moved) return; moved = true; stopSpeaking(); setTimeout(() => renderPassageChunk(p, idx, 3, true), 400); return; }
+    if (stage < 3) { if (moved) return; moved = true; logPassageActivity("voice"); stopSpeaking(); setTimeout(() => renderPassageChunk(p, idx, 3, true), 400); return; }
+    logPassageActivity("voice");
     enablePassageHeart();
   };
   const heartChk = document.getElementById("pg-heart-check");
   if (heartChk) heartChk.addEventListener("change", () => {
     if (!heartChk.checked || moved) return; moved = true;
     const lbl = document.getElementById("pg-heart-label"); if (lbl) lbl.classList.add("on");
-    logPassageActivity(completionMode); // 마디 마음에 둠 → 통계(암송)에 1회 반영
-    goNextChunk();
+    goNextChunk(); // 활동 기록은 단계 통과 시점(onDone)에 이미 반영됨 — 여기서 또 세지 않는다
   });
   setupChallengeTyping(chunkVerse, onDone);
   setupVoice(chunkVerse, 3, onDone);
@@ -2130,13 +2132,13 @@ function renderPassageFinal(p) {
     const hint = document.getElementById("pg-final-heart-hint"); if (hint) hint.hidden = true;
     if (lbl && lbl.scrollIntoView) lbl.scrollIntoView({ block: "center", behavior: "smooth" });
   };
-  const onDone = (mode) => { finalMode = mode === "voice" ? "voice" : "typing"; stopSpeaking(); enableFinalHeart(); }; // 전체 통과 → '마음에 둠' 활성화(자동 완주 안 함)
+  // 전체 통과 → 통계(암송) 1회 반영 + '마음에 둠' 활성화(자동 완주 안 함)
+  const onDone = (mode) => { finalMode = mode === "voice" ? "voice" : "typing"; logPassageActivity(finalMode); stopSpeaking(); enableFinalHeart(); };
   const heartChk = document.getElementById("pg-final-heart-check");
   if (heartChk) heartChk.addEventListener("change", () => {
     if (!heartChk.checked || finished) return; finished = true;
     const lbl = document.getElementById("pg-final-heart-label"); if (lbl) lbl.classList.add("on");
-    logPassageActivity(finalMode); // 전체 완주 → 통계(암송)에 1회 반영
-    markPassageCompleted(p.id); stopSpeaking(); renderPassageDone(p);
+    markPassageCompleted(p.id); stopSpeaking(); renderPassageDone(p); // 활동 기록은 통과 시점(onDone)에 반영됨
   });
   const restartBtn = document.getElementById("pg-final-restart");
   if (restartBtn) restartBtn.addEventListener("click", () => {
