@@ -1061,8 +1061,8 @@ function renderSummary() {
     <div class="summary-actions feat-actions">
       <button class="summary-go sermon-act act-btn" id="open-sermon-chat"><span class="act-ic">💬</span><span class="act-tx">내게 주시는<br>말씀</span>${newBadge("sermon")}</button>
       <button class="summary-go med-act act-btn" id="open-meditation"><span class="act-ic">🌿</span><span class="act-tx">매일<br>묵상</span>${newBadge("meditation")}</button>
+      ${passagesVisible() ? `<button class="summary-go passages-act act-btn" id="open-passages"><span class="act-ic">📜</span><span class="act-tx">내 안에<br>거하는 말씀</span>${newBadge("passages")}</button>` : ""}
     </div>
-    ${passagesVisible() ? `<button class="summary-help passages-cta" id="open-passages">📜 내 안에 거하는 말씀${newBadge("passages")}</button>` : ""}
     <button class="summary-help album-cta" id="open-album">📖 나의 말씀 앨범</button>
     <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
 <button class="summary-help praise-cta" id="open-praise">🎵 고척교회 찬양 아카이브</button>

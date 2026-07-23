@@ -1627,6 +1627,12 @@ html[data-fs="xl"] .sermon-sum-card .ss-top > .back-btn { font-size: 17px; paddi
 .summary-go.sermon-act:hover { background: linear-gradient(135deg,#0c5b60,#127f86); border-color:#0c5b60; }
 .summary-go.med-act { background: linear-gradient(135deg,#1f7a4d,#28965f); color:#fff; border-color:#1f7a4d; }
 .summary-go.med-act:hover { background: linear-gradient(135deg,#1a6a43,#238653); border-color:#1a6a43; }
+.summary-go.passages-act { background: linear-gradient(135deg,#8a6d1f,#b08d2e); color:#fff; border-color:#8a6d1f; }
+.summary-go.passages-act:hover { background: linear-gradient(135deg,#775e1a,#9c7d26); border-color:#775e1a; }
+/* 3개 나란히 — 작은 폰에서도 글씨가 밀리지 않게 폭에 따라 글자 크기 자동 축소 */
+.feat-actions { gap: 8px; }
+.feat-actions .summary-go { padding: 14px 4px; }
+.feat-actions .act-tx { font-size: clamp(11.5px, 3.4vw, 15.5px); }
 .summary-go .new-badge { position: absolute; top: 6px; right: 6px; margin: 0; }
 
 /* ── 설교말씀 도우미 (인앱 화면) ── */
