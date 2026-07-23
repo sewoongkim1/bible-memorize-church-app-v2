@@ -127,6 +127,7 @@ Deno.serve(async (req) => {
       case "sermonChat":    return json(await sermonChat(body));
       case "sermonSummary": return json(await sermonSummary(body));
       case "sermonChatLog": return json(await sermonChatLog(body));
+      case "clearSummaryCache": return json(await clearSummaryCache(body));
       case "getPassages":         return json(await getPassages());
       case "savePassage":         return json(await savePassage(body));
       case "deletePassage":       return json(await deletePassage(body));
@@ -738,8 +739,9 @@ async function embedSermons(b: any) {
     if (purgeErr) throw purgeErr;
   }
 
-  // 재색인하면 설교 내용이 바뀌었을 수 있으므로 AI 캐시(요약·답변)를 비운다.
-  try { await db.from("sermon_ai_cache").delete().neq("kind", "__none__"); } catch (_) { /* 무시 */ }
+  // 재색인 시 '답변' 캐시만 비운다(검색 결과가 바뀌면 답이 달라질 수 있으므로).
+  // '요약' 캐시는 유지한다 — 관리자가 clearSummaryCache로 명시 요청할 때만 지운다.
+  try { await db.from("sermon_ai_cache").delete().eq("kind", "chat"); } catch (_) { /* 무시 */ }
 
   let totalChunks = 0;
   for (const s of sermons) {
@@ -930,6 +932,14 @@ async function sermonSummary(b: any) {
     try { await db.from("sermon_ai_cache").upsert({ kind: "summary", cache_key: sid, answer: finalSummary }, { onConflict: "kind,cache_key" }); } catch (_) { /* 무시 */ }
   }
   return { ok: true, summary: finalSummary };
+}
+
+// ---------- clearSummaryCache: 설교 요약 캐시 비우기 (관리자, 명시 요청 시에만) ----------
+async function clearSummaryCache(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const { data, error } = await db.from("sermon_ai_cache").delete().eq("kind", "summary").select("cache_key");
+  if (error) throw error;
+  return { ok: true, cleared: (data ?? []).length };
 }
 
 // ---------- sermonChatLog: 설교말씀 도우미 사용 로그 조회 (관리자) ----------
