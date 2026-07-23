@@ -1705,6 +1705,109 @@ function renderPassageList() {
   });
 }
 
+// 📜 한 본문의 절 목록(진행 허브) — 위에서부터 순차 잠금 해제
+function renderPassageSteps(p) {
+  stopSpeaking();
+  const appEl = document.getElementById("app");
+  const lines = p.lines || [];
+  const done = passageDone(p.id);
+  const nextIdx = lines.findIndex((_, i) => !done.includes(i)); // 아직 안 끝낸 첫 절
+  const allDone = nextIdx === -1;
+  const rows = lines.map((line, i) => {
+    const isDone = done.includes(i);
+    const isNext = i === nextIdx;
+    const state = isDone ? "done" : isNext ? "next" : "lock";
+    const icon = isDone ? "✓" : isNext ? "▶" : "🔒";
+    return `<button class="pg-step ${state}" data-i="${i}" ${state === "lock" ? "disabled" : ""}>
+        <span class="pg-step-ic">${icon}</span>
+        <span class="pg-step-tx">${isDone || isNext ? line : "···"}</span>
+      </button>`;
+  }).join("");
+  appEl.innerHTML = `
+    <div class="test-screen">
+      <div class="test-card">
+        <div class="test-top">
+          <div class="test-head">
+            <div class="test-stage">${done.length}/${lines.length}절</div>
+            <div class="test-ref">${p.title}</div>
+          </div>
+          <button class="back-btn" id="pg-steps-back">← 목록</button>
+        </div>
+        <div class="pg-steps">${rows}</div>
+        ${allDone
+          ? `<button class="next-btn" id="pg-final">🔥 전체 이어서 암송${passageCompleted(p.id) ? " (다시)" : ""}</button>`
+          : `<div class="pg-steps-hint">한 절씩 순서대로 익혀요. ▶ 표시된 절을 눌러 시작하세요.</div>`}
+        ${passageCompleted(p.id) ? `<div class="pg-complete-badge">👑 이 말씀을 외웠어요</div>` : ""}
+      </div>
+    </div>`;
+  document.getElementById("pg-steps-back").addEventListener("click", renderPassageList);
+  appEl.querySelectorAll(".pg-step:not([disabled])").forEach((btn) => {
+    if (btn.classList.contains("lock")) return;
+    btn.addEventListener("click", () => renderPassageLine(p, Number(btn.dataset.i)));
+  });
+  const fin = document.getElementById("pg-final");
+  if (fin) fin.addEventListener("click", () => renderPassageFinal(p));
+}
+
+// 📜 절 하나 암송 — 100% 빈칸, 보기/듣기/음성 도움. 완료 시 다음 절 잠금 해제.
+function renderPassageLine(p, idx) {
+  stopSpeaking();
+  const appEl = document.getElementById("app");
+  const line = (p.lines || [])[idx] || "";
+  const tokens = line.trim().split(/\s+/);
+  const wordsHtml = tokens.map((word, i) =>
+    `<input class="word-input" data-answer="${word}" data-blank="${i}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="width:${Array.from(word).length + 1}em" />`
+  ).join(" ");
+  const answerHtml = tokens.map((w) => `<strong class="ans-word">${w}</strong>`).join(" ");
+  // setupChallengeTyping/setupVoice가 기대하는 verse 유사 객체(영어 아님 → isEnMode=false)
+  const lineVerse = { no: p.id * 1000 + idx, text: line, refShort: p.title };
+  appEl.innerHTML = `
+    <div class="test-screen">
+      <div class="test-card">
+        <div class="btn-row">
+          <button class="answer-btn" id="show-answer-btn">보기</button>
+          <button class="answer-btn" id="listen-answer-btn" aria-label="정답 음성으로 듣기">🔊 듣기</button>
+          <button class="voice-btn" id="voice-toggle">🎤 암송</button>
+        </div>
+        <div class="test-top">
+          <div class="test-head">
+            <div class="test-stage">${idx + 1}절 / ${(p.lines || []).length}</div>
+            <div class="test-ref">${p.title}</div>
+          </div>
+          <button class="back-btn" id="pg-line-back">← 절 목록</button>
+        </div>
+        <div class="test-sentence">${wordsHtml}</div>
+        <div class="challenge-remain" id="ch-remain"></div>
+        <div id="result-area"></div>
+        <div id="answer-panel" class="answer-panel" hidden>
+          <div class="answer-title">정답</div>
+          <div class="answer-text">${answerHtml}</div>
+          <button class="back-to-test-btn" id="back-to-test-btn">돌아가서 계속하기</button>
+        </div>
+        <div id="voice-panel" class="voice-panel" hidden>
+          <div class="voice-status" id="voice-status">🎙️ 듣고 있어요… <b>‘암송 종료’</b>를 누를 때까지 계속 들어요</div>
+          <div class="voice-live" id="voice-live"></div>
+        </div>
+        <div id="voice-result" class="voice-result"></div>
+      </div>
+    </div>`;
+  document.getElementById("pg-line-back").addEventListener("click", () => { stopSpeaking(); renderPassageSteps(p); });
+  setupAnswerToggle();
+  const listenBtn = document.getElementById("listen-answer-btn");
+  listenBtn.addEventListener("click", () => {
+    if (window.speechSynthesis && window.speechSynthesis.speaking) { stopSpeaking(); listenBtn.textContent = "🔊 듣기"; return; }
+    listenBtn.textContent = "⏹ 정지";
+    speakText(line, () => { listenBtn.textContent = "🔊 듣기"; }, 1, "ko-KR");
+  });
+  const onDone = () => {
+    markLineDone(p.id, idx);
+    stopSpeaking();
+    setTimeout(() => renderPassageSteps(p), 350); // 정답 표시 잠깐 보이고 절 목록으로
+  };
+  setupChallengeTyping(lineVerse, onDone);
+  setupVoice(lineVerse, 3, onDone);
+}
+
 // ------------------------------------------------------------
 // 화면 3: 테스트 (익명 버전과 동일)
 // ------------------------------------------------------------
