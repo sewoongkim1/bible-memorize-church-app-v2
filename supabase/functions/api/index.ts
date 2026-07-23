@@ -124,6 +124,7 @@ Deno.serve(async (req) => {
       case "seedVerses":    return json(await seedVerses(body));
       case "generateNiv":   return json(await generateNiv(body));
       case "embedSermons":  return json(await embedSermons(body));
+      case "sermonChat":    return json(await sermonChat(body));
       case "getPassages":         return json(await getPassages());
       case "savePassage":         return json(await savePassage(body));
       case "deletePassage":       return json(await deletePassage(body));
@@ -754,6 +755,72 @@ async function embedSermons(b: any) {
     totalChunks += rows.length;
   }
   return { ok: true, sermons: sermons.length, chunks: totalChunks };
+}
+
+// ---------- sermonChat: 설교 아카이브 검색 + 근거 기반 답변 (관리자) ----------
+// body: { pw, message }
+async function sermonChat(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const message = (b.message ?? "").toString().trim();
+  if (!message) return { ok: false, error: "message-required" };
+  const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
+  if (!apiKey) return { ok: false, error: "ANTHROPIC_API_KEY 시크릿 미설정" };
+
+  // 1) 질문 임베딩 → 벡터 검색
+  const [qvec] = await embedVoyage([message], "query");
+  const { data: matches, error } = await db.rpc("match_sermon_chunks", {
+    query_embedding: qvec,
+    match_count: 5,
+  });
+  if (error) throw error;
+
+  // 2) 유사도 임계값 미만이면 창작 대신 솔직히 없다고 답한다.
+  const hits = (matches ?? []).filter((m: any) => m.similarity >= 0.4);
+  if (!hits.length) {
+    return { ok: true, answer: "그 주제로 하신 설교를 찾지 못했습니다.", sources: [] };
+  }
+
+  // 3) 검색된 발췌를 컨텍스트로 Claude 호출(근거 기반, 창작 금지).
+  const context = hits.map((m: any, i: number) =>
+    `[발췌 ${i + 1}] ${m.title} (${m.svc_date ?? "날짜미상"} · ${m.scripture ?? ""})\n${m.content}`
+  ).join("\n\n");
+  const system = [
+    "너는 고척교회 설교 아카이브 검색 도우미다. 차동혁 목사님의 설교를 교인이 찾을 수 있게 돕는다.",
+    "아래 '설교 발췌'에 담긴 내용만 근거로 답하라. 발췌에 없는 내용을 지어내지 말고, 목사님이 하지 않은 새로운 주장을 창작하지 말라.",
+    "너 자신이 목사인 것처럼 설교하지 말라 — 어디까지나 '목사님이 이렇게 말씀하셨습니다'라고 안내하는 도우미다.",
+    "출처를 반드시 밝혀라: \"차동혁 목사님은 [날짜] '[제목]' 설교에서 이렇게 말씀하셨습니다\" 형태.",
+    "발췌만으로 답하기 어려우면 솔직히 '해당 내용을 설교에서 충분히 찾지 못했습니다'라고 말하라.",
+    "한국어로, 2~4문단 이내로 따뜻하고 담백하게 답하라.",
+  ].join("\n");
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: Deno.env.get("SERMON_CHAT_MODEL") || "claude-opus-4-8",
+      max_tokens: 1200,
+      system,
+      messages: [{ role: "user", content: `질문: ${message}\n\n[설교 발췌]\n${context}` }],
+    }),
+  });
+  if (!res.ok) return { ok: false, error: `anthropic-${res.status}: ${(await res.text()).slice(0, 300)}` };
+  const d = await res.json();
+  const answer = ((d.content ?? []).find((x: any) => x.type === "text")?.text ?? "").trim();
+
+  // 4) 출처는 중복 설교를 합쳐 반환(같은 설교의 여러 청크가 잡힐 수 있음).
+  const seen = new Set<string>();
+  const sources = hits.filter((m: any) => {
+    if (seen.has(m.sermon_id)) return false;
+    seen.add(m.sermon_id); return true;
+  }).map((m: any) => ({
+    title: m.title, svc_date: m.svc_date, scripture: m.scripture, youtube_id: m.youtube_id,
+  }));
+
+  return { ok: true, answer, sources };
 }
 
 // ---------- login ----------
