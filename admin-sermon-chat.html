@@ -49,7 +49,7 @@ function toast(m){ const t=$("toast"); t.textContent=m; t.classList.add("show");
 
 function renderLogin(msg){
   $("app").innerHTML = `<div class="login"><h2>설교 물어보기 (베타)</h2>
-    ${msg?`<p style="color:#c0392b;font-size:13px">${msg}</p>`:""}
+    ${msg?`<p style="color:#c0392b;font-size:13px">${esc(msg)}</p>`:""}
     <input id="pw" type="password" placeholder="관리자 비밀번호" />
     <button id="go">로그인</button></div>`;
   $("go").onclick = tryLogin;
@@ -57,9 +57,13 @@ function renderLogin(msg){
 }
 async function tryLogin(){
   pw = $("pw") ? $("pw").value : pw;
-  const j = await call("authCheck");
-  if(j.ok){ sessionStorage.setItem("admin-pw", pw); renderMain(); }
-  else renderLogin("비밀번호가 틀렸어요.");
+  try {
+    const j = await call("authCheck");
+    if(j.ok){ sessionStorage.setItem("admin-pw", pw); renderMain(); }
+    else renderLogin("비밀번호가 틀렸어요.");
+  } catch (e) {
+    renderLogin("서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.");
+  }
 }
 function renderMain(){
   $("app").innerHTML = `<header>
@@ -95,6 +99,8 @@ async function ask(){
       <div class="answer">${esc(j.answer)}</div>
       ${srcHtml ? `<div class="sources">${srcHtml}</div>` : ""}
       <div class="disclaimer">※ 이 답변은 설교 아카이브를 검색한 AI 요약입니다. 정확한 내용은 원 설교를 확인하세요.</div>`;
+  } catch (e) {
+    $("out").innerHTML = `<div class="empty">오류가 발생했어요. 잠시 후 다시 시도해 주세요.</div>`;
   } finally {
     btn.disabled = false; btn.textContent = "질문";
   }
@@ -105,6 +111,8 @@ async function reindex(){
   try {
     const j = await call("embedSermons");
     toast(j.ok ? `✅ 색인 완료: 설교 ${j.sermons}편 · 청크 ${j.chunks}개` : "실패: "+(j.error||""));
+  } catch (e) {
+    toast("색인 중 오류가 발생했어요");
   } finally {
     btn.disabled = false; btn.textContent = "🔄 색인 다시 만들기";
   }
