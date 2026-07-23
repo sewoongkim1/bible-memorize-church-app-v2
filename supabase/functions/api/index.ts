@@ -128,6 +128,7 @@ Deno.serve(async (req) => {
       case "sermonSummary": return json(await sermonSummary(body));
       case "sermonChatLog": return json(await sermonChatLog(body));
       case "clearSummaryCache": return json(await clearSummaryCache(body));
+      case "clearChatCache": return json(await clearChatCache(body));
       case "getPassages":         return json(await getPassages());
       case "savePassage":         return json(await savePassage(body));
       case "deletePassage":       return json(await deletePassage(body));
@@ -739,9 +740,8 @@ async function embedSermons(b: any) {
     if (purgeErr) throw purgeErr;
   }
 
-  // 재색인 시 '답변' 캐시만 비운다(검색 결과가 바뀌면 답이 달라질 수 있으므로).
-  // '요약' 캐시는 유지한다 — 관리자가 clearSummaryCache로 명시 요청할 때만 지운다.
-  try { await db.from("sermon_ai_cache").delete().eq("kind", "chat"); } catch (_) { /* 무시 */ }
+  // 재색인은 색인만 다시 만든다. 캐시(요약·답변)는 건드리지 않는다 —
+  // 관리자가 clearChatCache / clearSummaryCache 버튼으로 각각 명시 요청할 때만 비운다.
 
   let totalChunks = 0;
   for (const s of sermons) {
@@ -938,6 +938,14 @@ async function sermonSummary(b: any) {
 async function clearSummaryCache(b: any) {
   const err = adminError(b); if (err) return { ok: false, error: err };
   const { data, error } = await db.from("sermon_ai_cache").delete().eq("kind", "summary").select("cache_key");
+  if (error) throw error;
+  return { ok: true, cleared: (data ?? []).length };
+}
+
+// ---------- clearChatCache: 질문 답변 캐시 비우기 (관리자, 명시 요청 시에만) ----------
+async function clearChatCache(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const { data, error } = await db.from("sermon_ai_cache").delete().eq("kind", "chat").select("cache_key");
   if (error) throw error;
   return { ok: true, cleared: (data ?? []).length };
 }

@@ -136,7 +136,7 @@ async function tryLogin(){
 function renderMain(){
   // 관리자: 색인·기록·허브 / 성도: 홈으로 돌아가기
   const headerRight = isAdmin
-    ? `<button id="reindex">🔄 색인 다시 만들기</button><button id="logbtn">📋 조회 기록</button><button id="clearsum">🧹 요약 캐시</button><a href="index.html">← 홈</a>`
+    ? `<button id="reindex">🔄 색인 다시 만들기</button><button id="logbtn">📋 조회 기록</button><button id="clearchat">🗑️ 답변 캐시</button><button id="clearsum">🧹 요약 캐시</button><a href="index.html">← 홈</a>`
     : `<a href="index.html">← 홈</a>`;
   $("app").innerHTML = `<header>
       <div class="brand-row">
@@ -163,8 +163,16 @@ function renderMain(){
     </main>`;
   $("send").onclick = ask;
   $("q").onkeydown = (e)=>{ if(e.key==="Enter") ask(); };
-  if(isAdmin){ $("reindex").onclick = reindex; $("logbtn").onclick = showLog; $("clearsum").onclick = clearSummaryCache; }
+  if(isAdmin){ $("reindex").onclick = reindex; $("logbtn").onclick = showLog; $("clearchat").onclick = clearChatCache; $("clearsum").onclick = clearSummaryCache; }
   buildCloud();
+}
+// 관리자: 질문 답변 캐시 비우기(명시 요청 시에만 — 재색인해도 유지됨)
+async function clearChatCache(){
+  if(!confirm("질문 답변 캐시를 모두 비울까요?\n다음에 같은 질문을 하면 답변을 새로 만듭니다.")) return;
+  try {
+    const j = await call("clearChatCache");
+    toast(j.ok ? `답변 캐시를 비웠어요 (${j.cleared}건)` : "실패: "+(j.error||""));
+  } catch (e) { toast("실패했어요"); }
 }
 // 관리자: 설교 요약 캐시 비우기(명시 요청 시에만 — 평소·재색인엔 유지됨)
 async function clearSummaryCache(){
