@@ -1177,6 +1177,13 @@ const SERMON_TOPICS = [
   { t:"기타", qs:["일터에서 어떻게 신앙생활을 해야 하나요?","일상에서 하나님을 어떻게 섬길 수 있나요?","가정에서 어떻게 신앙적으로 살아야 하나요?","예수님의 제자로 산다는 것은 무엇인가요?","십자가는 우리에게 어떤 의미인가요?"] },
 ];
 let scSources = [];
+// **굵게** 마크다운을 <strong>으로 렌더(나머지는 이스케이프 — XSS 방지).
+function scEmphasis(raw) {
+  return String(raw == null ? "" : raw).split(/(\*\*[^*]+\*\*)/).map((seg) => {
+    const m = seg.match(/^\*\*([^*]+)\*\*$/);
+    return m ? `<strong>${boardEsc(m[1])}</strong>` : boardEsc(seg);
+  }).join("");
+}
 function renderSermonChat() {
   stopSpeaking();
   document.getElementById("app").innerHTML = `
@@ -1243,7 +1250,7 @@ async function scAsk() {
         <span class="sc-src-arrow">›</span>
       </button>`).join("");
     out.innerHTML = `
-      <div class="sc-answer">${boardEsc(j.answer)}</div>
+      <div class="sc-answer">${scEmphasis(j.answer)}</div>
       ${srcHtml ? `<div class="sc-sources">${srcHtml}</div>` : ""}
       <div class="sc-disc">※ 이 답변은 설교 아카이브를 검색한 AI 요약입니다. 정확한 내용은 원 설교를 확인하세요.</div>`;
     out.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1282,7 +1289,7 @@ function scOpenSermon(s) {
     el.hidden = false; el.textContent = "요약을 불러오는 중…";
     try {
       const j = await api.sermonSummary(s.youtube_id, myUserId());
-      el.textContent = (j && j.summary) ? j.summary : (s.summary || "아직 등록된 요약이 없어요.");
+      el.innerHTML = (j && j.summary) ? scEmphasis(j.summary) : boardEsc(s.summary || "아직 등록된 요약이 없어요.");
     } catch (e) { el.textContent = s.summary || "요약을 불러오지 못했어요."; }
   };
 }

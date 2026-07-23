@@ -1612,6 +1612,8 @@ html[data-fs="xl"] .sermon-sum-card .ss-top > .back-btn { font-size: 17px; paddi
 .sc-tq:hover { border-color:var(--navy); background:linear-gradient(135deg,#eaf1fb,#dde8f5); }
 .dark .sc-tq { background:linear-gradient(135deg,#1e2b40,#182333); border-color:#33465f; color:#cdd8ea; }
 .sc-answer { text-align:left; background:#fff; border:1px solid var(--border); border-radius:12px; padding:16px; font-size:15px; line-height:1.75; white-space:pre-wrap; margin-top:14px; }
+.sc-answer strong, .sc-modal-summary strong { font-weight:800; color:var(--navy); }
+.dark .sc-answer strong, .dark .sc-modal-summary strong { color:#9dc0f0; }
 .sc-sources { margin-top:12px; display:flex; flex-direction:column; gap:8px; }
 /* 출처 카드 — 배경색 + 제목/말씀/날짜 3줄 */
 .sc-src { display:flex; align-items:center; gap:12px; width:100%; text-align:left; background:#f5f8fc; border:1px solid #dce6f2; border-left:4px solid var(--navy); border-radius:12px; padding:12px 14px; cursor:pointer; font-family:inherit; }
