@@ -8,9 +8,11 @@
   :root { --navy:#1a3a6b; --gold:#a67c12; --line:#e2ded2; --ink:#17223a; --mute:#7c8598; }
   * { box-sizing:border-box; }
   body { margin:0; font-family:system-ui,"Malgun Gothic",sans-serif; background:#f4f2ec; color:var(--ink); }
-  header { background:var(--navy); color:#fff; padding:14px 18px; display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; position:sticky; top:0; z-index:10; }
-  header h1 { font-size:16px; margin:0; flex:1 1 100%; white-space:nowrap; }
-  @media (min-width:560px){ header h1 { flex:1; } }
+  header { background:var(--navy); color:#fff; padding:12px 18px; display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; position:sticky; top:0; z-index:10; }
+  header .brand-row { display:flex; align-items:center; gap:9px; flex:1 1 100%; min-width:0; }
+  @media (min-width:560px){ header .brand-row { flex:1; } }
+  header .brand-logo { height:30px; width:auto; flex-shrink:0; }
+  header h1 { font-size:16px; margin:0; white-space:nowrap; }
   header a, header button { color:#fff; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2); border-radius:8px; padding:6px 12px; font-size:13px; text-decoration:none; cursor:pointer; }
   main { max-width:720px; margin:0 auto; padding:16px; }
   .ask { display:flex; gap:8px; margin-bottom:12px; }
@@ -112,7 +114,9 @@ async function call(action, body={}) {
 function toast(m){ const t=$("toast"); t.textContent=m; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1800); }
 
 function renderLogin(msg){
-  $("app").innerHTML = `<div class="login"><h2>설교말씀 도우미</h2>
+  $("app").innerHTML = `<div class="login">
+    <img src="https://summer.onlybible.kr/logo3.png" alt="고척교회" style="height:48px;margin-bottom:6px" />
+    <h2>설교말씀 도우미</h2>
     ${msg?`<p style="color:#c0392b;font-size:13px">${esc(msg)}</p>`:""}
     <input id="pw" type="password" placeholder="관리자 비밀번호" />
     <button id="go">로그인</button></div>`;
@@ -135,7 +139,10 @@ function renderMain(){
     ? `<button id="reindex">🔄 색인 다시 만들기</button><button id="logbtn">📋 조회 기록</button><a href="index.html">← 홈</a>`
     : `<a href="index.html">← 홈</a>`;
   $("app").innerHTML = `<header>
-      <h1>🔎 설교말씀 도우미</h1>
+      <div class="brand-row">
+        <img class="brand-logo" src="https://summer.onlybible.kr/logo3.png" alt="고척교회" />
+        <h1>설교말씀 도우미</h1>
+      </div>
       ${headerRight}
     </header>
     <main>
