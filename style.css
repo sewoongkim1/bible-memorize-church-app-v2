@@ -1591,6 +1591,9 @@ html[data-fs="xl"] .sermon-sum-card .ss-top > .back-btn { font-size: 17px; paddi
 .dark .summary-help.sermon-cta:hover { background: #2f5457; color: #fff; }
 
 /* ── 설교말씀 도우미 (인앱 화면) ── */
+/* 제목이 길어 좁은 화면에서 '← 뒤로'와 함께 한 줄에 들어가도록 살짝 줄인다 */
+.sc-head .rank-title { font-size:1.08rem; white-space:nowrap; margin:2px 0; }
+.sc-head .settings-back-btn { padding:6px 10px; font-size:13px; }
 .sc-ask { display:flex; gap:8px; margin:8px 0 12px; }
 .sc-ask input { flex:1; min-width:0; padding:11px 14px; border:1px solid var(--border); border-radius:10px; font-size:15px; font-family:inherit; }
 .sc-ask button { flex-shrink:0; white-space:nowrap; padding:11px 18px; background:var(--navy); color:#fff; border:0; border-radius:10px; font-weight:700; cursor:pointer; font-family:inherit; }

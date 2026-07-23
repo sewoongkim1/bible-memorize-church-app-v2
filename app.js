@@ -1181,7 +1181,7 @@ function renderSermonChat() {
   stopSpeaking();
   document.getElementById("app").innerHTML = `
     <div class="summary-screen"><div class="summary-card">
-      <div class="settings-head">
+      <div class="settings-head sc-head">
         <h2 class="rank-title">💬 설교말씀 도우미</h2>
         <button class="settings-back-btn" id="sc-back">← 뒤로</button>
       </div>
