@@ -2433,6 +2433,14 @@ html[data-fs="xl"] .test-card .btn-row { row-gap: 10px; margin-bottom: 18px; pad
 .pg-complete-badge { margin-top: 12px; text-align: center; font-weight: 700; color: #8a6d1f; }
 .pg-final-sentence { display: flex; flex-direction: column; gap: 10px; }
 .pg-final-line { line-height: 2.1; }
+/* 암송 화면 헤더: 2줄 — 1줄(단계 배지 · 목록 버튼), 2줄(제목 · 성경) */
+.pg-hd { margin-bottom: 16px; }
+.pg-hd-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pg-hd-top .test-stage { white-space: nowrap; }
+.pg-hd-title { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.pg-hd-scr { font-size: 13px; color: var(--gray); white-space: nowrap; }
+.pg-redo-btn { margin-top: 8px; }
+.dark .pg-hd-scr { color: #9fb0cc; }
 .dark .pg-card { background: #1b2233; border-color: #33405c; }
 .dark .pg-card.complete { background: #2a2413; border-color: #6b5a2a; }
 .dark .pg-card-title, .dark .pg-list-title { color: #cdd9f2; }

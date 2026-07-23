@@ -1944,12 +1944,15 @@ function renderPassageChunk(p, idx, stage, heartReady) {
           <button class="answer-btn" id="listen-answer-btn" aria-label="정답 음성으로 듣기">🔊 듣기</button>
           <button class="voice-btn" id="voice-toggle">🎤 암송</button>
         </div>
-        <div class="test-top">
-          <div class="test-head">
+        <div class="pg-hd">
+          <div class="pg-hd-top">
             <div class="test-stage">${idx + 1}/${total}마디 · ${stage}단계</div>
-            <div class="test-ref">${p.title}</div>
+            <button class="back-btn" id="pg-line-back">← 목록</button>
           </div>
-          <button class="back-btn" id="pg-line-back">← 목록</button>
+          <div class="pg-hd-title">
+            <span class="test-ref">${p.title}</span>
+            ${p.ref ? `<span class="pg-hd-scr">📖 ${p.ref}</span>` : ""}
+          </div>
         </div>
         <div class="test-sentence">${wordsHtml}</div>
         <div class="challenge-remain" id="ch-remain"></div>
@@ -1960,6 +1963,7 @@ function renderPassageChunk(p, idx, stage, heartReady) {
           <button class="back-to-test-btn" id="back-to-test-btn">돌아가서 계속하기</button>
         </div>
         ${heartHtml}
+        ${stage === 3 ? `<button class="summary-help pg-redo-btn" id="pg-redo">↻ 다시 암송</button>` : ""}
         <div id="voice-panel" class="voice-panel" hidden>
           <div class="voice-status" id="voice-status">🎙️ 듣고 있어요… <b>‘암송 종료’</b>를 누를 때까지 계속 들어요</div>
           <div class="voice-live" id="voice-live"></div>
@@ -1968,6 +1972,7 @@ function renderPassageChunk(p, idx, stage, heartReady) {
       </div>
     </div>`;
   document.getElementById("pg-line-back").addEventListener("click", () => { stopSpeaking(); renderPassageList(); });
+  { const b = document.getElementById("pg-redo"); if (b) b.addEventListener("click", () => { stopSpeaking(); renderPassageChunk(p, idx, 3); }); }
   setupAnswerToggle();
   const listenBtn = document.getElementById("listen-answer-btn");
   listenBtn.addEventListener("click", () => {
@@ -2041,12 +2046,15 @@ function renderPassageFinal(p) {
           <button class="answer-btn" id="listen-answer-btn" aria-label="정답 음성으로 듣기">🔊 듣기</button>
           <button class="voice-btn" id="voice-toggle">🎤 암송</button>
         </div>
-        <div class="test-top">
-          <div class="test-head">
+        <div class="pg-hd">
+          <div class="pg-hd-top">
             <div class="test-stage challenge-badge">🔥 전체</div>
-            <div class="test-ref">${p.title}</div>
+            <button class="back-btn" id="pg-final-back">← 목록</button>
           </div>
-          <button class="back-btn" id="pg-final-back">← 목록</button>
+          <div class="pg-hd-title">
+            <span class="test-ref">${p.title}</span>
+            ${p.ref ? `<span class="pg-hd-scr">📖 ${p.ref}</span>` : ""}
+          </div>
         </div>
         <div class="pg-final-hint">처음부터 끝까지 이어서 외워보세요!</div>
         <div class="test-sentence pg-final-sentence">${linesHtml}</div>
