@@ -819,11 +819,21 @@ async function sermonChat(b: any) {
 
   // 4) 출처는 중복 설교를 합쳐 반환(같은 설교의 여러 청크가 잡힐 수 있음).
   const seen = new Set<string>();
-  const sources = hits.filter((m: any) => {
+  const uniq = hits.filter((m: any) => {
     if (seen.has(m.sermon_id)) return false;
     seen.add(m.sermon_id); return true;
-  }).map((m: any) => ({
-    title: m.title, svc_date: m.svc_date, scripture: m.scripture, youtube_id: m.youtube_id,
+  });
+  // 출처 팝업에서 설교자·요약을 보여주기 위해 sermons에서 함께 가져온다.
+  const ids = uniq.map((m: any) => m.sermon_id);
+  const { data: meta } = await db.from("sermons").select("id, preacher, summary").in("id", ids);
+  const metaOf = new Map((meta ?? []).map((s: any) => [s.id, s]));
+  const sources = uniq.map((m: any) => ({
+    title: m.title,
+    svc_date: m.svc_date,
+    scripture: m.scripture,
+    youtube_id: m.youtube_id,
+    preacher: metaOf.get(m.sermon_id)?.preacher ?? "",
+    summary: metaOf.get(m.sermon_id)?.summary ?? "",
   }));
 
   return { ok: true, answer, sources };

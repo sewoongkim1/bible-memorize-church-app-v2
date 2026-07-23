@@ -13,16 +13,41 @@
   @media (min-width:560px){ header h1 { flex:1; } }
   header a, header button { color:#fff; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2); border-radius:8px; padding:6px 12px; font-size:13px; text-decoration:none; cursor:pointer; }
   main { max-width:720px; margin:0 auto; padding:16px; }
-  .ask { display:flex; gap:8px; margin-bottom:14px; }
-  .ask input { flex:1; padding:11px 14px; border:1px solid var(--line); border-radius:10px; font-size:15px; }
-  .ask button { padding:11px 20px; background:var(--navy); color:#fff; border:0; border-radius:10px; font-weight:700; cursor:pointer; }
+  .ask { display:flex; gap:8px; margin-bottom:12px; }
+  .ask input { flex:1; min-width:0; padding:11px 14px; border:1px solid var(--line); border-radius:10px; font-size:15px; }
+  .ask button { flex-shrink:0; white-space:nowrap; padding:11px 20px; background:var(--navy); color:#fff; border:0; border-radius:10px; font-weight:700; cursor:pointer; }
   .ask button:disabled { opacity:.6; cursor:default; }
+  /* 안내 박스 */
+  .hint { background:#fbf5e6; border:1px solid #ecd9a8; border-radius:12px; padding:12px 14px; margin-bottom:16px; font-size:13px; line-height:1.6; color:#5c4a1f; }
+  .hint b.h { display:block; color:var(--gold); font-size:13px; margin-bottom:6px; }
+  .hint p { margin:4px 0; padding-left:13px; position:relative; }
+  .hint p::before { content:"·"; position:absolute; left:2px; color:var(--gold); font-weight:800; }
   .answer { background:#fff; border:1px solid var(--line); border-radius:12px; padding:16px 18px; font-size:15px; line-height:1.75; white-space:pre-wrap; }
-  .sources { margin-top:14px; }
-  .src { display:block; background:#eef4ff; border:1px solid #cfe0f7; border-radius:10px; padding:10px 12px; margin-bottom:8px; text-decoration:none; color:var(--navy); font-size:14px; }
-  .src .yt { color:#c0392b; font-weight:700; }
-  .src .meta { color:var(--mute); font-size:12px; font-family:ui-monospace,monospace; }
+  /* 설교 출처 카드 */
+  .sources { margin-top:14px; display:flex; flex-direction:column; gap:8px; }
+  .src { display:flex; align-items:center; gap:12px; width:100%; text-align:left; background:#fff; border:1px solid var(--line); border-left:4px solid var(--navy); border-radius:12px; padding:12px 14px; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,.05); transition:transform .12s, box-shadow .12s, border-color .12s; }
+  .src:hover { transform:translateY(-1px); box-shadow:0 4px 12px rgba(26,58,107,.12); border-color:var(--navy); }
+  .src-icon { flex-shrink:0; width:34px; height:34px; display:flex; align-items:center; justify-content:center; background:#eef4ff; border-radius:9px; font-size:16px; }
+  .src-body { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+  .src-title { font-weight:700; color:var(--ink); font-size:15px; }
+  .src-meta { color:var(--mute); font-size:12.5px; }
+  .src-arrow { flex-shrink:0; color:var(--mute); font-size:20px; line-height:1; }
   .disclaimer { margin-top:16px; font-size:12px; color:var(--mute); line-height:1.6; }
+  /* 설교 출처 팝업(모달) */
+  .modal-bg { position:fixed; inset:0; background:rgba(23,34,58,.5); display:flex; align-items:center; justify-content:center; z-index:50; padding:16px; }
+  .modal { background:#fff; border-radius:16px; max-width:460px; width:100%; max-height:82vh; overflow:auto; box-shadow:0 20px 50px rgba(0,0,0,.3); position:relative; padding:22px; }
+  .modal-x { position:absolute; top:12px; right:12px; width:32px; height:32px; border:0; background:#f4f2ec; border-radius:50%; font-size:15px; cursor:pointer; color:var(--mute); }
+  .modal-x:hover { background:#e7e3d7; color:var(--ink); }
+  .modal-rows { display:flex; flex-direction:column; gap:10px; margin:6px 30px 18px 0; }
+  .modal-rows > div { display:flex; gap:12px; font-size:15px; }
+  .modal-rows .k { flex-shrink:0; width:48px; color:var(--mute); font-size:13px; padding-top:1px; }
+  .modal-rows .v { flex:1; color:var(--ink); font-weight:600; }
+  .modal-btns { display:flex; gap:8px; }
+  .mb { flex:1; padding:12px; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; border:1px solid var(--line); }
+  .mb.watch { background:var(--navy); color:#fff; border-color:var(--navy); }
+  .mb.summary { background:#fff; color:var(--navy); }
+  .mb.summary:hover { background:#f7faff; }
+  .modal-summary { margin-top:16px; padding-top:16px; border-top:1px solid var(--line); font-size:14px; line-height:1.75; color:#4a4238; white-space:pre-wrap; }
   .empty { color:var(--mute); text-align:center; padding:40px 0; }
   .login { max-width:320px; margin:60px auto; text-align:center; }
   .login input { width:100%; padding:11px; border:1px solid var(--line); border-radius:8px; margin:10px 0; }
@@ -107,6 +132,11 @@ function renderMain(){
         <input id="q" placeholder="예) 용서에 대해 목사님이 뭐라고 하셨나요?" />
         <button id="send">질문</button>
       </div>
+      <div class="hint">
+        <b class="h">💡 이렇게 이용하세요</b>
+        <p>AI가 설교를 하나하나 찾아 답을 만들기 때문에 <b>몇 초 정도 걸릴 수 있어요.</b> 잠시만 기다려 주세요.</p>
+        <p>입력창에 궁금한 점을 더 적어 <b>이어서 질문해도 됩니다.</b></p>
+      </div>
       <div class="topics">
         <p class="topics-label">궁금한 주제를 눌러보세요 · 질문을 고른 뒤 다듬어 보낼 수 있어요</p>
         <div class="cloud" id="cloud"></div>
@@ -133,28 +163,65 @@ function selectTopic(i, btn){
     b.onclick = ()=>{ $("q").value = qs[+b.dataset.q]; $("q").focus(); toast("질문을 다듬은 뒤 '질문'을 눌러 보세요"); };
   });
 }
+let lastSources = [];
 async function ask(){
   const message = $("q").value.trim();
   if(!message){ toast("질문을 입력하세요"); return; }
   const btn = $("send"); btn.disabled = true; btn.textContent = "찾는 중…";
-  $("out").innerHTML = `<div class="empty">설교를 검색하고 있어요…</div>`;
+  $("out").innerHTML = `<div class="empty">설교를 찾고 있어요… 잠시만 기다려 주세요 🔎</div>`;
   try {
     const j = await call("sermonChat", { message });
     if(!j.ok){ $("out").innerHTML = `<div class="empty">오류: ${esc(j.error||"")}</div>`; return; }
-    const srcHtml = (j.sources||[]).map(s => `
-      <a class="src" href="https://youtube.com/watch?v=${esc(s.youtube_id)}" target="_blank" rel="noopener">
-        <span class="yt">📺 ${esc(s.title)}</span>
-        <span class="meta"> · ${esc(s.svc_date||"")} · ${esc(s.scripture||"")}</span>
-      </a>`).join("");
+    lastSources = j.sources || [];
+    const srcHtml = lastSources.map((s,i) => `
+      <button class="src" data-i="${i}">
+        <span class="src-icon">📖</span>
+        <span class="src-body">
+          <span class="src-title">${esc(s.title)}</span>
+          <span class="src-meta">${esc(s.scripture||"")}${s.svc_date?` · ${esc(s.svc_date)}`:""}</span>
+        </span>
+        <span class="src-arrow">›</span>
+      </button>`).join("");
     $("out").innerHTML = `
       <div class="answer">${esc(j.answer)}</div>
       ${srcHtml ? `<div class="sources">${srcHtml}</div>` : ""}
       <div class="disclaimer">※ 이 답변은 설교 아카이브를 검색한 AI 요약입니다. 정확한 내용은 원 설교를 확인하세요.</div>`;
+    $("out").querySelectorAll(".src").forEach(b=>{ b.onclick = ()=>openSermon(lastSources[+b.dataset.i]); });
   } catch (e) {
     $("out").innerHTML = `<div class="empty">오류가 발생했어요. 잠시 후 다시 시도해 주세요.</div>`;
   } finally {
     btn.disabled = false; btn.textContent = "질문";
   }
+}
+// 출처 클릭 → 설교 정보 팝업(제목·말씀·일자·설교자 + 설교 보기·말씀 요약)
+function openSermon(s){
+  if(!s) return;
+  const m = document.createElement("div");
+  m.className = "modal-bg";
+  m.innerHTML = `<div class="modal">
+    <button class="modal-x" aria-label="닫기">✕</button>
+    <div class="modal-rows">
+      <div><span class="k">제목</span><span class="v">${esc(s.title)}</span></div>
+      <div><span class="k">말씀</span><span class="v">${esc(s.scripture||"-")}</span></div>
+      <div><span class="k">일자</span><span class="v">${esc(s.svc_date||"-")}</span></div>
+      <div><span class="k">설교자</span><span class="v">${esc(s.preacher||"-")}</span></div>
+    </div>
+    <div class="modal-btns">
+      <button class="mb watch">📺 설교 보기</button>
+      <button class="mb summary">📄 말씀 요약</button>
+    </div>
+    <div class="modal-summary" id="msum" hidden></div>
+  </div>`;
+  document.body.appendChild(m);
+  const close = ()=>m.remove();
+  m.onclick = (e)=>{ if(e.target===m) close(); };
+  m.querySelector(".modal-x").onclick = close;
+  m.querySelector(".watch").onclick = ()=>{ window.open("https://youtube.com/watch?v="+encodeURIComponent(s.youtube_id), "_blank", "noopener"); };
+  m.querySelector(".summary").onclick = ()=>{
+    const el = m.querySelector("#msum");
+    el.textContent = s.summary || "아직 등록된 요약이 없어요.";
+    el.hidden = false;
+  };
 }
 async function reindex(){
   if(!confirm("올해 설교 전체를 다시 색인할까요? (1~2분 소요)")) return;
