@@ -8,8 +8,9 @@
   :root { --navy:#1a3a6b; --gold:#a67c12; --line:#e2ded2; --ink:#17223a; --mute:#7c8598; }
   * { box-sizing:border-box; }
   body { margin:0; font-family:system-ui,"Malgun Gothic",sans-serif; background:#f4f2ec; color:var(--ink); }
-  header { background:var(--navy); color:#fff; padding:14px 18px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:10; }
-  header h1 { font-size:16px; margin:0; flex:1; }
+  header { background:var(--navy); color:#fff; padding:14px 18px; display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; position:sticky; top:0; z-index:10; }
+  header h1 { font-size:16px; margin:0; flex:1 1 100%; white-space:nowrap; }
+  @media (min-width:560px){ header h1 { flex:1; } }
   header a, header button { color:#fff; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2); border-radius:8px; padding:6px 12px; font-size:13px; text-decoration:none; cursor:pointer; }
   main { max-width:720px; margin:0 auto; padding:16px; }
   .ask { display:flex; gap:8px; margin-bottom:14px; }
@@ -28,6 +29,20 @@
   .login button { width:100%; padding:11px; background:var(--navy); color:#fff; border:0; border-radius:8px; font-weight:700; cursor:pointer; }
   .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#222; color:#fff; padding:10px 18px; border-radius:20px; font-size:13px; opacity:0; transition:opacity .3s; pointer-events:none; }
   .toast.show { opacity:1; }
+  /* 주제 워드클라우드 → 질문 → 입력창 채우기 */
+  .topics { margin-bottom:16px; }
+  .topics-label { font-size:13px; font-weight:700; color:var(--navy); margin:0 0 8px; }
+  .cloud { display:flex; flex-wrap:wrap; gap:6px 12px; align-items:baseline; background:linear-gradient(#fbf9f3,#f4f2ec); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+  .cloud button { background:none; border:0; padding:2px 4px; cursor:pointer; color:var(--ink); border-radius:6px; line-height:1.35; }
+  .cloud button:hover { color:var(--navy); text-decoration:underline; }
+  .cloud button.on { color:var(--gold); text-decoration:none; }
+  .cloud .s1 { font-size:13px; color:var(--mute); }
+  .cloud .s2 { font-size:15px; font-weight:600; }
+  .cloud .s3 { font-size:18px; font-weight:700; }
+  .cloud .s4 { font-size:22px; font-weight:800; color:var(--navy); }
+  .tqs { margin-top:10px; display:flex; flex-direction:column; gap:6px; }
+  .tq { text-align:left; background:#fff; border:1px solid var(--line); border-radius:9px; padding:9px 12px; font-size:14px; color:var(--ink); cursor:pointer; }
+  .tq:hover { border-color:var(--navy); background:#f7faff; }
 </style>
 </head>
 <body>
@@ -39,6 +54,26 @@ const KEY = "sb_publishable_oLtieT_jw7Gjb8etEsy0jw_thBaDjl-";
 let pw = sessionStorage.getItem("admin-pw") || "";
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s==null?"":s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+// 주제(설교 태그 기반, 빈도순 크기) → 질문. 모든 질문은 실제 검색에서 답이
+// 나오는 것만 남겼다(2026-07-23 실측: match_sermon_chunks 최상위 유사도 ≥0.42).
+// 항목을 바꿀 땐 실제 검색으로 재검증할 것 — 안 그러면 눌렀을 때 "찾지
+// 못했습니다"로 빠지는 질문을 성도에게 권하게 된다.
+const TOPICS = [
+  { t:"기도", size:4, qs:["기도가 잘 안 될 때 어떻게 해야 하나요?","응답이 없는 기도는 어떻게 붙들어야 하나요?","기도의 능력에 대해 목사님은 뭐라고 하셨나요?"] },
+  { t:"순종", size:4, qs:["하나님께 순종하기 어려울 때 어떻게 해야 하나요?","순종이 왜 그렇게 중요한가요?"] },
+  { t:"은혜", size:4, qs:["하나님의 은혜를 어떻게 경험할 수 있나요?","은혜로 산다는 것은 무슨 뜻인가요?"] },
+  { t:"감사", size:3, qs:["감사가 나오지 않을 때 어떻게 감사할 수 있나요?","감사하는 삶은 왜 중요한가요?"] },
+  { t:"말씀", size:3, qs:["말씀을 어떻게 삶에 적용해야 하나요?","성경을 어떻게 읽어야 하나요?"] },
+  { t:"일터·일상", size:3, qs:["일터에서 어떻게 신앙생활을 해야 하나요?","일상에서 하나님을 어떻게 섬길 수 있나요?"] },
+  { t:"고난", size:2, qs:["고난을 겪을 때 어떻게 믿음을 지킬 수 있나요?","힘든 시간을 어떻게 견뎌야 하나요?"] },
+  { t:"믿음", size:2, qs:["믿음이 약해질 때 어떻게 해야 하나요?","참된 믿음이란 무엇인가요?"] },
+  { t:"전도", size:2, qs:["어떻게 복음을 전해야 하나요?","전도가 두려울 때 어떻게 해야 하나요?"] },
+  { t:"십자가", size:2, qs:["십자가는 우리에게 어떤 의미인가요?"] },
+  { t:"제자도", size:2, qs:["예수님의 제자로 산다는 것은 무엇인가요?"] },
+  { t:"사랑", size:1, qs:["하나님의 사랑을 어떻게 알 수 있나요?"] },
+  { t:"가정", size:1, qs:["가정에서 어떻게 신앙적으로 살아야 하나요?"] },
+];
 
 async function call(action, body={}) {
   const r = await fetch(FN, { method:"POST", headers:{ "Content-Type":"application/json", apikey:KEY, Authorization:"Bearer "+KEY },
@@ -76,11 +111,31 @@ function renderMain(){
         <input id="q" placeholder="예) 용서에 대해 목사님이 뭐라고 하셨나요?" />
         <button id="send">질문</button>
       </div>
+      <div class="topics">
+        <p class="topics-label">궁금한 주제를 눌러보세요 · 질문을 고른 뒤 다듬어 보낼 수 있어요</p>
+        <div class="cloud" id="cloud"></div>
+        <div class="tqs" id="tqs"></div>
+      </div>
       <div id="out"><div class="empty">궁금한 것을 물어보세요. 올해 설교에서 찾아 답해드립니다.</div></div>
     </main>`;
   $("send").onclick = ask;
   $("q").onkeydown = (e)=>{ if(e.key==="Enter") ask(); };
   $("reindex").onclick = reindex;
+  buildCloud();
+}
+function buildCloud(){
+  $("cloud").innerHTML = TOPICS.map((tp,i)=>`<button class="s${tp.size}" data-i="${i}">${esc(tp.t)}</button>`).join("");
+  $("cloud").querySelectorAll("button").forEach(b=>{ b.onclick = ()=>selectTopic(+b.dataset.i, b); });
+}
+function selectTopic(i, btn){
+  $("cloud").querySelectorAll("button").forEach(b=>b.classList.remove("on"));
+  btn.classList.add("on");
+  const qs = TOPICS[i].qs;
+  $("tqs").innerHTML = qs.map((q,idx)=>`<button class="tq" data-q="${idx}">${esc(q)}</button>`).join("");
+  // 질문 클릭 → 입력창에 채우기만 한다(자동 전송 X). 성도가 다듬어 보낸다.
+  $("tqs").querySelectorAll(".tq").forEach(b=>{
+    b.onclick = ()=>{ $("q").value = qs[+b.dataset.q]; $("q").focus(); toast("질문을 다듬은 뒤 '질문'을 눌러 보세요"); };
+  });
 }
 async function ask(){
   const message = $("q").value.trim();
