@@ -1232,7 +1232,8 @@ async function scAsk() {
         <span class="sc-src-icon">📖</span>
         <span class="sc-src-body">
           <span class="sc-src-title">${boardEsc(s.title)}</span>
-          <span class="sc-src-meta">${boardEsc(s.scripture || "")}${s.svc_date ? " · " + boardEsc(s.svc_date) : ""}</span>
+          ${s.scripture ? `<span class="sc-src-scripture">${boardEsc(s.scripture)}</span>` : ""}
+          ${s.svc_date ? `<span class="sc-src-date">${boardEsc(s.svc_date)}</span>` : ""}
         </span>
         <span class="sc-src-arrow">›</span>
       </button>`).join("");
