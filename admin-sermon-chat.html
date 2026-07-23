@@ -32,14 +32,12 @@
   /* 주제 워드클라우드 → 질문 → 입력창 채우기 */
   .topics { margin-bottom:16px; }
   .topics-label { font-size:13px; font-weight:700; color:var(--navy); margin:0 0 8px; }
-  .cloud { display:flex; flex-wrap:wrap; gap:6px 12px; align-items:baseline; background:linear-gradient(#fbf9f3,#f4f2ec); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
-  .cloud button { background:none; border:0; padding:2px 4px; cursor:pointer; color:var(--ink); border-radius:6px; line-height:1.35; }
-  .cloud button:hover { color:var(--navy); text-decoration:underline; }
-  .cloud button.on { color:var(--gold); text-decoration:none; }
-  .cloud .s1 { font-size:13px; color:var(--mute); }
-  .cloud .s2 { font-size:15px; font-weight:600; }
-  .cloud .s3 { font-size:18px; font-weight:700; }
-  .cloud .s4 { font-size:22px; font-weight:800; color:var(--navy); }
+  /* 5개씩 2줄 = 10칸 격자, 각 주제를 타원형(알약)으로 감싼다 */
+  .cloud { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
+  .cloud button { display:flex; align-items:center; justify-content:center; padding:11px 4px; border:1px solid var(--line); border-radius:999px; background:#fff; color:var(--ink); font-size:15px; font-weight:600; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,.04); transition:background .15s,color .15s,border-color .15s; }
+  .cloud button:hover { border-color:var(--navy); color:var(--navy); }
+  .cloud button.on { background:var(--navy); color:#fff; border-color:var(--navy); font-weight:700; }
+  @media (max-width:400px){ .cloud button { font-size:14px; padding:10px 2px; } }
   .tqs { margin-top:10px; display:flex; flex-direction:column; gap:6px; }
   .tq { text-align:left; background:#fff; border:1px solid var(--line); border-radius:9px; padding:9px 12px; font-size:14px; color:var(--ink); cursor:pointer; }
   .tq:hover { border-color:var(--navy); background:#f7faff; }
@@ -59,20 +57,18 @@ const esc = (s) => String(s==null?"":s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":
 // 나오는 것만 남겼다(2026-07-23 실측: match_sermon_chunks 최상위 유사도 ≥0.42).
 // 항목을 바꿀 땐 실제 검색으로 재검증할 것 — 안 그러면 눌렀을 때 "찾지
 // 못했습니다"로 빠지는 질문을 성도에게 권하게 된다.
+// 9개 핵심 주제(2자) + "기타"(나머지 주제 질문을 모두 몰아넣음) = 5×2 격자 10칸.
 const TOPICS = [
-  { t:"기도", size:4, qs:["기도가 잘 안 될 때 어떻게 해야 하나요?","응답이 없는 기도는 어떻게 붙들어야 하나요?","기도의 능력에 대해 목사님은 뭐라고 하셨나요?"] },
-  { t:"순종", size:4, qs:["하나님께 순종하기 어려울 때 어떻게 해야 하나요?","순종이 왜 그렇게 중요한가요?"] },
-  { t:"은혜", size:4, qs:["하나님의 은혜를 어떻게 경험할 수 있나요?","은혜로 산다는 것은 무슨 뜻인가요?"] },
-  { t:"감사", size:3, qs:["감사가 나오지 않을 때 어떻게 감사할 수 있나요?","감사하는 삶은 왜 중요한가요?"] },
-  { t:"말씀", size:3, qs:["말씀을 어떻게 삶에 적용해야 하나요?","성경을 어떻게 읽어야 하나요?"] },
-  { t:"일터·일상", size:3, qs:["일터에서 어떻게 신앙생활을 해야 하나요?","일상에서 하나님을 어떻게 섬길 수 있나요?"] },
-  { t:"고난", size:2, qs:["고난을 겪을 때 어떻게 믿음을 지킬 수 있나요?","힘든 시간을 어떻게 견뎌야 하나요?"] },
-  { t:"믿음", size:2, qs:["믿음이 약해질 때 어떻게 해야 하나요?","참된 믿음이란 무엇인가요?"] },
-  { t:"전도", size:2, qs:["어떻게 복음을 전해야 하나요?","전도가 두려울 때 어떻게 해야 하나요?"] },
-  { t:"십자가", size:2, qs:["십자가는 우리에게 어떤 의미인가요?"] },
-  { t:"제자도", size:2, qs:["예수님의 제자로 산다는 것은 무엇인가요?"] },
-  { t:"사랑", size:1, qs:["하나님의 사랑을 어떻게 알 수 있나요?"] },
-  { t:"가정", size:1, qs:["가정에서 어떻게 신앙적으로 살아야 하나요?"] },
+  { t:"기도", qs:["기도가 잘 안 될 때 어떻게 해야 하나요?","응답이 없는 기도는 어떻게 붙들어야 하나요?","기도의 능력에 대해 목사님은 뭐라고 하셨나요?"] },
+  { t:"순종", qs:["하나님께 순종하기 어려울 때 어떻게 해야 하나요?","순종이 왜 그렇게 중요한가요?"] },
+  { t:"은혜", qs:["하나님의 은혜를 어떻게 경험할 수 있나요?","은혜로 산다는 것은 무슨 뜻인가요?"] },
+  { t:"감사", qs:["감사가 나오지 않을 때 어떻게 감사할 수 있나요?","감사하는 삶은 왜 중요한가요?"] },
+  { t:"말씀", qs:["말씀을 어떻게 삶에 적용해야 하나요?","성경을 어떻게 읽어야 하나요?"] },
+  { t:"고난", qs:["고난을 겪을 때 어떻게 믿음을 지킬 수 있나요?","힘든 시간을 어떻게 견뎌야 하나요?"] },
+  { t:"믿음", qs:["믿음이 약해질 때 어떻게 해야 하나요?","참된 믿음이란 무엇인가요?"] },
+  { t:"전도", qs:["어떻게 복음을 전해야 하나요?","전도가 두려울 때 어떻게 해야 하나요?"] },
+  { t:"사랑", qs:["하나님의 사랑을 어떻게 알 수 있나요?"] },
+  { t:"기타", qs:["일터에서 어떻게 신앙생활을 해야 하나요?","일상에서 하나님을 어떻게 섬길 수 있나요?","가정에서 어떻게 신앙적으로 살아야 하나요?","예수님의 제자로 산다는 것은 무엇인가요?","십자가는 우리에게 어떤 의미인가요?"] },
 ];
 
 async function call(action, body={}) {
@@ -124,7 +120,7 @@ function renderMain(){
   buildCloud();
 }
 function buildCloud(){
-  $("cloud").innerHTML = TOPICS.map((tp,i)=>`<button class="s${tp.size}" data-i="${i}">${esc(tp.t)}</button>`).join("");
+  $("cloud").innerHTML = TOPICS.map((tp,i)=>`<button data-i="${i}">${esc(tp.t)}</button>`).join("");
   $("cloud").querySelectorAll("button").forEach(b=>{ b.onclick = ()=>selectTopic(+b.dataset.i, b); });
 }
 function selectTopic(i, btn){
