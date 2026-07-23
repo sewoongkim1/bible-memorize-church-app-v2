@@ -1499,9 +1499,9 @@ async function loadPassageList(selId){
       <label class="push-lb">출처(선택)</label><input id="pg-ref" class="push-in" placeholder="예: 마 6:9-13">
       <label class="push-lb">분류(선택)</label><input id="pg-cat" class="push-in" placeholder="예: 기도문 / 신앙고백 / 시편 / 주제">
       <label class="push-lb">정렬 순서(숫자, 작을수록 위)</label><input id="pg-order" class="push-in" inputmode="numeric" placeholder="0">
-      <label class="push-lb">본문 — <b>한 줄에 한 절</b> *</label>
-      <textarea id="pg-lines" class="push-in" rows="8" placeholder="하늘에 계신 우리 아버지여&#10;이름이 거룩히 여김을 받으시오며&#10;나라가 임하시오며 ..."></textarea>
-      <p class="push-hint">줄바꿈이 곧 절 경계입니다. 빈 줄은 자동으로 건너뜁니다.</p>
+      <label class="push-lb">본문 — <b>한 줄 = 한 번에 외울 분량(마디)</b> *</label>
+      <textarea id="pg-lines" class="push-in" rows="8" placeholder="하늘에 계신 우리 아버지여 이름이 거룩히 여김을 받으시오며&#10;나라가 임하시오며 뜻이 하늘에서 이루어진 것 같이 땅에서도 이루어지이다&#10;오늘 우리에게 일용할 양식을 주시옵고 ..."></textarea>
+      <p class="push-hint">한 줄에 <b>한 번에 암송할 분량</b>씩 입력하세요. 그 한 줄이 앱에서 마디 하나가 됩니다(짧으면 짧게, 길면 길게 관리자가 직접 조절). 줄바꿈이 곧 마디 경계이고, 빈 줄은 건너뜁니다.</p>
       <label class="chk" style="margin:10px 0;"><input type="checkbox" id="pg-active" checked> 활성(목록에 표시)</label>
       <button class="push-send" id="pg-save">💾 저장</button>
       <button class="dm-clear" id="pg-del" style="display:none;">🗑️ 이 본문 삭제</button>

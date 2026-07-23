@@ -1705,30 +1705,10 @@ function renderPassageList() {
   });
 }
 
-// 본문을 '적당한 크기'의 마디로 자른다. 관리자가 넣은 줄(절) 경계를 우선 존중하되,
-// 너무 짧은 줄은 합치고 너무 긴 줄은 나눠 대략 비슷한 분량으로 만든다. (결정적: 같은 입력→같은 마디)
-const PASSAGE_CHUNK_WORDS = 7; // 마디당 목표 어절 수(대략)
+// 암송 마디 = 관리자가 입력한 '한 줄'. 관리자가 한 번에 외울 분량을 줄 단위로 직접 정한다.
+// (빈 줄은 건너뛴다. 같은 입력→같은 마디로 결정적)
 function passageChunks(p) {
-  const lines = (p.lines || []).map((s) => String(s || "").trim()).filter(Boolean);
-  const chunks = [];
-  let cur = [];
-  for (const line of lines) {
-    const words = line.split(/\s+/);
-    for (let i = 0; i < words.length; i++) {
-      cur.push(words[i]);
-      const atLineEnd = i === words.length - 1;
-      // 목표치를 넘겼고 줄 끝이거나(자연 경계), 목표치를 크게 초과하면 마디를 끊는다
-      if (cur.length >= PASSAGE_CHUNK_WORDS && (atLineEnd || cur.length >= PASSAGE_CHUNK_WORDS + 3)) {
-        chunks.push(cur.join(" ")); cur = [];
-      }
-    }
-  }
-  if (cur.length) {
-    // 끝에 아주 짧게 남으면 앞 마디에 붙인다(외톨이 1~2어절 방지)
-    if (cur.length < PASSAGE_CHUNK_WORDS / 2 && chunks.length) chunks[chunks.length - 1] += " " + cur.join(" ");
-    else chunks.push(cur.join(" "));
-  }
-  return chunks.length ? chunks : [lines.join(" ")];
+  return (p.lines || []).map((s) => String(s || "").trim()).filter(Boolean);
 }
 
 // 📜 본문 시작 — 첫 미완성 마디부터 자동 진행(카드 탭 한 번이면 끝까지 이어짐)
