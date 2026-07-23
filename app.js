@@ -951,6 +951,29 @@ function renderEntryScreen() {
 // ------------------------------------------------------------
 // 화면 1: 본인 기록 요약 (로그인 직후)
 // ------------------------------------------------------------
+// ── 신기능 홍보(상단 카드 + NEW 배지) — 기기(localStorage)에만 저장 ──
+const PROMO_KEY = "promo-newfeat"; // { dismissed, firstSeen }
+function promoState() { try { return JSON.parse(localStorage.getItem(PROMO_KEY)) || {}; } catch { return {}; } }
+function featSeen(k) { try { return localStorage.getItem("feat-seen-" + k) === "1"; } catch { return false; } }
+function markFeatSeen(k) { try { localStorage.setItem("feat-seen-" + k, "1"); } catch {} }
+function newBadge(k) { return featSeen(k) ? "" : `<span class="new-badge">NEW</span>`; }
+function scRemoveBadge(btnId) { const b = document.getElementById(btnId); const badge = b && b.querySelector(".new-badge"); if (badge) badge.remove(); }
+function promoCardHtml() {
+  const st = promoState();
+  if (st.dismissed) return "";
+  const now = Date.now();
+  if (!st.firstSeen) { try { localStorage.setItem(PROMO_KEY, JSON.stringify({ firstSeen: now })); } catch {} }
+  else if (now - st.firstSeen > 14 * 864e5) return ""; // 2주 지나면 자동으로 안 뜸
+  return `<div class="promo-card" id="promo-card">
+      <button class="promo-x" id="promo-x" aria-label="닫기">✕</button>
+      <div class="promo-title">✨ 새로워진 기능을 만나보세요</div>
+      <div class="promo-btns">
+        <button class="promo-btn med" id="promo-med">🌿 매일 묵상</button>
+        <button class="promo-btn sermon" id="promo-sermon">💬 설교말씀 도우미</button>
+      </div>
+    </div>`;
+}
+
 function renderSummary() {
   stopSpeaking(); // 화면 전환 시 읽어주기 정지
   const u = loadUser();
@@ -1013,14 +1036,15 @@ function renderSummary() {
       <div class="stat-box status-none"><div class="stat-num">${counts[0]}</div><div class="stat-lbl">미시도</div></div>
     </div>
     <div id="push-nudge"></div>
+    ${promoCardHtml()}
     <div class="summary-actions">
       <button class="summary-go act-btn" id="go-list"><span class="act-ic">📖</span><span class="act-tx">암송<br>하기</span></button>
       ${dueCount > 0 ? `<button class="summary-go review-cta act-btn" id="go-review"><span class="act-ic">📖</span><span class="act-tx">복습</span><span class="act-sub">${dueCount}구절</span></button>` : ""}
       <button class="summary-go challenge-cta act-btn" id="go-challenge"><span class="act-ic">🔥</span><span class="act-tx">말씀<br>도전</span></button>
     </div>
     ${weeklyHtml}
-    <button class="summary-help med-cta" id="open-meditation">🌿 매일 묵상</button>
-    <button class="summary-help sermon-cta" id="open-sermon-chat">💬 설교말씀 도우미</button>
+    <button class="summary-help med-cta" id="open-meditation">🌿 매일 묵상 ${newBadge("meditation")}</button>
+    <button class="summary-help sermon-cta" id="open-sermon-chat">💬 설교말씀 도우미 ${newBadge("sermon")}</button>
     ${passagesVisible() ? `<button class="summary-help passages-cta" id="open-passages">📜 핵심 암송 (긴 말씀)</button>` : ""}
     <button class="summary-help album-cta" id="open-album">📖 나의 말씀 앨범</button>
     <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
@@ -1045,8 +1069,19 @@ function renderSummary() {
   fillWeeklySummaryBtn(weeklyVerse); // 요약이 있으면 '설교보기' 옆에 요약보기 버튼 추가
   if (dueCount > 0) document.getElementById("go-review").addEventListener("click", startReview);
   document.getElementById("go-challenge").addEventListener("click", startChallenge);
-  document.getElementById("open-meditation").addEventListener("click", () => maybeShowWeeklyMeditation(true, true));
-  document.getElementById("open-sermon-chat").addEventListener("click", renderSermonChat);
+  document.getElementById("open-meditation").addEventListener("click", () => { markFeatSeen("meditation"); scRemoveBadge("open-meditation"); maybeShowWeeklyMeditation(true, true); });
+  document.getElementById("open-sermon-chat").addEventListener("click", () => { markFeatSeen("sermon"); renderSermonChat(); });
+  {
+    const pc = document.getElementById("promo-card");
+    if (pc) {
+      document.getElementById("promo-x").addEventListener("click", () => {
+        try { localStorage.setItem(PROMO_KEY, JSON.stringify({ ...promoState(), dismissed: true })); } catch {}
+        pc.remove();
+      });
+      document.getElementById("promo-med").addEventListener("click", () => { markFeatSeen("meditation"); scRemoveBadge("open-meditation"); maybeShowWeeklyMeditation(true, true); });
+      document.getElementById("promo-sermon").addEventListener("click", () => { markFeatSeen("sermon"); renderSermonChat(); });
+    }
+  }
   document.getElementById("open-album").addEventListener("click", () => renderAlbum());
   { const b = document.getElementById("open-passages"); if (b) b.addEventListener("click", renderPassageList); }
   document.getElementById("open-ranking").addEventListener("click", () => renderRanking());
