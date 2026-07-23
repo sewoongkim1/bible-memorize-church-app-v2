@@ -1861,7 +1861,6 @@ function renderPassageList() {
     <div class="list-nav">
       <button class="remind-cta nav-record" id="pg-back">${backLabel}</button>
     </div>
-    <div class="pg-list-title">📜 핵심 암송 <span class="pg-list-sub">긴 말씀을 마디로 나눠 자동으로 이어서 외워요</span></div>
     <div id="pg-list" class="pg-list"><div class="pg-empty">불러오는 중…</div></div>
   `;
   document.getElementById("pg-back").addEventListener("click", renderSummary);
