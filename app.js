@@ -984,6 +984,7 @@ function promoCardHtml() {
       <div class="promo-title">✨ 새로워진 기능을 만나보세요</div>
       <div class="promo-btns">
         <button class="promo-btn sermon" id="promo-sermon">💬 내게 주시는 말씀</button>
+        ${passagesVisible() ? `<button class="promo-btn passages" id="promo-passages">📜 내 안에 거하는 말씀</button>` : ""}
       </div>
     </div>`;
 }
@@ -1061,7 +1062,7 @@ function renderSummary() {
       <button class="summary-go sermon-act act-btn" id="open-sermon-chat"><span class="act-ic">💬</span><span class="act-tx">내게 주시는<br>말씀</span>${newBadge("sermon")}</button>
       <button class="summary-go med-act act-btn" id="open-meditation"><span class="act-ic">🌿</span><span class="act-tx">매일<br>묵상</span>${newBadge("meditation")}</button>
     </div>
-    ${passagesVisible() ? `<button class="summary-help passages-cta" id="open-passages">📜 내 안에 거하는 말씀</button>` : ""}
+    ${passagesVisible() ? `<button class="summary-help passages-cta" id="open-passages">📜 내 안에 거하는 말씀${newBadge("passages")}</button>` : ""}
     <button class="summary-help album-cta" id="open-album">📖 나의 말씀 앨범</button>
     <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
 <button class="summary-help praise-cta" id="open-praise">🎵 고척교회 찬양 아카이브</button>
@@ -1095,10 +1096,12 @@ function renderSummary() {
         pc.remove();
       });
       document.getElementById("promo-sermon").addEventListener("click", () => { markFeatSeen("sermon"); renderSermonChat(); });
+      const pp = document.getElementById("promo-passages");
+      if (pp) pp.addEventListener("click", () => { markFeatSeen("passages"); renderPassageList(); });
     }
   }
   document.getElementById("open-album").addEventListener("click", () => renderAlbum());
-  { const b = document.getElementById("open-passages"); if (b) b.addEventListener("click", renderPassageList); }
+  { const b = document.getElementById("open-passages"); if (b) b.addEventListener("click", () => { markFeatSeen("passages"); renderPassageList(); }); }
   document.getElementById("open-ranking").addEventListener("click", () => renderRanking());
   document.getElementById("open-praise").addEventListener("click", () => window.open("https://worship.onlybible.kr/", "_blank", "noopener"));
   document.getElementById("open-help-summary").addEventListener("click", () => renderHelp(renderSummary));

@@ -1613,6 +1613,7 @@ html[data-fs="xl"] .sermon-sum-card .ss-top > .back-btn { font-size: 17px; paddi
 }
 .promo-btn.med { background: #1f7a4d; color: #fff; }
 .promo-btn.sermon { background: #0f6d73; color: #fff; }
+.promo-btn.passages { background: #8a6d1f; color: #fff; }
 .promo-btn:hover { filter: brightness(1.08); }
 .dark .promo-card { background: linear-gradient(135deg, #2a2416, #1a2233); border-color: #4a4230; }
 .new-badge {
