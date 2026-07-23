@@ -769,6 +769,9 @@ html[data-fs="xl"] .sermon-sum-card .ss-top > .back-btn { font-size: 17px; paddi
   color: var(--ss-ink-soft); font-size: .95rem; line-height: 1.75;
   word-break: keep-all;
 }
+/* **강조** — 본문보다 진한 잉크로(라이트/다크는 --ss-* 토큰이 처리) */
+.sermon-sum-card .ss-summary strong,
+.sermon-sum-card .ss-point-body strong { font-weight: 800; color: var(--ss-ink); }
 
 /* 다크는 .dark .sermon-sum-card 의 --ss-* 토큰이 처리한다.
    여기서 개별 색을 다시 지정하면 토큰을 덮어써 라이트/다크가 어긋난다. */

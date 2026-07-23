@@ -2324,7 +2324,7 @@ function renderSermonSummary(verse, sermon, onBack, backLabel) {
                   <span class="ss-point-no">${i + 1}</span>
                   <h3 class="ss-point-head">${boardEsc(p.heading || "")}</h3>
                 </div>
-                <p class="ss-point-body">${boardEsc(p.body || "")}</p>
+                <p class="ss-point-body">${scEmphasis(p.body || "")}</p>
               </li>`).join("")}
           </ol>
         </section>` : "";
@@ -2361,26 +2361,26 @@ function renderSermonSummary(verse, sermon, onBack, backLabel) {
         </section>` : ""}
         <section class="ss-section">
           <div class="ss-label">설교 요약</div>
-          <blockquote class="ss-summary">${boardEsc(sermon.summary)}</blockquote>
+          <blockquote class="ss-summary">${scEmphasis(sermon.summary)}</blockquote>
         </section>
         ${pointsHtml}
         ${sermon.conclusion ? `
         <section class="ss-section">
           <div class="ss-label">맺음말</div>
-          <blockquote class="ss-summary ss-conclusion">${boardEsc(sermon.conclusion)}</blockquote>
+          <blockquote class="ss-summary ss-conclusion">${scEmphasis(sermon.conclusion)}</blockquote>
         </section>` : ""}
       </div>
     </div>`;
   document.getElementById("ss-back").addEventListener("click", onBack);
 
-  // 화면에 보이는 그대로(제목 → 요약 → 핵심 포인트) 읽어준다.
+  // 화면에 보이는 그대로(제목 → 요약 → 핵심 포인트) 읽어준다. **강조 별표**는 음성에서 제거.
   const readText = [
     sermon.title || "",
     sermon.summary || "",
     points.length ? "핵심 포인트." : "",
     ...points.map((p, i) => `${i + 1}. ${p.heading || ""}. ${p.body || ""}`),
     sermon.conclusion ? `맺음말. ${sermon.conclusion}` : "",
-  ].filter(Boolean).join("\n");
+  ].filter(Boolean).join("\n").replace(/\*\*/g, "");
 
   const readBtn = document.getElementById("ss-read");
   const audioUrl = sermon.audio ? (SERMON_AUDIO_BASE + sermon.audio + "?v3") : null;
