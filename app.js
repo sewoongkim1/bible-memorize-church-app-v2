@@ -1890,18 +1890,29 @@ function startPassage(p) {
   else renderPassageChunk(p, nextIdx);
 }
 
-// 📜 마디 하나 암송 — 100% 빈칸, 보기/듣기/음성 도움. 완료하면 자동으로 다음 마디로.
-function renderPassageChunk(p, idx) {
+// 📜 마디 하나 암송 — 일반 구절처럼 단계별 빈칸(1단계 25% → 2단계 65% → 3단계 100%).
+// 타이핑은 단계별로 올라가고, 음성으로 통과하면 마디 전체를 외운 것이라 바로 다음 마디로.
+function renderPassageChunk(p, idx, stage) {
   stopSpeaking();
+  stage = stage || 1;
   const appEl = document.getElementById("app");
   const chunks = passageChunks(p);
   const total = chunks.length;
   const text = chunks[idx] || "";
   const tokens = text.trim().split(/\s+/);
-  const wordsHtml = tokens.map((word, i) =>
-    `<input class="word-input" data-answer="${word}" data-blank="${i}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="width:${Array.from(word).length + 1}em" />`
+  const blankRatio = stage === 1 ? 0.25 : stage === 2 ? 0.65 : 1.0;
+  const blankFlags = pickBlankIndices(tokens, blankRatio);
+  const blanks = [];
+  const wordsHtml = tokens.map((word, i) => {
+    if (blankFlags[i]) {
+      const bi = blanks.length; blanks.push(word);
+      return `<input class="word-input" data-blank="${bi}" data-answer="${word}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="width:${Array.from(word).length + 1}em" />`;
+    }
+    return `<span class="word-fixed">${word}</span>`;
+  }).join(" ");
+  const answerHtml = tokens.map((word, i) =>
+    blankFlags[i] ? `<strong class="ans-word">${word}</strong>` : word
   ).join(" ");
-  const answerHtml = tokens.map((w) => `<strong class="ans-word">${w}</strong>`).join(" ");
   // setupChallengeTyping/setupVoice가 기대하는 verse 유사 객체(영어 아님 → isEnMode=false)
   const chunkVerse = { no: p.id * 1000 + idx, text, refShort: p.title };
   appEl.innerHTML = `
@@ -1914,7 +1925,7 @@ function renderPassageChunk(p, idx) {
         </div>
         <div class="test-top">
           <div class="test-head">
-            <div class="test-stage">${idx + 1} / ${total}</div>
+            <div class="test-stage">${idx + 1}/${total}마디 · ${stage}단계</div>
             <div class="test-ref">${p.title}</div>
           </div>
           <button class="back-btn" id="pg-line-back">← 목록</button>
@@ -1943,15 +1954,24 @@ function renderPassageChunk(p, idx) {
     speakText(text, () => { listenBtn.textContent = "🔊 듣기"; }, 1, "ko-KR");
   });
   let advanced = false;
-  const onDone = () => {
-    if (advanced) return; advanced = true; // 타이핑·음성 양쪽에서 중복 진행 방지
+  const goNextChunk = () => {
     markLineDone(p.id, idx);
     stopSpeaking();
     const nextIdx = chunks.findIndex((_, i) => !passageDone(p.id).includes(i));
     setTimeout(() => {
-      if (nextIdx === -1) renderPassageFinal(p);  // 마지막 마디 → 전체 이어서로 자동 연결
-      else renderPassageChunk(p, nextIdx);          // 다음 마디로 자동
+      if (nextIdx === -1) renderPassageFinal(p);  // 모든 마디 완료 → 전체 이어서로 자동 연결
+      else renderPassageChunk(p, nextIdx, 1);       // 다음 마디는 1단계부터
     }, 450); // 맞힌 마디 잠깐 보여주고 넘어감
+  };
+  const onDone = (mode) => {
+    if (advanced) return; advanced = true; // 타이핑·음성 양쪽에서 중복 진행 방지
+    // 타이핑은 단계별로(25→65→100%), 음성은 마디 통째 통과 → 바로 다음 마디.
+    if (mode === "typing" && stage < 3) {
+      stopSpeaking();
+      setTimeout(() => renderPassageChunk(p, idx, stage + 1), 450);
+      return;
+    }
+    goNextChunk();
   };
   setupChallengeTyping(chunkVerse, onDone);
   setupVoice(chunkVerse, 3, onDone);
