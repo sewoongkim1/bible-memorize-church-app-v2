@@ -1676,7 +1676,7 @@ function renderPassageList() {
     <div class="list-nav">
       <button class="remind-cta nav-record" id="pg-back">← 뒤로</button>
     </div>
-    <div class="pg-list-title">📜 핵심 암송 <span class="pg-list-sub">긴 말씀을 절마다 익히고 이어서 외워요</span></div>
+    <div class="pg-list-title">📜 핵심 암송 <span class="pg-list-sub">긴 말씀을 마디로 나눠 자동으로 이어서 외워요</span></div>
     <div id="pg-list" class="pg-list"><div class="pg-empty">불러오는 중…</div></div>
   `;
   document.getElementById("pg-back").addEventListener("click", renderSummary);
@@ -1685,12 +1685,12 @@ function renderPassageList() {
     if (!passages.length) { listEl.innerHTML = `<div class="pg-empty">아직 등록된 본문이 없어요.</div>`; return; }
     listEl.innerHTML = "";
     passages.forEach((p) => {
-      const total = (p.lines || []).length;
+      const total = passageChunks(p).length;
       const done = passageDone(p.id).length;
       const complete = passageCompleted(p.id);
       const status = complete ? `<span class="pg-badge done">👑 외운 말씀</span>`
-        : done > 0 ? `<span class="pg-badge prog">${done}/${total}절</span>`
-        : `<span class="pg-badge">${total}절</span>`;
+        : done > 0 ? `<span class="pg-badge prog">${done}/${total}</span>`
+        : `<span class="pg-badge">${total}마디</span>`;
       const card = document.createElement("div");
       card.className = `pg-card${complete ? " complete" : ""}`;
       card.innerHTML = `
@@ -1699,68 +1699,61 @@ function renderPassageList() {
           ${p.ref ? `<div class="pg-card-ref">${p.ref}</div>` : ""}
         </div>
         ${status}`;
-      card.addEventListener("click", () => renderPassageSteps(p));
+      card.addEventListener("click", () => startPassage(p));
       listEl.appendChild(card);
     });
   });
 }
 
-// 📜 한 본문의 절 목록(진행 허브) — 위에서부터 순차 잠금 해제
-function renderPassageSteps(p) {
-  stopSpeaking();
-  const appEl = document.getElementById("app");
-  const lines = p.lines || [];
-  const done = passageDone(p.id);
-  const nextIdx = lines.findIndex((_, i) => !done.includes(i)); // 아직 안 끝낸 첫 절
-  const allDone = nextIdx === -1;
-  const rows = lines.map((line, i) => {
-    const isDone = done.includes(i);
-    const isNext = i === nextIdx;
-    const state = isDone ? "done" : isNext ? "next" : "lock";
-    const icon = isDone ? "✓" : isNext ? "▶" : "🔒";
-    return `<button class="pg-step ${state}" data-i="${i}" ${state === "lock" ? "disabled" : ""}>
-        <span class="pg-step-ic">${icon}</span>
-        <span class="pg-step-tx">${isDone || isNext ? line : "···"}</span>
-      </button>`;
-  }).join("");
-  appEl.innerHTML = `
-    <div class="test-screen">
-      <div class="test-card">
-        <div class="test-top">
-          <div class="test-head">
-            <div class="test-stage">${done.length}/${lines.length}절</div>
-            <div class="test-ref">${p.title}</div>
-          </div>
-          <button class="back-btn" id="pg-steps-back">← 목록</button>
-        </div>
-        <div class="pg-steps">${rows}</div>
-        ${allDone
-          ? `<button class="next-btn" id="pg-final">🔥 전체 이어서 암송${passageCompleted(p.id) ? " (다시)" : ""}</button>`
-          : `<div class="pg-steps-hint">한 절씩 순서대로 익혀요. ▶ 표시된 절을 눌러 시작하세요.</div>`}
-        ${passageCompleted(p.id) ? `<div class="pg-complete-badge">👑 이 말씀을 외웠어요</div>` : ""}
-      </div>
-    </div>`;
-  document.getElementById("pg-steps-back").addEventListener("click", renderPassageList);
-  appEl.querySelectorAll(".pg-step:not([disabled])").forEach((btn) => {
-    if (btn.classList.contains("lock")) return;
-    btn.addEventListener("click", () => renderPassageLine(p, Number(btn.dataset.i)));
-  });
-  const fin = document.getElementById("pg-final");
-  if (fin) fin.addEventListener("click", () => renderPassageFinal(p));
+// 본문을 '적당한 크기'의 마디로 자른다. 관리자가 넣은 줄(절) 경계를 우선 존중하되,
+// 너무 짧은 줄은 합치고 너무 긴 줄은 나눠 대략 비슷한 분량으로 만든다. (결정적: 같은 입력→같은 마디)
+const PASSAGE_CHUNK_WORDS = 7; // 마디당 목표 어절 수(대략)
+function passageChunks(p) {
+  const lines = (p.lines || []).map((s) => String(s || "").trim()).filter(Boolean);
+  const chunks = [];
+  let cur = [];
+  for (const line of lines) {
+    const words = line.split(/\s+/);
+    for (let i = 0; i < words.length; i++) {
+      cur.push(words[i]);
+      const atLineEnd = i === words.length - 1;
+      // 목표치를 넘겼고 줄 끝이거나(자연 경계), 목표치를 크게 초과하면 마디를 끊는다
+      if (cur.length >= PASSAGE_CHUNK_WORDS && (atLineEnd || cur.length >= PASSAGE_CHUNK_WORDS + 3)) {
+        chunks.push(cur.join(" ")); cur = [];
+      }
+    }
+  }
+  if (cur.length) {
+    // 끝에 아주 짧게 남으면 앞 마디에 붙인다(외톨이 1~2어절 방지)
+    if (cur.length < PASSAGE_CHUNK_WORDS / 2 && chunks.length) chunks[chunks.length - 1] += " " + cur.join(" ");
+    else chunks.push(cur.join(" "));
+  }
+  return chunks.length ? chunks : [lines.join(" ")];
 }
 
-// 📜 절 하나 암송 — 100% 빈칸, 보기/듣기/음성 도움. 완료 시 다음 절 잠금 해제.
-function renderPassageLine(p, idx) {
+// 📜 본문 시작 — 첫 미완성 마디부터 자동 진행(카드 탭 한 번이면 끝까지 이어짐)
+function startPassage(p) {
+  const chunks = passageChunks(p);
+  const done = passageDone(p.id);
+  const nextIdx = chunks.findIndex((_, i) => !done.includes(i));
+  if (nextIdx === -1) renderPassageFinal(p);  // 모든 마디 완료 → 전체 이어서(복습)
+  else renderPassageChunk(p, nextIdx);
+}
+
+// 📜 마디 하나 암송 — 100% 빈칸, 보기/듣기/음성 도움. 완료하면 자동으로 다음 마디로.
+function renderPassageChunk(p, idx) {
   stopSpeaking();
   const appEl = document.getElementById("app");
-  const line = (p.lines || [])[idx] || "";
-  const tokens = line.trim().split(/\s+/);
+  const chunks = passageChunks(p);
+  const total = chunks.length;
+  const text = chunks[idx] || "";
+  const tokens = text.trim().split(/\s+/);
   const wordsHtml = tokens.map((word, i) =>
     `<input class="word-input" data-answer="${word}" data-blank="${i}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="width:${Array.from(word).length + 1}em" />`
   ).join(" ");
   const answerHtml = tokens.map((w) => `<strong class="ans-word">${w}</strong>`).join(" ");
   // setupChallengeTyping/setupVoice가 기대하는 verse 유사 객체(영어 아님 → isEnMode=false)
-  const lineVerse = { no: p.id * 1000 + idx, text: line, refShort: p.title };
+  const chunkVerse = { no: p.id * 1000 + idx, text, refShort: p.title };
   appEl.innerHTML = `
     <div class="test-screen">
       <div class="test-card">
@@ -1771,10 +1764,10 @@ function renderPassageLine(p, idx) {
         </div>
         <div class="test-top">
           <div class="test-head">
-            <div class="test-stage">${idx + 1}절 / ${(p.lines || []).length}</div>
+            <div class="test-stage">${idx + 1} / ${total}</div>
             <div class="test-ref">${p.title}</div>
           </div>
-          <button class="back-btn" id="pg-line-back">← 절 목록</button>
+          <button class="back-btn" id="pg-line-back">← 목록</button>
         </div>
         <div class="test-sentence">${wordsHtml}</div>
         <div class="challenge-remain" id="ch-remain"></div>
@@ -1791,21 +1784,27 @@ function renderPassageLine(p, idx) {
         <div id="voice-result" class="voice-result"></div>
       </div>
     </div>`;
-  document.getElementById("pg-line-back").addEventListener("click", () => { stopSpeaking(); renderPassageSteps(p); });
+  document.getElementById("pg-line-back").addEventListener("click", () => { stopSpeaking(); renderPassageList(); });
   setupAnswerToggle();
   const listenBtn = document.getElementById("listen-answer-btn");
   listenBtn.addEventListener("click", () => {
     if (window.speechSynthesis && window.speechSynthesis.speaking) { stopSpeaking(); listenBtn.textContent = "🔊 듣기"; return; }
     listenBtn.textContent = "⏹ 정지";
-    speakText(line, () => { listenBtn.textContent = "🔊 듣기"; }, 1, "ko-KR");
+    speakText(text, () => { listenBtn.textContent = "🔊 듣기"; }, 1, "ko-KR");
   });
+  let advanced = false;
   const onDone = () => {
+    if (advanced) return; advanced = true; // 타이핑·음성 양쪽에서 중복 진행 방지
     markLineDone(p.id, idx);
     stopSpeaking();
-    setTimeout(() => renderPassageSteps(p), 350); // 정답 표시 잠깐 보이고 절 목록으로
+    const nextIdx = chunks.findIndex((_, i) => !passageDone(p.id).includes(i));
+    setTimeout(() => {
+      if (nextIdx === -1) renderPassageFinal(p);  // 마지막 마디 → 전체 이어서로 자동 연결
+      else renderPassageChunk(p, nextIdx);          // 다음 마디로 자동
+    }, 450); // 맞힌 마디 잠깐 보여주고 넘어감
   };
-  setupChallengeTyping(lineVerse, onDone);
-  setupVoice(lineVerse, 3, onDone);
+  setupChallengeTyping(chunkVerse, onDone);
+  setupVoice(chunkVerse, 3, onDone);
 }
 
 // 📜 전체 이어서 암송 — 모든 절을 이어붙여 100% 빈칸. 통과 시 완료 배지.
@@ -1835,7 +1834,7 @@ function renderPassageFinal(p) {
             <div class="test-stage challenge-badge">🔥 전체</div>
             <div class="test-ref">${p.title}</div>
           </div>
-          <button class="back-btn" id="pg-final-back">← 절 목록</button>
+          <button class="back-btn" id="pg-final-back">← 목록</button>
         </div>
         <div class="pg-final-hint">처음부터 끝까지 이어서 외워보세요!</div>
         <div class="test-sentence pg-final-sentence">${linesHtml}</div>
@@ -1848,7 +1847,7 @@ function renderPassageFinal(p) {
         <div id="voice-result" class="voice-result"></div>
       </div>
     </div>`;
-  document.getElementById("pg-final-back").addEventListener("click", () => { stopSpeaking(); renderPassageSteps(p); });
+  document.getElementById("pg-final-back").addEventListener("click", () => { stopSpeaking(); renderPassageList(); });
   const listenBtn = document.getElementById("listen-answer-btn");
   listenBtn.addEventListener("click", () => {
     if (window.speechSynthesis && window.speechSynthesis.speaking) { stopSpeaking(); listenBtn.textContent = "🔊 듣기"; return; }
@@ -1875,7 +1874,7 @@ function renderPassageDone(p) {
       </div>
     </div>`;
   document.getElementById("pg-done-list").addEventListener("click", renderPassageList);
-  document.getElementById("pg-done-again").addEventListener("click", () => renderPassageSteps(p));
+  document.getElementById("pg-done-again").addEventListener("click", () => renderPassageFinal(p));
 }
 
 // ------------------------------------------------------------
