@@ -3351,8 +3351,8 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs) {
       const it = items[i];
       wrap.querySelector("#med-title").textContent = it.heading || "오늘의 묵상";
       wrap.querySelector("#med-body").innerHTML =
-        `<div class="med-msg">${it.message}</div>` +
-        (it.question ? `<div class="med-q"><b>💬 오늘의 적용 질문</b><br>${it.question}</div>` : "");
+        `<div class="med-msg">${scEmphasis(it.message)}</div>` +
+        (it.question ? `<div class="med-q"><b>💬 오늘의 적용 질문</b><br>${scEmphasis(it.question)}</div>` : "");
       wrap.querySelectorAll(".med-tab").forEach((b) => b.classList.toggle("on", Number(b.dataset.i) === i));
       toTop();
     };
