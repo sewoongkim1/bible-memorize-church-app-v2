@@ -2302,4 +2302,47 @@ html[data-fs="xl"] .test-card .btn-row { row-gap: 10px; margin-bottom: 18px; pad
   font-size: 10px; line-height: 1.5;
   color: var(--gray);
 }
+
+/* =====================================================================
+   📜 핵심 암송(긴 본문)
+   ===================================================================== */
+.summary-help.passages-cta { border-color: var(--gold); }
+.pg-list-title { font-weight: 800; color: var(--navy); font-size: 1.05rem; margin: 8px 4px 12px; }
+.pg-list-sub { display: block; font-size: .8rem; font-weight: 500; color: var(--gray); margin-top: 2px; }
+.pg-list { display: flex; flex-direction: column; gap: 10px; }
+.pg-empty { color: var(--gray); text-align: center; padding: 30px 0; }
+.pg-card {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px; background: var(--white); border: 1px solid var(--border);
+  border-radius: 14px; cursor: pointer;
+}
+.pg-card.complete { border-color: var(--gold); background: #fdf9ee; }
+.pg-card-main { flex: 1; min-width: 0; }
+.pg-card-title { font-weight: 700; color: var(--navy); }
+.pg-card-ref { font-size: .8rem; color: var(--gray); margin-top: 2px; }
+.pg-badge { flex-shrink: 0; font-size: 12px; font-weight: 700; color: var(--gray); background: var(--light); border-radius: 999px; padding: 4px 11px; }
+.pg-badge.prog { color: var(--navy); background: #eef1f8; }
+.pg-badge.done { color: #8a6d1f; background: #faf1d3; }
+.pg-steps { display: flex; flex-direction: column; gap: 8px; margin: 14px 0; }
+.pg-step {
+  display: flex; align-items: center; gap: 10px; text-align: left;
+  padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border);
+  background: var(--white); font-family: inherit; font-size: .95rem; color: #333; cursor: pointer;
+}
+.pg-step.done { border-color: #cfe6d5; background: #f2f9f4; color: #2c5f2d; }
+.pg-step.next { border-color: var(--navy); background: #eef1f8; color: var(--navy); font-weight: 700; }
+.pg-step.lock { color: #b8b2a2; cursor: default; }
+.pg-step-ic { flex-shrink: 0; width: 20px; text-align: center; }
+.pg-step-tx { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pg-steps-hint, .pg-final-hint { color: var(--gray); font-size: .85rem; text-align: center; margin: 8px 0; }
+.pg-complete-badge { margin-top: 12px; text-align: center; font-weight: 700; color: #8a6d1f; }
+.pg-final-sentence { display: flex; flex-direction: column; gap: 10px; }
+.pg-final-line { line-height: 2.1; }
+.dark .pg-card { background: #1b2233; border-color: #33405c; }
+.dark .pg-card.complete { background: #2a2413; border-color: #6b5a2a; }
+.dark .pg-card-title, .dark .pg-list-title { color: #cdd9f2; }
+.dark .pg-step { background: #1b2233; border-color: #33405c; color: #cdd9f2; }
+.dark .pg-step.done { background: #17311f; border-color: #2f5a42; color: #8fd6ab; }
+.dark .pg-step.next { background: #232c3f; border-color: #4a5e86; color: #cdd9f2; }
+.dark .pg-badge { background: #232c3f; color: #9fb0cc; }
 .dark .niv-attribution { border-top-color: rgba(255,255,255,0.15); }
