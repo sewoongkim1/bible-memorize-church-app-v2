@@ -440,6 +440,14 @@ function renderMenu(){
         </div>
         <div class="rep-arrow">›</div>
       </div>
+      <div class="rep-card" id="rep-passages">
+        <div class="ic">📜</div>
+        <div class="rep-text">
+          <div class="ti">핵심 암송 관리</div>
+          <div class="de">주기도문·사도신경 등 긴 본문 등록·수정 · 공개 전환</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
       <div class="rep-card" id="rep-monitor">
         <div class="ic">🩺</div>
         <div class="rep-text">
@@ -505,6 +513,7 @@ function renderMenu(){
   document.getElementById("rep-medlib").addEventListener("click", renderMedLibrary);
   document.getElementById("rep-pushlog").addEventListener("click", renderPushLog);
   document.getElementById("rep-content").addEventListener("click", renderContent);
+  document.getElementById("rep-passages").addEventListener("click", renderPassages);
   document.getElementById("rep-monitor").addEventListener("click", renderMonitor);
   document.getElementById("rep-report").addEventListener("click", renderReportMail);
   document.getElementById("rep-board").addEventListener("click", renderBoardAdmin);
@@ -1455,6 +1464,97 @@ async function loadContentList(selNo){
     if(!data.ok){ if(data.error==="unauthorized"){sessionStorage.removeItem(PW_KEY);renderLogin();return;} r.className="msg err"; r.textContent="저장 실패: "+(data.error||"오류"); return; }
     r.className="msg"; r.textContent="✅ 저장되었습니다.";
     loadContentList(verse.no);
+  });
+}
+
+// ---------- 핵심 암송(긴 본문) 관리 ----------
+async function renderPassages(){
+  app.innerHTML=`
+    <div class="rep-head">
+      <button class="back-btn" id="back">← 메뉴</button>
+      <h2>📜 핵심 암송 관리</h2>
+    </div>
+    <div id="pg-body"><div class="msg">불러오는 중...</div></div>`;
+  document.getElementById("back").addEventListener("click", renderMenu);
+  loadPassageList();
+}
+async function loadPassageList(selId){
+  const body=document.getElementById("pg-body");
+  const data=await callApi({action:"getPassages"}).catch(()=>({ok:false,error:"network"}));
+  const list=(data&&data.passages)||[];
+  const opts=`<option value="">+ 새 본문 추가</option>`+list.map(p=>`<option value="${p.id}">${p.id}. ${htmlEsc(p.title||"")}</option>`).join("");
+  // 공개 플래그 현재값
+  const cfg=await callApi({action:"getConfig",key:"passagesPublic"}).catch(()=>({value:null}));
+  const isPublic=!!(cfg&&cfg.value);
+  body.innerHTML=`
+    <div class="push-card">
+      <label class="push-lb">사용자 공개</label>
+      <label class="chk" style="margin:6px 0;"><input type="checkbox" id="pg-public" ${isPublic?"checked":""}> 홈 화면에 '📜 핵심 암송' 노출(끄면 어드민만 <code>?passages=1</code>로 미리보기)</label>
+      <div id="pg-public-msg" class="msg"></div>
+      <hr style="border:none;border-top:1px solid var(--border);margin:14px 0;">
+      <label class="push-lb">편집할 본문 선택</label>
+      <select id="pg-sel" class="push-in">${opts}</select>
+      <hr style="border:none;border-top:1px solid var(--border);margin:14px 0;">
+      <label class="push-lb">제목 *</label><input id="pg-title" class="push-in" placeholder="예: 주기도문">
+      <label class="push-lb">출처(선택)</label><input id="pg-ref" class="push-in" placeholder="예: 마 6:9-13">
+      <label class="push-lb">분류(선택)</label><input id="pg-cat" class="push-in" placeholder="예: 기도문 / 신앙고백 / 시편 / 주제">
+      <label class="push-lb">정렬 순서(숫자, 작을수록 위)</label><input id="pg-order" class="push-in" inputmode="numeric" placeholder="0">
+      <label class="push-lb">본문 — <b>한 줄에 한 절</b> *</label>
+      <textarea id="pg-lines" class="push-in" rows="8" placeholder="하늘에 계신 우리 아버지여&#10;이름이 거룩히 여김을 받으시오며&#10;나라가 임하시오며 ..."></textarea>
+      <p class="push-hint">줄바꿈이 곧 절 경계입니다. 빈 줄은 자동으로 건너뜁니다.</p>
+      <label class="chk" style="margin:10px 0;"><input type="checkbox" id="pg-active" checked> 활성(목록에 표시)</label>
+      <button class="push-send" id="pg-save">💾 저장</button>
+      <button class="push-off" id="pg-del" style="margin-top:8px;display:none;">🗑️ 이 본문 삭제</button>
+      <div id="pg-result" class="msg"></div>
+    </div>`;
+  const sel=document.getElementById("pg-sel");
+  function fill(p){
+    document.getElementById("pg-title").value=p?(p.title||""):"";
+    document.getElementById("pg-ref").value=p?(p.ref||""):"";
+    document.getElementById("pg-cat").value=p?(p.category||""):"";
+    document.getElementById("pg-order").value="";
+    document.getElementById("pg-lines").value=p?((p.lines||[]).join("\n")):"";
+    document.getElementById("pg-active").checked=true;
+    document.getElementById("pg-del").style.display=p?"block":"none";
+  }
+  sel.addEventListener("change",()=>{ const p=list.find(x=>String(x.id)===sel.value); fill(p); });
+  if(selId!=null){ sel.value=String(selId); fill(list.find(x=>String(x.id)===String(selId))); }
+  // 공개 토글
+  document.getElementById("pg-public").addEventListener("change",async(e)=>{
+    const msg=document.getElementById("pg-public-msg"); msg.className="msg"; msg.textContent="저장 중...";
+    const r=await callApi({action:"saveConfig",pw:getPw(),key:"passagesPublic",value:e.target.checked}).catch(()=>({ok:false,error:"network"}));
+    if(!r.ok){ if(r.error==="unauthorized"){sessionStorage.removeItem(PW_KEY);renderLogin();return;} msg.className="msg err"; msg.textContent="실패: "+(r.error||"오류"); e.target.checked=!e.target.checked; return; }
+    msg.className="msg"; msg.textContent=e.target.checked?"✅ 사용자에게 공개됩니다.":"✅ 숨김(어드민 미리보기만).";
+  });
+  // 저장
+  document.getElementById("pg-save").addEventListener("click",async()=>{
+    const lines=document.getElementById("pg-lines").value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+    const passage={
+      id: sel.value || undefined,
+      title: document.getElementById("pg-title").value.trim(),
+      ref: document.getElementById("pg-ref").value.trim(),
+      category: document.getElementById("pg-cat").value.trim(),
+      sortOrder: document.getElementById("pg-order").value.trim(),
+      lines,
+      is_active: document.getElementById("pg-active").checked,
+    };
+    const r=document.getElementById("pg-result");
+    if(!passage.title||!lines.length){ r.className="msg err"; r.textContent="제목과 본문(최소 1줄)은 필수예요."; return; }
+    const btn=document.getElementById("pg-save"); btn.disabled=true; r.className="msg"; r.textContent="저장 중...";
+    const data=await callApi({action:"savePassage",pw:getPw(),passage}).catch(()=>({ok:false,error:"network"}));
+    btn.disabled=false;
+    if(!data.ok){ if(data.error==="unauthorized"){sessionStorage.removeItem(PW_KEY);renderLogin();return;} r.className="msg err"; r.textContent="저장 실패: "+(data.error||"오류"); return; }
+    r.className="msg"; r.textContent="✅ 저장되었습니다.";
+    loadPassageList(data.id!=null?data.id:sel.value);
+  });
+  // 삭제
+  document.getElementById("pg-del").addEventListener("click",async()=>{
+    if(!sel.value) return;
+    if(!confirm("이 본문을 삭제할까요? 되돌릴 수 없습니다.")) return;
+    const r=document.getElementById("pg-result"); r.className="msg"; r.textContent="삭제 중...";
+    const data=await callApi({action:"deletePassage",pw:getPw(),id:sel.value}).catch(()=>({ok:false,error:"network"}));
+    if(!data.ok){ if(data.error==="unauthorized"){sessionStorage.removeItem(PW_KEY);renderLogin();return;} r.className="msg err"; r.textContent="삭제 실패: "+(data.error||"오류"); return; }
+    loadPassageList();
   });
 }
 
