@@ -197,11 +197,18 @@ function markPassageCompleted(id) {
   const all = loadPassageProg(); const cur = all[id] || { done: [], completed: false };
   cur.completed = true; all[id] = cur; savePassageProg(all); syncPassageProgress(id, cur);
 }
-// '처음으로': 이 본문의 진행(마음에 둠·완주)만 초기화한다. 메인 암송 기록·통계는 건드리지 않는다(별도 트랙).
+// '처음으로': 이 본문의 진행(마음에 둠·완주)만 초기화한다. 이미 통계에 남긴 활동 기록은 지우지 않는다.
 function resetPassageProgress(id) {
   const all = loadPassageProg(); delete all[id]; savePassageProg(all);
   const u = loadUser();
   if (u && u.user_id && api && api.savePassageProgress) api.savePassageProgress(u.user_id, id, [], false).catch(() => {});
+}
+// 핵심 암송 활동을 통계에 반영 — challenge_log에 verse_no=null, 학습(learn-*) 모드로 기록해 일반 암송에 합산.
+// (오늘 N회·출석/스트릭·랭킹에 들어가고, 구절별 통계는 verse_no null이라 제외됨)
+function logPassageActivity(mode) {
+  const u = loadUser();
+  if (!u || !u.user_id || !api || !api.challenge) return;
+  api.challenge(u.user_id, null, mode === "voice" ? "learn-voice" : "learn-typing").catch(() => {});
 }
 
 function kstDateParts(raw) {
@@ -1969,6 +1976,7 @@ function renderPassageChunk(p, idx, stage, heartReady) {
     speakText(text, () => { listenBtn.textContent = "🔊 듣기"; }, 1, "ko-KR");
   });
   let moved = false;
+  let completionMode = heartReady ? "voice" : "typing"; // 마음에 둠을 통계에 기록할 때 쓸 완료 방식
   const enablePassageHeart = () => {
     const chk = document.getElementById("pg-heart-check");
     if (!chk) return;
@@ -1989,9 +1997,10 @@ function renderPassageChunk(p, idx, stage, heartReady) {
   const onDone = (mode) => {
     if (mode === "typing") {
       if (stage < 3) { if (moved) return; moved = true; stopSpeaking(); setTimeout(() => renderPassageChunk(p, idx, stage + 1), 400); return; }
-      enablePassageHeart(); return; // 3단계 다 채움 → '마음에 둠' 체크 활성화(자동 진행 안 함)
+      completionMode = "typing"; enablePassageHeart(); return; // 3단계 다 채움 → '마음에 둠' 체크 활성화(자동 진행 안 함)
     }
     // 음성: 마디를 통째로 외운 것 → 3단계 화면에서 '마음에 둠' 바로 활성화
+    completionMode = "voice";
     if (stage < 3) { if (moved) return; moved = true; stopSpeaking(); setTimeout(() => renderPassageChunk(p, idx, 3, true), 400); return; }
     enablePassageHeart();
   };
@@ -1999,6 +2008,7 @@ function renderPassageChunk(p, idx, stage, heartReady) {
   if (heartChk) heartChk.addEventListener("change", () => {
     if (!heartChk.checked || moved) return; moved = true;
     const lbl = document.getElementById("pg-heart-label"); if (lbl) lbl.classList.add("on");
+    logPassageActivity(completionMode); // 마디 마음에 둠 → 통계(암송)에 1회 반영
     goNextChunk();
   });
   setupChallengeTyping(chunkVerse, onDone);
@@ -2070,6 +2080,7 @@ function renderPassageFinal(p) {
     speakText(fullText, () => { listenBtn.textContent = "🔊 듣기"; }, 1, "ko-KR");
   });
   let finished = false;
+  let finalMode = "typing"; // 완주를 통계에 기록할 때 쓸 완료 방식
   const enableFinalHeart = () => {
     const chk = document.getElementById("pg-final-heart-check"); if (!chk) return;
     chk.disabled = false;
@@ -2077,11 +2088,12 @@ function renderPassageFinal(p) {
     const hint = document.getElementById("pg-final-heart-hint"); if (hint) hint.hidden = true;
     if (lbl && lbl.scrollIntoView) lbl.scrollIntoView({ block: "center", behavior: "smooth" });
   };
-  const onDone = () => { stopSpeaking(); enableFinalHeart(); }; // 전체 통과 → '마음에 둠' 활성화(자동 완주 안 함)
+  const onDone = (mode) => { finalMode = mode === "voice" ? "voice" : "typing"; stopSpeaking(); enableFinalHeart(); }; // 전체 통과 → '마음에 둠' 활성화(자동 완주 안 함)
   const heartChk = document.getElementById("pg-final-heart-check");
   if (heartChk) heartChk.addEventListener("change", () => {
     if (!heartChk.checked || finished) return; finished = true;
     const lbl = document.getElementById("pg-final-heart-label"); if (lbl) lbl.classList.add("on");
+    logPassageActivity(finalMode); // 전체 완주 → 통계(암송)에 1회 반영
     markPassageCompleted(p.id); stopSpeaking(); renderPassageDone(p);
   });
   const restartBtn = document.getElementById("pg-final-restart");

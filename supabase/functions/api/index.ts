@@ -1204,8 +1204,9 @@ async function mydays(b: any) {
 
 // ---------- verseCounts: 본인 구절별 암송 횟수(암송·도전·복습 전부) ----------
 async function verseCounts(b: any) {
+  // verse_no가 null인 로그(핵심 암송 학습)는 구절별 집계에서 제외한다.
   const data = await fetchAllRows(() =>
-    db.from("challenge_log").select("verse_no").eq("user_id", b.user_id));
+    db.from("challenge_log").select("verse_no").eq("user_id", b.user_id).not("verse_no", "is", null));
   const counts: Record<number, number> = {};
   for (const row of data) {
     counts[row.verse_no] = (counts[row.verse_no] || 0) + 1;
@@ -1352,8 +1353,9 @@ async function verseStats(b: any) {
 }
 
 async function verseStatsSlow(b: any) {
+  // verse_no가 null인 로그(핵심 암송 학습)는 구절별 집계에서 제외한다.
   const data = await fetchAllRows(() => rangeFilter(
-    db.from("challenge_log").select("verse_no, mode, user_id"), b));
+    db.from("challenge_log").select("verse_no, mode, user_id").not("verse_no", "is", null), b));
 
   const map = new Map<number, any>();
   const seen = new Map<number, Set<string>>();
