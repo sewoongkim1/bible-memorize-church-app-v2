@@ -561,6 +561,7 @@ async function getPassages() {
   const passages = (data ?? []).map((p: any) => ({
     id: p.id, title: p.title || "", ref: p.ref || "",
     category: p.category || "", lines: Array.isArray(p.lines) ? p.lines : [],
+    sortOrder: p.sort_order ?? 0,
   }));
   return { ok: true, passages };
 }

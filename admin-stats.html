@@ -1504,7 +1504,7 @@ async function loadPassageList(selId){
       <p class="push-hint">줄바꿈이 곧 절 경계입니다. 빈 줄은 자동으로 건너뜁니다.</p>
       <label class="chk" style="margin:10px 0;"><input type="checkbox" id="pg-active" checked> 활성(목록에 표시)</label>
       <button class="push-send" id="pg-save">💾 저장</button>
-      <button class="push-off" id="pg-del" style="margin-top:8px;display:none;">🗑️ 이 본문 삭제</button>
+      <button class="dm-clear" id="pg-del" style="display:none;">🗑️ 이 본문 삭제</button>
       <div id="pg-result" class="msg"></div>
     </div>`;
   const sel=document.getElementById("pg-sel");
@@ -1512,7 +1512,7 @@ async function loadPassageList(selId){
     document.getElementById("pg-title").value=p?(p.title||""):"";
     document.getElementById("pg-ref").value=p?(p.ref||""):"";
     document.getElementById("pg-cat").value=p?(p.category||""):"";
-    document.getElementById("pg-order").value="";
+    document.getElementById("pg-order").value=p?(p.sortOrder??""):"";
     document.getElementById("pg-lines").value=p?((p.lines||[]).join("\n")):"";
     document.getElementById("pg-active").checked=true;
     document.getElementById("pg-del").style.display=p?"block":"none";
