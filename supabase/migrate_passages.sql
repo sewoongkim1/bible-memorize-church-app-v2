@@ -18,3 +18,7 @@ create table if not exists public.passage_progress (
   updated_at   timestamptz not null default now(),
   primary key (user_id, passage_id)
 );
+
+-- 기본 차단(RLS): service_role(Edge Function)만 접근. 다른 테이블과 동일 모델.
+alter table public.passages enable row level security;
+alter table public.passage_progress enable row level security;

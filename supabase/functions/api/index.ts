@@ -578,7 +578,7 @@ async function savePassage(b: any) {
     is_active: p.is_active !== false,
   };
   if (p.id != null && p.id !== "") row.id = Number(p.id);
-  const { data, error } = await db.from("passages").upsert(row).select("id").maybeSingle();
+  const { data, error } = await db.from("passages").upsert(row, { onConflict: "id" }).select("id").maybeSingle();
   if (error) throw error;
   return { ok: true, id: data?.id };
 }
