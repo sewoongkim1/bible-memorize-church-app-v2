@@ -1808,6 +1808,76 @@ function renderPassageLine(p, idx) {
   setupVoice(lineVerse, 3, onDone);
 }
 
+// 📜 전체 이어서 암송 — 모든 절을 이어붙여 100% 빈칸. 통과 시 완료 배지.
+function renderPassageFinal(p) {
+  stopSpeaking();
+  const appEl = document.getElementById("app");
+  const lines = p.lines || [];
+  // 절별로 한 줄씩, 각 줄의 단어를 빈칸 input으로. 절 경계는 <div class="pg-final-line">로 구분.
+  let blankIdx = 0;
+  const linesHtml = lines.map((line) => {
+    const inputs = line.trim().split(/\s+/).map((word) =>
+      `<input class="word-input" data-answer="${word}" data-blank="${blankIdx++}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="width:${Array.from(word).length + 1}em" />`
+    ).join(" ");
+    return `<div class="pg-final-line">${inputs}</div>`;
+  }).join("");
+  const fullText = lines.join(" ");
+  const fullVerse = { no: p.id * 1000, text: fullText, refShort: p.title };
+  appEl.innerHTML = `
+    <div class="test-screen">
+      <div class="test-card">
+        <div class="btn-row">
+          <button class="answer-btn" id="listen-answer-btn" aria-label="정답 음성으로 듣기">🔊 듣기</button>
+          <button class="voice-btn" id="voice-toggle">🎤 암송</button>
+        </div>
+        <div class="test-top">
+          <div class="test-head">
+            <div class="test-stage challenge-badge">🔥 전체</div>
+            <div class="test-ref">${p.title}</div>
+          </div>
+          <button class="back-btn" id="pg-final-back">← 절 목록</button>
+        </div>
+        <div class="pg-final-hint">처음부터 끝까지 이어서 외워보세요!</div>
+        <div class="test-sentence pg-final-sentence">${linesHtml}</div>
+        <div class="challenge-remain" id="ch-remain"></div>
+        <div id="result-area"></div>
+        <div id="voice-panel" class="voice-panel" hidden>
+          <div class="voice-status" id="voice-status">🎙️ 듣고 있어요… <b>‘암송 종료’</b>를 누를 때까지 계속 들어요</div>
+          <div class="voice-live" id="voice-live"></div>
+        </div>
+        <div id="voice-result" class="voice-result"></div>
+      </div>
+    </div>`;
+  document.getElementById("pg-final-back").addEventListener("click", () => { stopSpeaking(); renderPassageSteps(p); });
+  const listenBtn = document.getElementById("listen-answer-btn");
+  listenBtn.addEventListener("click", () => {
+    if (window.speechSynthesis && window.speechSynthesis.speaking) { stopSpeaking(); listenBtn.textContent = "🔊 듣기"; return; }
+    listenBtn.textContent = "⏹ 정지";
+    speakText(fullText, () => { listenBtn.textContent = "🔊 듣기"; }, 1, "ko-KR");
+  });
+  const onDone = () => { markPassageCompleted(p.id); stopSpeaking(); renderPassageDone(p); };
+  setupChallengeTyping(fullVerse, onDone);
+  setupVoice(fullVerse, 3, onDone);
+}
+
+// 📜 완료 축하
+function renderPassageDone(p) {
+  const appEl = document.getElementById("app");
+  appEl.innerHTML = `
+    <div class="summary-screen">
+      <div class="summary-card cd-card">
+        <div class="cd-emoji">👑</div>
+        <div class="cd-title">${p.title} 완주!</div>
+        <div class="cd-sub">전체를 이어서 외웠어요. 정말 잘하셨어요! 🙌</div>
+        <div class="cd-count">'외운 말씀' 배지가 달렸어요.</div>
+        <button class="summary-go" id="pg-done-list">다른 본문 보기</button>
+        <button class="summary-help" id="pg-done-again">다시 암송</button>
+      </div>
+    </div>`;
+  document.getElementById("pg-done-list").addEventListener("click", renderPassageList);
+  document.getElementById("pg-done-again").addEventListener("click", () => renderPassageSteps(p));
+}
+
 // ------------------------------------------------------------
 // 화면 3: 테스트 (익명 버전과 동일)
 // ------------------------------------------------------------
