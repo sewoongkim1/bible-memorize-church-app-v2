@@ -84,6 +84,10 @@ Deno.serve(async (req) => {
       case "saveVerse":     return json(await saveVerse(body));
       case "seedVerses":    return json(await seedVerses(body));
       case "generateNiv":   return json(await generateNiv(body));
+      case "getPassages":         return json(await getPassages());
+      case "savePassage":         return json(await savePassage(body));
+      case "deletePassage":       return json(await deletePassage(body));
+      case "savePassageProgress": return json(await savePassageProgress(body));
       case "cleanupDummy":  return json(await cleanupDummy());
       case "importV1":      return json(await importV1(body));
       // ---- Web Push ----
@@ -548,6 +552,59 @@ async function seedVerses(b: any) {
   return { ok: true, count: rows.length };
 }
 
+// ---------- 긴 본문 암송("핵심 암송") ----------
+async function getPassages() {
+  const { data, error } = await db.from("passages")
+    .select("id,title,ref,category,lines,sort_order")
+    .eq("is_active", true).order("sort_order").order("id");
+  if (error) throw error;
+  const passages = (data ?? []).map((p: any) => ({
+    id: p.id, title: p.title || "", ref: p.ref || "",
+    category: p.category || "", lines: Array.isArray(p.lines) ? p.lines : [],
+  }));
+  return { ok: true, passages };
+}
+
+async function savePassage(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const p = b.passage || {};
+  if (!p.title) return { ok: false, error: "title-required" };
+  const lines = Array.isArray(p.lines)
+    ? p.lines.map((s: any) => String(s || "").trim()).filter(Boolean) : [];
+  if (!lines.length) return { ok: false, error: "lines-required" };
+  const row: any = {
+    title: p.title, ref: p.ref || null, category: p.category || null,
+    lines, sort_order: p.sortOrder != null && p.sortOrder !== "" ? Number(p.sortOrder) : 0,
+    is_active: p.is_active !== false,
+  };
+  if (p.id != null && p.id !== "") row.id = Number(p.id);
+  const { data, error } = await db.from("passages").upsert(row).select("id").maybeSingle();
+  if (error) throw error;
+  return { ok: true, id: data?.id };
+}
+
+async function deletePassage(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  if (b.id == null || b.id === "") return { ok: false, error: "id-required" };
+  const { error } = await db.from("passages").delete().eq("id", Number(b.id));
+  if (error) throw error;
+  return { ok: true };
+}
+
+async function savePassageProgress(b: any) {
+  if (!b.user_id || b.passage_id == null) return { ok: false, error: "bad-args" };
+  const doneSeq = Array.isArray(b.doneSeq)
+    ? b.doneSeq.map((n: any) => Number(n)).filter((n: number) => Number.isFinite(n)) : [];
+  const row = {
+    user_id: b.user_id, passage_id: Number(b.passage_id),
+    done_seq: doneSeq, completed_at: b.completed ? new Date().toISOString() : null,
+    updated_at: new Date().toISOString(),
+  };
+  const { error } = await db.from("passage_progress").upsert(row, { onConflict: "user_id,passage_id" });
+  if (error) throw error;
+  return { ok: true };
+}
+
 // ---------- generateNiv: 한국어 구절 → NIV 영어 본문 AI 생성 (ADMIN_SECRET) ----------
 // DB에 저장하지 않고 반환만 한다 — 어드민이 실제 NIV 성경과 대조·검수 후 saveVerse로 저장.
 async function generateNiv(b: any) {
@@ -661,7 +718,7 @@ async function login(b: any) {
 
 // ---------- app_config: 관리자가 배포 없이 편집하는 설정(키-값) ----------
 // 공개로 읽어도 되는 키만 화이트리스트로 허용(임의 키 노출 방지).
-const PUBLIC_CONFIG_KEYS = new Set(["heartMessages", "dailyMessage", "introSlides", "milestoneMessages"]);
+const PUBLIC_CONFIG_KEYS = new Set(["heartMessages", "dailyMessage", "introSlides", "milestoneMessages", "passagesPublic"]);
 
 async function getConfig(b: any) {
   const key = String(b.key || "");
