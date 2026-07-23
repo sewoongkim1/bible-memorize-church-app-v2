@@ -25,6 +25,7 @@
   .hint p { margin:4px 0; padding-left:13px; position:relative; }
   .hint p::before { content:"·"; position:absolute; left:2px; color:var(--gold); font-weight:800; }
   .answer { background:#fff; border:1px solid var(--line); border-radius:12px; padding:16px 18px; font-size:15px; line-height:1.75; white-space:pre-wrap; }
+  .answer strong, .modal-summary strong { font-weight:800; color:var(--navy); }
   /* 설교 출처 카드 */
   .sources { margin-top:14px; display:flex; flex-direction:column; gap:8px; }
   .src { display:flex; align-items:center; gap:12px; width:100%; text-align:left; background:#fff; border:1px solid var(--line); border-left:4px solid var(--navy); border-radius:12px; padding:12px 14px; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,.05); transition:transform .12s, box-shadow .12s, border-color .12s; }
@@ -83,6 +84,8 @@ let member = null;
 try { member = JSON.parse(sessionStorage.getItem("sermon-chat-user") || "null"); } catch (_) {}
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s==null?"":s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+// **굵게** 마크다운을 <strong>으로 렌더(나머지는 이스케이프 — XSS 방지).
+const emph = (raw) => String(raw==null?"":raw).split(/(\*\*[^*]+\*\*)/).map(seg=>{ const m=seg.match(/^\*\*([^*]+)\*\*$/); return m?`<strong>${esc(m[1])}</strong>`:esc(seg); }).join("");
 
 // 주제(설교 태그 기반, 빈도순 크기) → 질문. 모든 질문은 실제 검색에서 답이
 // 나오는 것만 남겼다(2026-07-23 실측: match_sermon_chunks 최상위 유사도 ≥0.42).
@@ -245,7 +248,7 @@ async function ask(){
         <span class="src-arrow">›</span>
       </button>`).join("");
     $("out").innerHTML = `
-      <div class="answer">${esc(j.answer)}</div>
+      <div class="answer">${emph(j.answer)}</div>
       ${srcHtml ? `<div class="sources">${srcHtml}</div>` : ""}
       <div class="disclaimer">※ 이 답변은 설교 아카이브를 검색한 AI 요약입니다. 정확한 내용은 원 설교를 확인하세요.</div>`;
     $("out").querySelectorAll(".src").forEach(b=>{ b.onclick = ()=>openSermon(lastSources[+b.dataset.i]); });
@@ -285,7 +288,7 @@ function openSermon(s){
     el.textContent = "요약을 불러오는 중…";
     try {
       const j = await call("sermonSummary", { sermonId: s.youtube_id });
-      el.textContent = (j.ok && j.summary) ? j.summary : (s.summary || "아직 등록된 요약이 없어요.");
+      el.innerHTML = (j.ok && j.summary) ? emph(j.summary) : esc(s.summary || "아직 등록된 요약이 없어요.");
     } catch (e) {
       el.textContent = s.summary || "요약을 불러오지 못했어요.";
     }
