@@ -1020,6 +1020,7 @@ function renderSummary() {
     </div>
     ${weeklyHtml}
     <button class="summary-help med-cta" id="open-meditation">🌿 매일 묵상</button>
+    <button class="summary-help sermon-cta" id="open-sermon-chat">💬 설교말씀 도우미</button>
     ${passagesVisible() ? `<button class="summary-help passages-cta" id="open-passages">📜 핵심 암송 (긴 말씀)</button>` : ""}
     <button class="summary-help album-cta" id="open-album">📖 나의 말씀 앨범</button>
     <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
@@ -1045,6 +1046,11 @@ function renderSummary() {
   if (dueCount > 0) document.getElementById("go-review").addEventListener("click", startReview);
   document.getElementById("go-challenge").addEventListener("click", startChallenge);
   document.getElementById("open-meditation").addEventListener("click", () => maybeShowWeeklyMeditation(true, true));
+  document.getElementById("open-sermon-chat").addEventListener("click", () => {
+    // 성도 신원을 넘겨 설교말씀 도우미(챗봇)로 이동 — 그쪽에서 user_id로 인가·로깅한다.
+    try { sessionStorage.setItem("sermon-chat-user", JSON.stringify({ id: u.user_id || "", name: u.name })); } catch (_) {}
+    location.href = "admin-sermon-chat.html";
+  });
   document.getElementById("open-album").addEventListener("click", () => renderAlbum());
   { const b = document.getElementById("open-passages"); if (b) b.addEventListener("click", renderPassageList); }
   document.getElementById("open-ranking").addEventListener("click", () => renderRanking());

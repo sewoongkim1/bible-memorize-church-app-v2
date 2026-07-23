@@ -75,6 +75,10 @@
 const FN = "https://xnomlgydifiqiybervtf.supabase.co/functions/v1/api";
 const KEY = "sb_publishable_oLtieT_jw7Gjb8etEsy0jw_thBaDjl-";
 let pw = sessionStorage.getItem("admin-pw") || "";
+let isAdmin = false; // authCheck 통과 시 true (색인·기록 등 관리자 기능 노출)
+// 성도가 앱 홈에서 넘어오면 app.js가 여기에 { id, name }을 심어둔다.
+let member = null;
+try { member = JSON.parse(sessionStorage.getItem("sermon-chat-user") || "null"); } catch (_) {}
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s==null?"":s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
@@ -97,8 +101,12 @@ const TOPICS = [
 ];
 
 async function call(action, body={}) {
+  // 관리자면 pw, 성도면 user_id를 함께 실어 보낸다(백엔드가 알맞게 인가).
+  const auth = {};
+  if (pw) auth.pw = pw;
+  if (member && member.id) auth.user_id = member.id;
   const r = await fetch(FN, { method:"POST", headers:{ "Content-Type":"application/json", apikey:KEY, Authorization:"Bearer "+KEY },
-    body: JSON.stringify({ action, pw, ...body }) });
+    body: JSON.stringify({ action, ...auth, ...body }) });
   return r.json();
 }
 function toast(m){ const t=$("toast"); t.textContent=m; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1800); }
@@ -115,17 +123,20 @@ async function tryLogin(){
   pw = $("pw") ? $("pw").value : pw;
   try {
     const j = await call("authCheck");
-    if(j.ok){ sessionStorage.setItem("admin-pw", pw); renderMain(); }
+    if(j.ok){ isAdmin = true; sessionStorage.setItem("admin-pw", pw); renderMain(); }
     else renderLogin("비밀번호가 틀렸어요.");
   } catch (e) {
     renderLogin("서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.");
   }
 }
 function renderMain(){
+  // 관리자: 색인·기록·허브 / 성도: 홈으로 돌아가기
+  const headerRight = isAdmin
+    ? `<button id="reindex">🔄 색인 다시 만들기</button><button id="logbtn">📋 조회 기록</button><a href="index.html">← 홈</a>`
+    : `<a href="index.html">← 홈</a>`;
   $("app").innerHTML = `<header>
       <h1>🔎 설교말씀 도우미</h1>
-      <button id="reindex">🔄 색인 다시 만들기</button>
-      <a href="admin.html">← 허브</a>
+      ${headerRight}
     </header>
     <main>
       <div class="ask">
@@ -145,8 +156,37 @@ function renderMain(){
     </main>`;
   $("send").onclick = ask;
   $("q").onkeydown = (e)=>{ if(e.key==="Enter") ask(); };
-  $("reindex").onclick = reindex;
+  if(isAdmin){ $("reindex").onclick = reindex; $("logbtn").onclick = showLog; }
   buildCloud();
+}
+// 관리자: 조회 기록 보기
+async function showLog(){
+  const m = document.createElement("div");
+  m.className = "modal-bg";
+  m.innerHTML = `<div class="modal"><button class="modal-x" aria-label="닫기">✕</button>
+    <h3 style="margin:2px 30px 12px 0;font-size:16px;color:var(--navy)">📋 조회 기록</h3>
+    <div id="logbody" style="font-size:13px;color:var(--mute)">불러오는 중…</div></div>`;
+  document.body.appendChild(m);
+  const close = ()=>m.remove();
+  m.onclick = (e)=>{ if(e.target===m) close(); };
+  m.querySelector(".modal-x").onclick = close;
+  try {
+    const j = await call("sermonChatLog");
+    if(!j.ok){ m.querySelector("#logbody").textContent = "불러오지 못했어요: " + (j.error||""); return; }
+    const rows = (j.logs||[]).map(l => {
+      const who = [l.name||"?", l.gu, l.mok].filter(Boolean).join(" · ");
+      const when = (l.created_at||"").replace("T"," ").slice(0,16);
+      return `<div style="padding:9px 0;border-top:1px solid var(--line)">
+        <div style="color:var(--ink);font-size:14px">${esc(l.question)}</div>
+        <div style="margin-top:3px">${esc(who)} <span style="font-family:ui-monospace,monospace"> · ${esc(when)}</span></div>
+      </div>`;
+    }).join("");
+    m.querySelector("#logbody").innerHTML = rows
+      ? `<div style="margin-bottom:6px">최근 ${(j.logs||[]).length}건</div>${rows}`
+      : "아직 조회 기록이 없어요.";
+  } catch (e) {
+    m.querySelector("#logbody").textContent = "불러오지 못했어요.";
+  }
 }
 function buildCloud(){
   $("cloud").innerHTML = TOPICS.map((tp,i)=>`<button data-i="${i}">${esc(tp.t)}</button>`).join("");
@@ -240,8 +280,11 @@ async function reindex(){
     btn.disabled = false; btn.textContent = "🔄 색인 다시 만들기";
   }
 }
-// 허브에서 넘어오면 자동 로그인
-if(pw) tryLogin(); else renderLogin();
+// 진입 분기: 관리자(허브에서 pw 보유) → 자동 로그인 / 성도(앱 홈에서 진입) →
+// 바로 챗봇 / 둘 다 아니면(직접 방문) 관리자 로그인 화면.
+if(pw) tryLogin();
+else if(member) renderMain();
+else renderLogin();
 </script>
 </body>
 </html>

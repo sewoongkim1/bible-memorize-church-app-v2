@@ -126,6 +126,7 @@ Deno.serve(async (req) => {
       case "embedSermons":  return json(await embedSermons(body));
       case "sermonChat":    return json(await sermonChat(body));
       case "sermonSummary": return json(await sermonSummary(body));
+      case "sermonChatLog": return json(await sermonChatLog(body));
       case "getPassages":         return json(await getPassages());
       case "savePassage":         return json(await savePassage(body));
       case "deletePassage":       return json(await deletePassage(body));
@@ -767,11 +768,29 @@ async function embedSermons(b: any) {
 // ---------- sermonChat: 설교 아카이브 검색 + 근거 기반 답변 (관리자) ----------
 // body: { pw, message }
 async function sermonChat(b: any) {
-  const err = adminError(b); if (err) return { ok: false, error: err };
   const message = (b.message ?? "").toString().trim();
   if (!message) return { ok: false, error: "message-required" };
   const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
   if (!apiKey) return { ok: false, error: "ANTHROPIC_API_KEY 시크릿 미설정" };
+
+  // 접근 허용: 관리자이거나, 앱에 로그인한 실제 성도(user_id가 users에 존재)만.
+  // 로그에 남길 이름·교구·목장은 클라이언트를 믿지 않고 users에서 직접 읽는다.
+  const isAdmin = adminError(b) === null;
+  let logName: string | null = null, logGu: string | null = null, logMok: string | null = null;
+  if (isAdmin) {
+    logName = "관리자";
+  } else {
+    const uid = (b.user_id ?? "").toString();
+    if (!uid) return { ok: false, error: "unauthorized" };
+    const { data: u } = await db.from("users").select("name, gu, mok").eq("id", uid).maybeSingle();
+    if (!u) return { ok: false, error: "unauthorized" };
+    logName = u.name ?? null; logGu = u.gu ?? null; logMok = u.mok ?? null;
+  }
+
+  // 사용 로그(누가·질문·시각). 실패해도 답변에는 영향 없게 조용히 넘어간다.
+  try {
+    await db.from("sermon_chat_log").insert({ name: logName, gu: logGu, mok: logMok, question: message.slice(0, 500) });
+  } catch (_) { /* 로그 실패 무시 */ }
 
   // 1) 질문 임베딩 → 벡터 검색
   const [qvec] = await embedVoyage([message], "query");
@@ -844,7 +863,13 @@ async function sermonChat(b: any) {
 // body: { pw, sermonId }  — 저장된 summary가 짧아, 요점(points)까지 근거로
 // 6~7줄 요약을 그때그때 만든다(내용에 없는 것은 창작 금지).
 async function sermonSummary(b: any) {
-  const err = adminError(b); if (err) return { ok: false, error: err };
+  // 접근 허용: 관리자이거나, 앱에 로그인한 실제 성도(user_id가 users에 존재)만.
+  if (adminError(b) !== null) {
+    const uid = (b.user_id ?? "").toString();
+    if (!uid) return { ok: false, error: "unauthorized" };
+    const { data: u } = await db.from("users").select("id").eq("id", uid).maybeSingle();
+    if (!u) return { ok: false, error: "unauthorized" };
+  }
   const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
   if (!apiKey) return { ok: false, error: "ANTHROPIC_API_KEY 시크릿 미설정" };
   const { data: s, error } = await db.from("sermons")
@@ -877,6 +902,18 @@ async function sermonSummary(b: any) {
   const d = await res.json();
   const summary = ((d.content ?? []).find((x: any) => x.type === "text")?.text ?? "").trim();
   return { ok: true, summary: summary || (s.summary ?? "") };
+}
+
+// ---------- sermonChatLog: 설교말씀 도우미 사용 로그 조회 (관리자) ----------
+// body: { pw }  → { ok, logs:[{name, gu, mok, question, created_at}] } 최근순
+async function sermonChatLog(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const { data, error } = await db.from("sermon_chat_log")
+    .select("name, gu, mok, question, created_at")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) throw error;
+  return { ok: true, logs: data ?? [] };
 }
 
 // ---------- login ----------
