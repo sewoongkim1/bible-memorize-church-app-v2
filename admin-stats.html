@@ -1488,8 +1488,11 @@ async function loadPassageList(selId){
   const isPublic=!!(cfg&&cfg.value);
   body.innerHTML=`
     <div class="push-card">
+      <button class="push-send" id="pg-open-test" style="margin-bottom:6px;">▶ 암송 화면 열기 (테스트)</button>
+      <p class="push-hint">새 탭에서 실제 암송 화면이 바로 열립니다. 어드민 테스트용이며, 사용자에게는 아래 '사용자 공개'를 켜야 노출됩니다.</p>
+      <hr style="border:none;border-top:1px solid var(--border);margin:14px 0;">
       <label class="push-lb">사용자 공개</label>
-      <label class="chk" style="margin:6px 0;"><input type="checkbox" id="pg-public" ${isPublic?"checked":""}> 홈 화면에 '📜 핵심 암송' 노출(끄면 어드민만 <code>?passages=1</code>로 미리보기)</label>
+      <label class="chk" style="margin:6px 0;"><input type="checkbox" id="pg-public" ${isPublic?"checked":""}> 홈 화면에 '📜 핵심 암송' 노출(끄면 위 '▶ 암송 화면 열기'로 어드민만 테스트)</label>
       <div id="pg-public-msg" class="msg"></div>
       <hr style="border:none;border-top:1px solid var(--border);margin:14px 0;">
       <label class="push-lb">편집할 본문 선택</label>
@@ -1519,6 +1522,8 @@ async function loadPassageList(selId){
   }
   sel.addEventListener("change",()=>{ const p=list.find(x=>String(x.id)===sel.value); fill(p); });
   if(selId!=null){ sel.value=String(selId); fill(list.find(x=>String(x.id)===String(selId))); }
+  // 암송 화면 테스트 열기(새 탭, 어드민 전용)
+  document.getElementById("pg-open-test").addEventListener("click",()=>window.open("./?passages=1","_blank","noopener"));
   // 공개 토글
   document.getElementById("pg-public").addEventListener("change",async(e)=>{
     const msg=document.getElementById("pg-public-msg"); msg.className="msg"; msg.textContent="저장 중...";

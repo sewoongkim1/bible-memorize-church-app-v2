@@ -86,6 +86,8 @@ async function loadVerses() {
 function routeAfterLoad() {
   _passagesPreview = getPassagesPreview();
   refreshPassagesPublic();
+  // 어드민 테스트 진입(?passages=1): 홈을 거치지 않고 곧바로 핵심 암송 목록으로.
+  if (_passagesPreview) { renderPassageList(); return; }
   // 딥링크(?v=구절번호): 설교 아카이브 등 외부에서 특정 구절로 바로 진입
   const deepNo = getDeepLinkVerseNo();
   if (deepNo != null) {
