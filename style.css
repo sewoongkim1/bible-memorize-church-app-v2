@@ -1603,7 +1603,7 @@ html[data-fs="xl"] .sermon-sum-card .ss-top > .back-btn { font-size: 17px; paddi
   font-size: 13px; cursor: pointer; line-height: 1;
 }
 .promo-x:hover { background: rgba(0,0,0,.12); }
-.promo-title { font-weight: 800; color: var(--navy); font-size: 15px; margin: 0 24px 10px 2px; text-align: left; }
+.promo-title { font-weight: 800; color: var(--navy); font-size: 13.5px; margin: 0 40px 10px 2px; text-align: left; white-space: nowrap; }
 .promo-btns { display: flex; flex-direction: column; gap: 8px; }
 .promo-btn {
   width: 100%; padding: 11px 8px; border-radius: 10px; font-size: 14px; font-weight: 700;
@@ -1618,6 +1618,13 @@ html[data-fs="xl"] .sermon-sum-card .ss-top > .back-btn { font-size: 17px; paddi
   background: #e5484d; color: #fff; font-size: 10px; font-weight: 800;
   padding: 1px 6px; border-radius: 8px; letter-spacing: .5px;
 }
+/* 신기능 큰 버튼 2개(암송하기/말씀도전과 같은 형태) */
+.summary-go { position: relative; }
+.summary-go.sermon-act { background: linear-gradient(135deg,#0f6d73,#149098); color:#fff; border-color:#0f6d73; }
+.summary-go.sermon-act:hover { background: linear-gradient(135deg,#0c5b60,#127f86); border-color:#0c5b60; }
+.summary-go.med-act { background: linear-gradient(135deg,#1f7a4d,#28965f); color:#fff; border-color:#1f7a4d; }
+.summary-go.med-act:hover { background: linear-gradient(135deg,#1a6a43,#238653); border-color:#1a6a43; }
+.summary-go .new-badge { position: absolute; top: 6px; right: 6px; margin: 0; }
 
 /* ── 설교말씀 도우미 (인앱 화면) ── */
 /* 제목이 길어 좁은 화면에서 '← 뒤로'와 함께 한 줄에 들어가도록 살짝 줄인다 */

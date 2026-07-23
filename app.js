@@ -968,7 +968,6 @@ function promoCardHtml() {
       <button class="promo-x" id="promo-x" aria-label="닫기">✕</button>
       <div class="promo-title">✨ 새로워진 기능을 만나보세요</div>
       <div class="promo-btns">
-        <button class="promo-btn med" id="promo-med">🌿 매일 묵상</button>
         <button class="promo-btn sermon" id="promo-sermon">💬 설교말씀 도우미</button>
       </div>
     </div>`;
@@ -1043,8 +1042,10 @@ function renderSummary() {
       <button class="summary-go challenge-cta act-btn" id="go-challenge"><span class="act-ic">🔥</span><span class="act-tx">말씀<br>도전</span></button>
     </div>
     ${weeklyHtml}
-    <button class="summary-help med-cta" id="open-meditation">🌿 매일 묵상 ${newBadge("meditation")}</button>
-    <button class="summary-help sermon-cta" id="open-sermon-chat">💬 설교말씀 도우미 ${newBadge("sermon")}</button>
+    <div class="summary-actions feat-actions">
+      <button class="summary-go sermon-act act-btn" id="open-sermon-chat"><span class="act-ic">💬</span><span class="act-tx">설교말씀<br>도우미</span>${newBadge("sermon")}</button>
+      <button class="summary-go med-act act-btn" id="open-meditation"><span class="act-ic">🌿</span><span class="act-tx">매일<br>묵상</span>${newBadge("meditation")}</button>
+    </div>
     ${passagesVisible() ? `<button class="summary-help passages-cta" id="open-passages">📜 핵심 암송 (긴 말씀)</button>` : ""}
     <button class="summary-help album-cta" id="open-album">📖 나의 말씀 앨범</button>
     <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
@@ -1078,7 +1079,6 @@ function renderSummary() {
         try { localStorage.setItem(PROMO_KEY, JSON.stringify({ ...promoState(), dismissed: true })); } catch {}
         pc.remove();
       });
-      document.getElementById("promo-med").addEventListener("click", () => { markFeatSeen("meditation"); scRemoveBadge("open-meditation"); maybeShowWeeklyMeditation(true, true); });
       document.getElementById("promo-sermon").addEventListener("click", () => { markFeatSeen("sermon"); renderSermonChat(); });
     }
   }
