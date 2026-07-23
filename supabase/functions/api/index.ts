@@ -52,6 +52,45 @@ function adminError(b: any): string | null {
   return null;
 }
 
+// ---------- 설교 챗봇: Voyage 임베딩 (myfavorite lib/voyage.ts의 Deno 이식) ----------
+const VOYAGE_URL = "https://api.voyageai.com/v1/embeddings";
+async function embedVoyage(
+  texts: string[],
+  inputType: "document" | "query",
+): Promise<number[][]> {
+  const key = Deno.env.get("VOYAGE_API_KEY");
+  if (!key) throw new Error("VOYAGE_API_KEY 시크릿 미설정");
+  const res = await fetch(VOYAGE_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+    body: JSON.stringify({
+      input: texts,
+      model: "voyage-3-large",
+      input_type: inputType,
+      output_dimension: 1024,
+    }),
+  });
+  if (!res.ok) throw new Error(`voyage-${res.status}: ${(await res.text()).slice(0, 200)}`);
+  const j = await res.json();
+  return (j.data ?? []).map((d: any) => d.embedding as number[]);
+}
+
+// 설교 1건 → 청크 배열. summary·각 point·각 daily_meditation을 개별 청크로 쪼개고,
+// 검색·인용 시 맥락이 남도록 각 청크 앞에 `[제목 — 소제목]` 헤더를 붙인다.
+function chunkSermon(s: any): { chunk_index: number; content: string }[] {
+  const out: { chunk_index: number; content: string }[] = [];
+  const title = (s.title ?? "").toString().trim();
+  const push = (label: string, bodyRaw: unknown) => {
+    const body = (bodyRaw ?? "").toString().trim();
+    if (!body) return;
+    out.push({ chunk_index: out.length, content: `[${title} — ${label}]\n${body}` });
+  };
+  push("요약", s.summary);
+  for (const p of (s.points ?? [])) push(p.heading ?? "본문", p.body);
+  for (const m of (s.daily_meditations ?? [])) push(m.heading ?? "묵상", m.message);
+  return out;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
@@ -84,6 +123,7 @@ Deno.serve(async (req) => {
       case "saveVerse":     return json(await saveVerse(body));
       case "seedVerses":    return json(await seedVerses(body));
       case "generateNiv":   return json(await generateNiv(body));
+      case "embedSermons":  return json(await embedSermons(body));
       case "getPassages":         return json(await getPassages());
       case "savePassage":         return json(await savePassage(body));
       case "deletePassage":       return json(await deletePassage(body));
@@ -673,6 +713,46 @@ async function generateNiv(b: any) {
     return { ok: false, error: "output-too-short" };
   }
   return { ok: true, textEn, refEn };
+}
+
+// ---------- embedSermons: 설교를 청킹·임베딩해 sermon_chunks에 적재 (관리자) ----------
+// body: { pw, sermonId? }  — sermonId 있으면 단건, 없으면 hidden=false 전체 재색인.
+async function embedSermons(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+
+  let q = db.from("sermons")
+    .select("id, title, svc_date, scripture, summary, points, daily_meditations")
+    .eq("hidden", false);
+  if (b.sermonId) q = db.from("sermons")
+    .select("id, title, svc_date, scripture, summary, points, daily_meditations")
+    .eq("id", b.sermonId);
+  const { data: sermons, error } = await q;
+  if (error) throw error;
+  if (!sermons?.length) return { ok: false, error: "no-sermons" };
+
+  let totalChunks = 0;
+  for (const s of sermons) {
+    const chunks = chunkSermon(s);
+    if (!chunks.length) continue;
+    // Voyage 배치 한도를 고려해 넉넉히 자른다(설교 1건 청크 수는 십수 개 수준).
+    const vectors = await embedVoyage(chunks.map((c) => c.content), "document");
+    const rows = chunks.map((c, i) => ({
+      sermon_id: s.id,
+      chunk_index: c.chunk_index,
+      content: c.content,
+      embedding: vectors[i],
+      title: s.title,
+      svc_date: s.svc_date,
+      scripture: s.scripture,
+      youtube_id: s.id, // sermons.id가 유튜브 영상 ID
+    }));
+    // 멱등: 해당 설교의 기존 청크를 지우고 다시 넣는다(설교 내용 수정 반영).
+    await db.from("sermon_chunks").delete().eq("sermon_id", s.id);
+    const { error: insErr } = await db.from("sermon_chunks").insert(rows);
+    if (insErr) throw insErr;
+    totalChunks += rows.length;
+  }
+  return { ok: true, sermons: sermons.length, chunks: totalChunks };
 }
 
 // ---------- login ----------
