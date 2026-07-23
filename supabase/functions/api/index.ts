@@ -721,21 +721,25 @@ async function generateNiv(b: any) {
 async function embedSermons(b: any) {
   const err = adminError(b); if (err) return { ok: false, error: err };
 
-  let q = db.from("sermons")
-    .select("id, title, svc_date, scripture, summary, points, daily_meditations")
-    .eq("hidden", false);
-  if (b.sermonId) q = db.from("sermons")
-    .select("id, title, svc_date, scripture, summary, points, daily_meditations")
-    .eq("id", b.sermonId);
+  const cols = "id, title, svc_date, scripture, summary, points, daily_meditations";
+  let q = db.from("sermons").select(cols).eq("hidden", false);
+  if (b.sermonId) q = db.from("sermons").select(cols).eq("id", b.sermonId);
   const { data: sermons, error } = await q;
   if (error) throw error;
   if (!sermons?.length) return { ok: false, error: "no-sermons" };
+
+  // 전체 재색인(sermonId 없음)이면, 숨겨지거나 삭제된 설교의 청크가 남아
+  // 검색·인용되지 않도록 먼저 전체를 비운다(chunk_index>=0으로 모든 행 매칭).
+  // 이후 현재 노출 설교로만 다시 채워 색인이 노출 아카이브를 정확히 반영한다.
+  if (!b.sermonId) {
+    const { error: purgeErr } = await db.from("sermon_chunks").delete().gte("chunk_index", 0);
+    if (purgeErr) throw purgeErr;
+  }
 
   let totalChunks = 0;
   for (const s of sermons) {
     const chunks = chunkSermon(s);
     if (!chunks.length) continue;
-    // Voyage 배치 한도를 고려해 넉넉히 자른다(설교 1건 청크 수는 십수 개 수준).
     const vectors = await embedVoyage(chunks.map((c) => c.content), "document");
     const rows = chunks.map((c, i) => ({
       sermon_id: s.id,
@@ -747,9 +751,11 @@ async function embedSermons(b: any) {
       scripture: s.scripture,
       youtube_id: s.id, // sermons.id가 유튜브 영상 ID
     }));
-    // 멱등: 해당 설교의 기존 청크를 지우고 다시 넣는다(설교 내용 수정 반영).
-    const { error: delErr } = await db.from("sermon_chunks").delete().eq("sermon_id", s.id);
-    if (delErr) throw delErr;
+    // 단건 재색인은 해당 설교의 기존 청크만 지운다(전체 재색인은 위에서 이미 비움).
+    if (b.sermonId) {
+      const { error: delErr } = await db.from("sermon_chunks").delete().eq("sermon_id", s.id);
+      if (delErr) throw delErr;
+    }
     const { error: insErr } = await db.from("sermon_chunks").insert(rows);
     if (insErr) throw insErr;
     totalChunks += rows.length;
