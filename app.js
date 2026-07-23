@@ -197,6 +197,12 @@ function markPassageCompleted(id) {
   const all = loadPassageProg(); const cur = all[id] || { done: [], completed: false };
   cur.completed = true; all[id] = cur; savePassageProg(all); syncPassageProgress(id, cur);
 }
+// '처음으로': 이 본문의 진행(마음에 둠·완주)만 초기화한다. 메인 암송 기록·통계는 건드리지 않는다(별도 트랙).
+function resetPassageProgress(id) {
+  const all = loadPassageProg(); delete all[id]; savePassageProg(all);
+  const u = loadUser();
+  if (u && u.user_id && api && api.savePassageProgress) api.savePassageProgress(u.user_id, id, [], false).catch(() => {});
+}
 
 function kstDateParts(raw) {
   const d = raw ? new Date(raw) : new Date();
@@ -1891,8 +1897,8 @@ function startPassage(p) {
 }
 
 // 📜 마디 하나 암송 — 일반 구절처럼 단계별 빈칸(1단계 25% → 2단계 65% → 3단계 100%).
-// 타이핑은 단계별로 올라가고, 음성으로 통과하면 마디 전체를 외운 것이라 바로 다음 마디로.
-function renderPassageChunk(p, idx, stage) {
+// 3단계를 마치면 '👑 마음에 둠'을 직접 체크해야 다음 마디로 넘어간다(음성 통과는 3단계로 바로 점프).
+function renderPassageChunk(p, idx, stage, heartReady) {
   stopSpeaking();
   stage = stage || 1;
   const appEl = document.getElementById("app");
@@ -1913,6 +1919,14 @@ function renderPassageChunk(p, idx, stage) {
   const answerHtml = tokens.map((word, i) =>
     blankFlags[i] ? `<strong class="ans-word">${word}</strong>` : word
   ).join(" ");
+  // 3단계에만: '이 마디를 마음에 두었나이다' 체크. 다 채우기 전엔 비활성(음성 통과 시 heartReady로 바로 활성).
+  const heartHtml = stage === 3 ? `
+        <label class="heart-check${heartReady ? "" : " locked"}" id="pg-heart-label">
+          <input type="checkbox" id="pg-heart-check"${heartReady ? "" : " disabled"} />
+          <span class="heart-text">👑 이 마디를 마음에 두었나이다</span>
+          <span class="heart-hint" id="pg-heart-hint"${heartReady ? " hidden" : ""}>암송을 마치면 체크할 수 있어요</span>
+          <span class="heart-desc">이 마디를 <b>외웠다</b>는 뜻이에요. 체크하면 다음 마디로 넘어가요.</span>
+        </label>` : "";
   // setupChallengeTyping/setupVoice가 기대하는 verse 유사 객체(영어 아님 → isEnMode=false)
   const chunkVerse = { no: p.id * 1000 + idx, text, refShort: p.title };
   appEl.innerHTML = `
@@ -1938,6 +1952,7 @@ function renderPassageChunk(p, idx, stage) {
           <div class="answer-text">${answerHtml}</div>
           <button class="back-to-test-btn" id="back-to-test-btn">돌아가서 계속하기</button>
         </div>
+        ${heartHtml}
         <div id="voice-panel" class="voice-panel" hidden>
           <div class="voice-status" id="voice-status">🎙️ 듣고 있어요… <b>‘암송 종료’</b>를 누를 때까지 계속 들어요</div>
           <div class="voice-live" id="voice-live"></div>
@@ -1953,26 +1968,39 @@ function renderPassageChunk(p, idx, stage) {
     listenBtn.textContent = "⏹ 정지";
     speakText(text, () => { listenBtn.textContent = "🔊 듣기"; }, 1, "ko-KR");
   });
-  let advanced = false;
+  let moved = false;
+  const enablePassageHeart = () => {
+    const chk = document.getElementById("pg-heart-check");
+    if (!chk) return;
+    chk.disabled = false;
+    const lbl = document.getElementById("pg-heart-label"); if (lbl) lbl.classList.remove("locked");
+    const hint = document.getElementById("pg-heart-hint"); if (hint) hint.hidden = true;
+    if (lbl && lbl.scrollIntoView) lbl.scrollIntoView({ block: "center", behavior: "smooth" });
+  };
   const goNextChunk = () => {
     markLineDone(p.id, idx);
     stopSpeaking();
     const nextIdx = chunks.findIndex((_, i) => !passageDone(p.id).includes(i));
     setTimeout(() => {
-      if (nextIdx === -1) renderPassageFinal(p);  // 모든 마디 완료 → 전체 이어서로 자동 연결
+      if (nextIdx === -1) renderPassageFinal(p);  // 모든 마디 마음에 둠 → 전체 이어서
       else renderPassageChunk(p, nextIdx, 1);       // 다음 마디는 1단계부터
-    }, 450); // 맞힌 마디 잠깐 보여주고 넘어감
+    }, 450);
   };
   const onDone = (mode) => {
-    if (advanced) return; advanced = true; // 타이핑·음성 양쪽에서 중복 진행 방지
-    // 타이핑은 단계별로(25→65→100%), 음성은 마디 통째 통과 → 바로 다음 마디.
-    if (mode === "typing" && stage < 3) {
-      stopSpeaking();
-      setTimeout(() => renderPassageChunk(p, idx, stage + 1), 450);
-      return;
+    if (mode === "typing") {
+      if (stage < 3) { if (moved) return; moved = true; stopSpeaking(); setTimeout(() => renderPassageChunk(p, idx, stage + 1), 400); return; }
+      enablePassageHeart(); return; // 3단계 다 채움 → '마음에 둠' 체크 활성화(자동 진행 안 함)
     }
-    goNextChunk();
+    // 음성: 마디를 통째로 외운 것 → 3단계 화면에서 '마음에 둠' 바로 활성화
+    if (stage < 3) { if (moved) return; moved = true; stopSpeaking(); setTimeout(() => renderPassageChunk(p, idx, 3, true), 400); return; }
+    enablePassageHeart();
   };
+  const heartChk = document.getElementById("pg-heart-check");
+  if (heartChk) heartChk.addEventListener("change", () => {
+    if (!heartChk.checked || moved) return; moved = true;
+    const lbl = document.getElementById("pg-heart-label"); if (lbl) lbl.classList.add("on");
+    goNextChunk();
+  });
   setupChallengeTyping(chunkVerse, onDone);
   setupVoice(chunkVerse, 3, onDone);
 }
@@ -2019,6 +2047,13 @@ function renderPassageFinal(p) {
           <div class="answer-text pg-final-sentence">${answerHtml}</div>
           <button class="back-to-test-btn" id="back-to-test-btn">돌아가서 계속하기</button>
         </div>
+        <label class="heart-check locked" id="pg-final-heart-label">
+          <input type="checkbox" id="pg-final-heart-check" disabled />
+          <span class="heart-text">👑 이 말씀을 내 마음에 두었나이다</span>
+          <span class="heart-hint" id="pg-final-heart-hint">전체를 이어서 외우면 체크할 수 있어요</span>
+          <span class="heart-desc">처음부터 끝까지 <b>완전히 외웠다</b>는 뜻이에요. 체크하면 '외운 말씀' 배지가 달려요.</span>
+        </label>
+        <button class="summary-help" id="pg-final-restart" style="margin-top:8px;">↺ 처음으로</button>
         <div id="voice-panel" class="voice-panel" hidden>
           <div class="voice-status" id="voice-status">🎙️ 듣고 있어요… <b>‘암송 종료’</b>를 누를 때까지 계속 들어요</div>
           <div class="voice-live" id="voice-live"></div>
@@ -2034,7 +2069,26 @@ function renderPassageFinal(p) {
     listenBtn.textContent = "⏹ 정지";
     speakText(fullText, () => { listenBtn.textContent = "🔊 듣기"; }, 1, "ko-KR");
   });
-  const onDone = () => { markPassageCompleted(p.id); stopSpeaking(); renderPassageDone(p); };
+  let finished = false;
+  const enableFinalHeart = () => {
+    const chk = document.getElementById("pg-final-heart-check"); if (!chk) return;
+    chk.disabled = false;
+    const lbl = document.getElementById("pg-final-heart-label"); if (lbl) lbl.classList.remove("locked");
+    const hint = document.getElementById("pg-final-heart-hint"); if (hint) hint.hidden = true;
+    if (lbl && lbl.scrollIntoView) lbl.scrollIntoView({ block: "center", behavior: "smooth" });
+  };
+  const onDone = () => { stopSpeaking(); enableFinalHeart(); }; // 전체 통과 → '마음에 둠' 활성화(자동 완주 안 함)
+  const heartChk = document.getElementById("pg-final-heart-check");
+  if (heartChk) heartChk.addEventListener("change", () => {
+    if (!heartChk.checked || finished) return; finished = true;
+    const lbl = document.getElementById("pg-final-heart-label"); if (lbl) lbl.classList.add("on");
+    markPassageCompleted(p.id); stopSpeaking(); renderPassageDone(p);
+  });
+  const restartBtn = document.getElementById("pg-final-restart");
+  if (restartBtn) restartBtn.addEventListener("click", () => {
+    if (!confirm("이 본문의 진행(마음에 둠·완주)을 지우고 처음 마디부터 다시 시작할까요? 기록 통계에는 영향이 없어요.")) return;
+    resetPassageProgress(p.id); stopSpeaking(); renderPassageChunk(p, 0, 1);
+  });
   setupChallengeTyping(fullVerse, onDone);
   setupVoice(fullVerse, 3, onDone);
 }
@@ -2050,11 +2104,14 @@ function renderPassageDone(p) {
         <div class="cd-sub">전체를 이어서 외웠어요. 정말 잘하셨어요! 🙌</div>
         <div class="cd-count">'외운 말씀' 배지가 달렸어요.</div>
         <button class="summary-go" id="pg-done-list">다른 본문 보기</button>
-        <button class="summary-help" id="pg-done-again">다시 암송</button>
+        <button class="summary-help" id="pg-done-restart">↺ 처음으로</button>
       </div>
     </div>`;
   document.getElementById("pg-done-list").addEventListener("click", renderPassageList);
-  document.getElementById("pg-done-again").addEventListener("click", () => renderPassageFinal(p));
+  document.getElementById("pg-done-restart").addEventListener("click", () => {
+    if (!confirm("이 본문의 진행(마음에 둠·완주)을 지우고 처음 마디부터 다시 시작할까요? 기록 통계에는 영향이 없어요.")) return;
+    resetPassageProgress(p.id); renderPassageChunk(p, 0, 1);
+  });
 }
 
 // ------------------------------------------------------------
