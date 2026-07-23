@@ -64,6 +64,9 @@ const api = {
   deletePassage: (pw, id) => supaCall("deletePassage", { pw, id }),
   savePassageProgress: (user_id, passage_id, doneSeq, completed) =>
     supaCall("savePassageProgress", { user_id, passage_id, doneSeq, completed }),
+  // 설교말씀 도우미(RAG 챗봇) — 성도는 user_id로 인가·로깅된다.
+  sermonChat: (message, user_id) => supaCall("sermonChat", { message, user_id }),
+  sermonSummary: (sermonId, user_id) => supaCall("sermonSummary", { sermonId, user_id }),
 };
 
 window.api = api;

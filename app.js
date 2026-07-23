@@ -1046,11 +1046,7 @@ function renderSummary() {
   if (dueCount > 0) document.getElementById("go-review").addEventListener("click", startReview);
   document.getElementById("go-challenge").addEventListener("click", startChallenge);
   document.getElementById("open-meditation").addEventListener("click", () => maybeShowWeeklyMeditation(true, true));
-  document.getElementById("open-sermon-chat").addEventListener("click", () => {
-    // 성도 신원을 넘겨 설교말씀 도우미(챗봇)로 이동 — 그쪽에서 user_id로 인가·로깅한다.
-    try { sessionStorage.setItem("sermon-chat-user", JSON.stringify({ id: u.user_id || "", name: u.name })); } catch (_) {}
-    location.href = "admin-sermon-chat.html";
-  });
+  document.getElementById("open-sermon-chat").addEventListener("click", renderSermonChat);
   document.getElementById("open-album").addEventListener("click", () => renderAlbum());
   { const b = document.getElementById("open-passages"); if (b) b.addEventListener("click", renderPassageList); }
   document.getElementById("open-ranking").addEventListener("click", () => renderRanking());
@@ -1167,6 +1163,123 @@ function boardIsMine(item) {
   const who = boardWho(); const uid = myUserId();
   return (!!who && item.name === who) || (!!uid && !!item.user_id && item.user_id === uid);
 }
+// ── 설교말씀 도우미 (인앱 RAG 챗봇 화면) — 게시판 등과 같은 공통 헤더 사용 ──
+const SERMON_TOPICS = [
+  { t:"기도", qs:["기도가 잘 안 될 때 어떻게 해야 하나요?","응답이 없는 기도는 어떻게 붙들어야 하나요?","기도의 능력에 대해 목사님은 뭐라고 하셨나요?"] },
+  { t:"순종", qs:["하나님께 순종하기 어려울 때 어떻게 해야 하나요?","순종이 왜 그렇게 중요한가요?"] },
+  { t:"은혜", qs:["하나님의 은혜를 어떻게 경험할 수 있나요?","은혜로 산다는 것은 무슨 뜻인가요?"] },
+  { t:"감사", qs:["감사가 나오지 않을 때 어떻게 감사할 수 있나요?","감사하는 삶은 왜 중요한가요?"] },
+  { t:"말씀", qs:["말씀을 어떻게 삶에 적용해야 하나요?","성경을 어떻게 읽어야 하나요?"] },
+  { t:"고난", qs:["고난을 겪을 때 어떻게 믿음을 지킬 수 있나요?","힘든 시간을 어떻게 견뎌야 하나요?"] },
+  { t:"믿음", qs:["믿음이 약해질 때 어떻게 해야 하나요?","참된 믿음이란 무엇인가요?"] },
+  { t:"전도", qs:["어떻게 복음을 전해야 하나요?","전도가 두려울 때 어떻게 해야 하나요?"] },
+  { t:"사랑", qs:["하나님의 사랑을 어떻게 알 수 있나요?"] },
+  { t:"기타", qs:["일터에서 어떻게 신앙생활을 해야 하나요?","일상에서 하나님을 어떻게 섬길 수 있나요?","가정에서 어떻게 신앙적으로 살아야 하나요?","예수님의 제자로 산다는 것은 무엇인가요?","십자가는 우리에게 어떤 의미인가요?"] },
+];
+let scSources = [];
+function renderSermonChat() {
+  stopSpeaking();
+  document.getElementById("app").innerHTML = `
+    <div class="summary-screen"><div class="summary-card">
+      <div class="settings-head">
+        <h2 class="rank-title">💬 설교말씀 도우미</h2>
+        <button class="settings-back-btn" id="sc-back">← 뒤로</button>
+      </div>
+      <div class="sc-ask">
+        <input id="sc-q" placeholder="예) 용서에 대해 목사님이 뭐라고 하셨나요?" />
+        <button id="sc-send">질문</button>
+      </div>
+      <div class="sc-hint">
+        <b class="h">💡 이렇게 이용하세요</b>
+        <p>AI가 설교를 하나하나 찾아 답을 만들기 때문에 <b>몇 초 정도 걸릴 수 있어요.</b> 잠시만 기다려 주세요.</p>
+        <p>입력창에 궁금한 점을 더 적어 <b>이어서 질문해도 됩니다.</b></p>
+      </div>
+      <div class="sc-cloud" id="sc-cloud"></div>
+      <div class="sc-tqs" id="sc-tqs"></div>
+      <div id="sc-out"><div class="sc-empty">궁금한 것을 물어보세요. 올해 설교에서 찾아 답해드립니다.</div></div>
+    </div></div>`;
+  document.getElementById("sc-back").addEventListener("click", renderSummary);
+  document.getElementById("sc-send").addEventListener("click", scAsk);
+  document.getElementById("sc-q").addEventListener("keydown", (e) => { if (e.key === "Enter") scAsk(); });
+  scBuildCloud();
+}
+function scBuildCloud() {
+  const cloud = document.getElementById("sc-cloud");
+  cloud.innerHTML = SERMON_TOPICS.map((tp, i) => `<button data-i="${i}">${boardEsc(tp.t)}</button>`).join("");
+  cloud.querySelectorAll("button").forEach((b) => { b.onclick = () => scSelectTopic(+b.dataset.i, b); });
+}
+function scSelectTopic(i, btn) {
+  document.querySelectorAll("#sc-cloud button").forEach((b) => b.classList.remove("on"));
+  btn.classList.add("on");
+  const qs = SERMON_TOPICS[i].qs;
+  const tqs = document.getElementById("sc-tqs");
+  tqs.innerHTML = qs.map((q, idx) => `<button class="sc-tq" data-q="${idx}">${boardEsc(q)}</button>`).join("");
+  tqs.querySelectorAll(".sc-tq").forEach((b) => {
+    b.onclick = () => { const el = document.getElementById("sc-q"); el.value = qs[+b.dataset.q]; el.focus(); };
+  });
+}
+async function scAsk() {
+  const message = document.getElementById("sc-q").value.trim();
+  if (!message) return;
+  const btn = document.getElementById("sc-send");
+  btn.disabled = true; btn.textContent = "찾는 중…";
+  document.getElementById("sc-out").innerHTML = `<div class="sc-empty">설교를 찾고 있어요… 잠시만 기다려 주세요 🔎</div>`;
+  try {
+    const j = await api.sermonChat(message, myUserId());
+    scSources = j.sources || [];
+    const srcHtml = scSources.map((s, i) => `
+      <button class="sc-src" data-i="${i}">
+        <span class="sc-src-icon">📖</span>
+        <span class="sc-src-body">
+          <span class="sc-src-title">${boardEsc(s.title)}</span>
+          <span class="sc-src-meta">${boardEsc(s.scripture || "")}${s.svc_date ? " · " + boardEsc(s.svc_date) : ""}</span>
+        </span>
+        <span class="sc-src-arrow">›</span>
+      </button>`).join("");
+    document.getElementById("sc-out").innerHTML = `
+      <div class="sc-answer">${boardEsc(j.answer)}</div>
+      ${srcHtml ? `<div class="sc-sources">${srcHtml}</div>` : ""}
+      <div class="sc-disc">※ 이 답변은 설교 아카이브를 검색한 AI 요약입니다. 정확한 내용은 원 설교를 확인하세요.</div>`;
+    document.querySelectorAll("#sc-out .sc-src").forEach((b) => { b.onclick = () => scOpenSermon(scSources[+b.dataset.i]); });
+  } catch (e) {
+    document.getElementById("sc-out").innerHTML = `<div class="sc-empty">잠시 후 다시 시도해 주세요.</div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = "질문";
+  }
+}
+function scOpenSermon(s) {
+  if (!s) return;
+  const m = document.createElement("div");
+  m.className = "sc-modal-bg";
+  m.innerHTML = `<div class="sc-modal">
+    <button class="sc-modal-x" aria-label="닫기">✕</button>
+    <div class="sc-modal-rows">
+      <div><span class="k">제목</span><span class="v">${boardEsc(s.title)}</span></div>
+      <div><span class="k">말씀</span><span class="v">${boardEsc(s.scripture || "-")}</span></div>
+      <div><span class="k">일자</span><span class="v">${boardEsc(s.svc_date || "-")}</span></div>
+      <div><span class="k">설교자</span><span class="v">${boardEsc(s.preacher || "-")}</span></div>
+    </div>
+    <div class="sc-modal-btns">
+      <button class="sc-mb watch">📺 설교 보기</button>
+      <button class="sc-mb summary">📄 말씀 요약</button>
+    </div>
+    <div class="sc-modal-summary" id="sc-msum" hidden></div>
+  </div>`;
+  document.body.appendChild(m);
+  const close = () => m.remove();
+  m.onclick = (e) => { if (e.target === m) close(); };
+  m.querySelector(".sc-modal-x").onclick = close;
+  m.querySelector(".watch").onclick = () => { window.open("https://youtube.com/watch?v=" + encodeURIComponent(s.youtube_id), "_blank", "noopener"); };
+  m.querySelector(".summary").onclick = async () => {
+    const el = m.querySelector("#sc-msum");
+    el.hidden = false; el.textContent = "요약을 불러오는 중…";
+    try {
+      const j = await api.sermonSummary(s.youtube_id, myUserId());
+      el.textContent = (j && j.summary) ? j.summary : (s.summary || "아직 등록된 요약이 없어요.");
+    } catch (e) { el.textContent = s.summary || "요약을 불러오지 못했어요."; }
+  };
+}
+
 function renderBoard() {
   const appEl = document.getElementById("app");
   appEl.innerHTML = `
