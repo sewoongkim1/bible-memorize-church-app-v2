@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>설교 물어보기 (베타)</title>
+<title>설교말씀 도우미</title>
 <style>
   :root { --navy:#1a3a6b; --gold:#a67c12; --line:#e2ded2; --ink:#17223a; --mute:#7c8598; }
   * { box-sizing:border-box; }
@@ -104,7 +104,7 @@ async function call(action, body={}) {
 function toast(m){ const t=$("toast"); t.textContent=m; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1800); }
 
 function renderLogin(msg){
-  $("app").innerHTML = `<div class="login"><h2>설교 물어보기 (베타)</h2>
+  $("app").innerHTML = `<div class="login"><h2>설교말씀 도우미</h2>
     ${msg?`<p style="color:#c0392b;font-size:13px">${esc(msg)}</p>`:""}
     <input id="pw" type="password" placeholder="관리자 비밀번호" />
     <button id="go">로그인</button></div>`;
@@ -123,7 +123,7 @@ async function tryLogin(){
 }
 function renderMain(){
   $("app").innerHTML = `<header>
-      <h1>🔎 설교 물어보기 (베타)</h1>
+      <h1>🔎 설교말씀 도우미</h1>
       <button id="reindex">🔄 색인 다시 만들기</button>
       <a href="admin.html">← 허브</a>
     </header>
@@ -138,7 +138,6 @@ function renderMain(){
         <p>입력창에 궁금한 점을 더 적어 <b>이어서 질문해도 됩니다.</b></p>
       </div>
       <div class="topics">
-        <p class="topics-label">궁금한 주제를 눌러보세요 · 질문을 고른 뒤 다듬어 보낼 수 있어요</p>
         <div class="cloud" id="cloud"></div>
         <div class="tqs" id="tqs"></div>
       </div>
@@ -217,10 +216,16 @@ function openSermon(s){
   m.onclick = (e)=>{ if(e.target===m) close(); };
   m.querySelector(".modal-x").onclick = close;
   m.querySelector(".watch").onclick = ()=>{ window.open("https://youtube.com/watch?v="+encodeURIComponent(s.youtube_id), "_blank", "noopener"); };
-  m.querySelector(".summary").onclick = ()=>{
+  m.querySelector(".summary").onclick = async ()=>{
     const el = m.querySelector("#msum");
-    el.textContent = s.summary || "아직 등록된 요약이 없어요.";
     el.hidden = false;
+    el.textContent = "요약을 불러오는 중…";
+    try {
+      const j = await call("sermonSummary", { sermonId: s.youtube_id });
+      el.textContent = (j.ok && j.summary) ? j.summary : (s.summary || "아직 등록된 요약이 없어요.");
+    } catch (e) {
+      el.textContent = s.summary || "요약을 불러오지 못했어요.";
+    }
   };
 }
 async function reindex(){

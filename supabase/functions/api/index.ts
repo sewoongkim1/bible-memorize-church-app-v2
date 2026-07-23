@@ -125,6 +125,7 @@ Deno.serve(async (req) => {
       case "generateNiv":   return json(await generateNiv(body));
       case "embedSermons":  return json(await embedSermons(body));
       case "sermonChat":    return json(await sermonChat(body));
+      case "sermonSummary": return json(await sermonSummary(body));
       case "getPassages":         return json(await getPassages());
       case "savePassage":         return json(await savePassage(body));
       case "deletePassage":       return json(await deletePassage(body));
@@ -837,6 +838,45 @@ async function sermonChat(b: any) {
   }));
 
   return { ok: true, answer, sources };
+}
+
+// ---------- sermonSummary: 특정 설교의 6~7줄 요약 생성 (관리자) ----------
+// body: { pw, sermonId }  — 저장된 summary가 짧아, 요점(points)까지 근거로
+// 6~7줄 요약을 그때그때 만든다(내용에 없는 것은 창작 금지).
+async function sermonSummary(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
+  if (!apiKey) return { ok: false, error: "ANTHROPIC_API_KEY 시크릿 미설정" };
+  const { data: s, error } = await db.from("sermons")
+    .select("title, scripture, summary, points, easy_explain")
+    .eq("id", b.sermonId).single();
+  if (error || !s) return { ok: false, error: "not-found" };
+
+  const parts = [s.summary];
+  for (const p of (s.points ?? [])) parts.push(`${p.heading}: ${p.body}`);
+  if (s.easy_explain) parts.push(s.easy_explain);
+  const content = parts.filter(Boolean).join("\n\n");
+
+  const system = [
+    "너는 교회 설교 요약 도우미다. 아래 설교 내용을 교인이 읽기 좋게 6~7줄 분량으로 요약하라.",
+    "설교 내용에 없는 것은 지어내지 말고, 핵심 메시지와 적용점이 드러나게 따뜻하고 담백한 한국어로 써라.",
+    "제목이나 머리말 없이 요약 본문만 출력하라.",
+  ].join("\n");
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: Deno.env.get("SERMON_CHAT_MODEL") || "claude-opus-4-8",
+      max_tokens: 700,
+      system,
+      messages: [{ role: "user", content: `[설교 제목] ${s.title}\n[본문] ${s.scripture ?? ""}\n\n[설교 내용]\n${content}` }],
+    }),
+  });
+  if (!res.ok) return { ok: false, error: `anthropic-${res.status}` };
+  const d = await res.json();
+  const summary = ((d.content ?? []).find((x: any) => x.type === "text")?.text ?? "").trim();
+  return { ok: true, summary: summary || (s.summary ?? "") };
 }
 
 // ---------- login ----------
