@@ -146,7 +146,7 @@ function getDeepLinkVerseNo() {
   return null;
 }
 
-// 📜 핵심 암송(긴 본문) — 사용자 노출 게이트 & 데이터 로더 & 진행 기록
+// 📜 내 안에 거하는 말씀(긴 본문 암송, 구 '핵심 암송') — 사용자 노출 게이트 & 데이터 로더 & 진행 기록
 let _passagesPreview = false; // ?passages=1 이면 공개 플래그와 무관하게 노출(어드민 미리보기)
 function getPassagesPreview() {
   try {
@@ -1061,7 +1061,7 @@ function renderSummary() {
       <button class="summary-go sermon-act act-btn" id="open-sermon-chat"><span class="act-ic">💬</span><span class="act-tx">내게 주시는<br>말씀</span>${newBadge("sermon")}</button>
       <button class="summary-go med-act act-btn" id="open-meditation"><span class="act-ic">🌿</span><span class="act-tx">매일<br>묵상</span>${newBadge("meditation")}</button>
     </div>
-    ${passagesVisible() ? `<button class="summary-help passages-cta" id="open-passages">📜 핵심 암송 (긴 말씀)</button>` : ""}
+    ${passagesVisible() ? `<button class="summary-help passages-cta" id="open-passages">📜 내 안에 거하는 말씀</button>` : ""}
     <button class="summary-help album-cta" id="open-album">📖 나의 말씀 앨범</button>
     <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
 <button class="summary-help praise-cta" id="open-praise">🎵 고척교회 찬양 아카이브</button>

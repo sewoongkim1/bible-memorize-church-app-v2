@@ -443,7 +443,7 @@ function renderMenu(){
       <div class="rep-card" id="rep-passages">
         <div class="ic">📜</div>
         <div class="rep-text">
-          <div class="ti">핵심 암송 관리</div>
+          <div class="ti">내 안에 거하는 말씀 관리</div>
           <div class="de">주기도문·사도신경 등 긴 본문 등록·수정 · 공개 전환</div>
         </div>
         <div class="rep-arrow">›</div>
@@ -1472,7 +1472,7 @@ async function renderPassages(){
   app.innerHTML=`
     <div class="rep-head">
       <button class="back-btn" id="back">← 메뉴</button>
-      <h2>📜 핵심 암송 관리</h2>
+      <h2>📜 내 안에 거하는 말씀 관리</h2>
     </div>
     <div id="pg-body"><div class="msg">불러오는 중...</div></div>`;
   document.getElementById("back").addEventListener("click", renderMenu);
@@ -1492,7 +1492,7 @@ async function loadPassageList(selId){
       <p class="push-hint">새 탭에서 실제 암송 화면이 바로 열립니다. 어드민 테스트용이며, 사용자에게는 아래 '사용자 공개'를 켜야 노출됩니다.</p>
       <hr style="border:none;border-top:1px solid var(--border);margin:14px 0;">
       <label class="push-lb">사용자 공개</label>
-      <label class="chk" style="margin:6px 0;"><input type="checkbox" id="pg-public" ${isPublic?"checked":""}> 홈 화면에 '📜 핵심 암송' 노출(끄면 위 '▶ 암송 화면 열기'로 어드민만 테스트)</label>
+      <label class="chk" style="margin:6px 0;"><input type="checkbox" id="pg-public" ${isPublic?"checked":""}> 홈 화면에 '📜 내 안에 거하는 말씀' 노출(끄면 위 '▶ 암송 화면 열기'로 어드민만 테스트)</label>
       <div id="pg-public-msg" class="msg"></div>
       <hr style="border:none;border-top:1px solid var(--border);margin:14px 0;">
       <label class="push-lb">편집할 본문 선택</label>
