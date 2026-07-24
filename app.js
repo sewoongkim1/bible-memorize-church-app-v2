@@ -1895,12 +1895,13 @@ function renderPassageList() {
       const total = passageChunks(p).length;
       const done = passageDone(p.id).length;
       const complete = passageCompleted(p.id);
-      const status = complete ? `<span class="pg-badge done">👑 외운 말씀</span>`
+      const status = complete ? `<span class="pg-badge done">완료</span>`
         : done > 0 ? `<span class="pg-badge prog">${done}/${total}</span>`
         : `<span class="pg-badge">${total}마디</span>`;
       const card = document.createElement("div");
       card.className = `pg-card${complete ? " complete" : ""}`;
       card.innerHTML = `
+        ${complete ? `<div class="card-badges"><div class="heart-ribbon">👑 마음에 둠</div></div>` : ""}
         <div class="pg-card-main">
           <span class="pg-card-title">${p.title}</span>${p.ref ? ` <span class="pg-card-ref">${p.ref}</span>` : ""}
         </div>
