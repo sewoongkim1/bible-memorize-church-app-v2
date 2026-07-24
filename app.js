@@ -1278,6 +1278,8 @@ function scBuildCloud() {
   const cloud = document.getElementById("sc-cloud");
   cloud.innerHTML = SERMON_TOPICS.map((tp, i) => `<button data-i="${i}">${boardEsc(tp.t)}</button>`).join("");
   cloud.querySelectorAll("button").forEach((b) => { b.onclick = () => scSelectTopic(+b.dataset.i, b); });
+  const first = cloud.querySelector("button");
+  if (first) scSelectTopic(0, first); // 첫 화면에 '대표' 선택 + 샘플 질문 노출
 }
 function scSelectTopic(i, btn) {
   document.querySelectorAll("#sc-cloud button").forEach((b) => b.classList.remove("on"));
