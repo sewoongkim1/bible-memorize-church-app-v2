@@ -52,6 +52,7 @@ const api = {
   removePush: (endpoint) => supaCall("removePush", { endpoint }),
   testPush: (endpoint, hour, preview) => supaCall("testPush", { endpoint, hour, preview }),
   boardList: () => supaCall("boardList", {}),
+  boardCheck: () => supaCall("boardCheck", {}),   // 최근 7일 새 글/답글 개수 { ok, recent }
   boardPost: (name, content, user_id) => supaCall("boardPost", { name, content, user_id }),
   boardReply: (post_id, name, content, user_id) => supaCall("boardReply", { post_id, name, content, user_id }),
   boardDeleteMine: (kind, id, user_id, who) => supaCall("boardDeleteMine", { kind, id, user_id, who }),

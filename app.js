@@ -983,6 +983,22 @@ function featSeen(k) { try { return localStorage.getItem("feat-seen-" + k) === "
 function markFeatSeen(k) { try { localStorage.setItem("feat-seen-" + k, "1"); } catch {} }
 function newBadge(k) { return featSeen(k) ? "" : `<span class="new-badge">NEW</span>`; }
 function scRemoveBadge(btnId) { const b = document.getElementById(btnId); const badge = b && b.querySelector(".new-badge"); if (badge) badge.remove(); }
+// 게시판 버튼 배지 — 최근 7일 내 새 글/답글 개수. 홈 재진입마다 부르지 않게 10분 캐시(sessionStorage).
+async function fillBoardBadge() {
+  const CK = "board-recent"; let n = null;
+  try {
+    const c = JSON.parse(sessionStorage.getItem(CK) || "null");
+    if (c && Date.now() - c.t < 10 * 60 * 1000) n = c.n;
+  } catch {}
+  if (n == null) {
+    try {
+      const d = await api.boardCheck(); n = (d && d.recent) || 0;
+      sessionStorage.setItem(CK, JSON.stringify({ t: Date.now(), n }));
+    } catch { return; }
+  }
+  const btn = document.getElementById("open-board");
+  if (btn && n > 0 && !btn.querySelector(".board-new")) btn.insertAdjacentHTML("beforeend", `<span class="board-new">새글 ${n}</span>`);
+}
 function promoCardHtml() {
   const st = promoState();
   if (st.dismissed) return "";
@@ -1091,6 +1107,7 @@ function renderSummary() {
   document.getElementById("go-list").addEventListener("click", renderVerseList);
   loadTodayCount(u); // 첫 화면 '오늘 N회' 띠 채우기
   document.getElementById("open-board").addEventListener("click", renderBoard);
+  fillBoardBadge(); // 최근 1주 새 글/답글 있으면 게시판 버튼에 배지
   if (weeklyVerse) document.getElementById("weekly-start").addEventListener("click", () => startTest(weeklyVerse));
   if (weeklyVerse) document.getElementById("weekly-share").addEventListener("click", () => shareWeeklyVerse(weeklyVerse));
   fillWeeklySummaryBtn(weeklyVerse); // 요약이 있으면 '설교보기' 옆에 요약보기 버튼 추가

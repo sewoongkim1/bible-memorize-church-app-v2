@@ -1704,6 +1704,12 @@ html[data-fs="xl"] .sermon-sum-card .ss-top > .back-btn { font-size: 17px; paddi
 .summary-help.board-cta:hover { background: #2f6b4f; color: #fff; }
 .dark .summary-help.board-cta { background: #1c3328; color: #7fc7a0; border-color: #2f6b4f; }
 .dark .summary-help.board-cta:hover { background: #2f6b4f; color: #fff; }
+/* 게시판 버튼 배지 — 최근 1주일 새 글/답글 개수 */
+.board-new {
+  display: inline-block; margin-left: 6px; vertical-align: middle;
+  background: #e5484d; color: #fff; font-size: 11px; font-weight: 800;
+  padding: 1px 7px; border-radius: 9px; letter-spacing: .3px; white-space: nowrap;
+}
 
 /* ---------- 목록 상단 네비 ---------- */
 .list-nav {

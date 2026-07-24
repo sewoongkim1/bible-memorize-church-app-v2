@@ -154,6 +154,7 @@ Deno.serve(async (req) => {
       case "weeklyReport":  return json(await weeklyReport(body));
       // ---- 질문·제안 게시판 ----
       case "boardList":     return json(await boardList(body));
+      case "boardCheck":    return json(await boardCheck());
       case "boardPost":     return json(await boardPost(body));
       case "boardReply":    return json(await boardReply(body));
       case "boardDeleteMine": return json(await boardDeleteMine(body));
@@ -1783,6 +1784,16 @@ async function boardList(b: any) {
   const byPost = new Map<number, any[]>();
   for (const r of replies) { if (!byPost.has(r.post_id)) byPost.set(r.post_id, []); byPost.get(r.post_id)!.push(r); }
   return { ok: true, isAdmin, posts: (posts ?? []).map((p: any) => ({ ...p, replies: byPost.get(p.id) || [] })) };
+}
+
+// 첫 화면 배지용 — 최근 7일 내 공개 글/답글 개수만 가볍게 센다(본문 미포함)
+async function boardCheck() {
+  const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+  const p = await db.from("board_posts").select("id", { count: "exact", head: true })
+    .eq("hidden", false).not("deleted", "is", true).gte("created_at", since);
+  const r = await db.from("board_replies").select("id", { count: "exact", head: true })
+    .eq("hidden", false).not("deleted", "is", true).gte("created_at", since);
+  return { ok: true, recent: (p.count || 0) + (r.count || 0) };
 }
 
 async function boardPost(b: any) {
