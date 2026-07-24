@@ -1301,7 +1301,9 @@ async function scAsk() {
   const btn = document.getElementById("sc-send");
   btn.disabled = true; btn.textContent = "찾는 중…";
   const out = document.getElementById("sc-out");
-  out.innerHTML = `<div class="sc-empty">설교를 찾고 있어요… 잠시만 기다려 주세요 🔎</div>`;
+  // 질문을 말풍선으로 먼저 보여주고 그 아래 답변을 붙인다(별도 라벨 없이 모양으로 구분).
+  const qEcho = `<div class="sc-q-echo">${boardEsc(message)}</div>`;
+  out.innerHTML = `${qEcho}<div class="sc-empty">설교를 찾고 있어요… 잠시만 기다려 주세요 🔎</div>`;
   out.scrollIntoView({ behavior: "smooth", block: "start" });
   try {
     const j = await api.sermonChat(message, myUserId());
@@ -1317,13 +1319,14 @@ async function scAsk() {
         <span class="sc-src-arrow">›</span>
       </button>`).join("");
     out.innerHTML = `
+      ${qEcho}
       <div class="sc-answer">${scEmphasis(j.answer)}</div>
       ${srcHtml ? `<div class="sc-sources">${srcHtml}</div>` : ""}
       <div class="sc-disc">※ 이 답변은 설교 아카이브를 검색한 AI 요약입니다. 정확한 내용은 원 설교를 확인하세요.</div>`;
     out.scrollIntoView({ behavior: "smooth", block: "start" });
     document.querySelectorAll("#sc-out .sc-src").forEach((b) => { b.onclick = () => scOpenSermon(scSources[+b.dataset.i]); });
   } catch (e) {
-    out.innerHTML = `<div class="sc-empty">잠시 후 다시 시도해 주세요.</div>`;
+    out.innerHTML = `${qEcho}<div class="sc-empty">잠시 후 다시 시도해 주세요.</div>`;
   } finally {
     btn.disabled = false; btn.textContent = "질문";
   }

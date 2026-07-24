@@ -1659,6 +1659,15 @@ html[data-fs="xl"] .sermon-sum-card .ss-top > .back-btn { font-size: 17px; paddi
 .sc-tq { text-align:left; background:linear-gradient(135deg,#f3f7fd,#e9eff7); border:1px solid #d7e2f1; border-radius:10px; padding:10px 13px; font-size:14px; color:#26364f; cursor:pointer; font-family:inherit; }
 .sc-tq:hover { border-color:var(--navy); background:linear-gradient(135deg,#eaf1fb,#dde8f5); }
 .dark .sc-tq { background:linear-gradient(135deg,#1e2b40,#182333); border-color:#33465f; color:#cdd8ea; }
+/* 내 질문 말풍선(채팅처럼 오른쪽 정렬) — 라벨 없이 모양으로 답변과 구분 */
+.sc-q-echo {
+  margin: 14px 0 0 auto; width: fit-content; max-width: 85%;
+  background: var(--navy); color: #fff;
+  border-radius: 14px 14px 4px 14px; padding: 10px 14px;
+  font-size: 14.5px; font-weight: 600; line-height: 1.6;
+  text-align: left; word-break: keep-all;
+}
+.dark .sc-q-echo { background: #2e3950; color: #cdd9f2; }
 .sc-answer { text-align:left; background:#fff; border:1px solid var(--border); border-radius:12px; padding:16px; font-size:15px; line-height:1.75; white-space:pre-wrap; margin-top:14px; }
 .sc-answer strong, .sc-modal-summary strong { font-weight:800; color:var(--navy); }
 .dark .sc-answer strong, .dark .sc-modal-summary strong { color:#9dc0f0; }
