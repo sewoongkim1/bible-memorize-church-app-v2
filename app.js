@@ -1286,7 +1286,8 @@ function scSelectTopic(i, btn) {
   const tqs = document.getElementById("sc-tqs");
   tqs.innerHTML = qs.map((q, idx) => `<button class="sc-tq" data-q="${idx}">${boardEsc(q)}</button>`).join("");
   tqs.querySelectorAll(".sc-tq").forEach((b) => {
-    b.onclick = () => { const el = document.getElementById("sc-q"); el.value = qs[+b.dataset.q]; el.focus(); };
+    // 샘플 질문은 답변이 캐시돼 있어 바로 조회한다(입력창에도 채워 이어서 질문 가능).
+    b.onclick = () => { document.getElementById("sc-q").value = qs[+b.dataset.q]; scAsk(); };
   });
 }
 async function scAsk() {
