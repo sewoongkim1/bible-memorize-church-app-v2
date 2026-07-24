@@ -983,22 +983,60 @@ function featSeen(k) { try { return localStorage.getItem("feat-seen-" + k) === "
 function markFeatSeen(k) { try { localStorage.setItem("feat-seen-" + k, "1"); } catch {} }
 function newBadge(k) { return featSeen(k) ? "" : `<span class="new-badge">NEW</span>`; }
 function scRemoveBadge(btnId) { const b = document.getElementById(btnId); const badge = b && b.querySelector(".new-badge"); if (badge) badge.remove(); }
-// 게시판 버튼 배지 — 최근 7일 내 새 글/답글 개수. 홈 재진입마다 부르지 않게 10분 캐시(sessionStorage).
+// 게시판 버튼 배지 — 최근 7일 내(마지막으로 본 이후) 새 글/답글 개수.
+// 게시판을 열면(board-seen 갱신) 사라지고, 그 뒤 새로 올라온 것만 다시 센다.
+// 홈 재진입마다 부르지 않게 10분 캐시(sessionStorage).
 async function fillBoardBadge() {
-  const CK = "board-recent"; let n = null;
+  const CK = "board-recent";
+  const seen = (() => { try { return localStorage.getItem("board-seen") || ""; } catch { return ""; } })();
+  let n = null;
   try {
     const c = JSON.parse(sessionStorage.getItem(CK) || "null");
-    if (c && Date.now() - c.t < 10 * 60 * 1000) n = c.n;
+    if (c && c.seen === seen && Date.now() - c.t < 10 * 60 * 1000) n = c.n;
   } catch {}
   if (n == null) {
     try {
-      const d = await api.boardCheck(); n = (d && d.recent) || 0;
-      sessionStorage.setItem(CK, JSON.stringify({ t: Date.now(), n }));
+      const d = await api.boardCheck(seen || undefined); n = (d && d.recent) || 0;
+      sessionStorage.setItem(CK, JSON.stringify({ t: Date.now(), n, seen }));
     } catch { return; }
   }
   const btn = document.getElementById("open-board");
   if (btn && n > 0 && !btn.querySelector(".board-new")) btn.insertAdjacentHTML("beforeend", `<span class="board-new">새글 ${n}</span>`);
 }
+// 게시판을 봤다고 기록 — 배지 즉시 소멸(캐시도 0으로 갱신해 재조회 없이 반영)
+function markBoardSeen() {
+  try {
+    const now = new Date().toISOString();
+    localStorage.setItem("board-seen", now);
+    sessionStorage.setItem("board-recent", JSON.stringify({ t: Date.now(), n: 0, seen: now }));
+  } catch {}
+}
+
+// ── 커스텀 모달(시스템 alert/confirm 대체) — Promise<boolean> 반환 ──
+function appModal({ title = "", msg = "", okText = "확인", cancelText = null, danger = false }) {
+  return new Promise((resolve) => {
+    const old = document.getElementById("app-modal"); if (old) old.remove();
+    const wrap = document.createElement("div");
+    wrap.id = "app-modal"; wrap.className = "am-overlay";
+    wrap.innerHTML = `
+      <div class="am-card" role="dialog" aria-modal="true">
+        ${title ? `<div class="am-title">${title}</div>` : ""}
+        <div class="am-msg">${msg}</div>
+        <div class="am-btns">
+          ${cancelText ? `<button class="am-btn am-cancel">${cancelText}</button>` : ""}
+          <button class="am-btn am-ok${danger ? " danger" : ""}">${okText}</button>
+        </div>
+      </div>`;
+    const close = (v) => { wrap.classList.remove("show"); setTimeout(() => wrap.remove(), 160); resolve(v); };
+    wrap.addEventListener("click", (e) => { if (e.target === wrap && cancelText) close(false); }); // 바깥 탭=취소(confirm만)
+    wrap.querySelector(".am-ok").addEventListener("click", () => close(true));
+    const c = wrap.querySelector(".am-cancel"); if (c) c.addEventListener("click", () => close(false));
+    document.body.appendChild(wrap);
+    requestAnimationFrame(() => wrap.classList.add("show"));
+  });
+}
+const appAlert = (msg, title = "") => appModal({ title, msg });
+const appConfirm = (msg, opts = {}) => appModal({ msg, cancelText: "취소", ...opts });
 function promoCardHtml() {
   const st = promoState();
   if (st.dismissed) return "";
@@ -1187,11 +1225,11 @@ function installToHome() {
     return;
   }
   if (/iphone|ipad|ipod/i.test(ua)) {
-    alert("📱 홈 화면에 바로가기 추가\n\n① 하단 공유 버튼(□↑)을 누르세요\n② \"홈 화면에 추가\"를 선택하세요\n③ 오른쪽 위 \"추가\"를 눌러 완료!");
+    appAlert("① 하단 공유 버튼(□↑)을 누르세요\n② \"홈 화면에 추가\"를 선택하세요\n③ 오른쪽 위 \"추가\"를 눌러 완료!", "📱 홈 화면에 바로가기 추가");
   } else if (/android/i.test(ua)) {
-    alert("📱 홈 화면에 바로가기 추가\n\n① 브라우저 우측 상단 메뉴(⋮)를 누르세요\n② \"홈 화면에 추가\"를 선택하세요\n③ \"추가\"를 눌러 완료!");
+    appAlert("① 브라우저 우측 상단 메뉴(⋮)를 누르세요\n② \"홈 화면에 추가\"를 선택하세요\n③ \"추가\"를 눌러 완료!", "📱 홈 화면에 바로가기 추가");
   } else {
-    alert("📱 홈 화면에 바로가기 추가\n\n• iOS Safari: 공유 버튼(□↑) → 홈 화면에 추가\n• Android Chrome: 메뉴(⋮) → 홈 화면에 추가");
+    appAlert("• iOS Safari: 공유 버튼(□↑) → 홈 화면에 추가\n• Android Chrome: 메뉴(⋮) → 홈 화면에 추가", "📱 홈 화면에 바로가기 추가");
   }
 }
 
@@ -1202,7 +1240,7 @@ async function alarmFromHome() {
     const sub = reg && await reg.pushManager.getSubscription();
     if (sub) {
       const h = (typeof getPushHour === "function") ? getPushHour() : 7;
-      alert(`🔔 이미 매일 암송 알림이 켜져 있어요.\n(매일 오전 ${h}시)\n\n시간 변경·끄기는 ⚙️ 설정에서 하실 수 있어요.`);
+      appAlert(`이미 매일 암송 알림이 켜져 있어요.\n(매일 오전 ${h}시)\n\n시간 변경·끄기는 ⚙️ 설정에서 하실 수 있어요.`, "🔔 암송 알림");
       return;
     }
   } catch (e) {}
@@ -1382,6 +1420,7 @@ function scOpenSermon(s) {
 }
 
 function renderBoard() {
+  markBoardSeen(); // 게시판을 열면 첫 화면 '새글' 배지 소멸
   const appEl = document.getElementById("app");
   appEl.innerHTML = `
     <div class="summary-screen">
@@ -1458,7 +1497,7 @@ async function submitBoardPost() {
   const content = document.getElementById("bp-content").value.trim();
   const msg = document.getElementById("bp-msg");
   if (!content) { msg.className = "msg err"; msg.textContent = "내용을 입력해주세요."; return; }
-  if (!confirm("이 내용으로 글을 올릴까요?\n작성한 글은 모든 분에게 공개됩니다.")) return;
+  if (!(await appConfirm("이 내용으로 글을 올릴까요?\n작성한 글은 모든 분에게 공개됩니다.", { okText: "올리기" }))) return;
   const btn = document.getElementById("bp-submit"); btn.disabled = true; msg.className = "msg"; msg.textContent = "등록 중...";
   try { await api.boardPost(boardWho(), content, myUserId()); }
   catch (e) { btn.disabled = false; msg.className = "msg err"; msg.textContent = "등록 실패: " + (e && e.message ? e.message : e); return; }
@@ -1472,16 +1511,16 @@ async function submitBoardReply(btn) {
   const contentEl = post.querySelector(".br-content");
   const content = contentEl.value.trim();
   if (!content) { contentEl.focus(); return; }
-  if (!confirm("답글을 등록할까요?\n작성한 답글은 모든 분에게 공개됩니다.")) return;
+  if (!(await appConfirm("답글을 등록할까요?\n작성한 답글은 모든 분에게 공개됩니다.", { okText: "등록" }))) return;
   btn.disabled = true;
   try { await api.boardReply(Number(btn.dataset.id), boardWho(), content, myUserId()); }
-  catch (e) { btn.disabled = false; alert("답글 등록 실패: " + (e && e.message ? e.message : e)); return; }
+  catch (e) { btn.disabled = false; appAlert("답글 등록 실패: " + (e && e.message ? e.message : e)); return; }
   loadBoard();
 }
 async function deleteMine(btn) {
-  if (!confirm("이 글을 삭제할까요?")) return;
+  if (!(await appConfirm("이 글을 삭제할까요?", { okText: "삭제", danger: true }))) return;
   try { await api.boardDeleteMine(btn.dataset.kind, Number(btn.dataset.id), myUserId(), boardWho()); }
-  catch (e) { alert("삭제 실패: " + (e && e.message ? e.message : e)); return; }
+  catch (e) { appAlert("삭제 실패: " + (e && e.message ? e.message : e)); return; }
   loadBoard();
 }
 
@@ -1707,11 +1746,11 @@ function setupInstallButton() {
     installBtn.hidden = true; // 이미 설치됨
   } else if (isIOS) {
     installBtn.addEventListener("click", () => {
-      alert(
-        "📱 홈 화면에 추가하는 방법\n\n" +
+      appAlert(
         "① 하단 공유 버튼(□↑)을 누르세요\n" +
         "② 목록에서 \"홈 화면에 추가\"를 선택하세요\n" +
-        "③ 오른쪽 위 \"추가\"를 눌러 완료!"
+        "③ 오른쪽 위 \"추가\"를 눌러 완료!",
+        "📱 홈 화면에 추가하는 방법"
       );
     });
   } else if (window.__pwaInstallPrompt) {
@@ -1727,17 +1766,17 @@ function setupInstallButton() {
     installBtn.addEventListener("click", () => {
       const ua = navigator.userAgent || "";
       if (/android/i.test(ua)) {
-        alert(
-          "📱 홈 화면에 추가하는 방법\n\n" +
+        appAlert(
           "① 브라우저 우측 상단 메뉴(⋮)를 누르세요\n" +
           "② \"홈 화면에 추가\"를 선택하세요\n" +
-          "③ \"추가\"를 눌러 완료!"
+          "③ \"추가\"를 눌러 완료!",
+          "📱 홈 화면에 추가하는 방법"
         );
       } else {
-        alert(
-          "📱 홈 화면에 추가하는 방법\n\n" +
+        appAlert(
           "• iOS Safari: 공유 버튼(□↑) → 홈 화면에 추가\n" +
-          "• Android Chrome: 메뉴(⋮) → 홈 화면에 추가"
+          "• Android Chrome: 메뉴(⋮) → 홈 화면에 추가",
+          "📱 홈 화면에 추가하는 방법"
         );
       }
     });
@@ -2166,8 +2205,8 @@ function renderPassageFinal(p) {
     markPassageCompleted(p.id); stopSpeaking(); renderPassageDone(p); // 활동 기록은 통과 시점(onDone)에 반영됨
   });
   const restartBtn = document.getElementById("pg-final-restart");
-  if (restartBtn) restartBtn.addEventListener("click", () => {
-    if (!confirm("이 본문의 진행(마음에 둠·완주)을 지우고 처음 마디부터 다시 시작할까요? 기록 통계에는 영향이 없어요.")) return;
+  if (restartBtn) restartBtn.addEventListener("click", async () => {
+    if (!(await appConfirm("이 본문의 진행(마음에 둠·완주)을 지우고 처음 마디부터 다시 시작할까요?\n기록 통계에는 영향이 없어요.", { title: "↺ 처음부터 다시", okText: "다시 시작" }))) return;
     resetPassageProgress(p.id); stopSpeaking(); renderPassageChunk(p, 0, 1);
   });
   setupChallengeTyping(fullVerse, onDone);
@@ -2189,8 +2228,8 @@ function renderPassageDone(p) {
       </div>
     </div>`;
   document.getElementById("pg-done-list").addEventListener("click", renderPassageList);
-  document.getElementById("pg-done-restart").addEventListener("click", () => {
-    if (!confirm("이 본문의 진행(마음에 둠·완주)을 지우고 처음 마디부터 다시 시작할까요? 기록 통계에는 영향이 없어요.")) return;
+  document.getElementById("pg-done-restart").addEventListener("click", async () => {
+    if (!(await appConfirm("이 본문의 진행(마음에 둠·완주)을 지우고 처음 마디부터 다시 시작할까요?\n기록 통계에는 영향이 없어요.", { title: "↺ 처음부터 다시", okText: "다시 시작" }))) return;
     resetPassageProgress(p.id); renderPassageChunk(p, 0, 1);
   });
 }
@@ -2647,7 +2686,7 @@ function setSpeakRate(v) {
 // text 를 times 번 연속해서 읽어준다. (빠르게 N번 클릭하면 N번 반복)
 function speakText(text, onEnd, times = 1, lang = "ko-KR") {
   if (!("speechSynthesis" in window)) {
-    alert("이 브라우저는 읽어주기(음성 합성)를 지원하지 않습니다.\n크롬·사파리에서 이용해 주세요.");
+    appAlert("이 브라우저는 읽어주기(음성 합성)를 지원하지 않습니다.\n크롬·사파리에서 이용해 주세요.");
     if (onEnd) onEnd();
     return;
   }
@@ -2719,7 +2758,7 @@ function playSermonAudio(url, onEnd) {
 
 function speakLong(text, onEnd) {
   if (!("speechSynthesis" in window)) {
-    alert("이 브라우저는 읽어주기(음성 합성)를 지원하지 않습니다.\n크롬·사파리에서 이용해 주세요.");
+    appAlert("이 브라우저는 읽어주기(음성 합성)를 지원하지 않습니다.\n크롬·사파리에서 이용해 주세요.");
     if (onEnd) onEnd();
     return;
   }

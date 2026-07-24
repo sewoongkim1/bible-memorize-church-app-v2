@@ -1711,6 +1711,39 @@ html[data-fs="xl"] .sermon-sum-card .ss-top > .back-btn { font-size: 17px; paddi
   padding: 1px 7px; border-radius: 9px; letter-spacing: .3px; white-space: nowrap;
 }
 
+/* ── 커스텀 모달(시스템 alert/confirm 대체) ── */
+.am-overlay {
+  position: fixed; inset: 0; z-index: 2000;
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+  background: rgba(18, 28, 22, .45);
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  opacity: 0; transition: opacity .16s ease;
+}
+.am-overlay.show { opacity: 1; }
+.am-card {
+  width: 100%; max-width: 340px; background: #fff; border-radius: 18px;
+  padding: 22px 20px 16px; box-shadow: 0 14px 44px rgba(0, 0, 0, .24);
+  transform: translateY(12px) scale(.97); transition: transform .16s ease;
+}
+.am-overlay.show .am-card { transform: none; }
+.am-title { font-weight: 800; font-size: 16px; color: var(--navy); margin-bottom: 8px; word-break: keep-all; }
+.am-msg { font-size: 14.5px; line-height: 1.7; color: #333; white-space: pre-line; word-break: keep-all; }
+.am-btns { display: flex; gap: 8px; margin-top: 18px; }
+.am-btn {
+  flex: 1; padding: 12px; border-radius: 11px; font-size: 14.5px; font-weight: 700;
+  cursor: pointer; font-family: inherit; border: 1px solid var(--border);
+  background: #f3f4f2; color: #4a4a4a;
+}
+.am-btn.am-ok { background: var(--navy); color: #fff; border-color: var(--navy); }
+.am-btn.am-ok.danger { background: #d64545; border-color: #d64545; }
+.am-btn:active { filter: brightness(.94); }
+.dark .am-card { background: #222b26; }
+.dark .am-title { color: #cfe3d8; }
+.dark .am-msg { color: #d9dedb; }
+.dark .am-btn { background: #2b352f; color: #cfd6d1; border-color: #3c463f; }
+.dark .am-btn.am-ok { background: #3d6b53; border-color: #3d6b53; color: #fff; }
+.dark .am-btn.am-ok.danger { background: #b23a3a; border-color: #b23a3a; }
+
 /* ---------- 목록 상단 네비 ---------- */
 .list-nav {
   display: flex; flex-direction: column; align-items: stretch; gap: 8px;

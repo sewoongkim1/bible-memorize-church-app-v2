@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
       case "weeklyReport":  return json(await weeklyReport(body));
       // ---- 질문·제안 게시판 ----
       case "boardList":     return json(await boardList(body));
-      case "boardCheck":    return json(await boardCheck());
+      case "boardCheck":    return json(await boardCheck(body));
       case "boardPost":     return json(await boardPost(body));
       case "boardReply":    return json(await boardReply(body));
       case "boardDeleteMine": return json(await boardDeleteMine(body));
@@ -1787,8 +1787,12 @@ async function boardList(b: any) {
 }
 
 // 첫 화면 배지용 — 최근 7일 내 공개 글/답글 개수만 가볍게 센다(본문 미포함)
-async function boardCheck() {
-  const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+// b.since(마지막으로 게시판을 본 시각)가 있으면 그 이후 것만 → '보면 사라지는' 배지
+async function boardCheck(b: any) {
+  let floor = Date.now() - 7 * 24 * 3600 * 1000;
+  const seen = b && b.since ? Date.parse(b.since) : NaN;
+  if (!isNaN(seen) && seen > floor) floor = seen;
+  const since = new Date(floor).toISOString();
   const p = await db.from("board_posts").select("id", { count: "exact", head: true })
     .eq("hidden", false).not("deleted", "is", true).gte("created_at", since);
   const r = await db.from("board_replies").select("id", { count: "exact", head: true })
