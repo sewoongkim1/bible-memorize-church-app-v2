@@ -3591,7 +3591,11 @@ function buildWeeklyMeditations(verse, sermon) {
     items.push({ heading: p ? (p.heading || "") : "", message, question: q });
   }
   if (!items.length) {
-    items.push({ heading: "", message: verse.text, question: "오늘 이 말씀을 삶의 어느 자리에 적용할 수 있을까요?" });
+    // 이번주 설교가 말씀 아카이브에 아직 등록 전(주로 주일 예배 직후 관리자가 올리기 전 잠깐의 공백).
+    // 예전엔 이때 이번주 말씀 본문만 밋밋하게 보여줘서 '멈춘 것처럼' 보였다 — 안내 문구로 구분.
+    items.push(!sermon
+      ? { heading: "", message: "이번 주 설교 묵상 자료를 준비하고 있어요.\n잠시 후 다시 확인해 주세요 🙏", question: "" }
+      : { heading: "", message: verse.text, question: "오늘 이 말씀을 삶의 어느 자리에 적용할 수 있을까요?" });
   }
   return items;
 }
