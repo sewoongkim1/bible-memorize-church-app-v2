@@ -134,6 +134,7 @@ Deno.serve(async (req) => {
       case "deletePassage":       return json(await deletePassage(body));
       case "savePassageProgress": return json(await savePassageProgress(body));
       case "passageHelp":         return json(await passageHelp(body));
+      case "passageHelpAll":      return json(await passageHelpAll(body));
       case "cleanupDummy":  return json(await cleanupDummy());
       case "importV1":      return json(await importV1(body));
       // ---- Web Push ----
@@ -682,6 +683,20 @@ async function passageHelp(b: any) {
 
   const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
   if (!apiKey) return { ok: false, error: "ANTHROPIC_API_KEY 시크릿 미설정" };
+  const out = await genChunkHelp(apiKey, p, chunks, idx);
+  if (!out) return { ok: false, error: "output-too-short" };
+
+  cache[String(idx)] = { text, ...out };
+  try {
+    await db.from("app_config").upsert({
+      key: CKEY, value: cache, updated_at: new Date().toISOString(),
+    }, { onConflict: "key" });
+  } catch { /* 캐시 저장 실패해도 결과는 반환 */ }
+  return { ok: true, ...out };
+}
+
+// 마디 하나의 도우미(쉬운 풀이·기억법·영어)를 AI로 생성. 부실 출력이면 null.
+async function genChunkHelp(apiKey: string, p: any, chunks: string[], idx: number) {
   const schema = {
     type: "object",
     additionalProperties: false,
@@ -698,7 +713,7 @@ async function passageHelp(b: any) {
     "- easy(쉬운 풀이): 이 마디의 뜻을 누구나 이해할 쉬운 한국어 1~2문장으로. 본문에 없는 해석을 보태지 않기.",
     "- tip(기억법): 이 마디를 외우는 실용적인 요령 1~2문장 — 문장 구조(대구·반복), 핵심 단어의 첫 글자,",
     "  장면 연상 등. 막연한 조언(여러 번 읽으세요 등)은 금지.",
-    "- en(영어): 이 마디 범위만의 자연스러운 영어 번역(참고용, 성경 영어 문체). 범위를 넘는 내용 금지.",
+    "- en(영어): 이 마디 범위만의 자연스러운 영어 번역(성경 영어 문체). 범위를 넘는 내용 금지.",
     "쉬운 풀이·기억법은 존댓말(~해요체)로 쓰고, 이모지는 넣지 않습니다.",
   ].join("\n");
   const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -715,26 +730,63 @@ async function passageHelp(b: any) {
       output_config: { format: { type: "json_schema", schema } },
       messages: [{
         role: "user",
-        content: `[본문 제목] ${p.title}${p.ref ? `\n[출처] ${p.ref}` : ""}\n[전체 본문]\n${chunks.join("\n")}\n\n[이번 마디 (${idx + 1}/${chunks.length})]\n${text}`,
+        content: `[본문 제목] ${p.title}${p.ref ? `\n[출처] ${p.ref}` : ""}\n[전체 본문]\n${chunks.join("\n")}\n\n[이번 마디 (${idx + 1}/${chunks.length})]\n${chunks[idx]}`,
       }],
     }),
   });
-  if (!res.ok) return { ok: false, error: `anthropic-${res.status}: ${(await res.text()).slice(0, 300)}` };
+  if (!res.ok) return null;
   const d = await res.json();
   let out: any = {};
   try { out = JSON.parse((d.content ?? []).find((x: any) => x.type === "text")?.text ?? "{}"); } catch (_) {}
   const easy = (out.easy || "").toString().trim();
   const tip = (out.tip || "").toString().trim();
   const en = (out.en || "").toString().trim();
-  if (easy.length < 5 || tip.length < 5 || en.length < 5) return { ok: false, error: "output-too-short" };
+  if (easy.length < 5 || tip.length < 5 || en.length < 5) return null;
+  return { easy, tip, en };
+}
 
-  cache[String(idx)] = { text, easy, tip, en };
+// ---------- passageHelpAll: '전체 이어서' 화면용 — 모든 마디의 도우미를 한 번에 ----------
+// 캐시에 없는 마디만 병렬 생성해 채우고, 마디 순서대로 배열(items)로 돌려준다(실패 마디는 null).
+async function passageHelpAll(b: any) {
+  const pid = Number(b.passage_id);
+  if (!Number.isFinite(pid)) return { ok: false, error: "bad-args" };
+  const { data: p, error } = await db.from("passages")
+    .select("id,title,ref,lines").eq("id", pid).maybeSingle();
+  if (error) throw error;
+  if (!p) return { ok: false, error: "no-passage" };
+  const chunks = (Array.isArray(p.lines) ? p.lines : [])
+    .map((s: any) => String(s || "").trim()).filter(Boolean);
+  if (!chunks.length) return { ok: false, error: "no-chunk" };
+
+  const CKEY = `passageHelp:${pid}`;
+  let cache: any = {};
   try {
-    await db.from("app_config").upsert({
-      key: CKEY, value: cache, updated_at: new Date().toISOString(),
-    }, { onConflict: "key" });
-  } catch { /* 캐시 저장 실패해도 결과는 반환 */ }
-  return { ok: true, easy, tip, en };
+    const { data } = await db.from("app_config").select("value").eq("key", CKEY).maybeSingle();
+    if (data?.value && typeof data.value === "object") cache = data.value;
+  } catch {}
+  const fresh = (i: number) => {
+    const h = cache[String(i)];
+    return h && h.text === chunks[i] && h.easy && h.tip && h.en;
+  };
+  const missing = chunks.map((_, i) => i).filter((i) => !fresh(i));
+  if (missing.length) {
+    const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!apiKey) return { ok: false, error: "ANTHROPIC_API_KEY 시크릿 미설정" };
+    const results = await Promise.all(
+      missing.map((i) => genChunkHelp(apiKey, p, chunks, i).catch(() => null)));
+    results.forEach((r, k) => { if (r) cache[String(missing[k])] = { text: chunks[missing[k]], ...r }; });
+    try {
+      await db.from("app_config").upsert({
+        key: CKEY, value: cache, updated_at: new Date().toISOString(),
+      }, { onConflict: "key" });
+    } catch {}
+  }
+  const items = chunks.map((_, i) => {
+    if (!fresh(i)) return null;
+    const h = cache[String(i)];
+    return { easy: h.easy, tip: h.tip, en: h.en };
+  });
+  return { ok: true, items };
 }
 
 // ---------- generateNiv: 한국어 구절 → NIV 영어 본문 AI 생성 (ADMIN_SECRET) ----------

@@ -66,6 +66,7 @@ const api = {
   savePassageProgress: (user_id, passage_id, doneSeq, completed) =>
     supaCall("savePassageProgress", { user_id, passage_id, doneSeq, completed }),
   passageHelp: (passage_id, idx) => supaCall("passageHelp", { passage_id, idx }),   // 마디 도우미 { ok, easy, tip, en }
+  passageHelpAll: (passage_id) => supaCall("passageHelpAll", { passage_id }),       // 전체 도우미 { ok, items:[{easy,tip,en}|null] }
   // 설교말씀 도우미(RAG 챗봇) — 성도는 user_id로 인가·로깅된다.
   sermonChat: (message, user_id) => supaCall("sermonChat", { message, user_id }),
   sermonSummary: (sermonId, user_id) => supaCall("sermonSummary", { sermonId, user_id }),

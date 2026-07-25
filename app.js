@@ -1993,10 +1993,10 @@ function passageChunks(p) {
   return (p.lines || []).map((s) => String(s || "").trim()).filter(Boolean);
 }
 
-// 마디 도우미 — 쉬운 풀이·기억법·영어(참고). 구절 암송 화면(fillVerseHelp)과 같은 탭 UI.
+// 마디 도우미 — 쉬운 풀이·기억법·영어. 구절 암송 화면(fillVerseHelp)과 같은 탭 UI.
 // 서버가 마디당 1회 생성 후 캐시하므로 첫 탭만 잠깐 기다리고, 이후엔 즉시 열린다.
-const passageHelpMem = {}; // 같은 세션 안에서 마디별 재조회 방지
-function fillPassageHelp(p, idx) {
+const passageHelpMem = {}; // 같은 세션 안에서 재조회 방지
+function mountPassageHelpTabs(cacheKey, load) {
   const el = document.getElementById("help-slot");
   if (!el) return;
   const items = [
@@ -2010,34 +2010,46 @@ function fillPassageHelp(p, idx) {
     </div>
     <div class="help-body" id="help-body" hidden></div>`;
   const body = document.getElementById("help-body");
-  const ck = `${p.id}:${idx}`;
   el.querySelectorAll(".help-btn").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const wasOn = btn.classList.contains("on");
       el.querySelectorAll(".help-btn").forEach((b) => b.classList.remove("on"));
       if (wasOn) { body.hidden = true; return; }
       btn.classList.add("on");
-      let d = passageHelpMem[ck];
+      let d = passageHelpMem[cacheKey];
       if (!d) {
         body.textContent = "✨ 도우미를 준비하고 있어요… 잠시만요";
         body.hidden = false;
-        try { d = await api.passageHelp(p.id, idx); } catch { d = null; }
-        if (!d || !d.ok) {
+        try { d = await load(); } catch { d = null; }
+        if (!d) {
           if (btn.classList.contains("on")) body.textContent = "도우미를 불러오지 못했어요. 잠시 후 다시 눌러주세요.";
           return;
         }
-        passageHelpMem[ck] = d;
+        passageHelpMem[cacheKey] = d;
       }
       if (!btn.classList.contains("on")) return; // 기다리는 사이 다른 탭으로 갔으면 그쪽이 그린다
       body.textContent = d[btn.dataset.k] || "";
-      if (btn.dataset.k === "en") {
-        const note = document.createElement("div");
-        note.className = "help-en-note";
-        note.textContent = "※ 참고용 영어 번역이에요.";
-        body.appendChild(note);
-      }
       body.hidden = false;
     });
+  });
+}
+// 마디 화면: 그 마디 하나의 도우미
+function fillPassageHelp(p, idx) {
+  mountPassageHelpTabs(`${p.id}:${idx}`, async () => {
+    const d = await api.passageHelp(p.id, idx);
+    return d && d.ok ? { easy: d.easy, tip: d.tip, en: d.en } : null;
+  });
+}
+// 전체 이어서 화면: 모든 마디의 도우미를 합쳐서(쉬운 풀이·기억법은 마디 번호 붙여, 영어는 줄로 이어)
+function fillPassageFinalHelp(p) {
+  mountPassageHelpTabs(`${p.id}:all`, async () => {
+    const d = await api.passageHelpAll(p.id);
+    if (!d || !d.ok || !Array.isArray(d.items)) return null;
+    const num = (k) => d.items.map((x, i) => x && x[k] ? `${i + 1}. ${x[k]}` : null).filter(Boolean).join("\n\n");
+    const easy = num("easy"), tip = num("tip");
+    const en = d.items.map((x) => x && x.en ? x.en : null).filter(Boolean).join("\n");
+    if (!easy && !tip && !en) return null;
+    return { easy, tip, en };
   });
 }
 
@@ -2215,6 +2227,7 @@ function renderPassageFinal(p) {
           <div class="answer-text pg-final-sentence">${answerHtml}</div>
           <button class="back-to-test-btn" id="back-to-test-btn">돌아가서 계속하기</button>
         </div>
+        <div id="help-slot" class="help-slot"></div>
         <label class="heart-check locked" id="pg-final-heart-label">
           <input type="checkbox" id="pg-final-heart-check" disabled />
           <span class="heart-text">👑 이 말씀을 내 마음에 두었나이다</span>
@@ -2230,6 +2243,7 @@ function renderPassageFinal(p) {
       </div>
     </div>`;
   document.getElementById("pg-final-back").addEventListener("click", () => { stopSpeaking(); renderPassageList(); });
+  fillPassageFinalHelp(p); // 전체 도우미 — 모든 마디의 쉬운 풀이·기억법·영어 합본
   setupAnswerToggle();
   const listenBtn = document.getElementById("listen-answer-btn");
   listenBtn.addEventListener("click", () => {
