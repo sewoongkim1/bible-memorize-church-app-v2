@@ -1993,6 +1993,54 @@ function passageChunks(p) {
   return (p.lines || []).map((s) => String(s || "").trim()).filter(Boolean);
 }
 
+// 마디 도우미 — 쉬운 풀이·기억법·영어(참고). 구절 암송 화면(fillVerseHelp)과 같은 탭 UI.
+// 서버가 마디당 1회 생성 후 캐시하므로 첫 탭만 잠깐 기다리고, 이후엔 즉시 열린다.
+const passageHelpMem = {}; // 같은 세션 안에서 마디별 재조회 방지
+function fillPassageHelp(p, idx) {
+  const el = document.getElementById("help-slot");
+  if (!el) return;
+  const items = [
+    { k: "easy", label: "💡 쉬운 풀이" },
+    { k: "tip",  label: "🧠 기억법" },
+    { k: "en",   label: "🌐 영어" },
+  ];
+  el.innerHTML = `
+    <div class="help-tabs">
+      ${items.map((i) => `<button class="help-btn" data-k="${i.k}">${i.label}</button>`).join("")}
+    </div>
+    <div class="help-body" id="help-body" hidden></div>`;
+  const body = document.getElementById("help-body");
+  const ck = `${p.id}:${idx}`;
+  el.querySelectorAll(".help-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const wasOn = btn.classList.contains("on");
+      el.querySelectorAll(".help-btn").forEach((b) => b.classList.remove("on"));
+      if (wasOn) { body.hidden = true; return; }
+      btn.classList.add("on");
+      let d = passageHelpMem[ck];
+      if (!d) {
+        body.textContent = "✨ 도우미를 준비하고 있어요… 잠시만요";
+        body.hidden = false;
+        try { d = await api.passageHelp(p.id, idx); } catch { d = null; }
+        if (!d || !d.ok) {
+          if (btn.classList.contains("on")) body.textContent = "도우미를 불러오지 못했어요. 잠시 후 다시 눌러주세요.";
+          return;
+        }
+        passageHelpMem[ck] = d;
+      }
+      if (!btn.classList.contains("on")) return; // 기다리는 사이 다른 탭으로 갔으면 그쪽이 그린다
+      body.textContent = d[btn.dataset.k] || "";
+      if (btn.dataset.k === "en") {
+        const note = document.createElement("div");
+        note.className = "help-en-note";
+        note.textContent = "※ 참고용 영어 번역이에요.";
+        body.appendChild(note);
+      }
+      body.hidden = false;
+    });
+  });
+}
+
 // 📜 본문 시작 — 첫 미완성 마디부터 자동 진행(카드 탭 한 번이면 끝까지 이어짐)
 function startPassage(p) {
   const chunks = passageChunks(p);
@@ -2061,6 +2109,7 @@ function renderPassageChunk(p, idx, stage, heartReady) {
           <div class="answer-text">${answerHtml}</div>
           <button class="back-to-test-btn" id="back-to-test-btn">돌아가서 계속하기</button>
         </div>
+        <div id="help-slot" class="help-slot"></div>
         ${heartHtml}
         ${stage === 3 ? `<button class="summary-help pg-redo-btn" id="pg-redo">↻ 다시 암송</button>` : ""}
         <div id="voice-panel" class="voice-panel" hidden>
@@ -2072,6 +2121,7 @@ function renderPassageChunk(p, idx, stage, heartReady) {
     </div>`;
   document.getElementById("pg-line-back").addEventListener("click", () => { stopSpeaking(); renderPassageList(); });
   { const b = document.getElementById("pg-redo"); if (b) b.addEventListener("click", () => { stopSpeaking(); renderPassageChunk(p, idx, 3); }); }
+  fillPassageHelp(p, idx); // 마디 도우미 — 쉬운 풀이·기억법·영어(참고)
   setupAnswerToggle();
   const listenBtn = document.getElementById("listen-answer-btn");
   listenBtn.addEventListener("click", () => {

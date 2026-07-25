@@ -133,6 +133,7 @@ Deno.serve(async (req) => {
       case "savePassage":         return json(await savePassage(body));
       case "deletePassage":       return json(await deletePassage(body));
       case "savePassageProgress": return json(await savePassageProgress(body));
+      case "passageHelp":         return json(await passageHelp(body));
       case "cleanupDummy":  return json(await cleanupDummy());
       case "importV1":      return json(await importV1(body));
       // ---- Web Push ----
@@ -650,6 +651,90 @@ async function savePassageProgress(b: any) {
   const { error } = await db.from("passage_progress").upsert(row, { onConflict: "user_id,passage_id" });
   if (error) throw error;
   return { ok: true };
+}
+
+// ---------- passageHelp: '내 안에 거하는 말씀' 마디별 쉬운 풀이·기억법·영어(참고) ----------
+// 마디당 1회만 AI 생성하고 app_config(`passageHelp:<id>`)에 캐시 → 이후엔 즉시 반환.
+// 관리자가 마디 본문을 고치면 저장된 text와 달라져 캐시가 무효화되고 다시 생성한다.
+async function passageHelp(b: any) {
+  const pid = Number(b.passage_id), idx = Number(b.idx);
+  if (!Number.isFinite(pid) || !Number.isFinite(idx) || idx < 0) return { ok: false, error: "bad-args" };
+  const { data: p, error } = await db.from("passages")
+    .select("id,title,ref,lines").eq("id", pid).maybeSingle();
+  if (error) throw error;
+  if (!p) return { ok: false, error: "no-passage" };
+  // 앱(passageChunks)과 같은 규칙으로 마디를 만든다 — 빈 줄 제외, 트림
+  const chunks = (Array.isArray(p.lines) ? p.lines : [])
+    .map((s: any) => String(s || "").trim()).filter(Boolean);
+  const text = chunks[idx];
+  if (!text) return { ok: false, error: "no-chunk" };
+
+  const CKEY = `passageHelp:${pid}`;
+  let cache: any = {};
+  try {
+    const { data } = await db.from("app_config").select("value").eq("key", CKEY).maybeSingle();
+    if (data?.value && typeof data.value === "object") cache = data.value;
+  } catch { /* 테이블 미생성 등 — 캐시 없이 진행 */ }
+  const hit = cache[String(idx)];
+  if (hit && hit.text === text && hit.easy && hit.tip && hit.en) {
+    return { ok: true, easy: hit.easy, tip: hit.tip, en: hit.en, cached: true };
+  }
+
+  const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
+  if (!apiKey) return { ok: false, error: "ANTHROPIC_API_KEY 시크릿 미설정" };
+  const schema = {
+    type: "object",
+    additionalProperties: false,
+    required: ["easy", "tip", "en"],
+    properties: {
+      easy: { type: "string" },
+      tip: { type: "string" },
+      en: { type: "string" },
+    },
+  };
+  const system = [
+    "당신은 한국 교회 성경 암송 앱의 도우미입니다. 개역개정 성경의 긴 본문을 여러 '마디'로 나눠",
+    "외우는 화면에서, 지금 외우는 한 마디에 대해 다음 3가지를 JSON으로 만듭니다.",
+    "- easy(쉬운 풀이): 이 마디의 뜻을 누구나 이해할 쉬운 한국어 1~2문장으로. 본문에 없는 해석을 보태지 않기.",
+    "- tip(기억법): 이 마디를 외우는 실용적인 요령 1~2문장 — 문장 구조(대구·반복), 핵심 단어의 첫 글자,",
+    "  장면 연상 등. 막연한 조언(여러 번 읽으세요 등)은 금지.",
+    "- en(영어): 이 마디 범위만의 자연스러운 영어 번역(참고용, 성경 영어 문체). 범위를 넘는 내용 금지.",
+    "쉬운 풀이·기억법은 존댓말(~해요체)로 쓰고, 이모지는 넣지 않습니다.",
+  ].join("\n");
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: Deno.env.get("PASSAGE_HELP_MODEL") || "claude-sonnet-5",
+      max_tokens: 700,
+      system,
+      output_config: { format: { type: "json_schema", schema } },
+      messages: [{
+        role: "user",
+        content: `[본문 제목] ${p.title}${p.ref ? `\n[출처] ${p.ref}` : ""}\n[전체 본문]\n${chunks.join("\n")}\n\n[이번 마디 (${idx + 1}/${chunks.length})]\n${text}`,
+      }],
+    }),
+  });
+  if (!res.ok) return { ok: false, error: `anthropic-${res.status}: ${(await res.text()).slice(0, 300)}` };
+  const d = await res.json();
+  let out: any = {};
+  try { out = JSON.parse((d.content ?? []).find((x: any) => x.type === "text")?.text ?? "{}"); } catch (_) {}
+  const easy = (out.easy || "").toString().trim();
+  const tip = (out.tip || "").toString().trim();
+  const en = (out.en || "").toString().trim();
+  if (easy.length < 5 || tip.length < 5 || en.length < 5) return { ok: false, error: "output-too-short" };
+
+  cache[String(idx)] = { text, easy, tip, en };
+  try {
+    await db.from("app_config").upsert({
+      key: CKEY, value: cache, updated_at: new Date().toISOString(),
+    }, { onConflict: "key" });
+  } catch { /* 캐시 저장 실패해도 결과는 반환 */ }
+  return { ok: true, easy, tip, en };
 }
 
 // ---------- generateNiv: 한국어 구절 → NIV 영어 본문 AI 생성 (ADMIN_SECRET) ----------
