@@ -65,6 +65,7 @@ const api = {
   deletePassage: (pw, id) => supaCall("deletePassage", { pw, id }),
   savePassageProgress: (user_id, passage_id, doneSeq, completed) =>
     supaCall("savePassageProgress", { user_id, passage_id, doneSeq, completed }),
+  getPassageProgress: (user_id) => supaCall("getPassageProgress", { user_id }),     // 내 마디 진행(기기 동기화용)
   passageHelp: (passage_id, idx) => supaCall("passageHelp", { passage_id, idx }),   // 마디 도우미 { ok, easy, tip, en }
   passageHelpAll: (passage_id) => supaCall("passageHelpAll", { passage_id }),       // 전체 도우미 { ok, items:[{easy,tip,en}|null] }
   // 설교말씀 도우미(RAG 챗봇) — 성도는 user_id로 인가·로깅된다.

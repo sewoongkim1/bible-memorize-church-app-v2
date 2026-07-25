@@ -200,15 +200,43 @@ function syncPassageProgress(id, cur) {
 function markLineDone(id, seq) {
   const all = loadPassageProg(); const cur = all[id] || { done: [], completed: false };
   if (!cur.done.includes(seq)) cur.done.push(seq);
+  cur.t = Date.now(); // 기기 동기화 때 최신 판정용
   all[id] = cur; savePassageProg(all); syncPassageProgress(id, cur);
 }
 function markPassageCompleted(id) {
   const all = loadPassageProg(); const cur = all[id] || { done: [], completed: false };
-  cur.completed = true; all[id] = cur; savePassageProg(all); syncPassageProgress(id, cur);
+  cur.completed = true; cur.t = Date.now();
+  all[id] = cur; savePassageProg(all); syncPassageProgress(id, cur);
+}
+// 서버의 마디 진행을 로컬과 병합 — 여러 기기에서 진도가 같아지게.
+// 본문별로 최신 쪽(로컬 t vs 서버 updated_at)이 이기고, 로컬이 최신이거나 서버에 없으면 다시 올린다.
+async function pullPassageProgress() {
+  const u = loadUser();
+  if (!u || !u.user_id || !api || !api.getPassageProgress) return;
+  let rows;
+  try {
+    const d = await api.getPassageProgress(u.user_id);
+    if (!d || !d.ok) return; rows = d.progress || [];
+  } catch { return; }
+  const all = loadPassageProg();
+  rows.forEach((r) => {
+    const st = r.updated_at ? Date.parse(r.updated_at) || 0 : 0;
+    const loc = all[r.passage_id];
+    if (!loc || st >= (loc.t || 0)) {
+      all[r.passage_id] = { done: Array.isArray(r.done) ? r.done : [], completed: !!r.completed, t: st };
+    } else {
+      syncPassageProgress(r.passage_id, loc); // 로컬이 최신(예: 오프라인 진행) — 서버를 따라잡게
+    }
+  });
+  Object.keys(all).forEach((id) => { // 서버에 아예 없는 로컬 진행(과거 동기화 실패분)도 올려준다
+    if (!rows.some((r) => String(r.passage_id) === String(id))) syncPassageProgress(Number(id), all[id]);
+  });
+  savePassageProg(all);
 }
 // '처음으로': 이 본문의 진행(마음에 둠·완주)만 초기화한다. 이미 통계에 남긴 활동 기록은 지우지 않는다.
+// 지우는 대신 '빈 진행+시각'을 남겨야 기기 동기화 때 옛 진도가 되살아나지 않는다.
 function resetPassageProgress(id) {
-  const all = loadPassageProg(); delete all[id]; savePassageProg(all);
+  const all = loadPassageProg(); all[id] = { done: [], completed: false, t: Date.now() }; savePassageProg(all);
   const u = loadUser();
   if (u && u.user_id && api && api.savePassageProgress) api.savePassageProgress(u.user_id, id, [], false).catch(() => {});
 }
@@ -1950,7 +1978,8 @@ function renderPassageList() {
   document.getElementById("pg-back").addEventListener("click", renderSummary);
   if (u) { applyVerseCounts(); loadVerseCounts(u); } // 뒤로 버튼의 '· 총 N회'를 일반 목록과 동일하게 채움
   const listEl = document.getElementById("pg-list");
-  loadPassages().then((passages) => {
+  // 서버 진도를 먼저 병합해 어느 기기에서 열어도 같은 진도가 보이게 한다
+  Promise.all([loadPassages(), pullPassageProgress()]).then(([passages]) => {
     if (!passages.length) { listEl.innerHTML = `<div class="pg-empty">아직 등록된 본문이 없어요.</div>`; return; }
     listEl.innerHTML = "";
     passages.forEach((p) => {

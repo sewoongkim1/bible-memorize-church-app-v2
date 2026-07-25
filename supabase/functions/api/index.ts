@@ -133,6 +133,7 @@ Deno.serve(async (req) => {
       case "savePassage":         return json(await savePassage(body));
       case "deletePassage":       return json(await deletePassage(body));
       case "savePassageProgress": return json(await savePassageProgress(body));
+      case "getPassageProgress":  return json(await getPassageProgress(body));
       case "passageHelp":         return json(await passageHelp(body));
       case "passageHelpAll":      return json(await passageHelpAll(body));
       case "cleanupDummy":  return json(await cleanupDummy());
@@ -638,6 +639,21 @@ async function deletePassage(b: any) {
   const { error } = await db.from("passages").delete().eq("id", Number(b.id));
   if (error) throw error;
   return { ok: true };
+}
+
+// 여러 기기에서 진도가 같아지게 — 내 진행을 서버에서 읽어온다(로그인 사용자)
+async function getPassageProgress(b: any) {
+  if (!b.user_id) return { ok: false, error: "no-user" };
+  const { data, error } = await db.from("passage_progress")
+    .select("passage_id,done_seq,completed_at,updated_at").eq("user_id", b.user_id);
+  if (error) throw error;
+  const progress = (data ?? []).map((r: any) => ({
+    passage_id: r.passage_id,
+    done: Array.isArray(r.done_seq) ? r.done_seq : [],
+    completed: !!r.completed_at,
+    updated_at: r.updated_at,
+  }));
+  return { ok: true, progress };
 }
 
 async function savePassageProgress(b: any) {
