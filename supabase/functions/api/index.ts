@@ -151,6 +151,7 @@ Deno.serve(async (req) => {
       case "pushHistory":   return json(await pushHistory(body));
       case "pushSubscribers": return json(await pushSubscribers(body));
       case "sendPush":      return json(await sendPush(body));
+      case "weeklyVersePush": return json(await weeklyVersePush(body));
       // ---- 장애 모니터링 ----
       case "monitor":       return json(await monitor(body));
       // ---- 주간 리포트 메일 ----
@@ -489,6 +490,19 @@ async function sendPush(b: any) {
     if (error) await db.from("push_log").insert(logBase);
   } catch (_) { /* 로그 실패 무시 */ }
   return { ok: true, sent, failed, total };
+}
+
+// ---------- weeklyVersePush: 매주 주일 오전, 이번주 암송 말씀 안내를 전체 구독자에게 ----------
+// (매일 묵상 알림과는 별개 — 개인이 고른 알림 시간과 무관하게 주일 아침에만, 모두에게 1회)
+// 이번주 말씀이 아직 등록 전이면(암송말씀은 보통 토요일 오후 등록) 아무것도 보내지 않고 skip.
+async function weeklyVersePush(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const v = await latestVerse();
+  if (!v || v.no == null) return { ok: true, skipped: true, reason: "no-verse" };
+  const verseLine = v.ref ? `${v.text} (${v.ref})` : v.text;
+  const title = "📖 이번주 암송 말씀이 도착했어요!";
+  const body = `${verseLine}\n\n오늘부터 한 주간 이 말씀을 암송해요 🙌`;
+  return await sendPush({ ...b, title, body, mode: "weekly-verse", url: b.url || "https://gocheok.onlybible.kr/" });
 }
 
 // ---------- monitor: 백엔드/발송/데이터 상태 종합 점검 (ADMIN_SECRET 보호) ----------
