@@ -275,18 +275,17 @@ function getWeeklyVerseInfo() {
   if (!dated.length) return null;
 
   const today = kstDayNumber();
-  let current = null;
-  for (const item of dated) {
-    if (item.day <= today) current = item;
-    else break;
-  }
+  let idx = -1;
+  dated.forEach((item, i) => { if (item.day <= today) idx = i; });
 
-  if (current) {
+  if (idx >= 0) {
+    const current = dated[idx];
     const diff = today - current.day;
     return {
       verse: current.verse,
       label: "이번주 말씀",
       isCurrentWeek: diff <= 6,
+      prevVerse: idx > 0 ? dated[idx - 1].verse : null, // 직전 주 구절 — 이번주 설교 미등록 시 묵상 대체용
     };
   }
 
@@ -294,6 +293,7 @@ function getWeeklyVerseInfo() {
     verse: dated[0].verse,
     label: "곧 시작할 말씀",
     isCurrentWeek: false,
+    prevVerse: null,
   };
 }
 
@@ -3568,6 +3568,16 @@ function halfText(text) {
   return out.trim();
 }
 
+// buildWeeklyMeditations가 '풍성한' 결과(요일별 여러 항목)를 만들 수 있는 설교인지.
+// 없으면(주로 주일 예배 직후, 설교가 아직 아카이브에 안 올라온 잠깐의 공백) 전주 자료로 대체할지 판단하는 데 쓴다.
+function sermonHasMeditationContent(s) {
+  return !!(s && (
+    (s.dailyMeditations && s.dailyMeditations.length) ||
+    (s.points && s.points.length) ||
+    (s.questions && s.questions.length)
+  ));
+}
+
 // 공지가 없는 날: 이번주 말씀 + 연결 설교의 핵심포인트·적용질문으로 '오늘의 묵상'을 매일 다르게 보여준다.
 function buildWeeklyMeditations(verse, sermon) {
   // ① 설교에 7일치 묵상(dailyMeditations)이 있으면 그것을 그대로 쓴다(요일별로 하나씩).
@@ -3605,9 +3615,18 @@ function buildWeeklyMeditations(verse, sermon) {
 function maybeShowWeeklyMeditation(force, withTabs) {
   const info = getWeeklyVerseInfo();
   if (!info || !info.verse) return;
-  const verse = info.verse;
   loadSermons().then((sermons) => {
-    const sermon = findSermonForVerse(verse.no, sermons);
+    let verse = info.verse;
+    let sermon = findSermonForVerse(verse.no, sermons);
+    let usingPrev = false;
+    // 이번주 설교가 아직 준비 전(등록: 토요일 오후, 유튜브 연결: 주일 오후)이면
+    // 그 사이엔 밋밋한 안내 대신 전주 설교의 요일별 묵상으로 대체해 보여준다.
+    if (!sermonHasMeditationContent(sermon) && info.prevVerse) {
+      const prevSermon = findSermonForVerse(info.prevVerse.no, sermons);
+      if (sermonHasMeditationContent(prevSermon)) {
+        verse = info.prevVerse; sermon = prevSermon; usingPrev = true;
+      }
+    }
     const items = buildWeeklyMeditations(verse, sermon);
     if (!items.length) return;
     // 요일별로 하나씩(주일=0 … 토=6). 7개면 요일마다 고정, 그보다 적으면 순환.
@@ -3615,18 +3634,19 @@ function maybeShowWeeklyMeditation(force, withTabs) {
     const dow = p.y ? new Date(p.y, (p.m || 1) - 1, p.d || 1).getDay() : (kstDayNumber() % 7);
     const pick = ((dow % items.length) + items.length) % items.length;
     const item = items[pick];
-    if (!force) {                                // 하루 1회만 자동 표시(미리보기는 무시)
-      const key = dailyMsgSeenKey(`med-${verse.no}-${pick}`);
+    if (!force) {                                // 하루 1회만 자동 표시(미리보기는 무시). 이번주 구절 기준으로 고정(대체 여부 무관).
+      const key = dailyMsgSeenKey(`med-${info.verse.no}-${pick}`);
       try { if (localStorage.getItem(key) === "1") return; } catch {}
       try { localStorage.setItem(key, "1"); } catch {}
     }
     // 자동 팝업·어드민 미리보기는 '오늘 것 하나만'. 요일 탭은 매일 묵상 버튼으로 열 때만.
-    showMeditationModal(items, pick, verse, sermon, !!withTabs);
+    showMeditationModal(items, pick, verse, sermon, !!withTabs, usingPrev);
   }).catch(() => {});
 }
 
 // 오늘의 묵상 모달 — 이번주 묵상 전체를 탭으로 넘겨볼 수 있다(기본은 오늘 것).
-function showMeditationModal(items, startIdx, verse, sermon, showTabs) {
+// usingPrev: 이번주 설교가 아직 준비 전이라 전주 자료로 대체해 보여주는 중임을 표시.
+function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev) {
   // 탭은 요일 한 글자(7일치일 때). 그 외에는 번호 — 제목을 쓰면 너무 길어 화면을 잡아먹는다.
   const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
   const tabLabel = (i) => (items.length === 7 ? DAYS[i] : String(i + 1));
@@ -3637,7 +3657,7 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs) {
     wrap.className = "cheer-overlay";
     wrap.innerHTML = `
       <div class="cheer-card dmsg-card med" role="dialog" aria-modal="true">
-        <div class="cheer-ref dmsg-badge">🌿 오늘의 묵상</div>
+        <div class="cheer-ref dmsg-badge">🌿 오늘의 묵상${usingPrev ? ' <span class="med-prev-tag">지난주</span>' : ""}</div>
         ${showTabs && items.length > 1
           ? `<div class="med-tabs">${items.map((it, i) =>
               `<button class="med-tab${i === startIdx ? " today" : ""}" data-i="${i}">${tabLabel(i)}</button>`).join("")}</div>`

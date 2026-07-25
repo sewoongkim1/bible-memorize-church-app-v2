@@ -351,6 +351,12 @@ h1 {
 .dmsg-body .med-q b { color: #1f7a4d; }
 .dark .cheer-card.med .dmsg-title { color: #8fd6ab; }
 .dark .cheer-card.med .dmsg-badge { background: #17311f; color: #8fd6ab; }
+/* 이번주 설교 준비 전(토~주일) 전주 묵상으로 대체 표시 중임을 살짝 알려주는 태그 */
+.med-prev-tag {
+  font-size: 10.5px; font-weight: 800; margin-left: 4px; padding: 1px 6px;
+  border-radius: 8px; background: rgba(31,122,77,.15); color: #1f7a4d; vertical-align: middle;
+}
+.dark .med-prev-tag { background: rgba(143,214,171,.18); color: #8fd6ab; }
 .dark .dmsg-body .med-q { color: #cdd9f2; border-color: #3a4a68; }
 .dark .dmsg-body .med-q b { color: #8fd6ab; }
 /* 공지 유형: 네이비 톤으로 전환 */
