@@ -3616,24 +3616,25 @@ function maybeShowWeeklyMeditation(force, withTabs) {
   const info = getWeeklyVerseInfo();
   if (!info || !info.verse) return;
   loadSermons().then((sermons) => {
+    // 묵상 발행 주기는 '월~일'이다 — 설교(및 요일별 묵상)는 주일 오후에 등록되므로, 그 설교가
+    // 실제로 다루는 한 주는 다음날(월)부터 그다음 주일까지. 즉 주일(오늘)은 이번주 설교가
+    // 아직 없을뿐더러, 있다 해도 그 주기의 첫날이 아니라 직전 설교(지난주 등록분) 주기의
+    // 마지막 날이다 — 그래서 주일엔 항상 직전 주 말씀·설교를 쓴다.
+    const p = kstDateParts() || {};
+    const todayDow = p.y ? new Date(p.y, (p.m || 1) - 1, p.d || 1).getDay() : (kstDayNumber() % 7);
+    const isSunday = todayDow === 0;
     let verse = info.verse;
-    let sermon = findSermonForVerse(verse.no, sermons);
     let usingPrev = false;
-    // 이번주 설교가 아직 준비 전(등록: 토요일 오후, 유튜브 연결: 주일 오후)이면
-    // 그 사이엔 밋밋한 안내 대신 전주 설교의 요일별 묵상으로 대체해 보여준다.
-    if (!sermonHasMeditationContent(sermon) && info.prevVerse) {
-      const prevSermon = findSermonForVerse(info.prevVerse.no, sermons);
-      if (sermonHasMeditationContent(prevSermon)) {
-        verse = info.prevVerse; sermon = prevSermon; usingPrev = true;
-      }
+    if (isSunday && info.prevVerse) { verse = info.prevVerse; usingPrev = true; }
+    let sermon = findSermonForVerse(verse.no, sermons);
+    if (usingPrev && !sermonHasMeditationContent(sermon)) { // 전주 자료조차 없으면(극초기) 이번주로 되돌림
+      verse = info.verse; sermon = findSermonForVerse(verse.no, sermons); usingPrev = false;
     }
     const items = buildWeeklyMeditations(verse, sermon);
     if (!items.length) return;
-    // 요일별로 하나씩(주일=0 … 토=6). 7개면 요일마다 고정, 그보다 적으면 순환.
-    const p = kstDateParts() || {};
-    const dow = p.y ? new Date(p.y, (p.m || 1) - 1, p.d || 1).getDay() : (kstDayNumber() % 7);
-    const pick = ((dow % items.length) + items.length) % items.length;
-    const item = items[pick];
+    // 월=0 … 일=6 (발행 주기가 월~일이므로 요일 인덱스도 월요일 기준). 7개면 요일마다 고정, 그보다 적으면 순환.
+    const dayIdx = (todayDow + 6) % 7;
+    const pick = dayIdx % items.length;
     if (!force) {                                // 하루 1회만 자동 표시(미리보기는 무시). 이번주 구절 기준으로 고정(대체 여부 무관).
       const key = dailyMsgSeenKey(`med-${info.verse.no}-${pick}`);
       try { if (localStorage.getItem(key) === "1") return; } catch {}
@@ -3648,7 +3649,8 @@ function maybeShowWeeklyMeditation(force, withTabs) {
 // usingPrev: 이번주 설교가 아직 준비 전이라 전주 자료로 대체해 보여주는 중임을 표시.
 function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev) {
   // 탭은 요일 한 글자(7일치일 때). 그 외에는 번호 — 제목을 쓰면 너무 길어 화면을 잡아먹는다.
-  const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
+  // 발행 주기가 월~일이라 배열 인덱스도 월요일 시작(maybeShowWeeklyMeditation의 dayIdx와 동일 기준).
+  const DAYS = ["월", "화", "수", "목", "금", "토", "일"];
   const tabLabel = (i) => (items.length === 7 ? DAYS[i] : String(i + 1));
   const open = () => {
     if (document.querySelector(".cheer-overlay")) { setTimeout(open, 300); return; }

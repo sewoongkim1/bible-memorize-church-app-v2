@@ -282,8 +282,9 @@ async function savePush(b: any) {
   return { ok: true, hour };
 }
 
-// DB verses에서 '이번 주(=오늘 기준 최신) 말씀'을 읽어 {ref,text} 반환
-async function latestVerse(): Promise<{ no: number | null; ref: string; text: string } | null> {
+// DB verses에서 '이번 주(=오늘 기준 최신) 말씀'을 읽어 {ref,text} 반환.
+// prev: 직전 주 말씀(같은 형태) — 매일 묵상이 월~일 주기라 일요일엔 이걸 써야 해서 함께 반환.
+async function latestVerse(): Promise<{ no: number | null; ref: string; text: string; prev: { no: number | null; ref: string; text: string } | null } | null> {
   try {
     const { data } = await db.from("verses")
       .select("no,ref_short,ref_full,ref,text,date").eq("is_active", true);
@@ -293,13 +294,14 @@ async function latestVerse(): Promise<{ no: number | null; ref: string; text: st
       .sort((a: any, b: any) => a.t - b.t);
     if (!list.length) return null;
     const now = Date.now();
-    let cur = list[0];
-    for (const x of list) { if (x.t <= now) cur = x; else break; }
-    return {
-      no: cur.v.no ?? null,
-      ref: cur.v.ref_short || cur.v.ref_full || cur.v.ref || "",
-      text: cur.v.text || "",
-    };
+    let curIdx = 0;
+    list.forEach((x: any, i: number) => { if (x.t <= now) curIdx = i; });
+    const toShape = (row: any) => ({
+      no: row.v.no ?? null,
+      ref: row.v.ref_short || row.v.ref_full || row.v.ref || "",
+      text: row.v.text || "",
+    });
+    return { ...toShape(list[curIdx]), prev: curIdx > 0 ? toShape(list[curIdx - 1]) : null };
   } catch (_) { return null; }
 }
 
@@ -307,23 +309,31 @@ async function latestVerse(): Promise<{ no: number | null; ref: string; text: st
 //   제목: 🌿 오늘의 묵상 · <주제>
 //   본문: <적용질문>  +  📖 <이번주 말씀> (<출처>)
 // 묵상이 없으면(예전 설교) 기존처럼 말씀만 보낸다.
+//
+// 묵상 발행 주기는 '월~일'이다 — 설교(및 요일별 묵상)는 주일 오후에 등록되므로,
+// 그 설교가 실제로 다루는 한 주는 다음날(월)부터 그다음 주일까지. 즉 주일(오늘) 아침엔
+// 아직 이번주 설교가 없을뿐더러, 있더라도 "주일"은 그 설교가 다루는 주기의 첫날이 아니라
+// 직전 설교(지난주 등록분) 주기의 마지막 날이다 — 그래서 주일엔 반드시 직전 주 말씀·설교를 쓴다.
 async function dailyPushContent(): Promise<{ title: string; body: string } | null> {
   const v = await latestVerse();
   if (!v) return null;
-  const verseLine = v.ref ? `${v.text} (${v.ref})` : v.text;
+  const kst = new Date(Date.now() + 9 * 3600 * 1000);
+  const isSunday = kst.getUTCDay() === 0;
+  const target = (isSunday && v.prev) ? v.prev : v;
+  const verseLine = target.ref ? `${target.text} (${target.ref})` : target.text;
   let title = "오직 성경, 말씀이 답이다!";
   let body = verseLine;
   try {
-    if (v.no != null) {
+    if (target.no != null) {
       const { data } = await db.from("sermons")
-        .select("daily_meditations").eq("mem_verse_no", v.no).limit(5);
+        .select("daily_meditations").eq("mem_verse_no", target.no).limit(5);
       const rows = (data ?? []).map((r: any) => (r.daily_meditations || []))
         .filter((arr: any[]) => Array.isArray(arr) && arr.length);
       const items = (rows[0] || []).filter((d: any) => d && (d.question || d.message));
       if (items.length) {
-        // KST 요일(일=0 … 토=6)로 오늘 묵상 선택
-        const kst = new Date(Date.now() + 9 * 3600 * 1000);
-        const it = items[kst.getUTCDay() % items.length];
+        // 월=0 … 일=6 (묵상 발행 주기가 월~일이므로 요일 인덱스도 월요일 기준)
+        const dayIdx = (kst.getUTCDay() + 6) % 7;
+        const it = items[dayIdx % items.length];
         title = `🌿 오늘의 묵상 · ${it.heading || "오늘의 묵상"}`;
         body = `${it.question || it.message}\n\n📖 ${verseLine}`;
       }
@@ -430,9 +440,10 @@ async function sendPush(b: any) {
     const c = await dailyPushContent();
     if (c) { title = c.title; body = c.body; }
   }
-  // hour 지정 시 그 시간을 고른 구독자에게만(시간대별 cron), 없으면 전체(관리자 수동 발송)
+  // hour 지정 시 그 시간을 고른 구독자에게만(시간대별 cron), user_id 지정 시 그 성도 기기에만(개별 테스트 발송), 둘 다 없으면 전체(관리자 수동 발송)
   let subQ = db.from("push_subscriptions").select("id,endpoint,p256dh,auth");
   if (b.hour) subQ = subQ.eq("hour", Number(b.hour));
+  if (b.user_id) subQ = subQ.eq("user_id", b.user_id);
   const { data: subs } = await subQ;
   const payload = JSON.stringify({
     title: title || "성경말씀 암송",
