@@ -598,15 +598,16 @@ h1 {
   border: 1px solid var(--border); border-radius: 14px;
   background: var(--light);   /* 카드(흰색)와 확실히 갈라지는 톤 */
 }
+/* '설교' 라벨은 윗줄, 제목은 아랫줄 — 각자 한 줄씩 */
 .sc-topic {
-  display: flex; align-items: baseline; gap: 7px;
+  display: flex; flex-direction: column; gap: 2px;
   margin-bottom: 11px;
 }
-.sc-topic-label { font-size: .74rem; font-weight: 800; color: var(--gold); flex-shrink: 0; }
+.sc-topic-label { font-size: .74rem; font-weight: 800; color: var(--gold); }
 /* 제목이 길어도 줄바꿈 대신 한 줄로 — 넘치면 말줄임(...) */
 .sc-topic-title {
   font-size: 1rem; font-weight: 800; color: var(--navy);
-  flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .sc-buttons { display: flex; gap: 8px; }
 /* 두 버튼 완전히 동일: 같은 크기(flex:1)·같은 스타일 */
