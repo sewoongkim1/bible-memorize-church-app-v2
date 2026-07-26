@@ -413,14 +413,11 @@ h1 {
 
 /* 암송 도우미(쉬운 풀이 · 기억법) — 눌러야 펴지므로 평소엔 자리를 거의 차지하지 않음 */
 .help-slot:empty { display: none; }
-/* 버튼 3개(쉬운 풀이·기억법·영어/한글)가 늘어도 작은 폰에서 줄바꿈되지 않게 —
-   못 담으면 줄바꿈 대신 살짝 가로 스크롤(거의 발생하지 않음) */
+/* 버튼 3개(쉬운 풀이·기억법·영어/한글). 가로 스크롤은 스크롤바를 숨겨도 일부 기기에서
+   시작 버튼이 잘려 보이는 문제가 있어, 못 담으면 스크롤 대신 다음 줄로 자연스럽게 줄바꿈한다. */
 .help-slot .help-tabs {
-  display: flex; gap: 6px; margin-top: 12px;
-  flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;   /* 스크롤은 되지만 스크롤바 선은 안 보이게(Firefox) */
+  display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px;
 }
-.help-slot .help-tabs::-webkit-scrollbar { display: none; }   /* 크롬/사파리/안드로이드 */
 .help-slot .help-btn { flex-shrink: 0; white-space: nowrap; padding: 6px 11px; }
 .help-slot .help-btn.on { background: var(--navy); color: #fff; }
 .help-slot .help-body {
