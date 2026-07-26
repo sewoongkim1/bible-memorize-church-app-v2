@@ -2029,7 +2029,7 @@ function mountPassageHelpTabs(cacheKey, load) {
   const el = document.getElementById("help-slot");
   if (!el) return;
   const items = [
-    { k: "easy", label: "💡 쉬운 풀이" },
+    { k: "easy", label: "💡 풀이" },
     { k: "tip",  label: "🧠 기억법" },
     { k: "en",   label: "🌐 영어" },
   ];
@@ -2385,7 +2385,7 @@ function fillVerseHelp(verse) {
     if (!el) return;
 
     const items = [];
-    if (s && s.easyExplain) items.push({ k: "easy", label: "💡 쉬운 풀이", text: s.easyExplain });
+    if (s && s.easyExplain) items.push({ k: "easy", label: "💡 풀이", text: s.easyExplain });
     if (s && s.memoryTip)   items.push({ k: "tip",  label: "🧠 기억법",   text: s.memoryTip });
     // 지금 암송 중인 언어의 반대쪽을 살짝 보여준다 — 한글 화면엔 영어를, 영어 화면엔 한글을
     if (hasEn(verse)) {
