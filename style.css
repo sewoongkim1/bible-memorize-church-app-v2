@@ -606,7 +606,7 @@ h1 {
 .sc-topic-label { font-size: .74rem; font-weight: 800; color: var(--gold); }
 /* 제목이 길어도 줄바꿈 대신 한 줄로 — 넘치면 말줄임(...) */
 .sc-topic-title {
-  font-size: 1rem; font-weight: 800; color: var(--navy);
+  font-size: .9rem; font-weight: 800; color: var(--navy);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .sc-buttons { display: flex; gap: 8px; }
