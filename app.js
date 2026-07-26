@@ -2117,8 +2117,10 @@ function renderPassageChunk(p, idx, stage, heartReady) {
   // 3단계에만: '이 마디를 마음에 두었나이다' 체크. 다 채우기 전엔 비활성(음성 통과 시 heartReady로 바로 활성).
   const heartHtml = stage === 3 ? `
         <label class="heart-check${heartReady ? "" : " locked"}" id="pg-heart-label">
-          <input type="checkbox" id="pg-heart-check"${heartReady ? "" : " disabled"} />
-          <span class="heart-text">👑 이 마디를 마음에 두었나이다</span>
+          <span class="heart-row1">
+            <input type="checkbox" id="pg-heart-check"${heartReady ? "" : " disabled"} />
+            <span class="heart-text">👑 이 마디를 마음에 두었나이다</span>
+          </span>
           <span class="heart-hint" id="pg-heart-hint"${heartReady ? " hidden" : ""}>암송을 마치면 체크할 수 있어요</span>
           <span class="heart-desc">이 마디를 <b>외웠다</b>는 뜻이에요. 체크하면 다음 마디로 넘어가요.</span>
         </label>` : "";
@@ -2258,8 +2260,10 @@ function renderPassageFinal(p) {
         </div>
         <div id="help-slot" class="help-slot"></div>
         <label class="heart-check locked" id="pg-final-heart-label">
-          <input type="checkbox" id="pg-final-heart-check" disabled />
-          <span class="heart-text">👑 이 말씀을 내 마음에 두었나이다</span>
+          <span class="heart-row1">
+            <input type="checkbox" id="pg-final-heart-check" disabled />
+            <span class="heart-text">👑 이 말씀을 내 마음에 두었나이다</span>
+          </span>
           <span class="heart-hint" id="pg-final-heart-hint">전체를 이어서 외우면 체크할 수 있어요</span>
           <span class="heart-desc">처음부터 끝까지 <b>완전히 외웠다</b>는 뜻이에요. 체크하면 '외운 말씀' 배지가 달려요.</span>
         </label>
@@ -2654,8 +2658,10 @@ function renderTestScreen(verse, stage) {
   const heartOn = isHearted(verse.no);
   const heartHtml = stage === 3 ? `
         <label class="heart-check${heartOn ? " on" : " locked"}" id="heart-label">
-          <input type="checkbox" id="heart-check" ${heartOn ? "checked" : "disabled"} />
-          <span class="heart-text">👑 이 말씀을 내 마음에 두었나이다</span>
+          <span class="heart-row1">
+            <input type="checkbox" id="heart-check" ${heartOn ? "checked" : "disabled"} />
+            <span class="heart-text">👑 이 말씀을 내 마음에 두었나이다</span>
+          </span>
           <span class="heart-hint" id="heart-hint"${heartOn ? " hidden" : ""}>암송을 마치면 체크할 수 있어요</span>
           <span class="heart-desc">이 말씀을 <b>완전히 암송했다</b>는 뜻이에요. 체크하면 목록에 👑 금배지가 달리고, 다음부터 바로 3단계로 시작해요.</span>
         </label>` : "";
