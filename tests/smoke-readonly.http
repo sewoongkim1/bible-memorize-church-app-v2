@@ -1,0 +1,153 @@
+### 성경암송 앱 v2 — 읽기 전용 API 스모크 테스트
+### DB에 아무것도 쓰지 않고, 외부 유료 API(AI·TTS·임베딩)도 호출하지 않는 조회성 액션만 검증합니다.
+### 사용법: VS Code에 "REST Client" 확장 설치 → 각 요청 위 "Send Request" 클릭.
+###
+### 관리자 액션(authCheck/monitor/stats/ranking/pushStats/pushPreview)은 ADMIN_SECRET이 필요합니다.
+### 비번을 이 파일에 절대 적지 마세요 — 대신 OS 환경변수로 설정하세요(한 번만):
+###   Windows(PowerShell, 관리자 불필요): [System.Environment]::SetEnvironmentVariable('ADMIN_SECRET','실제비번','User')
+###   설정 후 VS Code를 완전히 재시작해야 인식됩니다.
+
+@base = https://xnomlgydifiqiybervtf.supabase.co/functions/v1/api
+@sermonBase = https://xnomlgydifiqiybervtf.supabase.co/functions/v1/sermon
+@anonKey = sb_publishable_oLtieT_jw7Gjb8etEsy0jw_thBaDjl-
+
+### 1. 관리자 인증 확인 — 정상 비번 (ok:true 기대)
+POST {{base}}
+Content-Type: application/json
+apikey: {{anonKey}}
+Authorization: Bearer {{anonKey}}
+
+{
+  "action": "authCheck",
+  "pw": "{{$processEnv ADMIN_SECRET}}"
+}
+
+### 2. 관리자 인증 확인 — 틀린 비번 (ok:false, error:"unauthorized" 기대)
+POST {{base}}
+Content-Type: application/json
+apikey: {{anonKey}}
+Authorization: Bearer {{anonKey}}
+
+{
+  "action": "authCheck",
+  "pw": "this-is-definitely-wrong"
+}
+
+### 3. 구절 목록 조회
+POST {{base}}
+Content-Type: application/json
+apikey: {{anonKey}}
+Authorization: Bearer {{anonKey}}
+
+{
+  "action": "getVerses"
+}
+
+### 4. 내 안에 거하는 말씀 본문 목록
+POST {{base}}
+Content-Type: application/json
+apikey: {{anonKey}}
+Authorization: Bearer {{anonKey}}
+
+{
+  "action": "getPassages"
+}
+
+### 5. 게시판 글 목록
+POST {{base}}
+Content-Type: application/json
+apikey: {{anonKey}}
+Authorization: Bearer {{anonKey}}
+
+{
+  "action": "boardList"
+}
+
+### 6. 게시판 최근 1주 새 글/답글 개수
+POST {{base}}
+Content-Type: application/json
+apikey: {{anonKey}}
+Authorization: Bearer {{anonKey}}
+
+{
+  "action": "boardCheck"
+}
+
+### 7. 관리자 헬스체크 — 구독자수·말씀신선도·푸시로그 (problems 배열이 비어있어야 정상)
+POST {{base}}
+Content-Type: application/json
+apikey: {{anonKey}}
+Authorization: Bearer {{anonKey}}
+
+{
+  "action": "monitor",
+  "pw": "{{$processEnv ADMIN_SECRET}}"
+}
+
+### 8. 최근 참여 통계
+POST {{base}}
+Content-Type: application/json
+apikey: {{anonKey}}
+Authorization: Bearer {{anonKey}}
+
+{
+  "action": "stats",
+  "pw": "{{$processEnv ADMIN_SECRET}}",
+  "from": "2020-01-01",
+  "to": "2026-12-31"
+}
+
+### 9. 도전 랭킹
+POST {{base}}
+Content-Type: application/json
+apikey: {{anonKey}}
+Authorization: Bearer {{anonKey}}
+
+{
+  "action": "ranking",
+  "from": "2020-01-01",
+  "to": "2026-12-31"
+}
+
+### 10. 푸시 구독자 시간대별 통계
+POST {{base}}
+Content-Type: application/json
+apikey: {{anonKey}}
+Authorization: Bearer {{anonKey}}
+
+{
+  "action": "pushStats",
+  "pw": "{{$processEnv ADMIN_SECRET}}"
+}
+
+### 11. 오늘 아침 발송될 푸시 문구 미리보기 (실제 발송 없음)
+POST {{base}}
+Content-Type: application/json
+apikey: {{anonKey}}
+Authorization: Bearer {{anonKey}}
+
+{
+  "action": "pushPreview",
+  "pw": "{{$processEnv ADMIN_SECRET}}"
+}
+
+### 12. 공개 설정값 조회
+POST {{base}}
+Content-Type: application/json
+apikey: {{anonKey}}
+Authorization: Bearer {{anonKey}}
+
+{
+  "action": "getConfig",
+  "key": "heartMessages"
+}
+
+### 13. 설교 아카이브 목록 (다른 함수: sermon)
+POST {{sermonBase}}
+Content-Type: application/json
+apikey: {{anonKey}}
+Authorization: Bearer {{anonKey}}
+
+{
+  "action": "getSermons"
+}
