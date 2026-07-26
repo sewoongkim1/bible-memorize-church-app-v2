@@ -3338,7 +3338,9 @@ function checkAllComplete(inputs, verse, stage) {
 
   // '반복해서 쓰기'가 켜져 있으면 아무것도 띄우지 않고 바로 새 3단계로 넘어간다.
   // (정답마다 위의 saveProgress가 실행되므로 도전 기록에 '매번' 카운트된다. 멈추려면 체크박스 해제)
-  if (isRepeatPractice()) {
+  // 단, 아직 '마음에 두었나이다' 체크 전이면 자동으로 넘기지 않는다 — 그렇지 않으면 체크할
+  // 틈도 없이 곧장 다음 3단계로 넘어가 버려 영영 체크할 수 없었다. 이미 체크된 구절은 계속 자동 진행.
+  if (isRepeatPractice() && isHearted(verse.no)) {
     setTimeout(() => renderTestScreen(verse, 3), 350); // 마지막 글자 정답 표시가 잠깐 보이도록만
     return;
   }
