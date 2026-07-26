@@ -418,7 +418,9 @@ h1 {
 .help-slot .help-tabs {
   display: flex; gap: 6px; margin-top: 12px;
   flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;   /* 스크롤은 되지만 스크롤바 선은 안 보이게(Firefox) */
 }
+.help-slot .help-tabs::-webkit-scrollbar { display: none; }   /* 크롬/사파리/안드로이드 */
 .help-slot .help-btn { flex-shrink: 0; white-space: nowrap; padding: 6px 11px; }
 .help-slot .help-btn.on { background: var(--navy); color: #fff; }
 .help-slot .help-body {
@@ -596,11 +598,15 @@ h1 {
   background: var(--light);   /* 카드(흰색)와 확실히 갈라지는 톤 */
 }
 .sc-topic {
-  display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap;
+  display: flex; align-items: baseline; gap: 7px;
   margin-bottom: 11px;
 }
 .sc-topic-label { font-size: .74rem; font-weight: 800; color: var(--gold); flex-shrink: 0; }
-.sc-topic-title { font-size: 1rem; font-weight: 800; color: var(--navy); }
+/* 제목이 길어도 줄바꿈 대신 한 줄로 — 넘치면 말줄임(...) */
+.sc-topic-title {
+  font-size: 1rem; font-weight: 800; color: var(--navy);
+  flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .sc-buttons { display: flex; gap: 8px; }
 /* 두 버튼 완전히 동일: 같은 크기(flex:1)·같은 스타일 */
 /* '보기'·'목록' 버튼과 같은 어법: 연파랑 바탕 + 네이비 라인 */
