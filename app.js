@@ -2653,16 +2653,16 @@ function renderTestScreen(verse, stage) {
       </div>
     </div>`;
 
-  // 3단계에만: "내 마음에 두었나이다" 체크. 아직 통과 전이면 비활성(안내문 노출),
-  // 이미 체크한 구절은 처음부터 활성 → 바로 해제 가능.
+  // 3단계에 들어오면 곧바로 체크 가능(빈칸을 다 맞혀야 풀리는 잠금은 없앰) —
+  // '반복해서 쓰기'를 켜둔 경우 정답 직후 곧장 다음 3단계로 자동 진행돼 버려서
+  // 체크할 틈이 없었다. 처음부터 열어두면 그 틈에도 자유롭게 체크할 수 있다.
   const heartOn = isHearted(verse.no);
   const heartHtml = stage === 3 ? `
-        <label class="heart-check${heartOn ? " on" : " locked"}" id="heart-label">
+        <label class="heart-check${heartOn ? " on" : ""}" id="heart-label">
           <span class="heart-row1">
-            <input type="checkbox" id="heart-check" ${heartOn ? "checked" : "disabled"} />
+            <input type="checkbox" id="heart-check" ${heartOn ? "checked" : ""} />
             <span class="heart-text">👑 이 말씀을 내 마음에 두었나이다</span>
           </span>
-          <span class="heart-hint" id="heart-hint"${heartOn ? " hidden" : ""}>암송을 마치면 체크할 수 있어요</span>
           <span class="heart-desc">이 말씀을 <b>완전히 암송했다</b>는 뜻이에요. 체크하면 목록에 👑 금배지가 달리고, 다음부터 바로 3단계로 시작해요.</span>
         </label>` : "";
 
@@ -3071,7 +3071,6 @@ function setupVoice(verse, stage, onPass) {
 
     // (연습 모드) 저장 + 다음 단계 네비
     if (passed) saveProgress(verse.no, stage, "voice");
-    if (passed && stage === 3) unlockHeartCheck(); // 음성으로 3단계 통과해도 체크 가능
     const vIdx = verses.findIndex((v) => v.no === verse.no);
     const vPrev = vIdx > 0 ? verses[vIdx - 1] : null;
     const vNext = (vIdx >= 0 && vIdx < verses.length - 1) ? verses[vIdx + 1] : null;
@@ -3311,17 +3310,6 @@ function setupAutoCheck(verse, stage) {
   if (!isCardMode() && inputs[0]) inputs[0].focus(); // 카드 모드에선 키보드를 띄우지 않는다
 }
 
-// 3단계 통과 → 체크박스 잠금 해제(타이핑·음성 공통)
-function unlockHeartCheck() {
-  const el = document.getElementById("heart-check");
-  if (!el) return;
-  el.disabled = false;
-  const label = document.getElementById("heart-label");
-  if (label) label.classList.remove("locked");
-  const hint = document.getElementById("heart-hint");
-  if (hint) hint.hidden = true;
-}
-
 function checkAllComplete(inputs, verse, stage) {
   const allCorrect = inputs.every((inp) => inp.classList.contains("correct"));
   if (!allCorrect) return;
@@ -3334,13 +3322,11 @@ function checkAllComplete(inputs, verse, stage) {
     document.getElementById("next-stage-btn").addEventListener("click", () => renderTestScreen(verse, stage + 1));
     return;
   }
-  unlockHeartCheck(); // 3단계 통과 → "마음에 두었나이다" 체크 가능
 
   // '반복해서 쓰기'가 켜져 있으면 아무것도 띄우지 않고 바로 새 3단계로 넘어간다.
   // (정답마다 위의 saveProgress가 실행되므로 도전 기록에 '매번' 카운트된다. 멈추려면 체크박스 해제)
-  // 단, 아직 '마음에 두었나이다' 체크 전이면 자동으로 넘기지 않는다 — 그렇지 않으면 체크할
-  // 틈도 없이 곧장 다음 3단계로 넘어가 버려 영영 체크할 수 없었다. 이미 체크된 구절은 계속 자동 진행.
-  if (isRepeatPractice() && isHearted(verse.no)) {
+  // 마음에 두었나이다 체크는 3단계 진입과 동시에 항상 가능해서, 자동 진행 중에도 체크할 수 있다.
+  if (isRepeatPractice()) {
     setTimeout(() => renderTestScreen(verse, 3), 350); // 마지막 글자 정답 표시가 잠깐 보이도록만
     return;
   }
