@@ -125,6 +125,7 @@ Deno.serve(async (req) => {
       case "generateNiv":   return json(await generateNiv(body));
       case "embedSermons":  return json(await embedSermons(body));
       case "sermonChat":    return json(await sermonChat(body));
+      case "debugSermonSearch": return json(await debugSermonSearch(body));
       case "sermonSummary": return json(await sermonSummary(body));
       case "sermonChatLog": return json(await sermonChatLog(body));
       case "clearSummaryCache": return json(await clearSummaryCache(body));
@@ -947,6 +948,26 @@ async function embedSermons(b: any) {
     totalChunks += rows.length;
   }
   return { ok: true, sermons: sermons.length, chunks: totalChunks };
+}
+
+// ---------- debugSermonSearch: 벡터 검색 원시 결과 점검용(임계값 필터 없이, 관리자) ----------
+async function debugSermonSearch(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const message = (b.message ?? "").toString().trim();
+  if (!message) return { ok: false, error: "message-required" };
+  const [qvec] = await embedVoyage([message], "query");
+  const { data: matches, error } = await db.rpc("match_sermon_chunks", {
+    query_embedding: qvec, match_count: 8,
+  });
+  if (error) throw error;
+  return {
+    ok: true,
+    qvecLen: qvec.length,
+    matches: (matches ?? []).map((m: any) => ({
+      similarity: m.similarity, title: m.title, sermon_id: m.sermon_id,
+      content: (m.content || "").slice(0, 80),
+    })),
+  };
 }
 
 // ---------- sermonChat: 설교 아카이브 검색 + 근거 기반 답변 (관리자) ----------
