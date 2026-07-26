@@ -4,6 +4,8 @@
 -- 준비: Database > Extensions 에서 pg_cron, pg_net 활성화(이미 돼 있으면 생략).
 --
 -- 발송 시각: 매주 주일 08:00 KST = 토요일 23:00 UTC → '0 23 * * 6'
+-- ⚠️ 이 저장소는 공개(public)입니다 — 'pw' 값을 실제 ADMIN_SECRET으로 바꿔서 실행하고,
+--    바꾼 값을 절대 커밋하지 마세요(이 파일은 예시 그대로 유지).
 
 select cron.schedule(
   'weekly-verse-push',
@@ -18,7 +20,7 @@ select cron.schedule(
     ),
     body := jsonb_build_object(
       'action','weeklyVersePush',
-      'pw','Godislove'
+      'pw','YOUR_ADMIN_SECRET'
     )
   );
   $$

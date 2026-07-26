@@ -7,6 +7,8 @@
 --                      (도메인 인증 전에는 onboarding@resend.dev 사용 — 본인에게만 발송 가능)
 --
 -- 발송 시각: 매주 토요일 08:00 KST = 금요일 23:00 UTC → '0 23 * * 5'
+-- ⚠️ 이 저장소는 공개(public)입니다 — 'pw' 값을 실제 ADMIN_SECRET으로 바꿔서 실행하고,
+--    바꾼 값을 절대 커밋하지 마세요(이 파일은 예시 그대로 유지).
 
 select cron.schedule(
   'weekly-report-email',
@@ -21,7 +23,7 @@ select cron.schedule(
     ),
     body := jsonb_build_object(
       'action','weeklyReport',
-      'pw','Godislove',
+      'pw','YOUR_ADMIN_SECRET',
       'send', true            -- 실제 이메일 발송
     )
   );
