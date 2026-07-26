@@ -48,7 +48,7 @@ body {
   flex-direction: column;
   align-items: center;
   background: linear-gradient(135deg, #0d1b3e 0%, #1a3a6b 40%, #0d4a7a 100%);
-  padding: 8px 20px 10px;
+  padding: 6px 20px 6px;
   width: 100%;
 }
 .logo-wrap {
@@ -56,8 +56,8 @@ body {
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: 20px;
-  padding: 10px 24px;
-  margin-bottom: 6px;
+  padding: 8px 24px;
+  margin-bottom: 0;
   display: flex;
   align-items: center;
   gap: 18px;
@@ -83,7 +83,7 @@ body {
 #app {
   max-width: 600px;
   margin: 0 auto;
-  padding: 12px 16px 28px;
+  padding: 6px 16px 28px;
 }
 
 h1 {
@@ -1086,7 +1086,7 @@ html[data-fs="xl"] .sermon-sum-card .ss-top > .back-btn { font-size: 17px; paddi
 .entry-submit:hover { background: var(--navy-dark); }
 
 /* ---------- 본인 기록 요약 화면 ---------- */
-.summary-screen { padding: 8px 14px 16px; }
+.summary-screen { padding: 4px 14px 16px; }
 .summary-card {
   position: relative;
   max-width: 460px; margin: 0 auto; background: var(--white);
