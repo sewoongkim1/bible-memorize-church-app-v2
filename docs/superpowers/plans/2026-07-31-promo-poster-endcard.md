@@ -152,9 +152,10 @@ Run: `cat marketing/qr-data-uri.txt`
   .stats { display:flex; gap:22px; margin-bottom: 64px; }
   .stat-chip { background: #fff; border: 2px solid #ead9b0; border-radius: 16px; padding: 18px 34px; font-size: 28px; color: #1a3a6b; font-weight:700; }
   .footer { margin-top: auto; display:flex; flex-direction:column; align-items:center; gap:28px; }
-  .cta { font-size: 42px; font-weight:800; color:#0d1b3e; font-family:"Nanum Myeongjo",serif; }
+  .cta { font-size: 42px; font-weight:800; color:#0d1b3e; font-family:"Nanum Myeongjo",serif; text-align:center; }
   .qr-wrap { background:#fff; padding:22px; border-radius:18px; box-shadow:0 10px 30px rgba(0,0,0,0.08); }
   .qr-wrap img { width: 210px; height:210px; display:block; }
+  .qr-hint { font-size: 22px; font-weight:700; color:#8a6d1f; }
   .url { font-size: 28px; color:#6b5a2e; letter-spacing:1px; }
 </style>
 </head>
@@ -185,8 +186,9 @@ Run: `cat marketing/qr-data-uri.txt`
     </div>
 
     <div class="footer">
-      <div class="cta">오늘부터, 함께해요</div>
+      <div class="cta">QR코드를 찍고,<br>오늘부터 함께해요</div>
       <div class="qr-wrap"><img src="QR_DATA_URI_HERE" /></div>
+      <div class="qr-hint">📷 카메라로 스캔해보세요</div>
       <div class="url">gocheok.onlybible.kr</div>
     </div>
   </div>
@@ -261,9 +263,11 @@ git commit -m "feat(홍보 소재): 세로 포스터(게시판·인쇄용) 제�
   .stats { display:flex; gap:16px; margin-bottom:44px; }
   .stat-chip { background:#fff; border:2px solid #ead9b0; border-radius:14px; padding:14px 26px; font-size:21px; color:#1a3a6b; font-weight:700; }
   .footer-row { display:flex; align-items:center; gap:26px; }
-  .cta { font-size:30px; font-weight:800; color:#0d1b3e; font-family:"Nanum Myeongjo",serif; }
+  .cta { font-size:28px; font-weight:800; color:#0d1b3e; font-family:"Nanum Myeongjo",serif; line-height:1.4; }
+  .qr-group { display:flex; flex-direction:column; align-items:center; gap:8px; }
   .qr-wrap { background:#fff; padding:13px; border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,0.08); }
   .qr-wrap img { width:104px; height:104px; display:block; }
+  .qr-hint { font-size:15px; font-weight:700; color:#8a6d1f; white-space:nowrap; }
   .url { font-size:19px; color:#6b5a2e; }
   .right { flex:0.85; display:flex; justify-content:center; }
   .phone { width:400px; height:820px; background:#0d1b3e; border-radius:42px; padding:16px; box-shadow:0 50px 100px rgba(13,27,62,0.35); }
@@ -291,8 +295,11 @@ git commit -m "feat(홍보 소재): 세로 포스터(게시판·인쇄용) 제�
         <div class="stat-chip">누적 암송 5,000+회</div>
       </div>
       <div class="footer-row">
-        <div class="cta">오늘부터, 함께해요</div>
-        <div class="qr-wrap"><img src="QR_DATA_URI_HERE"/></div>
+        <div class="cta">QR코드를 찍고,<br>오늘부터 함께해요</div>
+        <div class="qr-group">
+          <div class="qr-wrap"><img src="QR_DATA_URI_HERE"/></div>
+          <div class="qr-hint">📷 스캔해보세요</div>
+        </div>
         <div class="url">gocheok.onlybible.kr</div>
       </div>
     </div>
@@ -379,9 +386,11 @@ git commit -m "feat(홍보 소재): 가로 포스터(주일 광고 화면용) �
   .logo-wrap { background:#fff; padding:36px 44px; border-radius:28px; z-index:1; box-shadow:0 20px 50px rgba(0,0,0,.28); }
   .logo-wrap img { width:220px; height:auto; display:block; }
   .app-title { font-family:"Batang","Nanum Myeongjo",serif; font-size:46px; font-weight:700; color:#fff; letter-spacing:2px; z-index:1; }
-  .cta { font-size:36px; font-weight:800; color:#f0dca0; z-index:1; }
-  .qr-wrap { background:#fff; padding:24px; border-radius:20px; z-index:1; }
+  .cta { font-size:36px; font-weight:800; color:#f0dca0; z-index:1; text-align:center; }
+  .qr-group { display:flex; flex-direction:column; align-items:center; gap:14px; z-index:1; }
+  .qr-wrap { background:#fff; padding:24px; border-radius:20px; }
   .qr-wrap img { width:240px; height:240px; display:block; }
+  .qr-hint { font-size:26px; font-weight:700; color:#dcb669; }
   .url { font-size:32px; color:#cdd9f2; letter-spacing:1px; z-index:1; }
 </style>
 </head>
@@ -389,8 +398,11 @@ git commit -m "feat(홍보 소재): 가로 포스터(주일 광고 화면용) �
   <div class="glow"></div>
   <div class="logo-wrap"><img src="LOGO_DATA_URI_HERE"/></div>
   <div class="app-title">성경말씀 암송</div>
-  <div class="cta">오늘부터, 함께해요</div>
-  <div class="qr-wrap"><img src="QR_DATA_URI_HERE"/></div>
+  <div class="cta">QR코드를 찍고,<br>오늘부터 함께해요</div>
+  <div class="qr-group">
+    <div class="qr-wrap"><img src="QR_DATA_URI_HERE"/></div>
+    <div class="qr-hint">📷 카메라로 스캔해보세요</div>
+  </div>
   <div class="url">gocheok.onlybible.kr</div>
 </body>
 </html>
