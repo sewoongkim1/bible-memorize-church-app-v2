@@ -4,7 +4,7 @@
 
 **Goal:** 성경암송 앱 홍보용 정적 이미지 3종(세로 포스터, 가로 포스터, 영상 엔드카드)을 HTML/CSS로 디자인하고 실제 인쇄·화면 배포가 가능한 PNG 파일로 렌더링한다.
 
-**Architecture:** 각 산출물을 독립된 HTML 파일로 작성(디자인 토큰은 앱의 기존 브랜드 색상 재사용) → 로컬 헤드리스 Chrome으로 정확한 픽셀 크기의 PNG로 렌더링 → Read 도구로 결과물을 시각적으로 검증(잘림·겹침 없는지) → 필요시 CSS 보정 후 재렌더링. 외부 서비스는 QR코드 생성(api.qrserver.com) 한 곳만 빌드 타임에 1회 호출하고, 이후엔 base64로 내장해 완전히 오프라인으로 재현 가능하게 만든다.
+**Architecture:** 각 산출물을 독립된 HTML 파일로 작성(디자인 토큰은 앱의 기존 브랜드 색상 재사용) → 로컬 헤드리스 Chrome으로 정확한 픽셀 크기의 PNG로 렌더링 → Read 도구로 결과물을 시각적으로 검증(잘림·겹침 없는지) → 필요시 CSS 보정 후 재렌더링. 외부 자산은 QR코드 생성(api.qrserver.com)과 실제 교회 로고(summer.onlybible.kr/logo3.png) 두 곳만 빌드 타임에 1회씩 내려받고, 이후엔 base64로 내장해 완전히 오프라인으로 재현 가능하게 만든다.
 
 **Tech Stack:** 순수 HTML/CSS(빌드 도구 없음), 헤드리스 Chrome(`--headless --screenshot`), curl(QR 생성), Read 도구(시각 검증). 이 저장소에 새 런타임 의존성을 추가하지 않는다.
 
@@ -20,13 +20,14 @@
 
 ---
 
-### Task 1: QR코드 자산 준비
+### Task 1: 공용 자산 준비 (QR코드 + 교회 로고)
 
 **Files:**
-- Create: `marketing/qr-data-uri.txt` (base64 data URI 문자열 하나만 담긴 텍스트 파일 — 이후 태스크에서 복사해 쓴다)
+- Create: `marketing/qr-data-uri.txt` (QR코드 base64 data URI 문자열)
+- Create: `marketing/logo-data-uri.txt` (교회 로고 base64 data URI 문자열)
 
 **Interfaces:**
-- Produces: `marketing/qr-data-uri.txt`의 내용 — `data:image/png;base64,<...>` 형태의 문자열. Task 2·3·4가 이 값을 각 HTML의 `<img src="...">`에 그대로 붙여넣는다.
+- Produces: `marketing/qr-data-uri.txt`, `marketing/logo-data-uri.txt`의 내용 — 둘 다 `data:image/png;base64,<...>` 형태의 문자열. Task 2·3·4가 각 HTML의 `<img src="...">`에 그대로 붙여넣는다.
 
 - [ ] **Step 1: marketing 디렉터리 생성**
 
@@ -39,29 +40,39 @@ Run:
 curl -s -o marketing/qr-code.png "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https://gocheok.onlybible.kr"
 ```
 
-- [ ] **Step 3: 다운로드 확인**
+- [ ] **Step 3: 교회 로고 PNG 다운로드**
 
-Run: `file marketing/qr-code.png`
-Expected: `marketing/qr-code.png: PNG image data, 300 x 300, ...` 형태 출력(1x1 픽셀 등 비정상 크기면 curl 실패이니 재시도)
+앱이 실제로 쓰는 고척교회 로고(불꽃이 십자가로 타오르는 형태)를 그대로 가져온다.
 
-- [ ] **Step 4: base64 data URI로 변환해 텍스트 파일로 저장**
+Run:
+```bash
+curl -s -o marketing/church-logo.png "https://summer.onlybible.kr/logo3.png"
+```
+
+- [ ] **Step 4: 두 다운로드 확인**
+
+Run: `file marketing/qr-code.png marketing/church-logo.png`
+Expected: 각각 `PNG image data, 300 x 300, ...`와 `PNG image data, 477 x 605, ...` 형태 출력(비정상적으로 작은 크기면 curl 실패이니 재시도)
+
+- [ ] **Step 5: 둘 다 base64 data URI로 변환해 텍스트 파일로 저장**
 
 Run:
 ```bash
 echo -n "data:image/png;base64,$(base64 -w0 marketing/qr-code.png)" > marketing/qr-data-uri.txt
-wc -c marketing/qr-data-uri.txt
+echo -n "data:image/png;base64,$(base64 -w0 marketing/church-logo.png)" > marketing/logo-data-uri.txt
+wc -c marketing/qr-data-uri.txt marketing/logo-data-uri.txt
 ```
-Expected: 수백~수천 바이트 크기(0이면 실패)
+Expected: 둘 다 수백~수만 바이트 크기(0이면 실패)
 
-- [ ] **Step 5: Read 도구로 원본 QR 이미지 육안 확인**
+- [ ] **Step 6: Read 도구로 원본 이미지 둘 다 육안 확인**
 
-`Read` 도구로 `marketing/qr-code.png`를 열어, 정상적인 QR 패턴(모서리 3개 큰 사각형 포함)이 보이는지 확인한다.
+`Read` 도구로 `marketing/qr-code.png`(정상적인 QR 패턴)와 `marketing/church-logo.png`(파랑-주황 그라데이션의 불꽃/십자가 로고 + "고척교회" 텍스트)를 각각 열어 확인한다.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add marketing/qr-code.png marketing/qr-data-uri.txt
-git commit -m "chore(홍보 소재): QR코드 자산 준비"
+git add marketing/qr-code.png marketing/qr-data-uri.txt marketing/church-logo.png marketing/logo-data-uri.txt
+git commit -m "chore(홍보 소재): QR코드·교회 로고 공용 자산 준비"
 ```
 
 ---
@@ -339,10 +350,12 @@ git commit -m "feat(홍보 소재): 가로 포스터(주일 광고 화면용) �
 - Create: `marketing/video-endcard.png` (1080×1920px — 스펙 문서의 세로 영상 포맷과 동일 비율)
 
 **Interfaces:**
-- Consumes: `marketing/qr-data-uri.txt`의 data URI 문자열(Task 1)
-- Produces: `marketing/video-endcard.png` — 영상 8번 장면(52–60초)에 8초간 고정해 쓸 정적 이미지
+- Consumes: `marketing/qr-data-uri.txt`, `marketing/logo-data-uri.txt`의 data URI 문자열(Task 1)
+- Produces: `marketing/video-endcard.png` — 영상 9번 장면(60–68초)에 8초간 고정해 쓸 정적 이미지
 
 - [ ] **Step 1: `marketing/video-endcard.html` 작성**
+
+로고 안에 이미 "고척교회" 글자(남색)가 포함돼 있어, 남색 배경에 그대로 얹으면 글자가 안 보인다. 로고를 QR코드와 같은 흰색 카드 안에 넣어 대비를 확보한다.
 
 ```html
 <!DOCTYPE html>
@@ -356,15 +369,16 @@ git commit -m "feat(홍보 소재): 가로 포스터(주일 광고 화면용) �
     background: linear-gradient(160deg,#0d1b3e,#1a3a6b 60%,#0d4a7a);
     font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
     position: relative;
-    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:52px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:48px;
   }
   .glow {
     position:absolute; top:32%; left:50%; transform:translate(-50%,-50%);
     width:900px; height:900px; border-radius:50%;
     background:radial-gradient(circle, rgba(200,168,75,0.28) 0%, rgba(200,168,75,0) 70%);
   }
-  .mark { font-size:64px; z-index:1; }
-  .title { font-family:"Batang","Nanum Myeongjo",serif; font-size:62px; font-weight:700; color:#fff; text-align:center; line-height:1.4; z-index:1; }
+  .logo-wrap { background:#fff; padding:36px 44px; border-radius:28px; z-index:1; box-shadow:0 20px 50px rgba(0,0,0,.28); }
+  .logo-wrap img { width:220px; height:auto; display:block; }
+  .app-title { font-family:"Batang","Nanum Myeongjo",serif; font-size:46px; font-weight:700; color:#fff; letter-spacing:2px; z-index:1; }
   .cta { font-size:36px; font-weight:800; color:#f0dca0; z-index:1; }
   .qr-wrap { background:#fff; padding:24px; border-radius:20px; z-index:1; }
   .qr-wrap img { width:240px; height:240px; display:block; }
@@ -373,8 +387,8 @@ git commit -m "feat(홍보 소재): 가로 포스터(주일 광고 화면용) �
 </head>
 <body>
   <div class="glow"></div>
-  <div class="mark">📖</div>
-  <div class="title">고척교회<br>성경말씀 암송</div>
+  <div class="logo-wrap"><img src="LOGO_DATA_URI_HERE"/></div>
+  <div class="app-title">성경말씀 암송</div>
   <div class="cta">오늘부터, 함께해요</div>
   <div class="qr-wrap"><img src="QR_DATA_URI_HERE"/></div>
   <div class="url">gocheok.onlybible.kr</div>
@@ -382,7 +396,7 @@ git commit -m "feat(홍보 소재): 가로 포스터(주일 광고 화면용) �
 </html>
 ```
 
-`QR_DATA_URI_HERE`를 실제 data URI로 치환한다.
+`LOGO_DATA_URI_HERE`를 `marketing/logo-data-uri.txt`의 값으로, `QR_DATA_URI_HERE`를 `marketing/qr-data-uri.txt`의 값으로 치환한다.
 
 - [ ] **Step 2: 헤드리스 Chrome으로 PNG 렌더링**
 
@@ -432,9 +446,9 @@ git commit -m "feat(홍보 소재): 영상 엔드카드 제작"
 |---|---|---|
 | `marketing/poster-vertical.png` | 게시판·인쇄용 세로 포스터 | 2480×3508 (A4 @300dpi) |
 | `marketing/poster-horizontal.png` | 주일 광고 화면용 가로 포스터 | 1920×1080 |
-| `marketing/video-endcard.png` | 홍보 영상 8번 장면(엔드카드) | 1080×1920 |
+| `marketing/video-endcard.png` | 홍보 영상 9번 장면(엔드카드) | 1080×1920 |
 
-나머지(Higgsfield AI 장면 5개, 실제 앱 화면 녹화 4개, 영상 편집)는 위 "영상 스토리보드"·"준비물" 섹션 가이드대로 직접 진행.
+나머지(Higgsfield AI 장면 5개, 실제 앱 화면 캡처 4개, 혼합 장면 1개, 영상 편집)는 위 "영상 스토리보드"·"준비물" 섹션 가이드대로 직접 진행.
 ```
 
 - [ ] **Step 2: Commit**
