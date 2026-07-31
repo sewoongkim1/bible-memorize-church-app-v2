@@ -551,6 +551,22 @@ async function monitor(b: any) {
     else if ((todayPush.total ?? 0) > 0 && (todayPush.sent ?? 0) === 0) problems.push(`오늘 알림 발송 0건 (실패 ${todayPush.failed ?? 0}건)`);
   }
 
+  // 4) 주간 리포트 메일이 최근 정상 주기(8일 이내)로 실행됐는지 — pg_cron 실행 기록 직접 조회.
+  //    (2026-07-31: 비번 교체 직후 재등록 첫 주기가 한 번 누락된 적 있어 추가한 체크)
+  let weeklyReportLastRun: { status: string; startTime: string } | null = null;
+  try {
+    const { data: wr } = await db.rpc("cron_last_run", { p_jobname: "weekly-report-email" });
+    const row = (wr ?? [])[0];
+    if (row) {
+      weeklyReportLastRun = { status: row.status, startTime: row.start_time };
+      const ageDays = (now.getTime() - Date.parse(row.start_time)) / 86400000;
+      if (ageDays > 8) problems.push(`주간 리포트 메일이 ${Math.floor(ageDays)}일째 실행되지 않았습니다`);
+      else if (row.status !== "succeeded") problems.push(`주간 리포트 메일 최근 실행 상태: ${row.status}`);
+    } else {
+      problems.push("주간 리포트 메일 실행 기록을 찾을 수 없습니다");
+    }
+  } catch (_) { /* RPC 실패해도 나머지 점검엔 영향 없게 조용히 넘어감 */ }
+
   return {
     ok: problems.length === 0,
     serverTimeKST: kstNow.toISOString().replace("T", " ").slice(0, 16) + " KST",
@@ -558,6 +574,7 @@ async function monitor(b: any) {
     subscribers,
     latestVerseDate,
     todayPush,
+    weeklyReportLastRun,
     problems,
   };
 }
