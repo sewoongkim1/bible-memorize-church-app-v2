@@ -4025,6 +4025,7 @@ function renderChallenge(verse) {
         <div class="test-sentence">${wordsHtml}</div>
         <div class="challenge-remain" id="ch-remain"></div>
         <div id="result-area"></div>
+        <div id="help-slot" class="help-slot"></div>
         <div id="voice-panel" class="voice-panel" hidden>
           <div class="voice-status" id="voice-status">🎙️ 듣고 있어요… <b>‘암송 종료’</b>를 누를 때까지 계속 들어요</div>
           <div class="voice-live" id="voice-live"></div>
@@ -4036,6 +4037,7 @@ function renderChallenge(verse) {
 
   document.getElementById("ch-exit").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
   document.getElementById("ch-shuffle").addEventListener("click", () => { stopSpeaking(); startChallenge(); });
+  fillVerseHelp(verse);
   setupHint();
   setupChallengeTyping(verse, (mode) => challengeComplete(verse, mode));
   setupVoice(verse, 3, () => challengeComplete(verse, "voice"));
@@ -4088,6 +4090,7 @@ function renderReview(queue, idx) {
           <div class="answer-text">${answerHtml}</div>
           <button class="back-to-test-btn" id="back-to-test-btn">돌아가서 계속하기</button>
         </div>
+        <div id="help-slot" class="help-slot"></div>
         <div id="voice-panel" class="voice-panel" hidden>
           <div class="voice-status" id="voice-status">🎙️ 듣고 있어요… <b>‘암송 종료’</b>를 누를 때까지 계속 들어요</div>
           <div class="voice-live" id="voice-live"></div>
@@ -4098,6 +4101,7 @@ function renderReview(queue, idx) {
     </div>`;
 
   document.getElementById("rv-exit").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
+  fillVerseHelp(verse);
   setupAnswerToggle();
   // 정답 듣기(TTS)
   const listenBtn = document.getElementById("listen-answer-btn");
