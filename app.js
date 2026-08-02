@@ -2364,7 +2364,8 @@ function findSermonForVerse(no, sermons) {
 }
 
 // 암송 화면 설교 배너 옆 '설교 요약 보기' 버튼을 비동기로 채운다(있을 때만).
-function fillSermonSummaryBtn(verse, stage) {
+// onBack 생략 시 renderTestScreen(verse, stage)로 복귀(기존 동작) — 복습/도전 화면은 자기 화면으로 돌아오게 onBack을 넘긴다.
+function fillSermonSummaryBtn(verse, stage, onBack) {
   const slot = document.getElementById("sermon-summary-slot");
   if (!slot) return;
   loadSermons().then((sermons) => {
@@ -2373,7 +2374,44 @@ function fillSermonSummaryBtn(verse, stage) {
     slot.innerHTML = `<button class="sc-btn sc-summary" id="sermon-summary-btn">📄 요약보기</button>`;
     document.getElementById("sermon-summary-btn")
       .addEventListener("click", () =>
-        renderSermonSummary(verse, s, () => renderTestScreen(verse, stage), "← 암송으로"));
+        renderSermonSummary(verse, s, onBack || (() => renderTestScreen(verse, stage)), "← 암송으로"));
+  });
+}
+
+// 설교 연결 배너 — 주제(제목) + [영상보기][요약보기]. 요약 버튼은 fillSermonSummaryBtn이 있을 때만 채운다.
+function sermonConnectHtml(verse) {
+  return `
+    <div class="sermon-connect">
+      ${verse.sermonTitle ? `<div class="sc-topic"><span class="sc-topic-label">📖 설교</span><span class="sc-topic-title">${verse.sermonTitle}</span></div>` : ""}
+      <div class="sc-buttons">
+        ${verse.url
+          ? `<a class="sc-btn sc-watch" href="${verse.url}" target="_blank" rel="noopener">▶️ 영상보기</a>`
+          : `<span class="sc-btn sc-soon">⏳ 영상 준비 중</span>`}
+        <span id="sermon-summary-slot"></span>
+      </div>
+    </div>`;
+}
+
+// "내 마음에 두었나이다" 체크 블록 — 완전 암송 표시(👑 금배지). 3단계(=전체 빈칸) 화면에서만 의미가 있다.
+function heartCheckHtml(verse) {
+  const heartOn = isHearted(verse.no);
+  return `
+        <label class="heart-check${heartOn ? " on" : ""}" id="heart-label">
+          <span class="heart-row1">
+            <input type="checkbox" id="heart-check" ${heartOn ? "checked" : ""} />
+            <span class="heart-text">이 말씀을 내 마음에 두었나이다</span>
+          </span>
+          <span class="heart-desc">이 말씀을 <b>완전히 암송했다</b>는 뜻이에요. 체크하면 목록에 👑 금배지가 달리고, 다음부터 바로 3단계로 시작해요.</span>
+        </label>`;
+}
+// heartCheckHtml로 그려진 체크박스에 토글 동작을 연결(공통 로직)
+function setupHeartCheck(verse) {
+  const heartInput = document.getElementById("heart-check");
+  if (!heartInput) return;
+  heartInput.addEventListener("change", () => {
+    setHearted(verse.no, heartInput.checked);
+    document.getElementById("heart-label").classList.toggle("on", heartInput.checked);
+    if (heartInput.checked) showHeartCheer(verse); // 체크(마음에 둠)할 때만 축하
   });
 }
 
@@ -2642,29 +2680,12 @@ function renderTestScreen(verse, stage) {
   // 설교 연결: 주제(제목) 텍스트 + [영상보기][요약보기] 대등한 2버튼.
   // 구역 라벨이 이미 '설교'이므로 버튼에서는 '설교'를 반복하지 않는다.
   // 요약보기 버튼은 매칭되는 요약이 있을 때만 slot에 비동기로 채워진다.
-  const sermonConnect = `
-    <div class="sermon-connect">
-      ${verse.sermonTitle ? `<div class="sc-topic"><span class="sc-topic-label">📖 설교</span><span class="sc-topic-title">${verse.sermonTitle}</span></div>` : ""}
-      <div class="sc-buttons">
-        ${verse.url
-          ? `<a class="sc-btn sc-watch" href="${verse.url}" target="_blank" rel="noopener">▶️ 영상보기</a>`
-          : `<span class="sc-btn sc-soon">⏳ 영상 준비 중</span>`}
-        <span id="sermon-summary-slot"></span>
-      </div>
-    </div>`;
+  const sermonConnect = sermonConnectHtml(verse);
 
   // 3단계에 들어오면 곧바로 체크 가능(빈칸을 다 맞혀야 풀리는 잠금은 없앰) —
   // '반복해서 쓰기'를 켜둔 경우 정답 직후 곧장 다음 3단계로 자동 진행돼 버려서
   // 체크할 틈이 없었다. 처음부터 열어두면 그 틈에도 자유롭게 체크할 수 있다.
-  const heartOn = isHearted(verse.no);
-  const heartHtml = stage === 3 ? `
-        <label class="heart-check${heartOn ? " on" : ""}" id="heart-label">
-          <span class="heart-row1">
-            <input type="checkbox" id="heart-check" ${heartOn ? "checked" : ""} />
-            <span class="heart-text">이 말씀을 내 마음에 두었나이다</span>
-          </span>
-          <span class="heart-desc">이 말씀을 <b>완전히 암송했다</b>는 뜻이에요. 체크하면 목록에 👑 금배지가 달리고, 다음부터 바로 3단계로 시작해요.</span>
-        </label>` : "";
+  const heartHtml = stage === 3 ? heartCheckHtml(verse) : "";
 
   // 3단계에만: '반복해서 쓰기' 토글. 켜두면 정답 후 자동으로 새 3단계가 나온다.
   const repeatHtml = stage === 3 ? `
@@ -2739,14 +2760,7 @@ function renderTestScreen(verse, stage) {
   }
 
   // "내 마음에 두었나이다" 체크/해제
-  const heartInput = document.getElementById("heart-check");
-  if (heartInput) {
-    heartInput.addEventListener("change", () => {
-      setHearted(verse.no, heartInput.checked);
-      document.getElementById("heart-label").classList.toggle("on", heartInput.checked);
-      if (heartInput.checked) showHeartCheer(verse); // 체크(마음에 둠)할 때만 축하
-    });
-  }
+  setupHeartCheck(verse);
 
   // 시각장애인 등을 위한 '정답 듣기'(TTS): 출처 + 본문을 음성으로 읽어준다.
   const listenBtn = document.getElementById("listen-answer-btn");
@@ -4005,6 +4019,8 @@ function renderChallenge(verse) {
       return `<input class="word-input" data-answer="${word}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="${style}" />`;
     })
     .join(" ");
+  const heartHtml = heartCheckHtml(verse);
+  const sermonConnect = sermonConnectHtml(verse);
 
   appEl.innerHTML = `
     <div class="test-screen">
@@ -4026,11 +4042,13 @@ function renderChallenge(verse) {
         <div class="challenge-remain" id="ch-remain"></div>
         <div id="result-area"></div>
         <div id="help-slot" class="help-slot"></div>
+        ${heartHtml}
         <div id="voice-panel" class="voice-panel" hidden>
           <div class="voice-status" id="voice-status">🎙️ 듣고 있어요… <b>‘암송 종료’</b>를 누를 때까지 계속 들어요</div>
           <div class="voice-live" id="voice-live"></div>
         </div>
         <div id="voice-result" class="voice-result"></div>
+        ${sermonConnect}
         ${nivAttributionHtml(verse)}
       </div>
     </div>`;
@@ -4038,6 +4056,8 @@ function renderChallenge(verse) {
   document.getElementById("ch-exit").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
   document.getElementById("ch-shuffle").addEventListener("click", () => { stopSpeaking(); startChallenge(); });
   fillVerseHelp(verse);
+  fillSermonSummaryBtn(verse, null, () => renderChallenge(verse));
+  setupHeartCheck(verse);
   setupHint();
   setupChallengeTyping(verse, (mode) => challengeComplete(verse, mode));
   setupVoice(verse, 3, () => challengeComplete(verse, "voice"));
@@ -4065,6 +4085,8 @@ function renderReview(queue, idx) {
     })
     .join(" ");
   const answerHtml = tokens.map((word) => `<strong class="ans-word">${word}</strong>`).join(" ");
+  const heartHtml = heartCheckHtml(verse);
+  const sermonConnect = sermonConnectHtml(verse);
 
   appEl.innerHTML = `
     <div class="test-screen">
@@ -4091,17 +4113,21 @@ function renderReview(queue, idx) {
           <button class="back-to-test-btn" id="back-to-test-btn">돌아가서 계속하기</button>
         </div>
         <div id="help-slot" class="help-slot"></div>
+        ${heartHtml}
         <div id="voice-panel" class="voice-panel" hidden>
           <div class="voice-status" id="voice-status">🎙️ 듣고 있어요… <b>‘암송 종료’</b>를 누를 때까지 계속 들어요</div>
           <div class="voice-live" id="voice-live"></div>
         </div>
         <div id="voice-result" class="voice-result"></div>
+        ${sermonConnect}
         ${nivAttributionHtml(verse)}
       </div>
     </div>`;
 
   document.getElementById("rv-exit").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
   fillVerseHelp(verse);
+  fillSermonSummaryBtn(verse, null, () => renderReview(queue, idx));
+  setupHeartCheck(verse);
   setupAnswerToggle();
   // 정답 듣기(TTS)
   const listenBtn = document.getElementById("listen-answer-btn");
