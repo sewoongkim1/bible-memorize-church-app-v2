@@ -2653,6 +2653,19 @@ function initStickyRef() {
   window.visualViewport.addEventListener("scroll", _stickyRefOnVV);
 }
 
+// 요절 고정 배너(.test-ref-sticky)는 top:0에 고정되므로, 원래 그 자리에 있는 앱 상단 로고
+// 배너(.page-header)와 겹쳐 보인다. #app 내용이 바뀔 때마다 자동으로 감시해서, 요절 고정
+// 배너가 있는 화면(암송·도전·복습)에서는 로고 배너를 숨기고 없는 화면에서는 다시 보여준다
+// — 어떤 경로로 화면이 전환되든(뒤로가기 포함) 항상 올바르게 따라간다.
+(function watchPageHeaderVsStickyRef() {
+  const appEl = document.getElementById("app");
+  const header = document.querySelector(".page-header");
+  if (!appEl || !header) return;
+  const sync = () => { header.style.display = appEl.querySelector(".test-ref-sticky") ? "none" : ""; };
+  sync();
+  new MutationObserver(sync).observe(appEl, { childList: true });
+})();
+
 // 영어 관용 비교용 정규화 — 대소문자·문장부호·스마트따옴표 차이는 정답으로 인정
 function easyEnNorm(s) {
   return String(s || "").trim().normalize("NFC").toLowerCase()
