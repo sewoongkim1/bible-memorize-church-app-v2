@@ -2698,6 +2698,7 @@ function renderTestScreen(verse, stage) {
   appEl.innerHTML = `
     <div class="test-screen">
       <div class="test-card">
+        <div class="test-ref-sticky">${verseRefFull(verse)}</div>
         <div class="btn-row">
           <button class="answer-btn" id="show-answer-btn">보기</button>
           <button class="answer-btn" id="listen-answer-btn" aria-label="정답 음성으로 듣기">🔊 듣기</button>
@@ -4074,6 +4075,7 @@ function renderChallenge(verse) {
   appEl.innerHTML = `
     <div class="test-screen">
       <div class="test-card">
+        <div class="test-ref-sticky">${verseRefFull(verse)}</div>
         <div class="btn-row" style="flex-wrap:wrap;">
           <button class="answer-btn" id="hint-btn">💡 힌트</button>
           <button class="answer-btn" id="ch-shuffle">🔀 다른말씀</button>
@@ -4140,6 +4142,7 @@ function renderReview(queue, idx) {
   appEl.innerHTML = `
     <div class="test-screen">
       <div class="test-card">
+        <div class="test-ref-sticky">${verseRefFull(verse)}</div>
         <div class="btn-row">
           <button class="answer-btn" id="show-answer-btn">보기</button>
           <button class="answer-btn" id="listen-answer-btn" aria-label="정답 음성으로 듣기">🔊 듣기</button>

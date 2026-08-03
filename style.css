@@ -838,6 +838,23 @@ html[data-fs="xl"] .sermon-sum-card .ss-top > .back-btn { font-size: 17px; paddi
   border-left: 3px solid var(--gold);
   line-height: 1.1;
 }
+
+/* 암송화면 상단에 요절 전체 표기를 크게 고정(스크롤해도 맨 위에 남아 요절·본문 연결을 돕는다). 모든 단계 공통. */
+.test-ref-sticky {
+  position: sticky; top: 0; z-index: 5;
+  margin: -24px -24px 14px; padding: 12px 24px 13px;
+  border-radius: 12px 12px 0 0; /* 카드 상단 둥근 모서리와 맞춤 */
+  background: var(--white);
+  text-align: center;
+  font-family: "Nanum Myeongjo", serif;
+  font-weight: 800;
+  font-size: 1.15rem;
+  color: var(--navy-dark);
+  border-bottom: 2px solid var(--gold);
+}
+.dark .test-ref-sticky { background: #1b2333; color: #cdd9f2; }
+html[data-fs="lg"] .test-ref-sticky { font-size: 1.3rem; }
+html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 .test-sentence {
   font-family: "Gowun Batang", serif;
   font-weight: 700;
