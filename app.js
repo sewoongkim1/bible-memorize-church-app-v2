@@ -3719,7 +3719,7 @@ function maybeShowSermonChatPromo() {
   try { if (localStorage.getItem(SC_PROMO_SEEN_KEY) === "1") return; } catch {}
   const open = () => {
     if (document.querySelector(".cheer-overlay")) { setTimeout(open, 300); return; } // 다른 모달과 안 겹치게 대기
-    try { localStorage.setItem(SC_PROMO_SEEN_KEY, "1"); } catch {}
+    // '나중에 볼게요'로 건너뛰면 다음 로그인 때 다시 뜬다 — 실제로 체험(질문 탭)했을 때만 평생 숨김 처리.
     const wrap = document.createElement("div");
     wrap.id = "sc-promo";
     wrap.className = "cheer-overlay";
@@ -3728,8 +3728,8 @@ function maybeShowSermonChatPromo() {
         <div class="cheer-ref dmsg-badge">💬 새 기능</div>
         <div class="dmsg-title">내게 주시는 말씀</div>
         <div class="cheer-msg">궁금하거나 힘들 때, 담임목사님 설교에서 AI가 답을 찾아드려요.<br>아래 질문을 눌러 바로 체험해보세요.</div>
-        <button class="sc-tq sc-promo-q" id="sc-promo-q">${SC_PROMO_SAMPLE_Q}</button>
-        <button class="cheer-ok" id="sc-promo-skip">나중에 볼게요</button>
+        <button class="sc-promo-q" id="sc-promo-q">${SC_PROMO_SAMPLE_Q}</button>
+        <button class="sc-promo-skip" id="sc-promo-skip">나중에 볼게요</button>
       </div>`;
     document.body.appendChild(wrap);
     requestAnimationFrame(() => wrap.classList.add("show"));
@@ -3737,6 +3737,7 @@ function maybeShowSermonChatPromo() {
     wrap.querySelector("#sc-promo-skip").addEventListener("click", close);
     wrap.addEventListener("click", (e) => { if (e.target === wrap) close(); });
     wrap.querySelector("#sc-promo-q").addEventListener("click", () => {
+      try { localStorage.setItem(SC_PROMO_SEEN_KEY, "1"); } catch {} // 체험했을 때만 평생 숨김
       close();
       setTimeout(() => {
         renderSermonChat();

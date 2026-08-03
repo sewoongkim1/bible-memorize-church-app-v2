@@ -374,9 +374,25 @@ h1 {
 .cheer-card.promo-sc .dmsg-badge { background: #e3f3f3; color: #0f6d73; }
 .cheer-card.promo-sc .dmsg-title { color: #0f6d73; }
 .cheer-card.promo-sc .cheer-msg { font-family: "Noto Sans KR", sans-serif; font-size: .92rem; margin-bottom: 16px; }
-.sc-promo-q { display: block; width: 100%; margin-bottom: 12px; }
+/* 실제 체험(질문 조회)으로 유도하는 쪽을 확실히 강조 — 진한 청록 채움 버튼 */
+.sc-promo-q {
+  display: block; width: 100%; margin-bottom: 10px;
+  background: #0f6d73; color: #fff; border: none; border-radius: 12px;
+  padding: 13px 14px; font-size: .98rem; font-weight: 800; font-family: inherit;
+  line-height: 1.4; cursor: pointer; transition: filter .15s;
+}
+.sc-promo-q:hover { filter: brightness(1.08); }
+/* 건너뛰기는 실수로 안 눌리게 눈에 덜 띄는 텍스트 링크 형태로 */
+.sc-promo-skip {
+  display: block; width: 100%; background: none; border: none;
+  color: #9aa2b1; font-size: .85rem; font-weight: 500; font-family: inherit;
+  padding: 6px; cursor: pointer;
+}
+.sc-promo-skip:hover { color: #6b7280; text-decoration: underline; }
 .dark .cheer-card.promo-sc .dmsg-badge { background: #123939; color: #7fd6d6; }
 .dark .cheer-card.promo-sc .dmsg-title { color: #7fd6d6; }
+.dark .sc-promo-skip { color: #6b7488; }
+.dark .sc-promo-skip:hover { color: #98a2b5; }
 @media (prefers-reduced-motion: reduce) {
   .cheer-overlay, .cheer-card { transition: none; }
   .cheer-overlay.show .cheer-card { transform: none; }
