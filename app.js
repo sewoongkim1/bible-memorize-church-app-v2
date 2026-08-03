@@ -2635,15 +2635,33 @@ function verseTtsLang(verse) { return isEnMode(verse) ? "en-US" : "ko-KR"; }
 // 암송화면 상단 요절 배너 고정 — scroll마다 .test-card의 뷰포트 위치를 직접 계산해
 // 카드 상단이 화면 위로 넘어가면 .stuck을 붙여 position:fixed로 강제 고정한다
 // (3단계·도전·복습 화면 공통 호출). 화면이 바뀔 때마다 이전 리스너는 정리하고 새로 붙인다.
+// 모바일 키보드가 열리면 화면에 실제 보이는 영역(visual viewport)이 줄어드는데 일반
+// position:fixed는 이를 못 따라가 화면 밖으로 밀려나므로, visualViewport API로 top을 보정한다.
 let _stickyRefOnScroll = null;
+let _stickyRefOnVV = null;
 function initStickyRef() {
   if (_stickyRefOnScroll) { window.removeEventListener("scroll", _stickyRefOnScroll); _stickyRefOnScroll = null; }
+  if (_stickyRefOnVV && window.visualViewport) {
+    window.visualViewport.removeEventListener("resize", _stickyRefOnVV);
+    window.visualViewport.removeEventListener("scroll", _stickyRefOnVV);
+    _stickyRefOnVV = null;
+  }
   const card = document.querySelector(".test-card");
   const ref = document.querySelector(".test-ref-sticky");
   if (!card || !ref) return;
-  _stickyRefOnScroll = () => { ref.classList.toggle("stuck", card.getBoundingClientRect().top < 0); };
-  _stickyRefOnScroll();
+  const update = () => {
+    const stuck = card.getBoundingClientRect().top < 0;
+    ref.classList.toggle("stuck", stuck);
+    ref.style.top = stuck && window.visualViewport ? `${window.visualViewport.offsetTop}px` : "";
+  };
+  _stickyRefOnScroll = update;
+  update();
   window.addEventListener("scroll", _stickyRefOnScroll, { passive: true });
+  if (window.visualViewport) {
+    _stickyRefOnVV = update;
+    window.visualViewport.addEventListener("resize", _stickyRefOnVV);
+    window.visualViewport.addEventListener("scroll", _stickyRefOnVV);
+  }
 }
 
 // 영어 관용 비교용 정규화 — 대소문자·문장부호·스마트따옴표 차이는 정답으로 인정
