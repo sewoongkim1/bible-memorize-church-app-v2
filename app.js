@@ -3289,11 +3289,14 @@ function setupAutoCheck(verse, stage) {
   }
 
   // 모바일 키보드에 가리지 않도록, 포커스된 입력 칸을 화면 중앙보다 약간 위로 올린다.
+  // 단, 이미 화면(키보드 위) 안에 충분히 보이면 그대로 두고 가려질 때만 스크롤한다
+  // — 매 빈칸마다 화면이 계속 움직이는 걸 막기 위함.
   function scrollIntoCenter(input) {
     // 키보드가 올라온 뒤 위치가 잡히도록 약간 지연
     setTimeout(() => {
       const vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
       const top = input.getBoundingClientRect().top;
+      if (top >= 40 && top <= vh - 60) return; // 이미 충분히 보임 — 그대로 둠
       const target = vh / 2 - 80; // 화면 중앙보다 약 2cm(80px) 위
       window.scrollBy({ top: top - target, behavior: "smooth" });
     }, 250);
