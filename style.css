@@ -862,7 +862,7 @@ html[data-fs="lg"] .test-ref-sticky { font-size: 1.3rem; }
 html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 /* 항상 고정된 배너가 카드 상단 내용(버튼 줄)을 가리지 않도록 여유 공간 확보.
    앱 상단 로고 배너(.page-header)는 이 화면에서 JS가 숨겨주므로, 배너 자체 높이만큼만 있으면 된다. */
-.test-card.with-ref-banner { padding-top: 64px; }
+.test-card.with-ref-banner { padding-top: 50px; }
 .test-sentence {
   font-family: "Gowun Batang", serif;
   font-weight: 700;
