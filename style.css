@@ -369,6 +369,14 @@ h1 {
 .dark .cheer-card.notice .dmsg-title { color: #cdd9f2; }
 .dark .cheer-card.notice .cheer-msg { color: #dbe2ee; }
 .dark .cheer-card.notice .dmsg-badge { background: #3a4a68; color: #e6e9ef; }
+
+/* '내게 주시는 말씀' 홍보 팝업(평생 1회) — promo-btn.sermon과 같은 청록 톤 */
+.cheer-card.promo-sc .dmsg-badge { background: #e3f3f3; color: #0f6d73; }
+.cheer-card.promo-sc .dmsg-title { color: #0f6d73; }
+.cheer-card.promo-sc .cheer-msg { font-family: "Noto Sans KR", sans-serif; font-size: .92rem; margin-bottom: 16px; }
+.sc-promo-q { display: block; width: 100%; margin-bottom: 12px; }
+.dark .cheer-card.promo-sc .dmsg-badge { background: #123939; color: #7fd6d6; }
+.dark .cheer-card.promo-sc .dmsg-title { color: #7fd6d6; }
 @media (prefers-reduced-motion: reduce) {
   .cheer-overlay, .cheer-card { transition: none; }
   .cheer-overlay.show .cheer-card { transform: none; }

@@ -3562,7 +3562,8 @@ function maybeShowDailyMessage() {
       }
     }
     maybeShowWeeklyMeditation();                  // ② 공지 유무와 무관하게 오늘의 묵상은 항상 표시(모달은 겹치지 않게 순서대로 뜸)
-  }).catch(() => { maybeShowWeeklyMeditation(); });
+    maybeShowSermonChatPromo();                   // ③ 평생 1회, '내게 주시는 말씀' 홍보 팝업(역시 겹치지 않게 순서대로 뜸)
+  }).catch(() => { maybeShowWeeklyMeditation(); maybeShowSermonChatPromo(); });
 }
 
 // 긴 본문을 문장 경계에서 약 절반으로 줄인다(오늘의 묵상이 너무 길지 않게).
@@ -3707,6 +3708,42 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev
     try { ok.focus({ preventScroll: true }); } catch (e) {}
     toTop();
     wrap.addEventListener("click", (e) => { if (e.target === wrap) close(); });
+  };
+  open();
+}
+
+// '내게 주시는 말씀' 홍보 팝업 — 평생 1회, 예시 질문을 탭하면 그 화면으로 이동해 바로 질문·답변까지 보여준다.
+const SC_PROMO_SEEN_KEY = "sc-promo-seen-v1";
+const SC_PROMO_SAMPLE_Q = "요즘 지치고 힘든데 위로가 되는 말씀을 들려주세요";
+function maybeShowSermonChatPromo() {
+  try { if (localStorage.getItem(SC_PROMO_SEEN_KEY) === "1") return; } catch {}
+  const open = () => {
+    if (document.querySelector(".cheer-overlay")) { setTimeout(open, 300); return; } // 다른 모달과 안 겹치게 대기
+    try { localStorage.setItem(SC_PROMO_SEEN_KEY, "1"); } catch {}
+    const wrap = document.createElement("div");
+    wrap.id = "sc-promo";
+    wrap.className = "cheer-overlay";
+    wrap.innerHTML = `
+      <div class="cheer-card promo-sc" role="dialog" aria-modal="true">
+        <div class="cheer-ref dmsg-badge">💬 새 기능</div>
+        <div class="dmsg-title">내게 주시는 말씀</div>
+        <div class="cheer-msg">궁금하거나 힘들 때, 담임목사님 설교에서 AI가 답을 찾아드려요.<br>아래 질문을 눌러 바로 체험해보세요.</div>
+        <button class="sc-tq sc-promo-q" id="sc-promo-q">${SC_PROMO_SAMPLE_Q}</button>
+        <button class="cheer-ok" id="sc-promo-skip">나중에 볼게요</button>
+      </div>`;
+    document.body.appendChild(wrap);
+    requestAnimationFrame(() => wrap.classList.add("show"));
+    const close = () => { wrap.classList.remove("show"); setTimeout(() => wrap.remove(), 250); };
+    wrap.querySelector("#sc-promo-skip").addEventListener("click", close);
+    wrap.addEventListener("click", (e) => { if (e.target === wrap) close(); });
+    wrap.querySelector("#sc-promo-q").addEventListener("click", () => {
+      close();
+      setTimeout(() => {
+        renderSermonChat();
+        const input = document.getElementById("sc-q");
+        if (input) { input.value = SC_PROMO_SAMPLE_Q; scAsk(); }
+      }, 260);
+    });
   };
   open();
 }
