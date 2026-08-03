@@ -2653,6 +2653,19 @@ function initStickyRef() {
   window.visualViewport.addEventListener("scroll", _stickyRefOnVV);
 }
 
+// 암송화면은 내용이 길어 빈칸 자동 포커스 시 브라우저가 알아서 스크롤해 버튼 줄을 가려주지만,
+// 도전·복습 화면은 내용이 짧아 브라우저가 "스크롤 필요 없음"으로 판단해 그대로 둔다.
+// 세 화면 모두 동일하게 보이도록, 버튼 줄 바로 아래까지 명시적으로 스크롤한다.
+// 포커스로 인한 브라우저 자체 스크롤과 순서가 꼬이지 않도록 살짝 지연 후 마지막에 실행한다.
+function scrollPastBtnRow() {
+  setTimeout(() => {
+    const btnRow = document.querySelector(".test-card .btn-row");
+    if (!btnRow) return;
+    const y = btnRow.getBoundingClientRect().bottom + window.scrollY;
+    window.scrollTo(0, y);
+  }, 80);
+}
+
 // 요절 고정 배너(.test-ref-sticky)는 top:0에 고정되므로, 원래 그 자리에 있는 앱 상단 로고
 // 배너(.page-header)와 겹쳐 보인다. #app 내용이 바뀔 때마다 자동으로 감시해서, 요절 고정
 // 배너가 있는 화면(암송·도전·복습)에서는 로고 배너를 숨기고 없는 화면에서는 다시 보여준다
@@ -2770,6 +2783,7 @@ function renderTestScreen(verse, stage) {
   `;
 
   initStickyRef();
+  scrollPastBtnRow();
   document
     .getElementById("back-to-list-btn")
     .addEventListener("click", () => { stopSpeaking(); renderVerseList(); });
@@ -4137,6 +4151,7 @@ function renderChallenge(verse) {
     </div>`;
 
   initStickyRef();
+  scrollPastBtnRow();
   document.getElementById("ch-exit").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
   document.getElementById("ch-shuffle").addEventListener("click", () => { stopSpeaking(); startChallenge(); });
   fillVerseHelp(verse);
@@ -4209,6 +4224,7 @@ function renderReview(queue, idx) {
     </div>`;
 
   initStickyRef();
+  scrollPastBtnRow();
   document.getElementById("rv-exit").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
   fillVerseHelp(verse);
   fillSermonSummaryBtn(verse, null, () => renderReview(queue, idx));
