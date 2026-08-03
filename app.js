@@ -2620,6 +2620,11 @@ const REPEAT_KEY = "repeat-practice";
 function isRepeatPractice() { try { return localStorage.getItem(REPEAT_KEY) === "1"; } catch (e) { return false; } }
 function setRepeatPractice(on) { try { localStorage.setItem(REPEAT_KEY, on ? "1" : "0"); } catch (e) {} }
 
+// '말씀 도전' 완료 화면에서 켜두면, 다음부터는 완료 화면을 건너뛰고 바로 새 도전으로 넘어간다.
+const AUTO_CHALLENGE_KEY = "auto-challenge";
+function isAutoChallenge() { try { return localStorage.getItem(AUTO_CHALLENGE_KEY) === "1"; } catch (e) { return false; } }
+function setAutoChallenge(on) { try { localStorage.setItem(AUTO_CHALLENGE_KEY, on ? "1" : "0"); } catch (e) {} }
+
 // 🌐 암송 언어 — 영어(NIV) 본문이 있는 구절은 한/영을 오가며 암송할 수 있다.
 //   기록(진행 단계·복습·랭킹)은 언어와 무관하게 구절 번호 하나로 쌓인다.
 const LANG_KEY = "memorize-lang"; // "ko" | "en"
@@ -4368,6 +4373,11 @@ function postChallenge(verse, mode) {
 }
 
 function renderChallengeDone(verse, mode, todayCount) {
+  // 자동 계속 도전이 켜져 있으면 이 화면을 건너뛰고 바로 새 도전으로(정답 표시가 잠깐 보이도록만 지연).
+  if (isAutoChallenge()) {
+    setTimeout(startChallenge, 350);
+    return;
+  }
   const appEl = document.getElementById("app");
   appEl.innerHTML = `
     <div class="summary-screen">
@@ -4377,11 +4387,17 @@ function renderChallengeDone(verse, mode, todayCount) {
         <div class="cd-sub">${verse.refShort} · ${mode === "voice" ? "음성" : "타이핑"} 암송</div>
         <div class="cd-count">오늘 <b id="cd-today-count">${todayCount}회</b> 완료</div>
         <button class="summary-go challenge-cta" id="cd-again">🔥 한 번 더 도전</button>
+        <label class="repeat-toggle" id="cd-auto-label">
+          <input type="checkbox" id="cd-auto-check"${isAutoChallenge() ? " checked" : ""} />
+          <span class="repeat-text">🔁 자동으로 계속 도전하기</span>
+          <span class="repeat-desc">체크하면 이 화면 없이 바로 다음 도전으로 넘어가요</span>
+        </label>
         <button class="summary-help" id="cd-rank">🏆 순위 보기</button>
         <button class="summary-change" id="cd-home">기록 화면으로</button>
       </div>
     </div>`;
   document.getElementById("cd-again").addEventListener("click", startChallenge);
+  document.getElementById("cd-auto-check").addEventListener("change", (e) => setAutoChallenge(e.target.checked));
   document.getElementById("cd-rank").addEventListener("click", () => renderRanking());
   document.getElementById("cd-home").addEventListener("click", renderSummary);
 }
