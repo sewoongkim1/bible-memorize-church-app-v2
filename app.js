@@ -2769,6 +2769,7 @@ function renderTestScreen(verse, stage) {
     </div>
   `;
 
+  window.scrollTo(0, 0); // 이전 화면 스크롤 위치와 무관하게 항상 같은 위치(맨 위)에서 시작
   initStickyRef();
   document
     .getElementById("back-to-list-btn")
@@ -4136,6 +4137,7 @@ function renderChallenge(verse) {
       </div>
     </div>`;
 
+  window.scrollTo(0, 0); // 이전 화면 스크롤 위치와 무관하게 항상 같은 위치(맨 위)에서 시작
   initStickyRef();
   document.getElementById("ch-exit").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
   document.getElementById("ch-shuffle").addEventListener("click", () => { stopSpeaking(); startChallenge(); });
@@ -4208,6 +4210,7 @@ function renderReview(queue, idx) {
       </div>
     </div>`;
 
+  window.scrollTo(0, 0); // 이전 화면 스크롤 위치와 무관하게 항상 같은 위치(맨 위)에서 시작
   initStickyRef();
   document.getElementById("rv-exit").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
   fillVerseHelp(verse);
