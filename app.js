@@ -4121,7 +4121,6 @@ function renderChallenge(verse) {
           </div>
           <button class="back-btn" id="ch-exit">← 뒤로</button>
         </div>
-        <div class="challenge-hint-line">출처만 보고 전체를 외워보세요!</div>
         <div class="test-sentence">${wordsHtml}</div>
         <div class="challenge-remain" id="ch-remain"></div>
         <div id="result-area"></div>
