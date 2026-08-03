@@ -3725,7 +3725,7 @@ function maybeShowSermonChatPromo() {
     wrap.className = "cheer-overlay";
     wrap.innerHTML = `
       <div class="cheer-card promo-sc" role="dialog" aria-modal="true">
-        <div class="cheer-ref dmsg-badge">💬 새 기능</div>
+        <div class="cheer-ref dmsg-badge">💬 이럴 때, 물어보세요</div>
         <div class="dmsg-title">내게 주시는 말씀</div>
         <div class="cheer-msg">궁금하거나 힘들 때, 담임목사님 설교에서 AI가 답을 찾아드려요.<br>아래 질문을 눌러 바로 체험해보세요.</div>
         <button class="sc-promo-q" id="sc-promo-q">${SC_PROMO_SAMPLE_Q}</button>
