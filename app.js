@@ -3713,10 +3713,21 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev
 }
 
 // '내게 주시는 말씀' 홍보 팝업 — 평생 1회, 예시 질문을 탭하면 그 화면으로 이동해 바로 질문·답변까지 보여준다.
+// 예시 질문은 '대표' 주제의 기본 질문 목록에서 매주 월요일 기준으로 하나씩 순환한다(오늘의 묵상과 동일한 월~일 주기 계산 방식).
 const SC_PROMO_SEEN_KEY = "sc-promo-seen-v1";
-const SC_PROMO_SAMPLE_Q = "요즘 지치고 힘든데 위로가 되는 말씀을 들려주세요";
+function scPromoWeeklyQuestion() {
+  const qs = (SERMON_TOPICS[0] && SERMON_TOPICS[0].qs) || [];
+  if (!qs.length) return "";
+  const p = kstDateParts() || {};
+  const todayDow = p.y ? new Date(p.y, (p.m || 1) - 1, p.d || 1).getDay() : 0;
+  const dayIdx = (todayDow + 6) % 7; // 월=0…일=6
+  const weekIdx = Math.floor(((kstDayNumber() || 0) - dayIdx) / 7);
+  return qs[((weekIdx % qs.length) + qs.length) % qs.length];
+}
 function maybeShowSermonChatPromo() {
   try { if (localStorage.getItem(SC_PROMO_SEEN_KEY) === "1") return; } catch {}
+  const sampleQ = scPromoWeeklyQuestion();
+  if (!sampleQ) return;
   const open = () => {
     if (document.querySelector(".cheer-overlay")) { setTimeout(open, 300); return; } // 다른 모달과 안 겹치게 대기
     // '나중에 볼게요'로 건너뛰면 다음 로그인 때 다시 뜬다 — 실제로 체험(질문 탭)했을 때만 평생 숨김 처리.
@@ -3728,7 +3739,7 @@ function maybeShowSermonChatPromo() {
         <div class="cheer-ref dmsg-badge">💬 이럴 때, 물어보세요</div>
         <div class="dmsg-title">내게 주시는 말씀</div>
         <div class="cheer-msg">궁금하거나 힘들 때, 담임목사님 설교에서 AI가 답을 찾아드려요.<br>아래 질문을 눌러 바로 체험해보세요.</div>
-        <button class="sc-promo-q" id="sc-promo-q">${SC_PROMO_SAMPLE_Q}</button>
+        <button class="sc-promo-q" id="sc-promo-q">${sampleQ}</button>
         <button class="sc-promo-skip" id="sc-promo-skip">나중에 볼게요</button>
       </div>`;
     document.body.appendChild(wrap);
@@ -3742,7 +3753,7 @@ function maybeShowSermonChatPromo() {
       setTimeout(() => {
         renderSermonChat();
         const input = document.getElementById("sc-q");
-        if (input) { input.value = SC_PROMO_SAMPLE_Q; scAsk(); }
+        if (input) { input.value = sampleQ; scAsk(); }
       }, 260);
     });
   };
