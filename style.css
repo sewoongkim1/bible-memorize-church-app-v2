@@ -839,31 +839,29 @@ html[data-fs="xl"] .sermon-sum-card .ss-top > .back-btn { font-size: 17px; paddi
   line-height: 1.1;
 }
 
-/* 암송화면 상단에 요절 전체 표기를 크게 고정(스크롤해도 맨 위에 남아 요절·본문 연결을 돕는다). 모든 단계 공통.
-   scroll 이벤트에서 .test-card의 위치를 직접 계산해 .stuck을 붙여 position:fixed로 강제 고정한다
-   (마진 트릭·감시요소 없이 가장 단순하고 확실하게 동작하도록). */
+/* 암송화면 상단에 요절 전체 표기를 크게 고정 표시(요절·본문 연결을 돕는다). 모든 단계 공통.
+   스크롤 위치를 계산해 조건부로 고정하는 방식은 모바일 키보드가 열렸다 닫힐 때 타이밍이
+   꼬여 중간에 사라지는 문제가 있어, #update-banner와 동일하게 처음부터 항상 고정시킨다. */
 .test-ref-sticky {
-  position: relative; z-index: 5;
-  margin: 0 0 14px; padding: 10px 16px;
-  border-radius: 10px;
-  border: 1.5px solid var(--gold);
+  position: fixed; top: 0; left: 50%; transform: translateX(-50%);
+  width: min(calc(100% - 40px), 480px);
+  z-index: 50;
+  padding: 10px 16px;
+  border-radius: 0 0 12px 12px;
+  border: 1.5px solid var(--gold); border-top: none;
   background: var(--white);
+  box-shadow: 0 4px 14px rgba(0,0,0,.15);
   text-align: center;
   font-family: "Nanum Myeongjo", serif;
   font-weight: 800;
   font-size: 1.15rem;
   color: var(--navy-dark);
 }
-.test-ref-sticky.stuck {
-  position: fixed; top: 0; left: 50%; transform: translateX(-50%);
-  width: min(calc(100% - 40px), 480px);
-  z-index: 50; margin: 0;
-  border-radius: 0 0 12px 12px;
-  box-shadow: 0 4px 14px rgba(0,0,0,.15);
-}
 .dark .test-ref-sticky { background: #1b2333; color: #cdd9f2; }
 html[data-fs="lg"] .test-ref-sticky { font-size: 1.3rem; }
 html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
+/* 항상 고정된 배너가 카드 상단 내용(버튼 줄)을 가리지 않도록 여유 공간 확보 */
+.test-card.with-ref-banner { padding-top: 78px; }
 .test-sentence {
   font-family: "Gowun Batang", serif;
   font-weight: 700;

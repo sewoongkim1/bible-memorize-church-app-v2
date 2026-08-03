@@ -2632,36 +2632,25 @@ function verseRefShort(verse) { return isEnMode(verse) ? (verse.refEn || verse.r
 function verseRefFull(verse) { return isEnMode(verse) ? (verse.refEn || verse.refFull) : verse.refFull; }
 function verseTtsLang(verse) { return isEnMode(verse) ? "en-US" : "ko-KR"; }
 
-// 암송화면 상단 요절 배너 고정 — scroll마다 .test-card의 뷰포트 위치를 직접 계산해
-// 카드 상단이 화면 위로 넘어가면 .stuck을 붙여 position:fixed로 강제 고정한다
+// 암송화면 상단 요절 배너 고정 — #update-banner와 동일하게 처음부터 항상 position:fixed로 고정한다
+// (조건부로 스크롤 위치를 계산해 켜고 끄는 방식은 모바일 키보드가 열고 닫힐 때 타이밍이 꼬여
+// 중간에 사라지는 문제가 있었음). 모바일 키보드가 열리면 화면에 실제 보이는 영역(visual viewport)이
+// 줄어드는데 일반 position:fixed는 이를 못 따라가므로, visualViewport API로 top만 보정한다.
 // (3단계·도전·복습 화면 공통 호출). 화면이 바뀔 때마다 이전 리스너는 정리하고 새로 붙인다.
-// 모바일 키보드가 열리면 화면에 실제 보이는 영역(visual viewport)이 줄어드는데 일반
-// position:fixed는 이를 못 따라가 화면 밖으로 밀려나므로, visualViewport API로 top을 보정한다.
-let _stickyRefOnScroll = null;
 let _stickyRefOnVV = null;
 function initStickyRef() {
-  if (_stickyRefOnScroll) { window.removeEventListener("scroll", _stickyRefOnScroll); _stickyRefOnScroll = null; }
   if (_stickyRefOnVV && window.visualViewport) {
     window.visualViewport.removeEventListener("resize", _stickyRefOnVV);
     window.visualViewport.removeEventListener("scroll", _stickyRefOnVV);
     _stickyRefOnVV = null;
   }
-  const card = document.querySelector(".test-card");
   const ref = document.querySelector(".test-ref-sticky");
-  if (!card || !ref) return;
-  const update = () => {
-    const stuck = card.getBoundingClientRect().top < 0;
-    ref.classList.toggle("stuck", stuck);
-    ref.style.top = stuck && window.visualViewport ? `${window.visualViewport.offsetTop}px` : "";
-  };
-  _stickyRefOnScroll = update;
+  if (!ref || !window.visualViewport) return;
+  const update = () => { ref.style.top = `${window.visualViewport.offsetTop}px`; };
+  _stickyRefOnVV = update;
   update();
-  window.addEventListener("scroll", _stickyRefOnScroll, { passive: true });
-  if (window.visualViewport) {
-    _stickyRefOnVV = update;
-    window.visualViewport.addEventListener("resize", _stickyRefOnVV);
-    window.visualViewport.addEventListener("scroll", _stickyRefOnVV);
-  }
+  window.visualViewport.addEventListener("resize", _stickyRefOnVV);
+  window.visualViewport.addEventListener("scroll", _stickyRefOnVV);
 }
 
 // 영어 관용 비교용 정규화 — 대소문자·문장부호·스마트따옴표 차이는 정답으로 인정
@@ -2729,7 +2718,7 @@ function renderTestScreen(verse, stage) {
 
   appEl.innerHTML = `
     <div class="test-screen">
-      <div class="test-card">
+      <div class="test-card with-ref-banner">
         <div class="test-ref-sticky">${verseRefFull(verse)}</div>
         <div class="btn-row">
           <button class="answer-btn" id="show-answer-btn">보기</button>
@@ -2740,7 +2729,6 @@ function renderTestScreen(verse, stage) {
         <div class="test-top">
           <div class="test-head">
             <div class="test-stage">${stage}단계</div>
-            <div class="test-ref">${verseRefShort(verse)}</div>
           </div>
           <button class="back-btn" id="back-to-list-btn">← 목록</button>
         </div>
@@ -4107,7 +4095,7 @@ function renderChallenge(verse) {
 
   appEl.innerHTML = `
     <div class="test-screen">
-      <div class="test-card">
+      <div class="test-card with-ref-banner">
         <div class="test-ref-sticky">${verseRefFull(verse)}</div>
         <div class="btn-row" style="flex-wrap:wrap;">
           <button class="answer-btn" id="hint-btn">💡 힌트</button>
@@ -4117,7 +4105,6 @@ function renderChallenge(verse) {
         <div class="test-top">
           <div class="test-head">
             <div class="test-stage challenge-badge">🔥 도전</div>
-            <div class="test-ref">${verseRefShort(verse)}</div>
           </div>
           <button class="back-btn" id="ch-exit">← 뒤로</button>
         </div>
@@ -4175,7 +4162,7 @@ function renderReview(queue, idx) {
 
   appEl.innerHTML = `
     <div class="test-screen">
-      <div class="test-card">
+      <div class="test-card with-ref-banner">
         <div class="test-ref-sticky">${verseRefFull(verse)}</div>
         <div class="btn-row">
           <button class="answer-btn" id="show-answer-btn">보기</button>
@@ -4185,7 +4172,6 @@ function renderReview(queue, idx) {
         <div class="test-top">
           <div class="test-head">
             <div class="test-stage review-badge">📖 복습</div>
-            <div class="test-ref">${verseRefShort(verse)}</div>
           </div>
           <button class="back-btn" id="rv-exit">← 뒤로</button>
         </div>
