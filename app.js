@@ -3738,7 +3738,7 @@ function maybeShowSermonChatPromo() {
       <div class="cheer-card promo-sc" role="dialog" aria-modal="true">
         <div class="cheer-ref dmsg-badge">💬 이럴 때, 물어보세요</div>
         <div class="dmsg-title">내게 주시는 말씀</div>
-        <div class="cheer-msg">궁금하거나 힘들 때, 담임목사님 설교에서 AI가 답을 찾아드려요.<br>아래 질문을 눌러 바로 체험해보세요.</div>
+        <div class="cheer-msg">궁금하거나 힘들 때, 담임목사님 설교에서 AI가 답을 찾아드려요.<br>이번 주엔 이런 질문은 어떠세요?</div>
         <button class="sc-promo-q" id="sc-promo-q">${sampleQ}</button>
         <button class="sc-promo-skip" id="sc-promo-skip">나중에 볼게요</button>
       </div>`;
