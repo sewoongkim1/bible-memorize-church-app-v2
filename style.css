@@ -1983,6 +1983,8 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 .cd-sub{ color:var(--gray); font-size:.92rem; margin-top:6px; }
 .cd-count{ margin:12px 0 20px; font-size:1rem; color:#444; }
 .cd-count b{ color:var(--gold); font-weight:800; }
+/* '자동으로 계속 도전하기' 체크박스 — 위(한번더 도전 버튼)는 좁게, 아래(순위보기 버튼)는 넓게 */
+#cd-auto-label{ margin: 4px 0 14px; }
 
 /* 순위 화면 */
 .rank-screen{ max-width:520px; margin:0 auto; }
