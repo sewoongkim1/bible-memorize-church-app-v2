@@ -2769,7 +2769,11 @@ function renderTestScreen(verse, stage) {
     </div>
   `;
 
-  window.scrollTo(0, 0); // 이전 화면 스크롤 위치와 무관하게 항상 같은 위치(맨 위)에서 시작
+  // 이전 화면 스크롤 위치와 무관하게 항상 같은 위치(맨 위)에서 시작.
+  // 아래에서 빈칸에 자동 포커스가 걸리면 브라우저가 스크롤을 다시 밀어버릴 수 있어,
+  // 그 이후로 살짝 지연시켜 마지막에 한 번 더 강제로 맨 위로 되돌린다.
+  window.scrollTo(0, 0);
+  setTimeout(() => window.scrollTo(0, 0), 60);
   initStickyRef();
   document
     .getElementById("back-to-list-btn")
@@ -4137,7 +4141,11 @@ function renderChallenge(verse) {
       </div>
     </div>`;
 
-  window.scrollTo(0, 0); // 이전 화면 스크롤 위치와 무관하게 항상 같은 위치(맨 위)에서 시작
+  // 이전 화면 스크롤 위치와 무관하게 항상 같은 위치(맨 위)에서 시작.
+  // 아래에서 빈칸에 자동 포커스가 걸리면 브라우저가 스크롤을 다시 밀어버릴 수 있어,
+  // 그 이후로 살짝 지연시켜 마지막에 한 번 더 강제로 맨 위로 되돌린다.
+  window.scrollTo(0, 0);
+  setTimeout(() => window.scrollTo(0, 0), 60);
   initStickyRef();
   document.getElementById("ch-exit").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
   document.getElementById("ch-shuffle").addEventListener("click", () => { stopSpeaking(); startChallenge(); });
@@ -4210,7 +4218,11 @@ function renderReview(queue, idx) {
       </div>
     </div>`;
 
-  window.scrollTo(0, 0); // 이전 화면 스크롤 위치와 무관하게 항상 같은 위치(맨 위)에서 시작
+  // 이전 화면 스크롤 위치와 무관하게 항상 같은 위치(맨 위)에서 시작.
+  // 아래에서 빈칸에 자동 포커스가 걸리면 브라우저가 스크롤을 다시 밀어버릴 수 있어,
+  // 그 이후로 살짝 지연시켜 마지막에 한 번 더 강제로 맨 위로 되돌린다.
+  window.scrollTo(0, 0);
+  setTimeout(() => window.scrollTo(0, 0), 60);
   initStickyRef();
   document.getElementById("rv-exit").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
   fillVerseHelp(verse);
