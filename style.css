@@ -840,20 +840,19 @@ html[data-fs="xl"] .sermon-sum-card .ss-top > .back-btn { font-size: 17px; paddi
 }
 
 /* 암송화면 상단에 요절 전체 표기를 크게 고정(스크롤해도 맨 위에 남아 요절·본문 연결을 돕는다). 모든 단계 공통.
-   순수 CSS position:sticky는 일부 실기기 브라우저에서 부모 컨테이너 조건에 따라 씹힐 수 있어,
-   sentinel(test-ref-sentinel)을 IntersectionObserver로 관찰해 벗어나면 .stuck을 붙여 position:fixed로 강제 고정한다. */
-.test-ref-sentinel { height: 1px; margin-top: -1px; }
+   scroll 이벤트에서 .test-card의 위치를 직접 계산해 .stuck을 붙여 position:fixed로 강제 고정한다
+   (마진 트릭·감시요소 없이 가장 단순하고 확실하게 동작하도록). */
 .test-ref-sticky {
   position: relative; z-index: 5;
-  margin: -24px -24px 14px; padding: 12px 24px 13px;
-  border-radius: 12px 12px 0 0; /* 카드 상단 둥근 모서리와 맞춤 */
+  margin: 0 0 14px; padding: 10px 16px;
+  border-radius: 10px;
+  border: 1.5px solid var(--gold);
   background: var(--white);
   text-align: center;
   font-family: "Nanum Myeongjo", serif;
   font-weight: 800;
   font-size: 1.15rem;
   color: var(--navy-dark);
-  border-bottom: 2px solid var(--gold);
 }
 .test-ref-sticky.stuck {
   position: fixed; top: 0; left: 50%; transform: translateX(-50%);

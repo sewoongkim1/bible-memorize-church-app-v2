@@ -2632,17 +2632,18 @@ function verseRefShort(verse) { return isEnMode(verse) ? (verse.refEn || verse.r
 function verseRefFull(verse) { return isEnMode(verse) ? (verse.refEn || verse.refFull) : verse.refFull; }
 function verseTtsLang(verse) { return isEnMode(verse) ? "en-US" : "ko-KR"; }
 
-// 암송화면 상단 요절 배너 고정 — CSS position:sticky 단독으로는 일부 실기기 브라우저에서
-// 안 먹히는 경우가 있어, sentinel을 IntersectionObserver로 지켜보다가 화면 밖으로 나가면
-// .stuck 클래스를 붙여 position:fixed로 강제 고정한다(3단계·도전·복습 화면 공통 호출).
+// 암송화면 상단 요절 배너 고정 — scroll마다 .test-card의 뷰포트 위치를 직접 계산해
+// 카드 상단이 화면 위로 넘어가면 .stuck을 붙여 position:fixed로 강제 고정한다
+// (3단계·도전·복습 화면 공통 호출). 화면이 바뀔 때마다 이전 리스너는 정리하고 새로 붙인다.
+let _stickyRefOnScroll = null;
 function initStickyRef() {
-  const sentinel = document.querySelector(".test-ref-sentinel");
+  if (_stickyRefOnScroll) { window.removeEventListener("scroll", _stickyRefOnScroll); _stickyRefOnScroll = null; }
+  const card = document.querySelector(".test-card");
   const ref = document.querySelector(".test-ref-sticky");
-  if (!sentinel || !ref || !("IntersectionObserver" in window)) return;
-  const io = new IntersectionObserver(([entry]) => {
-    ref.classList.toggle("stuck", !entry.isIntersecting);
-  }, { threshold: 0 });
-  io.observe(sentinel);
+  if (!card || !ref) return;
+  _stickyRefOnScroll = () => { ref.classList.toggle("stuck", card.getBoundingClientRect().top < 0); };
+  _stickyRefOnScroll();
+  window.addEventListener("scroll", _stickyRefOnScroll, { passive: true });
 }
 
 // 영어 관용 비교용 정규화 — 대소문자·문장부호·스마트따옴표 차이는 정답으로 인정
@@ -2711,7 +2712,6 @@ function renderTestScreen(verse, stage) {
   appEl.innerHTML = `
     <div class="test-screen">
       <div class="test-card">
-        <div class="test-ref-sentinel"></div>
         <div class="test-ref-sticky">${verseRefFull(verse)}</div>
         <div class="btn-row">
           <button class="answer-btn" id="show-answer-btn">보기</button>
@@ -4090,7 +4090,6 @@ function renderChallenge(verse) {
   appEl.innerHTML = `
     <div class="test-screen">
       <div class="test-card">
-        <div class="test-ref-sentinel"></div>
         <div class="test-ref-sticky">${verseRefFull(verse)}</div>
         <div class="btn-row" style="flex-wrap:wrap;">
           <button class="answer-btn" id="hint-btn">💡 힌트</button>
@@ -4159,7 +4158,6 @@ function renderReview(queue, idx) {
   appEl.innerHTML = `
     <div class="test-screen">
       <div class="test-card">
-        <div class="test-ref-sentinel"></div>
         <div class="test-ref-sticky">${verseRefFull(verse)}</div>
         <div class="btn-row">
           <button class="answer-btn" id="show-answer-btn">보기</button>
