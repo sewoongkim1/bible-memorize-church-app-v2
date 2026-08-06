@@ -1196,6 +1196,9 @@ function evRender(){
       <span class="dm-sep">~</span>
       <input type="number" id="ev-to" class="push-in" value="${Number(c.toNo)||12}" min="1" />
     </div>
+    <label class="push-lb">문제 수 (위 범위 중 몇 개를 출제할지 · 0이면 전체)</label>
+    <input type="number" id="ev-count" class="push-in" value="${Number(c.count)||0}" min="0" />
+    <div class="dm-hint">예) 범위 1~12번, 문제 수 10 → 12개 중 <b>무작위 10개</b>만 출제됩니다.</div>
     <button class="push-send" id="ev-save">💾 이벤트 설정 저장</button>
     <div id="ev-result" class="msg"></div>
     <hr style="margin:22px 0;border:none;border-top:1px solid #e5e5e5" />
@@ -1214,6 +1217,7 @@ function evFormRead(){
     fromNo: Number(document.getElementById("ev-from").value)||0,
     toNo: Number(document.getElementById("ev-to").value)||0,
     goal: Number(document.getElementById("ev-goal").value)||0,
+    count: Number(document.getElementById("ev-count").value)||0,
   };
 }
 async function evSave(){
@@ -1224,6 +1228,8 @@ async function evSave(){
   if(!c.start||!c.end){ r.className="msg err"; r.textContent="시작일과 종료일을 모두 입력하세요."; return; }
   if(c.start>c.end){ r.className="msg err"; r.textContent="종료일이 시작일보다 빠릅니다."; return; }
   if(!(c.fromNo>=1)||!(c.toNo>=c.fromNo)){ r.className="msg err"; r.textContent="구절 범위를 확인하세요(시작 ≤ 끝)."; return; }
+  const range = c.toNo - c.fromNo + 1;
+  if(c.count > range){ r.className="msg err"; r.textContent=`문제 수(${c.count})가 구절 범위(${range}개)보다 많습니다.`; return; }
   const btn=document.getElementById("ev-save"); btn.disabled=true; r.className="msg"; r.textContent="저장 중...";
   const d=await callApi({action:"saveConfig",pw:getPw(),key:"event",value:c}).catch(()=>({ok:false,error:"network"}));
   btn.disabled=false;

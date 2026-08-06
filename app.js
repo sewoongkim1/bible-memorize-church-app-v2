@@ -1152,10 +1152,18 @@ function shuffled(arr) {
   return a;
 }
 
+// 이번 회차에 실제로 출제할 문제 수 — 관리자가 정한 count(없거나 범위를 넘으면 전체).
+function eventQuestionCount(pool) {
+  const n = Number(eventConfig && eventConfig.count) || 0;
+  return (n >= 1 && n < pool.length) ? n : pool.length;
+}
+
 function startEvent() {
   if (!eventActive()) { appAlert("지금은 진행 중인 이벤트가 없어요."); return renderSummary(); }
-  const queue = shuffled(eventVerses());
-  if (!queue.length) { appAlert("이벤트 대상 구절이 아직 준비되지 않았어요."); return renderSummary(); }
+  const pool = eventVerses();
+  if (!pool.length) { appAlert("이벤트 대상 구절이 아직 준비되지 않았어요."); return renderSummary(); }
+  // 대상 구절을 섞은 뒤 정해진 문제 수만큼만 낸다(매번 다른 구절이 뽑힌다).
+  const queue = shuffled(pool).slice(0, eventQuestionCount(pool));
   renderEventStep(queue, 0);
 }
 
@@ -1178,7 +1186,7 @@ function renderEventStep(queue, idx) {
 
   appEl.innerHTML = `
     <div class="test-screen">
-      <div class="test-card with-ref-banner">
+      <div class="test-card with-ref-banner event-step">
         <div class="test-ref-sticky">${verseRefFull(verse)}</div>
         <div class="test-top">
           <div class="test-head">
@@ -1187,7 +1195,7 @@ function renderEventStep(queue, idx) {
           </div>
           <button class="back-btn" id="ev-exit">← 나가기</button>
         </div>
-        <div class="test-sentence">${sentenceHtml}</div>
+        <div class="ev-verse-block"><div class="test-sentence">${sentenceHtml}</div></div>
         <div class="ev-hint" id="ev-hint"></div>
         <div class="ev-explain" id="ev-explain"></div>
       </div>
@@ -1436,14 +1444,45 @@ async function loadEventState() {
 }
 
 // 첫 화면의 이벤트 버튼 자리(#event-slot)를 채운다. 기간 밖이면 비워 둔다.
+// 종료일까지 남은 일수(KST). 오늘이 종료일이면 0.
+function eventDaysLeft() {
+  if (!eventConfig || !eventConfig.end) return null;
+  const p = kstDateParts(); if (!p) return null;
+  const end = String(eventConfig.end).split("-").map(Number);
+  if (end.length !== 3 || end.some(isNaN)) return null;
+  const a = Date.UTC(p.y, p.m - 1, p.d), b = Date.UTC(end[0], end[1] - 1, end[2]);
+  return Math.round((b - a) / 86400000);
+}
+
 function renderEventButton() {
   const slot = document.getElementById("event-slot");
   if (!slot) return;
-  if (!eventActive() || !eventVerses().length) { slot.innerHTML = ""; return; }
+  const pool = eventVerses();
+  if (!eventActive() || !pool.length) { slot.innerHTML = ""; return; }
   const done = eventEntered();
-  slot.innerHTML = `<button class="summary-help event-cta${done ? " done" : ""}" id="open-event">${
-    done ? "✅ 이벤트 응모 완료" : "🎉 말씀 이벤트 참여하기"}</button>
-    <button class="summary-help event-board-cta" id="open-event-board">🏆 이벤트 현황 보기</button>`;
+  const name = (eventConfig && eventConfig.name) || "말씀 이벤트";
+  const qCount = eventQuestionCount(pool);
+  const left = eventDaysLeft();
+  const endTxt = eventConfig && eventConfig.end
+    ? String(eventConfig.end).slice(5).replace("-", "월 ") + "일까지" : "";
+  const dday = left === null ? "" : (left > 0 ? `D-${left}` : "오늘 마감");
+
+  slot.innerHTML = `
+    <div class="event-card${done ? " done" : ""}" id="event-card">
+      <div class="event-card-head">
+        <span class="event-card-title">🎉 ${boardEsc(name)}</span>
+        ${dday ? `<span class="event-dday${left !== null && left <= 7 ? " urgent" : ""}">${dday}</span>` : ""}
+      </div>
+      <div class="event-card-desc">${done
+        ? "응모가 완료되었어요. 다시 풀어보셔도 좋아요 🙌"
+        : `말씀 ${qCount}문제만 풀면 참여 완료!`}</div>
+      <button class="event-join-btn${done ? " done" : ""}" id="open-event">${
+        done ? "✅ 응모 완료 · 다시 풀기" : "지금 참여하기"}</button>
+      <div class="event-card-foot">
+        ${endTxt ? `<span class="event-end">🗓 ${endTxt}</span>` : "<span></span>"}
+        <button class="event-board-link" id="open-event-board">🏆 현황 보기</button>
+      </div>
+    </div>`;
   document.getElementById("open-event").addEventListener("click", startEvent);
   document.getElementById("open-event-board").addEventListener("click", renderEventBoard);
 }
@@ -1503,6 +1542,7 @@ function renderSummary() {
       <div class="summary-hello"><span class="summary-affil">${u.type === "교구" ? `${u.gu}-${u.mok}` : `${u.bu}${u.grade ? " " + u.grade : ""}`}</span> <span class="summary-user">${u.name}</span> <span class="summary-honor">성도님</span><br>주님의 이름으로 환영합니다 🙌</div>
     </div>
     <div class="today-strip" id="today-strip"><span class="today-txt">오늘의 말씀 활동을 불러오는 중…</span></div>
+    <div id="event-slot"></div>
     <div class="stat-grid">
       <div class="stat-box status-heart"><div class="stat-num">${heartCount}</div><div class="stat-lbl">마음</div></div>
       <div class="stat-box status-done"><div class="stat-num">${doneOnly}</div><div class="stat-lbl">암송</div></div>
@@ -1522,7 +1562,6 @@ function renderSummary() {
       <button class="summary-go med-act act-btn" id="open-meditation"><span class="act-ic">🌿</span><span class="act-tx">매일<br>묵상</span>${newBadge("meditation")}</button>
       ${passagesVisible() ? `<button class="summary-go passages-act act-btn" id="open-passages"><span class="act-ic">📜</span><span class="act-tx">내 안에<br>거하는 말씀</span>${newBadge("passages")}</button>` : ""}
     </div>
-    <div id="event-slot"></div>
     <button class="summary-help album-cta" id="open-album">📖 나의 말씀 앨범</button>
     <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
 <button class="summary-help board-cta" id="open-board">💬 질문·제안 게시판</button>

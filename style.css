@@ -1785,6 +1785,102 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 .summary-help.event-board-cta:hover { background: var(--navy); color: #fff; }
 .dark .summary-help.event-board-cta { background: #232a3a; color: #cdd9f2; border-color: #3a4a68; }
 
+/* 이벤트 진행 화면 — 말씀·풀이를 각각 블록으로 나누되 높이를 최대한 줄인다.
+   모바일 키보드가 화면 절반을 덮으므로, 두 블록이 키보드 위에 함께 보여야 한다. */
+.event-step { padding-bottom: 14px; }
+.event-step .test-top { margin-bottom: 8px; }
+
+.ev-verse-block {
+  background: #fbfaf6; border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 13px; margin-bottom: 9px;
+}
+.event-step .test-sentence { font-size: 17px; line-height: 1.85; margin: 0; }
+.event-step .ev-hint { min-height: 0; margin: 0 0 8px; font-size: .84rem; }
+.event-step .ev-hint:empty { margin: 0; }
+
+/* 풀이 — 제목 줄을 없애고 한 덩어리로 압축(스크롤 없이 키보드 위에 들어오게) */
+.event-step .ev-explain { margin-top: 0; }
+.event-step .ev-explain-label { font-size: .82rem; margin-bottom: 4px; }
+.event-step .ev-explain-body {
+  padding: 9px 11px; font-size: .85rem; line-height: 1.6;
+  max-height: 30vh; overflow-y: auto;
+}
+@media (max-height: 700px) {
+  .event-step .test-sentence { font-size: 16px; line-height: 1.7; }
+  .event-step .ev-verse-block { padding: 10px 11px; margin-bottom: 7px; }
+  .event-step .ev-explain-body { max-height: 22vh; font-size: .82rem; }
+}
+.dark .ev-verse-block { background: #1b2333; border-color: #3a4a68; }
+
+/* 첫 화면 이벤트 카드 — 통계 위에서 시선을 먼저 잡도록 금색으로 강조 + 은은한 맥동 */
+.event-card {
+  position: relative; overflow: hidden;
+  margin: 12px 0 14px; padding: 15px 16px 13px;
+  border-radius: 16px; border: 2px solid var(--gold);
+  background: linear-gradient(135deg, #fff9ec 0%, #fdf1d4 100%);
+  box-shadow: 0 4px 16px rgba(200,168,75,.28);
+  animation: evPulse 2.6s ease-in-out infinite;
+}
+/* 카드 위를 천천히 지나가는 빛 — 눈에 띄되 거슬리지 않게 */
+.event-card::after {
+  content: ""; position: absolute; top: 0; left: -60%; width: 45%; height: 100%;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,.75), transparent);
+  animation: evShine 3.6s ease-in-out infinite;
+}
+@keyframes evPulse {
+  0%, 100% { box-shadow: 0 4px 16px rgba(200,168,75,.28); }
+  50%      { box-shadow: 0 6px 22px rgba(200,168,75,.52); }
+}
+@keyframes evShine {
+  0%        { left: -60%; }
+  55%, 100% { left: 125%; }
+}
+.event-card.done { animation: none; border-color: #1f7a4d; background: linear-gradient(135deg, #f2fbf5, #e7f6ee); box-shadow: 0 3px 12px rgba(31,122,77,.16); }
+.event-card.done::after { display: none; }
+
+.event-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.event-card-title { font-weight: 800; font-size: 1rem; color: var(--navy-dark); }
+.event-dday {
+  flex: none; background: var(--navy); color: #fff;
+  font-size: .74rem; font-weight: 800; padding: 3px 10px; border-radius: 999px;
+}
+.event-dday.urgent { background: #c0392b; }
+.event-card-desc { font-size: .88rem; color: #6b5a2e; margin-bottom: 11px; }
+.event-card.done .event-card-desc { color: #2f6b4f; }
+
+.event-join-btn {
+  position: relative; z-index: 1;
+  width: 100%; padding: 13px; border: none; border-radius: 12px;
+  background: linear-gradient(135deg, #c8a84b, #b8933f); color: var(--navy-dark);
+  font-size: 1.02rem; font-weight: 800; font-family: inherit; cursor: pointer;
+  transition: filter .15s, transform .1s;
+}
+.event-join-btn:hover { filter: brightness(1.07); }
+.event-join-btn:active { transform: translateY(1px); }
+.event-join-btn.done { background: #eaf6ee; color: #1f7a4d; border: 1.5px solid #1f7a4d; }
+
+.event-card-foot { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; margin-top: 9px; }
+.event-end { font-size: .8rem; color: #8a6d1f; font-weight: 600; }
+.event-board-link {
+  background: none; border: none; padding: 2px 0; cursor: pointer; font-family: inherit;
+  font-size: .82rem; font-weight: 700; color: var(--navy); text-decoration: underline;
+}
+.event-board-link:hover { color: var(--navy-dark); }
+
+.dark .event-card { background: linear-gradient(135deg, #2e2718, #241f13); border-color: #8d7531; }
+.dark .event-card.done { background: linear-gradient(135deg, #17311f, #142a1b); border-color: #2f5a42; }
+.dark .event-card-title { color: #e8d9a3; }
+.dark .event-card-desc { color: #c9bd93; }
+.dark .event-end { color: #dcb669; }
+.dark .event-board-link { color: #cdd9f2; }
+.dark .event-card.done .event-card-desc { color: #8fd6ab; }
+
+/* 움직임에 민감한 사용자는 애니메이션 없이 */
+@media (prefers-reduced-motion: reduce) {
+  .event-card { animation: none; }
+  .event-card::after { display: none; }
+}
+
 /* 이벤트 현황 화면 */
 .eb-goal { background: #fdf8f0; border: 1px solid #ead9b0; border-radius: 12px; padding: 16px; margin-bottom: 18px; text-align: center; }
 .eb-goal-top { font-size: 1rem; color: var(--navy-dark); }
