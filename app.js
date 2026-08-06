@@ -1142,8 +1142,8 @@ function renderSummary() {
       <div class="stat-box status-s1"><div class="stat-num">${inProgress}</div><div class="stat-lbl">진행중</div></div>
       <div class="stat-box status-none"><div class="stat-num">${counts[0]}</div><div class="stat-lbl">미시도</div></div>
     </div>
-    <div id="push-nudge"></div>
-    ${promoCardHtml()}
+    <!-- 홈 화면 정리: 알림 켜기 배너·신기능 홍보 카드 숨김(코드는 유지, 필요 시 되살리면 됨) -->
+    <div id="push-nudge" hidden></div>
     <div class="summary-actions">
       <button class="summary-go act-btn" id="go-list"><span class="act-ic">📖</span><span class="act-tx">암송<br>하기</span></button>
       ${dueCount > 0 ? `<button class="summary-go review-cta act-btn" id="go-review"><span class="act-ic">📖</span><span class="act-tx">복습</span><span class="act-sub">${dueCount}구절</span></button>` : ""}
@@ -1157,7 +1157,6 @@ function renderSummary() {
     </div>
     <button class="summary-help album-cta" id="open-album">📖 나의 말씀 앨범</button>
     <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
-<button class="summary-help praise-cta" id="open-praise">🎵 고척교회 찬양 아카이브</button>
 <button class="summary-help board-cta" id="open-board">💬 질문·제안 게시판</button>
     <div class="summary-icons summary-icons-bottom">
       <button class="summary-icon icon-alarm" id="open-alarm" aria-label="매일 암송 알림 받기" title="매일 암송 알림 받기">🔔</button>
@@ -1181,22 +1180,9 @@ function renderSummary() {
   document.getElementById("go-challenge").addEventListener("click", startChallenge);
   document.getElementById("open-meditation").addEventListener("click", () => { markFeatSeen("meditation"); scRemoveBadge("open-meditation"); maybeShowWeeklyMeditation(true, true); });
   document.getElementById("open-sermon-chat").addEventListener("click", () => { markFeatSeen("sermon"); renderSermonChat(); });
-  {
-    const pc = document.getElementById("promo-card");
-    if (pc) {
-      document.getElementById("promo-x").addEventListener("click", () => {
-        try { localStorage.setItem(PROMO_KEY, JSON.stringify({ ...promoState(), dismissed: true })); } catch {}
-        pc.remove();
-      });
-      document.getElementById("promo-sermon").addEventListener("click", () => { markFeatSeen("sermon"); renderSermonChat(); });
-      const pp = document.getElementById("promo-passages");
-      if (pp) pp.addEventListener("click", () => { markFeatSeen("passages"); renderPassageList(); });
-    }
-  }
   document.getElementById("open-album").addEventListener("click", () => renderAlbum());
   { const b = document.getElementById("open-passages"); if (b) b.addEventListener("click", () => { markFeatSeen("passages"); renderPassageList(); }); }
   document.getElementById("open-ranking").addEventListener("click", () => renderRanking());
-  document.getElementById("open-praise").addEventListener("click", () => window.open("https://worship.onlybible.kr/", "_blank", "noopener"));
   document.getElementById("open-help-summary").addEventListener("click", () => renderHelp(renderSummary));
   document.getElementById("open-settings").addEventListener("click", renderSettings);
   document.getElementById("open-share").addEventListener("click", shareApp);
@@ -1205,14 +1191,14 @@ function renderSummary() {
   // 이미 설치(홈 화면 앱)된 경우 바로가기 아이콘 숨김
   const standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true;
   if (standalone) { const ib = document.getElementById("open-install"); if (ib) ib.hidden = true; }
-  // 아직 알림을 안 켠 사람: 종 아이콘 강조 + 상단 '알림 켜기' 배너(미구독자에게만).
+  // 아직 알림을 안 켠 사람: 종 아이콘만 강조한다.
+  // (상단 '알림 켜기' 배너는 홈 화면 정리로 숨김 — showPushNudge 코드는 유지)
   (async () => {
     try {
       const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
       const sub = reg && await reg.pushManager.getSubscription();
       const bell = document.getElementById("open-alarm");
       if (bell && !sub) bell.classList.add("pulse");
-      if (!sub) showPushNudge();
     } catch (e) {}
   })();
 }
