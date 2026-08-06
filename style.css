@@ -1845,9 +1845,8 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 }
 .event-dday.urgent { background: #c0392b; }
 .event-card-desc { font-size: .88rem; color: #6b5a2e; margin-bottom: 11px; }
-.event-card.done .event-card-desc { color: #2f6b4f; }
-/* 완료 상태는 설명 줄이 없으므로 제목 아래 여백을 대신 준다 */
-.event-card.done .event-card-head { margin-bottom: 11px; }
+/* 설명 줄을 두지 않으므로 제목 아래 여백을 직접 준다 */
+.event-card .event-card-head { margin-bottom: 11px; }
 
 .event-join-btn {
   position: relative; z-index: 1;

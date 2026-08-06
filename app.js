@@ -1487,7 +1487,6 @@ function renderEventButton() {
   if (!eventActive() || !pool.length) { slot.innerHTML = ""; return; }
   const done = eventEntered();
   const name = (eventConfig && eventConfig.name) || "말씀 이벤트";
-  const qCount = eventQuestionCount(pool);
   const left = eventDaysLeft();
   const endTxt = eventConfig && eventConfig.end
     ? String(eventConfig.end).slice(5).replace("-", "월 ") + "일까지" : "";
@@ -1499,7 +1498,6 @@ function renderEventButton() {
         <span class="event-card-title">🎉 ${boardEsc(name)}</span>
         ${dday ? `<span class="event-dday${left !== null && left <= 7 ? " urgent" : ""}">${dday}</span>` : ""}
       </div>
-      ${done ? "" : `<div class="event-card-desc">말씀 ${qCount}문제만 풀면 참여 완료!</div>`}
       <button class="event-join-btn${done ? " done" : ""}" id="open-event">${
         done ? "✅ 응모 완료 · 다시 풀기" : "지금 참여하기"}</button>
       <div class="event-card-foot">
