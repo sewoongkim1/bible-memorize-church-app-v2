@@ -1088,21 +1088,46 @@ function promoCardHtml() {
 // ------------------------------------------------------------
 let eventConfig = null;                       // 로드된 이벤트 설정(없으면 null)
 let _eventAdvanceTimer = null;                // 정답 후 다음 문제로 넘어가는 예약 타이머(나가기 시 취소)
-const EVENT_ENTERED_KEY = "event-entered";    // { [eventId]: "2026-09-01T..." }
+// { "<eventId>|<user_id>": "2026-09-01T..." }
+// 한 기기를 여러 성도가 함께 쓰는 경우(교회 공용 기기·가족 공용 폰)가 있어
+// 반드시 사용자별로 구분해 저장한다. 회차 단위로만 저장하면 다른 성도가 로그인했을 때도
+// 남의 '응모 완료'가 그대로 보인다.
+const EVENT_ENTERED_KEY = "event-entered";
 
 function eventEnteredMap() {
   try { return JSON.parse(localStorage.getItem(EVENT_ENTERED_KEY) || "{}") || {}; }
   catch (e) { return {}; }
 }
+// 현재 로그인한 성도 기준의 저장 키. 로그인 정보가 없으면 null.
+function eventEnteredKey(eventId) {
+  const u = loadUser();
+  const uid = u && u.user_id;
+  return (eventId && uid) ? `${eventId}|${uid}` : null;
+}
 function markEventEntered(eventId, at) {
+  const key = eventEnteredKey(eventId);
+  if (!key) return;
   try {
     const m = eventEnteredMap();
-    m[eventId] = at || new Date().toISOString();
+    m[key] = at || new Date().toISOString();
+    localStorage.setItem(EVENT_ENTERED_KEY, JSON.stringify(m));
+  } catch (e) {}
+}
+// 서버가 '응모 안 됨'이라고 답하면 로컬 캐시도 지운다(잘못 남은 완료 표시 자동 정정).
+function clearEventEntered(eventId) {
+  const key = eventEnteredKey(eventId);
+  if (!key) return;
+  try {
+    const m = eventEnteredMap();
+    if (!(key in m)) return;
+    delete m[key];
     localStorage.setItem(EVENT_ENTERED_KEY, JSON.stringify(m));
   } catch (e) {}
 }
 function eventEntered() {
-  return !!(eventConfig && eventEnteredMap()[eventConfig.id]);
+  if (!eventConfig) return false;
+  const key = eventEnteredKey(eventConfig.id);
+  return !!(key && eventEnteredMap()[key]);
 }
 
 // 오늘(KST)이 이벤트 기간 안인지 — 종료일 당일 포함.
@@ -1438,6 +1463,7 @@ async function loadEventState() {
     try {
       const s = await api.eventStatus(eventConfig.id, u.user_id);
       if (s && s.entered) markEventEntered(eventConfig.id, s.entered_at);
+      else if (s && s.ok) clearEventEntered(eventConfig.id);   // 서버 기준으로 로컬 표시 정정
     } catch (e) {}
   }
   renderEventButton();
