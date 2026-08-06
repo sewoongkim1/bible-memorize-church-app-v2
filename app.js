@@ -1087,6 +1087,7 @@ function promoCardHtml() {
 //   진행 중 상태는 저장하지 않는다(중도 이탈 시 처음부터). 응모 여부만 서버 기록.
 // ------------------------------------------------------------
 let eventConfig = null;                       // 로드된 이벤트 설정(없으면 null)
+let _eventAdvanceTimer = null;                // 정답 후 다음 문제로 넘어가는 예약 타이머(나가기 시 취소)
 const EVENT_ENTERED_KEY = "event-entered";    // { [eventId]: "2026-09-01T..." }
 
 function eventEnteredMap() {
@@ -1160,6 +1161,8 @@ function startEvent() {
 
 function renderEventStep(queue, idx) {
   stopSpeaking();
+  clearTimeout(_eventAdvanceTimer);
+  _eventAdvanceTimer = null;
   const verse = queue[idx];
   const appEl = document.getElementById("app");
   const tokens = String(verse.text || "").trim().split(/\s+/);
@@ -1190,7 +1193,12 @@ function renderEventStep(queue, idx) {
       </div>
     </div>`;
 
-  document.getElementById("ev-exit").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
+  document.getElementById("ev-exit").addEventListener("click", () => {
+    stopSpeaking();
+    clearTimeout(_eventAdvanceTimer);
+    _eventAdvanceTimer = null;
+    renderSummary();
+  });
   fillEventExplain(verse);
   setupEventInput(queue, idx, answer);
   initStickyRef();
@@ -1225,7 +1233,8 @@ function setupEventInput(queue, idx, answer) {
       input.classList.remove("wrong");
       input.disabled = true;
       if (hint) hint.textContent = "";
-      setTimeout(() => {
+      _eventAdvanceTimer = setTimeout(() => {
+        _eventAdvanceTimer = null;
         if (idx + 1 < queue.length) renderEventStep(queue, idx + 1);
         else finishEvent();
       }, 400);
@@ -1248,36 +1257,66 @@ function setupEventInput(queue, idx, answer) {
   input.focus();
 }
 
-// 12개를 모두 맞힘 → 응모 기록(최초 1회) 후 완료 화면.
+// 12개를 모두 맞힘 → 서버에 응모를 기록한 뒤 완료 화면.
+// 서버 기록에 실패하면 markEventEntered를 호출하지 않고 '기록 실패' 화면(재시도 가능)을 띄운다 —
+// 로컬에서만 응모 완료로 표시하면 실제로는 당첨자 명단에 오르지 못한 채 사용자만 안심하게 되므로.
 function finishEvent() {
   const u = loadUser();
   const eventId = eventConfig ? eventConfig.id : "";
   if (u && u.user_id && eventId && window.api && api.eventEnter) {
-    api.eventEnter(eventId, u.user_id)
-      .then((d) => { markEventEntered(eventId, d && d.entered_at); })
-      .catch(() => { markEventEntered(eventId, null); });
+    attemptEventEnter(eventId, u.user_id);
   } else {
-    markEventEntered(eventId, null);
+    renderEventDone(false, eventId, u && u.user_id);
   }
-  renderEventDone();
 }
 
-function renderEventDone() {
+// api.eventEnter 호출 → 성공 시에만 markEventEntered 후 정상 완료 화면, 실패 시 실패 화면.
+function attemptEventEnter(eventId, userId) {
+  return api.eventEnter(eventId, userId)
+    .then((d) => { markEventEntered(eventId, d && d.entered_at); renderEventDone(true); })
+    .catch(() => { renderEventDone(false, eventId, userId); });
+}
+
+// 응모 완료 화면. ok=true면 정상 완료, false면 정답은 맞혔지만 서버 기록에 실패했다는
+// 안내와 '다시 시도' 버튼을 보여준다(재시도 성공 시 정상 완료 화면으로 전환).
+function renderEventDone(ok, eventId, userId) {
   const u = loadUser() || {};
   const name = u.name || "";
   const eventName = (eventConfig && eventConfig.name) || "말씀 이벤트";
   const appEl = document.getElementById("app");
-  appEl.innerHTML = `
-    <div class="summary-screen">
-      <div class="summary-card cd-card">
+  const bodyHtml = ok ? `
         <div class="cd-emoji">🎉</div>
         <div class="cd-title">이벤트 응모가<br>완료되었습니다</div>
         <div class="cd-sub">${eventName}${name ? ` · ${name} 성도님` : ""}</div>
         <div class="ev-done-msg">말씀을 마음에 새기신 것을 축하드립니다.<br>당첨자 발표는 교회 안내를 확인해 주세요.</div>
-        <button class="summary-go challenge-cta" id="ev-go-challenge">🔥 말씀 도전으로 이어가기</button>
+        <button class="summary-go challenge-cta" id="ev-go-challenge">🔥 말씀 도전으로 이어가기</button>` : `
+        <div class="cd-emoji">🙏</div>
+        <div class="cd-title">정답은 모두<br>맞히셨어요</div>
+        <div class="cd-sub">${eventName}${name ? ` · ${name} 성도님` : ""}</div>
+        <div class="ev-done-msg">다만 응모 기록이 서버에 저장되지 못했어요.<br>인터넷 연결을 확인하신 뒤 다시 시도해 주시면 바로 저장돼요.</div>
+        <button class="summary-go challenge-cta" id="ev-retry">다시 시도</button>
+        <button class="summary-help" id="ev-go-challenge">🔥 말씀 도전으로 이어가기</button>`;
+  appEl.innerHTML = `
+    <div class="summary-screen">
+      <div class="summary-card cd-card">
+        ${bodyHtml}
         <button class="summary-change" id="ev-go-home">기록 화면으로</button>
       </div>
     </div>`;
+  if (!ok) {
+    const retryBtn = document.getElementById("ev-retry");
+    retryBtn.addEventListener("click", () => {
+      if (!eventId || !userId || !window.api || !api.eventEnter) {
+        appAlert("지금은 다시 시도할 수 없어요. 잠시 후 다시 열어 주세요.");
+        return;
+      }
+      retryBtn.disabled = true;
+      retryBtn.textContent = "저장하는 중...";
+      // attemptEventEnter는 성공/실패 어느 쪽이든 renderEventDone을 다시 호출해 화면을 새로 그리므로
+      // (실패 시 이 버튼도 새로 만들어짐) 여기서 별도 복구 처리는 필요 없다.
+      attemptEventEnter(eventId, userId);
+    });
+  }
   document.getElementById("ev-go-challenge").addEventListener("click", startChallenge);
   document.getElementById("ev-go-home").addEventListener("click", renderSummary);
 }

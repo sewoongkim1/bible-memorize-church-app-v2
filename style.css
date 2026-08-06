@@ -2284,10 +2284,10 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 /* 라벨(못 누름) 다크: 조용한 면 + 테두리 없음.
    다크 버튼은 #232c3f + 테두리(#3a4a68)라 서로 구별된다.
    ※ 위쪽 '.dark .test-stage{color}' 규칙보다 뒤에 있어야 배경까지 먹는다.
-   ※ 도전(금색)·복습(청록) 배지는 고유색이라 제외한다. */
+   ※ 도전(금색)·복습(청록)·이벤트(금색) 배지는 고유색이라 제외한다. */
 .dark .weekly-list-badge,
 .dark .weekly-kicker,
-.dark .test-stage:not(.challenge-badge):not(.review-badge){ background:#2e3950; color:#cdd9f2; box-shadow:none; }
+.dark .test-stage:not(.challenge-badge):not(.review-badge):not(.event-badge){ background:#2e3950; color:#cdd9f2; box-shadow:none; }
 .dark .weekly-card{ background:#2b2717; border-color:#8d7531; }
 .dark .weekly-ref{ color:#e8d9a3; }
 .dark .weekly-title{ color:#d7c78e; }
