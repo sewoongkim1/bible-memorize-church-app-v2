@@ -1126,8 +1126,161 @@ function eventVerses() {
   return verses.filter((v) => Number(v.no) >= from && Number(v.no) <= to);
 }
 
-// (Task 4에서 실제 구현으로 대체됨)
-function startEvent() { appAlert("이벤트 화면 준비 중입니다."); }
+// ------------------------------------------------------------
+// 말씀 이벤트 진행 화면 — 대상 구절을 매번 무작위 순서로, 구절당 빈칸 1개.
+//   진행 상태는 저장하지 않는다(나가면 처음부터, 문제도 새로 뽑힘).
+// ------------------------------------------------------------
+
+// 공백 기준 토큰 중 2글자 이상인 것 하나를 무작위로 고른다.
+// 2글자 이상이 하나도 없으면 가장 긴 토큰(조사 한 글자만 남는 어색함 방지).
+function pickEventBlankIndex(tokens) {
+  const candidates = [];
+  tokens.forEach((t, i) => { if (Array.from(t).length >= 2) candidates.push(i); });
+  if (candidates.length) return candidates[Math.floor(Math.random() * candidates.length)];
+  let best = 0;
+  tokens.forEach((t, i) => { if (Array.from(t).length > Array.from(tokens[best]).length) best = i; });
+  return best;
+}
+
+function shuffled(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function startEvent() {
+  if (!eventActive()) { appAlert("지금은 진행 중인 이벤트가 없어요."); return renderSummary(); }
+  const queue = shuffled(eventVerses());
+  if (!queue.length) { appAlert("이벤트 대상 구절이 아직 준비되지 않았어요."); return renderSummary(); }
+  renderEventStep(queue, 0);
+}
+
+function renderEventStep(queue, idx) {
+  stopSpeaking();
+  const verse = queue[idx];
+  const appEl = document.getElementById("app");
+  const tokens = String(verse.text || "").trim().split(/\s+/);
+  const blankAt = pickEventBlankIndex(tokens);
+  const answer = tokens[blankAt];
+
+  const sentenceHtml = tokens.map((word, i) => {
+    if (i !== blankAt) return `<span class="word-fixed">${word}</span>`;
+    const w = Array.from(word).length + 1;
+    return `<input class="word-input" id="ev-input" data-answer="${word}" autocomplete="off"
+      autocapitalize="off" autocorrect="off" spellcheck="false" style="width:${w}em" />`;
+  }).join(" ");
+
+  appEl.innerHTML = `
+    <div class="test-screen">
+      <div class="test-card with-ref-banner">
+        <div class="test-ref-sticky">${verseRefFull(verse)}</div>
+        <div class="test-top">
+          <div class="test-head">
+            <div class="test-stage event-badge">🎉 이벤트</div>
+            <div class="ev-progress">${idx + 1} / ${queue.length}</div>
+          </div>
+          <button class="back-btn" id="ev-exit">← 나가기</button>
+        </div>
+        <div class="test-sentence">${sentenceHtml}</div>
+        <div class="ev-hint" id="ev-hint"></div>
+        <div class="ev-explain" id="ev-explain"></div>
+      </div>
+    </div>`;
+
+  document.getElementById("ev-exit").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
+  fillEventExplain(verse);
+  setupEventInput(queue, idx, answer);
+  initStickyRef();
+  scrollPastBtnRow();
+}
+
+// 구절 아래 AI 풀이(설교 아카이브 easyExplain)를 펼친 채로 보여준다. 없으면 표시 안 함.
+function fillEventExplain(verse) {
+  loadSermons().then((sermons) => {
+    const s = (sermons || []).find((x) => x.memVerseNo === verse.no && x.easyExplain);
+    const el = document.getElementById("ev-explain");
+    if (!el || !s) return;
+    el.innerHTML = `<div class="ev-explain-label">💡 풀이</div><div class="ev-explain-body"></div>`;
+    el.querySelector(".ev-explain-body").textContent = s.easyExplain;
+  }).catch(() => {});
+}
+
+// 빈칸 채점 — 맞히면 다음 구절로, 마지막이면 응모 처리.
+function setupEventInput(queue, idx, answer) {
+  const input = document.getElementById("ev-input");
+  const hint = document.getElementById("ev-hint");
+  if (!input) return;
+  let done = false;
+
+  const evaluate = (isComposing) => {
+    if (done || input.disabled) return;
+    const val = input.value.trim();
+    if (val === answer) {
+      done = true;
+      input.value = answer;
+      input.classList.add("correct");
+      input.classList.remove("wrong");
+      input.disabled = true;
+      if (hint) hint.textContent = "";
+      setTimeout(() => {
+        if (idx + 1 < queue.length) renderEventStep(queue, idx + 1);
+        else finishEvent();
+      }, 400);
+    } else if (!isComposing && Array.from(val).length >= Array.from(answer).length) {
+      input.classList.add("wrong");
+      if (hint) hint.textContent = "다시 한 번 입력해 보세요";
+      setTimeout(() => {
+        if (done) return;
+        input.value = "";
+        input.classList.remove("wrong");
+        input.focus();
+      }, 400);
+    }
+  };
+
+  let composing = false;
+  input.addEventListener("compositionstart", () => { composing = true; });
+  input.addEventListener("compositionend", () => { composing = false; evaluate(false); });
+  input.addEventListener("input", (e) => evaluate(composing || e.isComposing));
+  input.focus();
+}
+
+// 12개를 모두 맞힘 → 응모 기록(최초 1회) 후 완료 화면.
+function finishEvent() {
+  const u = loadUser();
+  const eventId = eventConfig ? eventConfig.id : "";
+  if (u && u.user_id && eventId && window.api && api.eventEnter) {
+    api.eventEnter(eventId, u.user_id)
+      .then((d) => { markEventEntered(eventId, d && d.entered_at); })
+      .catch(() => { markEventEntered(eventId, null); });
+  } else {
+    markEventEntered(eventId, null);
+  }
+  renderEventDone();
+}
+
+function renderEventDone() {
+  const u = loadUser() || {};
+  const name = u.name || "";
+  const eventName = (eventConfig && eventConfig.name) || "말씀 이벤트";
+  const appEl = document.getElementById("app");
+  appEl.innerHTML = `
+    <div class="summary-screen">
+      <div class="summary-card cd-card">
+        <div class="cd-emoji">🎉</div>
+        <div class="cd-title">이벤트 응모가<br>완료되었습니다</div>
+        <div class="cd-sub">${eventName}${name ? ` · ${name} 성도님` : ""}</div>
+        <div class="ev-done-msg">말씀을 마음에 새기신 것을 축하드립니다.<br>당첨자 발표는 교회 안내를 확인해 주세요.</div>
+        <button class="summary-go challenge-cta" id="ev-go-challenge">🔥 말씀 도전으로 이어가기</button>
+        <button class="summary-change" id="ev-go-home">기록 화면으로</button>
+      </div>
+    </div>`;
+  document.getElementById("ev-go-challenge").addEventListener("click", startChallenge);
+  document.getElementById("ev-go-home").addEventListener("click", renderSummary);
+}
 
 // 설정과 응모 여부를 불러온 뒤 첫 화면 버튼을 갱신한다(요약 화면이 떠 있을 때만).
 async function loadEventState() {

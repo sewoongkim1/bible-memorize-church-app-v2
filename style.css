@@ -1779,6 +1779,21 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 .dark .summary-help.event-cta:hover { background: #5a4e2a; color: #fff; }
 .dark .summary-help.event-cta.done { background: #17311f; color: #8fd6ab; border-color: #2f5a42; }
 .dark .summary-help.event-cta.done:hover { background: #2f5a42; color: #fff; }
+
+/* 이벤트 진행 화면 */
+.test-stage.event-badge { background: var(--gold); color: var(--navy-dark); }
+.ev-progress { font-weight: 800; color: var(--navy); font-size: .95rem; padding-left: 10px; }
+.ev-hint { min-height: 20px; text-align: center; color: var(--error); font-size: .88rem; margin-top: 6px; }
+.ev-explain { margin-top: 14px; }
+.ev-explain-label { font-weight: 800; color: #8a6d1f; font-size: .9rem; margin-bottom: 6px; }
+.ev-explain-body {
+  background: #fdf8f0; border: 1px solid #ead9b0; border-radius: 10px;
+  padding: 12px 14px; font-size: .92rem; line-height: 1.7; color: #4a4436; white-space: pre-wrap;
+}
+.ev-done-msg { color: var(--gray); font-size: .92rem; line-height: 1.7; margin: 14px 0 20px; }
+.dark .ev-progress { color: #cdd9f2; }
+.dark .ev-explain-label { color: #dcb669; }
+.dark .ev-explain-body { background: #232a3a; border-color: #3a4a68; color: #dbe2ee; }
 /* 게시판 버튼 배지 — 최근 1주일 새 글/답글 개수 */
 .board-new {
   display: inline-block; margin-left: 6px; vertical-align: middle;
