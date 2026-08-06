@@ -1473,9 +1473,7 @@ function renderEventButton() {
         <span class="event-card-title">🎉 ${boardEsc(name)}</span>
         ${dday ? `<span class="event-dday${left !== null && left <= 7 ? " urgent" : ""}">${dday}</span>` : ""}
       </div>
-      <div class="event-card-desc">${done
-        ? "응모가 완료되었어요. 다시 풀어보셔도 좋아요 🙌"
-        : `말씀 ${qCount}문제만 풀면 참여 완료!`}</div>
+      ${done ? "" : `<div class="event-card-desc">말씀 ${qCount}문제만 풀면 참여 완료!</div>`}
       <button class="event-join-btn${done ? " done" : ""}" id="open-event">${
         done ? "✅ 응모 완료 · 다시 풀기" : "지금 참여하기"}</button>
       <div class="event-card-foot">
