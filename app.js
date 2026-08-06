@@ -1081,6 +1081,85 @@ function promoCardHtml() {
     </div>`;
 }
 
+// ------------------------------------------------------------
+// 말씀 이벤트 — 관리자가 app_config(key:event)로 회차를 연다.
+//   { id, name, start:"YYYY-MM-DD", end:"YYYY-MM-DD", fromNo, toNo }
+//   진행 중 상태는 저장하지 않는다(중도 이탈 시 처음부터). 응모 여부만 서버 기록.
+// ------------------------------------------------------------
+let eventConfig = null;                       // 로드된 이벤트 설정(없으면 null)
+const EVENT_ENTERED_KEY = "event-entered";    // { [eventId]: "2026-09-01T..." }
+
+function eventEnteredMap() {
+  try { return JSON.parse(localStorage.getItem(EVENT_ENTERED_KEY) || "{}") || {}; }
+  catch (e) { return {}; }
+}
+function markEventEntered(eventId, at) {
+  try {
+    const m = eventEnteredMap();
+    m[eventId] = at || new Date().toISOString();
+    localStorage.setItem(EVENT_ENTERED_KEY, JSON.stringify(m));
+  } catch (e) {}
+}
+function eventEntered() {
+  return !!(eventConfig && eventEnteredMap()[eventConfig.id]);
+}
+
+// 오늘(KST)이 이벤트 기간 안인지 — 종료일 당일 포함.
+function eventActive() {
+  if (!eventConfig || !eventConfig.id) return false;
+  const p = kstDateParts();
+  if (!p) return false;
+  const z = (n) => String(n).padStart(2, "0");
+  const today = `${p.y}-${z(p.m)}-${z(p.d)}`;
+  const start = String(eventConfig.start || "");
+  const end = String(eventConfig.end || "");
+  if (start && today < start) return false;
+  if (end && today > end) return false;
+  return true;
+}
+
+// 이벤트 대상 구절(fromNo~toNo). 설정이 이상하면 빈 배열.
+function eventVerses() {
+  if (!eventConfig) return [];
+  const from = Number(eventConfig.fromNo), to = Number(eventConfig.toNo);
+  if (!(from >= 1) || !(to >= from)) return [];
+  return verses.filter((v) => Number(v.no) >= from && Number(v.no) <= to);
+}
+
+// (Task 4에서 실제 구현으로 대체됨)
+function startEvent() { appAlert("이벤트 화면 준비 중입니다."); }
+
+// 설정과 응모 여부를 불러온 뒤 첫 화면 버튼을 갱신한다(요약 화면이 떠 있을 때만).
+async function loadEventState() {
+  if (!window.api || !api.getConfig) return;
+  try {
+    const d = await api.getConfig("event");
+    const v = d && d.value;
+    eventConfig = v && v.id ? v : null;
+  } catch (e) { eventConfig = null; }
+  if (!eventActive()) { renderEventButton(); return; }
+
+  const u = loadUser();
+  if (u && u.user_id && api.eventStatus) {
+    try {
+      const s = await api.eventStatus(eventConfig.id, u.user_id);
+      if (s && s.entered) markEventEntered(eventConfig.id, s.entered_at);
+    } catch (e) {}
+  }
+  renderEventButton();
+}
+
+// 첫 화면의 이벤트 버튼 자리(#event-slot)를 채운다. 기간 밖이면 비워 둔다.
+function renderEventButton() {
+  const slot = document.getElementById("event-slot");
+  if (!slot) return;
+  if (!eventActive() || !eventVerses().length) { slot.innerHTML = ""; return; }
+  const done = eventEntered();
+  slot.innerHTML = `<button class="summary-help event-cta${done ? " done" : ""}" id="open-event">${
+    done ? "✅ 이벤트 응모 완료" : "🎉 말씀 이벤트 참여하기"}</button>`;
+  document.getElementById("open-event").addEventListener("click", startEvent);
+}
+
 function renderSummary() {
   stopSpeaking(); // 화면 전환 시 읽어주기 정지
   const u = loadUser();
@@ -1155,6 +1234,7 @@ function renderSummary() {
       <button class="summary-go med-act act-btn" id="open-meditation"><span class="act-ic">🌿</span><span class="act-tx">매일<br>묵상</span>${newBadge("meditation")}</button>
       ${passagesVisible() ? `<button class="summary-go passages-act act-btn" id="open-passages"><span class="act-ic">📜</span><span class="act-tx">내 안에<br>거하는 말씀</span>${newBadge("passages")}</button>` : ""}
     </div>
+    <div id="event-slot"></div>
     <button class="summary-help album-cta" id="open-album">📖 나의 말씀 앨범</button>
     <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
 <button class="summary-help board-cta" id="open-board">💬 질문·제안 게시판</button>
@@ -1171,6 +1251,8 @@ function renderSummary() {
 
   document.getElementById("go-list").addEventListener("click", renderVerseList);
   loadTodayCount(u); // 첫 화면 '오늘 N회' 띠 채우기
+  renderEventButton();  // 이미 로드된 설정이 있으면 즉시 표시
+  loadEventState();     // 서버에서 설정·응모여부 갱신 후 다시 표시
   document.getElementById("open-board").addEventListener("click", renderBoard);
   fillBoardBadge(); // 최근 1주 새 글/답글 있으면 게시판 버튼에 배지
   if (weeklyVerse) document.getElementById("weekly-start").addEventListener("click", () => startTest(weeklyVerse));

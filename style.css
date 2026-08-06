@@ -1770,6 +1770,15 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 .summary-help.board-cta:hover { background: #2f6b4f; color: #fff; }
 .dark .summary-help.board-cta { background: #1c3328; color: #7fc7a0; border-color: #2f6b4f; }
 .dark .summary-help.board-cta:hover { background: #2f6b4f; color: #fff; }
+/* 말씀 이벤트 버튼 — 미응모(금색 강조) / 응모완료(차분한 초록) */
+.summary-help.event-cta { background: #fdf3d8; color: #8a6a1e; border-color: #c8a84b; }
+.summary-help.event-cta:hover { background: #c8a84b; color: #fff; }
+.summary-help.event-cta.done { background: #eaf6ee; color: #1f7a4d; border-color: #1f7a4d; }
+.summary-help.event-cta.done:hover { background: #1f7a4d; color: #fff; }
+.dark .summary-help.event-cta { background: #2a2417; color: #dcb669; border-color: #5a4e2a; }
+.dark .summary-help.event-cta:hover { background: #5a4e2a; color: #fff; }
+.dark .summary-help.event-cta.done { background: #17311f; color: #8fd6ab; border-color: #2f5a42; }
+.dark .summary-help.event-cta.done:hover { background: #2f5a42; color: #fff; }
 /* 게시판 버튼 배지 — 최근 1주일 새 글/답글 개수 */
 .board-new {
   display: inline-block; margin-left: 6px; vertical-align: middle;
