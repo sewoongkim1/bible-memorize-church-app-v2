@@ -504,6 +504,14 @@ function renderMenu(){
         </div>
         <div class="rep-arrow">›</div>
       </div>
+      <div class="rep-card" id="rep-event">
+        <div class="ic">🎉</div>
+        <div class="rep-text">
+          <div class="ti">말씀 이벤트</div>
+          <div class="de">회차 설정(기간·구절 범위) · 응모자 명단</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
     </div>`;
   document.getElementById("rep-usage").addEventListener("click", renderUsageReport);
   document.getElementById("rep-participants").addEventListener("click", renderParticipants);
@@ -521,6 +529,7 @@ function renderMenu(){
   document.getElementById("rep-daily").addEventListener("click", renderDailyMessage);
   document.getElementById("rep-milestone").addEventListener("click", renderMilestoneMessages);
   document.getElementById("rep-intro").addEventListener("click", renderIntroSlides);
+  document.getElementById("rep-event").addEventListener("click", renderEventAdmin);
   loadDashboard();
 }
 
@@ -1134,6 +1143,110 @@ async function dmDelete(id){
   if(d.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }
   if(!d.ok){ alert("삭제 실패: "+(d.error||"오류")); return; }
   dmList=next; dmEditing=null; dmRender();
+}
+
+// ---------- 말씀 이벤트(회차 설정 · 응모자 명단) ----------
+let evCfg = null;   // { id, name, start, end, fromNo, toNo }
+function evEsc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function evFmt(iso){
+  if(!iso) return "";
+  const d=new Date(iso); if(isNaN(d)) return "";
+  const z=n=>String(n).padStart(2,"0");
+  return d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate())+" "+z(d.getHours())+":"+z(d.getMinutes());
+}
+function renderEventAdmin(){
+  app.innerHTML=`
+    <div class="rep-head">
+      <button class="back-btn" id="back">← 메뉴</button>
+      <h2>🎉 말씀 이벤트</h2>
+    </div>
+    <div class="push-card" id="ev-root"><p class="msg">불러오는 중...</p></div>`;
+  document.getElementById("back").addEventListener("click", renderMenu);
+  evLoad();
+}
+async function evLoad(){
+  const d=await callApi({action:"getConfig",key:"event"}).catch(()=>({ok:false,error:"network"}));
+  const root=document.getElementById("ev-root"); if(!root) return;
+  if(!d.ok){ root.innerHTML=`<p class="msg err">불러오기 실패: ${evEsc(d.error||"오류")}</p>`; return; }
+  const v=d.value;
+  evCfg = (v && v.id) ? v : { id:"", name:"", start:"", end:"", fromNo:1, toNo:12 };
+  evRender();
+}
+function evRender(){
+  const root=document.getElementById("ev-root"); if(!root) return;
+  const c=evCfg||{};
+  root.innerHTML=`
+    <p class="push-hint">이벤트 기간 중에만 성도 첫 화면에 참여 버튼이 보입니다.
+      <b>다음 회차</b>는 회차 ID를 새로 바꾸고 기간·구절 범위만 수정하면 됩니다(응모 기록은 회차별로 따로 쌓입니다).</p>
+    <label class="push-lb">회차 ID (영문·숫자, 예: 2026-1)</label>
+    <input id="ev-id" class="push-in" value="${evEsc(c.id).replace(/"/g,'&quot;')}" placeholder="2026-1" autocomplete="off" />
+    <label class="push-lb">이벤트 이름</label>
+    <input id="ev-name" class="push-in" value="${evEsc(c.name).replace(/"/g,'&quot;')}" placeholder="성경암송 가입 이벤트" autocomplete="off" />
+    <label class="push-lb">기간 (종료일 당일까지 참여 가능)</label>
+    <div class="dm-dates">
+      <input type="date" id="ev-start" class="push-in" value="${evEsc(c.start)}" />
+      <span class="dm-sep">~</span>
+      <input type="date" id="ev-end" class="push-in" value="${evEsc(c.end)}" />
+    </div>
+    <label class="push-lb">대상 구절 번호 범위</label>
+    <div class="dm-dates">
+      <input type="number" id="ev-from" class="push-in" value="${Number(c.fromNo)||1}" min="1" />
+      <span class="dm-sep">~</span>
+      <input type="number" id="ev-to" class="push-in" value="${Number(c.toNo)||12}" min="1" />
+    </div>
+    <button class="push-send" id="ev-save">💾 이벤트 설정 저장</button>
+    <div id="ev-result" class="msg"></div>
+    <hr style="margin:22px 0;border:none;border-top:1px solid #e5e5e5" />
+    <h3 style="margin:0 0 8px;font-size:1rem">📋 응모자 명단</h3>
+    <button class="push-fill" id="ev-load-list">현재 회차 응모자 불러오기</button>
+    <div id="ev-list"></div>`;
+  document.getElementById("ev-save").addEventListener("click", evSave);
+  document.getElementById("ev-load-list").addEventListener("click", evLoadEntrants);
+}
+function evFormRead(){
+  return {
+    id: document.getElementById("ev-id").value.trim(),
+    name: document.getElementById("ev-name").value.trim(),
+    start: document.getElementById("ev-start").value||"",
+    end: document.getElementById("ev-end").value||"",
+    fromNo: Number(document.getElementById("ev-from").value)||0,
+    toNo: Number(document.getElementById("ev-to").value)||0,
+  };
+}
+async function evSave(){
+  const r=document.getElementById("ev-result");
+  const c=evFormRead();
+  if(!c.id){ r.className="msg err"; r.textContent="회차 ID를 입력하세요."; return; }
+  if(!c.name){ r.className="msg err"; r.textContent="이벤트 이름을 입력하세요."; return; }
+  if(!c.start||!c.end){ r.className="msg err"; r.textContent="시작일과 종료일을 모두 입력하세요."; return; }
+  if(c.start>c.end){ r.className="msg err"; r.textContent="종료일이 시작일보다 빠릅니다."; return; }
+  if(!(c.fromNo>=1)||!(c.toNo>=c.fromNo)){ r.className="msg err"; r.textContent="구절 범위를 확인하세요(시작 ≤ 끝)."; return; }
+  const btn=document.getElementById("ev-save"); btn.disabled=true; r.className="msg"; r.textContent="저장 중...";
+  const d=await callApi({action:"saveConfig",pw:getPw(),key:"event",value:c}).catch(()=>({ok:false,error:"network"}));
+  btn.disabled=false;
+  if(d.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }
+  if(!d.ok){ r.className="msg err"; r.textContent="저장 실패: "+evEsc(d.error||"오류"); return; }
+  evCfg=c; r.className="msg ok"; r.textContent="저장했습니다.";
+}
+async function evLoadEntrants(){
+  const wrap=document.getElementById("ev-list");
+  const id=document.getElementById("ev-id").value.trim();
+  if(!id){ wrap.innerHTML=`<p class="msg err">회차 ID를 먼저 입력·저장하세요.</p>`; return; }
+  wrap.innerHTML=`<p class="msg">불러오는 중...</p>`;
+  const d=await callApi({action:"eventEntrants",pw:getPw(),event_id:id}).catch(()=>({ok:false,error:"network"}));
+  if(d.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }
+  if(!d.ok){ wrap.innerHTML=`<p class="msg err">불러오기 실패: ${evEsc(d.error||"오류")}</p>`; return; }
+  const list=d.list||[];
+  if(!list.length){ wrap.innerHTML=`<p class="push-hint" style="text-align:center;padding:14px 0">아직 응모자가 없습니다.</p>`; return; }
+  wrap.innerHTML=`
+    <p class="push-hint" style="margin-top:10px">총 <b>${list.length}명</b> 응모 (응모순)</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>#</th><th>구분</th><th>소속</th><th>세부</th><th>이름</th><th>응모일시</th></tr></thead>
+      <tbody>${list.map((x,i)=>`<tr>
+        <td>${i+1}</td><td>${evEsc(x.gubun)}</td><td>${evEsc(x.sosok)}</td>
+        <td>${evEsc(x.sebu)}</td><td>${evEsc(x.name)}</td><td>${evFmt(x.entered_at)}</td>
+      </tr>`).join("")}</tbody>
+    </table></div>`;
 }
 
 // ---------- 환영 인트로 슬라이드(목록·순서) ----------
