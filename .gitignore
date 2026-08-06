@@ -20,6 +20,7 @@ migrate/v1dump.json
 보고서_*.html
 추가제안_*.html
 기술구조제안_*.html
+기획서_*.html
 *.pptx
 # 홍보 영상용 실기기 화면 캡처(실제 성도 이름·순위 등 개인정보 포함 — 커밋 금지)
 /Picture/
