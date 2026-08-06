@@ -1803,12 +1803,11 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 .event-step .ev-explain-label { font-size: .82rem; margin-bottom: 4px; }
 .event-step .ev-explain-body {
   padding: 9px 11px; font-size: .85rem; line-height: 1.6;
-  max-height: 30vh; overflow-y: auto;
 }
 @media (max-height: 700px) {
   .event-step .test-sentence { font-size: 16px; line-height: 1.7; }
   .event-step .ev-verse-block { padding: 10px 11px; margin-bottom: 7px; }
-  .event-step .ev-explain-body { max-height: 22vh; font-size: .82rem; }
+  .event-step .ev-explain-body { font-size: .82rem; }
 }
 .dark .ev-verse-block { background: #1b2333; border-color: #3a4a68; }
 

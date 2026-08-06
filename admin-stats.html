@@ -208,7 +208,8 @@
     font-size:.92rem;font-weight:700;color:var(--sub);cursor:pointer;font-family:inherit;}
   .dm-type.on{border-color:var(--navy);background:#eef2f8;color:var(--navy);}
   .dm-dates{display:flex;align-items:center;gap:8px;}
-  .dm-dates .push-in{margin-bottom:0;}
+  /* 좁은 화면에서 두 입력칸이 가로로 넘치지 않게 — 각자 절반씩 나눠 갖는다 */
+  .dm-dates .push-in{margin-bottom:0;flex:1 1 0;min-width:0;}
   .dm-sep{color:var(--sub);}
   .dm-hint{font-size:.78rem;color:var(--sub);margin:6px 2px 12px;}
   .dm-clear{width:100%;padding:11px;margin-top:8px;border:1px solid var(--line);border-radius:11px;
