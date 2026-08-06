@@ -157,6 +157,10 @@ Deno.serve(async (req) => {
       case "monitor":       return json(await monitor(body));
       // ---- 주간 리포트 메일 ----
       case "weeklyReport":  return json(await weeklyReport(body));
+      // ---- 말씀 이벤트 ----
+      case "eventEnter":    return json(await eventEnter(body));
+      case "eventStatus":   return json(await eventStatus(body));
+      case "eventEntrants": return json(await eventEntrants(body));
       // ---- 질문·제안 게시판 ----
       case "boardList":     return json(await boardList(body));
       case "boardCheck":    return json(await boardCheck(body));
@@ -1223,7 +1227,7 @@ async function login(b: any) {
 
 // ---------- app_config: 관리자가 배포 없이 편집하는 설정(키-값) ----------
 // 공개로 읽어도 되는 키만 화이트리스트로 허용(임의 키 노출 방지).
-const PUBLIC_CONFIG_KEYS = new Set(["heartMessages", "dailyMessage", "introSlides", "milestoneMessages", "passagesPublic"]);
+const PUBLIC_CONFIG_KEYS = new Set(["heartMessages", "dailyMessage", "introSlides", "milestoneMessages", "passagesPublic", "event"]);
 
 async function getConfig(b: any) {
   const key = String(b.key || "");
@@ -1975,6 +1979,57 @@ async function weeklyReport(b: any) {
     return { ok: sent.ok, sent, range, subject };
   }
   return { ok: true, report, html, text, csv: buildWeeklyCsv(report), subject };
+}
+
+// ---------- 말씀 이벤트: 응모 기록(회차당 1인 1응모) ----------
+// 진행 중 상태는 저장하지 않는다 — 중도 이탈 시 처음부터 다시 하는 설계.
+async function eventEnter(b: any) {
+  const eventId = String(b.event_id || "");
+  const userId = String(b.user_id || "");
+  if (!eventId || !userId) return { ok: false, error: "event_id/user_id 필요" };
+
+  // 이미 응모했으면 최초 시각을 그대로 돌려준다(재도전해도 기록은 하나).
+  const { data: exist } = await db.from("event_entries")
+    .select("entered_at").eq("event_id", eventId).eq("user_id", userId).maybeSingle();
+  if (exist) return { ok: true, entered_at: exist.entered_at };
+
+  const enteredAt = new Date().toISOString();
+  const { error } = await db.from("event_entries")
+    .insert({ event_id: eventId, user_id: userId, entered_at: enteredAt });
+  // 동시 요청으로 PK 충돌(23505)이면 이미 응모된 것이므로 성공으로 본다.
+  if (error && (error as any).code !== "23505") throw error;
+  return { ok: true, entered_at: enteredAt };
+}
+
+async function eventStatus(b: any) {
+  const eventId = String(b.event_id || "");
+  const userId = String(b.user_id || "");
+  if (!eventId || !userId) return { ok: true, entered: false, entered_at: null };
+  const { data } = await db.from("event_entries")
+    .select("entered_at").eq("event_id", eventId).eq("user_id", userId).maybeSingle();
+  return { ok: true, entered: !!data, entered_at: data?.entered_at ?? null };
+}
+
+async function eventEntrants(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const eventId = String(b.event_id || "");
+  if (!eventId) return { ok: false, error: "event_id 필요" };
+  const { data, error } = await db.from("event_entries")
+    .select("entered_at, users(type,gu,mok,bu,grade,name)")
+    .eq("event_id", eventId)
+    .order("entered_at", { ascending: true });
+  if (error) throw error;
+  const list = ((data ?? []) as any[]).map((r) => {
+    const u = r.users ?? {};
+    return {
+      gubun: u.type ?? "",
+      sosok: u.gu || u.bu || "",
+      sebu: u.mok || u.grade || "",
+      name: u.name ?? "",
+      entered_at: r.entered_at,
+    };
+  });
+  return { ok: true, list };
 }
 
 // ============================================================
