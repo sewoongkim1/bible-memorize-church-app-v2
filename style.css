@@ -1780,6 +1780,43 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 .dark .summary-help.event-cta.done { background: #17311f; color: #8fd6ab; border-color: #2f5a42; }
 .dark .summary-help.event-cta.done:hover { background: #2f5a42; color: #fff; }
 
+/* 이벤트 현황 버튼 — 참여 버튼과 구분되는 차분한 남색 톤 */
+.summary-help.event-board-cta { background: #eef1f8; color: var(--navy); border-color: var(--navy); }
+.summary-help.event-board-cta:hover { background: var(--navy); color: #fff; }
+.dark .summary-help.event-board-cta { background: #232a3a; color: #cdd9f2; border-color: #3a4a68; }
+
+/* 이벤트 현황 화면 */
+.eb-goal { background: #fdf8f0; border: 1px solid #ead9b0; border-radius: 12px; padding: 16px; margin-bottom: 18px; text-align: center; }
+.eb-goal-top { font-size: 1rem; color: var(--navy-dark); }
+.eb-goal-top b { font-size: 1.5rem; font-family: "Nanum Myeongjo", serif; color: var(--navy); }
+.eb-goal-sub { color: var(--gray); font-size: .9rem; }
+.eb-bar { height: 14px; background: #ece3cf; border-radius: 999px; overflow: hidden; margin: 12px 0 6px; }
+.eb-bar-fill { height: 100%; background: linear-gradient(90deg, #c8a84b, #e0c86a); border-radius: 999px; transition: width .6s ease; }
+.eb-goal-pct { font-size: .88rem; font-weight: 800; color: #8a6d1f; }
+.eb-sec-title { font-weight: 800; color: var(--navy); font-size: .98rem; margin: 20px 0 10px; }
+.eb-groups { display: flex; flex-direction: column; gap: 7px; }
+.eb-group { display: flex; align-items: center; gap: 10px; padding: 11px 14px; background: #f7f9fc; border: 1px solid var(--border); border-radius: 10px; }
+.eb-group.mine { background: #fdf8f0; border-color: var(--gold); }
+.eb-g-rank { flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--navy); color: #fff; font-size: .8rem; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+.eb-group.mine .eb-g-rank { background: var(--gold); color: var(--navy-dark); }
+.eb-g-name { flex: 1; font-weight: 700; color: var(--navy-dark); font-size: .95rem; }
+.eb-mine-tag { background: var(--gold); color: var(--navy-dark); font-size: .7rem; font-weight: 800; padding: 1px 7px; border-radius: 999px; margin-left: 4px; }
+.eb-g-count { font-weight: 800; color: var(--navy); font-size: .95rem; }
+.eb-list { display: flex; flex-direction: column; gap: 5px; }
+.eb-row { display: flex; align-items: baseline; gap: 9px; padding: 9px 13px; background: #fff; border: 1px solid var(--border); border-radius: 9px; }
+.eb-name { font-weight: 700; color: var(--navy-dark); font-size: .95rem; }
+.eb-affil { color: var(--gray); font-size: .83rem; }
+#eb-more-wrap { margin-top: 12px; }
+.dark .eb-goal { background: #2a2417; border-color: #5a4e2a; }
+.dark .eb-goal-top { color: #e8d9a3; }
+.dark .eb-goal-top b { color: #dcb669; }
+.dark .eb-bar { background: #3a4a68; }
+.dark .eb-group { background: #232a3a; border-color: #3a4a68; }
+.dark .eb-group.mine { background: #2a2417; border-color: #8d7531; }
+.dark .eb-g-name, .dark .eb-name { color: #dbe2ee; }
+.dark .eb-row { background: #1b2333; border-color: #3a4a68; }
+.dark .eb-sec-title, .dark .eb-g-count { color: #cdd9f2; }
+
 /* 이벤트 진행 화면 */
 .test-stage.event-badge { background: var(--gold); color: var(--navy-dark); }
 .ev-progress { font-weight: 800; color: var(--navy); font-size: .95rem; padding-left: 10px; }

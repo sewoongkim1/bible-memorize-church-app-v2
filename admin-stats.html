@@ -1188,6 +1188,8 @@ function evRender(){
       <span class="dm-sep">~</span>
       <input type="date" id="ev-end" class="push-in" value="${evEsc(c.end)}" />
     </div>
+    <label class="push-lb">목표 인원 (현황 화면 진행률 기준 · 0이면 진행률 숨김)</label>
+    <input type="number" id="ev-goal" class="push-in" value="${Number(c.goal)||0}" min="0" />
     <label class="push-lb">대상 구절 번호 범위</label>
     <div class="dm-dates">
       <input type="number" id="ev-from" class="push-in" value="${Number(c.fromNo)||1}" min="1" />
@@ -1211,6 +1213,7 @@ function evFormRead(){
     end: document.getElementById("ev-end").value||"",
     fromNo: Number(document.getElementById("ev-from").value)||0,
     toNo: Number(document.getElementById("ev-to").value)||0,
+    goal: Number(document.getElementById("ev-goal").value)||0,
   };
 }
 async function evSave(){

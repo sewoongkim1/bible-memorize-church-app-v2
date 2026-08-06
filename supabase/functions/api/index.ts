@@ -160,6 +160,7 @@ Deno.serve(async (req) => {
       // ---- 말씀 이벤트 ----
       case "eventEnter":    return json(await eventEnter(body));
       case "eventStatus":   return json(await eventStatus(body));
+      case "eventBoard":    return json(await eventBoard(body));
       case "eventEntrants": return json(await eventEntrants(body));
       // ---- 질문·제안 게시판 ----
       case "boardList":     return json(await boardList(body));
@@ -2008,6 +2009,47 @@ async function eventStatus(b: any) {
   const { data } = await db.from("event_entries")
     .select("entered_at").eq("event_id", eventId).eq("user_id", userId).maybeSingle();
   return { ok: true, entered: !!data, entered_at: data?.entered_at ?? null };
+}
+
+// 성도 공개용 이벤트 현황 — 전체 인원 + 소속별 집계 + 참여자 명단(최신순).
+// eventEntrants(관리자 전용)와 달리 비밀번호 없이 누구나 조회 가능하다.
+async function eventBoard(b: any) {
+  const eventId = String(b.event_id || "");
+  if (!eventId) return { ok: false, error: "event_id 필요" };
+  const { data, error } = await db.from("event_entries")
+    .select("user_id, entered_at")
+    .eq("event_id", eventId)
+    .order("entered_at", { ascending: false });
+  if (error) throw error;
+  const rows = (data ?? []) as any[];
+  // event_entries.user_id는 users.id를 참조하는 FK가 없어(스키마상 text) PostgREST의
+  // 암묵적 임베드(users(...))로는 조인이 안 된다 — users를 따로 조회해 메모리에서 매칭.
+  const userIds = [...new Set(rows.map((r) => r.user_id).filter(Boolean))];
+  const umap = new Map<string, any>();
+  if (userIds.length) {
+    const { data: users, error: uerr } = await db.from("users")
+      .select("id,type,gu,mok,bu,grade,name").in("id", userIds);
+    if (uerr) throw uerr;
+    (users ?? []).forEach((u: any) => umap.set(u.id, u));
+  }
+  const groupMap = new Map<string, number>();
+  const list = rows.map((r) => {
+    const u = umap.get(r.user_id) ?? {};
+    const sosok = u.gu || u.bu || "";
+    if (sosok) groupMap.set(sosok, (groupMap.get(sosok) ?? 0) + 1);
+    return {
+      name: u.name ?? "",
+      gubun: u.type ?? "",
+      sosok,
+      sebu: u.mok || u.grade || "",
+      entered_at: r.entered_at,
+    };
+  });
+  const groups = [...groupMap.entries()]
+    .map(([sosok, count]) => ({ sosok, count }))
+    .sort((a, b) => b.count - a.count)
+    .map((x, i) => ({ rank: i + 1, ...x }));
+  return { ok: true, total: list.length, groups, list };
 }
 
 async function eventEntrants(b: any) {

@@ -1277,6 +1277,98 @@ function attemptEventEnter(eventId, userId) {
     .catch(() => { renderEventDone(false, eventId, userId); });
 }
 
+// ------------------------------------------------------------
+// 이벤트 현황(성도 공개) — 목표 대비 진행률 + 소속별 순위 + 참여자 명단(실명, 최신순).
+//   서로의 참여를 보며 격려·경쟁하도록 만든 화면. 관리자 명단과 달리 비밀번호가 필요 없다.
+// ------------------------------------------------------------
+let ebRows = [];          // 참여자 전체(최신순)
+let ebShown = 0;          // 명단에서 현재까지 보여준 수
+const EB_PAGE = 50;       // '더 보기' 한 번에 늘어나는 수
+
+function renderEventBoard() {
+  stopSpeaking();
+  if (!eventConfig || !eventConfig.id) { appAlert("진행 중인 이벤트가 없어요."); return renderSummary(); }
+  document.getElementById("app").innerHTML = `
+    <div class="summary-screen"><div class="summary-card">
+      <div class="settings-head sc-head">
+        <h2 class="rank-title">🏆 이벤트 현황</h2>
+        <button class="settings-back-btn" id="eb-back">← 뒤로</button>
+      </div>
+      <div id="eb-body"><div class="sc-empty">불러오는 중…</div></div>
+    </div></div>`;
+  document.getElementById("eb-back").addEventListener("click", renderSummary);
+  window.scrollTo(0, 0);
+  loadEventBoard();
+}
+
+async function loadEventBoard() {
+  const body = document.getElementById("eb-body");
+  if (!body) return;
+  let d = null;
+  try { d = await api.eventBoard(eventConfig.id); }
+  catch (e) { body.innerHTML = `<div class="sc-empty">현황을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</div>`; return; }
+  if (!d || !d.ok) { body.innerHTML = `<div class="sc-empty">현황을 불러오지 못했어요.</div>`; return; }
+
+  ebRows = d.list || [];
+  ebShown = 0;
+  const total = Number(d.total) || 0;
+  const goal = Number(eventConfig.goal) || 0;
+  const me = loadUser() || {};
+  const mySosok = me.gu || me.bu || "";
+
+  const pct = goal > 0 ? Math.min(100, Math.round((total / goal) * 100)) : 0;
+  const progressHtml = goal > 0
+    ? `<div class="eb-goal">
+         <div class="eb-goal-top"><b>${total.toLocaleString()}명</b> 참여 <span class="eb-goal-sub">/ 목표 ${goal.toLocaleString()}명</span></div>
+         <div class="eb-bar"><div class="eb-bar-fill" style="width:${pct}%"></div></div>
+         <div class="eb-goal-pct">${pct}% 달성</div>
+       </div>`
+    : `<div class="eb-goal"><div class="eb-goal-top"><b>${total.toLocaleString()}명</b> 참여</div></div>`;
+
+  const groups = d.groups || [];
+  const groupHtml = groups.length
+    ? `<div class="eb-sec-title">📊 소속별 참여</div>
+       <div class="eb-groups">${groups.map((g) => `
+         <div class="eb-group${g.sosok === mySosok ? " mine" : ""}">
+           <span class="eb-g-rank">${g.rank}</span>
+           <span class="eb-g-name">${boardEsc(g.sosok)}${g.sosok === mySosok ? ' <span class="eb-mine-tag">우리</span>' : ""}</span>
+           <span class="eb-g-count">${g.count}명</span>
+         </div>`).join("")}</div>`
+    : "";
+
+  body.innerHTML = `
+    ${progressHtml}
+    ${groupHtml}
+    <div class="eb-sec-title">🙌 참여하신 분들</div>
+    <div class="eb-list" id="eb-list"></div>
+    <div id="eb-more-wrap"></div>`;
+  ebRenderMore();
+}
+
+// 명단을 EB_PAGE개씩 이어붙인다(1,200명까지 한 번에 그리면 무거워진다).
+function ebRenderMore() {
+  const listEl = document.getElementById("eb-list");
+  const moreWrap = document.getElementById("eb-more-wrap");
+  if (!listEl || !moreWrap) return;
+  if (!ebRows.length) {
+    listEl.innerHTML = `<div class="sc-empty">아직 참여하신 분이 없어요.<br>첫 번째 주인공이 되어 주세요 🙌</div>`;
+    moreWrap.innerHTML = "";
+    return;
+  }
+  const next = ebRows.slice(ebShown, ebShown + EB_PAGE);
+  listEl.insertAdjacentHTML("beforeend", next.map((r) => `
+    <div class="eb-row">
+      <span class="eb-name">${boardEsc(r.name)}</span>
+      <span class="eb-affil">${boardEsc([r.sosok, r.sebu].filter(Boolean).join(" · "))}</span>
+    </div>`).join(""));
+  ebShown += next.length;
+  moreWrap.innerHTML = ebShown < ebRows.length
+    ? `<button class="summary-help" id="eb-more">더 보기 (${ebRows.length - ebShown}명 남음)</button>`
+    : "";
+  const btn = document.getElementById("eb-more");
+  if (btn) btn.addEventListener("click", ebRenderMore);
+}
+
 // 응모 완료 화면. ok=true면 정상 완료, false면 정답은 맞혔지만 서버 기록에 실패했다는
 // 안내와 '다시 시도' 버튼을 보여준다(재시도 성공 시 정상 완료 화면으로 전환).
 function renderEventDone(ok, eventId, userId) {
@@ -1300,6 +1392,7 @@ function renderEventDone(ok, eventId, userId) {
     <div class="summary-screen">
       <div class="summary-card cd-card">
         ${bodyHtml}
+        <button class="summary-help event-board-cta" id="ev-board">🏆 이벤트 현황 보기</button>
         <button class="summary-change" id="ev-go-home">기록 화면으로</button>
       </div>
     </div>`;
@@ -1318,6 +1411,7 @@ function renderEventDone(ok, eventId, userId) {
     });
   }
   document.getElementById("ev-go-challenge").addEventListener("click", startChallenge);
+  { const b = document.getElementById("ev-board"); if (b) b.addEventListener("click", renderEventBoard); }
   document.getElementById("ev-go-home").addEventListener("click", renderSummary);
 }
 
@@ -1348,8 +1442,10 @@ function renderEventButton() {
   if (!eventActive() || !eventVerses().length) { slot.innerHTML = ""; return; }
   const done = eventEntered();
   slot.innerHTML = `<button class="summary-help event-cta${done ? " done" : ""}" id="open-event">${
-    done ? "✅ 이벤트 응모 완료" : "🎉 말씀 이벤트 참여하기"}</button>`;
+    done ? "✅ 이벤트 응모 완료" : "🎉 말씀 이벤트 참여하기"}</button>
+    <button class="summary-help event-board-cta" id="open-event-board">🏆 이벤트 현황 보기</button>`;
   document.getElementById("open-event").addEventListener("click", startEvent);
+  document.getElementById("open-event-board").addEventListener("click", renderEventBoard);
 }
 
 function renderSummary() {

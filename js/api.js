@@ -74,6 +74,7 @@ const api = {
   // 말씀 이벤트 — 응모 기록/조회(성도), 응모자 명단(관리자)
   eventEnter: (event_id, user_id) => supaCall("eventEnter", { event_id, user_id }),
   eventStatus: (event_id, user_id) => supaCall("eventStatus", { event_id, user_id }),
+  eventBoard: (event_id) => supaCall("eventBoard", { event_id }),
   eventEntrants: (pw, event_id) => supaCall("eventEntrants", { pw, event_id }),
 };
 
