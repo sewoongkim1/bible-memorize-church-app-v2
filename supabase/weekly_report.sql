@@ -6,13 +6,15 @@
 --   REPORT_FROM      : 보내는 주소  예) 성경암송 리포트 <report@onlybible.kr>
 --                      (도메인 인증 전에는 onboarding@resend.dev 사용 — 본인에게만 발송 가능)
 --
--- 발송 시각: 매주 토요일 08:00 KST = 금요일 23:00 UTC → '0 23 * * 5'
+-- 발송 시각: 매주 금요일 08:00 KST = 목요일 23:00 UTC → '0 23 * * 4'
+--   ⚠️ UTC 요일로 적어야 한다. '* * 5'(금 UTC)로 두면 한국시간 토요일에 나간다(실제로 그렇게 어긋난 적 있음).
+--   집계 범위가 '전주 금~이번주 목'이므로 금요일 발송이 맞다.
 -- ⚠️ 이 저장소는 공개(public)입니다 — 'pw' 값을 실제 ADMIN_SECRET으로 바꿔서 실행하고,
 --    바꾼 값을 절대 커밋하지 마세요(이 파일은 예시 그대로 유지).
 
 select cron.schedule(
   'weekly-report-email',
-  '0 23 * * 5',   -- 금 23:00 UTC = 토 08:00 KST
+  '0 23 * * 4',   -- 목 23:00 UTC = 금 08:00 KST
   $$
   select net.http_post(
     url := 'https://xnomlgydifiqiybervtf.supabase.co/functions/v1/api',
