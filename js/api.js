@@ -71,6 +71,10 @@ const api = {
   // 설교말씀 도우미(RAG 챗봇) — 성도는 user_id로 인가·로깅된다.
   sermonChat: (message, user_id) => supaCall("sermonChat", { message, user_id }),
   sermonSummary: (sermonId, user_id) => supaCall("sermonSummary", { sermonId, user_id }),
+  // 말씀 이벤트 — 응모 기록/조회(성도), 응모자 명단(관리자)
+  eventEnter: (event_id, user_id) => supaCall("eventEnter", { event_id, user_id }),
+  eventStatus: (event_id, user_id) => supaCall("eventStatus", { event_id, user_id }),
+  eventEntrants: (pw, event_id) => supaCall("eventEntrants", { pw, event_id }),
 };
 
 window.api = api;
