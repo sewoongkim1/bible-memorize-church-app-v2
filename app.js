@@ -469,6 +469,19 @@ function clearUser() {
   localStorage.removeItem(USER_KEY);
 }
 
+// 공용 기기에서 넘겨주기 전에 이 기기에 남은 "그 사람" 흔적을 모두 지운다.
+// 화면 밝기·글씨 크기·듣기 속도 같은 기기 설정은 다음 사람에게도 그대로 쓸모가 있어 남긴다.
+// 서버 기록은 건드리지 않으므로 같은 이름으로 다시 들어오면 진도가 그대로 복구된다.
+function clearPersonalData() {
+  // 상수들이 이 함수보다 아래에서 선언되므로 호출 시점에 목록을 만든다
+  [
+    USER_KEY, PRIVACY_CONSENT_KEY, PROGRESS_KEY, SYNC_STATUS_KEY, REVIEW_KEY,
+    HEART_KEY, PASSAGE_KEY, DAILY_MILESTONE_KEY, BLESS_KEY, EVENT_ENTERED_KEY,
+    "board-seen",
+  ].forEach((k) => { try { localStorage.removeItem(k); } catch {} });
+  try { sessionStorage.clear(); } catch {}
+}
+
 // "사랑교구 3목장 김성도" / "초등부 김믿음"
 function userLabel(u) {
   if (!u) return "";
@@ -2032,6 +2045,7 @@ function renderSettings() {
         <button class="summary-install" id="test-push">🧪 내 기기로 테스트 알림</button>
         <a class="summary-install" href="admin.html">📊 관리자 페이지</a>
         <button class="summary-install" id="privacy-info">🔐 개인정보 안내 보기</button>
+        <button class="push-off" id="clear-me">🚪 이 기기에서 내 정보 지우기<br><span class="btn-sub">( 공용 기기에서 사용하셨다면 눌러주세요 )</span></button>
         <div class="setting-block">
           <div class="setting-label">☁️ 동기화 상태</div>
           ${syncStatusHtml()}
@@ -2051,6 +2065,7 @@ function renderSettings() {
   });
   document.getElementById("enable-push").addEventListener("click", () => { if (typeof enablePush === "function") enablePush(); });
   document.getElementById("disable-push").addEventListener("click", () => { if (typeof disablePush === "function") disablePush(); });
+  document.getElementById("clear-me").addEventListener("click", clearMeOnThisDevice);
   document.getElementById("test-push").addEventListener("click", () => { if (typeof testMyPush === "function") testMyPush(); });
   updateAppStatus();
   setupSyncRetry();
@@ -2060,6 +2075,25 @@ function renderSettings() {
   setupTtsRate();
   setupPushHour();
   setupInstallButton();
+}
+
+// 공용 기기(로비 지원용 태블릿 등)를 다음 사람에게 넘기기 전에 내 흔적을 지운다.
+// 서버 기록은 그대로여서 같은 이름으로 다시 들어오면 진도가 복구된다.
+async function clearMeOnThisDevice() {
+  const u = loadUser();
+  const who = u ? userLabel(u) : "이 기기";
+  const ok = await appConfirm(
+    `<b>${who}</b> 님의 정보를 이 기기에서 지웁니다.<br><br>` +
+      `암송 기록은 <b>서버에 그대로 남아</b> 있어서, 나중에 같은 이름으로 다시 들어오시면 진도가 그대로 이어집니다.<br><br>` +
+      `이 기기의 알림도 함께 꺼집니다.`,
+    { title: "🚪 내 정보 지우기", okText: "지우기", danger: true }
+  );
+  if (!ok) return;
+  if (typeof disablePush === "function") await disablePush(true); // 다음 사람에게 내 알림이 가지 않도록
+  clearPersonalData();
+  stopSpeaking();
+  await appAlert("이 기기에서 정보를 지웠습니다.<br>다음 분이 새로 시작하실 수 있어요.");
+  renderEntryScreen();
 }
 
 // 암송 언어(한국어/영어 NIV) 선택 UI — 영어 본문이 있는 구절에만 적용된다

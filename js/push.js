@@ -68,7 +68,8 @@ async function enablePush() {
 window.enablePush = enablePush;
 
 // 알림 끄기(구독 해제) — 로컬 구독 취소 + 서버 삭제
-async function disablePush() {
+// silent=true — "내 정보 지우기"처럼 다른 안내가 이어질 때 알림창 없이 조용히 해제
+async function disablePush(silent) {
   try {
     const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
     let endpoint = null;
@@ -77,10 +78,10 @@ async function disablePush() {
       if (sub) { endpoint = sub.endpoint; await sub.unsubscribe(); }
     }
     if (endpoint) await api.removePush(endpoint).catch(() => {});
-    appAlert("🔕 매일 암송 알림이 해제되었습니다.");
+    if (!silent) appAlert("🔕 매일 암송 알림이 해제되었습니다.");
     if (typeof updateAppStatus === "function") updateAppStatus();
   } catch (e) {
-    appAlert("알림 해제에 실패했습니다: " + (e && e.message ? e.message : e));
+    if (!silent) appAlert("알림 해제에 실패했습니다: " + (e && e.message ? e.message : e));
   }
 }
 window.disablePush = disablePush;
