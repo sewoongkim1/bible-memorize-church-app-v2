@@ -5023,25 +5023,35 @@ function renderAlbum() {
     setText(c, true);
   };
 
-  // 확인 표시는 눌러서 켜고 끈다. 여기서 다시 그리면 「미확인」일 때 카드가
+  // 확인 상태를 화면에 반영한다. 여기서 목록을 다시 그리면 「미확인」일 때 카드가
   // 눈앞에서 사라져 놀라므로, 화면은 그대로 두고 표시만 바꾼다.
+  const applyChecked = (card, on) => {
+    const chip = card.querySelector(".album-check");
+    card.classList.toggle("checked", on);
+    if (chip) {
+      chip.classList.toggle("on", on);
+      chip.textContent = on ? "✅ 확인함" : "✓ 확인";
+      chip.setAttribute("aria-pressed", String(on));
+    }
+    // 확인 = 답 맞춰보기라 함께 펼치고, 확인을 풀면 다시 가려 처음처럼 되돌린다
+    if (on) reveal(card); else conceal(card);
+  };
+
   appEl.querySelectorAll(".album-check").forEach((s) =>
     s.addEventListener("click", (e) => {
       e.stopPropagation();
-      const on = toggleAlbumChecked(Number(s.dataset.check));
-      s.classList.toggle("on", on);
-      s.textContent = on ? "✅ 확인함" : "✓ 확인";
-      s.setAttribute("aria-pressed", String(on));
-      const card = s.closest(".album-card");
-      card.classList.toggle("checked", on);
-      // 확인 = 답 맞춰보기라 함께 펼치고, 확인을 풀면 다시 가려 처음처럼 되돌린다
-      if (on) reveal(card); else conceal(card);
+      applyChecked(s.closest(".album-card"), toggleAlbumChecked(Number(s.dataset.check)));
     }));
 
-  // 카드를 누르면 가려둔 곳을 펼쳐 보기만 한다. 확인 표시와 암송 진입은 각각 버튼으로.
-  // (더블탭은 iOS 확대와 부딪히고 타이밍을 맞춰야 해서 어르신들께 부담이 된다)
+  // 말씀 영역을 누르는 것도 '확인'이다 — 펼쳐 보는 순간 답을 본 것이므로.
+  // 다만 해제는 버튼으로만 한다(스크롤 중 잘못 눌러 확인이 풀리면 곤란하다).
+  // 암송 진입은 📖 암송 버튼으로만 — 더블탭은 iOS 확대와 부딪히고 타이밍 부담도 크다.
   appEl.querySelectorAll(".album-card").forEach((c) =>
-    c.addEventListener("click", () => reveal(c)));
+    c.addEventListener("click", () => {
+      if (c.classList.contains("checked")) return;
+      toggleAlbumChecked(Number(c.dataset.no));
+      applyChecked(c, true);
+    }));
 }
 
 function renderRanking(range) {
