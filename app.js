@@ -1482,7 +1482,7 @@ async function loadEventState() {
   renderEventButton();
 }
 
-// 첫 화면의 이벤트 버튼 자리(#event-slot)를 채운다. 기간 밖이면 비워 둔다.
+// 첫 화면의 이벤트 카드를 그린다. 기간 밖이면 두 자리 모두 비워 둔다.
 // 종료일까지 남은 일수(KST). 오늘이 종료일이면 0.
 function eventDaysLeft() {
   if (!eventConfig || !eventConfig.end) return null;
@@ -1494,11 +1494,17 @@ function eventDaysLeft() {
 }
 
 function renderEventButton() {
-  const slot = document.getElementById("event-slot");
-  if (!slot) return;
+  // 참여 전에는 맨 위(#event-slot)에서 눈에 띄게, 응모를 마치면 맨 아래
+  // (#event-slot-bottom)로 내려 자리를 비운다.
+  const topSlot = document.getElementById("event-slot");
+  const botSlot = document.getElementById("event-slot-bottom");
+  if (topSlot) topSlot.innerHTML = "";
+  if (botSlot) botSlot.innerHTML = "";
   const pool = eventVerses();
-  if (!eventActive() || !pool.length) { slot.innerHTML = ""; return; }
+  if (!eventActive() || !pool.length) return;
   const done = eventEntered();
+  const slot = (done ? botSlot : topSlot) || topSlot || botSlot;
+  if (!slot) return;
   const name = (eventConfig && eventConfig.name) || "말씀 이벤트";
   const left = eventDaysLeft();
   const endTxt = eventConfig && eventConfig.end
@@ -1602,6 +1608,7 @@ function renderSummary() {
 <button class="summary-help board-cta" id="open-board">💬 질문·제안 게시판</button>
     <button class="summary-help praise-cta" id="open-praise">🎵 고척교회 찬양 아카이브</button>
     <button class="summary-help sermon-cta" id="open-sermon-archive">📺 고척교회 설교 아카이브</button>
+    <div id="event-slot-bottom"></div>
     <div class="summary-icons summary-icons-bottom">
       <button class="summary-icon icon-alarm" id="open-alarm" aria-label="매일 암송 알림 받기" title="매일 암송 알림 받기">🔔</button>
       <button class="summary-icon icon-share" id="open-share" aria-label="공유하기" title="함께할 친구에게 공유하기">🔗</button>
