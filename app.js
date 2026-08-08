@@ -4948,10 +4948,10 @@ function renderAlbum() {
         <span class="album-ref">${ref}</span>
         <span class="album-text">${body}</span>
         <span class="album-tools">
+          <span class="album-go" data-go="${v.no}" role="button" tabindex="0" aria-label="${ref} 암송하기">📖 암송</span>
           <span class="album-listen" data-listen="${v.no}" role="button" tabindex="0" aria-label="${ref} 들어보기">🔊 듣기</span>
           <span class="album-check${checked.includes(v.no) ? " on" : ""}" data-check="${v.no}" role="button" tabindex="0"
                 aria-pressed="${checked.includes(v.no)}" aria-label="${ref} 오늘 확인">${checked.includes(v.no) ? "✅ 확인함" : "✓ 확인"}</span>
-          <span class="album-go" data-go="${v.no}" role="button" tabindex="0" aria-label="${ref} 암송하기">📖 암송</span>
         </span>
       </button>`;
   }).join("");
@@ -4967,13 +4967,13 @@ function renderAlbum() {
         <button data-h="text" class="${albumHideText ? "on" : ""}">${albumHideText ? "🙈" : "👁"} 말씀 숨김</button>
         <button data-h="hint" class="${albumHint ? "on" : ""}">💡 힌트</button>
         <button data-h="shuffle" class="${albumOrder ? "on" : ""}">🔀 섞기</button>
-        <button data-h="unseen" class="${albumUnseenOnly ? "on" : ""}">🔎 안 본 것만</button>
+        <button data-h="unseen" class="${albumUnseenOnly ? "on" : ""}">🔎 미확인</button>
       </div>
       ${hiding ? `<p class="album-hint">가려진 곳을 떠올려 보고, 카드를 눌러 확인하세요</p>` : ""}
       ${list.length
         ? `<div class="album-grid${albumHideRef ? " hide-ref" : ""}${albumHideText ? " hide-text" : ""}">${cards}</div>`
         : `<p class="album-empty">${done.length
-            ? "오늘 전부 확인하셨어요! 🎉<br>「안 본 것만」을 끄면 다시 볼 수 있어요."
+            ? "오늘 전부 확인하셨어요! 🎉<br>「미확인」을 끄면 다시 볼 수 있어요."
             : "아직 완료한 구절이 없어요.<br>첫 구절을 암송해 보세요 📖"}</p>`}
     </div>
     <button class="album-home" id="ab-back" aria-label="첫 화면으로">🏠 ${userLabel(u)} 성도님</button>`;

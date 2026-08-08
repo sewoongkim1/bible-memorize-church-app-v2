@@ -1659,21 +1659,23 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 .album-hint { text-align: center; font-size: .8rem; color: #6a7688; margin: -6px 0 12px; }
 .dark .album-hint { color: #9aa6bb; }
 
-/* 카드별 듣기·확인·암송 — 카드를 누르는 동작과 겹치지 않게 오른쪽 아래에 작게 */
-.album-tools { display: flex; justify-content: flex-end; gap: 6px; margin-top: 2px; }
-.album-listen, .album-go, .album-check {
-  font-size: .76rem; font-weight: 600; color: #5b6b86;
-  border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px;
-  background: #fff; cursor: pointer; white-space: nowrap;
+/* 카드별 암송·듣기·확인 — 셋의 크기와 모양을 같게(3등분), 확인만 채워서 강조 */
+.album-tools { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 6px; }
+.album-go, .album-listen, .album-check {
+  font-size: .78rem; font-weight: 700; text-align: center; white-space: nowrap;
+  color: var(--navy); background: #fff;
+  border: 1px solid var(--border); border-radius: 999px; padding: 6px 4px;
+  cursor: pointer;
 }
-.album-listen:hover, .album-go:hover, .album-check:hover { background: var(--cream); color: var(--navy); }
-.album-go { color: var(--navy); border-color: var(--navy); }
-.album-go:hover { background: var(--navy); color: #fff; }
-.album-check.on { background: #2f6b4f; border-color: #2f6b4f; color: #fff; }
-.album-check.on:hover { background: #27583f; color: #fff; }
-.dark .album-listen, .dark .album-go, .dark .album-check { background: #2a3450; border-color: #3a4a68; color: #c3cee6; }
-.dark .album-go { border-color: #56688c; }
-.dark .album-check.on { background: #2f6b4f; border-color: #6fbf95; color: #fff; }
+.album-go:hover, .album-listen:hover { background: var(--cream); }
+/* 확인 — 한 단계 강조(채운 버튼), 누른 뒤에는 초록으로 완료를 알린다 */
+.album-check { background: var(--navy); border-color: var(--navy); color: #fff; }
+.album-check:hover { background: var(--navy-dark); }
+.album-check.on { background: #2f6b4f; border-color: #2f6b4f; }
+.album-check.on:hover { background: #27583f; }
+.dark .album-go, .dark .album-listen { background: #2a3450; border-color: #3a4a68; color: #c3cee6; }
+.dark .album-check { background: #3a4a68; border-color: #56688c; color: #fff; }
+.dark .album-check.on { background: #2f6b4f; border-color: #6fbf95; }
 
 /* 오늘 확인한 구절 — 왼쪽 띠로 표시(상태 문구는 확인 버튼이 대신한다) */
 .album-card.checked { border-left: 4px solid #2f6b4f; }
