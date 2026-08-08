@@ -4926,8 +4926,13 @@ function renderAlbum() {
   const hiding = albumHideRef || albumHideText || albumHint;
   const checked = albumCheckedToday();
 
-  // 섞기를 눌렀으면 그 순서를 따르되, 그 사이 새로 완료된 구절은 뒤에 붙인다
-  let list = done;
+  // 기본 정렬: 오늘 확인하지 않은 것 먼저 → 그 안에서 최신(구절 번호 큰 것) 먼저.
+  // 아직 볼 것이 위로 모여 스크롤 없이 이어서 할 수 있다.
+  let list = [...done].sort((a, b) => {
+    const ca = checked.includes(a.no) ? 1 : 0;
+    const cb = checked.includes(b.no) ? 1 : 0;
+    return ca !== cb ? ca - cb : b.no - a.no;
+  });
   if (albumOrder) {
     const byNo = new Map(done.map((v) => [v.no, v]));
     const mixed = albumOrder.map((n) => byNo.get(n)).filter(Boolean);
