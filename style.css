@@ -1626,7 +1626,8 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 .album-banner .ab-num { font-size: 1.6rem; color: var(--navy); font-family: "Nanum Myeongjo", serif; }
 .album-banner .ab-sub { font-size: .82rem; color: #6a7688; margin-top: 4px; }
 .album-filter { margin-bottom: 10px; }
-.album-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+/* 한 줄에 한 구절 — 2단이면 긴 구절이 잘리거나 단어가 어색하게 끊긴다 */
+.album-grid { display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 14px; }
 .album-card {
   position: relative; text-align: left; cursor: pointer; font-family: inherit;
   background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
@@ -1638,8 +1639,8 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 .album-crown { position: absolute; top: 8px; right: 8px; font-size: .9rem; }
 .album-ref { font-weight: 800; color: var(--navy); font-size: .9rem; }
 .album-text {
-  font-size: .8rem; color: #444; line-height: 1.5;
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  font-size: .88rem; color: #444; line-height: 1.6;
+  word-break: keep-all; /* 한글 단어 중간에서 끊기지 않게 */
 }
 .album-at { font-size: .72rem; color: #8b95a6; }
 .album-empty { text-align: center; color: #6a7688; padding: 28px 10px; line-height: 1.7; }
