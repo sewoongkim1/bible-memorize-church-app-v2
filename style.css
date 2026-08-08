@@ -1642,7 +1642,16 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
   font-size: .88rem; color: #444; line-height: 1.6;
   word-break: keep-all; /* 한글 단어 중간에서 끊기지 않게 */
 }
-.album-at { font-size: .72rem; color: #8b95a6; }
+/* 자가점검 — 가려진 부분은 흐리게. 카드를 누르면 그 카드만 펼쳐진다(.peek) */
+.album-quiz { margin-top: -6px; }
+.album-grid.hide-ref .album-card:not(.peek) .album-ref,
+.album-grid.hide-text .album-card:not(.peek) .album-text {
+  filter: blur(6px);
+  user-select: none; -webkit-user-select: none;
+}
+.album-card .album-ref, .album-card .album-text { transition: filter .18s; }
+.album-hint { text-align: center; font-size: .8rem; color: #6a7688; margin: -6px 0 12px; }
+.dark .album-hint { color: #9aa6bb; }
 .album-empty { text-align: center; color: #6a7688; padding: 28px 10px; line-height: 1.7; }
 .dark .album-card { background: #232c3f; border-color: #3a4a68; }
 .dark .album-card.hearted { background: #2b2717; border-color: #8d7531; }

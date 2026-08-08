@@ -4877,27 +4877,27 @@ async function callRanking(from, to) {
 
 // ------------------------------------------------------------
 // 나의 말씀 앨범 — 3단계 완료 구절을 모아 보고(👑 마음에 둠 필터), 공유한다.
-//   완료일(at)은 saveProgress가 기록. 이전에 완료한 구절은 없을 수 있어 있을 때만 표시.
 // ------------------------------------------------------------
+// 자가점검: 요절·말씀을 가려두고 스스로 떠올려 본다(입력 없음, 카드를 눌러 확인).
+// 화면을 벗어나면 초기화되도록 일부러 저장하지 않는다 — 다시 들어오면 늘 보이는 상태.
+let albumHideRef = false;
+let albumHideText = false;
 function renderAlbum(filter) {
   const f = filter === "heart" ? "heart" : "all";
   const u = loadUser();
   const appEl = document.getElementById("app");
-  const prog = loadProgress();
   const done = verses.filter((v) => getPassedStage(v.no) >= 3);
   const hearted = done.filter((v) => isHearted(v.no));
   const list = f === "heart" ? hearted : done;
+  const hiding = albumHideRef || albumHideText;
 
   const cards = list.map((v) => {
-    const raw = prog[v.no] && prog[v.no].at ? String(prog[v.no].at) : "";
-    const at = raw ? raw.slice(5).replace("-", ".") : ""; // YYYY-MM-DD → MM.DD
     const heart = isHearted(v.no);
     return `
       <button class="album-card${heart ? " hearted" : ""}" data-no="${v.no}">
         ${heart ? `<span class="album-crown">👑</span>` : ""}
         <span class="album-ref">${v.refShort}</span>
         <span class="album-text">${v.text}</span>
-        ${at ? `<span class="album-at">${at} 완료</span>` : ""}
       </button>`;
   }).join("");
 
@@ -4915,8 +4915,13 @@ function renderAlbum(filter) {
         <button data-f="all" class="${f === "all" ? "on" : ""}">전체 ${done.length}</button>
         <button data-f="heart" class="${f === "heart" ? "on" : ""}">👑 마음에 둠 ${hearted.length}</button>
       </div>
+      <div class="rank-filter album-quiz" id="ab-quiz">
+        <button data-h="ref" class="${albumHideRef ? "on" : ""}">${albumHideRef ? "🙈" : "👁"} 요절 숨김</button>
+        <button data-h="text" class="${albumHideText ? "on" : ""}">${albumHideText ? "🙈" : "👁"} 말씀 숨김</button>
+      </div>
+      ${hiding ? `<p class="album-hint">가려진 곳을 떠올려 보고, 카드를 눌러 확인하세요</p>` : ""}
       ${list.length
-        ? `<div class="album-grid">${cards}</div>`
+        ? `<div class="album-grid${albumHideRef ? " hide-ref" : ""}${albumHideText ? " hide-text" : ""}">${cards}</div>`
         : `<p class="album-empty">${f === "heart"
             ? "아직 '마음에 둠'으로 체크한 구절이 없어요.<br>3단계까지 암송하면 체크할 수 있습니다 🙌"
             : "아직 완료한 구절이 없어요.<br>첫 구절을 암송해 보세요 📖"}</p>`}
@@ -4925,8 +4930,16 @@ function renderAlbum(filter) {
   document.getElementById("ab-back").addEventListener("click", renderSummary);
   document.getElementById("ab-filter").querySelectorAll("button").forEach((b) =>
     b.addEventListener("click", () => renderAlbum(b.dataset.f)));
+  document.getElementById("ab-quiz").querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => {
+      if (b.dataset.h === "ref") albumHideRef = !albumHideRef;
+      else albumHideText = !albumHideText;
+      renderAlbum(f);
+    }));
   appEl.querySelectorAll(".album-card").forEach((c) =>
     c.addEventListener("click", () => {
+      // 가려둔 상태에선 첫 탭이 '확인'(그 카드만 펼침), 이미 본 카드는 암송 화면으로
+      if (hiding && !c.classList.contains("peek")) { c.classList.add("peek"); return; }
       const v = verses.find((x) => x.no === Number(c.dataset.no));
       if (v) startTest(v);
     }));
