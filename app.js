@@ -477,7 +477,7 @@ function clearPersonalData() {
   [
     USER_KEY, PRIVACY_CONSENT_KEY, PROGRESS_KEY, SYNC_STATUS_KEY, REVIEW_KEY,
     HEART_KEY, PASSAGE_KEY, DAILY_MILESTONE_KEY, BLESS_KEY, EVENT_ENTERED_KEY,
-    "board-seen",
+    "board-seen", "album-checked",
   ].forEach((k) => { try { localStorage.removeItem(k); } catch {} });
   try { sessionStorage.clear(); } catch {}
 }
@@ -4876,72 +4876,131 @@ async function callRanking(from, to) {
 }
 
 // ------------------------------------------------------------
-// 나의 말씀 앨범 — 3단계 완료 구절을 모아 보고(👑 마음에 둠 필터), 공유한다.
+// 나의 말씀 앨범 — 3단계 완료 구절을 모아 보고, 그 자리에서 스스로 점검한다.
 // ------------------------------------------------------------
-// 자가점검: 요절·말씀을 가려두고 스스로 떠올려 본다(입력 없음, 카드를 눌러 확인).
-// 화면을 벗어나면 초기화되도록 일부러 저장하지 않는다 — 다시 들어오면 늘 보이는 상태.
+// 가림 상태는 저장하지 않는다 — 다시 들어오면 늘 다 보이는 상태로 시작.
 let albumHideRef = false;
 let albumHideText = false;
-function renderAlbum(filter) {
-  const f = filter === "heart" ? "heart" : "all";
+let albumHint = false;      // 첫 글자 힌트(말씀 숨김과 배타 — 같은 것의 세기 차이라 동시에 켜면 헷갈린다)
+let albumOrder = null;      // 섞기 결과(구절 번호 배열). null이면 원래 순서
+
+// "주의 말씀은 내 발에" → "주○ 말○○ 내 발○" — 문장부호는 남겨 리듬을 유지한다
+function firstCharHint(text) {
+  return String(text || "")
+    .split(/(\s+)/)
+    .map((w) => (/^\s+$/.test(w) || w.length < 2
+      ? w
+      : w[0] + w.slice(1).replace(/[^\s.,!?·:;"'()[\]]/g, "○")))
+    .join("");
+}
+
+// 오늘 확인한 구절 — 날짜(KST)가 바뀌면 자동으로 비워진다
+const ALBUM_CHECKED_KEY = "album-checked";
+function albumTodayStr() {
+  const p = kstDateParts();
+  if (!p) return "";
+  const z = (n) => String(n).padStart(2, "0");
+  return `${p.y}-${z(p.m)}-${z(p.d)}`;
+}
+function albumCheckedToday() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(ALBUM_CHECKED_KEY) || "{}");
+    return raw.date === albumTodayStr() && Array.isArray(raw.nos) ? raw.nos : [];
+  } catch { return []; }
+}
+function markAlbumChecked(no) {
+  const nos = albumCheckedToday();
+  if (nos.includes(no)) return;
+  nos.push(no);
+  try { localStorage.setItem(ALBUM_CHECKED_KEY, JSON.stringify({ date: albumTodayStr(), nos })); } catch {}
+}
+
+function renderAlbum() {
   const u = loadUser();
   const appEl = document.getElementById("app");
   const done = verses.filter((v) => getPassedStage(v.no) >= 3);
   const hearted = done.filter((v) => isHearted(v.no));
-  const list = f === "heart" ? hearted : done;
-  const hiding = albumHideRef || albumHideText;
+  const hiding = albumHideRef || albumHideText || albumHint;
+  const checked = albumCheckedToday();
+
+  // 섞기를 눌렀으면 그 순서를 따르되, 그 사이 새로 완료된 구절은 뒤에 붙인다
+  let list = done;
+  if (albumOrder) {
+    const byNo = new Map(done.map((v) => [v.no, v]));
+    const shuffled = albumOrder.map((n) => byNo.get(n)).filter(Boolean);
+    const seen = new Set(shuffled.map((v) => v.no));
+    list = shuffled.concat(done.filter((v) => !seen.has(v.no)));
+  }
 
   const cards = list.map((v) => {
     const heart = isHearted(v.no);
+    const ref = verseRefShort(v);
+    const body = albumHint ? firstCharHint(verseText(v)) : verseText(v);
     return `
-      <button class="album-card${heart ? " hearted" : ""}" data-no="${v.no}">
+      <button class="album-card${heart ? " hearted" : ""}${checked.includes(v.no) ? " checked" : ""}" data-no="${v.no}">
         ${heart ? `<span class="album-crown">👑</span>` : ""}
-        <span class="album-ref">${v.refShort}</span>
-        <span class="album-text">${v.text}</span>
+        <span class="album-ref">${ref}</span>
+        <span class="album-text">${body}</span>
+        <span class="album-tools">
+          <span class="album-listen" data-listen="${v.no}" role="button" tabindex="0" aria-label="${ref} 들어보기">🔊 듣기</span>
+        </span>
       </button>`;
   }).join("");
 
   appEl.innerHTML = `
     <div class="album-screen">
-      <div class="list-nav">
-        <button class="remind-cta nav-record" id="ab-back">← ${userLabel(u)} 성도님</button>
-      </div>
       <h2 class="rank-title">📖 나의 말씀 앨범</h2>
       <div class="album-banner">
         <div class="ab-line"><b class="ab-num">${hearted.length}</b>구절을 마음에 두었습니다 👑</div>
-        <div class="ab-sub">암송 완료 ${done.length}구절 · 전체 ${verses.length}구절</div>
-      </div>
-      <div class="rank-filter album-filter" id="ab-filter">
-        <button data-f="all" class="${f === "all" ? "on" : ""}">전체 ${done.length}</button>
-        <button data-f="heart" class="${f === "heart" ? "on" : ""}">👑 마음에 둠 ${hearted.length}</button>
       </div>
       <div class="rank-filter album-quiz" id="ab-quiz">
         <button data-h="ref" class="${albumHideRef ? "on" : ""}">${albumHideRef ? "🙈" : "👁"} 요절 숨김</button>
         <button data-h="text" class="${albumHideText ? "on" : ""}">${albumHideText ? "🙈" : "👁"} 말씀 숨김</button>
+        <button data-h="hint" class="${albumHint ? "on" : ""}">💡 첫글자 힌트</button>
+        <button data-h="shuffle" class="${albumOrder ? "on" : ""}">🔀 섞기</button>
       </div>
       ${hiding ? `<p class="album-hint">가려진 곳을 떠올려 보고, 카드를 눌러 확인하세요</p>` : ""}
       ${list.length
         ? `<div class="album-grid${albumHideRef ? " hide-ref" : ""}${albumHideText ? " hide-text" : ""}">${cards}</div>`
-        : `<p class="album-empty">${f === "heart"
-            ? "아직 '마음에 둠'으로 체크한 구절이 없어요.<br>3단계까지 암송하면 체크할 수 있습니다 🙌"
-            : "아직 완료한 구절이 없어요.<br>첫 구절을 암송해 보세요 📖"}</p>`}
-    </div>`;
+        : `<p class="album-empty">아직 완료한 구절이 없어요.<br>첫 구절을 암송해 보세요 📖</p>`}
+    </div>
+    <button class="album-home" id="ab-back" aria-label="첫 화면으로">🏠 ${userLabel(u)} 성도님</button>`;
 
-  document.getElementById("ab-back").addEventListener("click", renderSummary);
-  document.getElementById("ab-filter").querySelectorAll("button").forEach((b) =>
-    b.addEventListener("click", () => renderAlbum(b.dataset.f)));
+  document.getElementById("ab-back").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
   document.getElementById("ab-quiz").querySelectorAll("button").forEach((b) =>
     b.addEventListener("click", () => {
-      if (b.dataset.h === "ref") albumHideRef = !albumHideRef;
-      else albumHideText = !albumHideText;
-      renderAlbum(f);
+      const h = b.dataset.h;
+      if (h === "ref") albumHideRef = !albumHideRef;
+      else if (h === "text") { albumHideText = !albumHideText; if (albumHideText) albumHint = false; }
+      else if (h === "hint") { albumHint = !albumHint; if (albumHint) albumHideText = false; }
+      else albumOrder = albumOrder ? null : shuffled(done.map((v) => v.no));
+      renderAlbum();
     }));
+
+  appEl.querySelectorAll(".album-listen").forEach((s) =>
+    s.addEventListener("click", (e) => {
+      e.stopPropagation(); // 카드 열기(확인/암송)와 겹치지 않게
+      const v = verses.find((x) => x.no === Number(s.dataset.listen));
+      if (!v) return;
+      if (window.speechSynthesis && window.speechSynthesis.speaking) { stopSpeaking(); return; }
+      speakText(verseText(v), null, 1, isEnMode(v) ? "en-US" : "ko-KR");
+    }));
+
   appEl.querySelectorAll(".album-card").forEach((c) =>
     c.addEventListener("click", () => {
-      // 가려둔 상태에선 첫 탭이 '확인'(그 카드만 펼침), 이미 본 카드는 암송 화면으로
-      if (hiding && !c.classList.contains("peek")) { c.classList.add("peek"); return; }
+      // 가려둔 상태에선 첫 탭이 '확인'(그 카드만 펼침), 이미 확인한 카드는 암송 화면으로
+      if (hiding && !c.classList.contains("peek")) {
+        c.classList.add("peek", "checked");
+        markAlbumChecked(Number(c.dataset.no));
+        if (albumHint) { // 힌트는 blur가 아니라 글자 자체를 바꾼 것이라 원문으로 되돌린다
+          const v = verses.find((x) => x.no === Number(c.dataset.no));
+          const el = c.querySelector(".album-text");
+          if (v && el) el.textContent = verseText(v);
+        }
+        return;
+      }
       const v = verses.find((x) => x.no === Number(c.dataset.no));
-      if (v) startTest(v);
+      if (v) { stopSpeaking(); startTest(v); }
     }));
 }
 
