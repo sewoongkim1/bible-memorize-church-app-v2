@@ -4943,6 +4943,7 @@ function renderAlbum() {
         <span class="album-text">${body}</span>
         <span class="album-tools">
           <span class="album-listen" data-listen="${v.no}" role="button" tabindex="0" aria-label="${ref} 들어보기">🔊 듣기</span>
+          <span class="album-go" data-go="${v.no}" role="button" tabindex="0" aria-label="${ref} 암송하기">📖 암송</span>
         </span>
       </button>`;
   }).join("");
@@ -4986,22 +4987,28 @@ function renderAlbum() {
       speakText(verseText(v), null, 1, isEnMode(v) ? "en-US" : "ko-KR");
     }));
 
-  appEl.querySelectorAll(".album-card").forEach((c) =>
+  const goTest = (no) => {
+    const v = verses.find((x) => x.no === Number(no));
+    if (v) { stopSpeaking(); startTest(v); }
+  };
+  appEl.querySelectorAll(".album-go").forEach((s) =>
+    s.addEventListener("click", (e) => { e.stopPropagation(); goTest(s.dataset.go); }));
+
+  appEl.querySelectorAll(".album-card").forEach((c) => {
+    // 한 번 누르면 '확인'만 — 훑어보다 실수로 암송 화면에 빠지지 않게 한다
     c.addEventListener("click", () => {
-      // 가려둔 상태에선 첫 탭이 '확인'(그 카드만 펼침), 이미 확인한 카드는 암송 화면으로
-      if (hiding && !c.classList.contains("peek")) {
-        c.classList.add("peek", "checked");
-        markAlbumChecked(Number(c.dataset.no));
-        if (albumHint) { // 힌트는 blur가 아니라 글자 자체를 바꾼 것이라 원문으로 되돌린다
-          const v = verses.find((x) => x.no === Number(c.dataset.no));
-          const el = c.querySelector(".album-text");
-          if (v && el) el.textContent = verseText(v);
-        }
-        return;
+      if (!hiding || c.classList.contains("peek")) return;
+      c.classList.add("peek", "checked");
+      markAlbumChecked(Number(c.dataset.no));
+      if (albumHint) { // 힌트는 blur가 아니라 글자 자체를 바꾼 것이라 원문으로 되돌린다
+        const v = verses.find((x) => x.no === Number(c.dataset.no));
+        const el = c.querySelector(".album-text");
+        if (v && el) el.textContent = verseText(v);
       }
-      const v = verses.find((x) => x.no === Number(c.dataset.no));
-      if (v) { stopSpeaking(); startTest(v); }
-    }));
+    });
+    // 두 번 누르면 암송 화면으로 (iOS 확대는 CSS touch-action:manipulation으로 막아둠)
+    c.addEventListener("dblclick", () => goTest(c.dataset.no));
+  });
 }
 
 function renderRanking(range) {
