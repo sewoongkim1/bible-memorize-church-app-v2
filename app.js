@@ -4936,18 +4936,20 @@ function renderAlbum() {
 
   const cards = list.map((v) => {
     const heart = isHearted(v.no);
+    const isChecked = checked.includes(v.no);
     const ref = verseRefShort(v);
-    const body = albumHint ? firstCharHint(verseText(v)) : verseText(v);
+    // 확인한 구절은 숨김·힌트와 무관하게 늘 전문을 보여준다
+    const body = albumHint && !isChecked ? firstCharHint(verseText(v)) : verseText(v);
     return `
-      <button class="album-card${heart ? " hearted" : ""}${checked.includes(v.no) ? " checked" : ""}" data-no="${v.no}">
+      <button class="album-card${heart ? " hearted" : ""}${isChecked ? " checked" : ""}" data-no="${v.no}">
         ${heart ? `<span class="album-crown">👑</span>` : ""}
         <span class="album-ref">${ref}</span>
         <span class="album-text">${body}</span>
         <span class="album-tools">
           <span class="album-go" data-go="${v.no}" role="button" tabindex="0" aria-label="${ref} 암송하기">📖 암송</span>
           <span class="album-listen" data-listen="${v.no}" role="button" tabindex="0" aria-label="${ref} 들어보기">🔊 듣기</span>
-          <span class="album-check${checked.includes(v.no) ? " on" : ""}" data-check="${v.no}" role="button" tabindex="0"
-                aria-pressed="${checked.includes(v.no)}" aria-label="${ref} 오늘 확인">${checked.includes(v.no) ? "✅ 확인함" : "✓ 확인"}</span>
+          <span class="album-check${isChecked ? " on" : ""}" data-check="${v.no}" role="button" tabindex="0"
+                aria-pressed="${isChecked}" aria-label="${ref} 오늘 확인">${isChecked ? "✅ 확인함" : "✓ 확인"}</span>
         </span>
       </button>`;
   }).join("");

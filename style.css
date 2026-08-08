@@ -1649,9 +1649,10 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 .rank-filter.album-quiz button { grid-column: span 2; padding: 7px 4px; }
 .rank-filter.album-quiz button[data-h="ref"],
 .rank-filter.album-quiz button[data-h="text"] { grid-column: span 3; padding: 7px 14px; }
-/* 자가점검 — 가려진 부분은 흐리게. 카드를 누르면 그 카드만 펼쳐진다(.peek) */
-.album-grid.hide-ref .album-card:not(.peek) .album-ref,
-.album-grid.hide-text .album-card:not(.peek) .album-text {
+/* 자가점검 — 가려진 부분은 흐리게. 카드를 누르면 그 카드만 펼쳐진다(.peek).
+   확인한 구절(.checked)은 숨김을 켜도 늘 보인다 */
+.album-grid.hide-ref .album-card:not(.peek):not(.checked) .album-ref,
+.album-grid.hide-text .album-card:not(.peek):not(.checked) .album-text {
   filter: blur(6px);
   user-select: none; -webkit-user-select: none;
 }
