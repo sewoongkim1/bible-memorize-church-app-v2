@@ -1659,27 +1659,25 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 .album-hint { text-align: center; font-size: .8rem; color: #6a7688; margin: -6px 0 12px; }
 .dark .album-hint { color: #9aa6bb; }
 
-/* 카드별 듣기·암송 — 카드를 누르는 동작과 겹치지 않게 오른쪽 아래에 작게 */
+/* 카드별 듣기·확인·암송 — 카드를 누르는 동작과 겹치지 않게 오른쪽 아래에 작게 */
 .album-tools { display: flex; justify-content: flex-end; gap: 6px; margin-top: 2px; }
-.album-listen, .album-go {
+.album-listen, .album-go, .album-check {
   font-size: .76rem; font-weight: 600; color: #5b6b86;
   border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px;
-  background: #fff; cursor: pointer;
+  background: #fff; cursor: pointer; white-space: nowrap;
 }
-.album-listen:hover, .album-go:hover { background: var(--cream); color: var(--navy); }
+.album-listen:hover, .album-go:hover, .album-check:hover { background: var(--cream); color: var(--navy); }
 .album-go { color: var(--navy); border-color: var(--navy); }
 .album-go:hover { background: var(--navy); color: #fff; }
-.dark .album-listen, .dark .album-go { background: #2a3450; border-color: #3a4a68; color: #c3cee6; }
+.album-check.on { background: #2f6b4f; border-color: #2f6b4f; color: #fff; }
+.album-check.on:hover { background: #27583f; color: #fff; }
+.dark .album-listen, .dark .album-go, .dark .album-check { background: #2a3450; border-color: #3a4a68; color: #c3cee6; }
 .dark .album-go { border-color: #56688c; }
+.dark .album-check.on { background: #2f6b4f; border-color: #6fbf95; color: #fff; }
 
-/* 오늘 확인한 구절 — 왼쪽 띠로 표시(내용은 가리지 않는다) */
+/* 오늘 확인한 구절 — 왼쪽 띠로 표시(상태 문구는 확인 버튼이 대신한다) */
 .album-card.checked { border-left: 4px solid #2f6b4f; }
-.album-card.checked .album-ref::after {
-  content: "✓ 오늘 확인"; margin-left: 6px;
-  font-size: .68rem; font-weight: 600; color: #2f6b4f; vertical-align: 1px;
-}
 .dark .album-card.checked { border-left-color: #6fbf95; }
-.dark .album-card.checked .album-ref::after { color: #6fbf95; }
 
 /* 어디서 스크롤하든 첫 화면으로 — 화면 하단 고정 */
 .album-home {

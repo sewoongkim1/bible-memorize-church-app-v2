@@ -4911,11 +4911,13 @@ function albumCheckedToday() {
     return raw.date === albumTodayStr() && Array.isArray(raw.nos) ? raw.nos : [];
   } catch { return []; }
 }
-function markAlbumChecked(no) {
+// 켜고 끄기 — 잘못 눌렀을 때 되돌릴 수 있어야 한다
+function toggleAlbumChecked(no) {
   const nos = albumCheckedToday();
-  if (nos.includes(no)) return;
-  nos.push(no);
+  const i = nos.indexOf(no);
+  if (i >= 0) nos.splice(i, 1); else nos.push(no);
   try { localStorage.setItem(ALBUM_CHECKED_KEY, JSON.stringify({ date: albumTodayStr(), nos })); } catch {}
+  return i < 0; // 이번에 확인 표시가 켜졌으면 true
 }
 
 function renderAlbum() {
@@ -4947,6 +4949,8 @@ function renderAlbum() {
         <span class="album-text">${body}</span>
         <span class="album-tools">
           <span class="album-listen" data-listen="${v.no}" role="button" tabindex="0" aria-label="${ref} 들어보기">🔊 듣기</span>
+          <span class="album-check${checked.includes(v.no) ? " on" : ""}" data-check="${v.no}" role="button" tabindex="0"
+                aria-pressed="${checked.includes(v.no)}" aria-label="${ref} 오늘 확인">${checked.includes(v.no) ? "✅ 확인함" : "✓ 확인"}</span>
           <span class="album-go" data-go="${v.no}" role="button" tabindex="0" aria-label="${ref} 암송하기">📖 암송</span>
         </span>
       </button>`;
@@ -4961,7 +4965,7 @@ function renderAlbum() {
       <div class="rank-filter album-quiz" id="ab-quiz">
         <button data-h="ref" class="${albumHideRef ? "on" : ""}">${albumHideRef ? "🙈" : "👁"} 요절 숨김</button>
         <button data-h="text" class="${albumHideText ? "on" : ""}">${albumHideText ? "🙈" : "👁"} 말씀 숨김</button>
-        <button data-h="hint" class="${albumHint ? "on" : ""}">💡 첫글자 힌트</button>
+        <button data-h="hint" class="${albumHint ? "on" : ""}">💡 힌트</button>
         <button data-h="shuffle" class="${albumOrder ? "on" : ""}">🔀 섞기</button>
         <button data-h="unseen" class="${albumUnseenOnly ? "on" : ""}">🔎 안 본 것만</button>
       </div>
@@ -5002,13 +5006,24 @@ function renderAlbum() {
   appEl.querySelectorAll(".album-go").forEach((s) =>
     s.addEventListener("click", (e) => { e.stopPropagation(); goTest(s.dataset.go); }));
 
-  // 카드를 누르면 '확인'만 한다 — 암송 화면 진입은 카드 안의 📖 암송 버튼으로만.
+  // 확인 표시는 눌러서 켜고 끈다. 여기서 다시 그리면 「안 본 것만」일 때 카드가
+  // 눈앞에서 사라져 놀라므로, 화면은 그대로 두고 표시만 바꾼다.
+  appEl.querySelectorAll(".album-check").forEach((s) =>
+    s.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const on = toggleAlbumChecked(Number(s.dataset.check));
+      s.classList.toggle("on", on);
+      s.textContent = on ? "✅ 확인함" : "✓ 확인";
+      s.setAttribute("aria-pressed", String(on));
+      s.closest(".album-card").classList.toggle("checked", on);
+    }));
+
+  // 카드를 누르면 가려둔 곳을 펼쳐 보기만 한다. 확인 표시와 암송 진입은 각각 버튼으로.
   // (더블탭은 iOS 확대와 부딪히고 타이밍을 맞춰야 해서 어르신들께 부담이 된다)
   appEl.querySelectorAll(".album-card").forEach((c) =>
     c.addEventListener("click", () => {
       if (!hiding || c.classList.contains("peek")) return;
-      c.classList.add("peek", "checked");
-      markAlbumChecked(Number(c.dataset.no));
+      c.classList.add("peek");
       if (albumHint) { // 힌트는 blur가 아니라 글자 자체를 바꾼 것이라 원문으로 되돌린다
         const v = verses.find((x) => x.no === Number(c.dataset.no));
         const el = c.querySelector(".album-text");
