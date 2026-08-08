@@ -2369,6 +2369,7 @@ function renderVerseList() {
   `;
 
   const listEl = document.getElementById("verse-list");
+  window.scrollTo(0, 0); // 이전 화면의 스크롤 위치가 남지 않도록
   document.getElementById("to-summary").addEventListener("click", renderSummary);
   const weeklyInfo = getWeeklyVerseInfo();
   const weeklyNo = weeklyInfo && weeklyInfo.verse ? weeklyInfo.verse.no : null;
@@ -2427,6 +2428,7 @@ function renderPassageList() {
     <div id="pg-list" class="pg-list"><div class="pg-empty">불러오는 중…</div></div>
     <button class="home-fab" id="pg-back" aria-label="첫 화면으로">${backLabel}</button>
   `;
+  window.scrollTo(0, 0); // 이전 화면의 스크롤 위치가 남지 않도록
   document.getElementById("pg-back").addEventListener("click", renderSummary);
   if (u) { applyVerseCounts(); loadVerseCounts(u); } // 뒤로 버튼의 '· 총 N회'를 일반 목록과 동일하게 채움
   const listEl = document.getElementById("pg-list");
@@ -4983,6 +4985,7 @@ function renderAlbum() {
     </div>
     <button class="home-fab" id="ab-back" aria-label="첫 화면으로">🏠 ${userLabel(u)} 성도님</button>`;
 
+  window.scrollTo(0, 0); // 첫 화면에서 내려온 위치가 남아 중간부터 보이던 문제
   document.getElementById("ab-back").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
   document.getElementById("ab-quiz").querySelectorAll("button").forEach((b) =>
     b.addEventListener("click", () => {
