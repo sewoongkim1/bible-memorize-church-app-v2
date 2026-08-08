@@ -2364,10 +2364,8 @@ function renderVerseList() {
   const u = loadUser();
   const appEl = document.getElementById("app");
   appEl.innerHTML = `
-    <div class="list-nav">
-      <button class="remind-cta nav-record" id="to-summary">← ${userLabel(u)} 성도님<span id="nav-total" class="nav-total"></span></button>
-    </div>
     <div id="verse-list" class="verse-grid"></div>
+    <button class="home-fab" id="to-summary" aria-label="첫 화면으로">🏠 ${userLabel(u)} 성도님<span id="nav-total" class="nav-total"></span></button>
   `;
 
   const listEl = document.getElementById("verse-list");
@@ -2424,12 +2422,10 @@ function renderVerseList() {
 function renderPassageList() {
   const u = loadUser();
   const appEl = document.getElementById("app");
-  const backLabel = u ? `← ${userLabel(u)} 성도님<span id="nav-total" class="nav-total"></span>` : "← 뒤로";
+  const backLabel = u ? `🏠 ${userLabel(u)} 성도님<span id="nav-total" class="nav-total"></span>` : "🏠 첫 화면";
   appEl.innerHTML = `
-    <div class="list-nav">
-      <button class="remind-cta nav-record" id="pg-back">${backLabel}</button>
-    </div>
     <div id="pg-list" class="pg-list"><div class="pg-empty">불러오는 중…</div></div>
+    <button class="home-fab" id="pg-back" aria-label="첫 화면으로">${backLabel}</button>
   `;
   document.getElementById("pg-back").addEventListener("click", renderSummary);
   if (u) { applyVerseCounts(); loadVerseCounts(u); } // 뒤로 버튼의 '· 총 N회'를 일반 목록과 동일하게 채움
@@ -4976,7 +4972,7 @@ function renderAlbum() {
             ? "오늘 전부 확인하셨어요! 🎉<br>「미확인」을 끄면 다시 볼 수 있어요."
             : "아직 완료한 구절이 없어요.<br>첫 구절을 암송해 보세요 📖"}</p>`}
     </div>
-    <button class="album-home" id="ab-back" aria-label="첫 화면으로">🏠 ${userLabel(u)} 성도님</button>`;
+    <button class="home-fab" id="ab-back" aria-label="첫 화면으로">🏠 ${userLabel(u)} 성도님</button>`;
 
   document.getElementById("ab-back").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
   document.getElementById("ab-quiz").querySelectorAll("button").forEach((b) =>
