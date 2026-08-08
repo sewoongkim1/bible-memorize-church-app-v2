@@ -5002,15 +5002,23 @@ function renderAlbum() {
   appEl.querySelectorAll(".album-go").forEach((s) =>
     s.addEventListener("click", (e) => { e.stopPropagation(); goTest(s.dataset.go); }));
 
-  // 가려둔 곳을 펼친다 — 카드를 누르든 확인을 누르든 같게 동작해야 한다
+  // 가려둔 곳을 펼치고 되돌린다 — 카드를 누르든 확인을 누르든 같게 동작해야 한다.
+  // 힌트는 blur가 아니라 글자 자체를 바꾼 것이라 본문을 직접 갈아끼운다.
+  const setText = (c, hinted) => {
+    if (!albumHint) return;
+    const v = verses.find((x) => x.no === Number(c.dataset.no));
+    const el = c.querySelector(".album-text");
+    if (v && el) el.textContent = hinted ? firstCharHint(verseText(v)) : verseText(v);
+  };
   const reveal = (c) => {
     if (!hiding || c.classList.contains("peek")) return;
     c.classList.add("peek");
-    if (albumHint) { // 힌트는 blur가 아니라 글자 자체를 바꾼 것이라 원문으로 되돌린다
-      const v = verses.find((x) => x.no === Number(c.dataset.no));
-      const el = c.querySelector(".album-text");
-      if (v && el) el.textContent = verseText(v);
-    }
+    setText(c, false);
+  };
+  const conceal = (c) => {
+    if (!c.classList.contains("peek")) return;
+    c.classList.remove("peek");
+    setText(c, true);
   };
 
   // 확인 표시는 눌러서 켜고 끈다. 여기서 다시 그리면 「미확인」일 때 카드가
@@ -5024,7 +5032,8 @@ function renderAlbum() {
       s.setAttribute("aria-pressed", String(on));
       const card = s.closest(".album-card");
       card.classList.toggle("checked", on);
-      reveal(card); // 답을 맞춰봐야 하니 가려둔 곳도 함께 펼친다
+      // 확인 = 답 맞춰보기라 함께 펼치고, 확인을 풀면 다시 가려 처음처럼 되돌린다
+      if (on) reveal(card); else conceal(card);
     }));
 
   // 카드를 누르면 가려둔 곳을 펼쳐 보기만 한다. 확인 표시와 암송 진입은 각각 버튼으로.
