@@ -3127,15 +3127,17 @@ function scrollPastBtnRow() {
   }, 80);
 }
 
-// 요절 고정 배너(.test-ref-sticky)는 top:0에 고정되므로, 원래 그 자리에 있는 앱 상단 로고
-// 배너(.page-header)와 겹쳐 보인다. #app 내용이 바뀔 때마다 자동으로 감시해서, 요절 고정
-// 배너가 있는 화면(암송·도전·복습)에서는 로고 배너를 숨기고 없는 화면에서는 다시 보여준다
-// — 어떤 경로로 화면이 전환되든(뒤로가기 포함) 항상 올바르게 따라간다.
+// 상단 로고 배너(.page-header)를 숨겨야 하는 화면이 있다.
+//   .test-ref-sticky — 요절 고정 배너가 top:0을 쓰므로 로고 배너와 겹친다(암송·도전·복습)
+//   .album-screen    — 구절을 길게 훑는 화면이라 위쪽 공간을 온전히 내준다
+// #app 내용이 바뀔 때마다 감시해서, 어떤 경로로 전환되든(뒤로가기 포함) 항상 따라간다.
 (function watchPageHeaderVsStickyRef() {
   const appEl = document.getElementById("app");
   const header = document.querySelector(".page-header");
   if (!appEl || !header) return;
-  const sync = () => { header.style.display = appEl.querySelector(".test-ref-sticky") ? "none" : ""; };
+  const sync = () => {
+    header.style.display = appEl.querySelector(".test-ref-sticky, .album-screen") ? "none" : "";
+  };
   sync();
   new MutationObserver(sync).observe(appEl, { childList: true });
 })();
@@ -4883,6 +4885,7 @@ let albumHideRef = false;
 let albumHideText = false;
 let albumHint = false;      // 첫 글자 힌트(말씀 숨김과 배타 — 같은 것의 세기 차이라 동시에 켜면 헷갈린다)
 let albumOrder = null;      // 섞기 결과(구절 번호 배열). null이면 원래 순서
+let albumUnseenOnly = false; // 오늘 아직 확인하지 않은 구절만 보기
 
 // "주의 말씀은 내 발에" → "주○ 말○○ 내 발○" — 문장부호는 남겨 리듬을 유지한다
 function firstCharHint(text) {
@@ -4927,10 +4930,11 @@ function renderAlbum() {
   let list = done;
   if (albumOrder) {
     const byNo = new Map(done.map((v) => [v.no, v]));
-    const shuffled = albumOrder.map((n) => byNo.get(n)).filter(Boolean);
-    const seen = new Set(shuffled.map((v) => v.no));
-    list = shuffled.concat(done.filter((v) => !seen.has(v.no)));
+    const mixed = albumOrder.map((n) => byNo.get(n)).filter(Boolean);
+    const seen = new Set(mixed.map((v) => v.no));
+    list = mixed.concat(done.filter((v) => !seen.has(v.no)));
   }
+  if (albumUnseenOnly) list = list.filter((v) => !checked.includes(v.no));
 
   const cards = list.map((v) => {
     const heart = isHearted(v.no);
@@ -4959,11 +4963,14 @@ function renderAlbum() {
         <button data-h="text" class="${albumHideText ? "on" : ""}">${albumHideText ? "🙈" : "👁"} 말씀 숨김</button>
         <button data-h="hint" class="${albumHint ? "on" : ""}">💡 첫글자 힌트</button>
         <button data-h="shuffle" class="${albumOrder ? "on" : ""}">🔀 섞기</button>
+        <button data-h="unseen" class="${albumUnseenOnly ? "on" : ""}">🔎 안 본 것만</button>
       </div>
       ${hiding ? `<p class="album-hint">가려진 곳을 떠올려 보고, 카드를 눌러 확인하세요</p>` : ""}
       ${list.length
         ? `<div class="album-grid${albumHideRef ? " hide-ref" : ""}${albumHideText ? " hide-text" : ""}">${cards}</div>`
-        : `<p class="album-empty">아직 완료한 구절이 없어요.<br>첫 구절을 암송해 보세요 📖</p>`}
+        : `<p class="album-empty">${done.length
+            ? "오늘 전부 확인하셨어요! 🎉<br>「안 본 것만」을 끄면 다시 볼 수 있어요."
+            : "아직 완료한 구절이 없어요.<br>첫 구절을 암송해 보세요 📖"}</p>`}
     </div>
     <button class="album-home" id="ab-back" aria-label="첫 화면으로">🏠 ${userLabel(u)} 성도님</button>`;
 
@@ -4974,6 +4981,7 @@ function renderAlbum() {
       if (h === "ref") albumHideRef = !albumHideRef;
       else if (h === "text") { albumHideText = !albumHideText; if (albumHideText) albumHint = false; }
       else if (h === "hint") { albumHint = !albumHint; if (albumHint) albumHideText = false; }
+      else if (h === "unseen") albumUnseenOnly = !albumUnseenOnly;
       else albumOrder = albumOrder ? null : shuffled(done.map((v) => v.no));
       renderAlbum();
     }));
@@ -4994,8 +5002,9 @@ function renderAlbum() {
   appEl.querySelectorAll(".album-go").forEach((s) =>
     s.addEventListener("click", (e) => { e.stopPropagation(); goTest(s.dataset.go); }));
 
-  appEl.querySelectorAll(".album-card").forEach((c) => {
-    // 한 번 누르면 '확인'만 — 훑어보다 실수로 암송 화면에 빠지지 않게 한다
+  // 카드를 누르면 '확인'만 한다 — 암송 화면 진입은 카드 안의 📖 암송 버튼으로만.
+  // (더블탭은 iOS 확대와 부딪히고 타이밍을 맞춰야 해서 어르신들께 부담이 된다)
+  appEl.querySelectorAll(".album-card").forEach((c) =>
     c.addEventListener("click", () => {
       if (!hiding || c.classList.contains("peek")) return;
       c.classList.add("peek", "checked");
@@ -5005,10 +5014,7 @@ function renderAlbum() {
         const el = c.querySelector(".album-text");
         if (v && el) el.textContent = verseText(v);
       }
-    });
-    // 두 번 누르면 암송 화면으로 (iOS 확대는 CSS touch-action:manipulation으로 막아둠)
-    c.addEventListener("dblclick", () => goTest(c.dataset.no));
-  });
+    }));
 }
 
 function renderRanking(range) {

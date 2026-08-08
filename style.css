@@ -1642,9 +1642,13 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
   font-size: .88rem; color: #444; line-height: 1.6;
   word-break: keep-all; /* 한글 단어 중간에서 끊기지 않게 */
 }
-/* 자가점검 도구 — 4개가 3+1로 어색하게 접히지 않도록 2×2 고정.
-   .rank-filter{display:flex}가 이 파일 뒤쪽에 있어 클래스 두 개로 우선순위를 올린다 */
-.rank-filter.album-quiz { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+/* 자가점검 도구 — 윗줄 2개(숨김), 아랫줄 3개(힌트·섞기·안 본 것만)로 고정.
+   6등분 격자에 span으로 나눈다. .rank-filter{display:flex}가 이 파일 뒤쪽에 있어
+   클래스 두 개로 우선순위를 올린다 */
+.rank-filter.album-quiz { display: grid; grid-template-columns: repeat(6, 1fr); gap: 7px; }
+.rank-filter.album-quiz button { grid-column: span 2; padding: 7px 4px; }
+.rank-filter.album-quiz button[data-h="ref"],
+.rank-filter.album-quiz button[data-h="text"] { grid-column: span 3; padding: 7px 14px; }
 /* 자가점검 — 가려진 부분은 흐리게. 카드를 누르면 그 카드만 펼쳐진다(.peek) */
 .album-grid.hide-ref .album-card:not(.peek) .album-ref,
 .album-grid.hide-text .album-card:not(.peek) .album-text {
@@ -1667,8 +1671,6 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 .album-go:hover { background: var(--navy); color: #fff; }
 .dark .album-listen, .dark .album-go { background: #2a3450; border-color: #3a4a68; color: #c3cee6; }
 .dark .album-go { border-color: #56688c; }
-/* 더블탭으로 암송 화면 진입 — iOS의 더블탭 확대를 막아야 이벤트가 온전히 온다 */
-.album-card { touch-action: manipulation; }
 
 /* 오늘 확인한 구절 — 왼쪽 띠로 표시(내용은 가리지 않는다) */
 .album-card.checked { border-left: 4px solid #2f6b4f; }
