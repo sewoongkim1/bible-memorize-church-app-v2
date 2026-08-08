@@ -5002,7 +5002,18 @@ function renderAlbum() {
   appEl.querySelectorAll(".album-go").forEach((s) =>
     s.addEventListener("click", (e) => { e.stopPropagation(); goTest(s.dataset.go); }));
 
-  // 확인 표시는 눌러서 켜고 끈다. 여기서 다시 그리면 「안 본 것만」일 때 카드가
+  // 가려둔 곳을 펼친다 — 카드를 누르든 확인을 누르든 같게 동작해야 한다
+  const reveal = (c) => {
+    if (!hiding || c.classList.contains("peek")) return;
+    c.classList.add("peek");
+    if (albumHint) { // 힌트는 blur가 아니라 글자 자체를 바꾼 것이라 원문으로 되돌린다
+      const v = verses.find((x) => x.no === Number(c.dataset.no));
+      const el = c.querySelector(".album-text");
+      if (v && el) el.textContent = verseText(v);
+    }
+  };
+
+  // 확인 표시는 눌러서 켜고 끈다. 여기서 다시 그리면 「미확인」일 때 카드가
   // 눈앞에서 사라져 놀라므로, 화면은 그대로 두고 표시만 바꾼다.
   appEl.querySelectorAll(".album-check").forEach((s) =>
     s.addEventListener("click", (e) => {
@@ -5011,21 +5022,15 @@ function renderAlbum() {
       s.classList.toggle("on", on);
       s.textContent = on ? "✅ 확인함" : "✓ 확인";
       s.setAttribute("aria-pressed", String(on));
-      s.closest(".album-card").classList.toggle("checked", on);
+      const card = s.closest(".album-card");
+      card.classList.toggle("checked", on);
+      reveal(card); // 답을 맞춰봐야 하니 가려둔 곳도 함께 펼친다
     }));
 
   // 카드를 누르면 가려둔 곳을 펼쳐 보기만 한다. 확인 표시와 암송 진입은 각각 버튼으로.
   // (더블탭은 iOS 확대와 부딪히고 타이밍을 맞춰야 해서 어르신들께 부담이 된다)
   appEl.querySelectorAll(".album-card").forEach((c) =>
-    c.addEventListener("click", () => {
-      if (!hiding || c.classList.contains("peek")) return;
-      c.classList.add("peek");
-      if (albumHint) { // 힌트는 blur가 아니라 글자 자체를 바꾼 것이라 원문으로 되돌린다
-        const v = verses.find((x) => x.no === Number(c.dataset.no));
-        const el = c.querySelector(".album-text");
-        if (v && el) el.textContent = verseText(v);
-      }
-    }));
+    c.addEventListener("click", () => reveal(c)));
 }
 
 function renderRanking(range) {
