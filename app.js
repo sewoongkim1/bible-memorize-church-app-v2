@@ -1600,6 +1600,8 @@ function renderSummary() {
     <button class="summary-help album-cta" id="open-album">📖 나의 말씀 앨범</button>
     <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
 <button class="summary-help board-cta" id="open-board">💬 질문·제안 게시판</button>
+    <button class="summary-help praise-cta" id="open-praise">🎵 고척교회 찬양 아카이브</button>
+    <button class="summary-help sermon-cta" id="open-sermon-archive">📺 고척교회 설교 아카이브</button>
     <div class="summary-icons summary-icons-bottom">
       <button class="summary-icon icon-alarm" id="open-alarm" aria-label="매일 암송 알림 받기" title="매일 암송 알림 받기">🔔</button>
       <button class="summary-icon icon-share" id="open-share" aria-label="공유하기" title="함께할 친구에게 공유하기">🔗</button>
@@ -1616,6 +1618,9 @@ function renderSummary() {
   renderEventButton();  // 이미 로드된 설정이 있으면 즉시 표시
   loadEventState();     // 서버에서 설정·응모여부 갱신 후 다시 표시
   document.getElementById("open-board").addEventListener("click", renderBoard);
+  // 형제 앱(찬양·말씀 아카이브)으로 이동 — 새 탭이라 암송 진행 상태를 잃지 않는다
+  document.getElementById("open-praise").addEventListener("click", () => window.open("https://worship.onlybible.kr/", "_blank", "noopener"));
+  document.getElementById("open-sermon-archive").addEventListener("click", () => window.open("https://sermon.onlybible.kr/", "_blank", "noopener"));
   fillBoardBadge(); // 최근 1주 새 글/답글 있으면 게시판 버튼에 배지
   if (weeklyVerse) document.getElementById("weekly-start").addEventListener("click", () => startTest(weeklyVerse));
   if (weeklyVerse) document.getElementById("weekly-share").addEventListener("click", () => shareWeeklyVerse(weeklyVerse));
