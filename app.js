@@ -3086,6 +3086,8 @@ function hasEn(verse) { return !!(verse && verse.textEn && verse.textEn.trim());
 function isEnMode(verse) { return getLang() === "en" && hasEn(verse); } // 영어 없는 구절은 자동 한국어
 function verseText(verse) { return isEnMode(verse) ? verse.textEn : verse.text; }
 function verseRefShort(verse) { return isEnMode(verse) ? (verse.refEn || verse.refShort) : verse.refShort; }
+// "시편 119편 105절" — 넓게 쓸 수 있는 화면(앨범)용. 영어 모드는 원래 표기를 그대로 쓴다.
+function verseRefFull(verse) { return isEnMode(verse) ? (verse.refEn || verse.refShort) : (verse.refFull || verse.refShort); }
 function verseRefFull(verse) { return isEnMode(verse) ? (verse.refEn || verse.refFull) : verse.refFull; }
 function verseTtsLang(verse) { return isEnMode(verse) ? "en-US" : "ko-KR"; }
 
@@ -4937,7 +4939,7 @@ function renderAlbum() {
   const cards = list.map((v) => {
     const heart = isHearted(v.no);
     const isChecked = checked.includes(v.no);
-    const ref = verseRefShort(v);
+    const ref = verseRefFull(v);
     // 확인한 구절은 숨김·힌트와 무관하게 늘 전문을 보여준다
     const body = albumHint && !isChecked ? firstCharHint(verseText(v)) : verseText(v);
     return `
