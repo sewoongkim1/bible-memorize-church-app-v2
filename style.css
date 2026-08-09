@@ -1893,7 +1893,14 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 .event-card.done::after { display: none; }
 
 .event-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
-.event-card-title { font-weight: 800; font-size: 1rem; color: var(--navy-dark); }
+/* 회차 이름은 한 줄로 — D-day 배지 옆에서 접히면 카드가 들쭉날쭉해진다.
+   좁은 화면에선 글자가 조금 줄어들고, 아주 긴 이름만 말줄임 처리한다 */
+.event-card-title {
+  font-weight: 800; color: var(--navy-dark);
+  font-size: clamp(.84rem, 3.9vw, 1rem);
+  flex: 1; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .event-dday {
   flex: none; background: var(--navy); color: #fff;
   font-size: .74rem; font-weight: 800; padding: 3px 10px; border-radius: 999px;
