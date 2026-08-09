@@ -5078,9 +5078,6 @@ function renderRanking(range) {
   const tabs = [["today", "오늘"], ["yday", "전일~당일"], ["week", "이번주"], ["all", "전체"]];
   appEl.innerHTML = `
     <div class="rank-screen">
-      <div class="list-nav">
-        <button class="remind-cta nav-record" id="rk-back">← ${userLabel(u)} 성도님</button>
-      </div>
       ${rankModeBar("rank")}
       <h2 class="rank-title">🏆 말씀 도전 순위</h2>
       <div class="rank-filter" id="rk-filter">
@@ -5093,7 +5090,9 @@ function renderRanking(range) {
         <button class="rd-go" id="rk-go">조회</button>
       </div>
       <div id="rank-body"><p class="rank-msg">불러오는 중...</p></div>
-    </div>`;
+    </div>
+    <button class="home-fab" id="rk-back" aria-label="첫 화면으로">🏠 ${userLabel(u)} 성도님</button>`;
+  window.scrollTo(0, 0); // 이전 화면의 스크롤 위치가 남지 않도록
   document.getElementById("rk-back").addEventListener("click", renderSummary);
   wireRankMode();
   document.getElementById("rk-filter").querySelectorAll("button").forEach((b) =>
@@ -5175,9 +5174,6 @@ function renderGuRanking(range) {
   const tabs = [["today", "오늘"], ["yday", "전일~당일"], ["week", "이번주"], ["all", "전체"]];
   appEl.innerHTML = `
     <div class="rank-screen">
-      <div class="list-nav">
-        <button class="remind-cta nav-record" id="gk-back">← ${userLabel(u)} 성도님</button>
-      </div>
       ${rankModeBar("gu")}
       <h2 class="rank-title">⛪ 교구별 순위</h2>
       <div class="rank-filter" id="gk-filter">
@@ -5190,7 +5186,9 @@ function renderGuRanking(range) {
         <button class="rd-go" id="gk-go">조회</button>
       </div>
       <div id="gu-body"><p class="rank-msg">불러오는 중...</p></div>
-    </div>`;
+    </div>
+    <button class="home-fab" id="gk-back" aria-label="첫 화면으로">🏠 ${userLabel(u)} 성도님</button>`;
+  window.scrollTo(0, 0); // 이전 화면의 스크롤 위치가 남지 않도록
   document.getElementById("gk-back").addEventListener("click", renderSummary);
   wireRankMode();
   document.getElementById("gk-filter").querySelectorAll("button").forEach((b) =>
@@ -5264,9 +5262,6 @@ function renderMyRecord(state) {
   const appEl = document.getElementById("app");
   appEl.innerHTML = `
     <div class="rank-screen">
-      <div class="list-nav">
-        <button class="remind-cta nav-record" id="rk-back">← ${userLabel(u)} 성도님</button>
-      </div>
       ${rankModeBar("mine")}
       <h2 class="rank-title">📅 나의 말씀 암송 참여</h2>
       <div class="myrec-ctrl">
@@ -5281,7 +5276,9 @@ function renderMyRecord(state) {
         </div>
       </div>
       <div id="myrec-body"><p class="rank-msg">불러오는 중...</p></div>
-    </div>`;
+    </div>
+    <button class="home-fab" id="rk-back" aria-label="첫 화면으로">🏠 ${userLabel(u)} 성도님</button>`;
+  window.scrollTo(0, 0); // 이전 화면의 스크롤 위치가 남지 않도록
   document.getElementById("rk-back").addEventListener("click", renderSummary);
   wireRankMode();
   appEl.querySelectorAll(".myrec-toggle button").forEach((b) =>

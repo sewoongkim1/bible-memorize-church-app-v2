@@ -1696,7 +1696,7 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 .home-fab:hover { background: var(--navy-dark); }
 .dark .home-fab { background: #3a4a68; border-color: #56688c; }
 /* 고정 버튼이 마지막 항목을 가리지 않도록 여백 */
-.album-screen, .verse-grid, .pg-list { padding-bottom: 72px; }
+.album-screen, .verse-grid, .pg-list, .rank-screen { padding-bottom: 72px; }
 .album-empty { text-align: center; color: #6a7688; padding: 28px 10px; line-height: 1.7; }
 .dark .album-card { background: #232c3f; border-color: #3a4a68; }
 .dark .album-card.hearted { background: #2b2717; border-color: #8d7531; }
