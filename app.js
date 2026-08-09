@@ -2999,7 +2999,7 @@ function renderSermonSummary(verse, sermon, onBack, backLabel) {
     <div class="test-screen">
       <div class="test-card sermon-sum-card">
         <div class="ss-top">
-          <button class="ss-read" id="ss-read">🔊 읽어주기</button>
+          <button class="ss-read" id="ss-read">🔊 3분요약</button>
           <button class="back-btn" id="ss-back">${backLabel || "← 뒤로"}</button>
         </div>
         <header class="ss-head">
@@ -3044,7 +3044,7 @@ function renderSermonSummary(verse, sermon, onBack, backLabel) {
 
   const readBtn = document.getElementById("ss-read");
   const audioUrl = sermon.audio ? (SERMON_AUDIO_BASE + sermon.audio + "?v3") : null;
-  const IDLE = "🔊 읽어주기";   // 재생 전/일시정지 상태
+  const IDLE = "🔊 3분요약";    // 재생 전/일시정지 상태
   const PLAYING = "⏸ 멈춤";     // 재생 중
   readBtn.addEventListener("click", () => {
     if (audioUrl) {

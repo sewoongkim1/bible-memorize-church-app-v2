@@ -725,7 +725,7 @@ html[data-fs="xl"] .sermon-sum-card .ss-top > .back-btn { font-size: 17px; paddi
 /* 제목은 핵심 포인트와 같은 고딕. 크기·굵기로만 위계 */
 .ss-title {
   font-weight: 700;
-  font-size: 1.35rem; color: var(--ss-ink); line-height: 1.4;
+  font-size: 1.22rem; color: var(--ss-ink); line-height: 1.4; /* 1.35 × 0.9 */
   letter-spacing: -.015em;
   margin: 0; word-break: keep-all;
 }
