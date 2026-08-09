@@ -1524,8 +1524,28 @@ function renderEventButton() {
         <button class="event-board-link" id="open-event-board">🏆 현황 보기</button>
       </div>
     </div>`;
+  fitEventTitle();
   document.getElementById("open-event").addEventListener("click", startEvent);
   document.getElementById("open-event-board").addEventListener("click", renderEventBoard);
+}
+
+
+// 회차 이름을 카드 폭에 맞춘다. CSS clamp는 화면 폭만 알고 이름 길이는 모르므로,
+// 실제로 넘치는지 재서 넘칠 때만 글자를 줄인다(말줄임은 최후 수단).
+// 웹폰트가 늦게 오면 폭이 달라지므로 폰트 로드 후 한 번 더 맞춘다.
+function fitEventTitle() {
+  const el = document.querySelector(".event-card-title");
+  if (!el) return;
+  const fit = () => {
+    el.style.fontSize = "";                     // 매번 CSS 기본값에서 다시 계산
+    let px = parseFloat(getComputedStyle(el).fontSize) || 16;
+    for (let i = 0; i < 24 && el.scrollWidth > el.clientWidth && px > 11; i++) {
+      px -= 0.5;
+      el.style.fontSize = px + "px";
+    }
+  };
+  fit();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit).catch(() => {});
 }
 
 function renderSummary() {
