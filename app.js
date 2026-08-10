@@ -687,6 +687,16 @@ function dailyMilestoneMessage(count) {
   return `오늘 말씀 활동 ${count}회를 달성했어요!\n한 번 한 번의 수고가 귀한 열매가 됩니다. 🌱`;
 }
 
+// 응원창을 닫으면 손이 다시 키보드로 가야 한다 — 아직 비어 있는 첫 빈칸에 커서를 둔다.
+// 반드시 클릭 핸들러 안에서 '동기적으로' 불러야 한다. setTimeout으로 미루면 사용자 제스처가
+// 끊겨 iOS에서 키보드가 올라오지 않는다.
+function focusFirstBlank() {
+  const inputs = Array.from(document.querySelectorAll(".word-input:not([disabled])"));
+  if (!inputs.length) return;                       // 암송 화면이 아니면 할 일 없음
+  const target = inputs.find((el) => !el.value.trim()) || inputs[0];
+  try { target.focus({ preventScroll: true }); } catch (e) { target.focus(); }
+}
+
 function maybeShowDailyMilestone(data) {
   const count = Number(data && data.milestone);
   if (!count || count % 10 !== 0) return;
@@ -714,7 +724,11 @@ function maybeShowDailyMilestone(data) {
       </div>`;
     document.body.appendChild(wrap);
     requestAnimationFrame(() => wrap.classList.add("show"));
-    const close = () => { wrap.classList.remove("show"); setTimeout(() => wrap.remove(), 250); };
+    const close = () => {
+      focusFirstBlank();          // 제스처 안에서 즉시 — 닫자마자 이어서 칠 수 있다
+      wrap.classList.remove("show");
+      setTimeout(() => wrap.remove(), 250);
+    };
     const okBtn = document.getElementById("daily-milestone-ok");
     okBtn.addEventListener("click", close);
     okBtn.focus();
