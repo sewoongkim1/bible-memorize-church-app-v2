@@ -1660,23 +1660,37 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 .album-hint { text-align: center; font-size: .8rem; color: #6a7688; margin: -6px 0 12px; }
 .dark .album-hint { color: #9aa6bb; }
 
-/* 카드별 암송·듣기·확인 — 셋의 크기와 모양을 같게(3등분), 확인만 채워서 강조 */
-.album-tools { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 6px; }
-.album-go, .album-listen, .album-check {
+/* 카드별 암송·듣기·풀이·확인 — 넷의 크기와 모양을 같게(4등분), 확인만 채워서 강조 */
+.album-tools { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 6px; }
+.album-go, .album-listen, .album-why, .album-check {
   font-size: .78rem; font-weight: 700; text-align: center; white-space: nowrap;
   color: var(--navy); background: #fff;
   border: 1px solid var(--border); border-radius: 999px; padding: 6px 4px;
   cursor: pointer;
 }
-.album-go:hover, .album-listen:hover { background: var(--cream); }
+.album-go:hover, .album-listen:hover, .album-why:hover { background: var(--cream); }
 /* 확인 — 한 단계 강조(채운 버튼), 누른 뒤에는 초록으로 완료를 알린다 */
 .album-check { background: var(--navy); border-color: var(--navy); color: #fff; }
 .album-check:hover { background: var(--navy-dark); }
 .album-check.on { background: #2f6b4f; border-color: #2f6b4f; }
 .album-check.on:hover { background: #27583f; }
-.dark .album-go, .dark .album-listen { background: #2a3450; border-color: #3a4a68; color: #c3cee6; }
+.dark .album-go, .dark .album-listen, .dark .album-why { background: #2a3450; border-color: #3a4a68; color: #c3cee6; }
 .dark .album-check { background: #3a4a68; border-color: #56688c; color: #fff; }
 .dark .album-check.on { background: #2f6b4f; border-color: #6fbf95; }
+/* 💡 풀이 — 펼치면 켜진 표시, 내용은 카드 안에 접혀 있다 */
+.album-why.on { background: #f6f1e3; border-color: #c8a24b; color: #8a6a1e; }
+.dark .album-why.on { background: #2b2717; border-color: #8d7531; color: #e8d9a3; }
+.album-why-body {
+  display: block; margin-top: 8px; padding: 10px 11px;
+  background: #f7f9fd; border-left: 3px solid #c8a24b; border-radius: 8px;
+  font-size: .84rem; line-height: 1.65; color: #46506a; text-align: left; word-break: keep-all;
+}
+.album-why-body[hidden] { display: none; }
+.awb-row { display: block; }
+.awb-row + .awb-row { margin-top: 7px; }
+.awb-row b { color: #1a3a6b; font-weight: 800; }
+.dark .album-why-body { background: #202a3d; color: #c7d1e4; border-left-color: #8d7531; }
+.dark .awb-row b { color: #cdd9f2; }
 
 /* 오늘 확인한 구절 — 왼쪽 띠로 표시(상태 문구는 확인 버튼이 대신한다) */
 .album-card.checked { border-left: 4px solid #2f6b4f; }

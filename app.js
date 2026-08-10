@@ -4984,9 +4984,12 @@ function renderAlbum() {
         <span class="album-tools">
           <span class="album-go" data-go="${v.no}" role="button" tabindex="0" aria-label="${ref} 암송하기">📖 암송</span>
           <span class="album-listen" data-listen="${v.no}" role="button" tabindex="0" aria-label="${ref} 들어보기">🔊 듣기</span>
+          <span class="album-why" data-why="${v.no}" role="button" tabindex="0"
+                aria-expanded="false" aria-label="${ref} 풀이 보기">💡 풀이</span>
           <span class="album-check${isChecked ? " on" : ""}" data-check="${v.no}" role="button" tabindex="0"
                 aria-pressed="${isChecked}" aria-label="${ref} 오늘 확인">${isChecked ? "✅ 확인함" : "✓ 확인"}</span>
         </span>
+        <span class="album-why-body" data-body="${v.no}" hidden></span>
       </button>`;
   }).join("");
 
@@ -5078,6 +5081,43 @@ function renderAlbum() {
     s.addEventListener("click", (e) => {
       e.stopPropagation();
       applyChecked(s.closest(".album-card"), toggleAlbumChecked(Number(s.dataset.check)));
+    }));
+
+  // 💡 풀이 — 말씀이 나온 자리를 함께 보면 훨씬 오래 남는다.
+  // 설교 데이터가 1MB라 미리 받지 않고, 처음 누른 순간에만 불러온다(이후 캐시).
+  appEl.querySelectorAll(".album-why").forEach((btn) =>
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const no = Number(btn.dataset.why);
+      const body = appEl.querySelector('.album-why-body[data-body="' + no + '"]');
+      if (!body) return;
+      if (!body.hidden) {                       // 열려 있으면 접기
+        body.hidden = true;
+        btn.classList.remove("on");
+        btn.setAttribute("aria-expanded", "false");
+        return;
+      }
+      btn.classList.add("on");
+      btn.setAttribute("aria-expanded", "true");
+      body.hidden = false;
+      if (body.dataset.filled) return;
+      body.textContent = "불러오는 중…";
+      const list = await loadSermons().catch(() => []);
+      const sm = (list || []).find((x) => x.memVerseNo === no && (x.easyExplain || x.memoryTip));
+      if (!sm) { body.textContent = "이 구절은 아직 풀이가 준비되지 않았어요."; return; }
+      body.innerHTML = "";
+      const add = (label, text) => {
+        if (!text) return;
+        const row = document.createElement("span");
+        row.className = "awb-row";
+        const b = document.createElement("b"); b.textContent = label;
+        row.appendChild(b);
+        row.appendChild(document.createTextNode(" " + text));
+        body.appendChild(row);
+      };
+      add("쉬운 풀이", sm.easyExplain);
+      add("기억법", sm.memoryTip);
+      body.dataset.filled = "1";
     }));
 
   // 말씀 영역을 누르는 것도 '확인'이다 — 펼쳐 보는 순간 답을 본 것이므로.
