@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260812e";
+const APP_BUILD = "20260812f";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2886,9 +2886,10 @@ function renderPassageDone(p) {
 // ------------------------------------------------------------
 function startTest(verse) {
   setCardMode(false); // 암송화면 기본은 '쓰기' — 카드 모드는 그 구절 안에서만 유지된다
-  // 마음에 둔 구절은 곧바로 3단계(전체 빈칸)로 — 체크 해제도 여기서 바로 가능
-  if (isHearted(verse.no)) return renderTestScreen(verse, 3);
-  const passed = getPassedStage(verse.no);
+  const passed = getPassedStage(verse.no);   // 지금 고른 언어의 단계
+  // 마음에 둔 구절은 곧바로 3단계(전체 빈칸)로 — 체크 해제도 여기서 바로 가능.
+  // 단, 그 언어로 3단계를 마쳤을 때만. 한글로 마음에 두었어도 영어는 처음부터 한다.
+  if (isHearted(verse.no) && passed >= 3) return renderTestScreen(verse, 3);
   const startStage = passed >= 3 ? 1 : passed + 1;
   renderTestScreen(verse, startStage);
 }
