@@ -1170,7 +1170,7 @@ function evFmt(iso){
 // ※ 지금은 화면만 — 서버 연동(plLoad/plSetStatus)은 다음 단계.
 const PL_STATES = ["신청완료", "준비중", "준비완료", "배부완료"];
 const PL_CLS = { "신청완료": "s1", "준비중": "s2", "준비완료": "s3", "배부완료": "s4" };
-let plRows = [];      // [{ id, at, who, name, qty, status }]
+let plRows = [];      // [{ id, at, who, name, phone, qty, status }]
 let plLoaded = false;
 
 function renderPilsaAdmin(){
@@ -1185,7 +1185,7 @@ function renderPilsaAdmin(){
         <b>준비중</b>부터는 잠깁니다. <b>준비완료</b>로 바꾸면 성도 화면에
         «4층 새가족실에서 찾아가세요»가 뜹니다.</p>
       <div class="pl-find">
-        <input type="text" id="pl-q" class="push-in" placeholder="이름 검색 (예: 김세웅)">
+        <input type="text" id="pl-q" class="push-in" placeholder="이름 · 휴대폰 뒷자리 (예: 김세웅 / 6789)">
         <div class="pl-dates">
           <input type="date" id="pl-from" class="push-in">
           <span class="pl-sep">~</span>
@@ -1209,11 +1209,11 @@ async function plLoad(){
   box.innerHTML=`<p class="msg">불러오는 중...</p>`;
   if(!plLoaded){
     plRows=[   // TODO: 서버 조회로 교체 — 지금은 화면 확인용 예시
-      { id:1, at:"2026-08-10", who:"화평교구 20목장", name:"김세웅", qty:2, status:"신청완료" },
-      { id:2, at:"2026-08-10", who:"섬김교구 3목장",  name:"배순길", qty:1, status:"신청완료" },
-      { id:3, at:"2026-08-11", who:"소망교구 7목장",  name:"윤정희", qty:3, status:"준비중" },
-      { id:4, at:"2026-08-11", who:"초등부 3학년",    name:"김믿음", qty:1, status:"준비완료" },
-      { id:5, at:"2026-08-12", who:"섬김교구 1목장",  name:"권태호", qty:5, status:"배부완료" },
+      { id:1, at:"2026-08-10", who:"화평교구 20목장", name:"김세웅", phone:"010-2345-6789", qty:2, status:"신청완료" },
+      { id:2, at:"2026-08-10", who:"섬김교구 3목장",  name:"배순길", phone:"010-3456-7890", qty:1, status:"신청완료" },
+      { id:3, at:"2026-08-11", who:"소망교구 7목장",  name:"윤정희", phone:"010-4567-8901", qty:3, status:"준비중" },
+      { id:4, at:"2026-08-11", who:"초등부 3학년",    name:"김믿음", phone:"010-5678-9012", qty:1, status:"준비완료" },
+      { id:5, at:"2026-08-12", who:"섬김교구 1목장",  name:"권태호", phone:"010-6789-0123", qty:5, status:"배부완료" },
     ];
     plLoaded=true;
   }
@@ -1225,7 +1225,12 @@ function plFiltered(){
   const f=document.getElementById("pl-from")?.value||"";
   const t=document.getElementById("pl-to")?.value||"";
   return plRows.filter(r=>{
-    if(q && r.name.indexOf(q)<0) return false;
+    if(q){
+      const digits=q.replace(/[^0-9]/g,"");
+      const hitName=r.name.indexOf(q)>=0;
+      const hitPhone=digits && String(r.phone||"").replace(/[^0-9]/g,"").indexOf(digits)>=0;
+      if(!hitName && !hitPhone) return false;
+    }
     if(f && r.at < f) return false;
     if(t && r.at > t) return false;
     return true;
@@ -1251,7 +1256,8 @@ function plRender(){
     ${rows.map(r=>`
       <div class="pl-tr">
         <span class="pl-at">${plEsc(r.at.slice(5).replace("-","."))}</span>
-        <span class="pl-who"><b>${plEsc(r.name)}</b><i>${plEsc(r.who)}</i></span>
+        <span class="pl-who"><b>${plEsc(r.name)}</b><i>${plEsc(r.who)}</i>
+          ${r.phone?`<a class="pl-tel" href="tel:${plEsc(r.phone)}">${plEsc(r.phone)}</a>`:""}</span>
         <span class="pl-qty">${Number(r.qty)}권</span>
         <span>
           <select class="pl-sel ${PL_CLS[r.status]}" data-id="${r.id}">
@@ -1552,6 +1558,8 @@ function renderBoardAdmin(){
 .pl-th{background:#f7f9fd;font-size:11px;font-weight:700;color:#8a95a8;}
 .pl-at{font-size:12px;color:#6a7688;}
 .pl-who b{display:block;font-size:14px;color:#1a3a6b;}
+.pl-tel{ display:block; margin-top:2px; font-size:.78rem; font-weight:700;
+         color:#1a5fb4; text-decoration:none; letter-spacing:.02em; }
 .pl-who i{display:block;font-style:normal;font-size:11px;color:#8a95a8;margin-top:1px;}
 .pl-qty{font-size:13px;font-weight:700;color:#1a3a6b;text-align:right;}
 .pl-sel{width:100%;padding:6px 8px;border-radius:8px;font-size:12px;font-weight:700;

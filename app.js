@@ -5020,7 +5020,19 @@ let pilsaMine = null;      // 접수된 내 신청 { ...form, status, at }
 let pilsaTab = "ot";       // 구약/신약 탭
 let pilsaEditing = false;  // 접수된 신청을 고치는 중
 
-function pilsaNewForm() { return { size: "", type1: "", type2: "", qtys: {}, memo: "" }; }
+
+// 숫자만 남겨 010-1234-5678 꼴로 — 어르신이 하이픈을 신경 쓰지 않아도 되게
+function pilsaPhoneFmt(v) {
+  const d = String(v || "").replace(/[^0-9]/g, "").slice(0, 11);
+  if (d.length <= 3) return d;
+  if (d.length <= 7) return d.slice(0, 3) + "-" + d.slice(3);
+  return d.slice(0, 3) + "-" + d.slice(3, 7) + "-" + d.slice(7);
+}
+function pilsaPhoneOk(v) {
+  return /^01[016-9]-?\d{3,4}-?\d{4}$/.test(String(v || "").trim());
+}
+
+function pilsaNewForm() { return { size: "", type1: "", type2: "", phone: "", qtys: {}, memo: "" }; }
 function pilsaTotal(f) {
   return PILSA_ALL.reduce(function (a, u) { return a + (Number(f.qtys[u.id]) || 0); }, 0);
 }
@@ -5058,12 +5070,16 @@ function pilsaPreviewBar() {
 // ── 화면 맨 아래 동작 버튼 ────────────────────────────────────
 // 취소는 접수된 신청이 있고 아직 '신청완료' 단계일 때만 나온다.
 function pilsaActionsHtml(showForm) {
-  const editable = !!(pilsaMine && pilsaMine.status === "신청완료");
+  const st = pilsaMine && pilsaMine.status;
+  const editable = st === "신청완료";     // 이때만 성도가 고치거나 취소할 수 있다
+  const finished = st === "배부완료";     // 받아 가셨으면 다시 신청할 수 있다
   const btns = [];
   if (showForm) {
     btns.push('<button class="pl-act go" id="pl-submit">' + (pilsaMine ? "수정 신청" : "신청") + '</button>');
   } else if (editable) {
     btns.push('<button class="pl-act go" id="pl-edit">고치기</button>');
+  } else if (finished) {
+    btns.push('<button class="pl-act go" id="pl-new">새로 신청</button>');
   }
   if (editable) btns.push('<button class="pl-act danger" id="pl-cancel">취소</button>');
   btns.push('<button class="pl-act ghost" id="pl-exit">나가기</button>');
@@ -5078,8 +5094,17 @@ function wirePilsaActions(u) {
   const ed = document.getElementById("pl-edit");
   if (ed) ed.addEventListener("click", function () {
     pilsaForm = { size: pilsaMine.size, type1: pilsaMine.type1, type2: pilsaMine.type2,
+                  phone: pilsaMine.phone || "",
                   qtys: Object.assign({}, pilsaMine.qtys), memo: pilsaMine.memo || "" };
     pilsaEditing = true;
+    renderPilsaApply();
+  });
+  const nw = document.getElementById("pl-new");
+  if (nw) nw.addEventListener("click", function () {
+    pilsaMine = null;                 // 지난 신청은 끝났다 — 빈 양식으로 새로 시작
+    pilsaForm = pilsaNewForm();
+    pilsaEditing = false;
+    pilsaTab = "ot";
     renderPilsaApply();
   });
   const cc = document.getElementById("pl-cancel");
@@ -5095,6 +5120,21 @@ function pilsaTrySubmit(u) {
   if (!pilsaForm.type2) miss.push("성경 번역본");
   if (!pilsaTotal(pilsaForm)) miss.push("성경 (부수를 1부 이상)");
   if (miss.length) { appAlert("다음을 골라 주세요.<br><b>" + miss.join(" · ") + "</b>"); return; }
+  const ph = (pilsaForm.phone || "").trim();
+  if (!ph) {
+    appAlert("휴대폰 번호를 적어 주세요.").then(function () {
+      const el = document.getElementById("pl-phone");
+      if (el) { el.classList.add("err"); el.focus(); }
+    });
+    return;
+  }
+  if (!pilsaPhoneOk(ph)) {
+    appAlert("휴대폰 번호를 다시 확인해 주세요.<br><b>010-1234-5678</b> 꼴로 적어 주세요.").then(function () {
+      const el = document.getElementById("pl-phone");
+      if (el) { el.classList.add("err"); el.focus(); }
+    });
+    return;
+  }
   renderPilsaConfirm(u);
 }
 
@@ -5132,8 +5172,10 @@ function pilsaMineHtml(u) {
     pilsaStepsHtml(m.status) +
     pilsaSummaryHtml(u, m) +
     (m.status === "신청완료" ? '' :
-      '<div class="pl-help lock">준비가 시작되어 변경할 수 없습니다.<br>' +
-      '꼭 바꾸셔야 하면 <b>신앙운동팀</b>에 말씀해 주세요.</div>');
+     m.status === "배부완료"
+      ? '<div class="pl-help done">필사 노트가 더 필요하시면 <b>새로 신청</b>하실 수 있어요.</div>'
+      : '<div class="pl-help lock">준비가 시작되어 변경할 수 없습니다.<br>' +
+        '꼭 바꾸셔야 하면 <b>신앙운동팀</b>에 말씀해 주세요.</div>');
 }
 
 // 신청 내용 요약 — 확인 화면과 접수 뒤 화면이 함께 쓴다
@@ -5147,6 +5189,7 @@ function pilsaSummaryHtml(u, f) {
       '<div class="pc-row"><span>노트 크기</span><b>' + boardEsc(f.size) + '</b></div>' +
       '<div class="pc-row"><span>필사 유형</span><b>' + boardEsc(f.type1) + '</b></div>' +
       '<div class="pc-row"><span>번역본</span><b>' + boardEsc(f.type2) + '</b></div>' +
+      '<div class="pc-row"><span>휴대폰</span><b>' + boardEsc(pilsaPhoneFmt(f.phone) || "-") + '</b></div>' +
       (f.at ? '<div class="pc-row"><span>신청일</span><b>' + boardEsc(f.at) + '</b></div>' : '') +
     '</div>' +
     '<div class="pl-sec">성경 선택</div>' +
@@ -5159,7 +5202,7 @@ function pilsaSummaryHtml(u, f) {
       '<div class="pp-note">말씀 길이에 따라 한 단위가 여러 권으로 나올 수 있어, 실제 권수와 금액은 달라질 수 있습니다.<br>' +
       '<b>비용은 노트를 찾으실 때 내시면 됩니다.</b></div>' +
     '</div>' +
-    (f.memo ? '<div class="pl-memo"><b>💬 요청사항 (휴대폰)</b><br>' + boardEsc(f.memo) + '</div>' : '');
+    (f.memo ? '<div class="pl-memo"><b>💬 요청사항</b><br>' + boardEsc(f.memo) + '</div>' : '');
 }
 
 // 고른 성경 요약 — ＋/− 때 이 부분만 갈아 끼운다
@@ -5235,9 +5278,13 @@ function pilsaFormHtml(u) {
     '<div class="pl-units">' + rows + '</div>' +
     '<div class="pl-sum2">' + pilsaSumInner(f) + '</div>' +
 
-    '<div class="pl-sec">요청사항 (휴대폰 표기)</div>' +
+    '<div class="pl-sec">휴대폰 번호 <span class="req">필수</span></div>' +
+    '<input type="tel" id="pl-phone" class="pl-memo-in pl-phone" inputmode="numeric" ' +
+      'maxlength="13" placeholder="010-1234-5678" value="' + boardEsc(pilsaPhoneFmt(f.phone)) + '">' +
+    '<div class="pl-hint">노트가 준비되면 이 번호로 알려드립니다</div>' +
+    '<div class="pl-sec">요청사항 <span class="opt">선택</span></div>' +
     '<textarea id="pl-memo" class="pl-memo-in" rows="3" maxlength="300" ' +
-      'placeholder="준비되면 문자로 알려드릴 휴대폰 번호를 적어 주세요.&#10;그 밖에 요청하실 내용도 함께 적어 주세요.">' + boardEsc(f.memo) + '</textarea>';
+      'placeholder="수량 조정, 그 밖에 요청하실 내용을 적어 주세요.">' + boardEsc(f.memo) + '</textarea>';
 }
 
 // ＋/− 는 화면을 다시 그리지 않는다 — 다시 그리면 보고 있던 자리를 잃는다.
@@ -5267,6 +5314,8 @@ function wirePilsaForm(u) {
   const keepMemo = function () {
     const t = document.getElementById("pl-memo");
     if (t) pilsaForm.memo = t.value;
+    const ph = document.getElementById("pl-phone");
+    if (ph) pilsaForm.phone = ph.value;
   };
   appEl.querySelectorAll("[data-size]").forEach(function (b) {
     b.addEventListener("click", function () {
@@ -5312,6 +5361,11 @@ function wirePilsaForm(u) {
   });
   const memo = document.getElementById("pl-memo");
   if (memo) memo.addEventListener("input", function () { pilsaForm.memo = memo.value; });
+  const phone = document.getElementById("pl-phone");
+  if (phone) phone.addEventListener("input", function () {
+    phone.value = pilsaPhoneFmt(phone.value);      // 010-1234-5678 꼴로 자동 정리
+    pilsaForm.phone = phone.value;
+  });
 }
 
 function wirePilsaPreview() {
@@ -5326,7 +5380,8 @@ function wirePilsaPreview() {
         pilsaMine = pilsaMine
           ? Object.assign({}, pilsaMine, { status: s })
           : { size: "A4", type1: "아래쪽 필사형", type2: "한영(개역개정/NIV)",
-              qtys: { ot16: 1, nt01: 1 }, memo: "", status: s, at: "2026.08.10" };
+              phone: "010-1234-5678", qtys: { ot16: 1, nt01: 1 }, memo: "",
+              status: s, at: "2026.08.10" };
       }
       renderPilsaApply();
     });
