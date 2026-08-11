@@ -1444,7 +1444,7 @@ function plSmsText(r){
   const n = Number(r.qty) || 0;
   if(r.status==="준비완료")
     return `[고척교회] ${r.name} 성도님, 신청하신 성경필사 노트 ${n}권이 준비되었습니다.`
-      + ` 주일에 4층 새가족실에서 찾아가세요. (권당 3,000원 · 총 ${(n*PL_PRICE).toLocaleString("ko-KR")}원)`;
+      + ` 주일에 4층 새가족실에서 찾아가세요.`;
   if(r.status==="준비중")
     return `[고척교회] ${r.name} 성도님, 신청하신 성경필사 노트 ${n}권을 준비하고 있습니다.`
       + ` 준비되면 다시 알려드리겠습니다.`;
