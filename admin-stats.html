@@ -279,6 +279,16 @@
     font-size:1rem;font-weight:800;cursor:pointer;}
   .dm-preview-card.notice .dm-pv-ok{background:var(--navy);color:#fff;}
 /* ── 성경필사 노트 신청 관리 ── */
+.pl-st{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;}
+.pl-st label{display:inline-flex;align-items:center;gap:5px;cursor:pointer;user-select:none;
+  font-size:12.5px;font-weight:700;border-radius:999px;padding:5px 11px 5px 8px;
+  border:1.5px solid #dde3ee;background:#fff;color:#8a95a8;}
+.pl-st label input{margin:0;accent-color:#1a3a6b;width:14px;height:14px;}
+.pl-st label em{font-style:normal;font-size:11px;opacity:.75;}
+.pl-st label.on.s1{background:#eef3fb;border-color:#a9c3e8;color:#1a3a6b;}
+.pl-st label.on.s2{background:#fdf6e3;border-color:#e6cf94;color:#7a5f16;}
+.pl-st label.on.s3{background:#eaf6ee;border-color:#a9d8bb;color:#1f5c3a;}
+.pl-st label.on.s4{background:#f4f6fa;border-color:#c3cad6;color:#5a6273;}
 .pl-find{display:grid;grid-template-columns:1fr auto;gap:8px;margin:12px 0 10px;}
 .pl-find .push-in{min-width:0;}
 .pl-find #pl-q{grid-column:1/2;grid-row:1;}
@@ -312,12 +322,20 @@
 .pl-nm .pl-at{display:block;font-size:11px;color:#a0a9b8;margin-top:2px;}
 .pl-tel{display:inline-block;margin-top:4px;font-size:14px;font-weight:800;color:#1a5fb4;
   text-decoration:none;letter-spacing:.02em;}
-.pl-sel{padding:7px 9px;border-radius:9px;font-size:12.5px;font-weight:800;
-  font-family:inherit;border:1.5px solid;cursor:pointer;flex:none;}
-.pl-sel.s1{background:#eef3fb;border-color:#a9c3e8;color:#1a3a6b;}
-.pl-sel.s2{background:#fdf6e3;border-color:#e6cf94;color:#7a5f16;}
-.pl-sel.s3{background:#eaf6ee;border-color:#a9d8bb;color:#1f5c3a;}
-.pl-sel.s4{background:#f4f6fa;border-color:#dde3ee;color:#5a6273;}
+/* 상태 고르기 — 브라우저 기본 모양을 지우고 카드의 알약 모양에 맞춘다 */
+.pl-sel{appearance:none;-webkit-appearance:none;-moz-appearance:none;
+  padding:7px 30px 7px 13px;border-radius:999px;font-size:12.5px;font-weight:800;
+  font-family:inherit;border:1.5px solid;cursor:pointer;flex:none;line-height:1.2;
+  background-repeat:no-repeat;background-position:right 11px center;background-size:10px 6px;
+  transition:box-shadow .12s,filter .12s;}
+.pl-sel::-ms-expand{display:none;}
+.pl-sel:hover{filter:brightness(.97);}
+.pl-sel:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(26,58,107,.16);}
+.pl-sel option{font-weight:600;color:#22304a;background:#fff;}
+.pl-sel.s1{background-color:#eef3fb;border-color:#a9c3e8;color:#1a3a6b;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%231a3a6b' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");}
+.pl-sel.s2{background-color:#fdf6e3;border-color:#e6cf94;color:#7a5f16;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%237a5f16' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");}
+.pl-sel.s3{background-color:#eaf6ee;border-color:#a9d8bb;color:#1f5c3a;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%231f5c3a' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");}
+.pl-sel.s4{background-color:#f4f6fa;border-color:#c3cad6;color:#5a6273;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%235a6273' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");}
 .pl-spec{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px;}
 .pl-spec span{font-size:12px;font-weight:700;color:#4a5568;background:#f4f6fb;
   border:1px solid #e3e7ee;border-radius:7px;padding:3px 8px;}
@@ -1247,14 +1265,16 @@ function renderPilsaAdmin(){
   app.innerHTML=`
     <div class="rep-head">
       <button class="back-btn" id="back">← 메뉴</button>
-      <h2>✍️ 성경필사 노트 신청</h2>
+      <h2>✍️ 필사노트 신청현황</h2>
     </div>
     <div class="push-card">
-      <p class="push-hint">이름이나 신청일로 찾아 상태를 바꿉니다.
-        <b>신청완료</b> 상태에서만 성도가 내용을 바꾸거나 취소할 수 있고,
-        <b>준비중</b>부터는 잠깁니다. <b>준비완료</b>로 바꾸면 성도 화면에
-        «4층 새가족실에서 찾아가세요»가 뜨고, 앱 알림을 켜 둔 분께는
-        <b>푸시가 한 번 나갑니다</b>. 알림을 켜지 않은 분은 아래 번호로 직접 연락해 주세요.</p>
+      <div class="pl-st" id="pl-st">
+        ${PL_STATES.map(x=>`
+          <label class="${PL_CLS[x]}${x==="신청완료"?" on":""}">
+            <input type="checkbox" data-st="${x}"${x==="신청완료"?" checked":""}>
+            ${x}<em data-cnt="${x}">0</em>
+          </label>`).join("")}
+      </div>
       <div class="pl-find">
         <input type="text" id="pl-q" class="push-in" placeholder="이름 · 휴대폰 뒷자리 (예: 김세웅 / 6789)">
         <div class="pl-dates">
@@ -1270,6 +1290,12 @@ function renderPilsaAdmin(){
   document.getElementById("back").addEventListener("click", renderMenu);
   document.getElementById("pl-search").addEventListener("click", plLoad);
   document.getElementById("pl-q").addEventListener("keydown", (e)=>{ if(e.key==="Enter") plLoad(); });
+  document.getElementById("pl-st").querySelectorAll("input").forEach(cb=>{
+    cb.addEventListener("change", ()=>{
+      cb.closest("label").classList.toggle("on", cb.checked);
+      plRender();                      // 이미 받아 둔 명단에서 추리기만 한다
+    });
+  });
   plLoad();
 }
 
@@ -1292,11 +1318,19 @@ async function plLoad(){
   plRender();
 }
 
+function plStates(){
+  const box=document.getElementById("pl-st");
+  if(!box) return [];
+  return [...box.querySelectorAll("input:checked")].map(cb=>cb.dataset.st);
+}
+
 function plFiltered(){
+  const on=plStates();               // 하나도 안 고르면 전체를 본다
   const q=(document.getElementById("pl-q")?.value||"").trim();
   const f=document.getElementById("pl-from")?.value||"";
   const t=document.getElementById("pl-to")?.value||"";
   return plRows.filter(r=>{
+    if(on.length && on.indexOf(r.status)<0) return false;
     if(q){
       const digits=q.replace(/[^0-9]/g,"");
       const hitName=r.name.indexOf(q)>=0;
@@ -1312,6 +1346,11 @@ function plFiltered(){
 function plRender(){
   const box=document.getElementById("pl-list"); if(!box) return;
   const rows=plFiltered();
+  // 체크박스 옆 숫자는 추리기 전 전체 기준 — 어디에 몇 건인지 늘 보이게
+  PL_STATES.forEach(x=>{
+    const el=document.querySelector(`[data-cnt="${x}"]`);
+    if(el) el.textContent=plRows.filter(r=>r.status===x).length;
+  });
   const sum=document.getElementById("pl-sum");
   if(sum){
     const books=rows.reduce((a,r)=>a+Number(r.qty||0),0);
@@ -1343,7 +1382,6 @@ function plRender(){
           <span>${plEsc(r.size)}</span>
           <span>${plEsc(r.type1)}</span>
           <span>${plEsc(r.type2)}</span>
-          ${mult>1?`<span class="x2">한 부가 2권</span>`:""}
         </div>
         <div class="pl-books">${books||"—"}</div>
         ${r.memo?`<div class="pl-memo">💬 ${plEsc(r.memo)}</div>`:""}
