@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260811ah";
+const APP_BUILD = "20260811ai";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1674,6 +1674,7 @@ function renderSummary() {
     <button class="summary-help album-cta" id="open-album">📖 나의 말씀 앨범</button>
     <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
 <button class="summary-help board-cta" id="open-board">💬 질문·제안 게시판</button>
+    <button class="summary-help pilsa-cta" id="open-pilsa">✍️ 성경필사 노트 신청</button>
     <button class="summary-help praise-cta" id="open-praise">🎵 고척교회 찬양 아카이브</button>
     <button class="summary-help sermon-cta" id="open-sermon-archive">📺 고척교회 설교 아카이브</button>
     <div id="event-slot-bottom"></div>
@@ -1693,6 +1694,10 @@ function renderSummary() {
   renderEventButton();  // 이미 로드된 설정이 있으면 즉시 표시
   loadEventState();     // 서버에서 설정·응모여부 갱신 후 다시 표시
   document.getElementById("open-board").addEventListener("click", renderBoard);
+  document.getElementById("open-pilsa").addEventListener("click", () => {
+    pilsaLoaded = false;          // 들어올 때마다 서버에서 지금 상태를 받는다
+    renderPilsaApply();
+  });
   // 형제 앱(찬양·말씀 아카이브)으로 이동 — 새 탭이라 암송 진행 상태를 잃지 않는다
   document.getElementById("open-praise").addEventListener("click", () => window.open("https://worship.onlybible.kr/", "_blank", "noopener"));
   document.getElementById("open-sermon-archive").addEventListener("click", () => window.open("https://sermon.onlybible.kr/", "_blank", "noopener"));

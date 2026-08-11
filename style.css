@@ -3054,3 +3054,9 @@ html[data-fs="xl"] .test-card .btn-row { row-gap: 10px; margin-bottom: 18px; pad
 
 /* 한 호흡으로 읽히는 안내 — 좁은 화면에서도 줄이 끊기지 않게 */
 .pilsa-sub .nb { display: inline-block; white-space: nowrap; }
+
+/* 첫화면 — 성경필사 노트 신청 */
+.summary-help.pilsa-cta { background: #eef3fb; color: #1a3a6b; border-color: #1a3a6b; }
+.summary-help.pilsa-cta:hover { background: #1a3a6b; color: #fff; }
+.dark .summary-help.pilsa-cta { background: #1e2a44; color: #cdd9f2; border-color: #3a5680; }
+.dark .summary-help.pilsa-cta:hover { background: #3a5680; color: #fff; }
