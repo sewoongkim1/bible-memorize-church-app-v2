@@ -4,6 +4,36 @@
 // 익명 버전과 동일한 암송 로직 + 진입(식별)·본인 기록 요약·서버 백업 추가
 // ------------------------------------------------------------
 
+// 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
+// (tools/bump.py가 둘을 함께 올린다)
+const APP_BUILD = "20260811u";
+
+// 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
+// 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
+// index.html이 부른 번호와 실제 실행되는 번호가 다르면 캐시를 갱신해 다시 받는다.
+(function ensureFreshBuild() {
+  try {
+    const el = document.querySelector('script[src*="app.js"]');
+    const m = el && el.src.match(/[?&]v=([^&"']+)/);
+    const want = m ? m[1] : null;
+    if (!want || want === APP_BUILD) return;
+    if (sessionStorage.getItem("build-fix") === want) return;   // 한 세션에 한 번만
+    sessionStorage.setItem("build-fix", want);
+    // cache: "reload" — 네트워크에서 받아 HTTP 캐시의 내용까지 갈아 끼운다
+    Promise.all([
+      fetch("app.js?v=" + want, { cache: "reload" }),
+      fetch("style.css?v=" + want, { cache: "reload" }).catch(function () {}),
+    ])
+      .then(function () {
+        return window.caches
+          ? caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); })
+          : null;
+      })
+      .then(function () { location.reload(); })
+      .catch(function () {});
+  } catch (_) {}
+})();
+
 // 말씀 데이터: 정적 verses.json 1순위, 실패 시 시트 API 폴백
 const DATA_URL = "verses.json";
 const API_URL = "https://script.google.com/macros/s/AKfycbzO4GDAy0hJBbZ-L3hVuZQI4cqnjiZdy2afUujnxmmAr8NAh1lJURhrfT37PaFanPR4PA/exec";
@@ -6070,9 +6100,20 @@ function showUpdateBanner(fresh) {
     `<button class="ub-x" id="ub-close" aria-label="닫기">✕</button>`;
   document.body.appendChild(bar);
   requestAnimationFrame(() => bar.classList.add("show"));
-  document.getElementById("ub-refresh").addEventListener("click", () => {
+  document.getElementById("ub-refresh").addEventListener("click", async () => {
     updateSeen(fresh);
-    try { if (window.caches) caches.keys().then((ks) => ks.forEach((k) => caches.delete(k))); } catch (e) {}
+    const btn = document.getElementById("ub-refresh");
+    if (btn) { btn.disabled = true; btn.textContent = "받는 중…"; }
+    // 새 주소로 들어가도 옛 내용이 캐시에 남아 있을 수 있다 —
+    // cache:"reload"로 먼저 갈아 끼운 뒤 들어간다.
+    try {
+      await Promise.all([
+        fetch("app.js?v=" + fresh, { cache: "reload" }),
+        fetch("style.css?v=" + fresh, { cache: "reload" }).catch(() => {}),
+        fetch("index.html", { cache: "reload" }).catch(() => {}),
+      ]);
+    } catch (e) {}
+    try { if (window.caches) await caches.keys().then((ks) => Promise.all(ks.map((k) => caches.delete(k)))); } catch (e) {}
     const base = location.pathname.replace(/index\.html$/, "");
     location.replace(base + "?u=" + Date.now()); // 캐시버스트 URL → 서버 최신 index.html
   });

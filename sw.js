@@ -6,6 +6,15 @@ self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
 self.addEventListener("fetch", (e) => {
   // GET만 통과 처리(그 외는 브라우저 기본 동작)
   if (e.request.method !== "GET") return;
+  // 화면(HTML)은 캐시를 건너뛰고 늘 새로 받는다 — 옛 index.html이 남으면
+  // 그 안의 app.js?v= 도 옛 번호라 화면이 통째로 옛것이 된다.
+  if (e.request.mode === "navigate" || e.request.destination === "document") {
+    e.respondWith(
+      fetch(e.request.url, { cache: "no-store", credentials: "same-origin" })
+        .catch(() => caches.match(e.request)),
+    );
+    return;
+  }
   e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
 });
 
