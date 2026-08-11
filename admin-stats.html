@@ -513,6 +513,14 @@ function renderMenu(){
         </div>
         <div class="rep-arrow">›</div>
       </div>
+      <div class="rep-card" id="rep-pilsa">
+        <div class="ic">✍️</div>
+        <div class="rep-text">
+          <div class="ti">성경필사 노트 신청</div>
+          <div class="de">신청 명단 조회 · 상태 변경(신청완료→준비중→준비완료→배부완료)</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
     </div>`;
   document.getElementById("rep-usage").addEventListener("click", renderUsageReport);
   document.getElementById("rep-participants").addEventListener("click", renderParticipants);
@@ -531,6 +539,7 @@ function renderMenu(){
   document.getElementById("rep-milestone").addEventListener("click", renderMilestoneMessages);
   document.getElementById("rep-intro").addEventListener("click", renderIntroSlides);
   document.getElementById("rep-event").addEventListener("click", renderEventAdmin);
+  document.getElementById("rep-pilsa").addEventListener("click", renderPilsaAdmin);
   loadDashboard();
 }
 
@@ -1155,6 +1164,115 @@ function evFmt(iso){
   const z=n=>String(n).padStart(2,"0");
   return d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate())+" "+z(d.getHours())+":"+z(d.getMinutes());
 }
+
+// ---------- 성경필사 노트 신청 관리 ----------
+// 이름·신청일로 찾아 상태를 바꾼다. 상태: 신청완료 → 준비중 → 준비완료 → 배부완료
+// ※ 지금은 화면만 — 서버 연동(plLoad/plSetStatus)은 다음 단계.
+const PL_STATES = ["신청완료", "준비중", "준비완료", "배부완료"];
+const PL_CLS = { "신청완료": "s1", "준비중": "s2", "준비완료": "s3", "배부완료": "s4" };
+let plRows = [];      // [{ id, at, who, name, qty, status }]
+let plLoaded = false;
+
+function renderPilsaAdmin(){
+  app.innerHTML=`
+    <div class="rep-head">
+      <button class="back-btn" id="back">← 메뉴</button>
+      <h2>✍️ 성경필사 노트 신청</h2>
+    </div>
+    <div class="push-card">
+      <p class="push-hint">이름이나 신청일로 찾아 상태를 바꿉니다.
+        <b>신청완료</b> 상태에서만 성도가 수량을 바꾸거나 취소할 수 있고,
+        <b>준비중</b>부터는 잠깁니다.</p>
+      <div class="pl-find">
+        <input type="text" id="pl-q" class="push-in" placeholder="이름 검색 (예: 김세웅)">
+        <div class="pl-dates">
+          <input type="date" id="pl-from" class="push-in">
+          <span class="pl-sep">~</span>
+          <input type="date" id="pl-to" class="push-in">
+        </div>
+        <button class="push-btn" id="pl-search">조회</button>
+      </div>
+      <div id="pl-sum" class="pl-sum"></div>
+      <div id="pl-list"><p class="msg">조회를 눌러 주세요.</p></div>
+    </div>`;
+  document.getElementById("back").addEventListener("click", renderMenu);
+  document.getElementById("pl-search").addEventListener("click", plLoad);
+  document.getElementById("pl-q").addEventListener("keydown", (e)=>{ if(e.key==="Enter") plLoad(); });
+  plLoad();
+}
+
+// ── 서버 연동 자리 ──────────────────────────────────────────
+// 다음 단계에서 Supabase 액션(pilsaList)으로 교체한다.
+async function plLoad(){
+  const box=document.getElementById("pl-list"); if(!box) return;
+  box.innerHTML=`<p class="msg">불러오는 중...</p>`;
+  if(!plLoaded){
+    plRows=[   // TODO: 서버 조회로 교체 — 지금은 화면 확인용 예시
+      { id:1, at:"2026-08-10", who:"화평교구 20목장", name:"김세웅", qty:2, status:"신청완료" },
+      { id:2, at:"2026-08-10", who:"섬김교구 3목장",  name:"배순길", qty:1, status:"신청완료" },
+      { id:3, at:"2026-08-11", who:"소망교구 7목장",  name:"윤정희", qty:3, status:"준비중" },
+      { id:4, at:"2026-08-11", who:"초등부 3학년",    name:"김믿음", qty:1, status:"준비완료" },
+      { id:5, at:"2026-08-12", who:"섬김교구 1목장",  name:"권태호", qty:5, status:"배부완료" },
+    ];
+    plLoaded=true;
+  }
+  plRender();
+}
+
+function plFiltered(){
+  const q=(document.getElementById("pl-q")?.value||"").trim();
+  const f=document.getElementById("pl-from")?.value||"";
+  const t=document.getElementById("pl-to")?.value||"";
+  return plRows.filter(r=>{
+    if(q && r.name.indexOf(q)<0) return false;
+    if(f && r.at < f) return false;
+    if(t && r.at > t) return false;
+    return true;
+  });
+}
+
+function plRender(){
+  const box=document.getElementById("pl-list"); if(!box) return;
+  const rows=plFiltered();
+  const sum=document.getElementById("pl-sum");
+  if(sum){
+    const books=rows.reduce((a,r)=>a+Number(r.qty||0),0);
+    const by=PL_STATES.map(s=>{
+      const n=rows.filter(r=>r.status===s).length;
+      return n?`<span class="pl-chip ${PL_CLS[s]}">${s} ${n}</span>`:"";
+    }).join("");
+    sum.innerHTML=`<div class="pl-total"><b>${rows.length}명</b> · 총 <b>${books}권</b></div>
+      <div class="pl-chips">${by}</div>`;
+  }
+  if(!rows.length){ box.innerHTML=`<p class="msg">조건에 맞는 신청이 없습니다.</p>`; return; }
+  box.innerHTML=`<div class="pl-tbl">
+    <div class="pl-tr pl-th"><span>신청일</span><span>소속 · 이름</span><span>수량</span><span>상태</span></div>
+    ${rows.map(r=>`
+      <div class="pl-tr">
+        <span class="pl-at">${plEsc(r.at.slice(5).replace("-","."))}</span>
+        <span class="pl-who"><b>${plEsc(r.name)}</b><i>${plEsc(r.who)}</i></span>
+        <span class="pl-qty">${Number(r.qty)}권</span>
+        <span>
+          <select class="pl-sel ${PL_CLS[r.status]}" data-id="${r.id}">
+            ${PL_STATES.map(s=>`<option value="${s}"${s===r.status?" selected":""}>${s}</option>`).join("")}
+          </select>
+        </span>
+      </div>`).join("")}
+  </div>`;
+  box.querySelectorAll(".pl-sel").forEach(sel=>{
+    sel.addEventListener("change", ()=> plSetStatus(Number(sel.dataset.id), sel.value));
+  });
+}
+
+// TODO: 서버 저장으로 교체 — 지금은 화면 상태만 바꾼다
+async function plSetStatus(id, status){
+  const r=plRows.find(x=>x.id===id); if(!r) return;
+  r.status=status;
+  plRender();
+}
+
+function plEsc(s){ return String(s==null?"":s).replace(/[&<>"']/g,c=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c])); }
+
 function renderEventAdmin(){
   app.innerHTML=`
     <div class="rep-head">
@@ -1410,7 +1528,38 @@ function renderBoardAdmin(){
       .ba-reply-row{display:flex;gap:6px;margin-top:10px}
       .ba-in{flex:1;padding:8px 10px;border:1.5px solid #dde3ee;border-radius:9px;font-size:13px;font-family:inherit}
       .ba-reply-btn{padding:0 14px;border:none;border-radius:9px;background:#1a3a6b;color:#fff;font-weight:700;font-size:13px;cursor:pointer}
-    </style>
+    
+/* ── 성경필사 노트 신청 관리 ── */
+.pl-find{display:flex;flex-direction:column;gap:8px;margin:12px 0 10px;}
+.pl-dates{display:flex;align-items:center;gap:8px;}
+.pl-dates .push-in{flex:1 1 0;min-width:0;}
+.pl-sep{color:#8a95a8;font-weight:700;}
+.pl-sum{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;
+  padding:10px 12px;background:#f2f5fb;border:1px solid #dde3ee;border-radius:10px;margin-bottom:10px;}
+.pl-total{font-size:14px;color:#1a3a6b;}
+.pl-total b{font-size:16px;}
+.pl-chips{display:flex;flex-wrap:wrap;gap:5px;}
+.pl-chip{font-size:11px;font-weight:700;border-radius:999px;padding:3px 9px;border:1px solid;}
+.pl-chip.s1{background:#eef3fb;border-color:#a9c3e8;color:#1a3a6b;}
+.pl-chip.s2{background:#fdf6e3;border-color:#e6cf94;color:#7a5f16;}
+.pl-chip.s3{background:#eaf6ee;border-color:#a9d8bb;color:#1f5c3a;}
+.pl-chip.s4{background:#f4f6fa;border-color:#dde3ee;color:#5a6273;}
+.pl-tbl{border:1px solid #e3e7ee;border-radius:10px;overflow:hidden;}
+.pl-tr{display:grid;grid-template-columns:56px 1fr 52px 104px;align-items:center;gap:8px;
+  padding:10px 12px;border-bottom:1px solid #eef1f6;}
+.pl-tr:last-child{border-bottom:none;}
+.pl-th{background:#f7f9fd;font-size:11px;font-weight:700;color:#8a95a8;}
+.pl-at{font-size:12px;color:#6a7688;}
+.pl-who b{display:block;font-size:14px;color:#1a3a6b;}
+.pl-who i{display:block;font-style:normal;font-size:11px;color:#8a95a8;margin-top:1px;}
+.pl-qty{font-size:13px;font-weight:700;color:#1a3a6b;text-align:right;}
+.pl-sel{width:100%;padding:6px 8px;border-radius:8px;font-size:12px;font-weight:700;
+  font-family:inherit;border:1.5px solid;cursor:pointer;}
+.pl-sel.s1{background:#eef3fb;border-color:#a9c3e8;color:#1a3a6b;}
+.pl-sel.s2{background:#fdf6e3;border-color:#e6cf94;color:#7a5f16;}
+.pl-sel.s3{background:#eaf6ee;border-color:#a9d8bb;color:#1f5c3a;}
+.pl-sel.s4{background:#f4f6fa;border-color:#dde3ee;color:#5a6273;}
+</style>
     <div class="rep-head">
       <button class="back-btn" id="back">← 메뉴</button>
       <h2>💬 게시판 관리</h2>
