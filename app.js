@@ -5005,8 +5005,8 @@ const PILSA_ALL = PILSA_UNITS.ot.concat(PILSA_UNITS.nt);
 
 const PILSA_STEPS = ["신청완료", "준비중", "준비완료", "배부완료"];
 const PILSA_INFO = {
-  "신청완료": { cls: "s1", ic: "📝", msg: "신청이 접수되었습니다. 준비가 시작되기 전까지는 내용을 고치거나 취소하실 수 있어요." },
-  "준비중":   { cls: "s2", ic: "📦", msg: "노트를 준비하고 있습니다. 이 단계부터는 내용을 바꿀 수 없어요." },
+  "신청완료": { cls: "s1", ic: "📝", msg: "신청이 접수되었습니다. 준비에 <b>1주일쯤</b> 걸리며 <b>주일</b>에 전달해 드려요.<br>준비가 시작되기 전까지는 내용을 고치거나 취소하실 수 있어요." },
+  "준비중":   { cls: "s2", ic: "📦", msg: "노트를 준비하고 있습니다. 준비가 끝나면 돌아오는 <b>주일</b>에 전달해 드려요.<br>이 단계부터는 내용을 바꿀 수 없어요." },
   "준비완료": { cls: "s3", ic: "✅", msg: "노트가 준비되었습니다. 휴대폰으로도 알려드렸어요.<br>4층 새가족실에서 찾아가세요.<br>비용은 그때 내시면 됩니다." },
   "배부완료": { cls: "s4", ic: "🎁", msg: "노트를 받아 가셨습니다. 매일 한 구절씩 손으로 새겨 보세요." },
 };
@@ -5191,7 +5191,8 @@ function renderPilsaApply(keepScroll) {
   appEl.innerHTML =
     '<div class="pilsa-screen">' +
       '<h2 class="rank-title">✍️ 성경필사 노트 신청</h2>' +
-      '<p class="pilsa-sub">준비가 끝나면 <b>휴대폰으로 알려드립니다</b><br>' +
+      '<p class="pilsa-sub">신청하시면 <b>1주일쯤</b> 걸리며 <b>주일</b>에 전달해 드립니다<br>' +
+        '준비가 끝나면 <b>휴대폰으로 알려드립니다</b><br>' +
         '<b>4층 새가족실</b>에서 찾아가세요<br>' +
         '비용은 그때 내시면 됩니다</p>' +
       (showForm ? pilsaFormHtml(u) : pilsaMineHtml(u)) +
@@ -5484,7 +5485,9 @@ async function submitPilsa(u) {
     pilsaMine = r.order;
     pilsaForm = pilsaFormFrom(pilsaMine);
     pilsaEditing = false;
-    await appAlert("신청이 접수되었습니다.<br>필사 노트 <b>" + pilsaMine.total + "권</b>");
+    await appAlert("필사 노트 <b>" + pilsaMine.total + "권</b>을 신청했습니다.<br><br>" +
+      "준비에 <b>1주일쯤</b> 걸리며 <b>주일</b>에 전달해 드립니다.<br>" +
+      "준비가 끝나면 휴대폰으로 알려드릴게요.", "✅ 신청 완료");
     renderPilsaApply();
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = "신청"; }
