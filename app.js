@@ -134,10 +134,13 @@ function routeAfterLoad() {
 }
 
 // URL의 ?preview=<종류>를 1회 읽어 반환(읽은 뒤 URL 정리 → 새로고침 시 재진입 방지)
+// 필사 신청 미리보기 여부 — routeAfterLoad에서 이르게 쓰므로 선언을 위에 둔다
+let pilsaPreview = false;
+
 function getPreviewKind() {
   try {
     const p = new URLSearchParams(location.search).get("preview");
-    if (p === "intro" || p === "blessing" || p === "daily" || p === "promo") {
+    if (p === "intro" || p === "blessing" || p === "daily" || p === "promo" || p === "pilsa") {
       history.replaceState(null, "", location.pathname);
       return p;
     }
@@ -4945,7 +4948,6 @@ const PILSA_INFO = {
 
 let pilsaQty = 1;        // 신청 화면에서 고른 수량
 let pilsaMine = null;    // 내 신청 { qty, status, at } — null이면 신청 전
-let pilsaPreview = false; // 어드민 미리보기 여부(상태 전환 바 노출)
 
 // "화평 20목장 · 김세웅" / "초등부 3학년 · 김믿음"
 function pilsaWho(u) {
