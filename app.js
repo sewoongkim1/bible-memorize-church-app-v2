@@ -5020,15 +5020,20 @@ let pilsaMine = null;      // 접수된 내 신청 { ...form, status, at }
 let pilsaTab = "ot";       // 구약/신약 탭
 let pilsaEditing = false;  // 접수된 신청을 고치는 중
 let pilsaLoaded = false;   // 서버에서 내 신청을 불러왔는지
-let pilsaLive = false;     // 미리보기에서 실제 서버를 붙여 볼 때만 true
+let pilsaLive = true;      // 미리보기도 기본은 실제 서버 —
+                           // 상태 버튼을 눌렀을 때만 가짜 화면으로 바뀐다
 
 
 // 성도 화면에서는 늘 서버와 이야기한다. 어드민 미리보기는 가짜 상태로 화면만
 // 훑어보는 자리라, '실제' 버튼을 눌렀을 때만 서버에 붙는다.
 function pilsaServerOn() { return !pilsaPreview || pilsaLive; }
+// 브라우저가 옛 js/api.js를 물고 있으면 필사 액션이 아예 없다 —
+// "함수가 없습니다" 대신 새로고침을 안내한다.
+function pilsaApiReady() { return !!(window.api && api.pilsaApply && api.pilsaMine); }
 
 // 내 신청 한 건을 서버에서 가져온다(화면 진입 때 한 번)
 async function pilsaLoadMine(u) {
+  if (!pilsaApiReady()) { pilsaLoaded = true; return; }
   try {
     const r = await api.pilsaMine(u.user_id);
     pilsaMine = r.order || null;
@@ -5472,18 +5477,26 @@ async function askCancelPilsa(u) {
   pilsaMine = null;
   pilsaEditing = false;
   pilsaForm = pilsaNewForm();
-  await appAlert("신청이 취소되었습니다.");
+  await appAlert(pilsaServerOn()
+    ? "신청이 취소되었습니다."
+    : "<b>미리보기</b>라 실제로 지워지지는 않았습니다.");
   renderPilsaApply();
 }
 
 async function submitPilsa(u) {
   const btn = document.getElementById("pl-ok");
   if (btn) { btn.disabled = true; btn.textContent = "처리 중…"; }
-  if (!pilsaServerOn()) {                 // 미리보기 — 화면만 넘겨 본다
+  if (!pilsaServerOn()) {                 // 가짜 상태 — 화면만 넘겨 본다
     pilsaMine = Object.assign({}, pilsaForm, { status: "신청완료", at: pilsaToday() });
     pilsaEditing = false;
-    await appAlert("신청이 접수되었습니다.<br>필사 노트 <b>" + pilsaTotal(pilsaMine) + "부</b>");
+    await appAlert("<b>미리보기</b>라 저장되지 않았습니다.<br>" +
+      "실제로 신청하시려면 위의 <b>실제</b>를 눌러 주세요.", "👀 화면 확인");
     renderPilsaApply();
+    return;
+  }
+  if (!pilsaApiReady()) {
+    if (btn) { btn.disabled = false; btn.textContent = "신청"; }
+    await appAlert("앱이 옛 버전이라 신청을 보낼 수 없습니다.<br>새로고침한 뒤 다시 신청해 주세요.");
     return;
   }
   try {
