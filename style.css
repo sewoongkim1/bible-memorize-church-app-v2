@@ -3051,3 +3051,6 @@ html[data-fs="xl"] .test-card .btn-row { row-gap: 10px; margin-bottom: 18px; pad
 .pl-note.x2 b { color: #1a3a6b; }
 .dark .pl-note.x2 { background: #1e2a44; border-color: #3a5680; color: #cdd9f2; }
 .dark .pl-note.x2 b { color: #cdd9f2; }
+
+/* 한 호흡으로 읽히는 안내 — 좁은 화면에서도 줄이 끊기지 않게 */
+.pilsa-sub .nb { display: inline-block; white-space: nowrap; }
