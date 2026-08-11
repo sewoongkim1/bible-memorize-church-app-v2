@@ -5432,11 +5432,12 @@ function renderPilsaConfirm(u) {
   appEl.innerHTML =
     '<div class="pilsa-screen">' +
       '<h2 class="rank-title">📋 신청 내용 확인</h2>' +
-      '<p class="pilsa-sub">아래 내용이 맞으면 신청을 눌러 주세요</p>' +
+      '<p class="pilsa-sub">아래 내용이 맞으면 ' + (pilsaMine ? "수정 신청" : "신청") + '을 눌러 주세요<br>' +
+        '신청하시면 <b>1주일쯤</b> 걸리며 <b>주일</b>에 전달해 드립니다</p>' +
       pilsaSummaryHtml(u, pilsaForm) +
       '<div class="pl-acts">' +
-        '<button class="pl-act go" id="pl-ok">신청</button>' +
-        '<button class="pl-act ghost" id="pl-again">수정</button>' +
+        '<button class="pl-act go" id="pl-ok">' + (pilsaMine ? "수정 신청" : "신청") + '</button>' +
+        '<button class="pl-act ghost" id="pl-again">고치기</button>' +
       '</div>' +
     '</div>';
   window.scrollTo(0, 0);
@@ -5465,11 +5466,20 @@ async function askCancelPilsa(u) {
   renderPilsaApply();
 }
 
+// 신청이든 수정이든 성도가 알아야 할 내용은 같다 — 한곳에서 만든다
+function pilsaDoneMsg(n) {
+  return "필사 노트 <b>" + n + "권</b>을 신청했습니다.<br><br>" +
+    "준비에 <b>1주일쯤</b> 걸리며 <b>주일</b>에 전달해 드립니다.<br>" +
+    "준비가 끝나면 휴대폰으로 알려드릴게요.";
+}
+
 async function submitPilsa(u) {
+  const edit = !!pilsaMine;                 // 저장하면 pilsaMine이 바뀌니 먼저 잡아 둔다
+  const label = edit ? "수정 신청" : "신청";
   const btn = document.getElementById("pl-ok");
   if (btn) { btn.disabled = true; btn.textContent = "처리 중…"; }
   if (!pilsaApiReady()) {
-    if (btn) { btn.disabled = false; btn.textContent = "신청"; }
+    if (btn) { btn.disabled = false; btn.textContent = label; }
     await appAlert("앱이 옛 버전이라 신청을 보낼 수 없습니다.<br>새로고침한 뒤 다시 신청해 주세요.");
     return;
   }
@@ -5485,12 +5495,10 @@ async function submitPilsa(u) {
     pilsaMine = r.order;
     pilsaForm = pilsaFormFrom(pilsaMine);
     pilsaEditing = false;
-    await appAlert("필사 노트 <b>" + pilsaMine.total + "권</b>을 신청했습니다.<br><br>" +
-      "준비에 <b>1주일쯤</b> 걸리며 <b>주일</b>에 전달해 드립니다.<br>" +
-      "준비가 끝나면 휴대폰으로 알려드릴게요.", "✅ 신청 완료");
+    await appAlert(pilsaDoneMsg(pilsaMine.total), edit ? "✅ 수정 완료" : "✅ 신청 완료");
     renderPilsaApply();
   } catch (e) {
-    if (btn) { btn.disabled = false; btn.textContent = "신청"; }
+    if (btn) { btn.disabled = false; btn.textContent = label; }
     await appAlert("신청을 저장하지 못했습니다.<br>" + boardEsc(e && e.message ? e.message : e));
   }
 }
