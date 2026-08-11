@@ -3007,3 +3007,12 @@ html[data-fs="xl"] .test-card .btn-row { row-gap: 10px; margin-bottom: 18px; pad
 .dark .pl-act.go { background: #3a4a68; border-color: #56688c; }
 .dark .pl-act.danger { background: #2a3450; border-color: #6b4a46; color: #f0a49b; }
 .dark .pl-act.ghost { background: #2a3450; border-color: #3a4a68; color: #c3cee6; }
+
+.pl-types button[disabled] { opacity: .45; cursor: default; }
+.pl-types button[disabled] b { color: #8a95a8; }
+.rank-filter.pl-chips button[disabled] { opacity: .4; cursor: default; }
+.pl-note { font-size: .76rem; color: #8a6a1e; background: #fdf6e3; border: 1px solid #e6cf94;
+           border-radius: 8px; padding: 7px 10px; margin-top: 8px; line-height: 1.5; }
+.pl-note b { color: #7a5f16; }
+.dark .pl-note { background: #2b2717; border-color: #8d7531; color: #e8d9a3; }
+.dark .pl-note b { color: #e8d9a3; }

@@ -4940,11 +4940,30 @@ async function callRanking(from, to) {
 //   ※ 지금은 화면만 — 서버 연동(submitPilsa/askCancelPilsa)은 다음 단계.
 // ------------------------------------------------------------
 const PILSA_TOTAL_MAX = 5;                 // 한 분당 총 부수 상한
-const PILSA_TYPE1 = [
-  ["오른쪽 필사형", "본문 오른쪽에 필사 공간"],
-  ["아래쪽 필사형", "본문 아래에 필사 공간"],
+const PILSA_SIZE = [
+  ["A4", "큰 것"],
+  ["A5", "작은 것"],
 ];
-const PILSA_TYPE2 = ["개역개정", "쉬운성경", "NIV"];
+const PILSA_TYPE1 = [
+  ["아래쪽 필사형", "본문 아래에 필사 공간"],
+  ["오른쪽 필사형", "본문 오른쪽에 필사 공간"],
+];
+// A5는 지면이 좁아 오른쪽 필사형을 만들 수 없다
+const PILSA_TYPE1_BLOCKED = { "A5": ["오른쪽 필사형"] };
+const PILSA_TYPE2 = ["개역개정", "쉬운성경", "NIV", "한영(개역개정/NIV)", "영한(NIV/개역개정)"];
+
+function pilsaBlocked(size, t1) {
+  const list = PILSA_TYPE1_BLOCKED[size] || [];
+  return list.indexOf(t1) >= 0;
+}
+
+// 한 쪽에 두 언어를 나란히 넣으려면 지면이 넓어야 한다 —
+// A4 + 오른쪽 필사형에서만 만들 수 있다.
+const PILSA_DUAL = ["한영(개역개정/NIV)", "영한(NIV/개역개정)"];
+function pilsaDualOff(f) { return f.size === "A5" || f.type1 === "아래쪽 필사형"; }
+function pilsaT2Blocked(f, t2) {
+  return PILSA_DUAL.indexOf(t2) >= 0 && pilsaDualOff(f);
+}
 
 // 묶음(sub)은 함께 제작되는 한 권이다 — 원본 목록 그대로
 const PILSA_UNITS = {
@@ -4999,7 +5018,7 @@ let pilsaMine = null;      // 접수된 내 신청 { ...form, status, at }
 let pilsaTab = "ot";       // 구약/신약 탭
 let pilsaEditing = false;  // 접수된 신청을 고치는 중
 
-function pilsaNewForm() { return { type1: "", type2: "", qtys: {}, memo: "" }; }
+function pilsaNewForm() { return { size: "", type1: "", type2: "", qtys: {}, memo: "" }; }
 function pilsaTotal(f) {
   return PILSA_ALL.reduce(function (a, u) { return a + (Number(f.qtys[u.id]) || 0); }, 0);
 }
@@ -5056,7 +5075,7 @@ function wirePilsaActions(u) {
   if (sb) sb.addEventListener("click", function () { pilsaTrySubmit(u); });
   const ed = document.getElementById("pl-edit");
   if (ed) ed.addEventListener("click", function () {
-    pilsaForm = { type1: pilsaMine.type1, type2: pilsaMine.type2,
+    pilsaForm = { size: pilsaMine.size, type1: pilsaMine.type1, type2: pilsaMine.type2,
                   qtys: Object.assign({}, pilsaMine.qtys), memo: pilsaMine.memo || "" };
     pilsaEditing = true;
     renderPilsaApply();
@@ -5069,6 +5088,7 @@ function pilsaTrySubmit(u) {
   const t = document.getElementById("pl-memo");
   if (t) pilsaForm.memo = t.value;
   const miss = [];
+  if (!pilsaForm.size) miss.push("노트 크기");
   if (!pilsaForm.type1) miss.push("필사 유형");
   if (!pilsaForm.type2) miss.push("성경 번역본");
   if (!pilsaTotal(pilsaForm)) miss.push("성경 (부수를 1부 이상)");
@@ -5121,6 +5141,7 @@ function pilsaSummaryHtml(u, f) {
   }).join("");
   return '<div class="pilsa-confirm">' +
       '<div class="pc-row"><span>신청자</span><b>' + boardEsc(pilsaWho(u)) + '</b></div>' +
+      '<div class="pc-row"><span>노트 크기</span><b>' + boardEsc(f.size) + '</b></div>' +
       '<div class="pc-row"><span>필사 유형</span><b>' + boardEsc(f.type1) + '</b></div>' +
       '<div class="pc-row"><span>번역본</span><b>' + boardEsc(f.type2) + '</b></div>' +
       (f.at ? '<div class="pc-row"><span>신청일</span><b>' + boardEsc(f.at) + '</b></div>' : '') +
@@ -5145,12 +5166,20 @@ function pilsaFormHtml(u) {
   const f = pilsaForm;
   const left = PILSA_TOTAL_MAX - pilsaTotal(f);
 
-  const t1 = PILSA_TYPE1.map(function (t) {
-    return '<button class="pl-type' + (f.type1 === t[0] ? " on" : "") + '" data-t1="' + t[0] + '">' +
+  const sz = PILSA_SIZE.map(function (t) {
+    return '<button class="pl-type' + (f.size === t[0] ? " on" : "") + '" data-size="' + t[0] + '">' +
       '<b>' + t[0] + '</b><i>' + t[1] + '</i></button>';
   }).join("");
+  const t1 = PILSA_TYPE1.map(function (t) {
+    const off = pilsaBlocked(f.size, t[0]);
+    return '<button class="pl-type' + (f.type1 === t[0] ? " on" : "") + '" data-t1="' + t[0] + '"' +
+      (off ? " disabled" : "") + '><b>' + t[0] + '</b><i>' +
+      (off ? "A5에는 만들지 않아요" : t[1]) + '</i></button>';
+  }).join("");
   const t2 = PILSA_TYPE2.map(function (t) {
-    return '<button data-t2="' + t + '" class="' + (f.type2 === t ? "on" : "") + '">' + t + '</button>';
+    const off = pilsaT2Blocked(f, t);
+    return '<button data-t2="' + t + '" class="' + (f.type2 === t ? "on" : "") + '"' +
+      (off ? " disabled" : "") + '>' + t + '</button>';
   }).join("");
 
   let rows = "", lastG = null;
@@ -5171,10 +5200,16 @@ function pilsaFormHtml(u) {
 
   return '<div class="pl-sec">필사 옵션</div>' +
     '<div class="pilsa-box">' +
-      '<div class="pl-label">필사 유형</div>' +
+      '<div class="pl-label">노트 크기</div>' +
+      '<div class="pl-types" id="pl-size">' + sz + '</div>' +
+      '<div class="pl-label" style="margin-top:14px">필사 유형</div>' +
       '<div class="pl-types" id="pl-t1">' + t1 + '</div>' +
+      (f.size === "A5" ? '<div class="pl-note">A5는 <b>아래쪽 필사형</b>으로만 제작됩니다</div>' : '') +
       '<div class="pl-label" style="margin-top:14px">성경 번역본</div>' +
       '<div class="rank-filter pl-chips" id="pl-t2">' + t2 + '</div>' +
+      (pilsaDualOff(f)
+        ? '<div class="pl-note">한영·영한은 <b>A4 + 오른쪽 필사형</b>에서만 만들 수 있어요</div>'
+        : '') +
     '</div>' +
 
     '<div class="pl-sec">성경 선택 및 부수</div>' +
@@ -5221,9 +5256,21 @@ function wirePilsaForm(u) {
     const t = document.getElementById("pl-memo");
     if (t) pilsaForm.memo = t.value;
   };
+  appEl.querySelectorAll("[data-size]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      keepMemo();
+      pilsaForm.size = b.dataset.size;
+      if (pilsaBlocked(pilsaForm.size, pilsaForm.type1)) pilsaForm.type1 = "";
+      if (pilsaT2Blocked(pilsaForm, pilsaForm.type2)) pilsaForm.type2 = "";
+      renderPilsaApply(window.scrollY);
+    });
+  });
   appEl.querySelectorAll("[data-t1]").forEach(function (b) {
     b.addEventListener("click", function () {
-      keepMemo(); pilsaForm.type1 = b.dataset.t1; renderPilsaApply(window.scrollY);
+      keepMemo();
+      pilsaForm.type1 = b.dataset.t1;
+      if (pilsaT2Blocked(pilsaForm, pilsaForm.type2)) pilsaForm.type2 = "";
+      renderPilsaApply(window.scrollY);
     });
   });
   appEl.querySelectorAll("[data-t2]").forEach(function (b) {
@@ -5266,7 +5313,7 @@ function wirePilsaPreview() {
       else {
         pilsaMine = pilsaMine
           ? Object.assign({}, pilsaMine, { status: s })
-          : { type1: "오른쪽 필사형", type2: "개역개정",
+          : { size: "A4", type1: "아래쪽 필사형", type2: "한영(개역개정/NIV)",
               qtys: { ot16: 1, nt01: 1 }, memo: "", status: s, at: "2026.08.10" };
       }
       renderPilsaApply();
