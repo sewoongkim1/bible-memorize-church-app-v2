@@ -5131,7 +5131,7 @@ function pilsaMineHtml(u) {
     pilsaSummaryHtml(u, m) +
     (m.status === "신청완료" ? '' :
       '<div class="pl-help lock">준비가 시작되어 변경할 수 없습니다.<br>' +
-      '꼭 바꾸셔야 하면 새가족실 담당자에게 말씀해 주세요.</div>');
+      '꼭 바꾸셔야 하면 <b>신앙운동팀</b>에 말씀해 주세요.</div>');
 }
 
 // 신청 내용 요약 — 확인 화면과 접수 뒤 화면이 함께 쓴다
