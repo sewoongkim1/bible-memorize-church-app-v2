@@ -5159,7 +5159,7 @@ function pilsaSummaryHtml(u, f) {
       '<div class="pp-note">말씀 길이에 따라 한 단위가 여러 권으로 나올 수 있어, 실제 권수와 금액은 달라질 수 있습니다.<br>' +
       '<b>비용은 노트를 찾으실 때 내시면 됩니다.</b></div>' +
     '</div>' +
-    (f.memo ? '<div class="pl-memo"><b>💬 요청 사항</b><br>' + boardEsc(f.memo) + '</div>' : '');
+    (f.memo ? '<div class="pl-memo"><b>💬 요청사항 (휴대폰)</b><br>' + boardEsc(f.memo) + '</div>' : '');
 }
 
 // 고른 성경 요약 — ＋/− 때 이 부분만 갈아 끼운다
@@ -5235,9 +5235,9 @@ function pilsaFormHtml(u) {
     '<div class="pl-units">' + rows + '</div>' +
     '<div class="pl-sum2">' + pilsaSumInner(f) + '</div>' +
 
-    '<div class="pl-sec">요청 사항</div>' +
+    '<div class="pl-sec">요청사항 (휴대폰 표기)</div>' +
     '<textarea id="pl-memo" class="pl-memo-in" rows="3" maxlength="300" ' +
-      'placeholder="배송, 수량 조정, 기타 문의 사항을 자유롭게 적어 주세요.">' + boardEsc(f.memo) + '</textarea>';
+      'placeholder="준비되면 문자로 알려드릴 휴대폰 번호를 적어 주세요.&#10;그 밖에 요청하실 내용도 함께 적어 주세요.">' + boardEsc(f.memo) + '</textarea>';
 }
 
 // ＋/− 는 화면을 다시 그리지 않는다 — 다시 그리면 보고 있던 자리를 잃는다.
