@@ -5952,13 +5952,29 @@ function renderCalendar(start, end, days, mode) {
 //   '새로고침'은 브라우저 HTTP 캐시(약 10분)를 우회하려 캐시버스트 URL로 재진입 + SW 캐시 정리.
 // ------------------------------------------------------------
 let _updateBannerShown = false;
+let _updateLastCheck = 0;
+const UPDATE_SEEN_KEY = "update-seen";     // 이미 새로고침하거나 닫은 버전
+const UPDATE_QUIET_MS = 30 * 60 * 1000;    // 그 뒤 30분은 다시 조르지 않는다
 function currentAppVersion() {
   const s = document.querySelector('script[src*="app.js"]');
   const m = s && s.src.match(/[?&]v=([^&"']+)/);
   return m ? m[1] : null;
 }
+// 새로고침을 눌렀는데도 브라우저 캐시(max-age 10분) 때문에 옛 index.html이 다시
+// 열릴 수 있다. 그때마다 배너를 또 띄우면 성도는 같은 안내를 계속 받는다.
+function updateSeen(v) {
+  try { localStorage.setItem(UPDATE_SEEN_KEY, JSON.stringify({ v: v, t: Date.now() })); } catch (e) {}
+}
+function updateMuted(v) {
+  try {
+    const o = JSON.parse(localStorage.getItem(UPDATE_SEEN_KEY) || "null");
+    return !!(o && o.v === v && Date.now() - o.t < UPDATE_QUIET_MS);
+  } catch (e) { return false; }
+}
 function checkForUpdate() {
   if (_updateBannerShown) return;
+  if (Date.now() - _updateLastCheck < 60000) return;   // 앱을 오갈 때마다 묻지 않게
+  _updateLastCheck = Date.now();
   const cur = currentAppVersion();
   if (!cur) return;
   fetch("index.html", { cache: "no-store" })
@@ -5966,11 +5982,11 @@ function checkForUpdate() {
     .then((html) => {
       const m = html.match(/app\.js\?v=([^"'&]+)/);
       const fresh = m ? m[1] : null;
-      if (fresh && fresh !== cur) showUpdateBanner();
+      if (fresh && fresh !== cur && !updateMuted(fresh)) showUpdateBanner(fresh);
     })
     .catch(() => {});
 }
-function showUpdateBanner() {
+function showUpdateBanner(fresh) {
   if (_updateBannerShown || document.getElementById("update-banner")) return;
   _updateBannerShown = true;
   const bar = document.createElement("div");
@@ -5982,11 +5998,13 @@ function showUpdateBanner() {
   document.body.appendChild(bar);
   requestAnimationFrame(() => bar.classList.add("show"));
   document.getElementById("ub-refresh").addEventListener("click", () => {
+    updateSeen(fresh);
     try { if (window.caches) caches.keys().then((ks) => ks.forEach((k) => caches.delete(k))); } catch (e) {}
     const base = location.pathname.replace(/index\.html$/, "");
     location.replace(base + "?u=" + Date.now()); // 캐시버스트 URL → 서버 최신 index.html
   });
   document.getElementById("ub-close").addEventListener("click", () => {
+    updateSeen(fresh);                 // 닫았으면 그 버전은 더 묻지 않는다
     bar.classList.remove("show");
     setTimeout(() => bar.remove(), 250);
     _updateBannerShown = false;
