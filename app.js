@@ -5150,7 +5150,8 @@ function renderPilsaApply(keepScroll) {
     '<div class="pilsa-screen">' +
       '<h2 class="rank-title">✍️ 성경필사 노트 신청</h2>' +
       '<p class="pilsa-sub">준비가 끝나면 <b>휴대폰으로 알려드립니다</b><br>' +
-        '<b>4층 새가족실</b>에서 찾아가시고, 비용은 그때 내시면 됩니다</p>' +
+        '<b>4층 새가족실</b>에서 찾아가세요<br>' +
+        '비용은 그때 내시면 됩니다</p>' +
       pilsaPreviewBar() +
       (showForm ? pilsaFormHtml(u) : pilsaMineHtml(u)) +
       pilsaActionsHtml(showForm) +
