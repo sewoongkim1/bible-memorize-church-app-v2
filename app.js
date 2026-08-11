@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260812b";
+const APP_BUILD = "20260812c";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5332,7 +5332,7 @@ function pilsaFormHtml(u) {
         '<div class="pl-ctl">' +
           '<button class="pl-mn" data-minus="' + x.id + '"' + (q ? "" : " disabled") + '>−</button>' +
           '<span class="pl-num' + (q ? " has" : "") + '">' + q + '</span>' +
-          '<button class="pl-pl" data-plus="' + x.id + '"' + (left > 0 ? "" : " disabled") + '>＋</button>' +
+          '<button class="pl-pl' + (left > 0 ? "" : " off") + '" data-plus="' + x.id + '">＋</button>' +
         '</div>' +
       '</div>';
   });
@@ -5391,7 +5391,7 @@ function pilsaRefreshCounts() {
     const q = Number(f.qtys[plus.dataset.plus]) || 0;
     num.textContent = q;
     num.classList.toggle("has", q > 0);
-    plus.disabled = left <= 0;
+    plus.classList.toggle("off", left <= 0);   // 잠그지 않는다 — 눌러 보면 이유를 알려 준다
     if (minus) minus.disabled = q <= 0;
   });
   const lf = document.querySelector(".pl-left");
@@ -5437,7 +5437,12 @@ function wirePilsaForm(u) {
   });
   appEl.querySelectorAll("[data-plus]").forEach(function (b) {
     b.addEventListener("click", function () {
-      if (pilsaPicks(pilsaForm) >= PILSA_TOTAL_MAX) return;
+      if (pilsaPicks(pilsaForm) >= PILSA_TOTAL_MAX) {
+        appAlert("한 분당 <b>총 " + PILSA_TOTAL_MAX + "부까지</b> 신청하실 수 있습니다.<br><br>" +
+          "다른 성경을 고르시려면 먼저 <b>−</b>로 부수를 줄여 주세요.<br>" +
+          "더 필요하시면 <b>신앙운동팀</b>에 말씀해 주세요.", "🙏 신청 부수 안내");
+        return;
+      }
       const id = b.dataset.plus;
       pilsaForm.qtys[id] = (Number(pilsaForm.qtys[id]) || 0) + 1;
       pilsaRefreshCounts();

@@ -3070,3 +3070,6 @@ html[data-fs="xl"] .test-card .btn-row { row-gap: 10px; margin-bottom: 18px; pad
                   box-shadow: 0 -6px 18px rgba(26, 42, 72, .07); }
 .dark .pl-acts.sticky { background: #1a2233; border-top-color: #3a4a68;
                         box-shadow: 0 -6px 18px rgba(0, 0, 0, .28); }
+
+/* 상한에 닿은 ＋ — 잠긴 듯 보이되 눌리기는 한다(왜 안 되는지 알려주려고) */
+.pl-ctl button.off { opacity: .35; }
