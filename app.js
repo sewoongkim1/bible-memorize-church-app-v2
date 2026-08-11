@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260812d";
+const APP_BUILD = "20260812e";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -418,19 +418,24 @@ async function syncProgress() {
       saveUser(u);
     }
 
-    const local = loadProgress();
+    // 한글·영어 진도를 각각 병합한다(서버가 언어별로 따로 보관)
     let changed = false;
-    Object.keys(data.progress || {}).forEach((no) => {
-      const serverStage = Number(data.progress[no]);
-      const cur = local[no]?.stage || 0;
-      if (serverStage > cur) {
-        local[no] = { stage: serverStage, passed: true };
+    [["ko", data.progress], ["en", data.progressEn]].forEach(([lang, srv]) => {
+      const local = loadProgress(lang);
+      let dirty = false;
+      Object.keys(srv || {}).forEach((no) => {
+        const serverStage = Number(srv[no]);
+        const cur = local[no]?.stage || 0;
+        if (serverStage > cur) {
+          local[no] = { stage: serverStage, passed: true };
+          dirty = true;
+        }
+      });
+      if (dirty) {
         changed = true;
+        try { localStorage.setItem(progressKey(lang), JSON.stringify(local)); } catch {}
       }
     });
-    if (changed) {
-      try { localStorage.setItem(progressKey(), JSON.stringify(local)); } catch {}
-    }
 
     // 서버 복습 일정 병합(다른 기기에서 완료한 복습 예약 반영)
     mergeServerReviews(data.reviews || []);
@@ -509,7 +514,7 @@ function clearUser() {
 function clearPersonalData() {
   // 상수들이 이 함수보다 아래에서 선언되므로 호출 시점에 목록을 만든다
   [
-    USER_KEY, PRIVACY_CONSENT_KEY, PROGRESS_KEY, SYNC_STATUS_KEY, REVIEW_KEY,
+    USER_KEY, PRIVACY_CONSENT_KEY, PROGRESS_KEY, PROGRESS_KEY + "-en", SYNC_STATUS_KEY, REVIEW_KEY,
     HEART_KEY, PASSAGE_KEY, DAILY_MILESTONE_KEY, BLESS_KEY, EVENT_ENTERED_KEY,
     "board-seen", "album-checked",
   ].forEach((k) => { try { localStorage.removeItem(k); } catch {} });
@@ -544,14 +549,24 @@ const PROGRESS_KEY = "memorize-progress";
 const SYNC_STATUS_KEY = "memorize-sync-status";
 
 // 현재 사용자 신원에 해당하는 진행 기록 저장 키
-function progressKey() {
+//   한글과 영어(NIV)는 서로 다른 암송이라 진도를 따로 센다 —
+//   한글을 3단계까지 마쳤어도 영어로 처음 하면 1단계부터 시작한다.
+//   영어는 키 뒤에 "-en"을 붙여 나눠 담는다(기존 한글 기록은 그대로).
+function progressKey(lang) {
   const u = loadUser();
-  if (!u) return PROGRESS_KEY; // 사용자 없으면 기본 키(폴백)
+  const base = PROGRESS_KEY + (lang === "en" ? "-en" : "");
+  if (!u) return base; // 사용자 없으면 기본 키(폴백)
   const id =
     u.type === "교구"
       ? `g|${u.gu}|${u.mok}|${u.name}`
       : `s|${u.bu}|${u.grade}|${u.name}`;
-  return PROGRESS_KEY + "::" + id;
+  return base + "::" + id;
+}
+
+// 그 구절을 지금 어느 언어로 암송하고 있는지 — 영어 본문이 없으면 늘 한글
+function verseLang(no) {
+  const v = (verses || []).find((x) => x.no === Number(no));
+  return (v && typeof isEnMode === "function" && isEnMode(v)) ? "en" : "ko";
 }
 
 function syncStatusKey() {
@@ -634,43 +649,44 @@ function setupSyncRetry(afterSync) {
   });
 }
 
-function loadProgress() {
+function loadProgress(lang) {
   try {
-    return JSON.parse(localStorage.getItem(progressKey())) || {};
+    return JSON.parse(localStorage.getItem(progressKey(lang))) || {};
   } catch {
     return {};
   }
 }
 
-function saveProgress(no, stage, mode = "typing") {
-  const progress = loadProgress();
+function saveProgress(no, stage, mode = "typing", lang) {
+  const L = lang || verseLang(no);
+  const progress = loadProgress(L);
   const prev = progress[no]?.stage || 0;
   if (stage > prev) {
     // at: 통과한 날짜(말씀 앨범에 표시). 기존 기록엔 없을 수 있어 앨범에서 없으면 생략한다.
     progress[no] = { stage, passed: true, at: todayYmd() };
     try {
-      localStorage.setItem(progressKey(), JSON.stringify(progress));
+      localStorage.setItem(progressKey(L), JSON.stringify(progress));
     } catch {
       /* 저장 실패(시크릿 모드 등) 무시 */
     }
   }
-  // 완료(3단계)한 구절은 복습 일정에 등록
+  // 완료(3단계)한 구절은 복습 일정에 등록(복습은 언어를 가리지 않는다)
   if (stage === 3) ensureReviewScheduled(no);
   // 로컬 진행과 무관하게 통과 활동은 서버에 백업(집계용)
-  postProgress(no, stage, mode);
+  postProgress(no, stage, mode, L);
 }
 
-function getPassedStage(no) {
-  return loadProgress()[no]?.stage || 0;
+function getPassedStage(no, lang) {
+  return loadProgress(lang || verseLang(no))[no]?.stage || 0;
 }
 
 // 통과 단계를 Supabase(API 미들웨어)에 저장
-function postProgress(no, stage, mode) {
+function postProgress(no, stage, mode, lang) {
   const u = loadUser();
   if (!u || !u.user_id) return; // 첫 동기화 전이면 스킵(다음 로그인 때 서버 반영)
   bumpTodayCount(); // 오늘 N회 즉시 +1(서버 커밋 전에 실시간 반영)
   saveSyncStatus("saving", "통과 기록을 서버에 저장하고 있습니다.");
-  api.saveProgress(u.user_id, no, stage, mode)
+  api.saveProgress(u.user_id, no, stage, mode, lang || verseLang(no))
     .then((d) => {
       saveSyncStatus("success", "방금 통과한 기록이 서버에 저장되었습니다.");
       maybeShowDailyMilestone(d);
@@ -846,7 +862,7 @@ function setHearted(no, on) {
   try { localStorage.setItem(heartKey(), JSON.stringify(h)); } catch {}
   const u = loadUser();
   if (u && u.user_id && window.api && api.saveHeart) {
-    api.saveHeart(u.user_id, no, on).catch(() => {});
+    api.saveHeart(u.user_id, no, on, verseLang(no)).catch(() => {});
   }
 }
 // 로그인 시 서버의 체크 목록으로 로컬을 교체(기기 간 동일)

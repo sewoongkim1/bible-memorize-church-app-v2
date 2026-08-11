@@ -28,6 +28,8 @@ const db = createClient(
 );
 
 const REVIEW_DAYS = [3, 7, 14, 30, 60]; // 복습(Leitner) 간격(일)
+// 같은 구절이라도 한글과 영어는 서로 다른 암송 — 진도를 따로 센다
+const progLang = (v: unknown) => (String(v ?? "") === "en" ? "en" : "ko");
 const KST = "+09:00";
 
 const norm = (s: unknown) => (s ?? "").toString().trim().replace(/\s+/g, " ");
@@ -242,12 +244,12 @@ async function importV1(b: any) {
     if (!no || isNaN(stage) || !verseSet.has(no)) continue;
     const k = uid + "|" + no;
     const cur = progMap.get(k);
-    if (!cur || stage > cur.stage) progMap.set(k, { user_id: uid, verse_no: no, stage });
+    if (!cur || stage > cur.stage) progMap.set(k, { user_id: uid, verse_no: no, stage, lang: "ko" });
   }
   if (progMap.size) {
     const arr = [...progMap.values()];
     for (let i = 0; i < arr.length; i += 500) {
-      const { error } = await db.from("progress").upsert(arr.slice(i, i + 500), { onConflict: "user_id,verse_no" });
+      const { error } = await db.from("progress").upsert(arr.slice(i, i + 500), { onConflict: "user_id,verse_no,lang" });
       if (error) throw error;
     }
   }
@@ -1214,9 +1216,11 @@ async function login(b: any) {
   const { data: existRev } = await db.from("reviews").select("verse_no").eq("user_id", user.id);
   const revSet = new Set((existRev ?? []).map((r: any) => r.verse_no));
   const due = new Date(); due.setDate(due.getDate() + REVIEW_DAYS[0]);
-  const toAdd = (prog ?? [])
+  // 한글·영어 두 행이 모두 3단계일 수 있어, 구절 하나로 추린 뒤 예약한다
+  const need = [...new Set((prog ?? [])
     .filter((p: any) => p.stage === 3 && !revSet.has(p.verse_no))
-    .map((p: any) => ({ user_id: user.id, verse_no: p.verse_no, box: 1, due_at: ymd(due) }));
+    .map((p: any) => p.verse_no))];
+  const toAdd = need.map((no) => ({ user_id: user.id, verse_no: no, box: 1, due_at: ymd(due) }));
   if (toAdd.length) {
     await db.from("reviews").upsert(toAdd, { onConflict: "user_id,verse_no", ignoreDuplicates: true });
   }
@@ -1225,11 +1229,17 @@ async function login(b: any) {
     .select("verse_no,box,due_at,last_at").eq("user_id", user.id);
 
   // progress는 기존 형태({구절:단계} 숫자 맵) 유지 — 구버전 클라이언트 호환.
+  // 영어(NIV) 진도는 progressEn으로 따로 내려보낸다(옛 앱은 이 값을 무시한다).
   // "마음에 둠"은 별도 배열로만 덧붙인다(비파괴).
   const progress: Record<number, number> = {};
-  (prog ?? []).forEach((r: any) => { progress[r.verse_no] = r.stage; });
-  const hearted = (prog ?? []).filter((r: any) => r.hearted).map((r: any) => r.verse_no);
-  return { ok: true, user_id: user.id, user, progress, hearted, reviews: revs ?? [] };
+  const progressEn: Record<number, number> = {};
+  (prog ?? []).forEach((r: any) => {
+    const box = r.lang === "en" ? progressEn : progress;
+    box[r.verse_no] = r.stage;
+  });
+  // 마음에 둠은 구절 단위 — 어느 언어에서 체크했든 하나로 본다
+  const hearted = [...new Set((prog ?? []).filter((r: any) => r.hearted).map((r: any) => r.verse_no))];
+  return { ok: true, user_id: user.id, user, progress, progressEn, hearted, reviews: revs ?? [] };
 }
 
 // ---------- app_config: 관리자가 배포 없이 편집하는 설정(키-값) ----------
@@ -1261,23 +1271,25 @@ async function saveConfig(b: any) {
 // ---------- saveHeart: "이 말씀을 내 마음에 두었나이다" 체크/해제 ----------
 async function saveHeart(b: any) {
   const on = !!b.hearted;
+  // 체크한 그 언어의 행에 남긴다 — 다른 언어 행에 3단계가 잘못 생기지 않게
   const { error } = await db.from("progress").upsert({
-    user_id: b.user_id, verse_no: b.verse_no,
+    user_id: b.user_id, verse_no: b.verse_no, lang: progLang(b.lang),
     stage: 3,                       // 3단계를 통과해야만 체크 가능
     hearted: on,
     hearted_at: on ? new Date().toISOString() : null,
     updated_at: new Date().toISOString(),
-  }, { onConflict: "user_id,verse_no" });
+  }, { onConflict: "user_id,verse_no,lang" });
   if (error) throw error;
   return { ok: true, hearted: on };
 }
 
 // ---------- saveProgress: 단계 저장 + 학습 통과 이벤트 기록(통계용) ----------
 async function saveProgress(b: any) {
+  const lang = progLang(b.lang);
   const { error } = await db.from("progress").upsert({
-    user_id: b.user_id, verse_no: b.verse_no, stage: b.stage,
+    user_id: b.user_id, verse_no: b.verse_no, stage: b.stage, lang,
     updated_at: new Date().toISOString(),
-  }, { onConflict: "user_id,verse_no" });
+  }, { onConflict: "user_id,verse_no,lang" });
   if (error) throw error;
 
   // 학습 통과를 활동 이벤트로 남긴다(관리자 사용현황/참여자/구절별 통계 원천).
@@ -1290,6 +1302,7 @@ async function saveProgress(b: any) {
   if (logError) throw logError;
 
   if (Number(b.stage) === 3) {
+    // 복습은 언어를 가리지 않는다 — 어느 쪽으로 마쳤든 그 구절 하나로 예약
     const due = new Date(); due.setDate(due.getDate() + REVIEW_DAYS[0]);
     await db.from("reviews").upsert({
       user_id: b.user_id, verse_no: b.verse_no, box: 1, due_at: ymd(due),
