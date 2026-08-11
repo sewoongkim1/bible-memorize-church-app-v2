@@ -2882,3 +2882,53 @@ html[data-fs="xl"] .test-card .btn-row { row-gap: 10px; margin-bottom: 18px; pad
 .dark .pilsa-go.ghost { background: #2a3450; color: #c3cee6; }
 .dark .pc-row { border-bottom-color: #3a4a68; }
 .dark .pilsa-result.none { background: #202a3d; border-color: #3a4a68; color: #9aa6bb; }
+
+/* ── 필사 신청 상태 표시 ─────────────────────────────────── */
+.pilsa-state { border-radius: 14px; padding: 16px 16px 14px; margin-bottom: 12px; }
+.ps-top { display: flex; align-items: center; gap: 8px; }
+.ps-ic { font-size: 1.25rem; }
+.ps-name { font-size: 1.05rem; font-weight: 800; }
+.ps-msg { font-size: .86rem; line-height: 1.6; margin-top: 6px; word-break: keep-all; }
+.pilsa-state.s1 { background: #eef3fb; border: 1.5px solid #a9c3e8; color: #1a3a6b; }
+.pilsa-state.s2 { background: #fdf6e3; border: 1.5px solid #e6cf94; color: #7a5f16; }
+.pilsa-state.s3 { background: #eaf6ee; border: 1.5px solid #a9d8bb; color: #1f5c3a; }
+.pilsa-state.s4 { background: #f4f6fa; border: 1.5px solid var(--border); color: #5a6273; }
+
+/* 진행 단계 — 지금 어디쯤인지 한눈에 */
+.pl-steps { display: flex; margin: 0 2px 14px; }
+.pl-step { flex: 1; text-align: center; position: relative; }
+.pl-step i { display: block; width: 11px; height: 11px; border-radius: 50%;
+             background: #d8dfec; margin: 0 auto 5px; }
+.pl-step span { font-size: .72rem; font-weight: 700; color: #a3adbe; }
+.pl-step::before { content: ""; position: absolute; top: 5px; left: -50%; width: 100%; height: 2px;
+                   background: #e3e7ee; z-index: -1; }
+.pl-step:first-child::before { display: none; }
+.pl-steps { position: relative; z-index: 0; }
+.pl-step.done i { background: #8fb6e3; }
+.pl-step.done span { color: #6a7d99; }
+.pl-step.now i { background: var(--navy); transform: scale(1.35); }
+.pl-step.now span { color: var(--navy); }
+
+.pl-help.lock { background: #f4f6fa; border: 1px dashed var(--border); border-radius: 10px;
+                padding: 12px; margin-top: 12px; line-height: 1.6; }
+.pilsa-go.danger { background: #fff; color: #c0392b; border-color: #e8b4ae; }
+.pilsa-go.danger:hover { background: #c0392b; color: #fff; border-color: #c0392b; }
+
+/* 어드민 미리보기 전용 상태 전환 바 — 성도 화면에는 나오지 않는다 */
+.pl-prev { display: flex; flex-wrap: wrap; align-items: center; gap: 5px;
+           background: #2b3550; border-radius: 10px; padding: 8px 10px; margin-bottom: 12px; }
+.pl-prev b { font-size: .72rem; color: #ffd875; margin-right: 4px; }
+.pl-prev button { font-size: .72rem; font-weight: 700; font-family: inherit; cursor: pointer;
+                  color: #c3cee6; background: #3a4a68; border: 1px solid #56688c;
+                  border-radius: 999px; padding: 4px 9px; }
+.pl-prev button.on { background: #ffd875; border-color: #ffd875; color: #2b3550; }
+
+.dark .pilsa-state.s1 { background: #1e2a44; border-color: #3a5680; color: #cdd9f2; }
+.dark .pilsa-state.s2 { background: #2b2717; border-color: #8d7531; color: #e8d9a3; }
+.dark .pilsa-state.s3 { background: #17311f; border-color: #2f5a42; color: #8fd6ab; }
+.dark .pilsa-state.s4 { background: #202a3d; border-color: #3a4a68; color: #9aa6bb; }
+.dark .pl-step i { background: #3a4a68; }
+.dark .pl-step.now i { background: #8fb6e3; }
+.dark .pl-step.now span { color: #cdd9f2; }
+.dark .pl-help.lock { background: #202a3d; border-color: #3a4a68; }
+.dark .pilsa-go.danger { background: #2a3450; color: #f0a49b; border-color: #6b4a46; }

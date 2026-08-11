@@ -115,6 +115,7 @@ function routeAfterLoad() {
     return;
   }
   if (preview === "pilsa") {          // 성경필사 노트 신청 — 어드민 미리보기(성도 화면 그대로)
+    pilsaPreview = true;             // 상태 전환 바 노출(성도 화면에는 없음)
     if (loadUser()) renderPilsaApply(); else renderEntryScreen();
     return;
   }
@@ -4923,13 +4924,28 @@ async function callRanking(from, to) {
 }
 
 // ------------------------------------------------------------
-// 성경필사 노트 신청 — 신청/조회 두 탭.
+// 성경필사 노트 신청
 //   로그인 정보(교구·목장·이름)는 앱이 이미 알고 있어 다시 묻지 않는다.
 //   신청 기간 제한 없음. 한 분당 최대 5권.
-//   ※ 지금은 화면만 — 서버 연동은 다음 단계(submitPilsa/loadPilsaMine 자리).
+//
+//   상태 흐름 : 신청완료 → 준비중 → 준비완료 → 배부완료
+//   성도가 고칠 수 있는 것은 '신청완료' 단계뿐이다. 준비가 시작되면
+//   수량이 바뀌면 곤란하므로 그 뒤로는 보기만 된다.
+//
+//   ※ 지금은 화면만 — 서버 연동(submitPilsa/cancelPilsa/loadPilsaMine)은 다음 단계.
 // ------------------------------------------------------------
-const PILSA_MAX = 5;                  // 1인 신청 상한(권)
-let pilsaQty = 1;                     // 선택한 수량
+const PILSA_MAX = 5;                      // 1인 신청 상한(권)
+const PILSA_STEPS = ["신청완료", "준비중", "준비완료", "배부완료"];
+const PILSA_INFO = {
+  "신청완료": { cls: "s1", ic: "📝", msg: "신청이 접수되었습니다. 준비가 시작되기 전까지는 수량을 바꾸거나 취소하실 수 있어요." },
+  "준비중":   { cls: "s2", ic: "📦", msg: "노트를 준비하고 있습니다. 이 단계부터는 수량을 바꿀 수 없어요." },
+  "준비완료": { cls: "s3", ic: "✅", msg: "노트가 준비되었습니다. 교구·부서를 통해 곧 전달해 드립니다." },
+  "배부완료": { cls: "s4", ic: "🎁", msg: "전달이 완료되었습니다. 매일 한 구절씩 손으로 새겨 보세요." },
+};
+
+let pilsaQty = 1;        // 신청 화면에서 고른 수량
+let pilsaMine = null;    // 내 신청 { qty, status, at } — null이면 신청 전
+let pilsaPreview = false; // 어드민 미리보기 여부(상태 전환 바 노출)
 
 // "화평 20목장 · 김세웅" / "초등부 3학년 · 김믿음"
 function pilsaWho(u) {
@@ -4939,57 +4955,133 @@ function pilsaWho(u) {
     : u.bu + " " + (u.grade ? u.grade + " · " : "") + u.name;
 }
 
-function renderPilsaApply(mode) {
-  const m = mode === "lookup" ? "lookup" : "apply";
+function pilsaStepsHtml(cur) {
+  const i = PILSA_STEPS.indexOf(cur);
+  return '<div class="pl-steps">' + PILSA_STEPS.map(function (s, k) {
+    const st = k < i ? "done" : k === i ? "now" : "";
+    return '<div class="pl-step ' + st + '"><i></i><span>' + s + '</span></div>';
+  }).join("") + '</div>';
+}
+
+// 미리보기에서만 나오는 상태 전환 바 — 서버 연동 뒤에는 사라진다
+function pilsaPreviewBar() {
+  if (!pilsaPreview) return "";
+  const opts = ["없음"].concat(PILSA_STEPS);
+  const cur = pilsaMine ? pilsaMine.status : "없음";
+  return '<div class="pl-prev"><b>미리보기</b>' +
+    opts.map(function (o) {
+      return '<button data-s="' + o + '" class="' + (o === cur ? "on" : "") + '">' + o + '</button>';
+    }).join("") + '</div>';
+}
+
+function renderPilsaApply() {
   const u = loadUser();
-  if (!u) { renderEntryScreen(); return; }   // 로그인 먼저
+  if (!u) { renderEntryScreen(); return; }
   const appEl = document.getElementById("app");
 
-  const qtyBtns = [1, 2, 3, 4, 5]
-    .map((n) => '<button data-n="' + n + '" class="' + (n === pilsaQty ? "on" : "") + '">' + n + '권</button>')
-    .join("");
-
-  const applyBody =
-    '<div class="pilsa-box">' +
-      '<div class="pl-label">몇 권 신청하시겠어요?</div>' +
-      '<div class="pl-qty" id="pl-qty">' + qtyBtns + '</div>' +
-      '<div class="pl-help">한 분당 최대 ' + PILSA_MAX + '권까지 신청하실 수 있어요</div>' +
-    '</div>' +
-    '<button class="pilsa-go" id="pl-next">다음 →</button>';
-
-  const lookupBody = '<div id="pl-result"><p class="rank-msg">불러오는 중…</p></div>';
+  let body;
+  if (pilsaMine) {
+    // ── 이미 신청함 — 상태와 내용을 먼저 보여준다 ──
+    const info = PILSA_INFO[pilsaMine.status] || PILSA_INFO["신청완료"];
+    const editable = pilsaMine.status === "신청완료";
+    body =
+      '<div class="pilsa-state ' + info.cls + '">' +
+        '<div class="ps-top"><span class="ps-ic">' + info.ic + '</span>' +
+        '<span class="ps-name">' + pilsaMine.status + '</span></div>' +
+        '<div class="ps-msg">' + info.msg + '</div>' +
+      '</div>' +
+      pilsaStepsHtml(pilsaMine.status) +
+      '<div class="pilsa-confirm">' +
+        '<div class="pc-row"><span>신청자</span><b>' + boardEsc(pilsaWho(u)) + '</b></div>' +
+        '<div class="pc-row"><span>신청 수량</span><b>' + pilsaMine.qty + '권</b></div>' +
+        (pilsaMine.at ? '<div class="pc-row"><span>신청일</span><b>' + boardEsc(pilsaMine.at) + '</b></div>' : '') +
+      '</div>' +
+      (editable
+        ? '<button class="pilsa-go" id="pl-more">➕ 수량 바꾸기</button>' +
+          '<button class="pilsa-go danger" id="pl-cancel">🗑 신청 취소</button>'
+        : '<div class="pl-help lock">준비가 시작되어 변경할 수 없습니다.<br>' +
+          '수량을 꼭 바꾸셔야 하면 교구·부서 담당자에게 말씀해 주세요.</div>');
+  } else {
+    // ── 아직 신청 전 ──
+    const qtyBtns = [1, 2, 3, 4, 5].map(function (n) {
+      return '<button data-n="' + n + '" class="' + (n === pilsaQty ? "on" : "") + '">' + n + '권</button>';
+    }).join("");
+    body =
+      '<div class="pilsa-me"><div class="pm-k">신청자</div>' +
+        '<div class="pm-v">' + boardEsc(pilsaWho(u)) + '</div></div>' +
+      '<div class="pilsa-box">' +
+        '<div class="pl-label">몇 권 신청하시겠어요?</div>' +
+        '<div class="pl-qty" id="pl-qty">' + qtyBtns + '</div>' +
+        '<div class="pl-help">한 분당 최대 ' + PILSA_MAX + '권까지 신청하실 수 있어요</div>' +
+      '</div>' +
+      '<button class="pilsa-go" id="pl-next">다음 →</button>';
+  }
 
   appEl.innerHTML =
     '<div class="pilsa-screen">' +
       '<h2 class="rank-title">✍️ 성경필사 노트 신청</h2>' +
       '<p class="pilsa-sub">신청하시면 교구·부서를 통해 전달해 드립니다</p>' +
-      '<div class="rank-filter pilsa-tab" id="pl-tab">' +
-        '<button data-m="apply" class="' + (m === "apply" ? "on" : "") + '">신청하기</button>' +
-        '<button data-m="lookup" class="' + (m === "lookup" ? "on" : "") + '">조회하기</button>' +
-      '</div>' +
-      '<div class="pilsa-me"><div class="pm-k">신청자</div>' +
-        '<div class="pm-v">' + boardEsc(pilsaWho(u)) + '</div></div>' +
-      (m === "apply" ? applyBody : lookupBody) +
+      pilsaPreviewBar() + body +
     '</div>' +
     '<button class="home-fab" id="pl-back" aria-label="첫 화면으로">🏠 ' + userLabel(u) + ' 성도님</button>';
 
   window.scrollTo(0, 0);
   document.getElementById("pl-back").addEventListener("click", renderSummary);
-  document.getElementById("pl-tab").querySelectorAll("button").forEach(function (b) {
-    b.addEventListener("click", function () { renderPilsaApply(b.dataset.m); });
-  });
+  wirePilsaPreview();
 
-  if (m === "apply") {
-    document.getElementById("pl-qty").querySelectorAll("button").forEach(function (b) {
-      b.addEventListener("click", function () { pilsaQty = Number(b.dataset.n); renderPilsaApply("apply"); });
-    });
-    document.getElementById("pl-next").addEventListener("click", function () { renderPilsaConfirm(u); });
-  } else {
-    loadPilsaMine(u);
-  }
+  const more = document.getElementById("pl-more");
+  if (more) more.addEventListener("click", function () { pilsaQty = pilsaMine.qty; renderPilsaEdit(u); });
+  const cancel = document.getElementById("pl-cancel");
+  if (cancel) cancel.addEventListener("click", function () { askCancelPilsa(u); });
+
+  const qty = document.getElementById("pl-qty");
+  if (qty) qty.querySelectorAll("button").forEach(function (b) {
+    b.addEventListener("click", function () { pilsaQty = Number(b.dataset.n); renderPilsaApply(); });
+  });
+  const next = document.getElementById("pl-next");
+  if (next) next.addEventListener("click", function () { renderPilsaConfirm(u); });
 }
 
-// 신청 전 확인 — 잘못 눌러 접수되는 일이 없게 한 번 되짚는다
+function wirePilsaPreview() {
+  const bar = document.querySelector(".pl-prev");
+  if (!bar) return;
+  bar.querySelectorAll("button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      const s = b.dataset.s;
+      pilsaMine = s === "없음" ? null : { qty: (pilsaMine && pilsaMine.qty) || 2, status: s, at: "2026.08.10" };
+      renderPilsaApply();
+    });
+  });
+}
+
+// 수량 바꾸기 — 신청완료 상태에서만 들어온다
+function renderPilsaEdit(u) {
+  const appEl = document.getElementById("app");
+  const qtyBtns = [1, 2, 3, 4, 5].map(function (n) {
+    return '<button data-n="' + n + '" class="' + (n === pilsaQty ? "on" : "") + '">' + n + '권</button>';
+  }).join("");
+  appEl.innerHTML =
+    '<div class="pilsa-screen">' +
+      '<h2 class="rank-title">✍️ 수량 바꾸기</h2>' +
+      '<div class="pilsa-box">' +
+        '<div class="pl-label">몇 권으로 바꾸시겠어요?</div>' +
+        '<div class="pl-qty" id="pl-qty">' + qtyBtns + '</div>' +
+        '<div class="pl-help">지금 신청하신 수량은 ' + pilsaMine.qty + '권이에요</div>' +
+      '</div>' +
+      '<button class="pilsa-go" id="pl-save">✅ 이 수량으로 바꾸기</button>' +
+      '<button class="pilsa-go ghost" id="pl-cancel2">← 돌아가기</button>' +
+    '</div>' +
+    '<button class="home-fab" id="pl-back" aria-label="첫 화면으로">🏠 ' + userLabel(u) + ' 성도님</button>';
+  window.scrollTo(0, 0);
+  document.getElementById("pl-back").addEventListener("click", renderSummary);
+  document.getElementById("pl-cancel2").addEventListener("click", function () { renderPilsaApply(); });
+  document.getElementById("pl-qty").querySelectorAll("button").forEach(function (b) {
+    b.addEventListener("click", function () { pilsaQty = Number(b.dataset.n); renderPilsaEdit(u); });
+  });
+  document.getElementById("pl-save").addEventListener("click", function () { submitPilsa(u, true); });
+}
+
+// 처음 신청 전 확인 — 잘못 눌러 접수되는 일이 없게 한 번 되짚는다
 function renderPilsaConfirm(u) {
   const appEl = document.getElementById("app");
   appEl.innerHTML =
@@ -5006,42 +5098,31 @@ function renderPilsaConfirm(u) {
     '<button class="home-fab" id="pl-back" aria-label="첫 화면으로">🏠 ' + userLabel(u) + ' 성도님</button>';
   window.scrollTo(0, 0);
   document.getElementById("pl-back").addEventListener("click", renderSummary);
-  document.getElementById("pl-again").addEventListener("click", function () { renderPilsaApply("apply"); });
-  document.getElementById("pl-submit").addEventListener("click", function () { submitPilsa(u); });
+  document.getElementById("pl-again").addEventListener("click", function () { renderPilsaApply(); });
+  document.getElementById("pl-submit").addEventListener("click", function () { submitPilsa(u, false); });
 }
 
-function renderPilsaDone(u, msg, kind) {
-  const appEl = document.getElementById("app");
-  appEl.innerHTML =
-    '<div class="pilsa-screen">' +
-      '<h2 class="rank-title">✍️ 성경필사 노트 신청</h2>' +
-      '<div class="pilsa-result ' + kind + '">' + msg + '</div>' +
-      '<button class="pilsa-go" id="pl-mine">🔍 내 신청 내역 보기</button>' +
-      '<button class="pilsa-go ghost" id="pl-home">첫 화면으로</button>' +
-    '</div>' +
-    '<button class="home-fab" id="pl-back" aria-label="첫 화면으로">🏠 ' + userLabel(u) + ' 성도님</button>';
-  window.scrollTo(0, 0);
-  document.getElementById("pl-back").addEventListener("click", renderSummary);
-  document.getElementById("pl-home").addEventListener("click", renderSummary);
-  document.getElementById("pl-mine").addEventListener("click", function () { renderPilsaApply("lookup"); });
+async function askCancelPilsa(u) {
+  const ok = await appConfirm(
+    "신청하신 <b>필사 노트 " + pilsaMine.qty + "권</b>을 취소합니다.<br><br>" +
+    "언제든 다시 신청하실 수 있어요.",
+    { title: "🗑 신청 취소", okText: "취소하기", danger: true });
+  if (!ok) return;
+  pilsaMine = null;                       // TODO: 서버 삭제로 교체
+  await appAlert("신청이 취소되었습니다.");
+  renderPilsaApply();
 }
 
 // ── 서버 연동 자리 ───────────────────────────────────────────
-// 다음 단계에서 Supabase Edge Function 액션으로 교체한다(pilsaApply / pilsaMine).
-const PILSA_STUB = '<span class="pr-sub">※ 지금은 화면만 연결된 상태로, 서버에는 저장되지 않습니다.</span>';
-
-async function submitPilsa(u) {
-  const btn = document.getElementById("pl-submit");
-  if (btn) { btn.disabled = true; btn.textContent = "신청 중…"; }
-  renderPilsaDone(u,
-    '<b>✅ 신청이 접수되었습니다</b><br>필사 노트 <b>' + pilsaQty + '권</b>을 신청하셨습니다.<br>' + PILSA_STUB,
-    "ok");
-}
-
-async function loadPilsaMine(u) {
-  const box = document.getElementById("pl-result");
-  if (!box) return;
-  box.innerHTML = '<div class="pilsa-result none">아직 신청 내역이 없습니다.<br>' + PILSA_STUB + '</div>';
+// 다음 단계에서 Supabase Edge Function 액션으로 교체한다(pilsaApply/pilsaCancel/pilsaMine).
+async function submitPilsa(u, isEdit) {
+  const btn = document.getElementById(isEdit ? "pl-save" : "pl-submit");
+  if (btn) { btn.disabled = true; btn.textContent = "처리 중…"; }
+  pilsaMine = { qty: pilsaQty, status: "신청완료", at: "2026.08.10" };  // TODO: 서버 응답으로 교체
+  await appAlert(isEdit
+    ? "수량을 <b>" + pilsaQty + "권</b>으로 바꿨습니다."
+    : "신청이 접수되었습니다.<br>필사 노트 <b>" + pilsaQty + "권</b>");
+  renderPilsaApply();
 }
 
 // ------------------------------------------------------------
