@@ -2915,15 +2915,6 @@ html[data-fs="xl"] .test-card .btn-row { row-gap: 10px; margin-bottom: 18px; pad
 .pilsa-go.danger:hover { background: #c0392b; color: #fff; border-color: #c0392b; }
 
 /* 어드민 미리보기 전용 상태 전환 바 — 성도 화면에는 나오지 않는다 */
-.pl-prev { display: flex; flex-wrap: nowrap; align-items: center; gap: 3px;
-           background: #2b3550; border-radius: 10px; padding: 7px 8px; margin-bottom: 12px;
-           overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-.pl-prev::-webkit-scrollbar { display: none; }
-.pl-prev b { font-size: .63rem; color: #ffd875; margin-right: 2px; flex: none; }
-.pl-prev button { font-size: .63rem; font-weight: 700; font-family: inherit; cursor: pointer;
-                  color: #c3cee6; background: #3a4a68; border: 1px solid #56688c;
-                  border-radius: 999px; padding: 4px 6px; flex: none; white-space: nowrap; }
-.pl-prev button.on { background: #ffd875; border-color: #ffd875; color: #2b3550; }
 
 .dark .pilsa-state.s1 { background: #1e2a44; border-color: #3a5680; color: #cdd9f2; }
 .dark .pilsa-state.s2 { background: #2b2717; border-color: #8d7531; color: #e8d9a3; }
@@ -3054,7 +3045,3 @@ html[data-fs="xl"] .test-card .btn-row { row-gap: 10px; margin-bottom: 18px; pad
 .pl-hint { font-size: .76rem; color: #8a95a8; margin-top: 6px; }
 .dark .pl-sec .opt { background: #2a3450; color: #9aa6bb; }
 .dark .pl-phone.err { background: #2e1f1e !important; }
-
-/* 미리보기 바의 '실제' — 가짜 상태 버튼과 눈에 띄게 구분한다 */
-.pl-prev button.live { border-color: #7bd3a0; color: #2f8f5b; margin-right: 3px; }
-.pl-prev button.live.on { background: #2f8f5b; border-color: #2f8f5b; color: #fff; }

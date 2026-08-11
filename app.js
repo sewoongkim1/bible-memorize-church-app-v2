@@ -114,8 +114,7 @@ function routeAfterLoad() {
     if (loadUser()) enterAfterLogin(); else renderEntryScreen();
     return;
   }
-  if (preview === "pilsa") {          // 성경필사 노트 신청 — 어드민 미리보기(성도 화면 그대로)
-    pilsaPreview = true;             // 상태 전환 바 노출(성도 화면에는 없음)
+  if (preview === "pilsa") {          // 성경필사 노트 신청 — 성도 화면 그대로 바로 진입
     if (loadUser()) renderPilsaApply(); else renderEntryScreen();
     return;
   }
@@ -134,9 +133,6 @@ function routeAfterLoad() {
 }
 
 // URL의 ?preview=<종류>를 1회 읽어 반환(읽은 뒤 URL 정리 → 새로고침 시 재진입 방지)
-// 필사 신청 미리보기 여부 — routeAfterLoad에서 이르게 쓰므로 선언을 위에 둔다
-let pilsaPreview = false;
-
 function getPreviewKind() {
   try {
     const p = new URLSearchParams(location.search).get("preview");
@@ -5020,13 +5016,8 @@ let pilsaMine = null;      // 접수된 내 신청 { ...form, status, at }
 let pilsaTab = "ot";       // 구약/신약 탭
 let pilsaEditing = false;  // 접수된 신청을 고치는 중
 let pilsaLoaded = false;   // 서버에서 내 신청을 불러왔는지
-let pilsaLive = true;      // 미리보기도 기본은 실제 서버 —
-                           // 상태 버튼을 눌렀을 때만 가짜 화면으로 바뀐다
 
 
-// 성도 화면에서는 늘 서버와 이야기한다. 어드민 미리보기는 가짜 상태로 화면만
-// 훑어보는 자리라, '실제' 버튼을 눌렀을 때만 서버에 붙는다.
-function pilsaServerOn() { return !pilsaPreview || pilsaLive; }
 // 브라우저가 옛 js/api.js를 물고 있으면 필사 액션이 아예 없다 —
 // "함수가 없습니다" 대신 새로고침을 안내한다.
 function pilsaApiReady() { return !!(window.api && api.pilsaApply && api.pilsaMine); }
@@ -5089,19 +5080,6 @@ function pilsaStepsHtml(cur) {
     return '<div class="pl-step ' + (k < i ? "done" : k === i ? "now" : "") +
            '"><i></i><span>' + s + '</span></div>';
   }).join("") + '</div>';
-}
-
-// 미리보기에서만 나오는 상태 전환 바
-function pilsaPreviewBar() {
-  if (!pilsaPreview) return "";
-  const cur = pilsaLive ? "" : (pilsaMine ? pilsaMine.status : "없음");
-  // 좁은 화면에서 옆으로 밀려도 '실제'는 늘 보이도록 맨 앞에 둔다
-  return '<div class="pl-prev"><b>보기</b>' +
-    '<button data-live="1" class="live' + (pilsaLive ? " on" : "") + '">실제</button>' +
-    ["없음"].concat(PILSA_STEPS).map(function (o) {
-      return '<button data-s="' + o + '" class="' + (o === cur ? "on" : "") + '">' + o + '</button>';
-    }).join("") +
-    '</div>';
 }
 
 // ── 화면 맨 아래 동작 버튼 ────────────────────────────────────
@@ -5182,7 +5160,7 @@ function renderPilsaApply(keepScroll) {
   const u = loadUser();
   if (!u) { renderEntryScreen(); return; }
   // 서버에서 내 신청을 아직 못 가져왔으면 먼저 가져온다
-  if (pilsaServerOn() && !pilsaLoaded) {
+  if (!pilsaLoaded) {
     document.getElementById("app").innerHTML =
       '<div class="pilsa-screen"><h2 class="rank-title">✍️ 성경필사 노트 신청</h2>' +
       '<p class="msg">신청 내용을 불러오는 중…</p></div>';
@@ -5200,13 +5178,11 @@ function renderPilsaApply(keepScroll) {
       '<p class="pilsa-sub">준비가 끝나면 <b>휴대폰으로 알려드립니다</b><br>' +
         '<b>4층 새가족실</b>에서 찾아가세요<br>' +
         '비용은 그때 내시면 됩니다</p>' +
-      pilsaPreviewBar() +
       (showForm ? pilsaFormHtml(u) : pilsaMineHtml(u)) +
       pilsaActionsHtml(showForm) +
     '</div>';
 
   window.scrollTo(0, keepScroll == null ? 0 : keepScroll);
-  wirePilsaPreview();
   wirePilsaActions(u);
   if (showForm) wirePilsaForm(u);
 }
@@ -5417,33 +5393,6 @@ function wirePilsaForm(u) {
   });
 }
 
-function wirePilsaPreview() {
-  const bar = document.querySelector(".pl-prev");
-  if (!bar) return;
-  bar.querySelectorAll("button").forEach(function (b) {
-    b.addEventListener("click", function () {
-      const s = b.dataset.s;
-      pilsaEditing = false;
-      if (b.dataset.live) {          // 실제 서버에 붙어 내 신청 그대로 본다
-        pilsaLive = true; pilsaLoaded = false;
-        pilsaMine = null; pilsaForm = pilsaNewForm();
-        renderPilsaApply();
-        return;
-      }
-      pilsaLive = false; pilsaLoaded = true;   // 가짜 상태 — 서버를 다시 부르지 않는다
-      if (s === "없음") { pilsaMine = null; pilsaForm = pilsaNewForm(); }
-      else {
-        pilsaMine = pilsaMine
-          ? Object.assign({}, pilsaMine, { status: s })
-          : { size: "A4", type1: "아래쪽 필사형", type2: "한영(개역개정/NIV)",
-              phone: "010-1234-5678", qtys: { ot16: 1, nt01: 1 }, memo: "",
-              status: s, at: "2026.08.10" };
-      }
-      renderPilsaApply();
-    });
-  });
-}
-
 // ── 확인 화면 ────────────────────────────────────────────────
 function renderPilsaConfirm(u) {
   const appEl = document.getElementById("app");
@@ -5467,7 +5416,7 @@ async function askCancelPilsa(u) {
     "신청하신 <b>필사 노트 " + pilsaTotal(pilsaMine) + "부</b>를 취소합니다.<br><br>언제든 다시 신청하실 수 있어요.",
     { title: "🗑 신청 취소", okText: "취소하기", danger: true });
   if (!ok) return;
-  if (pilsaServerOn() && pilsaMine && pilsaMine.id) {
+  if (pilsaMine && pilsaMine.id) {
     try {
       await api.pilsaCancel(u.user_id, pilsaMine.id);
     } catch (e) {
@@ -5478,23 +5427,13 @@ async function askCancelPilsa(u) {
   pilsaMine = null;
   pilsaEditing = false;
   pilsaForm = pilsaNewForm();
-  await appAlert(pilsaServerOn()
-    ? "신청이 취소되었습니다."
-    : "<b>미리보기</b>라 실제로 지워지지는 않았습니다.");
+  await appAlert("신청이 취소되었습니다.");
   renderPilsaApply();
 }
 
 async function submitPilsa(u) {
   const btn = document.getElementById("pl-ok");
   if (btn) { btn.disabled = true; btn.textContent = "처리 중…"; }
-  if (!pilsaServerOn()) {                 // 가짜 상태 — 화면만 넘겨 본다
-    pilsaMine = Object.assign({}, pilsaForm, { status: "신청완료", at: pilsaToday() });
-    pilsaEditing = false;
-    await appAlert("<b>미리보기</b>라 저장되지 않았습니다.<br>" +
-      "실제로 신청하시려면 위의 <b>실제</b>를 눌러 주세요.", "👀 화면 확인");
-    renderPilsaApply();
-    return;
-  }
   if (!pilsaApiReady()) {
     if (btn) { btn.disabled = false; btn.textContent = "신청"; }
     await appAlert("앱이 옛 버전이라 신청을 보낼 수 없습니다.<br>새로고침한 뒤 다시 신청해 주세요.");
@@ -5518,13 +5457,6 @@ async function submitPilsa(u) {
     if (btn) { btn.disabled = false; btn.textContent = "신청"; }
     await appAlert("신청을 저장하지 못했습니다.<br>" + boardEsc(e && e.message ? e.message : e));
   }
-}
-
-// 미리보기에서 쓰는 오늘 날짜(YYYY.MM.DD)
-function pilsaToday() {
-  const d = new Date();
-  const p = function (n) { return String(n).padStart(2, "0"); };
-  return d.getFullYear() + "." + p(d.getMonth() + 1) + "." + p(d.getDate());
 }
 
 // ------------------------------------------------------------
