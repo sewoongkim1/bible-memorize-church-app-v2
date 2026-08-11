@@ -3073,3 +3073,24 @@ html[data-fs="xl"] .test-card .btn-row { row-gap: 10px; margin-bottom: 18px; pad
 
 /* 상한에 닿은 ＋ — 잠긴 듯 보이되 눌리기는 한다(왜 안 되는지 알려주려고) */
 .pl-ctl button.off { opacity: .35; }
+
+/* =====================================================================
+   영어(NIV) 암송 본문 — Lora, 한 단계 크게
+   한글 서체(Gowun Batang)의 영문 글자는 획이 가늘고 자간이 성겨
+   눈에 잘 박히지 않는다. 영어 화면에서만 라틴 전용 서체로 바꾸고,
+   글자 크기도 한 단계 올린다(한글 화면은 손대지 않는다).
+   ===================================================================== */
+.test-screen.en .test-sentence,
+.test-screen.en .word-input,
+.test-screen.en .answer-text { font-family: "Lora", serif; }
+.test-screen.en .test-sentence,
+.test-screen.en .word-input { font-size: 23px; }
+.test-screen.en .answer-text { font-size: 21px; }
+
+/* 글씨 크기 설정을 켠 분은 거기서 한 단계 더 */
+html[data-fs="lg"] .test-screen.en .test-sentence,
+html[data-fs="lg"] .test-screen.en .word-input { font-size: 27px; }
+html[data-fs="xl"] .test-screen.en .test-sentence,
+html[data-fs="xl"] .test-screen.en .word-input { font-size: 31px; }
+html[data-fs="lg"] .test-screen.en .answer-text { font-size: 23px; }
+html[data-fs="xl"] .test-screen.en .answer-text { font-size: 26px; }
