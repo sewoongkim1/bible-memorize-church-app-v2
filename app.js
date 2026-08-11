@@ -5445,8 +5445,9 @@ function renderPilsaConfirm(u) {
 
 async function askCancelPilsa(u) {
   const ok = await appConfirm(
-    "신청하신 <b>필사 노트 " + pilsaTotal(pilsaMine) + "권</b>을 취소합니다.<br><br>언제든 다시 신청하실 수 있어요.",
-    { title: "🗑 신청 취소", okText: "취소하기", danger: true });
+    "신청하신 <b>필사 노트 " + pilsaTotal(pilsaMine) + "권</b>을 취소할까요?<br><br>언제든 다시 신청하실 수 있어요.",
+    // 두 버튼이 모두 '취소'로 보이면 어느 쪽이 무엇인지 알 수 없다
+    { title: "🗑 신청 취소", okText: "신청 취소", cancelText: "돌아가기", danger: true });
   if (!ok) return;
   if (pilsaMine && pilsaMine.id) {
     try {
