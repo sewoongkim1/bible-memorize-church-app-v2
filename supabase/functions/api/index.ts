@@ -2259,9 +2259,11 @@ async function pilsaNotify(row: any) {
     .select("id,endpoint,p256dh,auth").eq("user_id", row.user_id);
   const list = (subs ?? []) as any[];
   if (!list.length) return { sent: 0, error: "not-subscribed" };
+  const who = norm(row.name);
   const payload = JSON.stringify({
-    title: "✍️ 필사 노트가 준비되었어요",
-    body: "신청하신 필사 노트 " + row.total + "부가 준비되었습니다. 4층 새가족실에서 찾아가세요. (권당 3,000원)",
+    title: "[고척교회 신앙운동팀]",
+    body: "안녕하세요 " + (who ? who + " 성도님, " : "성도님, ") +
+      "신청하신 성경필사 노트가 준비되었습니다. 주일에 4층 새가족실에서 찾아가세요. 평안한 한주되시고요. 살롬!! 살롬!!",
     url: "https://gocheok.onlybible.kr/",
   });
   let sent = 0, failed = 0;
