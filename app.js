@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260811u";
+const APP_BUILD = "20260811v";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5035,7 +5035,7 @@ const PILSA_ALL = PILSA_UNITS.ot.concat(PILSA_UNITS.nt);
 
 const PILSA_STEPS = ["신청완료", "준비중", "준비완료", "배부완료"];
 const PILSA_INFO = {
-  "신청완료": { cls: "s1", ic: "📝", msg: "신청이 접수되었습니다. 준비에 <b>1주일쯤</b> 걸리며 <b>주일</b>에 전달해 드려요.<br>준비가 시작되기 전까지는 내용을 고치거나 취소하실 수 있어요." },
+  "신청완료": { cls: "s1", ic: "📝", msg: "신청이 접수되었습니다. 준비에 <b>1주일 정도</b> 소요되며 <b>주일</b>에 전달해 드려요.<br>준비가 시작되기 전까지는 신청 내용을 고치거나 취소하실 수 있어요." },
   "준비중":   { cls: "s2", ic: "📦", msg: "노트를 준비하고 있습니다. 준비가 끝나면 돌아오는 <b>주일</b>에 전달해 드려요.<br>이 단계부터는 내용을 바꿀 수 없어요." },
   "준비완료": { cls: "s3", ic: "✅", msg: "노트가 준비되었습니다. 휴대폰으로도 알려드렸어요.<br>4층 새가족실에서 찾아가세요.<br>비용은 그때 내시면 됩니다." },
   "배부완료": { cls: "s4", ic: "🎁", msg: "노트를 받아 가셨습니다. 매일 한 구절씩 손으로 새겨 보세요." },
@@ -5138,7 +5138,7 @@ function pilsaActionsHtml(showForm) {
   if (showForm) {
     btns.push('<button class="pl-act go" id="pl-submit">' + (pilsaMine ? "수정 신청" : "신청") + '</button>');
   } else if (editable) {
-    btns.push('<button class="pl-act go" id="pl-edit">고치기</button>');
+    btns.push('<button class="pl-act go" id="pl-edit">수정하기</button>');
   } else if (finished) {
     btns.push('<button class="pl-act go" id="pl-new">새로 신청</button>');
   }
@@ -5221,7 +5221,7 @@ function renderPilsaApply(keepScroll) {
   appEl.innerHTML =
     '<div class="pilsa-screen">' +
       '<h2 class="rank-title">✍️ 성경필사 노트 신청</h2>' +
-      '<p class="pilsa-sub">신청하시면 <b>1주일쯤</b> 걸리며 <b>주일</b>에 전달해 드립니다<br>' +
+      '<p class="pilsa-sub">신청하시면 <b>1주일 정도</b> 소요되며 <b>주일</b>에 전달해 드립니다<br>' +
         '준비가 끝나면 <b>휴대폰으로 알려드립니다</b><br>' +
         '<b>4층 새가족실</b>에서 찾아가세요<br>' +
         '비용은 그때 내시면 됩니다</p>' +
@@ -5267,7 +5267,7 @@ function pilsaSummaryHtml(u, f) {
     '<div class="pl-sec">성경 선택</div>' +
     '<div class="pilsa-confirm">' + rows +
       (pilsaMult(f) > 1
-        ? '<div class="pc-row"><span>고른 부수</span><b>' + pilsaPicks(f) + '부 × 2</b></div>'
+        ? '<div class="pc-row"><span>신청부수</span><b>' + pilsaPicks(f) + '부 × 2</b></div>'
         : '') +
       '<div class="pc-row total"><span>총 제작 권수</span><b>' + pilsaTotal(f) + '권</b></div>' +
     '</div>' +
@@ -5291,7 +5291,7 @@ function pilsaSumInner(f) {
   const n = pilsaTotal(f);
   const mult = pilsaMult(f);
   return '<b>✅ ' + picked.length + '종 · ' +
-    (mult > 1 ? '고른 ' + pilsaPicks(f) + '부 → ' : '') +
+    (mult > 1 ? '신청 ' + pilsaPicks(f) + '부 → ' : '') +
     '총 ' + n + '권 · ' + pilsaWon(n) + '</b><br><span>' +
     picked.map(function (x) { return boardEsc(pilsaUnitName(x)) + " " + f.qtys[x.id] + "부"; }).join(" · ") +
     '</span>';
@@ -5463,11 +5463,11 @@ function renderPilsaConfirm(u) {
     '<div class="pilsa-screen">' +
       '<h2 class="rank-title">📋 신청 내용 확인</h2>' +
       '<p class="pilsa-sub">아래 내용이 맞으면 ' + (pilsaMine ? "수정 신청" : "신청") + '을 눌러 주세요<br>' +
-        '신청하시면 <b>1주일쯤</b> 걸리며 <b>주일</b>에 전달해 드립니다</p>' +
+        '신청하시면 <b>1주일 정도</b> 소요되며 <b>주일</b>에 전달해 드립니다</p>' +
       pilsaSummaryHtml(u, pilsaForm) +
       '<div class="pl-acts">' +
         '<button class="pl-act go" id="pl-ok">' + (pilsaMine ? "수정 신청" : "신청") + '</button>' +
-        '<button class="pl-act ghost" id="pl-again">고치기</button>' +
+        '<button class="pl-act ghost" id="pl-again">뒤로</button>' +
       '</div>' +
     '</div>';
   window.scrollTo(0, 0);
@@ -5499,7 +5499,7 @@ async function askCancelPilsa(u) {
 // 신청이든 수정이든 성도가 알아야 할 내용은 같다 — 한곳에서 만든다
 function pilsaDoneMsg(n) {
   return "필사 노트 <b>" + n + "권</b>을 신청했습니다.<br><br>" +
-    "준비에 <b>1주일쯤</b> 걸리며 <b>주일</b>에 전달해 드립니다.<br>" +
+    "준비에 <b>1주일 정도</b> 소요되며 <b>주일</b>에 전달해 드립니다.<br>" +
     "준비가 끝나면 휴대폰으로 알려드릴게요.";
 }
 
