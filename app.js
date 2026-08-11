@@ -5009,8 +5009,8 @@ const PILSA_STEPS = ["신청완료", "준비중", "준비완료", "배부완료"
 const PILSA_INFO = {
   "신청완료": { cls: "s1", ic: "📝", msg: "신청이 접수되었습니다. 준비가 시작되기 전까지는 내용을 고치거나 취소하실 수 있어요." },
   "준비중":   { cls: "s2", ic: "📦", msg: "노트를 준비하고 있습니다. 이 단계부터는 내용을 바꿀 수 없어요." },
-  "준비완료": { cls: "s3", ic: "✅", msg: "노트가 준비되었습니다. 교구·부서를 통해 곧 전달해 드립니다." },
-  "배부완료": { cls: "s4", ic: "🎁", msg: "전달이 완료되었습니다. 매일 한 구절씩 손으로 새겨 보세요." },
+  "준비완료": { cls: "s3", ic: "✅", msg: "노트가 준비되었습니다. 휴대폰으로도 알려드렸어요. 4층 새가족실에서 찾아가세요." },
+  "배부완료": { cls: "s4", ic: "🎁", msg: "노트를 받아 가셨습니다. 매일 한 구절씩 손으로 새겨 보세요." },
 };
 
 let pilsaForm = null;      // 작성 중인 신청 { type1, type2, qtys, memo }
@@ -5107,7 +5107,8 @@ function renderPilsaApply(keepScroll) {
   appEl.innerHTML =
     '<div class="pilsa-screen">' +
       '<h2 class="rank-title">✍️ 성경필사 노트 신청</h2>' +
-      '<p class="pilsa-sub">신청하시면 교구·부서를 통해 전달해 드립니다</p>' +
+      '<p class="pilsa-sub">준비가 끝나면 <b>휴대폰으로 알려드립니다</b><br>' +
+        '<b>4층 새가족실</b>에서 찾아가세요</p>' +
       pilsaPreviewBar() +
       (showForm ? pilsaFormHtml(u) : pilsaMineHtml(u)) +
       pilsaActionsHtml(showForm) +
@@ -5130,7 +5131,7 @@ function pilsaMineHtml(u) {
     pilsaSummaryHtml(u, m) +
     (m.status === "신청완료" ? '' :
       '<div class="pl-help lock">준비가 시작되어 변경할 수 없습니다.<br>' +
-      '꼭 바꾸셔야 하면 교구·부서 담당자에게 말씀해 주세요.</div>');
+      '꼭 바꾸셔야 하면 새가족실 담당자에게 말씀해 주세요.</div>');
 }
 
 // 신청 내용 요약 — 확인 화면과 접수 뒤 화면이 함께 쓴다

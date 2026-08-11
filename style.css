@@ -3016,3 +3016,8 @@ html[data-fs="xl"] .test-card .btn-row { row-gap: 10px; margin-bottom: 18px; pad
 .pl-note b { color: #7a5f16; }
 .dark .pl-note { background: #2b2717; border-color: #8d7531; color: #e8d9a3; }
 .dark .pl-note b { color: #e8d9a3; }
+
+/* 수령 안내 — 알림·장소를 또렷하게 */
+.pilsa-sub { line-height: 1.65; }
+.pilsa-sub b { color: var(--navy); font-weight: 800; }
+.dark .pilsa-sub b { color: #cdd9f2; }
