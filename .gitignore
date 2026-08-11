@@ -21,6 +21,13 @@ migrate/v1dump.json
 추가제안_*.html
 기술구조제안_*.html
 기획서_*.html
+기획서_*.pdf
+# 홍보 영상 원본 클립(용량이 크고 편집 전 소재) — 커밋 금지
+marketing/scenes/
+# 작업 중 임시 파일
+_assets.tmp
+mock.py
+booklet-mock.html
 *.pptx
 # 홍보 영상용 실기기 화면 캡처(실제 성도 이름·순위 등 개인정보 포함 — 커밋 금지)
 /Picture/
