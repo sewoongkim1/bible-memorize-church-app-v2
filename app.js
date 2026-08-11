@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260811v";
+const APP_BUILD = "20260811w";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5143,7 +5143,7 @@ function pilsaActionsHtml(showForm) {
     btns.push('<button class="pl-act go" id="pl-new">새로 신청</button>');
   }
   if (editable) btns.push('<button class="pl-act danger" id="pl-cancel">취소</button>');
-  btns.push('<button class="pl-act ghost" id="pl-exit">나가기</button>');
+  btns.push('<button class="pl-act ghost" id="pl-exit">뒤로</button>');
   return '<div class="pl-acts">' + btns.join("") + '</div>';
 }
 
