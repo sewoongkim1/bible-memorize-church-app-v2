@@ -2915,12 +2915,14 @@ html[data-fs="xl"] .test-card .btn-row { row-gap: 10px; margin-bottom: 18px; pad
 .pilsa-go.danger:hover { background: #c0392b; color: #fff; border-color: #c0392b; }
 
 /* 어드민 미리보기 전용 상태 전환 바 — 성도 화면에는 나오지 않는다 */
-.pl-prev { display: flex; flex-wrap: wrap; align-items: center; gap: 5px;
-           background: #2b3550; border-radius: 10px; padding: 8px 10px; margin-bottom: 12px; }
-.pl-prev b { font-size: .72rem; color: #ffd875; margin-right: 4px; }
-.pl-prev button { font-size: .72rem; font-weight: 700; font-family: inherit; cursor: pointer;
+.pl-prev { display: flex; flex-wrap: nowrap; align-items: center; gap: 3px;
+           background: #2b3550; border-radius: 10px; padding: 7px 8px; margin-bottom: 12px;
+           overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.pl-prev::-webkit-scrollbar { display: none; }
+.pl-prev b { font-size: .63rem; color: #ffd875; margin-right: 2px; flex: none; }
+.pl-prev button { font-size: .63rem; font-weight: 700; font-family: inherit; cursor: pointer;
                   color: #c3cee6; background: #3a4a68; border: 1px solid #56688c;
-                  border-radius: 999px; padding: 4px 9px; }
+                  border-radius: 999px; padding: 4px 6px; flex: none; white-space: nowrap; }
 .pl-prev button.on { background: #ffd875; border-color: #ffd875; color: #2b3550; }
 
 .dark .pilsa-state.s1 { background: #1e2a44; border-color: #3a5680; color: #cdd9f2; }
@@ -2937,10 +2939,11 @@ html[data-fs="xl"] .test-card .btn-row { row-gap: 10px; margin-bottom: 18px; pad
 .pl-sec { font-size: .82rem; font-weight: 800; color: #8a6a1e; letter-spacing: .06em;
           margin: 16px 2px 8px; }
 .pl-types { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
-.pl-types button { padding: 12px 8px; border-radius: 10px; font-family: inherit; cursor: pointer;
+.pl-types button { padding: 12px 4px; border-radius: 10px; font-family: inherit; cursor: pointer;
                    background: #fff; border: 1.5px solid var(--border); text-align: center; }
 .pl-types button b { display: block; font-size: .9rem; font-weight: 800; color: var(--navy); }
-.pl-types button i { display: block; font-style: normal; font-size: .72rem; color: #8a95a8; margin-top: 3px; }
+.pl-types button i { display: block; font-style: normal; font-size: .68rem; color: #8a95a8;
+                     margin-top: 3px; white-space: nowrap; }
 .pl-types button.on { background: var(--navy); border-color: var(--navy); }
 .pl-types button.on b, .pl-types button.on i { color: #fff; }
 .pl-chips { margin: 10px 0 0 !important; }
@@ -3053,5 +3056,5 @@ html[data-fs="xl"] .test-card .btn-row { row-gap: 10px; margin-bottom: 18px; pad
 .dark .pl-phone.err { background: #2e1f1e !important; }
 
 /* 미리보기 바의 '실제' — 가짜 상태 버튼과 눈에 띄게 구분한다 */
-.pl-prev button.live { margin-left: auto; border-color: #7bd3a0; color: #2f8f5b; }
+.pl-prev button.live { border-color: #7bd3a0; color: #2f8f5b; margin-right: 3px; }
 .pl-prev button.live.on { background: #2f8f5b; border-color: #2f8f5b; color: #fff; }

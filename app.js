@@ -5095,11 +5095,12 @@ function pilsaStepsHtml(cur) {
 function pilsaPreviewBar() {
   if (!pilsaPreview) return "";
   const cur = pilsaLive ? "" : (pilsaMine ? pilsaMine.status : "없음");
-  return '<div class="pl-prev"><b>미리보기</b>' +
+  // 좁은 화면에서 옆으로 밀려도 '실제'는 늘 보이도록 맨 앞에 둔다
+  return '<div class="pl-prev"><b>보기</b>' +
+    '<button data-live="1" class="live' + (pilsaLive ? " on" : "") + '">실제</button>' +
     ["없음"].concat(PILSA_STEPS).map(function (o) {
       return '<button data-s="' + o + '" class="' + (o === cur ? "on" : "") + '">' + o + '</button>';
     }).join("") +
-    '<button data-live="1" class="live' + (pilsaLive ? " on" : "") + '">실제</button>' +
     '</div>';
 }
 
