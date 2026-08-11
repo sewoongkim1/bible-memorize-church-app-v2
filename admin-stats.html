@@ -1183,7 +1183,8 @@ function renderPilsaAdmin(){
       <p class="push-hint">이름이나 신청일로 찾아 상태를 바꿉니다.
         <b>신청완료</b> 상태에서만 성도가 내용을 바꾸거나 취소할 수 있고,
         <b>준비중</b>부터는 잠깁니다. <b>준비완료</b>로 바꾸면 성도 화면에
-        «4층 새가족실에서 찾아가세요»가 뜹니다.</p>
+        «4층 새가족실에서 찾아가세요»가 뜨고, 앱 알림을 켜 둔 분께는
+        <b>푸시가 한 번 나갑니다</b>. 알림을 켜지 않은 분은 아래 번호로 직접 연락해 주세요.</p>
       <div class="pl-find">
         <input type="text" id="pl-q" class="push-in" placeholder="이름 · 휴대폰 뒷자리 (예: 김세웅 / 6789)">
         <div class="pl-dates">
@@ -1202,19 +1203,20 @@ function renderPilsaAdmin(){
   plLoad();
 }
 
-// ── 서버 연동 자리 ──────────────────────────────────────────
-// 다음 단계에서 Supabase 액션(pilsaList)으로 교체한다.
 async function plLoad(){
   const box=document.getElementById("pl-list"); if(!box) return;
   box.innerHTML=`<p class="msg">불러오는 중...</p>`;
   if(!plLoaded){
-    plRows=[   // TODO: 서버 조회로 교체 — 지금은 화면 확인용 예시
-      { id:1, at:"2026-08-10", who:"화평교구 20목장", name:"김세웅", phone:"010-2345-6789", qty:2, status:"신청완료" },
-      { id:2, at:"2026-08-10", who:"섬김교구 3목장",  name:"배순길", phone:"010-3456-7890", qty:1, status:"신청완료" },
-      { id:3, at:"2026-08-11", who:"소망교구 7목장",  name:"윤정희", phone:"010-4567-8901", qty:3, status:"준비중" },
-      { id:4, at:"2026-08-11", who:"초등부 3학년",    name:"김믿음", phone:"010-5678-9012", qty:1, status:"준비완료" },
-      { id:5, at:"2026-08-12", who:"섬김교구 1목장",  name:"권태호", phone:"010-6789-0123", qty:5, status:"배부완료" },
-    ];
+    const d=await callApi({ action:"pilsaList", pw:getPw() }).catch(()=>({ok:false,error:"network"}));
+    if(!d.ok){
+      box.innerHTML=`<p class="msg err">명단을 불러오지 못했습니다: ${plEsc(d.error||"오류")}</p>`;
+      return;
+    }
+    plRows=(d.list||[]).map(x=>({
+      id:x.id, at:(x.at||"").replace(/\./g,"-"), who:x.who||"", name:x.name||"",
+      phone:x.phone||"", qty:x.total||0, status:x.status,
+      size:x.size, type1:x.type1, type2:x.type2, memo:x.memo||"",
+    }));
     plLoaded=true;
   }
   plRender();
@@ -1271,11 +1273,34 @@ function plRender(){
   });
 }
 
-// TODO: 서버 저장으로 교체 — 지금은 화면 상태만 바꾼다
 async function plSetStatus(id, status){
   const r=plRows.find(x=>x.id===id); if(!r) return;
-  r.status=status;
-  plRender();
+  const before=r.status;
+  r.status=status; plRender();                 // 먼저 반영하고, 실패하면 되돌린다
+  const d=await callApi({ action:"pilsaSetStatus", pw:getPw(), id, status })
+    .catch(()=>({ok:false,error:"network"}));
+  if(!d.ok){
+    r.status=before; plRender();
+    alert("상태를 바꾸지 못했습니다.\n"+(d.error||"오류"));
+    return;
+  }
+  // 준비완료로 바꾸면 그 성도 기기로 알림이 나간다. 앱 알림을 켜지 않았으면
+  // 0건이므로 담당자가 신청서의 번호로 직접 연락해야 한다.
+  if(status==="준비완료"){
+    plNote(d.pushed>0
+      ? `📨 ${r.name}님께 알림을 보냈습니다 (기기 ${d.pushed}대)`
+      : `📞 ${r.name}님은 앱 알림을 켜지 않으셨어요 — ${r.phone||"번호 없음"}으로 연락해 주세요`);
+  }
+}
+
+// 명단 위에 잠깐 뜨는 안내 한 줄
+function plNote(msg){
+  const box=document.getElementById("pl-sum"); if(!box) return;
+  let el=document.getElementById("pl-note");
+  if(!el){ el=document.createElement("div"); el.id="pl-note"; el.className="pl-note"; box.appendChild(el); }
+  el.textContent=msg;
+  clearTimeout(plNote._t);
+  plNote._t=setTimeout(()=>{ el.remove(); }, 8000);
 }
 
 function plEsc(s){ return String(s==null?"":s).replace(/[&<>"']/g,c=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c])); }
@@ -1558,6 +1583,9 @@ function renderBoardAdmin(){
 .pl-th{background:#f7f9fd;font-size:11px;font-weight:700;color:#8a95a8;}
 .pl-at{font-size:12px;color:#6a7688;}
 .pl-who b{display:block;font-size:14px;color:#1a3a6b;}
+.pl-note{ margin-top:8px; padding:9px 12px; border-radius:9px; background:#eef3fb;
+          border:1px solid #a9c3e8; color:#1a3a6b; font-size:.82rem; font-weight:600;
+          line-height:1.5; word-break:keep-all; }
 .pl-tel{ display:block; margin-top:2px; font-size:.78rem; font-weight:700;
          color:#1a5fb4; text-decoration:none; letter-spacing:.02em; }
 .pl-who i{display:block;font-style:normal;font-size:11px;color:#8a95a8;margin-top:1px;}

@@ -35,4 +35,9 @@ Edge Function은 **service_role** 키로 접속해 RLS(기본 차단)를 우회�
 | `saveProgress` | 단계 저장(3단계면 복습 예약) | user_id, verse_no, stage |
 | `challenge` | 도전/암송 기록 | user_id, verse_no, mode, score |
 | `advanceReview` | 복습 성공→다음 상자 | user_id, verse_no |
+| `pilsaMine` | 내 필사 노트 신청(최근 1건) | user_id |
+| `pilsaApply` | 신청·수정(신청완료일 때만 수정) | user_id, name, who, phone, size, type1, type2, qtys, memo |
+| `pilsaCancel` | 신청 취소(신청완료만) | user_id, id |
+| `pilsaList` | 신청 명단(관리자) | pw |
+| `pilsaSetStatus` | 상태 변경, 준비완료면 푸시 1회(관리자) | pw, id, status |
 | `ranking` | 기간별 순위 | period(today/week/all) |

@@ -3051,3 +3051,7 @@ html[data-fs="xl"] .test-card .btn-row { row-gap: 10px; margin-bottom: 18px; pad
 .pl-hint { font-size: .76rem; color: #8a95a8; margin-top: 6px; }
 .dark .pl-sec .opt { background: #2a3450; color: #9aa6bb; }
 .dark .pl-phone.err { background: #2e1f1e !important; }
+
+/* 미리보기 바의 '실제' — 가짜 상태 버튼과 눈에 띄게 구분한다 */
+.pl-prev button.live { margin-left: auto; border-color: #7bd3a0; color: #2f8f5b; }
+.pl-prev button.live.on { background: #2f8f5b; border-color: #2f8f5b; color: #fff; }

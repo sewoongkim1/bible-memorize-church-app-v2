@@ -163,6 +163,12 @@ Deno.serve(async (req) => {
       case "eventBoard":    return json(await eventBoard(body));
       case "eventEntrants": return json(await eventEntrants(body));
       // ---- 질문·제안 게시판 ----
+      case "pilsaMine":      return json(await pilsaMine(body));
+      case "pilsaApply":     return json(await pilsaApply(body));
+      case "pilsaCancel":    return json(await pilsaCancel(body));
+      case "pilsaList":      return json(await pilsaList(body));
+      case "pilsaSetStatus": return json(await pilsaSetStatus(body));
+
       case "boardList":     return json(await boardList(body));
       case "boardCheck":    return json(await boardCheck(body));
       case "boardPost":     return json(await boardPost(body));
@@ -2072,6 +2078,204 @@ async function eventEntrants(b: any) {
     };
   });
   return { ok: true, list };
+}
+
+// ============================================================
+// 성경필사 노트 신청
+//   한 성도가 여러 번 신청할 수 있어 신청 한 건이 한 행이다.
+//   화면에는 늘 가장 최근 한 건만 보여 준다.
+//   고치거나 취소하는 것은 '신청완료' 단계에서만 허용한다 —
+//   그 뒤로는 이미 만들고 있으므로 담당자를 거쳐야 한다.
+// ============================================================
+const PILSA_STATUS = ["신청완료", "준비중", "준비완료", "배부완료"];
+const PILSA_MAX = 5;                     // 한 분당 총 부수 상한
+const PILSA_PHONE_RE = /^01[016-9]-?[0-9]{3,4}-?[0-9]{4}$/;
+
+// 010-1234-5678 꼴로 통일 — 명단에서 전화 걸기 좋게
+function pilsaPhone(v: unknown): string {
+  const d = String(v ?? "").replace(/[^0-9]/g, "");
+  if (d.length === 11) return d.slice(0, 3) + "-" + d.slice(3, 7) + "-" + d.slice(7);
+  if (d.length === 10) return d.slice(0, 3) + "-" + d.slice(3, 6) + "-" + d.slice(6);
+  return String(v ?? "").trim();
+}
+
+function pilsaTotalOf(qtys: any): number {
+  let n = 0;
+  for (const k of Object.keys(qtys ?? {})) n += Number((qtys as any)[k]) || 0;
+  return n;
+}
+
+// 화면에 그대로 쓰는 형태로 정리(신청일은 KST 기준 YYYY.MM.DD)
+function pilsaRow(r: any) {
+  return {
+    id: r.id,
+    phone: r.phone ?? "",
+    size: r.size, type1: r.type1, type2: r.type2,
+    qtys: r.qtys ?? {}, total: r.total ?? 0,
+    memo: r.memo ?? "",
+    status: r.status,
+    at: kstDay(r.created_at).replace(/-/g, "."),
+    created_at: r.created_at,
+  };
+}
+
+// 내 신청(가장 최근 한 건)
+async function pilsaMine(b: any) {
+  const userId = String(b.user_id || "");
+  if (!userId) return { ok: true, order: null };
+  const { data, error } = await db.from("pilsa_orders")
+    .select("*").eq("user_id", userId)
+    .order("created_at", { ascending: false }).limit(1);
+  if (error) throw error;
+  const r = (data ?? [])[0];
+  return { ok: true, order: r ? pilsaRow(r) : null };
+}
+
+// 신청·수정 — 가장 최근 건이 '신청완료'면 그 건을 고치고, 아니면 새 건으로 넣는다.
+async function pilsaApply(b: any) {
+  const userId = String(b.user_id || "");
+  if (!userId) return { ok: false, error: "user_id 필요" };
+  const phone = pilsaPhone(b.phone);
+  if (!PILSA_PHONE_RE.test(phone)) return { ok: false, error: "휴대폰 번호를 확인해 주세요" };
+  const size = norm(b.size), type1 = norm(b.type1), type2 = norm(b.type2);
+  if (!size || !type1 || !type2) return { ok: false, error: "노트 크기·필사 유형·번역본을 골라 주세요" };
+  const qtys: Record<string, number> = {};
+  for (const k of Object.keys(b.qtys ?? {})) {
+    const n = Number((b.qtys as any)[k]) || 0;
+    if (n > 0) qtys[k] = n;
+  }
+  const total = pilsaTotalOf(qtys);
+  if (!total) return { ok: false, error: "성경을 1부 이상 골라 주세요" };
+  if (total > PILSA_MAX) return { ok: false, error: "한 분당 총 " + PILSA_MAX + "부까지 신청하실 수 있어요" };
+
+  const fields = {
+    user_id: userId,
+    name: norm(b.name) || null,
+    who: norm(b.who) || null,
+    phone, size, type1, type2, qtys, total,
+    memo: norm(b.memo) || null,
+  };
+
+  const { data: prev } = await db.from("pilsa_orders")
+    .select("id,status").eq("user_id", userId)
+    .order("created_at", { ascending: false }).limit(1);
+  const last = (prev ?? [])[0];
+
+  if (last && last.status !== "배부완료") {
+    // 준비가 시작된 뒤에는 성도가 바꿀 수 없다
+    if (last.status !== "신청완료") return { ok: false, error: "준비가 시작되어 변경할 수 없습니다" };
+    const { data, error } = await db.from("pilsa_orders")
+      .update({ ...fields, updated_at: new Date().toISOString() })
+      .eq("id", last.id).select("*").single();
+    if (error) throw error;
+    return { ok: true, order: pilsaRow(data) };
+  }
+
+  const { data, error } = await db.from("pilsa_orders")
+    .insert(fields).select("*").single();
+  if (error) throw error;
+  return { ok: true, order: pilsaRow(data) };
+}
+
+// 취소 — '신청완료'인 내 신청만 지운다
+async function pilsaCancel(b: any) {
+  const userId = String(b.user_id || "");
+  const id = Number(b.id) || 0;
+  if (!userId || !id) return { ok: false, error: "user_id/id 필요" };
+  const { data: row } = await db.from("pilsa_orders")
+    .select("id,status").eq("id", id).eq("user_id", userId).maybeSingle();
+  if (!row) return { ok: false, error: "신청을 찾을 수 없습니다" };
+  if (row.status !== "신청완료") return { ok: false, error: "준비가 시작되어 취소할 수 없습니다" };
+  const { error } = await db.from("pilsa_orders").delete().eq("id", id);
+  if (error) throw error;
+  return { ok: true };
+}
+
+// 관리자 명단 — 신청이 많지 않아 전부 내려주고 화면에서 추린다
+async function pilsaList(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const { data, error } = await db.from("pilsa_orders")
+    .select("*").order("created_at", { ascending: false }).limit(1000);
+  if (error) throw error;
+  const rows = (data ?? []) as any[];
+  // 이름·소속은 신청 당시 스냅샷을 쓰되, 비어 있으면 users에서 채운다(옛 기록 대비)
+  const need = [...new Set(rows.filter((r) => !r.name).map((r) => r.user_id))];
+  const umap = new Map<string, any>();
+  if (need.length) {
+    const { data: users } = await db.from("users")
+      .select("id,type,gu,mok,bu,grade,name").in("id", need);
+    for (const u of (users ?? []) as any[]) umap.set(u.id, u);
+  }
+  const list = rows.map((r) => {
+    const u = umap.get(r.user_id);
+    let who = r.who ?? "";
+    if (!who && u) {
+      who = (u.type === "교구" ? [u.gu, u.mok ? u.mok + "목장" : ""] : [u.bu, u.grade])
+        .filter(Boolean).join(" ");
+    }
+    return { ...pilsaRow(r), name: r.name || (u ? u.name : "") || "", who, notified_at: r.notified_at };
+  });
+  return { ok: true, list };
+}
+
+// 관리자 상태 변경 — '준비완료'로 바뀌면 앱 푸시를 한 번 보낸다
+async function pilsaSetStatus(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const id = Number(b.id) || 0;
+  const status = norm(b.status);
+  if (!id || PILSA_STATUS.indexOf(status) < 0) return { ok: false, error: "id/status 확인" };
+  const { data: row } = await db.from("pilsa_orders").select("*").eq("id", id).maybeSingle();
+  if (!row) return { ok: false, error: "신청을 찾을 수 없습니다" };
+
+  const patch: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
+  let pushed = 0;
+  let pushError: string | null = null;
+
+  // 준비완료 알림은 한 번만 — 상태를 오가며 눌러도 다시 보내지 않는다
+  if (status === "준비완료" && !row.notified_at) {
+    const res = await pilsaNotify(row);
+    pushed = res.sent;
+    pushError = res.error;
+    if (res.sent > 0) patch.notified_at = new Date().toISOString();
+  }
+  const { error } = await db.from("pilsa_orders").update(patch).eq("id", id);
+  if (error) throw error;
+  return { ok: true, status, pushed, pushError };
+}
+
+// 그 성도의 기기에만 발송. 알림을 켜 두지 않았으면 조용히 0건 —
+// 그때는 담당자가 신청서의 휴대폰 번호로 연락한다.
+async function pilsaNotify(row: any) {
+  const { data: subs } = await db.from("push_subscriptions")
+    .select("id,endpoint,p256dh,auth").eq("user_id", row.user_id);
+  const list = (subs ?? []) as any[];
+  if (!list.length) return { sent: 0, error: "not-subscribed" };
+  const payload = JSON.stringify({
+    title: "✍️ 필사 노트가 준비되었어요",
+    body: "신청하신 필사 노트 " + row.total + "부가 준비되었습니다. 4층 새가족실에서 찾아가세요. (권당 3,000원)",
+    url: "https://gocheok.onlybible.kr/",
+  });
+  let sent = 0, failed = 0;
+  let last: string | null = null;
+  for (const s of list) {
+    try {
+      await webpush.sendNotification(
+        { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload);
+      sent++;
+    } catch (e: any) {
+      failed++;
+      const code = e && (e.statusCode || e.status);
+      last = "[" + (code || "ERR") + "] " + (e?.body || e?.message || String(e)).toString().slice(0, 120);
+      if (code === 404 || code === 410) await db.from("push_subscriptions").delete().eq("id", s.id);
+    }
+  }
+  try {
+    await db.from("push_log").insert({
+      mode: "pilsa", title: "필사 노트 준비완료",
+      sent, failed, total: list.length, ok: sent > 0,
+    });
+  } catch (_) { /* 로그 실패는 발송 결과에 영향 없음 */ }
+  return { sent, error: sent ? null : last };
 }
 
 // ============================================================

@@ -76,6 +76,12 @@ const api = {
   eventStatus: (event_id, user_id) => supaCall("eventStatus", { event_id, user_id }),
   eventBoard: (event_id) => supaCall("eventBoard", { event_id }),
   eventEntrants: (pw, event_id) => supaCall("eventEntrants", { pw, event_id }),
+  // 성경필사 노트 신청 — 내 신청(최근 1건)·신청/수정·취소, 관리자 명단·상태변경
+  pilsaMine: (user_id) => supaCall("pilsaMine", { user_id }),
+  pilsaApply: (order) => supaCall("pilsaApply", order),
+  pilsaCancel: (user_id, id) => supaCall("pilsaCancel", { user_id, id }),
+  pilsaList: (pw) => supaCall("pilsaList", { pw }),
+  pilsaSetStatus: (pw, id, status) => supaCall("pilsaSetStatus", { pw, id, status }),
 };
 
 window.api = api;

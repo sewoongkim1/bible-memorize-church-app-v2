@@ -5019,7 +5019,31 @@ let pilsaForm = null;      // 작성 중인 신청 { type1, type2, qtys, memo }
 let pilsaMine = null;      // 접수된 내 신청 { ...form, status, at }
 let pilsaTab = "ot";       // 구약/신약 탭
 let pilsaEditing = false;  // 접수된 신청을 고치는 중
+let pilsaLoaded = false;   // 서버에서 내 신청을 불러왔는지
+let pilsaLive = false;     // 미리보기에서 실제 서버를 붙여 볼 때만 true
 
+
+// 성도 화면에서는 늘 서버와 이야기한다. 어드민 미리보기는 가짜 상태로 화면만
+// 훑어보는 자리라, '실제' 버튼을 눌렀을 때만 서버에 붙는다.
+function pilsaServerOn() { return !pilsaPreview || pilsaLive; }
+
+// 내 신청 한 건을 서버에서 가져온다(화면 진입 때 한 번)
+async function pilsaLoadMine(u) {
+  try {
+    const r = await api.pilsaMine(u.user_id);
+    pilsaMine = r.order || null;
+    if (pilsaMine) pilsaForm = pilsaFormFrom(pilsaMine);
+  } catch (_) {
+    pilsaMine = null;          // 못 가져오면 새 신청 화면으로 — 저장할 때 다시 확인한다
+  }
+  pilsaLoaded = true;
+}
+
+// 접수된 신청 → 고치기 좋은 양식으로
+function pilsaFormFrom(m) {
+  return { size: m.size, type1: m.type1, type2: m.type2, phone: m.phone || "",
+           qtys: Object.assign({}, m.qtys), memo: m.memo || "" };
+}
 
 // 숫자만 남겨 010-1234-5678 꼴로 — 어르신이 하이픈을 신경 쓰지 않아도 되게
 function pilsaPhoneFmt(v) {
@@ -5041,12 +5065,17 @@ function pilsaPicked(f) {
 }
 function pilsaUnitName(u) { return u.label + (u.sub ? " 외" : ""); }
 
+// "화평 20목장" / "초등부 3학년" — 이름을 뺀 소속만(명단에 그대로 쓴다)
+function pilsaAffil(u) {
+  if (!u) return "";
+  return u.type === "교구"
+    ? [u.gu, u.mok ? u.mok + "목장" : ""].filter(Boolean).join(" ")
+    : [u.bu, u.grade].filter(Boolean).join(" ");
+}
 // "화평 20목장 · 김세웅" / "초등부 3학년 · 김믿음"
 function pilsaWho(u) {
   if (!u) return "";
-  return u.type === "교구"
-    ? u.gu + " " + u.mok + "목장 · " + u.name
-    : u.bu + " " + (u.grade ? u.grade + " · " : "") + u.name;
+  return [pilsaAffil(u), u.name].filter(Boolean).join(" · ");
 }
 
 function pilsaStepsHtml(cur) {
@@ -5060,11 +5089,13 @@ function pilsaStepsHtml(cur) {
 // 미리보기에서만 나오는 상태 전환 바
 function pilsaPreviewBar() {
   if (!pilsaPreview) return "";
-  const cur = pilsaMine ? pilsaMine.status : "없음";
+  const cur = pilsaLive ? "" : (pilsaMine ? pilsaMine.status : "없음");
   return '<div class="pl-prev"><b>미리보기</b>' +
     ["없음"].concat(PILSA_STEPS).map(function (o) {
       return '<button data-s="' + o + '" class="' + (o === cur ? "on" : "") + '">' + o + '</button>';
-    }).join("") + '</div>';
+    }).join("") +
+    '<button data-live="1" class="live' + (pilsaLive ? " on" : "") + '">실제</button>' +
+    '</div>';
 }
 
 // ── 화면 맨 아래 동작 버튼 ────────────────────────────────────
@@ -5088,14 +5119,16 @@ function pilsaActionsHtml(showForm) {
 
 function wirePilsaActions(u) {
   const ex = document.getElementById("pl-exit");
-  if (ex) ex.addEventListener("click", function () { pilsaEditing = false; renderSummary(); });
+  if (ex) ex.addEventListener("click", function () {
+    pilsaEditing = false;
+    pilsaLoaded = false;        // 다시 들어오면 그동안 바뀐 상태를 새로 받는다
+    renderSummary();
+  });
   const sb = document.getElementById("pl-submit");
   if (sb) sb.addEventListener("click", function () { pilsaTrySubmit(u); });
   const ed = document.getElementById("pl-edit");
   if (ed) ed.addEventListener("click", function () {
-    pilsaForm = { size: pilsaMine.size, type1: pilsaMine.type1, type2: pilsaMine.type2,
-                  phone: pilsaMine.phone || "",
-                  qtys: Object.assign({}, pilsaMine.qtys), memo: pilsaMine.memo || "" };
+    pilsaForm = pilsaFormFrom(pilsaMine);
     pilsaEditing = true;
     renderPilsaApply();
   });
@@ -5142,6 +5175,15 @@ function pilsaTrySubmit(u) {
 function renderPilsaApply(keepScroll) {
   const u = loadUser();
   if (!u) { renderEntryScreen(); return; }
+  // 서버에서 내 신청을 아직 못 가져왔으면 먼저 가져온다
+  if (pilsaServerOn() && !pilsaLoaded) {
+    document.getElementById("app").innerHTML =
+      '<div class="pilsa-screen"><h2 class="rank-title">✍️ 성경필사 노트 신청</h2>' +
+      '<p class="msg">신청 내용을 불러오는 중…</p></div>';
+    window.scrollTo(0, 0);
+    pilsaLoadMine(u).then(function () { renderPilsaApply(); });
+    return;
+  }
   if (!pilsaForm) pilsaForm = pilsaNewForm();
   const appEl = document.getElementById("app");
   const showForm = !pilsaMine || pilsaEditing;
@@ -5376,6 +5418,13 @@ function wirePilsaPreview() {
     b.addEventListener("click", function () {
       const s = b.dataset.s;
       pilsaEditing = false;
+      if (b.dataset.live) {          // 실제 서버에 붙어 내 신청 그대로 본다
+        pilsaLive = true; pilsaLoaded = false;
+        pilsaMine = null; pilsaForm = pilsaNewForm();
+        renderPilsaApply();
+        return;
+      }
+      pilsaLive = false; pilsaLoaded = true;   // 가짜 상태 — 서버를 다시 부르지 않는다
       if (s === "없음") { pilsaMine = null; pilsaForm = pilsaNewForm(); }
       else {
         pilsaMine = pilsaMine
@@ -5412,22 +5461,56 @@ async function askCancelPilsa(u) {
     "신청하신 <b>필사 노트 " + pilsaTotal(pilsaMine) + "부</b>를 취소합니다.<br><br>언제든 다시 신청하실 수 있어요.",
     { title: "🗑 신청 취소", okText: "취소하기", danger: true });
   if (!ok) return;
-  pilsaMine = null;                     // TODO: 서버 삭제로 교체
+  if (pilsaServerOn() && pilsaMine && pilsaMine.id) {
+    try {
+      await api.pilsaCancel(u.user_id, pilsaMine.id);
+    } catch (e) {
+      await appAlert("취소하지 못했습니다.<br>" + boardEsc(e && e.message ? e.message : e));
+      return;
+    }
+  }
+  pilsaMine = null;
   pilsaEditing = false;
   pilsaForm = pilsaNewForm();
   await appAlert("신청이 취소되었습니다.");
   renderPilsaApply();
 }
 
-// ── 서버 연동 자리 ───────────────────────────────────────────
-// 다음 단계에서 Supabase Edge Function 액션으로 교체(pilsaApply/pilsaCancel/pilsaMine).
 async function submitPilsa(u) {
   const btn = document.getElementById("pl-ok");
   if (btn) { btn.disabled = true; btn.textContent = "처리 중…"; }
-  pilsaMine = Object.assign({}, pilsaForm, { status: "신청완료", at: "2026.08.10" });
-  pilsaEditing = false;
-  await appAlert("신청이 접수되었습니다.<br>필사 노트 <b>" + pilsaTotal(pilsaMine) + "부</b>");
-  renderPilsaApply();
+  if (!pilsaServerOn()) {                 // 미리보기 — 화면만 넘겨 본다
+    pilsaMine = Object.assign({}, pilsaForm, { status: "신청완료", at: pilsaToday() });
+    pilsaEditing = false;
+    await appAlert("신청이 접수되었습니다.<br>필사 노트 <b>" + pilsaTotal(pilsaMine) + "부</b>");
+    renderPilsaApply();
+    return;
+  }
+  try {
+    const r = await api.pilsaApply({
+      user_id: u.user_id,
+      name: u.name,
+      who: pilsaAffil(u),
+      phone: pilsaForm.phone,
+      size: pilsaForm.size, type1: pilsaForm.type1, type2: pilsaForm.type2,
+      qtys: pilsaForm.qtys, memo: pilsaForm.memo,
+    });
+    pilsaMine = r.order;
+    pilsaForm = pilsaFormFrom(pilsaMine);
+    pilsaEditing = false;
+    await appAlert("신청이 접수되었습니다.<br>필사 노트 <b>" + pilsaMine.total + "부</b>");
+    renderPilsaApply();
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = "신청"; }
+    await appAlert("신청을 저장하지 못했습니다.<br>" + boardEsc(e && e.message ? e.message : e));
+  }
+}
+
+// 미리보기에서 쓰는 오늘 날짜(YYYY.MM.DD)
+function pilsaToday() {
+  const d = new Date();
+  const p = function (n) { return String(n).padStart(2, "0"); };
+  return d.getFullYear() + "." + p(d.getMonth() + 1) + "." + p(d.getDate());
 }
 
 // ------------------------------------------------------------
