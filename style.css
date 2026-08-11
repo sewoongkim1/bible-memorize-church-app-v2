@@ -3045,3 +3045,9 @@ html[data-fs="xl"] .test-card .btn-row { row-gap: 10px; margin-bottom: 18px; pad
 .pl-hint { font-size: .76rem; color: #8a95a8; margin-top: 6px; }
 .dark .pl-sec .opt { background: #2a3450; color: #9aa6bb; }
 .dark .pl-phone.err { background: #2e1f1e !important; }
+
+/* 한 부가 두 권이 되는 조건을 고른 순간 알린다 */
+.pl-note.x2 { background: #eef3fb; border-color: #a9c3e8; color: #1a3a6b; margin-top: 8px; }
+.pl-note.x2 b { color: #1a3a6b; }
+.dark .pl-note.x2 { background: #1e2a44; border-color: #3a5680; color: #cdd9f2; }
+.dark .pl-note.x2 b { color: #cdd9f2; }

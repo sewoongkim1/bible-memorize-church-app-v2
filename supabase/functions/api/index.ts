@@ -2099,10 +2099,18 @@ function pilsaPhone(v: unknown): string {
   return String(v ?? "").trim();
 }
 
+// 고른 부수 — 신청 상한(5부)은 이 값을 본다
 function pilsaTotalOf(qtys: any): number {
   let n = 0;
   for (const k of Object.keys(qtys ?? {})) n += Number((qtys as any)[k]) || 0;
   return n;
+}
+
+// A5는 지면이 좁고 한영·영한은 두 언어를 같이 실어, 한 부가 두 권으로 나온다.
+// 저장하는 total은 실제 만들어지는 권수 — 명단·금액이 이 값을 쓴다.
+const PILSA_DUAL2 = ["한영(개역개정/NIV)", "영한(NIV/개역개정)"];
+function pilsaMultOf(size: string, type2: string): number {
+  return (size === "A5" || PILSA_DUAL2.indexOf(type2) >= 0) ? 2 : 1;
 }
 
 // 화면에 그대로 쓰는 형태로 정리(신청일은 KST 기준 YYYY.MM.DD)
@@ -2144,9 +2152,10 @@ async function pilsaApply(b: any) {
     const n = Number((b.qtys as any)[k]) || 0;
     if (n > 0) qtys[k] = n;
   }
-  const total = pilsaTotalOf(qtys);
-  if (!total) return { ok: false, error: "성경을 1부 이상 골라 주세요" };
-  if (total > PILSA_MAX) return { ok: false, error: "한 분당 총 " + PILSA_MAX + "부까지 신청하실 수 있어요" };
+  const picks = pilsaTotalOf(qtys);
+  if (!picks) return { ok: false, error: "성경을 1부 이상 골라 주세요" };
+  if (picks > PILSA_MAX) return { ok: false, error: "한 분당 총 " + PILSA_MAX + "부까지 신청하실 수 있어요" };
+  const total = picks * pilsaMultOf(size, type2);   // 실제 제작 권수
 
   const fields = {
     user_id: userId,

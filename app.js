@@ -5053,8 +5053,24 @@ function pilsaPhoneOk(v) {
 }
 
 function pilsaNewForm() { return { size: "", type1: "", type2: "", phone: "", qtys: {}, memo: "" }; }
-function pilsaTotal(f) {
+
+// A5는 지면이 좁고 한영·영한은 두 언어를 같이 실어, 한 부가 두 권으로 나온다.
+// (A5에서는 한영·영한을 못 고르므로 두 조건이 겹치는 일은 없다 — 배수는 최대 2)
+function pilsaMult(f) {
+  return (f.size === "A5" || PILSA_DUAL.indexOf(f.type2) >= 0) ? 2 : 1;
+}
+function pilsaMultWhy(f) {
+  if (f.size === "A5") return "A5(작은 것)";
+  if (PILSA_DUAL.indexOf(f.type2) >= 0) return "한영·영한";
+  return "";
+}
+// 고른 부수 — 신청 상한(5부)은 이 값을 본다
+function pilsaPicks(f) {
   return PILSA_ALL.reduce(function (a, u) { return a + (Number(f.qtys[u.id]) || 0); }, 0);
+}
+// 실제 만들어지는 권수 — 금액은 이 값을 본다
+function pilsaTotal(f) {
+  return pilsaPicks(f) * pilsaMult(f);
 }
 function pilsaPicked(f) {
   return PILSA_ALL.filter(function (u) { return (Number(f.qtys[u.id]) || 0) > 0; });
@@ -5219,12 +5235,19 @@ function pilsaSummaryHtml(u, f) {
     '</div>' +
     '<div class="pl-sec">성경 선택</div>' +
     '<div class="pilsa-confirm">' + rows +
-      '<div class="pc-row total"><span>총 신청 부수</span><b>' + pilsaTotal(f) + '부</b></div>' +
+      (pilsaMult(f) > 1
+        ? '<div class="pc-row"><span>고른 부수</span><b>' + pilsaPicks(f) + '부 × 2</b></div>'
+        : '') +
+      '<div class="pc-row total"><span>총 제작 권수</span><b>' + pilsaTotal(f) + '권</b></div>' +
     '</div>' +
     '<div class="pl-price">' +
       '<div class="pp-row"><span>예상 금액 <i>(권당 ' + PILSA_PRICE.toLocaleString("ko-KR") + '원)</i></span>' +
       '<b>' + pilsaWon(pilsaTotal(f)) + '</b></div>' +
-      '<div class="pp-note">말씀 길이에 따라 한 단위가 여러 권으로 나올 수 있어, 실제 권수와 금액은 달라질 수 있습니다.<br>' +
+      '<div class="pp-note">' +
+      (pilsaMult(f) > 1
+        ? '<b>' + pilsaMultWhy(f) + '</b>은 한 부가 <b>2권</b>이라 2배로 계산했습니다.<br>'
+        : '') +
+      '말씀 길이에 따라 한 단위가 여러 권으로 나올 수 있어, 실제 권수와 금액은 달라질 수 있습니다.<br>' +
       '<b>비용은 노트를 찾으실 때 내시면 됩니다.</b></div>' +
     '</div>' +
     (f.memo ? '<div class="pl-memo"><b>💬 요청사항</b><br>' + boardEsc(f.memo) + '</div>' : '');
@@ -5235,14 +5258,18 @@ function pilsaSumInner(f) {
   const picked = pilsaPicked(f);
   if (!picked.length) return '<span class="none">아직 고르신 성경이 없습니다.</span>';
   const n = pilsaTotal(f);
-  return '<b>✅ ' + picked.length + '종 · 총 ' + n + '부 · ' + pilsaWon(n) + '</b><br><span>' +
+  const mult = pilsaMult(f);
+  return '<b>✅ ' + picked.length + '종 · ' +
+    (mult > 1 ? '고른 ' + pilsaPicks(f) + '부 → ' : '') +
+    '총 ' + n + '권 · ' + pilsaWon(n) + '</b><br><span>' +
     picked.map(function (x) { return boardEsc(pilsaUnitName(x)) + " " + f.qtys[x.id] + "부"; }).join(" · ") +
     '</span>';
 }
 
 function pilsaFormHtml(u) {
   const f = pilsaForm;
-  const left = PILSA_TOTAL_MAX - pilsaTotal(f);
+  const left = PILSA_TOTAL_MAX - pilsaPicks(f);
+  const mult = pilsaMult(f);
 
   const sz = PILSA_SIZE.map(function (t) {
     return '<button class="pl-type' + (f.size === t[0] ? " on" : "") + '" data-size="' + t[0] + '">' +
@@ -5292,10 +5319,15 @@ function pilsaFormHtml(u) {
 
     '<div class="pl-sec">성경 선택 및 부수</div>' +
     '<div class="pl-notice">신청 단위별로 부수를 골라 주세요. 묶음 항목은 함께 제작되는 한 권입니다.<br>' +
+      '<b>A5(작은 것)</b>와 <b>한영·영한</b>은 한 부가 <b>2권</b>으로 나와 권수와 금액이 2배가 됩니다.<br>' +
       '말씀이 길면 <b>한 단위가 여러 권</b>으로 나올 수 있어 권수는 늘거나 줄 수 있습니다.<br>' +
       '<b>권당 3,000원</b> · ' +
       '<b>한 분당 총 ' + PILSA_TOTAL_MAX + '부까지</b> 신청하실 수 있어요' +
       '<span class="pl-left">' + (left > 0 ? " (앞으로 " + left + "부)" : " — 상한에 닿았습니다") + '</span></div>' +
+    (mult > 1
+      ? '<div class="pl-note x2">지금 고르신 <b>' + pilsaMultWhy(f) + '</b>은 한 부가 <b>2권</b>입니다 — ' +
+        '아래에서 고르신 부수의 <b>2배</b>로 만들어지고, 금액도 2배로 계산됩니다.</div>'
+      : '') +
     '<div class="rank-filter pl-tab" id="pl-tab">' +
       '<button data-tab="ot" class="' + (pilsaTab === "ot" ? "on" : "") + '">구약</button>' +
       '<button data-tab="nt" class="' + (pilsaTab === "nt" ? "on" : "") + '">신약</button>' +
@@ -5316,7 +5348,7 @@ function pilsaFormHtml(u) {
 // 숫자·잠금·요약·남은 부수만 제자리에서 갱신한다.
 function pilsaRefreshCounts() {
   const f = pilsaForm;
-  const left = PILSA_TOTAL_MAX - pilsaTotal(f);
+  const left = PILSA_TOTAL_MAX - pilsaPicks(f);
   document.querySelectorAll(".pl-unit").forEach(function (row) {
     const plus = row.querySelector("[data-plus]");
     const minus = row.querySelector("[data-minus]");
@@ -5371,7 +5403,7 @@ function wirePilsaForm(u) {
   });
   appEl.querySelectorAll("[data-plus]").forEach(function (b) {
     b.addEventListener("click", function () {
-      if (pilsaTotal(pilsaForm) >= PILSA_TOTAL_MAX) return;
+      if (pilsaPicks(pilsaForm) >= PILSA_TOTAL_MAX) return;
       const id = b.dataset.plus;
       pilsaForm.qtys[id] = (Number(pilsaForm.qtys[id]) || 0) + 1;
       pilsaRefreshCounts();
@@ -5413,7 +5445,7 @@ function renderPilsaConfirm(u) {
 
 async function askCancelPilsa(u) {
   const ok = await appConfirm(
-    "신청하신 <b>필사 노트 " + pilsaTotal(pilsaMine) + "부</b>를 취소합니다.<br><br>언제든 다시 신청하실 수 있어요.",
+    "신청하신 <b>필사 노트 " + pilsaTotal(pilsaMine) + "권</b>을 취소합니다.<br><br>언제든 다시 신청하실 수 있어요.",
     { title: "🗑 신청 취소", okText: "취소하기", danger: true });
   if (!ok) return;
   if (pilsaMine && pilsaMine.id) {
@@ -5451,7 +5483,7 @@ async function submitPilsa(u) {
     pilsaMine = r.order;
     pilsaForm = pilsaFormFrom(pilsaMine);
     pilsaEditing = false;
-    await appAlert("신청이 접수되었습니다.<br>필사 노트 <b>" + pilsaMine.total + "부</b>");
+    await appAlert("신청이 접수되었습니다.<br>필사 노트 <b>" + pilsaMine.total + "권</b>");
     renderPilsaApply();
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = "신청"; }
