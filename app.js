@@ -4940,6 +4940,8 @@ async function callRanking(from, to) {
 //   ※ 지금은 화면만 — 서버 연동(submitPilsa/askCancelPilsa)은 다음 단계.
 // ------------------------------------------------------------
 const PILSA_TOTAL_MAX = 5;                 // 한 분당 총 부수 상한
+const PILSA_PRICE = 3000;                  // 권당 가격(원)
+function pilsaWon(n) { return (n * PILSA_PRICE).toLocaleString("ko-KR") + "원"; }
 const PILSA_SIZE = [
   ["A4", "큰 것"],
   ["A5", "작은 것"],
@@ -5009,7 +5011,7 @@ const PILSA_STEPS = ["신청완료", "준비중", "준비완료", "배부완료"
 const PILSA_INFO = {
   "신청완료": { cls: "s1", ic: "📝", msg: "신청이 접수되었습니다. 준비가 시작되기 전까지는 내용을 고치거나 취소하실 수 있어요." },
   "준비중":   { cls: "s2", ic: "📦", msg: "노트를 준비하고 있습니다. 이 단계부터는 내용을 바꿀 수 없어요." },
-  "준비완료": { cls: "s3", ic: "✅", msg: "노트가 준비되었습니다. 휴대폰으로도 알려드렸어요. 4층 새가족실에서 찾아가세요." },
+  "준비완료": { cls: "s3", ic: "✅", msg: "노트가 준비되었습니다. 휴대폰으로도 알려드렸어요. 4층 새가족실에서 찾아가시고 비용은 그때 내시면 됩니다." },
   "배부완료": { cls: "s4", ic: "🎁", msg: "노트를 받아 가셨습니다. 매일 한 구절씩 손으로 새겨 보세요." },
 };
 
@@ -5108,7 +5110,7 @@ function renderPilsaApply(keepScroll) {
     '<div class="pilsa-screen">' +
       '<h2 class="rank-title">✍️ 성경필사 노트 신청</h2>' +
       '<p class="pilsa-sub">준비가 끝나면 <b>휴대폰으로 알려드립니다</b><br>' +
-        '<b>4층 새가족실</b>에서 찾아가세요</p>' +
+        '<b>4층 새가족실</b>에서 찾아가시고, 비용은 그때 내시면 됩니다</p>' +
       pilsaPreviewBar() +
       (showForm ? pilsaFormHtml(u) : pilsaMineHtml(u)) +
       pilsaActionsHtml(showForm) +
@@ -5151,6 +5153,12 @@ function pilsaSummaryHtml(u, f) {
     '<div class="pilsa-confirm">' + rows +
       '<div class="pc-row total"><span>총 신청 부수</span><b>' + pilsaTotal(f) + '부</b></div>' +
     '</div>' +
+    '<div class="pl-price">' +
+      '<div class="pp-row"><span>예상 금액 <i>(권당 ' + PILSA_PRICE.toLocaleString("ko-KR") + '원)</i></span>' +
+      '<b>' + pilsaWon(pilsaTotal(f)) + '</b></div>' +
+      '<div class="pp-note">말씀 길이에 따라 한 단위가 여러 권으로 나올 수 있어, 실제 권수와 금액은 달라질 수 있습니다.<br>' +
+      '<b>비용은 노트를 찾으실 때 내시면 됩니다.</b></div>' +
+    '</div>' +
     (f.memo ? '<div class="pl-memo"><b>💬 요청 사항</b><br>' + boardEsc(f.memo) + '</div>' : '');
 }
 
@@ -5158,7 +5166,8 @@ function pilsaSummaryHtml(u, f) {
 function pilsaSumInner(f) {
   const picked = pilsaPicked(f);
   if (!picked.length) return '<span class="none">아직 고르신 성경이 없습니다.</span>';
-  return '<b>✅ ' + picked.length + '종 · 총 ' + pilsaTotal(f) + '부</b><br><span>' +
+  const n = pilsaTotal(f);
+  return '<b>✅ ' + picked.length + '종 · 총 ' + n + '부 · ' + pilsaWon(n) + '</b><br><span>' +
     picked.map(function (x) { return boardEsc(pilsaUnitName(x)) + " " + f.qtys[x.id] + "부"; }).join(" · ") +
     '</span>';
 }
@@ -5215,6 +5224,8 @@ function pilsaFormHtml(u) {
 
     '<div class="pl-sec">성경 선택 및 부수</div>' +
     '<div class="pl-notice">신청 단위별로 부수를 골라 주세요. 묶음 항목은 함께 제작되는 한 권입니다.<br>' +
+      '말씀이 길면 <b>한 단위가 여러 권</b>으로 나올 수 있어 권수는 늘거나 줄 수 있습니다.<br>' +
+      '<b>권당 3,000원</b> · ' +
       '<b>한 분당 총 ' + PILSA_TOTAL_MAX + '부까지</b> 신청하실 수 있어요' +
       '<span class="pl-left">' + (left > 0 ? " (앞으로 " + left + "부)" : " — 상한에 닿았습니다") + '</span></div>' +
     '<div class="rank-filter pl-tab" id="pl-tab">' +
