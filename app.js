@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260811x";
+const APP_BUILD = "20260811y";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5221,7 +5221,7 @@ function renderPilsaApply(keepScroll) {
   appEl.innerHTML =
     '<div class="pilsa-screen">' +
       '<h2 class="rank-title">✍️ 성경필사 노트 신청</h2>' +
-      '<p class="pilsa-sub">준비가 끝나면 <b>휴대폰으로 알려드립니다</b><br>' +
+      '<p class="pilsa-sub">준비가 끝나면 <b>휴대폰</b>으로 알려드립니다<br>' +
         '<b>4층 새가족실</b>에서 찾아가세요<br>' +
         '비용은 그때 내시면 됩니다</p>' +
       (showForm ? pilsaFormHtml(u) : pilsaMineHtml(u)) +
