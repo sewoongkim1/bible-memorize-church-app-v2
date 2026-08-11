@@ -2932,3 +2932,63 @@ html[data-fs="xl"] .test-card .btn-row { row-gap: 10px; margin-bottom: 18px; pad
 .dark .pl-step.now span { color: #cdd9f2; }
 .dark .pl-help.lock { background: #202a3d; border-color: #3a4a68; }
 .dark .pilsa-go.danger { background: #2a3450; color: #f0a49b; border-color: #6b4a46; }
+
+/* ── 필사 신청 — 옵션·성경 선택 ── */
+.pl-sec { font-size: .82rem; font-weight: 800; color: #8a6a1e; letter-spacing: .06em;
+          margin: 16px 2px 8px; }
+.pl-types { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.pl-types button { padding: 12px 8px; border-radius: 10px; font-family: inherit; cursor: pointer;
+                   background: #fff; border: 1.5px solid var(--border); text-align: center; }
+.pl-types button b { display: block; font-size: .9rem; font-weight: 800; color: var(--navy); }
+.pl-types button i { display: block; font-style: normal; font-size: .72rem; color: #8a95a8; margin-top: 3px; }
+.pl-types button.on { background: var(--navy); border-color: var(--navy); }
+.pl-types button.on b, .pl-types button.on i { color: #fff; }
+.pl-chips { margin: 10px 0 0 !important; }
+.pl-notice { background: #fdf6e3; border: 1px solid #e6cf94; border-radius: 10px;
+             padding: 10px 12px; font-size: .78rem; line-height: 1.6; color: #7a5f16; }
+.pl-notice b { color: #7a5f16; }
+.pl-tab { margin: 12px 0 8px; }
+.pl-units { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: #fff; }
+.pl-genre { background: #f7f9fd; font-size: .7rem; font-weight: 800; color: #c8a24b;
+            letter-spacing: .08em; padding: 7px 12px; }
+.pl-unit { display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+           border-top: 1px solid #eef1f6; }
+.pl-un { flex: 1; min-width: 0; }
+.pl-un b { display: block; font-size: .88rem; font-weight: 700; color: #22304a; }
+.pl-un i { display: block; font-style: normal; font-size: .7rem; color: #8a95a8; margin-top: 2px;
+           line-height: 1.4; word-break: keep-all; }
+.pl-ctl { display: flex; align-items: center; gap: 6px; flex: none; }
+.pl-ctl button { width: 30px; height: 30px; border-radius: 50%; font-size: 1.05rem; font-weight: 800;
+                 font-family: inherit; cursor: pointer; line-height: 1;
+                 color: var(--navy); background: #fff; border: 1.5px solid var(--border); }
+.pl-ctl button[disabled] { opacity: .35; cursor: default; }
+.pl-num { width: 26px; text-align: center; font-size: .95rem; font-weight: 800; color: #a3adbe; }
+.pl-num.has { color: #c8a24b; }
+.pl-sum2 { background: #f2f5fb; border-radius: 10px; padding: 11px 13px; margin-top: 10px;
+           font-size: .82rem; line-height: 1.7; color: var(--navy); }
+.pl-sum2 span { color: #5a6273; font-size: .76rem; }
+.pl-sum2 .none { color: #8a95a8; }
+.pl-memo-in { width: 100%; padding: 11px 13px; border: 1.5px solid var(--border); border-radius: 10px;
+              font-size: .88rem; font-family: inherit; line-height: 1.6; background: #fff;
+              color: #22304a; resize: vertical; }
+.pl-memo-in:focus { outline: none; border-color: var(--navy); }
+.pl-memo { background: #f7f9fd; border-radius: 10px; padding: 11px 13px; margin-top: 10px;
+           font-size: .82rem; line-height: 1.6; color: #5a6273; }
+.pl-memo b { color: var(--navy); }
+.pc-row.total { background: var(--navy); margin: 0 -16px -6px; padding: 12px 16px;
+                border-radius: 0 0 12px 12px; }
+.pc-row.total span { color: rgba(255,255,255,.75); }
+.pc-row.total b { color: #ffd875; font-size: 1.1rem; }
+
+.dark .pl-types button { background: #2a3450; border-color: #3a4a68; }
+.dark .pl-types button b { color: #c3cee6; }
+.dark .pl-types button.on { background: #3a4a68; border-color: #56688c; }
+.dark .pl-notice { background: #2b2717; border-color: #8d7531; color: #e8d9a3; }
+.dark .pl-notice b { color: #e8d9a3; }
+.dark .pl-units { background: #232c3f; border-color: #3a4a68; }
+.dark .pl-genre { background: #202a3d; }
+.dark .pl-unit { border-top-color: #2f3b52; }
+.dark .pl-un b { color: #cdd9f2; }
+.dark .pl-ctl button { background: #2a3450; border-color: #3a4a68; color: #c3cee6; }
+.dark .pl-sum2, .dark .pl-memo { background: #202a3d; color: #c7d1e4; }
+.dark .pl-memo-in { background: #232c3f; border-color: #3a4a68; color: #cdd9f2; }
