@@ -114,6 +114,10 @@ function routeAfterLoad() {
     if (loadUser()) enterAfterLogin(); else renderEntryScreen();
     return;
   }
+  if (preview === "pilsa") {          // 성경필사 노트 신청 — 어드민 미리보기(성도 화면 그대로)
+    if (loadUser()) renderPilsaApply(); else renderEntryScreen();
+    return;
+  }
   if (preview === "daily") {
     _skipAutoDaily = true;                              // enterAfterLogin의 자동 표시는 막고
     if (loadUser()) enterAfterLogin(); else renderEntryScreen();
@@ -4916,6 +4920,128 @@ function rankRangeFor(key) {
 }
 async function callRanking(from, to) {
   return api.ranking(from, to, true); // 암송(학습) 기록도 포함해 순위 집계
+}
+
+// ------------------------------------------------------------
+// 성경필사 노트 신청 — 신청/조회 두 탭.
+//   로그인 정보(교구·목장·이름)는 앱이 이미 알고 있어 다시 묻지 않는다.
+//   신청 기간 제한 없음. 한 분당 최대 5권.
+//   ※ 지금은 화면만 — 서버 연동은 다음 단계(submitPilsa/loadPilsaMine 자리).
+// ------------------------------------------------------------
+const PILSA_MAX = 5;                  // 1인 신청 상한(권)
+let pilsaQty = 1;                     // 선택한 수량
+
+// "화평 20목장 · 김세웅" / "초등부 3학년 · 김믿음"
+function pilsaWho(u) {
+  if (!u) return "";
+  return u.type === "교구"
+    ? u.gu + " " + u.mok + "목장 · " + u.name
+    : u.bu + " " + (u.grade ? u.grade + " · " : "") + u.name;
+}
+
+function renderPilsaApply(mode) {
+  const m = mode === "lookup" ? "lookup" : "apply";
+  const u = loadUser();
+  if (!u) { renderEntryScreen(); return; }   // 로그인 먼저
+  const appEl = document.getElementById("app");
+
+  const qtyBtns = [1, 2, 3, 4, 5]
+    .map((n) => '<button data-n="' + n + '" class="' + (n === pilsaQty ? "on" : "") + '">' + n + '권</button>')
+    .join("");
+
+  const applyBody =
+    '<div class="pilsa-box">' +
+      '<div class="pl-label">몇 권 신청하시겠어요?</div>' +
+      '<div class="pl-qty" id="pl-qty">' + qtyBtns + '</div>' +
+      '<div class="pl-help">한 분당 최대 ' + PILSA_MAX + '권까지 신청하실 수 있어요</div>' +
+    '</div>' +
+    '<button class="pilsa-go" id="pl-next">다음 →</button>';
+
+  const lookupBody = '<div id="pl-result"><p class="rank-msg">불러오는 중…</p></div>';
+
+  appEl.innerHTML =
+    '<div class="pilsa-screen">' +
+      '<h2 class="rank-title">✍️ 성경필사 노트 신청</h2>' +
+      '<p class="pilsa-sub">신청하시면 교구·부서를 통해 전달해 드립니다</p>' +
+      '<div class="rank-filter pilsa-tab" id="pl-tab">' +
+        '<button data-m="apply" class="' + (m === "apply" ? "on" : "") + '">신청하기</button>' +
+        '<button data-m="lookup" class="' + (m === "lookup" ? "on" : "") + '">조회하기</button>' +
+      '</div>' +
+      '<div class="pilsa-me"><div class="pm-k">신청자</div>' +
+        '<div class="pm-v">' + boardEsc(pilsaWho(u)) + '</div></div>' +
+      (m === "apply" ? applyBody : lookupBody) +
+    '</div>' +
+    '<button class="home-fab" id="pl-back" aria-label="첫 화면으로">🏠 ' + userLabel(u) + ' 성도님</button>';
+
+  window.scrollTo(0, 0);
+  document.getElementById("pl-back").addEventListener("click", renderSummary);
+  document.getElementById("pl-tab").querySelectorAll("button").forEach(function (b) {
+    b.addEventListener("click", function () { renderPilsaApply(b.dataset.m); });
+  });
+
+  if (m === "apply") {
+    document.getElementById("pl-qty").querySelectorAll("button").forEach(function (b) {
+      b.addEventListener("click", function () { pilsaQty = Number(b.dataset.n); renderPilsaApply("apply"); });
+    });
+    document.getElementById("pl-next").addEventListener("click", function () { renderPilsaConfirm(u); });
+  } else {
+    loadPilsaMine(u);
+  }
+}
+
+// 신청 전 확인 — 잘못 눌러 접수되는 일이 없게 한 번 되짚는다
+function renderPilsaConfirm(u) {
+  const appEl = document.getElementById("app");
+  appEl.innerHTML =
+    '<div class="pilsa-screen">' +
+      '<h2 class="rank-title">✍️ 신청 내용 확인</h2>' +
+      '<div class="pilsa-confirm">' +
+        '<div class="pc-row"><span>신청자</span><b>' + boardEsc(pilsaWho(u)) + '</b></div>' +
+        '<div class="pc-row"><span>신청 수량</span><b>' + pilsaQty + '권</b></div>' +
+      '</div>' +
+      '<p class="pilsa-ask">위 내용으로 신청하시겠습니까?</p>' +
+      '<button class="pilsa-go" id="pl-submit">✅ 신청하기</button>' +
+      '<button class="pilsa-go ghost" id="pl-again">← 다시 고르기</button>' +
+    '</div>' +
+    '<button class="home-fab" id="pl-back" aria-label="첫 화면으로">🏠 ' + userLabel(u) + ' 성도님</button>';
+  window.scrollTo(0, 0);
+  document.getElementById("pl-back").addEventListener("click", renderSummary);
+  document.getElementById("pl-again").addEventListener("click", function () { renderPilsaApply("apply"); });
+  document.getElementById("pl-submit").addEventListener("click", function () { submitPilsa(u); });
+}
+
+function renderPilsaDone(u, msg, kind) {
+  const appEl = document.getElementById("app");
+  appEl.innerHTML =
+    '<div class="pilsa-screen">' +
+      '<h2 class="rank-title">✍️ 성경필사 노트 신청</h2>' +
+      '<div class="pilsa-result ' + kind + '">' + msg + '</div>' +
+      '<button class="pilsa-go" id="pl-mine">🔍 내 신청 내역 보기</button>' +
+      '<button class="pilsa-go ghost" id="pl-home">첫 화면으로</button>' +
+    '</div>' +
+    '<button class="home-fab" id="pl-back" aria-label="첫 화면으로">🏠 ' + userLabel(u) + ' 성도님</button>';
+  window.scrollTo(0, 0);
+  document.getElementById("pl-back").addEventListener("click", renderSummary);
+  document.getElementById("pl-home").addEventListener("click", renderSummary);
+  document.getElementById("pl-mine").addEventListener("click", function () { renderPilsaApply("lookup"); });
+}
+
+// ── 서버 연동 자리 ───────────────────────────────────────────
+// 다음 단계에서 Supabase Edge Function 액션으로 교체한다(pilsaApply / pilsaMine).
+const PILSA_STUB = '<span class="pr-sub">※ 지금은 화면만 연결된 상태로, 서버에는 저장되지 않습니다.</span>';
+
+async function submitPilsa(u) {
+  const btn = document.getElementById("pl-submit");
+  if (btn) { btn.disabled = true; btn.textContent = "신청 중…"; }
+  renderPilsaDone(u,
+    '<b>✅ 신청이 접수되었습니다</b><br>필사 노트 <b>' + pilsaQty + '권</b>을 신청하셨습니다.<br>' + PILSA_STUB,
+    "ok");
+}
+
+async function loadPilsaMine(u) {
+  const box = document.getElementById("pl-result");
+  if (!box) return;
+  box.innerHTML = '<div class="pilsa-result none">아직 신청 내역이 없습니다.<br>' + PILSA_STUB + '</div>';
 }
 
 // ------------------------------------------------------------

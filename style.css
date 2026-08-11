@@ -2809,3 +2809,76 @@ html[data-fs="xl"] .test-card .btn-row { row-gap: 10px; margin-bottom: 18px; pad
 .dark .pg-step.next { background: #232c3f; border-color: #4a5e86; color: #cdd9f2; }
 .dark .pg-badge { background: #232c3f; color: #9fb0cc; }
 .dark .niv-attribution { border-top-color: rgba(255,255,255,0.15); }
+
+/* ── 성경필사 노트 신청 ─────────────────────────────────────
+   registration.html의 짜임(탭 → 입력 → 확인 → 결과)을 그대로 따르되,
+   교구·목장·이름은 로그인 정보로 대신하므로 다시 묻지 않는다. */
+.pilsa-screen { padding-bottom: 72px; }
+.pilsa-sub { text-align: center; font-size: .86rem; color: #6a7688; margin: -6px 0 14px; }
+.pilsa-tab { margin-bottom: 14px; }
+
+.pilsa-me {
+  display: flex; align-items: center; gap: 10px;
+  background: #f2f5fb; border: 1px solid var(--border); border-radius: 12px;
+  padding: 12px 14px; margin-bottom: 14px;
+}
+.pilsa-me .pm-k { font-size: .78rem; font-weight: 700; color: #8a95a8; flex: none; }
+.pilsa-me .pm-v { font-size: .95rem; font-weight: 800; color: var(--navy); }
+
+.pilsa-box {
+  background: var(--white); border: 1.5px solid var(--border); border-radius: 14px;
+  padding: 16px 14px 14px;
+}
+.pl-label { text-align: center; font-size: .95rem; font-weight: 800; color: var(--navy); }
+.pl-qty { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; margin-top: 12px; }
+.pl-qty button {
+  padding: 12px 0; font-size: .95rem; font-weight: 800; font-family: inherit;
+  color: var(--navy); background: #fff; border: 1.5px solid var(--border);
+  border-radius: 10px; cursor: pointer; transition: all .15s;
+}
+.pl-qty button:hover { background: var(--cream); }
+.pl-qty button.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+.pl-help { text-align: center; font-size: .78rem; color: #8a95a8; margin-top: 10px; }
+
+.pilsa-go {
+  display: block; width: 100%; margin-top: 12px; padding: 14px;
+  font-size: 1rem; font-weight: 800; font-family: inherit;
+  color: #fff; background: var(--navy); border: 1.5px solid var(--navy);
+  border-radius: 12px; cursor: pointer;
+}
+.pilsa-go:hover { background: var(--navy-dark); }
+.pilsa-go.ghost { background: #eef1f8; color: var(--navy); }
+.pilsa-go.ghost:hover { background: var(--navy); color: #fff; }
+.pilsa-go[disabled] { opacity: .6; cursor: default; }
+
+.pilsa-confirm {
+  background: #f7f9fd; border: 1.5px solid var(--border); border-radius: 14px;
+  padding: 6px 16px; margin-top: 4px;
+}
+.pc-row { display: flex; justify-content: space-between; align-items: center;
+          padding: 12px 0; border-bottom: 1px solid #e3e7ee; }
+.pc-row:last-child { border-bottom: none; }
+.pc-row span { font-size: .84rem; font-weight: 700; color: #8a95a8; }
+.pc-row b { font-size: .98rem; font-weight: 800; color: var(--navy); }
+.pilsa-ask { text-align: center; font-size: .88rem; color: #6a7688; margin: 14px 0 2px; }
+
+.pilsa-result { border-radius: 12px; padding: 16px; font-size: .92rem; line-height: 1.65; }
+.pilsa-result.ok   { background: #eaf6ee; border: 1.5px solid #a9d8bb; color: #1f5c3a; }
+.pilsa-result.dup  { background: #fdf6e3; border: 1.5px solid #e6cf94; color: #7a5f16; }
+.pilsa-result.none { background: #f4f6fa; border: 1.5px solid var(--border); color: #6a7688; }
+.pilsa-result b { color: inherit; }
+.pr-sub { display: inline-block; margin-top: 8px; font-size: .78rem; color: #8a95a8; }
+
+.pilsa-err { background: #fdedec; border: 1.5px solid #f5b7b1; border-radius: 10px;
+             padding: 10px 13px; margin-top: 12px; font-size: .85rem; color: #c0392b; }
+.pilsa-err[hidden] { display: none; }
+
+.dark .pilsa-me { background: #202a3d; border-color: #3a4a68; }
+.dark .pilsa-me .pm-v { color: #cdd9f2; }
+.dark .pilsa-box, .dark .pilsa-confirm { background: #232c3f; border-color: #3a4a68; }
+.dark .pl-label, .dark .pc-row b { color: #cdd9f2; }
+.dark .pl-qty button { background: #2a3450; border-color: #3a4a68; color: #c3cee6; }
+.dark .pl-qty button.on { background: #3a4a68; border-color: #56688c; color: #fff; }
+.dark .pilsa-go.ghost { background: #2a3450; color: #c3cee6; }
+.dark .pc-row { border-bottom-color: #3a4a68; }
+.dark .pilsa-result.none { background: #202a3d; border-color: #3a4a68; color: #9aa6bb; }
