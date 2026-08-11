@@ -279,15 +279,15 @@
     font-size:1rem;font-weight:800;cursor:pointer;}
   .dm-preview-card.notice .dm-pv-ok{background:var(--navy);color:#fff;}
 /* ── 성경필사 노트 신청 관리 ── */
-.pl-st{display:flex;flex-wrap:nowrap;gap:3px;margin-top:12px;
+.pl-st{display:flex;flex-wrap:nowrap;gap:5px;margin-top:12px;
   overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
 .pl-st::-webkit-scrollbar{display:none;}
-.pl-st label{display:inline-flex;align-items:center;gap:2px;cursor:pointer;user-select:none;
+.pl-st label{display:inline-flex;align-items:center;gap:5px;cursor:pointer;user-select:none;
   flex:none;white-space:nowrap;
-  font-size:10.5px;font-weight:700;border-radius:999px;padding:4px 6px 4px 5px;
+  font-size:12px;font-weight:700;border-radius:999px;padding:5px 11px 5px 8px;
   border:1.5px solid #dde3ee;background:#fff;color:#8a95a8;}
-.pl-st label input{margin:0;accent-color:#1a3a6b;width:11px;height:11px;flex:none;}
-.pl-st label em{font-style:normal;font-size:9.5px;opacity:.75;margin-left:1px;}
+.pl-st label input{margin:0;accent-color:#1a3a6b;width:13px;height:13px;flex:none;}
+.pl-st label em{font-style:normal;font-size:11px;opacity:.7;}
 .pl-st label.on.s1{background:#eef3fb;border-color:#a9c3e8;color:#1a3a6b;}
 .pl-st label.on.s2{background:#fdf6e3;border-color:#e6cf94;color:#7a5f16;}
 .pl-st label.on.s3{background:#eaf6ee;border-color:#a9d8bb;color:#1f5c3a;}
@@ -331,20 +331,33 @@
   border:1.5px solid #a9c3e8;background:#eef3fb;color:#1a3a6b;
   border-radius:999px;padding:4px 9px;line-height:1.3;}
 .pl-sms:hover{background:#e2ebf8;}
-/* 상태 고르기 — 브라우저 기본 모양을 지우고 카드의 알약 모양에 맞춘다 */
-.pl-sel{appearance:none;-webkit-appearance:none;-moz-appearance:none;
-  padding:6px 25px 6px 10px;border-radius:999px;font-size:12px;font-weight:800;
-  font-family:inherit;border:1.5px solid;cursor:pointer;flex:none;line-height:1.2;
+/* 상태 고르기 — 브라우저 기본 목록을 쓰지 않고 직접 만든다 */
+.pl-drop{position:relative;flex:none;}
+.pl-sel{appearance:none;-webkit-appearance:none;border:1.5px solid;cursor:pointer;
+  padding:6px 25px 6px 12px;border-radius:999px;font-size:12px;font-weight:800;
+  font-family:inherit;line-height:1.3;white-space:nowrap;
   background-repeat:no-repeat;background-position:right 9px center;background-size:10px 6px;
   transition:box-shadow .12s,filter .12s;}
-.pl-sel::-ms-expand{display:none;}
 .pl-sel:hover{filter:brightness(.97);}
-.pl-sel:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(26,58,107,.16);}
-.pl-sel option{font-weight:600;color:#22304a;background:#fff;}
+.pl-drop.open .pl-sel{box-shadow:0 0 0 3px rgba(26,58,107,.14);}
 .pl-sel.s1{background-color:#eef3fb;border-color:#a9c3e8;color:#1a3a6b;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%231a3a6b' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");}
 .pl-sel.s2{background-color:#fdf6e3;border-color:#e6cf94;color:#7a5f16;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%237a5f16' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");}
 .pl-sel.s3{background-color:#eaf6ee;border-color:#a9d8bb;color:#1f5c3a;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%231f5c3a' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");}
 .pl-sel.s4{background-color:#f4f6fa;border-color:#c3cad6;color:#5a6273;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%235a6273' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");}
+.pl-menu{display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:30;
+  min-width:118px;padding:5px;border-radius:12px;background:#fff;
+  border:1px solid #dde3ee;box-shadow:0 10px 26px rgba(26,42,72,.16);}
+.pl-drop.open .pl-menu{display:block;}
+.pl-opt{display:block;width:100%;text-align:left;cursor:pointer;font-family:inherit;
+  font-size:12.5px;font-weight:700;padding:8px 10px;border:none;border-radius:8px;
+  background:transparent;color:#4a5568;white-space:nowrap;}
+.pl-opt:hover{background:#f2f5fb;}
+.pl-opt.on{font-weight:800;}
+.pl-opt.on::after{content:"✓";float:right;margin-left:10px;}
+.pl-opt.s1.on{background:#eef3fb;color:#1a3a6b;}
+.pl-opt.s2.on{background:#fdf6e3;color:#7a5f16;}
+.pl-opt.s3.on{background:#eaf6ee;color:#1f5c3a;}
+.pl-opt.s4.on{background:#f4f6fa;color:#5a6273;}
 .pl-spec{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px;}
 .pl-spec span{font-size:12px;font-weight:700;color:#4a5568;background:#f4f6fb;
   border:1px solid #e3e7ee;border-radius:7px;padding:3px 8px;}
@@ -1267,6 +1280,8 @@ function plPicks(r){ return Object.values(r.qtys||{}).reduce((a,n)=>a+(Number(n)
 
 const PL_STATES = ["신청완료", "준비중", "준비완료", "배부완료"];
 const PL_CLS = { "신청완료": "s1", "준비중": "s2", "준비완료": "s3", "배부완료": "s4" };
+// 추리기 칸은 좁아 짧게 — 값은 그대로 온전한 상태 이름을 쓴다
+const PL_SHORT = { "신청완료": "신청", "준비중": "준비", "준비완료": "완료", "배부완료": "배부" };
 let plRows = [];      // [{ id, at, who, name, phone, qty, status }]
 let plLoaded = false;
 
@@ -1281,7 +1296,7 @@ function renderPilsaAdmin(){
         ${PL_STATES.map(x=>`
           <label class="${PL_CLS[x]}${x==="신청완료"?" on":""}">
             <input type="checkbox" data-st="${x}"${x==="신청완료"?" checked":""}>
-            ${x}<em data-cnt="${x}">0</em>
+            ${PL_SHORT[x]}<em data-cnt="${x}">0</em>
           </label>`).join("")}
       </div>
       <div class="pl-find">
@@ -1388,9 +1403,15 @@ function plRender(){
                 : `<span class="pl-tel none">번호 없음</span>`}
             </div>
           </div>
-          <select class="pl-sel ${PL_CLS[r.status]}" data-id="${r.id}">
-            ${PL_STATES.map(x=>`<option value="${x}"${x===r.status?" selected":""}>${x}</option>`).join("")}
-          </select>
+          <div class="pl-drop">
+            <button type="button" class="pl-sel ${PL_CLS[r.status]}" data-drop="${r.id}"
+              aria-haspopup="listbox" aria-expanded="false">${r.status}</button>
+            <div class="pl-menu" role="listbox">
+              ${PL_STATES.map(x=>`
+                <button type="button" class="pl-opt ${PL_CLS[x]}${x===r.status?" on":""}"
+                  data-id="${r.id}" data-st="${x}" role="option">${x}</button>`).join("")}
+            </div>
+          </div>
         </div>
         <div class="pl-spec">
           <span>${plEsc(r.size)}</span>
@@ -1405,8 +1426,19 @@ function plRender(){
         </div>
       </div>`;
   }).join("");
-  box.querySelectorAll(".pl-sel").forEach(sel=>{
-    sel.addEventListener("change", ()=> plSetStatus(Number(sel.dataset.id), sel.value));
+  box.querySelectorAll("[data-drop]").forEach(b=>{
+    b.addEventListener("click", e=>{
+      e.stopPropagation();
+      const wrap=b.parentElement, was=wrap.classList.contains("open");
+      plCloseMenus();
+      if(!was){ wrap.classList.add("open"); b.setAttribute("aria-expanded","true"); }
+    });
+  });
+  box.querySelectorAll("[data-st][data-id]").forEach(o=>{
+    o.addEventListener("click", e=>{
+      e.stopPropagation(); plCloseMenus();
+      plSetStatus(Number(o.dataset.id), o.dataset.st);
+    });
   });
   box.querySelectorAll("[data-sms]").forEach(b=>{
     b.addEventListener("click", ()=> plSms(Number(b.dataset.sms)));
@@ -1476,6 +1508,18 @@ function plSms(id){
       .then(()=> plNote(`📋 ${r.name}님께 보낼 문구를 복사했습니다 — ${r.phone}`))
       .catch(show);
   } else show();
+}
+
+function plCloseMenus(){
+  document.querySelectorAll(".pl-drop.open").forEach(w=>{
+    w.classList.remove("open");
+    const b=w.querySelector("[data-drop]"); if(b) b.setAttribute("aria-expanded","false");
+  });
+}
+if(!window.__plMenuBound){
+  window.__plMenuBound = true;
+  document.addEventListener("click", plCloseMenus);
+  document.addEventListener("keydown", e=>{ if(e.key==="Escape") plCloseMenus(); });
 }
 
 function plEsc(s){ return String(s==null?"":s).replace(/[&<>"']/g,c=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c])); }
