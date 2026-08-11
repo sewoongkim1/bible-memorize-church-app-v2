@@ -88,6 +88,10 @@ def write_page(v, pno):
     text = v['text']
     q_yt = qr_uri(yt_short(v.get('url')), 'qr/yt_%02d.png' % v['no'])
     q_app = qr_uri('https://gocheok.onlybible.kr/?v=%d' % v['no'], 'qr/app_%02d.png' % v['no'])
+    # 빈 줄 옮겨쓰기 — 본문 길이에 비례해 3~6개(줄당 2개 엘리먼트), 실제 DOM 요소로 그린다
+    # (CSS repeating-linear-gradient 배경 방식은 PDF 렌더링에서 타일링이 깨져 줄이 안 보이는 버그가 있었음)
+    n_lines = max(3, min(6, (len(text) // 22) + 2))
+    rows = ''.join('<div class="wline"></div>' for _ in range(n_lines * 2))
     return """
 <section class="page write">
   <div class="w-top">
@@ -97,7 +101,7 @@ def write_page(v, pno):
   <div class="w-explain"><b>쉬운 풀이</b> %s</div>
   <div class="w-label">따라 쓰기 <span>— 연한 글씨 위에 한 번, 아래 줄에 옮겨 적어 보세요</span></div>
   <div class="trace">%s</div>
-  <div class="wlines"></div>
+  <div class="wlines">%s</div>
   <div class="w-tip"><b>기억법</b> %s</div>
   <div class="qr2">
     <div class="qrc"><img src="%s"><span>설교 듣기</span></div>
@@ -106,7 +110,7 @@ def write_page(v, pno):
   </div>
   <div class="foot"><span></span><span class="fno">%d</span></div>
 </section>""" % (html.escape(v['refFull']), html.escape(text),
-                 html.escape(trim(s.get('easyExplain'), 150)), html.escape(text),
+                 html.escape(trim(s.get('easyExplain'), 150)), html.escape(text), rows,
                  html.escape(trim(s.get('memoryTip'), 105)), q_yt, q_app, pno)
 
 
@@ -223,9 +227,9 @@ body { margin:0; font-family:"Noto Sans KR","Malgun Gothic",sans-serif; color:#1
 .w-label span { font-weight:400; color:#98a1b2; font-size:7.2pt; }
 .trace { font-family:"Nanum Myeongjo",serif; font-size:11.5pt; line-height:1.9; color:#c9cfd9;
          word-break:keep-all; border-bottom:.6px solid #e3e7ee; padding-bottom:2mm; margin-bottom:3.5mm; }
-.wlines { flex:1; min-height:0;
-          background-image:repeating-linear-gradient(to bottom,
-            transparent 0, transparent 7.4mm, #dfe3ea 7.4mm, #dfe3ea 7.55mm); }
+.wlines { flex:1; min-height:0; display:flex; flex-direction:column; }
+.wline { flex:1; border-bottom:.6px solid #dfe3ea; }
+.wline:nth-child(even) { border-bottom-style:dotted; border-bottom-color:#eceff4; }
 .w-tip { font-size:7.4pt; line-height:1.5; color:#5a6273; background:#f6f1e3;
          border-radius:1.5mm; padding:2.2mm 3mm; margin-top:2.5mm; word-break:keep-all; }
 .w-tip b { color:#8a6a1e; }
