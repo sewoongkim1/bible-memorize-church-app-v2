@@ -279,12 +279,15 @@
     font-size:1rem;font-weight:800;cursor:pointer;}
   .dm-preview-card.notice .dm-pv-ok{background:var(--navy);color:#fff;}
 /* ── 성경필사 노트 신청 관리 ── */
-.pl-st{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;}
-.pl-st label{display:inline-flex;align-items:center;gap:5px;cursor:pointer;user-select:none;
-  font-size:12.5px;font-weight:700;border-radius:999px;padding:5px 11px 5px 8px;
+.pl-st{display:flex;flex-wrap:nowrap;gap:3px;margin-top:12px;
+  overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+.pl-st::-webkit-scrollbar{display:none;}
+.pl-st label{display:inline-flex;align-items:center;gap:2px;cursor:pointer;user-select:none;
+  flex:none;white-space:nowrap;
+  font-size:10.5px;font-weight:700;border-radius:999px;padding:4px 6px 4px 5px;
   border:1.5px solid #dde3ee;background:#fff;color:#8a95a8;}
-.pl-st label input{margin:0;accent-color:#1a3a6b;width:14px;height:14px;}
-.pl-st label em{font-style:normal;font-size:11px;opacity:.75;}
+.pl-st label input{margin:0;accent-color:#1a3a6b;width:11px;height:11px;flex:none;}
+.pl-st label em{font-style:normal;font-size:9.5px;opacity:.75;margin-left:1px;}
 .pl-st label.on.s1{background:#eef3fb;border-color:#a9c3e8;color:#1a3a6b;}
 .pl-st label.on.s2{background:#fdf6e3;border-color:#e6cf94;color:#7a5f16;}
 .pl-st label.on.s3{background:#eaf6ee;border-color:#a9d8bb;color:#1f5c3a;}
@@ -315,23 +318,24 @@
 .pl-card.s2{border-left:4px solid #d9b45c;}
 .pl-card.s3{border-left:4px solid #5aab7c;}
 .pl-card.s4{border-left:4px solid #c3cad6;}
-.pl-hd{display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;}
+.pl-hd{display:flex;align-items:flex-start;gap:8px;flex-wrap:nowrap;}
 .pl-nm{flex:1 1 auto;min-width:0;}
+.pl-hd .pl-sel{align-self:flex-start;}
 .pl-nm b{font-size:16px;color:#1a3a6b;}
 .pl-nm i{font-style:normal;font-size:12px;color:#8a95a8;margin-left:6px;}
 .pl-nm .pl-at{display:block;font-size:11px;color:#a0a9b8;margin-top:2px;}
 .pl-contact{display:flex;align-items:center;gap:8px;margin-top:5px;flex-wrap:wrap;}
-.pl-tel{font-size:14px;font-weight:800;color:#1a5fb4;text-decoration:none;letter-spacing:.02em;}
+.pl-tel{font-size:13.5px;font-weight:800;color:#1a5fb4;text-decoration:none;letter-spacing:.02em;}
 .pl-tel.none{color:#b0b8c6;font-weight:700;}
-.pl-sms{font-size:12px;font-weight:800;font-family:inherit;cursor:pointer;
+.pl-sms{font-size:11.5px;font-weight:800;font-family:inherit;cursor:pointer;white-space:nowrap;
   border:1.5px solid #a9c3e8;background:#eef3fb;color:#1a3a6b;
-  border-radius:999px;padding:4px 11px;line-height:1.3;}
+  border-radius:999px;padding:4px 9px;line-height:1.3;}
 .pl-sms:hover{background:#e2ebf8;}
 /* 상태 고르기 — 브라우저 기본 모양을 지우고 카드의 알약 모양에 맞춘다 */
 .pl-sel{appearance:none;-webkit-appearance:none;-moz-appearance:none;
-  padding:7px 30px 7px 13px;border-radius:999px;font-size:12.5px;font-weight:800;
+  padding:6px 25px 6px 10px;border-radius:999px;font-size:12px;font-weight:800;
   font-family:inherit;border:1.5px solid;cursor:pointer;flex:none;line-height:1.2;
-  background-repeat:no-repeat;background-position:right 11px center;background-size:10px 6px;
+  background-repeat:no-repeat;background-position:right 9px center;background-size:10px 6px;
   transition:box-shadow .12s,filter .12s;}
 .pl-sel::-ms-expand{display:none;}
 .pl-sel:hover{filter:brightness(.97);}
