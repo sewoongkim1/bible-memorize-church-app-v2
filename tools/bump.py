@@ -80,9 +80,20 @@ def main():
                  'const APP_BUILD = "%s";' % new_tags["app.js"], app, count=1)
     io.open(APP, "w", encoding="utf-8").write(app)
 
+    # admin.html이 부르는 admin-stats.html 태그도 함께(빠뜨리면 관리자 화면이 옛것)
+    admin = os.path.join(ROOT, "admin.html")
+    if os.path.exists(admin):
+        a = io.open(admin, encoding="utf-8").read()
+        m = re.search(r"admin-stats\.html\?v=([A-Za-z0-9]+)", a)
+        if m:
+            tag = next_tag(m.group(1), today)
+            a = re.sub(r"admin-stats\.html\?v=[A-Za-z0-9]+", "admin-stats.html?v=" + tag, a)
+            io.open(admin, "w", encoding="utf-8").write(a)
+            new_tags["admin-stats.html"] = tag
+
     print("판 번호  %s" % ver)
-    for path in TAGGED:
-        print("  %-14s %s" % (path, new_tags[path]))
+    for path in sorted(new_tags):
+        print("  %-18s %s" % (path, new_tags[path]))
     print("APP_BUILD %s" % new_tags["app.js"])
     return 0
 

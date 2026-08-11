@@ -278,6 +278,60 @@
   .dm-pv-ok{width:100%;padding:12px;border:none;border-radius:12px;background:var(--gold);color:var(--navy-d);
     font-size:1rem;font-weight:800;cursor:pointer;}
   .dm-preview-card.notice .dm-pv-ok{background:var(--navy);color:#fff;}
+/* ── 성경필사 노트 신청 관리 ── */
+.pl-find{display:grid;grid-template-columns:1fr auto;gap:8px;margin:12px 0 10px;}
+.pl-find .push-in{min-width:0;}
+.pl-find #pl-q{grid-column:1/2;grid-row:1;}
+.pl-find #pl-search{grid-column:2/3;grid-row:1;white-space:nowrap;padding:0 16px;}
+.pl-dates{grid-column:1/3;grid-row:2;display:flex;align-items:center;gap:6px;}
+.pl-dates .push-in{flex:1 1 0;min-width:0;font-size:13px;padding:8px 10px;}
+.pl-sep{color:#8a95a8;font-weight:700;flex:none;}
+.pl-sum{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;
+  padding:10px 12px;background:#f2f5fb;border:1px solid #dde3ee;border-radius:10px;margin-bottom:10px;}
+.pl-total{font-size:14px;color:#1a3a6b;}
+.pl-total b{font-size:16px;}
+.pl-chips{display:flex;flex-wrap:wrap;gap:5px;}
+.pl-chip{font-size:11px;font-weight:700;border-radius:999px;padding:3px 9px;border:1px solid;}
+.pl-chip.s1{background:#eef3fb;border-color:#a9c3e8;color:#1a3a6b;}
+.pl-chip.s2{background:#fdf6e3;border-color:#e6cf94;color:#7a5f16;}
+.pl-chip.s3{background:#eaf6ee;border-color:#a9d8bb;color:#1f5c3a;}
+.pl-chip.s4{background:#f4f6fa;border-color:#dde3ee;color:#5a6273;}
+.pl-note{margin-top:8px;padding:9px 12px;border-radius:9px;background:#eef3fb;
+  border:1px solid #a9c3e8;color:#1a3a6b;font-size:13px;font-weight:600;line-height:1.5;word-break:keep-all;}
+
+/* 신청 한 건 = 카드 하나 */
+.pl-card{border:1px solid #dde3ee;border-radius:12px;background:#fff;padding:12px 14px;margin-bottom:10px;}
+.pl-card.s1{border-left:4px solid #6f9be0;}
+.pl-card.s2{border-left:4px solid #d9b45c;}
+.pl-card.s3{border-left:4px solid #5aab7c;}
+.pl-card.s4{border-left:4px solid #c3cad6;}
+.pl-hd{display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;}
+.pl-nm{flex:1 1 auto;min-width:0;}
+.pl-nm b{font-size:16px;color:#1a3a6b;}
+.pl-nm i{font-style:normal;font-size:12px;color:#8a95a8;margin-left:6px;}
+.pl-nm .pl-at{display:block;font-size:11px;color:#a0a9b8;margin-top:2px;}
+.pl-tel{display:inline-block;margin-top:4px;font-size:14px;font-weight:800;color:#1a5fb4;
+  text-decoration:none;letter-spacing:.02em;}
+.pl-sel{padding:7px 9px;border-radius:9px;font-size:12.5px;font-weight:800;
+  font-family:inherit;border:1.5px solid;cursor:pointer;flex:none;}
+.pl-sel.s1{background:#eef3fb;border-color:#a9c3e8;color:#1a3a6b;}
+.pl-sel.s2{background:#fdf6e3;border-color:#e6cf94;color:#7a5f16;}
+.pl-sel.s3{background:#eaf6ee;border-color:#a9d8bb;color:#1f5c3a;}
+.pl-sel.s4{background:#f4f6fa;border-color:#dde3ee;color:#5a6273;}
+.pl-spec{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px;}
+.pl-spec span{font-size:12px;font-weight:700;color:#4a5568;background:#f4f6fb;
+  border:1px solid #e3e7ee;border-radius:7px;padding:3px 8px;}
+.pl-spec span.x2{background:#fdf6e3;border-color:#e6cf94;color:#7a5f16;}
+.pl-books{margin-top:9px;padding:9px 11px;border-radius:9px;background:#f9fafc;
+  border:1px solid #eef1f6;font-size:13px;line-height:1.7;color:#3c4655;}
+.pl-books em{font-style:normal;color:#1a3a6b;font-weight:700;}
+.pl-memo{margin-top:8px;padding:9px 11px;border-radius:9px;background:#fdf9ef;
+  border:1px solid #ecdcb8;font-size:13px;line-height:1.6;color:#7a5f16;word-break:break-word;}
+.pl-foot{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-top:10px;
+  padding-top:9px;border-top:1px dashed #e3e7ee;}
+.pl-cnt{font-size:13px;color:#5a6273;}
+.pl-cnt b{font-size:15px;color:#1a3a6b;}
+.pl-won{font-size:15px;font-weight:800;color:#7a5f16;}
 </style>
 </head>
 <body>
@@ -1168,6 +1222,22 @@ function evFmt(iso){
 // ---------- 성경필사 노트 신청 관리 ----------
 // 이름·신청일로 찾아 상태를 바꾼다. 상태: 신청완료 → 준비중 → 준비완료 → 배부완료
 // ※ 지금은 화면만 — 서버 연동(plLoad/plSetStatus)은 다음 단계.
+// 성경 단위 이름(app.js의 PILSA_UNITS와 같은 순서·묶음)
+const PL_UNIT = {
+  ot01:"창세기", ot02:"출애굽기", ot03:"레위기", ot04:"민수기", ot05:"신명기",
+  ot06:"여호수아", ot07:"사사기 외", ot08:"사무엘상", ot09:"사무엘하",
+  ot10:"열왕기상", ot11:"열왕기하", ot12:"역대상", ot13:"역대하", ot14:"에스라 외",
+  ot15:"욥기", ot16:"시편", ot17:"잠언 외", ot18:"이사야", ot19:"예레미야 외",
+  ot20:"에스겔 외", ot21:"호세아 외",
+  nt01:"마태복음", nt02:"마가복음", nt03:"누가복음", nt04:"요한복음", nt05:"사도행전",
+  nt06:"로마서", nt07:"고린도전서 외", nt08:"갈라디아서 외", nt09:"히브리서 외", nt10:"요한계시록",
+};
+const PL_PRICE = 3000;
+const PL_DUAL = ["한영(개역개정/NIV)", "영한(NIV/개역개정)"];
+// A5·한영·영한은 한 부가 두 권 — 성도 화면과 같은 규칙
+function plMult(r){ return (r.size==="A5" || PL_DUAL.indexOf(r.type2)>=0) ? 2 : 1; }
+function plPicks(r){ return Object.values(r.qtys||{}).reduce((a,n)=>a+(Number(n)||0),0); }
+
 const PL_STATES = ["신청완료", "준비중", "준비완료", "배부완료"];
 const PL_CLS = { "신청완료": "s1", "준비중": "s2", "준비완료": "s3", "배부완료": "s4" };
 let plRows = [];      // [{ id, at, who, name, phone, qty, status }]
@@ -1215,7 +1285,7 @@ async function plLoad(){
     plRows=(d.list||[]).map(x=>({
       id:x.id, at:(x.at||"").replace(/\./g,"-"), who:x.who||"", name:x.name||"",
       phone:x.phone||"", qty:x.total||0, status:x.status,
-      size:x.size, type1:x.type1, type2:x.type2, memo:x.memo||"",
+      size:x.size, type1:x.type1, type2:x.type2, memo:x.memo||"", qtys:x.qtys||{},
     }));
     plLoaded=true;
   }
@@ -1253,21 +1323,36 @@ function plRender(){
       <div class="pl-chips">${by}</div>`;
   }
   if(!rows.length){ box.innerHTML=`<p class="msg">조건에 맞는 신청이 없습니다.</p>`; return; }
-  box.innerHTML=`<div class="pl-tbl">
-    <div class="pl-tr pl-th"><span>신청일</span><span>소속 · 이름</span><span>수량</span><span>상태</span></div>
-    ${rows.map(r=>`
-      <div class="pl-tr">
-        <span class="pl-at">${plEsc(r.at.slice(5).replace("-","."))}</span>
-        <span class="pl-who"><b>${plEsc(r.name)}</b><i>${plEsc(r.who)}</i>
-          ${r.phone?`<a class="pl-tel" href="tel:${plEsc(r.phone)}">${plEsc(r.phone)}</a>`:""}</span>
-        <span class="pl-qty">${Number(r.qty)}권</span>
-        <span>
+  box.innerHTML=rows.map(r=>{
+    const mult=plMult(r), picks=plPicks(r);
+    const books=Object.entries(r.qtys||{})
+      .map(([k,n])=>`<em>${plEsc(PL_UNIT[k]||k)}</em> ${Number(n)}부`).join(" · ");
+    return `
+      <div class="pl-card ${PL_CLS[r.status]}">
+        <div class="pl-hd">
+          <div class="pl-nm">
+            <b>${plEsc(r.name)}</b><i>${plEsc(r.who)}</i>
+            <span class="pl-at">신청일 ${plEsc((r.at||"").replace(/-/g,"."))}</span>
+            ${r.phone?`<a class="pl-tel" href="tel:${plEsc(r.phone)}">${plEsc(r.phone)}</a>`:`<span class="pl-tel">번호 없음</span>`}
+          </div>
           <select class="pl-sel ${PL_CLS[r.status]}" data-id="${r.id}">
-            ${PL_STATES.map(s=>`<option value="${s}"${s===r.status?" selected":""}>${s}</option>`).join("")}
+            ${PL_STATES.map(x=>`<option value="${x}"${x===r.status?" selected":""}>${x}</option>`).join("")}
           </select>
-        </span>
-      </div>`).join("")}
-  </div>`;
+        </div>
+        <div class="pl-spec">
+          <span>${plEsc(r.size)}</span>
+          <span>${plEsc(r.type1)}</span>
+          <span>${plEsc(r.type2)}</span>
+          ${mult>1?`<span class="x2">한 부가 2권</span>`:""}
+        </div>
+        <div class="pl-books">${books||"—"}</div>
+        ${r.memo?`<div class="pl-memo">💬 ${plEsc(r.memo)}</div>`:""}
+        <div class="pl-foot">
+          <span class="pl-cnt">신청 ${picks}부${mult>1?` × ${mult}`:""} → <b>${Number(r.qty)}권</b></span>
+          <span class="pl-won">${(Number(r.qty)*PL_PRICE).toLocaleString("ko-KR")}원</span>
+        </div>
+      </div>`;
+  }).join("");
   box.querySelectorAll(".pl-sel").forEach(sel=>{
     sel.addEventListener("change", ()=> plSetStatus(Number(sel.dataset.id), sel.value));
   });
@@ -1561,41 +1646,6 @@ function renderBoardAdmin(){
       .ba-in{flex:1;padding:8px 10px;border:1.5px solid #dde3ee;border-radius:9px;font-size:13px;font-family:inherit}
       .ba-reply-btn{padding:0 14px;border:none;border-radius:9px;background:#1a3a6b;color:#fff;font-weight:700;font-size:13px;cursor:pointer}
     
-/* ── 성경필사 노트 신청 관리 ── */
-.pl-find{display:flex;flex-direction:column;gap:8px;margin:12px 0 10px;}
-.pl-dates{display:flex;align-items:center;gap:8px;}
-.pl-dates .push-in{flex:1 1 0;min-width:0;}
-.pl-sep{color:#8a95a8;font-weight:700;}
-.pl-sum{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;
-  padding:10px 12px;background:#f2f5fb;border:1px solid #dde3ee;border-radius:10px;margin-bottom:10px;}
-.pl-total{font-size:14px;color:#1a3a6b;}
-.pl-total b{font-size:16px;}
-.pl-chips{display:flex;flex-wrap:wrap;gap:5px;}
-.pl-chip{font-size:11px;font-weight:700;border-radius:999px;padding:3px 9px;border:1px solid;}
-.pl-chip.s1{background:#eef3fb;border-color:#a9c3e8;color:#1a3a6b;}
-.pl-chip.s2{background:#fdf6e3;border-color:#e6cf94;color:#7a5f16;}
-.pl-chip.s3{background:#eaf6ee;border-color:#a9d8bb;color:#1f5c3a;}
-.pl-chip.s4{background:#f4f6fa;border-color:#dde3ee;color:#5a6273;}
-.pl-tbl{border:1px solid #e3e7ee;border-radius:10px;overflow:hidden;}
-.pl-tr{display:grid;grid-template-columns:56px 1fr 52px 104px;align-items:center;gap:8px;
-  padding:10px 12px;border-bottom:1px solid #eef1f6;}
-.pl-tr:last-child{border-bottom:none;}
-.pl-th{background:#f7f9fd;font-size:11px;font-weight:700;color:#8a95a8;}
-.pl-at{font-size:12px;color:#6a7688;}
-.pl-who b{display:block;font-size:14px;color:#1a3a6b;}
-.pl-note{ margin-top:8px; padding:9px 12px; border-radius:9px; background:#eef3fb;
-          border:1px solid #a9c3e8; color:#1a3a6b; font-size:.82rem; font-weight:600;
-          line-height:1.5; word-break:keep-all; }
-.pl-tel{ display:block; margin-top:2px; font-size:.78rem; font-weight:700;
-         color:#1a5fb4; text-decoration:none; letter-spacing:.02em; }
-.pl-who i{display:block;font-style:normal;font-size:11px;color:#8a95a8;margin-top:1px;}
-.pl-qty{font-size:13px;font-weight:700;color:#1a3a6b;text-align:right;}
-.pl-sel{width:100%;padding:6px 8px;border-radius:8px;font-size:12px;font-weight:700;
-  font-family:inherit;border:1.5px solid;cursor:pointer;}
-.pl-sel.s1{background:#eef3fb;border-color:#a9c3e8;color:#1a3a6b;}
-.pl-sel.s2{background:#fdf6e3;border-color:#e6cf94;color:#7a5f16;}
-.pl-sel.s3{background:#eaf6ee;border-color:#a9d8bb;color:#1f5c3a;}
-.pl-sel.s4{background:#f4f6fa;border-color:#dde3ee;color:#5a6273;}
 </style>
     <div class="rep-head">
       <button class="back-btn" id="back">← 메뉴</button>
