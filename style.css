@@ -2992,3 +2992,18 @@ html[data-fs="xl"] .test-card .btn-row { row-gap: 10px; margin-bottom: 18px; pad
 .dark .pl-ctl button { background: #2a3450; border-color: #3a4a68; color: #c3cee6; }
 .dark .pl-sum2, .dark .pl-memo { background: #202a3d; color: #c7d1e4; }
 .dark .pl-memo-in { background: #232c3f; border-color: #3a4a68; color: #cdd9f2; }
+
+/* 화면 맨 아래 동작 버튼 — 신청 / 취소 / 나가기 */
+.pl-acts { display: flex; gap: 8px; margin-top: 18px; }
+.pl-act { flex: 1; padding: 14px 6px; font-size: .95rem; font-weight: 800; font-family: inherit;
+          border-radius: 12px; cursor: pointer; border: 1.5px solid; }
+.pl-act.go { background: var(--navy); border-color: var(--navy); color: #fff; }
+.pl-act.go:hover { background: var(--navy-dark); }
+.pl-act.go[disabled] { opacity: .6; cursor: default; }
+.pl-act.danger { background: #fff; border-color: #e8b4ae; color: #c0392b; }
+.pl-act.danger:hover { background: #c0392b; border-color: #c0392b; color: #fff; }
+.pl-act.ghost { background: #eef1f8; border-color: #d8dfec; color: var(--navy); }
+.pl-act.ghost:hover { background: var(--navy); border-color: var(--navy); color: #fff; }
+.dark .pl-act.go { background: #3a4a68; border-color: #56688c; }
+.dark .pl-act.danger { background: #2a3450; border-color: #6b4a46; color: #f0a49b; }
+.dark .pl-act.ghost { background: #2a3450; border-color: #3a4a68; color: #c3cee6; }
