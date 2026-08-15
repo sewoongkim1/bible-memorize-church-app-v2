@@ -60,8 +60,8 @@ const api = {
   // 순위 응원(👏) — 대상은 화면에 보이는 네 조각으로 지목한다(서버가 user_id로 되짚는다)
   rankCheer: (gubun, sosok, sebu, name, user_id, who, on) =>
     supaCall("rankCheer", { gubun, sosok, sebu, name, user_id, who, on }),
-  rankCheerers: (gubun, sosok, sebu, name, from, to) =>
-    supaCall("rankCheerers", { gubun, sosok, sebu, name, from, to }),
+  // 나를 응원한 사람 이름만 — 남의 명단은 물어볼 수 없다(숫자만 보인다)
+  rankCheerers: (user_id, from, to) => supaCall("rankCheerers", { user_id, from, to }),
   boardCheck: (since) => supaCall("boardCheck", { since }),   // 최근 7일(또는 since 이후) 새 글/답글 개수 { ok, recent }
   boardPost: (name, content, user_id) => supaCall("boardPost", { name, content, user_id }),
   boardReply: (post_id, name, content, user_id) => supaCall("boardReply", { post_id, name, content, user_id }),

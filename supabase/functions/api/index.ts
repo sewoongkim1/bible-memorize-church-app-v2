@@ -1455,12 +1455,12 @@ async function rankCheer(b: any) {
   return { ok: true, on: true };
 }
 
-// 그 성도를 응원한 사람 이름(기간 안). 자격·기간과 무관하게 누구나 읽을 수 있다 —
-// 잠기는 것은 '주는 일'뿐이다.
+// 나를 응원한 사람 이름(기간 안). **본인 것만** 돌려준다 — 남이 누구에게 응원받았는지는
+// 숫자만 보이고 이름은 보이지 않는다. 대상을 아예 받지 않으므로 남의 명단을 물어볼 길이 없다.
 async function rankCheerers(b: any) {
-  const targetId = await cheerTargetId(b);
-  if (!targetId) return { ok: true, list: [] };
-  let q = db.from("rank_cheers").select("from_name, cheer_date").eq("target_user_id", targetId);
+  const me = String(b.user_id || "");
+  if (!me) return { ok: true, list: [] };
+  let q = db.from("rank_cheers").select("from_name, cheer_date").eq("target_user_id", me);
   if (b.from) q = q.gte("cheer_date", b.from);
   if (b.to)   q = q.lte("cheer_date", b.to);
   const { data, error } = await q.order("cheer_date", { ascending: false });

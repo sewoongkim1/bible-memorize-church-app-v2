@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260815j";
+const APP_BUILD = "20260815k";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5968,6 +5968,9 @@ async function loadRankingBody(r) {
   const mySo = u ? soLabel({
     gubun: u.type, sosok: u.gu || u.bu || "", sebu: u.mok || u.grade || "",
   }) : "";
+  // 받은 응원은 '내 순위'에서만 이름까지 본다. 남의 줄은 숫자만 보이고 누가 눌렀는지는
+  // 보이지 않는다 — 누가 누구를 응원했는지가 온 교회에 드러날 일은 아니다.
+  const myCheers = (me && me.cheers) || 0;
   const myHtml = u
     ? `<div class="my-rank">
          <span class="mr-label">내 순위</span>
@@ -5977,7 +5980,10 @@ async function loadRankingBody(r) {
          ${me
             ? `<span class="mr-cnt">${me.count}회</span>`
             : `<span class="mr-cnt none">아직 기록 없음 — 도전해보세요! 🔥</span>`}
-       </div>`
+         <button class="mr-cheer" id="mr-cheer"${myCheers ? "" : " disabled"}
+           aria-label="나를 응원한 사람 ${myCheers}명 보기">👏${myCheers ? `<b>${myCheers}</b>` : ""}</button>
+       </div>
+       <div class="rk-names" id="mr-names" hidden></div>`
     : "";
 
   // 자격이 없으면 목록 위에 한 줄로 알린다. 줄마다 자물쇠를 달면 화면이 시끄러워진다.
@@ -5997,9 +6003,9 @@ async function loadRankingBody(r) {
       <span class="rk-no">${medal(x.rank)}</span>
       <span class="rk-name">${x.name}</span>
       <span class="rk-so">${soLabel(x)}</span>
-      <button class="rk-cnt" data-rknames="${i}" aria-label="${x.name} 응원 명단 보기">${x.count}회</button>
+      <span class="rk-cnt">${x.count}회</span>
       ${chip(x, i, isMe)}
-    </div><div class="rk-names" hidden></div>`;
+    </div>`;
   }).join("");
 
   body.innerHTML = myHtml + lockHtml + `<div class="rank-list">${rows}</div>` +
@@ -6009,8 +6015,26 @@ async function loadRankingBody(r) {
   if (goTest) goTest.addEventListener("click", renderSummary);
   body.querySelectorAll("[data-rkact]").forEach((btn) => btn.addEventListener("click", () =>
     toggleRankCheer(list[+btn.dataset.rkact], btn, canGive)));
-  body.querySelectorAll("[data-rknames]").forEach((btn) => btn.addEventListener("click", () =>
-    toggleRankNames(list[+btn.dataset.rknames], btn, r)));
+  const mrc = document.getElementById("mr-cheer");
+  if (mrc) mrc.addEventListener("click", () => toggleMyCheerers(mrc, r));
+}
+
+// 「내 순위」의 👏 = 나를 응원한 사람 명단(다시 누르면 접힘).
+// 서버는 부른 사람 본인 것만 돌려준다 — 남의 명단은 물어볼 길이 없다.
+async function toggleMyCheerers(btn, r) {
+  const box = document.getElementById("mr-names");
+  if (!box) return;
+  if (!box.hidden) { box.hidden = true; btn.classList.remove("open"); return; }
+  box.hidden = false;
+  btn.classList.add("open");
+  box.innerHTML = '<div class="rx-names-top"><span class="rx-names-msg">불러오는 중…</span></div>';
+  let names;
+  try { names = (await api.rankCheerers(myUserId(), r.from, r.to)).list || []; }
+  catch (e) { box.innerHTML = '<div class="rx-names-top"><span class="rx-names-msg">이름을 불러오지 못했어요.</span></div>'; return; }
+  box.innerHTML = '<div class="rx-names-top"><span class="rx-names-e">👏</span>' +
+    (names.length
+      ? '<span class="rx-names-l">' + names.map((n) => boardEsc(n)).join(" · ") + '</span>'
+      : '<span class="rx-names-msg">아직 받은 응원이 없어요.</span>') + '</div>';
 }
 
 // 👏 칩 = 응원 주기/취소. 칩은 이 일만 한다.
@@ -6024,8 +6048,8 @@ async function toggleRankCheer(x, btn, canGive) {
     appAlert("오늘 말씀을 암송한 성도님께<br>응원할 수 있어요. 🙌");
     return;
   }
-  // 주기도 취소도 묻지 않고 바로 한다. 칩이 이 일만 하니(명단은 '42회'가 연다)
-  // 잘못 누를 여지가 적고, 다시 누르면 그 자리에서 되돌아간다.
+  // 주기도 취소도 묻지 않고 바로 한다. 칩이 이 일만 하므로 잘못 누를 여지가 적고,
+  // 다시 누르면 그 자리에서 되돌아간다.
   const on = !x.iCheered;
   btn.disabled = true; // 연타로 두 번 보내지 않도록
   const ok = await giveRankCheer(x, on);
@@ -6034,33 +6058,6 @@ async function toggleRankCheer(x, btn, canGive) {
   btn.classList.toggle("on", x.iCheered);
   btn.innerHTML = "👏" + (x.cheers ? `<b>${x.cheers}</b>` : "");
   btn.setAttribute("aria-label", x.iCheered ? "응원 취소" : "응원하기");
-  // 명단을 펼쳐 둔 상태면 내 이름이 바로 반영되도록 다시 받는다
-  const box = btn.closest(".rank-row").nextElementSibling;
-  if (box && box.classList.contains("rk-names") && !box.hidden) fillRankNames(x, box, rankNamesRange);
-}
-
-// '42회'를 누르면 그 아래로 응원 명단이 펼쳐진다(다시 누르면 접힘).
-// 자격·기간과 무관하게 누구나 볼 수 있다 — 잠기는 것은 '주는 일'뿐이다.
-let rankNamesRange = { from: "", to: "" }; // 펼친 뒤 갱신할 때 쓰는 조회 기간
-async function toggleRankNames(x, btn, r) {
-  rankNamesRange = r;
-  const box = btn.closest(".rank-row").nextElementSibling;
-  if (!box || !box.classList.contains("rk-names")) return;
-  if (!box.hidden) { box.hidden = true; btn.classList.remove("open"); return; }
-  box.hidden = false;
-  btn.classList.add("open");
-  await fillRankNames(x, box, r);
-}
-
-async function fillRankNames(x, box, r) {
-  box.innerHTML = '<div class="rx-names-top"><span class="rx-names-msg">불러오는 중…</span></div>';
-  let names;
-  try { names = (await api.rankCheerers(x.gubun, x.sosok, x.sebu, x.name, r.from, r.to)).list || []; }
-  catch (e) { box.innerHTML = '<div class="rx-names-top"><span class="rx-names-msg">이름을 불러오지 못했어요.</span></div>'; return; }
-  box.innerHTML = '<div class="rx-names-top"><span class="rx-names-e">👏</span>' +
-    (names.length
-      ? '<span class="rx-names-l">' + names.map((n) => boardEsc(n)).join(" · ") + '</span>'
-      : '<span class="rx-names-msg">아직 받은 응원이 없어요.</span>') + '</div>';
 }
 
 // 응원 주기/취소 — 서버가 자격을 다시 검사하므로, 거절되면 그 문구를 그대로 보여준다.
