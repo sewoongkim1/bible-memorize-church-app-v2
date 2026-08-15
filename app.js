@@ -5066,7 +5066,9 @@ function rankRangeFor(key) {
   return { key: "yday", from: ymdKo(y), to: ymdKo(now) };
 }
 async function callRanking(from, to) {
-  return api.ranking(from, to, true); // 암송(학습) 기록도 포함해 순위 집계
+  // me=내 user_id — 응원 칩의 켬/끔과 자격(canCheer)을 서버가 판단한다.
+  // 내 것만 보내므로 새로 새는 정보가 없다(게시판 공감과 같은 방식).
+  return api.ranking(from, to, true, myUserId()); // 암송(학습) 기록도 포함해 순위 집계
 }
 
 // ------------------------------------------------------------
@@ -5938,6 +5940,23 @@ async function loadRankingBody(r) {
     return tail ? `${head}-${tail}` : head;
   };
 
+  // 응원을 '줄' 수 있는 조건 — 로그인했고, 오늘 내 활동이 있고, 보고 있는 기간이 오늘을
+  // 포함해야 한다. 오늘이 안 든 기간(직접 지정)에서는 응원이 오늘로 기록되는데 화면은 그
+  // 기간만 세므로, 눌러도 숫자가 안 변해 어리둥절해진다.
+  const rangeHasToday = !r.to || r.to >= ymdKo(new Date());
+  const canGive = !!u && !!data.canCheer && rangeHasToday;
+
+  // 칩의 뜻은 줄마다 하나씩만 준다 — 남의 줄이면 응원 주기/취소, 내 줄이면 받은 명단
+  // 펼치기. 하나의 칩이 두 뜻을 겸하면 눌렀을 때 무엇이 일어날지 알 수 없다.
+  const chip = (x, i, isMe) => {
+    const n = x.cheers || 0;
+    const num = n ? `<b>${n}</b>` : ""; // 0이면 숫자를 그리지 않는다(0이 줄줄이 드러나면 상처가 된다)
+    if (isMe) {
+      return `<button class="rk-cheer" data-mine="${i}"${n ? "" : " disabled"} aria-label="내가 받은 응원 ${n}">👏${num}</button>`;
+    }
+    return `<button class="rk-cheer${x.iCheered ? " on" : ""}" data-give="${i}"${canGive ? "" : " disabled"} aria-label="응원하기">👏${num}</button>`;
+  };
+
   const myHtml = u
     ? `<div class="my-rank">
          <span class="mr-label">내 순위</span>
@@ -5947,23 +5966,66 @@ async function loadRankingBody(r) {
        </div>`
     : "";
 
+  // 자격이 없으면 목록 위에 한 줄로 알린다. 줄마다 자물쇠를 달면 화면이 시끄러워진다.
+  const lockHtml = (u && !data.canCheer && rangeHasToday)
+    ? `<p class="rank-lock">🔒 오늘 말씀을 한 번이라도 암송하면 서로 응원할 수 있어요
+         <button id="rk-go-test">도전하러 가기 ›</button></p>`
+    : "";
+
   if (!list.length) {
     body.innerHTML = myHtml + `<p class="rank-msg">아직 도전 기록이 없어요.<br>첫 도전의 주인공이 되어보세요! 🔥</p>`;
     return;
   }
 
-  const rows = list.map((x) => {
+  const rows = list.map((x, i) => {
     const isMe = keyOf(x.gubun, x.sosok, x.sebu, x.name) === myKey;
     return `<div class="rank-row ${x.rank <= 3 ? "top" : ""} ${isMe ? "me" : ""}">
       <span class="rk-no">${medal(x.rank)}</span>
       <span class="rk-name">${x.name}</span>
       <span class="rk-so">${soLabel(x)}</span>
       <span class="rk-cnt">${x.count}회</span>
-    </div>`;
+      ${chip(x, i, isMe)}
+    </div><div class="rk-names" hidden></div>`;
   }).join("");
 
-  body.innerHTML = myHtml + `<div class="rank-list">${rows}</div>` +
+  body.innerHTML = myHtml + lockHtml + `<div class="rank-list">${rows}</div>` +
     `<p class="rank-more">전체 ${list.length}명 참여</p>`;
+
+  const goTest = document.getElementById("rk-go-test");
+  if (goTest) goTest.addEventListener("click", renderSummary);
+  body.querySelectorAll("[data-give]").forEach((btn) => btn.addEventListener("click", () =>
+    giveRankCheer(list[+btn.dataset.give], !btn.classList.contains("on"), r)));
+  body.querySelectorAll("[data-mine]").forEach((btn) => btn.addEventListener("click", () =>
+    showRankCheerers(list[+btn.dataset.mine], btn, r)));
+}
+
+// 응원 주기/취소 — 서버가 자격을 다시 검사하므로, 거절되면 그 문구를 그대로 보여준다.
+async function giveRankCheer(x, on, r) {
+  const u = loadUser();
+  if (!u || !u.user_id) { appAlert("로그인하시면 응원할 수 있어요."); return; }
+  let d;
+  try { d = await api.rankCheer(x.gubun, x.sosok, x.sebu, x.name, u.user_id, boardWho(), on); }
+  catch (e) { appAlert("응원을 저장하지 못했어요.<br>" + boardEsc(e && e.message ? e.message : e)); return; }
+  if (!d || !d.ok) { appAlert(boardEsc((d && d.error) || "응원하지 못했어요.")); return; }
+  loadRankingBody(r); // 숫자를 서버 기준으로 다시 받는다
+}
+
+// 내가 받은 응원 명단 — 모달 대신 줄 아래에 펼친다(다시 누르면 접힘).
+// 자격·기간과 무관하게 언제나 볼 수 있다. 잠기는 것은 '주는 일'뿐이다.
+async function showRankCheerers(x, btn, r) {
+  const box = btn.closest(".rank-row").nextElementSibling;
+  if (!box || !box.classList.contains("rk-names")) return;
+  if (!box.hidden) { box.hidden = true; btn.classList.remove("open"); return; }
+  box.hidden = false;
+  btn.classList.add("open");
+  box.innerHTML = '<div class="rx-names-top"><span class="rx-names-msg">불러오는 중…</span></div>';
+  let list;
+  try { list = (await api.rankCheerers(x.gubun, x.sosok, x.sebu, x.name, r.from, r.to)).list || []; }
+  catch (e) { box.innerHTML = '<div class="rx-names-top"><span class="rx-names-msg">이름을 불러오지 못했어요.</span></div>'; return; }
+  box.innerHTML = '<div class="rx-names-top"><span class="rx-names-e">👏</span>' +
+    (list.length
+      ? '<span class="rx-names-l">' + list.map((n) => boardEsc(n)).join(" · ") + '</span>'
+      : '<span class="rx-names-msg">아직 받은 응원이 없어요.</span>') + '</div>';
 }
 
 // ---- 순위/내참여 모드 전환 바 ----

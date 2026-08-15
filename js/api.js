@@ -44,7 +44,7 @@ const api = {
   saveConfig: (pw, key, value) => supaCall("saveConfig", { pw, key, value }),   // 앱 설정 저장(관리자)
   challenge: (user_id, verse_no, mode, score) => supaCall("challenge", { user_id, verse_no, mode, score }),
   advanceReview: (user_id, verse_no) => supaCall("advanceReview", { user_id, verse_no }),
-  ranking: (from, to, includeLearn) => supaCall("ranking", { from, to, includeLearn }),   // 날짜(YYYY-MM-DD), includeLearn=학습 포함
+  ranking: (from, to, includeLearn, me) => supaCall("ranking", { from, to, includeLearn, me }),   // 날짜(YYYY-MM-DD), includeLearn=학습 포함, me=내 user_id(응원 표시용)
   guRanking: (from, to) => supaCall("guRanking", { from, to }),   // 교구별 순위 { ok, list:[{rank,gu,count,people,avg}] }
   mydays: (user_id, from, to) => supaCall("mydays", { user_id, from, to }),
   verseCounts: (user_id) => supaCall("verseCounts", { user_id }),   // { ok, counts:{ verse_no:n } } 암송·도전·복습 전부
@@ -57,6 +57,11 @@ const api = {
     supaCall("boardReact", { target, target_id, user_id, who, emoji, on }),
   boardReactors: (target, target_id, emoji) =>
     supaCall("boardReactors", { target, target_id, emoji }),
+  // 순위 응원(👏) — 대상은 화면에 보이는 네 조각으로 지목한다(서버가 user_id로 되짚는다)
+  rankCheer: (gubun, sosok, sebu, name, user_id, who, on) =>
+    supaCall("rankCheer", { gubun, sosok, sebu, name, user_id, who, on }),
+  rankCheerers: (gubun, sosok, sebu, name, from, to) =>
+    supaCall("rankCheerers", { gubun, sosok, sebu, name, from, to }),
   boardCheck: (since) => supaCall("boardCheck", { since }),   // 최근 7일(또는 since 이후) 새 글/답글 개수 { ok, recent }
   boardPost: (name, content, user_id) => supaCall("boardPost", { name, content, user_id }),
   boardReply: (post_id, name, content, user_id) => supaCall("boardReply", { post_id, name, content, user_id }),
