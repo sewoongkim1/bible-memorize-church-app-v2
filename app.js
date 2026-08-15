@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260815g";
+const APP_BUILD = "20260815h";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5946,14 +5946,18 @@ async function loadRankingBody(r) {
   const rangeHasToday = !r.to || r.to >= ymdKo(new Date());
   const canGive = !!u && !!data.canCheer && rangeHasToday;
 
-  // 칩을 누르면 어느 줄이든 '누가 응원했나' 명단이 펼쳐진다 — 게시판 공감 칩과 같은 규칙.
-  // 주고 취소하는 일은 명단 안의 버튼으로 한다. 처음엔 남의 줄에서 칩 탭을 곧장
-  // 주기·취소로 뒀는데, 게시판에서 몸에 밴 습관대로 "누가 눌렀나" 보려고 누른 사람의
-  // 응원이 그대로 지워졌다. 똑같이 생긴 칩이 두 화면에서 반대 뜻을 가지면 안 된다.
+  // 한 줄에 손댈 곳이 둘이다. 뜻을 확실히 갈라 둔다 —
+  //   👏 칩  = 응원 주기/취소만 (+ / −)
+  //   42회   = 누르면 '누가 응원했나' 명단
+  // 칩 하나에 두 뜻을 겹쳐 뒀더니 명단을 보려다 응원이 지워졌다. 칩 안을 다시 둘로
+  // 쪼개는 것도 탭 영역이 30px도 안 돼 위험하다. 이미 넉넉한 '횟수'를 명단 자리로 쓴다.
   const chip = (x, i, isMe) => {
     const n = x.cheers || 0;
     const num = n ? `<b>${n}</b>` : ""; // 0이면 숫자를 그리지 않는다(0이 줄줄이 드러나면 상처가 된다)
-    return `<button class="rk-cheer${x.iCheered ? " on" : ""}" data-rk="${i}" data-rkme="${isMe ? 1 : 0}" aria-label="응원 ${n}명, 누르면 명단">👏${num}</button>`;
+    // 자기 자신은 응원할 수 없다 — 내 줄의 칩은 받은 수만 보여주는 표식이다.
+    if (isMe) return `<span class="rk-cheer mine" aria-label="내가 받은 응원 ${n}">👏${num}</span>`;
+    return `<button class="rk-cheer${x.iCheered ? " on" : ""}" data-rkact="${i}"
+      aria-label="${x.iCheered ? "응원 취소" : "응원하기"}">👏${num}</button>`;
   };
 
   const myHtml = u
@@ -5982,7 +5986,7 @@ async function loadRankingBody(r) {
       <span class="rk-no">${medal(x.rank)}</span>
       <span class="rk-name">${x.name}</span>
       <span class="rk-so">${soLabel(x)}</span>
-      <span class="rk-cnt">${x.count}회</span>
+      <button class="rk-cnt" data-rknames="${i}" aria-label="${x.name} 응원 명단 보기">${x.count}회</button>
       ${chip(x, i, isMe)}
     </div><div class="rk-names" hidden></div>`;
   }).join("");
@@ -5992,48 +5996,55 @@ async function loadRankingBody(r) {
 
   const goTest = document.getElementById("rk-go-test");
   if (goTest) goTest.addEventListener("click", renderSummary);
-  body.querySelectorAll("[data-rk]").forEach((btn) => btn.addEventListener("click", () =>
-    toggleRankNames(list[+btn.dataset.rk], btn, r, btn.dataset.rkme === "1", canGive)));
+  body.querySelectorAll("[data-rkact]").forEach((btn) => btn.addEventListener("click", () =>
+    toggleRankCheer(list[+btn.dataset.rkact], btn, canGive)));
+  body.querySelectorAll("[data-rknames]").forEach((btn) => btn.addEventListener("click", () =>
+    toggleRankNames(list[+btn.dataset.rknames], btn, r)));
 }
 
-// 칩 탭 = 명단 펼치기/접기. 어느 줄이든 같다.
-async function toggleRankNames(x, btn, r, isMe, canGive) {
+// 👏 칩 = 응원 주기/취소. 칩은 이 일만 한다.
+async function toggleRankCheer(x, btn, canGive) {
+  if (!canGive) {
+    appAlert("오늘 말씀을 한 번이라도 암송하면<br>서로 응원할 수 있어요. 🔥");
+    return;
+  }
+  const on = !x.iCheered;
+  // 주는 건 한 번에, 무르는 건 한 번 묻는다 — 칩이 작아 잘못 눌러 지워지면 되돌릴 길이 없다.
+  if (!on && !(await appConfirm(`${x.name} 성도님께 보낸 응원을 취소할까요?`, { okText: "취소하기", danger: true }))) return;
+  btn.disabled = true; // 연타로 두 번 보내지 않도록
+  const ok = await giveRankCheer(x, on);
+  btn.disabled = false;
+  if (!ok) return;
+  btn.classList.toggle("on", x.iCheered);
+  btn.innerHTML = "👏" + (x.cheers ? `<b>${x.cheers}</b>` : "");
+  btn.setAttribute("aria-label", x.iCheered ? "응원 취소" : "응원하기");
+  // 명단을 펼쳐 둔 상태면 내 이름이 바로 반영되도록 다시 받는다
+  const box = btn.closest(".rank-row").nextElementSibling;
+  if (box && box.classList.contains("rk-names") && !box.hidden) fillRankNames(x, box, rankNamesRange);
+}
+
+// '42회'를 누르면 그 아래로 응원 명단이 펼쳐진다(다시 누르면 접힘).
+// 자격·기간과 무관하게 누구나 볼 수 있다 — 잠기는 것은 '주는 일'뿐이다.
+let rankNamesRange = { from: "", to: "" }; // 펼친 뒤 갱신할 때 쓰는 조회 기간
+async function toggleRankNames(x, btn, r) {
+  rankNamesRange = r;
   const box = btn.closest(".rank-row").nextElementSibling;
   if (!box || !box.classList.contains("rk-names")) return;
   if (!box.hidden) { box.hidden = true; btn.classList.remove("open"); return; }
   box.hidden = false;
   btn.classList.add("open");
-  await fillRankNames(x, btn, box, r, isMe, canGive);
+  await fillRankNames(x, box, r);
 }
 
-// 명단 + 그 자리에서 하는 응원 주기·취소. 응원을 주고 무르는 일은 반드시 여기서만
-// 일어난다 — 칩을 눌러서 눌러둔 응원이 사라지면 안 되기 때문이다.
-async function fillRankNames(x, btn, box, r, isMe, canGive) {
+async function fillRankNames(x, box, r) {
   box.innerHTML = '<div class="rx-names-top"><span class="rx-names-msg">불러오는 중…</span></div>';
   let names;
   try { names = (await api.rankCheerers(x.gubun, x.sosok, x.sebu, x.name, r.from, r.to)).list || []; }
   catch (e) { box.innerHTML = '<div class="rx-names-top"><span class="rx-names-msg">이름을 불러오지 못했어요.</span></div>'; return; }
-
-  // 자기 자신은 응원할 수 없으니 내 줄에는 버튼이 없다. 자격이 없을 때도 버튼을 감춘다
-  // (왜 없는지는 목록 위 🔒 안내가 이미 말해 준다).
-  const act = isMe ? ""
-    : x.iCheered ? '<button class="rx-undo" data-act="off">응원 취소</button>'
-    : canGive ? '<button class="rk-give" data-act="on">👏 응원하기</button>' : "";
-
   box.innerHTML = '<div class="rx-names-top"><span class="rx-names-e">👏</span>' +
     (names.length
       ? '<span class="rx-names-l">' + names.map((n) => boardEsc(n)).join(" · ") + '</span>'
-      : '<span class="rx-names-msg">아직 받은 응원이 없어요.</span>') + '</div>' + act;
-
-  const go = box.querySelector("[data-act]");
-  if (go) go.addEventListener("click", async (ev) => {
-    ev.stopPropagation();
-    go.disabled = true; // 연타로 두 번 보내지 않도록
-    if (!(await giveRankCheer(x, go.dataset.act === "on"))) { go.disabled = false; return; }
-    btn.classList.toggle("on", x.iCheered);
-    btn.innerHTML = "👏" + (x.cheers ? `<b>${x.cheers}</b>` : "");
-    fillRankNames(x, btn, box, r, isMe, canGive); // 명단에 내 이름을 반영해 다시 그린다
-  });
+      : '<span class="rx-names-msg">아직 받은 응원이 없어요.</span>') + '</div>';
 }
 
 // 응원 주기/취소 — 서버가 자격을 다시 검사하므로, 거절되면 그 문구를 그대로 보여준다.
