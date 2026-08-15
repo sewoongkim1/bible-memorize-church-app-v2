@@ -1474,6 +1474,7 @@ async function ranking(b: any) {
     if (!includeLearn && !isChallengeMode(row.mode)) continue;
     const u = row.users ?? {};
     const e = map.get(row.user_id) ?? {
+      uid: row.user_id,                  // 응원을 붙이는 데만 쓰고 응답에서는 뗀다
       name: u.name, gubun: u.type,
       sosok: u.gu || u.bu || "", sebu: u.mok || u.grade || "",
       count: 0, typing: 0, voice: 0,
@@ -1483,10 +1484,46 @@ async function ranking(b: any) {
     if (String(row.mode).includes("voice")) e.voice++;
     map.set(row.user_id, e);
   }
+
+  // ---- 응원 집계 ----
+  // 숫자는 조회 기간(cheer_date) 기준, 켬(iCheered)은 '오늘' 기준이다. 버튼이 하는 일이
+  // "오늘 주기/취소"라 겉모습도 오늘을 따라야 눌렀을 때 예상대로 움직인다.
+  const cheerCount = new Map<string, number>();
+  const myToday = new Set<string>();
+  let canCheer = false;
+  try {
+    const cheerRows = await fetchAllRows(() => {
+      let q = db.from("rank_cheers").select("target_user_id");
+      if (b.from) q = q.gte("cheer_date", b.from);
+      if (b.to)   q = q.lte("cheer_date", b.to);
+      return q;
+    });
+    for (const c of cheerRows) {
+      cheerCount.set(c.target_user_id, (cheerCount.get(c.target_user_id) ?? 0) + 1);
+    }
+    const me = String(b.me || "");
+    if (me) {
+      const today = kstDay(new Date().toISOString());
+      const { data: mine } = await db.from("rank_cheers")
+        .select("target_user_id").eq("from_user_id", me).eq("cheer_date", today);
+      for (const c of mine ?? []) myToday.add(c.target_user_id);
+      canCheer = await hasTodayActivity(me);
+    }
+  } catch (_) {
+    // 응원 집계가 실패해도 순위 자체는 보여준다 — 응원은 곁들이지 본체가 아니다.
+  }
+
   const list = [...map.values()]
     .sort((a, b) => b.count - a.count)
-    .map((x, i) => ({ rank: i + 1, ...x }));
-  return { ok: true, list };
+    .map((x, i) => {
+      const { uid, ...rest } = x;
+      return {
+        rank: i + 1, ...rest,
+        cheers: cheerCount.get(uid) ?? 0,
+        iCheered: myToday.has(uid),
+      };
+    });
+  return { ok: true, list, canCheer };
 }
 
 // ---------- guRanking: 교구별 순위(암송·도전·복습 전부) ----------
