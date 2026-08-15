@@ -1,4 +1,4 @@
--- 질문 나눔 공개 게시판 (누구나 글/답글, 관리자 숨김·삭제)
+-- 응원·기도·공감 공개 게시판 (누구나 글/답글, 관리자 숨김·삭제)
 -- Supabase SQL Editor에서 1회 실행.
 
 create table if not exists public.board_posts (

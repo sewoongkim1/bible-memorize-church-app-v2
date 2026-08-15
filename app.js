@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260815a";
+const APP_BUILD = "20260815b";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1689,7 +1689,7 @@ function renderSummary() {
     </div>
     <button class="summary-help album-cta" id="open-album">📖 나의 말씀 앨범</button>
     <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
-<button class="summary-help board-cta" id="open-board">💬 질문 나눔 게시판</button>
+    <button class="summary-help board-cta" id="open-board">💬 응원·기도·공감</button>
     <button class="summary-help pilsa-cta" id="open-pilsa">✍️ 성경필사 노트 신청</button>
     <button class="summary-help praise-cta" id="open-praise">🎵 고척교회 찬양 아카이브</button>
     <button class="summary-help sermon-cta" id="open-sermon-archive">📺 고척교회 설교 아카이브</button>
@@ -1809,7 +1809,7 @@ async function alarmFromHome() {
   }
 }
 
-// ---------- 질문 나눔 공개 게시판 ----------
+// ---------- 응원·기도·공감 공개 게시판 ----------
 function boardTime(iso) {
   try {
     const k = new Date(new Date(iso).getTime() + 9 * 3600 * 1000);
@@ -2051,14 +2051,14 @@ function renderBoard() {
     <div class="summary-screen">
       <div class="summary-card">
         <div class="settings-head">
-          <h2 class="rank-title">💬 질문 나눔</h2>
+          <h2 class="rank-title">💬 응원·기도·공감</h2>
           <button class="settings-back-btn" id="board-back">← 뒤로</button>
         </div>
-        <p class="board-intro">궁금한 점, 받은 은혜, 서로에게 힘이 되는 이야기를 나눠 주세요. 모든 글과 답글은 공개됩니다. 🙌</p>
+        <p class="board-intro">암송하며 받은 은혜, 기도 부탁드릴 일, 서로에게 힘이 되는 이야기를 나눠 주세요. 모든 글과 답글은 공개됩니다. 🙌</p>
         <p class="board-notice">🙏 <b>성경암송</b>과 관련된 이야기를 나눠 주세요. 주제와 관련 없는 글은 부득이 삭제될 수 있습니다.<br>⚠️ 전화번호 등 <b>민감한 개인정보</b>는 올리지 말아주세요.</p>
         <div class="board-form">
           <div class="board-who" id="bp-who"></div>
-          <textarea id="bp-content" class="board-in board-in-lg" rows="5" maxlength="2000" placeholder="나누고 싶은 이야기를 적어주세요"></textarea>
+          <textarea id="bp-content" class="board-in board-in-lg" rows="5" maxlength="2000" placeholder="받은 은혜나 기도 부탁을 적어주세요"></textarea>
           <button class="summary-go" id="bp-submit">✏️ 글 남기기</button>
           <div id="bp-msg" class="msg"></div>
         </div>

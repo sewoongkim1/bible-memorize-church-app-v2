@@ -164,13 +164,14 @@ Deno.serve(async (req) => {
       case "eventStatus":   return json(await eventStatus(body));
       case "eventBoard":    return json(await eventBoard(body));
       case "eventEntrants": return json(await eventEntrants(body));
-      // ---- 질문·제안 게시판 ----
+      // ---- 성경필사 노트 신청 ----
       case "pilsaMine":      return json(await pilsaMine(body));
       case "pilsaApply":     return json(await pilsaApply(body));
       case "pilsaCancel":    return json(await pilsaCancel(body));
       case "pilsaList":      return json(await pilsaList(body));
       case "pilsaSetStatus": return json(await pilsaSetStatus(body));
 
+      // ---- 응원·기도·공감 게시판 ----
       case "boardList":     return json(await boardList(body));
       case "boardReact":    return json(await boardReact(body));
       case "boardReactors": return json(await boardReactors(body));
@@ -2305,7 +2306,7 @@ async function pilsaNotify(row: any) {
 }
 
 // ============================================================
-// 질문·제안 공개 게시판 (누구나 글/답글, 관리자 숨김·삭제)
+// 응원·기도·공감 공개 게시판 (누구나 글/답글, 관리자 숨김·삭제)
 // ============================================================
 async function boardList(b: any) {
   const isAdmin = !adminError(b); // 관리자면 숨김글도 조회

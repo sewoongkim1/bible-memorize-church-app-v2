@@ -563,7 +563,7 @@ function renderMenu(){
         <div class="ic">💬</div>
         <div class="rep-text">
           <div class="ti">게시판 관리</div>
-          <div class="de">질문 나눔 답글·숨김·삭제</div>
+          <div class="de">응원·기도·공감 답글·숨김·삭제</div>
         </div>
         <div class="rep-arrow">›</div>
       </div>
@@ -1759,7 +1759,7 @@ async function inSave(note, backToList){
   const r2=document.getElementById("in-result"); if(r2){ r2.className="msg"; r2.innerHTML=`✅ ${note} — 슬라이드 <b>${inList.length}개</b> 저장됨. 성도 앱은 재접속 후 반영.`; }
 }
 
-// ---------- 질문 나눔 게시판 관리 ----------
+// ---------- 응원·기도·공감 게시판 관리 ----------
 function boardT(iso){ try{ const k=new Date(new Date(iso).getTime()+9*3600*1000); const z=n=>String(n).padStart(2,"0"); return `${k.getUTCMonth()+1}/${k.getUTCDate()} ${z(k.getUTCHours())}:${z(k.getUTCMinutes())}`; }catch(e){ return ""; } }
 function boardE(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>"); }
 function renderBoardAdmin(){
