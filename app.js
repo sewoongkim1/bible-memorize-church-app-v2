@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260815e";
+const APP_BUILD = "20260815f";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5994,20 +5994,33 @@ async function loadRankingBody(r) {
   const goTest = document.getElementById("rk-go-test");
   if (goTest) goTest.addEventListener("click", renderSummary);
   body.querySelectorAll("[data-give]").forEach((btn) => btn.addEventListener("click", () =>
-    giveRankCheer(list[+btn.dataset.give], !btn.classList.contains("on"), r)));
+    giveRankCheer(list[+btn.dataset.give], btn)));
   body.querySelectorAll("[data-mine]").forEach((btn) => btn.addEventListener("click", () =>
     showRankCheerers(list[+btn.dataset.mine], btn, r)));
 }
 
 // 응원 주기/취소 — 서버가 자격을 다시 검사하므로, 거절되면 그 문구를 그대로 보여준다.
-async function giveRankCheer(x, on, r) {
+// 성공하면 순위를 통째로 다시 받지 않고 그 칩만 고친다. '전체' 기간은 challenge_log를
+// 전부 집계하므로(한 사람만 수천 건), 한 번 누를 때마다 다시 받으면 버튼이 멈춘 것처럼
+// 느려진다. 칩을 누를 수 있다는 것은 오늘이 조회 기간 안이라는 뜻이라(canGive),
+// ±1 계산이 화면에 보이는 숫자와 어긋나지 않는다.
+async function giveRankCheer(x, btn) {
   const u = loadUser();
   if (!u || !u.user_id) { appAlert("로그인하시면 응원할 수 있어요."); return; }
+  const on = !btn.classList.contains("on");
+  btn.disabled = true; // 연타로 두 번 보내지 않도록
   let d;
   try { d = await api.rankCheer(x.gubun, x.sosok, x.sebu, x.name, u.user_id, boardWho(), on); }
-  catch (e) { appAlert("응원을 저장하지 못했어요.<br>" + boardEsc(e && e.message ? e.message : e)); return; }
+  catch (e) {
+    btn.disabled = false;
+    appAlert("응원을 저장하지 못했어요.<br>" + boardEsc(e && e.message ? e.message : e)); return;
+  }
+  btn.disabled = false;
   if (!d || !d.ok) { appAlert(boardEsc((d && d.error) || "응원하지 못했어요.")); return; }
-  loadRankingBody(r); // 숫자를 서버 기준으로 다시 받는다
+  x.iCheered = on;
+  x.cheers = Math.max(0, (x.cheers || 0) + (on ? 1 : -1));
+  btn.classList.toggle("on", on);
+  btn.innerHTML = "👏" + (x.cheers ? `<b>${x.cheers}</b>` : "");
 }
 
 // 내가 받은 응원 명단 — 모달 대신 줄 아래에 펼친다(다시 누르면 접힘).
