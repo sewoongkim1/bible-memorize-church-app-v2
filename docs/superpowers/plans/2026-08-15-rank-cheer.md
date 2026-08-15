@@ -723,7 +723,13 @@ async function showRankCheerers(x, btn, r) {
 .rank-list .rk-names[hidden]{ display:none; }
 ```
 
-`.rk-names`가 `.rx-names`의 모양을 물려받도록, 게시판 블록의 `.rx-names` 선택자에 `.rk-names`를 나란히 더한다 — `style.css`에서 `.rx-names {` 로 시작하는 규칙들의 선택자를 `.rx-names, .rk-names` 꼴로 바꾼다(총 5곳: `.rx-names`, `.rx-names[hidden]`, `.dark .rx-names`, 그리고 자식 규칙 `.rx-names-top`·`.rx-names-l`·`.rx-names-msg`·`.rx-names-e`는 클래스가 같으므로 그대로 둔다).
+`.rk-names`가 `.rx-names`의 모양을 물려받도록, `style.css`의 게시판 블록에서 **정확히 세 곳**의 선택자를 바꾼다. 자식 규칙(`.rx-names-top`·`.rx-names-e`·`.rx-names-l`·`.rx-names-msg`·`.dark .rx-names-l`)은 클래스 이름이 같아 손대지 않는다.
+
+| 지금 | 바꿀 것 |
+|---|---|
+| `.rx-names { margin-top: 6px; …` | `.rx-names, .rk-names { margin-top: 6px; …` |
+| `.rx-names[hidden] { display: none; }` | `.rx-names[hidden], .rk-names[hidden] { display: none; }` |
+| `.dark .rx-names { background: #1b2a47; …` | `.dark .rx-names, .dark .rk-names { background: #1b2a47; …` |
 
 - [ ] **Step 5: 문법 확인**
 
