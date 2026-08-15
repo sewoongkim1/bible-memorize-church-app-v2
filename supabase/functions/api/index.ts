@@ -171,6 +171,9 @@ Deno.serve(async (req) => {
       case "pilsaList":      return json(await pilsaList(body));
       case "pilsaSetStatus": return json(await pilsaSetStatus(body));
 
+      // ---- 순위 응원 ----
+      case "rankCheer":     return json(await rankCheer(body));
+      case "rankCheerers":  return json(await rankCheerers(body));
       // ---- 응원·기도·공감 게시판 ----
       case "boardList":     return json(await boardList(body));
       case "boardReact":    return json(await boardReact(body));
@@ -1379,6 +1382,86 @@ function rangeFilter(q: any, b: any) {
 }
 // 도전/복습(학습 제외) 로그만
 const isChallengeMode = (m: string) => !String(m).startsWith("learn-");
+
+// ---------- 순위 응원(👏) ----------
+// 대상은 순위표에 이미 보이는 네 조각(구분·소속·세부·이름)으로만 지목한다. 이 API는 JWT가
+// 없어 클라이언트가 보낸 user_id를 그대로 믿으므로, 남의 user_id를 응답에 실으면 누구나
+// 그 사람 행세를 할 수 있다. 그래서 서버가 identity_key로 되짚는다.
+function cheerTargetKey(b: any) {
+  const gubun = norm(b.gubun);
+  const isGu = gubun === "교구";
+  return identityKey({
+    type: gubun,
+    gu: isGu ? b.sosok : "",
+    mok: isGu ? b.sebu : "",
+    bu: isGu ? "" : b.sosok,
+    grade: isGu ? "" : b.sebu,
+    name: b.name,
+  });
+}
+
+// 오늘(KST) 내 활동(암송·도전·복습)이 하나라도 있어야 남을 응원할 수 있다.
+// challenge_log가 세 활동의 공통 원천 — 순위표를 만드는 원천과 같다.
+async function hasTodayActivity(userId: string) {
+  const today = kstDay(new Date().toISOString());
+  const { count, error } = await db.from("challenge_log")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("created_at", `${today}T00:00:00${KST}`)
+    .lte("created_at", `${today}T23:59:59.999${KST}`);
+  if (error) return false;
+  return (count ?? 0) > 0;
+}
+
+// 대상의 users.id를 찾는다. 못 찾으면 null.
+async function cheerTargetId(b: any): Promise<string | null> {
+  const { data } = await db.from("users").select("id")
+    .eq("identity_key", cheerTargetKey(b)).maybeSingle();
+  return data?.id ?? null;
+}
+
+async function rankCheer(b: any) {
+  const fromId = String(b.user_id || "");
+  if (!fromId) return { ok: false, error: "로그인한 뒤에 응원할 수 있어요" };
+
+  const targetId = await cheerTargetId(b);
+  if (!targetId) return { ok: false, error: "응원할 성도를 찾지 못했어요" };
+  if (targetId === fromId) return { ok: false, error: "자기 자신은 응원할 수 없어요" };
+
+  const today = kstDay(new Date().toISOString());
+
+  // 취소는 자격을 묻지 않는다 — 이미 준 것은 그때 자격이 있었다는 뜻이다.
+  if (b.on === false) {
+    const { error } = await db.from("rank_cheers").delete()
+      .eq("target_user_id", targetId).eq("from_user_id", fromId).eq("cheer_date", today);
+    if (error) throw error;
+    return { ok: true, on: false };
+  }
+
+  // 클라이언트에서도 막지만 여기가 진짜 관문이다.
+  if (!(await hasTodayActivity(fromId))) {
+    return { ok: false, error: "오늘 말씀을 한 번이라도 암송하면 응원할 수 있어요" };
+  }
+  const { error } = await db.from("rank_cheers").upsert({
+    target_user_id: targetId, from_user_id: fromId, cheer_date: today,
+    from_name: norm(b.who) || null,
+  }, { onConflict: "target_user_id,from_user_id,cheer_date", ignoreDuplicates: true });
+  if (error) throw error;
+  return { ok: true, on: true };
+}
+
+// 그 성도를 응원한 사람 이름(기간 안). 자격·기간과 무관하게 누구나 읽을 수 있다 —
+// 잠기는 것은 '주는 일'뿐이다.
+async function rankCheerers(b: any) {
+  const targetId = await cheerTargetId(b);
+  if (!targetId) return { ok: true, list: [] };
+  let q = db.from("rank_cheers").select("from_name, cheer_date").eq("target_user_id", targetId);
+  if (b.from) q = q.gte("cheer_date", b.from);
+  if (b.to)   q = q.lte("cheer_date", b.to);
+  const { data, error } = await q.order("cheer_date", { ascending: false });
+  if (error) throw error;
+  return { ok: true, list: (data ?? []).map((r: any) => r.from_name).filter(Boolean) };
+}
 
 // ---------- ranking: 순위. includeLearn=true면 암송(학습) 기록도 포함 ----------
 async function ranking(b: any) {

@@ -46,6 +46,7 @@ check "6. 게시판 최근 글 수"                   "$(call "$BASE" '{"action"
 check "9. 도전 랭킹"                          "$(call "$BASE" '{"action":"ranking","from":"2020-01-01","to":"2026-12-31"}')" '"ok":true'
 check "12. 공개 설정값"                       "$(call "$BASE" '{"action":"getConfig","key":"heartMessages"}')" '"ok":true'
 check "13. 설교 아카이브 목록"                  "$(call "$SERMON_BASE" '{"action":"getSermons"}')" '"ok":true'
+check "14. 순위 응원 명단"                     "$(call "$BASE" '{"action":"rankCheerers","gubun":"교구","sosok":"사랑","sebu":"3","name":"없는사람"}')" '"ok":true'
 
 # --- 관리자 비번 필요한 것들 ---
 if [ -n "$PW" ]; then
