@@ -2250,17 +2250,41 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 
 /* 순위 리스트 */
 .rank-list{ display:flex; flex-direction:column; gap:7px; }
+/* 순위 줄은 폰에서도 반드시 한 줄이어야 한다. 줄바꿈을 허용하면 넘침은 막히지만
+   순위표가 들쭉날쭉해져 훑어보기 나빠진다. 그래서 소속만 신축 칸으로 두고 나머지는
+   고정한다 — 이름·소속이 아무리 길어도 소속이 …로 줄 뿐 줄은 늘어날 수 없다. */
 .rank-row{
-  display:flex; align-items:center; gap:12px;
+  display:flex; align-items:center; gap:8px;
   background:#fff; border:1px solid var(--border); border-radius:11px; padding:11px 14px;
 }
 .rank-row.top{ border-color:var(--gold); background:#fffdf6; }
 .rank-row.me{ box-shadow:0 0 0 2px var(--navy) inset; }
-.rank-row .rk-no{ font-size:1.05rem; font-weight:800; color:var(--navy); min-width:1.8em; text-align:center; }
-.rank-row .rk-name{ font-weight:700; color:#222; }
-.rank-row .rk-so{ color:var(--gray); font-size:.82rem; }
-.rank-row .rk-cnt{ margin-left:auto; font-weight:800; color:var(--navy); }
+.rank-row .rk-no{ flex:0 0 auto; font-size:1.05rem; font-weight:800; color:var(--navy); min-width:1.8em; text-align:center; }
+.rank-row .rk-name{ flex:0 0 auto; white-space:nowrap; font-weight:700; color:#222; }
+.rank-row .rk-so{
+  flex:1 1 auto; min-width:0;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  color:var(--gray); font-size:.82rem;
+}
+.rank-row .rk-cnt{ flex:0 0 auto; font-weight:800; color:var(--navy); }
 .rank-row.top .rk-cnt{ color:var(--gold); }
+
+/* 순위 응원 칩 — 켬/끔은 색조가 아니라 밝기로 가른다(옅은 틴트는 흰 카드와 구분이 안 된다) */
+.rk-cheer{
+  flex:0 0 auto; display:inline-flex; align-items:center; gap:3px;
+  cursor:pointer; font-family:inherit; font-size:.8rem; line-height:1.2;
+  padding:4px 8px; border-radius:999px;
+  border:1.5px solid var(--border); background:#fff; color:#5a6273;
+}
+.rk-cheer b{ font-size:.76rem; font-weight:800; color:#5a6273; }
+.rk-cheer.on{ border-color:var(--navy); background:var(--navy); color:#fff; }
+.rk-cheer.on b{ color:#fff; }
+.rk-cheer:disabled{ opacity:.45; cursor:default; }
+.rk-cheer.open{ box-shadow:0 0 0 2px rgba(26,58,107,.38); }
+.dark .rk-cheer{ background:#1b2942; border-color:#2b3a5a; color:#b9c6dd; }
+.dark .rk-cheer b{ color:#b9c6dd; }
+.dark .rk-cheer.on{ background:#5c8ede; border-color:#8bb4f0; color:#fff; }
+.dark .rk-cheer.on b{ color:#fff; }
 .rank-msg{ text-align:center; color:var(--gray); padding:30px 10px; line-height:1.6; }
 .rank-msg.err{ color:var(--error); }
 .rank-more{ text-align:center; color:var(--gray); font-size:.82rem; margin-top:10px; }

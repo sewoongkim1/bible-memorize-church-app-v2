@@ -5928,7 +5928,15 @@ async function loadRankingBody(r) {
   const myKey = u ? keyOf(u.type, u.gu || u.bu || "", u.mok || u.grade || "", u.name) : null;
   const me = myKey ? list.find((x) => keyOf(x.gubun, x.sosok, x.sebu, x.name) === myKey) : null;
   const medal = (n) => (n === 1 ? "🥇" : n === 2 ? "🥈" : n === 3 ? "🥉" : n);
-  const soLabel = (x) => (x.gubun === "교구" ? `${x.sosok}교구 ${x.sebu}목장` : `${x.sosok} ${x.sebu}`);
+  // 소속 표기 — '사랑교구 3목장' → '사랑-3'. 순위 줄을 한 줄로 지키려고 짧게 쓴다.
+  // 목장은 입력 단계에서 숫자 또는 '남성'만 허용되고(app.js의 검사), 99는 '없음'을 뜻한다.
+  const soLabel = (x) => {
+    const head = String(x.sosok || "").trim();
+    let tail = String(x.sebu || "").trim();
+    if (x.gubun === "교구") { if (tail === "99") tail = ""; }
+    else tail = tail.replace(/학년$/, "");
+    return tail ? `${head}-${tail}` : head;
+  };
 
   const myHtml = u
     ? `<div class="my-rank">
