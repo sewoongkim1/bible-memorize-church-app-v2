@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260815k";
+const APP_BUILD = "20260815l";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5973,13 +5973,12 @@ async function loadRankingBody(r) {
   const myCheers = (me && me.cheers) || 0;
   const myHtml = u
     ? `<div class="my-rank">
-         <span class="mr-label">내 순위</span>
          ${me ? `<span class="mr-rank">${medal(me.rank)}</span>` : ""}
          <span class="mr-name">${u.name}</span>
          <span class="mr-so">${mySo}</span>
          ${me
             ? `<span class="mr-cnt">${me.count}회</span>`
-            : `<span class="mr-cnt none">아직 기록 없음 — 도전해보세요! 🔥</span>`}
+            : `<span class="mr-cnt none">아직 기록 없어요 🔥</span>`}
          <button class="mr-cheer" id="mr-cheer"${myCheers ? "" : " disabled"}
            aria-label="나를 응원한 사람 ${myCheers}명 보기">👏${myCheers ? `<b>${myCheers}</b>` : ""}</button>
        </div>

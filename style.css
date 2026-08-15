@@ -2238,19 +2238,23 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 /* 내 순위 — 남색 채움을 쓰지 않는다. 이 화면에서 남색 채움은 이미 세 곳이 쓴다
    (모드 바·기간 탭의 .on, 하단 고정 버튼, 응원 칩의 켬). 여기까지 남색 계열이면
    '버튼이 하나 더 있는' 것처럼 보인다. 크림 바탕에 골드 띠를 세워 '판'으로 읽히게 한다. */
+/* 반드시 한 줄 — 목록의 줄과 같은 방식이다. 소속만 신축 칸으로 두고 나머지는 고정해,
+   모자라면 소속이 …로 줄 뿐 줄이 늘어나지 않는다. '내 순위' 라벨은 뺐다(약 52px). */
 .my-rank{
-  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  display:flex; align-items:center; gap:8px; flex-wrap:nowrap;
   background:linear-gradient(135deg,#f3e4c2 0%,#e8d4a3 100%); color:var(--navy);
   border:1px solid #cbb277; border-left:6px solid var(--gold);
   border-radius:14px; padding:14px 16px; margin-bottom:14px;
   box-shadow:0 2px 10px rgba(26,58,107,.10);
 }
-.my-rank .mr-label{ font-size:.78rem; font-weight:700; color:#7a6634; }
-.my-rank .mr-rank{ font-size:1.3rem; font-weight:800; min-width:1.6em; text-align:center; }
-.my-rank .mr-name{ font-weight:800; font-size:1.05rem; }
-/* 소속 — 목록의 .rk-so와 같은 표기(화평-20). 이름 옆에 작게 붙인다 */
-.my-rank .mr-so{ font-size:.82rem; font-weight:700; color:#7a6634; }
-.my-rank .mr-cnt{ margin-left:auto; font-weight:800; color:#8a6a12; }
+.my-rank .mr-rank{ flex:0 0 auto; font-size:1.3rem; font-weight:800; min-width:1.6em; text-align:center; }
+.my-rank .mr-name{ flex:0 0 auto; white-space:nowrap; font-weight:800; font-size:1.05rem; }
+/* 소속 — 목록의 .rk-so와 같은 표기(화평-20). 남는 폭을 흡수하는 칸이기도 하다 */
+.my-rank .mr-so{
+  flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  font-size:.82rem; font-weight:700; color:#7a6634;
+}
+.my-rank .mr-cnt{ flex:0 0 auto; white-space:nowrap; font-weight:800; color:#8a6a12; }
 .my-rank .mr-cnt.none{ color:#7a6634; font-weight:600; font-size:.85rem; }
 /* 나를 응원한 사람 — 이름까지 보이는 곳은 여기뿐이다 */
 .my-rank .mr-cheer{

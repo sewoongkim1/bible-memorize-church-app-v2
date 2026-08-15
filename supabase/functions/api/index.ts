@@ -586,6 +586,26 @@ async function monitor(b: any) {
     }
   } catch (_) { /* RPC 실패해도 나머지 점검엔 영향 없게 조용히 넘어감 */ }
 
+  // 5) 집계표(daily_activity) 정합성 — 집계를 따로 두는 대가다.
+  //    로그 행 수와 집계 합계가 어긋나면 화면이 조용히 틀린 숫자를 보여준다. 그게 제일 나쁘다.
+  //    함께 로그 규모도 본다 — 집계표조차 버거워지는 지점을 미리 알기 위해서.
+  let activity: any = null;
+  try {
+    const { data: dr, error: drErr } = await db.rpc("v2_activity_drift");
+    if (drErr) throw drErr;
+    const row = (dr ?? [])[0];
+    if (row) {
+      const logRows = Number(row.log_rows), aggSum = Number(row.agg_sum);
+      activity = { logRows, aggRows: Number(row.agg_rows), aggSum };
+      if (logRows !== aggSum) {
+        problems.push(`집계표가 로그와 어긋났습니다 — 로그 ${logRows}행 vs 집계 합계 ${aggSum} (daily-activity.sql의 백필을 다시 실행하세요)`);
+      }
+      if (logRows > 500000) {
+        problems.push(`challenge_log가 ${logRows}행입니다 — 집계 구조를 다시 살펴볼 때입니다`);
+      }
+    }
+  } catch (_) { /* 집계표 미설치 → 점검 생략(순위는 폴백 경로로 돈다) */ }
+
   return {
     ok: problems.length === 0,
     serverTimeKST: kstNow.toISOString().replace("T", " ").slice(0, 16) + " KST",
@@ -594,6 +614,7 @@ async function monitor(b: any) {
     latestVerseDate,
     todayPush,
     weeklyReportLastRun,
+    activity,
     problems,
   };
 }
@@ -1469,7 +1490,28 @@ async function rankCheerers(b: any) {
 }
 
 // ---------- ranking: 순위. includeLearn=true면 암송(학습) 기록도 포함 ----------
+// 빠른 경로: daily_activity 집계 RPC (미설치·실패 시 아래 rankingSlow로 폴백).
+// 로그를 통째로 끌어오지 않는다 — 2026-08-15 기준 로그 11,047행 vs (사용자,일자) 449행.
 async function ranking(b: any) {
+  const me = String(b.me || "");
+  try {
+    const { data, error } = await db.rpc("v2_ranking", {
+      p_from: b.from || "", p_to: b.to || "",
+      p_include_learn: !!b.includeLearn, p_me: me,
+    });
+    if (error) throw error;
+    const list = ((data ?? []) as any[]).map((r) => ({
+      rank: r.rank, name: r.name, gubun: r.gubun, sosok: r.sosok, sebu: r.sebu,
+      count: r.cnt, typing: r.typing, voice: r.voice,
+      activeToday: r.active_today, cheers: r.cheers, iCheered: r.i_cheered,
+    }));
+    const canCheer = me ? await hasTodayActivity(me) : false;
+    return { ok: true, list, canCheer };
+  } catch (_) { /* RPC 미설치 → 폴백 */ }
+  return await rankingSlow(b);
+}
+
+async function rankingSlow(b: any) {
   const includeLearn = !!b.includeLearn; // 앱 도전순위=true, 관리자 도전현황=false
   const data = await fetchAllRows(() => rangeFilter(
     db.from("challenge_log").select("user_id, mode, created_at, users(name,type,gu,mok,bu,grade)"), b));
@@ -1544,6 +1586,18 @@ async function ranking(b: any) {
 // 참여율은 낼 수 없다 — 각 교구의 실제 성도 수(분모)가 DB에 없다.
 // 그래서 총 횟수로 순위를 매기고, 참여 인원·1인당 평균을 함께 준다.
 async function guRanking(b: any) {
+  try {
+    const { data, error } = await db.rpc("v2_gu_ranking", { p_from: b.from || "", p_to: b.to || "" });
+    if (error) throw error;
+    const list = ((data ?? []) as any[]).map((r) => ({
+      rank: r.rank, gu: r.gu, count: r.cnt, people: r.people, avg: Number(r.avg),
+    }));
+    return { ok: true, list };
+  } catch (_) { /* 폴백 */ }
+  return await guRankingSlow(b);
+}
+
+async function guRankingSlow(b: any) {
   const data = await fetchAllRows(() => rangeFilter(
     db.from("challenge_log").select("user_id, users(type,gu)"), b));
 
@@ -1570,6 +1624,19 @@ async function guRanking(b: any) {
 
 // ---------- mydays: 본인 일자별 참여 횟수(암송·도전·복습 전부) ----------
 async function mydays(b: any) {
+  try {
+    const { data, error } = await db.rpc("v2_mydays", {
+      p_user: String(b.user_id || ""), p_from: b.from || "", p_to: b.to || "",
+    });
+    if (error) throw error;
+    const days: Record<string, number> = {};
+    for (const r of (data ?? []) as any[]) days[String(r.day)] = r.cnt;
+    return { ok: true, days };
+  } catch (_) { /* 폴백 */ }
+  return await mydaysSlow(b);
+}
+
+async function mydaysSlow(b: any) {
   const data = await fetchAllRows(() => rangeFilter(
     db.from("challenge_log").select("created_at, mode").eq("user_id", b.user_id), b));
   const days: Record<string, number> = {};
