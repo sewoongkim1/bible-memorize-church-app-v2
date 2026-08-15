@@ -28,7 +28,7 @@
 - **랭킹:** 말씀 도전 순위(ranking), 내 순위 바
 - **푸시 알림:** Web Push(VAPID), pg_cron daily-push(20~23 UTC=아침) 발송, admin에서 testPush/sendPush
 - **주간 리포트 메일:** Resend로 **매주 금요일 오전 8시**(cron job 7), 전주 금~이번주 목 범위. 신규참여자·주간참여자·누적참여자·주간활동 KPI + 주차별 그래프
-- **게시판:** boardList/Post/Reply, 관리자 moderate
+- **게시판(질문 나눔):** boardList/Post/Reply, 관리자 moderate · 공감 이모지 👍🙏❤️😊🎉(`board_reactions`, boardReact/boardReactors) — 여러 개 누를 수 있고 칩을 누르면 누른 사람 이름
 - **딥링크:** `gocheok.onlybible.kr/?v=구절번호` → 로그인 없이 해당 구절 암송화면(startTest) 바로 진입 (말씀 아카이브 sermon.onlybible.kr에서 연동). `&lang=en`이면 영어(NIV) 모드로 진입
 - **영어(NIV) 암송 모드** (2026-07-22 추가): `verses.text_en`/`ref_en`이 있는 구절만 암송화면 상단에 한/EN 토글 노출. 어드민(admin-stats.html)에서 "🤖 NIV 생성" 버튼으로 AI 초안 생성 후 반드시 실제 NIV 성경과 대조·검수하여 저장. **진행 단계는 언어별로 따로** 센다(2026-08-12) — 한글이 3단계여도 영어로 처음 하면 1단계부터. `progress` 테이블에 `lang` 컬럼(PK: user_id·verse_no·lang, 기존 행은 모두 ko), 로컬은 `memorize-progress` / `memorize-progress-en` 두 벌, login이 `progress`(ko)·`progressEn`을 함께 내려준다. 구절에 영어 본문이 없으면 늘 ko로 본다(`verseLang`). **복습·랭킹·마음에 둠은 언어 무관** — 구절 하나로 센다(어느 언어로 마쳤든 복습 예약은 한 번). 설정 화면에서 기본 언어 선택 가능, 목록 카드에 EN 배지 표시. TTS/STT는 en-US로 분기, 채점은 대소문자·문장부호 관용 비교. 영어 본문·빈칸·정답은 **Lora**(라틴 전용 서체)로 **한 단계 크게**(23px, 글씨크기 설정 시 27/31px) — 한글 서체의 영문 글자는 획이 가늘어 눈에 안 박힌다(`.test-screen.en`). 영어 모드 화면 하단에 NIV(Biblica) 저작권 표기 고정.
 
@@ -50,7 +50,7 @@ A5/A4 · 아래쪽/오른쪽 필사형 · 번역본 5종 · 성경 31단위 부�
 **A5**와 **한영·영한**은 한 부가 **2권**으로 나온다 — 상한은 고른 부수(5부) 기준이라 A5로도 5부(=10권) 신청할 수 있고, 권수·금액만 2배로 계산한다(`pilsaMult` / 서버 `pilsaMultOf`, 저장되는 `total`은 실제 권수).
 상태 흐름 **신청완료 → 준비중 → 준비완료 → 배부완료** — 성도는 신청완료에서만 고치거나 취소할 수 있고, 배부완료면 새로 신청.
 수령은 4층 새가족실 방문, 권당 3,000원(찾을 때 지불). **준비완료로 바꾸면 앱 알림을 켜 둔 분께 Web Push 1회**(notified_at), 켜지 않았으면 관리자 화면이 휴대폰 번호로 연락하라고 알려 준다.
-- 첫화면(renderSummary)의 「✍️ 성경필사 노트 신청」 버튼으로 들어간다(질문·제안 게시판과 찬양 아카이브 사이). `index.html?preview=pilsa`로도 같은 화면.
+- 첫화면(renderSummary)의 「✍️ 성경필사 노트 신청」 버튼으로 들어간다(질문 나눔 게시판과 찬양 아카이브 사이). `index.html?preview=pilsa`로도 같은 화면.
 - 관리자: admin-stats.html → 신청자 카드 목록. 상태 체크박스(신청·준비·완료·배부, 기본 신청)로 추리고, 카드의 「✉️ 문자」가 담당자 폰의 문자 앱을 문구까지 채워 연다(문자 API 미연동).
 
 ## 다음 작업 (이어서 할 것)

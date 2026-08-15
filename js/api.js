@@ -51,7 +51,12 @@ const api = {
   savePush: (user_id, subscription, hour) => supaCall("savePush", { user_id, subscription, hour }),
   removePush: (endpoint) => supaCall("removePush", { endpoint }),
   testPush: (endpoint, hour, preview) => supaCall("testPush", { endpoint, hour, preview }),
-  boardList: () => supaCall("boardList", {}),
+  boardList: (user_id) => supaCall("boardList", { user_id }),
+  // 공감 이모지 — on=false면 취소, boardReactors는 누른 사람 이름
+  boardReact: (target, target_id, user_id, who, emoji, on) =>
+    supaCall("boardReact", { target, target_id, user_id, who, emoji, on }),
+  boardReactors: (target, target_id, emoji) =>
+    supaCall("boardReactors", { target, target_id, emoji }),
   boardCheck: (since) => supaCall("boardCheck", { since }),   // 최근 7일(또는 since 이후) 새 글/답글 개수 { ok, recent }
   boardPost: (name, content, user_id) => supaCall("boardPost", { name, content, user_id }),
   boardReply: (post_id, name, content, user_id) => supaCall("boardReply", { post_id, name, content, user_id }),

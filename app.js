@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260812g";
+const APP_BUILD = "20260815a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1689,7 +1689,7 @@ function renderSummary() {
     </div>
     <button class="summary-help album-cta" id="open-album">📖 나의 말씀 앨범</button>
     <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
-<button class="summary-help board-cta" id="open-board">💬 질문·제안 게시판</button>
+<button class="summary-help board-cta" id="open-board">💬 질문 나눔 게시판</button>
     <button class="summary-help pilsa-cta" id="open-pilsa">✍️ 성경필사 노트 신청</button>
     <button class="summary-help praise-cta" id="open-praise">🎵 고척교회 찬양 아카이브</button>
     <button class="summary-help sermon-cta" id="open-sermon-archive">📺 고척교회 설교 아카이브</button>
@@ -1809,7 +1809,7 @@ async function alarmFromHome() {
   }
 }
 
-// ---------- 질문·제안 공개 게시판 ----------
+// ---------- 질문 나눔 공개 게시판 ----------
 function boardTime(iso) {
   try {
     const k = new Date(new Date(iso).getTime() + 9 * 3600 * 1000);
@@ -1978,6 +1978,72 @@ function scOpenSermon(s) {
   };
 }
 
+// ── 공감 이모지 ───────────────────────────────────────────────
+// 카카오톡처럼 글 아래에 이모지+숫자 칩이 붙는다. 여러 개를 누를 수 있고,
+// 다시 누르면 취소된다. 칩을 누르면 누가 눌렀는지 이름이 뜬다.
+const BOARD_EMOJI = [
+  ["👍", "좋아요"], ["🙏", "기도할게요"], ["❤️", "공감해요"],
+  ["😊", "힘내세요"], ["🎉", "축하해요"],
+];
+
+function boardRxHtml(kind, item) {
+  const counts = item.reactions || {};
+  const mine = item.myReacts || [];
+  const chips = BOARD_EMOJI
+    .filter(([e]) => counts[e])
+    .map(([e]) => '<button class="rx-chip' + (mine.indexOf(e) >= 0 ? " on" : "") + '"' +
+      ' data-rx="' + kind + '" data-id="' + item.id + '" data-emoji="' + e + '">' +
+      e + '<b>' + counts[e] + '</b></button>')
+    .join("");
+  return '<div class="rx-row">' + chips +
+    '<button class="rx-add" data-rxadd="' + kind + '" data-id="' + item.id + '" aria-label="공감 남기기">＋</button>' +
+    '</div>';
+}
+
+// 이모지 고르는 작은 줄 — 한 번에 하나만 열린다
+function boardRxPicker(btn) {
+  document.querySelectorAll(".rx-pick").forEach((x) => x.remove());
+  const kind = btn.dataset.rxadd, id = btn.dataset.id;
+  const box = document.createElement("div");
+  box.className = "rx-pick";
+  box.innerHTML = BOARD_EMOJI.map(([e, label]) =>
+    '<button data-e="' + e + '" title="' + label + '"><span>' + e + '</span><i>' + label + '</i></button>').join("");
+  btn.parentElement.appendChild(box);
+  box.querySelectorAll("button").forEach((b) => {
+    b.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      box.remove();
+      toggleBoardReact(kind, id, b.dataset.e, true);
+    });
+  });
+  setTimeout(() => {
+    document.addEventListener("click", function once() {
+      box.remove(); document.removeEventListener("click", once);
+    }, { once: true });
+  }, 0);
+}
+
+async function toggleBoardReact(kind, id, emoji, on) {
+  const u = loadUser();
+  if (!u || !u.user_id) { appAlert("로그인하시면 공감을 남길 수 있어요."); return; }
+  try {
+    await api.boardReact(kind, Number(id), u.user_id, boardWho(), emoji, on);
+    loadBoard();
+  } catch (e) {
+    appAlert("공감을 저장하지 못했어요.<br>" + boardEsc(e && e.message ? e.message : e));
+  }
+}
+
+async function showBoardReactors(kind, id, emoji) {
+  try {
+    const d = await api.boardReactors(kind, Number(id), emoji);
+    const list = (d.list || []);
+    await appAlert(list.length
+      ? list.map((n) => boardEsc(n)).join("<br>")
+      : "아직 아무도 누르지 않았어요.", emoji + " " + list.length + "명");
+  } catch (e) { /* 이름을 못 불러와도 화면은 그대로 */ }
+}
+
 function renderBoard() {
   markBoardSeen(); // 게시판을 열면 첫 화면 '새글' 배지 소멸
   const appEl = document.getElementById("app");
@@ -1985,14 +2051,14 @@ function renderBoard() {
     <div class="summary-screen">
       <div class="summary-card">
         <div class="settings-head">
-          <h2 class="rank-title">💬 질문·제안</h2>
+          <h2 class="rank-title">💬 질문 나눔</h2>
           <button class="settings-back-btn" id="board-back">← 뒤로</button>
         </div>
-        <p class="board-intro">궁금한 점이나 건의사항을 자유롭게 남겨주세요. 모든 글과 답글은 공개됩니다. 🙌</p>
-        <p class="board-notice">🙏 <b>성경암송</b>과 관련된 질문·제안을 남겨주세요. 주제와 관련 없는 글은 부득이 삭제될 수 있습니다.<br>⚠️ 전화번호 등 <b>민감한 개인정보</b>는 올리지 말아주세요.</p>
+        <p class="board-intro">궁금한 점, 받은 은혜, 서로에게 힘이 되는 이야기를 나눠 주세요. 모든 글과 답글은 공개됩니다. 🙌</p>
+        <p class="board-notice">🙏 <b>성경암송</b>과 관련된 이야기를 나눠 주세요. 주제와 관련 없는 글은 부득이 삭제될 수 있습니다.<br>⚠️ 전화번호 등 <b>민감한 개인정보</b>는 올리지 말아주세요.</p>
         <div class="board-form">
           <div class="board-who" id="bp-who"></div>
-          <textarea id="bp-content" class="board-in board-in-lg" rows="5" maxlength="2000" placeholder="질문이나 제안을 적어주세요"></textarea>
+          <textarea id="bp-content" class="board-in board-in-lg" rows="5" maxlength="2000" placeholder="나누고 싶은 이야기를 적어주세요"></textarea>
           <button class="summary-go" id="bp-submit">✏️ 글 남기기</button>
           <div id="bp-msg" class="msg"></div>
         </div>
@@ -2022,7 +2088,7 @@ function renderBoard() {
 async function loadBoard() {
   const box = document.getElementById("board-list");
   let d;
-  try { d = await api.boardList(); }
+  try { d = await api.boardList(myUserId()); }
   catch (e) { box.innerHTML = `<p class="msg err">게시판을 불러오지 못했습니다.</p>`; return; }
   let posts = (d && d.posts) || [];
   if (boardMineOnly) posts = posts.filter((p) => boardIsMine(p));
@@ -2037,11 +2103,13 @@ async function loadBoard() {
       <div class="board-reply${r.is_admin ? " admin" : ""}">
         <div class="board-meta">${r.is_admin ? '<span class="board-badge">관리자</span>' : `<b>${boardEsc(r.name)}</b>`} · ${boardTime(r.created_at)}${r.is_admin ? "" : delBtn("reply", r)}</div>
         <div class="board-text">${boardEsc(r.content)}</div>
+        ${boardRxHtml("reply", r)}
       </div>`).join("");
     return `
       <div class="board-post" data-id="${p.id}">
         <div class="board-meta"><b>${boardEsc(p.name)}</b> · ${boardTime(p.created_at)}${delBtn("post", p)}</div>
         <div class="board-text">${boardEsc(p.content)}</div>
+        ${boardRxHtml("post", p)}
         ${replies}
         <div class="board-reply-form">
           <textarea class="board-in br-content" rows="2" maxlength="2000" placeholder="답글 달기"></textarea>
@@ -2051,6 +2119,15 @@ async function loadBoard() {
   }).join("");
   box.querySelectorAll(".board-reply-btn").forEach((btn) => btn.addEventListener("click", () => submitBoardReply(btn)));
   box.querySelectorAll(".board-del").forEach((btn) => btn.addEventListener("click", () => deleteMine(btn)));
+  box.querySelectorAll("[data-rxadd]").forEach((btn) => btn.addEventListener("click", (e) => {
+    e.stopPropagation(); boardRxPicker(btn);
+  }));
+  box.querySelectorAll("[data-rx]").forEach((btn) => btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    // 내가 누른 칩은 다시 누르면 취소, 아니면 누가 눌렀는지 본다
+    if (btn.classList.contains("on")) toggleBoardReact(btn.dataset.rx, btn.dataset.id, btn.dataset.emoji, false);
+    else showBoardReactors(btn.dataset.rx, btn.dataset.id, btn.dataset.emoji);
+  }));
 }
 async function submitBoardPost() {
   const content = document.getElementById("bp-content").value.trim();

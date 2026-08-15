@@ -3094,3 +3094,41 @@ html[data-fs="xl"] .test-screen.en .test-sentence,
 html[data-fs="xl"] .test-screen.en .word-input { font-size: 31px; }
 html[data-fs="lg"] .test-screen.en .answer-text { font-size: 23px; }
 html[data-fs="xl"] .test-screen.en .answer-text { font-size: 26px; }
+
+/* =====================================================================
+   질문 나눔 게시판 — 공감 이모지
+   글 아래에 이모지+숫자 칩. 내가 누른 것은 테두리가 진해진다.
+   ＋를 누르면 고르는 줄이 그 자리에 뜬다(한 번에 하나만).
+   ===================================================================== */
+.rx-row { display: flex; align-items: center; flex-wrap: wrap; gap: 5px;
+          margin-top: 9px; position: relative; }
+.rx-chip { display: inline-flex; align-items: center; gap: 4px; cursor: pointer;
+           font-family: inherit; font-size: .84rem; line-height: 1.2;
+           padding: 4px 9px; border-radius: 999px;
+           border: 1.5px solid var(--border); background: #fff; color: #5a6273; }
+.rx-chip b { font-size: .78rem; font-weight: 800; color: #5a6273; }
+.rx-chip.on { border-color: var(--navy); background: #eef3fb; }
+.rx-chip.on b { color: var(--navy); }
+.rx-add { cursor: pointer; font-family: inherit; font-size: .9rem; font-weight: 800;
+          line-height: 1; padding: 5px 10px; border-radius: 999px;
+          border: 1.5px dashed var(--border); background: transparent; color: #8a95a8; }
+.rx-add:hover { border-color: var(--navy); color: var(--navy); }
+
+.rx-pick { position: absolute; left: 0; bottom: calc(100% + 6px); z-index: 20;
+           display: flex; gap: 2px; padding: 6px; border-radius: 14px;
+           background: #fff; border: 1px solid var(--border);
+           box-shadow: 0 8px 24px rgba(26, 42, 72, .16); }
+.rx-pick button { display: flex; flex-direction: column; align-items: center; gap: 2px;
+                  cursor: pointer; font-family: inherit; border: none; background: transparent;
+                  border-radius: 10px; padding: 6px 8px; }
+.rx-pick button:hover { background: #f2f5fb; }
+.rx-pick span { font-size: 1.25rem; line-height: 1; }
+.rx-pick i { font-style: normal; font-size: .64rem; font-weight: 700; color: #8a95a8; white-space: nowrap; }
+
+.dark .rx-chip { background: #1b2942; border-color: #2b3a5a; color: #b9c6dd; }
+.dark .rx-chip b { color: #b9c6dd; }
+.dark .rx-chip.on { background: #233557; border-color: #5c7fb5; }
+.dark .rx-chip.on b { color: #cdd9f2; }
+.dark .rx-add { border-color: #2b3a5a; color: #8a95a8; }
+.dark .rx-pick { background: #1b2942; border-color: #2b3a5a; }
+.dark .rx-pick button:hover { background: #23324e; }

@@ -172,6 +172,8 @@ Deno.serve(async (req) => {
       case "pilsaSetStatus": return json(await pilsaSetStatus(body));
 
       case "boardList":     return json(await boardList(body));
+      case "boardReact":    return json(await boardReact(body));
+      case "boardReactors": return json(await boardReactors(body));
       case "boardCheck":    return json(await boardCheck(body));
       case "boardPost":     return json(await boardPost(body));
       case "boardReply":    return json(await boardReply(body));
@@ -2324,7 +2326,84 @@ async function boardList(b: any) {
   }
   const byPost = new Map<number, any[]>();
   for (const r of replies) { if (!byPost.has(r.post_id)) byPost.set(r.post_id, []); byPost.get(r.post_id)!.push(r); }
-  return { ok: true, isAdmin, posts: (posts ?? []).map((p: any) => ({ ...p, replies: byPost.get(p.id) || [] })) };
+
+  // 공감 이모지 — 글·답글의 것을 한 번에 긁어 집계한다
+  const me = String(b.user_id || "");
+  const rx = await boardReactionMap(ids, replies.map((r: any) => r.id), me);
+  const withRx = (kind: string, row: any) => ({
+    ...row,
+    reactions: rx.count.get(kind + ":" + row.id) || {},
+    myReacts: rx.mine.get(kind + ":" + row.id) || [],
+  });
+
+  return {
+    ok: true, isAdmin,
+    posts: (posts ?? []).map((p: any) => ({
+      ...withRx("post", p),
+      replies: (byPost.get(p.id) || []).map((r: any) => withRx("reply", r)),
+    })),
+  };
+}
+
+// 글·답글 묶음의 공감을 한 번에 읽어 { 이모지: 수 }와 내가 누른 목록으로 정리
+async function boardReactionMap(postIds: number[], replyIds: number[], me: string) {
+  const count = new Map<string, Record<string, number>>();
+  const mine = new Map<string, string[]>();
+  const rows: any[] = [];
+  if (postIds.length) {
+    const { data } = await db.from("board_reactions")
+      .select("target,target_id,user_id,emoji").eq("target", "post").in("target_id", postIds);
+    rows.push(...(data ?? []));
+  }
+  if (replyIds.length) {
+    const { data } = await db.from("board_reactions")
+      .select("target,target_id,user_id,emoji").eq("target", "reply").in("target_id", replyIds);
+    rows.push(...(data ?? []));
+  }
+  for (const r of rows) {
+    const k = r.target + ":" + r.target_id;
+    const c = count.get(k) || {};
+    c[r.emoji] = (c[r.emoji] || 0) + 1;
+    count.set(k, c);
+    if (me && r.user_id === me) mine.set(k, [...(mine.get(k) || []), r.emoji]);
+  }
+  return { count, mine };
+}
+
+// ---------- boardReact: 공감 누르기/취소 ----------
+const BOARD_EMOJI = ["👍", "🙏", "❤️", "😊", "🎉"];
+async function boardReact(b: any) {
+  const target = b.target === "reply" ? "reply" : "post";
+  const targetId = Number(b.target_id) || 0;
+  const userId = String(b.user_id || "");
+  const emoji = String(b.emoji || "");
+  if (!targetId || !userId) return { ok: false, error: "로그인한 뒤에 누를 수 있어요" };
+  if (BOARD_EMOJI.indexOf(emoji) < 0) return { ok: false, error: "쓸 수 없는 이모지입니다" };
+
+  if (b.on === false) {
+    const { error } = await db.from("board_reactions").delete()
+      .eq("target", target).eq("target_id", targetId).eq("user_id", userId).eq("emoji", emoji);
+    if (error) throw error;
+    return { ok: true, on: false };
+  }
+  const { error } = await db.from("board_reactions").upsert({
+    target, target_id: targetId, user_id: userId, emoji, who: norm(b.who) || null,
+  }, { onConflict: "target,target_id,user_id,emoji", ignoreDuplicates: true });
+  if (error) throw error;
+  return { ok: true, on: true };
+}
+
+// ---------- boardReactors: 그 이모지를 누른 사람 이름 ----------
+async function boardReactors(b: any) {
+  const target = b.target === "reply" ? "reply" : "post";
+  const targetId = Number(b.target_id) || 0;
+  const emoji = String(b.emoji || "");
+  if (!targetId || !emoji) return { ok: true, list: [] };
+  const { data, error } = await db.from("board_reactions")
+    .select("who,created_at").eq("target", target).eq("target_id", targetId).eq("emoji", emoji)
+    .order("created_at", { ascending: true }).limit(200);
+  if (error) throw error;
+  return { ok: true, list: (data ?? []).map((r: any) => r.who || "익명") };
 }
 
 // 첫 화면 배지용 — 최근 7일 내 공개 글/답글 개수만 가볍게 센다(본문 미포함)
