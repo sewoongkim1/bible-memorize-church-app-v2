@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260815h";
+const APP_BUILD = "20260815i";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5960,12 +5960,20 @@ async function loadRankingBody(r) {
       aria-label="${x.iCheered ? "응원 취소" : "응원하기"}">👏${num}</button>`;
   };
 
+  // 내 소속도 목록의 줄과 같은 표기로 보여준다(화평-20). 같은 이름이 여럿일 때
+  // 목록에서 내 줄을 찾는 실마리가 된다.
+  const mySo = u ? soLabel({
+    gubun: u.type, sosok: u.gu || u.bu || "", sebu: u.mok || u.grade || "",
+  }) : "";
   const myHtml = u
     ? `<div class="my-rank">
          <span class="mr-label">내 순위</span>
+         ${me ? `<span class="mr-rank">${medal(me.rank)}</span>` : ""}
+         <span class="mr-name">${u.name}</span>
+         <span class="mr-so">${mySo}</span>
          ${me
-            ? `<span class="mr-rank">${medal(me.rank)}</span><span class="mr-name">${u.name}</span><span class="mr-cnt">${me.count}회</span>`
-            : `<span class="mr-name">${u.name}</span><span class="mr-cnt none">아직 기록 없음 — 도전해보세요! 🔥</span>`}
+            ? `<span class="mr-cnt">${me.count}회</span>`
+            : `<span class="mr-cnt none">아직 기록 없음 — 도전해보세요! 🔥</span>`}
        </div>`
     : "";
 
@@ -6008,9 +6016,9 @@ async function toggleRankCheer(x, btn, canGive) {
     appAlert("오늘 말씀을 한 번이라도 암송하면<br>서로 응원할 수 있어요. 🔥");
     return;
   }
+  // 주기도 취소도 묻지 않고 바로 한다. 칩이 이 일만 하니(명단은 '42회'가 연다)
+  // 잘못 누를 여지가 적고, 다시 누르면 그 자리에서 되돌아간다.
   const on = !x.iCheered;
-  // 주는 건 한 번에, 무르는 건 한 번 묻는다 — 칩이 작아 잘못 눌러 지워지면 되돌릴 길이 없다.
-  if (!on && !(await appConfirm(`${x.name} 성도님께 보낸 응원을 취소할까요?`, { okText: "취소하기", danger: true }))) return;
   btn.disabled = true; // 연타로 두 번 보내지 않도록
   const ok = await giveRankCheer(x, on);
   btn.disabled = false;

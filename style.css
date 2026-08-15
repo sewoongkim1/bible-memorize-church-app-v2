@@ -2239,23 +2239,26 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
    (모드 바·기간 탭의 .on, 하단 고정 버튼, 응원 칩의 켬). 여기까지 남색 계열이면
    '버튼이 하나 더 있는' 것처럼 보인다. 크림 바탕에 골드 띠를 세워 '판'으로 읽히게 한다. */
 .my-rank{
-  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-  background:linear-gradient(135deg,#fffdf7 0%,#f8f0dd 100%); color:var(--navy);
-  border:1px solid #e6d8b0; border-left:5px solid var(--gold);
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  background:linear-gradient(135deg,#f3e4c2 0%,#e8d4a3 100%); color:var(--navy);
+  border:1px solid #cbb277; border-left:6px solid var(--gold);
   border-radius:14px; padding:14px 16px; margin-bottom:14px;
-  box-shadow:0 2px 10px rgba(26,58,107,.07);
+  box-shadow:0 2px 10px rgba(26,58,107,.10);
 }
-.my-rank .mr-label{ font-size:.78rem; font-weight:700; color:#94814d; }
+.my-rank .mr-label{ font-size:.78rem; font-weight:700; color:#7a6634; }
 .my-rank .mr-rank{ font-size:1.3rem; font-weight:800; min-width:1.6em; text-align:center; }
 .my-rank .mr-name{ font-weight:800; font-size:1.05rem; }
-.my-rank .mr-cnt{ margin-left:auto; font-weight:800; color:#a3821f; }
-.my-rank .mr-cnt.none{ color:#94814d; font-weight:600; font-size:.85rem; }
+/* 소속 — 목록의 .rk-so와 같은 표기(화평-20). 이름 옆에 작게 붙인다 */
+.my-rank .mr-so{ font-size:.82rem; font-weight:700; color:#7a6634; }
+.my-rank .mr-cnt{ margin-left:auto; font-weight:800; color:#8a6a12; }
+.my-rank .mr-cnt.none{ color:#7a6634; font-weight:600; font-size:.85rem; }
 /* 다크에서는 크림 바탕을 쓸 수 없다(글자가 묻힘). 골드 띠만 남기고 면을 어둡게 간다 */
 .dark .my-rank{
-  background:linear-gradient(135deg,#232c3f 0%,#2b3653 100%);
-  border-color:#3d4a68; border-left-color:var(--gold);
+  background:linear-gradient(135deg,#2a3348 0%,#343f60 100%);
+  border-color:#4a577a; border-left-color:var(--gold);
 }
-.dark .my-rank .mr-label{ color:#c3ad72; }
+.dark .my-rank .mr-label,
+.dark .my-rank .mr-so{ color:#c3ad72; }
 .dark .my-rank .mr-cnt{ color:#e0c46e; }
 .dark .my-rank .mr-cnt.none{ color:#b0a179; }
 
@@ -2266,7 +2269,9 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
    고정한다 — 이름·소속이 아무리 길어도 소속이 …로 줄 뿐 줄은 늘어날 수 없다. */
 .rank-row{
   display:flex; align-items:center; gap:8px;
-  background:#fff; border:1px solid var(--border); border-radius:11px; padding:11px 14px;
+  /* var(--white) — 다크에서 카드 면으로 바뀐다. #fff로 박아 두면 순위권 밖 줄만
+     다크 모드에서 새하얗게 남는다(.top에만 별도 규칙이 있어 그동안 가려져 있었다). */
+  background:var(--white); border:1px solid var(--border); border-radius:11px; padding:11px 14px;
 }
 .rank-row.top{ border-color:var(--gold); background:#fffdf6; }
 .rank-row.me{ box-shadow:0 0 0 2px var(--navy) inset; }
@@ -2296,6 +2301,7 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 .rank-row.top .rk-cnt{ color:var(--gold); border-bottom-color:#d8c88a; }
 .rank-row.top .rk-cnt.open{ border-bottom-color:var(--gold); }
 .dark .rank-row .rk-cnt{ border-bottom-color:#5a6b8a; }
+.dark .rank-row .rk-name{ color:#e6e9ef; }   /* 밝은 면 기준 #222가 박혀 있어 되돌린다 */
 
 /* 순위 응원 칩 — 켬/끔은 색조가 아니라 밝기로 가른다(옅은 틴트는 흰 카드와 구분이 안 된다) */
 /* 폭을 고정한다 — 숫자가 붙고 떨어질 때마다 칩이 늘었다 줄면 줄마다 오른쪽 끝이
