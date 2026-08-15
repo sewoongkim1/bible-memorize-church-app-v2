@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260815i";
+const APP_BUILD = "20260815j";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5956,7 +5956,10 @@ async function loadRankingBody(r) {
     const num = n ? `<b>${n}</b>` : ""; // 0이면 숫자를 그리지 않는다(0이 줄줄이 드러나면 상처가 된다)
     // 자기 자신은 응원할 수 없다 — 내 줄의 칩은 받은 수만 보여주는 표식이다.
     if (isMe) return `<span class="rk-cheer mine" aria-label="내가 받은 응원 ${n}">👏${num}</span>`;
-    return `<button class="rk-cheer${x.iCheered ? " on" : ""}" data-rkact="${i}"
+    // 오늘 기록이 없는 분은 아직 응원을 받을 수 없다(주는 쪽과 대칭). 눌러도 되는 것처럼
+    // 보이지 않게 흐리게 두되, 눌리기는 해서 왜 안 되는지 알려 준다.
+    const lock = x.activeToday ? "" : " locked";
+    return `<button class="rk-cheer${x.iCheered ? " on" : ""}${lock}" data-rkact="${i}"
       aria-label="${x.iCheered ? "응원 취소" : "응원하기"}">👏${num}</button>`;
   };
 
@@ -6014,6 +6017,11 @@ async function loadRankingBody(r) {
 async function toggleRankCheer(x, btn, canGive) {
   if (!canGive) {
     appAlert("오늘 말씀을 한 번이라도 암송하면<br>서로 응원할 수 있어요. 🔥");
+    return;
+  }
+  // 이미 준 응원을 무르는 건 언제나 된다. 새로 주는 것만 받는 쪽 조건을 본다.
+  if (!x.iCheered && !x.activeToday) {
+    appAlert("오늘 말씀을 암송한 성도님께<br>응원할 수 있어요. 🙌");
     return;
   }
   // 주기도 취소도 묻지 않고 바로 한다. 칩이 이 일만 하니(명단은 '42회'가 연다)

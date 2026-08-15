@@ -1442,6 +1442,11 @@ async function rankCheer(b: any) {
   if (!(await hasTodayActivity(fromId))) {
     return { ok: false, error: "오늘 말씀을 한 번이라도 암송하면 응원할 수 있어요" };
   }
+  // 받는 쪽도 오늘 기록이 있어야 한다(주는 쪽과 대칭). 취소는 검사하지 않는다 —
+  // 이미 준 것을 무를 길이 막히면 안 된다.
+  if (!(await hasTodayActivity(targetId))) {
+    return { ok: false, error: "오늘 말씀을 암송한 성도님께 응원할 수 있어요" };
+  }
   const { error } = await db.from("rank_cheers").upsert({
     target_user_id: targetId, from_user_id: fromId, cheer_date: today,
     from_name: norm(b.who) || null,
@@ -1469,6 +1474,13 @@ async function ranking(b: any) {
   const data = await fetchAllRows(() => rangeFilter(
     db.from("challenge_log").select("user_id, mode, created_at, users(name,type,gu,mok,bu,grade)"), b));
 
+  // 응원은 주는 쪽·받는 쪽 모두 '오늘 기록'이 있어야 한다. 받는 쪽 판정은 이미 읽어 온
+  // 로그에서 바로 뽑는다(추가 조회 없음). 조회 기간에 오늘이 없으면 모두 false가 되는데,
+  // 그때는 어차피 주는 것 자체가 잠긴다(클라이언트의 rangeHasToday).
+  const todayKst = kstDay(new Date().toISOString());
+  const tFrom = Date.parse(`${todayKst}T00:00:00${KST}`);
+  const tTo = Date.parse(`${todayKst}T23:59:59.999${KST}`);
+
   const map = new Map<string, any>();
   for (const row of data) {
     if (!includeLearn && !isChallengeMode(row.mode)) continue;
@@ -1477,11 +1489,13 @@ async function ranking(b: any) {
       uid: row.user_id,                  // 응원을 붙이는 데만 쓰고 응답에서는 뗀다
       name: u.name, gubun: u.type,
       sosok: u.gu || u.bu || "", sebu: u.mok || u.grade || "",
-      count: 0, typing: 0, voice: 0,
+      count: 0, typing: 0, voice: 0, activeToday: false,
     };
     e.count++;
     if (String(row.mode).includes("typing")) e.typing++;
     if (String(row.mode).includes("voice")) e.voice++;
+    const t = Date.parse(row.created_at);
+    if (t >= tFrom && t <= tTo) e.activeToday = true;
     map.set(row.user_id, e);
   }
 

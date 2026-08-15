@@ -2320,6 +2320,8 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 .rk-cheer:disabled{ opacity:.6; cursor:default; }
 /* 내 줄의 칩은 받은 수를 보여주는 표식일 뿐 — 자기 자신은 응원할 수 없다 */
 .rk-cheer.mine{ cursor:default; }
+/* 오늘 기록이 없어 아직 응원을 받을 수 없는 줄 — 눌러도 되는 것처럼 보이지 않게 흐린다 */
+.rk-cheer.locked:not(.on){ opacity:.45; }
 .dark .rk-cheer{ background:#1b2942; border-color:#2b3a5a; color:#b9c6dd; }
 .dark .rk-cheer b{ color:#b9c6dd; }
 .dark .rk-cheer.on{ background:#5c8ede; border-color:#8bb4f0; color:#fff; }
