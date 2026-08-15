@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260815b";
+const APP_BUILD = "20260815c";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1997,7 +1997,7 @@ function boardRxHtml(kind, item) {
     .join("");
   return '<div class="rx-row">' + chips +
     '<button class="rx-add" data-rxadd="' + kind + '" data-id="' + item.id + '" aria-label="공감 남기기">＋</button>' +
-    '</div>';
+    '</div><div class="rx-names" hidden></div>';
 }
 
 // 이모지 고르는 작은 줄 — 한 번에 하나만 열린다
@@ -2034,14 +2034,34 @@ async function toggleBoardReact(kind, id, emoji, on) {
   }
 }
 
-async function showBoardReactors(kind, id, emoji) {
-  try {
-    const d = await api.boardReactors(kind, Number(id), emoji);
-    const list = (d.list || []);
-    await appAlert(list.length
-      ? list.map((n) => boardEsc(n)).join("<br>")
-      : "아직 아무도 누르지 않았어요.", emoji + " " + list.length + "명");
-  } catch (e) { /* 이름을 못 불러와도 화면은 그대로 */ }
+// 누가 눌렀는지 — 모달 대신 칩 바로 아래에 이름 줄이 펼쳐진다(같은 칩을 또 누르면 접힘).
+// 내 공감 취소도 이 줄에서 한다. 그래야 칩 탭의 뜻이 '누가 눌렀나 보기' 하나로 통일된다
+// (예전에는 내가 누른 칩이면 곧장 취소돼서, 그 이모지는 명단을 볼 방법이 없었다).
+async function showBoardReactors(kind, id, emoji, chip) {
+  const row = chip.closest(".rx-row");
+  const box = row && row.nextElementSibling;
+  if (!box || !box.classList.contains("rx-names")) return;
+  row.querySelectorAll(".rx-chip.open").forEach((c) => c.classList.remove("open"));
+  if (!box.hidden && box.dataset.emoji === emoji) { // 같은 칩을 또 눌렀다 → 접는다
+    box.hidden = true; box.dataset.emoji = ""; return;
+  }
+  box.dataset.emoji = emoji;
+  box.hidden = false;
+  chip.classList.add("open");
+  box.innerHTML = '<div class="rx-names-top"><span class="rx-names-msg">불러오는 중…</span></div>';
+  let list;
+  try { list = (await api.boardReactors(kind, Number(id), emoji)).list || []; }
+  catch (e) { box.innerHTML = '<div class="rx-names-top"><span class="rx-names-msg">이름을 불러오지 못했어요.</span></div>'; return; }
+  if (box.dataset.emoji !== emoji) return; // 기다리는 사이 다른 칩을 눌렀으면 버린다
+  box.innerHTML = '<div class="rx-names-top"><span class="rx-names-e">' + emoji + '</span>' +
+    (list.length
+      ? '<span class="rx-names-l">' + list.map((n) => boardEsc(n)).join(" · ") + '</span>'
+      : '<span class="rx-names-msg">아직 아무도 누르지 않았어요.</span>') + '</div>' +
+    (chip.classList.contains("on") ? '<button class="rx-undo">내 공감 취소</button>' : "");
+  const undo = box.querySelector(".rx-undo");
+  if (undo) undo.addEventListener("click", (ev) => {
+    ev.stopPropagation(); toggleBoardReact(kind, id, emoji, false);
+  });
 }
 
 function renderBoard() {
@@ -2124,9 +2144,7 @@ async function loadBoard() {
   }));
   box.querySelectorAll("[data-rx]").forEach((btn) => btn.addEventListener("click", (e) => {
     e.stopPropagation();
-    // 내가 누른 칩은 다시 누르면 취소, 아니면 누가 눌렀는지 본다
-    if (btn.classList.contains("on")) toggleBoardReact(btn.dataset.rx, btn.dataset.id, btn.dataset.emoji, false);
-    else showBoardReactors(btn.dataset.rx, btn.dataset.id, btn.dataset.emoji);
+    showBoardReactors(btn.dataset.rx, btn.dataset.id, btn.dataset.emoji, btn);
   }));
 }
 async function submitBoardPost() {
