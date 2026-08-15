@@ -3107,8 +3107,10 @@ html[data-fs="xl"] .test-screen.en .answer-text { font-size: 26px; }
            padding: 4px 9px; border-radius: 999px;
            border: 1.5px solid var(--border); background: #fff; color: #5a6273; }
 .rx-chip b { font-size: .78rem; font-weight: 800; color: #5a6273; }
-.rx-chip.on { border-color: var(--navy); background: #eef3fb; }
-.rx-chip.on b { color: var(--navy); }
+/* 켬/끔은 색조가 아니라 '밝기'로 갈라야 한다 — 예전엔 배경이 #eef3fb라
+   흰 카드와 명도가 거의 같아 대낮 폰에서 누른 건지 아닌지 알 수 없었다. */
+.rx-chip.on { border-color: var(--navy); background: var(--navy); color: #fff; }
+.rx-chip.on b { color: #fff; }
 .rx-add { cursor: pointer; font-family: inherit; font-size: .9rem; font-weight: 800;
           line-height: 1; padding: 5px 10px; border-radius: 999px;
           border: 1.5px dashed var(--border); background: transparent; color: #8a95a8; }
@@ -3141,7 +3143,8 @@ html[data-fs="xl"] .test-screen.en .answer-text { font-size: 26px; }
 .rx-names-l { flex: 1; min-width: 0; color: #5a6273;
               word-break: keep-all; overflow-wrap: break-word; }
 .rx-names-msg { flex: 1; min-width: 0; color: #8a95a8; }
-.rx-chip.open { border-color: var(--navy); }
+/* 명단을 펼친 칩 — 채워진 칩 위에서도 보이도록 테두리 대신 바깥 링으로 표시 */
+.rx-chip.open { box-shadow: 0 0 0 2px rgba(26, 58, 107, .38); }
 .rx-undo { display: block; margin: 7px 0 0 auto; cursor: pointer; font-family: inherit;
            font-size: .72rem; font-weight: 700; line-height: 1.2; padding: 4px 10px;
            border-radius: 999px; white-space: nowrap;
@@ -3149,8 +3152,9 @@ html[data-fs="xl"] .test-screen.en .answer-text { font-size: 26px; }
 
 .dark .rx-chip { background: #1b2942; border-color: #2b3a5a; color: #b9c6dd; }
 .dark .rx-chip b { color: #b9c6dd; }
-.dark .rx-chip.on { background: #233557; border-color: #5c7fb5; }
-.dark .rx-chip.on b { color: #cdd9f2; }
+.dark .rx-chip.on { background: #5c8ede; border-color: #8bb4f0; color: #fff; }
+.dark .rx-chip.on b { color: #fff; }
+.dark .rx-chip.open { box-shadow: 0 0 0 2px rgba(139, 180, 240, .5); }
 .dark .rx-add { border-color: #2b3a5a; color: #8a95a8; }
 .dark .rx-pick { background: #1b2942; border-color: #2b3a5a; }
 .dark .rx-pick button:hover { background: #23324e; }
