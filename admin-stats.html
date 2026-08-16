@@ -741,7 +741,8 @@ async function loadMedLibrary(){
 function renderMedWeek(i){
   const bd=document.getElementById("ml-body");
   const s=_medSermons[i]; if(!s){ bd.innerHTML=""; return; }
-  const DAYS=["일","월","화","수","목","금","토"];
+  // 월=0 … 일=6 — 앱·푸시의 발행 주기(월~일)와 동일 기준으로 맞춘다(app.js dayIdx 참고)
+  const DAYS=["월","화","수","목","금","토","일"];
   const dm=s.dailyMeditations||[];
   bd.innerHTML=`<div class="ml-head">📖 ${htmlEsc(s.title||"")} <span class="ml-ref">${htmlEsc(s.memRef||s.scripture||"")}</span></div>`
     +`<div class="pl-list">`+dm.map((m,k)=>`
