@@ -32,12 +32,16 @@ STYLE = """
 body {{ font-family:"Noto Sans KR","Malgun Gothic",sans-serif; color:#12294f;
         -webkit-print-color-adjust:exact; print-color-adjust:exact; }}
 
-/* 94x54mm = 명함 90x50 + 재단여백 2mm. 배경은 칠하지 않는다(종이색이 그대로 배경). */
+/* 카드 자리는 90x50mm. 배경은 칠하지 않는다(종이색이 그대로 배경).
+   테두리는 '앞면에만' 두고, 재단선에서 2mm 안쪽으로 물려 놓는다.
+   양면 인쇄는 1~2mm씩 어긋나는 것이 정상이라 앞뒤 모두에 테두리를 두면
+   한 번 자를 때 한쪽은 반드시 삐뚤어 보인다. 테두리는 재단선이 아니라 디자인이다. */
 .card {{ width:94mm; height:54mm; padding:2mm; overflow:hidden; position:relative;
          background:transparent; }}
-.inner {{ width:90mm; height:50mm; padding:4.6mm 5.6mm; position:relative; overflow:hidden;
-          display:flex; flex-direction:column;
-          border:.35mm solid #9aa8c0; border-radius:1.6mm; }}  /* 손으로 자를 때의 재단선 겸용 */
+.holder {{ width:90mm; height:50mm; padding:2mm; }}          /* 2mm = 재단 여유 */
+.inner {{ width:86mm; height:46mm; padding:3.6mm 4.4mm; position:relative; overflow:hidden;
+          display:flex; flex-direction:column; }}
+.front .inner {{ border:.35mm solid #9aa8c0; border-radius:2.4mm; }}
 
 /* ── 앞면 : 초대 ── */
 .ref {{ font-size:6.6pt; font-weight:800; color:#a8862f; letter-spacing:.10em; }}
@@ -46,7 +50,7 @@ body {{ font-family:"Noto Sans KR","Malgun Gothic",sans-serif; color:#12294f;
 .rule {{ width:11mm; height:.6mm; background:#c8a24b; margin:3.2mm 0 2.8mm; border-radius:.3mm; }}
 .invite {{ font-size:9.6pt; font-weight:700; line-height:1.5; color:#1c2333; word-break:keep-all; }}
 .invite b {{ color:#a8862f; }}
-.brand {{ position:absolute; right:5.6mm; bottom:4mm; display:flex; align-items:center; gap:1.3mm; }}
+.brand {{ position:absolute; right:4.4mm; bottom:3.4mm; display:flex; align-items:center; gap:1.3mm; }}
 .brand img {{ width:4.2mm; height:4.2mm; object-fit:cover; object-position:top; }}
 .brand span {{ font-size:6.8pt; font-weight:800; color:#4a5a7a; }}
 
@@ -96,8 +100,8 @@ BACK_IN = """<div class="inner">
   </div>
 </div>""".format(qr=QR)
 
-FRONT = '<div class="card front">' + FRONT_IN + '</div>'
-BACK = '<div class="card back">' + BACK_IN + '</div>'
+FRONT = '<div class="card front"><div class="holder">' + FRONT_IN + '</div></div>'
+BACK = '<div class="card back"><div class="holder">' + BACK_IN + '</div></div>'
 
 FONTLINK = ('<link href="https://fonts.googleapis.com/css2?'
             'family=Nanum+Myeongjo:wght@400;700;800&'
@@ -148,23 +152,43 @@ body {{ background:#e9e4d8; padding:6mm; }}
 io.open(os.path.join(HERE, 'candy-card-preview.html'), 'w', encoding='utf-8').write(PREVIEW_HTML)
 
 # ── 3) A4 10장 앉힘(2열 x 5행) : 교회에서 직접 뽑을 때 ──────────
-# A4 210x297 / 카드 90x50 → 격자 180x250. 남는 여백을 상하좌우로 똑같이 나눈다
-#   좌우 (210-180)/2 = 15mm,  상하 (297-250)/2 = 23.5mm
-# 여백이 상하좌우 대칭이라 양면 인쇄에서 '긴 쪽 넘기기'든 '짧은 쪽 넘기기'든
-# 앞뒤가 그대로 맞는다(10장이 모두 같은 카드라 좌우 반전도 따질 필요가 없다).
-# 카드끼리 붙여 놓아 테두리 선을 그대로 따라 자르면 된다.
+# 카드 90x50 + 카드 사이 4mm 여유.
+#   가로 90+4+90 = 184  → 좌우 여백 (210-184)/2 = 13mm
+#   세로 50x5 + 4x4 = 266 → 상하 여백 (297-266)/2 = 15.5mm
+# 여백이 상하좌우 대칭이라 양면 인쇄에서 '긴 쪽 넘기기'든 '짧은 쪽 넘기기'든 앞뒤가 맞는다
+# (10장이 모두 같은 카드라 좌우 반전도 따질 필요가 없다).
+#
+# 카드 사이 4mm 여유가 핵심이다 — 양면이 1~2mm 어긋나도 뒷면 내용이 잘려 나가지 않는다.
+# 재단 표시는 '앞장에만' 짧은 눈금으로 둔다. 카드를 가로지르는 선이 없으니
+# 뒷장과 어긋날 것도 없다. 눈금 두 개를 자로 이어 자르면 된다.
+GAP, MT, ML = 4.0, 15.5, 13.0
+ticks = []
+for i in range(3):                       # 세로 재단선 3개(왼쪽 끝 · 가운데 · 오른쪽 끝)
+    x = ML + i * (90 + GAP) - (GAP / 2 if i == 1 else 0)
+    x = ML if i == 0 else (ML + 90 + GAP / 2 if i == 1 else ML + 90 + GAP + 90)
+    ticks.append('<div class="tk v" style="left:{:.2f}mm;top:0"></div>'.format(x))
+    ticks.append('<div class="tk v" style="left:{:.2f}mm;bottom:0"></div>'.format(x))
+for j in range(6):                       # 가로 재단선 6개(행 경계)
+    y = MT + j * (50 + GAP) - (GAP / 2 if 0 < j < 5 else (0 if j == 0 else GAP))
+    ticks.append('<div class="tk h" style="top:{:.2f}mm;left:0"></div>'.format(y))
+    ticks.append('<div class="tk h" style="top:{:.2f}mm;right:0"></div>'.format(y))
+TICKS = "".join(ticks)
+
 A4_HTML = ("""<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">""" + FONTLINK + """
 <style>
 @page {{ size: A4 portrait; margin: 0; }}
 """ + STYLE + """
-.sheet {{ width:210mm; height:297mm; padding:23.5mm 15mm; display:flex; flex-wrap:wrap;
-          align-content:flex-start; page-break-after:always; }}
+.sheet {{ width:210mm; height:297mm; padding:15.5mm 13mm; display:flex; flex-wrap:wrap;
+          align-content:flex-start; gap:4mm; page-break-after:always; position:relative; }}
 .sheet:last-child {{ page-break-after:auto; }}
 .cell {{ width:90mm; height:50mm; }}
-.cell .inner {{ width:90mm; height:50mm; border-radius:0; }}  /* 붙여 자르므로 모서리는 각지게 */
+/* 재단 눈금 — 앞장에만. 시트 가장자리에 짧게 찍어 카드 위를 지나지 않는다. */
+.tk {{ position:absolute; background:#b6bfd0; }}
+.tk.v {{ width:.25mm; height:7mm; }}
+.tk.h {{ height:.25mm; width:7mm; }}
 </style></head><body>
-<div class="sheet">""" + ('<div class="cell">' + FRONT_IN + '</div>') * 10 + """</div>
-<div class="sheet">""" + ('<div class="cell">' + BACK_IN + '</div>') * 10 + """</div>
+<div class="sheet">""" + TICKS + ('<div class="cell front"><div class="holder">' + FRONT_IN + '</div></div>') * 10 + """</div>
+<div class="sheet">""" + ('<div class="cell back"><div class="holder">' + BACK_IN + '</div></div>') * 10 + """</div>
 </body></html>""").format()
 
 io.open(os.path.join(HERE, 'candy-card-a4.html'), 'w', encoding='utf-8').write(A4_HTML)
