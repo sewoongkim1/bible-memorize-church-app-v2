@@ -268,5 +268,94 @@ body { background:#e9e4d8; padding:6mm; }
               % (n, c, c, card_pair(VARIANTS[0])) for n, c in PAPERS) +
       "</div></body></html>")
 
+
+# ── 4) 보고용 통합 PDF ─────────────────────────────────────────
+# 인쇄용이 아니라 '보여드리는' 문서다. 개요 → 카드 9종 앞뒤(실제 크기) → 인쇄 안내.
+REPORT_CSS = """
+@page { size: A4 portrait; margin: 0; }
+.pg { width:210mm; height:297mm; padding:16mm 12mm 14mm; position:relative;
+      page-break-after:always; display:flex; flex-direction:column; }
+.pg:last-child { page-break-after:auto; }
+.pg-h { font-family:"Noto Serif KR",serif; font-size:15pt; font-weight:700; color:#12294f;
+        border-bottom:.5mm solid #c8a24b; padding-bottom:2.5mm; margin-bottom:6mm; }
+.pg-n { position:absolute; right:12mm; bottom:7mm; font-size:8pt; color:#8a95a8; }
+.lead { font-size:10.5pt; line-height:1.75; color:#26324a; word-break:keep-all; }
+.lead b { color:#12294f; }
+.kv { display:flex; gap:3mm; font-size:10.5pt; line-height:1.9; color:#26324a; }
+.kv .k { flex:0 0 26mm; font-weight:800; color:#12294f; }
+.note { margin-top:5mm; padding:4mm 5mm; border:.35mm solid #c8a24b; border-radius:1.5mm;
+        font-size:9.5pt; line-height:1.7; color:#26324a; word-break:keep-all; }
+.note b { color:#12294f; }
+.row { display:flex; gap:6mm; align-items:flex-start; margin-bottom:5mm; }
+.row-lbl { font-size:9pt; font-weight:800; color:#12294f; margin-bottom:1.5mm; }
+.row-lbl em { font-style:normal; font-weight:500; color:#8a7a4e; }
+.chip { display:flex; gap:6mm; }
+.pp { display:flex; flex-wrap:wrap; gap:3mm; margin-top:3mm; }
+.pp div { font-size:8.5pt; font-weight:700; color:#26324a; padding:2mm 3mm;
+          border-radius:1.2mm; border:.3mm solid #cbb277; }
+"""
+
+def side(v, back=False):
+    inner = BACK_IN if back else v['front_in']
+    cls = 'back' if back else 'front'
+    return '<div class="card %s"><div class="holder">%s</div></div>' % (cls, inner)
+
+pages = []
+# 1쪽 — 개요
+pages.append('<div class="pg"><div class="pg-h">「말씀암송이 답이다!」 사탕 카드</div>'
+  '<div class="lead">투명 봉투에 <b>사탕과 함께</b> 넣어 나눠드리는 명함 크기 초대 카드입니다. '
+  '앞면은 말씀으로 마음을 열고, 뒷면 QR로 앱에 바로 들어오도록 했습니다.</div>'
+  '<div style="height:6mm"></div>'
+  '<div class="kv"><div class="k">크기</div><div>명함 90 x 50mm (양면)</div></div>'
+  '<div class="kv"><div class="k">종류</div><div>9종 — 앱 암송구절 8 + 시편 119:103</div></div>'
+  '<div class="kv"><div class="k">QR 연결</div><div>gocheok.onlybible.kr</div></div>'
+  '<div class="kv"><div class="k">참여 기간</div><div>2026년 9월 30일까지</div></div>'
+  '<div class="kv"><div class="k">인쇄</div><div>색도화지 + 컬러 프린터, A4 한 장에 10장</div></div>'
+  '<div class="note"><b>사탕과 말씀을 엮은 이유.</b><br>'
+  '시편 119:103 「내 입에 꿀보다 더 다니이다」와 여호수아 1:8 「네 입에서 떠나지 말게 하며」는 '
+  '사탕을 입에 넣는 순간 뜻이 몸으로 이해됩니다. 설명 없이도 전해지는 초대가 됩니다.<br><br>'
+  '<b>QR을 뒷면에 둔 이유.</b><br>'
+  '봉투 안에서 사탕이 카드 아래쪽을 가립니다. 앞면에 QR이 있으면 스캔이 아예 안 됩니다. '
+  '사탕을 꺼내려면 어차피 봉투를 열게 되므로 QR은 뒷면에 크게 두었습니다.<br><br>'
+  '<b>어르신을 위해.</b><br>'
+  '구절 12pt, 안내 10.5pt로 키우고 뒷면 문구를 줄였습니다. '
+  '「1층 로비에서 도와드립니다」를 가장 눈에 띄게 두었습니다.</div>'
+  '<div class="pg-n">1 / 5</div></div>')
+
+# 2~4쪽 — 카드 9종
+for pi in range(3):
+    grp = VARIANTS[pi*3:pi*3+3]
+    rows = "".join(
+        '<div><div class="row-lbl">%s &nbsp;<em>%s</em></div>'
+        '<div class="chip">%s%s</div></div>'
+        % (v['ref'], v['invite'].replace('<br>', ' ').replace('<b>', '').replace('</b>', ''),
+           side(v), side(v, True))
+        for v in grp)
+    pages.append('<div class="pg"><div class="pg-h">카드 %d종 (%d/9 ~ %d/9)</div>%s'
+                 '<div class="pg-n">%d / 5</div></div>'
+                 % (len(grp), pi*3+1, pi*3+len(grp), rows, pi+2))
+
+# 5쪽 — 인쇄 안내
+pp = "".join('<div style="background:%s">%s</div>' % (c, n) for n, c in PAPERS)
+pages.append('<div class="pg"><div class="pg-h">인쇄 안내</div>'
+  '<div class="kv"><div class="k">파일</div><div>사탕카드_A4_&lt;구절&gt;.pdf — 9개, 각 2쪽(앞장·뒷장)</div></div>'
+  '<div class="kv"><div class="k">배치</div><div>A4 한 장에 10장 (2열 x 5행), 카드 사이 4mm 여유</div></div>'
+  '<div class="kv"><div class="k">양면</div><div>긴 쪽·짧은 쪽 어느 방향으로 넘겨도 앞뒤가 맞음</div></div>'
+  '<div class="kv"><div class="k">배율</div><div><b>실제 크기(100%%)</b> — 「용지에 맞춤」으로 두면 줄어듭니다</div></div>'
+  '<div class="kv"><div class="k">재단</div><div>앞장 가장자리의 눈금 두 개를 자로 이어 자릅니다</div></div>'
+  '<div class="note"><b>종이는 연한 색만 쓰실 수 있습니다.</b><br>'
+  '컬러 프린터는 흰색을 인쇄하지 못합니다(흰색 = 잉크 없음 = 종이색이 그대로 비침). '
+  '그래서 진한 종이에서는 글씨도 QR도 묻히고, QR 뒤에 흰 사각을 깔 수도 없습니다. '
+  '아래 색까지가 안전합니다.'
+  '<div class="pp">%s</div></div>'
+  '<div class="note"><b>대량 인쇄 전에 한 장만 시험해 주세요.</b><br>'
+  '한 장을 양면으로 뽑아 잘라 보시고, 휴대폰으로 QR을 찍어 확인하시면 '
+  '배율·밀림·스캔을 한 번에 점검할 수 있습니다.</div>'
+  '<div class="pg-n">5 / 5</div></div>' % pp)
+
+write('candy-card-report.html',
+      HEAD + STYLE + REPORT_CSS + '</style></head><body>' + "".join(pages) + '</body></html>')
+print('  + candy-card-report.html (보고용)')
+
 print('wrote: ' + ', '.join('candy-card-a4-%s.html' % v['key'] for v in VARIANTS)
       + ' + 낱장 2종 + 미리보기 2종')
