@@ -36,6 +36,11 @@ QR = io.open(os.path.join(M, 'qr-data-uri.txt'), encoding='utf-8').read().strip(
 
 # 잉크는 두 가지만 — 진한 네이비(본문)와 골드(액센트).
 STYLE = """
+/* 폰트는 이 PC에 설치된 것만 쓴다(웹폰트 링크 없음 — 오프라인·인쇄에서도 그대로 나온다).
+   2026-08-18 글자 폭 실측으로 확인:
+     Noto Serif KR 321.7 / Batang 340.0 / Noto Sans KR 304.4  → 모두 적용됨
+     BM JUA·generic serif 는 304.4 = 고딕으로 떨어짐(미설치) → 쓰지 않는다
+   명조는 Batang보다 Noto Serif KR이 곱고 현대적이라 이쪽으로 간다. */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family:"Noto Sans KR","Malgun Gothic",sans-serif; color:#12294f;
        -webkit-print-color-adjust:exact; print-color-adjust:exact; }
@@ -43,39 +48,46 @@ body { font-family:"Noto Sans KR","Malgun Gothic",sans-serif; color:#12294f;
 .card { width:94mm; height:54mm; padding:2mm; overflow:hidden; position:relative;
         background:transparent; }
 .holder { width:90mm; height:50mm; padding:2mm; }          /* 2mm = 재단 여유 */
-.inner { width:86mm; height:46mm; padding:3.6mm 4.4mm; position:relative; overflow:hidden;
+.inner { width:86mm; height:46mm; padding:3.0mm 4.4mm; position:relative; overflow:hidden;
          display:flex; flex-direction:column; }
 .front .inner { border:.35mm solid #9aa8c0; border-radius:2.4mm; }
 
-/* ── 앞면 ── */
-.ref { font-size:6.6pt; font-weight:800; color:#a8862f; letter-spacing:.10em; }
-.verse { font-family:"Nanum Myeongjo","Batang","바탕",serif; font-size:10.4pt; font-weight:700;
-         line-height:1.55; color:#12294f; margin-top:2.2mm; word-break:keep-all; letter-spacing:-.01em; }
-.rule { width:11mm; height:.6mm; background:#c8a24b; margin:3.2mm 0 2.8mm; border-radius:.3mm; }
-.invite { font-size:9.6pt; font-weight:700; line-height:1.5; color:#1c2333; word-break:keep-all; }
+/* ── 앞면 ──
+   어르신이 받으실 카드다. 글자를 키우는 대신 문구를 줄였다 — 90x50mm에서
+   둘 다 가질 수는 없다. 구절 12pt / 초대문 11pt. */
+.ref { font-size:7.4pt; font-weight:800; color:#a8862f; letter-spacing:.08em; }
+.verse { font-family:"Noto Serif KR","Batang",serif; font-size:12pt; font-weight:600;
+         line-height:1.35; color:#12294f; margin-top:1.4mm; word-break:keep-all; letter-spacing:-.02em; }
+/* flex 세로 배치에서 눌리지 않도록 — 안 그러면 선이 사라진다 */
+.rule { flex:0 0 auto; width:11mm; height:.6mm; background:#c8a24b; margin:2.0mm 0 1.8mm;
+        border-radius:.3mm; }
+.invite { font-size:11pt; font-weight:700; line-height:1.45; color:#1c2333; word-break:keep-all;
+          letter-spacing:-.02em; }
 .invite b { color:#a8862f; }
-.brand { position:absolute; right:4.4mm; bottom:3.4mm; display:flex; align-items:center; gap:1.3mm; }
-.brand img { width:4.2mm; height:4.2mm; object-fit:cover; object-position:top; }
-.brand span { font-size:6.8pt; font-weight:800; color:#4a5a7a; }
+.brand { position:absolute; right:4.4mm; bottom:3mm; display:flex; align-items:center; gap:1.3mm; }
+.brand img { width:4.4mm; height:4.4mm; object-fit:cover; object-position:top; }
+.brand span { font-size:7.4pt; font-weight:800; color:#4a5a7a; }
 
-/* ── 뒷면 (두 판 공통) ── */
-.b-title { font-family:"Nanum Myeongjo","Batang","바탕",serif; font-size:11.4pt; font-weight:800;
-           color:#12294f; letter-spacing:-.01em; }
-.b-main { display:flex; gap:3.8mm; align-items:center; margin-top:2.4mm; }
+/* ── 뒷면 (모든 판 공통) ──
+   단계 설명을 짧게 줄이고 글자를 10.5pt까지 키웠다.
+   「1층 로비에서 도와드립니다」는 어르신께 가장 중요한 줄이라 눈에 띄게 둔다. */
+.b-title { font-family:"Noto Serif KR","Batang",serif; font-size:11.5pt; font-weight:700;
+           color:#12294f; letter-spacing:-.02em; }
+.b-main { display:flex; gap:3.4mm; align-items:center; margin-top:1.4mm; }
 /* QR은 종이색 위에 검게 찍힌다(흰 바탕을 깔 수 없다) — 연한 종이에서만 안전하다. */
-.b-qr { width:22mm; height:22mm; flex:0 0 auto; image-rendering:pixelated;
-        border:.35mm solid #9aa8c0; border-radius:.8mm; padding:.6mm; }
+.b-qr { width:20mm; height:20mm; flex:0 0 auto; image-rendering:pixelated;
+        border:.35mm solid #9aa8c0; border-radius:.8mm; padding:.5mm; }
 .steps { flex:1; min-width:0; }
-.step { display:flex; gap:1.6mm; align-items:baseline; font-size:8.2pt; line-height:1.5;
-        color:#1c2333; word-break:keep-all; }
+.step { display:flex; gap:1.8mm; align-items:baseline; font-size:10.5pt; line-height:1.25;
+        font-weight:500; color:#1c2333; word-break:keep-all; letter-spacing:-.02em; }
 .step i { font-style:normal; font-weight:800; color:#a8862f; flex:0 0 auto; }
-/* 배지도 면을 칠하지 않고 테두리로 — 색도화지 위에서 면을 칠하면 종이색과 싸운다 */
-.gift { margin-top:2.2mm; font-size:7.8pt; font-weight:800; color:#12294f;
-        border:.35mm solid #c8a24b; border-radius:1mm; padding:1.1mm 2.2mm; display:inline-block;
-        word-break:keep-all; }
-.b-foot { margin-top:auto; display:flex; justify-content:space-between; align-items:flex-end; gap:2mm; }
-.b-foot .url { font-size:7.4pt; font-weight:800; color:#12294f; }
-.b-foot .help { font-size:6.6pt; color:#4a5a7a; line-height:1.45; text-align:right; word-break:keep-all; }
+/* 면을 칠하지 않고 테두리로 — 색도화지 위에서 면을 칠하면 종이색과 싸운다 */
+.help { margin-top:auto; font-size:9.5pt; font-weight:800; color:#12294f;
+        border:.35mm solid #c8a24b; border-radius:1mm; padding:0.9mm 2.4mm;
+        text-align:center; word-break:keep-all; letter-spacing:-.02em; }
+.b-foot { margin-top:0.8mm; display:flex; justify-content:space-between; align-items:baseline; gap:2mm; }
+.b-foot .url { font-size:9pt; font-weight:800; color:#12294f; }
+.b-foot .who { font-size:8pt; font-weight:600; color:#4a5a7a; white-space:nowrap; }
 """
 
 # ── 카드 앞면들 ────────────────────────────────────────────────
@@ -96,7 +108,8 @@ VARIANTS = [
     {   # 「네 입에서 떠나지 말게 하며」 — 사탕이 입에 있는 동안과 그대로 겹친다.
         # 앱 본문은 44자라 두 줄에 안 들어가므로 앞 절반만 쓴다(개역개정 그대로).
         'key': '수1-8', 'name': '입에서', 'ref': '여호수아 1:8',
-        'verse': '이 율법책을 네 입에서 떠나지 말게 하며<br>주야로 그것을 묵상하여',
+        # 12pt에서 한 줄이 18자쯤이라 세 줄로 나눈다
+        'verse': '이 율법책을 네 입에서<br>떠나지 말게 하며<br>주야로 그것을 묵상하여',
         'invite': '사탕이 입에 있는 동안,<br><b>말씀 한 구절</b> 입에 담아 보세요',
     },
     {
@@ -131,7 +144,7 @@ VARIANTS = [
     },
     {   # 앱 32구절 밖이지만 사탕과 가장 잘 맞물려 남겨 둔다
         'key': '119-103', 'name': '꿀', 'ref': '시편 119:103',
-        'verse': '주의 말씀의 맛이 내게 어찌 그리 단지요<br>내 입에 꿀보다 더 다니이다',
+        'verse': '주의 말씀의 맛이 내게<br>어찌 그리 단지요<br>내 입에 꿀보다 더 다니이다',
         'invite': '이 사탕이 녹는 동안,<br><b>말씀 한 구절</b> 어떠세요?',
     },
 ]
@@ -149,25 +162,24 @@ BACK_IN = """<div class="inner">
   <div class="b-main">
     <img class="b-qr" src="%s">
     <div class="steps">
-      <div class="step"><i>①</i><span>QR을 스캔하세요</span></div>
-      <div class="step"><i>②</i><span>교구·목장·이름 입력</span></div>
-      <div class="step"><i>③</i><span>이번 주 말씀 빈칸 채우기</span></div>
-      <div class="gift">참여하신 분께 선물 · ~ 9월 30일</div>
+      <div class="step"><i>①</i><span>QR을 스캔</span></div>
+      <div class="step"><i>②</i><span>교구·이름 입력</span></div>
+      <div class="step"><i>③</i><span>빈칸 채우기</span></div>
     </div>
   </div>
+  <div class="help">1층 로비에서 도와드립니다 · 선물 ~ 9월 30일</div>
   <div class="b-foot">
     <div class="url">gocheok.onlybible.kr</div>
-    <div class="help">설치·사용법은 1층 로비에서<br>고척교회 제자양육부</div>
+    <div class="who">고척교회 제자양육부</div>
   </div>
 </div>""" % QR
 
 for v in VARIANTS:
     v['front_in'] = FRONT_TPL.format(ref=v['ref'], verse=v['verse'], invite=v['invite'])
 
-FONTLINK = ('<link href="https://fonts.googleapis.com/css2?'
-            'family=Nanum+Myeongjo:wght@400;700;800&'
-            'family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">')
-HEAD = '<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">' + FONTLINK + '<style>'
+# 웹폰트 링크 없음 — 이 PC에 설치된 Noto Serif KR / Noto Sans KR 만 쓴다.
+# (외부 폰트 요청이 있으면 헤드리스 렌더가 멈추기도 하고, 오프라인 인쇄에서 결과가 달라진다)
+HEAD = '<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><style>'
 
 
 def write(name, html):
