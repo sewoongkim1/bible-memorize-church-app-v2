@@ -78,21 +78,61 @@ body { font-family:"Noto Sans KR","Malgun Gothic",sans-serif; color:#12294f;
 .b-foot .help { font-size:6.6pt; color:#4a5a7a; line-height:1.45; text-align:right; word-break:keep-all; }
 """
 
-# ── 두 판의 앞면 ────────────────────────────────────────────────
+# ── 카드 앞면들 ────────────────────────────────────────────────
+# 대부분 앱의 32구절에서 골랐다 — 카드가 실제 암송할 내용의 맛보기가 된다.
+# 카드 한 줄이 21자쯤이라 34자 이하만 두 줄에 편안히 들어간다.
+#
+# ※ 앱 verses.json의 표기 오류는 카드에서 바로잡아 넣는다
+#     눅 4:8   섬가라   → 섬기라
+#     수 1:8   말게하며 → 말게 하며
+#     행 16:31 네집이   → 네 집이
+#   (앱 데이터도 함께 고쳐야 한다)
 VARIANTS = [
-    {
-        'key': '119-103', 'name': '꿀',
-        'ref': '시편 119:103',
-        'verse': '주의 말씀의 맛이 내게 어찌 그리 단지요<br>내 입에 꿀보다 더 다니이다',
-        # 사탕을 입에 넣는 순간 문구가 몸으로 이해된다
-        'invite': '이 사탕이 녹는 동안,<br><b>말씀 한 구절</b> 어떠세요?',
+    {   # 앱 1번 구절이자 앱 태그라인
+        'key': '119-105', 'name': '등불', 'ref': '시편 119:105',
+        'verse': '주의 말씀은 내 발에 등이요<br>내 길에 빛이니이다',
+        'invite': '오늘 하루,<br><b>말씀 한 구절</b>로 밝혀 보세요',
+    },
+    {   # 「네 입에서 떠나지 말게 하며」 — 사탕이 입에 있는 동안과 그대로 겹친다.
+        # 앱 본문은 44자라 두 줄에 안 들어가므로 앞 절반만 쓴다(개역개정 그대로).
+        'key': '수1-8', 'name': '입에서', 'ref': '여호수아 1:8',
+        'verse': '이 율법책을 네 입에서 떠나지 말게 하며<br>주야로 그것을 묵상하여',
+        'invite': '사탕이 입에 있는 동안,<br><b>말씀 한 구절</b> 입에 담아 보세요',
     },
     {
-        'key': '119-105', 'name': '등불',
-        'ref': '시편 119:105',
-        'verse': '주의 말씀은 내 발에 등이요<br>내 길에 빛이니이다',
-        # 앱 태그라인과 같은 구절 — 빛의 이미지에 맞춰 초대문도 바꾼다
-        'invite': '오늘 하루,<br><b>말씀 한 구절</b>로 밝혀 보세요',
+        'key': '살전5-16', 'name': '기뻐하라', 'ref': '데살로니가전서 5:16-18',
+        'verse': '항상 기뻐하라 쉬지 말고 기도하라<br>범사에 감사하라',
+        'invite': '오늘 하루를 여는<br><b>말씀 한 구절</b>',
+    },
+    {
+        'key': '눅1-28', 'name': '평안', 'ref': '누가복음 1:28',
+        'verse': '은혜를 받은 자여 평안할지어다<br>주께서 너와 함께하시도다',
+        'invite': '오늘 받은 이 인사를<br><b>말씀 한 구절</b>과 함께',
+    },
+    {
+        'key': '창12-2', 'name': '복', 'ref': '창세기 12:2',
+        'verse': '내가 네 이름을 창대하게 하리니<br>너는 복이 될지라',
+        'invite': '복이 되는 하루,<br><b>말씀 한 구절</b>로 시작해요',
+    },
+    {
+        'key': '행16-31', 'name': '네 집이', 'ref': '사도행전 16:31',
+        'verse': '주 예수를 믿으라 그리하면<br>너와 네 집이 구원을 받으리라',
+        'invite': '우리 집에 심는<br><b>말씀 한 구절</b>',
+    },
+    {
+        'key': '눅4-8', 'name': '섬기라', 'ref': '누가복음 4:8',
+        'verse': '주 너의 하나님께 경배하고<br>다만 그를 섬기라',
+        'invite': '오늘 첫 마음을 담아<br><b>말씀 한 구절</b>',
+    },
+    {
+        'key': '막11-3', 'name': '쓰시겠다', 'ref': '마가복음 11:3',
+        'verse': '주가 쓰시겠다 하라 그리하면<br>즉시 이리로 보내리라',
+        'invite': '오늘 나를 쓰시도록,<br><b>말씀 한 구절</b>',
+    },
+    {   # 앱 32구절 밖이지만 사탕과 가장 잘 맞물려 남겨 둔다
+        'key': '119-103', 'name': '꿀', 'ref': '시편 119:103',
+        'verse': '주의 말씀의 맛이 내게 어찌 그리 단지요<br>내 입에 꿀보다 더 다니이다',
+        'invite': '이 사탕이 녹는 동안,<br><b>말씀 한 구절</b> 어떠세요?',
     },
 ]
 
@@ -185,17 +225,19 @@ def card_pair(v):
     return ('<div class="card front"><div class="holder">' + v['front_in'] + '</div></div>'
             '<div class="card back"><div class="holder">' + BACK_IN + '</div></div>')
 
+# 앞면만 나란히 — 종류가 많아 뒷면(공통)은 뺀다
 write('candy-card-preview.html',
       HEAD + STYLE + """
 body { background:#e9e4d8; padding:6mm; }
-.grid { display:flex; flex-wrap:wrap; gap:6mm; }
+.grid { display:flex; flex-wrap:wrap; gap:5mm; }
 .lbl { font-size:8pt; font-weight:800; color:#333; margin-bottom:1.5mm; }
 .lbl code { font-weight:600; color:#777; }
-.pane { padding:3mm; border-radius:2mm; box-shadow:0 1mm 3mm rgba(0,0,0,.12); }
+.pane { padding:2.5mm; border-radius:2mm; box-shadow:0 1mm 3mm rgba(0,0,0,.12); }
 </style></head><body><div class="grid">""" +
-      "".join('<div><div class="lbl">%s판 <code>%s</code></div>'
-              '<div class="pane" style="background:#f7f1e3">%s</div></div>'
-              % (v['name'], v['ref'], card_pair(v)) for v in VARIANTS) +
+      "".join('<div><div class="lbl">%s <code>%s</code></div>'
+              '<div class="pane" style="background:#f7f1e3">'
+              '<div class="card front"><div class="holder">%s</div></div></div></div>'
+              % (v['ref'], v['key'], v['front_in']) for v in VARIANTS) +
       "</div></body></html>")
 
 # 연한 것부터 진한 순 — 진해질수록 QR·글씨 대비가 나빠지는 걸 눈으로 고르시라고.
