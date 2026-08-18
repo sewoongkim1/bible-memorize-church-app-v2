@@ -71,15 +71,15 @@ body {{ font-family:"Noto Sans KR","Malgun Gothic",sans-serif; color:#12294f;
 .b-foot .help {{ font-size:6.6pt; color:#4a5a7a; line-height:1.45; text-align:right; word-break:keep-all; }}
 """
 
-FRONT = """<div class="card front"><div class="inner">
+FRONT_IN = """<div class="inner">
   <div class="ref">시편 119:103</div>
   <div class="verse">주의 말씀의 맛이 내게 어찌 그리 단지요<br>내 입에 꿀보다 더 다니이다</div>
   <div class="rule"></div>
   <div class="invite">이 사탕이 녹는 동안,<br><b>말씀 한 구절</b> 어떠세요?</div>
   <div class="brand"><img src="{logo}"><span>고척교회</span></div>
-</div></div>""".format(logo=LOGO)
+</div>""".format(logo=LOGO)
 
-BACK = """<div class="card back"><div class="inner">
+BACK_IN = """<div class="inner">
   <div class="b-title">말씀암송이 답이다!</div>
   <div class="b-main">
     <img class="b-qr" src="{qr}">
@@ -94,7 +94,10 @@ BACK = """<div class="card back"><div class="inner">
     <div class="url">gocheok.onlybible.kr</div>
     <div class="help">설치·사용법은 1층 로비에서<br>고척교회 제자양육부</div>
   </div>
-</div></div>""".format(qr=QR)
+</div>""".format(qr=QR)
+
+FRONT = '<div class="card front">' + FRONT_IN + '</div>'
+BACK = '<div class="card back">' + BACK_IN + '</div>'
 
 FONTLINK = ('<link href="https://fonts.googleapis.com/css2?'
             'family=Nanum+Myeongjo:wght@400;700;800&'
@@ -143,4 +146,27 @@ body {{ background:#e9e4d8; padding:6mm; }}
 </body></html>""").format()
 
 io.open(os.path.join(HERE, 'candy-card-preview.html'), 'w', encoding='utf-8').write(PREVIEW_HTML)
-print('wrote candy-card.html (인쇄용) / candy-card-preview.html (종이색 미리보기)')
+
+# ── 3) A4 10장 앉힘(2열 x 5행) : 교회에서 직접 뽑을 때 ──────────
+# A4 210x297 / 카드 90x50 → 격자 180x250. 남는 여백을 상하좌우로 똑같이 나눈다
+#   좌우 (210-180)/2 = 15mm,  상하 (297-250)/2 = 23.5mm
+# 여백이 상하좌우 대칭이라 양면 인쇄에서 '긴 쪽 넘기기'든 '짧은 쪽 넘기기'든
+# 앞뒤가 그대로 맞는다(10장이 모두 같은 카드라 좌우 반전도 따질 필요가 없다).
+# 카드끼리 붙여 놓아 테두리 선을 그대로 따라 자르면 된다.
+A4_HTML = ("""<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">""" + FONTLINK + """
+<style>
+@page {{ size: A4 portrait; margin: 0; }}
+""" + STYLE + """
+.sheet {{ width:210mm; height:297mm; padding:23.5mm 15mm; display:flex; flex-wrap:wrap;
+          align-content:flex-start; page-break-after:always; }}
+.sheet:last-child {{ page-break-after:auto; }}
+.cell {{ width:90mm; height:50mm; }}
+.cell .inner {{ width:90mm; height:50mm; border-radius:0; }}  /* 붙여 자르므로 모서리는 각지게 */
+</style></head><body>
+<div class="sheet">""" + ('<div class="cell">' + FRONT_IN + '</div>') * 10 + """</div>
+<div class="sheet">""" + ('<div class="cell">' + BACK_IN + '</div>') * 10 + """</div>
+</body></html>""").format()
+
+io.open(os.path.join(HERE, 'candy-card-a4.html'), 'w', encoding='utf-8').write(A4_HTML)
+print('wrote candy-card.html (낱장 인쇄용) / candy-card-preview.html (종이색 미리보기)'
+      ' / candy-card-a4.html (A4 10장 앉힘)')
