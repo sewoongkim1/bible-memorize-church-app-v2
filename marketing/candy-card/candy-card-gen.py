@@ -56,23 +56,23 @@ body { font-family:"Noto Sans KR","Malgun Gothic",sans-serif; color:#12294f;
    어르신이 받으실 카드다. 글자를 키우는 대신 문구를 줄였다 — 90x50mm에서
    둘 다 가질 수는 없다. 구절 12pt / 초대문 11pt. */
 .head { display:flex; align-items:center; justify-content:space-between; gap:3mm; }
-.ref { font-size:7.4pt; font-weight:800; color:#a8862f; letter-spacing:.08em; }
+.ref { font-size:9pt; font-weight:800; color:#a8862f; letter-spacing:.08em; }
 .verse { font-family:"Noto Serif KR","Batang",serif; font-size:12pt; font-weight:600;
-         line-height:1.75; color:#12294f; margin-top:1.6mm; word-break:keep-all; letter-spacing:-.02em; }
+         line-height:1.62; color:#12294f; margin-top:1.6mm; word-break:keep-all; letter-spacing:-.02em; }
 /* 구절이 세 줄인 카드는 남는 여백이 1.9mm뿐이라 줄간격을 덜 준다 */
-.tight .verse { line-height:1.42; margin-top:1.4mm; }
+.tight .verse { line-height:1.32; margin-top:1.2mm; }
 /* flex 세로 배치에서 눌리지 않도록 — 안 그러면 선이 사라진다 */
 .rule { flex:0 0 auto; width:11mm; height:.6mm; background:#c8a24b; margin:2.6mm 0 2.2mm;
         border-radius:.3mm; }
-.tight .rule { margin:2.0mm 0 1.8mm; }
-.invite { font-size:11pt; font-weight:700; line-height:1.70; color:#1c2333; word-break:keep-all;
+.tight .rule { margin:1.8mm 0 1.6mm; }
+.invite { font-size:11pt; font-weight:700; line-height:1.60; color:#1c2333; word-break:keep-all;
           letter-spacing:-.02em; }
 .tight .invite { line-height:1.5; }
 .invite b { color:#a8862f; }
 /* 우측 상단 — 아래를 비워 줄간격에 쓰고, 초대 문구와 부딪히지 않는다 */
 .brand { flex:0 0 auto; display:flex; align-items:center; gap:1.3mm; }
-.brand img { width:4.4mm; height:4.4mm; object-fit:cover; object-position:top; }
-.brand span { font-size:7.4pt; font-weight:800; color:#4a5a7a; }
+.brand img { width:5.6mm; height:5.6mm; object-fit:cover; object-position:top; }
+.brand span { font-size:9pt; font-weight:800; color:#4a5a7a; }
 
 /* ── 뒷면 (모든 판 공통) ──
    단계 설명을 짧게 줄이고 글자를 10.5pt까지 키웠다.
@@ -112,10 +112,9 @@ VARIANTS = [
         'invite': '오늘 하루,<br><b>말씀 한 구절</b>로 밝혀 보세요',
     },
     {   # 「네 입에서 떠나지 말게 하며」 — 사탕이 입에 있는 동안과 그대로 겹친다.
-        # 앱 본문은 44자라 두 줄에 안 들어가므로 앞 절반만 쓴다(개역개정 그대로).
         'key': '수1-8', 'name': '입에서', 'ref': '여호수아 1:8',
-        # 12pt에서 한 줄이 18자쯤이라 세 줄로 나눈다
-        'verse': '이 율법책을 네 입에서<br>떠나지 말게 하며<br>주야로 그것을 묵상하여',
+        # 앱 본문 전체(45자). 12pt에서 한 줄이 18자쯤이라 세 줄로 나눈다
+        'verse': '이 율법책을 네 입에서<br>떠나지 말게 하며 다 지켜 행하라<br>그리하면 네가 형통하리라',
         'invite': '사탕이 입에 있는 동안,<br><b>말씀 한 구절</b> 입에 담아 보세요',
     },
     {
