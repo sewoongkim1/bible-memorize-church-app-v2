@@ -67,6 +67,8 @@ body { font-family:"Noto Sans KR","Malgun Gothic",sans-serif; color:#12294f;
          line-height:1.62; color:#12294f; margin-top:1.6mm; word-break:keep-all; letter-spacing:0; }
 /* 구절이 세 줄인 카드는 남는 여백이 1.9mm뿐이라 줄간격을 덜 준다 */
 .tight .verse { line-height:1.32; margin-top:1.2mm; }
+/* 짧은 구절은 크게 — 초대문을 한 줄로 줄여 자리를 만든 카드에 쓴다 */
+.big .verse { font-size:13.5pt; line-height:1.42; }
 /* flex 세로 배치에서 눌리지 않도록 — 안 그러면 선이 사라진다 */
 .rule { flex:0 0 auto; width:11mm; height:.6mm; background:#c8a24b; margin:2.6mm 0 2.2mm;
         border-radius:.3mm; }
@@ -124,9 +126,10 @@ VARIANTS = [
         'invite': '사탕이 입에 있는 동안,<br><b>말씀 한 구절</b> 입에 담아 보세요',
     },
     {
-        'key': '살전5-16', 'name': '기뻐하라', 'ref': '데살로니가전서 5:16-18',
-        'verse': '항상 기뻐하라 쉬지 말고 기도하라<br>범사에 감사하라',
-        'invite': '오늘 하루를 여는<br><b>말씀 한 구절</b>',
+        # 세 명령이라 세 줄로 나눈다 — 뜻도 살고, 초대문을 한 줄로 줄여 구절을 키웠다
+        'key': '살전5-16', 'name': '기뻐하라', 'ref': '데살로니가전서 5:16-18', 'big': True,
+        'verse': '항상 기뻐하라<br>쉬지 말고 기도하라<br>범사에 감사하라',
+        'invite': '오늘 하루를 여는 <b>말씀 한 구절</b>',
     },
     {
         'key': '눅1-28', 'name': '평안', 'ref': '누가복음 1:28',
@@ -189,9 +192,10 @@ BACK_IN = """<div class="inner">
 
 for v in VARIANTS:
     v['front_in'] = FRONT_TPL.format(ref=v['ref'], verse=v['verse'], invite=v['invite'])
-    # 구절이 세 줄이면 여백이 빠듯하다 — 줄간격을 덜 주는 tight 판으로
-    if v['verse'].count('<br>') >= 2:
-        v['front_in'] = v['front_in'].replace('<div class="inner">', '<div class="inner tight">', 1)
+    # 구절이 세 줄이면 여백이 빠듯하다 — 줄간격을 덜 주는 tight 판으로.
+    # 단 'big'으로 표시한 카드는 초대문을 한 줄로 줄여 자리를 벌어 둔 것이라 예외.
+    cls = 'inner big' if v.get('big') else ('inner tight' if v['verse'].count('<br>') >= 2 else 'inner')
+    v['front_in'] = v['front_in'].replace('<div class="inner">', '<div class="%s">' % cls, 1)
 
 # 웹폰트 링크 없음 — 이 PC에 설치된 Noto Serif KR / Noto Sans KR 만 쓴다.
 # (외부 폰트 요청이 있으면 헤드리스 렌더가 멈추기도 하고, 오프라인 인쇄에서 결과가 달라진다)

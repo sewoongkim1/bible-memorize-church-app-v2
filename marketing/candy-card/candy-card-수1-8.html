@@ -30,6 +30,8 @@ body { font-family:"Noto Sans KR","Malgun Gothic",sans-serif; color:#12294f;
          line-height:1.62; color:#12294f; margin-top:1.6mm; word-break:keep-all; letter-spacing:0; }
 /* 구절이 세 줄인 카드는 남는 여백이 1.9mm뿐이라 줄간격을 덜 준다 */
 .tight .verse { line-height:1.32; margin-top:1.2mm; }
+/* 짧은 구절은 크게 — 초대문을 한 줄로 줄여 자리를 만든 카드에 쓴다 */
+.big .verse { font-size:13.5pt; line-height:1.42; }
 /* flex 세로 배치에서 눌리지 않도록 — 안 그러면 선이 사라진다 */
 .rule { flex:0 0 auto; width:11mm; height:.6mm; background:#c8a24b; margin:2.6mm 0 2.2mm;
         border-radius:.3mm; }
