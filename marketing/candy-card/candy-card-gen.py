@@ -62,7 +62,7 @@ body { font-family:"Noto Sans KR","Malgun Gothic",sans-serif; color:#12294f;
    어르신이 받으실 카드다. 글자를 키우는 대신 문구를 줄였다 — 90x50mm에서
    둘 다 가질 수는 없다. 구절 12pt / 초대문 11pt. */
 .head { display:flex; align-items:center; justify-content:space-between; gap:3mm; }
-.ref { font-size:9pt; font-weight:600; color:#a8862f; letter-spacing:.06em; }
+.ref { font-size:10.5pt; font-weight:600; color:#a8862f; letter-spacing:.06em; }
 .verse { font-family:"Noto Serif KR","Batang",serif; font-size:12pt; font-weight:500;
          line-height:1.62; color:#12294f; margin-top:1.6mm; word-break:keep-all; letter-spacing:0; }
 /* 구절이 세 줄인 카드는 남는 여백이 1.9mm뿐이라 줄간격을 덜 준다 */
@@ -137,24 +137,24 @@ VARIANTS = [
         'invite': '오늘 받은 이 인사를<br><b>말씀 한 구절</b>과 함께',
     },
     {
-        'key': '창12-2', 'name': '복', 'ref': '창세기 12:2',
+        'key': '창12-2', 'name': '복', 'ref': '창세기 12:2', 'big': True,
         'verse': '내가 네 이름을 창대하게 하리니<br>너는 복이 될지라',
-        'invite': '복이 되는 하루,<br><b>말씀 한 구절</b>로 시작해요',
+        'invite': '복이 되는 하루, <b>말씀 한 구절</b>',
     },
     {
-        'key': '행16-31', 'name': '네 집이', 'ref': '사도행전 16:31',
+        'key': '행16-31', 'name': '네 집이', 'ref': '사도행전 16:31', 'big': True,
         'verse': '주 예수를 믿으라 그리하면<br>너와 네 집이 구원을 받으리라',
-        'invite': '우리 집에 심는<br><b>말씀 한 구절</b>',
+        'invite': '우리 집에 심는 <b>말씀 한 구절</b>',
     },
     {
-        'key': '눅4-8', 'name': '섬기라', 'ref': '누가복음 4:8',
+        'key': '눅4-8', 'name': '섬기라', 'ref': '누가복음 4:8', 'big': True,
         'verse': '주 너의 하나님께 경배하고<br>다만 그를 섬기라',
-        'invite': '오늘 첫 마음을 담아<br><b>말씀 한 구절</b>',
+        'invite': '오늘 첫 마음을 담아 <b>말씀 한 구절</b>',
     },
     {
-        'key': '막11-3', 'name': '쓰시겠다', 'ref': '마가복음 11:3',
+        'key': '막11-3', 'name': '쓰시겠다', 'ref': '마가복음 11:3', 'big': True,
         'verse': '주가 쓰시겠다 하라 그리하면<br>즉시 이리로 보내리라',
-        'invite': '오늘 나를 쓰시도록,<br><b>말씀 한 구절</b>',
+        'invite': '오늘 나를 쓰시도록 <b>말씀 한 구절</b>',
     },
     {   # 앱 32구절 밖이지만 사탕과 가장 잘 맞물려 남겨 둔다
         'key': '119-103', 'name': '꿀', 'ref': '시편 119:103',
