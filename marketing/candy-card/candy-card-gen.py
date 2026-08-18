@@ -55,16 +55,22 @@ body { font-family:"Noto Sans KR","Malgun Gothic",sans-serif; color:#12294f;
 /* ── 앞면 ──
    어르신이 받으실 카드다. 글자를 키우는 대신 문구를 줄였다 — 90x50mm에서
    둘 다 가질 수는 없다. 구절 12pt / 초대문 11pt. */
+.head { display:flex; align-items:center; justify-content:space-between; gap:3mm; }
 .ref { font-size:7.4pt; font-weight:800; color:#a8862f; letter-spacing:.08em; }
 .verse { font-family:"Noto Serif KR","Batang",serif; font-size:12pt; font-weight:600;
-         line-height:1.35; color:#12294f; margin-top:1.4mm; word-break:keep-all; letter-spacing:-.02em; }
+         line-height:1.75; color:#12294f; margin-top:1.6mm; word-break:keep-all; letter-spacing:-.02em; }
+/* 구절이 세 줄인 카드는 남는 여백이 1.9mm뿐이라 줄간격을 덜 준다 */
+.tight .verse { line-height:1.42; margin-top:1.4mm; }
 /* flex 세로 배치에서 눌리지 않도록 — 안 그러면 선이 사라진다 */
-.rule { flex:0 0 auto; width:11mm; height:.6mm; background:#c8a24b; margin:2.0mm 0 1.8mm;
+.rule { flex:0 0 auto; width:11mm; height:.6mm; background:#c8a24b; margin:2.6mm 0 2.2mm;
         border-radius:.3mm; }
-.invite { font-size:11pt; font-weight:700; line-height:1.45; color:#1c2333; word-break:keep-all;
+.tight .rule { margin:2.0mm 0 1.8mm; }
+.invite { font-size:11pt; font-weight:700; line-height:1.70; color:#1c2333; word-break:keep-all;
           letter-spacing:-.02em; }
+.tight .invite { line-height:1.5; }
 .invite b { color:#a8862f; }
-.brand { position:absolute; right:4.4mm; bottom:3mm; display:flex; align-items:center; gap:1.3mm; }
+/* 우측 상단 — 아래를 비워 줄간격에 쓰고, 초대 문구와 부딪히지 않는다 */
+.brand { flex:0 0 auto; display:flex; align-items:center; gap:1.3mm; }
 .brand img { width:4.4mm; height:4.4mm; object-fit:cover; object-position:top; }
 .brand span { font-size:7.4pt; font-weight:800; color:#4a5a7a; }
 
@@ -78,7 +84,7 @@ body { font-family:"Noto Sans KR","Malgun Gothic",sans-serif; color:#12294f;
 .b-qr { width:20mm; height:20mm; flex:0 0 auto; image-rendering:pixelated;
         border:.35mm solid #9aa8c0; border-radius:.8mm; padding:.5mm; }
 .steps { flex:1; min-width:0; }
-.step { display:flex; gap:1.8mm; align-items:baseline; font-size:10.5pt; line-height:1.25;
+.step { display:flex; gap:1.8mm; align-items:baseline; font-size:10.5pt; line-height:1.7;
         font-weight:500; color:#1c2333; word-break:keep-all; letter-spacing:-.02em; }
 .step i { font-style:normal; font-weight:800; color:#a8862f; flex:0 0 auto; }
 /* 면을 칠하지 않고 테두리로 — 색도화지 위에서 면을 칠하면 종이색과 싸운다 */
@@ -150,11 +156,13 @@ VARIANTS = [
 ]
 
 FRONT_TPL = """<div class="inner">
-  <div class="ref">{ref}</div>
+  <div class="head">
+    <div class="ref">{ref}</div>
+    <div class="brand"><img src="%s"><span>고척교회</span></div>
+  </div>
   <div class="verse">{verse}</div>
   <div class="rule"></div>
   <div class="invite">{invite}</div>
-  <div class="brand"><img src="%s"><span>고척교회</span></div>
 </div>""" % LOGO
 
 BACK_IN = """<div class="inner">
@@ -176,6 +184,9 @@ BACK_IN = """<div class="inner">
 
 for v in VARIANTS:
     v['front_in'] = FRONT_TPL.format(ref=v['ref'], verse=v['verse'], invite=v['invite'])
+    # 구절이 세 줄이면 여백이 빠듯하다 — 줄간격을 덜 주는 tight 판으로
+    if v['verse'].count('<br>') >= 2:
+        v['front_in'] = v['front_in'].replace('<div class="inner">', '<div class="inner tight">', 1)
 
 # 웹폰트 링크 없음 — 이 PC에 설치된 Noto Serif KR / Noto Sans KR 만 쓴다.
 # (외부 폰트 요청이 있으면 헤드리스 렌더가 멈추기도 하고, 오프라인 인쇄에서 결과가 달라진다)
