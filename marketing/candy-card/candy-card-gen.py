@@ -52,48 +52,54 @@ body { font-family:"Noto Sans KR","Malgun Gothic",sans-serif; color:#12294f;
          display:flex; flex-direction:column; }
 .front .inner { border:.35mm solid #9aa8c0; border-radius:2.4mm; }
 
+/* 색도화지에 인쇄하면 굵은 획이 잉크를 머금어 속공간(응·은·절·씀의 구멍)이 메워진다.
+   그래서 700~800을 쓰지 않고 500~600까지만 쓴다. 강조는 굵기가 아니라 '색'으로 준다.
+   자간도 음수(-.02em)를 걷어냈다 — 좁히면 도화지에서 획끼리 붙는다.
+   (Noto Sans KR은 진짜 굵기 판이 다 있어 합성 볼드는 아니다. Malgun Gothic은 400/700
+    폭이 342.2로 같은 합성 볼드라 쓰지 않는다.) */
+
 /* ── 앞면 ──
    어르신이 받으실 카드다. 글자를 키우는 대신 문구를 줄였다 — 90x50mm에서
    둘 다 가질 수는 없다. 구절 12pt / 초대문 11pt. */
 .head { display:flex; align-items:center; justify-content:space-between; gap:3mm; }
-.ref { font-size:9pt; font-weight:800; color:#a8862f; letter-spacing:.08em; }
-.verse { font-family:"Noto Serif KR","Batang",serif; font-size:12pt; font-weight:600;
-         line-height:1.62; color:#12294f; margin-top:1.6mm; word-break:keep-all; letter-spacing:-.02em; }
+.ref { font-size:9pt; font-weight:600; color:#a8862f; letter-spacing:.06em; }
+.verse { font-family:"Noto Serif KR","Batang",serif; font-size:12pt; font-weight:500;
+         line-height:1.62; color:#12294f; margin-top:1.6mm; word-break:keep-all; letter-spacing:0; }
 /* 구절이 세 줄인 카드는 남는 여백이 1.9mm뿐이라 줄간격을 덜 준다 */
 .tight .verse { line-height:1.32; margin-top:1.2mm; }
 /* flex 세로 배치에서 눌리지 않도록 — 안 그러면 선이 사라진다 */
 .rule { flex:0 0 auto; width:11mm; height:.6mm; background:#c8a24b; margin:2.6mm 0 2.2mm;
         border-radius:.3mm; }
 .tight .rule { margin:1.8mm 0 1.6mm; }
-.invite { font-size:11pt; font-weight:700; line-height:1.60; color:#1c2333; word-break:keep-all;
-          letter-spacing:-.02em; }
+.invite { font-size:11pt; font-weight:500; line-height:1.60; color:#1c2333; word-break:keep-all;
+          letter-spacing:0; }
 .tight .invite { line-height:1.5; }
-.invite b { color:#a8862f; }
+.invite b { font-weight:600; color:#a8862f; }   /* 강조는 색으로, 굵기는 한 단계만 */
 /* 우측 상단 — 아래를 비워 줄간격에 쓰고, 초대 문구와 부딪히지 않는다 */
 .brand { flex:0 0 auto; display:flex; align-items:center; gap:1.3mm; }
 .brand img { width:5.6mm; height:5.6mm; object-fit:cover; object-position:top; }
-.brand span { font-size:9pt; font-weight:800; color:#4a5a7a; }
+.brand span { font-size:9pt; font-weight:600; color:#4a5a7a; }
 
 /* ── 뒷면 (모든 판 공통) ──
    단계 설명을 짧게 줄이고 글자를 10.5pt까지 키웠다.
    「1층 로비에서 도와드립니다」는 어르신께 가장 중요한 줄이라 눈에 띄게 둔다. */
-.b-title { font-family:"Noto Serif KR","Batang",serif; font-size:11.5pt; font-weight:700;
-           color:#12294f; letter-spacing:-.02em; }
+.b-title { font-family:"Noto Serif KR","Batang",serif; font-size:11.5pt; font-weight:600;
+           color:#12294f; letter-spacing:0; }
 .b-main { display:flex; gap:3.4mm; align-items:center; margin-top:1.4mm; }
 /* QR은 종이색 위에 검게 찍힌다(흰 바탕을 깔 수 없다) — 연한 종이에서만 안전하다. */
 .b-qr { width:20mm; height:20mm; flex:0 0 auto; image-rendering:pixelated;
         border:.35mm solid #9aa8c0; border-radius:.8mm; padding:.5mm; }
 .steps { flex:1; min-width:0; }
 .step { display:flex; gap:1.8mm; align-items:baseline; font-size:10.5pt; line-height:1.7;
-        font-weight:500; color:#1c2333; word-break:keep-all; letter-spacing:-.02em; }
-.step i { font-style:normal; font-weight:800; color:#a8862f; flex:0 0 auto; }
+        font-weight:500; color:#1c2333; word-break:keep-all; letter-spacing:0; }
+.step i { font-style:normal; font-weight:600; color:#a8862f; flex:0 0 auto; }
 /* 면을 칠하지 않고 테두리로 — 색도화지 위에서 면을 칠하면 종이색과 싸운다 */
-.help { margin-top:auto; font-size:9.5pt; font-weight:800; color:#12294f;
+.help { margin-top:auto; font-size:9.5pt; font-weight:600; color:#12294f;
         border:.35mm solid #c8a24b; border-radius:1mm; padding:0.9mm 2.4mm;
-        text-align:center; word-break:keep-all; letter-spacing:-.02em; }
+        text-align:center; word-break:keep-all; letter-spacing:0; }
 .b-foot { margin-top:0.8mm; display:flex; justify-content:space-between; align-items:baseline; gap:2mm; }
-.b-foot .url { font-size:9pt; font-weight:800; color:#12294f; }
-.b-foot .who { font-size:8pt; font-weight:600; color:#4a5a7a; white-space:nowrap; }
+.b-foot .url { font-size:9pt; font-weight:600; color:#12294f; }
+.b-foot .who { font-size:8pt; font-weight:500; color:#4a5a7a; white-space:nowrap; }
 """
 
 # ── 카드 앞면들 ────────────────────────────────────────────────
