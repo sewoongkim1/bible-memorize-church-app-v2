@@ -308,6 +308,8 @@ h1 {
 }
 /* 내용이 길면 모달 안에서 스크롤(화면 밖으로 넘치지 않게) */
 .dmsg-card { max-height: 85vh; overflow-y: auto; }
+/* 공지·묵상 모달의 아이콘은 작게 — 46px는 좁은 폰에서 본문을 밀어낸다 */
+.dmsg-card .cheer-icon { font-size: 26px; margin-bottom: 4px; }
 .dmsg-body a { color: inherit; text-decoration: underline; }
 /* 오늘의 묵상(공지 없는 날 폴백) — 초록 톤 + 적용질문 구분선 */
 /* 묵상 카드: 상단 여백 축소(큰 아이콘 줄을 배지로 합쳐 스크롤 줄임) */
