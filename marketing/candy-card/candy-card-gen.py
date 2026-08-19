@@ -42,15 +42,15 @@ STYLE = """
      BM JUA·generic serif 는 304.4 = 고딕으로 떨어짐(미설치) → 쓰지 않는다
    명조는 Batang보다 Noto Serif KR이 곱고 현대적이라 이쪽으로 간다. */
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family:"Noto Sans KR","Malgun Gothic",sans-serif; color:#12294f;
+body { font-family:"Noto Sans KR","Malgun Gothic",sans-serif; color:#0b1c3a;
        -webkit-print-color-adjust:exact; print-color-adjust:exact; }
 
-.card { width:94mm; height:54mm; padding:2mm; overflow:hidden; position:relative;
+.card { width:94mm; height:59mm; padding:2mm; overflow:hidden; position:relative;
         background:transparent; }
-.holder { width:90mm; height:50mm; padding:2mm; }          /* 2mm = 재단 여유 */
-.inner { width:86mm; height:46mm; padding:3.0mm 4.4mm; position:relative; overflow:hidden;
+.holder { width:90mm; height:55mm; padding:2mm; }          /* 2mm = 재단 여유 */
+.inner { width:86mm; height:51mm; padding:3.0mm 4.4mm; position:relative; overflow:hidden;
          display:flex; flex-direction:column; }
-.front .inner { border:.35mm solid #9aa8c0; border-radius:2.4mm; }
+.front .inner { border:.35mm solid #7d8ba8; border-radius:2.4mm; }
 
 /* 색도화지에 인쇄하면 굵은 획이 잉크를 머금어 속공간(응·은·절·씀의 구멍)이 메워진다.
    그래서 700~800을 쓰지 않고 500~600까지만 쓴다. 강조는 굵기가 아니라 '색'으로 준다.
@@ -62,46 +62,48 @@ body { font-family:"Noto Sans KR","Malgun Gothic",sans-serif; color:#12294f;
    어르신이 받으실 카드다. 글자를 키우는 대신 문구를 줄였다 — 90x50mm에서
    둘 다 가질 수는 없다. 구절 12pt / 초대문 11pt. */
 .head { display:flex; align-items:center; justify-content:space-between; gap:3mm; }
-.ref { font-size:10.5pt; font-weight:600; color:#a8862f; letter-spacing:.06em; }
+.ref { font-size:10.5pt; font-weight:600; color:#8a6a18; letter-spacing:.06em; }
 .verse { font-family:"Noto Serif KR","Batang",serif; font-size:12pt; font-weight:500;
-         line-height:1.62; color:#12294f; margin-top:1.6mm; word-break:keep-all; letter-spacing:0; }
+         line-height:1.62; color:#0b1c3a; margin-top:1.6mm; word-break:keep-all; letter-spacing:0; }
 /* 구절이 세 줄인 카드는 남는 여백이 1.9mm뿐이라 줄간격을 덜 준다 */
-.tight .verse { line-height:1.32; margin-top:1.2mm; }
+.tight .verse { line-height:1.50; margin-top:1.4mm; }
 /* 짧은 구절은 크게 — 초대문을 한 줄로 줄여 자리를 만든 카드에 쓴다 */
 .big .verse { font-size:13.5pt; line-height:1.42; }
+/* 크게 쓰면서 구절이 세 줄이면 줄간격만 조여 맞춘다 */
+.big.tight .verse { line-height:1.34; }
 /* flex 세로 배치에서 눌리지 않도록 — 안 그러면 선이 사라진다 */
 .rule { flex:0 0 auto; width:11mm; height:.6mm; background:#c8a24b; margin:2.6mm 0 2.2mm;
         border-radius:.3mm; }
-.tight .rule { margin:1.8mm 0 1.6mm; }
-.invite { font-size:11pt; font-weight:500; line-height:1.60; color:#1c2333; word-break:keep-all;
+.tight .rule { margin:2.4mm 0 2.0mm; }
+.invite { font-size:11pt; font-weight:500; line-height:1.60; color:#111722; word-break:keep-all;
           letter-spacing:0; }
-.tight .invite { line-height:1.5; }
-.invite b { font-weight:600; color:#a8862f; }   /* 강조는 색으로, 굵기는 한 단계만 */
+.tight .invite { line-height:1.6; }
+.invite b { font-weight:600; color:#8a6a18; }   /* 강조는 색으로, 굵기는 한 단계만 */
 /* 우측 상단 — 아래를 비워 줄간격에 쓰고, 초대 문구와 부딪히지 않는다 */
 .brand { flex:0 0 auto; display:flex; align-items:center; gap:1.3mm; }
 .brand img { width:5.6mm; height:5.6mm; object-fit:cover; object-position:top; }
-.brand span { font-size:9pt; font-weight:600; color:#4a5a7a; }
+.brand span { font-size:9pt; font-weight:600; color:#33415e; }
 
 /* ── 뒷면 (모든 판 공통) ──
    단계 설명을 짧게 줄이고 글자를 10.5pt까지 키웠다.
    「1층 로비에서 도와드립니다」는 어르신께 가장 중요한 줄이라 눈에 띄게 둔다. */
 .b-title { font-family:"Noto Serif KR","Batang",serif; font-size:11.5pt; font-weight:600;
-           color:#12294f; letter-spacing:0; }
+           color:#0b1c3a; letter-spacing:0; }
 .b-main { display:flex; gap:3.4mm; align-items:center; margin-top:1.4mm; }
 /* QR은 종이색 위에 검게 찍힌다(흰 바탕을 깔 수 없다) — 연한 종이에서만 안전하다. */
-.b-qr { width:20mm; height:20mm; flex:0 0 auto; image-rendering:pixelated;
-        border:.35mm solid #9aa8c0; border-radius:.8mm; padding:.5mm; }
+.b-qr { width:24mm; height:24mm; flex:0 0 auto; image-rendering:pixelated;
+        border:.35mm solid #7d8ba8; border-radius:.8mm; padding:.5mm; }
 .steps { flex:1; min-width:0; }
 .step { display:flex; gap:1.8mm; align-items:baseline; font-size:10.5pt; line-height:1.7;
-        font-weight:500; color:#1c2333; word-break:keep-all; letter-spacing:0; }
-.step i { font-style:normal; font-weight:600; color:#a8862f; flex:0 0 auto; }
+        font-weight:500; color:#111722; word-break:keep-all; letter-spacing:0; }
+.step i { font-style:normal; font-weight:600; color:#8a6a18; flex:0 0 auto; }
 /* 면을 칠하지 않고 테두리로 — 색도화지 위에서 면을 칠하면 종이색과 싸운다 */
-.help { margin-top:auto; font-size:9.5pt; font-weight:600; color:#12294f;
+.help { margin-top:auto; font-size:9.5pt; font-weight:600; color:#0b1c3a;
         border:.35mm solid #c8a24b; border-radius:1mm; padding:0.9mm 2.4mm;
         text-align:center; word-break:keep-all; letter-spacing:0; }
 .b-foot { margin-top:0.8mm; display:flex; justify-content:space-between; align-items:baseline; gap:2mm; }
-.b-foot .url { font-size:9pt; font-weight:600; color:#12294f; }
-.b-foot .who { font-size:8pt; font-weight:500; color:#4a5a7a; white-space:nowrap; }
+.b-foot .url { font-size:9pt; font-weight:600; color:#0b1c3a; }
+.b-foot .who { font-size:8pt; font-weight:500; color:#33415e; white-space:nowrap; }
 """
 
 # ── 카드 앞면들 ────────────────────────────────────────────────
@@ -115,7 +117,7 @@ body { font-family:"Noto Sans KR","Malgun Gothic",sans-serif; color:#12294f;
 #   (앱 데이터도 함께 고쳐야 한다)
 VARIANTS = [
     {   # 앱 1번 구절이자 앱 태그라인
-        'key': '119-105', 'name': '등불', 'ref': '시편 119:105',
+        'key': '119-105', 'name': '등불', 'ref': '시편 119:105', 'big': True,
         'verse': '주의 말씀은 내 발에 등이요<br>내 길에 빛이니이다',
         'invite': '오늘 하루,<br><b>말씀 한 구절</b>로 밝혀 보세요',
     },
@@ -132,7 +134,7 @@ VARIANTS = [
         'invite': '오늘 하루를 여는 <b>말씀 한 구절</b>',
     },
     {
-        'key': '눅1-28', 'name': '평안', 'ref': '누가복음 1:28',
+        'key': '눅1-28', 'name': '평안', 'ref': '누가복음 1:28', 'big': True,
         'verse': '은혜를 받은 자여 평안할지어다<br>주께서 너와 함께하시도다',
         'invite': '오늘 받은 이 인사를<br><b>말씀 한 구절</b>과 함께',
     },
@@ -157,7 +159,7 @@ VARIANTS = [
         'invite': '오늘 나를 쓰시도록 <b>말씀 한 구절</b>',
     },
     {   # 앱 32구절 밖이지만 사탕과 가장 잘 맞물려 남겨 둔다
-        'key': '119-103', 'name': '꿀', 'ref': '시편 119:103',
+        'key': '119-103', 'name': '꿀', 'ref': '시편 119:103', 'big': True,
         'verse': '주의 말씀의 맛이 내게<br>어찌 그리 단지요<br>내 입에 꿀보다 더 다니이다',
         'invite': '이 사탕이 녹는 동안,<br><b>말씀 한 구절</b> 어떠세요?',
     },
@@ -194,7 +196,10 @@ for v in VARIANTS:
     v['front_in'] = FRONT_TPL.format(ref=v['ref'], verse=v['verse'], invite=v['invite'])
     # 구절이 세 줄이면 여백이 빠듯하다 — 줄간격을 덜 주는 tight 판으로.
     # 단 'big'으로 표시한 카드는 초대문을 한 줄로 줄여 자리를 벌어 둔 것이라 예외.
-    cls = 'inner big' if v.get('big') else ('inner tight' if v['verse'].count('<br>') >= 2 else 'inner')
+    three = v['verse'].count('<br>') >= 2
+    cls = ('inner big tight' if (v.get('big') and three)
+           else 'inner big' if v.get('big')
+           else 'inner tight' if three else 'inner')
     v['front_in'] = v['front_in'].replace('<div class="inner">', '<div class="%s">' % cls, 1)
 
 # 웹폰트 링크 없음 — 이 PC에 설치된 Noto Serif KR / Noto Sans KR 만 쓴다.
@@ -209,7 +214,7 @@ def write(name, html):
 # ── 1) 낱장(94x54mm 2쪽) ────────────────────────────────────────
 for v in VARIANTS:
     write('candy-card-%s.html' % v['key'],
-          HEAD + '@page { size: 94mm 54mm; margin: 0; }' + STYLE +
+          HEAD + '@page { size: 94mm 59mm; margin: 0; }' + STYLE +
           '.card { page-break-after:always; } .card:last-child { page-break-after:auto; }'
           '</style></head><body>'
           '<div class="card front"><div class="holder">' + v['front_in'] + '</div></div>'
@@ -217,29 +222,41 @@ for v in VARIANTS:
           '</body></html>')
 
 # ── 2) A4 10장 앉힘 ────────────────────────────────────────────
-# 카드 90x50 + 사이 4mm. 가로 184 → 좌우 13mm / 세로 266 → 상하 15.5mm.
+# 카드 90x55 + 사이 2mm. 가로 182 → 좌우 14mm / 세로 283 → 상하 7mm.
+# 높이를 5mm 키우면서도 A4 10장을 지키려면 골이 2mm까지 좁아진다.
+# 뒷면 내용은 카드 가장자리에서 5mm 안쪽에 있어 1~2mm 밀려도 잘리지 않는다.
 # 여백이 상하좌우 대칭이라 '긴 쪽 넘기기'든 '짧은 쪽 넘기기'든 앞뒤가 맞는다
 # (10장이 모두 같은 카드라 좌우 반전도 따질 필요가 없다).
-GAP, MT, ML = 4.0, 15.5, 13.0
+GAP, MT, ML = 2.0, 7.0, 14.0
+CW, CH_ = 90.0, 55.0          # 카드 한 칸
+HALF = GAP / 2                # 골의 절반 = 재단선과 카드 경계 사이 거리(1mm)
+# 재단선은 '사방 모두' 카드 경계에서 똑같이 HALF만큼 떨어뜨린다.
+# 안쪽(골)만 긋고 바깥을 비워 두면 가장자리 카드만 1mm 작아져 크기가 달라진다.
+# 이렇게 하면 잘린 카드가 모두 (90+2) x (55+2) = 92 x 57mm 로 같고,
+# 둥근 박스는 사방 3mm 안쪽에 똑같이 놓인다(박스는 카드 경계에서 2mm 안).
+X0, X1 = ML - HALF, ML + 2 * CW + GAP + HALF          # 세로선 범위
+Y0, Y1 = MT - HALF, MT + 5 * CH_ + 4 * GAP + HALF     # 가로선 범위
+xs = [ML - HALF, ML + CW + HALF, ML + 2 * CW + GAP + HALF]              # 세로 3줄
+ys = [MT + i * (CH_ + GAP) - HALF for i in range(5)] + [Y1]            # 가로 6줄
 _t = []
-for x in (ML, ML + 90 + GAP / 2, ML + 90 + GAP + 90):            # 세로 재단선 3개
-    _t.append('<div class="tk v" style="left:%.2fmm;top:0"></div>' % x)
-    _t.append('<div class="tk v" style="left:%.2fmm;bottom:0"></div>' % x)
-for j in range(6):                                                # 가로 재단선 6개
-    y = MT if j == 0 else (MT + 5 * 50 + 4 * GAP if j == 5 else MT + j * (50 + GAP) - GAP / 2)
-    _t.append('<div class="tk h" style="top:%.2fmm;left:0"></div>' % y)
-    _t.append('<div class="tk h" style="top:%.2fmm;right:0"></div>' % y)
+for x in xs:
+    _t.append('<div class="cut v" style="left:%.2fmm;top:%.2fmm;height:%.2fmm"></div>'
+              % (x, Y0, Y1 - Y0))
+for y in ys:
+    _t.append('<div class="cut h" style="top:%.2fmm;left:%.2fmm;width:%.2fmm"></div>'
+              % (y, X0, X1 - X0))
 TICKS = "".join(_t)
 
 A4_CSS = """
-.sheet { width:210mm; height:297mm; padding:15.5mm 13mm; display:flex; flex-wrap:wrap;
-         align-content:flex-start; gap:4mm; page-break-after:always; position:relative; }
+.sheet { width:210mm; height:297mm; padding:7mm 14mm; display:flex; flex-wrap:wrap;
+         align-content:flex-start; gap:2mm; page-break-after:always; position:relative; }
 .sheet:last-child { page-break-after:auto; }
-.cell { width:90mm; height:50mm; }
-/* 재단 눈금 — 앞장에만. 시트 가장자리에 짧게 찍어 카드 위를 지나지 않는다. */
-.tk { position:absolute; background:#b6bfd0; }
-.tk.v { width:.25mm; height:7mm; }
-.tk.h { height:.25mm; width:7mm; }
+.cell { width:90mm; height:55mm; }
+/* 재단선 — 앞장에만, 카드 사이 골 한가운데. 카드 위를 지나지 않으니 뒷장과
+   어긋날 것도 없다. position:absolute 를 빼먹으면 flex 항목이 되어 배치가 깨진다. */
+.cut { position:absolute; }
+.cut.v { width:0; border-left:.25mm dashed #9aa8c0; }
+.cut.h { height:0; border-top:.25mm dashed #9aa8c0; }
 """
 for v in VARIANTS:
     write('candy-card-a4-%s.html' % v['key'],
@@ -296,22 +313,22 @@ REPORT_CSS = """
 .pg { width:210mm; height:297mm; padding:16mm 12mm 14mm; position:relative;
       page-break-after:always; display:flex; flex-direction:column; }
 .pg:last-child { page-break-after:auto; }
-.pg-h { font-family:"Noto Serif KR",serif; font-size:15pt; font-weight:700; color:#12294f;
+.pg-h { font-family:"Noto Serif KR",serif; font-size:15pt; font-weight:700; color:#0b1c3a;
         border-bottom:.5mm solid #c8a24b; padding-bottom:2.5mm; margin-bottom:6mm; }
 .pg-n { position:absolute; right:12mm; bottom:7mm; font-size:8pt; color:#8a95a8; }
-.lead { font-size:10.5pt; line-height:1.75; color:#26324a; word-break:keep-all; }
-.lead b { color:#12294f; }
-.kv { display:flex; gap:3mm; font-size:10.5pt; line-height:1.9; color:#26324a; }
-.kv .k { flex:0 0 26mm; font-weight:800; color:#12294f; }
+.lead { font-size:10.5pt; line-height:1.75; color:#1a2436; word-break:keep-all; }
+.lead b { color:#0b1c3a; }
+.kv { display:flex; gap:3mm; font-size:10.5pt; line-height:1.9; color:#1a2436; }
+.kv .k { flex:0 0 26mm; font-weight:800; color:#0b1c3a; }
 .note { margin-top:5mm; padding:4mm 5mm; border:.35mm solid #c8a24b; border-radius:1.5mm;
-        font-size:9.5pt; line-height:1.7; color:#26324a; word-break:keep-all; }
-.note b { color:#12294f; }
+        font-size:9.5pt; line-height:1.7; color:#1a2436; word-break:keep-all; }
+.note b { color:#0b1c3a; }
 .row { display:flex; gap:6mm; align-items:flex-start; margin-bottom:5mm; }
-.row-lbl { font-size:9pt; font-weight:800; color:#12294f; margin-bottom:1.5mm; }
-.row-lbl em { font-style:normal; font-weight:500; color:#8a7a4e; }
+.row-lbl { font-size:9pt; font-weight:800; color:#0b1c3a; margin-bottom:1.5mm; }
+.row-lbl em { font-style:normal; font-weight:500; color:#6d5f36; }
 .chip { display:flex; gap:6mm; }
 .pp { display:flex; flex-wrap:wrap; gap:3mm; margin-top:3mm; }
-.pp div { font-size:8.5pt; font-weight:700; color:#26324a; padding:2mm 3mm;
+.pp div { font-size:8.5pt; font-weight:700; color:#1a2436; padding:2mm 3mm;
           border-radius:1.2mm; border:.3mm solid #cbb277; }
 """
 

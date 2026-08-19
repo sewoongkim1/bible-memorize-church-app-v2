@@ -1,19 +1,19 @@
-<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><style>@page { size: 94mm 54mm; margin: 0; }
+<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><style>@page { size: 94mm 59mm; margin: 0; }
 /* 폰트는 이 PC에 설치된 것만 쓴다(웹폰트 링크 없음 — 오프라인·인쇄에서도 그대로 나온다).
    2026-08-18 글자 폭 실측으로 확인:
      Noto Serif KR 321.7 / Batang 340.0 / Noto Sans KR 304.4  → 모두 적용됨
      BM JUA·generic serif 는 304.4 = 고딕으로 떨어짐(미설치) → 쓰지 않는다
    명조는 Batang보다 Noto Serif KR이 곱고 현대적이라 이쪽으로 간다. */
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family:"Noto Sans KR","Malgun Gothic",sans-serif; color:#12294f;
+body { font-family:"Noto Sans KR","Malgun Gothic",sans-serif; color:#0b1c3a;
        -webkit-print-color-adjust:exact; print-color-adjust:exact; }
 
-.card { width:94mm; height:54mm; padding:2mm; overflow:hidden; position:relative;
+.card { width:94mm; height:59mm; padding:2mm; overflow:hidden; position:relative;
         background:transparent; }
-.holder { width:90mm; height:50mm; padding:2mm; }          /* 2mm = 재단 여유 */
-.inner { width:86mm; height:46mm; padding:3.0mm 4.4mm; position:relative; overflow:hidden;
+.holder { width:90mm; height:55mm; padding:2mm; }          /* 2mm = 재단 여유 */
+.inner { width:86mm; height:51mm; padding:3.0mm 4.4mm; position:relative; overflow:hidden;
          display:flex; flex-direction:column; }
-.front .inner { border:.35mm solid #9aa8c0; border-radius:2.4mm; }
+.front .inner { border:.35mm solid #7d8ba8; border-radius:2.4mm; }
 
 /* 색도화지에 인쇄하면 굵은 획이 잉크를 머금어 속공간(응·은·절·씀의 구멍)이 메워진다.
    그래서 700~800을 쓰지 않고 500~600까지만 쓴다. 강조는 굵기가 아니라 '색'으로 준다.
@@ -25,46 +25,48 @@ body { font-family:"Noto Sans KR","Malgun Gothic",sans-serif; color:#12294f;
    어르신이 받으실 카드다. 글자를 키우는 대신 문구를 줄였다 — 90x50mm에서
    둘 다 가질 수는 없다. 구절 12pt / 초대문 11pt. */
 .head { display:flex; align-items:center; justify-content:space-between; gap:3mm; }
-.ref { font-size:10.5pt; font-weight:600; color:#a8862f; letter-spacing:.06em; }
+.ref { font-size:10.5pt; font-weight:600; color:#8a6a18; letter-spacing:.06em; }
 .verse { font-family:"Noto Serif KR","Batang",serif; font-size:12pt; font-weight:500;
-         line-height:1.62; color:#12294f; margin-top:1.6mm; word-break:keep-all; letter-spacing:0; }
+         line-height:1.62; color:#0b1c3a; margin-top:1.6mm; word-break:keep-all; letter-spacing:0; }
 /* 구절이 세 줄인 카드는 남는 여백이 1.9mm뿐이라 줄간격을 덜 준다 */
-.tight .verse { line-height:1.32; margin-top:1.2mm; }
+.tight .verse { line-height:1.50; margin-top:1.4mm; }
 /* 짧은 구절은 크게 — 초대문을 한 줄로 줄여 자리를 만든 카드에 쓴다 */
 .big .verse { font-size:13.5pt; line-height:1.42; }
+/* 크게 쓰면서 구절이 세 줄이면 줄간격만 조여 맞춘다 */
+.big.tight .verse { line-height:1.34; }
 /* flex 세로 배치에서 눌리지 않도록 — 안 그러면 선이 사라진다 */
 .rule { flex:0 0 auto; width:11mm; height:.6mm; background:#c8a24b; margin:2.6mm 0 2.2mm;
         border-radius:.3mm; }
-.tight .rule { margin:1.8mm 0 1.6mm; }
-.invite { font-size:11pt; font-weight:500; line-height:1.60; color:#1c2333; word-break:keep-all;
+.tight .rule { margin:2.4mm 0 2.0mm; }
+.invite { font-size:11pt; font-weight:500; line-height:1.60; color:#111722; word-break:keep-all;
           letter-spacing:0; }
-.tight .invite { line-height:1.5; }
-.invite b { font-weight:600; color:#a8862f; }   /* 강조는 색으로, 굵기는 한 단계만 */
+.tight .invite { line-height:1.6; }
+.invite b { font-weight:600; color:#8a6a18; }   /* 강조는 색으로, 굵기는 한 단계만 */
 /* 우측 상단 — 아래를 비워 줄간격에 쓰고, 초대 문구와 부딪히지 않는다 */
 .brand { flex:0 0 auto; display:flex; align-items:center; gap:1.3mm; }
 .brand img { width:5.6mm; height:5.6mm; object-fit:cover; object-position:top; }
-.brand span { font-size:9pt; font-weight:600; color:#4a5a7a; }
+.brand span { font-size:9pt; font-weight:600; color:#33415e; }
 
 /* ── 뒷면 (모든 판 공통) ──
    단계 설명을 짧게 줄이고 글자를 10.5pt까지 키웠다.
    「1층 로비에서 도와드립니다」는 어르신께 가장 중요한 줄이라 눈에 띄게 둔다. */
 .b-title { font-family:"Noto Serif KR","Batang",serif; font-size:11.5pt; font-weight:600;
-           color:#12294f; letter-spacing:0; }
+           color:#0b1c3a; letter-spacing:0; }
 .b-main { display:flex; gap:3.4mm; align-items:center; margin-top:1.4mm; }
 /* QR은 종이색 위에 검게 찍힌다(흰 바탕을 깔 수 없다) — 연한 종이에서만 안전하다. */
-.b-qr { width:20mm; height:20mm; flex:0 0 auto; image-rendering:pixelated;
-        border:.35mm solid #9aa8c0; border-radius:.8mm; padding:.5mm; }
+.b-qr { width:24mm; height:24mm; flex:0 0 auto; image-rendering:pixelated;
+        border:.35mm solid #7d8ba8; border-radius:.8mm; padding:.5mm; }
 .steps { flex:1; min-width:0; }
 .step { display:flex; gap:1.8mm; align-items:baseline; font-size:10.5pt; line-height:1.7;
-        font-weight:500; color:#1c2333; word-break:keep-all; letter-spacing:0; }
-.step i { font-style:normal; font-weight:600; color:#a8862f; flex:0 0 auto; }
+        font-weight:500; color:#111722; word-break:keep-all; letter-spacing:0; }
+.step i { font-style:normal; font-weight:600; color:#8a6a18; flex:0 0 auto; }
 /* 면을 칠하지 않고 테두리로 — 색도화지 위에서 면을 칠하면 종이색과 싸운다 */
-.help { margin-top:auto; font-size:9.5pt; font-weight:600; color:#12294f;
+.help { margin-top:auto; font-size:9.5pt; font-weight:600; color:#0b1c3a;
         border:.35mm solid #c8a24b; border-radius:1mm; padding:0.9mm 2.4mm;
         text-align:center; word-break:keep-all; letter-spacing:0; }
 .b-foot { margin-top:0.8mm; display:flex; justify-content:space-between; align-items:baseline; gap:2mm; }
-.b-foot .url { font-size:9pt; font-weight:600; color:#12294f; }
-.b-foot .who { font-size:8pt; font-weight:500; color:#4a5a7a; white-space:nowrap; }
+.b-foot .url { font-size:9pt; font-weight:600; color:#0b1c3a; }
+.b-foot .who { font-size:8pt; font-weight:500; color:#33415e; white-space:nowrap; }
 .card { page-break-after:always; } .card:last-child { page-break-after:auto; }</style></head><body><div class="card front"><div class="holder"><div class="inner big">
   <div class="head">
     <div class="ref">사도행전 16:31</div>
