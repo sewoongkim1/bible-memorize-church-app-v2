@@ -255,9 +255,11 @@ A4_CSS = """
          align-content:flex-start; gap:2mm; page-break-after:always; position:relative; }
 .sheet:last-child { page-break-after:auto; }
 .cell { width:90mm; height:55mm; }
-/* 재단 십자 — 앞장에만. 아주 흐리게 둔다(잘라내고 나면 남지 않아야 한다).
+/* 재단 십자 — 앞장에만. 카드 밖(골)에 있어 잘라내고 나면 남지 않는다.
+   색도화지 + 컬러 프린터에서는 아주 옅은 회청(#ccd3de)이 거의 사라져 자를 대기가
+   어려웠다. 눈에 잡히되 디자인을 방해하지 않는 선까지만 올린다.
    position:absolute 를 빼먹으면 flex 항목이 되어 배치가 깨진다. */
-.cx { position:absolute; background:#ccd3de; }
+.cx { position:absolute; background:#8f9cb0; }
 .cx.v { width:.2mm; }
 .cx.h { height:.2mm; }
 """
