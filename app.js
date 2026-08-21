@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260821q";
+const APP_BUILD = "20260822a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -698,6 +698,36 @@ function postProgress(no, stage, mode, lang) {
 }
 
 // ------------------------------------------------------------
+// 모달 확인 — 엔터 하나로 넘어가게 한다.
+//
+// okBtn.focus()만으로는 모자랐다. 이 모달들은 암송·도전을 마친 직후에 뜨는데,
+// 그 순간 화면이 모달 아래에서 다시 그려지며(다음 구절·반복해서 쓰기 등)
+// 입력칸이 포커스를 도로 가져간다. 그러면 엔터가 단추까지 오지 않는다.
+// 그래서 두 겹으로 둔다.
+//   1) 열려 있는 동안 문서에서 엔터를 직접 받는다(캡처 단계 — 입력칸이 먼저 먹지 않게)
+//   2) 포커스도 한 번 더 잡아 준다(80ms 뒤 — 뺏겼으면 되찾는다)
+// Space·Esc도 같이 받는다. 모달이 떠 있는 동안은 그 키들이 할 일이 달리 없다.
+function wireModalConfirm(okBtn, close) {
+  const done = () => {
+    document.removeEventListener("keydown", onKey, true);
+    close();
+  };
+  const onKey = (e) => {
+    if (e.key !== "Enter" && e.key !== " " && e.key !== "Escape") return;
+    e.preventDefault();
+    e.stopPropagation();
+    done();
+  };
+  document.addEventListener("keydown", onKey, true);
+  if (okBtn) {
+    okBtn.addEventListener("click", done);
+    const focus = () => { try { okBtn.focus({ preventScroll: true }); } catch (e) { okBtn.focus(); } };
+    focus();
+    setTimeout(focus, 80);
+  }
+  return done;   // 바깥을 눌러 닫을 때도 이걸 부른다(리스너까지 정리된다)
+}
+
 // 오늘의 완료 10회 단위 응원 — 일반 암송(3단계 완료)·말씀 도전·복습을 모두 합산.
 // 서버가 KST 기준 누적 횟수를 계산하고, 클라이언트는 같은 단계의 중복 표시만 막는다.
 // ------------------------------------------------------------
@@ -780,9 +810,8 @@ function maybeShowDailyMilestone(data) {
       setTimeout(() => wrap.remove(), 250);
     };
     const okBtn = document.getElementById("daily-milestone-ok");
-    okBtn.addEventListener("click", close);
-    okBtn.focus();
-    wrap.addEventListener("click", (e) => { if (e.target === wrap) close(); });
+    const done = wireModalConfirm(okBtn, close);
+    wrap.addEventListener("click", (e) => { if (e.target === wrap) done(); });
   };
   openWhenReady();
 }
@@ -851,9 +880,8 @@ function showHeartCheer(verse) {
   requestAnimationFrame(() => wrap.classList.add("show"));
   const close = () => { wrap.classList.remove("show"); setTimeout(() => wrap.remove(), 250); };
   const okBtn = document.getElementById("cheer-ok");
-  okBtn.addEventListener("click", close);
-  okBtn.focus(); // 키보드로도 바로 확인
-  wrap.addEventListener("click", (e) => { if (e.target === wrap) close(); }); // 바깥 탭 닫기
+  const done = wireModalConfirm(okBtn, close);
+  wrap.addEventListener("click", (e) => { if (e.target === wrap) done(); }); // 바깥 탭 닫기
 }
 
 function setHearted(no, on) {
@@ -4535,15 +4563,14 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev
     requestAnimationFrame(() => wrap.classList.add("show"));
     const close = () => { wrap.classList.remove("show"); setTimeout(() => wrap.remove(), 250); };
     const ok = wrap.querySelector("#dmsg-ok");
-    ok.addEventListener("click", close);
+    const done = wireModalConfirm(ok, close);
     const sBtn = wrap.querySelector("#med-sermon");   // 묵상 → 설교 요약으로 이동
     if (sBtn) sBtn.addEventListener("click", () => {
-      close();
+      done();
       setTimeout(() => renderSermonSummary(verse, sermon, renderSummary, "← 뒤로"), 260);
     });
-    try { ok.focus({ preventScroll: true }); } catch (e) {}
     toTop();
-    wrap.addEventListener("click", (e) => { if (e.target === wrap) close(); });
+    wrap.addEventListener("click", (e) => { if (e.target === wrap) done(); });
   };
   open();
 }
@@ -4627,8 +4654,7 @@ function showDailyMessage(m) {
     requestAnimationFrame(() => wrap.classList.add("show"));
     const close = () => { wrap.classList.remove("show"); setTimeout(() => wrap.remove(), 250); };
     const ok = document.getElementById("dmsg-ok");
-    ok.addEventListener("click", close);
-    try { ok.focus({ preventScroll: true }); } catch (e) { ok.focus(); } // 포커스로 하단 스크롤되지 않게
+    wireModalConfirm(ok, close);   // 포커스로 하단 스크롤되지 않게 preventScroll을 쓴다
     const card = wrap.querySelector(".dmsg-card");
     if (card) { card.scrollTop = 0; requestAnimationFrame(() => { card.scrollTop = 0; }); } // 항상 맨 위부터
     wrap.addEventListener("click", (e) => { if (e.target === wrap) close(); });
