@@ -115,7 +115,7 @@ B = wrap("""
     <div class="r">시편 119편 105절</div>
   </div>
   <div class="qz mini">
-    <div class="v">주 예수를 믿으라 그리하면 너와 네집이 <u></u>을 받으리라</div>
+    <div class="v">주 예수를 믿으라 그리하면 너와 네 집이 <u></u>을 받으리라</div>
     <div class="r">사도행전 16장 31절</div>
   </div>
   <div class="qz mini">

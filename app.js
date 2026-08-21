@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260821b";
+const APP_BUILD = "20260821c";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2979,22 +2979,17 @@ function renderPassageDone(p) {
 // ------------------------------------------------------------
 // 화면 3: 테스트 (익명 버전과 동일)
 // ------------------------------------------------------------
-// '힌트를 보고 맞힌 구절 다시 암송하기' 한 번을 표시하는 깃발.
-// 이 한 번은 '🔁 반복해서 쓰기'에 걸리지 않는다 — 걸리면 같은 구절이 끝없이 되풀이돼
-// 사용자에겐 '누르지도 않았는데 그 말씀만 계속' 나오는 것처럼 보인다.
-let relearnOnce = false;
-
-// 도전 화면은 언제나 3단계(전체 빈칸)다. 다시 암송도 같은 3단계로 열어야
-// '힌트 보고 맞혔는데 1단계가 나온다'는 어긋남이 없다.
+// 도전 화면은 언제나 3단계(전체 빈칸)다. 힌트를 보고 맞힌 뒤 '다시 암송'도 같은
+// 3단계로 열어야 '힌트 보고 맞혔는데 1단계가 나온다'는 어긋남이 없다.
+// startTest를 쓰지 않는 이유: 그쪽은 이미 3단계를 마친 구절을 1단계부터 다시 돌린다.
+// 이 화면에서도 '🔁 반복해서 쓰기'는 켠 대로 따른다 — 사용자가 켠 설정을 우리가 끄지 않는다.
 function startRelearn(verse) {
   setCardMode(false);
-  relearnOnce = true;
   renderTestScreen(verse, 3);
 }
 
 function startTest(verse) {
   setCardMode(false); // 암송화면 기본은 '쓰기' — 카드 모드는 그 구절 안에서만 유지된다
-  relearnOnce = false;
   const passed = getPassedStage(verse.no);   // 지금 고른 언어의 단계
   // 마음에 둔 구절은 곧바로 3단계(전체 빈칸)로 — 체크 해제도 여기서 바로 가능.
   // 단, 그 언어로 3단계를 마쳤을 때만. 한글로 마음에 두었어도 영어는 처음부터 한다.
@@ -4064,11 +4059,10 @@ function checkAllComplete(inputs, verse, stage) {
   // '반복해서 쓰기'가 켜져 있으면 아무것도 띄우지 않고 바로 새 3단계로 넘어간다.
   // (정답마다 위의 saveProgress가 실행되므로 도전 기록에 '매번' 카운트된다. 멈추려면 체크박스 해제)
   // 마음에 두었나이다 체크는 3단계 진입과 동시에 항상 가능해서, 자동 진행 중에도 체크할 수 있다.
-  if (isRepeatPractice() && !relearnOnce) {
+  if (isRepeatPractice()) {
     setTimeout(() => renderTestScreen(verse, 3), 350); // 마지막 글자 정답 표시가 잠깐 보이도록만
     return;
   }
-  relearnOnce = false; // '다시 암송' 한 번을 마쳤다 — 다음부터는 평소대로
   renderCompleteNav(verse);
 }
 
@@ -4789,7 +4783,6 @@ let challengeUsedHelp = false;
 // 도전 화면 — 3단계(전체 빈칸) 고정 + 힌트 버튼 + 음성
 function renderChallenge(verse) {
   challengeUsedHelp = false;   // 구절이 바뀌면 새로 센다
-  relearnOnce = false;
   const appEl = document.getElementById("app");
   const en = isEnMode(verse);
   const tokens = verseText(verse).trim().split(/\s+/);

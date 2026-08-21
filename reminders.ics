@@ -42,7 +42,7 @@ DTSTART:20260118T070000
 DTEND:20260118T071500
 RRULE:FREQ=DAILY;COUNT=7
 SUMMARY:📖 이 율법책을 떠나지 말게 하라 (수 1:8)
-DESCRIPTION:이 율법책을 네 입에서 떠나지 말게하며 다 지켜 행하라 그리하면 네가 형통하리라\n\n— 여호수아 1장 8절\n📺 설교 영상: https://sewoongkim1.github.io/bible-memorize-app/go/?no=3\n📝 암송 테스트: https://sewoongkim1.github.io/bible-memorize-app/
+DESCRIPTION:이 율법책을 네 입에서 떠나지 말게 하며 다 지켜 행하라 그리하면 네가 형통하리라\n\n— 여호수아 1장 8절\n📺 설교 영상: https://sewoongkim1.github.io/bible-memorize-app/go/?no=3\n📝 암송 테스트: https://sewoongkim1.github.io/bible-memorize-app/
 BEGIN:VALARM
 ACTION:DISPLAY
 DESCRIPTION:이번 주 암송 말씀
@@ -84,7 +84,7 @@ DTSTART:20260208T070000
 DTEND:20260208T071500
 RRULE:FREQ=DAILY;COUNT=7
 SUMMARY:📖 주 예수를 믿으라 (행 16:31)
-DESCRIPTION:주 예수를 믿으라 그리하면 너와 네집이 구원을 받으리라\n\n— 사도행전 16장 31절\n📺 설교 영상: https://sewoongkim1.github.io/bible-memorize-app/go/?no=6\n📝 암송 테스트: https://sewoongkim1.github.io/bible-memorize-app/
+DESCRIPTION:주 예수를 믿으라 그리하면 너와 네 집이 구원을 받으리라\n\n— 사도행전 16장 31절\n📺 설교 영상: https://sewoongkim1.github.io/bible-memorize-app/go/?no=6\n📝 암송 테스트: https://sewoongkim1.github.io/bible-memorize-app/
 BEGIN:VALARM
 ACTION:DISPLAY
 DESCRIPTION:이번 주 암송 말씀
@@ -112,7 +112,7 @@ DTSTART:20260222T070000
 DTEND:20260222T071500
 RRULE:FREQ=DAILY;COUNT=7
 SUMMARY:📖 광야의 세 가지 질문 (눅 4:8)
-DESCRIPTION:주 너의 하나님께 경배하고 다만 그를 섬가라\n\n— 누가복음 4장 8절\n📺 설교 영상: https://sewoongkim1.github.io/bible-memorize-app/go/?no=8\n📝 암송 테스트: https://sewoongkim1.github.io/bible-memorize-app/
+DESCRIPTION:주 너의 하나님께 경배하고 다만 그를 섬기라\n\n— 누가복음 4장 8절\n📺 설교 영상: https://sewoongkim1.github.io/bible-memorize-app/go/?no=8\n📝 암송 테스트: https://sewoongkim1.github.io/bible-memorize-app/
 BEGIN:VALARM
 ACTION:DISPLAY
 DESCRIPTION:이번 주 암송 말씀
