@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260821j";
+const APP_BUILD = "20260821k";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5760,22 +5760,25 @@ let albumGapTimer = null;
 //   · 전원 버튼을 직접 누르는 것까지 막지는 못한다
 let _wakeLock = null;
 let albumWakeOn = false;
+let albumWakeErr = "";   // 실패 원인. 조용히 삼키면 왜 화면이 꺼지는지 아무도 모른다 — 재생 바에 적는다
 async function keepScreenAwake(on) {
   try {
     if (!on) {
       if (_wakeLock) { const w = _wakeLock; _wakeLock = null; await w.release(); }
-      albumWakeOn = false;
+      albumWakeOn = false; albumWakeErr = "";
       return false;
     }
-    if (!("wakeLock" in navigator)) return false;
+    if (!("wakeLock" in navigator)) { albumWakeErr = "미지원"; albumWakeOn = false; return false; }
     if (_wakeLock) return true;
     _wakeLock = await navigator.wakeLock.request("screen");
-    _wakeLock.addEventListener("release", () => { _wakeLock = null; });
-    albumWakeOn = true;
+    // 화면이 꺼지거나 다른 앱으로 넘어가면 브라우저가 스스로 놓는다 — 상태도 함께 내린다
+    _wakeLock.addEventListener("release", () => { _wakeLock = null; albumWakeOn = false; });
+    albumWakeOn = true; albumWakeErr = "";
     return true;
-  } catch (e) {           // 배터리 절약 모드 등으로 거절될 수 있다 — 조용히 포기
+  } catch (e) {           // 절전 모드 등으로 거절될 수 있다(NotAllowedError)
     _wakeLock = null;
     albumWakeOn = false;
+    albumWakeErr = String((e && (e.name || e.message)) || "거절됨");
     return false;
   }
 }
@@ -5856,6 +5859,7 @@ function albumPlayToggle() {
   const p = albumPlayer;
   if (!p) return;
   p.paused = !p.paused;
+  if (!p.paused) keepScreenAwake(true).then(() => albumPlayBar());  // 탭한 김에 다시 시도
   if (!p.paused && p.gapDone) {   // 쉬는 사이에 멈췄다가 이어서 — 기다릴 것 없이 바로
     p.gapDone = false;
     albumPlayStep();
@@ -5880,6 +5884,7 @@ function albumPlayJump(d) {
   if (n < 0 || n >= p.items.length) { albumPlayStop(); return; }
   albumPlayGen++;            // 지금 재생의 콜백을 무효로
   albumClearGap();
+  keepScreenAwake(true);     // 이전/다음도 사용자의 탭이다 — 이 김에 다시 걸어 본다
   stopSpeaking();
   p.i = n;
   p.paused = false;
@@ -5927,11 +5932,14 @@ function albumPlayBar() {
   // 3분요약이 섞인 목록에서만 '요약은 이어집니다'라고 쓴다 —
   // 말씀 목록 화면은 요약이 없어 그 말이 거짓이 된다.
   const hasAudio = p.items.some((x) => x.kind === "audio");
+  const tail = hasAudio
+    ? "화면이 꺼지면 말씀 낭독이 멈춥니다 (3분요약은 이어집니다)"
+    : "화면이 꺼지면 낭독이 멈춥니다";
   const note = albumWakeOn
     ? "🔆 듣는 동안 화면이 저절로 꺼지지 않게 해 둡니다 (전원 버튼을 누르면 멈춰요)"
-    : hasAudio
-      ? "ⓘ 화면이 꺼지면 말씀 낭독이 멈춥니다 (3분요약은 이어집니다)"
-      : "ⓘ 화면이 꺼지면 낭독이 멈춥니다";
+    : albumWakeErr
+      ? "⚠️ 화면 켜 두기 실패 [" + albumWakeErr + "] — 절전 모드를 끄면 될 수 있어요. " + tail
+      : "ⓘ " + tail;
   bar.innerHTML =
     '<div class="pb-now"><b>' + (p.i + 1) + ' / ' + p.items.length + '</b>' +
       '<span class="pb-ref">' + (it.ref || "") + '</span>' +
