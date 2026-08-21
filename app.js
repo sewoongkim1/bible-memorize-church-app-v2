@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260821m";
+const APP_BUILD = "20260821n";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -4891,9 +4891,9 @@ const MANUAL = [
     steps: [
       "첫 화면 <b>💬 내게 주시는 말씀</b>을 누르세요.",
       "궁금한 것이나 마음에 걸리는 일을 적으세요.",
-      "우리 교회 <b>설교에서 찾아</b> 답해 드립니다.",
+      "<b>목사님 설교에서 찾아</b> 답해 드립니다.",
     ],
-    tip: "인터넷에서 아무 말이나 가져오는 것이 아니라, <b>고척교회 설교</b> 안에서만 찾습니다.",
+    tip: "인터넷에서 아무 말이나 가져오는 것이 아니라, <b>목사님 설교</b> 안에서만 찾습니다.",
   },
   {
     icon: "🌿", title: "매일 묵상",
@@ -4905,6 +4905,18 @@ const MANUAL = [
       "요일 단추를 눌러 다른 날 것도 볼 수 있어요.",
     ],
     tip: "짧아서 아침에 한 번 읽기 좋습니다.",
+  },
+  {
+    icon: "✍️", title: "성경필사 노트 신청",
+    lead: "말씀을 손으로 따라 쓰는 노트예요.",
+    art: '<div class="mn-row"><span class="mn-btn mn-btn-on">✍️ 성경필사 노트 신청</span></div>',
+    steps: [
+      "첫 화면 <b>✍️ 성경필사 노트 신청</b>을 누르세요.",
+      "노트 크기(A5·A4)와 <b>필사 유형</b>, 번역본을 고르세요.",
+      "원하는 성경을 골라 담으세요. <b>한 분 5부까지</b>.",
+      "휴대폰 번호를 남기시면 준비되는 대로 알려 드립니다.",
+    ],
+    tip: "주일에 <b>4층 새가족실</b>에서 받으시고, 그때 <b>권당 3,000원</b>을 내시면 됩니다.",
   },
   {
     icon: "⚙️", title: "글씨 크게 하기",
@@ -4928,7 +4940,7 @@ function renderManual(onClose, idx) {
   manualIdx = typeof idx === "number" ? idx : -1;
   const appEl = document.getElementById("app");
   const back = () => (_manualClose || renderSummary)();
-  const NUM = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫";
+  const NUM = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮";
 
   if (manualIdx < 0) {
     appEl.innerHTML = `
