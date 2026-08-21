@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260821c";
+const APP_BUILD = "20260821d";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -3585,7 +3585,12 @@ function playSermonAudio(url, onEnd) {
   sermonAudio.play().catch(() => { if (onEnd) onEnd(); });
 }
 
-function speakLong(text, onEnd) {
+// 낭독 세대 번호 — speechSynthesis.cancel()은 브라우저에 따라 지금 읽던 발화의
+// onend를 부른다. 그대로 두면 '멈춤' 직후 다음 조각이 이어져 읽히고, 3분요약 MP3와
+// 목소리가 겹친다. 멈출 때마다 번호를 올려 철 지난 콜백을 버린다.
+let _ttsGen = 0;
+
+function speakLong(text, onEnd, lang = "ko-KR") {
   if (!("speechSynthesis" in window)) {
     appAlert("이 브라우저는 읽어주기(음성 합성)를 지원하지 않습니다.\n크롬·사파리에서 이용해 주세요.");
     if (onEnd) onEnd();
@@ -3595,12 +3600,14 @@ function speakLong(text, onEnd) {
   if (!parts.length) { if (onEnd) onEnd(); return; }
   window.speechSynthesis.cancel();
   _ttsStopKeepAlive();
+  const gen = ++_ttsGen;   // cancel()이 부를 옛 콜백은 여기서 무효가 된다
 
   let i = 0;
   const speakNext = () => {
+    if (gen !== _ttsGen) return;                       // 멈춘 뒤라면 더 읽지 않는다
     if (i >= parts.length) { _ttsStopKeepAlive(); if (onEnd) onEnd(); return; }
     const ut = new SpeechSynthesisUtterance(parts[i]);
-    ut.lang = "ko-KR";
+    ut.lang = lang;
     ut.rate = getSpeakRate();
     ut.pitch = 1;
     ut.onend = () => { i++; speakNext(); };
@@ -3613,6 +3620,7 @@ function speakLong(text, onEnd) {
 }
 
 function stopSpeaking() {
+  _ttsGen++;           // 진행 중인 낭독의 이어읽기 콜백을 무효로
   _ttsStopKeepAlive(); // 긴 낭독 keep-alive 타이머 정리
   if (window.speechSynthesis) window.speechSynthesis.cancel();
   if (sermonAudio) { try { sermonAudio.pause(); } catch (e) {} } // 설교 MP3도 정지
@@ -5696,6 +5704,166 @@ let albumHint = false;      // 첫 글자 힌트(말씀 숨김과 배타 — 같
 let albumOrder = null;      // 섞기 결과(구절 번호 배열). null이면 원래 순서
 let albumUnseenOnly = false; // 오늘 아직 확인하지 않은 구절만 보기
 
+// ── 이어 듣기 ────────────────────────────────────────────────
+// 재생 목록은 '화면에 보이는 순서 그대로'다(섞기·미확인이 걸린 그 목록).
+// 따로 배울 규칙을 만들지 않으려는 것 — 눈에 보이는 것이 곧 들리는 것이다.
+let albumPickMode = false;          // '고르기' 켬 — 카드마다 말씀/3분요약을 따로 담는다
+let albumPicks = new Map();         // no -> { v, a }. 저장하지 않는다 — 앱을 다시 열면 비어 있다(숨김·섞기와 같은 규칙)
+let albumSermonsReady = false;      // 설교 데이터(1MB)를 받아 두었나
+const ALBUM_SUM_KEY = "album-play-summary";  // 이 토글만 저장한다 — 매번 켜기 번거로우니
+function albumWithSummary() { try { return localStorage.getItem(ALBUM_SUM_KEY) === "1"; } catch (e) { return false; } }
+function setAlbumWithSummary(on) { try { localStorage.setItem(ALBUM_SUM_KEY, on ? "1" : "0"); } catch (e) {} }
+
+// 재생 상태. gen(세대)은 철 지난 콜백을 버리기 위한 것 —
+// speechSynthesis.cancel()이 브라우저에 따라 onend를 부르는데, 그대로 두면
+// '다음'을 한 번 눌러도 두 칸이 건너뛰어진다.
+let albumPlayer = null;             // { items, i, paused }
+let albumPlayGen = 0;
+
+// 한국어 낭독 속도 어림값(초당 글자수). 3분요약 대본 중앙값 989자가 약 3분이라 5.5.
+const ALBUM_CPS = 5.5;
+
+function albumSermonOf(no) {
+  return (sermonsCache || []).find((x) => x.memVerseNo === no && x.audio) || null;
+}
+
+// 지금 목록에서 실제로 재생할 항목들을 만든다.
+//   고르기 켬 → 카드마다 고른 것만 / 끔 → 말씀 전부(+'요약 함께'면 요약도)
+function albumItemsFor(list) {
+  const items = [];
+  list.forEach((v) => {
+    const want = albumPickMode
+      ? (albumPicks.get(v.no) || { v: false, a: false })
+      : { v: true, a: albumWithSummary() };
+    if (want.v) {
+      const text = verseText(v);
+      items.push({ no: v.no, kind: "verse", ref: verseRefFull(v), text: text,
+                   lang: isEnMode(v) ? "en-US" : "ko-KR",
+                   sec: text.length / (ALBUM_CPS * getSpeakRate()) });
+    }
+    if (want.a) {
+      const sm = albumSermonOf(v.no);
+      if (sm) items.push({ no: v.no, kind: "audio", ref: verseRefFull(v),
+                           url: SERMON_AUDIO_BASE + sm.audio + "?v3",
+                           sec: (sm.audioScript || "").length / ALBUM_CPS || 180 });
+    }
+  });
+  return items;
+}
+
+// 모르고 눌렀다가 당황하지 않도록 버튼에 미리 적어 둔다(전부+요약이면 한 시간이 넘는다)
+function albumPlayStart(items) {
+  if (!items.length) { appAlert("들을 것을 하나 이상 골라 주세요."); return; }
+  albumPlayer = { items: items, i: 0, paused: false };
+  albumPlayStep();
+}
+
+function albumPlayStep() {
+  const p = albumPlayer;
+  if (!p) return;
+  const it = p.items[p.i];
+  if (!it) { albumPlayStop(); return; }
+  const gen = ++albumPlayGen;                 // 이 재생의 번호
+  albumPlayBar();
+  albumPlayFocus(it.no);
+  const next = () => {
+    if (gen !== albumPlayGen || !albumPlayer) return;   // 철 지난 콜백은 버린다
+    albumPlayer.i++;
+    albumPlayStep();
+  };
+  if (it.kind === "verse") speakLong(it.text, next, it.lang);
+  else playSermonAudio(it.url, next);
+}
+
+function albumPlayToggle() {
+  const p = albumPlayer;
+  if (!p) return;
+  p.paused = !p.paused;
+  const it = p.items[p.i] || {};
+  if (it.kind === "audio") {
+    if (p.paused) { try { sermonAudio && sermonAudio.pause(); } catch (e) {} }
+    else if (sermonAudio) sermonAudio.play().catch(() => {});
+  } else if (window.speechSynthesis) {
+    if (p.paused) window.speechSynthesis.pause();
+    else window.speechSynthesis.resume();
+  }
+  albumPlayBar();
+}
+
+// 이전/다음 — 목록 밖으로 나가면 재생을 마친다
+function albumPlayJump(d) {
+  const p = albumPlayer;
+  if (!p) return;
+  const n = p.i + d;
+  if (n < 0 || n >= p.items.length) { albumPlayStop(); return; }
+  albumPlayGen++;            // 지금 재생의 콜백을 무효로
+  stopSpeaking();
+  p.i = n;
+  p.paused = false;
+  albumPlayStep();
+}
+
+function albumPlayStop() {
+  albumPlayGen++;
+  stopSpeaking();
+  albumPlayer = null;
+  albumPlayBar();
+  document.querySelectorAll(".album-card.playing").forEach((c) => c.classList.remove("playing"));
+}
+
+// 읽는 카드를 강조하고 화면 가운데로 따라 올린다
+function albumPlayFocus(no) {
+  document.querySelectorAll(".album-card.playing").forEach((c) => c.classList.remove("playing"));
+  const c = document.querySelector('.album-card[data-no="' + no + '"]');
+  if (!c) return;
+  c.classList.add("playing");
+  try { c.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (e) { c.scrollIntoView(); }
+}
+
+// 화면 아래 고정 재생 바 — 재생 중에만 존재한다
+function albumPlayBar() {
+  let bar = document.getElementById("ab-play-bar");
+  if (!albumPlayer) {
+    if (bar) bar.remove();
+    document.body.classList.remove("ab-playing");
+    return;
+  }
+  if (!bar) {
+    bar = document.createElement("div");
+    bar.id = "ab-play-bar";
+    bar.className = "ab-play-bar";
+    document.body.appendChild(bar);
+    document.body.classList.add("ab-playing");
+  }
+  const p = albumPlayer;
+  const it = p.items[p.i] || {};
+  bar.innerHTML =
+    '<div class="pb-now"><b>' + (p.i + 1) + ' / ' + p.items.length + '</b>' +
+      '<span class="pb-ref">' + (it.ref || "") + '</span>' +
+      (it.kind === "audio" ? '<span class="pb-kind">📻 3분요약</span>' : '') + '</div>' +
+    '<div class="pb-btns">' +
+      '<button id="pb-prev" aria-label="이전">⏮</button>' +
+      '<button id="pb-play" class="pb-main">' + (p.paused ? "▶️ 이어서" : "⏸ 일시정지") + '</button>' +
+      '<button id="pb-next" aria-label="다음">⏭</button>' +
+      '<button id="pb-close" aria-label="재생 닫기">✕</button>' +
+    '</div>' +
+    '<div class="pb-note">ⓘ 아이폰은 화면이 꺼지면 말씀 낭독이 멈춥니다 (3분요약은 이어집니다)</div>';
+  bar.querySelector("#pb-prev").addEventListener("click", () => albumPlayJump(-1));
+  bar.querySelector("#pb-next").addEventListener("click", () => albumPlayJump(1));
+  bar.querySelector("#pb-play").addEventListener("click", albumPlayToggle);
+  bar.querySelector("#pb-close").addEventListener("click", albumPlayStop);
+}
+
+function albumDurText(items) {
+  const sec = Math.round(items.reduce((a, x) => a + (x.sec || 0), 0));
+  if (!sec) return "";
+  if (sec < 60) return "약 " + sec + "초";
+  const m = Math.round(sec / 60);
+  if (m < 60) return "약 " + m + "분";
+  const rest = m % 60;
+  return "약 " + Math.floor(m / 60) + "시간" + (rest ? " " + rest + "분" : "");
+}
+
 // "주의 말씀은 내 발에" → "주○ 말○○ 내 발○" — 문장부호는 남겨 리듬을 유지한다
 function firstCharHint(text) {
   return String(text || "")
@@ -5756,11 +5924,21 @@ function renderAlbum() {
     const heart = isHearted(v.no);
     const isChecked = checked.includes(v.no);
     const ref = verseRefFull(v);
+    // 고르기 모드에서만 보이는 선택 칩 — 말씀과 3분요약을 따로 담는다
+    const pk = albumPicks.get(v.no) || { v: false, a: false };
+    const hasAudio = !!albumSermonOf(v.no);
+    const chip = (kind, on, label) =>
+      `<span class="ap-chip${on ? " on" : ""}" data-pick="${v.no}" data-kind="${kind}"` +
+      ` role="button" tabindex="0" aria-pressed="${on}">${on ? "⬤" : "○"} ${label}</span>`;
+    const pickHtml = albumPickMode
+      ? `<span class="album-pick">${chip("v", pk.v, "말씀")}${hasAudio ? chip("a", pk.a, "📻 3분요약") : ""}</span>`
+      : "";
     // 확인한 구절은 숨김·힌트와 무관하게 늘 전문을 보여준다
     const body = albumHint && !isChecked ? firstCharHint(verseText(v)) : verseText(v);
     return `
       <button class="album-card${heart ? " hearted" : ""}${isChecked ? " checked" : ""}" data-no="${v.no}">
         ${heart ? `<span class="album-crown">👑</span>` : ""}
+        ${pickHtml}
         <span class="album-ref">${ref}</span>
         <span class="album-text">${body}</span>
         <span class="album-tools">
@@ -5775,6 +5953,13 @@ function renderAlbum() {
       </button>`;
   }).join("");
 
+  const playItems = albumItemsFor(list);
+  const playLabel = (items) => {
+    const d = albumDurText(items);
+    return (albumPickMode ? "▶️ " + items.length + "개 듣기" : "▶️ 전부 듣기") +
+           (d ? ' <span class="ab-dur">' + d + "</span>" : "");
+  };
+
   appEl.innerHTML = `
     <div class="album-screen">
       <h2 class="rank-title">📖 나의 말씀 앨범</h2>
@@ -5788,6 +5973,14 @@ function renderAlbum() {
         <button data-h="shuffle" class="${albumOrder ? "on" : ""}">🔀 섞기</button>
         <button data-h="unseen" class="${albumUnseenOnly ? "on" : ""}">🔎 미확인</button>
       </div>
+      ${list.length ? `
+      <div class="rank-filter album-play" id="ab-play">
+        <button id="ab-play-go" class="ab-go">${playLabel(playItems)}</button>
+        <button data-p="pick" class="${albumPickMode ? "on" : ""}">☑️ 고르기</button>
+        ${albumPickMode
+          ? `<button data-p="all">전체 선택</button><button data-p="none">해제</button>`
+          : `<button data-p="sum" class="${albumWithSummary() ? "on" : ""}">📄 요약 함께</button>`}
+      </div>` : ""}
       ${hiding ? `<p class="album-hint">가려진 곳을 떠올려 보고, 카드를 눌러 확인하세요</p>` : ""}
       ${list.length
         ? `<div class="album-grid${albumHideRef ? " hide-ref" : ""}${albumHideText ? " hide-text" : ""}">${cards}</div>`
@@ -5798,7 +5991,8 @@ function renderAlbum() {
     <button class="home-fab" id="ab-back" aria-label="첫 화면으로">🏠 ${userLabel(u)} 성도님</button>`;
 
   window.scrollTo(0, 0); // 첫 화면에서 내려온 위치가 남아 중간부터 보이던 문제
-  document.getElementById("ab-back").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
+  if (albumPlayer) albumPlayFocus((albumPlayer.items[albumPlayer.i] || {}).no);
+  document.getElementById("ab-back").addEventListener("click", () => { albumPlayStop(); renderSummary(); });
   document.getElementById("ab-quiz").querySelectorAll("button").forEach((b) =>
     b.addEventListener("click", () => {
       const h = b.dataset.h;
@@ -5808,6 +6002,51 @@ function renderAlbum() {
       else if (h === "unseen") albumUnseenOnly = !albumUnseenOnly;
       else albumOrder = albumOrder ? null : shuffled(done.map((v) => v.no));
       renderAlbum();
+    }));
+
+  // 재생 줄 — '전부 듣기'(말씀만)는 설교 데이터 없이 바로 된다.
+  // 설교는 1MB라 '요약 함께'·'고르기'를 켤 때 비로소 받는다(앨범의 기존 규칙).
+  const goBtn = document.getElementById("ab-play-go");
+  if (goBtn) goBtn.addEventListener("click", () => albumPlayStart(albumItemsFor(list)));
+  const playRow = document.getElementById("ab-play");
+  if (playRow) playRow.querySelectorAll("button[data-p]").forEach((b) =>
+    b.addEventListener("click", async () => {
+      const k = b.dataset.p;
+      if (k === "pick" || k === "sum") {
+        const turningOn = k === "pick" ? !albumPickMode : !albumWithSummary();
+        if (turningOn && !albumSermonsReady) {
+          b.textContent = "불러오는 중…";
+          b.disabled = true;
+          await loadSermons().catch(() => []);
+          albumSermonsReady = true;
+        }
+        if (k === "pick") { albumPickMode = !albumPickMode; if (!albumPickMode) albumPicks.clear(); }
+        else setAlbumWithSummary(!albumWithSummary());
+      } else if (k === "all") {
+        list.forEach((v) => albumPicks.set(v.no, { v: true, a: !!albumSermonOf(v.no) }));
+      } else if (k === "none") {
+        albumPicks.clear();
+      }
+      renderAlbum();
+    }));
+
+  // 칩 하나를 눌렀다고 목록을 다시 그리면 화면이 맨 위로 튄다 — 그 자리에서만 바꾼다
+  const refreshGo = () => {
+    const g = document.getElementById("ab-play-go");
+    if (g) g.innerHTML = playLabel(albumItemsFor(list));
+  };
+  appEl.querySelectorAll(".ap-chip").forEach((s) =>
+    s.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const no = Number(s.dataset.pick), kind = s.dataset.kind;
+      const cur = albumPicks.get(no) || { v: false, a: false };
+      if (kind === "v") cur.v = !cur.v; else cur.a = !cur.a;
+      albumPicks.set(no, cur);
+      const on = kind === "v" ? cur.v : cur.a;
+      s.classList.toggle("on", on);
+      s.setAttribute("aria-pressed", String(on));
+      s.textContent = (on ? "⬤ " : "○ ") + (kind === "v" ? "말씀" : "📻 3분요약");
+      refreshGo();
     }));
 
   appEl.querySelectorAll(".album-listen").forEach((s) =>
@@ -5821,7 +6060,7 @@ function renderAlbum() {
 
   const goTest = (no) => {
     const v = verses.find((x) => x.no === Number(no));
-    if (v) { stopSpeaking(); startTest(v); }
+    if (v) { albumPlayStop(); startTest(v); }
   };
   appEl.querySelectorAll(".album-go").forEach((s) =>
     s.addEventListener("click", (e) => { e.stopPropagation(); goTest(s.dataset.go); }));
@@ -5907,6 +6146,7 @@ function renderAlbum() {
   // 암송 진입은 📖 암송 버튼으로만 — 더블탭은 iOS 확대와 부딪히고 타이밍 부담도 크다.
   appEl.querySelectorAll(".album-card").forEach((c) =>
     c.addEventListener("click", () => {
+      if (albumPickMode) return;   // 고르기 중에는 칩으로만 담는다
       if (c.classList.contains("checked")) return;
       toggleAlbumChecked(Number(c.dataset.no));
       applyChecked(c, true);
