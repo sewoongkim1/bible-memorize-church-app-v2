@@ -16,7 +16,8 @@ body { margin:0; font-family:'맑은 고딕','Malgun Gothic',sans-serif; color:#
 .h-title { font-size:27pt; font-weight:800; color:#123059; line-height:1.2; letter-spacing:-.3pt; }
 .h-side { text-align:center; flex:0 0 auto; }
 .h-qr { width:25mm; height:25mm; display:block; image-rendering:pixelated; }
-.h-url { font-size:8.5pt; font-weight:700; color:#123059; margin-top:1mm; }
+/* QR이 안 찍힐 때 손으로 쳐야 하는 글자다 — 가장 작아서는 안 된다 */
+.h-url { font-size:10pt; font-weight:700; color:#123059; margin-top:1.2mm; letter-spacing:-.2pt; }
 
 .lead { font-size:12.5pt; line-height:1.65; color:#222; margin-bottom:4mm; word-break:keep-all; }
 .lead b { color:#123059; }
