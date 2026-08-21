@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260821o";
+const APP_BUILD = "20260821p";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -4661,6 +4661,7 @@ function renderIntro(next) {
           <div class="intro-title">${s.title}</div>
           <div class="intro-body">${s.body}</div>
           <div class="intro-dots">${slides.map((_, i) => `<span class="intro-dot ${i === idx ? "on" : ""}"></span>`).join("")}</div>
+          ${last ? `<a class="intro-watch" href="guide/">▶️ 화면으로 따라 하기</a>` : ""}
           <div class="intro-nav">
             <button class="intro-skip" id="intro-skip">건너뛰기</button>
             <button class="intro-next" id="intro-next">${last ? "시작하기" : "다음 ▸"}</button>
@@ -4950,6 +4951,7 @@ function renderManual(onClose, idx) {
           <button class="mn-close" id="mn-close">✕ 닫기</button>
         </div>
         <p class="mn-lead2">어려우시면 <b>①번부터 하나씩</b> 따라 해 보세요.</p>
+        <a class="mn-watch" href="guide/">▶️ 화면으로 따라 하기</a>
         <div class="mn-toc">
           ${MANUAL.map((m, i) => `
             <button class="mn-item" data-go="${i}">
@@ -4959,7 +4961,6 @@ function renderManual(onClose, idx) {
               <span class="mn-arrow">›</span>
             </button>`).join("")}
         </div>
-        <a class="mn-watch" href="guide/">▶️ 화면으로 따라 하기</a>
         <button class="mn-more" id="mn-more">❓ 자세한 안내 · 개인정보 보기</button>
         <p class="mn-help-line">잘 안 되시면 주일 <b>1층 로비</b>에서 도와드립니다 🙌</p>
       </div>`;

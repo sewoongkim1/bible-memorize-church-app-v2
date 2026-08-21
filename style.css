@@ -3517,3 +3517,14 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
 }
 .mn-watch:hover { background: var(--navy-dark); }
 .dark .mn-watch { background: #3a4a68; border-color: #56688c; }
+
+/* 인트로 마지막 장의 「따라 하기」 — 처음 오신 분이 만나는 자리.
+   '시작하기'가 주인공이므로 이건 테두리만 있는 보조 단추로 둔다. */
+.intro-watch {
+  display: block; margin: 14px 0 4px; padding: 13px; text-align: center;
+  border-radius: 12px; text-decoration: none;
+  border: 1.5px solid var(--navy); color: var(--navy); background: #fff;
+  font-size: 1rem; font-weight: 800;
+}
+.intro-watch:hover { background: var(--cream); }
+.dark .intro-watch { background: #1c2740; border-color: #56688c; color: #cfe0ff; }

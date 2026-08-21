@@ -19,6 +19,7 @@ PORT = 8742
 W, H = 526, 940   # 이 PC 헤드리스 크롬은 뷰포트가 526px로 고정된다
 
 STEPS = [
+    ("intro",     "renderIntro(function(){})"),
     ("install",   "renderSummary(); renderInstallGuide()"),
     ("home",      "renderSummary()"),
     ("list",      "renderVerseList()"),
