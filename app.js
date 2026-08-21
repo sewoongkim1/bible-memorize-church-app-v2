@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260821h";
+const APP_BUILD = "20260821i";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5748,6 +5748,12 @@ let albumPlayGen = 0;
 // 한국어 낭독 속도 어림값(초당 글자수). 3분요약 대본 중앙값 989자가 약 3분이라 5.5.
 const ALBUM_CPS = 5.5;
 
+// 한 항목이 끝나고 다음이 시작하기까지 쉬는 시간. 쉼 없이 이어 붙으면 어디서
+// 한 구절이 끝났는지 귀로 가늠이 안 된다 — 떠올려 볼 틈도 여기서 난다.
+const ALBUM_GAP_MS = 2000;
+let albumGapTimer = null;
+function albumClearGap() { if (albumGapTimer) { clearTimeout(albumGapTimer); albumGapTimer = null; } }
+
 function albumSermonOf(no) {
   return (sermonsCache || []).find((x) => x.memVerseNo === no && x.audio) || null;
 }
@@ -5800,7 +5806,15 @@ function albumPlayStep() {
   const next = () => {
     if (gen !== albumPlayGen || !albumPlayer) return;   // 철 지난 콜백은 버린다
     albumPlayer.i++;
-    albumPlayStep();
+    if (albumPlayer.i >= albumPlayer.items.length) { albumPlayStop(); return; }
+    albumClearGap();
+    albumGapTimer = setTimeout(() => {
+      albumGapTimer = null;
+      if (gen !== albumPlayGen || !albumPlayer) return;
+      // 쉬는 동안 멈춤을 눌렀다면 여기서 시작하지 않는다 — '이어서'를 누를 때 간다
+      if (albumPlayer.paused) { albumPlayer.gapDone = true; return; }
+      albumPlayStep();
+    }, ALBUM_GAP_MS);
   };
   if (it.kind === "verse") speakLong(it.text, next, it.lang);
   else playSermonAudio(it.url, next);
@@ -5810,6 +5824,11 @@ function albumPlayToggle() {
   const p = albumPlayer;
   if (!p) return;
   p.paused = !p.paused;
+  if (!p.paused && p.gapDone) {   // 쉬는 사이에 멈췄다가 이어서 — 기다릴 것 없이 바로
+    p.gapDone = false;
+    albumPlayStep();
+    return;
+  }
   const it = p.items[p.i] || {};
   if (it.kind === "audio") {
     if (p.paused) { try { sermonAudio && sermonAudio.pause(); } catch (e) {} }
@@ -5828,14 +5847,17 @@ function albumPlayJump(d) {
   const n = p.i + d;
   if (n < 0 || n >= p.items.length) { albumPlayStop(); return; }
   albumPlayGen++;            // 지금 재생의 콜백을 무효로
+  albumClearGap();
   stopSpeaking();
   p.i = n;
   p.paused = false;
+  p.gapDone = false;
   albumPlayStep();
 }
 
 function albumPlayStop() {
   albumPlayGen++;
+  albumClearGap();
   stopSpeaking();
   albumPlayer = null;
   albumPlayBar();
@@ -5893,7 +5915,8 @@ function albumPlayBar() {
 }
 
 function albumDurText(items) {
-  const sec = Math.round(items.reduce((a, x) => a + (x.sec || 0), 0));
+  const gaps = Math.max(0, items.length - 1) * (ALBUM_GAP_MS / 1000);
+  const sec = Math.round(items.reduce((a, x) => a + (x.sec || 0), 0) + gaps);
   if (!sec) return "";
   if (sec < 60) return "약 " + sec + "초";
   const m = Math.round(sec / 60);
