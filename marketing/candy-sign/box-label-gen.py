@@ -82,11 +82,10 @@ body { margin:0; font-family:'맑은 고딕','Malgun Gothic',sans-serif; color:#
 /* 자르는 자리 — 아주 흐리게. 잘라내면 남지 않아야 한다 */
 .cutline { position:absolute; left:-6mm; right:-6mm; bottom:-4.5mm; height:0;
            border-top:0.3mm dashed #c9d0dd; }
-.tag { position:absolute; right:0; bottom:-4mm; font-size:7pt; color:#9aa6bb; }
 """ % {'navy': NAVY, 'ink': INK, 'gold': GOLD}
 
 
-def band(kind, title, take, tag):
+def band(kind, title, take):
     return """
   <div class="row">
     <div class="band %s">
@@ -94,14 +93,14 @@ def band(kind, title, take, tag):
       <div class="ttl">%s</div>
       <div class="take">%s</div>
     </div>
-    <div class="cutline"></div><div class="tag">%s</div>
-  </div>""" % (kind, title, take, tag)
+    <div class="cutline"></div>
+  </div>""" % (kind, title, take)
 
 
-body = (band('long',  '📖 성경말씀 암송 앱 사용 설명서', '한 장씩 가져가세요', '긴쪽 260 × 40mm')
-        + band('long',  '📖 성경말씀 암송 앱 사용 설명서', '한 장씩 가져가세요', '긴쪽 260 × 40mm')
-        + band('short', '📖 암송 앱 사용 설명서', '한 장씩 가져가세요', '짧은쪽 200 × 40mm')
-        + band('short', '📖 암송 앱 사용 설명서', '한 장씩 가져가세요', '짧은쪽 200 × 40mm'))
+body = (band('long',  '📖 성경말씀 암송 앱 사용 설명서', '한 장씩 가져가세요')
+        + band('long',  '📖 성경말씀 암송 앱 사용 설명서', '한 장씩 가져가세요')
+        + band('short', '📖 암송 앱 사용 설명서', '한 장씩 가져가세요')
+        + band('short', '📖 암송 앱 사용 설명서', '한 장씩 가져가세요'))
 
 html = ('<!doctype html><html lang="ko"><head><meta charset="utf-8">'
         '<title>사용설명서 박스 띠지</title><style>' + STYLE + '</style></head><body>'
