@@ -23,6 +23,7 @@ import io, os
 HERE = os.path.dirname(os.path.abspath(__file__))
 M = os.path.join(HERE, '..')
 QR = io.open(os.path.join(M, 'qr-data-uri.txt'), encoding='utf-8').read().strip()
+LOGO = io.open(os.path.join(M, 'logo-data-uri.txt'), encoding='utf-8').read().strip()
 
 NAVY = '#123059'
 GOLD = '#a8801f'
@@ -35,12 +36,15 @@ body { margin:0; font-family:'맑은 고딕','Malgun Gothic',sans-serif; color:#
         display:flex; flex-direction:column; }
 .page:last-child { page-break-after:auto; }
 
-.head { display:flex; align-items:flex-end; gap:5mm; border-bottom:1.1mm solid %(navy)s;
+.head { display:flex; align-items:center; gap:5mm; border-bottom:1.1mm solid %(navy)s;
         padding-bottom:3mm; margin-bottom:4mm; }
 .head .t { flex:1; }
+/* 로고에 '고척교회' 글자가 들어 있다 — 소속을 글로 또 적지 않고 마크로 보인다 */
+.h-logo { height:20mm; width:auto; flex:0 0 auto; }
+.h-logo-s { height:14mm; }
 .h-sup { font-size:11pt; font-weight:700; color:%(gold)s; letter-spacing:.4pt; }
-.h-title { font-size:23pt; font-weight:800; color:%(navy)s; line-height:1.15; margin-top:1mm; }
-.h-side { text-align:center; }
+.h-title { font-size:27pt; font-weight:800; color:%(navy)s; line-height:1.2; letter-spacing:-.3pt; }
+.h-side { text-align:center; flex:0 0 auto; }
 .h-qr { width:25mm; height:25mm; display:block; image-rendering:pixelated; }
 .h-url { font-size:8.5pt; font-weight:700; color:%(navy)s; margin-top:1mm; }
 
@@ -75,8 +79,9 @@ def head(sup, title, qr=True):
     side = ('<div class="h-side"><img class="h-qr" src="%s">'
             '<div class="h-url">gocheok.onlybible.kr</div></div>' % QR) if qr else ''
     top = '<div class="h-sup">%s</div>' % sup if sup else ''
-    return ('<div class="head"><div class="t">%s'
-            '<div class="h-title">%s</div></div>%s</div>' % (top, title, side))
+    logo = '<img class="h-logo%s" src="%s">' % ('' if qr else ' h-logo-s', LOGO)
+    return ('<div class="head">%s<div class="t">%s'
+            '<div class="h-title">%s</div></div>%s</div>' % (logo, top, title, side))
 
 
 def blk(n, title, side, body):
