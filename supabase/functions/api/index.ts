@@ -2480,7 +2480,7 @@ async function pilsaNotify(row: any) {
   const payload = JSON.stringify({
     title: "[고척교회 신앙운동팀]",
     body: "안녕하세요 " + (who ? who + " 성도님, " : "성도님, ") +
-      "신청하신 성경필사 노트가 준비되었습니다. 주일에 4층 새가족실에서 찾아가세요. 평안한 한주되시고요. 살롬!! 살롬!!",
+      "신청하신 성경필사 노트가 준비되었습니다. 주일에 4층 새가족실에서 찾아가세요. 평안한 한 주 되시고요. 샬롬!! 샬롬!!",
     url: "https://gocheok.onlybible.kr/",
   });
   let sent = 0, failed = 0;

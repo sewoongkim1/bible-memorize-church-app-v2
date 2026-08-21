@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260821i";
+const APP_BUILD = "20260821j";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5752,6 +5752,37 @@ const ALBUM_CPS = 5.5;
 // 한 구절이 끝났는지 귀로 가늠이 안 된다 — 떠올려 볼 틈도 여기서 난다.
 const ALBUM_GAP_MS = 2000;
 let albumGapTimer = null;
+
+// 듣는 동안 화면이 저절로 꺼지지 않게 붙잡는다(Screen Wake Lock).
+// 화면이 꺼지면 TTS가 멈추기 때문 — 특히 아이폰. iOS 16.4+·안드로이드 크롬에서 된다.
+//   · 반드시 사용자의 탭에서 요청해야 한다(재생 버튼이 그 자리)
+//   · 다른 앱에 화면을 내주면 잠금이 저절로 풀리므로 돌아왔을 때 다시 건다
+//   · 전원 버튼을 직접 누르는 것까지 막지는 못한다
+let _wakeLock = null;
+let albumWakeOn = false;
+async function keepScreenAwake(on) {
+  try {
+    if (!on) {
+      if (_wakeLock) { const w = _wakeLock; _wakeLock = null; await w.release(); }
+      albumWakeOn = false;
+      return false;
+    }
+    if (!("wakeLock" in navigator)) return false;
+    if (_wakeLock) return true;
+    _wakeLock = await navigator.wakeLock.request("screen");
+    _wakeLock.addEventListener("release", () => { _wakeLock = null; });
+    albumWakeOn = true;
+    return true;
+  } catch (e) {           // 배터리 절약 모드 등으로 거절될 수 있다 — 조용히 포기
+    _wakeLock = null;
+    albumWakeOn = false;
+    return false;
+  }
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "visible") return;
+  if (albumPlayer) keepScreenAwake(true).then(() => albumPlayBar());
+});
 function albumClearGap() { if (albumGapTimer) { clearTimeout(albumGapTimer); albumGapTimer = null; } }
 
 function albumSermonOf(no) {
@@ -5792,6 +5823,7 @@ function albumItemsFor(list) {
 function albumPlayStart(items) {
   if (!items.length) { appAlert("들을 것을 하나 이상 골라 주세요."); return; }
   albumPlayer = { items: items, i: 0, paused: false };
+  keepScreenAwake(true).then(() => albumPlayBar());   // 탭한 그 자리에서 요청해야 받아 준다
   albumPlayStep();
 }
 
@@ -5858,6 +5890,7 @@ function albumPlayJump(d) {
 function albumPlayStop() {
   albumPlayGen++;
   albumClearGap();
+  keepScreenAwake(false);
   stopSpeaking();
   albumPlayer = null;
   albumPlayBar();
@@ -5894,9 +5927,11 @@ function albumPlayBar() {
   // 3분요약이 섞인 목록에서만 '요약은 이어집니다'라고 쓴다 —
   // 말씀 목록 화면은 요약이 없어 그 말이 거짓이 된다.
   const hasAudio = p.items.some((x) => x.kind === "audio");
-  const note = hasAudio
-    ? "ⓘ 아이폰은 화면이 꺼지면 말씀 낭독이 멈춥니다 (3분요약은 이어집니다)"
-    : "ⓘ 아이폰은 화면이 꺼지면 멈춥니다";
+  const note = albumWakeOn
+    ? "🔆 듣는 동안 화면이 저절로 꺼지지 않게 해 둡니다 (전원 버튼을 누르면 멈춰요)"
+    : hasAudio
+      ? "ⓘ 화면이 꺼지면 말씀 낭독이 멈춥니다 (3분요약은 이어집니다)"
+      : "ⓘ 화면이 꺼지면 낭독이 멈춥니다";
   bar.innerHTML =
     '<div class="pb-now"><b>' + (p.i + 1) + ' / ' + p.items.length + '</b>' +
       '<span class="pb-ref">' + (it.ref || "") + '</span>' +
