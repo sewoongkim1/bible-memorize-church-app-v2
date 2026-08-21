@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260821k";
+const APP_BUILD = "20260821l";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1728,7 +1728,7 @@ function renderSummary() {
   document.getElementById("open-album").addEventListener("click", () => renderAlbum());
   { const b = document.getElementById("open-passages"); if (b) b.addEventListener("click", () => { markFeatSeen("passages"); renderPassageList(); }); }
   document.getElementById("open-ranking").addEventListener("click", () => renderRanking());
-  document.getElementById("open-help-summary").addEventListener("click", () => renderHelp(renderSummary));
+  document.getElementById("open-help-summary").addEventListener("click", () => renderManual(renderSummary, -1));
   document.getElementById("open-settings").addEventListener("click", renderSettings);
   document.getElementById("open-share").addEventListener("click", shareApp);
   document.getElementById("open-alarm").addEventListener("click", alarmFromHome);
@@ -1773,9 +1773,11 @@ function showPushNudge() {
   });
 }
 
-// 첫화면 📲 바로가기: 홈 화면에 앱 추가(설치 프롬프트 또는 방법 안내)
+// 첫화면 📲 바로가기: 홈 화면에 앱 추가
+// 안드로이드는 브라우저가 설치 대화상자를 대신 띄워 준다 — 한 번만 누르면 끝난다.
+// 아이폰 사파리에는 그런 길이 아예 없어 공유 시트를 거쳐야 하는데, 글로만 적으면
+// '공유 단추'가 어느 것인지 못 찾으신다. 그래서 그림으로 짚어 준다.
 function installToHome() {
-  const ua = navigator.userAgent || "";
   if (window.__pwaInstallPrompt) {
     window.__pwaInstallPrompt.prompt();
     window.__pwaInstallPrompt.userChoice.then(({ outcome }) => {
@@ -1783,13 +1785,70 @@ function installToHome() {
     }).catch(() => {});
     return;
   }
-  if (/iphone|ipad|ipod/i.test(ua)) {
-    appAlert("① 하단 공유 버튼(□↑)을 누르세요\n② \"홈 화면에 추가\"를 선택하세요\n③ 오른쪽 위 \"추가\"를 눌러 완료!", "📱 홈 화면에 바로가기 추가");
-  } else if (/android/i.test(ua)) {
-    appAlert("① 브라우저 우측 상단 메뉴(⋮)를 누르세요\n② \"홈 화면에 추가\"를 선택하세요\n③ \"추가\"를 눌러 완료!", "📱 홈 화면에 바로가기 추가");
-  } else {
-    appAlert("• iOS Safari: 공유 버튼(□↑) → 홈 화면에 추가\n• Android Chrome: 메뉴(⋮) → 홈 화면에 추가", "📱 홈 화면에 바로가기 추가");
-  }
+  renderInstallGuide();
+}
+
+// 그림 안내 — 폰에 맞는 쪽을 먼저 펼쳐 보여 준다
+function renderInstallGuide() {
+  const ua = navigator.userAgent || "";
+  const ios = /iphone|ipad|ipod/i.test(ua);
+  const old = document.getElementById("iw-wrap");
+  if (old) old.remove();
+
+  const iosBlock = `
+    <div class="iw-block${ios ? " on" : ""}">
+      <div class="iw-head">📱 아이폰 (사파리)</div>
+      <div class="iw-art">
+        <div class="iw-bar"><span class="iw-share">⬆️</span></div>
+        <div class="iw-point">▲</div>
+        <div class="iw-note">화면 <b>맨 아래 가운데</b>에 있어요</div>
+      </div>
+      <ol class="iw-steps">
+        <li>아래 <b>공유 단추</b>(네모에 화살표)를 누르세요.</li>
+        <li>목록을 <b>아래로 넘겨</b> <b>「홈 화면에 추가」</b>를 찾으세요.</li>
+        <li>오른쪽 위 <b>「추가」</b>를 누르면 끝이에요.</li>
+      </ol>
+      <div class="iw-warn">⚠️ <b>사파리</b>에서만 됩니다. 카카오톡으로 여셨다면
+        오른쪽 아래 <b>⋯ → 사파리로 열기</b>를 먼저 눌러 주세요.</div>
+    </div>`;
+
+  const androidBlock = `
+    <div class="iw-block${ios ? "" : " on"}">
+      <div class="iw-head">🤖 안드로이드 (크롬)</div>
+      <div class="iw-art">
+        <div class="iw-note"><b>화면 오른쪽 위</b>에 있어요</div>
+        <div class="iw-point">▼</div>
+        <div class="iw-bar iw-bar-right"><span class="iw-dots">⋮</span></div>
+      </div>
+      <ol class="iw-steps">
+        <li>오른쪽 위 <b>점 세 개</b>(⋮)를 누르세요.</li>
+        <li><b>「홈 화면에 추가」</b> 또는 <b>「앱 설치」</b>를 누르세요.</li>
+        <li><b>「추가」</b>를 누르면 끝이에요.</li>
+      </ol>
+      <div class="iw-warn">⚠️ <b>크롬</b>에서만 됩니다. 카카오톡으로 여셨다면
+        오른쪽 위 <b>⋮ → 다른 브라우저로 열기</b>를 먼저 눌러 주세요.</div>
+    </div>`;
+
+  const wrap = document.createElement("div");
+  wrap.id = "iw-wrap";
+  wrap.className = "iw-wrap";
+  wrap.innerHTML = `
+    <div class="iw-card">
+      <div class="iw-top">
+        <h3 class="iw-title">📲 홈 화면에 앱 만들기</h3>
+        <button class="iw-close" id="iw-close">✕</button>
+      </div>
+      <p class="iw-lead">한 번만 해 두면 다음부터 <b>바탕화면 그림</b>만 누르면 열려요.</p>
+      ${ios ? iosBlock + androidBlock : androidBlock + iosBlock}
+      <button class="iw-ok" id="iw-ok">알겠습니다</button>
+    </div>`;
+  document.body.appendChild(wrap);
+  const close = () => wrap.remove();
+  wrap.querySelector("#iw-close").addEventListener("click", close);
+  wrap.querySelector("#iw-ok").addEventListener("click", close);
+  wrap.addEventListener("click", (e) => { if (e.target === wrap) close(); });
+  wrap.querySelectorAll(".iw-head").forEach((h) =>
+    h.addEventListener("click", () => h.parentElement.classList.toggle("on")));
 }
 
 // 첫화면 🔔: 미구독자만 기본 7시로 켜고, 이미 켜진 사람은 손대지 않고 안내만
@@ -4708,6 +4767,214 @@ function renderPrivacyInfo(back) {
     </div>`;
   document.getElementById("privacy-close").addEventListener("click", back);
   document.getElementById("privacy-back").addEventListener("click", back);
+}
+
+// ============================================================
+// 📘 사용 설명서 — 어르신도 혼자 보실 수 있게.
+//   한 화면에 한 가지 · 큰 글씨 · 그림 · 큰 [다음] 단추.
+//   글이 빽빽한 기존 도움말(renderHelp)은 맨 끝 '자세한 안내'로 옮겼다.
+//   그림은 실제 화면 사진이 아니라 단순한 그림이다 — 사진은 폰마다 다르고
+//   화면이 바뀌면 곧 낡는데, 낡은 사진은 없느니만 못하다.
+// ============================================================
+const MANUAL = [
+  {
+    icon: "📱", title: "홈 화면에 앱 만들기",
+    lead: "한 번만 해 두면 다음부터 바로 열려요.",
+    art: '<div class="mn-phone"><div class="mn-ico">📖</div><div class="mn-cap">말씀암송</div></div>',
+    steps: [
+      "첫 화면 위쪽 <b>📲</b>를 누르세요.",
+      "<b>안드로이드</b>는 <b>「설치」</b> 창이 바로 떠요. 누르면 끝이에요.",
+      "<b>아이폰</b>은 화면 아래 <b>공유 단추</b>(□에 ↑)를 누르고,",
+      "목록에서 <b>「홈 화면에 추가」</b> → <b>「추가」</b>를 누르세요.",
+    ],
+    tip: "바탕화면에 📖 그림이 생겨요. 다음부터는 그것만 누르시면 됩니다.",
+    act: { id: "install", label: "📲 지금 만들기" },
+  },
+  {
+    icon: "🔔", title: "알림 켜기",
+    lead: "아침에 오늘의 말씀을 알려 드려요.",
+    art: '<div class="mn-row"><span class="mn-btn">🔔 알림</span></div>',
+    steps: [
+      "첫 화면 위쪽 <b>🔔</b>를 누르세요.",
+      "폰이 <b>「허용하시겠습니까?」</b> 하고 물어봐요.",
+      "<b>「허용」</b>을 누르세요.",
+    ],
+    tip: "「허용 안 함」을 누르셨다면 폰 설정에서 다시 켜야 해요. 옆에 계신 분께 부탁하세요.",
+    act: { id: "alarm", label: "🔔 지금 켜기" },
+  },
+  {
+    icon: "🙋", title: "처음 시작하기",
+    lead: "이름을 넣으면 내 기록이 저장돼요.",
+    art: '<div class="mn-form"><div class="mn-line">교구 ▾</div><div class="mn-line">목장 ▾</div><div class="mn-line">이름</div></div>',
+    steps: [
+      "<b>교구</b>인지 <b>교회학교</b>인지 고르세요.",
+      "교구는 <b>교구 · 목장 · 이름</b>을 넣어요.",
+      "교회학교는 <b>부서 · 학년 · 이름</b>을 넣어요.",
+      "한 번 넣으면 다음부터 그대로 이어집니다.",
+    ],
+    tip: "비밀번호는 없어요. 이름만 맞으면 됩니다.",
+  },
+  {
+    icon: "✍️", title: "말씀 암송하기",
+    lead: "빈칸을 채우며 세 번에 나누어 외워요.",
+    art: '<div class="mn-verse">주의 말씀은 내 <span class="mn-blank">◻︎◻︎</span>에 <span class="mn-blank">◻︎</span>이요</div>',
+    steps: [
+      "<b>1단계</b> — 빈칸이 조금 (넷 중 하나쯤)",
+      "<b>2단계</b> — 빈칸이 많이 (셋 중 둘쯤)",
+      "<b>3단계</b> — 전부 빈칸",
+      "맞으면 <b>초록색</b>으로 바뀌고 다음 칸으로 넘어가요.",
+      "틀리면 잠깐 <b>빨간색</b>이 되고, 다시 넣으면 돼요.",
+    ],
+    tip: "막히면 <b>💡 힌트</b>를 누르세요. 한 글자씩 보여 줍니다.",
+  },
+  {
+    icon: "🔊", title: "말씀 듣기",
+    lead: "눈이 피로하실 땐 귀로 들으세요.",
+    art: '<div class="mn-row"><span class="mn-btn mn-btn-on">▶️ 전체 듣기</span><span class="mn-btn">🔊</span></div>',
+    steps: [
+      "구절 옆 <b>🔊</b>를 누르면 그 말씀 하나를 읽어 줘요.",
+      "<b>말씀 목록</b> 맨 위 <b>▶️ 전체 듣기</b>를 누르면 처음부터 끝까지 이어서 읽어 줘요.",
+      "요절을 먼저 부르고, 잠깐 쉰 뒤 다음 말씀으로 넘어가요.",
+      "듣는 동안 <b>화면이 저절로 꺼지지 않아요.</b>",
+    ],
+    tip: "「나의 말씀 앨범」에서는 <b>📻 3분요약</b>(설교 요약)도 함께 들을 수 있어요.",
+  },
+  {
+    icon: "🎤", title: "소리 내어 암송하기",
+    lead: "타자가 어려우시면 말로 하세요.",
+    art: '<div class="mn-row"><span class="mn-btn mn-btn-on">🎤 암송 시작</span></div>',
+    steps: [
+      "<b>🎤 암송 시작</b>을 누르세요.",
+      "말씀을 <b>소리 내어</b> 외우세요.",
+      "다 하시면 <b>■ 종료</b>를 누르세요.",
+      "얼마나 맞았는지 알려 줍니다.",
+    ],
+    tip: "처음에 폰이 <b>마이크를 써도 되냐</b>고 물어봐요. <b>「허용」</b>을 누르세요.",
+  },
+  {
+    icon: "👑", title: "마음에 둠 · 나의 말씀 앨범",
+    lead: "외운 말씀을 모아 두는 곳이에요.",
+    art: '<div class="mn-row"><span class="mn-btn">👑 마음에 두었나이다</span></div>',
+    steps: [
+      "3단계까지 마치면 <b>👑 마음에 두었나이다</b>를 누를 수 있어요.",
+      "첫 화면 <b>📖 나의 말씀 앨범</b>에 모입니다.",
+      "앨범에서는 <b>요절이나 말씀을 가리고</b> 스스로 맞혀 볼 수 있어요.",
+    ],
+    tip: "앨범에서도 <b>▶️ 전부 듣기</b>로 이어서 들을 수 있어요.",
+  },
+  {
+    icon: "🏆", title: "순위와 응원",
+    lead: "함께 하면 더 오래 갑니다.",
+    art: '<div class="mn-rank"><span>1위  화평-20 김○○</span><span class="mn-chip">👏 3</span></div>',
+    steps: [
+      "첫 화면 <b>🏆 순위</b>에서 이번 주 도전 순위를 봐요.",
+      "다른 분 줄의 <b>👏</b>를 누르면 응원이 전해져요.",
+      "응원은 <b>하루에 한 분당 한 번</b>이에요.",
+    ],
+    tip: "내가 <b>오늘 한 번이라도 도전</b>해야 응원을 보낼 수 있어요.",
+  },
+  {
+    icon: "💬", title: "응원·기도·공감 게시판",
+    lead: "서로 격려하는 자리예요.",
+    art: '<div class="mn-row"><span class="mn-chip">👍</span><span class="mn-chip">🙏</span><span class="mn-chip">❤️</span></div>',
+    steps: [
+      "첫 화면 <b>💬 응원·기도·공감</b>을 누르세요.",
+      "글을 남기거나 남의 글에 답글을 달 수 있어요.",
+      "<b>👍 🙏 ❤️</b>를 눌러 마음을 표시할 수도 있어요.",
+    ],
+    tip: "기도 제목을 남기시면 함께 기도합니다.",
+  },
+  {
+    icon: "⚙️", title: "글씨 크게 하기",
+    lead: "잘 안 보이시면 키우세요.",
+    art: '<div class="mn-row"><span class="mn-btn">가</span><span class="mn-btn mn-btn-mid">가</span><span class="mn-btn mn-btn-on mn-btn-big">가</span></div>',
+    steps: [
+      "첫 화면 위쪽 <b>⚙️</b>를 누르세요.",
+      "<b>글씨 크기</b>에서 <b>큼</b>이나 <b>아주 큼</b>을 고르세요.",
+      "이름이나 목장이 바뀌었으면 <b>정보 변경</b>에서 고치세요.",
+    ],
+    tip: "읽어 주는 <b>속도</b>도 여기서 느리게 할 수 있어요.",
+  },
+];
+
+let manualIdx = -1;      // -1이면 목차 화면
+let _manualClose = null; // 닫을 때 돌아갈 곳
+
+// 목차 <-> 한 항목. 어느 쪽에서든 X로 나갈 수 있어야 갇힌 느낌이 안 든다.
+function renderManual(onClose, idx) {
+  if (onClose) _manualClose = onClose;
+  manualIdx = typeof idx === "number" ? idx : -1;
+  const appEl = document.getElementById("app");
+  const back = () => (_manualClose || renderSummary)();
+  const NUM = "①②③④⑤⑥⑦⑧⑨⑩";
+
+  if (manualIdx < 0) {
+    appEl.innerHTML = `
+      <div class="mn-screen">
+        <div class="mn-top">
+          <h2 class="mn-title">📘 사용 설명서</h2>
+          <button class="mn-close" id="mn-close">✕ 닫기</button>
+        </div>
+        <p class="mn-lead2">어려우시면 <b>①번부터 하나씩</b> 따라 해 보세요.</p>
+        <div class="mn-toc">
+          ${MANUAL.map((m, i) => `
+            <button class="mn-item" data-go="${i}">
+              <span class="mn-num">${NUM.charAt(i) || (i + 1)}</span>
+              <span class="mn-ic">${m.icon}</span>
+              <span class="mn-tx"><b>${m.title}</b><br><span class="mn-sub">${m.lead}</span></span>
+              <span class="mn-arrow">›</span>
+            </button>`).join("")}
+        </div>
+        <button class="mn-more" id="mn-more">❓ 자세한 안내 · 개인정보 보기</button>
+        <p class="mn-help-line">잘 안 되시면 주일 <b>1층 로비</b>에서 도와드립니다 🙌</p>
+      </div>`;
+    document.getElementById("mn-close").addEventListener("click", back);
+    document.getElementById("mn-more").addEventListener("click", () => renderHelp(() => renderManual(null, -1)));
+    appEl.querySelectorAll(".mn-item").forEach((b) =>
+      b.addEventListener("click", () => renderManual(null, Number(b.dataset.go))));
+    window.scrollTo(0, 0);
+    return;
+  }
+
+  const m = MANUAL[manualIdx];
+  const prev = manualIdx > 0 ? manualIdx - 1 : null;
+  const next = manualIdx < MANUAL.length - 1 ? manualIdx + 1 : null;
+  appEl.innerHTML = `
+    <div class="mn-screen mn-detail">
+      <div class="mn-top">
+        <button class="mn-back" id="mn-toc">☰ 목차</button>
+        <span class="mn-count">${manualIdx + 1} / ${MANUAL.length}</span>
+        <button class="mn-close" id="mn-close">✕ 닫기</button>
+      </div>
+      <div class="mn-card">
+        <div class="mn-big-ic">${m.icon}</div>
+        <h3 class="mn-h3">${NUM.charAt(manualIdx) || ""} ${m.title}</h3>
+        <p class="mn-lead">${m.lead}</p>
+        ${m.art ? `<div class="mn-art">${m.art}</div>` : ""}
+        <ol class="mn-steps">${m.steps.map((t) => `<li>${t}</li>`).join("")}</ol>
+        ${m.tip ? `<div class="mn-tip">💡 ${m.tip}</div>` : ""}
+        ${m.act ? `<button class="mn-act" id="mn-act">${m.act.label}</button>` : ""}
+      </div>
+      <div class="mn-nav">
+        ${prev !== null ? `<button class="mn-nav-btn" id="mn-prev">◀ 이전</button>` : `<span class="mn-nav-gap"></span>`}
+        ${next !== null
+          ? `<button class="mn-nav-btn mn-nav-main" id="mn-next">다음 ▶</button>`
+          : `<button class="mn-nav-btn mn-nav-main" id="mn-done">✓ 다 봤어요</button>`}
+      </div>
+    </div>`;
+  document.getElementById("mn-close").addEventListener("click", back);
+  document.getElementById("mn-toc").addEventListener("click", () => renderManual(null, -1));
+  if (prev !== null) document.getElementById("mn-prev").addEventListener("click", () => renderManual(null, prev));
+  if (next !== null) document.getElementById("mn-next").addEventListener("click", () => renderManual(null, next));
+  const done = document.getElementById("mn-done");
+  if (done) done.addEventListener("click", back);
+  // 읽고 나서 그 자리에서 바로 해 볼 수 있게 — 화면을 옮기지 않는다
+  const act = document.getElementById("mn-act");
+  if (act && m.act) act.addEventListener("click", () => {
+    if (m.act.id === "install") installToHome();
+    else if (m.act.id === "alarm") alarmFromHome();
+  });
+  window.scrollTo(0, 0);
 }
 
 // 도움말 전체 화면 (onClose: 닫을 때 돌아갈 처리)
