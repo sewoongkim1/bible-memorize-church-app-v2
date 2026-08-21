@@ -3528,3 +3528,12 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
 }
 .intro-watch:hover { background: var(--cream); }
 .dark .intro-watch { background: #1c2740; border-color: #56688c; color: #cfe0ff; }
+
+/* 도전에서 '다시 암송'을 마치고 다음 구절로 넘어가기 직전 한 줄 —
+   화면이 말없이 바뀌면 무엇이 일어났는지 모른다 */
+.relearn-back {
+  margin: 10px 0; padding: 12px 14px; border-radius: 12px; text-align: center;
+  background: #eef6ee; border: 1px solid #cfe3cf; color: #2f5d3a;
+  font-size: .95rem; font-weight: 700;
+}
+.dark .relearn-back { background: #1e2c22; border-color: #3d5a44; color: #cfe8d5; }
