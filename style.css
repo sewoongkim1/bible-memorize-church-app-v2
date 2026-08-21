@@ -3301,9 +3301,11 @@ html[data-fs="xl"] .test-screen.en .answer-text { font-size: 26px; }
 .dark .ap-chip { background: #1c2740; color: #cfe0ff; border-color: #3a4a68; }
 .dark .ap-chip.on { background: #4a6ea8; border-color: #6d8fc8; color: #fff; }
 
-/* 지금 읽고 있는 카드 — 마음에 둔 카드(금색 테두리)와 겹치지 않게 그림자로 더 세게 */
-.album-card.playing { border-color: var(--gold); background: #fffdf3; box-shadow: 0 0 0 2px rgba(200,168,75,.38); }
-.dark .album-card.playing { background: #2a2416; }
+/* 지금 읽고 있는 카드 — 마음에 둔 카드가 이미 금색이라 금색으로 겹쳐 두면 구분이 안 된다.
+   남색 고리로 갈라 놓는다(흰 카드에서도 금색 카드에서도 한눈에 다르다) */
+.album-card.playing { border-color: var(--navy); box-shadow: 0 0 0 3px rgba(26,58,107,.28); }
+.album-card.playing .album-ref::before { content: "🔊 "; }
+.dark .album-card.playing { border-color: #6d8fc8; box-shadow: 0 0 0 3px rgba(109,143,200,.35); }
 
 /* 재단 아래 고정 재생 바 — 홈 버튼(.home-fab)과 겹치므로 재생 중에는 홈을 위로 올린다 */
 .ab-play-bar {
@@ -3325,4 +3327,5 @@ html[data-fs="xl"] .test-screen.en .answer-text { font-size: 26px; }
 .pb-btns .pb-main { background: #fff; color: var(--navy); border-color: #fff; min-width: 112px; }
 .pb-note { font-size: .7rem; opacity: .82; text-align: center; word-break: keep-all; line-height: 1.5; }
 body.ab-playing .home-fab { bottom: calc(128px + env(safe-area-inset-bottom, 0px)); }
-body.ab-playing .album-screen { padding-bottom: 132px; }
+/* 재생 바(약 100px) + 그 위로 올린 홈 버튼까지 비켜 줘야 마지막 카드가 가리지 않는다 */
+body.ab-playing .album-screen { padding-bottom: 200px; }
