@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>따라 하기 · 성경말씀 암송</title>
+<meta name="description" content="고척교회 성경말씀 암송 앱 사용법을 화면 하나씩 따라 해 보세요." />
+<link rel="icon" href="../icon-192.png" />
+<style>
+/* 어르신이 혼자 보시는 화면이다 — 글씨를 키우고, 누를 곳은 크게. */
+:root{
+  --navy:#1a3a6b; --navy-dark:#0d1b3e; --gold:#c8a84b; --cream:#fdf8f0;
+  --border:#dfe4ee; --white:#fff;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--cream); color:#1f2937;
+  font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:560px;margin:0 auto;padding:14px 14px 132px}
+
+header{text-align:center;padding:6px 0 12px}
+h1{font-size:1.5rem;font-weight:800;color:var(--navy);margin:0 0 4px}
+.sub{font-size:1rem;color:#55617a;line-height:1.6;word-break:keep-all;margin:0}
+
+/* 진행 표시 — 몇 걸음 중 몇 번째인지 늘 보이게 */
+.bar{display:flex;gap:5px;margin:14px 0 10px}
+.bar i{flex:1;height:7px;border-radius:99px;background:#e3e8f2}
+.bar i.on{background:var(--navy)}
+.count{text-align:center;font-size:.95rem;font-weight:700;color:#6a7688;margin-bottom:10px}
+
+.card{
+  background:var(--white);border:1.5px solid var(--border);border-radius:18px;
+  padding:16px 14px;box-shadow:0 6px 20px rgba(13,27,62,.07);
+}
+.step-t{font-size:1.35rem;font-weight:800;color:var(--navy);text-align:center;margin:0 0 6px;word-break:keep-all}
+.step-s{font-size:1.05rem;color:#55617a;text-align:center;margin:0 0 14px;line-height:1.6;word-break:keep-all}
+
+/* 화면 그림 — 실제 앱 화면이다 */
+.shot{position:relative;margin:0 auto 14px;max-width:340px}
+.shot img{width:100%;display:block;border:1.5px solid var(--border);border-radius:14px;background:#fff}
+/* 어디를 누르는지 짚어 주는 동그라미 */
+.tap{
+  position:absolute;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;
+  border:3px solid #e0483c;box-shadow:0 0 0 4px rgba(224,72,60,.18);
+  animation:pulse 1.4s ease-out infinite;pointer-events:none;
+}
+@keyframes pulse{
+  0%{transform:scale(.82);opacity:1}
+  70%{transform:scale(1.18);opacity:.35}
+  100%{transform:scale(1.18);opacity:0}
+}
+@media (prefers-reduced-motion:reduce){ .tap{animation:none} }
+
+.say{
+  font-size:1.12rem;line-height:1.85;color:#2f3a4f;word-break:keep-all;
+  padding:12px 14px;border-radius:12px;background:#f6f8fc;border:1px solid var(--border);
+}
+.say b{color:var(--navy)}
+.tip{
+  margin-top:10px;padding:11px 13px;border-radius:12px;
+  background:#fdf6e3;border:1px solid #e6d8b0;color:#5a4a20;
+  font-size:1rem;line-height:1.7;word-break:keep-all;
+}
+
+/* 아래 고정 조작 줄 — 엄지로 닿는 자리 */
+.pad{
+  position:fixed;left:0;right:0;bottom:0;z-index:20;
+  background:rgba(253,248,240,.97);border-top:1.5px solid var(--border);
+  padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));
+  backdrop-filter:blur(6px);
+}
+.pad-in{max-width:560px;margin:0 auto;display:flex;gap:9px}
+button{font-family:inherit;cursor:pointer}
+.nav{
+  flex:1;min-height:60px;border-radius:15px;font-size:1.15rem;font-weight:800;
+  border:1.5px solid var(--border);background:#fff;color:var(--navy);
+}
+.nav[disabled]{opacity:.4;cursor:default}
+.nav.main{background:var(--navy);color:#fff;border-color:var(--navy)}
+.nav.main:hover{background:var(--navy-dark)}
+.sound{
+  flex:0 0 74px;min-height:60px;border-radius:15px;font-size:1.35rem;
+  border:1.5px solid var(--border);background:#fff;
+}
+.sound.on{background:var(--gold);border-color:var(--gold)}
+
+.done{text-align:center;padding:8px 0 0}
+.done a{
+  display:block;margin-top:12px;padding:15px;border-radius:15px;text-decoration:none;
+  background:var(--navy);color:#fff;font-size:1.15rem;font-weight:800;
+}
+.foot{text-align:center;font-size:.95rem;color:#6a7688;line-height:1.7;margin-top:16px;word-break:keep-all}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>📖 따라 하기</h1>
+    <p class="sub">성경말씀 암송 앱을 <b>한 걸음씩</b> 보여 드려요.<br>보시면서 그대로 해 보세요.</p>
+  </header>
+
+  <div class="bar" id="bar"></div>
+  <div class="count" id="count"></div>
+
+  <div class="card" id="card"></div>
+
+  <p class="foot">
+    잘 안 되시면 주일 <b>1층 로비</b>에서 도와드립니다 🙌<br>
+    (오전 8시 ~ 오후 1시)
+  </p>
+</div>
+
+<div class="pad">
+  <div class="pad-in">
+    <button class="nav" id="prev">◀ 이전</button>
+    <button class="sound" id="snd" title="읽어주기 켜기/끄기" aria-label="읽어주기">🔊</button>
+    <button class="nav main" id="next">다음 ▶</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// 따라 하기 — 실제 앱 화면(guide/shots/*.png)을 한 걸음씩 넘기며 보여 준다.
+//   · 로그인이 필요 없다. 설치 전에도, 로비에서 QR로도 바로 열린다.
+//   · 자막은 앱이 말씀 읽어 줄 때 쓰는 그 목소리(브라우저 TTS)로 읽는다 —
+//     따로 녹음할 사람이 없어도 '말로 설명하는' 안내가 된다.
+//   · tap은 화면 그림 위에 찍는 동그라미. x·y는 그림 기준 백분율.
+// ============================================================
+var STEPS = [
+  { img:"shots/install.png", t:"① 바탕화면에 앱 만들기",
+    s:"한 번만 해 두면 다음부터 바로 열려요.",
+    say:"앱 첫 화면 위쪽 <b>📲</b> 를 누르면 이런 안내가 나와요. 안드로이드는 「설치」 창이 바로 뜨고, 아이폰은 화면 맨 아래 <b>공유 단추</b>를 눌러 「홈 화면에 추가」를 고르시면 됩니다.",
+    tip:"카카오톡 안에서 열면 되지 않아요. 먼저 「사파리로 열기」나 「다른 브라우저로 열기」를 누르세요." },
+
+  { img:"shots/home.png", t:"② 첫 화면", tap:{x:29,y:41},
+    s:"여기서 모든 것이 시작돼요.",
+    say:"내 이름과 <b>오늘 몇 번</b> 했는지가 위에 보여요. 큰 단추 두 개 중 왼쪽 <b>암송하기</b>를 누르면 말씀 목록으로 갑니다." },
+
+  { img:"shots/list.png", t:"③ 말씀 목록", tap:{x:50,y:22},
+    s:"외울 말씀을 고르는 곳이에요.",
+    say:"구절을 하나 누르면 암송이 시작돼요. 맨 위 <b>▶️ 전체 듣기</b>를 누르면 처음부터 끝까지 이어서 읽어 줍니다.",
+    tip:"구절 옆 🔊 를 누르면 그 말씀 하나만 들려줘요." },
+
+  { img:"shots/stage1.png", t:"④ 빈칸 채우기", tap:{x:47,y:45},
+    s:"1단계는 빈칸이 조금이에요.",
+    say:"밑줄 친 곳에 말씀을 넣으세요. 맞으면 <b>초록색</b>이 되고 다음 칸으로 넘어가요. 틀리면 잠깐 빨간색이 됐다가 다시 넣으시면 됩니다." },
+
+  { img:"shots/stage3.png", t:"⑤ 3단계 · 전부 빈칸",
+    s:"1단계 → 2단계 → 3단계로 올라가요.",
+    say:"3단계는 요절만 보고 전부 넣는 단계예요. 막히면 <b>💡 힌트</b>를 누르시면 한 글자씩 보여 줍니다.",
+    tip:"3단계를 마치면 「👑 마음에 두었나이다」를 누를 수 있어요." },
+
+  { img:"shots/challenge.png", t:"⑥ 말씀 도전",
+    s:"외운 말씀을 빠르게 점검해요.",
+    say:"첫 화면의 <b>🔥 말씀 도전</b>은 구절을 무작위로 내 줍니다. 타자가 어려우시면 <b>🎤 암송 시작</b>을 누르고 소리 내어 외우셔도 돼요." },
+
+  { img:"shots/album.png", t:"⑦ 나의 말씀 앨범",
+    s:"외운 말씀이 모이는 곳이에요.",
+    say:"마음에 둔 말씀이 여기 모여요. 요절이나 말씀을 <b>가리고</b> 스스로 맞혀 볼 수 있고, <b>▶️ 전부 듣기</b>로 이어서 들을 수도 있습니다." },
+
+  { img:"shots/settings.png", t:"⑧ 글씨 크게 하기", tap:{x:50,y:36},
+    s:"잘 안 보이시면 키우세요.",
+    say:"첫 화면 오른쪽 위 <b>⚙️</b> 를 누르고 <b>글씨 크기</b>에서 「큼」이나 「아주 큼」을 고르세요. 읽어 주는 <b>속도</b>도 느리게 할 수 있어요." },
+
+  { img:"shots/manual.png", t:"⑨ 언제든 다시 보기",
+    s:"앱 안에도 설명서가 있어요.",
+    say:"첫 화면의 <b>❓</b> 를 누르면 이 설명서가 열려요. 궁금할 때마다 여기서 찾아보시면 됩니다.",
+    tip:"이 「따라 하기」 화면은 즐겨찾기 해 두시면 언제든 다시 보실 수 있어요." }
+];
+
+var i = 0;
+var speakOn = true;
+
+var card = document.getElementById("card");
+var bar = document.getElementById("bar");
+var cnt = document.getElementById("count");
+var btnPrev = document.getElementById("prev");
+var btnNext = document.getElementById("next");
+var btnSnd = document.getElementById("snd");
+
+function esc(s){ return String(s == null ? "" : s); }
+
+// 자막을 소리로 읽는다. 태그는 빼고 글자만.
+function say(html){
+  if (!speakOn || !("speechSynthesis" in window)) return;
+  try {
+    window.speechSynthesis.cancel();
+    var txt = String(html).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    if (!txt) return;
+    var u = new SpeechSynthesisUtterance(txt);
+    u.lang = "ko-KR";
+    u.rate = 0.92;          // 어르신이 따라오시게 조금 느리게
+    window.speechSynthesis.speak(u);
+  } catch (e) {}
+}
+
+function draw(){
+  var st = STEPS[i];
+  bar.innerHTML = STEPS.map(function(_, k){
+    return '<i class="' + (k <= i ? "on" : "") + '"></i>';
+  }).join("");
+  cnt.textContent = (i + 1) + " / " + STEPS.length;
+
+  var tap = st.tap
+    ? '<span class="tap" style="left:' + st.tap.x + '%;top:' + st.tap.y + '%"></span>'
+    : "";
+  card.innerHTML =
+    '<h2 class="step-t">' + esc(st.t) + '</h2>' +
+    '<p class="step-s">' + esc(st.s) + '</p>' +
+    '<div class="shot"><img src="' + st.img + '" alt="' + esc(st.t) + ' 화면">' + tap + '</div>' +
+    '<div class="say">' + st.say + '</div>' +
+    (st.tip ? '<div class="tip">💡 ' + st.tip + '</div>' : "") +
+    (i === STEPS.length - 1
+      ? '<div class="done"><a href="../">📖 이제 앱을 열어 볼까요</a></div>'
+      : "");
+
+  btnPrev.disabled = (i === 0);
+  btnNext.textContent = (i === STEPS.length - 1) ? "✓ 다 봤어요" : "다음 ▶";
+  window.scrollTo(0, 0);
+  say(st.say);
+}
+
+btnPrev.addEventListener("click", function(){ if (i > 0) { i--; draw(); } });
+btnNext.addEventListener("click", function(){
+  if (i < STEPS.length - 1) { i++; draw(); }
+  else { try { window.speechSynthesis.cancel(); } catch(e){} location.href = "../"; }
+});
+btnSnd.addEventListener("click", function(){
+  speakOn = !speakOn;
+  btnSnd.classList.toggle("on", speakOn);
+  btnSnd.textContent = speakOn ? "🔊" : "🔇";
+  if (speakOn) say(STEPS[i].say);
+  else { try { window.speechSynthesis.cancel(); } catch(e){} }
+});
+
+// 첫 진입에서는 소리를 내지 않는다 — 브라우저가 사용자의 탭 없이는 막고,
+// 조용한 자리에서 갑자기 말이 나오면 놀라신다. 단추를 눌러 켜신다.
+speakOn = false;
+btnSnd.textContent = "🔇";
+draw();
+</script>
+</body>
+</html>

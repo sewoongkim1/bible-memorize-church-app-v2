@@ -3506,3 +3506,14 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
 .dark .iw-bar { background: #222c44; border-color: #3a4a68; }
 .dark .iw-steps li { color: #dce6f7; }
 .dark .iw-warn { background: #2a2416; border-color: #5a4a20; color: #e8dcb8; }
+
+/* 설명서 목차 → 「화면으로 따라 하기」 (guide/) — 실제 앱 화면을 한 걸음씩 보여 주는 페이지.
+   로그인이 필요 없어 설치 전에도, 로비에서 QR로도 바로 열린다. */
+.mn-watch {
+  display: block; width: 100%; margin: 16px 0 0; padding: 15px; text-align: center;
+  border-radius: 14px; text-decoration: none;
+  background: var(--navy); color: #fff; border: 1.5px solid var(--navy);
+  font-size: 1.08rem; font-weight: 800;
+}
+.mn-watch:hover { background: var(--navy-dark); }
+.dark .mn-watch { background: #3a4a68; border-color: #56688c; }
