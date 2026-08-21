@@ -5,9 +5,9 @@
 
 ■ 확정판에서 바뀐 것
   · 제목을 키우고 자간을 넓혔다 — 주아는 둥근 글꼴이라 붙여 두면 뭉쳐 보인다
-  · 말씀 색을 금색 → 진한 남색으로. 크림 바탕에서 금색은 대비가 4.5:1쯤이라
-    1~2m만 떨어져도 묻힌다. 진한 남색은 12:1이라 확 산다.
-    금색은 '시편 119:103'에만 남겨 액센트로 쓴다.
+  · 말씀과 출처 색을 금색 → 진한 남색으로. 크림 바탕에서 금색은 대비가 3.6:1이라
+    1~2m만 떨어져도 묻힌다. 진한 남색은 12.8:1이라 확 산다.
+    금색은 테두리에만 남긴다 — 한 덩어리 안에서 색이 갈리면 눈이 두 번 멈춘다.
   · 말씀 글자도 키우고 줄간격을 벌렸다
 
 ■ 글꼴 (이 PC에 설치된 것만)
@@ -71,7 +71,7 @@ body { margin:0; font-family:'맑은 고딕','Malgun Gothic',sans-serif; color:#
 }
 .big .em { font-size:.78em; vertical-align:2mm; letter-spacing:0; }
 
-/* 말씀 — 멀리서도 읽히도록 진한 남색으로. 금색은 출처에만 남긴다 */
+/* 말씀 — 멀리서도 읽히도록 진한 남색으로 */
 .verse {
   font-family:'Noto Serif KR','HANBatang','Batang',serif;
   margin-top:4mm; font-size:18pt; font-weight:700; color:%(ink)s;
@@ -79,7 +79,7 @@ body { margin:0; font-family:'맑은 고딕','Malgun Gothic',sans-serif; color:#
 }
 .verse .ref {
   display:block; margin-top:1.5mm;
-  font-size:13pt; font-weight:700; color:%(gold)s; letter-spacing:.4pt;
+  font-size:13.5pt; font-weight:700; color:%(ink)s; letter-spacing:.4pt; opacity:.88;
 }
 
 /* 안내 — 1~2m에서 먼저 읽혀야 하는 줄 */
