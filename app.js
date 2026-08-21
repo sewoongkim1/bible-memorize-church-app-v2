@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260822a";
+const APP_BUILD = "20260822b";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -6726,16 +6726,21 @@ async function loadRankingBody(r) {
 
   const rows = list.map((x, i) => {
     const isMe = keyOf(x.gubun, x.sosok, x.sebu, x.name) === myKey;
-    return `<div class="rank-row ${x.rank <= 3 ? "top" : ""} ${isMe ? "me" : ""}">
+    return `<div class="rank-row ${x.rank <= 3 ? "top" : ""} ${isMe ? "me" : ""} ${x.liveNow ? "live" : ""}">
       <span class="rk-no">${medal(x.rank)}</span>
-      <span class="rk-name">${x.name}</span>
+      <span class="rk-name">${x.liveNow ? `<i class="rk-dot" aria-label="지금 암송 중"></i>` : ""}${x.name}</span>
       <span class="rk-so">${soLabel(x)}</span>
       <span class="rk-cnt">${x.count}회</span>
       ${chip(x, i, isMe)}
     </div>`;
   }).join("");
 
-  body.innerHTML = myHtml + lockHtml + `<div class="rank-list">${rows}</div>` +
+  // 지금 함께하고 있는 분이 있으면 그것부터 알린다 — 초록 점이 무슨 뜻인지도 여기서 알게 된다
+  const liveCount = list.filter((x) => x.liveNow).length;
+  const liveHtml = liveCount
+    ? `<p class="rank-live-line"><i class="rk-dot"></i> 지금 <b>${liveCount}명</b>이 함께 암송하고 있어요</p>`
+    : "";
+  body.innerHTML = myHtml + lockHtml + liveHtml + `<div class="rank-list">${rows}</div>` +
     `<p class="rank-more">전체 ${list.length}명 참여</p>`;
 
   const goTest = document.getElementById("rk-go-test");

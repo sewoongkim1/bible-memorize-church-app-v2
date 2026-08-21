@@ -1489,6 +1489,35 @@ async function rankCheerers(b: any) {
   return { ok: true, list: (data ?? []).map((r: any) => r.from_name).filter(Boolean) };
 }
 
+// ---------- 지금 함께하고 있는 사람 ----------
+// 집계표(daily_activity)에는 시각이 없어 여기서만 로그를 본다. 다만 '최근 10분'
+// 창이라 몇 행뿐이다 — 전체를 훑는 것이 아니다.
+// 신원 네 조각으로 돌려주는 이유: 순위 응답에는 user_id를 싣지 않기 때문(이 API는
+// JWT가 없어 남의 user_id가 새면 그 사람 행세가 가능해진다).
+const LIVE_MINUTES = 10;
+
+async function liveNowKeys(): Promise<Set<string>> {
+  const set = new Set<string>();
+  try {
+    const since = new Date(Date.now() - LIVE_MINUTES * 60_000).toISOString();
+    const { data } = await db.from("challenge_log")
+      .select("user_id, users(name,type,gu,mok,bu,grade)")
+      .gte("created_at", since)
+      .limit(1000);
+    for (const r of (data ?? []) as any[]) {
+      const u = r.users ?? {};
+      set.add([u.type, u.gu || u.bu || "", u.mok || u.grade || "", u.name].join("|"));
+    }
+  } catch (_) { /* 실패해도 순위 자체는 보여준다 — 곁들이지 본체가 아니다 */ }
+  return set;
+}
+
+// 조회 기간에 '오늘'이 들어 있을 때만 본다. 지난 주 순위를 보면서 '지금'을 말하면 뜬금없다.
+function rangeHasToday(b: any): boolean {
+  const today = kstDay(new Date().toISOString());
+  return (!b.from || String(b.from) <= today) && (!b.to || String(b.to) >= today);
+}
+
 // ---------- ranking: 순위. includeLearn=true면 암송(학습) 기록도 포함 ----------
 // 빠른 경로: daily_activity 집계 RPC (미설치·실패 시 아래 rankingSlow로 폴백).
 // 로그를 통째로 끌어오지 않는다 — 2026-08-15 기준 로그 11,047행 vs (사용자,일자) 449행.
@@ -1506,7 +1535,13 @@ async function ranking(b: any) {
       activeToday: r.active_today, cheers: r.cheers, iCheered: r.i_cheered,
     }));
     const canCheer = me ? await hasTodayActivity(me) : false;
-    return { ok: true, list, canCheer };
+    if (rangeHasToday(b)) {
+      const live = await liveNowKeys();
+      for (const r of list as any[]) {
+        (r as any).liveNow = live.has([r.gubun, r.sosok, r.sebu, r.name].join("|"));
+      }
+    }
+    return { ok: true, list, canCheer, liveMinutes: LIVE_MINUTES };
   } catch (_) { /* RPC 미설치 → 폴백 */ }
   return await rankingSlow(b);
 }
@@ -1522,6 +1557,8 @@ async function rankingSlow(b: any) {
   const todayKst = kstDay(new Date().toISOString());
   const tFrom = Date.parse(`${todayKst}T00:00:00${KST}`);
   const tTo = Date.parse(`${todayKst}T23:59:59.999${KST}`);
+  // 이 경로는 로그를 이미 들고 있다 — '지금'도 추가 조회 없이 여기서 센다
+  const liveSince = rangeHasToday(b) ? Date.now() - LIVE_MINUTES * 60_000 : Infinity;
 
   const map = new Map<string, any>();
   for (const row of data) {
@@ -1531,13 +1568,14 @@ async function rankingSlow(b: any) {
       uid: row.user_id,                  // 응원을 붙이는 데만 쓰고 응답에서는 뗀다
       name: u.name, gubun: u.type,
       sosok: u.gu || u.bu || "", sebu: u.mok || u.grade || "",
-      count: 0, typing: 0, voice: 0, activeToday: false,
+      count: 0, typing: 0, voice: 0, activeToday: false, liveNow: false,
     };
     e.count++;
     if (String(row.mode).includes("typing")) e.typing++;
     if (String(row.mode).includes("voice")) e.voice++;
     const t = Date.parse(row.created_at);
     if (t >= tFrom && t <= tTo) e.activeToday = true;
+    if (t >= liveSince) e.liveNow = true;
     map.set(row.user_id, e);
   }
 
@@ -1579,7 +1617,7 @@ async function rankingSlow(b: any) {
         iCheered: myToday.has(uid),
       };
     });
-  return { ok: true, list, canCheer };
+  return { ok: true, list, canCheer, liveMinutes: LIVE_MINUTES };
 }
 
 // ---------- guRanking: 교구별 순위(암송·도전·복습 전부) ----------

@@ -3537,3 +3537,31 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
   font-size: .95rem; font-weight: 700;
 }
 .dark .relearn-back { background: #1e2c22; border-color: #3d5a44; color: #cfe8d5; }
+
+/* ── 지금 함께 암송 중 ────────────────────────────────────────
+   최근 10분 안에 기록이 있는 분. 조회 기간에 오늘이 들어 있을 때만 나온다.
+   순위 줄은 폰에서 한 줄을 지켜야 하므로 점은 7px만 쓰고, 눈에 띄는 몫은
+   줄 배경과 왼쪽 띠가 맡는다. */
+.rk-dot {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  background: #2e9e5b; margin-right: 5px; vertical-align: middle; flex: 0 0 auto;
+  animation: rk-live-pulse 1.8s ease-out infinite;
+}
+@keyframes rk-live-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(46,158,91,.55); }
+  70%  { box-shadow: 0 0 0 6px rgba(46,158,91,0); }
+  100% { box-shadow: 0 0 0 0 rgba(46,158,91,0); }
+}
+@media (prefers-reduced-motion: reduce) { .rk-dot { animation: none; } }
+.rank-row.live { background: #f1fbf4; box-shadow: inset 3px 0 0 #2e9e5b; }
+.rank-row.live .rk-name { color: #1d6b3f; }
+.rank-live-line {
+  display: flex; align-items: center; gap: 2px;
+  margin: -4px 0 10px; padding: 8px 12px; border-radius: 10px;
+  background: #f1fbf4; border: 1px solid #cfe8d8;
+  font-size: .88rem; color: #1d6b3f; text-align: center; justify-content: center;
+}
+.rank-live-line b { color: #14522f; }
+.dark .rank-row.live { background: #16281d; }
+.dark .rank-row.live .rk-name { color: #9fe0b8; }
+.dark .rank-live-line { background: #16281d; border-color: #2f5a3f; color: #9fe0b8; }
