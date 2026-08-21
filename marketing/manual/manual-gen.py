@@ -71,7 +71,11 @@ body { margin:0; font-family:'맑은 고딕','Malgun Gothic',sans-serif; color:#
 .note-t { font-size:12.5pt; font-weight:800; color:%(gold)s; margin-bottom:1.5mm; }
 .note p { font-size:12pt; line-height:1.7; margin:0; word-break:keep-all; }
 
-.foot { border-top:0.4mm solid #b9c2d2; padding-top:3mm; margin-top:auto;
+.tail { margin-top:auto; }
+.tail-note { font-size:11.5pt; line-height:1.75; color:#333; text-align:center;
+             word-break:keep-all; margin-bottom:3mm; }
+.tail-note b { color:%(navy)s; }
+.foot { border-top:0.4mm solid #b9c2d2; padding-top:3mm;
         font-size:11.5pt; line-height:1.7; color:#333; text-align:center; word-break:keep-all; }
 .foot b { color:%(navy)s; }
 """ % {'navy': NAVY, 'gold': GOLD}
@@ -128,7 +132,7 @@ FRONT = head('', '성경말씀 암송 어플 설치방법') + """
        휴대폰을 들고 오세요. 설치부터 알림 설정까지 <b>3분이면</b> 끝납니다.</p>
   </div>
 </div>
-<div class="foot">뒷면에 <b>어플 설명서</b>가 있습니다 &nbsp;▶</div>"""
+<div class="tail"><div class="foot">뒷면에 <b>어플 설명서</b>가 있습니다 &nbsp;▶</div></div>"""
 
 # ── 뒷면: 쓰는 법 ─────────────────────────────────────────────
 BACK = head('', '성경말씀 암송 어플 설명서', qr=False) + """
@@ -175,9 +179,12 @@ BACK = head('', '성경말씀 암송 어플 설명서', qr=False) + """
 """ + blk('✍️', '성경필사 노트 신청', '',
       '<p>말씀을 <b>손으로 써 내려가실 수 있도록</b> 필사 노트를 신청하실 수 있어요.</p>') + """
 </div>
-<div class="foot">
-  <b>글씨가 작아 보이시면</b> — 첫 화면 <b>⚙️</b> → <b>글씨 크기</b>에서 <b>「아주 큼」</b><br>
-  앱 안에서도 <b>❓</b> 를 누르면 같은 설명서를 보실 수 있습니다 &nbsp;·&nbsp; <b>고척교회 제자양육부 신앙운동팀</b>
+<div class="tail">
+  <div class="tail-note">
+    <b>글씨가 작아 보이시면</b> — 첫 화면 <b>⚙️</b> → <b>글씨 크기</b>에서 <b>「아주 큼」</b><br>
+    앱 안에서도 <b>❓</b> 를 누르면 같은 설명서를 보실 수 있습니다
+  </div>
+  <div class="foot"><b>고척교회 제자양육부 신앙운동팀</b></div>
 </div>"""
 
 html = ('<!doctype html><html lang="ko"><head><meta charset="utf-8">'
