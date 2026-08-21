@@ -2394,12 +2394,14 @@ async function pilsaApply(b: any) {
       .update({ ...fields, updated_at: new Date().toISOString() })
       .eq("id", last.id).select("*").single();
     if (error) throw error;
+    try { await pilsaNotifyAdmins(data, true); } catch (_) { /* 알림 실패가 신청을 막지 않는다 */ }
     return { ok: true, order: pilsaRow(data) };
   }
 
   const { data, error } = await db.from("pilsa_orders")
     .insert(fields).select("*").single();
   if (error) throw error;
+  try { await pilsaNotifyAdmins(data, false); } catch (_) { /* 알림 실패가 신청을 막지 않는다 */ }
   return { ok: true, order: pilsaRow(data) };
 }
 
@@ -2483,6 +2485,11 @@ async function pilsaNotify(row: any) {
       "신청하신 성경필사 노트가 준비되었습니다. 주일에 4층 새가족실에서 찾아가세요. 평안한 한 주 되시고요. 샬롬!! 샬롬!!",
     url: "https://gocheok.onlybible.kr/",
   });
+  return await pushToSubs(list, payload, "pilsa", "필사 노트 준비완료");
+}
+
+// 구독 목록에 밀어 넣고 결과를 돌려준다. 만료된 구독(404·410)은 그 자리에서 지운다.
+async function pushToSubs(list: any[], payload: string, mode: string, title: string) {
   let sent = 0, failed = 0;
   let last: string | null = null;
   for (const s of list) {
@@ -2498,12 +2505,42 @@ async function pilsaNotify(row: any) {
     }
   }
   try {
-    await db.from("push_log").insert({
-      mode: "pilsa", title: "필사 노트 준비완료",
-      sent, failed, total: list.length, ok: sent > 0,
-    });
+    await db.from("push_log").insert({ mode, title, sent, failed, total: list.length, ok: sent > 0 });
   } catch (_) { /* 로그 실패는 발송 결과에 영향 없음 */ }
   return { sent, error: sent ? null : last };
+}
+
+// 신청이 들어오면 담당자에게 알린다.
+// 받는 사람은 app_config의 `pilsaAdmins`(identity_key 배열)에 둔다 — 이 저장소는 공개라
+// 이름이나 user_id를 코드에 박으면 그대로 드러나고, 담당자가 바뀔 때마다 배포를 다시 해야 한다.
+// PUBLIC_CONFIG_KEYS에 넣지 않는다: 누가 받는지는 앱이 조회할 일이 없다.
+async function pilsaAdminSubs() {
+  try {
+    const { data } = await db.from("app_config").select("value").eq("key", "pilsaAdmins").maybeSingle();
+    const keys = Array.isArray(data?.value)
+      ? (data!.value as any[]).map((x) => norm(String(x))).filter(Boolean) : [];
+    if (!keys.length) return [];
+    const { data: users } = await db.from("users").select("id").in("identity_key", keys);
+    const ids = ((users ?? []) as any[]).map((u) => u.id);
+    if (!ids.length) return [];
+    const { data: subs } = await db.from("push_subscriptions")
+      .select("id,endpoint,p256dh,auth").in("user_id", ids);
+    return (subs ?? []) as any[];
+  } catch { return []; }
+}
+
+async function pilsaNotifyAdmins(row: any, edited: boolean) {
+  const list = await pilsaAdminSubs();
+  if (!list.length) return { sent: 0, error: "no-admin" };
+  const who = [norm(row.name), norm(row.who)].filter(Boolean).join(" · ");
+  const payload = JSON.stringify({
+    title: edited ? "[필사 신청 변경]" : "[필사 신청]",
+    body: (who || "성도") + "님이 " + (edited ? "신청을 고치셨습니다" : "신청하셨습니다") + " — " +
+      [norm(row.size), norm(row.type1), norm(row.type2)].filter(Boolean).join(" ") +
+      " " + (Number(row.total) || 0) + "권",
+    url: "https://gocheok.onlybible.kr/admin.html",
+  });
+  return await pushToSubs(list, payload, "pilsa-apply", edited ? "필사 신청 변경" : "필사 신청");
 }
 
 // ============================================================
