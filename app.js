@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260821e";
+const APP_BUILD = "20260821f";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -3293,8 +3293,20 @@ function isEnMode(verse) { return getLang() === "en" && hasEn(verse); } // 영�
 function verseText(verse) { return isEnMode(verse) ? verse.textEn : verse.text; }
 function verseRefShort(verse) { return isEnMode(verse) ? (verse.refEn || verse.refShort) : verse.refShort; }
 // "시편 119편 105절" — 넓게 쓸 수 있는 화면(앨범)용. 영어 모드는 원래 표기를 그대로 쓴다.
-function verseRefFull(verse) { return isEnMode(verse) ? (verse.refEn || verse.refShort) : (verse.refFull || verse.refShort); }
-function verseRefFull(verse) { return isEnMode(verse) ? (verse.refEn || verse.refFull) : verse.refFull; }
+function verseRefFull(verse) {
+  return isEnMode(verse) ? (verse.refEn || verse.refFull || verse.refShort) : (verse.refFull || verse.refShort);
+}
+
+// 귀로 들을 때 읽어 줄 말 — 말씀을 읽고 요절을 뒤에 붙인다.
+//   "…내 길에 빛이니이다. 시편 119편 105절"
+// 마침표를 끼우는 이유: splitForSpeech가 문장 끝에서 끊어 큐에 넣으므로 그 자리에 쉼이 생긴다.
+// 영어 모드인데 영어 요절이 없으면 붙이지 않는다 — 한국어 요절을 en-US 음성이 읽으면 알아들을 수 없다.
+function verseSpokenText(verse) {
+  const body = String(verseText(verse) || "").trim();
+  const ref = isEnMode(verse) ? (verse.refEn || "") : (verse.refFull || verse.refShort || "");
+  if (!ref) return body;
+  return body + (/[.!?]$/.test(body) ? " " : ". ") + ref;
+}
 function verseTtsLang(verse) { return isEnMode(verse) ? "en-US" : "ko-KR"; }
 
 // 암송화면 상단 요절 배너 고정 — #update-banner와 동일하게 처음부터 항상 position:fixed로 고정한다
@@ -5736,7 +5748,7 @@ function albumItemsFor(list) {
       ? (albumPicks.get(v.no) || { v: false, a: false })
       : { v: true, a: albumWithSummary() };
     if (want.v) {
-      const text = verseText(v);
+      const text = verseSpokenText(v);   // 말씀 + 요절
       items.push({ no: v.no, kind: "verse", ref: verseRefFull(v), text: text,
                    lang: isEnMode(v) ? "en-US" : "ko-KR",
                    sec: text.length / (ALBUM_CPS * getSpeakRate()) });
@@ -6055,7 +6067,7 @@ function renderAlbum() {
       const v = verses.find((x) => x.no === Number(s.dataset.listen));
       if (!v) return;
       if (window.speechSynthesis && window.speechSynthesis.speaking) { stopSpeaking(); return; }
-      speakText(verseText(v), null, 1, isEnMode(v) ? "en-US" : "ko-KR");
+      speakText(verseSpokenText(v), null, 1, isEnMode(v) ? "en-US" : "ko-KR");
     }));
 
   const goTest = (no) => {
