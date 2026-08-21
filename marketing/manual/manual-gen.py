@@ -74,8 +74,9 @@ body { margin:0; font-family:'맑은 고딕','Malgun Gothic',sans-serif; color:#
 def head(sup, title, qr=True):
     side = ('<div class="h-side"><img class="h-qr" src="%s">'
             '<div class="h-url">gocheok.onlybible.kr</div></div>' % QR) if qr else ''
-    return ('<div class="head"><div class="t"><div class="h-sup">%s</div>'
-            '<div class="h-title">%s</div></div>%s</div>' % (sup, title, side))
+    top = '<div class="h-sup">%s</div>' % sup if sup else ''
+    return ('<div class="head"><div class="t">%s'
+            '<div class="h-title">%s</div></div>%s</div>' % (top, title, side))
 
 
 def blk(n, title, side, body):
@@ -89,7 +90,7 @@ def ol(items):
 
 
 # ── 앞면: 시작하기 ─────────────────────────────────────────────
-FRONT = head('고척교회 제자양육부 신앙운동팀', '성경말씀 암송<br>사용 설명서') + """
+FRONT = head('', '성경말씀 암송 사용 설명서') + """
 <div class="lead">
   휴대폰으로 <b>말씀을 외우는 앱</b>입니다. 비밀번호는 없고 <b>이름만</b> 넣으면 됩니다.<br>
   아래 <b>①②③</b>을 차례로 한 번만 해 두시면, 다음부터는 바탕화면 그림만 누르시면 됩니다.
@@ -116,8 +117,8 @@ FRONT = head('고척교회 제자양육부 신앙운동팀', '성경말씀 암�
 ])) + """
   <div class="note">
     <div class="note-t">잘 안 되시면</div>
-    <p>주일 <b>1층 로비</b>에 도와드리는 분이 계십니다. 휴대폰을 들고 오세요.
-       설치부터 알림 설정까지 <b>3분이면</b> 끝납니다.</p>
+    <p>주일 <b>1층 로비</b>에 도와 드리고 있습니다. <b>(오전 8시 ~ 오후 1시)</b><br>
+       휴대폰을 들고 오세요. 설치부터 알림 설정까지 <b>3분이면</b> 끝납니다.</p>
   </div>
 </div>
 <div class="foot">뒷면에 <b>말씀 외우는 방법</b>이 있습니다 &nbsp;▶</div>"""
@@ -128,7 +129,7 @@ BACK = head('성경말씀 암송', '말씀 외우는 방법', qr=False) + """
   빈칸을 채우며 <b>세 번에 나누어</b> 외웁니다. 틀려도 괜찮습니다 — 다시 넣으면 됩니다.
 </div>
 <div class="blocks">
-""" + blk('✍️', '빈칸 채우며 외우기', '', ol([
+""" + blk('✍️', '암송하기: 빈칸 채우며 외우기', '', ol([
     '<b>1단계</b> — 빈칸이 조금 (넷 중 하나쯤)',
     '<b>2단계</b> — 빈칸이 많이 (셋 중 둘쯤)',
     '<b>3단계</b> — 전부 빈칸',
