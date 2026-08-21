@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260819a";
+const APP_BUILD = "20260821a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -3096,6 +3096,7 @@ function fillVerseHelp(verse) {
         el.querySelectorAll(".help-btn").forEach((b) => b.classList.remove("on"));
         if (wasOn) { body.hidden = true; return; }   // 같은 버튼 다시 누르면 접기
         btn.classList.add("on");
+        if (btn.dataset.k === "tip") challengeUsedHelp = true;   // 🧠 기억법을 열면 '도움 받음'
         const item = items.find((i) => i.k === btn.dataset.k) || {};
         body.innerHTML = "";
         const textEl = document.createElement("div");
@@ -4763,8 +4764,14 @@ function startChallenge() {
   renderChallenge(pick);
 }
 
+// 도전에서 '도움'을 받았는지 — 💡 힌트 또는 🧠 기억법을 한 번이라도 열었는지.
+//   힌트를 보고 맞힌 구절은 아직 덜 익은 것이라, 완료 뒤 그 구절 암송 화면으로 이어 준다.
+//   💡 풀이는 뜻을 이해하는 것이지 답을 얻는 게 아니라 도움으로 세지 않는다.
+let challengeUsedHelp = false;
+
 // 도전 화면 — 3단계(전체 빈칸) 고정 + 힌트 버튼 + 음성
 function renderChallenge(verse) {
+  challengeUsedHelp = false;   // 구절이 바뀌면 새로 센다
   const appEl = document.getElementById("app");
   const en = isEnMode(verse);
   const tokens = verseText(verse).trim().split(/\s+/);
@@ -4936,6 +4943,7 @@ function setupHint() {
   const btn = document.getElementById("hint-btn");
   if (!btn) return;
   btn.addEventListener("click", () => {
+    challengeUsedHelp = true;
     const inputs = Array.from(document.querySelectorAll(".word-input:not([disabled])"));
     if (!inputs.length) return;
     const target = inputs.includes(document.activeElement) ? document.activeElement : inputs[0];
@@ -4995,8 +5003,9 @@ function setupChallengeTyping(verse, onComplete) {
 function challengeComplete(verse, mode) {
   stopSpeaking();
   const n = bumpTodayChallenge();
+  const usedHelp = challengeUsedHelp;   // 화면을 갈아끼우기 전에 붙잡아 둔다
   postChallenge(verse, mode);
-  renderChallengeDone(verse, mode, n);
+  renderChallengeDone(verse, mode, n, usedHelp);
 }
 
 // 도전/복습 완료를 Supabase(challenge_log)에 저장
@@ -5022,13 +5031,19 @@ function postChallenge(verse, mode) {
     });
 }
 
-function renderChallengeDone(verse, mode, todayCount) {
-  // 자동 계속 도전이 켜져 있으면 이 화면을 건너뛰고 바로 새 도전으로(정답 표시가 잠깐 보이도록만 지연).
+function renderChallengeDone(verse, mode, todayCount, usedHelp) {
+  // 힌트·기억법을 보고 맞힌 구절은 아직 덜 익은 것이다. 그냥 지나가면 다음에 또 힌트를
+  // 봐야 하므로, 그 구절 암송 화면으로 이어 준다. 자동 계속 도전 중이라도 이때는 멈춘다
+  // (자동은 '이미 아는 구절을 빠르게' 도는 장치인데, 막혔다면 멈출 때다).
   if (isAutoChallenge()) {
-    setTimeout(startChallenge, 350);
+    setTimeout(usedHelp ? () => startTest(verse) : startChallenge, 350);
     return;
   }
   const appEl = document.getElementById("app");
+  const againHtml = usedHelp
+    ? `<div class="cd-help-note">💡 힌트를 보고 맞히셨네요.<br>한 번 더 익혀 두면 다음엔 힌트 없이 됩니다.</div>
+       <button class="summary-go cd-relearn" id="cd-relearn">📖 이 말씀 다시 암송하기</button>`
+    : "";
   appEl.innerHTML = `
     <div class="summary-screen">
       <div class="summary-card cd-card">
@@ -5036,6 +5051,7 @@ function renderChallengeDone(verse, mode, todayCount) {
         <div class="cd-title">도전 완료!</div>
         <div class="cd-sub">${verse.refShort} · ${mode === "voice" ? "음성" : "타이핑"} 암송</div>
         <div class="cd-count">오늘 <b id="cd-today-count">${todayCount}회</b> 완료</div>
+        ${againHtml}
         <button class="summary-go challenge-cta" id="cd-again">🔥 한 번 더 도전</button>
         <label class="repeat-toggle" id="cd-auto-label">
           <input type="checkbox" id="cd-auto-check"${isAutoChallenge() ? " checked" : ""} />
@@ -5046,6 +5062,8 @@ function renderChallengeDone(verse, mode, todayCount) {
         <button class="summary-change" id="cd-home">기록 화면으로</button>
       </div>
     </div>`;
+  const relearn = document.getElementById("cd-relearn");
+  if (relearn) relearn.addEventListener("click", () => startTest(verse));
   document.getElementById("cd-again").addEventListener("click", startChallenge);
   document.getElementById("cd-auto-check").addEventListener("change", (e) => setAutoChallenge(e.target.checked));
   document.getElementById("cd-rank").addEventListener("click", () => renderRanking());

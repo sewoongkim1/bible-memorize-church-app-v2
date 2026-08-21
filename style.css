@@ -2217,7 +2217,21 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 .cd-title{ font-family:"Nanum Myeongjo",serif; font-weight:800; color:var(--navy); font-size:1.5rem; }
 .cd-sub{ color:var(--gray); font-size:.92rem; margin-top:6px; }
 .cd-count{ margin:12px 0 20px; font-size:1rem; color:#444; }
+
 .cd-count b{ color:var(--gold); font-weight:800; }
+
+/* 힌트를 보고 맞힌 구절 — 완료 화면에서 그 구절 암송으로 이어 주는 자리 */
+.cd-help-note{
+  margin:12px 0 10px; padding:10px 12px; border-radius:10px;
+  background:#fdf6e3; border:1px solid #e6d8b0; color:#5a4a20;
+  font-size:.88rem; line-height:1.6; word-break:keep-all;
+}
+/* 금색은 이미 '한 번 더 도전'이 쓴다. 나란히 두면 구분이 안 되니 남색으로 가른다 —
+   이 화면에서 하길 바라는 일이 이쪽이므로 더 진하게 둔다. */
+.cd-relearn{ background:var(--navy); border-color:var(--navy); color:#fff; }
+.cd-relearn:hover{ background:var(--navy-dark); }
+.dark .cd-relearn{ background:#3a4a68; border-color:#56688c; color:#fff; }
+.dark .cd-help-note{ background:#2a2415; border-color:#5c4d22; color:#e3d3a4; }
 /* '자동으로 계속 도전하기' 체크박스 — 위(한번더 도전 버튼)는 좁게, 아래(순위보기 버튼)는 넓게 */
 #cd-auto-label{ margin: 4px 0 14px; }
 
