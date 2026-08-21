@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260821l";
+const APP_BUILD = "20260821m";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -4885,6 +4885,28 @@ const MANUAL = [
     tip: "기도 제목을 남기시면 함께 기도합니다.",
   },
   {
+    icon: "💬", title: "내게 주시는 말씀",
+    lead: "궁금한 것을 물어보면 설교에서 찾아 답해 드려요.",
+    art: '<div class="mn-row"><span class="mn-btn mn-btn-on">💬 내게 주시는 말씀</span></div>',
+    steps: [
+      "첫 화면 <b>💬 내게 주시는 말씀</b>을 누르세요.",
+      "궁금한 것이나 마음에 걸리는 일을 적으세요.",
+      "우리 교회 <b>설교에서 찾아</b> 답해 드립니다.",
+    ],
+    tip: "인터넷에서 아무 말이나 가져오는 것이 아니라, <b>고척교회 설교</b> 안에서만 찾습니다.",
+  },
+  {
+    icon: "🌿", title: "매일 묵상",
+    lead: "그 주 설교를 요일마다 한 조각씩.",
+    art: '<div class="mn-row"><span class="mn-btn mn-btn-on">🌿 매일 묵상</span></div>',
+    steps: [
+      "첫 화면 <b>🌿 매일 묵상</b>을 누르세요.",
+      "그 주 설교가 <b>요일별로 한 조각씩</b> 나뉘어 있어요.",
+      "요일 단추를 눌러 다른 날 것도 볼 수 있어요.",
+    ],
+    tip: "짧아서 아침에 한 번 읽기 좋습니다.",
+  },
+  {
     icon: "⚙️", title: "글씨 크게 하기",
     lead: "잘 안 보이시면 키우세요.",
     art: '<div class="mn-row"><span class="mn-btn">가</span><span class="mn-btn mn-btn-mid">가</span><span class="mn-btn mn-btn-on mn-btn-big">가</span></div>',
@@ -4906,7 +4928,7 @@ function renderManual(onClose, idx) {
   manualIdx = typeof idx === "number" ? idx : -1;
   const appEl = document.getElementById("app");
   const back = () => (_manualClose || renderSummary)();
-  const NUM = "①②③④⑤⑥⑦⑧⑨⑩";
+  const NUM = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫";
 
   if (manualIdx < 0) {
     appEl.innerHTML = `
