@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260821f";
+const APP_BUILD = "20260821g";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2554,14 +2554,25 @@ function loadVerseCounts(u) {
 function renderVerseList() {
   const u = loadUser();
   const appEl = document.getElementById("app");
+  // 화면에 보이는 순서(최신 구절부터)가 곧 재생 순서다 — 앨범과 같은 규칙.
+  // 여기서는 3분요약을 넣지 않는다. 말씀 목록은 '말씀을 훑는' 화면이기 때문.
+  const playOrder = [...verses].reverse();
+  const playItems = verseItemsFor(playOrder);
+  const playDur = albumDurText(playItems);
+
   appEl.innerHTML = `
+    ${verses.length ? `<div class="rank-filter album-play vl-play">
+      <button id="vl-play-go" class="ab-go">▶️ 전체 듣기${playDur ? ` <span class="ab-dur">${playDur}</span>` : ""}</button>
+    </div>` : ""}
     <div id="verse-list" class="verse-grid"></div>
     <button class="home-fab" id="to-summary" aria-label="첫 화면으로">🏠 ${userLabel(u)} 성도님<span id="nav-total" class="nav-total"></span></button>
   `;
 
   const listEl = document.getElementById("verse-list");
   window.scrollTo(0, 0); // 이전 화면의 스크롤 위치가 남지 않도록
-  document.getElementById("to-summary").addEventListener("click", renderSummary);
+  document.getElementById("to-summary").addEventListener("click", () => { albumPlayStop(); renderSummary(); });
+  const vlGo = document.getElementById("vl-play-go");
+  if (vlGo) vlGo.addEventListener("click", () => albumPlayStart(verseItemsFor(playOrder)));
   const weeklyInfo = getWeeklyVerseInfo();
   const weeklyNo = weeklyInfo && weeklyInfo.verse ? weeklyInfo.verse.no : null;
   const weeklyBadge = weeklyInfo ? weeklyInfo.label : "이번 주";
@@ -2576,6 +2587,7 @@ function renderVerseList() {
 
     const card = document.createElement("div");
     card.className = `verse-card ${status.cls}${isWeekly ? " weekly-verse" : ""}${isHeart ? " hearted-verse" : ""}`;
+    card.dataset.no = v.no;   // 재생 중인 카드를 짚기 위해
     // 주간·금배지는 좌상단에 나란히(절대배치) — 한 줄 폭에 영향 없어 🔊 아이콘이 밀리지 않는다.
     card.innerHTML = `
       ${isWeekly || isHeart ? `<div class="card-badges">
@@ -2588,7 +2600,7 @@ function renderVerseList() {
       <div class="verse-status ${status.cls}" data-no="${v.no}" data-base="${status.text}">${status.text}</div>
       <button class="card-listen" aria-label="${v.refShort} 듣기" title="듣기">🔊</button>
     `;
-    card.addEventListener("click", () => startTest(v));
+    card.addEventListener("click", () => { albumPlayStop(); startTest(v); });
     // 듣기 버튼: 카드 클릭(테스트 시작)으로 번지지 않게 막고 본문을 읽어준다.
     // 빠르게 N번 클릭하면 N번 반복해서 읽어준다(2번 클릭 → 2번 듣기).
     const listenBtn = card.querySelector(".card-listen");
@@ -2599,7 +2611,7 @@ function renderVerseList() {
       clickCount++;
       if (clickTimer) clearTimeout(clickTimer);
       clickTimer = setTimeout(() => {
-        speakText(`${v.refFull}. ${v.text}`, null, clickCount);
+        speakText(verseSpokenText(v), null, clickCount, verseTtsLang(v));
         clickCount = 0;
       }, 350); // 350ms 안에 연속 클릭한 횟수만큼 반복
     });
@@ -5741,18 +5753,24 @@ function albumSermonOf(no) {
 
 // 지금 목록에서 실제로 재생할 항목들을 만든다.
 //   고르기 켬 → 카드마다 고른 것만 / 끔 → 말씀 전부(+'요약 함께'면 요약도)
+// 재생 목록의 한 칸(말씀) — 앨범과 말씀 목록이 함께 쓴다
+function verseItem(v) {
+  const text = verseSpokenText(v);   // 말씀 + 요절
+  return { no: v.no, kind: "verse", ref: verseRefFull(v), text: text,
+           lang: isEnMode(v) ? "en-US" : "ko-KR",
+           sec: text.length / (ALBUM_CPS * getSpeakRate()) };
+}
+
+// 말씀만 읽는 재생 목록(3분요약 없음) — 말씀 목록 화면이 쓴다
+function verseItemsFor(list) { return list.map(verseItem); }
+
 function albumItemsFor(list) {
   const items = [];
   list.forEach((v) => {
     const want = albumPickMode
       ? (albumPicks.get(v.no) || { v: false, a: false })
       : { v: true, a: albumWithSummary() };
-    if (want.v) {
-      const text = verseSpokenText(v);   // 말씀 + 요절
-      items.push({ no: v.no, kind: "verse", ref: verseRefFull(v), text: text,
-                   lang: isEnMode(v) ? "en-US" : "ko-KR",
-                   sec: text.length / (ALBUM_CPS * getSpeakRate()) });
-    }
+    if (want.v) items.push(verseItem(v));
     if (want.a) {
       const sm = albumSermonOf(v.no);
       if (sm) items.push({ no: v.no, kind: "audio", ref: verseRefFull(v),
@@ -5820,13 +5838,14 @@ function albumPlayStop() {
   stopSpeaking();
   albumPlayer = null;
   albumPlayBar();
-  document.querySelectorAll(".album-card.playing").forEach((c) => c.classList.remove("playing"));
+  document.querySelectorAll(".playing").forEach((c) => c.classList.remove("playing"));
 }
 
 // 읽는 카드를 강조하고 화면 가운데로 따라 올린다
+// 앨범 카드와 말씀 목록 카드 양쪽에 쓰인다
 function albumPlayFocus(no) {
-  document.querySelectorAll(".album-card.playing").forEach((c) => c.classList.remove("playing"));
-  const c = document.querySelector('.album-card[data-no="' + no + '"]');
+  document.querySelectorAll(".playing").forEach((c) => c.classList.remove("playing"));
+  const c = document.querySelector('.album-card[data-no="' + no + '"], .verse-card[data-no="' + no + '"]');
   if (!c) return;
   c.classList.add("playing");
   try { c.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (e) { c.scrollIntoView(); }
@@ -5849,6 +5868,12 @@ function albumPlayBar() {
   }
   const p = albumPlayer;
   const it = p.items[p.i] || {};
+  // 3분요약이 섞인 목록에서만 '요약은 이어집니다'라고 쓴다 —
+  // 말씀 목록 화면은 요약이 없어 그 말이 거짓이 된다.
+  const hasAudio = p.items.some((x) => x.kind === "audio");
+  const note = hasAudio
+    ? "ⓘ 아이폰은 화면이 꺼지면 말씀 낭독이 멈춥니다 (3분요약은 이어집니다)"
+    : "ⓘ 아이폰은 화면이 꺼지면 멈춥니다";
   bar.innerHTML =
     '<div class="pb-now"><b>' + (p.i + 1) + ' / ' + p.items.length + '</b>' +
       '<span class="pb-ref">' + (it.ref || "") + '</span>' +
@@ -5859,7 +5884,7 @@ function albumPlayBar() {
       '<button id="pb-next" aria-label="다음">⏭</button>' +
       '<button id="pb-close" aria-label="재생 닫기">✕</button>' +
     '</div>' +
-    '<div class="pb-note">ⓘ 아이폰은 화면이 꺼지면 말씀 낭독이 멈춥니다 (3분요약은 이어집니다)</div>';
+    '<div class="pb-note">' + note + '</div>';
   bar.querySelector("#pb-prev").addEventListener("click", () => albumPlayJump(-1));
   bar.querySelector("#pb-next").addEventListener("click", () => albumPlayJump(1));
   bar.querySelector("#pb-play").addEventListener("click", albumPlayToggle);

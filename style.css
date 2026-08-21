@@ -3329,3 +3329,10 @@ html[data-fs="xl"] .test-screen.en .answer-text { font-size: 26px; }
 body.ab-playing .home-fab { bottom: calc(128px + env(safe-area-inset-bottom, 0px)); }
 /* 재생 바(약 100px) + 그 위로 올린 홈 버튼까지 비켜 줘야 마지막 카드가 가리지 않는다 */
 body.ab-playing .album-screen { padding-bottom: 200px; }
+
+/* 말씀 목록의 '전체 듣기' — 목록 위 한 줄. 3분요약이 없어 버튼 하나뿐이다 */
+.rank-filter.album-play.vl-play { margin: 2px 0 12px; }
+.verse-card.playing { border-color: var(--navy); box-shadow: 0 0 0 3px rgba(26,58,107,.28); }
+.verse-card.playing .verse-ref::before { content: "🔊 "; }
+.dark .verse-card.playing { border-color: #6d8fc8; box-shadow: 0 0 0 3px rgba(109,143,200,.35); }
+body.ab-playing .verse-grid { padding-bottom: 200px; }
