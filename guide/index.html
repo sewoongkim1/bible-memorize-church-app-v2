@@ -171,7 +171,11 @@ var STEPS = [
     tip:"이 「따라 하기」 화면은 즐겨찾기 해 두시면 언제든 다시 보실 수 있어요." }
 ];
 
-var i = 0;
+// ?s=4 처럼 걸음을 바로 열 수 있다 — 로비에서 「④번 보세요」 하고 짚어 주기 쉽게.
+var i = (function(){
+  var n = parseInt(new URLSearchParams(location.search).get("s"), 10);
+  return (n >= 1 && n <= 9) ? n - 1 : 0;
+})();
 var speakOn = true;
 
 var card = document.getElementById("card");
@@ -220,6 +224,7 @@ function draw(){
   btnPrev.disabled = (i === 0);
   btnNext.textContent = (i === STEPS.length - 1) ? "✓ 다 봤어요" : "다음 ▶";
   window.scrollTo(0, 0);
+  try { history.replaceState(null, "", "?s=" + (i + 1)); } catch (e) {}
   say(st.say);
 }
 
