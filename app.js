@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260821g";
+const APP_BUILD = "20260821h";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -3309,15 +3309,16 @@ function verseRefFull(verse) {
   return isEnMode(verse) ? (verse.refEn || verse.refFull || verse.refShort) : (verse.refFull || verse.refShort);
 }
 
-// 귀로 들을 때 읽어 줄 말 — 말씀을 읽고 요절을 뒤에 붙인다.
-//   "…내 길에 빛이니이다. 시편 119편 105절"
+// 귀로 들을 때 읽어 줄 말 — 요절을 먼저 부르고 말씀을 읽는다.
+//   "시편 119편 105절. 주의 말씀은 내 발에 등이요…"
+// 어느 구절인지 알고 들어야 머리에 자리를 잡는다(성경을 펴 놓고 찾아 읽는 순서와 같다).
 // 마침표를 끼우는 이유: splitForSpeech가 문장 끝에서 끊어 큐에 넣으므로 그 자리에 쉼이 생긴다.
 // 영어 모드인데 영어 요절이 없으면 붙이지 않는다 — 한국어 요절을 en-US 음성이 읽으면 알아들을 수 없다.
 function verseSpokenText(verse) {
   const body = String(verseText(verse) || "").trim();
   const ref = isEnMode(verse) ? (verse.refEn || "") : (verse.refFull || verse.refShort || "");
   if (!ref) return body;
-  return body + (/[.!?]$/.test(body) ? " " : ". ") + ref;
+  return ref + ". " + body;
 }
 function verseTtsLang(verse) { return isEnMode(verse) ? "en-US" : "ko-KR"; }
 
