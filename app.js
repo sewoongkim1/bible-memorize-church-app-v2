@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260821a";
+const APP_BUILD = "20260821b";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2979,8 +2979,22 @@ function renderPassageDone(p) {
 // ------------------------------------------------------------
 // 화면 3: 테스트 (익명 버전과 동일)
 // ------------------------------------------------------------
+// '힌트를 보고 맞힌 구절 다시 암송하기' 한 번을 표시하는 깃발.
+// 이 한 번은 '🔁 반복해서 쓰기'에 걸리지 않는다 — 걸리면 같은 구절이 끝없이 되풀이돼
+// 사용자에겐 '누르지도 않았는데 그 말씀만 계속' 나오는 것처럼 보인다.
+let relearnOnce = false;
+
+// 도전 화면은 언제나 3단계(전체 빈칸)다. 다시 암송도 같은 3단계로 열어야
+// '힌트 보고 맞혔는데 1단계가 나온다'는 어긋남이 없다.
+function startRelearn(verse) {
+  setCardMode(false);
+  relearnOnce = true;
+  renderTestScreen(verse, 3);
+}
+
 function startTest(verse) {
   setCardMode(false); // 암송화면 기본은 '쓰기' — 카드 모드는 그 구절 안에서만 유지된다
+  relearnOnce = false;
   const passed = getPassedStage(verse.no);   // 지금 고른 언어의 단계
   // 마음에 둔 구절은 곧바로 3단계(전체 빈칸)로 — 체크 해제도 여기서 바로 가능.
   // 단, 그 언어로 3단계를 마쳤을 때만. 한글로 마음에 두었어도 영어는 처음부터 한다.
@@ -3064,7 +3078,7 @@ function setupHeartCheck(verse) {
 // 암송 도우미 — '쉬운 풀이'(구절 뜻을 쉬운 말로) · '기억법'(외우는 요령).
 //   말씀 아카이브에 설교 등록 시 미리 생성돼 sermons에 저장된 내용을 읽어와,
 //   암송 화면에서 접었다 펴는 형태로 보여준다(필요할 때만 펴니 화면을 차지하지 않음).
-function fillVerseHelp(verse) {
+function fillVerseHelp(verse, opts) {
   if (!document.getElementById("help-slot")) return;
   loadSermons().then((sermons) => {
     const s = (sermons || []).find(
@@ -3096,7 +3110,9 @@ function fillVerseHelp(verse) {
         el.querySelectorAll(".help-btn").forEach((b) => b.classList.remove("on"));
         if (wasOn) { body.hidden = true; return; }   // 같은 버튼 다시 누르면 접기
         btn.classList.add("on");
-        if (btn.dataset.k === "tip") challengeUsedHelp = true;   // 🧠 기억법을 열면 '도움 받음'
+        // '도움 받음'은 도전 화면에서만 센다 — 이 함수는 암송·복습 화면도 함께 쓰므로,
+        // 거기서 연 기억법까지 세면 엉뚱한 구절이 '다시 암송' 대상이 된다.
+        if (btn.dataset.k === "tip" && opts && opts.forChallenge) challengeUsedHelp = true;
         const item = items.find((i) => i.k === btn.dataset.k) || {};
         body.innerHTML = "";
         const textEl = document.createElement("div");
@@ -4048,10 +4064,11 @@ function checkAllComplete(inputs, verse, stage) {
   // '반복해서 쓰기'가 켜져 있으면 아무것도 띄우지 않고 바로 새 3단계로 넘어간다.
   // (정답마다 위의 saveProgress가 실행되므로 도전 기록에 '매번' 카운트된다. 멈추려면 체크박스 해제)
   // 마음에 두었나이다 체크는 3단계 진입과 동시에 항상 가능해서, 자동 진행 중에도 체크할 수 있다.
-  if (isRepeatPractice()) {
+  if (isRepeatPractice() && !relearnOnce) {
     setTimeout(() => renderTestScreen(verse, 3), 350); // 마지막 글자 정답 표시가 잠깐 보이도록만
     return;
   }
+  relearnOnce = false; // '다시 암송' 한 번을 마쳤다 — 다음부터는 평소대로
   renderCompleteNav(verse);
 }
 
@@ -4772,6 +4789,7 @@ let challengeUsedHelp = false;
 // 도전 화면 — 3단계(전체 빈칸) 고정 + 힌트 버튼 + 음성
 function renderChallenge(verse) {
   challengeUsedHelp = false;   // 구절이 바뀌면 새로 센다
+  relearnOnce = false;
   const appEl = document.getElementById("app");
   const en = isEnMode(verse);
   const tokens = verseText(verse).trim().split(/\s+/);
@@ -4819,7 +4837,7 @@ function renderChallenge(verse) {
   scrollPastBtnRow();
   document.getElementById("ch-exit").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
   document.getElementById("ch-shuffle").addEventListener("click", () => { stopSpeaking(); startChallenge(); });
-  fillVerseHelp(verse);
+  fillVerseHelp(verse, { forChallenge: true });
   fillSermonSummaryBtn(verse, null, () => renderChallenge(verse));
   setupHeartCheck(verse);
   setupHint();
@@ -5036,7 +5054,7 @@ function renderChallengeDone(verse, mode, todayCount, usedHelp) {
   // 봐야 하므로, 그 구절 암송 화면으로 이어 준다. 자동 계속 도전 중이라도 이때는 멈춘다
   // (자동은 '이미 아는 구절을 빠르게' 도는 장치인데, 막혔다면 멈출 때다).
   if (isAutoChallenge()) {
-    setTimeout(usedHelp ? () => startTest(verse) : startChallenge, 350);
+    setTimeout(usedHelp ? () => startRelearn(verse) : startChallenge, 350);
     return;
   }
   const appEl = document.getElementById("app");
@@ -5063,7 +5081,7 @@ function renderChallengeDone(verse, mode, todayCount, usedHelp) {
       </div>
     </div>`;
   const relearn = document.getElementById("cd-relearn");
-  if (relearn) relearn.addEventListener("click", () => startTest(verse));
+  if (relearn) relearn.addEventListener("click", () => startRelearn(verse));
   document.getElementById("cd-again").addEventListener("click", startChallenge);
   document.getElementById("cd-auto-check").addEventListener("change", (e) => setAutoChallenge(e.target.checked));
   document.getElementById("cd-rank").addEventListener("click", () => renderRanking());
