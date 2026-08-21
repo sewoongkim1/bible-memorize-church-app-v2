@@ -23,7 +23,9 @@ import io, os
 HERE = os.path.dirname(os.path.abspath(__file__))
 M = os.path.join(HERE, '..')
 QR = io.open(os.path.join(M, 'qr-data-uri.txt'), encoding='utf-8').read().strip()
-LOGO = io.open(os.path.join(M, 'logo-data-uri.txt'), encoding='utf-8').read().strip()
+# 마크만 — 로고의 '고척교회' 글자는 14~20mm에서 뭉개진다(잉크가 번지는 종이면 더).
+# logo-mark-data-uri.txt 는 logo-data-uri.txt 에서 글자를 잘라낸 것(marketing/ 공용).
+MARK = io.open(os.path.join(M, 'logo-mark-data-uri.txt'), encoding='utf-8').read().strip()
 
 NAVY = '#123059'
 GOLD = '#a8801f'
@@ -39,9 +41,9 @@ body { margin:0; font-family:'맑은 고딕','Malgun Gothic',sans-serif; color:#
 .head { display:flex; align-items:center; gap:5mm; border-bottom:1.1mm solid %(navy)s;
         padding-bottom:3mm; margin-bottom:4mm; }
 .head .t { flex:1; }
-/* 로고에 '고척교회' 글자가 들어 있다 — 소속을 글로 또 적지 않고 마크로 보인다 */
-.h-logo { height:20mm; width:auto; flex:0 0 auto; }
-.h-logo-s { height:14mm; }
+/* 교회 마크만 — 글자는 빼고 상징만 둔다 */
+.h-logo { height:19mm; width:auto; flex:0 0 auto; }
+.h-logo-s { height:13mm; }
 .h-sup { font-size:11pt; font-weight:700; color:%(gold)s; letter-spacing:.4pt; }
 .h-title { font-size:27pt; font-weight:800; color:%(navy)s; line-height:1.2; letter-spacing:-.3pt; }
 .h-side { text-align:center; flex:0 0 auto; }
@@ -79,7 +81,7 @@ def head(sup, title, qr=True):
     side = ('<div class="h-side"><img class="h-qr" src="%s">'
             '<div class="h-url">gocheok.onlybible.kr</div></div>' % QR) if qr else ''
     top = '<div class="h-sup">%s</div>' % sup if sup else ''
-    logo = '<img class="h-logo%s" src="%s">' % ('' if qr else ' h-logo-s', LOGO)
+    logo = '<img class="h-logo%s" src="%s">' % ('' if qr else ' h-logo-s', MARK)
     return ('<div class="head">%s<div class="t">%s'
             '<div class="h-title">%s</div></div>%s</div>' % (logo, top, title, side))
 
@@ -95,7 +97,7 @@ def ol(items):
 
 
 # ── 앞면: 시작하기 ─────────────────────────────────────────────
-FRONT = head('', '성경말씀 암송 사용 설명서') + """
+FRONT = head('', '성경말씀 암송 어플 설명서') + """
 <div class="lead">
   휴대폰으로 <b>말씀을 외우는 앱</b>입니다. 비밀번호는 없고 <b>이름만</b> 넣으면 됩니다.<br>
   아래 <b>①②③</b>을 차례로 한 번만 해 두시면, 다음부터는 바탕화면 그림만 누르시면 됩니다.
@@ -172,7 +174,7 @@ BACK = head('성경말씀 암송', '말씀 외우는 방법', qr=False) + """
 </div>"""
 
 html = ('<!doctype html><html lang="ko"><head><meta charset="utf-8">'
-        '<title>성경말씀 암송 사용 설명서</title><style>' + STYLE + '</style></head><body>'
+        '<title>성경말씀 암송 어플 설명서</title><style>' + STYLE + '</style></head><body>'
         '<div class="page">' + FRONT + '</div>'
         '<div class="page">' + BACK + '</div>'
         '</body></html>')
