@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260823a";
+const APP_BUILD = "20260823b";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2893,7 +2893,7 @@ function renderPassageChunk(p, idx, stage, heartReady) {
         <div class="pg-hd">
           <div class="pg-hd-top">
             <div class="test-stage">${idx + 1}/${total}마디 · ${stage}단계</div>
-            <button class="back-btn" id="pg-line-back">← 목록</button>
+            <button class="back-btn" id="pg-line-back">← 목록으로</button>
           </div>
           <div class="pg-hd-title">
             <span class="test-ref">${p.title}</span>
@@ -2998,7 +2998,7 @@ function renderPassageFinal(p) {
         <div class="pg-hd">
           <div class="pg-hd-top">
             <div class="test-stage challenge-badge">🔥 전체</div>
-            <button class="back-btn" id="pg-final-back">← 목록</button>
+            <button class="back-btn" id="pg-final-back">← 목록으로</button>
           </div>
           <div class="pg-hd-title">
             <span class="test-ref">${p.title}</span>
@@ -3555,7 +3555,7 @@ function renderTestScreen(verse, stage) {
           <div class="test-head">
             <div class="test-stage">${stage}단계</div>
           </div>
-          <button class="back-btn" id="back-to-list-btn">← 목록</button>
+          <button class="back-btn" id="back-to-list-btn">← 목록으로</button>
         </div>
         <div class="test-sentence">${wordsHtml}</div>
         <div id="card-tray" class="card-tray"></div>
