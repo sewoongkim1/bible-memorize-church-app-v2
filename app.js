@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260822b";
+const APP_BUILD = "20260823a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -527,6 +527,17 @@ function userLabel(u) {
   return u.type === "교구"
     ? `${u.gu}-${u.mok} ${u.name}`
     : `${u.bu} ${u.name}`;
+}
+
+// 아래 고정 단추의 글 — '무엇을 하는 단추인지'가 먼저다.
+// 이름만 적혀 있으면 이름표처럼 읽혀 누르는 것인 줄 모르신다(어르신 실사용에서 확인).
+// 동작을 크게 위에, 이름·횟수는 작게 아래에. 화면 낭독기는 aria-label로 이미 알려 주지만
+// 눈으로 보는 분께는 그 말이 안 보였다.
+function homeFabLabel(u, withTotal) {
+  const act = `<span class="hf-act">🏠 첫 화면으로</span>`;
+  if (!u) return act;
+  const total = withTotal ? `<span id="nav-total" class="nav-total"></span>` : "";
+  return act + `<span class="hf-sub">${userLabel(u)} 성도님${total}</span>`;
 }
 
 // 로그인 정보를 2줄로: { l1: 소속, l2: 이름 + "성도님" }
@@ -2653,7 +2664,7 @@ function renderVerseList() {
       <button id="vl-play-go" class="ab-go">▶️ 전체 듣기${playDur ? ` <span class="ab-dur">${playDur}</span>` : ""}</button>
     </div>` : ""}
     <div id="verse-list" class="verse-grid"></div>
-    <button class="home-fab" id="to-summary" aria-label="첫 화면으로">🏠 ${userLabel(u)} 성도님<span id="nav-total" class="nav-total"></span></button>
+    <button class="home-fab" id="to-summary" aria-label="첫 화면으로">${homeFabLabel(u, true)}</button>
   `;
 
   const listEl = document.getElementById("verse-list");
@@ -2714,7 +2725,7 @@ function renderVerseList() {
 function renderPassageList() {
   const u = loadUser();
   const appEl = document.getElementById("app");
-  const backLabel = u ? `🏠 ${userLabel(u)} 성도님<span id="nav-total" class="nav-total"></span>` : "🏠 첫 화면";
+  const backLabel = homeFabLabel(u, true);
   appEl.innerHTML = `
     <div id="pg-list" class="pg-list"><div class="pg-empty">불러오는 중…</div></div>
     <button class="home-fab" id="pg-back" aria-label="첫 화면으로">${backLabel}</button>
@@ -6447,7 +6458,7 @@ function renderAlbum() {
             ? "오늘 전부 확인하셨어요! 🎉<br>「미확인」을 끄면 다시 볼 수 있어요."
             : "아직 완료한 구절이 없어요.<br>첫 구절을 암송해 보세요 📖"}</p>`}
     </div>
-    <button class="home-fab" id="ab-back" aria-label="첫 화면으로">🏠 ${userLabel(u)} 성도님</button>`;
+    <button class="home-fab" id="ab-back" aria-label="첫 화면으로">${homeFabLabel(u)}</button>`;
 
   window.scrollTo(0, 0); // 첫 화면에서 내려온 위치가 남아 중간부터 보이던 문제
   if (albumPlayer) albumPlayFocus((albumPlayer.items[albumPlayer.i] || {}).no);
@@ -6632,7 +6643,7 @@ function renderRanking(range) {
       </div>
       <div id="rank-body"><p class="rank-msg">불러오는 중...</p></div>
     </div>
-    <button class="home-fab" id="rk-back" aria-label="첫 화면으로">🏠 ${userLabel(u)} 성도님</button>`;
+    <button class="home-fab" id="rk-back" aria-label="첫 화면으로">${homeFabLabel(u)}</button>`;
   window.scrollTo(0, 0); // 이전 화면의 스크롤 위치가 남지 않도록
   document.getElementById("rk-back").addEventListener("click", renderSummary);
   wireRankMode();
@@ -6849,7 +6860,7 @@ function renderGuRanking(range) {
       </div>
       <div id="gu-body"><p class="rank-msg">불러오는 중...</p></div>
     </div>
-    <button class="home-fab" id="gk-back" aria-label="첫 화면으로">🏠 ${userLabel(u)} 성도님</button>`;
+    <button class="home-fab" id="gk-back" aria-label="첫 화면으로">${homeFabLabel(u)}</button>`;
   window.scrollTo(0, 0); // 이전 화면의 스크롤 위치가 남지 않도록
   document.getElementById("gk-back").addEventListener("click", renderSummary);
   wireRankMode();
@@ -6939,7 +6950,7 @@ function renderMyRecord(state) {
       </div>
       <div id="myrec-body"><p class="rank-msg">불러오는 중...</p></div>
     </div>
-    <button class="home-fab" id="rk-back" aria-label="첫 화면으로">🏠 ${userLabel(u)} 성도님</button>`;
+    <button class="home-fab" id="rk-back" aria-label="첫 화면으로">${homeFabLabel(u)}</button>`;
   window.scrollTo(0, 0); // 이전 화면의 스크롤 위치가 남지 않도록
   document.getElementById("rk-back").addEventListener("click", renderSummary);
   wireRankMode();
