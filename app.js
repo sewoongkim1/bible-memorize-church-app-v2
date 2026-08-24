@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260825f";
+const APP_BUILD = "20260825g";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5248,8 +5248,8 @@ function renderChallenge(verse, hard) {
           <button class="back-btn" id="ch-exit">← 뒤로</button>
         </div>
         ${hard ? `<div class="ch-hard-note">
-          <span><b>밑줄이 보이지 않아요</b></span>
-          <button class="ch-ease" id="ch-ease">이번엔 그냥 할래요</button>
+          <span><b>밑줄이 없어요</b></span>
+          <button class="ch-ease" id="ch-ease">그냥 할래요</button>
         </div>` : ""}
         <div class="test-sentence">${wordsHtml}</div>
         <div class="challenge-remain" id="ch-remain"></div>

@@ -3598,18 +3598,23 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
   box-shadow: 0 0 0 2px var(--gold) inset;
 }
 .ch-hard-note {
+  /* 한 줄을 지킨다. 좁은 폰에서 감기면 안내가 두 줄을 먹어 정작 암송할 자리를 밀어낸다.
+     모자라면 감기는 대신 안내 글이 …로 줄어든다(단추는 늘 온전히 보인다). */
   display: flex; align-items: center; justify-content: space-between;
-  gap: 10px; flex-wrap: wrap;
+  gap: 8px; flex-wrap: nowrap;
   margin: 10px 0 4px; padding: 9px 12px;
   border-radius: 10px;
   background: #fdf6e3; border: 1px solid var(--gold);
   font-size: 0.95rem; color: #6b5210; line-height: 1.5;
 }
+.ch-hard-note > span {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .ch-hard-note b { color: #4a3808; }
 /* 빠져나갈 길. 눈에 띄되 본 단추들보다 앞서지 않게 — 어려움을 권하는 화면이지
    피하라고 떠미는 화면은 아니다. */
 .ch-ease {
-  flex: 0 0 auto;
+  flex: 0 0 auto; white-space: nowrap;
   padding: 7px 12px; border-radius: 999px;
   border: 1px solid #c9b26a; background: #fff; color: #6b5210;
   font-family: inherit; font-size: 0.9rem; cursor: pointer;
