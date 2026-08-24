@@ -2497,6 +2497,12 @@ async function pilsaSetStatus(b: any) {
   let pushed = 0;
   let pushError: string | null = null;
 
+  // 배부가 끝나면 휴대폰 번호를 지운다 — 개인정보 안내(/privacy/)가 약속한 그대로다.
+  // 사람이 기억해서 지우는 약속은 언젠가 지켜지지 않으니, 상태를 바꾸는 그 자리에서 지운다.
+  // 배부완료면 새로 신청하는 구조라 이 번호를 다시 쓸 일은 없다.
+  const clearPhone = status === "배부완료" && !!norm(row.phone);
+  if (clearPhone) patch.phone = "";
+
   // 준비완료 알림은 한 번만 — 상태를 오가며 눌러도 다시 보내지 않는다
   if (status === "준비완료" && !row.notified_at) {
     const res = await pilsaNotify(row);
@@ -2506,7 +2512,7 @@ async function pilsaSetStatus(b: any) {
   }
   const { error } = await db.from("pilsa_orders").update(patch).eq("id", id);
   if (error) throw error;
-  return { ok: true, status, pushed, pushError };
+  return { ok: true, status, pushed, pushError, phoneCleared: clearPhone };
 }
 
 // 그 성도의 기기에만 발송. 알림을 켜 두지 않았으면 조용히 0건 —

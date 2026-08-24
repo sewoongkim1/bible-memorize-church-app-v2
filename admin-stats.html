@@ -1401,7 +1401,7 @@ function plRender(){
               ${r.phone
                 ? `<a class="pl-tel" href="tel:${plEsc(r.phone)}">${plEsc(r.phone)}</a>
                    <button class="pl-sms" data-sms="${r.id}">✉️ 문자</button>`
-                : `<span class="pl-tel none">번호 없음</span>`}
+                : `<span class="pl-tel none">${r.status==="배부완료"?"번호 없음 · 배부 후 삭제":"번호 없음"}</span>`}
             </div>
           </div>
           <div class="pl-drop">
@@ -1448,6 +1448,13 @@ function plRender(){
 
 async function plSetStatus(id, status){
   const r=plRows.find(x=>x.id===id); if(!r) return;
+  // 배부완료로 바꾸면 서버가 휴대폰 번호를 지운다(개인정보 안내가 약속한 것).
+  // 되돌릴 수 없고, 잘못 눌러 지우면 성도님께 번호를 다시 물어야 하니 한 번 묻는다.
+  if(status==="배부완료" && r.phone && !confirm(
+`${r.name}님을 «배부완료»로 바꿉니다.
+
+개인정보 보호를 위해 휴대폰 번호(${r.phone})가 함께 지워집니다.
+되돌릴 수 없습니다. 계속하시겠습니까?`)) return;
   const before=r.status;
   r.status=status; plRender();                 // 먼저 반영하고, 실패하면 되돌린다
   const d=await callApi({ action:"pilsaSetStatus", pw:getPw(), id, status })
@@ -1459,6 +1466,12 @@ async function plSetStatus(id, status){
   }
   // 준비완료로 바꾸면 그 성도 기기로 알림이 나간다. 앱 알림을 켜지 않았으면
   // 0건이므로 담당자가 신청서의 번호로 직접 연락해야 한다.
+  if(d.phoneCleared){
+    r.phone="";
+    plRender();
+    plNote(`🔒 ${r.name}님의 휴대폰 번호를 지웠습니다 — 배부가 끝났으니 더 보관하지 않습니다`);
+    return;
+  }
   if(status==="준비완료"){
     // 서버가 두 가지를 구분해 준다. 발송이 '실패'한 것을 '안 켜셨어요'로 뭉뚱그리면
     // 담당자는 문자만 보내고 넘어가고, 푸시가 고장 난 사실은 아무도 모르게 된다.
