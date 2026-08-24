@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260825g";
+const APP_BUILD = "20260825h";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2339,9 +2339,8 @@ function renderSettings() {
         <button class="summary-install" id="enable-push">🔔 매일 암송 알림 받기<br><span class="btn-sub">( 매일 아침 · 위에서 시간 선택 )</span></button>
         <div class="app-status" id="app-status"></div>
         <button class="push-off" id="disable-push">🔕 알림 끄기</button>
-        <button class="summary-install" id="share-btn">🔗 공유하기</button>
-        <button class="summary-install" id="reset-promo">✨ 신기능 안내 다시 보기<br><span class="btn-sub">( 홍보 카드 · NEW 배지를 이 기기에서 다시 표시 )</span></button>
         <button class="summary-install" id="test-push">🧪 내 기기로 테스트 알림</button>
+        <button class="summary-install" id="share-btn">🔗 공유하기</button>
         <a class="summary-install" href="admin.html">📊 관리자 페이지</a>
         <button class="summary-install" id="privacy-info">🔐 개인정보 안내 보기</button>
         <button class="push-off" id="clear-me">🚪 이 기기에서 내 정보 지우기<br><span class="btn-sub">( 공용 기기에서 사용하셨다면 눌러주세요 )</span></button>
@@ -2355,13 +2354,6 @@ function renderSettings() {
   document.getElementById("change-user").addEventListener("click", renderEntryScreen);
   document.getElementById("privacy-info").addEventListener("click", () => renderPrivacyInfo(renderSettings));
   document.getElementById("share-btn").addEventListener("click", shareApp);
-  document.getElementById("reset-promo").addEventListener("click", () => {
-    try {
-      localStorage.removeItem(PROMO_KEY);
-      ["sermon", "meditation", "passages"].forEach((k) => localStorage.removeItem("feat-seen-" + k));
-    } catch (e) {}
-    renderSummary(); // 홈으로 — 홍보 카드·NEW 배지가 바로 다시 보인다
-  });
   document.getElementById("enable-push").addEventListener("click", () => { if (typeof enablePush === "function") enablePush(); });
   document.getElementById("disable-push").addEventListener("click", () => { if (typeof disablePush === "function") disablePush(); });
   document.getElementById("clear-me").addEventListener("click", clearMeOnThisDevice);
