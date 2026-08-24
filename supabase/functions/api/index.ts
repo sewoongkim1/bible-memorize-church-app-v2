@@ -2607,11 +2607,18 @@ async function boardList(b: any) {
   // 공감 이모지 — 글·답글의 것을 한 번에 긁어 집계한다
   const me = String(b.user_id || "");
   const rx = await boardReactionMap(ids, replies.map((r: any) => r.id), me);
-  const withRx = (kind: string, row: any) => ({
-    ...row,
-    reactions: rx.count.get(kind + ":" + row.id) || {},
-    myReacts: rx.mine.get(kind + ":" + row.id) || [],
-  });
+  // user_id는 응답에 싣지 않는다. 이 API는 JWT가 없어 남의 user_id가 새면 그 사람
+  // 행세가 가능해진다(그 이름으로 글쓰기·진도 저장·순위 응원까지). 클라이언트가
+  // 정말 필요한 것은 '내 글인가' 하나뿐이므로 그것만 참/거짓으로 내려준다.
+  const withRx = (kind: string, row: any) => {
+    const { user_id, ...rest } = row;
+    return {
+      ...rest,
+      isMine: !!me && !!user_id && user_id === me,
+      reactions: rx.count.get(kind + ":" + row.id) || {},
+      myReacts: rx.mine.get(kind + ":" + row.id) || [],
+    };
+  };
 
   return {
     ok: true, isAdmin,

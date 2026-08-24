@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260823b";
+const APP_BUILD = "20260824a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1934,10 +1934,13 @@ function myUserId() {
   return u && u.user_id ? u.user_id : null;
 }
 let boardMineOnly = false; // 게시판 '내 글만 보기' 상태
-// 본인 글 판별: 소속+이름 일치(옛 글 포함) 또는 user_id 일치
+// 본인 글 판별: 소속+이름 일치(옛 글 포함) 또는 서버가 알려준 isMine.
+// 예전엔 응답에 실려 온 user_id를 직접 비교했는데, 그러려면 서버가 모든 글의
+// user_id를 내려보내야 해서 남의 것까지 새어 나갔다. 이제 서버가 '내 것인가'만
+// 판단해 참/거짓으로 준다(이름을 바꾼 뒤에도 옛 글이 내 것으로 잡힌다).
 function boardIsMine(item) {
-  const who = boardWho(); const uid = myUserId();
-  return (!!who && item.name === who) || (!!uid && !!item.user_id && item.user_id === uid);
+  const who = boardWho();
+  return item.isMine === true || (!!who && item.name === who);
 }
 // ── 내게 주시는 말씀 (인앱 RAG 챗봇 화면, 구 '설교말씀 도우미') — 게시판 등과 같은 공통 헤더 사용 ──
 // 5x2 주제 그리드: [전체] + 샘플 많은 순 8개 + [기타]. 질문은 실제 설교(2024~2026 전체) 제목·내용 기반.
