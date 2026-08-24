@@ -12,8 +12,16 @@
 """
 import io, os, json, subprocess, time, socket, sys
 
+# 스토어 스크린샷도 같은 씨앗·같은 화면을 써야 한다 — 두 벌로 갈라 두면 한쪽이 낡는다.
+#   SHOT_OUT    나갈 폴더 (기본 guide/shots)
+#   SHOT_SCALE  배율. 이 PC 헤드리스 크롬은 뷰포트가 526px 고정이라
+#               스토어용 큰 그림은 배율로만 키울 수 있다(2 → 1052x1880)
+#   SHOT_NOCROP 1이면 아래 여백을 자르지 않는다(스토어는 크기가 고르게 맞아야 한다)
+
 ROOT = r"C:\Projects\bible-memorize-church-app-v2"
-OUT = os.path.join(ROOT, "guide", "shots")
+OUT = os.environ.get("SHOT_OUT") or os.path.join(ROOT, "guide", "shots")
+SCALE = float(os.environ.get("SHOT_SCALE") or 1)
+NOCROP = os.environ.get("SHOT_NOCROP") == "1"
 CHROME = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 PORT = 8742
 W, H = 526, 940   # 이 PC 헤드리스 크롬은 뷰포트가 526px로 고정된다
@@ -142,12 +150,14 @@ def main():
         for name, js in STEPS:
             png = os.path.join(OUT, name + ".png")
             url = "http://127.0.0.1:%d/%s?go=%s" % (PORT, capname, js.replace(" ", "%20").replace("&", "%26"))
-            subprocess.run([CHROME, "--headless", "--disable-gpu", "--hide-scrollbars",
-                            "--virtual-time-budget=9000",
-                            "--screenshot=" + png, "--window-size=%d,%d" % (W, H), url],
-                           capture_output=True)
+            cmd = [CHROME, "--headless", "--disable-gpu", "--hide-scrollbars",
+                   "--virtual-time-budget=9000",
+                   "--screenshot=" + png, "--window-size=%d,%d" % (W, H), url]
+            if SCALE != 1:
+                cmd.insert(4, "--force-device-scale-factor=%g" % SCALE)
+            subprocess.run(cmd, capture_output=True)
             # 아래쪽 빈 여백을 잘라낸다(화면마다 길이가 달라 그대로 두면 들쭉날쭉하다)
-            if os.path.exists(png):
+            if os.path.exists(png) and not NOCROP:
                 try:
                     from PIL import Image
                     im = Image.open(png).convert("RGB")
