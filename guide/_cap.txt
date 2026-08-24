@@ -1,0 +1,3 @@
+hard-normal OK   34 KB
+hard-on    OK   44 KB
+hard-forecast OK   64 KB

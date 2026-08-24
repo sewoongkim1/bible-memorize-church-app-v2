@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260824d";
+const APP_BUILD = "20260825a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -3401,6 +3401,22 @@ function isRepeatPractice() { try { return localStorage.getItem(REPEAT_KEY) === 
 function setRepeatPractice(on) { try { localStorage.setItem(REPEAT_KEY, on ? "1" : "0"); } catch (e) {} }
 
 // '말씀 도전' 완료 화면에서 켜두면, 다음부터는 완료 화면을 건너뛰고 바로 새 도전으로 넘어간다.
+// 어려운 도전 — 다섯 번에 한 번, 칸 너비를 모두 같게 해 '몇 글자인지'를 감춘다.
+// 도전 화면이 새고 있던 가장 큰 힌트는 밑줄이 아니라 칸 너비였다:
+// width가 단어 길이를 따라가서 「사랑하라」와 「내」가 모양만으로 구분됐다.
+const HARD_COUNT_KEY = "hard-challenge-count";
+const HARD_EVERY = 5;
+function hardDoneCount() { try { return Number(localStorage.getItem(HARD_COUNT_KEY)) || 0; } catch (e) { return 0; } }
+function bumpHardDoneCount() { try { localStorage.setItem(HARD_COUNT_KEY, String(hardDoneCount() + 1)); } catch (e) {} }
+// 다음 도전이 어려운 차례인가 — 예고와 실제 판정이 같은 함수를 봐야 말이 어긋나지 않는다.
+function isHardTurn() { return (hardDoneCount() + 1) % HARD_EVERY === 0; }
+// 어려운 도전에 쓸 구절 — 3단계까지 마친 것만. 지금 보는 언어 기준이다
+// (한글로 다 외웠어도 영어로 처음이면 어려운 도전은 이르다).
+function hardPool() { return verses.filter((v) => getPassedStage(v.no) >= 3); }
+// 예고도 이 함수를 본다. 마친 구절이 하나도 없으면 예고하지 않는다 —
+// 예고해 놓고 오지 않으면 완료할 때마다 거짓말을 하게 된다.
+function hardNext() { return isHardTurn() && hardPool().length > 0; }
+
 const AUTO_CHALLENGE_KEY = "auto-challenge";
 function isAutoChallenge() { try { return localStorage.getItem(AUTO_CHALLENGE_KEY) === "1"; } catch (e) { return false; } }
 function setAutoChallenge(on) { try { localStorage.setItem(AUTO_CHALLENGE_KEY, on ? "1" : "0"); } catch (e) {} }
@@ -5171,12 +5187,22 @@ function bumpTodayChallenge() {
 // 랜덤 구절 배정(세션 내 중복 회피, 모두 소진 시 리셋) → 도전 시작
 function startChallenge() {
   if (!verses.length) return;
-  let pool = verses.filter((v) => !challengeSession.includes(v.no));
-  if (!pool.length) { challengeSession = []; pool = verses.slice(); }
+  // 어려운 차례에는 '이미 3단계까지 마친 구절'에서 고른다. 아직 익히는 중인 구절에
+  // 글자 수까지 감추면 도전이 아니라 벽이 된다. 마친 구절이 없으면 그냥 보통 도전이다.
+  const ready = isHardTurn() ? hardPool() : [];
+  const hard = ready.length > 0;
+  const from = hard ? ready : verses;
+  let pool = from.filter((v) => !challengeSession.includes(v.no));
+  if (!pool.length) { challengeSession = []; pool = from.slice(); }
   const pick = pool[Math.floor(Math.random() * pool.length)];
   challengeSession.push(pick.no);
-  renderChallenge(pick);
+  challengeEased = false;
+  renderChallenge(pick, hard);
 }
+
+// 어려운 도전을 '이번만' 접었는지. startChallenge에서만 내린다 —
+// renderChallenge는 3분요약을 닫을 때도 다시 그려서, 거기서 내리면 접은 것이 풀린다.
+let challengeEased = false;
 
 // 도전에서 '도움'을 받았는지 — 💡 힌트 또는 🧠 기억법을 한 번이라도 열었는지.
 //   힌트를 보고 맞힌 구절은 아직 덜 익은 것이라, 완료 뒤 그 구절 암송 화면으로 이어 준다.
@@ -5184,7 +5210,7 @@ function startChallenge() {
 let challengeUsedHelp = false;
 
 // 도전 화면 — 3단계(전체 빈칸) 고정 + 힌트 버튼 + 음성
-function renderChallenge(verse) {
+function renderChallenge(verse, hard) {
   challengeUsedHelp = false;   // 구절이 바뀌면 새로 센다
   relearnBackToChallenge = false;
   const appEl = document.getElementById("app");
@@ -5193,7 +5219,11 @@ function renderChallenge(verse) {
 
   const wordsHtml = tokens
     .map((word) => {
-      const style = en ? `width:${Array.from(word).length + 2}ch` : `width:${Array.from(word).length + 1}em`;
+      // 어려운 도전은 모든 칸이 같은 폭이다. 긴 단어는 칸을 넘어가지만 채점은 값으로 하니
+      // 지장이 없다 — 넘어가는 그 답답함이 곧 난도다.
+      const style = hard
+        ? (en ? "width:6ch" : "width:4.5em")
+        : (en ? `width:${Array.from(word).length + 2}ch` : `width:${Array.from(word).length + 1}em`);
       return `<input class="word-input" data-answer="${word}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="${style}" />`;
     })
     .join(" ");
@@ -5211,10 +5241,14 @@ function renderChallenge(verse) {
         </div>
         <div class="test-top">
           <div class="test-head">
-            <div class="test-stage challenge-badge">🔥 도전</div>
+            <div class="test-stage challenge-badge${hard ? " hard-badge" : ""}">${hard ? "🔥🔥 어려운 도전" : "🔥 도전"}</div>
           </div>
           <button class="back-btn" id="ch-exit">← 뒤로</button>
         </div>
+        ${hard ? `<div class="ch-hard-note">
+          <span>칸이 모두 같은 크기예요 — <b>몇 글자인지 보이지 않습니다</b></span>
+          <button class="ch-ease" id="ch-ease">이번엔 그냥 할래요</button>
+        </div>` : ""}
         <div class="test-sentence">${wordsHtml}</div>
         <div class="challenge-remain" id="ch-remain"></div>
         <div id="result-area"></div>
@@ -5234,8 +5268,16 @@ function renderChallenge(verse) {
   scrollPastBtnRow();
   document.getElementById("ch-exit").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
   document.getElementById("ch-shuffle").addEventListener("click", () => { stopSpeaking(); startChallenge(); });
+  // 빠져나갈 길 — 이 앱은 어르신이 많고, 못 빠져나가는 어려움은 앱을 닫게 만든다.
+  // 접어도 카운터는 올라가지 않아 다음 도전에 다시 온다(없애는 게 아니라 미루는 것).
+  const easeBtn = document.getElementById("ch-ease");
+  if (easeBtn) easeBtn.addEventListener("click", () => {
+    stopSpeaking();
+    challengeEased = true;
+    renderChallenge(verse, false);
+  });
   fillVerseHelp(verse, { forChallenge: true });
-  fillSermonSummaryBtn(verse, null, () => renderChallenge(verse));
+  fillSermonSummaryBtn(verse, null, () => renderChallenge(verse, hard));
   setupHeartCheck(verse);
   setupHint();
   setupChallengeTyping(verse, (mode) => challengeComplete(verse, mode));
@@ -5419,6 +5461,8 @@ function challengeComplete(verse, mode) {
   stopSpeaking();
   const n = bumpTodayChallenge();
   const usedHelp = challengeUsedHelp;   // 화면을 갈아끼우기 전에 붙잡아 둔다
+  // 접은 도전은 세지 않는다 — 세어 버리면 미뤄 둔 어려운 차례가 그대로 지나가 버린다.
+  if (!challengeEased) bumpHardDoneCount();
   postChallenge(verse, mode);
   renderChallengeDone(verse, mode, n, usedHelp);
 }
@@ -5466,6 +5510,8 @@ function renderChallengeDone(verse, mode, todayCount, usedHelp) {
         <div class="cd-title">도전 완료!</div>
         <div class="cd-sub">${verse.refShort} · ${mode === "voice" ? "음성" : "타이핑"} 암송</div>
         <div class="cd-count">오늘 <b id="cd-today-count">${todayCount}회</b> 완료</div>
+        ${hardNext() ? `<div class="cd-hard-next">다음은 🔥🔥 <b>어려운 도전</b>이에요
+          <span>칸이 모두 같은 크기라 몇 글자인지 보이지 않아요</span></div>` : ""}
         ${againHtml}
         <button class="summary-go challenge-cta" id="cd-again">🔥 한 번 더 도전</button>
         <label class="repeat-toggle" id="cd-auto-label">

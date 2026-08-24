@@ -3587,3 +3587,46 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
 }
 .privacy-full:hover { background: var(--cream); }
 .dark .privacy-full { background: #1c2740; border-color: #56688c; color: #cfe0ff; }
+
+/* ── 어려운 도전 (다섯 번에 한 번) ────────────────────────────
+   보통 도전 배지는 '금색 바탕 · 남색 글씨'다. 어려운 도전은 그 반대로 두어
+   한눈에 다르게 보이게 한다 — 「자동으로 계속 도전」을 켜 둔 분은 완료 화면을
+   건너뛰어 예고를 볼 자리가 없으므로, 화면 자체가 말해 줘야 한다. */
+.test-stage.challenge-badge.hard-badge {
+  background: var(--navy-dark);
+  color: var(--gold);
+  box-shadow: 0 0 0 2px var(--gold) inset;
+}
+.ch-hard-note {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap;
+  margin: 10px 0 4px; padding: 9px 12px;
+  border-radius: 10px;
+  background: #fdf6e3; border: 1px solid var(--gold);
+  font-size: 0.95rem; color: #6b5210; line-height: 1.5;
+}
+.ch-hard-note b { color: #4a3808; }
+/* 빠져나갈 길. 눈에 띄되 본 단추들보다 앞서지 않게 — 어려움을 권하는 화면이지
+   피하라고 떠미는 화면은 아니다. */
+.ch-ease {
+  flex: 0 0 auto;
+  padding: 7px 12px; border-radius: 999px;
+  border: 1px solid #c9b26a; background: #fff; color: #6b5210;
+  font-family: inherit; font-size: 0.9rem; cursor: pointer;
+}
+.ch-ease:hover { background: #fdf1d4; }
+/* 완료 화면의 예고 — 놀라게 하지 않고 기대하게 만드는 것이 목적이다. */
+.cd-hard-next {
+  margin: 12px 0 4px; padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--navy-dark); color: #f3e3b0;
+  font-size: 1.02rem; line-height: 1.55;
+}
+.cd-hard-next b { color: var(--gold); }
+.cd-hard-next span { display: block; margin-top: 4px; font-size: 0.88rem; opacity: 0.85; }
+
+.dark .ch-hard-note { background: #2a2415; border-color: #6d5a22; color: #e6d49a; }
+.dark .ch-hard-note b { color: #f3e3b0; }
+.dark .ch-ease { background: #1c2233; border-color: #6d5a22; color: #e6d49a; }
+.dark .ch-ease:hover { background: #26303f; }
+.dark .cd-hard-next { background: #131b2e; color: #e6d49a; }
