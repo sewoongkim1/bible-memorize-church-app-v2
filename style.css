@@ -3634,9 +3634,11 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
 /* 어려운 도전 — 빈칸의 밑줄을 지운다.
    글씨를 크게 쓰시는 분은 칸 하나가 한 줄을 차지해서(xl이면 27px × 7.5em = 202px),
    밑줄이 남아 있으면 긴 줄만 덩그러니 놓인 것처럼 보인다.
-   지금 치는 칸·맞은 칸·틀린 칸은 그대로 표시한다 — 다 지우면 어디를 치는지 알 수 없다. */
-.word-input.hard-blank { border-bottom-color: transparent; }
-.word-input.hard-blank:focus { border-bottom-color: var(--navy); }
+   지금 치는 칸에도 줄을 두지 않는다 — 깜빡이는 커서가 자리를 알려 주므로 줄까지는 필요 없다.
+   맞은 칸(초록)·틀린 칸(빨강)만 남긴다: 글자가 이미 보이는 칸이라 줄이 떠 보이지 않는다. */
+.word-input.hard-blank,
+.word-input.hard-blank:focus { border-bottom-color: transparent; }
 .word-input.hard-blank.correct { border-bottom-color: var(--green); }
 .word-input.hard-blank.wrong { border-bottom-color: var(--error); }
-.dark .word-input.hard-blank { border-bottom-color: transparent; }
+.dark .word-input.hard-blank,
+.dark .word-input.hard-blank:focus { border-bottom-color: transparent; }
