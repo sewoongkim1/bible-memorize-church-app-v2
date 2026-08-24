@@ -38,7 +38,7 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Lora:wght@400;600;700&family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Sans+KR:wght@300;400;500;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=20260825e" />
+  <link rel="stylesheet" href="style.css?v=20260825f" />
 </head>
 <body>
   <!-- 앱 시작 스플래시 화면 -->
@@ -47,20 +47,21 @@
       <img id="splash-logo" src="https://summer.onlybible.kr/logo3.png" alt="고척교회" />
       <div class="splash-title">오직 성경, 말씀이 답이다!</div>
       <div class="splash-sub">주의 말씀은 내 발에 등이요<br>내 길에 빛이니이다</div>
-      <div class="splash-ver">v3.209</div>
+      <div class="splash-ver">v3.210</div>
       <img class="splash-denom" src="logo3.png?v=20260702y" alt="대한예수교장로회총회" onerror="this.style.display='none'" />
     </div>
   </div>
   <script>
     window.__splashStart = Date.now(); // 스플래시 최소 노출 시간 계산용
-    // 스플래시 숨기기(콘텐츠 준비되면 app.js가 호출, 못 부르면 최대 4초 뒤 자동)
+    // 스플래시 숨기기 — 보통은 app.js가 준비를 마치고 부른다.
     window.hideSplash = function () {
       var s = document.getElementById("splash");
       if (!s) return;
       s.classList.add("hide");
       setTimeout(function () { if (s && s.parentNode) s.parentNode.removeChild(s); }, 450);
     };
-    setTimeout(window.hideSplash, 7000); // 안전장치(app.js가 최소 5초 유지 후 닫음)
+    // 안전장치 — app.js가 아예 못 뜨는 경우에만 쓰인다(평소엔 app.js의 SPLASH_MIN_MS가 먼저 닫는다).
+    setTimeout(window.hideSplash, 7000);
   </script>
 
   <div class="page-header">
@@ -79,9 +80,9 @@
     <p style="text-align:center;padding:40px">불러오는 중...</p>
   </main>
 
-  <script src="js/config.js?v=20260825e"></script>
-  <script src="js/api.js?v=20260825e"></script>
-  <script src="js/push.js?v=20260825e"></script>
-  <script src="app.js?v=20260825e"></script>
+  <script src="js/config.js?v=20260825f"></script>
+  <script src="js/api.js?v=20260825f"></script>
+  <script src="js/push.js?v=20260825f"></script>
+  <script src="app.js?v=20260825f"></script>
 </body>
 </html>

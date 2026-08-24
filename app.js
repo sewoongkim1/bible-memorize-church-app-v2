@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260825e";
+const APP_BUILD = "20260825f";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -55,8 +55,9 @@ const LOADING_HTML = `
     <div class="al-text">불러오는 중...</div>
   </div>`;
 
-// 스플래시 제거 — 광고 효과를 위해 시작 후 최소 2초는 유지한 뒤 사라진다.
-const SPLASH_MIN_MS = 3000;
+// 스플래시 제거 — 광고 효과를 위해 시작 후 최소 이만큼은 유지한 뒤 사라진다.
+// (여는 사람 입장에서는 기다림이므로 짧을수록 좋다. index.html의 안전장치보다는 짧아야 한다)
+const SPLASH_MIN_MS = 2000;
 function dismissSplash() {
   const s = document.getElementById("splash");
   if (!s) return;
