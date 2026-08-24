@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260825d";
+const APP_BUILD = "20260825e";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5247,7 +5247,7 @@ function renderChallenge(verse, hard) {
           <button class="back-btn" id="ch-exit">← 뒤로</button>
         </div>
         ${hard ? `<div class="ch-hard-note">
-          <span><b>밑줄이 보이지 않아요</b> — 어디가 빈칸인지 스스로 짚어야 합니다</span>
+          <span><b>밑줄이 보이지 않아요</b></span>
           <button class="ch-ease" id="ch-ease">이번엔 그냥 할래요</button>
         </div>` : ""}
         <div class="test-sentence">${wordsHtml}</div>
@@ -5512,7 +5512,7 @@ function renderChallengeDone(verse, mode, todayCount, usedHelp) {
         <div class="cd-sub">${verse.refShort} · ${mode === "voice" ? "음성" : "타이핑"} 암송</div>
         <div class="cd-count">오늘 <b id="cd-today-count">${todayCount}회</b> 완료</div>
         ${hardNext() ? `<div class="cd-hard-next">다음은 🔥🔥 <b>어려운 도전</b>이에요
-          <span>밑줄이 보이지 않아요 — 어디가 빈칸인지 스스로 짚어야 합니다</span></div>` : ""}
+          <span>밑줄이 보이지 않아요</span></div>` : ""}
         ${againHtml}
         <button class="summary-go challenge-cta" id="cd-again">🔥 한 번 더 도전</button>
         <label class="repeat-toggle" id="cd-auto-label">
