@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260825a";
+const APP_BUILD = "20260825b";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -3406,6 +3406,11 @@ function setRepeatPractice(on) { try { localStorage.setItem(REPEAT_KEY, on ? "1"
 // width가 단어 길이를 따라가서 「사랑하라」와 「내」가 모양만으로 구분됐다.
 const HARD_COUNT_KEY = "hard-challenge-count";
 const HARD_EVERY = 5;
+// 어려운 도전의 칸 폭 — 모든 칸이 이 폭이다. 한글은 1em이 대략 한 글자라 7.5em ≈ 7~8자.
+// 너무 좁으면 긴 단어가 칸을 넘어가 답답하고, 너무 넓으면 한 줄에 몇 칸 안 들어간다.
+// 난도를 조절하려면 이 두 값만 만지면 된다.
+const HARD_W_KO = "7.5em";
+const HARD_W_EN = "10ch";
 function hardDoneCount() { try { return Number(localStorage.getItem(HARD_COUNT_KEY)) || 0; } catch (e) { return 0; } }
 function bumpHardDoneCount() { try { localStorage.setItem(HARD_COUNT_KEY, String(hardDoneCount() + 1)); } catch (e) {} }
 // 다음 도전이 어려운 차례인가 — 예고와 실제 판정이 같은 함수를 봐야 말이 어긋나지 않는다.
@@ -5222,7 +5227,7 @@ function renderChallenge(verse, hard) {
       // 어려운 도전은 모든 칸이 같은 폭이다. 긴 단어는 칸을 넘어가지만 채점은 값으로 하니
       // 지장이 없다 — 넘어가는 그 답답함이 곧 난도다.
       const style = hard
-        ? (en ? "width:6ch" : "width:4.5em")
+        ? `width:${en ? HARD_W_EN : HARD_W_KO}`
         : (en ? `width:${Array.from(word).length + 2}ch` : `width:${Array.from(word).length + 1}em`);
       return `<input class="word-input" data-answer="${word}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="${style}" />`;
     })
