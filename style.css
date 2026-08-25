@@ -3703,6 +3703,14 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
    마지막 빈칸을 채운 자리와 단추가 나타나는 자리가 달라서, 다 외우고도
    끝난 줄 모르고 앉아 계셨다. 가운데 뜨는 창이면 놓칠 수 없다. */
 .stage-done .cheer-card { max-width: 380px; }
+/* .cheer-ref는 원래 '요절 배지'라 작은 알약이다. 여기서는 제목 자리이므로 제목답게 키운다 —
+   어르신께는 이 한 줄이 '끝났다'는 신호다. */
+.stage-done .cheer-ref {
+  background: none; padding: 0; margin: 6px 0 2px;
+  font-size: 1.3rem; font-weight: 800; color: var(--navy);
+  word-break: keep-all; line-height: 1.35;
+}
+.dark .stage-done .cheer-ref { color: #cfe0ff; }
 .stage-done .sd-sub {
   display: flex; gap: 8px; margin-top: 10px;
 }
