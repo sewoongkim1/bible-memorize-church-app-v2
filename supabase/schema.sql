@@ -103,8 +103,13 @@ alter table public.push_subscriptions enable row level security;
 --   for select using (is_active = true);
 
 -- ============================================================
--- 관리자 통계용 예시 뷰 (Edge Function에서 service_role로 조회)
--- ============================================================
+-- 관리자 통계용 뷰 (Edge Function에서 service_role로만 조회)
+--
+-- ⚠️ 뷰는 RLS 대상이 아니다. 만든 사람(postgres) 권한으로 실행되어 밑 테이블의
+--    RLS를 지나간다. anon·authenticated에게 SELECT 권한이 남아 있으면
+--    PostgREST가 그대로 내보낸다 — 2026-08-25에 v_ranking_all이 전 교인의
+--    user_id·이름·소속을 공개 키로 내주고 있었다(Supabase 화면의 UNRESTRICTED).
+--    아래 두 뷰를 만든 뒤 반드시 권한을 거두고 security_invoker를 켠다.
 
 -- 구절별 현황: 단계별 인원 수
 create or replace view public.v_verse_status as
@@ -129,3 +134,9 @@ from public.challenge_log c
 join public.users u on u.id = c.user_id
 group by u.id, u.name, u.type, u.gu, u.mok, u.bu, u.grade
 order by total desc;
+
+-- 두 뷰 모두 service_role(Edge Function)만 읽는다. 이 두 줄을 빠뜨리면 그대로 공개된다.
+revoke all on public.v_ranking_all  from anon, authenticated;
+revoke all on public.v_verse_status from anon, authenticated;
+alter view public.v_ranking_all  set (security_invoker = on);
+alter view public.v_verse_status set (security_invoker = on);
