@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260825m";
+const APP_BUILD = "20260825n";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -3326,7 +3326,11 @@ function showStageDoneModal(verse, stage, wasFirst) {
     : `<div class="cheer-icon">🎉</div>
        <div class="cheer-ref">다 외우셨어요!</div>
        ${wasFirst ? FIRST_DONE_HTML : ""}`;
-  const mainLabel = stage < 3 ? `${stage + 1}단계로 계속하기` : (next ? "다음 말씀 ▶" : "목록으로");
+  // 마지막 말씀이면 다음이 없다. 그때 '목록으로'를 쓰면 아래 단추와 똑같은 것이 둘이 된다 —
+  // 처음 말씀으로 돌려보내 한 바퀴를 잇는다.
+  const first = (!next && verses.length > 1) ? verses[0] : null;
+  const mainLabel = stage < 3 ? `${stage + 1}단계로 계속하기`
+    : next ? "다음 말씀 ▶" : (first ? "↺ 처음 말씀으로" : "목록으로");
 
   const wrap = document.createElement("div");
   wrap.className = "cheer-overlay stage-done";
@@ -3354,7 +3358,9 @@ function showStageDoneModal(verse, stage, wasFirst) {
   const go = (fn) => { close(); if (fn) setTimeout(fn, 60); };
   const main = () => go(stage < 3
     ? () => renderTestScreen(verse, stage + 1)
-    : (next ? () => startTest(next) : renderVerseList));
+    : next ? () => startTest(next)
+    : first ? () => startTest(first)
+    : renderVerseList);
   const onKey = (e) => {
     if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); return; }
     if (e.key !== "Enter" && e.key !== " ") return;
