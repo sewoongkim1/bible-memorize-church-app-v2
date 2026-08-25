@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260825h";
+const APP_BUILD = "20260825i";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -3102,6 +3102,28 @@ function startRelearn(verse) {
   renderTestScreen(verse, 3);
 }
 
+// ── 첫 구절 이정표 ──────────────────────────────────────────
+// 끝이 어디인지 모르는 일은 그만두기 쉽다. 실제로 3회 이하에서 멈춘 분이 42명이었는데,
+// 3회는 한 구절을 마치는 데 필요한 최소 횟수다 — 한 구절도 못 끝내고 떠나셨다는 뜻이다.
+// 그래서 '세 걸음 중 몇 걸음째'와 '마치면 무엇이 일어나는지'를 보여 준다.
+// 한 구절이라도 3단계까지 마치면 사라진다 — 이미 아는 분께 표지판은 방해다.
+function doneVerseCount() {
+  try { return verses.filter((v) => getPassedStage(v.no) >= 3).length; } catch (e) { return 1; }
+}
+function isFirstJourney() { return doneVerseCount() === 0; }
+function stepDots(stage) {
+  return ` <span class="step-dots">` +
+    [1, 2, 3].map((n) => `<i class="step-dot${n <= stage ? " on" : ""}"></i>`).join("") + `</span>`;
+}
+const STEP_CHEER = { 1: "잘하셨어요! 두 걸음 남았어요", 2: "거의 다 왔어요! 한 걸음 남았어요" };
+// 첫 완주 축하 — 지금은 3단계를 마쳐도 버튼만 바뀌어 무엇이 끝났는지 모른 채 지나간다.
+const FIRST_DONE_HTML = `
+  <div class="first-done">
+    <div class="fd-title">🎉 첫 말씀을 마음에 새기셨어요!</div>
+    <div class="fd-line">📖 <b>말씀 앨범</b>에 담겼어요</div>
+    <div class="fd-line">🔁 잊지 않도록 <b>복습이 예약</b>됐어요</div>
+  </div>`;
+
 function startTest(verse) {
   setCardMode(false); // 암송화면 기본은 '쓰기' — 카드 모드는 그 구절 안에서만 유지된다
   relearnBackToChallenge = false;
@@ -3508,6 +3530,7 @@ function nivAttributionHtml(verse) {
 function renderTestScreen(verse, stage) {
   stopSpeaking(); // 화면 전환 시 읽어주기 정지
   const appEl = document.getElementById("app");
+  const firstJourney = isFirstJourney();   // 첫 구절을 걷는 중에만 이정표를 보인다
   const en = isEnMode(verse);
   const tokens = verseText(verse).trim().split(/\s+/);
 
@@ -3565,10 +3588,11 @@ function renderTestScreen(verse, stage) {
         </div>
         <div class="test-top">
           <div class="test-head">
-            <div class="test-stage">${stage}단계</div>
+            <div class="test-stage">${stage}단계${firstJourney ? stepDots(stage) : ""}</div>
           </div>
           <button class="back-btn" id="back-to-list-btn">← 목록으로</button>
         </div>
+        ${firstJourney && stage === 1 ? `<div class="first-guide">세 걸음이면 이 말씀을 외우게 돼요</div>` : ""}
         <div class="test-sentence">${wordsHtml}</div>
         <div id="card-tray" class="card-tray"></div>
         <div id="answer-panel" class="answer-panel" hidden>
@@ -3952,6 +3976,7 @@ function setupVoice(verse, stage, onPass) {
     if (onPass) { if (passed) onPass("voice"); return; }
 
     // (연습 모드) 저장 + 다음 단계 네비
+    const vWasFirst = passed && isFirstJourney();   // 저장하면 이미 '마친 사람'이 된다
     if (passed) saveProgress(verse.no, stage, "voice");
     const vIdx = verses.findIndex((v) => v.no === verse.no);
     const vPrev = vIdx > 0 ? verses[vIdx - 1] : null;
@@ -3967,8 +3992,10 @@ function setupVoice(verse, stage, onPass) {
     const nav = !passed
       ? ""
       : stage < 3
-      ? `<button class="next-btn" id="voice-next-stage">${stage + 1}단계로</button>`
-      : `<div class="complete-nav">
+      ? (vWasFirst && STEP_CHEER[stage] ? `<div class="step-cheer">${STEP_CHEER[stage]}</div>` : "") +
+        `<button class="next-btn" id="voice-next-stage">${stage + 1}단계로</button>`
+      : (vWasFirst ? FIRST_DONE_HTML : "") +
+        `<div class="complete-nav">
            <button class="nav3-btn" id="voice-prev-verse" ${vPrev ? "" : "disabled"}>◀ 이전</button>
            <button class="nav3-btn redo" id="voice-redo-verse">다시 암송</button>
            <button class="nav3-btn" id="voice-next-verse" ${vNext ? "" : "disabled"}>다음 ▶</button>
@@ -4207,11 +4234,15 @@ function checkAllComplete(inputs, verse, stage) {
   const allCorrect = inputs.every((inp) => inp.classList.contains("correct"));
   if (!allCorrect) return;
 
+  // saveProgress보다 먼저 봐야 한다 — 저장하고 나면 이미 '한 구절 마친 사람'이 된다.
+  const wasFirst = isFirstJourney();
   saveProgress(verse.no, stage, "typing");
 
   const resultEl = document.getElementById("result-area");
   if (stage < 3) {
-    resultEl.innerHTML = `<button class="next-btn" id="next-stage-btn">${stage + 1}단계로</button>`;
+    resultEl.innerHTML =
+      (wasFirst && STEP_CHEER[stage] ? `<div class="step-cheer">${STEP_CHEER[stage]}</div>` : "") +
+      `<button class="next-btn" id="next-stage-btn">${stage + 1}단계로</button>`;
     document.getElementById("next-stage-btn").addEventListener("click", () => renderTestScreen(verse, stage + 1));
     return;
   }
@@ -4231,17 +4262,19 @@ function checkAllComplete(inputs, verse, stage) {
     setTimeout(() => renderTestScreen(verse, 3), 350); // 마지막 글자 정답 표시가 잠깐 보이도록만
     return;
   }
-  renderCompleteNav(verse);
+  renderCompleteNav(verse, wasFirst);
 }
 
 // 3단계 완료 네비 — 이전 · 다시 암송 · 다음 + 말씀 나누기
-function renderCompleteNav(verse) {
+// celebrate: 이 구절이 그분의 '첫 완주'였다면 무엇이 일어났는지 알려 준다.
+function renderCompleteNav(verse, celebrate) {
   const resultEl = document.getElementById("result-area");
   if (!resultEl) return;
   const idx = verses.findIndex((v) => v.no === verse.no);
   const prev = idx > 0 ? verses[idx - 1] : null;
   const next = (idx >= 0 && idx < verses.length - 1) ? verses[idx + 1] : null;
   resultEl.innerHTML = `
+    ${celebrate ? FIRST_DONE_HTML : ""}
     <div class="complete-nav">
       <button class="nav3-btn" id="prev-verse-btn" ${prev ? "" : "disabled"}>◀ 이전</button>
       <button class="nav3-btn redo" id="redo-verse-btn">다시 암송</button>

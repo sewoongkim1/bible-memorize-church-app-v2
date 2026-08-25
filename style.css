@@ -3647,3 +3647,54 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
 .word-input.hard-blank.wrong { border-bottom-color: var(--error); }
 .dark .word-input.hard-blank,
 .dark .word-input.hard-blank:focus { border-bottom-color: transparent; }
+
+/* ── 첫 구절 이정표 ─────────────────────────────────────────
+   한 구절도 못 마치고 떠나신 분이 많았다(3회 이하 42명 · 한 구절은 최소 3회).
+   끝이 어디인지 보이면 덜 그만둔다. 첫 구절을 마치면 전부 사라진다. */
+.step-dots { display: inline-flex; gap: 3px; vertical-align: middle; margin-left: 2px; }
+/* 지난 걸음은 '채운 원', 남은 걸음은 '속 빈 원'.
+   흐리게만 하면 6px에서는 차이가 안 보인다 — 모양이 달라야 한다. */
+.step-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: transparent; box-shadow: inset 0 0 0 1.5px currentColor; opacity: 0.5;
+}
+.step-dot.on { background: currentColor; box-shadow: none; opacity: 1; }
+
+/* 첫걸음에서 한 번만 — 세 걸음이면 끝난다는 것을 알려 준다.
+   2단계부터는 사라진다(점만으로 충분하고, 자리는 곧 값이다). */
+.first-guide {
+  margin: 8px 0 2px; padding: 7px 12px;
+  border-radius: 10px; background: #f2f6fd; border: 1px solid #dae4f5;
+  color: var(--navy); font-size: 0.92rem; text-align: center;
+}
+
+/* 단계를 마쳤을 때의 한 줄 */
+.step-cheer {
+  margin: 4px 0 8px; text-align: center;
+  color: #1f5c3a; font-size: 1.02rem; font-weight: 700;
+}
+
+/* 첫 완주 축하 — 무엇이 일어났는지 알려 준다.
+   그전에는 3단계를 마쳐도 버튼만 바뀌어 무엇이 끝났는지 모른 채 지나갔다. */
+.first-done {
+  margin: 6px 0 12px; padding: 14px 16px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #fffaf0 0%, #fdf3e0 100%);
+  border: 1.5px solid var(--gold);
+  text-align: center;
+}
+.first-done .fd-title {
+  font-size: 1.12rem; font-weight: 800; color: var(--navy); margin-bottom: 8px;
+  word-break: keep-all; line-height: 1.4;
+}
+.first-done .fd-line {
+  font-size: 0.95rem; color: #6b5210; line-height: 1.7; word-break: keep-all;
+}
+.first-done .fd-line b { color: #4a3808; }
+
+.dark .first-guide { background: #1c2740; border-color: #34456b; color: #cfe0ff; }
+.dark .step-cheer { color: #7fd6a4; }
+.dark .first-done { background: #241f14; border-color: #6d5a22; }
+.dark .first-done .fd-title { color: #f3e3b0; }
+.dark .first-done .fd-line { color: #e6d49a; }
+.dark .first-done .fd-line b { color: #fff3cf; }
