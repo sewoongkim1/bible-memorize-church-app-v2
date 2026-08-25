@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260825l";
+const APP_BUILD = "20260825m";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2287,7 +2287,11 @@ function openPhotoViewer(url) {
 // ── 게시판 사진 ──────────────────────────────────────────────
 // 글 하나에 넉 장까지. 답글에는 넣지 않는다(화면이 복잡해진다).
 const BOARD_PHOTO_MAX = 4;
-const BOARD_PHOTO_SIDE = 1280;   // 긴 변 기준
+// 긴 변 1080px이면 폰에서 보기에 넉넉하다. 1280px으로 뒀더니 한 장이 1MB를 넘겨
+// 폰 업로드가 끊겼다("Failed to fetch") — 화질보다 '올라가는 것'이 먼저다.
+const BOARD_PHOTO_SIDE = 1080;
+const BOARD_PHOTO_TARGET = 400_000;   // dataURL 글자 수 ≈ 300KB
+const BOARD_PHOTO_HARD = 900_000;     // 이보다 크면 아예 보내지 않는다
 let boardPhotos = [];            // [{ name, mime, dataUrl }] — 아직 안 올린 것
 
 // 폰 사진을 그대로 보내면 안 되는 이유가 둘이다.
@@ -2301,19 +2305,31 @@ function shrinkImage(file) {
     const img = new Image();
     img.onload = () => {
       URL.revokeObjectURL(url);
-      const long = Math.max(img.width, img.height) || 1;
-      const k = Math.min(1, BOARD_PHOTO_SIDE / long);
-      const w = Math.max(1, Math.round(img.width * k));
-      const h = Math.max(1, Math.round(img.height * k));
-      const cv = document.createElement("canvas");
-      cv.width = w; cv.height = h;
-      const ctx = cv.getContext("2d");
-      ctx.fillStyle = "#fff";          // 투명 PNG가 검게 나오지 않도록
-      ctx.fillRect(0, 0, w, h);
-      ctx.drawImage(img, 0, 0, w, h);
-      // 너무 크면 품질을 한 단계씩 낮춰 본다
-      let q = 0.8, out = cv.toDataURL("image/jpeg", q);
-      while (out.length > 1_200_000 && q > 0.45) { q -= 0.15; out = cv.toDataURL("image/jpeg", q); }
+      const draw = (side) => {
+        const long = Math.max(img.width, img.height) || 1;
+        const k = Math.min(1, side / long);
+        const w = Math.max(1, Math.round(img.width * k));
+        const h = Math.max(1, Math.round(img.height * k));
+        const cv = document.createElement("canvas");
+        cv.width = w; cv.height = h;
+        const ctx = cv.getContext("2d");
+        ctx.fillStyle = "#fff";        // 투명 PNG가 검게 나오지 않도록
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        // 목표 크기에 닿을 때까지 품질을 한 단계씩 낮춘다
+        let q = 0.7, out = cv.toDataURL("image/jpeg", q);
+        while (out.length > BOARD_PHOTO_TARGET && q > 0.4) {
+          q -= 0.1; out = cv.toDataURL("image/jpeg", q);
+        }
+        return out;
+      };
+      let out = draw(BOARD_PHOTO_SIDE);
+      // 품질을 다 낮춰도 크면 그림 자체를 줄인다(잘게 찍힌 사진은 품질만으론 안 준다)
+      if (out.length > BOARD_PHOTO_TARGET) out = draw(Math.round(BOARD_PHOTO_SIDE * 0.7));
+      if (out.length > BOARD_PHOTO_HARD) {
+        reject(new Error("사진이 너무 큽니다. 다른 사진으로 해보세요"));
+        return;
+      }
       resolve({ name: file.name || "photo.jpg", mime: "image/jpeg", dataUrl: out });
     };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("사진을 열지 못했어요")); };
@@ -2372,13 +2388,25 @@ async function submitBoardPost() {
     msg.className = "msg";
     msg.textContent = `사진 올리는 중… (${i + 1}/${boardPhotos.length})`;
     try {
-      const d = await api.boardUpload(boardPhotos[i].mime, boardPhotos[i].dataUrl);
+      let d;
+      try {
+        d = await api.boardUpload(boardPhotos[i].mime, boardPhotos[i].dataUrl);
+      } catch (e1) {
+        // 폰 통신은 한 번씩 끊긴다("Failed to fetch"). 한 번은 조용히 다시 해본다.
+        if (!/fetch|network|Load failed/i.test(String(e1 && e1.message))) throw e1;
+        msg.textContent = `사진 올리는 중… (${i + 1}/${boardPhotos.length}) 다시 시도`;
+        await new Promise((r) => setTimeout(r, 1200));
+        d = await api.boardUpload(boardPhotos[i].mime, boardPhotos[i].dataUrl);
+      }
       if (d && d.ok && d.path) names.push(d.path);
       else throw new Error((d && d.error) || "사진 오류");
     } catch (e) {
       btn.disabled = false;
       msg.className = "msg err";
-      msg.textContent = "사진을 올리지 못했어요: " + (e && e.message ? e.message : e);
+      const why = String((e && e.message) || e);
+      msg.textContent = /fetch|network|Load failed/i.test(why)
+        ? "사진을 올리지 못했어요 — 인터넷이 끊긴 것 같아요. 잠시 뒤 다시 눌러 주세요."
+        : "사진을 올리지 못했어요: " + why;
       return;   // 글은 아직 안 올렸다 — 적은 내용이 그대로 남아 다시 누르면 된다
     }
   }
