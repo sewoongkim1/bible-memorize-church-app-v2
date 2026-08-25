@@ -3779,3 +3779,20 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
 }
 .dark .board-photo-btn { background: #1c2740; border-color: #56688c; color: #cfe0ff; }
 .dark .board-photo-btn:hover { background: #24314e; }
+
+/* 다 외운 순간에 권하는 도전.
+   기본 단추(다음 말씀)보다 눈에 덜 띄되, 눌러 보고 싶게. */
+.stage-done .sd-challenge {
+  display: block; width: 100%; margin-top: 8px;
+  padding: 12px 14px; border-radius: 12px;
+  border: 1.5px solid var(--gold); background: #fdf6e3; color: #6b5210;
+  font-family: inherit; font-size: 1.02rem; font-weight: 800;
+  line-height: 1.35; cursor: pointer;
+}
+.stage-done .sd-challenge:hover { background: #fbeecd; }
+.stage-done .sd-challenge span {
+  display: block; margin-top: 3px;
+  font-size: 0.85rem; font-weight: 500; opacity: 0.85;
+}
+.dark .stage-done .sd-challenge { background: #2a2415; border-color: #6d5a22; color: #e6d49a; }
+.dark .stage-done .sd-challenge:hover { background: #342c19; }

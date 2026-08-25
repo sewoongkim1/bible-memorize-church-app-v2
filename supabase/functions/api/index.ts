@@ -1353,10 +1353,22 @@ async function saveProgress(b: any) {
 
 // ---------- challenge: 도전/복습 완료 기록(순위 원천) ----------
 async function challenge(b: any) {
-  const { error } = await db.from("challenge_log").insert({
+  // 카드로 푼 도전은 'typing-card'로 따로 남긴다. 이름에 typing이 들어가야
+  // 순위·통계의 %typing% 집계가 지금까지와 똑같이 유지된다.
+  const m = b.mode === "card" ? "typing-card" : b.mode;
+  let { error } = await db.from("challenge_log").insert({
     user_id: b.user_id, verse_no: b.verse_no,
-    mode: b.mode, score: b.score ?? null,
+    mode: m, score: b.score ?? null,
   });
+  // 제약(migrate_modes_card.sql)이 아직 안 넓혀진 DB면 새 값이 거부된다.
+  // 그때는 기록을 잃지 말고 옛 값으로 되돌린다 — 구분보다 기록이 먼저다.
+  if (error && m === "typing-card") {
+    const retry = await db.from("challenge_log").insert({
+      user_id: b.user_id, verse_no: b.verse_no,
+      mode: "typing", score: b.score ?? null,
+    });
+    error = retry.error;
+  }
   if (error) throw error;
   return { ok: true, ...await dailyActivityMilestone(b.user_id) };
 }

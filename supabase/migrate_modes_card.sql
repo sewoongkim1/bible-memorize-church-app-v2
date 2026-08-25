@@ -1,4 +1,9 @@
--- challenge_log.mode 에 '카드로 채운 암송'을 더한다 (2026-08-25)
+-- challenge_log.mode 에 '카드로 채운 암송·도전'을 더한다 (2026-08-25)
+--
+-- ⚠️ 한 번 실행하셨더라도 **다시 실행**해 주세요.
+--    처음에는 암송(learn-typing-card)만 넣었는데, 도전에도 카드를 넣으면서
+--    'typing-card'가 하나 더 필요해졌습니다. 이 파일은 제약을 지웠다 다시 만들므로
+--    몇 번을 실행해도 안전합니다.
 --
 -- ■ 왜
 --   타자가 어려운 분을 위한 👆 카드 모드가 이미 있는데, 카드로 맞혀도
@@ -33,7 +38,9 @@ end $$;
 
 alter table public.challenge_log add constraint challenge_log_mode_check
   check (mode in ('typing','voice','review-typing','review-voice',
-                  'learn-typing','learn-voice','learn-typing-card'));
+                  'learn-typing','learn-voice',
+                  'learn-typing-card',    -- 암송 화면을 카드로
+                  'typing-card'));        -- 말씀 도전을 카드로
 
 -- 확인 — 제약에 learn-typing-card 가 들어갔는지
 select conname, pg_get_constraintdef(oid) as 제약

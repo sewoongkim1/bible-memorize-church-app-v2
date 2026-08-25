@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260825p";
+const APP_BUILD = "20260825q";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -3332,6 +3332,15 @@ function showStageDoneModal(verse, stage, wasFirst) {
   const mainLabel = stage < 3 ? `${stage + 1}단계로 계속하기`
     : next ? "다음 말씀 ▶" : (first ? "↺ 처음 말씀으로" : "목록으로");
 
+  // 도전에는 이 앱의 '함께'가 모여 있다(순위·응원·어려운 도전). 그런데 4명 중 3명이
+  // 한 번도 들어와 보지 않았다 — 2026-08-25 기준 오늘 33명 중 8명(24%)뿐.
+  // 첫 화면에 큰 단추가 있는데도 안 누르신다. 그래서 '막 한 구절을 다 외운 그 순간',
+  // 가장 자신 있을 때 권한다. 흐름을 끊지 않는 자리다.
+  //   · 마친 구절이 3개는 되어야 한다(도전거리가 있어야 한다)
+  //   · 오늘 이미 도전하셨으면 권하지 않는다(매일 하시는 분께는 잔소리다)
+  const doneN = doneVerseCount();
+  const invite = stage >= 3 && doneN >= 3 && todayChallengeCount() === 0;
+
   const wrap = document.createElement("div");
   wrap.className = "cheer-overlay stage-done";
   wrap.innerHTML = `
@@ -3339,6 +3348,8 @@ function showStageDoneModal(verse, stage, wasFirst) {
       ${head}
       ${stage >= 3 ? heartCheckHtml(verse, "-m") : ""}
       <button class="cheer-ok" id="sd-main">${mainLabel}</button>
+      ${invite ? `<button class="sd-challenge" id="sd-challenge">🔥 외운 ${doneN}구절로 도전해 보기
+        <span>외운 구절이 하나씩 무작위로 나와요</span></button>` : ""}
       <div class="sd-sub">
         <button class="sd-btn" id="sd-again">${stage < 3 ? "이 단계 다시" : "다시 암송"}</button>
         <button class="sd-btn" id="sd-list">목록으로</button>
@@ -3378,6 +3389,8 @@ function showStageDoneModal(verse, stage, wasFirst) {
   document.getElementById("sd-again").addEventListener("click",
     () => go(() => renderTestScreen(verse, stage < 3 ? stage : 3)));
   document.getElementById("sd-list").addEventListener("click", () => go(renderVerseList));
+  const chBtn = document.getElementById("sd-challenge");
+  if (chBtn) chBtn.addEventListener("click", () => go(startChallenge));
   wrap.addEventListener("click", (e) => { if (e.target === wrap) close(); });
   setupHeartCheck(verse, "-m", true);
   const focus = () => { try { mainBtn.focus({ preventScroll: true }); } catch (e) { mainBtn.focus(); } };
@@ -5488,6 +5501,10 @@ function challengeCountKey() {
   const z = (n) => String(n).padStart(2, "0");
   return "challenge-count-" + d.getFullYear() + z(d.getMonth() + 1) + z(d.getDate());
 }
+function todayChallengeCount() {
+  try { return parseInt(localStorage.getItem(challengeCountKey()) || "0", 10) || 0; }
+  catch (e) { return 0; }
+}
 function bumpTodayChallenge() {
   const k = challengeCountKey();
   let n = 0;
@@ -5552,6 +5569,7 @@ function renderChallenge(verse, hard) {
           <button class="answer-btn" id="hint-btn">💡 힌트</button>
           <button class="answer-btn" id="ch-shuffle">🔀 다른말씀</button>
           <button class="voice-btn" id="voice-toggle">🎤 암송</button>
+          <button class="answer-btn mode-btn" id="ch-mode-toggle">${isCardMode() ? "⌨️ 쓰기" : "👆 카드"}</button>
         </div>
         <div class="test-top">
           <div class="test-head">
@@ -5564,6 +5582,7 @@ function renderChallenge(verse, hard) {
           <button class="ch-ease" id="ch-ease">그냥 할래요</button>
         </div>` : ""}
         <div class="test-sentence">${wordsHtml}</div>
+        <div id="card-tray" class="card-tray"></div>
         <div class="challenge-remain" id="ch-remain"></div>
         <div id="result-area"></div>
         <div id="help-slot" class="help-slot"></div>
@@ -5582,6 +5601,13 @@ function renderChallenge(verse, hard) {
   scrollPastBtnRow();
   document.getElementById("ch-exit").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
   document.getElementById("ch-shuffle").addEventListener("click", () => { stopSpeaking(); startChallenge(); });
+  // 도전도 카드로 할 수 있어야 한다. 없으면 카드로 암송하시던 분이 도전 단추를 누르는 순간
+  // 타자만 되는 화면 앞에 서게 된다 — 없애려던 벽 앞에 데려다 놓는 셈이다.
+  document.getElementById("ch-mode-toggle").addEventListener("click", () => {
+    stopSpeaking();
+    setCardMode(!isCardMode());
+    renderChallenge(verse, hard);
+  });
   // 빠져나갈 길 — 이 앱은 어르신이 많고, 못 빠져나가는 어려움은 앱을 닫게 만든다.
   // 접어도 카운터는 올라가지 않아 다음 도전에 다시 온다(없애는 게 아니라 미루는 것).
   const easeBtn = document.getElementById("ch-ease");
@@ -5594,7 +5620,7 @@ function renderChallenge(verse, hard) {
   fillSermonSummaryBtn(verse, null, () => renderChallenge(verse, hard));
   setupHeartCheck(verse);
   setupHint();
-  setupChallengeTyping(verse, (mode) => challengeComplete(verse, mode));
+  setupChallengeTyping(verse, (mode) => challengeComplete(verse, cardUsed ? "card" : mode));
   setupVoice(verse, 3, () => challengeComplete(verse, "voice"));
 }
 
@@ -5727,7 +5753,9 @@ function setupHint() {
 }
 
 // 타이핑 채점 — 전부 맞히면 onComplete 호출 (도전/복습 공용)
+let cardUsed = false;   // 이번 도전을 카드로 풀었는지 — 도전 화면에서만 본다
 function setupChallengeTyping(verse, onComplete) {
+  cardUsed = false;
   const inputs = Array.from(document.querySelectorAll(".word-input"));
   const remainEl = document.getElementById("ch-remain");
   const en = isEnMode(verse); // 영어 모드면 대소문자·문장부호 차이는 관용 처리
@@ -5766,8 +5794,47 @@ function setupChallengeTyping(verse, onComplete) {
     input.addEventListener("compositionend", () => { composing = false; evaluate(input, idx, false); });
     input.addEventListener("input", (e) => { evaluate(input, idx, composing || e.isComposing); });
   });
+
+  // 카드 모드 — 낱말을 눌러서 채운다(암송 화면과 같은 방식).
+  // #card-tray 가 있는 화면에서만 만들어진다(지금은 도전). 맞으면 evaluate의 성공 경로를
+  // 그대로 태워, 완료 판정이 타자와 한 길로 흐르게 한다.
+  const tray = document.getElementById("card-tray");
+  if (isCardMode() && tray && inputs.length) {
+    // 암송 화면(setupAutoCheck)의 norm과 같은 것. 거기서는 그 함수 안의 지역 함수라
+    // 여기서 그냥 부르면 'norm is not defined'로 도전 화면이 통째로 멈춘다
+    // (카드 모드일 때만 나므로, 확인 없이 배포하면 카드 쓰시는 분만 골라 망가진다).
+    const norm = (t) => String(t || "").trim().normalize("NFC");
+    inputs.forEach((inp) => { inp.readOnly = true; inp.setAttribute("inputmode", "none"); });
+    const shuffled = inputs
+      .map((inp) => norm(inp.dataset.answer))
+      .map((w) => ({ w, r: Math.random() }))
+      .sort((a, b) => a.r - b.r)
+      .map((x) => x.w);
+    tray.innerHTML = shuffled
+      .map((w, k) => `<button type="button" class="wcard" data-k="${k}">${w}</button>`)
+      .join("");
+    tray.querySelectorAll(".wcard").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const idx = inputs.findIndex((inp) => !inp.disabled);
+        if (idx < 0) return;
+        const target = inputs[idx];
+        if (shuffled[Number(btn.dataset.k)] === norm(target.dataset.answer)) {
+          btn.classList.add("used");
+          btn.disabled = true;
+          cardUsed = true;
+          target.value = target.dataset.answer;
+          evaluate(target, idx, false);
+        } else {
+          btn.classList.add("shake");
+          target.classList.add("wrong");
+          setTimeout(() => { btn.classList.remove("shake"); target.classList.remove("wrong"); }, 450);
+        }
+      });
+    });
+  }
+
   updateRemain();
-  if (inputs[0]) inputs[0].focus();
+  if (!isCardMode() && inputs[0]) inputs[0].focus();   // 카드일 땐 키보드를 띄우지 않는다
 }
 
 // 도전 완료 처리 → 서버 기록 + 완료 화면
