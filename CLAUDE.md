@@ -61,6 +61,11 @@
 
 ## 개발 · 배포 체크리스트
 1. `app.js` 등 수정 → 2. **`python tools/bump.py`** (캐시태그·판 번호·APP_BUILD 일괄) → 3. 커밋·푸시(Actions 자동 배포) → 4. 백엔드 바꿨으면 `supabase functions deploy api ...`
+5. **배포 확인은 「이번 판에만 있는 표식」으로** 한다. 새로 넣은 문구·상수처럼 **이전 판에는 없던 것**을 찾거나, 지운 문구가 **사라졌는지**를 본다. 이전 판에도 있던 이름(함수명·클래스명)으로 검사하면 CDN이 옛 파일을 내보내도 그대로 통과해 「배포 완료」로 오인한다(2026-08-25에 두 번 그랬다). 가장 확실한 것은 라이브 `app.js`의 `APP_BUILD`가 `index.html`의 `?v=`와 같은지 보는 것이다.
+   ```bash
+   V=$(grep -o 'app.js?v=[0-9a-z]*' index.html | head -1 | cut -d= -f2)
+   curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a-z]*"'
+   ```
 
 ## 성경필사 노트 신청 (2026-08-11)
 A5/A4 · 아래쪽/오른쪽 필사형 · 번역본 5종 · 성경 31단위 부수(한 분 총 **5부**까지) · 휴대폰(필수) · 요청사항.
