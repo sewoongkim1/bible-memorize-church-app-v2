@@ -3124,6 +3124,76 @@ const FIRST_DONE_HTML = `
     <div class="fd-line">🔁 잊지 않도록 <b>복습이 예약</b>됐어요</div>
   </div>`;
 
+// 단계를 마쳤을 때 뜨는 메시지 박스.
+// 그전에는 마지막 빈칸을 채우면 문장 '아래' result-area에 작은 단추가 생겼다 —
+// 긴 구절에 큰 글씨면 화면 밖이고, 키보드가 올라와 있으면 확실히 안 보인다.
+// 다 외우고도 끝난 줄 모르고 앉아 계셨다는 뜻이다. 가운데 뜨는 창이면 놓칠 수 없다.
+//   · Enter·스페이스 = 기본 단추(1·2단계는 '다음 단계', 3단계는 '다음 말씀')
+//   · Escape·바깥 탭 = 그냥 닫기 — 뒤 화면이 그대로라 마음에 둠·말씀 나누기를 계속 쓸 수 있다
+//   · 3단계에는 '마음에 둠'을 창 안에 둔다. 밖에 두면 Enter 한 번에 지나쳐 버린다.
+function showStageDoneModal(verse, stage, wasFirst) {
+  const idx = verses.findIndex((v) => v.no === verse.no);
+  const next = (idx >= 0 && idx < verses.length - 1) ? verses[idx + 1] : null;
+  const head = stage < 3
+    ? `<div class="cheer-icon">✅</div>
+       <div class="cheer-ref">${stage}단계 완료!</div>
+       ${wasFirst && STEP_CHEER[stage] ? `<div class="cheer-msg">${STEP_CHEER[stage]}</div>` : ""}`
+    : `<div class="cheer-icon">🎉</div>
+       <div class="cheer-ref">다 외우셨어요!</div>
+       ${wasFirst ? FIRST_DONE_HTML : ""}`;
+  const mainLabel = stage < 3 ? `${stage + 1}단계로 계속하기` : (next ? "다음 말씀 ▶" : "목록으로");
+
+  const wrap = document.createElement("div");
+  wrap.className = "cheer-overlay stage-done";
+  wrap.innerHTML = `
+    <div class="cheer-card" role="dialog" aria-modal="true">
+      ${head}
+      ${stage >= 3 ? heartCheckHtml(verse, "-m") : ""}
+      <button class="cheer-ok" id="sd-main">${mainLabel}</button>
+      <div class="sd-sub">
+        <button class="sd-btn" id="sd-again">${stage < 3 ? "이 단계 다시" : "다시 암송"}</button>
+        <button class="sd-btn" id="sd-list">목록으로</button>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap);
+  requestAnimationFrame(() => wrap.classList.add("show"));
+
+  let closed = false;
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    document.removeEventListener("keydown", onKey, true);
+    wrap.classList.remove("show");
+    setTimeout(() => wrap.remove(), 250);
+  };
+  const go = (fn) => { close(); if (fn) setTimeout(fn, 60); };
+  const main = () => go(stage < 3
+    ? () => renderTestScreen(verse, stage + 1)
+    : (next ? () => startTest(next) : renderVerseList));
+  const onKey = (e) => {
+    if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); return; }
+    if (e.key !== "Enter" && e.key !== " ") return;
+    // 체크박스에 손이 가 있으면 그 체크를 먼저 존중한다(스페이스로 켜고 끄는 중일 수 있다)
+    const ae = document.activeElement;
+    if (ae && ae.type === "checkbox") return;
+    e.preventDefault();
+    e.stopPropagation();
+    main();
+  };
+  document.addEventListener("keydown", onKey, true);
+
+  const mainBtn = document.getElementById("sd-main");
+  mainBtn.addEventListener("click", main);
+  document.getElementById("sd-again").addEventListener("click",
+    () => go(() => renderTestScreen(verse, stage < 3 ? stage : 3)));
+  document.getElementById("sd-list").addEventListener("click", () => go(renderVerseList));
+  wrap.addEventListener("click", (e) => { if (e.target === wrap) close(); });
+  setupHeartCheck(verse, "-m", true);
+  const focus = () => { try { mainBtn.focus({ preventScroll: true }); } catch (e) { mainBtn.focus(); } };
+  focus();
+  setTimeout(focus, 80);   // 키보드가 내려가며 초점을 뺏길 수 있어 한 번 더
+}
+
 function startTest(verse) {
   setCardMode(false); // 암송화면 기본은 '쓰기' — 카드 모드는 그 구절 안에서만 유지된다
   relearnBackToChallenge = false;
@@ -3185,25 +3255,40 @@ function sermonConnectHtml(verse) {
 }
 
 // "내 마음에 두었나이다" 체크 블록 — 완전 암송 표시(👑 금배지). 3단계(=전체 빈칸) 화면에서만 의미가 있다.
-function heartCheckHtml(verse) {
+// sfx: 같은 체크박스를 화면과 메시지 박스 두 곳에 둘 때 id가 부딪히지 않게 하는 꼬리표.
+function heartCheckHtml(verse, sfx) {
+  const s = sfx || "";
   const heartOn = isHearted(verse.no);
   return `
-        <label class="heart-check${heartOn ? " on" : ""}" id="heart-label">
+        <label class="heart-check${heartOn ? " on" : ""}" id="heart-label${s}">
           <span class="heart-row1">
-            <input type="checkbox" id="heart-check" ${heartOn ? "checked" : ""} />
+            <input type="checkbox" id="heart-check${s}" ${heartOn ? "checked" : ""} />
             <span class="heart-text">이 말씀을 내 마음에 두었나이다</span>
           </span>
           <span class="heart-desc">이 말씀을 <b>완전히 암송했다</b>는 뜻이에요. 체크하면 목록에 👑 금배지가 달리고, 다음부터 바로 3단계로 시작해요.</span>
         </label>`;
 }
 // heartCheckHtml로 그려진 체크박스에 토글 동작을 연결(공통 로직)
-function setupHeartCheck(verse) {
-  const heartInput = document.getElementById("heart-check");
+function setupHeartCheck(verse, sfx, silent) {
+  const s = sfx || "";
+  const heartInput = document.getElementById("heart-check" + s);
   if (!heartInput) return;
   heartInput.addEventListener("change", () => {
     setHearted(verse.no, heartInput.checked);
-    document.getElementById("heart-label").classList.toggle("on", heartInput.checked);
-    if (heartInput.checked) showHeartCheer(verse); // 체크(마음에 둠)할 때만 축하
+    const lab = document.getElementById("heart-label" + s);
+    if (lab) lab.classList.toggle("on", heartInput.checked);
+    // 화면과 메시지 박스에 같은 체크박스가 둘 있을 수 있다 — 한쪽을 누르면 다른 쪽도 따라간다.
+    const os = s ? "" : "-m";
+    const other = document.getElementById("heart-check" + os);
+    if (other && other.checked !== heartInput.checked) {
+      other.checked = heartInput.checked;
+      const ol = document.getElementById("heart-label" + os);
+      if (ol) ol.classList.toggle("on", heartInput.checked);
+    }
+    // ⚠️ 메시지 박스 안에서는 축하창을 겹쳐 띄우지 않는다(silent).
+    //    창이 두 겹이 되면 둘 다 캡처 단계에서 키를 들어서, Enter 한 번에 둘 다 닫히고
+    //    뜻하지 않게 다음 구절로 넘어간다.
+    if (heartInput.checked && !silent) showHeartCheer(verse);
   });
 }
 
@@ -4244,6 +4329,7 @@ function checkAllComplete(inputs, verse, stage) {
       (wasFirst && STEP_CHEER[stage] ? `<div class="step-cheer">${STEP_CHEER[stage]}</div>` : "") +
       `<button class="next-btn" id="next-stage-btn">${stage + 1}단계로</button>`;
     document.getElementById("next-stage-btn").addEventListener("click", () => renderTestScreen(verse, stage + 1));
+    showStageDoneModal(verse, stage, wasFirst);
     return;
   }
 
@@ -4263,6 +4349,7 @@ function checkAllComplete(inputs, verse, stage) {
     return;
   }
   renderCompleteNav(verse, wasFirst);
+  showStageDoneModal(verse, 3, wasFirst);
 }
 
 // 3단계 완료 네비 — 이전 · 다시 암송 · 다음 + 말씀 나누기

@@ -3698,3 +3698,27 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
 .dark .first-done .fd-title { color: #f3e3b0; }
 .dark .first-done .fd-line { color: #e6d49a; }
 .dark .first-done .fd-line b { color: #fff3cf; }
+
+/* ── 단계 완료 메시지 박스 ──────────────────────────────────
+   마지막 빈칸을 채운 자리와 단추가 나타나는 자리가 달라서, 다 외우고도
+   끝난 줄 모르고 앉아 계셨다. 가운데 뜨는 창이면 놓칠 수 없다. */
+.stage-done .cheer-card { max-width: 380px; }
+.stage-done .sd-sub {
+  display: flex; gap: 8px; margin-top: 10px;
+}
+.stage-done .sd-btn {
+  flex: 1 1 0; min-width: 0;
+  padding: 11px 8px; border-radius: 10px;
+  border: 1.5px solid var(--border); background: #fff; color: var(--navy);
+  font-family: inherit; font-size: 0.95rem; font-weight: 700;
+  cursor: pointer; white-space: nowrap;
+}
+.stage-done .sd-btn:hover { background: var(--cream); }
+/* 창 안의 '마음에 둠' — 밖에 두면 Enter 한 번에 지나쳐 버린다.
+   창이 길어지지 않게 설명 글은 조금 줄인다. */
+.stage-done .heart-check { margin: 12px 0 4px; text-align: left; }
+.stage-done .heart-check .heart-desc { font-size: 0.84rem; }
+.stage-done .first-done { margin: 4px 0 2px; }
+
+.dark .stage-done .sd-btn { background: #1c2233; border-color: #34456b; color: #cfe0ff; }
+.dark .stage-done .sd-btn:hover { background: #26303f; }
