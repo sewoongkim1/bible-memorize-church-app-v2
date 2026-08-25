@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260825j";
+const APP_BUILD = "20260825k";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2309,6 +2309,14 @@ function renderSettings() {
           </div>
         </div>
         <div class="setting-block">
+          <div class="setting-label">✍️ 암송 입력 방법</div>
+          <div class="tts-rate-row" id="cardstart-row">
+            <button data-cs="0">⌨️ 쓰기</button>
+            <button data-cs="1">👆 카드</button>
+          </div>
+          <div class="btn-sub" style="text-align:center;">타자가 어려우시면 «카드»를 고르세요 — 낱말을 눌러서 채웁니다</div>
+        </div>
+        <div class="setting-block">
           <div class="setting-label">🌐 암송 언어</div>
           <div class="tts-rate-row" id="lang-row">
             <button data-lang="ko">한국어</button>
@@ -2362,6 +2370,7 @@ function renderSettings() {
   setupSyncRetry();
   setupThemeSetting();
   setupFontSize();
+  setupCardStart();
   setupLangSetting();
   setupTtsRate();
   setupPushHour();
@@ -2437,6 +2446,25 @@ function setupFontSize() {
       if (v === "normal") { document.documentElement.removeAttribute("data-fs"); try { localStorage.removeItem("fontscale"); } catch (e) {} }
       else { document.documentElement.setAttribute("data-fs", v); try { localStorage.setItem("fontscale", v); } catch (e) {} }
       sync(v);
+    });
+  });
+}
+
+// 암송 입력 방법 — 쓰기 / 카드.
+// 카드 모드 자체는 구절마다 꺼지는 것이 기본이지만(암송의 기본은 '쓰기'),
+// 타자가 어려운 분은 구절마다 👆를 다시 눌러야 했다. 여기서 켜 두면 늘 카드로 시작한다.
+function setupCardStart() {
+  const row = document.getElementById("cardstart-row");
+  if (!row) return;
+  const btns = Array.from(row.querySelectorAll("button"));
+  const sync = (on) => btns.forEach((b) => b.classList.toggle("on", (b.dataset.cs === "1") === on));
+  sync(isCardStart());
+  btns.forEach((b) => {
+    b.addEventListener("click", () => {
+      const on = b.dataset.cs === "1";
+      setCardStart(on);
+      setCardMode(on);   // 지금 켠 것이 다음 구절부터가 아니라 바로 먹히게
+      sync(on);
     });
   });
 }
@@ -3097,7 +3125,7 @@ function renderPassageDone(p) {
 let relearnBackToChallenge = false;
 
 function startRelearn(verse) {
-  setCardMode(false);
+  setCardMode(isCardStart());
   relearnBackToChallenge = isAutoChallenge();
   renderTestScreen(verse, 3);
 }
@@ -3195,7 +3223,7 @@ function showStageDoneModal(verse, stage, wasFirst) {
 }
 
 function startTest(verse) {
-  setCardMode(false); // 암송화면 기본은 '쓰기' — 카드 모드는 그 구절 안에서만 유지된다
+  setCardMode(isCardStart()); // 기본은 '쓰기' — 설정에서 「카드로 시작」을 켜 두신 분만 카드로
   relearnBackToChallenge = false;
   const passed = getPassedStage(verse.no);   // 지금 고른 언어의 단계
   // 마음에 둔 구절은 곧바로 3단계(전체 빈칸)로 — 체크 해제도 여기서 바로 가능.
@@ -3495,6 +3523,11 @@ function renderSermonSummary(verse, sermon, onBack, backLabel) {
 const CARD_MODE_KEY = "input-card-mode";
 function isCardMode() { try { return localStorage.getItem(CARD_MODE_KEY) === "1"; } catch (e) { return false; } }
 function setCardMode(on) { try { localStorage.setItem(CARD_MODE_KEY, on ? "1" : "0"); } catch (e) {} }
+// 구절이 바뀌면 카드 모드는 꺼진다(암송의 기본은 '쓰기'). 그런데 타자가 어려운 분은
+// 구절마다 👆를 다시 눌러야 했다 — 늘 카드로 하실 분을 위한 설정.
+const CARD_START_KEY = "card-start";
+function isCardStart() { try { return localStorage.getItem(CARD_START_KEY) === "1"; } catch (e) { return false; } }
+function setCardStart(on) { try { localStorage.setItem(CARD_START_KEY, on ? "1" : "0"); } catch (e) {} }
 
 const REPEAT_KEY = "repeat-practice";
 function isRepeatPractice() { try { return localStorage.getItem(REPEAT_KEY) === "1"; } catch (e) { return false; } }
@@ -4321,7 +4354,10 @@ function checkAllComplete(inputs, verse, stage) {
 
   // saveProgress보다 먼저 봐야 한다 — 저장하고 나면 이미 '한 구절 마친 사람'이 된다.
   const wasFirst = isFirstJourney();
-  saveProgress(verse.no, stage, "typing");
+  // 카드로 맞힌 것을 'typing'으로 남기면, 타자가 어려운 분들이 실제로 어떻게
+  // 하고 계신지 알 길이 없다. 음성은 0.1%인 걸 알았는데 그 대안인 카드는
+  // 측정조차 안 되고 있었다.
+  saveProgress(verse.no, stage, isCardMode() ? "card" : "typing");
 
   const resultEl = document.getElementById("result-area");
   if (stage < 3) {

@@ -1,3 +1,3 @@
-m1-stage1  OK   50 KB
-m2-done    OK   73 KB
-m3-done2   OK   54 KB
+s1-settings OK   76 KB
+s2-card    OK   36 KB
+s3-write   OK   33 KB

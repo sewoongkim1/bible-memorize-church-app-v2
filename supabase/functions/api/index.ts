@@ -1322,10 +1322,22 @@ async function saveProgress(b: any) {
   // 학습 통과를 활동 이벤트로 남긴다(관리자 사용현황/참여자/구절별 통계 원천).
   // ⚠️ mode는 challenge_log_mode_check 제약이 허용하는 값만 써야 한다.
   //    (한때 learn-typing-stage3 처럼 단계를 붙였다가 제약 위반으로 기록이 전부 막혔음)
-  const m = b.mode === "voice" ? "learn-voice" : "learn-typing";
-  const { error: logError } = await db.from("challenge_log").insert({
+//    카드로 채운 암송은 'learn-typing-card'로 따로 남긴다 — 이름에 typing이 들어가야
+//    순위·통계의 `%typing%` 집계가 지금까지와 똑같이 유지된다.
+  const m = b.mode === "voice" ? "learn-voice"
+    : b.mode === "card" ? "learn-typing-card" : "learn-typing";
+  let { error: logError } = await db.from("challenge_log").insert({
     user_id: b.user_id, verse_no: b.verse_no, mode: m,
   });
+  // 제약(migrate_modes_card.sql)이 아직 안 넓혀진 DB라면 새 값이 거부된다.
+  // 그때는 기록을 잃지 말고 옛 값으로 되돌린다 — 예전에 이 자리에서 제약을 안 맞춰
+  // 암송 기록이 통째로 막힌 적이 있다. 구분보다 기록이 먼저다.
+  if (logError && m === "learn-typing-card") {
+    const retry = await db.from("challenge_log").insert({
+      user_id: b.user_id, verse_no: b.verse_no, mode: "learn-typing",
+    });
+    logError = retry.error;
+  }
   if (logError) throw logError;
 
   if (Number(b.stage) === 3) {
