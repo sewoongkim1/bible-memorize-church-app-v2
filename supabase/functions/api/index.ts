@@ -179,6 +179,7 @@ Deno.serve(async (req) => {
       case "boardReact":    return json(await boardReact(body));
       case "boardReactors": return json(await boardReactors(body));
       case "boardCheck":    return json(await boardCheck(body));
+      case "boardUpload":   return json(await boardUpload(body));
       case "boardPost":     return json(await boardPost(body));
       case "boardReply":    return json(await boardReply(body));
       case "boardDeleteMine": return json(await boardDeleteMine(body));
@@ -2629,9 +2630,13 @@ async function boardList(b: any) {
   // 행세가 가능해진다(그 이름으로 글쓰기·진도 저장·순위 응원까지). 클라이언트가
   // 정말 필요한 것은 '내 글인가' 하나뿐이므로 그것만 참/거짓으로 내려준다.
   const withRx = (kind: string, row: any) => {
-    const { user_id, ...rest } = row;
+    const { user_id, images, ...rest } = row;
+    // 저장된 것은 파일 이름뿐 — 볼 수 있는 주소는 여기서 만든다.
+    const photos = (Array.isArray(images) ? images : [])
+      .filter(isBoardImgName).map(boardImgUrl);
     return {
       ...rest,
+      ...(photos.length ? { photos } : {}),
       isMine: !!me && !!user_id && user_id === me,
       reactions: rx.count.get(kind + ":" + row.id) || {},
       myReacts: rx.mine.get(kind + ":" + row.id) || [],
@@ -2722,6 +2727,59 @@ async function boardCheck(b: any) {
   return { ok: true, recent: (p.count || 0) + (r.count || 0) };
 }
 
+// ---------- 게시판 사진 ----------
+// 글 하나에 넉 장까지. 답글에는 넣지 않는다(화면이 복잡해진다).
+// 브라우저가 Storage로 직접 올리지 않는다 — 이 API는 JWT가 없어서 공개 키로 바로 쓰게
+// 두면 아무나 아무거나 올릴 수 있다. 지킬 문은 글쓰기가 이미 지나는 이 문 하나로 둔다.
+const BOARD_IMG_MAX = 4;
+const BOARD_IMG_BYTES = 1_500_000;   // 브라우저가 줄여 보낸 뒤 한 장 최대(넉넉하게)
+const BOARD_MIME: Record<string, string> = {
+  "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp",
+};
+// 저장되는 것은 파일 이름뿐. 주소는 내보낼 때 만든다(도메인이 바뀌어도 기록이 안 썩는다).
+const boardImgUrl = (p: string) => db.storage.from("board").getPublicUrl(p).data.publicUrl;
+const isBoardImgName = (p: unknown) =>
+  typeof p === "string" && /^[0-9a-f-]{36}\.(jpg|png|webp)$/.test(p);
+
+async function boardUpload(b: any) {
+  const mime = String(b.mime || "");
+  const ext = BOARD_MIME[mime];
+  if (!ext) return { ok: false, error: "사진은 JPG·PNG·WEBP만 올릴 수 있어요" };
+  const raw = String(b.data || "");
+  const base64 = raw.includes(",") ? raw.slice(raw.indexOf(",") + 1) : raw;
+  let bytes: Uint8Array;
+  try {
+    const bin = atob(base64);
+    bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  } catch { return { ok: false, error: "사진을 읽지 못했어요" }; }
+  if (!bytes.length) return { ok: false, error: "사진이 비어 있어요" };
+  if (bytes.length > BOARD_IMG_BYTES) return { ok: false, error: "사진이 너무 커요" };
+  const path = crypto.randomUUID() + "." + ext;   // 주소를 짐작할 수 없게
+  const { error } = await db.storage.from("board")
+    .upload(path, bytes, { contentType: mime, upsert: false });
+  if (error) return { ok: false, error: "사진을 올리지 못했어요" };
+  return { ok: true, path };
+}
+
+// 글이 사라지면 사진도 지운다. 본인 삭제(가림)에서도 지운다 —
+// 사진을 내린다는 것은 '안 보이게'가 아니라 '없앤다'는 뜻으로 알아듣는 게 맞다.
+// (관리자가 되살리면 글만 돌아오고 사진은 돌아오지 않는다)
+async function boardDropImages(ids: number[]) {
+  if (!ids.length) return;
+  try {
+    const { data } = await db.from("board_posts").select("images").in("id", ids);
+    const paths: string[] = [];
+    for (const r of (data ?? []) as any[]) {
+      for (const p of (Array.isArray(r.images) ? r.images : [])) {
+        if (isBoardImgName(p)) paths.push(p);
+      }
+    }
+    if (paths.length) await db.storage.from("board").remove(paths);
+    await db.from("board_posts").update({ images: [] }).in("id", ids);
+  } catch (_) { /* 사진 정리 실패가 글 삭제를 막지 않는다 */ }
+}
+
 async function boardPost(b: any) {
   const content = String(b.content || "").trim();
   if (!content) return { ok: false, error: "empty" };
@@ -2729,8 +2787,17 @@ async function boardPost(b: any) {
   const name = (String(b.name || "").trim().slice(0, 40)) || "익명";
   const row: any = { name, content };
   if (b.user_id) row.user_id = b.user_id;
+  // 올려 둔 사진의 '이름'만 받는다. 주소를 통째로 받으면 남의 주소도 붙일 수 있다.
+  const imgs = (Array.isArray(b.images) ? b.images : [])
+    .filter(isBoardImgName).slice(0, BOARD_IMG_MAX);
+  if (imgs.length) row.images = imgs;
   let { data, error } = await db.from("board_posts").insert(row).select("id").single();
-  if (error && /user_id/i.test(String(error.message || ""))) { // user_id 컬럼 마이그레이션 전 폴백
+  // 컬럼 마이그레이션 전 폴백 — 글을 잃는 것보다 사진 없이라도 올라가는 게 낫다.
+  if (error && /images/i.test(String(error.message || ""))) {
+    delete row.images;
+    ({ data, error } = await db.from("board_posts").insert(row).select("id").single());
+  }
+  if (error && /user_id/i.test(String(error.message || ""))) {
     ({ data, error } = await db.from("board_posts").insert({ name, content }).select("id").single());
   }
   if (error) throw error;
@@ -2770,6 +2837,8 @@ async function boardDeleteMine(b: any) {
   }
   if (error) throw error;
   if (!(data && data.length)) return { ok: false, error: "not-owner" };
+  // 사진을 내린다는 것은 '안 보이게'가 아니라 '없앤다'는 뜻으로 알아듣는 게 맞다.
+  if (b.kind !== "reply") await boardDropImages(data.map((r: any) => r.id));
   return { ok: true };
 }
 
@@ -2780,6 +2849,8 @@ async function boardModerate(b: any) {
   if (!id) return { ok: false, error: "no-id" };
   // op: 'hide' | 'show' | 'delete'(물리삭제) | 'undelete'(본인삭제 태그 복구)
   if (b.op === "delete") {
+    // 행을 지우기 '전에' 사진을 치운다 — 지운 뒤에는 어떤 파일이었는지 알 길이 없다.
+    if (table === "board_posts") await boardDropImages([id]);
     const { error } = await db.from(table).delete().eq("id", id); if (error) throw error;
   } else if (b.op === "undelete") {
     const { error } = await db.from(table).update({ deleted: false }).eq("id", id); if (error) throw error;

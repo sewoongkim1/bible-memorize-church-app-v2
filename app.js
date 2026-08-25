@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260825k";
+const APP_BUILD = "20260825l";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2178,10 +2178,13 @@ function renderBoard() {
           <button class="settings-back-btn" id="board-back">← 뒤로</button>
         </div>
         <p class="board-intro">암송하며 받은 은혜, 기도 부탁드릴 일, 서로에게 힘이 되는 이야기를 나눠 주세요. 모든 글과 답글은 공개됩니다. 🙌</p>
-        <p class="board-notice">🙏 <b>성경암송</b>과 관련된 이야기를 나눠 주세요. 주제와 관련 없는 글은 부득이 삭제될 수 있습니다.<br>⚠️ 전화번호 등 <b>민감한 개인정보</b>는 올리지 말아주세요.</p>
+        <p class="board-notice">🙏 <b>성경암송</b>과 관련된 이야기를 나눠 주세요. 주제와 관련 없는 글은 부득이 삭제될 수 있습니다.<br>⚠️ 전화번호 등 <b>민감한 개인정보</b>는 올리지 말아주세요.<br>📷 사진에 <b>다른 분이 나온다면</b> 그분께 먼저 여쭤봐 주세요.</p>
         <div class="board-form">
           <div class="board-who" id="bp-who"></div>
           <textarea id="bp-content" class="board-in board-in-lg" rows="5" maxlength="2000" placeholder="받은 은혜나 기도 부탁을 적어주세요"></textarea>
+          <div id="bp-photos" class="bp-photos"></div>
+          <input type="file" id="bp-file" accept="image/*" multiple hidden />
+          <button type="button" class="board-photo-btn" id="bp-add-photo">📷 사진 넣기</button>
           <button class="summary-go" id="bp-submit">✏️ 글 남기기</button>
           <div id="bp-msg" class="msg"></div>
         </div>
@@ -2197,6 +2200,11 @@ function renderBoard() {
   document.getElementById("bp-who").innerHTML = who
     ? `✍️ <b>${boardEsc(who)}</b> <span class="board-who-sub">성도님</span>`
     : `✍️ <b>익명</b>`;
+  boardPhotos = [];   // 게시판을 새로 열면 고르던 사진은 비운다
+  renderBoardPhotoTray();
+  const fileEl = document.getElementById("bp-file");
+  document.getElementById("bp-add-photo").addEventListener("click", () => fileEl.click());
+  fileEl.addEventListener("change", () => pickBoardPhotos(fileEl));
   document.getElementById("bp-submit").addEventListener("click", submitBoardPost);
   const setFilter = (mine) => {
     boardMineOnly = mine;
@@ -2232,6 +2240,7 @@ async function loadBoard() {
       <div class="board-post" data-id="${p.id}">
         <div class="board-meta"><b>${boardEsc(p.name)}</b> · ${boardTime(p.created_at)}${delBtn("post", p)}</div>
         <div class="board-text">${boardEsc(p.content)}</div>
+        ${boardPhotosHtml(p)}
         ${boardRxHtml("post", p)}
         ${replies}
         <div class="board-reply-form">
@@ -2240,6 +2249,7 @@ async function loadBoard() {
         </div>
       </div>`;
   }).join("");
+  box.querySelectorAll(".board-photo").forEach((im) => im.addEventListener("click", () => openPhotoViewer(im.dataset.full)));
   box.querySelectorAll(".board-reply-btn").forEach((btn) => btn.addEventListener("click", () => submitBoardReply(btn)));
   box.querySelectorAll(".board-del").forEach((btn) => btn.addEventListener("click", () => deleteMine(btn)));
   box.querySelectorAll("[data-rxadd]").forEach((btn) => btn.addEventListener("click", (e) => {
@@ -2250,14 +2260,133 @@ async function loadBoard() {
     showBoardReactors(btn.dataset.rx, btn.dataset.id, btn.dataset.emoji, btn);
   }));
 }
+// 글에 붙은 사진. 서버는 파일 이름만 저장하고 볼 수 있는 주소는 그때 만들어 준다.
+function boardPhotosHtml(p) {
+  const list = Array.isArray(p.photos) ? p.photos.filter((u) => /^https:\/\//.test(u)) : [];
+  if (!list.length) return "";
+  return `<div class="board-photos${list.length === 1 ? " one" : ""}">` +
+    list.map((u) => `<img class="board-photo" src="${boardEsc(u)}" alt="첨부 사진" loading="lazy" data-full="${boardEsc(u)}">`).join("") +
+    `</div>`;
+}
+
+// 사진을 눌렀을 때 크게 — 어르신은 작은 그림에서 잘 못 알아보신다.
+function openPhotoViewer(url) {
+  const wrap = document.createElement("div");
+  wrap.className = "photo-viewer";
+  wrap.innerHTML = `<img src="${boardEsc(url)}" alt="첨부 사진"><button class="pv-close" aria-label="닫기">✕ 닫기</button>`;
+  document.body.appendChild(wrap);
+  const close = () => { document.removeEventListener("keydown", onKey, true); wrap.remove(); };
+  const onKey = (e) => {
+    if (e.key !== "Escape" && e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault(); e.stopPropagation(); close();
+  };
+  document.addEventListener("keydown", onKey, true);
+  wrap.addEventListener("click", close);
+}
+
+// ── 게시판 사진 ──────────────────────────────────────────────
+// 글 하나에 넉 장까지. 답글에는 넣지 않는다(화면이 복잡해진다).
+const BOARD_PHOTO_MAX = 4;
+const BOARD_PHOTO_SIDE = 1280;   // 긴 변 기준
+let boardPhotos = [];            // [{ name, mime, dataUrl }] — 아직 안 올린 것
+
+// 폰 사진을 그대로 보내면 안 되는 이유가 둘이다.
+//  ① 3~8MB라 요청이 너무 크고 어르신 데이터 요금도 나간다 (→ 200~400KB)
+//  ② 더 중요한 것: EXIF에 **찍은 장소의 GPS**가 들어 있다. 그대로 올리면 집에서 찍은
+//     사진에 집 주소가 붙어 공개 게시판에 올라간다.
+//     캔버스에 다시 그리면 화소만 남고 EXIF가 통째로 사라진다 — 그래서 이 과정이 필수다.
+function shrinkImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const long = Math.max(img.width, img.height) || 1;
+      const k = Math.min(1, BOARD_PHOTO_SIDE / long);
+      const w = Math.max(1, Math.round(img.width * k));
+      const h = Math.max(1, Math.round(img.height * k));
+      const cv = document.createElement("canvas");
+      cv.width = w; cv.height = h;
+      const ctx = cv.getContext("2d");
+      ctx.fillStyle = "#fff";          // 투명 PNG가 검게 나오지 않도록
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      // 너무 크면 품질을 한 단계씩 낮춰 본다
+      let q = 0.8, out = cv.toDataURL("image/jpeg", q);
+      while (out.length > 1_200_000 && q > 0.45) { q -= 0.15; out = cv.toDataURL("image/jpeg", q); }
+      resolve({ name: file.name || "photo.jpg", mime: "image/jpeg", dataUrl: out });
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("사진을 열지 못했어요")); };
+    img.src = url;
+  });
+}
+
+function renderBoardPhotoTray() {
+  const tray = document.getElementById("bp-photos");
+  if (!tray) return;
+  tray.innerHTML = boardPhotos.map((p, i) => `
+    <div class="bp-thumb">
+      <img src="${p.dataUrl}" alt="">
+      <button type="button" class="bp-thumb-x" data-rm="${i}" aria-label="이 사진 빼기">✕</button>
+    </div>`).join("");
+  tray.querySelectorAll("[data-rm]").forEach((b) => b.addEventListener("click", () => {
+    boardPhotos.splice(Number(b.dataset.rm), 1);
+    renderBoardPhotoTray();
+  }));
+  const add = document.getElementById("bp-add-photo");
+  if (add) {
+    add.disabled = boardPhotos.length >= BOARD_PHOTO_MAX;
+    add.textContent = boardPhotos.length
+      ? `📷 사진 ${boardPhotos.length}/${BOARD_PHOTO_MAX}`
+      : "📷 사진 넣기";
+  }
+}
+
+async function pickBoardPhotos(input) {
+  const files = Array.from(input.files || []);
+  input.value = "";                      // 같은 사진을 다시 골라도 열리도록
+  const msg = document.getElementById("bp-msg");
+  const room = BOARD_PHOTO_MAX - boardPhotos.length;
+  if (files.length > room && msg) {
+    msg.className = "msg";
+    msg.textContent = `사진은 ${BOARD_PHOTO_MAX}장까지예요. 앞의 ${room}장만 넣었어요.`;
+  }
+  for (const f of files.slice(0, room)) {
+    if (!/^image\//.test(f.type)) continue;
+    try { boardPhotos.push(await shrinkImage(f)); }
+    catch (e) { if (msg) { msg.className = "msg err"; msg.textContent = "사진 하나를 열지 못했어요."; } }
+  }
+  renderBoardPhotoTray();
+}
+
 async function submitBoardPost() {
   const content = document.getElementById("bp-content").value.trim();
   const msg = document.getElementById("bp-msg");
   if (!content) { msg.className = "msg err"; msg.textContent = "내용을 입력해주세요."; return; }
   if (!(await appConfirm("이 내용으로 글을 올릴까요?\n작성한 글은 모든 분에게 공개됩니다.", { okText: "올리기" }))) return;
   const btn = document.getElementById("bp-submit"); btn.disabled = true; msg.className = "msg"; msg.textContent = "등록 중...";
-  try { await api.boardPost(boardWho(), content, myUserId()); }
+  // 사진을 먼저 한 장씩 올린다. 폰 사정이 느릴 수 있어 몇 장째인지 보여 준다 —
+  // 아무 말 없이 멈춰 있으면 어르신은 고장인 줄 알고 다시 누르신다.
+  const names = [];
+  for (let i = 0; i < boardPhotos.length; i++) {
+    msg.className = "msg";
+    msg.textContent = `사진 올리는 중… (${i + 1}/${boardPhotos.length})`;
+    try {
+      const d = await api.boardUpload(boardPhotos[i].mime, boardPhotos[i].dataUrl);
+      if (d && d.ok && d.path) names.push(d.path);
+      else throw new Error((d && d.error) || "사진 오류");
+    } catch (e) {
+      btn.disabled = false;
+      msg.className = "msg err";
+      msg.textContent = "사진을 올리지 못했어요: " + (e && e.message ? e.message : e);
+      return;   // 글은 아직 안 올렸다 — 적은 내용이 그대로 남아 다시 누르면 된다
+    }
+  }
+  msg.textContent = "등록 중...";
+  try { await api.boardPost(boardWho(), content, myUserId(), names); }
   catch (e) { btn.disabled = false; msg.className = "msg err"; msg.textContent = "등록 실패: " + (e && e.message ? e.message : e); return; }
+  boardPhotos = [];
+  renderBoardPhotoTray();
   document.getElementById("bp-content").value = "";
   msg.className = "msg"; msg.textContent = "✅ 등록되었습니다.";
   btn.disabled = false;
@@ -4974,6 +5103,7 @@ function renderPrivacyInfo(back) {
             <li>이름</li>
             <li>교구/목장 또는 교회학교 부서/학년</li>
             <li>암송 진행 기록, 복습 및 도전 참여 기록</li>
+            <li>게시판에 올리신 글·답글과 <b>사진</b> (모든 분에게 공개)</li>
             <li>성경필사 노트 신청 시 <b>휴대폰 번호</b> (배부가 끝나면 삭제)</li>
             <li>기기 식별용 임의 ID (알림을 켤 때만)</li>
           </ul>

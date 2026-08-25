@@ -3730,3 +3730,52 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
 
 .dark .stage-done .sd-btn { background: #1c2233; border-color: #34456b; color: #cfe0ff; }
 .dark .stage-done .sd-btn:hover { background: #26303f; }
+
+/* ── 게시판 사진 ───────────────────────────────────────────── */
+.board-photo-btn {
+  display: block; width: 100%; margin: 8px 0 10px;
+  padding: 12px; border-radius: 12px;
+  border: 1.5px dashed var(--navy); background: #f4f7fd; color: var(--navy);
+  font-family: inherit; font-size: 1rem; font-weight: 700; cursor: pointer;
+}
+.board-photo-btn:hover { background: #e9f0fb; }
+.board-photo-btn:disabled { opacity: 0.5; cursor: default; }
+/* 고르는 중인 사진 — 누르면 뺄 수 있게 ✕를 붙인다 */
+.bp-photos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.bp-thumb { position: relative; width: 78px; height: 78px; }
+.bp-thumb img {
+  width: 100%; height: 100%; object-fit: cover;
+  border-radius: 10px; border: 1px solid var(--border);
+}
+.bp-thumb-x {
+  position: absolute; top: -6px; right: -6px;
+  width: 24px; height: 24px; border-radius: 50%;
+  border: none; background: rgba(20,30,50,.82); color: #fff;
+  font-size: 13px; line-height: 1; cursor: pointer;
+}
+/* 올라간 사진 — 두 칸으로 깔되 한 장이면 넓게 */
+.board-photos {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0 4px;
+}
+.board-photos.one { grid-template-columns: 1fr; }
+.board-photo {
+  width: 100%; aspect-ratio: 4 / 3; object-fit: cover;
+  border-radius: 10px; border: 1px solid var(--border);
+  cursor: zoom-in; background: #eef1f6;
+}
+.board-photos.one .board-photo { aspect-ratio: auto; max-height: 420px; object-fit: contain; }
+/* 크게 보기 — 어르신은 작은 그림에서 잘 못 알아보신다 */
+.photo-viewer {
+  position: fixed; inset: 0; z-index: 3000;
+  background: rgba(10,16,28,.92);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; padding: 16px;
+}
+.photo-viewer img { max-width: 100%; max-height: 80vh; border-radius: 10px; }
+.pv-close {
+  padding: 12px 22px; border-radius: 999px; border: none;
+  background: #fff; color: var(--navy);
+  font-family: inherit; font-size: 1.02rem; font-weight: 700; cursor: pointer;
+}
+.dark .board-photo-btn { background: #1c2740; border-color: #56688c; color: #cfe0ff; }
+.dark .board-photo-btn:hover { background: #24314e; }
