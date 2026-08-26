@@ -41,6 +41,11 @@ footer{
   text-align:center;font-size:.9rem;color:#6a7688;line-height:1.8;
 }
 footer a{color:var(--navy)}
+/* 구글 플레이는 삭제 안내 페이지에 «앱·개발자 이름», «삭제 단계», «지워지는 것과
+   남는 기간»이 눈에 띄게 있어야 한다고 요구한다. 그래서 이 절만 표시를 강하게 둔다. */
+.who-line{margin:0 0 10px;padding:9px 12px;border-radius:10px;
+  background:#f2f6fd;border:1px solid #dae4f5;font-size:.95rem}
+.sub-h{margin:16px 0 6px;font-size:1.02rem;font-weight:800;color:var(--navy)}
 </style>
 </head>
 <body>
@@ -129,7 +134,11 @@ footer a{color:var(--navy)}
     (올릴 때 자동으로 크기를 줄이며 <b>찍은 장소 정보는 지워집니다</b>)</li>
 </ul>
 
-<h2>5. 고치거나 지우고 싶을 때</h2>
+<h2 id="delete">5. 계정·데이터 삭제 요청</h2>
+<p class="who-line">
+  <b>앱 이름</b> 성경말씀 암송 &nbsp;·&nbsp;
+  <b>만든 곳</b> 고척교회 제자양육부 신앙운동팀
+</p>
 <div class="box">
   <h3>내가 직접 할 수 있는 것</h3>
   <ul>
@@ -159,6 +168,30 @@ footer a{color:var(--navy)}
     앱을 휴대폰에서 지우는 것만으로는 서버 기록이 사라지지 않습니다. 위 방법으로 알려 주셔야 지워집니다.
   </p>
 </div>
+
+<h3 class="sub-h">삭제하면 무엇이 지워지고, 무엇이 얼마나 남나</h3>
+<table>
+  <tr><th>지워지는 것</th><th>남는 것 · 남는 기간</th></tr>
+  <tr>
+    <td>
+      이름 · 교구 · 목장 (교회학교는 부서 · 학년)<br>
+      암송 · 도전 · 복습 기록<br>
+      말씀 앨범과 복습 예약<br>
+      게시판 글 · 답글 · 올리신 <b>사진 파일</b><br>
+      순위 응원 기록<br>
+      알림 등록 정보<br>
+      성경필사 노트 신청과 <b>휴대폰 번호</b>
+    </td>
+    <td>
+      <b>따로 남겨 두는 것은 없습니다.</b><br>
+      요청을 확인한 뒤 <b>7일 안</b>에 모두 지웁니다.<br>
+      법으로 더 보관해야 하는 자료는 없습니다.<br><br>
+      다만 서버 백업본에는 <b>최대 30일</b>까지 남아 있다가
+      차례로 사라집니다. 그 백업은 고장 복구용으로만 두며
+      들여다보지 않습니다.
+    </td>
+  </tr>
+</table>
 
 <h2>6. 만 14세 미만</h2>
 <p>
