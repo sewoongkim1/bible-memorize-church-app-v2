@@ -10,18 +10,17 @@
 
 ## 0. 프로젝트 자리 만들기 (대시보드에서만 됨)
 
-CLI에는 `projects list`만 있어 **만들기·되살리기·지우기는 대시보드**에서 해야 한다.
+CLI에는 `projects list`만 있어 **만들기·지우기는 대시보드**에서 해야 한다.
+무료 플랜은 활성 프로젝트 2개까지다.
 
-무료 플랜은 활성 프로젝트 2개까지다. 지금 두 자리가 다 차 있다(하나는 잠들어 있음).
+1. https://supabase.com/dashboard → **New project** · 이름 `bible-memorize-dev`
+   - 지역은 **Seoul (ap-northeast-2)** — 운영과 같게 두어야 지연 차로 헷갈리지 않는다
+2. 한도가 찼다고 나오면 안 쓰는 프로젝트를 먼저 지운다
+   (2026-08-27에 도쿄의 `sewoongkim1's Project`를 그렇게 정리했다 — 네 저장소 어디서도 부르지 않는 것을 확인하고 지웠다)
 
-1. https://supabase.com/dashboard → 잠들어 있는 `sewoongkim1's Project`(`erffvbxekfhifnbnamhy`)를 연다
-2. **Restore**로 깨워 안을 본다 — 2026-03-12에 만든 것이라 무엇이 들었는지 확인해야 한다
-3. 버려도 되는 것이면 **Settings → General → Delete project**로 지우고, `bible-memorize-dev`라는 이름으로 새로 만든다
-   - 지역은 **Seoul (ap-northeast-2)** — 운영과 같게 두어야 지연 차이로 헷갈리지 않는다
-   - ⚠️ 삭제는 되돌릴 수 없다. 안을 확인하기 전에 지우지 말 것
-
-> 되살려서 그대로 쓸 수도 있지만 권하지 않는다. 남은 찌꺼기가 있으면
-> 「운영과 같은 상태인가」를 나중에 확신할 수 없다. **빈 자리에서 스키마를 재현해야** 값이 있다.
+> ⚠️ 지울 때는 **이름과 지역을 반드시 확인한다.**
+> 운영은 `bible-memorize-church` · **서울** · `xnomlgydifiqiybervtf` 이고,
+> 여기에는 성도님 기록과 암송 로그가 들어 있다. **삭제는 되돌릴 수 없다.**
 
 ---
 
