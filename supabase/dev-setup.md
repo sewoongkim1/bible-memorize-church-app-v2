@@ -34,7 +34,10 @@ CLI에는 `projects list`만 있어 **만들기·지우기는 대시보드**에�
 ## 1. 스키마 재현 — SQL Editor에서 이 순서로
 
 각 파일을 열어 **위에서부터 차례로** 붙여 실행한다.
-⚠️ 이 순서는 아직 한 번도 통째로 돌려 본 적이 없다 — **처음 돌릴 때 걸리는 곳을 여기에 적어 둘 것.**
+⚠️ **걸렸던 곳은 여기에 적어 둔다.**
+- 2026-08-27 `pilsa_admin_notify.sql` — `app_config.value` not null 위반. 스키마가 아니라 사람 등록이어서 **돌리지 않는다**(2절).
+  그 파일은 모두 못 찾았을 때 사람이 읽을 수 있게 멈추도록 고쳤다(운영에서도 이름 오타 한 번이면 같은 오류가 난다).
+- 2026-08-27 `daily_meditations.sql` · `verse_help.sql` — `public.sermons`를 고친다. **돌리지 않는다**(2절).
 
 ### ① 뼈대
 ```
@@ -66,10 +69,7 @@ board_reactions.sql     공감 이모지
 board_images.sql        사진 첨부 + Storage 통
 rank_cheers.sql         순위 응원 👏
 pilsa_orders.sql        필사 노트 신청
-pilsa_admin_notify.sql  담당자 지정 — 개발에서는 비워 둔다
 event_entries.sql       말씀 이벤트 응모
-daily_meditations.sql   오늘의 묵상
-verse_help.sql          쉬운 풀이 · 기억법
 ```
 
 ### ④ 집계·통계
@@ -100,6 +100,24 @@ push_cron.sql · push_cron_hourly.sql · weekly_verse_push_cron.sql · weekly_re
 insert_sermon_juan.sql · update_sermon_shalom.sql
 cleanup_test_user_logs.sql · pilsa_phone_cleanup.sql
 ```
+
+### 사람을 등록하는 것
+```
+pilsa_admin_notify.sql
+```
+스키마가 아니라 **필사 담당자를 골라 넣는 스크립트**다. 개발 DB에는 등록할 사람이 없다.
+
+### `sermons` 표를 고치는 것 (말씀 아카이브 영역)
+```
+daily_meditations.sql · verse_help.sql
+```
+둘 다 `public.sermons`를 `alter`·`update` 한다. 그 표는 말씀 아카이브 것이라
+**개발 프로젝트에는 없다**(이 저장소에는 그 표의 DDL 자체가 없다).
+
+> ⚠️ **그래서 개발에서는 이 기능들이 동작하지 않는다** — 「오늘의 묵상」,
+> 「쉬운 풀이·기억법」, 말씀 아카이브 연동, 설교 챗봇.
+> 암송·도전·복습·순위·게시판·필사는 모두 정상이다.
+> 그 기능까지 개발에서 보려면 말씀 아카이브도 개발 프로젝트를 가져야 한다.
 
 ### 다른 앱(말씀 아카이브) 것
 ```
