@@ -1,2 +1,1 @@
-c1-write   OK   35 KB
-c2-card    OK   47 KB
+font-check OK   103 KB

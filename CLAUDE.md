@@ -63,6 +63,12 @@
 ## 모니터링
 `.github/workflows/monitor.yml` — 매일 07:12 KST monitor 액션 점검, 문제 시 텔레그램 경보. weekly_test/diag_send/force_alert 수동 실행 입력 있음. push_log 기록.
 
+## 첫 실행 속도 (2026-08-27)
+⚠️ **글꼴 CSS는 절대 `rel="stylesheet"`로 두지 말 것.** 한글 웹폰트 넷을 부르면 구글이 돌려주는 CSS 하나가 **765KB**다(app.js 377KB + style.css 185KB보다 크다 — 한글은 조각이 597개, `@font-face`가 1,107개라 그렇다). 그걸 그대로 두면 **다 받을 때까지 스플래시조차 안 뜬다** — 처음 설치한 분이 느린 통신에서 흰 화면만 본다(테스터 제보로 발견).
+→ `media="print" onload="this.media='all'"` 로 받아 두었다가 나중에 적용한다. `display=swap`이라 그전까지는 기기 기본 글꼴로 보이고 준비되면 바뀐다. `<noscript>` 폴백을 함께 둔다. `fonts.gstatic.com` **preconnect**도 필요하다(폰트 파일은 거기서 온다).
+→ 쓰지 않는 굵기는 뺀다(`font-weight:300`은 한 곳도 안 써서 뺐다 · 765→672KB).
+→ **서버는 범인이 아니었다** — `getVerses`는 0.22~0.36초이고 인트로 슬라이드와 병렬로 돈다. 느리다는 제보가 오면 **글꼴부터** 볼 것.
+
 ## 개발 · 배포 체크리스트
 1. `app.js` 등 수정 → 2. **`python tools/bump.py`** (캐시태그·판 번호·APP_BUILD 일괄) → 3. 커밋·푸시(Actions 자동 배포) → 4. 백엔드 바꿨으면 `supabase functions deploy api ...`
 5. **배포 확인은 「이번 판에만 있는 표식」으로** 한다. 새로 넣은 문구·상수처럼 **이전 판에는 없던 것**을 찾거나, 지운 문구가 **사라졌는지**를 본다. 이전 판에도 있던 이름(함수명·클래스명)으로 검사하면 CDN이 옛 파일을 내보내도 그대로 통과해 「배포 완료」로 오인한다(2026-08-25에 두 번 그랬다). 가장 확실한 것은 라이브 `app.js`의 `APP_BUILD`가 `index.html`의 `?v=`와 같은지 보는 것이다.
