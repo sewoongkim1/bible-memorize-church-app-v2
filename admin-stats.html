@@ -485,7 +485,7 @@ function renderMenu(){
         <div class="ic">👥</div>
         <div class="rep-text">
           <div class="ti">참여자 현황</div>
-          <div class="de">개인별 타이핑·카드·음성·총횟수</div>
+          <div class="de">개인별 참여일·타이핑·카드·음성·총횟수</div>
         </div>
         <div class="rep-arrow">›</div>
       </div>
@@ -788,7 +788,7 @@ async function loadPushLog(){
     return `<div class="pl-item${daily?" daily":""}">
       <div class="pl-top"><span class="pl-when">${fmt(r.sent_at)}</span>
         <span class="pl-badge">${daily?"자동":"수동"}</span>
-        <span class="pl-sent">👥 ${r.sent}/${r.total}${r.failed?` · 실패 ${r.failed}`:""}</span></div>
+        <span class="pl-sent">👥 ${r.sent}/${nf(r.total)}${r.failed?` · 실패 ${r.failed}`:""}</span></div>
       <div class="pl-title">${esc(r.title)}</div>
       ${r.body?`<div class="pl-msg">${esc(r.body).replace(/\n/g,"<br>")}</div>`:""}
     </div>`;
@@ -1055,7 +1055,7 @@ function mmDraw(){
   box.innerHTML=mmList.length?mmList.map((x,i)=>`
     <div class="mm-item" data-i="${i}">
       <div class="mm-top">
-        <input class="push-in mm-count" type="number" min="10" step="10" value="${x.count}" inputmode="numeric" aria-label="달성 횟수">
+        <input class="push-in mm-count" type="number" min="10" step="10" value="${nf(x.count)}" inputmode="numeric" aria-label="달성 횟수">
         <span class="mm-unit">회 달성</span>
         <button class="mm-del" type="button" title="삭제">삭제</button>
       </div>
@@ -1636,7 +1636,7 @@ async function evLoadEntrants(){
   const list=d.list||[];
   if(!list.length){ wrap.innerHTML=`<p class="push-hint" style="text-align:center;padding:14px 0">아직 응모자가 없습니다.</p>`; return; }
   wrap.innerHTML=`
-    <p class="push-hint" style="margin-top:10px">총 <b>${list.length}명</b> 응모 (응모순)</p>
+    <p class="push-hint" style="margin-top:10px">총 <b>${nf(list.length)}명</b> 응모 (응모순)</p>
     <div class="table-wrap"><table>
       <thead><tr><th>#</th><th>구분</th><th>소속</th><th>세부</th><th>이름</th><th>응모일시</th></tr></thead>
       <tbody>${list.map((x,i)=>`<tr>
@@ -2126,14 +2126,14 @@ async function loadDashboard(){
       <div class="dash-item">
         <span class="rank">${i+1}</span>
         <span class="name">${htmlEsc(verseLabel(verseMap,r.no))}</span>
-        <span class="cnt">${r.count}회</span>
+        <span class="cnt">${nf(r.count)}회</span>
       </div>`).join("") : `<div class="dash-msg">이번 주 구절 기록이 없습니다.</div>`;
     const topChallenge=(weekChallenge.list||[]).slice().sort((a,b)=>(b.count-a.count)).slice(0,5);
     const topChallengeHtml=topChallenge.length ? topChallenge.map((r,i)=>`
       <div class="dash-item">
         <span class="rank">${i+1}</span>
         <span class="name">${htmlEsc((r.sosok||"")+" "+(r.name||""))}</span>
-        <span class="cnt">${r.count}회</span>
+        <span class="cnt">${nf(r.count)}회</span>
       </div>`).join("") : `<div class="dash-msg">이번 주 도전 기록이 없습니다.</div>`;
     dash.innerHTML=`
       <div class="dash-head">
@@ -2190,6 +2190,8 @@ function downloadCsv(filename, headers, rows){
   a.remove();
   URL.revokeObjectURL(url);
 }
+// 화면에 숫자를 찍을 때만 쓴다. CSV에는 쓰지 않는다 — 쉼표가 칸을 갈라 파일이 깨진다.
+const nf = (n) => Number(n || 0).toLocaleString("ko-KR");
 function attachCsvButton(id, filename, headers, rows){
   const btn=document.getElementById(id);
   if(!btn) return;
@@ -2252,25 +2254,25 @@ async function runUsage(){
     <tr>
       <td class="l"><span class="gubun-tag gubun-${r.gubun}">${r.gubun}</span></td>
       <td class="l">${r.sosok||"-"}</td>
-      <td>${r.newCount}</td>
-      <td>${r.participants}</td>
-      <td>${r.typing}</td>
-      <td class="sub-col">${r.card||0}</td>
-      <td>${r.voice}</td>
-      <td><b>${r.total}</b></td>
+      <td>${nf(r.newCount)}</td>
+      <td>${nf(r.participants)}</td>
+      <td>${nf(r.typing)}</td>
+      <td class="sub-col">${nf(r.card)}</td>
+      <td>${nf(r.voice)}</td>
+      <td><b>${nf(r.total)}</b></td>
     </tr>`).join("");
 
   result.innerHTML = `
     <div class="summary-row">
-      <div class="kpi"><div class="n">${sum.participants}</div><div class="l">참여인원(합)</div></div>
-      <div class="kpi"><div class="n">${sum.newCount}</div><div class="l">신규인원(합)</div></div>
-      <div class="kpi"><div class="n">${sum.typing}</div><div class="l">타이핑</div></div>
-      <div class="kpi"><div class="n">${sum.card||0}</div><div class="l">그중 카드</div></div>
-      <div class="kpi"><div class="n">${sum.voice}</div><div class="l">음성</div></div>
-      <div class="kpi"><div class="n">${sum.total}</div><div class="l">총횟수</div></div>
+      <div class="kpi"><div class="n">${nf(sum.participants)}</div><div class="l">참여인원(합)</div></div>
+      <div class="kpi"><div class="n">${nf(sum.newCount)}</div><div class="l">신규인원(합)</div></div>
+      <div class="kpi"><div class="n">${nf(sum.typing)}</div><div class="l">타이핑</div></div>
+      <div class="kpi"><div class="n">${nf(sum.card)}</div><div class="l">그중 카드</div></div>
+      <div class="kpi"><div class="n">${nf(sum.voice)}</div><div class="l">음성</div></div>
+      <div class="kpi"><div class="n">${nf(sum.total)}</div><div class="l">총횟수</div></div>
     </div>
     <div class="report-toolbar">
-      <span>기간: <b>${rangeTxt}</b> · 그룹 ${list.length}개</span>
+      <span>기간: <b>${rangeTxt}</b> · 그룹 ${nf(list.length)}개</span>
       <button class="download-btn" id="download-usage">CSV 다운로드</button>
     </div>
     <div class="table-wrap">
@@ -2282,8 +2284,8 @@ async function runUsage(){
         <tbody>${rows}</tbody>
         <tfoot><tr>
           <td class="l">합계</td><td></td>
-          <td>${sum.newCount}</td><td>${sum.participants}</td>
-          <td>${sum.typing}</td><td class="sub-col">${sum.card}</td><td>${sum.voice}</td><td>${sum.total}</td>
+          <td>${nf(sum.newCount)}</td><td>${nf(sum.participants)}</td>
+          <td>${nf(sum.typing)}</td><td class="sub-col">${nf(sum.card)}</td><td>${nf(sum.voice)}</td><td>${nf(sum.total)}</td>
         </tr></tfoot>
       </table>
     </div>`;
@@ -2389,40 +2391,42 @@ async function runParticipants(){
       <td class="l">${r.sosok||"-"}</td>
       <td>${r.sebu||"-"}</td>
       <td class="l">${r.name||"-"}</td>
-      <td>${r.typing}</td>
-      <td class="sub-col">${r.card||0}</td>
-      <td>${r.voice}</td>
-      <td><b>${r.total}</b></td>
+      <td>${nf(r.days)}</td>
+      <td>${nf(r.typing)}</td>
+      <td class="sub-col">${nf(r.card)}</td>
+      <td>${nf(r.voice)}</td>
+      <td><b>${nf(r.total)}</b></td>
     </tr>`).join("");
   result.innerHTML=`
     <div class="summary-row">
-      <div class="kpi"><div class="n">${list.length}</div><div class="l">참여자 수</div></div>
-      <div class="kpi"><div class="n">${sum.typing}</div><div class="l">타이핑</div></div>
-      <div class="kpi"><div class="n">${sum.card||0}</div><div class="l">그중 카드</div></div>
-      <div class="kpi"><div class="n">${sum.voice}</div><div class="l">음성</div></div>
-      <div class="kpi"><div class="n">${sum.total}</div><div class="l">총횟수</div></div>
+      <div class="kpi"><div class="n">${nf(list.length)}</div><div class="l">참여자 수</div></div>
+      <div class="kpi"><div class="n">${nf(sum.typing)}</div><div class="l">타이핑</div></div>
+      <div class="kpi"><div class="n">${nf(sum.card)}</div><div class="l">그중 카드</div></div>
+      <div class="kpi"><div class="n">${nf(sum.voice)}</div><div class="l">음성</div></div>
+      <div class="kpi"><div class="n">${nf(sum.total)}</div><div class="l">총횟수</div></div>
     </div>
     <div class="report-toolbar">
-      <span>기간: <b>${rangeTxt}</b> · 참여자 ${list.length}명</span>
+      <span>기간: <b>${rangeTxt}</b> · 참여자 ${nf(list.length)}명</span>
       <button class="download-btn" id="download-participants">CSV 다운로드</button>
     </div>
     <div class="table-wrap"><table>
       <thead><tr>
         <th>#</th><th class="l">구분</th><th class="l">교구/교회학교</th><th>목장/학년</th>
-        <th class="l">성명</th><th>타이핑횟수</th><th class="sub-col">그중 카드</th><th>음성횟수</th><th>총횟수</th>
+        <th class="l">성명</th><th>참여일</th><th>타이핑횟수</th><th class="sub-col">그중 카드</th><th>음성횟수</th><th>총횟수</th>
       </tr></thead>
       <tbody>${rows}</tbody>
       <tfoot><tr>
         <td></td><td class="l">합계</td><td></td><td></td><td></td>
-        <td>${sum.typing}</td><td class="sub-col">${sum.card}</td><td>${sum.voice}</td><td>${sum.total}</td>
+        <td></td>
+        <td>${nf(sum.typing)}</td><td class="sub-col">${nf(sum.card)}</td><td>${nf(sum.voice)}</td><td>${nf(sum.total)}</td>
       </tr></tfoot>
     </table></div>`;
   attachCsvButton(
     "download-participants",
     `성경암송_참여자현황_${rangeForName(from,to)}_${fileDate()}.csv`,
-    ["번호","구분","교구/교회학교","목장/학년","성명","타이핑횟수","그중 카드","음성횟수","총횟수"],
-    list.map((r,i)=>[i+1,r.gubun,r.sosok||"",r.sebu||"",r.name||"",r.typing,r.card||0,r.voice,r.total])
-      .concat([["","합계","","","",sum.typing,sum.card,sum.voice,sum.total]])
+    ["번호","구분","교구/교회학교","목장/학년","성명","참여일","타이핑횟수","그중 카드","음성횟수","총횟수"],
+    list.map((r,i)=>[i+1,r.gubun,r.sosok||"",r.sebu||"",r.name||"",r.days||0,r.typing,r.card||0,r.voice,r.total])
+      .concat([["","합계","","","","",sum.typing,sum.card,sum.voice,sum.total]])
   );
 }
 
@@ -2504,13 +2508,13 @@ async function runVerses(){
     <tr>
       <td>${r.no}</td>
       <td class="l">${verseLabel(map,r.no)}</td>
-      <td>${r.participants}</td>
-      <td><b>${r.count}</b></td>
+      <td>${nf(r.participants)}</td>
+      <td><b>${nf(r.count)}</b></td>
     </tr>`).join("");
   result.innerHTML=`
     <div class="summary-row">
-      <div class="kpi"><div class="n">${list.length}</div><div class="l">사용된 구절 수</div></div>
-      <div class="kpi"><div class="n">${sum.count}</div><div class="l">총 참여횟수</div></div>
+      <div class="kpi"><div class="n">${nf(list.length)}</div><div class="l">사용된 구절 수</div></div>
+      <div class="kpi"><div class="n">${nf(sum.count)}</div><div class="l">총 참여횟수</div></div>
     </div>
     <div class="report-toolbar">
       <span>기간: <b>${rangeTxt}</b></span>
@@ -2519,7 +2523,7 @@ async function runVerses(){
     <div class="table-wrap"><table>
       <thead><tr><th>말씀 순번</th><th class="l">말씀</th><th>참여자</th><th>참여횟수</th></tr></thead>
       <tbody>${rows}</tbody>
-      <tfoot><tr><td></td><td class="l">합계</td><td></td><td>${sum.count}</td></tr></tfoot>
+      <tfoot><tr><td></td><td class="l">합계</td><td></td><td>${nf(sum.count)}</td></tr></tfoot>
     </table></div>`;
   attachCsvButton(
     "download-verses",
@@ -2611,19 +2615,19 @@ async function runChallengeReport(){
       <td class="l">${r.sosok||"-"}</td>
       <td>${r.sebu||"-"}</td>
       <td class="l">${r.name||"-"}</td>
-      <td>${r.typing||0}</td>
-      <td>${r.voice||0}</td>
-      <td><b>${r.count}</b></td>
+      <td>${nf(r.typing)}</td>
+      <td>${nf(r.voice)}</td>
+      <td><b>${nf(r.count)}</b></td>
     </tr>`).join("");
   result.innerHTML=`
     <div class="summary-row">
-      <div class="kpi"><div class="n">${list.length}</div><div class="l">참여자 수</div></div>
-      <div class="kpi"><div class="n">${sum.typing}</div><div class="l">타이핑</div></div>
-      <div class="kpi"><div class="n">${sum.voice}</div><div class="l">음성</div></div>
-      <div class="kpi"><div class="n">${sum.cnt}</div><div class="l">총 도전횟수</div></div>
+      <div class="kpi"><div class="n">${nf(list.length)}</div><div class="l">참여자 수</div></div>
+      <div class="kpi"><div class="n">${nf(sum.typing)}</div><div class="l">타이핑</div></div>
+      <div class="kpi"><div class="n">${nf(sum.voice)}</div><div class="l">음성</div></div>
+      <div class="kpi"><div class="n">${nf(sum.cnt)}</div><div class="l">총 도전횟수</div></div>
     </div>
     <div class="report-toolbar">
-      <span>기간: <b>${rangeTxt}</b> · 참여자 ${list.length}명</span>
+      <span>기간: <b>${rangeTxt}</b> · 참여자 ${nf(list.length)}명</span>
       <button class="download-btn" id="download-challenge">CSV 다운로드</button>
     </div>
     <div class="table-wrap"><table>
@@ -2634,7 +2638,7 @@ async function runChallengeReport(){
       <tbody>${rows}</tbody>
       <tfoot><tr>
         <td></td><td class="l">합계</td><td></td><td></td><td></td>
-        <td>${sum.typing}</td><td>${sum.voice}</td><td>${sum.cnt}</td>
+        <td>${nf(sum.typing)}</td><td>${nf(sum.voice)}</td><td>${nf(sum.cnt)}</td>
       </tr></tfoot>
     </table></div>`;
   attachCsvButton(
