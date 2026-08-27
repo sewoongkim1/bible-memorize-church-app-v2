@@ -386,11 +386,16 @@
   </div>
   <main id="app"></main>
 
+<script src="js/config.js"></script>
 <script>
 // v2: Supabase Edge Function(api) 호출
-const API = "https://xnomlgydifiqiybervtf.supabase.co/functions/v1/api";
-const SERMON_FN = "https://xnomlgydifiqiybervtf.supabase.co/functions/v1/sermon";
-const ANON = "sb_publishable_oLtieT_jw7Gjb8etEsy0jw_thBaDjl-";
+// 어느 프로젝트를 볼지는 js/config.js가 주소를 보고 정한다.
+const API = window.SUPA.URL + "/functions/v1/api";
+const ANON = window.SUPA.ANON;
+// ⚠️ 말씀 아카이브(sermon)는 아직 개발 프로젝트가 없다 — 여기만 운영을 그대로 본다.
+//    그쪽이 개발 프로젝트를 갖게 되면 이 예외를 지운다.
+const SERMON_FN = window.SUPA_PROD.URL + "/functions/v1/sermon";
+const SERMON_ANON = window.SUPA_PROD.ANON;
 async function callApi(payload){
   const res = await fetch(API, {
     method:"POST",
@@ -725,7 +730,7 @@ async function loadMedLibrary(){
   const sel=document.getElementById("ml-week");
   const bd=document.getElementById("ml-body");
   try{
-    const res=await fetch(SERMON_FN,{method:"POST",headers:{"Content-Type":"application/json","apikey":ANON,"Authorization":"Bearer "+ANON},body:JSON.stringify({action:"getSermons"})});
+    const res=await fetch(SERMON_FN,{method:"POST",headers:{"Content-Type":"application/json","apikey":SERMON_ANON,"Authorization":"Bearer "+SERMON_ANON},body:JSON.stringify({action:"getSermons"})});
     const d=await res.json();
     const all=(d&&d.sermons)||[];
     // 7일치 묵상이 있는 설교만, 최신순

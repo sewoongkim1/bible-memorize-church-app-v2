@@ -3,6 +3,13 @@
 운영 프로젝트 `xnomlgydifiqiybervtf`(bible-memorize-church, 서울)에는 **성도님의 실제 기록**이 들어 있다.
 개발·시험은 여기서 하지 않는다. 이 문서는 **개발용 프로젝트를 처음부터 세우는 순서**다.
 
+| | 프로젝트 | ref |
+|---|---|---|
+| 운영 | `bible-memorize-church` · sewoongkim1's Org | `xnomlgydifiqiybervtf` |
+| 개발 | `bible-memorize-dev` · gocheok-dev | `ktpwthwqzgcqcrmsafdo` |
+
+둘 다 서울(ap-northeast-2) · Free. **2026-08-27에 개발 프로젝트를 세웠다.**
+
 > ⚠️ **성도 데이터는 한 줄도 복사하지 않는다.** 개발 DB에는 가짜 사람(홍길동 · 사랑 1목장)만 넣는다.
 > 말씀 구절(`verses`)은 개인정보가 아니므로 그대로 넣어도 된다 — 오히려 넣어야 화면이 돈다.
 
@@ -123,19 +130,47 @@ supabase functions deploy api --no-verify-jwt --project-ref <개발-ref>
 
 **없는 것이 안전장치다.** 개발에서 `sendPush`를 잘못 불러도 키가 없으면 아무 데도 가지 않는다.
 
+개발용 `ADMIN_SECRET`은 저장소 밖 **`.env.dev`**에 있다(`.gitignore`의 `.env.*`에 걸려 커밋되지 않는다).
+바꾸거나 다시 넣을 때는 값을 명령줄에 치지 말고 파일로 넘긴다 — 명령줄은 기록에 남는다.
+
+```bash
+supabase secrets set --env-file .env.dev --project-ref ktpwthwqzgcqcrmsafdo
+```
+
 ---
 
-## 4. 앱이 어느 쪽을 볼지 — `js/config.js`
+## 4. 앱이 어느 쪽을 볼지 — `js/config.js` ✅ 적용됨
 
-**사람이 손으로 고르게 하면 안 된다.** 반드시 잊고, 잊은 채로 커밋된다.
-**주소를 보고 저절로 갈리게** 한다.
+**사람이 손으로 고르지 않는다.** 반드시 잊고, 잊은 채로 커밋된다.
+**주소를 보고 저절로 갈린다.**
 
 ```
 gocheok.onlybible.kr  →  운영
-그 밖의 모든 주소      →  개발   (localhost · 미리보기 · 브랜치)
+그 밖의 모든 주소      →  개발   (localhost · 미리보기 · 브랜치 · github.io)
 ```
 
-기본값이 **개발 쪽**인 것이 핵심이다. 새 미리보기 주소가 생겨도 실수로 운영에 붙지 않는다.
+기본값이 **개발** 옆인 것이 핵심이다. 새 미리보기 주소가 생겨도 운영에 붙지 않는다.
+반대로 두면(모르는 주소 → 운영) 실수 한 번이 성도님 기록을 건드린다.
+**잘못 갈렸을 때 '빈 화면'은 눈에 보이지만 '남의 기록을 지운 것'은 안 보인다** — 보이는 쪽으로 틀리게 둔다.
+
+개발 쪽일 때는 화면 오른쌄에 **「개발 DB」 띄**가 뜼다. 빈 목록을 보고 고장으로 오해하지 않도록.
+
+### 관리자 화면도 같이 갈린다
+
+`admin.html` · `admin-stats.html` 도 `js/config.js`를 읽어 같은 규칙을 따른다.
+이게 없으면 **개발자가 로컬에서 관리자 화면을 열어 운영을 만지게** 된다 —
+알림 발송·글 삭제·필사 상태 변경까지 닿는 화면이라 가장 위험한 자리다.
+
+⚠️ **예외 셋** — 형제 앱은 아직 개발 프로젝트가 없어 운영을 그대로 본다.
+
+| 파일 | 왜 |
+|---|---|
+| `admin-sermon.html` | 말씀 아카이브(sermon 함수) |
+| `admin-sermon-chat.html` | 설교 챗봇 — `sermon_chunks`가 운영에만 있다 |
+| `praise-config.js` | 찬양 아카이브(praise 함수) |
+| `admin-stats.html`의 `SERMON_FN` | 구절에 설교를 엮을 때만 쓴다 |
+
+그쪽이 각자 개발 프로젝트를 갖게 되면 이 예외를 지우면 된다.
 
 ---
 
