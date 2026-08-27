@@ -2345,12 +2345,26 @@ async function eventEntrants(b: any) {
   const eventId = String(b.event_id || "");
   if (!eventId) return { ok: false, error: "event_id 필요" };
   const { data, error } = await db.from("event_entries")
-    .select("entered_at, users(type,gu,mok,bu,grade,name)")
+    .select("user_id, entered_at")
     .eq("event_id", eventId)
     .order("entered_at", { ascending: true });
   if (error) throw error;
-  const list = ((data ?? []) as any[]).map((r) => {
-    const u = r.users ?? {};
+  const rows = (data ?? []) as any[];
+  // eventBoard와 같은 이유 — event_entries.user_id는 users.id를 참조하는 FK가 없어서
+  // (스키마상 text) PostgREST의 암묵적 임베드 users(...)가 통하지 않는다.
+  // 그대로 두면 "Could not find a relationship between 'event_entries' and 'users'"가 난다.
+  // users를 따로 조회해 메모리에서 맞춘다.
+  const userIds = [...new Set(rows.map((r) => r.user_id).filter(Boolean))];
+  const umap = new Map<string, any>();
+  if (userIds.length) {
+    const { data: users, error: uerr } = await db.from("users")
+      .select("id,type,gu,mok,bu,grade,name").in("id", userIds);
+    if (uerr) throw uerr;
+    (users ?? []).forEach((u: any) => umap.set(u.id, u));
+  }
+  // user_id는 돌려주지 않는다 — 이 API는 JWT가 없어 남의 user_id가 새면 그 사람 행세가 된다.
+  const list = rows.map((r) => {
+    const u = umap.get(r.user_id) ?? {};
     return {
       gubun: u.type ?? "",
       sosok: u.gu || u.bu || "",
