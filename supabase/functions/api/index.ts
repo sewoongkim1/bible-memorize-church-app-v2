@@ -2123,7 +2123,7 @@ function buildWeeklyHtml(
         ${chart("📅 일자별 참여 인원", dailyRows)}
         ${heading(weeklyTitle)}${weeklyLegend}
         <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:22px">${weeklyRows}</table>
-        <div style="font-size:13px;font-weight:800;color:#1a3a6b;margin:0 0 6px">🙌 참여자 전체 (${report.participants.length}명)</div>
+        <div style="font-size:13px;font-weight:800;color:#1a3a6b;margin:0 0 6px">🙌 참여자 전체 (${num(report.participants.length)}명)</div>
         <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #eef1f8;border-radius:8px;font-size:14px">
           ${rows}
         </table>

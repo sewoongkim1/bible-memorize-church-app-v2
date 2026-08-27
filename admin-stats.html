@@ -699,7 +699,7 @@ function renderPush(){
       if(data.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }
       r.className="msg err"; r.textContent="발송 실패: "+(data.error||"오류"); return;
     }
-    r.className="msg"; r.innerHTML=`✅ 발송 완료 — 성공 <b>${data.sent}</b> · 실패 ${data.failed} · 구독 ${data.total}명`;
+    r.className="msg"; r.innerHTML=`✅ 발송 완료 — 성공 <b>${nf(data.sent)}</b> · 실패 ${nf(data.failed)} · 구독 ${nf(data.total)}명`;
   });
 }
 
@@ -823,7 +823,7 @@ async function loadSubStat(el){
     if(!d||!d.ok){ el.textContent="🔔 구독자 수를 불러오지 못했습니다."; return; }
     const bh=d.byHour||{};
     const parts=Object.keys(bh).sort().map(h=>`${/^\d+$/.test(h)?h+"시":h} ${bh[h]}명`);
-    el.innerHTML=`🔔 현재 알림 구독 <b>${d.total}명</b>`+(parts.length?` <span class="ss-sub">(${parts.join(" · ")})</span>`:"");
+    el.innerHTML=`🔔 현재 알림 구독 <b>${nf(d.total)}명</b>`+(parts.length?` <span class="ss-sub">(${parts.join(" · ")})</span>`:"");
   }catch(_){ el.textContent="🔔 구독자 수를 불러오지 못했습니다."; }
 }
 
@@ -883,7 +883,7 @@ async function loadMonitor(){
     : `<div class="msg err" style="font-size:1.1em"><b>⚠️ 점검 필요</b> — 아래 문제를 확인하세요</div>`;
   const tp=d.todayPush;
   const pushLine = tp
-    ? `성공 <b>${tp.sent}</b> · 실패 ${tp.failed} · 대상 ${tp.total}명`
+    ? `성공 <b>${nf(tp.sent)}</b> · 실패 ${nf(tp.failed)} · 대상 ${nf(tp.total)}명`
     : `<span style="color:#c0392b">오늘 발송 기록 없음</span>`;
   const rows=[
     ["서버 시각", htmlEsc(d.serverTimeKST||"-")],
@@ -935,7 +935,7 @@ async function loadReportPreview(){
   if(!d.ok){ r.className="msg err"; r.textContent="불러오기 실패: "+(d.error||"오류"); return; }
   frame.style.display="block"; frame.srcdoc=d.html||"<p>내용 없음</p>";
   const s=(d.report&&d.report.summary)||{};
-  r.className="msg"; r.innerHTML=`기간 <b>${d.report.from} ~ ${d.report.to}</b> · 학습참여 ${s.learners||0}명 · 학습 ${s.learnTotal||0}회 · 신규 ${s.newUsers||0}명`;
+  r.className="msg"; r.innerHTML=`기간 <b>${d.report.from} ~ ${d.report.to}</b> · 학습참여 ${nf(s.learners)}명 · 학습 ${nf(s.learnTotal)}회 · 신규 ${nf(s.newUsers)}명`;
 }
 async function sendReportNow(){
   const r=document.getElementById("r-result");
@@ -2140,14 +2140,14 @@ async function loadDashboard(){
         <div class="dash-sub">오늘 ${today} · 이번 주 ${wk} ~ ${today}</div>
       </div>
       <div class="dash-grid">
-        <div class="dash-kpi k-people"><div class="k-head"><span class="ic">🙋</span><span class="l">오늘 참여자</span></div><div class="n">${ts.participants}</div></div>
-        <div class="dash-kpi k-people"><div class="k-head"><span class="ic">📅</span><span class="l">주간 참여자</span></div><div class="n">${ws.participants}</div></div>
-        <div class="dash-kpi k-people"><div class="k-head"><span class="ic">👥</span><span class="l">누적 참여자</span></div><div class="n">${as.participants}</div></div>
-        <div class="dash-kpi k-fire"><div class="k-head"><span class="ic">🔥</span><span class="l">오늘 도전</span></div><div class="n">${tc.count}</div></div>
-        <div class="dash-kpi k-study"><div class="k-head"><span class="ic">📖</span><span class="l">주간 활동</span></div><div class="n">${ws.total}</div></div>
-        <div class="dash-kpi k-fire"><div class="k-head"><span class="ic">🔥</span><span class="l">주간 도전</span></div><div class="n">${wc.count}</div></div>
-        <div class="dash-kpi k-study"><div class="k-head"><span class="ic">📖</span><span class="l">누적 활동</span></div><div class="n">${as.total}</div></div>
-        <div class="dash-kpi k-verse"><div class="k-head"><span class="ic">✝️</span><span class="l">주간 구절</span></div><div class="n">${weekVerses.list?weekVerses.list.length:0}</div></div>
+        <div class="dash-kpi k-people"><div class="k-head"><span class="ic">🙋</span><span class="l">오늘 참여자</span></div><div class="n">${nf(ts.participants)}</div></div>
+        <div class="dash-kpi k-people"><div class="k-head"><span class="ic">📅</span><span class="l">주간 참여자</span></div><div class="n">${nf(ws.participants)}</div></div>
+        <div class="dash-kpi k-people"><div class="k-head"><span class="ic">👥</span><span class="l">누적 참여자</span></div><div class="n">${nf(as.participants)}</div></div>
+        <div class="dash-kpi k-fire"><div class="k-head"><span class="ic">🔥</span><span class="l">오늘 도전</span></div><div class="n">${nf(tc.count)}</div></div>
+        <div class="dash-kpi k-study"><div class="k-head"><span class="ic">📖</span><span class="l">주간 활동</span></div><div class="n">${nf(ws.total)}</div></div>
+        <div class="dash-kpi k-fire"><div class="k-head"><span class="ic">🔥</span><span class="l">주간 도전</span></div><div class="n">${nf(wc.count)}</div></div>
+        <div class="dash-kpi k-study"><div class="k-head"><span class="ic">📖</span><span class="l">누적 활동</span></div><div class="n">${nf(as.total)}</div></div>
+        <div class="dash-kpi k-verse"><div class="k-head"><span class="ic">✝️</span><span class="l">주간 구절</span></div><div class="n">${nf(weekVerses.list?weekVerses.list.length:0)}</div></div>
       </div>
       <div class="dash-panels">
         <div class="dash-panel"><div class="h">이번 주 많이 참여한 말씀</div><div class="dash-list">${topVerseHtml}</div></div>
