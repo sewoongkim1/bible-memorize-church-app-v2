@@ -63,6 +63,11 @@
 ## 모니터링
 `.github/workflows/monitor.yml` — 매일 07:12 KST monitor 액션 점검, 문제 시 텔레그램 경보. weekly_test/diag_send/force_alert 수동 실행 입력 있음. push_log 기록.
 
+## 관리자 통계의 '카드' 열 (2026-08-27)
+「구분·소속별」·「개인별」 두 보고서에 **「그중 카드」** 열을 더했다. **카드는 타이핑의 부분집합**이라 타이핑횟수 안에 이미 들어 있다(그래서 화면에서도 옅게 쓴다 — `.sub-col`).
+⚠️ **`stats-rpc.sql`만 타이핑을 `mode like '%typing'`(뒤 와일드카드 없이)으로 세고 있었다.** 카드 기록은 `typing-card`·`learn-typing-card`라 **card로 끝나서** 타이핑에도 음성에도 안 들어갔다 — **타이핑 + 음성 ≠ 총횟수**가 되고 있었다. 순위(`v2_ranking`, `%typing%`)와 JS 폴백(`.includes("typing")`)은 제대로 세고 있었다. → `supabase/stats-rpc-card.sql`로 고친다(원본 정의를 읽어 두 곳만 바꾼 것이다 — 손으로 다시 쓰면 `is_new` 판정 같은 미묘한 데가 틀어진다).
+**「도전 현황」 보고서에는 안 넣었다** — 그건 순위(`v2_ranking`) 자료를 쓰는데 거기엔 card 열이 없다. 필요하면 그 RPC부터 고쳐야 한다.
+
 ## 첫 실행 속도 (2026-08-27)
 ⚠️ **글꼴 CSS는 절대 `rel="stylesheet"`로 두지 말 것.** 한글 웹폰트 넷을 부르면 구글이 돌려주는 CSS 하나가 **765KB**다(app.js 377KB + style.css 185KB보다 크다 — 한글은 조각이 597개, `@font-face`가 1,107개라 그렇다). 그걸 그대로 두면 **다 받을 때까지 스플래시조차 안 뜬다** — 처음 설치한 분이 느린 통신에서 흰 화면만 본다(테스터 제보로 발견).
 → `media="print" onload="this.media='all'"` 로 받아 두었다가 나중에 적용한다. `display=swap`이라 그전까지는 기기 기본 글꼴로 보이고 준비되면 바뀐다. `<noscript>` 폴백을 함께 둔다. `fonts.gstatic.com` **preconnect**도 필요하다(폰트 파일은 거기서 온다).

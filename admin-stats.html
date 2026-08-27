@@ -372,6 +372,8 @@
 .pl-cnt{font-size:13px;color:#5a6273;}
 .pl-cnt b{font-size:15px;color:#1a3a6b;}
 .pl-won{font-size:15px;font-weight:800;color:#7a5f16;}
+/* '그중 카드'는 타이핑 안에 든 수 — 옆 열보다 조용하게 */
+.sub-col{ color:#6a7688; font-size:.92em; }
 </style>
 </head>
 <body>
@@ -475,7 +477,7 @@ function renderMenu(){
         <div class="ic">📅</div>
         <div class="rep-text">
           <div class="ti">기간별 사용현황</div>
-          <div class="de">구분·소속별 신규/참여 인원과 타이핑·음성 횟수</div>
+          <div class="de">구분·소속별 신규/참여 인원과 타이핑·카드·음성 횟수</div>
         </div>
         <div class="rep-arrow">›</div>
       </div>
@@ -483,7 +485,7 @@ function renderMenu(){
         <div class="ic">👥</div>
         <div class="rep-text">
           <div class="ti">참여자 현황</div>
-          <div class="de">개인별 타이핑·음성·총횟수</div>
+          <div class="de">개인별 타이핑·카드·음성·총횟수</div>
         </div>
         <div class="rep-arrow">›</div>
       </div>
@@ -2241,8 +2243,8 @@ async function runUsage(){
   if(!list.length){ result.innerHTML=`<div class="msg">해당 기간에 기록이 없습니다.</div>`; return; }
 
   const sum=list.reduce((a,r)=>({newCount:a.newCount+r.newCount,participants:a.participants+r.participants,
-    typing:a.typing+r.typing,voice:a.voice+r.voice,total:a.total+r.total}),
-    {newCount:0,participants:0,typing:0,voice:0,total:0});
+    typing:a.typing+r.typing,voice:a.voice+r.voice,card:a.card+(r.card||0),total:a.total+r.total}),
+    {newCount:0,participants:0,typing:0,voice:0,card:0,total:0});
 
   const rangeTxt = (from||to) ? `${from||"처음"} ~ ${to||"오늘"}` : "전체 기간";
 
@@ -2253,6 +2255,7 @@ async function runUsage(){
       <td>${r.newCount}</td>
       <td>${r.participants}</td>
       <td>${r.typing}</td>
+      <td class="sub-col">${r.card||0}</td>
       <td>${r.voice}</td>
       <td><b>${r.total}</b></td>
     </tr>`).join("");
@@ -2262,6 +2265,7 @@ async function runUsage(){
       <div class="kpi"><div class="n">${sum.participants}</div><div class="l">참여인원(합)</div></div>
       <div class="kpi"><div class="n">${sum.newCount}</div><div class="l">신규인원(합)</div></div>
       <div class="kpi"><div class="n">${sum.typing}</div><div class="l">타이핑</div></div>
+      <div class="kpi"><div class="n">${sum.card||0}</div><div class="l">그중 카드</div></div>
       <div class="kpi"><div class="n">${sum.voice}</div><div class="l">음성</div></div>
       <div class="kpi"><div class="n">${sum.total}</div><div class="l">총횟수</div></div>
     </div>
@@ -2273,22 +2277,22 @@ async function runUsage(){
       <table>
         <thead><tr>
           <th class="l">구분</th><th class="l">교구/교회학교</th>
-          <th>신규인원</th><th>참여인원</th><th>타이핑횟수</th><th>음성횟수</th><th>총횟수</th>
+          <th>신규인원</th><th>참여인원</th><th>타이핑횟수</th><th class="sub-col">그중 카드</th><th>음성횟수</th><th>총횟수</th>
         </tr></thead>
         <tbody>${rows}</tbody>
         <tfoot><tr>
           <td class="l">합계</td><td></td>
           <td>${sum.newCount}</td><td>${sum.participants}</td>
-          <td>${sum.typing}</td><td>${sum.voice}</td><td>${sum.total}</td>
+          <td>${sum.typing}</td><td class="sub-col">${sum.card}</td><td>${sum.voice}</td><td>${sum.total}</td>
         </tr></tfoot>
       </table>
     </div>`;
   attachCsvButton(
     "download-usage",
     `성경암송_기간별사용현황_${rangeForName(from,to)}_${fileDate()}.csv`,
-    ["구분","교구/교회학교","신규인원","참여인원","타이핑횟수","음성횟수","총횟수"],
-    list.map(r=>[r.gubun,r.sosok||"",r.newCount,r.participants,r.typing,r.voice,r.total])
-      .concat([["합계","",sum.newCount,sum.participants,sum.typing,sum.voice,sum.total]])
+    ["구분","교구/교회학교","신규인원","참여인원","타이핑횟수","그중 카드","음성횟수","총횟수"],
+    list.map(r=>[r.gubun,r.sosok||"",r.newCount,r.participants,r.typing,r.card||0,r.voice,r.total])
+      .concat([["합계","",sum.newCount,sum.participants,sum.typing,sum.card,sum.voice,sum.total]])
   );
 }
 
@@ -2376,7 +2380,7 @@ async function runParticipants(){
   let list=data.list||[];
   if(selSosok.length) list=list.filter(r=>selSosok.includes(r.sosok));
   if(!list.length){result.innerHTML=`<div class="msg">해당 조건에 참여자가 없습니다.</div>`;return;}
-  const sum=list.reduce((a,r)=>({typing:a.typing+r.typing,voice:a.voice+r.voice,total:a.total+r.total}),{typing:0,voice:0,total:0});
+  const sum=list.reduce((a,r)=>({typing:a.typing+r.typing,voice:a.voice+r.voice,card:a.card+(r.card||0),total:a.total+r.total}),{typing:0,voice:0,card:0,total:0});
   const rangeTxt=(from||to)?`${from||"처음"} ~ ${to||"오늘"}`:"전체 기간";
   const rows=list.map((r,i)=>`
     <tr>
@@ -2386,6 +2390,7 @@ async function runParticipants(){
       <td>${r.sebu||"-"}</td>
       <td class="l">${r.name||"-"}</td>
       <td>${r.typing}</td>
+      <td class="sub-col">${r.card||0}</td>
       <td>${r.voice}</td>
       <td><b>${r.total}</b></td>
     </tr>`).join("");
@@ -2393,6 +2398,7 @@ async function runParticipants(){
     <div class="summary-row">
       <div class="kpi"><div class="n">${list.length}</div><div class="l">참여자 수</div></div>
       <div class="kpi"><div class="n">${sum.typing}</div><div class="l">타이핑</div></div>
+      <div class="kpi"><div class="n">${sum.card||0}</div><div class="l">그중 카드</div></div>
       <div class="kpi"><div class="n">${sum.voice}</div><div class="l">음성</div></div>
       <div class="kpi"><div class="n">${sum.total}</div><div class="l">총횟수</div></div>
     </div>
@@ -2403,20 +2409,20 @@ async function runParticipants(){
     <div class="table-wrap"><table>
       <thead><tr>
         <th>#</th><th class="l">구분</th><th class="l">교구/교회학교</th><th>목장/학년</th>
-        <th class="l">성명</th><th>타이핑횟수</th><th>음성횟수</th><th>총횟수</th>
+        <th class="l">성명</th><th>타이핑횟수</th><th class="sub-col">그중 카드</th><th>음성횟수</th><th>총횟수</th>
       </tr></thead>
       <tbody>${rows}</tbody>
       <tfoot><tr>
         <td></td><td class="l">합계</td><td></td><td></td><td></td>
-        <td>${sum.typing}</td><td>${sum.voice}</td><td>${sum.total}</td>
+        <td>${sum.typing}</td><td class="sub-col">${sum.card}</td><td>${sum.voice}</td><td>${sum.total}</td>
       </tr></tfoot>
     </table></div>`;
   attachCsvButton(
     "download-participants",
     `성경암송_참여자현황_${rangeForName(from,to)}_${fileDate()}.csv`,
-    ["번호","구분","교구/교회학교","목장/학년","성명","타이핑횟수","음성횟수","총횟수"],
-    list.map((r,i)=>[i+1,r.gubun,r.sosok||"",r.sebu||"",r.name||"",r.typing,r.voice,r.total])
-      .concat([["","합계","","","",sum.typing,sum.voice,sum.total]])
+    ["번호","구분","교구/교회학교","목장/학년","성명","타이핑횟수","그중 카드","음성횟수","총횟수"],
+    list.map((r,i)=>[i+1,r.gubun,r.sosok||"",r.sebu||"",r.name||"",r.typing,r.card||0,r.voice,r.total])
+      .concat([["","합계","","","",sum.typing,sum.card,sum.voice,sum.total]])
   );
 }
 

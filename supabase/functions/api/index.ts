@@ -1734,7 +1734,7 @@ async function stats(b: any) {
     const { data, error } = await db.rpc("v2_stats", { p_from: b.from || "", p_to: b.to || "" });
     if (error) throw error;
     const list = ((data ?? []) as any[])
-      .map((r) => ({ gubun: r.gubun, sosok: r.sosok, newCount: r.new_count, participants: r.participants, typing: r.typing, voice: r.voice, total: r.total }))
+      .map((r) => ({ gubun: r.gubun, sosok: r.sosok, newCount: r.new_count, participants: r.participants, typing: r.typing, voice: r.voice, card: r.card ?? 0, total: r.total }))
       .sort((a, b) => (a.gubun === b.gubun ? String(a.sosok).localeCompare(b.sosok) : String(a.gubun).localeCompare(b.gubun)));
     return { ok: true, list };
   } catch (_) { /* RPC 미설치 → 폴백 */ }
@@ -1751,9 +1751,10 @@ async function statsSlow(b: any) {
     const u = row.users ?? {};
     const gubun = u.type, sosok = u.gu || u.bu || "";
     const key = gubun + "|" + sosok;
-    const e = g.get(key) ?? { gubun, sosok, newCount: 0, participants: 0, typing: 0, voice: 0, total: 0 };
+    const e = g.get(key) ?? { gubun, sosok, newCount: 0, participants: 0, typing: 0, voice: 0, card: 0, total: 0 };
     e.total++;
     if (String(row.mode).includes("typing")) e.typing++;
+    if (String(row.mode).endsWith("card")) e.card++;   // 카드는 타이핑 안에 든 수
     if (String(row.mode).includes("voice")) e.voice++;
     g.set(key, e);
     if (!seen.has(key)) seen.set(key, new Set());
@@ -1768,7 +1769,7 @@ async function statsSlow(b: any) {
   const { data: newUsers } = await uq;
   for (const u of (newUsers ?? []) as any[]) {
     const key = u.type + "|" + (u.gu || u.bu || "");
-    const e = g.get(key) ?? { gubun: u.type, sosok: u.gu || u.bu || "", newCount: 0, participants: 0, typing: 0, voice: 0, total: 0 };
+    const e = g.get(key) ?? { gubun: u.type, sosok: u.gu || u.bu || "", newCount: 0, participants: 0, typing: 0, voice: 0, card: 0, total: 0 };
     e.newCount++;
     g.set(key, e);
   }
@@ -1784,7 +1785,7 @@ async function participants(b: any) {
   try {
     const { data, error } = await db.rpc("v2_participants", { p_from: b.from || "", p_to: b.to || "", p_gubun: b.gubun || "" });
     if (error) throw error;
-    const list = ((data ?? []) as any[]).map((r) => ({ gubun: r.gubun, sosok: r.sosok, sebu: r.sebu, name: r.name, typing: r.typing, voice: r.voice, total: r.total, days: r.days, isNew: r.is_new }));
+    const list = ((data ?? []) as any[]).map((r) => ({ gubun: r.gubun, sosok: r.sosok, sebu: r.sebu, name: r.name, typing: r.typing, voice: r.voice, card: r.card ?? 0, total: r.total, days: r.days, isNew: r.is_new }));
     return { ok: true, list };
   } catch (_) { /* 폴백 */ }
   return await participantsSlow(b);
@@ -1799,10 +1800,11 @@ async function participantsSlow(b: any) {
     const u = row.users ?? {};
     const e = map.get(row.user_id) ?? {
       gubun: u.type, sosok: u.gu || u.bu || "", sebu: u.mok || u.grade || "",
-      name: u.name, typing: 0, voice: 0, total: 0,
+      name: u.name, typing: 0, voice: 0, card: 0, total: 0,
     };
     e.total++;
     if (String(row.mode).includes("typing")) e.typing++;
+    if (String(row.mode).endsWith("card")) e.card++;   // 카드는 타이핑 안에 든 수
     if (String(row.mode).includes("voice")) e.voice++;
     map.set(row.user_id, e);
   }
