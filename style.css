@@ -466,6 +466,13 @@ h1 {
   display: block; width: 100%; max-width: 420px;
   margin: 0 auto; border-radius: 10px;
 }
+/* 화풍 비교 단추 — VERSE_IMG_MORE가 있는 구절(2026-08-28 기준 1번만)에만 뜬다. */
+.help-slot .help-img-next {
+  display: block; margin: 10px auto 0; padding: 7px 14px;
+  background: #fff; border: 1px solid var(--gold); border-radius: 20px;
+  font-size: .85rem; color: #3a3323; cursor: pointer;
+}
+.dark .help-slot .help-img-next { background: #2a2617; border-color: #4a4227; color: #e4dcc4; }
 
 /* 새 버전 알림 배너(화면 하단 고정) */
 #update-banner {

@@ -3538,6 +3538,15 @@ const VERSE_IMG = {
   34: "새벽빛이 든 들길이 언덕 너머로 곧게 이어진 풍경",
 };
 
+// 화풍 비교용 — 1번 구절에만 있다(2026-08-28, 수채·먹선 외에 구아슈·색연필 화풍도
+// 시험해 보려고 둠). 다른 33장은 이 표에 없으니 기존과 똑같이 그림 한 장만 뜬다.
+const VERSE_IMG_MORE = {
+  1: [
+    { file: "1b", alt: "구아슈·색연필 화풍 — 어두운 숲 돌계단 아래, 등불이 놓인 넓은 장면" },
+    { file: "1c", alt: "구아슈·색연필 화풍 — 유리 등피가 있는 기름등이 돌길을 밝히는 가까운 장면" },
+  ],
+};
+
 // 암송 도우미 — '쉬운 풀이'(구절 뜻을 쉬운 말로) · '기억법'(외우는 요령).
 //   말씀 아카이브에 설교 등록 시 미리 생성돼 sermons에 저장된 내용을 읽어와,
 //   암송 화면에서 접었다 펴는 형태로 보여준다(필요할 때만 펴니 화면을 차지하지 않음).
@@ -3587,16 +3596,36 @@ function fillVerseHelp(verse, opts) {
         if (item.k === "img") {
           // 탭을 누른 지금에야 받는다 — 화면에 들어올 때 미리 받으면 첫 실행이
           // 무거워진다(글꼴 CSS 765KB 사건과 같은 길, 2026-08-27).
+          // VERSE_IMG_MORE가 없는 33장은 imgs.length===1이라 예전과 똑같이 한 장만 뜬다.
+          const imgs = [{ file: String(verse.no), alt: VERSE_IMG[verse.no] },
+                        ...(VERSE_IMG_MORE[verse.no] || [])];
+          let idx = 0;
           const img = document.createElement("img");
           img.className = "help-img";
-          img.alt = VERSE_IMG[verse.no];
-          img.src = `img/verse/${verse.no}.webp?v=${APP_BUILD}`;
+          const showImg = () => {
+            img.alt = imgs[idx].alt;
+            img.src = `img/verse/${imgs[idx].file}.webp?v=${APP_BUILD}`;
+          };
           img.addEventListener("error", () => {
             const msg = document.createElement("div");
             msg.textContent = "그림을 불러오지 못했어요.";
             img.replaceWith(msg);
           });
+          showImg();
           body.appendChild(img);
+          if (imgs.length > 1) {
+            const nav = document.createElement("button");
+            nav.type = "button";
+            nav.className = "help-img-next";
+            const label = () => { nav.textContent = `🔄 다른 화풍 보기 (${idx + 1}/${imgs.length})`; };
+            label();
+            nav.addEventListener("click", () => {
+              idx = (idx + 1) % imgs.length;
+              showImg();
+              label();
+            });
+            body.appendChild(nav);
+          }
           body.hidden = false;
           return;
         }

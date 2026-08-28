@@ -3,6 +3,41 @@
 설계: `docs/superpowers/specs/2026-08-28-verse-image-design.md`
 모델: `nano_banana_pro` · 4:3 · 원본 2400×1792 PNG → 긴 변 1080px WebP(품질 78)
 
+## 화풍 비교 실험 — 1번 구절 (2026-08-28)
+
+34장을 다 채운 뒤 「수채·먹선 말고 다른 화풍도 보고 싶다」는 요청으로,
+1번(시 119:105, 등불) 하나에만 **구아슈·색연필 화풍**을 두 장 더 만들어
+`app.js`의 `VERSE_IMG_MORE`에 얹었다. 다른 33장은 이 표에 없어 그림이
+그대로 한 장이다 — `fillVerseHelp`의 img 갈래가 `imgs.length > 1`일 때만
+「🔄 다른 화풍 보기」 단추를 붙인다.
+
+파일: `img/verse/1b.webp`(넓은 장면) · `1c.webp`(등불 클로즈업).
+화풍 문구:
+```
+Soft gouache and colored pencil illustration, rich saturated warm tones,
+visible pencil grain and soft matte texture, slightly more solid and
+painterly than watercolor, cream paper background, generous white space,
+gentle and reverent mood. The illustration is painted directly onto the
+plain cream page with no border, no frame, no rectangle outline, no card,
+no drop shadow around the edges — the dark night sky and foliage fade
+softly into the bare cream paper at the edges.
+No people, no human figures, no buildings, no text, no lettering,
+no letters or writing of any kind, no signature.
+```
+심상 문구는 1번과 같다: `A single small oil lamp glowing on a stone path
+at night, its warm light illuminating only a few steps ahead into the
+darkness.`
+
+⚠️ **첫 시도에서 8·10·15·23번과 같은 액자화가 다시 났다** — 어두운 배경의
+단순한 소재(이번엔 밤 장면)에서 유독 잘 생긴다. `painted directly onto the
+plain cream page with no border... fade softly into the bare cream paper`
+문구를 더해서야 잡혔다. **밤·어둠이 배경인 장면은 처음부터 이 문구를
+넣고 시작할 것** — 8·10·15·23·1(구아슈) 다섯 번 다 겪고 나서야 패턴이
+보였다.
+
+**아직 34장 본편에는 반영하지 않았다** — 비교해 보시고 마음에 들면
+어느 구절부터 구아슈로 바꿀지, 아니면 1번만 두 화풍을 남겨 둘지 정한다.
+
 ## 화풍 (34장 공통 — 한 글자도 바꾸지 않는다)
 
 ```
