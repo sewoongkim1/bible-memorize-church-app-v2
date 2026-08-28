@@ -38,6 +38,7 @@ CLI에는 `projects list`만 있어 **만들기·지우기는 대시보드**에�
 - 2026-08-27 `pilsa_admin_notify.sql` — `app_config.value` not null 위반. 스키마가 아니라 사람 등록이어서 **돌리지 않는다**(2절).
   그 파일은 모두 못 찾았을 때 사람이 읽을 수 있게 멈추도록 고쳤다(운영에서도 이름 오타 한 번이면 같은 오류가 난다).
 - 2026-08-27 `daily_meditations.sql` · `verse_help.sql` — `public.sermons`를 고친다. **돌리지 않는다**(2절).
+- 2026-08-27 `cron_last_run_rpc.sql` — `cron.job_run_details` 없음. pg_cron을 안 켜둔 것이 의도다. **돌리지 않는다**(2절).
 
 ### ① 뼈대
 ```
@@ -77,7 +78,6 @@ event_entries.sql       말씀 이벤트 응모
 daily-activity.sql      집계표 + challenge_log 트리거 (순위·mydays가 이걸 읽는다)
 stats-rpc.sql           v2_stats · v2_participants
 stats-rpc-card.sql      위 둘의 '카드' 열 보정 — stats-rpc.sql 뒤에 와야 한다
-cron_last_run_rpc.sql   monitor가 cron 실행 기록을 볼 수 있게
 ```
 
 ### ⑤ 보안 — 반드시 마지막에
@@ -94,6 +94,18 @@ security_close_public_views.sql   익명 키로 새던 뷰·표를 닫는다
 push_cron.sql · push_cron_hourly.sql · weekly_verse_push_cron.sql · weekly_report.sql
 ```
 개발 프로젝트에서 이걸 켜면 **알림과 메일이 실제로 나간다.** 켜지 않는다.
+
+```
+cron_last_run_rpc.sql
+```
+`cron.job_run_details`를 읽는데 그건 **pg_cron 확장이 켜져 있어야** 생긴다.
+
+> ⚠️ **개발에는 pg_cron을 일부러 켜지 않는다.** 확장이 없으면 위 cron 넷을
+> 실수로 돌려도 **그 자리에서 소리내며 실패한다.** 켜 두면 조용히 잡이고
+> 언젠가 실제로 발송된다. **없는 것이 안전장치다** — 시크릿을 빼 것과 같은 이치다.
+>
+> 대가로 개발의 `monitor`는 「주간 리포트 메일 실행 기록을 찾을 수 없습니다」를
+> 항상 말한다. 개발에는 정말로 cron이 없으니 맞는 말이다(호출은 try로 감싸 있어 멈추지는 않는다).
 
 ### 한 번 쓰고 끝난 데이터 수정
 ```
