@@ -3496,6 +3496,19 @@ function setupHeartCheck(verse, sfx, silent) {
   });
 }
 
+// 말씀 연상 그림 — 구절 번호 → 그림 설명(= alt 텍스트).
+//   키가 있으면 img/verse/<번호>.webp 가 있다는 뜻이라 파일 목록을 따로 두지 않는다.
+//   값은 화면 낭독기가 읽고, 그림을 못 불러올 때 대신 보인다. 그래서 프롬프트가 아니라
+//   실제로 그려진 그림을 보고 적는다(30번은 '덮어 둔 편지'를 시켰지만 빈 편지지가 나왔다).
+//   그림을 새로 넣으면 여기 한 줄을 더한다. 화풍·프롬프트는 img/verse/prompts.md.
+const VERSE_IMG = {
+  30: "펼쳐진 빈 편지지와 그 옆에 김이 오르는 찻잔 둘",
+  31: "가느다란 나뭇가지에 앉은 참새 한 마리",
+  32: "겉껍질이 갈라져 속의 붉은 씨가 드러난 석류 한 알",
+  33: "새벽 호숫가에 놓인 빈 나무 의자",
+  34: "새벽빛이 든 들길이 언덕 너머로 곧게 이어진 풍경",
+};
+
 // 암송 도우미 — '쉬운 풀이'(구절 뜻을 쉬운 말로) · '기억법'(외우는 요령).
 //   말씀 아카이브에 설교 등록 시 미리 생성돼 sermons에 저장된 내용을 읽어와,
 //   암송 화면에서 접었다 펴는 형태로 보여준다(필요할 때만 펴니 화면을 차지하지 않음).
@@ -3516,6 +3529,11 @@ function fillVerseHelp(verse, opts) {
         ? { k: "ko", label: "🇰🇷 한글", text: verse.text }
         : { k: "en", label: "🌐 영어", text: verse.textEn });
     }
+    // 🖼️ 그림 — 말씀을 장면으로 붙잡게 하는 도우미. 글자가 없어 언어와 무관하다.
+    //   그림이 있는 구절만 탭이 뜬다(풀이가 없으면 풀이 탭이 없는 것과 같은 규칙).
+    //   ⚠️ 아래 items.length 검사보다 먼저다 — 뒤에 두면 설교 도우미가 없는 구절에서
+    //      함수가 먼저 빠져나가 그림 탭까지 함께 사라진다.
+    if (VERSE_IMG[verse.no]) items.push({ k: "img", label: "🖼️ 그림" });
     if (!items.length) return;
 
     el.innerHTML = `
@@ -3533,9 +3551,26 @@ function fillVerseHelp(verse, opts) {
         btn.classList.add("on");
         // '도움 받음'은 도전 화면에서만 센다 — 이 함수는 암송·복습 화면도 함께 쓰므로,
         // 거기서 연 기억법까지 세면 엉뚱한 구절이 '다시 암송' 대상이 된다.
+        //   🖼️ 그림도 세지 않는다 — 답을 알려 주지 않고 뜻을 떠올리게 할 뿐이다(💡 풀이와 같은 쪽).
         if (btn.dataset.k === "tip" && opts && opts.forChallenge) challengeUsedHelp = true;
         const item = items.find((i) => i.k === btn.dataset.k) || {};
         body.innerHTML = "";
+        if (item.k === "img") {
+          // 탭을 누른 지금에야 받는다 — 화면에 들어올 때 미리 받으면 첫 실행이
+          // 무거워진다(글꼴 CSS 765KB 사건과 같은 길, 2026-08-27).
+          const img = document.createElement("img");
+          img.className = "help-img";
+          img.alt = VERSE_IMG[verse.no];
+          img.src = `img/verse/${verse.no}.webp?v=${APP_BUILD}`;
+          img.addEventListener("error", () => {
+            const msg = document.createElement("div");
+            msg.textContent = "그림을 불러오지 못했어요.";
+            img.replaceWith(msg);
+          });
+          body.appendChild(img);
+          body.hidden = false;
+          return;
+        }
         const textEl = document.createElement("div");
         textEl.textContent = item.text || "";
         body.appendChild(textEl);
