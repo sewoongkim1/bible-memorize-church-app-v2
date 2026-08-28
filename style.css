@@ -1189,13 +1189,10 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 /* 알림·공유 강조 아이콘(참여 독려) */
 .summary-icon.icon-alarm { background: #fff4dc; border-color: #ecd39a; color: #9a7614; }
 .summary-icon.icon-share { background: #e8f0fb; border-color: #c3d5ef; color: var(--navy); }
-.summary-icon.icon-install { background: #e7f6ee; border-color: #bfe3cf; color: #1f7a4d; }
 .summary-icon.icon-alarm:hover { background: #ffeec4; }
 .summary-icon.icon-share:hover { background: #dbe7f8; }
-.summary-icon.icon-install:hover { background: #d8efe1; }
 .dark .summary-icon.icon-alarm { background: #3a3320; border-color: #5a4e2a; color: #eccf87; }
 .dark .summary-icon.icon-share { background: #22314c; border-color: #35507a; color: #bcd2f2; }
-.dark .summary-icon.icon-install { background: #1f3a2c; border-color: #2f5a42; color: #8fd6ab; }
 /* 아직 알림 안 켠 사람에게만 은은한 강조 */
 .summary-icon.pulse { animation: bellPulse 2.2s ease-in-out infinite; }
 @keyframes bellPulse {

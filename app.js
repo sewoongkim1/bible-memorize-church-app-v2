@@ -1738,7 +1738,7 @@ function renderSummary() {
     <div class="summary-icons summary-icons-bottom">
       <button class="summary-icon icon-alarm" id="open-alarm" aria-label="매일 암송 알림 받기" title="매일 암송 알림 받기">🔔</button>
       <button class="summary-icon icon-share" id="open-share" aria-label="공유하기" title="함께할 친구에게 공유하기">🔗</button>
-      <button class="summary-icon icon-install" id="open-install" aria-label="바로가기(홈 화면에 추가)" title="홈 화면에 바로가기 추가">📲</button>
+      <button class="summary-icon" id="toggle-card-input" aria-label="암송 입력 방법 전환" title="암송 입력 방법 전환">⌨️</button>
       <button class="summary-icon" id="open-help-summary" aria-label="도움말" title="도움말">❓</button>
       <button class="summary-icon" id="open-settings" aria-label="설정" title="설정">⚙️</button>
     </div>
@@ -1773,10 +1773,10 @@ function renderSummary() {
   document.getElementById("open-settings").addEventListener("click", renderSettings);
   document.getElementById("open-share").addEventListener("click", shareApp);
   document.getElementById("open-alarm").addEventListener("click", alarmFromHome);
-  document.getElementById("open-install").addEventListener("click", installToHome);
-  // 이미 설치(홈 화면 앱)된 경우 바로가기 아이콘 숨김
-  const standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true;
-  if (standalone) { const ib = document.getElementById("open-install"); if (ib) ib.hidden = true; }
+  // 📲 바로가기 자리를 대신한 암송 입력 방법(쓰기/카드) 전환 — 설정 화면의
+  // cardstart-row와 같은 상태(CARD_START_KEY)를 쓴다. 눌러야 데이터가 나가는
+  // 것도 아니고 화면 전환도 없어 아이콘 한 칸으로 충분하다.
+  setupCardToggleIcon();
   // 아직 알림을 안 켠 사람: 종 아이콘만 강조한다.
   // (상단 '알림 켜기' 배너는 홈 화면 정리로 숨김 — showPushNudge 코드는 유지)
   (async () => {
@@ -2623,6 +2623,28 @@ function setupCardStart() {
       setCardMode(on);   // 지금 켠 것이 다음 구절부터가 아니라 바로 먹히게
       sync(on);
     });
+  });
+}
+
+// 첫 화면 아이콘 줄의 암송 입력 방법 전환 — 위 setupCardStart와 같은 상태
+// (CARD_START_KEY)를 쓰지만, 아이콘 한 칸에 넣어야 해서 버튼 두 개가 아니라
+// 하나를 눌러 상태가 넘어가는 모양으로 짰다. 쓰기(⌨️)면 눌러서 카드(👆)로,
+// 카드면 눌러서 쓰기로.
+function setupCardToggleIcon() {
+  const btn = document.getElementById("toggle-card-input");
+  if (!btn) return;
+  const paint = (on) => {
+    btn.textContent = on ? "👆" : "⌨️";
+    const label = on ? "지금 카드 — 눌러서 쓰기로" : "지금 쓰기 — 눌러서 카드로";
+    btn.setAttribute("aria-label", label);
+    btn.title = label;
+  };
+  paint(isCardStart());
+  btn.addEventListener("click", () => {
+    const on = !isCardStart();
+    setCardStart(on);
+    setCardMode(on);   // 설정 화면과 마찬가지로 지금 구절부터 바로 먹힌다
+    paint(on);
   });
 }
 
