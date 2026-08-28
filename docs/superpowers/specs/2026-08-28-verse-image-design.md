@@ -48,12 +48,13 @@ if (VERSE_IMG[verse.no]) items.push({ k: "img", label: "🖼️ 그림" });
 ```
 Soft watercolor painting with delicate ink linework, warm muted earth tones,
 cream paper background, generous white space, gentle and reverent mood.
-No people, no faces, no buildings, no text, no lettering,
+No people, no human figures, no buildings, no text, no lettering,
 no letters or writing of any kind.
 ```
 
 - **사람은 어떤 구절에도 넣지 않는다.** 동물·사물은 구절이 직접 지목할 때만
-  (31번 참새처럼).
+  (31번 참새처럼). ⚠️ 그래서 금지 문구는 `no faces`가 아니라 **`no human figures`**다 —
+  `no faces`로 적으면 참새 얼굴까지 걸려 새가 뒷모습으로만 나온다.
 - ⚠️ **글자 금지를 프롬프트에서 빼지 말 것.** AI는 한글을 못 쓴다.
   어설픈 글자가 들어가면 *성경 구절을 틀리게 적은 그림*이 되어 버린다.
 - 구절마다 **심상 하나만.** 여럿을 욱여넣으면 무엇을 떠올리라는 건지 흐려진다.
