@@ -1736,11 +1736,11 @@ function renderSummary() {
     <button class="summary-help sermon-cta" id="open-sermon-archive">📺 고척교회 설교 아카이브</button>
     <div id="event-slot-bottom"></div>
     <div class="summary-icons summary-icons-bottom">
-      <button class="summary-icon icon-alarm" id="open-alarm" aria-label="매일 암송 알림 받기" title="매일 암송 알림 받기">🔔</button>
-      <button class="summary-icon icon-share" id="open-share" aria-label="공유하기" title="함께할 친구에게 공유하기">🔗</button>
-      <button class="summary-icon" id="toggle-card-input" aria-label="암송 입력 방법 전환" title="암송 입력 방법 전환">⌨️</button>
-      <button class="summary-icon" id="open-help-summary" aria-label="도움말" title="도움말">❓</button>
-      <button class="summary-icon" id="open-settings" aria-label="설정" title="설정">⚙️</button>
+      <div class="icon-cap"><button class="summary-icon icon-alarm" id="open-alarm" aria-label="매일 암송 알림 받기" title="매일 암송 알림 받기">🔔</button><span class="icon-cap-label">알림</span></div>
+      <div class="icon-cap"><button class="summary-icon icon-share" id="open-share" aria-label="공유하기" title="함께할 친구에게 공유하기">🔗</button><span class="icon-cap-label">공유</span></div>
+      <div class="icon-cap"><button class="summary-icon" id="toggle-card-input" aria-label="암송 입력 방법 전환" title="암송 입력 방법 전환">⌨️</button><span class="icon-cap-label" id="toggle-card-input-label">쓰기</span></div>
+      <div class="icon-cap"><button class="summary-icon" id="open-help-summary" aria-label="도움말" title="도움말">❓</button><span class="icon-cap-label">도움말</span></div>
+      <div class="icon-cap"><button class="summary-icon" id="open-settings" aria-label="설정" title="설정">⚙️</button><span class="icon-cap-label">설정</span></div>
     </div>
   </div>
 </div>
@@ -2633,11 +2633,13 @@ function setupCardStart() {
 function setupCardToggleIcon() {
   const btn = document.getElementById("toggle-card-input");
   if (!btn) return;
+  const capLabel = document.getElementById("toggle-card-input-label");
   const paint = (on) => {
     btn.textContent = on ? "👆" : "⌨️";
     const label = on ? "지금 카드 — 눌러서 쓰기로" : "지금 쓰기 — 눌러서 카드로";
     btn.setAttribute("aria-label", label);
     btn.title = label;
+    if (capLabel) capLabel.textContent = on ? "카드" : "쓰기"; // 아이콘 밑 상시 캡션도 같이
   };
   paint(isCardStart());
   btn.addEventListener("click", () => {

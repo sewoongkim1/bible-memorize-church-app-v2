@@ -1186,6 +1186,14 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 .summary-icons-bottom {
   margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); gap: 10px;
 }
+/* 아이콘 밑 상시 캡션 — title 속성은 폰 터치에서 거의 안 뜨므로(hover 전용),
+   어르신도 누르기 전에 뜻을 알 수 있게 글자를 늘 보여준다. */
+.icon-cap {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.icon-cap-label {
+  font-size: 11px; line-height: 1; color: var(--gray); white-space: nowrap;
+}
 /* 알림·공유 강조 아이콘(참여 독려) */
 .summary-icon.icon-alarm { background: #fff4dc; border-color: #ecd39a; color: #9a7614; }
 .summary-icon.icon-share { background: #e8f0fb; border-color: #c3d5ef; color: var(--navy); }
