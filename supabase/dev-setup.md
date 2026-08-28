@@ -204,14 +204,37 @@ gocheok.onlybible.kr  →  운영
 
 ---
 
-## 5. 다 됐는지 확인하는 법
+## 5. 다 됐는지 확인하는 법 — ✅ 2026-08-27 통과
 
-개발 프로젝트 주소로 앱을 띄우고
+개발 API를 실제로 두드려 확인한 결과다. 다음에 다시 세울 때도 이 넷을 보면 된다.
 
-1. 가짜 이름으로 로그인이 되는가 (`users`에 행이 생기는가)
-2. 한 구절을 3단계까지 마쳐 `progress` · `challenge_log` · `daily_activity` 셋이 함께 늘어나는가
-   — 셋이 안 맞으면 `daily-activity.sql`의 트리거가 안 걸린 것이다
-3. 관리자 통계에서 **타이핑 + 음성 = 총횟수** 인가
-   — 안 맞으면 `stats-rpc-card.sql`을 안 돌린 것이다
-4. 공개 키로 `GET /rest/v1/v_ranking_all?select=*&limit=1` 이 **막히는가**
-   — 열려 있으면 `security_close_public_views.sql`을 안 돌린 것이다
+| 보는 것 | 어떻게 | 2026-08-27 결과 |
+|---|---|---|
+| 말씀이 들어왔나 | `getVerses` | ✅ 구절 응답 |
+| 로그인이 되나 | `login`(가짜 사람) | ✅ `users`에 행 생김 |
+| 암송·도전이 쌓나 | `saveProgress` 3 + `challenge` 2 | ✅ `todayCount` 1→5 |
+| **집계표가 로그와 맞나** | `monitor` → `v2_activity_drift` | ✅ 로그 5 = 집계 5 — **트리거 동작** |
+| 순위가 집계를 읽나 | `ranking` | ✅ count 2 · typing 2 · liveNow |
+| 통계 숫자가 맞나 | `stats`(관리자) | ✅ 타이핑 2 + 음성 1 = 총 3 |
+| 카드가 구분되나 | `stats`의 card 열 | ✅ 1 — `migrate_modes_card` · `stats-rpc-card` 들어감 |
+| 공개 키로 새는 게 없나 | REST 10개 직접 조회 | ✅ 전부 막힘 |
+
+⚠️ `ranking`은 **도전만** 센다. `saveProgress`(학습 `learn-*`)만 넣고 0이 나오면
+고장이 아니다 — `challenge`를 한 번 넣고 다시 보면 된다.
+
+⚠️ REST 검사에서 **빈 표는 증거가 약하다**(막힌 것인지 원래 빈 것인지 구분이 안 된다).
+위에서는 `users`·`progress`·`challenge_log`에 **자료가 있는 상태로** `[]`가 나왔기 때문에
+RLS가 일하고 있다는 게 증명된다. 두 뷰는 `permission denied`라 더 분명하다.
+
+### 지금 개발 DB에 들어 있는 것
+가짜 사람 한 명(홍길동 · 사랑 1목장)과 그분의 기록 5건. 지우려면:
+```sql
+delete from users where name = '홍길동' and gu = '사랑';   -- 딸린 기록도 함께 사라진다
+```
+
+### 아직 비어 있는 것
+`seed_verses.sql`의 구절에는 `date`가 없어 **「이번 주 말씀」 배지가 안 뜼다.
+그것까지 보려면 구절 하나에 이번 주 날짜를 넣으면 된다.
+```sql
+update verses set date = current_date where no = 1;
+```
