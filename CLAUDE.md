@@ -75,12 +75,48 @@
 → **서버는 범인이 아니었다** — `getVerses`는 0.22~0.36초이고 인트로 슬라이드와 병렬로 돈다. 느리다는 제보가 오면 **글꼴부터** 볼 것.
 
 ## 개발 · 배포 체크리스트
-1. `app.js` 등 수정 → 2. **`python tools/bump.py`** (캐시태그·판 번호·APP_BUILD 일괄) → 3. 커밋·푸시(Actions 자동 배포) → 4. 백엔드 바꿨으면 `supabase functions deploy api ...`
-5. **배포 확인은 「이번 판에만 있는 표식」으로** 한다. 새로 넣은 문구·상수처럼 **이전 판에는 없던 것**을 찾거나, 지운 문구가 **사라졌는지**를 본다. 이전 판에도 있던 이름(함수명·클래스명)으로 검사하면 CDN이 옛 파일을 내보내도 그대로 통과해 「배포 완료」로 오인한다(2026-08-25에 두 번 그랬다). 가장 확실한 것은 라이브 `app.js`의 `APP_BUILD`가 `index.html`의 `?v=`와 같은지 보는 것이다.
-   ```bash
-   V=$(grep -o 'app.js?v=[0-9a-z]*' index.html | head -1 | cut -d= -f2)
-   curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a-z]*"'
-   ```
+
+### 어디를 보고 있나 (2026-08-27 분리)
+`js/config.js`가 **주소를 보고 저절로 고른다.** 사람이 손으로 바꾸지 않는다.
+
+| 주소 | Supabase | |
+|---|---|---|
+| `gocheok.onlybible.kr` | `xnomlgydifiqiybervtf` | 운영 — 성도님 기록 |
+| **그 밖의 모든 주소** | `ktpwthwqzgcqcrmsafdo` | 개발 — 비어 있음 |
+
+localhost·미리보기·브랜치·github.io는 전부 개발이다. 개발일 때는 화면 오른쪽 위에 **「개발 DB」 띠**가 뜬다 — 그게 안 보이면 운영을 보고 있는 것이다. 관리자 화면(`admin.html`·`admin-stats.html`)도 같은 규칙을 따른다. 자세한 것은 `supabase/dev-setup.md`.
+
+### 프론트를 고쳤을 때
+1. 고친다 → `python -m http.server`로 **localhost에서 확인**(자동으로 개발 DB를 본다)
+2. **`python tools/bump.py`** — 캐시태그·판 번호·APP_BUILD 일괄. 손으로 고치지 말 것
+3. 커밋·푸시 → Actions가 자동 배포
+4. **「이번 판에만 있는 표식」으로 배포를 확인한다**(아래)
+
+### 백엔드(Edge Function)를 고쳤을 때 — **개발 먼저**
+```bash
+supabase functions deploy api --no-verify-jwt --project-ref ktpwthwqzgcqcrmsafdo   # 1) 개발
+# localhost에서 확인한 뒤
+supabase functions deploy api --no-verify-jwt --project-ref xnomlgydifiqiybervtf   # 2) 운영
+```
+
+### SQL(마이그레이션)을 만들었을 때 — **개발 먼저** ⚠️
+지금까지는 운영 SQL Editor에 바로 붙여 넣었다. **이제 개발에서 먼저 돌린다.**
+운영 DB의 마이그레이션은 되돌릴 수 없고, 성도님 기록 위에서 실패하면 손쓸 방법이 없다.
+개발에서 한 번 돌려 보는 데 드는 시간이 그 위험보다 훨씬 싸다.
+
+### 협업(2026-08-27~)
+`main`은 PR로만 들어간다(관리자는 예외 — 친구는 그대로 푸시하면 되고 `Bypassed rule violations` 줄이 함께 뜬다).
+협업자는 **브랜치 → 로컬에서 개발 DB로 확인 → PR**. 친구가 보고 머지한다.
+
+⚠️ **`bump.py`는 PR에 넣지 않는다.** 두 사람이 각자 bump하면 `index.html`·`app.js`가 매번 충돌한다.
+**머지한 뒤 친구가 한 번** 돌려 푸시한다. 머지 푸시만으로는 캐시태그가 안 올라 브라우저에 옛 파일이 남는다.
+
+### 배포 확인
+**「이번 판에만 있는 표식」으로** 한다. 새로 넣은 문구·상수처럼 **이전 판에는 없던 것**을 찾거나, 지운 문구가 **사라졌는지**를 본다. 이전 판에도 있던 이름(함수명·클래스명)으로 검사하면 CDN이 옛 파일을 내보내도 그대로 통과해 「배포 완료」로 오인한다(2026-08-25에 두 번 그랬다). 가장 확실한 것은 라이브 `app.js`의 `APP_BUILD`가 `index.html`의 `?v=`와 같은지 보는 것이다.
+```bash
+V=$(grep -o 'app.js?v=[0-9a-z]*' index.html | head -1 | cut -d= -f2)
+curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a-z]*"'
+```
 
 ## 성경필사 노트 신청 (2026-08-11)
 A5/A4 · 아래쪽/오른쪽 필사형 · 번역본 5종 · 성경 31단위 부수(한 분 총 **5부**까지) · 휴대폰(필수) · 요청사항.
