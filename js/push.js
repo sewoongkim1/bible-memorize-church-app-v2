@@ -55,6 +55,19 @@ async function enablePush() {
     }
     const hour = getPushHour();
     await api.savePush(u.user_id, sub.toJSON(), hour);
+    // 플레이스토어(TWA) 설치본은 안드로이드 시스템의 앱별 알림 권한이 곧 이 사이트의
+    // 알림 권한이다 — 별도로 크롬이 기억하는 권한이 아니다. 그 권한이 실제로는
+    // 꺼져 있으면 위 subscribe()는 잠깐 성공하지만 크롬이 곧바로 구독을 무효화한다
+    // (2026-08-29, 마켓 설치 테스터가 '설정됨' 메시지를 보고도 알림을 못 받은 사고로
+    // 발견). 그래서 바로 성공을 알리지 않고, 잠깐 뒤 구독이 실제로 남아 있는지
+    // 다시 확인한다 — 이게 남아 있어야 "설정됨"이 거짓이 아니다.
+    await new Promise((r) => setTimeout(r, 700));
+    const stillSub = await reg.pushManager.getSubscription();
+    if (!stillSub) {
+      appAlert("알림 구독이 곧바로 사라졌어요.\n안드로이드 설정에서 이 앱(성경암송)의 시스템 알림 권한이 꺼져 있는 것 같아요.\n\n폰 설정 → 앱 → 성경암송 → 알림에서 켜신 뒤 다시 시도해 주세요.");
+      if (typeof updateAppStatus === "function") updateAppStatus();
+      return false;
+    }
     // 설정 직후 본인 기기로 '오늘의 묵상'을 첫 알림으로 발송(preview=true) — 무엇을 받을지 바로 체감
     api.testPush(sub.endpoint, hour, true).catch(() => {});
     appAlert("🔔 알림이 설정되었습니다!\n매일 오전 " + hour + "시에 오늘의 묵상을 보내드려요.\n방금 오늘의 묵상을 이 기기로 보냈어요 — 잠시 후 확인해보세요.");
