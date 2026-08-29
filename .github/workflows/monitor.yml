@@ -13,6 +13,10 @@ on:
         description: '발송 진단(sendPush diag — 실제 web-push 에러 확인)'
         type: boolean
         default: false
+      diag_user_id:
+        description: '발송 진단 대상 좁히기(선택) — 특정 성도의 user_id. 비우면 전체 구독자 대상(오류는 처음 3개만 보임)'
+        type: string
+        default: ''
       weekly_test:
         description: '주간 리포트 테스트 발송(지금 이메일 보내기)'
         type: boolean
@@ -43,6 +47,7 @@ jobs:
           TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
           FORCE_ALERT: ${{ github.event.inputs.force_alert }}
           DIAG_SEND: ${{ github.event.inputs.diag_send }}
+          DIAG_USER_ID: ${{ github.event.inputs.diag_user_id }}
           WEEKLY_TEST: ${{ github.event.inputs.weekly_test }}
           REPORT_FROM: ${{ github.event.inputs.report_from }}
           REPORT_TO: ${{ github.event.inputs.report_to }}
@@ -67,11 +72,17 @@ jobs:
           fi
 
           # 0-2) 발송 진단 모드: sendPush를 diag로 호출해 실제 web-push 에러/설정 상태만 출력(텔레그램 없음)
+          #      diag_user_id를 주면 그 성도의 구독만 대상으로 좁힌다 — 오류 목록이 처음 3개만
+          #      보이므로(errs.length < 3), 전체 대상으로 돌리면 다른 성도의 오래된 만료 구독이
+          #      그 3자리를 채워버려 정작 찾는 사람의 오류는 못 볼 수 있다.
           if [ "${DIAG_SEND:-false}" = "true" ]; then
             echo "🔧 발송 진단 실행..."
+            body="{\"action\":\"sendPush\",\"pw\":\"$ADMIN_SECRET\",\"latest\":true,\"diag\":true,\"mode\":\"diag\""
+            [ -n "${DIAG_USER_ID:-}" ] && body="$body,\"user_id\":\"$DIAG_USER_ID\""
+            body="$body}"
             curl -s -m 40 -X POST "$API_URL" -H "Content-Type: application/json" \
               -H "apikey: $ANON" -H "Authorization: Bearer $ANON" \
-              -d "{\"action\":\"sendPush\",\"pw\":\"$ADMIN_SECRET\",\"latest\":true,\"diag\":true,\"mode\":\"diag\"}"
+              -d "$body"
             echo ""; exit 0
           fi
 
