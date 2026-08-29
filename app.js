@@ -2440,6 +2440,9 @@ async function deleteMine(btn) {
 
 // 설정 화면 — 로그인 정보변경 · 알림 · 홈 화면 추가 · 공유 (요약에서 분리)
 function renderSettings() {
+  // 실시간 구독 상태 진단(아래 startPushLiveStatus)이 화면을 나가도 계속 도는 걸
+  // 막는다 — 여러 번 설정에 들어오면 이전 타이머가 쌓이지 않게 먼저 멈춘다.
+  if (window.__pushLiveTimer) { clearInterval(window.__pushLiveTimer); window.__pushLiveTimer = null; }
   const appEl = document.getElementById("app");
   appEl.innerHTML = `
     <div class="summary-screen">
@@ -2503,6 +2506,7 @@ function renderSettings() {
         </div>
         <button class="summary-install" id="enable-push">🔔 매일 암송 알림 받기<br><span class="btn-sub">( 매일 아침 · 위에서 시간 선택 )</span></button>
         <div class="app-status" id="app-status"></div>
+        <div class="app-status" id="push-live-status" style="color:#8a6d1f"></div>
         <button class="push-off" id="disable-push">🔕 알림 끄기</button>
         <button class="summary-install" id="test-push">🧪 내 기기로 테스트 알림</button>
         <button class="summary-install" id="share-btn">🔗 공유하기</button>
@@ -2515,7 +2519,10 @@ function renderSettings() {
         </div>
       </div>
     </div>`;
-  document.getElementById("settings-back").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
+  document.getElementById("settings-back").addEventListener("click", () => {
+    if (window.__pushLiveTimer) { clearInterval(window.__pushLiveTimer); window.__pushLiveTimer = null; }
+    stopSpeaking(); renderSummary();
+  });
   document.getElementById("change-user").addEventListener("click", renderEntryScreen);
   document.getElementById("privacy-info").addEventListener("click", () => renderPrivacyInfo(renderSettings));
   document.getElementById("share-btn").addEventListener("click", shareApp);
@@ -2524,6 +2531,7 @@ function renderSettings() {
   document.getElementById("clear-me").addEventListener("click", clearMeOnThisDevice);
   document.getElementById("test-push").addEventListener("click", () => { if (typeof testMyPush === "function") testMyPush(); });
   updateAppStatus();
+  startPushLiveStatus();
   setupSyncRetry();
   setupThemeSetting();
   setupFontSize();
@@ -2660,6 +2668,34 @@ function updateAppStatus() {
   const perm = (window.Notification && Notification.permission) || "default";
   const permTxt = perm === "granted" ? "허용됨" : perm === "denied" ? "거부됨" : "미설정";
   el.textContent = `실행 모드: ${standalone ? "📱 설치된 앱" : "🌐 브라우저"} · 알림 권한: ${permTxt}`;
+}
+
+// 구독 실시간 상태 진단(2026-08-29) — 플레이스토어(TWA) 설치본에서 「알림이
+// 설정되었습니다」가 뜨고도 몇 초~몇 분 뒤 구독이 사라지는 신고가 있었다.
+// 즉시 사라지는 경우는 enablePush()의 700ms 재확인이 잡아내지만, 더 늦게
+// 사라지는 경우는 못 잡는다 — 화면을 계속 지켜봐야 언제 사라지는지 알 수 있는데
+// 개발자는 그 폰을 볼 수 없으므로, 폰 화면 자체에 2초마다 갱신되는 상태를
+// 띄워 성도님이 직접 캡처해서 보내주실 수 있게 한다. 설정 화면을 나가면 멈춘다.
+function startPushLiveStatus() {
+  const el = document.getElementById("push-live-status");
+  if (!el || !("serviceWorker" in navigator)) return;
+  const check = async () => {
+    if (!document.getElementById("push-live-status")) return; // 화면이 이미 바뀜
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      const sub = reg && await reg.pushManager.getSubscription();
+      const perm = (window.Notification && Notification.permission) || "default";
+      const now = new Date().toLocaleTimeString("ko-KR", { hour12: false });
+      const tail = sub ? sub.endpoint.slice(-8) : null;
+      el.textContent = sub
+        ? `🔎 ${now} · 구독 있음(…${tail}) · 권한:${perm}`
+        : `🔎 ${now} · 구독 없음 · 권한:${perm}`;
+    } catch (e) {
+      el.textContent = `🔎 확인 중 오류: ${e && e.message ? e.message : e}`;
+    }
+  };
+  check();
+  window.__pushLiveTimer = setInterval(check, 2000);
 }
 
 // 화면 밝기(다크 모드) 선택 UI
