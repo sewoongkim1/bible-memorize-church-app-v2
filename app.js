@@ -5147,12 +5147,16 @@ function maybeShowWeeklyMeditation(force, withTabs) {
     // 실제로 다루는 한 주는 다음날(월)부터 그다음 주일까지. 즉 주일(오늘)은 이번주 설교가
     // 아직 없을뿐더러, 있다 해도 그 주기의 첫날이 아니라 직전 설교(지난주 등록분) 주기의
     // 마지막 날이다 — 그래서 주일엔 항상 직전 주 말씀·설교를 쓴다.
+    // ⚠️ 다음 주 구절이 토요일에 먼저 올라올 때도 있다(2026-08-29 확인 — 35번이 8/28
+    // 토요일에 등록, 설교는 그다음 날인 주일 오후에야 연결됨). 그 사이 토요일에 접속하면
+    // 다음 주 구절이 '이번 주'로 잡혀 있는데 설교가 없어 '준비 중'만 뜬다 — 그래서
+    // 토요일도 주일과 똑같이 직전 주 말씀·설교를 쓴다.
     const p = kstDateParts() || {};
     const todayDow = p.y ? new Date(p.y, (p.m || 1) - 1, p.d || 1).getDay() : (kstDayNumber() % 7);
-    const isSunday = todayDow === 0;
+    const isWeekendGap = todayDow === 6 || todayDow === 0; // 토(6) · 일(0)
     let verse = info.verse;
     let usingPrev = false;
-    if (isSunday && info.prevVerse) { verse = info.prevVerse; usingPrev = true; }
+    if (isWeekendGap && info.prevVerse) { verse = info.prevVerse; usingPrev = true; }
     let sermon = findSermonForVerse(verse.no, sermons);
     if (usingPrev && !sermonHasMeditationContent(sermon)) { // 전주 자료조차 없으면(극초기) 이번주로 되돌림
       verse = info.verse; sermon = findSermonForVerse(verse.no, sermons); usingPrev = false;
