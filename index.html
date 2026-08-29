@@ -21,6 +21,12 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#1a3a6b" />
+  <!-- 이 앱은 자체 밝게/어둡게 토글이 있는데(⚙️ 설정), 이 표시가 없으면 안드로이드
+       크롬이 "다크 테마를 지원 안 하는 사이트"로 보고 시스템이 다크 모드일 때
+       화면을 통째로 강제로 뒤집어 버린다 — 앱 자체 상태(밝게 선택됨)와 실제
+       보이는 색이 어긋나는 원인이었다(2026-08-29, 마켓 설치본에서 발견).
+       "직접 관리한다"고 알려서 크롬의 강제 반전을 끈다. -->
+  <meta name="color-scheme" content="light dark" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
