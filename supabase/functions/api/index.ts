@@ -144,6 +144,7 @@ Deno.serve(async (req) => {
       // ---- Web Push ----
       case "savePush":      return json(await savePush(body));
       case "removePush":    return json(await removePush(body));
+      case "removePushByUser": return json(await removePushByUser(body));
       case "testPush":      return json(await testPush(body));
       // 어드민 '자동 넣기'용 — 매일 아침 실제로 나가는 문구(오늘의 묵상 + 이번주 말씀)를 그대로 반환
       case "pushPreview": {
@@ -370,6 +371,16 @@ async function removePush(b: any) {
   const { error } = await db.from("push_subscriptions").delete().eq("endpoint", b.endpoint);
   if (error) throw error;
   return { ok: true };
+}
+
+// ---------- removePushByUser: 관리자용 — 특정 성도의 알림 구독을 전부 삭제(기기 무관).
+//   재설치·재구독 흐름을 처음부터 다시 테스트하려는 목적. ----------
+async function removePushByUser(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  if (!b.user_id) return { ok: false, error: "no-user" };
+  const { data, error } = await db.from("push_subscriptions").delete().eq("user_id", b.user_id).select("endpoint");
+  if (error) throw error;
+  return { ok: true, deleted: (data ?? []).length };
 }
 
 // ---------- testPush: 본인 기기(endpoint)에만 테스트 발송 ----------
