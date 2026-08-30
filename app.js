@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260831d";
+const APP_BUILD = "20260831e";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5886,10 +5886,10 @@ function renderChallenge(verse, hard) {
   // "두 번 하는 게 아니라 하나로"). 정답을 보고 베끼면 빈칸의 의미가 없으므로, 이때는
   // .test-ref-sticky(정답이 계속 보이는 배너)를 아예 넣지 않는다.
   // 구절은 "수 1:8"(refShort, refFull이 아니다 — "장"·"절" 조사까지 안 틀리고 쓸 필요는
-  // 없다) 표기를 공백·콜론에서 나눠 "수" "1" "8" 세 칸으로 낸다(2026-08-31 사용자 요청) —
-  // 콜론은 자판을 바꿔야 나오는 기기가 많아 숫자만 치면 되게 하는 편이 낫다.
+  // 없다) 표기 그대로 한 칸에 통째로 쓴다(2026-08-31 사용자 요청 — 여러 칸으로 나눴다가
+  // 도로 한 칸으로).
   const refFirst = isChallengeRefFirst();
-  const refTokens = refFirst ? verseRefShort(verse).trim().split(/[\s:]+/) : [];
+  const refTokens = refFirst ? [verseRefShort(verse)] : [];
   const refWordsHtml = refTokens
     .map((word) => {
       const style = `width:${Array.from(word).length + 1}em`;
