@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260831b";
+const APP_BUILD = "20260831d";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5863,53 +5863,7 @@ function startChallenge() {
   const pick = pool[Math.floor(Math.random() * pool.length)];
   challengeSession.push(pick.no);
   challengeEased = false;
-  // "구절 먼저 쓰기"가 켜져 있으면 본문 빈칸 전에 구절(예 "시편 116편 1절")부터 채우게 한다.
-  // 자동으로 계속 도전 중이어도, 🔀 다른말씀으로 넘어갈 때도 여기서 갈라지므로 매번 낀다
-  // (이 함수 하나로 도전이 시작되는 모든 길이 모이기 때문).
-  if (isChallengeRefFirst()) { renderChallengeRefGate(pick, hard); return; }
   renderChallenge(pick, hard);
-}
-
-// "구절 먼저 쓰기" 관문 — 본문 화면(renderChallenge)과 같은 빈칸·카드 방식을 구절에 그대로
-// 적용한다. verseRefFull을 띄운 채로 채우면 그냥 베끼는 것이라 반드시 안 보여야 하므로,
-// renderChallenge와 달리 .test-ref-sticky(정답이 계속 보이는 배너)를 넣지 않는다
-// (with-ref-banner 클래스도 뺀다 — 그 배너를 위해 비워 둔 위쪽 여백까지 같이 빠진다).
-function renderChallengeRefGate(verse, hard) {
-  const appEl = document.getElementById("app");
-  const refTokens = verseRefFull(verse).trim().split(/\s+/);
-  const wordsHtml = refTokens
-    .map((word) => {
-      const style = `width:${Array.from(word).length + 1}em`;
-      return `<input class="word-input" data-answer="${word}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="${style}" />`;
-    })
-    .join(" ");
-  appEl.innerHTML = `
-    <div class="test-screen">
-      <div class="test-card">
-        <div class="btn-row">
-          <button class="answer-btn mode-btn" id="ch-mode-toggle">${isCardMode() ? "⌨️ 쓰기" : "👆 카드"}</button>
-        </div>
-        <div class="test-top">
-          <div class="test-head">
-            <div class="test-stage challenge-badge${hard ? " hard-badge" : ""}">📖 구절 먼저</div>
-          </div>
-          <button class="back-btn" id="ch-exit">← 뒤로</button>
-        </div>
-        <div class="challenge-hint-line">이 말씀이 어느 구절인지 먼저 써 보세요</div>
-        <div class="test-sentence">${wordsHtml}</div>
-        <div id="card-tray" class="card-tray"></div>
-        <div class="challenge-remain" id="ch-remain"></div>
-        <div id="result-area"></div>
-      </div>
-    </div>`;
-  scrollPastBtnRow();
-  document.getElementById("ch-exit").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
-  document.getElementById("ch-mode-toggle").addEventListener("click", () => {
-    stopSpeaking();
-    setCardMode(!isCardMode());
-    renderChallengeRefGate(verse, hard);
-  });
-  setupChallengeTyping(verse, () => renderChallenge(verse, hard));
 }
 
 // 어려운 도전을 '이번만' 접었는지. startChallenge에서만 내린다 —
@@ -5927,6 +5881,21 @@ function renderChallenge(verse, hard) {
   relearnBackToChallenge = false;
   const appEl = document.getElementById("app");
   const en = isEnMode(verse);
+  // "구절 먼저 쓰기"가 켜져 있으면 구절(예 "시편 116편 1절")도 같은 빈칸·카드 방식으로
+  // 본문 바로 위에 붙인다 — 화면을 둘로 나누지 않고 한 번에 채운다(2026-08-31 사용자 요청:
+  // "두 번 하는 게 아니라 하나로"). 정답을 보고 베끼면 빈칸의 의미가 없으므로, 이때는
+  // .test-ref-sticky(정답이 계속 보이는 배너)를 아예 넣지 않는다.
+  // 구절은 "수 1:8"(refShort, refFull이 아니다 — "장"·"절" 조사까지 안 틀리고 쓸 필요는
+  // 없다) 표기를 공백·콜론에서 나눠 "수" "1" "8" 세 칸으로 낸다(2026-08-31 사용자 요청) —
+  // 콜론은 자판을 바꿔야 나오는 기기가 많아 숫자만 치면 되게 하는 편이 낫다.
+  const refFirst = isChallengeRefFirst();
+  const refTokens = refFirst ? verseRefShort(verse).trim().split(/[\s:]+/) : [];
+  const refWordsHtml = refTokens
+    .map((word) => {
+      const style = `width:${Array.from(word).length + 1}em`;
+      return `<input class="word-input" data-answer="${word}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="${style}" />`;
+    })
+    .join(" ");
   const tokens = verseText(verse).trim().split(/\s+/);
 
   const wordsHtml = tokens
@@ -5945,8 +5914,8 @@ function renderChallenge(verse, hard) {
 
   appEl.innerHTML = `
     <div class="test-screen">
-      <div class="test-card with-ref-banner">
-        <div class="test-ref-sticky">${verseRefFull(verse)}</div>
+      <div class="test-card${refFirst ? "" : " with-ref-banner"}">
+        ${refFirst ? "" : `<div class="test-ref-sticky">${verseRefFull(verse)}</div>`}
         <div class="btn-row" style="flex-wrap:wrap;">
           <button class="answer-btn" id="hint-btn">💡 힌트</button>
           <button class="answer-btn" id="ch-shuffle">🔀 다른말씀</button>
@@ -5963,6 +5932,8 @@ function renderChallenge(verse, hard) {
           <span><b>밑줄이 없어요</b></span>
           <button class="ch-ease" id="ch-ease">그냥 할래요</button>
         </div>` : ""}
+        ${refFirst ? `<div class="challenge-hint-line">구절도 함께 써 보세요</div>
+        <div class="test-sentence ref-sentence">${refWordsHtml}</div>` : ""}
         <div class="test-sentence">${wordsHtml}</div>
         <div id="card-tray" class="card-tray"></div>
         <div class="challenge-remain" id="ch-remain"></div>

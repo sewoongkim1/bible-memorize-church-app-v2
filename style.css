@@ -1201,10 +1201,12 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 .summary-icon.icon-share:hover { background: #dbe7f8; }
 .dark .summary-icon.icon-alarm { background: #3a3320; border-color: #5a4e2a; color: #eccf87; }
 .dark .summary-icon.icon-share { background: #22314c; border-color: #35507a; color: #bcd2f2; }
-/* 켬/끔 아이콘 토글(예: 도전에 구절 먼저 쓰기)의 '켜짐' 상태 — 공유 아이콘과 같은 색으로
-   한눈에 "활성" 임을 알 수 있게 한다. 꺼짐은 다른 무채색 아이콘과 같은 기본 회색. */
-.summary-icon.icon-on { background: #e8f0fb; border-color: #c3d5ef; color: var(--navy); }
-.dark .summary-icon.icon-on { background: #22314c; border-color: #35507a; color: #bcd2f2; }
+/* 켬/끔 아이콘 토글(예: 도전에 구절 먼저 쓰기) — 켜짐은 파란색, 꺼짐은 빨간색으로
+   한눈에 지금 상태를 알 수 있게 한다(사용자 요청, 2026-08-31). */
+#toggle-ref-first.icon-on { background: #e3f0ff; border-color: #a9cdf5; color: #1565c0; }
+#toggle-ref-first:not(.icon-on) { background: #fdeaea; border-color: #f3c6c6; color: #b3261e; }
+.dark #toggle-ref-first.icon-on { background: #1c2f4a; border-color: #2f5580; color: #8fc0f5; }
+.dark #toggle-ref-first:not(.icon-on) { background: #3a2020; border-color: #5a3030; color: #f0a3a3; }
 /* 아직 알림 안 켠 사람에게만 은은한 강조 */
 .summary-icon.pulse { animation: bellPulse 2.2s ease-in-out infinite; }
 @keyframes bellPulse {
