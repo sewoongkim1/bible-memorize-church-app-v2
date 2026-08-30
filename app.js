@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260831n";
+const APP_BUILD = "20260831o";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5880,9 +5880,12 @@ let challengeUsedHelp = false;
 
 // "구절" 밑줄(빈칸 폭)을 em 배율로 어림하는 방식은 한글·숫자·콜론이 섞이면 늘 어딘가
 // 어긋났다("밑줄이 그래도 길어요") — 그래서 어림을 관두고 캔버스로 그 폰트의 실제
-// 글자 폭을 정확히 재서 폭을 맞춘다. 폭이 좁은 휴대폰까지 고려해 시작 크기도
-// 본문보다 한 단계 작게 잡고(2026-08-31 사용자 요청), 그래도 "← 뒤로"와 한 줄에
-// 안 들어가면(책 이름이 길어 참조 자체가 긴 경우) 렌더 직후 실측해 더 줄인다.
+// 글자 폭을 정확히 재서 폭을 맞춘다.
+// ⚠️ 처음엔 좁은 화면을 감안해 시작 크기 자체를 16px로 낮췄더니, "막 11:3"처럼 짧은
+// 참조까지 본문보다 작게 나와 "폰트가 너무 작다"는 지적을 받았다(2026-08-31) — **짧은
+// 참조는 줄일 이유가 없다.** 이제 본문과 같은 크기(19px 안팎, 글씨 크게 설정이면
+// 23·27px)로 시작하고, 실제로 "← 뒤로"와 한 줄에 안 들어갈 때만(책 이름이 길어
+// 참조 자체가 긴 경우) 렌더 직후 실측해 그때만 줄인다.
 function fitRefBadgeOneLine() {
   const badge = document.querySelector(".test-stage.ref-badge");
   const backBtn = document.getElementById("ch-exit");
@@ -5892,16 +5895,17 @@ function fitRefBadgeOneLine() {
   const canvas = fitRefBadgeOneLine._canvas || (fitRefBadgeOneLine._canvas = document.createElement("canvas"));
   const ctx = canvas.getContext("2d");
   const cs = getComputedStyle(input);
+  const startSize = parseFloat(cs.fontSize) || 19; // 폭 바꾸기 전에 원래(본문과 같은) 크기를 먼저 붙잡아 둔다
+  const fontWeight = cs.fontWeight, fontFamily = cs.fontFamily;
   const measure = (px) => {
-    ctx.font = `${cs.fontWeight} ${px}px ${cs.fontFamily}`;
+    ctx.font = `${fontWeight} ${px}px ${fontFamily}`;
     return ctx.measureText(text).width;
   };
   const applySize = (px) => {
     input.style.fontSize = px + "px";
     input.style.width = Math.ceil(measure(px) + 10) + "px"; // 커서 여유 10px만
   };
-  // 좁은 화면을 감안해 본문(19px 안팎)보다 한 단계 작은 16px에서 시작한다.
-  let size = 16;
+  let size = startSize;
   applySize(size);
   const sameLine = () => Math.abs(badge.getBoundingClientRect().top - backBtn.getBoundingClientRect().top) < 4;
   const minSize = 12;
