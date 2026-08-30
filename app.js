@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260831f";
+const APP_BUILD = "20260831g";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1737,7 +1737,7 @@ function renderSummary() {
     <div id="event-slot-bottom"></div>
     <div class="summary-icons summary-icons-bottom">
       <div class="icon-cap"><button class="summary-icon icon-alarm" id="open-alarm" aria-label="매일 암송 알림 받기" title="매일 암송 알림 받기">🔔</button><span class="icon-cap-label">알림</span></div>
-      <div class="icon-cap"><button class="summary-icon" id="toggle-ref-first" aria-label="도전에 구절 먼저 쓰기 전환" title="도전에 구절 먼저 쓰기 전환">🔖</button><span class="icon-cap-label" id="toggle-ref-first-label">구절</span></div>
+      <div class="icon-cap"><button class="summary-icon" id="toggle-ref-first" aria-label="도전에 구절 먼저 쓰기 전환" title="도전에 구절 먼저 쓰기 전환">📕</button><span class="icon-cap-label" id="toggle-ref-first-label">구절</span></div>
       <div class="icon-cap"><button class="summary-icon" id="toggle-card-input" aria-label="암송 입력 방법 전환" title="암송 입력 방법 전환">⌨️</button><span class="icon-cap-label" id="toggle-card-input-label">쓰기</span></div>
       <div class="icon-cap"><button class="summary-icon" id="open-help-summary" aria-label="도움말" title="도움말">❓</button><span class="icon-cap-label">도움말</span></div>
       <div class="icon-cap"><button class="summary-icon" id="open-settings" aria-label="설정" title="설정">⚙️</button><span class="icon-cap-label">설정</span></div>
@@ -2669,6 +2669,9 @@ function setupRefFirstToggle() {
   const capLabel = document.getElementById("toggle-ref-first-label");
   const paint = (on) => {
     btn.classList.toggle("icon-on", on);
+    // 원 배경만 파랑/빨강으로 바뀌고 안의 이모지(🔖 등)는 그 자체 색을 그대로 가져
+    // 원과 안 어울린다는 지적 — 아이콘 자체를 색이 있는 책 이모지로 바꿔 안팎이 같이 바뀌게 한다.
+    btn.textContent = on ? "📘" : "📕";
     const label = on ? "도전에 구절 먼저 쓰기 켜짐 — 눌러서 끄기" : "도전에 구절 먼저 쓰기 꺼짐 — 눌러서 켜기";
     btn.setAttribute("aria-label", label);
     btn.title = label;
@@ -5896,7 +5899,11 @@ function renderChallenge(verse, hard) {
   const refWordsHtml = refTokens
     .map((word) => {
       const style = `width:${Array.from(word).length + 1}em`;
-      return `<input class="word-input" data-answer="${word}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="${style}" />`;
+      // 위 배너는 "시편 119편 105절"(refFull)인데 이 빈칸은 "시 119:105"(refShort)라
+      // 어떻게 줄여 써야 하는지 알 길이 없었다("구절은 어떻게 입력해야 하나요?" 지적,
+      // 2026-08-31) — placeholder로 정답 표기 형식을 옅게 미리 보여준다(포기 취지가
+      // 애초에 "보고 그대로 쓰기"였으니 형식을 알려주는 건 어긋나지 않는다).
+      return `<input class="word-input" data-answer="${word}" placeholder="${word}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="${style}" />`;
     })
     .join(" ");
   const tokens = verseText(verse).trim().split(/\s+/);
