@@ -1,10 +1,24 @@
 # -*- coding: utf-8 -*-
-"""고척교회 성경말씀 필사 소책자 — A5 세로.
+"""고척교회 성경말씀 필사 소책자 — A5 세로, 인쇄소 인쇄판.
    구절당 2쪽: 왼쪽(짝수쪽) 설교 요약 / 오른쪽(홀수쪽) 필사.
-   설교는 QR 2개로 연결 — 유튜브 설교영상 · 암송 앱 딥링크(?v=구절번호).
+   설교는 QR 세 개로 연결 — 유튜브 설교영상 · 3분요약 MP3 · 암송 앱 딥링크(?v=구절번호).
+   가정용 인쇄판(generate_print.py)과의 차이: 표지는 남색 그라디언트 배경(색지 대신 인쇄소 풀컬러
+   전제) · 필사면 배경은 크림색(#fffdf8) · NIV 영어 본문 참고 박스는 넣지 않는다(간결하게).
+
+   2026-08-30 대개편(샘플 booklet/generate_sample.py에서 검증된 항목을 그대로 옮김) — 자세한
+   설계 이유는 generate_print.py 상단 주석 참고, 여기서는 요약만:
+   - QR 3개(설교 듣기·3분요약 듣기·앱에서 암송하기)
+   - 필사면에 "마음에 새기는 묵상" 칸(타이틀만 회색 태그, 줄칸은 배경 없이, 8mm 실선 3줄)
+   - 따라쓰기 줄도 8mm 실선으로 통일, trace 바로 아래부터 간격 일정
+   - 묵상 칸은 wlines 뒤의 평범한 flex 자식(position:absolute 금지 — 실높이 손계산은 반드시 어긋남)
+   - 설교면: 내용이 짧으면 본문 글자를 살짝 키움(filled<750, sermon.big), pts에 안전장치
+   - 쉬운 풀이·기억법 글자를 앞장 본문 크기로, 색은 검정, emph_quotes()로 인용구 굵게
+   - 암송확인 체크박스 3→5개, 꼬리말 "고척교회 제자양육부"→"고척교회"
 """
 import json, io, re, html, base64, os
 import qrcode
+
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 SC = 'c:/Projects/bible-memorize-church-app-v2/marketing/'
 LOGO = io.open(SC + 'logo-data-uri.txt', encoding='utf-8').read().strip()
@@ -41,6 +55,17 @@ def emph(t):
     return re.sub(r'\*\*([^*]+)\*\*', r'<strong>\1</strong>', t)
 
 
+def emph_quotes(t):
+    """easyExplain·memoryTip처럼 **마크업이 없는 필드에서 중요한 부분을 굵게 — 따옴표로
+       감싼 인용 구절(핵심 어구·암송 덩어리)을 굵게 잡는다. ** 마크업이 나중에 추가되면
+       emph()가 그대로 처리한다."""
+    t = t or ''
+    parts = re.split(r"('[^']{2,40}')", t)
+    return ''.join(
+        '<strong>%s</strong>' % html.escape(p) if i % 2 == 1 else emph(p)
+        for i, p in enumerate(parts))
+
+
 def trim(t, n):
     """문장 끝(。.!?)에서 자른다 — 말끝이 '…'로 잘리면 읽는 맛이 떨어진다."""
     t = re.sub(r'\s+', ' ', (t or '').strip())
@@ -58,28 +83,32 @@ def sermon_page(v, pno):
     s = by_no.get(v['no']) or {}
     pts = (s.get('points') or [])[:3]
     qs = (s.get('questions') or [])[:3]
-    # 세 항목 합계가 지면을 넘지 않도록 항목당 예산을 나눈다
     budget = 560 // max(1, len(pts))
+    sm = trim(s.get('summary'), 150)
+    pt_bodies = [trim(p.get('body', ''), budget) for p in pts]
+    q_bodies = [trim(q, 100) for q in qs]
     pt_html = ''.join(
         '<div class="pt"><div class="pt-h"><span class="pt-n">%d</span>%s</div>'
         '<div class="pt-b">%s</div></div>'
-        % (i + 1, html.escape(p.get('heading', '')), emph(trim(p.get('body', ''), budget)))
-        for i, p in enumerate(pts))
-    q_html = ''.join('<div class="q">%s</div>' % html.escape(trim(q, 100)) for q in qs)
+        % (i + 1, html.escape(p.get('heading', '')), emph(b))
+        for i, (p, b) in enumerate(zip(pts, pt_bodies)))
+    q_html = ''.join('<div class="q">%s</div>' % html.escape(b) for b in q_bodies)
     meta = ' · '.join(x for x in [s.get('category', ''),
                                   (s.get('date') or '')[:10].replace('-', '.'),
                                   s.get('preacher', '')] if x)
+    filled = len(sm) + sum(len(b) for b in pt_bodies) + sum(len(b) for b in q_bodies)
+    cls = 'sermon big' if filled < 750 else 'sermon'
     return """
-<section class="page sermon">
+<section class="page %s">
   <div class="pg-head"><span class="pno">%02d</span><span class="pmeta">%s</span></div>
   <h2 class="stitle">%s</h2>
   <div class="sscript">%s</div>
   <div class="ssum">%s</div>
   <div class="pts">%s</div>
   <div class="qs"><div class="qs-t">돌아보기</div>%s</div>
-  <div class="foot"><span>고척교회 제자양육부</span><span class="fno">%d</span></div>
-</section>""" % (v['no'], html.escape(meta), html.escape(s.get('title', '')),
-                 html.escape(s.get('scripture', '')), emph(trim(s.get('summary'), 150)),
+  <div class="foot"><span>고척교회</span><span class="fno">%d</span></div>
+</section>""" % (cls, v['no'], html.escape(meta), html.escape(s.get('title', '')),
+                 html.escape(s.get('scripture', '')), emph(sm),
                  pt_html, q_html, pno)
 
 
@@ -88,10 +117,16 @@ def write_page(v, pno):
     text = v['text']
     q_yt = qr_uri(yt_short(v.get('url')), 'qr/yt_%02d.png' % v['no'])
     q_app = qr_uri('https://gocheok.onlybible.kr/?v=%d' % v['no'], 'qr/app_%02d.png' % v['no'])
-    # 빈 줄 옮겨쓰기 — 본문 길이에 비례해 3~6개(줄당 2개 엘리먼트), 실제 DOM 요소로 그린다
-    # (CSS repeating-linear-gradient 배경 방식은 PDF 렌더링에서 타일링이 깨져 줄이 안 보이는 버그가 있었음)
+    audio = s.get('audio') or ''
+    q_mp3 = qr_uri('https://sermon.onlybible.kr/' + audio, 'qr/mp3_%02d.png' % v['no']) if audio else ''
+    # 빈 줄 옮겨쓰기 — 본문 길이에 비례해 3~6개, A5 실측 8mm 실선(일반 노트 줄 간격)
     n_lines = max(3, min(6, (len(text) // 22) + 2))
-    rows = ''.join('<div class="wline"></div>' for _ in range(n_lines * 2))
+    rows = ''.join('<div class="wline"></div>' for _ in range(n_lines))
+    qr3 = (
+        '<div class="qrc"><img src="%s"><span>설교 듣기</span></div>'
+        '<div class="qrc"><img src="%s"><span>3분요약 듣기</span></div>'
+        % (q_yt, q_mp3)
+    ) if q_mp3 else '<div class="qrc"><img src="%s"><span>설교 듣기</span></div>' % q_yt
     return """
 <section class="page write">
   <div class="w-top">
@@ -102,16 +137,24 @@ def write_page(v, pno):
   <div class="w-label">따라 쓰기 <span>— 연한 글씨 위에 한 번, 아래 줄에 옮겨 적어 보세요</span></div>
   <div class="trace">%s</div>
   <div class="wlines">%s</div>
-  <div class="w-tip"><b>기억법</b> %s</div>
-  <div class="qr2">
-    <div class="qrc"><img src="%s"><span>설교 듣기</span></div>
-    <div class="qrc"><img src="%s"><span>앱에서 암송하기</span></div>
-    <div class="chk">암송 확인 &nbsp;☐&nbsp; ☐&nbsp; ☐</div>
+  <div class="bottomblock">
+    <div class="note-wrap">
+      <div class="note-t">마음에 새기는 묵상</div>
+      <div class="note-box">
+        <div class="note-rows"><div class="nline"></div><div class="nline"></div><div class="nline"></div></div>
+      </div>
+    </div>
+    <div class="w-tip"><b>기억법</b> %s</div>
+    <div class="qr2">
+      %s
+      <div class="qrc"><img src="%s"><span>앱에서 암송하기</span></div>
+      <div class="chk">암송 확인<br>☐&nbsp;☐&nbsp;☐&nbsp;☐&nbsp;☐</div>
+    </div>
   </div>
   <div class="foot"><span></span><span class="fno">%d</span></div>
 </section>""" % (html.escape(v['refFull']), html.escape(text),
-                 html.escape(trim(s.get('easyExplain'), 150)), html.escape(text), rows,
-                 html.escape(trim(s.get('memoryTip'), 105)), q_yt, q_app, pno)
+                 emph_quotes(trim(s.get('easyExplain'), 150)), html.escape(text), rows,
+                 emph_quotes(trim(s.get('memoryTip'), 105)), qr3, q_app, pno)
 
 
 # ── 앞·뒤 부속 ────────────────────────────────────────────────
@@ -139,12 +182,13 @@ def intro():
        먼저 읽어 보세요. 뜻을 알고 외우면 훨씬 오래 남습니다.</p>
     <p>오른쪽은 <b>필사</b>입니다. 연한 글씨 위에 한 번 덧쓰고, 아래 빈 줄에 보고 옮겨 적으시면 됩니다.
        하루 한 구절이면 충분합니다.</p>
-    <p>필사면 아래에 <b>QR 두 개</b>가 있습니다.
-       왼쪽은 <b>설교 영상</b>, 오른쪽은 <b>암송 앱</b>으로 바로 연결됩니다.
-       휴대폰 카메라로 비추기만 하면 열립니다.</p>
-    <p><b>암송 확인 ☐☐☐</b>은 세 번 외워 보시라는 뜻입니다. 목장 모임에서 확인 표시로 쓰셔도 좋습니다.</p>
+    <p><b>마음에 새기는 묵상</b> 칸에는 그날 나눈 은혜나 적용을 자유롭게 적어 보세요.
+       목장 나눔이나 개인 QT 메모로 쓰시면 됩니다.</p>
+    <p>필사면 아래에 <b>QR 세 개</b>가 있습니다. <b>설교 듣기</b>·<b>3분요약 듣기</b>·<b>암송 앱</b>
+       으로 바로 연결됩니다. 휴대폰 카메라로 비추기만 하면 열립니다.</p>
+    <p><b>암송 확인 ☐☐☐☐☐</b>은 다섯 번 외워 보시라는 뜻입니다. 목장 모임에서 확인 표시로 쓰셔도 좋습니다.</p>
   </div>
-  <div class="foot"><span>고척교회 제자양육부</span><span class="fno">3</span></div>
+  <div class="foot"><span>고척교회</span><span class="fno">3</span></div>
 </section>"""
 
 
@@ -160,7 +204,7 @@ def toc(verses):
 <section class="page plain">
   <h2 class="ph">차례</h2>
   <div class="toc"><div>%s</div><div>%s</div></div>
-  <div class="foot"><span>고척교회 제자양육부</span><span class="fno">4</span></div>
+  <div class="foot"><span>고척교회</span><span class="fno">4</span></div>
 </section>
 <section class="page blank"></section>""" % (col(idx[:half]), col(idx[half:]))
 
@@ -171,7 +215,7 @@ def closing(last):
   <h2 class="ph">암송 점검표</h2>
   <div class="pbody"><p>외운 구절에 표시해 보세요. 한 해가 지나면 이 표가 기록이 됩니다.</p></div>
   <div class="grid">%s</div>
-  <div class="foot"><span>고척교회 제자양육부</span><span class="fno">%d</span></div>
+  <div class="foot"><span>고척교회</span><span class="fno">%d</span></div>
 </section>
 <section class="page blank"></section>
 <section class="page cover end">
@@ -201,7 +245,7 @@ body { margin:0; font-family:"Noto Sans KR","Malgun Gothic",sans-serif; color:#1
 .sscript { font-size:8.4pt; color:#1a3a6b; font-weight:700; margin-bottom:3.5mm; }
 .ssum { font-size:8.8pt; line-height:1.65; background:#f2f5fb; border-left:2.2mm solid #c8a24b;
         padding:3mm 3.5mm; border-radius:1mm; word-break:keep-all; }
-.pts { margin-top:4.5mm; flex:1; }
+.pts { margin-top:4.5mm; flex:1; min-height:0; overflow:hidden; }
 .pt { margin-bottom:3.6mm; }
 .pt-h { display:flex; align-items:center; gap:2mm; font-size:9.4pt; font-weight:800; color:#1a3a6b; margin-bottom:1.2mm; }
 .pt-n { display:inline-flex; align-items:center; justify-content:center; width:4.4mm; height:4.4mm;
@@ -212,6 +256,15 @@ body { margin:0; font-family:"Noto Sans KR","Malgun Gothic",sans-serif; color:#1
 .q { font-size:7.8pt; line-height:1.5; color:#4a5364; margin-bottom:.8mm; word-break:keep-all;
      padding-left:3mm; text-indent:-3mm; }
 .q::before { content:"· "; }
+/* 내용이 짧아 pts(flex:1) 아래에 빈 공간이 남는 페이지는 본문 글자를 살짝 키워 채운다.
+   pts에 min-height:0+overflow:hidden 안전장치 — 그래도 모자라면 qs가 아니라 pts가 눌린다. */
+.sermon.big .stitle { font-size:15pt; }
+.sermon.big .ssum { font-size:9.2pt; line-height:1.7; padding:3.2mm 3.8mm; }
+.sermon.big .pt { margin-bottom:4mm; }
+.sermon.big .pt-h { font-size:9.8pt; }
+.sermon.big .pt-b { font-size:8.8pt; line-height:1.68; }
+.sermon.big .qs-t { font-size:8.4pt; }
+.sermon.big .q { font-size:8.1pt; line-height:1.55; margin-bottom:1mm; }
 .foot { position:absolute; left:13mm; right:13mm; bottom:6mm; display:flex; justify-content:space-between;
         font-size:7pt; color:#98a1b2; border-top:.5px solid #dde1e8; padding-top:2mm; }
 .fno { font-weight:700; }
@@ -221,23 +274,34 @@ body { margin:0; font-family:"Noto Sans KR","Malgun Gothic",sans-serif; color:#1
 .w-ref { font-size:9.2pt; font-weight:800; color:#8a6a1e; }
 .w-verse { font-family:"Nanum Myeongjo",serif; font-size:13pt; font-weight:700; line-height:1.75;
            margin-top:2.5mm; word-break:keep-all; }
-.w-explain { font-size:7.8pt; line-height:1.6; color:#5a6273; margin:3.5mm 0 4mm; word-break:keep-all; }
-.w-explain b { color:#1a3a6b; }
+.w-explain { font-size:8.8pt; line-height:1.68; color:#000; margin:3.5mm 0 2mm; word-break:keep-all; }
+.w-explain b { color:#000; }
 .w-label { font-size:8pt; font-weight:800; color:#1a3a6b; margin-bottom:2.5mm; }
 .w-label span { font-weight:400; color:#98a1b2; font-size:7.2pt; }
 .trace { font-family:"Nanum Myeongjo",serif; font-size:11.5pt; line-height:1.9; color:#c9cfd9;
-         word-break:keep-all; border-bottom:.6px solid #e3e7ee; padding-bottom:2mm; margin-bottom:3.5mm; }
-.wlines { flex:1; min-height:0; display:flex; flex-direction:column; }
-.wline { flex:1; border-bottom:.6px solid #dfe3ea; }
-.wline:nth-child(even) { border-bottom-style:dotted; border-bottom-color:#eceff4; }
-.w-tip { font-size:7.4pt; line-height:1.5; color:#5a6273; background:#f6f1e3;
+         word-break:keep-all; border-bottom:.6px solid #e3e7ee; padding-bottom:2mm; margin-bottom:0; }
+/* 한 줄 높이를 두 구획(따라쓰기·묵상)에서 똑같이 A5 실측 8mm·실선으로 맞춘다.
+   ⚠️ 묵상 블록은 반드시 wlines 뒤의 평범한 flex 자식으로 둘 것 — position:absolute로 고정
+   거리에 앉히면 블록 실제 높이를 손으로 어림해야 하는데 어긋나기 쉽고, 어긋나면 QR·줄이
+   겹치는 사고로 이어진다(2026-08-30 샘플 제작 중 실제로 겪음). */
+.wlines { flex:1; min-height:0; display:flex; flex-direction:column; overflow:hidden; }
+.wline { height:8mm; flex:none; border-bottom:.6px solid #dfe3ea; }
+.bottomblock { flex:none; }
+.note-wrap { }
+.note-t { display:block; font-size:7.6pt; font-weight:800; color:#8a6a1e;
+          background:#eef0f3; padding:1.4mm 2.4mm; border-radius:1.5mm; margin-bottom:2.5mm; }
+.note-box { }
+.note-rows { display:flex; flex-direction:column; }
+.nline { height:8mm; flex:none; border-bottom:.6px solid #dfe3ea; }
+.w-tip { font-size:8.8pt; line-height:1.68; color:#000; background:#f6f1e3;
          border-radius:1.5mm; padding:2.2mm 3mm; margin-top:2.5mm; word-break:keep-all; }
-.w-tip b { color:#8a6a1e; }
-.qr2 { display:flex; align-items:center; gap:5mm; margin-top:3.5mm; }
-.qrc { text-align:center; }
-.qrc img { width:14mm; height:14mm; display:block; image-rendering:pixelated; }
-.qrc span { display:block; font-size:6.4pt; font-weight:700; color:#5a6273; margin-top:.8mm; }
-.chk { margin-left:auto; font-size:7.6pt; font-weight:700; color:#8a95a8; letter-spacing:.02em; }
+.w-tip b { color:#000; }
+.qr2 { display:flex; align-items:center; gap:3.5mm; margin-top:3.5mm; }
+.qrc { text-align:center; flex:none; }
+.qrc img { width:12mm; height:12mm; display:block; image-rendering:pixelated; }
+.qrc span { display:block; font-size:6pt; font-weight:700; color:#5a6273; margin-top:.8mm; white-space:nowrap; }
+.chk { margin-left:auto; font-size:7.2pt; font-weight:700; color:#8a95a8; letter-spacing:.02em;
+       text-align:right; line-height:1.5; }
 /* 표지 */
 .cover { background:linear-gradient(165deg,#12294f,#1a3a6b 45%,#0f2545); color:#fff;
          align-items:center; justify-content:center; text-align:center; }

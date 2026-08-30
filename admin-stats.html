@@ -154,6 +154,8 @@
   .pl-sent{margin-left:auto;}
   .pl-title{font-weight:800;color:#1f7a4d;font-size:.95rem;line-height:1.4;}
   .pl-msg{margin-top:5px;font-size:.86rem;color:var(--ink,#1c2430);line-height:1.6;}
+  /* 묵상 본문의 **강조** — 굵기만으로는 작은 글씨에서 눈에 안 들어 색까지 준다. */
+  .pl-msg strong, .ml-q strong{font-weight:700;color:var(--navy);}
   .ml-head{font-weight:800;color:var(--navy);font-size:1rem;margin:12px 2px 12px;line-height:1.4;}
   .ml-head .ml-ref{display:inline-block;font-size:.8rem;font-weight:700;color:#1f7a4d;background:#e7f6ee;border-radius:999px;padding:1px 9px;margin-left:4px;}
   .ml-q{margin-top:6px;padding-top:8px;border-top:1px dashed var(--border);font-size:.85rem;color:var(--navy);line-height:1.6;}
@@ -422,6 +424,16 @@ function getPw(){ return sessionStorage.getItem(PW_KEY) || ""; }
 
 function htmlEsc(v){
   return String(v==null?"":v).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
+}
+
+// **굵게** 마크다운을 <strong>으로 — 나머지는 이스케이프한다(XSS 방지).
+//   묵상 본문은 AI가 **강조**를 넣어 오는데, 그대로 찍으면 별표가 보인다.
+//   app.js의 scEmphasis와 같은 방식 — 먼저 쪼개고 각 조각을 이스케이프한다.
+function mdBold(v){
+  return String(v==null?"":v).split(/(\*\*[^*]+\*\*)/).map(seg=>{
+    const m=seg.match(/^\*\*([^*]+)\*\*$/);
+    return m ? `<strong>${htmlEsc(m[1])}</strong>` : htmlEsc(seg);
+  }).join("");
 }
 
 async function callStats(from, to){
@@ -756,8 +768,8 @@ function renderMedWeek(i){
       <div class="pl-item daily">
         <div class="pl-top"><span class="pl-badge">${DAYS[k]||("D"+(k+1))}</span>
           <span class="pl-when">${htmlEsc(m.heading||"")}</span></div>
-        ${m.message?`<div class="pl-msg">${htmlEsc(m.message)}</div>`:""}
-        ${m.question?`<div class="ml-q">💬 ${htmlEsc(m.question)}</div>`:""}
+        ${m.message?`<div class="pl-msg">${mdBold(m.message)}</div>`:""}
+        ${m.question?`<div class="ml-q">💬 ${mdBold(m.question)}</div>`:""}
       </div>`).join("")+`</div>`;
 }
 
