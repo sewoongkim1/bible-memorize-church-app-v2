@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260831j";
+const APP_BUILD = "20260831k";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5898,10 +5898,11 @@ function renderChallenge(verse, hard) {
   const refTokens = refFirst ? [verseRefShort(verse)] : [];
   const refWordsHtml = refTokens
     .map((word) => {
-      // 본문 빈칸(width:len+1em)과 같은 배율을 24px 큰 글씨에 그대로 쓰면 배지가
-      // 카드 폭을 넘어가 잘렸다(2026-08-31, "구절" 배지로 옮기며 발견) — 글자가 커진
-      // 만큼 글자당 폭 배율은 줄인다.
-      const style = `width:${Array.from(word).length * 0.62 + 1.4}em`;
+      // 구절 글자를 본문보다 크게 키웠더니(24px) "너무 크다"·"구절 줄이 뒤로 버튼과
+      // 나뉘어 2줄로 보인다"는 지적을 받고 되돌림(2026-08-31) — 이제 본문 빈칸과 같은
+      // 크기·같은 배율(len+1em)을 그대로 쓴다. 크기가 같아지니 배지도 다시 작아져
+      // "← 뒤로"와 한 줄에 들어간다(굳이 줄바꿈을 강제할 필요가 없어짐).
+      const style = `width:${Array.from(word).length + 1}em`;
       // 위 배너는 "시편 119편 105절"(refFull)인데 이 빈칸은 "시 119:105"(refShort)라
       // 어떻게 줄여 써야 하는지 알 길이 없었다("구절은 어떻게 입력해야 하나요?" 지적,
       // 2026-08-31) — placeholder로 정답 표기 형식을 옅게 미리 보여준다(포기 취지가
@@ -5935,7 +5936,7 @@ function renderChallenge(verse, hard) {
           <button class="voice-btn" id="voice-toggle">🎤 암송</button>
           <button class="answer-btn mode-btn" id="ch-mode-toggle">${isCardMode() ? "⌨️ 쓰기" : "👆 카드"}</button>
         </div>
-        <div class="test-top${refFirst ? " test-top-wrap" : ""}">
+        <div class="test-top">
           <div class="test-head">
             <div class="test-stage challenge-badge${hard ? " hard-badge" : ""}${refFirst ? " ref-badge" : ""}">${
               refFirst

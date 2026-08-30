@@ -538,6 +538,8 @@ h1 {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 16px;
+  flex-wrap: wrap; row-gap: 8px; /* 배지가 길면(구절 배지 등) 뒤로 버튼이 아래 줄로
+    자연스레 내려간다 — 짧은 배지("🔥 도전")는 그대로 한 줄에 남는다. */
 }
 .test-head {
   display: flex;
@@ -582,6 +584,7 @@ h1 {
   border: 1.5px solid var(--navy);
   color: var(--navy);
   font-weight: 700;
+  white-space: nowrap; flex-shrink: 0; /* 좁은 화면에서 눌려도 글자가 "뒤\로"처럼 안 쪼개짐 */
   cursor: pointer;
   padding: 7px 15px;
   border-radius: 20px;
@@ -2239,16 +2242,12 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 /* "구절 먼저 쓰기" 줄 — 짧은 라벨 하나 + 빈칸 하나를 한 줄에(2026-08-31 사용자 요청,
    안내 문구 줄은 없앰). 본문(.test-sentence)의 명조체·큰 글씨는 성경 본문을 위한 것이라
    라벨은 산세리프·작게 구분해 "본문이 아니라 칸 이름"으로 읽히게 한다. */
-/* "구절" 줄 — 이전엔 본문 줄과 나란한 평문 한 줄이었는데, 위쪽 "🔥 도전" 배지 자리로
-   옮기고(그 배지는 뺌) 배경색 있는 배지 모양으로, 글자도 크게(2026-08-31 사용자 요청).
-   배지가 넓어져(24px 입력칸) "← 뒤로"와 한 줄을 나누면 라벨 "구절"이 압박에 못 이겨
-   "구"/"절" 두 줄로 쪼개지는 문제가 있었다 — test-top을 줄바꿈 허용으로 바꾸고
-   배지가 있는 test-head가 그 줄 전체를 차지하게 해서(뒤로는 아래 줄로) 해결. */
-.test-top.test-top-wrap { flex-wrap: wrap; row-gap: 8px; }
-.test-top-wrap .test-head { flex: 1 1 100%; }
-/* 배경을 배지 전체가 아니라 "구절" 라벨 칸에만 — 전체를 색칠하면 밑줄까지 상자 안에
-   들어가 "2줄짜리 박스"처럼 부풀어 보였다(사용자 지적, 2026-08-31). 라벨만 작은
-   색칩으로, 빈칸은 카드의 흰 배경 위에 그대로 둬 한 줄로 가볍게 보이게 한다. */
+/* "구절" 줄 — 위쪽 "🔥 도전" 배지 자리로 옮기고(그 배지는 뺌) 배경은 라벨 칸에만
+   (전체를 칠하면 밑줄까지 상자 안에 들어가 "2줄짜리 박스"처럼 부풀어 보였다).
+   ⚠️ 한때 글자를 24px로 키웠었는데 "너무 크다"·"뒤로 버튼과 줄이 나뉜다"는 지적을
+   받고 되돌렸다(2026-08-31) — 본문 빈칸과 완전히 같은 크기(.word-input 그대로)를
+   쓴다. 크기가 같아지자 배지도 다시 작아져 "← 뒤로"와 한 줄에 자연히 들어가므로,
+   전에 있던 test-top 줄바꿈 강제(test-top-wrap)는 필요 없어져 지웠다. */
 .test-stage.ref-badge {
   display: inline-flex; align-items: baseline; gap: 8px;
   font-size: 13px; padding: 0 !important; border-radius: 0; letter-spacing: normal;
@@ -2261,9 +2260,8 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
   padding: 4px 10px; border-radius: 8px; white-space:nowrap; flex:none;
 }
 .hard-badge.ref-badge .ref-label { background: var(--navy-dark); color: var(--gold); box-shadow: 0 0 0 2px var(--gold) inset; }
-.ref-input{ font-size:24px !important; min-width:3.2em; }
-html[data-fs="lg"] .ref-input{ font-size:28px !important; }
-html[data-fs="xl"] .ref-input{ font-size:32px !important; }
+/* .ref-input은 일부러 별도 font-size를 안 준다 — 본문 빈칸(.word-input)과 같은 크기를
+   그대로 물려받아야 "구절"과 "말씀"의 쓰는 크기가 같아진다(2026-08-31 사용자 요청). */
 
 /* 도전 완료 화면 */
 .cd-card{ text-align:center; }
