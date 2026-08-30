@@ -2236,6 +2236,11 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
   text-align:center; color:var(--gray); font-size:.86rem; line-height:1.5; margin:2px 0 14px;
 }
 .challenge-hint-line b{ color:var(--navy); }
+/* "구절 먼저 쓰기" 줄 — 짧은 라벨 하나 + 빈칸 하나를 한 줄에(2026-08-31 사용자 요청,
+   안내 문구 줄은 없앰). 본문(.test-sentence)의 명조체·큰 글씨는 성경 본문을 위한 것이라
+   라벨은 산세리프·작게 구분해 "본문이 아니라 칸 이름"으로 읽히게 한다. */
+.ref-sentence{ margin-bottom:12px; }
+.ref-label{ font-family:"Noto Sans KR","Malgun Gothic",sans-serif; font-weight:800; font-size:.62em; color:var(--navy); margin-right:4px; vertical-align:middle; }
 
 /* 도전 완료 화면 */
 .cd-card{ text-align:center; }
