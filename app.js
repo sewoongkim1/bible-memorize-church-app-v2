@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260831m";
+const APP_BUILD = "20260831n";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5878,26 +5878,37 @@ let challengeEased = false;
 //   💡 풀이는 뜻을 이해하는 것이지 답을 얻는 게 아니라 도움으로 세지 않는다.
 let challengeUsedHelp = false;
 
-// "구절" 배지가 책 이름·장절 길이에 따라 "← 뒤로"와 한 줄에 들어가기도, 못 들어가기도
-// 했다("삿 8:23"은 되고 "삼상 26:24"는 안 됨 — 참조 길이는 책마다 들쭉날쭉해서 폭
-// 계산을 아무리 다듬어도 어느 책에서는 넘친다). CSS만으로는 "안 되면 글자를 줄인다"를
-// 할 수 없어 렌더 직후 실측해서, 배지와 뒤로 버튼이 같은 줄에 있는지(위쪽 좌표가
-// 비슷한지) 확인하고 아니면 구절 빈칸 글자를 한 단계씩 줄여 다시 잰다(2026-08-31,
-// "폰트도 줄여서라도 한 줄에" 사용자 요청). 본문 글자(19px, 글씨 크게 설정이면
-// 23·27px)보다 작아지진 않게 최소값을 그 아래로 두지 않는다.
+// "구절" 밑줄(빈칸 폭)을 em 배율로 어림하는 방식은 한글·숫자·콜론이 섞이면 늘 어딘가
+// 어긋났다("밑줄이 그래도 길어요") — 그래서 어림을 관두고 캔버스로 그 폰트의 실제
+// 글자 폭을 정확히 재서 폭을 맞춘다. 폭이 좁은 휴대폰까지 고려해 시작 크기도
+// 본문보다 한 단계 작게 잡고(2026-08-31 사용자 요청), 그래도 "← 뒤로"와 한 줄에
+// 안 들어가면(책 이름이 길어 참조 자체가 긴 경우) 렌더 직후 실측해 더 줄인다.
 function fitRefBadgeOneLine() {
   const badge = document.querySelector(".test-stage.ref-badge");
   const backBtn = document.getElementById("ch-exit");
   const input = document.querySelector(".ref-input");
   if (!badge || !backBtn || !input) return;
+  const text = input.dataset.answer || input.placeholder || "";
+  const canvas = fitRefBadgeOneLine._canvas || (fitRefBadgeOneLine._canvas = document.createElement("canvas"));
+  const ctx = canvas.getContext("2d");
+  const cs = getComputedStyle(input);
+  const measure = (px) => {
+    ctx.font = `${cs.fontWeight} ${px}px ${cs.fontFamily}`;
+    return ctx.measureText(text).width;
+  };
+  const applySize = (px) => {
+    input.style.fontSize = px + "px";
+    input.style.width = Math.ceil(measure(px) + 10) + "px"; // 커서 여유 10px만
+  };
+  // 좁은 화면을 감안해 본문(19px 안팎)보다 한 단계 작은 16px에서 시작한다.
+  let size = 16;
+  applySize(size);
   const sameLine = () => Math.abs(badge.getBoundingClientRect().top - backBtn.getBoundingClientRect().top) < 4;
-  if (sameLine()) return; // 처음부터 한 줄이면 손댈 것 없음
-  let size = parseFloat(getComputedStyle(input).fontSize) || 19;
-  const minSize = 13;
+  const minSize = 12;
   let guard = 0;
-  while (!sameLine() && size > minSize && guard < 12) {
+  while (!sameLine() && size > minSize && guard < 8) {
     size -= 1;
-    input.style.fontSize = size + "px";
+    applySize(size);
     guard++;
   }
 }
