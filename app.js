@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260831g";
+const APP_BUILD = "20260831h";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5898,12 +5898,15 @@ function renderChallenge(verse, hard) {
   const refTokens = refFirst ? [verseRefShort(verse)] : [];
   const refWordsHtml = refTokens
     .map((word) => {
-      const style = `width:${Array.from(word).length + 1}em`;
+      // 본문 빈칸(width:len+1em)과 같은 배율을 24px 큰 글씨에 그대로 쓰면 배지가
+      // 카드 폭을 넘어가 잘렸다(2026-08-31, "구절" 배지로 옮기며 발견) — 글자가 커진
+      // 만큼 글자당 폭 배율은 줄인다.
+      const style = `width:${Array.from(word).length * 0.62 + 1.4}em`;
       // 위 배너는 "시편 119편 105절"(refFull)인데 이 빈칸은 "시 119:105"(refShort)라
       // 어떻게 줄여 써야 하는지 알 길이 없었다("구절은 어떻게 입력해야 하나요?" 지적,
       // 2026-08-31) — placeholder로 정답 표기 형식을 옅게 미리 보여준다(포기 취지가
       // 애초에 "보고 그대로 쓰기"였으니 형식을 알려주는 건 어긋나지 않는다).
-      return `<input class="word-input" data-answer="${word}" placeholder="${word}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="${style}" />`;
+      return `<input class="word-input ref-input" data-answer="${word}" placeholder="${word}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="${style}" />`;
     })
     .join(" ");
   const tokens = verseText(verse).trim().split(/\s+/);
@@ -5932,9 +5935,13 @@ function renderChallenge(verse, hard) {
           <button class="voice-btn" id="voice-toggle">🎤 암송</button>
           <button class="answer-btn mode-btn" id="ch-mode-toggle">${isCardMode() ? "⌨️ 쓰기" : "👆 카드"}</button>
         </div>
-        <div class="test-top">
+        <div class="test-top${refFirst ? " test-top-wrap" : ""}">
           <div class="test-head">
-            <div class="test-stage challenge-badge${hard ? " hard-badge" : ""}">${hard ? "🔥🔥 어려운 도전" : "🔥 도전"}</div>
+            <div class="test-stage challenge-badge${hard ? " hard-badge" : ""}${refFirst ? " ref-badge" : ""}">${
+              refFirst
+                ? `<span class="ref-label">구절</span>${refWordsHtml}`
+                : (hard ? "🔥🔥 어려운 도전" : "🔥 도전")
+            }</div>
           </div>
           <button class="back-btn" id="ch-exit">← 뒤로</button>
         </div>
@@ -5942,7 +5949,6 @@ function renderChallenge(verse, hard) {
           <span><b>밑줄이 없어요</b></span>
           <button class="ch-ease" id="ch-ease">그냥 할래요</button>
         </div>` : ""}
-        ${refFirst ? `<div class="test-sentence ref-sentence"><span class="ref-label">구절</span> ${refWordsHtml}</div>` : ""}
         <div class="test-sentence">${wordsHtml}</div>
         <div id="card-tray" class="card-tray"></div>
         <div class="challenge-remain" id="ch-remain"></div>

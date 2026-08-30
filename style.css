@@ -2239,8 +2239,22 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 /* "구절 먼저 쓰기" 줄 — 짧은 라벨 하나 + 빈칸 하나를 한 줄에(2026-08-31 사용자 요청,
    안내 문구 줄은 없앰). 본문(.test-sentence)의 명조체·큰 글씨는 성경 본문을 위한 것이라
    라벨은 산세리프·작게 구분해 "본문이 아니라 칸 이름"으로 읽히게 한다. */
-.ref-sentence{ margin-bottom:12px; }
-.ref-label{ font-family:"Noto Sans KR","Malgun Gothic",sans-serif; font-weight:800; font-size:.62em; color:var(--navy); margin-right:4px; vertical-align:middle; }
+/* "구절" 줄 — 이전엔 본문 줄과 나란한 평문 한 줄이었는데, 위쪽 "🔥 도전" 배지 자리로
+   옮기고(그 배지는 뺌) 배경색 있는 배지 모양으로, 글자도 크게(2026-08-31 사용자 요청).
+   배지가 넓어져(24px 입력칸) "← 뒤로"와 한 줄을 나누면 라벨 "구절"이 압박에 못 이겨
+   "구"/"절" 두 줄로 쪼개지는 문제가 있었다 — test-top을 줄바꿈 허용으로 바꾸고
+   배지가 있는 test-head가 그 줄 전체를 차지하게 해서(뒤로는 아래 줄로) 해결. */
+.test-top.test-top-wrap { flex-wrap: wrap; row-gap: 8px; }
+.test-top-wrap .test-head { flex: 1 1 100%; }
+.test-stage.ref-badge {
+  display: inline-flex; align-items: baseline; gap: 8px;
+  font-size: 13px; padding: 7px 16px; border-radius: 14px; letter-spacing: normal;
+  white-space: nowrap; max-width: 100%; overflow-x: auto;
+}
+.ref-label{ font-family:"Noto Sans KR","Malgun Gothic",sans-serif; font-weight:800; font-size:1em; color:inherit; white-space:nowrap; flex:none; }
+.ref-input{ font-size:24px !important; min-width:3.2em; }
+html[data-fs="lg"] .ref-input{ font-size:28px !important; }
+html[data-fs="xl"] .ref-input{ font-size:32px !important; }
 
 /* 도전 완료 화면 */
 .cd-card{ text-align:center; }
