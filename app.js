@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260831a";
+const APP_BUILD = "20260831b";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1737,7 +1737,7 @@ function renderSummary() {
     <div id="event-slot-bottom"></div>
     <div class="summary-icons summary-icons-bottom">
       <div class="icon-cap"><button class="summary-icon icon-alarm" id="open-alarm" aria-label="매일 암송 알림 받기" title="매일 암송 알림 받기">🔔</button><span class="icon-cap-label">알림</span></div>
-      <div class="icon-cap"><button class="summary-icon" id="toggle-ref-first" aria-label="도전에 구절 먼저 쓰기 전환" title="도전에 구절 먼저 쓰기 전환">🔖</button><span class="icon-cap-label" id="toggle-ref-first-label">구절쓰기</span></div>
+      <div class="icon-cap"><button class="summary-icon" id="toggle-ref-first" aria-label="도전에 구절 먼저 쓰기 전환" title="도전에 구절 먼저 쓰기 전환">🔖</button><span class="icon-cap-label" id="toggle-ref-first-label">구절</span></div>
       <div class="icon-cap"><button class="summary-icon" id="toggle-card-input" aria-label="암송 입력 방법 전환" title="암송 입력 방법 전환">⌨️</button><span class="icon-cap-label" id="toggle-card-input-label">쓰기</span></div>
       <div class="icon-cap"><button class="summary-icon" id="open-help-summary" aria-label="도움말" title="도움말">❓</button><span class="icon-cap-label">도움말</span></div>
       <div class="icon-cap"><button class="summary-icon" id="open-settings" aria-label="설정" title="설정">⚙️</button><span class="icon-cap-label">설정</span></div>
@@ -2672,7 +2672,7 @@ function setupRefFirstToggle() {
     const label = on ? "도전에 구절 먼저 쓰기 켜짐 — 눌러서 끄기" : "도전에 구절 먼저 쓰기 꺼짐 — 눌러서 켜기";
     btn.setAttribute("aria-label", label);
     btn.title = label;
-    if (capLabel) capLabel.textContent = on ? "구절쓰기 ON" : "구절쓰기";
+    if (capLabel) capLabel.textContent = "구절"; // 켬/끔은 아이콘 색으로만(icon-on) — 글자를 안 늘린다
   };
   paint(isChallengeRefFirst());
   btn.addEventListener("click", () => {
