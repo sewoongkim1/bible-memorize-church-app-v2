@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260831k";
+const APP_BUILD = "20260831l";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5900,9 +5900,15 @@ function renderChallenge(verse, hard) {
     .map((word) => {
       // 구절 글자를 본문보다 크게 키웠더니(24px) "너무 크다"·"구절 줄이 뒤로 버튼과
       // 나뉘어 2줄로 보인다"는 지적을 받고 되돌림(2026-08-31) — 이제 본문 빈칸과 같은
-      // 크기·같은 배율(len+1em)을 그대로 쓴다. 크기가 같아지니 배지도 다시 작아져
-      // "← 뒤로"와 한 줄에 들어간다(굳이 줄바꿈을 강제할 필요가 없어짐).
-      const style = `width:${Array.from(word).length + 1}em`;
+      // 크기를 쓴다. 폭 계산은 본문 빈칸(len+1em, 한글 낱말 전제)을 그대로 못 쓴다 —
+      // "벧전 4:16"처럼 한글+숫자+콜론이 섞이면 숫자·콜론·공백은 한 글자(1em)보다
+      // 훨씬 좁아서, 그 배율대로 재면 실제 글자보다 밑줄이 한참 길게 남는다
+      // ("밑줄이 너무 길어요" 지적) — 한글은 1.05em, 나머지(숫자·콜론·공백)는
+      // 0.62em으로 따로 센다.
+      const chars = Array.from(word);
+      const wideCount = chars.filter((c) => /[가-힣]/.test(c)).length;
+      const narrowCount = chars.length - wideCount;
+      const style = `width:${(wideCount * 1.05 + narrowCount * 0.62 + 1.2).toFixed(2)}em`;
       // 위 배너는 "시편 119편 105절"(refFull)인데 이 빈칸은 "시 119:105"(refShort)라
       // 어떻게 줄여 써야 하는지 알 길이 없었다("구절은 어떻게 입력해야 하나요?" 지적,
       // 2026-08-31) — placeholder로 정답 표기 형식을 옅게 미리 보여준다(포기 취지가
