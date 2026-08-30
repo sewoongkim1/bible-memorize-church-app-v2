@@ -1201,6 +1201,10 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 .summary-icon.icon-share:hover { background: #dbe7f8; }
 .dark .summary-icon.icon-alarm { background: #3a3320; border-color: #5a4e2a; color: #eccf87; }
 .dark .summary-icon.icon-share { background: #22314c; border-color: #35507a; color: #bcd2f2; }
+/* 켬/끔 아이콘 토글(예: 도전에 구절 먼저 쓰기)의 '켜짐' 상태 — 공유 아이콘과 같은 색으로
+   한눈에 "활성" 임을 알 수 있게 한다. 꺼짐은 다른 무채색 아이콘과 같은 기본 회색. */
+.summary-icon.icon-on { background: #e8f0fb; border-color: #c3d5ef; color: var(--navy); }
+.dark .summary-icon.icon-on { background: #22314c; border-color: #35507a; color: #bcd2f2; }
 /* 아직 알림 안 켠 사람에게만 은은한 강조 */
 .summary-icon.pulse { animation: bellPulse 2.2s ease-in-out infinite; }
 @keyframes bellPulse {

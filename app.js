@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260830a";
+const APP_BUILD = "20260831a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1737,7 +1737,7 @@ function renderSummary() {
     <div id="event-slot-bottom"></div>
     <div class="summary-icons summary-icons-bottom">
       <div class="icon-cap"><button class="summary-icon icon-alarm" id="open-alarm" aria-label="매일 암송 알림 받기" title="매일 암송 알림 받기">🔔</button><span class="icon-cap-label">알림</span></div>
-      <div class="icon-cap"><button class="summary-icon icon-share" id="open-share" aria-label="공유하기" title="함께할 친구에게 공유하기">🔗</button><span class="icon-cap-label">공유</span></div>
+      <div class="icon-cap"><button class="summary-icon" id="toggle-ref-first" aria-label="도전에 구절 먼저 쓰기 전환" title="도전에 구절 먼저 쓰기 전환">🔖</button><span class="icon-cap-label" id="toggle-ref-first-label">구절쓰기</span></div>
       <div class="icon-cap"><button class="summary-icon" id="toggle-card-input" aria-label="암송 입력 방법 전환" title="암송 입력 방법 전환">⌨️</button><span class="icon-cap-label" id="toggle-card-input-label">쓰기</span></div>
       <div class="icon-cap"><button class="summary-icon" id="open-help-summary" aria-label="도움말" title="도움말">❓</button><span class="icon-cap-label">도움말</span></div>
       <div class="icon-cap"><button class="summary-icon" id="open-settings" aria-label="설정" title="설정">⚙️</button><span class="icon-cap-label">설정</span></div>
@@ -1771,12 +1771,14 @@ function renderSummary() {
   document.getElementById("open-ranking").addEventListener("click", () => renderRanking());
   document.getElementById("open-help-summary").addEventListener("click", () => renderManual(renderSummary, -1));
   document.getElementById("open-settings").addEventListener("click", renderSettings);
-  document.getElementById("open-share").addEventListener("click", shareApp);
   document.getElementById("open-alarm").addEventListener("click", alarmFromHome);
   // 📲 바로가기 자리를 대신한 암송 입력 방법(쓰기/카드) 전환 — 설정 화면의
   // cardstart-row와 같은 상태(CARD_START_KEY)를 쓴다. 눌러야 데이터가 나가는
   // 것도 아니고 화면 전환도 없어 아이콘 한 칸으로 충분하다.
   setupCardToggleIcon();
+  // "공유" 아이콘 자리를 대신한 "도전에 구절 먼저 쓰기" 전환 — 공유 자체는 없어진 게
+  // 아니라 설정 화면(share-btn)에 그대로 있다(2026-08-31 사용자 결정).
+  setupRefFirstToggle();
   // 아직 알림을 안 켠 사람: 종 아이콘만 강조한다.
   // (상단 '알림 켜기' 배너는 홈 화면 정리로 숨김 — showPushNudge 코드는 유지)
   (async () => {
@@ -2654,6 +2656,28 @@ function setupCardToggleIcon() {
     const on = !isCardStart();
     setCardStart(on);
     setCardMode(on);   // 설정 화면과 마찬가지로 지금 구절부터 바로 먹힌다
+    paint(on);
+  });
+}
+
+// 첫 화면 아이콘 줄의 "도전에 구절 먼저 쓰기" 켬/끔 — "공유" 아이콘 자리를 대신한다
+// (공유는 없앤 게 아니라 설정 화면에도 그대로 있다). 위 setupCardToggleIcon과 같은 모양:
+// 한 칸에 아이콘 하나, 눌러서 상태를 뒤집는다.
+function setupRefFirstToggle() {
+  const btn = document.getElementById("toggle-ref-first");
+  if (!btn) return;
+  const capLabel = document.getElementById("toggle-ref-first-label");
+  const paint = (on) => {
+    btn.classList.toggle("icon-on", on);
+    const label = on ? "도전에 구절 먼저 쓰기 켜짐 — 눌러서 끄기" : "도전에 구절 먼저 쓰기 꺼짐 — 눌러서 켜기";
+    btn.setAttribute("aria-label", label);
+    btn.title = label;
+    if (capLabel) capLabel.textContent = on ? "구절쓰기 ON" : "구절쓰기";
+  };
+  paint(isChallengeRefFirst());
+  btn.addEventListener("click", () => {
+    const on = !isChallengeRefFirst();
+    setChallengeRefFirst(on);
     paint(on);
   });
 }
@@ -4003,6 +4027,15 @@ function setCardMode(on) { try { localStorage.setItem(CARD_MODE_KEY, on ? "1" : 
 const CARD_START_KEY = "card-start";
 function isCardStart() { try { return localStorage.getItem(CARD_START_KEY) === "1"; } catch (e) { return false; } }
 function setCardStart(on) { try { localStorage.setItem(CARD_START_KEY, on ? "1" : "0"); } catch (e) {} }
+
+// 도전에서 "구절 먼저 쓰기" — 본문 빈칸을 채우기 전에 구절(예 "시편 116편 1절")부터
+// 빈칸으로 채우게 한다. 기본은 꺼짐(기존 흐름을 그대로 두기 위해) — 첫 화면 아이콘
+// (예전 📲 자리를 대신한 것과 같은 자리, 이번엔 "공유"를 대신한다)으로 켠다.
+// 자동으로 계속 도전 중에도 이 관문은 그대로 낀다(2026-08-31 사용자 결정 — 카드/쓰기 전환과
+// 달리 이건 "빠르게 돌기"보다 "구절까지 함께 외우기"가 목적이라 자동에서 빼면 의미가 없다).
+const CHALLENGE_REF_FIRST_KEY = "challenge-ref-first";
+function isChallengeRefFirst() { try { return localStorage.getItem(CHALLENGE_REF_FIRST_KEY) === "1"; } catch (e) { return false; } }
+function setChallengeRefFirst(on) { try { localStorage.setItem(CHALLENGE_REF_FIRST_KEY, on ? "1" : "0"); } catch (e) {} }
 
 const REPEAT_KEY = "repeat-practice";
 function isRepeatPractice() { try { return localStorage.getItem(REPEAT_KEY) === "1"; } catch (e) { return false; } }
@@ -5830,7 +5863,53 @@ function startChallenge() {
   const pick = pool[Math.floor(Math.random() * pool.length)];
   challengeSession.push(pick.no);
   challengeEased = false;
+  // "구절 먼저 쓰기"가 켜져 있으면 본문 빈칸 전에 구절(예 "시편 116편 1절")부터 채우게 한다.
+  // 자동으로 계속 도전 중이어도, 🔀 다른말씀으로 넘어갈 때도 여기서 갈라지므로 매번 낀다
+  // (이 함수 하나로 도전이 시작되는 모든 길이 모이기 때문).
+  if (isChallengeRefFirst()) { renderChallengeRefGate(pick, hard); return; }
   renderChallenge(pick, hard);
+}
+
+// "구절 먼저 쓰기" 관문 — 본문 화면(renderChallenge)과 같은 빈칸·카드 방식을 구절에 그대로
+// 적용한다. verseRefFull을 띄운 채로 채우면 그냥 베끼는 것이라 반드시 안 보여야 하므로,
+// renderChallenge와 달리 .test-ref-sticky(정답이 계속 보이는 배너)를 넣지 않는다
+// (with-ref-banner 클래스도 뺀다 — 그 배너를 위해 비워 둔 위쪽 여백까지 같이 빠진다).
+function renderChallengeRefGate(verse, hard) {
+  const appEl = document.getElementById("app");
+  const refTokens = verseRefFull(verse).trim().split(/\s+/);
+  const wordsHtml = refTokens
+    .map((word) => {
+      const style = `width:${Array.from(word).length + 1}em`;
+      return `<input class="word-input" data-answer="${word}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="${style}" />`;
+    })
+    .join(" ");
+  appEl.innerHTML = `
+    <div class="test-screen">
+      <div class="test-card">
+        <div class="btn-row">
+          <button class="answer-btn mode-btn" id="ch-mode-toggle">${isCardMode() ? "⌨️ 쓰기" : "👆 카드"}</button>
+        </div>
+        <div class="test-top">
+          <div class="test-head">
+            <div class="test-stage challenge-badge${hard ? " hard-badge" : ""}">📖 구절 먼저</div>
+          </div>
+          <button class="back-btn" id="ch-exit">← 뒤로</button>
+        </div>
+        <div class="challenge-hint-line">이 말씀이 어느 구절인지 먼저 써 보세요</div>
+        <div class="test-sentence">${wordsHtml}</div>
+        <div id="card-tray" class="card-tray"></div>
+        <div class="challenge-remain" id="ch-remain"></div>
+        <div id="result-area"></div>
+      </div>
+    </div>`;
+  scrollPastBtnRow();
+  document.getElementById("ch-exit").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
+  document.getElementById("ch-mode-toggle").addEventListener("click", () => {
+    stopSpeaking();
+    setCardMode(!isCardMode());
+    renderChallengeRefGate(verse, hard);
+  });
+  setupChallengeTyping(verse, () => renderChallenge(verse, hard));
 }
 
 // 어려운 도전을 '이번만' 접었는지. startChallenge에서만 내린다 —
