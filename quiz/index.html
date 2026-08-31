@@ -59,6 +59,9 @@
   .brand p { margin:0; color:var(--dim); font-size:15px; }
 
   .field { display:flex; flex-direction:column; gap:13px; }
+  /* 단추가 둘뿐인 칸은 나란히 — 세로로 쌓으면 화면이 넘쳐 스크롤이 생긴다. */
+  .pair { display:flex; gap:20px 24px; flex-wrap:wrap; }
+  .pair .field { flex:1 1 240px; }
   .field > .lab { font-size:15px; font-weight:700; color:var(--dim); }
   .opts { display:flex; flex-wrap:wrap; gap:9px; }
   .opt {
@@ -237,14 +240,15 @@
       <div class="opts" id="opt-b"></div>
     </div>
 
-    <div class="field">
-      <div class="lab">출제 순서</div>
-      <div class="opts" id="opt-o"></div>
-    </div>
-
-    <div class="field">
-      <div class="lab">정답</div>
-      <div class="opts" id="opt-r"></div>
+    <div class="pair">
+      <div class="field">
+        <div class="lab">출제 순서</div>
+        <div class="opts" id="opt-o"></div>
+      </div>
+      <div class="field">
+        <div class="lab">정답</div>
+        <div class="opts" id="opt-r"></div>
+      </div>
     </div>
 
     <div class="field">
@@ -267,7 +271,7 @@
       <span><b>H</b> 힌트</span>
       <span><b>Esc</b> 설정</span>
     </div>
-    <p class="hint-line">무선 프리젠터 리모컨이 그대로 작동합니다 — 사회자가 손에 쥐고 진행하시면 됩니다.<br>자동으로 넘기는 중에도 아무 때나 눌러 앞뒤로 옮길 수 있고, 그때부터 다시 셉니다.</p>
+    <p class="hint-line">무선 프리젠터 리모컨이 그대로 작동합니다. 자동으로 넘기는 중에도 아무 때나 눌러 옮길 수 있습니다.</p>
   </div>
 </div>
 
