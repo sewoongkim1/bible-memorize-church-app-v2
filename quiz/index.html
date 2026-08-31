@@ -125,6 +125,15 @@
   }
   .ref { color:var(--dim); font-size:clamp(19px,2.6vw,44px); font-weight:600; }
 
+  /* 자동으로 넘어갈 때 남은 시간 — 맨 위 가느다란 띠가 줄어든다.
+     숫자를 크게 띄우면 말씀보다 그게 먼저 눈에 들어온다. */
+  .timer {
+    position:fixed; left:0; top:0; height:7px; width:100%;
+    background:var(--gold); transform:scaleX(0); transform-origin:left center;
+    opacity:0; z-index:15; pointer-events:none;
+  }
+  .timer.run { opacity:.9; }
+
   /* ── 조작 줄 (마우스를 움직일 때만) ───────── */
   .bar {
     /* 오른쌄 구통이로 — 가운데 두면 가운데 정렬된 요절과 겹친다. */
@@ -159,7 +168,9 @@
   .krow span:first-child { color:var(--gold); font-weight:700; white-space:nowrap; }
   .krow span:last-child { color:var(--dim); text-align:right; }
 
-  @media (prefers-reduced-motion:reduce) { *, .tk.fill { transition:none !important; animation:none !important; } }
+  @media (prefers-reduced-motion:reduce) {
+    *:not(.timer), .tk.fill { transition:none !important; animation:none !important; }
+  }
 </style>
 </head>
 <body>
@@ -233,6 +244,9 @@
   <p id="done-sub"></p>
   <button class="go" id="again" style="max-width:320px">다시 하기</button>
 </div>
+
+<!-- 자동일 때 남은 시간 -->
+<div class="timer" id="timer"></div>
 
 <!-- 조작 줄 -->
 <div class="bar" id="bar">
@@ -526,10 +540,29 @@
   // 사회자가 직접 넘겨도 타이머는 다시 시작한다 — draw()가 매번 건다.
   function armAuto() {
     clearTimeout(autoTimer);
-    if (!aPick || !$("play").classList.contains("on")) return;
+    var t = $("timer");
+    if (!aPick || !$("play").classList.contains("on")) {
+      t.classList.remove("run");
+      t.style.transition = "none";
+      t.style.transform = "scaleX(0)";
+      return;
+    }
     autoTimer = setTimeout(next, autoSec * 1000);
+    // 가득 찬 상태로 되돌린 뒤 정해진 초에 걸쳐 줄어들게 한다.
+    t.style.transition = "none";
+    t.style.transform = "scaleX(1)";
+    t.classList.add("run");
+    void t.offsetWidth;                       // 되돌린 것을 먼저 반영시킨다
+    t.style.transition = "transform " + autoSec + "s linear";
+    t.style.transform = "scaleX(0)";
   }
-  function stopAuto() { clearTimeout(autoTimer); autoTimer = null; }
+  function stopAuto() {
+    clearTimeout(autoTimer); autoTimer = null;
+    var t = $("timer");
+    t.classList.remove("run");
+    t.style.transition = "none";
+    t.style.transform = "scaleX(0)";
+  }
 
   function next() {
     if (fading) return;          // 넘어가는 중에 또 누르면 한 문제를 건너뛴다
