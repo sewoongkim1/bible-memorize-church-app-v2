@@ -126,7 +126,11 @@
   #play { padding:clamp(20px,4vh,48px) clamp(24px,5vw,80px); }
   .top { display:flex; align-items:baseline; justify-content:space-between; gap:16px; flex:none; }
   .count { font-size:clamp(16px,2.2vw,26px); font-weight:800; color:var(--gold-dim); font-variant-numeric:tabular-nums; }
-  .brandmini { font-size:clamp(12px,1.4vw,16px); color:var(--faint); }
+  /* 교회 마크. 원본이 어두운 로고라 어두운 바탕에서는 흰색으로 뒤집어 쓴다
+     (brightness(0) invert(1) — 투명도는 그대로 두고 색만 흰색으로). */
+  .brandmark { height:clamp(30px,3.4vw,58px); width:auto; opacity:.8; }
+  body[data-bg="navy"] .brandmark,
+  body[data-bg="black"] .brandmark { filter:brightness(0) invert(1); opacity:.7; }
 
   .stage { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:clamp(18px,3vh,38px); min-height:0; overflow:hidden; }
   .verse {
@@ -301,7 +305,8 @@
 <div class="screen" id="play">
   <div class="top">
     <div class="count" id="count"></div>
-    <div class="brandmini">고척교회 성경말씀 암송</div>
+    <img class="brandmark" src="../marketing/church-logo.png" alt="고척교회"
+         onerror="this.style.display='none'" />
   </div>
   <div class="stage">
     <div class="verse" id="verse"></div>
