@@ -252,7 +252,7 @@
     <div class="field">
       <div class="lab">구절마다 빈칸</div>
       <div class="opts" id="opt-b"></div>
-      <p class="hint-line"><b>0개</b>를 고르면 빈칸 없이 말씀만 보여 드립니다.<br>빈칸 자리는 <b>시작할 때마다 새로</b> 정해집니다.</p>
+      <p class="hint-line"><b>0개</b>는 빈칸 없이 말씀만, <b>전체</b>는 낱말을 하나도 남기지 않습니다.<br>빈칸 자리는 <b>시작할 때마다 새로</b> 정해집니다.</p>
     </div>
 
     <div class="field">
@@ -336,8 +336,9 @@
 
   // 0 = 전체(있는 말씀 전부). 부서마다 진도가 달라 「전체」를 자주 쓰신다.
   var N_OPTS = [10, 15, 20, 25, 0];
-  // 빈칸 0 = 빈칸 없이 말씀만 큰 화면에 — 다 함께 읽거나 문제 전에 보여 드릴 때.
-  var B_OPTS = [0, 1, 2, 3, 4];
+  // 빈칸 0 = 빈칸 없이 말씀만 큰 화면에(다 함께 읽을 때).
+  // -1 = 전체 — 낱말을 하나도 남기지 않는다. 앱의 3단계 암송과 같은 난이도다.
+  var B_OPTS = [0, 1, 2, 3, -1];
   // 0 = 구절 번호 차례대로(진도 순), 1 = 섞어서.
   var O_OPTS = [0, 1];
   // 0 = 사회자가 넘긴다, 1 = 정해진 초마다 저절로.
@@ -376,7 +377,7 @@
   }
   buildOpts($("opt-n"), N_OPTS, function (v) { return v === 0 ? "전체" : v; },
     function () { return nPick; }, function (v) { nPick = v; });
-  buildOpts($("opt-b"), B_OPTS, function (v) { return v; },
+  buildOpts($("opt-b"), B_OPTS, function (v) { return v < 0 ? "전체" : v; },
     function () { return bPick; }, function (v) { bPick = v; });
   buildOpts($("opt-o"), O_OPTS, function (v) { return v === 0 ? "순서대로" : "무작위로"; },
     function () { return oPick; }, function (v) { oPick = v; });
@@ -492,6 +493,8 @@
   // 두 글자 이상인 어절만 후보로 — '은·이요' 같은 조사가 비면 문제가 시시해진다.
   // (앱의 pickEventBlankIndex와 같은 기준)
   function pickBlanks(tokens, want) {
+    // 전체 — 「절반을 넘지 않는다」는 상한을 적용하지 않는다. 다 비우는 것이 목적이다.
+    if (want < 0) return tokens.map(function (_, i) { return i; });
     var cand = [];
     tokens.forEach(function (t, i) {
       if (Array.from(t).length >= 2) cand.push(i);
