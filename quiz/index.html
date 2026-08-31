@@ -21,10 +21,35 @@
 -->
 
 <style>
-  :root {
-    --navy-0:#0b1730; --navy-1:#12244a; --navy-2:#1a3a6b;
+  /* 배경 네 가지. 빔 프로젝터에는 어두운 쪽이, 밝은 방의 TV에는 밝은 쪽이 낫다.
+     색을 전부 변수로 두어 어느 바탕에서도 글씨·선·단추가 함께 따라간다. */
+  :root, body[data-bg="navy"] {
+    --navy-0:#0b1730; --navy-1:#12244a;
     --ink:#f4f7fc; --dim:#93a6c8; --faint:#5f7399;
-    --gold:#e8c169; --gold-dim:#c8a84b;
+    --gold:#e8c169; --gold-dim:#c8a84b; --gold-hi:#f2cd77; --on-gold:#20180a;
+    --line:rgba(255,255,255,.15); --soft:rgba(255,255,255,.06); --hover:rgba(255,255,255,.15);
+    --disabled:#3b4a68; --veil:rgba(7,14,30,.93); --pick:rgba(232,193,105,.16);
+  }
+  body[data-bg="black"] {
+    --navy-0:#000000; --navy-1:#151515;
+    --ink:#ffffff; --dim:#bcbcbc; --faint:#8b8b8b;
+    --gold:#f0c96f; --gold-dim:#cfa945; --gold-hi:#f7d98c; --on-gold:#1a1305;
+    --line:rgba(255,255,255,.17); --soft:rgba(255,255,255,.07); --hover:rgba(255,255,255,.17);
+    --disabled:#3a3a3a; --veil:rgba(0,0,0,.94); --pick:rgba(240,201,111,.18);
+  }
+  body[data-bg="white"] {
+    --navy-0:#ffffff; --navy-1:#f1f4f9;
+    --ink:#14203a; --dim:#4d5c78; --faint:#7c8aa3;
+    --gold:#9a6f10; --gold-dim:#b08a2a; --gold-hi:#b8862a; --on-gold:#ffffff;
+    --line:rgba(20,32,58,.18); --soft:rgba(20,32,58,.05); --hover:rgba(20,32,58,.11);
+    --disabled:#ccd5e2; --veil:rgba(255,255,255,.95); --pick:rgba(154,111,16,.13);
+  }
+  body[data-bg="cream"] {
+    --navy-0:#f7f2e6; --navy-1:#fffdf5;
+    --ink:#2b2416; --dim:#6a5c42; --faint:#93866c;
+    --gold:#8a6413; --gold-dim:#a37f2a; --gold-hi:#a2761c; --on-gold:#fffdf5;
+    --line:rgba(43,36,22,.18); --soft:rgba(43,36,22,.05); --hover:rgba(43,36,22,.11);
+    --disabled:#ddd3bd; --veil:rgba(247,242,230,.95); --pick:rgba(138,100,19,.13);
   }
   * { box-sizing:border-box; }
   html, body { height:100%; }
@@ -45,13 +70,13 @@
     text-decoration:none; white-space:nowrap; flex:none;
     color:var(--dim); font-size:15px; font-weight:600;
     padding:9px 15px; border-radius:10px;
-    border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.05);
+    border:1px solid var(--line); background:var(--soft);
   }
-  .back:hover { background:rgba(255,255,255,.13); color:var(--ink); }
+  .back:hover { background:var(--hover); color:var(--ink); }
   .back:focus-visible { outline:3px solid var(--gold); outline-offset:2px; }
   .card {
     width:min(700px,100%); background:var(--navy-1);
-    border:1px solid rgba(255,255,255,.09); border-radius:20px;
+    border:1px solid var(--line); border-radius:20px;
     padding:clamp(28px,5vw,48px); display:flex; flex-direction:column; gap:32px;
   }
   .brand { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px 18px; margin-bottom:4px; }
@@ -66,12 +91,12 @@
   .opts { display:flex; flex-wrap:wrap; gap:9px; }
   .opt {
     flex:1 1 0; min-width:58px; padding:16px 10px; border-radius:12px;
-    background:rgba(255,255,255,.05); border:2px solid transparent;
+    background:var(--soft); border:2px solid transparent;
     color:var(--ink); font:inherit; font-size:19px; font-weight:700;
     cursor:pointer; transition:background .12s, border-color .12s;
   }
-  .opt:hover { background:rgba(255,255,255,.11); }
-  .opt[aria-pressed="true"] { background:rgba(232,193,105,.16); border-color:var(--gold); color:var(--gold); }
+  .opt:hover { background:var(--hover); }
+  .opt[aria-pressed="true"] { background:var(--pick); border-color:var(--gold); color:var(--gold); }
   .opt:focus-visible { outline:3px solid var(--gold); outline-offset:2px; }
 
   .hint-line { margin:0; color:var(--faint); font-size:13.5px; line-height:1.6; }
@@ -83,21 +108,19 @@
   .secs.on { display:flex; }
   .secs input {
     width:86px; padding:13px 10px; border-radius:11px;
-    border:1px solid rgba(255,255,255,.16); background:rgba(255,255,255,.06);
+    border:1px solid var(--line); background:var(--soft);
     color:var(--ink); font:inherit; font-size:19px; font-weight:700; text-align:center;
   }
   .secs input:focus-visible { outline:3px solid var(--gold); outline-offset:2px; }
 
   .go {
     padding:18px; border:none; border-radius:13px; cursor:pointer;
-    background:var(--gold); color:#20180a; font:inherit; font-size:21px; font-weight:800;
+    background:var(--gold); color:var(--on-gold); font:inherit; font-size:21px; font-weight:800;
   }
-  .go:hover { background:#f2cd77; }
-  .go:disabled { background:#3b4a68; color:var(--faint); cursor:default; }
+  .go:hover { background:var(--gold-hi); }
+  .go:disabled { background:var(--disabled); color:var(--faint); cursor:default; }
   .go:focus-visible { outline:3px solid #fff; outline-offset:3px; }
 
-  .keys { display:flex; flex-wrap:wrap; gap:10px 20px; color:var(--faint); font-size:13.5px; margin-top:2px; }
-  .keys b { color:var(--dim); font-weight:700; }
 
   /* ── 문제 ───────────────────────────────── */
   #play { padding:clamp(20px,4vh,48px) clamp(24px,5vw,80px); }
@@ -141,16 +164,16 @@
     /* 오른쌄 구통이로 — 가운데 두면 가운데 정렬된 요절과 겹친다. */
     position:fixed; right:18px; bottom:18px;
     display:flex; gap:8px; padding:8px; border-radius:14px;
-    background:rgba(9,18,38,.9); border:1px solid rgba(255,255,255,.12);
+    background:var(--veil); border:1px solid var(--line);
     opacity:0; pointer-events:none; transition:opacity .2s;
   }
   .bar.on { opacity:1; pointer-events:auto; }
   .bar button {
-    padding:10px 15px; border-radius:9px; border:1px solid rgba(255,255,255,.14);
-    background:rgba(255,255,255,.06); color:var(--ink); font:inherit; font-size:14.5px; cursor:pointer;
+    padding:10px 15px; border-radius:9px; border:1px solid var(--line);
+    background:var(--soft); color:var(--ink); font:inherit; font-size:14.5px; cursor:pointer;
   }
-  .bar button:hover { background:rgba(255,255,255,.14); }
-  .bar button.main { background:var(--gold); color:#20180a; border-color:transparent; font-weight:700; }
+  .bar button:hover { background:var(--hover); }
+  .bar button.main { background:var(--gold); color:var(--on-gold); border-color:transparent; font-weight:700; }
 
   /* ── 끝 ─────────────────────────────────── */
   #done { align-items:center; justify-content:center; gap:26px; text-align:center; padding:24px; }
@@ -160,25 +183,25 @@
   /* ── 정답지 ─────────────────────────────── */
   .done-btns { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
   .done-btns .go { min-width:180px; }
-  .go.ghost { background:rgba(255,255,255,.08); color:var(--ink); }
-  .go.ghost:hover { background:rgba(255,255,255,.16); }
+  .go.ghost { background:var(--soft); color:var(--ink); }
+  .go.ghost:hover { background:var(--hover); }
 
   #answers { padding:0; }
   .sheet-head {
     flex:none; display:flex; align-items:center; justify-content:space-between;
     gap:16px; flex-wrap:wrap;
-    padding:18px clamp(18px,4vw,44px); border-bottom:1px solid rgba(255,255,255,.12);
+    padding:18px clamp(18px,4vw,44px); border-bottom:1px solid var(--line);
   }
   .sheet-head h2 { margin:0; font-size:22px; font-weight:800; }
   .sheet-btns { display:flex; gap:9px; }
   .sheet-btns button {
     padding:10px 16px; border-radius:10px; cursor:pointer; font:inherit; font-size:15px;
-    border:1px solid rgba(255,255,255,.16); background:rgba(255,255,255,.07); color:var(--ink);
+    border:1px solid var(--line); background:var(--soft); color:var(--ink);
   }
-  .sheet-btns button:hover { background:rgba(255,255,255,.16); }
+  .sheet-btns button:hover { background:var(--hover); }
 
   .sheet-body { flex:1; overflow-y:auto; padding:18px clamp(18px,4vw,44px) 60px; }
-  .ansitem { padding:15px 0; border-bottom:1px solid rgba(255,255,255,.09); }
+  .ansitem { padding:15px 0; border-bottom:1px solid var(--line); }
   .ansitem:last-child { border-bottom:none; }
   .ansref { color:var(--gold-dim); font-size:14.5px; font-weight:700; margin-bottom:5px; }
   .ansref b { color:var(--dim); margin-right:8px; font-variant-numeric:tabular-nums; }
@@ -204,13 +227,13 @@
 
   /* ── 도움말 ─────────────────────────────── */
   #help {
-    position:fixed; inset:0; background:rgba(6,12,26,.93); z-index:20;
+    position:fixed; inset:0; background:var(--veil); z-index:20;
     display:none; align-items:center; justify-content:center; padding:24px;
   }
   #help.on { display:flex; }
-  .helpcard { background:var(--navy-1); border:1px solid rgba(255,255,255,.12); border-radius:16px; padding:30px 34px; max-width:520px; width:100%; }
+  .helpcard { background:var(--navy-1); border:1px solid var(--line); border-radius:16px; padding:30px 34px; max-width:520px; width:100%; }
   .helpcard h3 { margin:0 0 16px; font-size:22px; }
-  .krow { display:flex; justify-content:space-between; gap:18px; padding:9px 0; border-bottom:1px solid rgba(255,255,255,.07); font-size:16px; }
+  .krow { display:flex; justify-content:space-between; gap:18px; padding:9px 0; border-bottom:1px solid var(--line); font-size:16px; }
   .krow:last-child { border-bottom:none; }
   .krow span:first-child { color:var(--gold); font-weight:700; white-space:nowrap; }
   .krow span:last-child { color:var(--dim); text-align:right; }
@@ -220,7 +243,7 @@
   }
 </style>
 </head>
-<body>
+<body data-bg="navy">
 
 <!-- 설정 -->
 <div class="screen on" id="setup">
@@ -263,14 +286,13 @@
       </div>
     </div>
 
+    <div class="field">
+      <div class="lab">배경</div>
+      <div class="opts" id="opt-g"></div>
+    </div>
+
     <button class="go" id="start" disabled>말씀을 불러오는 중…</button>
 
-    <div class="keys">
-      <span><b>Space · →</b> 정답 공개 → 다음</span>
-      <span><b>←</b> 이전</span>
-      <span><b>H</b> 힌트</span>
-      <span><b>Esc</b> 설정</span>
-    </div>
     <p class="hint-line">무선 프리젠터 리모컨이 그대로 작동합니다. 자동으로 넘기는 중에도 아무 때나 눌러 옮길 수 있습니다.</p>
   </div>
 </div>
@@ -346,9 +368,11 @@
   var O_OPTS = [0, 1];
   // 0 = 사회자가 넘긴다, 1 = 정해진 초마다 저절로.
   var A_OPTS = [0, 1];
+  var G_OPTS = ["navy", "black", "white", "cream"];
+  var G_NAME = { navy: "남색", black: "검정", white: "흰색", cream: "미색" };
   // 1 = 정답을 한 번 보여주고 넘어간다, 0 = 보여주지 않고 바로 다음 말씀으로.
   var R_OPTS = [1, 0];
-  var nPick = 10, bPick = 2, oPick = 1, aPick = 0, rPick = 1, autoSec = 8;
+  var nPick = 10, bPick = 2, oPick = 1, aPick = 0, rPick = 1, gPick = "navy", autoSec = 8;
   var autoTimer = null;
   var verses = [], quiz = [], idx = 0, revealed = false;
 
@@ -372,7 +396,9 @@
       b.onclick = function () {
         set(v);
         Array.prototype.forEach.call(host.children, function (c) {
-          c.setAttribute("aria-pressed", String(Number(c.dataset.v) === v));
+          // 값이 숫자일 수도 글자일 수도 있다(배경 이름).
+          var cv = typeof v === "number" ? Number(c.dataset.v) : c.dataset.v;
+          c.setAttribute("aria-pressed", String(cv === v));
         });
       };
       host.appendChild(b);
@@ -391,6 +417,9 @@
     });
   buildOpts($("opt-r"), R_OPTS, function (v) { return v === 1 ? "정답 공개" : "공개 안 함"; },
     function () { return rPick; }, function (v) { rPick = v; });
+  // 배경은 고르는 즉시 화면에 반영한다 — 눌러 보고 정하시게.
+  buildOpts($("opt-g"), G_OPTS, function (v) { return G_NAME[v]; },
+    function () { return gPick; }, function (v) { gPick = v; document.body.dataset.bg = v; });
   $("secs").addEventListener("change", function () {
     var n = Math.round(Number(this.value) || 0);
     autoSec = Math.min(180, Math.max(2, n));   // 너무 짧으면 읽을 새가 없다
