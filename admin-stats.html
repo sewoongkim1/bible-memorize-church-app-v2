@@ -1824,11 +1824,44 @@ function renderBoardAdmin(){
       <p class="push-hint">숨김 글도 모두 표시됩니다. 여기서 다는 답글은 <b>관리자</b> 배지가 붙어요.</p>
       <button class="push-fill" id="ba-refresh">🔄 새로고침</button>
       <div id="ba-list"><p style="text-align:center;color:#888;padding:16px">불러오는 중...</p></div>
+    </div>
+
+    <div class="push-card">
+      <h3 style="margin:0 0 8px;font-size:15px">📢 공지 쓰기</h3>
+      <p class="push-hint" style="margin-top:0">
+        <b>HTML로 그리기</b>를 켜면 굵게·색·목록을 쓸 수 있습니다 — 관리자 글에만 됩니다.<br>
+        성도님 글은 늘 글자로만 그려집니다(아무나 HTML을 넣으면 위험하기 때문입니다).
+      </p>
+      <input id="bw-name" class="ba-in" style="width:100%;box-sizing:border-box;margin-bottom:8px" value="제자양육부" placeholder="글쓴이" />
+      <textarea id="bw-body" class="ba-in" style="width:100%;box-sizing:border-box;min-height:160px" placeholder="공지 내용"></textarea>
+      <label style="display:flex;align-items:center;gap:8px;margin:10px 0;font-size:14px">
+        <input type="checkbox" id="bw-rich" /> HTML로 그리기
+      </label>
+      <button class="push-fill" id="bw-send">📢 공지 올리기</button>
+      <div id="bw-res" class="msg" style="display:none"></div>
     </div>`;
   document.getElementById("back").addEventListener("click", renderMenu);
   document.getElementById("ba-refresh").addEventListener("click", loadBoardAdmin);
+  document.getElementById("bw-send").addEventListener("click", sendBoardNotice);
   loadBoardAdmin();
 }
+// 공지 올리기. rich(HTML)는 서버가 관리자 비번을 확인한 글에만 붙여 준다.
+async function sendBoardNotice(){
+  const name=document.getElementById("bw-name").value.trim()||"제자양육부";
+  const content=document.getElementById("bw-body").value.trim();
+  const rich=document.getElementById("bw-rich").checked;
+  const r=document.getElementById("bw-res");
+  r.style.display="block";
+  if(!content){ r.className="msg err"; r.textContent="내용을 적어주세요."; return; }
+  r.className="msg"; r.textContent="올리는 중...";
+  const d=await callApi({action:"boardPost",pw:getPw(),name,content,rich})
+    .catch(()=>({ok:false,error:"network"}));
+  if(!d.ok){ r.className="msg err"; r.textContent="올리지 못했습니다: "+(d.error||"?"); return; }
+  r.className="msg"; r.textContent="✅ 올렸습니다 (글 #"+d.id+")";
+  document.getElementById("bw-body").value="";
+  loadBoardAdmin();
+}
+
 async function loadBoardAdmin(){
   const box=document.getElementById("ba-list");
   const d=await callApi({action:"boardList",pw:getPw()}).catch(()=>({ok:false,error:"network"}));

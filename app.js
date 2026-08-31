@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260901c";
+const APP_BUILD = "20260901d";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1923,6 +1923,53 @@ function boardTime(iso) {
     return `${k.getUTCMonth() + 1}/${k.getUTCDate()} ${z(k.getUTCHours())}:${z(k.getUTCMinutes())}`;
   } catch (e) { return ""; }
 }
+// 관리자 공지만 HTML로 그린다 — 서버가 rich 표시를 붙여 준 글이다(boardPost).
+//   ⚠️ 그래도 화이트리스트로 한 번 거른다. 다른 데서 복사해 온 글에 추적 스크립트가
+//      묻어 올 수 있고, 언젠가 표시가 잘못 붙는 날을 대비한 이중 잠금이다.
+//      모르는 태그는 지우지 말고 '껍데기만 벗겨' 안의 글은 남긴다 — 글이 사라지는 것보다 낫다.
+const RICH_TAGS = { B:1, STRONG:1, I:1, EM:1, U:1, S:1, BR:1, P:1, DIV:1, SPAN:1,
+  UL:1, OL:1, LI:1, H3:1, H4:1, A:1, HR:1, SMALL:1, BLOCKQUOTE:1, CODE:1 };
+const RICH_STYLE = /^(color|background-color|background|font-weight|font-size|font-style|text-align|text-decoration|line-height|margin|margin-top|margin-bottom|padding|border-radius|border-left)$/;
+
+function boardRich(src) {
+  let root;
+  try {
+    const doc = new DOMParser().parseFromString("<div>" + String(src == null ? "" : src) + "</div>", "text/html");
+    root = doc.body.firstElementChild;
+  } catch (e) { return boardEsc(src); }
+  if (!root) return boardEsc(src);
+  (function walk(node) {
+    Array.prototype.slice.call(node.childNodes).forEach((c) => {
+      if (c.nodeType === 3) return;                       // 글자는 그대로 둔다
+      if (c.nodeType !== 1) return c.remove();            // 주석 등은 버린다
+      if (!RICH_TAGS[c.tagName]) {                        // 모르는 태그 — 껍데기만 벗긴다
+        while (c.firstChild) c.parentNode.insertBefore(c.firstChild, c);
+        return c.remove();
+      }
+      Array.prototype.slice.call(c.attributes).forEach((a) => {
+        const n = a.name.toLowerCase();
+        if (n === "href" && c.tagName === "A") {
+          if (!/^https?:\/\//i.test(a.value)) c.removeAttribute("href");
+          return;
+        }
+        if (n === "style") {
+          const keep = a.value.split(";").map((d) => d.trim()).filter((d) => {
+            const k = (d.split(":")[0] || "").trim().toLowerCase();
+            return RICH_STYLE.test(k) && !/url\s*\(|expression|javascript:/i.test(d);
+          });
+          if (keep.length) c.setAttribute("style", keep.join("; "));
+          else c.removeAttribute("style");
+          return;
+        }
+        c.removeAttribute(a.name);                        // on* · src · srcset … 전부 버린다
+      });
+      if (c.tagName === "A") { c.setAttribute("target", "_blank"); c.setAttribute("rel", "noopener noreferrer"); }
+      walk(c);
+    });
+  })(root);
+  return root.innerHTML;
+}
+
 function boardEsc(s) {
   return String(s == null ? "" : s)
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
@@ -2245,7 +2292,7 @@ async function loadBoard() {
     return `
       <div class="board-post" data-id="${p.id}">
         <div class="board-meta"><b>${boardEsc(p.name)}</b> · ${boardTime(p.created_at)}${delBtn("post", p)}</div>
-        <div class="board-text">${boardEsc(p.content)}</div>
+        <div class="board-text${p.rich ? " rich" : ""}">${p.rich ? boardRich(p.content) : boardEsc(p.content)}</div>
         ${boardPhotosHtml(p)}
         ${boardRxHtml("post", p)}
         ${replies}

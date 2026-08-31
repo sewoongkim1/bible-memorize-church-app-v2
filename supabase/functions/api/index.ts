@@ -2830,7 +2830,16 @@ async function boardPost(b: any) {
   const imgs = (Array.isArray(b.images) ? b.images : [])
     .filter(isBoardImgName).slice(0, BOARD_IMG_MAX);
   if (imgs.length) row.images = imgs;
+  // HTML로 그려도 되는 글인지 — 관리자 비번이 맞을 때만 표시한다.
+  //   이 API는 JWT가 없어 누구나 글을 쓸 수 있다. 아무 글이나 HTML로 그리면
+  //   저장형 XSS가 된다(그 글을 연 모든 분의 브라우저에서 코드가 돈다).
+  if (b.rich && !adminError(b)) row.rich = true;
   let { data, error } = await db.from("board_posts").insert(row).select("id").single();
+  // rich 컬럼 마이그레이션(board_rich.sql) 전이면 표시 없이 올린다 — 글이 먼저다.
+  if (error && /rich/i.test(String(error.message || ""))) {
+    delete row.rich;
+    ({ data, error } = await db.from("board_posts").insert(row).select("id").single());
+  }
   // 컬럼 마이그레이션 전 폴백 — 글을 잃는 것보다 사진 없이라도 올라가는 게 낫다.
   if (error && /images/i.test(String(error.message || ""))) {
     delete row.images;

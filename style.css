@@ -2878,6 +2878,21 @@ textarea.board-in-lg { min-height: 120px; }
 .board-text { font-size: 14px; color: var(--ink); line-height: 1.6; word-break: break-word; text-align: left; }
 .board-post .board-meta, .board-reply { text-align: left; }
 .dark .board-text { color: #e6ecf7; }
+/* 관리자 공지(HTML)에서 쓰는 것들. 성도 글은 글자로만 그려지므로 여기 걸리지 않는다. */
+.board-text.rich p { margin: 0 0 8px; }
+.board-text.rich p:last-child { margin-bottom: 0; }
+.board-text.rich ul, .board-text.rich ol { margin: 6px 0; padding-left: 20px; }
+.board-text.rich li { margin: 2px 0; }
+.board-text.rich h3, .board-text.rich h4 { margin: 12px 0 6px; font-size: 15px; color: var(--navy); }
+.dark .board-text.rich h3, .dark .board-text.rich h4 { color: #a8c4f0; }
+.board-text.rich a { color: var(--navy); }
+.dark .board-text.rich a { color: #a8c4f0; }
+.board-text.rich hr { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+.board-text.rich blockquote {
+  margin: 8px 0; padding: 6px 10px; border-left: 3px solid var(--gold);
+  background: var(--light); border-radius: 0 8px 8px 0;
+}
+.dark .board-text.rich blockquote { background: #1b2a47; }
 
 .board-reply {
   margin-top: 10px; padding: 9px 11px; border-radius: 9px;
