@@ -491,7 +491,8 @@
   var G_NAME = { navy: "남색", black: "검정", white: "흰색", cream: "미색" };
   // 1 = 정답을 한 번 보여주고 넘어간다, 0 = 보여주지 않고 바로 다음 말씀으로.
   var R_OPTS = [1, 0];
-  var nPick = 10, bPick = 2, oPick = 1, aPick = 0, rPick = 1, gPick = "navy", autoSec = 8;
+  // 기본값 — 빈칸 없이 말씀만, 8초마다 저절로. 혼자 둘러보시는 결에 맞췄다.
+  var nPick = 10, bPick = 0, oPick = 1, aPick = 1, rPick = 1, gPick = "navy", autoSec = 8;
   var autoTimer = null;
   var verses = [], quiz = [], idx = 0, revealed = false;
 
@@ -542,6 +543,8 @@
   // 배경은 고르는 즉시 화면에 반영한다 — 눌러 보고 정하시게.
   buildOpts($("opt-g"), G_OPTS, function (v) { return G_NAME[v]; },
     function () { return gPick; }, function (v) { gPick = v; document.body.dataset.bg = v; });
+  // 기본이 「자동」이니 초 입력칸도 처음부터 보여야 한다.
+  $("secs-row").classList.toggle("on", aPick === 1);
   $("secs").addEventListener("change", function () {
     var n = Math.round(Number(this.value) || 0);
     autoSec = Math.min(180, Math.max(2, n));   // 너무 짧으면 읽을 새가 없다
