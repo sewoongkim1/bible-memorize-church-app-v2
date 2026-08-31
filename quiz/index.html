@@ -291,6 +291,9 @@
      ⚠️ 마우스가 없으면 mousemove가 없어 조작 줄이 영영 안 뜬다 —
         손가락 기기에서는 늘 보이게 두고, 화면을 눌러도 넘어가게 한다. */
   @media (hover: none) {
+    /* 자동으로 도는 중에는 단추를 숨긴다 — 아무것도 안 누르고 보는 자리다.
+       화면을 누르면 잠깐 나타난다(.peek). */
+    .bar.live.auto:not(.peek) { opacity:0; pointer-events:none; }
     .bar.live {
       opacity:1; pointer-events:auto;
       left:12px; right:12px; bottom:calc(12px + env(safe-area-inset-bottom, 0px));
@@ -504,6 +507,8 @@
     // 조작 줄은 문제 화면에서만. 손가락 기기에서는 늘 펼쳐 두는데,
     // 화면을 안 가리면 설정·정답지까지 덮어 버린다.
     $("bar").classList.toggle("live", id === "play");
+    $("bar").classList.toggle("auto", !!aPick);
+    $("bar").classList.remove("peek");
   }
 
   // ── 설정 단추 ─────────────────────────────
@@ -898,10 +903,22 @@
     }
   });
 
-  // 손가락 기기에서만 「화면을 누르면 다음」. 마우스 쪽은 지금까지대로 둔다.
+  // 자동일 때 단추를 잠깐 보여 준다. 3초 뒤 다시 숨는다.
+  var peekTimer = null;
+  function peekBar() {
+    var b = $("bar");
+    b.classList.add("peek");
+    clearTimeout(peekTimer);
+    peekTimer = setTimeout(function () { b.classList.remove("peek"); }, 3000);
+  }
+
+  // 손가락 기기에서만. 마우스 쪽은 지금까지대로 둔다.
   if (window.matchMedia && window.matchMedia("(hover: none)").matches) {
     $("play").addEventListener("click", function (e) {
       if (e.target.closest && e.target.closest(".bar")) return;
+      // 자동이면 화면을 눌러도 넘기지 않는다 — 저절로 넘어가는 중에
+      //   눌러서 또 넘어가면 한 말씀을 놓친다. 단추만 꺼내 준다.
+      if (aPick) { peekBar(); return; }
       next();
     });
   }
