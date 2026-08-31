@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="robots" content="noindex" />
+<title>말씀 퀴즈 · 고척교회 성경말씀 암송</title>
+<link rel="icon" href="../icon-192.png" />
+
+<!--
+  큰 화면(TV·빔) 발표용 말씀 퀴즈. 부서 모임에서 사회자가 진행한다.
+
+  ■ 로그인이 필요 없다 — 교사가 아무 노트북에서나 연다(guide/와 같은 방침).
+  ■ 앱 본체(app.js)를 건드리지 않는다 — 여기서 무엇을 고쳐도 성도님 앱에 영향이 없다.
+  ■ 웹폰트를 부르지 않는다 — 한글 웹폰트 CSS 하나가 765KB라 첫 화면을 막는다.
+    큰 글씨로 띄우는 화면이라 기기 기본 글꼴로 충분하다.
+
+  ⚠️ tools/bump.py 는 루트 index.html 만 손본다. 이 파일의 ../js/config.js 에는
+     `?v=` 태그를 붙이지 않았다 — 붙여 봐야 bump가 올려 주지 않아 거짓 안심만 준다.
+     config.js 를 고쳤는데 여기에 안 먹으면 새로고침(Ctrl+F5) 한 번이면 된다.
+-->
+
+<style>
+  :root {
+    --navy-0:#0b1730; --navy-1:#12244a; --navy-2:#1a3a6b;
+    --ink:#f4f7fc; --dim:#93a6c8; --faint:#5f7399;
+    --gold:#e8c169; --gold-dim:#c8a84b;
+  }
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  body {
+    margin:0; background:var(--navy-0); color:var(--ink);
+    font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    overflow:hidden;
+  }
+  /* 빔 프로젝터에서 흰 바탕은 눈부시다 — 어두운 바탕에 흰 글씨로 간다. */
+
+  .screen { position:absolute; inset:0; display:none; flex-direction:column; }
+  .screen.on { display:flex; }
+
+  /* ── 설정 ───────────────────────────────── */
+  #setup { align-items:center; justify-content:center; gap:0; padding:24px; overflow-y:auto; }
+  .card {
+    width:min(680px,100%); background:var(--navy-1);
+    border:1px solid rgba(255,255,255,.09); border-radius:18px;
+    padding:clamp(24px,4vw,40px); display:flex; flex-direction:column; gap:26px;
+  }
+  .brand { display:flex; flex-direction:column; gap:6px; }
+  .brand h1 { margin:0; font-size:clamp(26px,4vw,36px); font-weight:800; letter-spacing:-.02em; }
+  .brand p { margin:0; color:var(--dim); font-size:15px; }
+
+  .field { display:flex; flex-direction:column; gap:10px; }
+  .field > .lab { font-size:15px; font-weight:700; color:var(--dim); }
+  .opts { display:flex; flex-wrap:wrap; gap:9px; }
+  .opt {
+    flex:1 1 0; min-width:74px; padding:14px 8px; border-radius:11px;
+    background:rgba(255,255,255,.05); border:2px solid transparent;
+    color:var(--ink); font:inherit; font-size:19px; font-weight:700;
+    cursor:pointer; transition:background .12s, border-color .12s;
+  }
+  .opt:hover { background:rgba(255,255,255,.11); }
+  .opt[aria-pressed="true"] { background:rgba(232,193,105,.16); border-color:var(--gold); color:var(--gold); }
+  .opt:focus-visible { outline:3px solid var(--gold); outline-offset:2px; }
+
+  .hint-line { margin:0; color:var(--faint); font-size:13.5px; line-height:1.6; }
+
+  .go {
+    padding:18px; border:none; border-radius:13px; cursor:pointer;
+    background:var(--gold); color:#20180a; font:inherit; font-size:21px; font-weight:800;
+  }
+  .go:hover { background:#f2cd77; }
+  .go:disabled { background:#3b4a68; color:var(--faint); cursor:default; }
+  .go:focus-visible { outline:3px solid #fff; outline-offset:3px; }
+
+  .keys { display:flex; flex-wrap:wrap; gap:8px 18px; color:var(--faint); font-size:13.5px; }
+  .keys b { color:var(--dim); font-weight:700; }
+
+  /* ── 문제 ───────────────────────────────── */
+  #play { padding:clamp(20px,4vh,48px) clamp(24px,5vw,80px); }
+  .top { display:flex; align-items:baseline; justify-content:space-between; gap:16px; flex:none; }
+  .count { font-size:clamp(16px,2.2vw,26px); font-weight:800; color:var(--gold-dim); font-variant-numeric:tabular-nums; }
+  .brandmini { font-size:clamp(12px,1.4vw,16px); color:var(--faint); }
+
+  .stage { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:clamp(18px,3vh,38px); min-height:0; }
+  .verse {
+    width:100%; text-align:center; font-weight:700; line-height:1.55;
+    word-break:keep-all; letter-spacing:-.01em;
+    /* 화면 폭에 맞춰 자동으로 커진다 — 뒷자리에서도 읽혀야 한다. */
+    font-size:clamp(26px,var(--vs,4.2vw),96px);
+  }
+  .tk { display:inline-block; margin:0 .18em; }
+  .tk.shown { color:var(--ink); }
+  .tk.fill { color:var(--gold); }
+  .tk.blank {
+    color:transparent; border-bottom:.09em solid var(--gold-dim);
+    min-width:2.2em;
+  }
+  .ref { color:var(--dim); font-size:clamp(15px,1.9vw,26px); font-weight:600; }
+
+  /* ── 조작 줄 (마우스를 움직일 때만) ───────── */
+  .bar {
+    position:fixed; left:50%; bottom:18px; transform:translateX(-50%);
+    display:flex; gap:8px; padding:8px; border-radius:14px;
+    background:rgba(9,18,38,.9); border:1px solid rgba(255,255,255,.12);
+    opacity:0; pointer-events:none; transition:opacity .2s;
+  }
+  .bar.on { opacity:1; pointer-events:auto; }
+  .bar button {
+    padding:10px 15px; border-radius:9px; border:1px solid rgba(255,255,255,.14);
+    background:rgba(255,255,255,.06); color:var(--ink); font:inherit; font-size:14.5px; cursor:pointer;
+  }
+  .bar button:hover { background:rgba(255,255,255,.14); }
+  .bar button.main { background:var(--gold); color:#20180a; border-color:transparent; font-weight:700; }
+
+  /* ── 끝 ─────────────────────────────────── */
+  #done { align-items:center; justify-content:center; gap:26px; text-align:center; padding:24px; }
+  #done h2 { margin:0; font-size:clamp(30px,5vw,56px); font-weight:800; }
+  #done p { margin:0; color:var(--dim); font-size:clamp(16px,2vw,22px); }
+
+  /* ── 도움말 ─────────────────────────────── */
+  #help {
+    position:fixed; inset:0; background:rgba(6,12,26,.93); z-index:20;
+    display:none; align-items:center; justify-content:center; padding:24px;
+  }
+  #help.on { display:flex; }
+  .helpcard { background:var(--navy-1); border:1px solid rgba(255,255,255,.12); border-radius:16px; padding:30px 34px; max-width:520px; width:100%; }
+  .helpcard h3 { margin:0 0 16px; font-size:22px; }
+  .krow { display:flex; justify-content:space-between; gap:18px; padding:9px 0; border-bottom:1px solid rgba(255,255,255,.07); font-size:16px; }
+  .krow:last-child { border-bottom:none; }
+  .krow span:first-child { color:var(--gold); font-weight:700; white-space:nowrap; }
+  .krow span:last-child { color:var(--dim); text-align:right; }
+
+  @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
+</style>
+</head>
+<body>
+
+<!-- 설정 -->
+<div class="screen on" id="setup">
+  <div class="card">
+    <div class="brand">
+      <h1>📖 말씀 퀴즈</h1>
+      <p>큰 화면에 띄우고 사회자가 진행합니다 · 고척교회 성경말씀 암송</p>
+    </div>
+
+    <div class="field">
+      <div class="lab">문제 수</div>
+      <div class="opts" id="opt-n"></div>
+    </div>
+
+    <div class="field">
+      <div class="lab">구절마다 빈칸</div>
+      <div class="opts" id="opt-b"></div>
+      <p class="hint-line">짧은 구절에서는 자동으로 줄입니다 — 어절의 절반을 넘지 않습니다.</p>
+    </div>
+
+    <button class="go" id="start" disabled>말씀을 불러오는 중…</button>
+
+    <div class="keys">
+      <span><b>Space · →</b> 정답 공개 → 다음</span>
+      <span><b>←</b> 이전</span>
+      <span><b>H</b> 힌트</span>
+      <span><b>Esc</b> 설정</span>
+    </div>
+    <p class="hint-line">무선 프리젠터 리모컨이 그대로 작동합니다 — 사회자가 손에 쥐고 진행하시면 됩니다.</p>
+  </div>
+</div>
+
+<!-- 문제 -->
+<div class="screen" id="play">
+  <div class="top">
+    <div class="count" id="count"></div>
+    <div class="brandmini">고척교회 성경말씀 암송</div>
+  </div>
+  <div class="stage">
+    <div class="verse" id="verse"></div>
+    <div class="ref" id="ref"></div>
+  </div>
+</div>
+
+<!-- 끝 -->
+<div class="screen" id="done">
+  <h2>🎉 수고하셨습니다</h2>
+  <p id="done-sub"></p>
+  <button class="go" id="again" style="max-width:320px">다시 하기</button>
+</div>
+
+<!-- 조작 줄 -->
+<div class="bar" id="bar">
+  <button id="b-prev">← 이전</button>
+  <button id="b-hint">힌트</button>
+  <button class="main" id="b-next">정답 공개</button>
+  <button id="b-esc">설정</button>
+</div>
+
+<!-- 도움말 -->
+<div id="help">
+  <div class="helpcard">
+    <h3>사회자 조작키</h3>
+    <div class="krow"><span>Space · → · PageDown</span><span>정답 공개 → 다음 문제</span></div>
+    <div class="krow"><span>← · PageUp</span><span>이전 문제</span></div>
+    <div class="krow"><span>H</span><span>빈칸 하나만 열기 (힌트)</span></div>
+    <div class="krow"><span>Esc</span><span>설정으로 돌아가기</span></div>
+    <div class="krow"><span>?</span><span>이 도움말</span></div>
+  </div>
+</div>
+
+<script src="../js/config.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var N_OPTS = [5, 10, 15, 20];
+  var B_OPTS = [1, 2, 3, 4];
+  var nPick = 10, bPick = 2;
+  var verses = [], quiz = [], idx = 0, revealed = false;
+
+  var $ = function (id) { return document.getElementById(id); };
+  function show(id) {
+    ["setup", "play", "done"].forEach(function (s) {
+      $(s).classList.toggle("on", s === id);
+    });
+  }
+
+  // ── 설정 단추 ─────────────────────────────
+  function buildOpts(host, list, get, set) {
+    host.innerHTML = "";
+    list.forEach(function (v) {
+      var b = document.createElement("button");
+      b.className = "opt";
+      b.type = "button";
+      b.textContent = v;
+      b.setAttribute("aria-pressed", String(get() === v));
+      b.onclick = function () {
+        set(v);
+        Array.prototype.forEach.call(host.children, function (c) {
+          c.setAttribute("aria-pressed", String(Number(c.textContent) === v));
+        });
+      };
+      host.appendChild(b);
+    });
+  }
+  buildOpts($("opt-n"), N_OPTS, function () { return nPick; }, function (v) { nPick = v; });
+  buildOpts($("opt-b"), B_OPTS, function () { return bPick; }, function (v) { bPick = v; });
+
+  // ── 말씀 불러오기 ─────────────────────────
+  function loadVerses() {
+    var S = window.SUPA;
+    return fetch(S.URL + "/functions/v1/api", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": S.ANON,
+        "Authorization": "Bearer " + S.ANON
+      },
+      body: JSON.stringify({ action: "getVerses" })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d || !d.ok) throw new Error("불러오기 실패");
+      return (d.verses || []).filter(function (v) {
+        return v && String(v.text || "").trim().split(/\s+/).length >= 4;
+      });
+    });
+  }
+
+  // ── 문제 만들기 ───────────────────────────
+  function shuffled(arr) {
+    var a = arr.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  // 두 글자 이상인 어절만 후보로 — '은·이요' 같은 조사가 비면 문제가 시시해진다.
+  // (앱의 pickEventBlankIndex와 같은 기준)
+  function pickBlanks(tokens, want) {
+    var cand = [];
+    tokens.forEach(function (t, i) {
+      if (Array.from(t).length >= 2) cand.push(i);
+    });
+    if (!cand.length) cand = tokens.map(function (_, i) { return i; });
+    // ⚠️ 짧은 구절 보호 — 어절의 절반을 넘기면 남는 글자가 없어 문제가 안 된다.
+    var cap = Math.max(1, Math.floor(tokens.length / 2));
+    var n = Math.min(want, cap, cand.length);
+
+    // 붙어 있는 칸은 피해 흔뚜린다 — 짧은 구절에서 끝 세 칸이 나란히 비면
+    //   떠올릴 실마리가 없어 손을 못 드신다(마 10:31 · 6어절에서 실제로 그랬다).
+    //   떨어뜨리려다 모자라면 나머지를 채운다 — 개수가 먼저다.
+    var order = shuffled(cand), picked = [];
+    order.forEach(function (i) {
+      if (picked.length >= n) return;
+      var touching = picked.some(function (p) { return Math.abs(p - i) <= 1; });
+      if (!touching) picked.push(i);
+    });
+    order.forEach(function (i) {
+      if (picked.length < n && picked.indexOf(i) < 0) picked.push(i);
+    });
+    return picked.sort(function (a, b) { return a - b; });
+  }
+
+  function build() {
+    quiz = shuffled(verses).slice(0, Math.min(nPick, verses.length)).map(function (v) {
+      var tokens = String(v.text || "").trim().split(/\s+/);
+      return {
+        tokens: tokens,
+        blanks: pickBlanks(tokens, bPick),
+        ref: v.refShort || v.refFull || ("No." + v.no),
+        hinted: []
+      };
+    });
+    idx = 0; revealed = false;
+  }
+
+  // ── 그리기 ────────────────────────────────
+  function draw() {
+    var q = quiz[idx];
+    if (!q) return finish();
+    $("count").textContent = (idx + 1) + " / " + quiz.length;
+    $("ref").textContent = q.ref;
+
+    var html = q.tokens.map(function (t, i) {
+      var isBlank = q.blanks.indexOf(i) >= 0;
+      var open = revealed || q.hinted.indexOf(i) >= 0;
+      var esc = t.replace(/[&<>]/g, function (m) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[m];
+      });
+      if (!isBlank) return '<span class="tk shown">' + esc + "</span>";
+      if (open) return '<span class="tk fill">' + esc + "</span>";
+      // 빈칸 너비를 글자 수만큼 — 몇 글자인지가 힌트가 된다(손드는 퀴즈에 알맞다).
+      return '<span class="tk blank" style="min-width:' +
+        (Array.from(t).length * 1.05) + 'em">' + esc + "</span>";
+    }).join(" ");
+    $("verse").innerHTML = html;
+
+    // 긴 구절은 글자를 줄여 한 화면에 담는다.
+    var len = q.tokens.join(" ").length;
+    var vs = len > 90 ? 2.9 : len > 60 ? 3.5 : len > 38 ? 4.2 : 5.2;
+    $("verse").style.setProperty("--vs", vs + "vw");
+
+    $("b-next").textContent = revealed ? "다음 문제 →" : "정답 공개";
+    $("b-hint").disabled = revealed;
+  }
+
+  function finish() {
+    show("done");
+    $("done-sub").textContent = quiz.length + "문제를 마쳤습니다.";
+  }
+
+  // ── 진행 ──────────────────────────────────
+  function next() {
+    if (!revealed) { revealed = true; draw(); return; }
+    revealed = false; idx++;
+    if (idx >= quiz.length) return finish();
+    draw();
+  }
+  function prev() {
+    if (idx === 0 && !revealed) return;
+    if (revealed) { revealed = false; return draw(); }
+    idx = Math.max(0, idx - 1); revealed = false; draw();
+  }
+  function hint() {
+    var q = quiz[idx];
+    if (!q || revealed) return;
+    var left = q.blanks.filter(function (i) { return q.hinted.indexOf(i) < 0; });
+    if (!left.length) { revealed = true; return draw(); }
+    q.hinted.push(left[Math.floor(Math.random() * left.length)]);
+    draw();
+  }
+  function toSetup() { show("setup"); }
+
+  function begin() {
+    build();
+    if (!quiz.length) return;
+    show("play"); draw();
+  }
+
+  // ── 조작 ──────────────────────────────────
+  document.addEventListener("keydown", function (e) {
+    if ($("help").classList.contains("on")) {
+      if (e.key === "Escape" || e.key === "?" || e.key === "/") $("help").classList.remove("on");
+      return;
+    }
+    if (e.key === "?" || (e.shiftKey && e.key === "/")) { $("help").classList.add("on"); return; }
+    if (!$("play").classList.contains("on")) return;
+    // 리모컨은 대개 → · ← · PageDown · PageUp 을 보낸다.
+    if (e.key === " " || e.key === "ArrowRight" || e.key === "PageDown" || e.key === "Enter") {
+      e.preventDefault(); next();
+    } else if (e.key === "ArrowLeft" || e.key === "PageUp") {
+      e.preventDefault(); prev();
+    } else if (e.key === "h" || e.key === "H" || e.key === "ㅗ") {
+      e.preventDefault(); hint();
+    } else if (e.key === "Escape") {
+      e.preventDefault(); toSetup();
+    }
+  });
+
+  $("b-next").onclick = next;
+  $("b-prev").onclick = prev;
+  $("b-hint").onclick = hint;
+  $("b-esc").onclick = toSetup;
+  $("start").onclick = begin;
+  $("again").onclick = toSetup;
+
+  // 조작 줄 — 마우스를 움직일 때만 잠깐 뜬다. 평소엔 말씀만 보인다.
+  var barTimer = null;
+  document.addEventListener("mousemove", function () {
+    if (!$("play").classList.contains("on")) return;
+    $("bar").classList.add("on");
+    clearTimeout(barTimer);
+    barTimer = setTimeout(function () { $("bar").classList.remove("on"); }, 2500);
+  });
+
+  // ── 시작 ──────────────────────────────────
+  loadVerses().then(function (list) {
+    verses = list;
+    var btn = $("start");
+    if (!verses.length) { btn.textContent = "말씀이 없습니다"; return; }
+    btn.disabled = false;
+    btn.textContent = "시작하기 (말씀 " + verses.length + "개)";
+  }).catch(function () {
+    $("start").textContent = "불러오지 못했습니다 — 새로고침해 주세요";
+  });
+})();
+</script>
+</body>
+</html>
