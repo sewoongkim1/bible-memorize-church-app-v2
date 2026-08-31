@@ -155,6 +155,51 @@
   #done h2 { margin:0; font-size:clamp(30px,5vw,56px); font-weight:800; }
   #done p { margin:0; color:var(--dim); font-size:clamp(16px,2vw,22px); }
 
+  /* ── 정답지 ─────────────────────────────── */
+  .done-btns { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
+  .done-btns .go { min-width:180px; }
+  .go.ghost { background:rgba(255,255,255,.08); color:var(--ink); }
+  .go.ghost:hover { background:rgba(255,255,255,.16); }
+
+  #answers { padding:0; }
+  .sheet-head {
+    flex:none; display:flex; align-items:center; justify-content:space-between;
+    gap:16px; flex-wrap:wrap;
+    padding:18px clamp(18px,4vw,44px); border-bottom:1px solid rgba(255,255,255,.12);
+  }
+  .sheet-head h2 { margin:0; font-size:22px; font-weight:800; }
+  .sheet-btns { display:flex; gap:9px; }
+  .sheet-btns button {
+    padding:10px 16px; border-radius:10px; cursor:pointer; font:inherit; font-size:15px;
+    border:1px solid rgba(255,255,255,.16); background:rgba(255,255,255,.07); color:var(--ink);
+  }
+  .sheet-btns button:hover { background:rgba(255,255,255,.16); }
+
+  .sheet-body { flex:1; overflow-y:auto; padding:18px clamp(18px,4vw,44px) 60px; }
+  .ansitem { padding:15px 0; border-bottom:1px solid rgba(255,255,255,.09); }
+  .ansitem:last-child { border-bottom:none; }
+  .ansref { color:var(--gold-dim); font-size:14.5px; font-weight:700; margin-bottom:5px; }
+  .ansref b { color:var(--dim); margin-right:8px; font-variant-numeric:tabular-nums; }
+  .anstext { font-size:18px; line-height:1.7; color:var(--ink); }
+  .anstext .w { color:var(--gold); font-weight:800; text-decoration:underline; text-underline-offset:4px; }
+  .anskey { margin-top:7px; font-size:15px; color:var(--dim); }
+  .anskey b { color:var(--gold); font-weight:700; }
+
+  /* 인쇄는 흰 종이에 검은 글씨로 — 화면 색을 그대로 뽑으면 잉크만 먹는다. */
+  @media print {
+    html, body { height:auto; background:#fff; color:#000; overflow:visible; }
+    .screen { display:none !important; position:static; }
+    #answers.on { display:block !important; }
+    .sheet-head, .sheet-btns, .bar, .timer, #help { display:none !important; }
+    .sheet-body { overflow:visible; padding:0; }
+    .ansitem { border-bottom:1px solid #ccc; page-break-inside:avoid; }
+    .ansref { color:#555; }
+    .anstext { color:#000; }
+    .anstext .w { color:#000; }
+    .anskey { color:#333; }
+    .anskey b { color:#000; }
+  }
+
   /* ── 도움말 ─────────────────────────────── */
   #help {
     position:fixed; inset:0; background:rgba(6,12,26,.93); z-index:20;
@@ -242,7 +287,22 @@
 <div class="screen" id="done">
   <h2>🎉 수고하셨습니다</h2>
   <p id="done-sub"></p>
-  <button class="go" id="again" style="max-width:320px">다시 하기</button>
+  <div class="done-btns">
+    <button class="go" id="sheet">📋 정답지</button>
+    <button class="go ghost" id="again">다시 하기</button>
+  </div>
+</div>
+
+<!-- 정답지 — 끝난 뒤에만 연다. 문제 중에 열면 큰 화면에 답이 다 보인다. -->
+<div class="screen" id="answers">
+  <div class="sheet-head">
+    <h2>📋 정답지</h2>
+    <div class="sheet-btns">
+      <button id="sh-print">🖨️ 인쇄</button>
+      <button id="sh-back">← 돌아가기</button>
+    </div>
+  </div>
+  <div class="sheet-body" id="sheet-body"></div>
 </div>
 
 <!-- 자동일 때 남은 시간 -->
@@ -289,7 +349,7 @@
 
   var $ = function (id) { return document.getElementById(id); };
   function show(id) {
-    ["setup", "play", "done"].forEach(function (s) {
+    ["setup", "play", "done", "answers"].forEach(function (s) {
       $(s).classList.toggle("on", s === id);
     });
   }
@@ -530,6 +590,29 @@
     }, 190);
   }
 
+  // 정답지 — 빈칸이던 낱말을 밑줄·금색으로 표시하고 아래에 답만 따로 모은다.
+  function buildSheet() {
+    var esc = function (t) {
+      return String(t).replace(/[&<>]/g, function (m) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[m];
+      });
+    };
+    $("sheet-body").innerHTML = quiz.map(function (q, n) {
+      var body = q.tokens.map(function (t, i) {
+        return q.blanks.indexOf(i) >= 0
+          ? '<span class="w">' + esc(t) + "</span>" : esc(t);
+      }).join(" ");
+      var keys = q.blanks.map(function (i) { return esc(q.tokens[i]); });
+      return '<div class="ansitem">' +
+        '<div class="ansref"><b>' + (n + 1) + ".</b>" + esc(q.ref) + "</div>" +
+        '<div class="anstext">' + body + "</div>" +
+        '<div class="anskey">' + (keys.length
+          ? "정답 &nbsp;<b>" + keys.join("</b> · <b>") + "</b>"
+          : "빈칸 없음") + "</div>" +
+        "</div>";
+    }).join("");
+  }
+
   function finish() {
     stopAuto();
     show("done");
@@ -632,6 +715,9 @@
   $("b-esc").onclick = toSetup;
   $("start").onclick = begin;
   $("again").onclick = toSetup;
+  $("sheet").onclick = function () { buildSheet(); show("answers"); };
+  $("sh-back").onclick = function () { show("done"); };
+  $("sh-print").onclick = function () { window.print(); };
 
   // 조작 줄 — 마우스를 움직일 때만 잠깐 뜬다. 평소엔 말씀만 보인다.
   var barTimer = null;
