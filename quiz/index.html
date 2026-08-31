@@ -262,6 +262,28 @@
   .krow span:first-child { color:var(--gold); font-weight:700; white-space:nowrap; }
   .krow span:last-child { color:var(--dim); text-align:right; }
 
+  /* ── 폰·태블릿 ──────────────────────────────
+     혼자 미리 해 보시는 자리. 큰 화면 쪽은 하나도 바꾸지 않는다.
+     ⚠️ 마우스가 없으면 mousemove가 없어 조작 줄이 영영 안 뜬다 —
+        손가락 기기에서는 늘 보이게 두고, 화면을 눌러도 넘어가게 한다. */
+  @media (hover: none) {
+    .bar {
+      opacity:1; pointer-events:auto;
+      left:12px; right:12px; bottom:calc(12px + env(safe-area-inset-bottom, 0px));
+      justify-content:space-between;
+    }
+    .bar button { flex:1 1 0; padding:14px 6px; font-size:15px; }
+    /* 조작 줄에 가리지 않도록 아래를 비워 둔다 */
+    #play { padding-bottom:96px; }
+  }
+
+  /* 좁은 화면 — 단추 다섯 개가 한 줄에 들어가야 한다 */
+  @media (max-width: 480px) {
+    .opt { min-width:44px; font-size:16px; padding:11px 5px; }
+    #play { padding-left:16px; padding-right:16px; }
+    .sheet-body { padding-left:16px; padding-right:16px; }
+  }
+
   @media (prefers-reduced-motion:reduce) {
     *:not(.timer), .tk.fill { transition:none !important; animation:none !important; }
   }
@@ -801,6 +823,14 @@
       e.preventDefault(); toSetup();
     }
   });
+
+  // 손가락 기기에서만 「화면을 누르면 다음」. 마우스 쪽은 지금까지대로 둔다.
+  if (window.matchMedia && window.matchMedia("(hover: none)").matches) {
+    $("play").addEventListener("click", function (e) {
+      if (e.target.closest && e.target.closest(".bar")) return;
+      next();
+    });
+  }
 
   var reTimer = null;
   window.addEventListener("resize", function () {
