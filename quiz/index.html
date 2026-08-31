@@ -41,8 +41,17 @@
 
   /* ── 설정 ───────────────────────────────── */
   #setup { align-items:center; justify-content:center; gap:0; padding:24px; overflow-y:auto; }
+  .wrapin { width:min(680px,100%); display:flex; flex-direction:column; gap:12px; }
+  .back {
+    align-self:flex-start; text-decoration:none;
+    color:var(--dim); font-size:15px; font-weight:600;
+    padding:9px 15px; border-radius:10px;
+    border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.05);
+  }
+  .back:hover { background:rgba(255,255,255,.13); color:var(--ink); }
+  .back:focus-visible { outline:3px solid var(--gold); outline-offset:2px; }
   .card {
-    width:min(680px,100%); background:var(--navy-1);
+    width:100%; background:var(--navy-1);
     border:1px solid rgba(255,255,255,.09); border-radius:18px;
     padding:clamp(24px,4vw,40px); display:flex; flex-direction:column; gap:26px;
   }
@@ -139,7 +148,9 @@
 
 <!-- 설정 -->
 <div class="screen on" id="setup">
-  <div class="card">
+  <div class="wrapin">
+    <a class="back" href="../">← 성경암송으로</a>
+    <div class="card">
     <div class="brand">
       <h1>📖 말씀 퀴즈</h1>
     </div>
@@ -169,6 +180,7 @@
       <span><b>Esc</b> 설정</span>
     </div>
     <p class="hint-line">무선 프리젠터 리모컨이 그대로 작동합니다 — 사회자가 손에 쥐고 진행하시면 됩니다.</p>
+    </div>
   </div>
 </div>
 
