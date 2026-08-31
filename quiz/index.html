@@ -29,6 +29,7 @@
     --gold:#e8c169; --gold-dim:#c8a84b; --gold-hi:#f2cd77; --on-gold:#20180a;
     --line:rgba(255,255,255,.15); --soft:rgba(255,255,255,.06); --hover:rgba(255,255,255,.15);
     --disabled:#3b4a68; --veil:rgba(7,14,30,.93); --pick:rgba(232,193,105,.16);
+    --blank:rgba(255,255,255,.13);
   }
   body[data-bg="black"] {
     --navy-0:#000000; --navy-1:#151515;
@@ -36,6 +37,7 @@
     --gold:#f0c96f; --gold-dim:#cfa945; --gold-hi:#f7d98c; --on-gold:#1a1305;
     --line:rgba(255,255,255,.17); --soft:rgba(255,255,255,.07); --hover:rgba(255,255,255,.17);
     --disabled:#3a3a3a; --veil:rgba(0,0,0,.94); --pick:rgba(240,201,111,.18);
+    --blank:rgba(255,255,255,.15);
   }
   body[data-bg="white"] {
     --navy-0:#ffffff; --navy-1:#f1f4f9;
@@ -43,6 +45,7 @@
     --gold:#9a6f10; --gold-dim:#b08a2a; --gold-hi:#b8862a; --on-gold:#ffffff;
     --line:rgba(20,32,58,.18); --soft:rgba(20,32,58,.05); --hover:rgba(20,32,58,.11);
     --disabled:#ccd5e2; --veil:rgba(255,255,255,.95); --pick:rgba(154,111,16,.13);
+    --blank:rgba(20,32,58,.10);
   }
   body[data-bg="cream"] {
     --navy-0:#f7f2e6; --navy-1:#fffdf5;
@@ -50,6 +53,7 @@
     --gold:#8a6413; --gold-dim:#a37f2a; --gold-hi:#a2761c; --on-gold:#fffdf5;
     --line:rgba(43,36,22,.18); --soft:rgba(43,36,22,.05); --hover:rgba(43,36,22,.11);
     --disabled:#ddd3bd; --veil:rgba(247,242,230,.95); --pick:rgba(138,100,19,.13);
+    --blank:rgba(43,36,22,.10);
   }
   * { box-sizing:border-box; }
   html, body { height:100%; }
@@ -150,9 +154,16 @@
   .tk { display:inline-block; margin:0 .18em; }
   .tk.shown { color:var(--ink); }
   .tk.fill { color:var(--gold); }
-  .tk.blank {
-    color:transparent; border-bottom:.09em solid var(--gold-dim);
-    min-width:2.2em;
+  /* 빈칸 — 밑줄 대신 채운 사각형. 뒷자리에서 밑줄은 잘 안 보인다.
+     칸 안의 글자는 투명하게 남겨 두어 너비가 글자 수 그대로 유지된다
+     (몇 글자인지가 힌트가 된다). 사각형은 가짜 요소로 그려 줄 높이를 건드리지 않는다. */
+  /* 밑줄이 아니라 사각형이라 짧은 낱말도 잘 보인다 — 밑바닥을 2.2em에서 1.2em으로 낮춘다.
+     그래야 한 글자짜리 칸이 실제보다 넓게 보이지 않는다(칸 너비가 글자 수를 알려 준다). */
+  .tk.blank { color:transparent; min-width:1.2em; position:relative; }
+  .tk.blank::before {
+    content:""; position:absolute; left:0; right:0; top:.2em; bottom:.22em;
+    background:var(--blank); border:.045em solid var(--gold-dim);
+    border-radius:.12em;
   }
   .ref { color:var(--dim); font-size:clamp(19px,2.6vw,44px); font-weight:600; }
 
