@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260831p";
+const APP_BUILD = "20260831q";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -6037,6 +6037,18 @@ function renderChallenge(verse, hard) {
   setupHint();
   setupChallengeTyping(verse, (mode) => challengeComplete(verse, cardUsed ? "card" : mode));
   setupVoice(verse, 3, () => challengeComplete(verse, "voice"));
+  // "구절" 칸이 스크롤하면 위쪽 고정 배너(.test-ref-sticky, position:fixed;top:0)
+  // 아래로 가려 안 보이는 문제가 있었다(2026-08-31 제보 — 키보드가 아니라 이 고정
+  // 배너가 원인이었다). scrollIntoView는 fixed 요소를 모르고 맨 위까지 붙여버리므로,
+  // .ref-input에 준 scroll-margin-top(스타일시트)이 그 자리만큼 여유를 두게 한다.
+  if (refFirst) {
+    setTimeout(() => {
+      const ref = document.querySelector(".ref-input");
+      if (ref) ref.scrollIntoView({ block: "start" }); // 즉시 이동 — smooth는 키보드가
+      // 같이 올라오는 애니메이션과 겹치면 오히려 덜 매끄럽고, 헤드리스 테스트에서도
+      // 끝났는지 확인하기 어려웠다(가상시간에서 애니메이션이 제대로 안 끝남).
+    }, 250);
+  }
 }
 
 // ------------------------------------------------------------
@@ -6183,11 +6195,18 @@ function setupChallengeTyping(verse, onComplete) {
     }
     return left;
   }
+  // 구절 빈칸(예 "삿 8:23")은 콜론이 자판을 바꿔야 나오는 기기가 많아 치기 번거롭다 —
+  // 콜론 대신 띄어쓰기를 넣어도 같은 것으로 본다(2026-08-31 사용자 요청: "':' 는 ':' 또는 ' '").
+  const refNorm = (s) => String(s || "").replace(/[: ]+/g, " ").trim();
   function evaluate(input, idx, isComposing) {
     if (input.disabled) return;
     const val = input.value.trim();
     const answer = input.dataset.answer;
-    if (en ? easyEnNorm(val) === easyEnNorm(answer) : val === answer) {
+    const isRef = input.classList.contains("ref-input");
+    const match = en ? easyEnNorm(val) === easyEnNorm(answer)
+      : isRef ? refNorm(val) === refNorm(answer)
+      : val === answer;
+    if (match) {
       input.value = answer;
       input.classList.add("correct");
       input.classList.remove("wrong");

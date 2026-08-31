@@ -2266,6 +2266,11 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 .hard-badge.ref-badge .ref-label { background: var(--navy-dark); color: var(--gold); box-shadow: 0 0 0 2px var(--gold) inset; }
 /* .ref-input은 일부러 별도 font-size를 안 준다 — 본문 빈칸(.word-input)과 같은 크기를
    그대로 물려받아야 "구절"과 "말씀"의 쓰는 크기가 같아진다(2026-08-31 사용자 요청). */
+/* 위쪽 고정 배너(.test-ref-sticky, position:fixed;top:0)가 스크롤과 무관하게 항상
+   화면 맨 위를 차지해서, scrollIntoView로 이 칸을 맨 위까지 붙이면 배너 밑에 가려
+   안 보였다("키보드가 아니라 윗 타이틀에 가려서" 제보, 2026-08-31). scroll-margin-top으로
+   배너 높이(대략 50px, 글씨 크게 설정이면 조금 더 큼)만큼 여유를 준다. */
+.ref-input { scroll-margin-top: 62px; }
 
 /* 도전 완료 화면 */
 .cd-card{ text-align:center; }
