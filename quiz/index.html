@@ -155,10 +155,10 @@
   .ref { color:var(--dim); font-size:clamp(19px,2.6vw,44px); font-weight:600; }
 
   /* 자동으로 넘어갈 때 남은 시간 — 맨 아래 가느다란 띠가 줄어든다.
-     금색으로 위에 두었더니 말씀보다 그게 먼저 눈에 들어왔다.
-     아래로 내리고 색도 흐리게 — 보려고 하면 보이되 방해하지 않는 정도로. */
+     금색으로 두꺻게 두었더니 말씀보다 그게 먼저 눈에 들어왔다.
+     자리는 위 그대로 두고 색과 두께만 흐리게 — 보려고 하면 보이되 방해하지 않는 정도로. */
   .timer {
-    position:fixed; left:0; bottom:0; height:5px; width:100%;
+    position:fixed; left:0; top:0; height:5px; width:100%;
     background:var(--dim); transform:scaleX(0); transform-origin:left center;
     opacity:0; z-index:15; pointer-events:none;
   }
