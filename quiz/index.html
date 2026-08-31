@@ -73,10 +73,13 @@
 
   .hint-line { margin:0; color:var(--faint); font-size:13.5px; line-height:1.6; }
 
-  .secs { display:none; align-items:center; gap:10px; color:var(--dim); font-size:15px; }
+  /* 수동·자동 단추와 초 입력을 한 줄에. 좁으면 아래로 접힌다. */
+  .row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .row .opts { flex:1 1 180px; }
+  .secs { display:none; align-items:center; gap:9px; color:var(--dim); font-size:15px; flex:none; }
   .secs.on { display:flex; }
   .secs input {
-    width:96px; padding:11px 12px; border-radius:10px;
+    width:86px; padding:13px 10px; border-radius:11px;
     border:1px solid rgba(255,255,255,.16); background:rgba(255,255,255,.06);
     color:var(--ink); font:inherit; font-size:19px; font-weight:700; text-align:center;
   }
@@ -180,11 +183,13 @@
 
     <div class="field">
       <div class="lab">화면 넘김</div>
-      <div class="opts" id="opt-a"></div>
-      <div class="secs" id="secs-row">
-        <label for="secs">몇 초마다</label>
-        <input id="secs" type="number" min="2" max="180" step="1" value="8" inputmode="numeric" />
-        <span>초</span>
+      <div class="row">
+        <div class="opts" id="opt-a"></div>
+        <div class="secs" id="secs-row">
+          <input id="secs" type="number" min="2" max="180" step="1" value="8"
+                 inputmode="numeric" aria-label="자동으로 넘기는 간격(초)" />
+          <span>초마다</span>
+        </div>
       </div>
     </div>
 
