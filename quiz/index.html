@@ -273,6 +273,19 @@
   .krow span:first-child { color:var(--gold); font-weight:700; white-space:nowrap; }
   .krow span:last-child { color:var(--dim); text-align:right; }
 
+  /* 세로로 들고 계실 때만 뜨는 한 줄. 문제 화면에서만.
+     아이폰은 화면을 가로로 돌릴 방법이 없어(브라우저에 그 기능이 없다) 부탁만 드린다. */
+  .rotate-tip {
+    position:fixed; left:50%; transform:translateX(-50%);
+    bottom:calc(80px + env(safe-area-inset-bottom, 0px));
+    padding:7px 14px; border-radius:999px; z-index:14;
+    background:var(--soft); border:1px solid var(--line); color:var(--dim);
+    font-size:13px; white-space:nowrap; pointer-events:none; display:none;
+  }
+  @media (hover: none) and (orientation: portrait) {
+    #play.on ~ .rotate-tip { display:block; }
+  }
+
   /* ── 폰·태블릿 ──────────────────────────────
      혼자 미리 해 보시는 자리. 큰 화면 쪽은 하나도 바꾸지 않는다.
      ⚠️ 마우스가 없으면 mousemove가 없어 조작 줄이 영영 안 뜬다 —
@@ -410,6 +423,9 @@
   </div>
   <div class="sheet-body" id="sheet-body"></div>
 </div>
+
+<!-- 폰을 세로로 들고 계실 때만 (CSS로 갈린다) -->
+<div class="rotate-tip">↻ 가로로 돌리면 더 크게 보입니다</div>
 
 <!-- 자동일 때 남은 시간 -->
 <div class="timer" id="timer"></div>
@@ -826,7 +842,27 @@
     q.hinted.push(left[Math.floor(Math.random() * left.length)]);
     draw();
   }
-  function toSetup() { stopAuto(); show("setup"); }
+  function toSetup() { stopAuto(); dropLandscape(); show("setup"); }
+
+  // 안드로이드 크롬은 전체화면으로 들어간 뒤에야 화면 방향을 고정할 수 있다.
+  //   아이폰 사파리에는 그 기능 자체가 없다 — 조용히 실패하고 안내 한 줄로 대신한다.
+  //   사용자가 단추를 누른 그 순간에만 허용되므로 begin()에서 부른다.
+  function tryLandscape() {
+    if (!window.matchMedia || !window.matchMedia("(hover: none)").matches) return;
+    try {
+      var el = document.documentElement;
+      var fs = el.requestFullscreen || el.webkitRequestFullscreen;
+      var p = fs && fs.call(el);
+      var lock = function () {
+        try { screen.orientation.lock("landscape").catch(function () {}); } catch (e) {}
+      };
+      if (p && p.then) p.then(lock).catch(function () {}); else lock();
+    } catch (e) {}
+  }
+  function dropLandscape() {
+    try { screen.orientation.unlock(); } catch (e) {}
+    try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) {}
+  }
 
   function begin() {
     // 입력칸에서 곧바로 시작하기를 누르면 change가 안 올 수 있어 여기서 한 번 더 읽는다.
@@ -835,6 +871,7 @@
     $("secs").value = autoSec;
     build();
     if (!quiz.length) return;
+    tryLandscape();
     show("play"); draw();
   }
 
