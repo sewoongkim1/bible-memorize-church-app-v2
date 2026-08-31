@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260831q";
+const APP_BUILD = "20260901a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1730,6 +1730,7 @@ function renderSummary() {
     </div>
     <button class="summary-help album-cta" id="open-album">📖 나의 말씀 앨범</button>
     <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
+    <button class="summary-help quiz-cta" id="open-quiz">🎯 성경암송 퀴즈</button>
     <button class="summary-help board-cta" id="open-board">💬 응원·기도·공감</button>
     <button class="summary-help pilsa-cta" id="open-pilsa">✍️ 성경필사 노트 신청</button>
     <button class="summary-help praise-cta" id="open-praise">🎵 고척교회 찬양 아카이브</button>
@@ -1769,6 +1770,9 @@ function renderSummary() {
   document.getElementById("open-album").addEventListener("click", () => renderAlbum());
   { const b = document.getElementById("open-passages"); if (b) b.addEventListener("click", () => { markFeatSeen("passages"); renderPassageList(); }); }
   document.getElementById("open-ranking").addEventListener("click", () => renderRanking());
+  // 퀴즈는 quiz/ 아래 따로 있는 화면이다(로그인 없이 열리고 app.js를 쓰지 않는다).
+  //   같은 주소 안이라 설치된 앱에서 눌러도 앱 밖으로 나가지 않는다.
+  document.getElementById("open-quiz").addEventListener("click", () => { location.href = "quiz/"; });
   document.getElementById("open-help-summary").addEventListener("click", () => renderManual(renderSummary, -1));
   document.getElementById("open-settings").addEventListener("click", renderSettings);
   document.getElementById("open-alarm").addEventListener("click", alarmFromHome);

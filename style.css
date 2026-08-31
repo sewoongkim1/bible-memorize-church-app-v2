@@ -1651,6 +1651,12 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 .dark .summary-help.album-cta { background: #251f39; color: #c3b0ee; border-color: #4a3d6b; }
 .dark .summary-help.album-cta:hover { background: #4a3d6b; color: #fff; }
 
+/* 성경암송 퀴즈 — quiz/ 화면의 남색·금색을 그대로 가져와 눌렀을 때 낯설지 않게. */
+.summary-help.quiz-cta { background: #eaf0f9; color: #1a3a6b; border-color: #1a3a6b; }
+.summary-help.quiz-cta:hover { background: #1a3a6b; color: #fff; }
+.dark .summary-help.quiz-cta { background: #182739; color: #8fb3e6; border-color: #33507d; }
+.dark .summary-help.quiz-cta:hover { background: #33507d; color: #fff; }
+
 /* ---------- 나의 말씀 앨범 화면 ---------- */
 .album-banner {
   background: linear-gradient(180deg, #fffdf6 0%, #fff 100%);
