@@ -123,7 +123,8 @@
 
   /* ── 조작 줄 (마우스를 움직일 때만) ───────── */
   .bar {
-    position:fixed; left:50%; bottom:18px; transform:translateX(-50%);
+    /* 오른쌄 구통이로 — 가운데 두면 가운데 정렬된 요절과 겹친다. */
+    position:fixed; right:18px; bottom:18px;
     display:flex; gap:8px; padding:8px; border-radius:14px;
     background:rgba(9,18,38,.9); border:1px solid rgba(255,255,255,.12);
     opacity:0; pointer-events:none; transition:opacity .2s;
