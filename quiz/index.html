@@ -65,13 +65,13 @@
   .screen.on { display:flex; }
 
   /* ── 설정 ───────────────────────────────── */
-  #setup { align-items:center; justify-content:center; gap:0; padding:clamp(24px,4vw,52px) clamp(20px,5vw,48px); overflow-y:auto; }
+  #setup { align-items:center; justify-content:center; gap:0; padding:clamp(18px,3vw,40px) clamp(18px,4vw,44px); overflow-y:auto; }
   .brand-btns { display:flex; gap:9px; flex-wrap:wrap; }
   .back {
     text-decoration:none; white-space:nowrap; flex:none;
     font:inherit; cursor:pointer;
-    color:var(--dim); font-size:15px; font-weight:600;
-    padding:9px 15px; border-radius:10px;
+    color:var(--dim); font-weight:600;
+    padding:8px 13px; border-radius:9px; font-size:14px;
     border:1px solid var(--line); background:var(--soft);
   }
   .back:hover { background:var(--hover); color:var(--ink); }
@@ -79,22 +79,22 @@
   .card {
     width:min(700px,100%); background:var(--navy-1);
     border:1px solid var(--line); border-radius:20px;
-    padding:clamp(26px,4.5vw,44px); display:flex; flex-direction:column; gap:26px;
+    padding:clamp(22px,3.4vw,36px); display:flex; flex-direction:column; gap:21px;
   }
-  .brand { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px 18px; margin-bottom:4px; }
-  .brand h1 { margin:0; font-size:clamp(26px,4vw,36px); font-weight:800; letter-spacing:-.02em; }
+  .brand { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px 16px; }
+  .brand h1 { margin:0; font-size:clamp(22px,3.2vw,29px); font-weight:800; letter-spacing:-.02em; }
   .brand p { margin:0; color:var(--dim); font-size:15px; }
 
-  .field { display:flex; flex-direction:column; gap:11px; }
+  .field { display:flex; flex-direction:column; gap:9px; }
   /* 단추가 둘뿐인 칸은 나란히 — 세로로 쌓으면 화면이 넘쳐 스크롤이 생긴다. */
   .pair { display:flex; gap:18px 22px; flex-wrap:wrap; }
   .pair .field { flex:1 1 240px; }
-  .field > .lab { font-size:15px; font-weight:700; color:var(--dim); }
+  .field > .lab { font-size:13.5px; font-weight:700; color:var(--dim); }
   .opts { display:flex; flex-wrap:wrap; gap:9px; }
   .opt {
-    flex:1 1 0; min-width:58px; padding:14px 10px; border-radius:12px;
+    flex:1 1 0; min-width:58px; padding:10px 10px; border-radius:11px;
     background:var(--soft); border:2px solid transparent;
-    color:var(--ink); font:inherit; font-size:19px; font-weight:700;
+    color:var(--ink); font:inherit; font-size:17px; font-weight:700;
     cursor:pointer; transition:background .12s, border-color .12s;
   }
   .opt:hover { background:var(--hover); }
@@ -109,15 +109,15 @@
   .secs { display:none; align-items:center; gap:9px; color:var(--dim); font-size:15px; flex:none; }
   .secs.on { display:flex; }
   .secs input {
-    width:86px; padding:13px 10px; border-radius:11px;
+    width:82px; padding:10px 10px; border-radius:11px;
     border:1px solid var(--line); background:var(--soft);
-    color:var(--ink); font:inherit; font-size:19px; font-weight:700; text-align:center;
+    color:var(--ink); font:inherit; font-size:17px; font-weight:700; text-align:center;
   }
   .secs input:focus-visible { outline:3px solid var(--gold); outline-offset:2px; }
 
   .go {
-    padding:18px; border:none; border-radius:13px; cursor:pointer;
-    background:var(--gold); color:var(--on-gold); font:inherit; font-size:21px; font-weight:800;
+    padding:14px; border:none; border-radius:12px; cursor:pointer;
+    background:var(--gold); color:var(--on-gold); font:inherit; font-size:19px; font-weight:800;
   }
   .go:hover { background:var(--gold-hi); }
   .go:disabled { background:var(--disabled); color:var(--faint); cursor:default; }
