@@ -288,9 +288,26 @@
     #play { padding-bottom:96px; }
   }
 
-  /* 좁은 화면 — 단추 다섯 개가 한 줄에 들어가야 한다 */
+  /* 좁은 화면(폰) — 설정이 스크롤 없이 한 화면에 들어와야 한다.
+     덩어리를 조금씩 줄이고, 출제 순서·정답을 나란히 붙여 한 줄을 아낀다. */
   @media (max-width: 480px) {
-    .opt { min-width:44px; font-size:16px; padding:11px 5px; }
+    #setup { padding:12px; }
+    .card { padding:16px; gap:14px; border-radius:16px; }
+    .brand { gap:8px 10px; }
+    .brand h1 { font-size:20px; }
+    .back { padding:6px 10px; font-size:13px; }
+    .field { gap:7px; }
+    .field > .lab { font-size:12.5px; }
+    .opt { min-width:40px; font-size:15px; padding:9px 4px; border-radius:10px; white-space:nowrap; }
+    .pair { gap:12px; }
+    .pair .field { flex:1 1 120px; }
+    .pair .opt { font-size:13px; padding:9px 2px; }
+    .row { gap:8px; }
+    .row .opts { flex:1 1 130px; }
+    .secs { font-size:13px; gap:7px; }
+    .secs input { width:66px; padding:8px 4px; font-size:15px; }
+    .go { padding:12px; font-size:17px; border-radius:11px; }
+
     #play { padding-left:16px; padding-right:16px; }
     .sheet-body { padding-left:16px; padding-right:16px; }
     /* 「정답 공개」가 「정답 공 / 개」로 접히던 것 — 줄바꿈을 막고 글씨를 줄인다 */
