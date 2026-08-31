@@ -278,7 +278,7 @@
      ⚠️ 마우스가 없으면 mousemove가 없어 조작 줄이 영영 안 뜬다 —
         손가락 기기에서는 늘 보이게 두고, 화면을 눌러도 넘어가게 한다. */
   @media (hover: none) {
-    .bar {
+    .bar.live {
       opacity:1; pointer-events:auto;
       left:12px; right:12px; bottom:calc(12px + env(safe-area-inset-bottom, 0px));
       justify-content:space-between;
@@ -293,6 +293,9 @@
     .opt { min-width:44px; font-size:16px; padding:11px 5px; }
     #play { padding-left:16px; padding-right:16px; }
     .sheet-body { padding-left:16px; padding-right:16px; }
+    /* 「정답 공개」가 「정답 공 / 개」로 접히던 것 — 줄바꿈을 막고 글씨를 줄인다 */
+    .bar button { font-size:13px; padding:13px 4px; white-space:nowrap; }
+    .bar button.main { flex:1.35 1 0; }
   }
 
   @media (prefers-reduced-motion:reduce) {
@@ -464,6 +467,9 @@
     ["setup", "play", "done", "answers"].forEach(function (s) {
       $(s).classList.toggle("on", s === id);
     });
+    // 조작 줄은 문제 화면에서만. 손가락 기기에서는 늘 펼쳐 두는데,
+    // 화면을 안 가리면 설정·정답지까지 덮어 버린다.
+    $("bar").classList.toggle("live", id === "play");
   }
 
   // ── 설정 단추 ─────────────────────────────
