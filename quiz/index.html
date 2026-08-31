@@ -65,7 +65,7 @@
   .screen.on { display:flex; }
 
   /* ── 설정 ───────────────────────────────── */
-  #setup { align-items:center; justify-content:center; gap:0; padding:clamp(28px,5vw,64px) clamp(20px,5vw,48px); overflow-y:auto; }
+  #setup { align-items:center; justify-content:center; gap:0; padding:clamp(24px,4vw,52px) clamp(20px,5vw,48px); overflow-y:auto; }
   .back {
     text-decoration:none; white-space:nowrap; flex:none;
     color:var(--dim); font-size:15px; font-weight:600;
@@ -77,20 +77,20 @@
   .card {
     width:min(700px,100%); background:var(--navy-1);
     border:1px solid var(--line); border-radius:20px;
-    padding:clamp(28px,5vw,48px); display:flex; flex-direction:column; gap:32px;
+    padding:clamp(26px,4.5vw,44px); display:flex; flex-direction:column; gap:26px;
   }
   .brand { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px 18px; margin-bottom:4px; }
   .brand h1 { margin:0; font-size:clamp(26px,4vw,36px); font-weight:800; letter-spacing:-.02em; }
   .brand p { margin:0; color:var(--dim); font-size:15px; }
 
-  .field { display:flex; flex-direction:column; gap:13px; }
+  .field { display:flex; flex-direction:column; gap:11px; }
   /* 단추가 둘뿐인 칸은 나란히 — 세로로 쌓으면 화면이 넘쳐 스크롤이 생긴다. */
-  .pair { display:flex; gap:20px 24px; flex-wrap:wrap; }
+  .pair { display:flex; gap:18px 22px; flex-wrap:wrap; }
   .pair .field { flex:1 1 240px; }
   .field > .lab { font-size:15px; font-weight:700; color:var(--dim); }
   .opts { display:flex; flex-wrap:wrap; gap:9px; }
   .opt {
-    flex:1 1 0; min-width:58px; padding:16px 10px; border-radius:12px;
+    flex:1 1 0; min-width:58px; padding:14px 10px; border-radius:12px;
     background:var(--soft); border:2px solid transparent;
     color:var(--ink); font:inherit; font-size:19px; font-weight:700;
     cursor:pointer; transition:background .12s, border-color .12s;
@@ -298,7 +298,6 @@
 
     <button class="go" id="start" disabled>말씀을 불러오는 중…</button>
 
-    <p class="hint-line">무선 프리젠터 리모컨이 그대로 작동합니다. 자동으로 넘기는 중에도 아무 때나 눌러 옮길 수 있습니다.</p>
   </div>
 </div>
 
