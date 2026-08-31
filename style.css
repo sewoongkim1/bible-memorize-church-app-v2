@@ -2873,7 +2873,10 @@ textarea.board-in-lg { min-height: 120px; }
   background: none; border: none; color: #b94a3a; font-size: 12px;
   cursor: pointer; padding: 0; text-decoration: underline; font-family: inherit;
 }
-.board-text { font-size: 14px; color: var(--ink); line-height: 1.6; word-break: break-word; }
+/* ⚠️ 게시판은 .summary-card 안에 있고 그쪽에 text-align:center 가 걸려 있어
+   글이 통째로 가운데로 몰렸다 — 여러 줄짜리 글은 왼쪽 정렬이어야 읽힌다. */
+.board-text { font-size: 14px; color: var(--ink); line-height: 1.6; word-break: break-word; text-align: left; }
+.board-post .board-meta, .board-reply { text-align: left; }
 .dark .board-text { color: #e6ecf7; }
 
 .board-reply {
