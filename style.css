@@ -1109,7 +1109,11 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 .entry-input {
   width: 100%; padding: 9px 12px; font-size: .95rem;
   border: 1px solid var(--border); border-radius: 10px; background: var(--cream);
-  font-family: inherit;
+  font-family: inherit; color: #222;
+  /* input은 body의 color를 상속하지 않는다(폼 요소는 브라우저 기본 스타일을 따로 씀) —
+     color를 안 정해두면 일부 기기(특히 플레이스토어 TWA)가 시스템 다크 모드에 맞춰
+     글자색만 밝게 자동 조정해, 우리가 강제한 밝은 배경(cream)과 겹쳐 글자가 안 보였다
+     (2026-08-31, "목장·성명 타이핑해도 안 보임" 제보로 발견). */
 }
 .entry-input:focus { outline: none; border-color: var(--navy); background: #fff; }
 
@@ -1809,7 +1813,7 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 .sc-head .rank-title { font-size:1.08rem; white-space:nowrap; margin:2px 0; }
 .sc-head .settings-back-btn { padding:6px 10px; font-size:13px; }
 .sc-ask { display:flex; gap:8px; margin:8px 0 12px; }
-.sc-ask input { flex:1; min-width:0; padding:11px 14px; border:1px solid var(--border); border-radius:10px; font-size:15px; font-family:inherit; }
+.sc-ask input { flex:1; min-width:0; padding:11px 14px; border:1px solid var(--border); border-radius:10px; font-size:15px; font-family:inherit; background:#fff; color:#222; }
 .sc-ask button { flex-shrink:0; white-space:nowrap; padding:11px 18px; background:var(--navy); color:#fff; border:0; border-radius:10px; font-weight:700; cursor:pointer; font-family:inherit; }
 .sc-ask button:disabled { opacity:.6; cursor:default; }
 .sc-hint { text-align:left; background:#fbf5e6; border:1px solid #ecd9a8; border-radius:12px; padding:12px 14px; margin-bottom:14px; font-size:13px; line-height:1.6; color:#5c4a1f; }
