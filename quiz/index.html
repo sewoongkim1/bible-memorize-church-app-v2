@@ -91,12 +91,12 @@
   .count { font-size:clamp(16px,2.2vw,26px); font-weight:800; color:var(--gold-dim); font-variant-numeric:tabular-nums; }
   .brandmini { font-size:clamp(12px,1.4vw,16px); color:var(--faint); }
 
-  .stage { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:clamp(18px,3vh,38px); min-height:0; }
+  .stage { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:clamp(18px,3vh,38px); min-height:0; overflow:hidden; }
   .verse {
     width:100%; text-align:center; font-weight:700; line-height:1.55;
     word-break:keep-all; letter-spacing:-.01em;
     /* 화면 폭에 맞춰 자동으로 커진다 — 뒷자리에서도 읽혀야 한다. */
-    font-size:clamp(32px,var(--vs,6.4vw),150px);
+    font-size:40px;   /* 실제 크기는 draw()가 화면을 재서 px로 넣는다 */
   }
   .ln { display:block; }
   .tk { display:inline-block; margin:0 .18em; }
@@ -322,23 +322,48 @@
   function range(a, b) { var r = []; for (var i = a; i < b; i++) r.push(i); return r; }
 
   // 토큰 인덱스를 줄별로 묶어 돌려준다.
-  function layout(tokens, per) {
-    var text = tokens.join(" ");
-    var lines = Math.max(1, Math.min(tokens.length, Math.ceil(text.length / per)));
+  // 줄 수는 밖에서 정해 준다 — 예전엔 여기서 글자 수로 혼자 정했는데,
+  // 글씨 크기를 따로 정하다 보니 둘이 어긋나면 한 줄이 또 접혀 화면 밖으로 넘쳤다.
+  function layout(tokens, lines) {
+    lines = Math.max(1, Math.min(tokens.length, lines));
     if (lines === 1) return [range(0, tokens.length)];
+    // 균형은 어절 '개수'가 아니라 '글자 수'로 잰다 — 개수로 재면
+    // 「너와」 한 낱말만 남는 줄이 생긴다(실제로 그랬다).
+    var target = tokens.join(" ").length / lines;
     var out = [], start = 0;
     for (var k = 1; k < lines; k++) {
-      var ideal = tokens.length * k / lines, best = -99, bi = Math.round(ideal);
-      var lo = Math.max(start + 1, Math.floor(ideal) - 2);
-      var hi = Math.min(tokens.length - (lines - k - 1), Math.floor(ideal) + 4);
-      for (var j = lo; j < hi; j++) {
-        var sc = breakScore(tokens[j - 1]) - Math.abs(j - ideal) * 1.6;
+      var best = -1e9, bi = start + 1;
+      var hi = tokens.length - (lines - k - 1);
+      for (var j = start + 1; j < hi; j++) {
+        var chars = j - start - 1;                       // 낱말 사이 공백
+        for (var m = start; m < j; m++) chars += Array.from(tokens[m]).length;
+        var sc = breakScore(tokens[j - 1]) - Math.abs(chars - target) * 0.55;
         if (sc > best) { best = sc; bi = j; }
       }
       out.push(range(start, bi)); start = bi;
     }
     out.push(range(start, tokens.length));
     return out.filter(function (l) { return l.length; });
+  }
+
+  // 줄 수를 1..6으로 바꿔 보며 글씨가 가장 커지는 쪽을 고른다.
+  //   가로는 「글자 수 + 어절마다 여백(.36em)」으로, 세로는 줄 수 × 줄높이로 잰다.
+  function fitVerse(tokens, availW, availH) {
+    var best = null, max = Math.min(6, tokens.length);
+    for (var n = 1; n <= max; n++) {
+      var ls = layout(tokens, n);
+      if (ls.length !== n) continue;
+      var widest = 0;
+      ls.forEach(function (l) {
+        var chars = 0;
+        l.forEach(function (i) { chars += Array.from(tokens[i]).length; });
+        var w = chars + 0.36 * l.length;
+        if (w > widest) widest = w;
+      });
+      var px = Math.min(availW / widest, availH / (n * 1.55));
+      if (!best || px > best.px) best = { px: px, ls: ls };
+    }
+    return best;
   }
 
   // 두 글자 이상인 어절만 후보로 — '은·이요' 같은 조사가 비면 문제가 시시해진다.
@@ -407,16 +432,24 @@
       return '<span class="tk blank" style="min-width:' +
         (Array.from(t).length * 1.05) + 'em">' + esc + "</span>";
     }
-    $("verse").innerHTML = layout(q.tokens, 18).map(function (line) {
+    var el = $("verse"), stage = el.parentNode;
+    var availW = stage.clientWidth;
+    var availH = Math.max(80, stage.clientHeight - $("ref").offsetHeight - 28);
+
+    var fit = fitVerse(q.tokens, availW, availH) || { px: 40, ls: [range(0, q.tokens.length)] };
+    el.innerHTML = fit.ls.map(function (line) {
       return '<div class="ln">' + line.map(cell).join(" ") + "</div>";
     }).join("");
 
-    // 긴 구절은 글자를 줄여 한 화면에 담는다.
-    //   운영 35구절의 본문은 23~69자라 문턴을 그 범위에 맞춰 잡았다.
-    //   가장 긴 구절(69자)이 1920px 화면에서 네 줄을 넘지 않는 값이다.
-    var len = q.tokens.join(" ").length;
-    var vs = len > 60 ? 4.6 : len > 45 ? 5.4 : len > 32 ? 6.4 : 7.6;
-    $("verse").style.setProperty("--vs", vs + "vw");
+    // 계산으로 한 번 놓고, 실제로 넘치면 줄인다 — 글꼴마다 글자 폭이 조금씩 달라
+    // 계산만으로는 딱 맞지 않는다. 화면이 넘치는 것보다 조금 작은 편이 낫다.
+    var px = Math.max(24, Math.min(fit.px, 170));
+    el.style.fontSize = px + "px";
+    for (var g = 0; g < 24 && (el.scrollHeight > availH || el.scrollWidth > availW + 1); g++) {
+      px *= 0.94;
+      if (px < 24) { px = 24; el.style.fontSize = px + "px"; break; }
+      el.style.fontSize = px + "px";
+    }
 
     $("b-next").textContent = (revealed || !q.blanks.length) ? "다음 문제 →" : "정답 공개";
     $("b-hint").disabled = revealed || !q.blanks.length;
@@ -475,6 +508,13 @@
     } else if (e.key === "Escape") {
       e.preventDefault(); toSetup();
     }
+  });
+
+  var reTimer = null;
+  window.addEventListener("resize", function () {
+    if (!$("play").classList.contains("on")) return;
+    clearTimeout(reTimer);
+    reTimer = setTimeout(draw, 120);   // 빔에 연결하면 해상도가 바뀐다
   });
 
   $("b-next").onclick = next;
