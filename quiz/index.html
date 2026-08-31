@@ -655,7 +655,9 @@
       ls.forEach(function (l) {
         var chars = 0;
         l.forEach(function (i) { chars += Array.from(tokens[i]).length; });
-        var w = chars + 0.36 * l.length;
+        // ⚠️ 빈칸 칸은 글자보다 넓다(min-width: 글자수 × 1.05em) — 그만큼 얹어 둔다.
+        //    안 얹으면 좁은 화면에서 마지막 빈칸이 오른쪽으로 잘려 나간다.
+        var w = chars * 1.06 + 0.4 * l.length;
         if (w > widest) widest = w;
       });
       var px = Math.min(availW / widest, availH / (n * 1.55));
@@ -747,7 +749,16 @@
     // 계산만으로는 딱 맞지 않는다. 화면이 넘치는 것보다 조금 작은 편이 낫다.
     var px = Math.max(24, Math.min(fit.px, bandMax));
     el.style.fontSize = px + "px";
-    for (var g = 0; g < 24 && (el.scrollHeight > availH || el.scrollWidth > availW + 1); g++) {
+    // 줄 하나하나를 재서 넘치는지 본다 — 겉 상자만 보면 안쪽 칸이 삐져나간 것을 놓친다.
+    function tooWide() {
+      if (el.scrollHeight > availH || el.scrollWidth > availW + 1) return true;
+      var ls = el.children;
+      for (var i = 0; i < ls.length; i++) {
+        if (ls[i].scrollWidth > ls[i].clientWidth + 1) return true;
+      }
+      return false;
+    }
+    for (var g = 0; g < 24 && tooWide(); g++) {
       px *= 0.94;
       if (px < 24) { px = 24; el.style.fontSize = px + "px"; break; }
       el.style.fontSize = px + "px";
