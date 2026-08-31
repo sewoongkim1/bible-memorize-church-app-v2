@@ -87,7 +87,7 @@
     width:100%; text-align:center; font-weight:700; line-height:1.55;
     word-break:keep-all; letter-spacing:-.01em;
     /* 화면 폭에 맞춰 자동으로 커진다 — 뒷자리에서도 읽혀야 한다. */
-    font-size:clamp(26px,var(--vs,4.2vw),96px);
+    font-size:clamp(32px,var(--vs,6.4vw),150px);
   }
   .tk { display:inline-block; margin:0 .18em; }
   .tk.shown { color:var(--ink); }
@@ -96,7 +96,7 @@
     color:transparent; border-bottom:.09em solid var(--gold-dim);
     min-width:2.2em;
   }
-  .ref { color:var(--dim); font-size:clamp(15px,1.9vw,26px); font-weight:600; }
+  .ref { color:var(--dim); font-size:clamp(19px,2.6vw,44px); font-weight:600; }
 
   /* ── 조작 줄 (마우스를 움직일 때만) ───────── */
   .bar {
@@ -306,7 +306,8 @@
       return {
         tokens: tokens,
         blanks: pickBlanks(tokens, bPick),
-        ref: v.refShort || v.refFull || ("No." + v.no),
+        // 전체 이름으로 — 큰 화면에서는 「마 28:19」보다 「마태복음 28장 19절」이 읽힌다.
+        ref: v.refFull || v.refShort || ("No." + v.no),
         hinted: []
       };
     });
@@ -335,8 +336,10 @@
     $("verse").innerHTML = html;
 
     // 긴 구절은 글자를 줄여 한 화면에 담는다.
+    //   운영 35구절의 본문은 23~69자라 문턴을 그 범위에 맞춰 잡았다.
+    //   가장 긴 구절(69자)이 1920px 화면에서 네 줄을 넘지 않는 값이다.
     var len = q.tokens.join(" ").length;
-    var vs = len > 90 ? 2.9 : len > 60 ? 3.5 : len > 38 ? 4.2 : 5.2;
+    var vs = len > 60 ? 4.6 : len > 45 ? 5.4 : len > 32 ? 6.4 : 7.6;
     $("verse").style.setProperty("--vs", vs + "vw");
 
     $("b-next").textContent = revealed ? "다음 문제 →" : "정답 공개";
