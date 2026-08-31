@@ -89,6 +89,7 @@
     /* 화면 폭에 맞춰 자동으로 커진다 — 뒷자리에서도 읽혀야 한다. */
     font-size:clamp(32px,var(--vs,6.4vw),150px);
   }
+  .ln { display:block; }
   .tk { display:inline-block; margin:0 .18em; }
   .tk.shown { color:var(--ink); }
   .tk.fill { color:var(--gold); }
@@ -152,7 +153,7 @@
     <div class="field">
       <div class="lab">구절마다 빈칸</div>
       <div class="opts" id="opt-b"></div>
-      <p class="hint-line">짧은 구절에서는 자동으로 줄입니다 — 어절의 절반을 넘지 않습니다.</p>
+      <p class="hint-line">짧은 구절에서는 자동으로 줄입니다 — 어절의 절반을 넘지 않습니다.<br><b>0개</b>를 고르면 빈칸 없이 말씀만 보여 드립니다 — 다 함께 읽을 때 쓰십니다.</p>
     </div>
 
     <button class="go" id="start" disabled>말씀을 불러오는 중…</button>
@@ -211,8 +212,10 @@
 (function () {
   "use strict";
 
-  var N_OPTS = [5, 10, 15, 20];
-  var B_OPTS = [1, 2, 3, 4];
+  // 0 = 전체(있는 말씀 전부). 부서마다 진도가 달라 「전체」를 자주 쓰신다.
+  var N_OPTS = [10, 15, 20, 25, 0];
+  // 빈칸 0 = 빈칸 없이 말씀만 큰 화면에 — 다 함께 읽거나 문제 전에 보여 드릴 때.
+  var B_OPTS = [0, 1, 2, 3, 4];
   var nPick = 10, bPick = 2;
   var verses = [], quiz = [], idx = 0, revealed = false;
 
@@ -224,25 +227,28 @@
   }
 
   // ── 설정 단추 ─────────────────────────────
-  function buildOpts(host, list, get, set) {
+  function buildOpts(host, list, label, get, set) {
     host.innerHTML = "";
     list.forEach(function (v) {
       var b = document.createElement("button");
       b.className = "opt";
       b.type = "button";
-      b.textContent = v;
+      b.textContent = label(v);
+      b.dataset.v = v;
       b.setAttribute("aria-pressed", String(get() === v));
       b.onclick = function () {
         set(v);
         Array.prototype.forEach.call(host.children, function (c) {
-          c.setAttribute("aria-pressed", String(Number(c.textContent) === v));
+          c.setAttribute("aria-pressed", String(Number(c.dataset.v) === v));
         });
       };
       host.appendChild(b);
     });
   }
-  buildOpts($("opt-n"), N_OPTS, function () { return nPick; }, function (v) { nPick = v; });
-  buildOpts($("opt-b"), B_OPTS, function () { return bPick; }, function (v) { bPick = v; });
+  buildOpts($("opt-n"), N_OPTS, function (v) { return v === 0 ? "전체" : v; },
+    function () { return nPick; }, function (v) { nPick = v; });
+  buildOpts($("opt-b"), B_OPTS, function (v) { return v; },
+    function () { return bPick; }, function (v) { bPick = v; });
 
   // ── 말씀 불러오기 ─────────────────────────
   function loadVerses() {
@@ -273,6 +279,48 @@
     return a;
   }
 
+  // ── 의미 단위 줄바꿈 ──
+  //   개역개정 본문에는 쉼표가 한 구절도 없다(35구절 중 0개) — 문장부호로는 못 끊는다.
+  //   대신 어말을 본다: 연결어미(~고·~며·~니·~사…) 뒤는 끊기 좋고,
+  //   ⚠️ 관형격 「의」와 관형사(그·이·모든…) 뒤는 절대 끊지 않는다 —
+  //   「따랐은즉 그의 / 자손이」처럼 갈라지면 뜻이 끊긴다(실제로 그랬다).
+  //   그리고 줄 길이 균형을 더 무겁게 둔다 — 한 단어만 남는 줄이 가장 보기 나쁘다.
+  var CONN = "고며니사여면서되즉야요자나";
+  var CASE = "은는이가을를에로와과도";
+  var DET = ["그", "이", "저", "한", "온", "각", "모든", "네", "내", "우리", "주의"];
+
+  function breakScore(tok) {
+    var t = String(tok).replace(/["\u201d\u2019]+$/, "");
+    if (!t || DET.indexOf(t) >= 0) return -5;
+    var last = t.charAt(t.length - 1);
+    if (last === "의") return -5;
+    if (CONN.indexOf(last) >= 0) return 3;
+    if (CASE.indexOf(last) >= 0) return 1;
+    return 0;
+  }
+
+  function range(a, b) { var r = []; for (var i = a; i < b; i++) r.push(i); return r; }
+
+  // 토큰 인덱스를 줄별로 묶어 돌려준다.
+  function layout(tokens, per) {
+    var text = tokens.join(" ");
+    var lines = Math.max(1, Math.min(tokens.length, Math.ceil(text.length / per)));
+    if (lines === 1) return [range(0, tokens.length)];
+    var out = [], start = 0;
+    for (var k = 1; k < lines; k++) {
+      var ideal = tokens.length * k / lines, best = -99, bi = Math.round(ideal);
+      var lo = Math.max(start + 1, Math.floor(ideal) - 2);
+      var hi = Math.min(tokens.length - (lines - k - 1), Math.floor(ideal) + 4);
+      for (var j = lo; j < hi; j++) {
+        var sc = breakScore(tokens[j - 1]) - Math.abs(j - ideal) * 1.6;
+        if (sc > best) { best = sc; bi = j; }
+      }
+      out.push(range(start, bi)); start = bi;
+    }
+    out.push(range(start, tokens.length));
+    return out.filter(function (l) { return l.length; });
+  }
+
   // 두 글자 이상인 어절만 후보로 — '은·이요' 같은 조사가 비면 문제가 시시해진다.
   // (앱의 pickEventBlankIndex와 같은 기준)
   function pickBlanks(tokens, want) {
@@ -301,7 +349,8 @@
   }
 
   function build() {
-    quiz = shuffled(verses).slice(0, Math.min(nPick, verses.length)).map(function (v) {
+    var take = nPick === 0 ? verses.length : Math.min(nPick, verses.length);
+    quiz = shuffled(verses).slice(0, take).map(function (v) {
       var tokens = String(v.text || "").trim().split(/\s+/);
       return {
         tokens: tokens,
@@ -321,7 +370,8 @@
     $("count").textContent = (idx + 1) + " / " + quiz.length;
     $("ref").textContent = q.ref;
 
-    var html = q.tokens.map(function (t, i) {
+    function cell(i) {
+      var t = q.tokens[i];
       var isBlank = q.blanks.indexOf(i) >= 0;
       var open = revealed || q.hinted.indexOf(i) >= 0;
       var esc = t.replace(/[&<>]/g, function (m) {
@@ -332,8 +382,10 @@
       // 빈칸 너비를 글자 수만큼 — 몇 글자인지가 힌트가 된다(손드는 퀴즈에 알맞다).
       return '<span class="tk blank" style="min-width:' +
         (Array.from(t).length * 1.05) + 'em">' + esc + "</span>";
-    }).join(" ");
-    $("verse").innerHTML = html;
+    }
+    $("verse").innerHTML = layout(q.tokens, 18).map(function (line) {
+      return '<div class="ln">' + line.map(cell).join(" ") + "</div>";
+    }).join("");
 
     // 긴 구절은 글자를 줄여 한 화면에 담는다.
     //   운영 35구절의 본문은 23~69자라 문턴을 그 범위에 맞춰 잡았다.
@@ -342,8 +394,8 @@
     var vs = len > 60 ? 4.6 : len > 45 ? 5.4 : len > 32 ? 6.4 : 7.6;
     $("verse").style.setProperty("--vs", vs + "vw");
 
-    $("b-next").textContent = revealed ? "다음 문제 →" : "정답 공개";
-    $("b-hint").disabled = revealed;
+    $("b-next").textContent = (revealed || !q.blanks.length) ? "다음 문제 →" : "정답 공개";
+    $("b-hint").disabled = revealed || !q.blanks.length;
   }
 
   function finish() {
@@ -353,7 +405,9 @@
 
   // ── 진행 ──────────────────────────────────
   function next() {
-    if (!revealed) { revealed = true; draw(); return; }
+    var q = quiz[idx];
+    // 빈칸이 없으면 공개할 것이 없다 — 한 번 누르면 바로 다음 말씀으로.
+    if (!revealed && q && q.blanks.length) { revealed = true; draw(); return; }
     revealed = false; idx++;
     if (idx >= quiz.length) return finish();
     draw();
