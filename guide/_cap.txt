@@ -1,6 +1,6 @@
 intro      OK   46 KB
 install    OK   83 KB
-home       OK   90 KB
+home       OK   95 KB
 list       OK   114 KB
 stage1     OK   29 KB
 stage3     OK   42 KB

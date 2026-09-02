@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260902i";
+const APP_BUILD = "20260902j";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1776,14 +1776,17 @@ function renderSummary() {
          전에는 이 둘 사이에 이벤트 카드(#event-slot)가 끼어 묶음이 갈라졌다 —
          정보 · 카드 · 정보 순서라 무엇이 한 덩이인지 읽히지 않았다.
          이제 정보 둘 → 이벤트 카드 → 오늘 할 일 순이다. -->
-    <div class="today-strip" id="today-strip"><span class="today-txt">오늘의 말씀 활동을 불러오는 중…</span></div>
-    <!-- 진행 막대 (2026-09-02) — 다 마치신 분일수록 네 칸이 「암송 0 · 진행중 0 ·
-         미시도 0」이 되어 아무것도 안 한 것처럼 보였다(마음에 둠은 완료의 부분집합
-         이라 완료에서 빼기 때문). 한 줄로만 말한다. -->
-    <div class="stat-bar">
-      <span class="sb-line">${sbLine}</span>
-      <span class="sb-pct">${pct}%</span>
-      <span class="sb-track"><i style="width:${pct}%"></i></span>
+    <div class="user-info" id="user-info">
+      <div class="today-strip" id="today-strip"><span class="today-txt">오늘의 말씀 활동을 불러오는 중…</span></div>
+      <div class="ui-div"></div>
+      <!-- 진행 막대 — 다 마치신 분일수록 네 칸이 「암송 0 · 진행중 0 · 미시도 0」이
+           되어 아무것도 안 한 것처럼 보였다(마음에 둠은 완료의 부분집합이라 완료에서
+           빼기 때문). 한 줄로만 말한다. -->
+      <div class="stat-bar">
+        <span class="sb-line">${sbLine}</span>
+        <span class="sb-pct">${pct}%</span>
+        <span class="sb-track"><i style="width:${pct}%"></i></span>
+      </div>
     </div>
     <!-- 이벤트는 「오늘 할 일」 바로 위 — 누르는 것들 바로 앞자리다 -->
     <div id="event-slot"></div>
@@ -3020,6 +3023,10 @@ function applyTodayStrip() {
   const n = todayCountCache;
   const t = todayTier(n);
   el.className = "today-strip " + t.cls;
+  // 오늘 회수에 따른 색은 **상자 전체**가 받는다 — 안의 줄만 물들이면 상자 안에
+  // 또 상자가 있는 꼴이 된다(2026-09-02에 두 줄을 한 상자로 합치면서).
+  const box = document.getElementById("user-info");
+  if (box) box.className = "user-info " + t.cls;
   el.innerHTML = n > 0
     ? `<span class="today-count">오늘 <b>${n}회</b></span><span class="today-word">${t.word} ${t.emoji}</span>`
     : `<span class="today-word">${t.word} ${t.emoji}</span>`;
