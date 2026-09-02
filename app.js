@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260902a";
+const APP_BUILD = "20260902b";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1770,7 +1770,7 @@ function renderSummary() {
          것처럼 보였다(마음에 둠은 완료의 부분집합이라 완료에서 빼기 때문).
          한 줄로 먼저 말하고, 자세한 넷은 눌렀을 때만 펼친다. -->
     <button class="stat-bar" id="stat-toggle" aria-expanded="false" aria-controls="stat-grid">
-      <span class="sb-line">전체 <b>${total}</b>구절 중 <b>${done}</b>구절 마침</span>
+      <span class="sb-line"><b>${total}</b>구절 중 <b>${done}</b>구절 마침</span>
       <span class="sb-pct">${pct}% <span class="sb-caret">▾</span></span>
       <span class="sb-track"><i style="width:${pct}%"></i></span>
     </button>

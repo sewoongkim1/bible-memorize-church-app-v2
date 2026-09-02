@@ -1367,7 +1367,17 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
   transition: background .15s, border-color .15s;
 }
 .stat-bar:hover { background: #fff; border-color: var(--navy); }
-.stat-bar .sb-line { font-size: .92rem; color: var(--gray); }
+/* ⚠️ 한 줄을 지킨다 — 구절 수가 두 자리가 되면 「35구절 중 35구절 마침」이
+   좁은 폰에서 두 줄로 넘어갔다(2026-09-02). 줄이 넘어가면 막대가 밀려
+   글과 막대 사이가 벌어지고, 칸 높이도 화면마다 달라진다.
+   글자를 줄이는 쪽을 골랐다 — 잘라 내면 무슨 말인지 알 수 없게 된다. */
+.stat-bar .sb-line { font-size: .92rem; color: var(--gray); white-space: nowrap; }
+@media (max-width: 400px) {
+  .stat-bar { padding: 10px 10px; }
+  .stat-bar .sb-line { font-size: .86rem; }
+  .stat-bar .sb-line b { font-size: 1rem; }
+  .stat-bar .sb-pct { font-size: .86rem; }
+}
 .stat-bar .sb-line b { color: var(--navy); font-size: 1.06rem; font-weight: 800; }
 .stat-bar .sb-pct { font-size: .92rem; font-weight: 800; color: var(--navy); white-space: nowrap; }
 .stat-bar .sb-caret { display: inline-block; font-size: .78rem; color: var(--gray);
