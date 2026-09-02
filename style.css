@@ -3960,10 +3960,22 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
      연한 남색      = 앱 안의 다른 기능           — .summary-help 기본, 신기능 셋
      흰 바탕 회색선 = 앱 밖으로 나감              — .ext-cta (↗)
    ⚠️ 새 단추를 넣을 때 또 제 색을 주지 말 것. 색을 하나 늘릴 때마다 나머지가 그만큼 흐려진다. */
+/* 묶음 제목 — 세 가지가 함께 어긋나 있었다(2026-09-02).
+   ① .summary-card 가 text-align:center 라 제목이 가운데 떠 있었다. 폭 꽉 찬 단추 위에
+      가운데 정렬된 짧은 말은 제목이 아니라 남은 글처럼 보인다 → 왼쪽에 붙이고,
+      오른쪽으로 가는 가는 줄을 달아 아래 단추들을 「거느리게」 한다.
+   ② 단추 글씨(.98rem/700)보다 작고 흐려서(.8rem/700/회색) 제목 구실을 못 했다.
+   ③ 위 여백 14px 이 단추 사이 8px 과 별로 안 달라 묶음이 안 읽혔다 → 22px.
+      묶음은 「선」이 아니라 「빈자리」로 나뉜다. */
 .grp-title {
-  margin: 14px 0 6px; font-size: .8rem; font-weight: 700;
-  color: var(--gray); letter-spacing: .02em;
+  display: flex; align-items: center; gap: 10px;
+  margin: 22px 0 9px; padding: 0 2px;
+  font-size: .86rem; font-weight: 800; color: #5f6f86;
+  letter-spacing: .02em; text-align: left; white-space: nowrap;
 }
+.grp-title::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+.dark .grp-title { color: #93a3ba; }
+.dark .grp-title::after { background: #2f3d55; }
 .grp-more {
   width: 100%; margin: 4px 0 8px; padding: 9px;
   font-size: .9rem; font-weight: 700; color: var(--gray);
