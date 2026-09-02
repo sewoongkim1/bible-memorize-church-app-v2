@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260902b";
+const APP_BUILD = "20260902c";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1731,6 +1731,15 @@ function renderSummary() {
     SUB.push({ id: "go-challenge", cls: "challenge-cta", ic: "🔥", tx: "말씀 도전" });
 
   const pct = total ? Math.round((done / total) * 100) : 0;
+  // 진행 막대 문구 — 「35구절 중 35구절 마침」은 「구절」이 두 번 나와 겹쳐 읽혔고,
+  // 다 마치신 분께는 같은 숫자가 두 번 나와 더 이상했다(2026-09-02).
+  // 단위는 한 번만 쓰고, 세 처지에 각각 다른 말을 한다 —
+  // 아직 시작 전 / 가는 중 / 다 마침. 다 마치신 분께는 세는 대신 축하한다.
+  const sbLine = done >= total && total > 0
+    ? `<b>${total}</b>구절 모두 마쳤어요 🎉`
+    : done === 0
+    ? `전체 <b>${total}</b>구절 · 이제 시작이에요`
+    : `<b>${done}</b>구절 마쳤어요 <span class="sb-of">/ 전체 ${total}</span>`;
   const weeklyInfo = getWeeklyVerseInfo();
   const weeklyVerse = weeklyInfo && weeklyInfo.verse;
   const weeklyStage = weeklyVerse ? getPassedStage(weeklyVerse.no) : 0;
@@ -1770,7 +1779,7 @@ function renderSummary() {
          것처럼 보였다(마음에 둠은 완료의 부분집합이라 완료에서 빼기 때문).
          한 줄로 먼저 말하고, 자세한 넷은 눌렀을 때만 펼친다. -->
     <button class="stat-bar" id="stat-toggle" aria-expanded="false" aria-controls="stat-grid">
-      <span class="sb-line"><b>${total}</b>구절 중 <b>${done}</b>구절 마침</span>
+      <span class="sb-line">${sbLine}</span>
       <span class="sb-pct">${pct}% <span class="sb-caret">▾</span></span>
       <span class="sb-track"><i style="width:${pct}%"></i></span>
     </button>

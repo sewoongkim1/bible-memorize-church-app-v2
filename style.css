@@ -1379,6 +1379,8 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
   .stat-bar .sb-pct { font-size: .86rem; }
 }
 .stat-bar .sb-line b { color: var(--navy); font-size: 1.06rem; font-weight: 800; }
+/* 「/ 전체 35」 — 곁들이는 말이라 한 단계 흐리게. 앞의 숫자가 주인공이다. */
+.stat-bar .sb-of { opacity: .62; font-size: .92em; }
 .stat-bar .sb-pct { font-size: .92rem; font-weight: 800; color: var(--navy); white-space: nowrap; }
 .stat-bar .sb-caret { display: inline-block; font-size: .78rem; color: var(--gray);
                       transition: transform .15s; }
