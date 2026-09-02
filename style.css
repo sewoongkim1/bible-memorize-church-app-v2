@@ -3994,8 +3994,14 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
 .summary-help .new-badge { position: absolute; top: 6px; right: 8px; margin: 0; }
 /* 신기능 셋 — 저마다 가진 그라데이션을 걷어내고 「앱 안의 다른 기능」 한 단계로 */
 .summary-go.sermon-act, .summary-go.med-act, .summary-go.passages-act {
-  background: #eef1f8; color: var(--navy); border-color: #c9d8ef;
+  /* 테두리를 아래 목록 단추(.summary-help)와 똑같이 — 옅은 선(#c9d8ef)을 쓰니
+     같은 무게의 기능인데 이 둘만 흐릿하게 물러나 보였다(2026-09-02). */
+  background: #eef1f8; color: var(--navy); border-color: var(--navy);
 }
+/* 두 칸 안의 글씨 — 칸이 큰데 글씨가 목록 단추와 같아 작아 보였다.
+   ⚠️ `.summary-actions .act-tx`(.97rem)가 이 뒤에 오지 않게 여기서 눌러 준다. */
+.summary-actions.feat-actions .act-tx { font-size: 1.08rem; line-height: 1.2; }
+.summary-actions.feat-actions .act-ic { font-size: 1.6rem; }
 .summary-go.sermon-act:hover, .summary-go.med-act:hover, .summary-go.passages-act:hover {
   background: var(--navy); color: #fff; border-color: var(--navy);
 }
