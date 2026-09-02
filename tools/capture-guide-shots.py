@@ -17,6 +17,7 @@ import io, os, json, subprocess, time, socket, sys
 #   SHOT_SCALE  배율. 이 PC 헤드리스 크롬은 뷰포트가 526px 고정이라
 #               스토어용 큰 그림은 배율로만 키울 수 있다(2 → 1052x1880)
 #   SHOT_NOCROP 1이면 아래 여백을 자르지 않는다(스토어는 크기가 고르게 맞아야 한다)
+#   SHOT_H      뷰포트 높이(기본 940). 첫 화면처럼 긴 화면을 통째로 볼 때 키운다
 
 ROOT = r"C:\Projects\bible-memorize-church-app-v2"
 OUT = os.environ.get("SHOT_OUT") or os.path.join(ROOT, "guide", "shots")
@@ -24,7 +25,7 @@ SCALE = float(os.environ.get("SHOT_SCALE") or 1)
 NOCROP = os.environ.get("SHOT_NOCROP") == "1"
 CHROME = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 PORT = 8742
-W, H = 526, 940   # 이 PC 헤드리스 크롬은 뷰포트가 526px로 고정된다
+W, H = 526, int(os.environ.get("SHOT_H") or 940)   # 이 PC 헤드리스 크롬은 뷰포트가 526px로 고정된다
 
 STEPS = [
     ("intro",     "renderIntro(function(){})"),
@@ -94,6 +95,15 @@ SEED = """
     });
   });
 
+  // 자동으로 뜨는 창을 아예 막는다 — 뜬 뒤에 지우면 찍히는 순간과 엇갈릴 수 있다.
+  //   ⚠️ 다만 ?go= 에서 일부러 부르는 경우(매일 묵상 화면)는 살려 둔다.
+  window.addEventListener("DOMContentLoaded", function(){
+    try {
+      var real = window.maybeShowWeeklyMeditation;
+      window.maybeShowWeeklyMeditation = function(force){ if (force) return real.apply(null, arguments); };
+    } catch(e){}
+  });
+
   // 화면이 준비되면 원하는 함수를 부른다
   var step = new URLSearchParams(location.search).get("go") || "";
   if (!step) return;
@@ -109,10 +119,16 @@ SEED = """
           todayCountCache = 6; todayCountDay = todayYmd(); applyTodayStrip();
         } } catch(e){}
         // 그래도 뜬 덮개가 있으면 걷어낸다
+        // ⚠️ 클래스 이름을 확인하고 적을 것 — ".cheer-wrap"·".dmsg-wrap"·".modal-wrap"은
+        //    app.js 에 없는 이름이라 여태 아무것도 안 걷어내고 있었다(2026-09-02).
+        //    실제 덮개는 .cheer-overlay(오늘의 묵상·응원 창)이다.
         try {
-          document.querySelectorAll(".cheer-wrap,.dmsg-wrap,.promo-card,.modal-wrap,.sc-promo")
+          document.querySelectorAll(".cheer-overlay,.promo-card,.sc-promo,#daily-message")
             .forEach(function(el){ el.remove(); });
         } catch(e){}
+        // 「개발 DB」 띠 — 캡처는 localhost 라 늘 뜬다. 이 그림은 공개되는 안내에 쓰이므로
+        // 반드시 지운다(js/config.js 가 붙이는 #dev-env-mark).
+        try { var m = document.getElementById("dev-env-mark"); if (m) m.remove(); } catch(e){}
         // 암송 화면은 스스로 아래로 스크롤한다 — 찍을 땐 맨 위가 보여야 한다
         try { window.scrollTo(0, 0); } catch(e){}
         document.title = "READY";

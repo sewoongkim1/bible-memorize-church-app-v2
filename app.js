@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260901d";
+const APP_BUILD = "20260902a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1126,7 +1126,38 @@ const PROMO_KEY = "promo-newfeat"; // { dismissed, firstSeen }
 function promoState() { try { return JSON.parse(localStorage.getItem(PROMO_KEY)) || {}; } catch { return {}; } }
 function featSeen(k) { try { return localStorage.getItem("feat-seen-" + k) === "1"; } catch { return false; } }
 function markFeatSeen(k) { try { localStorage.setItem("feat-seen-" + k, "1"); } catch {} }
-function newBadge(k) { return featSeen(k) ? "" : `<span class="new-badge">NEW</span>`; }
+
+// ── NEW 배지는 날짜로 내린다 (2026-09-02) ──────────────────────────
+// ⚠️ 전에는 「눌러 본 적 있나」만 봤다. 그래서 **안 눌러 보신 분께는 영영 NEW**였고,
+//    셋(내게 주시는 말씀·매일 묵상·내 안에 거하는 말씀)이 전부 2026-07-20~23 기능인데
+//    여섯 주째 NEW를 달고 있었다. NEW가 셋이면 아무것도 새롭지 않다 —
+//    어르신 눈에는 그냥 빨간 점 세 개다.
+// 새 기능을 넣으면 **여기에 나온 날을 적는다.** 안 적으면 NEW가 아예 안 뜬다
+//    (영원히 붙어 있느니 안 뜨는 편이 낫다).
+const FEAT_SINCE = {
+  meditation: "2026-07-20",   // 매일 묵상
+  sermon: "2026-07-23",       // 내게 주시는 말씀
+  passages: "2026-07-23",     // 내 안에 거하는 말씀
+};
+const FEAT_NEW_DAYS = 14;
+
+function featIsNew(k) {
+  if (featSeen(k)) return false;
+  const since = FEAT_SINCE[k];
+  if (!since) return false;
+  const d = kstDayNumber() - kstDayNumber(since);
+  return d !== null && d >= 0 && d <= FEAT_NEW_DAYS;
+}
+// 여럿이 겹치면 **가장 최근 것 하나만** 붙인다 — NEW가 둘이면 이미 NEW가 아니다.
+function newestNewFeat() {
+  let best = null;
+  Object.keys(FEAT_SINCE).forEach((k) => {
+    if (!featIsNew(k)) return;
+    if (!best || kstDayNumber(FEAT_SINCE[k]) > kstDayNumber(FEAT_SINCE[best])) best = k;
+  });
+  return best;
+}
+function newBadge(k) { return k === newestNewFeat() ? `<span class="new-badge">NEW</span>` : ""; }
 function scRemoveBadge(btnId) { const b = document.getElementById(btnId); const badge = b && b.querySelector(".new-badge"); if (badge) badge.remove(); }
 // 게시판 버튼 배지 — 최근 7일 내(마지막으로 본 이후) 새 글/답글 개수.
 // 게시판을 열면(board-seen 갱신) 사라지고, 그 뒤 새로 올라온 것만 다시 센다.
@@ -1675,6 +1706,31 @@ function renderSummary() {
   // 이미 완료(3단계)한 구절을 복습 일정에 등록(과거 완료분도 포함, 중복 없음)
   verses.forEach((v) => { if (getPassedStage(v.no) === 3) ensureReviewScheduled(v.no); });
   const dueCount = dueReviewNos().length; // 오늘 복습할 구절 수
+
+  // ── 오늘 할 일 하나 (2026-09-02) ────────────────────────────────
+  // ⚠️ 전에는 「암송하기」와 「말씀 도전」이 늘 나란히 있었다. 그러면 무엇을 먼저 할지
+  //    **성도님이 매번 고르셔야 한다.** 첫 화면에 누를 것이 24개나 되는 마당에
+  //    그 판단까지 떠넘기면 「오늘 뭘 하면 되나요」에 답이 없다.
+  //    상태를 보고 하나만 크게 내놓고, 나머지는 그 아래 작게 둔다.
+  // 순서: 복습(잊기 전이 먼저) → 안 외운 게 남았으면 암송 → 다 외웠으면 도전.
+  const notDone = counts[0] + counts[1] + counts[2];   // 아직 3단계를 못 마친 구절
+  const TODO = dueCount > 0
+    ? { id: "go-review", cls: "review-cta", ic: "🔁",
+        tx: `오늘 복습 ${dueCount}구절`, sub: "잊기 전에 다시 한 번" }
+    : notDone > 0
+    ? { id: "go-list", cls: "", ic: "📖",
+        tx: "말씀 암송하기", sub: `아직 ${notDone}구절 남았어요` }
+    : { id: "go-challenge", cls: "challenge-cta", ic: "🔥",
+        tx: "말씀 도전", sub: `외운 ${done}구절로 도전해 보세요` };
+  // 큰 단추로 올라간 것은 아래에서 뺀다 — 같은 것이 두 번 있으면 고르는 짐이 그대로다.
+  const SUB = [];
+  if (TODO.id !== "go-review" && dueCount > 0)
+    SUB.push({ id: "go-review", cls: "review-cta", ic: "🔁", tx: `복습 ${dueCount}구절` });
+  if (TODO.id !== "go-list") SUB.push({ id: "go-list", cls: "", ic: "📖", tx: "암송하기" });
+  if (TODO.id !== "go-challenge")
+    SUB.push({ id: "go-challenge", cls: "challenge-cta", ic: "🔥", tx: "말씀 도전" });
+
+  const pct = total ? Math.round((done / total) * 100) : 0;
   const weeklyInfo = getWeeklyVerseInfo();
   const weeklyVerse = weeklyInfo && weeklyInfo.verse;
   const weeklyStage = weeklyVerse ? getPassedStage(weeklyVerse.no) : 0;
@@ -1709,7 +1765,16 @@ function renderSummary() {
     </div>
     <div class="today-strip" id="today-strip"><span class="today-txt">오늘의 말씀 활동을 불러오는 중…</span></div>
     <div id="event-slot"></div>
-    <div class="stat-grid">
+    <!-- 진행 막대 (2026-09-02) — ⚠️ 전에는 네 칸이 늘 펼쳐져 있었는데,
+         다 마치신 분일수록 「암송 0 · 진행중 0 · 미시도 0」이 되어 아무것도 안 한
+         것처럼 보였다(마음에 둠은 완료의 부분집합이라 완료에서 빼기 때문).
+         한 줄로 먼저 말하고, 자세한 넷은 눌렀을 때만 펼친다. -->
+    <button class="stat-bar" id="stat-toggle" aria-expanded="false" aria-controls="stat-grid">
+      <span class="sb-line">전체 <b>${total}</b>구절 중 <b>${done}</b>구절 마침</span>
+      <span class="sb-pct">${pct}% <span class="sb-caret">▾</span></span>
+      <span class="sb-track"><i style="width:${pct}%"></i></span>
+    </button>
+    <div class="stat-grid" id="stat-grid" hidden>
       <div class="stat-box status-heart"><div class="stat-num">${heartCount}</div><div class="stat-lbl">마음</div></div>
       <div class="stat-box status-done"><div class="stat-num">${doneOnly}</div><div class="stat-lbl">암송</div></div>
       <div class="stat-box status-s1"><div class="stat-num">${inProgress}</div><div class="stat-lbl">진행중</div></div>
@@ -1717,10 +1782,12 @@ function renderSummary() {
     </div>
     <!-- 홈 화면 정리: 알림 켜기 배너·신기능 홍보 카드 숨김(코드는 유지, 필요 시 되살리면 됨) -->
     <div id="push-nudge" hidden></div>
-    <div class="summary-actions">
-      <button class="summary-go act-btn" id="go-list"><span class="act-ic">📖</span><span class="act-tx">암송<br>하기</span></button>
-      ${dueCount > 0 ? `<button class="summary-go review-cta act-btn" id="go-review"><span class="act-ic">📖</span><span class="act-tx">복습</span><span class="act-sub">${dueCount}구절</span></button>` : ""}
-      <button class="summary-go challenge-cta act-btn" id="go-challenge"><span class="act-ic">🔥</span><span class="act-tx">말씀<br>도전</span></button>
+    <button class="todo-go ${TODO.cls}" id="${TODO.id}">
+      <span class="todo-ic">${TODO.ic}</span>
+      <span class="todo-body"><span class="todo-tx">${TODO.tx}</span><span class="todo-sub">${TODO.sub}</span></span>
+    </button>
+    <div class="summary-actions sub-actions">
+      ${SUB.map((s) => `<button class="summary-go act-btn ${s.cls}" id="${s.id}"><span class="act-ic">${s.ic}</span><span class="act-tx">${s.tx}</span></button>`).join("")}
     </div>
     ${weeklyHtml}
     <div class="summary-actions feat-actions">
@@ -1728,13 +1795,24 @@ function renderSummary() {
       <button class="summary-go med-act act-btn" id="open-meditation"><span class="act-ic">🌿</span><span class="act-tx">매일<br>묵상</span>${newBadge("meditation")}</button>
       ${passagesVisible() ? `<button class="summary-go passages-act act-btn" id="open-passages"><span class="act-ic">📜</span><span class="act-tx">내 안에<br>거하는 말씀</span>${newBadge("passages")}</button>` : ""}
     </div>
-    <button class="summary-help album-cta" id="open-album">📖 나의 말씀 앨범</button>
+    <!-- 성격별로 묶는다 (2026-09-02) — 전에는 일곱 줄이 같은 모양·다른 색으로 나열돼
+         무엇이 무엇인지 색으로도 자리로도 알 수 없었다.
+         ⚠️ 단추마다 있던 제 색(보라·초록·청록·금…)을 뗐다. 색은 「누구인가」가 아니라
+            「무엇인가」를 말해야 한다 — 아래 CSS의 네 단계만 남긴다. -->
+    <div class="grp-title">내 기록</div>
+    <button class="summary-help" id="open-album">📖 나의 말씀 앨범</button>
     <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
-    <button class="summary-help quiz-cta" id="open-quiz">🎯 성경암송 퀴즈</button>
-    <button class="summary-help board-cta" id="open-board">💬 응원·기도·공감</button>
-    <button class="summary-help pilsa-cta" id="open-pilsa">✍️ 성경필사 노트 신청</button>
-    <button class="summary-help praise-cta" id="open-praise">🎵 고척교회 찬양 아카이브</button>
-    <button class="summary-help sermon-cta" id="open-sermon-archive">📺 고척교회 설교 아카이브</button>
+    <div class="grp-title">함께</div>
+    <button class="summary-help" id="open-board">💬 응원·기도·공감</button>
+    <button class="summary-help" id="open-quiz">🎯 성경암송 퀴즈</button>
+    <button class="summary-help" id="open-pilsa">✍️ 성경필사 노트 신청</button>
+    <!-- 아카이브 둘은 앱 밖(다른 사이트)으로 나간다. 그 사실이 보이게 ↗ 와 흰 바탕으로
+         구분하고, 여기서 잘 안 누르는 것이라 접어 둔다(연 상태는 기억한다). -->
+    <button class="grp-more" id="more-toggle" aria-expanded="false" aria-controls="more-box">더 보기 <span class="gm-caret">▾</span></button>
+    <div id="more-box" hidden>
+      <button class="summary-help ext-cta" id="open-praise">🎵 고척교회 찬양 아카이브 <span class="ext-mark">↗</span></button>
+      <button class="summary-help ext-cta" id="open-sermon-archive">📺 고척교회 설교 아카이브 <span class="ext-mark">↗</span></button>
+    </div>
     <div id="event-slot-bottom"></div>
     <div class="summary-icons summary-icons-bottom">
       <div class="icon-cap"><button class="summary-icon icon-alarm" id="open-alarm" aria-label="매일 암송 알림 받기" title="매일 암송 알림 받기">🔔</button><span class="icon-cap-label">알림</span></div>
@@ -1748,6 +1826,8 @@ function renderSummary() {
 `;
 
   document.getElementById("go-list").addEventListener("click", renderVerseList);
+  setupStatToggle();   // 진행 막대 ↔ 네 칸 자세히
+  setupMoreToggle();   // 「더 보기」 — 앱 밖 아카이브 둘
   loadTodayCount(u); // 첫 화면 '오늘 N회' 띠 채우기
   renderEventButton();  // 이미 로드된 설정이 있으면 즉시 표시
   loadEventState();     // 서버에서 설정·응모여부 갱신 후 다시 표시
@@ -1793,6 +1873,42 @@ function renderSummary() {
       if (bell && !sub) bell.classList.add("pulse");
     } catch (e) {}
   })();
+}
+
+// 진행 막대를 누르면 자세한 네 칸(마음·암송·진행중·미시도)이 펼쳐진다.
+// 기억하지 않는다 — 첫 화면은 늘 조용한 쪽에서 시작해야 한다.
+function setupStatToggle() {
+  const bar = document.getElementById("stat-toggle");
+  const grid = document.getElementById("stat-grid");
+  if (!bar || !grid) return;
+  bar.addEventListener("click", () => {
+    const open = !grid.hidden;
+    grid.hidden = open;
+    bar.setAttribute("aria-expanded", String(!open));
+    bar.classList.toggle("open", !open);
+  });
+}
+
+// 「더 보기」 — 앱 밖 아카이브 둘. 이건 연 상태를 기억한다.
+// 자주 쓰시는 분이 매번 다시 펴야 하면 접어 둔 뜻이 없다.
+const MORE_OPEN_KEY = "home-more-open";
+function setupMoreToggle() {
+  const btn = document.getElementById("more-toggle");
+  const box = document.getElementById("more-box");
+  if (!btn || !box) return;
+  const apply = (open) => {
+    box.hidden = !open;
+    btn.setAttribute("aria-expanded", String(open));
+    btn.classList.toggle("open", open);
+  };
+  let open = false;
+  try { open = localStorage.getItem(MORE_OPEN_KEY) === "1"; } catch (e) {}
+  apply(open);
+  btn.addEventListener("click", () => {
+    open = box.hidden;
+    apply(open);
+    try { localStorage.setItem(MORE_OPEN_KEY, open ? "1" : "0"); } catch (e) {}
+  });
 }
 
 // 첫화면 상단 '알림 켜기' 배너 — 미구독자에게만. 켜면 사라지고, ✕로 14일간 접어둘 수 있다.

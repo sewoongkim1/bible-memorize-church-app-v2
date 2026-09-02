@@ -1356,6 +1356,35 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 .gauge-sub { color: var(--gray); font-size: .85rem; }
 .gauge-sub b { color: var(--navy); }
 
+/* ── 첫화면 진행 막대 (2026-09-02) ──────────────────────────────
+   네 칸을 늘 펼쳐 두면 다 마치신 분일수록 0이 셋이라 초라해 보인다.
+   한 줄로 먼저 말하고, 자세한 넷은 눌렀을 때만. */
+.stat-bar {
+  display: grid; grid-template-columns: 1fr auto; gap: 2px 8px;
+  width: 100%; margin: 0 0 12px; padding: 10px 12px;
+  background: var(--cream); border: 1px solid var(--border); border-radius: 12px;
+  font-family: inherit; text-align: left; cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.stat-bar:hover { background: #fff; border-color: var(--navy); }
+.stat-bar .sb-line { font-size: .92rem; color: var(--gray); }
+.stat-bar .sb-line b { color: var(--navy); font-size: 1.06rem; font-weight: 800; }
+.stat-bar .sb-pct { font-size: .92rem; font-weight: 800; color: var(--navy); white-space: nowrap; }
+.stat-bar .sb-caret { display: inline-block; font-size: .78rem; color: var(--gray);
+                      transition: transform .15s; }
+.stat-bar.open .sb-caret { transform: rotate(180deg); }
+.stat-bar .sb-track {
+  grid-column: 1 / -1; height: 7px; margin-top: 4px;
+  background: #e6e9ef; border-radius: 4px; overflow: hidden;
+}
+.stat-bar .sb-track i {
+  display: block; height: 100%; border-radius: 4px;
+  background: linear-gradient(90deg, var(--navy), #3a5d9e);
+}
+.dark .stat-bar { background: #1b2436; border-color: #2f3d55; }
+.dark .stat-bar:hover { background: #223049; }
+.dark .stat-bar .sb-track { background: #2f3d55; }
+
 .stat-grid {
   display: grid; grid-template-columns: repeat(4, 1fr);
   gap: 8px; margin-bottom: 12px;
@@ -1539,6 +1568,31 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 .dark .push-nudge .pn-title { color: #eccf87; }
 .dark .push-nudge .pn-sub { color: #cbb477; }
 
+/* ── 오늘 할 일 (2026-09-02) ────────────────────────────────────
+   상태를 보고 하나만 크게. 아래 sub-actions 는 그 나머지라 한 단계 작다.
+   ⚠️ 이 둘의 크기 차이가 곧 「먼저 이걸 누르세요」다 — 비슷하게 만들면 뜻이 없어진다. */
+.todo-go {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; margin: 0 0 8px; padding: 16px 18px;
+  color: #fff; background: var(--navy); border: 1.5px solid var(--navy);
+  border-radius: 14px; cursor: pointer; font-family: inherit; text-align: left;
+  transition: background .15s, transform .12s, box-shadow .15s;
+}
+.todo-go:hover { background: var(--navy-dark); border-color: var(--navy-dark);
+                 transform: translateY(-2px); box-shadow: 0 6px 16px rgba(13,27,62,.28); }
+.todo-go:active { transform: translateY(0); box-shadow: 0 2px 8px rgba(13,27,62,.22); }
+.todo-go .todo-ic { font-size: 1.9rem; line-height: 1; flex: none; }
+.todo-go .todo-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.todo-go .todo-tx { font-size: 1.16rem; font-weight: 800; line-height: 1.2; }
+.todo-go .todo-sub { font-size: .86rem; font-weight: 600; opacity: .82; line-height: 1.25; }
+/* 도전이 오늘 할 일이면 금색 — 색은 「무엇인가」를 말한다(도전·성취=금색) */
+.todo-go.challenge-cta {
+  background: linear-gradient(135deg, #c8a24b 0%, #d9b96a 100%);
+  color: var(--navy-dark); border-color: #b8933f;
+}
+.todo-go.challenge-cta:hover { background: linear-gradient(135deg, #bd9c3f 0%, #ccae59 100%); }
+.todo-go.review-cta { background: linear-gradient(135deg, #226e6f 0%, #2c8a8b 100%); border-color: #1d5c5d; }
+.todo-go.review-cta:hover { filter: brightness(1.06); }
 /* 첫화면 메인 액션(암송하기·복습·말씀도전) — 한 줄, 화면 꽉차게 */
 .summary-actions { display: flex; gap: 10px; margin: 8px 0 12px; }
 .summary-actions .summary-go {
@@ -1640,6 +1694,8 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
   transition: background .15s, color .15s;
 }
 .summary-help:hover { background: var(--navy); color: #fff; }
+
+
 /* 고척교회 찬양 아카이브 버튼 — 은은한 금색 톤(주변 버튼과 조화) */
 .summary-help.praise-cta { background: #f7efda; color: #8a6a1e; border-color: #d9b96a; }
 .summary-help.praise-cta:hover { background: #d9b96a; color: #fff; }
@@ -3882,3 +3938,61 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
 }
 .dark .stage-done .sd-challenge { background: #2a2415; border-color: #6d5a22; color: #e6d49a; }
 .dark .stage-done .sd-challenge:hover { background: #342c19; }
+
+/* ── 색은 위계다 (2026-09-02) ───────────────────────────────────
+   전에는 단추마다 제 색이 있어 첫 화면에 12가지가 넘었다(보라·청록·초록·금·갈금…).
+   색이 「무엇인가」가 아니라 「누구인가」를 말하고 있어, 색으로는 아무것도 고를 수 없었다.
+   이제 네 단계뿐이다:
+     남색 채움      = 오늘 할 일 (.todo-go)      — 화면에 딱 하나
+     금색           = 도전·이벤트                — 성취 계열
+     연한 남색      = 앱 안의 다른 기능           — .summary-help 기본, 신기능 셋
+     흰 바탕 회색선 = 앱 밖으로 나감              — .ext-cta (↗)
+   ⚠️ 새 단추를 넣을 때 또 제 색을 주지 말 것. 색을 하나 늘릴 때마다 나머지가 그만큼 흐려진다. */
+.grp-title {
+  margin: 14px 0 6px; font-size: .8rem; font-weight: 700;
+  color: var(--gray); letter-spacing: .02em;
+}
+.grp-more {
+  width: 100%; margin: 4px 0 8px; padding: 9px;
+  font-size: .9rem; font-weight: 700; color: var(--gray);
+  background: transparent; border: 1px dashed var(--border); border-radius: 12px;
+  cursor: pointer; font-family: inherit; transition: background .15s, color .15s;
+}
+.grp-more:hover { background: var(--cream); color: var(--navy); }
+.grp-more .gm-caret { display: inline-block; font-size: .78rem; transition: transform .15s; }
+.grp-more.open .gm-caret { transform: rotate(180deg); }
+/* 앱 밖으로 나가는 단추 — 안쪽 기능과 같은 옷을 입히면 나가는 줄 모르신다 */
+.summary-help.ext-cta { background: #fff; color: var(--gray); border-color: var(--border); }
+.summary-help.ext-cta:hover { background: var(--cream); color: var(--navy); border-color: var(--navy); }
+.summary-help .ext-mark { font-size: .82rem; opacity: .7; }
+/* 신기능 셋 — 저마다 가진 그라데이션을 걷어내고 「앱 안의 다른 기능」 한 단계로 */
+.summary-go.sermon-act, .summary-go.med-act, .summary-go.passages-act {
+  background: #eef1f8; color: var(--navy); border-color: #c9d8ef;
+}
+.summary-go.sermon-act:hover, .summary-go.med-act:hover, .summary-go.passages-act:hover {
+  background: var(--navy); color: #fff; border-color: var(--navy);
+}
+.dark .grp-more { border-color: #2f3d55; }
+.dark .grp-more:hover { background: #1b2436; color: #cfe0ff; }
+.dark .summary-help.ext-cta { background: #151d2b; color: #9aa6ba; border-color: #2f3d55; }
+.dark .summary-help.ext-cta:hover { background: #223049; color: #cfe0ff; border-color: #44567a; }
+.dark .summary-go.sermon-act, .dark .summary-go.med-act, .dark .summary-go.passages-act {
+  background: #182739; color: #8fb3e6; border-color: #33507d;
+}
+.dark .summary-go.sermon-act:hover, .dark .summary-go.med-act:hover,
+.dark .summary-go.passages-act:hover { background: #33507d; color: #fff; }
+
+/* ⚠️ [hidden] 은 display 를 이기지 못한다 — .stat-grid 에 display:grid 가 있어
+   hidden 을 걸어도 그대로 보였다(2026-09-02). 명시적으로 눌러 준다. */
+.stat-grid[hidden], #more-box[hidden] { display: none; }
+
+/* 아래 작은 줄 — 큰 단추의 나머지.
+   ⚠️ .summary-actions .summary-go 가 뒤에 있어 min-height:92px 로 되돌려 놨었다.
+      크기 차이가 곧 「먼저 이걸 누르세요」라 여기서 다시 눌러 준다. */
+.summary-actions.sub-actions .summary-go {
+  min-height: 52px; padding: 9px 10px;
+  /* 아이콘과 글씨를 한 줄로 — 세로로 쌓으면 폭 넓은 칸에서 큰 단추처럼 보인다 */
+  flex-direction: row; gap: 8px;
+}
+.summary-actions.sub-actions .act-ic { font-size: 1.1rem; margin-bottom: 0; }
+.summary-actions.sub-actions .act-tx { font-size: .93rem; }
