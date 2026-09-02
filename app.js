@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260902d";
+const APP_BUILD = "20260902e";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -6309,7 +6309,17 @@ function renderReview(queue, idx) {
     });
   }
   const onDone = (mode) => {
-    postChallenge(verse, mode || "voice"); // 복습 완료도 도전 순위 데이터에 누적
+    // 복습은 `review-` 를 붙여 남긴다 (2026-09-02).
+    // ⚠️ 전에는 도전과 똑같이 `typing` 으로 남겼다. 그래서 「도전까지 가셨는가」를
+    //    데이터로 가릴 수 없었다 — typing 48명 안에 복습만 하신 분이 섞여 있었고,
+    //    도전 전환율이 부풀려 보였다(review-typing 은 1건뿐이라 더 눈에 안 띄었다).
+    // ⚠️ **보이는 숫자는 하나도 안 바뀐다** — 순위·통계는 모두 `%typing%`·
+    //    `includes("typing")` 으로 세므로 `review-typing` 도 그대로 들어간다.
+    //    「복습도 도전 순위에 함께 센다」는 본래 뜻은 그대로다.
+    // ⚠️ 복습 화면에는 카드 입력이 없어 `review-typing-card` 는 나오지 않는다.
+    //    복습에도 카드를 넣게 되면 제약(supabase/migrate_modes_card.sql)에 그 값을
+    //    **먼저** 더할 것 — 안 그러면 기록이 통째로 거부된다.
+    postChallenge(verse, "review-" + (mode || "voice"));
     advanceReview(verse.no);
     reviewNext(queue, idx);
   };

@@ -16,6 +16,16 @@
 --   ⚠️ 새 mode 를 더하면(migrate_modes_card.sql 처럼) 여기 정의도 함께 본다.
 --      「learn 도 review 도 아니면 도전」으로 적어 두어 새 값이 도전 쪽에 붙게 했다.
 --
+-- ■ ⚠️ **2026-09-02 이전 기록은 복습이 도전에 섞여 있다** — 반드시 알고 볼 것
+--   그날까지 복습 완료를 `typing` 으로 남겼다(도전과 글자 하나 다르지 않았다).
+--   그래서 **그 이전 구간의 「도전자」는 「도전 또는 복습을 한 분」**이다 — 실제
+--   도전 전환율은 아래 숫자보다 낮다. review-typing 이 단 1건뿐이라 오래 안 보였다.
+--   2026-09-02 부터 복습은 `review-typing`·`review-voice` 로 남는다(app.js renderReview).
+--   → **앞뒤를 견줄 때는 ②번 주별에서 09-01 주와 그 뒤를 나란히 놓지 말 것.**
+--      기준이 달라진 것이지 전환율이 떨어진 것이 아니다.
+--   → 순수 도전만 확실한 것은 `typing-card` 뿐이다(카드는 도전 화면에서만 갈린다).
+--      ⑥번이 그 하한선을 보여 준다.
+--
 -- ■ 언제 쟀나 (여기에 결과를 적어 둔다)
 --   2026-09-02  첫 화면 개편(v3.260, 오늘 할 일 하나 크게) 직후의 기준선
 --               → ②번 「주별」이 개편 앞뒤를 가르는 자리다.
@@ -102,3 +112,21 @@ select mode, count(*) as 횟수, count(distinct user_id) as 사람
 from public.challenge_log
 group by mode
 order by 횟수 desc;
+
+
+-- ── ⑥ 섞임 없는 하한선 — typing-card 만 센다 ────────────────────
+--    카드는 **도전 화면에서만** 갈리므로 typing-card 는 복습이 섞일 수 없다.
+--    다만 자판으로 도전하신 분이 빠지므로 실제 도전자보다 **적게** 나온다.
+--    2026-09-02 이전 구간을 볼 때 「적어도 이만큼은 도전했다」는 바닥값이다.
+with per_user as (
+  select user_id,
+         bool_or(mode = 'typing-card') as card_challenge
+  from public.challenge_log
+  group by user_id
+)
+select '⑥ 하한선(typing-card)'                                       as 구분,
+       count(*)                                                      as 참여자,
+       count(*) filter (where card_challenge)                        as "도전 확실",
+       round(100.0 * count(*) filter (where card_challenge)
+             / nullif(count(*), 0), 1)                               as "전환율(%)"
+from per_user;
