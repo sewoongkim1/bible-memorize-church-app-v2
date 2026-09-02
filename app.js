@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260902h";
+const APP_BUILD = "20260902i";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1772,17 +1772,21 @@ function renderSummary() {
     <div class="summary-headrow">
       <div class="summary-hello"><span class="summary-affil">${u.type === "교구" ? `${u.gu}-${u.mok}` : `${u.bu}${u.grade ? " " + u.grade : ""}`}</span> <span class="summary-user">${u.name}</span> <span class="summary-honor">성도님</span><br>주님의 이름으로 환영합니다 🙌</div>
     </div>
+    <!-- 「읽는 것」 둘을 위에 나란히 모은다 (2026-09-02).
+         전에는 이 둘 사이에 이벤트 카드(#event-slot)가 끼어 묶음이 갈라졌다 —
+         정보 · 카드 · 정보 순서라 무엇이 한 덩이인지 읽히지 않았다.
+         이제 정보 둘 → 이벤트 카드 → 오늘 할 일 순이다. -->
     <div class="today-strip" id="today-strip"><span class="today-txt">오늘의 말씀 활동을 불러오는 중…</span></div>
-    <div id="event-slot"></div>
-    <!-- 진행 막대 (2026-09-02) — ⚠️ 전에는 네 칸이 늘 펼쳐져 있었는데,
-         다 마치신 분일수록 「암송 0 · 진행중 0 · 미시도 0」이 되어 아무것도 안 한
-         것처럼 보였다(마음에 둠은 완료의 부분집합이라 완료에서 빼기 때문).
-         한 줄로 먼저 말하고, 자세한 넷은 눌렀을 때만 펼친다. -->
+    <!-- 진행 막대 (2026-09-02) — 다 마치신 분일수록 네 칸이 「암송 0 · 진행중 0 ·
+         미시도 0」이 되어 아무것도 안 한 것처럼 보였다(마음에 둠은 완료의 부분집합
+         이라 완료에서 빼기 때문). 한 줄로만 말한다. -->
     <div class="stat-bar">
       <span class="sb-line">${sbLine}</span>
       <span class="sb-pct">${pct}%</span>
       <span class="sb-track"><i style="width:${pct}%"></i></span>
     </div>
+    <!-- 이벤트는 「오늘 할 일」 바로 위 — 누르는 것들 바로 앞자리다 -->
+    <div id="event-slot"></div>
     <!-- 홈 화면 정리: 알림 켜기 배너·신기능 홍보 카드 숨김(코드는 유지, 필요 시 되살리면 됨) -->
     <div id="push-nudge" hidden></div>
     <button class="todo-go ${TODO.cls}" id="${TODO.id}">
