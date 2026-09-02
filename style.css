@@ -3989,6 +3989,9 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
 .summary-help.ext-cta { background: #fff; color: var(--gray); border-color: var(--border); }
 .summary-help.ext-cta:hover { background: var(--cream); color: var(--navy); border-color: var(--navy); }
 .summary-help .ext-mark { font-size: .82rem; opacity: .7; }
+/* 목록 단추에도 NEW 가 붙을 수 있다(내 안에 거하는 말씀이 여기로 내려왔다) */
+.summary-help { position: relative; }
+.summary-help .new-badge { position: absolute; top: 6px; right: 8px; margin: 0; }
 /* 신기능 셋 — 저마다 가진 그라데이션을 걷어내고 「앱 안의 다른 기능」 한 단계로 */
 .summary-go.sermon-act, .summary-go.med-act, .summary-go.passages-act {
   background: #eef1f8; color: var(--navy); border-color: #c9d8ef;

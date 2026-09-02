@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260902e";
+const APP_BUILD = "20260902f";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1799,10 +1799,15 @@ function renderSummary() {
       ${SUB.map((s) => `<button class="summary-go act-btn ${s.cls}" id="${s.id}"><span class="act-ic">${s.ic}</span><span class="act-tx">${s.tx}</span></button>`).join("")}
     </div>
     ${weeklyHtml}
+    <!-- 이 두 칸은 **목사님 설교에서 나온 것**이다 (2026-09-02).
+         전에는 「내 안에 거하는 말씀」이 여기 셋째로 있었는데 성격이 달랐다 —
+         그건 긴 본문을 마디로 나눠 **외우는** 기능(진도·완료·마음에 둠·듣기)이라
+         「말씀 목록」과 구조가 같고, 설교에서 나온 이 둘과는 계보가 다르다.
+         셋이 한 줄에 있으면 「같은 종류」라는 뜻이 되어 버린다 → 아래 목록으로 옮겼다.
+         ⚠️ 여기에 셋째를 더할 때는 **설교에서 나온 것인지** 먼저 볼 것. -->
     <div class="summary-actions feat-actions">
       <button class="summary-go sermon-act act-btn" id="open-sermon-chat"><span class="act-ic">💬</span><span class="act-tx">내게 주시는<br>말씀</span>${newBadge("sermon")}</button>
       <button class="summary-go med-act act-btn" id="open-meditation"><span class="act-ic">🌿</span><span class="act-tx">매일<br>묵상</span>${newBadge("meditation")}</button>
-      ${passagesVisible() ? `<button class="summary-go passages-act act-btn" id="open-passages"><span class="act-ic">📜</span><span class="act-tx">내 안에<br>거하는 말씀</span>${newBadge("passages")}</button>` : ""}
     </div>
     <!-- 성격별로 묶는다 (2026-09-02) — 전에는 일곱 줄이 같은 모양·다른 색으로 나열돼
          무엇이 무엇인지 색으로도 자리로도 알 수 없었다.
@@ -1815,6 +1820,7 @@ function renderSummary() {
     <button class="summary-help" id="open-board">💬 응원·기도·공감</button>
     <button class="summary-help" id="open-quiz">🎯 성경암송 퀴즈</button>
     <button class="summary-help" id="open-pilsa">✍️ 성경필사 노트 신청</button>
+    ${passagesVisible() ? `<button class="summary-help" id="open-passages">📜 내 안에 거하는 말씀${newBadge("passages")}</button>` : ""}
     <!-- 아카이브 둘은 앱 밖(다른 사이트)으로 나간다. 그 사실이 보이게 ↗ 와 흰 바탕으로
          구분하고, 여기서 잘 안 누르는 것이라 접어 둔다(연 상태는 기억한다). -->
     <button class="grp-more" id="more-toggle" aria-expanded="false" aria-controls="more-box">더 보기 <span class="gm-caret">▾</span></button>
