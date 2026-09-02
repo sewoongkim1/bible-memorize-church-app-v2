@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260902k";
+const APP_BUILD = "20260902l";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1683,6 +1683,10 @@ function fitEventTitle() {
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit).catch(() => {});
 }
 
+// 첫 화면 정리(2026-09-02) — 「🔗 이번주 말씀 함께 나누기」를 숨긴다.
+// 지우지 않고 스위치만 내렸다: 되살리려면 true 로. shareWeeklyVerse() 는 그대로 있다.
+const WEEKLY_SHARE = false;
+
 function renderSummary() {
   relearnBackToChallenge = false;   // 홈으로 나갔으면 도전 복귀도 없다
   stopSpeaking(); // 화면 전환 시 읽어주기 정지
@@ -1762,7 +1766,7 @@ function renderSummary() {
         ${weeklyVerse.url ? `<a class="weekly-secondary" id="weekly-sermon" href="${weeklyVerse.url}" target="_blank" rel="noopener">설교보기</a>` : ""}
         <span id="weekly-summary-slot"></span>
       </div>
-      <button class="weekly-share" id="weekly-share">🔗 이번주 말씀 함께 나누기</button>
+      ${WEEKLY_SHARE ? `<button class="weekly-share" id="weekly-share">🔗 이번주 말씀 함께 나누기</button>` : ""}
     </div>` : "";
 
   const appEl = document.getElementById("app");
@@ -1856,7 +1860,8 @@ function renderSummary() {
   document.getElementById("open-sermon-archive").addEventListener("click", () => window.open("https://sermon.onlybible.kr/", "_blank", "noopener"));
   fillBoardBadge(); // 최근 1주 새 글/답글 있으면 게시판 버튼에 배지
   if (weeklyVerse) document.getElementById("weekly-start").addEventListener("click", () => startTest(weeklyVerse));
-  if (weeklyVerse) document.getElementById("weekly-share").addEventListener("click", () => shareWeeklyVerse(weeklyVerse));
+  { const b = document.getElementById("weekly-share");   // WEEKLY_SHARE 가 false 면 없다
+    if (b && weeklyVerse) b.addEventListener("click", () => shareWeeklyVerse(weeklyVerse)); }
   fillWeeklySummaryBtn(weeklyVerse); // 요약이 있으면 '설교보기' 옆에 요약보기 버튼 추가
   if (dueCount > 0) document.getElementById("go-review").addEventListener("click", startReview);
   document.getElementById("go-challenge").addEventListener("click", startChallenge);
