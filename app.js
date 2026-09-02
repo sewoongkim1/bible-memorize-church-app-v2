@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260902g";
+const APP_BUILD = "20260902h";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1778,16 +1778,10 @@ function renderSummary() {
          다 마치신 분일수록 「암송 0 · 진행중 0 · 미시도 0」이 되어 아무것도 안 한
          것처럼 보였다(마음에 둠은 완료의 부분집합이라 완료에서 빼기 때문).
          한 줄로 먼저 말하고, 자세한 넷은 눌렀을 때만 펼친다. -->
-    <button class="stat-bar" id="stat-toggle" aria-expanded="false" aria-controls="stat-grid">
+    <div class="stat-bar">
       <span class="sb-line">${sbLine}</span>
-      <span class="sb-pct">${pct}% <span class="sb-caret">▾</span></span>
+      <span class="sb-pct">${pct}%</span>
       <span class="sb-track"><i style="width:${pct}%"></i></span>
-    </button>
-    <div class="stat-grid" id="stat-grid" hidden>
-      <div class="stat-box status-heart"><div class="stat-num">${heartCount}</div><div class="stat-lbl">마음</div></div>
-      <div class="stat-box status-done"><div class="stat-num">${doneOnly}</div><div class="stat-lbl">암송</div></div>
-      <div class="stat-box status-s1"><div class="stat-num">${inProgress}</div><div class="stat-lbl">진행중</div></div>
-      <div class="stat-box status-none"><div class="stat-num">${counts[0]}</div><div class="stat-lbl">미시도</div></div>
     </div>
     <!-- 홈 화면 정리: 알림 켜기 배너·신기능 홍보 카드 숨김(코드는 유지, 필요 시 되살리면 됨) -->
     <div id="push-nudge" hidden></div>
@@ -1795,7 +1789,7 @@ function renderSummary() {
       <span class="todo-ic">${TODO.ic}</span>
       <span class="todo-body"><span class="todo-tx">${TODO.tx}</span><span class="todo-sub">${TODO.sub}</span></span>
     </button>
-    <div class="summary-actions sub-actions">
+    <div class="summary-actions sub-actions${SUB.length === 1 ? " one" : ""}">
       ${SUB.map((s) => `<button class="summary-go act-btn ${s.cls}" id="${s.id}"><span class="act-ic">${s.ic}</span><span class="act-tx">${s.tx}</span></button>`).join("")}
     </div>
     ${weeklyHtml}
@@ -1841,7 +1835,6 @@ function renderSummary() {
 `;
 
   document.getElementById("go-list").addEventListener("click", renderVerseList);
-  setupStatToggle();   // 진행 막대 ↔ 네 칸 자세히
   setupMoreToggle();   // 「더 보기」 — 앱 밖 아카이브 둘
   loadTodayCount(u); // 첫 화면 '오늘 N회' 띠 채우기
   renderEventButton();  // 이미 로드된 설정이 있으면 즉시 표시
@@ -1888,20 +1881,6 @@ function renderSummary() {
       if (bell && !sub) bell.classList.add("pulse");
     } catch (e) {}
   })();
-}
-
-// 진행 막대를 누르면 자세한 네 칸(마음·암송·진행중·미시도)이 펼쳐진다.
-// 기억하지 않는다 — 첫 화면은 늘 조용한 쪽에서 시작해야 한다.
-function setupStatToggle() {
-  const bar = document.getElementById("stat-toggle");
-  const grid = document.getElementById("stat-grid");
-  if (!bar || !grid) return;
-  bar.addEventListener("click", () => {
-    const open = !grid.hidden;
-    grid.hidden = open;
-    bar.setAttribute("aria-expanded", String(!open));
-    bar.classList.toggle("open", !open);
-  });
 }
 
 // 「더 보기」 — 앱 밖 아카이브 둘. 이건 연 상태를 기억한다.
