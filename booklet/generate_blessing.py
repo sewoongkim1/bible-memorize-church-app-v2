@@ -88,9 +88,65 @@ def bookof(ref):
 #      **종이는 폭이 고정이라 그 문제가 없다** — 여기서는 마디로 끊는 것이 옳다.
 #   ⚠️ 「~게 하시고」의 「게」에서는 끊지 않는다(한 덩이가 쪼개진다).
 #   ⚠️ 「~과/와」 뒤에 「같이·함께·같은·더불어」가 오면 끊지 않는다.
-def pray_lines(t, name):
+# ── 수동 줄나눔 ───────────────────────────────────────────────
+#   줄나눔.txt 가 있으면 **그 파일이 이깁니다**. 자동으로 나눈 것을 그대로 뽑아 두고
+#   손으로 고쳐 쓰라는 뜻이다(--export).
+#   ⚠️ 파일에는 {이름} 을 그대로 둔다. 인쇄할 때 성함으로 바뀐다 —
+#      성함을 박아 두면 다른 분 책을 만들 때 그 줄나눔을 못 쓴다.
+LINES_FILE = '줄나눔.txt'
+
+
+def load_manual():
+    if not os.path.exists(LINES_FILE):
+        return {}
+    out, cur = {}, None
+    for raw in io.open(LINES_FILE, encoding='utf-8'):
+        line = raw.rstrip()
+        if not line or line.startswith('#'):
+            continue
+        if line.startswith('==='):
+            cur = int(line.split()[1])
+            out[cur] = []
+        elif cur is not None:
+            out[cur].append(line.strip())
+    return {k: v for k, v in out.items() if v}
+
+
+MANUAL = load_manual()
+
+
+def export_lines(name):
+    """자동으로 나눈 줄을 파일로 뽑는다. 이 파일을 고치면 그대로 인쇄된다."""
+    buf = ['# 축복 기도문 줄 나눔 — 이 파일을 고치면 그대로 인쇄됩니다.',
+           '#',
+           '# · 여기 한 줄이 인쇄되는 한 줄입니다. 나누려면 엔터, 붙이려면 한 줄로 합치세요.',
+           '# · {이름} 은 인쇄할 때 성함으로 바뀝니다. 지우지 마세요.',
+           '# · 「=== 3 이삭의 축복」 줄은 건드리지 마세요(어느 편인지 표시).',
+           '# · 맺음말(예수님의 이름으로 축복하며 기도합니다. 아멘!)은 자동으로 붙으니',
+           '#   여기에 쓰지 않습니다.',
+           '# · 글자를 지우거나 더하면 인쇄할 때 「원문과 다르다」고 알려 줍니다.',
+           '# · 이 파일을 지우면 다시 자동으로 나눕니다.',
+           '']
+    for r in rows:
+        buf.append('=== %d %s (%s)' % (r['no'], r['title'], r['ref']))
+        for l in auto_lines(r['prayer']):
+            buf.append(l)
+        buf.append('')
+    io.open(LINES_FILE, 'w', encoding='utf-8', newline='').write(chr(10).join(buf))
+    print('%s — %d편을 뽑았습니다. 메모장으로 열어 고치신 뒤 다시 돌리세요.' % (LINES_FILE, len(rows)))
+
+
+def auto_lines(t):
+    """토큰({이름})을 그대로 둔 채 자동으로 나눈다 — 파일로 뽑을 때 쓴다."""
+    return pray_lines(t, '{이름}', raw=True)
+
+
+def pray_lines(t, name, no=None, raw=False):
+    if no is not None and no in MANUAL:
+        return [fill(l, name) for l in MANUAL[no]]      # ⚠️ 수동 파일이 이긴다
     out = []
-    for sent in re.split(r'(?<=[.!?])\s+', fill(t, name).strip()):
+    src = t.strip() if raw else fill(t, name).strip()
+    for sent in re.split(r'(?<=[.!?])\s+', src):
         if not sent:
             continue
         s = re.sub(r'([,]|[가-힣](?:고|며|니|사|어|아|여))\s+', r'\1' + MARK, sent)
@@ -133,7 +189,7 @@ def mark_name(line, name):
 def box_mm(r, name):
     """이 편에서 아래 박스에 남는 높이(mm) — 좁아진 편을 미리 잡아내려고 잰다."""
     # ⚠️ 목표 글자 수를 넘는 마디는 브라우저가 한 번 더 접는다 — 그것까지 센다
-    n = sum(max(1, -(-len(l) // PRAY_PER)) for l in pray_lines(r['prayer'], name)) + 1
+    n = sum(max(1, -(-len(l) // PRAY_PER)) for l in pray_lines(r['prayer'], name, r['no'])) + 1
     return 168 - 19 - n * (PRAY_PT * 0.3528 * 1.75) - 13
 
 
@@ -153,7 +209,7 @@ SMALL = {3: 'p13', 5: 'p13', 19: 'p12', 27: 'p13', 32: 'p13', 36: 'p13',
 
 def page(r, pno, name):
     body = ''.join('<div class="pl">%s</div>' % mark_name(l, name)
-                   for l in pray_lines(r['prayer'], name))
+                   for l in pray_lines(r['prayer'], name, r['no']))
     return """
 <section class="page bl">
   <div class="b-title">%s</div>
@@ -333,6 +389,10 @@ def build(vol, items, name):
     return f, out.count('class="page')
 
 
+if '--export' in sys.argv:
+    export_lines(NAME)
+    sys.exit(0)
+
 # --sample N : 앞에서 N편만, 표지·차례 없이 한 파일로. 인쇄해 손에 쥐어 보는 용도.
 if '--sample' in sys.argv:
     k = int(sys.argv[sys.argv.index('--sample') + 1])
@@ -345,8 +405,28 @@ if '--sample' in sys.argv:
     print('축복기도문_견본.html — %d장 (%.0fpt · 한 줄 %d자)' % (k, PRAY_PT, PRAY_PER))
     for r in rows[:k]:
         print('   %d번 %-16s 기도문 %2d줄 · 아래 박스 %2.0fmm'
-              % (r['no'], r['title'], len(pray_lines(r['prayer'], NAME)) + 1, box_mm(r, NAME)))
+              % (r['no'], r['title'], len(pray_lines(r['prayer'], NAME, r['no'])) + 1, box_mm(r, NAME)))
     sys.exit(0)
+
+# ⚠️ 손으로 고치다 글자를 지우거나 더할 수 있다. 붙여 되돌려 원문과 대조한다 —
+#    조용히 인쇄되면 성도님이 틀린 기도문을 읽으시게 된다.
+if MANUAL:
+    bad = []
+    for r in rows:
+        if r['no'] not in MANUAL:
+            continue
+        got = ''.join(MANUAL[r['no']]).replace(' ', '')
+        want = r['prayer'].replace(' ', '')
+        if got != want:
+            bad.append(r)
+    print('줄나눔.txt 를 씁니다 — %d편이 손으로 고친 것입니다.' % len(MANUAL))
+    if bad:
+        print('')
+        print('!! 원문과 다른 편이 있습니다 — 글자가 지워졌거나 더해졌습니다:')
+        for r in bad:
+            print('   %d번 %s' % (r['no'], r['title']))
+        print('   그 편은 파일 내용 그대로 인쇄됩니다. 확인해 주세요.')
+    print('')
 
 vols = [rows[i:i + PER_VOL] for i in range(0, len(rows), PER_VOL)]
 for n, items in enumerate(vols, 1):
