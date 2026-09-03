@@ -709,7 +709,12 @@ async function blessingLog(b: any) {
   if (!b.user_id || !Number.isFinite(no) || no < 1 || no > 999) return { ok: true, skipped: true };
   try {
     const { error } = await db.rpc("v2_blessing_log", { uid: b.user_id, n: no });
-    if (error) return { ok: true, skipped: "no-table" };
+    if (error) {
+      const m = String(error.message || "");
+      const why = /does not exist|schema cache|function/i.test(m) ? "no-table"
+                : /foreign key|violates/i.test(m) ? "no-user" : "db";
+      return { ok: true, skipped: why };
+    }
   } catch (_e) {
     return { ok: true, skipped: "error" };
   }
