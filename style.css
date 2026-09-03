@@ -4090,15 +4090,30 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
 .pr-count { color: var(--gray); font-weight: 700; }
 .pr-title { font-size: 1.24rem; font-weight: 800; color: var(--navy); margin: 6px 0 2px; }
 .pr-ref { font-size: .86rem; color: var(--gray); margin-bottom: 10px; }
-.pr-verse {
-  font-size: .98rem; line-height: 1.72; color: #46505f; word-break: keep-all;
-  padding: 11px 13px; background: var(--cream); border-radius: 10px;
-}
-/* 기도문 — 이 화면의 주인공이다. 크고 넓게. */
+/* 기도문 — 이 화면의 주인공이라 맨 위다. 크고 넓게. */
 .pr-prayer {
-  margin-top: 12px; font-size: 1.14rem; line-height: 1.85; font-weight: 600;
+  font-size: 1.14rem; font-weight: 600;
   color: var(--navy-dark, #16233f); word-break: keep-all;
   padding-left: 11px; border-left: 3px solid var(--gold);
+  /* ⚠️ line-height 를 **em** 으로 준다(1.85 같은 맨 숫자가 아니라).
+     맨 숫자는 자식이 「비율」을 물려받아 제 글씨에 곱하므로, 이름을 키우면
+     그 줄만 벌어진다. em 은 여기서 px 로 계산돼 자식이 그 길이를 그대로
+     물려받는다 — 이름이 커져도 줄간격이 흔들리지 않는다. */
+  line-height: 1.85em;
+}
+/* 이름 — 크고 두껍고 색이 다르다. 줄간격은 위 규칙이 지킨다. */
+.pr-nm { font-size: 1.22em; font-weight: 800; color: #8a6a1e; }
+/* 말씀 — 접어 둔다. 「읽고 축복하는」 화면이지 공부하는 화면이 아니다. */
+.pr-verse-tog {
+  width: 100%; margin-top: 12px; padding: 9px; font-size: .9rem; font-weight: 700;
+  font-family: inherit; color: var(--gray); background: transparent;
+  border: 1.5px dashed #d6dbe6; border-radius: 10px; cursor: pointer;
+}
+.pr-verse-tog:hover { color: var(--navy); border-color: var(--navy); }
+.pr-verse {
+  margin-top: 8px;
+  font-size: .98rem; line-height: 1.72; color: #46505f; word-break: keep-all;
+  padding: 11px 13px; background: var(--cream); border-radius: 10px;
 }
 .pr-speak {
   width: 100%; margin-top: 14px; padding: 15px; font-size: 1.06rem; font-weight: 800;
@@ -4138,3 +4153,12 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
 .dark .pr-prayer { color: #dfe7f5; }
 .dark .pr-chip, .dark .pr-arrow, .dark .pr-name { background: #182739; color: #8fb3e6; border-color: #33507d; }
 .dark .pr-name-row input { background: #151d2b; color: #dfe7f5; border-color: #33507d; }
+
+/* 글씨 크기 설정(어르신)이 이 화면에도 걸리게 — 소리 내어 읽는 화면이라 더 필요하다.
+   ⚠️ line-height 는 em 이라 font-size 를 키우면 줄간격도 함께 는다(따로 손대지 않는다). */
+html[data-fs="lg"] .pr-prayer { font-size: 1.3rem; }
+html[data-fs="xl"] .pr-prayer { font-size: 1.5rem; }
+html[data-fs="lg"] .pr-verse  { font-size: 1.08rem; }
+html[data-fs="xl"] .pr-verse  { font-size: 1.2rem; }
+.dark .pr-nm { color: var(--gold); }
+.dark .pr-verse-tog { color: #8fb3e6; border-color: #33507d; }

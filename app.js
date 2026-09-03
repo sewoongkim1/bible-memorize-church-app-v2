@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260903c";
+const APP_BUILD = "20260903d";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1935,6 +1935,7 @@ function setupMoreToggle() {
 let prayCache = null;
 let prayName = null;      // 누구 이름으로 읽을지(기본은 로그인한 분)
 let prayIdx = null;       // 지금 보고 있는 편(0-based)
+let prayOpenVerse = false; // 말씀을 펴 뒀나 — 이전/다음에도 이어진다
 
 async function loadPrayers() {
   if (prayCache) return prayCache;
@@ -1956,8 +1957,18 @@ async function loadPrayers() {
 // 이름에 따라 조사를 고른다 — 말씀 카드에 쓴 규칙과 같다.
 // ⚠️ ㄹ 받침은 「으로」가 아니라 「로」다: 김윤월로(○) 김윤월으로(×).
 function prayJong(name) {
-  const c = name.charCodeAt(name.length - 1);
+  const bare = String(name).replace(/<[^>]*>/g, "");   // 태그를 뺀 진짜 이름의 끝 글자로 본다
+  const c = bare.charCodeAt(bare.length - 1);
   return (c >= 0xac00 && c <= 0xd7a3) ? (c - 0xac00) % 28 : 0;
+}
+// 이름을 눈에 띄게 — 화면용. ⚠️ 이름은 성도님이 직접 치는 값이라 반드시 escape 한다.
+//   낭독(TTS)에는 태그가 섞이면 안 되므로 prayFill(민글) 을 따로 쓴다.
+function prayEsc(t) {
+  return String(t == null ? "" : t)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function prayFillHtml(t, name) {
+  return prayFill(prayEsc(t), '<b class="pr-nm">' + prayEsc(name) + "</b>");
 }
 function prayFill(t, name) {
   const j = prayJong(name);
@@ -1994,41 +2005,53 @@ function renderPrayerBook(idx) {
 
 function drawPrayer(list, i) {
   const b = list[i];
-  const prayer = prayFill(b.prayer, prayName);
+  const prayer = prayFillHtml(b.prayer, prayName);
   const groups = [];
   list.forEach((x) => { const g = groups.find((y) => y.g === x.group); g ? g.n++ : groups.push({ g: x.group, n: 1 }); });
   const isToday = i === prayToday(list.length);
+  // ⚠️ 기도문이 먼저다. 말씀은 「필요하면 펴서」 — 이 화면은 읽고 축복하는 자리이지
+  //    말씀을 공부하는 자리가 아니다. 편 상태는 이전/다음에도 이어진다(prayOpenVerse).
   document.querySelector(".pr-wrap").innerHTML = `
     <div class="pr-card">
       <div class="pr-kicker">${isToday ? "오늘의 축복 기도문" : "축복 기도문"} <span class="pr-count">${i + 1} / ${list.length}</span></div>
-      <div class="pr-title">${b.title}${b.seq ? " " + b.seq : ""}</div>
-      <div class="pr-ref">${b.ref}</div>
-      <div class="pr-verse">${b.verse}</div>
+      <div class="pr-title">${prayEsc(b.title)}</div>
+      <div class="pr-ref">${prayEsc(b.ref)}</div>
       <div class="pr-prayer">${prayer}</div>
+      <button class="pr-verse-tog" id="pr-vtog" aria-expanded="${prayOpenVerse}">${prayOpenVerse ? "▴ 말씀 접기" : "▾ 말씀 펴 보기"}</button>
+      <div class="pr-verse" id="pr-verse" ${prayOpenVerse ? "" : "hidden"}>${prayEsc(b.verse)}</div>
       <button class="pr-speak" id="pr-speak">🔊 들려주기</button>
       <div class="pr-nav">
         <button class="pr-arrow" id="pr-prev">← 이전</button>
-        <button class="pr-name" id="pr-name">🙍 ${prayName}</button>
+        <button class="pr-name" id="pr-name">🙍 ${prayEsc(prayName)}</button>
         <button class="pr-arrow" id="pr-next">다음 →</button>
       </div>
     </div>
     <div class="grp-title">주제로 찾기</div>
     <div class="pr-groups">
-      ${groups.map((g) => `<button class="pr-chip" data-g="${g.g}">${g.g} <b>${g.n}</b></button>`).join("")}
+      ${groups.map((g) => `<button class="pr-chip" data-g="${prayEsc(g.g)}">${prayEsc(g.g)} <b>${g.n}</b></button>`).join("")}
     </div>`;
   document.getElementById("pr-prev").addEventListener("click", () => { stopSpeaking(); drawPrayer(list, (i - 1 + list.length) % list.length); window.scrollTo(0,0); });
   document.getElementById("pr-next").addEventListener("click", () => { stopSpeaking(); drawPrayer(list, (i + 1) % list.length); window.scrollTo(0,0); });
   document.getElementById("pr-name").addEventListener("click", () => askPrayName(list, i));
   document.querySelectorAll(".pr-chip").forEach((el) =>
     el.addEventListener("click", () => { stopSpeaking(); renderPrayerGroup(list, el.dataset.g); }));
-  // 🔊 — 말씀과 기도문을 이어 읽는다. 사이 마침표가 쉼을 만든다(앨범 낭독과 같은 어법).
+  const tog = document.getElementById("pr-vtog"), vs = document.getElementById("pr-verse");
+  tog.addEventListener("click", () => {
+    prayOpenVerse = !prayOpenVerse;
+    vs.hidden = !prayOpenVerse;
+    tog.textContent = prayOpenVerse ? "▴ 말씀 접기" : "▾ 말씀 펴 보기";
+    tog.setAttribute("aria-expanded", String(prayOpenVerse));
+  });
+  // 🔊 — **보이는 것을 읽는다**(말씀을 접어 뒀으면 읽지 않는다). 앨범 「전부 듣기」가
+  //      화면에 보이는 순서 그대로 읽는 것과 같은 규칙이다. 사이 마침표가 쉼을 만든다.
   const sp = document.getElementById("pr-speak");
   sp.addEventListener("click", () => {
     if (window.speechSynthesis && window.speechSynthesis.speaking) {
       stopSpeaking(); sp.textContent = "🔊 들려주기"; return;
     }
     sp.textContent = "⏹ 그만 듣기";
-    speakText(`${b.title}. ${b.verse}. ${prayer}`, () => { sp.textContent = "🔊 들려주기"; }, 1, "ko-KR");
+    const said = [b.title, prayOpenVerse ? b.verse : "", prayFill(b.prayer, prayName)].filter(Boolean).join(". ");
+    speakText(said, () => { sp.textContent = "🔊 들려주기"; }, 1, "ko-KR");
   });
 }
 
@@ -2037,7 +2060,7 @@ function renderPrayerGroup(list, g) {
   const items = list.map((b, i) => ({ b, i })).filter((x) => x.b.group === g);
   document.querySelector(".pr-wrap").innerHTML = `
     <div class="grp-title">${g} <span class="pr-count">${items.length}편</span></div>
-    ${items.map((x) => `<button class="summary-help pr-item" data-i="${x.i}">${x.b.title}${x.b.seq ? " " + x.b.seq : ""}
+    ${items.map((x) => `<button class="summary-help pr-item" data-i="${x.i}">${prayEsc(x.b.title)}
        <span class="pr-item-ref">${x.b.ref}</span></button>`).join("")}
     <button class="grp-more" id="pr-back">← 오늘의 기도문으로</button>`;
   window.scrollTo(0, 0);
