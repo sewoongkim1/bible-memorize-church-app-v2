@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260903l";
+const APP_BUILD = "20260903m";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2160,7 +2160,7 @@ function prayFitText(wrap) {
   const availW = (rot ? wrap.clientHeight - padY : wrap.clientWidth - padX);
   const availH = (rot ? wrap.clientWidth - padX : wrap.clientHeight - padY);
   box.style.width = rot ? availW + "px" : "";
-  let lo = 13, hi = 72, best = 13;
+  let lo = 13, hi = 108, best = 13;   // 천장: 짧은 편이 72px 에서 걸려 더 못 크고 있었다
   for (let k = 0; k < 12; k++) {
     const mid = (lo + hi) / 2;
     box.style.fontSize = mid + "px";
