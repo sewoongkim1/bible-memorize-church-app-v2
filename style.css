@@ -4197,7 +4197,7 @@ body.pr-full-on { overflow: hidden; }
 /* 제목 — 본문보다 크고 굵게. ⚠️ 그전에는 0.82em 안에 1.15em 이라 **본문보다 작았다**(0.94배).
    em 이라 아래 글씨 맞추기(이분법)가 본문을 키우면 제목도 같은 비율로 함께 큰다. */
 .pr-f-title {
-  font-size: 1.34em; font-weight: 800; color: var(--navy);
+  font-size: 1.2em; font-weight: 800; color: var(--navy);
   margin-bottom: .55em; line-height: 1.3em;
 }
 /* 기도문 — line-height 를 em 으로 줘야 이름을 키워도 줄간격이 안 흔들린다(본 화면과 같은 이유) */
