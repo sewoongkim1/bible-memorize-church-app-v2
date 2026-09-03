@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260903h";
+const APP_BUILD = "20260903i";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2085,6 +2085,7 @@ function drawPrayer(list, i) {
 //      아이폰 사파리는 애초에 video 말고는 전체화면을 주지도 않았다.
 //   ⚠️ 화면 방향은 강제로 못 돌린다(iOS 는 screen.orientation.lock 자체가 없다).
 let prayFullEsc = null;
+let prayFullPop = null;
 function prayFullOpen(list, i) {
   const b = list[i];
   const wrap = document.createElement("div");
@@ -2098,6 +2099,13 @@ function prayFullOpen(list, i) {
     </div>`;
   document.body.appendChild(wrap);
   document.body.classList.add("pr-full-on");
+  // 옛 판(2026-09-03 이전)으로 전체화면에 들어가 갇힌 분이 있을 수 있다 — 열 때 풀어 준다.
+  // ⚠️ 안드로이드 크롬은 전체화면에 들어간 그 방향으로 화면을 고정한다.
+  try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); } catch (e) {}
+  // 안드로이드 「뒤로 가기」로도 닫히게 — 없으면 덮개가 남은 채 앱을 빠져나간다
+  try { history.pushState({ prFull: 1 }, ""); } catch (e) {}
+  prayFullPop = () => prayFullClose(false, true);
+  window.addEventListener("popstate", prayFullPop);
   keepScreenAwake(true);                      // 함께 읽는 동안 화면이 꺼지면 안 된다
   prayFitText(wrap);
   // ⚠️ 글꼴이 늦게 온다. 이 앱은 한글 웹폰트를 media="print" 로 미뤄 받으므로(첫 화면이
@@ -2114,11 +2122,14 @@ function prayFullResize() {
   const w = document.querySelector(".pr-full");
   if (w) prayFitText(w);
 }
-function prayFullClose(keepAwake) {
+function prayFullClose(keepAwake, fromPop) {
   const w = document.querySelector(".pr-full");
   if (w) w.remove();
   document.body.classList.remove("pr-full-on");
   window.removeEventListener("resize", prayFullResize);
+  if (prayFullPop) { window.removeEventListener("popstate", prayFullPop); prayFullPop = null; }
+  // 뒤로 가기로 닫힌 것이 아니면, 열 때 쌓아 둔 기록을 되돌린다(안 그러면 뒤로 가기가 한 번 헛돈다)
+  if (!fromPop && w) { try { if (history.state && history.state.prFull) history.back(); } catch (e) {} }
   if (prayFullEsc) { document.removeEventListener("keydown", prayFullEsc); prayFullEsc = null; }
   // 우리는 이제 전체화면에 들어가지 않지만, 옛 판으로 들어갔다가 갇힌 분이 닫으면 풀리도록 남긴다
   try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); } catch (e) {}
