@@ -21,12 +21,16 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#1a3a6b" />
-  <!-- 이 앱은 자체 밝게/어둡게 토글이 있는데(⚙️ 설정), 이 표시가 없으면 안드로이드
-       크롬이 "다크 테마를 지원 안 하는 사이트"로 보고 시스템이 다크 모드일 때
-       화면을 통째로 강제로 뒤집어 버린다 — 앱 자체 상태(밝게 선택됨)와 실제
-       보이는 색이 어긋나는 원인이었다(2026-08-29, 마켓 설치본에서 발견).
-       "직접 관리한다"고 알려서 크롬의 강제 반전을 끈다. -->
-  <meta name="color-scheme" content="light dark" />
+  <!-- 이 앱은 자체 밝게/어둡게 토글이 있는데(⚙️ 설정), 시스템 다크 모드를 그대로
+       따라가지 않고 .dark 클래스로 손수 정한다 — style.css에 @media(prefers-color-scheme)
+       대응이 아예 없다. 그래서 "light dark"(시스템 다크에 맞춰 알아서 어둡게도
+       된다)라고 알리면 거짓 신호가 된다.
+       ⚠️ 2026-08-29엔 "light dark"로 크롬의 강제 반전(다크 지원 안 하는 사이트로
+       보고 통째로 뒤집는 것)은 껐지만, 삼성 인터넷은 실제 대응 CSS가 없는 걸
+       보고 그 신호를 안 믿고 제 나름대로 탈색·반전시켰다(2026-09-03, 삼성
+       인터넷 사용자 다수 제보 — 헤더 남색이 흐린 회색으로). "light"만 선언해
+       "다크 지원 안 함"을 분명히 하면 두 브라우저 다 강제 반전을 끈다. -->
+  <meta name="color-scheme" content="light" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -52,7 +56,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Lora:wght@400;600;700&family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
   <noscript><link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Lora:wght@400;600;700&family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet" /></noscript>
-  <link rel="stylesheet" href="style.css?v=20260903u" />
+  <link rel="stylesheet" href="style.css?v=20260903v" />
 </head>
 <body>
   <!-- 앱 시작 스플래시 화면 -->
@@ -61,7 +65,7 @@
       <img id="splash-logo" src="https://summer.onlybible.kr/logo3.png" alt="고척교회" />
       <div class="splash-title">오직 성경, 말씀이 답이다!</div>
       <div class="splash-sub">주의 말씀은 내 발에 등이요<br>내 길에 빛이니이다</div>
-      <div class="splash-ver">v3.292</div>
+      <div class="splash-ver">v3.293</div>
       <img class="splash-denom" src="logo3.png?v=20260702y" alt="대한예수교장로회총회" onerror="this.style.display='none'" />
     </div>
   </div>
@@ -94,9 +98,9 @@
     <p style="text-align:center;padding:40px">불러오는 중...</p>
   </main>
 
-  <script src="js/config.js?v=20260903u"></script>
-  <script src="js/api.js?v=20260903u"></script>
-  <script src="js/push.js?v=20260903u"></script>
-  <script src="app.js?v=20260903u"></script>
+  <script src="js/config.js?v=20260903v"></script>
+  <script src="js/api.js?v=20260903v"></script>
+  <script src="js/push.js?v=20260903v"></script>
+  <script src="app.js?v=20260903v"></script>
 </body>
 </html>
