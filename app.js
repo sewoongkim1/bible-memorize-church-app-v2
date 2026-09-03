@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260903q";
+const APP_BUILD = "20260903r";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1936,6 +1936,7 @@ let prayCache = null;
 let prayName = null;      // 누구 이름으로 읽을지(기본은 로그인한 분)
 let prayIdx = null;       // 지금 보고 있는 편(0-based)
 let prayOpenVerse = false; // 말씀을 펴 뒀나 — 이전/다음에도 이어진다
+let prayGroup = null;      // 어느 주제 목록에서 들어왔나 — 돌아갈 길을 남긴다
 
 async function loadPrayers() {
   if (prayCache) return prayCache;
@@ -2029,6 +2030,7 @@ function drawPrayer(list, i) {
   //    말씀을 공부하는 자리가 아니다. 편 상태는 이전/다음에도 이어진다(prayOpenVerse).
   document.querySelector(".pr-wrap").innerHTML = `
     <div class="pr-card">
+      ${prayGroup ? `<button class="pr-gback pr-gback-in" id="pr-tolist">← ${prayEsc(prayGroup)} 목록</button>` : ""}
       <div class="pr-kicker">${isToday ? "오늘의 축복 기도문" : "축복 기도문"} <span class="pr-count">${i + 1} / ${list.length}</span></div>
       <div class="pr-title">${prayEsc(b.title)}</div>
       <div class="pr-ref">${prayEsc(b.ref)}</div>
@@ -2049,9 +2051,12 @@ function drawPrayer(list, i) {
     <div class="pr-groups">
       ${groups.map((g) => `<button class="pr-chip" data-g="${prayEsc(g.g)}">${prayEsc(g.g)} <b>${g.n}</b></button>`).join("")}
     </div>`;
-  document.getElementById("pr-prev").addEventListener("click", () => { stopSpeaking(); drawPrayer(list, (i - 1 + list.length) % list.length); window.scrollTo(0,0); });
-  document.getElementById("pr-next").addEventListener("click", () => { stopSpeaking(); drawPrayer(list, (i + 1) % list.length); window.scrollTo(0,0); });
+  // ⚠️ 이전/다음은 주제 안이 아니라 104편 전체를 돈다 — 그러면 「목록으로」가 거짓말이 되므로 내린다
+  document.getElementById("pr-prev").addEventListener("click", () => { stopSpeaking(); prayGroup = null; drawPrayer(list, (i - 1 + list.length) % list.length); window.scrollTo(0,0); });
+  document.getElementById("pr-next").addEventListener("click", () => { stopSpeaking(); prayGroup = null; drawPrayer(list, (i + 1) % list.length); window.scrollTo(0,0); });
   document.getElementById("pr-name").addEventListener("click", () => askPrayName(list, i));
+  const toList = document.getElementById("pr-tolist");
+  if (toList) toList.addEventListener("click", () => { stopSpeaking(); renderPrayerGroup(list, prayGroup); });
   document.getElementById("pr-big").addEventListener("click", () => { stopSpeaking(); prayFullOpen(list, i); });
   document.querySelectorAll(".pr-chip").forEach((el) =>
     el.addEventListener("click", () => { stopSpeaking(); renderPrayerGroup(list, el.dataset.g); }));
@@ -2194,15 +2199,19 @@ function prayFitText(wrap) {
 // 주제 하나의 목록
 function renderPrayerGroup(list, g) {
   const items = list.map((b, i) => ({ b, i })).filter((x) => x.b.group === g);
+  const today = prayToday(list.length);
+  prayGroup = g;                       // 여기서 들어간 기도문에는 「목록으로」를 띄운다
   document.querySelector(".pr-wrap").innerHTML = `
-    <div class="grp-title">${g} <span class="pr-count">${items.length}편</span></div>
-    ${items.map((x) => `<button class="summary-help pr-item" data-i="${x.i}">${prayEsc(x.b.title)}
-       <span class="pr-item-ref">${x.b.ref}</span></button>`).join("")}
-    <button class="grp-more" id="pr-back">← 오늘의 기도문으로</button>`;
+    <div class="pr-ghead">
+      <span class="pr-gname">${prayEsc(g)} <b>${items.length}</b></span>
+      <button class="pr-gback" id="pr-back">← 뒤로</button>
+    </div>
+    ${items.map((x) => `<button class="summary-help pr-item${x.i === today ? " on" : ""}" data-i="${x.i}">${prayEsc(x.b.title)}
+       <span class="pr-item-ref">${x.i === today ? "오늘 · " : ""}${prayEsc(prayRefShort(x.b.ref))}</span></button>`).join("")}`;
   window.scrollTo(0, 0);
   document.querySelectorAll(".pr-item").forEach((el) =>
     el.addEventListener("click", () => drawPrayer(list, Number(el.dataset.i))));
-  document.getElementById("pr-back").addEventListener("click", () => drawPrayer(list, prayIdx));
+  document.getElementById("pr-back").addEventListener("click", () => { prayGroup = null; drawPrayer(list, prayIdx); });
 }
 
 // 누구 이름으로 읽을지 — 가족 이름으로도 읽을 수 있게.

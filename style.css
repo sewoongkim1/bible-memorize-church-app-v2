@@ -4246,3 +4246,28 @@ body.pr-full-on { overflow: hidden; }
    위에 뜨므로 눌리기는 한다). 「비워 두는 단정함」보다 「크게 읽히는 것」이 먼저다. */
 .pr-full.pr-rot { padding: 8px; }
 .dark .pr-f-rot { background: rgba(0,0,0,.4); color: #8fb3e6; border-color: #33507d; }
+
+/* 주제 목록의 머리 — 제목과 「뒤로」를 한 줄에 붙박이로.
+   ⚠️ 22편짜리 주제(하나님이 지키심)는 아래로 한참 내려간다. 「뒤로」가 맨 밑에 있으면
+      거기까지 다시 스크롤해야 나온다 — 그래서 위에 고정한다.
+   ⚠️ 이 화면에서는 로고 배너를 숨기므로 top:0 이 곧 화면 맨 위다. */
+.pr-ghead {
+  position: sticky; top: 0; z-index: 6;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin: 0 0 10px; padding: 10px 2px 9px;
+  background: var(--cream, #fbf8f1);
+  border-bottom: 1.5px solid #e6dfd0;
+}
+.pr-gname { font-size: 1.16rem; font-weight: 800; color: var(--navy); }
+.pr-gname b { color: #8a6a1e; font-size: .86em; margin-left: 2px; }
+.pr-gback {
+  flex: 0 0 auto; padding: 8px 14px; font-size: .92rem; font-weight: 700; font-family: inherit;
+  color: var(--navy); background: #eef1f8; border: 1.5px solid #c9d8ef; border-radius: 10px; cursor: pointer;
+}
+.pr-gback:hover { background: var(--navy); color: #fff; border-color: var(--navy); }
+.pr-gback-in { display: block; width: 100%; margin-bottom: 10px; text-align: left; }
+.pr-item.on { border-color: var(--gold); background: #fffaf0; }
+.dark .pr-ghead { background: #10161f; border-bottom-color: #2b3648; }
+.dark .pr-gname { color: #cfe0ff; }
+.dark .pr-gback { background: #182739; color: #8fb3e6; border-color: #33507d; }
+.dark .pr-item.on { background: #1e1a10; border-color: #6b5a2c; }
