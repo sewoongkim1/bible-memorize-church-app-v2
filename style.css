@@ -1822,16 +1822,16 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
   padding: 12px 16px; font-size: .95rem; font-weight: 700; font-family: inherit;
   color: #fff; background: var(--navy-dark); border: 1.5px solid var(--navy-dark);
   border-radius: 999px; cursor: pointer;
-  /* 첫 그림자는 색이 아니라 '틈'이다 — 바탕색으로 3px 둘러 화면에서 떠 있는 것으로 보이게 한다.
+  /* 첫 그림자는 색이 아니라 '틈'이다 — 바탕색으로 1px 둘러 화면에서 떠 있는 것으로 보이게 한다.
      ⚠️ 이게 없으면 밑에 깔린 남색 단추(기도문의 「들려주기」 등)와 한 덩어리로 읽힌다.
      바탕(--navy-dark)도 본문 단추(--navy)보다 짙게 둬 색으로도 갈린다. */
-  box-shadow: 0 0 0 3px var(--cream), 0 6px 20px rgba(13,27,62,.32);
+  box-shadow: 0 0 0 1px var(--cream), 0 6px 20px rgba(13,27,62,.32);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .home-fab:hover { background: #060e24; }
 .dark .home-fab {
   background: #232c3f; border-color: #46587c;
-  box-shadow: 0 0 0 3px #0f1218, 0 6px 20px rgba(0,0,0,.5);
+  box-shadow: 0 0 0 1px #0f1218, 0 6px 20px rgba(0,0,0,.5);
 }
 /* 고정 버튼이 마지막 항목을 가리지 않도록 여백.
    ⚠️ 2026-09-03에 이 단추가 두 줄(동작+이름)로 커져 화면 아래에서 단추 위끝까지 76px이 됐는데
