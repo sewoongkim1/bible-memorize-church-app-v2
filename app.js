@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260903a";
+const APP_BUILD = "20260903b";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -143,6 +143,12 @@ function routeAfterLoad() {
       ["sermon", "meditation", "passages"].forEach((k) => localStorage.removeItem("feat-seen-" + k));
     } catch (e) {}
     if (loadUser()) enterAfterLogin(); else renderEntryScreen();
+    return;
+  }
+  // 가정 축복 기도문 — 아직 성도님 첫 화면에는 없다(어드민에서만 확인).
+  //   성도님께 열 때: renderSummary 의 「함께」 묶음에 한 줄을 더하면 된다.
+  if (preview === "prayer" && loadUser()) {
+    renderPrayerBook();
     return;
   }
   if (preview === "pilsa") {          // 성경필사 노트 신청 — 성도 화면 그대로 바로 진입
@@ -1915,6 +1921,151 @@ function setupMoreToggle() {
     apply(open);
     try { localStorage.setItem(MORE_OPEN_KEY, open ? "1" : "0"); } catch (e) {}
   });
+}
+
+// ============================================================
+// 가정 축복 기도문 (2026-09-03)
+//   104편을 「오늘의 기도문 한 편 + 주제로 찾기」 한 화면에 담는다.
+//   ⚠️ 쓰기·채점·진도가 없다 — 이건 「외우는 것」이 아니라 「읽고 축복하는 것」이다.
+//      도전 순위에 섞으면 둘 다 흐려진다.
+//   ⚠️ 104편을 목록으로 먼저 내놓지 않는다. 어르신께 104개 중 고르라는 것이
+//      그 자체로 벽이다. 오늘 한 편이 먼저고, 주제는 그 아래에 둔다.
+//   자료는 blessings.json — 83KB라 **화면에 들어올 때만** 받는다(글꼴 765KB 사건과 같은 이유).
+// ============================================================
+let prayCache = null;
+let prayName = null;      // 누구 이름으로 읽을지(기본은 로그인한 분)
+let prayIdx = null;       // 지금 보고 있는 편(0-based)
+
+async function loadPrayers() {
+  if (prayCache) return prayCache;
+  // DB(blessings 표)에서 받는다. 표를 아직 안 만든 판에서는 파일로 물러선다 —
+  // ⚠️ blessings.json 은 **폴백일 뿐** 진짜 자료가 아니다. 내용을 고칠 때는
+  //    supabase/blessings.sql 을 다시 만들어 DB 를 고치고, 파일도 함께 갱신할 것.
+  try {
+    const d = await api.getBlessings();
+    if (d && d.ok && Array.isArray(d.blessings) && d.blessings.length) {
+      prayCache = d.blessings;
+      return prayCache;
+    }
+  } catch (e) {}
+  const r = await fetch("blessings.json?v=" + APP_BUILD);
+  prayCache = await r.json();
+  return prayCache;
+}
+
+// 이름에 따라 조사를 고른다 — 말씀 카드에 쓴 규칙과 같다.
+// ⚠️ ㄹ 받침은 「으로」가 아니라 「로」다: 김윤월로(○) 김윤월으로(×).
+function prayJong(name) {
+  const c = name.charCodeAt(name.length - 1);
+  return (c >= 0xac00 && c <= 0xd7a3) ? (c - 0xac00) % 28 : 0;
+}
+function prayFill(t, name) {
+  const j = prayJong(name);
+  return String(t || "")
+    .replace(/\{이름\}/g, name)
+    .replace(/\{이\}/g,   j ? "이" : "가")
+    .replace(/\{을\}/g,   j ? "을" : "를")
+    .replace(/\{은\}/g,   j ? "은" : "는")
+    .replace(/\{과\}/g,   j ? "과" : "와")
+    .replace(/\{으로\}/g, (j === 0 || j === 8) ? "로" : "으로");
+}
+// 오늘 몇 번째 편인가 — 날짜로 돌린다(104편이면 석 달 반 동안 매일 다르다)
+function prayToday(n) {
+  const d = new Date(todayYmd() + "T00:00:00");
+  return Math.floor(d.getTime() / 864e5) % n;
+}
+
+function renderPrayerBook(idx) {
+  const u = loadUser();
+  if (!prayName) prayName = (u && u.name) || "우리 가정";
+  const app = document.getElementById("app");
+  app.innerHTML = `<div class="pr-wrap"><div class="pr-loading">불러오는 중…</div></div>
+    <button class="home-fab" id="pr-home" aria-label="첫 화면으로">${homeFabLabel(u, true)}</button>`;
+  window.scrollTo(0, 0);
+  document.getElementById("pr-home").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
+  loadPrayers().then((list) => {
+    if (idx == null) idx = prayToday(list.length);
+    prayIdx = ((idx % list.length) + list.length) % list.length;
+    drawPrayer(list, prayIdx);
+  }).catch(() => {
+    document.querySelector(".pr-loading").textContent = "기도문을 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.";
+  });
+}
+
+function drawPrayer(list, i) {
+  const b = list[i];
+  const prayer = prayFill(b.prayer, prayName);
+  const groups = [];
+  list.forEach((x) => { const g = groups.find((y) => y.g === x.group); g ? g.n++ : groups.push({ g: x.group, n: 1 }); });
+  const isToday = i === prayToday(list.length);
+  document.querySelector(".pr-wrap").innerHTML = `
+    <div class="pr-card">
+      <div class="pr-kicker">${isToday ? "오늘의 축복 기도문" : "축복 기도문"} <span class="pr-count">${i + 1} / ${list.length}</span></div>
+      <div class="pr-title">${b.title}${b.seq ? " " + b.seq : ""}</div>
+      <div class="pr-ref">${b.ref}</div>
+      <div class="pr-verse">${b.verse}</div>
+      <div class="pr-prayer">${prayer}</div>
+      <button class="pr-speak" id="pr-speak">🔊 들려주기</button>
+      <div class="pr-nav">
+        <button class="pr-arrow" id="pr-prev">← 이전</button>
+        <button class="pr-name" id="pr-name">🙍 ${prayName}</button>
+        <button class="pr-arrow" id="pr-next">다음 →</button>
+      </div>
+    </div>
+    <div class="grp-title">주제로 찾기</div>
+    <div class="pr-groups">
+      ${groups.map((g) => `<button class="pr-chip" data-g="${g.g}">${g.g} <b>${g.n}</b></button>`).join("")}
+    </div>`;
+  document.getElementById("pr-prev").addEventListener("click", () => { stopSpeaking(); drawPrayer(list, (i - 1 + list.length) % list.length); window.scrollTo(0,0); });
+  document.getElementById("pr-next").addEventListener("click", () => { stopSpeaking(); drawPrayer(list, (i + 1) % list.length); window.scrollTo(0,0); });
+  document.getElementById("pr-name").addEventListener("click", () => askPrayName(list, i));
+  document.querySelectorAll(".pr-chip").forEach((el) =>
+    el.addEventListener("click", () => { stopSpeaking(); renderPrayerGroup(list, el.dataset.g); }));
+  // 🔊 — 말씀과 기도문을 이어 읽는다. 사이 마침표가 쉼을 만든다(앨범 낭독과 같은 어법).
+  const sp = document.getElementById("pr-speak");
+  sp.addEventListener("click", () => {
+    if (window.speechSynthesis && window.speechSynthesis.speaking) {
+      stopSpeaking(); sp.textContent = "🔊 들려주기"; return;
+    }
+    sp.textContent = "⏹ 그만 듣기";
+    speakText(`${b.title}. ${b.verse}. ${prayer}`, () => { sp.textContent = "🔊 들려주기"; }, 1, "ko-KR");
+  });
+}
+
+// 주제 하나의 목록
+function renderPrayerGroup(list, g) {
+  const items = list.map((b, i) => ({ b, i })).filter((x) => x.b.group === g);
+  document.querySelector(".pr-wrap").innerHTML = `
+    <div class="grp-title">${g} <span class="pr-count">${items.length}편</span></div>
+    ${items.map((x) => `<button class="summary-help pr-item" data-i="${x.i}">${x.b.title}${x.b.seq ? " " + x.b.seq : ""}
+       <span class="pr-item-ref">${x.b.ref}</span></button>`).join("")}
+    <button class="grp-more" id="pr-back">← 오늘의 기도문으로</button>`;
+  window.scrollTo(0, 0);
+  document.querySelectorAll(".pr-item").forEach((el) =>
+    el.addEventListener("click", () => drawPrayer(list, Number(el.dataset.i))));
+  document.getElementById("pr-back").addEventListener("click", () => drawPrayer(list, prayIdx));
+}
+
+// 누구 이름으로 읽을지 — 가족 이름으로도 읽을 수 있게.
+// ⚠️ 창을 띄우지 않고 그 자리에 입력 줄을 편다. 어르신께는 창이 하나 덜 뜨는 편이 낫다.
+function askPrayName(list, i) {
+  const btn = document.getElementById("pr-name");
+  if (!btn || document.getElementById("pr-name-row")) return;
+  const row = document.createElement("div");
+  row.className = "pr-name-row"; row.id = "pr-name-row";
+  row.innerHTML = `<input id="pr-name-in" type="text" maxlength="12" value="${prayName}"
+                     aria-label="누구를 위해 읽을지" autocomplete="off">
+                   <button class="pr-name-ok" id="pr-name-ok">확인</button>`;
+  btn.parentNode.insertAdjacentElement("afterend", row);
+  const inp = document.getElementById("pr-name-in");
+  inp.focus(); inp.select();
+  const ok = () => {
+    const n = inp.value.trim();
+    if (n) { prayName = n; }
+    drawPrayer(list, i);
+  };
+  document.getElementById("pr-name-ok").addEventListener("click", ok);
+  inp.addEventListener("keydown", (e) => { if (e.key === "Enter") ok(); });
 }
 
 // 첫화면 상단 '알림 켜기' 배너 — 미구독자에게만. 켜면 사라지고, ✕로 14일간 접어둘 수 있다.

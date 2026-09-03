@@ -4075,3 +4075,66 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
 .dark .user-info .today-strip.t5 { background: #332d15; }
 .dark .user-info .ui-div { background: rgba(255,255,255,.13); }
 .dark .user-info .stat-bar .sb-track { background: rgba(255,255,255,.15); }
+
+/* ── 가정 축복 기도문 (2026-09-03) ───────────────────────────────
+   「오늘 한 편 + 주제로 찾기」 한 화면. 쓰기·채점이 없어 단추가 적다.
+   ⚠️ 기도문은 소리 내어 읽는 글이라 본문보다 크고 줄간격이 넓다. */
+.pr-wrap { max-width: 460px; margin: 0 auto; padding: 0 2px 90px; }
+.pr-loading { padding: 40px 10px; text-align: center; color: var(--gray); }
+.pr-card {
+  background: var(--white); border: 1.5px solid var(--gold); border-radius: 16px;
+  padding: 16px 16px 14px; margin-bottom: 6px; text-align: left;
+  box-shadow: 0 6px 20px rgba(13,27,62,.06);
+}
+.pr-kicker { font-size: .82rem; font-weight: 800; color: #8a6a1e; letter-spacing: .02em; }
+.pr-count { color: var(--gray); font-weight: 700; }
+.pr-title { font-size: 1.24rem; font-weight: 800; color: var(--navy); margin: 6px 0 2px; }
+.pr-ref { font-size: .86rem; color: var(--gray); margin-bottom: 10px; }
+.pr-verse {
+  font-size: .98rem; line-height: 1.72; color: #46505f; word-break: keep-all;
+  padding: 11px 13px; background: var(--cream); border-radius: 10px;
+}
+/* 기도문 — 이 화면의 주인공이다. 크고 넓게. */
+.pr-prayer {
+  margin-top: 12px; font-size: 1.14rem; line-height: 1.85; font-weight: 600;
+  color: var(--navy-dark, #16233f); word-break: keep-all;
+  padding-left: 11px; border-left: 3px solid var(--gold);
+}
+.pr-speak {
+  width: 100%; margin-top: 14px; padding: 15px; font-size: 1.06rem; font-weight: 800;
+  color: #fff; background: var(--navy); border: 1.5px solid var(--navy); border-radius: 13px;
+  cursor: pointer; font-family: inherit;
+}
+.pr-speak:hover { background: var(--navy-dark); }
+.pr-nav { display: flex; gap: 8px; margin-top: 10px; }
+.pr-arrow, .pr-name {
+  flex: 1; padding: 10px 6px; font-size: .92rem; font-weight: 700; font-family: inherit;
+  color: var(--navy); background: #eef1f8; border: 1.5px solid #c9d8ef; border-radius: 11px; cursor: pointer;
+}
+.pr-name { flex: 1.3; }
+.pr-arrow:hover, .pr-name:hover { background: var(--navy); color: #fff; border-color: var(--navy); }
+.pr-name-row { display: flex; gap: 8px; margin-top: 8px; }
+.pr-name-row input {
+  flex: 1; padding: 11px 12px; font-size: 1.02rem; font-family: inherit;
+  border: 1.5px solid var(--navy); border-radius: 11px; min-width: 0;
+}
+.pr-name-ok {
+  padding: 11px 18px; font-size: .96rem; font-weight: 800; font-family: inherit;
+  color: #fff; background: var(--navy); border: 1.5px solid var(--navy); border-radius: 11px; cursor: pointer;
+}
+.pr-groups { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pr-chip {
+  padding: 13px 8px; font-size: .94rem; font-weight: 700; font-family: inherit;
+  color: var(--navy); background: #eef1f8; border: 1.5px solid var(--navy);
+  border-radius: 12px; cursor: pointer;
+}
+.pr-chip b { color: #8a6a1e; }
+.pr-chip:hover { background: var(--navy); color: #fff; }
+.pr-chip:hover b { color: var(--gold); }
+.pr-item { text-align: left; }
+.pr-item-ref { float: right; font-weight: 600; color: var(--gray); font-size: .84rem; }
+.dark .pr-card { background: #151d2b; border-color: #6b5a2c; }
+.dark .pr-verse { background: #1b2436; color: #b9c2d0; }
+.dark .pr-prayer { color: #dfe7f5; }
+.dark .pr-chip, .dark .pr-arrow, .dark .pr-name { background: #182739; color: #8fb3e6; border-color: #33507d; }
+.dark .pr-name-row input { background: #151d2b; color: #dfe7f5; border-color: #33507d; }

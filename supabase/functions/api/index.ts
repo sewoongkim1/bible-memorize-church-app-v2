@@ -132,6 +132,7 @@ Deno.serve(async (req) => {
       case "sermonChatLog": return json(await sermonChatLog(body));
       case "clearSummaryCache": return json(await clearSummaryCache(body));
       case "clearChatCache": return json(await clearChatCache(body));
+      case "getBlessings":        return json(await getBlessings());
       case "getPassages":         return json(await getPassages());
       case "savePassage":         return json(await savePassage(body));
       case "deletePassage":       return json(await deletePassage(body));
@@ -697,6 +698,22 @@ async function seedVerses(b: any) {
 }
 
 // ---------- 긴 본문 암송("핵심 암송") ----------
+// 가정 축복 기도문 104편 — 읽기 전용. 누구나 같은 자료라 개인 것이 섞이지 않는다.
+// ⚠️ prayer 는 이름 토큰({이름}{이}…)이 든 채로 내보낸다. 채우는 것은 앱(prayFill)이다 —
+//    서버가 채우면 사람마다 응답이 달라져 캐시가 통째로 무용지물이 된다.
+// ⚠️ "group" 은 예약어라 따옴표가 필요하다.
+async function getBlessings() {
+  const { data, error } = await db.from("blessings")
+    .select('no,title,seq,"group",ref,verse,prayer')
+    .eq("is_active", true).order("sort_order").order("no");
+  if (error) throw error;
+  const blessings = (data ?? []).map((b: any) => ({
+    no: b.no, title: b.title || "", seq: b.seq ?? null, group: b.group || "",
+    ref: b.ref || "", verse: b.verse || "", prayer: b.prayer || "",
+  }));
+  return { ok: true, blessings };
+}
+
 async function getPassages() {
   const { data, error } = await db.from("passages")
     .select("id,title,ref,category,lines,sort_order")

@@ -74,6 +74,7 @@ const api = {
   saveVerse: (pw, verse) => supaCall("saveVerse", { pw, verse }),
   seedVerses: (pw) => supaCall("seedVerses", { pw }),
   getPassages: () => supaCall("getPassages", {}),
+  getBlessings: () => supaCall("getBlessings", {}),
   savePassage: (pw, passage) => supaCall("savePassage", { pw, passage }),
   deletePassage: (pw, id) => supaCall("deletePassage", { pw, id }),
   savePassageProgress: (user_id, passage_id, doneSeq, completed) =>
