@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260903b";
+const APP_BUILD = "20260903c";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -147,8 +147,8 @@ function routeAfterLoad() {
   }
   // 가정 축복 기도문 — 아직 성도님 첫 화면에는 없다(어드민에서만 확인).
   //   성도님께 열 때: renderSummary 의 「함께」 묶음에 한 줄을 더하면 된다.
-  if (preview === "prayer" && loadUser()) {
-    renderPrayerBook();
+  if (preview === "prayer") {
+    if (loadUser()) renderPrayerBook(); else renderEntryScreen();
     return;
   }
   if (preview === "pilsa") {          // 성경필사 노트 신청 — 성도 화면 그대로 바로 진입
@@ -173,7 +173,7 @@ function routeAfterLoad() {
 function getPreviewKind() {
   try {
     const p = new URLSearchParams(location.search).get("preview");
-    if (p === "intro" || p === "blessing" || p === "daily" || p === "promo" || p === "pilsa") {
+    if (p === "intro" || p === "blessing" || p === "daily" || p === "promo" || p === "pilsa" || p === "prayer") {
       history.replaceState(null, "", location.pathname);
       return p;
     }
