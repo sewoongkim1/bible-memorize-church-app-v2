@@ -4187,7 +4187,7 @@ body.pr-full-on { overflow: hidden; }
      그러면 높이가 실제보다 작게 재어져 아래 이분법이 글씨를 너무 키우고, 세로 화면에서
      좌우로도 아래로도 넘친다(2026-09-03 에 실제로 그랬다). 늘려 두고 가운데는 margin 으로. */
   display: flex; flex-direction: column; align-items: stretch; justify-content: center;
-  padding: 34px 20px 62px; box-sizing: border-box;
+  padding: 34px 20px 112px; box-sizing: border-box;
 }
 /* ⚠️ flex 항목은 flex-shrink 가 기본 1이다. 세로 방향 flex 에서는 그게 **높이**에 걸려,
    내용이 넘치면 상자가 눌리고 글자만 밖으로 삐져나간다. 그러면 높이를 재도 「들어간다」고
@@ -4222,7 +4222,7 @@ body.pr-full-on { overflow: hidden; }
    글자를 90° 돌려 그려서 폰만 옆으로 들면 읽을 수 있게. 기기 회전에 기대지 않는다.
    ⚠️ transform 은 배치를 바꾸지 않으므로 flex 흐름에서 빼내 절대 배치로 가운데 둔다. */
 .pr-f-rot {
-  position: absolute; bottom: 10px; right: 62px; width: 42px; height: 42px;
+  position: absolute; bottom: 60px; right: 12px; width: 42px; height: 42px;
   z-index: 2;
   font-size: 1.2rem; font-family: inherit; color: var(--gray); cursor: pointer;
   background: rgba(255,255,255,.75); border: 1.5px solid #d6dbe6; border-radius: 50%;
@@ -4235,7 +4235,8 @@ body.pr-full-on { overflow: hidden; }
      「위에서 얼마나 내려와 시작하나」가 되어, 오른쪽 위 단추(✕·⟳)를 피하게 해 준다.
      ▸ padding-top 으로 밀면 화면 **오른쪽**에서 밀리는데 단추가 오른쪽으로 104px 이나
        뻗어 있어 화면 폭의 1/4을 내줘야 한다 — 이쪽은 긴 변에서 62px 만 내주면 된다. */
-  padding-right: 62px;
+  padding-right: 62px;   /* 화면 아래쪽 — 단추 기둥의 높이(112px) 중 글이 닿는 데까지 */
+  padding-top: 8px;
 }
 /* ⚠️ 돌렸을 때는 바깥 여백을 줄인다 — 단추 자리는 위 padding-right(화면 아래쪽)가
    이미 맡았으므로, 여기까지 넉넉히 두면 그만큼 글씨만 작아진다. */
