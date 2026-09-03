@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260903f";
+const APP_BUILD = "20260903g";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2090,15 +2090,9 @@ function prayFullOpen(list, i) {
   wrap.innerHTML = `
     <button class="pr-f-x" aria-label="닫기">✕</button>
     <div class="pr-f-in">
-      <div class="pr-f-head"><b>${prayEsc(b.title)}</b> <span>${prayEsc(b.ref)}</span></div>
-      ${prayOpenVerse ? `<div class="pr-f-verse">${prayEsc(b.verse)}</div>` : ""}
+      <div class="pr-f-title">${prayEsc(b.title)}</div>
       <div class="pr-f-body">${prayChunks(b.prayer).map((sent, k, arr) =>
         `<div class="pr-s${k === arr.length - 1 ? " pr-amen" : ""}">${prayFillHtml(sent, prayName)}</div>`).join("")}</div>
-    </div>
-    <div class="pr-f-turn">📱 폰을 옆으로 돌리면 더 크게 보여요</div>
-    <div class="pr-f-nav">
-      <button class="pr-f-b" data-d="-1">← 이전</button>
-      <button class="pr-f-b" data-d="1">다음 →</button>
     </div>`;
   document.body.appendChild(wrap);
   document.body.classList.add("pr-full-on");
@@ -2111,11 +2105,6 @@ function prayFullOpen(list, i) {
   try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => prayFullResize()); } catch (e) {}
   const close = () => prayFullClose();
   wrap.querySelector(".pr-f-x").addEventListener("click", close);
-  wrap.querySelectorAll(".pr-f-b").forEach((el) => el.addEventListener("click", (e) => {
-    e.stopPropagation();
-    const n = (i + Number(el.dataset.d) + list.length) % list.length;
-    prayFullClose(true); drawPrayer(list, n); prayFullOpen(list, n);
-  }));
   prayFullEsc = (e) => { if (e.key === "Escape") close(); };
   document.addEventListener("keydown", prayFullEsc);
   window.addEventListener("resize", prayFullResize);
