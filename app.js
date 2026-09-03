@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260903d";
+const APP_BUILD = "20260903e";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1967,6 +1967,48 @@ function prayEsc(t) {
   return String(t == null ? "" : t)
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
+// 읽기 좋게 마디로 끊는다.
+//   문장 중앙값이 63자, 최장 182자다 — 한 덩이로 두면 소리 내어 읽을 때 숨 쉴 자리가 없다.
+//   문장(마침표)은 한 칸 띄고, 그 안은 쉼표·연결어미에서 끊는다.
+//   ⚠️ 「~게 하시고」의 「게」에서는 끊지 않는다 — 「번성하게 / 하시고」로 갈라져 한 덩이가 쪼개진다.
+//   ⚠️ 정규식 lookbehind 를 쓰지 않는다 — 사파리 16.4 미만에서 통째로 터진다(어르신 폰이 옛것일 수 있다).
+//      대신 끊을 자리에 표식()을 넣고 그것으로 가른다.
+const PRAY_MAX = 24;   // 한 마디 목표 글자 수(채운 이름 길이로 잰다)
+function prayChunks(t, name) {
+  return String(t || "")
+    .replace(/([.!?])\s+/g, "$1")            // 문장 사이
+    .split("").filter(Boolean)
+    .map(function (sent) {
+      // 끊을 자리 — 쉼표 · 연결어미 · 나열의 「~과/~와」.
+      // 긴 마디는 대개 「일과 소생과 새끼와 소산을」 같은 나열이라 그 자리가 자연스럽다.
+      // 후보를 늘려도 억지로 끊지는 않는다 — 아래 묶기가 길어질 때만 쓴다.
+      var atoms = sent
+        .replace(/([,]|[시하으어아]고|[시하으]며|[하시]사|[오사]니|하여|시어)\s+/g, "$1")
+        // ⚠️ 「~과/~와」 뒤에 「같이·함께·더불어」가 오면 끊지 않는다 —
+        //    「하늘의 별과 / 같이」로 갈라지면 한 덩이가 두 동강 난다.
+        .replace(/([가-힣][과와])\s+(?!같이|함께|같은|더불어)/g, "$1")
+        .split("").filter(Boolean);
+      var out = [], cur = "";
+      atoms.forEach(function (a) {
+        // ⚠️ 「하나님,」은 늘 혼자 둔다 — 부르는 말이라 여기서 한 번 쉬어야 기도가 된다.
+        //    붙이고 말고를 길이에 맡기면 편마다 달라 보인다.
+        if (!out.length && !cur && /^하나님[,·]?$/.test(a)) { out.push(a); return; }
+        var join = cur ? cur + " " + a : a;
+        if (cur && prayFill(join, name).length > PRAY_MAX) { out.push(cur); cur = a; }
+        else cur = join;
+      });
+      if (cur) out.push(cur);
+      // 너무 짧은 마디는 이웃에 붙인다 — 「그리하여」 한 낱말만 덩그러니 남으면 읽는 리듬이 끊긴다.
+      // (「하나님,」은 부르는 말이라 그대로 둔다)
+      for (var k = out.length - 2; k >= 0; k--) {
+        if (k === 0 && /^하나님[,·]?$/.test(out[0])) continue;
+        if (prayFill(out[k], name).length < 8) { out[k + 1] = out[k] + " " + out[k + 1]; out.splice(k, 1); }
+      }
+      var last = out.length - 1;
+      if (last > 0 && prayFill(out[last], name).length < 8) { out[last - 1] += " " + out[last]; out.pop(); }
+      return out;
+    });
+}
 function prayFillHtml(t, name) {
   return prayFill(prayEsc(t), '<b class="pr-nm">' + prayEsc(name) + "</b>");
 }
@@ -2005,7 +2047,8 @@ function renderPrayerBook(idx) {
 
 function drawPrayer(list, i) {
   const b = list[i];
-  const prayer = prayFillHtml(b.prayer, prayName);
+  const prayer = prayChunks(b.prayer, prayName).map((sent) =>
+    `<div class="pr-s">${sent.map((ln) => `<span class="pr-l">${prayFillHtml(ln, prayName)}</span>`).join("")}</div>`).join("");
   const groups = [];
   list.forEach((x) => { const g = groups.find((y) => y.g === x.group); g ? g.n++ : groups.push({ g: x.group, n: 1 }); });
   const isToday = i === prayToday(list.length);

@@ -4162,3 +4162,11 @@ html[data-fs="lg"] .pr-verse  { font-size: 1.08rem; }
 html[data-fs="xl"] .pr-verse  { font-size: 1.2rem; }
 .dark .pr-nm { color: var(--gold); }
 .dark .pr-verse-tog { color: #8fb3e6; border-color: #33507d; }
+
+/* 기도문을 마디로 끊어 읽는다(2026-09-03).
+   문장 중앙값이 63자, 최장 182자다 — 한 덩이로 두면 소리 내어 읽을 때 숨 쉴 자리가 없다.
+   ⚠️ .pr-l 은 span 이라 block 으로 바꿔야 줄이 나뉜다.
+   ⚠️ 마디 사이에는 여백을 두지 않는다 — 여백까지 주면 자연스러운 줄바꿈과 구분이 안 되고
+      기도문이 목록처럼 보인다. 나뉘는 자리는 줄 끝이 말해 준다. 문장 사이만 한 칸 띄운다. */
+.pr-prayer .pr-l { display: block; }
+.pr-prayer .pr-s + .pr-s { margin-top: .55em; }
