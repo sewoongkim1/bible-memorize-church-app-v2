@@ -117,6 +117,7 @@ Deno.serve(async (req) => {
       case "stats":         return json(await stats(body));
       case "participants":  return json(await participants(body));
       case "verses":        return json(await verseStats(body));
+      case "blessingUsage": return json(await blessingUsage(body));
       // ---- 조회(MCP 학습용) ----
       case "findMember":          return json(await findMember(body));
       case "memberParticipation": return json(await memberParticipation(body));
@@ -1930,6 +1931,65 @@ async function verseStatsSlow(b: any) {
   for (const [no, e] of map) e.participants = seen.get(no)!.size;
   const list = [...map.values()].sort((a, b) => a.no - b.no);
   return { ok: true, list };
+}
+
+// ---------- blessingUsage: 가정 축복 기도문 사용현황 ----------
+//   blessing_log(user_id,day,no,cnt) 는 「한 사람이 하루에 한 편을 여러 번 봐도 한 행」이라
+//   challenge_log 보다 훨씬 작다 — RPC 없이 fetchAllRows + JS 집계로 충분하다.
+//   ⚠️ 표(blessing_log.sql)를 아직 안 돌린 판(예: 성도님께 열기 전 개발 DB)에서도
+//      죽지 않고 빈 결과를 낸다 — 관리자가 "기록 없음"으로 보게, 오류로 보지 않게.
+async function blessingUsage(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const EMPTY = { ok: true, summary: { people: 0, total: 0, days: 0 }, byPrayer: [], byUser: [] };
+  let rows: any[];
+  try {
+    rows = await fetchAllRows(() => {
+      let q = db.from("blessing_log").select("user_id, day, no, cnt, users(type,gu,mok,bu,grade,name)");
+      if (b.from) q = q.gte("day", b.from);
+      if (b.to)   q = q.lte("day", b.to);
+      return q;
+    });
+  } catch (e) {
+    if (/does not exist|schema cache/i.test(String((e as any)?.message || ""))) return EMPTY;
+    throw e;
+  }
+  if (!rows.length) return EMPTY;
+
+  const { data: bl } = await db.from("blessings").select('no,title,"group"');
+  const bMap = new Map<number, any>();
+  (bl ?? []).forEach((r: any) => bMap.set(r.no, r));
+
+  const people = new Set<string>(), days = new Set<string>();
+  let total = 0;
+  const byPrayerMap = new Map<number, { no: number; title: string; group: string; people: Set<string>; count: number }>();
+  const byUserMap = new Map<string, { gubun: string; sosok: string; sebu: string; name: string; days: Set<string>; prayers: Set<number>; count: number; last: string }>();
+
+  for (const row of rows) {
+    people.add(row.user_id); days.add(row.day); total += row.cnt;
+
+    const meta = bMap.get(row.no) ?? {};
+    const pe = byPrayerMap.get(row.no) ?? { no: row.no, title: meta.title || "", group: meta.group || "", people: new Set<string>(), count: 0 };
+    pe.people.add(row.user_id); pe.count += row.cnt;
+    byPrayerMap.set(row.no, pe);
+
+    const u = row.users ?? {};
+    const ue = byUserMap.get(row.user_id) ?? {
+      gubun: u.type || "", sosok: u.gu || u.bu || "", sebu: u.mok || u.grade || "",
+      name: u.name || "", days: new Set<string>(), prayers: new Set<number>(), count: 0, last: row.day,
+    };
+    ue.days.add(row.day); ue.prayers.add(row.no); ue.count += row.cnt;
+    if (row.day > ue.last) ue.last = row.day;
+    byUserMap.set(row.user_id, ue);
+  }
+
+  const byPrayer = [...byPrayerMap.values()]
+    .map((p) => ({ no: p.no, title: p.title, group: p.group, people: p.people.size, count: p.count }))
+    .sort((a, c) => c.people - a.people || c.count - a.count);
+  const byUser = [...byUserMap.values()]
+    .map((u) => ({ gubun: u.gubun, sosok: u.sosok, sebu: u.sebu, name: u.name, days: u.days.size, prayers: u.prayers.size, count: u.count, last: u.last }))
+    .sort((a, c) => c.count - a.count);
+
+  return { ok: true, summary: { people: people.size, total, days: days.size }, byPrayer, byUser };
 }
 
 // ---------- weeklyReport: 주간 리포트 자동 발송용 요약 + CSV ----------
