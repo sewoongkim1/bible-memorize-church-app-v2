@@ -4206,6 +4206,7 @@ body.pr-full-on { overflow: hidden; }
 .pr-f-body .pr-nm { font-size: 1.2em; font-weight: 800; color: #8a6a1e; }
 .pr-f-x {
   position: absolute; top: 10px; right: 12px; width: 42px; height: 42px;
+  z-index: 2;
   font-size: 1.15rem; font-family: inherit; color: var(--gray); cursor: pointer;
   background: rgba(255,255,255,.75); border: 1.5px solid #d6dbe6; border-radius: 50%;
 }
@@ -4222,6 +4223,7 @@ body.pr-full-on { overflow: hidden; }
    ⚠️ transform 은 배치를 바꾸지 않으므로 flex 흐름에서 빼내 절대 배치로 가운데 둔다. */
 .pr-f-rot {
   position: absolute; top: 10px; right: 62px; width: 42px; height: 42px;
+  z-index: 2;
   font-size: 1.2rem; font-family: inherit; color: var(--gray); cursor: pointer;
   background: rgba(255,255,255,.75); border: 1.5px solid #d6dbe6; border-radius: 50%;
 }
@@ -4229,5 +4231,10 @@ body.pr-full-on { overflow: hidden; }
 .pr-full.pr-rot .pr-f-in {
   position: absolute; top: 50%; left: 50%; max-width: none;
   transform: translate(-50%, -50%) rotate(90deg);
+  /* ⚠️ 90° 돌리면 글의 **가로**가 화면의 세로가 된다. 그래서 이 왼쪽 여백은 화면에서
+     「위에서 얼마나 내려와 시작하나」가 되어, 오른쪽 위 단추(✕·⟳)를 피하게 해 준다.
+     ▸ padding-top 으로 밀면 화면 **오른쪽**에서 밀리는데 단추가 오른쪽으로 104px 이나
+       뻗어 있어 화면 폭의 1/4을 내줘야 한다 — 이쪽은 긴 변에서 62px 만 내주면 된다. */
+  padding-left: 62px;
 }
 .dark .pr-f-rot { background: rgba(0,0,0,.4); color: #8fb3e6; border-color: #33507d; }
