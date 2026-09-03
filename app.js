@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260903g";
+const APP_BUILD = "20260903h";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2078,10 +2078,12 @@ function drawPrayer(list, i) {
 
 // ── 크게 보기(전체 화면) ──────────────────────────────────────
 //   가정 예배에서 온 식구가 함께 보는 자리. 글씨를 화면에 꽉 차게 키운다.
-//   ⚠️ 아이폰 사파리는 임의의 요소에 전체화면 API 를 안 준다(video 만) — 그래서
-//      전체화면은 「되면 좋고」이고, 진짜 일은 position:fixed 덮개가 한다.
+//   ⚠️ **전체화면 API(requestFullscreen)를 쓰지 않는다.** 2026-09-03 에 넣었다가 뺐다 —
+//      안드로이드 크롬은 전체화면에 들어간 **그 방향으로 화면을 고정**해 버려서,
+//      가로로 들어가면 세로로 되돌릴 수가 없었다. 덮개(position:fixed inset:0)만으로
+//      화면은 이미 다 덮이고, 그 대가는 주소창이 남는 것뿐이다 — 방향이 갇히는 것보다 싸다.
+//      아이폰 사파리는 애초에 video 말고는 전체화면을 주지도 않았다.
 //   ⚠️ 화면 방향은 강제로 못 돌린다(iOS 는 screen.orientation.lock 자체가 없다).
-//      세로면 「옆으로 돌리면 더 크게 보여요」라고 알려 주기만 한다.
 let prayFullEsc = null;
 function prayFullOpen(list, i) {
   const b = list[i];
@@ -2096,7 +2098,6 @@ function prayFullOpen(list, i) {
     </div>`;
   document.body.appendChild(wrap);
   document.body.classList.add("pr-full-on");
-  try { if (wrap.requestFullscreen) wrap.requestFullscreen().catch(() => {}); } catch (e) {}
   keepScreenAwake(true);                      // 함께 읽는 동안 화면이 꺼지면 안 된다
   prayFitText(wrap);
   // ⚠️ 글꼴이 늦게 온다. 이 앱은 한글 웹폰트를 media="print" 로 미뤄 받으므로(첫 화면이
@@ -2119,6 +2120,7 @@ function prayFullClose(keepAwake) {
   document.body.classList.remove("pr-full-on");
   window.removeEventListener("resize", prayFullResize);
   if (prayFullEsc) { document.removeEventListener("keydown", prayFullEsc); prayFullEsc = null; }
+  // 우리는 이제 전체화면에 들어가지 않지만, 옛 판으로 들어갔다가 갇힌 분이 닫으면 풀리도록 남긴다
   try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); } catch (e) {}
   if (!keepAwake) keepScreenAwake(false);
 }
