@@ -31,12 +31,12 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 ROOT = os.path.dirname(os.getcwd())
 
 NAME = sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith('-') else '홍길동'
-FOOT_MID = '오직 말씀, 성경이 답이다!'
+FOOT_MID = '오직 성경, 말씀이 답이다!'
 AMEN = '예수님의 이름으로 축복하며 기도합니다. 아멘!'
 PER_VOL = 52
 
-PRAY_PT = 13.0      # 온 책이 한 가지. 가장 긴 기도문이 정한 값이다(박스 40mm 남김)
-PRAY_PER = 15       # 한 줄 목표 글자 수. ⚠️ 폭에 들어가는 최대(23자)가 아니라 **일부러 짧게** 잡았다 —
+PRAY_PT = 14.0      # 온 책이 한 가지. 가장 긴 기도문이 정한 값이다(박스 40mm 남김)
+PRAY_PER = 13       # 한 줄 목표 글자 수. ⚠️ 폭에 들어가는 최대(23자)가 아니라 **일부러 짧게** 잡았다 —
                     #    짧게 끊어야 소리 내어 읽기 좋고, 아래 남는 자리도 그만큼 줄어든다.
                     #    더 짧게(14자) 하려면 글씨를 12pt 로 내려야 한다(실측).
 BOX_MIN = 35        # 아래 박스가 최소 이만큼은 남아야 한다(mm)
@@ -93,8 +93,8 @@ def pray_lines(t, name):
     for sent in re.split(r'(?<=[.!?])\s+', fill(t, name).strip()):
         if not sent:
             continue
-        s = re.sub(r'([,]|[시하으어아]고|[시하으]며|[하시]사|[오사]니|하여|시어)\s+', '\\1' + MARK, sent)
-        s = re.sub(r'([가-힣][과와])\s+(?!같이|함께|같은|더불어)', '\\1' + MARK, s)
+        s = re.sub(r'([,]|[가-힣](?:고|며|니|사|어|아|여))\s+', r'\1' + MARK, sent)
+        s = re.sub(r'([가-힣][과와])\s+(?!같이|함께|같은|더불어)', r'\1' + MARK, s)
         cur = ''
         for a in [x.strip() for x in s.split(MARK) if x.strip()]:
             # ⚠️ 「하나님,」은 늘 혼자 한 줄이다 — 부르는 말이라 여기서 한 번 쉬어야 기도가 된다.
@@ -143,6 +143,14 @@ def foot(pno):
             '<span class="b-pno">%d</span></div>' % (html.escape(FOOT_MID), pno))
 
 
+# 이 편만 한 단계 작게 — **브라우저 실측으로 얻은 목록**이다.
+#   ⚠️ 기도문이나 줄 나누는 규칙을 고치면 이 목록이 틀어진다. 반드시 다시 재고 고칠 것.
+#   ⚠️ 온 책을 가장 긴 편에 맞추면 나머지 94쪽이 다 작아진다 — 어르신이 읽으실 책이라
+#      그 손해가 크다. 넘치는 열 쪽만 내린다(19번만 12pt, 나머지는 13pt).
+SMALL = {3: 'p13', 5: 'p13', 19: 'p12', 27: 'p13', 32: 'p13', 36: 'p13',
+         39: 'p13', 40: 'p13', 42: 'p13', 44: 'p13'}
+
+
 def page(r, pno, name):
     body = ''.join('<div class="pl">%s</div>' % mark_name(l, name)
                    for l in pray_lines(r['prayer'], name))
@@ -150,10 +158,11 @@ def page(r, pno, name):
 <section class="page bl">
   <div class="b-title">%s</div>
   <div class="b-meta"><span>%s</span><span>2026 년 &nbsp; 월 &nbsp; 일</span></div>
-  <div class="b-pray">%s<div class="b-amen">%s</div></div>
+  <div class="b-pray %s">%s<div class="b-amen">%s</div></div>
   <div class="b-box"><span class="b-box-t">묵상노트</span></div>
   %s
-</section>""" % (html.escape(r['title']), html.escape(r['ref']), body, html.escape(AMEN), foot(pno))
+</section>""" % (html.escape(r['title']), html.escape(r['ref']), SMALL.get(r['no'], ''),
+                 body, html.escape(AMEN), foot(pno))
 
 
 def cover(vol, name, first, last):
@@ -259,14 +268,18 @@ body { margin:0; font-family:"Noto Sans KR","Malgun Gothic",sans-serif; color:#1
 /* 기도문 — 이 책의 전부다. 온 책이 한 크기(16pt)로 통일된다.
    ⚠️ 줄 간격을 em 으로 준다 — 맨 숫자로 주면 이름(.nm)이 커질 때 그 줄만 벌어진다.
       em 은 여기서 px 로 계산돼 자식이 그 길이를 그대로 물려받는다. */
-.b-pray { font-size:13pt; line-height:1.75em; text-align:center; word-break:keep-all;
+.b-pray { font-size:14pt; line-height:1.95em; text-align:center; word-break:keep-all;
           padding:7mm 2mm 6mm; }
 .pl { }
+/* 넘치는 몇 쪽만 한 단계 작게. ⚠️ 온 책을 가장 긴 편에 맞추면 나머지 100쪽이 다 작아진다 —
+   어르신이 읽으실 책이라 그 손해가 크다. */
+.b-pray.p13 { font-size:13pt; }
+.b-pray.p12 { font-size:12pt; }
 .b-amen { margin-top:4mm; font-weight:700; }
 /* 이름 — 크게·굵게·색. 흑백으로 찍어도 진하게 남는 금갈색이다. */
 .nm { font-size:1.12em; font-weight:800; color:#8a6a1e; }
 /* 아래 박스 — 남는 자리를 그대로 차지한다. 편마다 높이가 다른 것이 정상이다. */
-.b-box { flex:1; min-height:30mm; border:1px solid #2b3444; padding:2.5mm 3mm; position:relative; }
+.b-box { flex:1; min-height:18mm; border:1px solid #2b3444; padding:2.5mm 3mm; position:relative; }
 .b-box-t { position:absolute; right:3.5mm; top:2mm; font-size:9pt; color:#6b7383; }
 /* ── 꼬리말 ───────────────────────────────────────────────── */
 .b-foot { position:absolute; left:13mm; right:13mm; bottom:6mm; display:flex; align-items:baseline;
