@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260903e";
+const APP_BUILD = "20260903f";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1967,47 +1967,18 @@ function prayEsc(t) {
   return String(t == null ? "" : t)
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
-// 읽기 좋게 마디로 끊는다.
+// 읽기 좋게 **문단으로만** 나눈다.
 //   문장 중앙값이 63자, 최장 182자다 — 한 덩이로 두면 소리 내어 읽을 때 숨 쉴 자리가 없다.
-//   문장(마침표)은 한 칸 띄고, 그 안은 쉼표·연결어미에서 끊는다.
-//   ⚠️ 「~게 하시고」의 「게」에서는 끊지 않는다 — 「번성하게 / 하시고」로 갈라져 한 덩이가 쪼개진다.
-//   ⚠️ 정규식 lookbehind 를 쓰지 않는다 — 사파리 16.4 미만에서 통째로 터진다(어르신 폰이 옛것일 수 있다).
-//      대신 끊을 자리에 표식()을 넣고 그것으로 가른다.
-const PRAY_MAX = 24;   // 한 마디 목표 글자 수(채운 이름 길이로 잰다)
-function prayChunks(t, name) {
-  return String(t || "")
-    .replace(/([.!?])\s+/g, "$1")            // 문장 사이
-    .split("").filter(Boolean)
-    .map(function (sent) {
-      // 끊을 자리 — 쉼표 · 연결어미 · 나열의 「~과/~와」.
-      // 긴 마디는 대개 「일과 소생과 새끼와 소산을」 같은 나열이라 그 자리가 자연스럽다.
-      // 후보를 늘려도 억지로 끊지는 않는다 — 아래 묶기가 길어질 때만 쓴다.
-      var atoms = sent
-        .replace(/([,]|[시하으어아]고|[시하으]며|[하시]사|[오사]니|하여|시어)\s+/g, "$1")
-        // ⚠️ 「~과/~와」 뒤에 「같이·함께·더불어」가 오면 끊지 않는다 —
-        //    「하늘의 별과 / 같이」로 갈라지면 한 덩이가 두 동강 난다.
-        .replace(/([가-힣][과와])\s+(?!같이|함께|같은|더불어)/g, "$1")
-        .split("").filter(Boolean);
-      var out = [], cur = "";
-      atoms.forEach(function (a) {
-        // ⚠️ 「하나님,」은 늘 혼자 둔다 — 부르는 말이라 여기서 한 번 쉬어야 기도가 된다.
-        //    붙이고 말고를 길이에 맡기면 편마다 달라 보인다.
-        if (!out.length && !cur && /^하나님[,·]?$/.test(a)) { out.push(a); return; }
-        var join = cur ? cur + " " + a : a;
-        if (cur && prayFill(join, name).length > PRAY_MAX) { out.push(cur); cur = a; }
-        else cur = join;
-      });
-      if (cur) out.push(cur);
-      // 너무 짧은 마디는 이웃에 붙인다 — 「그리하여」 한 낱말만 덩그러니 남으면 읽는 리듬이 끊긴다.
-      // (「하나님,」은 부르는 말이라 그대로 둔다)
-      for (var k = out.length - 2; k >= 0; k--) {
-        if (k === 0 && /^하나님[,·]?$/.test(out[0])) continue;
-        if (prayFill(out[k], name).length < 8) { out[k + 1] = out[k] + " " + out[k + 1]; out.splice(k, 1); }
-      }
-      var last = out.length - 1;
-      if (last > 0 && prayFill(out[last], name).length < 8) { out[last - 1] += " " + out[last]; out.pop(); }
-      return out;
-    });
+//   ⚠️ 그렇다고 마디(쉼표·연결어미)까지 끊으면 안 된다. 폰마다 폭이 달라 **줄이 들쭉날쭉**해진다
+//      — 글자 수로 끊은 자리와 브라우저가 접는 자리가 어긋나 짧은 토막이 생긴다(2026-09-03 되돌림).
+//      나누는 것은 문장까지, 줄 접는 것은 브라우저에 맡긴다.
+// 맺음말은 자료가 아니라 **늘 같은 한 줄**이라 여기서 붙인다(104편에 같은 문장을 넣지 않는다).
+//   ⚠️ 문장을 가른 **뒤에** 붙인다 — 먼저 붙이면 안의 마침표에서 둘로 쪼개진다.
+const PRAY_AMEN = "예수님의 이름으로 축복하며 기도합니다. 아멘!";
+function prayChunks(t) {
+  const out = String(t || "").replace(/([.!?])\s+/g, "$1").split("").filter(Boolean);
+  out.push(PRAY_AMEN);
+  return out;
 }
 function prayFillHtml(t, name) {
   return prayFill(prayEsc(t), '<b class="pr-nm">' + prayEsc(name) + "</b>");
@@ -2029,6 +2000,7 @@ function prayToday(n) {
 }
 
 function renderPrayerBook(idx) {
+  prayFullClose();          // 다른 화면에서 돌아올 때 덮개가 남아 있지 않게
   const u = loadUser();
   if (!prayName) prayName = (u && u.name) || "우리 가정";
   const app = document.getElementById("app");
@@ -2047,8 +2019,9 @@ function renderPrayerBook(idx) {
 
 function drawPrayer(list, i) {
   const b = list[i];
-  const prayer = prayChunks(b.prayer, prayName).map((sent) =>
-    `<div class="pr-s">${sent.map((ln) => `<span class="pr-l">${prayFillHtml(ln, prayName)}</span>`).join("")}</div>`).join("");
+  const chunks = prayChunks(b.prayer);
+  const prayer = chunks.map((sent, k) =>
+    `<div class="pr-s${k === chunks.length - 1 ? " pr-amen" : ""}">${prayFillHtml(sent, prayName)}</div>`).join("");
   const groups = [];
   list.forEach((x) => { const g = groups.find((y) => y.g === x.group); g ? g.n++ : groups.push({ g: x.group, n: 1 }); });
   const isToday = i === prayToday(list.length);
@@ -2062,7 +2035,10 @@ function drawPrayer(list, i) {
       <div class="pr-prayer">${prayer}</div>
       <button class="pr-verse-tog" id="pr-vtog" aria-expanded="${prayOpenVerse}">${prayOpenVerse ? "▴ 말씀 접기" : "▾ 말씀 펴 보기"}</button>
       <div class="pr-verse" id="pr-verse" ${prayOpenVerse ? "" : "hidden"}>${prayEsc(b.verse)}</div>
-      <button class="pr-speak" id="pr-speak">🔊 들려주기</button>
+      <div class="pr-acts">
+        <button class="pr-speak" id="pr-speak">🔊 들려주기</button>
+        <button class="pr-big" id="pr-big" title="크게 보기">⛶</button>
+      </div>
       <div class="pr-nav">
         <button class="pr-arrow" id="pr-prev">← 이전</button>
         <button class="pr-name" id="pr-name">🙍 ${prayEsc(prayName)}</button>
@@ -2076,6 +2052,7 @@ function drawPrayer(list, i) {
   document.getElementById("pr-prev").addEventListener("click", () => { stopSpeaking(); drawPrayer(list, (i - 1 + list.length) % list.length); window.scrollTo(0,0); });
   document.getElementById("pr-next").addEventListener("click", () => { stopSpeaking(); drawPrayer(list, (i + 1) % list.length); window.scrollTo(0,0); });
   document.getElementById("pr-name").addEventListener("click", () => askPrayName(list, i));
+  document.getElementById("pr-big").addEventListener("click", () => { stopSpeaking(); prayFullOpen(list, i); });
   document.querySelectorAll(".pr-chip").forEach((el) =>
     el.addEventListener("click", () => { stopSpeaking(); renderPrayerGroup(list, el.dataset.g); }));
   const tog = document.getElementById("pr-vtog"), vs = document.getElementById("pr-verse");
@@ -2093,9 +2070,86 @@ function drawPrayer(list, i) {
       stopSpeaking(); sp.textContent = "🔊 들려주기"; return;
     }
     sp.textContent = "⏹ 그만 듣기";
-    const said = [b.title, prayOpenVerse ? b.verse : "", prayFill(b.prayer, prayName)].filter(Boolean).join(". ");
+    const said = [b.title, prayOpenVerse ? b.verse : "",
+                  prayChunks(b.prayer).map((x) => prayFill(x, prayName)).join(" ")].filter(Boolean).join(". ");
     speakText(said, () => { sp.textContent = "🔊 들려주기"; }, 1, "ko-KR");
   });
+}
+
+// ── 크게 보기(전체 화면) ──────────────────────────────────────
+//   가정 예배에서 온 식구가 함께 보는 자리. 글씨를 화면에 꽉 차게 키운다.
+//   ⚠️ 아이폰 사파리는 임의의 요소에 전체화면 API 를 안 준다(video 만) — 그래서
+//      전체화면은 「되면 좋고」이고, 진짜 일은 position:fixed 덮개가 한다.
+//   ⚠️ 화면 방향은 강제로 못 돌린다(iOS 는 screen.orientation.lock 자체가 없다).
+//      세로면 「옆으로 돌리면 더 크게 보여요」라고 알려 주기만 한다.
+let prayFullEsc = null;
+function prayFullOpen(list, i) {
+  const b = list[i];
+  const wrap = document.createElement("div");
+  wrap.className = "pr-full";
+  wrap.innerHTML = `
+    <button class="pr-f-x" aria-label="닫기">✕</button>
+    <div class="pr-f-in">
+      <div class="pr-f-head"><b>${prayEsc(b.title)}</b> <span>${prayEsc(b.ref)}</span></div>
+      ${prayOpenVerse ? `<div class="pr-f-verse">${prayEsc(b.verse)}</div>` : ""}
+      <div class="pr-f-body">${prayChunks(b.prayer).map((sent, k, arr) =>
+        `<div class="pr-s${k === arr.length - 1 ? " pr-amen" : ""}">${prayFillHtml(sent, prayName)}</div>`).join("")}</div>
+    </div>
+    <div class="pr-f-turn">📱 폰을 옆으로 돌리면 더 크게 보여요</div>
+    <div class="pr-f-nav">
+      <button class="pr-f-b" data-d="-1">← 이전</button>
+      <button class="pr-f-b" data-d="1">다음 →</button>
+    </div>`;
+  document.body.appendChild(wrap);
+  document.body.classList.add("pr-full-on");
+  try { if (wrap.requestFullscreen) wrap.requestFullscreen().catch(() => {}); } catch (e) {}
+  keepScreenAwake(true);                      // 함께 읽는 동안 화면이 꺼지면 안 된다
+  prayFitText(wrap);
+  // ⚠️ 글꼴이 늦게 온다. 이 앱은 한글 웹폰트를 media="print" 로 미뤄 받으므로(첫 화면이
+  //    765KB 를 기다리지 않게), 방금 잰 것은 **기기 기본 글꼴** 폭이다. 웹폰트로 바뀌면
+  //    글자가 넓어져 좌우로 삐져나간다 — 준비되면 한 번 더 잰다.
+  try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => prayFullResize()); } catch (e) {}
+  const close = () => prayFullClose();
+  wrap.querySelector(".pr-f-x").addEventListener("click", close);
+  wrap.querySelectorAll(".pr-f-b").forEach((el) => el.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const n = (i + Number(el.dataset.d) + list.length) % list.length;
+    prayFullClose(true); drawPrayer(list, n); prayFullOpen(list, n);
+  }));
+  prayFullEsc = (e) => { if (e.key === "Escape") close(); };
+  document.addEventListener("keydown", prayFullEsc);
+  window.addEventListener("resize", prayFullResize);
+}
+function prayFullResize() {
+  const w = document.querySelector(".pr-full");
+  if (w) prayFitText(w);
+}
+function prayFullClose(keepAwake) {
+  const w = document.querySelector(".pr-full");
+  if (w) w.remove();
+  document.body.classList.remove("pr-full-on");
+  window.removeEventListener("resize", prayFullResize);
+  if (prayFullEsc) { document.removeEventListener("keydown", prayFullEsc); prayFullEsc = null; }
+  try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); } catch (e) {}
+  if (!keepAwake) keepScreenAwake(false);
+}
+// 글씨를 화면에 꽉 차게 — 넘치지 않는 가장 큰 크기를 이분법으로 찾는다.
+//   ⚠️ 바깥의 scrollHeight 로 재지 않는다. 가운데 정렬(justify-content:center)이면
+//      **위로 넘친 만큼은 scrollHeight 에 안 잡혀** 넘쳤는지 모른 채 지나간다
+//      (말씀 카드에서 출처가 테두리 밖으로 나갔던 것과 같은 함정).
+//      안쪽 덩이의 실제 높이를 재서 견준다.
+function prayFitText(wrap) {
+  const box = wrap.querySelector(".pr-f-in");
+  const cs = getComputedStyle(wrap);
+  const avail = wrap.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  let lo = 13, hi = 72, best = 13;
+  for (let k = 0; k < 12; k++) {
+    const mid = (lo + hi) / 2;
+    box.style.fontSize = mid + "px";
+    const fit = box.getBoundingClientRect().height <= avail && box.scrollWidth <= box.clientWidth + 1;
+    if (fit) { best = mid; lo = mid; } else hi = mid;
+  }
+  box.style.fontSize = (Math.floor(best * 10) / 10) + "px";
 }
 
 // 주제 하나의 목록
