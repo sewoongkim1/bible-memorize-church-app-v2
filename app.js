@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260904d";
+const APP_BUILD = "20260904e";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2044,7 +2044,7 @@ function drawPrayer(list, i) {
   document.querySelector(".pr-wrap").innerHTML = `
     <div class="pr-card">
       ${prayGroup ? `<button class="pr-gback pr-gback-in" id="pr-tolist">← ${prayEsc(prayGroup)} 목록</button>` : ""}
-      <div class="pr-kicker">${isToday ? "오늘의 축복 기도문" : "축복 기도문"} <span class="pr-count">${i + 1} / ${list.length}</span></div>
+      <div class="pr-kicker">${isToday ? "오늘의 축복 기도문" : "가정 축복 기도문"} <span class="pr-count">${i + 1} / ${list.length}</span></div>
       <div class="pr-title">${prayEsc(b.title)}</div>
       <div class="pr-ref">${prayEsc(b.ref)}</div>
       <div class="pr-prayer">${prayer}</div>
