@@ -4092,14 +4092,14 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
 .pr-ref { font-size: .86rem; color: var(--gray); margin-bottom: 10px; }
 /* 기도문 — 이 화면의 주인공이라 맨 위다. 크고 넓게. */
 .pr-prayer {
-  font-size: 1.14rem; font-weight: 600;
+  font-size: 1.06rem; font-weight: 600;
   color: var(--navy-dark, #16233f); word-break: keep-all;
   padding-left: 11px; border-left: 3px solid var(--gold);
   /* ⚠️ line-height 를 **em** 으로 준다(1.85 같은 맨 숫자가 아니라).
      맨 숫자는 자식이 「비율」을 물려받아 제 글씨에 곱하므로, 이름을 키우면
      그 줄만 벌어진다. em 은 여기서 px 로 계산돼 자식이 그 길이를 그대로
      물려받는다 — 이름이 커져도 줄간격이 흔들리지 않는다. */
-  line-height: 1.85em;
+  line-height: 1.72em;
 }
 /* 이름 — 크고 두껍고 색이 다르다. 줄간격은 위 규칙이 지킨다. */
 .pr-nm { font-size: 1.22em; font-weight: 800; color: #8a6a1e; }
@@ -4112,7 +4112,7 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
 .pr-verse-tog:hover { color: var(--navy); border-color: var(--navy); }
 .pr-verse {
   margin-top: 8px;
-  font-size: .98rem; line-height: 1.72; color: #46505f; word-break: keep-all;
+  font-size: .94rem; line-height: 1.62; color: #46505f; word-break: keep-all;
   padding: 11px 13px; background: var(--cream); border-radius: 10px;
 }
 .pr-speak {
@@ -4156,10 +4156,10 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
 
 /* 글씨 크기 설정(어르신)이 이 화면에도 걸리게 — 소리 내어 읽는 화면이라 더 필요하다.
    ⚠️ line-height 는 em 이라 font-size 를 키우면 줄간격도 함께 는다(따로 손대지 않는다). */
-html[data-fs="lg"] .pr-prayer { font-size: 1.3rem; }
-html[data-fs="xl"] .pr-prayer { font-size: 1.5rem; }
-html[data-fs="lg"] .pr-verse  { font-size: 1.08rem; }
-html[data-fs="xl"] .pr-verse  { font-size: 1.2rem; }
+html[data-fs="lg"] .pr-prayer { font-size: 1.22rem; }
+html[data-fs="xl"] .pr-prayer { font-size: 1.4rem; }
+html[data-fs="lg"] .pr-verse  { font-size: 1.02rem; }
+html[data-fs="xl"] .pr-verse  { font-size: 1.12rem; }
 .dark .pr-nm { color: var(--gold); }
 .dark .pr-verse-tog { color: #8fb3e6; border-color: #33507d; }
 
@@ -4167,7 +4167,7 @@ html[data-fs="xl"] .pr-verse  { font-size: 1.2rem; }
    문장 중앙값이 63자, 최장 182자다 — 한 덩이로 두면 소리 내어 읽을 때 숨 쉴 자리가 없다.
    ⚠️ 문장까지만 나눈다. 마디(쉼표·연결어미)까지 끊으면 폰마다 폭이 달라 줄이 들쭉날쭉해진다
       — 글자 수로 끊은 자리와 브라우저가 접는 자리가 어긋나 짧은 토막이 생긴다. */
-.pr-prayer .pr-s + .pr-s { margin-top: .55em; }
+.pr-prayer .pr-s + .pr-s { margin-top: .45em; }
 
 /* ── 크게 보기(2026-09-03) — 가정 예배에서 온 식구가 함께 보는 자리 ──────────
    ⚠️ 아이폰 사파리는 임의의 요소에 전체화면을 안 준다(video 만). 그래서 진짜 일은
@@ -4211,7 +4211,7 @@ body.pr-full-on { overflow: hidden; }
 }
 .pr-f-x:hover { color: var(--navy); border-color: var(--navy); }
 /* 맺음말 — 기도의 마침이라 살짝 띄우고 가운데. 자료가 아니라 늘 같은 한 줄이다. */
-.pr-amen { margin-top: .8em !important; text-align: center; color: #8a6a1e; font-weight: 700; }
+.pr-amen { margin-top: .65em !important; text-align: center; color: #8a6a1e; font-weight: 700; }
 .dark .pr-full { background: #10161f; color: #dfe7f5; }
 .dark .pr-f-body .pr-nm { color: var(--gold); }
 .dark .pr-f-title { color: #cfe0ff; }

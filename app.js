@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260903i";
+const APP_BUILD = "20260903j";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2151,6 +2151,9 @@ function prayFitText(wrap) {
     const fit = box.getBoundingClientRect().height <= avail && box.scrollWidth <= box.clientWidth + 1;
     if (fit) { best = mid; lo = mid; } else hi = mid;
   }
+  // ⚠️ 여기서 찾는 것은 「넘치지 않는 **가장 큰** 크기」다. 그래서 이 화면은 스크롤이 없다
+  //    (.pr-full 은 overflow:hidden 이라 넘칠 수도 없다). 줄간격만 줄이면 그 자리를 글씨가
+  //    도로 차지해 오히려 커지므로, 여기서 크기를 줄이려면 찾은 값에 비율을 곱해야 한다.
   box.style.fontSize = (Math.floor(best * 10) / 10) + "px";
 }
 
