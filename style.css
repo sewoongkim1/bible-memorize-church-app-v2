@@ -4145,21 +4145,35 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
   padding: 11px 18px; font-size: .96rem; font-weight: 800; font-family: inherit;
   color: #fff; background: var(--navy); border: 1.5px solid var(--navy); border-radius: 11px; cursor: pointer;
 }
-.pr-groups { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.pr-chip {
-  padding: 13px 8px; font-size: .94rem; font-weight: 700; font-family: inherit;
-  color: var(--navy); background: #eef1f8; border: 1.5px solid var(--navy);
-  border-radius: 12px; cursor: pointer;
+/* 주제 아코디언(2026-09-03) — 화면을 옮기지 않고 그 자리에서 펴고 접는다.
+   ⚠️ max-height 트랜지션은 JS(prAccSet)가 scrollHeight 를 실측해 준다 — CSS만으로
+      큰 고정값을 트랜지션하면 실제 높이에 먼저 도달해 "뚝" 멈추는 것처럼 보인다. */
+.pr-acc { display: flex; flex-direction: column; gap: 8px; }
+.pr-acc-item { border: 1.5px solid var(--navy); border-radius: 12px; overflow: hidden; }
+.pr-acc-head {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  padding: 13px 14px; font-size: .94rem; font-weight: 700; font-family: inherit;
+  color: var(--navy); background: #eef1f8; border: none; cursor: pointer; text-align: left;
 }
-.pr-chip b { color: #8a6a1e; }
-.pr-chip:hover { background: var(--navy); color: #fff; }
-.pr-chip:hover b { color: var(--gold); }
+.pr-acc-head b { color: #8a6a1e; }
+.pr-acc-item.open .pr-acc-head { background: var(--navy); color: #fff; }
+.pr-acc-item.open .pr-acc-head b { color: var(--gold); }
+.pr-acc-caret { font-size: .8em; transition: transform .2s; }
+.pr-acc-item.open .pr-acc-caret { transform: rotate(180deg); }
+.pr-acc-body {
+  max-height: 0; overflow: hidden; transition: max-height .22s ease;
+  display: flex; flex-direction: column; gap: 6px; padding: 8px; background: #fff;
+}
 .pr-item { text-align: left; }
 .pr-item-ref { float: right; font-weight: 600; color: var(--gray); font-size: .84rem; }
 .dark .pr-card { background: #151d2b; border-color: #6b5a2c; }
 .dark .pr-verse { background: #1b2436; color: #b9c2d0; }
 .dark .pr-prayer { color: #dfe7f5; }
-.dark .pr-chip, .dark .pr-arrow, .dark .pr-name { background: #182739; color: #8fb3e6; border-color: #33507d; }
+.dark .pr-arrow, .dark .pr-name { background: #182739; color: #8fb3e6; border-color: #33507d; }
+.dark .pr-acc-item { border-color: #33507d; }
+.dark .pr-acc-head { background: #182739; color: #8fb3e6; }
+.dark .pr-acc-item.open .pr-acc-head { background: #26406b; color: #fff; }
+.dark .pr-acc-body { background: #151d2b; }
 .dark .pr-name-row input { background: #151d2b; color: #dfe7f5; border-color: #33507d; }
 
 /* 글씨 크기 설정(어르신)이 이 화면에도 걸리게 — 소리 내어 읽는 화면이라 더 필요하다.

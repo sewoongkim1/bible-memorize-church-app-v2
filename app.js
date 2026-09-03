@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260903u";
+const APP_BUILD = "20260904a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2037,7 +2037,8 @@ function drawPrayer(list, i) {
     `<div class="pr-s${k === chunks.length - 1 ? " pr-amen" : ""}">${prayFillHtml(sent, prayName)}</div>`).join("");
   const groups = [];
   list.forEach((x) => { const g = groups.find((y) => y.g === x.group); g ? g.n++ : groups.push({ g: x.group, n: 1 }); });
-  const isToday = i === prayToday(list.length);
+  const todayNo = prayToday(list.length);
+  const isToday = i === todayNo;
   // ⚠️ 기도문이 먼저다. 말씀은 「필요하면 펴서」 — 이 화면은 읽고 축복하는 자리이지
   //    말씀을 공부하는 자리가 아니다. 편 상태는 이전/다음에도 이어진다(prayOpenVerse).
   document.querySelector(".pr-wrap").innerHTML = `
@@ -2060,8 +2061,21 @@ function drawPrayer(list, i) {
       </div>
     </div>
     <div class="grp-title">주제로 찾기</div>
-    <div class="pr-groups">
-      ${groups.map((g) => `<button class="pr-chip" data-g="${prayEsc(g.g)}">${prayEsc(g.g)} <b>${g.n}</b></button>`).join("")}
+    <div class="pr-acc" id="pr-acc">
+      ${groups.map((g) => {
+        const items = list.map((x, xi) => ({ x, xi })).filter((o) => o.x.group === g.g);
+        return `
+        <div class="pr-acc-item">
+          <button class="pr-acc-head" aria-expanded="false">
+            <span>${prayEsc(g.g)} <b>${g.n}</b></span>
+            <span class="pr-acc-caret">▾</span>
+          </button>
+          <div class="pr-acc-body">
+            ${items.map((o) => `<button class="summary-help pr-item${o.xi === todayNo ? " on" : ""}" data-i="${o.xi}" data-g="${prayEsc(g.g)}">${prayEsc(o.x.title)}
+               <span class="pr-item-ref">${o.xi === todayNo ? "오늘 · " : ""}${prayEsc(prayRefShort(o.x.ref))}</span></button>`).join("")}
+          </div>
+        </div>`;
+      }).join("")}
     </div>`;
   // ⚠️ 이전/다음은 주제 안이 아니라 104편 전체를 돈다 — 그러면 「목록으로」가 거짓말이 되므로 내린다
   document.getElementById("pr-prev").addEventListener("click", () => { stopSpeaking(); prayGroup = null; drawPrayer(list, (i - 1 + list.length) % list.length); window.scrollTo(0,0); });
@@ -2070,8 +2084,24 @@ function drawPrayer(list, i) {
   const toList = document.getElementById("pr-tolist");
   if (toList) toList.addEventListener("click", () => { stopSpeaking(); renderPrayerGroup(list, prayGroup); });
   document.getElementById("pr-big").addEventListener("click", () => { stopSpeaking(); prayFullOpen(list, i); });
-  document.querySelectorAll(".pr-chip").forEach((el) =>
-    el.addEventListener("click", () => { stopSpeaking(); renderPrayerGroup(list, el.dataset.g); }));
+  // 주제 아코디언 — 화면을 옮기지 않고 그 자리에서 펴고 접는다. 한 번에 하나만 열린다.
+  document.querySelectorAll(".pr-acc-head").forEach((head) => {
+    head.addEventListener("click", () => {
+      const item = head.closest(".pr-acc-item");
+      const willOpen = !item.classList.contains("open");
+      document.querySelectorAll(".pr-acc-item.open").forEach((other) => {
+        if (other !== item) prAccSet(other, false);
+      });
+      prAccSet(item, willOpen);
+    });
+  });
+  document.querySelectorAll(".pr-acc-item .pr-item").forEach((el) =>
+    el.addEventListener("click", () => {
+      stopSpeaking();
+      prayGroup = el.dataset.g;   // 「← <주제> 목록」이 여기로 돌아올 수 있게
+      drawPrayer(list, Number(el.dataset.i));
+      window.scrollTo(0, 0);
+    }));
   const tog = document.getElementById("pr-vtog"), vs = document.getElementById("pr-verse");
   tog.addEventListener("click", () => {
     prayOpenVerse = !prayOpenVerse;
@@ -2091,6 +2121,18 @@ function drawPrayer(list, i) {
                   prayChunks(b.prayer).map((x) => prayFill(x, prayName)).join(" ")].filter(Boolean).join(". ");
     speakText(said, () => { sp.textContent = "🔊 들려주기"; }, 1, "ko-KR");
   });
+}
+
+// 주제 아코디언 한 칸을 펴거나 접는다.
+//   ⚠️ max-height 를 큰 고정값(2000px 등)으로 트랜지션하면 실제 내용 높이에 먼저
+//      도달해 버려 "확 펼쳐졌다 뚝 멈추는" 느낌이 난다 — scrollHeight 를 실측해
+//      정확한 값을 준다(닫을 때도 먼저 그 값이어야 0으로 되짚어 갈 수 있다).
+function prAccSet(item, open) {
+  const body = item.querySelector(".pr-acc-body");
+  const head = item.querySelector(".pr-acc-head");
+  item.classList.toggle("open", open);
+  head.setAttribute("aria-expanded", String(open));
+  body.style.maxHeight = open ? body.scrollHeight + "px" : "0px";
 }
 
 // ── 크게 보기(전체 화면) ──────────────────────────────────────
