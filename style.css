@@ -4217,3 +4217,17 @@ body.pr-full-on { overflow: hidden; }
 .dark .pr-f-title { color: #cfe0ff; }
 .dark .pr-f-x { background: rgba(0,0,0,.4); color: #8fb3e6; border-color: #33507d; }
 .dark .pr-amen { color: var(--gold); }
+/* ⟳ 가로로 돌려 보기 — 폰이 세로로 잠겨 있어도(자동 회전 꺼짐·앱 껍데기의 세로 고정)
+   글자를 90° 돌려 그려서 폰만 옆으로 들면 읽을 수 있게. 기기 회전에 기대지 않는다.
+   ⚠️ transform 은 배치를 바꾸지 않으므로 flex 흐름에서 빼내 절대 배치로 가운데 둔다. */
+.pr-f-rot {
+  position: absolute; top: 10px; right: 62px; width: 42px; height: 42px;
+  font-size: 1.2rem; font-family: inherit; color: var(--gray); cursor: pointer;
+  background: rgba(255,255,255,.75); border: 1.5px solid #d6dbe6; border-radius: 50%;
+}
+.pr-f-rot:hover { color: var(--navy); border-color: var(--navy); }
+.pr-full.pr-rot .pr-f-in {
+  position: absolute; top: 50%; left: 50%; max-width: none;
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+.dark .pr-f-rot { background: rgba(0,0,0,.4); color: #8fb3e6; border-color: #33507d; }

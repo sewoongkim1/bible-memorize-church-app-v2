@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260903j";
+const APP_BUILD = "20260903k";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2086,12 +2086,14 @@ function drawPrayer(list, i) {
 //   ⚠️ 화면 방향은 강제로 못 돌린다(iOS 는 screen.orientation.lock 자체가 없다).
 let prayFullEsc = null;
 let prayFullPop = null;
+let prayRot = false;   // 크게 보기를 90° 돌려 볼까 — 폰이 세로로 잠겨 있어도 가로로 읽게
 function prayFullOpen(list, i) {
   const b = list[i];
   const wrap = document.createElement("div");
   wrap.className = "pr-full";
   wrap.innerHTML = `
     <button class="pr-f-x" aria-label="닫기">✕</button>
+    <button class="pr-f-rot" aria-label="가로로 돌려 보기">⟳</button>
     <div class="pr-f-in">
       <div class="pr-f-title">${prayEsc(b.title)}</div>
       <div class="pr-f-body">${prayChunks(b.prayer).map((sent, k, arr) =>
@@ -2099,6 +2101,7 @@ function prayFullOpen(list, i) {
     </div>`;
   document.body.appendChild(wrap);
   document.body.classList.add("pr-full-on");
+  wrap.classList.toggle("pr-rot", prayRot);      // 지난번에 돌려 뒀으면 그대로
   // 옛 판(2026-09-03 이전)으로 전체화면에 들어가 갇힌 분이 있을 수 있다 — 열 때 풀어 준다.
   // ⚠️ 안드로이드 크롬은 전체화면에 들어간 그 방향으로 화면을 고정한다.
   try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); } catch (e) {}
@@ -2114,6 +2117,13 @@ function prayFullOpen(list, i) {
   try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => prayFullResize()); } catch (e) {}
   const close = () => prayFullClose();
   wrap.querySelector(".pr-f-x").addEventListener("click", close);
+  // ⟳ — 기기를 돌리는 게 아니라 **글자를 돌려 그린다**. 폰이 세로로 잠겨 있어도(자동 회전
+  //     꺼짐·앱 껍데기의 세로 고정) 폰만 옆으로 들면 가로로 읽을 수 있다.
+  wrap.querySelector(".pr-f-rot").addEventListener("click", () => {
+    prayRot = !prayRot;
+    wrap.classList.toggle("pr-rot", prayRot);
+    prayFitText(wrap);
+  });
   prayFullEsc = (e) => { if (e.key === "Escape") close(); };
   document.addEventListener("keydown", prayFullEsc);
   window.addEventListener("resize", prayFullResize);
@@ -2143,12 +2153,20 @@ function prayFullClose(keepAwake, fromPop) {
 function prayFitText(wrap) {
   const box = wrap.querySelector(".pr-f-in");
   const cs = getComputedStyle(wrap);
-  const avail = wrap.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+  const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+  const rot = wrap.classList.contains("pr-rot");
+  // 90° 돌리면 **글이 흐르는 폭은 화면 높이**가 되고, 채울 높이는 화면 폭이 된다
+  const availW = (rot ? wrap.clientHeight - padY : wrap.clientWidth - padX);
+  const availH = (rot ? wrap.clientWidth - padX : wrap.clientHeight - padY);
+  box.style.width = rot ? availW + "px" : "";
   let lo = 13, hi = 72, best = 13;
   for (let k = 0; k < 12; k++) {
     const mid = (lo + hi) / 2;
     box.style.fontSize = mid + "px";
-    const fit = box.getBoundingClientRect().height <= avail && box.scrollWidth <= box.clientWidth + 1;
+    // ⚠️ offsetHeight 로 잰다 — getBoundingClientRect 는 **돌린 뒤의 겉넓이**를 주므로
+    //    회전 모드에서 가로·세로가 뒤바뀐 값이 나온다. offsetHeight 는 돌리기 전 배치 높이다.
+    const fit = box.offsetHeight <= availH && box.scrollWidth <= box.clientWidth + 1;
     if (fit) { best = mid; lo = mid; } else hi = mid;
   }
   // ⚠️ 여기서 찾는 것은 「넘치지 않는 **가장 큰** 크기」다. 그래서 이 화면은 스크롤이 없다
@@ -4573,13 +4591,14 @@ function scrollPastBtnRow() {
 // 상단 로고 배너(.page-header)를 숨겨야 하는 화면이 있다.
 //   .test-ref-sticky — 요절 고정 배너가 top:0을 쓰므로 로고 배너와 겹친다(암송·도전·복습)
 //   .album-screen    — 구절을 길게 훑는 화면이라 위쪽 공간을 온전히 내준다
+//   .pr-wrap         — 축복 기도문. 소리 내어 읽는 화면이라 스크롤을 한 줄이라도 줄인다
 // #app 내용이 바뀔 때마다 감시해서, 어떤 경로로 전환되든(뒤로가기 포함) 항상 따라간다.
 (function watchPageHeaderVsStickyRef() {
   const appEl = document.getElementById("app");
   const header = document.querySelector(".page-header");
   if (!appEl || !header) return;
   const sync = () => {
-    header.style.display = appEl.querySelector(".test-ref-sticky, .album-screen") ? "none" : "";
+    header.style.display = appEl.querySelector(".test-ref-sticky, .album-screen, .pr-wrap") ? "none" : "";
   };
   sync();
   new MutationObserver(sync).observe(appEl, { childList: true });
