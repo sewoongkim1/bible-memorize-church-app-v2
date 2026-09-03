@@ -133,6 +133,7 @@ Deno.serve(async (req) => {
       case "clearSummaryCache": return json(await clearSummaryCache(body));
       case "clearChatCache": return json(await clearChatCache(body));
       case "getBlessings":        return json(await getBlessings());
+      case "blessingLog":         return json(await blessingLog(body));
       case "getPassages":         return json(await getPassages());
       case "savePassage":         return json(await savePassage(body));
       case "deletePassage":       return json(await deletePassage(body));
@@ -698,6 +699,23 @@ async function seedVerses(b: any) {
 }
 
 // ---------- 긴 본문 암송("핵심 암송") ----------
+// 가정 축복 기도문을 누가 얼마나 보시는지 — 한 편을 열 때 한 번 부른다.
+// ⚠️ 한 사람이 하루에 한 편을 여러 번 봐도 **한 행**이다(cnt 만 는다).
+//    열 때마다 한 행씩 쌓으면 금세 커진다 — daily_activity 에서 배운 것을 처음부터 쓴다.
+// ⚠️ 실패해도 조용히 넘긴다. 기록 때문에 기도문이 안 열리면 본말이 뒤집힌다.
+// ⚠️ 표(blessing_log.sql)를 아직 안 만든 판에서도 앱은 그대로 돌아야 한다.
+async function blessingLog(b: any) {
+  const no = Number(b.no);
+  if (!b.user_id || !Number.isFinite(no) || no < 1 || no > 999) return { ok: true, skipped: true };
+  try {
+    const { error } = await db.rpc("v2_blessing_log", { uid: b.user_id, n: no });
+    if (error) return { ok: true, skipped: "no-table" };
+  } catch (_e) {
+    return { ok: true, skipped: "error" };
+  }
+  return { ok: true };
+}
+
 // 가정 축복 기도문 104편 — 읽기 전용. 누구나 같은 자료라 개인 것이 섞이지 않는다.
 // ⚠️ prayer 는 이름 토큰({이름}{이}…)이 든 채로 내보낸다. 채우는 것은 앱(prayFill)이다 —
 //    서버가 채우면 사람마다 응답이 달라져 캐시가 통째로 무용지물이 된다.

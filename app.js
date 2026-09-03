@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260903r";
+const APP_BUILD = "20260903s";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2018,8 +2018,17 @@ function renderPrayerBook(idx) {
   });
 }
 
+let prayLogged = null;   // 방금 기록한 편 — 이름 바꾸기 등으로 다시 그릴 때 두 번 세지 않게
+
 function drawPrayer(list, i) {
   const b = list[i];
+  // 누가 얼마나 보시는지 남긴다(서버가 하루·편 단위로 묶는다).
+  // ⚠️ 실패해도 조용히 넘긴다 — 기록 때문에 기도문이 안 열리면 본말이 뒤집힌다.
+  if (prayLogged !== b.no) {
+    prayLogged = b.no;
+    const u = loadUser();
+    if (u && u.user_id) { try { api.blessingLog({ user_id: u.user_id, no: b.no }); } catch (e) {} }
+  }
   const chunks = prayChunks(b.prayer);
   const prayer = chunks.map((sent, k) =>
     `<div class="pr-s${k === chunks.length - 1 ? " pr-amen" : ""}">${prayFillHtml(sent, prayName)}</div>`).join("");
