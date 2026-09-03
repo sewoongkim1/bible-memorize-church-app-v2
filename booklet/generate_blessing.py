@@ -35,8 +35,10 @@ FOOT_MID = '오직 말씀, 성경이 답이다!'
 AMEN = '예수님의 이름으로 축복하며 기도합니다. 아멘!'
 PER_VOL = 52
 
-PRAY_PT = 14.0      # 온 책이 한 가지. 가장 긴 기도문이 정한 값이다(박스 40mm 남김)
-PRAY_PER = 23       # 한 줄 목표 글자 수 — 위 크기에서 118mm 폭에 들어가는 수
+PRAY_PT = 13.0      # 온 책이 한 가지. 가장 긴 기도문이 정한 값이다(박스 40mm 남김)
+PRAY_PER = 15       # 한 줄 목표 글자 수. ⚠️ 폭에 들어가는 최대(23자)가 아니라 **일부러 짧게** 잡았다 —
+                    #    짧게 끊어야 소리 내어 읽기 좋고, 아래 남는 자리도 그만큼 줄어든다.
+                    #    더 짧게(14자) 하려면 글씨를 12pt 로 내려야 한다(실측).
 BOX_MIN = 35        # 아래 박스가 최소 이만큼은 남아야 한다(mm)
 MARK = chr(1)       # 끊을 자리 표식. ⚠️ 빈 문자열이면 split 이 터진다
 
@@ -95,6 +97,11 @@ def pray_lines(t, name):
         s = re.sub(r'([가-힣][과와])\s+(?!같이|함께|같은|더불어)', '\\1' + MARK, s)
         cur = ''
         for a in [x.strip() for x in s.split(MARK) if x.strip()]:
+            # ⚠️ 「하나님,」은 늘 혼자 한 줄이다 — 부르는 말이라 여기서 한 번 쉬어야 기도가 된다.
+            #    길이에 맡기면 편마다 붙었다 떨어졌다 해서 책이 들쭉날쭉해 보인다.
+            if not out and not cur and a in ('하나님,', '하나님'):
+                out.append(a)
+                continue
             j = (cur + ' ' + a) if cur else a
             if cur and len(j) > PRAY_PER:
                 out.append(cur)
@@ -103,13 +110,18 @@ def pray_lines(t, name):
                 cur = j
         if cur:
             out.append(cur)
-    # 너무 짧은 토막은 이웃에 붙인다 — 한 낱말만 덩그러니 남으면 읽는 리듬이 끊긴다
-    for k in range(len(out) - 2, -1, -1):
+    # 너무 짧은 토막은 이웃에 붙인다 — 한 낱말만 덩그러니 남으면 읽는 리듬이 끊긴다.
+    # ⚠️ 무조건 다음 줄에 붙였더니 「주옵소서.」가 **다음 문장 첫머리와 한 줄**이 됐다.
+    #    문장이 끝나는 토막은 앞 줄에 붙인다 — 마침표를 넘어가면 안 된다.
+    k = len(out) - 1
+    while k > 0:
         if len(out[k]) < 7:
-            out[k + 1] = out[k] + ' ' + out[k + 1]
-            del out[k]
-    if len(out) > 1 and len(out[-1]) < 7:
-        out[-2] += ' ' + out.pop()
+            if out[k][-1] in '.!?' or k == len(out) - 1:
+                out[k - 1] += ' ' + out.pop(k)          # 문장 끝 토막 → 앞 줄로
+            elif k + 1 < len(out):
+                out[k + 1] = out[k] + ' ' + out[k + 1]  # 그 밖 → 다음 줄로
+                del out[k]
+        k -= 1
     return out
 
 
@@ -247,7 +259,7 @@ body { margin:0; font-family:"Noto Sans KR","Malgun Gothic",sans-serif; color:#1
 /* 기도문 — 이 책의 전부다. 온 책이 한 크기(16pt)로 통일된다.
    ⚠️ 줄 간격을 em 으로 준다 — 맨 숫자로 주면 이름(.nm)이 커질 때 그 줄만 벌어진다.
       em 은 여기서 px 로 계산돼 자식이 그 길이를 그대로 물려받는다. */
-.b-pray { font-size:14pt; line-height:1.75em; text-align:center; word-break:keep-all;
+.b-pray { font-size:13pt; line-height:1.75em; text-align:center; word-break:keep-all;
           padding:7mm 2mm 6mm; }
 .pl { }
 .b-amen { margin-top:4mm; font-weight:700; }
@@ -307,6 +319,21 @@ def build(vol, items, name):
     io.open(f, 'w', encoding='utf-8', newline='').write(out)
     return f, out.count('class="page')
 
+
+# --sample N : 앞에서 N편만, 표지·차례 없이 한 파일로. 인쇄해 손에 쥐어 보는 용도.
+if '--sample' in sys.argv:
+    k = int(sys.argv[sys.argv.index('--sample') + 1])
+    body = ''.join(page(r, 1 + i, NAME) for i, r in enumerate(rows[:k]))
+    out = ('<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">'
+           '<link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800'
+           '&family=Noto+Sans+KR:wght@300;400;500;700;800&display=swap" rel="stylesheet">'
+           '<style>%s</style></head><body>%s</body></html>' % (CSS, body))
+    io.open('축복기도문_견본.html', 'w', encoding='utf-8', newline='').write(out)
+    print('축복기도문_견본.html — %d장 (%.0fpt · 한 줄 %d자)' % (k, PRAY_PT, PRAY_PER))
+    for r in rows[:k]:
+        print('   %d번 %-16s 기도문 %2d줄 · 아래 박스 %2.0fmm'
+              % (r['no'], r['title'], len(pray_lines(r['prayer'], NAME)) + 1, box_mm(r, NAME)))
+    sys.exit(0)
 
 vols = [rows[i:i + PER_VOL] for i in range(0, len(rows), PER_VOL)]
 for n, items in enumerate(vols, 1):
