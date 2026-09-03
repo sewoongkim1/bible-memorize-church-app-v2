@@ -4160,10 +4160,15 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
 .pr-acc-item.open .pr-acc-head b { color: var(--gold); }
 .pr-acc-caret { font-size: .8em; transition: transform .2s; }
 .pr-acc-item.open .pr-acc-caret { transform: rotate(180deg); }
+/* ⚠️ max-height:0 은 패딩까지 눌러 주지 않는다 — border-box 라도 위아래 패딩(8+8=16px)이
+   그대로 남아, 접힌 항목마다 빈 상자처럼 아래가 비어 보였다(2026-09-04, 실기기 제보).
+   접혔을 때는 패딩도 0으로 — 열렸을 때만 준다(그 대신 패딩은 트랜지션 없이 뚝 바뀐다,
+   흔한 아코디언 타협이다). */
 .pr-acc-body {
   max-height: 0; overflow: hidden; transition: max-height .22s ease;
-  display: flex; flex-direction: column; gap: 6px; padding: 8px; background: #fff;
+  display: flex; flex-direction: column; gap: 6px; padding: 0 8px; background: #fff;
 }
+.pr-acc-item.open .pr-acc-body { padding: 8px; }
 .pr-item { text-align: left; }
 .pr-item-ref { float: right; font-weight: 600; color: var(--gray); font-size: .84rem; }
 .dark .pr-card { background: #151d2b; border-color: #6b5a2c; }
