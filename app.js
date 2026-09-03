@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260903s";
+const APP_BUILD = "20260903t";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1141,6 +1141,7 @@ function markFeatSeen(k) { try { localStorage.setItem("feat-seen-" + k, "1"); } 
 // 새 기능을 넣으면 **여기에 나온 날을 적는다.** 안 적으면 NEW가 아예 안 뜬다
 //    (영원히 붙어 있느니 안 뜨는 편이 낫다).
 const FEAT_SINCE = {
+  prayer: "2026-09-03",
   meditation: "2026-07-20",   // 매일 묵상
   sermon: "2026-07-23",       // 내게 주시는 말씀
   passages: "2026-07-23",     // 내 안에 거하는 말씀
@@ -1831,6 +1832,7 @@ function renderSummary() {
     <button class="summary-help" id="open-board">💬 응원·기도·공감</button>
     <button class="summary-help" id="open-quiz">🎯 성경암송 퀴즈</button>
     <button class="summary-help" id="open-pilsa">✍️ 성경필사 노트 신청</button>
+    <button class="summary-help" id="open-prayer">🙏 가정 축복 기도문${newBadge("prayer")}</button>
     ${passagesVisible() ? `<button class="summary-help" id="open-passages">📜 내 안에 거하는 말씀${newBadge("passages")}</button>` : ""}
     <!-- 아카이브 둘은 앱 밖(다른 사이트)으로 나간다. 그 사실이 보이게 ↗ 와 흰 바탕으로
          구분하고, 여기서 잘 안 누르는 것이라 접어 둔다(연 상태는 기억한다). -->
@@ -1857,6 +1859,7 @@ function renderSummary() {
   renderEventButton();  // 이미 로드된 설정이 있으면 즉시 표시
   loadEventState();     // 서버에서 설정·응모여부 갱신 후 다시 표시
   document.getElementById("open-board").addEventListener("click", renderBoard);
+  document.getElementById("open-prayer").addEventListener("click", () => renderPrayerBook());
   document.getElementById("open-pilsa").addEventListener("click", () => {
     pilsaLoaded = false;          // 들어올 때마다 서버에서 지금 상태를 받는다
     renderPilsaApply();
