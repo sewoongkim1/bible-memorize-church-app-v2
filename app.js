@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260903p";
+const APP_BUILD = "20260903q";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2087,6 +2087,22 @@ function drawPrayer(list, i) {
 let prayFullEsc = null;
 let prayFullPop = null;
 let prayRot = false;   // 크게 보기를 90° 돌려 볼까 — 폰이 세로로 잠겨 있어도 가로로 읽게
+// 출처를 짧게 — 「창세기 26:2-4」 → 「창 26:2-4」. 제목 옆에 붙일 자리가 좁다.
+// ⚠️ 못 알아본 책 이름은 **그대로 둔다**(자르지 않는다) — 틀린 약자보다 긴 본명이 낫다.
+const PRAY_BOOK = {
+  창세기: "창", 출애굽기: "출", 레위기: "레", 민수기: "민", 신명기: "신",
+  여호수아: "수", 사사기: "삿", 룻기: "룻", 사무엘상: "삼상", 사무엘하: "삼하",
+  열왕기상: "왕상", 열왕기하: "왕하", 역대상: "대상", 역대하: "대하",
+  에스라: "스", 느헤미야: "느", 에스더: "에", 욥기: "욥", 시편: "시",
+  잠언: "잠", 전도서: "전", 아가: "아", 이사야: "사", 예레미야: "렘",
+};
+function prayRefShort(ref) {
+  const m = String(ref || "").match(/^([가-힣]+)\s*(.*)$/);
+  if (!m) return ref || "";
+  const short = PRAY_BOOK[m[1]];
+  return short ? short + " " + m[2] : ref;
+}
+
 function prayFullOpen(list, i) {
   const b = list[i];
   const wrap = document.createElement("div");
@@ -2095,7 +2111,7 @@ function prayFullOpen(list, i) {
     <button class="pr-f-x" aria-label="닫기">✕</button>
     <button class="pr-f-rot" aria-label="가로로 돌려 보기">⟳</button>
     <div class="pr-f-in">
-      <div class="pr-f-title">${prayEsc(b.title)}</div>
+      <div class="pr-f-title">${prayEsc(b.title)} <span class="pr-f-ref">${prayEsc(prayRefShort(b.ref))}</span></div>
       <div class="pr-f-body">${prayChunks(b.prayer).map((sent, k, arr) =>
         `<div class="pr-s${k === arr.length - 1 ? " pr-amen" : ""}">${prayFillHtml(sent, prayName)}</div>`).join("")}</div>
     </div>`;

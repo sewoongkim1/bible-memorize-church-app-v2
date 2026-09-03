@@ -4199,7 +4199,11 @@ body.pr-full-on { overflow: hidden; }
 .pr-f-title {
   font-size: 1.2em; font-weight: 800; color: var(--navy);
   margin-bottom: .55em; line-height: 1.3em;
+  text-align: center;
 }
+/* 출처는 제목 옆에 한 단계 작고 옅게 — 제목을 밀어내지 않게 */
+.pr-f-ref { font-size: .78em; font-weight: 700; color: var(--gray); white-space: nowrap; }
+.dark .pr-f-ref { color: #8fa3c0; }
 /* 기도문 — line-height 를 em 으로 줘야 이름을 키워도 줄간격이 안 흔들린다(본 화면과 같은 이유) */
 .pr-f-body { font-weight: 600; line-height: 1.75em; word-break: keep-all; overflow-wrap: break-word; }
 .pr-f-body .pr-s + .pr-s { margin-top: .55em; }
