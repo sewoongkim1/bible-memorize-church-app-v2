@@ -84,3 +84,6 @@ booklet/*_backup.pdf
 # 캡처를 돌릴 때마다 다시 쓰이는 기록 — 볼 사람이 없는데 git status 만 지저분해진다
 guide/_cap.txt
 
+# 축복기도문 핸드북 — 이름이 박힌 개인용 산출물(생성기로 언제든 다시 만든다)
+booklet/축복기도문_*.html
+booklet/축복기도문_*_*.pdf
