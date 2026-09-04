@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260904h";
+const APP_BUILD = "20260904i";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2162,20 +2162,65 @@ function prayRefShort(ref) {
   return short ? short + " " + m[2] : ref;
 }
 
+// 액자 — 말씀카드(액자용)의 양식을 그대로 옮겼다: 이중 테두리 + 수채화 잎가지 + ❖ 장식.
+// 소재는 `img/frame/leaf1~6.webp`(`tools/frame-art.py`가 말씀카드 원본에서 줄여 만든다).
+// ⚠️ **여는 순간에만 받는다** — 한 번 열 때 잎가지 한 장(27~46KB)뿐이다. 미리 받아 두면
+//    글꼴 765KB 사건과 같은 길이가 된다(기도문 화면은 이미 blessings 83KB를 받는다).
+// ⚠️ 장식이므로 낭독기가 건너뛰게 `aria-hidden` · `alt=""`. 뜻을 나르는 그림이 아니다.
+// ⚠️ 잎가지 자리(`pos`)와 크기(`w`)도 함께 가른다 — 여섯이 다 같은 자리면
+//    「액자 하나에 풀만 바꾼 것」으로 보인다. b=아래 두 귀퉁이 · d=엇갈리게(왼쪽 위·오른쪽 아래).
+const PRAY_FRAMES = [
+  { c: "gold", art: 6, pos: "b", w: 25 },   // 금색 · 밀이삭    (말씀카드 스바냐 면과 같은 짝)
+  { c: "navy", art: 4, pos: "b", w: 24 },   // 군청 · 흰꽃      (말씀카드 나훔 면과 같은 짝)
+  { c: "gold", art: 1, pos: "d", w: 30 },   // 금색 · 유칼립투스
+  { c: "navy", art: 3, pos: "b", w: 33 },   // 군청 · 유칼립투스와 올리브잎
+  { c: "gold", art: 5, pos: "d", w: 36 },   // 금색 · 올리브가지
+  { c: "navy", art: 2, pos: "b", w: 35 },   // 군청 · 유칼립투스와 열매
+];
+let prayFrameLast = -1;
+function prayPickFrame() {
+  let k = Math.floor(Math.random() * PRAY_FRAMES.length);
+  if (k >= PRAY_FRAMES.length) k = PRAY_FRAMES.length - 1;      // Math.random()이 1을 줄 때
+  // 바로 앞과 같은 액자는 피한다 — 두 번 잇달아 같으면 「하나뿐인가」로 보인다
+  if (k === prayFrameLast) k = (k + 1) % PRAY_FRAMES.length;
+  prayFrameLast = k;
+  return PRAY_FRAMES[k];
+}
+// ❖ — 말씀카드의 장식과 같은 모양. 글꼴에 있는 글자(U+2756)는 기기마다 없거나
+//     이모지로 나와서 그림으로 그린다(말씀카드도 같은 이유로 SVG다).
+const PRAY_ORN =
+  '<svg class="pr-orn-d" viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor">' +
+  '<path d="M12 1.6 14.7 6.6 12 11.6 9.3 6.6Z"/><path d="M12 12.4 14.7 17.4 12 22.4 9.3 17.4Z"/>' +
+  '<path d="M1.6 12 6.6 9.3 11.6 12 6.6 14.7Z"/><path d="M12.4 12 17.4 9.3 22.4 12 17.4 14.7Z"/>' +
+  "</g></svg>";
+
 function prayFullOpen(list, i) {
   const b = list[i];
+  const fr = prayPickFrame();
+  // ⚠️ `?v=`를 붙인다(말씀 연상 그림과 같은 규칙) — 안 붙이면 소재를 고쳐도 옛 그림이 남는다
+  const leaf = "img/frame/leaf" + fr.art + ".webp?v=" + APP_BUILD;
   const wrap = document.createElement("div");
-  wrap.className = "pr-full";
+  // ⚠️ 액자 색은 **덮개**에 붙인다 — 테두리 색(`--fr`)을 ❖ 장식도 같이 써야 하는데,
+  //    CSS 변수는 형제에게 안 내려가고 자손에게만 내려간다.
+  wrap.className = "pr-full pr-fr-" + fr.c;
   wrap.innerHTML = `
+    <div class="pr-frame pr-pos-${fr.pos}" data-lw="${fr.w}" aria-hidden="true">
+      <img class="pr-fr-leaf l" src="${leaf}" alt="">
+      <img class="pr-fr-leaf r" src="${leaf}" alt="">
+      <div class="pr-fr-box"></div>
+    </div>
     <button class="pr-f-x" aria-label="닫기">✕</button>
     <button class="pr-f-rot" aria-label="가로로 돌려 보기">⟳</button>
     <div class="pr-f-in">
       <div class="pr-f-title">${prayEsc(b.title)} <span class="pr-f-ref">${prayEsc(prayRefShort(b.ref))}</span></div>
+      <div class="pr-f-orn" aria-hidden="true"><i></i>${PRAY_ORN}<i></i></div>
       <div class="pr-f-body">${prayChunks(b.prayer).map((sent, k, arr) =>
         `<div class="pr-s${k === arr.length - 1 ? " pr-amen" : ""}">${prayFillHtml(sent, prayName)}</div>`).join("")}</div>
     </div>`;
   document.body.appendChild(wrap);
   document.body.classList.add("pr-full-on");
+  // 잎가지를 못 받으면 조용히 감춘다 — 깨진 그림 표시가 뜨면 액자가 없느니만 못하다
+  wrap.querySelectorAll(".pr-fr-leaf").forEach((im) => { im.onerror = () => { im.style.display = "none"; }; });
   wrap.classList.toggle("pr-rot", prayRot);      // 지난번에 돌려 뒀으면 그대로
   // 옛 판(2026-09-03 이전)으로 전체화면에 들어가 갇힌 분이 있을 수 있다 — 열 때 풀어 준다.
   // ⚠️ 안드로이드 크롬은 전체화면에 들어간 그 방향으로 화면을 고정한다.
@@ -2231,6 +2276,18 @@ function prayFitText(wrap) {
   const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
   const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
   const rot = wrap.classList.contains("pr-rot");
+  // 액자도 글과 함께 돈다 — 돌려 볼 때 잎가지가 위·아래에서 자라 나오면 액자로 안 보인다.
+  // ⚠️ 100vw/100vh 로 쓰지 않는다(주소창 때문에 실제 덮개 크기와 어긋난다) — 덮개를 직접 잰다.
+  const frame = wrap.querySelector(".pr-frame");
+  if (frame) {
+    frame.style.width = rot ? wrap.clientHeight + "px" : "";
+    frame.style.height = rot ? wrap.clientWidth + "px" : "";
+    // ⚠️ 잎가지 폭은 **화면의 짧은 쪽**을 따라간다. `%`로 두면 액자의 가로를 따르는데,
+    //    돌려 보기에서는 그 가로가 화면 세로(긴 쪽)라 잎가지가 두 배로 부풀어
+    //    화면 폭의 3분의 2를 덮었다(2026-09-04 실측). 여기서 픽셀로 정한다.
+    const side = Math.min(frame.offsetWidth, frame.offsetHeight);
+    frame.style.setProperty("--lw", Math.round(side * (Number(frame.dataset.lw) || 30) / 100) + "px");
+  }
   // 90° 돌리면 **글이 흐르는 폭은 화면 높이**가 되고, 채울 높이는 화면 폭이 된다
   const availW = (rot ? wrap.clientHeight - padY : wrap.clientWidth - padX);
   const availH = (rot ? wrap.clientWidth - padX : wrap.clientHeight - padY);
@@ -7569,6 +7626,9 @@ async function keepScreenAwake(on) {
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState !== "visible") return;
   if (albumPlayer) keepScreenAwake(true).then(() => albumPlayBar());
+  // 기도문 「크게 보기」도 같다 — 다른 앱에 갔다 오면 브라우저가 잠금을 놓아 버린다.
+  // 온 식구가 둘러앉아 읽는 화면이라 여기서 화면이 꺼지면 기도가 끊긴다.
+  else if (document.querySelector(".pr-full")) keepScreenAwake(true);
 });
 function albumClearGap() { if (albumGapTimer) { clearTimeout(albumGapTimer); albumGapTimer = null; } }
 

@@ -4225,13 +4225,69 @@ body.pr-full-on { overflow: hidden; }
      그러면 높이가 실제보다 작게 재어져 아래 이분법이 글씨를 너무 키우고, 세로 화면에서
      좌우로도 아래로도 넘친다(2026-09-03 에 실제로 그랬다). 늘려 두고 가운데는 margin 으로. */
   display: flex; flex-direction: column; align-items: stretch; justify-content: center;
-  padding: 34px 20px 112px; box-sizing: border-box;
+  /* ⚠️ 좌우 여백은 액자 테두리(안쪽 선까지 21px)를 피할 만큼 둔다 — 20px 이던 시절엔
+     글이 속선에 닿았다. 그만큼 글씨가 작아지지만, 닿아 있으면 액자로 안 보인다. */
+  padding: 40px 34px 112px; box-sizing: border-box;
+  --fr: #c3a253; --fr2: #e2d2a8;          /* 액자 겉선·속선 — 기본은 금색 */
 }
+.pr-full.pr-fr-navy { --fr: #1a3a6b; --fr2: #a9b7cf; }
+/* 좁은 폰(320px)에서는 좌우 34px 이 화면 폭의 21퍼센트다 — 가장 긴 편이 13.9px 까지
+   내려갔다(이분법 바닥 13px 바로 위). 액자 속선까지 19px 이니 26px 이면 7px 이 남는다. */
+@media (max-width: 360px) { .pr-full { padding: 34px 26px 108px; } }
 /* ⚠️ flex 항목은 flex-shrink 가 기본 1이다. 세로 방향 flex 에서는 그게 **높이**에 걸려,
    내용이 넘치면 상자가 눌리고 글자만 밖으로 삐져나간다. 그러면 높이를 재도 「들어간다」고
    나와서 아래 이분법이 글씨를 너무 키운다(2026-09-03 실측: 잰 높이 689px 인데 자리는 640px).
    scrollHeight 가 가운데 정렬의 위쪽 넘침을 못 잡는 것과 같은 갈래의 함정이다. */
-.pr-f-in { flex: 0 0 auto; width: 100%; max-width: 1100px; margin: 0 auto; text-align: left; }
+.pr-f-in { flex: 0 0 auto; width: 100%; max-width: 1100px; margin: 0 auto; text-align: left;
+           position: relative; z-index: 1; }   /* 글은 액자 위에 */
+
+/* ── 「크게 보기」 액자 (2026-09-04) ───────────────────────────────
+   말씀카드(액자용)의 양식을 그대로 옮겼다 — 이중 테두리 + 수채화 잎가지 + ❖ 장식.
+   여섯 가지를 두고 열 때마다 하나를 고른다(app.js `PRAY_FRAMES`). */
+/* z-index 를 주지 않는다 — 글이 위에 오는 것은 `.pr-f-in` 의 z-index:1 이 맡고,
+   이 상자는 DOM 차례대로 그 아래 깔리면 된다.
+   ⚠️ 나중에 잎가지에 `mix-blend-mode` 를 쓰게 되면 z-index 유무보다 **돌려 보기**를
+      먼저 볼 것 — `.pr-full.pr-rot .pr-frame` 의 transform 이 겹침 맥락을 만들어
+      섞임이 덮개 바탕까지 닿지 않는다(세로와 가로가 달라진다). */
+.pr-frame { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.pr-fr-box {
+  position: absolute; inset: 12px; border: 2px solid var(--fr);
+  /* 속선은 바깥이 아니라 **안쪽**에 긋는다(음수 offset) — 바깥으로 그으면 화면 밖에서 잘린다 */
+  outline: 1px solid var(--fr2); outline-offset: -7px;
+}
+.pr-fr-leaf {
+  /* --lw 는 app.js 가 **화면의 짧은 쪽 기준 픽셀**로 넣는다(prayFitText).
+     ⚠️ `%`로 두지 말 것 — 그러면 액자의 가로를 따르는데 돌려 보기에서는 그 가로가
+        화면 세로라 잎가지가 두 배로 부풀어 글을 덮는다. */
+  position: absolute; bottom: 0; width: var(--lw, 30%); max-width: 230px; height: auto;
+  /* ⚠️ 폰에서는 잎가지 둘이 글 뒤로 들어온다 — 이 옅기가 「액자로 보이는 것」과
+     「글이 읽히는 것」 사이의 저울이다. 더 진하게 하지 말 것. */
+  opacity: .5;
+}
+.pr-fr-leaf.l { left: -2%; }
+.pr-fr-leaf.r { right: -2%; transform: scaleX(-1); }   /* 오른쪽은 뒤집어 마주 보게 */
+/* 엇갈린 배치 — 왼쪽 것을 위에서 거꾸로 드리운다(넝쿨처럼). 아래 두 귀퉁이만 쓰면
+   여섯 액자가 다 같은 자리라 「풀만 바뀐 하나」로 보인다. */
+.pr-frame.pr-pos-d .pr-fr-leaf.l { top: 0; bottom: auto; transform: rotate(180deg); }
+/* ❖ 장식 — 제목과 기도문 사이. em 이라 글씨 맞추기(이분법)를 따라 함께 큰다. */
+.pr-f-orn { display: flex; align-items: center; justify-content: center; gap: .55em; margin-bottom: .7em; }
+.pr-f-orn i { flex: 0 1 3.2em; height: 1px; background: var(--fr2); }
+.pr-orn-d { flex: none; width: .6em; height: .6em; color: var(--fr); }
+/* 어두울 때 — 군청 겉선은 그대로면 바탕에 묻힌다. 잎가지도 한 단계 더 옅게. */
+.dark .pr-full.pr-fr-navy { --fr: #6f8fc4; --fr2: #3f5578; }
+.dark .pr-full.pr-fr-gold { --fr: #c3a253; --fr2: #6a5a33; }
+/* ⚠️ 어두운 바탕에서 수채화를 그냥 옅게 깔면 **때 묻은 얼룩**으로 보인다(2026-09-04 실측).
+   `mix-blend-mode: screen` 도 해 봤지만 잎가지가 중간 톤이라 거의 안 떠올랐다.
+   회색으로 눕히고 밝기를 올려 **흐린 워터마크**로 만든다 — 어두울 때만 쓴다. */
+.dark .pr-fr-leaf { opacity: .28; filter: grayscale(1) brightness(2.6); }
+/* ⚠️ 금색 글씨(이름·맺음말)는 크림 위에서 4.77:1 인데 **잎가지 위에서 1.86~2.74:1** 까지
+   떨어진다(2026-09-04 실측. 남색 본문은 5.76:1 아래로 안 내려가 문제없다).
+   잎을 더 옅게 하면 액자가 사라지므로, 글자 쪽에 바탕색 테를 둘러 뒤에 무엇이 있든
+   떨어져 보이게 한다. ⚠️ 「크게 보기」 안에서만 — 본 화면에는 잎가지가 없다. */
+.pr-full .pr-f-body .pr-nm,
+.pr-full .pr-amen { text-shadow: 0 0 3px var(--cream), 0 0 7px var(--cream); }
+.dark .pr-full .pr-f-body .pr-nm,
+.dark .pr-full .pr-amen { text-shadow: 0 0 3px #10161f, 0 0 7px #10161f; }
 /* 제목 — 본문보다 크고 굵게. ⚠️ 그전에는 0.82em 안에 1.15em 이라 **본문보다 작았다**(0.94배).
    em 이라 아래 글씨 맞추기(이분법)가 본문을 키우면 제목도 같은 비율로 함께 큰다. */
 .pr-f-title {
@@ -4250,7 +4306,8 @@ body.pr-full-on { overflow: hidden; }
   position: absolute; bottom: 10px; right: 12px; width: 42px; height: 42px;
   z-index: 2;
   font-size: 1.15rem; font-family: inherit; color: var(--gray); cursor: pointer;
-  background: rgba(255,255,255,.75); border: 1.5px solid #d6dbe6; border-radius: 50%;
+  /* 액자 테두리 위를 지나므로 바탕을 거의 불투명하게 — 선이 단추를 가로지르면 흠집으로 보인다 */
+  background: rgba(255,255,255,.94); border: 1.5px solid #d6dbe6; border-radius: 50%;
 }
 .pr-f-x:hover { color: var(--navy); border-color: var(--navy); }
 /* 맺음말 — 기도의 마침이라 살짝 띄우고 가운데. 자료가 아니라 늘 같은 한 줄이다. */
@@ -4258,7 +4315,7 @@ body.pr-full-on { overflow: hidden; }
 .dark .pr-full { background: #10161f; color: #dfe7f5; }
 .dark .pr-f-body .pr-nm { color: var(--gold); }
 .dark .pr-f-title { color: #cfe0ff; }
-.dark .pr-f-x { background: rgba(0,0,0,.4); color: #8fb3e6; border-color: #33507d; }
+.dark .pr-f-x { background: rgba(16,22,31,.92); color: #8fb3e6; border-color: #33507d; }
 .dark .pr-amen { color: var(--gold); }
 /* ⟳ 가로로 돌려 보기 — 폰이 세로로 잠겨 있어도(자동 회전 꺼짐·앱 껍데기의 세로 고정)
    글자를 90° 돌려 그려서 폰만 옆으로 들면 읽을 수 있게. 기기 회전에 기대지 않는다.
@@ -4267,7 +4324,7 @@ body.pr-full-on { overflow: hidden; }
   position: absolute; bottom: 60px; right: 12px; width: 42px; height: 42px;
   z-index: 2;
   font-size: 1.2rem; font-family: inherit; color: var(--gray); cursor: pointer;
-  background: rgba(255,255,255,.75); border: 1.5px solid #d6dbe6; border-radius: 50%;
+  background: rgba(255,255,255,.94); border: 1.5px solid #d6dbe6; border-radius: 50%;
 }
 .pr-f-rot:hover { color: var(--navy); border-color: var(--navy); }
 .pr-full.pr-rot .pr-f-in {
@@ -4282,8 +4339,15 @@ body.pr-full-on { overflow: hidden; }
 /* ⚠️ 돌렸을 때는 여백을 거의 두지 않는다 — 단추 자리를 비우려고 내주던 62px 이
    그대로 글씨 크기였다. 글자가 ⟳·✕ 밑을 지나가도 괜찮다(반투명 바탕에 z-index 로
    위에 뜨므로 눌리기는 한다). 「비워 두는 단정함」보다 「크게 읽히는 것」이 먼저다. */
-.pr-full.pr-rot { padding: 8px; }
-.dark .pr-f-rot { background: rgba(0,0,0,.4); color: #8fb3e6; border-color: #33507d; }
+/* ⚠️ 액자가 생기기 전에는 8px 이었다 — 단추 자리를 비우려고 내주던 여백이 그대로
+   글씨 크기였기 때문이다. 이제는 테두리에 글이 닿지 않을 만큼은 있어야 한다. */
+.pr-full.pr-rot { padding: 30px; }
+/* 액자도 글과 함께 돈다 — 폭·높이는 app.js 가 덮개를 재서 넣는다(주소창 때문에 100vw/100vh 는 어긋난다) */
+.pr-full.pr-rot .pr-frame {
+  inset: auto; top: 50%; left: 50%;
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+.dark .pr-f-rot { background: rgba(16,22,31,.92); color: #8fb3e6; border-color: #33507d; }
 
 /* 주제 목록의 머리 — 제목과 「뒤로」를 한 줄에 붙박이로.
    ⚠️ 22편짜리 주제(하나님이 지키심)는 아래로 한참 내려간다. 「뒤로」가 맨 밑에 있으면
