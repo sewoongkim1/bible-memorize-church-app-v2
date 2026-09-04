@@ -24,6 +24,14 @@
    - 아래 박스는 **남는 만큼** 차지한다(flex:1). 편마다 높이가 다른 것이 정상이다.
 
    ⚠️ 1mm = 96/25.4 = 3.7795px 고정이다. 넘치는지는 짐작이 아니라 측정으로 확인한다.
+
+   사용법 (2026-09-04 더한 것):
+     --theme gold|teal|plum   장식 **색**만 바꾼다(서체와 별개). 안 주면 gold(기존).
+     --font  web|pc           **서체**를 바꾼다. web=웹폰트(기본, 어디서나 같음) ·
+                              pc=이 PC 서체(본문 둥근미소 · 제목 프리젠테이션 8 · 머리꼬리 7).
+     --size  a5|a4            a4 는 어르신 큰글씨판 — 한 쪽에 한 편, 판·글씨를 √2배로.
+     --2up                    (a5 전용) 인쇄용 — A4 가로 한 장에 소책자 두 쪽을 나란히.
+     예)  python generate_blessing.py 김세웅 --theme teal --font pc --size a4
 """
 import json, io, re, html, os, sys
 
@@ -31,9 +39,128 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 ROOT = os.path.dirname(os.getcwd())
 
 NAME = sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith('-') else '홍길동'
-FOOT_MID = '오직 성경, 말씀이 답이다!'
+# 꼬리말 가운데 — 아론의 축도 맺음 절(민 6:26). 표지는 24절로 연다.
+#   ⚠️ 길면 좌우(God is love. · 쪽번호)와 부딪힌다 — 바꿀 때는 반드시 꼬리말 폭을
+#      다시 재 볼 것(A5 가 더 좁으니 A5 로 잰다).
+FOOT_MID = '여호와는 그 얼굴을 네게로 향하여 드사 평강 주시기를 원하노라'
 AMEN = '예수님의 이름으로 축복하며 기도합니다. 아멘!'
 PER_VOL = 52
+
+
+def arg_val(flag, default):
+    if flag in sys.argv:
+        i = sys.argv.index(flag)
+        if i + 1 < len(sys.argv) and not sys.argv[i + 1].startswith('--'):
+            return sys.argv[i + 1]
+    return default
+
+
+# ── 테마 — 색(과 서체)을 바꿔 「사용자마다 다른 느낌」을 낼 수 있게 한다 ──────────
+#   ⚠️ 여기 없는 것(본문 글자색·테두리·회색 라벨)은 **테마와 무관하게 고정**이다.
+#      가독성은 취향보다 먼저다 — 장식(❖·이름·표지·차례 소제목)만 테마를 탄다.
+THEMES = {
+    'gold': {'label': '금색·남색(기본)', 'accent': '#c8a24b', 'accent_ink': '#8a6a1e',
+             'accent_light': '#e8c877', 'deep': '#12294f'},
+    'teal': {'label': '청록', 'accent': '#3f8f7b', 'accent_ink': '#2b6152',
+             'accent_light': '#8fd6b8', 'deep': '#0f3d33'},
+    'plum': {'label': '자두빛', 'accent': '#a24a63', 'accent_ink': '#7a3245',
+             'accent_light': '#e3aebb', 'deep': '#3a1420'},
+    # ⚠️ 흑백 — 표지 바탕을 **채우지 않는다**(cover_fill False). 짙은 남색을 흑백으로 찍으면
+    #    A5 한 면이 통째로 검게 나와 잉크를 다 먹고, 복사기로는 글자가 뭉갠다.
+    #    장식(❖·이름)도 회색으로 내려 흑백에서 서로 구분되게 한다.
+    'bw': {'label': '흑백(복사·잉크 절약)', 'accent': '#767676', 'accent_ink': '#3c3c3c',
+           'accent_light': '#3c3c3c', 'deep': '#1c2333', 'cover_fill': False},
+}
+THEME_NAME = arg_val('--theme', 'gold')
+if THEME_NAME not in THEMES:
+    raise SystemExit('!! --theme 은 %s 중 하나여야 합니다(받은 값: %s)' % (', '.join(THEMES), THEME_NAME))
+THEME = THEMES[THEME_NAME]
+
+# ── 서체 — 색과 **따로** 고른다(--font). 셋으로 나눠 쓴다: 본문 · 제목 · 머리꼬리 ───────
+#   ⚠️ `pc` 는 **이 컴퓨터에 깔린 서체**를 이름으로 부른다 — 웹에서 받아오지 않는다.
+#      그래서 이 HTML 은 그 서체가 깔린 PC 에서만 제대로 보인다(**PDF 로 저장하면
+#      서체가 박히므로 그 PDF 는 어디서나 똑같이 보인다** — 인쇄물은 그렇게 넘긴다).
+#   ⚠️ 이름은 **패밀리 이름**이라야 한다. 「학교안심 둥근미소 TTF R」·「프리젠테이션 8
+#      ExtraBold」 같은 파일/한글 이름으로는 크롬이 못 알아듣고 조용히 다른 서체로
+#      바꿔 버린다(2026-09-04 실측으로 확인). R/B 는 굵기(font-weight)로 고른다.
+FONTS = {
+    'web': {'label': '웹폰트(어디서나 같게 보임)',
+            'body': '"Noto Sans KR","Malgun Gothic",sans-serif',
+            'title': '"Nanum Myeongjo",serif',
+            'head': '"Noto Sans KR","Malgun Gothic",sans-serif',
+            'foot': '"Noto Sans KR","Malgun Gothic",sans-serif',
+            'body_weight': '400', 'title_weight': '800', 'head_weight': '700',
+            'foot_weight': '600',
+            # ⚠️ 본고딕은 폭이 넓다 — 여기서 11.5/10.5 로 키우면 A5 꼬리말 좌우가 붙는다(실측).
+            'foot_pt': '10.5', 'foot_mid_pt': '9.5', 'web': True},
+    'pc': {'label': '이 PC 서체(둥근미소 · 프리젠테이션)',
+           'body': '"Hakgyoansim Dunggeunmiso TTF","Noto Sans KR",sans-serif',
+           'title': '"Freesentation 8","Nanum Myeongjo",serif',
+           'head': '"Freesentation 7","Noto Sans KR",sans-serif',
+           # 꼬리말 — 프리젠테이션 4 Regular. 머리글(7 Bold)과 같은 집안의 가벼운 굵기다.
+           # ⚠️ 케리스 케듀체(KERIS KEDU)를 썼다가 뺐다(2026-09-04) — 굵기가 한 벌뿐인
+           #    둥근 교육용 서체라 작은 꼬리말에서 획이 뭉쳐 겹쳐 보였다. 가짜 굵기가
+           #    아니라 서체 본래 굵기였어서, 굵기를 낮추는 것으로는 해결되지 않았다.
+           'foot': '"Freesentation 4","Noto Sans KR",sans-serif',
+           # ⚠️ 프리젠테이션 7·8 · 케듀체는 굵기가 이름에 박힌 한 벌짜리다 — 여기에 bold 를 더
+           #    걸면 브라우저가 억지로 굵게 그려(가짜 굵기) 획이 뭉갠다. normal 로 못박는다.
+           'body_weight': '400', 'title_weight': 'normal', 'head_weight': 'normal',
+           'foot_weight': 'normal',
+           # 프리젠테이션은 좁아 한 단계 키워도 A5 에서 좌우 10mm 가 남는다(실측).
+           'foot_pt': '11.5', 'foot_mid_pt': '10.5', 'web': False},
+}
+FONT_NAME = arg_val('--font', 'web')
+if FONT_NAME not in FONTS:
+    raise SystemExit('!! --font 는 %s 중 하나여야 합니다(받은 값: %s)' % (', '.join(FONTS), FONT_NAME))
+FONT = FONTS[FONT_NAME]
+
+# 제목 자간 — 제목(기도문 제목·부속 쪽 제목·표지)에 함께 걸린다.
+#   ⚠️ 너무 벌리면 낱글자가 흩어져 되레 안 읽힌다. 0.03~0.06em 안에서 고를 것.
+#   ⚠️ 표지 제목은 한 줄에 들어가야 한다 — 늘린 뒤 반드시 폭을 다시 잴 것.
+TITLE_TRACK = '0.04em'
+
+# ── 판형 — a5(기본, 소책자) · a4(어르신 큰글씨판, 한 쪽에 한 편) ─────────────────
+SIZE_NAME = arg_val('--size', 'a5')
+if SIZE_NAME not in ('a5', 'a4'):
+    raise SystemExit('!! --size 는 a5 또는 a4 여야 합니다(받은 값: %s)' % SIZE_NAME)
+TWOUP = '--2up' in sys.argv
+
+# ── 여러 사람 몫을 한 번에 (--list 명단.txt) · PDF 로 굽기 (--pdf) ─────────────
+#   ⚠️ 명단으로 돌릴 때는 **파일 이름에 성함을 넣는다** — 안 그러면 다음 사람이
+#      앞사람 파일을 덮어써 버린다(한 사람 몫만 돌릴 때는 예전 이름 그대로 둔다).
+OUT_DIR = arg_val('--out', '.')
+LIST_FILE = arg_val('--list', '')
+MAKE_PDF = '--pdf' in sys.argv
+
+# 크롬을 찾는다 — PDF 로 구울 때만 쓴다. 못 찾으면 그때 알려 준다(HTML 은 정상적으로 나온다).
+CHROME_CANDS = [
+    r'C:\Program Files\Google\Chrome\Application\chrome.exe',
+    r'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe',
+    os.path.join(os.environ.get('LOCALAPPDATA', ''), r'Google\Chrome\Application\chrome.exe'),
+    r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe',
+]
+
+
+def find_chrome():
+    for c in CHROME_CANDS:
+        if c and os.path.exists(c):
+            return c
+    return None
+
+
+def to_pdf(html_path, pdf_path):
+    """브라우저를 조용히 돌려 PDF 로 굽는다. 서체는 PDF 안에 박히므로 어디서나 같게 보인다."""
+    import subprocess
+    chrome = find_chrome()
+    if not chrome:
+        print('   !! 크롬을 못 찾아 PDF 는 건너뜁니다 — HTML 을 열어 직접 인쇄하세요.')
+        return False
+    r = subprocess.run([chrome, '--headless', '--disable-gpu', '--no-pdf-header-footer',
+                        '--print-to-pdf=' + os.path.abspath(pdf_path),
+                        '--virtual-time-budget=30000',
+                        'file:///' + os.path.abspath(html_path).replace(os.sep, '/')],
+                       capture_output=True)
+    return os.path.exists(pdf_path)
 
 PRAY_PT = 14.0      # 온 책이 한 가지. 가장 긴 기도문이 정한 값이다(박스 40mm 남김)
 PRAY_PER = 13       # 한 줄 목표 글자 수. ⚠️ 폭에 들어가는 최대(23자)가 아니라 **일부러 짧게** 잡았다 —
@@ -201,10 +328,28 @@ def foot(pno):
 
 # 이 편만 한 단계 작게 — **브라우저 실측으로 얻은 목록**이다.
 #   ⚠️ 기도문이나 줄 나누는 규칙을 고치면 이 목록이 틀어진다. 반드시 다시 재고 고칠 것.
-#   ⚠️ 온 책을 가장 긴 편에 맞추면 나머지 94쪽이 다 작아진다 — 어르신이 읽으실 책이라
-#      그 손해가 크다. 넘치는 열 쪽만 내린다(19번만 12pt, 나머지는 13pt).
-SMALL = {3: 'p13', 5: 'p13', 19: 'p12', 27: 'p13', 32: 'p13', 36: 'p13',
-         39: 'p13', 40: 'p13', 42: 'p13', 44: 'p13'}
+#   ⚠️ 온 책을 가장 긴 편에 맞추면 나머지 103쪽이 다 작아진다 — 어르신이 읽으실 책이라
+#      그 손해가 크다. 넘치는 쪽만 내린다.
+#   2026-09-04: 열 편이던 것이 **한 편으로 줄었다.** 아래 박스가 18mm 로 버티지 않고
+#      필요하면 통째로 빠지게 되어, 아홉 편이 14pt 로 돌아왔다.
+SMALL = {}          # 2026-09-04: 32번(승리의 축복)도 되돌렸다 — 14pt로 다시 재 보니
+                    #    안 넘친다(13pt로 낮춰 지키던 것은 25mm짜리, 두 줄도 못 쓰는
+                    #    박스 하나뿐이었다). 이제 **온 책이 예외 없이 14pt**다.
+
+
+# 머리를 닫는 ❖ 장식 — 말씀카드·앱 액자와 같은 모양.
+#   ⚠️ 글자(U+2756)로 쓰지 않는다. 글꼴에 없거나 이모지로 나오는 기기가 있다.
+ORN = ('<i></i><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><g fill="currentColor">'
+       '<path d="M12 1.6 14.7 6.6 12 11.6 9.3 6.6Z"/><path d="M12 12.4 14.7 17.4 12 22.4 9.3 17.4Z"/>'
+       '<path d="M1.6 12 6.6 9.3 11.6 12 6.6 14.7Z"/><path d="M12.4 12 17.4 9.3 22.4 12 17.4 14.7Z"/>'
+       '</g></svg><i></i>')
+
+
+def phead(title, sub=''):
+    """부속 쪽(사용법·차례·색인) 머리 — 기도문 쪽 .b-head 와 같은 모양으로 짓는다."""
+    s = '<span class="ph-s">%s</span>' % html.escape(sub) if sub else ''
+    return ('<div class="phead"><h2 class="ph">%s%s</h2><div class="b-orn">%s</div></div>'
+            % (html.escape(title), s, ORN))
 
 
 def page(r, pno, name):
@@ -212,52 +357,53 @@ def page(r, pno, name):
                    for l in pray_lines(r['prayer'], name, r['no']))
     return """
 <section class="page bl">
-  <div class="b-title">%s</div>
-  <div class="b-meta"><span>%s</span><span>2026 년 &nbsp; 월 &nbsp; 일</span></div>
+  <div class="b-head">
+    <div class="b-title">%s</div>
+    <div class="b-ref">%s</div>
+    <div class="b-orn">%s</div>
+  </div>
   <div class="b-pray %s">%s<div class="b-amen">%s</div></div>
-  <div class="b-box"><span class="b-box-t">묵상노트</span></div>
+  <div class="b-box"><span class="b-box-t">축복노트</span></div>
   %s
-</section>""" % (html.escape(r['title']), html.escape(r['ref']), SMALL.get(r['no'], ''),
+</section>""" % (html.escape(r['title']), html.escape(r['ref']), ORN, SMALL.get(r['no'], ''),
                  body, html.escape(AMEN), foot(pno))
 
 
 def cover(vol, name, first, last):
     logo = '<img class="c-logo" src="%s">' % LOGO if LOGO else ''
     return """
-<section class="page c">
+<section class="page c%s">
   <div class="c-in">
     %s
-    <div class="c-church">고척교회</div>
-    <h1 class="c-t">가정 축복<br>기도문</h1>
+    <h1 class="c-t">가정 축복 기도문</h1>
     <div class="c-line"></div>
     <div class="c-vol">%d권 &nbsp;·&nbsp; %s ~ %s</div>
     <div class="c-name">%s 님</div>
     <div class="c-v">여호와는 네게 복을 주시고 너를 지키시기를 원하며<br><b>민수기 6장 24절</b></div>
   </div>
 </section>
-<section class="page blank"></section>""" % (logo, vol, html.escape(short(first['ref'])),
+<section class="page blank"></section>""" % ('' if THEME.get('cover_fill', True) else ' bw',
+                                             logo, vol, html.escape(short(first['ref'])),
                                              html.escape(short(last['ref'])), html.escape(name))
 
 
 def intro(name, n):
     return """
 <section class="page plain">
-  <h2 class="ph">이 책을 쓰는 법</h2>
+  %s
   <div class="pbody">
-    <p>한 쪽에 <b>한 편</b>입니다. 가운데 <b>축복 기도문</b>을 소리 내어
+    <p>한 쪽에 <b>한 편</b>입니다. 가운데 <b>가정 축복 기도문</b>을 소리 내어
        그대로 기도하시면 됩니다.</p>
     <p>기도문에는 <b>%s 님의 이름이 이미 들어가 있습니다.</b> 가족이나 이웃을 위해
        기도하실 때는 그 자리에 그분의 이름을 넣어 읽으세요.</p>
-    <p>날짜 칸에 <b>그날 날짜</b>를 적어 두시면 언제 이 기도를 드렸는지 남습니다.
-       한 편을 여러 번 기도하셔도 좋습니다.</p>
-    <p>아래 <b>묵상노트</b>에는 그날 받은 마음을 자유롭게 적어 보세요.
+    <p>아래 <b>축복노트</b>에는 그날 날짜와 받은 마음을 자유롭게 적어 보세요.
        한 해가 지나 다시 펼치면 그것이 응답의 기록이 됩니다.</p>
     <p>순서는 <b>성경 차례 그대로</b>입니다. 앞에서부터 차례로 하셔도 좋고,
        뒤쪽 <b>「주제로 찾기」</b>에서 오늘 필요한 것을 골라 펴셔도 좋습니다.</p>
     <p>이 책은 <b>%d편</b>입니다. 하루 한 편이면 %d주가 채워집니다.</p>
   </div>
   %s
-</section>""" % (html.escape(name), n, -(-n // 7), foot(3))
+</section>""" % (phead('이 책을 쓰는 법'), html.escape(name), n, -(-n // 7), foot(3))
 
 
 def toc(items, base):
@@ -283,10 +429,10 @@ def toc(items, base):
         right, _ = col(part[q:], cur)      # 단이 바뀔 때 같은 책 이름을 다시 쓰지 않는다
         return """
 <section class="page plain">
-  <h2 class="ph">차례 <span class="ph-s">성경 순%s</span></h2>
+  %s
   <div class="toc"><div>%s</div><div>%s</div></div>
   %s
-</section>""" % (more, left, right, foot(pno))
+</section>""" % (phead('차례', '성경 순' + more), left, right, foot(pno))
 
     return sheet(pairs[:half], 4, '') + sheet(pairs[half:], 5, ' · 이어서')
 
@@ -300,68 +446,127 @@ def index_by_group(items, base, last_pno):
                    for k, v in sorted(g.items(), key=lambda kv: -len(kv[1])))
     return """
 <section class="page plain">
-  <h2 class="ph">주제로 찾기</h2>
+  %s
   <div class="ix-note">오늘 필요한 기도를 주제로 골라 펴 보세요. 숫자는 쪽 번호입니다.</div>
   %s
   <div class="ix-end">여호와는 그 얼굴을 네게로 향하여 드사 평강 주시기를 원하노라<br><b>민수기 6장 26절</b></div>
   %s
-</section>""" % (body, foot(last_pno))
+</section>""" % (phead('주제로 찾기'), body, foot(last_pno))
 
+
+# ⚠️ :root 변수로 테마를 준다 — CSS 문자열 자체는 테마마다 다시 안 쓴다.
+#    (테마를 늘릴 때는 THEMES 사전에 한 줄만 더하면 된다.)
+ROOT_VARS = (':root { --accent:%s; --accent-ink:%s; --accent-light:%s; --deep:%s;'
+             ' --body-font:%s; --title-font:%s; --head-font:%s; --foot-font:%s;'
+             ' --title-weight:%s; --head-weight:%s; --foot-weight:%s;'
+             ' --foot-pt:%spt; --foot-mid-pt:%spt; --title-track:%s; }'
+             % (THEME['accent'], THEME['accent_ink'], THEME['accent_light'], THEME['deep'],
+                FONT['body'], FONT['title'], FONT['head'], FONT['foot'],
+                FONT['title_weight'], FONT['head_weight'], FONT['foot_weight'],
+                FONT['foot_pt'], FONT['foot_mid_pt'], TITLE_TRACK))
 
 CSS = """
 @page { size:148mm 210mm; margin:0; }
 * { box-sizing:border-box; }
-body { margin:0; font-family:"Noto Sans KR","Malgun Gothic",sans-serif; color:#1c2333;
+""" + ROOT_VARS + """
+body { margin:0; font-family:var(--body-font); color:#1c2333;
        -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-.page { width:148mm; height:210mm; padding:13mm 13mm 11mm; background:#fff;
+/* ⚠️ 아래 여백은 **꼬리말 높이를 따라간다.** 꼬리말은 absolute 라 자리를 차지하지
+   않으므로, 여백이 모자라면 위 상자와 선이 겹친다(2026-09-04 실측 2.05mm 겹침). */
+.page { width:148mm; height:210mm; padding:12mm 13mm 14mm; background:#fff;
         position:relative; overflow:hidden; page-break-after:always;
         display:flex; flex-direction:column; }
 .page:last-child { page-break-after:auto; }
 /* ── 본문 한 쪽 — 축복 기도문 하나뿐이다 ────────────────────── */
-.b-title { font-family:"Nanum Myeongjo",serif; font-size:19pt; font-weight:800; text-align:center; }
-.b-meta { display:flex; justify-content:space-between; font-size:11pt; color:#3a4353;
-          margin:3.5mm 0 0; padding-bottom:1.5mm; border-bottom:1px solid #2b3444; }
+/* 머리 — 제목·출처를 가운데로 모으고 ❖ 장식 줄로 닫는다.
+   ⚠️ 그전에는 제목만 가운데이고 출처가 왼쪽에 붙어 한쪽으로 기울어 보였다(날짜 칸을
+      없앤 뒤로는 더 그랬다). 굵은 가로줄 대신 얇은 금색 줄이라 쪽이 가벼워진다. */
+.b-head { flex:none; text-align:center; }
+.b-title { font-family:var(--title-font); font-size:19pt; font-weight:var(--title-weight);
+           line-height:1.25; letter-spacing:var(--title-track); }
+.b-ref { font-family:var(--head-font); font-weight:var(--head-weight); font-size:10.5pt;
+         color:#6b7383; letter-spacing:.03em; margin-top:1.4mm; }
+.b-orn { display:flex; align-items:center; justify-content:center; gap:2.6mm; margin-top:2.6mm; }
+.b-orn i { flex:0 1 20mm; height:.3mm; background:var(--accent); opacity:.8; }
+.b-orn svg { flex:none; width:3.4mm; height:3.4mm; color:var(--accent); }
+/* ⚠️ 2026-09-04: 머리와 기도문 사이에 빈 칸(.b-gap)을 두어 「짧은 편은 기도문을 아래로
+   내려 균형을 잡는다」고 했다가 **되돌렸다.** 실제로 뽑아 보니 제목 아래가 휑하게
+   비어 「위가 비었다」는 인상이 더 컸다(성도님 제보). 지금은 **늘 위로 붙인다** —
+   제목 · 기도문이 바로 이어지고, 남는 자리는 아래 상자가 상한(70mm)까지 받는다.
+   상한을 넘는 몫은 상자 **아래**의 여백으로 남는다(그건 평범한 아래 여백으로 읽힌다). */
 /* 기도문 — 이 책의 전부다. 온 책이 한 크기(16pt)로 통일된다.
    ⚠️ 줄 간격을 em 으로 준다 — 맨 숫자로 주면 이름(.nm)이 커질 때 그 줄만 벌어진다.
       em 은 여기서 px 로 계산돼 자식이 그 길이를 그대로 물려받는다. */
 .b-pray { font-size:14pt; line-height:1.95em; text-align:center; word-break:keep-all;
-          padding:7mm 2mm 6mm; }
+          padding:4mm 2mm 4mm; }
 .pl { }
 /* 넘치는 몇 쪽만 한 단계 작게. ⚠️ 온 책을 가장 긴 편에 맞추면 나머지 100쪽이 다 작아진다 —
    어르신이 읽으실 책이라 그 손해가 크다. */
 .b-pray.p13 { font-size:13pt; }
 .b-pray.p12 { font-size:12pt; }
-.b-amen { margin-top:4mm; font-weight:700; }
+.b-amen { margin-top:3mm; font-weight:700; }
 /* 이름 — 크게·굵게·색. 흑백으로 찍어도 진하게 남는 금갈색이다. */
-.nm { font-size:1.12em; font-weight:800; color:#8a6a1e; }
+.nm { font-size:1.16em; font-weight:600; color:var(--accent-ink); }
 /* 아래 박스 — 남는 자리를 그대로 차지한다. 편마다 높이가 다른 것이 정상이다. */
-.b-box { flex:1; min-height:18mm; border:1px solid #2b3444; padding:2.5mm 3mm; position:relative; }
-.b-box-t { position:absolute; right:3.5mm; top:2mm; font-size:9pt; color:#6b7383; }
+/* ⚠️ min-height 를 0 으로 둔다 — 18mm 로 버티면 긴 편에서 **쪽이 넘친다**.
+   대신 남는 자리가 너무 얕으면 아래 스크립트가 상자를 통째로 걷어낸다
+   (쓸 수 없는 손가락 두 마디짜리 상자는 없느니만 못하다). */
+/* ⚠️ 상한을 둔다(70mm) — 안 그러면 짧은 편(4줄)이 상자를 페이지 절반 가까이
+   차지해 「미완성처럼 보인다」는 지적이 있었다. 상한을 넘는 몫은 .b-gap 이 받는다. */
+/* ⚠️ margin-top:auto — 상자를 **아래에 붙인다.** 상한(70mm)에 걸려 남는 몫이 상자
+   *아래*에 남으면 「상자와 아래 선이 멀다」는 인상이 된다(성도님 제보). auto 여백이
+   그 몫을 상자 *위*로 옮겨, 상자 아랫변은 어느 쪽에서나 꼬리말에서 같은 거리에 놓인다.
+   (flex 는 늘이기를 먼저 끝내고, 그래도 남은 자리를 auto 여백에 준다 — 표준 순서다.) */
+.b-box { flex:1 1 0; max-height:70mm; min-height:0; margin-top:auto;
+         border:1px solid #2b3444; border-radius:2.5mm; padding:2.5mm 3mm; position:relative; }
+.b-box-t { font-family:var(--head-font); font-weight:var(--head-weight);
+           position:absolute; right:3.5mm; top:2mm; font-size:9pt; color:#6b7383; }
 /* ── 꼬리말 ───────────────────────────────────────────────── */
-.b-foot { position:absolute; left:13mm; right:13mm; bottom:6mm; display:flex; align-items:baseline;
-          justify-content:space-between; border-top:1px solid #2b3444; padding-top:1.5mm; }
-.b-foot > span:first-child { font-size:10.5pt; font-weight:600; }
-.b-vis { font-size:9.5pt; color:#3a4353; font-weight:600; }
-.b-pno { font-size:10.5pt; font-weight:700; }
+.b-foot { font-family:var(--foot-font); font-weight:var(--foot-weight);
+          position:absolute; left:13mm; right:13mm; bottom:5mm; display:flex; align-items:baseline;
+          justify-content:space-between; border-top:1px solid #2b3444; padding-top:1.3mm; }
+/* ⚠️ 굵기를 칸마다 박아 두지 않는다 — 한 벌짜리 서체(케듀체·프리젠테이션)에 굵기를 더
+   요구하면 브라우저가 **가짜 굵기**를 씌워 획이 번지고 겹쳐 보인다(2026-09-04 제보).
+   서체 세트가 정한 값(--foot-weight)을 그대로 물려받게 둔다. */
+.b-foot > span:first-child { font-size:var(--foot-pt); font-weight:var(--foot-weight); }
+.b-vis { font-size:var(--foot-mid-pt); color:#3a4353; font-weight:var(--foot-weight); }
+.b-pno { font-size:var(--foot-pt); font-weight:var(--foot-weight); }
 /* ── 표지 ─────────────────────────────────────────────────── */
-.c { background:#12294f; color:#fff; align-items:center; justify-content:center; text-align:center; }
+.c { background:var(--deep); color:#fff; align-items:center; justify-content:center; text-align:center; }
+/* 흑백판 표지 — **첫 장은 컬러 프린터로 찍는다.** 그래서 색은 그대로 두고
+   바탕 채움만 뺀다(짙은 남색 한 면을 통째로 찍으면 잉크를 다 먹는다).
+   ⚠️ 본문 테마(bw)의 회색 토큰을 그대로 쓰면 표지까지 흑백이 되므로, 여기서만
+      금색을 되살린다. 흰 바탕이라 밝은 금색(--accent-light)은 안 보인다 —
+      표지에서는 진한 금갈색을 쓴다. */
+.c.bw { background:#fff; color:#1c2333; }
+.c.bw .c-line { background:#c8a24b; }
+.c.bw .c-name, .c.bw .c-v b { color:#8a6a1e; }
+.c.bw .c-vol, .c.bw .c-v { opacity:1; color:#4a5364; }
 .c-in { padding:0 6mm; }
 .c-logo { width:20mm; margin-bottom:4mm; }
 .c-church { font-size:10pt; letter-spacing:2px; opacity:.85; }
-.c-t { font-family:"Nanum Myeongjo",serif; font-size:32pt; font-weight:800; line-height:1.3; margin:4mm 0 0; }
-.c-line { width:22mm; height:1.2mm; background:#c8a24b; margin:5mm auto; }
+.c-t { font-family:var(--title-font); font-size:32pt; font-weight:var(--title-weight);
+       line-height:1.3; margin:4mm 0 0; letter-spacing:var(--title-track); }
+.c-line { width:22mm; height:1.2mm; background:var(--accent); margin:5mm auto; }
 .c-vol { font-size:10.5pt; opacity:.9; }
-.c-name { margin-top:9mm; font-family:"Nanum Myeongjo",serif; font-size:17pt; font-weight:700; color:#e8c877; }
+.c-name { margin-top:9mm; font-family:var(--title-font); font-size:17pt; font-weight:var(--title-weight); color:var(--accent-light); }
 .c-v { margin-top:12mm; font-size:9.5pt; line-height:1.8; opacity:.85; }
-.c-v b { color:#e8c877; }
+.c-v b { color:var(--accent-light); }
 /* ── 부속 ─────────────────────────────────────────────────── */
-.ph { font-family:"Nanum Myeongjo",serif; font-size:17pt; font-weight:800; margin:0 0 5mm;
-      padding-bottom:2mm; border-bottom:1.2px solid #2b3444; }
-.ph-s { font-size:9.5pt; font-weight:400; color:#6b7383; margin-left:2mm; }
+/* 부속 쪽 머리 — 기도문 쪽(.b-head)과 같은 언어로: 가운데 정렬 + 명조 + ❖ 장식 줄.
+   ⚠️ 전에는 왼쪽 정렬·진한 밑줄(.ph)이라 기도문 100쪽과 전혀 다른 책처럼 보였다
+      (표지 바로 다음이 이 4쪽이라 책의 첫인상을 여기서 만든다). 본문(차례·색인 목록)은
+      여전히 왼쪽 정렬이라 읽는 흐름은 그대로다 — 바뀌는 것은 머리뿐이다. */
+.phead { flex:none; text-align:center; margin-bottom:5mm; }
+.ph { font-family:var(--title-font); font-size:19pt; font-weight:var(--title-weight);
+      line-height:1.25; letter-spacing:var(--title-track); }
+.ph-s { display:block; font-family:var(--head-font); font-weight:var(--head-weight);
+        font-size:10.5pt; color:#6b7383; letter-spacing:.03em; margin-top:1.4mm; }
 .pbody p { font-size:11pt; line-height:1.85; margin:0 0 4mm; word-break:keep-all; }
 .toc { display:flex; gap:6mm; flex:1; }
 .toc > div { flex:1; }
-.tb { font-size:9pt; font-weight:800; color:#c8a24b; margin:2.5mm 0 1mm; }
+.tb { font-family:var(--head-font); font-size:9pt; font-weight:var(--head-weight);
+      color:var(--accent); margin:2.5mm 0 1mm; }
 .tc { display:flex; font-size:9.5pt; line-height:1.75; }
 .tr { flex:1; word-break:keep-all; }
 .tp { color:#6b7383; padding-left:2mm; }
@@ -370,8 +575,107 @@ body { margin:0; font-family:"Noto Sans KR","Malgun Gothic",sans-serif; color:#1
 .ix-p { flex:1; color:#3a4353; }
 .ix-note { font-size:9.5pt; color:#4a5364; margin-bottom:3mm; }
 .ix-end { margin-top:auto; text-align:center; font-size:10pt; line-height:1.8; color:#3a4353; }
-.ix-end b { color:#12294f; }
+.ix-end b { color:var(--deep); }
 """
+
+# ── A4 큰글씨판 — CSS 안의 모든 mm·pt 값을 한 배율로 함께 키운다 ─────────────────
+#   ⚠️ **따로 값을 새로 정하지 않는다.** A5 판은 이미 브라우저 실측으로 다듬어져
+#      있다(14pt 최대·13자 목표·70mm 상한·12mm 문턱 전부 실측값이다). A4 는 그 비례를
+#      그대로 키운 것뿐이다 — A4 와 A5 는 가로세로 비가 같아(ISO 216, √2 배) 한
+#      배율로도 어긋나지 않는다. mm·pt 뒤에 오는 숫자를 정규식으로 찾아 곱한다
+#      (opacity·em·letter-spacing 처럼 단위 없는 값은 손대지 않는다 — em 은 이미
+#      font-size 를 따라가므로 저절로 커진다).
+A4_SCALE = 2 ** 0.5   # A(n)→A(n-1): 가로·세로 모두 √2 배(148×210mm → 209×297mm)
+
+
+def scale_lengths(css_text, factor):
+    if factor == 1.0:
+        return css_text
+
+    def rep(m):
+        return ('%g' % (float(m.group(1)) * factor)) + m.group(2)
+    # ⚠️ `\d*\.?\d+` — `.3mm`처럼 앞자리 0 없이 쓴 값도 잡는다(`.b-orn i`의 height 가 그렇다).
+    #    `\d+(\.\d+)?`만 쓰면 이런 값을 통째로 건너뛰어 그 줄만 A5 크기로 남는다.
+    return re.sub(r'(-?\d*\.?\d+)(mm|pt)', rep, css_text)
+
+
+if SIZE_NAME == 'a4':
+    CSS = scale_lengths(CSS, A4_SCALE)
+    PRAY_PT *= A4_SCALE   # 화면표시·box_mm() 어림값이 실제 렌더와 어긋나지 않게
+
+
+# 자리가 얕으면 「축복노트」를 없앤다.
+#   ⚠️ 파이썬으로 미리 셈하지 않는다 — 줄이 접히는지는 글꼴·글자폭이 정하는 것이라
+#      브라우저만 정확히 안다(SMALL 목록을 손으로 재야 했던 것과 같은 이유).
+#      인쇄 전에 브라우저가 배치를 마치면 그때 재서 걷어낸다.
+#   2026-09-04: 22mm → 12mm. 걷어내기 전 실측으로 보니 두 무리로 뚜렷이 갈렸다 —
+#      5.6~6.1mm(6쪽, 상자 안 여백(5mm)을 빼면 「축복노트」 라벨 하나도 못 들어간다)와
+#      14.6~15.6mm(7쪽, 라벨 + 짧은 한 줄은 된다) 사이에 틈이 있다. 그 틈 가운데를
+#      문턱으로 잡아 7쪽을 살렸다 — 없애는 쪽은 13개에서 6개로 줄었다.
+BOX_MIN_MM = 12    # 이보다 얕으면 라벨도 못 들어간다(6mm대는 실측으로 확인)
+if SIZE_NAME == 'a4':
+    BOX_MIN_MM *= A4_SCALE     # 판이 커진 만큼 「쓸 수 있다」는 기준도 함께 커진다
+TRIM_JS = """
+<script>
+window.addEventListener("load", function () {
+  var min = %g * 96 / 25.4;
+  document.querySelectorAll(".b-box").forEach(function (b) {
+    if (b.offsetHeight < min) b.remove();
+  });
+});
+</script>""" % BOX_MIN_MM
+
+
+# 기본(gold·a5)과 파일 이름이 같아야 지금까지 쓰던 안내 문서·기존 파일명이 안 깨진다.
+SUFFIX = (('' if THEME_NAME == 'gold' else '_' + THEME_NAME)
+          + ('' if FONT_NAME == 'web' else '_' + FONT_NAME)
+          + ('' if SIZE_NAME == 'a5' else '_A4'))
+
+FONT_LINK = ('<link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800'
+             '&family=Noto+Serif+KR:wght@400;600;700;900'
+             '&family=Noto+Sans+KR:wght@300;400;500;700;800&display=swap" rel="stylesheet">'
+             if FONT['web'] else '')
+
+# PC 서체 세트일 때 — 서체가 안 깔린 컴퓨터에서 열면 **화면에만** 띠를 띄워 알려 준다.
+#   ⚠️ 조용히 다른 서체로 대체되는 것이 가장 나쁘다(모르고 그대로 인쇄한다).
+#   ⚠️ @media print 로 인쇄에서는 빼므로 종이에는 절대 안 나온다.
+FONT_CHECK = '' if FONT['web'] else """
+<style>#fontwarn{display:none;position:fixed;left:0;right:0;top:0;z-index:99;background:#b3261e;
+color:#fff;font:14px/1.5 sans-serif;padding:8px 12px;text-align:center}
+@media print{#fontwarn{display:none !important}}</style>
+<div id="fontwarn"></div>
+<script>
+window.addEventListener("load", function () {
+  var need = [%s];
+  var miss = need.filter(function (f) { return !document.fonts.check("12px '" + f + "'"); });
+  if (miss.length) {
+    var w = document.getElementById("fontwarn");
+    w.textContent = "⚠ 이 컴퓨터에 없는 서체: " + miss.join(", ") +
+      " — 다른 서체로 대체되어 보입니다(인쇄 전에 확인하세요).";
+    w.style.display = "block";
+  }
+});
+</script>""" % ', '.join('"%s"' % f for f in ('Hakgyoansim Dunggeunmiso TTF',
+                                                            'Freesentation 8', 'Freesentation 7', 'Freesentation 4'))
+
+
+def html_doc(css, body_html):
+    return ('<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">%s<style>%s</style></head>'
+            '<body>%s%s%s</body></html>' % (FONT_LINK, css, body_html, TRIM_JS, FONT_CHECK))
+
+
+def out_path(fname):
+    """--out 으로 준 폴더에 넣는다(없으면 만든다)."""
+    if OUT_DIR and OUT_DIR != '.':
+        if not os.path.isdir(OUT_DIR):
+            os.makedirs(OUT_DIR)
+        return os.path.join(OUT_DIR, fname)
+    return fname
+
+
+def name_tag(name):
+    """명단으로 돌릴 때만 성함을 파일 이름에 넣는다(한 사람 몫은 예전 이름 그대로)."""
+    return ('_' + name) if LIST_FILE else ''
 
 
 def build(vol, items, name):
@@ -380,13 +684,46 @@ def build(vol, items, name):
     for i, r in enumerate(items):
         pages.append(page(r, base + i, name))
     pages.append(index_by_group(items, base, base + len(items)))
-    out = ('<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">'
-           '<link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800'
-           '&family=Noto+Sans+KR:wght@300;400;500;700;800&display=swap" rel="stylesheet">'
-           '<style>%s</style></head><body>%s</body></html>' % (CSS, ''.join(pages)))
-    f = '축복기도문_%d권.html' % vol
+    out = html_doc(CSS, ''.join(pages))
+    f = out_path('축복기도문_%d권%s%s.html' % (vol, name_tag(name), SUFFIX))
     io.open(f, 'w', encoding='utf-8', newline='').write(out)
     return f, out.count('class="page')
+
+
+# ── 인쇄용 2단(--2up) — A4 가로 한 장에 A5 두 쪽을 나란히 ────────────────────────
+#   ⚠️ 접어서 제본하는 순서(시그니처)가 아니다 — **읽는 순서 그대로** 두 쪽씩 나란히
+#      놓을 뿐이다(집 프린터로 인쇄해 가위로 자르는 용도). 접지 제본용 순서가 필요하면
+#      이 함수를 바꿔야 한다(그건 훨씬 큰 일이다 — 앞뒤 면 계산이 들어간다).
+#   148×2=296mm 인데 A4 가로는 297mm — 1mm 뿐이라 손으로 계산하지 않고 그냥 가운데
+#      맞춤(justify-content:center)으로 여유를 흡수한다.
+CSS_2UP = """
+@page { size:297mm 210mm; margin:0; }
+body { margin:0; background:#ddd; }  /* 시트 사이 여백이 보이게 — 인쇄에는 안 나간다(각 시트가 흰 배경) */
+.sheet { width:297mm; height:210mm; display:flex; align-items:center; justify-content:center;
+         gap:0; page-break-after:always; position:relative; background:#ddd; }
+.sheet:last-child { page-break-after:auto; }
+/* ⚠️ 개별 .page 는 원래 자기가 마지막 쪽인 줄 알고 page-break-after 를 스스로 결정한다
+   (.page, .page:last-child) — 여기서는 그 판단이 틀리므로(끊는 자리는 .sheet 가 정한다)
+   더 구체적인 선택자 + !important 로 반드시 덮어쓴다. */
+.sheet .page, .sheet .page:last-child { page-break-after:avoid !important; }
+/* 자르는 자리 — 가운데를 옅은 점선으로. 인쇄돼도 잉크가 거의 안 든다. */
+.sheet::after { content:""; position:absolute; left:50%; top:0; bottom:0; width:0;
+                border-left:.3mm dashed #aaa; }
+"""
+
+
+def build_2up(vol, items, name):
+    base = 6
+    pages = [cover(vol, name, items[0], items[-1]), intro(name, len(items)), toc(items, base)]
+    for i, r in enumerate(items):
+        pages.append(page(r, base + i, name))
+    pages.append(index_by_group(items, base, base + len(items)))
+    secs = re.findall(r'<section class="page[^"]*">.*?</section>', ''.join(pages), re.S)
+    sheets = ['<div class="sheet">%s</div>' % ''.join(secs[i:i + 2]) for i in range(0, len(secs), 2)]
+    out = html_doc(CSS + CSS_2UP, ''.join(sheets))
+    f = out_path('축복기도문_%d권%s%s_2up.html' % (vol, name_tag(name), SUFFIX))
+    io.open(f, 'w', encoding='utf-8', newline='').write(out)
+    return f, len(sheets)
 
 
 if '--export' in sys.argv:
@@ -397,12 +734,10 @@ if '--export' in sys.argv:
 if '--sample' in sys.argv:
     k = int(sys.argv[sys.argv.index('--sample') + 1])
     body = ''.join(page(r, 1 + i, NAME) for i, r in enumerate(rows[:k]))
-    out = ('<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">'
-           '<link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800'
-           '&family=Noto+Sans+KR:wght@300;400;500;700;800&display=swap" rel="stylesheet">'
-           '<style>%s</style></head><body>%s</body></html>' % (CSS, body))
-    io.open('축복기도문_견본.html', 'w', encoding='utf-8', newline='').write(out)
-    print('축복기도문_견본.html — %d장 (%.0fpt · 한 줄 %d자)' % (k, PRAY_PT, PRAY_PER))
+    out = html_doc(CSS, body)
+    sf = '축복기도문_견본%s.html' % SUFFIX
+    io.open(sf, 'w', encoding='utf-8', newline='').write(out)
+    print('%s — %d장 (%.0fpt · 한 줄 %d자)' % (sf, k, PRAY_PT, PRAY_PER))
     for r in rows[:k]:
         print('   %d번 %-16s 기도문 %2d줄 · 아래 박스 %2.0fmm'
               % (r['no'], r['title'], len(pray_lines(r['prayer'], NAME, r['no'])) + 1, box_mm(r, NAME)))
@@ -428,10 +763,61 @@ if MANUAL:
         print('   그 편은 파일 내용 그대로 인쇄됩니다. 확인해 주세요.')
     print('')
 
+if TWOUP and SIZE_NAME == 'a4':
+    print('!! --2up 은 a5 전용입니다(A4 큰글씨판을 2단으로 찍으려면 A3 용지가 필요합니다) — 건너뜁니다.')
+    TWOUP = False
+
 vols = [rows[i:i + PER_VOL] for i in range(0, len(rows), PER_VOL)]
-for n, items in enumerate(vols, 1):
-    f, cnt = build(n, items, NAME)
-    print('%s  —  %d편 · %d쪽' % (f, len(items), cnt))
+
+
+def make_one(name, quiet=False):
+    """한 사람 몫 — 두 권을 만들고, --pdf 면 PDF 까지 굽는다."""
+    made = []
+    for n, items in enumerate(vols, 1):
+        f, cnt = build(n, items, name)
+        made.append(f)
+        if not quiet:
+            print('%s  —  %d편 · %d쪽' % (f, len(items), cnt))
+        if TWOUP:
+            f2, sheets = build_2up(n, items, name)
+            made.append(f2)
+            if not quiet:
+                print('%s  —  %d장(A4 가로, 두 쪽씩)' % (f2, sheets))
+    if MAKE_PDF:
+        for f in made:
+            pdf = f[:-5] + '.pdf'
+            if to_pdf(f, pdf) and not quiet:
+                print('   → %s' % pdf)
+    return made
+
+
+# ── 명단으로 여러 사람 몫을 한 번에 ──────────────────────────────────
+#   ⚠️ 한 사람에 두 권 · PDF 까지 구우면 10초 안팎이 걸린다. 100명이면 20분쯤이다.
+#      진행 상황을 한 줄씩 찍어 멈춘 것처럼 보이지 않게 한다.
+if LIST_FILE:
+    if not os.path.exists(LIST_FILE):
+        raise SystemExit('!! 명단 파일이 없습니다: %s' % LIST_FILE)
+    names = []
+    for raw in io.open(LIST_FILE, encoding='utf-8-sig'):
+        t = raw.strip()
+        if t and not t.startswith('#'):
+            names.append(t)
+    if not names:
+        raise SystemExit('!! 명단이 비어 있습니다: %s' % LIST_FILE)
+    print('명단 %d분 — %s%s' % (len(names), OUT_DIR, ' · PDF 까지' if MAKE_PDF else ' · HTML 만'))
+    print('')
+    for i, nm in enumerate(names, 1):
+        made = make_one(nm, quiet=True)
+        # ⚠️ 조사가 사람마다 갈린다(ㄹ 받침!) — 한 분씩 찍어 눈으로 확인할 수 있게 한다
+        print('  %3d/%d  %-8s  %s' % (i, len(names), nm,
+                                      '로' if jong(nm) in (0, 8) else '으로'))
+    print('')
+    print('끝났습니다 — %s 폴더를 보세요.' % os.path.abspath(OUT_DIR))
+    print('테마: %s · 서체: %s · 판형: %s%s'
+          % (THEME_NAME, FONT_NAME, SIZE_NAME.upper(), ' · 2단' if TWOUP else ''))
+    sys.exit(0)
+
+make_one(NAME)
 
 boxes = sorted((box_mm(r, NAME), r['no'], r['title']) for r in rows)
 print('')
@@ -441,4 +827,7 @@ print('   가장 넓은 박스  %2.0fmm   %d번 %s' % (boxes[-1][0], boxes[-1][1
 tight = [b for b in boxes if b[0] < BOX_MIN]
 print('   박스가 %dmm 미만인 편   %s' % (BOX_MIN, [b[1] for b in tight] or '없음'))
 print('')
+print('테마: %s(%s) · 서체: %s(%s) · 판형: %s%s'
+      % (THEME_NAME, THEME['label'], FONT_NAME, FONT['label'],
+         SIZE_NAME.upper(), ' · 2단' if TWOUP else ''))
 print('이름: %s' % NAME)
