@@ -4210,19 +4210,20 @@ html[data-fs="xl"] .pr-verse  { font-size: 1.12rem; }
 /* ── 크게 보기(2026-09-03) — 가정 예배에서 온 식구가 함께 보는 자리 ──────────
    ⚠️ 아이폰 사파리는 임의의 요소에 전체화면을 안 준다(video 만). 그래서 진짜 일은
       이 덮개가 한다 — 전체화면 API 는 「되면 좋고」다. */
-.pr-acts { display: flex; gap: 8px; margin-top: 14px; align-items: stretch; }
-.pr-acts .pr-speak { flex: 1; margin-top: 0; padding: 11px 10px; font-size: .95rem; white-space: nowrap; }
-.pr-auto {
-  flex: 0 0 auto; padding: 11px 14px; font-size: .9rem; font-weight: 700; font-family: inherit; cursor: pointer;
-  color: var(--navy); background: #eef1f8; border: 1.5px solid var(--navy); border-radius: 13px; white-space: nowrap;
-}
-.pr-auto:hover { background: var(--navy); color: #fff; }
-.pr-auto.active { background: var(--navy); color: #fff; }
+.pr-acts { display: flex; gap: 8px; margin-top: 14px; align-items: center; }
 .pr-big {
-  flex: 0 0 46px; font-size: 1.1rem; font-family: inherit; cursor: pointer;
+  flex: 0 0 46px; height: 46px; font-size: 1.1rem; font-family: inherit; cursor: pointer;
   color: var(--navy); background: #eef1f8; border: 1.5px solid var(--navy); border-radius: 13px;
 }
 .pr-big:hover { background: var(--navy); color: #fff; }
+.pr-acts .pr-speak { flex: 1; margin-top: 0; padding: 11px 10px; font-size: .95rem; white-space: nowrap; }
+.pr-auto-label {
+  display: flex; align-items: center; gap: 5px; flex-shrink: 0;
+  font-size: .85rem; font-weight: 700; color: var(--navy); cursor: pointer; white-space: nowrap;
+}
+.pr-auto-label input[type="checkbox"] {
+  width: 17px; height: 17px; cursor: pointer; accent-color: var(--navy); flex-shrink: 0;
+}
 body.pr-full-on { overflow: hidden; }
 .pr-full {
   position: fixed; inset: 0; z-index: 9999; overflow: hidden;
