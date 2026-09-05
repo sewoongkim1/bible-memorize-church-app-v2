@@ -4228,6 +4228,7 @@ html[data-fs="xl"] .pr-verse  { font-size: 1.12rem; }
 .pr-cfg {
   flex: 0 0 46px; font-size: 1.1rem; font-family: inherit; cursor: pointer;
   color: var(--navy); background: #eef1f8; border: 1.5px solid var(--navy); border-radius: 13px;
+  padding: 0; align-self: stretch;
 }
 .pr-cfg:hover, .pr-cfg.open { background: var(--navy); color: #fff; }
 .pr-tts-cfg {

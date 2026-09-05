@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260905j";
+const APP_BUILD = "20260905k";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2137,15 +2137,26 @@ function drawPrayer(list, i) {
     panel.hidden = !panel.hidden;
     btn.classList.toggle("open", !panel.hidden);
   });
+  const restartIfPlaying = () => {
+    if (window.speechSynthesis && window.speechSynthesis.speaking) {
+      stopSpeaking();
+      const sp = document.getElementById("pr-speak");
+      if (sp) { sp.textContent = "⏹ 그만듣기"; playFrom(i); }
+    }
+  };
   document.getElementById("pr-rate").addEventListener("input", (e) => {
-    const v = parseFloat(e.target.value);
-    setSpeakRate(v);
-    document.getElementById("pr-rate-lbl").textContent = rateLabel(v);
+    document.getElementById("pr-rate-lbl").textContent = rateLabel(parseFloat(e.target.value));
+  });
+  document.getElementById("pr-rate").addEventListener("change", (e) => {
+    setSpeakRate(parseFloat(e.target.value));
+    restartIfPlaying();
   });
   document.getElementById("pr-vol").addEventListener("input", (e) => {
-    const v = parseFloat(e.target.value);
-    setSpeakVol(v);
-    document.getElementById("pr-vol-lbl").textContent = volLabel(v);
+    document.getElementById("pr-vol-lbl").textContent = volLabel(parseFloat(e.target.value));
+  });
+  document.getElementById("pr-vol").addEventListener("change", (e) => {
+    setSpeakVol(parseFloat(e.target.value));
+    restartIfPlaying();
   });
   // 주제 아코디언 — 화면을 옮기지 않고 그 자리에서 펴고 접는다. 한 번에 하나만 열린다.
   document.querySelectorAll(".pr-acc-head").forEach((head) => {
