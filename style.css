@@ -4217,11 +4217,12 @@ html[data-fs="xl"] .pr-verse  { font-size: 1.12rem; }
 }
 .pr-big:hover { background: var(--navy); color: #fff; }
 .pr-acts .pr-speak { flex: 1; margin-top: 0; padding: 11px 10px; font-size: .95rem; white-space: nowrap; }
-.pr-auto-label {
-  display: flex; align-items: center; gap: 5px; flex-shrink: 0;
+.pr-opts { display: flex; gap: 14px; justify-content: flex-end; margin-top: 8px; }
+.pr-opt-label {
+  display: flex; align-items: center; gap: 5px;
   font-size: .85rem; font-weight: 700; color: var(--navy); cursor: pointer; white-space: nowrap;
 }
-.pr-auto-label input[type="checkbox"] {
+.pr-opt-label input[type="checkbox"] {
   width: 17px; height: 17px; cursor: pointer; accent-color: var(--navy); flex-shrink: 0;
 }
 body.pr-full-on { overflow: hidden; }

@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260905c";
+const APP_BUILD = "20260905d";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1941,6 +1941,7 @@ let prayIdx = null;       // 지금 보고 있는 편(0-based)
 let prayOpenVerse = false; // 말씀을 펴 뒀나 — 이전/다음에도 이어진다
 let prayGroup = null;      // 어느 주제 목록에서 들어왔나 — 돌아갈 길을 남긴다
 let prayAutoPlay = false;  // 연속듣기 모드 — TTS 끝나면 다음 편으로 자동 이동
+let prayRepeat  = false;  // 반복듣기 모드 — TTS 끝나면 같은 편 다시 재생
 
 async function loadPrayers() {
   if (prayCache) return prayCache;
@@ -2054,9 +2055,10 @@ function drawPrayer(list, i) {
       <div class="pr-acts">
         <button class="pr-big" id="pr-big" title="크게 보기">⛶</button>
         <button class="pr-speak" id="pr-speak">🔊 들려주기</button>
-        <label class="pr-auto-label" title="연속듣기 켜기/끄기">
-          <input type="checkbox" id="pr-auto-chk"${prayAutoPlay ? " checked" : ""}> 연속듣기
-        </label>
+      </div>
+      <div class="pr-opts">
+        <label class="pr-opt-label"><input type="checkbox" id="pr-auto-chk"${prayAutoPlay ? " checked" : ""}> 연속듣기</label>
+        <label class="pr-opt-label"><input type="checkbox" id="pr-repeat-chk"${prayRepeat ? " checked" : ""}> 반복듣기</label>
       </div>
       <div class="pr-nav">
         <button class="pr-arrow" id="pr-prev">← 이전</button>
@@ -2082,8 +2084,8 @@ function drawPrayer(list, i) {
       }).join("")}
     </div>`;
   // ⚠️ 이전/다음은 주제 안이 아니라 104편 전체를 돈다 — 그러면 「목록으로」가 거짓말이 되므로 내린다
-  document.getElementById("pr-prev").addEventListener("click", () => { prayAutoPlay = false; stopSpeaking(); prayGroup = null; drawPrayer(list, (i - 1 + list.length) % list.length); window.scrollTo(0,0); });
-  document.getElementById("pr-next").addEventListener("click", () => { prayAutoPlay = false; stopSpeaking(); prayGroup = null; drawPrayer(list, (i + 1) % list.length); window.scrollTo(0,0); });
+  document.getElementById("pr-prev").addEventListener("click", () => { prayAutoPlay = false; prayRepeat = false; stopSpeaking(); prayGroup = null; drawPrayer(list, (i - 1 + list.length) % list.length); window.scrollTo(0,0); });
+  document.getElementById("pr-next").addEventListener("click", () => { prayAutoPlay = false; prayRepeat = false; stopSpeaking(); prayGroup = null; drawPrayer(list, (i + 1) % list.length); window.scrollTo(0,0); });
   document.getElementById("pr-name").addEventListener("click", () => askPrayName(list, i));
   const toList = document.getElementById("pr-tolist");
   if (toList) toList.addEventListener("click", () => { stopSpeaking(); renderPrayerGroup(list, prayGroup); });
@@ -2118,10 +2120,20 @@ function drawPrayer(list, i) {
   const sp = document.getElementById("pr-speak");
   const buildSaid = (bx) => [bx.title, prayOpenVerse ? bx.verse : "",
     prayChunks(bx.prayer).map((x) => prayFill(x, prayName)).join(" ")].filter(Boolean).join(". ");
-  // 연속듣기: TTS 끝나면 다음 편으로 이동 후 자동 재생
+  // 연속듣기·반복듣기: TTS 끝나면 다음 편 또는 같은 편 자동 재생
   const playFrom = (idx) => {
     speakText(buildSaid(list[idx]), () => {
       const s = document.getElementById("pr-speak");
+      if (prayRepeat) {
+        // 같은 편 반복
+        setTimeout(() => {
+          if (!prayRepeat) return;
+          const ns = document.getElementById("pr-speak");
+          if (ns) ns.textContent = "⏹ 그만듣기";
+          playFrom(idx);
+        }, 300);
+        return;
+      }
       if (!prayAutoPlay) { if (s) s.textContent = "🔊 들려주기"; return; }
       const nextIdx = (idx + 1) % list.length;
       if (nextIdx === 0) { prayAutoPlay = false; if (s) s.textContent = "🔊 들려주기"; return; }
@@ -2138,17 +2150,25 @@ function drawPrayer(list, i) {
   sp.addEventListener("click", () => {
     if (window.speechSynthesis && window.speechSynthesis.speaking) {
       prayAutoPlay = false;
+      prayRepeat = false;
       stopSpeaking();
       sp.textContent = "🔊 들려주기";
       return;
     }
-    const chk = document.getElementById("pr-auto-chk");
-    prayAutoPlay = !!(chk && chk.checked);
+    const chkAuto = document.getElementById("pr-auto-chk");
+    const chkRep  = document.getElementById("pr-repeat-chk");
+    prayAutoPlay = !!(chkAuto && chkAuto.checked);
+    prayRepeat   = !!(chkRep  && chkRep.checked);
     sp.textContent = "⏹ 그만듣기";
     playFrom(i);
   });
   document.getElementById("pr-auto-chk").addEventListener("change", (e) => {
     prayAutoPlay = e.target.checked;
+    if (e.target.checked) { prayRepeat = false; document.getElementById("pr-repeat-chk").checked = false; }
+  });
+  document.getElementById("pr-repeat-chk").addEventListener("change", (e) => {
+    prayRepeat = e.target.checked;
+    if (e.target.checked) { prayAutoPlay = false; document.getElementById("pr-auto-chk").checked = false; }
   });
 }
 
