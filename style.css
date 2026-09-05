@@ -4212,6 +4212,12 @@ html[data-fs="xl"] .pr-verse  { font-size: 1.12rem; }
       이 덮개가 한다 — 전체화면 API 는 「되면 좋고」다. */
 .pr-acts { display: flex; gap: 8px; margin-top: 14px; }
 .pr-acts .pr-speak { flex: 1; margin-top: 0; }
+.pr-auto {
+  flex: 0 0 auto; padding: 0 14px; font-size: .9rem; font-weight: 700; font-family: inherit; cursor: pointer;
+  color: var(--navy); background: #eef1f8; border: 1.5px solid var(--navy); border-radius: 13px; white-space: nowrap;
+}
+.pr-auto:hover { background: var(--navy); color: #fff; }
+.pr-auto.active { background: var(--navy); color: #fff; }
 .pr-big {
   flex: 0 0 62px; font-size: 1.25rem; font-family: inherit; cursor: pointer;
   color: var(--navy); background: #eef1f8; border: 1.5px solid var(--navy); border-radius: 13px;

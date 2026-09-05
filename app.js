@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260904k";
+const APP_BUILD = "20260905a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1940,6 +1940,7 @@ let prayName = null;      // 누구 이름으로 읽을지(기본은 로그인�
 let prayIdx = null;       // 지금 보고 있는 편(0-based)
 let prayOpenVerse = false; // 말씀을 펴 뒀나 — 이전/다음에도 이어진다
 let prayGroup = null;      // 어느 주제 목록에서 들어왔나 — 돌아갈 길을 남긴다
+let prayAutoPlay = false;  // 연속 듣기 모드 — TTS 끝나면 다음 편으로 자동 이동
 
 async function loadPrayers() {
   if (prayCache) return prayCache;
@@ -2011,7 +2012,7 @@ function renderPrayerBook(idx) {
   app.innerHTML = `<div class="pr-wrap"><div class="pr-loading">불러오는 중…</div></div>
     <button class="home-fab" id="pr-home" aria-label="첫 화면으로">${homeFabLabel(u, true)}</button>`;
   window.scrollTo(0, 0);
-  document.getElementById("pr-home").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
+  document.getElementById("pr-home").addEventListener("click", () => { prayAutoPlay = false; stopSpeaking(); renderSummary(); });
   loadPrayers().then((list) => {
     if (idx == null) idx = prayToday(list.length);
     prayIdx = ((idx % list.length) + list.length) % list.length;
@@ -2052,6 +2053,7 @@ function drawPrayer(list, i) {
       <div class="pr-verse" id="pr-verse" ${prayOpenVerse ? "" : "hidden"}>${prayEsc(b.verse)}</div>
       <div class="pr-acts">
         <button class="pr-speak" id="pr-speak">🔊 들려주기</button>
+        <button class="pr-auto${prayAutoPlay ? " active" : ""}" id="pr-auto" title="연속 듣기">${prayAutoPlay ? "⏹ 연속 중단" : "▶ 연속 듣기"}</button>
         <button class="pr-big" id="pr-big" title="크게 보기">⛶</button>
       </div>
       <div class="pr-nav">
@@ -2078,8 +2080,8 @@ function drawPrayer(list, i) {
       }).join("")}
     </div>`;
   // ⚠️ 이전/다음은 주제 안이 아니라 104편 전체를 돈다 — 그러면 「목록으로」가 거짓말이 되므로 내린다
-  document.getElementById("pr-prev").addEventListener("click", () => { stopSpeaking(); prayGroup = null; drawPrayer(list, (i - 1 + list.length) % list.length); window.scrollTo(0,0); });
-  document.getElementById("pr-next").addEventListener("click", () => { stopSpeaking(); prayGroup = null; drawPrayer(list, (i + 1) % list.length); window.scrollTo(0,0); });
+  document.getElementById("pr-prev").addEventListener("click", () => { prayAutoPlay = false; stopSpeaking(); prayGroup = null; drawPrayer(list, (i - 1 + list.length) % list.length); window.scrollTo(0,0); });
+  document.getElementById("pr-next").addEventListener("click", () => { prayAutoPlay = false; stopSpeaking(); prayGroup = null; drawPrayer(list, (i + 1) % list.length); window.scrollTo(0,0); });
   document.getElementById("pr-name").addEventListener("click", () => askPrayName(list, i));
   const toList = document.getElementById("pr-tolist");
   if (toList) toList.addEventListener("click", () => { stopSpeaking(); renderPrayerGroup(list, prayGroup); });
@@ -2112,14 +2114,50 @@ function drawPrayer(list, i) {
   // 🔊 — **보이는 것을 읽는다**(말씀을 접어 뒀으면 읽지 않는다). 앨범 「전부 듣기」가
   //      화면에 보이는 순서 그대로 읽는 것과 같은 규칙이다. 사이 마침표가 쉼을 만든다.
   const sp = document.getElementById("pr-speak");
+  const buildSaid = () => [b.title, prayOpenVerse ? b.verse : "",
+    prayChunks(b.prayer).map((x) => prayFill(x, prayName)).join(" ")].filter(Boolean).join(". ");
   sp.addEventListener("click", () => {
     if (window.speechSynthesis && window.speechSynthesis.speaking) {
-      stopSpeaking(); sp.textContent = "🔊 들려주기"; return;
+      prayAutoPlay = false;
+      stopSpeaking(); sp.textContent = "🔊 들려주기";
+      const ap = document.getElementById("pr-auto");
+      if (ap) ap.textContent = "▶ 연속 듣기";
+      return;
     }
     sp.textContent = "⏹ 그만 듣기";
-    const said = [b.title, prayOpenVerse ? b.verse : "",
-                  prayChunks(b.prayer).map((x) => prayFill(x, prayName)).join(" ")].filter(Boolean).join(". ");
-    speakText(said, () => { sp.textContent = "🔊 들려주기"; }, 1, "ko-KR");
+    speakText(buildSaid(), () => { sp.textContent = "🔊 들려주기"; }, 1, "ko-KR");
+  });
+  const ap = document.getElementById("pr-auto");
+  ap.addEventListener("click", () => {
+    if (prayAutoPlay) {
+      prayAutoPlay = false;
+      stopSpeaking();
+      ap.textContent = "▶ 연속 듣기";
+      sp.textContent = "🔊 들려주기";
+      return;
+    }
+    prayAutoPlay = true;
+    ap.textContent = "⏹ 연속 중단";
+    sp.textContent = "⏹ 그만 듣기";
+    const playNext = (idx) => {
+      if (!prayAutoPlay) return;
+      drawPrayer(list, idx);
+      window.scrollTo(0, 0);
+      // drawPrayer가 새 DOM을 그리므로 약간 뒤에 TTS 시작
+      setTimeout(() => {
+        if (!prayAutoPlay) return;
+        const nextB = list[idx];
+        const nextSaid = [nextB.title, prayOpenVerse ? nextB.verse : "",
+          prayChunks(nextB.prayer).map((x) => prayFill(x, prayName)).join(" ")].filter(Boolean).join(". ");
+        speakText(nextSaid, () => {
+          if (!prayAutoPlay) return;
+          const nextIdx = (idx + 1) % list.length;
+          if (nextIdx === 0) { prayAutoPlay = false; return; } // 한 바퀴 돌면 종료
+          playNext(nextIdx);
+        }, 1, "ko-KR");
+      }, 300);
+    };
+    playNext(i);
   });
 }
 
