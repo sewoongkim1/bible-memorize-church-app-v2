@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260905m";
+const APP_BUILD = "20260905n";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2108,7 +2108,7 @@ function drawPrayer(list, i) {
           <input type="range" class="pr-cfg-range" id="pr-bgm-vol" min="0.0" max="1.0" step="0.1" value="${getBgmVol()}">
           <span class="pr-cfg-val" id="pr-bgm-vol-lbl">${volLabel(getBgmVol())}</span>
         </div>
-        <div class="pr-cfg-info">들려주기 설정을 바꾸면 재생이 멈추고 새 설정으로 다시 시작됩니다.</div>
+        <div class="pr-cfg-info">속도·볼륨을 바꾸면 재생이 멈춥니다. 들려주기를 다시 눌러 시작하세요.</div>
       </div>
       <div class="pr-opts">
         <label class="pr-opt-label"><input type="checkbox" id="pr-auto-chk"${prayAutoPlay ? " checked" : ""}> 연속듣기</label>
@@ -2151,11 +2151,17 @@ function drawPrayer(list, i) {
     panel.hidden = !panel.hidden;
     btn.classList.toggle("open", !panel.hidden);
   });
-  const restartIfPlaying = () => {
+  const stopIfPlaying = () => {
     if (window.speechSynthesis && window.speechSynthesis.speaking) {
+      prayAutoPlay = false;
+      prayRepeat = false;
       stopSpeaking();
       const sp = document.getElementById("pr-speak");
-      if (sp) { sp.textContent = "⏹ 그만듣기"; playFrom(i); }
+      if (sp) sp.textContent = "🔊 들려주기";
+      const chkA = document.getElementById("pr-auto-chk");
+      const chkR = document.getElementById("pr-repeat-chk");
+      if (chkA) chkA.checked = false;
+      if (chkR) chkR.checked = false;
     }
   };
   document.getElementById("pr-rate").addEventListener("input", (e) => {
@@ -2163,14 +2169,14 @@ function drawPrayer(list, i) {
   });
   document.getElementById("pr-rate").addEventListener("change", (e) => {
     setSpeakRate(parseFloat(e.target.value));
-    restartIfPlaying();
+    stopIfPlaying();
   });
   document.getElementById("pr-vol").addEventListener("input", (e) => {
     document.getElementById("pr-vol-lbl").textContent = volLabel(parseFloat(e.target.value));
   });
   document.getElementById("pr-vol").addEventListener("change", (e) => {
     setSpeakVol(parseFloat(e.target.value));
-    restartIfPlaying();
+    stopIfPlaying();
   });
   document.getElementById("pr-bgm-vol").addEventListener("input", (e) => {
     const v = parseFloat(e.target.value);
