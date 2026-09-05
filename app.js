@@ -1945,6 +1945,7 @@ let prayRepeat  = false;  // 반복듣기 모드 — TTS 끝나면 같은 편 �
 // 배경음악 파일 목록 — music/ 폴더에 파일을 추가하면 이 배열에도 넣는다. 순서대로 재생 후 처음으로 돌아간다.
 const PRAY_BGM_LIST = [
   "music/catholicrelax-small-boat-into-silence-471285.mp3",
+  "music/catholicrelax-quiet-boat-to-silence-471287.mp3",
 ];
 let prayBgAudio = null;   // 배경음악 <audio> 요소 — 화면 이탈 시 정지
 let prayBgTrack = 0;      // 현재 재생 중인 곡 인덱스
