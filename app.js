@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260905e";
+const APP_BUILD = "20260905f";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1942,19 +1942,31 @@ let prayOpenVerse = false; // 말씀을 펴 뒀나 — 이전/다음에도 이�
 let prayGroup = null;      // 어느 주제 목록에서 들어왔나 — 돌아갈 길을 남긴다
 let prayAutoPlay = false;  // 연속듣기 모드 — TTS 끝나면 다음 편으로 자동 이동
 let prayRepeat  = false;  // 반복듣기 모드 — TTS 끝나면 같은 편 다시 재생
+// 배경음악 파일 목록 — music/ 폴더에 파일을 추가하면 이 배열에도 넣는다. 순서대로 재생 후 처음으로 돌아간다.
+const PRAY_BGM_LIST = [
+  "music/catholicrelax-small-boat-into-silence-471285.mp3",
+];
 let prayBgAudio = null;   // 배경음악 <audio> 요소 — 화면 이탈 시 정지
+let prayBgTrack = 0;      // 현재 재생 중인 곡 인덱스
 
 function stopPrayBgMusic() {
   if (prayBgAudio) { prayBgAudio.pause(); prayBgAudio.currentTime = 0; }
 }
+function playBgTrack(idx) {
+  prayBgTrack = ((idx % PRAY_BGM_LIST.length) + PRAY_BGM_LIST.length) % PRAY_BGM_LIST.length;
+  prayBgAudio.src = PRAY_BGM_LIST[prayBgTrack];
+  prayBgAudio.play().catch(() => {});
+}
 function togglePrayBgMusic(on) {
   if (!prayBgAudio) {
-    prayBgAudio = new Audio("music/catholicrelax-small-boat-into-silence-471285.mp3");
-    prayBgAudio.loop = true;
-    prayBgAudio.volume = 0.25;
+    prayBgAudio = new Audio();
+    prayBgAudio.volume = 0.4;
+    prayBgAudio.addEventListener("ended", () => {
+      playBgTrack(prayBgTrack + 1);
+    });
   }
-  if (on) { prayBgAudio.play().catch(() => {}); }
-  else     { prayBgAudio.pause(); }
+  if (on) { playBgTrack(prayBgTrack); }
+  else    { prayBgAudio.pause(); }
 }
 
 async function loadPrayers() {
@@ -2146,7 +2158,7 @@ function drawPrayer(list, i) {
           const ns = document.getElementById("pr-speak");
           if (ns) ns.textContent = "⏹ 그만듣기";
           playFrom(idx);
-        }, 300);
+        }, 2000);
         return;
       }
       if (!prayAutoPlay) { if (s) s.textContent = "🔊 들려주기"; return; }
@@ -2159,7 +2171,7 @@ function drawPrayer(list, i) {
         const ns = document.getElementById("pr-speak");
         if (ns) ns.textContent = "⏹ 그만듣기";
         playFrom(nextIdx);
-      }, 300);
+      }, 2000);
     }, 1, "ko-KR");
   };
   sp.addEventListener("click", () => {
