@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260905i";
+const APP_BUILD = "20260905j";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2082,6 +2082,19 @@ function drawPrayer(list, i) {
       <div class="pr-acts">
         <button class="pr-big" id="pr-big" title="크게 보기">⛶</button>
         <button class="pr-speak" id="pr-speak">🔊 들려주기</button>
+        <button class="pr-cfg" id="pr-cfg" title="듣기 설정">⚙️</button>
+      </div>
+      <div class="pr-tts-cfg" id="pr-tts-cfg" hidden>
+        <div class="pr-cfg-row">
+          <span class="pr-cfg-lbl">속도</span>
+          <input type="range" class="pr-cfg-range" id="pr-rate" min="0.4" max="1.5" step="0.1" value="${getSpeakRate()}">
+          <span class="pr-cfg-val" id="pr-rate-lbl">${rateLabel(getSpeakRate())}</span>
+        </div>
+        <div class="pr-cfg-row">
+          <span class="pr-cfg-lbl">볼륨</span>
+          <input type="range" class="pr-cfg-range" id="pr-vol" min="0.1" max="1.0" step="0.1" value="${getSpeakVol()}">
+          <span class="pr-cfg-val" id="pr-vol-lbl">${volLabel(getSpeakVol())}</span>
+        </div>
       </div>
       <div class="pr-opts">
         <label class="pr-opt-label"><input type="checkbox" id="pr-auto-chk"${prayAutoPlay ? " checked" : ""}> 연속듣기</label>
@@ -2118,6 +2131,22 @@ function drawPrayer(list, i) {
   const toList = document.getElementById("pr-tolist");
   if (toList) toList.addEventListener("click", () => { stopSpeaking(); renderPrayerGroup(list, prayGroup); });
   document.getElementById("pr-big").addEventListener("click", () => { stopSpeaking(); prayFullOpen(list, i); });
+  document.getElementById("pr-cfg").addEventListener("click", () => {
+    const panel = document.getElementById("pr-tts-cfg");
+    const btn = document.getElementById("pr-cfg");
+    panel.hidden = !panel.hidden;
+    btn.classList.toggle("open", !panel.hidden);
+  });
+  document.getElementById("pr-rate").addEventListener("input", (e) => {
+    const v = parseFloat(e.target.value);
+    setSpeakRate(v);
+    document.getElementById("pr-rate-lbl").textContent = rateLabel(v);
+  });
+  document.getElementById("pr-vol").addEventListener("input", (e) => {
+    const v = parseFloat(e.target.value);
+    setSpeakVol(v);
+    document.getElementById("pr-vol-lbl").textContent = volLabel(v);
+  });
   // 주제 아코디언 — 화면을 옮기지 않고 그 자리에서 펴고 접는다. 한 번에 하나만 열린다.
   document.querySelectorAll(".pr-acc-head").forEach((head) => {
     head.addEventListener("click", () => {
@@ -4987,6 +5016,26 @@ function getSpeakRate() {
 function setSpeakRate(v) {
   try { localStorage.setItem(TTS_RATE_KEY, String(v)); } catch (e) {}
 }
+const TTS_VOL_KEY = "tts-vol";
+function getSpeakVol() {
+  const v = parseFloat(localStorage.getItem(TTS_VOL_KEY));
+  return v >= 0.1 && v <= 1.0 ? v : 1.0;
+}
+function setSpeakVol(v) {
+  try { localStorage.setItem(TTS_VOL_KEY, String(v)); } catch (e) {}
+}
+function rateLabel(v) {
+  if (v <= 0.5) return "매우 느리게";
+  if (v <= 0.65) return "느리게";
+  if (v <= 0.8) return "보통";
+  if (v <= 1.1) return "빠르게";
+  return "매우 빠르게";
+}
+function volLabel(v) {
+  if (v <= 0.3) return "작게";
+  if (v <= 0.65) return "보통";
+  return "크게";
+}
 
 // text 를 times 번 연속해서 읽어준다. (빠르게 N번 클릭하면 N번 반복)
 function speakText(text, onEnd, times = 1, lang = "ko-KR") {
@@ -5001,6 +5050,7 @@ function speakText(text, onEnd, times = 1, lang = "ko-KR") {
     const ut = new SpeechSynthesisUtterance(text);
     ut.lang = lang;
     ut.rate = getSpeakRate();
+    ut.volume = getSpeakVol();
     ut.pitch = 1;
     if (onEnd && i === n - 1) {
       // 마지막 반복이 끝났을 때만 콜백
@@ -5085,6 +5135,7 @@ function speakLong(text, onEnd, lang = "ko-KR") {
     const ut = new SpeechSynthesisUtterance(parts[i]);
     ut.lang = lang;
     ut.rate = getSpeakRate();
+    ut.volume = getSpeakVol();
     ut.pitch = 1;
     ut.onend = () => { i++; speakNext(); };
     ut.onerror = () => { i++; speakNext(); }; // 한 조각 실패해도 계속 진행

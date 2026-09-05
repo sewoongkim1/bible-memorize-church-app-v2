@@ -4225,6 +4225,19 @@ html[data-fs="xl"] .pr-verse  { font-size: 1.12rem; }
 .pr-opt-label input[type="checkbox"] {
   width: 15px; height: 15px; cursor: pointer; accent-color: var(--navy); flex-shrink: 0;
 }
+.pr-cfg {
+  flex: 0 0 46px; font-size: 1.1rem; font-family: inherit; cursor: pointer;
+  color: var(--navy); background: #eef1f8; border: 1.5px solid var(--navy); border-radius: 13px;
+}
+.pr-cfg:hover, .pr-cfg.open { background: var(--navy); color: #fff; }
+.pr-tts-cfg {
+  margin-top: 8px; padding: 8px 12px;
+  background: #f0f3fa; border: 1px solid #c8d0e8; border-radius: 12px;
+}
+.pr-cfg-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+.pr-cfg-lbl { font-size: .82rem; font-weight: 700; color: var(--navy); width: 28px; flex-shrink: 0; }
+.pr-cfg-range { flex: 1; accent-color: var(--navy); cursor: pointer; }
+.pr-cfg-val { font-size: .78rem; font-weight: 700; color: var(--navy); width: 56px; text-align: right; white-space: nowrap; }
 body.pr-full-on { overflow: hidden; }
 .pr-full {
   position: fixed; inset: 0; z-index: 9999; overflow: hidden;
