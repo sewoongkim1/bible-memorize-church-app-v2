@@ -56,7 +56,7 @@ def arg_val(flag, default):
             return sys.argv[i + 1]
     return default
 
-TITLE_SUFFIX = arg_val('--title', '집사님')   # 표지·사용법에 붙는 호칭 (예: --title 안수집사님)
+TITLE_SUFFIX = arg_val('--title', '성도님')   # 표지·사용법에 붙는 호칭 (예: --title 안수집사님)
 
 # ── 테마 — 색(과 서체)을 바꿔 「사용자마다 다른 느낌」을 낼 수 있게 한다 ──────────
 #   ⚠️ 여기 없는 것(본문 글자색·테두리·회색 라벨)은 **테마와 무관하게 고정**이다.
