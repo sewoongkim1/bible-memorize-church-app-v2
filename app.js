@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260905d";
+const APP_BUILD = "20260905e";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1942,6 +1942,20 @@ let prayOpenVerse = false; // 말씀을 펴 뒀나 — 이전/다음에도 이�
 let prayGroup = null;      // 어느 주제 목록에서 들어왔나 — 돌아갈 길을 남긴다
 let prayAutoPlay = false;  // 연속듣기 모드 — TTS 끝나면 다음 편으로 자동 이동
 let prayRepeat  = false;  // 반복듣기 모드 — TTS 끝나면 같은 편 다시 재생
+let prayBgAudio = null;   // 배경음악 <audio> 요소 — 화면 이탈 시 정지
+
+function stopPrayBgMusic() {
+  if (prayBgAudio) { prayBgAudio.pause(); prayBgAudio.currentTime = 0; }
+}
+function togglePrayBgMusic(on) {
+  if (!prayBgAudio) {
+    prayBgAudio = new Audio("music/catholicrelax-small-boat-into-silence-471285.mp3");
+    prayBgAudio.loop = true;
+    prayBgAudio.volume = 0.25;
+  }
+  if (on) { prayBgAudio.play().catch(() => {}); }
+  else     { prayBgAudio.pause(); }
+}
 
 async function loadPrayers() {
   if (prayCache) return prayCache;
@@ -2013,7 +2027,7 @@ function renderPrayerBook(idx) {
   app.innerHTML = `<div class="pr-wrap"><div class="pr-loading">불러오는 중…</div></div>
     <button class="home-fab" id="pr-home" aria-label="첫 화면으로">${homeFabLabel(u, true)}</button>`;
   window.scrollTo(0, 0);
-  document.getElementById("pr-home").addEventListener("click", () => { prayAutoPlay = false; stopSpeaking(); renderSummary(); });
+  document.getElementById("pr-home").addEventListener("click", () => { prayAutoPlay = false; stopSpeaking(); stopPrayBgMusic(); renderSummary(); });
   loadPrayers().then((list) => {
     if (idx == null) idx = prayToday(list.length);
     prayIdx = ((idx % list.length) + list.length) % list.length;
@@ -2059,6 +2073,7 @@ function drawPrayer(list, i) {
       <div class="pr-opts">
         <label class="pr-opt-label"><input type="checkbox" id="pr-auto-chk"${prayAutoPlay ? " checked" : ""}> 연속듣기</label>
         <label class="pr-opt-label"><input type="checkbox" id="pr-repeat-chk"${prayRepeat ? " checked" : ""}> 반복듣기</label>
+        <label class="pr-opt-label"><input type="checkbox" id="pr-bgm-chk"${prayBgAudio && !prayBgAudio.paused ? " checked" : ""}> 🎵 배경음악</label>
       </div>
       <div class="pr-nav">
         <button class="pr-arrow" id="pr-prev">← 이전</button>
@@ -2169,6 +2184,9 @@ function drawPrayer(list, i) {
   document.getElementById("pr-repeat-chk").addEventListener("change", (e) => {
     prayRepeat = e.target.checked;
     if (e.target.checked) { prayAutoPlay = false; document.getElementById("pr-auto-chk").checked = false; }
+  });
+  document.getElementById("pr-bgm-chk").addEventListener("change", (e) => {
+    togglePrayBgMusic(e.target.checked);
   });
 }
 
