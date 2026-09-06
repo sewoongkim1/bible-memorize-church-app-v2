@@ -176,6 +176,16 @@ no letters or writing of any kind.
 | 32 | 삼상 16:7 | A single pomegranate resting on a plain surface, its rind split open to reveal the glowing seeds inside. |
 | 33 | 막 6:31 | A single empty wooden chair on a still lakeshore at dawn, calm water and a few reeds. |
 | 34 | 사 48:15 | A quiet dirt path winding through an open grassy field, leading over a low hill toward a warm sunrise on the horizon. |
+| 36 | 합 2:4 | A single weathered rock pillar rising naturally from a windswept hilltop, unmoving as the tall grass around it bends in the wind, overlooking a wide valley at dawn. |
+
+**36번 메모:** 짝 그림 c(가까이 본 장면)가 첫 시도에서 **종이가 비스듬히 촬영된
+사진처럼**(모서리·바닥면이 비침) 나왔다 — 8·10·15·23번과 같은 액자화지만 이번엔
+"사진처럼 찍힘" 쪽이었다. `암송말씀_그림_만들기.md`의 정본 문구에도 이 유형은
+막혀 있지 않아, "This is a flat digital illustration viewed straight-on, not a
+photograph of a physical painting — no photographed paper sheet, no visible
+paper corners or torn edges, no tilted or angled page, no tabletop or surface
+visible beyond the illustration"을 덧붙여 다시 뽑으니 통과했다. 다음에 같은
+증상이면 이 문구를 먼저 넣어 볼 것.
 
 **30번 메모:** 프롬프트는 「덮어 둔 편지」였는데 모델은 **펼쳐진 빈 편지지**를 그렸다.
 그대로 두었다 — 요이 1:12는 *편지로 다 쓰지 않고 만나서 말하겠다*는 구절이라
