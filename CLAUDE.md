@@ -193,3 +193,4 @@ A5/A4 · 아래쪽/오른쪽 필사형 · 번역본 5종 · 성경 31단위 부�
 ## 참고
 - 기능 명세: `보고서_기능_성경암송_v2.html`
 - 형제 앱: 찬양 `c:\Projects\praise-songs`(worship.onlybible.kr), 말씀 `c:\Projects\gocheok-sermons`(sermon.onlybible.kr) — 각 CLAUDE.md 참고
+- **설교 URL을 받아 반영하는 절차**: `c:\Projects\gocheok-sermons\docs\설교-url-반영-절차.md`(스킬 `reflect-sermon`도 있음) — 이 저장소 세션에서는 그쪽 CLAUDE.md가 자동으로 안 읽히므로 여기 적어 둔다
