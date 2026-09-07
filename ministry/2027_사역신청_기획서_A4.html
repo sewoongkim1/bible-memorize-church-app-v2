@@ -189,7 +189,12 @@ footer .church{grid-column:3; text-align:right; font-size:.8rem; font-weight:700
   body{padding:0;}
   .sheet{box-shadow:none; border:none; max-width:100%; padding:0;}
   .printbtn{display:none;}
-  @page{ size:A4; margin:11mm 12mm; }
+  @page{ size:A4; margin:12mm; }
+
+  /* 바닥글은 흐름에서 빼 페이지 아래에 고정한다 — 그러지 않으면 본문이
+     끝나는 자리에 따라 아래 여백만 좌우보다 넓어 보인다(2026-09-08 지적).
+     덤으로 바닥글이 2쪽으로 넘어갈 위험도 사라진다. */
+  footer{position:fixed; left:0; right:0; bottom:0; margin:0; padding-top:8px;}
 
   /* ⚠️ A4 한 장에 담기 위한 압축 — 화면용 여백을 그대로 인쇄하면 두 장이 된다.
      값은 실제로 PDF 로 뽑아 페이지 수를 세어 가며 맞췄다(측정으로 확인). */
