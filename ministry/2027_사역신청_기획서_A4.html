@@ -1,0 +1,382 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>2027 사역신청서 기획서</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@700;900&family=Noto+Sans+KR:wght@400;500;700;800&display=swap">
+<style>
+:root{
+  --paper:#f5f6f8; --paper-alt:#eceef2; --paper-line:#ffffff;
+  --ink:#1b2029; --ink-soft:#5b6472;
+  --navy:#17325c; --navy-deep:#0c1f3d; --navy-tint:#e4eaf3;
+  --brass:#8a6a2f; --brass-tint:#f1e8d4;
+  --line:#d7dbe3;
+  --shadow:0 1px 2px rgba(15,23,42,.05), 0 8px 22px rgba(15,23,42,.06);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#14171d; --paper-alt:#1b1f27; --paper-line:#20242c;
+    --ink:#e7e9ee; --ink-soft:#9aa3b2;
+    --navy:#8fabdd; --navy-deep:#c3d3ef; --navy-tint:#1c2636;
+    --brass:#d3ac5c; --brass-tint:#2a2213;
+    --line:#2b3140;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 22px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#14171d; --paper-alt:#1b1f27; --paper-line:#20242c;
+  --ink:#e7e9ee; --ink-soft:#9aa3b2;
+  --navy:#8fabdd; --navy-deep:#c3d3ef; --navy-tint:#1c2636;
+  --brass:#d3ac5c; --brass-tint:#2a2213;
+  --line:#2b3140;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 22px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"Noto Sans KR",-apple-system,sans-serif;
+  line-height:1.7; padding:36px 20px 60px;
+}
+.sheet{max-width:740px; margin:0 auto; background:var(--paper-line); border:1px solid var(--line);
+  border-radius:4px; box-shadow:var(--shadow); padding:40px 44px 34px;}
+h1,h2,h3{font-family:"Noto Serif KR",serif; text-wrap:balance; margin:0; color:var(--navy-deep);}
+
+/* 상단 결재란 스타일 — 이 교회 문서에 익숙한 형식 */
+.route{display:flex; justify-content:space-between; align-items:flex-start; gap:20px;
+  padding-bottom:18px; margin-bottom:22px; border-bottom:2px solid var(--navy);}
+.route .eyebrow{font-size:.7rem; letter-spacing:.14em; color:var(--brass); font-weight:800; margin-bottom:8px;}
+.route h1{font-size:1.72rem; font-weight:900;}
+.route .meta{text-align:right; font-size:.82rem; color:var(--ink-soft); flex:none; min-width:150px;}
+.route .meta div{margin-bottom:3px;}
+.route .meta b{color:var(--ink); font-weight:700;}
+
+.lede{font-size:.98rem; margin:0 0 26px;}
+.lede b{color:var(--navy-deep);}
+
+/* 개선이 필요한 사항 — 세 칸을 같은 무게로 둔다(앞 순서가 곧 우선순위) */
+.why{display:flex; gap:14px; margin:0 0 28px;}
+.why div{flex:1; padding:12px 14px; background:var(--paper-alt); border-radius:6px; font-size:.84rem;}
+.why div b{display:block; font-size:.86rem; color:var(--navy-deep); margin-bottom:3px;}
+
+h2.sec{font-size:.98rem; font-weight:800; color:var(--navy-deep); margin:0 0 12px;
+  padding-bottom:6px; border-bottom:1px solid var(--line); font-family:"Noto Sans KR",sans-serif;}
+
+/* 두 갈래 요청 — 받는 사람별로 색을 가른다 */
+.asks{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:0 0 26px;}
+.ask{border-radius:8px; padding:16px 18px; border:1px solid var(--line); border-top-width:4px;}
+.ask.pastor{border-top-color:var(--navy); background:var(--navy-tint);}
+.ask.dept{border-top-color:var(--brass); background:var(--brass-tint);}
+.ask .who{font-size:.68rem; font-weight:800; letter-spacing:.06em; margin-bottom:8px;}
+.ask.pastor .who{color:var(--navy);}
+.ask.dept .who{color:var(--brass);}
+.ask ol{margin:0; padding-left:1.15em; font-size:.85rem;}
+.ask li{margin:0 0 7px;}
+.ask li:last-child{margin-bottom:0;}
+.ask li b{color:var(--ink);}
+.ask p{margin:0; font-size:.85rem; line-height:1.7;}
+.ask p b{color:var(--ink);}
+
+/* 로드맵 띠 */
+.road{display:flex; margin:0 0 22px; border-radius:6px; overflow:hidden; border:1px solid var(--line);}
+.road div{flex:1; padding:10px 8px; text-align:center; font-size:.72rem; background:var(--paper-alt);
+  border-right:1px solid var(--line); position:relative;}
+.road div:last-child{border-right:none;}
+.road div b{display:block; font-size:.8rem; margin-bottom:2px;}
+.road div.now{background:var(--navy); color:#fff;}
+.road div.now b{color:#fff;}
+
+footer{display:flex; justify-content:space-between; align-items:baseline; gap:16px;
+  font-size:.74rem; color:var(--ink-soft); padding-top:14px; border-top:1px solid var(--line);}
+footer b{color:var(--ink);}
+
+/* ── 2쪽: 성도 화면 시안 — 화면 시안 문서에서 가져와 이 문서 폭에 맞게 줄였다.
+      안쪽 색·부품은 앱의 실제 값 그대로라 여기서 토큰을 쓰지 않고 값을 박아 둔다. */
+.screens{padding-top:2px;}
+.screens .lede2{font-size:.92rem; margin:0 0 18px;}
+.screens .lede2 b{color:var(--navy-deep);}
+.screens-stage{zoom:.63;}
+.screens .rail{display:flex; gap:34px; justify-content:center; align-items:flex-start; flex-wrap:wrap;}
+.screens .col{display:flex; flex-direction:column; align-items:center; gap:14px; width:318px;}
+.screens .col .tag{font-size:12.5px; font-weight:800; color:#5b6472;}
+.screens .col .tag b{color:#1c2333;}
+.screens .phone{width:318px; height:664px; background:#111; border-radius:44px; padding:12px;
+  box-shadow:0 10px 24px rgba(15,23,42,.18); flex:none;}
+.screens .notch{width:90px; height:22px; background:#111; border-radius:0 0 14px 14px; margin:0 auto;}
+/* ⚠️ 노치(22px)가 화면 위에 자리를 차지하므로 그만큼 빼야 한다 —
+   height:100% 로 두면 폰 프레임 아래로 22px 삐져나온다(2026-09-07 제보) */
+.screens .screen{width:100%; height:calc(100% - 22px); background:#fdf8f0; border-radius:32px;
+  overflow:hidden; position:relative; display:flex; flex-direction:column; font-size:14px; color:#222;}
+.screens .stat{display:flex; justify-content:space-between; align-items:center; padding:9px 20px 2px;
+  font-size:12px; font-weight:700; color:#222;}
+.screens .body{flex:1; overflow:hidden; position:relative;}
+.screens .hd{display:flex; align-items:center; gap:8px; padding:10px 16px 6px;}
+.screens .back{flex-shrink:0; padding:6px 12px; border:1px solid #ddd6c8; border-radius:8px;
+  background:#fdf8f0; color:#1a3a6b; font-size:13px; font-weight:700;}
+.screens .hd .ttl{flex:1; text-align:center; font-size:12.8px; font-weight:800; color:#1a3a6b; margin-right:44px;}
+.screens .count{flex-shrink:0; font-size:11px; font-weight:700; color:#8a6a1e; background:#faf1d3;
+  border-radius:999px; padding:4px 10px; white-space:nowrap;}
+/* 목록은 폰 안에서 잘려 보이는 게 맞지만, 스크롤 막대까지 찍히면 시안이 지저분해진다 */
+.screens .list{padding:6px 16px 16px; overflow-y:auto; height:100%; scrollbar-width:none;}
+.screens .list::-webkit-scrollbar{display:none;}
+.screens .list-title{font-weight:800; color:#1a3a6b; font-size:15px; margin:6px 4px 10px;}
+.screens .list-title span{display:block; font-size:11.5px; font-weight:500; color:#6b7280; margin-top:2px;}
+.screens .acc{display:flex; flex-direction:column; gap:8px; margin-bottom:14px;}
+.screens .acc-item{border:1.5px solid #1a3a6b; border-radius:12px; overflow:hidden;}
+.screens .acc-head{display:flex; align-items:center; justify-content:space-between; padding:11px 13px;
+  font-size:13.5px; font-weight:700; color:#1a3a6b;}
+.screens .acc-item.closed .acc-head{background:#fff;}
+.screens .acc-item.open .acc-head{background:#1a3a6b; color:#fff;}
+.screens .acc-cnt{font-size:11px; font-weight:700; opacity:.85;}
+.screens .acc-body{padding:8px; display:flex; flex-direction:column; gap:6px; background:#fff;}
+.screens .team{display:flex; align-items:center; gap:10px; padding:9px 10px; border:1.5px solid #ddd6c8;
+  border-radius:10px; background:#fff;}
+.screens .team.on{border-color:#c8a84b; background:#fffaf0;}
+.screens .team .info{flex:1; min-width:0;}
+.screens .team .nm{font-size:13px; font-weight:700; color:#222;}
+.screens .team .meta{font-size:11px; color:#6b7280; margin-top:2px;}
+.screens .team .chk{flex-shrink:0; width:26px; height:26px; border-radius:50%; border:1.5px solid #ddd6c8;
+  display:flex; align-items:center; justify-content:center; font-size:13px; color:#fff; font-weight:800;}
+.screens .team.on .chk{border-color:#c8a84b; background:#c8a84b;}
+.screens .note{background:#fbf5e6; border:1px solid #ecd9a8; border-radius:10px; padding:9px 11px;
+  font-size:10.8px; line-height:1.55; color:#5c4a1f; margin:0 4px 12px;}
+.screens .note b{display:block; color:#a3752f; margin-bottom:2px; font-size:10.5px;}
+.screens .pri{display:flex; align-items:center; gap:10px; padding:11px 12px; border:1.5px solid #ddd6c8;
+  border-radius:12px; background:#fff; margin-bottom:9px;}
+.screens .pri .num{flex:none; width:26px; height:26px; border-radius:50%; background:#1a3a6b; color:#fff;
+  font-size:13px; font-weight:800; display:flex; align-items:center; justify-content:center;}
+.screens .pri .info{flex:1; min-width:0;}
+.screens .pri .nm{font-size:13px; font-weight:700;}
+.screens .pri .meta{font-size:11px; color:#6b7280; margin-top:2px;}
+.screens .pri .grip{flex:none; color:#c7cad3; font-size:15px; letter-spacing:1px;}
+.screens .cta{position:absolute; left:16px; right:16px; bottom:16px; padding:14px; font-size:14.5px;
+  font-weight:800; text-align:center; color:#fff; background:#1a3a6b; border-radius:14px;
+  box-shadow:0 6px 16px rgba(13,27,62,.28);}
+.screens .cta .sub{display:block; font-size:11px; font-weight:600; opacity:.82; margin-top:2px;}
+.screens .done-wrap{flex:1; display:flex; flex-direction:column; align-items:center;
+  justify-content:flex-start; padding:34px 24px 0; text-align:center;}
+.screens .check{width:56px; height:56px; border-radius:50%; background:#eef6ef; color:#2c5f2d;
+  font-size:28px; display:flex; align-items:center; justify-content:center; margin-bottom:14px; font-weight:800;}
+.screens .done-wrap h3{font-size:16px; font-weight:800; margin:0 0 6px; font-family:"Noto Sans KR",sans-serif; color:#1c2333;}
+.screens .done-wrap p{font-size:12px; color:#6b7280; margin:0 0 20px; line-height:1.6;}
+.screens .done-list{width:100%; display:flex; flex-direction:column; gap:8px; margin-bottom:16px;}
+.screens .done-item{display:flex; align-items:center; gap:8px; padding:10px 12px; background:#fff;
+  border:1px solid #ddd6c8; border-radius:10px; text-align:left;}
+.screens .done-item .num{flex:none; width:20px; height:20px; border-radius:50%; background:#f3f0ea;
+  color:#1a3a6b; font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center;}
+.screens .done-item .nm{font-size:12.5px; font-weight:700;}
+.screens .push-note{width:100%; background:#eef1f8; border-radius:10px; padding:10px 12px; font-size:11px;
+  color:#1a3a6b; line-height:1.6; text-align:left;}
+.screens .home{position:absolute; left:50%; transform:translateX(-50%); bottom:14px; padding:9px 16px;
+  font-size:12px; font-weight:700; color:#fff; background:#0d1b3e; border-radius:999px;
+  box-shadow:0 0 0 1px #fdf8f0, 0 6px 16px rgba(13,27,62,.3); white-space:nowrap;}
+
+.printbtn{max-width:740px; margin:14px auto 0; display:flex; justify-content:flex-end;}
+.printbtn button{font:inherit; font-size:.8rem; font-weight:700; color:var(--navy);
+  background:var(--paper-line); border:1px solid var(--line); border-radius:6px;
+  padding:8px 14px; cursor:pointer;}
+.printbtn button:hover{border-color:var(--navy);}
+
+@media print{
+  :root{ --paper:#fff; --paper-alt:#f3f3f3; --paper-line:#fff; --ink:#111; --ink-soft:#444;
+         --navy:#17325c; --navy-deep:#0c1f3d; --navy-tint:#eef1f6; --brass:#8a6a2f; --brass-tint:#f4eeda;
+         --line:#ccc; --shadow:none; }
+  /* ⚠️ 이게 없으면 브라우저 인쇄 대화상자의 「배경 그래픽」을 켜지 않는 한
+     카드 배경·폰 프레임이 전부 흰색으로 빠져 나온다(체크박스를 사람이 기억하게 두지 않는다) */
+  *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+  body{padding:0;}
+  .sheet{box-shadow:none; border:none; max-width:100%; padding:0;}
+  .printbtn{display:none;}
+  @page{ size:A4; margin:11mm 12mm; }
+
+  /* ⚠️ A4 한 장에 담기 위한 압축 — 화면용 여백을 그대로 인쇄하면 두 장이 된다.
+     값은 실제로 PDF 로 뽑아 페이지 수를 세어 가며 맞췄다(측정으로 확인). */
+  .route{padding-bottom:10px; margin-bottom:12px;}
+  .route h1{font-size:1.5rem;}
+  .lede{font-size:.84rem; line-height:1.6; margin:0 0 14px;}
+  h2.sec{font-size:.9rem; margin:0 0 8px; padding-bottom:4px;}
+  .why{gap:10px; margin:0 0 16px;}
+  .why div{padding:9px 11px; font-size:.75rem; line-height:1.55;}
+  .why div b{font-size:.78rem;}
+  .asks{gap:12px; margin:0 0 16px;}
+  .ask{padding:11px 13px;}
+  .ask p{font-size:.76rem; line-height:1.6;}
+  .screens .lede2{font-size:.78rem; line-height:1.6; margin:0 0 10px;}
+  .screens-stage{zoom:.56;}
+}
+@media (max-width:600px){
+  .asks{grid-template-columns:1fr 1fr;}
+  .why{flex-direction:column;}
+  .route{flex-direction:column;}
+  .route .meta{text-align:left;}
+}
+</style>
+
+<div class="sheet">
+
+  <div class="route">
+    <div>
+      <div class="eyebrow">방송전산부 전산팀 · 제안</div>
+      <h1>2027 사역신청서 기획서</h1>
+    </div>
+  </div>
+
+  <p class="lede">해마다 종이로 걷던 「사역신청서」를 <b>온라인 + 오프라인</b> 두 갈래로
+  함께 받는 안입니다. 온라인은 성도님이 이미 쓰고 계신 <b>성경말씀 암송 앱</b>에서
+  섬길 사역을 신청하고, <b>내 신청이 어디까지 진행됐는지 그 자리에서 확인</b>하시게
+  하는 것입니다. 신청한 뒤 결과를 따로 찾아보지 않으셔도 되고, 부서도 지원 현황을
+  제때 볼 수 있습니다.</p>
+
+  <h2 class="sec">개선이 필요한 사항</h2>
+  <div class="why">
+    <div><b>정보가 부족해 신청 어려움</b>회중이 이미 알고 있다는 전제로 걷혀 온 방식이라, 처음 신청하시는 분이나 새가족은 어느 사역을 고를지 판단하기 어렵습니다.</div>
+    <div><b>집계가 사람 손을 거칩니다</b>제출된 신청서를 부서별로 분류하고 엑셀로 옮기는 작업이 매년 반복됩니다. 정보가 제때 공유되지 않아 관리가 어려운 경우도 있습니다.</div>
+    <div><b>구조가 복잡한데 안내는 종이 한 장뿐(A5)</b>위원회 → 부서 → 팀, 다시 「2부/3부/오후」 선택까지 있어(찬양부·전도부 등) 어르신 혼자 정확히 표기하기는 쉽지 않습니다.</div>
+  </div>
+
+  <h2 class="sec">확인·결정을 부탁드립니다</h2>
+  <div class="asks">
+    <div class="ask pastor">
+      <div class="who">의사 결정 사항</div>
+      <p>사역신청서를 <b>온라인으로도 받을지</b> 결정이 필요합니다. 진행하는 것으로
+      정해지면, 요구사항 정리와 구현에 필요한 기간이 있어 <b>9월 중에 착수</b>해야
+      합니다.</p>
+    </div>
+    <div class="ask dept">
+      <div class="who">확인 사항</div>
+      <p>이 사역신청서는 <b>교적시스템과 별개로</b> 만들어집니다. 신청 내용을 교적에
+      남기려면 <b>교적시스템에는 따로 입력</b>해야 합니다.</p>
+    </div>
+  </div>
+
+  <div class="screens">
+    <h2 class="sec">성도님이 보게 될 화면 (시안)</h2>
+    <p class="lede2">암송 앱 안에서 <b>부서 고르기 → 우선순위 확인 → 제출</b> 세 걸음으로 끝납니다.
+    이름·교구·목장은 로그인 정보로 이미 채워져 있어 다시 적지 않으셔도 됩니다.
+    팀 이름은 실제 자료이고, <b>시간·설명은 부서 확인 전이라 예시</b>로 넣었습니다.</p>
+
+    <div class="screens-stage">
+      <div class="rail">
+
+        <div class="col">
+          <div class="tag"><b>①</b> 부서 고르기 — 아코디언, 최대 3개</div>
+          <div class="phone"><div class="notch"></div>
+            <div class="screen">
+              <div class="stat"><span>9:41</span><span>●●●</span></div>
+              <div class="hd"><span class="back">← 뒤로</span><span class="ttl">사역 신청</span>
+                <span class="count">2 / 3 담음</span></div>
+              <div class="body"><div class="list">
+                <div class="list-title">위원회에서 골라 담아 주세요<span>같은 팀을 열 때마다 다른 것은 접힙니다</span></div>
+                <div class="note"><b>사역 임명 원칙</b>1인 최대 3개까지 신청할 수 있어요. 신청 후 임명을
+                  받아야 실제로 사역을 시작할 수 있어요.</div>
+                <div class="acc">
+                  <div class="acc-item closed">
+                    <div class="acc-head"><span>교육위원회</span><span class="acc-cnt">19팀 ▾</span></div>
+                  </div>
+                  <div class="acc-item open">
+                    <div class="acc-head"><span>찬양부</span><span class="acc-cnt">14팀 ▴</span></div>
+                    <div class="acc-body">
+                      <div class="team on">
+                        <div class="info"><div class="nm">할렐루야찬양대</div>
+                          <div class="meta">주일 1부 예배 찬양 · 6:00~9:00</div></div>
+                        <div class="chk">✓</div>
+                      </div>
+                      <div class="team">
+                        <div class="info"><div class="nm">임마누엘찬양대</div>
+                          <div class="meta">주일 2부 예배 찬양 · 8:00~11:00</div></div>
+                        <div class="chk"></div>
+                      </div>
+                      <div class="team">
+                        <div class="info"><div class="nm">비파와수금</div>
+                          <div class="meta">오케스트라 · 주일 3부</div></div>
+                        <div class="chk"></div>
+                      </div>
+                      <div class="team">
+                        <div class="info"><div class="nm">2부 찬양팀</div>
+                          <div class="meta">토요일 오후 리허설 · 예시</div></div>
+                        <div class="chk"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="acc-item closed">
+                    <div class="acc-head"><span>전도부</span><span class="acc-cnt">7팀 ▾</span></div>
+                  </div>
+                  <div class="acc-item closed">
+                    <div class="acc-head"><span>새가족부</span><span class="acc-cnt">4팀 ▾</span></div>
+                  </div>
+                </div>
+              </div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col">
+          <div class="tag"><b>②</b> 우선순위 확인 — 최대 3개, 순서대로</div>
+          <div class="phone"><div class="notch"></div>
+            <div class="screen">
+              <div class="stat"><span>9:41</span><span>●●●</span></div>
+              <div class="hd"><span class="back">← 뒤로</span><span class="ttl">신청 사역 확인</span></div>
+              <div class="body"><div class="list" style="padding-bottom:110px">
+                <div class="list-title">우선순위대로 담겨 있어요<span>순서를 바꾸려면 눌러서 옮기세요</span></div>
+                <div class="pri">
+                  <div class="num">1</div>
+                  <div class="info"><div class="nm">할렐루야찬양대 <span style="color:#6b7280;font-weight:500">· 찬양부</span></div>
+                    <div class="meta">주일 1부 예배 찬양 · 6:00~9:00</div></div>
+                  <div class="grip">⠿</div>
+                </div>
+                <div class="pri">
+                  <div class="num">2</div>
+                  <div class="info"><div class="nm">행복전도대 - 토요일 <span style="color:#6b7280;font-weight:500">· 전도부</span></div>
+                    <div class="meta">토요일 오전 · 예시</div></div>
+                  <div class="grip">⠿</div>
+                </div>
+                <div class="note" style="margin-top:2px">마감 전까지는 <b style="display:inline">다시 열어</b>
+                  언제든 고쳐 낼 수 있어요.</div>
+              </div></div>
+              <div class="cta">제출하기<span class="sub">신청 후 임명을 받아야 시작할 수 있어요</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col">
+          <div class="tag"><b>③</b> 제출 완료 — 진행 현황을 바로 확인</div>
+          <div class="phone"><div class="notch"></div>
+            <div class="screen">
+              <div class="stat"><span>9:41</span><span>●●●</span></div>
+              <div class="body">
+                <div class="done-wrap">
+                  <div class="check">✓</div>
+                  <h3>신청이 접수됐어요</h3>
+                  <p>부서 확인을 거쳐 임명이 확정되면<br>알려 드릴게요.</p>
+                  <div class="done-list">
+                    <div class="done-item"><span class="num">1</span><span class="nm">할렐루야찬양대</span></div>
+                    <div class="done-item"><span class="num">2</span><span class="nm">행복전도대 - 토요일</span></div>
+                  </div>
+                  <div class="push-note">🔔 임명이 확정되면 <b>앱 알림</b>으로 알려 드려요.
+                    마이페이지의 「내 사역 신청」에서 진행 현황을 언제든 다시 볼 수 있어요.</div>
+                </div>
+              </div>
+              <div class="home">🏠 첫 화면으로</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="printbtn"><button id="pbtn">인쇄 / PDF로 저장</button></div>
+<script>
+// ⚠️ 아티팩트 뷰어의 iframe 안에서는 인쇄 대화상자가 막힌다(sandbox).
+//    그 안이면 먼저 이 문서만 새 탭으로 띄우고, 새 탭(최상위 창)에서 인쇄한다.
+document.getElementById('pbtn').addEventListener('click', function () {
+  var framed = false;
+  try { framed = window.self !== window.top; } catch (e) { framed = true; }
+  if (framed) {
+    var w = window.open(location.href, '_blank');
+    if (!w) { alert('새 탭이 차단됐습니다. 주소창에서 이 문서를 새 탭으로 연 뒤 Ctrl+P 를 눌러 주세요.'); return; }
+    this.textContent = '새 탭에서 인쇄해 주세요';
+    return;
+  }
+  window.print();
+});
+</script>
+</body></html>
