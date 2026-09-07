@@ -204,7 +204,10 @@ footer .church{grid-column:3; text-align:right; font-size:.8rem; font-weight:700
   .ask{padding:11px 13px;}
   .ask p{font-size:.76rem; line-height:1.6;}
   .screens .lede2{font-size:.78rem; line-height:1.6; margin:0 0 10px;}
-  .screens-stage{zoom:.53;}
+  /* ⚠️ 이 값은 실측으로 정했다 — .585 면 바닥글이 2쪽으로 넘어가고,
+     .575 는 여백이 1mm 밖에 안 남아 다른 브라우저에서 넘칠 수 있다.
+     .565 = 1쪽 유지 + 아래 여백 14mm(그중 11mm 는 인쇄 여백). */
+  .screens-stage{zoom:.565;}
   .route .mark{height:44px;}
   footer{margin-top:10px; padding-top:8px;}
   footer .slogan{font-size:.85rem;}
