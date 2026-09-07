@@ -17,7 +17,9 @@
   나눠주지 말 것.
 
 ■ 지면 배정 — 실측으로 확인한다("판이 넘치는지는 반드시 측정으로 확인"과 같은 원칙)
-  90개 신청 항목을 3단 체크리스트로 흘려 넣는다. 컬럼 수·글자 크기는 상수로
+  전체 사역팀(신청·임명직 모두)을 3단 체크리스트로 흘려 넣는다. 임명직은 같은
+  자리에 두되 칸을 비활성으로 채운다(2026-09-07 — 별도 상자로 빼는 것보다
+  부서 전체 구조가 한 목록에서 보이는 편이 낫다). 컬럼 수·글자 크기는 상수로
   빼 두었다 — 페이지 수가 2장을 벗어나면 FONT_PT 나 COLS 를 조정하고 다시 돌린다.
   PDF 페이지 수는 pymupdf(fitz)로 실측해 콘솔에 찍는다(스크린샷 대신 숫자로 확인).
 
@@ -69,16 +71,30 @@ def esc(s):
     return (s or '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
 
 
-def team_row(name, note='', sub=False):
+def combined_note(r):
+    """사역 시간(schedule_note) · 하위 선택 안내(option_note)를 한 줄로 합친다."""
+    parts = [p for p in (r.get('schedule_note'), r.get('option_note')) if p]
+    return ' · '.join(parts)
+
+
+def team_row(name, note='', sub=False, disabled=False):
+    """disabled=True 면 임명직 — 칸을 채워 비활성으로 보이게 하고 이름 옆에 '지명'을 단다.
+    체크는 하지 않지만 목록에서는 빼지 않는다(전체 사역 구조가 한눈에 보이도록)."""
     cls = 'team-row sub-row' if sub else 'team-row'
+    if disabled:
+        cls += ' disabled'
+        note = (note + ' · 지명') if note else '지명'
     note_html = ' <span class="note-inline">(%s)</span>' % esc(note) if note else ''
     return ('<div class="%s"><span class="box"></span>'
             '<span class="nm">%s%s</span></div>' % (cls, esc(name), note_html))
 
 
 def render_committee(committee):
-    """이 위원회의 신청 대상(kind=apply)만 3단 목록에 넣는다. 임명직은 별도 상자."""
-    rows = [r for r in ROWS if r['committee'] == committee and r['kind'] == 'apply']
+    """이 위원회의 모든 자리를 3단 목록에 넣는다 — 신청(apply)은 체크 가능한 칸으로,
+    임명직(appoint)은 같은 자리에 두되 칸을 비활성으로 채워 넣는다(2026-09-07,
+    "임명직도 넣고 체크박스 비활성화" 반영 — 전체 구조가 한 목록에서 보이는 편이
+    별도 상자로 빼는 것보다 부서 전체 그림을 이해하기 쉽다)."""
+    rows = [r for r in ROWS if r['committee'] == committee]
     if not rows:
         return ''
     body = []
@@ -97,20 +113,14 @@ def render_committee(committee):
             label = '%s%s' % (esc(grp), (' · %s' % esc(opt)) if opt else '')
             body.append('<div class="grp-label">%s</div>' % label)
             for m in members:
-                body.append(team_row(m['team'], sub=True))
+                sched = m.get('schedule_note')
+                body.append(team_row(m['team'], note=sched, sub=True, disabled=(m['kind'] == 'appoint')))
             i = j
         else:
-            body.append(team_row(r['team'], note=r['option_note']))
+            body.append(team_row(r['team'], note=combined_note(r), disabled=(r['kind'] == 'appoint')))
             i += 1
     return ('<div class="committee"><div class="name">%s</div>%s</div>'
             % (esc(committee), ''.join(body)))
-
-
-def render_appoint_box():
-    rows = [r for r in ROWS if r['kind'] == 'appoint']
-    items = ' · '.join('<b>%s</b> %s' % (esc(r['committee']), esc(r['team'])) for r in rows)
-    return ('<div class="appoint-box"><div class="t">📌 아래는 신청이 아니라 지명(임명)으로 정해지는 자리입니다 — '
-            '표시하지 않으셔도 됩니다</div><div class="list">%s</div></div>' % items)
 
 
 STYLE = """
@@ -151,10 +161,10 @@ body { margin:0; font-family:'맑은 고딕','Malgun Gothic',sans-serif; color:#
 .grp-label { font-size:%(gfpt)spt; color:#555; font-style:italic; margin:1.1mm 0 0.4mm 0.4mm; }
 .note-inline { font-size:8pt; color:#777; }
 
-.appoint-box { border:0.3mm dashed #999; background:#f6f6f6; border-radius:2mm;
-               padding:2.4mm 3.4mm; margin-top:2.6mm; break-inside:avoid; }
-.appoint-box .t { font-size:8.6pt; font-weight:800; color:#555; margin-bottom:1mm; word-break:keep-all; }
-.appoint-box .list { font-size:8pt; color:#444; line-height:1.75; word-break:keep-all; }
+/* 임명직 — 같은 자리에 두되 칸을 채워 "누를 수 없음"으로 보이게 한다 */
+.team-row.disabled .box { background:#ccc; border-color:#999; }
+.team-row.disabled .nm { color:#888; }
+.team-row.disabled .note-inline { color:#999; }
 
 .submit-line { margin-top:3.6mm; border-top:0.35mm solid #999; padding-top:2.8mm; break-inside:avoid; }
 .submit-line .row { display:flex; gap:5mm; margin-bottom:2.4mm; font-size:8.8pt; }
@@ -182,8 +192,8 @@ info_line = ('<div class="info-line">'
              '</div>')
 
 caption = ('<div class="apply-caption">아래 목록에서 <b>최대 3개</b>까지 고르실 수 있습니다. '
-           '앞 네모 칸에 원하시는 <b>순서대로 1 · 2 · 3</b>을 적어 주세요. '
-           '하나만 신청하셔도 됩니다.</div>')
+           '앞 네모 칸에 원하시는 <b>순서대로 1 · 2 · 3</b>을 적어 주세요. 하나만 신청하셔도 됩니다. '
+           '<b>회색 칸(지명)</b>은 신청이 아니라 임명으로 정해지는 자리이니 표시하지 않으셔도 됩니다.</div>')
 
 cols_html = '<div class="cols">' + ''.join(render_committee(c) for c in COMMITTEES) + '</div>'
 
@@ -203,7 +213,7 @@ submit = ("""
 html = ('<!doctype html><html lang="ko"><head><meta charset="utf-8">'
         '<title>2026 사역신청서</title><style>' + STYLE + '</style></head><body>'
         + head + principles + info_line + caption + cols_html
-        + render_appoint_box() + submit + '</body></html>')
+        + submit + '</body></html>')
 
 out_html = os.path.join(OUT_DIR, '2026_사역신청서_A4.html')
 io.open(out_html, 'w', encoding='utf-8', newline='').write(html)
