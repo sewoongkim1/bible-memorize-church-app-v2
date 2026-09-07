@@ -105,21 +105,24 @@ def esc(s):
 
 
 def build_buckets(committee):
+    """같은 (구분, 신청/임명)이면 시간이 팀마다 달라도 한 행에 모은다(2026-09-07,
+    "찬양대를 모아서" — 처음엔 시간이 다르면 행을 나눴는데, 한 부서 한 행이
+    지면을 훨씬 아낀다). 시간이 팀마다 다르면 행의 「시간」 칸은 비우고 각
+    체크박스 옆에 그 팀만의 시간을 작게 적는다(찬양대·오케스트라가 이 경우)."""
     rows = [r for r in ROWS if r['committee'] == committee]
     buckets = []
     i = 0
     while i < len(rows):
         r = rows[i]
-        key = (r['group'], example_schedule(r), r['kind'])
+        key = (r['group'], r['kind'])
         j = i
         members = []
-        while j < len(rows):
-            rj = rows[j]
-            if (rj['group'], example_schedule(rj), rj['kind']) != key:
-                break
-            members.append(rj)
+        while j < len(rows) and (rows[j]['group'], rows[j]['kind']) == key:
+            members.append(rows[j])
             j += 1
-        buckets.append({'group': r['group'], 'schedule': key[1], 'kind': r['kind'],
+        scheds = set(example_schedule(m) for m in members)
+        uniform_sched = scheds.pop() if len(scheds) == 1 else ''
+        buckets.append({'group': r['group'], 'schedule': uniform_sched, 'kind': r['kind'],
                          'members': members, 'option': members[0]['option_note']})
         i = j
     return buckets
@@ -127,12 +130,16 @@ def build_buckets(committee):
 
 def checkbox_cell(bucket):
     items = []
+    show_inline_time = not bucket['schedule']  # 행 전체가 공유하는 시간이 없으면 팀별로 적는다
     for m in bucket['members']:
         disabled = bucket['kind'] == 'appoint'
         cls = 'chk-item disabled' if disabled else 'chk-item'
         tag = ' <span class="tag">지명</span>' if disabled else ''
-        items.append('<span class="%s"><span class="box"></span>%s%s</span>'
-                      % (cls, esc(m['team']), tag))
+        sched = example_schedule(m)
+        time_tag = (' <span class="mini-time">(%s)</span>' % esc(sched)
+                    ) if (show_inline_time and sched) else ''
+        items.append('<span class="%s"><span class="box"></span>%s%s%s</span>'
+                      % (cls, esc(m['team']), time_tag, tag))
     opt = ('<div class="opt-note">%s</div>' % esc(bucket['option'])) if bucket['option'] else ''
     return '<div class="chk-wrap">' + ''.join(items) + '</div>' + opt
 
@@ -174,61 +181,62 @@ def render_committee_table(idx, committee):
 
 
 STYLE = """
-@page { size: A4; margin: 12mm 12mm 14mm; }
+@page { size: A4; margin: 9mm 10mm 9mm; }
 * { box-sizing:border-box; }
 body { margin:0; font-family:'맑은 고딕','Malgun Gothic',sans-serif; color:#2b2416;
-       font-size:9.3pt; background:%(cream)s; }
+       font-size:9pt; background:%(cream)s; }
 
-.warn { background:#fde9e9; border:0.4mm solid #d98c8c; color:#7a2323; border-radius:2mm;
-        padding:2mm 3.5mm; font-size:8.6pt; font-weight:700; margin-bottom:3mm; word-break:keep-all; }
+.warn { background:#fde9e9; border:0.4mm solid #d98c8c; color:#7a2323; border-radius:1.6mm;
+        padding:1.4mm 3mm; font-size:8.2pt; font-weight:700; margin-bottom:2mm; word-break:keep-all; }
 
-.doc-head { text-align:center; padding:3mm 0 4mm; border-bottom:1.1mm solid %(gold)s; margin-bottom:3.5mm; }
-.doc-head h1 { margin:0; font-size:25pt; font-weight:800; color:%(gold)s; letter-spacing:.5pt; }
-.doc-head .sub { font-size:9pt; color:#6b5a35; margin-top:1.5mm; }
+.doc-head { text-align:center; padding:1.6mm 0 2mm; border-bottom:1mm solid %(gold)s; margin-bottom:2.2mm; }
+.doc-head h1 { margin:0; font-size:20pt; font-weight:800; color:%(gold)s; letter-spacing:.5pt; }
+.doc-head .sub { font-size:8.4pt; color:#6b5a35; margin-top:1mm; }
 
-.principles { border:0.4mm solid %(navy)s; border-radius:2mm; padding:2.4mm 4mm; margin-bottom:3mm; background:#fff; }
-.principles .t { font-size:9.6pt; font-weight:800; color:%(navy)s; margin-bottom:1.2mm; }
+.principles { border:0.4mm solid %(navy)s; border-radius:1.6mm; padding:1.8mm 3.6mm; margin-bottom:2mm; background:#fff; }
+.principles .t { font-size:9pt; font-weight:800; color:%(navy)s; margin-bottom:0.8mm; }
 .principles ol { margin:0; padding-left:4.5mm; }
-.principles li { font-size:8.5pt; line-height:1.5; margin-bottom:0.4mm; word-break:keep-all; }
+.principles li { font-size:8pt; line-height:1.4; margin-bottom:0.2mm; word-break:keep-all; }
 .principles b { color:%(gold)s; }
 
-.info-box { border:0.7mm double %(gold)s; border-radius:2mm; background:#fff; margin-bottom:3mm; overflow:hidden; }
+.info-box { border:0.6mm double %(gold)s; border-radius:1.6mm; background:#fff; margin-bottom:2mm; overflow:hidden; }
 .info-row { display:flex; border-bottom:0.35mm solid %(cream_line)s; }
 .info-row:last-child { border-bottom:none; }
-.info-cell { flex:1; display:flex; align-items:baseline; gap:1.6mm; padding:2mm 3mm; border-right:0.35mm solid %(cream_line)s; }
+.info-cell { flex:1; display:flex; align-items:baseline; gap:1.6mm; padding:1.4mm 3mm; border-right:0.35mm solid %(cream_line)s; }
 .info-cell:last-child { border-right:none; }
-.info-cell b { color:%(gold)s; font-size:8.6pt; white-space:nowrap; }
-.info-cell .blank { flex:1; border-bottom:0.3mm solid #b3a171; height:4mm; }
+.info-cell b { color:%(gold)s; font-size:8.3pt; white-space:nowrap; }
+.info-cell .blank { flex:1; border-bottom:0.3mm solid #b3a171; height:3.6mm; }
 
-.instr { font-size:9pt; font-weight:700; color:%(navy)s; margin-bottom:3mm; }
+.instr { font-size:8.6pt; font-weight:700; color:%(navy)s; margin-bottom:2mm; }
 .instr .chk { color:%(gold)s; }
 
-.dept { break-inside:avoid; margin-bottom:3mm; }
-.dept-h { background:%(navy)s; color:#fff; font-size:10pt; font-weight:800; padding:1.3mm 2.6mm;
+.dept { break-inside:avoid; margin-bottom:1.8mm; }
+.dept-h { background:%(navy)s; color:#fff; font-size:9.4pt; font-weight:800; padding:0.9mm 2.4mm;
           border-radius:1.2mm 1.2mm 0 0; }
 table { width:100%%; border-collapse:collapse; background:#fff; }
-thead th { background:%(gold_fill)s; color:#5a3f10; font-size:8.4pt; font-weight:800;
-           padding:1.4mm 2mm; border:0.3mm solid %(cream_line)s; text-align:center; }
-.w-group { width:23mm; } .w-time { width:26mm; }
-tbody td { border:0.3mm solid %(cream_line)s; padding:1.6mm 2.4mm; vertical-align:middle; font-size:8.6pt; }
-.c-group { text-align:center; font-weight:800; color:%(gold)s; background:#fbf6ea; font-size:8.2pt; }
+thead th { background:%(gold_fill)s; color:#5a3f10; font-size:8pt; font-weight:800;
+           padding:0.9mm 2mm; border:0.3mm solid %(cream_line)s; text-align:center; }
+.w-group { width:22mm; } .w-time { width:24mm; }
+tbody td { border:0.3mm solid %(cream_line)s; padding:1.1mm 2.2mm; vertical-align:middle; font-size:8.3pt; }
+.c-group { text-align:center; font-weight:800; color:%(gold)s; background:#fbf6ea; font-size:8pt; }
 .c-time { text-align:center; color:#555; white-space:nowrap; }
 tr.appoint-row .c-time { color:#999; }
 
-.chk-wrap { display:flex; flex-wrap:wrap; gap:2mm 5mm; }
-.chk-item { display:flex; align-items:baseline; gap:1.3mm; white-space:nowrap; }
-.chk-item .box { display:inline-block; width:3.4mm; height:3.4mm; border:0.32mm solid #555; margin-top:0.2mm; }
+.chk-wrap { display:flex; flex-wrap:wrap; gap:1.4mm 4.5mm; }
+.chk-item { display:flex; align-items:baseline; gap:1.2mm; white-space:nowrap; }
+.chk-item .box { display:inline-block; width:3.2mm; height:3.2mm; border:0.32mm solid #555; margin-top:0.2mm; }
 .chk-item.disabled .box { background:#ccc; border-color:#999; }
 .chk-item.disabled { color:#888; }
-.chk-item .tag { font-size:7pt; color:#999; }
-.opt-note { font-size:7.4pt; color:#8a6a2f; font-style:italic; margin-top:1mm; }
+.chk-item .tag { font-size:6.8pt; color:#999; }
+.chk-item .mini-time { font-size:7pt; color:#8a6a2f; }
+.opt-note { font-size:7.2pt; color:#8a6a2f; font-style:italic; margin-top:0.6mm; }
 
-.submit-line { margin-top:3mm; border-top:0.4mm solid %(gold)s; padding-top:2.8mm; break-inside:avoid; }
-.submit-line .row { display:flex; gap:5mm; margin-bottom:2.4mm; font-size:8.8pt; }
+.submit-line { margin-top:2mm; border-top:0.4mm solid %(gold)s; padding-top:2mm; break-inside:avoid; }
+.submit-line .row { display:flex; gap:5mm; margin-bottom:1.8mm; font-size:8.6pt; }
 .submit-line .row .cell { flex:1; display:flex; align-items:baseline; gap:1.6mm; }
 .submit-line .row b { color:%(navy)s; white-space:nowrap; }
-.submit-line .row .blank { flex:1; border-bottom:0.3mm solid #999; height:4mm; }
-.submit-line .pledge { font-size:9pt; text-align:center; color:#222; word-break:keep-all; }
+.submit-line .row .blank { flex:1; border-bottom:0.3mm solid #999; height:3.6mm; }
+.submit-line .pledge { font-size:8.8pt; text-align:center; color:#222; word-break:keep-all; }
 .submit-line .pledge b { color:%(navy)s; }
 """ % {'navy': NAVY, 'gold': GOLD, 'gold_fill': GOLD_FILL, 'cream': CREAM, 'cream_line': CREAM_LINE}
 
