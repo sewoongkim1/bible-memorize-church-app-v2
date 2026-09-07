@@ -6,6 +6,11 @@
      대조해 만든 사역팀 초안 목록을, 각 부서가 확인·수정할 수 있는 엑셀 양식으로 뽑는다.
      여기서 확정된 표기명이 앱(ministry_catalog)의 최종 시드 데이터가 된다.
 
+⚠️ 두 원본은 **팀 이름만** 담고 있다 — 사역 시간·요일·하는 일은 어느 원본에도
+   없다(2026-09-07). 성도가 이름만 보고 사역을 고를 수는 없으므로(예: 오병이어
+   1팀과 2팀이 뭐가 다른지), **이 양식에서 이름 확인과 같은 라운드로** 함께 걷는다
+   — 두 번 물으면 부서마다 응답이 늦어진다.
+
 사용법: python tools/ministry-form-gen.py
 출력:   ministry/2026_사역신청_부서확인양식.xlsx
 """
@@ -164,6 +169,7 @@ KIND_LABEL = {"apply": "신청가능", "appoint": "임명직"}
 
 HEADER = [
     "순번", "위원회/부서", "중분류", "사역팀명(신청서 표기 초안)", "구분",
+    "사역 시간·요일 (부서 기입)", "하는 일 — 한 줄 (부서 기입)",
     "하위 선택 안내", "확인이 필요한 사유", "확정 표기명 (부서 기입)",
     "변경여부", "담당자 확인 (성명)", "비고",
 ]
@@ -199,7 +205,7 @@ def build_main_sheet(wb):
     for i, (committee, group, team, kind, option, conflict) in enumerate(ROWS, start=1):
         r = ws.max_row + 1
         ws.append([
-            i, committee, group, team, KIND_LABEL[kind], option, conflict,
+            i, committee, group, team, KIND_LABEL[kind], "", "", option, conflict,
             "", "", "", "",
         ])
         band = GROUP_FILL if committee != prev_committee and (i % 2 == 0) else None
@@ -207,7 +213,7 @@ def build_main_sheet(wb):
             cell = ws.cell(row=r, column=c)
             cell.border = border
             cell.font = Font(size=10, name="맑은 고딕")
-            cell.alignment = Alignment(vertical="center", wrap_text=(c in (4, 6, 7, 8, 11)))
+            cell.alignment = Alignment(vertical="center", wrap_text=(c in (4, 6, 7, 8, 9, 10, 13)))
             if kind == "appoint":
                 cell.fill = PatternFill("solid", fgColor="ECECEC")
         if conflict:
@@ -217,7 +223,7 @@ def build_main_sheet(wb):
             ws.cell(row=r, column=2).font = Font(bold=True, size=10, name="맑은 고딕", color=NAVY)
         prev_committee = committee
 
-    widths = [6, 22, 14, 22, 10, 22, 30, 22, 12, 14, 20]
+    widths = [6, 22, 14, 22, 10, 20, 26, 22, 30, 22, 12, 14, 20]
     for idx, w in enumerate(widths, start=1):
         ws.column_dimensions[get_column_letter(idx)].width = w
 
@@ -227,7 +233,7 @@ def build_main_sheet(wb):
     dv.error = "목록에서 골라주세요"
     dv.prompt = "유지 / 이름 수정 / 신설 / 폐지 중 선택"
     ws.add_data_validation(dv)
-    dv.add(f"I2:I{ws.max_row}")
+    dv.add(f"K2:K{ws.max_row}")
 
     return ws
 
@@ -269,17 +275,22 @@ def build_guide_sheet(wb):
     put(6, "사용 방법", size=13, bold=True, color=NAVY)
     put(7, "1. 「사역팀 확인」 시트에서 화면 위 필터로 우리 부서만 골라 봅니다(B열 '위원회/부서').")
     put(8, "2. 각 사역팀명이 2026년 실제 명칭과 같은지 확인합니다.")
-    put(9, "3. H열 '확정 표기명'에 2026년 최종 명칭을 적어 주세요(그대로면 D열과 동일하게 적어도 됩니다).")
-    put(10, "4. I열 '변경여부'는 목록에서 유지 / 이름 수정 / 신설 / 폐지 중 하나를 골라 주세요.")
-    put(11, "5. J열에 확인하신 분 성함을, K열에는 그 밖에 전달할 내용을 적어 주세요.")
-    put(13, "색이 칠해진 자리", size=13, bold=True, color=NAVY)
-    put(14, "▨ 분홍색 행 — 두 원본 문서(인사표·신청서)의 표기가 서로 달라 어느 쪽이 맞는지 확인이 필요한 자리입니다. "
-             "G열 '확인이 필요한 사유'에 무엇이 다른지 적어 두었습니다.")
-    put(15, "▨ 회색 행 — 신청이 아니라 지명으로 맡는 임명직입니다. 성도가 직접 신청하지 않으므로 앱의 신청 목록에는 넣지 않습니다. "
-             "이름이 맞는지만 확인해 주세요.")
-    put(17, "임명직만 있어 개별 사역팀이 없는 부서(M-12부·재정부·감사위원회 등)는 "
+    put(9, "3. F열 '사역 시간·요일'과 G열 '하는 일'을 채워 주세요 — 이 둘은 "
+            "모든 행이 비어 있습니다(2026-09-07 추가). 성도가 앱에서 사역을 고를 때 "
+            "이름만 보고는 판단할 수 없어(예: 오병이어 1팀·2팀이 무엇이 다른지) "
+            "이번에 함께 걷습니다. 짧게만 적어 주셔도 됩니다(예: '매주 화 오전 10시', "
+            "'주일 예배 전 주차 안내').")
+    put(10, "4. J열 '확정 표기명'에 2026년 최종 명칭을 적어 주세요(그대로면 D열과 동일하게 적어도 됩니다).")
+    put(11, "5. K열 '변경여부'는 목록에서 유지 / 이름 수정 / 신설 / 폐지 중 하나를 골라 주세요.")
+    put(12, "6. L열에 확인하신 분 성함을, M열에는 그 밖에 전달할 내용을 적어 주세요.")
+    put(14, "색이 칠해진 자리", size=13, bold=True, color=NAVY)
+    put(15, "▨ 분홍색 행 — 두 원본 문서(인사표·신청서)의 표기가 서로 달라 어느 쪽이 맞는지 확인이 필요한 자리입니다. "
+             "I열 '확인이 필요한 사유'에 무엇이 다른지 적어 두었습니다.")
+    put(16, "▨ 회색 행 — 신청이 아니라 지명으로 맡는 임명직입니다. 성도가 직접 신청하지 않으므로 앱의 신청 목록에는 넣지 않습니다. "
+             "이름이 맞는지만 확인해 주세요(시간·요일은 안 채우셔도 됩니다).")
+    put(18, "임명직만 있어 개별 사역팀이 없는 부서(M-12부·재정부·감사위원회 등)는 "
              "「임명직 전용 부서」 시트에 따로 안내했습니다.")
-    put(19, "문의: 제자양육부 신앙운동팀", size=10, color="5C6070")
+    put(20, "문의: 제자양육부 신앙운동팀", size=10, color="5C6070")
 
 
 def main():
@@ -293,6 +304,7 @@ def main():
     seed = [
         {
             "committee": c, "group": g, "team": t, "kind": k,
+            "schedule_note": "", "desc_note": "",   # 부서 확인 뒤 채워진다(2026-09-07 자리 마련)
             "option_note": o, "conflict_note": cf,
         }
         for (c, g, t, k, o, cf) in ROWS

@@ -4,6 +4,8 @@
     "group": "",
     "team": "장학",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -12,6 +14,8 @@
     "group": "",
     "team": "교회학교전도",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -20,6 +24,8 @@
     "group": "",
     "team": "사랑부",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -28,6 +34,8 @@
     "group": "사랑부·어와나",
     "team": "퍼글",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "어와나 4개 중 하나만 신청",
     "conflict_note": ""
   },
@@ -36,6 +44,8 @@
     "group": "사랑부·어와나",
     "team": "커비",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "어와나 4개 중 하나만 신청",
     "conflict_note": ""
   },
@@ -44,6 +54,8 @@
     "group": "사랑부·어와나",
     "team": "스팍스/티엔티",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "어와나 4개 중 하나만 신청",
     "conflict_note": ""
   },
@@ -52,6 +64,8 @@
     "group": "사랑부·어와나",
     "team": "트랙/저니",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "어와나 4개 중 하나만 신청",
     "conflict_note": ""
   },
@@ -60,6 +74,8 @@
     "group": "미취학",
     "team": "영아부",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -68,6 +84,8 @@
     "group": "미취학",
     "team": "유아부",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -76,6 +94,8 @@
     "group": "미취학",
     "team": "유치부",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -84,6 +104,8 @@
     "group": "미취학",
     "team": "새싹부",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -92,6 +114,8 @@
     "group": "아동",
     "team": "유년부 1부",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -100,6 +124,8 @@
     "group": "아동",
     "team": "유년부 2부",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -108,6 +134,8 @@
     "group": "아동",
     "team": "소년부 1부",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -116,6 +144,8 @@
     "group": "아동",
     "team": "소년부 2부",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -124,6 +154,8 @@
     "group": "청소년",
     "team": "중등부",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -132,6 +164,8 @@
     "group": "청소년",
     "team": "고등부",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -140,6 +174,8 @@
     "group": "장년",
     "team": "은빛시니어학교",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -148,6 +184,8 @@
     "group": "",
     "team": "행정운영",
     "kind": "appoint",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -156,6 +194,8 @@
     "group": "",
     "team": "오병이어 1팀",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -164,6 +204,8 @@
     "group": "",
     "team": "오병이어 2팀",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -172,6 +214,8 @@
     "group": "",
     "team": "카페운영",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -180,6 +224,8 @@
     "group": "",
     "team": "상례",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -188,6 +234,8 @@
     "group": "",
     "team": "새하늘찬양대",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "다른 찬양대와 겸직 가능한 유일한 예외",
     "conflict_note": ""
   },
@@ -196,6 +244,8 @@
     "group": "",
     "team": "운영",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -204,6 +254,8 @@
     "group": "",
     "team": "문화선교",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -212,6 +264,8 @@
     "group": "",
     "team": "문화행사",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -220,6 +274,8 @@
     "group": "",
     "team": "꿈샘문화교실",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -228,6 +284,8 @@
     "group": "",
     "team": "동호회",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -236,6 +294,8 @@
     "group": "",
     "team": "스포츠",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -244,6 +304,8 @@
     "group": "",
     "team": "방송실 운영",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -252,6 +314,8 @@
     "group": "",
     "team": "전산",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -260,6 +324,8 @@
     "group": "",
     "team": "미디어홍보",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -268,6 +334,8 @@
     "group": "",
     "team": "새물결",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -276,6 +344,8 @@
     "group": "",
     "team": "운영",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -284,6 +354,8 @@
     "group": "",
     "team": "새가족영접",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -292,6 +364,8 @@
     "group": "",
     "team": "새가족정착",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -300,6 +374,8 @@
     "group": "",
     "team": "이단대응",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -308,6 +384,8 @@
     "group": "",
     "team": "국내선교",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -316,6 +394,8 @@
     "group": "",
     "team": "세계선교",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -324,6 +404,8 @@
     "group": "",
     "team": "다문화선교",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -332,6 +414,8 @@
     "group": "",
     "team": "운영",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -340,6 +424,8 @@
     "group": "",
     "team": "영접(웰컴)",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -348,6 +434,8 @@
     "group": "",
     "team": "출입문영접",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -356,6 +444,8 @@
     "group": "",
     "team": "본당영접",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -364,6 +454,8 @@
     "group": "",
     "team": "세례예식",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -372,6 +464,8 @@
     "group": "",
     "team": "성찬예식",
     "kind": "appoint",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -380,6 +474,8 @@
     "group": "",
     "team": "회계",
     "kind": "appoint",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": "조직표에는 회계(최현희)가 있으나 신청서 양식에는 없음 — 임명직인지, 신청서 누락인지 확인 필요"
   },
@@ -388,6 +484,8 @@
     "group": "",
     "team": "단계별 제자양육",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -396,6 +494,8 @@
     "group": "",
     "team": "마더와이즈",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -404,6 +504,8 @@
     "group": "",
     "team": "5060하프타임",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -412,6 +514,8 @@
     "group": "",
     "team": "신앙운동",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -420,6 +524,8 @@
     "group": "",
     "team": "학사관리",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -428,6 +534,8 @@
     "group": "",
     "team": "운영",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -436,6 +544,8 @@
     "group": "행복전도대",
     "team": "금요일",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "행복전도대 요일 중 하나 이상 신청",
     "conflict_note": ""
   },
@@ -444,6 +554,8 @@
     "group": "행복전도대",
     "team": "토요일",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "행복전도대 요일 중 하나 이상 신청",
     "conflict_note": ""
   },
@@ -452,6 +564,8 @@
     "group": "",
     "team": "전도학교",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -460,6 +574,8 @@
     "group": "",
     "team": "중보기도",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -468,6 +584,8 @@
     "group": "",
     "team": "중보기도학교",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -476,6 +594,8 @@
     "group": "",
     "team": "기도실운영",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -484,6 +604,8 @@
     "group": "",
     "team": "주차안내",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -492,6 +614,8 @@
     "group": "",
     "team": "할렐루야찬양대",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -500,6 +624,8 @@
     "group": "",
     "team": "임마누엘찬양대",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -508,6 +634,8 @@
     "group": "",
     "team": "시온찬양대",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -516,6 +644,8 @@
     "group": "",
     "team": "실로암찬양대",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -524,6 +654,8 @@
     "group": "",
     "team": "가브리엘찬양대",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -532,6 +664,8 @@
     "group": "",
     "team": "비파와수금",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": "신청서에만 있고 조직표(인사표)에는 없음 — 신설 팀인지 확인 필요"
   },
@@ -540,6 +674,8 @@
     "group": "",
     "team": "베데스다",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": "신청서에만 있고 조직표(인사표)에는 없음 — 신설 팀인지 확인 필요"
   },
@@ -548,6 +684,8 @@
     "group": "주일찬양",
     "team": "2부",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "주일찬양 봉사 시간대 중 택1",
     "conflict_note": ""
   },
@@ -556,6 +694,8 @@
     "group": "주일찬양",
     "team": "3부",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "주일찬양 봉사 시간대 중 택1",
     "conflict_note": ""
   },
@@ -564,6 +704,8 @@
     "group": "주일찬양",
     "team": "오후",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "주일찬양 봉사 시간대 중 택1",
     "conflict_note": ""
   },
@@ -572,6 +714,8 @@
     "group": "수요찬양",
     "team": "오전",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "수요찬양 봉사 시간대 중 택1",
     "conflict_note": ""
   },
@@ -580,6 +724,8 @@
     "group": "수요찬양",
     "team": "오후",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "수요찬양 봉사 시간대 중 택1",
     "conflict_note": ""
   },
@@ -588,6 +734,8 @@
     "group": "",
     "team": "금요성령집회찬양",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -596,6 +744,8 @@
     "group": "",
     "team": "중보기도팀(찬양)",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -604,6 +754,8 @@
     "group": "",
     "team": "찬양대운영",
     "kind": "appoint",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": "조직표(인사표)에만 있고 신청서 양식에는 없음 — 임명직으로 볼지 확인 필요"
   },
@@ -612,6 +764,8 @@
     "group": "",
     "team": "찬양팀운영",
     "kind": "appoint",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": "조직표(인사표)에만 있고 신청서 양식에는 없음 — 임명직으로 볼지 확인 필요"
   },
@@ -620,6 +774,8 @@
     "group": "",
     "team": "오케스트라",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": "조직표(인사표)에만 있고 신청서 양식에는 없음 — 신청 대상 누락인지 확인 필요"
   },
@@ -628,6 +784,8 @@
     "group": "",
     "team": "주나힘찬양",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": "조직표(인사표)에만 있고 신청서 양식에는 없음 — 신청 대상 누락인지 확인 필요"
   },
@@ -636,6 +794,8 @@
     "group": "",
     "team": "봉사센터운영",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -644,6 +804,8 @@
     "group": "",
     "team": "희망푸드뱅크",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -652,6 +814,8 @@
     "group": "",
     "team": "사랑의봉사팀",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -660,6 +824,8 @@
     "group": "",
     "team": "도서관책마을",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -668,6 +834,8 @@
     "group": "",
     "team": "그루터기사역",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -676,6 +844,8 @@
     "group": "",
     "team": "운영",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -684,6 +854,8 @@
     "group": "",
     "team": "목양지원",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -692,6 +864,8 @@
     "group": "",
     "team": "정착관리",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": "조직표(인사표)에는 '목양관리'로 표기 — 같은 팀인지, 다른 팀인지 확인 필요"
   },
@@ -700,6 +874,8 @@
     "group": "",
     "team": "소그룹 리더교육",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": "조직표(인사표)에는 '서기'로 표기 — 같은 팀인지, 다른 팀인지 확인 필요"
   },
@@ -708,6 +884,8 @@
     "group": "",
     "team": "회계",
     "kind": "appoint",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": "조직표(인사표)에만 있음 — 임명직인지 확인 필요"
   },
@@ -716,6 +894,8 @@
     "group": "",
     "team": "리더",
     "kind": "appoint",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -724,6 +904,8 @@
     "group": "",
     "team": "대외협력",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -732,6 +914,8 @@
     "group": "",
     "team": "역사홍보",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -740,6 +924,8 @@
     "group": "",
     "team": "경축부",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -748,6 +934,8 @@
     "group": "",
     "team": "상담실",
     "kind": "appoint",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -756,6 +944,8 @@
     "group": "",
     "team": "안전관리",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -764,6 +954,8 @@
     "group": "",
     "team": "시설관리",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -772,6 +964,8 @@
     "group": "",
     "team": "자재관리",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   },
@@ -780,6 +974,8 @@
     "group": "",
     "team": "데코",
     "kind": "apply",
+    "schedule_note": "",
+    "desc_note": "",
     "option_note": "",
     "conflict_note": ""
   }
