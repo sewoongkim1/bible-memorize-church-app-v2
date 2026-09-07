@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
-"""2026 사역신청서 · A4 2장 — 지금처럼 나눠 드리고 손으로 걷는 종이 신청서.
+"""2027 사역신청서 · A4 2장 — 지금처럼 나눠 드리고 손으로 걷는 종이 신청서.
+
+⚠️ 대상 연도가 2026 → 2027로 바뀌었다(2026-09-07, 성도님 지시). 이 파일이
+  만드는 신청서는 2027년 사역을 위한 것이다 — 원본 두 문서(「2026 사역신청서」·
+  「2026년도 교회부서 조직」)의 실제 제목은 그대로 인용하되(그 문서를 가리킬
+  때만), 우리 산출물은 전부 2027로 부른다.
 
 ■ 왜 이 파일이 필요한가
   사역신청 디지털화(docs/superpowers/specs/2026-09-06-ministry-application-design.md)는
@@ -9,7 +14,7 @@
   실물**이고, 두 원본(신청서·조직표)의 이름 불일치를 정리한 최신 목록을 반영한다.
 
 ■ 데이터 출처 — 손으로 옮겨 적지 않는다
-  ministry/ministry_catalog_2026_draft.json 을 그대로 읽는다. 부서 확인 양식
+  ministry/ministry_catalog_2027_draft.json 을 그대로 읽는다. 부서 확인 양식
   (tools/ministry-form-gen.py)이 최종본으로 갱신되면 이 파일도 다시 돌리기만 하면
   된다 — 팀 이름을 두 군데서 따로 관리하면 반드시 어긋난다.
   ⚠️ **초안 상태다.** 담당자 확인 전이라 일부 팀명은 바뀔 수 있다(부록 표의
@@ -24,15 +29,15 @@
   PDF 페이지 수는 pymupdf(fitz)로 실측해 콘솔에 찍는다(스크린샷 대신 숫자로 확인).
 
 출력 (ministry/ 폴더)
-  2026_사역신청서_A4.html   원본
-  2026_사역신청서_A4.pdf    인쇄용(크롬 --print-to-pdf, 없으면 건너뜀)
+  2027_사역신청서_A4.html   원본
+  2027_사역신청서_A4.pdf    인쇄용(크롬 --print-to-pdf, 없으면 건너뜀)
 """
 import io, os, json, subprocess
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, '..')
 OUT_DIR = os.path.join(ROOT, 'ministry')
-CATALOG = os.path.join(OUT_DIR, 'ministry_catalog_2026_draft.json')
+CATALOG = os.path.join(OUT_DIR, 'ministry_catalog_2027_draft.json')
 MARK = io.open(os.path.join(ROOT, 'marketing', 'logo-mark-data-uri.txt'), encoding='utf-8').read().strip()
 
 # 사용설명서_A4.pdf 와 같은 톤(marketing/manual/manual-gen.py) — 이 교회 인쇄물의
@@ -176,7 +181,7 @@ body { margin:0; font-family:'맑은 고딕','Malgun Gothic',sans-serif; color:#
 """ % {'navy': NAVY, 'gold': GOLD, 'cols': COLS, 'fpt': FONT_PT, 'gfpt': GROUP_FONT_PT}
 
 head = ('<div class="doc-head"><img src="%s"><div>'
-        '<h1>2026년도 사역신청서</h1>'
+        '<h1>2027년도 사역신청서</h1>'
         '<div class="sub">고척교회 성도님, 아래 원칙을 읽으시고 원하시는 사역을 표시해 주세요. '
         '한 해 동안 함께 섬길 자리를 정하는 소중한 신청입니다.</div>'
         '</div></div>' % MARK)
@@ -199,7 +204,7 @@ cols_html = '<div class="cols">' + ''.join(render_committee(c) for c in COMMITTE
 
 submit = ("""
 <div class="submit-line">
-  <div class="pledge">위 내용으로 <b>2026년도 사역</b>을 신청합니다.</div>
+  <div class="pledge">위 내용으로 <b>2027년도 사역</b>을 신청합니다.</div>
   <div class="row" style="margin-top:2.4mm">
     <div class="cell"><b>제출처</b><span class="blank"></span></div>
     <div class="cell"><b>제출 기한</b><span class="blank"></span></div>
@@ -211,11 +216,11 @@ submit = ("""
 </div>""")
 
 html = ('<!doctype html><html lang="ko"><head><meta charset="utf-8">'
-        '<title>2026 사역신청서</title><style>' + STYLE + '</style></head><body>'
+        '<title>2027 사역신청서</title><style>' + STYLE + '</style></head><body>'
         + head + principles + info_line + caption + cols_html
         + submit + '</body></html>')
 
-out_html = os.path.join(OUT_DIR, '2026_사역신청서_A4.html')
+out_html = os.path.join(OUT_DIR, '2027_사역신청서_A4.html')
 io.open(out_html, 'w', encoding='utf-8', newline='').write(html)
 print('wrote:', os.path.relpath(out_html, ROOT))
 
@@ -235,7 +240,7 @@ def find_chrome():
 
 
 chrome = find_chrome()
-out_pdf = os.path.join(OUT_DIR, '2026_사역신청서_A4.pdf')
+out_pdf = os.path.join(OUT_DIR, '2027_사역신청서_A4.pdf')
 if chrome:
     subprocess.run([chrome, '--headless', '--disable-gpu', '--no-pdf-header-footer',
                      '--print-to-pdf=' + os.path.abspath(out_pdf),

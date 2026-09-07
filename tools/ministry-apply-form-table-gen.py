@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
-"""2026 사역신청서 · 표 형식 시안 — 다른 교회 양식(이삭교회 2022 사역지원서)을
+"""2027 사역신청서 · 표 형식 시안 — 다른 교회 양식(이삭교회 2022 사역지원서)을
 성도님이 보여주며 "이런 형식으로" 요청해 만든 대안 디자인.
 
+⚠️ 대상 연도가 2026 → 2027로 바뀌었다(2026-09-07, 성도님 지시) — 원본 두
+  문서(「2026 사역신청서」·「2026년도 교회부서 조직」)의 실제 제목은 그대로
+  인용하되, 우리 산출물은 전부 2027로 부른다.
+
 ⚠️ **기존 것을 대체하지 않는다.** `tools/ministry-apply-form-gen.py`
-(→ `2026_사역신청서_A4.pdf`, 3단 체크리스트·A4 2장)는 그대로 둔다 — 이 파일은
+(→ `2027_사역신청서_A4.pdf`, 3단 체크리스트·A4 2장)는 그대로 둔다 — 이 파일은
 같은 데이터를 다른 표 형식으로 보여주는 **별도 시안**이다(성도님 지시:
 "기존건 그대로 두고"). 어느 쪽으로 최종 인쇄할지는 아직 정하지 않았다.
 
@@ -14,29 +18,30 @@
   원본에 없어도 그대로 유지했다 — 형식만 빌리고 내용까지 원본을 따르지 않는다.
 
 ■ 시간(스케줄) 데이터 — 대부분 예시다
-  ministry_catalog_2026_draft.json 의 schedule_note 는 찬양부 일부(찬양대·
+  ministry_catalog_2027_draft.json 의 schedule_note 는 찬양부 일부(찬양대·
   오케스트라)만 실제로 확인됐고 나머지는 비어 있다(부서 확인 대기 중,
   design doc 09-2장). 성도님 요청("샘플이니 시간은 예상해서 넣어주세요")에
   따라 비어 있는 자리는 SCHEDULE_EXAMPLES 로 그럴듯한 예시를 채운다 —
   **실제 확인된 시간이 아니다.** 페이지 맨 위에 눈에 띄게 경고를 둔다.
 
-■ 표 구성 — 데이터를 그대로 옮기지 않고 (구분·시간·kind) 로 다시 묶는다
-  같은 중분류(구분)·같은 시간대·같은 kind(신청/임명)를 공유하는 연속 항목은
-  체크박스를 한 행에 나란히 담는다(원본의 "미취학부 | 오전 10:40 | 영아부
-  유아부 유치부" 한 행과 같은 방식). 시간이 팀마다 다르면(예: 찬양대) 행을
-  나눈다(원본의 찬양대 표가 팀마다 다른 시간을 각자 한 행에 담는 것과 같다).
-  같은 구분이 연속된 행은 rowspan 으로 합쳐 구분 칸을 반복하지 않는다.
+■ 표 구성 — 데이터를 그대로 옮기지 않고 (구분·kind) 로 다시 묶는다
+  같은 중분류(구분)·같은 kind(신청/임명)를 공유하는 연속 항목은 체크박스를
+  한 행에 나란히 담는다(원본의 "미취학부 | 오전 10:40 | 영아부 유아부 유치부"
+  한 행과 같은 방식). 시간이 팀마다 다르면(예: 찬양대) 행의 「시간」 칸은
+  비우고 체크박스 옆에 그 팀만의 시간을 작게 적는다(2026-09-07, "찬양대를
+  모아서" — 처음엔 시간이 다르면 행도 나눴는데, 한 부서 한 행이 지면을 훨씬
+  아낀다). 같은 구분이 연속된 행은 rowspan 으로 합쳐 구분 칸을 반복하지 않는다.
 
 사용법: python tools/ministry-apply-form-table-gen.py
-출력:   ministry/2026_사역신청서_표형식.html
-        ministry/2026_사역신청서_표형식.pdf (크롬 있으면)
+출력:   ministry/2027_사역신청서_표형식.html
+        ministry/2027_사역신청서_표형식.pdf (크롬 있으면)
 """
 import io, os, json, subprocess
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, '..')
 OUT_DIR = os.path.join(ROOT, 'ministry')
-CATALOG = os.path.join(OUT_DIR, 'ministry_catalog_2026_draft.json')
+CATALOG = os.path.join(OUT_DIR, 'ministry_catalog_2027_draft.json')
 
 with io.open(CATALOG, encoding='utf-8') as f:
     ROWS = json.load(f)
@@ -243,7 +248,7 @@ tr.appoint-row .c-time { color:#999; }
 warn = ('<div class="warn">⚠️ 이 문서는 표 형식 시안입니다. 「시간」 칸은 대부분 아직 부서 '
         '확인 전 예시이며, 실제 사역 시간이 아닙니다.</div>')
 
-head = ('<div class="doc-head"><h1>2026년도 사역신청서</h1>'
+head = ('<div class="doc-head"><h1>2027년도 사역신청서</h1>'
         '<div class="sub">고척교회 성도님, 아래 원칙을 읽으시고 원하시는 사역을 표시해 주세요.</div></div>')
 
 principles = ('<div class="principles"><div class="t">사역 임명 원칙</div><ol>'
@@ -267,7 +272,7 @@ tables = ''.join(render_committee_table(i, c) for i, c in enumerate(COMMITTEES, 
 
 submit = ("""
 <div class="submit-line">
-  <div class="pledge">위 내용으로 <b>2026년도 사역</b>을 신청합니다.</div>
+  <div class="pledge">위 내용으로 <b>2027년도 사역</b>을 신청합니다.</div>
   <div class="row" style="margin-top:2.4mm">
     <div class="cell"><b>제출처</b><span class="blank"></span></div>
     <div class="cell"><b>제출 기한</b><span class="blank"></span></div>
@@ -279,10 +284,10 @@ submit = ("""
 </div>""")
 
 html = ('<!doctype html><html lang="ko"><head><meta charset="utf-8">'
-        '<title>2026 사역신청서(표형식 시안)</title><style>' + STYLE + '</style></head><body>'
+        '<title>2027 사역신청서(표형식 시안)</title><style>' + STYLE + '</style></head><body>'
         + warn + head + principles + info_box + instr + tables + submit + '</body></html>')
 
-out_html = os.path.join(OUT_DIR, '2026_사역신청서_표형식.html')
+out_html = os.path.join(OUT_DIR, '2027_사역신청서_표형식.html')
 io.open(out_html, 'w', encoding='utf-8', newline='').write(html)
 print('wrote:', os.path.relpath(out_html, ROOT))
 
@@ -301,7 +306,7 @@ def find_chrome():
 
 
 chrome = find_chrome()
-out_pdf = os.path.join(OUT_DIR, '2026_사역신청서_표형식.pdf')
+out_pdf = os.path.join(OUT_DIR, '2027_사역신청서_표형식.pdf')
 if chrome:
     subprocess.run([chrome, '--headless', '--disable-gpu', '--no-pdf-header-footer',
                      '--print-to-pdf=' + os.path.abspath(out_pdf),

@@ -1,6 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-2026 사역신청 — 부서 확인 양식 생성기
+2027 사역신청 — 부서 확인 양식 생성기
+
+⚠️ 대상 연도가 2026 → 2027로 바뀌었다(2026-09-07, 성도님 지시). 우리 쪽
+   산출물(이 파일이 만드는 엑셀·JSON, 성도용 신청서 두 종)은 전부 2027로
+   부른다. 다만 원본 두 문서의 실제 제목(「2026 사역신청서」·「2026년도
+   교회부서 조직」)은 그 문서를 가리킬 때만 그대로 인용한다 — 이름을 바꿔
+   부르면 출처가 아니게 된다.
 
 목적: 종이 「2026 사역신청서」와 「2026년도 교회부서 조직」(인사표) 두 원본을
      대조해 만든 사역팀 초안 목록을, 각 부서가 확인·수정할 수 있는 엑셀 양식으로 뽑는다.
@@ -18,7 +24,7 @@
    design doc 04장과 같은 선).
 
 사용법: python tools/ministry-form-gen.py
-출력:   ministry/2026_사역신청_부서확인양식.xlsx
+출력:   ministry/2027_사역신청_부서확인양식.xlsx
 """
 import json
 import os
@@ -29,8 +35,8 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
 OUT_DIR = os.path.join(os.path.dirname(__file__), "..", "ministry")
-OUT_XLSX = os.path.join(OUT_DIR, "2026_사역신청_부서확인양식.xlsx")
-OUT_JSON = os.path.join(OUT_DIR, "ministry_catalog_2026_draft.json")
+OUT_XLSX = os.path.join(OUT_DIR, "2027_사역신청_부서확인양식.xlsx")
+OUT_JSON = os.path.join(OUT_DIR, "ministry_catalog_2027_draft.json")
 
 # committee, group(중분류, 없으면 ""), team, kind(apply/appoint),
 # schedule(사역 시간·요일, 확인된 것만 — 2026-09-07 찬양부부터 채워지기 시작),
@@ -278,13 +284,13 @@ def build_guide_sheet(wb):
         cell.alignment = Alignment(vertical="top", wrap_text=wrap)
         return cell
 
-    put(2, "2026 사역신청 — 부서 확인 양식", size=18, bold=True, color=NAVY)
+    put(2, "2027 사역신청 — 부서 확인 양식", size=18, bold=True, color=NAVY)
     put(4, "종이 「2026 사역신청서」와 「2026년도 교회부서 조직」(인사표) 두 문서를 대조해 만든 사역팀 초안입니다. "
             "이 파일에서 우리 부서 자리를 확인·수정해 주시면, 그 내용이 앱(성경말씀 암송 앱) 사역신청 화면의 최종 목록이 됩니다.",
         size=11)
     put(6, "사용 방법", size=13, bold=True, color=NAVY)
     put(7, "1. 「사역팀 확인」 시트에서 화면 위 필터로 우리 부서만 골라 봅니다(B열 '위원회/부서').")
-    put(8, "2. 각 사역팀명이 2026년 실제 명칭과 같은지 확인합니다.")
+    put(8, "2. 각 사역팀명이 2027년 실제 명칭과 같은지 확인합니다.")
     put(9, "3. F열 '사역 시간·요일'과 G열 '하는 일'을 채워 주세요 — 대부분 비어 "
             "있습니다(2026-09-07 추가, 찬양부 일부만 먼저 확인되어 채워져 있습니다). "
             "성도가 앱에서 사역을 고를 때 이름만 보고는 판단할 수 없어(예: 오병이어 "
@@ -292,7 +298,7 @@ def build_guide_sheet(wb):
             "(예: '매주 화 오전 10시', '주일 예배 전 주차 안내').")
     put(10, "4. H열 '필요 인원'은 채워 주시면 좋지만 선택 사항입니다 — 정원을 세거나 "
              "막는 데 쓰지 않고, 성도님께 참고로만 보여드립니다. 모르시면 비워 두셔도 됩니다.")
-    put(11, "5. K열 '확정 표기명'에 2026년 최종 명칭을 적어 주세요(그대로면 D열과 동일하게 적어도 됩니다).")
+    put(11, "5. K열 '확정 표기명'에 2027년 최종 명칭을 적어 주세요(그대로면 D열과 동일하게 적어도 됩니다).")
     put(12, "6. L열 '변경여부'는 목록에서 유지 / 이름 수정 / 신설 / 폐지 중 하나를 골라 주세요.")
     put(13, "7. M열에 확인하신 분 성함을, N열에는 그 밖에 전달할 내용을 적어 주세요.")
     put(15, "색이 칠해진 자리", size=13, bold=True, color=NAVY)
