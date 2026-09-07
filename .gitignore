@@ -95,3 +95,8 @@ booklet/줄나눔.txt
 booklet/명단.txt
 # 명단으로 뽑은 산출물 폴더(사람마다 이름이 박힌 HTML·PDF)
 booklet/출력/
+
+# ⚠️ 사역신청 원본 사진 — 실제 작성된 신청서엔 성도님 이름·전화번호가 그대로 찍혀
+#    있다(2026-09-07 확인, 최찬미 님 것). 공개 저장소라 절대 올리지 않는다.
+#    옮긴 내용은 docs/superpowers/specs/2026-09-06-ministry-application-design.md 에 있다.
+AppForm/
