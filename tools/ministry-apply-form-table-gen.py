@@ -241,7 +241,7 @@ tr.appoint-row .c-time { color:#999; }
 """ % {'navy': NAVY, 'gold': GOLD, 'gold_fill': GOLD_FILL, 'cream': CREAM, 'cream_line': CREAM_LINE}
 
 warn = ('<div class="warn">⚠️ 이 문서는 표 형식 시안입니다. 「시간」 칸은 대부분 아직 부서 '
-        '확인 전 예시이며(찬양대·오케스트라만 실제 확인됨), 실제 사역 시간이 아닙니다.</div>')
+        '확인 전 예시이며, 실제 사역 시간이 아닙니다.</div>')
 
 head = ('<div class="doc-head"><h1>2026년도 사역신청서</h1>'
         '<div class="sub">고척교회 성도님, 아래 원칙을 읽으시고 원하시는 사역을 표시해 주세요.</div></div>')
