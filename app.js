@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260908d";
+const APP_BUILD = "20260908e";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -8877,6 +8877,9 @@ function minPeriodText() {
 function minIsOpen() { return !!(minCat && minCat.period && minCat.period.isOpen); }
 
 // 팀 한 줄에 붙는 작은 설명 — 시간·하는 일이 있으면 보여 주고, 없으면 이름만
+// ⚠️ 이 셋은 **관리자만** 넣을 수 있고(ADMIN_SECRET), 서버가 꾸밈 태그만 남기고
+//    거른 뒤에 내려준다. 그래서 여기서는 escape 하지 않고 그대로 그린다 —
+//    escape 하면 <b> 가 글자로 보인다. 팀 이름 등 나머지는 전부 minEsc 를 거친다.
 function minMetaOf(t) {
   const parts = [];
   if (t.sched) parts.push(t.sched);
@@ -8945,7 +8948,7 @@ function minPickHtml() {
           (t.appoint ? " disabled" : ' data-team="' + t.id + '"') + '>' +
           '<span class="min-info"><span class="min-nm">' + minEsc(t.team) +
           (t.appoint ? '<span class="min-tag">지명</span>' : "") + '</span>' +
-          (meta ? '<span class="min-meta">' + minEsc(meta) + '</span>' : "") + '</span>' +
+          (meta ? '<span class="min-meta">' + meta + '</span>' : "") + '</span>' +
           '<span class="min-chk">' + (on ? "✓" : "") + '</span></button>';
       }
       acc += '</div>';
@@ -9004,7 +9007,7 @@ function minConfirmHtml() {
     rows += '<div class="min-pick"><span class="min-pick-ck">✓</span>' +
       '<span class="min-info"><span class="min-nm">' + minEsc(t.team) +
       ' <span class="min-com">· ' + minEsc(t.committee) + '</span></span>' +
-      (meta ? '<span class="min-meta">' + minEsc(meta) + '</span>' : "") + '</span>' +
+      (meta ? '<span class="min-meta">' + meta + '</span>' : "") + '</span>' +
       '<button class="min-del" data-drop="' + t.id + '">빼기</button></div>';
   }
   return '<h2 class="rank-title">🤝 신청 사역 확인</h2>' +
@@ -9086,7 +9089,7 @@ function minDoneHtml(u) {
     rows += '<div class="min-pick"><span class="min-pick-ck">✓</span>' +
       '<span class="min-info"><span class="min-nm">' + minEsc(c.team) +
       ' <span class="min-com">· ' + minEsc(c.committee) + '</span></span>' +
-      (meta ? '<span class="min-meta">' + minEsc(meta) + '</span>' : "") + '</span></div>';
+      (meta ? '<span class="min-meta">' + meta + '</span>' : "") + '</span></div>';
   }
   const editable = m.status === "신청완료" && minIsOpen();
   return '<h2 class="rank-title">🤝 내 사역 신청</h2>' +

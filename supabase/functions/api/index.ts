@@ -182,6 +182,7 @@ Deno.serve(async (req) => {
       case "ministryCancel":   return json(await ministryCancel(body));
       case "ministryList":     return json(await ministryList(body));
       case "ministrySetStatus":return json(await ministrySetStatus(body));
+      case "ministryCatalogSave": return json(await ministryCatalogSave(body));
 
       // ---- 순위 응원 ----
       case "rankCheer":     return json(await rankCheer(body));
@@ -3085,7 +3086,10 @@ async function ministryCatalog(b: any) {
     list: (data ?? []).map((r: any) => ({
       id: r.id, committee: r.committee, group: r.group_name, team: r.team,
       appoint: r.kind === "appoint",
-      sched: r.schedule_note, desc: r.desc_note, capacity: r.capacity_note, opt: r.option_note,
+      sched: ministryHtml(r.schedule_note, 160),
+      desc: ministryHtml(r.desc_note, 400),
+      capacity: ministryHtml(r.capacity_note, 80),
+      opt: r.option_note,
     })),
   };
 }
@@ -3285,6 +3289,70 @@ async function ministrySetStatus(b: any) {
   const { error } = await db.from("ministry_orders").update(patch).eq("id", id);
   if (error) throw error;
   return { ok: true, status, pushed, pushError };
+}
+
+// 사역 설명은 **꾸밈(HTML)을 허용한다** — 관리자만 넣기 때문이다(성도님 지시, 2026-09-08).
+// ⚠️ 다만 아무 태그나 통과시키지는 않는다. 이 글은 성도님 **모두의 화면**에서 렌더되므로,
+//    관리자 비번이 한 번 새면 그대로 저장형 XSS 가 된다. 그래서 꾸밈에 쓰는 태그와
+//    style 속성만 남기고 나머지는 서버가 지운다(스크립트·이벤트 핸들러·링크·이미지 전부).
+//    ⚠️ 저장할 때와 내려줄 때 **양쪽에서** 거른다 — 엑셀 시드로 들어온 값도 거쳐야 한다.
+const MIN_TAGS = new Set(["b", "strong", "i", "em", "u", "s", "br", "span", "small", "mark"]);
+const MIN_STYLE_OK = /^(color|background-color|font-weight|font-size|text-decoration)$/;
+
+function ministryStyleAttr(attrs: string): string {
+  const m = /style\s*=\s*("([^"]*)"|'([^']*)')/i.exec(attrs || "");
+  const raw = m ? (m[2] ?? m[3] ?? "") : "";
+  const out: string[] = [];
+  for (const part of raw.split(";")) {
+    const i = part.indexOf(":");
+    if (i < 0) continue;
+    const k = part.slice(0, i).trim().toLowerCase();
+    const v = part.slice(i + 1).trim();
+    if (!MIN_STYLE_OK.test(k)) continue;
+    if (/[<>()]|url|expression|javascript/i.test(v)) continue;   // url(...)·javascript: 차단
+    out.push(k + ":" + v.slice(0, 40));
+  }
+  return out.join(";").slice(0, 160);
+}
+
+function ministryHtml(raw: unknown, max = 400): string {
+  let s = String(raw ?? "");
+  s = s.replace(/<!--[\s\S]*?-->/g, "")
+       .replace(/<\s*(script|style|iframe|object|embed|link|meta|svg)[\s\S]*?<\s*\/\s*\s*>/gi, "")
+       .replace(/<\s*(script|style|iframe|object|embed|link|meta|svg)[^>]*>/gi, "");
+  s = s.replace(/<\s*(\/?)\s*([a-zA-Z0-9]+)([^>]*)>/g, (_m, close, tag, attrs) => {
+    const t = String(tag).toLowerCase();
+    if (!MIN_TAGS.has(t)) return "";           // 허용 목록에 없으면 태그만 지운다(글자는 남는다)
+    if (close) return "</" + t + ">";
+    if (t === "br") return "<br>";
+    const st = ministryStyleAttr(String(attrs || ""));
+    return "<" + t + (st ? ' style="' + st + '"' : "") + ">";
+  });
+  return s.slice(0, max);
+}
+
+// 사역팀 세부 정보(시간·하는 일·필요 인원) 고치기 — **관리자만**
+// ⚠️ 이 앱은 성도 로그인에 비밀번호가 없다(교구·목장·이름만 맞으면 들어온다).
+//    그러니 목록을 고치는 길은 반드시 ADMIN_SECRET 뒤에 둔다 — 아무나 사역 설명을
+//    바꿀 수 있으면 화면에 적힌 것을 아무도 믿지 못하게 된다(성도님 지적, 2026-09-08).
+// ⚠️ 고칠 수 있는 것은 세 칸뿐이다. 팀 이름·위원회·임명직 여부는 여기서 못 바꾼다 —
+//    그건 부서 확인을 거쳐 JSON(시드)으로 들어오는 값이다.
+async function ministryCatalogSave(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const id = Number(b.id) || 0;
+  if (!id) return { ok: false, error: "id 필요" };
+  const patch = {
+    schedule_note: ministryHtml(b.schedule_note, 160),
+    desc_note: ministryHtml(b.desc_note, 400),
+    capacity_note: ministryHtml(b.capacity_note, 80),
+  };
+  const { data, error } = await db.from("ministry_catalog")
+    .update(patch).eq("id", id)
+    .select("id,committee,team,schedule_note,desc_note,capacity_note").single();
+  if (error) throw error;
+  // 걸러진 뒤의 값을 돌려준다 — 화면이 「내가 친 것」이 아니라 「실제 저장된 것」을 보여야 한다
+  return { ok: true, id: data.id, team: data.team,
+           sched: data.schedule_note, desc: data.desc_note, capacity: data.capacity_note };
 }
 
 // 그 성도의 기기에만 발송. 알림을 켜 두지 않았으면 조용히 0건 —

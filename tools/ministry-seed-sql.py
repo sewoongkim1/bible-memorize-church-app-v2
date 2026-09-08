@@ -4,9 +4,14 @@
 자료는 ministry_catalog_2027.json(부서 확인 확정본)이고, 없으면 초안을 쓴다.
 94행을 손으로 INSERT 문으로 만들면 반드시 어딘가 틀리고, 틀려도 티가 안 난다.
 
-⚠️ **지우고 다시 넣는다**(delete → insert). 팀이 폐지되면 그 행이 사라져야
-   하는데, upsert 만 하면 옛 행이 남아 성도님 화면에 계속 보인다.
-   신청(ministry_orders)은 팀 이름을 스냅샷으로 들고 있어 영향받지 않는다.
+⚠️ **지우고 다시 넣지 않는다**(2026-09-08 수정). 처음엔 delete → insert 였는데
+   두 가지가 깨진다:
+     ① 관리자가 화면에서 채운 시간·하는 일·필요 인원이 통째로 날아간다
+     ② bigserial id 가 다시 매겨져, 이미 들어온 신청(choices 의 팀 id)이 엉뚱한
+        팀을 가리키게 된다
+   그래서 upsert 로 넣되, 시간·하는 일·필요 인원은 **JSON 에 값이 있을 때만**
+   덮어쓴다(비어 있으면 DB 의 관리자 입력을 그대로 둔다).
+   목록에서 빠진 팀은 **신청이 걸려 있지 않은 것만** 지운다.
 
 ⚠️ 개발 DB 에 먼저 돌린다. 운영은 확인한 뒤에.
 
@@ -40,9 +45,7 @@ lines = [
     "",
     "begin;",
     "",
-    "-- 지우고 다시 넣는다 — 폐지된 팀이 남아 있으면 성도님 화면에 계속 보인다",
-    "delete from public.ministry_catalog where year = %d;" % YEAR,
-    "",
+    "-- upsert — id 를 지키고(신청이 팀 id 를 가리킨다), 관리자가 채운 값도 지킨다",
     "insert into public.ministry_catalog",
     "  (year, committee, group_name, team, kind, schedule_note, desc_note,"
     " capacity_note, option_note, sort_order)",
@@ -55,8 +58,27 @@ for i, r in enumerate(ROWS):
         YEAR, q(r['committee']), q(r['group']), q(r['team']), q(r['kind']),
         q(r['schedule_note']), q(r['desc_note']), q(r['capacity_note']),
         q(r['option_note']), i))
-lines.append(",\n".join(vals) + ";")
+lines.append(",\n".join(vals))
 lines += [
+    "on conflict (year, committee, group_name, team) do update set",
+    "  kind        = excluded.kind,",
+    "  option_note = excluded.option_note,",
+    "  sort_order  = excluded.sort_order,",
+    "  -- 시간·하는 일·필요 인원은 JSON 에 값이 있을 때만 덮는다(관리자 입력 보존)",
+    "  schedule_note = coalesce(nullif(excluded.schedule_note, ''), ministry_catalog.schedule_note),",
+    "  desc_note     = coalesce(nullif(excluded.desc_note, ''),     ministry_catalog.desc_note),",
+    "  capacity_note = coalesce(nullif(excluded.capacity_note, ''), ministry_catalog.capacity_note);",
+    "",
+    "-- 목록에서 빠진 팀 치우기 — 단, 이미 신청이 걸린 팀은 두고 사람이 본다",
+    "delete from public.ministry_catalog c",
+    " where c.year = %d" % YEAR,
+    "   and (c.committee, c.group_name, c.team) not in (" + ", ".join(
+        "(%s, %s, %s)" % (q(r["committee"]), q(r["group"]), q(r["team"])) for r in ROWS) + ")",
+    "   and not exists (",
+    "     select 1 from public.ministry_orders o",
+    "      where o.year = c.year",
+    "        and o.choices @> jsonb_build_array(jsonb_build_object('id', c.id))",
+    "   );",
     "",
     "commit;",
     "",

@@ -326,6 +326,39 @@
 .mn-team{font-size:13px;background:#f3f6fb;border:1px solid #e2e8f4;border-radius:8px;padding:5px 9px;color:#2c3a52;}
 .mn-team em{font-style:normal;color:#7a869c;font-size:11.5px;margin-right:3px;}
 .mn-team i{font-style:normal;color:#8a95a8;font-size:11.5px;}
+/* 사역팀 정보 편집 — 관리자만 쓰는 화면이라 넉넉하게 */
+.mc-help{font-size:13px;color:#5b6472;line-height:1.7;margin:0 0 12px;}
+.mc-tags{font-size:12px;color:#7a869c;}
+.mc-tags code{background:#f3f6fb;border:1px solid #e2e8f4;border-radius:5px;padding:1px 5px;font-size:11.5px;}
+.mc-sum{font-size:13px;color:#41506b;background:#eef1f8;border-radius:8px;padding:8px 12px;margin-bottom:10px;}
+.mc-sum b{font-size:15px;color:#1a3a6b;}
+.mc-rest{color:#a33;margin-left:8px;font-size:12px;}
+.mc-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
+.mc-tab{font:inherit;font-size:12.5px;padding:6px 10px;border:1px solid #dde3ee;border-radius:8px;
+  background:#fff;color:#41506b;cursor:pointer;}
+.mc-tab em{font-style:normal;color:#8a95a8;font-size:11px;margin-left:3px;}
+.mc-tab.on{background:#1a3a6b;color:#fff;border-color:#1a3a6b;}
+.mc-tab.on em{color:#cfe0ff;}
+.mc-tab.done{border-color:#5aab7c;}
+.mc-row{border:1px solid #dde3ee;border-radius:10px;padding:10px 12px;margin-bottom:8px;background:#fff;}
+.mc-row.off{background:#f7f8fa;}
+.mc-nm{font-size:14.5px;font-weight:800;color:#1a3a6b;margin-bottom:6px;}
+.mc-nm em{font-style:normal;font-size:11.5px;color:#8a95a8;margin-right:4px;}
+.mc-tag{font-size:11px;color:#8a95a8;font-weight:600;margin-left:6px;}
+.mc-note{font-size:12.5px;color:#8a95a8;}
+.mc-in{display:flex;flex-direction:column;gap:7px;}
+.mc-in label{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#5b6472;font-weight:700;}
+.mc-in label.wide{align-items:flex-start;}
+.mc-in input,.mc-in textarea{flex:1;font:inherit;font-size:13.5px;padding:7px 10px;
+  border:1px solid #dde3ee;border-radius:8px;min-width:0;}
+.mc-in textarea{resize:vertical;line-height:1.6;}
+/* 미리보기 — 성도님 화면에서 보이는 그대로(작은 회색 글씨) */
+.mc-prev{font-size:12.5px;color:#6b7280;background:#f7f8fa;border-radius:7px;padding:7px 10px;
+  margin-left:62px;line-height:1.6;}
+.mc-none{color:#b0b8c6;}
+.mc-save{align-self:flex-end;font:inherit;font-size:12.5px;font-weight:700;padding:7px 16px;
+  border:1px solid #1a3a6b;border-radius:8px;background:#1a3a6b;color:#fff;cursor:pointer;}
+.mc-save.ok{background:#2c5f2d;border-color:#2c5f2d;}
 .mn-p4{font-size:12px;font-weight:700;color:#41506b;background:#eef1f8;border-radius:7px;padding:3px 8px;}
 .mn-p4 b{letter-spacing:.08em;color:#1a3a6b;}
 .mn-p4.none{color:#a0a9b8;background:#f5f6f8;font-weight:600;}
@@ -660,6 +693,14 @@ function renderMenu(){
         </div>
         <div class="rep-arrow">›</div>
       </div>
+      <div class="rep-card" id="rep-mincat">
+        <div class="ic">🗂️</div>
+        <div class="rep-text">
+          <div class="ti">사역팀 정보 (시간·하는 일)</div>
+          <div class="de">성도님 화면에 보이는 설명 — 비어 있으면 이름만 보인다</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
       <div class="rep-card" id="rep-ministry">
         <div class="ic">🤝</div>
         <div class="rep-text">
@@ -689,6 +730,7 @@ function renderMenu(){
   document.getElementById("rep-event").addEventListener("click", renderEventAdmin);
   document.getElementById("rep-pilsa").addEventListener("click", renderPilsaAdmin);
   document.getElementById("rep-ministry").addEventListener("click", renderMinistryAdmin);
+  document.getElementById("rep-mincat").addEventListener("click", renderMinistryCatalog);
   loadDashboard();
 }
 
@@ -3044,6 +3086,152 @@ function mnNote(msg){
   el.textContent=msg;
   clearTimeout(mnNote._t);
   mnNote._t=setTimeout(()=>{ el.remove(); }, 6000);
+}
+
+
+// ---------- 🗂️ 사역팀 정보 (시간·하는 일·필요 인원) ----------
+// ⚠️ 성도 화면에 「이름만」 뜨면 무엇을 하는 사역인지 알 수 없어 신청 자체가 어렵다
+//    (기획(안)이 「가장 큰 문제」로 적은 자리). 부서 회신을 기다리는 동안 담당자가
+//    아는 것부터 여기서 채운다.
+// ⚠️ 고칠 수 있는 것은 세 칸뿐 — 팀 이름·위원회는 부서 확인을 거쳐 시드로 들어온다.
+let mcRows = [];      // [{ id, committee, group, team, appoint, sched, desc, capacity }]
+let mcPick = "";      // 지금 보고 있는 위원회
+let mcLoaded = false;
+
+function renderMinistryCatalog(){
+  app.innerHTML=`
+    <div class="rep-head">
+      <button class="back-btn" id="back">← 메뉴</button>
+      <h2>🗂️ 사역팀 정보</h2>
+    </div>
+    <div class="push-card">
+      <p class="mc-help">성도님 화면에서 팀 이름 아래 작게 보이는 설명입니다.
+        <b>비어 있으면 이름만 보입니다</b> — 무엇을 하는 사역인지 알 수 없어 고르기 어렵습니다.<br>
+        부서 회신(확인 양식 F·G·H열)을 기다리는 동안, 아는 것부터 채워 두시면 됩니다.<br>
+        <span class="mc-tags">꾸밈을 넣을 수 있습니다 —
+          <code>&lt;b&gt;굵게&lt;/b&gt;</code>
+          <code>&lt;span style="color:#c0392b"&gt;색&lt;/span&gt;</code>
+          <code>&lt;br&gt;</code>
+          <code>&lt;u&gt;</code> <code>&lt;em&gt;</code> <code>&lt;mark&gt;</code>.
+          ⚠️ 그 밖의 태그(스크립트·이미지·링크)는 서버가 지웁니다.</span></p>
+      <div id="mc-sum" class="mc-sum"></div>
+      <div id="mc-tabs" class="mc-tabs"></div>
+      <div id="mc-list"><p class="msg">불러오는 중...</p></div>
+    </div>`;
+  document.getElementById("back").addEventListener("click", renderMenu);
+  mcLoad();
+}
+
+async function mcLoad(){
+  const box=document.getElementById("mc-list"); if(!box) return;
+  if(!mcLoaded){
+    const d=await callApi({ action:"ministryCatalog" }).catch(()=>({ok:false,error:"network"}));
+    if(!d.ok){ box.innerHTML=`<p class="msg err">목록을 불러오지 못했습니다: ${plEsc(d.error||"오류")}</p>`; return; }
+    mcRows=(d.list||[]).map(x=>({ id:x.id, committee:x.committee, group:x.group||"", team:x.team,
+      appoint:!!x.appoint, sched:x.sched||"", desc:x.desc||"", capacity:x.capacity||"" }));
+    if(!mcPick && mcRows.length) mcPick=mcRows[0].committee;
+    mcLoaded=true;
+  }
+  mcRender();
+}
+
+function mcRender(){
+  const box=document.getElementById("mc-list"); if(!box) return;
+  const apply=mcRows.filter(r=>!r.appoint);
+  const filled=apply.filter(r=>r.sched||r.desc).length;
+
+  const sum=document.getElementById("mc-sum");
+  if(sum){
+    sum.innerHTML=`<b>${filled}</b> / ${apply.length}팀 채움
+      <span class="mc-rest">${apply.length-filled}팀은 아직 이름만 보입니다</span>`;
+  }
+
+  // 위원회 탭 — 채운 팀 수를 함께 보여 어디가 비었는지 한눈에
+  const tabs=document.getElementById("mc-tabs");
+  if(tabs){
+    const names=[]; mcRows.forEach(r=>{ if(names.indexOf(r.committee)<0) names.push(r.committee); });
+    tabs.innerHTML=names.map(c=>{
+      const mine=mcRows.filter(r=>r.committee===c&&!r.appoint);
+      const got=mine.filter(r=>r.sched||r.desc).length;
+      return `<button class="mc-tab${c===mcPick?" on":""}${got===mine.length&&mine.length?" done":""}"
+        data-mc="${plEsc(c)}">${plEsc(c)} <em>${got}/${mine.length}</em></button>`;
+    }).join("");
+    tabs.querySelectorAll("[data-mc]").forEach(b=>{
+      b.addEventListener("click", ()=>{ mcPick=b.dataset.mc; mcRender(); });
+    });
+  }
+
+  const rows=mcRows.filter(r=>r.committee===mcPick);
+  box.innerHTML=rows.map(r=>`
+    <div class="mc-row${r.appoint?" off":""}" data-row="${r.id}">
+      <div class="mc-nm">${r.group?`<em>${plEsc(r.group)}</em> `:""}${plEsc(r.team)}
+        ${r.appoint?`<span class="mc-tag">지명</span>`:""}</div>
+      ${r.appoint
+        ? `<div class="mc-note">지명 자리라 성도님이 고르지 않습니다 — 설명이 없어도 됩니다.</div>`
+        : `<div class="mc-in">
+             <label>시간·요일<input type="text" data-f="sched" data-id="${r.id}"
+               value="${plEsc(r.sched)}" placeholder="예: 매주 화 오전 10시"></label>
+             <label class="wide">하는 일<textarea data-f="desc" data-id="${r.id}" rows="2"
+               placeholder="예: 주일 예배 전 주차를 안내합니다. &lt;b&gt;굵게&lt;/b&gt; 도 됩니다">${plEsc(r.desc)}</textarea></label>
+             <div class="mc-prev" data-prev="${r.id}">${r.desc||"<span class='mc-none'>비어 있음 — 성도님 화면에는 이름만 보입니다</span>"}</div>
+             <label>필요 인원<input type="text" data-f="capacity" data-id="${r.id}"
+               value="${plEsc(r.capacity)}" placeholder="예: 10명 (선택)"></label>
+             <button class="mc-save" data-save="${r.id}">저장</button>
+           </div>`}
+    </div>`).join("");
+
+  box.querySelectorAll("[data-save]").forEach(b=>{
+    b.addEventListener("click", ()=> mcSave(Number(b.dataset.save)));
+  });
+  // 엔터로도 저장 — 한 줄씩 채우는 일이라 손이 자판을 떠나지 않게
+  box.querySelectorAll("[data-f]").forEach(i=>{
+    // 엔터로도 저장 — 단 여러 줄을 쓰는 「하는 일」은 빼고(줄바꿈이 막힌다)
+    if(i.tagName!=="TEXTAREA")
+      i.addEventListener("keydown", e=>{ if(e.key==="Enter") mcSave(Number(i.dataset.id)); });
+    if(i.dataset.f==="desc") i.addEventListener("input", ()=>{
+      const p=box.querySelector(`[data-prev="${i.dataset.id}"]`);
+      // ⚠️ 미리보기는 «관리자가 방금 친 것»이라 아직 서버 거르개를 안 거쳤다.
+      //    저장하면 서버가 걸러 돌려주므로, 여기 보이는 것과 다를 수 있다.
+      if(p) p.innerHTML = i.value || "<span class='mc-none'>비어 있음 — 성도님 화면에는 이름만 보입니다</span>";
+    });
+  });
+}
+
+async function mcSave(id){
+  const r=mcRows.find(x=>x.id===id); if(!r) return;
+  const box=document.querySelector(`[data-row="${id}"]`); if(!box) return;
+  const get=f=>box.querySelector(`[data-f="${f}"]`)?.value||"";
+  const next={ sched:get("sched").trim(), desc:get("desc").trim(), capacity:get("capacity").trim() };
+  const btn=box.querySelector("[data-save]");
+  if(btn){ btn.disabled=true; btn.textContent="저장 중…"; }
+  const d=await callApi({ action:"ministryCatalogSave", pw:getPw(), id,
+    schedule_note:next.sched, desc_note:next.desc, capacity_note:next.capacity })
+    .catch(()=>({ok:false,error:"network"}));
+  if(!d.ok){
+    if(btn){ btn.disabled=false; btn.textContent="저장"; }
+    alert("저장하지 못했습니다.\n"+(d.error||"오류"));
+    return;
+  }
+  Object.assign(r, next);
+  if(d.desc !== undefined){          // 서버가 걸러 돌려준 값으로 맞춘다
+    r.desc = d.desc; r.sched = d.sched; r.capacity = d.capacity;
+    const ta=box.querySelector('[data-f="desc"]'); if(ta) ta.value = d.desc;
+    const p=box.querySelector(`[data-prev="${id}"]`);
+    if(p) p.innerHTML = d.desc || "<span class='mc-none'>비어 있음 — 성도님 화면에는 이름만 보입니다</span>";
+  }
+  if(btn){ btn.disabled=false; btn.textContent="저장됨 ✓"; btn.classList.add("ok");
+           setTimeout(()=>{ btn.textContent="저장"; btn.classList.remove("ok"); }, 1800); }
+  // 채움 개수·탭 숫자만 다시 그린다(입력 중인 칸을 건드리지 않게 목록은 그대로 둔다)
+  const apply=mcRows.filter(x=>!x.appoint);
+  const filled=apply.filter(x=>x.sched||x.desc).length;
+  const sum=document.getElementById("mc-sum");
+  if(sum) sum.innerHTML=`<b>${filled}</b> / ${apply.length}팀 채움
+    <span class="mc-rest">${apply.length-filled}팀은 아직 이름만 보입니다</span>`;
+  const tab=document.querySelector(`.mc-tab.on em`);
+  if(tab){
+    const mine=mcRows.filter(x=>x.committee===mcPick&&!x.appoint);
+    tab.textContent=`${mine.filter(x=>x.sched||x.desc).length}/${mine.length}`;
+  }
 }
 
 </script>
