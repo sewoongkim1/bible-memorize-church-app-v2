@@ -91,7 +91,7 @@ PRINCIPLES = [
     "한 분이 신청할 수 있는 사역은 <b>최대 3개</b>입니다(자치회장도 계수에 포함합니다).",
     "부장·팀장·회계·찬양대지휘자·자치회장은 <b>다른 부서의 같은 성격 사역을 겸직</b>할 수 없습니다.",
     "<b>교사와 찬양대원은 겸직</b>할 수 없습니다(새하늘찬양대는 예외입니다).",
-    "신청 후 <b>임명을 받아야</b> 사역을 시작합니다 — 확정 여부는 게시판에서 확인해 주세요.",
+    "신청 후 <b>임명을 받아야</b> 사역을 시작합니다 — 확정되면 <b>앱 알림</b>으로 알려 드리고 게시판에도 올립니다.",
     "사역 신청은 <b>해마다 다시</b> 받습니다.",
 ]
 
@@ -326,7 +326,7 @@ function v(id){ return document.getElementById(id).value.trim(); }
 function vPick(){
   titleEl.textContent = '사역 신청';
   var html = '<h2 class="st">위원회에서 골라 주세요</h2>' +
-    '<p class="sub">최대 3개까지 고를 수 있습니다. 회색으로 잠긴 자리는 신청이 아니라 지명(임명)으로 정해집니다.</p>' +
+    '<p class="sub">최대 3개까지 고를 수 있습니다(순서는 상관없습니다). 회색으로 잠긴 자리는 신청이 아니라 지명(임명)으로 정해집니다.</p>' +
     '<div class="acc">';
   COMMITTEES.forEach(function (c) {
     var mine = TEAMS.filter(function (t) { return t.committee === c; });
@@ -358,7 +358,7 @@ function vPick(){
   });
   view.innerHTML = html + '</div>';
   setCta(S.picked.length
-    ? '<button class="cta" onclick="go(\\'order\\')">고른 ' + S.picked.length + '개 확인하기</button>'
+    ? '<button class="cta" onclick="go(\\'order\\')">고른 ' + S.picked.length + '개로 신청하기</button>'
     : '<button class="cta" disabled>사역을 하나 이상 골라 주세요</button>');
 }
 function toggle(c){ S.open = (S.open === c ? null : c); render(); }
@@ -373,26 +373,18 @@ function pick(id){
 /* ④ 우선순위 */
 function vOrder(){
   titleEl.textContent = '신청 사역 확인';
-  var html = '<h2 class="st">신청 순서대로 정리했어요</h2>' +
-    '<p class="sub">위아래 화살표로 순서를 바꿀 수 있습니다. 마감 전까지 언제든 고쳐 낼 수 있습니다.</p>';
-  S.picked.forEach(function (id, i) {
+  var html = '<h2 class="st">이 사역으로 신청합니다</h2>' +
+    '<p class="sub">순위는 매기지 않습니다 — 고른 것을 그대로 냅니다. 마감 전까지 언제든 고쳐 낼 수 있습니다.</p>';
+  S.picked.forEach(function (id) {
     var t = byId(id);
-    html += '<div class="pri"><span class="num">' + (i + 1) + '</span>' +
+    html += '<div class="pri"><span class="num">✓</span>' +
       '<span class="info"><span class="nm">' + esc(t.name) +
       ' <span style="color:#6b7280;font-weight:500">· ' + esc(t.committee) + '</span></span>' +
       (metaOf(t) ? '<span class="meta">' + metaOf(t) + '</span>' : '') +
-      '<button class="del" onclick="pick(' + id + ')">빼기</button></span>' +
-      '<span class="mv">' +
-      '<button onclick="move(' + i + ',-1)"' + (i === 0 ? ' disabled' : '') + '>▲</button>' +
-      '<button onclick="move(' + i + ',1)"' + (i === S.picked.length - 1 ? ' disabled' : '') + '>▼</button>' +
-      '</span></div>';
+      '<button class="del" onclick="pick(' + id + ')">빼기</button></span></div>';
   });
   view.innerHTML = html;
   setCta('<button class="cta" onclick="submit()">제출하기<span class="s">신청 후 임명을 받아야 시작할 수 있어요</span></button>');
-}
-function move(i, d){
-  var j = i + d; if (j < 0 || j >= S.picked.length) return;
-  var t = S.picked[i]; S.picked[i] = S.picked[j]; S.picked[j] = t; render();
 }
 function submit(){ S.submitted = true; S.status = 0; S.step = 'done'; render(); }
 
@@ -409,14 +401,14 @@ function vDone(){
     '<p>' + msg + '</p>' +
     '<span class="state s' + st + '">진행 상태 · ' + STATES[st] + '</span></div>' +
     '<div style="height:16px"></div>';
-  S.picked.forEach(function (id, i) {
+  S.picked.forEach(function (id) {
     var t = byId(id);
-    html += '<div class="pri"><span class="num">' + (i + 1) + '</span>' +
+    html += '<div class="pri"><span class="num">✓</span>' +
       '<span class="info"><span class="nm">' + esc(t.name) + '</span>' +
       '<span class="meta">' + esc(t.committee) + (metaOf(t) ? ' · ' + metaOf(t) : '') + '</span></span></div>';
   });
-  html += '<div class="push">🔔 상태가 바뀌면 <b>앱 알림</b>으로 알려 드려요. ' +
-    '이 화면에서 진행 현황을 언제든 다시 볼 수 있어요.<br>' +
+  html += '<div class="push">🔔 임명이 확정되면 <b>앱 알림</b>으로 알려 드리고, <b>게시판에도</b> 올립니다. ' +
+    '알림을 켜지 않으셨어도 게시판에서 확인하실 수 있어요.<br>' +
     '<span style="color:#6b7280">데모에서는 위 「담당자 화면」에서 상태를 바꿔 보실 수 있습니다.</span></div>';
   view.innerHTML = html;
   setCta('<button class="cta ghost" onclick="go(\\'pick\\')">신청 고치기</button>');
@@ -430,7 +422,7 @@ function vAdmin(){
     setCta('<button class="cta ghost" onclick="go(\\'intro\\')">성도 화면으로</button>');
     return;
   }
-  var names = S.picked.map(function (id, i) { return (i + 1) + '. ' + byId(id).name; }).join('<br>');
+  var names = S.picked.map(function (id) { return '· ' + byId(id).name; }).join('<br>');
   view.innerHTML = '<h2 class="st">접수된 신청 1건</h2>' +
     '<p class="sub">상태를 바꾸면 성도 화면에 그대로 반영됩니다. 실제로는 이때 앱 알림이 한 번 나갑니다.</p>' +
     '<div class="adm"><div class="who">' + esc(S.me.gu) + ' ' + esc(S.me.mok) + ' · ' + esc(S.me.name) + '</div>' +
