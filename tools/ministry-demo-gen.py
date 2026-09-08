@@ -31,6 +31,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, '..')
 OUT_DIR = os.path.join(ROOT, 'ministry')
 CATALOG = os.path.join(OUT_DIR, 'ministry_catalog_2027_draft.json')
+
+# ⚠️ 부서 확인이 끝나면 확정본(ministry_catalog_2027.json)이 생긴다 —
+#    있으면 그것을, 없으면 초안을 읽는다(tools/ministry-merge-replies.py 가 만든다).
+_FINAL = os.path.join(OUT_DIR, 'ministry_catalog_2027.json')
+CATALOG = _FINAL if os.path.exists(_FINAL) else CATALOG
 OUT_HTML = os.path.join(OUT_DIR, '2027_사역신청_데모.html')
 
 with io.open(CATALOG, encoding='utf-8') as f:

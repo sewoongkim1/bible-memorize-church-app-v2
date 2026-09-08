@@ -38,6 +38,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, '..')
 OUT_DIR = os.path.join(ROOT, 'ministry')
 CATALOG = os.path.join(OUT_DIR, 'ministry_catalog_2027_draft.json')
+
+# ⚠️ 부서 확인이 끝나면 확정본(ministry_catalog_2027.json)이 생긴다 —
+#    있으면 그것을, 없으면 초안을 읽는다(tools/ministry-merge-replies.py 가 만든다).
+_FINAL = os.path.join(OUT_DIR, 'ministry_catalog_2027.json')
+CATALOG = _FINAL if os.path.exists(_FINAL) else CATALOG
 MARK = io.open(os.path.join(ROOT, 'marketing', 'logo-mark-data-uri.txt'), encoding='utf-8').read().strip()
 
 # 사용설명서_A4.pdf 와 같은 톤(marketing/manual/manual-gen.py) — 이 교회 인쇄물의

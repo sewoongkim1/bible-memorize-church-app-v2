@@ -100,3 +100,7 @@ booklet/출력/
 #    있다(2026-09-07 확인, 최찬미 님 것). 공개 저장소라 절대 올리지 않는다.
 #    옮긴 내용은 docs/superpowers/specs/2026-09-06-ministry-application-design.md 에 있다.
 AppForm/
+
+# 부서가 채워 보낸 회신 파일 — 작업용으로 받는 것이라 저장소가 들고 있을 이유가 없다.
+#   취합 결과(ministry_catalog_2027.json · 부서확인/_취합결과.md)만 커밋한다.
+ministry/부서확인/회신/
