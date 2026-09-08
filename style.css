@@ -4452,23 +4452,35 @@ body.pr-full-on { overflow: hidden; }
   border-top: 1px solid var(--border); }
 .min-grp { font-size: .78rem; color: var(--gray); font-style: italic; margin: 4px 2px 0; }
 
+/* 줄 = 상자, 그 안에 「고르기」와 「자세히」 두 단추 (단추 안 단추는 안 되므로) */
+.min-row { border: 1.5px solid var(--border); border-radius: 11px;
+  background: var(--white); overflow: hidden; }
+.min-row.on { border-color: var(--gold); background: #fffaf0; }
+.min-row.off { opacity: .55; }
 .min-team { display: flex; align-items: center; gap: 11px; width: 100%;
-  padding: 11px 12px; border: 1.5px solid var(--border); border-radius: 11px;
-  background: var(--white); font: inherit; cursor: pointer; text-align: left; }
-.min-team.on { border-color: var(--gold); background: #fffaf0; }
-.min-team.off { opacity: .55; cursor: not-allowed; }
+  padding: 11px 12px; border: none; border-radius: 0;
+  background: none; font: inherit; cursor: pointer; text-align: left; }
+.min-row.off .min-team { cursor: not-allowed; }
 .min-info { flex: 1; min-width: 0; }
 /* ⚠️ span 이라 블록으로 세워야 이름과 설명이 두 줄로 갈린다(데모에서 겪은 것) */
 .min-nm, .min-meta { display: block; }
 .min-nm { font-size: .95rem; font-weight: 700; color: #222; }
-.min-meta { font-size: .78rem; color: var(--gray); margin-top: 3px; }
+/* ⚠️ **한 줄로 자른다.** 팀마다 높이가 달라지면 88팀을 훑는 화면이 무너진다 —
+   전체 내용은 「자세히 보기」 창이 맡는다. min-width:0 인 .min-info 안이라 잘린다. */
+.min-meta { font-size: .78rem; color: var(--gray); margin-top: 3px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .min-com { color: var(--gray); font-weight: 500; }
 .min-tag { font-size: .7rem; color: var(--gray); margin-left: 6px; }
 .min-chk { flex: none; width: 28px; height: 28px; border-radius: 50%;
   border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center;
   font-size: .85rem; font-weight: 800; color: #fff; }
-.min-team.on .min-chk { border-color: var(--gold); background: var(--gold); }
-.min-team.off .min-chk { background: #ccc; border-color: #aaa; }
+.min-row.on .min-chk { border-color: var(--gold); background: var(--gold); }
+.min-row.off .min-chk { background: #ccc; border-color: #aaa; }
+
+.min-more { display: block; width: 100%; padding: 7px 12px 8px; font: inherit;
+  font-size: .78rem; font-weight: 700; color: var(--navy); background: none;
+  border: none; border-top: 1px dashed var(--border); cursor: pointer; text-align: right; }
+.min-pick .min-more { flex: none; width: auto; border-top: none; padding: 6px 2px 6px 8px; }
 
 .min-pick { display: flex; align-items: center; gap: 11px; padding: 12px 13px;
   border: 1.5px solid var(--border); border-radius: 12px; background: var(--white); margin-bottom: 9px; }
@@ -4495,10 +4507,44 @@ body.pr-full-on { overflow: hidden; }
   font-weight: 700; color: var(--navy); background: var(--white); border: 1.5px solid var(--navy);
   border-radius: 14px; cursor: pointer; }
 
+/* 「자세히 보기」 창 — 위원회 아코디언 안에서 또 펼치지 않고 잠깐 들렀다 나온다 */
+.min-d-wrap { position: fixed; inset: 0; z-index: 1200; display: flex;
+  align-items: center; justify-content: center; padding: 18px;
+  background: rgba(13, 27, 62, .55); overflow: auto; }
+.min-d-box { width: 100%; max-width: 420px; max-height: 86vh; display: flex;
+  flex-direction: column; background: var(--white); border-radius: 16px;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, .32); overflow: hidden; }
+.min-d-head { display: flex; align-items: flex-start; gap: 10px;
+  padding: 15px 15px 12px; background: var(--navy); color: #fff; }
+.min-d-nm { font-size: 1.06rem; font-weight: 800; }
+.min-d-com { font-size: .78rem; opacity: .82; margin-top: 3px; }
+.min-d-x { flex: none; margin-left: auto; width: 32px; height: 32px; font: inherit;
+  font-size: .95rem; color: #fff; background: rgba(255, 255, 255, .16);
+  border: none; border-radius: 50%; cursor: pointer; }
+.min-d-body { padding: 14px 15px; overflow: auto; }
+.min-d-row + .min-d-row { margin-top: 13px; padding-top: 13px; border-top: 1px solid var(--border); }
+.min-d-l { font-size: .74rem; font-weight: 800; letter-spacing: .04em; color: var(--gold); margin-bottom: 4px; }
+.min-d-v { font-size: .93rem; line-height: 1.72; color: #333; word-break: keep-all; }
+.min-d-none, .min-d-note { font-size: .85rem; line-height: 1.7; color: var(--gray); }
+.min-d-note { margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--border); }
+.min-d-foot { display: flex; flex-direction: column; gap: 8px;
+  padding: 12px 15px 14px; border-top: 1px solid var(--border); }
+.min-d-go { width: 100%; padding: 14px; font: inherit; font-size: .98rem; font-weight: 800;
+  color: #fff; background: var(--navy); border: none; border-radius: 13px; cursor: pointer; }
+.min-d-go.off { color: var(--navy); background: var(--white); border: 1.5px solid var(--navy); }
+.min-d-close2 { width: 100%; padding: 11px; font: inherit; font-size: .88rem; font-weight: 700;
+  color: var(--gray); background: none; border: none; cursor: pointer; }
+
 .dark .min-acc { background: #232c3f; border-color: #4a6394; }
 .dark .min-acc-h { background: #232c3f; color: #cfe0ff; }
-.dark .min-team { background: #232c3f; border-color: #3a4a68; }
-.dark .min-team.on { background: #2b2717; border-color: #8d7531; }
+.dark .min-row { background: #232c3f; border-color: #3a4a68; }
+.dark .min-row.on { background: #2b2717; border-color: #8d7531; }
+.dark .min-more { color: #cfe0ff; border-top-color: #3a4a68; }
+.dark .min-d-box { background: #1b2331; }
+.dark .min-d-v { color: #e8ecf5; }
+.dark .min-d-row + .min-d-row, .dark .min-d-note,
+.dark .min-d-foot { border-color: #3a4a68; }
+.dark .min-d-go.off { background: #232c3f; color: #cfe0ff; border-color: #4a6394; }
 .dark .min-nm { color: #e8ecf5; }
 .dark .min-pick { background: #232c3f; border-color: #3a4a68; }
 .dark .min-note { background: #1e2637; color: #b9c4d8; }

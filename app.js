@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260908f";
+const APP_BUILD = "20260908g";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -8880,12 +8880,31 @@ function minIsOpen() { return !!(minCat && minCat.period && minCat.period.isOpen
 // ⚠️ 이 셋은 **관리자만** 넣을 수 있고(ADMIN_SECRET), 서버가 꾸밈 태그만 남기고
 //    거른 뒤에 내려준다. 그래서 여기서는 escape 하지 않고 그대로 그린다 —
 //    escape 하면 <b> 가 글자로 보인다. 팀 이름 등 나머지는 전부 minEsc 를 거친다.
-function minMetaOf(t) {
-  const parts = [];
-  if (t.sched) parts.push(t.sched);
-  if (t.desc) parts.push(t.desc);
-  if (t.capacity) parts.push(t.capacity);
-  return parts.join(" · ");
+// 꾸밈 태그를 걷어 낸 맨 글자 — 줄여 쓸 때 길이를 재려면 태그가 없어야 한다
+function minPlain(h) {
+  return String(h == null ? "" : h)
+    .replace(/<br\s*\/?>/gi, " ").replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/\s+/g, " ").trim();
+}
+
+// 팀 단추에 붙는 **한 줄** — 「언제」가 먼저다(고를 때 가장 먼저 보는 것).
+// ⚠️ 하는 일을 통째로 여기 넣지 않는다. 넣으면 팀마다 줄 높이가 제각각이 되어
+//    88팀을 훑는 화면이 무너진다(2026-09-08 실측: 긴 설명 한 팀이 세 줄을 먹었다).
+//    전체 내용은 「자세히」 창이 맡는다.
+function minShortOf(t) {
+  if (t.sched) return t.sched;                    // 서버가 걸러 둔 꾸밈만 남은 HTML
+  if (t.desc) {
+    const s = minPlain(t.desc);
+    return minEsc(s.length > 38 ? s.slice(0, 38) + "…" : s);
+  }
+  return "";
+}
+function minHasDetail(t) { return !!(t && (t.desc || t.capacity || t.sched)); }
+function minMoreBtn(t) {
+  return minHasDetail(t)
+    ? '<button class="min-more" data-more="' + t.id + '">자세히 보기 ›</button>' : "";
 }
 
 function renderMinistry(keepScroll) {
@@ -8943,13 +8962,17 @@ function minPickHtml() {
         }
         lastGrp = t.group;
         const on = minPicked.indexOf(t.id) >= 0;
-        const meta = minMetaOf(t);
-        acc += '<button class="min-team' + (on ? " on" : "") + (t.appoint ? " off" : "") + '"' +
+        const meta = minShortOf(t);
+        // ⚠️ 「자세히」는 고르기 단추 **안**에 넣을 수 없다(단추 안 단추는 안 된다).
+        //    그래서 줄 전체를 감싸는 상자를 두고 형제로 나란히 놓는다.
+        acc += '<div class="min-row' + (on ? " on" : "") + (t.appoint ? " off" : "") + '">' +
+          '<button class="min-team"' +
           (t.appoint ? " disabled" : ' data-team="' + t.id + '"') + '>' +
           '<span class="min-info"><span class="min-nm">' + minEsc(t.team) +
           (t.appoint ? '<span class="min-tag">지명</span>' : "") + '</span>' +
           (meta ? '<span class="min-meta">' + meta + '</span>' : "") + '</span>' +
-          '<span class="min-chk">' + (on ? "✓" : "") + '</span></button>';
+          '<span class="min-chk">' + (on ? "✓" : "") + '</span></button>' +
+          minMoreBtn(t) + '</div>';
       }
       acc += '</div>';
     }
@@ -8984,18 +9007,96 @@ function wireMinPick(u) {
   }
   for (const b of document.querySelectorAll("[data-team]")) {
     b.addEventListener("click", function () {
-      const id = Number(this.getAttribute("data-team"));
-      const i = minPicked.indexOf(id);
-      if (i >= 0) minPicked.splice(i, 1);
-      else if (minPicked.length >= MIN_MAX) {
-        alert("사역 임명 원칙에 따라 최대 " + MIN_MAX + "개까지 신청하실 수 있어요.\n먼저 고르신 것을 빼고 다시 골라 주세요.");
-        return;
-      } else minPicked.push(id);
-      renderMinistry(window.scrollY);
+      if (minTogglePick(Number(this.getAttribute("data-team")))) renderMinistry(window.scrollY);
     });
   }
+  minWireMore();
   const go = document.getElementById("min-next");
   if (go) go.addEventListener("click", function () { minStep = "confirm"; renderMinistry(); });
+}
+
+// 고르기·빼기 한 곳에서 — 목록에서도, 「자세히」 창에서도 같은 규칙을 따르게
+function minTogglePick(id) {
+  const i = minPicked.indexOf(id);
+  if (i >= 0) { minPicked.splice(i, 1); return true; }
+  if (minPicked.length >= MIN_MAX) {
+    alert("사역 임명 원칙에 따라 최대 " + MIN_MAX + "개까지 신청하실 수 있어요.\n먼저 고르신 것을 빼고 다시 골라 주세요.");
+    return false;
+  }
+  minPicked.push(id);
+  return true;
+}
+
+/* ── 사역 자세히 보기 ────────────────────────────────────────────
+   ⚠️ 위원회 아코디언 **안에서 또 펼치지 않는다** — 위원회 → 팀 → 설명으로
+      세 겹이 되면 첫 글자를 읽기까지 세 번 눌러야 한다(가정 축복 기도문에서
+      같은 이유로 그룹 단계를 버렸다). 창은 겹이 아니라 「잠깐 들르는 곳」이라
+      닫으면 보던 자리로 그대로 돌아온다.                                    */
+function minWireMore() {
+  for (const b of document.querySelectorAll("[data-more]")) {
+    b.addEventListener("click", function (e) {
+      e.stopPropagation();
+      minOpenDetail(Number(this.getAttribute("data-more")));
+    });
+  }
+}
+
+function minDetailHtml(t) {
+  const on = minPicked.indexOf(t.id) >= 0;
+  const row = function (label, val) {
+    return val ? '<div class="min-d-row"><div class="min-d-l">' + label + '</div>' +
+      '<div class="min-d-v">' + val + '</div></div>' : "";
+  };
+  let rows = row("언제", t.sched) + row("하는 일", t.desc) + row("필요 인원", t.capacity);
+  if (!rows) {
+    rows = '<p class="min-d-none">아직 자세한 안내가 올라오지 않았어요.<br>' +
+      '부서 확인이 끝나면 이 자리에 채워집니다.</p>';
+  }
+  // 신청 화면(고르는 중)에서만 담기 단추를 둔다 — 확인·완료 화면에서는 읽기만
+  const canPick = minStep === "pick" && !t.appoint;
+  return '<div class="min-d-box" role="dialog" aria-modal="true">' +
+    '<div class="min-d-head">' +
+      '<div><div class="min-d-nm">' + minEsc(t.team) + '</div>' +
+      '<div class="min-d-com">' + minEsc(t.committee) +
+        (t.group ? ' · ' + minEsc(t.group) : "") + '</div></div>' +
+      '<button class="min-d-x" data-dclose aria-label="닫기">✕</button></div>' +
+    '<div class="min-d-body">' + rows +
+      (t.appoint ? '<p class="min-d-note">이 자리는 <b>지명</b>으로 정해집니다 — 신청 목록에는 담기지 않아요.</p>' : "") +
+      (t.opt ? '<p class="min-d-note">' + minEsc(t.opt) + '</p>' : "") + '</div>' +
+    '<div class="min-d-foot">' +
+      (canPick
+        ? '<button class="min-d-go' + (on ? " off" : "") + '" data-dpick>' +
+          (on ? "신청 목록에서 빼기" : "이 사역 담기") + '</button>'
+        : "") +
+      '<button class="min-d-close2" data-dclose>닫기</button></div></div>';
+}
+
+function minOpenDetail(id) {
+  const t = minTeam(id);
+  if (!t) return;
+  const box = document.createElement("div");
+  box.className = "min-d-wrap";
+  box.innerHTML = minDetailHtml(t);
+  document.body.appendChild(box);
+
+  const esc = function (e) { if (e.key === "Escape") { e.preventDefault(); close(); } };
+  function close() {
+    document.removeEventListener("keydown", esc);
+    if (box.parentNode) box.parentNode.removeChild(box);
+  }
+  document.addEventListener("keydown", esc);
+  box.addEventListener("click", function (e) { if (e.target === box) close(); });   // 바깥 탭
+  for (const x of box.querySelectorAll("[data-dclose]")) x.addEventListener("click", close);
+
+  const go = box.querySelector("[data-dpick]");
+  if (go) go.addEventListener("click", function () {
+    // ⚠️ 창을 먼저 닫는다 — renderMinistry 가 화면을 다시 그려도 이 창은 body 에
+    //    붙어 있어 살아남는다(그대로 두면 옛 상태의 창이 화면 위에 남는다).
+    const y = window.scrollY;
+    const ok = minTogglePick(t.id);
+    close();
+    if (ok) renderMinistry(y);
+  });
 }
 
 /* ── ② 확인 ─────────────────────────────────────────────────── */
@@ -9003,7 +9104,7 @@ function minConfirmHtml() {
   let rows = "";
   for (const id of minPicked) {
     const t = minTeam(id); if (!t) continue;
-    const meta = minMetaOf(t);
+    const meta = minShortOf(t);
     rows += '<div class="min-pick"><span class="min-pick-ck">✓</span>' +
       '<span class="min-info"><span class="min-nm">' + minEsc(t.team) +
       ' <span class="min-com">· ' + minEsc(t.committee) + '</span></span>' +
@@ -9085,11 +9186,12 @@ function minDoneHtml(u) {
   let rows = "";
   for (const c of m.choices) {
     const t = minTeam(c.id);
-    const meta = t ? minMetaOf(t) : "";
+    const meta = t ? minShortOf(t) : "";
     rows += '<div class="min-pick"><span class="min-pick-ck">✓</span>' +
       '<span class="min-info"><span class="min-nm">' + minEsc(c.team) +
       ' <span class="min-com">· ' + minEsc(c.committee) + '</span></span>' +
-      (meta ? '<span class="min-meta">' + meta + '</span>' : "") + '</span></div>';
+      (meta ? '<span class="min-meta">' + meta + '</span>' : "") + '</span>' +
+      (t ? minMoreBtn(t) : "") + '</div>';
   }
   const editable = m.status === "신청완료" && minIsOpen();
   return '<h2 class="rank-title">🤝 내 사역 신청</h2>' +
@@ -9117,6 +9219,7 @@ function minCancelAsk() {
 }
 
 function wireMinDone(u) {
+  minWireMore();
   const edit = document.getElementById("min-edit");
   if (edit) edit.addEventListener("click", function () {
     minPhone4Val = "";        // 고칠 때는 4자리를 다시 넣게 한다(최소 본인 확인)
