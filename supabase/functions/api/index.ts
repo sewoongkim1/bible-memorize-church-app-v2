@@ -3024,6 +3024,11 @@ async function boardModerate(b: any) {
 //    그 사람 행세가 된다(boardList 가 실제로 그랬다). 화면이 필요한 건 "내 것인가"뿐이다.
 const MINISTRY_STATUS = ["신청완료", "검토중", "임명확정", "미채택"];
 const MINISTRY_MAX = 3;
+// 휴대폰 뒷 4자리 — 이 앱은 비밀번호가 없어(교구·목장·이름 로그인) 고치기·취소를
+// 이걸로 한 번 더 확인한다. 담당자가 교적과 맞대 보는 자료이기도 하다.
+// ⚠️ 개인정보다. 뒷 4자리만 받고, 결정(임명확정·미채택)이 나면 지운다.
+const MIN_PHONE4_RE = /^[0-9]{4}$/;
+function minPhone4(v: unknown) { return String(v ?? "").replace(/[^0-9]/g, "").slice(-4); }
 
 // 신청 기간·연도는 app_config('ministry')에 둔다 — 코드에 박으면 바뀔 때마다 배포해야 한다
 async function ministryCfg() {
@@ -3035,6 +3040,21 @@ async function ministryCfg() {
   // 기간이 비어 있으면 닫힌 것으로 본다 — 실수로 상시 개방되지 않게
   const isOpen = !!(open && close && today >= open && today <= close);
   return { year, open, close, today, isOpen };
+}
+
+// 신청 한 건의 키는 (연도, user_id) 다. 이 앱은 로그인이 교구·목장·이름을
+// identity_key 로 정규화해 users 를 upsert 하므로 **한 사람 = 한 user_id** 이고,
+// 결국 「연도 + 성명 + 교구 + 목장」과 같은 뜻이 된다(2026-09-08 확인).
+// ⚠️ 다만 이름·소속은 앱이 보낸 값을 믿지 않고 users 에서 가져온다 —
+//    담당자가 교적과 맞대 볼 값이라 서버가 아는 것이 맞다.
+async function ministryWho(userId: string) {
+  const { data } = await db.from("users")
+    .select("id,identity_key,type,gu,mok,bu,grade,name").eq("id", userId).maybeSingle();
+  if (!data) return null;
+  const who = data.type === "교구"
+    ? [data.gu, data.mok ? data.mok + "목장" : ""].filter(Boolean).join(" ")
+    : [data.bu, data.grade].filter(Boolean).join(" ");
+  return { key: data.identity_key as string, name: (data.name as string) || "", who };
 }
 
 function ministryRow(r: any) {
@@ -3118,6 +3138,11 @@ async function ministryApply(b: any) {
 
   // 고른 순서대로 담되 뜻은 부여하지 않는다. 팀 이름은 스냅샷으로 함께 박는다 —
   // 목록이 바뀌어도 "그때 무엇을 냈는지"가 남는다.
+  const phone4 = minPhone4(b.phone4);
+  if (!MIN_PHONE4_RE.test(phone4)) {
+    return { ok: false, error: "휴대폰 뒷 4자리를 넣어 주세요" };
+  }
+
   const opts: Record<string, string> = (b.options ?? {}) as any;
   const byId = new Map(found.map((t) => [t.id, t]));
   const choices = ids.map((id: number) => {
@@ -3125,20 +3150,27 @@ async function ministryApply(b: any) {
     return { id, committee: t.committee, team: t.team, option: norm(opts[String(id)]) || "" };
   });
 
+  const me = await ministryWho(userId);   // 없으면(옛 기기 등) 앱이 보낸 값으로 채운다
+
   const fields = {
     year: cfg.year,
     user_id: userId,
-    name: norm(b.name) || null,
-    who: norm(b.who) || null,
+    name: (me && me.name) || norm(b.name) || null,   // 교적과 맞대 볼 값 — 서버 것을 먼저 쓴다
+    who: (me && me.who) || norm(b.who) || null,
     choices,
+    phone4,
     updated_at: new Date().toISOString(),
   };
 
   const { data: prev } = await db.from("ministry_orders")
-    .select("id,status").eq("year", cfg.year).eq("user_id", userId).maybeSingle();
+    .select("id,status,phone4").eq("year", cfg.year).eq("user_id", userId).maybeSingle();
   if (prev) {
     // 담당자가 검토를 시작한 뒤에는 성도가 바꿀 수 없다(필사 신청과 같은 규칙)
     if (prev.status !== "신청완료") return { ok: false, error: "담당자 검토가 시작되어 변경할 수 없습니다" };
+    // ⚠️ 고칠 때는 처음 넣은 4자리와 같아야 한다 — 비밀번호가 없는 앱의 최소 확인이다
+    if (prev.phone4 && prev.phone4 !== phone4) {
+      return { ok: false, error: "휴대폰 뒷 4자리가 처음 신청하실 때와 다릅니다" };
+    }
     const { data, error } = await db.from("ministry_orders")
       .update(fields).eq("id", prev.id).select("*").single();
     if (error) throw error;
@@ -3156,9 +3188,12 @@ async function ministryCancel(b: any) {
   const cfg = await ministryCfg();
   if (!cfg.isOpen && adminError(b)) return { ok: false, error: "신청 기간이 지나 취소할 수 없습니다" };
   const { data: row } = await db.from("ministry_orders")
-    .select("id,status").eq("year", cfg.year).eq("user_id", userId).maybeSingle();
+    .select("id,status,phone4").eq("year", cfg.year).eq("user_id", userId).maybeSingle();
   if (!row) return { ok: false, error: "신청을 찾을 수 없습니다" };
   if (row.status !== "신청완료") return { ok: false, error: "담당자 검토가 시작되어 취소할 수 없습니다" };
+  if (row.phone4 && row.phone4 !== minPhone4(b.phone4)) {
+    return { ok: false, error: "휴대폰 뒷 4자리가 맞지 않습니다" };
+  }
   const { error } = await db.from("ministry_orders").delete().eq("id", row.id);
   if (error) throw error;
   return { ok: true };
@@ -3204,6 +3239,7 @@ async function ministryList(b: any) {
       who,
       notified_at: r.notified_at,
       canPush: hasPush.has(r.user_id),
+      phone4: r.phone4 ?? "",     // 교적 대조용 — 결정이 나면 서버가 지운다
     };
   });
 
@@ -3228,7 +3264,13 @@ async function ministrySetStatus(b: any) {
   if (!row) return { ok: false, error: "신청을 찾을 수 없습니다" };
 
   const patch: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
-  if (status === "임명확정" || status === "미채택") patch.decided_at = new Date().toISOString();
+  // ⚠️ 결정이 나면 휴대폰 뒷 4자리를 지운다 — 고치기 확인도, 교적 대조도 끝난 자리다.
+  //    사람이 기억해서 지우는 약속은 언젠가 지켜지지 않으니, 상태를 바꾸는 그 자리에서 지운다
+  //    (필사 신청이 배부완료에서 번호를 지우는 것과 같은 규칙).
+  if (status === "임명확정" || status === "미채택") {
+    patch.decided_at = new Date().toISOString();
+    patch.phone4 = null;
+  }
   if (typeof b.note === "string") patch.note = norm(b.note);
 
   let pushed = 0;

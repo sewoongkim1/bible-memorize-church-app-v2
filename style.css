@@ -4424,6 +4424,15 @@ body.pr-full-on { overflow: hidden; }
    블록이 되어 줄이 끊긴다 — 제목으로 쓸 때만 클래스를 붙인다 */
 .min-note .min-note-t { display: block; margin-bottom: 3px; }
 .min-lock { text-align: center; color: var(--gray); }
+/* 휴대폰 뒷 4자리 — 비밀번호가 없는 앱의 최소 확인. 큰 숫자로 넣기 쉽게 */
+.min-p4 { display: flex; align-items: center; gap: 12px; background: var(--white);
+  border: 1.5px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+.min-p4 label { font-size: .92rem; font-weight: 700; color: var(--navy); flex: none; }
+.min-p4 input { flex: 1; min-width: 0; font: inherit; font-size: 1.25rem; font-weight: 800;
+  letter-spacing: .35em; text-align: center; padding: 10px 8px; border: 1.5px solid var(--border);
+  border-radius: 10px; background: var(--cream); color: #222; }
+.dark .min-p4 { background: #232c3f; border-color: #3a4a68; }
+.dark .min-p4 input { background: #1b2233; border-color: #3a4a68; color: #e8ecf5; }
 .min-who { font-size: .86rem; color: var(--gray); margin: 0 2px 10px; }
 
 .min-count { text-align: right; font-size: .82rem; font-weight: 700; color: var(--gray);

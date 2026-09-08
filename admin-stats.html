@@ -326,6 +326,9 @@
 .mn-team{font-size:13px;background:#f3f6fb;border:1px solid #e2e8f4;border-radius:8px;padding:5px 9px;color:#2c3a52;}
 .mn-team em{font-style:normal;color:#7a869c;font-size:11.5px;margin-right:3px;}
 .mn-team i{font-style:normal;color:#8a95a8;font-size:11.5px;}
+.mn-p4{font-size:12px;font-weight:700;color:#41506b;background:#eef1f8;border-radius:7px;padding:3px 8px;}
+.mn-p4 b{letter-spacing:.08em;color:#1a3a6b;}
+.mn-p4.none{color:#a0a9b8;background:#f5f6f8;font-weight:600;}
 .mn-push{font-size:11.5px;font-weight:700;border-radius:999px;padding:3px 9px;}
 .mn-push.on{background:#e7f3e8;color:#2c5f2d;}
 /* ⚠️ 알림 미설정은 눈에 띄어야 한다 — 그냥 두면 확정만 누르고 게시를 잊는다 */
@@ -2903,6 +2906,7 @@ async function mnLoad(){
     mnRows=(d.list||[]).map(x=>({
       id:x.id, at:(x.at||"").replace(/\./g,"-"), who:x.who||"", name:x.name||"",
       status:x.status, choices:x.choices||[], canPush:!!x.canPush, notified_at:x.notified_at||null,
+      phone4:x.phone4||"",
     }));
     mnCounts=d.counts||{};
     mnLoaded=true;
@@ -2958,7 +2962,12 @@ function mnRender(){
           <div class="pl-nm">
             <b>${plEsc(r.name)}</b><i>${plEsc(r.who)}</i>
             <span class="pl-at">신청일 ${plEsc((r.at||"").replace(/-/g,"."))}</span>
-            <div class="pl-contact">${push}</div>
+            <div class="pl-contact">
+              ${r.phone4
+                ? `<span class="mn-p4">뒷 4자리 <b>${plEsc(r.phone4)}</b></span>`
+                : `<span class="mn-p4 none">뒷 4자리 없음 · 결정 후 삭제</span>`}
+              ${push}
+            </div>
           </div>
           <div class="pl-drop">
             <button type="button" class="pl-sel ${MN_CLS[r.status]}" data-mndrop="${r.id}"

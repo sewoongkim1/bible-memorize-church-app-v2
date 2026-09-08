@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260908c";
+const APP_BUILD = "20260908d";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -6296,6 +6296,7 @@ function renderPrivacyInfo(back) {
             <li>암송 진행 기록, 복습 및 도전 참여 기록</li>
             <li>게시판에 올리신 글·답글과 <b>사진</b> (모든 분에게 공개)</li>
             <li>성경필사 노트 신청 시 <b>휴대폰 번호</b> (배부가 끝나면 삭제)</li>
+            <li>사역 신청 시 <b>휴대폰 뒷 4자리</b> (임명이 정해지면 삭제)</li>
             <li>기기 식별용 임의 ID (알림을 켤 때만)</li>
           </ul>
         </section>
@@ -6620,7 +6621,7 @@ function renderHelp(onClose) {
         <section class="help-section">
           <h3>🔒 개인정보 안내</h3>
           <ul>
-            <li><b>수집 항목</b>: 구분(교구/교회학교)·소속·목장/학년·이름과 암송·도전 기록이에요. <b>성경필사 노트를 신청할 때만 휴대폰 번호</b>를 받습니다(노트가 준비되면 연락드리기 위해). 주민등록번호·주소·결제정보는 <b>받지 않습니다</b>.</li>
+            <li><b>수집 항목</b>: 구분(교구/교회학교)·소속·목장/학년·이름과 암송·도전 기록이에요. <b>성경필사 노트를 신청할 때만 휴대폰 번호</b>를 받습니다(노트가 준비되면 연락드리기 위해). <b>사역 신청을 할 때는 휴대폰 뒷 4자리</b>를 받습니다(본인 확인·교적 대조 — 임명이 정해지면 지웁니다). 주민등록번호·주소·결제정보는 <b>받지 않습니다</b>.</li>
             <li><b>저장·용도</b>: 기록은 교회가 쓰는 클라우드 데이터베이스에 암호화 전송으로 저장되어 <b>본인 진도 관리와 도전 순위</b>에만 쓰입니다. 광고에 쓰거나 팔지 않습니다. 「내게 주시는 말씀」에 물어보신 <b>질문 글은 답을 만드는 AI로 전달</b>됩니다.</li>
             <li><b>순위 공개 범위</b>: 도전 순위에는 <b>이름과 소속</b>만 표시됩니다(연락처 없음). 참여한 분만 표시돼요.</li>
             <li><b>변경·삭제</b>: 이름·소속은 <b>로그인 정보변경</b>에서 언제든 수정할 수 있어요. 기록을 지우고 싶으시면 <a href="privacy/" target="_blank" rel="noopener">개인정보 안내</a>의 방법으로 알려 주세요(게시판·이메일·로비).</li>
@@ -8814,6 +8815,7 @@ let minPicked = [];       // 고른 팀 id (최대 3, 순위 아님)
 let minOpen = null;       // 펼친 위원회 이름 (한 번에 하나)
 let minLoaded = false;
 let minStep = "pick";     // pick | confirm | done
+let minPhone4Val = "";    // 휴대폰 뒷 4자리 — 화면에만 잠깐 둔다(앱에 저장하지 않는다)
 const MIN_MAX = 3;
 
 // 브라우저가 옛 js/api.js를 물고 있으면 사역 액션이 아예 없다
@@ -9009,6 +9011,11 @@ function minConfirmHtml() {
     '<p class="min-sub">이 사역으로 신청합니다 · <b>순위는 매기지 않습니다</b></p>' +
     '<div class="min-who">' + minEsc(minWhoText()) + '</div>' +
     rows +
+    '<div class="min-p4"><label for="min-phone4">휴대폰 <b>뒷 4자리</b></label>' +
+      '<input id="min-phone4" type="tel" inputmode="numeric" maxlength="4" placeholder="0000"' +
+      ' value="' + minEsc(minPhone4Val) + '" autocomplete="off"></div>' +
+    '<div class="min-note">' + (minMine ? '처음 신청하실 때 넣은 4자리와 같아야 고쳐집니다. ' : '') +
+      '본인 확인과 교적 대조에만 씁니다. 임명이 정해지면 <b>바로 지웁니다</b>.</div>' +
     '<div class="min-note">마감(<b>' + minPeriodText() + '</b>) 전까지는 언제든 고쳐 낼 수 있어요.</div>' +
     '<button class="min-cta" id="min-submit">제출하기<span class="min-cta-s">신청 후 임명을 받아야 시작할 수 있어요</span></button>' +
     '<button class="min-ghost" id="min-back">다시 고르기</button>';
@@ -9035,15 +9042,27 @@ function wireMinConfirm(u) {
   document.getElementById("min-back").addEventListener("click", function () {
     minStep = "pick"; renderMinistry();
   });
+  const p4el = document.getElementById("min-phone4");
+  if (p4el) p4el.addEventListener("input", function () {
+    this.value = this.value.replace(/[^0-9]/g, "").slice(0, 4);
+    minPhone4Val = this.value;
+  });
   const btn = document.getElementById("min-submit");
   btn.addEventListener("click", async function () {
+    minPhone4Val = (p4el ? p4el.value : "").replace(/[^0-9]/g, "");
+    if (!/^[0-9]{4}$/.test(minPhone4Val)) {
+      alert("휴대폰 뒷 4자리를 넣어 주세요.");
+      if (p4el) p4el.focus();
+      return;
+    }
     btn.disabled = true; btn.textContent = "보내는 중…";
     const who = u.type === "교구"
       ? [u.gu, u.mok ? u.mok + "목장" : ""].filter(Boolean).join(" ")
       : [u.bu, u.grade].filter(Boolean).join(" ");
     try {
       const r = await api.ministryApply({
-        user_id: u.user_id, name: u.name, who, choices: minPicked, pw: minPw(),
+        user_id: u.user_id, name: u.name, who, choices: minPicked,
+        phone4: minPhone4Val, pw: minPw(),
       });
       if (!r || !r.ok) { alert((r && r.error) || "신청을 저장하지 못했어요."); renderMinistry(); return; }
       minMine = r.order;
@@ -9084,15 +9103,29 @@ function minDoneHtml(u) {
       : '<div class="min-note min-lock">담당자 확인이 시작되어 고치거나 취소할 수 없어요.</div>');
 }
 
+// 취소도 4자리로 한 번 확인한다 — 신청을 지우는 일이라 고치기와 같은 문턱을 둔다
+let minCancelP4 = "";
+function minCancelAsk() {
+  const p4 = (prompt("신청을 취소하려면 휴대폰 뒷 4자리를 넣어 주세요.
+(처음 신청하실 때 넣으신 번호입니다)") || "")
+    .replace(/[^0-9]/g, "");
+  if (!/^[0-9]{4}$/.test(p4)) { if (p4) alert("4자리를 정확히 넣어 주세요."); return false; }
+  minCancelP4 = p4;
+  return true;
+}
+
 function wireMinDone(u) {
   const edit = document.getElementById("min-edit");
-  if (edit) edit.addEventListener("click", function () { minStep = "pick"; renderMinistry(); });
+  if (edit) edit.addEventListener("click", function () {
+    minPhone4Val = "";        // 고칠 때는 4자리를 다시 넣게 한다(최소 본인 확인)
+    minStep = "pick"; renderMinistry();
+  });
   const cancel = document.getElementById("min-cancel");
   if (cancel) cancel.addEventListener("click", async function () {
-    if (!confirm("신청을 취소할까요?\n마감 전이라면 다시 신청하실 수 있어요.")) return;
+    if (!minCancelAsk()) return;
     cancel.disabled = true;
     try {
-      const r = await api.ministryCancel(u.user_id, minPw());
+      const r = await api.ministryCancel(u.user_id, minPw(), minCancelP4);
       if (!r || !r.ok) { alert((r && r.error) || "취소하지 못했어요."); cancel.disabled = false; return; }
       minMine = null; minPicked = []; minStep = "pick";
       renderMinistry();
