@@ -97,6 +97,14 @@ const api = {
   pilsaCancel: (user_id, id) => supaCall("pilsaCancel", { user_id, id }),
   pilsaList: (pw) => supaCall("pilsaList", { pw }),
   pilsaSetStatus: (pw, id, status) => supaCall("pilsaSetStatus", { pw, id, status }),
+  // 사역신청 — 사역팀 목록·내 신청·신청/수정·취소, 관리자 명단·상태변경
+  //   ⚠️ choices 는 팀 id 배열(최대 3). 순위는 없다(2026-09-08 결정).
+  ministryCatalog: () => supaCall("ministryCatalog", {}),
+  ministryMine: (user_id) => supaCall("ministryMine", { user_id }),
+  ministryApply: (order) => supaCall("ministryApply", order),
+  ministryCancel: (user_id) => supaCall("ministryCancel", { user_id }),
+  ministryList: (pw) => supaCall("ministryList", { pw }),
+  ministrySetStatus: (pw, id, status) => supaCall("ministrySetStatus", { pw, id, status }),
 };
 
 window.api = api;

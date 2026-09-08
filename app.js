@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260906a";
+const APP_BUILD = "20260908a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -117,6 +117,7 @@ async function loadVerses() {
 function routeAfterLoad() {
   _passagesPreview = getPassagesPreview();
   refreshPassagesPublic();
+  refreshMinistryPeriod();
   // 어드민 테스트 진입(?passages=1): 홈을 거치지 않고 곧바로 핵심 암송 목록으로.
   if (_passagesPreview) { renderPassageList(); return; }
   // 딥링크(?v=구절번호): 설교 아카이브 등 외부에서 특정 구절로 바로 진입
@@ -216,6 +217,27 @@ function refreshPassagesPublic() {
   }).catch(() => {});
 }
 function passagesVisible() { return _passagesPreview || passagesPublicCached(); }
+
+// ── 사역 신청: 기간에만 첫 화면에 뜬다 ──────────────────────────────
+//   ⚠️ 상시 기능이 아니다. 기간(app_config.ministry)을 캐시해 두고 그 안에서만 보여 준다.
+//      passagesPublic 과 같은 방식 — 첫 화면은 동기 렌더라 미리 받아 둔 값을 본다.
+const MIN_PERIOD_KEY = "ministry-period";
+function ministryPeriodCached() {
+  try { return JSON.parse(localStorage.getItem(MIN_PERIOD_KEY) || "null"); } catch (e) { return null; }
+}
+function refreshMinistryPeriod() {
+  if (!window.api || !api.getConfig) return;
+  api.getConfig("ministry").then((d) => {
+    try { localStorage.setItem(MIN_PERIOD_KEY, JSON.stringify((d && d.value) || null)); } catch (e) {}
+  }).catch(() => {});
+}
+function ministryVisible() {
+  if (location.search.indexOf("preview=ministry") >= 0) return true;   // 관리자 미리보기
+  const p = ministryPeriodCached();
+  if (!p || !p.open || !p.close) return false;
+  const today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);  // KST
+  return today >= p.open && today <= p.close;
+}
 
 let passagesCache = null;
 async function loadPassages() {
@@ -1141,6 +1163,9 @@ function markFeatSeen(k) { try { localStorage.setItem("feat-seen-" + k, "1"); } 
 // 새 기능을 넣으면 **여기에 나온 날을 적는다.** 안 적으면 NEW가 아예 안 뜬다
 //    (영원히 붙어 있느니 안 뜨는 편이 낫다).
 const FEAT_SINCE = {
+  // ⚠️ 사역 신청은 기간(12/13~12/27)에만 첫 화면에 뜬다 — 그때가 곧 '새 기능'인 날이라
+  //    NEW 는 신청 시작일부터 센다. 지금 날짜를 적으면 성도님이 보기도 전에 사라진다.
+  ministry: "2026-12-13",
   prayer: "2026-09-03",
   meditation: "2026-07-20",   // 매일 묵상
   sermon: "2026-07-23",       // 내게 주시는 말씀
@@ -1832,6 +1857,7 @@ function renderSummary() {
     <button class="summary-help" id="open-board">💬 응원·기도·공감</button>
     <button class="summary-help" id="open-prayer">🙏 가정 축복 기도문${newBadge("prayer")}</button>
     <button class="summary-help" id="open-quiz">🎯 성경암송 퀴즈</button>
+    ${ministryVisible() ? `<button class="summary-help" id="open-ministry">🤝 사역 신청${newBadge("ministry")}</button>` : ""}
     <button class="summary-help" id="open-pilsa">✍️ 성경필사 노트 신청</button>
     ${passagesVisible() ? `<button class="summary-help" id="open-passages">📜 내 안에 거하는 말씀${newBadge("passages")}</button>` : ""}
     <!-- 아카이브 둘은 앱 밖(다른 사이트)으로 나간다. 그 사실이 보이게 ↗ 와 흰 바탕으로
@@ -1860,6 +1886,11 @@ function renderSummary() {
   loadEventState();     // 서버에서 설정·응모여부 갱신 후 다시 표시
   document.getElementById("open-board").addEventListener("click", renderBoard);
   document.getElementById("open-prayer").addEventListener("click", () => renderPrayerBook());
+  const minBtn = document.getElementById("open-ministry");   // 기간 밖에는 아예 없다
+  if (minBtn) minBtn.addEventListener("click", () => {
+    minLoaded = false;            // 들어올 때마다 서버에서 지금 상태를 받는다
+    renderMinistry();
+  });
   document.getElementById("open-pilsa").addEventListener("click", () => {
     pilsaLoaded = false;          // 들어올 때마다 서버에서 지금 상태를 받는다
     renderPilsaApply();
@@ -8766,3 +8797,294 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) chec
 
 promptOpenExternal();
 loadVerses();
+
+/* ==========================================================================
+   사역신청 (2027) — 성도 화면
+   설계: docs/superpowers/specs/2026-09-06-ministry-application-design.md
+   계획: docs/superpowers/plans/2026-09-08-ministry-application.md
+
+   흐름: 안내 → 부서 고르기(아코디언·최대 3) → 확인 → 제출 → 내 신청(진행 현황)
+   ⚠️ 순위는 없다(2026-09-08 결정). 번호를 붙이지 않는다.
+   ⚠️ 이름·교구·목장은 로그인 정보로 이미 있다 — 다시 묻지 않는다.
+   ⚠️ 임명직은 목록에서 빼지 않고 잠근 채 보여 준다 — 부서 전체 구조가 보이도록.
+   ========================================================================== */
+let minCat = null;        // { year, period, list:[...] } — 화면 진입 때 한 번 받는다
+let minMine = null;       // 접수된 내 신청 { id, status, choices, ... }
+let minPicked = [];       // 고른 팀 id (최대 3, 순위 아님)
+let minOpen = null;       // 펼친 위원회 이름 (한 번에 하나)
+let minLoaded = false;
+let minStep = "pick";     // pick | confirm | done
+const MIN_MAX = 3;
+
+// 브라우저가 옛 js/api.js를 물고 있으면 사역 액션이 아예 없다
+function minApiReady() { return !!(window.api && api.ministryCatalog && api.ministryApply); }
+
+// ⚠️ 팀 이름은 부서가 적어 보낸 값이라 반드시 escape 한다(app.js 에 공용 esc 가 없어 따로 둔다)
+function minEsc(t) {
+  return String(t == null ? "" : t)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+const MIN_STATE = {
+  "신청완료": { ic: "📝", cls: "s-wait", msg: "접수됐어요. 부서 확인을 거쳐 임명이 정해집니다." },
+  "검토중":   { ic: "🔎", cls: "s-work", msg: "담당자가 신청 내용을 살펴보고 있어요." },
+  "임명확정": { ic: "✅", cls: "s-done", msg: "임명이 확정됐어요. 첫 모임 안내를 기다려 주세요." },
+  "미채택":   { ic: "🕊️", cls: "s-none", msg: "이번에는 다른 분이 임명되셨어요. 다음 기회에 함께해 주세요." },
+};
+
+async function minLoad(u) {
+  if (!minApiReady()) { minLoaded = true; return; }
+  try {
+    const [cat, mine] = await Promise.all([api.ministryCatalog(), api.ministryMine(u.user_id)]);
+    minCat = cat && cat.ok ? cat : null;
+    minMine = mine && mine.order ? mine.order : null;
+    // 접수된 신청이 있으면 그걸 그대로 고를 수 있게 담아 둔다
+    minPicked = minMine ? minMine.choices.map(function (c) { return c.id; }) : [];
+    minStep = minMine ? "done" : "pick";
+  } catch (_) {
+    minCat = null; minMine = null;
+  }
+  minLoaded = true;
+}
+
+function minTeam(id) {
+  if (!minCat) return null;
+  for (const t of minCat.list) if (t.id === id) return t;
+  return null;
+}
+function minPeriodText() {
+  const p = minCat && minCat.period;
+  if (!p || !p.open) return "";
+  const f = (s) => s.slice(5).replace("-", "월 ") + "일";
+  return f(p.open) + " ~ " + f(p.close);
+}
+function minIsOpen() { return !!(minCat && minCat.period && minCat.period.isOpen); }
+
+// 팀 한 줄에 붙는 작은 설명 — 시간·하는 일이 있으면 보여 주고, 없으면 이름만
+function minMetaOf(t) {
+  const parts = [];
+  if (t.sched) parts.push(t.sched);
+  if (t.desc) parts.push(t.desc);
+  if (t.capacity) parts.push(t.capacity);
+  return parts.join(" · ");
+}
+
+function renderMinistry(keepScroll) {
+  const u = loadUser();
+  if (!u) { renderEntryScreen(); return; }
+  const appEl = document.getElementById("app");
+
+  if (!minLoaded) {
+    appEl.innerHTML = '<div class="min-screen"><h2 class="rank-title">🤝 사역 신청</h2>' +
+      '<p class="msg">사역 목록을 불러오는 중…</p></div>';
+    window.scrollTo(0, 0);
+    minLoad(u).then(function () { renderMinistry(); });
+    return;
+  }
+  if (!minCat) {
+    appEl.innerHTML = '<div class="min-screen"><h2 class="rank-title">🤝 사역 신청</h2>' +
+      '<p class="msg">사역 목록을 불러오지 못했어요.<br>잠시 뒤 다시 열어 주세요.</p>' +
+      '<button class="home-fab" id="min-home">🏠 첫 화면으로</button></div>';
+    document.getElementById("min-home").onclick = renderSummary;
+    return;
+  }
+
+  const body = minStep === "done" ? minDoneHtml(u)
+             : minStep === "confirm" ? minConfirmHtml()
+             : minPickHtml();
+  appEl.innerHTML = '<div class="min-screen">' + body + '</div>' +
+    '<button class="home-fab" id="min-home">🏠 첫 화면으로</button>';
+  window.scrollTo(0, keepScroll == null ? 0 : keepScroll);
+  document.getElementById("min-home").onclick = renderSummary;
+  if (minStep === "pick") wireMinPick(u);
+  else if (minStep === "confirm") wireMinConfirm(u);
+  else wireMinDone(u);
+}
+
+/* ── ① 부서 고르기 ─────────────────────────────────────────── */
+function minPickHtml() {
+  const committees = [];
+  for (const t of minCat.list) if (committees.indexOf(t.committee) < 0) committees.push(t.committee);
+
+  let acc = "";
+  for (const c of committees) {
+    const mine = minCat.list.filter(function (t) { return t.committee === c; });
+    const got = mine.filter(function (t) { return minPicked.indexOf(t.id) >= 0; }).length;
+    const open = minOpen === c;
+    acc += '<div class="min-acc' + (open ? " open" : "") + '">' +
+      '<button class="min-acc-h" data-acc="' + minEsc(c) + '" aria-expanded="' + open + '">' +
+        '<span>' + minEsc(c) + (got ? ' <span class="min-got">' + got + '개 선택</span>' : "") + '</span>' +
+        '<span class="min-n">' + mine.length + '팀 ' + (open ? "▴" : "▾") + '</span></button>';
+    if (open) {
+      acc += '<div class="min-acc-b">';
+      let lastGrp = null;
+      for (const t of mine) {
+        if (t.group && t.group !== lastGrp) {
+          acc += '<div class="min-grp">' + minEsc(t.group) + (t.opt ? " · " + minEsc(t.opt) : "") + '</div>';
+        }
+        lastGrp = t.group;
+        const on = minPicked.indexOf(t.id) >= 0;
+        const meta = minMetaOf(t);
+        acc += '<button class="min-team' + (on ? " on" : "") + (t.appoint ? " off" : "") + '"' +
+          (t.appoint ? " disabled" : ' data-team="' + t.id + '"') + '>' +
+          '<span class="min-info"><span class="min-nm">' + minEsc(t.team) +
+          (t.appoint ? '<span class="min-tag">지명</span>' : "") + '</span>' +
+          (meta ? '<span class="min-meta">' + minEsc(meta) + '</span>' : "") + '</span>' +
+          '<span class="min-chk">' + (on ? "✓" : "") + '</span></button>';
+      }
+      acc += '</div>';
+    }
+    acc += '</div>';
+  }
+
+  const openNow = minIsOpen();
+  return '<h2 class="rank-title">🤝 사역 신청</h2>' +
+    '<p class="min-sub">한 해 동안 섬길 자리를 정합니다 · <b>' + minPeriodText() + '</b></p>' +
+    (openNow ? "" :
+      '<div class="min-closed">지금은 신청 기간이 아니에요. 목록만 살펴보실 수 있습니다.</div>') +
+    '<div class="min-note"><b class="min-note-t">사역 임명 원칙</b>' +
+      '1인 <b>최대 ' + MIN_MAX + '개</b>까지 신청할 수 있어요(순서는 상관없습니다). ' +
+      '신청 후 <b>임명을 받아야</b> 사역을 시작합니다 — 확정되면 앱 알림으로 알려 드리고 게시판에도 올립니다.</div>' +
+    '<div class="min-count' + (minPicked.length ? " has" : "") + '">' +
+      minPicked.length + ' / ' + MIN_MAX + ' 선택' + '</div>' +
+    '<div class="min-acc-wrap">' + acc + '</div>' +
+    (openNow
+      ? '<button class="min-cta" id="min-next"' + (minPicked.length ? "" : " disabled") + '>' +
+        (minPicked.length ? '고른 ' + minPicked.length + '개로 신청하기' : '사역을 하나 이상 골라 주세요') +
+        '</button>'
+      : "");
+}
+
+function wireMinPick(u) {
+  for (const b of document.querySelectorAll("[data-acc]")) {
+    b.addEventListener("click", function () {
+      const c = this.getAttribute("data-acc");
+      minOpen = (minOpen === c) ? null : c;      // 한 번에 하나만 — 기도문 아코디언과 같은 규칙
+      renderMinistry(window.scrollY);
+    });
+  }
+  for (const b of document.querySelectorAll("[data-team]")) {
+    b.addEventListener("click", function () {
+      const id = Number(this.getAttribute("data-team"));
+      const i = minPicked.indexOf(id);
+      if (i >= 0) minPicked.splice(i, 1);
+      else if (minPicked.length >= MIN_MAX) {
+        alert("사역 임명 원칙에 따라 최대 " + MIN_MAX + "개까지 신청하실 수 있어요.\n먼저 고르신 것을 빼고 다시 골라 주세요.");
+        return;
+      } else minPicked.push(id);
+      renderMinistry(window.scrollY);
+    });
+  }
+  const go = document.getElementById("min-next");
+  if (go) go.addEventListener("click", function () { minStep = "confirm"; renderMinistry(); });
+}
+
+/* ── ② 확인 ─────────────────────────────────────────────────── */
+function minConfirmHtml() {
+  let rows = "";
+  for (const id of minPicked) {
+    const t = minTeam(id); if (!t) continue;
+    const meta = minMetaOf(t);
+    rows += '<div class="min-pick"><span class="min-pick-ck">✓</span>' +
+      '<span class="min-info"><span class="min-nm">' + minEsc(t.team) +
+      ' <span class="min-com">· ' + minEsc(t.committee) + '</span></span>' +
+      (meta ? '<span class="min-meta">' + minEsc(meta) + '</span>' : "") + '</span>' +
+      '<button class="min-del" data-drop="' + t.id + '">빼기</button></div>';
+  }
+  return '<h2 class="rank-title">🤝 신청 사역 확인</h2>' +
+    '<p class="min-sub">이 사역으로 신청합니다 · <b>순위는 매기지 않습니다</b></p>' +
+    '<div class="min-who">' + minEsc(minWhoText()) + '</div>' +
+    rows +
+    '<div class="min-note">마감(<b>' + minPeriodText() + '</b>) 전까지는 언제든 고쳐 낼 수 있어요.</div>' +
+    '<button class="min-cta" id="min-submit">제출하기<span class="min-cta-s">신청 후 임명을 받아야 시작할 수 있어요</span></button>' +
+    '<button class="min-ghost" id="min-back">다시 고르기</button>';
+}
+
+function minWhoText() {
+  const u = loadUser() || {};
+  const who = u.type === "교구"
+    ? [u.gu, u.mok ? u.mok + "목장" : ""].filter(Boolean).join(" ")
+    : [u.bu, u.grade].filter(Boolean).join(" ");
+  return (who ? who + " · " : "") + (u.name || "");
+}
+
+function wireMinConfirm(u) {
+  for (const b of document.querySelectorAll("[data-drop]")) {
+    b.addEventListener("click", function () {
+      const id = Number(this.getAttribute("data-drop"));
+      const i = minPicked.indexOf(id);
+      if (i >= 0) minPicked.splice(i, 1);
+      if (!minPicked.length) minStep = "pick";
+      renderMinistry();
+    });
+  }
+  document.getElementById("min-back").addEventListener("click", function () {
+    minStep = "pick"; renderMinistry();
+  });
+  const btn = document.getElementById("min-submit");
+  btn.addEventListener("click", async function () {
+    btn.disabled = true; btn.textContent = "보내는 중…";
+    const who = u.type === "교구"
+      ? [u.gu, u.mok ? u.mok + "목장" : ""].filter(Boolean).join(" ")
+      : [u.bu, u.grade].filter(Boolean).join(" ");
+    try {
+      const r = await api.ministryApply({
+        user_id: u.user_id, name: u.name, who, choices: minPicked,
+      });
+      if (!r || !r.ok) { alert((r && r.error) || "신청을 저장하지 못했어요."); renderMinistry(); return; }
+      minMine = r.order;
+      minStep = "done";
+      renderMinistry();
+    } catch (_) {
+      alert("연결이 고르지 않아 저장하지 못했어요. 잠시 뒤 다시 눌러 주세요.");
+      renderMinistry();
+    }
+  });
+}
+
+/* ── ③ 내 신청(진행 현황) ───────────────────────────────────── */
+function minDoneHtml(u) {
+  const m = minMine;
+  const info = MIN_STATE[m.status] || MIN_STATE["신청완료"];
+  let rows = "";
+  for (const c of m.choices) {
+    const t = minTeam(c.id);
+    const meta = t ? minMetaOf(t) : "";
+    rows += '<div class="min-pick"><span class="min-pick-ck">✓</span>' +
+      '<span class="min-info"><span class="min-nm">' + minEsc(c.team) +
+      ' <span class="min-com">· ' + minEsc(c.committee) + '</span></span>' +
+      (meta ? '<span class="min-meta">' + minEsc(meta) + '</span>' : "") + '</span></div>';
+  }
+  const editable = m.status === "신청완료" && minIsOpen();
+  return '<h2 class="rank-title">🤝 내 사역 신청</h2>' +
+    '<div class="min-state ' + info.cls + '">' +
+      '<div class="min-state-t"><span>' + info.ic + '</span> ' + minEsc(m.status) + '</div>' +
+      '<div class="min-state-m">' + info.msg + '</div></div>' +
+    '<div class="min-who">' + minEsc(minWhoText()) + ' · ' + minEsc(m.at) + ' 신청</div>' +
+    rows +
+    '<div class="min-note">🔔 임명이 확정되면 <b>앱 알림</b>으로 알려 드리고 <b>게시판에도</b> 올립니다. ' +
+      '알림을 켜지 않으셨어도 게시판에서 확인하실 수 있어요.</div>' +
+    (editable
+      ? '<button class="min-cta" id="min-edit">신청 고치기</button>' +
+        '<button class="min-ghost" id="min-cancel">신청 취소</button>'
+      : '<div class="min-note min-lock">담당자 확인이 시작되어 고치거나 취소할 수 없어요.</div>');
+}
+
+function wireMinDone(u) {
+  const edit = document.getElementById("min-edit");
+  if (edit) edit.addEventListener("click", function () { minStep = "pick"; renderMinistry(); });
+  const cancel = document.getElementById("min-cancel");
+  if (cancel) cancel.addEventListener("click", async function () {
+    if (!confirm("신청을 취소할까요?\n마감 전이라면 다시 신청하실 수 있어요.")) return;
+    cancel.disabled = true;
+    try {
+      const r = await api.ministryCancel(u.user_id);
+      if (!r || !r.ok) { alert((r && r.error) || "취소하지 못했어요."); cancel.disabled = false; return; }
+      minMine = null; minPicked = []; minStep = "pick";
+      renderMinistry();
+    } catch (_) {
+      alert("연결이 고르지 않아 취소하지 못했어요.");
+      cancel.disabled = false;
+    }
+  });
+}
