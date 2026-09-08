@@ -3088,7 +3088,9 @@ async function ministryApply(b: any) {
   if (!userId) return { ok: false, error: "user_id 필요" };
   const cfg = await ministryCfg();
   // ⚠️ 기간 검사는 서버가 한다. 화면이 막는 것은 편의일 뿐이다.
-  if (!cfg.isOpen) {
+  // ⚠️ 단 하나의 예외: 관리자 비번이 맞으면 기간 밖에도 통과한다 — 오픈 전 리허설
+  //    (구현 계획 5단계)과 ?preview=ministry 시험을 위해서다. 비번 없이는 뚫리지 않는다.
+  if (!cfg.isOpen && adminError(b)) {
     return { ok: false, error: "신청 기간이 아닙니다 (" + cfg.open + " ~ " + cfg.close + ")" };
   }
 
@@ -3152,7 +3154,7 @@ async function ministryCancel(b: any) {
   const userId = String(b.user_id || "");
   if (!userId) return { ok: false, error: "user_id 필요" };
   const cfg = await ministryCfg();
-  if (!cfg.isOpen) return { ok: false, error: "신청 기간이 지나 취소할 수 없습니다" };
+  if (!cfg.isOpen && adminError(b)) return { ok: false, error: "신청 기간이 지나 취소할 수 없습니다" };
   const { data: row } = await db.from("ministry_orders")
     .select("id,status").eq("year", cfg.year).eq("user_id", userId).maybeSingle();
   if (!row) return { ok: false, error: "신청을 찾을 수 없습니다" };

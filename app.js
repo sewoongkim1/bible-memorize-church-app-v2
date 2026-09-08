@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260908b";
+const APP_BUILD = "20260908c";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -8819,6 +8819,20 @@ const MIN_MAX = 3;
 // 브라우저가 옛 js/api.js를 물고 있으면 사역 액션이 아예 없다
 function minApiReady() { return !!(window.api && api.ministryCatalog && api.ministryApply); }
 
+// ?preview=ministry 로 열면 기간 밖에도 시험해 볼 수 있다 — 서버가 관리자 비번을 보고 통과시킨다.
+// ⚠️ 비번은 sessionStorage 에만 둔다(관리자 화면과 같은 열쇠). 성도님 화면에는 이 길이 없다.
+const MIN_PREVIEW = location.search.indexOf("preview=ministry") >= 0;
+function minPw() {
+  if (!MIN_PREVIEW) return "";
+  let p = "";
+  try { p = sessionStorage.getItem("admin-pw") || ""; } catch (e) {}
+  if (!p) {
+    p = prompt("미리보기 시험 — 관리자 비밀번호를 넣어 주세요(신청 기간 전이라 필요합니다)") || "";
+    try { if (p) sessionStorage.setItem("admin-pw", p); } catch (e) {}
+  }
+  return p;
+}
+
 // ⚠️ 팀 이름은 부서가 적어 보낸 값이라 반드시 escape 한다(app.js 에 공용 esc 가 없어 따로 둔다)
 function minEsc(t) {
   return String(t == null ? "" : t)
@@ -8941,14 +8955,14 @@ function minPickHtml() {
   return '<h2 class="rank-title">🤝 사역 신청</h2>' +
     '<p class="min-sub">한 해 동안 섬길 자리를 정합니다 · <b>' + minPeriodText() + '</b></p>' +
     (openNow ? "" :
-      '<div class="min-closed">지금은 신청 기간이 아니에요. 목록만 살펴보실 수 있습니다.</div>') +
+      '<div class="min-closed">' + (MIN_PREVIEW ? '🔧 <b>미리보기</b> — 신청 기간 전이지만 시험 삼아 제출까지 해 보실 수 있어요(관리자 비번 필요).' : '지금은 신청 기간이 아니에요. 목록만 살펴보실 수 있습니다.') + '</div>') +
     '<div class="min-note"><b class="min-note-t">사역 임명 원칙</b>' +
       '1인 <b>최대 ' + MIN_MAX + '개</b>까지 신청할 수 있어요(순서는 상관없습니다). ' +
       '신청 후 <b>임명을 받아야</b> 사역을 시작합니다 — 확정되면 앱 알림으로 알려 드리고 게시판에도 올립니다.</div>' +
     '<div class="min-count' + (minPicked.length ? " has" : "") + '">' +
       minPicked.length + ' / ' + MIN_MAX + ' 선택' + '</div>' +
     '<div class="min-acc-wrap">' + acc + '</div>' +
-    (openNow
+    (openNow || MIN_PREVIEW
       ? '<button class="min-cta" id="min-next"' + (minPicked.length ? "" : " disabled") + '>' +
         (minPicked.length ? '고른 ' + minPicked.length + '개로 신청하기' : '사역을 하나 이상 골라 주세요') +
         '</button>'
@@ -9029,7 +9043,7 @@ function wireMinConfirm(u) {
       : [u.bu, u.grade].filter(Boolean).join(" ");
     try {
       const r = await api.ministryApply({
-        user_id: u.user_id, name: u.name, who, choices: minPicked,
+        user_id: u.user_id, name: u.name, who, choices: minPicked, pw: minPw(),
       });
       if (!r || !r.ok) { alert((r && r.error) || "신청을 저장하지 못했어요."); renderMinistry(); return; }
       minMine = r.order;
@@ -9078,7 +9092,7 @@ function wireMinDone(u) {
     if (!confirm("신청을 취소할까요?\n마감 전이라면 다시 신청하실 수 있어요.")) return;
     cancel.disabled = true;
     try {
-      const r = await api.ministryCancel(u.user_id);
+      const r = await api.ministryCancel(u.user_id, minPw());
       if (!r || !r.ok) { alert((r && r.error) || "취소하지 못했어요."); cancel.disabled = false; return; }
       minMine = null; minPicked = []; minStep = "pick";
       renderMinistry();
