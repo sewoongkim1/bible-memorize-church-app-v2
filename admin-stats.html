@@ -321,6 +321,20 @@
 .pl-card.s2{border-left:4px solid #d9b45c;}
 .pl-card.s3{border-left:4px solid #5aab7c;}
 .pl-card.s4{border-left:4px solid #c3cad6;}
+/* 사역신청 — 필사 카드 부품을 그대로 쓰고, 팀 목록과 알림 여부만 더한다 */
+.mn-teams-in{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.mn-team{font-size:13px;background:#f3f6fb;border:1px solid #e2e8f4;border-radius:8px;padding:5px 9px;color:#2c3a52;}
+.mn-team em{font-style:normal;color:#7a869c;font-size:11.5px;margin-right:3px;}
+.mn-team i{font-style:normal;color:#8a95a8;font-size:11.5px;}
+.mn-push{font-size:11.5px;font-weight:700;border-radius:999px;padding:3px 9px;}
+.mn-push.on{background:#e7f3e8;color:#2c5f2d;}
+/* ⚠️ 알림 미설정은 눈에 띄어야 한다 — 그냥 두면 확정만 누르고 게시를 잊는다 */
+.mn-push.off{background:#fdeceb;color:#a33;}
+.mn-teams{margin-top:14px;}
+.mn-teams-t{font-size:12px;font-weight:800;color:#7a869c;margin-bottom:6px;}
+.mn-tcount{display:inline-block;font-size:12px;color:#41506b;background:#f3f6fb;border-radius:7px;
+  padding:4px 8px;margin:0 5px 5px 0;}
+.mn-tcount b{color:#1a3a6b;}
 .pl-hd{display:flex;align-items:flex-start;gap:8px;flex-wrap:nowrap;}
 .pl-nm{flex:1 1 auto;min-width:0;}
 .pl-hd .pl-sel{align-self:flex-start;}
@@ -643,6 +657,14 @@ function renderMenu(){
         </div>
         <div class="rep-arrow">›</div>
       </div>
+      <div class="rep-card" id="rep-ministry">
+        <div class="ic">🤝</div>
+        <div class="rep-text">
+          <div class="ti">사역신청 현황 (2027)</div>
+          <div class="de">신청 명단 · 팀별 신청 수 · 상태 변경(신청완료→검토중→임명확정/미채택)</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
     </div>`;
   document.getElementById("rep-usage").addEventListener("click", renderUsageReport);
   document.getElementById("rep-participants").addEventListener("click", renderParticipants);
@@ -663,6 +685,7 @@ function renderMenu(){
   document.getElementById("rep-intro").addEventListener("click", renderIntroSlides);
   document.getElementById("rep-event").addEventListener("click", renderEventAdmin);
   document.getElementById("rep-pilsa").addEventListener("click", renderPilsaAdmin);
+  document.getElementById("rep-ministry").addEventListener("click", renderMinistryAdmin);
   loadDashboard();
 }
 
@@ -2821,6 +2844,199 @@ async function runChallengeReport(){
 
 // ---------- 시작 ----------
 if(getPw()) { logoutBtn.hidden=false; renderMenu(); } else { renderLogin(); }
+
+// ---------- 🤝 사역신청 현황 (2027) ----------
+// 필사 신청 화면(pl*)과 같은 뼈대다 — 상태 칩으로 추리고, 카드마다 드롭다운으로
+// 상태를 바꾸고, 바꾼 결과(알림 발송)를 한 줄로 알려 준다.
+// ⚠️ 필사에서 배운 것을 그대로 가져온다: 발송 «실패»를 «안 켜심»으로 뭉뚱그리면
+//    담당자는 게시만 하고 넘어가고, 푸시가 고장 난 사실은 아무도 모르게 된다.
+const MN_STATES = ["신청완료", "검토중", "임명확정", "미채택"];
+const MN_CLS = { "신청완료": "s1", "검토중": "s2", "임명확정": "s3", "미채택": "s4" };
+const MN_SHORT = { "신청완료": "신청", "검토중": "검토", "임명확정": "확정", "미채택": "미채택" };
+let mnRows = [];      // [{ id, at, who, name, status, choices, canPush, notified_at }]
+let mnCounts = {};    // { "위원회 · 팀": 신청수 }
+let mnLoaded = false;
+
+function renderMinistryAdmin(){
+  app.innerHTML=`
+    <div class="rep-head">
+      <button class="back-btn" id="back">← 메뉴</button>
+      <h2>🤝 사역신청 현황</h2>
+    </div>
+    <div class="push-card">
+      <div class="pl-st" id="mn-st">
+        ${MN_STATES.map(x=>`
+          <label class="${MN_CLS[x]}${x==="신청완료"?" on":""}">
+            <input type="checkbox" data-st="${x}"${x==="신청완료"?" checked":""}>
+            ${MN_SHORT[x]}<em data-mncnt="${x}">0</em>
+          </label>`).join("")}
+      </div>
+      <div class="pl-find">
+        <input type="text" id="mn-q" class="push-in" placeholder="이름 · 소속 · 사역팀 (예: 김세웅 / 찬양부)">
+        <button class="push-btn" id="mn-search">조회</button>
+      </div>
+      <div id="mn-sum" class="pl-sum"></div>
+      <div id="mn-list"><p class="msg">불러오는 중...</p></div>
+      <div id="mn-teams" class="mn-teams"></div>
+    </div>`;
+  document.getElementById("back").addEventListener("click", renderMenu);
+  document.getElementById("mn-search").addEventListener("click", ()=>{ mnLoaded=false; mnLoad(); });
+  document.getElementById("mn-q").addEventListener("input", mnRender);
+  document.getElementById("mn-st").querySelectorAll("input").forEach(cb=>{
+    cb.addEventListener("change", ()=>{
+      cb.closest("label").classList.toggle("on", cb.checked);
+      mnRender();                      // 이미 받아 둔 명단에서 추리기만 한다
+    });
+  });
+  mnLoad();
+}
+
+async function mnLoad(){
+  const box=document.getElementById("mn-list"); if(!box) return;
+  box.innerHTML=`<p class="msg">불러오는 중...</p>`;
+  if(!mnLoaded){
+    const d=await callApi({ action:"ministryList", pw:getPw() }).catch(()=>({ok:false,error:"network"}));
+    if(!d.ok){
+      box.innerHTML=`<p class="msg err">명단을 불러오지 못했습니다: ${plEsc(d.error||"오류")}</p>`;
+      return;
+    }
+    mnRows=(d.list||[]).map(x=>({
+      id:x.id, at:(x.at||"").replace(/\./g,"-"), who:x.who||"", name:x.name||"",
+      status:x.status, choices:x.choices||[], canPush:!!x.canPush, notified_at:x.notified_at||null,
+    }));
+    mnCounts=d.counts||{};
+    mnLoaded=true;
+  }
+  mnRender();
+}
+
+function mnFiltered(){
+  const box=document.getElementById("mn-st");
+  const on=box?[...box.querySelectorAll("input:checked")].map(cb=>cb.dataset.st):[];
+  const q=(document.getElementById("mn-q")?.value||"").trim();
+  return mnRows.filter(r=>{
+    if(on.length && on.indexOf(r.status)<0) return false;   // 하나도 안 고르면 전체
+    if(q){
+      const hay=[r.name, r.who, ...r.choices.map(c=>c.team+" "+c.committee)].join(" ");
+      if(hay.indexOf(q)<0) return false;
+    }
+    return true;
+  });
+}
+
+function mnRender(){
+  const box=document.getElementById("mn-list"); if(!box) return;
+  const rows=mnFiltered();
+  // 칩 옆 숫자는 추리기 전 전체 기준 — 어디에 몇 건인지 늘 보이게
+  MN_STATES.forEach(x=>{
+    const el=document.querySelector(`[data-mncnt="${x}"]`);
+    if(el) el.textContent=mnRows.filter(r=>r.status===x).length;
+  });
+  const sum=document.getElementById("mn-sum");
+  if(sum){
+    const picks=rows.reduce((a,r)=>a+r.choices.length,0);
+    const by=MN_STATES.map(s=>{
+      const n=rows.filter(r=>r.status===s).length;
+      return n?`<span class="pl-chip ${MN_CLS[s]}">${s} ${n}</span>`:"";
+    }).join("");
+    sum.innerHTML=`<div class="pl-total"><b>${rows.length}명</b> · 신청 <b>${picks}건</b></div>
+      <div class="pl-chips">${by}</div>`;
+  }
+
+  if(!rows.length){ box.innerHTML=`<p class="msg">조건에 맞는 신청이 없습니다.</p>`; }
+  else box.innerHTML=rows.map(r=>{
+    const teams=r.choices.map(c=>
+      `<span class="mn-team"><em>${plEsc(c.committee)}</em> ${plEsc(c.team)}${
+        c.option?` <i>(${plEsc(c.option)})</i>`:""}</span>`).join("");
+    // ⚠️ 알림을 켜지 않은 분은 확정해도 푸시가 안 간다 — 미리 보여 줘야 게시·연락으로 메운다
+    const push = r.canPush
+      ? `<span class="mn-push on">🔔 알림 받음${r.notified_at?" · 발송함":""}</span>`
+      : `<span class="mn-push off">🔕 알림 미설정 — 게시로 알려야 함</span>`;
+    return `
+      <div class="pl-card ${MN_CLS[r.status]}">
+        <div class="pl-hd">
+          <div class="pl-nm">
+            <b>${plEsc(r.name)}</b><i>${plEsc(r.who)}</i>
+            <span class="pl-at">신청일 ${plEsc((r.at||"").replace(/-/g,"."))}</span>
+            <div class="pl-contact">${push}</div>
+          </div>
+          <div class="pl-drop">
+            <button type="button" class="pl-sel ${MN_CLS[r.status]}" data-mndrop="${r.id}"
+              aria-haspopup="listbox" aria-expanded="false">${r.status}</button>
+            <div class="pl-menu" role="listbox">
+              ${MN_STATES.map(x=>`
+                <button type="button" class="pl-opt ${MN_CLS[x]}${x===r.status?" on":""}"
+                  data-mnid="${r.id}" data-mnst="${x}" role="option">${x}</button>`).join("")}
+            </div>
+          </div>
+        </div>
+        <div class="mn-teams-in">${teams}</div>
+      </div>`;
+  }).join("");
+
+  // 팀별 신청 수 — 담당자가 가장 먼저 궁금해하는 숫자
+  const tbox=document.getElementById("mn-teams");
+  if(tbox){
+    const list=Object.entries(mnCounts).sort((a,b)=>b[1]-a[1]);
+    tbox.innerHTML=list.length
+      ? `<div class="mn-teams-t">팀별 신청 수</div>` +
+        list.map(([k,n])=>`<span class="mn-tcount">${plEsc(k)} <b>${n}</b></span>`).join("")
+      : "";
+  }
+
+  box.querySelectorAll("[data-mndrop]").forEach(b=>{
+    b.addEventListener("click", e=>{
+      e.stopPropagation();
+      const wrap=b.parentElement, was=wrap.classList.contains("open");
+      plCloseMenus();
+      if(!was){ wrap.classList.add("open"); b.setAttribute("aria-expanded","true"); }
+    });
+  });
+  box.querySelectorAll("[data-mnst][data-mnid]").forEach(o=>{
+    o.addEventListener("click", e=>{
+      e.stopPropagation(); plCloseMenus();
+      mnSetStatus(Number(o.dataset.mnid), o.dataset.mnst);
+    });
+  });
+}
+
+async function mnSetStatus(id, status){
+  const r=mnRows.find(x=>x.id===id); if(!r) return;
+  // 확정은 성도님께 알림이 나가는 자리 — 한 번 묻는다(되돌려도 알림은 이미 갔다)
+  if(status==="임명확정" && !r.notified_at && !confirm(
+`${r.name}님을 «임명확정»으로 바꿉니다.
+
+앱 알림이 한 번 나갑니다(알림을 켜신 경우). 되돌려도 알림은 취소되지 않습니다.
+계속하시겠습니까?`)) return;
+  const before=r.status;
+  r.status=status; mnRender();                 // 먼저 반영하고, 실패하면 되돌린다
+  const d=await callApi({ action:"ministrySetStatus", pw:getPw(), id, status })
+    .catch(()=>({ok:false,error:"network"}));
+  if(!d.ok){
+    r.status=before; mnRender();
+    alert("상태를 바꾸지 못했습니다.\n"+(d.error||"오류"));
+    return;
+  }
+  if(status==="임명확정"){
+    // 서버가 «보냄 / 안 켜심 / 실패» 셋을 구분해 준다. 뭉뚱그리지 않는다.
+    if(d.pushed>0){ r.notified_at=new Date().toISOString(); mnRender();
+                    mnNote(`📨 ${r.name}님께 알림을 보냈습니다 (기기 ${d.pushed}대)`); }
+    else if(!d.pushError || d.pushError==="not-subscribed")
+                    mnNote(`📋 ${r.name}님은 앱 알림을 켜지 않으셨어요 — 게시판·주보로 알려 주세요`);
+    else            mnNote(`⚠️ 알림 발송 실패 — 게시로 알려 주세요. (${d.pushError})`);
+  }
+}
+
+// 명단 위에 잠깐 뜨는 안내 한 줄
+function mnNote(msg){
+  const box=document.getElementById("mn-sum"); if(!box) return;
+  let el=document.getElementById("mn-note");
+  if(!el){ el=document.createElement("div"); el.id="mn-note"; el.className="pl-note"; box.appendChild(el); }
+  el.textContent=msg;
+  clearTimeout(mnNote._t);
+  mnNote._t=setTimeout(()=>{ el.remove(); }, 6000);
+}
+
 </script>
 </body>
 </html>
