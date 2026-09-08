@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260908e";
+const APP_BUILD = "20260908f";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9109,8 +9109,7 @@ function minDoneHtml(u) {
 // 취소도 4자리로 한 번 확인한다 — 신청을 지우는 일이라 고치기와 같은 문턱을 둔다
 let minCancelP4 = "";
 function minCancelAsk() {
-  const p4 = (prompt("신청을 취소하려면 휴대폰 뒷 4자리를 넣어 주세요.
-(처음 신청하실 때 넣으신 번호입니다)") || "")
+  const p4 = (prompt("신청을 취소하려면 휴대폰 뒷 4자리를 넣어 주세요.\n(처음 신청하실 때 넣으신 번호입니다)") || "")
     .replace(/[^0-9]/g, "");
   if (!/^[0-9]{4}$/.test(p4)) { if (p4) alert("4자리를 정확히 넣어 주세요."); return false; }
   minCancelP4 = p4;
