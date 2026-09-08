@@ -175,6 +175,14 @@ Deno.serve(async (req) => {
       case "pilsaList":      return json(await pilsaList(body));
       case "pilsaSetStatus": return json(await pilsaSetStatus(body));
 
+      // ---- 사역신청 ----
+      case "ministryCatalog":  return json(await ministryCatalog(body));
+      case "ministryMine":     return json(await ministryMine(body));
+      case "ministryApply":    return json(await ministryApply(body));
+      case "ministryCancel":   return json(await ministryCancel(body));
+      case "ministryList":     return json(await ministryList(body));
+      case "ministrySetStatus":return json(await ministrySetStatus(body));
+
       // ---- 순위 응원 ----
       case "rankCheer":     return json(await rankCheer(body));
       case "rankCheerers":  return json(await rankCheerers(body));
@@ -3006,4 +3014,251 @@ async function boardModerate(b: any) {
     const { error } = await db.from(table).update({ hidden: b.op === "hide" }).eq("id", id); if (error) throw error;
   }
   return { ok: true };
+}
+
+// ---------- 사역신청(2027) ----------
+// 필사 노트 신청(pilsa*)과 같은 뼈대다. 다른 점 두 가지:
+//   · 한 해에 한 사람 한 건 — unique(year, user_id)
+//   · 고른 사역이 최대 3개 — 순위는 없다(2026-09-08 결정)
+// ⚠️ 응답에 user_id 를 절대 싣지 않는다. 이 API 는 JWT 가 없어 남의 user_id 하나면
+//    그 사람 행세가 된다(boardList 가 실제로 그랬다). 화면이 필요한 건 "내 것인가"뿐이다.
+const MINISTRY_STATUS = ["신청완료", "검토중", "임명확정", "미채택"];
+const MINISTRY_MAX = 3;
+
+// 신청 기간·연도는 app_config('ministry')에 둔다 — 코드에 박으면 바뀔 때마다 배포해야 한다
+async function ministryCfg() {
+  const { data } = await db.from("app_config").select("value").eq("key", "ministry").maybeSingle();
+  const v = (data?.value ?? {}) as any;
+  const year = Number(v.year) || 2027;
+  const open = norm(v.open), close = norm(v.close);
+  const today = kstDay(new Date().toISOString());
+  // 기간이 비어 있으면 닫힌 것으로 본다 — 실수로 상시 개방되지 않게
+  const isOpen = !!(open && close && today >= open && today <= close);
+  return { year, open, close, today, isOpen };
+}
+
+function ministryRow(r: any) {
+  return {
+    id: r.id,
+    year: r.year,
+    choices: Array.isArray(r.choices) ? r.choices : [],
+    status: r.status,
+    note: r.note ?? "",
+    at: kstDay(r.created_at).replace(/-/g, "."),
+    created_at: r.created_at,
+    decided_at: r.decided_at ?? null,
+  };
+}
+
+// 사역팀 목록 — 임명직도 함께 내려준다(화면에서 잠근 채 보여 준다)
+async function ministryCatalog(b: any) {
+  const cfg = await ministryCfg();
+  const year = Number(b.year) || cfg.year;
+  const { data, error } = await db.from("ministry_catalog")
+    .select("id,committee,group_name,team,kind,schedule_note,desc_note,capacity_note,option_note,sort_order")
+    .eq("year", year).order("sort_order", { ascending: true });
+  if (error) throw error;
+  return {
+    ok: true,
+    year,
+    period: { open: cfg.open, close: cfg.close, isOpen: cfg.isOpen },
+    list: (data ?? []).map((r: any) => ({
+      id: r.id, committee: r.committee, group: r.group_name, team: r.team,
+      appoint: r.kind === "appoint",
+      sched: r.schedule_note, desc: r.desc_note, capacity: r.capacity_note, opt: r.option_note,
+    })),
+  };
+}
+
+// 내 신청 — 없으면 null
+async function ministryMine(b: any) {
+  const userId = String(b.user_id || "");
+  const cfg = await ministryCfg();
+  const period = { open: cfg.open, close: cfg.close, isOpen: cfg.isOpen };
+  if (!userId) return { ok: true, order: null, period };
+  const { data, error } = await db.from("ministry_orders")
+    .select("*").eq("year", cfg.year).eq("user_id", userId).maybeSingle();
+  if (error) throw error;
+  return { ok: true, order: data ? ministryRow(data) : null, period };
+}
+
+// 신청·수정 — 같은 해 신청이 있으면 그 건을 고친다
+async function ministryApply(b: any) {
+  const userId = String(b.user_id || "");
+  if (!userId) return { ok: false, error: "user_id 필요" };
+  const cfg = await ministryCfg();
+  // ⚠️ 기간 검사는 서버가 한다. 화면이 막는 것은 편의일 뿐이다.
+  if (!cfg.isOpen) {
+    return { ok: false, error: "신청 기간이 아닙니다 (" + cfg.open + " ~ " + cfg.close + ")" };
+  }
+
+  const raw = Array.isArray(b.choices) ? b.choices : [];
+  const ids = [...new Set(raw
+    .map((c: any) => Number(c && typeof c === "object" ? c.id : c) || 0)
+    .filter((n: number) => n > 0))];
+  if (!ids.length) return { ok: false, error: "사역을 하나 이상 골라 주세요" };
+  // ⚠️ 3개 제한도 서버가 다시 센다(화면 → 서버 → DB 제약, 세 겹)
+  if (ids.length > MINISTRY_MAX) {
+    return { ok: false, error: "사역 임명 원칙에 따라 최대 " + MINISTRY_MAX + "개까지 신청하실 수 있어요" };
+  }
+
+  const { data: teams, error: e1 } = await db.from("ministry_catalog")
+    .select("id,committee,team,kind").eq("year", cfg.year).in("id", ids);
+  if (e1) throw e1;
+  const found = (teams ?? []) as any[];
+  if (found.length !== ids.length) {
+    return { ok: false, error: "없는 사역이 섞여 있습니다. 새로고침 후 다시 골라 주세요" };
+  }
+  const appointed = found.find((t) => t.kind === "appoint");
+  if (appointed) {
+    return { ok: false, error: appointed.team + " 은(는) 지명으로 정해지는 자리라 신청할 수 없습니다" };
+  }
+
+  // 고른 순서대로 담되 뜻은 부여하지 않는다. 팀 이름은 스냅샷으로 함께 박는다 —
+  // 목록이 바뀌어도 "그때 무엇을 냈는지"가 남는다.
+  const opts: Record<string, string> = (b.options ?? {}) as any;
+  const byId = new Map(found.map((t) => [t.id, t]));
+  const choices = ids.map((id: number) => {
+    const t = byId.get(id);
+    return { id, committee: t.committee, team: t.team, option: norm(opts[String(id)]) || "" };
+  });
+
+  const fields = {
+    year: cfg.year,
+    user_id: userId,
+    name: norm(b.name) || null,
+    who: norm(b.who) || null,
+    choices,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data: prev } = await db.from("ministry_orders")
+    .select("id,status").eq("year", cfg.year).eq("user_id", userId).maybeSingle();
+  if (prev) {
+    // 담당자가 검토를 시작한 뒤에는 성도가 바꿀 수 없다(필사 신청과 같은 규칙)
+    if (prev.status !== "신청완료") return { ok: false, error: "담당자 검토가 시작되어 변경할 수 없습니다" };
+    const { data, error } = await db.from("ministry_orders")
+      .update(fields).eq("id", prev.id).select("*").single();
+    if (error) throw error;
+    return { ok: true, order: ministryRow(data), edited: true };
+  }
+  const { data, error } = await db.from("ministry_orders").insert(fields).select("*").single();
+  if (error) throw error;
+  return { ok: true, order: ministryRow(data), edited: false };
+}
+
+// 취소 — '신청완료'인 내 신청만, 기간 안에서만
+async function ministryCancel(b: any) {
+  const userId = String(b.user_id || "");
+  if (!userId) return { ok: false, error: "user_id 필요" };
+  const cfg = await ministryCfg();
+  if (!cfg.isOpen) return { ok: false, error: "신청 기간이 지나 취소할 수 없습니다" };
+  const { data: row } = await db.from("ministry_orders")
+    .select("id,status").eq("year", cfg.year).eq("user_id", userId).maybeSingle();
+  if (!row) return { ok: false, error: "신청을 찾을 수 없습니다" };
+  if (row.status !== "신청완료") return { ok: false, error: "담당자 검토가 시작되어 취소할 수 없습니다" };
+  const { error } = await db.from("ministry_orders").delete().eq("id", row.id);
+  if (error) throw error;
+  return { ok: true };
+}
+
+// 관리자 명단 — 신청은 많아야 수백 건이라 전부 내려주고 화면에서 추린다
+async function ministryList(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const cfg = await ministryCfg();
+  const year = Number(b.year) || cfg.year;
+  const { data, error } = await db.from("ministry_orders")
+    .select("*").eq("year", year).order("created_at", { ascending: false }).limit(2000);
+  if (error) throw error;
+  const rows = (data ?? []) as any[];
+
+  // 이름·소속은 신청 당시 스냅샷을 쓰되, 비어 있으면 users에서 채운다
+  const need = [...new Set(rows.filter((r) => !r.name).map((r) => r.user_id))];
+  const umap = new Map<string, any>();
+  if (need.length) {
+    const { data: users } = await db.from("users")
+      .select("id,type,gu,mok,bu,grade,name").in("id", need);
+    for (const u of (users ?? []) as any[]) umap.set(u.id, u);
+  }
+  // ⚠️ 알림을 켜 두지 않은 분은 푸시가 안 간다 — 담당자가 게시·연락으로 메워야 하므로
+  //    화면이 그 사실을 알 수 있게 함께 내려준다(필사 신청에서 배운 것).
+  const hasPush = new Set<string>();
+  if (rows.length) {
+    const { data: subs } = await db.from("push_subscriptions")
+      .select("user_id").in("user_id", rows.map((r) => r.user_id));
+    for (const s of ((subs ?? []) as any[])) hasPush.add(s.user_id);
+  }
+
+  const list = rows.map((r) => {
+    const u = umap.get(r.user_id);
+    let who = r.who ?? "";
+    if (!who && u) {
+      who = (u.type === "교구" ? [u.gu, u.mok ? u.mok + "목장" : ""] : [u.bu, u.grade])
+        .filter(Boolean).join(" ");
+    }
+    return {
+      ...ministryRow(r),
+      name: r.name || (u ? u.name : "") || "",
+      who,
+      notified_at: r.notified_at,
+      canPush: hasPush.has(r.user_id),
+    };
+  });
+
+  // 팀별 신청 수 — 담당자가 가장 먼저 궁금해하는 숫자
+  const counts: Record<string, number> = {};
+  for (const r of rows) {
+    for (const c of (Array.isArray(r.choices) ? r.choices : [])) {
+      const k = (c && c.committee ? c.committee : "") + " · " + (c && c.team ? c.team : "");
+      counts[k] = (counts[k] ?? 0) + 1;
+    }
+  }
+  return { ok: true, year, list, counts };
+}
+
+// 관리자 상태 변경 — '임명확정'으로 바뀌면 앱 푸시를 한 번 보낸다
+async function ministrySetStatus(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const id = Number(b.id) || 0;
+  const status = norm(b.status);
+  if (!id || MINISTRY_STATUS.indexOf(status) < 0) return { ok: false, error: "id/status 확인" };
+  const { data: row } = await db.from("ministry_orders").select("*").eq("id", id).maybeSingle();
+  if (!row) return { ok: false, error: "신청을 찾을 수 없습니다" };
+
+  const patch: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
+  if (status === "임명확정" || status === "미채택") patch.decided_at = new Date().toISOString();
+  if (typeof b.note === "string") patch.note = norm(b.note);
+
+  let pushed = 0;
+  let pushError: string | null = null;
+  // 확정 알림은 한 번만 — 상태를 오가며 눌러도 다시 보내지 않는다
+  if (status === "임명확정" && !row.notified_at) {
+    const res = await ministryNotify(row);
+    pushed = res.sent;
+    pushError = res.error;
+    if (res.sent > 0) patch.notified_at = new Date().toISOString();
+  }
+  const { error } = await db.from("ministry_orders").update(patch).eq("id", id);
+  if (error) throw error;
+  return { ok: true, status, pushed, pushError };
+}
+
+// 그 성도의 기기에만 발송. 알림을 켜 두지 않았으면 조용히 0건 —
+// ⚠️ 그때는 게시로 알린다. 푸시가 게시를 대신하는 것이 아니라 함께 가는 것이다(2026-09-08 결정).
+async function ministryNotify(row: any) {
+  const { data: subs } = await db.from("push_subscriptions")
+    .select("id,endpoint,p256dh,auth").eq("user_id", row.user_id);
+  const list = (subs ?? []) as any[];
+  if (!list.length) return { sent: 0, error: "not-subscribed" };
+  const who = norm(row.name);
+  const teams = (Array.isArray(row.choices) ? row.choices : [])
+    .map((c: any) => norm(c && c.team)).filter(Boolean).join(", ");
+  const payload = JSON.stringify({
+    title: "[고척교회 사역신청]",
+    body: (who ? who + " 성도님, " : "성도님, ") +
+      row.year + "년도 사역 임명이 확정되었습니다" + (teams ? " (" + teams + ")" : "") +
+      ". 자세한 내용은 게시판에서도 확인하실 수 있습니다. 샬롬!",
+    url: "https://gocheok.onlybible.kr/",
+  });
+  return await pushToSubs(list, payload, "ministry", "사역 임명확정");
 }
