@@ -37,6 +37,7 @@ from openpyxl.worksheet.datavalidation import DataValidation
 OUT_DIR = os.path.join(os.path.dirname(__file__), "..", "ministry")
 OUT_XLSX = os.path.join(OUT_DIR, "2027_사역신청_부서확인양식.xlsx")
 OUT_JSON = os.path.join(OUT_DIR, "ministry_catalog_2027_draft.json")
+SPLIT_DIR = os.path.join(OUT_DIR, "부서확인")  # 위원회별 분리본(부서장께 하나씩 보낸다)
 
 # committee, group(중분류, 없으면 ""), team, kind(apply/appoint),
 # schedule(사역 시간·요일, 확인된 것만 — 2026-09-07 찬양부부터 채워지기 시작),
@@ -208,7 +209,8 @@ def style_header(ws, ncols):
     ws.freeze_panes = "A2"
 
 
-def build_main_sheet(wb):
+def build_main_sheet(wb, rows=None):
+    """rows 를 주면 그 부서 것만 담는다(위원회별 분리본). 안 주면 전체."""
     ws = wb.active
     ws.title = "사역팀 확인"
     ws.append(HEADER)
@@ -218,7 +220,8 @@ def build_main_sheet(wb):
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
     prev_committee = None
-    for i, (committee, group, team, kind, schedule, option, conflict) in enumerate(ROWS, start=1):
+    for i, (committee, group, team, kind, schedule, option, conflict) in enumerate(
+            ROWS if rows is None else rows, start=1):
         r = ws.max_row + 1
         ws.append([
             i, committee, group, team, KIND_LABEL[kind], schedule, "", "", option, conflict,
@@ -272,7 +275,8 @@ def build_notice_sheet(wb):
     ws.column_dimensions["B"].width = 70
 
 
-def build_guide_sheet(wb):
+def build_guide_sheet(wb, committee=None):
+    """committee 를 주면 그 부서 전용 안내로 바꾼다(분리본은 필터를 쓸 일이 없다)."""
     ws = wb.create_sheet("안내", 0)
     ws.sheet_view.showGridLines = False
     ws.column_dimensions["A"].width = 4
@@ -284,12 +288,15 @@ def build_guide_sheet(wb):
         cell.alignment = Alignment(vertical="top", wrap_text=wrap)
         return cell
 
-    put(2, "2027 사역신청 — 부서 확인 양식", size=18, bold=True, color=NAVY)
+    put(2, ("2027 사역신청 — %s 확인 양식" % committee) if committee
+           else "2027 사역신청 — 부서 확인 양식", size=18, bold=True, color=NAVY)
     put(4, "종이 「2026 사역신청서」와 「2026년도 교회부서 조직」(인사표) 두 문서를 대조해 만든 사역팀 초안입니다. "
             "이 파일에서 우리 부서 자리를 확인·수정해 주시면, 그 내용이 앱(성경말씀 암송 앱) 사역신청 화면의 최종 목록이 됩니다.",
         size=11)
     put(6, "사용 방법", size=13, bold=True, color=NAVY)
-    put(7, "1. 「사역팀 확인」 시트에서 화면 위 필터로 우리 부서만 골라 봅니다(B열 '위원회/부서').")
+    put(7, ("1. 「사역팀 확인」 시트에 %s 사역팀만 담겨 있습니다. 다른 부서 것은 없으니 그대로 보시면 됩니다."
+            % committee) if committee
+           else "1. 「사역팀 확인」 시트에서 화면 위 필터로 우리 부서만 골라 봅니다(B열 '위원회/부서').")
     put(8, "2. 각 사역팀명이 2027년 실제 명칭과 같은지 확인합니다.")
     put(9, "3. F열 '사역 시간·요일'과 G열 '하는 일'을 채워 주세요 — 대부분 비어 "
             "있습니다(2026-09-07 추가, 찬양부 일부만 먼저 확인되어 채워져 있습니다). "
@@ -306,9 +313,10 @@ def build_guide_sheet(wb):
              "J열 '확인이 필요한 사유'에 무엇이 다른지 적어 두었습니다.")
     put(17, "▨ 회색 행 — 신청이 아니라 지명으로 맡는 임명직입니다. 성도가 직접 신청하지 않으므로 앱의 신청 목록에는 넣지 않습니다. "
              "이름이 맞는지만 확인해 주세요(시간·요일·인원은 안 채우셔도 됩니다).")
-    put(19, "임명직만 있어 개별 사역팀이 없는 부서(M-12부·재정부·감사위원회 등)는 "
-             "「임명직 전용 부서」 시트에 따로 안내했습니다.")
-    put(21, "문의: 제자양육부 신앙운동팀", size=10, color="5C6070")
+    if not committee:
+        put(19, "임명직만 있어 개별 사역팀이 없는 부서(M-12부·재정부·감사위원회 등)는 "
+                 "「임명직 전용 부서」 시트에 따로 안내했습니다.")
+    put(21, "문의: 방송전산부 전산팀", size=10, color="5C6070")
 
 
 def main():
@@ -340,10 +348,45 @@ def main():
     with open(OUT_JSON, "w", encoding="utf-8") as f:
         json.dump(seed, f, ensure_ascii=False, indent=2)
 
+    made = build_split_files()
+
     if xlsx_ok:
         print(f"작성 완료: {os.path.abspath(OUT_XLSX)}")
     print(f"원본 데이터: {os.path.abspath(OUT_JSON)}")
+    print(f"부서별 분리본: {made}개 -> {os.path.abspath(SPLIT_DIR)}")
     print(f"총 {len(ROWS)}개 사역팀 항목, 임명직 전용 안내 부서 {len(APPOINT_ONLY_NOTICES)}개")
+
+
+def build_split_files():
+    """위원회별로 자기 것만 담긴 파일을 따로 뽑는다.
+
+    ⚠️ 왜 나누나 — 94팀이 한 파일에 있으면 부서장이 「필터로 우리 부서만 보세요」
+       를 먼저 해내야 한다. 그 한 단계가 회신율을 깎는다. 각자 자기 파일만
+       열면 바로 채울 수 있게 나눈다(내용·서식은 통합본과 같다).
+    ⚠️ 순번은 부서마다 1번부터 다시 센다 — 통합본의 번호를 그대로 쓰면
+       「7번부터 시작하는 표」를 받게 되어 어리둥절하다.
+    """
+    os.makedirs(SPLIT_DIR, exist_ok=True)
+    committees, seen = [], set()
+    for r in ROWS:
+        if r[0] not in seen:
+            seen.add(r[0])
+            committees.append(r[0])
+
+    made = 0
+    for c in committees:
+        rows = [r for r in ROWS if r[0] == c]
+        wb = Workbook()
+        build_main_sheet(wb, rows=rows)
+        build_guide_sheet(wb, committee=c)
+        safe = c.replace("/", "-").replace("\\", "-")
+        path = os.path.join(SPLIT_DIR, f"2027_사역신청_확인_{safe}.xlsx")
+        try:
+            wb.save(path)
+            made += 1
+        except PermissionError:
+            print(f"!! 열려 있어 건너뜀: {os.path.basename(path)}")
+    return made
 
 
 if __name__ == "__main__":
