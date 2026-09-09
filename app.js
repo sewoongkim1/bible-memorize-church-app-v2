@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260909m";
+const APP_BUILD = "20260909n";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1857,7 +1857,7 @@ function renderSummary() {
     <button class="summary-help" id="open-board">💬 응원·기도·공감</button>
     <button class="summary-help" id="open-prayer">🙏 가정 축복 기도문${newBadge("prayer")}</button>
     <button class="summary-help" id="open-quiz">🎯 성경암송 퀴즈</button>
-    ${ministryVisible() ? `<button class="summary-help" id="open-ministry">🤝 사역 신청${newBadge("ministry")}</button>` : ""}
+    ${ministryVisible() ? `<button class="summary-help" id="open-ministry">🤝 사역신청${newBadge("ministry")}</button>` : ""}
     <button class="summary-help" id="open-pilsa">✍️ 성경필사 노트 신청</button>
     ${passagesVisible() ? `<button class="summary-help" id="open-passages">📜 내 안에 거하는 말씀${newBadge("passages")}</button>` : ""}
     <!-- 아카이브 둘은 앱 밖(다른 사이트)으로 나간다. 그 사실이 보이게 ↗ 와 흰 바탕으로
@@ -8834,15 +8834,13 @@ function minApiReady() { return !!(window.api && api.ministryCatalog && api.mini
 // ?preview=ministry 로 열면 기간 밖에도 시험해 볼 수 있다 — 서버가 관리자 비번을 보고 통과시킨다.
 // ⚠️ 비번은 sessionStorage 에만 둔다(관리자 화면과 같은 열쇠). 성도님 화면에는 이 길이 없다.
 const MIN_PREVIEW = location.search.indexOf("preview=ministry") >= 0;
+// ⚠️ **비번을 묻지 않는다.** 서버가 preview 깃발만으로 통과시키므로(2026-09-09),
+//    물어 봤자 시험하시는 분들은 답을 모르고 그 자리에서 막힌다.
+//    관리자 화면을 이미 연 탭이면 sessionStorage 에 들어 있어 그대로 함께 보낸다 —
+//    신청 기간 전에 || b.preview 를 도로 막고 나면 그때는 이 값이 열쇠가 된다.
 function minPw() {
   if (!MIN_PREVIEW) return "";
-  let p = "";
-  try { p = sessionStorage.getItem("admin-pw") || ""; } catch (e) {}
-  if (!p) {
-    p = prompt("미리보기 시험 — 관리자 비밀번호를 넣어 주세요(신청 기간 전이라 필요합니다)") || "";
-    try { if (p) sessionStorage.setItem("admin-pw", p); } catch (e) {}
-  }
-  return p;
+  try { return sessionStorage.getItem("admin-pw") || ""; } catch (e) { return ""; }
 }
 
 // ⚠️ 팀 이름은 부서가 적어 보낸 값이라 반드시 escape 한다(app.js 에 공용 esc 가 없어 따로 둔다)
@@ -9369,10 +9367,10 @@ function minDoneHtml(u) {
     // 기간이든 아니든 목록은 늘 볼 수 있다: 막다른 화면을 만들지 않는다.
     '<div class="min-acts">' +
       (canGo
-        ? '<button class="min-cta" id="min-go">사역 신청 수정</button>'
+        ? '<button class="min-cta" id="min-go">사역신청 수정</button>'
         : '<button class="min-ghost" id="min-go">🗂️ 사역 목록 보기</button>') +
       (canEdit
-        ? '<button class="min-ghost min-cancel" id="min-cancel">사역 신청 취소</button>'
+        ? '<button class="min-ghost min-cancel" id="min-cancel">사역신청 취소</button>'
         : "") +
     '</div>';
 }
