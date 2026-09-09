@@ -166,6 +166,7 @@ CSS = r'''
   --navy:#1a3a6b; --navy-d:#132a4d; --gold:#a8873c;
   --ink:#1b1f27; --sub:#5a6474; --line:#c9cfd9; --cream:#fffdf8;
   --tf:'BookKRB','BookKR',serif;   /* 제목 — --no-bold 면 본문 서체로 바뀐다 */
+  --line-strong:#8b93a1;           /* 노트 쪽의 머리 줄·끝 줄 — 쓰는 자리를 가둔다 */
 }
 * { box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
 html,body { margin:0; padding:0; background:#7c8595; }
@@ -228,6 +229,22 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
 .ln { flex:0 0 8mm; border-bottom:.7px solid #d7dce4; }
 .lines.grow { flex:1; min-height:0; overflow:hidden; }
 
+/* 말씀 따라 쓰기 칸 — 왼쪽 쪽의 성경본문 상자(.scr)와 같은 모양으로 맞춘다.
+   펼쳐 놓으면 왼쪽 상자와 오른쪽 상자가 나란히 서서 「이걸 여기다 옮겨 적는다」가 보인다. */
+.wbox { margin-top:auto; background:var(--cream); border-left:2.6mm solid var(--navy);
+        border-radius:0 2mm 2mm 0; padding:4mm 4.4mm 1.4mm; }
+.wb-hd { display:flex; align-items:baseline; }
+.wb-hd .lab { margin-bottom:2.4mm; }
+.wb-r { margin-left:auto; font-family:var(--tf); font-size:9.5pt; color:var(--navy);
+        letter-spacing:.02em; }
+.wbox .ln { border-bottom-color:#cdd3dd; }
+
+/* 노트 쪽은 머리 줄과 **맨 끝 줄**을 진하게 — 쓰는 자리가 위아래로 갇혀 보인다.
+   ⚠️ 끝 줄은 말씀 칸의 마지막 `.ln` 이다(단락 칸의 마지막 줄이 아니다) — 단락 칸은
+      넘치는 줄을 잘라 내므로 `:last-child` 가 화면에 보이는 마지막 줄이 아닐 수 있다. */
+.pR .hd { border-bottom:1.1px solid var(--line-strong); }
+.wbox .lines .ln:last-child { border-bottom:1.1px solid var(--line-strong); }
+
 /* ── 꼬리말 ─────────────────────────────────────────── */
 .ft { position:absolute; left:13mm; right:13mm; bottom:5.5mm;
       display:flex; justify-content:space-between; align-items:baseline;
@@ -273,7 +290,7 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
 .bk-hd .st { margin-left:auto; font-size:9.5pt; color:var(--gold); white-space:nowrap; }
 .ep { display:flex; align-items:baseline; font-size:10.5pt; line-height:1.62;
       color:#2b3240; padding:.5mm 0; }
-.ep .mk { width:6mm; flex:none; color:var(--gold); }
+.ep { padding-left:5mm; }        /* 묶음 머리보다 한 칸 들여쓴다 */
 .ep .nm { word-break:keep-all; }
 .ep .dot { flex:1; border-bottom:1px dotted #cdd3dd; margin:0 1.6mm 1mm; min-width:4mm; }
 .ep .dt { font-size:9.5pt; color:var(--sub); white-space:nowrap; }
@@ -328,25 +345,32 @@ def page_classic(it, pno, body_pt):
 
 
 def page_note(it, pno):
-    """홀수쪽 — 성경본문 따라 쓰기 + 메모.
+    """홀수쪽 — **왼쪽 쪽을 그대로 비춘다**(2026-09-09).
 
-    ⚠️ 필사 줄 수를 고정하지 않는다. 성경본문이 32자~175자로 5배 차이라
-       고정하면 짧은 날은 줄이 남고 긴 날은 모자란다. 남는 자리는 메모가 전부 가져간다.
+    왼쪽 위 고전 발췌문 → 오른쪽 위 「단락 따라 쓰기」
+    왼쪽 아래 성경본문 상자 → 오른쪽 아래 「말씀 따라 쓰기」(같은 모양의 상자)
+
+    ⚠️ 말씀 칸의 줄 수를 고정하지 않는다. 성경본문이 32자~175자로 5배 차이라
+       고정하면 짧은 날은 줄이 남고 긴 날은 모자란다.
+    ⚠️ 발췌문(176~262자)까지 다 옮겨 적을 줄을 주면 한 쪽에 27줄이 필요해 들어가지 않는다.
+       그래서 **말씀 칸은 필요한 만큼, 단락 칸은 남는 만큼** 가져간다 — 왼쪽 쪽에서
+       성경 상자가 아래에 붙고 발췌문이 위를 채우는 것과 같은 구조다.
     """
     n = len(it['scripture'])
     rows = max(NOTE_MIN, min(NOTE_MAX, -(-n // HAND_PER_LINE) + 1))
     ln = '<div class="ln"></div>'
-    trace = ln * rows
-    memo = ln * 20          # 넉넉히 두면 칸에 맞는 수만 남는다(넘치는 줄은 안 그려진다)
     return '''<div class="page pR">
- <div class="hd"><b>%(day)d일</b> · %(date)s · %(ref)s</div>
- <div><span class="lab">말씀 따라 쓰기</span></div>
- <div class="lines">%(tr)s</div>
- <div><span class="lab m">묵상</span></div>
- <div class="lines grow">%(mm)s</div>
+ <div class="hd"><b>%(day)d일</b> · %(date)s</div>
+ <div><span class="lab">단락 따라 쓰기</span></div>
+ <div class="lines grow">%(par)s</div>
+ <div class="wbox">
+  <div class="wb-hd"><span class="lab">말씀 따라 쓰기</span><span class="wb-r">%(ref)s</span></div>
+  <div class="lines">%(scr)s</div>
+ </div>
  %(ft)s
 </div>''' % dict(day=it['day'], date=esc(it['date']), ref=esc(it['ref']),
-                 tr=trace, mm=memo, ft=foot(pno, D['church'], ''))
+                 par=ln * 20,        # 넉넉히 두면 칸에 맞는 수만 남는다
+                 scr=ln * rows, ft=foot(pno, D['church'], ''))
 
 
 def page_cover():
@@ -403,13 +427,16 @@ def index_pages(items, start_pno):
         books[-1]['eps'].append(it)
 
     def block(b):
-        # ⚠️ 소제목이 없는 편에 책 이름을 다시 쓰지 않는다 — 「참된 목자 / ① 참된 목자 /
-        #    ② 참된 목자」가 되어 두 편을 가릴 수가 없다. 그럴 때는 그날 성경본문을 쓴다.
+        # 편 이름은 **「참된 목자 1」 꼴**로 쓴다(2026-09-09 요청).
+        #   한때 성경본문 출처(로마서 6:23)를 넣었으나, 차례에서 찾는 것은 「몇 번째 편인가」다.
+        #   ⚠️ 소제목(천로역정·고백록 등)이 있으면 그것이 이긴다 — 그 편에서만 알 수 있는
+        #      정보이고, 「천로역정 1」보다 「내가 진리의 길을 걷는다」가 훨씬 잘 가린다.
         eps = ''.join(
-            '<div class="ep"><span class="mk">%s</span><span class="nm">%s</span>'
+            '<div class="ep"><span class="nm">%s</span>'
             '<span class="dot"></span><span class="dt">%s</span>'
             '<span class="pg">%d</span></div>'
-            % (circ(e['mark']), esc(e['sub'] or e['ref']), esc(e['date']), e['page'])
+            % (esc(e['sub'] or '%s %d' % (e['book'], CIRCLED.find(e['mark']) + 1)),
+               esc(e['date']), e['page'])
             for e in b['eps'])
         return ('<div class="bk"><div class="bk-hd"><span class="nm">%s</span>'
                 '<span class="au">%s</span><span class="st">%s</span></div>%s</div>'
