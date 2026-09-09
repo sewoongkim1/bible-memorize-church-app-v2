@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260909n";
+const APP_BUILD = "20260909o";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9221,7 +9221,7 @@ function minConfirmHtml() {
       '<span class="min-info"><span class="min-nm">' + minEsc(t.team) +
       ' <span class="min-com">· ' + minEsc(t.committee) + '</span></span>' +
       (meta ? '<span class="min-meta">' + meta + '</span>' : "") + '</span>' +
-      '<button class="min-del" data-drop="' + t.id + '">빼기</button></div>';
+      '<button class="min-del" data-drop="' + t.id + '">취소</button></div>';
   }
   return '<h2 class="rank-title">🤝 신청 사역 확인</h2>' +
     '<p class="min-sub">이 사역으로 신청합니다</p>' +
@@ -9351,7 +9351,7 @@ function minDoneHtml(u) {
     minStepsHtml(worst) +
     rows +
     '<div class="min-count has">' + (m ? m.used : 0) + ' / ' + MIN_MAX + ' 신청' +
-      (left > 0 ? ' · <b>' + left + '자리 남음</b>' : "") + '</div>' +
+      (left > 0 ? ' · <b>추가 ' + left + '사역 가능</b>' : "") + '</div>' +
     // 담당자가 결정을 되돌리면 3개를 넘길 수 있다 — 숨기지 말고 알린다
     (m && m.used > MIN_MAX
       ? '<div class="min-note min-lock">신청이 <b>' + m.used + '건</b>으로 ' + MIN_MAX +

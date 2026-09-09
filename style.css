@@ -4435,8 +4435,11 @@ body.pr-full-on { overflow: hidden; }
 .min-p4 { display: flex; align-items: center; gap: 12px; background: var(--white);
   border: 1.5px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
 .min-p4 label { font-size: .92rem; font-weight: 700; color: var(--navy); flex: none; }
-.min-p4 input { flex: 1; min-width: 0; font: inherit; font-size: 1.25rem; font-weight: 800;
-  letter-spacing: .35em; text-align: center; padding: 10px 8px; border: 1.5px solid var(--border);
+/* ⚠️ 예전엔 뒷 4자리 칸이라 1.25rem + letter-spacing .35em 이었다. 번호 전체(13자)가
+   들어오면서 넘쳤다 — 게다가 .35em 은 글씨 크기 설정을 따라 함께 커진다(「큰 글씨를
+   잊고 em 으로 폭을 잡지 말 것」). 필사 노트 신청의 번호 칸과 같은 값으로 맞춘다. */
+.min-p4 input { flex: 1; min-width: 0; font: inherit; font-size: 1.05rem; font-weight: 700;
+  letter-spacing: .02em; text-align: center; padding: 10px 8px; border: 1.5px solid var(--border);
   border-radius: 10px; background: var(--cream); color: #222; }
 .min-pos { flex: 1; min-width: 0; font: inherit; font-size: 1.02rem; font-weight: 700;
   padding: 11px 10px; border: 1.5px solid var(--border); border-radius: 10px;
