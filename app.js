@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260909k";
+const APP_BUILD = "20260909l";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9250,7 +9250,7 @@ function minConfirmHtml() {
       '담당자가 접수하면 그 사역 안내에 <b>이름·직분·교구-목장</b>이 다른 성도님께도 보여요.</div>' +
     '<div class="min-note">마감(<b>' + minPeriodText() + '</b>) 전까지는 언제든 고쳐 낼 수 있어요.</div>' +
     '<button class="min-cta" id="min-submit">제출하기<span class="min-cta-s">신청 후 임명을 받아야 시작할 수 있어요</span></button>' +
-    '<button class="min-ghost" id="min-back">다시 고르기</button>';
+    '<button class="min-ghost" id="min-back">사역신청 화면으로</button>';
 }
 
 function minWhoText() {
