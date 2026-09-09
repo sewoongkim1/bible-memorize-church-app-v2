@@ -4431,6 +4431,10 @@ body.pr-full-on { overflow: hidden; }
 .min-p4 input { flex: 1; min-width: 0; font: inherit; font-size: 1.25rem; font-weight: 800;
   letter-spacing: .35em; text-align: center; padding: 10px 8px; border: 1.5px solid var(--border);
   border-radius: 10px; background: var(--cream); color: #222; }
+.min-pos { flex: 1; min-width: 0; font: inherit; font-size: 1.02rem; font-weight: 700;
+  padding: 11px 10px; border: 1.5px solid var(--border); border-radius: 10px;
+  background: var(--cream); color: #222; }
+.dark .min-pos { background: #1b2233; border-color: #3a4a68; color: #e8ecf5; }
 .dark .min-p4 { background: #232c3f; border-color: #3a4a68; }
 .dark .min-p4 input { background: #1b2233; border-color: #3a4a68; color: #e8ecf5; }
 .min-who { font-size: .86rem; color: var(--gray); margin: 0 2px 10px; }
@@ -4450,7 +4454,19 @@ body.pr-full-on { overflow: hidden; }
 .min-acc.open .min-got { color: #ffe9a8; }
 .min-acc-b { padding: 9px; display: flex; flex-direction: column; gap: 7px;
   border-top: 1px solid var(--border); }
-.min-grp { font-size: .78rem; color: var(--gray); font-style: italic; margin: 4px 2px 0; }
+/* 묶음 머리 — 이름은 제목, 안내는 그 아래 딱지. 한 줄에 이어 붙이면
+   「사랑부·어와나 · 어와나 4개 중 하나만 신청」처럼 한 문장으로 읽힌다. */
+.min-grp { margin: 10px 0 0; padding: 7px 10px 8px;
+  background: #eef1f8; border-radius: 9px 9px 0 0; border-bottom: 2px solid var(--navy); }
+.min-grp-h { font-size: .86rem; font-weight: 800; color: var(--navy); }
+.min-grp-opt { display: inline-block; margin-top: 5px; padding: 2px 8px;
+  font-size: .72rem; font-weight: 700; color: #8a6a1e; background: #fbf1d8;
+  border-radius: 999px; }
+/* 묶음에 드는 팀은 안쪽으로 들여 세운다 — 어디까지가 그 묶음인지 눈으로 보이게 */
+.min-grp-b { display: flex; flex-direction: column; gap: 7px;
+  padding: 8px 0 4px 9px; border-left: 2px solid #d8dfee; margin-left: 6px; }
+.min-grp-b.none { padding: 0; border-left: none; margin-left: 0; }
+.min-grp-b:not(.none) + .min-grp { margin-top: 4px; }
 
 /* 줄 = 상자, 그 안에 「고르기」와 「자세히」 두 단추 (단추 안 단추는 안 되므로) */
 .min-row { border: 1.5px solid var(--border); border-radius: 11px;
@@ -4525,6 +4541,11 @@ body.pr-full-on { overflow: hidden; }
 .min-d-row + .min-d-row { margin-top: 13px; padding-top: 13px; border-top: 1px solid var(--border); }
 .min-d-l { font-size: .74rem; font-weight: 800; letter-spacing: .04em; color: var(--gold); margin-bottom: 4px; }
 .min-d-v { font-size: .93rem; line-height: 1.72; color: #333; word-break: keep-all; }
+.min-d-n { font-weight: 700; color: var(--gray); letter-spacing: 0; }
+.min-d-who { display: flex; flex-wrap: wrap; gap: 6px; }
+.min-d-p { font-size: .86rem; color: #333; background: #eef1f8;
+  border-radius: 999px; padding: 5px 11px; }
+.dark .min-d-p { color: #cfe0ff; background: #232c3f; }
 .min-d-none, .min-d-note { font-size: .85rem; line-height: 1.7; color: var(--gray); }
 .min-d-note { margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--border); }
 .min-d-foot { display: flex; flex-direction: column; gap: 8px;
@@ -4535,6 +4556,10 @@ body.pr-full-on { overflow: hidden; }
 .min-d-close2 { width: 100%; padding: 11px; font: inherit; font-size: .88rem; font-weight: 700;
   color: var(--gray); background: none; border: none; cursor: pointer; }
 
+.dark .min-grp { background: #1e2637; border-bottom-color: #4a6394; }
+.dark .min-grp-h { color: #cfe0ff; }
+.dark .min-grp-opt { color: #e2c98a; background: #33301f; }
+.dark .min-grp-b { border-left-color: #3a4a68; }
 .dark .min-acc { background: #232c3f; border-color: #4a6394; }
 .dark .min-acc-h { background: #232c3f; color: #cfe0ff; }
 .dark .min-row { background: #232c3f; border-color: #3a4a68; }

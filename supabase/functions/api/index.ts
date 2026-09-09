@@ -3065,6 +3065,7 @@ function ministryRow(r: any) {
     choices: Array.isArray(r.choices) ? r.choices : [],
     status: r.status,
     note: r.note ?? "",
+    position: r.position ?? "",
     at: kstDay(r.created_at).replace(/-/g, "."),
     created_at: r.created_at,
     decided_at: r.decided_at ?? null,
@@ -3076,7 +3077,7 @@ async function ministryCatalog(b: any) {
   const cfg = await ministryCfg();
   const year = Number(b.year) || cfg.year;
   const { data, error } = await db.from("ministry_catalog")
-    .select("id,committee,group_name,team,kind,schedule_note,desc_note,capacity_note,option_note,sort_order")
+    .select("id,committee,group_name,team,kind,schedule_note,desc_note,capacity_note,option_note,members_note,sort_order")
     .eq("year", year).order("sort_order", { ascending: true });
   if (error) throw error;
   return {
@@ -3089,6 +3090,8 @@ async function ministryCatalog(b: any) {
       sched: ministryHtml(r.schedule_note, 160),
       desc: ministryHtml(r.desc_note, 400),
       capacity: ministryHtml(r.capacity_note, 80),
+      // 「지금 섬기는 분」 — 관리자가 한 줄에 한 분씩 적은 것. 여러 명이라 자리가 넉넉하다.
+      members: ministryHtml(r.members_note, 1200),
       opt: r.option_note,
     })),
   };
@@ -3146,6 +3149,10 @@ async function ministryApply(b: any) {
   if (!MIN_PHONE4_RE.test(phone4)) {
     return { ok: false, error: "휴대폰 뒷 4자리를 넣어 주세요" };
   }
+  const position = norm(b.position);
+  if (!MIN_POSITIONS.has(position)) {
+    return { ok: false, error: "직분을 골라 주세요" };
+  }
 
   const opts: Record<string, string> = (b.options ?? {}) as any;
   const byId = new Map(found.map((t) => [t.id, t]));
@@ -3163,6 +3170,7 @@ async function ministryApply(b: any) {
     who: (me && me.who) || norm(b.who) || null,
     choices,
     phone4,
+    position,
     updated_at: new Date().toISOString(),
   };
 
@@ -3296,6 +3304,11 @@ async function ministrySetStatus(b: any) {
 //    관리자 비번이 한 번 새면 그대로 저장형 XSS 가 된다. 그래서 꾸밈에 쓰는 태그와
 //    style 속성만 남기고 나머지는 서버가 지운다(스크립트·이벤트 핸들러·링크·이미지 전부).
 //    ⚠️ 저장할 때와 내려줄 때 **양쪽에서** 거른다 — 엑셀 시드로 들어온 값도 거쳐야 한다.
+// 직분 — 고른 것만 받는다. 자유 입력이면 「집사님」·「집사 」가 섞여
+// 교적 대조가 도로 사람 손일이 된다(그러라고 받는 값이 아니다).
+const MIN_POSITIONS = new Set(
+  ["성도", "집사", "권사", "안수집사", "장로", "전도사", "목사", "학생"]);
+
 const MIN_TAGS = new Set(["b", "strong", "i", "em", "u", "s", "br", "span", "small", "mark"]);
 const MIN_STYLE_OK = /^(color|background-color|font-weight|font-size|text-decoration)$/;
 
@@ -3345,14 +3358,16 @@ async function ministryCatalogSave(b: any) {
     schedule_note: ministryHtml(b.schedule_note, 160),
     desc_note: ministryHtml(b.desc_note, 400),
     capacity_note: ministryHtml(b.capacity_note, 80),
+    members_note: ministryHtml(b.members_note, 1200),
   };
   const { data, error } = await db.from("ministry_catalog")
     .update(patch).eq("id", id)
-    .select("id,committee,team,schedule_note,desc_note,capacity_note").single();
+    .select("id,committee,team,schedule_note,desc_note,capacity_note,members_note").single();
   if (error) throw error;
   // 걸러진 뒤의 값을 돌려준다 — 화면이 「내가 친 것」이 아니라 「실제 저장된 것」을 보여야 한다
   return { ok: true, id: data.id, team: data.team,
-           sched: data.schedule_note, desc: data.desc_note, capacity: data.capacity_note };
+           sched: data.schedule_note, desc: data.desc_note, capacity: data.capacity_note,
+           members: data.members_note };
 }
 
 // 그 성도의 기기에만 발송. 알림을 켜 두지 않았으면 조용히 0건 —

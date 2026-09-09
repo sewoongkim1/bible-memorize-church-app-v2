@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260908g";
+const APP_BUILD = "20260909a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -6296,7 +6296,7 @@ function renderPrivacyInfo(back) {
             <li>암송 진행 기록, 복습 및 도전 참여 기록</li>
             <li>게시판에 올리신 글·답글과 <b>사진</b> (모든 분에게 공개)</li>
             <li>성경필사 노트 신청 시 <b>휴대폰 번호</b> (배부가 끝나면 삭제)</li>
-            <li>사역 신청 시 <b>휴대폰 뒷 4자리</b> (임명이 정해지면 삭제)</li>
+            <li>사역 신청 시 <b>휴대폰 뒷 4자리</b> (임명이 정해지면 삭제)<b>와 직분</b></li>
             <li>기기 식별용 임의 ID (알림을 켤 때만)</li>
           </ul>
         </section>
@@ -6621,7 +6621,7 @@ function renderHelp(onClose) {
         <section class="help-section">
           <h3>🔒 개인정보 안내</h3>
           <ul>
-            <li><b>수집 항목</b>: 구분(교구/교회학교)·소속·목장/학년·이름과 암송·도전 기록이에요. <b>성경필사 노트를 신청할 때만 휴대폰 번호</b>를 받습니다(노트가 준비되면 연락드리기 위해). <b>사역 신청을 할 때는 휴대폰 뒷 4자리</b>를 받습니다(본인 확인·교적 대조 — 임명이 정해지면 지웁니다). 주민등록번호·주소·결제정보는 <b>받지 않습니다</b>.</li>
+            <li><b>수집 항목</b>: 구분(교구/교회학교)·소속·목장/학년·이름과 암송·도전 기록이에요. <b>성경필사 노트를 신청할 때만 휴대폰 번호</b>를 받습니다(노트가 준비되면 연락드리기 위해). <b>사역 신청을 할 때는 휴대폰 뒷 4자리와 직분</b>을 받습니다(본인 확인·교적 대조 — 뒷 4자리는 임명이 정해지면 지웁니다). 주민등록번호·주소·결제정보는 <b>받지 않습니다</b>.</li>
             <li><b>저장·용도</b>: 기록은 교회가 쓰는 클라우드 데이터베이스에 암호화 전송으로 저장되어 <b>본인 진도 관리와 도전 순위</b>에만 쓰입니다. 광고에 쓰거나 팔지 않습니다. 「내게 주시는 말씀」에 물어보신 <b>질문 글은 답을 만드는 AI로 전달</b>됩니다.</li>
             <li><b>순위 공개 범위</b>: 도전 순위에는 <b>이름과 소속</b>만 표시됩니다(연락처 없음). 참여한 분만 표시돼요.</li>
             <li><b>변경·삭제</b>: 이름·소속은 <b>로그인 정보변경</b>에서 언제든 수정할 수 있어요. 기록을 지우고 싶으시면 <a href="privacy/" target="_blank" rel="noopener">개인정보 안내</a>의 방법으로 알려 주세요(게시판·이메일·로비).</li>
@@ -8816,6 +8816,10 @@ let minOpen = null;       // 펼친 위원회 이름 (한 번에 하나)
 let minLoaded = false;
 let minStep = "pick";     // pick | confirm | done
 let minPhone4Val = "";    // 휴대폰 뒷 4자리 — 화면에만 잠깐 둔다(앱에 저장하지 않는다)
+let minPosVal = "";       // 직분 — 골라서 낸다(자유 입력이 아니다)
+// ⚠️ 자유 입력으로 두면 「집사님」·「집사 」가 섞여 담당자가 교적과 맞대 볼 때
+//    도로 사람 손일이 된다. 서버도 같은 목록으로 한 번 더 거른다.
+const MIN_POSITIONS = ["성도", "집사", "권사", "안수집사", "장로", "전도사", "목사", "학생"];
 const MIN_MAX = 3;
 
 // 브라우저가 옛 js/api.js를 물고 있으면 사역 액션이 아예 없다
@@ -8901,7 +8905,7 @@ function minShortOf(t) {
   }
   return "";
 }
-function minHasDetail(t) { return !!(t && (t.desc || t.capacity || t.sched)); }
+function minHasDetail(t) { return !!(t && (t.desc || t.capacity || t.sched || t.members)); }
 function minMoreBtn(t) {
   return minHasDetail(t)
     ? '<button class="min-more" data-more="' + t.id + '">자세히 보기 ›</button>' : "";
@@ -8955,10 +8959,20 @@ function minPickHtml() {
         '<span class="min-n">' + mine.length + '팀 ' + (open ? "▴" : "▾") + '</span></button>';
     if (open) {
       acc += '<div class="min-acc-b">';
-      let lastGrp = null;
+      let lastGrp = null;                                // null = 아직 아무 묶음도 안 열림
       for (const t of mine) {
-        if (t.group && t.group !== lastGrp) {
-          acc += '<div class="min-grp">' + minEsc(t.group) + (t.opt ? " · " + minEsc(t.opt) : "") + '</div>';
+        if (t.group !== lastGrp) {
+          if (lastGrp !== null) acc += '</div>';          // 앞 묶음을 닫는다
+          if (t.group) {
+            // ⚠️ 그룹 이름과 안내문을 가운뎃점으로 잇지 않는다 — 「사랑부·어와나 ·
+            //    어와나 4개 중 하나만 신청」처럼 한 문장으로 읽힌다(성도님 지적).
+            //    이름은 제목, 안내는 그 아래 딱지로 층을 갈라 놓는다.
+            acc += '<div class="min-grp"><div class="min-grp-h">' + minEsc(t.group) + '</div>' +
+              (t.opt ? '<div class="min-grp-opt">' + minEsc(t.opt) + '</div>' : "") + '</div>';
+            acc += '<div class="min-grp-b">';             // 이 묶음에 드는 팀들
+          } else {
+            acc += '<div class="min-grp-b none">';        // 묶음 없는 팀들
+          }
         }
         lastGrp = t.group;
         const on = minPicked.indexOf(t.id) >= 0;
@@ -8974,6 +8988,7 @@ function minPickHtml() {
           '<span class="min-chk">' + (on ? "✓" : "") + '</span></button>' +
           minMoreBtn(t) + '</div>';
       }
+      if (lastGrp !== null) acc += '</div>';            // 마지막 묶음 닫기
       acc += '</div>';
     }
     acc += '</div>';
@@ -9048,6 +9063,20 @@ function minDetailHtml(t) {
       '<div class="min-d-v">' + val + '</div></div>' : "";
   };
   let rows = row("언제", t.sched) + row("하는 일", t.desc) + row("필요 인원", t.capacity);
+  // 「지금 섬기는 분」 — 이름과 하는 일만으로는 「내가 낄 자리인가」가 안 그려진다.
+  // 아는 얼굴이 하나라도 보이면 문턱이 확 낮아진다(성도님 요청 2026-09-09).
+  // ⚠️ 관리자가 한 줄에 한 분씩 넣은 것이라 <br> 로 갈린다 — 줄마다 칩으로 세운다.
+  if (t.members) {
+    const who = String(t.members).split(/<br\s*\/?>/i)
+      .map(function (x) { return x.trim(); }).filter(Boolean);
+    if (who.length) {
+      rows += '<div class="min-d-row"><div class="min-d-l">지금 섬기는 분 ' +
+        '<span class="min-d-n">' + who.length + '명</span></div>' +
+        '<div class="min-d-who">' +
+        who.map(function (x) { return '<span class="min-d-p">' + x + '</span>'; }).join("") +
+        '</div></div>';
+    }
+  }
   if (!rows) {
     rows = '<p class="min-d-none">아직 자세한 안내가 올라오지 않았어요.<br>' +
       '부서 확인이 끝나면 이 자리에 채워집니다.</p>';
@@ -9115,11 +9144,20 @@ function minConfirmHtml() {
     '<p class="min-sub">이 사역으로 신청합니다 · <b>순위는 매기지 않습니다</b></p>' +
     '<div class="min-who">' + minEsc(minWhoText()) + '</div>' +
     rows +
+    '<div class="min-p4"><label for="min-pos">직분</label>' +
+      '<select id="min-pos" class="min-pos">' +
+        '<option value="">고르세요</option>' +
+        MIN_POSITIONS.map(function (x) {
+          return '<option value="' + minEsc(x) + '"' +
+            (x === minPosVal ? " selected" : "") + '>' + minEsc(x) + '</option>';
+        }).join("") +
+      '</select></div>' +
     '<div class="min-p4"><label for="min-phone4">휴대폰 <b>뒷 4자리</b></label>' +
       '<input id="min-phone4" type="tel" inputmode="numeric" maxlength="4" placeholder="0000"' +
       ' value="' + minEsc(minPhone4Val) + '" autocomplete="off"></div>' +
     '<div class="min-note">' + (minMine ? '처음 신청하실 때 넣은 4자리와 같아야 고쳐집니다. ' : '') +
-      '본인 확인과 교적 대조에만 씁니다. 임명이 정해지면 <b>바로 지웁니다</b>.</div>' +
+      '직분과 뒷 4자리는 <b>본인 확인과 교적 대조</b>에만 씁니다. ' +
+      '뒷 4자리는 임명이 정해지면 <b>바로 지웁니다</b>.</div>' +
     '<div class="min-note">마감(<b>' + minPeriodText() + '</b>) 전까지는 언제든 고쳐 낼 수 있어요.</div>' +
     '<button class="min-cta" id="min-submit">제출하기<span class="min-cta-s">신청 후 임명을 받아야 시작할 수 있어요</span></button>' +
     '<button class="min-ghost" id="min-back">다시 고르기</button>';
@@ -9146,6 +9184,8 @@ function wireMinConfirm(u) {
   document.getElementById("min-back").addEventListener("click", function () {
     minStep = "pick"; renderMinistry();
   });
+  const posel = document.getElementById("min-pos");
+  if (posel) posel.addEventListener("change", function () { minPosVal = this.value; });
   const p4el = document.getElementById("min-phone4");
   if (p4el) p4el.addEventListener("input", function () {
     this.value = this.value.replace(/[^0-9]/g, "").slice(0, 4);
@@ -9153,6 +9193,12 @@ function wireMinConfirm(u) {
   });
   const btn = document.getElementById("min-submit");
   btn.addEventListener("click", async function () {
+    minPosVal = posel ? posel.value : "";
+    if (MIN_POSITIONS.indexOf(minPosVal) < 0) {
+      alert("직분을 골라 주세요.");
+      if (posel) posel.focus();
+      return;
+    }
     minPhone4Val = (p4el ? p4el.value : "").replace(/[^0-9]/g, "");
     if (!/^[0-9]{4}$/.test(minPhone4Val)) {
       alert("휴대폰 뒷 4자리를 넣어 주세요.");
@@ -9166,7 +9212,7 @@ function wireMinConfirm(u) {
     try {
       const r = await api.ministryApply({
         user_id: u.user_id, name: u.name, who, choices: minPicked,
-        phone4: minPhone4Val, pw: minPw(),
+        phone4: minPhone4Val, position: minPosVal, pw: minPw(),
       });
       if (!r || !r.ok) { alert((r && r.error) || "신청을 저장하지 못했어요."); renderMinistry(); return; }
       minMine = r.order;
@@ -9223,6 +9269,7 @@ function wireMinDone(u) {
   const edit = document.getElementById("min-edit");
   if (edit) edit.addEventListener("click", function () {
     minPhone4Val = "";        // 고칠 때는 4자리를 다시 넣게 한다(최소 본인 확인)
+    minPosVal = (minMine && minMine.position) || minPosVal;   // 직분은 그대로 둔다
     minStep = "pick"; renderMinistry();
   });
   const cancel = document.getElementById("min-cancel");

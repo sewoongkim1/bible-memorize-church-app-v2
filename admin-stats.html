@@ -328,6 +328,9 @@
 .mn-team i{font-style:normal;color:#8a95a8;font-size:11.5px;}
 /* 사역팀 정보 편집 — 관리자만 쓰는 화면이라 넉넉하게 */
 .mc-help{font-size:13px;color:#5b6472;line-height:1.7;margin:0 0 12px;}
+.mn-pos{font-style:normal;font-size:.78rem;font-weight:700;color:#8a6a1e;
+  background:#fbf1d8;border-radius:999px;padding:1px 8px;margin-left:6px}
+.mc-hint{font-weight:500;font-size:.74rem;color:#8a8f9a}
 .mc-tags{font-size:12px;color:#7a869c;}
 .mc-tags code{background:#f3f6fb;border:1px solid #e2e8f4;border-radius:5px;padding:1px 5px;font-size:11.5px;}
 .mc-sum{font-size:13px;color:#41506b;background:#eef1f8;border-radius:8px;padding:8px 12px;margin-bottom:10px;}
@@ -3002,7 +3005,7 @@ function mnRender(){
       <div class="pl-card ${MN_CLS[r.status]}">
         <div class="pl-hd">
           <div class="pl-nm">
-            <b>${plEsc(r.name)}</b><i>${plEsc(r.who)}</i>
+            <b>${plEsc(r.name)}</b>${r.position?`<em class="mn-pos">${plEsc(r.position)}</em>`:""}<i>${plEsc(r.who)}</i>
             <span class="pl-at">신청일 ${plEsc((r.at||"").replace(/-/g,"."))}</span>
             <div class="pl-contact">
               ${r.phone4
@@ -3128,7 +3131,8 @@ async function mcLoad(){
     const d=await callApi({ action:"ministryCatalog" }).catch(()=>({ok:false,error:"network"}));
     if(!d.ok){ box.innerHTML=`<p class="msg err">목록을 불러오지 못했습니다: ${plEsc(d.error||"오류")}</p>`; return; }
     mcRows=(d.list||[]).map(x=>({ id:x.id, committee:x.committee, group:x.group||"", team:x.team,
-      appoint:!!x.appoint, sched:x.sched||"", desc:x.desc||"", capacity:x.capacity||"" }));
+      appoint:!!x.appoint, sched:x.sched||"", desc:x.desc||"", capacity:x.capacity||"",
+      members:x.members||"" }));
     if(!mcPick && mcRows.length) mcPick=mcRows[0].committee;
     mcLoaded=true;
   }
@@ -3176,6 +3180,9 @@ function mcRender(){
              <div class="mc-prev" data-prev="${r.id}">${r.desc||"<span class='mc-none'>비어 있음 — 성도님 화면에는 이름만 보입니다</span>"}</div>
              <label>필요 인원<input type="text" data-f="capacity" data-id="${r.id}"
                value="${plEsc(r.capacity)}" placeholder="예: 10명 (선택)"></label>
+             <label class="wide">지금 섬기는 분 <span class="mc-hint">한 줄에 한 분씩</span>
+               <textarea data-f="members" data-id="${r.id}" rows="3"
+                 placeholder="김세웅 안수집사 (화평-20)&#10;이영희 권사 (사랑-3)">${plEsc(mcLines(r.members))}</textarea></label>
              <button class="mc-save" data-save="${r.id}">저장</button>
            </div>`}
     </div>`).join("");
@@ -3197,15 +3204,24 @@ function mcRender(){
   });
 }
 
+// 명단은 DB에 <br> 로 눔지만 관리자에게는 줄로 보여야 한다 — 오갈 길을 둘 둔다.
+// ⚠️ 서버 거르개가 남기는 태그는 <br> 뿐이라 줄바꿈을 그대로 저장하면 한 줄로 붙는다.
+function mcLines(h){ return String(h||"").replace(/<br\s*\/?>/gi,"\n"); }
+function mcBrs(t){
+  return String(t||"").split(/\r?\n/).map(x=>x.trim()).filter(Boolean).join("<br>");
+}
+
 async function mcSave(id){
   const r=mcRows.find(x=>x.id===id); if(!r) return;
   const box=document.querySelector(`[data-row="${id}"]`); if(!box) return;
   const get=f=>box.querySelector(`[data-f="${f}"]`)?.value||"";
-  const next={ sched:get("sched").trim(), desc:get("desc").trim(), capacity:get("capacity").trim() };
+  const next={ sched:get("sched").trim(), desc:get("desc").trim(), capacity:get("capacity").trim(),
+               members:mcBrs(get("members")) };
   const btn=box.querySelector("[data-save]");
   if(btn){ btn.disabled=true; btn.textContent="저장 중…"; }
   const d=await callApi({ action:"ministryCatalogSave", pw:getPw(), id,
-    schedule_note:next.sched, desc_note:next.desc, capacity_note:next.capacity })
+    schedule_note:next.sched, desc_note:next.desc, capacity_note:next.capacity,
+    members_note:next.members })
     .catch(()=>({ok:false,error:"network"}));
   if(!d.ok){
     if(btn){ btn.disabled=false; btn.textContent="저장"; }
@@ -3215,6 +3231,10 @@ async function mcSave(id){
   Object.assign(r, next);
   if(d.desc !== undefined){          // 서버가 걸러 돌려준 값으로 맞춘다
     r.desc = d.desc; r.sched = d.sched; r.capacity = d.capacity;
+    if(d.members !== undefined){
+      r.members = d.members;
+      const ml=box.querySelector('[data-f="members"]'); if(ml) ml.value = mcLines(d.members);
+    }
     const ta=box.querySelector('[data-f="desc"]'); if(ta) ta.value = d.desc;
     const p=box.querySelector(`[data-prev="${id}"]`);
     if(p) p.innerHTML = d.desc || "<span class='mc-none'>비어 있음 — 성도님 화면에는 이름만 보입니다</span>";
