@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260909j";
+const APP_BUILD = "20260909k";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9069,13 +9069,16 @@ function minPickHtml() {
     '<div class="min-count' + (minPicked.length ? " has" : "") + '">' +
       (minHeld() + minPicked.length) + ' / ' + MIN_MAX + ' 선택' + '</div>' +
     '<div class="min-acc-wrap">' + acc + '</div>' +
-    (openNow || MIN_PREVIEW
-      ? '<button class="min-cta" id="min-next"' + (minPicked.length ? "" : " disabled") + '>' +
-        (minPicked.length ? '신청하기' : '사역을 하나 이상 골라 주세요') +
-        '</button>'
-      : "") +
-    // 이미 낸 것이 있으면 돌아갈 길을 둔다 — 없으면 목록에 갇힌다
-    (minMine ? '<button class="min-ghost" id="min-tomine">← 내 신청으로</button>' : "");
+    // 신청현황 화면과 **같은 자리·같은 모양** — 남색이 지금 할 일, 흰 바탕이 되돌아가기.
+    // 이미 낸 것이 있으면 돌아갈 길을 둔다: 없으면 목록에 갇힌다.
+    '<div class="min-acts">' +
+      (openNow || MIN_PREVIEW
+        ? '<button class="min-cta" id="min-next"' + (minPicked.length ? "" : " disabled") + '>' +
+          (minPicked.length ? '신청하기' : '사역을 하나 이상 골라 주세요') +
+          '</button>'
+        : "") +
+      (minMine ? '<button class="min-ghost" id="min-tomine">← 내 신청으로</button>' : "") +
+    '</div>';
 }
 
 function wireMinPick(u) {
@@ -9322,7 +9325,6 @@ function minDoneHtml(u) {
   const order = ["신청완료", "접수완료", "임명확정", "미채택"];
   let worst = items.length ? items[0].status : "신청완료";
   for (const it of items) if (order.indexOf(it.status) < order.indexOf(worst)) worst = it.status;
-  const info = MIN_STATE[worst] || MIN_STATE["신청완료"];
 
   let rows = "";
   for (const it of items) {
@@ -9346,22 +9348,10 @@ function minDoneHtml(u) {
   const canAdd = left > 0 && canAct;
   // ⚠️ 「더 신청」·「고치기」·「목록 보기」는 **가는 곳이 같다**(고르기 화면 하나).
   //    셋을 따로 두면 한 화면에 똑같은 단추가 셋이 되어 무엇을 눌러야 하는지가
-  //    오히려 흐려진다(성도님 지적). 단추는 하나, **이름만** 처지에 맞춘다.
-  const go = (canAdd && canEdit)
-      ? { t: "사역 신청 수정", s: "남은 " + left + "자리를 더 내거나, 접수 전 신청을 고칠 수 있어요" }
-    : canAdd
-      ? { t: "사역 신청 수정", s: left + "자리가 남아 있어요" }
-    : canEdit
-      ? { t: "사역 신청 수정", s: MIN_MAX + "자리를 다 쓰셨어요 — 바꾸시려면 여기서" }
-      : null;
+  //    오히려 흐려진다(성도님 지적). 단추는 하나다.
+  const canGo = canAdd || canEdit;
   return '<h2 class="rank-title">🤝 사역 신청현황</h2>' +
     minStepsHtml(worst) +
-    '<div class="min-state ' + info.cls + '">' +
-      '<div class="min-state-t"><span>' + info.ic + '</span> ' + minEsc(worst) + '</div>' +
-      '<div class="min-state-m">' + info.msg + '</div></div>' +
-    '<div class="min-who">' + minEsc(minWhoText()) +
-      (m && m.position ? ' · ' + minEsc(m.position) : "") +
-      '</div>' +
     rows +
     '<div class="min-count has">' + (m ? m.used : 0) + ' / ' + MIN_MAX + ' 신청' +
       (left > 0 ? ' · <b>' + left + '자리 남음</b>' : "") + '</div>' +
@@ -9376,15 +9366,16 @@ function minDoneHtml(u) {
       : !canEdit
         ? '<div class="min-note min-lock">담당자가 접수한 신청은 고치거나 뺄 수 없어요.</div>'
         : "") +
-    // 단추 하나 — 갈 수 있으면 남색(지금 할 일), 읽기만 되면 흰 바탕.
+    // 두 단추를 한 줄에 나란히 — 수정은 남색(지금 할 일), 취소는 흰 바탕.
     // 기간이든 아니든 목록은 늘 볼 수 있다: 막다른 화면을 만들지 않는다.
-    (go
-      ? '<button class="min-cta" id="min-go">' + go.t +
-        '<span class="min-cta-s">' + go.s + '</span></button>'
-      : '<button class="min-ghost" id="min-go">🗂️ 사역 목록 보기</button>') +
-    (canEdit
-      ? '<button class="min-ghost min-cancel" id="min-cancel">사역 신청 취소</button>'
-      : "");
+    '<div class="min-acts">' +
+      (canGo
+        ? '<button class="min-cta" id="min-go">사역 신청 수정</button>'
+        : '<button class="min-ghost" id="min-go">🗂️ 사역 목록 보기</button>') +
+      (canEdit
+        ? '<button class="min-ghost min-cancel" id="min-cancel">사역 신청 취소</button>'
+        : "") +
+    '</div>';
 }
 
 // 서버가 준 까닭인지, 진짜 통신 오류인지 가른다.

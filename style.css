@@ -4537,7 +4537,11 @@ body.pr-full-on { overflow: hidden; }
 .min-pick-ck.s-work { background: #c3a253; }
 .min-pick-ck.s-done { background: #2c5f2d; }
 .min-pick-ck.s-none { background: #9aa3b2; }
-.min-cancel { margin-top: 8px; color: #a33; border-color: #d9b3b3; }
+.min-cancel { color: #a33; border-color: #d9b3b3; }
+/* 두 단추를 한 줄에 — 하나뿐일 때는 그 하나가 줄을 다 쓴다.
+   ⚠️ .min-cta/.min-ghost 가 block+width:100%+margin-bottom 이라 여기서 되돌린다. */
+.min-acts { display: flex; gap: 8px; }
+.min-acts > button { flex: 1; width: auto; min-width: 0; margin-bottom: 0; }
 
 /* 큰 단추 = 지금 할 일(첫 화면 .todo-go 와 같은 위계) */
 .min-cta { display: block; width: 100%; padding: 15px; font: inherit; font-size: 1rem;
