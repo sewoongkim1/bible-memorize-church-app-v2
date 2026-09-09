@@ -18,8 +18,8 @@
   python generate_classics.py --no-bold       제목도 본문 서체로 (인쇄소가 Type3 를 싫어할 때)
 
 ⚠️ 원고는 `classics.json` 이다. 글을 고칠 때 이 파일을 건드리지 말 것.
-⚠️ 서체는 `fonts/Binggrae*.woff` — 빙그레체(본문)·빙그레체Ⅱ(제목). 네트워크가 필요 없다.
-   PDF 로 구우면 서체가 파일에 박히므로 인쇄소에 넘겨도 같게 나온다.
+⚠️ 서체는 `fonts/NotoSerifKR-*.woff` — Noto Serif KR(본명조 계열), 한국 출판물의 표준 명조.
+   없으면 처음 한 번 받아 온다. PDF 로 구우면 서체가 박히므로 인쇄소에 넘겨도 같게 나온다.
 
 설계 배경은 `docs/superpowers/specs/2026-09-09-classics-booklet-design.md`.
 """
@@ -35,11 +35,10 @@ def arg_val(flag, default=None):
 MAKE_PDF = '--pdf' in sys.argv
 MAKE_BOOKLET = '--booklet' in sys.argv
 FIT_MODE = '--fit' in sys.argv
-# ⚠️ 빙그레체Ⅱ(제목용)는 이름 레코드(name id1·id4)가 비어 있어, 크롬이 이것만
-#    **Type3 폰트**로 박는다. 300dpi 에서 선명하게 나오는 것은 확인했지만(2026-09-09),
-#    인쇄소 프리플라이트가 Type3 를 경고로 잡는 곳이 있다. 그럴 때 --no-bold 를 쓰면
-#    제목까지 본문 서체(빙그레체)로 그려 PDF 안 서체가 한 벌로 정리된다.
-#    ⚠️ 라이선스가 **수정·재배포를 금지**하므로 폰트 파일을 손봐 고치는 길은 없다.
+# 제목까지 본문 서체(Regular)로 그린다 — PDF 안 서체가 한 벌로 정리된다.
+#   지금 서체(Noto Serif KR)는 두 벌 다 Type0(CID)로 정상 임베딩되므로 굳이 쓸 일은 없다.
+#   ⚠️ 서체를 바꿀 때 이 길을 남겨 둘 것 — 전에 쓰던 빙그레체Ⅱ 는 이름 레코드(name id1·id4)가
+#      비어 있어 크롬이 **Type3 폰트**로 박았고, 그걸 경고로 잡는 인쇄소가 있다.
 NO_BOLD = '--no-bold' in sys.argv
 SAMPLE = int(arg_val('--sample', 0) or 0)
 OUT_NAME = arg_val('--out', '기독교고전_전교인필사_A5')
@@ -93,15 +92,30 @@ def esc(t):
     return html.escape(t or '')
 
 
+CIRCLED = '①②③④⑤⑥⑦⑧⑨'
+
+
+def circ(mark):
+    """'①' → 원을 CSS 로 그린 <span>. 서체에 원문자가 없어도 똑같이 나온다."""
+    i = CIRCLED.find(mark)
+    return '<span class="cn">%d</span>' % (i + 1) if i >= 0 else esc(mark)
+
+
+def title_html(it):
+    """「루터 선집 ①」 — 책 이름 + 원 안의 번호."""
+    return '%s %s' % (esc(it['book']), circ(it['mark']))
+
+
 # ── 서체 ────────────────────────────────────────────────────────────────
-# ⚠️ **빙그레 서체 파일은 저장소에 넣지 않는다.** 라이선스가 재배포를 금지하는데
-#    이 저장소는 공개다(PDF 에 박아 인쇄물로 쓰는 것은 허용된 정상 사용이다).
-#    그래서 없으면 여기서 받아 온다 — 처음 한 번만 인터넷이 필요하다.
+# Noto Serif KR — 한국 출판물의 표준 명조(본명조 계열). SIL OFL 이라 재배포도 자유롭다.
+# ⚠️ 그래도 **저장소에 넣지 않는다** — 두 벌이 4.8MB 라 저장소가 무거워진다.
+#    없으면 여기서 받아 온다(처음 한 번만 인터넷이 필요하다).
+# ⚠️ 서체를 바꾸면 **`--fit` 을 반드시 다시 돌릴 것** — 서체마다 글자 폭이 달라
+#    같은 pt 라도 줄 수가 바뀐다. 빙그레체(둥근 고딕) → 명조로 바꿨을 때 실제로 그랬다.
+_FS = 'https://cdn.jsdelivr.net/npm/@fontsource/noto-serif-kr@5.3.0/files/'
 FONT_URL = {
-    'fonts/Binggrae.woff':
-        'https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Binggrae.woff',
-    'fonts/Binggrae-Bold.woff':
-        'https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Binggrae-Bold.woff',
+    'fonts/NotoSerifKR-400.woff': _FS + 'noto-serif-kr-korean-400-normal.woff',
+    'fonts/NotoSerifKR-700.woff': _FS + 'noto-serif-kr-korean-700-normal.woff',
 }
 
 
@@ -123,6 +137,12 @@ def ensure_fonts():
 
 ensure_fonts()
 
+# 교회 마크 — 앞표지에 넣는다. 없으면 교회 이름 글자로 대신한다.
+LOGO = ''
+_lg = os.path.join('..', 'marketing', 'logo-data-uri.txt')
+if os.path.exists(_lg):
+    LOGO = io.open(_lg, encoding='utf-8').read().strip()
+
 # ── 자료 ────────────────────────────────────────────────────────────────
 D = json.load(io.open('classics.json', encoding='utf-8'))
 ITEMS = D['items']
@@ -131,24 +151,25 @@ if SAMPLE:
 
 CSS_HEAD = ''
 if NO_BOLD:
-    CSS_HEAD = ":root{--tf:'Binggrae',sans-serif}"
+    CSS_HEAD = ":root{--tf:'BookKR',serif}"
 
 CSS = r'''
-@font-face { font-family:'Binggrae'; src:url('fonts/Binggrae.woff') format('woff');
+/* 본문 서체 — Noto Serif KR(본명조 계열). 한국 출판물의 표준 명조이고 SIL OFL 이다.
+   ⚠️ @font-face 의 font-family 는 **실제 이름**이라야 한다 — var() 를 쓰면 서체가
+      등록되지 않아 제목이 조용히 대체 서체로 바뀐다(2026-09-09에 그랬다). */
+@font-face { font-family:'BookKR'; src:url('fonts/NotoSerifKR-400.woff') format('woff');
              font-weight:400; font-display:block; }
-/* ⚠️ @font-face 의 font-family 는 **실제 이름**이라야 한다 — var() 를 쓰면 서체가
-   등록되지 않아 제목이 조용히 본문 서체로 바뀐다(2026-09-09에 그랬다). */
-@font-face { font-family:'BinggraeB'; src:url('fonts/Binggrae-Bold.woff') format('woff');
+@font-face { font-family:'BookKRB'; src:url('fonts/NotoSerifKR-700.woff') format('woff');
              font-weight:400; font-display:block; }
 
 :root {
   --navy:#1a3a6b; --navy-d:#132a4d; --gold:#a8873c;
   --ink:#1b1f27; --sub:#5a6474; --line:#c9cfd9; --cream:#fffdf8;
-  --tf:'BinggraeB','Binggrae',sans-serif;   /* 제목 — --no-bold 면 본문 서체로 바뀐다 */
+  --tf:'BookKRB','BookKR',serif;   /* 제목 — --no-bold 면 본문 서체로 바뀐다 */
 }
 * { box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
 html,body { margin:0; padding:0; background:#7c8595; }
-body { font-family:'Binggrae','Noto Sans KR',sans-serif; color:var(--ink); }
+body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
 
 @page { size:148mm 210mm; margin:0; }
 
@@ -195,8 +216,16 @@ body { font-family:'Binggrae','Noto Sans KR',sans-serif; color:var(--ink); }
        color:var(--navy); background:#eef2f8; border-radius:1.6mm;
        padding:1.1mm 3mm; margin-bottom:2.6mm; letter-spacing:.02em; }
 .lab.m { margin-top:6mm; }
+/* 줄 — 따라쓰기와 묵상이 **똑같은 8mm**. 일반 노트의 간격이다.
+   ⚠️ `.ln` 에 flex:0 0 8mm 를 반드시 준다. 그냥 height 만 주면 묵상 칸(.grow, flex:1)
+      안에서 **flex 가 줄들을 눌러** 따라쓰기 8mm / 묵상 6.2mm 로 간격이 달라진다
+      (2026-09-09에 그랬다 — 화면에서는 티가 잘 안 나고 뽑아 봐야 보인다).
+   ⚠️ 되풀이 그라데이션(repeating-linear-gradient)으로 그리지 말 것 — 크롬이 PDF 로
+      구울 때 래스터로 바꿔 버려 간격도 굵기도 뭉개진다(같은 날 시도했다가 되돌렸다).
+   묵상 칸은 남는 만큼 줄을 넉넉히 두고 넘치는 것은 잘라 낸다 — 잘린 줄은 아래 테두리가
+   칸 밖이라 아예 안 그려지므로, 칸 높이가 얼마든 **딱 맞는 수만큼** 남는다. */
 .lines { display:flex; flex-direction:column; }
-.ln { height:8mm; border-bottom:.7px solid #d7dce4; }
+.ln { flex:0 0 8mm; border-bottom:.7px solid #d7dce4; }
 .lines.grow { flex:1; min-height:0; overflow:hidden; }
 
 /* ── 꼬리말 ─────────────────────────────────────────── */
@@ -208,18 +237,18 @@ body { font-family:'Binggrae','Noto Sans KR',sans-serif; color:var(--ink); }
 /* ── 표지 ───────────────────────────────────────────── */
 /* 아래 여백을 위보다 넉넉히 줘 제목이 한가운데가 아니라 조금 위(약 44%)에 앉게 한다 —
    책 표지는 정가운데보다 살짝 위가 안정돼 보인다. */
-.cover { background:var(--navy); color:#fff; align-items:center; justify-content:center;
+.cover { background:#fff; color:var(--navy); align-items:center; justify-content:center;
          text-align:center; padding:22mm 15mm 46mm; }
-.cv-ch { font-size:11pt; letter-spacing:.34em; opacity:.82; }
-.cv-rule { width:16mm; height:1px; background:rgba(255,255,255,.5); margin:7mm auto; }
+.cv-logo { width:34mm; margin-bottom:8mm; }
+.cv-rule { width:16mm; height:1px; background:var(--line); margin:7mm auto; }
 .cv-t { font-family:var(--tf); font-weight:400; font-size:27pt; line-height:1.42;
         letter-spacing:.02em; }
-.cv-t em { font-style:normal; color:#e6c877; }
-.cv-p { margin-top:9mm; font-size:12.5pt; opacity:.9; letter-spacing:.06em; }
+.cv-t em { font-style:normal; color:var(--gold); }
+.cv-p { margin-top:9mm; font-size:12.5pt; color:var(--sub); letter-spacing:.06em; }
 /* ⚠️ 맺음말을 margin-top:auto 로 내리면 그 auto 마진이 남는 공간을 통째로 먹어
    제목이 위로 쏠린다 — 제목은 가운데에 두고 맺음말만 아래에 못박는다. */
 .cv-v { position:absolute; left:15mm; right:15mm; bottom:18mm;
-        font-size:9.5pt; line-height:1.85; opacity:.8; word-break:keep-all; }
+        font-size:9.5pt; line-height:1.85; color:var(--sub); word-break:keep-all; }
 
 .back { justify-content:center; text-align:center; padding:24mm 17mm; }
 .bk-t { font-family:var(--tf); font-weight:400; font-size:13pt; color:var(--navy);
@@ -244,7 +273,7 @@ body { font-family:'Binggrae','Noto Sans KR',sans-serif; color:var(--ink); }
 .bk-hd .st { margin-left:auto; font-size:9.5pt; color:var(--gold); white-space:nowrap; }
 .ep { display:flex; align-items:baseline; font-size:10.5pt; line-height:1.62;
       color:#2b3240; padding:.5mm 0; }
-.ep .mk { width:5.5mm; color:var(--gold); flex:none; }
+.ep .mk { width:6mm; flex:none; color:var(--gold); }
 .ep .nm { word-break:keep-all; }
 .ep .dot { flex:1; border-bottom:1px dotted #cdd3dd; margin:0 1.6mm 1mm; min-width:4mm; }
 .ep .dt { font-size:9.5pt; color:var(--sub); white-space:nowrap; }
@@ -254,6 +283,14 @@ body { font-family:'Binggrae','Noto Sans KR',sans-serif; color:var(--ink); }
 .ix-note { margin-top:auto; font-size:9.5pt; line-height:1.75; color:var(--sub);
            background:#f5f7fa; border-radius:2mm; padding:3.4mm 4mm; word-break:keep-all; }
 .ix-note b { font-family:var(--tf); font-weight:400; color:var(--navy); }
+
+/* 원 안의 숫자 — 서체마다 ①(U+2460)이 있기도 없기도 해서 직접 그린다.
+   ⚠️ Noto Serif KR 한글 서브셋에는 ①~⑨ 가 아예 없고, 전에 쓰던 빙그레체는 ❖ 처럼
+      cmap 에만 있고 윤곽이 빈 글리프가 있었다. 그릴 수 있는 것을 서체에 맡기지 않는다. */
+.cn { display:inline-block; box-sizing:border-box; width:1.5em; height:1.5em;
+      line-height:1.42em; border:.09em solid currentColor; border-radius:50%;
+      font-size:.62em; text-align:center; vertical-align:.22em;
+      font-family:'BookKR',serif; letter-spacing:0; }
 '''
 
 # ── 쪽 만들기 ───────────────────────────────────────────────────────────
@@ -284,7 +321,7 @@ def page_classic(it, pno, body_pt):
   <div class="scr-t">%(scr)s</div><div class="scr-r">%(ref)s</div>
  </div>
  %(ft)s
-</div>''' % dict(day=it['day'], date=esc(it['date']), title=esc(it['title']), sub=sub,
+</div>''' % dict(day=it['day'], date=esc(it['date']), title=title_html(it), sub=sub,
                  author=esc(it['author']), bp=body_pt, sp=scr_pt, ps=ps,
                  scr=esc(it['scripture']), ref=esc(it['ref']),
                  ft=foot(pno, '', '기독교 고전 필사'))
@@ -298,34 +335,36 @@ def page_note(it, pno):
     """
     n = len(it['scripture'])
     rows = max(NOTE_MIN, min(NOTE_MAX, -(-n // HAND_PER_LINE) + 1))
-    trace = ''.join('<div class="ln"></div>' for _ in range(rows))
+    ln = '<div class="ln"></div>'
+    trace = ln * rows
+    memo = ln * 20          # 넉넉히 두면 칸에 맞는 수만 남는다(넘치는 줄은 안 그려진다)
     return '''<div class="page pR">
  <div class="hd"><b>%(day)d일</b> · %(date)s · %(ref)s</div>
  <div><span class="lab">말씀 따라 쓰기</span></div>
  <div class="lines">%(tr)s</div>
- <div><span class="lab m">메모</span></div>
- <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div>
-  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
-  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
-  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
-  <div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div><span class="lab m">묵상</span></div>
+ <div class="lines grow">%(mm)s</div>
  %(ft)s
-</div>''' % dict(day=it['day'], date=esc(it['date']), ref=esc(it['ref']), tr=trace,
-                 ft=foot(pno, D['church'], ''))
+</div>''' % dict(day=it['day'], date=esc(it['date']), ref=esc(it['ref']),
+                 tr=trace, mm=memo, ft=foot(pno, D['church'], ''))
 
 
 def page_cover():
+    """앞표지 — 흰 바탕에 교회 마크(2026-09-09).
+
+    ⚠️ 마크 그림에 「고척교회」 글자가 이미 들어 있어 교회 이름을 따로 쓰지 않는다.
+    """
     t = D['title']
-    # 「기독교 고전과 함께하는 / 전교인 필사」 — 뒷말을 금색으로
-    head, tail = t.split('함께하는')
+    head, tail = t.split('함께하는')          # 뒷말(전교인 필사)을 금색으로
+    logo = ('<img class="cv-logo" src="%s" alt="고척교회">' % LOGO) if LOGO else            ('<div class="cv-p">%s</div>' % esc(D['church']))
     return '''<div class="page cover">
- <div class="cv-ch">%s</div>
+ %s
  <div class="cv-rule"></div>
  <div class="cv-t">%s함께하는<br><em>%s</em></div>
  <div class="cv-p">%s</div>
  <div class="cv-v">새벽마다 기독교 고전 한 대목과 말씀 한 절을<br>
   손으로 옮겨 적으며 마음에 새깁니다.</div>
-</div>''' % (esc(D['church']), esc(head), esc(tail.strip()), esc(D['period']))
+</div>''' % (logo, esc(head), esc(tail.strip()), esc(D['period']))
 
 
 def page_back(pno):
@@ -370,7 +409,7 @@ def index_pages(items, start_pno):
             '<div class="ep"><span class="mk">%s</span><span class="nm">%s</span>'
             '<span class="dot"></span><span class="dt">%s</span>'
             '<span class="pg">%d</span></div>'
-            % (e['mark'], esc(e['sub'] or e['ref']), esc(e['date']), e['page'])
+            % (circ(e['mark']), esc(e['sub'] or e['ref']), esc(e['date']), e['page'])
             for e in b['eps'])
         return ('<div class="bk"><div class="bk-hd"><span class="nm">%s</span>'
                 '<span class="au">%s</span><span class="st">%s</span></div>%s</div>'
@@ -390,9 +429,9 @@ def index_pages(items, start_pno):
     #    대신 같은 것을 visibility:hidden 으로 두어 **두 쪽의 목록이 같은 높이에서 시작**하게 한다
     #    (빈 상자를 손으로 어림하면 제목 크기를 바꿀 때마다 어긋난다).
     head_blank = head.replace('class="ix-h"', 'class="ix-h blank"')
-    note = ('<div class="ix-note"><b>쉬어 가는 날</b><br>%s<br>'
-            '이레 동안은 고전 필사를 쉽니다. 설교 말씀에서 마음에 남은 '
-            '한 구절을 적어 보세요.</div>' % esc(D['skipped']))
+    note = ('<div class="ix-note"><b>담임목사</b><br>%s<br>'
+            '설교 말씀에서 마음에 남은 한 구절을 적어 보세요.</div>'
+            % esc(D['skipped']))
     p1 = '<div class="page pL">%s%s%s</div>' % (
         head, ''.join(block(b) for b in books[:cut]), foot(start_pno, '', '차례'))
     p2 = '<div class="page pR">%s%s%s</div>' % (
