@@ -3246,6 +3246,11 @@ async function mcSave(id){
     const p=box.querySelector(`[data-prev="${id}"]`);
     if(p) p.innerHTML = d.desc || "<span class='mc-none'>비어 있음 — 성도님 화면에는 이름만 보입니다</span>";
   }
+  // ⚠️ 넘치면 서버가 말없이 자른다 — 그대로 두면 넣은 이름이 조용히 사라진다
+  if(d.truncated && d.truncated.length){
+    alert("길이가 넘어 「"+d.truncated.join(", ")+"」 칸이 잘렸습니다.\n"
+      +"잘린 뒤의 내용은 저장되지 않았습니다 — 줄여서 다시 넣어 주세요.");
+  }
   if(btn){ btn.disabled=false; btn.textContent="저장됨 ✓"; btn.classList.add("ok");
            setTimeout(()=>{ btn.textContent="저장"; btn.classList.remove("ok"); }, 1800); }
   // 채움 개수·탭 숫자만 다시 그린다(입력 중인 칸을 건드리지 않게 목록은 그대로 둔다)

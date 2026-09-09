@@ -7,7 +7,7 @@
 ⚠️ **지우고 다시 넣지 않는다**(2026-09-08 수정). 처음엔 delete → insert 였는데
    두 가지가 깨진다:
      ① 관리자가 화면에서 채운 시간·하는 일·필요 인원이 통째로 날아간다
-     ② bigserial id 가 다시 매겨져, 이미 들어온 신청(choices 의 팀 id)이 엉뚱한
+     ② bigserial id 가 다시 매겨져, 이미 들어온 신청(ministry_orders.team_id)이 엉뚱한
         팀을 가리키게 된다
    그래서 upsert 로 넣되, 시간·하는 일·필요 인원은 **JSON 에 값이 있을 때만**
    덮어쓴다(비어 있으면 DB 의 관리자 입력을 그대로 둔다).
@@ -77,7 +77,7 @@ lines += [
     "   and not exists (",
     "     select 1 from public.ministry_orders o",
     "      where o.year = c.year",
-    "        and o.choices @> jsonb_build_array(jsonb_build_object('id', c.id))",
+    "        and o.team_id = c.id",
     "   );",
     "",
     "commit;",

@@ -118,7 +118,7 @@ delete from public.ministry_catalog c
    and not exists (
      select 1 from public.ministry_orders o
       where o.year = c.year
-        and o.choices @> jsonb_build_array(jsonb_build_object('id', c.id))
+        and o.team_id = c.id
    );
 
 commit;

@@ -3407,6 +3407,8 @@ async function ministrySetStatus(b: any) {
     patch.decided_at = new Date().toISOString();
     patch.phone4 = null;
   }
+  // 임명확정에서 물러나면 그 행의 「알림 보냈음」도 지운다(이미 나간 알림을 무를 수는 없다)
+  if (row.status === "임명확정" && status !== "임명확정") patch.notified_at = null;
   if (typeof b.note === "string") patch.note = norm(b.note);
 
   let pushed = 0;
@@ -3416,9 +3418,12 @@ async function ministrySetStatus(b: any) {
   //    세 건을 확정하면 푸시가 세 번 갔다(2026-09-09 감사). 그 사람의 다른 건이
   //    이미 보냈는지를 본다 — 행 하나만 보면 못 막는다.
   if (status === "임명확정") {
+    // ⚠️ **아직 살아 있는 확정**만 센다. 되돌린 확정의 흔적까지 세면 그 뒤 어떤 팀을
+    //    확정해도 알림이 영영 안 간다 — 성도는 틀린 알림만 받고 담당자는 「이미 나갔다」로
+    //    읽어 손을 뗀다(2026-09-09 감사).
     const { data: sentRows } = await db.from("ministry_orders")
       .select("id").eq("year", row.year).eq("user_id", row.user_id)
-      .not("notified_at", "is", null).limit(1);
+      .eq("status", "임명확정").not("notified_at", "is", null).limit(1);
     if ((sentRows ?? []).length) {
       already = true;                        // 이미 알렸다 — 「안 켜심」과 구분해 돌려준다
     } else {
@@ -3465,20 +3470,65 @@ function ministryStyleAttr(attrs: string): string {
   return out.join(";").slice(0, 160);
 }
 
+// 잘린 자리에 열린 채 남은 태그를 닫아 준다 — 안 닫으면 뒤 내용까지 물든다
+function ministryCloseTags(html: string): string {
+  const stack: string[] = [];
+  const re = /<(\/?)([a-z]+)[^>]*>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html))) {
+    const t = m[2];
+    if (t === "br") continue;
+    if (m[1]) { const i = stack.lastIndexOf(t); if (i >= 0) stack.splice(i, 1); }
+    else stack.push(t);
+  }
+  let out = html;
+  for (let i = stack.length - 1; i >= 0; i--) out += "</" + stack[i] + ">";
+  return out;
+}
+
+// ⚠️ 자르기는 **태그 밖에서만** 한다. 예전엔 그냥 slice 라 <span style="co 처럼
+//    속성 한가운데가 잘려, 뒤에 이어 붙는 명단이 통째로 속성값으로 삼켜졌다.
+function ministryCut(html: string, max: number): string {
+  if (html.length <= max) return html;
+  let out = html.slice(0, max);
+  const l = out.lastIndexOf("<");
+  if (l >= 0 && out.indexOf(">", l) < 0) out = out.slice(0, l);   // 태그 조각은 버린다
+  return ministryCloseTags(out);
+}
+
+// 자리표 — 입력에서 **먼저 지우므로** 관리자가 이 글자를 쳐 넣어도 섞이지 않는다
+const MIN_L = "%%mLT%%";
+const MIN_R = "%%mGT%%";
+
+// ⚠️ **걸러 내지 않고 다시 지어 낸다.** 예전엔 허용 밖 태그를 지우는 식이었는데,
+//    태그 정규식이 닫는 > 를 요구해서 `<img src=x onerror="…"` 처럼 > 를 뺀 문자열이
+//    한 글자도 안 바뀌고 나갔다. 그리고 앱이 '<span…>' + 값 + '</span>' 로 감싸거나
+//    명단을 <br> 로 이어 붙이면서 **빠진 > 를 대신 채워** 태그를 완성시켰다
+//    (2026-09-09 감사에서 실제 실행으로 확인 — onerror 가 돌았다).
+//    이제 허용 태그를 자리표로 옮긴 뒤 **남은 꺾쇠를 전부 글자로** 만든다.
 function ministryHtml(raw: unknown, max = 400): string {
-  let s = String(raw ?? "");
-  s = s.replace(/<!--[\s\S]*?-->/g, "")
-       .replace(/<\s*(script|style|iframe|object|embed|link|meta|svg)[\s\S]*?<\s*\/\s*\s*>/gi, "")
-       .replace(/<\s*(script|style|iframe|object|embed|link|meta|svg)[^>]*>/gi, "");
+  let s = String(raw ?? "").split(MIN_L).join("").split(MIN_R).join("");
+  s = s.replace(/<!--[\s\S]*?-->/g, "");
+
+  // ① 허용 태그만 자리표로 옮긴다
   s = s.replace(/<\s*(\/?)\s*([a-zA-Z0-9]+)([^>]*)>/g, (_m, close, tag, attrs) => {
     const t = String(tag).toLowerCase();
-    if (!MIN_TAGS.has(t)) return "";           // 허용 목록에 없으면 태그만 지운다(글자는 남는다)
-    if (close) return "</" + t + ">";
-    if (t === "br") return "<br>";
+    if (!MIN_TAGS.has(t)) return "";          // 허용 밖이면 태그만 지운다(글자는 남는다)
+    if (close) return MIN_L + "/" + t + MIN_R;
+    if (t === "br") return MIN_L + "br" + MIN_R;
     const st = ministryStyleAttr(String(attrs || ""));
-    return "<" + t + (st ? ' style="' + st + '"' : "") + ">";
+    return MIN_L + t + (st ? ' style="' + st + '"' : "") + MIN_R;
   });
-  return s.slice(0, max);
+
+  // ② 남은 꺾쇠는 태그가 아니다 — 글자로 만든다. 여기가 막힌 구멍이다.
+  // ⚠️ & 는 건드리지 않는다. 이 함수는 **저장할 때와 읽을 때 두 번** 걸리므로
+  //    & 를 &amp; 로 바꾸면 읽을 때마다 겹쳐 쌓인다(&lt; → &amp;lt; → &amp;amp;lt;).
+  //    태그를 만드는 것은 꺾쇠뿐이고, 실체 참조로 디코드된 글자는 마크업이 되지 않는다.
+  s = s.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  // ③ 자리표를 진짜 꺾쇠로 되돌린다
+  s = s.split(MIN_L).join("<").split(MIN_R).join(">");
+  return ministryCut(s, max);
 }
 
 // 사역팀 세부 정보(시간·하는 일·필요 인원) 고치기 — **관리자만**
@@ -3497,6 +3547,13 @@ async function ministryCatalogSave(b: any) {
     capacity_note: ministryHtml(b.capacity_note, 80),
     members_note: ministryHtml(b.members_note, 1200),
   };
+  // ⚠️ 말없이 자르면 관리자가 넣은 이름이 조용히 사라진다 — 잘린 칸을 돌려준다
+  const cut: string[] = [];
+  if (ministryHtml(b.schedule_note, 99999).length > patch.schedule_note.length) cut.push("시간");
+  if (ministryHtml(b.desc_note, 99999).length > patch.desc_note.length) cut.push("하는 일");
+  if (ministryHtml(b.capacity_note, 99999).length > patch.capacity_note.length) cut.push("필요 인원");
+  if (ministryHtml(b.members_note, 99999).length > patch.members_note.length) cut.push("지금 섬기는 분");
+
   const { data, error } = await db.from("ministry_catalog")
     .update(patch).eq("id", id)
     .select("id,committee,team,schedule_note,desc_note,capacity_note,members_note").single();
@@ -3504,7 +3561,7 @@ async function ministryCatalogSave(b: any) {
   // 걸러진 뒤의 값을 돌려준다 — 화면이 「내가 친 것」이 아니라 「실제 저장된 것」을 보여야 한다
   return { ok: true, id: data.id, team: data.team,
            sched: data.schedule_note, desc: data.desc_note, capacity: data.capacity_note,
-           membersNote: data.members_note };
+           membersNote: data.members_note, truncated: cut };
 }
 
 // 그 성도의 기기에만 발송. 알림을 켜 두지 않았으면 조용히 0건 —

@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260909e";
+const APP_BUILD = "20260909f";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -8891,7 +8891,7 @@ function minHeld() {
   return minLocked.filter(function (x) { return x.status !== "미채택"; }).length;
 }
 function minLeft() {
-  return MIN_MAX - minHeld() - minPicked.length;
+  return Math.max(0, MIN_MAX - minHeld() - minPicked.length);
 }
 
 function minTeam(id) {
@@ -9039,7 +9039,7 @@ function minPickHtml() {
         '고치거나 뺄 수 없어요.' +
         (minLocked.length > minHeld()
           ? ' 그중 <b>미채택 ' + (minLocked.length - minHeld()) + '건</b>은 자리를 도로 내놓았어요.' : "") +
-        ' <b>남은 ' + (MIN_MAX - minHeld()) + '자리</b>만 고르시면 됩니다.</div>'
+        ' <b>남은 ' + Math.max(0, MIN_MAX - minHeld()) + '자리</b>만 고르시면 됩니다.</div>'
       : "") +
     '<div class="min-count' + (minPicked.length ? " has" : "") + '">' +
       (minHeld() + minPicked.length) + ' / ' + MIN_MAX + ' 선택' + '</div>' +
@@ -9281,8 +9281,8 @@ function wireMinConfirm(u) {
       minSyncPicked();
       minStep = "done";
       renderMinistry();
-    } catch (_) {
-      alert("연결이 고르지 않아 저장하지 못했어요. 잠시 뒤 다시 눌러 주세요.");
+    } catch (e) {
+      alert(minErr(e, "연결이 고르지 않아 저장하지 못했어요. 잠시 뒤 다시 눌러 주세요."));
       renderMinistry();
     }
   });
@@ -9339,6 +9339,10 @@ function minDoneHtml(u) {
     rows +
     '<div class="min-count has">' + (m ? m.used : 0) + ' / ' + MIN_MAX + ' 신청' +
       (left > 0 ? ' · <b>' + left + '자리 남음</b>' : "") + '</div>' +
+    // 담당자가 결정을 되돌리면 3개를 넘길 수 있다 — 숨기지 말고 알린다
+    (m && m.used > MIN_MAX
+      ? '<div class="min-note min-lock">신청이 <b>' + m.used + '건</b>으로 ' + MIN_MAX +
+        '개를 넘었어요. 하나를 빼시거나 담당자에게 알려 주세요.</div>' : "") +
     '<div class="min-note">🔔 임명이 확정되면 <b>앱 알림</b>으로 알려 드리고 <b>게시판에도</b> 올립니다. ' +
       '알림을 켜지 않으셨어도 게시판에서 확인하실 수 있어요.</div>' +
     // ⚠️ 못 고치는 까닭이 둘인데 한 문장으로 뭉뚱그리면 성도님이 사실이 아닌 말을 읽는다
@@ -9357,6 +9361,14 @@ function minDoneHtml(u) {
     (canEdit
       ? '<button class="min-ghost min-cancel" id="min-cancel">아직 접수 전인 신청 취소</button>'
       : "");
+}
+
+// 서버가 준 까닭인지, 진짜 통신 오류인지 가른다.
+// ⚠️ supaCall 은 {ok:false,error} 도 던지므로(js/api.js) 업무 규칙 거절이 여기로 온다.
+//    「HTTP 500」 같은 것만 통신 탓으로 돌린다(2026-09-09 감사).
+function minErr(e, fallback) {
+  const m = e && e.message ? String(e.message) : "";
+  return (m && m.indexOf("HTTP") !== 0 && m !== "Failed to fetch") ? m : fallback;
 }
 
 // 취소도 4자리로 한 번 확인한다 — 신청을 지우는 일이라 고치기와 같은 문턱을 둔다
@@ -9392,8 +9404,8 @@ function wireMinDone(u) {
       minSyncPicked();
       minStep = minMine ? "done" : "pick";
       renderMinistry();
-    } catch (_) {
-      alert("연결이 고르지 않아 취소하지 못했어요.");
+    } catch (e) {
+      alert(minErr(e, "연결이 고르지 않아 취소하지 못했어요."));
       cancel.disabled = false;
     }
   });
