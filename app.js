@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260909b";
+const APP_BUILD = "20260909c";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9033,7 +9033,9 @@ function minPickHtml() {
       ? '<button class="min-cta" id="min-next"' + (minPicked.length ? "" : " disabled") + '>' +
         (minPicked.length ? '고른 ' + minPicked.length + '개로 신청하기' : '사역을 하나 이상 골라 주세요') +
         '</button>'
-      : "");
+      : "") +
+    // 이미 낸 것이 있으면 돌아갈 길을 둔다 — 없으면 목록에 갇힌다
+    (minMine ? '<button class="min-ghost" id="min-tomine">← 내 신청으로</button>' : "");
 }
 
 function wireMinPick(u) {
@@ -9052,6 +9054,8 @@ function wireMinPick(u) {
   minWireMore();
   const go = document.getElementById("min-next");
   if (go) go.addEventListener("click", function () { minStep = "confirm"; renderMinistry(); });
+  const back = document.getElementById("min-tomine");
+  if (back) back.addEventListener("click", function () { minStep = "done"; renderMinistry(); });
 }
 
 // 고르기·빼기 한 곳에서 — 목록에서도, 「자세히」 창에서도 같은 규칙을 따르게
@@ -9285,8 +9289,12 @@ function minDoneHtml(u) {
   }
 
   const left = m ? m.left : MIN_MAX;
-  const canEdit = !!(m && m.openCount) && minIsOpen();
-  const canAdd = left > 0 && minIsOpen();
+  // ⚠️ 고르기 화면이 (기간 || 미리보기) 로 제출까지 열어 두므로 여기도 같은 문을 써야 한다.
+  //    minIsOpen() 만 보면 관리자가 ?preview=ministry 로 시험할 때 「내 신청」 화면에
+  //    단추가 하나도 없어 **돌아갈 길이 사라진다**(2026-09-09 성도님 제보).
+  const canAct = minIsOpen() || MIN_PREVIEW;
+  const canEdit = !!(m && m.openCount) && canAct;
+  const canAdd = left > 0 && canAct;
   return '<h2 class="rank-title">🤝 내 사역 신청</h2>' +
     '<div class="min-state ' + info.cls + '">' +
       '<div class="min-state-t"><span>' + info.ic + '</span> ' + minEsc(worst) + '</div>' +
@@ -9306,7 +9314,13 @@ function minDoneHtml(u) {
     (canEdit
       ? '<button class="min-ghost" id="min-edit">아직 접수 전인 신청 고치기</button>' +
         '<button class="min-ghost min-cancel" id="min-cancel">아직 접수 전인 신청 취소</button>'
-      : '<div class="min-note min-lock">담당자 접수가 끝나 고치거나 취소할 수 없어요.</div>');
+      // ⚠️ 못 고치는 까닭이 둘인데 한 문장으로 뭉뚱그리면 성도님이 사실이 아닌 말을 읽는다
+      : !canAct
+        ? '<div class="min-note min-lock">지금은 신청 기간이 아니에요. ' +
+          '기간(<b>' + minPeriodText() + '</b>)이 되면 여기서 고치실 수 있어요.</div>'
+        : '<div class="min-note min-lock">담당자 접수가 끝나 고치거나 취소할 수 없어요.</div>') +
+    // 기간이든 아니든 목록은 늘 볼 수 있다 — 막다른 화면을 만들지 않는다
+    '<button class="min-ghost" id="min-list">🗂️ 사역 목록 보기</button>';
 }
 
 // 취소도 4자리로 한 번 확인한다 — 신청을 지우는 일이라 고치기와 같은 문턱을 둔다
@@ -9333,6 +9347,9 @@ function wireMinDone(u) {
   if (add) add.addEventListener("click", toPick);
   const edit = document.getElementById("min-edit");
   if (edit) edit.addEventListener("click", toPick);
+  // 기간이 아니어도 목록은 본다 — 다만 낸 것을 잃지 않게 고른 상태 그대로 들고 간다
+  const list = document.getElementById("min-list");
+  if (list) list.addEventListener("click", toPick);
   const cancel = document.getElementById("min-cancel");
   if (cancel) cancel.addEventListener("click", async function () {
     if (!minCancelAsk()) return;
