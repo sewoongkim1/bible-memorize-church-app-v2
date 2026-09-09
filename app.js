@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260909f";
+const APP_BUILD = "20260909g";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -8942,29 +8942,38 @@ function renderMinistry(keepScroll) {
   const u = loadUser();
   if (!u) { renderEntryScreen(); return; }
   const appEl = document.getElementById("app");
+  // ⚠️ 앨범·말씀목록·순위·기도문과 **같은 단추**를 쓴다(homeFabLabel = 두 줄, aria-label).
+  //    여기만 「🏠 첫 화면으로」를 한 줄로 박아 두어 혼자 달랐다(성도님 지적 2026-09-09).
+  //    .min-screen 의 padding-bottom(96px)은 이미 두 줄 높이에 맞춰 둔 값이다.
+  const fab = '<button class="home-fab" id="min-home" aria-label="첫 화면으로">' +
+    homeFabLabel(u) + '</button>';
+  const wireHome = function () {
+    const b = document.getElementById("min-home");
+    if (b) b.onclick = renderSummary;
+  };
 
   if (!minLoaded) {
+    // ⚠️ 여기에도 단추를 둔다 — 통신이 멎으면 빠져나갈 길이 없어진다
     appEl.innerHTML = '<div class="min-screen"><h2 class="rank-title">🤝 사역 신청</h2>' +
-      '<p class="msg">사역 목록을 불러오는 중…</p></div>';
+      '<p class="msg">사역 목록을 불러오는 중…</p></div>' + fab;
     window.scrollTo(0, 0);
+    wireHome();
     minLoad(u).then(function () { renderMinistry(); });
     return;
   }
   if (!minCat) {
     appEl.innerHTML = '<div class="min-screen"><h2 class="rank-title">🤝 사역 신청</h2>' +
-      '<p class="msg">사역 목록을 불러오지 못했어요.<br>잠시 뒤 다시 열어 주세요.</p>' +
-      '<button class="home-fab" id="min-home">🏠 첫 화면으로</button></div>';
-    document.getElementById("min-home").onclick = renderSummary;
+      '<p class="msg">사역 목록을 불러오지 못했어요.<br>잠시 뒤 다시 열어 주세요.</p></div>' + fab;
+    wireHome();
     return;
   }
 
   const body = minStep === "done" ? minDoneHtml(u)
              : minStep === "confirm" ? minConfirmHtml()
              : minPickHtml();
-  appEl.innerHTML = '<div class="min-screen">' + body + '</div>' +
-    '<button class="home-fab" id="min-home">🏠 첫 화면으로</button>';
+  appEl.innerHTML = '<div class="min-screen">' + body + '</div>' + fab;
   window.scrollTo(0, keepScroll == null ? 0 : keepScroll);
-  document.getElementById("min-home").onclick = renderSummary;
+  wireHome();
   if (minStep === "pick") wireMinPick(u);
   else if (minStep === "confirm") wireMinConfirm(u);
   else wireMinDone(u);
