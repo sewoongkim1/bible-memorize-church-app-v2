@@ -4513,6 +4513,25 @@ body.pr-full-on { overflow: hidden; }
 .min-state.s-done { background: #e7f3e8; color: #2c5f2d; }
 .min-state.s-none { background: #f2f2f2; color: var(--gray); }
 
+/* 접수완료 = 잠긴 줄. 고를 수 없다는 것이 눌러 보기 **전에** 보여야 한다. */
+.min-row.lock { background: #f4f6fa; border-color: #b9c4d8; }
+.min-row.lock .min-team { cursor: not-allowed; }
+.min-row.lock .min-chk { border-color: #7d8ba5; background: #7d8ba5; }
+.min-tag.lock { color: #fff; background: #7d8ba5; border-radius: 999px; padding: 1px 7px; }
+.min-lock-note { background: #eef1f8; color: var(--navy); }
+
+/* 「내 신청」 줄마다 붙는 상태 딱지 */
+.min-st { display: inline-block; margin-top: 4px; padding: 2px 9px; border-radius: 999px;
+  font-size: .72rem; font-weight: 800; }
+.min-st.s-wait { background: #eef1f8; color: var(--navy); }
+.min-st.s-work { background: #fbf1d8; color: #8a6a1e; }
+.min-st.s-done { background: #e7f3e8; color: #2c5f2d; }
+.min-st.s-none { background: #f2f2f2; color: var(--gray); }
+.min-pick-ck.s-work { background: #c3a253; }
+.min-pick-ck.s-done { background: #2c5f2d; }
+.min-pick-ck.s-none { background: #9aa3b2; }
+.min-cancel { margin-top: 8px; color: #a33; border-color: #d9b3b3; }
+
 /* 큰 단추 = 지금 할 일(첫 화면 .todo-go 와 같은 위계) */
 .min-cta { display: block; width: 100%; padding: 15px; font: inherit; font-size: 1rem;
   font-weight: 800; color: #fff; background: var(--navy); border: none; border-radius: 14px;
@@ -4556,6 +4575,8 @@ body.pr-full-on { overflow: hidden; }
 .min-d-close2 { width: 100%; padding: 11px; font: inherit; font-size: .88rem; font-weight: 700;
   color: var(--gray); background: none; border: none; cursor: pointer; }
 
+.dark .min-row.lock { background: #1a2130; border-color: #46536b; }
+.dark .min-st.s-wait { background: #232c3f; color: #cfe0ff; }
 .dark .min-grp { background: #1e2637; border-bottom-color: #4a6394; }
 .dark .min-grp-h { color: #cfe0ff; }
 .dark .min-grp-opt { color: #e2c98a; background: #33301f; }

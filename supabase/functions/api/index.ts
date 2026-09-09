@@ -3023,7 +3023,37 @@ async function boardModerate(b: any) {
 //   · 고른 사역이 최대 3개 — 순위는 없다(2026-09-08 결정)
 // ⚠️ 응답에 user_id 를 절대 싣지 않는다. 이 API 는 JWT 가 없어 남의 user_id 하나면
 //    그 사람 행세가 된다(boardList 가 실제로 그랬다). 화면이 필요한 건 "내 것인가"뿐이다.
-const MINISTRY_STATUS = ["신청완료", "검토중", "임명확정", "미채택"];
+const MINISTRY_STATUS = ["신청완료", "접수완료", "임명확정", "미채택"];
+// 담당자가 **접수완료**를 누르면 그 건은 잠긴다 — 성도가 고치거나 뺄 수 없고,
+// 그 순간 팀 「자세히 보기」의 명단에 이름이 올라간다(2026-09-09 성도님 요구).
+// ⚠️ 잠겨도 「3개가 안 찼으면 더 신청」은 열려 있다. 그래서 한 사람이 한 행이 아니라
+//    **한 팀이 한 행**이다 — 행이 통째로 잠기면 더 담을 자리가 없어진다.
+const MINISTRY_LOCKED = ["접수완료", "임명확정", "미채택"];
+const isLocked = (st: string) => MINISTRY_LOCKED.indexOf(st) >= 0;
+
+// 「화평 20목장」 → 「화평-20」, 「중등부 2학년」 → 「중등부-2」
+// ⚠️ 정규식을 쓰지 않는다 — 이 파일이 껍데기를 거쳐 고쳐질 때 역슬래시가 풀린 적이 있다.
+function ministryWhoShort(who: unknown): string {
+  return norm(who).split(" ").map((x: string) => {
+    const t = x.trim();
+    return (t.endsWith("목장") || t.endsWith("학년")) ? t.slice(0, -2) : t;
+  }).filter(Boolean).join("-");
+}
+
+// 명단 한 줄 — 「김세웅 안수집사 (화평-20)」
+// ⚠️ 이름은 성도가 스스로 적은 값이라 반드시 막아서 내보낸다. 이 줄은 앱이 날 HTML로
+//    그리는 자리다(관리자가 넣은 꾸밈을 살리려고). 막지 않으면 이름 한 칸이 화면을 먹는다.
+function ministryEsc(v: unknown): string {
+  return String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function ministryMemberLine(r: any): string {
+  const nm = ministryEsc(norm(r.name));
+  if (!nm) return "";
+  const pos = ministryEsc(norm(r.position));
+  const wh = ministryEsc(ministryWhoShort(r.who));
+  return nm + (pos ? " " + pos : "") + (wh ? " (" + wh + ")" : "");
+}
 const MINISTRY_MAX = 3;
 // 휴대폰 뒷 4자리 — 이 앱은 비밀번호가 없어(교구·목장·이름 로그인) 고치기·취소를
 // 이걸로 한 번 더 확인한다. 담당자가 교적과 맞대 보는 자료이기도 하다.
@@ -3062,8 +3092,12 @@ function ministryRow(r: any) {
   return {
     id: r.id,
     year: r.year,
-    choices: Array.isArray(r.choices) ? r.choices : [],
+    team_id: r.team_id,
+    committee: r.committee ?? "",
+    team: r.team ?? "",
+    option: r.option ?? "",
     status: r.status,
+    locked: isLocked(r.status),
     note: r.note ?? "",
     position: r.position ?? "",
     at: kstDay(r.created_at).replace(/-/g, "."),
@@ -3071,6 +3105,23 @@ function ministryRow(r: any) {
     decided_at: r.decided_at ?? null,
   };
 }
+
+// 성도 화면이 보는 「내 신청」 — 건 목록과 남은 자리를 함께 준다.
+// ⚠️ 남은 자리는 서버가 센다. 화면이 세면 잠긴 건을 빠뜨리기 쉽다.
+function ministryMineView(rows: any[]) {
+  const items = rows.map(ministryRow);
+  const pos = rows.map((r) => norm(r.position)).filter(Boolean)[0] || "";
+  return {
+    items,
+    max: MINISTRY_MAX,
+    used: items.length,
+    left: Math.max(0, MINISTRY_MAX - items.length),
+    openCount: items.filter((x) => !x.locked).length,
+    position: pos,
+    at: items.length ? items[0].at : "",
+  };
+}
+
 
 // 사역팀 목록 — 임명직도 함께 내려준다(화면에서 잠근 채 보여 준다)
 async function ministryCatalog(b: any) {
@@ -3080,6 +3131,25 @@ async function ministryCatalog(b: any) {
     .select("id,committee,group_name,team,kind,schedule_note,desc_note,capacity_note,option_note,members_note,sort_order")
     .eq("year", year).order("sort_order", { ascending: true });
   if (error) throw error;
+
+  // 팀마다 「지금 섬기는 분」 — 담당자가 **접수완료**를 누른 건부터 보인다(성도님 요구 ①).
+  // ⚠️ 신청완료(아직 접수 전)는 넣지 않는다. 확정 전 신청자를 남에게 보이는 일이 된다.
+  // ⚠️ 관리자가 손으로 넣은 members_note 가 **먼저** 온다 — 앱을 거치지 않고 지금 섬기시는
+  //    분들이라 첫해에는 그쪽이 명단의 전부다.
+  const roster = new Map<number, string[]>();
+  const { data: served } = await db.from("ministry_orders")
+    .select("team_id,name,position,who,status,created_at")
+    .eq("year", year).in("status", MINISTRY_LOCKED)
+    .order("created_at", { ascending: true });
+  for (const r of ((served ?? []) as any[])) {
+    if (r.status === "미채택") continue;          // 함께 섬기는 분이 아니다
+    const line = ministryMemberLine(r);
+    if (!line) continue;
+    const k = Number(r.team_id);
+    if (!roster.has(k)) roster.set(k, []);
+    roster.get(k)!.push(line);
+  }
+
   return {
     ok: true,
     year,
@@ -3090,8 +3160,9 @@ async function ministryCatalog(b: any) {
       sched: ministryHtml(r.schedule_note, 160),
       desc: ministryHtml(r.desc_note, 400),
       capacity: ministryHtml(r.capacity_note, 80),
-      // 「지금 섬기는 분」 — 관리자가 한 줄에 한 분씩 적은 것. 여러 명이라 자리가 넉넉하다.
-      members: ministryHtml(r.members_note, 1200),
+      // 「지금 섬기는 분」 — 관리자가 적어 둔 분들 + 담당자가 접수완료한 신청자
+      members: [ministryHtml(r.members_note, 1200), (roster.get(Number(r.id)) ?? []).join("<br>")]
+        .filter(Boolean).join("<br>"),
       opt: r.option_note,
     })),
   };
@@ -3102,12 +3173,14 @@ async function ministryMine(b: any) {
   const userId = String(b.user_id || "");
   const cfg = await ministryCfg();
   const period = { open: cfg.open, close: cfg.close, isOpen: cfg.isOpen };
-  if (!userId) return { ok: true, order: null, period };
-  const { data, error } = await db.from("ministry_orders")
-    .select("*").eq("year", cfg.year).eq("user_id", userId).maybeSingle();
+  if (!userId) return { ok: true, mine: null, period };
+  const { data, error } = await db.from("ministry_orders").select("*")
+    .eq("year", cfg.year).eq("user_id", userId).order("created_at", { ascending: true });
   if (error) throw error;
-  return { ok: true, order: data ? ministryRow(data) : null, period };
+  const rows = (data ?? []) as any[];
+  return { ok: true, mine: rows.length ? ministryMineView(rows) : null, period };
 }
+
 
 // 신청·수정 — 같은 해 신청이 있으면 그 건을 고친다
 async function ministryApply(b: any) {
@@ -3115,8 +3188,8 @@ async function ministryApply(b: any) {
   if (!userId) return { ok: false, error: "user_id 필요" };
   const cfg = await ministryCfg();
   // ⚠️ 기간 검사는 서버가 한다. 화면이 막는 것은 편의일 뿐이다.
-  // ⚠️ 단 하나의 예외: 관리자 비번이 맞으면 기간 밖에도 통과한다 — 오픈 전 리허설
-  //    (구현 계획 5단계)과 ?preview=ministry 시험을 위해서다. 비번 없이는 뚫리지 않는다.
+  // ⚠️ 단 하나의 예외: 관리자 비번이 맞으면 기간 밖에도 통과한다 — 오픈 전 리허설과
+  //    ?preview=ministry 시험을 위해서다. 비번 없이는 뚫리지 않는다.
   if (!cfg.isOpen && adminError(b)) {
     return { ok: false, error: "신청 기간이 아닙니다 (" + cfg.open + " ~ " + cfg.close + ")" };
   }
@@ -3125,17 +3198,35 @@ async function ministryApply(b: any) {
   const ids = [...new Set(raw
     .map((c: any) => Number(c && typeof c === "object" ? c.id : c) || 0)
     .filter((n: number) => n > 0))];
-  if (!ids.length) return { ok: false, error: "사역을 하나 이상 골라 주세요" };
-  // ⚠️ 3개 제한도 서버가 다시 센다(화면 → 서버 → DB 제약, 세 겹)
-  if (ids.length > MINISTRY_MAX) {
-    return { ok: false, error: "사역 임명 원칙에 따라 최대 " + MINISTRY_MAX + "개까지 신청하실 수 있어요" };
+
+  // 이미 낸 것들 — 잠긴 건은 건드리지 않고 자리만 센다
+  const { data: had } = await db.from("ministry_orders")
+    .select("id,team_id,status,phone4")
+    .eq("year", cfg.year).eq("user_id", userId);
+  const mine = (had ?? []) as any[];
+  const locked = mine.filter((r) => isLocked(r.status));
+  const openRows = mine.filter((r) => !isLocked(r.status));
+
+  // 잠긴 팀이 다시 올라오면 조용히 뺀다 — 화면이 이미 체크해 보여 주기 때문이다
+  const lockedTeam = new Set(locked.map((r) => Number(r.team_id)));
+  const want = ids.filter((id: number) => !lockedTeam.has(id));
+
+  if (!want.length) {
+    return locked.length
+      ? { ok: false, error: "새로 고르신 사역이 없습니다. 이미 접수된 사역은 뺄 수 없어요" }
+      : { ok: false, error: "사역을 하나 이상 골라 주세요" };
+  }
+  // ⚠️ 3개 상한은 잠긴 것까지 더해서 센다(성도님 요구 ③의 반대편이다)
+  if (locked.length + want.length > MINISTRY_MAX) {
+    return { ok: false, error: "이미 접수된 " + locked.length + "개를 더하면 " +
+      MINISTRY_MAX + "개를 넘습니다. 남은 자리는 " + (MINISTRY_MAX - locked.length) + "개입니다" };
   }
 
   const { data: teams, error: e1 } = await db.from("ministry_catalog")
-    .select("id,committee,team,kind").eq("year", cfg.year).in("id", ids);
+    .select("id,committee,team,kind").eq("year", cfg.year).in("id", want);
   if (e1) throw e1;
   const found = (teams ?? []) as any[];
-  if (found.length !== ids.length) {
+  if (found.length !== want.length) {
     return { ok: false, error: "없는 사역이 섞여 있습니다. 새로고침 후 다시 골라 주세요" };
   }
   const appointed = found.find((t) => t.kind === "appoint");
@@ -3143,73 +3234,82 @@ async function ministryApply(b: any) {
     return { ok: false, error: appointed.team + " 은(는) 지명으로 정해지는 자리라 신청할 수 없습니다" };
   }
 
-  // 고른 순서대로 담되 뜻은 부여하지 않는다. 팀 이름은 스냅샷으로 함께 박는다 —
-  // 목록이 바뀌어도 "그때 무엇을 냈는지"가 남는다.
   const phone4 = minPhone4(b.phone4);
   if (!MIN_PHONE4_RE.test(phone4)) {
     return { ok: false, error: "휴대폰 뒷 4자리를 넣어 주세요" };
+  }
+  // ⚠️ 이미 낸 건이 있으면 그때 넣은 4자리와 같아야 한다 — 비밀번호가 없는 앱의 최소 확인.
+  //    결정이 난 건은 4자리를 지워 두므로(아래 setStatus) 남아 있는 것만 본다.
+  const kept = mine.map((r) => norm(r.phone4)).filter(Boolean)[0];
+  if (kept && kept !== phone4) {
+    return { ok: false, error: "휴대폰 뒷 4자리가 처음 신청하실 때와 다릅니다" };
   }
   const position = norm(b.position);
   if (!MIN_POSITIONS.has(position)) {
     return { ok: false, error: "직분을 골라 주세요" };
   }
 
+  const me = await ministryWho(userId);   // 없으면(옛 기기 등) 앱이 보낸 값으로 채운다
+  const name = (me && me.name) || norm(b.name) || null;
+  const who = (me && me.who) || norm(b.who) || null;
   const opts: Record<string, string> = (b.options ?? {}) as any;
   const byId = new Map(found.map((t) => [t.id, t]));
-  const choices = ids.map((id: number) => {
-    const t = byId.get(id);
-    return { id, committee: t.committee, team: t.team, option: norm(opts[String(id)]) || "" };
-  });
+  const now = new Date().toISOString();
 
-  const me = await ministryWho(userId);   // 없으면(옛 기기 등) 앱이 보낸 값으로 채운다
-
-  const fields = {
-    year: cfg.year,
-    user_id: userId,
-    name: (me && me.name) || norm(b.name) || null,   // 교적과 맞대 볼 값 — 서버 것을 먼저 쓴다
-    who: (me && me.who) || norm(b.who) || null,
-    choices,
-    phone4,
-    position,
-    updated_at: new Date().toISOString(),
-  };
-
-  const { data: prev } = await db.from("ministry_orders")
-    .select("id,status,phone4").eq("year", cfg.year).eq("user_id", userId).maybeSingle();
-  if (prev) {
-    // 담당자가 검토를 시작한 뒤에는 성도가 바꿀 수 없다(필사 신청과 같은 규칙)
-    if (prev.status !== "신청완료") return { ok: false, error: "담당자 검토가 시작되어 변경할 수 없습니다" };
-    // ⚠️ 고칠 때는 처음 넣은 4자리와 같아야 한다 — 비밀번호가 없는 앱의 최소 확인이다
-    if (prev.phone4 && prev.phone4 !== phone4) {
-      return { ok: false, error: "휴대폰 뒷 4자리가 처음 신청하실 때와 다릅니다" };
-    }
-    const { data, error } = await db.from("ministry_orders")
-      .update(fields).eq("id", prev.id).select("*").single();
+  // 「고치기」는 아직 안 잠긴 건을 지우고 다시 내는 것이다 — 잠긴 건은 그대로 둔다
+  if (openRows.length) {
+    const { error } = await db.from("ministry_orders")
+      .delete().in("id", openRows.map((r) => r.id));
     if (error) throw error;
-    return { ok: true, order: ministryRow(data), edited: true };
   }
-  const { data, error } = await db.from("ministry_orders").insert(fields).select("*").single();
-  if (error) throw error;
-  return { ok: true, order: ministryRow(data), edited: false };
+  const rows = want.map((id: number) => {
+    const t: any = byId.get(id);
+    return {
+      year: cfg.year, user_id: userId, name, who, position, phone4,
+      team_id: id, committee: t.committee, team: t.team,
+      option: norm(opts[String(id)]) || "",
+      status: "신청완료", updated_at: now,
+    };
+  });
+  const { error: e2 } = await db.from("ministry_orders").insert(rows);
+  if (e2) throw e2;
+
+  const { data: after } = await db.from("ministry_orders").select("*")
+    .eq("year", cfg.year).eq("user_id", userId).order("created_at", { ascending: true });
+  return { ok: true, mine: ministryMineView((after ?? []) as any[]), edited: openRows.length > 0 };
 }
 
-// 취소 — '신청완료'인 내 신청만, 기간 안에서만
 async function ministryCancel(b: any) {
   const userId = String(b.user_id || "");
   if (!userId) return { ok: false, error: "user_id 필요" };
   const cfg = await ministryCfg();
   if (!cfg.isOpen && adminError(b)) return { ok: false, error: "신청 기간이 지나 취소할 수 없습니다" };
-  const { data: row } = await db.from("ministry_orders")
-    .select("id,status,phone4").eq("year", cfg.year).eq("user_id", userId).maybeSingle();
-  if (!row) return { ok: false, error: "신청을 찾을 수 없습니다" };
-  if (row.status !== "신청완료") return { ok: false, error: "담당자 검토가 시작되어 취소할 수 없습니다" };
-  if (row.phone4 && row.phone4 !== minPhone4(b.phone4)) {
+  const { data } = await db.from("ministry_orders")
+    .select("id,status,phone4,team").eq("year", cfg.year).eq("user_id", userId);
+  const mine = (data ?? []) as any[];
+  if (!mine.length) return { ok: false, error: "신청을 찾을 수 없습니다" };
+
+  const open = mine.filter((r) => !isLocked(r.status));
+  if (!open.length) {
+    return { ok: false, error: "담당자 접수가 끝나 취소할 수 없습니다" };
+  }
+  const kept = mine.map((r) => norm(r.phone4)).filter(Boolean)[0];
+  if (kept && kept !== minPhone4(b.phone4)) {
     return { ok: false, error: "휴대폰 뒷 4자리가 맞지 않습니다" };
   }
-  const { error } = await db.from("ministry_orders").delete().eq("id", row.id);
+  // ⚠️ 잠긴 건은 남는다 — 「취소」는 아직 접수 안 된 것만 무르는 일이다
+  const one = Number(b.team_id) || 0;
+  const kill = one ? open.filter((r) => Number(r.team_id) === one) : open;
+  if (!kill.length) return { ok: false, error: "취소할 신청이 없습니다" };
+  const { error } = await db.from("ministry_orders").delete().in("id", kill.map((r) => r.id));
   if (error) throw error;
-  return { ok: true };
+
+  const { data: after } = await db.from("ministry_orders").select("*")
+    .eq("year", cfg.year).eq("user_id", userId).order("created_at", { ascending: true });
+  const rows = (after ?? []) as any[];
+  return { ok: true, mine: rows.length ? ministryMineView(rows) : null };
 }
+
 
 // 관리자 명단 — 신청은 많아야 수백 건이라 전부 내려주고 화면에서 추린다
 async function ministryList(b: any) {
@@ -3378,8 +3478,7 @@ async function ministryNotify(row: any) {
   const list = (subs ?? []) as any[];
   if (!list.length) return { sent: 0, error: "not-subscribed" };
   const who = norm(row.name);
-  const teams = (Array.isArray(row.choices) ? row.choices : [])
-    .map((c: any) => norm(c && c.team)).filter(Boolean).join(", ");
+  const teams = norm(row.team);
   const payload = JSON.stringify({
     title: "[고척교회 사역신청]",
     body: (who ? who + " 성도님, " : "성도님, ") +

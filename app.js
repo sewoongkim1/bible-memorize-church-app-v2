@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260909a";
+const APP_BUILD = "20260909b";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -8810,7 +8810,10 @@ loadVerses();
    ⚠️ 임명직은 목록에서 빼지 않고 잠근 채 보여 준다 — 부서 전체 구조가 보이도록.
    ========================================================================== */
 let minCat = null;        // { year, period, list:[...] } — 화면 진입 때 한 번 받는다
-let minMine = null;       // 접수된 내 신청 { id, status, choices, ... }
+let minMine = null;       // 내 신청 { items, max, used, left, openCount, position, at }
+// ⚠️ 한 사람이 한 건이 아니라 **한 팀이 한 건**이다(2026-09-09). 담당자가 팀마다 따로
+//    접수하고, 접수된 건은 잠기며, 3개가 안 찼으면 그 뒤에도 더 신청할 수 있기 때문이다.
+let minLockedIds = [];    // 이미 접수돼 뺄 수 없는 팀
 let minPicked = [];       // 고른 팀 id (최대 3, 순위 아님)
 let minOpen = null;       // 펼친 위원회 이름 (한 번에 하나)
 let minLoaded = false;
@@ -8846,8 +8849,8 @@ function minEsc(t) {
 }
 
 const MIN_STATE = {
-  "신청완료": { ic: "📝", cls: "s-wait", msg: "접수됐어요. 부서 확인을 거쳐 임명이 정해집니다." },
-  "검토중":   { ic: "🔎", cls: "s-work", msg: "담당자가 신청 내용을 살펴보고 있어요." },
+  "신청완료": { ic: "📝", cls: "s-wait", msg: "냈어요. 담당자가 접수하기 전까지는 고치실 수 있어요." },
+  "접수완료": { ic: "📥", cls: "s-work", msg: "담당자가 접수했어요. 이제 고치실 수 없습니다." },
   "임명확정": { ic: "✅", cls: "s-done", msg: "임명이 확정됐어요. 첫 모임 안내를 기다려 주세요." },
   "미채택":   { ic: "🕊️", cls: "s-none", msg: "이번에는 다른 분이 임명되셨어요. 다음 기회에 함께해 주세요." },
 };
@@ -8857,14 +8860,26 @@ async function minLoad(u) {
   try {
     const [cat, mine] = await Promise.all([api.ministryCatalog(), api.ministryMine(u.user_id)]);
     minCat = cat && cat.ok ? cat : null;
-    minMine = mine && mine.order ? mine.order : null;
-    // 접수된 신청이 있으면 그걸 그대로 고를 수 있게 담아 둔다
-    minPicked = minMine ? minMine.choices.map(function (c) { return c.id; }) : [];
+    minMine = mine && mine.mine ? mine.mine : null;
+    minSyncPicked();
     minStep = minMine ? "done" : "pick";
   } catch (_) {
-    minCat = null; minMine = null;
+    minCat = null; minMine = null; minLockedIds = [];
   }
   minLoaded = true;
+}
+
+// 낸 것을 고르기 화면에 되살린다. ⚠️ 잠긴 팀은 minPicked 에 넣지 않는다 —
+// 넣으면 성도가 그것을 눌러 뺄 수 있게 되고, 서버가 거절해 「왜 안 되지」가 된다.
+function minSyncPicked() {
+  const items = (minMine && minMine.items) || [];
+  minLockedIds = items.filter(function (x) { return x.locked; })
+    .map(function (x) { return x.team_id; });
+  minPicked = items.filter(function (x) { return !x.locked; })
+    .map(function (x) { return x.team_id; });
+}
+function minLeft() {
+  return MIN_MAX - minLockedIds.length - minPicked.length;
 }
 
 function minTeam(id) {
@@ -8951,7 +8966,9 @@ function minPickHtml() {
   let acc = "";
   for (const c of committees) {
     const mine = minCat.list.filter(function (t) { return t.committee === c; });
-    const got = mine.filter(function (t) { return minPicked.indexOf(t.id) >= 0; }).length;
+    const got = mine.filter(function (t) {
+      return minPicked.indexOf(t.id) >= 0 || minLockedIds.indexOf(t.id) >= 0;
+    }).length;
     const open = minOpen === c;
     acc += '<div class="min-acc' + (open ? " open" : "") + '">' +
       '<button class="min-acc-h" data-acc="' + minEsc(c) + '" aria-expanded="' + open + '">' +
@@ -8975,15 +8992,18 @@ function minPickHtml() {
           }
         }
         lastGrp = t.group;
-        const on = minPicked.indexOf(t.id) >= 0;
+        const lock = minLockedIds.indexOf(t.id) >= 0;      // 이미 접수돼 뺄 수 없다
+        const on = lock || minPicked.indexOf(t.id) >= 0;
         const meta = minShortOf(t);
         // ⚠️ 「자세히」는 고르기 단추 **안**에 넣을 수 없다(단추 안 단추는 안 된다).
         //    그래서 줄 전체를 감싸는 상자를 두고 형제로 나란히 놓는다.
-        acc += '<div class="min-row' + (on ? " on" : "") + (t.appoint ? " off" : "") + '">' +
+        acc += '<div class="min-row' + (on ? " on" : "") + (t.appoint ? " off" : "") +
+          (lock ? " lock" : "") + '">' +
           '<button class="min-team"' +
-          (t.appoint ? " disabled" : ' data-team="' + t.id + '"') + '>' +
+          (t.appoint || lock ? " disabled" : ' data-team="' + t.id + '"') + '>' +
           '<span class="min-info"><span class="min-nm">' + minEsc(t.team) +
-          (t.appoint ? '<span class="min-tag">지명</span>' : "") + '</span>' +
+          (t.appoint ? '<span class="min-tag">지명</span>' : "") +
+          (lock ? '<span class="min-tag lock">접수완료</span>' : "") + '</span>' +
           (meta ? '<span class="min-meta">' + meta + '</span>' : "") + '</span>' +
           '<span class="min-chk">' + (on ? "✓" : "") + '</span></button>' +
           minMoreBtn(t) + '</div>';
@@ -9002,8 +9022,12 @@ function minPickHtml() {
     '<div class="min-note"><b class="min-note-t">사역 임명 원칙</b>' +
       '1인 <b>최대 ' + MIN_MAX + '개</b>까지 신청할 수 있어요(순서는 상관없습니다). ' +
       '신청 후 <b>임명을 받아야</b> 사역을 시작합니다 — 확정되면 앱 알림으로 알려 드리고 게시판에도 올립니다.</div>' +
+    (minLockedIds.length
+      ? '<div class="min-note min-lock-note">📥 이미 접수된 <b>' + minLockedIds.length + '개</b>는 ' +
+        '고치거나 뺄 수 없어요. <b>남은 ' + (MIN_MAX - minLockedIds.length) + '자리</b>만 고르시면 됩니다.</div>'
+      : "") +
     '<div class="min-count' + (minPicked.length ? " has" : "") + '">' +
-      minPicked.length + ' / ' + MIN_MAX + ' 선택' + '</div>' +
+      (minLockedIds.length + minPicked.length) + ' / ' + MIN_MAX + ' 선택' + '</div>' +
     '<div class="min-acc-wrap">' + acc + '</div>' +
     (openNow || MIN_PREVIEW
       ? '<button class="min-cta" id="min-next"' + (minPicked.length ? "" : " disabled") + '>' +
@@ -9032,10 +9056,16 @@ function wireMinPick(u) {
 
 // 고르기·빼기 한 곳에서 — 목록에서도, 「자세히」 창에서도 같은 규칙을 따르게
 function minTogglePick(id) {
+  if (minLockedIds.indexOf(id) >= 0) {
+    alert("이미 담당자가 접수한 사역이라 뺄 수 없어요.");
+    return false;
+  }
   const i = minPicked.indexOf(id);
   if (i >= 0) { minPicked.splice(i, 1); return true; }
-  if (minPicked.length >= MIN_MAX) {
-    alert("사역 임명 원칙에 따라 최대 " + MIN_MAX + "개까지 신청하실 수 있어요.\n먼저 고르신 것을 빼고 다시 골라 주세요.");
+  if (minLockedIds.length + minPicked.length >= MIN_MAX) {
+    alert(minLockedIds.length
+      ? "이미 접수된 " + minLockedIds.length + "개를 더하면 " + MIN_MAX + "개를 넘어요."
+      : "사역 임명 원칙에 따라 최대 " + MIN_MAX + "개까지 신청하실 수 있어요.");
     return false;
   }
   minPicked.push(id);
@@ -9142,6 +9172,10 @@ function minConfirmHtml() {
   }
   return '<h2 class="rank-title">🤝 신청 사역 확인</h2>' +
     '<p class="min-sub">이 사역으로 신청합니다 · <b>순위는 매기지 않습니다</b></p>' +
+    (minLockedIds.length
+      ? '<div class="min-note min-lock-note">📥 이미 접수된 <b>' + minLockedIds.length +
+        '개</b>는 그대로 남습니다 — 아래 것만 새로 냅니다.</div>'
+      : "") +
     '<div class="min-who">' + minEsc(minWhoText()) + '</div>' +
     rows +
     '<div class="min-p4"><label for="min-pos">직분</label>' +
@@ -9215,7 +9249,8 @@ function wireMinConfirm(u) {
         phone4: minPhone4Val, position: minPosVal, pw: minPw(),
       });
       if (!r || !r.ok) { alert((r && r.error) || "신청을 저장하지 못했어요."); renderMinistry(); return; }
-      minMine = r.order;
+      minMine = r.mine;
+      minSyncPicked();
       minStep = "done";
       renderMinistry();
     } catch (_) {
@@ -9228,36 +9263,56 @@ function wireMinConfirm(u) {
 /* ── ③ 내 신청(진행 현황) ───────────────────────────────────── */
 function minDoneHtml(u) {
   const m = minMine;
-  const info = MIN_STATE[m.status] || MIN_STATE["신청완료"];
+  const items = (m && m.items) || [];
+  // ⚠️ 화면 맨 위 한 줄은 「가장 덜 진행된 건」으로 말한다 — 셋이 제각각일 수 있는데
+  //    아무거나 고르면 성도님이 자기 상태를 잘못 읽는다.
+  const order = ["신청완료", "접수완료", "임명확정", "미채택"];
+  let worst = items.length ? items[0].status : "신청완료";
+  for (const it of items) if (order.indexOf(it.status) < order.indexOf(worst)) worst = it.status;
+  const info = MIN_STATE[worst] || MIN_STATE["신청완료"];
+
   let rows = "";
-  for (const c of m.choices) {
-    const t = minTeam(c.id);
+  for (const it of items) {
+    const st = MIN_STATE[it.status] || MIN_STATE["신청완료"];
+    const t = minTeam(it.team_id);
     const meta = t ? minShortOf(t) : "";
-    rows += '<div class="min-pick"><span class="min-pick-ck">✓</span>' +
-      '<span class="min-info"><span class="min-nm">' + minEsc(c.team) +
-      ' <span class="min-com">· ' + minEsc(c.committee) + '</span></span>' +
+    rows += '<div class="min-pick"><span class="min-pick-ck ' + st.cls + '">' + st.ic + '</span>' +
+      '<span class="min-info"><span class="min-nm">' + minEsc(it.team) +
+      ' <span class="min-com">· ' + minEsc(it.committee) + '</span></span>' +
+      '<span class="min-st ' + st.cls + '">' + minEsc(it.status) + '</span>' +
       (meta ? '<span class="min-meta">' + meta + '</span>' : "") + '</span>' +
       (t ? minMoreBtn(t) : "") + '</div>';
   }
-  const editable = m.status === "신청완료" && minIsOpen();
+
+  const left = m ? m.left : MIN_MAX;
+  const canEdit = !!(m && m.openCount) && minIsOpen();
+  const canAdd = left > 0 && minIsOpen();
   return '<h2 class="rank-title">🤝 내 사역 신청</h2>' +
     '<div class="min-state ' + info.cls + '">' +
-      '<div class="min-state-t"><span>' + info.ic + '</span> ' + minEsc(m.status) + '</div>' +
+      '<div class="min-state-t"><span>' + info.ic + '</span> ' + minEsc(worst) + '</div>' +
       '<div class="min-state-m">' + info.msg + '</div></div>' +
-    '<div class="min-who">' + minEsc(minWhoText()) + ' · ' + minEsc(m.at) + ' 신청</div>' +
+    '<div class="min-who">' + minEsc(minWhoText()) +
+      (m && m.position ? ' · ' + minEsc(m.position) : "") +
+      (m && m.at ? ' · ' + minEsc(m.at) + ' 신청' : "") + '</div>' +
     rows +
+    '<div class="min-count has">' + (m ? m.used : 0) + ' / ' + MIN_MAX + ' 신청' +
+      (left > 0 ? ' · <b>' + left + '자리 남음</b>' : "") + '</div>' +
     '<div class="min-note">🔔 임명이 확정되면 <b>앱 알림</b>으로 알려 드리고 <b>게시판에도</b> 올립니다. ' +
       '알림을 켜지 않으셨어도 게시판에서 확인하실 수 있어요.</div>' +
-    (editable
-      ? '<button class="min-cta" id="min-edit">신청 고치기</button>' +
-        '<button class="min-ghost" id="min-cancel">신청 취소</button>'
-      : '<div class="min-note min-lock">담당자 확인이 시작되어 고치거나 취소할 수 없어요.</div>');
+    (canAdd
+      ? '<button class="min-cta" id="min-add">사역 더 신청하기' +
+        '<span class="min-cta-s">' + left + '자리가 남아 있어요</span></button>'
+      : "") +
+    (canEdit
+      ? '<button class="min-ghost" id="min-edit">아직 접수 전인 신청 고치기</button>' +
+        '<button class="min-ghost min-cancel" id="min-cancel">아직 접수 전인 신청 취소</button>'
+      : '<div class="min-note min-lock">담당자 접수가 끝나 고치거나 취소할 수 없어요.</div>');
 }
 
 // 취소도 4자리로 한 번 확인한다 — 신청을 지우는 일이라 고치기와 같은 문턱을 둔다
 let minCancelP4 = "";
 function minCancelAsk() {
-  const p4 = (prompt("신청을 취소하려면 휴대폰 뒷 4자리를 넣어 주세요.\n(처음 신청하실 때 넣으신 번호입니다)") || "")
+  const p4 = (prompt("아직 접수 전인 신청을 취소합니다. 휴대폰 뒷 4자리를 넣어 주세요.\n(처음 신청하실 때 넣으신 번호입니다)") || "")
     .replace(/[^0-9]/g, "");
   if (!/^[0-9]{4}$/.test(p4)) { if (p4) alert("4자리를 정확히 넣어 주세요."); return false; }
   minCancelP4 = p4;
@@ -9266,12 +9321,18 @@ function minCancelAsk() {
 
 function wireMinDone(u) {
   minWireMore();
-  const edit = document.getElementById("min-edit");
-  if (edit) edit.addEventListener("click", function () {
-    minPhone4Val = "";        // 고칠 때는 4자리를 다시 넣게 한다(최소 본인 확인)
+  // 「고치기」와 「더 신청하기」는 같은 곳으로 간다 — 다른 것은 들고 가는 선택뿐이다.
+  // ⚠️ 「더 신청하기」는 안 잠긴 것도 함께 들고 간다(빈손으로 가면 그걸 잃는다).
+  function toPick() {
+    minPhone4Val = "";        // 낼 때마다 4자리를 다시 넣게 한다(최소 본인 확인)
     minPosVal = (minMine && minMine.position) || minPosVal;   // 직분은 그대로 둔다
+    minSyncPicked();
     minStep = "pick"; renderMinistry();
-  });
+  }
+  const add = document.getElementById("min-add");
+  if (add) add.addEventListener("click", toPick);
+  const edit = document.getElementById("min-edit");
+  if (edit) edit.addEventListener("click", toPick);
   const cancel = document.getElementById("min-cancel");
   if (cancel) cancel.addEventListener("click", async function () {
     if (!minCancelAsk()) return;
@@ -9279,7 +9340,10 @@ function wireMinDone(u) {
     try {
       const r = await api.ministryCancel(u.user_id, minPw(), minCancelP4);
       if (!r || !r.ok) { alert((r && r.error) || "취소하지 못했어요."); cancel.disabled = false; return; }
-      minMine = null; minPicked = []; minStep = "pick";
+      // ⚠️ 접수된 건은 취소해도 남는다 — 「전부 지웠다」로 치면 화면이 사실과 어긋난다.
+      minMine = r.mine || null;
+      minSyncPicked();
+      minStep = minMine ? "done" : "pick";
       renderMinistry();
     } catch (_) {
       alert("연결이 고르지 않아 취소하지 못했어요.");

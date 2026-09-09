@@ -708,7 +708,7 @@ function renderMenu(){
         <div class="ic">🤝</div>
         <div class="rep-text">
           <div class="ti">사역신청 현황 (2027)</div>
-          <div class="de">신청 명단 · 팀별 신청 수 · 상태 변경(신청완료→검토중→임명확정/미채택)</div>
+          <div class="de">신청 건(팀마다 한 건) · 접수완료로 잠그기 · 상태 변경(신청완료→접수완료→임명확정/미채택)</div>
         </div>
         <div class="rep-arrow">›</div>
       </div>
@@ -2898,10 +2898,11 @@ if(getPw()) { logoutBtn.hidden=false; renderMenu(); } else { renderLogin(); }
 // 상태를 바꾸고, 바꾼 결과(알림 발송)를 한 줄로 알려 준다.
 // ⚠️ 필사에서 배운 것을 그대로 가져온다: 발송 «실패»를 «안 켜심»으로 뭉뚱그리면
 //    담당자는 게시만 하고 넘어가고, 푸시가 고장 난 사실은 아무도 모르게 된다.
-const MN_STATES = ["신청완료", "검토중", "임명확정", "미채택"];
-const MN_CLS = { "신청완료": "s1", "검토중": "s2", "임명확정": "s3", "미채택": "s4" };
-const MN_SHORT = { "신청완료": "신청", "검토중": "검토", "임명확정": "확정", "미채택": "미채택" };
-let mnRows = [];      // [{ id, at, who, name, status, choices, canPush, notified_at }]
+const MN_STATES = ["신청완료", "접수완료", "임명확정", "미채택"];
+const MN_CLS = { "신청완료": "s1", "접수완료": "s2", "임명확정": "s3", "미채택": "s4" };
+const MN_SHORT = { "신청완료": "신청", "접수완료": "접수", "임명확정": "확정", "미채택": "미채택" };
+let mnRows = [];      // [{ id, at, who, name, position, committee, team, option, status, ... }]
+// ⚠️ 한 건 = 한 팀 이다(2026-09-09). 한 사람이 최대 3건이고, 담당자는 건마다 따로 접수한다.
 let mnCounts = {};    // { "위원회 · 팀": 신청수 }
 let mnLoaded = false;
 
@@ -2950,8 +2951,9 @@ async function mnLoad(){
     }
     mnRows=(d.list||[]).map(x=>({
       id:x.id, at:(x.at||"").replace(/\./g,"-"), who:x.who||"", name:x.name||"",
-      status:x.status, choices:x.choices||[], canPush:!!x.canPush, notified_at:x.notified_at||null,
-      phone4:x.phone4||"",
+      status:x.status, canPush:!!x.canPush, notified_at:x.notified_at||null,
+      phone4:x.phone4||"", position:x.position||"",
+      committee:x.committee||"", team:x.team||"", option:x.option||"",
     }));
     mnCounts=d.counts||{};
     mnLoaded=true;
@@ -2966,7 +2968,7 @@ function mnFiltered(){
   return mnRows.filter(r=>{
     if(on.length && on.indexOf(r.status)<0) return false;   // 하나도 안 고르면 전체
     if(q){
-      const hay=[r.name, r.who, ...r.choices.map(c=>c.team+" "+c.committee)].join(" ");
+      const hay=[r.name, r.who, r.position, r.team, r.committee].join(" ");
       if(hay.indexOf(q)<0) return false;
     }
     return true;
@@ -2983,20 +2985,19 @@ function mnRender(){
   });
   const sum=document.getElementById("mn-sum");
   if(sum){
-    const picks=rows.reduce((a,r)=>a+r.choices.length,0);
+    const people=new Set(rows.map(r=>r.name+"/"+r.who)).size;
     const by=MN_STATES.map(s=>{
       const n=rows.filter(r=>r.status===s).length;
       return n?`<span class="pl-chip ${MN_CLS[s]}">${s} ${n}</span>`:"";
     }).join("");
-    sum.innerHTML=`<div class="pl-total"><b>${rows.length}명</b> · 신청 <b>${picks}건</b></div>
+    sum.innerHTML=`<div class="pl-total"><b>${rows.length}건</b> · <b>${people}명</b></div>
       <div class="pl-chips">${by}</div>`;
   }
 
   if(!rows.length){ box.innerHTML=`<p class="msg">조건에 맞는 신청이 없습니다.</p>`; }
   else box.innerHTML=rows.map(r=>{
-    const teams=r.choices.map(c=>
-      `<span class="mn-team"><em>${plEsc(c.committee)}</em> ${plEsc(c.team)}${
-        c.option?` <i>(${plEsc(c.option)})</i>`:""}</span>`).join("");
+    const teams=`<span class="mn-team"><em>${plEsc(r.committee)}</em> ${plEsc(r.team)}${
+        r.option?` <i>(${plEsc(r.option)})</i>`:""}</span>`;
     // ⚠️ 알림을 켜지 않은 분은 확정해도 푸시가 안 간다 — 미리 보여 줘야 게시·연락으로 메운다
     const push = r.canPush
       ? `<span class="mn-push on">🔔 알림 받음${r.notified_at?" · 발송함":""}</span>`
@@ -3006,6 +3007,7 @@ function mnRender(){
         <div class="pl-hd">
           <div class="pl-nm">
             <b>${plEsc(r.name)}</b>${r.position?`<em class="mn-pos">${plEsc(r.position)}</em>`:""}<i>${plEsc(r.who)}</i>
+
             <span class="pl-at">신청일 ${plEsc((r.at||"").replace(/-/g,"."))}</span>
             <div class="pl-contact">
               ${r.phone4
