@@ -27,32 +27,28 @@ on conflict (identity_key) do nothing;
 
 -- ============================================================
 -- 3) 시험 신청 — 제자양육부 신앙운동 한 팀
+--    ⚠️ **한 행 = 한 팀** 이다(2026-09-09). 옛 choices 배열은 지워졌고,
+--       유일 제약도 (year, user_id, team_id) 로 바뀌었다.
 --    ⚠️ catalog id 는 bigserial 이라 미리 알 수 없다. 이름으로 찾아 넣는다.
---    choices 는 [{id, committee, team, option}] — 팀 이름을 스냅샷으로 함께 박는다.
 -- ============================================================
-insert into public.ministry_orders (year, user_id, name, who, choices)
+insert into public.ministry_orders
+  (year, user_id, name, who, position, phone4, team_id, committee, team, option, status)
 select
-  2027,
-  u.id::text,
-  u.name,
-  '테스트 1목장',
-  jsonb_agg(jsonb_build_object(
-    'id', c.id, 'committee', c.committee, 'team', c.team, 'option', ''
-  ) order by c.sort_order)
+  2027, u.id::text, u.name, '테스트 1목장', '집사', '0000',
+  c.id, c.committee, c.team, '', '신청완료'
 from public.users u
 join public.ministry_catalog c
   on c.year = 2027
  and (c.committee, c.team) in (('제자양육부', '신앙운동'))
 where u.identity_key = '교구|테스트|1|테스트성도'
-group by u.id, u.name
-on conflict (year, user_id) do update
-  set choices = excluded.choices, updated_at = now();
+on conflict (year, user_id, team_id) do update
+  set position = excluded.position, phone4 = excluded.phone4, updated_at = now();
 
 -- ============================================================
 -- 확인
 -- ============================================================
 --   select count(*) from ministry_catalog where year = 2027;            -- 94
---   select o.status, o.choices, u.name
+--   select o.status, o.committee, o.team, o.position, u.name
 --     from ministry_orders o join users u on u.id::text = o.user_id
 --    where o.year = 2027;
 --   select key, value from app_config where key = 'ministry';

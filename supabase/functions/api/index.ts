@@ -3030,6 +3030,11 @@ const MINISTRY_STATUS = ["신청완료", "접수완료", "임명확정", "미채
 //    **한 팀이 한 행**이다 — 행이 통째로 잠기면 더 담을 자리가 없어진다.
 const MINISTRY_LOCKED = ["접수완료", "임명확정", "미채택"];
 const isLocked = (st: string) => MINISTRY_LOCKED.indexOf(st) >= 0;
+// ⚠️ 「미채택」은 자리를 **비운다**. 잠기기는 해도(그 팀은 결과가 났다) 3개 상한에서는
+//    빼야 한다 — 안 그러면 떨어진 분이 다른 팀에 신청조차 못 하는 막다른 길이 된다.
+const countsToCap = (st: string) => st !== "미채택";
+// 명단에 오르는 상태 — 미채택은 함께 섬기는 분이 아니다
+const MINISTRY_ROSTER = ["접수완료", "임명확정"];
 
 // 「화평 20목장」 → 「화평-20」, 「중등부 2학년」 → 「중등부-2」
 // ⚠️ 정규식을 쓰지 않는다 — 이 파일이 껍데기를 거쳐 고쳐질 때 역슬래시가 풀린 적이 있다.
@@ -3114,8 +3119,9 @@ function ministryMineView(rows: any[]) {
   return {
     items,
     max: MINISTRY_MAX,
-    used: items.length,
-    left: Math.max(0, MINISTRY_MAX - items.length),
+    // ⚠️ 미채택은 자리를 도로 내놓는다 — 세는 것과 보이는 것이 다르다
+    used: items.filter((x) => countsToCap(x.status)).length,
+    left: Math.max(0, MINISTRY_MAX - items.filter((x) => countsToCap(x.status)).length),
     openCount: items.filter((x) => !x.locked).length,
     position: pos,
     at: items.length ? items[0].at : "",
@@ -3139,10 +3145,9 @@ async function ministryCatalog(b: any) {
   const roster = new Map<number, string[]>();
   const { data: served } = await db.from("ministry_orders")
     .select("team_id,name,position,who,status,created_at")
-    .eq("year", year).in("status", MINISTRY_LOCKED)
+    .eq("year", year).in("status", MINISTRY_ROSTER)
     .order("created_at", { ascending: true });
   for (const r of ((served ?? []) as any[])) {
-    if (r.status === "미채택") continue;          // 함께 섬기는 분이 아니다
     const line = ministryMemberLine(r);
     if (!line) continue;
     const k = Number(r.team_id);
@@ -3163,6 +3168,9 @@ async function ministryCatalog(b: any) {
       // 「지금 섬기는 분」 — 관리자가 적어 둔 분들 + 담당자가 접수완료한 신청자
       members: [ministryHtml(r.members_note, 1200), (roster.get(Number(r.id)) ?? []).join("<br>")]
         .filter(Boolean).join("<br>"),
+      // ⚠️ 관리자 편집기는 **이것만** 고친다. 위 members 를 되돌려 저장하면
+      //    자동 명단이 members_note 에 굳어 중복되고, 미채택된 분 이름도 영영 남는다.
+      membersNote: ministryHtml(r.members_note, 1200),
       opt: r.option_note,
     })),
   };
@@ -3217,9 +3225,11 @@ async function ministryApply(b: any) {
       : { ok: false, error: "사역을 하나 이상 골라 주세요" };
   }
   // ⚠️ 3개 상한은 잠긴 것까지 더해서 센다(성도님 요구 ③의 반대편이다)
-  if (locked.length + want.length > MINISTRY_MAX) {
-    return { ok: false, error: "이미 접수된 " + locked.length + "개를 더하면 " +
-      MINISTRY_MAX + "개를 넘습니다. 남은 자리는 " + (MINISTRY_MAX - locked.length) + "개입니다" };
+  // ⚠️ 자리를 세는 것은 잠긴 것 전부가 아니라 **미채택을 뺀** 것이다
+  const held = locked.filter((r) => countsToCap(r.status)).length;
+  if (held + want.length > MINISTRY_MAX) {
+    return { ok: false, error: "이미 접수된 " + held + "개를 더하면 " +
+      MINISTRY_MAX + "개를 넘습니다. 남은 자리는 " + (MINISTRY_MAX - held) + "개입니다" };
   }
 
   const { data: teams, error: e1 } = await db.from("ministry_catalog")
@@ -3256,23 +3266,38 @@ async function ministryApply(b: any) {
   const byId = new Map(found.map((t) => [t.id, t]));
   const now = new Date().toISOString();
 
-  // 「고치기」는 아직 안 잠긴 건을 지우고 다시 내는 것이다 — 잠긴 건은 그대로 둔다
-  if (openRows.length) {
-    const { error } = await db.from("ministry_orders")
-      .delete().in("id", openRows.map((r) => r.id));
-    if (error) throw error;
+  // ⚠️ 지우고 다시 넣지 않는다. 넣기가 실패하면 성도가 낸 것이 통째로 사라진 채
+  //    화면만 남는다(2026-09-09 감사). **그대로 둘 것 · 새로 넣을 것 · 뺄 것**로 가른다.
+  const wantSet = new Set(want.map((n: number) => Number(n)));
+  const haveTeam = new Set(openRows.map((r) => Number(r.team_id)));
+  const toAdd = want.filter((id: number) => !haveTeam.has(Number(id)));
+  const toDrop = openRows.filter((r) => !wantSet.has(Number(r.team_id)));
+  const toKeep = openRows.filter((r) => wantSet.has(Number(r.team_id)));
+
+  if (toAdd.length) {
+    const rows = toAdd.map((id: number) => {
+      const t: any = byId.get(id);
+      return {
+        year: cfg.year, user_id: userId, name, who, position, phone4,
+        team_id: id, committee: t.committee, team: t.team,
+        option: norm(opts[String(id)]) || "",
+        status: "신청완료", updated_at: now,
+      };
+    });
+    const { error: e2 } = await db.from("ministry_orders").insert(rows);
+    if (e2) throw e2;                        // 넣기가 먼저다 — 실패해도 낸 것은 남는다
   }
-  const rows = want.map((id: number) => {
-    const t: any = byId.get(id);
-    return {
-      year: cfg.year, user_id: userId, name, who, position, phone4,
-      team_id: id, committee: t.committee, team: t.team,
-      option: norm(opts[String(id)]) || "",
-      status: "신청완료", updated_at: now,
-    };
-  });
-  const { error: e2 } = await db.from("ministry_orders").insert(rows);
-  if (e2) throw e2;
+  if (toKeep.length) {                       // 직분·4자리를 새로 낸 값으로 맞춘다
+    const { error: e3 } = await db.from("ministry_orders")
+      .update({ name, who, position, phone4, updated_at: now })
+      .in("id", toKeep.map((r) => r.id));
+    if (e3) throw e3;
+  }
+  if (toDrop.length) {
+    const { error: e4 } = await db.from("ministry_orders")
+      .delete().in("id", toDrop.map((r) => r.id));
+    if (e4) throw e4;
+  }
 
   const { data: after } = await db.from("ministry_orders").select("*")
     .eq("year", cfg.year).eq("user_id", userId).order("created_at", { ascending: true });
@@ -3356,12 +3381,11 @@ async function ministryList(b: any) {
   });
 
   // 팀별 신청 수 — 담당자가 가장 먼저 궁금해하는 숫자
+  // ⚠️ 한 행 = 한 팀 이 되었으므로 행을 그대로 센다(옛 choices 칸은 지워졌다)
   const counts: Record<string, number> = {};
   for (const r of rows) {
-    for (const c of (Array.isArray(r.choices) ? r.choices : [])) {
-      const k = (c && c.committee ? c.committee : "") + " · " + (c && c.team ? c.team : "");
-      counts[k] = (counts[k] ?? 0) + 1;
-    }
+    const k = (r.committee ?? "") + " · " + (r.team ?? "");
+    counts[k] = (counts[k] ?? 0) + 1;
   }
   return { ok: true, year, list, counts };
 }
@@ -3387,16 +3411,28 @@ async function ministrySetStatus(b: any) {
 
   let pushed = 0;
   let pushError: string | null = null;
-  // 확정 알림은 한 번만 — 상태를 오가며 눌러도 다시 보내지 않는다
-  if (status === "임명확정" && !row.notified_at) {
-    const res = await ministryNotify(row);
-    pushed = res.sent;
-    pushError = res.error;
-    if (res.sent > 0) patch.notified_at = new Date().toISOString();
+  let already = false;
+  // ⚠️ 확정 알림은 **한 사람에게 한 해에 한 번**이다. 한 행이 한 팀이 되면서
+  //    세 건을 확정하면 푸시가 세 번 갔다(2026-09-09 감사). 그 사람의 다른 건이
+  //    이미 보냈는지를 본다 — 행 하나만 보면 못 막는다.
+  if (status === "임명확정") {
+    const { data: sentRows } = await db.from("ministry_orders")
+      .select("id").eq("year", row.year).eq("user_id", row.user_id)
+      .not("notified_at", "is", null).limit(1);
+    if ((sentRows ?? []).length) {
+      already = true;                        // 이미 알렸다 — 「안 켜심」과 구분해 돌려준다
+    } else {
+      const res = await ministryNotify(row);
+      pushed = res.sent;
+      pushError = res.error;
+      if (res.sent > 0) patch.notified_at = new Date().toISOString();
+    }
   }
   const { error } = await db.from("ministry_orders").update(patch).eq("id", id);
   if (error) throw error;
-  return { ok: true, status, pushed, pushError };
+  // 결정이 나면 4자리를 지운다 — 화면이 그 사실을 바로 반영하도록 알려 준다
+  return { ok: true, status, pushed, pushError, already,
+           phone4Cleared: patch.phone4 === null };
 }
 
 // 사역 설명은 **꾸밈(HTML)을 허용한다** — 관리자만 넣기 때문이다(성도님 지시, 2026-09-08).
@@ -3420,7 +3456,8 @@ function ministryStyleAttr(attrs: string): string {
     const i = part.indexOf(":");
     if (i < 0) continue;
     const k = part.slice(0, i).trim().toLowerCase();
-    const v = part.slice(i + 1).trim();
+    // ⚠️ 따옴표·백틱·역슬래시를 지운다 — 남기면 style="..." 을 닫고 속성을 새로 연다
+    const v = part.slice(i + 1).trim().replace(/["'`\\]/g, "");
     if (!MIN_STYLE_OK.test(k)) continue;
     if (/[<>()]|url|expression|javascript/i.test(v)) continue;   // url(...)·javascript: 차단
     out.push(k + ":" + v.slice(0, 40));
@@ -3467,7 +3504,7 @@ async function ministryCatalogSave(b: any) {
   // 걸러진 뒤의 값을 돌려준다 — 화면이 「내가 친 것」이 아니라 「실제 저장된 것」을 보여야 한다
   return { ok: true, id: data.id, team: data.team,
            sched: data.schedule_note, desc: data.desc_note, capacity: data.capacity_note,
-           members: data.members_note };
+           membersNote: data.members_note };
 }
 
 // 그 성도의 기기에만 발송. 알림을 켜 두지 않았으면 조용히 0건 —

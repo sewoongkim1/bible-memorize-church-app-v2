@@ -3073,9 +3073,13 @@ async function mnSetStatus(id, status){
     alert("상태를 바꾸지 못했습니다.\n"+(d.error||"오류"));
     return;
   }
+  // 결정이 나면 서버가 뒷 4자리를 지운다 — 카드도 그 자리에서 지워야 사실과 맞다
+  if(d.phone4Cleared){ r.phone4=""; mnRender(); }
   if(status==="임명확정"){
-    // 서버가 «보냄 / 안 켜심 / 실패» 셋을 구분해 준다. 뭉뚱그리지 않는다.
-    if(d.pushed>0){ r.notified_at=new Date().toISOString(); mnRender();
+    // 서버가 «보냄 / 이미 보냄 / 안 켜심 / 실패» 넷을 구분해 준다. 뭉뚱그리지 않는다.
+    // ⚠️ 「이미 보냄」을 「안 켜심」으로 적으면, 알림이 간 분께 담당자가 또 연락한다.
+    if(d.already)   mnNote(`✅ ${r.name}님께는 이미 알림이 나갔습니다 (한 해 한 번)`);
+    else if(d.pushed>0){ r.notified_at=new Date().toISOString(); mnRender();
                     mnNote(`📨 ${r.name}님께 알림을 보냈습니다 (기기 ${d.pushed}대)`); }
     else if(!d.pushError || d.pushError==="not-subscribed")
                     mnNote(`📋 ${r.name}님은 앱 알림을 켜지 않으셨어요 — 게시판·주보로 알려 주세요`);
@@ -3134,7 +3138,7 @@ async function mcLoad(){
     if(!d.ok){ box.innerHTML=`<p class="msg err">목록을 불러오지 못했습니다: ${plEsc(d.error||"오류")}</p>`; return; }
     mcRows=(d.list||[]).map(x=>({ id:x.id, committee:x.committee, group:x.group||"", team:x.team,
       appoint:!!x.appoint, sched:x.sched||"", desc:x.desc||"", capacity:x.capacity||"",
-      members:x.members||"" }));
+      members:x.membersNote||"" }));   // ⚠️ x.members 는 자동 명단이 섞인 것 — 저장하면 굳는다
     if(!mcPick && mcRows.length) mcPick=mcRows[0].committee;
     mcLoaded=true;
   }
@@ -3184,7 +3188,8 @@ function mcRender(){
                value="${plEsc(r.capacity)}" placeholder="예: 10명 (선택)"></label>
              <label class="wide">지금 섬기는 분 <span class="mc-hint">한 줄에 한 분씩</span>
                <textarea data-f="members" data-id="${r.id}" rows="3"
-                 placeholder="김세웅 안수집사 (화평-20)&#10;이영희 권사 (사랑-3)">${plEsc(mcLines(r.members))}</textarea></label>
+                 placeholder="김세웅 안수집사 (화평-20)&#10;이영희 권사 (사랑-3)">${plEsc(mcLines(r.members))}</textarea>
+               <span class="mc-hint">접수완료된 신청자는 여기 안 적어도 자동으로 함께 보입니다.</span></label>
              <button class="mc-save" data-save="${r.id}">저장</button>
            </div>`}
     </div>`).join("");
@@ -3233,9 +3238,9 @@ async function mcSave(id){
   Object.assign(r, next);
   if(d.desc !== undefined){          // 서버가 걸러 돌려준 값으로 맞춘다
     r.desc = d.desc; r.sched = d.sched; r.capacity = d.capacity;
-    if(d.members !== undefined){
-      r.members = d.members;
-      const ml=box.querySelector('[data-f="members"]'); if(ml) ml.value = mcLines(d.members);
+    if(d.membersNote !== undefined){
+      r.members = d.membersNote;
+      const ml=box.querySelector('[data-f="members"]'); if(ml) ml.value = mcLines(d.membersNote);
     }
     const ta=box.querySelector('[data-f="desc"]'); if(ta) ta.value = d.desc;
     const p=box.querySelector(`[data-prev="${id}"]`);

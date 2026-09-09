@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260909c";
+const APP_BUILD = "20260909d";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -6296,7 +6296,8 @@ function renderPrivacyInfo(back) {
             <li>암송 진행 기록, 복습 및 도전 참여 기록</li>
             <li>게시판에 올리신 글·답글과 <b>사진</b> (모든 분에게 공개)</li>
             <li>성경필사 노트 신청 시 <b>휴대폰 번호</b> (배부가 끝나면 삭제)</li>
-            <li>사역 신청 시 <b>휴대폰 뒷 4자리</b> (임명이 정해지면 삭제)<b>와 직분</b></li>
+            <li>사역 신청 시 <b>휴대폰 뒷 4자리</b> (임명이 정해지면 삭제)<b>와 직분</b><br>
+              <small>접수되면 그 사역 안내에 이름·직분·교구-목장이 다른 성도님께도 보여요</small></li>
             <li>기기 식별용 임의 ID (알림을 켤 때만)</li>
           </ul>
         </section>
@@ -6621,7 +6622,7 @@ function renderHelp(onClose) {
         <section class="help-section">
           <h3>🔒 개인정보 안내</h3>
           <ul>
-            <li><b>수집 항목</b>: 구분(교구/교회학교)·소속·목장/학년·이름과 암송·도전 기록이에요. <b>성경필사 노트를 신청할 때만 휴대폰 번호</b>를 받습니다(노트가 준비되면 연락드리기 위해). <b>사역 신청을 할 때는 휴대폰 뒷 4자리와 직분</b>을 받습니다(본인 확인·교적 대조 — 뒷 4자리는 임명이 정해지면 지웁니다). 주민등록번호·주소·결제정보는 <b>받지 않습니다</b>.</li>
+            <li><b>수집 항목</b>: 구분(교구/교회학교)·소속·목장/학년·이름과 암송·도전 기록이에요. <b>성경필사 노트를 신청할 때만 휴대폰 번호</b>를 받습니다(노트가 준비되면 연락드리기 위해). <b>사역 신청을 할 때는 휴대폰 뒷 4자리와 직분</b>을 받습니다(본인 확인·교적 대조 — 뒷 4자리는 임명이 정해지면 지웁니다). 담당자가 신청을 <b>접수하면</b> 그 사역 안내 화면에 <b>이름·직분·교구-목장</b>이 로그인하신 다른 성도님께도 보입니다(함께 섬길 분을 알고 신청하실 수 있도록). 주민등록번호·주소·결제정보는 <b>받지 않습니다</b>.</li>
             <li><b>저장·용도</b>: 기록은 교회가 쓰는 클라우드 데이터베이스에 암호화 전송으로 저장되어 <b>본인 진도 관리와 도전 순위</b>에만 쓰입니다. 광고에 쓰거나 팔지 않습니다. 「내게 주시는 말씀」에 물어보신 <b>질문 글은 답을 만드는 AI로 전달</b>됩니다.</li>
             <li><b>순위 공개 범위</b>: 도전 순위에는 <b>이름과 소속</b>만 표시됩니다(연락처 없음). 참여한 분만 표시돼요.</li>
             <li><b>변경·삭제</b>: 이름·소속은 <b>로그인 정보변경</b>에서 언제든 수정할 수 있어요. 기록을 지우고 싶으시면 <a href="privacy/" target="_blank" rel="noopener">개인정보 안내</a>의 방법으로 알려 주세요(게시판·이메일·로비).</li>
@@ -8813,7 +8814,8 @@ let minCat = null;        // { year, period, list:[...] } — 화면 진입 때 
 let minMine = null;       // 내 신청 { items, max, used, left, openCount, position, at }
 // ⚠️ 한 사람이 한 건이 아니라 **한 팀이 한 건**이다(2026-09-09). 담당자가 팀마다 따로
 //    접수하고, 접수된 건은 잠기며, 3개가 안 찼으면 그 뒤에도 더 신청할 수 있기 때문이다.
-let minLockedIds = [];    // 이미 접수돼 뺄 수 없는 팀
+let minLockedIds = [];    // 이미 결정돼 뺄 수 없는 팀(id 만)
+let minLocked = [];       // [{ id, status }] — 딱지에 **진짜 상태**를 적으려고 함께 든다
 let minPicked = [];       // 고른 팀 id (최대 3, 순위 아님)
 let minOpen = null;       // 펼친 위원회 이름 (한 번에 하나)
 let minLoaded = false;
@@ -8873,13 +8875,23 @@ async function minLoad(u) {
 // 넣으면 성도가 그것을 눌러 뺄 수 있게 되고, 서버가 거절해 「왜 안 되지」가 된다.
 function minSyncPicked() {
   const items = (minMine && minMine.items) || [];
-  minLockedIds = items.filter(function (x) { return x.locked; })
-    .map(function (x) { return x.team_id; });
+  minLocked = items.filter(function (x) { return x.locked; })
+    .map(function (x) { return { id: x.team_id, status: x.status }; });
+  minLockedIds = minLocked.map(function (x) { return x.id; });
   minPicked = items.filter(function (x) { return !x.locked; })
     .map(function (x) { return x.team_id; });
 }
+function minLockStatus(id) {
+  for (const x of minLocked) if (x.id === id) return x.status;
+  return "접수완료";
+}
+// ⚠️ 「미채택」은 자리를 도로 내놓는다 — 안 그러면 떨어진 분이 다른 팀에 신청조차
+//    못 하는 막다른 길이 된다. 서버도 같은 규칙으로 센다(countsToCap).
+function minHeld() {
+  return minLocked.filter(function (x) { return x.status !== "미채택"; }).length;
+}
 function minLeft() {
-  return MIN_MAX - minLockedIds.length - minPicked.length;
+  return MIN_MAX - minHeld() - minPicked.length;
 }
 
 function minTeam(id) {
@@ -9003,7 +9015,7 @@ function minPickHtml() {
           (t.appoint || lock ? " disabled" : ' data-team="' + t.id + '"') + '>' +
           '<span class="min-info"><span class="min-nm">' + minEsc(t.team) +
           (t.appoint ? '<span class="min-tag">지명</span>' : "") +
-          (lock ? '<span class="min-tag lock">접수완료</span>' : "") + '</span>' +
+          (lock ? '<span class="min-tag lock">' + minEsc(minLockStatus(t.id)) + '</span>' : "") + '</span>' +
           (meta ? '<span class="min-meta">' + meta + '</span>' : "") + '</span>' +
           '<span class="min-chk">' + (on ? "✓" : "") + '</span></button>' +
           minMoreBtn(t) + '</div>';
@@ -9022,12 +9034,15 @@ function minPickHtml() {
     '<div class="min-note"><b class="min-note-t">사역 임명 원칙</b>' +
       '1인 <b>최대 ' + MIN_MAX + '개</b>까지 신청할 수 있어요(순서는 상관없습니다). ' +
       '신청 후 <b>임명을 받아야</b> 사역을 시작합니다 — 확정되면 앱 알림으로 알려 드리고 게시판에도 올립니다.</div>' +
-    (minLockedIds.length
-      ? '<div class="min-note min-lock-note">📥 이미 접수된 <b>' + minLockedIds.length + '개</b>는 ' +
-        '고치거나 뺄 수 없어요. <b>남은 ' + (MIN_MAX - minLockedIds.length) + '자리</b>만 고르시면 됩니다.</div>'
+    (minLocked.length
+      ? '<div class="min-note min-lock-note">📥 이미 결정된 <b>' + minLocked.length + '건</b>은 ' +
+        '고치거나 뺄 수 없어요.' +
+        (minLocked.length > minHeld()
+          ? ' 그중 <b>미채택 ' + (minLocked.length - minHeld()) + '건</b>은 자리를 도로 내놓았어요.' : "") +
+        ' <b>남은 ' + (MIN_MAX - minHeld()) + '자리</b>만 고르시면 됩니다.</div>'
       : "") +
     '<div class="min-count' + (minPicked.length ? " has" : "") + '">' +
-      (minLockedIds.length + minPicked.length) + ' / ' + MIN_MAX + ' 선택' + '</div>' +
+      (minHeld() + minPicked.length) + ' / ' + MIN_MAX + ' 선택' + '</div>' +
     '<div class="min-acc-wrap">' + acc + '</div>' +
     (openNow || MIN_PREVIEW
       ? '<button class="min-cta" id="min-next"' + (minPicked.length ? "" : " disabled") + '>' +
@@ -9061,14 +9076,17 @@ function wireMinPick(u) {
 // 고르기·빼기 한 곳에서 — 목록에서도, 「자세히」 창에서도 같은 규칙을 따르게
 function minTogglePick(id) {
   if (minLockedIds.indexOf(id) >= 0) {
-    alert("이미 담당자가 접수한 사역이라 뺄 수 없어요.");
+    const st = minLockStatus(id);
+    alert(st === "미채택" ? "이 사역은 이번에 다른 분이 임명되셨어요. 다른 사역을 골라 주세요."
+        : st === "임명확정" ? "이미 임명이 확정된 사역이에요."
+        : "이미 담당자가 접수한 사역이라 뺄 수 없어요.");
     return false;
   }
   const i = minPicked.indexOf(id);
   if (i >= 0) { minPicked.splice(i, 1); return true; }
-  if (minLockedIds.length + minPicked.length >= MIN_MAX) {
-    alert(minLockedIds.length
-      ? "이미 접수된 " + minLockedIds.length + "개를 더하면 " + MIN_MAX + "개를 넘어요."
+  if (minHeld() + minPicked.length >= MIN_MAX) {
+    alert(minHeld()
+      ? "이미 결정된 " + minHeld() + "개를 더하면 " + MIN_MAX + "개를 넘어요."
       : "사역 임명 원칙에 따라 최대 " + MIN_MAX + "개까지 신청하실 수 있어요.");
     return false;
   }
@@ -9115,8 +9133,11 @@ function minDetailHtml(t) {
     rows = '<p class="min-d-none">아직 자세한 안내가 올라오지 않았어요.<br>' +
       '부서 확인이 끝나면 이 자리에 채워집니다.</p>';
   }
-  // 신청 화면(고르는 중)에서만 담기 단추를 둔다 — 확인·완료 화면에서는 읽기만
-  const canPick = minStep === "pick" && !t.appoint;
+  // 신청 화면(고르는 중)에서만 담기 단추를 둔다 — 확인·완료 화면에서는 읽기만.
+  // ⚠️ 이미 결정된 팀에는 내놓지 않는다 — 눌렀는데 「뺄 수 없어요」가 뜨면
+  //    성도님은 단추가 고장 난 줄 아신다(2026-09-09 감사).
+  const lockSt = minLockedIds.indexOf(t.id) >= 0 ? minLockStatus(t.id) : "";
+  const canPick = minStep === "pick" && !t.appoint && !lockSt;
   return '<div class="min-d-box" role="dialog" aria-modal="true">' +
     '<div class="min-d-head">' +
       '<div><div class="min-d-nm">' + minEsc(t.team) + '</div>' +
@@ -9125,6 +9146,8 @@ function minDetailHtml(t) {
       '<button class="min-d-x" data-dclose aria-label="닫기">✕</button></div>' +
     '<div class="min-d-body">' + rows +
       (t.appoint ? '<p class="min-d-note">이 자리는 <b>지명</b>으로 정해집니다 — 신청 목록에는 담기지 않아요.</p>' : "") +
+      (lockSt ? '<p class="min-d-note">이 사역은 <b>' + minEsc(lockSt) + '</b> 상태예요 — ' +
+        (lockSt === "미채택" ? '이번에는 다른 분이 임명되셨어요.' : '고치거나 뺄 수 없습니다.') + '</p>' : "") +
       (t.opt ? '<p class="min-d-note">' + minEsc(t.opt) + '</p>' : "") + '</div>' +
     '<div class="min-d-foot">' +
       (canPick
@@ -9194,8 +9217,9 @@ function minConfirmHtml() {
       '<input id="min-phone4" type="tel" inputmode="numeric" maxlength="4" placeholder="0000"' +
       ' value="' + minEsc(minPhone4Val) + '" autocomplete="off"></div>' +
     '<div class="min-note">' + (minMine ? '처음 신청하실 때 넣은 4자리와 같아야 고쳐집니다. ' : '') +
-      '직분과 뒷 4자리는 <b>본인 확인과 교적 대조</b>에만 씁니다. ' +
-      '뒷 4자리는 임명이 정해지면 <b>바로 지웁니다</b>.</div>' +
+      '직분과 뒷 4자리는 <b>본인 확인과 교적 대조</b>에 씁니다. ' +
+      '뒷 4자리는 임명이 정해지면 <b>바로 지웁니다</b>.<br>' +
+      '담당자가 접수하면 그 사역 안내에 <b>이름·직분·교구-목장</b>이 다른 성도님께도 보여요.</div>' +
     '<div class="min-note">마감(<b>' + minPeriodText() + '</b>) 전까지는 언제든 고쳐 낼 수 있어요.</div>' +
     '<button class="min-cta" id="min-submit">제출하기<span class="min-cta-s">신청 후 임명을 받아야 시작할 수 있어요</span></button>' +
     '<button class="min-ghost" id="min-back">다시 고르기</button>';
