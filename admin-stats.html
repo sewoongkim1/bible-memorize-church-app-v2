@@ -2952,7 +2952,7 @@ async function mnLoad(){
     mnRows=(d.list||[]).map(x=>({
       id:x.id, at:(x.at||"").replace(/\./g,"-"), who:x.who||"", name:x.name||"",
       status:x.status, canPush:!!x.canPush, notified_at:x.notified_at||null,
-      phone4:x.phone4||"", position:x.position||"",
+      phone:x.phone||"", position:x.position||"",
       committee:x.committee||"", team:x.team||"", option:x.option||"",
     }));
     mnCounts=d.counts||{};
@@ -3010,9 +3010,9 @@ function mnRender(){
 
             <span class="pl-at">신청일 ${plEsc((r.at||"").replace(/-/g,"."))}</span>
             <div class="pl-contact">
-              ${r.phone4
-                ? `<span class="mn-p4">뒷 4자리 <b>${plEsc(r.phone4)}</b></span>`
-                : `<span class="mn-p4 none">뒷 4자리 없음 · 결정 후 삭제</span>`}
+              ${r.phone
+                ? `<span class="mn-p4">📞 <b>${plEsc(r.phone)}</b></span>`
+                : `<span class="mn-p4 none">번호 없음 · 결정 후 삭제</span>`}
               ${push}
             </div>
           </div>
@@ -3074,7 +3074,7 @@ async function mnSetStatus(id, status){
     return;
   }
   // 결정이 나면 서버가 뒷 4자리를 지운다 — 카드도 그 자리에서 지워야 사실과 맞다
-  if(d.phone4Cleared){ r.phone4=""; mnRender(); }
+  if(d.phoneCleared){ r.phone=""; mnRender(); }
   if(status==="임명확정"){
     // 서버가 «보냄 / 이미 보냄 / 안 켜심 / 실패» 넷을 구분해 준다. 뭉뚱그리지 않는다.
     // ⚠️ 「이미 보냄」을 「안 켜심」으로 적으면, 알림이 간 분께 담당자가 또 연락한다.

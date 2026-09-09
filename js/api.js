@@ -102,7 +102,7 @@ const api = {
   ministryCatalog: () => supaCall("ministryCatalog", {}),
   ministryMine: (user_id) => supaCall("ministryMine", { user_id }),
   ministryApply: (order) => supaCall("ministryApply", order),
-  ministryCancel: (user_id, pw, phone4) => supaCall("ministryCancel", { user_id, pw, phone4 }),
+  ministryCancel: (user_id, pw, phone, preview) => supaCall("ministryCancel", { user_id, pw, phone, preview }),
   ministryList: (pw) => supaCall("ministryList", { pw }),
   ministrySetStatus: (pw, id, status) => supaCall("ministrySetStatus", { pw, id, status }),
 };

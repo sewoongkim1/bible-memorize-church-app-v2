@@ -4418,8 +4418,9 @@ body.pr-full-on { overflow: hidden; }
 /* 부제가 말씀일 때 — 인용은 줄여 쓰고, 출처는 아래에 금색 한 줄로 */
 .min-verse { font-size: .9rem; color: #5a6478; word-break: keep-all; max-width: 30em;
   margin-left: auto; margin-right: auto; }
-.min-verse .min-ref { display: block; margin-top: 4px;
-  font-size: .78rem; font-weight: 700; color: var(--gold); }
+/* 출처는 같은 줄에 이어 붙인다 — 줄을 나누면 부제가 두 줄이 된다 */
+.min-verse .min-ref { font-size: .78rem; font-weight: 700; color: var(--gold);
+  white-space: nowrap; }
 .dark .min-verse { color: #b9c4d8; }
 .min-closed { background: #fbf5e6; border: 1px solid #ecd9a8; color: #7a5f1e;
   border-radius: 10px; padding: 10px 12px; font-size: .88rem; margin-bottom: 10px; text-align: center; }

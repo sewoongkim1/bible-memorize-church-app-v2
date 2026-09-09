@@ -3063,8 +3063,8 @@ const MINISTRY_MAX = 3;
 // 휴대폰 뒷 4자리 — 이 앱은 비밀번호가 없어(교구·목장·이름 로그인) 고치기·취소를
 // 이걸로 한 번 더 확인한다. 담당자가 교적과 맞대 보는 자료이기도 하다.
 // ⚠️ 개인정보다. 뒷 4자리만 받고, 결정(임명확정·미채택)이 나면 지운다.
-const MIN_PHONE4_RE = /^[0-9]{4}$/;
-function minPhone4(v: unknown) { return String(v ?? "").replace(/[^0-9]/g, "").slice(-4); }
+// 휴대폰 번호 — 필사 노트 신청과 **같은 규칙**을 쓴다(PILSA_PHONE_RE / pilsaPhone).
+// ⚠️ 따로 만들지 않는다. 둘이 갈라지면 한쪽만 고치게 된다.
 
 // 신청 기간·연도는 app_config('ministry')에 둔다 — 코드에 박으면 바뀔 때마다 배포해야 한다
 async function ministryCfg() {
@@ -3196,9 +3196,14 @@ async function ministryApply(b: any) {
   if (!userId) return { ok: false, error: "user_id 필요" };
   const cfg = await ministryCfg();
   // ⚠️ 기간 검사는 서버가 한다. 화면이 막는 것은 편의일 뿐이다.
-  // ⚠️ 단 하나의 예외: 관리자 비번이 맞으면 기간 밖에도 통과한다 — 오픈 전 리허설과
-  //    ?preview=ministry 시험을 위해서다. 비번 없이는 뚫리지 않는다.
-  if (!cfg.isOpen && adminError(b)) {
+  // ⚠️ 예외 둘: 관리자 비번이 맞거나, ?preview=ministry 로 연 화면(b.preview)이면
+  //    기간 밖에도 통과한다.
+  // ⚠️⚠️ **preview 는 서버가 확인할 수 없는 값이다** — 이 액션 이름과 이 깃발만 알면
+  //    누구나 기간 밖에 신청을 넣을 수 있다는 뜻이다. 담당자 아닌 분들도 시험해 볼 수
+  //    있게 해 달라는 요청(2026-09-09)에 따라 **일부러** 열어 둔 것이다.
+  //    ⇒ **신청 기간(12-13) 시작 전에 이 줄에서 || b.preview 를 빼고, 그때까지 들어온
+  //       시험 행을 지울 것.** 안 그러면 진짜 신청에 시험 자료가 섞인다.
+  if (!cfg.isOpen && !b.preview && adminError(b)) {
     return { ok: false, error: "신청 기간이 아닙니다 (" + cfg.open + " ~ " + cfg.close + ")" };
   }
 
@@ -3209,7 +3214,7 @@ async function ministryApply(b: any) {
 
   // 이미 낸 것들 — 잠긴 건은 건드리지 않고 자리만 센다
   const { data: had } = await db.from("ministry_orders")
-    .select("id,team_id,status,phone4")
+    .select("id,team_id,status,phone")
     .eq("year", cfg.year).eq("user_id", userId);
   const mine = (had ?? []) as any[];
   const locked = mine.filter((r) => isLocked(r.status));
@@ -3244,15 +3249,15 @@ async function ministryApply(b: any) {
     return { ok: false, error: appointed.team + " 은(는) 지명으로 정해지는 자리라 신청할 수 없습니다" };
   }
 
-  const phone4 = minPhone4(b.phone4);
-  if (!MIN_PHONE4_RE.test(phone4)) {
-    return { ok: false, error: "휴대폰 뒷 4자리를 넣어 주세요" };
+  const phone = pilsaPhone(b.phone);
+  if (!PILSA_PHONE_RE.test(phone)) {
+    return { ok: false, error: "휴대폰 번호를 확인해 주세요 (010-1234-5678)" };
   }
   // ⚠️ 이미 낸 건이 있으면 그때 넣은 4자리와 같아야 한다 — 비밀번호가 없는 앱의 최소 확인.
   //    결정이 난 건은 4자리를 지워 두므로(아래 setStatus) 남아 있는 것만 본다.
-  const kept = mine.map((r) => norm(r.phone4)).filter(Boolean)[0];
-  if (kept && kept !== phone4) {
-    return { ok: false, error: "휴대폰 뒷 4자리가 처음 신청하실 때와 다릅니다" };
+  const kept = mine.map((r) => norm(r.phone)).filter(Boolean)[0];
+  if (kept && kept !== phone) {
+    return { ok: false, error: "휴대폰 번호가 처음 신청하실 때와 다릅니다" };
   }
   const position = norm(b.position);
   if (!MIN_POSITIONS.has(position)) {
@@ -3278,7 +3283,7 @@ async function ministryApply(b: any) {
     const rows = toAdd.map((id: number) => {
       const t: any = byId.get(id);
       return {
-        year: cfg.year, user_id: userId, name, who, position, phone4,
+        year: cfg.year, user_id: userId, name, who, position, phone,
         team_id: id, committee: t.committee, team: t.team,
         option: norm(opts[String(id)]) || "",
         status: "신청완료", updated_at: now,
@@ -3289,7 +3294,7 @@ async function ministryApply(b: any) {
   }
   if (toKeep.length) {                       // 직분·4자리를 새로 낸 값으로 맞춘다
     const { error: e3 } = await db.from("ministry_orders")
-      .update({ name, who, position, phone4, updated_at: now })
+      .update({ name, who, position, phone, updated_at: now })
       .in("id", toKeep.map((r) => r.id));
     if (e3) throw e3;
   }
@@ -3308,9 +3313,10 @@ async function ministryCancel(b: any) {
   const userId = String(b.user_id || "");
   if (!userId) return { ok: false, error: "user_id 필요" };
   const cfg = await ministryCfg();
-  if (!cfg.isOpen && adminError(b)) return { ok: false, error: "신청 기간이 지나 취소할 수 없습니다" };
+  // (위 ministryApply 의 경고와 같다 — 기간 시작 전에 || b.preview 를 뺄 것)
+  if (!cfg.isOpen && !b.preview && adminError(b)) return { ok: false, error: "신청 기간이 지나 취소할 수 없습니다" };
   const { data } = await db.from("ministry_orders")
-    .select("id,status,phone4,team").eq("year", cfg.year).eq("user_id", userId);
+    .select("id,status,phone,team,team_id").eq("year", cfg.year).eq("user_id", userId);
   const mine = (data ?? []) as any[];
   if (!mine.length) return { ok: false, error: "신청을 찾을 수 없습니다" };
 
@@ -3318,9 +3324,9 @@ async function ministryCancel(b: any) {
   if (!open.length) {
     return { ok: false, error: "담당자 접수가 끝나 취소할 수 없습니다" };
   }
-  const kept = mine.map((r) => norm(r.phone4)).filter(Boolean)[0];
-  if (kept && kept !== minPhone4(b.phone4)) {
-    return { ok: false, error: "휴대폰 뒷 4자리가 맞지 않습니다" };
+  const kept = mine.map((r) => norm(r.phone)).filter(Boolean)[0];
+  if (kept && kept !== pilsaPhone(b.phone)) {
+    return { ok: false, error: "휴대폰 번호가 맞지 않습니다" };
   }
   // ⚠️ 잠긴 건은 남는다 — 「취소」는 아직 접수 안 된 것만 무르는 일이다
   const one = Number(b.team_id) || 0;
@@ -3376,7 +3382,7 @@ async function ministryList(b: any) {
       who,
       notified_at: r.notified_at,
       canPush: hasPush.has(r.user_id),
-      phone4: r.phone4 ?? "",     // 교적 대조용 — 결정이 나면 서버가 지운다
+      phone: r.phone ?? "",       // 교적 대조·연락용 — 결정이 나면 서버가 지운다
     };
   });
 
@@ -3405,7 +3411,7 @@ async function ministrySetStatus(b: any) {
   //    (필사 신청이 배부완료에서 번호를 지우는 것과 같은 규칙).
   if (status === "임명확정" || status === "미채택") {
     patch.decided_at = new Date().toISOString();
-    patch.phone4 = null;
+    patch.phone = null;
   }
   // 임명확정에서 물러나면 그 행의 「알림 보냈음」도 지운다(이미 나간 알림을 무를 수는 없다)
   if (row.status === "임명확정" && status !== "임명확정") patch.notified_at = null;
@@ -3437,7 +3443,7 @@ async function ministrySetStatus(b: any) {
   if (error) throw error;
   // 결정이 나면 4자리를 지운다 — 화면이 그 사실을 바로 반영하도록 알려 준다
   return { ok: true, status, pushed, pushError, already,
-           phone4Cleared: patch.phone4 === null };
+           phoneCleared: patch.phone === null };
 }
 
 // 사역 설명은 **꾸밈(HTML)을 허용한다** — 관리자만 넣기 때문이다(성도님 지시, 2026-09-08).
