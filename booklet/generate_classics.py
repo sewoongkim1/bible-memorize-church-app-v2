@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 """기독교 고전과 함께하는 전교인 필사 — A5 소책자 (2026-09-09)
 
-펼치면 **왼쪽이 늘 고전, 오른쪽이 늘 필사·메모**. 이 한 줄에서 나머지가 모두 나온다.
+펼치면 **왼쪽이 늘 고전, 오른쪽이 늘 따라 쓰기**. 이 한 줄에서 나머지가 모두 나온다.
+오른쪽은 왼쪽의 거울이다 — 위 발췌문 → 「단락 따라 쓰기」, 아래 성경 상자 → 「말씀 따라 쓰기」.
 
   p1        앞표지
   p2 | p3   목차 (펼침면)
-  p4 | p5   루터 선집 ① | 필사·메모      ← 짝수쪽 = 고전, 홀수쪽 = 노트
+  p4 | p5   루터 선집 ① | 따라 쓰기      ← 짝수쪽 = 고전, 홀수쪽 = 노트
    …        20편 40쪽
   p44       뒷표지                      → 44쪽 = A4 11장 중철
 
@@ -58,8 +59,8 @@ FITTED_PT = 14.0        # 2026-09-09 실측 — 14.5pt 에서는 4·22·24쪽이
 #    뺀 뒤: 말씀은 여전히 20편 모두 담기고, 단락 부족이 14편 → 11편으로 줄었다.
 HAND_PER_LINE = 17
 LINE_MM = 8.0          # 줄 간격 — 필사노트(generate_print.py)와 같은 값. 새로 정하지 않는다.
-NOTE_MIN = 3           # 필사칸 최소 줄
-NOTE_MAX = 13          # 필사칸 최대 줄 — 넘으면 메모가 사라진다
+NOTE_MIN = 3           # 말씀 칸 최소 줄
+NOTE_MAX = 13          # 말씀 칸 최대 줄 — 넘으면 단락 칸이 사라진다
 
 CHROME_CANDS = [
     r'C:\Program Files\Google\Chrome\Application\chrome.exe',
@@ -141,7 +142,7 @@ def ensure_fonts():
 
 ensure_fonts()
 
-# 교회 마크 — 앞표지에 넣는다. 없으면 교회 이름 글자로 대신한다.
+# 교회 마크 — 앞표지·뒷표지에 넣는다. 없으면 교회 이름 글자로 대신한다.
 LOGO = ''
 _lg = os.path.join('..', 'marketing', 'logo-data-uri.txt')
 if os.path.exists(_lg):
@@ -277,9 +278,20 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
 /* ⚠️ 여기 어느 줄에도 margin-top:auto 를 두지 말 것 — justify-content:center 와 만나면
    auto 마진이 남는 공간을 통째로 먹어 글이 위로 쏠리고 아래가 텅 빈다(2026-09-09에 그랬다). */
 .bk-n { font-size:10.5pt; line-height:1.9; color:#3f4855; word-break:keep-all; }
+/* 뒷표지의 두 칸 설명 — 오른쪽 쪽의 두 칸이 무엇을 받는지 이름 그대로 적는다.
+   ⚠️ 「단락은 닿는 데까지」라고 밝혀 둔다 — 단락 칸은 발췌문 전체를 담지 못하므로,
+      적다가 줄이 떨어지면 성도님이 「내가 잘못 쓰고 있나」 하고 멈추신다. */
+.bk-how { margin-top:6mm; text-align:left; display:inline-block; }
+.bk-how > div { display:flex; align-items:baseline; font-size:10pt; line-height:1.95;
+                color:#3f4855; }
+.bk-how b { font-family:var(--tf); font-weight:400; color:var(--navy);
+            width:30mm; flex:none; }
 .bk-rule { width:20mm; height:1px; background:var(--line); margin:8mm auto; }
 .bk-s { font-size:9.5pt; line-height:1.8; color:var(--sub); word-break:keep-all; }
+/* 뒷장 아래는 교회 마크만 — 글자를 넣지 않는다(2026-09-09 요청).
+   ⚠️ 마크 파일이 없으면 교회 이름 글자로 대신한다(없다고 멈추지 않는다). */
 .bk-f { margin-top:12mm; font-size:10pt; color:var(--sub); letter-spacing:.08em; }
+.bk-mark { width:24mm; }
 
 /* ── 목차 ───────────────────────────────────────────── */
 .ix-h { text-align:center; margin-bottom:6mm; }
@@ -403,16 +415,21 @@ def page_back(pno):
     ⚠️ 표지·뒷표지에는 쪽번호를 넣지 않는다.
     """
     books = len({i['book'] for i in ITEMS})
+    # 아래에는 교회 마크만 — 글자를 넣지 않는다(2026-09-09 요청).
+    mark = ('<img class="bk-mark" src="%s" alt="고척교회">' % LOGO) if LOGO else esc(D['church'])
     return '''<div class="page back">
  <div class="bk-t">이렇게 쓰입니다</div>
  <div class="bk-n">왼쪽 쪽에서 그날의 고전 한 대목과 말씀을 읽고,<br>
-  오른쪽 쪽에 그 말씀을 손으로 옮겨 적습니다.<br>
-  마음에 남은 것은 메모 칸에 적어 두세요.</div>
+  오른쪽 쪽에 손으로 옮겨 적습니다.</div>
+ <div class="bk-how">
+  <div><b>단락 따라 쓰기</b>고전에서 마음에 닿는 데까지</div>
+  <div><b>말씀 따라 쓰기</b>그날의 성경 말씀을 온전히</div>
+ </div>
  <div class="bk-rule"></div>
  <div class="bk-s">기독교 고전 %d권에서 %d대목을 골라 엮었습니다.<br>
   새벽기도 설교도 그날의 성경본문으로 이어집니다.</div>
- <div class="bk-f">%s · %s</div>
-</div>''' % (books, len(ITEMS), esc(D['church']), esc(D['period']))
+ <div class="bk-f">%s</div>
+</div>''' % (books, len(ITEMS), mark)
 
 
 def index_pages(items, start_pno):
