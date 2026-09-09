@@ -51,7 +51,11 @@ BODY_PT = float(arg_val('--pt', 0) or 0)          # 0 이면 아래 FITTED 를 �
 FITTED_PT = 14.0        # 2026-09-09 실측 — 14.5pt 에서는 4·22·24쪽이 넘쳤다
 
 # 손글씨 한 줄에 들어가는 글자 수 — 필사 줄 수를 정하는 값.
-#   본문폭 119mm ÷ 글자 7mm ≈ 17자. 넉넉히 한 줄 더 준다.
+#   본문폭 119mm ÷ 글자 7mm ≈ 17자.
+# ⚠️ **여기에 여유를 더하지 말 것.** 노트 쪽 한 장에 들어가는 줄은 어느 편이든 늘 18줄이고,
+#    말씀 칸이 가져간 만큼 단락 칸이 줄어든다 — 한쪽의 여유가 곧 다른 쪽의 부족이다.
+#    한때 `+1` 을 두었더니 말씀은 20편 모두 남고 단락만 14편이 모자랐다(2026-09-09).
+#    뺀 뒤: 말씀은 여전히 20편 모두 담기고, 단락 부족이 14편 → 11편으로 줄었다.
 HAND_PER_LINE = 17
 LINE_MM = 8.0          # 줄 간격 — 필사노트(generate_print.py)와 같은 값. 새로 정하지 않는다.
 NOTE_MIN = 3           # 필사칸 최소 줄
@@ -357,7 +361,7 @@ def page_note(it, pno):
        성경 상자가 아래에 붙고 발췌문이 위를 채우는 것과 같은 구조다.
     """
     n = len(it['scripture'])
-    rows = max(NOTE_MIN, min(NOTE_MAX, -(-n // HAND_PER_LINE) + 1))
+    rows = max(NOTE_MIN, min(NOTE_MAX, -(-n // HAND_PER_LINE)))
     ln = '<div class="ln"></div>'
     return '''<div class="page pR">
  <div class="hd"><b>%(day)d일</b> · %(date)s</div>
