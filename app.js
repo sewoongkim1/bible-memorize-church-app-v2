@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260909h";
+const APP_BUILD = "20260909i";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -8955,7 +8955,7 @@ function renderMinistry(keepScroll) {
 
   if (!minLoaded) {
     // ⚠️ 여기에도 단추를 둔다 — 통신이 멎으면 빠져나갈 길이 없어진다
-    appEl.innerHTML = '<div class="min-screen"><h2 class="rank-title">🤝 사역 신청</h2>' +
+    appEl.innerHTML = '<div class="min-screen"><h2 class="rank-title">🤝 사역 신청서</h2>' +
       '<p class="msg">사역 목록을 불러오는 중…</p></div>' + fab;
     window.scrollTo(0, 0);
     wireHome();
@@ -8963,7 +8963,7 @@ function renderMinistry(keepScroll) {
     return;
   }
   if (!minCat) {
-    appEl.innerHTML = '<div class="min-screen"><h2 class="rank-title">🤝 사역 신청</h2>' +
+    appEl.innerHTML = '<div class="min-screen"><h2 class="rank-title">🤝 사역 신청서</h2>' +
       '<p class="msg">사역 목록을 불러오지 못했어요.<br>잠시 뒤 다시 열어 주세요.</p></div>' + fab;
     wireHome();
     return;
@@ -9037,13 +9037,15 @@ function minPickHtml() {
   }
 
   const openNow = minIsOpen();
-  return '<h2 class="rank-title">🤝 사역 신청</h2>' +
-    '<p class="min-sub">한 해 동안 섬길 자리를 정합니다 · <b>' + minPeriodText() + '</b></p>' +
+  return '<h2 class="rank-title">🤝 사역 신청서</h2>' +
+    '<p class="min-sub min-verse">“각각 은사를 받은 대로 … 선한 청지기 같이 서로 봉사하라”' +
+      '<span class="min-ref">벧전 4:10</span></p>' +
     (openNow ? "" :
       '<div class="min-closed">' + (MIN_PREVIEW ? '🔧 <b>미리보기</b> — 신청 기간 전이지만 시험 삼아 제출까지 해 보실 수 있어요(관리자 비번 필요).' : '지금은 신청 기간이 아니에요. 목록만 살펴보실 수 있습니다.') + '</div>') +
     '<div class="min-note"><b class="min-note-t">사역 임명 원칙</b>' +
-      '1인 <b>최대 ' + MIN_MAX + '개</b>까지 신청할 수 있어요(순서는 상관없습니다). ' +
-      '신청 후 <b>임명을 받아야</b> 사역을 시작합니다 — 확정되면 앱 알림으로 알려 드리고 게시판에도 올립니다.</div>' +
+      '1인 <b>최대 ' + MIN_MAX + '개</b>까지 신청할 수 있어요. ' +
+      '신청 후 <b>임명을 받아야</b> 사역을 시작합니다.' +
+      (minPeriodText() ? '<br>신청은 <b>' + minPeriodText() + '</b>까지 받습니다.' : "") + '</div>' +
     (minLocked.length
       ? '<div class="min-note min-lock-note">📥 이미 결정된 <b>' + minLocked.length + '건</b>은 ' +
         '고치거나 뺄 수 없어요.' +
@@ -9056,7 +9058,7 @@ function minPickHtml() {
     '<div class="min-acc-wrap">' + acc + '</div>' +
     (openNow || MIN_PREVIEW
       ? '<button class="min-cta" id="min-next"' + (minPicked.length ? "" : " disabled") + '>' +
-        (minPicked.length ? '고른 ' + minPicked.length + '개로 신청하기' : '사역을 하나 이상 골라 주세요') +
+        (minPicked.length ? '신청하기' : '사역을 하나 이상 골라 주세요') +
         '</button>'
       : "") +
     // 이미 낸 것이 있으면 돌아갈 길을 둔다 — 없으면 목록에 갇힌다
@@ -9345,7 +9347,7 @@ function minDoneHtml(u) {
       '<div class="min-state-m">' + info.msg + '</div></div>' +
     '<div class="min-who">' + minEsc(minWhoText()) +
       (m && m.position ? ' · ' + minEsc(m.position) : "") +
-      (m && m.at ? ' · ' + minEsc(m.at) + ' 신청' : "") + '</div>' +
+      '</div>' +
     rows +
     '<div class="min-count has">' + (m ? m.used : 0) + ' / ' + MIN_MAX + ' 신청' +
       (left > 0 ? ' · <b>' + left + '자리 남음</b>' : "") + '</div>' +

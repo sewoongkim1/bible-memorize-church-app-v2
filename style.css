@@ -4415,6 +4415,12 @@ body.pr-full-on { overflow: hidden; }
 .min-screen { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .min-sub { text-align: center; color: var(--gray); font-size: .92rem; margin: -4px 0 14px; line-height: 1.6; }
 .min-sub b { color: var(--navy); }
+/* 부제가 말씀일 때 — 인용은 줄여 쓰고, 출처는 아래에 금색 한 줄로 */
+.min-verse { font-size: .9rem; color: #5a6478; word-break: keep-all; max-width: 30em;
+  margin-left: auto; margin-right: auto; }
+.min-verse .min-ref { display: block; margin-top: 4px;
+  font-size: .78rem; font-weight: 700; color: var(--gold); }
+.dark .min-verse { color: #b9c4d8; }
 .min-closed { background: #fbf5e6; border: 1px solid #ecd9a8; color: #7a5f1e;
   border-radius: 10px; padding: 10px 12px; font-size: .88rem; margin-bottom: 10px; text-align: center; }
 .min-note { background: var(--light); border-radius: 10px; padding: 11px 13px;
