@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260909l";
+const APP_BUILD = "20260909m";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9226,7 +9226,7 @@ function minConfirmHtml() {
       '<button class="min-del" data-drop="' + t.id + '">빼기</button></div>';
   }
   return '<h2 class="rank-title">🤝 신청 사역 확인</h2>' +
-    '<p class="min-sub">이 사역으로 신청합니다 · <b>순위는 매기지 않습니다</b></p>' +
+    '<p class="min-sub">이 사역으로 신청합니다</p>' +
     (minLockedIds.length
       ? '<div class="min-note min-lock-note">📥 이미 접수된 <b>' + minLockedIds.length +
         '개</b>는 그대로 남습니다 — 아래 것만 새로 냅니다.</div>'
@@ -9235,7 +9235,7 @@ function minConfirmHtml() {
     rows +
     '<div class="min-p4"><label for="min-pos">직분</label>' +
       '<select id="min-pos" class="min-pos">' +
-        '<option value="">고르세요</option>' +
+        '<option value="">선택하세요</option>' +
         MIN_POSITIONS.map(function (x) {
           return '<option value="' + minEsc(x) + '"' +
             (x === minPosVal ? " selected" : "") + '>' + minEsc(x) + '</option>';
@@ -9248,7 +9248,6 @@ function minConfirmHtml() {
       '직분과 휴대폰 번호는 <b>본인 확인·교적 대조와 임명 뒤 연락</b>에 씁니다. ' +
       '번호는 임명이 정해지면 <b>바로 지웁니다</b>.<br>' +
       '담당자가 접수하면 그 사역 안내에 <b>이름·직분·교구-목장</b>이 다른 성도님께도 보여요.</div>' +
-    '<div class="min-note">마감(<b>' + minPeriodText() + '</b>) 전까지는 언제든 고쳐 낼 수 있어요.</div>' +
     '<button class="min-cta" id="min-submit">제출하기<span class="min-cta-s">신청 후 임명을 받아야 시작할 수 있어요</span></button>' +
     '<button class="min-ghost" id="min-back">사역신청 화면으로</button>';
 }
