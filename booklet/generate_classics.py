@@ -1,0 +1,537 @@
+# -*- coding: utf-8 -*-
+"""기독교 고전과 함께하는 전교인 필사 — A5 소책자 (2026-09-09)
+
+펼치면 **왼쪽이 늘 고전, 오른쪽이 늘 필사·메모**. 이 한 줄에서 나머지가 모두 나온다.
+
+  p1        앞표지
+  p2 | p3   목차 (펼침면)
+  p4 | p5   루터 선집 ① | 필사·메모      ← 짝수쪽 = 고전, 홀수쪽 = 노트
+   …        20편 40쪽
+  p44       뒷표지                      → 44쪽 = A4 11장 중철
+
+쓰는 법
+  python generate_classics.py                 HTML 만
+  python generate_classics.py --pdf           A5 순서판 PDF 까지
+  python generate_classics.py --pdf --booklet A4 중철 배치판까지 (인쇄해 접는 판)
+  python generate_classics.py --fit           들어가는 가장 큰 글씨를 재서 알려 준다
+  python generate_classics.py --sample 2      앞 2편만 (모양 볼 때)
+  python generate_classics.py --no-bold       제목도 본문 서체로 (인쇄소가 Type3 를 싫어할 때)
+
+⚠️ 원고는 `classics.json` 이다. 글을 고칠 때 이 파일을 건드리지 말 것.
+⚠️ 서체는 `fonts/Binggrae*.woff` — 빙그레체(본문)·빙그레체Ⅱ(제목). 네트워크가 필요 없다.
+   PDF 로 구우면 서체가 파일에 박히므로 인쇄소에 넘겨도 같게 나온다.
+
+설계 배경은 `docs/superpowers/specs/2026-09-09-classics-booklet-design.md`.
+"""
+import io, os, re, sys, json, html, subprocess
+
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
+
+def arg_val(flag, default=None):
+    return sys.argv[sys.argv.index(flag) + 1] if flag in sys.argv else default
+
+
+MAKE_PDF = '--pdf' in sys.argv
+MAKE_BOOKLET = '--booklet' in sys.argv
+FIT_MODE = '--fit' in sys.argv
+# ⚠️ 빙그레체Ⅱ(제목용)는 이름 레코드(name id1·id4)가 비어 있어, 크롬이 이것만
+#    **Type3 폰트**로 박는다. 300dpi 에서 선명하게 나오는 것은 확인했지만(2026-09-09),
+#    인쇄소 프리플라이트가 Type3 를 경고로 잡는 곳이 있다. 그럴 때 --no-bold 를 쓰면
+#    제목까지 본문 서체(빙그레체)로 그려 PDF 안 서체가 한 벌로 정리된다.
+#    ⚠️ 라이선스가 **수정·재배포를 금지**하므로 폰트 파일을 손봐 고치는 길은 없다.
+NO_BOLD = '--no-bold' in sys.argv
+SAMPLE = int(arg_val('--sample', 0) or 0)
+OUT_NAME = arg_val('--out', '기독교고전_전교인필사_A5')
+
+# ── 크기 ────────────────────────────────────────────────────────────────
+# ⚠️ 발췌문 크기는 **실측으로 정한 값**이다(--fit). 20편이 176~262자로 고르기 때문에
+#    온 책이 한 크기다 — 편마다 다르면 책이 들쭉날쭉해 보인다(축복기도문에서 얻은 교훈).
+#    원고를 고쳤으면 `--fit` 을 다시 돌려 이 값을 갱신할 것.
+BODY_PT = float(arg_val('--pt', 0) or 0)          # 0 이면 아래 FITTED 를 쓴다
+FITTED_PT = 14.0        # 2026-09-09 실측 — 14.5pt 에서는 4·22·24쪽이 넘쳤다
+
+# 손글씨 한 줄에 들어가는 글자 수 — 필사 줄 수를 정하는 값.
+#   본문폭 119mm ÷ 글자 7mm ≈ 17자. 넉넉히 한 줄 더 준다.
+HAND_PER_LINE = 17
+LINE_MM = 8.0          # 줄 간격 — 필사노트(generate_print.py)와 같은 값. 새로 정하지 않는다.
+NOTE_MIN = 3           # 필사칸 최소 줄
+NOTE_MAX = 13          # 필사칸 최대 줄 — 넘으면 메모가 사라진다
+
+CHROME_CANDS = [
+    r'C:\Program Files\Google\Chrome\Application\chrome.exe',
+    r'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe',
+    os.path.join(os.environ.get('LOCALAPPDATA', ''), r'Google\Chrome\Application\chrome.exe'),
+    r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe',
+]
+
+
+def find_chrome():
+    for c in CHROME_CANDS:
+        if c and os.path.exists(c):
+            return c
+    return None
+
+
+def to_pdf(html_path, pdf_path):
+    """브라우저를 조용히 돌려 PDF 로 굽는다. 서체는 PDF 안에 박힌다."""
+    chrome = find_chrome()
+    if not chrome:
+        print('   !! 크롬을 못 찾아 PDF 는 건너뜁니다 — HTML 을 열어 직접 인쇄하세요.')
+        return False
+    if os.path.exists(pdf_path):
+        os.remove(pdf_path)
+    subprocess.run([chrome, '--headless', '--disable-gpu', '--no-pdf-header-footer',
+                    '--print-to-pdf=' + os.path.abspath(pdf_path),
+                    '--virtual-time-budget=30000',
+                    'file:///' + os.path.abspath(html_path).replace(os.sep, '/')],
+                   capture_output=True)
+    return os.path.exists(pdf_path)
+
+
+def esc(t):
+    return html.escape(t or '')
+
+
+# ── 서체 ────────────────────────────────────────────────────────────────
+# ⚠️ **빙그레 서체 파일은 저장소에 넣지 않는다.** 라이선스가 재배포를 금지하는데
+#    이 저장소는 공개다(PDF 에 박아 인쇄물로 쓰는 것은 허용된 정상 사용이다).
+#    그래서 없으면 여기서 받아 온다 — 처음 한 번만 인터넷이 필요하다.
+FONT_URL = {
+    'fonts/Binggrae.woff':
+        'https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Binggrae.woff',
+    'fonts/Binggrae-Bold.woff':
+        'https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Binggrae-Bold.woff',
+}
+
+
+def ensure_fonts():
+    import urllib.request
+    os.makedirs('fonts', exist_ok=True)
+    for path, url in FONT_URL.items():
+        if os.path.exists(path) and os.path.getsize(path) > 100000:
+            continue
+        print('  서체를 받습니다 — %s' % os.path.basename(path))
+        try:
+            urllib.request.urlretrieve(url, path)
+        except Exception as e:
+            raise SystemExit(
+                '!! 서체를 받지 못했습니다(%s)\n'
+                '   인터넷이 되는 곳에서 한 번만 돌리면 fonts/ 에 저장됩니다.\n'
+                '   직접 받으려면: %s' % (e, url))
+
+
+ensure_fonts()
+
+# ── 자료 ────────────────────────────────────────────────────────────────
+D = json.load(io.open('classics.json', encoding='utf-8'))
+ITEMS = D['items']
+if SAMPLE:
+    ITEMS = ITEMS[:SAMPLE]
+
+CSS_HEAD = ''
+if NO_BOLD:
+    CSS_HEAD = ":root{--tf:'Binggrae',sans-serif}"
+
+CSS = r'''
+@font-face { font-family:'Binggrae'; src:url('fonts/Binggrae.woff') format('woff');
+             font-weight:400; font-display:block; }
+/* ⚠️ @font-face 의 font-family 는 **실제 이름**이라야 한다 — var() 를 쓰면 서체가
+   등록되지 않아 제목이 조용히 본문 서체로 바뀐다(2026-09-09에 그랬다). */
+@font-face { font-family:'BinggraeB'; src:url('fonts/Binggrae-Bold.woff') format('woff');
+             font-weight:400; font-display:block; }
+
+:root {
+  --navy:#1a3a6b; --navy-d:#132a4d; --gold:#a8873c;
+  --ink:#1b1f27; --sub:#5a6474; --line:#c9cfd9; --cream:#fffdf8;
+  --tf:'BinggraeB','Binggrae',sans-serif;   /* 제목 — --no-bold 면 본문 서체로 바뀐다 */
+}
+* { box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+html,body { margin:0; padding:0; background:#7c8595; }
+body { font-family:'Binggrae','Noto Sans KR',sans-serif; color:var(--ink); }
+
+@page { size:148mm 210mm; margin:0; }
+
+.page { width:148mm; height:210mm; background:#fff; overflow:hidden;
+        position:relative; display:flex; flex-direction:column;
+        margin:0 auto 6mm; page-break-after:always; }
+@media print { .page { margin:0; box-shadow:none; } }
+@media screen { .page { box-shadow:0 2px 10px rgba(0,0,0,.35); } }
+
+/* 안쪽(제본 골) 여백을 바깥보다 3mm 넓게 — 중철은 골에 글이 먹힌다.
+   짝수쪽은 펼침면 왼쪽이라 골이 오른쪽에, 홀수쪽은 그 반대. */
+.pL { padding:13mm 16mm 12mm 13mm; }
+.pR { padding:13mm 13mm 12mm 16mm; }
+
+/* ── 머리 ───────────────────────────────────────────── */
+.hd { font-size:9.5pt; color:var(--sub); letter-spacing:.02em;
+      padding-bottom:2mm; border-bottom:.6px solid var(--line); margin-bottom:5mm; }
+.hd b { font-family:var(--tf); color:var(--navy); font-weight:400; }
+
+/* ── 고전 쪽 ─────────────────────────────────────────── */
+.t-wrap { text-align:center; margin-bottom:5mm; }
+.t-main { font-family:var(--tf); font-weight:400; font-size:19pt; color:var(--navy);
+          letter-spacing:.02em; line-height:1.3; }
+.t-sub  { font-size:11.5pt; color:var(--sub); margin-top:1.6mm; line-height:1.45;
+          word-break:keep-all; }
+.t-au   { font-size:10.5pt; color:var(--gold); margin-top:2.4mm; letter-spacing:.03em; }
+.t-rule { width:26mm; height:1px; background:var(--line); margin:3.4mm auto 0; }
+
+/* ⚠️ text-align:justify 를 쓰지 않는다 — 한글에 word-break:keep-all 을 걸면 낱말이
+   안 쪼개져, 양끝을 맞추느라 낱말 사이가 크게 벌어진다("죄를  죽인다는  것은  죄를").
+   왼끝 맞춤이 오른쪽 들쭉날쭉을 남기지만 그편이 훨씬 잘 읽힌다. */
+.body p { margin:0 0 3.2mm; line-height:1.78; word-break:keep-all; }
+.body p:last-child { margin-bottom:0; }
+
+/* 성경본문 — 아래에 붙인다. 발췌문이 짧아도 상자는 늘 같은 자리에 온다. */
+.scr { margin-top:auto; background:var(--cream); border-left:2.6mm solid var(--navy);
+       border-radius:0 2mm 2mm 0; padding:4.6mm 5mm 4.2mm; }
+.scr-t { line-height:1.72; word-break:keep-all; }
+.scr-r { margin-top:2.6mm; text-align:right; font-family:var(--tf); font-weight:400;
+         color:var(--navy); letter-spacing:.02em; }
+
+/* ── 노트 쪽 ─────────────────────────────────────────── */
+.lab { display:inline-block; font-family:var(--tf); font-weight:400; font-size:10pt;
+       color:var(--navy); background:#eef2f8; border-radius:1.6mm;
+       padding:1.1mm 3mm; margin-bottom:2.6mm; letter-spacing:.02em; }
+.lab.m { margin-top:6mm; }
+.lines { display:flex; flex-direction:column; }
+.ln { height:8mm; border-bottom:.7px solid #d7dce4; }
+.lines.grow { flex:1; min-height:0; overflow:hidden; }
+
+/* ── 꼬리말 ─────────────────────────────────────────── */
+.ft { position:absolute; left:13mm; right:13mm; bottom:5.5mm;
+      display:flex; justify-content:space-between; align-items:baseline;
+      font-size:8.5pt; color:#8b93a1; letter-spacing:.02em; }
+.ft .pno { font-family:var(--tf); font-weight:400; font-size:9.5pt; color:var(--navy); }
+
+/* ── 표지 ───────────────────────────────────────────── */
+/* 아래 여백을 위보다 넉넉히 줘 제목이 한가운데가 아니라 조금 위(약 44%)에 앉게 한다 —
+   책 표지는 정가운데보다 살짝 위가 안정돼 보인다. */
+.cover { background:var(--navy); color:#fff; align-items:center; justify-content:center;
+         text-align:center; padding:22mm 15mm 46mm; }
+.cv-ch { font-size:11pt; letter-spacing:.34em; opacity:.82; }
+.cv-rule { width:16mm; height:1px; background:rgba(255,255,255,.5); margin:7mm auto; }
+.cv-t { font-family:var(--tf); font-weight:400; font-size:27pt; line-height:1.42;
+        letter-spacing:.02em; }
+.cv-t em { font-style:normal; color:#e6c877; }
+.cv-p { margin-top:9mm; font-size:12.5pt; opacity:.9; letter-spacing:.06em; }
+/* ⚠️ 맺음말을 margin-top:auto 로 내리면 그 auto 마진이 남는 공간을 통째로 먹어
+   제목이 위로 쏠린다 — 제목은 가운데에 두고 맺음말만 아래에 못박는다. */
+.cv-v { position:absolute; left:15mm; right:15mm; bottom:18mm;
+        font-size:9.5pt; line-height:1.85; opacity:.8; word-break:keep-all; }
+
+.back { justify-content:center; text-align:center; padding:24mm 17mm; }
+.bk-t { font-family:var(--tf); font-weight:400; font-size:13pt; color:var(--navy);
+        margin-bottom:5mm; }
+/* ⚠️ 여기 어느 줄에도 margin-top:auto 를 두지 말 것 — justify-content:center 와 만나면
+   auto 마진이 남는 공간을 통째로 먹어 글이 위로 쏠리고 아래가 텅 빈다(2026-09-09에 그랬다). */
+.bk-n { font-size:10.5pt; line-height:1.9; color:#3f4855; word-break:keep-all; }
+.bk-rule { width:20mm; height:1px; background:var(--line); margin:8mm auto; }
+.bk-s { font-size:9.5pt; line-height:1.8; color:var(--sub); word-break:keep-all; }
+.bk-f { margin-top:12mm; font-size:10pt; color:var(--sub); letter-spacing:.08em; }
+
+/* ── 목차 ───────────────────────────────────────────── */
+.ix-h { text-align:center; margin-bottom:6mm; }
+.ix-h .t { font-family:var(--tf); font-weight:400; font-size:17pt; color:var(--navy);
+           letter-spacing:.06em; }
+.ix-h .r { width:22mm; height:1px; background:var(--line); margin:3mm auto 0; }
+.bk { margin-bottom:4.4mm; }
+.bk-hd { display:flex; align-items:baseline; gap:2mm;
+         border-bottom:.7px solid var(--line); padding-bottom:1.4mm; margin-bottom:1.8mm; }
+.bk-hd .nm { font-family:var(--tf); font-weight:400; font-size:12.5pt; color:var(--navy); }
+.bk-hd .au { font-size:9.5pt; color:var(--sub); }
+.bk-hd .st { margin-left:auto; font-size:9.5pt; color:var(--gold); white-space:nowrap; }
+.ep { display:flex; align-items:baseline; font-size:10.5pt; line-height:1.62;
+      color:#2b3240; padding:.5mm 0; }
+.ep .mk { width:5.5mm; color:var(--gold); flex:none; }
+.ep .nm { word-break:keep-all; }
+.ep .dot { flex:1; border-bottom:1px dotted #cdd3dd; margin:0 1.6mm 1mm; min-width:4mm; }
+.ep .dt { font-size:9.5pt; color:var(--sub); white-space:nowrap; }
+.ep .pg { width:7mm; text-align:right; font-family:var(--tf); font-weight:400;
+          color:var(--navy); white-space:nowrap; }
+.ix-h.blank { visibility:hidden; }
+.ix-note { margin-top:auto; font-size:9.5pt; line-height:1.75; color:var(--sub);
+           background:#f5f7fa; border-radius:2mm; padding:3.4mm 4mm; word-break:keep-all; }
+.ix-note b { font-family:var(--tf); font-weight:400; color:var(--navy); }
+'''
+
+# ── 쪽 만들기 ───────────────────────────────────────────────────────────
+
+
+def foot(page_no, left_text, right_text):
+    """꼬리말 — 쪽번호는 늘 바깥쪽(짝수쪽은 왼쪽, 홀수쪽은 오른쪽)에."""
+    if page_no % 2 == 0:
+        return ('<div class="ft"><span class="pno">%d</span><span>%s</span></div>'
+                % (page_no, esc(right_text)))
+    return ('<div class="ft"><span>%s</span><span class="pno">%d</span></div>'
+            % (esc(left_text), page_no))
+
+
+def page_classic(it, pno, body_pt):
+    """짝수쪽 — 고전 발췌문 + 성경본문."""
+    scr_pt = round(body_pt - 1.5, 2)
+    ps = ''.join('<p>%s</p>' % esc(p) for p in it['excerpt'])
+    sub = '<div class="t-sub">%s</div>' % esc(it['sub']) if it['sub'] else ''
+    return '''<div class="page pL">
+ <div class="hd"><b>%(day)d일</b> · %(date)s</div>
+ <div class="t-wrap">
+  <div class="t-main">%(title)s</div>%(sub)s
+  <div class="t-au">%(author)s</div><div class="t-rule"></div>
+ </div>
+ <div class="body" style="font-size:%(bp)spt">%(ps)s</div>
+ <div class="scr" style="font-size:%(sp)spt">
+  <div class="scr-t">%(scr)s</div><div class="scr-r">%(ref)s</div>
+ </div>
+ %(ft)s
+</div>''' % dict(day=it['day'], date=esc(it['date']), title=esc(it['title']), sub=sub,
+                 author=esc(it['author']), bp=body_pt, sp=scr_pt, ps=ps,
+                 scr=esc(it['scripture']), ref=esc(it['ref']),
+                 ft=foot(pno, '', '기독교 고전 필사'))
+
+
+def page_note(it, pno):
+    """홀수쪽 — 성경본문 따라 쓰기 + 메모.
+
+    ⚠️ 필사 줄 수를 고정하지 않는다. 성경본문이 32자~175자로 5배 차이라
+       고정하면 짧은 날은 줄이 남고 긴 날은 모자란다. 남는 자리는 메모가 전부 가져간다.
+    """
+    n = len(it['scripture'])
+    rows = max(NOTE_MIN, min(NOTE_MAX, -(-n // HAND_PER_LINE) + 1))
+    trace = ''.join('<div class="ln"></div>' for _ in range(rows))
+    return '''<div class="page pR">
+ <div class="hd"><b>%(day)d일</b> · %(date)s · %(ref)s</div>
+ <div><span class="lab">말씀 따라 쓰기</span></div>
+ <div class="lines">%(tr)s</div>
+ <div><span class="lab m">메모</span></div>
+ <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ %(ft)s
+</div>''' % dict(day=it['day'], date=esc(it['date']), ref=esc(it['ref']), tr=trace,
+                 ft=foot(pno, D['church'], ''))
+
+
+def page_cover():
+    t = D['title']
+    # 「기독교 고전과 함께하는 / 전교인 필사」 — 뒷말을 금색으로
+    head, tail = t.split('함께하는')
+    return '''<div class="page cover">
+ <div class="cv-ch">%s</div>
+ <div class="cv-rule"></div>
+ <div class="cv-t">%s함께하는<br><em>%s</em></div>
+ <div class="cv-p">%s</div>
+ <div class="cv-v">새벽마다 기독교 고전 한 대목과 말씀 한 절을<br>
+  손으로 옮겨 적으며 마음에 새깁니다.</div>
+</div>''' % (esc(D['church']), esc(head), esc(tail.strip()), esc(D['period']))
+
+
+def page_back(pno):
+    """뒷표지.
+
+    ⚠️ 성도님께 하는 말이 먼저고, ※(담당자가 어떻게 만드는지)는 그 아래 작게 둔다 —
+       손에 쥔 분이 알아야 할 것은 「어떻게 쓰나」이지 「어떻게 만들었나」가 아니다.
+    ⚠️ 표지·뒷표지에는 쪽번호를 넣지 않는다.
+    """
+    books = len({i['book'] for i in ITEMS})
+    return '''<div class="page back">
+ <div class="bk-t">이렇게 쓰입니다</div>
+ <div class="bk-n">왼쪽 쪽에서 그날의 고전 한 대목과 말씀을 읽고,<br>
+  오른쪽 쪽에 그 말씀을 손으로 옮겨 적습니다.<br>
+  마음에 남은 것은 메모 칸에 적어 두세요.</div>
+ <div class="bk-rule"></div>
+ <div class="bk-s">기독교 고전 %d권에서 %d대목을 골라 엮었습니다.<br>
+  새벽기도 설교도 그날의 성경본문으로 이어집니다.</div>
+ <div class="bk-f">%s · %s</div>
+</div>''' % (books, len(ITEMS), esc(D['church']), esc(D['period']))
+
+
+def index_pages(items, start_pno):
+    """목차 두 쪽 — 고전 9권으로 묶는다.
+
+    ⚠️ 원본 27행 표를 그대로 옮기면 한 줄이 40자가 넘어 글씨가 9pt 아래로 내려간다.
+       저자·담당자를 묶음 머리에 한 번만 쓰면 아래 줄이 짧아져 글씨를 키울 수 있다.
+    """
+    by_no = {i['no']: i for i in items}
+    books, seen = [], set()
+    for it in items:
+        if it['book'] not in seen:
+            seen.add(it['book'])
+            books.append({'book': it['book'], 'author': it['author'],
+                          'staff': it['staff'], 'eps': []})
+        books[-1]['eps'].append(it)
+
+    def block(b):
+        # ⚠️ 소제목이 없는 편에 책 이름을 다시 쓰지 않는다 — 「참된 목자 / ① 참된 목자 /
+        #    ② 참된 목자」가 되어 두 편을 가릴 수가 없다. 그럴 때는 그날 성경본문을 쓴다.
+        eps = ''.join(
+            '<div class="ep"><span class="mk">%s</span><span class="nm">%s</span>'
+            '<span class="dot"></span><span class="dt">%s</span>'
+            '<span class="pg">%d</span></div>'
+            % (e['mark'], esc(e['sub'] or e['ref']), esc(e['date']), e['page'])
+            for e in b['eps'])
+        return ('<div class="bk"><div class="bk-hd"><span class="nm">%s</span>'
+                '<span class="au">%s</span><span class="st">%s</span></div>%s</div>'
+                % (esc(b['book']), esc(b['author']), esc(b['staff']), eps))
+
+    # 줄 수(묶음머리 + 편)가 반씩 되게 가른다
+    weights = [1 + len(b['eps']) for b in books]
+    half, run, cut = sum(weights) / 2.0, 0, len(books)
+    for i, w in enumerate(weights):
+        run += w
+        if run >= half:
+            cut = i + 1
+            break
+
+    head = '<div class="ix-h"><div class="t">차 례</div><div class="r"></div></div>'
+    # ⚠️ 펼침면 오른쪽에 「차 례」를 또 쓰지 않는다 — 한 화면에 같은 제목이 두 번 보인다.
+    #    대신 같은 것을 visibility:hidden 으로 두어 **두 쪽의 목록이 같은 높이에서 시작**하게 한다
+    #    (빈 상자를 손으로 어림하면 제목 크기를 바꿀 때마다 어긋난다).
+    head_blank = head.replace('class="ix-h"', 'class="ix-h blank"')
+    note = ('<div class="ix-note"><b>쉬어 가는 날</b><br>%s<br>'
+            '이레 동안은 고전 필사를 쉽니다. 설교 말씀에서 마음에 남은 '
+            '한 구절을 적어 보세요.</div>' % esc(D['skipped']))
+    p1 = '<div class="page pL">%s%s%s</div>' % (
+        head, ''.join(block(b) for b in books[:cut]), foot(start_pno, '', '차례'))
+    p2 = '<div class="page pR">%s%s%s</div>' % (
+        head_blank, ''.join(block(b) for b in books[cut:]) + note,
+        foot(start_pno + 1, D['church'], ''))
+    return p1 + p2
+
+
+def build(body_pt, measure=False):
+    """44쪽을 짓는다. p1 표지 · p2|p3 차례 · p4~ 본문 · 마지막 뒷표지."""
+    for k, it in enumerate(ITEMS):
+        it['page'] = 4 + 2 * k              # 그 편의 고전 쪽 번호(차례가 가리키는 곳)
+
+    out = [page_cover()]
+    out.append(index_pages(ITEMS, 2))
+    pno = 4
+    for it in ITEMS:
+        out.append(page_classic(it, pno, body_pt))
+        out.append(page_note(it, pno + 1))
+        pno += 2
+    out.append(page_back(pno))              # 짝수쪽 = 펼침면 왼쪽. 44쪽이 되도록 아래에서 맞춘다
+
+    total = len(ITEMS) * 2 + 4
+    # ⚠️ 중철은 쪽수가 4의 배수라야 한다 — 모자라면 빈 쪽으로 채운다.
+    while total % 4:
+        out.insert(-1, '<div class="page pR">%s</div>' % foot(total, D['church'], ''))
+        total += 1
+
+    probe = ''
+    if measure:
+        # ⚠️ 서체가 준비되기 전에 재면 대체 서체 기준이라 값이 틀린다 — fonts.ready 를 기다린다.
+        probe = '''<script>
+document.fonts.ready.then(function(){
+  var bad=[];
+  document.querySelectorAll('.page').forEach(function(p,i){
+    if(p.scrollHeight-p.clientHeight>1) bad.push(i+1);
+  });
+  document.title='FIT|'+bad.join(',');
+});
+</script>'''
+
+    return ('<!doctype html><html lang="ko"><meta charset="utf-8">'
+            '<title>%s</title><style>%s%s</style><body>%s%s</body></html>'
+            % (esc(D['title']), CSS, CSS_HEAD, ''.join(out), probe))
+
+
+# ── 넘치는지 재기 ───────────────────────────────────────────────────────
+def measure(body_pt):
+    """크롬을 돌려 넘치는 쪽을 센다. 없으면 빈 목록."""
+    chrome = find_chrome()
+    if not chrome:
+        return None
+    tmp = '_fit.html'
+    io.open(tmp, 'w', encoding='utf-8').write(build(body_pt, measure=True))
+    r = subprocess.run([chrome, '--headless', '--disable-gpu', '--dump-dom',
+                        '--virtual-time-budget=20000',
+                        'file:///' + os.path.abspath(tmp).replace(os.sep, '/')],
+                       capture_output=True)
+    dom = r.stdout.decode('utf-8', 'replace')
+    os.remove(tmp)
+    m = re.search(r'<title>FIT\|([^<]*)</title>', dom)
+    if not m:
+        return None
+    s = m.group(1).strip()
+    return [int(x) for x in s.split(',') if x]
+
+
+def fit():
+    """들어가는 가장 큰 글씨를 찾는다 — 0.5pt 씩 내려가며."""
+    print('  넘침을 재며 가장 큰 글씨를 찾습니다 (한 번에 3초쯤)\n')
+    for pt in [x / 2.0 for x in range(36, 21, -1)]:       # 18.0 → 11.0
+        bad = measure(pt)
+        if bad is None:
+            print('  !! 크롬으로 잴 수 없습니다.')
+            return None
+        if bad:
+            print('   %4.1fpt  넘침 %d쪽 %s' % (pt, len(bad), bad[:8]))
+        else:
+            print('   %4.1fpt  넘침 없음  ← 이 값을 쓰세요' % pt)
+            return pt
+    return None
+
+
+# ── 중철 배치 ───────────────────────────────────────────────────────────
+def impose(src_pdf, dst_pdf):
+    """A5 순서판 → A4 가로 중철 배치판.
+
+    11장을 포개 반 접으므로 한 장의 앞면은 (마지막쪽 | 첫쪽), 뒷면은 (둘째쪽 | 끝에서둘째쪽).
+    ⚠️ 이 순서를 틀리면 접었을 때 쪽이 뒤죽박죽이 된다 — 반드시 한 부 뽑아 접어 볼 것.
+    """
+    try:
+        from pypdf import PdfReader, PdfWriter, PageObject, Transformation
+    except ImportError:
+        print('   !! pypdf 가 없어 중철 배치는 건너뜁니다 —  pip install pypdf')
+        return False
+
+    rd = PdfReader(src_pdf)
+    n = len(rd.pages)
+    if n % 4:
+        print('   !! %d쪽은 4의 배수가 아니라 중철로 접을 수 없습니다.' % n)
+        return False
+
+    W5, H5 = 148 * 72 / 25.4, 210 * 72 / 25.4      # A5 세로
+    W4, H4 = 297 * 72 / 25.4, 210 * 72 / 25.4      # A4 가로
+    gap = (W4 - 2 * W5) / 2                        # 2×148=296 ≠ 297 — 1mm 를 좌우로 나눈다
+
+    wr = PdfWriter()
+    for i in range(n // 4):
+        for left, right in ((n - 2 * i, 1 + 2 * i), (2 + 2 * i, n - 1 - 2 * i)):
+            sheet = PageObject.create_blank_page(width=W4, height=H4)
+            for pg, x in ((left, gap), (right, gap + W5)):
+                sheet.merge_transformed_page(rd.pages[pg - 1],
+                                             Transformation().translate(tx=x, ty=0))
+            wr.add_page(sheet)
+    with open(dst_pdf, 'wb') as f:
+        wr.write(f)
+    return True
+
+
+# ── 돌리기 ──────────────────────────────────────────────────────────────
+if FIT_MODE:
+    got = fit()
+    if got and abs(got - FITTED_PT) > 1e-6:
+        print('\n  → generate_classics.py 의 FITTED_PT 를 %.1f 로 고치세요.' % got)
+    sys.exit(0)
+
+PT = BODY_PT or FITTED_PT
+html_path = OUT_NAME + '.html'
+io.open(html_path, 'w', encoding='utf-8').write(build(PT))
+pages = len(ITEMS) * 2 + 4
+pages += (-pages) % 4
+print('  %s  (%d쪽 · 본문 %.1fpt · A4 %d장 중철)' % (html_path, pages, PT, pages // 4))
+
+if MAKE_PDF or MAKE_BOOKLET:
+    pdf_path = OUT_NAME + '.pdf'
+    if to_pdf(html_path, pdf_path):
+        print('  %s  ← A5 순서판 (인쇄소·화면 검토용)' % pdf_path)
+        if MAKE_BOOKLET:
+            bk = OUT_NAME + '_중철A4.pdf'
+            if impose(pdf_path, bk):
+                print('  %s  ← A4 가로 %d면 (양면 인쇄 → 반 접기 → 가운데 스테이플)'
+                      % (bk, pages // 2))

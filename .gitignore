@@ -104,3 +104,7 @@ AppForm/
 # 부서가 채워 보낸 회신 파일 — 작업용으로 받는 것이라 저장소가 들고 있을 이유가 없다.
 #   취합 결과(ministry_catalog_2027.json · 부서확인/_취합결과.md)만 커밋한다.
 ministry/부서확인/회신/
+
+# 빙그레 서체 — 라이선스가 재배포를 금지한다(공개 저장소).
+# generate_classics.py 가 없으면 받아 온다.
+booklet/fonts/

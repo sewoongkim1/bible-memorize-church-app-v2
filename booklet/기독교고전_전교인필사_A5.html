@@ -1,0 +1,578 @@
+<!doctype html><html lang="ko"><meta charset="utf-8"><title>기독교 고전과 함께하는 전교인 필사</title><style>
+@font-face { font-family:'Binggrae'; src:url('fonts/Binggrae.woff') format('woff');
+             font-weight:400; font-display:block; }
+/* ⚠️ @font-face 의 font-family 는 **실제 이름**이라야 한다 — var() 를 쓰면 서체가
+   등록되지 않아 제목이 조용히 본문 서체로 바뀐다(2026-09-09에 그랬다). */
+@font-face { font-family:'BinggraeB'; src:url('fonts/Binggrae-Bold.woff') format('woff');
+             font-weight:400; font-display:block; }
+
+:root {
+  --navy:#1a3a6b; --navy-d:#132a4d; --gold:#a8873c;
+  --ink:#1b1f27; --sub:#5a6474; --line:#c9cfd9; --cream:#fffdf8;
+  --tf:'BinggraeB','Binggrae',sans-serif;   /* 제목 — --no-bold 면 본문 서체로 바뀐다 */
+}
+* { box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+html,body { margin:0; padding:0; background:#7c8595; }
+body { font-family:'Binggrae','Noto Sans KR',sans-serif; color:var(--ink); }
+
+@page { size:148mm 210mm; margin:0; }
+
+.page { width:148mm; height:210mm; background:#fff; overflow:hidden;
+        position:relative; display:flex; flex-direction:column;
+        margin:0 auto 6mm; page-break-after:always; }
+@media print { .page { margin:0; box-shadow:none; } }
+@media screen { .page { box-shadow:0 2px 10px rgba(0,0,0,.35); } }
+
+/* 안쪽(제본 골) 여백을 바깥보다 3mm 넓게 — 중철은 골에 글이 먹힌다.
+   짝수쪽은 펼침면 왼쪽이라 골이 오른쪽에, 홀수쪽은 그 반대. */
+.pL { padding:13mm 16mm 12mm 13mm; }
+.pR { padding:13mm 13mm 12mm 16mm; }
+
+/* ── 머리 ───────────────────────────────────────────── */
+.hd { font-size:9.5pt; color:var(--sub); letter-spacing:.02em;
+      padding-bottom:2mm; border-bottom:.6px solid var(--line); margin-bottom:5mm; }
+.hd b { font-family:var(--tf); color:var(--navy); font-weight:400; }
+
+/* ── 고전 쪽 ─────────────────────────────────────────── */
+.t-wrap { text-align:center; margin-bottom:5mm; }
+.t-main { font-family:var(--tf); font-weight:400; font-size:19pt; color:var(--navy);
+          letter-spacing:.02em; line-height:1.3; }
+.t-sub  { font-size:11.5pt; color:var(--sub); margin-top:1.6mm; line-height:1.45;
+          word-break:keep-all; }
+.t-au   { font-size:10.5pt; color:var(--gold); margin-top:2.4mm; letter-spacing:.03em; }
+.t-rule { width:26mm; height:1px; background:var(--line); margin:3.4mm auto 0; }
+
+/* ⚠️ text-align:justify 를 쓰지 않는다 — 한글에 word-break:keep-all 을 걸면 낱말이
+   안 쪼개져, 양끝을 맞추느라 낱말 사이가 크게 벌어진다("죄를  죽인다는  것은  죄를").
+   왼끝 맞춤이 오른쪽 들쭉날쭉을 남기지만 그편이 훨씬 잘 읽힌다. */
+.body p { margin:0 0 3.2mm; line-height:1.78; word-break:keep-all; }
+.body p:last-child { margin-bottom:0; }
+
+/* 성경본문 — 아래에 붙인다. 발췌문이 짧아도 상자는 늘 같은 자리에 온다. */
+.scr { margin-top:auto; background:var(--cream); border-left:2.6mm solid var(--navy);
+       border-radius:0 2mm 2mm 0; padding:4.6mm 5mm 4.2mm; }
+.scr-t { line-height:1.72; word-break:keep-all; }
+.scr-r { margin-top:2.6mm; text-align:right; font-family:var(--tf); font-weight:400;
+         color:var(--navy); letter-spacing:.02em; }
+
+/* ── 노트 쪽 ─────────────────────────────────────────── */
+.lab { display:inline-block; font-family:var(--tf); font-weight:400; font-size:10pt;
+       color:var(--navy); background:#eef2f8; border-radius:1.6mm;
+       padding:1.1mm 3mm; margin-bottom:2.6mm; letter-spacing:.02em; }
+.lab.m { margin-top:6mm; }
+.lines { display:flex; flex-direction:column; }
+.ln { height:8mm; border-bottom:.7px solid #d7dce4; }
+.lines.grow { flex:1; min-height:0; overflow:hidden; }
+
+/* ── 꼬리말 ─────────────────────────────────────────── */
+.ft { position:absolute; left:13mm; right:13mm; bottom:5.5mm;
+      display:flex; justify-content:space-between; align-items:baseline;
+      font-size:8.5pt; color:#8b93a1; letter-spacing:.02em; }
+.ft .pno { font-family:var(--tf); font-weight:400; font-size:9.5pt; color:var(--navy); }
+
+/* ── 표지 ───────────────────────────────────────────── */
+/* 아래 여백을 위보다 넉넉히 줘 제목이 한가운데가 아니라 조금 위(약 44%)에 앉게 한다 —
+   책 표지는 정가운데보다 살짝 위가 안정돼 보인다. */
+.cover { background:var(--navy); color:#fff; align-items:center; justify-content:center;
+         text-align:center; padding:22mm 15mm 46mm; }
+.cv-ch { font-size:11pt; letter-spacing:.34em; opacity:.82; }
+.cv-rule { width:16mm; height:1px; background:rgba(255,255,255,.5); margin:7mm auto; }
+.cv-t { font-family:var(--tf); font-weight:400; font-size:27pt; line-height:1.42;
+        letter-spacing:.02em; }
+.cv-t em { font-style:normal; color:#e6c877; }
+.cv-p { margin-top:9mm; font-size:12.5pt; opacity:.9; letter-spacing:.06em; }
+/* ⚠️ 맺음말을 margin-top:auto 로 내리면 그 auto 마진이 남는 공간을 통째로 먹어
+   제목이 위로 쏠린다 — 제목은 가운데에 두고 맺음말만 아래에 못박는다. */
+.cv-v { position:absolute; left:15mm; right:15mm; bottom:18mm;
+        font-size:9.5pt; line-height:1.85; opacity:.8; word-break:keep-all; }
+
+.back { justify-content:center; text-align:center; padding:24mm 17mm; }
+.bk-t { font-family:var(--tf); font-weight:400; font-size:13pt; color:var(--navy);
+        margin-bottom:5mm; }
+/* ⚠️ 여기 어느 줄에도 margin-top:auto 를 두지 말 것 — justify-content:center 와 만나면
+   auto 마진이 남는 공간을 통째로 먹어 글이 위로 쏠리고 아래가 텅 빈다(2026-09-09에 그랬다). */
+.bk-n { font-size:10.5pt; line-height:1.9; color:#3f4855; word-break:keep-all; }
+.bk-rule { width:20mm; height:1px; background:var(--line); margin:8mm auto; }
+.bk-s { font-size:9.5pt; line-height:1.8; color:var(--sub); word-break:keep-all; }
+.bk-f { margin-top:12mm; font-size:10pt; color:var(--sub); letter-spacing:.08em; }
+
+/* ── 목차 ───────────────────────────────────────────── */
+.ix-h { text-align:center; margin-bottom:6mm; }
+.ix-h .t { font-family:var(--tf); font-weight:400; font-size:17pt; color:var(--navy);
+           letter-spacing:.06em; }
+.ix-h .r { width:22mm; height:1px; background:var(--line); margin:3mm auto 0; }
+.bk { margin-bottom:4.4mm; }
+.bk-hd { display:flex; align-items:baseline; gap:2mm;
+         border-bottom:.7px solid var(--line); padding-bottom:1.4mm; margin-bottom:1.8mm; }
+.bk-hd .nm { font-family:var(--tf); font-weight:400; font-size:12.5pt; color:var(--navy); }
+.bk-hd .au { font-size:9.5pt; color:var(--sub); }
+.bk-hd .st { margin-left:auto; font-size:9.5pt; color:var(--gold); white-space:nowrap; }
+.ep { display:flex; align-items:baseline; font-size:10.5pt; line-height:1.62;
+      color:#2b3240; padding:.5mm 0; }
+.ep .mk { width:5.5mm; color:var(--gold); flex:none; }
+.ep .nm { word-break:keep-all; }
+.ep .dot { flex:1; border-bottom:1px dotted #cdd3dd; margin:0 1.6mm 1mm; min-width:4mm; }
+.ep .dt { font-size:9.5pt; color:var(--sub); white-space:nowrap; }
+.ep .pg { width:7mm; text-align:right; font-family:var(--tf); font-weight:400;
+          color:var(--navy); white-space:nowrap; }
+.ix-h.blank { visibility:hidden; }
+.ix-note { margin-top:auto; font-size:9.5pt; line-height:1.75; color:var(--sub);
+           background:#f5f7fa; border-radius:2mm; padding:3.4mm 4mm; word-break:keep-all; }
+.ix-note b { font-family:var(--tf); font-weight:400; color:var(--navy); }
+</style><body><div class="page cover">
+ <div class="cv-ch">고척교회</div>
+ <div class="cv-rule"></div>
+ <div class="cv-t">기독교 고전과 함께하는<br><em>전교인 필사</em></div>
+ <div class="cv-p">2026년 10월</div>
+ <div class="cv-v">새벽마다 기독교 고전 한 대목과 말씀 한 절을<br>
+  손으로 옮겨 적으며 마음에 새깁니다.</div>
+</div><div class="page pL"><div class="ix-h"><div class="t">차 례</div><div class="r"></div></div><div class="bk"><div class="bk-hd"><span class="nm">루터 선집</span><span class="au">마르틴 루터</span><span class="st">한충성</span></div><div class="ep"><span class="mk">①</span><span class="nm">독일 크리스천 귀족에게 보내는 글</span><span class="dot"></span><span class="dt">10/2(금)</span><span class="pg">4</span></div><div class="ep"><span class="mk">②</span><span class="nm">교회의 바벨론 유수</span><span class="dot"></span><span class="dt">10/3(토)</span><span class="pg">6</span></div><div class="ep"><span class="mk">③</span><span class="nm">그리스도인의 자유</span><span class="dot"></span><span class="dt">10/5(월)</span><span class="pg">8</span></div></div><div class="bk"><div class="bk-hd"><span class="nm">참된 목자</span><span class="au">리처드 백스터</span><span class="st">권영준</span></div><div class="ep"><span class="mk">①</span><span class="nm">로마서 6:23</span><span class="dot"></span><span class="dt">10/6(화)</span><span class="pg">10</span></div><div class="ep"><span class="mk">②</span><span class="nm">디모데전서 4:8</span><span class="dot"></span><span class="dt">10/7(수)</span><span class="pg">12</span></div></div><div class="bk"><div class="bk-hd"><span class="nm">회심으로의 초대</span><span class="au">리처드 백스터</span><span class="st">최형원</span></div><div class="ep"><span class="mk">①</span><span class="nm">로마서 8:5-7</span><span class="dot"></span><span class="dt">10/8(목)</span><span class="pg">14</span></div><div class="ep"><span class="mk">②</span><span class="nm">이사야 55:6-8</span><span class="dot"></span><span class="dt">10/9(금)</span><span class="pg">16</span></div></div><div class="bk"><div class="bk-hd"><span class="nm">기도의 능력</span><span class="au">E.M. 바운즈</span><span class="st">이민우</span></div><div class="ep"><span class="mk">①</span><span class="nm">사도행전 4:31</span><span class="dot"></span><span class="dt">10/10(토)</span><span class="pg">18</span></div><div class="ep"><span class="mk">②</span><span class="nm">시편 5:3</span><span class="dot"></span><span class="dt">10/12(월)</span><span class="pg">20</span></div></div><div class="bk"><div class="bk-hd"><span class="nm">죄 죽이기</span><span class="au">존 오웬</span><span class="st">이승열</span></div><div class="ep"><span class="mk">①</span><span class="nm">마태복음 23:25-26</span><span class="dot"></span><span class="dt">10/13(화)</span><span class="pg">22</span></div><div class="ep"><span class="mk">②</span><span class="nm">히브리서 4:15-16</span><span class="dot"></span><span class="dt">10/14(수)</span><span class="pg">24</span></div></div><div class="ft"><span class="pno">2</span><span>차례</span></div></div><div class="page pR"><div class="ix-h blank"><div class="t">차 례</div><div class="r"></div></div><div class="bk"><div class="bk-hd"><span class="nm">천로역정</span><span class="au">존 번연</span><span class="st">장기훈</span></div><div class="ep"><span class="mk">①</span><span class="nm">내가 진리의 길을 걷는다</span><span class="dot"></span><span class="dt">10/15(목)</span><span class="pg">26</span></div><div class="ep"><span class="mk">②</span><span class="nm">다른 사람의 진리의 길을 돕는다</span><span class="dot"></span><span class="dt">10/16(금)</span><span class="pg">28</span></div><div class="ep"><span class="mk">③</span><span class="nm">다른 사람의 진리의 길을 방해하지 않는다</span><span class="dot"></span><span class="dt">10/17(토)</span><span class="pg">30</span></div></div><div class="bk"><div class="bk-hd"><span class="nm">하나님의 임재연습</span><span class="au">로렌스 형제</span><span class="st">한태희</span></div><div class="ep"><span class="mk">①</span><span class="nm">로마서 14:8-9</span><span class="dot"></span><span class="dt">10/19(월)</span><span class="pg">32</span></div><div class="ep"><span class="mk">②</span><span class="nm">시편 51:10</span><span class="dot"></span><span class="dt">10/20(화)</span><span class="pg">34</span></div></div><div class="bk"><div class="bk-hd"><span class="nm">고백록</span><span class="au">어거스틴</span><span class="st">담임목사</span></div><div class="ep"><span class="mk">①</span><span class="nm">제1권 1장 1절</span><span class="dot"></span><span class="dt">10/21(수)</span><span class="pg">36</span></div><div class="ep"><span class="mk">②</span><span class="nm">제10권 27장 38절</span><span class="dot"></span><span class="dt">10/22(목)</span><span class="pg">38</span></div></div><div class="bk"><div class="bk-hd"><span class="nm">그리스도를 본받아</span><span class="au">토마스 아 켐피스</span><span class="st">박동운</span></div><div class="ep"><span class="mk">①</span><span class="nm">마태복음 16:24</span><span class="dot"></span><span class="dt">10/23(금)</span><span class="pg">40</span></div><div class="ep"><span class="mk">②</span><span class="nm">고린도전서 13:13</span><span class="dot"></span><span class="dt">10/24(토)</span><span class="pg">42</span></div></div><div class="ix-note"><b>쉬어 가는 날</b><br>10/1 월삭새벽기도회 · 10/26~31 특별새벽기도회<br>이레 동안은 고전 필사를 쉽니다. 설교 말씀에서 마음에 남은 한 구절을 적어 보세요.</div><div class="ft"><span>고척교회</span><span class="pno">3</span></div></div><div class="page pL">
+ <div class="hd"><b>2일</b> · 10/2(금)</div>
+ <div class="t-wrap">
+  <div class="t-main">루터 선집 ①</div><div class="t-sub">독일 크리스천 귀족에게 보내는 글</div>
+  <div class="t-au">마르틴 루터</div><div class="t-rule"></div>
+ </div>
+ <div class="body" style="font-size:14.0pt"><p>세례받은 사람은 누구나 제사장으로 서품된 셈입니다. 우리가 세례를 통하여 그리스도와 한 몸이 될 때, 우리 모두는 세례와 복음과 믿음으로 말미암아 영적 존재이며 제사장들이 됩니다. 교황이나 사제, 승려가 세속 성도보다 더 거룩하다는 주장은 거짓된 담에 불과합니다. 하나님 앞에서는 교황과 성도 사이에 아무런 계급적 차이가 없으며, 오직 직분과 역할의 차이만 있을 뿐입니다. 세례를 받은 그리스도인은 누구나 담대히 하나님께 나아가 기도하고 복음을 전할 권리를 가집니다.</p></div>
+ <div class="scr" style="font-size:12.5pt">
+  <div class="scr-t">그러나 너희는 택하신 족속이요 왕 같은 제사장들이요 거룩한 나라요 그의 소유가 된 백성이니 이는 너희를 어두운 데서 불러 내어 그의 기이한 빛에 들어가게 하신 이의 아름다운 덕을 선포하게 하려 하심이라</div><div class="scr-r">베드로전서 2:9</div>
+ </div>
+ <div class="ft"><span class="pno">4</span><span>기독교 고전 필사</span></div>
+</div><div class="page pR">
+ <div class="hd"><b>2일</b> · 10/2(금) · 베드로전서 2:9</div>
+ <div><span class="lab">말씀 따라 쓰기</span></div>
+ <div class="lines"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div><span class="lab m">메모</span></div>
+ <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div class="ft"><span>고척교회</span><span class="pno">5</span></div>
+</div><div class="page pL">
+ <div class="hd"><b>3일</b> · 10/3(토)</div>
+ <div class="t-wrap">
+  <div class="t-main">루터 선집 ②</div><div class="t-sub">교회의 바벨론 유수</div>
+  <div class="t-au">마르틴 루터</div><div class="t-rule"></div>
+ </div>
+ <div class="body" style="font-size:14.0pt"><p>성례는 외형적인 행위 자체로 사람을 의롭게 만드는 것이 아니라, 오직 하나님의 약속과 이에 대한 &#x27;믿음&#x27;으로 말미암아 효력을 발휘합니다. 인간이 만든 외적인 제도와 교회의 권위는 성례를 바빌론 포로처럼 사로잡아 버렸습니다. 그러나 참된 성례는 오직 그리스도께서 직접 제정하신 약속이며, 이에 응답하는 성도의 순수한 믿음 안에서만 구원의 능력이 됩니다. 믿음이 없다면 성례는 결코 아무런 유익을 줄 수 없으며, 도리어 심판에 이르는 행위가 될 뿐입니다.</p></div>
+ <div class="scr" style="font-size:12.5pt">
+  <div class="scr-t">그런즉 믿음은 들음에서 나며 들음은 그리스도의 말씀으로 말미암았느니라</div><div class="scr-r">로마서 10:17</div>
+ </div>
+ <div class="ft"><span class="pno">6</span><span>기독교 고전 필사</span></div>
+</div><div class="page pR">
+ <div class="hd"><b>3일</b> · 10/3(토) · 로마서 10:17</div>
+ <div><span class="lab">말씀 따라 쓰기</span></div>
+ <div class="lines"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div><span class="lab m">메모</span></div>
+ <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div class="ft"><span>고척교회</span><span class="pno">7</span></div>
+</div><div class="page pL">
+ <div class="hd"><b>4일</b> · 10/5(월)</div>
+ <div class="t-wrap">
+  <div class="t-main">루터 선집 ③</div><div class="t-sub">그리스도인의 자유</div>
+  <div class="t-au">마르틴 루터</div><div class="t-rule"></div>
+ </div>
+ <div class="body" style="font-size:14.0pt"><p>그리스도인은 모든 것 위에 선 자유로운 주인이며 아무에게도 매이지 않습니다. 동시에 그리스도인은 모든 사람을 섬기는 만인의 종이며 모든 사람에게 매여 있습니다. 이 두 명제는 서로 대립하는 것 같지만, 그리스도인의 영과 육, 그리고 믿음과 사랑의 관계를 온전히 보여줍니다. 우리는 오직 믿음으로 말미암아 하나님 앞에서 완벽한 영적 자유를 얻지만, 그 자유는 자랑하기 위함이 아니라 이웃을 위해 스스로 종이 되어 기꺼이 사랑을 실천하기 위한 것입니다.</p></div>
+ <div class="scr" style="font-size:12.5pt">
+  <div class="scr-t">형제들아 너희가 자유를 위하여 부르심을 입었으나 그 자유로 육체의 기회를 삼지 말고 오직 사랑으로 서로 종 노릇 하라</div><div class="scr-r">갈라디아서 5:13</div>
+ </div>
+ <div class="ft"><span class="pno">8</span><span>기독교 고전 필사</span></div>
+</div><div class="page pR">
+ <div class="hd"><b>4일</b> · 10/5(월) · 갈라디아서 5:13</div>
+ <div><span class="lab">말씀 따라 쓰기</span></div>
+ <div class="lines"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div><span class="lab m">메모</span></div>
+ <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div class="ft"><span>고척교회</span><span class="pno">9</span></div>
+</div><div class="page pL">
+ <div class="hd"><b>5일</b> · 10/6(화)</div>
+ <div class="t-wrap">
+  <div class="t-main">참된 목자 ①</div>
+  <div class="t-au">리처드 백스터</div><div class="t-rule"></div>
+ </div>
+ <div class="body" style="font-size:14.0pt"><p>죄는 지극히 거룩하신 하나님께서 보시기에 가장 가증스러운 악입니다. 아무리 가벼운 죄를 범했더라도, 회개치 않은 죄인들에게는 그들이 지은 죄를 벌하기 위해서 하나님은 지옥의 영원한 고통을 예비하셨습니다. 하나님의 아들의 희생이라는 수단 외에는 그 어떤 수단으로도 그 벌을 막아낼 수 없기 때문에, 하나님은 죄를 진심으로 회개하고 죄에서 떠난 자에게 그 희생이 유효하도록 하셨습니다.</p></div>
+ <div class="scr" style="font-size:12.5pt">
+  <div class="scr-t">죄의 삯은 사망이요 하나님의 은사는 그리스도 예수 우리 주 안에 있는 영생이니라</div><div class="scr-r">로마서 6:23</div>
+ </div>
+ <div class="ft"><span class="pno">10</span><span>기독교 고전 필사</span></div>
+</div><div class="page pR">
+ <div class="hd"><b>5일</b> · 10/6(화) · 로마서 6:23</div>
+ <div><span class="lab">말씀 따라 쓰기</span></div>
+ <div class="lines"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div><span class="lab m">메모</span></div>
+ <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div class="ft"><span>고척교회</span><span class="pno">11</span></div>
+</div><div class="page pL">
+ <div class="hd"><b>6일</b> · 10/7(수)</div>
+ <div class="t-wrap">
+  <div class="t-main">참된 목자 ②</div>
+  <div class="t-au">리처드 백스터</div><div class="t-rule"></div>
+ </div>
+ <div class="body" style="font-size:14.0pt"><p>우리의 모든 사역은 경건하게 행해져야 합니다. 하나님의 존재를 믿는 사람에 걸맞게 거룩한 일들을 평범한 일처럼 대해서는 안 됩니다. 경건은 하나님에 대한 깊은 이해로부터 우러나오는 영혼에 대한 사랑입니다. 경건은 하나님과 아주 깊은 교제를 나누는 마음을 가리킵니다. 하나님의 일에 경건하지 않은 모습을 드러내는 것은 위선을 드러내는 것과 같습니다. 마음과 입이 일치하지 않음을 보여주기 때문입니다.</p></div>
+ <div class="scr" style="font-size:12.5pt">
+  <div class="scr-t">육체의 연단은 약간의 유익이 있으나 경건은 범사에 유익하니 금생과 내생에 약속이 있느니라</div><div class="scr-r">디모데전서 4:8</div>
+ </div>
+ <div class="ft"><span class="pno">12</span><span>기독교 고전 필사</span></div>
+</div><div class="page pR">
+ <div class="hd"><b>6일</b> · 10/7(수) · 디모데전서 4:8</div>
+ <div><span class="lab">말씀 따라 쓰기</span></div>
+ <div class="lines"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div><span class="lab m">메모</span></div>
+ <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div class="ft"><span>고척교회</span><span class="pno">13</span></div>
+</div><div class="page pL">
+ <div class="hd"><b>7일</b> · 10/8(목)</div>
+ <div class="t-wrap">
+  <div class="t-main">회심으로의 초대 ①</div>
+  <div class="t-au">리처드 백스터</div><div class="t-rule"></div>
+ </div>
+ <div class="body" style="font-size:14.0pt"><p>그러므로 만일 성부께서 여러분을 지으시지 않으셨다면, 여러분은 이성을 지닌 피조물이 될 수 없었을 것이고, 만일 성자께서 여러분을 대속하지 않으셨다면, 여러분은 하나님께로 나아갈 수 없었을 것이며, 만일 성령께서 여러분을 거룩하게 하지 않으신다면, 여러분은 구원을 받아 그리스도 안에 있는 분깃을 얻을 수 없습니다.</p></div>
+ <div class="scr" style="font-size:12.5pt">
+  <div class="scr-t">육신을 따르는 자는 육신의 일을, 영을 따르는 자는 영의 일을 생각하나니 육신의 생각은 사망이요 영의 생각은 생명과 평안이니라 육신의 생각은 하나님과 원수가 되나니 이는 하나님의 법에 굴복하지 아니할 뿐 아니라 할 수도 없음이라</div><div class="scr-r">로마서 8:5-7</div>
+ </div>
+ <div class="ft"><span class="pno">14</span><span>기독교 고전 필사</span></div>
+</div><div class="page pR">
+ <div class="hd"><b>7일</b> · 10/8(목) · 로마서 8:5-7</div>
+ <div><span class="lab">말씀 따라 쓰기</span></div>
+ <div class="lines"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div><span class="lab m">메모</span></div>
+ <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div class="ft"><span>고척교회</span><span class="pno">15</span></div>
+</div><div class="page pL">
+ <div class="hd"><b>8일</b> · 10/9(금)</div>
+ <div class="t-wrap">
+  <div class="t-main">회심으로의 초대 ②</div>
+  <div class="t-au">리처드 백스터</div><div class="t-rule"></div>
+ </div>
+ <div class="body" style="font-size:14.0pt"><p>여러분은 하나님께서 여러분에게 긍휼을 베풀어 주시지 않으실 것이 걱정되어서, 제발 여러분에게 긍휼을 베풀어 주시라고 하나님께 부르짖고자 하십니까? 그러실 필요가 없습니다. 왜냐하면, 하나님께서는 이미 여러분에게 베풀어 주실 긍휼을 준비해 두시고서, 여러분에게 그 긍휼을 받아들이라고 부르고 계시는데, 여러분이 받아들이고자 하지 않는 것이 문제이기 때문입니다.</p></div>
+ <div class="scr" style="font-size:12.5pt">
+  <div class="scr-t">너희는 여호와를 만날 만한 때에 찾으라 가까이 계실 때에 그를 부르라 악인은 그의 길을, 불의한 자는 그의 생각을 버리고 여호와께로 돌아오라 그리하면 그가 긍휼히 여기시리라 우리 하나님께로 돌아오라 그가 너그럽게 용서하시리니 이는 내 생각이 너희의 생각과 다르며 내 길은 너희의 길과 다름이니라 여호와의 말씀이니라</div><div class="scr-r">이사야 55:6-8</div>
+ </div>
+ <div class="ft"><span class="pno">16</span><span>기독교 고전 필사</span></div>
+</div><div class="page pR">
+ <div class="hd"><b>8일</b> · 10/9(금) · 이사야 55:6-8</div>
+ <div><span class="lab">말씀 따라 쓰기</span></div>
+ <div class="lines"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div><span class="lab m">메모</span></div>
+ <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div class="ft"><span>고척교회</span><span class="pno">17</span></div>
+</div><div class="page pL">
+ <div class="hd"><b>9일</b> · 10/10(토)</div>
+ <div class="t-wrap">
+  <div class="t-main">기도의 능력 ①</div>
+  <div class="t-au">E.M. 바운즈</div><div class="t-rule"></div>
+ </div>
+ <div class="body" style="font-size:14.0pt"><p>오늘날 교회에 필요한 것은 더 나은 기계를 더 많이 도입하는 것이 아니고 새로운 조직을 더 많이 구성하는 것도, 새로운 방법을 더 많이 강구하는 것도 아니다. 기도의 사람, 강력한 기도의 사람이 필요하다. 성령께서는 방법을 통해 일하시지 않고 사람을 통해 일하신다. 성령은 기계에 임하시는 게 아니라 사람에게 임하신다. 계획에 기름을 부으시는 게 아니라 사람에게, 곧 사람의 기도에 기름을 부으신다.</p></div>
+ <div class="scr" style="font-size:12.5pt">
+  <div class="scr-t">빌기를 다하매 모인 곳이 진동하더니 무리가 다 성령이 충만하여 담대히 하나님의 말씀을 전하니라</div><div class="scr-r">사도행전 4:31</div>
+ </div>
+ <div class="ft"><span class="pno">18</span><span>기독교 고전 필사</span></div>
+</div><div class="page pR">
+ <div class="hd"><b>9일</b> · 10/10(토) · 사도행전 4:31</div>
+ <div><span class="lab">말씀 따라 쓰기</span></div>
+ <div class="lines"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div><span class="lab m">메모</span></div>
+ <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div class="ft"><span>고척교회</span><span class="pno">19</span></div>
+</div><div class="page pL">
+ <div class="hd"><b>10일</b> · 10/12(월)</div>
+ <div class="t-wrap">
+  <div class="t-main">기도의 능력 ②</div>
+  <div class="t-au">E.M. 바운즈</div><div class="t-rule"></div>
+ </div>
+ <div class="body" style="font-size:14.0pt"><p>이 세상에서 하나님을 위해 아주 큰 일을 했던 사람들은 새벽부터 무릎을 꿇었다. 하나님을 구하기보다는 다른 일을 하느라 이른 아침 시간의 기회와 신선함을 낭비하는 사람은 나머지 시간에도 하나님을 구하는 일에 별 진전을 보지 못할 것이다. 아침에 일어났을 때 하나님이 우리 생각과 활동에 제일 먼저 오지 않는다면 그날 나머지 시간에도 하나님은 맨 마지막 순서를 차지할 것이다</p></div>
+ <div class="scr" style="font-size:12.5pt">
+  <div class="scr-t">여호와여 아침에 주께서 나의 소리를 들으시리니 아침에 내가 주께 기도하고 바라리이다</div><div class="scr-r">시편 5:3</div>
+ </div>
+ <div class="ft"><span class="pno">20</span><span>기독교 고전 필사</span></div>
+</div><div class="page pR">
+ <div class="hd"><b>10일</b> · 10/12(월) · 시편 5:3</div>
+ <div><span class="lab">말씀 따라 쓰기</span></div>
+ <div class="lines"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div><span class="lab m">메모</span></div>
+ <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div class="ft"><span>고척교회</span><span class="pno">21</span></div>
+</div><div class="page pL">
+ <div class="hd"><b>11일</b> · 10/13(화)</div>
+ <div class="t-wrap">
+  <div class="t-main">죄 죽이기 ①</div>
+  <div class="t-au">존 오웬</div><div class="t-rule"></div>
+ </div>
+ <div class="body" style="font-size:14.0pt"><p>죄를 죽인다는 것은 죄를 완전히 죽여서 죄가 더 이상 우리의 마음에 발을 붙이거나 거주하지 못하게 하는 것이 아니다. 하지만 죄를 완전히 없애서 죄가 자신의 마음이나 삶에 열매를 맺지 못하게 하는 것을 목표로 삼지 않는 사람은, 죄를 죽이기 위해 애쓰는 사람이라고 할 수 없다. 그래서 죄를 죽이려고 하는 사람은 죄가 꿈쩍도 할 수 없게 만들고, 미혹하거나 유혹하지 못하게 만들려고 한다. 이렇게 죄를 죽이려고 하는 사람은 죄가 존재하지 않게 하는 것을 목표로 삼는다.</p></div>
+ <div class="scr" style="font-size:12.5pt">
+  <div class="scr-t">화 있을진저 외식하는 서기관들과 바리새인들이여 잔과 대접의 겉은 깨끗이 하되 그 안에는 탐욕과 방탕으로 가득하게 하는도다 눈 먼 바리새인이여 너는 먼저 안을 깨끗이 하라 그리하면 겉도 깨끗하리라</div><div class="scr-r">마태복음 23:25-26</div>
+ </div>
+ <div class="ft"><span class="pno">22</span><span>기독교 고전 필사</span></div>
+</div><div class="page pR">
+ <div class="hd"><b>11일</b> · 10/13(화) · 마태복음 23:25-26</div>
+ <div><span class="lab">말씀 따라 쓰기</span></div>
+ <div class="lines"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div><span class="lab m">메모</span></div>
+ <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div class="ft"><span>고척교회</span><span class="pno">23</span></div>
+</div><div class="page pL">
+ <div class="hd"><b>12일</b> · 10/14(수)</div>
+ <div class="t-wrap">
+  <div class="t-main">죄 죽이기 ②</div>
+  <div class="t-au">존 오웬</div><div class="t-rule"></div>
+ </div>
+ <div class="body" style="font-size:14.0pt"><p>하나님의 오른편에 앉아 계신 우리의 크신 대제사장이신 그리스도께서는 긍휼이 많으시고 자애로우시며 인자하시다는 것을 깊이 묵상하라. 그리스도께서 고통 속에 있는 당신을 불쌍히 여기신다는 것은 너무나 분명하다. 왜냐하면 “어머니가 자식을 위로함 같이 내가 너희를 위로할 것인즉 너희가 예루살렘에서 위로를 받으리라(사6:13)”고 말씀하시기 때문이다. 이렇게 그리스도는 어머니가 젖먹이에 대해 갖고 있는 것과 같은 그런 자애로움을 가지고 계신다.</p></div>
+ <div class="scr" style="font-size:12.5pt">
+  <div class="scr-t">우리에게 있는 대제사장은 우리의 연약함을 동정하지 못하실 이가 아니요 모든 일에 우리와 똑같이 시험을 받으신 이로되 죄는 없으시니라 그러므로 우리는 긍휼하심을 받고 때를 따라 돕는 은혜를 얻기 위하여 은혜의 보좌 앞에 담대히 나아갈 것이니라</div><div class="scr-r">히브리서 4:15-16</div>
+ </div>
+ <div class="ft"><span class="pno">24</span><span>기독교 고전 필사</span></div>
+</div><div class="page pR">
+ <div class="hd"><b>12일</b> · 10/14(수) · 히브리서 4:15-16</div>
+ <div><span class="lab">말씀 따라 쓰기</span></div>
+ <div class="lines"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div><span class="lab m">메모</span></div>
+ <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div class="ft"><span>고척교회</span><span class="pno">25</span></div>
+</div><div class="page pL">
+ <div class="hd"><b>13일</b> · 10/15(목)</div>
+ <div class="t-wrap">
+  <div class="t-main">천로역정 ①</div><div class="t-sub">내가 진리의 길을 걷는다</div>
+  <div class="t-au">존 번연</div><div class="t-rule"></div>
+ </div>
+ <div class="body" style="font-size:14.0pt"><p>두 순례자들의 거동을 바라보며 비웃고 있던 한 상인이 “무엇을 사고자 하십니까?” 하고 그들에게 말을 걸자, 그들은 정색을 하고 상인을 바라보면서 “우리는 진리를 구하고 있습니다”(잠 23:23)라고 대답했다. 이 대답으로 인하여 그들에 대한 조롱은 더욱 심해졌다. 어떤 사람들은 그들을 놀리며 시비를 거는가 하면, 어떤 사람들은 거친 욕을 하면서 그들을 때려눕히자고 선동하기도 했다.</p></div>
+ <div class="scr" style="font-size:12.5pt">
+  <div class="scr-t">진리를 사되 팔지는 말며 지혜와 훈계와 명철도 그리할지니라</div><div class="scr-r">잠언 23:23</div>
+ </div>
+ <div class="ft"><span class="pno">26</span><span>기독교 고전 필사</span></div>
+</div><div class="page pR">
+ <div class="hd"><b>13일</b> · 10/15(목) · 잠언 23:23</div>
+ <div><span class="lab">말씀 따라 쓰기</span></div>
+ <div class="lines"><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div><span class="lab m">메모</span></div>
+ <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div class="ft"><span>고척교회</span><span class="pno">27</span></div>
+</div><div class="page pL">
+ <div class="hd"><b>14일</b> · 10/16(금)</div>
+ <div class="t-wrap">
+  <div class="t-main">천로역정 ②</div><div class="t-sub">다른 사람의 진리의 길을 돕는다</div>
+  <div class="t-au">존 번연</div><div class="t-rule"></div>
+ </div>
+ <div class="body" style="font-size:14.0pt"><p>내 형제여, 당신은 악한 자들에 관한 성경 말씀을 잊으셨습니까? ‘그들은 죽을 때에도 고통이 없고 그 힘이 강건하며 사람들이 당하는 고난이 그들에게는 없고 사람들이 당하는 재앙도 그들에게는 없나니’(시 73:4-5) 이 강을 건너면서 당신이 느끼는 불안과 고초는 결코 하나님께서 당신을 버리셨다는 표지가 아니라, 당신이 지금까지 받아온 그의 선대를 기억하고 있는지 또 환난 때에 그에 의지하여 사는지 시험하시는 것입니다.</p></div>
+ <div class="scr" style="font-size:12.5pt">
+  <div class="scr-t">너희는 약한 손을 강하게 하며 떨리는 무릎을 굳게 하며 겁내는 자들에게 이르기를 굳세어라, 두려워하지 말라, 보라 너희 하나님이 오사 보복하시며 갚아 주실 것이라 하나님이 오사 너희를 구하시리라 하라</div><div class="scr-r">이사야 35:3-4</div>
+ </div>
+ <div class="ft"><span class="pno">28</span><span>기독교 고전 필사</span></div>
+</div><div class="page pR">
+ <div class="hd"><b>14일</b> · 10/16(금) · 이사야 35:3-4</div>
+ <div><span class="lab">말씀 따라 쓰기</span></div>
+ <div class="lines"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div><span class="lab m">메모</span></div>
+ <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div class="ft"><span>고척교회</span><span class="pno">29</span></div>
+</div><div class="page pL">
+ <div class="hd"><b>15일</b> · 10/17(토)</div>
+ <div class="t-wrap">
+  <div class="t-main">천로역정 ③</div><div class="t-sub">다른 사람의 진리의 길을 방해하지 않는다</div>
+  <div class="t-au">존 번연</div><div class="t-rule"></div>
+ </div>
+ <div class="body" style="font-size:14.0pt"><p>이리하여 크리스천과 소망은 그를 따라 갔고, 그는 그들 앞서 나아갔다. 그러나 밤이 찾아와 주위에 짙은 어둠이 깔리자, 그들은 앞서 나아가던 사람의 모습을 볼 수 없게 되었다. 헛된 확신은 혼자 앞으로 나아가다가 자기 앞에 있는 길을 보지 못하고 깊은 웅덩이에 빠져 버렸는데(사 9:16), 이 웅덩이는 그 땅의 주인이 괜히 잘난 체하는 바보들을 잡기 위해 파놓은 것이었다. 헛된 확신은 구덩이에 떨어지자마자 몸이 갈가리 찢어지고 말았다.</p></div>
+ <div class="scr" style="font-size:12.5pt">
+  <div class="scr-t">예수께서 제자들에게 이르시되 실족하게 하는 것이 없을 수는 없으나 그렇게 하게 하는 자에게는 화로다 그가 이 작은 자 중의 하나를 실족하게 할진대 차라리 연자맷돌이 그 목에 매여 바다에 던져지는 것이 나으리라</div><div class="scr-r">누가복음 17:1-2</div>
+ </div>
+ <div class="ft"><span class="pno">30</span><span>기독교 고전 필사</span></div>
+</div><div class="page pR">
+ <div class="hd"><b>15일</b> · 10/17(토) · 누가복음 17:1-2</div>
+ <div><span class="lab">말씀 따라 쓰기</span></div>
+ <div class="lines"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div><span class="lab m">메모</span></div>
+ <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div class="ft"><span>고척교회</span><span class="pno">31</span></div>
+</div><div class="page pL">
+ <div class="hd"><b>16일</b> · 10/19(월)</div>
+ <div class="t-wrap">
+  <div class="t-main">하나님의 임재연습 ①</div>
+  <div class="t-au">로렌스 형제</div><div class="t-rule"></div>
+ </div>
+ <div class="body" style="font-size:14.0pt"><p>하나님과 함께 하려고 항상 교회에 있어야 할 필요는 없습니다. 우리는 우리 마음에 작은 예배당을 만들어, 이따금씩 조용히 물러나, 온유와 겸손과 사랑으로 그분과 대화를 나눌 수 있습니다. 사람마다 차이는 있겠지만, 하나님과의 그런 친밀한 대화는 모두에게 가능합니다. 그분은 우리가 무엇을 할 수 있는지를 아십니다. 그러니 시작합시다. (중략) 하나님과 함께 살고 하나님과 함께 죽읍시다. 그분과 함께 있는 한, 고난마저 우리에게는 달콤하고 즐거울 것입니다.</p></div>
+ <div class="scr" style="font-size:12.5pt">
+  <div class="scr-t">우리가 살아도 주를 위하여 살고 죽어도 주를 위하여 죽나니 그러므로 사나 죽으나 우리가 주의 것이로다 이를 위하여 그리스도께서 죽었다가 다시 살아나셨으니 곧 죽은 자와 산 자의 주가 되려 하심이라</div><div class="scr-r">로마서 14:8-9</div>
+ </div>
+ <div class="ft"><span class="pno">32</span><span>기독교 고전 필사</span></div>
+</div><div class="page pR">
+ <div class="hd"><b>16일</b> · 10/19(월) · 로마서 14:8-9</div>
+ <div><span class="lab">말씀 따라 쓰기</span></div>
+ <div class="lines"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div><span class="lab m">메모</span></div>
+ <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div class="ft"><span>고척교회</span><span class="pno">33</span></div>
+</div><div class="page pL">
+ <div class="hd"><b>17일</b> · 10/20(화)</div>
+ <div class="t-wrap">
+  <div class="t-main">하나님의 임재연습 ②</div>
+  <div class="t-au">로렌스 형제</div><div class="t-rule"></div>
+ </div>
+ <div class="body" style="font-size:14.0pt"><p>내가 알기로 영적 삶의 올바른 실천을 위해서는, 마음에서 다른 모든 것들이 비워져야 합니다. 왜냐하면 하나님께서는 오직 마음만을 소유하길 원하시기 때문입니다. 다른 것들이 비워지지 않으면 하나님은 마음을 소유하실 수가 없고, 마음에서 활동하실 수가 없고, 그 속에서 그 분이 기뻐하시는 일을 행하실 수 없기 때문입니다. 그러므로 마음은 그분을 향해 비워져 있어야 합니다.</p></div>
+ <div class="scr" style="font-size:12.5pt">
+  <div class="scr-t">하나님이여 내 속에 정한 마음을 창조하시고 내 안에 정직한 영을 새롭게 하소서</div><div class="scr-r">시편 51:10</div>
+ </div>
+ <div class="ft"><span class="pno">34</span><span>기독교 고전 필사</span></div>
+</div><div class="page pR">
+ <div class="hd"><b>17일</b> · 10/20(화) · 시편 51:10</div>
+ <div><span class="lab">말씀 따라 쓰기</span></div>
+ <div class="lines"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div><span class="lab m">메모</span></div>
+ <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div class="ft"><span>고척교회</span><span class="pno">35</span></div>
+</div><div class="page pL">
+ <div class="hd"><b>18일</b> · 10/21(수)</div>
+ <div class="t-wrap">
+  <div class="t-main">고백록 ①</div><div class="t-sub">제1권 1장 1절</div>
+  <div class="t-au">어거스틴</div><div class="t-rule"></div>
+ </div>
+ <div class="body" style="font-size:14.0pt"><p>주님이여, 주님은 위대하시오니 크게 찬양을 받으시는 것이 마땅합니다. (중략) 주님은 우리를 일깨우셔서 주님을 찬양하는 것을 즐거워하게 만드십니다. 왜냐하면, 주님은 우리를 지으실 때에 주님을 바라보며 살아가도록 지으신 까닭에, 우리의 마음은 주님 안에서 안식할 때까지는 쉴 수가 없기 때문입니다.</p></div>
+ <div class="scr" style="font-size:12.5pt">
+  <div class="scr-t">수고하고 무거운 짐 진 자들아 다 내게로 오라 내가 너희를 쉬게 하리라 나는 마음이 온유하고 겸손하니 나의 멍에를 메고 내게 배우라 그리하면 너희 마음이 쉼을 얻으리니</div><div class="scr-r">마태복음 11:28-29</div>
+ </div>
+ <div class="ft"><span class="pno">36</span><span>기독교 고전 필사</span></div>
+</div><div class="page pR">
+ <div class="hd"><b>18일</b> · 10/21(수) · 마태복음 11:28-29</div>
+ <div><span class="lab">말씀 따라 쓰기</span></div>
+ <div class="lines"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div><span class="lab m">메모</span></div>
+ <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div class="ft"><span>고척교회</span><span class="pno">37</span></div>
+</div><div class="page pL">
+ <div class="hd"><b>19일</b> · 10/22(목)</div>
+ <div class="t-wrap">
+  <div class="t-main">고백록 ②</div><div class="t-sub">제10권 27장 38절</div>
+  <div class="t-au">어거스틴</div><div class="t-rule"></div>
+ </div>
+ <div class="body" style="font-size:14.0pt"><p>그런 주님을 나는 정말 너무나 늦게 사랑하게 되었습니다! (중략) 그런데도 주님은 나를 부르시고 내게 소리치셔서, 귀머거리가 된 내 귀를 열어 주셨고, 번쩍이는 광채와 밝은 빛을 내게 비쳐 주셔서, 맹인이 되어 아무것도 볼 수 없던 내 눈을 뜨게 해 주셨으며, 향기를 풍기셔서, 나로 그 향기를 맡고 주님을 사모하게 하셨고, 주님 자신을 맛보게 하셔서, 나로 주님을 향하여 주리고 목마르게 하셨으며, 나를 만져 주셔서, 주님의 평안을 열망하게 하셨습니다.</p></div>
+ <div class="scr" style="font-size:12.5pt">
+  <div class="scr-t">이에 일어나서 아버지께로 돌아가니라 아직도 거리가 먼데 아버지가 그를 보고 측은히 여겨 달려가 목을 안고 입을 맞추니</div><div class="scr-r">누가복음 15:20</div>
+ </div>
+ <div class="ft"><span class="pno">38</span><span>기독교 고전 필사</span></div>
+</div><div class="page pR">
+ <div class="hd"><b>19일</b> · 10/22(목) · 누가복음 15:20</div>
+ <div><span class="lab">말씀 따라 쓰기</span></div>
+ <div class="lines"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div><span class="lab m">메모</span></div>
+ <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div class="ft"><span>고척교회</span><span class="pno">39</span></div>
+</div><div class="page pL">
+ <div class="hd"><b>20일</b> · 10/23(금)</div>
+ <div class="t-wrap">
+  <div class="t-main">그리스도를 본받아 ①</div>
+  <div class="t-au">토마스 아 켐피스</div><div class="t-rule"></div>
+ </div>
+ <div class="body" style="font-size:14.0pt"><p>십자가 안에는 구원이 있고, 십자가 안에는 생명이 있으며, 십자가 안에서는 원수들로부터 보호받을 수 있고, 십자가 안에서는 천국의 향기가 나며, 십자가 안에서는 심령이 강건해지고, 십자가 안에는 영혼의 기쁨이 있으며, 십자가 안에는 최고의 미덕이 있고, 십자가 안에는 완전한 거룩함이 있습니다. 오직 십자가 안에만 영혼의 구원이 있고, 영생의 소망이 있습니다. 그러므로 십자가를 지고 예수님을 따라가십시오. 그러면, 영생 속으로 들어가게 될 것입니다.</p></div>
+ <div class="scr" style="font-size:12.5pt">
+  <div class="scr-t">이에 예수께서 제자들에게 이르시되 누구든지 나를 따라오려거든 자기를 부인하고 자기 십자가를 지고 나를 따를 것이니라</div><div class="scr-r">마태복음 16:24</div>
+ </div>
+ <div class="ft"><span class="pno">40</span><span>기독교 고전 필사</span></div>
+</div><div class="page pR">
+ <div class="hd"><b>20일</b> · 10/23(금) · 마태복음 16:24</div>
+ <div><span class="lab">말씀 따라 쓰기</span></div>
+ <div class="lines"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div><span class="lab m">메모</span></div>
+ <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div class="ft"><span>고척교회</span><span class="pno">41</span></div>
+</div><div class="page pL">
+ <div class="hd"><b>21일</b> · 10/24(토)</div>
+ <div class="t-wrap">
+  <div class="t-main">그리스도를 본받아 ②</div>
+  <div class="t-au">토마스 아 켐피스</div><div class="t-rule"></div>
+ </div>
+ <div class="body" style="font-size:14.0pt"><p>사랑은 위대한 것입니다. 사랑은 온갖 무거운 짐들을 가볍게 해 주고, 모든 평탄하지 않은 길들을 평탄하게 해 준다는 점에서, 모든 선한 은사 중에서 가장 큰 은사입니다. 왜냐하면, 사랑은 무거운 짐을 져도 무거운 줄을 모르게 해 주고, 온갖 쓴 것들을 달콤하고 향기로운 것으로 만들어 주기 때문입니다. 예수님의 고귀한 사랑은 사람들을 강권해서 위대한 일들을 이루어 내게 해 주고, 사람들을 분발시켜서 늘 더 온전한 것들을 갈망하게 만듭니다.</p></div>
+ <div class="scr" style="font-size:12.5pt">
+  <div class="scr-t">그런즉 믿음, 소망, 사랑, 이 세 가지는 항상 있을 것인데 그 중의 제일은 사랑이라</div><div class="scr-r">고린도전서 13:13</div>
+ </div>
+ <div class="ft"><span class="pno">42</span><span>기독교 고전 필사</span></div>
+</div><div class="page pR">
+ <div class="hd"><b>21일</b> · 10/24(토) · 고린도전서 13:13</div>
+ <div><span class="lab">말씀 따라 쓰기</span></div>
+ <div class="lines"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div><span class="lab m">메모</span></div>
+ <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div>
+  <div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+ <div class="ft"><span>고척교회</span><span class="pno">43</span></div>
+</div><div class="page back">
+ <div class="bk-t">이렇게 쓰입니다</div>
+ <div class="bk-n">왼쪽 쪽에서 그날의 고전 한 대목과 말씀을 읽고,<br>
+  오른쪽 쪽에 그 말씀을 손으로 옮겨 적습니다.<br>
+  마음에 남은 것은 메모 칸에 적어 두세요.</div>
+ <div class="bk-rule"></div>
+ <div class="bk-s">기독교 고전 9권에서 20대목을 골라 엮었습니다.<br>
+  새벽기도 설교도 그날의 성경본문으로 이어집니다.</div>
+ <div class="bk-f">고척교회 · 2026년 10월</div>
+</div></body></html>
