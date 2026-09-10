@@ -436,7 +436,20 @@ footer{
     <span class="nt">함정 2 — 게이트 키를 화이트리스트에 안 넣으면 영영 못 켠다 · <strong>이 설계는 이 함정을 피해 간다</strong></span>
     <p>시편 액자의 <code>psalmPublic</code>이 <code>PUBLIC_CONFIG_KEYS</code>에 빠져 있어, 운영에 <code>true</code>를 넣어도 서버가 「허용되지 않은 키」를 돌려주고 캐시가 영원히 비어 <strong>단추를 켤 방법이 없다</strong>(지금 살아 있는 결함).</p>
     <p>이 플랫폼도 <strong>게이트를 처음부터 달고 시작한다</strong> — 다만 <em>형태가 다르다.</em> 별도 설정 키를 두지 않고 <strong>데이터 자체가 게이트</strong>다: <code>events</code>에 <code>status='open'</code>이고 날짜 안인 회차가 <em>하나도 없으면</em> 첫 화면에 아무것도 안 뜬다. 준비 중인 회차는 <code>draft</code>로 둔다. 그래서 <strong><code>app_config</code>도 <code>PUBLIC_CONFIG_KEYS</code>도 건드리지 않는다</strong> — 세 작업이 스치던 유일한 한 줄이 없어지고, 화이트리스트를 빠뜨려 못 켜는 함정도 원리적으로 생기지 않는다.</p>
-    <p><strong>반드시 「닫힌 쪽으로 실패」해야 한다.</strong> 회차 목록을 못 받았을 때(서버가 옛 판이라 액션이 없다 · 표가 없다 · 통신 실패) 캐시는 비고, <strong>비면 숨긴다</strong>. 기본값이 「안 보임」이라 미완성 상태로 푸시돼도 성도님 화면에는 나타나지 않는다 — <strong>이 저장소는 push가 곧 배포라 「아직 안 끝났으니 괜찮다」가 성립하지 않는다.</strong> 2026-09-10 시편 사고가 정확히 그 자리였다(게이트 없이 시작해, 다른 세션의 푸시에 미완성 기능이 딸려 나가 성도님 첫 화면에 떴다).</p>
+    <p>부수 효과가 하나 더 있다. 설정 키로 게이트를 하면 <strong>「값을 캐시해 두고 첫 화면은 그 캐시를 본다」는 층이 하나 더 생긴다</strong>(사역신청의 <code>ministryPeriodCached</code>가 그렇다) — 그 층이 있으면 <em>「서버는 열렸는데 화면은 아직 닫혀 있다」가 최소 한 번은 생긴다.</em> 회차를 데이터에서 바로 읽으면 그 틈이 없다.</p>
+    <p><strong>반드시 「닫힌 쪽으로 실패」해야 한다.</strong> 기본값이 「안 보임」이라 미완성 상태로 푸시돼도 성도님 화면에는 나타나지 않는다 — <strong>이 저장소는 push가 곧 배포라 「아직 안 끝났으니 괜찮다」가 성립하지 않는다.</strong> 2026-09-10 시편 사고가 정확히 그 자리였다(게이트 없이 시작해, 다른 세션의 푸시에 미완성 기능이 딸려 나가 성도님 첫 화면에 떴다).</p>
+
+    <div class="tw" style="margin-top:14px">
+      <table>
+        <caption>⚠️ <strong>「모른다」와 「없다」를 같은 값으로 뭉개지 않는다.</strong> 사역신청이 둘 다 <code>false</code>로 두었다가 <strong>통신이 잠깐 끊긴 분께 「기간이 지났습니다」라고 사실이 아닌 말을 할 뻔했다.</strong> 숨기는 것은 같아도 <em>할 말은 다르다</em> — 상태를 불리언이 아니라 <strong>세 값</strong>으로 둔다.</caption>
+        <thead><tr><th class="mono">상태</th><th>언제</th><th>첫 화면</th><th>딥링크로 그 회차에 닿았을 때 할 말</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">unknown</td><td>아직 못 받음 · 통신 실패 · 서버가 옛 판이라 액션이 없음 · 표가 없음</td><td>숨긴다</td><td><strong>「지금 불러올 수 없어요. 잠시 뒤 다시 눌러 주세요」</strong> + 다시 시도 단추</td></tr>
+          <tr><td class="mono">none</td><td>받았고, 열린 회차가 0</td><td>숨긴다</td><td>「지금 열린 이벤트가 없어요」</td></tr>
+          <tr><td class="mono">some</td><td>받았고, 열린 회차가 1개 이상</td><td>보인다</td><td>회차 화면</td></tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <div class="note warn">
@@ -768,7 +781,8 @@ alter table public.event_signups <b>enable row level security</b>;
     <li><strong><code>app_config</code>도 <code>PUBLIC_CONFIG_KEYS</code>도 건드리지 않는다.</strong> 노출 조건이 <code>events</code> 표 안에 있어 게이트 키가 필요 없다(함정 2) — 세 작업이 스치던 유일한 한 줄이 없어졌다.</li>
     <li><strong><code>app.js</code>의 <code>renderSummary</code>는 사역신청 작업과 같은 자리다.</strong> 첫 화면 단추를 넣기 직전에 그쪽에 알린다(그때 그 함수를 안 건드린다고 했다). <code>admin-stats.html</code>도 새 카드만 더하고 <code>mn*</code>·<code>mc*</code>·<code>pl*</code>은 건드리지 않는다.</li>
     <li><strong>배포한 뒤 남의 것을 한 번 찔러 본다</strong> — <code>getVerses</code>·<code>ranking</code>. 내 것만 확인하면 내가 함께 내보낸 남의 코드가 깨진 것을 못 본다.</li>
-    <li><strong>배포 전에 <code>git pull</code>로 <code>7742db4</code>를 받는다.</strong> 그 커밋이 <code>getVerses</code>의 안전 폴백이다 — <strong>그 앞 판을 배포하면 위 장애가 그대로 재현된다.</strong> 「내 변경만 배포한다」는 것이 성립하지 않는 파일이라, 배포 직전 <code>git log -1 --oneline supabase/functions/api/index.ts</code>로 무엇을 함께 내보내는지 본다.</li>
+    <li><strong>배포 전에 <code>git pull</code>로 최신을 받는다.</strong> <code>7742db4</code>가 <code>getVerses</code>의 안전 폴백이고 <strong>그 앞 판을 배포하면 위 장애가 그대로 재현된다.</strong></li>
+    <li><strong>배포 전에 「이 코드가 요구하는 칸이 운영에 다 있는지」를 <em>실제로 질의해</em> 본다.</strong> <code>git log</code>로는 부족하다 — 남이 커밋한 코드는 로그에 보이지만 <em>그 코드가 무슨 칸을 필요로 하는지는 로그에 안 적혀 있다.</em> 오늘 <code>psalm_frames.sql</code> 건이 정확히 그 자리였다. 커밋 목록을 읽는 대신 DB에 물어본다.</li>
     <li><strong><code>git add -A</code>를 쓰지 않는다.</strong> <code>booklet/</code>·<code>psalm/</code>에 다른 작업물이 커밋 대기로 상주한다. <code>app.js</code>·<code>style.css</code>처럼 <em>여럿이 함께 쓰는 파일</em>은 파일 통째로 담지 않고 <strong>내 헝크만</strong> 담는다(<code>git add -p</code> 또는 <code>git apply --cached</code>) — 시편 작업이 이미 그렇게 하고 있다.</li>
     <li><strong><code>python tools/bump.py</code>는 배포할 때만 돌린다.</strong> 누가 돌려도 <code>index.html</code>·<code>app.js</code>의 판 번호가 <em>한꺼번에</em> 올라가므로, 세 작업이 각자 돌리면 매번 충돌한다.</li>
   </ol>
