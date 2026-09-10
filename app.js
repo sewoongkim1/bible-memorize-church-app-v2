@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260910k";
+const APP_BUILD = "20260910l";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -116,12 +116,14 @@ async function loadVerses() {
 // 사용자 정보가 있으면 (서버 기록 동기화 후) 본인 기록 요약, 없으면 진입 화면
 function routeAfterLoad() {
   _passagesPreview = getPassagesPreview();
+  _psalmPreview = getPsalmPreview();
   refreshPassagesPublic();
+  refreshPsalmPublic();
   refreshMinistryPeriod();
   // 어드민 테스트 진입(?passages=1): 홈을 거치지 않고 곧바로 핵심 암송 목록으로.
   if (_passagesPreview) { renderPassageList(); return; }
   // 어드민 미리보기(?psalm=1): 시편 말씀 액자 화면으로 곧바로 진입.
-  if (new URLSearchParams(location.search).get("psalm") === "1") { renderPsalmHome(); return; }
+  if (_psalmPreview) { renderPsalmHome(); return; }
   // 딥링크(?v=구절번호): 설교 아카이브 등 외부에서 특정 구절로 바로 진입
   const deepNo = getDeepLinkVerseNo();
   if (deepNo != null) {
@@ -219,6 +221,33 @@ function refreshPassagesPublic() {
   }).catch(() => {});
 }
 function passagesVisible() { return _passagesPreview || passagesPublicCached(); }
+
+// 📿 시편 말씀 액자 — 사용자 노출 게이트
+// ⚠️ **상시 켜 두지 않는다.** 운영 Edge Function(track 갈래)과 시편 자료가 **둘 다**
+//    준비된 뒤에 app_config('psalmPublic') 을 켠다. 그전에는 ?psalm=1 로만 열린다.
+//    2026-09-10에 이 게이트가 없어 사고가 났다 — 다른 작업의 푸시에 이 기능이 딸려
+//    나가 성도님 첫 화면에 단추가 떴는데, 운영 서버는 아직 옛것이라 openCount·
+//    startDate 가 안 와 「 에 시작해요」(날짜가 빈 채)로 보였다.
+//    passagesPublic 과 같은 방식이다 — 첫 화면은 동기 렌더라 미리 받아 둔 값을 본다.
+let _psalmPreview = false;
+function getPsalmPreview() {
+  try {
+    if (new URLSearchParams(location.search).get("psalm") === "1") {
+      history.replaceState(null, "", location.pathname);
+      return true;
+    }
+  } catch (e) {}
+  return false;
+}
+const PSALM_PUB_KEY = "psalm-public";
+function psalmPublicCached() { try { return localStorage.getItem(PSALM_PUB_KEY) === "1"; } catch (e) { return false; } }
+function refreshPsalmPublic() {
+  if (!window.api || !api.getConfig) return;
+  api.getConfig("psalmPublic").then((d) => {
+    try { localStorage.setItem(PSALM_PUB_KEY, d && d.value ? "1" : "0"); } catch (e) {}
+  }).catch(() => {});
+}
+function psalmVisible() { return _psalmPreview || psalmPublicCached(); }
 
 // ── 사역 신청: 기간에만 첫 화면에 뜬다 ──────────────────────────────
 //   ⚠️ 상시 기능이 아니다. 기간(app_config.ministry)을 캐시해 두고 그 안에서만 보여 준다.
@@ -1859,7 +1888,7 @@ function renderSummary() {
     <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
     <div class="grp-title">함께</div>
     <button class="summary-help" id="open-board">💬 응원·기도·공감</button>
-    <button class="summary-help" id="open-psalm">📿 시편 말씀 액자${newBadge("psalm")}</button>
+    ${psalmVisible() ? `<button class="summary-help" id="open-psalm">📿 시편 말씀 액자${newBadge("psalm")}</button>` : ""}
     <button class="summary-help" id="open-prayer">🙏 가정 축복 기도문${newBadge("prayer")}</button>
     <button class="summary-help" id="open-quiz">🎯 성경암송 퀴즈</button>
     ${ministryVisible() ? `<button class="summary-help" id="open-ministry">🤝 사역신청${newBadge("ministry")}</button>` : ""}
@@ -8080,6 +8109,7 @@ function toggleAlbumChecked(no) {
 function renderAlbum() {
   const u = loadUser();
   const appEl = document.getElementById("app");
+  if (!psalmVisible()) albumTrack = "weekly";   // 게이트가 꺼지면 되돌린다
   const pool = albumTrack === "psalm" ? (psalmVerses || [])
              : albumTrack === "all" ? verses.concat(psalmVerses || [])
              : verses;
@@ -8143,7 +8173,8 @@ function renderAlbum() {
            (d ? ' <span class="ab-dur">' + d + "</span>" : "");
   };
 
-  const trackChips = `
+  // 게이트가 꺼져 있으면 칩 자체를 내지 않는다 — 눌러도 볼 것이 없다
+  const trackChips = !psalmVisible() ? "" : `
     <div class="album-track">
       ${[["weekly","주간 말씀"],["psalm","시편 액자"],["all","전부"]].map(([k, label]) =>
         `<button class="atk${albumTrack === k ? " on" : ""}" data-track="${k}">${label}</button>`).join("")}
