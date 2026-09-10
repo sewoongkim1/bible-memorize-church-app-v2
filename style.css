@@ -4821,4 +4821,9 @@ body.pr-full-on { overflow: hidden; }
   padding:7px 15px;font-size:15px;color:#4a5560;cursor:pointer;
 }
 .album-track .atk.on{background:#1a3a6b;border-color:#1a3a6b;color:#fff;font-weight:700}
+/* 어두운 모드 — 같은 화면의 .rank-filter button(2721줄)과 같은 값을 그대로 따른다.
+   새 색을 만들면 필터 단추끼리 톤이 어긋난다(2026-09-10 리뷰 지적). */
+.dark .album-track .atk{background:#232c3f;color:#cdd9f2;border-color:#3a4a68}
+.dark .album-track .atk:hover{background:#2e3a52;color:#fff}
+.dark .album-track .atk.on{background:#3a4a68;color:#fff}
 .ps-tool.ps-wide{display:block;width:100%;margin-top:8px}

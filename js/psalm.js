@@ -45,14 +45,18 @@ function psalmDoneCount() {
   return psalmVerses.filter((v) => getPassedStage(v.no) >= 3).length;
 }
 
+// ⚠️ 복습 중 「← 목록」·「첫 화면으로」로 나가면 psalmReviewCtx 깃발이 안 내려가던 문제가
+//    있었다(2026-09-10 리뷰 지적) — 여기서 내리면 renderPsalmReview()는 이 함수를 거치지
+//    않고 renderPsalmBlank()를 직접 부르므로 복습 자체는 영향받지 않는다.
 function renderPsalmHome() {
+  psalmReviewCtx = null;
   stopSpeaking();
   const u = loadUser();
   const app = document.getElementById("app");
   app.innerHTML = `<div class="ps-wrap"><div class="ps-loading">불러오는 중…</div></div>
     <button class="home-fab" id="ps-home" aria-label="첫 화면으로">${homeFabLabel(u, true)}</button>`;
   window.scrollTo(0, 0);
-  document.getElementById("ps-home").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
+  document.getElementById("ps-home").addEventListener("click", () => { psalmReviewCtx = null; stopSpeaking(); renderSummary(); });
 
   loadPsalmVerses().then(() => drawPsalmHome()).catch(() => {
     const el = document.querySelector(".ps-loading");
@@ -186,7 +190,12 @@ function psalmFrameHtml(verse, opts) {
 
 // 0단계 — 읽고 들어보는 칸. 횟수를 세지 않는다.
 // 준비되셨다 싶을 때 누르시면 된다 — 이미 외우신 분께 걸림돌을 두지 않는다.
+// ⚠️ 이 함수는 복습 경로(renderPsalmReview → renderPsalmBlank)를 거치지 않는다 — 그래서
+//    맨 앞에서 psalmReviewCtx 를 내려도 복습에 영향이 없다. 정상 암송으로 들어오는
+//    자리이니 여기서 내려야 「복습을 중간에 나갔다가 다른 구절을 정상으로 여는」 경우가
+//    안전해진다.
 function renderPsalmStage(verse, stage) {
+  psalmReviewCtx = null;
   if (stage > 0) return renderPsalmBlank(verse, stage);   // Task 6
   stopSpeaking();
   const u = loadUser();
@@ -207,8 +216,8 @@ function renderPsalmStage(verse, stage) {
     <button class="home-fab" id="ps-home" aria-label="첫 화면으로">${homeFabLabel(u, true)}</button>`;
   window.scrollTo(0, 0);
 
-  document.getElementById("ps-home").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
-  document.getElementById("ps-back").addEventListener("click", () => { stopSpeaking(); renderPsalmHome(); });
+  document.getElementById("ps-home").addEventListener("click", () => { psalmReviewCtx = null; stopSpeaking(); renderSummary(); });
+  document.getElementById("ps-back").addEventListener("click", () => { psalmReviewCtx = null; stopSpeaking(); renderPsalmHome(); });
   document.getElementById("ps-next").addEventListener("click", () => {
     stopSpeaking();
     const passed = getPassedStage(verse.no);
@@ -244,7 +253,7 @@ function renderPsalmBlank(verse, stage) {
     <div class="ps-wrap ps-stage${isCardMode() ? " ps-card-on" : ""}">
       <div class="ps-head">
         <span class="ps-day">${verse.dayNo}일차</span>
-        <span class="ps-step">${psalmReviewCtx ? "복습" : stage + "단계"}</span>
+        <span class="ps-step">${psalmInReview(verse) ? "복습" : stage + "단계"}</span>
         <button class="ps-back" id="ps-back">← 목록</button>
       </div>
       ${psalmFrameHtml(verse, { bodyHtml })}
@@ -264,8 +273,11 @@ function renderPsalmBlank(verse, stage) {
     <button class="home-fab" id="ps-home" aria-label="첫 화면으로">${homeFabLabel(u, true)}</button>`;
   window.scrollTo(0, 0);
 
-  document.getElementById("ps-home").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
-  document.getElementById("ps-back").addEventListener("click", () => { stopSpeaking(); renderPsalmHome(); });
+  // ⚠️ 이 화면은 복습(renderPsalmReview)도 함께 쓴다 — 여기서 나가면(복습 중이든 아니든)
+  //    깃발을 반드시 내린다. 안 내리면 다음에 여는 아무 시편 구절이나 「복습」으로 찍히고,
+  //    그 구절을 정상으로 마쳤을 때 saveProgress 가 건너뛰어진다(2026-09-10 리뷰 지적).
+  document.getElementById("ps-home").addEventListener("click", () => { psalmReviewCtx = null; stopSpeaking(); renderSummary(); });
+  document.getElementById("ps-back").addEventListener("click", () => { psalmReviewCtx = null; stopSpeaking(); renderPsalmHome(); });
   document.getElementById("ps-listen").addEventListener("click", () => speakText(verseSpokenText(verse)));
 
   const ap = document.getElementById("ps-answer-panel");
@@ -305,6 +317,17 @@ function psalmWasFirst() {
 
 let psalmReviewCtx = null;   // 복습 중이면 { queue, idx }
 
+// 깃발이 있고, 지금 보고 있는 구절이 그 복습 큐가 가리키는 바로 그 구절일 때만 "복습"이다.
+// ⚠️ 깃발만 보면 나가는 걸 깜빡했을 때(다른 화면으로 갔다가 새 구절을 열어도 깃발이
+//    안 내려간 경우) 엉뚱한 구절까지 「복습」으로 찍히고, saveProgress 가 건너뛰어진다
+//    (2026-09-10 리뷰 지적). ps-home·ps-back·renderPsalmHome·renderPsalmStage 에서
+//    깃발을 내리는 것과 별개로, 여기서도 구절을 한 번 더 맞춰 본다 — 세 번째 방어선.
+function psalmInReview(verse) {
+  return !!(psalmReviewCtx && verse &&
+    psalmReviewCtx.queue[psalmReviewCtx.idx] &&
+    psalmReviewCtx.queue[psalmReviewCtx.idx].no === verse.no);
+}
+
 // 복습 — 3단계(전체 빈칸)를 액자 안에서. 외울 때와 같은 그림이어야 기억의 고리가 이어진다.
 // ⚠️ 깃발을 render 「전에」 세운다 — psalmSetupCheck 가 render 안에서 콜백을 걸기 때문이다.
 function renderPsalmReview(queue, idx) {
@@ -314,7 +337,7 @@ function renderPsalmReview(queue, idx) {
 
 function psalmStageDone(verse, stage, cardUsed) {
   // 복습 중이면 진도를 다시 저장하지 않는다 — 복습은 간격을 미루는 일이다
-  if (psalmReviewCtx && psalmReviewCtx.queue[psalmReviewCtx.idx].no === verse.no) {
+  if (psalmInReview(verse)) {
     const { queue, idx } = psalmReviewCtx;
     psalmReviewCtx = null;
     advanceReview(verse.no);

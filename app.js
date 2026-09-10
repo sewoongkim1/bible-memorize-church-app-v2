@@ -1011,9 +1011,15 @@ function ensureReviewScheduled(no) {
   if (!r[no]) { r[no] = { level: 0, next: afterDaysStr(REVIEW_INTERVALS[0]) }; saveReviewData(r); }
 }
 // 오늘까지 복습 예정인 구절No 목록
+// ⚠️ 게이트(psalmVisible)가 꺼져 있으면 시편 구절(no > 1000)은 여기서 뺀다 — 예약
+//    자체(ensureReviewScheduled/loadReview)는 그대로 둔다, 「지금 보여줄 것」만 거른다.
+//    grep 결과 호출부는 renderSummary 의 오늘 복습 개수 표시와 startReview 딱 둘뿐이고
+//    둘 다 「지금 보여줄 수 있는 것」을 원하므로, 각 호출부가 아니라 여기 한 곳에서만
+//    거른다(2026-09-10 리뷰 지적).
 function dueReviewNos() {
   const r = loadReview(); const t = ymdLocal(new Date());
-  return Object.keys(r).filter((no) => r[no] && r[no].next <= t).map(Number);
+  return Object.keys(r).filter((no) => r[no] && r[no].next <= t).map(Number)
+    .filter((no) => psalmVisible() || !isPsalmNo(no));
 }
 // 복습 완료 → 다음(더 긴) 간격으로
 function advanceReview(no) {
@@ -8218,8 +8224,16 @@ function renderAlbum() {
     const k = b.dataset.track;
     // 시편은 코너에 들어갈 때만 받는다 — 칩을 누르는 이 순간이 그 자리다
     if (k !== "weekly" && !psalmLoaded) {
+      const label = b.textContent;
       b.textContent = "불러오는 중…";
-      try { await loadPsalmVerses(); } catch (e) {}
+      try { await loadPsalmVerses(); }
+      catch (e) {
+        // ⚠️ 실패를 조용히 삼키면 "0개"와 "못 받음"이 구분되지 않는다(2026-09-10 리뷰
+        //    지적) — 칩을 원래 문구로 되돌리고 안내한 뒤, 화면을 바꾸지 않고 멈춘다.
+        b.textContent = label;
+        appAlert("불러오지 못했어요. 잠시 뒤 다시 눌러 주세요.");
+        return;
+      }
     }
     albumTrack = k;
     albumPicks.clear();
