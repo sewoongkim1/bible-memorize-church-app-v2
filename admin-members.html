@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>성도 정보 관리 · 고척교회</title>
+  <style>
+    :root{--navy:#253858;--line:#dce1e9;--muted:#596579}*{box-sizing:border-box}
+    body{margin:0;background:#f5f6f9;color:#243047;font:16px/1.6 system-ui,sans-serif}
+    main{max-width:860px;margin:auto;padding:28px 18px 70px}header{display:flex;align-items:center;justify-content:space-between;gap:16px}
+    h1{font-size:25px;margin:0}h2{font-size:20px;margin:0 0 16px}h3{font-size:17px}a{color:var(--navy)}
+    p{margin:8px 0 16px}.muted,small{color:var(--muted)}section{background:white;border:1px solid var(--line);border-radius:16px;padding:22px;margin-top:20px}
+    label{display:block;font-weight:650}input,select,textarea,button{font:inherit;border:1px solid #aeb8c7;border-radius:9px;padding:10px 12px}
+    input,select,textarea{width:100%;background:white;color:inherit;margin:5px 0 14px}textarea{resize:vertical}button{cursor:pointer;background:var(--navy);color:white;font-weight:650}
+    button:disabled{opacity:.55;cursor:wait}.secondary{background:white;color:var(--navy)}.row{display:flex;align-items:center;gap:10px}.row input{margin:0;flex:1;min-width:0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}
+    .member{display:flex;justify-content:space-between;align-items:center;gap:15px;padding:16px 0;border-top:1px solid var(--line)}.member small{display:block;overflow-wrap:anywhere}
+    .notice{padding:12px 15px;border-radius:9px;background:#f0f4fa;color:#354b6c}.status{white-space:pre-line;overflow-wrap:anywhere}.error{color:#aa2f27}.success{color:#22633d}
+    .comparison{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}.comparison div{background:#f3f5f8;border-radius:9px;padding:14px;overflow-wrap:anywhere}
+    .history-item{border-top:1px solid var(--line);padding:14px 0;overflow-wrap:anywhere}fieldset{border:0;padding:0;margin:0;min-width:0}
+    [hidden]{display:none!important}button:focus-visible,a:focus-visible{outline:3px solid #5286d5;outline-offset:3px}
+    @media(max-width:560px){header{align-items:flex-start;flex-direction:column}.grid,.comparison{grid-template-columns:1fr}section{padding:17px}.row{flex-wrap:wrap}.member{align-items:flex-start}h1{font-size:23px}}
+  </style>
+</head>
+<body><main>
+  <header><h1>성도 정보 관리</h1><a href="admin.html">← 관리자 허브</a></header>
+  <p class="muted">암송 기록을 유지하면서 이름과 소속을 수정합니다.</p>
+  <section id="gate">
+    <h2>관리자 로그인</h2>
+    <form id="login-form"><label for="password">관리자 비밀번호</label><input id="password" type="password" autocomplete="current-password" required><button id="login-button">입장</button></form>
+    <p id="login-status" class="status error" role="status"></p>
+  </section>
+  <div id="workspace" hidden>
+    <section>
+      <h2>성도 찾기</h2>
+      <form id="search-form"><label for="query">현재 이름</label><div class="row"><input id="query" maxlength="80" placeholder="이름 전체 또는 일부" required><button id="search-button">검색</button></div></form>
+      <p id="search-status" class="status" role="status"></p><div id="results"></div>
+    </section>
+    <section id="editor" hidden>
+      <h2>이름·소속 변경</h2>
+      <p id="selected-info" class="notice"></p>
+      <form id="edit-form"><fieldset id="edit-fields">
+        <div class="grid"><div><label for="member-name">이름</label><input id="member-name" maxlength="80" required></div><div><label for="member-type">구분</label><select id="member-type"><option>교구</option><option>교회학교</option></select></div></div>
+        <div id="district-fields" class="grid"><div><label for="member-gu">교구</label><input id="member-gu" list="districts" maxlength="80" required></div><div><label for="member-mok">목장</label><input id="member-mok" pattern="([0-9]+|남성)" maxlength="80" placeholder="숫자 또는 남성 (없으면 99)" required></div></div>
+        <div id="school-fields" class="grid" hidden><div><label for="member-bu">부서</label><input id="member-bu" list="departments" maxlength="80"></div><div><label for="member-grade">학년</label><input id="member-grade" maxlength="80" placeholder="예: 3학년"></div></div>
+        <datalist id="districts"><option>믿음</option><option>소망</option><option>사랑</option><option>섬김</option><option>은혜</option><option>화평</option><option>기쁨</option><option>새가족</option></datalist>
+        <datalist id="departments"><option>사랑부</option><option>영아부</option><option>유아부</option><option>유치부</option><option>유년부</option><option>초등부</option><option>중등부</option><option>고등부</option><option>청년부</option></datalist>
+        <label for="reason">변경 사유</label><textarea id="reason" rows="2" maxlength="300" placeholder="예: 목장 이동, 이름 오타 정정" required></textarea>
+        <p class="notice">개인 기록과 사용자 번호는 유지됩니다. 교구·목장별 과거 통계도 현재 집계 방식에 따라 새 소속으로 반영됩니다.<br>기존 기기는 다음 동기화 때 새 정보를 받습니다. 이전 이름·소속으로 접속해도 같은 기록에 연결되므로, 이전 정보는 다른 사람에게 재사용할 수 없습니다.</p>
+        <button type="submit">변경 내용 확인</button> <button type="button" id="close-editor" class="secondary">닫기</button>
+      </fieldset></form>
+      <div id="confirmation" hidden><h3>이 성도님의 정보를 변경할까요?</h3><div class="comparison"><div><strong>변경 전</strong><p id="before"></p></div><div><strong>변경 후</strong><p id="after"></p></div></div><p id="confirm-reason"></p><button id="save-button">확인하고 저장</button> <button id="back-button" class="secondary">다시 수정</button></div>
+      <p id="edit-status" class="status" role="status"></p>
+      <h3>최근 변경 이력 · 최대 20건</h3><div id="history" aria-live="polite"></div>
+    </section>
+  </div>
+</main><script src="js/config.js"></script><script src="js/api.js"></script><script src="js/admin-members.js"></script></body>
+</html>

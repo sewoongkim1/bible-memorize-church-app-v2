@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260910n";
+const APP_BUILD = "20260910o";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -473,14 +473,12 @@ async function syncProgress() {
     const data = await api.login({
       type: u.type, gu: u.gu, mok: u.mok, bu: u.bu, grade: u.grade, name: u.name,
     });
-    // 서버 사용자 id 저장(이후 저장/도전/복습 API에 사용)
-    if (data.user_id && u.user_id !== data.user_id) {
-      u.user_id = data.user_id;
-      saveUser(u);
-    }
+    // 동기화 중 공용 기기의 사용자가 바뀌었다면 이전 사람의 응답을 적용하지 않는다.
+    if (JSON.stringify(loadUser()) !== JSON.stringify(u)) return false;
+    const profileChanged = applyServerUser(u, data);
 
     // 한글·영어 진도를 각각 병합한다(서버가 언어별로 따로 보관)
-    let changed = false;
+    let changed = profileChanged;
     [["ko", data.progress], ["en", data.progressEn]].forEach(([lang, srv]) => {
       const local = loadProgress(lang);
       let dirty = false;
@@ -508,6 +506,34 @@ async function syncProgress() {
     saveSyncStatus("error", "서버 연결에 실패했습니다. 기록은 이 기기에 저장되어 있습니다.");
     return false;
   }
+}
+
+// 관리자가 이름·소속을 바꿔도 이름 기반 로컬 진도(서버 미반영분 포함)를 이어간다.
+function applyServerUser(previous, data) {
+  if (!data.user_id) return false;
+  const next = { ...previous, user_id: data.user_id };
+  const fields = ["type", "gu", "mok", "bu", "grade", "name"];
+  if (data.user && data.user.id === data.user_id) {
+    fields.forEach(k => { next[k] = data.user[k] || ""; });
+  }
+  const changed = fields.some(k => (previous[k] || "") !== (next[k] || ""));
+  // 사용자 번호가 다른 경우에는 다른 사람의 로컬 기록을 이전하지 않는다.
+  const carry = changed && (!previous.user_id || previous.user_id === data.user_id);
+  const local = carry ? [loadProgress("ko"), loadProgress("en")] : null;
+  const blessing = carry ? localStorage.getItem(blessKey()) : null;
+  saveUser(next);
+  if (local) {
+    ["ko", "en"].forEach((lang, i) => {
+      const merged = loadProgress(lang);
+      Object.entries(local[i]).forEach(([no, record]) => {
+        if (!merged[no] || Number(record.stage) > Number(merged[no].stage || 0)) merged[no] = record;
+      });
+      localStorage.setItem(progressKey(lang), JSON.stringify(merged));
+    });
+    if (blessing !== null) localStorage.setItem(blessKey(), blessing);
+  }
+  // 복습·마음에 둠은 이어지는 동기화에서 서버 자료로 복원한다.
+  return changed;
 }
 
 // 복습은 서버가 소스 오브 트루스 — 서버 목록으로 로컬을 완전 교체(기기 간 동일)

@@ -116,6 +116,9 @@ Deno.serve(async (req) => {
       // ---- 관리자 통계 ----
       case "stats":         return json(await stats(body));
       case "participants":  return json(await participants(body));
+      case "adminFindMembers": return json(await adminFindMembers(body));
+      case "adminUpdateMember": return json(await adminUpdateMember(body));
+      case "adminMemberHistory": return json(await adminMemberHistory(body));
       case "verses":        return json(await verseStats(body));
       case "blessingUsage": return json(await blessingUsage(body));
       // ---- 조회(MCP 학습용) ----
@@ -1345,10 +1348,58 @@ async function sermonChatLog(b: any) {
   return { ok: true, logs: data ?? [] };
 }
 
+// ---------- 관리자 사용자 정보 변경 ----------
+async function adminFindMembers(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const q = norm(b.query);
+  if (!q || q.length > 80) return { ok: false, error: "invalid-search" };
+  const pattern = q.replace(/[\\%_]/g, "\\$&");
+  const { data, error } = await db.from("users")
+    .select("id,type,gu,mok,bu,grade,name,identity_key,created_at,last_seen_at")
+    .ilike("name", `%${pattern}%`).order("name").order("id").limit(51);
+  if (error) throw error;
+  return { ok: true, users: (data ?? []).slice(0, 50), more: (data ?? []).length > 50 };
+}
+
+async function adminMemberHistory(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(b.user_id || ""))
+    return { ok: false, error: "invalid-member" };
+  const { data, error } = await db.from("user_profile_changes")
+    .select("id,before_profile,after_profile,reason,created_at")
+    .eq("user_id", b.user_id).order("id", { ascending: false }).limit(20);
+  if (error) throw error;
+  return { ok: true, history: data ?? [] };
+}
+
+async function adminUpdateMember(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(b.user_id || "") ||
+      typeof b.expected_key !== "string" || !b.expected_key)
+    return { ok: false, error: "invalid-member" };
+  const p = b.profile || {};
+  const type = norm(p.type), name = norm(p.name), reason = norm(b.reason);
+  const profile = { type, name,
+    gu: type === "교구" ? norm(p.gu) : null, mok: type === "교구" ? norm(p.mok) : null,
+    bu: type === "교회학교" ? norm(p.bu) : null, grade: type === "교회학교" ? norm(p.grade) : null };
+  if (!["교구", "교회학교"].includes(type) || !name || name.length > 80 ||
+      Object.values(profile).some(v => v && (v.length > 80 || /[|<>"\x00-\x1f]/.test(v))) ||
+      (type === "교구" && (!profile.gu || !/^(\d+|남성)$/.test(profile.mok || ""))) ||
+      (type === "교회학교" && (!profile.bu || !profile.grade)) || !reason || reason.length > 300)
+    return { ok: false, error: "invalid-profile" };
+  const { data, error } = await db.rpc("admin_update_member_profile", {
+    p_user_id: b.user_id, p_expected_key: b.expected_key,
+    p_profile: { ...profile, identity_key: identityKey(profile) }, p_reason: reason,
+  });
+  if (error?.code === "23505") return { ok: false, error: "identity-conflict" };
+  if (error) throw error;
+  return data;
+}
+
 // ---------- login ----------
 async function login(b: any) {
   const key = identityKey(b);
-  const { data: user, error } = await db.from("users").upsert({
+  const { data: user, error } = await db.rpc("member_login", { p_profile: {
     type: b.type,
     gu: norm(b.gu) || null,
     mok: norm(b.mok) || null,
@@ -1356,8 +1407,7 @@ async function login(b: any) {
     grade: norm(b.grade) || null,
     name: norm(b.name),
     identity_key: key,
-    last_seen_at: new Date().toISOString(),
-  }, { onConflict: "identity_key" }).select().single();
+  } });
   if (error) throw error;
 
   // select("*") — hearted 컬럼이 아직 없어도(마이그레이션 전) 에러 없이 undefined로 읽혀
@@ -3047,14 +3097,19 @@ async function boardDeleteMine(b: any) {
   const who = String(b.who || "").trim();
   if (!who && !b.user_id) return { ok: false, error: "no-owner" };
   const table = b.kind === "reply" ? "board_replies" : "board_posts";
-  // 소유 확인: 소속+이름(name=boardWho) 우선 → 옛 글(user_id 없음)도 매칭. 없으면 user_id.
-  const ownerCol = who ? "name" : "user_id";
-  const ownerVal = who || b.user_id;
-  let { data, error } = await db.from(table).update({ deleted: true })
-    .eq("id", Number(b.id)).eq(ownerCol, ownerVal).select("id");
+  // 관리자 이름·소속 변경 후에도 본인 글은 같은 user_id로 삭제할 수 있다.
+  // 이름 비교는 user_id가 없는 옛 글에만 사용한다.
+  const remove = async (column: string) => {
+    const base = () => db.from(table).update({ [column]: true }).eq("id", Number(b.id));
+    if (b.user_id) {
+      const result = await base().eq("user_id", b.user_id).select("id");
+      if (result.error || result.data?.length || !who) return result;
+    }
+    return await base().is("user_id", null).eq("name", who).select("id");
+  };
+  let { data, error } = await remove("deleted");
   if (error && /deleted/i.test(String(error.message || ""))) { // deleted 컬럼 마이그레이션 전 폴백
-    ({ data, error } = await db.from(table).update({ hidden: true })
-      .eq("id", Number(b.id)).eq(ownerCol, ownerVal).select("id"));
+    ({ data, error } = await remove("hidden"));
   }
   if (error) throw error;
   if (!(data && data.length)) return { ok: false, error: "not-owner" };

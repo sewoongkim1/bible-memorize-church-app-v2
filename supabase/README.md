@@ -3,6 +3,7 @@
 ## 구성
 - `schema.sql` — 테이블·인덱스·RLS(기본 차단)·통계 뷰
 - `functions/api/index.ts` — API 미들웨어(Edge Function). 클라이언트의 모든 데이터 요청 처리.
+- `member_profile.sql` — 관리자 이름·소속 변경, 이전 로그인 정보 연결 및 변경 이력. API 배포 전에 실행. [적용 순서](../docs/member-profile-admin.md).
 
 ## 접근 모델
 클라이언트는 DB에 직접 접근하지 않고 **Edge Function `api`** 만 호출한다.
@@ -31,7 +32,10 @@ Edge Function은 **service_role** 키로 접속해 RLS(기본 차단)를 우회�
 ## 액션(API)
 | action | 설명 | 입력 |
 | --- | --- | --- |
-| `login` | 식별→upsert, 진도·복습 반환 | type, gu, mok, bu, grade, name |
+| `login` | 현재/이전 식별자→같은 사용자, 진도·복습 반환 | type, gu, mok, bu, grade, name |
+| `adminFindMembers` | 현재 이름 검색(관리자, 최대 50명) | pw, query |
+| `adminUpdateMember` | 이름·소속 변경(관리자, 기존 사용자 번호 유지) | pw, user_id, expected_key, profile, reason |
+| `adminMemberHistory` | 최근 변경 이력 조회(관리자, 최대 20건) | pw, user_id |
 | `saveProgress` | 단계 저장(3단계면 복습 예약) | user_id, verse_no, stage |
 | `challenge` | 도전/암송 기록 | user_id, verse_no, mode, score |
 | `advanceReview` | 복습 성공→다음 상자 | user_id, verse_no |
