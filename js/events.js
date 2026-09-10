@@ -54,6 +54,11 @@ function evtApiReady() {
   return !!(window.api && api.eventOpenList && api.eventSignup);
 }
 
+// 첫 화면 노출 게이트는 **여기 두지 않는다.** app.js 의 `refreshEventOpen()`·
+// `eventVisible()`(297·306줄)이 그 일을 한다 — 첫 화면은 동기 렌더라 게이트가
+// 그 파일 안에 있는 편이 자연스럽고, 두 벌을 두면 조용히 갈라진다.
+// (2026-09-10 여기에 같은 것을 한 벌 더 만들었다가 지웠다.)
+
 // ── 불러오기 ─────────────────────────────────────────────────
 function evtLoad(u) {
   if (!evtApiReady()) {
