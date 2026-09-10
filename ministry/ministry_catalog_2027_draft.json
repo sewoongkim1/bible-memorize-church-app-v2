@@ -8,7 +8,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "교육위원회",
@@ -19,7 +25,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "교육위원회",
@@ -30,7 +42,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "교육위원회",
@@ -41,7 +59,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "어와나 4개 중 하나만 신청",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "교육위원회",
@@ -52,7 +76,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "어와나 4개 중 하나만 신청",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "교육위원회",
@@ -63,7 +93,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "어와나 4개 중 하나만 신청",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "교육위원회",
@@ -74,7 +110,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "어와나 4개 중 하나만 신청",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "교육위원회",
@@ -85,7 +127,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "교육위원회",
@@ -96,7 +144,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "교육위원회",
@@ -107,7 +161,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "교육위원회",
@@ -118,7 +178,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "교육위원회",
@@ -129,7 +195,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "교육위원회",
@@ -140,7 +212,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "교육위원회",
@@ -151,7 +229,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "교육위원회",
@@ -162,7 +246,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "교육위원회",
@@ -173,7 +263,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "교육위원회",
@@ -184,7 +280,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "교육위원회",
@@ -195,7 +297,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "교육위원회",
@@ -206,7 +314,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "교회봉사부",
@@ -217,7 +331,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "교회봉사부",
@@ -228,7 +348,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "교회봉사부",
@@ -239,7 +365,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "교회봉사부",
@@ -250,7 +382,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "교회봉사부",
@@ -261,7 +399,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "문화스포츠부",
@@ -272,7 +416,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "문화스포츠부",
@@ -283,7 +433,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "문화스포츠부",
@@ -294,7 +450,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "문화스포츠부",
@@ -305,7 +467,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "문화스포츠부",
@@ -316,7 +484,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "문화스포츠부",
@@ -327,7 +501,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "방송전산부",
@@ -338,7 +518,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "방송전산부",
@@ -349,7 +535,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "방송전산부",
@@ -360,7 +552,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "방송전산부",
@@ -371,7 +569,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "새가족부",
@@ -382,7 +586,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "새가족부",
@@ -393,7 +603,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "새가족부",
@@ -404,7 +620,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "새가족부",
@@ -415,7 +637,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "선교부",
@@ -426,7 +654,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "선교부",
@@ -437,7 +671,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "선교부",
@@ -448,7 +688,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "예배부",
@@ -459,7 +705,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "예배부",
@@ -470,7 +722,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "예배부",
@@ -481,7 +739,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "예배부",
@@ -492,7 +756,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "예배부",
@@ -503,7 +773,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "예배부",
@@ -514,7 +790,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "예배부",
@@ -525,7 +807,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": "조직표에는 회계(최현희)가 있으나 신청서 양식에는 없음 — 임명직인지, 신청서 누락인지 확인 필요"
+    "conflict_note": "조직표에는 회계(최현희)가 있으나 신청서 양식에는 없음 — 임명직인지, 신청서 누락인지 확인 필요",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "제자양육부",
@@ -536,7 +824,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "제자양육부",
@@ -547,7 +841,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "제자양육부",
@@ -558,7 +858,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "제자양육부",
@@ -569,7 +875,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "제자양육부",
@@ -580,7 +892,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "전도부",
@@ -591,7 +909,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "전도부",
@@ -602,7 +926,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "전도부",
@@ -613,7 +943,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "전도부",
@@ -624,7 +960,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "전도부",
@@ -635,7 +977,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "전도부",
@@ -646,7 +994,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "전도부",
@@ -657,7 +1011,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "차량부",
@@ -668,7 +1028,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "찬양부",
@@ -679,7 +1045,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "찬양부",
@@ -690,7 +1062,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "찬양부",
@@ -701,7 +1079,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "찬양부",
@@ -712,7 +1096,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "찬양부",
@@ -723,7 +1113,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "찬양부",
@@ -734,7 +1130,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "찬양부",
@@ -745,7 +1147,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "찬양부",
@@ -756,7 +1164,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "찬양부",
@@ -767,7 +1181,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "찬양부",
@@ -778,7 +1198,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "찬양부",
@@ -789,7 +1215,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "찬양부",
@@ -800,7 +1232,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "찬양부",
@@ -811,7 +1249,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "찬양부",
@@ -822,7 +1266,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "희망의복지재단(사회봉사센터)",
@@ -833,7 +1283,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "희망의복지재단(사회봉사센터)",
@@ -844,7 +1300,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "희망의복지재단(사회봉사센터)",
@@ -855,7 +1317,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "희망의복지재단(사회봉사센터)",
@@ -866,7 +1334,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "희망의복지재단(사회봉사센터)",
@@ -877,7 +1351,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "L-12(목양부)",
@@ -888,7 +1368,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "L-12(목양부)",
@@ -899,7 +1385,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "L-12(목양부)",
@@ -910,7 +1402,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": "조직표(인사표)에는 '목양관리'로 표기 — 같은 팀인지, 다른 팀인지 확인 필요"
+    "conflict_note": "조직표(인사표)에는 '목양관리'로 표기 — 같은 팀인지, 다른 팀인지 확인 필요",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "L-12(목양부)",
@@ -921,7 +1419,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": "조직표(인사표)에는 '서기'로 표기 — 같은 팀인지, 다른 팀인지 확인 필요"
+    "conflict_note": "조직표(인사표)에는 '서기'로 표기 — 같은 팀인지, 다른 팀인지 확인 필요",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "L-12(목양부)",
@@ -932,7 +1436,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": "조직표(인사표)에만 있음 — 임명직인지 확인 필요"
+    "conflict_note": "조직표(인사표)에만 있음 — 임명직인지 확인 필요",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "L-12(목양부)",
@@ -943,7 +1453,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "총무부",
@@ -954,7 +1470,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "총무부",
@@ -965,7 +1487,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "총무부",
@@ -976,7 +1504,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "총무부",
@@ -987,7 +1521,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "시설부",
@@ -998,7 +1538,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "시설부",
@@ -1009,7 +1555,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "시설부",
@@ -1020,7 +1572,13 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   },
   {
     "committee": "시설부",
@@ -1031,6 +1589,12 @@
     "desc_note": "",
     "capacity_note": "",
     "option_note": "",
-    "conflict_note": ""
+    "conflict_note": "",
+    "day_sun": false,
+    "day_week": false,
+    "day_sat": false,
+    "time_from": "",
+    "time_to": "",
+    "freq": ""
   }
 ]

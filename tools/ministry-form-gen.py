@@ -2,30 +2,51 @@
 """
 2027 사역신청 — 부서 확인 양식 생성기
 
-⚠️ 대상 연도가 2026 → 2027로 바뀌었다(2026-09-07, 성도님 지시). 우리 쪽
+⚠️ 대상 연도가 2026 -> 2027로 바뀌었다(2026-09-07, 성도님 지시). 우리 쪽
    산출물(이 파일이 만드는 엑셀·JSON, 성도용 신청서 두 종)은 전부 2027로
    부른다. 다만 원본 두 문서의 실제 제목(「2026 사역신청서」·「2026년도
-   교회부서 조직」)은 그 문서를 가리킬 때만 그대로 인용한다 — 이름을 바꿔
+   교회부서 조직」)은 그 문서를 가리킬 때만 그대로 인용한다 - 이름을 바꿔
    부르면 출처가 아니게 된다.
 
 목적: 종이 「2026 사역신청서」와 「2026년도 교회부서 조직」(인사표) 두 원본을
      대조해 만든 사역팀 초안 목록을, 각 부서가 확인·수정할 수 있는 엑셀 양식으로 뽑는다.
      여기서 확정된 표기명이 앱(ministry_catalog)의 최종 시드 데이터가 된다.
 
-⚠️ 두 원본은 **팀 이름만** 담고 있다 — 사역 시간·요일·하는 일은 어느 원본에도
+⚠️ 두 원본은 **팀 이름만** 담고 있다 - 사역 시간·요일·하는 일은 어느 원본에도
    없다(2026-09-07). 성도가 이름만 보고 사역을 고를 수는 없으므로(예: 오병이어
    1팀과 2팀이 뭐가 다른지), **이 양식에서 이름 확인과 같은 라운드로** 함께 걷는다
-   — 두 번 물으면 부서마다 응답이 늦어진다.
+   - 두 번 물으면 부서마다 응답이 늦어진다.
 
-⚠️ 다른 교회 사역신청서 다섯 곳을 참고했다(2026-09-07, AppForm/ — 개인정보 없는
+⚠️ **2026-09-10 - 필터용 여섯 칸을 더했다**(주일·평일·토요일 / 시작 시각 / 끝 시각 /
+   한 사람이 서는 주기). 성도 화면에 필터가 들어갔는데(88팀을 아코디언만으로 훑기
+   어렵다) 그 필터가 읽는 것이 바로 이 여섯 칸이다. **문장으로 쓴 「매주 화 오전 10시」는
+   기계가 못 읽는다** - 사람이 읽을 문장과 기계가 읽을 칸을 따로 받는다.
+   양식이 아직 부서에 안 나갔을 때 넣었다 - 나간 뒤였으면 15개 부서에 두 번 물어야 했다.
+
+⚠️ **표를 네 묶음으로 다시 짰다**(같은 날). 전에는 부서가 채울 칸이 F·G·H 와
+   K·L·M·N 으로 흩어져 있어, 여섯 칸을 그냥 끼워 넣으면 세 군데로 흩어진다.
+   왼쪽 일곱 칸(A~G)은 **보기만** 하는 자료, 오른쪽 열셋(H~T)은 **전부 부서 기입**이다.
+   맨 윗줄에 띠를 얹어 ①이름 ②언제 ③안내 ④확인 으로 나눴다.
+
+⚠️ **시각 칸은 텍스트 서식(@)으로 둔다** - 그냥 두면 엑셀이 「10:00」을 시각 값으로
+   바꿔 버려, 취합할 때 문자열이 아니라 datetime.time 이 온다(취합 쪽에도 대비를 뒀다).
+
+⚠️ **비어 있음은 「모름」이지 「해당 없음」이 아니다.** 요일 셋이 다 비면 화면에서
+   「정해진 날 없음」으로, 시각이 비면 「때마다 다름」으로 **보이기는 한다.**
+   미기입을 제외로 짜면 회신율이 곧 실종률이 된다.
+
+⚠️ 다른 교회 사역신청서 다섯 곳을 참고했다(2026-09-07, AppForm/ - 개인정보 없는
    양식류만). 이삭교회·주님의교회는 팀마다 시간을 적고, 「더THE사역」은 필요 인원
-   (정원)도 함께 적는다 — **시간·정원을 함께 걷는 것이 흔한 관행**이라는 근거가
-   됐다. 정원은 H열에 참고용으로만 더한다(1차년도는 인원을 세지 않는다 —
+   (정원)도 함께 적는다 - **시간·정원을 함께 걷는 것이 흔한 관행**이라는 근거가
+   됐다. 정원은 참고용으로만 더한다(1차년도는 인원을 세지 않는다 -
    design doc 04장과 같은 선).
 
 사용법: python tools/ministry-form-gen.py
 출력:   ministry/2027_사역신청_부서확인양식.xlsx
+        ministry/부서확인/2027_사역신청_확인_<부서>.xlsx  (부서별 분리본)
+        ministry/ministry_catalog_2027_draft.json
 """
+
 import json
 import os
 
@@ -183,38 +204,86 @@ APPOINT_ONLY_NOTICES = [
 
 KIND_LABEL = {"apply": "신청가능", "appoint": "임명직"}
 
-HEADER = [
-    "순번", "위원회/부서", "중분류", "사역팀명(신청서 표기 초안)", "구분",
-    "사역 시간·요일 (부서 기입)", "하는 일 — 한 줄 (부서 기입)",
-    "필요 인원 (참고, 선택 기입)",
-    "하위 선택 안내", "확인이 필요한 사유", "확정 표기명 (부서 기입)",
-    "변경여부", "담당자 확인 (성명)", "비고",
+# ── 표의 칸 ─────────────────────────────────────────────
+# (제목, 폭, 부서기입?, 줄바꿈?)
+# ⚠️ **왼쪽 일곱은 보기만, 오른쪽 열셋은 전부 부서 기입.** 채울 칸이 흩어져 있으면
+#    부서장이 좌우로 오가며 「내가 어디를 채우지」를 먼저 풀어야 한다.
+#    그 한 수고가 회신율을 깎는다 — 채울 곳을 한 덩어리로 모으고 띠로 이름을 붙였다.
+COLS = [
+    ("순번",                      6,  False, False),
+    ("위원회/부서",               20, False, False),
+    ("중분류",                    13, False, False),
+    ("사역팀명(신청서 표기 초안)", 22, False, True),
+    ("구분",                      9,  False, False),
+    ("하위 선택 안내",            20, False, True),
+    ("확인이 필요한 사유",        28, False, True),
+    ("확정 표기명",               20, True,  True),
+    ("변경여부",                  11, True,  False),
+    ("주일",                      6,  True,  False),
+    ("평일",                      6,  True,  False),
+    ("토요일",                    7,  True,  False),
+    ("시작 시각",                 10, True,  False),
+    ("끝 시각",                   10, True,  False),
+    ("한 사람이 서는 주기",       14, True,  True),
+    ("사역 시간·요일 (문장으로)", 22, True,  True),
+    ("하는 일 — 한 줄",           26, True,  True),
+    ("필요 인원 (선택)",          11, True,  True),
+    ("확인하신 분 (성명)",        13, True,  True),
+    ("비고",                      20, True,  True),
 ]
+# 맨 윗줄 띠 — (제목, 시작칸, 끝칸)
+GROUPS = [
+    ("확인해 주실 자료 (저희가 채웠습니다 · 보기만 하세요)", 1, 7),
+    ("① 이름 확정", 8, 9),
+    ("② 언제 — 성도님이 이 여섯 칸으로 사역을 찾습니다", 10, 15),
+    ("③ 성도님 화면에 그대로 보일 안내", 16, 18),
+    ("④ 확인", 19, 20),
+]
+C_CHANGE = 9
+C_SUN, C_WEEK, C_SAT, C_FROM, C_TO, C_FREQ = 10, 11, 12, 13, 14, 15
+# ⚠️ DB 의 ministry_catalog_freq_chk 제약과 **같은 목록**이어야 한다
+#    (supabase/ministry_filter_cols.sql). 어긋나면 시드 SQL 이 통째로 거부된다.
+FREQS = ["매주", "격주", "매달", "그때그때"]
+HEADER = [c[0] for c in COLS]
 
 NAVY = "1A3A6B"
 GOLD = "C3A253"
 CREAM = "F7F3EA"
 CONFLICT_FILL = "FBE4E1"
-GROUP_FILL = "EFE7D3"
+INPUT_FILL = "FFFCF0"      # 부서가 채울 칸 — 아주 옅게 칠해 「여기」를 말한다
+REF_BAND = "8A8F9A"
 HEADER_FILL = NAVY
 
 
-def style_header(ws, ncols):
-    for c in range(1, ncols + 1):
-        cell = ws.cell(row=1, column=c)
+def style_header(ws):
+    """두 줄짜리 머리 — 1줄은 묶음 띠, 2줄은 칸 이름."""
+    for title, c1, c2 in GROUPS:
+        ws.merge_cells(start_row=1, start_column=c1, end_row=1, end_column=c2)
+        cell = ws.cell(row=1, column=c1, value=title)
+        is_input = COLS[c1 - 1][2]
+        cell.fill = PatternFill("solid", fgColor=GOLD if is_input else REF_BAND)
+        cell.font = Font(bold=True, size=10, name="맑은 고딕",
+                         color=NAVY if is_input else "FFFFFF")
+        cell.alignment = Alignment(vertical="center", horizontal="center", wrap_text=True)
+    ws.row_dimensions[1].height = 24
+
+    for c in range(1, len(COLS) + 1):
+        cell = ws.cell(row=2, column=c, value=COLS[c - 1][0])
         cell.font = Font(bold=True, color="FFFFFF", size=10, name="맑은 고딕")
         cell.fill = PatternFill("solid", fgColor=HEADER_FILL)
         cell.alignment = Alignment(vertical="center", horizontal="center", wrap_text=True)
-    ws.row_dimensions[1].height = 32
-    ws.freeze_panes = "A2"
+    ws.row_dimensions[2].height = 38
+
+    # ⚠️ A~D 를 붙잡는다 — 20칸이라 오른쪽 끝(비고)에서 「지금 어느 팀 줄이지」를
+    #    잃어버리기 쉽다. 팀 이름이 D열이므로 E3 에서 얼린다.
+    ws.freeze_panes = "E3"
 
 
 def build_main_sheet(wb, rows=None):
     """rows 를 주면 그 부서 것만 담는다(위원회별 분리본). 안 주면 전체."""
     ws = wb.active
     ws.title = "사역팀 확인"
-    ws.append(HEADER)
-    style_header(ws, len(HEADER))
+    style_header(ws)
 
     thin = Side(style="thin", color="D9CFB0")
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
@@ -223,36 +292,54 @@ def build_main_sheet(wb, rows=None):
     for i, (committee, group, team, kind, schedule, option, conflict) in enumerate(
             ROWS if rows is None else rows, start=1):
         r = ws.max_row + 1
-        ws.append([
-            i, committee, group, team, KIND_LABEL[kind], schedule, "", "", option, conflict,
-            "", "", "", "",
-        ])
-        band = GROUP_FILL if committee != prev_committee and (i % 2 == 0) else None
-        for c in range(1, len(HEADER) + 1):
-            cell = ws.cell(row=r, column=c)
+        vals = [i, committee, group, team, KIND_LABEL[kind], option, conflict,
+                "", "",                     # 확정 표기명 · 변경여부
+                "", "", "", "", "", "",     # 주일 · 평일 · 토요일 · 시작 · 끝 · 주기
+                schedule, "", "",           # 문장으로 · 하는 일 · 필요 인원
+                "", ""]                     # 확인하신 분 · 비고
+        for c, v in enumerate(vals, start=1):
+            cell = ws.cell(row=r, column=c, value=(v if v != "" else None))
             cell.border = border
             cell.font = Font(size=10, name="맑은 고딕")
-            cell.alignment = Alignment(vertical="center", wrap_text=(c in (4, 6, 7, 9, 10, 11, 14)))
-            if kind == "appoint":
-                cell.fill = PatternFill("solid", fgColor="ECECEC")
+            cell.alignment = Alignment(
+                vertical="center", wrap_text=COLS[c - 1][3],
+                horizontal=("center" if c in (C_SUN, C_WEEK, C_SAT, C_FROM, C_TO) else "general"))
+            if COLS[c - 1][2]:
+                cell.fill = PatternFill("solid", fgColor=INPUT_FILL)
+        # ⚠️ 시각 칸은 텍스트 서식으로 둔다 — 그냥 두면 엑셀이 「10:00」을 시각 값으로
+        #    바꿔 취합 때 datetime.time 이 온다(취합 쪽에도 대비를 두었지만 근원을 막는다).
+        for c in (C_FROM, C_TO):
+            ws.cell(row=r, column=c).number_format = "@"
+        # 임명직은 이름만 확인하면 된다 — 회색으로 덮어 ②③을 안 채워도 됨을 보인다
+        if kind == "appoint":
+            for c in range(1, len(COLS) + 1):
+                ws.cell(row=r, column=c).fill = PatternFill("solid", fgColor="ECECEC")
         if conflict:
-            for c in range(1, len(HEADER) + 1):
+            for c in range(1, len(COLS) + 1):
                 ws.cell(row=r, column=c).fill = PatternFill("solid", fgColor=CONFLICT_FILL)
         if committee != prev_committee:
             ws.cell(row=r, column=2).font = Font(bold=True, size=10, name="맑은 고딕", color=NAVY)
         prev_committee = committee
 
-    widths = [6, 22, 14, 22, 10, 20, 26, 16, 22, 30, 22, 12, 14, 20]
-    for idx, w in enumerate(widths, start=1):
-        ws.column_dimensions[get_column_letter(idx)].width = w
+    for idx, spec in enumerate(COLS, start=1):
+        ws.column_dimensions[get_column_letter(idx)].width = spec[1]
 
-    ws.auto_filter.ref = f"A1:{get_column_letter(len(HEADER))}{ws.max_row}"
+    last = ws.max_row
+    ws.auto_filter.ref = "A2:%s%d" % (get_column_letter(len(COLS)), last)
 
-    dv = DataValidation(type="list", formula1='"유지,이름 수정,신설,폐지"', allow_blank=True)
-    dv.error = "목록에서 골라주세요"
-    dv.prompt = "유지 / 이름 수정 / 신설 / 폐지 중 선택"
-    ws.add_data_validation(dv)
-    dv.add(f"L2:L{ws.max_row}")
+    def add_dv(formula, col, prompt, err):
+        dv = DataValidation(type="list", formula1=formula, allow_blank=True)
+        dv.error, dv.prompt = err, prompt
+        ws.add_data_validation(dv)
+        L = get_column_letter(col)
+        dv.add("%s3:%s%d" % (L, L, last))
+
+    add_dv('"유지,이름 수정,신설,폐지"', C_CHANGE,
+           "유지 / 이름 수정 / 신설 / 폐지 중 선택", "목록에서 골라주세요")
+    for c in (C_SUN, C_WEEK, C_SAT):
+        add_dv('"O"', c, "이 요일에 사역하면 O (아니면 비워 두세요)", "O 만 넣어 주세요")
+    add_dv('"%s"' % ",".join(FREQS), C_FREQ,
+           "한 분이 실제로 서는 주기입니다 (팀이 모이는 주기가 아닙니다)", "목록에서 골라주세요")
 
     return ws
 
@@ -260,7 +347,12 @@ def build_main_sheet(wb, rows=None):
 def build_notice_sheet(wb):
     ws = wb.create_sheet("임명직 전용 부서")
     ws.append(["부서", "안내"])
-    style_header(ws, 2)
+    for c in (1, 2):
+        cell = ws.cell(row=1, column=c)
+        cell.font = Font(bold=True, color="FFFFFF", size=10, name="맑은 고딕")
+        cell.fill = PatternFill("solid", fgColor=HEADER_FILL)
+        cell.alignment = Alignment(vertical="center", horizontal="center", wrap_text=True)
+    ws.freeze_panes = "A2"
     thin = Side(style="thin", color="D9CFB0")
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
     for dept, note in APPOINT_ONLY_NOTICES:
@@ -297,26 +389,37 @@ def build_guide_sheet(wb, committee=None):
     put(7, ("1. 「사역팀 확인」 시트에 %s 사역팀만 담겨 있습니다. 다른 부서 것은 없으니 그대로 보시면 됩니다."
             % committee) if committee
            else "1. 「사역팀 확인」 시트에서 화면 위 필터로 우리 부서만 골라 봅니다(B열 '위원회/부서').")
-    put(8, "2. 각 사역팀명이 2027년 실제 명칭과 같은지 확인합니다.")
-    put(9, "3. F열 '사역 시간·요일'과 G열 '하는 일'을 채워 주세요 — 대부분 비어 "
-            "있습니다(2026-09-07 추가, 찬양부 일부만 먼저 확인되어 채워져 있습니다). "
-            "성도가 앱에서 사역을 고를 때 이름만 보고는 판단할 수 없어(예: 오병이어 "
-            "1팀·2팀이 무엇이 다른지) 이번에 함께 걷습니다. 짧게만 적어 주셔도 됩니다"
-            "(예: '매주 화 오전 10시', '주일 예배 전 주차 안내').")
-    put(10, "4. H열 '필요 인원'은 채워 주시면 좋지만 선택 사항입니다 — 정원을 세거나 "
-             "막는 데 쓰지 않고, 성도님께 참고로만 보여드립니다. 모르시면 비워 두셔도 됩니다.")
-    put(11, "5. K열 '확정 표기명'에 2027년 최종 명칭을 적어 주세요(그대로면 D열과 동일하게 적어도 됩니다).")
-    put(12, "6. L열 '변경여부'는 목록에서 유지 / 이름 수정 / 신설 / 폐지 중 하나를 골라 주세요.")
-    put(13, "7. M열에 확인하신 분 성함을, N열에는 그 밖에 전달할 내용을 적어 주세요.")
-    put(15, "색이 칠해진 자리", size=13, bold=True, color=NAVY)
-    put(16, "▨ 분홍색 행 — 두 원본 문서(인사표·신청서)의 표기가 서로 달라 어느 쪽이 맞는지 확인이 필요한 자리입니다. "
-             "J열 '확인이 필요한 사유'에 무엇이 다른지 적어 두었습니다.")
-    put(17, "▨ 회색 행 — 신청이 아니라 지명으로 맡는 임명직입니다. 성도가 직접 신청하지 않으므로 앱의 신청 목록에는 넣지 않습니다. "
-             "이름이 맞는지만 확인해 주세요(시간·요일·인원은 안 채우셔도 됩니다).")
+    put(8, "2. 표 맨 윗줄에 띠가 넷 있습니다. **회색 띠(A~G열)는 저희가 채운 자료라 보시기만** 하면 되고, "
+            "**금색 띠(H~T열)가 채워 주실 곳**입니다. 채울 칸은 옅은 노란빛으로 칠해 두었습니다. "
+            "가로로 넓어 보이지만 팀 이름(D열)은 늘 왼쪽에 붙어 있으니 어느 줄인지 잃지 않으실 겁니다.")
+    put(10, "① 이름 확정", size=12, bold=True, color=NAVY)
+    put(11, "H열 '확정 표기명'에 2027년 최종 명칭을 적어 주세요(그대로면 D열과 똑같이 적으셔도 됩니다). "
+             "I열 '변경여부'는 유지 / 이름 수정 / 신설 / 폐지 중에서 고릅니다.")
+    put(13, "② 언제 — 여섯 칸 (2026-09-10 추가)", size=12, bold=True, color=NAVY)
+    put(14, "성도님이 앱에서 「나는 주일 오전만 됩니다」처럼 조건을 걸어 사역을 찾습니다. "
+             "그때 쓰이는 것이 이 여섯 칸입니다 — 문장으로 쓰신 시간은 기계가 읽지 못해 따로 받습니다.")
+    put(15, "  · J·K·L열 (주일 / 평일 / 토요일) — 해당하는 칸에 O 를 넣어 주세요. 여럿이면 여럿 다 넣습니다.")
+    put(16, "  · M·N열 (시작 시각 / 끝 시각) — 24시간 꼴로 적어 주세요. 보기: 05:00, 09:30, 14:00, 20:00.")
+    put(17, "  · O열 (한 사람이 서는 주기) — **팀이 모이는 주기가 아니라, 한 분이 실제로 서는 주기**입니다. "
+             "당번을 넷이 돌아가며 서면 팀은 매주라도 한 분은 '매달'입니다. 성도님이 재는 것은 자기 부담입니다.")
+    put(18, "  · 모르시거나 정해지지 않았으면 비워 두셔도 됩니다 — 그 팀이 목록에서 사라지지는 않고 "
+             "'정해진 날 없음 · 때마다 다름'으로 보입니다.")
+    put(20, "③ 성도님 화면에 그대로 보일 안내", size=12, bold=True, color=NAVY)
+    put(21, "  · P열 '사역 시간·요일(문장으로)' — 사람이 읽는 한 줄입니다. 보기: '매주 화 오전 10시, 예배 30분 전 모임'.")
+    put(22, "  · Q열 '하는 일 — 한 줄' — 이름만 보고는 알 수 없는 것을 적어 주세요"
+             "(예: 오병이어 1팀·2팀이 무엇이 다른지). 짧게만 적으셔도 됩니다.")
+    put(23, "  · R열 '필요 인원'은 선택입니다 — 정원을 세거나 신청을 막는 데 쓰지 않고 참고로만 보여드립니다.")
+    put(25, "④ 확인", size=12, bold=True, color=NAVY)
+    put(26, "S열에 확인하신 분 성함을, T열에는 그 밖에 전달할 내용을 적어 주세요.")
+    put(28, "색이 칠해진 자리", size=13, bold=True, color=NAVY)
+    put(29, "▨ 분홍색 행 — 두 원본 문서(인사표·신청서)의 표기가 서로 달라 어느 쪽이 맞는지 확인이 필요한 자리입니다. "
+             "G열 '확인이 필요한 사유'에 무엇이 다른지 적어 두었습니다.")
+    put(30, "▨ 회색 행 — 신청이 아니라 지명으로 맡는 임명직입니다. 성도가 직접 신청하지 않으므로 앱의 신청 목록에는 넣지 않습니다. "
+             "이름이 맞는지만 확인해 주세요(②·③은 안 채우셔도 됩니다).")
     if not committee:
-        put(19, "임명직만 있어 개별 사역팀이 없는 부서(M-12부·재정부·감사위원회 등)는 "
+        put(32, "임명직만 있어 개별 사역팀이 없는 부서(M-12부·재정부·감사위원회 등)는 "
                  "「임명직 전용 부서」 시트에 따로 안내했습니다.")
-    put(21, "문의: 방송전산부 전산팀", size=10, color="5C6070")
+    put(34, "문의: 방송전산부 전산팀", size=10, color="5C6070")
 
 
 def main():
@@ -342,6 +445,12 @@ def main():
             # capacity_note 는 참고용 — 신청을 막거나 세는 데 쓰지 않는다.
             "schedule_note": sch, "desc_note": "", "capacity_note": "",
             "option_note": o, "conflict_note": cf,
+            # 필터용 여섯 칸(2026-09-10) — 부서 회신 전에는 비어 있다.
+            # ⚠️ 비었다고 목록에서 빠지지 않는다. 화면에서 「정해진 날 없음 ·
+            #    때마다 다름」으로 보일 뿐이다 — 미기입을 제외로 짜면 회신율이
+            #    곧 실종률이 된다(supabase/ministry_filter_cols.sql 과 같은 약속).
+            "day_sun": False, "day_week": False, "day_sat": False,
+            "time_from": "", "time_to": "", "freq": "",
         }
         for (c, g, t, k, sch, o, cf) in ROWS
     ]
