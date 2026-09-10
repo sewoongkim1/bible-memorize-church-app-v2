@@ -5,7 +5,10 @@
 tools/capture-guide-shots.py 와 같은 방식이다: index.html 을 복사해 씨앗 스크립트를
 끼운 임시 파일을 만들고, 로컬 서버로 띄워 ?go= 로 부른다. 다 재면 임시 파일을 지운다.
 
-⚠️ 헤드리스 뷰포트는 526px 고정이라 .ps-wrap 을 CSS 로 못 박고 잰다.
+⚠️ 헤드리스 뷰포트는 .ps-wrap 을 CSS 로 못 박고 잰다(innerWidth 도 함께 속인다).
+⚠️ 2026-09-10부터 액자 글씨는 **암송 화면과 같은 고정 크기**다(자동 계산을 걷어냈다).
+   그래서 이 도구의 뜻이 바뀌었다 — 「다섯 줄에 맞췄는가」가 아니라
+   **「이 구절이 실제로 몇 줄인가」** 를 재는 것이다. 구절을 고를 때의 잣대다.
 ⚠️ 측정 코드는 씨앗 안에 둔다 — ?go= 로는 `psalmMeasure()` 한 마디만 보낸다.
    (URL 이 두 번 해독돼 + < # % 백틱이 조용히 깨지는 것을 원천 회피)
 ⚠️ `app.js` 에는 `?go=` 실행 자리가 없다 — 씨앗이 직접 `renderPsalmHome()` 을 불러
@@ -118,11 +121,10 @@ function psalmMeasure() {
     var lh = parseFloat(cs.lineHeight) || fs * 1.62;
     out.push({
       no: v.no, ref: v.refFull,
-      wrapW: Math.round(psalmWrapWidth()),
+      wrapW: (function () { var el = document.querySelector(".ps-wrap");
+              return el ? Math.round(el.getBoundingClientRect().width) : 0; })(),
       wEm: psalmWidthEm(v.text),
-      usable: Math.round(psalmUsablePx(psalmWrapWidth())),
-      calc: psalmFitFont(v, psalmWrapWidth()),
-      fsCap: psalmFsCap(),
+      usable: 0, calc: 0, fsCap: 0,
       innerW: window.innerWidth,
       bodyW: Math.round(b.getBoundingClientRect().width),
       fs: Math.round(fs), lh: Math.round(lh), h: b.offsetHeight,

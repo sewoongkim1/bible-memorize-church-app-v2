@@ -159,69 +159,21 @@ function psalmWidthEm(text) {
 //   .ps-wrap   padding 14px×2                 = 28
 //   .ps-frame  border 3px×2 + padding 7px×2   = 20
 //   .ps-fr-in  border 1px×2                   = 2
-//   .ps-fr-in  padding(좌우, 한쪽) × 2         = PSALM_FR_PAD 또는 PSALM_FR_PAD_NARROW 의 2배
-const PSALM_FR_PAD = 30;          // .ps-fr-in 좌우 padding(px, 한쪽) — 기본
-const PSALM_FR_PAD_NARROW = 20;   // 좁은 화면 값 — 옛 @media (max-width:340px) 과 같은 수
-const PSALM_NARROW_VW = 340;      // 이 기준은 .ps-wrap 의 실제 폭(vw)으로 잰다 — 아래 이유 참고
-const PSALM_WASTE = 0.98;         // 줄바꿈 낭비 계수 — tools/psalm-measure.py 로 맞춘 값
-
-// ⚠️ 화면이 좁을 때 .ps-fr-in 좌우 padding 을 줄이는 것을 예전에는 CSS
-//    `@media (max-width:340px)` 로만 했다. 그런데 그 미디어쿼리는 **진짜 뷰포트 폭**을
-//    보는데, 측정 도구(tools/psalm-measure.py)는 진짜 뷰포트를 못 바꾸고 .ps-wrap 의
-//    CSS 폭만 강제로 박아 넣는다(실측: 헤드리스 뷰포트는 754px 고정 — --window-size 를
-//    줘도 그렇다는 것이 curl 한글 인코딩·헤드리스 뷰포트 메모와 같은 결의 함정이다).
-//    그 상태로는 이 미디어쿼리가 "--width 320" 을 줘도 절대 안 걸려 좁은 화면을 영영
-//    테스트할 수 없다. 그래서 이 padding 값도 글씨 크기와 **같은 기준(.ps-wrap 의 실제
-//    폭 vw)** 으로 정해 인라인 CSS 변수(--ps-fr-pad)로 박는다 — 글씨 크기 계산과 실제
-//    적용되는 여백이 다른 기준을 보면 서로 어긋난다. 옛 미디어쿼리는 지웠다(이 변수가
-//    같은 값을 대신한다 — style.css 참고).
-function psalmChrome(vw) {
-  const narrow = vw <= PSALM_NARROW_VW;
-  const pad = narrow ? PSALM_FR_PAD_NARROW : PSALM_FR_PAD;
-  return { pad, chrome: 28 + 20 + 2 + pad * 2 };
-}
-
-// 액자가 실제로 차지하는 폭(px). .ps-wrap 이 아직 없으면(이 화면에 처음 들어오는 아주
-// 짧은 순간) window.innerWidth 로 어림잡는다 — .ps-wrap 은 항상 renderPsalmHome() 이
-// 먼저 「불러오는 중…」으로 만들어 두므로 실제로는 거의 이 대체 경로를 안 탄다.
-function psalmWrapWidth() {
-  const wrap = document.querySelector(".ps-wrap");
-  if (wrap) {
-    const w = wrap.getBoundingClientRect().width;
-    if (w > 0) return w;
-  }
-  // ⚠️ 폴백은 **실제 .ps-wrap 폭과 같은 식**이어야 한다.
-  //    .ps-wrap 은 max-width:520 · padding:14×2 이므로 안쪽 폭 = min(vw, 520) - 28.
-  //    옛 식(min(max(vw-40,200),520))은 390px 폰에서 350(실제 362), 넓은 화면에서
-  //    520(실제 492)으로 양쪽 다 빗나갔다 — 첫 렌더와 그 뒤 렌더의 글씨가 달라진다.
-  return Math.max(200, Math.min(window.innerWidth || 390, 520) - 28);
-}
-
-function psalmUsablePx(vw) {
-  const line = Math.max(120, vw - psalmChrome(vw).chrome);
-  return line * 5 * PSALM_WASTE;
-}
-
-// 글씨 크기 설정(⚙️ 「크게」·「아주 크게」)이 상한을 밀어 올린다. 안 올리면 그 설정을
-// 켠 분에게는 빈칸(.word-input, style.css의 html[data-fs] 규칙)만 23~31px로 고정되고
-// 고정 글자(이 함수의 계산값)는 그대로라 한 문장 안에 두 크기가 섞인다
-// (CLAUDE.md 「어려운 도전」이 적어 둔 함정의 재발 — 2026-09-10 리뷰 지적).
-// ⚠️ 다섯 줄 예산을 넘기지 않는다 — psalmFitFont는 늘 `min(상한, 이상적값)`을 쓴다.
-//    이상적값(psalmUsablePx(vw)/w)은 "다섯 줄에 꼭 맞는" 폰트다. 상한을 올려도
-//    실제로 쓰이는 값은 여전히 그 이상적값을 넘지 못한다 — 이상적값이 상한보다
-//    작으면 그대로 쓰이고(전과 같다), 크면 상한이 쓰이는데 상한 < 이상적값이라
-//    실제 필요한 폭보다 좁게 잡혀 다섯 줄 안에 들어간다. 즉 상한을 얼마나 올리든
-//    "다섯 줄을 넘기는" 방향으로는 절대 움직이지 않는다.
-function psalmFsCap() {
-  const fs = document.documentElement.getAttribute("data-fs");
-  return fs === "xl" ? 6 : fs === "lg" ? 3 : 0;
-}
-
-function psalmFitFont(verse, vw) {
-  const w = psalmWidthEm(verse.text);
-  if (!w) return 28;
-  return Math.round(Math.max(20, Math.min(34 + psalmFsCap(), psalmUsablePx(vw) / w)));
-}
+// ⚠️ **글씨 크기를 여기서 계산하지 않는다.** 성경암송 화면(.test-sentence)과 **같은
+//    글꼴·같은 크기**를 쓴다(style.css). 성도님 결정(2026-09-10): 「폰트 및 크기는
+//    성경암송과 같게 하는 게 어떨까요」.
+//
+//    그전에는 「다섯 줄에 꼭 맞는 글씨」를 화면 폭으로 계산했는데, 그 장치 하나에서
+//    하루에 결함이 셋 나왔다 —
+//      · 폭을 1370px 고정값으로 둬 320px 폰에서 상한 안쪽 구절까지 넘쳤다
+//      · 폴백이 실제 .ps-wrap 폭과 다른 식이라 첫 렌더와 그 뒤 렌더의 글씨가 달랐다
+//      · 빈칸 폭을 ch 로 재 「여호와는」이 「여호와」로 잘렸다
+//    계산을 없애니 셋이 한꺼번에 사라진다. 그리고 **같은 말씀이 화면마다 같은 글씨로**
+//    보인다 — 성도님이 암송 화면과 액자를 오가며 쓰기 때문에 그게 더 중요하다.
+//
+//    「액자에 다섯 줄」은 이제 **구절을 고를 때의 잣대**다(렌더링 제약이 아니다).
+//    tools/psalm-fit.py 가 `글자수 + 낱말수 ≤ 76` 으로 거르고,
+//    tools/psalm-measure.py 가 실제로 몇 줄인지 재 준다.
 
 function psalmEsc(s) {
   return String(s == null ? "" : s)
@@ -239,12 +191,9 @@ function psalmFrameHtml(verse, opts) {
   const leaf = "img/frame/leaf" + fr.art + ".webp?v=" + APP_BUILD;
   const shortSide = Math.min(window.innerWidth || 390, window.innerHeight || 700);
   const lw = Math.round(shortSide * 0.28);
-  const vw = psalmWrapWidth();
-  const pad = psalmChrome(vw).pad;
-  const fs = o.fontSize || psalmFitFont(verse, vw);
   const body = o.bodyHtml != null ? o.bodyHtml : psalmEsc(verse.text);
   return `
-    <div class="ps-frame ps-fr-${fr.color} ps-pos-${fr.pos}" style="--ps-lw:${lw}px;--psalm-fs:${fs}px;--ps-fr-pad:${pad}px">
+    <div class="ps-frame ps-fr-${fr.color} ps-pos-${fr.pos}" style="--ps-lw:${lw}px">
       <img class="ps-leaf l" src="${leaf}" alt="" aria-hidden="true">
       <img class="ps-leaf r" src="${leaf}" alt="" aria-hidden="true">
       <div class="ps-fr-in">
@@ -308,11 +257,16 @@ function renderPsalmBlank(verse, stage) {
 
   const bodyHtml = tokens.map((word, i) => {
     if (!flags[i]) return `<span class="word-fixed">${psalmEsc(word)}</span>`;
-    // ⚠️ em 이 아니라 ch 로 잰다 — em 은 --psalm-fs 와 곱해져 큰 글씨 구절에서 액자를 뚫는다.
+    // ⚠️ **한글은 `em` 이다. `ch` 를 쓰면 안 된다.**
+    //    1ch 는 숫자 「0」의 폭(≈0.5em)이라, 네 글자 칸이 두 글자 반 크기가 되어
+    //    「여호와는」이 「여호와」로 잘린다(성도님 제보 2026-09-10, 운영 미리보기).
+    //    주간 암송 화면(app.js renderTestScreen)도 한글은 em, ch 는 영어에만 쓴다.
+    //    em 은 이 칸의 글씨 크기(암송 화면과 같은 값)를 가리키므로,
+    //    psalmWidthEm(글자수+낱말수)이 그대로 한 줄 폭의 합이 된다.
     const w = Array.from(word).length;
     return `<input class="word-input" data-answer="${psalmEsc(word)}"`
          + ` autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"`
-         + ` style="width:${(w + 1) * 1.05}ch" />`;
+         + ` style="width:${w + 1}em" />`;
   }).join(" ");
 
   const app = document.getElementById("app");
