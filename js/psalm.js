@@ -48,20 +48,52 @@ function psalmDoneCount() {
 // ⚠️ 복습 중 「← 목록」·「첫 화면으로」로 나가면 psalmReviewCtx 깃발이 안 내려가던 문제가
 //    있었다(2026-09-10 리뷰 지적) — 여기서 내리면 renderPsalmReview()는 이 함수를 거치지
 //    않고 renderPsalmBlank()를 직접 부르므로 복습 자체는 영향받지 않는다.
-function renderPsalmHome() {
+// 첫 화면 액자에 지금 보이는 일차. null 이면 오늘 편 — app.js 첫 화면에서 들어올 때는 늘 오늘 편이다.
+// 이전·다음으로 넘기거나, 암송하다 「← 돌아가기」로 오면 보던 편을 그대로 보여 준다.
+let psalmHomeDay = null;
+
+function renderPsalmHome(day) {
   psalmReviewCtx = null;
   stopSpeaking();
-  const u = loadUser();
+  psalmHomeDay = (day == null) ? null : Number(day);
   const app = document.getElementById("app");
-  app.innerHTML = `<div class="ps-wrap"><div class="ps-loading">불러오는 중…</div></div>
-    <button class="home-fab" id="ps-home" aria-label="첫 화면으로">${homeFabLabel(u, true)}</button>`;
+  // ⚠️ 이 화면에는 아래 고정 단추(.home-fab)를 두지 않는다 — 성도님 결정(2026-09-10):
+  //    머리의 「← 첫 화면」 하나로 나간다. 그래서 .ps-home 으로 아래 여백도 줄인다.
+  app.innerHTML = `<div class="ps-wrap ps-home"><div class="ps-loading">불러오는 중…</div></div>`;
   window.scrollTo(0, 0);
-  document.getElementById("ps-home").addEventListener("click", () => { psalmReviewCtx = null; stopSpeaking(); renderSummary(); });
-
   loadPsalmVerses().then(() => drawPsalmHome()).catch(() => {
     const el = document.querySelector(".ps-loading");
     if (el) el.textContent = "말씀을 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.";
   });
+}
+
+// 첫 화면 머리 — 「N일차 · 전체 N편 · ← 첫 화면」. 시작 전 화면도 같은 머리를 쓴다
+// (아래 고정 단추를 없앴으므로 나가는 길이 이것뿐이다 — 빼먹으면 갇힌다).
+function psalmHomeHead(v) {
+  const mark = v ? psalmMark(v) : "";
+  return `<div class="ps-head">
+      ${v ? `<span class="ps-day">${v.dayNo}일차</span>` : ""}
+      ${mark ? `<span class="ps-today-mark">${mark}</span>` : ""}
+      ${v ? `<span class="ps-total">전체 ${psalmTotal}편</span>` : ""}
+      <button class="ps-back" id="ps-home-back">← 첫 화면</button>
+    </div>`;
+}
+
+function psalmWireHomeBack() {
+  const b = document.getElementById("ps-home-back");
+  if (b) b.addEventListener("click", () => { psalmReviewCtx = null; stopSpeaking(); renderSummary(); });
+}
+
+// 암송 시작 — 그 편을 어디서부터 이어 외울지 정한다. 0단계 액자의 「다음 →」과 첫 화면의
+// 「암송」이 같이 쓴다(두 곳에 같은 판단을 따로 두면 한쪽만 고치게 된다).
+// ⚠️ 마음에 둔 편은 곧바로 3단계로 — 체크 문구가 「다음부터 바로 3단계로 시작해요」라고
+//    약속하기 때문이다(app.js 의 heartCheckHtml). 판단은 app.js 의 startTest 것을 그대로
+//    옮겼다(마음에 두었고 + 실제로 3단계를 마쳤을 때만).
+function psalmStartMemorize(v) {
+  stopSpeaking();
+  const passed = getPassedStage(v.no);
+  if (isHearted(v.no) && passed >= 3) return renderPsalmStage(v, 3);
+  renderPsalmStage(v, passed >= 3 ? 1 : Math.min(3, passed + 1));
 }
 
 function drawPsalmHome() {
@@ -72,70 +104,53 @@ function drawPsalmHome() {
   if (psalmOpen <= 0) {
     // ⚠️ 서버가 옛 판이면 startDate 가 안 온다 — 그때 「 에 시작해요」로 보였다(2026-09-10).
     const d = (psalmStartDate || PSALM_DEFAULT_START).replace(/-/g, ".");
-    wrap.innerHTML = `<div class="ps-soon">
-      <div class="ps-soon-icon">📿</div>
-      <div class="ps-soon-t">${psalmEsc(d)} 에 시작해요</div>
-      <div class="ps-soon-s">시편 말씀을 하루에 한 편씩 함께 외웁니다</div>
-    </div>`;
+    wrap.innerHTML = `${psalmHomeHead(null)}
+      <div class="ps-soon">
+        <div class="ps-soon-icon">📿</div>
+        <div class="ps-soon-t">${psalmEsc(d)} 에 시작해요</div>
+        <div class="ps-soon-s">시편 말씀을 하루에 한 편씩 함께 외웁니다</div>
+      </div>`;
+    psalmWireHomeBack();
     return;
   }
 
+  // ⚠️ 성도님 결정(2026-09-10): 첫 화면은 「액자 한 장 + 이전·암송·다음」뿐이다.
+  //    지난 말씀 목록·진행 줄·늦게 오신 분 안내·아래 고정 단추는 모두 걷어냈다.
+  //    지난 편은 「◀ 이전」으로 한 장씩 넘겨 본다 — 목록 대신 넘기는 것이 이 코너의 모양이다.
   const today = psalmToday();
-  const done = psalmDoneCount();
-  // 지난 말씀 목록은 오늘 편을 뺀다(past 필터) — 그래서 표식이 걸릴 자리가 오늘 편에는
-  // 없다. 여기서 한 번 더 찍어 「마음에 둠」이 마친 그날 바로 보이게 한다(2026-09-10 리뷰 지적).
-  const todayMark = today ? psalmMark(today) : "";
-  const past = psalmVerses.filter((v) => v.dayNo !== (today && today.dayNo))
-                          .sort((a, b) => b.dayNo - a.dayNo);
+  const shown = (psalmHomeDay != null && psalmVerses.find((v) => v.dayNo === psalmHomeDay)) || today;
+  if (!shown) {
+    wrap.innerHTML = `${psalmHomeHead(null)}<div class="ps-loading">열린 말씀이 없어요.</div>`;
+    psalmWireHomeBack();
+    return;
+  }
+  psalmHomeDay = shown.dayNo;
+  const prev = psalmVerses.find((v) => v.dayNo === shown.dayNo - 1) || null;
+  const next = psalmVerses.find((v) => v.dayNo === shown.dayNo + 1) || null;
 
-  // 늦게 오신 분을 달랜다 — 「49편이나 밀렸다」로 읽히지 않게 하는 것이 이 줄이 하는 일 전부다
-  const catchUp = past.length >= 7
-    ? `<div class="ps-catch">지난 말씀 ${past.length}편이 기다리고 있어요 · 서두르지 않으셔도 돼요</div>`
-    : "";
-
+  // ⚠️ 끝에 닿은 「이전·다음」도 눌리게 둔다(흐리게만 한다) — 눌러도 반응이 없으면 어르신은
+  //    고장으로 읽으신다. 대신 왜 안 되는지 알려 준다(순위 응원 칩과 같은 원칙).
+  //    오늘 편을 보고 있으면 「다음」은 늘 끝이다(하루 한 편) — 그래서 이 안내가 자주 뜬다.
+  //    가운데 「암송」(남색 채움)은 절대 흐려지지 않는다 — 화면에 늘 살아 있는 큰 단추 하나.
   wrap.innerHTML = `
-    <div class="ps-head">
-      <span class="ps-day">${psalmOpen}일차</span>
-      ${todayMark ? `<span class="ps-today-mark">${todayMark}</span>` : ""}
-      <span class="ps-total">전체 ${psalmTotal}편</span>
-    </div>
-    ${today ? psalmFrameHtml(today) : ""}
-    <button class="ps-go" id="ps-start">외우기 시작</button>
-    <div class="ps-progress">${done > 0
-      ? `${psalmTotal}편 중 <b>${done}편</b> 마쳤어요`
-      : "아직 시작 전이에요 · 오늘 한 편부터"}</div>
-    ${catchUp}
-    ${past.length ? `
-      <button class="ps-acc-btn" id="ps-past-btn" aria-expanded="false" aria-controls="ps-past">
-        지난 말씀 ${past.length}편 <span class="ps-caret">▾</span>
-      </button>
-      <div class="ps-acc" id="ps-past" hidden>
-        ${past.map((v) => `
-          <button class="ps-past-row" data-no="${v.no}">
-            <span class="ps-past-day">${v.dayNo}일차</span>
-            <span class="ps-past-ref">${psalmEsc(v.refFull)}</span>
-            <span class="ps-past-mark">${psalmMark(v)}</span>
-          </button>`).join("")}
-      </div>` : ""}
-  `;
+    ${psalmHomeHead(shown)}
+    ${psalmFrameHtml(shown)}
+    <div class="ps-home-nav">
+      <button class="ps-hn-btn${prev ? "" : " off"}" id="ps-h-prev">◀ 이전</button>
+      <button class="ps-hn-btn go" id="ps-h-go">암송</button>
+      <button class="ps-hn-btn${next ? "" : " off"}" id="ps-h-next">다음 ▶</button>
+    </div>`;
+  psalmWireHomeBack();
 
-  const go = document.getElementById("ps-start");
-  if (go && today) go.addEventListener("click", () => renderPsalmStage(today, 0));
-
-  const pb = document.getElementById("ps-past-btn");
-  if (pb) pb.addEventListener("click", () => {
-    const box = document.getElementById("ps-past");
-    const open = pb.getAttribute("aria-expanded") === "true";
-    pb.setAttribute("aria-expanded", String(!open));
-    box.hidden = open;
+  const say = (msg) => { if (typeof appAlert === "function") appAlert(msg); else alert(msg); };
+  const flip = (v) => { psalmHomeDay = v.dayNo; drawPsalmHome(); window.scrollTo(0, 0); };
+  document.getElementById("ps-h-prev").addEventListener("click", () => {
+    if (prev) flip(prev); else say("첫 번째 말씀이에요.");
   });
-
-  wrap.querySelectorAll(".ps-past-row").forEach((b) => {
-    b.addEventListener("click", () => {
-      const v = psalmByNo(b.dataset.no);
-      if (v) renderPsalmStage(v, 0);
-    });
+  document.getElementById("ps-h-next").addEventListener("click", () => {
+    if (next) flip(next); else say("오늘 열린 말씀은 여기까지예요. 내일 한 편이 더 열려요.");
   });
+  document.getElementById("ps-h-go").addEventListener("click", () => psalmStartMemorize(shown));
 }
 
 // 지난 말씀 줄(과 오늘 편)의 표식 — 3단계까지 마친 편엔 ✅, 「마음에 둠」을 체크한 편엔
@@ -236,7 +251,7 @@ function renderPsalmStage(verse, stage) {
       <div class="ps-head">
         <span class="ps-day">${verse.dayNo}일차</span>
         <span class="ps-step">읽어 보세요</span>
-        <button class="ps-back" id="ps-back">← 목록</button>
+        <button class="ps-back" id="ps-back">← 돌아가기</button>
       </div>
       ${psalmFrameHtml(verse)}
       <div class="ps-tools">
@@ -248,18 +263,8 @@ function renderPsalmStage(verse, stage) {
   window.scrollTo(0, 0);
 
   document.getElementById("ps-home").addEventListener("click", () => { psalmReviewCtx = null; stopSpeaking(); renderSummary(); });
-  document.getElementById("ps-back").addEventListener("click", () => { psalmReviewCtx = null; stopSpeaking(); renderPsalmHome(); });
-  document.getElementById("ps-next").addEventListener("click", () => {
-    stopSpeaking();
-    const passed = getPassedStage(verse.no);
-    // ⚠️ 마음에 둔 편은 곧바로 3단계로 — 체크 문구가 「다음부터 바로 3단계로 시작해요」라고
-    //    약속하기 때문이다(app.js 의 heartCheckHtml). 시편 진입은 늘 renderPsalmStage(v, 0)
-    //    → 「다음 →」이라, 이 줄이 없으면 마음에 둔 편도 1단계부터 다시 시작해 그 약속이
-    //    시편에서만 거짓이 된다. 판단은 app.js 의 startTest 것을 그대로 옮겼다
-    //    (마음에 두었고 + 실제로 3단계를 마쳤을 때만).
-    if (isHearted(verse.no) && passed >= 3) return renderPsalmStage(verse, 3);
-    renderPsalmStage(verse, passed >= 3 ? 1 : Math.min(3, passed + 1));
-  });
+  document.getElementById("ps-back").addEventListener("click", () => { psalmReviewCtx = null; stopSpeaking(); renderPsalmHome(verse.dayNo); });
+  document.getElementById("ps-next").addEventListener("click", () => psalmStartMemorize(verse));
 
   // 낭독은 「요절 → (쉼) → 말씀」 — 앨범·말씀 목록과 같은 순서다.
   document.getElementById("ps-listen").addEventListener("click", () => {
@@ -312,7 +317,7 @@ function renderPsalmBlank(verse, stage) {
       <div class="ps-head">
         <span class="ps-day">${verse.dayNo}일차</span>
         <span class="ps-step">${psalmInReview(verse) ? "복습" : stage + "단계"}</span>
-        <button class="ps-back" id="ps-back">← 목록</button>
+        <button class="ps-back" id="ps-back">← 돌아가기</button>
       </div>
       ${psalmFrameHtml(verse, { bodyHtml })}
       <div class="ps-tools">
@@ -338,7 +343,7 @@ function renderPsalmBlank(verse, stage) {
   //    깃발을 반드시 내린다. 안 내리면 다음에 여는 아무 시편 구절이나 「복습」으로 찍히고,
   //    그 구절을 정상으로 마쳤을 때 saveProgress 가 건너뛰어진다(2026-09-10 리뷰 지적).
   document.getElementById("ps-home").addEventListener("click", () => { psalmReviewCtx = null; stopSpeaking(); renderSummary(); });
-  document.getElementById("ps-back").addEventListener("click", () => { psalmReviewCtx = null; stopSpeaking(); renderPsalmHome(); });
+  document.getElementById("ps-back").addEventListener("click", () => { psalmReviewCtx = null; stopSpeaking(); renderPsalmHome(verse.dayNo); });
   document.getElementById("ps-listen").addEventListener("click", () => speakText(verseSpokenText(verse)));
 
   const ap = document.getElementById("ps-answer-panel");
@@ -516,7 +521,7 @@ function psalmStageModal(verse, stage, wasFirst) {
   mainBtn.addEventListener("click", main);
   document.getElementById("ps-sd-again")
     .addEventListener("click", () => go(() => renderPsalmStage(verse, stage)));
-  document.getElementById("ps-sd-list").addEventListener("click", () => go(renderPsalmHome));
+  document.getElementById("ps-sd-list").addEventListener("click", () => go(() => renderPsalmHome(verse.dayNo)));
   wrap.addEventListener("click", (e) => { if (e.target === wrap) close(); });
   const focus = () => { try { mainBtn.focus({ preventScroll: true }); } catch (e) { mainBtn.focus(); } };
   focus();
@@ -567,7 +572,7 @@ function renderPsalmDone(verse, wasFirst) {
   window.scrollTo(0, 0);
 
   document.getElementById("ps-home").addEventListener("click", () => renderSummary());
-  document.getElementById("ps-list").addEventListener("click", () => renderPsalmHome());
+  document.getElementById("ps-list").addEventListener("click", () => renderPsalmHome(verse.dayNo));
   document.getElementById("ps-again").addEventListener("click", () => renderPsalmStage(verse, 3));
   const nb = document.getElementById("ps-next");
   if (nb && next) nb.addEventListener("click", () => renderPsalmStage(next, 0));

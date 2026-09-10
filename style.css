@@ -4720,8 +4720,12 @@ body.pr-full-on { overflow: hidden; }
   /* 글씨 크기를 더는 계산하지 않으므로 여백도 그냥 CSS 로 둔다(옛 --ps-fr-pad 제거). */
   padding:20px 24px 24px;
 }
+/* ⚠️ 요절은 성경암송 화면 요절(.test-ref-sticky)과 같은 글꼴·크기다 — 성도님 요청(2026-09-10):
+   「시편 11편 7절 폰트를 크게」. 14px 은 본문(19px)보다 작아 제목으로 안 읽혔다.
+   큰 글씨 설정도 같은 비율로 따라간다(아래 html[data-fs] 두 줄). */
 .ps-fr-ref{
-  text-align:center;font-size:14px;font-weight:700;letter-spacing:.05em;
+  text-align:center;font-family:"Nanum Myeongjo",serif;font-size:1.15rem;font-weight:800;
+  letter-spacing:.02em;
   color:var(--ps-fr);
   /* 금색 글씨는 잎가지 위에서 대비가 1.86:1까지 떨어진다 → 바탕색 테를 두른다 */
   text-shadow:0 0 2px #fffef9,0 0 4px #fffef9;
@@ -5059,3 +5063,23 @@ html[data-fs] .ps-fr-body .word-input{ font-size:inherit; }
 .dark .ev-grp-n{background:#182739;color:#8fb3e6}
 .dark .ev-grp-l li{color:#c3cbd8}
 .dark .ev-grp-l li::after{color:#3d4a63}
+
+/* ===== 시편 말씀 액자 — 첫 화면 「이전 · 암송 · 다음」 (2026-09-10 성도님 요청) =====
+   첫 화면은 액자 한 장 + 이 세 단추뿐이다. 지난 말씀 목록·진행 줄·아래 고정 단추는 걷어냈다.
+   ⚠️ 가운데 「암송」만 남색 채움이다 — 「남색 채움 = 오늘 할 일 · 화면에 딱 하나」.
+      끝에 닿은 이전·다음은 흐리게만 하고 눌리게 둔다(누르면 이유를 알려 준다 — js/psalm.js). */
+html[data-fs="lg"] .ps-fr-ref{font-size:1.3rem}
+html[data-fs="xl"] .ps-fr-ref{font-size:1.45rem}
+.ps-wrap.ps-home{padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
+.ps-home .ps-head{flex-wrap:wrap}
+.ps-back{white-space:nowrap}
+.ps-home-nav{display:grid;grid-template-columns:1fr 1.5fr 1fr;gap:8px;margin:16px 0 8px}
+.ps-hn-btn{
+  min-height:60px;padding:10px 6px;border-radius:12px;cursor:pointer;
+  background:#fff;color:var(--navy,#1a3a6b);border:1px solid #cfd8e4;
+  font-size:17px;font-weight:700;white-space:nowrap;
+}
+.ps-hn-btn.go{background:var(--navy,#1a3a6b);color:#fff;border:none;font-size:19px}
+.ps-hn-btn.off{opacity:.45}
+.dark .ps-hn-btn{background:#232c3f;color:#cdd9f2;border-color:#3a4a68}
+.dark .ps-hn-btn.go{background:var(--navy,#1a3a6b);color:#fff;border:none}
