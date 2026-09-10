@@ -4214,13 +4214,16 @@ async function eventSave(b: any) {
 //       두 배가 된다.)
 const EVT_IMPORT_MAX = 5000;
 
-// 옛 시트의 직분 표기를 지금 allowlist 로 맞춘다.
-//   '집사님' → '집사' · '안수집사님 (시무/은퇴)' → '안수집사'
-//   맞출 수 없으면 빈 값으로 둔다 — 추측해서 채우지 않는다.
+// 옛 시트의 직분 표기를 다듬는다 — '집사님' → '집사' · '안수집사님 (시무/은퇴)' → '안수집사'.
+// ⚠️ allowlist(MIN_POSITIONS) 밖이어도 **버리지 않고 그대로 둔다.**
+//    옛 썸머 폼에는 「사모님」이 있는데 사역신청 allowlist 에는 사모가 없다. 이관에서
+//    그걸 지우면 그분의 직분이 사라진다 — 없는 값을 지어내는 것보다야 낫지만,
+//    **있는 값을 버리는 것은 더 나쁘다.** 이관은 「그때 이렇게 냈다」를 남기는 일이다.
+//    (앱으로 새로 내는 eventSignup 은 그대로 allowlist 를 강제한다. 그 둘은 다른 일이다.)
+//    allowlist 를 넓히는 것은 사역신청과 공유하는 상수라 여기서 혼자 정할 일이 아니다.
 function evtImportPosition(v: unknown): string {
-  let s = norm(v).replace(/\(.*?\)/g, "");
-  s = norm(s).replace(/님$/, "");
-  return MIN_POSITIONS.has(s) ? s : "";
+  const s = norm(norm(v).replace(/\(.*?\)/g, "")).replace(/님$/, "");
+  return s;
 }
 
 async function eventImport(b: any) {
@@ -4327,5 +4330,9 @@ async function eventImport(b: any) {
     }
   }
 
-  return { ok: true, received: rows.length, inserted, matched, dropped, noDate };
+  // allowlist 밖 직분이 몇이나 되는지 알려 준다 — 버리지는 않되 눈에는 보이게.
+  const oddPositions = [...new Set(out.map((r: any) => r.position)
+    .filter((p: string) => p && !MIN_POSITIONS.has(p)))];
+
+  return { ok: true, received: rows.length, inserted, matched, dropped, noDate, oddPositions };
 }
