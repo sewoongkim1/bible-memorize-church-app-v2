@@ -60,6 +60,7 @@ migrate_passages.sql            긴 본문 암송(passages · passage_progress)
 ### ③ 기능 테이블
 ```
 app_config.sql          설정 저장소(pilsaAdmins · AI 캐시 등)
+member_profile.sql      관리자 이름·소속 변경·로그인 별칭·변경 이력 (app_config 다음, 새 API 배포 전)
 monitor.sql             push_log
 push_hour.sql           구독마다 받을 시각
 push_log_body.sql
@@ -70,7 +71,8 @@ board_reactions.sql     공감 이모지
 board_images.sql        사진 첨부 + Storage 통
 rank_cheers.sql         순위 응원 👏
 pilsa_orders.sql        필사 노트 신청
-event_entries.sql       말씀 이벤트 응모
+event_entries.sql       말씀 이벤트 응모(퀴즈형 — 아래 events.sql 과 다른 기능이다)
+events.sql              이벤트 플랫폼(회차 정의 events + 참가 기록 event_signups)
 ```
 
 ### ④ 집계·통계

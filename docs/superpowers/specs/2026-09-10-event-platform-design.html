@@ -549,9 +549,11 @@ alter table public.event_signups
   <b>check (user_id is not null or source = 'import')</b>;
 
 <i>-- 「이벤트당 한 번」 — 이 한 줄이 중복 검사를 대신한다(⑧)</i>
-<i>-- 부분 unique: 이관된 옛 기록(user_id null)은 이 규칙 밖이다</i>
-create unique index if not exists event_signups_uniq
-  on public.event_signups (event_id, user_id) <b>where user_id is not null</b>;
+<i>-- ⚠️ 부분 인덱스(where user_id is not null)로 쓰면 안 된다 — PostgreSQL 은 부분</i>
+<i>--    인덱스를 ON CONFLICT 추론에 쓰지 못해 upsert(고치기)가 통째로 막힌다.</i>
+<i>--    일반 unique 로 두면 의도가 그대로 지켜진다: NULL 은 서로 다른 값으로 보므로</i>
+<i>--    이관 행(user_id null)은 몇 개든 들어가고 앱 등록만 회차당 하나로 묶인다.</i>
+  <b>constraint event_signups_uniq unique (event_id, user_id)</b>
 
 create index if not exists event_signups_at_idx
   on public.event_signups (event_id, created_at desc);
@@ -735,7 +737,7 @@ alter table public.event_signups <b>enable row level security</b>;
   <p>시트 CSV → <code>tools/event-import-sql.py</code> → <code>supabase/event_signups_summer2026.sql</code>. <code>event_id='summer-2026'</code>, <code>source='import'</code>. <strong>시드 SQL은 손으로 적지 않는다</strong>(이 저장소의 관례 — 생성기가 만들고 첫 줄에 「손으로 고치지 말 것」을 적는다).</p>
   <ul>
     <li><code>ident_key</code>를 앱과 같은 규칙으로 계산해 <strong><code>users</code>에서 찾히면 <code>user_id</code>를 채운다</strong> — 그러면 앱을 쓰는 분은 지난 회차 등록도 앱에서 그대로 보인다. 못 찾으면 null(옛 기록으로 남는다).</li>
-    <li>⚠️ 시트에 <strong>같은 사람이 두 번</strong> 있으면(실제로 <code>status='중복'</code>이 있었으니 있을 법하다) 부분 unique에 걸려 이관이 멈춘다. <strong>생성기가 먼저 추려</strong> 가장 이른 것만 남긴다.</li>
+    <li>⚠️ 시트에 <strong>같은 사람이 두 번</strong> 있으면(실제로 <code>status='중복'</code>이 있었으니 있을 법하다) <strong>unique가 막아 주지 않는다</strong> — 이관 행은 <code>user_id</code>가 없고, unique 제약은 NULL을 서로 다른 값으로 보기 때문이다. 이관이 멈추는 것이 아니라 <em>명단이 조용히 부풀어 오른다.</em> <strong>생성기가 먼저 추려</strong> 가장 이른 것만 남긴다.</li>
     <li><code>status</code>·<code>note</code> 열은 <strong>옮기지 않는다</strong> — 상태 개념이 없어졌고, <code>note</code>가 담당자 내부 메모인지 확인되지 않았다(질문 3).</li>
   </ul>
 </section>
