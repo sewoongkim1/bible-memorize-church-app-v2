@@ -39,6 +39,10 @@ from openpyxl import load_workbook
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    # raise SystemExit(...) 메시지도 여기로 나간다 — no 재배정 경고처럼 꼭 읽혀야
+    # 하는 문구가 콘솔 기본 인코딩(cp949 등)에서 깨지지 않게 stdout과 맞춘다.
+    sys.stderr.reconfigure(encoding="utf-8")
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 DEF_XLSX = os.path.join(ROOT, "psalm", "시편말씀액자_구절입력_180.xlsx")
@@ -146,6 +150,27 @@ def sql_escape(s):
     return str(s).replace("'", "''")
 
 
+# 이미 생성된 SQL에서 (no → ref_short) 짝을 읽는다. ③ values 줄의 앞머리
+# "  (1001, 'psalm', 1, 1, '시 1:1', ..." 꼴만 보면 되므로 정규식으로 충분하다.
+RE_NO_REF = re.compile(
+    r"\(\s*(\d+)\s*,\s*'psalm'\s*,\s*\d+\s*,\s*\d+\s*,\s*'((?:[^'\\]|'')*)'"
+)
+
+
+def read_existing_no_ref(path):
+    """이미 만들어진 supabase/psalm_frames.sql에서 (no, ref_short)을 읽는다.
+    파일이 없으면(첫 실행) 빈 dict — 그때는 견줄 대상이 없으니 통과."""
+    if not os.path.exists(path):
+        return {}
+    with open(path, encoding="utf-8") as f:
+        content = f.read()
+    pairs = {}
+    for m in RE_NO_REF.finditer(content):
+        no = int(m.group(1))
+        pairs[no] = m.group(2).replace("''", "'")
+    return pairs
+
+
 def build_sql(filled):
     d0 = START_DATE
     lines = [
@@ -155,6 +180,18 @@ def build_sql(filled):
         f"1일차 {d0:%Y-%m-%d}({WEEKDAY[d0.weekday()]})",
         "--",
         "-- ⚠️ 개발 DB(ktpwthwqzgcqcrmsafdo)에서 먼저 돌린 뒤 운영(xnomlgydifiqiybervtf).",
+        "-- ⚠️ 순서(함수 vs SQL): **이 기능은 함수(Edge Function)가 먼저, SQL이 나중이다.**",
+        "--    getVerses 에 track 필터가 없는 옛 함수 위에서 이 SQL이 먼저 돌면, ③이 심는",
+        "--    is_active=true 시편 구절을 옛 함수가 track 구분 없이 통째로 돌려주어 성도님",
+        "--    말씀 목록이 시편으로 깨진다. 그래서 ③은 반드시 is_active=false로 심고,",
+        "--    ⑤(진짜 공개)는 새 함수 배포를 확인한 뒤에만 손으로 주석을 풀어 따로 돌린다.",
+        "--    (참고: 새 표에 새 액션만 얹는 기능은 반대다 — 옛 함수는 그 표·액션을 아예",
+        "--    모르니 SQL이 먼저 돌아도 무해하다.)",
+        "-- ⚠️ 번호(no) 정책: **한 번 열린 no는 절대 다른 구절에 재배정하지 않는다.**",
+        "--    no는 progress·challenge_log의 키라, 재배정하면 이미 마친 분의 기록이",
+        "--    엉뚱한 구절에 붙는다(되돌릴 수 없다). 추가는 day_no 뒤쪽에만.",
+        "--    verses에서 delete 금지 — progress.verse_no·challenge_log.verse_no가",
+        "--    on delete cascade라 성도님 기록이 함께 지워진다.",
         "-- ⚠️ 여러 번 돌려도 안전하다(on conflict do update).",
         "",
         "-- ① 표 확장 --------------------------------------------------------",
@@ -183,7 +220,7 @@ def build_sql(filled):
         vals.append(
             f"  ({r['no']}, 'psalm', {r['day']}, {r['frame']}, "
             f"'{sql_escape(r['rs'])}', '{sql_escape(r['rs'])}', '{sql_escape(r['rf'])}', "
-            f"'{sql_escape(r['text'])}', null, true)"
+            f"'{sql_escape(r['text'])}', null, false)"
         )
     lines.append(",\n".join(vals))
     lines += [
@@ -202,6 +239,11 @@ def build_sql(filled):
         f"select greatest(0, least({TOTAL_DAYS},",
         f"       ((now() at time zone 'Asia/Seoul')::date - date '{d0:%Y-%m-%d}') + 1)) as 오늘_열린_편수;",
         "",
+        "-- ⑤ ⚠️ 아래는 **새 Edge Function 배포를 확인한 뒤에만** 돌린다.",
+        "--    확인: getVerses(track 없음)가 주간 구절만 돌려주는지 → bash tests/psalm-smoke.sh",
+        "--    순서를 어기면 게이트와 무관하게 성도님 말씀 목록에 시편이 섞인다.",
+        "-- update public.verses set is_active = true where track = 'psalm';",
+        "",
     ]
     return "\n".join(lines) + "\n"
 
@@ -211,6 +253,8 @@ def main():
     ap.add_argument("--xlsx", default=DEF_XLSX)
     ap.add_argument("--sql", action="store_true", help="supabase/psalm_frames.sql 생성")
     ap.add_argument("--fix", action="store_true", help="본문 앞 절 번호·겹공백을 다듬어 엑셀에 되쓴다")
+    ap.add_argument("--force", action="store_true",
+                     help="기존 no가 다른 구절로 바뀌어도 강행한다(무엇이 바뀌는지 먼저 확인할 것)")
     args = ap.parse_args()
 
     if not os.path.exists(args.xlsx):
@@ -320,11 +364,36 @@ def main():
         if not filled:
             raise SystemExit(" 채워진 구절이 없어 시드를 만들지 않았습니다.")
         filled.sort(key=lambda r: r["day"])
+
+        # ⚠️ no 재배정 방어 — 이미 만든 psalm_frames.sql과 견줘 같은 no가
+        # 다른 구절을 가리키게 되면 성도님 기록이 엉뚱한 구절에 붙는다(되돌릴 수 없다).
+        existing = read_existing_no_ref(OUT_SQL)
+        changed = [
+            (r["no"], existing[r["no"]], r["rs"])
+            for r in filled
+            if r["no"] in existing and existing[r["no"]] != r["rs"]
+        ]
+        if changed:
+            print(bar)
+            print(" ⚠️ 이미 배정된 번호(no)가 다른 구절을 가리키게 됩니다"
+                  + ("  → --force 라 강행합니다" if args.force else ""))
+            for no, old_ref, new_ref in changed:
+                print(f"   no={no}   {old_ref}  →  {new_ref}")
+            print(bar)
+            if not args.force:
+                raise SystemExit(
+                    " no 재배정 감지 — 시드를 만들지 않았습니다.\n"
+                    " progress·challenge_log가 이 no로 이미 기록됐다면 성도님 기록이 엉뚱한\n"
+                    " 구절에 붙습니다(되돌릴 수 없음). 엑셀의 순서를 되돌리거나, 정말 의도한\n"
+                    " 것이면 --force 로 다시 돌리세요(위 목록이 무엇이 바뀌는지 보여줍니다)."
+                )
+
         os.makedirs(os.path.dirname(OUT_SQL), exist_ok=True)
         with open(OUT_SQL, "w", encoding="utf-8", newline="\n") as f:
             f.write(build_sql(filled))
         print(f" 시드를 만들었습니다: {os.path.normpath(OUT_SQL)}  ({len(filled)}편)")
         print(" ⚠️ 개발 DB에서 먼저 돌린 뒤 운영입니다.")
+        print(" ⚠️ ③은 is_active=false로 심었습니다 — ⑤(활성화)는 새 함수 배포를 확인한 뒤 손으로.")
 
 
 if __name__ == "__main__":

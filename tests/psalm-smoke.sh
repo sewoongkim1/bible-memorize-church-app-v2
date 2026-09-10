@@ -40,9 +40,9 @@ print(eval(sys.argv[1]))
 ' "$1" <<< "$2"
 }
 
-echo "① 주간(track 없음) — 지금과 똑같아야 한다"
-chk "weekly 편수" "$(jqn 'len(d["verses"])' "$W")" "35"
-chk "weekly 최대 no" "$(jqn 'max(v["no"] for v in d["verses"])' "$W")" "35"
+echo "① 주간(track 없음) — 지금과 똑같아야 한다(새 주간 구절이 늘 수 있어 정확히 35로 단정하지 않는다)"
+chk "weekly 편수 ≥ 35" "$(jqn 'len(d["verses"]) >= 35' "$W")" "True"
+chk "weekly 최대 no < 1000 (시편이 안 섞임 — 이 검사의 진짜 뜻)" "$(jqn 'max(v["no"] for v in d["verses"]) < 1000' "$W")" "True"
 
 echo "② 시편"
 chk "openCount 있음" "$(jqn '"openCount" in d' "$P")" "True"

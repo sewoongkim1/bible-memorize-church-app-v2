@@ -325,9 +325,18 @@ async function savePush(b: any) {
 // prev: 직전 주 말씀(같은 형태) — 매일 묵상이 월~일 주기라 일요일엔 이걸 써야 해서 함께 반환.
 async function latestVerse(): Promise<{ no: number | null; ref: string; text: string; prev: { no: number | null; ref: string; text: string } | null } | null> {
   try {
-    const { data } = await db.from("verses")
-      .select("no,ref_short,ref_full,ref,text,date")
+    const COLS = "no,ref_short,ref_full,ref,text,date";
+    let { data, error } = await db.from("verses")
+      .select(COLS)
       .eq("is_active", true).eq("track", "weekly");   // 이번 주 말씀은 주간 트랙만
+    // ⚠️ getVerses와 같은 폴백 — track 칸이 아직 없는 DB(새 함수가 먼저 올라간 순간)에서도
+    //    살아남아야 한다. 없으면 여기가 조용히 null이 되어 아침 푸시·매일 묵상·주일 말씀
+    //    푸시가 말씀 없이 나가거나 skip된다.
+    if (error) {
+      const r = await db.from("verses").select(COLS).eq("is_active", true);
+      if (r.error) throw r.error;
+      data = r.data;
+    }
     const list = (data ?? [])
       .filter((v: any) => v.date)
       .map((v: any) => ({ v, t: Date.parse(v.date) }))
@@ -576,8 +585,14 @@ async function monitor(b: any) {
 
   // 2) 이번 주(최신, 오늘 이하) 말씀 신선도
   let latestVerseDate: string | null = null;
-  const { data: vs } = await db.from("verses").select("date")
+  let { data: vs, error: vsErr } = await db.from("verses").select("date")
     .eq("is_active", true).eq("track", "weekly");     // 시편 액자는 주차 개념이 없다
+  // ⚠️ getVerses와 같은 폴백 — track 칸이 아직 없는 DB에서 이 조회가 조용히 비면
+  // "표시할 이번 주 말씀이 없습니다"로 오인해 텔레그램 헛경보가 나간다.
+  if (vsErr) {
+    const r = await db.from("verses").select("date").eq("is_active", true);
+    vs = r.data;
+  }
   const ts = (vs ?? []).map((v: any) => v.date).filter(Boolean)
     .map((s: string) => Date.parse(s)).filter((t: number) => t <= now.getTime())
     .sort((a: number, b: number) => b - a);
@@ -728,7 +743,13 @@ async function getPsalmVerses() {
     refFull: v.ref_full || v.ref || "",
     text: v.text || "",
   }));
-  return { ...base, verses };
+  // ⚠️ open은 "오늘이 시작일로부터 며칠째인가"(날짜 계산)일 뿐, 실제로 시드된
+  //    편수와는 다를 수 있다(예: 180일치를 다 못 채우고 10편만 있는 지금).
+  //    openCount를 그대로 내보내면 11일차에 "11일차"라 적어 놓고 10일차 말씀을
+  //    또 보여주고, 다 읽은 분은 매일 같은 구절을 다른 날짜 이름으로 받는다.
+  //    실제 행 수로 눌러 그 날짜에 머무는 편이 "11일차인데 10일차 말씀"보다 정직하다.
+  const openReal = Math.min(open, verses.length);
+  return { ...base, openCount: openReal, verses };
 }
 
 // ---------- saveVerse: 말씀/설교 추가·수정 (ADMIN_SECRET) ----------

@@ -1,6 +1,14 @@
 -- 시편 말씀 액자 — 표 확장 + 「개발 DB 전용」 씨앗
 -- ⚠️ 운영 DB(xnomlgydifiqiybervtf)에 돌리지 말 것. 시편이 아닌 구절을 복제한 것이다.
 --    운영에는 tools/psalm-fit.py 가 만드는 supabase/psalm_frames.sql 을 쓴다.
+-- ⚠️ 순서(함수 vs SQL): **이 기능은 함수(Edge Function)가 먼저, SQL이 나중이다.**
+--    getVerses에 track 필터가 없는 옛 함수 위에서 이 SQL이 먼저 돌면, ③이 심는
+--    is_active=true 구절을 옛 함수가 track 구분 없이 통째로 돌려주어 개발 DB에서도
+--    말씀 목록이 깨진다. 그래서 ③은 is_active=false로 심고, ⑤(활성화)는 새 함수
+--    배포를 확인한 뒤에만 손으로 주석을 풀어 따로 돌린다.
+-- ⚠️ 번호(no) 정책: 한 번 연 no는 절대 다른 구절에 재배정하지 않는다(추가는 뒤에만).
+--    verses에서 delete 금지 — progress.verse_no·challenge_log.verse_no가
+--    on delete cascade라 기록이 함께 지워진다.
 
 -- ① 표 확장 ------------------------------------------------------------
 alter table public.verses
@@ -33,7 +41,7 @@ with fit as (
 )
 insert into public.verses (no, track, day_no, frame_art, ref, ref_short, ref_full, text, week, is_active)
 select 1000 + n, 'psalm', n, ((n - 1) % 12) + 1,
-       ref, ref_short, ref_full, text, null, true
+       ref, ref_short, ref_full, text, null, false
   from fit where n <= 20
 on conflict (no) do update set
   track = excluded.track, day_no = excluded.day_no, frame_art = excluded.frame_art,
@@ -46,3 +54,8 @@ select track, count(*) as 편수, min(no) as 첫번호, max(no) as 끝번호
 
 select greatest(0, least(180,
        ((now() at time zone 'Asia/Seoul')::date - date '2026-09-21') + 1)) as 오늘_열린_편수;
+
+-- ⑤ ⚠️ 아래는 **새 Edge Function 배포를 확인한 뒤에만** 돌린다.
+--    확인: getVerses(track 없음)가 주간 구절만 돌려주는지 → bash tests/psalm-smoke.sh
+--    순서를 어기면 게이트와 무관하게 개발 DB에서도 말씀 목록에 시편이 섞인다.
+-- update public.verses set is_active = true where track = 'psalm';
