@@ -677,10 +677,18 @@ function psalmOpenCount(cfg: { start: string; totalDays: number }): number {
 //    그때 180편이 딸려 가면 첫 화면 진행 막대가 「전체 215」로 깨진다.
 async function getVerses(b: any = {}) {
   if (b && b.track === "psalm") return await getPsalmVerses();
-  const { data, error } = await db.from("verses")
-    .select("no,date,ref_short,ref_full,ref,text,text_en,ref_en,hint,pastor,sermon_title,sermon_url")
-    .eq("is_active", true).eq("track", "weekly").order("no");
-  if (error) throw error;
+  const COLS = "no,date,ref_short,ref_full,ref,text,text_en,ref_en,hint,pastor,sermon_title,sermon_url";
+  let { data, error } = await db.from("verses")
+    .select(COLS).eq("is_active", true).eq("track", "weekly").order("no");
+  // ⚠️ **track 칸이 아직 없는 DB 에서도 살아남아야 한다.**
+  //    이 저장소는 세 세션이 각자 배포한다 — 누가 먼저 함수를 올리고 SQL 이 나중에
+  //    돌아가는 순간이 실제로 생긴다. 그때 이 한 줄이 없으면 「말씀 목록」이
+  //    통째로 죽는다(성도님 앱의 본진이다). 칸이 생기면 저절로 원래 길로 돌아간다.
+  if (error) {
+    const r = await db.from("verses").select(COLS).eq("is_active", true).order("no");
+    if (r.error) throw r.error;
+    data = r.data;
+  }
   const verses = (data ?? []).map((v: any) => ({
     no: v.no, date: v.date,
     refShort: v.ref_short || v.ref || "",
@@ -705,7 +713,9 @@ async function getPsalmVerses() {
     .select("no,day_no,frame_art,ref_short,ref_full,ref,text")
     .eq("is_active", true).eq("track", "psalm")
     .lte("day_no", open).order("day_no");
-  if (error) throw error;
+  // 칸이 아직 없는 DB 면 조용히 빈 목록 — 화면은 「시작 전」으로 떨어진다.
+  // 여기서 던지면 시편 코너 하나 때문에 앱 전체가 오류로 보인다.
+  if (error) return { ...base, verses: [] };
   const verses = (data ?? []).map((v: any) => ({
     no: v.no,
     dayNo: v.day_no,
@@ -1386,7 +1396,7 @@ async function login(b: any) {
 
 // ---------- app_config: 관리자가 배포 없이 편집하는 설정(키-값) ----------
 // 공개로 읽어도 되는 키만 화이트리스트로 허용(임의 키 노출 방지).
-const PUBLIC_CONFIG_KEYS = new Set(["heartMessages", "dailyMessage", "introSlides", "milestoneMessages", "passagesPublic", "event", "ministry"]);
+const PUBLIC_CONFIG_KEYS = new Set(["heartMessages", "dailyMessage", "introSlides", "milestoneMessages", "passagesPublic", "psalmPublic", "event", "ministry"]);
 
 async function getConfig(b: any) {
   const key = String(b.key || "");
