@@ -3134,7 +3134,7 @@ async function ministryCatalog(b: any) {
   const cfg = await ministryCfg();
   const year = Number(b.year) || cfg.year;
   const { data, error } = await db.from("ministry_catalog")
-    .select("id,committee,group_name,team,kind,schedule_note,desc_note,capacity_note,option_note,members_note,sort_order")
+    .select("id,committee,group_name,team,kind,schedule_note,desc_note,capacity_note,option_note,members_note,sort_order,day_sun,day_week,day_sat,time_from,time_to,freq")
     .eq("year", year).order("sort_order", { ascending: true });
   if (error) throw error;
 
@@ -3172,6 +3172,12 @@ async function ministryCatalog(b: any) {
       //    자동 명단이 members_note 에 굳어 중복되고, 미채택된 분 이름도 영영 남는다.
       membersNote: ministryHtml(r.members_note, 1200),
       opt: r.option_note,
+      // 필터용 — ⚠️ 구간(6~9 …)으로 바꾸지 않고 **시각 그대로** 내보낸다.
+      //    구간은 화면이 묶는다. 그래야 구간을 다시 그어도 서버·부서를 안 건드린다.
+      //    비어 있음 = 「모름」이다: 요일 셋이 다 false 면 화면이 「정해진 날 없음」으로,
+      //    시각이 비면 「때마다 다름」으로 다룬다(숨기지 않는다).
+      day: { sun: !!r.day_sun, week: !!r.day_week, sat: !!r.day_sat },
+      from: r.time_from || "", to: r.time_to || "", freq: r.freq || "",
     })),
   };
 }

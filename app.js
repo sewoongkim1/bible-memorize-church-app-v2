@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260909o";
+const APP_BUILD = "20260910a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -8817,6 +8817,68 @@ let minMine = null;       // 내 신청 { items, max, used, left, openCount, pos
 //    접수하고, 접수된 건은 잠기며, 3개가 안 찼으면 그 뒤에도 더 신청할 수 있기 때문이다.
 let minLockedIds = [];    // 이미 결정돼 뺄 수 없는 팀(id 만)
 let minLocked = [];       // [{ id, status }] — 딱지에 **진짜 상태**를 적으려고 함께 든다
+
+/* ── 필터 ──────────────────────────────────────────────────────
+   88팀을 위원회 아코디언만으로 훑기 어렵다는 성도님 지적에서 나왔다.
+   ⚠️ 구간(6~9 …)은 **화면이 묶는다**. 서버·DB 는 시각 그대로 갖고 있어서,
+      구간을 다시 그어도 부서에 두 번 묻지 않는다.
+   ⚠️ 겹치는 구간이라 판정 규칙을 못 박아 둔다 — **모이는 시각이 그 구간에 들면 걸린다.**
+      성도님이 묻는 것은 「몇 시에 나가야 하나」다.                                */
+const MIN_DAYS = [
+  { k: "sun",  t: "주일" },
+  { k: "week", t: "평일" },
+  { k: "sat",  t: "토요일" },
+  { k: "none", t: "정해진 날 없음" },
+];
+const MIN_FREQS = ["매주", "격주", "매달", "그때그때"];
+const MIN_BANDS = [
+  { k: "6-9",   t: "6~9",   a: 6,  b: 9 },
+  { k: "8-11",  t: "8~11",  a: 8,  b: 11 },
+  { k: "10-13", t: "10~13", a: 10, b: 13 },
+  { k: "12-14", t: "12~14", a: 12, b: 14 },
+  { k: "14-16", t: "14~16", a: 14, b: 16 },
+  { k: "16-20", t: "16~20", a: 16, b: 20 },
+  { k: "20-22", t: "20~22", a: 20, b: 22 },
+  { k: "none",  t: "때마다 다름", a: -1, b: -1 },
+];
+let minF = { day: [], freq: [], band: [] };
+function minFOn() { return minF.day.length + minF.freq.length + minF.band.length > 0; }
+
+// 'HH:MM' → 시각(소수). 비었거나 모양이 틀리면 null = 「모름」
+function minHour(v) {
+  const m = /^(\d{2}):(\d{2})$/.exec(String(v || ""));
+  return m ? Number(m[1]) + Number(m[2]) / 60 : null;
+}
+// ⚠️ 한 축 안은 「또는」, 축끼리는 「그리고」. 안 켠 축은 아무것도 거르지 않는다.
+function minMatch(t) {
+  if (minF.day.length) {
+    const d = t.day || {};
+    const none = !d.sun && !d.week && !d.sat;      // 비어 있음 = 정해진 날 없음
+    const ok = minF.day.some(function (k) {
+      return k === "none" ? none : !!d[k];
+    });
+    if (!ok) return false;
+  }
+  if (minF.freq.length) {
+    const f = t.freq || "그때그때";                 // 비어 있음 = 그때그때
+    if (minF.freq.indexOf(f) < 0) return false;
+  }
+  if (minF.band.length) {
+    const h = minHour(t.from);
+    const ok = minF.band.some(function (k) {
+      const b = MIN_BANDS.filter(function (x) { return x.k === k; })[0];
+      if (!b) return false;
+      if (b.k === "none") return h === null;        // 비어 있음 = 때마다 다름
+      return h !== null && h >= b.a && h < b.b;     // 모이는 시각이 구간에 드는가
+    });
+    if (!ok) return false;
+  }
+  return true;
+}
+// 「고른 것」은 필터를 타지 않는다 — 숨기면 뺄 수가 없어진다
+function minShown(t) {
+  return minPicked.indexOf(t.id) >= 0 || minLockedIds.indexOf(t.id) >= 0 || minMatch(t);
+}
 let minPicked = [];       // 고른 팀 id (최대 3, 순위 아님)
 let minOpen = null;       // 펼친 위원회 이름 (한 번에 하나)
 let minLoaded = false;
@@ -8991,14 +9053,49 @@ function renderMinistry(keepScroll) {
   else wireMinDone(u);
 }
 
+// 칩 한 줄. ⚠️ 새 색을 만들지 않는다 — 켜진 칩만 남색, 꺼진 칩은 흰 바탕.
+// 남색 채움(지금 할 일)·금색(도전)은 건드리지 않는다.
+function minChipRow(label, axis, items) {
+  const on = minF[axis];
+  return '<div class="min-fr"><span class="min-fr-l">' + label + '</span><span class="min-fr-c">' +
+    items.map(function (it) {
+      const k = it.k || it, t = it.t || it;
+      return '<button class="min-chip' + (on.indexOf(k) >= 0 ? " on" : "") +
+        '" data-f="' + axis + '" data-k="' + minEsc(k) + '">' + minEsc(t) + '</button>';
+    }).join("") + '</span></div>';
+}
+function minFilterHtml() {
+  // ⚠️ 회신이 덜 왔는데 필터를 내놓으면 켜 봐야 안 걸러져 「고장 났다」가 된다.
+  //    절반이 안 차면 줄 자체를 그리지 않는다.
+  const list = (minCat && minCat.list) || [];
+  const apply = list.filter(function (t) { return !t.appoint; });
+  const filled = apply.filter(function (t) {
+    const d = t.day || {};
+    return d.sun || d.week || d.sat || t.from || t.freq;
+  }).length;
+  if (!apply.length || filled * 2 < apply.length) return "";
+
+  return '<div class="min-filter">' +
+    minChipRow("언제", "day", MIN_DAYS) +
+    minChipRow("얼마나 자주", "freq", MIN_FREQS) +
+    minChipRow("몇 시쯤", "band", MIN_BANDS) +
+    (minFOn() ? '<button class="min-fclear" id="min-fclear">✕ 조건 지우기</button>' : "") +
+    '</div>';
+}
+
 /* ── ① 부서 고르기 ─────────────────────────────────────────── */
 function minPickHtml() {
   const committees = [];
   for (const t of minCat.list) if (committees.indexOf(t.committee) < 0) committees.push(t.committee);
 
   let acc = "";
+  let shownN = 0;
   for (const c of committees) {
-    const mine = minCat.list.filter(function (t) { return t.committee === c; });
+    const all = minCat.list.filter(function (t) { return t.committee === c; });
+    // ⚠️ 고른 것은 필터를 타지 않는다(minShown) — 숨기면 뺄 수가 없어진다
+    const mine = minFOn() ? all.filter(minShown) : all;
+    if (!mine.length) continue;                    // 하나도 안 걸린 위원회는 통째로 뺀다
+    shownN += mine.length;
     const got = mine.filter(function (t) {
       return minPicked.indexOf(t.id) >= 0 || minLockedIds.indexOf(t.id) >= 0;
     }).length;
@@ -9006,7 +9103,11 @@ function minPickHtml() {
     acc += '<div class="min-acc' + (open ? " open" : "") + '">' +
       '<button class="min-acc-h" data-acc="' + minEsc(c) + '" aria-expanded="' + open + '">' +
         '<span>' + minEsc(c) + (got ? ' <span class="min-got">' + got + '개 선택</span>' : "") + '</span>' +
-        '<span class="min-n">' + mine.length + '팀 ' + (open ? "▴" : "▾") + '</span></button>';
+        '<span class="min-n">' +
+        (minFOn() && mine.length < all.length
+          ? all.length + '팀 중 <b>' + mine.length + '팀</b>'
+          : mine.length + '팀') +
+        ' ' + (open ? "▴" : "▾") + '</span></button>';
     if (open) {
       acc += '<div class="min-acc-b">';
       let lastGrp = null;                                // null = 아직 아무 묶음도 안 열림
@@ -9064,9 +9165,17 @@ function minPickHtml() {
           ? ' 그중 <b>미채택 ' + (minLocked.length - minHeld()) + '건</b>은 자리를 도로 내놓았어요.' : "") +
         ' <b>남은 ' + Math.max(0, MIN_MAX - minHeld()) + '자리</b>만 고르시면 됩니다.</div>'
       : "") +
+    minFilterHtml() +
+    (minFOn()
+      ? '<div class="min-fnum">지금 <b>' + shownN + '팀</b> 보임</div>'
+      : "") +
     '<div class="min-count' + (minPicked.length ? " has" : "") + '">' +
       (minHeld() + minPicked.length) + ' / ' + MIN_MAX + ' 선택' + '</div>' +
-    '<div class="min-acc-wrap">' + acc + '</div>' +
+    (acc
+      ? '<div class="min-acc-wrap">' + acc + '</div>'
+      // ⚠️ 「조건을 바꿔 보세요」는 도움이 안 된다 — 바꿀 후보를 짚어 드려야 한다
+      : '<div class="min-none">고르신 조건에 맞는 사역이 없어요' +
+        minFHintHtml() + '</div>') +
     // 신청현황 화면과 **같은 자리·같은 모양** — 남색이 지금 할 일, 흰 바탕이 되돌아가기.
     // 이미 낸 것이 있으면 돌아갈 길을 둔다: 없으면 목록에 갇힌다.
     '<div class="min-acts">' +
@@ -9077,6 +9186,34 @@ function minPickHtml() {
         : "") +
       (minMine ? '<button class="min-ghost" id="min-tomine">← 내 신청으로</button>' : "") +
     '</div>';
+}
+
+// 켜진 칩을 하나씩 빼 보고 **1팀 이상 남는 것만** 단추로 만든다.
+// ⚠️ 0인 후보를 내놓으면 눌렀는데 또 빈 화면이라 두 번 속는 것이 된다.
+function minFHintHtml() {
+  const list = (minCat && minCat.list) || [];
+  const keep = JSON.stringify(minF);
+  const outs = [];
+  for (const axis of ["day", "freq", "band"]) {
+    for (const k of minF[axis].slice()) {
+      minF[axis] = minF[axis].filter(function (x) { return x !== k; });
+      const n = list.filter(function (t) { return !t.appoint && minShown(t); }).length;
+      minF = JSON.parse(keep);
+      if (n > 0) outs.push({ axis: axis, k: k, n: n });
+    }
+  }
+  const lab = function (axis, k) {
+    if (axis === "freq") return k;
+    const src = axis === "day" ? MIN_DAYS : MIN_BANDS;
+    const hit = src.filter(function (x) { return x.k === k; })[0];
+    return hit ? hit.t : k;
+  };
+  return '<div class="min-none-b">' +
+    outs.slice(0, 3).map(function (o) {
+      return '<button class="min-ghost" data-fdrop="' + o.axis + '|' + minEsc(o.k) + '">' +
+        '「' + minEsc(lab(o.axis, o.k)) + '」만 빼면 <b>' + o.n + '팀</b></button>';
+    }).join("") +
+    '<button class="min-ghost" id="min-fclear2">✕ 조건 모두 지우기</button></div>';
 }
 
 function wireMinPick(u) {
@@ -9093,6 +9230,28 @@ function wireMinPick(u) {
     });
   }
   minWireMore();
+  for (const b of document.querySelectorAll("[data-f]")) {
+    b.addEventListener("click", function () {
+      const axis = this.getAttribute("data-f"), k = this.getAttribute("data-k");
+      const i = minF[axis].indexOf(k);
+      if (i >= 0) minF[axis].splice(i, 1); else minF[axis].push(k);
+      renderMinistry(window.scrollY);
+    });
+  }
+  for (const b of document.querySelectorAll("[data-fdrop]")) {
+    b.addEventListener("click", function () {
+      const p = this.getAttribute("data-fdrop").split("|");
+      minF[p[0]] = minF[p[0]].filter(function (x) { return x !== p[1]; });
+      renderMinistry(0);
+    });
+  }
+  for (const id of ["min-fclear", "min-fclear2"]) {
+    const b = document.getElementById(id);
+    if (b) b.addEventListener("click", function () {
+      minF = { day: [], freq: [], band: [] };
+      renderMinistry(0);
+    });
+  }
   const go = document.getElementById("min-next");
   if (go) go.addEventListener("click", function () { minStep = "confirm"; renderMinistry(); });
   const back = document.getElementById("min-tomine");

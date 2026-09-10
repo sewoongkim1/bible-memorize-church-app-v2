@@ -4466,6 +4466,33 @@ body.pr-full-on { overflow: hidden; }
   border-top: 1px solid var(--border); }
 /* 묶음 머리 — 이름은 제목, 안내는 그 아래 딱지. 한 줄에 이어 붙이면
    「사랑부·어와나 · 어와나 4개 중 하나만 신청」처럼 한 문장으로 읽힌다. */
+/* ── 필터 ──────────────────────────────────────────────────────
+   ⚠️ 새 색을 만들지 않는다 — 켜진 칩만 남색(앱 안 기능 색), 꺼진 칩은 흰 바탕.
+   ⚠️ 칩은 팀 단추보다 **한 단계 작게**. 같은 크기면 「이걸 눌러야 하나」가 흐려진다. */
+.min-filter { background: var(--light); border-radius: 12px; padding: 10px 12px 12px; margin-bottom: 10px; }
+/* ⚠️ 이름표를 칩 **위**에 둔다. 왼쪽에 두면 「얼마나 자주」가 두 줄로 깨지고,
+   폭이 좁은 폰일수록 칩이 쓸 자리를 이름표가 먹는다. */
+.min-fr { margin-top: 9px; }
+.min-fr:first-child { margin-top: 0; }
+.min-fr-l { display: block; margin-bottom: 4px; font-size: .74rem; font-weight: 800;
+  color: var(--gray); letter-spacing: .03em; }
+.min-fr-c { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 5px; }
+.min-chip { font: inherit; font-size: .8rem; font-weight: 700; color: var(--gray);
+  background: var(--white); border: 1.5px solid var(--border); border-radius: 999px;
+  padding: 5px 11px; cursor: pointer; }
+.min-chip.on { color: #fff; background: var(--navy); border-color: var(--navy); }
+.min-fclear { display: block; margin: 9px 0 0 auto; font: inherit; font-size: .78rem;
+  font-weight: 700; color: var(--gray); background: none; border: none; cursor: pointer; }
+.min-fnum { text-align: right; font-size: .82rem; color: var(--gray); margin: 0 2px 4px; }
+.min-fnum b { color: var(--navy); }
+.min-none { background: var(--white); border: 1.5px dashed var(--border); border-radius: 12px;
+  padding: 22px 16px; text-align: center; font-size: .95rem; font-weight: 700; color: var(--navy); }
+.min-none-b { display: flex; flex-direction: column; gap: 7px; margin-top: 14px; }
+.min-none-b .min-ghost { font-size: .86rem; padding: 11px; }
+.dark .min-filter { background: #1e2637; }
+.dark .min-chip { background: #232c3f; border-color: #3a4a68; color: #b9c4d8; }
+.dark .min-none { background: #232c3f; border-color: #3a4a68; color: #cfe0ff; }
+
 .min-grp { margin: 10px 0 0; padding: 7px 10px 8px;
   background: #eef1f8; border-radius: 9px 9px 0 0; border-bottom: 2px solid var(--navy); }
 .min-grp-h { font-size: .86rem; font-weight: 800; color: var(--navy); }
