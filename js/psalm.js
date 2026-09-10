@@ -135,6 +135,16 @@ function drawPsalmHome() {
   psalmHomeDay = shown.dayNo;
   const prev = psalmVerses.find((v) => v.dayNo === shown.dayNo - 1) || null;
   const next = psalmVerses.find((v) => v.dayNo === shown.dayNo + 1) || null;
+  // 마지막 편에서 「다음」은 **처음으로 돌아간다** — 성도님 요청(2026-09-10).
+  // 그전에는 「오늘 열린 말씀은 여기까지예요」라고만 하고 멈춰서, 지난 편을 다시 보려면
+  // 「◀ 이전」을 열 번 눌러야 했다. 되돌아가면 한 번에 1일차로 간다.
+  // ⚠️ **next 가 없다고 마지막인 것은 아니다** — 어떤 일차가 안 실리면(자료가 비거나
+  //    is_active 가 꺼지면) 가운데 편에서도 next 가 null 이 된다. 거기서 처음으로 튀면
+  //    「다음을 눌렀는데 1일차」가 된다. 그래서 **실제로 가장 큰 일차일 때만** 되돌아간다.
+  // ⚠️ 열린 편이 하나뿐이면(개시 첫날) 되돌아갈 데가 자기 자신이라 그대로 안내를 띄운다.
+  const days = psalmVerses.map((v) => v.dayNo);
+  const toFirst = (!next && psalmVerses.length > 1 && shown.dayNo === Math.max(...days))
+    ? psalmVerses.find((v) => v.dayNo === Math.min(...days)) : null;
 
   // ⚠️ 끝에 닿은 「이전·다음」도 눌리게 둔다(흐리게만 한다) — 눌러도 반응이 없으면 어르신은
   //    고장으로 읽으신다. 대신 왜 안 되는지 알려 준다(순위 응원 칩과 같은 원칙).
@@ -146,7 +156,7 @@ function drawPsalmHome() {
     <div class="ps-home-nav">
       <button class="ps-hn-btn${prev ? "" : " off"}" id="ps-h-prev">◀ 이전</button>
       <button class="ps-hn-btn go" id="ps-h-go">암송</button>
-      <button class="ps-hn-btn${next ? "" : " off"}" id="ps-h-next">다음 ▶</button>
+      <button class="ps-hn-btn${(next || toFirst) ? "" : " off"}" id="ps-h-next">${toFirst ? "처음으로" : "다음 ▶"}</button>
     </div>`;
   psalmWireHomeBack();
 
@@ -156,7 +166,9 @@ function drawPsalmHome() {
     if (prev) flip(prev); else say("첫 번째 말씀이에요.");
   });
   document.getElementById("ps-h-next").addEventListener("click", () => {
-    if (next) flip(next); else say("오늘 열린 말씀은 여기까지예요. 내일 한 편이 더 열려요.");
+    if (next) flip(next);
+    else if (toFirst) flip(toFirst);
+    else say("오늘 열린 말씀은 여기까지예요. 내일 한 편이 더 열려요.");
   });
   document.getElementById("ps-h-go").addEventListener("click", () => psalmStartMemorize(shown));
 }
