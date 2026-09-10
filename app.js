@@ -6974,12 +6974,20 @@ function renderChallenge(verse, hard) {
 //    시편은 아직 안 받았을 수 있으니 필요할 때만 기다린다.
 async function startReview() {
   const dueNos = dueReviewNos();
+  let psalmLoadFailed = false;
   if (dueNos.some(isPsalmNo)) {
-    try { await loadPsalmVerses(); } catch (e) { /* 못 받으면 주간 것만이라도 복습한다 */ }
+    // 못 받으면 주간 것만이라도 복습한다 — 다만 그 결과 큐가 통째로 비면(시편만
+    // 복습 대상이었다는 뜻) 아래에서 안내한다(2026-09-10 리뷰 지적 — 안 그러면
+    // 큰 단추를 눌러도 화면이 그대로라 어르신은 고장인 줄 알고 다시 누르신다).
+    try { await loadPsalmVerses(); } catch (e) { psalmLoadFailed = true; }
   }
   const pool = verses.concat(psalmVerses || []);
   const queue = pool.filter((v) => dueNos.includes(v.no));
-  if (!queue.length) { renderSummary(); return; }
+  if (!queue.length) {
+    if (psalmLoadFailed) { appAlert("불러오지 못했어요. 잠시 뒤 다시 눌러 주세요."); return; }
+    renderSummary();
+    return;
+  }
   renderReview(queue, 0);
 }
 
@@ -8171,6 +8179,14 @@ function toggleAlbumChecked(no) {
   return i < 0; // 이번에 확인 표시가 켜졌으면 true
 }
 
+// 앨범 카드 안 조작(🔊 듣기·📖 암송·힌트 되돌리기)이 쓰는 단일 찾기 창구.
+// ⚠️ 시편(no > 1000)은 전역 verses 에 없다 — verses.find 만 쓰면 "전부" 트랙에서
+//    주간 카드는 되고 시편 카드만 조용히 죽는다(2026-09-10 리뷰 지적).
+function albumFind(no) {
+  no = Number(no);
+  return verses.find((x) => x.no === no) || (psalmVerses || []).find((x) => x.no === no) || null;
+}
+
 function renderAlbum() {
   const u = loadUser();
   const appEl = document.getElementById("app");
@@ -8245,11 +8261,17 @@ function renderAlbum() {
         `<button class="atk${albumTrack === k ? " on" : ""}" data-track="${k}">${label}</button>`).join("")}
     </div>`;
 
+  // 시편에는 「마음에 둠」 체크가 없어 hearted.length 가 늘 0이다(구조적으로 그렇다) —
+  // 그 배너를 그대로 두면 시편 트랙에서 매번 "0구절을 마음에 두었습니다"로 읽힌다.
+  const bannerHtml = albumTrack === "psalm"
+    ? `<div class="ab-line"><b class="ab-num">${done.length}</b>편 마쳤어요</div>`
+    : `<div class="ab-line"><b class="ab-num">${hearted.length}</b>구절을 마음에 두었습니다 👑</div>`;
+
   appEl.innerHTML = `
     <div class="album-screen">
       <h2 class="rank-title">📖 나의 말씀 앨범</h2>
       <div class="album-banner">
-        <div class="ab-line"><b class="ab-num">${hearted.length}</b>구절을 마음에 두었습니다 👑</div>
+        ${bannerHtml}
       </div>
       ${trackChips}
       <div class="rank-filter album-quiz" id="ab-quiz">
@@ -8358,15 +8380,21 @@ function renderAlbum() {
   appEl.querySelectorAll(".album-listen").forEach((s) =>
     s.addEventListener("click", (e) => {
       e.stopPropagation(); // 카드 열기(확인/암송)와 겹치지 않게
-      const v = verses.find((x) => x.no === Number(s.dataset.listen));
+      const v = albumFind(s.dataset.listen);
       if (!v) return;
       if (window.speechSynthesis && window.speechSynthesis.speaking) { stopSpeaking(); return; }
       speakText(verseSpokenText(v), null, 1, isEnMode(v) ? "en-US" : "ko-KR");
     }));
 
+  // ⚠️ 시편은 startTest(v) 로 보내면 안 된다 — renderCompleteNav 가 verses.findIndex
+  //    = -1 을 받아 「이전/다음」이 엉키고, checkAllComplete 가 onDone 없이 돌아
+  //    showStageDoneModal 이 주간 구절을 찾는다. 그래서 시편은 암송 화면 자체가
+  //    다른 renderPsalmStage(v, 0) 으로 간다.
   const goTest = (no) => {
-    const v = verses.find((x) => x.no === Number(no));
-    if (v) { albumPlayStop(); startTest(v); }
+    const v = albumFind(no);
+    if (!v) return;
+    albumPlayStop();
+    if (isPsalmNo(v.no)) renderPsalmStage(v, 0); else startTest(v);
   };
   appEl.querySelectorAll(".album-go").forEach((s) =>
     s.addEventListener("click", (e) => { e.stopPropagation(); goTest(s.dataset.go); }));
@@ -8375,7 +8403,7 @@ function renderAlbum() {
   // 힌트는 blur가 아니라 글자 자체를 바꾼 것이라 본문을 직접 갈아끼운다.
   const setText = (c, hinted) => {
     if (!albumHint) return;
-    const v = verses.find((x) => x.no === Number(c.dataset.no));
+    const v = albumFind(c.dataset.no);
     const el = c.querySelector(".album-text");
     if (v && el) el.textContent = hinted ? firstCharHint(verseText(v)) : verseText(v);
   };

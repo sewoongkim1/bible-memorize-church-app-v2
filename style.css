@@ -4679,7 +4679,10 @@ body.pr-full-on { overflow: hidden; }
 .ps-wrap{
   max-width:520px;margin:0 auto;padding:14px 14px calc(96px + env(safe-area-inset-bottom,0px));
 }
-.ps-loading,.ps-soon{text-align:center;padding:48px 16px;color:var(--ink2,#4a5560)}
+/* ⚠️ --ink2 는 이 저장소 어디에도 정의돼 있지 않다(2026-09-10 리뷰 지적) — 늘 폴백
+   #4a5560 만 쓰였고 어두운 모드에서 안 바뀌었다. --gray 는 이미 있고 .dark 가 이미
+   재정의해 두었다(#6b7280 → #9aa6b8) — 그걸 받으면 별도 .dark 규칙 없이도 맞는다. */
+.ps-loading,.ps-soon{text-align:center;padding:48px 16px;color:var(--gray)}
 .ps-soon-icon{font-size:44px}
 .ps-soon-t{font-size:20px;font-weight:700;color:var(--navy,#1a3a6b);margin-top:10px}
 .ps-soon-s{margin-top:6px}
@@ -4687,7 +4690,7 @@ body.pr-full-on { overflow: hidden; }
 .ps-head{display:flex;align-items:center;gap:10px;margin:2px 0 12px}
 .ps-day{background:var(--navy,#1a3a6b);color:#fff;border-radius:999px;padding:3px 12px;
         font-size:14px;font-weight:700}
-.ps-total,.ps-step{color:var(--ink2,#4a5560);font-size:14px}
+.ps-total,.ps-step{color:var(--gray);font-size:14px}
 .ps-back{margin-left:auto;background:none;border:none;color:var(--navy,#1a3a6b);
          font-size:15px;padding:13px 10px;cursor:pointer}
 
@@ -4699,6 +4702,9 @@ body.pr-full-on { overflow: hidden; }
 }
 .ps-fr-gold{--ps-fr:#c3a253}
 .ps-fr-navy{--ps-fr:#1a3a6b}
+/* 어두운 모드 — 군청 겉선은 그대로면 바탕에 묻힌다. 기도문 액자(.pr-full.pr-fr-navy)의
+   어두운 값과 같은 색이다 — 액자끼리 톤이 갈리지 않게. 금색은 그대로 둔다(기도문도 같다). */
+.dark .ps-fr-navy{--ps-fr:#6f8fc4}
 .ps-fr-in{
   position:relative;z-index:1;
   border:1px solid color-mix(in srgb, var(--ps-fr) 45%, transparent);
@@ -4729,19 +4735,16 @@ body.pr-full-on { overflow: hidden; }
 .ps-pos-d .ps-leaf.l{left:-8px;top:-10px;transform:rotate(180deg)}
 .ps-pos-d .ps-leaf.r{display:none}
 
-/* 어두운 모드 — 수채화를 그대로 두면 「때 묻은 얼룩」이 된다.
-   screen 혼합도 소용없었다(잎가지가 중간 톤이라 거의 안 뜬다).
-   흐린 워터마크로 만든다. 다시 색을 살리려 하지 말 것. */
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]) .ps-frame{background:#161a21}
-  :root:not([data-theme="light"]) .ps-fr-body{color:#dde5f0}
-  :root:not([data-theme="light"]) .ps-fr-ref{text-shadow:0 0 2px #161a21,0 0 4px #161a21}
-  :root:not([data-theme="light"]) .ps-leaf{filter:grayscale(1) brightness(2.6);opacity:.28}
-}
-:root[data-theme="dark"] .ps-frame{background:#161a21}
-:root[data-theme="dark"] .ps-fr-body{color:#dde5f0}
-:root[data-theme="dark"] .ps-fr-ref{text-shadow:0 0 2px #161a21,0 0 4px #161a21}
-:root[data-theme="dark"] .ps-leaf{filter:grayscale(1) brightness(2.6);opacity:.28}
+/* 어두운 모드 — ⚠️ 이 앱은 prefers-color-scheme 도 data-theme 도 쓰지 않는다(2026-09-10
+   리뷰 지적). 어두운 모드는 <html class="dark"> 하나뿐이다(app.js 가 토글) — 그래서
+   위 두 방식은 폰 OS 설정만 보거나 영영 안 걸리는 죽은 규칙이었다. 값은 그대로 두고
+   셀렉터만 이 저장소가 실제로 쓰는 방식(.dark)으로 바꾼다 — 기도문 액자(.pr-full)와
+   같은 방식. 수채화를 그대로 두면 「때 묻은 얼룩」이 된다 — screen 혼합도 소용없었다
+   (잎가지가 중간 톤이라 거의 안 뜬다). 흐린 워터마크로 만든다. 다시 색을 살리려 하지 말 것. */
+.dark .ps-frame{background:#161a21}
+.dark .ps-fr-body{color:#dde5f0}
+.dark .ps-fr-ref{text-shadow:0 0 2px #161a21,0 0 4px #161a21}
+.dark .ps-leaf{filter:grayscale(1) brightness(2.6);opacity:.28}
 
 /* --- 단추 --- */
 .ps-go{
@@ -4754,7 +4757,7 @@ body.pr-full-on { overflow: hidden; }
   background:#fff;color:var(--navy,#1a3a6b);border:1px solid #cfd8e4;border-radius:10px;
   padding:10px 18px;font-size:16px;cursor:pointer;min-height:46px;
 }
-.ps-progress{text-align:center;color:var(--ink2,#4a5560);font-size:15px;margin:4px 0 2px}
+.ps-progress{text-align:center;color:var(--gray);font-size:15px;margin:4px 0 2px}
 .ps-progress b{color:var(--navy,#1a3a6b)}
 .ps-catch{text-align:center;color:#8a6216;background:#fff8ec;border:1px solid #e8c98a;
           border-radius:8px;padding:9px 12px;font-size:14px;margin:10px 0}
@@ -4770,10 +4773,10 @@ body.pr-full-on { overflow: hidden; }
 .ps-acc[hidden]{display:none}
 .ps-past-row{
   display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;
-  background:none;border:none;border-bottom:1px solid #eee7d8;font-size:16px;
+  background:none;border:none;border-bottom:1px solid var(--border,#eee7d8);font-size:16px;
   text-align:left;cursor:pointer;
 }
-.ps-past-day{color:var(--ink2,#4a5560);font-size:13px;min-width:46px}
+.ps-past-day{color:var(--gray);font-size:13px;min-width:46px}
 .ps-past-ref{flex:1;color:var(--navy,#1a3a6b)}
 .ps-past-mark{min-width:20px;text-align:right}
 
@@ -4799,21 +4802,38 @@ body.pr-full-on { overflow: hidden; }
 .ps-wrap .card-tray{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:14px}
 .ps-wrap:not(.ps-card-on) .card-tray{display:none}
 
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]) .ps-fr-body .word-input{background:#1d2430;border-bottom-color:#4a5666;color:#dde5f0}
-}
+.dark .ps-fr-body .word-input{background:#1d2430;border-bottom-color:#4a5666;color:#dde5f0}
 
 .ps-done{text-align:center;padding-top:26px}
 .ps-done-icon{font-size:52px}
 .ps-done-t{font-size:24px;font-weight:700;color:var(--navy,#1a3a6b);margin-top:8px}
-.ps-done-ref{font-size:16px;color:var(--ink2,#4a5560);margin-top:4px}
+.ps-done-ref{font-size:16px;color:var(--gray);margin-top:4px}
 .ps-done-s{margin-top:12px;color:#3f6b4a;background:#f0f6f0;border:1px solid #bcd6bc;
            border-radius:9px;padding:11px 14px;font-size:15px}
-.ps-done-bar{margin:16px 0 4px;color:var(--ink2,#4a5560);font-size:15px}
+.ps-done-bar{margin:16px 0 4px;color:var(--gray);font-size:15px}
 .ps-done-bar b{color:var(--navy,#1a3a6b)}
 .ps-done-wait{margin:16px 0;color:#8a6216;background:#fff8ec;border:1px solid #e8c98a;
               border-radius:9px;padding:12px 14px;font-size:15px}
 .ps-next-ref{display:block;font-size:14px;font-weight:400;opacity:.85;margin-top:3px}
+
+/* 어두운 모드 — 액자 밖 요소들. 값은 이 화면(.dark .album-track 바로 위 참고)·기도문
+   (.pr-*)·본문 답 패널(.answer-panel 계열, 2705~2727줄)이 이미 쓰는 값을 그대로 받는다 —
+   새 색을 만들면 화면끼리 톤이 어긋난다. (2026-09-10 리뷰 지적 — 위 두 줄까지는
+   .dark 규칙이 아예 없거나 죽은 셀렉터(data-theme·prefers-color-scheme)였다.) */
+.dark .ps-back,
+.dark .ps-past-ref,
+.dark .ps-progress b,
+.dark .ps-done-t,
+.dark .ps-done-bar b{ color:#cdd9f2; }
+.dark .ps-tool,
+.dark .ps-acc-btn{ background:#232c3f; color:#cdd9f2; border-color:#3a4a68; }
+.dark .ps-catch,
+.dark .ps-done-wait{ background:#211d12; border-color:#6b5a2c; color:#ddd0a8; }
+.dark .ps-done-s{ background:#17301f; border-color:#2c5f2d; color:#bfe6c9; }
+.dark .ps-answer{ background:#232c3f; border-color:#33405a; }
+.dark .ps-answer-t{ color:var(--gold); }
+.dark .ps-answer-b{ color:#dde5f0; }
+.dark .ps-answer-b strong{ color:#cdd9f2; }
 
 .album-track{display:flex;gap:6px;justify-content:center;margin:10px 0 6px}
 .album-track .atk{
@@ -4827,6 +4847,14 @@ body.pr-full-on { overflow: hidden; }
 .dark .album-track .atk:hover{background:#2e3a52;color:#fff}
 .dark .album-track .atk.on{background:#3a4a68;color:#fff}
 .ps-tool.ps-wide{display:block;width:100%;margin-top:8px}
+
+/* ⚠️ 글씨 크기 설정이 액자 글씨 계산을 무력화하던 문제(2026-09-10 리뷰 지적):
+   html[data-fs="xl"] .word-input { font-size:27px }         특이도 (0,2,1)
+   .ps-fr-body .word-input { font-size:inherit }              특이도 (0,2,0) — 진다
+   순서와 무관하게 앞이 이겨서, 「크게」·「아주 크게」를 고른 분께는 빈칸만 23~31px로
+   고정되고 고정 글자(계산값 20~40px, js/psalm.js 의 psalmFitFont)는 그대로라 한
+   문장 안에 두 크기가 섞였다. 아래로 특이도를 (0,3,1)까지 올려 이긴다. */
+html[data-fs] .ps-fr-body .word-input{ font-size:inherit; }
 
 /* ============================================================
    이벤트 플랫폼 (분기 회차) — 2026-09-10

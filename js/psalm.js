@@ -198,10 +198,25 @@ function psalmUsablePx(vw) {
   return line * 5 * PSALM_WASTE;
 }
 
+// 글씨 크기 설정(⚙️ 「크게」·「아주 크게」)이 상한을 밀어 올린다. 안 올리면 그 설정을
+// 켠 분에게는 빈칸(.word-input, style.css의 html[data-fs] 규칙)만 23~31px로 고정되고
+// 고정 글자(이 함수의 계산값)는 그대로라 한 문장 안에 두 크기가 섞인다
+// (CLAUDE.md 「어려운 도전」이 적어 둔 함정의 재발 — 2026-09-10 리뷰 지적).
+// ⚠️ 다섯 줄 예산을 넘기지 않는다 — psalmFitFont는 늘 `min(상한, 이상적값)`을 쓴다.
+//    이상적값(psalmUsablePx(vw)/w)은 "다섯 줄에 꼭 맞는" 폰트다. 상한을 올려도
+//    실제로 쓰이는 값은 여전히 그 이상적값을 넘지 못한다 — 이상적값이 상한보다
+//    작으면 그대로 쓰이고(전과 같다), 크면 상한이 쓰이는데 상한 < 이상적값이라
+//    실제 필요한 폭보다 좁게 잡혀 다섯 줄 안에 들어간다. 즉 상한을 얼마나 올리든
+//    "다섯 줄을 넘기는" 방향으로는 절대 움직이지 않는다.
+function psalmFsCap() {
+  const fs = document.documentElement.getAttribute("data-fs");
+  return fs === "xl" ? 6 : fs === "lg" ? 3 : 0;
+}
+
 function psalmFitFont(verse, vw) {
   const w = psalmWidthEm(verse.text);
   if (!w) return 28;
-  return Math.round(Math.max(20, Math.min(34, psalmUsablePx(vw) / w)));
+  return Math.round(Math.max(20, Math.min(34 + psalmFsCap(), psalmUsablePx(vw) / w)));
 }
 
 function psalmEsc(s) {
@@ -396,8 +411,12 @@ function psalmStageDone(verse, stage, cardUsed) {
     //    카드로 풀었어도 `review-typing` 으로 남긴다 — 구분보다 기록이 먼저다.
     //    구분하고 싶으면 supabase/migrate_modes_card.sql 에 그 값을 **먼저** 더한다.
     postChallenge(verse, "review-typing");
-    if (idx + 1 < queue.length) return renderReview(queue, idx + 1);
-    return renderSummary();
+    // ⚠️ 주간 복습(renderReview)과 같은 경로(reviewNext)를 타야 한다 — 여기서 직접
+    //    renderReview/renderSummary 로 가르면 큐의 마지막 구절일 때 renderReviewDone
+    //    (「🎉 복습 완료!」)을 건너뛰고 첫 화면으로 바로 떨어진다. 시편은 늘 큐의 뒤쪽이라
+    //    (startReview 의 pool = verses.concat(psalmVerses)) 시편 복습이 하나라도 있으면
+    //    매번 축하 없이 끝나고 있었다(2026-09-10 리뷰 지적). stopSpeaking()도 reviewNext가 한다.
+    return reviewNext(queue, idx);
   }
   const wasFirst = psalmWasFirst();
   // ⚠️ 카드 여부는 실제 클릭 횟수가 아니라 isCardMode() 로 본다 — 주간 암송
@@ -406,6 +425,11 @@ function psalmStageDone(verse, stage, cardUsed) {
   //    "카드로 채웠다"가 이 조합에서는 동치다.
   saveProgress(verse.no, stage, cardUsed ? "card" : "typing");
   if (stage < 3) return renderPsalmStage(verse, stage + 1);
+  // 「반복해서 쓰기」가 켜져 있으면 완료 화면을 건너뛰고 바로 새 3단계로 — 주간 암송
+  // (checkAllComplete)과 같은 동작. 켜 둔 설정을 새 기능이 조건부로 무시하면 안 된다
+  // (v3.181→182 되돌림 사례와 같은 원칙, 2026-09-10 리뷰 지적). 진도 저장(saveProgress)은
+  // 이미 위에서 끝났다 — 여기서 또 저장하지 않는다.
+  if (isRepeatPractice()) return renderPsalmBlank(verse, 3);
   renderPsalmDone(verse, wasFirst);   // 3단계면 복습은 saveProgress 안에서 이미 예약됐다
 }
 
