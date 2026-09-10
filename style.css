@@ -5158,3 +5158,17 @@ html[data-fs="xl"] .ps-fr-ref{font-size:1.45rem}
 body:has(#update-banner) .ps-wrap.ps-home{
   padding-bottom:calc(24px + 68px + env(safe-area-inset-bottom,0px));
 }
+
+/* ⚠️ 도구 단추 줄(보기 · 🔊 듣기 · 👆 카드)을 **첫 화면 단추 줄과 같은 폭**으로 —
+   성도님 요청(2026-09-10, 화면 첨부). 그전에는 flex + justify-content:center 라
+   **글자 길이만큼만** 넓어져 「보기」는 좁고 「🔊 듣기」는 넓은, 크기가 제각각인 줄이었다.
+   첫 화면의 .ps-home-nav 는 화면 폭을 꽉 채우는 격자인데 여기만 가운데 모인 알약들이라
+   같은 코너인데 다른 화면처럼 보였다.
+   grid-auto-columns:1fr 이라 **단추가 몇 개든 똑같이 나눠 갖는다** — 1·2·3단계의 세 개는
+   삼등분, 0단계의 「🔊 들어보기」와 정답 화면의 「돌아가서 계속하기」는 하나뿐이라 한 줄을
+   다 쓴다(바로 아래 .ps-go 「다음 →」도 width:100% 라 그 둘이 나란히 맞는다).
+   ⚠️ 개수를 세어 규칙을 나누지 말 것 — 단추가 넷이 되는 날 조용히 어긋난다. */
+.ps-tools{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:8px;margin-top:12px}
+/* 좁은 칸(320px 폰이면 한 칸 92px)에서 두 줄로 접히면 그 단추만 키가 커져 다시 제각각이
+   된다 — 첫 화면 .ps-hn-btn 과 같이 한 줄로 못 박는다. */
+.ps-tool{white-space:nowrap}
