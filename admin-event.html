@@ -238,8 +238,8 @@ function evChipsHtml(){
 function evFormHtml(ev){
   // ⚠️ 여기서 읽는 칸은 eventRoster 가 **전부** 돌려줘야 한다. 하나라도 빠지면
   //    빈 칸으로 그려지고 저장하는 순간 원래 값이 지워진다.
-  const v = ev || { id:"", title:"", subtitle:"", season:"", kind:"signup",
-                    opensOn:"", closesOn:"", status:"draft", sortOrder:0 };
+  const v = ev || { id:"", title:"", shortTitle:"", subtitle:"", season:"", kind:"signup",
+                    opensOn:"", closesOn:"", status:"draft", sortOrder:0, listUntil:"" };
   return `<div class="card no-print">
     <h2>${ev ? "회차 고치기" : "새 회차 만들기"}</h2>
     <p class="sub">
@@ -257,8 +257,12 @@ function evFormHtml(ev){
       </div>
       <div><label for="f-opens">시작일</label><input id="f-opens" type="date" value="${esc(v.opensOn)}" /></div>
       <div><label for="f-closes">마감일</label><input id="f-closes" type="date" value="${esc(v.closesOn)}" /></div>
-      <div class="wide"><label for="f-title">이벤트 이름</label>
+      <div><label for="f-until">명단 공개 종료일 <span style="font-weight:400;color:#8a93a3">(비우면 계속)</span></label>
+        <input id="f-until" type="date" value="${esc(v.listUntil||"")}" /></div>
+      <div class="wide"><label for="f-title">이벤트 이름 <span style="font-weight:400;color:#8a93a3">(관리자 목록·명단 제목)</span></label>
         <input id="f-title" value="${esc(v.title)}" placeholder="2026 썸머 써 바이블 완서자 등록" /></div>
+      <div class="wide"><label for="f-short">첫 화면 단추 이름 <span style="font-weight:400;color:#8a93a3">(비우면 위 이름을 그대로)</span></label>
+        <input id="f-short" value="${esc(v.shortTitle||"")}" placeholder="썸머 써 바이블" maxlength="20" /></div>
       <div class="wide"><label for="f-sub">한 줄 설명 <span style="font-weight:400;color:#8a93a3">(안 써도 됩니다)</span></label>
         <input id="f-sub" value="${esc(v.subtitle||"")}" /></div>
       <div><label for="f-season">분기 표기</label>
@@ -270,6 +274,12 @@ function evFormHtml(ev){
       <button class="btn p" id="f-save">${ev ? "고치기" : "만들기"}</button>
       ${ev ? `<button class="btn" id="f-new">+ 새 회차</button>` : ""}
     </div>
+    ${ev && !ev.listedNow ? `<div class="note" style="background:#fbeeec;border-color:#e6bdb6;color:#a8322a">
+      <b>지금 성도님께 안 보입니다.</b> ${
+        ev.status === "draft" ? "상태가 <b>준비 중</b>이라 그렇습니다 — <b>마감</b>이나 <b>열림</b>으로 바꾸면 보입니다."
+        : ev.status === "archived" ? "상태가 <b>보관</b>이라 그렇습니다."
+        : "<b>명단 공개 종료일</b>이 지났습니다 — 날짜를 미루거나 비우면 다시 보입니다."
+      }</div>` : ""}
     <div class="note">회차 ID 는 만든 뒤 바꿀 수 없습니다 — 신청 기록이 이 값으로 묶여 있습니다.
       영문 소문자·숫자·붙임표만 씁니다(예 <b>summer-2026</b>). 이 값이 딥링크에도 그대로 쓰입니다:
       <b>gocheok.onlybible.kr/?ev=summer-2026</b></div>
@@ -442,6 +452,8 @@ async function saveEvent(){
     id: document.getElementById("f-id").value.trim(),
     title: document.getElementById("f-title").value.trim(),
     subtitle: document.getElementById("f-sub").value.trim(),
+    short_title: document.getElementById("f-short").value.trim(),
+    list_until: document.getElementById("f-until").value,
     season: document.getElementById("f-season").value.trim(),
     kind: cur.kind || "signup",
     status: document.getElementById("f-status").value,
@@ -455,6 +467,10 @@ async function saveEvent(){
   if(!ev.title){ err.textContent = "이벤트 이름을 적어 주세요."; return; }
   if(!ev.opens_on || !ev.closes_on){ err.textContent = "기간을 골라 주세요."; return; }
   if(ev.closes_on < ev.opens_on){ err.textContent = "마감일이 시작일보다 앞섭니다."; return; }
+  // 명단 공개 종료일은 등록 마감일보다 앞설 수 없다 — 마감 전에 명단이 사라지면
+  // 앞뒤가 안 맞는다(등록은 받는데 명단은 안 보이는 상태).
+  if(ev.list_until && ev.list_until < ev.closes_on){
+    err.textContent = "명단 공개 종료일이 등록 마감일보다 앞섭니다."; return; }
 
   const btn = document.getElementById("f-save");
   const label = btn.textContent; btn.disabled = true; btn.textContent = "저장 중…";

@@ -3932,6 +3932,21 @@ function evtOpenNow(ev: any, today: string): boolean {
   return ev.status === "open" && today >= ev.opens_on && today <= ev.closes_on;
 }
 
+// 지금 성도님께 **보여 줄** 회차인가.
+// ⚠️ 「등록을 받는가」와 다른 물음이다. 마감된 뒤에도 명단은 계속 보이는 것이 기본이고
+//    (옛 썸머 사이트가 마감되면 조회까지 죽어 막다른 화면이 되던 자리),
+//    `list_until` 이 있으면 그날까지만 보인다. 비어 있으면 기한이 없다.
+function evtListable(ev: any, today: string): boolean {
+  if (ev.status !== "open" && ev.status !== "closed") return false;
+  const until = norm(ev.list_until);
+  return !until || today <= until;
+}
+
+// 화면에 쓸 이름 — 짧은 이름이 있으면 그것을, 없으면 원래 이름을.
+//   title       "2026 썸머 써 바이블 완서자 등록"  ← 관리자 목록·명단 제목(길어도 된다)
+//   short_title "썸머 써 바이블"                 ← 첫 화면 단추(한 줄에 들어가야 한다)
+const evtShown = (ev: any) => norm(ev.short_title) || norm(ev.title);
+
 // 성도에게 돌려줄 참가 기록 한 줄 — 화이트리스트.
 // ⚠️ 스프레드(...r)를 쓰지 않는다. user_id · ident_key · note · 신원 스냅샷이
 //    구조적으로 빠진다(앱은 이미 자기가 누구인지 안다).
@@ -3995,21 +4010,31 @@ async function eventOpenList(b: any) {
   }
   const mineIds = new Set(mine.map((r) => r.event_id));
 
-  const list = rows.map((r) => ({
-    id: r.id,
-    title: r.title,
-    subtitle: r.subtitle ?? "",
-    season: r.season ?? "",
-    kind: r.kind,
-    opensOn: r.opens_on,
-    closesOn: r.closes_on,
-    status: r.status,
-    needs: r.needs ?? {},
-    copy: r.copy ?? {},
-    canSignup: evtOpenNow(r, today),
-    mine: mineIds.has(r.id),
-    sortOrder: r.sort_order ?? 0,
-  }));
+  const list = rows
+    // ⚠️ 명단 공개 종료일이 지난 회차는 목록에서 아예 뺀다 — 관리자는 예외.
+    //    (그래야 첫 화면 단추도 함께 사라진다. 게이트가 이 목록의 길이를 본다.)
+    .filter((r) => isAdmin || evtListable(r, today))
+    .map((r) => ({
+      id: r.id,
+      title: r.title,
+      shortTitle: r.short_title ?? "",
+      shown: evtShown(r),                 // 화면에 쓸 이름(짧은 이름 우선)
+      subtitle: r.subtitle ?? "",
+      season: r.season ?? "",
+      kind: r.kind,
+      opensOn: r.opens_on,
+      closesOn: r.closes_on,
+      listUntil: r.list_until ?? null,
+      status: r.status,
+      needs: r.needs ?? {},
+      copy: r.copy ?? {},
+      canSignup: evtOpenNow(r, today),
+      // 단추에 「등록」이라 쓸지 「조회」라 쓸지 — 서버가 정해서 내려준다.
+      // 화면마다 따로 판단하면 갈라진다.
+      verb: evtOpenNow(r, today) ? "등록" : "조회",
+      mine: mineIds.has(r.id),
+      sortOrder: r.sort_order ?? 0,
+    }));
 
   // 겹칠 때 무엇이 위로 오는지가 곧 「무엇을 먼저 하세요」다.
   //   ① 등록할 수 있고 아직 안 낸 것 ② 마감 가까운 순 ③ sort_order ④ id
@@ -4126,7 +4151,7 @@ async function eventRoster(b: any) {
   //    돌려줘야 한다. 하나라도 빠지면 그 칸이 빈 채로 그려지고, 저장하는 순간
   //    원래 값이 지워진다(2026-09-10 subtitle·kind·sort_order 가 그럴 뻔했다).
   const { data: evs, error: e1 } = await db.from("events")
-    .select("id,title,subtitle,season,kind,status,opens_on,closes_on,sort_order")
+    .select("id,title,short_title,subtitle,season,kind,status,opens_on,closes_on,list_until,sort_order")
     .order("closes_on", { ascending: false });
   if (e1) throw e1;
 
@@ -4149,9 +4174,13 @@ async function eventRoster(b: any) {
   return {
     ok: true,
     events: (evs ?? []).map((e: any) => ({
-      id: e.id, title: e.title, subtitle: e.subtitle ?? "", season: e.season ?? "",
+      id: e.id, title: e.title, shortTitle: e.short_title ?? "",
+      subtitle: e.subtitle ?? "", season: e.season ?? "",
       kind: e.kind, status: e.status, opensOn: e.opens_on, closesOn: e.closes_on,
+      listUntil: e.list_until ?? null,
       sortOrder: e.sort_order ?? 0, count: counts[e.id] ?? 0,
+      // 지금 성도님께 보이는가 — 관리자가 「왜 안 보이지」를 화면에서 바로 알게.
+      listedNow: evtListable(e, evtToday()),
     })),
     rows: (data ?? []).map((r: any) => ({
       id: r.id,
@@ -4206,9 +4235,22 @@ async function eventSave(b: any) {
     ? kindIn : (cur ? cur.kind : "signup");
   const objOf = (v: any) => (v && typeof v === "object" && !Array.isArray(v)) ? v : {};
 
+  // 명단 공개 종료일 — 비우면 기한 없음(null). 값이 있으면 날짜 꼴이어야 하고,
+  // 등록 마감일보다 앞설 수 없다(마감 전에 명단이 사라지면 앞뒤가 안 맞는다).
+  let listUntil: string | null = cur ? (cur.list_until ?? null) : null;
+  if (has("list_until")) {
+    const v = norm(e.list_until);
+    if (!v) listUntil = null;
+    else if (!dateOk(v)) return { ok: false, error: "bad-list-until" };
+    else if (v < closes) return { ok: false, error: "list-until-before-close" };
+    else listUntil = v;
+  }
+
   const row = {
     id,
     title,
+    short_title: has("short_title") ? norm(e.short_title) : (cur ? cur.short_title : ""),
+    list_until: listUntil,
     subtitle: has("subtitle") ? norm(e.subtitle) : (cur ? cur.subtitle : ""),
     season: has("season") ? norm(e.season) : (cur ? cur.season : ""),
     kind,
@@ -4254,11 +4296,12 @@ async function eventRosterPublic(b: any) {
   if (!EVT_ID_RE.test(eventId)) return { ok: false, error: "bad-args" };
 
   const { data: ev, error: eerr } = await db.from("events")
-    .select("id,title,subtitle,season,status,opens_on,closes_on")
+    .select("id,title,short_title,subtitle,season,status,opens_on,closes_on,list_until")
     .eq("id", eventId).maybeSingle();
   if (eerr) throw eerr;
-  // draft·archived 는 성도님께 보이지 않는다(관리자는 eventRoster 로 본다)
-  if (!ev || (ev.status !== "open" && ev.status !== "closed")) {
+  // draft·archived 는 성도님께 안 보이고, 명단 공개 종료일이 지나도 안 보인다.
+  // (관리자는 eventRoster 로 본다 — 그쪽은 이 제한을 받지 않는다.)
+  if (!ev || !evtListable(ev, evtToday())) {
     return { ok: false, error: "not-found" };
   }
 
@@ -4302,9 +4345,11 @@ async function eventRosterPublic(b: any) {
   return {
     ok: true,
     event: {
-      id: ev.id, title: ev.title, subtitle: ev.subtitle ?? "",
+      id: ev.id, title: ev.title, shown: evtShown(ev),
+      subtitle: ev.subtitle ?? "",
       season: ev.season ?? "", status: ev.status,
       opensOn: ev.opens_on, closesOn: ev.closes_on,
+      listUntil: ev.list_until ?? null,
     },
     total: rows.length,
     groups,

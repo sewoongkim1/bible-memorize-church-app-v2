@@ -183,7 +183,7 @@ function evtSentHtml() {
     evtMine.length + "건</b></div>" +
     evtMine.map(function (m) {
       var e = evtFind(m.eventId);
-      var nm = e ? e.title : m.eventId;
+      var nm = e ? (e.shown || e.title) : m.eventId;
       return '<div class="ev-sent-r"><span class="ev-sent-n">' + evtEsc(nm) +
         '</span><span class="ev-sent-s">접수</span></div>';
     }).join("") + "</div>";
@@ -195,10 +195,12 @@ function evtCardHtml(e) {
   var dday = evtDdayText(e.closesOn);
   // ⚠️ 마감된 회차도 눌러서 들어갈 수 있어야 한다 — 그 안에 **명단**이 있다.
   //    옛 사이트는 마감되면 조회까지 죽어 막다른 화면이 됐다.
-  var btnLabel = closed ? "명단 보기 →" : (e.mine ? "낸 것 보기 →" : "참여하기 →");
+  // ⚠️ 「등록」/「조회」는 서버가 정해 내려준다(verb) — 화면마다 따로 판단하면 갈라진다.
+  var verb = e.verb || (closed ? "조회" : "등록");
+  var btnLabel = e.mine ? "낸 것 보기 →" : verb + "하기 →";
   return '<div class="' + cls + '">' +
     (e.season ? '<div class="ev-season">' + evtEsc(e.season) + "</div>" : "") +
-    '<h3 class="ev-card-t">' + evtEsc(e.title) + "</h3>" +
+    '<h3 class="ev-card-t">' + evtEsc(e.shown || e.title) + "</h3>" +
     (e.subtitle ? '<p class="ev-card-s">' + evtEsc(e.subtitle) + "</p>" : "") +
     '<div class="ev-meta"><span class="ev-period">' + evtEsc(e.opensOn) +
     " ~ " + evtEsc(e.closesOn) + "</span>" +
@@ -245,7 +247,7 @@ function evtDrawForm(u, eventId) {
     : [u.bu, u.grade].filter(Boolean).join(" ");
 
   var html =
-    '<div class="ev-head"><h2 class="ev-title">' + evtEsc(e.title) + "</h2>" +
+    '<div class="ev-head"><h2 class="ev-title">' + evtEsc(e.shown || e.title) + "</h2>" +
     '<button class="ev-back" id="ev-back">← 목록</button></div>' +
     (e.subtitle ? '<p class="ev-lead">' + evtEsc(e.subtitle) + "</p>" : "") +
     (e.copy && e.copy.intro

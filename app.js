@@ -291,22 +291,41 @@ function refreshMinistryPeriod() {
 //      암묵 전역이라, 대입 전에 읽으면 ReferenceError 로 **첫 화면이 통째로 죽는다.**
 //      미리보기(?preview=event)는 어차피 이 화면을 거치지 않고 곧장 들어간다.
 const EVENT_OPEN_KEY = "event-open";
+// 단추에 쓸 이름·말까지 함께 담는다. 예전에는 "1"/"0" 만 담았다.
+//   {n: 회차 수, label: "썸머 써 바이블 조회"}
+// ⚠️ 옛 값("1"/"0")이 폰에 남아 있을 수 있다 — 그때도 안 깨지게 읽는다.
+const EVENT_LABEL_KEY = "event-label";
 function eventOpenCached() {
   try { return localStorage.getItem(EVENT_OPEN_KEY) === "1"; } catch (e) { return false; }
+}
+// 첫 화면 단추에 쓸 말. 못 받았으면 예전 문구로 돌아간다(빈 단추보다 낫다).
+function eventLabelCached() {
+  try { return localStorage.getItem(EVENT_LABEL_KEY) || "이벤트 신청·명단"; }
+  catch (e) { return "이벤트 신청·명단"; }
 }
 function refreshEventOpen() {
   if (!window.api || !api.eventOpenList) return;
   // user_id 를 안 보낸다 — 여기서 필요한 것은 「볼 회차가 있는가」 하나뿐이다.
   // 내 등록까지 받으면 첫 화면 진입에 쓸데없는 조회가 하나 더 붙는다.
   const before = eventOpenCached();
+  const beforeLabel = eventLabelCached();
   api.eventOpenList().then((d) => {
-    const n = (d && d.events && d.events.length) || 0;
+    const list = (d && d.events) || [];
+    const n = list.length;
     try { localStorage.setItem(EVENT_OPEN_KEY, n > 0 ? "1" : "0"); } catch (e) {}
+    // ⚠️ 이름과 「등록/조회」는 **서버가 정해서 내려준다**(shown·verb). 여기서 다시
+    //    판단하면 성도 화면과 갈라진다 — 오늘만 그 부류를 셋 봤다.
+    //    회차가 여럿이면 하나를 고를 수 없으니 묶어서 쓴다.
+    const label = n === 1
+      ? [list[0].shown || list[0].title, list[0].verb].filter(Boolean).join(" ")
+      : (n > 1 ? "이벤트 " + n + "개" : "이벤트 신청·명단");
+    try { localStorage.setItem(EVENT_LABEL_KEY, label); } catch (e) {}
     // ⚠️ **값이 바뀌면 그 자리에서 다시 그린다.** 캐시만 고치고 두면 새로고침해야만
     //    반영된다 — 담당자가 회차를 내려도 성도님 화면에는 **눌러도 아무것도 없는
     //    단추**가 그대로 남는다(2026-09-10 실제로 그랬다: 친구가 「지금 뜨는데요」).
     //    여는 쪽도 같다 — 회차를 올린 날 성도님이 앱을 다시 켜야 보이면 안 된다.
-    if (before !== (n > 0) && document.querySelector(".todo-go")) renderSummary();
+    if ((before !== (n > 0) || beforeLabel !== label) &&
+        document.querySelector(".todo-go")) renderSummary();
   }).catch(() => {});
 }
 function eventVisible() { return eventOpenCached(); }
@@ -1984,7 +2003,10 @@ function renderSummary() {
     <button class="summary-help" id="open-album">📖 나의 말씀 앨범</button>
     <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
     <div class="grp-title">함께</div>
-    ${eventVisible() ? `<button class="summary-help" id="open-event-list">🏅 이벤트 신청·명단${newBadge("event")}</button>` : ""}
+    ${/* 이름은 관리자가 적는 값이라 날 HTML 로 그리지 않는다. boardEsc 를 빌려 쓴다 —
+          escape 헬퍼를 하나 더 만들면 그만큼 갈라진다. 서버가 norm() 으로 줄바꿈을
+          이미 공백으로 접으므로 boardEsc 의 \n→<br> 는 걸릴 일이 없다. */""}
+    ${eventVisible() ? `<button class="summary-help" id="open-event-list">🏅 ${boardEsc(eventLabelCached())}${newBadge("event")}</button>` : ""}
     <button class="summary-help" id="open-board">💬 응원·기도·공감</button>
     ${psalmVisible() ? `<button class="summary-help" id="open-psalm">📿 시편 말씀 액자${newBadge("psalm")}</button>` : ""}
     <button class="summary-help" id="open-prayer">🙏 가정 축복 기도문${newBadge("prayer")}</button>
