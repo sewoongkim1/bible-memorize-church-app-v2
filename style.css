@@ -4507,8 +4507,14 @@ body.pr-full-on { overflow: hidden; }
   background: var(--white); border: 1.5px solid var(--border); border-radius: 999px;
   padding: 5px 11px; cursor: pointer; }
 .min-chip.on { color: #fff; background: var(--navy); border-color: var(--navy); }
-.min-fclear { display: block; margin: 9px 0 0 auto; font: inherit; font-size: .78rem;
-  font-weight: 700; color: var(--gray); background: none; border: none; cursor: pointer; }
+/* ⚠️ 켜진 칩에만 ✕ — 색만으로는 「눌러서 끄는 것」인 줄 모르신다 */
+.min-chip-x { margin-left: 6px; font-size: .78em; font-weight: 800; opacity: .75; }
+/* 조건 지우기도 눈에 띄게 — 작은 회색 글씨는 못 찾으신다 */
+.min-fclear { display: block; width: 100%; margin: 10px 0 0; font: inherit; font-size: .82rem;
+  font-weight: 700; color: var(--navy); background: var(--white);
+  border: 1.5px solid var(--border); border-radius: 10px; padding: 9px; cursor: pointer; }
+.dark .min-fclear { background: #232c3f; border-color: #3a4a68; color: #cfe0ff; }
+
 .min-fnum { text-align: right; font-size: .82rem; color: var(--gray); margin: 0 2px 4px; }
 .min-fnum b { color: var(--navy); }
 .min-none { background: var(--white); border: 1.5px dashed var(--border); border-radius: 12px;
@@ -4807,4 +4813,11 @@ body.pr-full-on { overflow: hidden; }
 .ps-done-wait{margin:16px 0;color:#8a6216;background:#fff8ec;border:1px solid #e8c98a;
               border-radius:9px;padding:12px 14px;font-size:15px}
 .ps-next-ref{display:block;font-size:14px;font-weight:400;opacity:.85;margin-top:3px}
+
+.album-track{display:flex;gap:6px;justify-content:center;margin:10px 0 6px}
+.album-track .atk{
+  background:#fff;border:1px solid #cfd8e4;border-radius:999px;
+  padding:7px 15px;font-size:15px;color:#4a5560;cursor:pointer;
+}
+.album-track .atk.on{background:#1a3a6b;border-color:#1a3a6b;color:#fff;font-weight:700}
 .ps-tool.ps-wide{display:block;width:100%;margin-top:8px}

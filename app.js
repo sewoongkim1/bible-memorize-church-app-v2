@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260910h";
+const APP_BUILD = "20260910i";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -120,6 +120,8 @@ function routeAfterLoad() {
   refreshMinistryPeriod();
   // 어드민 테스트 진입(?passages=1): 홈을 거치지 않고 곧바로 핵심 암송 목록으로.
   if (_passagesPreview) { renderPassageList(); return; }
+  // 어드민 미리보기(?psalm=1): 시편 말씀 액자 화면으로 곧바로 진입.
+  if (new URLSearchParams(location.search).get("psalm") === "1") { renderPsalmHome(); return; }
   // 딥링크(?v=구절번호): 설교 아카이브 등 외부에서 특정 구절로 바로 진입
   const deepNo = getDeepLinkVerseNo();
   if (deepNo != null) {
@@ -1167,6 +1169,7 @@ const FEAT_SINCE = {
   // ⚠️ 사역 신청은 기간(12/13~12/27)에만 첫 화면에 뜬다 — 그때가 곧 '새 기능'인 날이라
   //    NEW 는 신청 시작일부터 센다. 지금 날짜를 적으면 성도님이 보기도 전에 사라진다.
   ministry: "2026-12-13",
+  psalm: "2026-09-21",        // 시편 말씀 액자 — 1일차와 같은 날부터 NEW
   prayer: "2026-09-03",
   meditation: "2026-07-20",   // 매일 묵상
   sermon: "2026-07-23",       // 내게 주시는 말씀
@@ -1856,6 +1859,7 @@ function renderSummary() {
     <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
     <div class="grp-title">함께</div>
     <button class="summary-help" id="open-board">💬 응원·기도·공감</button>
+    <button class="summary-help" id="open-psalm">📿 시편 말씀 액자${newBadge("psalm")}</button>
     <button class="summary-help" id="open-prayer">🙏 가정 축복 기도문${newBadge("prayer")}</button>
     <button class="summary-help" id="open-quiz">🎯 성경암송 퀴즈</button>
     ${ministryVisible() ? `<button class="summary-help" id="open-ministry">🤝 사역신청${newBadge("ministry")}</button>` : ""}
@@ -1910,6 +1914,7 @@ function renderSummary() {
   document.getElementById("open-sermon-chat").addEventListener("click", () => { markFeatSeen("sermon"); renderSermonChat(); });
   document.getElementById("open-album").addEventListener("click", () => renderAlbum());
   { const b = document.getElementById("open-passages"); if (b) b.addEventListener("click", () => { markFeatSeen("passages"); renderPassageList(); }); }
+  { const b = document.getElementById("open-psalm"); if (b) b.addEventListener("click", () => { markFeatSeen("psalm"); renderPsalmHome(); }); }
   document.getElementById("open-ranking").addEventListener("click", () => renderRanking());
   // 퀴즈는 quiz/ 아래 따로 있는 화면이다(로그인 없이 열리고 app.js를 쓰지 않는다).
   //   같은 주소 안이라 설치된 앱에서 눌러도 앱 밖으로 나가지 않는다.
@@ -6870,15 +6875,24 @@ function renderChallenge(verse, hard) {
 // ------------------------------------------------------------
 // 복습 화면 — 오늘 복습 대상 구절을 순서대로 3단계(전체 빈칸)로 다시 암송
 // ------------------------------------------------------------
-function startReview() {
+// ⚠️ 시편 말씀 액자 구절(no ≥ 1001)은 전역 verses 에 없다 — 여기서 합쳐 찾지 않으면
+//    복습 큐에서 조용히 사라진다(예약은 되는데 화면에 안 나온다).
+//    시편은 아직 안 받았을 수 있으니 필요할 때만 기다린다.
+async function startReview() {
   const dueNos = dueReviewNos();
-  const queue = verses.filter((v) => dueNos.includes(v.no));
+  if (dueNos.some(isPsalmNo)) {
+    try { await loadPsalmVerses(); } catch (e) { /* 못 받으면 주간 것만이라도 복습한다 */ }
+  }
+  const pool = verses.concat(psalmVerses || []);
+  const queue = pool.filter((v) => dueNos.includes(v.no));
   if (!queue.length) { renderSummary(); return; }
   renderReview(queue, 0);
 }
 
 function renderReview(queue, idx) {
   const verse = queue[idx];
+  // 시편 액자 구절은 액자로 복습한다 — 외울 때와 같은 그림이어야 기억의 고리가 이어진다
+  if (isPsalmNo(verse.no)) return renderPsalmReview(queue, idx);
   const appEl = document.getElementById("app");
   const en = isEnMode(verse);
   const tokens = verseText(verse).trim().split(/\s+/);
@@ -7786,6 +7800,7 @@ let albumHideText = false;
 let albumHint = false;      // 첫 글자 힌트(말씀 숨김과 배타 — 같은 것의 세기 차이라 동시에 켜면 헷갈린다)
 let albumOrder = null;      // 섞기 결과(구절 번호 배열). null이면 원래 순서
 let albumUnseenOnly = false; // 오늘 아직 확인하지 않은 구절만 보기
+let albumTrack = "weekly";  // "weekly" | "psalm" | "all" — 기본은 지금과 똑같다
 
 // ── 이어 듣기 ────────────────────────────────────────────────
 // 재생 목록은 '화면에 보이는 순서 그대로'다(섞기·미확인이 걸린 그 목록).
@@ -8065,7 +8080,10 @@ function toggleAlbumChecked(no) {
 function renderAlbum() {
   const u = loadUser();
   const appEl = document.getElementById("app");
-  const done = verses.filter((v) => getPassedStage(v.no) >= 3);
+  const pool = albumTrack === "psalm" ? (psalmVerses || [])
+             : albumTrack === "all" ? verses.concat(psalmVerses || [])
+             : verses;
+  const done = pool.filter((v) => getPassedStage(v.no) >= 3);
   const hearted = done.filter((v) => isHearted(v.no));
   const hiding = albumHideRef || albumHideText || albumHint;
   const checked = albumCheckedToday();
@@ -8125,12 +8143,19 @@ function renderAlbum() {
            (d ? ' <span class="ab-dur">' + d + "</span>" : "");
   };
 
+  const trackChips = `
+    <div class="album-track">
+      ${[["weekly","주간 말씀"],["psalm","시편 액자"],["all","전부"]].map(([k, label]) =>
+        `<button class="atk${albumTrack === k ? " on" : ""}" data-track="${k}">${label}</button>`).join("")}
+    </div>`;
+
   appEl.innerHTML = `
     <div class="album-screen">
       <h2 class="rank-title">📖 나의 말씀 앨범</h2>
       <div class="album-banner">
         <div class="ab-line"><b class="ab-num">${hearted.length}</b>구절을 마음에 두었습니다 👑</div>
       </div>
+      ${trackChips}
       <div class="rank-filter album-quiz" id="ab-quiz">
         <button data-h="ref" class="${albumHideRef ? "on" : ""}">${albumHideRef ? "🙈" : "👁"} 요절 숨김</button>
         <button data-h="text" class="${albumHideText ? "on" : ""}">${albumHideText ? "🙈" : "👁"} 말씀 숨김</button>
@@ -8158,6 +8183,18 @@ function renderAlbum() {
   window.scrollTo(0, 0); // 첫 화면에서 내려온 위치가 남아 중간부터 보이던 문제
   if (albumPlayer) albumPlayFocus((albumPlayer.items[albumPlayer.i] || {}).no);
   document.getElementById("ab-back").addEventListener("click", () => { albumPlayStop(); renderSummary(); });
+  appEl.querySelectorAll(".atk").forEach((b) => b.addEventListener("click", async () => {
+    const k = b.dataset.track;
+    // 시편은 코너에 들어갈 때만 받는다 — 칩을 누르는 이 순간이 그 자리다
+    if (k !== "weekly" && !psalmLoaded) {
+      b.textContent = "불러오는 중…";
+      try { await loadPsalmVerses(); } catch (e) {}
+    }
+    albumTrack = k;
+    albumPicks.clear();
+    albumOrder = null;
+    renderAlbum();
+  }));
   document.getElementById("ab-quiz").querySelectorAll("button").forEach((b) =>
     b.addEventListener("click", () => {
       const h = b.dataset.h;
@@ -9157,8 +9194,14 @@ function minChipRow(label, axis, items) {
   return '<div class="min-fr"><span class="min-fr-l">' + label + '</span><span class="min-fr-c">' +
     items.map(function (it) {
       const k = it.k || it, t = it.t || it;
-      return '<button class="min-chip' + (on.indexOf(k) >= 0 ? " on" : "") +
-        '" data-f="' + axis + '" data-k="' + minEsc(k) + '">' + minEsc(t) + '</button>';
+      const lit = on.indexOf(k) >= 0;
+      // ⚠️ 켜진 칩에 ✕ 를 붙인다. 색만 바꿔 두면 「눌러서 끄는 것」인 줄 모르신다
+      //    (성도님 제보 2026-09-10 — 「빼려면 어떻게 하나요」).
+      return '<button class="min-chip' + (lit ? " on" : "") +
+        '" data-f="' + axis + '" data-k="' + minEsc(k) + '"' +
+        ' aria-pressed="' + lit + '"' +
+        ' aria-label="' + minEsc(t) + (lit ? " 조건 빼기" : " 조건 넣기") + '">' +
+        minEsc(t) + (lit ? '<span class="min-chip-x">✕</span>' : "") + '</button>';
     }).join("") + '</span></div>';
 }
 function minFilterHtml() {
