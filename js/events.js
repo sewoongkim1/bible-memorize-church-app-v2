@@ -280,11 +280,9 @@ function evtDrawForm(u, eventId) {
       .addEventListener("click", function () { renderSummary(); });
     document.getElementById("ev-back")
       .addEventListener("click", function () { evtForm = null; renderEventList(null); });
-    // 내 줄이 명단 안에 있으면 그 자리로 데려다 준다 — 164줄에서 눈으로 찾게 두지 않는다.
-    var meEl = document.getElementById("ev-me");
-    if (meEl) setTimeout(function () {
-      try { meEl.scrollIntoView({ block: "center" }); } catch (e2) { meEl.scrollIntoView(); }
-    }, 60);
+    // ⚠️ 명단 줄 안에서 「← 나」를 표시하거나 그 자리로 스크롤하지 않는다
+    //    (2026-09-10 성도님 지시) — 본인 것은 이미 위 안내(찾았어요/mine-card)에서
+    //    「앞에」 알려 줬으니, 아래 명단 안에서 또 짚어 주는 것은 중복이다.
     return;
   }
 
@@ -384,6 +382,8 @@ function evtLoadRoster(eventId) {
 }
 
 // 로그인한 분과 같은 줄인가 — 소속·세부·이름 셋으로 본다(앱의 신원 규칙과 같은 조각).
+// ⚠️ 명단 줄 자체는 더 이상 이 값으로 꾸미지 않는다(아래 evtRosterHtml 참조) —
+//    「본인 것을 찾았는가」만 위 안내 문구에 쓰고, 어느 줄인지는 표시하지 않는다.
 function evtIsMeLine(u, group, m) {
   if (!u) return false;
   var isGu = u.type === "교구";
@@ -394,21 +394,25 @@ function evtIsMeLine(u, group, m) {
 
 function evtRosterHtml(u, eventId) {
   if (evtRosterFor !== eventId || !evtRoster) return "";
-  var found = false;
+  var found = evtRoster.groups.some(function (g) {
+    return g.members.some(function (m) { return evtIsMeLine(u, g.name, m); });
+  });
+  // ⚠️ 명단 줄에는 「← 나」를 달지 않는다(2026-09-10) — 본인 것은 이미 위쪽
+  //    (mine-card·이 찾음 안내)에서 앞서 알려 줬으니, 164줄 사이에서 또 강조하는
+  //    것은 같은 정보를 두 번 주는 것이다. 그래서 evtIsMeLine 은 위 found 값을
+  //    구하는 데만 쓰고, 줄 자체는 누구나 같은 모양으로 그린다.
   var body = evtRoster.groups.map(function (g) {
-    return '<div class="ev-grp"><div class="ev-grp-t">' + evtEsc(g.name) +
-      ' <em>' + g.count + '</em></div><ul class="ev-grp-l">' +
+    return '<div class="ev-grp"><div class="ev-grp-t"><span class="ev-grp-nm">' +
+      evtEsc(g.name) + '</span><span class="ev-grp-n">' + g.count + '명</span></div>' +
+      '<ul class="ev-grp-l">' +
       g.members.map(function (m) {
-        var me = evtIsMeLine(u, g.name, m);
-        if (me) found = true;
-        return '<li' + (me ? ' class="me" id="ev-me"' : '') + '>' +
-          evtEsc(m.name) + '-' + evtEsc(m.sub) + (me ? ' <b>← 나</b>' : '') + '</li>';
+        return "<li>" + evtEsc(m.name) + "-" + evtEsc(m.sub) + "</li>";
       }).join("") + "</ul></div>";
   }).join("");
 
   // 「내 등록」이 안 뜨는 분께 까닭을 적어 준다 — 안 그러면 명단을 보고도 헤맨다.
   var hint = found
-    ? '<div class="ev-found">명단에서 <b>' + evtEsc(u.name) + '</b> 님을 찾았어요 — 아래에 표시해 두었습니다.</div>'
+    ? '<div class="ev-found">✅ 명단에서 <b>' + evtEsc(u.name) + '</b> 님을 찾았어요.</div>'
     : '<div class="ev-note ev-miss">명단에서 <b>' + evtEsc(u.name) +
       '</b> 님을 못 찾았어요.<br>로그인하신 <b>소속·구역·이름</b>이 신청하실 때와 한 글자라도 다르면 못 찾습니다 — ' +
       '아래 명단에서 직접 확인해 보세요. 명단에 있는데 안 잡히면 담당자에게 알려 주세요.</div>';

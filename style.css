@@ -5007,47 +5007,55 @@ html[data-fs] .ps-fr-body .word-input{ font-size:inherit; }
 .dark .ev-go[disabled] { background: #1b2436; color: #6b7280; }
 .dark .ev-loading { color: #b9c2d0; }
 
-/* 이벤트 — 전체 명단(성도님이 그려 주신 모양: 소속으로 묶고 「이름-구역」) */
-.ev-mine-card{background:#f0f7f3;border:1.5px solid #b9d8c6;border-radius:12px;
-  padding:13px 15px;margin-bottom:16px}
+/* 이벤트 — 전체 명단(성도님이 그려 주신 모양: 소속으로 묶고 「이름-구역」)
+   ⚠️ 명단 줄에는 「← 나」를 달지 않는다(2026-09-10) — 본인 것은 이미 위쪽
+   (mine-card·찾음 안내)에서 앞서 알려 주므로, 명단 자체는 모두에게 같은
+   모양이다. 그 대신 카드형으로 다듬어 소속을 한눈에 훑기 좋게 한다. */
+.ev-mine-card{background:linear-gradient(135deg,#f0f7f3,#e7f3ec);
+  border:1.5px solid #b9d8c6;border-radius:14px;padding:14px 16px;margin-bottom:18px;
+  box-shadow:0 2px 8px rgba(47,107,79,.08)}
 .ev-mine-t{font-size:16px;font-weight:800;color:#2f6b4f;margin-bottom:3px}
 .ev-mine-v{font-size:15px;color:#3d5f4d}
 .ev-mine-at{font-size:13px;color:#7a8f83;margin-top:2px}
 
-.ev-roster{margin-top:4px}
-.ev-roster-h{font-size:16px;font-weight:800;color:var(--navy);margin-bottom:10px}
-.ev-roster-h b{font-size:19px}
-.ev-found{background:#f0f7f3;border:1px solid #b9d8c6;border-radius:10px;
-  padding:10px 13px;font-size:14.5px;color:#2f6b4f;margin-bottom:14px}
+.ev-roster{margin-top:6px}
+.ev-roster-h{font-size:17px;font-weight:800;color:var(--navy);margin-bottom:12px;
+  display:flex;align-items:baseline;gap:6px}
+.ev-roster-h b{font-size:20px}
+.ev-found{background:linear-gradient(135deg,#f0f7f3,#e7f3ec);border:1px solid #b9d8c6;
+  border-radius:12px;padding:11px 14px;font-size:14.5px;color:#2f6b4f;margin-bottom:16px;
+  box-shadow:0 2px 8px rgba(47,107,79,.08)}
 .ev-miss{font-size:14px;line-height:1.75}
 
-.ev-grp{margin-bottom:14px}
-.ev-grp-t{font-size:15.5px;font-weight:800;color:var(--navy);
-  padding:7px 12px;background:#eef1f8;border-radius:9px}
-.ev-grp-t em{font-style:normal;font-weight:700;font-size:13px;color:#6b7688}
+/* 소속 하나 = 카드 하나. 필사·사역 카드(.pl-card 류)와 같은 결의 흰 카드 + 은은한 그림자. */
+.ev-grp{background:var(--card,#fff);border:1px solid #e7e2d5;border-radius:14px;
+  padding:14px 15px 15px;margin-bottom:12px;box-shadow:0 2px 10px rgba(26,58,107,.05)}
+.ev-grp-t{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding-bottom:9px;margin-bottom:9px;border-bottom:1.5px solid #eef1f6}
+.ev-grp-nm{font-size:16px;font-weight:800;color:var(--navy)}
+/* 인원 수는 알약 배지로 — .ev-dday 와 같은 결의 작은 표식 */
+.ev-grp-n{font-size:12.5px;font-weight:700;color:var(--navy);background:#eef1f8;
+  border-radius:999px;padding:3px 10px;white-space:nowrap}
 /* ⚠️ 한 줄에 한 명씩이면 164명이 5,000px 넘게 흐른다 — 자기 이름까지 한참 굴려야
    한다. 소속으로 묶고 **한 줄에 여러 명**으로 흘린다(친구 지시 2026-09-10,
-   어드민 「묶음 보기」와 같은 모양). markup 은 그대로라 「← 나」 표시는 그대로 일한다. */
-.ev-grp-l{display:flex;flex-wrap:wrap;list-style:none;margin:6px 0 0;padding:0 0 0 4px;
-  line-height:1.95}
-.ev-grp-l li{padding:2px 5px;font-size:15px;color:#3a4250;border-radius:7px;
-  white-space:nowrap}
-.ev-grp-l li::after{content:"·";color:#c3c9d4;margin-left:7px}
+   어드민 「묶음 보기」와 같은 모양). */
+.ev-grp-l{display:flex;flex-wrap:wrap;list-style:none;margin:0;padding:0;
+  line-height:2}
+.ev-grp-l li{padding:2px 4px;font-size:15px;color:#3a4250;white-space:nowrap}
+.ev-grp-l li::after{content:"·";color:#c9cfd9;margin-left:8px}
 .ev-grp-l li:last-child::after{content:""}
-.ev-grp-l li.me{background:#fdf6e3;border:1.5px solid #d9b96a;font-weight:800;
-  color:#5a4a1a;scroll-margin-top:70px;padding:2px 8px}
-/* ⚠️ 「나」 다음의 가운뎃점은 칩에 붙어 보이므로 띄운다 */
-.ev-grp-l li.me::after{margin-left:9px}
-.ev-grp-l li.me b{color:#a07c1a;font-size:14px}
 
-.dark .ev-mine-card{background:#14231c;border-color:#2f5a41}
+.dark .ev-mine-card{background:linear-gradient(135deg,#14231c,#122019);border-color:#2f5a41;
+  box-shadow:0 2px 8px rgba(0,0,0,.25)}
 .dark .ev-mine-t{color:#8fd3ab}
 .dark .ev-mine-v{color:#b9d8c6}
 .dark .ev-mine-at{color:#7f9a8c}
 .dark .ev-roster-h{color:#8fb3e6}
-.dark .ev-found{background:#14231c;border-color:#2f5a41;color:#8fd3ab}
-.dark .ev-grp-t{background:#182739;color:#8fb3e6}
-.dark .ev-grp-t em{color:#9aa6bb}
+.dark .ev-found{background:linear-gradient(135deg,#14231c,#122019);border-color:#2f5a41;
+  color:#8fd3ab;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.dark .ev-grp{background:#151d2b;border-color:#33507d;box-shadow:0 2px 10px rgba(0,0,0,.25)}
+.dark .ev-grp-t{border-bottom-color:#243252}
+.dark .ev-grp-nm{color:#8fb3e6}
+.dark .ev-grp-n{background:#182739;color:#8fb3e6}
 .dark .ev-grp-l li{color:#c3cbd8}
-.dark .ev-grp-l li.me{background:#2b2416;border-color:#6b5a2c;color:#e2cf9a}
-.dark .ev-grp-l li.me b{color:#d8bd77}
+.dark .ev-grp-l li::after{color:#3d4a63}
