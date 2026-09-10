@@ -4474,8 +4474,9 @@ body.pr-full-on { overflow: hidden; }
   padding: 11px 12px; margin-bottom: 10px; }
 .min-serving-t { font-size: .82rem; font-weight: 800; color: #2c5f2d; margin-bottom: 7px; }
 .min-serving-h { font-size: .76rem; color: #5d7a61; margin-top: 7px; }
-.min-serve { display: flex; align-items: center; gap: 10px; width: 100%; margin-top: 6px;
-  padding: 10px 12px; font: inherit; text-align: left; cursor: pointer;
+/* ⚠️ 누르는 것이 아니라 **확인하는 줄**이다 — 단추 모양(cursor·hover)을 주지 않는다 */
+.min-serve { display: flex; align-items: center; gap: 10px; margin-top: 6px;
+  padding: 10px 12px; font: inherit; text-align: left;
   background: var(--white); border: 1.5px solid #cfe3d4; border-radius: 10px; }
 .min-serve.on { border-color: var(--gold); background: #fffaf0; }
 .min-serve-n { flex: 1; min-width: 0; font-size: .92rem; font-weight: 700; color: #222; }

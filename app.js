@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260910i";
+const APP_BUILD = "20260910j";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9113,13 +9113,14 @@ function minServingNow() {
   const me = minMeTag();
   const list = (minCat && minCat.list) || [];
   if (!me) return [];
-  // ⚠️ 올해 내가 낸 팀은 뺀다. 팀 명단에는 **올해 접수된 신청자**도 함께 들어가므로,
-  //    그대로 두면 방금 낸 사역이 「지금 섬기는 중 · 이어서 신청」으로 떠 버린다.
-  //    그 팀들은 목록에서 자기 상태 딱지로 이미 보이고, 신청현황 화면에도 있다.
-  const already = minSentIds.concat(minLockedIds);
+  // ⚠️ **올해 신청한 것만** 남긴다(성도님 결정 2026-09-10). 이 자리는 「이어서 신청하세요」가
+  //    아니라 **「내가 섬기던 자리를 이번에 냈는지」를 확인하는 자리**다.
+  //    그래서 신청 전에는 비어 있어 아예 안 보이고, 안 낸 팀은 들어오지 않는다.
+  //    ⚠️ minPicked(방금 고른 것)가 아니라 minSentIds·minLockedIds(**낸 것**)로 본다.
+  const sent = minSentIds.concat(minLockedIds);
   return list.filter(function (t) {
     if (!t.members) return false;
-    if (already.indexOf(t.id) >= 0) return false;
+    if (sent.indexOf(t.id) < 0) return false;
     return String(t.members).split(/<br\s*\/?>/i).some(function (line) {
       const x = minPlain(line);
       return x.indexOf(me.name) >= 0 && (!me.who || x.indexOf(me.who) >= 0);
@@ -9129,15 +9130,15 @@ function minServingNow() {
 function minServingHtml() {
   const mine = minServingNow();
   if (!mine.length) return "";
-  return '<div class="min-serving"><div class="min-serving-t">🌿 지금 섬기고 계신 사역</div>' +
+  // ⚠️ 권하는 자리가 아니라 확인하는 자리다 — 「이어서 신청」 같은 부추기는 말을 쓰지 않는다.
+  return '<div class="min-serving"><div class="min-serving-t">🌿 지금 섬기시는 사역 중 이번에 신청하신 것</div>' +
     mine.map(function (t) {
-      const on = minPicked.indexOf(t.id) >= 0;
-      return '<button class="min-serve' + (on ? " on" : "") + '" data-serve="' + t.id + '">' +
+      const st = minLockedIds.indexOf(t.id) >= 0 ? minLockStatus(t.id) : "신청완료";
+      return '<div class="min-serve on">' +
         '<span class="min-serve-n">' + minEsc(t.team) +
         ' <span class="min-com">· ' + minEsc(t.committee) + '</span></span>' +
-        '<span class="min-serve-a">' + (on ? "✓ 담음" : "이어서 신청") + '</span></button>';
-    }).join("") +
-    '<div class="min-serving-h">이어서 섬기시려면 눌러서 담으세요.</div></div>';
+        '<span class="min-serve-a">✓ ' + minEsc(st) + '</span></div>';
+    }).join("") + '</div>';
 }
 
 function minHasDetail(t) { return !!(t && (t.desc || t.capacity || t.sched || t.members)); }
@@ -9439,11 +9440,6 @@ function minClearFilter() {
 function wireMinPick(u) {
   minWireList();          // 아코디언·팀 단추·자세히·0개 안내 (목록을 갈아 끼울 때 다시 걸린다)
 
-  for (const b of document.querySelectorAll("[data-serve]")) {
-    b.addEventListener("click", function () {
-      if (minTogglePick(Number(this.getAttribute("data-serve")))) renderMinistry(window.scrollY);
-    });
-  }
   // 칩은 자판이 아니라 눌러서 고르는 것이라 통째로 다시 그려도 된다
   for (const b of document.querySelectorAll("[data-f]")) {
     b.addEventListener("click", function () {
