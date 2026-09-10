@@ -114,7 +114,7 @@
     <p class="eyebrow">고척교회 제자양육부 신앙운동팀 · 성경말씀 암송 v2</p>
     <h1>시편 말씀 액자</h1>
     <p>시편 180구절을 하루에 한 편씩 열어, 액자 안에서 0단계부터 3단계까지 외우는 새 코너.</p>
-    <p class="meta">2026-09-10 · 기획 확정 · 개발 착수 전 · gocheok.onlybible.kr</p>
+    <p class="meta">2026-09-10 기획 확정 · <strong style="color:#e8c98a">2026-09-21(월) 1일차 열림</strong> → 2027-03-19(금) 180일차 · gocheok.onlybible.kr</p>
   </div>
 </header>
 
@@ -123,7 +123,7 @@
 <p class="lead">
   <strong>한 줄로</strong> — 시편에서 고른 180구절을 <strong>온 교회가 같은 날 같은 한 편씩</strong> 만나고,
   액자 그림 안에서 <strong>0단계(읽고 듣기) → 1단계(25%) → 2단계(65%) → 3단계(전체)</strong>로 외운다.
-  180일이면 한 바퀴다.
+  <strong>2026-09-21(월)에 1일차가 열리고 2027-03-19(금)에 한 바퀴</strong>가 돈다.
 </p>
 
 <h2><span class="n">01</span> 왜 만드는가</h2>
@@ -169,7 +169,7 @@
   <tr><td class="k">자리</td><td>별도 코너</td>
       <td>합치면 첫 화면 진행 막대가 「전체 215」가 되어, 35구절을 다 마치신 분이 갑자기 16%로 보인다.</td></tr>
   <tr><td class="k">분량</td><td>시편 180구절 · 180일</td>
-      <td>반년에 한 바퀴.</td></tr>
+      <td><strong>2026-09-21(월) 시작 → 2027-03-19(금)에 한 바퀴.</strong> 반년이다.</td></tr>
   <tr><td class="k">열리는 방식</td><td>하루에 한 편 · <strong>교회가 같은 날 시작</strong></td>
       <td>로비에서 「오늘 몇 편 보셨어요?」가 통하고 게시판도 같은 말씀으로 돈다.
           대가 — 50일째 들어오신 분은 50편이 한꺼번에 열려 「매일 하나」의 기대감이 없다(→ 09장에서 달램).</td></tr>
@@ -199,7 +199,7 @@
 
 <div class="flow">
 <pre>첫 화면
-  └ [📿 시편 말씀 액자]        ← 「함께」 묶음 위 · 연한 남색(앱 안 기능)
+  └ [📿 시편 말씀 액자]        ← 「함께」 묶음 안 · 연한 남색(앱 안 기능)
 
 시편 말씀 액자 첫 화면
   ├ 「27일차 · 오늘의 말씀」
@@ -380,7 +380,8 @@ create index if not exists idx_verses_track on public.verses(track, day_no);
 -- insert into public.verses (no, track, day_no, frame_art, ref, ref_full, text) values ...
 
 -- 시작일
--- insert into public.app_config (key, value) values ('psalmStart', '2026-10-01');</code></pre>
+insert into public.app_config (key, value) values ('psalmStart', '2026-09-21')
+  on conflict (key) do update set value = excluded.value;</code></pre>
 
 <h3>서버가 바뀌는 곳 — 딱 하나</h3>
 <ul>
@@ -423,7 +424,8 @@ create index if not exists idx_verses_track on public.verses(track, day_no);
   <thead><tr><th>자리</th><th>고칠 것</th></tr></thead>
   <tbody>
   <tr><td class="k">첫 화면 <code>renderSummary</code></td>
-      <td>「함께」 묶음 위에 <code>📿 시편 말씀 액자</code> 한 줄. 연한 남색.
+      <td>「함께」 묶음 안, <strong>「응원·기도·공감」 아래</strong>에 <code>📿 시편 말씀 액자</code> 한 줄. 연한 남색.
+          NEW 배지는 <code>FEAT_SINCE.psalm = "2026-09-21"</code>로 2주만.
           「오늘 할 일」 큰 단추는 <strong>건드리지 않는다.</strong></td></tr>
   <tr><td class="k">복습 큐 <code>app.js:6867</code></td>
       <td>지금은 <code>verses.filter(dueNos)</code>라 <strong>시편 구절이 큐에서 조용히 사라진다.</strong>
@@ -477,7 +479,9 @@ create index if not exists idx_verses_track on public.verses(track, day_no);
 <div class="tw">
 <table>
   <tbody>
-  <tr><td class="k">시작일</td><td><code>app_config.psalmStart</code>에 둔다. 코드에 박지 않는다 — 날짜가 밀려도 배포가 필요 없다.</td></tr>
+  <tr><td class="k">시작일</td><td><strong>2026-09-21(월)</strong>. <code>app_config.psalmStart</code>에 둔다 —
+      코드에 박지 않으므로 <strong>날짜가 밀려도 배포 없이 옮길 수 있다</strong>(14장의 안전판).</td></tr>
+  <tr><td class="k">끝나는 날</td><td>180일차 = <strong>2027-03-19(금)</strong>. 30일차 10-20 · 60일차 11-19 · 90일차 12-19 · 120일차 2027-01-18 · 150일차 02-17.</td></tr>
   <tr><td class="k">열린 수</td><td><code>openCount = min(180, 오늘 − 시작일 + 1)</code>. <strong>서버가 계산한다.</strong></td></tr>
   <tr><td class="k">오늘의 말씀</td><td><code>day_no === openCount</code>인 한 편. 크게 내놓는다.</td></tr>
   <tr><td class="k">지난 말씀</td><td><code>day_no &lt; openCount</code>. 접힌 아코디언 안에 최근 것부터.</td></tr>
@@ -553,7 +557,9 @@ create index if not exists idx_verses_track on public.verses(track, day_no);
       본문은 성경 프로그램·사이트에서 <strong>복사해 붙여 넣는다.</strong></li>
   <li>내가 <code>tools/psalm-fit.py</code>로 재서 <strong>「너무 긴 것」·「너무 짧은 것」 두 목록</strong>을 드린다
       → 긴 것은 바꾸거나 빼고, 짧은 것은 앞뒤 절과 묶는다.</li>
-  <li><strong>시작일</strong>을 정한다(예: 2026-10-01). 180일이면 2027-03-29에 한 바퀴가 끝난다.</li>
+  <li><span class="pill">정해짐</span> <strong>시작일 2026-09-21(월).</strong>
+      주일(9/20) 주보·광고 다음 날이라 알리기 좋다. <strong>자료는 9월 17일(목)까지</strong> 주셔야
+      개발 DB → 운영 순서를 지키며 하루 여유가 남는다.</li>
   <li>액자 그림 열두 장을 함께 고른다(꽃·열매를 어느 구절에 붙일지는 기계가 먼저 배정하고 손보시면 된다).</li>
 </ol>
 </div>
@@ -595,16 +601,61 @@ create index if not exists idx_verses_track on public.verses(track, day_no);
      그리고 2026-09-02부터 복습이 <code>review-</code>로 빠졌으므로 <strong>그 이전 주와 나란히 놓지 않는다.</strong></p>
 </div>
 
-<h2><span class="n">14</span> 아직 안 정한 것</h2>
+<h2><span class="n">14</span> 일정과 남은 위험</h2>
 
-<ol>
-  <li><strong>180구절이 전부 시편인지</strong> — 이름으로 보아 그렇게 이해했다. 시편 밖 구절이 섞이면 이름을 다시 본다.</li>
-  <li><strong>시작일</strong> — 새벽기도회·절기와 맞물리면 좋다.</li>
-  <li><strong>첫 화면 단추 자리</strong> — 「함께」 묶음 위를 제안했다. 실제로 놓아 보고 정한다.</li>
-  <li><strong>액자 그림 열두 장의 구성</strong> — 원본 폴더를 열어 본 뒤 몇 장을 새로 만들지 정해진다.</li>
-  <li><strong>개역개정 사용 범위</strong> — 35구절과 달리 180구절은 규모가 다르다.
-      플레이스토어에 올라가는 앱이므로, 대한성서공회 표기·허락 절차를 한 번 확인해 두는 편이 안전하다.</li>
-</ol>
+<div class="tw">
+<table>
+  <thead><tr><th>날짜</th><th>일</th></tr></thead>
+  <tbody>
+  <tr><td class="k">2026-09-10 (목)</td><td>기획 확정 — 이 문서. <strong>시작까지 11일.</strong></td></tr>
+  <tr><td class="k">~09-14 (월)</td><td>액자 그림 여섯 장 새로 · <code>tools/psalm-fit.py</code> · SQL·서버 갈래(개발 DB)</td></tr>
+  <tr><td class="k" style="background:#fff8ec">09-17 (목)</td>
+      <td><strong>담당자 자료 마감</strong> — 180구절 개역개정 본문. <strong>여기가 임계경로다.</strong></td></tr>
+  <tr><td class="k">09-18 (금)</td><td>줄수 측정 → 넘치는/짧은 구절 교체 → 시드 확정 → 개발 DB 확인</td></tr>
+  <tr><td class="k">09-19 (토)</td><td>운영 DB 반영 · <code>bump.py</code> · 배포 · 「이번 판에만 있는 표식」으로 확인</td></tr>
+  <tr><td class="k">09-20 (주일)</td><td>주보·광고 · 게시판 공지(작성자 「제자양육부」)</td></tr>
+  <tr><td class="k" style="background:#f0f6f0"><strong>09-21 (월)</strong></td>
+      <td><strong>1일차 열림</strong></td></tr>
+  <tr><td class="k">2027-03-19 (금)</td><td>180일차 — 한 바퀴</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="warn">
+  <p><strong>11일은 빠듯하다. 그리고 임계경로는 개발이 아니라 자료다.</strong>
+     액자 그림·도구·SQL·화면은 내가 병렬로 밀 수 있지만,
+     <strong>180구절 개역개정 본문은 사람이 한 줄씩 붙여 넣어야</strong> 하고 그것 없이는
+     줄수 측정도 시드도 시작되지 않는다.</p>
+  <p><strong>다만 막다른 길은 아니다</strong> — 시작일이 <code>app_config</code>에 있어
+     <strong>배포 없이 한 줄로 옮길 수 있다.</strong> 자료가 늦으면 화면은 그대로 두고
+     시작일만 9-28(월)로 미루면 된다. 그래서 「9월 21일에 맞추느라 본문을 대충 채우는」 일만은
+     하지 않는다 — 틀린 성경이 올라가는 것이 일주일 늦는 것보다 훨씬 비싸다.</p>
+</div>
+
+<h3>줄여서 먼저 열 수도 있다</h3>
+<p>
+  자료가 반만 준비되어도 <strong>9월 21일에 열 수 있다.</strong> 하루에 한 편씩만 쓰이므로
+  <strong>첫 30편만 있으면 한 달을 간다.</strong> <code>day_no</code>가 없는 구절은 안 내려가고,
+  화면은 열린 것만 그린다 — 뒤이어 채워 넣어도 아무 데도 안 깨진다.
+  <strong>이것이 「하루에 하나씩」 설계가 덤으로 준 것이다.</strong>
+</p>
+
+<h3>남은 위험</h3>
+<div class="tw">
+<table>
+  <thead><tr><th>위험</th><th>어떻게 하나</th></tr></thead>
+  <tbody>
+  <tr><td class="k">자료가 늦는다</td><td>시작일을 <code>app_config</code>에서 옮긴다 · 또는 첫 30편으로 연다(위)</td></tr>
+  <tr><td class="k">개역개정 사용 범위</td>
+      <td>담당자가 확인 중(2026-09-10). 35구절과 규모가 다르고 플레이스토어에 올라가는 앱이다.
+          앱 안 어딘가에 <strong>「성경 본문 — 개역개정, 대한성서공회」 표기</strong>를 넣어 둔다(NIV 표기와 같은 자리).</td></tr>
+  <tr><td class="k">액자 그림 여섯 장</td>
+      <td>원본 폴더에 쓸 만한 것이 없으면 AI 생성 → 화풍 맞추기에 하루가 더 든다.
+          <strong>정 안 되면 여섯 장으로 먼저 연다</strong> — <code>frame_art</code>가 DB에 있으니 나중에 그 구절만 바꾸면 된다.</td></tr>
+  <tr><td class="k">본진 잠식</td><td>13장의 전환율 질의로 2주 뒤 확인. 떨어지면 첫 화면 자리를 낮춘다.</td></tr>
+  </tbody>
+</table>
+</div>
 
 <hr>
 <footer>
@@ -615,7 +666,7 @@ create index if not exists idx_verses_track on public.verses(track, day_no);
     <code>2026-08-21-album-continuous-play-design.md</code>(앨범 재생) ·
     <code>CLAUDE.md</code>(배포·보안·개발 DB 규칙)
   </p>
-  <p>2026-09-10 · 브레인스토밍으로 확정 · 다음 단계는 구현 계획서</p>
+  <p>2026-09-10 · 브레인스토밍으로 확정(결정 열둘 + 일정) · 다음 단계는 구현 계획서</p>
 </footer>
 
 </div>
