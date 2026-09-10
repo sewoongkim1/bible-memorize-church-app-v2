@@ -285,15 +285,14 @@ function renderPsalmBlank(verse, stage) {
 //    여기서 "learn-typing" 을 직접 보내면 서버가 그것을 다시 매핑해
 //    엉뚱한 값이 되거나 제약에 걸린다.
 // ⚠️ 시편은 verse_no ≥ 1001 로 이미 갈리므로 새 mode 를 만들지 않는다.
+// ⚠️ 카드 쟁반을 여기서 만들지 않는다 — app.js 의 setupAutoCheck 가 이미
+//    같은 #card-tray 에 자기 쟁반(.wcard)을 만들고, 그것이 나중에 실행되어
+//    여기서 만든 것을 덮어쓴다. 예전에 그래서 카드로 푼 암송이 전부
+//    typing 으로 기록됐다(2026-09-10 실행으로 확인).
+// ⚠️ 카드 여부는 주간 암송 화면(checkAllComplete)과 **같은 뜻**으로 센다 —
+//    「카드 모드로 켜 둔 채 마쳤다」. 그래야 두 숫자를 나란히 놓을 수 있다.
 function psalmSetupCheck(verse, stage) {
-  let cardUsedHere = false;
-  const tray = document.getElementById("card-tray");
-  if (isCardMode() && tray) {
-    psalmBuildTray(verse, () => { cardUsedHere = true; },
-                   () => psalmStageDone(verse, stage, true));
-  }
-  // 자판 경로 — app.js 의 setupAutoCheck 를 그대로 쓰고 완료만 넘겨받는다.
-  setupAutoCheck(verse, stage, () => psalmStageDone(verse, stage, cardUsedHere));
+  setupAutoCheck(verse, stage, () => psalmStageDone(verse, stage, isCardMode()));
 }
 
 // 이 구절이 그분의 '첫 완주'인가 — saveProgress 보다 먼저 봐야 한다.
@@ -305,45 +304,13 @@ function psalmWasFirst() {
 
 function psalmStageDone(verse, stage, cardUsed) {
   const wasFirst = psalmWasFirst();
-  // ⚠️ 카드 여부는 isCardMode() 가 아니라 실제로 카드를 눌렀는지로 본다 —
-  //    카드로 켜 두고 자판으로 치신 분을 카드 사용자로 세면 측정이 흐려진다.
+  // ⚠️ 카드 여부는 실제 클릭 횟수가 아니라 isCardMode() 로 본다 — 주간 암송
+  //    화면(checkAllComplete)과 같은 뜻이다. 카드 모드에서는 입력칸이
+  //    readOnly 라 자판으로 칠 수 없으므로 "카드 모드로 마쳤다"와
+  //    "카드로 채웠다"가 이 조합에서는 동치다.
   saveProgress(verse.no, stage, cardUsed ? "card" : "typing");
   if (stage < 3) return renderPsalmStage(verse, stage + 1);
   renderPsalmDone(verse, wasFirst);   // 3단계면 복습은 saveProgress 안에서 이미 예약됐다
-}
-
-// 낱말을 눌러 채우는 방식. 자판이 벽인 분이 54명(전체의 32%)이다.
-// ⚠️ 쟁반은 액자 「밖」 아래에 둔다 — 안에 넣으면 다섯 줄 규칙이 무의미해진다.
-function psalmBuildTray(verse, onCardUse, onAllDone) {
-  const tray = document.getElementById("card-tray");
-  const inputs = Array.from(document.querySelectorAll(".word-input"));
-  if (!tray || !inputs.length) return;
-
-  // ⚠️ norm 은 setupAutoCheck 안의 지역 함수다 — 여기에 따로 둔다.
-  //    없이 부르면 카드 모드일 때만 화면이 통째로 멈춘다.
-  const norm = (s) => String(s || "").trim().normalize("NFC");
-
-  const words = inputs.map((i) => norm(i.dataset.answer));
-  const shuffled = words.slice().sort(() => Math.random() - 0.5);
-  tray.innerHTML = shuffled.map((w, k) =>
-    `<button class="card-word" data-w="${psalmEsc(w)}" data-k="${k}">${psalmEsc(w)}</button>`).join("");
-
-  tray.addEventListener("click", (e) => {
-    const b = e.target.closest(".card-word");
-    if (!b || b.disabled) return;
-    const target = inputs.find((i) => !i.classList.contains("correct"));
-    if (!target) return;
-    if (norm(target.dataset.answer) !== norm(b.dataset.w)) {
-      b.classList.add("shake");
-      setTimeout(() => b.classList.remove("shake"), 320);
-      return;
-    }
-    target.value = norm(target.dataset.answer);
-    target.classList.add("correct");
-    b.disabled = true;
-    onCardUse();
-    if (inputs.every((i) => i.classList.contains("correct"))) setTimeout(onAllDone, 260);
-  });
 }
 
 // 다 외우셨어요 — 시편의 완료 화면. 전역 verses·showStageDoneModal 을 쓰지 않는다

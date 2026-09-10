@@ -4787,20 +4787,13 @@ body.pr-full-on { overflow: hidden; }
 .ps-answer-b{font-size:17px;line-height:1.7;color:#12294b}
 .ps-answer-b strong{color:#1a3a6b}
 
-/* 카드 쟁반은 액자 밖 아래 */
+/* 카드 쟁반은 액자 밖 아래 — 쟁반 자리만 여기서 잡고, 안의 버튼(.wcard)은
+   app.js 의 setupAutoCheck 가 만드는 전역 규칙(style.css 409~428줄)을 그대로 쓴다. */
 .ps-wrap .card-tray{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:14px}
 .ps-wrap:not(.ps-card-on) .card-tray{display:none}
-.ps-wrap .card-word{
-  background:#fff;border:1px solid #cfd8e4;border-radius:10px;
-  padding:11px 15px;font-size:18px;color:#12294b;cursor:pointer;min-height:46px;
-}
-.ps-wrap .card-word:disabled{opacity:.32;background:#f2f2f2;cursor:default}
-.ps-wrap .card-word.shake{animation:ps-shake .3s}
-@keyframes ps-shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
 
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]) .ps-fr-body .word-input{background:#1d2430;border-bottom-color:#4a5666;color:#dde5f0}
-  :root:not([data-theme="light"]) .ps-wrap .card-word{background:#1d2430;border-color:#39424f;color:#dde5f0}
 }
 
 .ps-done{text-align:center;padding-top:26px}
