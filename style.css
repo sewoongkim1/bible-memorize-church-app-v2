@@ -4783,7 +4783,9 @@ body.pr-full-on { overflow: hidden; }
 }
 .ps-past-day{color:var(--gray);font-size:13px;min-width:46px}
 .ps-past-ref{flex:1;color:var(--navy,#1a3a6b)}
-.ps-past-mark{min-width:20px;text-align:right}
+/* ✅ 하나만 들어가던 칸이다 — 「마음에 둠」까지 하신 편은 ✅👑 두 자가 들어와 폭이 모자라면
+   요절(.ps-past-ref)을 밀어낸다. 줄바꿈도 막는다(왕관만 아랫줄로 떨어지면 표식이 아니다). */
+.ps-past-mark{min-width:44px;text-align:right;white-space:nowrap}
 
 /* 액자 안 빈칸 — 폭은 ch 로 잰다. em 이면 --psalm-fs 와 곱해져 액자를 뚫는다. */
 .ps-fr-body .word-input{
@@ -4822,6 +4824,26 @@ body.pr-full-on { overflow: hidden; }
 .ps-done-wait{margin:16px 0;color:#8a6216;background:#fff8ec;border:1px solid #e8c98a;
               border-radius:9px;padding:12px 14px;font-size:15px}
 .ps-next-ref{display:block;font-size:14px;font-weight:400;opacity:.85;margin-top:3px}
+
+/* 완료 화면의 「◀ 이전 · 다음 말씀 ▶」 — 주간 암송의 .complete-nav 와 같은 뜻이되,
+   액자 화면의 크기(.ps-go 는 min-height:60px)를 따른다.
+   ⚠️ 한 줄에 나란히 두어도 위계는 지킨다 — 다음만 남색 채움(= 지금 할 일)이고 이전은
+      흰 바탕이다. 둘을 똑같이 만들면 「먼저 이걸 누르세요」라는 뜻이 사라진다.
+   ⚠️ 다음이 더 넓다(flex:1.6) — 요절 한 줄(.ps-next-ref)을 품는 데다 이 화면의 주된
+      다음 걸음이기 때문이다. */
+.ps-nav{display:flex;gap:8px;margin:16px 0 10px}
+.ps-nav-btn{
+  flex:1 1 0;min-width:0;min-height:60px;padding:14px 8px;
+  background:#fff;color:var(--navy,#1a3a6b);border:1.5px solid #cfd8e4;border-radius:12px;
+  font-family:inherit;font-size:17px;font-weight:700;cursor:pointer;
+}
+.ps-nav-btn.next{
+  flex:1.6 1 0;background:var(--navy,#1a3a6b);color:#fff;border-color:var(--navy,#1a3a6b);
+}
+/* 1일차의 「이전」·오늘 마지막 편의 「다음」 — .nav3-btn:disabled 와 같은 값(.38)이다. */
+.ps-nav-btn:disabled{opacity:.38;cursor:default}
+.dark .ps-nav-btn{background:#232c3f;color:#cdd9f2;border-color:#3a4a68}
+.dark .ps-nav-btn.next{background:#2f4f86;border-color:#2f4f86;color:#fff}
 
 /* 어두운 모드 — 액자 밖 요소들. 값은 이 화면(.dark .album-track 바로 위 참고)·기도문
    (.pr-*)·본문 답 패널(.answer-panel 계열, 2705~2727줄)이 이미 쓰는 값을 그대로 받는다 —

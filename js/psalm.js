@@ -110,7 +110,7 @@ function drawPsalmHome() {
           <button class="ps-past-row" data-no="${v.no}">
             <span class="ps-past-day">${v.dayNo}일차</span>
             <span class="ps-past-ref">${psalmEsc(v.refFull)}</span>
-            <span class="ps-past-mark">${getPassedStage(v.no) >= 3 ? "✅" : ""}</span>
+            <span class="ps-past-mark">${psalmMark(v)}</span>
           </button>`).join("")}
       </div>` : ""}
   `;
@@ -132,6 +132,15 @@ function drawPsalmHome() {
       if (v) renderPsalmStage(v, 0);
     });
   });
+}
+
+// 지난 말씀 줄의 표식 — 마친 편은 ✅, 그중 「마음에 둠」까지 하신 편은 👑 을 함께 단다.
+// ⚠️ ✅ 만 그리면 「마음에 둠」이 시편 안에서 아무 데도 안 보인다 — 주간은 목록 카드에
+//    👑 리본(.heart-ribbon)이 있고 앨범 카드에도 왕관이 붙는데, 시편에서 체크할 자리만
+//    만들고 보일 자리를 안 만들면 체크한 분께 그것이 어디로 갔는지 알 길이 없다.
+function psalmMark(v) {
+  if (getPassedStage(v.no) < 3) return "";
+  return isHearted(v.no) ? "✅👑" : "✅";
 }
 
 // 액자 = 색(금색/군청) × 잎가지(1~12). 구절마다 고정이다 —
@@ -237,6 +246,12 @@ function renderPsalmStage(verse, stage) {
   document.getElementById("ps-next").addEventListener("click", () => {
     stopSpeaking();
     const passed = getPassedStage(verse.no);
+    // ⚠️ 마음에 둔 편은 곧바로 3단계로 — 체크 문구가 「다음부터 바로 3단계로 시작해요」라고
+    //    약속하기 때문이다(app.js 의 heartCheckHtml). 시편 진입은 늘 renderPsalmStage(v, 0)
+    //    → 「다음 →」이라, 이 줄이 없으면 마음에 둔 편도 1단계부터 다시 시작해 그 약속이
+    //    시편에서만 거짓이 된다. 판단은 app.js 의 startTest 것을 그대로 옮겼다
+    //    (마음에 두었고 + 실제로 3단계를 마쳤을 때만).
+    if (isHearted(verse.no) && passed >= 3) return renderPsalmStage(verse, 3);
     renderPsalmStage(verse, passed >= 3 ? 1 : Math.min(3, passed + 1));
   });
 
@@ -269,6 +284,22 @@ function renderPsalmBlank(verse, stage) {
          + ` style="width:${w + 1}em" />`;
   }).join(" ");
 
+  // 3단계에만 — 주간 암송 화면(app.js renderTestScreen)에 있던 것을 그대로 가져온다.
+  //  · 🔁 반복해서 쓰기 : psalmStageDone 이 이미 isRepeatPractice() 를 읽고 따르는데
+  //    켜고 끄는 자리가 시편 화면에만 없었다. 읽기만 하고 켤 수 없는 설정은 없는 것과 같다.
+  //    ⚠️ 복습에는 두지 않는다 — 주간 복습 화면(renderReview)에도 없고, psalmStageDone 의
+  //    복습 갈래가 isRepeatPractice() 를 보기 전에 return 하므로 켜도 아무 일이 안 일어난다.
+  //  · 👑 마음에 둠 : 3단계에 들어오면 곧바로 체크할 수 있다(다 맞혀야 풀리는 잠금은 주간에서
+  //    이미 없앴다 — 반복해서 쓰기가 켜져 있으면 정답 직후 화면이 바뀌어 체크할 틈이 없다).
+  //    복습에도 둔다 — 주간 복습 화면이 그렇게 하고 있다.
+  const repeatHtml = (stage === 3 && !psalmInReview(verse)) ? `
+        <label class="repeat-toggle" id="repeat-label">
+          <input type="checkbox" id="repeat-check"${isRepeatPractice() ? " checked" : ""} />
+          <span class="repeat-text">🔁 반복해서 쓰기</span>
+          <span class="repeat-desc">외울 때까지, 정답을 맞히면 자동으로 다시 써요</span>
+        </label>` : "";
+  const heartHtml = stage === 3 ? heartCheckHtml(verse) : "";
+
   const app = document.getElementById("app");
   app.innerHTML = `
     <div class="ps-wrap ps-stage${isCardMode() ? " ps-card-on" : ""}">
@@ -290,6 +321,9 @@ function renderPsalmBlank(verse, stage) {
           flags[i] ? `<strong>${psalmEsc(w)}</strong>` : psalmEsc(w)).join(" ")}</div>
         <button class="ps-tool" id="ps-answer-back">돌아가서 계속하기</button>
       </div>
+      <div id="ps-result" class="ps-result"></div>
+      ${repeatHtml}
+      ${heartHtml}
     </div>
     <button class="home-fab" id="ps-home" aria-label="첫 화면으로">${homeFabLabel(u, true)}</button>`;
   window.scrollTo(0, 0);
@@ -309,6 +343,12 @@ function renderPsalmBlank(verse, stage) {
     setCardMode(!isCardMode());
     renderPsalmBlank(verse, stage);
   });
+
+  // 「반복해서 쓰기」 저장 — 주간 화면과 같은 열쇠(REPEAT_KEY)라 한쪽에서 켜면 양쪽이 켜진다.
+  const repeatInput = document.getElementById("repeat-check");
+  if (repeatInput) repeatInput.addEventListener("change", () => setRepeatPractice(repeatInput.checked));
+  // 「마음에 둠」 체크 — 꼬리표 없이(화면에 한 벌뿐이다). 주간처럼 축하창을 띄운다.
+  setupHeartCheck(verse);
 
   psalmSetupCheck(verse, stage);
 }
@@ -382,13 +422,90 @@ function psalmStageDone(verse, stage, cardUsed) {
   //    readOnly 라 자판으로 칠 수 없으므로 "카드 모드로 마쳤다"와
   //    "카드로 채웠다"가 이 조합에서는 동치다.
   saveProgress(verse.no, stage, cardUsed ? "card" : "typing");
-  if (stage < 3) return renderPsalmStage(verse, stage + 1);
+  if (stage < 3) {
+    // ⚠️ 「반복해서 쓰기」를 켜 두신 분께는 창을 띄우지 않는다 — 그 토글의 뜻이 「멈추지 말고
+    //    계속」이라, 새로 만든 창이 그 흐름 앞을 가로막으면 켜 둔 설정을 무시하는 것이 된다
+    //    (v3.181→182 되돌림과 같은 원칙).
+    // ⚠️ 복습은 이 함수 맨 위에서 이미 return 했으므로 여기까지 오지 않는다 — 그래도 한 번 더
+    //    본다(psalmInReview 가 깃발과 구절을 함께 맞춰 보는 세 번째 방어선인 것과 같은 이유).
+    if (isRepeatPractice() || psalmInReview(verse)) return renderPsalmStage(verse, stage + 1);
+    // ⚠️ 화면에도 「N+1단계로」를 남긴 뒤에 창을 띄운다 — 창은 Escape·바깥 탭으로 닫힐
+    //    수 있고, 폰에서는 카드 밖을 건드리기가 쉬다. 그때 뒤 화면에 갈 길이 없으면
+    //    빈칸이 전부 초록인 채 멈춰 있는 화면에 갇힌다(「← 목록」만 남는다).
+    //    주간 암송도 같은 이유로 #result-area 에 단추를 먼저 넣고 창을 띄운다
+    //    (app.js checkAllComplete). 그 순서를 그대로 따른다.
+    const rs = document.getElementById("ps-result");
+    if (rs) {
+      rs.innerHTML = `<button class="ps-go" id="ps-next-stage">${stage + 1}단계로</button>`;
+      document.getElementById("ps-next-stage")
+        .addEventListener("click", () => renderPsalmStage(verse, stage + 1));
+    }
+    return psalmStageModal(verse, stage, wasFirst);
+  }
   // 「반복해서 쓰기」가 켜져 있으면 완료 화면을 건너뛰고 바로 새 3단계로 — 주간 암송
   // (checkAllComplete)과 같은 동작. 켜 둔 설정을 새 기능이 조건부로 무시하면 안 된다
   // (v3.181→182 되돌림 사례와 같은 원칙, 2026-09-10 리뷰 지적). 진도 저장(saveProgress)은
   // 이미 위에서 끝났다 — 여기서 또 저장하지 않는다.
   if (isRepeatPractice()) return renderPsalmBlank(verse, 3);
   renderPsalmDone(verse, wasFirst);   // 3단계면 복습은 saveProgress 안에서 이미 예약됐다
+}
+
+// 단계 완료 창(1·2단계) — 주간 암송의 showStageDoneModal 과 같은 생김새·같은 조작이다.
+//   Enter·스페이스 = 기본 단추 · Escape·바깥 탭 = 그냥 닫기(뒤 화면이 그대로 남는다).
+// 왜 창인가: 그전에는 마지막 빈칸을 채우면 아무 말 없이 다음 단계가 그려졌다 — 큰 글씨에
+//   키보드까지 올라와 있으면 화면이 바뀐 것조차 모르고, 다 외우고도 끝난 줄 모르고 앉아
+//   계신다. 주간 암송에서 같은 이유로 만든 창이 시편에만 없었다.
+// ⚠️ showStageDoneModal 을 그대로 쓸 수 없다 — 전역 verses(주간 35구절)에서 「다음 말씀」을
+//    찾으므로 시편 구절이 오면 idx = -1 이 되어 엉뚱한 구절로 튕긴다.
+// ⚠️ 3단계에는 이 창을 띄우지 않는다 — 이미 renderPsalmDone 이 온 화면으로 축하한다. 창까지
+//    겹치면 두 겹이 되어 Enter 한 번에 둘 다 닫힌다(주간에서 배운 것).
+// ⚠️ id 에 ps- 를 붙인다 — app.js 의 sd-main·sd-again·sd-list 와 부딪히면 안 된다.
+function psalmStageModal(verse, stage, wasFirst) {
+  const wrap = document.createElement("div");
+  wrap.className = "cheer-overlay stage-done";
+  wrap.innerHTML = `
+    <div class="cheer-card" role="dialog" aria-modal="true">
+      <div class="cheer-icon">✅</div>
+      <div class="cheer-ref">${stage}단계 완료!</div>
+      ${wasFirst && STEP_CHEER[stage] ? `<div class="cheer-msg">${STEP_CHEER[stage]}</div>` : ""}
+      <button class="cheer-ok" id="ps-sd-main">${stage + 1}단계로 계속하기</button>
+      <div class="sd-sub">
+        <button class="sd-btn" id="ps-sd-again">이 단계 다시</button>
+        <button class="sd-btn" id="ps-sd-list">목록으로</button>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap);
+  requestAnimationFrame(() => wrap.classList.add("show"));
+
+  let closed = false;
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    document.removeEventListener("keydown", onKey, true);
+    wrap.classList.remove("show");
+    setTimeout(() => wrap.remove(), 250);
+  };
+  const go = (fn) => { close(); if (fn) setTimeout(fn, 60); };
+  const main = () => go(() => renderPsalmStage(verse, stage + 1));
+  // ⚠️ 캡처 단계에서 듣는다 — 빈칸(.word-input)이 키를 먼저 먹으면 Enter 가 창에 안 닿는다.
+  const onKey = (e) => {
+    if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); return; }
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    e.stopPropagation();
+    main();
+  };
+  document.addEventListener("keydown", onKey, true);
+
+  const mainBtn = document.getElementById("ps-sd-main");
+  mainBtn.addEventListener("click", main);
+  document.getElementById("ps-sd-again")
+    .addEventListener("click", () => go(() => renderPsalmStage(verse, stage)));
+  document.getElementById("ps-sd-list").addEventListener("click", () => go(renderPsalmHome));
+  wrap.addEventListener("click", (e) => { if (e.target === wrap) close(); });
+  const focus = () => { try { mainBtn.focus({ preventScroll: true }); } catch (e) { mainBtn.focus(); } };
+  focus();
+  setTimeout(focus, 80);   // 키보드가 내려가며 초점을 뺏길 수 있어 한 번 더
 }
 
 // 다 외우셨어요 — 시편의 완료 화면. 전역 verses·showStageDoneModal 을 쓰지 않는다
@@ -398,6 +515,11 @@ function renderPsalmDone(verse, wasFirst) {
   const u = loadUser();
   // 다음 편 = 열린 것 중 dayNo 가 하나 큰 것. 없으면 오늘 것까지 다 한 것이다.
   const next = psalmVerses.find((v) => v.dayNo === verse.dayNo + 1) || null;
+  // 이전 편 = dayNo 가 하나 작은 것. 1일차면 없어서 회색으로 비활성이다.
+  // ⚠️ 주간 암송의 완료 화면(renderCompleteNav)에는 처음부터 있던 길인데 시편에만 없어,
+  //    앞 편으로 가려면 「지난 말씀 보기」로 목록을 한 번 거쳐야 했다.
+  //    psalmVerses 에는 열린 편만 들어 있으므로 dayNo > 1 이면 앞 편은 반드시 있다.
+  const prev = psalmVerses.find((v) => v.dayNo === verse.dayNo - 1) || null;
   const done = psalmDoneCount();
   const app = document.getElementById("app");
   app.innerHTML = `
@@ -408,9 +530,13 @@ function renderPsalmDone(verse, wasFirst) {
       ${wasFirst ? FIRST_DONE_HTML : `
         <div class="ps-done-s">말씀 앨범에 담겼고, 복습이 예약됐어요</div>`}
       <div class="ps-done-bar">${psalmTotal}편 중 <b>${done}편</b> 마쳤어요</div>
-      ${next
-        ? `<button class="ps-go" id="ps-next">다음 말씀 ▶ <span class="ps-next-ref">${psalmEsc(next.refFull)}</span></button>`
-        : `<div class="ps-done-wait">오늘 열린 말씀은 여기까지예요 · 내일 한 편이 더 열려요</div>`}
+      <div class="ps-nav">
+        <button class="ps-nav-btn" id="ps-prev"${prev ? "" : " disabled"}>◀ 이전${
+          prev ? `<span class="ps-next-ref">${psalmEsc(prev.refFull)}</span>` : ""}</button>
+        <button class="ps-nav-btn next" id="ps-next"${next ? "" : " disabled"}>다음 말씀 ▶${
+          next ? `<span class="ps-next-ref">${psalmEsc(next.refFull)}</span>` : ""}</button>
+      </div>
+      ${next ? "" : `<div class="ps-done-wait">오늘 열린 말씀은 여기까지예요 · 내일 한 편이 더 열려요</div>`}
       <button class="ps-tool ps-wide" id="ps-again">↺ 이 말씀 다시 암송</button>
       <button class="ps-tool ps-wide" id="ps-list">지난 말씀 보기</button>
     </div>
@@ -422,4 +548,7 @@ function renderPsalmDone(verse, wasFirst) {
   document.getElementById("ps-again").addEventListener("click", () => renderPsalmStage(verse, 3));
   const nb = document.getElementById("ps-next");
   if (nb && next) nb.addEventListener("click", () => renderPsalmStage(next, 0));
+  // 「◀ 이전」도 0단계(액자로 읽기)부터 — 앞 편을 다시 만나는 자리라 읽는 것부터가 맞다.
+  const pv = document.getElementById("ps-prev");
+  if (pv && prev) pv.addEventListener("click", () => renderPsalmStage(prev, 0));
 }
