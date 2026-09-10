@@ -122,7 +122,7 @@ Deno.serve(async (req) => {
       case "findMember":          return json(await findMember(body));
       case "memberParticipation": return json(await memberParticipation(body));
       // ---- 말씀/설교 관리(CMS) ----
-      case "getVerses":     return json(await getVerses());
+      case "getVerses":     return json(await getVerses(body));
       case "saveVerse":     return json(await saveVerse(body));
       case "seedVerses":    return json(await seedVerses(body));
       case "generateNiv":   return json(await generateNiv(body));
@@ -322,7 +322,8 @@ async function savePush(b: any) {
 async function latestVerse(): Promise<{ no: number | null; ref: string; text: string; prev: { no: number | null; ref: string; text: string } | null } | null> {
   try {
     const { data } = await db.from("verses")
-      .select("no,ref_short,ref_full,ref,text,date").eq("is_active", true);
+      .select("no,ref_short,ref_full,ref,text,date")
+      .eq("is_active", true).eq("track", "weekly");   // 이번 주 말씀은 주간 트랙만
     const list = (data ?? [])
       .filter((v: any) => v.date)
       .map((v: any) => ({ v, t: Date.parse(v.date) }))
@@ -571,7 +572,8 @@ async function monitor(b: any) {
 
   // 2) 이번 주(최신, 오늘 이하) 말씀 신선도
   let latestVerseDate: string | null = null;
-  const { data: vs } = await db.from("verses").select("date").eq("is_active", true);
+  const { data: vs } = await db.from("verses").select("date")
+    .eq("is_active", true).eq("track", "weekly");     // 시편 액자는 주차 개념이 없다
   const ts = (vs ?? []).map((v: any) => v.date).filter(Boolean)
     .map((s: string) => Date.parse(s)).filter((t: number) => t <= now.getTime())
     .sort((a: number, b: number) => b - a);
@@ -643,11 +645,45 @@ async function monitor(b: any) {
   };
 }
 
-// ---------- getVerses: 앱 표시용 말씀 목록(verses.json과 동일 형태) ----------
-async function getVerses() {
+// ---------- 시편 말씀 액자: 열린 편수 ----------
+// 하루에 한 편씩 열린다. 「안 열린 구절은 응답에 싣지 않는다」가 잠금의 전부다 —
+// 화면에서 가리는 것이 아니라 폰에 아예 없게 한다. 시계를 바꿔도 못 연다.
+const PSALM_DEFAULT = { start: "2026-09-21", totalDays: 180 };
+
+async function psalmConfig(): Promise<{ start: string; totalDays: number }> {
+  try {
+    const { data } = await db.from("app_config").select("value").eq("key", "psalm").maybeSingle();
+    const v = (data && data.value) || {};
+    return {
+      start: typeof v.start === "string" ? v.start : PSALM_DEFAULT.start,
+      totalDays: Number.isFinite(Number(v.totalDays)) ? Number(v.totalDays) : PSALM_DEFAULT.totalDays,
+    };
+  } catch { return PSALM_DEFAULT; }
+}
+
+// KST 오늘(YYYY-MM-DD). 서버는 UTC로 도니 +9시간을 더해 자른다.
+function psalmKstToday(): string {
+  return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
+function psalmOpenCount(cfg: { start: string; totalDays: number }): number {
+  const t = Date.parse(psalmKstToday() + "T00:00:00Z");
+  const s = Date.parse(cfg.start + "T00:00:00Z");
+  if (!Number.isFinite(t) || !Number.isFinite(s)) return 0;
+  const days = Math.floor((t - s) / 86400000) + 1;
+  return Math.max(0, Math.min(cfg.totalDays, days));
+}
+
+// ---------- getVerses: 앱 표시용 말씀 목록 ----------
+//   인자 없음 / track:"weekly"  → 주간 암송 35구절 (지금까지와 똑같다)
+//   track:"psalm"               → 시편 말씀 액자 · 「오늘까지 열린 것만」
+// ⚠️ 기본을 weekly 로 두는 것이 중요하다 — 폰에 남아 있는 옛 앱은 track 을 안 보내는데,
+//    그때 180편이 딸려 가면 첫 화면 진행 막대가 「전체 215」로 깨진다.
+async function getVerses(b: any = {}) {
+  if (b && b.track === "psalm") return await getPsalmVerses();
   const { data, error } = await db.from("verses")
     .select("no,date,ref_short,ref_full,ref,text,text_en,ref_en,hint,pastor,sermon_title,sermon_url")
-    .eq("is_active", true).order("no");
+    .eq("is_active", true).eq("track", "weekly").order("no");
   if (error) throw error;
   const verses = (data ?? []).map((v: any) => ({
     no: v.no, date: v.date,
@@ -662,6 +698,27 @@ async function getVerses() {
     url: v.sermon_url || "",
   }));
   return { ok: true, verses };
+}
+
+async function getPsalmVerses() {
+  const cfg = await psalmConfig();
+  const open = psalmOpenCount(cfg);
+  const base = { ok: true, openCount: open, totalDays: cfg.totalDays, startDate: cfg.start };
+  if (open <= 0) return { ...base, verses: [] };
+  const { data, error } = await db.from("verses")
+    .select("no,day_no,frame_art,ref_short,ref_full,ref,text")
+    .eq("is_active", true).eq("track", "psalm")
+    .lte("day_no", open).order("day_no");
+  if (error) throw error;
+  const verses = (data ?? []).map((v: any) => ({
+    no: v.no,
+    dayNo: v.day_no,
+    frameArt: v.frame_art || 1,
+    refShort: v.ref_short || v.ref || "",
+    refFull: v.ref_full || v.ref || "",
+    text: v.text || "",
+  }));
+  return { ...base, verses };
 }
 
 // ---------- saveVerse: 말씀/설교 추가·수정 (ADMIN_SECRET) ----------
