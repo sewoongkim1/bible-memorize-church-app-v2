@@ -91,6 +91,14 @@ function psalmWireHomeBack() {
 //    옮겼다(마음에 두었고 + 실제로 3단계를 마쳤을 때만).
 function psalmStartMemorize(v) {
   stopSpeaking();
+  // ⚠️ 설정 「✍️ 암송 입력 방법 — 쓰기 / 카드」를 **구절을 시작할 때마다 다시 읽는다** —
+  //    주간 암송의 startTest(app.js:4437)·startRelearn 이 하는 것과 같은 자리, 같은 줄이다.
+  //    이게 없으면 시편은 **마지막으로 눌린 토글**을 물려받는다: 설정을 「카드」로 두신
+  //    분이 주간·도전 화면에서 한 번 「⌨️ 쓰기」를 누르면 그 뒤로 시편은 영영 쓰기로 뜬다
+  //    (주간은 구절마다 되돌려 놓으니 멀쩡한데 시편만 안 되는 것으로 보인다 —
+  //    성도님 제보 2026-09-10). 화면 안에서 누른 토글은 그 구절 동안 그대로 살아 있다:
+  //    단계가 넘어갈 때 부르는 renderPsalmStage 가 아니라 **구절을 여는 이 자리**에만 둔다.
+  setCardMode(isCardStart());
   const passed = getPassedStage(v.no);
   if (isHearted(v.no) && passed >= 3) return renderPsalmStage(v, 3);
   renderPsalmStage(v, passed >= 3 ? 1 : Math.min(3, passed + 1));
@@ -398,6 +406,10 @@ function psalmInReview(verse) {
 // ⚠️ 깃발을 render 「전에」 세운다 — psalmSetupCheck 가 render 안에서 콜백을 걸기 때문이다.
 function renderPsalmReview(queue, idx) {
   psalmReviewCtx = { queue, idx };
+  // 복습도 한 구절이 한 번의 시작이다 — psalmStartMemorize 와 같은 이유로 설정을 다시 읽는다.
+  // ⚠️ 주간 복습(renderReview)에는 카드 입력 자체가 없어 견줄 자리가 없다. 시편 복습은
+  //    이 화면(renderPsalmBlank)을 그대로 쓰므로 카드가 있고, 그래서 여기도 필요하다.
+  setCardMode(isCardStart());
   renderPsalmBlank(queue[idx], 3);
 }
 
