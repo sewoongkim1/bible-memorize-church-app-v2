@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260910g";
+const APP_BUILD = "20260910h";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9174,12 +9174,14 @@ function minFilterHtml() {
     '<div class="min-fr"><span class="min-fr-l">이름으로 찾기</span>' +
       '<input id="min-q" class="min-q" type="search" placeholder="예: 오병이어, 주차"' +
       ' value="' + minEsc(minQ) + '" autocomplete="off"></div>' +
-    (minFOn() ? '<button class="min-fclear" id="min-fclear">✕ 조건 지우기</button>' : "") +
+    '<button class="min-fclear" id="min-fclear"' + (minFOn() ? "" : " hidden") +
+      '>✕ 조건 지우기</button>' +
     '</div>';
 }
 
 /* ── ① 부서 고르기 ─────────────────────────────────────────── */
-function minPickHtml() {
+// 목록만 만든다 — 다시 그릴 때 필터 상자를 건드리지 않으려고 떼어 두었다.
+function minAccBuild() {
   const committees = [];
   for (const t of minCat.list) if (committees.indexOf(t.committee) < 0) committees.push(t.committee);
 
@@ -9254,7 +9256,17 @@ function minPickHtml() {
     }
     acc += '</div>';
   }
+  return {
+    shownN: shownN,
+    html: acc
+      ? acc
+      // ⚠️ 「조건을 바꿔 보세요」는 도움이 안 된다 — 바꿀 후보를 짚어 드려야 한다
+      : '<div class="min-none">고르신 조건에 맞는 사역이 없어요' + minFHintHtml() + '</div>',
+  };
+}
 
+function minPickHtml() {
+  const L = minAccBuild();
   const openNow = minIsOpen();
   return '<h2 class="rank-title">🤝 사역 신청서</h2>' +
     '<p class="min-sub min-verse">“각각 은사를 받은 대로 … 선한 청지기 같이 서로 봉사하라”' +
@@ -9277,16 +9289,13 @@ function minPickHtml() {
     minServingHtml() +
     minOverHtml() +
     minFilterHtml() +
-    (minFOn()
-      ? '<div class="min-fnum">지금 <b>' + shownN + '팀</b> 보임</div>'
-      : "") +
-    '<div class="min-count' + (minPicked.length ? " has" : "") + '">' +
+    // ⚠️ 이 셋은 **자리를 지킨다**(id 고정). 찾기를 칠 때 이 셋만 갈아 끼우고
+    //    필터 상자는 손대지 않아야 한글 조합이 안 끊긴다.
+    '<div class="min-fnum" id="min-fnum"' + (minFOn() ? "" : " hidden") + '>' +
+      '지금 <b>' + L.shownN + '팀</b> 보임</div>' +
+    '<div class="min-count' + (minPicked.length ? " has" : "") + '" id="min-count">' +
       (minHeld() + minPicked.length) + ' / ' + MIN_MAX + ' 선택' + '</div>' +
-    (acc
-      ? '<div class="min-acc-wrap">' + acc + '</div>'
-      // ⚠️ 「조건을 바꿔 보세요」는 도움이 안 된다 — 바꿀 후보를 짚어 드려야 한다
-      : '<div class="min-none">고르신 조건에 맞는 사역이 없어요' +
-        minFHintHtml() + '</div>') +
+    '<div class="min-acc-wrap" id="min-list">' + L.html + '</div>' +
     // 신청현황 화면과 **같은 자리·같은 모양** — 남색이 지금 할 일, 흰 바탕이 되돌아가기.
     // 이미 낸 것이 있으면 돌아갈 길을 둔다: 없으면 목록에 갇힌다.
     '<div class="min-acts">' +
@@ -9327,7 +9336,26 @@ function minFHintHtml() {
     '<button class="min-ghost" id="min-fclear2">✕ 조건 모두 지우기</button></div>';
 }
 
-function wireMinPick(u) {
+// ⚠️ **화면을 통째로 다시 그리지 않는다.** 입력칸이 새로 만들어지면 한글 조합이 끊긴다.
+//    필터 상자는 그대로 두고 목록·숫자만 갈아 끼운 뒤, 목록 쪽 배선만 다시 건다.
+function minRefreshList() {
+  const L = minAccBuild();
+  const box = document.getElementById("min-list");
+  if (box) box.innerHTML = L.html;
+  const n = document.getElementById("min-fnum");
+  if (n) { n.hidden = !minFOn(); n.innerHTML = '지금 <b>' + L.shownN + '팀</b> 보임'; }
+  const c = document.getElementById("min-count");
+  if (c) {
+    c.className = "min-count" + (minPicked.length ? " has" : "");
+    c.textContent = (minHeld() + minPicked.length) + " / " + MIN_MAX + " 선택";
+  }
+  const cl = document.getElementById("min-fclear");
+  if (cl) cl.hidden = !minFOn();
+  minWireList();
+}
+
+// 목록 안에서만 사는 배선 — 목록을 갈아 끼울 때마다 다시 건다
+function minWireList() {
   for (const b of document.querySelectorAll("[data-acc]")) {
     b.addEventListener("click", function () {
       const c = this.getAttribute("data-acc");
@@ -9340,12 +9368,33 @@ function wireMinPick(u) {
       if (minTogglePick(Number(this.getAttribute("data-team")))) renderMinistry(window.scrollY);
     });
   }
+  for (const b of document.querySelectorAll("[data-fdrop]")) {
+    b.addEventListener("click", function () {
+      const p = this.getAttribute("data-fdrop").split("|");
+      minF[p[0]] = minF[p[0]].filter(function (x) { return x !== p[1]; });
+      renderMinistry(0);
+    });
+  }
+  const c2 = document.getElementById("min-fclear2");
+  if (c2) c2.addEventListener("click", minClearFilter);
   minWireMore();
+}
+
+function minClearFilter() {
+  minF = { day: [], freq: [], band: [] };
+  minQ = "";
+  renderMinistry(0);
+}
+
+function wireMinPick(u) {
+  minWireList();          // 아코디언·팀 단추·자세히·0개 안내 (목록을 갈아 끼울 때 다시 걸린다)
+
   for (const b of document.querySelectorAll("[data-serve]")) {
     b.addEventListener("click", function () {
       if (minTogglePick(Number(this.getAttribute("data-serve")))) renderMinistry(window.scrollY);
     });
   }
+  // 칩은 자판이 아니라 눌러서 고르는 것이라 통째로 다시 그려도 된다
   for (const b of document.querySelectorAll("[data-f]")) {
     b.addEventListener("click", function () {
       const axis = this.getAttribute("data-f"), k = this.getAttribute("data-k");
@@ -9354,34 +9403,25 @@ function wireMinPick(u) {
       renderMinistry(window.scrollY);
     });
   }
-  for (const b of document.querySelectorAll("[data-fdrop]")) {
-    b.addEventListener("click", function () {
-      const p = this.getAttribute("data-fdrop").split("|");
-      minF[p[0]] = minF[p[0]].filter(function (x) { return x !== p[1]; });
-      renderMinistry(0);
-    });
-  }
-  for (const id of ["min-fclear", "min-fclear2"]) {
-    const b = document.getElementById(id);
-    if (b) b.addEventListener("click", function () {
-      minF = { day: [], freq: [], band: [] };
-      minQ = "";
-      renderMinistry(0);
-    });
-  }
+  const cl = document.getElementById("min-fclear");
+  if (cl) cl.addEventListener("click", minClearFilter);
+
   const qel = document.getElementById("min-q");
   if (qel) {
-    // ⚠️ 한 글자 칠 때마다 화면을 다시 그리므로 **커서 자리를 되살려야** 한다.
-    //    안 그러면 두 번째 글자부터 커서가 맨 앞으로 튄다.
-    const pos = qel.value.length;
+    // ⚠️ **여기서만 화면을 통째로 다시 그리지 않는다.** 한 글자마다 다시 그리면
+    //    입력칸이 새로 만들어져 한글 조합이 끊긴다 — 「오병」이 「ㅇㅗㅂㅕㅇ」이 된다
+    //    (성도님 제보 2026-09-10). 포커스·커서를 되살려도 소용없다. 요소가 살아야 한다.
     qel.addEventListener("input", function () {
       minQ = this.value.trim();
-      renderMinistry(window.scrollY);
-      const n = document.getElementById("min-q");
-      if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); }
+      minRefreshList();
     });
-    if (minQ) { qel.focus(); qel.setSelectionRange(pos, pos); }
+    // 조합이 끝나는 순간에도 한 번 — 브라우저에 따라 input 이 안 오는 경우가 있다
+    qel.addEventListener("compositionend", function () {
+      minQ = this.value.trim();
+      minRefreshList();
+    });
   }
+
   const go = document.getElementById("min-next");
   if (go) go.addEventListener("click", function () { minStep = "confirm"; renderMinistry(); });
   const back = document.getElementById("min-tomine");
