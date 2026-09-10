@@ -220,11 +220,15 @@ COLS = [
     ("확정 표기명",               20, True,  True),
     ("변경여부",                  11, True,  False),
     ("주일",                      6,  True,  False),
-    ("평일",                      6,  True,  False),
+    ("금요일",                    7,  True,  False),
     ("토요일",                    7,  True,  False),
-    ("시작 시각",                 10, True,  False),
-    ("끝 시각",                   10, True,  False),
-    ("한 사람이 서는 주기",       14, True,  True),
+    ("평일(금 제외)",             11, True,  True),
+    ("매주",                      6,  True,  False),
+    ("격주(교대형식)",            11, True,  True),
+    ("매달",                      6,  True,  False),
+    ("그때그때",                  8,  True,  False),
+    ("주일 시작 시각",            11, True,  True),
+    ("주일 끝 시각",              11, True,  True),
     ("사역 시간·요일 (문장으로)", 22, True,  True),
     ("하는 일 — 한 줄",           26, True,  True),
     ("필요 인원 (선택)",          11, True,  True),
@@ -235,15 +239,21 @@ COLS = [
 GROUPS = [
     ("확인해 주실 자료 (저희가 채웠습니다 · 보기만 하세요)", 1, 7),
     ("① 이름 확정", 8, 9),
-    ("② 언제 — 성도님이 이 여섯 칸으로 사역을 찾습니다", 10, 15),
-    ("③ 성도님 화면에 그대로 보일 안내", 16, 18),
-    ("④ 확인", 19, 20),
+    ("② 언제 — 성도님이 이 칸들로 사역을 찾습니다", 10, 19),
+    ("③ 성도님 화면에 그대로 보일 안내", 20, 22),
+    ("④ 확인", 23, 24),
 ]
 C_CHANGE = 9
-C_SUN, C_WEEK, C_SAT, C_FROM, C_TO, C_FREQ = 10, 11, 12, 13, 14, 15
-# ⚠️ DB 의 ministry_catalog_freq_chk 제약과 **같은 목록**이어야 한다
-#    (supabase/ministry_filter_cols.sql). 어긋나면 시드 SQL 이 통째로 거부된다.
-FREQS = ["매주", "격주", "매달", "그때그때"]
+# 요일 넷 · 주기 넷 · 주일 시각 둘 (2026-09-10 성도님 지시로 다시 짬)
+C_DAYS = [10, 11, 12, 13]        # 주일 · 금요일 · 토요일 · 평일(금 제외)
+C_FREQS = [14, 15, 16, 17]       # 매주 · 격주(교대형식) · 매달 · 그때그때
+C_FROM, C_TO = 18, 19
+C_OX = C_DAYS + C_FREQS          # O 로 받는 칸 전부
+# ⚠️ **금요일을 평일에서 뺐다.** 금요성령집회·행복전도대(금)처럼 금요일 사역이 많은데
+#    「평일」로 뭉뚱그리면 성도가 금요일만 골라 찾을 수 없다.
+# ⚠️ **주기는 여러 개 고를 수 있다** — 한 칸 고르기가 아니라 O 넷이다.
+#    DB 도 네 칸이다(supabase/ministry_when_v2.sql). 이름이 어긋나면 시드가 막힌다.
+# ⚠️ **시각은 주일에만** 받는다 — DB 제약 ministry_catalog_time_sun_chk 가 같은 규칙이다.
 HEADER = [c[0] for c in COLS]
 
 NAVY = "1A3A6B"
@@ -292,18 +302,19 @@ def build_main_sheet(wb, rows=None):
     for i, (committee, group, team, kind, schedule, option, conflict) in enumerate(
             ROWS if rows is None else rows, start=1):
         r = ws.max_row + 1
-        vals = [i, committee, group, team, KIND_LABEL[kind], option, conflict,
-                "", "",                     # 확정 표기명 · 변경여부
-                "", "", "", "", "", "",     # 주일 · 평일 · 토요일 · 시작 · 끝 · 주기
-                schedule, "", "",           # 문장으로 · 하는 일 · 필요 인원
-                "", ""]                     # 확인하신 분 · 비고
+        vals = ([i, committee, group, team, KIND_LABEL[kind], option, conflict,
+                 "", ""]                    # 확정 표기명 · 변경여부
+                + [""] * 8                  # 요일 넷 · 주기 넷
+                + ["", ""]                  # 주일 시작 · 끝
+                + [schedule, "", ""]        # 문장으로 · 하는 일 · 필요 인원
+                + ["", ""])                 # 확인하신 분 · 비고
         for c, v in enumerate(vals, start=1):
             cell = ws.cell(row=r, column=c, value=(v if v != "" else None))
             cell.border = border
             cell.font = Font(size=10, name="맑은 고딕")
             cell.alignment = Alignment(
                 vertical="center", wrap_text=COLS[c - 1][3],
-                horizontal=("center" if c in (C_SUN, C_WEEK, C_SAT, C_FROM, C_TO) else "general"))
+                horizontal=("center" if c in C_OX + [C_FROM, C_TO] else "general"))
             if COLS[c - 1][2]:
                 cell.fill = PatternFill("solid", fgColor=INPUT_FILL)
         # ⚠️ 시각 칸은 텍스트 서식으로 둔다 — 그냥 두면 엑셀이 「10:00」을 시각 값으로
@@ -321,6 +332,7 @@ def build_main_sheet(wb, rows=None):
             ws.cell(row=r, column=2).font = Font(bold=True, size=10, name="맑은 고딕", color=NAVY)
         prev_committee = committee
 
+    assert len(COLS) == 24, len(COLS)   # 띠(GROUPS)와 어긋나면 여기서 멈춘다
     for idx, spec in enumerate(COLS, start=1):
         ws.column_dimensions[get_column_letter(idx)].width = spec[1]
 
@@ -336,10 +348,11 @@ def build_main_sheet(wb, rows=None):
 
     add_dv('"유지,이름 수정,신설,폐지"', C_CHANGE,
            "유지 / 이름 수정 / 신설 / 폐지 중 선택", "목록에서 골라주세요")
-    for c in (C_SUN, C_WEEK, C_SAT):
+    for c in C_DAYS:
         add_dv('"O"', c, "이 요일에 사역하면 O (아니면 비워 두세요)", "O 만 넣어 주세요")
-    add_dv('"%s"' % ",".join(FREQS), C_FREQ,
-           "한 분이 실제로 서는 주기입니다 (팀이 모이는 주기가 아닙니다)", "목록에서 골라주세요")
+    for c in C_FREQS:
+        add_dv('"O"', c, "한 분이 실제로 서는 주기입니다 (팀이 모이는 주기가 아닙니다). "
+                         "여럿이면 여럿 다 O", "O 만 넣어 주세요")
 
     return ws
 
@@ -395,22 +408,27 @@ def build_guide_sheet(wb, committee=None):
     put(10, "① 이름 확정", size=12, bold=True, color=NAVY)
     put(11, "H열 '확정 표기명'에 2027년 최종 명칭을 적어 주세요(그대로면 D열과 똑같이 적으셔도 됩니다). "
              "I열 '변경여부'는 유지 / 이름 수정 / 신설 / 폐지 중에서 고릅니다.")
-    put(13, "② 언제 — 여섯 칸 (2026-09-10 추가)", size=12, bold=True, color=NAVY)
+    put(13, "② 언제 — 열 칸 (2026-09-10)", size=12, bold=True, color=NAVY)
     put(14, "성도님이 앱에서 「나는 주일 오전만 됩니다」처럼 조건을 걸어 사역을 찾습니다. "
              "그때 쓰이는 것이 이 여섯 칸입니다 — 문장으로 쓰신 시간은 기계가 읽지 못해 따로 받습니다.")
-    put(15, "  · J·K·L열 (주일 / 평일 / 토요일) — 해당하는 칸에 O 를 넣어 주세요. 여럿이면 여럿 다 넣습니다.")
-    put(16, "  · M·N열 (시작 시각 / 끝 시각) — 24시간 꼴로 적어 주세요. 보기: 05:00, 09:30, 14:00, 20:00.")
-    put(17, "  · O열 (한 사람이 서는 주기) — **팀이 모이는 주기가 아니라, 한 분이 실제로 서는 주기**입니다. "
-             "당번을 넷이 돌아가며 서면 팀은 매주라도 한 분은 '매달'입니다. 성도님이 재는 것은 자기 부담입니다.")
+    put(15, "  · J~M열 (주일 / 금요일 / 토요일 / 평일) — 해당하는 칸마다 O. 여럿이면 여럿 다 넣습니다. "
+             "⚠️ 금요일은 따로 두었으니 M열 '평일'은 **금요일을 뺀 날**(월~목)로 봐 주세요 — "
+             "금요성령집회·행복전도대(금)처럼 금요일 사역이 많아 성도가 금요일만 골라 찾을 수 있게 나눴습니다.")
+    put(16, "  · N~Q열 (매주 / 격주(교대형식) / 매달 / 그때그때) — 해당하는 칸마다 O. **여럿 고를 수 있습니다** "
+             "(매주 또는 격주인 팀이 있습니다). ⚠️ **팀이 모이는 주기가 아니라, 한 분이 실제로 서는 주기**입니다. "
+             "당번을 넷이 돌아가며 서면 팀은 매주라도 한 분은 '매달'입니다 — 성도님이 재는 것은 자기 부담입니다.")
+    put(17, "  · R·S열 (주일 시작 시각 / 주일 끝 시각) — 24시간 꼴로. 보기: 09:30, 14:00. "
+             "⚠️ **주일 사역에만** 적습니다. 평일·금요일·토요일 사역의 시간은 아래 ③의 문장 칸에 적어 주세요.")
     put(18, "  · 모르시거나 정해지지 않았으면 비워 두셔도 됩니다 — 그 팀이 목록에서 사라지지는 않고 "
              "'정해진 날 없음 · 때마다 다름'으로 보입니다.")
     put(20, "③ 성도님 화면에 그대로 보일 안내", size=12, bold=True, color=NAVY)
-    put(21, "  · P열 '사역 시간·요일(문장으로)' — 사람이 읽는 한 줄입니다. 보기: '매주 화 오전 10시, 예배 30분 전 모임'.")
-    put(22, "  · Q열 '하는 일 — 한 줄' — 이름만 보고는 알 수 없는 것을 적어 주세요"
+    put(21, "  · T열 '사역 시간·요일(문장으로)' — 사람이 읽는 한 줄입니다. 보기: '매주 화 오전 10시, 예배 30분 전 모임'. "
+             "주일이 아닌 사역의 시간은 여기에 적어 주세요.")
+    put(22, "  · U열 '하는 일 — 한 줄' — 이름만 보고는 알 수 없는 것을 적어 주세요"
              "(예: 오병이어 1팀·2팀이 무엇이 다른지). 짧게만 적으셔도 됩니다.")
-    put(23, "  · R열 '필요 인원'은 선택입니다 — 정원을 세거나 신청을 막는 데 쓰지 않고 참고로만 보여드립니다.")
+    put(23, "  · V열 '필요 인원'은 선택입니다 — 정원을 세거나 신청을 막는 데 쓰지 않고 참고로만 보여드립니다.")
     put(25, "④ 확인", size=12, bold=True, color=NAVY)
-    put(26, "S열에 확인하신 분 성함을, T열에는 그 밖에 전달할 내용을 적어 주세요.")
+    put(26, "W열에 확인하신 분 성함을, X열에는 그 밖에 전달할 내용을 적어 주세요.")
     put(28, "색이 칠해진 자리", size=13, bold=True, color=NAVY)
     put(29, "▨ 분홍색 행 — 두 원본 문서(인사표·신청서)의 표기가 서로 달라 어느 쪽이 맞는지 확인이 필요한 자리입니다. "
              "G열 '확인이 필요한 사유'에 무엇이 다른지 적어 두었습니다.")
@@ -449,8 +467,10 @@ def main():
             # ⚠️ 비었다고 목록에서 빠지지 않는다. 화면에서 「정해진 날 없음 ·
             #    때마다 다름」으로 보일 뿐이다 — 미기입을 제외로 짜면 회신율이
             #    곧 실종률이 된다(supabase/ministry_filter_cols.sql 과 같은 약속).
-            "day_sun": False, "day_week": False, "day_sat": False,
-            "time_from": "", "time_to": "", "freq": "",
+            "day_sun": False, "day_fri": False, "day_sat": False, "day_week": False,
+            "freq_weekly": False, "freq_biweekly": False,
+            "freq_monthly": False, "freq_adhoc": False,
+            "time_from": "", "time_to": "",
         }
         for (c, g, t, k, sch, o, cf) in ROWS
     ]

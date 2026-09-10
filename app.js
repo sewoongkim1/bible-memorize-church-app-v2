@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260910aj";
+const APP_BUILD = "20260911a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9075,13 +9075,25 @@ let minSentIds = [];      // 이미 **낸** 것(신청완료) — 방금 고른 
       구간을 다시 그어도 부서에 두 번 묻지 않는다.
    ⚠️ 겹치는 구간이라 판정 규칙을 못 박아 둔다 — **모이는 시각이 그 구간에 들면 걸린다.**
       성도님이 묻는 것은 「몇 시에 나가야 하나」다.                                */
+// ⚠️ 금요일을 따로 둔다(성도님 지시 2026-09-10) — 금요성령집회·행복전도대(금)처럼
+//    금요일 사역이 많은데 「평일」로 뭉뚱그리면 금요일만 되는 분이 골라 찾을 수 없다.
+//    그래서 여기의 「평일」은 **금요일을 뺀 날**이다.
 const MIN_DAYS = [
   { k: "sun",  t: "주일" },
-  { k: "week", t: "평일" },
+  { k: "fri",  t: "금요일" },
   { k: "sat",  t: "토요일" },
+  { k: "week", t: "평일" },
   { k: "none", t: "정해진 날 없음" },
 ];
-const MIN_FREQS = ["매주", "격주", "매달", "그때그때"];
+// ⚠️ 주기는 팀마다 **여럿일 수 있다**(매주 또는 격주인 팀이 있다). 그래서 서버가
+//    한 글자가 아니라 참·거짓 넷을 준다 — 요일과 같은 모양이라 같은 방식으로 다룬다.
+//    ⚠️ 이 열쇠 이름은 DB 칸 이름(freq_weekly …)과 짝이다. 한쪽만 고치면 조용히 안 걸린다.
+const MIN_FREQS = [
+  { k: "weekly",   t: "매주" },
+  { k: "biweekly", t: "격주(교대형식)" },
+  { k: "monthly",  t: "매달" },
+  { k: "adhoc",    t: "그때그때" },
+];
 const MIN_BANDS = [
   // ⚠️ 새벽기도가 **1부 5시 · 2부 6시**라 6시부터로 두면 1부가 통째로 빠진다
   //    (성도님 확인 2026-09-10). 구간은 화면이 묶는 것이라 여기 한 줄만 고치면 된다 —
@@ -9112,15 +9124,21 @@ function minHour(v) {
 function minMatch(t) {
   if (minF.day.length) {
     const d = t.day || {};
-    const none = !d.sun && !d.week && !d.sat;      // 비어 있음 = 정해진 날 없음
+    const none = !d.sun && !d.fri && !d.sat && !d.week;   // 비어 있음 = 정해진 날 없음
     const ok = minF.day.some(function (k) {
       return k === "none" ? none : !!d[k];
     });
     if (!ok) return false;
   }
   if (minF.freq.length) {
-    const f = t.freq || "그때그때";                 // 비어 있음 = 그때그때
-    if (minF.freq.indexOf(f) < 0) return false;
+    const f = t.freq || {};
+    // ⚠️ 아무것도 안 적힌 팀은 「그때그때」로 본다 — 비어 있음은 「모름」이지
+    //    「해당 없음」이 아니다. 미기입을 제외로 짜면 회신율이 곧 실종률이 된다.
+    const bare = !f.weekly && !f.biweekly && !f.monthly && !f.adhoc;
+    const ok = minF.freq.some(function (k) {
+      return k === "adhoc" ? (f.adhoc || bare) : !!f[k];
+    });
+    if (!ok) return false;
   }
   if (minQ) {
     const q = minNorm(minQ);
@@ -9406,8 +9424,11 @@ function minFilterHtml() {
   const list = (minCat && minCat.list) || [];
   const apply = list.filter(function (t) { return !t.appoint; });
   const filled = apply.filter(function (t) {
-    const d = t.day || {};
-    return d.sun || d.week || d.sat || t.from || t.freq;
+    const d = t.day || {}, f = t.freq || {};
+    // ⚠️ freq 는 이제 **객체**다(참·거짓 넷). 예전처럼 `|| t.freq` 로 두면 빈 객체도
+    //    참이라 **늘 채워진 것으로 세어** 이 안전장치가 통째로 무력해진다.
+    return d.sun || d.fri || d.sat || d.week || t.from ||
+      f.weekly || f.biweekly || f.monthly || f.adhoc;
   }).length;
   // ⚠️ 이 장치는 **성도님을 지키려는 것**이지 만드는 사람을 막으려는 게 아니다.
   //    ?preview=ministry 로 여는 관리자는 값이 없어도 필터를 볼 수 있어야 한다.
@@ -9567,9 +9588,10 @@ function minFHintHtml() {
       if (n > 0) outs.push({ axis: axis, k: k, n: n });
     }
   }
+  // ⚠️ 세 축 모두 {k,t} 꼴이 됐다 — 주기만 글자였던 때의 특례를 지운다.
+  //    남겨 두면 「weekly」 같은 속이름이 성도님 화면에 그대로 나온다.
   const lab = function (axis, k) {
-    if (axis === "freq") return k;
-    const src = axis === "day" ? MIN_DAYS : MIN_BANDS;
+    const src = axis === "day" ? MIN_DAYS : (axis === "freq" ? MIN_FREQS : MIN_BANDS);
     const hit = src.filter(function (x) { return x.k === k; })[0];
     return hit ? hit.t : k;
   };

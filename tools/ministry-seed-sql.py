@@ -66,18 +66,24 @@ lines = [
     "insert into public.ministry_catalog",
     "  (year, committee, group_name, team, kind, schedule_note, desc_note,"
     " capacity_note, option_note, sort_order,"
-    " day_sun, day_week, day_sat, time_from, time_to, freq)",
+    " day_sun, day_fri, day_sat, day_week, time_from, time_to,"
+    " freq_weekly, freq_biweekly, freq_monthly, freq_adhoc)",
     "values",
 ]
 
 vals = []
 for i, r in enumerate(ROWS):
-    vals.append("  (%d, %s, %s, %s, %s, %s, %s, %s, %s, %d, %s, %s, %s, %s, %s, %s)" % (
+    # ⚠️ 시각은 주일에만 — DB 제약(ministry_catalog_time_sun_chk)이 같은 규칙이라,
+    #    주일이 아닌데 시각이 있으면 **INSERT 가 통째로 막힌다.** 여기서 비운다.
+    sun = bool(r.get('day_sun'))
+    vals.append("  (%d, %s, %s, %s, %s, %s, %s, %s, %s, %d, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)" % (
         YEAR, q(r['committee']), q(r['group']), q(r['team']), q(r['kind']),
         q(r['schedule_note']), q(r['desc_note']), q(r['capacity_note']),
         q(r['option_note']), i,
-        b(r.get('day_sun')), b(r.get('day_week')), b(r.get('day_sat')),
-        qn(r.get('time_from')), qn(r.get('time_to')), qn(r.get('freq'))))
+        b(sun), b(r.get('day_fri')), b(r.get('day_sat')), b(r.get('day_week')),
+        qn(r.get('time_from') if sun else ''), qn(r.get('time_to') if sun else ''),
+        b(r.get('freq_weekly')), b(r.get('freq_biweekly')),
+        b(r.get('freq_monthly')), b(r.get('freq_adhoc'))))
 lines.append(",\n".join(vals))
 lines += [
     "on conflict (year, committee, group_name, team) do update set",
@@ -88,14 +94,18 @@ lines += [
     "  schedule_note = coalesce(nullif(excluded.schedule_note, ''), ministry_catalog.schedule_note),",
     "  desc_note     = coalesce(nullif(excluded.desc_note, ''),     ministry_catalog.desc_note),",
     "  capacity_note = coalesce(nullif(excluded.capacity_note, ''), ministry_catalog.capacity_note),",
-    "  -- 필터 여섯 칸 — 부서가 하나라도 적었으면 여섯을 한 벌로 바꾸고,",
+    "  -- 「② 언제」 칸들 — 부서가 하나라도 적었으면 한 벌로 바꾸고,",
     "  -- 아무것도 안 적었으면 DB 에 있던 값을 그대로 둔다(안 적음 != 없음)",
-    "  day_sun   = case when (excluded.day_sun or excluded.day_week or excluded.day_sat or excluded.time_from is not null or excluded.time_to is not null or excluded.freq is not null) then excluded.day_sun else ministry_catalog.day_sun end,",
-    "  day_week  = case when (excluded.day_sun or excluded.day_week or excluded.day_sat or excluded.time_from is not null or excluded.time_to is not null or excluded.freq is not null) then excluded.day_week else ministry_catalog.day_week end,",
-    "  day_sat   = case when (excluded.day_sun or excluded.day_week or excluded.day_sat or excluded.time_from is not null or excluded.time_to is not null or excluded.freq is not null) then excluded.day_sat else ministry_catalog.day_sat end,",
-    "  time_from = case when (excluded.day_sun or excluded.day_week or excluded.day_sat or excluded.time_from is not null or excluded.time_to is not null or excluded.freq is not null) then excluded.time_from else ministry_catalog.time_from end,",
-    "  time_to   = case when (excluded.day_sun or excluded.day_week or excluded.day_sat or excluded.time_from is not null or excluded.time_to is not null or excluded.freq is not null) then excluded.time_to else ministry_catalog.time_to end,",
-    "  freq      = case when (excluded.day_sun or excluded.day_week or excluded.day_sat or excluded.time_from is not null or excluded.time_to is not null or excluded.freq is not null) then excluded.freq else ministry_catalog.freq end;",
+    "  day_sun       = case when (excluded.day_sun or excluded.day_fri or excluded.day_sat or excluded.day_week or excluded.time_from is not null or excluded.time_to is not null or excluded.freq_weekly or excluded.freq_biweekly or excluded.freq_monthly or excluded.freq_adhoc) then excluded.day_sun else ministry_catalog.day_sun end,",
+    "  day_fri       = case when (excluded.day_sun or excluded.day_fri or excluded.day_sat or excluded.day_week or excluded.time_from is not null or excluded.time_to is not null or excluded.freq_weekly or excluded.freq_biweekly or excluded.freq_monthly or excluded.freq_adhoc) then excluded.day_fri else ministry_catalog.day_fri end,",
+    "  day_sat       = case when (excluded.day_sun or excluded.day_fri or excluded.day_sat or excluded.day_week or excluded.time_from is not null or excluded.time_to is not null or excluded.freq_weekly or excluded.freq_biweekly or excluded.freq_monthly or excluded.freq_adhoc) then excluded.day_sat else ministry_catalog.day_sat end,",
+    "  day_week      = case when (excluded.day_sun or excluded.day_fri or excluded.day_sat or excluded.day_week or excluded.time_from is not null or excluded.time_to is not null or excluded.freq_weekly or excluded.freq_biweekly or excluded.freq_monthly or excluded.freq_adhoc) then excluded.day_week else ministry_catalog.day_week end,",
+    "  time_from     = case when (excluded.day_sun or excluded.day_fri or excluded.day_sat or excluded.day_week or excluded.time_from is not null or excluded.time_to is not null or excluded.freq_weekly or excluded.freq_biweekly or excluded.freq_monthly or excluded.freq_adhoc) then excluded.time_from else ministry_catalog.time_from end,",
+    "  time_to       = case when (excluded.day_sun or excluded.day_fri or excluded.day_sat or excluded.day_week or excluded.time_from is not null or excluded.time_to is not null or excluded.freq_weekly or excluded.freq_biweekly or excluded.freq_monthly or excluded.freq_adhoc) then excluded.time_to else ministry_catalog.time_to end,",
+    "  freq_weekly   = case when (excluded.day_sun or excluded.day_fri or excluded.day_sat or excluded.day_week or excluded.time_from is not null or excluded.time_to is not null or excluded.freq_weekly or excluded.freq_biweekly or excluded.freq_monthly or excluded.freq_adhoc) then excluded.freq_weekly else ministry_catalog.freq_weekly end,",
+    "  freq_biweekly = case when (excluded.day_sun or excluded.day_fri or excluded.day_sat or excluded.day_week or excluded.time_from is not null or excluded.time_to is not null or excluded.freq_weekly or excluded.freq_biweekly or excluded.freq_monthly or excluded.freq_adhoc) then excluded.freq_biweekly else ministry_catalog.freq_biweekly end,",
+    "  freq_monthly  = case when (excluded.day_sun or excluded.day_fri or excluded.day_sat or excluded.day_week or excluded.time_from is not null or excluded.time_to is not null or excluded.freq_weekly or excluded.freq_biweekly or excluded.freq_monthly or excluded.freq_adhoc) then excluded.freq_monthly else ministry_catalog.freq_monthly end,",
+    "  freq_adhoc    = case when (excluded.day_sun or excluded.day_fri or excluded.day_sat or excluded.day_week or excluded.time_from is not null or excluded.time_to is not null or excluded.freq_weekly or excluded.freq_biweekly or excluded.freq_monthly or excluded.freq_adhoc) then excluded.freq_adhoc else ministry_catalog.freq_adhoc end;",
     "",
     "-- 목록에서 빠진 팀 치우기 — 단, 이미 신청이 걸린 팀은 두고 사람이 본다",
     "delete from public.ministry_catalog c",

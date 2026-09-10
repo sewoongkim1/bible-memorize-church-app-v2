@@ -29,7 +29,9 @@
 ■ 회신 파일에서 읽는 칸 (이름으로 찾는다)
   위원회/부서 · 중분류 · 사역팀명 · 구분 · 하위 선택 안내
   확정 표기명 · 변경여부
-  주일 · 평일 · 토요일 · 시작 시각 · 끝 시각 · 한 사람이 서는 주기   ← 필터가 읽는 여섯
+  주일 · 금요일 · 토요일 · 평일(금 제외)                    ← 요일 넷 (O 로 받는다)
+  매주 · 격주(교대형식) · 매달 · 그때그때                    ← 주기 넷 (여럿 고를 수 있다)
+  주일 시작 시각 · 주일 끝 시각                              ← ⚠️ 시각은 주일에만
   사역 시간·요일(문장으로) · 하는 일 · 필요 인원 · 확인하신 분 · 비고
 
   - 확정 표기명이 적혀 있으면 그 이름으로 바꾼다. 비면 초안 이름 그대로.
@@ -65,12 +67,18 @@ WANT = {
     "opt":       "하위 선택 안내",
     "final":     "확정 표기명",
     "change":    "변경여부",
+    # ⚠️ 요일 넷 · 주기 넷 · 주일 시각 둘 (2026-09-10 성도님 지시로 다시 짬).
+    #    금요일을 평일에서 뺐고, 주기는 여러 개 O 로 받고, 시각은 주일에만 받는다.
     "sun":       "주일",
-    "week":      "평일",
+    "fri":       "금요일",
     "sat":       "토요일",
-    "t_from":    "시작 시각",
-    "t_to":      "끝 시각",
-    "freq":      "한 사람이 서는 주기",
+    "week":      "평일",
+    "f_weekly":  "매주",
+    "f_biweekly": "격주",
+    "f_monthly": "매달",
+    "f_adhoc":   "그때그때",
+    "t_from":    "주일 시작 시각",
+    "t_to":      "주일 끝 시각",
     "sched":     "사역 시간",
     "desc":      "하는 일",
     "cap":       "필요 인원",
@@ -78,11 +86,14 @@ WANT = {
     "note":      "비고",
 }
 # 없어도 되는 칸 — 옛 양식으로 회신하신 부서를 통째로 버리지 않는다
-OPTIONAL = {"sun", "week", "sat", "t_from", "t_to", "freq", "who", "opt", "group"}
+OPTIONAL = {"sun", "fri", "sat", "week", "f_weekly", "f_biweekly", "f_monthly",
+            "f_adhoc", "t_from", "t_to", "who", "opt", "group"}
+# 회신 칸 이름 -> JSON/DB 칸 이름
+WHEN_MAP = [("sun", "day_sun"), ("fri", "day_fri"), ("sat", "day_sat"), ("week", "day_week"),
+            ("f_weekly", "freq_weekly"), ("f_biweekly", "freq_biweekly"),
+            ("f_monthly", "freq_monthly"), ("f_adhoc", "freq_adhoc")]
 
 KIND_BACK = {"신청가능": "apply", "임명직": "appoint"}
-# ⚠️ DB 의 ministry_catalog_freq_chk 와 같은 목록이어야 한다
-FREQS = ["매주", "격주", "매달", "그때그때"]
 # ⚠️ 「O」 칸에 「X」나 「-」를 적어 「아니다」를 뜻하는 분이 있다. 그걸 참으로 읽으면
 #    모든 팀이 모든 요일에 걸린다 — 필터가 아무것도 거르지 않게 된다.
 FALSE_MARKS = {"x", "-", "–", "없음", "false", "아니오", "아님", "n", "무", "해당없음"}
@@ -213,14 +224,11 @@ def read_replies(bad):
                 "team": team, "kind": text(ws, r, col, "kind"),
                 "opt": text(ws, r, col, "opt"),
                 "final": text(ws, r, col, "final"), "change": text(ws, r, col, "change"),
-                "sun": parse_ox(raw(ws, r, col, "sun")),
-                "week": parse_ox(raw(ws, r, col, "week")),
-                "sat": parse_ox(raw(ws, r, col, "sat")),
+                **{k: parse_ox(raw(ws, r, col, k)) for k, _ in WHEN_MAP},
                 "t_from_raw": text(ws, r, col, "t_from"),
                 "t_to_raw": text(ws, r, col, "t_to"),
                 "t_from": parse_time(raw(ws, r, col, "t_from")),
                 "t_to": parse_time(raw(ws, r, col, "t_to")),
-                "freq": text(ws, r, col, "freq"),
                 "sched": text(ws, r, col, "sched"), "desc": text(ws, r, col, "desc"),
                 "cap": text(ws, r, col, "cap"), "who": text(ws, r, col, "who"),
                 "note": text(ws, r, col, "note"),
@@ -234,25 +242,25 @@ def read_replies(bad):
 
 
 def apply_when(row, rep, name, log):
-    """② 언제 여섯 칸을 옮긴다. 못 알아본 것은 적어 둔다."""
+    """② 언제(요일 넷·주기 넷·주일 시각 둘)를 옮긴다. 못 알아본 것은 적어 둔다."""
     touched = False
-    for key, field in (("sun", "day_sun"), ("week", "day_week"), ("sat", "day_sat")):
-        if rep[key]:
+    for key, field in WHEN_MAP:
+        if rep.get(key):
             row[field] = True
             touched = True
+    # ⚠️ **시각은 주일에만.** 주일이 아닌데 적어 보내면 DB 제약
+    #    (ministry_catalog_time_sun_chk)에 걸려 시드가 통째로 막힌다 —
+    #    조용히 버리지 말고 보고서에 적어 사람이 보게 한다.
+    sun = bool(row.get("day_sun"))
     for key, field in (("t_from", "time_from"), ("t_to", "time_to")):
         val, src = rep[key], rep[key + "_raw"]
-        if val:
+        if val and sun:
             row[field] = val
             touched = True
+        elif val and not sun:
+            log["time_no_sun"].append((rep["committee"], name, val))
         elif src:
             log["bad_time"].append((rep["committee"], name, src))
-    if rep["freq"]:
-        if rep["freq"] in FREQS:
-            row["freq"] = rep["freq"]
-            touched = True
-        else:
-            log["bad_freq"].append((rep["committee"], name, rep["freq"]))
     # 끝이 시작보다 이르면 사람이 봐야 한다(자정을 넘기는 사역일 수도 있다)
     if row.get("time_from") and row.get("time_to") and row["time_to"] < row["time_from"]:
         log["odd_time"].append((rep["committee"], name, row["time_from"], row["time_to"]))
@@ -277,7 +285,8 @@ def main():
     answered = set(r["committee"] for r in replies.values())
     final = []
     log = {"renamed": [], "dropped": [], "added": [], "filled": 0, "when": 0,
-           "no_sched": [], "no_when": [], "bad_time": [], "bad_freq": [], "odd_time": []}
+           "no_sched": [], "no_when": [], "bad_time": [], "odd_time": [],
+           "time_no_sun": []}
 
     for d in draft:
         key = (d["committee"], d["team"])
@@ -317,8 +326,10 @@ def main():
                "team": a["final"] or a["team"], "kind": KIND_BACK.get(a["kind"], "apply"),
                "schedule_note": a["sched"], "desc_note": a["desc"],
                "capacity_note": a["cap"], "option_note": a["opt"], "conflict_note": "",
-               "day_sun": False, "day_week": False, "day_sat": False,
-               "time_from": "", "time_to": "", "freq": ""}
+               "day_sun": False, "day_fri": False, "day_sat": False, "day_week": False,
+               "freq_weekly": False, "freq_biweekly": False,
+               "freq_monthly": False, "freq_adhoc": False,
+               "time_from": "", "time_to": ""}
         apply_when(row, a, row["team"], log)
         # 같은 위원회 마지막 줄 뒤에 끼워 넣는다(부서별로 모여 있어야 화면이 안 흩어진다)
         pos = max([i for i, f in enumerate(final) if f["committee"] == row["committee"]]
@@ -371,12 +382,13 @@ def main():
         for c, t, v in log["bad_time"]:
             L.append(f"| {c} | {t} | `{v}` |")
         L.append("")
-    if log["bad_freq"]:
-        L.append("## ⚠️ 목록에 없는 주기 값\n")
-        L.append(f"쓸 수 있는 값: {' / '.join(FREQS)}\n")
-        L.append("| 부서 | 팀 | 적힌 값 |")
+    if log["time_no_sun"]:
+        L.append("## ⚠️ 주일이 아닌데 시각을 적은 팀\n")
+        L.append("시각은 **주일 사역에만** 받는다(DB 제약도 같다). 그대로 두면 시드가 막혀서 "
+                 "**넣지 않았다** — 주일이 맞는지, 아니면 그 시간을 ③ 문장 칸에 적을지 정할 것.\n")
+        L.append("| 부서 | 팀 | 적힌 시각 |")
         L.append("|---|---|---|")
-        for c, t, v in log["bad_freq"]:
+        for c, t, v in log["time_no_sun"]:
             L.append(f"| {c} | {t} | `{v}` |")
         L.append("")
     if log["odd_time"]:
@@ -434,9 +446,9 @@ def main():
     print("renamed %d | dropped %d | added %d | when %d | sched %d"
           % (len(log["renamed"]), len(log["dropped"]), len(log["added"]),
              log["when"], log["filled"]))
-    if log["bad_time"] or log["bad_freq"] or bad:
-        print("!! 확인 필요: 못 읽은 파일 %d · 못 알아본 시각 %d · 목록 밖 주기 %d"
-              % (len(bad), len(log["bad_time"]), len(log["bad_freq"])))
+    if log["bad_time"] or log["time_no_sun"] or bad:
+        print("!! 확인 필요: 못 읽은 파일 %d · 못 알아본 시각 %d · 주일 아닌데 시각 %d"
+              % (len(bad), len(log["bad_time"]), len(log["time_no_sun"])))
 
 
 if __name__ == "__main__":

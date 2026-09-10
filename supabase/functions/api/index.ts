@@ -3350,7 +3350,9 @@ async function ministryCatalog(b: any) {
   const cfg = await ministryCfg();
   const year = Number(b.year) || cfg.year;
   const { data, error } = await db.from("ministry_catalog")
-    .select("id,committee,group_name,team,kind,schedule_note,desc_note,capacity_note,option_note,members_note,sort_order,day_sun,day_week,day_sat,time_from,time_to,freq")
+    .select("id,committee,group_name,team,kind,schedule_note,desc_note,capacity_note,"
+      + "option_note,members_note,sort_order,"
+      + "day_sun,day_fri,day_sat,day_week,time_from,time_to," + MINISTRY_FREQ_COLS)
     .eq("year", year)
     .order("sort_order", { ascending: true })
     .order("id", { ascending: true });   // ⚠️ 겹칠 때 차례가 흔들리지 않게 둘째 열쇠
@@ -3394,8 +3396,16 @@ async function ministryCatalog(b: any) {
       //    구간은 화면이 묶는다. 그래야 구간을 다시 그어도 서버·부서를 안 건드린다.
       //    비어 있음 = 「모름」이다: 요일 셋이 다 false 면 화면이 「정해진 날 없음」으로,
       //    시각이 비면 「때마다 다름」으로 다룬다(숨기지 않는다).
-      day: { sun: !!r.day_sun, week: !!r.day_week, sat: !!r.day_sat },
-      from: r.time_from || "", to: r.time_to || "", freq: r.freq || "",
+      // ⚠️ 금요일을 따로 둔다 — 금요성령집회·행복전도대(금)처럼 금요일 사역이 많은데
+      //    「평일」로 뭉뚱그리면 금요일만 되는 분이 골라 찾을 수 없다.
+      //    그래서 여기의 week 는 **금요일을 뺀 평일**이다.
+      day: { sun: !!r.day_sun, fri: !!r.day_fri, sat: !!r.day_sat, week: !!r.day_week },
+      // ⚠️ 주기는 **여럿일 수 있다**(매주 또는 격주인 팀이 있다). 한 칸 text 였던 것을
+      //    네 칸으로 나눴다 — 요일과 같은 모양이라 화면도 같은 방식으로 다룬다.
+      freq: ministryFreqOf(r),
+      // ⚠️ 시각은 **주일 사역에만** 있다(성도님 결정 2026-09-10). DB 제약
+      //    ministry_catalog_time_sun_chk 가 같은 규칙을 지킨다.
+      from: r.time_from || "", to: r.time_to || "",
     })),
   };
 }
@@ -3777,9 +3787,14 @@ function ministryHtml(raw: unknown, max = 400): string {
 //    바꿀 수 있으면 화면에 적힌 것을 아무도 믿지 못하게 된다(성도님 지적, 2026-09-08).
 // ⚠️ 고칠 수 있는 것은 세 칸뿐이다. 팀 이름·위원회·임명직 여부는 여기서 못 바꾼다 —
 //    그건 부서 확인을 거쳐 JSON(시드)으로 들어오는 값이다.
-// ⚠️ DB 의 ministry_catalog_freq_chk 와 **같은 목록**이어야 한다
-//    (supabase/ministry_filter_cols.sql). 어긋나면 저장이 통째로 거부된다.
-const MINISTRY_FREQS = ["매주", "격주", "매달", "그때그때"];
+// 주기 네 칸 — 화면·양식·시드가 모두 이 이름을 쓴다(supabase/ministry_when_v2.sql).
+// ⚠️ 옛 `freq` text 한 칸은 **DB 에서 지웠다.** 「같은 뜻이 두 곳」이면 조용히 갈라진다.
+const MINISTRY_FREQ_KEYS = ["weekly", "biweekly", "monthly", "adhoc"] as const;
+const MINISTRY_FREQ_COLS = MINISTRY_FREQ_KEYS.map((k) => "freq_" + k).join(",");
+const ministryFreqOf = (r: any) => ({
+  weekly: !!r.freq_weekly, biweekly: !!r.freq_biweekly,
+  monthly: !!r.freq_monthly, adhoc: !!r.freq_adhoc,
+});
 
 // 'H:MM' 도 받아 'HH:MM' 로 맞춘다. 못 알아보면 까닭을 돌려준다 —
 // ⚠️ 조용히 null 로 만들면 관리자는 넣었다고 믿는데 화면에서는 「때마다 다름」이 된다.
@@ -3803,18 +3818,12 @@ async function ministryCatalogSave(b: any) {
     capacity_note: ministryHtml(b.capacity_note, 80),
     members_note: ministryHtml(b.members_note, 1200),
   };
-  // ── 필터용 여섯 칸 ────────────────────────────────────────────
+  // ── 「② 언제」 ────────────────────────────────────────────────
   // ⚠️ **보내온 칸만** 고친다. 늘 넣도록 짜면, 옛 admin 화면을 물고 있는 브라우저가
-  //    저장 한 번에 여섯 칸을 통째로 비운다(캐시가 남는 것을 막을 길이 없다).
-  if ("day_sun" in b) patch.day_sun = !!b.day_sun;
-  if ("day_week" in b) patch.day_week = !!b.day_week;
-  if ("day_sat" in b) patch.day_sat = !!b.day_sat;
-  if ("freq" in b) {
-    const f = norm(b.freq);
-    if (f && MINISTRY_FREQS.indexOf(f) < 0) {
-      return { ok: false, error: "주기는 " + MINISTRY_FREQS.join(" · ") + " 중 하나여야 합니다" };
-    }
-    patch.freq = f || null;
+  //    저장 한 번에 이 칸들을 통째로 비운다(캐시가 남는 것을 막을 길이 없다).
+  for (const c of ["day_sun", "day_fri", "day_sat", "day_week",
+                   ...MINISTRY_FREQ_KEYS.map((k) => "freq_" + k)]) {
+    if (c in b) patch[c] = !!b[c];
   }
   for (const [key, label] of [["time_from", "시작 시각"], ["time_to", "끝 시각"]]) {
     if (!(key in b)) continue;
@@ -3822,6 +3831,20 @@ async function ministryCatalogSave(b: any) {
     if (r.err) return { ok: false, error: r.err };
     patch[key] = r.v;
   }
+  // ⚠️ **시각은 주일에만** 남긴다(성도님 결정 2026-09-10). 주일을 끄면서 시각을 그대로
+  //    두면 DB 제약(ministry_catalog_time_sun_chk)에 걸려 **저장이 통째로 실패**한다 —
+  //    관리자에게는 까닭 없는 오류로 보인다. 여기서 미리 비운다.
+  // ⚠️ 「보내온 칸만」 규칙 때문에 day_sun 이 이번 요청에 없을 수 있다. 그때는
+  //    **DB 에 있는 값**을 봐야 한다 — 안 그러면 시각만 고치는 저장이 매번 지워진다.
+  let sunOn: boolean;
+  if ("day_sun" in b) {
+    sunOn = !!b.day_sun;
+  } else {
+    const { data: cur } = await db.from("ministry_catalog")
+      .select("day_sun").eq("id", id).maybeSingle();
+    sunOn = !!(cur && cur.day_sun);
+  }
+  if (!sunOn) { patch.time_from = null; patch.time_to = null; }
   // ⚠️ 말없이 자르면 관리자가 넣은 이름이 조용히 사라진다 — 잘린 칸을 돌려준다
   const cut: string[] = [];
   if (ministryHtml(b.schedule_note, 99999).length > patch.schedule_note.length) cut.push("시간");
@@ -3832,15 +3855,18 @@ async function ministryCatalogSave(b: any) {
   const { data, error } = await db.from("ministry_catalog")
     .update(patch).eq("id", id)
     .select("id,committee,team,schedule_note,desc_note,capacity_note,members_note,"
-      + "day_sun,day_week,day_sat,time_from,time_to,freq").single();
+      + "day_sun,day_fri,day_sat,day_week,time_from,time_to," + MINISTRY_FREQ_COLS).single();
   if (error) throw error;
   // 걸러진 뒤의 값을 돌려준다 — 화면이 「내가 친 것」이 아니라 「실제 저장된 것」을 보여야 한다
   return { ok: true, id: data.id, team: data.team,
            sched: data.schedule_note, desc: data.desc_note, capacity: data.capacity_note,
            membersNote: data.members_note, truncated: cut,
            // 저장된 값을 그대로 돌려준다 — 화면이 「내가 친 것」이 아니라 「실제」를 보게
-           day: { sun: !!data.day_sun, week: !!data.day_week, sat: !!data.day_sat },
-           from: data.time_from || "", to: data.time_to || "", freq: data.freq || "" };
+           // (주일을 끄면 시각이 비어 돌아온다 — 화면이 그걸 보고 칸을 비운다)
+           day: { sun: !!data.day_sun, fri: !!data.day_fri,
+                  sat: !!data.day_sat, week: !!data.day_week },
+           freq: ministryFreqOf(data),
+           from: data.time_from || "", to: data.time_to || "" };
 }
 
 // 한 위원회 안에서 보이는 차례를 바꾼다.

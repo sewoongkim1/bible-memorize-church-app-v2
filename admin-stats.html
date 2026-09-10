@@ -361,14 +361,21 @@
 .mc-prev{font-size:12.5px;color:#6b7280;background:#f7f8fa;border-radius:7px;padding:7px 10px;
   margin-left:62px;line-height:1.6;}
 .mc-none{color:#b0b8c6;}
-.mc-when{display:flex;flex-wrap:wrap;align-items:center;gap:7px 14px;background:#f7f9fd;
-  border:1px solid #e6ecf6;border-radius:8px;padding:9px 11px;}
-.mc-w-t{flex:1 0 100%;font-size:12px;font-weight:800;color:#1a3a6b;}
+.mc-when{display:flex;flex-direction:column;gap:4px;background:#f7f9fd;
+  border:1px solid #e6ecf6;border-radius:8px;padding:7px 10px;}
+.mc-w-t{font-size:11.5px;font-weight:800;color:#1a3a6b;}
 .mc-w-t em{font-style:normal;font-weight:500;color:#8a95a8;margin-left:6px;}
-.mc-in .mc-when label{font-size:12.5px;font-weight:600;gap:5px;color:#41506b;}
-.mc-when input[type=checkbox]{width:16px;height:16px;flex:none;margin:0;}
-.mc-in .mc-when input[type=time],.mc-in .mc-when select{flex:none;font:inherit;font-size:13px;
-  padding:5px 8px;border:1px solid #dde3ee;border-radius:7px;background:#fff;}
+/* 한 줄에 「요일 …」·「주기 …」·「주일 시각 …」 — 세 줄이면 상자가 납작하다 */
+.mc-w-r{display:flex;flex-wrap:wrap;align-items:center;gap:3px 11px;}
+.mc-w-r>b{font-size:11.5px;font-weight:800;color:#6b7688;min-width:52px;}
+.mc-in .mc-when label{font-size:12.5px;font-weight:600;gap:4px;color:#41506b;}
+.mc-when label i{font-style:normal;font-weight:500;font-size:11px;color:#9aa4b4;margin-left:2px;}
+.mc-when input[type=checkbox]{width:15px;height:15px;flex:none;margin:0;}
+.mc-in .mc-when input[type=time]{flex:none;font:inherit;font-size:12.5px;
+  padding:3px 6px;border:1px solid #dde3ee;border-radius:6px;background:#fff;}
+.mc-in .mc-when input[type=time]:disabled{background:#eef0f4;color:#aab2c0;}
+.mc-w-off{font-style:normal;font-size:11px;color:#a3701e;}
+.mc-w-tw{font-size:12px;color:#8a95a8;}
 .mc-ord{display:inline-flex;gap:3px;margin-left:8px;vertical-align:middle;}
 .mc-ord button{font:inherit;font-size:11px;line-height:1;padding:4px 7px;border:1px solid #dde3ee;
   border-radius:6px;background:#fff;color:#5b6472;cursor:pointer;}
@@ -3142,8 +3149,14 @@ let mcRows = [];      // [{ id, committee, group, team, appoint, sched, desc, ca
 let mcPick = "";      // 지금 보고 있는 위원회
 let mcLoaded = false;
 let mcOrderDirty = false;   // 차례를 바꿨는데 아직 안 보낸 상태
-// ⚠️ DB 의 ministry_catalog_freq_chk · 서버 MINISTRY_FREQS 와 같은 목록이어야 한다
-const MC_FREQS = ["매주", "격주", "매달", "그때그때"];
+// 요일 넷 · 주기 넷 — **열쇠 이름이 DB 칸 이름과 짝이다**(day_sun · freq_weekly …).
+// ⚠️ 한쪽만 고치면 화면은 멀쩡한데 저장이 조용히 안 걸린다(오늘 직분 목록에서 겪었다).
+// ⚠️ 「평일」은 **금요일을 뺀 날**이다 — 금요 사역이 많아 따로 뺐다(성도님 지시).
+const MC_DAYS = [["sun","주일",""],["fri","금요일",""],["sat","토요일",""],
+                 ["week","평일","(금 제외)"]];
+const MC_FREQS = [["weekly","매주",""],["biweekly","격주","(교대형식)"],
+                  ["monthly","매달",""],["adhoc","그때그때",""]];
+const MC_WHEN_KEYS = MC_DAYS.map(x=>x[0]).concat(MC_FREQS.map(x=>x[0]));
 
 function renderMinistryCatalog(){
   app.innerHTML=`
@@ -3184,8 +3197,11 @@ async function mcLoad(){
     mcRows=(d.list||[]).map(x=>({ id:x.id, committee:x.committee, group:x.group||"", team:x.team,
       appoint:!!x.appoint, sched:x.sched||"", desc:x.desc||"", capacity:x.capacity||"",
       members:x.membersNote||"",       // ⚠️ x.members 는 자동 명단이 섞인 것 — 저장하면 굳는다
-      sun:!!(x.day&&x.day.sun), week:!!(x.day&&x.day.week), sat:!!(x.day&&x.day.sat),
-      from:x.from||"", to:x.to||"", freq:x.freq||"" }));
+      sun:!!(x.day&&x.day.sun), fri:!!(x.day&&x.day.fri),
+      sat:!!(x.day&&x.day.sat), week:!!(x.day&&x.day.week),
+      weekly:!!(x.freq&&x.freq.weekly), biweekly:!!(x.freq&&x.freq.biweekly),
+      monthly:!!(x.freq&&x.freq.monthly), adhoc:!!(x.freq&&x.freq.adhoc),
+      from:x.from||"", to:x.to||"" }));
     if(!mcPick && mcRows.length) mcPick=mcRows[0].committee;
     mcLoaded=true;
   }
@@ -3193,7 +3209,7 @@ async function mcLoad(){
 }
 
 // 「② 언제」를 하나라도 채웠는가 — 필터에 걸리려면 이 중 하나는 있어야 한다
-function mcHasWhen(r){ return !!(r.sun||r.week||r.sat||r.from||r.to||r.freq); }
+function mcHasWhen(r){ return MC_WHEN_KEYS.some(k=>r[k]) || !!r.from || !!r.to; }
 
 // ⚠️ 셈을 두 군데서 따로 쓰면 갈라진다 — 한 곳에서만 그린다
 function mcCounts(){
@@ -3272,14 +3288,18 @@ function mcRender(){
                value="${plEsc(r.sched)}" placeholder="예: 매주 화 오전 10시"></label>
              <div class="mc-when">
                <span class="mc-w-t">② 언제
-                 <em>성도님이 이 여섯으로 사역을 찾습니다 — 비우면 「정해진 날 없음 · 때마다 다름」</em></span>
-               <label><input type="checkbox" data-f="sun" data-id="${r.id}"${r.sun?" checked":""}>주일</label>
-               <label><input type="checkbox" data-f="week" data-id="${r.id}"${r.week?" checked":""}>평일</label>
-               <label><input type="checkbox" data-f="sat" data-id="${r.id}"${r.sat?" checked":""}>토요일</label>
-               <label>시작<input type="time" data-f="from" data-id="${r.id}" value="${plEsc(r.from)}" step="300"></label>
-               <label>끝<input type="time" data-f="to" data-id="${r.id}" value="${plEsc(r.to)}" step="300"></label>
-               <label>주기<select data-f="freq" data-id="${r.id}"><option value="">— 모름</option>${
-                 MC_FREQS.map(f=>`<option${r.freq===f?" selected":""}>${f}</option>`).join("")}</select></label>
+                 <em>성도님이 이걸로 사역을 찾습니다 — 비우면 「정해진 날 없음 · 때마다 다름」</em></span>
+               <span class="mc-w-r"><b>요일</b>${MC_DAYS.map(([k,t,h])=>
+                 `<label><input type="checkbox" data-f="${k}" data-id="${r.id}"${r[k]?" checked":""}>${t}${
+                   h?`<i>${h}</i>`:""}</label>`).join("")}</span>
+               <span class="mc-w-r"><b>주기</b>${MC_FREQS.map(([k,t,h])=>
+                 `<label><input type="checkbox" data-f="${k}" data-id="${r.id}"${r[k]?" checked":""}>${t}${
+                   h?`<i>${h}</i>`:""}</label>`).join("")}</span>
+               <span class="mc-w-r"><b>주일 시각</b>
+                 <input type="time" data-f="from" data-id="${r.id}" value="${plEsc(r.from)}" step="300"${r.sun?"":" disabled"}>
+                 <span class="mc-w-tw">~</span>
+                 <input type="time" data-f="to" data-id="${r.id}" value="${plEsc(r.to)}" step="300"${r.sun?"":" disabled"}>
+                 <i class="mc-w-off" data-off="${r.id}"${r.sun?" hidden":""}>주일을 체크하면 넣을 수 있어요</i></span>
              </div>
              <label class="wide">하는 일<textarea data-f="desc" data-id="${r.id}" rows="2"
                placeholder="예: 주일 예배 전 주차를 안내합니다. &lt;b&gt;굵게&lt;/b&gt; 도 됩니다">${plEsc(r.desc)}</textarea></label>
@@ -3296,6 +3316,18 @@ function mcRender(){
 
   box.querySelectorAll("[data-save]").forEach(b=>{
     b.addEventListener("click", ()=> mcSave(Number(b.dataset.save)));
+  });
+  // ⚠️ 시각은 **주일에만** 받는다(DB 제약도 같다). 주일을 끄면 그 자리에서 칸을 잠가
+  //    「넣었는데 저장되면 사라지는」 일을 없앤다. 다시 그리지 않는다 — 치던 글이 날아간다.
+  box.querySelectorAll('[data-f="sun"]').forEach(ck=>{
+    ck.addEventListener("change", ()=>{
+      const row=ck.closest(".mc-row"); if(!row) return;
+      row.querySelectorAll('input[type="time"]').forEach(t=>{
+        t.disabled = !ck.checked;
+        if(!ck.checked) t.value = "";
+      });
+      const off=row.querySelector("[data-off]"); if(off) off.hidden = ck.checked;
+    });
   });
   box.querySelectorAll("[data-up]").forEach(b=>
     b.addEventListener("click", ()=> mcMove(Number(b.dataset.up), -1)));
@@ -3373,15 +3405,17 @@ async function mcSave(id){
   const ck=f=>!!box.querySelector(`[data-f="${f}"]`)?.checked;
   const next={ sched:get("sched").trim(), desc:get("desc").trim(), capacity:get("capacity").trim(),
                members:mcBrs(get("members")),
-               sun:ck("sun"), week:ck("week"), sat:ck("sat"),
-               from:get("from").trim(), to:get("to").trim(), freq:get("freq").trim() };
+               from:get("from").trim(), to:get("to").trim() };
+  MC_WHEN_KEYS.forEach(k=>{ next[k]=ck(k); });
   const btn=box.querySelector("[data-save]");
   if(btn){ btn.disabled=true; btn.textContent="저장 중…"; }
   const d=await callApi({ action:"ministryCatalogSave", pw:getPw(), id,
     schedule_note:next.sched, desc_note:next.desc, capacity_note:next.capacity,
     members_note:next.members,
-    day_sun:next.sun, day_week:next.week, day_sat:next.sat,
-    time_from:next.from, time_to:next.to, freq:next.freq })
+    day_sun:next.sun, day_fri:next.fri, day_sat:next.sat, day_week:next.week,
+    freq_weekly:next.weekly, freq_biweekly:next.biweekly,
+    freq_monthly:next.monthly, freq_adhoc:next.adhoc,
+    time_from:next.from, time_to:next.to })
     .catch(()=>({ok:false,error:"network"}));
   if(!d.ok){
     if(btn){ btn.disabled=false; btn.textContent="저장"; }
@@ -3392,11 +3426,15 @@ async function mcSave(id){
   r._d=false;
   box.classList.remove("dirty");
   const dot=box.querySelector(".mc-dot"); if(dot) dot.remove();
-  if(d.day){                         // 저장된 여섯 칸으로 맞춘다
-    r.sun=!!d.day.sun; r.week=!!d.day.week; r.sat=!!d.day.sat;
-    r.from=d.from||""; r.to=d.to||""; r.freq=d.freq||"";
-    const set=(f,v)=>{ const el=box.querySelector(`[data-f="${f}"]`); if(el) el.value=v; };
-    set("from", r.from); set("to", r.to); set("freq", r.freq);
+  if(d.day){                         // 저장된 값으로 맞춘다
+    r.sun=!!d.day.sun; r.fri=!!d.day.fri; r.sat=!!d.day.sat; r.week=!!d.day.week;
+    const f=d.freq||{};
+    r.weekly=!!f.weekly; r.biweekly=!!f.biweekly; r.monthly=!!f.monthly; r.adhoc=!!f.adhoc;
+    // ⚠️ 주일을 껐으면 서버가 시각을 비워 돌려준다 — 화면 칸도 그 자리에서 비운다.
+    //    안 그러면 「넣었는데 왜 없지」가 된다.
+    r.from=d.from||""; r.to=d.to||"";
+    const set=(f2,v)=>{ const el=box.querySelector(`[data-f="${f2}"]`); if(el) el.value=v; };
+    set("from", r.from); set("to", r.to);
   }
   if(d.desc !== undefined){          // 서버가 걸러 돌려준 값으로 맞춘다
     r.desc = d.desc; r.sched = d.sched; r.capacity = d.capacity;
