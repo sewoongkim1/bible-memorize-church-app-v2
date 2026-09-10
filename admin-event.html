@@ -141,7 +141,9 @@ const EV_STATUS = ["draft", "open", "closed", "archived"];
 const EV_STATUS_KO = { draft:"준비 중", open:"열림", closed:"마감", archived:"보관" };
 
 let evEvents = [];       // 회차 목록
-let evRows = [];         // 지금 고른 회차의 명단(서버에서 한 번 받아 화면에서만 추린다)
+let evRows = [];         // ⚠️ 「지금 고른 회차」가 아니다 — load(pick) 을 인자 없이 부르면(첫 진입·
+                          //    로그인 직후) 서버가 event_id 필터 없이 **전 회차**를 담아 준다.
+                          //    회차 하나로 좁힌 값이 필요하면 반드시 curRows() 를 쓸 것.
 let evPick = "";         // 고른 회차 id
 let evSort = { key:"at", dir:-1 };
 let evQ = "", evType = "", evGroup = "";
@@ -286,8 +288,16 @@ function evFormHtml(ev){
   </div>`;
 }
 
+// ⚠️ evRows 는 전 회차가 섞여 올 수 있다(위 선언부 참고) — 여기서 evPick 으로 한 번
+//    좁혀 두고, shown()·evListHtml() 의 요약·목록·묶음 보기가 전부 이 하나만 쓴다.
+//    (2026-09-11 — 「명단이 전 회차 섞여 나온다」치명 지적 반영. 회차가 하나뿐일 때는
+//    안 드러나다가 회차가 둘이 되는 순간 머리말·표·인쇄물이 모두 어긋났다.)
+function curRows(){
+  return evPick ? evRows.filter(r => r.eventId === evPick) : evRows;
+}
+
 function shown(){
-  return evRows.filter(r => {
+  return curRows().filter(r => {
     if(evType && r.whoType !== evType) return false;
     if(evGroup && r.group !== evGroup) return false;
     if(evQ){
@@ -309,19 +319,20 @@ function shown(){
 function evListHtml(ev){
   if(!ev) return "";
   const list = shown();
-  const groups = [...new Set(evRows.map(r => r.group))].sort((a,b)=>a.localeCompare(b,"ko"));
+  const rows = curRows();
+  const groups = [...new Set(rows.map(r => r.group))].sort((a,b)=>a.localeCompare(b,"ko"));
   const byGroup = {};
-  evRows.forEach(r => { byGroup[r.group] = (byGroup[r.group]||0)+1; });
-  const app_ = evRows.filter(r => r.hasUser).length;
+  rows.forEach(r => { byGroup[r.group] = (byGroup[r.group]||0)+1; });
+  const app_ = rows.filter(r => r.hasUser).length;
   const head = (k, label) =>
     `<th data-k="${k}">${label}${evSort.key===k ? (evSort.dir>0?" ▲":" ▼") : ""}</th>`;
   return `<div class="card">
     <h2>명단 — ${esc(ev.title)}</h2>
     <div class="sum">
-      <span><b>${evRows.length}</b>명</span>
+      <span><b>${rows.length}</b>명</span>
       <span class="tag">앱 계정 연결 ${app_}명</span>
-      <span class="tag">앱 등록 ${evRows.filter(r=>r.source==="app").length}건</span>
-      <span class="tag">이관 ${evRows.filter(r=>r.source==="import").length}건</span>
+      <span class="tag">앱 등록 ${rows.filter(r=>r.source==="app").length}건</span>
+      <span class="tag">이관 ${rows.filter(r=>r.source==="import").length}건</span>
       ${evQ||evType||evGroup ? `<span class="tag">추린 결과 ${list.length}명</span>` : ""}
     </div>
     <div class="bar no-print">
@@ -351,7 +362,7 @@ function evListHtml(ev){
           r.hasUser ? ` <span class="badge app">계정</span>` : ""}</td>
       </tr>`).join("")
     }</tbody></table></div>` : ""}
-    ${list.length ? "" : `<div class="empty">${evRows.length ? "추린 결과가 없습니다." : "아직 신청이 없습니다."}</div>`}
+    ${list.length ? "" : `<div class="empty">${rows.length ? "추린 결과가 없습니다." : "아직 신청이 없습니다."}</div>`}
   </div>`;
 }
 
