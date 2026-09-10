@@ -1,0 +1,282 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>2027 사역신청 — 찾기 쉽게 만드는 안</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@700;900&family=Noto+Sans+KR:wght@400;500;700;800&display=swap">
+<style>
+:root{
+  --paper:#f5f6f8; --paper-alt:#eceef2; --paper-line:#ffffff;
+  --ink:#1b2029; --ink-soft:#5b6472;
+  --navy:#17325c; --navy-deep:#0c1f3d; --navy-tint:#e4eaf3;
+  --brass:#8a6a2f; --brass-tint:#f1e8d4;
+  --line:#d7dbe3; --warn:#a8332a; --warn-tint:#fbeceb;
+  --shadow:0 1px 2px rgba(15,23,42,.05), 0 8px 22px rgba(15,23,42,.06);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#14171d; --paper-alt:#1b1f27; --paper-line:#20242c;
+    --ink:#e7e9ee; --ink-soft:#9aa3b2;
+    --navy:#8fabdd; --navy-deep:#c3d3ef; --navy-tint:#1c2636;
+    --brass:#d3ac5c; --brass-tint:#2a2213;
+    --line:#2b3140; --warn:#e79b93; --warn-tint:#2b1a18;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 22px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#14171d; --paper-alt:#1b1f27; --paper-line:#20242c;
+  --ink:#e7e9ee; --ink-soft:#9aa3b2;
+  --navy:#8fabdd; --navy-deep:#c3d3ef; --navy-tint:#1c2636;
+  --brass:#d3ac5c; --brass-tint:#2a2213;
+  --line:#2b3140; --warn:#e79b93; --warn-tint:#2b1a18;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 22px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--paper); color:var(--ink);
+  font-family:"Noto Sans KR",-apple-system,sans-serif; line-height:1.75; padding:36px 20px 60px;}
+.sheet{max-width:760px; margin:0 auto 26px; background:var(--paper-line); border:1px solid var(--line);
+  border-radius:4px; box-shadow:var(--shadow); padding:38px 44px 34px;}
+h1,h2,h3{font-family:"Noto Serif KR",serif; text-wrap:balance; margin:0; color:var(--navy-deep);}
+.head{padding-bottom:16px; margin-bottom:24px; border-bottom:2px solid var(--navy);}
+.eyebrow{font-size:.7rem; letter-spacing:.14em; color:var(--brass); font-weight:800; margin-bottom:8px;}
+.head h1{font-size:1.66rem; font-weight:900; line-height:1.35;}
+.head .sub{color:var(--ink-soft); font-size:.9rem; margin-top:8px;}
+h2{font-size:1.16rem; font-weight:800; margin:34px 0 12px; padding-left:11px; border-left:4px solid var(--brass);}
+h2:first-of-type{margin-top:0;}
+h3{font-size:1rem; font-weight:700; margin:22px 0 8px; color:var(--navy);}
+p{margin:0 0 12px;} ul,ol{margin:0 0 12px; padding-left:20px;} li{margin-bottom:6px;}
+b,strong{color:var(--navy-deep); font-weight:700;}
+table{width:100%; border-collapse:collapse; margin:10px 0 16px; font-size:.88rem;}
+th,td{border:1px solid var(--line); padding:8px 10px; text-align:left; vertical-align:top;}
+th{background:var(--navy-tint); color:var(--navy-deep); font-weight:700; white-space:nowrap;}
+td.num{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap;}
+.wrap{overflow-x:auto;}
+.note{background:var(--paper-alt); border-radius:8px; padding:14px 16px; margin:14px 0; font-size:.9rem;}
+.warn{background:var(--warn-tint); border-left:4px solid var(--warn); border-radius:0 8px 8px 0;
+  padding:13px 16px; margin:14px 0; font-size:.9rem;}
+.warn b{color:var(--warn);}
+.pick{background:var(--brass-tint); border-left:4px solid var(--brass); border-radius:0 8px 8px 0;
+  padding:14px 17px; margin:16px 0;}
+.pick .t{font-family:"Noto Serif KR",serif; font-weight:800; color:var(--navy-deep); margin-bottom:6px;}
+code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.86em;
+  background:var(--paper-alt); border-radius:4px; padding:1px 5px;}
+pre{background:var(--paper-alt); border:1px solid var(--line); border-radius:8px; padding:14px 16px;
+  overflow-x:auto; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.84rem;
+  line-height:1.7; margin:10px 0 16px;}
+.mock{background:var(--paper-alt); border:1px solid var(--line); border-radius:10px; padding:16px; margin:12px 0;}
+.chip{display:inline-block; border:1.5px solid var(--line); border-radius:999px; padding:5px 13px;
+  font-size:.84rem; font-weight:700; color:var(--ink-soft); background:var(--paper-line); margin:3px 4px 3px 0;}
+.chip.on{background:var(--navy); border-color:var(--navy); color:#fff;}
+.row-lab{font-size:.78rem; font-weight:800; color:var(--brass); letter-spacing:.04em; margin:10px 0 2px;}
+.foot{max-width:760px; margin:0 auto; border-top:1px solid var(--line); padding-top:14px;
+  display:flex; justify-content:space-between; align-items:center; gap:14px;
+  font-size:.8rem; color:var(--ink-soft);}
+.foot .mid{font-family:"Noto Serif KR",serif; color:var(--brass); font-weight:700;}
+@media print{
+  body{background:#fff; padding:0;}
+  .sheet{box-shadow:none; border:none; max-width:none; padding:0 0 18px; margin:0 0 10px;}
+  h2{page-break-after:avoid;} table,pre,.mock,.pick,.warn{page-break-inside:avoid;}
+}
+</style></head><body>
+
+<div class="sheet">
+  <div class="head">
+    <div class="eyebrow">고척교회 · 성경말씀 암송 앱</div>
+    <h1>2027 사역신청 — 88개 중에서 내 자리를 찾게 하는 안</h1>
+    <div class="sub">2026-09-10 · 방송전산부 전산팀 · <b>검토용</b></div>
+  </div>
+
+  <h2>0. 한 장 요약</h2>
+  <p>사역팀이 <b>88개</b>(신청 대상), 위원회가 <b>15개</b>입니다. 지금은 위원회를 하나씩 열어 보는 수밖에 없어,
+     <b>“내가 낼 수 있는 시간에 되는 사역”</b>을 찾으려면 15번을 열었다 닫아야 합니다. 그래서 필터를 넣습니다.</p>
+
+  <div class="pick">
+    <div class="t">추천 — 축 두 개, 칩 아홉 개</div>
+    <div class="row-lab">언제 (여러 개 고를 수 있음)</div>
+    <span class="chip on">주일</span><span class="chip">평일</span><span class="chip">토요일</span><span class="chip">정해진 날 없음</span>
+    <div class="row-lab">몇 시쯤 (여러 개 고를 수 있음)</div>
+    <span class="chip">새벽·아침<br><small>~9시</small></span><span class="chip on">낮<br><small>9~14시</small></span><span class="chip">오후<br><small>14~18시</small></span><span class="chip">저녁<br><small>18시~</small></span><span class="chip">때마다 다름</span>
+    <p style="margin:12px 0 0; font-size:.9rem">
+      <b>“얼마나 자주”는 필터로 두지 않고</b> 팀 줄에 글자로 보여 줍니다(아래 3-3).</p>
+  </div>
+
+  <p>그리고 이 문서에서 가장 중요한 것은 화면이 아니라 <b>부서 확인 양식</b>입니다.
+     양식이 아직 나가기 전이라 지금 고치면 공짜지만, 나간 뒤에는 15개 부서에 두 번 묻게 됩니다(5장).</p>
+
+  <h2>1. 지금 무엇이 어려운가</h2>
+  <div class="wrap"><table>
+    <tr><th>위원회</th><th class="num">팀</th><th>지금 성도님이 겪는 일</th></tr>
+    <tr><td>교육위원회</td><td class="num">18</td><td rowspan="2">한 번 열면 화면을 한참 굴려야 끝이 보입니다</td></tr>
+    <tr><td>찬양부</td><td class="num">14</td></tr>
+    <tr><td>전도부</td><td class="num">7</td><td>한 화면에 겨우 들어옵니다</td></tr>
+    <tr><td>나머지 12개 위원회</td><td class="num">1~6</td><td>여는 것 자체는 어렵지 않습니다</td></tr>
+  </table></div>
+  <p>즉 <b>목록이 길어서</b>만 어려운 게 아닙니다. 진짜 어려움은 <b>“내 시간에 되는 사역이 어느 위원회에 있는지 모른다”</b>는
+     데 있습니다. 시간은 위원회를 가로지르기 때문에, 위원회를 아무리 잘 접어 놓아도 그 물음에는 답이 안 됩니다.
+     필터가 필요한 진짜 까닭이 여기입니다.</p>
+
+  <h2>2. 왜 이 두 축인가</h2>
+
+  <h3>2-1. “몇 시쯤”은 시각으로 받되, 성도님께는 네 덩이로 보인다</h3>
+  <p>봉사 시각은 예배 시각과 다릅니다. 찬양대는 1부 예배가 9시라도 <b>7시에 모여 연습</b>합니다.
+     그래서 <b>부서에는 실제 봉사 시각(준비시간 포함)을 받고</b>, 성도님 화면에서는 그 시각을 네 덩이로 묶어 보여 줍니다.</p>
+  <div class="warn">
+    <b>⚠️ 8시~18시 체크박스는 실제 사역을 가립니다.</b> 이름만 봐도 그 창 밖인 팀이 실재합니다 —
+    <b>금요성령집회 찬양팀</b>, <b>중보기도</b>·<b>중보기도팀</b>(새벽), <b>수요오전·수요오후 찬양팀</b>,
+    <b>행복전도대 – 금요일/토요일</b>. 창을 8~18로 두면 이 팀들이 통째로 숨습니다.
+    그리고 시간 칸을 11개 두면, 첫 화면에서 누를 것을 24개→9개로 줄인 이 앱에 필터 하나로 11개를 도로 들이는 셈입니다.
+  </div>
+
+  <h3>2-2. “언제”에 <span style="color:var(--brass)">정해진 날 없음</span>이 반드시 있어야 한다</h3>
+  <p>비정기 사역이 실제로 있습니다(경조사 때, 당번제, 월 1회, 부서 협의). 이 칸이 없으면 그런 팀은
+     <b>어느 조건에도 안 걸려 그해 신청자를 한 명도 못 받습니다.</b> 더 나쁜 것은 <b>아무도 그 사실을 모른다</b>는 점입니다 —
+     필터는 숨기는 장치라, 잘못 숨겨져도 티가 나지 않습니다.</p>
+
+  <h3>2-3. 버린 축과 그 까닭</h3>
+  <div class="wrap"><table>
+    <tr><th>버린 것</th><th>까닭</th></tr>
+    <tr><td>8~18시 시각 체크박스</td><td>새벽·저녁 사역을 가림 · 칸이 11개 · 시각은 “읽는 것”이지 “고르는 것”이 아님</td></tr>
+    <tr><td>격주</td><td>부서가 “격주”와 “월 2회”를 갈라 적지 않음. 주기는 <b>필터가 아니라 글자로</b> 보여 줌(3-3)</td></tr>
+    <tr><td>요일 7칸(월·화·수…)</td><td>부서 자신이 요일을 모르는 팀이 있음(“주중 협의”). 없는 정밀도를 물으면 빈칸만 늘어남</td></tr>
+    <tr><td>자리 남은 사역만 보기</td><td>정원을 세지 않기로 한 설계(09-1장)와 어긋남 — 필터로 만들면 세게 됨</td></tr>
+    <tr><td>사역 성격(몸 쓰기·가르치기…)</td><td>부서마다 답이 갈려 잘못 걸러진 목록이 됨. 「하는 일」로 <b>읽게만</b> 함</td></tr>
+  </table></div>
+</div>
+
+<div class="sheet">
+  <h2>3. 화면 — 필터는 관문이 아니라 도우미다</h2>
+
+  <h3>3-1. 자리와 기본값</h3>
+  <p>「사역 임명 원칙」 상자 <b>아래</b>, 위원회 아코디언 <b>위</b>에 칩 두 줄을 둡니다.
+     <b>아무것도 켜지 않은 것이 기본</b>이고, 그때 화면은 지금과 똑같습니다.
+     필터는 <b>쓰고 싶은 분만 쓰는 것</b>이지 거쳐야 하는 문이 아닙니다.</p>
+
+  <h3>3-2. 켰을 때 아코디언이 하는 일</h3>
+  <div class="mock">
+    <div style="font-size:.85rem; color:var(--ink-soft); margin-bottom:8px">지금 <b style="color:var(--navy-deep)">17팀</b> 보임 · ✕ 조건 지우기</div>
+    <div style="border:1.5px solid var(--navy); border-radius:9px; overflow:hidden; margin-bottom:7px">
+      <div style="background:var(--navy); color:#fff; padding:9px 12px; font-weight:700; font-size:.9rem">
+        교육위원회 <span style="opacity:.85; font-weight:500">18팀 중 <b>6팀</b></span></div>
+    </div>
+    <div style="border:1.5px solid var(--line); border-radius:9px; padding:9px 12px; font-size:.9rem; font-weight:700; color:var(--navy)">
+      찬양부 <span style="opacity:.7; font-weight:500">14팀 중 <b>5팀</b></span></div>
+  </div>
+  <ul>
+    <li>조건에 맞는 팀이 <b>하나도 없는 위원회는 목록에서 빠집니다</b>(15개 → 예: 6개).</li>
+    <li>남은 위원회 머리에 <b>“18팀 중 6팀”</b>을 적습니다. 무엇이 걸러졌는지 숫자로 보입니다.</li>
+    <li><b>“한 번에 하나만 열림” 규칙은 그대로 둡니다.</b> 전부 펼치면 화면이 다시 길어져, 필터가 한 일이 도로 없어집니다.</li>
+  </ul>
+  <div class="note">
+    <b>심사에서 갈린 지점입니다.</b> “필터를 켜면 아코디언을 없애고 평평하게 펼치자”는 안도 있었습니다.
+    호소력이 있지만, <b>위원회가 어디인지 모른 채 팀 이름만 늘어서면</b> 성도님이 “이게 무슨 부서 일인지”를 잃습니다.
+    위원회는 이 교회가 이미 쓰는 말이라 지우지 않는 편이 낫다고 봅니다. 다만 <b>결과가 5팀 이하면 자동으로 펼쳐</b>
+    한 번 더 누르지 않게 합니다.
+  </div>
+
+  <h3>3-3. “얼마나 자주”는 글자로</h3>
+  <p>팀 줄의 「언제」 한 줄 뒤에 작게 붙입니다 — <span class="mono">주일 오전 9:30 · 매주</span>.
+     필터 축을 하나 더 만들지 않고도 성도님이 가장 걱정하는 <b>부담의 크기</b>를 알 수 있습니다.
+     축을 늘릴수록 칩이 늘고, 칩이 늘수록 “무엇을 눌러야 하나”가 흐려집니다.</p>
+
+  <h3>3-4. 반드시 지킬 세 가지</h3>
+  <div class="warn">
+    <b>① 필터를 바꿔도 고른 사역은 풀리지 않습니다.</b> 고른 팀이 조건에서 빠져도 「N / 3 선택」에 그대로 남습니다.
+    풀리면 성도님이 조건을 바꿔 보는 것 자체를 무서워하십니다.<br><br>
+    <b>② 회신이 절반이 안 차면 필터 줄을 아예 그리지 않습니다.</b> 값이 없는데 필터를 내놓으면 켜 봐야 안 걸러지고,
+    성도님은 앱이 고장 난 줄 아십니다.<br><br>
+    <b>③ 비어 있는 팀은 숨기지 않습니다.</b> 부서가 안 적은 팀은 「정해진 날 없음」으로 봅니다.
+    “미기입 = 제외”로 만들면 <b>회신율이 곧 실종률</b>이 됩니다.
+  </div>
+
+  <h3>3-5. 결과가 0개일 때</h3>
+  <p>조건을 두 축으로 걸면 0개가 드물지 않게 나옵니다. “조건을 바꿔 보세요”는 도움이 되지 않습니다 —
+     <b>바꿀 후보를 짚어 드려야</b> 합니다.</p>
+  <pre>고르신 조건에 맞는 사역이 없어요
+
+  [ '저녁'만 빼면      →  12팀 ]
+  [ '토요일'만 빼면    →   9팀 ]
+  [ ✕ 조건 모두 지우기  →  88팀 ]</pre>
+  <p>켜진 칩을 하나씩 빼 보고 <b>결과가 1팀 이상인 것만</b> 단추로 만듭니다. 눌렀는데 또 빈 화면이면 두 번 속는 것입니다.
+     이때도 <b>칩 줄은 그대로 둡니다</b> — 지우면 무엇을 켜 놨는지 안 보여 되돌릴 수가 없습니다.</p>
+</div>
+
+<div class="sheet">
+  <h2>4. 부서 확인 양식에 더할 칸</h2>
+  <p>지금 F열 하나(<span class="mono">사역 시간·요일 — 자유 텍스트</span>)를 <b>F는 그대로 두고 뒤에 다섯 칸</b>을 붙입니다.
+     F는 <b>성도님이 읽는 글</b>이고, 새 칸들은 <b>거르는 값</b>입니다. 하는 일이 달라 둘 다 필요합니다.</p>
+  <div class="wrap"><table>
+    <tr><th>열</th><th>머리글(그대로 쓸 글자)</th><th>입력 방식</th></tr>
+    <tr><td>F</td><td>사역 시간·요일 — 보이는 대로 적기</td><td>자유 텍스트 <i>(지금 그대로)</i></td></tr>
+    <tr><td>G</td><td>주일에 하나요? (하면 O)</td><td>고르기: <span class="mono">O</span></td></tr>
+    <tr><td>H</td><td>평일에 하나요? (하면 O)</td><td>고르기: <span class="mono">O</span></td></tr>
+    <tr><td>I</td><td>토요일에 하나요? (하면 O)</td><td>고르기: <span class="mono">O</span></td></tr>
+    <tr><td>J</td><td>시작 시각</td><td>고르기: <span class="mono">05:00 · 05:30 · … · 22:00</span> (30분 단위)</td></tr>
+    <tr><td>K</td><td>끝 시각</td><td>고르기: 같은 목록</td></tr>
+  </table></div>
+
+  <div class="warn">
+    <b>⚠️ 시각을 자유 텍스트로 받으면 안 됩니다.</b> 한국말로 적은 시간은 기계가 제대로 못 읽습니다 —
+    <span class="mono">주일 오전 9:00~1:00</span>은 <b>9시부터 오후 1시</b>인데 기계는 <b>9시부터 새벽 1시</b>로 봅니다.
+    이건 부서 잘못이 아니라 우리말이 원래 그렇게 적히는 것이라, 고르는 칸으로 받는 것 말고는 길이 없습니다.
+  </div>
+  <div class="warn">
+    <b>⚠️ 셋 다 비면 「정해진 날 없음」으로 읽습니다.</b> 부서가 아무것도 안 해도 옳은 값이 나오게 하는 것이
+    이 설계의 핵심입니다. J·K도 비면 「때마다 다름」입니다.
+  </div>
+
+  <h3>4-1. 「안내」 시트에 넣을 한 줄</h3>
+  <div class="note">
+    F에 적으신 것을 <b>G~K 다섯 칸에 한 번 더</b> 표시해 주세요. 성도님이 앱에서
+    “주일 낮에 되는 사역만 보기”처럼 골라 볼 때 쓰입니다. <b>비워 두시면 “정해진 날 없음”으로 보입니다.</b><br>
+    시각은 <b>실제로 모이는 시각</b>을 적어 주세요 — 예배 준비가 있으면 그 시각부터입니다
+    (예: 1부 예배 찬양대는 <b>07:00</b>부터).
+  </div>
+
+  <h3>4-2. 함께 고쳐야 하는 것</h3>
+  <ul>
+    <li><span class="mono">tools/ministry-form-gen.py</span> — <span class="mono">HEADER</span>에 다섯 칸 추가.
+        고르는 칸(<span class="mono">DataValidation</span>)은 이미 「변경여부」 열에서 쓰고 있어 부서가 새로 배울 것이 없습니다.</li>
+    <li><span class="mono">tools/ministry-merge-replies.py</span> — <b>열 자리표를 함께 밀어야 합니다.</b>
+        빠뜨리면 취합기가 엉뚱한 칸을 읽고 <b>조용히 틀린 목록</b>을 만듭니다.</li>
+    <li>취합할 때 <b>F와 G~K를 맞대 어긋난 줄만 표시</b>합니다(F에 “토요일”이 있는데 I가 비었다면).
+        기계가 값을 만드는 게 아니라 사람이 적은 두 값을 대조하는 것이라 안전하고, 그 줄만 되물으면 됩니다.</li>
+    <li>DB — <span class="mono">ministry_catalog</span>에 <span class="mono">day_sun · day_week · day_sat · time_from · time_to</span>.
+        개발 프로젝트에서 먼저 돌립니다.</li>
+    <li>종이 신청서 — 표형식(<span class="mono">ministry-apply-form-table-gen.py</span>)의 시간 칸 옆에
+        <span class="mono">주일 · 평일 · 토</span> 딱지를 작게 붙입니다. 종이엔 필터가 없으니 <b>딱지가 곧 눈으로 하는 필터</b>입니다.</li>
+  </ul>
+
+  <h2>5. 결정하실 것과 일정</h2>
+  <div class="pick">
+    <div class="t">지금 정하지 않으면 되돌리기 어려운 것</div>
+    <p style="margin:0"><b>부서 확인 양식에 다섯 칸을 넣을지</b>입니다. 양식이 아직 부서에 나가기 전이라
+       지금 넣으면 한 번에 걷습니다. 나간 뒤에 필터를 하기로 하면 15개 부서에 <b>두 번째로</b> 물어야 하고,
+       두 번째 회신율은 반드시 첫 번째보다 낮습니다.</p>
+  </div>
+  <div class="wrap"><table>
+    <tr><th>언제</th><th>무엇</th></tr>
+    <tr><td>지금</td><td>양식에 다섯 칸 추가 → 부서 발송</td></tr>
+    <tr><td>회신 오는 대로</td><td>취합 · F↔G~K 어긋난 줄만 되묻기</td></tr>
+    <tr><td>회신 절반 넘으면</td><td>필터 화면 켜기 <i>(그전에는 줄 자체를 안 그림)</i></td></tr>
+    <tr><td>12/13</td><td>신청 시작</td></tr>
+  </table></div>
+
+  <h2>6. 이 안의 약점 — 알고 치르는 대가</h2>
+  <p><b>F(보이는 글)와 G~K(거르는 값)를 한 사람이 따로 적으므로 둘이 어긋날 수 있습니다.</b>
+     성도님이 「토요일」을 켰는데 화면에 <span class="mono">학기 중 토요일</span>이라고 적힌 팀이 안 나오는 일이 생깁니다 —
+     부서가 F만 적고 I를 비웠을 때입니다. 이건 필터 오류 중 가장 나쁜 종류입니다.
+     <b>틀린 근거가 화면에 같이 떠 있어서, 성도님이 자기 눈으로 틀렸다는 걸 봅니다.</b></p>
+  <p>취합기의 대조 경고로 줄일 수는 있어도 없앨 수는 없습니다. 그렇다고 F를 없애면
+     「이름만 보고는 오병이어 1팀과 2팀을 못 고른다」는 <b>원래 문제로 되돌아갑니다</b>.
+     두 칸을 함께 두는 것은 그 대가를 알고 치르는 선택입니다.</p>
+  <div class="note">
+    <b>덧붙여 정직하게.</b> 이 문서의 팀 수(88·18·14)와 팀 이름은 확정 목록에서 센 <b>진짜 값</b>이지만,
+    “주일이 몇 팀, 평일이 몇 팀”은 <b>아직 아무도 모릅니다</b> — 부서 회신이 0/15이기 때문입니다.
+    그래서 필터가 실제로 얼마나 줄여 줄지는 회신을 받아 봐야 압니다.
+    「절반이 안 차면 필터를 안 그린다」를 넣어 둔 까닭이 이것입니다.
+  </div>
+</div>
+
+<div class="foot">
+  <span>2027 사역신청 · 찾기 쉽게 만드는 안</span>
+  <span class="mid">오직 성경, 말씀이 답이다!</span>
+  <span>고척교회</span>
+</div>
+</body></html>
