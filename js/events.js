@@ -120,8 +120,11 @@ function renderEventList(focusId) {
   evtLoad(u).then(function () {
     // 딥링크로 특정 회차를 지목했고 그것을 볼 수 있으면 바로 등록 화면으로
     if (focusId && evtFind(focusId)) { renderEventForm(u, focusId); return; }
-    // 열린 회차가 딱 하나뿐이고 아직 아무것도 안 냈으면 목록을 건너뛴다 —
-    // 고를 것이 없는데 고르라고 하지 않는다.
+    // 회차가 하나뿐이면 목록을 건너뛴다 — 고를 것이 없는데 고르라고 하지 않는다.
+    // (마감된 회차 하나만 있는 지금이 그렇다. 그 안에 명단이 있다.)
+    if (!focusId && evtEvents.length === 1) {
+      renderEventForm(u, evtEvents[0].id); return;
+    }
     var pickable = evtEvents.filter(function (e) { return e.canSignup && !e.mine; });
     if (!focusId && pickable.length === 1 && evtMine.length === 0) {
       renderEventForm(u, pickable[0].id); return;
@@ -185,7 +188,9 @@ function evtCardHtml(e) {
   var closed = !e.canSignup;
   var cls = "ev-card" + (e.mine ? " done" : "") + (closed ? " closed" : "");
   var dday = evtDdayText(e.closesOn);
-  var btnLabel = e.mine ? "낸 것 보기 →" : (closed ? "지난 이벤트" : "참여하기 →");
+  // ⚠️ 마감된 회차도 눌러서 들어갈 수 있어야 한다 — 그 안에 **명단**이 있다.
+  //    옛 사이트는 마감되면 조회까지 죽어 막다른 화면이 됐다.
+  var btnLabel = closed ? "명단 보기 →" : (e.mine ? "낸 것 보기 →" : "참여하기 →");
   return '<div class="' + cls + '">' +
     (e.season ? '<div class="ev-season">' + evtEsc(e.season) + "</div>" : "") +
     '<h3 class="ev-card-t">' + evtEsc(e.title) + "</h3>" +
@@ -195,17 +200,28 @@ function evtCardHtml(e) {
     (closed ? "" : '<span class="ev-dday' + (dday === "오늘 마감" ? " urgent" : "") +
       '">' + evtEsc(dday) + "</span>") + "</div>" +
     (e.mine ? '<div class="ev-badge-done">✅ 참여하셨어요</div>' : "") +
-    '<button class="ev-go" id="ev-go-' + evtEsc(e.id) + '"' +
-    (closed && !e.mine ? " disabled" : "") + ">" + btnLabel + "</button>" +
+    '<button class="ev-go" id="ev-go-' + evtEsc(e.id) + '">' + btnLabel + "</button>" +
     "</div>";
 }
 
 // ── 등록 폼 ──────────────────────────────────────────────────
 function renderEventForm(u, eventId) {
+  // 명단을 먼저 받아 두고 한 번에 그린다 — 두 번 그리면 화면이 덜컹거린다.
+  // (「처음 오신 분이 보는 화면」이라 기다림이 짧아야 한다.)
+  var e0 = evtFind(eventId);
+  if (e0 && !e0.canSignup && evtRosterFor !== eventId) {
+    evtLoadRoster(eventId).then(function () { evtDrawForm(u, eventId); });
+    return;
+  }
+  evtDrawForm(u, eventId);
+}
+
+function evtDrawForm(u, eventId) {
   var e = evtFind(eventId);
   if (!e) { renderEventList(null); return; }
   var mine = evtMineOf(eventId);
   var needs = e.needs || {};
+  var canSignup = !!e.canSignup;
 
   if (!evtForm || evtForm.eventId !== eventId) {
     evtForm = {
@@ -231,9 +247,39 @@ function renderEventForm(u, eventId) {
       ? '<div class="ev-note">' + evtEsc(e.copy.intro) + "</div>" : "") +
 
     // 신원은 묻지 않는다 — 로그인 정보가 그대로 들어간다.
-    '<div class="ev-who"><div class="ev-who-l">이렇게 등록됩니다</div>' +
+    //  마감된 회차에서는 「등록됩니다」가 아니라 「이 정보로 찾습니다」다.
+    '<div class="ev-who"><div class="ev-who-l">' +
+    (canSignup ? "이렇게 등록됩니다" : "이 정보로 명단에서 찾습니다") + "</div>" +
     '<div class="ev-who-v"><b>' + evtEsc(u.name) + "</b> · " + evtEsc(who) +
     "</div></div>";
+
+  // ── 마감된 회차: 폼 대신 「내 등록 + 전체 명단」 ──────────────
+  // 옛 사이트는 마감되면 조회까지 죽어 막다른 화면이 됐다. 여기서는 마감이
+  // 「등록만 막히고 보는 것은 살아 있는」 상태다(events.status = closed).
+  if (!canSignup) {
+    if (mine) {
+      html += '<div class="ev-mine-card"><div class="ev-mine-t">✅ 참여하셨어요</div>' +
+        (mine.position ? '<div class="ev-mine-v">' + evtEsc(mine.position) + "</div>" : "") +
+        '<div class="ev-mine-at">' + evtEsc(String(mine.at || "").slice(0, 10)) + " 신청</div></div>";
+    }
+    html += evtRosterHtml(u, eventId) ||
+      '<div class="ev-note">명단을 불러오지 못했어요. 잠시 뒤 다시 눌러 주세요.</div>';
+    document.getElementById("app").innerHTML =
+      '<div class="ev-wrap">' + html + "</div>" +
+      '<button class="home-fab" id="ev-home" aria-label="첫 화면으로">' +
+      homeFabLabel(u, true) + "</button>";
+    window.scrollTo(0, 0);
+    document.getElementById("ev-home")
+      .addEventListener("click", function () { renderSummary(); });
+    document.getElementById("ev-back")
+      .addEventListener("click", function () { evtForm = null; renderEventList(null); });
+    // 내 줄이 명단 안에 있으면 그 자리로 데려다 준다 — 164줄에서 눈으로 찾게 두지 않는다.
+    var meEl = document.getElementById("ev-me");
+    if (meEl) setTimeout(function () {
+      try { meEl.scrollIntoView({ block: "center" }); } catch (e2) { meEl.scrollIntoView(); }
+    }, 60);
+    return;
+  }
 
   if (needs.position) {
     // ⚠️ 목록을 여기 베껴 두지 않는다 — 사역신청(app.js:9081)·서버(index.ts)와 셋이
@@ -307,6 +353,61 @@ function renderEventForm(u, eventId) {
     .addEventListener("click", function () { evtSubmit(u, eventId); });
   var cc = document.getElementById("ev-cancel");
   if (cc) cc.addEventListener("click", function () { evtAskDrop(u, eventId); });
+}
+
+// ── 전체 명단 ────────────────────────────────────────────────
+// 성도님이 그려 주신 모양: 소속으로 묶고 줄은 「이름-구역」.
+//     화평
+//      - 김세웅-20
+// ⚠️ 이 화면의 노림수는 「자기 것이 있는지 보려고 가입하게」다. 그래서 **로그인한
+//    분의 줄을 찾아 표시**한다 — 이관된 164명 중 101명은 앱 계정이 없어 「내 등록」이
+//    안 뜨는데, 명단에서 자기 이름이 짚어지면 그 자리에서 확인이 끝난다.
+var evtRoster = null;      // { event, total, groups } — 회차마다 한 번만 받는다
+var evtRosterFor = "";
+
+function evtLoadRoster(eventId) {
+  if (evtRosterFor === eventId && evtRoster) return Promise.resolve();
+  if (!(window.api && api.eventRosterPublic)) return Promise.resolve();
+  return api.eventRosterPublic(eventId).then(function (r) {
+    evtRoster = r; evtRosterFor = eventId;
+  }).catch(function (e) {
+    evtRoster = null; evtRosterFor = "";
+    if (window.console) console.warn("eventRosterPublic 실패:", e && e.message);
+  });
+}
+
+// 로그인한 분과 같은 줄인가 — 소속·세부·이름 셋으로 본다(앱의 신원 규칙과 같은 조각).
+function evtIsMeLine(u, group, m) {
+  if (!u) return false;
+  var isGu = u.type === "교구";
+  var g = (isGu ? u.gu : u.bu) || "";
+  var s = (isGu ? u.mok : u.grade) || "";
+  return group === g && String(m.sub) === String(s) && m.name === u.name;
+}
+
+function evtRosterHtml(u, eventId) {
+  if (evtRosterFor !== eventId || !evtRoster) return "";
+  var found = false;
+  var body = evtRoster.groups.map(function (g) {
+    return '<div class="ev-grp"><div class="ev-grp-t">' + evtEsc(g.name) +
+      ' <em>' + g.count + '</em></div><ul class="ev-grp-l">' +
+      g.members.map(function (m) {
+        var me = evtIsMeLine(u, g.name, m);
+        if (me) found = true;
+        return '<li' + (me ? ' class="me" id="ev-me"' : '') + '>' +
+          evtEsc(m.name) + '-' + evtEsc(m.sub) + (me ? ' <b>← 나</b>' : '') + '</li>';
+      }).join("") + "</ul></div>";
+  }).join("");
+
+  // 「내 등록」이 안 뜨는 분께 까닭을 적어 준다 — 안 그러면 명단을 보고도 헤맨다.
+  var hint = found
+    ? '<div class="ev-found">명단에서 <b>' + evtEsc(u.name) + '</b> 님을 찾았어요 — 아래에 표시해 두었습니다.</div>'
+    : '<div class="ev-note ev-miss">명단에서 <b>' + evtEsc(u.name) +
+      '</b> 님을 못 찾았어요.<br>로그인하신 <b>소속·구역·이름</b>이 신청하실 때와 한 글자라도 다르면 못 찾습니다 — ' +
+      '아래 명단에서 직접 확인해 보세요. 명단에 있는데 안 잡히면 담당자에게 알려 주세요.</div>';
+
+  return '<div class="ev-roster"><div class="ev-roster-h">참여자 <b>' + evtRoster.total +
+    '</b>명</div>' + hint + body + "</div>";
 }
 
 function evtSubmit(u, eventId) {

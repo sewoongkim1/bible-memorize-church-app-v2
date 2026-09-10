@@ -113,6 +113,7 @@ const api = {
   eventOpenList: (user_id) => supaCall("eventOpenList", { user_id }),
   eventSignup: (payload) => supaCall("eventSignup", payload),
   eventDrop: (user_id, id) => supaCall("eventDrop", { user_id, id }),
+  eventRosterPublic: (event_id) => supaCall("eventRosterPublic", { event_id }),
   eventRoster: (pw, event_id) => supaCall("eventRoster", { pw, event_id }),
   eventSave: (pw, event) => supaCall("eventSave", { pw, event }),
 };

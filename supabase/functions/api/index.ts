@@ -194,6 +194,7 @@ Deno.serve(async (req) => {
       case "eventRoster":   return json(await eventRoster(body));
       case "eventSave":     return json(await eventSave(body));
       case "eventImport":   return json(await eventImport(body));
+      case "eventRosterPublic": return json(await eventRosterPublic(body));
       // ---- 성경필사 노트 신청 ----
       case "pilsaMine":      return json(await pilsaMine(body));
       case "pilsaApply":     return json(await pilsaApply(body));
@@ -4224,6 +4225,90 @@ async function eventSave(b: any) {
     .upsert(row, { onConflict: "id" }).select().maybeSingle();
   if (error) throw error;
   return { ok: true, event: data };
+}
+
+// ---------- eventRosterPublic: 성도님께 보이는 명단 ----------
+//   회차 하나의 참여자를 소속으로 묶어 돌려준다. 화면 규격은 성도님이 직접 그려 주셨다:
+//       화평
+//        - 김세웅-20
+//   ⚠️ **내보낼 칸을 손으로 못 박는다.** 지금 phone·memo·note 는 비어 있지만 **칸은
+//      존재한다.** 나중에 값이 들어갔을 때 `select("*")` 를 펼치는 코드가 있으면 그날로
+//      새어 나간다 — 게시판이 정확히 그렇게 user_id 를 흘렸다. 여기서 나가는 것은
+//      **이름 · 구분 · 소속 · 세부 · 직분 다섯뿐**이고 id 도 user_id 도 싣지 않는다.
+//   ⚠️ 마감된 회차도 보여 준다(status='closed'). 옛 사이트는 마감되면 조회까지 죽었다.
+const EVT_GU_ORDER = ["믿음", "소망", "사랑", "섬김", "은혜", "화평", "기쁨", "새가족"];
+const EVT_BU_ORDER = ["사랑부", "영아부", "유아부", "유치부", "유년부",
+                      "초등부", "중등부", "고등부", "청년부"];
+
+// 목장·구역은 글자다 — 「1」~「39」 사이에 **「남성」** 이 섞여 있다.
+// 그냥 글자로 정렬하면 1, 12, 2, 3… 이 되고 「남성」이 숫자 사이에 낀다.
+// 숫자는 숫자로, 숫자가 아닌 것은 뒤로 보낸다.
+function evtSubRank(v: unknown): [number, number, string] {
+  const s = norm(v);
+  const n = /^\d+$/.test(s) ? parseInt(s, 10) : NaN;
+  return Number.isFinite(n) ? [0, n, s] : [1, 0, s];
+}
+
+async function eventRosterPublic(b: any) {
+  const eventId = norm(b.event_id);
+  if (!EVT_ID_RE.test(eventId)) return { ok: false, error: "bad-args" };
+
+  const { data: ev, error: eerr } = await db.from("events")
+    .select("id,title,subtitle,season,status,opens_on,closes_on")
+    .eq("id", eventId).maybeSingle();
+  if (eerr) throw eerr;
+  // draft·archived 는 성도님께 보이지 않는다(관리자는 eventRoster 로 본다)
+  if (!ev || (ev.status !== "open" && ev.status !== "closed")) {
+    return { ok: false, error: "not-found" };
+  }
+
+  const { data, error } = await db.from("event_signups")
+    .select("who_type,group_name,sub_name,name,position")   // ← 다섯 칸만
+    .eq("event_id", eventId).limit(5000);
+  if (error) throw error;
+  const rows = (data ?? []) as any[];
+
+  const bag = new Map<string, any>();
+  for (const r of rows) {
+    const isGu = r.who_type === "교구";
+    const g = norm(r.group_name);
+    const k = (isGu ? "g:" : "s:") + g;
+    if (!bag.has(k)) {
+      const order = isGu ? EVT_GU_ORDER.indexOf(g) : EVT_BU_ORDER.indexOf(g);
+      bag.set(k, {
+        type: r.who_type, name: g,
+        // 교구를 먼저, 교회학교를 뒤에. 목록에 없는 이름은 그 묶음 맨 뒤로.
+        _o: (isGu ? 0 : 1000) + (order < 0 ? 900 : order),
+        members: [] as any[],
+      });
+    }
+    bag.get(k).members.push({
+      name: norm(r.name), sub: norm(r.sub_name), position: norm(r.position),
+    });
+  }
+
+  const groups = [...bag.values()].sort((a, b2) => a._o - b2._o).map((g) => {
+    g.members.sort((m1: any, m2: any) => {
+      const [t1, n1, s1] = evtSubRank(m1.sub);
+      const [t2, n2, s2] = evtSubRank(m2.sub);
+      if (t1 !== t2) return t1 - t2;
+      if (n1 !== n2) return n1 - n2;
+      if (s1 !== s2) return s1 < s2 ? -1 : 1;
+      return m1.name < m2.name ? -1 : (m1.name > m2.name ? 1 : 0);
+    });
+    return { type: g.type, name: g.name, count: g.members.length, members: g.members };
+  });
+
+  return {
+    ok: true,
+    event: {
+      id: ev.id, title: ev.title, subtitle: ev.subtitle ?? "",
+      season: ev.season ?? "", status: ev.status,
+      opensOn: ev.opens_on, closesOn: ev.closes_on,
+    },
+    total: rows.length,
+    groups,
+  };
 }
 
 // ---------- eventImport: 옛 명단 이관 (관리자) ----------
