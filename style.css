@@ -289,8 +289,12 @@ h1 {
   font-size: 1.05rem; line-height: 1.75; color: var(--navy-dark);
   margin-bottom: 20px; word-break: keep-all;
 }
+/* ⚠️ min-height:46px 는 시편 완료 창(js/psalm.js psalmStageModal)이 43px 이라 손 떨리는
+   분께 작다고 더한 값이다(2026-09-10 리뷰 지적) — .cheer-ok 는 여러 화면의 축하·공지
+   창이 함께 쓰는 공용 클래스라 주간 암송 완료 창(app.js showStageDoneModal)의 단추도
+   같이 커진다. 의도한 변화다. */
 .cheer-ok {
-  width: 100%; padding: 12px;
+  width: 100%; padding: 12px; min-height: 46px;
   background: var(--gold); color: var(--navy-dark);
   border: none; border-radius: 12px;
   font-size: 1rem; font-weight: 800; font-family: inherit; cursor: pointer;
@@ -3893,7 +3897,7 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
 }
 .stage-done .sd-btn {
   flex: 1 1 0; min-width: 0;
-  padding: 11px 8px; border-radius: 10px;
+  padding: 11px 8px; min-height: 46px; border-radius: 10px;
   border: 1.5px solid var(--border); background: #fff; color: var(--navy);
   font-family: inherit; font-size: 0.95rem; font-weight: 700;
   cursor: pointer; white-space: nowrap;
@@ -4693,6 +4697,9 @@ body.pr-full-on { overflow: hidden; }
 .ps-day{background:var(--navy,#1a3a6b);color:#fff;border-radius:999px;padding:3px 12px;
         font-size:14px;font-weight:700}
 .ps-total,.ps-step{color:var(--gray);font-size:14px}
+/* 오늘 편 표식 — 지난 말씀 목록은 오늘 편을 빼므로(past 필터) 「마음에 둠」이 걸릴
+   자리가 여기 말고는 없다(2026-09-10 리뷰 지적). psalmMark()와 같은 ✅👑. */
+.ps-today-mark{font-size:15px}
 .ps-back{margin-left:auto;background:none;border:none;color:var(--navy,#1a3a6b);
          font-size:15px;padding:13px 10px;cursor:pointer}
 

@@ -82,6 +82,9 @@ function drawPsalmHome() {
 
   const today = psalmToday();
   const done = psalmDoneCount();
+  // 지난 말씀 목록은 오늘 편을 뺀다(past 필터) — 그래서 표식이 걸릴 자리가 오늘 편에는
+  // 없다. 여기서 한 번 더 찍어 「마음에 둠」이 마친 그날 바로 보이게 한다(2026-09-10 리뷰 지적).
+  const todayMark = today ? psalmMark(today) : "";
   const past = psalmVerses.filter((v) => v.dayNo !== (today && today.dayNo))
                           .sort((a, b) => b.dayNo - a.dayNo);
 
@@ -93,6 +96,7 @@ function drawPsalmHome() {
   wrap.innerHTML = `
     <div class="ps-head">
       <span class="ps-day">${psalmOpen}일차</span>
+      ${todayMark ? `<span class="ps-today-mark">${todayMark}</span>` : ""}
       <span class="ps-total">전체 ${psalmTotal}편</span>
     </div>
     ${today ? psalmFrameHtml(today) : ""}
@@ -134,13 +138,15 @@ function drawPsalmHome() {
   });
 }
 
-// 지난 말씀 줄의 표식 — 마친 편은 ✅, 그중 「마음에 둠」까지 하신 편은 👑 을 함께 단다.
-// ⚠️ ✅ 만 그리면 「마음에 둠」이 시편 안에서 아무 데도 안 보인다 — 주간은 목록 카드에
-//    👑 리본(.heart-ribbon)이 있고 앨범 카드에도 왕관이 붙는데, 시편에서 체크할 자리만
-//    만들고 보일 자리를 안 만들면 체크한 분께 그것이 어디로 갔는지 알 길이 없다.
+// 지난 말씀 줄(과 오늘 편)의 표식 — 3단계까지 마친 편엔 ✅, 「마음에 둠」을 체크한 편엔
+// 👑 을 각각 단다. 둘은 서로 다른 것을 말하므로 독립이다.
+// ⚠️ 👑 을 3단계 완주에 묶으면 안 된다(2026-09-10 리뷰 지적) — 3단계에 들어와 체크만
+//    하고 다 못 채운 편에는 표식이 아예 안 생긴다. 주간 목록의 👑 리본(.heart-ribbon)도
+//    isHearted() 하나로 붙지, 단계를 보지 않는다.
 function psalmMark(v) {
-  if (getPassedStage(v.no) < 3) return "";
-  return isHearted(v.no) ? "✅👑" : "✅";
+  const done = getPassedStage(v.no) >= 3;
+  const h = isHearted(v.no);
+  return (done ? "✅" : "") + (h ? "👑" : "");
 }
 
 // 액자 = 색(금색/군청) × 잎가지(1~12). 구절마다 고정이다 —
@@ -423,12 +429,16 @@ function psalmStageDone(verse, stage, cardUsed) {
   //    "카드로 채웠다"가 이 조합에서는 동치다.
   saveProgress(verse.no, stage, cardUsed ? "card" : "typing");
   if (stage < 3) {
-    // ⚠️ 「반복해서 쓰기」를 켜 두신 분께는 창을 띄우지 않는다 — 그 토글의 뜻이 「멈추지 말고
-    //    계속」이라, 새로 만든 창이 그 흐름 앞을 가로막으면 켜 둔 설정을 무시하는 것이 된다
-    //    (v3.181→182 되돌림과 같은 원칙).
+    // ⚠️ 「반복해서 쓰기」를 켜 두셨어도 1·2단계 창은 뜬다(2026-09-10 리뷰 지적 — 이전 지시가
+    //    틀렸었다). 주간 암송(app.js checkAllComplete)도 stage<3 갈래는 isRepeatPractice()를
+    //    보지도 않고 늘 창을 띄운다 — 그 토글의 뜻은 「3단계를 반복해서 쓴다」이지 「1·2단계
+    //    알림까지 끈다」가 아니다. REPEAT_KEY 는 앱 전체에 하나뿐인 열쇠라, 이걸 그대로 두면
+    //    주간에서 켜 두신 분은 시편 1·2단계 창을 한 번도 못 보고, 끌 토글도 화면에 없어
+    //    이유조차 알 길이 없었다. 3단계의 isRepeatPractice() 검사(아래)는 그대로 둔다 —
+    //    거기가 그 토글이 실제로 뜻하는 자리다.
     // ⚠️ 복습은 이 함수 맨 위에서 이미 return 했으므로 여기까지 오지 않는다 — 그래도 한 번 더
     //    본다(psalmInReview 가 깃발과 구절을 함께 맞춰 보는 세 번째 방어선인 것과 같은 이유).
-    if (isRepeatPractice() || psalmInReview(verse)) return renderPsalmStage(verse, stage + 1);
+    if (psalmInReview(verse)) return renderPsalmStage(verse, stage + 1);
     // ⚠️ 화면에도 「N+1단계로」를 남긴 뒤에 창을 띄운다 — 창은 Escape·바깥 탭으로 닫힐
     //    수 있고, 폰에서는 카드 밖을 건드리기가 쉬다. 그때 뒤 화면에 갈 길이 없으면
     //    빈칸이 전부 초록인 채 멈춰 있는 화면에 갇힌다(「← 목록」만 남는다).
@@ -436,7 +446,7 @@ function psalmStageDone(verse, stage, cardUsed) {
     //    (app.js checkAllComplete). 그 순서를 그대로 따른다.
     const rs = document.getElementById("ps-result");
     if (rs) {
-      rs.innerHTML = `<button class="ps-go" id="ps-next-stage">${stage + 1}단계로</button>`;
+      rs.innerHTML = `<button class="ps-go" id="ps-next-stage">${stage + 1}단계로 계속하기</button>`;
       document.getElementById("ps-next-stage")
         .addEventListener("click", () => renderPsalmStage(verse, stage + 1));
     }
@@ -471,7 +481,7 @@ function psalmStageModal(verse, stage, wasFirst) {
       <button class="cheer-ok" id="ps-sd-main">${stage + 1}단계로 계속하기</button>
       <div class="sd-sub">
         <button class="sd-btn" id="ps-sd-again">이 단계 다시</button>
-        <button class="sd-btn" id="ps-sd-list">목록으로</button>
+        <button class="sd-btn" id="ps-sd-list">지난 말씀 보기</button>
       </div>
     </div>`;
   document.body.appendChild(wrap);
@@ -491,6 +501,11 @@ function psalmStageModal(verse, stage, wasFirst) {
   const onKey = (e) => {
     if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); return; }
     if (e.key !== "Enter" && e.key !== " ") return;
+    // 체크박스에 손이 가 있으면 그 체크를 먼저 존중한다(스페이스로 켜고 끄는 중일 수 있다)
+    // ⚠️ 지금 이 창엔 체크박스가 없어 안 터지지만, showStageDoneModal(app.js)의 이 가드를
+    //    미리 옮겨 둔다 — 나중에 이 창에도 체크박스가 생기면 그때는 지뢰가 된다(2026-09-10 리뷰 지적).
+    const ae = document.activeElement;
+    if (ae && ae.type === "checkbox") return;
     e.preventDefault();
     e.stopPropagation();
     main();
@@ -521,6 +536,18 @@ function renderPsalmDone(verse, wasFirst) {
   //    psalmVerses 에는 열린 편만 들어 있으므로 dayNo > 1 이면 앞 편은 반드시 있다.
   const prev = psalmVerses.find((v) => v.dayNo === verse.dayNo - 1) || null;
   const done = psalmDoneCount();
+  // ⚠️ 「다음 말씀 ▶」을 없어도 그리면 죽은 단추가 된다(2026-09-10 리뷰 지적) — 첫 화면
+  //    「외우기 시작」은 늘 오늘 편을 여는데, 시편은 하루 한 편이라 그 편을 마치면 next 는
+  //    거의 항상 null 이다. 즉 기본 경로의 끝이 매번 이 화면인데, 매번 화면에서 가장 크고
+  //    짙은 단추가 눌러도 반응 없는 자리였다(대비도 안 나온다 — 밝은 모드 2.12:1). 있는
+  //    쪽에만 채움을 준다: 다음이 없으면 이전이 대신 채움을 받는다(next ? "" : " next").
+  const navHtml = (prev || next) ? `
+      <div class="ps-nav">
+        ${prev ? `<button class="ps-nav-btn${next ? "" : " next"}" id="ps-prev">◀ 이전<span class="ps-next-ref">${psalmEsc(prev.refFull)}</span></button>` : ""}
+        ${next ? `<button class="ps-nav-btn next" id="ps-next">다음 말씀 ▶<span class="ps-next-ref">${psalmEsc(next.refFull)}</span></button>` : ""}
+      </div>` : "";
+  // 개시 첫날(이전·다음 둘 다 없음)엔 줄 자체가 사라진다 — 그때는 「다시 암송」이 유일한
+  // 큰 단추가 되도록 .ps-go 를 준다(그대로 두면 흰 .ps-tool 뿐이라 남는 큰 단추가 없다).
   const app = document.getElementById("app");
   app.innerHTML = `
     <div class="ps-wrap ps-done">
@@ -530,14 +557,10 @@ function renderPsalmDone(verse, wasFirst) {
       ${wasFirst ? FIRST_DONE_HTML : `
         <div class="ps-done-s">말씀 앨범에 담겼고, 복습이 예약됐어요</div>`}
       <div class="ps-done-bar">${psalmTotal}편 중 <b>${done}편</b> 마쳤어요</div>
-      <div class="ps-nav">
-        <button class="ps-nav-btn" id="ps-prev"${prev ? "" : " disabled"}>◀ 이전${
-          prev ? `<span class="ps-next-ref">${psalmEsc(prev.refFull)}</span>` : ""}</button>
-        <button class="ps-nav-btn next" id="ps-next"${next ? "" : " disabled"}>다음 말씀 ▶${
-          next ? `<span class="ps-next-ref">${psalmEsc(next.refFull)}</span>` : ""}</button>
-      </div>
+      ${heartCheckHtml(verse, "-m")}
+      ${navHtml}
       ${next ? "" : `<div class="ps-done-wait">오늘 열린 말씀은 여기까지예요 · 내일 한 편이 더 열려요</div>`}
-      <button class="ps-tool ps-wide" id="ps-again">↺ 이 말씀 다시 암송</button>
+      <button class="${(prev || next) ? "ps-tool ps-wide" : "ps-go"}" id="ps-again">↺ 이 말씀 다시 암송</button>
       <button class="ps-tool ps-wide" id="ps-list">지난 말씀 보기</button>
     </div>
     <button class="home-fab" id="ps-home" aria-label="첫 화면으로">${homeFabLabel(u, true)}</button>`;
@@ -551,4 +574,10 @@ function renderPsalmDone(verse, wasFirst) {
   // 「◀ 이전」도 0단계(액자로 읽기)부터 — 앞 편을 다시 만나는 자리라 읽는 것부터가 맞다.
   const pv = document.getElementById("ps-prev");
   if (pv && prev) pv.addEventListener("click", () => renderPsalmStage(prev, 0));
+  // 「👑 마음에 둠」 — 완료 화면에도 한 벌 둔다(2026-09-10 리뷰 지적). 그전에는 3단계
+  // 빈칸 화면 맨 아래(자판에 가리는 자리)에만 있어, 마지막 빈칸을 채우는 순간 이 화면으로
+  // 넘어오며 체크할 자리가 영영 사라졌다. 「이전/다음」을 누르기 전 반드시 지나가는
+  // 여기(.ps-done-bar 아래·.ps-nav 위)에 두면 놓칠 수 없다. silent 는 주지 않는다 —
+  // 이 화면은 온전한 화면이지 겹칠 창이 없다(축하창이 떠도 괜찮다).
+  setupHeartCheck(verse, "-m");
 }
