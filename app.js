@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260910u";
+const APP_BUILD = "20260910v";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -298,9 +298,15 @@ function refreshEventOpen() {
   if (!window.api || !api.eventOpenList) return;
   // user_id 를 안 보낸다 — 여기서 필요한 것은 「볼 회차가 있는가」 하나뿐이다.
   // 내 등록까지 받으면 첫 화면 진입에 쓸데없는 조회가 하나 더 붙는다.
+  const before = eventOpenCached();
   api.eventOpenList().then((d) => {
     const n = (d && d.events && d.events.length) || 0;
     try { localStorage.setItem(EVENT_OPEN_KEY, n > 0 ? "1" : "0"); } catch (e) {}
+    // ⚠️ **값이 바뀌면 그 자리에서 다시 그린다.** 캐시만 고치고 두면 새로고침해야만
+    //    반영된다 — 담당자가 회차를 내려도 성도님 화면에는 **눌러도 아무것도 없는
+    //    단추**가 그대로 남는다(2026-09-10 실제로 그랬다: 친구가 「지금 뜨는데요」).
+    //    여는 쪽도 같다 — 회차를 올린 날 성도님이 앱을 다시 켜야 보이면 안 된다.
+    if (before !== (n > 0) && document.querySelector(".todo-go")) renderSummary();
   }).catch(() => {});
 }
 function eventVisible() { return eventOpenCached(); }
@@ -4336,7 +4342,7 @@ function showStageDoneModal(verse, stage, wasFirst) {
        ${wasFirst ? FIRST_DONE_HTML : ""}`;
   // 마지막 말씀이면 다음이 없다. 그때 '목록으로'를 쓰면 아래 단추와 똑같은 것이 둘이 된다 —
   // 처음 말씀으로 돌려보내 한 바퀴를 잇는다.
-  const first = (!next && verses.length > 1) ? verses[0] : null;
+  const first = (!next && idx >= 0 && verses.length > 1) ? verses[0] : null;
   const mainLabel = stage < 3 ? `${stage + 1}단계로 계속하기`
     : next ? "다음 말씀 ▶" : (first ? "↺ 처음 말씀으로" : "목록으로");
 
@@ -8298,8 +8304,11 @@ function renderAlbum() {
         `<button class="atk${albumTrack === k ? " on" : ""}" data-track="${k}">${label}</button>`).join("")}
     </div>`;
 
-  // 시편에는 「마음에 둠」 체크가 없어 hearted.length 가 늘 0이다(구조적으로 그렇다) —
-  // 그 배너를 그대로 두면 시편 트랙에서 매번 "0구절을 마음에 두었습니다"로 읽힌다.
+  // ⚠️ 시편에도 「마음에 둠」이 생겼다(2026-09-10 — renderPsalmBlank 3단계에 체크가 붙었다).
+  //    그전 주석은 「시편에는 구조적으로 없어 늘 0이다」였는데 이제 사실이 아니다.
+  //    그래도 배너는 「몇 편 마쳤어요」로 둔다 — 시편은 180편을 하루 한 편씩 여는 코너라
+  //    성도님이 궁금해하시는 숫자가 「오늘까지 몇 편」이고, 마음에 둔 편은 그 안의 부분집합이다.
+  //    (이번에 고친 것은 이 주석뿐이다 — 로직은 한 글자도 안 바뀌었다.)
   const bannerHtml = albumTrack === "psalm"
     ? `<div class="ab-line"><b class="ab-num">${done.length}</b>편 마쳤어요</div>`
     : `<div class="ab-line"><b class="ab-num">${hearted.length}</b>구절을 마음에 두었습니다 👑</div>`;

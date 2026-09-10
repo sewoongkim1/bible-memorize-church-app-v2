@@ -91,6 +91,21 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;color:#6a7383}
   padding:9px 11px;font-size:13.5px;margin:10px 0}
 .ok:empty,.note:empty{display:none}
 
+/* 묶음 보기 — 소속으로 묶고 한 줄에 여러 명. 주보·공지에 그대로 옮겨 적기 좋다. */
+.gv-g{margin:0 0 13px;break-inside:avoid}
+.gv-t{font-weight:800;color:#1a3a6b;background:#eef1f8;border-radius:8px;
+  padding:6px 11px;font-size:14px}
+.gv-t em{font-style:normal;font-weight:700;font-size:12px;color:#6b7688;margin-left:7px}
+.gv-l{display:flex;flex-wrap:wrap;margin-top:7px;padding-left:4px;line-height:1.9}
+.gv-l span{font-size:14px;color:#2f3947;white-space:nowrap}
+.gv-l span::after{content:"·";color:#b9c1cf;margin:0 8px}
+.gv-l span:last-child::after{content:""}
+.gv-l span.app{font-weight:700}
+@media print{
+  .gv-t{background:none;border-bottom:1px solid #999;border-radius:0;padding:2px 0}
+  .gv-l{line-height:1.7}
+  .gv-l span{font-size:12px}
+}
 @media print{
   .topbar,.bar,.chips,.no-print,.btn{display:none!important}
   body{background:#fff}
@@ -130,6 +145,9 @@ let evRows = [];         // 지금 고른 회차의 명단(서버에서 한 번 
 let evPick = "";         // 고른 회차 id
 let evSort = { key:"at", dir:-1 };
 let evQ = "", evType = "", evGroup = "";
+// 표 / 묶음 — 고른 것을 기억한다(볼 때마다 다시 고르게 하지 않는다)
+let evView = (function(){ try { return localStorage.getItem("ev-view") || "table"; }
+                          catch(e){ return "table"; } })();
 
 function getPw(){ return sessionStorage.getItem(PW_KEY) || ""; }
 function esc(v){
@@ -304,10 +322,12 @@ function evListHtml(ev){
         groups.map(g => `<option value="${esc(g)}"${evGroup===g?" selected":""}>${esc(g)} (${byGroup[g]})</option>`).join("")
       }</select>
       <input type="search" id="q-find" placeholder="이름 · 소속으로 찾기" value="${esc(evQ)}" />
+      <button class="btn" id="q-view">${evView==="table" ? "🧾 묶음 보기" : "📊 표 보기"}</button>
       <button class="btn" id="q-clear">초기화</button>
       <button class="btn" id="q-print">🖨️ 인쇄</button>
     </div>
-    ${list.length ? `<div class="tw"><table><thead><tr>
+    ${list.length && evView === "group" ? evGroupedHtml(list) : ""}
+    ${list.length && evView === "table" ? `<div class="tw"><table><thead><tr>
       <th class="num">#</th>${head("whoType","구분")}${head("group","소속")}${head("sub","목장·학년")}
       ${head("position","직분")}${head("name","성명")}${head("at","등록일")}<th>기록</th>
     </tr></thead><tbody>${
@@ -320,9 +340,43 @@ function evListHtml(ev){
         <td><span class="badge ${r.source==="app"?"app":"imp"}">${r.source==="app"?"앱":"이관"}</span>${
           r.hasUser ? ` <span class="badge app">계정</span>` : ""}</td>
       </tr>`).join("")
-    }</tbody></table></div>`
-    : `<div class="empty">${evRows.length ? "추린 결과가 없습니다." : "아직 신청이 없습니다."}</div>`}
+    }</tbody></table></div>` : ""}
+    ${list.length ? "" : `<div class="empty">${evRows.length ? "추린 결과가 없습니다." : "아직 신청이 없습니다."}</div>`}
   </div>`;
+}
+
+// 소속으로 묶고 한 줄에 여러 명 — 「화평 / 김세웅-20 · 이영희-3 · …」
+// ⚠️ 묶음 차례는 **구분(교구 먼저) → 가나다**다. 교구의 관례 차례(믿음·소망·사랑…)를
+//    여기 베껴 두지 않았다 — 목록을 두 곳에 두면 조용히 갈라진다(오늘 직분 목록에서
+//    겪은 그대로). 관례 차례로 하고 싶으면 서버가 이미 가진 차례를 내려받아 쓸 것.
+// ⚠️ 구역은 글자다. 「1」~「39」 사이에 **「남성」** 이 섞여 있어 그냥 정렬하면
+//    1, 12, 2, 3… 이 되고 「남성」이 숫자 사이에 낀다. 숫자는 숫자로, 나머지는 뒤로.
+function evSubRank(v){
+  const t = String(v == null ? "" : v).trim();
+  const n = /^\d+$/.test(t) ? parseInt(t, 10) : NaN;
+  return isFinite(n) ? [0, n, t] : [1, 0, t];
+}
+function evGroupedHtml(list){
+  const bag = new Map();
+  list.forEach(r => {
+    const k = (r.whoType === "교구" ? "0" : "1") + "|" + (r.group || "");
+    if (!bag.has(k)) bag.set(k, { name: r.group || "(소속 없음)", members: [] });
+    bag.get(k).members.push(r);
+  });
+  const keys = [...bag.keys()].sort((a, b) => a < b ? -1 : (a > b ? 1 : 0));
+  return `<div class="gv">${keys.map(k => {
+    const g = bag.get(k);
+    g.members.sort((m1, m2) => {
+      const a = evSubRank(m1.sub), b = evSubRank(m2.sub);
+      if (a[0] !== b[0]) return a[0] - b[0];
+      if (a[1] !== b[1]) return a[1] - b[1];
+      if (a[2] !== b[2]) return a[2] < b[2] ? -1 : 1;
+      return (m1.name || "") < (m2.name || "") ? -1 : 1;
+    });
+    return `<div class="gv-g"><div class="gv-t">${esc(g.name)}<em>${g.members.length}명</em></div>
+      <div class="gv-l">${g.members.map(m =>
+        `<span${m.hasUser ? ' class="app"' : ''}>${esc(m.name)}-${esc(m.sub)}</span>`).join("")}</div></div>`;
+  }).join("")}</div>`;
 }
 
 // 서버는 UTC 로 준다 — 한국 날짜로 바꿔 보여 준다(안 그러면 자정 무렵 하루가 어긋난다).
@@ -362,6 +416,12 @@ function wire(){
   if(c) c.addEventListener("click", () => { evQ=""; evType=""; evGroup=""; render(); });
   const p = document.getElementById("q-print");
   if(p) p.addEventListener("click", () => window.print());
+  const v = document.getElementById("q-view");
+  if(v) v.addEventListener("click", () => {
+    evView = evView === "table" ? "group" : "table";
+    try { localStorage.setItem("ev-view", evView); } catch(e) {}
+    render();
+  });
 
   document.querySelectorAll("thead th[data-k]").forEach(th => {
     th.addEventListener("click", () => {
