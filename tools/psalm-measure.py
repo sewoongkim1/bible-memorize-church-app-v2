@@ -100,6 +100,14 @@ function psalmMeasure() {
   var st = document.createElement("style");
   st.textContent = ".ps-wrap{max-width:" + W + "px !important;width:" + W + "px !important}";
   document.head.appendChild(st);
+  // ⚠️ CSS 로 상자만 좁히면 **현실에 없는 조합**이 된다 — 헤드리스의 진짜 뷰포트는
+  //    754px 라, 앱의 psalmWrapWidth() 가 .ps-wrap 을 못 찾아 폴백(window.innerWidth)
+  //    을 타는 순간 520px 기준으로 글씨를 잡아 상자를 뚫는다. 실제 폰에서는 둘이
+  //    늘 같으므로 안 나는 일이다(390px 폰이면 폴백이 350 을 주어 오히려 더 안전).
+  //    그래서 여기서 innerWidth 도 함께 속여 **폰과 같은 조합**을 만든다.
+  try {
+    Object.defineProperty(window, "innerWidth", { get: function () { return W; }, configurable: true });
+  } catch (e) {}
   var out = [];
   psalmVerses.forEach(function (v) {
     renderPsalmStage(v, STAGE);
@@ -110,6 +118,13 @@ function psalmMeasure() {
     var lh = parseFloat(cs.lineHeight) || fs * 1.62;
     out.push({
       no: v.no, ref: v.refFull,
+      wrapW: Math.round(psalmWrapWidth()),
+      wEm: psalmWidthEm(v.text),
+      usable: Math.round(psalmUsablePx(psalmWrapWidth())),
+      calc: psalmFitFont(v, psalmWrapWidth()),
+      fsCap: psalmFsCap(),
+      innerW: window.innerWidth,
+      bodyW: Math.round(b.getBoundingClientRect().width),
       fs: Math.round(fs), lh: Math.round(lh), h: b.offsetHeight,
       lines: Math.round(b.offsetHeight / lh),
       over: b.scrollWidth > b.clientWidth
@@ -159,6 +174,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--stage", type=int, default=3, choices=[0, 1, 2, 3])
     ap.add_argument("--width", type=int, default=390)
+    ap.add_argument("--debug", action="store_true", help="폭·글씨 계산 중간값을 함께 찍는다")
     ap.add_argument("--fake", action="store_true", help="개발 DB 대신 가짜 구절 5편으로 도구 자체를 검증한다")
     a = ap.parse_args()
 
@@ -210,9 +226,13 @@ def main():
     lines = ["시편 말씀 액자 — 액자 실측 (%s · 폭 %dpx · %d단계)" % (mode, a.width, a.stage), "-" * 62]
     for d in data:
         mark = "   ← 넘침" if d in bad else ""
-        lines.append("no %-5s %-20s %2d줄  글씨 %2dpx  높이 %3dpx%s"
+        lines.append("no %-5s %-20s %2d줄  글씨 %2dpx  높이 %3dpx  %s%s"
                       % (d.get("no"), d.get("ref", ""), d.get("lines", 0),
-                         d.get("fs", 0), d.get("h", 0), mark))
+                         d.get("fs", 0), d.get("h", 0),
+                         (("  [wrap %s inner %s body %s | wEm %s usable %s calc %s cap %s]"
+                           % (d.get("wrapW"), d.get("innerW"), d.get("bodyW"), d.get("wEm"),
+                              d.get("usable"), d.get("calc"), d.get("fsCap"))) if a.debug else ""),
+                         mark))
     lines += ["-" * 62, "구절 %d편 · 다섯 줄 넘김 %d편" % (len(data), len(bad))]
     txt = "\n".join(lines)
     print(txt)

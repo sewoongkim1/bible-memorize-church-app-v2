@@ -190,7 +190,11 @@ function psalmWrapWidth() {
     const w = wrap.getBoundingClientRect().width;
     if (w > 0) return w;
   }
-  return Math.min(Math.max((window.innerWidth || 390) - 40, 200), 520);
+  // ⚠️ 폴백은 **실제 .ps-wrap 폭과 같은 식**이어야 한다.
+  //    .ps-wrap 은 max-width:520 · padding:14×2 이므로 안쪽 폭 = min(vw, 520) - 28.
+  //    옛 식(min(max(vw-40,200),520))은 390px 폰에서 350(실제 362), 넓은 화면에서
+  //    520(실제 492)으로 양쪽 다 빗나갔다 — 첫 렌더와 그 뒤 렌더의 글씨가 달라진다.
+  return Math.max(200, Math.min(window.innerWidth || 390, 520) - 28);
 }
 
 function psalmUsablePx(vw) {
