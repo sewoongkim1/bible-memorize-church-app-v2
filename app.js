@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260910d";
+const APP_BUILD = "20260910e";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -8833,6 +8833,7 @@ let minMine = null;       // 내 신청 { items, max, used, left, openCount, pos
 //    접수하고, 접수된 건은 잠기며, 3개가 안 찼으면 그 뒤에도 더 신청할 수 있기 때문이다.
 let minLockedIds = [];    // 이미 결정돼 뺄 수 없는 팀(id 만)
 let minLocked = [];       // [{ id, status }] — 딱지에 **진짜 상태**를 적으려고 함께 든다
+let minSentIds = [];      // 이미 **낸** 것(신청완료) — 방금 고른 것과 구분해 딱지를 붙인다
 
 /* ── 필터 ──────────────────────────────────────────────────────
    88팀을 위원회 아코디언만으로 훑기 어렵다는 성도님 지적에서 나왔다.
@@ -8983,6 +8984,9 @@ function minSyncPicked() {
   minLockedIds = minLocked.map(function (x) { return x.id; });
   minPicked = items.filter(function (x) { return !x.locked; })
     .map(function (x) { return x.team_id; });
+  // ⚠️ 이 순간의 minPicked 가 「이미 낸 것」이다. 뒤에 성도님이 더 고르면 minPicked 는
+  //    늘어나지만 minSentIds 는 그대로라, 둘을 견주어 딱지를 가른다.
+  minSentIds = minPicked.slice();
 }
 function minLockStatus(id) {
   for (const x of minLocked) if (x.id === id) return x.status;
@@ -9074,8 +9078,13 @@ function minServingNow() {
   const me = minMeTag();
   const list = (minCat && minCat.list) || [];
   if (!me) return [];
+  // ⚠️ 올해 내가 낸 팀은 뺀다. 팀 명단에는 **올해 접수된 신청자**도 함께 들어가므로,
+  //    그대로 두면 방금 낸 사역이 「지금 섬기는 중 · 이어서 신청」으로 떠 버린다.
+  //    그 팀들은 목록에서 자기 상태 딱지로 이미 보이고, 신청현황 화면에도 있다.
+  const already = minSentIds.concat(minLockedIds);
   return list.filter(function (t) {
     if (!t.members) return false;
+    if (already.indexOf(t.id) >= 0) return false;
     return String(t.members).split(/<br\s*\/?>/i).some(function (line) {
       const x = minPlain(line);
       return x.indexOf(me.name) >= 0 && (!me.who || x.indexOf(me.who) >= 0);
@@ -9087,7 +9096,7 @@ function minServingHtml() {
   if (!mine.length) return "";
   return '<div class="min-serving"><div class="min-serving-t">🌿 지금 섬기고 계신 사역</div>' +
     mine.map(function (t) {
-      const on = minPicked.indexOf(t.id) >= 0 || minLockedIds.indexOf(t.id) >= 0;
+      const on = minPicked.indexOf(t.id) >= 0;
       return '<button class="min-serve' + (on ? " on" : "") + '" data-serve="' + t.id + '">' +
         '<span class="min-serve-n">' + minEsc(t.team) +
         ' <span class="min-com">· ' + minEsc(t.committee) + '</span></span>' +
@@ -9240,7 +9249,11 @@ function minPickHtml() {
           (t.appoint || lock ? " disabled" : ' data-team="' + t.id + '"') + '>' +
           '<span class="min-info"><span class="min-nm">' + minEsc(t.team) +
           (t.appoint ? '<span class="min-tag">지명</span>' : "") +
-          (lock ? '<span class="min-tag lock">' + minEsc(minLockStatus(t.id)) + '</span>' : "") + '</span>' +
+          (lock ? '<span class="min-tag lock">' + minEsc(minLockStatus(t.id)) + '</span>'
+            // ⚠️ 이미 낸 것과 방금 고른 것을 갈라 준다 — 둘 다 금색 체크뿐이면
+            //    다시 들어온 성도님이 「낸 건가, 고르기만 한 건가」를 알 수 없다.
+            : minSentIds.indexOf(t.id) >= 0 ? '<span class="min-tag sent">신청완료</span>'
+            : "") + '</span>' +
           (meta ? '<span class="min-meta">' + meta + '</span>' : "") + '</span>' +
           '<span class="min-chk">' + (on ? "✓" : "") + '</span></button>' +
           minMoreBtn(t) + '</div>';

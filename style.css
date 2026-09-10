@@ -4588,6 +4588,10 @@ body.pr-full-on { overflow: hidden; }
 .min-row.lock .min-team { cursor: not-allowed; }
 .min-row.lock .min-chk { border-color: #7d8ba5; background: #7d8ba5; }
 .min-tag.lock { color: #fff; background: #7d8ba5; border-radius: 999px; padding: 1px 7px; }
+/* 이미 「낸」 것 — 아직 고칠 수 있으니 금색(고른 것과 같은 갈래)이되 딱지로 갈린다 */
+.min-tag.sent { color: #7a5f1e; background: #fbf1d8; border: 1px solid #ecd9a8;
+  border-radius: 999px; padding: 0 7px; }
+.dark .min-tag.sent { color: #e2c98a; background: #33301f; border-color: #5c5330; }
 .min-lock-note { background: #eef1f8; color: var(--navy); }
 
 /* 「내 신청」 줄마다 붙는 상태 딱지 */
