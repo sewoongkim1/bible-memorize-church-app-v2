@@ -22,7 +22,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INDEX = os.path.join(ROOT, "index.html")
 APP = os.path.join(ROOT, "app.js")
 
-TAGGED = ["app.js", "style.css", "js/config.js", "js/api.js", "js/push.js"]
+TAGGED = ["app.js", "style.css", "js/config.js", "js/api.js", "js/push.js", "js/psalm.js"]
 
 
 def next_tag(cur, today):

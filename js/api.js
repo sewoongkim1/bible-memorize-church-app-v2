@@ -69,7 +69,8 @@ const api = {
   boardUpload: (mime, data) => supaCall("boardUpload", { mime, data }),
   boardReply: (post_id, name, content, user_id) => supaCall("boardReply", { post_id, name, content, user_id }),
   boardDeleteMine: (kind, id, user_id, who) => supaCall("boardDeleteMine", { kind, id, user_id, who }),
-  getVerses: () => supaCall("getVerses", {}),
+  // track 을 안 주면 지금과 똑같이 주간 35구절. "psalm" 이면 시편 말씀 액자(열린 것만).
+  getVerses: (track) => supaCall("getVerses", track ? { track } : {}),
   getSermons: () => sermonCall("getSermons"),   // 말씀 아카이브 설교 목록 { ok, sermons:[{memVerseNo,scripture,summary,title,...}] }
   saveVerse: (pw, verse) => supaCall("saveVerse", { pw, verse }),
   seedVerses: (pw) => supaCall("seedVerses", { pw }),
