@@ -124,6 +124,15 @@ function routeAfterLoad() {
   if (_passagesPreview) { renderPassageList(); return; }
   // 어드민 미리보기(?psalm=1): 시편 말씀 액자 화면으로 곧바로 진입.
   if (_psalmPreview) { renderPsalmHome(); return; }
+  // 이벤트 플랫폼 — 회차 딥링크(?ev=<회차id>). 로비 QR·주보가 목록을 거치지 않고
+  //  그 회차로 곧장 간다(회차가 겹치면 목록으로 떨어뜨리면 안 되기 때문).
+  //  ⚠️ 성도님 첫 화면에는 아직 단추가 없다 — 노출은 「열린 회차가 있는가」가 정한다.
+  //     여는 날: renderSummary 의 「함께」 묶음에 한 줄을 더하면 된다.
+  const _evDeep = (typeof getEvtDeepLink === "function") ? getEvtDeepLink() : null;
+  if (_evDeep) {
+    if (loadUser()) renderEventList(_evDeep); else renderEntryScreen();
+    return;
+  }
   // 딥링크(?v=구절번호): 설교 아카이브 등 외부에서 특정 구절로 바로 진입
   const deepNo = getDeepLinkVerseNo();
   if (deepNo != null) {
@@ -160,6 +169,14 @@ function routeAfterLoad() {
     if (loadUser()) renderPilsaApply(); else renderEntryScreen();
     return;
   }
+  if (preview === "event") {          // 이벤트 플랫폼 — 성도 화면 그대로 바로 진입
+    // 관리자만 보는 길이다. 서버도 ADMIN_SECRET 이 맞을 때만 draft 회차를 싣는다
+    // (여기서는 성도 화면 그대로 보는 것이라 draft 는 안 보인다 — 그게 맞다).
+    if (typeof renderEventList !== "function") { renderEntryScreen(); return; }
+    _evtPreview = true;
+    if (loadUser()) renderEventList(null); else renderEntryScreen();
+    return;
+  }
   if (preview === "daily") {
     _skipAutoDaily = true;                              // enterAfterLogin의 자동 표시는 막고
     if (loadUser()) enterAfterLogin(); else renderEntryScreen();
@@ -178,7 +195,7 @@ function routeAfterLoad() {
 function getPreviewKind() {
   try {
     const p = new URLSearchParams(location.search).get("preview");
-    if (p === "intro" || p === "blessing" || p === "daily" || p === "promo" || p === "pilsa" || p === "prayer") {
+    if (p === "intro" || p === "blessing" || p === "daily" || p === "promo" || p === "pilsa" || p === "prayer" || p === "event") {
       history.replaceState(null, "", location.pathname);
       return p;
     }
