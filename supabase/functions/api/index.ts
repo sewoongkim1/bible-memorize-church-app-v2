@@ -4281,18 +4281,30 @@ async function eventImport(b: any) {
   }
 
   // ② 앱을 쓰는 분이면 user_id 를 채운다 — 그러면 그분은 지난 회차 등록도 앱에서 본다.
-  const keys = [...byKey.keys()];
+  // ⚠️ `.in("identity_key", [키 수백 개])` 로 하지 않는다. 신원 키는 한글이라 URL 인코딩이
+  //    길고, 164개만 넣어도 GET 주소가 한도를 넘어 조회가 통째로 실패한다. 그런데 그 실패는
+  //    「이어붙은 사람 0명」으로만 보여 **조용히 지나간다**(2026-09-10 운영 이관에서 실제로
+  //    겪었다 — 키는 한 글자도 안 틀렸는데 matched 가 0이었다).
+  //    users 는 몇백 행이라 통째로 받아 메모리에서 맞추는 편이 짧고 확실하다.
   const idOf = new Map<string, string>();
-  for (let i = 0; i < keys.length; i += 200) {
-    const { data: us } = await db.from("users")
-      .select("id,identity_key").in("identity_key", keys.slice(i, i + 200));
-    (us ?? []).forEach((u: any) => idOf.set(u.identity_key, u.id));
+  {
+    const { data: us, error: uerr } = await db.from("users")
+      .select("id,identity_key").limit(20000);
+    if (uerr) throw uerr;                       // 삼키지 않는다
+    (us ?? []).forEach((u: any) => {
+      if (u.identity_key) idOf.set(u.identity_key, u.id);
+    });
   }
 
-  // ③ 이미 앱으로 낸 분과 부딪히지 않게 — 그 회차에 user_id 가 있는 행이 이미 있으면
-  //    이관 행에는 user_id 를 비워 둔다(unique 충돌로 이관이 통째로 멈추는 것을 막는다).
-  const { data: existing } = await db.from("event_signups")
-    .select("user_id").eq("event_id", eventId).not("user_id", "is", null);
+  // ③ 이미 **앱으로** 낸 분과 부딪히지 않게 — 그 회차에 앱 등록이 있으면 이관 행에는
+  //    user_id 를 비워 둔다(unique 충돌로 이관이 통째로 멈추는 것을 막는다).
+  // ⚠️ `source='import'` 는 세지 않는다. 그 행들은 아래 ④에서 지워질 것이라 자리를
+  //    비켜 줄 참인데, 세어 버리면 **재이관할 때마다 이어붙기가 줄어든다**
+  //    (2026-09-10 개발에서 실제로 그랬다 — 두 번째 실행에서 matched 가 하나 사라졌다).
+  const { data: existing, error: exerr } = await db.from("event_signups")
+    .select("user_id").eq("event_id", eventId)
+    .not("user_id", "is", null).neq("source", "import");
+  if (exerr) throw exerr;                       // 여기도 삼키지 않는다
   const taken = new Set((existing ?? []).map((r: any) => r.user_id));
 
   let matched = 0;
