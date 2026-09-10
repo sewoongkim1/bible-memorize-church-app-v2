@@ -236,10 +236,15 @@ function renderEventForm(u, eventId) {
     "</div></div>";
 
   if (needs.position) {
-    // 직분 목록은 서버의 MIN_POSITIONS 와 **같아야** 한다(사역신청과 공유).
+    // ⚠️ 목록을 여기 베껴 두지 않는다 — 사역신청(app.js:9081)·서버(index.ts)와 셋이
+    //    갈라지면 한쪽만 고치게 된다. app.js 의 전역을 그대로 빌려 쓴다(런타임에 있다).
+    //    app.js 가 아직 안 뜬 경우에만 쓰는 대비책을 뒤에 둔다.
+    var POSITIONS = (typeof MIN_POSITIONS !== "undefined" && MIN_POSITIONS.length)
+      ? MIN_POSITIONS
+      : ["성도", "집사", "권사", "안수집사", "장로", "전도사", "목사", "사모", "학생"];
     html += '<div class="ev-field"><label class="ev-label">직분</label>' +
       '<div class="ev-chips" id="ev-pos">' +
-      ["성도", "집사", "권사", "안수집사", "장로", "전도사", "목사", "학생"]
+      POSITIONS
         .map(function (p) {
           return '<button class="ev-chip' + (evtForm.position === p ? " on" : "") +
             '" data-pos="' + p + '">' + p + "</button>";
