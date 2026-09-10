@@ -60,6 +60,7 @@ migrate_passages.sql            긴 본문 암송(passages · passage_progress)
 ### ③ 기능 테이블
 ```
 app_config.sql          설정 저장소(pilsaAdmins · AI 캐시 등)
+member_profile.sql      관리자 이름·소속 변경·로그인 별칭·변경 이력 (app_config 다음, 새 API 배포 전)
 monitor.sql             push_log
 push_hour.sql           구독마다 받을 시각
 push_log_body.sql
