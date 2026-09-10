@@ -123,3 +123,94 @@ function drawPsalmHome() {
     });
   });
 }
+
+// 액자 = 색(금색/군청) × 잎가지(1~12). 구절마다 고정이다 —
+// 무작위로 하면 「같은 그림이 기억의 고리」가 되지 못한다.
+// 색은 잎가지 번호의 홀짝으로 가른다(둘 다 12장에 고르게 퍼진다).
+function psalmFrame(verse) {
+  const art = Math.min(12, Math.max(1, Number(verse.frameArt) || 1));
+  return { art, color: art % 2 ? "gold" : "navy", pos: art % 3 === 0 ? "d" : "b" };
+}
+
+// 3단계에서 차지하는 가로 길이(em) = 글자수(공백 제외) + 낱말수.
+// 빈칸(.word-input)이 낱말마다 1em 씩 넓어지기 때문이다 — 0단계 기준으로 재면
+// 3단계에서 6~7줄이 되어 액자를 뚫는다. tools/psalm-fit.py 와 같은 식이다.
+function psalmWidthEm(text) {
+  const t = String(text || "").trim().split(/\s+/).filter(Boolean);
+  if (!t.length) return 0;
+  return t.join("").length + t.length;
+}
+
+const PSALM_USABLE_PX = 1370;   // 액자 안쪽 322px × 5줄 × 낭비 15%
+function psalmFitFont(verse) {
+  const w = psalmWidthEm(verse.text);
+  if (!w) return 28;
+  return Math.round(Math.max(20, Math.min(34, PSALM_USABLE_PX / w)));
+}
+
+function psalmEsc(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+// ⚠️ 액자 색(--ps-fr)은 바깥 상자에 붙인다 — ❖ 장식도 같은 색을 쓰는데
+//    CSS 변수는 형제에게 안 내려가고 자손에게만 내려간다(기도문 액자에서 배운 것).
+// ⚠️ 잎가지 폭은 「화면의 짧은 쪽」 기준 픽셀로 넣는다 — %로 두면 액자의 가로를 따라
+//    돌려 보기에서 두 배로 부푼다.
+function psalmFrameHtml(verse, opts) {
+  const o = opts || {};
+  const fr = psalmFrame(verse);
+  const leaf = "img/frame/leaf" + fr.art + ".webp?v=" + APP_BUILD;
+  const shortSide = Math.min(window.innerWidth || 390, window.innerHeight || 700);
+  const lw = Math.round(shortSide * 0.28);
+  const fs = o.fontSize || psalmFitFont(verse);
+  const body = o.bodyHtml != null ? o.bodyHtml : psalmEsc(verse.text);
+  return `
+    <div class="ps-frame ps-fr-${fr.color} ps-pos-${fr.pos}" style="--ps-lw:${lw}px;--psalm-fs:${fs}px">
+      <img class="ps-leaf l" src="${leaf}" alt="" aria-hidden="true">
+      <img class="ps-leaf r" src="${leaf}" alt="" aria-hidden="true">
+      <div class="ps-fr-in">
+        <div class="ps-fr-ref">${verse.refFull}</div>
+        <div class="ps-fr-orn" aria-hidden="true"><i></i>${PRAY_ORN}<i></i></div>
+        <div class="ps-fr-body">${body}</div>
+      </div>
+    </div>`;
+}
+
+// 0단계 — 읽고 들어보는 칸. 횟수를 세지 않는다.
+// 준비되셨다 싶을 때 누르시면 된다 — 이미 외우신 분께 걸림돌을 두지 않는다.
+function renderPsalmStage(verse, stage) {
+  if (stage > 0) return renderPsalmBlank(verse, stage);   // Task 6
+  stopSpeaking();
+  const u = loadUser();
+  const app = document.getElementById("app");
+  app.innerHTML = `
+    <div class="ps-wrap ps-stage">
+      <div class="ps-head">
+        <span class="ps-day">${verse.dayNo}일차</span>
+        <span class="ps-step">읽어 보세요</span>
+        <button class="ps-back" id="ps-back">← 목록</button>
+      </div>
+      ${psalmFrameHtml(verse)}
+      <div class="ps-tools">
+        <button class="ps-tool" id="ps-listen">🔊 들어보기</button>
+      </div>
+      <button class="ps-go" id="ps-next">다음 →</button>
+    </div>
+    <button class="home-fab" id="ps-home" aria-label="첫 화면으로">${homeFabLabel(u, true)}</button>`;
+  window.scrollTo(0, 0);
+
+  document.getElementById("ps-home").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
+  document.getElementById("ps-back").addEventListener("click", () => { stopSpeaking(); renderPsalmHome(); });
+  document.getElementById("ps-next").addEventListener("click", () => {
+    stopSpeaking();
+    const passed = getPassedStage(verse.no);
+    renderPsalmStage(verse, passed >= 3 ? 1 : Math.min(3, passed + 1));
+  });
+
+  // 낭독은 「요절 → (쉼) → 말씀」 — 앨범·말씀 목록과 같은 순서다.
+  document.getElementById("ps-listen").addEventListener("click", () => {
+    speakText(verseSpokenText({ ...verse, refFull: verse.refFull, text: verse.text }));
+  });
+}
