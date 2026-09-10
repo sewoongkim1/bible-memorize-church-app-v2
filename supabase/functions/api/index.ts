@@ -193,6 +193,7 @@ Deno.serve(async (req) => {
       case "eventDrop":     return json(await eventDrop(body));
       case "eventRoster":   return json(await eventRoster(body));
       case "eventSave":     return json(await eventSave(body));
+      case "eventImport":   return json(await eventImport(body));
       // ---- 성경필사 노트 신청 ----
       case "pilsaMine":      return json(await pilsaMine(body));
       case "pilsaApply":     return json(await pilsaApply(body));
@@ -4202,4 +4203,129 @@ async function eventSave(b: any) {
     .upsert(row, { onConflict: "id" }).select().maybeSingle();
   if (error) throw error;
   return { ok: true, event: data };
+}
+
+// ---------- eventImport: 옛 명단 이관 (관리자) ----------
+//   ⚠️ 왜 액션인가 — 성도 명단(이름·교구·목장)을 **공개 저장소의 시드 SQL 파일**에
+//      넣을 수 없다. 이 저장소는 public 이다. 그래서 시트 → 이 액션 → DB 로 곧장
+//      보내고 디스크에도 git 에도 개인정보를 한 줄도 남기지 않는다.
+//   ⚠️ 다시 돌려도 안전하다 — 그 회차의 source='import' 행을 먼저 지우고 넣는다.
+//      (이관 행은 user_id 가 없어 unique 가 막아 주지 않으므로, 안 지우면 조용히
+//       두 배가 된다.)
+const EVT_IMPORT_MAX = 5000;
+
+// 옛 시트의 직분 표기를 지금 allowlist 로 맞춘다.
+//   '집사님' → '집사' · '안수집사님 (시무/은퇴)' → '안수집사'
+//   맞출 수 없으면 빈 값으로 둔다 — 추측해서 채우지 않는다.
+function evtImportPosition(v: unknown): string {
+  let s = norm(v).replace(/\(.*?\)/g, "");
+  s = norm(s).replace(/님$/, "");
+  return MIN_POSITIONS.has(s) ? s : "";
+}
+
+async function eventImport(b: any) {
+  const err = adminError(b);
+  if (err) return { ok: false, error: err };
+
+  const eventId = norm(b.event_id);
+  if (!EVT_ID_RE.test(eventId)) return { ok: false, error: "bad-event-id" };
+  const { data: ev } = await db.from("events").select("id").eq("id", eventId).maybeSingle();
+  if (!ev) return { ok: false, error: "not-found" };
+
+  const rows = Array.isArray(b.rows) ? b.rows : null;
+  if (!rows) return { ok: false, error: "bad-args" };
+  if (rows.length > EVT_IMPORT_MAX) return { ok: false, error: "too-many" };
+
+  // ① 신원으로 접는다 — 옛 시트에는 같은 사람이 여러 줄 있을 수 있다(중복 등록).
+  //    가장 이른 것만 남긴다.
+  const byKey = new Map<string, any>();
+  let dropped = 0;
+  for (const r of rows) {
+    const whoType = norm(r.type) === "교회학교" ? "교회학교" : "교구";
+    const isGu = whoType === "교구";
+    const group = norm(r.group);
+    const sub = norm(r.sub);
+    const name = norm(r.name);
+    if (!name || !group) { dropped++; continue; }
+    const key = identityKey({
+      type: whoType,
+      gu: isGu ? group : "", mok: isGu ? sub : "",
+      bu: isGu ? "" : group, grade: isGu ? "" : sub,
+      name,
+    });
+    const at = norm(r.regDate);
+    const prev = byKey.get(key);
+    if (prev && String(prev._at || "") <= at) { dropped++; continue; }
+    if (prev) dropped++;
+    byKey.set(key, {
+      event_id: eventId,
+      ident_key: key,
+      who_type: whoType,
+      group_name: group,
+      sub_name: sub,
+      name,
+      position: evtImportPosition(r.position),
+      phone: "",
+      memo: "",
+      note: norm(r.note),
+      source: "import",
+      _at: at,
+    });
+  }
+
+  // ② 앱을 쓰는 분이면 user_id 를 채운다 — 그러면 그분은 지난 회차 등록도 앱에서 본다.
+  const keys = [...byKey.keys()];
+  const idOf = new Map<string, string>();
+  for (let i = 0; i < keys.length; i += 200) {
+    const { data: us } = await db.from("users")
+      .select("id,identity_key").in("identity_key", keys.slice(i, i + 200));
+    (us ?? []).forEach((u: any) => idOf.set(u.identity_key, u.id));
+  }
+
+  // ③ 이미 앱으로 낸 분과 부딪히지 않게 — 그 회차에 user_id 가 있는 행이 이미 있으면
+  //    이관 행에는 user_id 를 비워 둔다(unique 충돌로 이관이 통째로 멈추는 것을 막는다).
+  const { data: existing } = await db.from("event_signups")
+    .select("user_id").eq("event_id", eventId).not("user_id", "is", null);
+  const taken = new Set((existing ?? []).map((r: any) => r.user_id));
+
+  let matched = 0;
+  let noDate = 0;
+  const out = [...byKey.values()].map((r) => {
+    const uid = idOf.get(r.ident_key);
+    const useUid = uid && !taken.has(uid) ? uid : null;
+    if (useUid) { matched++; taken.add(useUid); }
+    const at = r._at;
+    delete r._at;
+    const row: any = { ...r, user_id: useUid };
+    // ⚠️ 옛 시트의 등록일시 형식을 모른다. 날짜로 안 읽히면 created_at 을 아예 빼서
+    //    DB 기본값(now())이 들어가게 한다 — 형식 하나 때문에 이관이 통째로 멈추지 않게.
+    const t = at ? Date.parse(at.replace(" ", "T")) : NaN;
+    if (Number.isFinite(t)) row.created_at = new Date(t).toISOString();
+    else if (at) noDate++;
+    return row;
+  });
+
+  // ④ 다시 돌려도 안전하게 — 그 회차의 이관 행을 먼저 지운다(앱 등록은 건드리지 않는다)
+  const { error: derr } = await db.from("event_signups")
+    .delete().eq("event_id", eventId).eq("source", "import");
+  if (derr) throw derr;
+
+  // ⚠️ PostgREST 묶음 삽입은 **모든 행의 키가 같아야** 한다 — 한 행에만 created_at 이
+  //    있으면 나머지는 NULL 이 되어 not-null 위반으로 이관이 통째로 멈춘다.
+  //    그래서 「날짜를 읽은 것」과 「못 읽은 것」을 갈라 넣는다. 못 읽은 쪽은 키를
+  //    아예 빼서 DB 기본값(now())이 들어가게 둔다 — 없는 날짜를 지어내지 않는다.
+  let inserted = 0;
+  const withDate = out.filter((r) => r.created_at !== undefined);
+  const noDateRows = out.filter((r) => r.created_at === undefined)
+    .map(({ created_at: _drop, ...rest }) => rest);
+  for (const group of [withDate, noDateRows]) {
+    for (let i = 0; i < group.length; i += 500) {
+      const chunk = group.slice(i, i + 500);
+      const { error: ierr } = await db.from("event_signups").insert(chunk);
+      if (ierr) throw ierr;
+      inserted += chunk.length;
+    }
+  }
+
+  return { ok: true, received: rows.length, inserted, matched, dropped, noDate };
 }
