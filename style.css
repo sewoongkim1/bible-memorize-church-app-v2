@@ -4702,7 +4702,10 @@ body.pr-full-on { overflow: hidden; }
 .ps-fr-in{
   position:relative;z-index:1;
   border:1px solid color-mix(in srgb, var(--ps-fr) 45%, transparent);
-  padding:20px 30px 24px;
+  /* 좌우 padding(--ps-fr-pad)은 js/psalm.js 가 .ps-wrap 의 실제 폭을 보고 인라인으로
+     박는다(기본 30px · 좁으면 20px) — 옛 @media (max-width:340px) 는 "진짜 뷰포트 폭"만
+     보는데 그러면 글씨 크기 계산(같은 폭을 보는 psalmFitFont)과 기준이 어긋난다. */
+  padding:20px var(--ps-fr-pad,30px) 24px;
 }
 .ps-fr-ref{
   text-align:center;font-size:14px;font-weight:700;letter-spacing:.05em;
@@ -4773,9 +4776,6 @@ body.pr-full-on { overflow: hidden; }
 .ps-past-day{color:var(--ink2,#4a5560);font-size:13px;min-width:46px}
 .ps-past-ref{flex:1;color:var(--navy,#1a3a6b)}
 .ps-past-mark{min-width:20px;text-align:right}
-
-/* 320px 폰 — 좌우 30px 여백은 화면의 19%다. 줄인다. */
-@media (max-width:340px){ .ps-fr-in{padding:18px 20px 20px} }
 
 /* 액자 안 빈칸 — 폭은 ch 로 잰다. em 이면 --psalm-fs 와 곱해져 액자를 뚫는다. */
 .ps-fr-body .word-input{

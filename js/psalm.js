@@ -151,11 +151,57 @@ function psalmWidthEm(text) {
   return t.join("").length + t.length;
 }
 
-const PSALM_USABLE_PX = 1370;   // 액자 안쪽 322px × 5줄 × 낭비 15%
-function psalmFitFont(verse) {
+// ⚠️ 고정값이면 안 된다 — 화면이 좁아져도 글씨가 안 줄어 다섯 줄을 넘긴다.
+//    (2026-09-10 실측: 320px 에서 폭 46 짜리까지 6줄이 됐다. 옛 PSALM_USABLE_PX=1370은
+//    폰 폭 390px 하나만 가정한 고정값이었다 — 아래는 style.css 좌우 여백을 그대로 센 것)
+//
+// 좌우로 먹는 값(.ps-wrap → .ps-frame → .ps-fr-in, 전부 box-sizing:border-box):
+//   .ps-wrap   padding 14px×2                 = 28
+//   .ps-frame  border 3px×2 + padding 7px×2   = 20
+//   .ps-fr-in  border 1px×2                   = 2
+//   .ps-fr-in  padding(좌우, 한쪽) × 2         = PSALM_FR_PAD 또는 PSALM_FR_PAD_NARROW 의 2배
+const PSALM_FR_PAD = 30;          // .ps-fr-in 좌우 padding(px, 한쪽) — 기본
+const PSALM_FR_PAD_NARROW = 20;   // 좁은 화면 값 — 옛 @media (max-width:340px) 과 같은 수
+const PSALM_NARROW_VW = 340;      // 이 기준은 .ps-wrap 의 실제 폭(vw)으로 잰다 — 아래 이유 참고
+const PSALM_WASTE = 0.98;         // 줄바꿈 낭비 계수 — tools/psalm-measure.py 로 맞춘 값
+
+// ⚠️ 화면이 좁을 때 .ps-fr-in 좌우 padding 을 줄이는 것을 예전에는 CSS
+//    `@media (max-width:340px)` 로만 했다. 그런데 그 미디어쿼리는 **진짜 뷰포트 폭**을
+//    보는데, 측정 도구(tools/psalm-measure.py)는 진짜 뷰포트를 못 바꾸고 .ps-wrap 의
+//    CSS 폭만 강제로 박아 넣는다(실측: 헤드리스 뷰포트는 754px 고정 — --window-size 를
+//    줘도 그렇다는 것이 curl 한글 인코딩·헤드리스 뷰포트 메모와 같은 결의 함정이다).
+//    그 상태로는 이 미디어쿼리가 "--width 320" 을 줘도 절대 안 걸려 좁은 화면을 영영
+//    테스트할 수 없다. 그래서 이 padding 값도 글씨 크기와 **같은 기준(.ps-wrap 의 실제
+//    폭 vw)** 으로 정해 인라인 CSS 변수(--ps-fr-pad)로 박는다 — 글씨 크기 계산과 실제
+//    적용되는 여백이 다른 기준을 보면 서로 어긋난다. 옛 미디어쿼리는 지웠다(이 변수가
+//    같은 값을 대신한다 — style.css 참고).
+function psalmChrome(vw) {
+  const narrow = vw <= PSALM_NARROW_VW;
+  const pad = narrow ? PSALM_FR_PAD_NARROW : PSALM_FR_PAD;
+  return { pad, chrome: 28 + 20 + 2 + pad * 2 };
+}
+
+// 액자가 실제로 차지하는 폭(px). .ps-wrap 이 아직 없으면(이 화면에 처음 들어오는 아주
+// 짧은 순간) window.innerWidth 로 어림잡는다 — .ps-wrap 은 항상 renderPsalmHome() 이
+// 먼저 「불러오는 중…」으로 만들어 두므로 실제로는 거의 이 대체 경로를 안 탄다.
+function psalmWrapWidth() {
+  const wrap = document.querySelector(".ps-wrap");
+  if (wrap) {
+    const w = wrap.getBoundingClientRect().width;
+    if (w > 0) return w;
+  }
+  return Math.min(Math.max((window.innerWidth || 390) - 40, 200), 520);
+}
+
+function psalmUsablePx(vw) {
+  const line = Math.max(120, vw - psalmChrome(vw).chrome);
+  return line * 5 * PSALM_WASTE;
+}
+
+function psalmFitFont(verse, vw) {
   const w = psalmWidthEm(verse.text);
   if (!w) return 28;
-  return Math.round(Math.max(20, Math.min(34, PSALM_USABLE_PX / w)));
+  return Math.round(Math.max(20, Math.min(34, psalmUsablePx(vw) / w)));
 }
 
 function psalmEsc(s) {
@@ -174,10 +220,12 @@ function psalmFrameHtml(verse, opts) {
   const leaf = "img/frame/leaf" + fr.art + ".webp?v=" + APP_BUILD;
   const shortSide = Math.min(window.innerWidth || 390, window.innerHeight || 700);
   const lw = Math.round(shortSide * 0.28);
-  const fs = o.fontSize || psalmFitFont(verse);
+  const vw = psalmWrapWidth();
+  const pad = psalmChrome(vw).pad;
+  const fs = o.fontSize || psalmFitFont(verse, vw);
   const body = o.bodyHtml != null ? o.bodyHtml : psalmEsc(verse.text);
   return `
-    <div class="ps-frame ps-fr-${fr.color} ps-pos-${fr.pos}" style="--ps-lw:${lw}px;--psalm-fs:${fs}px">
+    <div class="ps-frame ps-fr-${fr.color} ps-pos-${fr.pos}" style="--ps-lw:${lw}px;--psalm-fs:${fs}px;--ps-fr-pad:${pad}px">
       <img class="ps-leaf l" src="${leaf}" alt="" aria-hidden="true">
       <img class="ps-leaf r" src="${leaf}" alt="" aria-hidden="true">
       <div class="ps-fr-in">
