@@ -2010,16 +2010,21 @@ function renderSummary() {
     <button class="summary-help" id="open-board">💬 응원·기도·공감</button>
     ${psalmVisible() ? `<button class="summary-help" id="open-psalm">📿 시편 말씀 액자${newBadge("psalm")}</button>` : ""}
     <button class="summary-help" id="open-prayer">🙏 가정 축복 기도문${newBadge("prayer")}</button>
-    <button class="summary-help" id="open-quiz">🎯 성경암송 퀴즈</button>
     ${ministryVisible() ? `<button class="summary-help" id="open-ministry">🤝 사역신청${newBadge("ministry")}</button>` : ""}
-    <button class="summary-help" id="open-pilsa">✍️ 성경필사 노트 신청</button>
     ${passagesVisible() ? `<button class="summary-help" id="open-passages">📜 내 안에 거하는 말씀${newBadge("passages")}</button>` : ""}
-    <!-- 아카이브 둘은 앱 밖(다른 사이트)으로 나간다. 그 사실이 보이게 ↗ 와 흰 바탕으로
-         구분하고, 여기서 잘 안 누르는 것이라 접어 둔다(연 상태는 기억한다). -->
+    <!-- 「더 보기」 — 자주 누르지 않는 넷을 접어 둔다(연 상태는 기억한다).
+         ⚠️ 순서와 모양은 성도님이 직접 정하셨다(2026-09-10): 필사 → 퀴즈 → 찬양 → 설교,
+            넷 다 같은 옷(.summary-help 기본 = 청색 선·청색 글). 그전에는 아카이브 둘만
+            흰 바탕 회색선(.ext-cta)이었다 — 「앱 밖으로 나감」을 색으로 말하던 것인데,
+            성도님이 「모두 동일하게」로 정하셨으므로 그 말은 **↗ 표시가 혼자 맡는다.**
+            .ext-cta 규칙은 style.css 에 남겨 두었다(되돌릴 때 쓰라고, 지금은 안 쓰인다).
+         ⚠️ 퀴즈·필사가 여기로 내려왔어도 **앱 안 기능**이라 ↗ 를 붙이지 않는다. -->
     <button class="grp-more" id="more-toggle" aria-expanded="false" aria-controls="more-box">더 보기 <span class="gm-caret">▾</span></button>
     <div id="more-box" hidden>
-      <button class="summary-help ext-cta" id="open-praise">🎵 고척교회 찬양 아카이브 <span class="ext-mark">↗</span></button>
-      <button class="summary-help ext-cta" id="open-sermon-archive">📺 고척교회 설교 아카이브 <span class="ext-mark">↗</span></button>
+      <button class="summary-help" id="open-pilsa">✍️ 성경필사 노트 신청</button>
+      <button class="summary-help" id="open-quiz">🎯 성경암송 퀴즈</button>
+      <button class="summary-help" id="open-praise">🎵 고척교회 찬양 아카이브 <span class="ext-mark">↗</span></button>
+      <button class="summary-help" id="open-sermon-archive">📺 고척교회 설교 아카이브 <span class="ext-mark">↗</span></button>
     </div>
     <div id="event-slot-bottom"></div>
     <div class="summary-icons summary-icons-bottom">
@@ -2034,7 +2039,7 @@ function renderSummary() {
 `;
 
   document.getElementById("go-list").addEventListener("click", renderVerseList);
-  setupMoreToggle();   // 「더 보기」 — 앱 밖 아카이브 둘
+  setupMoreToggle();   // 「더 보기」 — 필사·퀴즈·아카이브 둘
   loadTodayCount(u); // 첫 화면 '오늘 N회' 띠 채우기
   renderEventButton();  // 이미 로드된 설정이 있으면 즉시 표시
   loadEventState();     // 서버에서 설정·응모여부 갱신 후 다시 표시
@@ -2098,7 +2103,7 @@ function renderSummary() {
   })();
 }
 
-// 「더 보기」 — 앱 밖 아카이브 둘. 이건 연 상태를 기억한다.
+// 「더 보기」 — 필사·퀴즈·아카이브 둘. 이건 연 상태를 기억한다.
 // 자주 쓰시는 분이 매번 다시 펴야 하면 접어 둔 뜻이 없다.
 const MORE_OPEN_KEY = "home-more-open";
 function setupMoreToggle() {

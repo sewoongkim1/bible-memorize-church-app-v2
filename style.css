@@ -4013,7 +4013,10 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
 .grp-more:hover { background: var(--cream); color: var(--navy); }
 .grp-more .gm-caret { display: inline-block; font-size: .78rem; transition: transform .15s; }
 .grp-more.open .gm-caret { transform: rotate(180deg); }
-/* 앱 밖으로 나가는 단추 — 안쪽 기능과 같은 옷을 입히면 나가는 줄 모르신다 */
+/* 앱 밖으로 나가는 단추 — 안쪽 기능과 같은 옷을 입히면 나가는 줄 모르신다.
+   ⚠️ **2026-09-10부터 아무도 안 쓴다** — 성도님이 「더 보기」 넷을 「모두 동일하게 ·
+      청색 라인에 청색 글」로 정하셔서 아카이브 둘에서 이 클래스를 뗐다(app.js).
+      「앱 밖으로 나감」은 이제 ↗(.ext-mark) 혼자 말한다. 되돌릴 때 쓰라고 규칙은 남긴다. */
 .summary-help.ext-cta { background: #fff; color: var(--gray); border-color: var(--border); }
 .summary-help.ext-cta:hover { background: var(--cream); color: var(--navy); border-color: var(--navy); }
 .summary-help .ext-mark { font-size: .82rem; opacity: .7; }
