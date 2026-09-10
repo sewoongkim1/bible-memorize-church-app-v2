@@ -4724,6 +4724,10 @@ body.pr-full-on { overflow: hidden; }
 .ps-fr-orn i{flex:1;height:1px;background:color-mix(in srgb,var(--ps-fr) 40%,transparent)}
 .ps-fr-orn .pr-orn-d{width:14px;height:14px}
 .ps-fr-body{
+  /* ⚠️ 암송 화면(.test-sentence)과 **같은 글꼴**이어야 한다 — 성도님 제보(2026-09-10):
+     「폰트가 성경암송과 같은가요」. 지정을 안 하면 body 의 고딕(Noto Sans KR)을 물려받아
+     같은 말씀인데 화면마다 다른 글씨로 보인다. 명조 계열은 성경 본문을 위한 선택이다. */
+  font-family:"Gowun Batang",serif;font-weight:700;
   font-size:var(--psalm-fs,26px);line-height:1.62;color:#12294b;
   text-align:center;word-break:keep-all;
 }
@@ -4782,7 +4786,9 @@ body.pr-full-on { overflow: hidden; }
 
 /* 액자 안 빈칸 — 폭은 ch 로 잰다. em 이면 --psalm-fs 와 곱해져 액자를 뚫는다. */
 .ps-fr-body .word-input{
-  font-size:inherit;font-family:inherit;line-height:1.4;
+  /* font-family:inherit → .ps-fr-body 의 Gowun Batang 을 그대로 받는다.
+     빈칸과 고정 글자가 같은 글꼴이어야 한 문장으로 읽힌다. */
+  font-size:inherit;font-family:inherit;font-weight:inherit;line-height:1.4;
   border:none;border-bottom:2px solid #b9c4d2;background:#f4f7fb;
   border-radius:3px;text-align:center;padding:0 2px;margin:0 1px;
   color:#12294b;min-width:2.2ch;
