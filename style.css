@@ -4666,3 +4666,106 @@ body.pr-full-on { overflow: hidden; }
 .dark .min-pick { background: #232c3f; border-color: #3a4a68; }
 .dark .min-note { background: #1e2637; color: #b9c4d8; }
 .dark .min-ghost { background: #232c3f; color: #cfe0ff; }
+
+/* ===== 시편 말씀 액자 ============================================ */
+/* 기도문 액자(.pr-*)와 같은 양식이되, 암송 화면이라 크기를 다시 잰다. */
+.ps-wrap{
+  max-width:520px;margin:0 auto;padding:14px 14px calc(96px + env(safe-area-inset-bottom,0px));
+}
+.ps-loading,.ps-soon{text-align:center;padding:48px 16px;color:var(--ink2,#4a5560)}
+.ps-soon-icon{font-size:44px}
+.ps-soon-t{font-size:20px;font-weight:700;color:var(--navy,#1a3a6b);margin-top:10px}
+.ps-soon-s{margin-top:6px}
+
+.ps-head{display:flex;align-items:center;gap:10px;margin:2px 0 12px}
+.ps-day{background:var(--navy,#1a3a6b);color:#fff;border-radius:999px;padding:3px 12px;
+        font-size:14px;font-weight:700}
+.ps-total,.ps-step{color:var(--ink2,#4a5560);font-size:14px}
+.ps-back{margin-left:auto;background:none;border:none;color:var(--navy,#1a3a6b);
+         font-size:15px;padding:6px 4px;cursor:pointer}
+
+/* --- 액자 --- */
+.ps-frame{
+  position:relative;overflow:hidden;border-radius:4px;
+  padding:7px;background:#fffef9;
+  border:3px double var(--ps-fr,#c3a253);
+}
+.ps-fr-gold{--ps-fr:#c3a253}
+.ps-fr-navy{--ps-fr:#1a3a6b}
+.ps-fr-in{
+  position:relative;z-index:1;
+  border:1px solid color-mix(in srgb, var(--ps-fr) 45%, transparent);
+  padding:20px 30px 24px;
+}
+.ps-fr-ref{
+  text-align:center;font-size:14px;font-weight:700;letter-spacing:.05em;
+  color:var(--ps-fr);
+  /* 금색 글씨는 잎가지 위에서 대비가 1.86:1까지 떨어진다 → 바탕색 테를 두른다 */
+  text-shadow:0 0 2px #fffef9,0 0 4px #fffef9;
+}
+.ps-fr-orn{display:flex;align-items:center;justify-content:center;gap:8px;margin:8px 0 14px;
+           color:var(--ps-fr)}
+.ps-fr-orn i{flex:1;height:1px;background:color-mix(in srgb,var(--ps-fr) 40%,transparent)}
+.ps-fr-orn .pr-orn-d{width:14px;height:14px}
+.ps-fr-body{
+  font-size:var(--psalm-fs,26px);line-height:1.62;color:#12294b;
+  text-align:center;word-break:keep-all;
+}
+/* 잎가지 — 폭은 app.js 가 「화면의 짧은 쪽」 기준 픽셀(--ps-lw)로 넣는다.
+   %로 두면 액자의 가로를 따라 돌려 보기에서 두 배로 부푼다. */
+.ps-leaf{position:absolute;width:var(--ps-lw,110px);height:auto;opacity:.5;pointer-events:none}
+.ps-pos-b .ps-leaf.l{left:-6px;bottom:-6px}
+.ps-pos-b .ps-leaf.r{right:-6px;bottom:-6px;transform:scaleX(-1)}
+.ps-pos-d .ps-leaf.l{left:-8px;top:-10px;transform:rotate(180deg)}
+.ps-pos-d .ps-leaf.r{display:none}
+
+/* 어두운 모드 — 수채화를 그대로 두면 「때 묻은 얼룩」이 된다.
+   screen 혼합도 소용없었다(잎가지가 중간 톤이라 거의 안 뜬다).
+   흐린 워터마크로 만든다. 다시 색을 살리려 하지 말 것. */
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]) .ps-frame{background:#161a21}
+  :root:not([data-theme="light"]) .ps-fr-body{color:#dde5f0}
+  :root:not([data-theme="light"]) .ps-fr-ref{text-shadow:0 0 2px #161a21,0 0 4px #161a21}
+  :root:not([data-theme="light"]) .ps-leaf{filter:grayscale(1) brightness(2.6);opacity:.28}
+}
+:root[data-theme="dark"] .ps-frame{background:#161a21}
+:root[data-theme="dark"] .ps-fr-body{color:#dde5f0}
+:root[data-theme="dark"] .ps-fr-ref{text-shadow:0 0 2px #161a21,0 0 4px #161a21}
+:root[data-theme="dark"] .ps-leaf{filter:grayscale(1) brightness(2.6);opacity:.28}
+
+/* --- 단추 --- */
+.ps-go{
+  display:block;width:100%;margin:16px 0 10px;padding:18px 12px;
+  background:var(--navy,#1a3a6b);color:#fff;border:none;border-radius:12px;
+  font-size:19px;font-weight:700;cursor:pointer;min-height:60px;
+}
+.ps-tools{display:flex;gap:8px;justify-content:center;margin-top:12px}
+.ps-tool{
+  background:#fff;color:var(--navy,#1a3a6b);border:1px solid #cfd8e4;border-radius:10px;
+  padding:10px 18px;font-size:16px;cursor:pointer;
+}
+.ps-progress{text-align:center;color:var(--ink2,#4a5560);font-size:15px;margin:4px 0 2px}
+.ps-progress b{color:var(--navy,#1a3a6b)}
+.ps-catch{text-align:center;color:#8a6216;background:#fff8ec;border:1px solid #e8c98a;
+          border-radius:8px;padding:9px 12px;font-size:14px;margin:10px 0}
+
+/* --- 지난 말씀 아코디언 --- */
+.ps-acc-btn{
+  display:block;width:100%;margin-top:18px;padding:13px 14px;text-align:left;
+  background:#fff;border:1px solid #dfe4ea;border-radius:10px;
+  font-size:16px;color:var(--navy,#1a3a6b);cursor:pointer;
+}
+.ps-caret{float:right;transition:transform .18s}
+.ps-acc-btn[aria-expanded="true"] .ps-caret{transform:rotate(180deg)}
+.ps-acc[hidden]{display:none}
+.ps-past-row{
+  display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;
+  background:none;border:none;border-bottom:1px solid #eee7d8;font-size:16px;
+  text-align:left;cursor:pointer;
+}
+.ps-past-day{color:var(--ink2,#4a5560);font-size:13px;min-width:46px}
+.ps-past-ref{flex:1;color:var(--navy,#1a3a6b)}
+.ps-past-mark{min-width:20px;text-align:right}
+
+/* 320px 폰 — 좌우 30px 여백은 화면의 19%다. 줄인다. */
+@media (max-width:340px){ .ps-fr-in{padding:18px 20px 20px} }
