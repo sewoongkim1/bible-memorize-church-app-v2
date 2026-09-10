@@ -258,7 +258,6 @@ function renderPsalmBlank(verse, stage) {
           flags[i] ? `<strong>${psalmEsc(w)}</strong>` : psalmEsc(w)).join(" ")}</div>
         <button class="ps-tool" id="ps-answer-back">돌아가서 계속하기</button>
       </div>
-      <div id="ps-result"></div>
     </div>
     <button class="home-fab" id="ps-home" aria-label="첫 화면으로">${homeFabLabel(u, true)}</button>`;
   window.scrollTo(0, 0);
@@ -326,12 +325,12 @@ function renderPsalmDone(verse, wasFirst) {
     <div class="ps-wrap ps-done">
       <div class="ps-done-icon">🎉</div>
       <div class="ps-done-t">다 외우셨어요!</div>
-      <div class="ps-done-ref">${verse.refFull}</div>
+      <div class="ps-done-ref">${psalmEsc(verse.refFull)}</div>
       ${wasFirst ? FIRST_DONE_HTML : `
         <div class="ps-done-s">말씀 앨범에 담겼고, 복습이 예약됐어요</div>`}
       <div class="ps-done-bar">${psalmTotal}편 중 <b>${done}편</b> 마쳤어요</div>
       ${next
-        ? `<button class="ps-go" id="ps-next">다음 말씀 ▶ <span class="ps-next-ref">${next.refFull}</span></button>`
+        ? `<button class="ps-go" id="ps-next">다음 말씀 ▶ <span class="ps-next-ref">${psalmEsc(next.refFull)}</span></button>`
         : `<div class="ps-done-wait">오늘 열린 말씀은 여기까지예요 · 내일 한 편이 더 열려요</div>`}
       <button class="ps-tool ps-wide" id="ps-again">↺ 이 말씀 다시 암송</button>
       <button class="ps-tool ps-wide" id="ps-list">지난 말씀 보기</button>
