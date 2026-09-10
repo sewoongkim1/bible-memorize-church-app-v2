@@ -4802,3 +4802,16 @@ body.pr-full-on { overflow: hidden; }
   :root:not([data-theme="light"]) .ps-fr-body .word-input{background:#1d2430;border-bottom-color:#4a5666;color:#dde5f0}
   :root:not([data-theme="light"]) .ps-wrap .card-word{background:#1d2430;border-color:#39424f;color:#dde5f0}
 }
+
+.ps-done{text-align:center;padding-top:26px}
+.ps-done-icon{font-size:52px}
+.ps-done-t{font-size:24px;font-weight:700;color:var(--navy,#1a3a6b);margin-top:8px}
+.ps-done-ref{font-size:16px;color:var(--ink2,#4a5560);margin-top:4px}
+.ps-done-s{margin-top:12px;color:#3f6b4a;background:#f0f6f0;border:1px solid #bcd6bc;
+           border-radius:9px;padding:11px 14px;font-size:15px}
+.ps-done-bar{margin:16px 0 4px;color:var(--ink2,#4a5560);font-size:15px}
+.ps-done-bar b{color:var(--navy,#1a3a6b)}
+.ps-done-wait{margin:16px 0;color:#8a6216;background:#fff8ec;border:1px solid #e8c98a;
+              border-radius:9px;padding:12px 14px;font-size:15px}
+.ps-next-ref{display:block;font-size:14px;font-weight:400;opacity:.85;margin-top:3px}
+.ps-tool.ps-wide{display:block;width:100%;margin-top:8px}

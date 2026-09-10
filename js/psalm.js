@@ -345,3 +345,36 @@ function psalmBuildTray(verse, onCardUse, onAllDone) {
     if (inputs.every((i) => i.classList.contains("correct"))) setTimeout(onAllDone, 260);
   });
 }
+
+// 다 외우셨어요 — 시편의 완료 화면. 전역 verses·showStageDoneModal 을 쓰지 않는다
+// (그건 주간 35구절에서 「다음 말씀」을 찾으므로 시편에 쓰면 1번 구절로 튕긴다).
+function renderPsalmDone(verse, wasFirst) {
+  stopSpeaking();
+  const u = loadUser();
+  // 다음 편 = 열린 것 중 dayNo 가 하나 큰 것. 없으면 오늘 것까지 다 한 것이다.
+  const next = psalmVerses.find((v) => v.dayNo === verse.dayNo + 1) || null;
+  const done = psalmDoneCount();
+  const app = document.getElementById("app");
+  app.innerHTML = `
+    <div class="ps-wrap ps-done">
+      <div class="ps-done-icon">🎉</div>
+      <div class="ps-done-t">다 외우셨어요!</div>
+      <div class="ps-done-ref">${verse.refFull}</div>
+      ${wasFirst ? FIRST_DONE_HTML : `
+        <div class="ps-done-s">말씀 앨범에 담겼고, 복습이 예약됐어요</div>`}
+      <div class="ps-done-bar">${psalmTotal}편 중 <b>${done}편</b> 마쳤어요</div>
+      ${next
+        ? `<button class="ps-go" id="ps-next">다음 말씀 ▶ <span class="ps-next-ref">${next.refFull}</span></button>`
+        : `<div class="ps-done-wait">오늘 열린 말씀은 여기까지예요 · 내일 한 편이 더 열려요</div>`}
+      <button class="ps-tool ps-wide" id="ps-again">↺ 이 말씀 다시 암송</button>
+      <button class="ps-tool ps-wide" id="ps-list">지난 말씀 보기</button>
+    </div>
+    <button class="home-fab" id="ps-home" aria-label="첫 화면으로">${homeFabLabel(u, true)}</button>`;
+  window.scrollTo(0, 0);
+
+  document.getElementById("ps-home").addEventListener("click", () => renderSummary());
+  document.getElementById("ps-list").addEventListener("click", () => renderPsalmHome());
+  document.getElementById("ps-again").addEventListener("click", () => renderPsalmStage(verse, 3));
+  const nb = document.getElementById("ps-next");
+  if (nb && next) nb.addEventListener("click", () => renderPsalmStage(next, 0));
+}
