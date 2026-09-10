@@ -218,3 +218,130 @@ function renderPsalmStage(verse, stage) {
     speakText(verseSpokenText({ ...verse, refFull: verse.refFull, text: verse.text }));
   });
 }
+
+// 1~3단계 — 액자는 그대로 있고 안쪽 글자만 빈칸이 된다.
+// 「암송카드 한 장을 받아 채워 간다」는 느낌이 여기서 산다.
+function renderPsalmBlank(verse, stage) {
+  stopSpeaking();
+  const u = loadUser();
+  const tokens = String(verse.text || "").trim().split(/\s+/);
+  const ratio = stage === 1 ? 0.25 : stage === 2 ? 0.65 : 1.0;
+  const flags = pickBlankIndices(tokens, ratio);
+
+  const bodyHtml = tokens.map((word, i) => {
+    if (!flags[i]) return `<span class="word-fixed">${psalmEsc(word)}</span>`;
+    // ⚠️ em 이 아니라 ch 로 잰다 — em 은 --psalm-fs 와 곱해져 큰 글씨 구절에서 액자를 뚫는다.
+    const w = Array.from(word).length;
+    return `<input class="word-input" data-answer="${psalmEsc(word)}"`
+         + ` autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"`
+         + ` style="width:${(w + 1) * 1.05}ch" />`;
+  }).join(" ");
+
+  const app = document.getElementById("app");
+  app.innerHTML = `
+    <div class="ps-wrap ps-stage${isCardMode() ? " ps-card-on" : ""}">
+      <div class="ps-head">
+        <span class="ps-day">${verse.dayNo}일차</span>
+        <span class="ps-step">${stage}단계</span>
+        <button class="ps-back" id="ps-back">← 목록</button>
+      </div>
+      ${psalmFrameHtml(verse, { bodyHtml })}
+      <div class="ps-tools">
+        <button class="ps-tool" id="ps-answer">보기</button>
+        <button class="ps-tool" id="ps-listen">🔊 듣기</button>
+        <button class="ps-tool" id="ps-mode">${isCardMode() ? "⌨️ 쓰기" : "👆 카드"}</button>
+      </div>
+      <div id="card-tray" class="card-tray"></div>
+      <div id="ps-answer-panel" class="ps-answer" hidden>
+        <div class="ps-answer-t">정답</div>
+        <div class="ps-answer-b">${tokens.map((w, i) =>
+          flags[i] ? `<strong>${psalmEsc(w)}</strong>` : psalmEsc(w)).join(" ")}</div>
+        <button class="ps-tool" id="ps-answer-back">돌아가서 계속하기</button>
+      </div>
+      <div id="ps-result"></div>
+    </div>
+    <button class="home-fab" id="ps-home" aria-label="첫 화면으로">${homeFabLabel(u, true)}</button>`;
+  window.scrollTo(0, 0);
+
+  document.getElementById("ps-home").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
+  document.getElementById("ps-back").addEventListener("click", () => { stopSpeaking(); renderPsalmHome(); });
+  document.getElementById("ps-listen").addEventListener("click", () => speakText(verseSpokenText(verse)));
+
+  const ap = document.getElementById("ps-answer-panel");
+  document.getElementById("ps-answer").addEventListener("click", () => { ap.hidden = false; });
+  document.getElementById("ps-answer-back").addEventListener("click", () => { ap.hidden = true; });
+
+  document.getElementById("ps-mode").addEventListener("click", () => {
+    setCardMode(!isCardMode());
+    renderPsalmBlank(verse, stage);
+  });
+
+  psalmSetupCheck(verse, stage);
+}
+
+// ⚠️ mode 는 "typing" / "card" 를 보낸다 — 주간 암송 화면과 똑같다.
+//    서버(saveProgress)가 learn-typing / learn-typing-card 로 옮겨 주고,
+//    제약이 아직 안 넓혀진 DB에서는 조용히 learn-typing 으로 되돌리는 폴백까지 있다.
+//    여기서 "learn-typing" 을 직접 보내면 서버가 그것을 다시 매핑해
+//    엉뚱한 값이 되거나 제약에 걸린다.
+// ⚠️ 시편은 verse_no ≥ 1001 로 이미 갈리므로 새 mode 를 만들지 않는다.
+function psalmSetupCheck(verse, stage) {
+  let cardUsedHere = false;
+  const tray = document.getElementById("card-tray");
+  if (isCardMode() && tray) {
+    psalmBuildTray(verse, () => { cardUsedHere = true; },
+                   () => psalmStageDone(verse, stage, true));
+  }
+  // 자판 경로 — app.js 의 setupAutoCheck 를 그대로 쓰고 완료만 넘겨받는다.
+  setupAutoCheck(verse, stage, () => psalmStageDone(verse, stage, cardUsedHere));
+}
+
+// 이 구절이 그분의 '첫 완주'인가 — saveProgress 보다 먼저 봐야 한다.
+// ⚠️ isFirstJourney() 는 전역 verses(주간 35구절)만 센다. 시편만 하시는 분은
+//    아무리 마쳐도 계속 true 라 축하 문구가 매번 뜬다 — 시편 쪽도 함께 본다.
+function psalmWasFirst() {
+  return isFirstJourney() && psalmDoneCount() === 0;
+}
+
+function psalmStageDone(verse, stage, cardUsed) {
+  const wasFirst = psalmWasFirst();
+  // ⚠️ 카드 여부는 isCardMode() 가 아니라 실제로 카드를 눌렀는지로 본다 —
+  //    카드로 켜 두고 자판으로 치신 분을 카드 사용자로 세면 측정이 흐려진다.
+  saveProgress(verse.no, stage, cardUsed ? "card" : "typing");
+  if (stage < 3) return renderPsalmStage(verse, stage + 1);
+  renderPsalmDone(verse, wasFirst);   // 3단계면 복습은 saveProgress 안에서 이미 예약됐다
+}
+
+// 낱말을 눌러 채우는 방식. 자판이 벽인 분이 54명(전체의 32%)이다.
+// ⚠️ 쟁반은 액자 「밖」 아래에 둔다 — 안에 넣으면 다섯 줄 규칙이 무의미해진다.
+function psalmBuildTray(verse, onCardUse, onAllDone) {
+  const tray = document.getElementById("card-tray");
+  const inputs = Array.from(document.querySelectorAll(".word-input"));
+  if (!tray || !inputs.length) return;
+
+  // ⚠️ norm 은 setupAutoCheck 안의 지역 함수다 — 여기에 따로 둔다.
+  //    없이 부르면 카드 모드일 때만 화면이 통째로 멈춘다.
+  const norm = (s) => String(s || "").trim().normalize("NFC");
+
+  const words = inputs.map((i) => norm(i.dataset.answer));
+  const shuffled = words.slice().sort(() => Math.random() - 0.5);
+  tray.innerHTML = shuffled.map((w, k) =>
+    `<button class="card-word" data-w="${psalmEsc(w)}" data-k="${k}">${psalmEsc(w)}</button>`).join("");
+
+  tray.addEventListener("click", (e) => {
+    const b = e.target.closest(".card-word");
+    if (!b || b.disabled) return;
+    const target = inputs.find((i) => !i.classList.contains("correct"));
+    if (!target) return;
+    if (norm(target.dataset.answer) !== norm(b.dataset.w)) {
+      b.classList.add("shake");
+      setTimeout(() => b.classList.remove("shake"), 320);
+      return;
+    }
+    target.value = norm(target.dataset.answer);
+    target.classList.add("correct");
+    b.disabled = true;
+    onCardUse();
+    if (inputs.every((i) => i.classList.contains("correct"))) setTimeout(onAllDone, 260);
+  });
+}

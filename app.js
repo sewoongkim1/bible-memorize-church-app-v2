@@ -5543,7 +5543,9 @@ function pickBlankIndices(tokens, ratio) {
 // ------------------------------------------------------------
 // 자동 채점 (익명 버전과 동일)
 // ------------------------------------------------------------
-function setupAutoCheck(verse, stage) {
+// onDone: 자기 완료 경로를 가진 화면(시편 말씀 액자)이 넘겨받는 자리.
+//   안 주면 지금까지와 한 글자도 다르지 않다.
+function setupAutoCheck(verse, stage, onDone) {
   const inputs = Array.from(document.querySelectorAll(".word-input"));
   const en = isEnMode(verse); // 영어 모드면 대소문자·문장부호 차이는 관용 처리
 
@@ -5564,7 +5566,7 @@ function setupAutoCheck(verse, stage) {
 
     const next = inputs.slice(idx + 1).find((inp) => !inp.disabled);
     if (next) next.focus();
-    else checkAllComplete(inputs, verse, stage);
+    else checkAllComplete(inputs, verse, stage, onDone);
   }
 
   function markWrong(input) {
@@ -5666,9 +5668,14 @@ function setupAutoCheck(verse, stage) {
   if (!isCardMode() && inputs[0]) inputs[0].focus(); // 카드 모드에선 키보드를 띄우지 않는다
 }
 
-function checkAllComplete(inputs, verse, stage) {
+function checkAllComplete(inputs, verse, stage, onDone) {
   const allCorrect = inputs.every((inp) => inp.classList.contains("correct"));
   if (!allCorrect) return;
+
+  // ⚠️ 아래는 전부 주간 암송 화면에 묶여 있다 — #result-area · showStageDoneModal ·
+  //    전역 verses(다음 구절). 자기 완료 경로를 가진 화면은 여기서 넘겨받는다.
+  //    시편 말씀 액자가 그 첫 경우다(그대로 두면 주간 1번 구절로 튕긴다).
+  if (onDone) { onDone(); return; }
 
   // saveProgress보다 먼저 봐야 한다 — 저장하고 나면 이미 '한 구절 마친 사람'이 된다.
   const wasFirst = isFirstJourney();

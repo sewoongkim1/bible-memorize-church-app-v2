@@ -4769,3 +4769,36 @@ body.pr-full-on { overflow: hidden; }
 
 /* 320px 폰 — 좌우 30px 여백은 화면의 19%다. 줄인다. */
 @media (max-width:340px){ .ps-fr-in{padding:18px 20px 20px} }
+
+/* 액자 안 빈칸 — 폭은 ch 로 잰다. em 이면 --psalm-fs 와 곱해져 액자를 뚫는다. */
+.ps-fr-body .word-input{
+  font-size:inherit;font-family:inherit;line-height:1.4;
+  border:none;border-bottom:2px solid #b9c4d2;background:#f4f7fb;
+  border-radius:3px;text-align:center;padding:0 2px;margin:0 1px;
+  color:#12294b;min-width:2.2ch;
+}
+.ps-fr-body .word-input.correct{background:#eef7f0;border-bottom-color:#4a8b5a;color:#2f6b3f}
+.ps-fr-body .word-input.wrong{background:#fdeeee;border-bottom-color:#b04a4a;color:#8a2f2f}
+.ps-fr-body .word-fixed{white-space:nowrap}
+
+.ps-answer{background:#fffdf6;border:1px solid #e3dcc9;border-radius:10px;padding:14px;margin-top:12px}
+.ps-answer[hidden]{display:none}
+.ps-answer-t{font-size:13px;color:#8a6216;font-weight:700;margin-bottom:6px}
+.ps-answer-b{font-size:17px;line-height:1.7;color:#12294b}
+.ps-answer-b strong{color:#1a3a6b}
+
+/* 카드 쟁반은 액자 밖 아래 */
+.ps-wrap .card-tray{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:14px}
+.ps-wrap:not(.ps-card-on) .card-tray{display:none}
+.ps-wrap .card-word{
+  background:#fff;border:1px solid #cfd8e4;border-radius:10px;
+  padding:11px 15px;font-size:18px;color:#12294b;cursor:pointer;min-height:46px;
+}
+.ps-wrap .card-word:disabled{opacity:.32;background:#f2f2f2;cursor:default}
+.ps-wrap .card-word.shake{animation:ps-shake .3s}
+@keyframes ps-shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]) .ps-fr-body .word-input{background:#1d2430;border-bottom-color:#4a5666;color:#dde5f0}
+  :root:not([data-theme="light"]) .ps-wrap .card-word{background:#1d2430;border-color:#39424f;color:#dde5f0}
+}
