@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260910t";
+const APP_BUILD = "20260910u";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -120,6 +120,7 @@ function routeAfterLoad() {
   refreshPassagesPublic();
   refreshPsalmPublic();
   refreshMinistryPeriod();
+  refreshEventOpen();
   // 어드민 테스트 진입(?passages=1): 홈을 거치지 않고 곧바로 핵심 암송 목록으로.
   if (_passagesPreview) { renderPassageList(); return; }
   // 어드민 미리보기(?psalm=1): 시편 말씀 액자 화면으로 곧바로 진입.
@@ -279,6 +280,30 @@ function refreshMinistryPeriod() {
     try { localStorage.setItem(MIN_PERIOD_KEY, JSON.stringify((d && d.value) || null)); } catch (e) {}
   }).catch(() => {});
 }
+
+// ── 이벤트 플랫폼: 볼 수 있는 회차가 있을 때만 첫 화면에 뜬다 ──────────────
+//   ⚠️ 시편·사역신청은 app_config 를 게이트로 쓰는데, **이벤트는 회차 자료 자체가
+//      게이트다**(설정 키를 하나 더 만들면 자료와 설정이 갈라진다 — 만든 세션의 결정).
+//      첫 화면은 동기 렌더라 미리 받아 둔 값을 본다.
+//   ⚠️ **모르면 숨긴다.** 통신이 안 되거나 서버가 아직 옛 판이면 캐시가 비는데,
+//      그때 보이게 짜면 **눌러도 아무것도 없는 단추**가 뜬다. 「모른다」는 「있다」가 아니다.
+//   ⚠️ `_evtPreview` 를 여기서 읽지 않는다 — 그 값은 선언 없이 나중에 대입되는
+//      암묵 전역이라, 대입 전에 읽으면 ReferenceError 로 **첫 화면이 통째로 죽는다.**
+//      미리보기(?preview=event)는 어차피 이 화면을 거치지 않고 곧장 들어간다.
+const EVENT_OPEN_KEY = "event-open";
+function eventOpenCached() {
+  try { return localStorage.getItem(EVENT_OPEN_KEY) === "1"; } catch (e) { return false; }
+}
+function refreshEventOpen() {
+  if (!window.api || !api.eventOpenList) return;
+  // user_id 를 안 보낸다 — 여기서 필요한 것은 「볼 회차가 있는가」 하나뿐이다.
+  // 내 등록까지 받으면 첫 화면 진입에 쓸데없는 조회가 하나 더 붙는다.
+  api.eventOpenList().then((d) => {
+    const n = (d && d.events && d.events.length) || 0;
+    try { localStorage.setItem(EVENT_OPEN_KEY, n > 0 ? "1" : "0"); } catch (e) {}
+  }).catch(() => {});
+}
+function eventVisible() { return eventOpenCached(); }
 
 function ministryVisible() {
   if (location.search.indexOf("preview=ministry") >= 0) return true;   // 관리자 미리보기
@@ -1263,6 +1288,7 @@ const FEAT_SINCE = {
   // ⚠️ 사역 신청은 기간(12/13~12/27)에만 첫 화면에 뜬다 — 그때가 곧 '새 기능'인 날이라
   //    NEW 는 신청 시작일부터 센다. 지금 날짜를 적으면 성도님이 보기도 전에 사라진다.
   ministry: "2026-12-13",
+  event: "2026-09-10",        // 이벤트 플랫폼 — 썸머 써 바이블 명단을 여는 날
   psalm: "2026-09-21",        // 시편 말씀 액자 — 1일차와 같은 날부터 NEW
   prayer: "2026-09-03",
   meditation: "2026-07-20",   // 매일 묵상
@@ -1952,6 +1978,7 @@ function renderSummary() {
     <button class="summary-help" id="open-album">📖 나의 말씀 앨범</button>
     <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
     <div class="grp-title">함께</div>
+    ${eventVisible() ? `<button class="summary-help" id="open-event-list">🏅 이벤트 신청·명단${newBadge("event")}</button>` : ""}
     <button class="summary-help" id="open-board">💬 응원·기도·공감</button>
     ${psalmVisible() ? `<button class="summary-help" id="open-psalm">📿 시편 말씀 액자${newBadge("psalm")}</button>` : ""}
     <button class="summary-help" id="open-prayer">🙏 가정 축복 기도문${newBadge("prayer")}</button>
@@ -2009,6 +2036,14 @@ function renderSummary() {
   document.getElementById("open-album").addEventListener("click", () => renderAlbum());
   { const b = document.getElementById("open-passages"); if (b) b.addEventListener("click", () => { markFeatSeen("passages"); renderPassageList(); }); }
   { const b = document.getElementById("open-psalm"); if (b) b.addEventListener("click", () => { markFeatSeen("psalm"); renderPsalmHome(); }); }
+  // ⚠️ renderEventList 는 js/events.js 에 있다 — 그 파일이 안 실려도 첫 화면이 죽지
+  //    않게 막고, 말없이 아무 일도 안 일어나는 대신 까닭을 알려 준다.
+  { const b = document.getElementById("open-event-list");
+    if (b) b.addEventListener("click", () => {
+      markFeatSeen("event");
+      if (typeof renderEventList === "function") renderEventList(null);
+      else appAlert("이벤트 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
+    }); }
   document.getElementById("open-ranking").addEventListener("click", () => renderRanking());
   // 퀴즈는 quiz/ 아래 따로 있는 화면이다(로그인 없이 열리고 app.js를 쓰지 않는다).
   //   같은 주소 안이라 설치된 앱에서 눌러도 앱 밖으로 나가지 않는다.
