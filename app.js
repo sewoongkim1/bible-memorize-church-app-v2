@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260910j";
+const APP_BUILD = "20260910k";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9099,45 +9099,24 @@ function minOverHtml() {
   }).join("");
 }
 
-// 명단 줄에서 「나」를 알아본다. 「김세웅 안수집사 (화평-20)」 꼴이라
-// ⚠️ **이름과 소속이 둘 다** 있어야 나로 본다 — 이름만 맞추면 동명이인이 걸린다.
-function minMeTag() {
-  const u = loadUser();
-  if (!u || !u.name) return null;
-  const who = u.type === "교구"
-    ? [u.gu, u.mok].filter(Boolean).join("-")
-    : [u.bu, u.grade].filter(Boolean).join("-");
-  return { name: u.name, who: who };
-}
-function minServingNow() {
-  const me = minMeTag();
-  const list = (minCat && minCat.list) || [];
-  if (!me) return [];
-  // ⚠️ **올해 신청한 것만** 남긴다(성도님 결정 2026-09-10). 이 자리는 「이어서 신청하세요」가
-  //    아니라 **「내가 섬기던 자리를 이번에 냈는지」를 확인하는 자리**다.
-  //    그래서 신청 전에는 비어 있어 아예 안 보이고, 안 낸 팀은 들어오지 않는다.
-  //    ⚠️ minPicked(방금 고른 것)가 아니라 minSentIds·minLockedIds(**낸 것**)로 본다.
-  const sent = minSentIds.concat(minLockedIds);
-  return list.filter(function (t) {
-    if (!t.members) return false;
-    if (sent.indexOf(t.id) < 0) return false;
-    return String(t.members).split(/<br\s*\/?>/i).some(function (line) {
-      const x = minPlain(line);
-      return x.indexOf(me.name) >= 0 && (!me.who || x.indexOf(me.who) >= 0);
-    });
-  }).slice(0, 3);      // 최대 3개(성도님 지정)
-}
-function minServingHtml() {
-  const mine = minServingNow();
-  if (!mine.length) return "";
-  // ⚠️ 권하는 자리가 아니라 확인하는 자리다 — 「이어서 신청」 같은 부추기는 말을 쓰지 않는다.
-  return '<div class="min-serving"><div class="min-serving-t">🌿 지금 섬기시는 사역 중 이번에 신청하신 것</div>' +
-    mine.map(function (t) {
-      const st = minLockedIds.indexOf(t.id) >= 0 ? minLockStatus(t.id) : "신청완료";
-      return '<div class="min-serve on">' +
-        '<span class="min-serve-n">' + minEsc(t.team) +
-        ' <span class="min-com">· ' + minEsc(t.committee) + '</span></span>' +
-        '<span class="min-serve-a">✓ ' + minEsc(st) + '</span></div>';
+// 이미 낸 신청을 화면 위에 모아 보여 준다.
+// ⚠️ **왜 있는가** — 2027 신청은 여러 번에 나눠 낼 수 있다(한 팀에 임명받은 뒤 다른 사역을
+//    또 신청). 그때 신청서에 다시 들어오면 「내가 뭘 냈더라」가 먼저 궁금하다.
+//    목록 아래에서 딱지를 찾아 훑지 않게 맨 위에 모아 둔다.
+// ⚠️ 팀 명단(members)으로 「지금 섬기는 분」을 알아내려던 길은 버렸다 —
+//    2026년 사역 자료가 없어 알아낼 수가 없고, 명단에는 관리자가 적은 분과 올해 접수자가
+//    섞여 들어가 그걸 「내가 섬기던 자리」로 읽으면 없는 사실을 만들어 낸다.
+function minSentListHtml() {
+  const items = (minMine && minMine.items) || [];
+  if (!items.length) return "";
+  return '<div class="min-sent"><div class="min-sent-t">📋 이미 내신 신청 ' +
+    '<b>' + items.length + '건</b></div>' +
+    items.map(function (it) {
+      const st = MIN_STATE[it.status] || MIN_STATE["신청완료"];
+      return '<div class="min-sent-r">' +
+        '<span class="min-sent-n">' + minEsc(it.team) +
+        ' <span class="min-com">· ' + minEsc(it.committee) + '</span></span>' +
+        '<span class="min-st ' + st.cls + '">' + st.ic + ' ' + minEsc(it.status) + '</span></div>';
     }).join("") + '</div>';
 }
 
@@ -9335,9 +9314,8 @@ function minPickHtml() {
           ? ' 그중 <b>미채택 ' + (minLocked.length - minHeld()) + '건</b>은 자리를 도로 내놓았어요.' : "") +
         ' <b>남은 ' + Math.max(0, MIN_MAX - minHeld()) + '자리</b>만 고르시면 됩니다.</div>'
       : "") +
-    // ⚠️ 필터보다 **위**다. 이어서 섬기실 분에게는 이게 목록을 훑는 것보다 빠르고,
-    //    필터를 켜도 이 자리는 그대로 남아야 한다(필터가 이 줄을 거르면 안 된다).
-    minServingHtml() +
+    // ⚠️ 필터보다 **위**이고, 필터를 켜도 그대로 남는다 — 이미 낸 것은 거를 대상이 아니다.
+    minSentListHtml() +
     minOverHtml() +
     minFilterHtml() +
     // ⚠️ 이 셋은 **자리를 지킨다**(id 고정). 찾기를 칠 때 이 셋만 갈아 끼우고
