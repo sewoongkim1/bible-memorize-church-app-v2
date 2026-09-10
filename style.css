@@ -4682,7 +4682,7 @@ body.pr-full-on { overflow: hidden; }
         font-size:14px;font-weight:700}
 .ps-total,.ps-step{color:var(--ink2,#4a5560);font-size:14px}
 .ps-back{margin-left:auto;background:none;border:none;color:var(--navy,#1a3a6b);
-         font-size:15px;padding:6px 4px;cursor:pointer}
+         font-size:15px;padding:13px 10px;cursor:pointer}
 
 /* --- 액자 --- */
 .ps-frame{
@@ -4742,7 +4742,7 @@ body.pr-full-on { overflow: hidden; }
 .ps-tools{display:flex;gap:8px;justify-content:center;margin-top:12px}
 .ps-tool{
   background:#fff;color:var(--navy,#1a3a6b);border:1px solid #cfd8e4;border-radius:10px;
-  padding:10px 18px;font-size:16px;cursor:pointer;
+  padding:10px 18px;font-size:16px;cursor:pointer;min-height:46px;
 }
 .ps-progress{text-align:center;color:var(--ink2,#4a5560);font-size:15px;margin:4px 0 2px}
 .ps-progress b{color:var(--navy,#1a3a6b)}

@@ -14,18 +14,22 @@ let psalmOpen = 0;            // 오늘까지 열린 편수
 let psalmTotal = 180;
 let psalmStartDate = "";
 let psalmLoaded = false;
+let psalmLoadedDay = "";      // 캐시가 속한 KST 날짜(YYYY-MM-DD) — 자정 넘김 판별용
+                               // (todayYmd 는 app.js 것을 그대로 쓴다 — 새로 만들지 않는다)
 
 function isPsalmNo(no) { return Number(no) > PSALM_NO_BASE; }
 function psalmByNo(no) { return psalmVerses.find((v) => v.no === Number(no)) || null; }
 
 async function loadPsalmVerses(force) {
-  if (psalmLoaded && !force) return psalmVerses;
+  const today = todayYmd();
+  if (psalmLoaded && !force && psalmLoadedDay === today) return psalmVerses;
   const d = await api.getVerses("psalm");
   psalmVerses = (d && d.verses) || [];
   psalmOpen = Number(d && d.openCount) || 0;
   psalmTotal = Number(d && d.totalDays) || 180;
   psalmStartDate = (d && d.startDate) || "";
   psalmLoaded = true;
+  psalmLoadedDay = today;
   return psalmVerses;
 }
 
@@ -64,7 +68,7 @@ function drawPsalmHome() {
     const d = psalmStartDate ? psalmStartDate.replace(/-/g, ".") : "";
     wrap.innerHTML = `<div class="ps-soon">
       <div class="ps-soon-icon">📿</div>
-      <div class="ps-soon-t">${d} 에 시작해요</div>
+      <div class="ps-soon-t">${psalmEsc(d)} 에 시작해요</div>
       <div class="ps-soon-s">시편 말씀을 하루에 한 편씩 함께 외웁니다</div>
     </div>`;
     return;
@@ -85,7 +89,7 @@ function drawPsalmHome() {
       <span class="ps-day">${psalmOpen}일차</span>
       <span class="ps-total">전체 ${psalmTotal}편</span>
     </div>
-    ${today ? psalmFrameHtml(today, { preview: true }) : ""}
+    ${today ? psalmFrameHtml(today) : ""}
     <button class="ps-go" id="ps-start">외우기 시작</button>
     <div class="ps-progress">${done > 0
       ? `${psalmTotal}편 중 <b>${done}편</b> 마쳤어요`
@@ -99,7 +103,7 @@ function drawPsalmHome() {
         ${past.map((v) => `
           <button class="ps-past-row" data-no="${v.no}">
             <span class="ps-past-day">${v.dayNo}일차</span>
-            <span class="ps-past-ref">${v.refFull}</span>
+            <span class="ps-past-ref">${psalmEsc(v.refFull)}</span>
             <span class="ps-past-mark">${getPassedStage(v.no) >= 3 ? "✅" : ""}</span>
           </button>`).join("")}
       </div>` : ""}
@@ -171,7 +175,7 @@ function psalmFrameHtml(verse, opts) {
       <img class="ps-leaf l" src="${leaf}" alt="" aria-hidden="true">
       <img class="ps-leaf r" src="${leaf}" alt="" aria-hidden="true">
       <div class="ps-fr-in">
-        <div class="ps-fr-ref">${verse.refFull}</div>
+        <div class="ps-fr-ref">${psalmEsc(verse.refFull)}</div>
         <div class="ps-fr-orn" aria-hidden="true"><i></i>${PRAY_ORN}<i></i></div>
         <div class="ps-fr-body">${body}</div>
       </div>
