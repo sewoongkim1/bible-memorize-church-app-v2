@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260910e";
+const APP_BUILD = "20260910f";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1872,7 +1872,9 @@ function renderSummary() {
       : ministrySoonText()
         // ⚠️ 누를 수 없는 단추가 아니라 **한 줄 안내**로 둔다. 첫 화면에서 누를 것을
         //    24개→9개로 줄여 놓았는데, 못 누르는 단추를 얹으면 그만큼 도로 흐려진다.
-        ? `<div class="summary-soon">🤝 사역신청 <b>${ministrySoonText()}</b></div>`
+        // ⚠️ 눌러서 들어갈 수 있어야 한다 — 못 누르는 줄로 두었더니 시험하시는 분들이
+        //    첫 화면에서 막혔다(성도님 제보 2026-09-10).
+        ? `<button class="summary-soon" id="open-ministry-soon">🤝 사역신청 <b>${ministrySoonText()}</b> <span class="soon-go">미리 보기 ›</span></button>`
         : ""}
     <button class="summary-help" id="open-pilsa">✍️ 성경필사 노트 신청</button>
     ${passagesVisible() ? `<button class="summary-help" id="open-passages">📜 내 안에 거하는 말씀${newBadge("passages")}</button>` : ""}
@@ -1902,6 +1904,12 @@ function renderSummary() {
   loadEventState();     // 서버에서 설정·응모여부 갱신 후 다시 표시
   document.getElementById("open-board").addEventListener("click", renderBoard);
   document.getElementById("open-prayer").addEventListener("click", () => renderPrayerBook());
+  const minSoon = document.getElementById("open-ministry-soon");
+  if (minSoon) minSoon.addEventListener("click", function () {
+    MIN_TEST = true;                       // 이 탭에서만 — 새로고침해도 남게 sessionStorage
+    try { sessionStorage.setItem(MIN_TEST_KEY, "1"); } catch (e) {}
+    renderMinistry();
+  });
   const minBtn = document.getElementById("open-ministry");   // 기간 밖에는 아예 없다
   if (minBtn) minBtn.addEventListener("click", () => {
     minLoaded = false;            // 들어올 때마다 서버에서 지금 상태를 받는다
@@ -8925,13 +8933,22 @@ function minApiReady() { return !!(window.api && api.ministryCatalog && api.mini
 
 // ?preview=ministry 로 열면 기간 밖에도 시험해 볼 수 있다 — 서버가 관리자 비번을 보고 통과시킨다.
 // ⚠️ 비번은 sessionStorage 에만 둔다(관리자 화면과 같은 열쇠). 성도님 화면에는 이 길이 없다.
-const MIN_PREVIEW = location.search.indexOf("preview=ministry") >= 0;
+// ⚠️⚠️ **시험 모드** — 신청 기간 전에도 첫 화면에서 들어가 제출까지 해 볼 수 있게 한다.
+//    성도님이 「지금은 들어와도 상관없다, 테스트 하는 사람들이다」로 정하셨다(2026-09-10).
+//    **12-13 전에 이 셋을 되돌린다**: ⓐ 여기 MIN_TEST ⓑ 서버의 `|| b.preview`
+//    ⓒ 그때까지 들어온 시험 신청 행.
+const MIN_TEST_KEY = "ministry-test";
+let MIN_TEST = false;
+try { MIN_TEST = sessionStorage.getItem(MIN_TEST_KEY) === "1"; } catch (e) {}
+function minPrev() {
+  return location.search.indexOf("preview=ministry") >= 0 || MIN_TEST;
+}
 // ⚠️ **비번을 묻지 않는다.** 서버가 preview 깃발만으로 통과시키므로(2026-09-09),
 //    물어 봤자 시험하시는 분들은 답을 모르고 그 자리에서 막힌다.
 //    관리자 화면을 이미 연 탭이면 sessionStorage 에 들어 있어 그대로 함께 보낸다 —
 //    신청 기간 전에 || b.preview 를 도로 막고 나면 그때는 이 값이 열쇠가 된다.
 function minPw() {
-  if (!MIN_PREVIEW) return "";
+  if (!minPrev()) return "";
   try { return sessionStorage.getItem("admin-pw") || ""; } catch (e) { return ""; }
 }
 
@@ -9174,7 +9191,7 @@ function minFilterHtml() {
   }).length;
   // ⚠️ 이 장치는 **성도님을 지키려는 것**이지 만드는 사람을 막으려는 게 아니다.
   //    ?preview=ministry 로 여는 관리자는 값이 없어도 필터를 볼 수 있어야 한다.
-  if (!MIN_PREVIEW && (!apply.length || filled * 2 < apply.length)) return "";
+  if (!minPrev() && (!apply.length || filled * 2 < apply.length)) return "";
 
   return '<div class="min-filter">' +
     minChipRow("언제", "day", MIN_DAYS) +
@@ -9268,7 +9285,7 @@ function minPickHtml() {
   return '<h2 class="rank-title">🤝 사역 신청서</h2>' +
     '<p class="min-sub min-verse">“각각 은사를 받은 대로 … 선한 청지기 같이 서로 봉사하라”' +
       ' <span class="min-ref">벧전 4:10</span></p>' +
-    (openNow || MIN_PREVIEW ? "" :
+    (openNow || minPrev() ? "" :
       '<div class="min-closed">지금은 신청 기간이 아니에요. 목록만 살펴보실 수 있습니다.</div>') +
     '<div class="min-note"><b class="min-note-t">사역 임명 원칙</b>' +
       '1인 <b>최대 ' + MIN_MAX + '개</b>까지 신청할 수 있어요. ' +
@@ -9299,7 +9316,7 @@ function minPickHtml() {
     // 신청현황 화면과 **같은 자리·같은 모양** — 남색이 지금 할 일, 흰 바탕이 되돌아가기.
     // 이미 낸 것이 있으면 돌아갈 길을 둔다: 없으면 목록에 갇힌다.
     '<div class="min-acts">' +
-      (openNow || MIN_PREVIEW
+      (openNow || minPrev()
         ? '<button class="min-cta" id="min-next"' + (minPicked.length ? "" : " disabled") + '>' +
           (minPicked.length ? '신청하기' : '사역을 하나 이상 골라 주세요') +
           '</button>'
@@ -9598,7 +9615,7 @@ function wireMinConfirm(u) {
     try {
       const r = await api.ministryApply({
         user_id: u.user_id, name: u.name, who, choices: minPicked,
-        phone: minPhoneVal, position: minPosVal, pw: minPw(), preview: MIN_PREVIEW,
+        phone: minPhoneVal, position: minPosVal, pw: minPw(), preview: minPrev(),
       });
       if (!r || !r.ok) { alert((r && r.error) || "신청을 저장하지 못했어요."); renderMinistry(); return; }
       minMine = r.mine;
@@ -9639,7 +9656,7 @@ function minDoneHtml(u) {
   // ⚠️ 고르기 화면이 (기간 || 미리보기) 로 제출까지 열어 두므로 여기도 같은 문을 써야 한다.
   //    minIsOpen() 만 보면 관리자가 ?preview=ministry 로 시험할 때 「내 신청」 화면에
   //    단추가 하나도 없어 **돌아갈 길이 사라진다**(2026-09-09 성도님 제보).
-  const canAct = minIsOpen() || MIN_PREVIEW;
+  const canAct = minIsOpen() || minPrev();
   const canEdit = !!(m && m.openCount) && canAct;
   const canAdd = left > 0 && canAct;
   // ⚠️ 「더 신청」·「고치기」·「목록 보기」는 **가는 곳이 같다**(고르기 화면 하나).
@@ -9707,7 +9724,7 @@ function wireMinDone(u) {
     if (!minCancelAsk()) return;
     cancel.disabled = true;
     try {
-      const r = await api.ministryCancel(u.user_id, minPw(), minCancelPh, MIN_PREVIEW);
+      const r = await api.ministryCancel(u.user_id, minPw(), minCancelPh, minPrev());
       if (!r || !r.ok) { alert((r && r.error) || "취소하지 못했어요."); cancel.disabled = false; return; }
       // ⚠️ 접수된 건은 취소해도 남는다 — 「전부 지웠다」로 치면 화면이 사실과 어긋난다.
       minMine = r.mine || null;
