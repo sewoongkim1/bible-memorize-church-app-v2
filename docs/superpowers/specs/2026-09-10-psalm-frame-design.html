@@ -380,8 +380,10 @@ create index if not exists idx_verses_track on public.verses(track, day_no);
 -- insert into public.verses (no, track, day_no, frame_art, ref, ref_full, text) values ...
 
 -- 시작일
-insert into public.app_config (key, value) values ('psalmStart', '2026-09-21')
-  on conflict (key) do update set value = excluded.value;</code></pre>
+-- ⚠️ app_config.value 는 jsonb 다 — 맨 문자열을 넣으면 실패한다
+insert into public.app_config (key, value)
+  values ('psalm', '{"start":"2026-09-21","totalDays":180}'::jsonb)
+  on conflict (key) do update set value = excluded.value, updated_at = now();</code></pre>
 
 <h3>서버가 바뀌는 곳 — 딱 하나</h3>
 <ul>
@@ -479,7 +481,7 @@ insert into public.app_config (key, value) values ('psalmStart', '2026-09-21')
 <div class="tw">
 <table>
   <tbody>
-  <tr><td class="k">시작일</td><td><strong>2026-09-21(월)</strong>. <code>app_config.psalmStart</code>에 둔다 —
+  <tr><td class="k">시작일</td><td><strong>2026-09-21(월)</strong>. <code>app_config('psalm')</code>의 <code>start</code>에 둔다 —
       코드에 박지 않으므로 <strong>날짜가 밀려도 배포 없이 옮길 수 있다</strong>(14장의 안전판).</td></tr>
   <tr><td class="k">끝나는 날</td><td>180일차 = <strong>2027-03-19(금)</strong>. 30일차 10-20 · 60일차 11-19 · 90일차 12-19 · 120일차 2027-01-18 · 150일차 02-17.</td></tr>
   <tr><td class="k">열린 수</td><td><code>openCount = min(180, 오늘 − 시작일 + 1)</code>. <strong>서버가 계산한다.</strong></td></tr>
@@ -645,7 +647,7 @@ insert into public.app_config (key, value) values ('psalmStart', '2026-09-21')
 <table>
   <thead><tr><th>위험</th><th>어떻게 하나</th></tr></thead>
   <tbody>
-  <tr><td class="k">자료가 늦는다</td><td>시작일을 <code>app_config</code>에서 옮긴다 · 또는 첫 30편으로 연다(위)</td></tr>
+  <tr><td class="k">자료가 늦는다</td><td>시작일을 <code>app_config('psalm')</code>에서 옮긴다 · 또는 첫 30편으로 연다(위)</td></tr>
   <tr><td class="k">개역개정 사용 범위</td>
       <td>담당자가 확인 중(2026-09-10). 35구절과 규모가 다르고 플레이스토어에 올라가는 앱이다.
           앱 안 어딘가에 <strong>「성경 본문 — 개역개정, 대한성서공회」 표기</strong>를 넣어 둔다(NIV 표기와 같은 자리).</td></tr>
