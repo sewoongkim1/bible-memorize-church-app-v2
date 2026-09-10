@@ -235,6 +235,7 @@ test('admin DOM: authenticate, search, school transfer, preview, conflict, retry
     calls.push({ action, body });
     if (action === 'authCheck') return { ok: true };
     if (action === 'adminFindMembers') return { ok: true, users: [user], more: false };
+    if (action === 'adminPreviewMemberMerge') throw Error('merge-target-missing');
     if (action === 'adminMemberHistory') return { ok: true, history: [{ created_at: user.created_at, before_profile: user, after_profile: user, reason: '<img src=x onerror=alert(1)>' }] };
     if (action === 'adminUpdateMember') {
       if (failSave) throw Error('identity-conflict');
@@ -257,7 +258,7 @@ test('admin DOM: authenticate, search, school transfer, preview, conflict, retry
   assert.match(doc.getElementById('after').textContent, /청년부/);
   assert.equal(calls.filter(c => c.action === 'adminUpdateMember').length, 0);
   doc.getElementById('save-button').click(); await tick();
-  assert.match(doc.getElementById('edit-status').textContent, /다른 성도/);
+  assert.match(doc.getElementById('edit-status').textContent, /다시 검색/);
   failSave = false; doc.getElementById('save-button').click(); await tick();
   assert.match(doc.getElementById('edit-status').textContent, /유지됩니다/);
   const sent = calls.find(c => c.action === 'adminUpdateMember').body;
