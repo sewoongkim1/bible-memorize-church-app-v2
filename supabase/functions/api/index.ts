@@ -184,6 +184,15 @@ Deno.serve(async (req) => {
       case "eventStatus":   return json(await eventStatus(body));
       case "eventBoard":    return json(await eventBoard(body));
       case "eventEntrants": return json(await eventEntrants(body));
+      // ---- 이벤트 플랫폼 (분기 회차 · 2026-09-10) ----
+      //  ⚠️ 바로 위 event* 넷(eventEnter/Status/Board/Entrants)은 옛 「말씀 이벤트」
+      //     (퀴즈형, app_config('event') + event_entries)다. 이름이 비슷하지만
+      //     표도 흐름도 다르다 — 섞지 말 것.
+      case "eventOpenList": return json(await eventOpenList(body));
+      case "eventSignup":   return json(await eventSignup(body));
+      case "eventDrop":     return json(await eventDrop(body));
+      case "eventRoster":   return json(await eventRoster(body));
+      case "eventSave":     return json(await eventSave(body));
       // ---- 성경필사 노트 신청 ----
       case "pilsaMine":      return json(await pilsaMine(body));
       case "pilsaApply":     return json(await pilsaApply(body));
@@ -3882,4 +3891,315 @@ async function ministryNotify(row: any) {
     url: "https://gocheok.onlybible.kr/",
   });
   return await pushToSubs(list, payload, "ministry", "사역 임명확정");
+}
+
+// ============================================================
+// 이벤트 플랫폼 (분기 회차) — 2026-09-10
+//   설계: docs/superpowers/specs/2026-09-10-event-platform-design.html
+//   계획: docs/superpowers/plans/2026-09-10-event-platform.md
+//
+//   ⚠️ 위쪽 eventEnter/eventStatus/eventBoard/eventEntrants 는 옛 「말씀 이벤트」
+//      (퀴즈형, app_config('event') + event_entries)다. 이 블록과 무관하다.
+//
+//   참여는 앱 로그인으로만 받는다 — user_id 가 신원의 전부이고, 「회차당 한 번」은
+//   event_signups 의 unique 제약이 지킨다(서버가 중복을 검사하지 않는다).
+//   노출은 설정 키가 아니라 데이터가 결정한다 — 열린 회차가 없으면 목록이 비어 있다.
+// ============================================================
+
+const EVT_STATUS = ["draft", "open", "closed", "archived"];
+const EVT_KINDS = ["signup", "quiz"];
+// 회차 id — URL(?ev=)에 그대로 쓰이므로 좁게 묶는다. js/events.js 와 같은 모양.
+const EVT_ID_RE = /^[a-z0-9][a-z0-9-]{1,40}$/;
+const EVT_MEMO_MAX = 300;
+
+// ⚠️ 직분 기본값을 사역신청 기록에서도 찾을 것인가 — 「자기 기록을 자기에게 보여주는
+//    것」이라 켜 두었다(설계 질문 2). 안 된다고 결정되면 이 한 줄을 false 로.
+//    전화번호는 어느 쪽이든 가져오지 않는다 — privacy/ 가 용도를 한정해 적어 두었다.
+const EVT_POSITION_FROM_MINISTRY = true;
+
+// KST 오늘(YYYY-MM-DD). ymd(new Date())는 UTC라 자정 무렵 하루가 어긋난다.
+const evtToday = () =>
+  new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+
+// 지금 등록을 받는가 — 상태와 날짜를 함께 본다(기간 판정을 서버가 한다)
+function evtOpenNow(ev: any, today: string): boolean {
+  return ev.status === "open" && today >= ev.opens_on && today <= ev.closes_on;
+}
+
+// 성도에게 돌려줄 참가 기록 한 줄 — 화이트리스트.
+// ⚠️ 스프레드(...r)를 쓰지 않는다. user_id · ident_key · note · 신원 스냅샷이
+//    구조적으로 빠진다(앱은 이미 자기가 누구인지 안다).
+function evtRow(r: any) {
+  return {
+    id: r.id,
+    eventId: r.event_id,
+    position: r.position ?? "",
+    phone: r.phone ?? "",
+    memo: r.memo ?? "",
+    answers: r.answers ?? {},
+    at: r.created_at,
+  };
+}
+
+// 직분 기본값 ① 이 사람의 가장 최근 이벤트 직분(created_at desc 로 받아 온 목록)
+function evtPositionHint(mine: any[]): string {
+  for (const r of mine) {
+    const p = norm(r.position);
+    if (p && MIN_POSITIONS.has(p)) return p;
+  }
+  return "";
+}
+
+// 직분 기본값 ② 사역신청 기록. 없거나 목록에 없는 값이면 빈 문자열 —
+// ⚠️ 추측해서 채우지 않는다. 틀린 직분이 미리 찍혀 있으면 그대로 내시는 분이 생긴다.
+async function evtPositionFromMinistry(userId: string): Promise<string> {
+  if (!EVT_POSITION_FROM_MINISTRY) return "";
+  try {
+    const { data } = await db.from("ministry_orders")
+      .select("position,created_at").eq("user_id", userId)
+      .order("created_at", { ascending: false }).limit(1);
+    const p = norm(((data ?? [])[0] ?? {}).position);
+    return MIN_POSITIONS.has(p) ? p : "";
+  } catch (_) {
+    return "";   // 사역신청 표가 없는 DB 에서도 이벤트가 죽지 않는다
+  }
+}
+
+// ---------- eventOpenList: 보여 줄 회차 + 내가 낸 것 + 직분 기본값 ----------
+async function eventOpenList(b: any) {
+  const userId = String(b.user_id ?? "").trim();
+  const today = evtToday();
+  // draft 는 관리자 비번이 맞을 때만 — b.preview 같은 깃발을 쓰지 않는다.
+  // (사역신청이 열어 둔 `|| b.preview` 는 서버가 확인할 수 없는 값이라 복사하지 않는다.)
+  const isAdmin = adminError(b) === null;
+  const statuses = isAdmin ? ["draft", "open", "closed"] : ["open", "closed"];
+
+  const { data, error } = await db.from("events").select("*").in("status", statuses);
+  if (error) throw error;
+  const rows = (data ?? []) as any[];
+
+  let mine: any[] = [];
+  let hint = "";
+  if (userId) {
+    const { data: ms, error: merr } = await db.from("event_signups")
+      .select("*").eq("user_id", userId).order("created_at", { ascending: false });
+    if (merr) throw merr;
+    mine = (ms ?? []) as any[];
+    hint = evtPositionHint(mine) || await evtPositionFromMinistry(userId);
+  }
+  const mineIds = new Set(mine.map((r) => r.event_id));
+
+  const list = rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    subtitle: r.subtitle ?? "",
+    season: r.season ?? "",
+    kind: r.kind,
+    opensOn: r.opens_on,
+    closesOn: r.closes_on,
+    status: r.status,
+    needs: r.needs ?? {},
+    copy: r.copy ?? {},
+    canSignup: evtOpenNow(r, today),
+    mine: mineIds.has(r.id),
+    sortOrder: r.sort_order ?? 0,
+  }));
+
+  // 겹칠 때 무엇이 위로 오는지가 곧 「무엇을 먼저 하세요」다.
+  //   ① 등록할 수 있고 아직 안 낸 것 ② 마감 가까운 순 ③ sort_order ④ id
+  list.sort((x, y) => {
+    const px = (x.canSignup && !x.mine) ? 0 : 1;
+    const py = (y.canSignup && !y.mine) ? 0 : 1;
+    if (px !== py) return px - py;
+    if (x.closesOn !== y.closesOn) return x.closesOn < y.closesOn ? -1 : 1;
+    if (x.sortOrder !== y.sortOrder) return x.sortOrder - y.sortOrder;
+    return x.id < y.id ? -1 : 1;
+  });
+
+  return { ok: true, events: list, mine: mine.map(evtRow), positionHint: hint };
+}
+
+// ---------- eventSignup: 등록 / 고치기(덮어쓰기) ----------
+async function eventSignup(b: any) {
+  const userId = String(b.user_id ?? "").trim();
+  if (!userId) return { ok: false, error: "no-user" };
+  const eventId = norm(b.event_id);
+  if (!EVT_ID_RE.test(eventId)) return { ok: false, error: "bad-args" };
+
+  const { data: ev, error: eerr } = await db.from("events")
+    .select("*").eq("id", eventId).maybeSingle();
+  if (eerr) throw eerr;
+  if (!ev) return { ok: false, error: "not-found" };
+
+  const isAdmin = adminError(b) === null;
+  if (!evtOpenNow(ev, evtToday()) && !isAdmin) {
+    // 「아직 안 열렸다」와 「마감했다」를 뭉개지 않는다 — 성도에게 할 말이 다르다.
+    return { ok: false, error: ev.status === "open" ? "closed-period" : "not-open" };
+  }
+
+  // 이름·소속은 앱이 보낸 값을 믿지 않고 users 에서 가져온다.
+  const { data: u, error: uerr } = await db.from("users")
+    .select("type,gu,mok,bu,grade,name").eq("id", userId).maybeSingle();
+  if (uerr) throw uerr;
+  if (!u) return { ok: false, error: "no-user" };
+
+  const needs = (ev.needs ?? {}) as any;
+  const isGu = u.type === "교구";
+
+  let position = "";
+  if (needs.position) {
+    position = norm(b.position);
+    // 서버에서 allowlist 로 다시 거른다 — 자유 입력이면 표기가 섞여 교적 대조가
+    // 도로 사람 손일이 된다(사역신청과 같은 이유·같은 목록).
+    if (!MIN_POSITIONS.has(position)) return { ok: false, error: "bad-position" };
+  }
+  let phone = "";
+  if (needs.phone) {
+    phone = pilsaPhone(b.phone);
+    if (!PILSA_PHONE_RE.test(phone)) return { ok: false, error: "bad-phone" };
+  }
+  const memo = needs.memo ? norm(b.memo).slice(0, EVT_MEMO_MAX) : "";
+  const answers = (b.answers && typeof b.answers === "object" && !Array.isArray(b.answers))
+    ? b.answers : {};
+
+  const row = {
+    event_id: eventId,
+    user_id: userId,
+    ident_key: identityKey(u),
+    who_type: u.type,
+    group_name: isGu ? norm(u.gu) : norm(u.bu),
+    sub_name: isGu ? norm(u.mok) : norm(u.grade),
+    name: norm(u.name),
+    position,
+    phone,
+    memo,
+    answers,
+    source: "app",
+    updated_at: new Date().toISOString(),
+  };
+
+  // 두 번째 제출은 실패가 아니라 덮어쓰기다 — 「이벤트당 한 번」은 unique 가 지킨다.
+  // ⚠️ onConflict 는 event_signups_uniq(일반 unique)를 추론한다. 부분 인덱스로
+  //    두면 여기서 "no unique or exclusion constraint matching" 오류가 난다.
+  const { data, error } = await db.from("event_signups")
+    .upsert(row, { onConflict: "event_id,user_id" }).select().maybeSingle();
+  if (error) throw error;
+  return { ok: true, signup: evtRow(data) };
+}
+
+// ---------- eventDrop: 취소 = 행 삭제 ----------
+async function eventDrop(b: any) {
+  const userId = String(b.user_id ?? "").trim();
+  const id = Number(b.id);
+  if (!userId || !Number.isFinite(id)) return { ok: false, error: "bad-args" };
+
+  // ⚠️ 순번 id 만으로 지우지 않는다 — 짐작 가능하다. 소유자 조건을 함께 건다.
+  const { data: row, error: rerr } = await db.from("event_signups")
+    .select("id,event_id").eq("id", id).eq("user_id", userId).maybeSingle();
+  if (rerr) throw rerr;
+  if (!row) return { ok: false, error: "not-found" };
+
+  const { data: ev } = await db.from("events")
+    .select("status,opens_on,closes_on").eq("id", row.event_id).maybeSingle();
+  if (!(ev && evtOpenNow(ev, evtToday())) && adminError(b) !== null) {
+    return { ok: false, error: "closed-period" };
+  }
+
+  const { error } = await db.from("event_signups")
+    .delete().eq("id", id).eq("user_id", userId);
+  if (error) throw error;
+  return { ok: true };
+}
+
+// ---------- eventRoster: 관리자 명단 (이름·소속·직분·전화번호가 실리는 유일한 자리) ----------
+async function eventRoster(b: any) {
+  const err = adminError(b);
+  if (err) return { ok: false, error: err };
+
+  const { data: evs, error: e1 } = await db.from("events")
+    .select("id,title,season,status,opens_on,closes_on,sort_order")
+    .order("closes_on", { ascending: false });
+  if (e1) throw e1;
+
+  // 회차 칩에 적을 건수는 **추리기 전 전체 기준**이어야 한다(필사·사역과 같은 규약).
+  const counts: Record<string, number> = {};
+  const { data: all, error: e2 } = await db.from("event_signups")
+    .select("event_id").limit(20000);
+  if (e2) throw e2;
+  (all ?? []).forEach((r: any) => {
+    counts[r.event_id] = (counts[r.event_id] ?? 0) + 1;
+  });
+
+  const eventId = norm(b.event_id);
+  let q = db.from("event_signups").select("*")
+    .order("created_at", { ascending: false }).limit(2000);
+  if (eventId) q = q.eq("event_id", eventId);
+  const { data, error } = await q;
+  if (error) throw error;
+
+  return {
+    ok: true,
+    events: (evs ?? []).map((e: any) => ({
+      id: e.id, title: e.title, season: e.season ?? "", status: e.status,
+      opensOn: e.opens_on, closesOn: e.closes_on, count: counts[e.id] ?? 0,
+    })),
+    rows: (data ?? []).map((r: any) => ({
+      id: r.id,
+      eventId: r.event_id,
+      name: r.name,
+      whoType: r.who_type,
+      group: r.group_name,
+      sub: r.sub_name ?? "",
+      position: r.position ?? "",
+      phone: r.phone ?? "",
+      memo: r.memo ?? "",
+      note: r.note ?? "",
+      source: r.source,
+      at: r.created_at,
+      // ⚠️ user_id 자체는 싣지 않는다. 「앱에서 낸 것인가」만 알려 준다.
+      hasUser: !!r.user_id,
+    })),
+  };
+}
+
+// ---------- eventSave: 관리자 회차 만들기 / 고치기 ----------
+async function eventSave(b: any) {
+  const err = adminError(b);
+  if (err) return { ok: false, error: err };
+
+  const e = (b.event ?? {}) as any;
+  const id = norm(e.id);
+  if (!EVT_ID_RE.test(id)) return { ok: false, error: "bad-event-id" };
+  const title = norm(e.title);
+  if (!title) return { ok: false, error: "no-title" };
+
+  const opens = norm(e.opens_on);
+  const closes = norm(e.closes_on);
+  const dateOk = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
+  if (!dateOk(opens) || !dateOk(closes)) return { ok: false, error: "bad-period" };
+  if (closes < opens) return { ok: false, error: "period-reversed" };
+
+  const status = EVT_STATUS.indexOf(norm(e.status)) >= 0 ? norm(e.status) : "draft";
+  const kind = EVT_KINDS.indexOf(norm(e.kind)) >= 0 ? norm(e.kind) : "signup";
+  const objOf = (v: any) => (v && typeof v === "object" && !Array.isArray(v)) ? v : {};
+
+  const row = {
+    id,
+    title,
+    subtitle: norm(e.subtitle),
+    season: norm(e.season),
+    kind,
+    opens_on: opens,
+    closes_on: closes,
+    status,
+    needs: objOf(e.needs),
+    copy: objOf(e.copy),
+    sort_order: Number(e.sort_order) || 0,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data, error } = await db.from("events")
+    .upsert(row, { onConflict: "id" }).select().maybeSingle();
+  if (error) throw error;
+  return { ok: true, event: data };
 }
