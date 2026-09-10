@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260910o";
+const APP_BUILD = "20260910p";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -472,6 +472,7 @@ async function syncProgress() {
     saveSyncStatus("checking", "서버 기록을 확인하고 있습니다.");
     const data = await api.login({
       type: u.type, gu: u.gu, mok: u.mok, bu: u.bu, grade: u.grade, name: u.name,
+      previous_user_id: u.user_id,
     });
     // 동기화 중 공용 기기의 사용자가 바뀌었다면 이전 사람의 응답을 적용하지 않는다.
     if (JSON.stringify(loadUser()) !== JSON.stringify(u)) return false;
@@ -518,9 +519,23 @@ function applyServerUser(previous, data) {
   }
   const changed = fields.some(k => (previous[k] || "") !== (next[k] || ""));
   // 사용자 번호가 다른 경우에는 다른 사람의 로컬 기록을 이전하지 않는다.
-  const carry = changed && (!previous.user_id || previous.user_id === data.user_id);
+  const carry = (changed || previous.user_id !== data.user_id) &&
+    (!previous.user_id || previous.user_id === data.user_id || data.merged_from === previous.user_id);
   const local = carry ? [loadProgress("ko"), loadProgress("en")] : null;
   const blessing = carry ? localStorage.getItem(blessKey()) : null;
+  // 사용자 번호가 바뀌는 병합에서는 긴 본문의 서버/양쪽 기기 진도도 합친다.
+  let mergedPassages = null;
+  if (previous.user_id && previous.user_id !== data.user_id && data.merged_from === previous.user_id) {
+    const getPassages = id => { try { return JSON.parse(localStorage.getItem("memorize-passage::" + id) || "{}"); } catch { return {}; } };
+    mergedPassages = getPassages(data.user_id);
+    const mergePassage = (id, record) => {
+      const existing = mergedPassages[id] || {};
+      mergedPassages[id] = { done: [...new Set([...(existing.done || []), ...(record.done || [])])].sort((a,b) => a-b),
+        completed: !!(existing.completed || record.completed), t: Date.now() };
+    };
+    Object.entries(getPassages(previous.user_id)).forEach(([id, record]) => mergePassage(id, record));
+    (data.merged_passage_progress || []).forEach(r => mergePassage(r.passage_id, { done: r.done_seq, completed: !!r.completed_at }));
+  }
   saveUser(next);
   if (local) {
     ["ko", "en"].forEach((lang, i) => {
@@ -532,6 +547,7 @@ function applyServerUser(previous, data) {
     });
     if (blessing !== null) localStorage.setItem(blessKey(), blessing);
   }
+  if (mergedPassages) localStorage.setItem("memorize-passage::" + data.user_id, JSON.stringify(mergedPassages));
   // 복습·마음에 둠은 이어지는 동기화에서 서버 자료로 복원한다.
   return changed;
 }

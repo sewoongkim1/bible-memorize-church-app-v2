@@ -17,6 +17,7 @@
     .notice{padding:12px 15px;border-radius:9px;background:#f0f4fa;color:#354b6c}.status{white-space:pre-line;overflow-wrap:anywhere}.error{color:#aa2f27}.success{color:#22633d}
     .comparison{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}.comparison div{background:#f3f5f8;border-radius:9px;padding:14px;overflow-wrap:anywhere}
     .history-item{border-top:1px solid var(--line);padding:14px 0;overflow-wrap:anywhere}fieldset{border:0;padding:0;margin:0;min-width:0}
+    .merge-check{display:flex;align-items:flex-start;gap:10px;margin:18px 0}.merge-check input{width:22px;height:22px;flex:none;margin:3px 0}#merge-panel{border:2px solid #cbd8eb;border-radius:12px;padding:18px;margin-top:20px}.record-counts{white-space:pre-line;font-size:14px}
     [hidden]{display:none!important}button:focus-visible,a:focus-visible{outline:3px solid #5286d5;outline-offset:3px}
     @media(max-width:560px){header{align-items:flex-start;flex-direction:column}.grid,.comparison{grid-template-columns:1fr}section{padding:17px}.row{flex-wrap:wrap}.member{align-items:flex-start}h1{font-size:23px}}
   </style>
@@ -50,8 +51,16 @@
       </fieldset></form>
       <div id="confirmation" hidden><h3>이 성도님의 정보를 변경할까요?</h3><div class="comparison"><div><strong>변경 전</strong><p id="before"></p></div><div><strong>변경 후</strong><p id="after"></p></div></div><p id="confirm-reason"></p><button id="save-button">확인하고 저장</button> <button id="back-button" class="secondary">다시 수정</button></div>
       <p id="edit-status" class="status" role="status"></p>
+      <div id="merge-panel" hidden>
+        <h3>이미 사용 중인 정보에 기록 합치기</h3>
+        <p>새 소속으로 이미 사용한 기록이 있습니다. 두 정보가 같은 성도님인지 확인해 주세요.</p>
+        <div class="comparison"><div><strong>이전 정보 · 가져올 기록</strong><p id="merge-source"></p><p id="merge-source-counts" class="record-counts"></p></div><div><strong>유지할 현재 정보</strong><p id="merge-target"></p><p id="merge-target-counts" class="record-counts"></p></div></div>
+        <p class="notice">암송·도전 기록은 양쪽 모두 보존하고, 같은 구절의 진도는 더 높은 단계를 유지합니다. 기존 기기도 같은 기록으로 연결됩니다.<br>합친 뒤에는 화면에서 다시 두 사람으로 나눌 수 없습니다. 서로 다른 성도님의 기록은 합치지 마세요.</p>
+        <label class="merge-check"><input id="merge-same-person" type="checkbox"><span>두 정보가 같은 성도님의 것임을 확인했습니다.</span></label>
+        <button id="merge-save" disabled>같은 성도 확인 후 기록 합치기</button> <button id="merge-cancel" class="secondary">취소하고 다시 수정</button>
+      </div>
       <h3>최근 변경 이력 · 최대 20건</h3><div id="history" aria-live="polite"></div>
     </section>
   </div>
-</main><script src="js/config.js"></script><script src="js/api.js"></script><script src="js/admin-members.js"></script></body>
+</main><script src="js/config.js"></script><script src="js/api.js"></script><script src="js/admin-members.js?v=merge1"></script></body>
 </html>

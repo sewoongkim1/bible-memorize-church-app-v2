@@ -97,6 +97,17 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
     const body = await req.json();
+    // 병합 전에 접속한 기기도 같은 사용자로 조회/저장한다. 관리자 대상은 자동 변경하지 않는다.
+    if (!String(body.action || "").startsWith("admin")) {
+      for (const field of ["user_id", "me"]) {
+        if (typeof body[field] === "string" && /^[0-9a-f-]{36}$/i.test(body[field])) {
+          const { data, error } = await db.from("user_merges").select("target_user_id")
+            .eq("source_user_id", body[field]).maybeSingle();
+          if (error) throw error;
+          if (data) body[field] = data.target_user_id;
+        }
+      }
+    }
     switch (body.action) {
       case "authCheck": {   // 관리자 비번 검증(허브 로그인용)
         const e = adminError(body);
@@ -119,6 +130,8 @@ Deno.serve(async (req) => {
       case "adminFindMembers": return json(await adminFindMembers(body));
       case "adminUpdateMember": return json(await adminUpdateMember(body));
       case "adminMemberHistory": return json(await adminMemberHistory(body));
+      case "adminPreviewMemberMerge": return json(await adminPreviewMemberMerge(body));
+      case "adminMergeMembers": return json(await adminMergeMembers(body));
       case "verses":        return json(await verseStats(body));
       case "blessingUsage": return json(await blessingUsage(body));
       // ---- 조회(MCP 학습용) ----
@@ -1348,6 +1361,38 @@ async function sermonChatLog(b: any) {
 }
 
 // ---------- 관리자 사용자 정보 변경 ----------
+async function adminPreviewMemberMerge(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(b.user_id || "") ||
+      typeof b.expected_key !== "string" || !b.expected_key || !b.profile)
+    return { ok: false, error: "invalid-member" };
+  const p = b.profile, type = norm(p.type);
+  const profile = { type, name: norm(p.name),
+    gu: type === "교구" ? norm(p.gu) : null, mok: type === "교구" ? norm(p.mok) : null,
+    bu: type === "교회학교" ? norm(p.bu) : null, grade: type === "교회학교" ? norm(p.grade) : null };
+  const { data, error } = await db.rpc("admin_preview_member_merge", {
+    p_source_id: b.user_id, p_source_key: b.expected_key, p_target_key: identityKey(profile),
+  });
+  if (error) throw error;
+  return data;
+}
+
+async function adminMergeMembers(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (b.confirm_same_person !== true || !uuid.test(b.source_id || "") || !uuid.test(b.target_id || "") ||
+      b.source_id === b.target_id || typeof b.source_key !== "string" || typeof b.target_key !== "string" ||
+      !norm(b.reason) || norm(b.reason).length > 300)
+    return { ok: false, error: "invalid-merge" };
+  const { data, error } = await db.rpc("admin_merge_members", {
+    p_source_id: b.source_id, p_target_id: b.target_id, p_source_key: b.source_key,
+    p_target_key: b.target_key, p_reason: norm(b.reason),
+  });
+  if (error?.code === "23505") return { ok: false, error: "merge-record-conflict" };
+  if (error) throw error;
+  return data;
+}
+
 async function adminFindMembers(b: any) {
   const err = adminError(b); if (err) return { ok: false, error: err };
   const q = norm(b.query);
@@ -1441,7 +1486,22 @@ async function login(b: any) {
   });
   // 마음에 둠은 구절 단위 — 어느 언어에서 체크했든 하나로 본다
   const hearted = [...new Set((prog ?? []).filter((r: any) => r.hearted).map((r: any) => r.verse_no))];
-  return { ok: true, user_id: user.id, user, progress, progressEn, hearted, reviews: revs ?? [] };
+  // 서버가 확인한 병합에 한해서만 클라이언트가 옛 번호의 로컬 진도를 이전한다.
+  let mergedFrom: string | null = null;
+  let mergedPassageProgress: any[] = [];
+  if (typeof b.previous_user_id === "string" && /^[0-9a-f-]{36}$/i.test(b.previous_user_id) && b.previous_user_id !== user.id) {
+    const { data, error } = await db.from("user_merges").select("source_user_id")
+      .eq("source_user_id", b.previous_user_id).eq("target_user_id", user.id).maybeSingle();
+    if (error) throw error;
+    if (data) mergedFrom = data.source_user_id;
+  }
+  if (mergedFrom) {
+    const { data, error } = await db.from("passage_progress").select("passage_id,done_seq,completed_at,updated_at").eq("user_id", user.id);
+    if (error) throw error;
+    mergedPassageProgress = data ?? [];
+  }
+  return { ok: true, user_id: user.id, user, progress, progressEn, hearted, reviews: revs ?? [],
+    merged_from: mergedFrom, merged_passage_progress: mergedPassageProgress };
 }
 
 // ---------- app_config: 관리자가 배포 없이 편집하는 설정(키-값) ----------
