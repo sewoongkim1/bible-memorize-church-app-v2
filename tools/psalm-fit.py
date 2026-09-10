@@ -173,11 +173,19 @@ def read_existing_no_ref(path):
 
 def build_sql(filled):
     d0 = START_DATE
+    # ⚠️ app_config 의 totalDays 는 **실제로 심는 편수**다. 계획상의 180 이 아니다.
+    #    구절이 10편뿐인데 180 을 적으면 화면에 「10일차 · 전체 180편」이 뜬 채
+    #    열하루째부터 새 말씀이 안 열린다 — 성도님께는 고장으로 보인다.
+    #    「10일차 · 전체 10편」이면 다 마치신 것이 되고, 구절을 더하면 이 값이 함께 는다.
+    n_days = len(filled)
     lines = [
         "-- 시편 말씀 액자 — 표 확장 + 구절 시드",
         f"-- tools/psalm-fit.py 가 만든 파일이다. 손으로 고치지 말고 엑셀을 고쳐 다시 돌린다.",
         f"-- 만든 날 {dt.date.today():%Y-%m-%d} · 구절 {len(filled)}편 · "
-        f"1일차 {d0:%Y-%m-%d}({WEEKDAY[d0.weekday()]})",
+        f"1일차 {d0:%Y-%m-%d}({WEEKDAY[d0.weekday()]}) · 마지막 {(d0 + dt.timedelta(days=n_days - 1)):%Y-%m-%d}",
+        f"-- ⚠️ app_config 의 totalDays = {n_days} (심는 편수 그대로). 계획상의 {TOTAL_DAYS} 가 아니다 —",
+        f"--    구절보다 큰 수를 적으면 열{n_days}일째부터 「{n_days+1}일차」인데 {n_days}일차 말씀이 뜬다.",
+        "--    구절을 더해 이 파일을 다시 만들면 이 값도 함께 는다.",
         "--",
         "-- ⚠️ 개발 DB(ktpwthwqzgcqcrmsafdo)에서 먼저 돌린 뒤 운영(xnomlgydifiqiybervtf).",
         "-- ⚠️ 순서(함수 vs SQL): **이 기능은 함수(Edge Function)가 먼저, SQL이 나중이다.**",
@@ -208,7 +216,7 @@ def build_sql(filled):
         "-- ② 시작일 ----------------------------------------------------------",
         "-- ⚠️ app_config.value 는 jsonb 다. ministry 설정과 같이 키 하나에 객체를 담는다.",
         "insert into public.app_config (key, value)",
-        f"""  values ('psalm', '{{"start":"{d0:%Y-%m-%d}","totalDays":{TOTAL_DAYS}}}'::jsonb)""",
+        f"""  values ('psalm', '{{"start":"{d0:%Y-%m-%d}","totalDays":{n_days}}}'::jsonb)""",
         "  on conflict (key) do update set value = excluded.value, updated_at = now();",
         "",
         "-- ③ 구절 --------------------------------------------------------------",
@@ -236,7 +244,7 @@ def build_sql(filled):
         "  from public.verses group by track order by track;",
         "",
         "-- 오늘 몇 편이 열려 있어야 하는가(서버가 계산하는 것과 같은 식)",
-        f"select greatest(0, least({TOTAL_DAYS},",
+        f"select greatest(0, least({n_days},",
         f"       ((now() at time zone 'Asia/Seoul')::date - date '{d0:%Y-%m-%d}') + 1)) as 오늘_열린_편수;",
         "",
         "-- ⑤ ⚠️ 아래는 **새 Edge Function 배포를 확인한 뒤에만** 돌린다.",

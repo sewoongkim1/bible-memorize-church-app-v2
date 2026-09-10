@@ -1,6 +1,9 @@
 -- 시편 말씀 액자 — 표 확장 + 구절 시드
 -- tools/psalm-fit.py 가 만든 파일이다. 손으로 고치지 말고 엑셀을 고쳐 다시 돌린다.
--- 만든 날 2026-09-10 · 구절 10편 · 1일차 2026-09-21(월)
+-- 만든 날 2026-09-10 · 구절 10편 · 1일차 2026-09-21(월) · 마지막 2026-09-30
+-- ⚠️ app_config 의 totalDays = 10 (심는 편수 그대로). 계획상의 180 가 아니다 —
+--    구절보다 큰 수를 적으면 열10일째부터 「11일차」인데 10일차 말씀이 뜬다.
+--    구절을 더해 이 파일을 다시 만들면 이 값도 함께 는다.
 --
 -- ⚠️ 개발 DB(ktpwthwqzgcqcrmsafdo)에서 먼저 돌린 뒤 운영(xnomlgydifiqiybervtf).
 -- ⚠️ 순서(함수 vs SQL): **이 기능은 함수(Edge Function)가 먼저, SQL이 나중이다.**
@@ -31,7 +34,7 @@ update public.verses set track = 'weekly' where track is null;
 -- ② 시작일 ----------------------------------------------------------
 -- ⚠️ app_config.value 는 jsonb 다. ministry 설정과 같이 키 하나에 객체를 담는다.
 insert into public.app_config (key, value)
-  values ('psalm', '{"start":"2026-09-21","totalDays":180}'::jsonb)
+  values ('psalm', '{"start":"2026-09-21","totalDays":10}'::jsonb)
   on conflict (key) do update set value = excluded.value, updated_at = now();
 
 -- ③ 구절 --------------------------------------------------------------
@@ -42,7 +45,7 @@ values
   (1003, 'psalm', 3, 3, '시 1:3', '시 1:3', '시편 1편 3절', '그는 시냇가에 심은 나무가 철을 따라 열매를 맺으며 그 잎사귀가 마르지 아니함 같으니 그가 하는 모든 일이 다 형통하리로다', null, false),
   (1004, 'psalm', 4, 4, '시 3:3', '시 3:3', '시편 3편 3절', '여호와여 주는 나의 방패시요 나의 영광이시요 나의 머리를 드시는 자이시니이다', null, false),
   (1005, 'psalm', 5, 5, '시 3:6', '시 3:6', '시편 3편 6절', '천만인이 나를 에워싸 진 친다 하여도 나는 두려워하지 아니하리이다', null, false),
-  (1006, 'psalm', 6, 6, '시 3:7', '시 3:7', '시편 3편 7절', '주께서 내 마음에 두신 기쁨은 그들의 곡식과 새 포도주가 풍성할 때보다 더하니이다', null, false),
+  (1006, 'psalm', 6, 6, '시 4:7', '시 4:7', '시편 4편 7절', '주께서 내 마음에 두신 기쁨은 그들의 곡식과 새 포도주가 풍성할 때보다 더하니이다', null, false),
   (1007, 'psalm', 7, 7, '시 5:12', '시 5:12', '시편 5편 12절', '여호와여 주는 의인에게 복을 주시고 방패로 함 같이 은혜로 그를 호위하시리이다', null, false),
   (1008, 'psalm', 8, 8, '시 7:17', '시 7:17', '시편 7편 17절', '내가 여호와께 그의 의를 따라 감사함이여 지존하신 여호와의 이름을 찬양하리로다', null, false),
   (1009, 'psalm', 9, 9, '시 8:1', '시 8:1', '시편 8편 1절', '여호와 우리 주여 주의 이름이 온 땅에 어찌 그리 아름다운지요', null, false),
@@ -59,7 +62,7 @@ select track, count(*) as 편수, min(no) as 첫번호, max(no) as 끝번호,
   from public.verses group by track order by track;
 
 -- 오늘 몇 편이 열려 있어야 하는가(서버가 계산하는 것과 같은 식)
-select greatest(0, least(180,
+select greatest(0, least(10,
        ((now() at time zone 'Asia/Seoul')::date - date '2026-09-21') + 1)) as 오늘_열린_편수;
 
 -- ⑤ ⚠️ 아래는 **새 Edge Function 배포를 확인한 뒤에만** 돌린다.
