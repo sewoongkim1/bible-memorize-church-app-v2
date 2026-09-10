@@ -661,13 +661,9 @@ async function psalmConfig(): Promise<{ start: string; totalDays: number }> {
   } catch { return PSALM_DEFAULT; }
 }
 
-// KST 오늘(YYYY-MM-DD). 서버는 UTC로 도니 +9시간을 더해 자른다.
-function psalmKstToday(): string {
-  return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
-}
-
 function psalmOpenCount(cfg: { start: string; totalDays: number }): number {
-  const t = Date.parse(psalmKstToday() + "T00:00:00Z");
+  // KST 오늘(YYYY-MM-DD) — 기존 kstDay(iso) 와 계산이 같다(둘 다 +9시간 뒤 날짜만 자른다).
+  const t = Date.parse(kstDay(new Date().toISOString()) + "T00:00:00Z");
   const s = Date.parse(cfg.start + "T00:00:00Z");
   if (!Number.isFinite(t) || !Number.isFinite(s)) return 0;
   const days = Math.floor((t - s) / 86400000) + 1;

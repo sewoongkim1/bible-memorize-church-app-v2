@@ -19,6 +19,9 @@ insert into public.app_config (key, value)
 
 -- ③ 개발 씨앗 20편 -----------------------------------------------------
 -- 길이 잣대(글자수+낱말수 ≤ 76)를 통과하는 주간 구절만 골라 복제한다.
+-- ⚠️ 상한만 걸고 하한은 일부러 안 건다 — 짧은 구절도 섞여 들어와야 액자 글씨
+--    상한(34px) 클램프와 「짧으면 액자가 허전하다」를 개발 중에 눈으로 볼 수 있다.
+--    (리뷰에서 "하한 누락"으로 오해받은 적 있음 — 하한을 추가하지 말 것)
 with fit as (
   select v.no, v.ref, v.ref_short, v.ref_full, v.text,
          row_number() over (order by v.no) as n
