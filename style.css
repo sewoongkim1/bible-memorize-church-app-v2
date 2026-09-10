@@ -4469,6 +4469,39 @@ body.pr-full-on { overflow: hidden; }
 /* ── 필터 ──────────────────────────────────────────────────────
    ⚠️ 새 색을 만들지 않는다 — 켜진 칩만 남색(앱 안 기능 색), 꺼진 칩은 흰 바탕.
    ⚠️ 칩은 팀 단추보다 **한 단계 작게**. 같은 크기면 「이걸 눌러야 하나」가 흐려진다. */
+/* 「지금 섬기고 계신 사역」 — 필터보다 위. 이어서 섬기실 분에게는 목록보다 빠르다 */
+.min-serving { background: #f0f6f1; border: 1.5px solid #cfe3d4; border-radius: 12px;
+  padding: 11px 12px; margin-bottom: 10px; }
+.min-serving-t { font-size: .82rem; font-weight: 800; color: #2c5f2d; margin-bottom: 7px; }
+.min-serving-h { font-size: .76rem; color: #5d7a61; margin-top: 7px; }
+.min-serve { display: flex; align-items: center; gap: 10px; width: 100%; margin-top: 6px;
+  padding: 10px 12px; font: inherit; text-align: left; cursor: pointer;
+  background: var(--white); border: 1.5px solid #cfe3d4; border-radius: 10px; }
+.min-serve.on { border-color: var(--gold); background: #fffaf0; }
+.min-serve-n { flex: 1; min-width: 0; font-size: .92rem; font-weight: 700; color: #222; }
+.min-serve-a { flex: none; font-size: .78rem; font-weight: 800; color: #2c5f2d; }
+.min-serve.on .min-serve-a { color: #8a6a1e; }
+/* 택1 안내를 넘겨 고른 것 — 막지 않고 보이게만 한다 */
+.min-over { background: #fbf1d8; color: #7a5f1e; }
+.min-over b { color: #7a5f1e; }
+/* 이름으로 찾기 */
+.min-q { width: 100%; font: inherit; font-size: .9rem; padding: 9px 11px;
+  border: 1.5px solid var(--border); border-radius: 10px; background: var(--white); color: #222; }
+.dark .min-serving { background: #17311f; border-color: #2f5a42; }
+.dark .min-serving-t { color: #8fd6ab; } .dark .min-serving-h { color: #7fae90; }
+.dark .min-serve { background: #232c3f; border-color: #2f5a42; }
+.dark .min-serve-n { color: #e8ecf5; } .dark .min-serve-a { color: #8fd6ab; }
+.dark .min-q { background: #1b2233; border-color: #3a4a68; color: #e8ecf5; }
+.dark .min-over { background: #33301f; color: #e2c98a; }
+.dark .min-over b { color: #e2c98a; }
+
+/* 신청 시작 전 한 줄 예고 — 단추가 아니라 안내다(못 누르는 단추를 얹지 않는다) */
+.summary-soon { text-align: center; font-size: .88rem; color: var(--gray);
+  background: var(--light); border-radius: 12px; padding: 11px 12px; }
+.summary-soon b { color: var(--navy); }
+.dark .summary-soon { background: #1e2637; color: #b9c4d8; }
+.dark .summary-soon b { color: #cfe0ff; }
+
 .min-filter { background: var(--light); border-radius: 12px; padding: 10px 12px 12px; margin-bottom: 10px; }
 /* ⚠️ 이름표를 칩 **위**에 둔다. 왼쪽에 두면 「얼마나 자주」가 두 줄로 깨지고,
    폭이 좁은 폰일수록 칩이 쓸 자리를 이름표가 먹는다. */

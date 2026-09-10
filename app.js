@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260910b";
+const APP_BUILD = "20260910c";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -231,6 +231,16 @@ function refreshMinistryPeriod() {
     try { localStorage.setItem(MIN_PERIOD_KEY, JSON.stringify((d && d.value) || null)); } catch (e) {}
   }).catch(() => {});
 }
+// 기간 **전**이면 「12월 13일부터」를 돌려준다. 기간 중·후·설정 없음이면 빈 글자.
+// ⚠️ 마음의 준비를 하고 오시게 하려는 것이라, 시작 전에만 보인다.
+function ministrySoonText() {
+  const p = ministryPeriodCached();
+  if (!p || !p.open) return "";
+  const today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);  // KST
+  if (today >= p.open) return "";
+  return p.open.slice(5).replace("-", "월 ") + "일부터";
+}
+
 function ministryVisible() {
   if (location.search.indexOf("preview=ministry") >= 0) return true;   // 관리자 미리보기
   const p = ministryPeriodCached();
@@ -1857,7 +1867,13 @@ function renderSummary() {
     <button class="summary-help" id="open-board">💬 응원·기도·공감</button>
     <button class="summary-help" id="open-prayer">🙏 가정 축복 기도문${newBadge("prayer")}</button>
     <button class="summary-help" id="open-quiz">🎯 성경암송 퀴즈</button>
-    ${ministryVisible() ? `<button class="summary-help" id="open-ministry">🤝 사역신청${newBadge("ministry")}</button>` : ""}
+    ${ministryVisible()
+      ? `<button class="summary-help" id="open-ministry">🤝 사역신청${newBadge("ministry")}</button>`
+      : ministrySoonText()
+        // ⚠️ 누를 수 없는 단추가 아니라 **한 줄 안내**로 둔다. 첫 화면에서 누를 것을
+        //    24개→9개로 줄여 놓았는데, 못 누르는 단추를 얹으면 그만큼 도로 흐려진다.
+        ? `<div class="summary-soon">🤝 사역신청 <b>${ministrySoonText()}</b></div>`
+        : ""}
     <button class="summary-help" id="open-pilsa">✍️ 성경필사 노트 신청</button>
     ${passagesVisible() ? `<button class="summary-help" id="open-passages">📜 내 안에 거하는 말씀${newBadge("passages")}</button>` : ""}
     <!-- 아카이브 둘은 앱 밖(다른 사이트)으로 나간다. 그 사실이 보이게 ↗ 와 흰 바탕으로
@@ -8832,7 +8848,10 @@ const MIN_DAYS = [
 ];
 const MIN_FREQS = ["매주", "격주", "매달", "그때그때"];
 const MIN_BANDS = [
-  { k: "6-9",   t: "6~9",   a: 6,  b: 9 },
+  // ⚠️ 새벽기도가 **1부 5시 · 2부 6시**라 6시부터로 두면 1부가 통째로 빠진다
+  //    (성도님 확인 2026-09-10). 구간은 화면이 묶는 것이라 여기 한 줄만 고치면 된다 —
+  //    DB 는 시각 그대로 갖고 있어 부서에 다시 묻지 않았다.
+  { k: "5-9",   t: "5~9",   a: 5,  b: 9 },
   { k: "8-11",  t: "8~11",  a: 8,  b: 11 },
   { k: "10-13", t: "10~13", a: 10, b: 13 },
   { k: "12-14", t: "12~14", a: 12, b: 14 },
@@ -8842,7 +8861,12 @@ const MIN_BANDS = [
   { k: "none",  t: "때마다 다름", a: -1, b: -1 },
 ];
 let minF = { day: [], freq: [], band: [] };
-function minFOn() { return minF.day.length + minF.freq.length + minF.band.length > 0; }
+let minQ = "";            // 이름으로 찾기 — 필터와 같은 취급(켜지면 목록이 좁아진다)
+function minFOn() {
+  return minF.day.length + minF.freq.length + minF.band.length > 0 || !!minQ;
+}
+// 띄어쓰기·가운뎃점을 지우고 견준다 — 「오병이어 1팀」을 「오병이어1」로도 찾게
+function minNorm(v) { return String(v || "").replace(/[\s·・.]/g, "").toLowerCase(); }
 
 // 'HH:MM' → 시각(소수). 비었거나 모양이 틀리면 null = 「모름」
 function minHour(v) {
@@ -8862,6 +8886,11 @@ function minMatch(t) {
   if (minF.freq.length) {
     const f = t.freq || "그때그때";                 // 비어 있음 = 그때그때
     if (minF.freq.indexOf(f) < 0) return false;
+  }
+  if (minQ) {
+    const q = minNorm(minQ);
+    const hay = minNorm(t.team + " " + t.group + " " + t.committee);
+    if (hay.indexOf(q) < 0) return false;
   }
   if (minF.band.length) {
     const h = minHour(t.from);
@@ -9006,6 +9035,67 @@ function minShortOf(t) {
   }
   return "";
 }
+// 「어와나 4개 중 하나만 신청」 같은 묶음에서 둘 이상 고른 것을 찾는다.
+// ⚠️ **막지 않는다**(성도님 결정 2026-09-10) — 정말 둘 다 하실 분을 앱이 없애 버리고,
+//    담당자가 조정할 여지도 사라진다. 보이게만 하고 결정은 성도님과 담당자에게 남긴다.
+function minOverPicks() {
+  const list = (minCat && minCat.list) || [];
+  const by = {};
+  for (const t of list) {
+    if (!t.opt || !t.group) continue;
+    if (minPicked.indexOf(t.id) < 0 && minLockedIds.indexOf(t.id) < 0) continue;
+    const k = t.committee + "|" + t.group;
+    (by[k] = by[k] || { opt: t.opt, group: t.group, teams: [] }).teams.push(t.team);
+  }
+  return Object.keys(by).map(function (k) { return by[k]; })
+    .filter(function (g) { return g.teams.length > 1; });
+}
+function minOverHtml() {
+  const over = minOverPicks();
+  if (!over.length) return "";
+  return over.map(function (g) {
+    return '<div class="min-note min-over">⚠️ <b>' + minEsc(g.group) + '</b>은(는) ' +
+      minEsc(g.opt) + '이에요. 지금 <b>' + g.teams.length + '개</b>를 고르셨습니다 — ' +
+      minEsc(g.teams.join(", ")) + '.<br>그대로 내셔도 되지만, 담당자가 확인해 조정할 수 있어요.</div>';
+  }).join("");
+}
+
+// 명단 줄에서 「나」를 알아본다. 「김세웅 안수집사 (화평-20)」 꼴이라
+// ⚠️ **이름과 소속이 둘 다** 있어야 나로 본다 — 이름만 맞추면 동명이인이 걸린다.
+function minMeTag() {
+  const u = loadUser();
+  if (!u || !u.name) return null;
+  const who = u.type === "교구"
+    ? [u.gu, u.mok].filter(Boolean).join("-")
+    : [u.bu, u.grade].filter(Boolean).join("-");
+  return { name: u.name, who: who };
+}
+function minServingNow() {
+  const me = minMeTag();
+  const list = (minCat && minCat.list) || [];
+  if (!me) return [];
+  return list.filter(function (t) {
+    if (!t.members) return false;
+    return String(t.members).split(/<br\s*\/?>/i).some(function (line) {
+      const x = minPlain(line);
+      return x.indexOf(me.name) >= 0 && (!me.who || x.indexOf(me.who) >= 0);
+    });
+  }).slice(0, 3);      // 최대 3개(성도님 지정)
+}
+function minServingHtml() {
+  const mine = minServingNow();
+  if (!mine.length) return "";
+  return '<div class="min-serving"><div class="min-serving-t">🌿 지금 섬기고 계신 사역</div>' +
+    mine.map(function (t) {
+      const on = minPicked.indexOf(t.id) >= 0 || minLockedIds.indexOf(t.id) >= 0;
+      return '<button class="min-serve' + (on ? " on" : "") + '" data-serve="' + t.id + '">' +
+        '<span class="min-serve-n">' + minEsc(t.team) +
+        ' <span class="min-com">· ' + minEsc(t.committee) + '</span></span>' +
+        '<span class="min-serve-a">' + (on ? "✓ 담음" : "이어서 신청") + '</span></button>';
+    }).join("") +
+    '<div class="min-serving-h">이어서 섬기시려면 눌러서 담으세요.</div></div>';
+}
+
 function minHasDetail(t) { return !!(t && (t.desc || t.capacity || t.sched || t.members)); }
 function minMoreBtn(t) {
   return minHasDetail(t)
@@ -9079,6 +9169,9 @@ function minFilterHtml() {
     minChipRow("언제", "day", MIN_DAYS) +
     minChipRow("얼마나 자주", "freq", MIN_FREQS) +
     minChipRow("몇 시쯤", "band", MIN_BANDS) +
+    '<div class="min-fr"><span class="min-fr-l">이름으로 찾기</span>' +
+      '<input id="min-q" class="min-q" type="search" placeholder="예: 오병이어, 주차"' +
+      ' value="' + minEsc(minQ) + '" autocomplete="off"></div>' +
     (minFOn() ? '<button class="min-fclear" id="min-fclear">✕ 조건 지우기</button>' : "") +
     '</div>';
 }
@@ -9173,6 +9266,10 @@ function minPickHtml() {
           ? ' 그중 <b>미채택 ' + (minLocked.length - minHeld()) + '건</b>은 자리를 도로 내놓았어요.' : "") +
         ' <b>남은 ' + Math.max(0, MIN_MAX - minHeld()) + '자리</b>만 고르시면 됩니다.</div>'
       : "") +
+    // ⚠️ 필터보다 **위**다. 이어서 섬기실 분에게는 이게 목록을 훑는 것보다 빠르고,
+    //    필터를 켜도 이 자리는 그대로 남아야 한다(필터가 이 줄을 거르면 안 된다).
+    minServingHtml() +
+    minOverHtml() +
     minFilterHtml() +
     (minFOn()
       ? '<div class="min-fnum">지금 <b>' + shownN + '팀</b> 보임</div>'
@@ -9238,6 +9335,11 @@ function wireMinPick(u) {
     });
   }
   minWireMore();
+  for (const b of document.querySelectorAll("[data-serve]")) {
+    b.addEventListener("click", function () {
+      if (minTogglePick(Number(this.getAttribute("data-serve")))) renderMinistry(window.scrollY);
+    });
+  }
   for (const b of document.querySelectorAll("[data-f]")) {
     b.addEventListener("click", function () {
       const axis = this.getAttribute("data-f"), k = this.getAttribute("data-k");
@@ -9257,8 +9359,22 @@ function wireMinPick(u) {
     const b = document.getElementById(id);
     if (b) b.addEventListener("click", function () {
       minF = { day: [], freq: [], band: [] };
+      minQ = "";
       renderMinistry(0);
     });
+  }
+  const qel = document.getElementById("min-q");
+  if (qel) {
+    // ⚠️ 한 글자 칠 때마다 화면을 다시 그리므로 **커서 자리를 되살려야** 한다.
+    //    안 그러면 두 번째 글자부터 커서가 맨 앞으로 튄다.
+    const pos = qel.value.length;
+    qel.addEventListener("input", function () {
+      minQ = this.value.trim();
+      renderMinistry(window.scrollY);
+      const n = document.getElementById("min-q");
+      if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); }
+    });
+    if (minQ) { qel.focus(); qel.setSelectionRange(pos, pos); }
   }
   const go = document.getElementById("min-next");
   if (go) go.addEventListener("click", function () { minStep = "confirm"; renderMinistry(); });
@@ -9397,6 +9513,7 @@ function minConfirmHtml() {
         '개</b>는 그대로 남습니다 — 아래 것만 새로 냅니다.</div>'
       : "") +
     '<div class="min-who">' + minEsc(minWhoText()) + '</div>' +
+    minOverHtml() +
     rows +
     '<div class="min-p4"><label for="min-pos">직분</label>' +
       '<select id="min-pos" class="min-pos">' +
