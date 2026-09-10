@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260910m";
+const APP_BUILD = "20260910n";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9580,7 +9580,9 @@ function minDetailHtml(t) {
     '<div class="min-d-body">' + rows +
       (t.appoint ? '<p class="min-d-note">이 자리는 <b>지명</b>으로 정해집니다 — 신청 목록에는 담기지 않아요.</p>' : "") +
       (lockSt ? '<p class="min-d-note">이 사역은 <b>' + minEsc(lockSt) + '</b> 상태예요 — ' +
-        (lockSt === "미채택" ? '이번에는 다른 분이 임명되셨어요.' : '고치거나 뺄 수 없습니다.') + '</p>' : "") +
+        (lockSt === "미채택" ? '이번에는 다른 분이 임명되셨어요.'
+          : lockSt === "취소" ? '부서 요청으로 취소되었어요. 자세한 것은 해당 부서에 여쭤봐 주세요.'
+          : '고치거나 뺄 수 없습니다.') + '</p>' : "") +
       (t.opt ? '<p class="min-d-note">' + minEsc(t.opt) + '</p>' : "") + '</div>' +
     '<div class="min-d-foot">' +
       (canPick
@@ -9727,7 +9729,10 @@ function minDoneHtml(u) {
   const items = (m && m.items) || [];
   // ⚠️ 화면 맨 위 한 줄은 「가장 덜 진행된 건」으로 말한다 — 셋이 제각각일 수 있는데
   //    아무거나 고르면 성도님이 자기 상태를 잘못 읽는다.
-  const order = ["신청완료", "접수완료", "임명확정", "미채택"];
+  // ⚠️ 목록에 있는 상태를 **하나도 빠뜨리지 말 것.** indexOf 가 -1 을 돌려주면
+  //    그 상태가 무조건 최솟값이 되어, 끝난 한 건이 진행 중인 신청을 제치고
+  //    맨 윗줄을 차지한다(2026-09-10 「취소」를 더하며 실제로 그랬다).
+  const order = ["신청완료", "접수완료", "임명확정", "미채택", "취소"];
   let worst = items.length ? items[0].status : "신청완료";
   for (const it of items) if (order.indexOf(it.status) < order.indexOf(worst)) worst = it.status;
 
