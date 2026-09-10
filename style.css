@@ -4682,8 +4682,10 @@ body.pr-full-on { overflow: hidden; }
 
 /* ===== 시편 말씀 액자 ============================================ */
 /* 기도문 액자(.pr-*)와 같은 양식이되, 암송 화면이라 크기를 다시 잰다. */
+/* ⚠️ 아래 고정 단추(.home-fab)를 시편 화면 전부에서 없앴다(성도님 요청 2026-09-10) —
+   그래서 그 단추만큼 비워 두던 아래 여백(96px)도 함께 줄인다. */
 .ps-wrap{
-  max-width:520px;margin:0 auto;padding:14px 14px calc(96px + env(safe-area-inset-bottom,0px));
+  max-width:520px;margin:0 auto;padding:14px 14px calc(24px + env(safe-area-inset-bottom,0px));
 }
 /* ⚠️ --ink2 는 이 저장소 어디에도 정의돼 있지 않다(2026-09-10 리뷰 지적) — 늘 폴백
    #4a5560 만 쓰였고 어두운 모드에서 안 바뀌었다. --gray 는 이미 있고 .dark 가 이미
@@ -5074,7 +5076,6 @@ html[data-fs] .ps-fr-body .word-input{ font-size:inherit; }
       끝에 닿은 이전·다음은 흐리게만 하고 눌리게 둔다(누르면 이유를 알려 준다 — js/psalm.js). */
 html[data-fs="lg"] .ps-fr-ref{font-size:1.3rem}
 html[data-fs="xl"] .ps-fr-ref{font-size:1.45rem}
-.ps-wrap.ps-home{padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
 .ps-home .ps-head{flex-wrap:wrap}
 .ps-back{white-space:nowrap}
 .ps-home-nav{display:grid;grid-template-columns:1fr 1.5fr 1fr;gap:8px;margin:16px 0 8px}

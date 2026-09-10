@@ -244,7 +244,6 @@ function renderPsalmStage(verse, stage) {
   psalmReviewCtx = null;
   if (stage > 0) return renderPsalmBlank(verse, stage);   // Task 6
   stopSpeaking();
-  const u = loadUser();
   const app = document.getElementById("app");
   app.innerHTML = `
     <div class="ps-wrap ps-stage">
@@ -258,11 +257,9 @@ function renderPsalmStage(verse, stage) {
         <button class="ps-tool" id="ps-listen">🔊 들어보기</button>
       </div>
       <button class="ps-go" id="ps-next">다음 →</button>
-    </div>
-    <button class="home-fab" id="ps-home" aria-label="첫 화면으로">${homeFabLabel(u, true)}</button>`;
+    </div>`;
   window.scrollTo(0, 0);
 
-  document.getElementById("ps-home").addEventListener("click", () => { psalmReviewCtx = null; stopSpeaking(); renderSummary(); });
   document.getElementById("ps-back").addEventListener("click", () => { psalmReviewCtx = null; stopSpeaking(); renderPsalmHome(verse.dayNo); });
   document.getElementById("ps-next").addEventListener("click", () => psalmStartMemorize(verse));
 
@@ -276,7 +273,6 @@ function renderPsalmStage(verse, stage) {
 // 「암송카드 한 장을 받아 채워 간다」는 느낌이 여기서 산다.
 function renderPsalmBlank(verse, stage) {
   stopSpeaking();
-  const u = loadUser();
   const tokens = String(verse.text || "").trim().split(/\s+/);
   const ratio = stage === 1 ? 0.25 : stage === 2 ? 0.65 : 1.0;
   const flags = pickBlankIndices(tokens, ratio);
@@ -335,14 +331,12 @@ function renderPsalmBlank(verse, stage) {
       <div id="ps-result" class="ps-result"></div>
       ${repeatHtml}
       ${heartHtml}
-    </div>
-    <button class="home-fab" id="ps-home" aria-label="첫 화면으로">${homeFabLabel(u, true)}</button>`;
+    </div>`;
   window.scrollTo(0, 0);
 
   // ⚠️ 이 화면은 복습(renderPsalmReview)도 함께 쓴다 — 여기서 나가면(복습 중이든 아니든)
   //    깃발을 반드시 내린다. 안 내리면 다음에 여는 아무 시편 구절이나 「복습」으로 찍히고,
   //    그 구절을 정상으로 마쳤을 때 saveProgress 가 건너뛰어진다(2026-09-10 리뷰 지적).
-  document.getElementById("ps-home").addEventListener("click", () => { psalmReviewCtx = null; stopSpeaking(); renderSummary(); });
   document.getElementById("ps-back").addEventListener("click", () => { psalmReviewCtx = null; stopSpeaking(); renderPsalmHome(verse.dayNo); });
   document.getElementById("ps-listen").addEventListener("click", () => speakText(verseSpokenText(verse)));
 
@@ -532,7 +526,6 @@ function psalmStageModal(verse, stage, wasFirst) {
 // (그건 주간 35구절에서 「다음 말씀」을 찾으므로 시편에 쓰면 1번 구절로 튕긴다).
 function renderPsalmDone(verse, wasFirst) {
   stopSpeaking();
-  const u = loadUser();
   // 다음 편 = 열린 것 중 dayNo 가 하나 큰 것. 없으면 오늘 것까지 다 한 것이다.
   const next = psalmVerses.find((v) => v.dayNo === verse.dayNo + 1) || null;
   // 이전 편 = dayNo 가 하나 작은 것. 1일차면 없어서 회색으로 비활성이다.
@@ -556,6 +549,7 @@ function renderPsalmDone(verse, wasFirst) {
   const app = document.getElementById("app");
   app.innerHTML = `
     <div class="ps-wrap ps-done">
+      ${psalmHomeHead(verse)}
       <div class="ps-done-icon">🎉</div>
       <div class="ps-done-t">다 외우셨어요!</div>
       <div class="ps-done-ref">${psalmEsc(verse.refFull)}</div>
@@ -567,11 +561,10 @@ function renderPsalmDone(verse, wasFirst) {
       ${next ? "" : `<div class="ps-done-wait">오늘 열린 말씀은 여기까지예요 · 내일 한 편이 더 열려요</div>`}
       <button class="${(prev || next) ? "ps-tool ps-wide" : "ps-go"}" id="ps-again">↺ 이 말씀 다시 암송</button>
       <button class="ps-tool ps-wide" id="ps-list">지난 말씀 보기</button>
-    </div>
-    <button class="home-fab" id="ps-home" aria-label="첫 화면으로">${homeFabLabel(u, true)}</button>`;
+    </div>`;
   window.scrollTo(0, 0);
 
-  document.getElementById("ps-home").addEventListener("click", () => renderSummary());
+  psalmWireHomeBack();
   document.getElementById("ps-list").addEventListener("click", () => renderPsalmHome(verse.dayNo));
   document.getElementById("ps-again").addEventListener("click", () => renderPsalmStage(verse, 3));
   const nb = document.getElementById("ps-next");
