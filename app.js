@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260910c";
+const APP_BUILD = "20260910d";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9163,7 +9163,9 @@ function minFilterHtml() {
     const d = t.day || {};
     return d.sun || d.week || d.sat || t.from || t.freq;
   }).length;
-  if (!apply.length || filled * 2 < apply.length) return "";
+  // ⚠️ 이 장치는 **성도님을 지키려는 것**이지 만드는 사람을 막으려는 게 아니다.
+  //    ?preview=ministry 로 여는 관리자는 값이 없어도 필터를 볼 수 있어야 한다.
+  if (!MIN_PREVIEW && (!apply.length || filled * 2 < apply.length)) return "";
 
   return '<div class="min-filter">' +
     minChipRow("언제", "day", MIN_DAYS) +
