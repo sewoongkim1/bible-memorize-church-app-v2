@@ -40,8 +40,18 @@ print(eval(sys.argv[1]))
 ' "$1" <<< "$2"
 }
 
-echo "① 주간(track 없음) — 지금과 똑같아야 한다(새 주간 구절이 늘 수 있어 정확히 35로 단정하지 않는다)"
-chk "weekly 편수 ≥ 35" "$(jqn 'len(d["verses"]) >= 35' "$W")" "True"
+echo "① 주간(track 없음) — 지금과 똑같아야 한다"
+# ⚠️ **편수를 숫자로 단정하지 않는다.** 운영과 개발의 구절 수가 다르다
+#    (2026-09-10 기준 운영 36편 · 개발 26편 — seed_verses.sql 기준). 운영 숫자를
+#    박아 두면 개발에서 늘 헛실패하고, 헛실패가 잦으면 진짜 실패를 안 보게 된다.
+#    이 검사의 뜻은 「구절이 오는가」와 「시편이 안 섞였는가」 둘이다.
+#    정확한 수를 확인하고 싶으면 PSALM_EXPECT_WEEKLY 를 주면 된다.
+chk "weekly 구절이 온다(0편 아님)" "$(jqn 'len(d["verses"]) > 0' "$W")" "True"
+if [ -n "${PSALM_EXPECT_WEEKLY:-}" ]; then
+  chk "weekly 편수 = $PSALM_EXPECT_WEEKLY" "$(jqn 'len(d["verses"])' "$W")" "$PSALM_EXPECT_WEEKLY"
+else
+  echo "  ℹ️ weekly 편수 = $(jqn 'len(d["verses"])' "$W")  (PSALM_EXPECT_WEEKLY 를 주면 단정합니다)"
+fi
 chk "weekly 최대 no < 1000 (시편이 안 섞임 — 이 검사의 진짜 뜻)" "$(jqn 'max(v["no"] for v in d["verses"]) < 1000' "$W")" "True"
 
 echo "② 시편"
@@ -68,7 +78,11 @@ else
   chk "dayNo 연속(빠짐 없음)" "$(jqn 'sorted(v["dayNo"] for v in d["verses"]) == list(range(1, len(d["verses"])+1))' "$P")" "True"
 fi
 
-chk "totalDays" "$(jqn 'd.get("totalDays")' "$P")" "180"
+# ⚠️ totalDays 도 숫자로 단정하지 않는다 — **실제로 심은 편수**를 넣기 때문이다
+#    (구절 10편이면 10). 계획상의 180 을 박아 두면 늘 헛실패한다.
+#    뜻은 「구절 수보다 작지 않은가」다 — 작으면 뒤쪽 구절이 영영 안 열린다.
+chk "totalDays ≥ 자료 편수" "$(jqn 'd["totalDays"] >= len(d["verses"])' "$P")" "True"
+echo "  ℹ️ totalDays = $(jqn 'd["totalDays"]' "$P")"
 
 if [ -n "${PSALM_EXPECT_START:-}" ]; then
   chk "startDate" "$(jqn 'd.get("startDate")' "$P")" "$PSALM_EXPECT_START"
