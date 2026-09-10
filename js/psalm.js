@@ -242,7 +242,7 @@ function renderPsalmBlank(verse, stage) {
     <div class="ps-wrap ps-stage${isCardMode() ? " ps-card-on" : ""}">
       <div class="ps-head">
         <span class="ps-day">${verse.dayNo}일차</span>
-        <span class="ps-step">${stage}단계</span>
+        <span class="ps-step">${psalmReviewCtx ? "복습" : stage + "단계"}</span>
         <button class="ps-back" id="ps-back">← 목록</button>
       </div>
       ${psalmFrameHtml(verse, { bodyHtml })}
@@ -301,7 +301,31 @@ function psalmWasFirst() {
   return isFirstJourney() && psalmDoneCount() === 0;
 }
 
+let psalmReviewCtx = null;   // 복습 중이면 { queue, idx }
+
+// 복습 — 3단계(전체 빈칸)를 액자 안에서. 외울 때와 같은 그림이어야 기억의 고리가 이어진다.
+// ⚠️ 깃발을 render 「전에」 세운다 — psalmSetupCheck 가 render 안에서 콜백을 걸기 때문이다.
+function renderPsalmReview(queue, idx) {
+  psalmReviewCtx = { queue, idx };
+  renderPsalmBlank(queue[idx], 3);
+}
+
 function psalmStageDone(verse, stage, cardUsed) {
+  // 복습 중이면 진도를 다시 저장하지 않는다 — 복습은 간격을 미루는 일이다
+  if (psalmReviewCtx && psalmReviewCtx.queue[psalmReviewCtx.idx].no === verse.no) {
+    const { queue, idx } = psalmReviewCtx;
+    psalmReviewCtx = null;
+    advanceReview(verse.no);
+    // ⚠️ postChallenge 는 **구절 객체**를 받는다(verse_no 가 아니다) — app.js:7120.
+    // ⚠️ 복습은 review- 접두사로 남긴다(2026-09-02 결정). 보이는 숫자는 안 바뀐다
+    //    (순위·통계가 %typing%·includes("typing") 으로 세므로 그대로 들어간다).
+    // ⚠️ 복습 화면에는 원래 카드가 없어 `review-typing-card` 가 CHECK 제약에 없다.
+    //    카드로 풀었어도 `review-typing` 으로 남긴다 — 구분보다 기록이 먼저다.
+    //    구분하고 싶으면 supabase/migrate_modes_card.sql 에 그 값을 **먼저** 더한다.
+    postChallenge(verse, "review-typing");
+    if (idx + 1 < queue.length) return renderReview(queue, idx + 1);
+    return renderSummary();
+  }
   const wasFirst = psalmWasFirst();
   // ⚠️ 카드 여부는 실제 클릭 횟수가 아니라 isCardMode() 로 본다 — 주간 암송
   //    화면(checkAllComplete)과 같은 뜻이다. 카드 모드에서는 입력칸이
