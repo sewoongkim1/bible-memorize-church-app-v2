@@ -183,6 +183,7 @@ Deno.serve(async (req) => {
       case "ministryList":     return json(await ministryList(body));
       case "ministrySetStatus":return json(await ministrySetStatus(body));
       case "ministryCatalogSave": return json(await ministryCatalogSave(body));
+      case "ministryCatalogOrder": return json(await ministryCatalogOrder(body));
 
       // ---- 순위 응원 ----
       case "rankCheer":     return json(await rankCheer(body));
@@ -3203,7 +3204,9 @@ async function ministryCatalog(b: any) {
   const year = Number(b.year) || cfg.year;
   const { data, error } = await db.from("ministry_catalog")
     .select("id,committee,group_name,team,kind,schedule_note,desc_note,capacity_note,option_note,members_note,sort_order,day_sun,day_week,day_sat,time_from,time_to,freq")
-    .eq("year", year).order("sort_order", { ascending: true });
+    .eq("year", year)
+    .order("sort_order", { ascending: true })
+    .order("id", { ascending: true });   // ⚠️ 겹칠 때 차례가 흔들리지 않게 둘째 열쇠
   if (error) throw error;
 
   // 팀마다 「지금 섬기는 분」 — 담당자가 **접수완료**를 누른 건부터 보인다(성도님 요구 ①).
@@ -3623,16 +3626,51 @@ function ministryHtml(raw: unknown, max = 400): string {
 //    바꿀 수 있으면 화면에 적힌 것을 아무도 믿지 못하게 된다(성도님 지적, 2026-09-08).
 // ⚠️ 고칠 수 있는 것은 세 칸뿐이다. 팀 이름·위원회·임명직 여부는 여기서 못 바꾼다 —
 //    그건 부서 확인을 거쳐 JSON(시드)으로 들어오는 값이다.
+// ⚠️ DB 의 ministry_catalog_freq_chk 와 **같은 목록**이어야 한다
+//    (supabase/ministry_filter_cols.sql). 어긋나면 저장이 통째로 거부된다.
+const MINISTRY_FREQS = ["매주", "격주", "매달", "그때그때"];
+
+// 'H:MM' 도 받아 'HH:MM' 로 맞춘다. 못 알아보면 까닭을 돌려준다 —
+// ⚠️ 조용히 null 로 만들면 관리자는 넣었다고 믿는데 화면에서는 「때마다 다름」이 된다.
+function ministryTimeIn(v: unknown, label: string): { v: string | null; err?: string } {
+  const t = norm(v);
+  if (!t) return { v: null };
+  const m = /^(\d{1,2}):(\d{2})$/.exec(t);
+  if (!m) return { v: null, err: label + "은(는) 09:00 꼴로 넣어 주세요" };
+  const h = Number(m[1]), mi = Number(m[2]);
+  if (h > 23 || mi > 59) return { v: null, err: label + "이(가) 00:00~23:59 밖입니다" };
+  return { v: String(h).padStart(2, "0") + ":" + String(mi).padStart(2, "0") };
+}
+
 async function ministryCatalogSave(b: any) {
   const err = adminError(b); if (err) return { ok: false, error: err };
   const id = Number(b.id) || 0;
   if (!id) return { ok: false, error: "id 필요" };
-  const patch = {
+  const patch: Record<string, unknown> = {
     schedule_note: ministryHtml(b.schedule_note, 160),
     desc_note: ministryHtml(b.desc_note, 400),
     capacity_note: ministryHtml(b.capacity_note, 80),
     members_note: ministryHtml(b.members_note, 1200),
   };
+  // ── 필터용 여섯 칸 ────────────────────────────────────────────
+  // ⚠️ **보내온 칸만** 고친다. 늘 넣도록 짜면, 옛 admin 화면을 물고 있는 브라우저가
+  //    저장 한 번에 여섯 칸을 통째로 비운다(캐시가 남는 것을 막을 길이 없다).
+  if ("day_sun" in b) patch.day_sun = !!b.day_sun;
+  if ("day_week" in b) patch.day_week = !!b.day_week;
+  if ("day_sat" in b) patch.day_sat = !!b.day_sat;
+  if ("freq" in b) {
+    const f = norm(b.freq);
+    if (f && MINISTRY_FREQS.indexOf(f) < 0) {
+      return { ok: false, error: "주기는 " + MINISTRY_FREQS.join(" · ") + " 중 하나여야 합니다" };
+    }
+    patch.freq = f || null;
+  }
+  for (const [key, label] of [["time_from", "시작 시각"], ["time_to", "끝 시각"]]) {
+    if (!(key in b)) continue;
+    const r = ministryTimeIn(b[key], label);
+    if (r.err) return { ok: false, error: r.err };
+    patch[key] = r.v;
+  }
   // ⚠️ 말없이 자르면 관리자가 넣은 이름이 조용히 사라진다 — 잘린 칸을 돌려준다
   const cut: string[] = [];
   if (ministryHtml(b.schedule_note, 99999).length > patch.schedule_note.length) cut.push("시간");
@@ -3642,12 +3680,53 @@ async function ministryCatalogSave(b: any) {
 
   const { data, error } = await db.from("ministry_catalog")
     .update(patch).eq("id", id)
-    .select("id,committee,team,schedule_note,desc_note,capacity_note,members_note").single();
+    .select("id,committee,team,schedule_note,desc_note,capacity_note,members_note,"
+      + "day_sun,day_week,day_sat,time_from,time_to,freq").single();
   if (error) throw error;
   // 걸러진 뒤의 값을 돌려준다 — 화면이 「내가 친 것」이 아니라 「실제 저장된 것」을 보여야 한다
   return { ok: true, id: data.id, team: data.team,
            sched: data.schedule_note, desc: data.desc_note, capacity: data.capacity_note,
-           membersNote: data.members_note, truncated: cut };
+           membersNote: data.members_note, truncated: cut,
+           // 저장된 값을 그대로 돌려준다 — 화면이 「내가 친 것」이 아니라 「실제」를 보게
+           day: { sun: !!data.day_sun, week: !!data.day_week, sat: !!data.day_sat },
+           from: data.time_from || "", to: data.time_to || "", freq: data.freq || "" };
+}
+
+// 한 위원회 안에서 보이는 차례를 바꾼다.
+// ⚠️ **그 줄들이 이미 갖고 있던 sort_order 값을 모아 다시 나눠 준다.** 0,1,2… 로 새로
+//    매기면 그 위원회가 목록 맨 앞으로 통째로 올라가 버린다 — 자리는 그대로 두고
+//    누가 어느 자리에 앉는지만 바꾸는 것이다.
+// ⚠️ 팀 추가·삭제·이름은 여기서 하지 않는다(성도님 결정 2026-09-10 — 그쪽 원본은
+//    부서 확인 엑셀이다). 여기서 만들면 엑셀과 DB 가 갈라지고, 다음 시드에 지워진다.
+async function ministryCatalogOrder(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const ids: number[] = Array.isArray(b.ids) ? b.ids.map(Number).filter((n: number) => n > 0) : [];
+  if (!ids.length) return { ok: false, error: "순서를 바꿀 팀이 없습니다" };
+  if (new Set(ids).size !== ids.length) return { ok: false, error: "같은 팀이 두 번 들어 있습니다" };
+
+  const { data, error } = await db.from("ministry_catalog")
+    .select("id,year,committee,sort_order").in("id", ids);
+  if (error) throw error;
+  const rows = (data ?? []) as any[];
+  if (rows.length !== ids.length) return { ok: false, error: "없는 팀이 섞여 있습니다" };
+  if (new Set(rows.map((r) => r.committee + "|" + r.year)).size !== 1) {
+    return { ok: false, error: "한 위원회 안에서만 차례를 바꿀 수 있습니다" };
+  }
+  // ⚠️ 위원회 전체가 와야 한다 — 일부만 보내면 보내지 않은 줄의 자리를 빼앗는다
+  const { count } = await db.from("ministry_catalog")
+    .select("id", { count: "exact", head: true })
+    .eq("year", rows[0].year).eq("committee", rows[0].committee);
+  if ((count ?? 0) !== ids.length) {
+    return { ok: false, error: "그 위원회의 팀이 " + count + "개인데 " + ids.length + "개만 왔습니다" };
+  }
+
+  const slots = rows.map((r) => Number(r.sort_order)).sort((a, b2) => a - b2);
+  for (let i = 0; i < ids.length; i++) {
+    const { error: e2 } = await db.from("ministry_catalog")
+      .update({ sort_order: slots[i] }).eq("id", ids[i]);
+    if (e2) throw e2;
+  }
+  return { ok: true, n: ids.length };
 }
 
 // 그 성도의 기기에만 발송. 알림을 켜 두지 않았으면 조용히 0건 —

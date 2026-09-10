@@ -361,6 +361,25 @@
 .mc-prev{font-size:12.5px;color:#6b7280;background:#f7f8fa;border-radius:7px;padding:7px 10px;
   margin-left:62px;line-height:1.6;}
 .mc-none{color:#b0b8c6;}
+.mc-when{display:flex;flex-wrap:wrap;align-items:center;gap:7px 14px;background:#f7f9fd;
+  border:1px solid #e6ecf6;border-radius:8px;padding:9px 11px;}
+.mc-w-t{flex:1 0 100%;font-size:12px;font-weight:800;color:#1a3a6b;}
+.mc-w-t em{font-style:normal;font-weight:500;color:#8a95a8;margin-left:6px;}
+.mc-in .mc-when label{font-size:12.5px;font-weight:600;gap:5px;color:#41506b;}
+.mc-when input[type=checkbox]{width:16px;height:16px;flex:none;margin:0;}
+.mc-in .mc-when input[type=time],.mc-in .mc-when select{flex:none;font:inherit;font-size:13px;
+  padding:5px 8px;border:1px solid #dde3ee;border-radius:7px;background:#fff;}
+.mc-ord{display:inline-flex;gap:3px;margin-left:8px;vertical-align:middle;}
+.mc-ord button{font:inherit;font-size:11px;line-height:1;padding:4px 7px;border:1px solid #dde3ee;
+  border-radius:6px;background:#fff;color:#5b6472;cursor:pointer;}
+.mc-ord button:disabled{opacity:.28;cursor:default;}
+.mc-row.dirty{border-color:#c3a253;box-shadow:0 0 0 2px #f6edd8;}
+.mc-dot{font-size:11px;font-weight:700;color:#a3791f;margin-left:6px;}
+.mc-bar{display:flex;align-items:center;gap:10px;background:#fdf6e3;border:1px solid #e8d6a8;
+  border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12.5px;color:#7a5f1e;}
+.mc-bar button{font:inherit;font-size:12.5px;font-weight:700;padding:6px 14px;border-radius:7px;
+  border:1px solid #1a3a6b;background:#1a3a6b;color:#fff;cursor:pointer;}
+.mc-msg{font-size:12.5px;color:#2c5f2d;font-weight:600;margin:0 0 8px;}
 .mc-save{align-self:flex-end;font:inherit;font-size:12.5px;font-weight:700;padding:7px 16px;
   border:1px solid #1a3a6b;border-radius:8px;background:#1a3a6b;color:#fff;cursor:pointer;}
 .mc-save.ok{background:#2c5f2d;border-color:#2c5f2d;}
@@ -3114,10 +3133,17 @@ function mnNote(msg){
 // ⚠️ 성도 화면에 「이름만」 뜨면 무엇을 하는 사역인지 알 수 없어 신청 자체가 어렵다
 //    (기획(안)이 「가장 큰 문제」로 적은 자리). 부서 회신을 기다리는 동안 담당자가
 //    아는 것부터 여기서 채운다.
-// ⚠️ 고칠 수 있는 것은 세 칸뿐 — 팀 이름·위원회는 부서 확인을 거쳐 시드로 들어온다.
-let mcRows = [];      // [{ id, committee, group, team, appoint, sched, desc, capacity }]
+// ⚠️ **팀 추가·삭제·이름 바꾸기는 여기서 하지 않는다**(성도님 결정 2026-09-10 —
+//    "나머지는 엑셀에서"). 그쪽 원본은 부서 확인 엑셀 → JSON → 시드다. 여기서 만들면
+//    엑셀과 DB 가 갈라지고, 다음 시드에 조용히 지워진다.
+//    고칠 수 있는 것: 설명 네 칸 + 필터 여섯 칸 + 같은 위원회 안의 차례.
+let mcRows = [];      // [{ id, committee, group, team, appoint, sched, desc, capacity,
+                      //    sun, week, sat, from, to, freq, _d }]
 let mcPick = "";      // 지금 보고 있는 위원회
 let mcLoaded = false;
+let mcOrderDirty = false;   // 차례를 바꿨는데 아직 안 보낸 상태
+// ⚠️ DB 의 ministry_catalog_freq_chk · 서버 MINISTRY_FREQS 와 같은 목록이어야 한다
+const MC_FREQS = ["매주", "격주", "매달", "그때그때"];
 
 function renderMinistryCatalog(){
   app.innerHTML=`
@@ -3128,7 +3154,12 @@ function renderMinistryCatalog(){
     <div class="push-card">
       <p class="mc-help">성도님 화면에서 팀 이름 아래 작게 보이는 설명입니다.
         <b>비어 있으면 이름만 보입니다</b> — 무엇을 하는 사역인지 알 수 없어 고르기 어렵습니다.<br>
-        부서 회신(확인 양식 F·G·H열)을 기다리는 동안, 아는 것부터 채워 두시면 됩니다.<br>
+        부서 회신(확인 양식의 ②·③ 묶음)을 기다리는 동안, 아는 것부터 채워 두시면 됩니다.<br>
+        <b>「② 언제」 여섯 칸</b>은 성도님이 <b>필터로 사역을 찾을 때</b> 쓰입니다 —
+        비워 두면 「정해진 날 없음 · 때마다 다름」으로 보입니다(목록에서 사라지지는 않습니다).<br>
+        ▲▼로 <b>같은 위원회 안의 차례</b>를 바꿀 수 있습니다.
+        ⚠️ 팀을 <b>더하거나 지우거나 이름을 바꾸는 것은 부서 확인 엑셀</b>에서 합니다 —
+        여기서 만들면 다음에 목록을 다시 심을 때 지워집니다.<br>
         <span class="mc-tags">꾸밈을 넣을 수 있습니다 —
           <code>&lt;b&gt;굵게&lt;/b&gt;</code>
           <code>&lt;span style="color:#c0392b"&gt;색&lt;/span&gt;</code>
@@ -3137,6 +3168,8 @@ function renderMinistryCatalog(){
           ⚠️ 그 밖의 태그(스크립트·이미지·링크)는 서버가 지웁니다.</span></p>
       <div id="mc-sum" class="mc-sum"></div>
       <div id="mc-tabs" class="mc-tabs"></div>
+      <div id="mc-bar"></div>
+      <p id="mc-msg" class="mc-msg" hidden></p>
       <div id="mc-list"><p class="msg">불러오는 중...</p></div>
     </div>`;
   document.getElementById("back").addEventListener("click", renderMenu);
@@ -3150,23 +3183,44 @@ async function mcLoad(){
     if(!d.ok){ box.innerHTML=`<p class="msg err">목록을 불러오지 못했습니다: ${plEsc(d.error||"오류")}</p>`; return; }
     mcRows=(d.list||[]).map(x=>({ id:x.id, committee:x.committee, group:x.group||"", team:x.team,
       appoint:!!x.appoint, sched:x.sched||"", desc:x.desc||"", capacity:x.capacity||"",
-      members:x.membersNote||"" }));   // ⚠️ x.members 는 자동 명단이 섞인 것 — 저장하면 굳는다
+      members:x.membersNote||"",       // ⚠️ x.members 는 자동 명단이 섞인 것 — 저장하면 굳는다
+      sun:!!(x.day&&x.day.sun), week:!!(x.day&&x.day.week), sat:!!(x.day&&x.day.sat),
+      from:x.from||"", to:x.to||"", freq:x.freq||"" }));
     if(!mcPick && mcRows.length) mcPick=mcRows[0].committee;
     mcLoaded=true;
   }
   mcRender();
 }
 
-function mcRender(){
-  const box=document.getElementById("mc-list"); if(!box) return;
+// 「② 언제」를 하나라도 채웠는가 — 필터에 걸리려면 이 중 하나는 있어야 한다
+function mcHasWhen(r){ return !!(r.sun||r.week||r.sat||r.from||r.to||r.freq); }
+
+// ⚠️ 셈을 두 군데서 따로 쓰면 갈라진다 — 한 곳에서만 그린다
+function mcCounts(){
   const apply=mcRows.filter(r=>!r.appoint);
   const filled=apply.filter(r=>r.sched||r.desc).length;
-
+  const when=apply.filter(mcHasWhen).length;
   const sum=document.getElementById("mc-sum");
-  if(sum){
-    sum.innerHTML=`<b>${filled}</b> / ${apply.length}팀 채움
-      <span class="mc-rest">${apply.length-filled}팀은 아직 이름만 보입니다</span>`;
+  if(sum) sum.innerHTML=`설명 <b>${filled}</b> / ${apply.length}팀
+    &nbsp;·&nbsp; 언제 <b>${when}</b> / ${apply.length}팀
+    <span class="mc-rest">${apply.length-filled}팀은 아직 이름만 보입니다</span>`;
+  const tab=document.querySelector(`.mc-tab.on em`);
+  if(tab){
+    const mine=mcRows.filter(x=>x.committee===mcPick&&!x.appoint);
+    tab.textContent=`${mine.filter(x=>x.sched||x.desc).length}/${mine.length}`;
   }
+}
+
+function mcNote(t){
+  const el=document.getElementById("mc-msg"); if(!el) return;
+  el.hidden=!t; el.textContent=t||"";
+  if(t) setTimeout(()=>{ if(el.textContent===t){ el.hidden=true; el.textContent=""; } }, 3000);
+}
+
+function mcRender(){
+  const box=document.getElementById("mc-list"); if(!box) return;
+
+  mcCounts();
 
   // 위원회 탭 — 채운 팀 수를 함께 보여 어디가 비었는지 한눈에
   const tabs=document.getElementById("mc-tabs");
@@ -3179,20 +3233,54 @@ function mcRender(){
         data-mc="${plEsc(c)}">${plEsc(c)} <em>${got}/${mine.length}</em></button>`;
     }).join("");
     tabs.querySelectorAll("[data-mc]").forEach(b=>{
-      b.addEventListener("click", ()=>{ mcPick=b.dataset.mc; mcRender(); });
+      b.addEventListener("click", ()=>{
+        // ⚠️ 옮겨만 놓고 안 보낸 차례가 있는데 말없이 버리면, 관리자는 저장된 줄 안다
+        if(mcOrderDirty && !confirm("아직 보내지 않은 차례 변경이 있습니다.\n버리고 다른 부서로 옮길까요?")) return;
+        if(mcOrderDirty){ mcOrderDirty=false; mcLoaded=false; mcPick=b.dataset.mc; mcLoad(); return; }
+        mcSyncInputs();
+        mcPick=b.dataset.mc; mcRender();
+      });
     });
   }
 
+  const bar=document.getElementById("mc-bar");
+  if(bar){
+    bar.innerHTML = mcOrderDirty
+      ? `<span>▲▼로 차례를 바꾸셨습니다. <b>보내야</b> 성도님 화면에 반영됩니다.</span>
+         <button id="mc-ord-save">차례 저장</button>
+         <button id="mc-ord-undo" style="background:#fff;color:#7a5f1e;border-color:#e8d6a8">되돌리기</button>` : "";
+    const sv=document.getElementById("mc-ord-save");
+    if(sv) sv.addEventListener("click", mcSaveOrder);
+    const un=document.getElementById("mc-ord-undo");
+    if(un) un.addEventListener("click", ()=>{ mcOrderDirty=false; mcLoaded=false; mcLoad(); });
+  }
+
   const rows=mcRows.filter(r=>r.committee===mcPick);
-  box.innerHTML=rows.map(r=>`
-    <div class="mc-row${r.appoint?" off":""}" data-row="${r.id}">
+  box.innerHTML=rows.map((r,ri)=>`
+    <div class="mc-row${r.appoint?" off":""}${r._d?" dirty":""}" data-row="${r.id}">
       <div class="mc-nm">${r.group?`<em>${plEsc(r.group)}</em> `:""}${plEsc(r.team)}
-        ${r.appoint?`<span class="mc-tag">지명</span>`:""}</div>
+        ${r.appoint?`<span class="mc-tag">지명</span>`:""}
+        ${r._d?`<span class="mc-dot">● 저장 안 됨</span>`:""}
+        <span class="mc-ord">
+          <button data-up="${r.id}"${ri===0?" disabled":""} title="위로">▲</button>
+          <button data-dn="${r.id}"${ri===rows.length-1?" disabled":""} title="아래로">▼</button>
+        </span></div>
       ${r.appoint
         ? `<div class="mc-note">지명 자리라 성도님이 고르지 않습니다 — 설명이 없어도 됩니다.</div>`
         : `<div class="mc-in">
              <label>시간·요일<input type="text" data-f="sched" data-id="${r.id}"
                value="${plEsc(r.sched)}" placeholder="예: 매주 화 오전 10시"></label>
+             <div class="mc-when">
+               <span class="mc-w-t">② 언제
+                 <em>성도님이 이 여섯으로 사역을 찾습니다 — 비우면 「정해진 날 없음 · 때마다 다름」</em></span>
+               <label><input type="checkbox" data-f="sun" data-id="${r.id}"${r.sun?" checked":""}>주일</label>
+               <label><input type="checkbox" data-f="week" data-id="${r.id}"${r.week?" checked":""}>평일</label>
+               <label><input type="checkbox" data-f="sat" data-id="${r.id}"${r.sat?" checked":""}>토요일</label>
+               <label>시작<input type="time" data-f="from" data-id="${r.id}" value="${plEsc(r.from)}" step="300"></label>
+               <label>끝<input type="time" data-f="to" data-id="${r.id}" value="${plEsc(r.to)}" step="300"></label>
+               <label>주기<select data-f="freq" data-id="${r.id}"><option value="">— 모름</option>${
+                 MC_FREQS.map(f=>`<option${r.freq===f?" selected":""}>${f}</option>`).join("")}</select></label>
+             </div>
              <label class="wide">하는 일<textarea data-f="desc" data-id="${r.id}" rows="2"
                placeholder="예: 주일 예배 전 주차를 안내합니다. &lt;b&gt;굵게&lt;/b&gt; 도 됩니다">${plEsc(r.desc)}</textarea></label>
              <div class="mc-prev" data-prev="${r.id}">${r.desc||"<span class='mc-none'>비어 있음 — 성도님 화면에는 이름만 보입니다</span>"}</div>
@@ -3209,6 +3297,10 @@ function mcRender(){
   box.querySelectorAll("[data-save]").forEach(b=>{
     b.addEventListener("click", ()=> mcSave(Number(b.dataset.save)));
   });
+  box.querySelectorAll("[data-up]").forEach(b=>
+    b.addEventListener("click", ()=> mcMove(Number(b.dataset.up), -1)));
+  box.querySelectorAll("[data-dn]").forEach(b=>
+    b.addEventListener("click", ()=> mcMove(Number(b.dataset.dn), 1)));
   // 엔터로도 저장 — 한 줄씩 채우는 일이라 손이 자판을 떠나지 않게
   box.querySelectorAll("[data-f]").forEach(i=>{
     // 엔터로도 저장 — 단 여러 줄을 쓰는 「하는 일」은 빼고(줄바꿈이 막힌다)
@@ -3223,6 +3315,50 @@ function mcRender(){
   });
 }
 
+// 화면에 있는 값을 mcRows 에 담는다.
+// ⚠️ 다시 그리기 전에 반드시 부른다 — 안 부르면 ▲▼ 한 번에 **치고 있던 글이 사라진다.**
+//    바뀐 줄에는 「저장 안 됨」 표를 남긴다(저장된 줄 알고 넘어가지 않게).
+function mcSyncInputs(){
+  const box=document.getElementById("mc-list"); if(!box) return;
+  box.querySelectorAll("[data-f][data-id]").forEach(el=>{
+    const r=mcRows.find(x=>x.id===Number(el.dataset.id)); if(!r) return;
+    const f=el.dataset.f;
+    const v = el.type==="checkbox" ? el.checked
+            : (f==="members" ? mcBrs(el.value) : String(el.value||"").trim());
+    if(r[f]!==v){ r[f]=v; r._d=true; }
+  });
+}
+
+// 같은 위원회 안에서만 자리를 바꾼다 — 다른 부서로 건너가지 않는다
+function mcMove(id, dir){
+  mcSyncInputs();
+  const me=mcRows.find(x=>x.id===id); if(!me) return;
+  const same=mcRows.filter(x=>x.committee===me.committee);
+  const at=same.indexOf(me), to=at+dir;
+  if(to<0||to>=same.length) return;
+  const a=mcRows.indexOf(same[at]), b=mcRows.indexOf(same[to]);
+  mcRows[a]=same[to]; mcRows[b]=same[at];
+  mcOrderDirty=true;
+  mcRender();
+}
+
+async function mcSaveOrder(){
+  // ⚠️ 그 위원회 **전부**를 보낸다 — 서버가 개수를 맞대 보고 모자라면 거절한다
+  const ids=mcRows.filter(x=>x.committee===mcPick).map(x=>x.id);
+  const btn=document.getElementById("mc-ord-save");
+  if(btn){ btn.disabled=true; btn.textContent="보내는 중…"; }
+  const d=await callApi({ action:"ministryCatalogOrder", pw:getPw(), ids })
+    .catch(()=>({ok:false,error:"network"}));
+  if(!d.ok){
+    if(btn){ btn.disabled=false; btn.textContent="차례 저장"; }
+    alert("차례를 저장하지 못했습니다.\n"+(d.error||"오류"));
+    return;
+  }
+  mcOrderDirty=false;
+  mcRender();
+  mcNote(`차례를 저장했습니다 (${d.n}팀)`);
+}
+
 // 명단은 DB에 <br> 로 눔지만 관리자에게는 줄로 보여야 한다 — 오갈 길을 둘 둔다.
 // ⚠️ 서버 거르개가 남기는 태그는 <br> 뿐이라 줄바꿈을 그대로 저장하면 한 줄로 붙는다.
 function mcLines(h){ return String(h||"").replace(/<br\s*\/?>/gi,"\n"); }
@@ -3234,13 +3370,18 @@ async function mcSave(id){
   const r=mcRows.find(x=>x.id===id); if(!r) return;
   const box=document.querySelector(`[data-row="${id}"]`); if(!box) return;
   const get=f=>box.querySelector(`[data-f="${f}"]`)?.value||"";
+  const ck=f=>!!box.querySelector(`[data-f="${f}"]`)?.checked;
   const next={ sched:get("sched").trim(), desc:get("desc").trim(), capacity:get("capacity").trim(),
-               members:mcBrs(get("members")) };
+               members:mcBrs(get("members")),
+               sun:ck("sun"), week:ck("week"), sat:ck("sat"),
+               from:get("from").trim(), to:get("to").trim(), freq:get("freq").trim() };
   const btn=box.querySelector("[data-save]");
   if(btn){ btn.disabled=true; btn.textContent="저장 중…"; }
   const d=await callApi({ action:"ministryCatalogSave", pw:getPw(), id,
     schedule_note:next.sched, desc_note:next.desc, capacity_note:next.capacity,
-    members_note:next.members })
+    members_note:next.members,
+    day_sun:next.sun, day_week:next.week, day_sat:next.sat,
+    time_from:next.from, time_to:next.to, freq:next.freq })
     .catch(()=>({ok:false,error:"network"}));
   if(!d.ok){
     if(btn){ btn.disabled=false; btn.textContent="저장"; }
@@ -3248,6 +3389,15 @@ async function mcSave(id){
     return;
   }
   Object.assign(r, next);
+  r._d=false;
+  box.classList.remove("dirty");
+  const dot=box.querySelector(".mc-dot"); if(dot) dot.remove();
+  if(d.day){                         // 저장된 여섯 칸으로 맞춘다
+    r.sun=!!d.day.sun; r.week=!!d.day.week; r.sat=!!d.day.sat;
+    r.from=d.from||""; r.to=d.to||""; r.freq=d.freq||"";
+    const set=(f,v)=>{ const el=box.querySelector(`[data-f="${f}"]`); if(el) el.value=v; };
+    set("from", r.from); set("to", r.to); set("freq", r.freq);
+  }
   if(d.desc !== undefined){          // 서버가 걸러 돌려준 값으로 맞춘다
     r.desc = d.desc; r.sched = d.sched; r.capacity = d.capacity;
     if(d.membersNote !== undefined){
@@ -3266,16 +3416,7 @@ async function mcSave(id){
   if(btn){ btn.disabled=false; btn.textContent="저장됨 ✓"; btn.classList.add("ok");
            setTimeout(()=>{ btn.textContent="저장"; btn.classList.remove("ok"); }, 1800); }
   // 채움 개수·탭 숫자만 다시 그린다(입력 중인 칸을 건드리지 않게 목록은 그대로 둔다)
-  const apply=mcRows.filter(x=>!x.appoint);
-  const filled=apply.filter(x=>x.sched||x.desc).length;
-  const sum=document.getElementById("mc-sum");
-  if(sum) sum.innerHTML=`<b>${filled}</b> / ${apply.length}팀 채움
-    <span class="mc-rest">${apply.length-filled}팀은 아직 이름만 보입니다</span>`;
-  const tab=document.querySelector(`.mc-tab.on em`);
-  if(tab){
-    const mine=mcRows.filter(x=>x.committee===mcPick&&!x.appoint);
-    tab.textContent=`${mine.filter(x=>x.sched||x.desc).length}/${mine.length}`;
-  }
+  mcCounts();
 }
 
 </script>

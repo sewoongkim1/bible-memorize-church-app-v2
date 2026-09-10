@@ -106,6 +106,15 @@ const api = {
   ministryCancel: (user_id, pw, phone, preview) => supaCall("ministryCancel", { user_id, pw, phone, preview }),
   ministryList: (pw) => supaCall("ministryList", { pw }),
   ministrySetStatus: (pw, id, status) => supaCall("ministrySetStatus", { pw, id, status }),
+
+  // ---- 이벤트 플랫폼 (분기 회차) ----
+  //  ⚠️ 위 event* 넷(eventEnter/Status/Board/Entrants)은 옛 「말씀 이벤트」(퀴즈형)
+  //     것이다. 이름이 비슷하지만 표도 흐름도 다르다 — 섞지 말 것.
+  eventOpenList: (user_id) => supaCall("eventOpenList", { user_id }),
+  eventSignup: (payload) => supaCall("eventSignup", payload),
+  eventDrop: (user_id, id) => supaCall("eventDrop", { user_id, id }),
+  eventRoster: (pw, event_id) => supaCall("eventRoster", { pw, event_id }),
+  eventSave: (pw, event) => supaCall("eventSave", { pw, event }),
 };
 
 window.api = api;
