@@ -458,6 +458,8 @@ footer{
   <div class="note warn">
     <span class="nt">함정 3 — CHECK 제약을 나중에 넓히는 것은 마이그레이션이다</span>
     <p><code>challenge_log.mode</code>에 CHECK가 있어 새 값을 그냥 보냈다가 <strong>기록이 통째로 막힌 사고</strong>가 있었다(<code>learn-typing-stage3</code>). ⑧ 결정으로 <code>event_signups</code>에는 상태 어휘가 아예 없어져 이 위험이 대부분 사라졌다. 남은 CHECK는 <code>events.status</code> 넷과 <code>events.kind</code>뿐이고, 둘 다 관리자만 쓰는 값이다.</p>
+    <p><strong>⚠️ 2026-09-10 — 이 절을 적어 두고도 같은 함정을 밟았다.</strong> 옛 명단의 「사모님」 때문에 직분 목록에 <code>사모</code>를 더하면서 <strong>서버와 <code>app.js</code> 두 곳만</strong> 고쳤다. <code>ministry_orders_position_chk</code>가 여덟 값 그대로여서 <strong>사역신청 저장이 HTTP 500으로 막혔다.</strong> 더 나쁜 것은 성도님께 보이는 말이었다 — 500을 클라이언트가 통신 오류로 보아 「연결이 고르지 않아…」로 띄운다. 사모님은 <em>까닭도 모른 채</em> 신청을 못 하고, 제보가 올 때까지 아무도 모른다. 사역신청 작업이 찾아 <code>supabase/ministry_position_samo.sql</code>로 고쳤다.</p>
+    <p><strong>규칙은 컬럼이 아니라 「allowlist라는 형태」에 붙는다.</strong> 목록은 세 곳에 산다 — <strong>① 화면</strong>(<code>app.js</code>의 상수) <strong>② 서버</strong>(요청 검증) <strong>③ DB CHECK</strong>. ①②만 고치면 화면은 열리는데 저장이 막히고, ③만 고치면 값은 들어가는데 화면에 안 뜬다. <strong>값을 더하기 전에 그 컬럼에 CHECK가 있는지 먼저 질의한다:</strong> <code>select conrelid::regclass, conname, pg_get_constraintdef(oid) from pg_constraint where pg_get_constraintdef(oid) ilike '%전도사%';</code> — 기존 값 하나로 훑으면 그 목록을 담은 제약이 전부 나온다. 그리고 <strong>고친 뒤 실제로 저장해 본다</strong>(화면이 열리는 것은 증거가 아니다).</p>
   </div>
 </section>
 

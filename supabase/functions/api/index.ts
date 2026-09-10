@@ -4121,8 +4121,11 @@ async function eventRoster(b: any) {
   const err = adminError(b);
   if (err) return { ok: false, error: err };
 
+  // ⚠️ 관리자 화면의 편집 폼이 이 응답으로 칸을 채운다 — **고칠 수 있는 칸은 빠짐없이**
+  //    돌려줘야 한다. 하나라도 빠지면 그 칸이 빈 채로 그려지고, 저장하는 순간
+  //    원래 값이 지워진다(2026-09-10 subtitle·kind·sort_order 가 그럴 뻔했다).
   const { data: evs, error: e1 } = await db.from("events")
-    .select("id,title,season,status,opens_on,closes_on,sort_order")
+    .select("id,title,subtitle,season,kind,status,opens_on,closes_on,sort_order")
     .order("closes_on", { ascending: false });
   if (e1) throw e1;
 
@@ -4145,8 +4148,9 @@ async function eventRoster(b: any) {
   return {
     ok: true,
     events: (evs ?? []).map((e: any) => ({
-      id: e.id, title: e.title, season: e.season ?? "", status: e.status,
-      opensOn: e.opens_on, closesOn: e.closes_on, count: counts[e.id] ?? 0,
+      id: e.id, title: e.title, subtitle: e.subtitle ?? "", season: e.season ?? "",
+      kind: e.kind, status: e.status, opensOn: e.opens_on, closesOn: e.closes_on,
+      sortOrder: e.sort_order ?? 0, count: counts[e.id] ?? 0,
     })),
     rows: (data ?? []).map((r: any) => ({
       id: r.id,
@@ -4175,31 +4179,44 @@ async function eventSave(b: any) {
   const e = (b.event ?? {}) as any;
   const id = norm(e.id);
   if (!EVT_ID_RE.test(id)) return { ok: false, error: "bad-event-id" };
-  const title = norm(e.title);
+
+  // ⚠️ **보낸 칸만 바꾼다.** 예전에는 받은 것으로 통째로 덮어썼는데, 그러면 화면에 없는
+  //    칸(needs·copy·kind·sort_order)이 저장할 때마다 기본값으로 되돌아간다 —
+  //    「무엇을 받는가」가 조용히 초기화되는 자리였다(2026-09-10 관리자 화면을 만들다 찾았다).
+  //    클라이언트가 매번 전부 되돌려 보내게 하는 것은 약속에 기대는 것이라 서버에서 막는다.
+  //    비우고 싶으면 빈 문자열을 **명시해서** 보내면 된다.
+  const { data: cur } = await db.from("events").select("*").eq("id", id).maybeSingle();
+  const has = (k: string) => Object.prototype.hasOwnProperty.call(e, k);
+
+  const title = has("title") ? norm(e.title) : (cur ? cur.title : "");
   if (!title) return { ok: false, error: "no-title" };
 
-  const opens = norm(e.opens_on);
-  const closes = norm(e.closes_on);
   const dateOk = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
+  const opens = has("opens_on") ? norm(e.opens_on) : (cur ? String(cur.opens_on) : "");
+  const closes = has("closes_on") ? norm(e.closes_on) : (cur ? String(cur.closes_on) : "");
   if (!dateOk(opens) || !dateOk(closes)) return { ok: false, error: "bad-period" };
   if (closes < opens) return { ok: false, error: "period-reversed" };
 
-  const status = EVT_STATUS.indexOf(norm(e.status)) >= 0 ? norm(e.status) : "draft";
-  const kind = EVT_KINDS.indexOf(norm(e.kind)) >= 0 ? norm(e.kind) : "signup";
+  const statusIn = norm(e.status);
+  const status = has("status") && EVT_STATUS.indexOf(statusIn) >= 0
+    ? statusIn : (cur ? cur.status : "draft");
+  const kindIn = norm(e.kind);
+  const kind = has("kind") && EVT_KINDS.indexOf(kindIn) >= 0
+    ? kindIn : (cur ? cur.kind : "signup");
   const objOf = (v: any) => (v && typeof v === "object" && !Array.isArray(v)) ? v : {};
 
   const row = {
     id,
     title,
-    subtitle: norm(e.subtitle),
-    season: norm(e.season),
+    subtitle: has("subtitle") ? norm(e.subtitle) : (cur ? cur.subtitle : ""),
+    season: has("season") ? norm(e.season) : (cur ? cur.season : ""),
     kind,
     opens_on: opens,
     closes_on: closes,
     status,
-    needs: objOf(e.needs),
-    copy: objOf(e.copy),
-    sort_order: Number(e.sort_order) || 0,
+    needs: has("needs") ? objOf(e.needs) : (cur ? cur.needs : {}),
+    copy: has("copy") ? objOf(e.copy) : (cur ? cur.copy : {}),
+    sort_order: has("sort_order") ? (Number(e.sort_order) || 0) : (cur ? cur.sort_order : 0),
     updated_at: new Date().toISOString(),
   };
 

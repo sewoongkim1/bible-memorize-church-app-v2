@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>이벤트 관리 | 고척교회 성경암송</title>
+<link rel="icon" href="favicon.png" />
+<!--
+  이벤트 플랫폼 관리자 화면 — 2026-09-10
+    설계: docs/superpowers/specs/2026-09-10-event-platform-design.html
+    계획: docs/superpowers/plans/2026-09-10-event-platform.md (4단계)
+
+  ⚠️ admin-stats.html 이 아니라 새 파일로 지었다. 그 파일은 188KB 이고 여러 작업이
+     함께 쓰고 있어, 여기에 또 얹으면 충돌 표면만 커진다.
+  ⚠️ 웹폰트를 부르지 않는다(글꼴 765KB 사건) · ?v= 캐시 태그를 붙이지 않는다
+     — bump.py 는 루트 index.html 만 손보므로 붙여 봐야 거짓 안심만 준다.
+     고친 뒤에는 Ctrl+F5 한 번.
+-->
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f5f6f8;color:#232730;
+  font-family:"Malgun Gothic","맑은 고딕",system-ui,-apple-system,sans-serif;font-size:15px;line-height:1.6}
+.topbar{background:#1a3a6b;color:#fff;padding:13px 18px;display:flex;align-items:center;
+  justify-content:space-between;gap:10px;flex-wrap:wrap}
+.topbar h1{margin:0;font-size:1.05rem;font-weight:800}
+.topbar a,.topbar button{padding:8px 13px;border-radius:9px;font-weight:700;font-size:.82rem;
+  text-decoration:none;white-space:nowrap;cursor:pointer}
+.topbar a{border:1.5px solid rgba(255,255,255,.5);color:#fff;background:none}
+.topbar button{border:none;background:rgba(255,255,255,.18);color:#fff}
+main{max-width:1080px;margin:0 auto;padding:18px 16px 80px}
+
+.login-card{max-width:380px;margin:60px auto;background:#fff;border:1px solid #e3e7ee;
+  border-radius:14px;padding:26px 24px;text-align:center}
+.login-card h2{margin:0 0 6px;font-size:1.1rem;color:#1a3a6b}
+.login-card p{margin:0 0 16px;color:#5a6273;font-size:14px}
+.login-card input{width:100%;padding:11px 12px;border:1.5px solid #d8dde6;border-radius:9px;
+  font-size:16px;margin-bottom:10px}
+.login-card button{width:100%;padding:12px 0;border:none;border-radius:9px;background:#1a3a6b;
+  color:#fff;font-size:15px;font-weight:800;cursor:pointer}
+.err{background:#fbeeec;border:1px solid #e6bdb6;color:#a8322a;border-radius:8px;
+  padding:9px 11px;font-size:13.5px;margin-bottom:10px}
+.err:empty{display:none}
+
+.card{background:#fff;border:1px solid #e3e7ee;border-radius:13px;padding:16px 18px;margin-bottom:16px}
+.card h2{margin:0 0 4px;font-size:1rem;color:#1a3a6b}
+.card .sub{margin:0 0 12px;font-size:13px;color:#6a7383}
+
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{border:1.5px solid #d8dde6;background:#fff;color:#40495a;border-radius:999px;
+  padding:7px 13px;font-size:13.5px;font-weight:700;cursor:pointer;display:inline-flex;
+  align-items:center;gap:6px}
+.chip.on{background:#1a3a6b;border-color:#1a3a6b;color:#fff}
+.chip em{font-style:normal;font-weight:800;font-size:12px;opacity:.8}
+.chip .st{font-size:11px;padding:1px 6px;border-radius:5px;background:#eef1f6;color:#5a6273}
+.chip.on .st{background:rgba(255,255,255,.22);color:#fff}
+
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}
+.bar input,.bar select{padding:8px 10px;border:1.5px solid #d8dde6;border-radius:8px;font-size:14px}
+.bar input[type=search]{min-width:190px}
+.btn{padding:8px 14px;border:1.5px solid #1a3a6b;background:#eef1f8;color:#1a3a6b;
+  border-radius:8px;font-size:14px;font-weight:700;cursor:pointer}
+.btn.p{background:#1a3a6b;color:#fff}
+.btn[disabled]{opacity:.55;cursor:default}
+
+.sum{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;margin:10px 0 4px;font-size:14px}
+.sum b{font-size:17px;color:#1a3a6b}
+.tag{font-size:12.5px;background:#eef1f6;border-radius:6px;padding:2px 8px;color:#42506a}
+
+.tw{overflow-x:auto;border:1px solid #e3e7ee;border-radius:10px;background:#fff}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:640px}
+th,td{padding:8px 11px;border-bottom:1px solid #eef1f5;text-align:left;white-space:nowrap}
+thead th{background:#f7f8fb;color:#42506a;font-size:12.5px;font-weight:800;
+  position:sticky;top:0;border-bottom:1.5px solid #e3e7ee;cursor:pointer;user-select:none}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:nth-child(even){background:#fbfcfd}
+td.num{text-align:right;font-variant-numeric:tabular-nums;color:#6a7383}
+.badge{font-size:11.5px;padding:1px 7px;border-radius:5px;font-weight:700}
+.badge.gu{background:#eef1f8;color:#1a3a6b}
+.badge.sc{background:#f0f6ee;color:#2f6b4f}
+.badge.app{background:#e9f2ff;color:#1a5aa8}
+.badge.imp{background:#f4f1e8;color:#7a6220}
+.empty{padding:40px 16px;text-align:center;color:#7a8394}
+
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:11px}
+.form label{display:block;font-size:12.5px;font-weight:800;color:#42506a;margin-bottom:4px}
+.form input,.form select{width:100%;padding:9px 10px;border:1.5px solid #d8dde6;border-radius:8px;font-size:14px}
+.form .wide{grid-column:1/-1}
+.note{background:#fdf9ef;border:1px solid #ecdcb8;border-radius:9px;padding:10px 12px;
+  font-size:13.5px;color:#6b5620;line-height:1.7;margin-top:10px}
+.ok{background:#eef6f1;border:1px solid #bcd9c8;color:#2f6b4f;border-radius:8px;
+  padding:9px 11px;font-size:13.5px;margin:10px 0}
+.ok:empty,.note:empty{display:none}
+
+@media print{
+  .topbar,.bar,.chips,.no-print,.btn{display:none!important}
+  body{background:#fff}
+  main{max-width:none;padding:0}
+  .card{border:none;padding:0;margin:0 0 8px}
+  .tw{border:none}
+  thead th{position:static}
+  table{min-width:0;font-size:12px}
+  th,td{padding:4px 6px}
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>🎉 이벤트 관리</h1>
+  <div style="display:flex;align-items:center;gap:8px">
+    <a href="admin.html">← 관리자 허브</a>
+    <button id="logout" hidden>로그아웃</button>
+  </div>
+</div>
+<main id="app"></main>
+
+<script src="js/config.js"></script>
+<script>
+// 어느 프로젝트를 볼지는 js/config.js 가 주소를 보고 정한다(개발이면 「개발 DB」 띠가 뜬다).
+const API = window.SUPA.URL + "/functions/v1/api";
+const ANON = window.SUPA.ANON;
+const PW_KEY = "admin-pw";            // 허브·통계 화면과 공유(같은 도메인)
+const app = document.getElementById("app");
+const logoutBtn = document.getElementById("logout");
+
+const EV_STATUS = ["draft", "open", "closed", "archived"];
+const EV_STATUS_KO = { draft:"준비 중", open:"열림", closed:"마감", archived:"보관" };
+
+let evEvents = [];       // 회차 목록
+let evRows = [];         // 지금 고른 회차의 명단(서버에서 한 번 받아 화면에서만 추린다)
+let evPick = "";         // 고른 회차 id
+let evSort = { key:"at", dir:-1 };
+let evQ = "", evType = "", evGroup = "";
+
+function getPw(){ return sessionStorage.getItem(PW_KEY) || ""; }
+function esc(v){
+  return String(v==null?"":v).replace(/[&<>"']/g,
+    m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
+}
+async function callApi(payload){
+  const res = await fetch(API, { method:"POST",
+    headers:{ "Content-Type":"application/json", "apikey":ANON, "Authorization":"Bearer "+ANON },
+    body: JSON.stringify(payload) });
+  let d={}; try{ d=await res.json(); }catch(_){}
+  if(!res.ok && !d.error) d={ ok:false, error:"HTTP "+res.status };
+  return d;
+}
+// 응답이 unauthorized 면 비번이 바뀐 것 — 저장된 것을 버리고 로그인으로 되돌린다.
+function guard(d){
+  if(d && d.error === "unauthorized"){
+    sessionStorage.removeItem(PW_KEY); renderLogin(); return false;
+  }
+  return true;
+}
+
+// ---------- 로그인 ----------
+function renderLogin(){
+  logoutBtn.hidden = true;
+  app.innerHTML = `
+    <div class="login-card">
+      <h2>🔒 관리자 로그인</h2>
+      <p>이벤트 회차와 명단을 보려면 관리자 비밀번호를 입력하세요.</p>
+      <div class="err" id="lerr"></div>
+      <input type="password" id="pw" placeholder="비밀번호" autocomplete="current-password" />
+      <button id="login">로그인</button>
+    </div>`;
+  const pw = document.getElementById("pw");
+  const go = async () => {
+    const v = pw.value.trim();
+    if(!v){ document.getElementById("lerr").textContent = "비밀번호를 입력해 주세요."; return; }
+    const d = await callApi({ action:"authCheck", pw:v });
+    if(d && d.ok){ sessionStorage.setItem(PW_KEY, v); load(); }
+    else document.getElementById("lerr").textContent =
+      d && d.error === "no-password-set" ? "서버에 관리자 비밀번호가 설정되어 있지 않습니다."
+                                         : "비밀번호가 맞지 않습니다.";
+  };
+  document.getElementById("login").addEventListener("click", go);
+  pw.addEventListener("keydown", e => { if(e.key === "Enter") go(); });
+  pw.focus();
+}
+
+// ---------- 불러오기 ----------
+async function load(pick){
+  logoutBtn.hidden = false;
+  app.innerHTML = `<div class="card"><div class="empty">불러오는 중…</div></div>`;
+  const d = await callApi({ action:"eventRoster", pw:getPw(), event_id: pick || "" });
+  if(!guard(d)) return;
+  if(!d.ok){
+    app.innerHTML = `<div class="card"><div class="err">불러오지 못했습니다 — ${esc(d.error||"")}</div>
+      <button class="btn" onclick="location.reload()">다시 시도</button></div>`;
+    return;
+  }
+  evEvents = d.events || [];
+  evRows = d.rows || [];
+  if(pick) evPick = pick;
+  else if(!evPick) evPick = (evEvents.find(e => e.status === "open") || evEvents[0] || {}).id || "";
+  render();
+}
+
+// ---------- 그리기 ----------
+function render(){
+  const ev = evEvents.find(e => e.id === evPick) || null;
+  app.innerHTML = evChipsHtml() + evFormHtml(ev) + evListHtml(ev);
+  wire();
+}
+
+function evChipsHtml(){
+  if(!evEvents.length){
+    return `<div class="card"><h2>회차</h2>
+      <p class="sub">아직 만든 회차가 없습니다. 아래에서 새 회차를 만드세요.</p></div>`;
+  }
+  return `<div class="card"><h2>회차</h2>
+    <p class="sub">숫자는 그 회차의 <b>전체</b> 신청 건수입니다(아래 필터와 무관).</p>
+    <div class="chips" id="ev-chips">${
+      evEvents.map(e => `<button class="chip${e.id===evPick?" on":""}" data-id="${esc(e.id)}">
+        ${esc(e.title)} <em>${e.count}</em>
+        <span class="st">${EV_STATUS_KO[e.status]||esc(e.status)}</span></button>`).join("")
+    }</div></div>`;
+}
+
+function evFormHtml(ev){
+  // ⚠️ 여기서 읽는 칸은 eventRoster 가 **전부** 돌려줘야 한다. 하나라도 빠지면
+  //    빈 칸으로 그려지고 저장하는 순간 원래 값이 지워진다.
+  const v = ev || { id:"", title:"", subtitle:"", season:"", kind:"signup",
+                    opensOn:"", closesOn:"", status:"draft", sortOrder:0 };
+  return `<div class="card no-print">
+    <h2>${ev ? "회차 고치기" : "새 회차 만들기"}</h2>
+    <p class="sub">
+      <b>준비 중</b>은 성도님께 안 보입니다 · <b>열림</b>은 기간 안에서만 등록됩니다 ·
+      <b>마감</b>은 등록만 막히고 <b>조회는 살아 있습니다</b> · <b>보관</b>은 목록에서 사라집니다.
+    </p>
+    <div class="ok" id="f-ok"></div><div class="err" id="f-err"></div>
+    <div class="form">
+      <div><label for="f-id">회차 ID</label>
+        <input id="f-id" value="${esc(v.id)}" placeholder="summer-2026" ${ev?"readonly":""} />
+      </div>
+      <div><label for="f-status">상태</label>
+        <select id="f-status">${EV_STATUS.map(s =>
+          `<option value="${s}"${s===v.status?" selected":""}>${EV_STATUS_KO[s]}</option>`).join("")}</select>
+      </div>
+      <div><label for="f-opens">시작일</label><input id="f-opens" type="date" value="${esc(v.opensOn)}" /></div>
+      <div><label for="f-closes">마감일</label><input id="f-closes" type="date" value="${esc(v.closesOn)}" /></div>
+      <div class="wide"><label for="f-title">이벤트 이름</label>
+        <input id="f-title" value="${esc(v.title)}" placeholder="2026 썸머 써 바이블 완서자 등록" /></div>
+      <div class="wide"><label for="f-sub">한 줄 설명 <span style="font-weight:400;color:#8a93a3">(안 써도 됩니다)</span></label>
+        <input id="f-sub" value="${esc(v.subtitle||"")}" /></div>
+      <div><label for="f-season">분기 표기</label>
+        <input id="f-season" value="${esc(v.season||"")}" placeholder="2026-3Q" /></div>
+      <div><label for="f-order">차례 <span style="font-weight:400;color:#8a93a3">(작을수록 위)</span></label>
+        <input id="f-order" type="number" value="${Number(v.sortOrder)||0}" /></div>
+    </div>
+    <div class="bar">
+      <button class="btn p" id="f-save">${ev ? "고치기" : "만들기"}</button>
+      ${ev ? `<button class="btn" id="f-new">+ 새 회차</button>` : ""}
+    </div>
+    <div class="note">회차 ID 는 만든 뒤 바꿀 수 없습니다 — 신청 기록이 이 값으로 묶여 있습니다.
+      영문 소문자·숫자·붙임표만 씁니다(예 <b>summer-2026</b>). 이 값이 딥링크에도 그대로 쓰입니다:
+      <b>gocheok.onlybible.kr/?ev=summer-2026</b></div>
+  </div>`;
+}
+
+function shown(){
+  return evRows.filter(r => {
+    if(evType && r.whoType !== evType) return false;
+    if(evGroup && r.group !== evGroup) return false;
+    if(evQ){
+      const q = evQ.toLowerCase();
+      if(!(String(r.name).toLowerCase().includes(q) ||
+           String(r.group).toLowerCase().includes(q) ||
+           String(r.sub).toLowerCase().includes(q))) return false;
+    }
+    return true;
+  }).sort((a,b) => {
+    const k = evSort.key;
+    const x = String(a[k]==null?"":a[k]), y = String(b[k]==null?"":b[k]);
+    const n1 = parseFloat(x), n2 = parseFloat(y);
+    const c = (!isNaN(n1) && !isNaN(n2) && k === "sub") ? n1 - n2 : x.localeCompare(y, "ko");
+    return c * evSort.dir;
+  });
+}
+
+function evListHtml(ev){
+  if(!ev) return "";
+  const list = shown();
+  const groups = [...new Set(evRows.map(r => r.group))].sort((a,b)=>a.localeCompare(b,"ko"));
+  const byGroup = {};
+  evRows.forEach(r => { byGroup[r.group] = (byGroup[r.group]||0)+1; });
+  const app_ = evRows.filter(r => r.hasUser).length;
+  const head = (k, label) =>
+    `<th data-k="${k}">${label}${evSort.key===k ? (evSort.dir>0?" ▲":" ▼") : ""}</th>`;
+  return `<div class="card">
+    <h2>명단 — ${esc(ev.title)}</h2>
+    <div class="sum">
+      <span><b>${evRows.length}</b>명</span>
+      <span class="tag">앱 계정 연결 ${app_}명</span>
+      <span class="tag">앱 등록 ${evRows.filter(r=>r.source==="app").length}건</span>
+      <span class="tag">이관 ${evRows.filter(r=>r.source==="import").length}건</span>
+      ${evQ||evType||evGroup ? `<span class="tag">추린 결과 ${list.length}명</span>` : ""}
+    </div>
+    <div class="bar no-print">
+      <select id="q-type"><option value="">구분 전체</option>
+        <option value="교구"${evType==="교구"?" selected":""}>교구</option>
+        <option value="교회학교"${evType==="교회학교"?" selected":""}>교회학교</option></select>
+      <select id="q-group"><option value="">소속 전체</option>${
+        groups.map(g => `<option value="${esc(g)}"${evGroup===g?" selected":""}>${esc(g)} (${byGroup[g]})</option>`).join("")
+      }</select>
+      <input type="search" id="q-find" placeholder="이름 · 소속으로 찾기" value="${esc(evQ)}" />
+      <button class="btn" id="q-clear">초기화</button>
+      <button class="btn" id="q-print">🖨️ 인쇄</button>
+    </div>
+    ${list.length ? `<div class="tw"><table><thead><tr>
+      <th class="num">#</th>${head("whoType","구분")}${head("group","소속")}${head("sub","목장·학년")}
+      ${head("position","직분")}${head("name","성명")}${head("at","등록일")}<th>기록</th>
+    </tr></thead><tbody>${
+      list.map((r,i) => `<tr>
+        <td class="num">${i+1}</td>
+        <td><span class="badge ${r.whoType==="교구"?"gu":"sc"}">${esc(r.whoType)}</span></td>
+        <td>${esc(r.group)}</td><td>${esc(r.sub)}</td>
+        <td>${esc(r.position)}</td><td><b>${esc(r.name)}</b></td>
+        <td>${esc(kstDate(r.at))}</td>
+        <td><span class="badge ${r.source==="app"?"app":"imp"}">${r.source==="app"?"앱":"이관"}</span>${
+          r.hasUser ? ` <span class="badge app">계정</span>` : ""}</td>
+      </tr>`).join("")
+    }</tbody></table></div>`
+    : `<div class="empty">${evRows.length ? "추린 결과가 없습니다." : "아직 신청이 없습니다."}</div>`}
+  </div>`;
+}
+
+// 서버는 UTC 로 준다 — 한국 날짜로 바꿔 보여 준다(안 그러면 자정 무렵 하루가 어긋난다).
+function kstDate(iso){
+  if(!iso) return "";
+  try{
+    const d = new Date(iso);
+    const k = new Date(d.getTime() + 9*3600*1000);
+    return k.toISOString().slice(0,10);
+  }catch(e){ return String(iso).slice(0,10); }
+}
+
+// ---------- 배선 ----------
+function wire(){
+  const chips = document.getElementById("ev-chips");
+  if(chips) chips.addEventListener("click", e => {
+    const b = e.target.closest(".chip"); if(!b) return;
+    evPick = b.getAttribute("data-id"); evQ = ""; evType = ""; evGroup = "";
+    load(evPick);
+  });
+
+  const save = document.getElementById("f-save");
+  if(save) save.addEventListener("click", saveEvent);
+  const nw = document.getElementById("f-new");
+  if(nw) nw.addEventListener("click", () => { evPick = ""; evRows = []; render(); });
+
+  const t = document.getElementById("q-type");
+  if(t) t.addEventListener("change", () => { evType = t.value; render(); });
+  const g = document.getElementById("q-group");
+  if(g) g.addEventListener("change", () => { evGroup = g.value; render(); });
+  const f = document.getElementById("q-find");
+  if(f) f.addEventListener("input", () => {
+    evQ = f.value.trim(); const at = f.selectionStart; render();
+    const n = document.getElementById("q-find"); if(n){ n.focus(); n.setSelectionRange(at, at); }
+  });
+  const c = document.getElementById("q-clear");
+  if(c) c.addEventListener("click", () => { evQ=""; evType=""; evGroup=""; render(); });
+  const p = document.getElementById("q-print");
+  if(p) p.addEventListener("click", () => window.print());
+
+  document.querySelectorAll("thead th[data-k]").forEach(th => {
+    th.addEventListener("click", () => {
+      const k = th.getAttribute("data-k");
+      evSort = { key:k, dir: (evSort.key === k ? -evSort.dir : 1) };
+      render();
+    });
+  });
+}
+
+async function saveEvent(){
+  const err = document.getElementById("f-err"), ok = document.getElementById("f-ok");
+  err.textContent = ""; ok.textContent = "";
+  // ⚠️ eventSave 는 **받은 것으로 통째로 덮어쓴다.** 화면에 안 보이는 칸(kind)도
+  //    지금 값을 그대로 실어 보내야 한다 — 안 보내면 기본값으로 되돌아간다.
+  const cur = evEvents.find(e => e.id === evPick) || {};
+  const ev = {
+    id: document.getElementById("f-id").value.trim(),
+    title: document.getElementById("f-title").value.trim(),
+    subtitle: document.getElementById("f-sub").value.trim(),
+    season: document.getElementById("f-season").value.trim(),
+    kind: cur.kind || "signup",
+    status: document.getElementById("f-status").value,
+    opens_on: document.getElementById("f-opens").value,
+    closes_on: document.getElementById("f-closes").value,
+    sort_order: Number(document.getElementById("f-order").value) || 0,
+  };
+  // 서버도 같은 것을 다시 검사한다 — 여기 검사는 성도님(담당자)께 먼저 말해 주기 위한 것.
+  if(!/^[a-z0-9][a-z0-9-]{1,40}$/.test(ev.id)){
+    err.textContent = "회차 ID 는 영문 소문자·숫자·붙임표만 씁니다 (예: summer-2026)"; return; }
+  if(!ev.title){ err.textContent = "이벤트 이름을 적어 주세요."; return; }
+  if(!ev.opens_on || !ev.closes_on){ err.textContent = "기간을 골라 주세요."; return; }
+  if(ev.closes_on < ev.opens_on){ err.textContent = "마감일이 시작일보다 앞섭니다."; return; }
+
+  const btn = document.getElementById("f-save");
+  const label = btn.textContent; btn.disabled = true; btn.textContent = "저장 중…";
+  const d = await callApi({ action:"eventSave", pw:getPw(), event:ev });
+  btn.disabled = false; btn.textContent = label;
+  if(!guard(d)) return;
+  if(!d.ok){ err.textContent = "저장하지 못했습니다 — " + (d.error||""); return; }
+  ok.textContent = "저장했습니다.";
+  await load(ev.id);
+  const o = document.getElementById("f-ok"); if(o) o.textContent = "저장했습니다.";
+}
+
+logoutBtn.addEventListener("click", () => {
+  sessionStorage.removeItem(PW_KEY); logoutBtn.hidden = true; renderLogin();
+});
+
+if(getPw()) load(); else renderLogin();
+</script>
+</body>
+</html>
