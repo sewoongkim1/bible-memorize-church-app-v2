@@ -1,0 +1,388 @@
+// ============================================================
+// 이벤트 플랫폼 (분기 회차) — 2026-09-10
+//   설계: docs/superpowers/specs/2026-09-10-event-platform-design.html
+//   계획: docs/superpowers/plans/2026-09-10-event-platform.md
+//
+//   ⚠️ app.js 밖에 지었다. 지금 이 저장소는 여러 작업이 app.js 를 함께 쓰고 있어
+//      화면 코드를 밖에 두면 충돌 표면이 「분기 넷 + 한 단어」로 줄어든다.
+//      loadUser·homeFabLabel·stopSpeaking·appAlert·appConfirm·renderSummary·
+//      renderEntryScreen 은 app.js 의 전역이라 런타임에 그냥 불린다
+//      (js/psalm.js 와 같은 방식).
+//
+//   ⚠️ 이름이 renderEvent* 인 것이 이미 다섯 있다(Step/Board/Done/Button/Admin) —
+//      전부 옛 「말씀 이벤트」(퀴즈형, app_config('event') + event_entries) 것이다.
+//      여기서는 List/Form 만 쓰고 CSS 는 .ev- 접두사를 쓴다(.event-* 는 그쪽 것).
+//
+//   ⚠️ 참여는 앱 로그인으로만 받는다 — user_id 가 신원의 전부다. 이름·소속을
+//      묻지 않고 로그인 정보를 그대로 쓴다.
+// ============================================================
+
+// ── 상태 ─────────────────────────────────────────────────────
+// ⚠️ 불리언이 아니라 세 값이다. 숨기는 것은 같아도 **할 말이 다르다** —
+//    「지금 불러올 수 없어요」와 「지금 열린 이벤트가 없어요」를 섞으면,
+//    통신이 잠깐 끊긴 분께 「기간이 지났습니다」라고 사실이 아닌 말을 하게 된다.
+//    (2026-09-10 사역신청 작업이 실제로 그럴 뻔했다.)
+var evtState = "unknown"; // "unknown" | "none" | "some"
+var evtEvents = [];       // eventOpenList 의 events
+var evtMine = [];         // 내가 낸 것(회차를 넘어 전부)
+var evtHint = "";         // 직분 기본값
+var evtForm = null;       // 등록/고치기 중인 값 { eventId, position, phone, memo }
+var _evtPreview = false;  // ?preview=event 로 들어왔나(관리자)
+
+function evtEsc(v) {
+  return String(v == null ? "" : v)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// URL 의 ?ev=<회차id> 를 1회 읽어 반환(읽은 뒤 URL 정리 → 새로고침 재진입 방지)
+// 서버의 EVT_ID_RE 와 같은 모양이다.
+function getEvtDeepLink() {
+  try {
+    var p = new URLSearchParams(location.search).get("ev");
+    var id = (p || "").trim();
+    if (/^[a-z0-9][a-z0-9-]{1,40}$/.test(id)) {
+      history.replaceState(null, "", location.pathname);
+      return id;
+    }
+  } catch (e) {}
+  return null;
+}
+
+// 옛 js/api.js 를 물고 있는 브라우저에서 「함수가 없습니다」 대신 조용히 숨기려고
+function evtApiReady() {
+  return !!(window.api && api.eventOpenList && api.eventSignup);
+}
+
+// ── 불러오기 ─────────────────────────────────────────────────
+function evtLoad(u) {
+  if (!evtApiReady()) {
+    evtState = "unknown";
+    return Promise.resolve();
+  }
+  var uid = (u && u.user_id) || "";
+  return api.eventOpenList(uid).then(function (r) {
+    evtEvents = (r && r.events) || [];
+    evtMine = (r && r.mine) || [];
+    evtHint = (r && r.positionHint) || "";
+    evtState = evtEvents.length ? "some" : "none";
+  }).catch(function (e) {
+    // 서버가 옛 판이라 액션이 없다 · 표가 없다 · 통신 실패 — 전부 「모른다」다.
+    // 「없다」로 뭉개지 않는다.
+    evtState = "unknown";
+    evtEvents = []; evtMine = []; evtHint = "";
+    if (window.console) console.warn("eventOpenList 실패:", e && e.message);
+  });
+}
+
+function evtFind(id) {
+  for (var i = 0; i < evtEvents.length; i++) {
+    if (evtEvents[i].id === id) return evtEvents[i];
+  }
+  return null;
+}
+function evtMineOf(id) {
+  for (var i = 0; i < evtMine.length; i++) {
+    if (evtMine[i].eventId === id) return evtMine[i];
+  }
+  return null;
+}
+
+// 남은 날 — 마감 당일은 「오늘 마감」. KST 로 잰다(서버와 같은 잣대).
+function evtDdayText(closesOn) {
+  try {
+    var today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+    var a = new Date(today + "T00:00:00Z").getTime();
+    var b = new Date(closesOn + "T00:00:00Z").getTime();
+    var d = Math.round((b - a) / 86400000);
+    if (d < 0) return "마감";
+    if (d === 0) return "오늘 마감";
+    return d + "일 남음";
+  } catch (e) { return ""; }
+}
+
+// ── 목록 화면 ────────────────────────────────────────────────
+// focusId: 딥링크(?ev=)로 들어왔을 때 그 회차의 등록 화면을 바로 연다.
+function renderEventList(focusId) {
+  if (typeof stopSpeaking === "function") stopSpeaking();
+  var u = loadUser();
+  if (!u) { renderEntryScreen(); return; }
+  evtForm = null;
+
+  document.getElementById("app").innerHTML =
+    '<div class="ev-wrap"><div class="ev-loading">불러오는 중…</div></div>' +
+    '<button class="home-fab" id="ev-home" aria-label="첫 화면으로">' +
+    homeFabLabel(u, true) + "</button>";
+  window.scrollTo(0, 0);
+  document.getElementById("ev-home")
+    .addEventListener("click", function () { renderSummary(); });
+
+  evtLoad(u).then(function () {
+    // 딥링크로 특정 회차를 지목했고 그것을 볼 수 있으면 바로 등록 화면으로
+    if (focusId && evtFind(focusId)) { renderEventForm(u, focusId); return; }
+    // 열린 회차가 딱 하나뿐이고 아직 아무것도 안 냈으면 목록을 건너뛴다 —
+    // 고를 것이 없는데 고르라고 하지 않는다.
+    var pickable = evtEvents.filter(function (e) { return e.canSignup && !e.mine; });
+    if (!focusId && pickable.length === 1 && evtMine.length === 0) {
+      renderEventForm(u, pickable[0].id); return;
+    }
+    evtDrawList(u, focusId);
+  });
+}
+
+function evtDrawList(u, focusId) {
+  var wrap = document.querySelector(".ev-wrap");
+  if (!wrap) return;
+
+  if (evtState === "unknown") {
+    wrap.innerHTML =
+      '<div class="ev-head"><h2 class="ev-title">함께하는 이벤트</h2></div>' +
+      '<div class="ev-empty"><div class="ev-empty-ic">📡</div>' +
+      "<p>지금 불러올 수 없어요.<br>잠시 뒤 다시 눌러 주세요.</p>" +
+      '<button class="ev-retry" id="ev-retry">다시 시도</button></div>';
+    document.getElementById("ev-retry")
+      .addEventListener("click", function () { renderEventList(focusId); });
+    return;
+  }
+
+  if (evtState === "none" && !evtMine.length) {
+    wrap.innerHTML =
+      '<div class="ev-head"><h2 class="ev-title">함께하는 이벤트</h2></div>' +
+      '<div class="ev-empty"><div class="ev-empty-ic">🗓️</div>' +
+      "<p>지금 열린 이벤트가 없어요.<br>새 이벤트가 열리면 알려 드릴게요.</p></div>";
+    return;
+  }
+
+  wrap.innerHTML =
+    '<div class="ev-head"><h2 class="ev-title">함께하는 이벤트</h2></div>' +
+    evtSentHtml() +
+    evtEvents.map(evtCardHtml).join("");
+
+  evtEvents.forEach(function (e) {
+    var btn = document.getElementById("ev-go-" + e.id);
+    if (btn) {
+      btn.addEventListener("click", function () { renderEventForm(u, e.id); });
+    }
+  });
+}
+
+// 「이미 내신 것」 — 회차를 넘어 전부. 사역신청의 minSentListHtml 과 같은 자리다.
+// ⚠️ 겹친 회차를 볼 때 「내가 뭘 냈더라」가 먼저 궁금하다. 카드 사이에서 찾아
+//    훑지 않게 맨 위에 모아 둔다.
+function evtSentHtml() {
+  if (!evtMine.length) return "";
+  return '<div class="ev-sent"><div class="ev-sent-t">📋 이미 내신 것 <b>' +
+    evtMine.length + "건</b></div>" +
+    evtMine.map(function (m) {
+      var e = evtFind(m.eventId);
+      var nm = e ? e.title : m.eventId;
+      return '<div class="ev-sent-r"><span class="ev-sent-n">' + evtEsc(nm) +
+        '</span><span class="ev-sent-s">접수</span></div>';
+    }).join("") + "</div>";
+}
+
+function evtCardHtml(e) {
+  var closed = !e.canSignup;
+  var cls = "ev-card" + (e.mine ? " done" : "") + (closed ? " closed" : "");
+  var dday = evtDdayText(e.closesOn);
+  var btnLabel = e.mine ? "낸 것 보기 →" : (closed ? "지난 이벤트" : "참여하기 →");
+  return '<div class="' + cls + '">' +
+    (e.season ? '<div class="ev-season">' + evtEsc(e.season) + "</div>" : "") +
+    '<h3 class="ev-card-t">' + evtEsc(e.title) + "</h3>" +
+    (e.subtitle ? '<p class="ev-card-s">' + evtEsc(e.subtitle) + "</p>" : "") +
+    '<div class="ev-meta"><span class="ev-period">' + evtEsc(e.opensOn) +
+    " ~ " + evtEsc(e.closesOn) + "</span>" +
+    (closed ? "" : '<span class="ev-dday' + (dday === "오늘 마감" ? " urgent" : "") +
+      '">' + evtEsc(dday) + "</span>") + "</div>" +
+    (e.mine ? '<div class="ev-badge-done">✅ 참여하셨어요</div>' : "") +
+    '<button class="ev-go" id="ev-go-' + evtEsc(e.id) + '"' +
+    (closed && !e.mine ? " disabled" : "") + ">" + btnLabel + "</button>" +
+    "</div>";
+}
+
+// ── 등록 폼 ──────────────────────────────────────────────────
+function renderEventForm(u, eventId) {
+  var e = evtFind(eventId);
+  if (!e) { renderEventList(null); return; }
+  var mine = evtMineOf(eventId);
+  var needs = e.needs || {};
+
+  if (!evtForm || evtForm.eventId !== eventId) {
+    evtForm = {
+      eventId: eventId,
+      position: (mine && mine.position) || evtHint || "",
+      // ⚠️ 전화번호는 다른 기능(필사·사역신청)에서 가져오지 않는다.
+      //    privacy/ 가 용도를 한정해 적어 두었다. 같은 회차에서 내가 낸 값만 채운다.
+      phone: (mine && mine.phone) || "",
+      memo: (mine && mine.memo) || "",
+    };
+  }
+
+  var isGu = u.type === "교구";
+  var who = isGu
+    ? [u.gu, u.mok ? u.mok + "목장" : ""].filter(Boolean).join(" ")
+    : [u.bu, u.grade].filter(Boolean).join(" ");
+
+  var html =
+    '<div class="ev-head"><h2 class="ev-title">' + evtEsc(e.title) + "</h2>" +
+    '<button class="ev-back" id="ev-back">← 목록</button></div>' +
+    (e.subtitle ? '<p class="ev-lead">' + evtEsc(e.subtitle) + "</p>" : "") +
+    (e.copy && e.copy.intro
+      ? '<div class="ev-note">' + evtEsc(e.copy.intro) + "</div>" : "") +
+
+    // 신원은 묻지 않는다 — 로그인 정보가 그대로 들어간다.
+    '<div class="ev-who"><div class="ev-who-l">이렇게 등록됩니다</div>' +
+    '<div class="ev-who-v"><b>' + evtEsc(u.name) + "</b> · " + evtEsc(who) +
+    "</div></div>";
+
+  if (needs.position) {
+    // 직분 목록은 서버의 MIN_POSITIONS 와 **같아야** 한다(사역신청과 공유).
+    html += '<div class="ev-field"><label class="ev-label">직분</label>' +
+      '<div class="ev-chips" id="ev-pos">' +
+      ["성도", "집사", "권사", "안수집사", "장로", "전도사", "목사", "학생"]
+        .map(function (p) {
+          return '<button class="ev-chip' + (evtForm.position === p ? " on" : "") +
+            '" data-pos="' + p + '">' + p + "</button>";
+        }).join("") + "</div></div>";
+  }
+  if (needs.phone) {
+    html += '<div class="ev-field"><label class="ev-label" for="ev-phone">휴대폰</label>' +
+      '<input class="ev-input" id="ev-phone" type="tel" inputmode="numeric" ' +
+      'placeholder="010-1234-5678" value="' + evtEsc(evtForm.phone) + '"></div>';
+  }
+  if (needs.memo) {
+    html += '<div class="ev-field"><label class="ev-label" for="ev-memo">한 줄 남기기 ' +
+      '<span class="ev-opt">(안 써도 됩니다)</span></label>' +
+      '<textarea class="ev-input ev-ta" id="ev-memo" rows="3" maxlength="300">' +
+      evtEsc(evtForm.memo) + "</textarea></div>";
+  }
+
+  html += '<div class="ev-acts">' +
+    '<button class="ev-submit" id="ev-submit">' +
+    (mine ? "고치기" : "참여 등록하기") + "</button>" +
+    (mine ? '<button class="ev-cancel" id="ev-cancel">참여 취소</button>' : "") +
+    "</div>";
+
+  document.getElementById("app").innerHTML =
+    '<div class="ev-wrap">' + html + "</div>" +
+    '<button class="home-fab" id="ev-home" aria-label="첫 화면으로">' +
+    homeFabLabel(u, true) + "</button>";
+  window.scrollTo(0, 0);
+
+  document.getElementById("ev-home")
+    .addEventListener("click", function () { renderSummary(); });
+  document.getElementById("ev-back")
+    .addEventListener("click", function () { evtForm = null; renderEventList(null); });
+
+  var pos = document.getElementById("ev-pos");
+  if (pos) {
+    pos.addEventListener("click", function (ev2) {
+      var b = ev2.target && ev2.target.closest ? ev2.target.closest(".ev-chip") : null;
+      if (!b) return;
+      evtForm.position = b.getAttribute("data-pos");
+      renderEventForm(u, eventId);
+    });
+  }
+  var ph = document.getElementById("ev-phone");
+  if (ph) {
+    // 어르신이 하이픈을 신경 쓰지 않게 입력 중에 010-1234-5678 꼴로 정리한다
+    // (필사 신청의 pilsaPhoneFmt 와 같은 규칙).
+    ph.addEventListener("input", function () {
+      var d = ph.value.replace(/[^0-9]/g, "").slice(0, 11);
+      if (d.length > 7) ph.value = d.slice(0, 3) + "-" + d.slice(3, 7) + "-" + d.slice(7);
+      else if (d.length > 3) ph.value = d.slice(0, 3) + "-" + d.slice(3);
+      else ph.value = d;
+      evtForm.phone = ph.value;
+    });
+  }
+  var mm = document.getElementById("ev-memo");
+  if (mm) mm.addEventListener("input", function () { evtForm.memo = mm.value; });
+
+  document.getElementById("ev-submit")
+    .addEventListener("click", function () { evtSubmit(u, eventId); });
+  var cc = document.getElementById("ev-cancel");
+  if (cc) cc.addEventListener("click", function () { evtAskDrop(u, eventId); });
+}
+
+function evtSubmit(u, eventId) {
+  var e = evtFind(eventId);
+  var needs = (e && e.needs) || {};
+  if (needs.position && !evtForm.position) {
+    appAlert("직분을 골라 주세요."); return;
+  }
+  if (needs.phone) {
+    var d = (evtForm.phone || "").replace(/[^0-9]/g, "");
+    if (!d) { appAlert("휴대폰 번호를 적어 주세요."); return; }
+    if (!/^01[016-9][0-9]{7,8}$/.test(d)) {
+      appAlert("휴대폰 번호를 다시 확인해 주세요.<br><b>010-1234-5678</b> 꼴로 적어 주세요.");
+      return;
+    }
+  }
+  // ⚠️ user_id 는 로그인 직후 비어 있을 수 있다 — 서버가 준 값을 syncProgress 가
+  //    나중에 채운다. 이 화면은 user_id 가 신원의 전부라 그 자리를 반드시 다룬다.
+  if (!u.user_id) {
+    appAlert("잠시 뒤 다시 눌러 주세요.<br>기록을 서버와 맞추는 중입니다.");
+    return;
+  }
+  var btn = document.getElementById("ev-submit");
+  var label = btn.textContent;
+  btn.disabled = true; btn.textContent = "처리 중…";
+  api.eventSignup({
+    user_id: u.user_id,
+    event_id: eventId,
+    position: evtForm.position,
+    phone: evtForm.phone,
+    memo: evtForm.memo,
+  }).then(function () {
+    evtForm = null;
+    return evtLoad(u);
+  }).then(function () {
+    appAlert("참여를 등록했어요. 고맙습니다!");
+    evtDrawListFresh(u);
+  }).catch(function (err) {
+    btn.disabled = false; btn.textContent = label;
+    appAlert(evtErrText(err));
+  });
+}
+
+function evtAskDrop(u, eventId) {
+  var mine = evtMineOf(eventId);
+  if (!mine) return;
+  // ⚠️ appConfirm(msg, opts) 두 인자다 — 객체 하나로 부르면 메시지가 비어 뜬다.
+  //    msg 는 innerHTML 로 들어가므로 <br>·<b> 가 통한다(app.js:1289 appModal).
+  appConfirm("참여를 취소할까요?<br>다시 등록하실 수 있어요.", {
+    okText: "참여 취소", cancelText: "돌아가기", danger: true,
+  }).then(function (yes) {
+    if (!yes) return;
+    return api.eventDrop(u.user_id, mine.id).then(function () {
+      evtForm = null;
+      return evtLoad(u);
+    }).then(function () {
+      appAlert("참여를 취소했어요.");
+      evtDrawListFresh(u);
+    }).catch(function (err) { appAlert(evtErrText(err)); });
+  });
+}
+
+// 목록을 다시 그린다 — 「하나뿐이면 폼으로 건너뛰기」를 타지 않게 목록으로 곧장.
+function evtDrawListFresh(u) {
+  document.getElementById("app").innerHTML =
+    '<div class="ev-wrap"></div>' +
+    '<button class="home-fab" id="ev-home" aria-label="첫 화면으로">' +
+    homeFabLabel(u, true) + "</button>";
+  window.scrollTo(0, 0);
+  document.getElementById("ev-home")
+    .addEventListener("click", function () { renderSummary(); });
+  evtDrawList(u, null);
+}
+
+// 서버 슬러그를 성도님 말로 바꾼다 — 「아직 안 열렸다」와 「마감했다」를 뭉개지 않는다.
+function evtErrText(err) {
+  var m = (err && err.message) || "";
+  if (m === "closed-period") return "등록 기간이 지났어요.";
+  if (m === "not-open") return "아직 열리지 않은 이벤트예요.";
+  if (m === "not-found") return "이벤트를 찾을 수 없어요.";
+  if (m === "no-user") return "로그인 정보를 확인할 수 없어요. 다시 로그인해 주세요.";
+  if (m === "bad-args") return "요청이 올바르지 않아요. 다시 시도해 주세요.";
+  return m || "잠시 뒤 다시 시도해 주세요.";
+}
