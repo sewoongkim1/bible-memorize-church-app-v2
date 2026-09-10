@@ -4495,16 +4495,6 @@ body.pr-full-on { overflow: hidden; }
 .dark .min-over { background: #33301f; color: #e2c98a; }
 .dark .min-over b { color: #e2c98a; }
 
-/* 신청 시작 전 한 줄 예고 — 단추가 아니라 안내다(못 누르는 단추를 얹지 않는다) */
-.summary-soon { display: block; width: 100%; text-align: center; font: inherit;
-  font-size: .88rem; color: var(--gray); background: var(--light);
-  border: 1.5px dashed var(--border); border-radius: 12px; padding: 11px 12px; cursor: pointer; }
-.soon-go { font-size: .8rem; font-weight: 700; color: var(--navy); margin-left: 4px; }
-.dark .soon-go { color: #cfe0ff; }
-.summary-soon b { color: var(--navy); }
-.dark .summary-soon { background: #1e2637; color: #b9c4d8; }
-.dark .summary-soon b { color: #cfe0ff; }
-
 .min-filter { background: var(--light); border-radius: 12px; padding: 10px 12px 12px; margin-bottom: 10px; }
 /* ⚠️ 이름표를 칩 **위**에 둔다. 왼쪽에 두면 「얼마나 자주」가 두 줄로 깨지고,
    폭이 좁은 폰일수록 칩이 쓸 자리를 이름표가 먹는다. */

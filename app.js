@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260910f";
+const APP_BUILD = "20260910g";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -230,15 +230,6 @@ function refreshMinistryPeriod() {
   api.getConfig("ministry").then((d) => {
     try { localStorage.setItem(MIN_PERIOD_KEY, JSON.stringify((d && d.value) || null)); } catch (e) {}
   }).catch(() => {});
-}
-// 기간 **전**이면 「12월 13일부터」를 돌려준다. 기간 중·후·설정 없음이면 빈 글자.
-// ⚠️ 마음의 준비를 하고 오시게 하려는 것이라, 시작 전에만 보인다.
-function ministrySoonText() {
-  const p = ministryPeriodCached();
-  if (!p || !p.open) return "";
-  const today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);  // KST
-  if (today >= p.open) return "";
-  return p.open.slice(5).replace("-", "월 ") + "일부터";
 }
 
 function ministryVisible() {
@@ -1867,15 +1858,7 @@ function renderSummary() {
     <button class="summary-help" id="open-board">💬 응원·기도·공감</button>
     <button class="summary-help" id="open-prayer">🙏 가정 축복 기도문${newBadge("prayer")}</button>
     <button class="summary-help" id="open-quiz">🎯 성경암송 퀴즈</button>
-    ${ministryVisible()
-      ? `<button class="summary-help" id="open-ministry">🤝 사역신청${newBadge("ministry")}</button>`
-      : ministrySoonText()
-        // ⚠️ 누를 수 없는 단추가 아니라 **한 줄 안내**로 둔다. 첫 화면에서 누를 것을
-        //    24개→9개로 줄여 놓았는데, 못 누르는 단추를 얹으면 그만큼 도로 흐려진다.
-        // ⚠️ 눌러서 들어갈 수 있어야 한다 — 못 누르는 줄로 두었더니 시험하시는 분들이
-        //    첫 화면에서 막혔다(성도님 제보 2026-09-10).
-        ? `<button class="summary-soon" id="open-ministry-soon">🤝 사역신청 <b>${ministrySoonText()}</b> <span class="soon-go">미리 보기 ›</span></button>`
-        : ""}
+    ${ministryVisible() ? `<button class="summary-help" id="open-ministry">🤝 사역신청${newBadge("ministry")}</button>` : ""}
     <button class="summary-help" id="open-pilsa">✍️ 성경필사 노트 신청</button>
     ${passagesVisible() ? `<button class="summary-help" id="open-passages">📜 내 안에 거하는 말씀${newBadge("passages")}</button>` : ""}
     <!-- 아카이브 둘은 앱 밖(다른 사이트)으로 나간다. 그 사실이 보이게 ↗ 와 흰 바탕으로
@@ -1904,12 +1887,6 @@ function renderSummary() {
   loadEventState();     // 서버에서 설정·응모여부 갱신 후 다시 표시
   document.getElementById("open-board").addEventListener("click", renderBoard);
   document.getElementById("open-prayer").addEventListener("click", () => renderPrayerBook());
-  const minSoon = document.getElementById("open-ministry-soon");
-  if (minSoon) minSoon.addEventListener("click", function () {
-    MIN_TEST = true;                       // 이 탭에서만 — 새로고침해도 남게 sessionStorage
-    try { sessionStorage.setItem(MIN_TEST_KEY, "1"); } catch (e) {}
-    renderMinistry();
-  });
   const minBtn = document.getElementById("open-ministry");   // 기간 밖에는 아예 없다
   if (minBtn) minBtn.addEventListener("click", () => {
     minLoaded = false;            // 들어올 때마다 서버에서 지금 상태를 받는다
@@ -8933,15 +8910,12 @@ function minApiReady() { return !!(window.api && api.ministryCatalog && api.mini
 
 // ?preview=ministry 로 열면 기간 밖에도 시험해 볼 수 있다 — 서버가 관리자 비번을 보고 통과시킨다.
 // ⚠️ 비번은 sessionStorage 에만 둔다(관리자 화면과 같은 열쇠). 성도님 화면에는 이 길이 없다.
-// ⚠️⚠️ **시험 모드** — 신청 기간 전에도 첫 화면에서 들어가 제출까지 해 볼 수 있게 한다.
-//    성도님이 「지금은 들어와도 상관없다, 테스트 하는 사람들이다」로 정하셨다(2026-09-10).
-//    **12-13 전에 이 셋을 되돌린다**: ⓐ 여기 MIN_TEST ⓑ 서버의 `|| b.preview`
-//    ⓒ 그때까지 들어온 시험 신청 행.
-const MIN_TEST_KEY = "ministry-test";
-let MIN_TEST = false;
-try { MIN_TEST = sessionStorage.getItem(MIN_TEST_KEY) === "1"; } catch (e) {}
+// 관리자 미리보기 — **들어오는 길은 이 주소 하나뿐이다.**
+// ⚠️ 첫 화면에는 기간 밖에 아무것도 내놓지 않는다(성도님 결정 2026-09-10).
+//    한때 「12월 13일부터」 줄을 눌러 들어가게 했다가, 성도님 전체에게 보이는 자리라
+//    걷어냈다. 시험은 ?preview=ministry 로 한다.
 function minPrev() {
-  return location.search.indexOf("preview=ministry") >= 0 || MIN_TEST;
+  return location.search.indexOf("preview=ministry") >= 0;
 }
 // ⚠️ **비번을 묻지 않는다.** 서버가 preview 깃발만으로 통과시키므로(2026-09-09),
 //    물어 봤자 시험하시는 분들은 답을 모르고 그 자리에서 막힌다.
