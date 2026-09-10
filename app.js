@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260910a";
+const APP_BUILD = "20260910b";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9088,6 +9088,11 @@ function minPickHtml() {
   const committees = [];
   for (const t of minCat.list) if (committees.indexOf(t.committee) < 0) committees.push(t.committee);
 
+  // 먼저 몇 팀이 남는지 세어 둔다 — 그 수로 「펼칠지」를 정한다
+  const shownAll = minFOn()
+    ? minCat.list.filter(function (t) { return minShown(t); }).length
+    : minCat.list.length;
+
   let acc = "";
   let shownN = 0;
   for (const c of committees) {
@@ -9099,7 +9104,10 @@ function minPickHtml() {
     const got = mine.filter(function (t) {
       return minPicked.indexOf(t.id) >= 0 || minLockedIds.indexOf(t.id) >= 0;
     }).length;
-    const open = minOpen === c;
+    // ⚠️ 걸러 놓고도 접어 두면 「12팀 보임」이라 써 놓고 화면엔 위원회 줄만 남아
+    //    「12팀이 어디 있지?」가 된다. 「한 번에 하나만」은 88팀이 길어서 둔 규칙이라,
+    //    걸러서 짧아졌으면 그 이유가 사라진다. 20팀 이하로 줄면 전부 펼친다.
+    const open = (minFOn() && shownAll <= 20) || minOpen === c;
     acc += '<div class="min-acc' + (open ? " open" : "") + '">' +
       '<button class="min-acc-h" data-acc="' + minEsc(c) + '" aria-expanded="' + open + '">' +
         '<span>' + minEsc(c) + (got ? ' <span class="min-got">' + got + '개 선택</span>' : "") + '</span>' +
