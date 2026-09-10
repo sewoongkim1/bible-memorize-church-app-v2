@@ -3076,16 +3076,19 @@ async function boardModerate(b: any) {
 //   · 고른 사역이 최대 3개 — 순위는 없다(2026-09-08 결정)
 // ⚠️ 응답에 user_id 를 절대 싣지 않는다. 이 API 는 JWT 가 없어 남의 user_id 하나면
 //    그 사람 행세가 된다(boardList 가 실제로 그랬다). 화면이 필요한 건 "내 것인가"뿐이다.
-const MINISTRY_STATUS = ["신청완료", "접수완료", "임명확정", "미채택"];
+const MINISTRY_STATUS = ["신청완료", "접수완료", "임명확정", "미채택", "취소"];
 // 담당자가 **접수완료**를 누르면 그 건은 잠긴다 — 성도가 고치거나 뺄 수 없고,
 // 그 순간 팀 「자세히 보기」의 명단에 이름이 올라간다(2026-09-09 성도님 요구).
 // ⚠️ 잠겨도 「3개가 안 찼으면 더 신청」은 열려 있다. 그래서 한 사람이 한 행이 아니라
 //    **한 팀이 한 행**이다 — 행이 통째로 잠기면 더 담을 자리가 없어진다.
-const MINISTRY_LOCKED = ["접수완료", "임명확정", "미채택"];
+// ⚠️ 「취소」도 잠긴다 — 관리자가 부서장 요청을 받아 내린 결정이라 성도가 되돌리지 못한다.
+const MINISTRY_LOCKED = ["접수완료", "임명확정", "미채택", "취소"];
 const isLocked = (st: string) => MINISTRY_LOCKED.indexOf(st) >= 0;
 // ⚠️ 「미채택」은 자리를 **비운다**. 잠기기는 해도(그 팀은 결과가 났다) 3개 상한에서는
 //    빼야 한다 — 안 그러면 떨어진 분이 다른 팀에 신청조차 못 하는 막다른 길이 된다.
-const countsToCap = (st: string) => st !== "미채택";
+// ⚠️ 「미채택」과 「취소」는 자리를 **도로 내놓는다**. 안 그러면 떨어지거나 취소당한 분이
+//    다른 사역에 신청조차 못 하는 막다른 길이 된다.
+const countsToCap = (st: string) => st !== "미채택" && st !== "취소";
 // 명단에 오르는 상태 — 미채택은 함께 섬기는 분이 아니다
 const MINISTRY_ROSTER = ["접수완료", "임명확정"];
 
@@ -3156,7 +3159,9 @@ function ministryRow(r: any) {
     option: r.option ?? "",
     status: r.status,
     locked: isLocked(r.status),
-    note: r.note ?? "",
+    // ⚠️ note(담당자 메모·취소 사유)는 **여기 싣지 않는다.** 이 함수는 ministryMine 을 타고
+    //    성도 화면까지 간다 — 「관리자만 본다」는 약속이 그 한 줄로 깨진다.
+    //    관리자에게는 ministryList 가 따로 싣는다.
     position: r.position ?? "",
     at: kstDay(r.created_at).replace(/-/g, "."),
     created_at: r.created_at,
@@ -3439,6 +3444,7 @@ async function ministryList(b: any) {
       ...ministryRow(r),
       name: r.name || (u ? u.name : "") || "",
       who,
+      note: r.note ?? "",         // ⚠️ 관리자 전용 — 성도 응답에는 없다
       notified_at: r.notified_at,
       canPush: hasPush.has(r.user_id),
       phone: r.phone ?? "",       // 교적 대조·연락용 — 결정이 나면 서버가 지운다
@@ -3468,9 +3474,14 @@ async function ministrySetStatus(b: any) {
   // ⚠️ 결정이 나면 휴대폰 뒷 4자리를 지운다 — 고치기 확인도, 교적 대조도 끝난 자리다.
   //    사람이 기억해서 지우는 약속은 언젠가 지켜지지 않으니, 상태를 바꾸는 그 자리에서 지운다
   //    (필사 신청이 배부완료에서 번호를 지우는 것과 같은 규칙).
-  if (status === "임명확정" || status === "미채택") {
+  if (status === "임명확정" || status === "미채택" || status === "취소") {
     patch.decided_at = new Date().toISOString();
     patch.phone = null;
+  }
+  // ⚠️ 취소는 **사유 없이 못 한다.** 부서장 요청을 오프라인으로 받아 처리하는 일이라,
+  //    적어 두지 않으면 나중에 「왜 취소됐지」를 아무도 모른다(성도님 결정 2026-09-10).
+  if (status === "취소" && !norm(b.note)) {
+    return { ok: false, error: "취소 사유를 적어 주세요 (관리자만 봅니다)" };
   }
   // 임명확정에서 물러나면 그 행의 「알림 보냈음」도 지운다(이미 나간 알림을 무를 수는 없다)
   if (row.status === "임명확정" && status !== "임명확정") patch.notified_at = null;

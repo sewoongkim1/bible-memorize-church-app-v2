@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260910l";
+const APP_BUILD = "20260910m";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9025,11 +9025,13 @@ function minEsc(t) {
 // 그 앞 단계가 아니다 — 마지막 칸의 이름만 바꿔 끼운다.
 const MIN_STEPS = ["신청완료", "접수완료", "임명확정"];
 function minStepsHtml(cur) {
-  const steps = cur === "미채택" ? ["신청완료", "접수완료", "미채택"] : MIN_STEPS;
+  const steps = (cur === "미채택" || cur === "취소")
+    ? ["신청완료", "접수완료", cur]        // 임명확정과 나란한 끝이지 그 앞 단계가 아니다
+    : MIN_STEPS;
   const i = steps.indexOf(cur);
   return '<div class="pl-steps">' + steps.map(function (t, k) {
     return '<div class="pl-step ' + (k < i ? "done" : k === i ? "now" : "") +
-      (cur === "미채택" && k === 2 && k === i ? " none" : "") +
+      ((cur === "미채택" || cur === "취소") && k === 2 && k === i ? " none" : "") +
       '"><i></i><span>' + minEsc(t) + '</span></div>';
   }).join("") + '</div>';
 }
@@ -9039,6 +9041,9 @@ const MIN_STATE = {
   "접수완료": { ic: "📥", cls: "s-work", msg: "담당자가 접수했어요. 이제 고치실 수 없습니다." },
   "임명확정": { ic: "✅", cls: "s-done", msg: "임명이 확정됐어요. 첫 모임 안내를 기다려 주세요." },
   "미채택":   { ic: "🕊️", cls: "s-none", msg: "이번에는 다른 분이 임명되셨어요. 다음 기회에 함께해 주세요." },
+  // ⚠️ 관리자가 부서장 요청을 받아 취소한 것이다. 성도님께는 **까닭을 적지 않는다** —
+  //    사유는 관리자만 보기로 했고, 자세한 것은 부서에 여쭙는 편이 맞다.
+  "취소":     { ic: "↩️", cls: "s-none", msg: "이 신청은 부서 요청으로 취소되었어요. 자세한 것은 해당 부서에 여쭤봐 주세요." },
 };
 
 async function minLoad(u) {
@@ -9075,7 +9080,10 @@ function minLockStatus(id) {
 // ⚠️ 「미채택」은 자리를 도로 내놓는다 — 안 그러면 떨어진 분이 다른 팀에 신청조차
 //    못 하는 막다른 길이 된다. 서버도 같은 규칙으로 센다(countsToCap).
 function minHeld() {
-  return minLocked.filter(function (x) { return x.status !== "미채택"; }).length;
+  // ⚠️ 서버의 countsToCap 과 **같은 규칙**이어야 한다 — 어긋나면 화면과 서버가 다른 수를 센다
+  return minLocked.filter(function (x) {
+    return x.status !== "미채택" && x.status !== "취소";
+  }).length;
 }
 function minLeft() {
   return Math.max(0, MIN_MAX - minHeld() - minPicked.length);
@@ -9356,7 +9364,7 @@ function minPickHtml() {
       ? '<div class="min-note min-lock-note">📥 이미 결정된 <b>' + minLocked.length + '건</b>은 ' +
         '고치거나 뺄 수 없어요.' +
         (minLocked.length > minHeld()
-          ? ' 그중 <b>미채택 ' + (minLocked.length - minHeld()) + '건</b>은 자리를 도로 내놓았어요.' : "") +
+          ? ' 그중 <b>' + (minLocked.length - minHeld()) + '건</b>(미채택·취소)은 자리를 도로 내놓았어요.' : "") +
         ' <b>남은 ' + Math.max(0, MIN_MAX - minHeld()) + '자리</b>만 고르시면 됩니다.</div>'
       : "") +
     // ⚠️ 필터보다 **위**이고, 필터를 켜도 그대로 남는다 — 이미 낸 것은 거를 대상이 아니다.
@@ -9503,6 +9511,7 @@ function minTogglePick(id) {
     const st = minLockStatus(id);
     alert(st === "미채택" ? "이 사역은 이번에 다른 분이 임명되셨어요. 다른 사역을 골라 주세요."
         : st === "임명확정" ? "이미 임명이 확정된 사역이에요."
+        : st === "취소" ? "이 신청은 부서 요청으로 취소되었어요. 자세한 것은 해당 부서에 여쭤봐 주세요."
         : "이미 담당자가 접수한 사역이라 뺄 수 없어요.");
     return false;
   }
