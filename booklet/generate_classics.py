@@ -397,11 +397,17 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
 .ht-rule { width:16mm; height:1px; background:var(--line); margin:8mm auto; }
 .ht-p { font-size:10.5pt; color:var(--sub); letter-spacing:.06em; }
 /* 속표지 아래 — 기도제목 네 줄(2026-09-11 성도님 요청).
+   **말씀 상자(.scr·.wbox)와 같은 모양**이다 — 크림 바탕 + 남색 왼쪽 띠.
+   한 책 안에서 「적는 상자」가 늘 같은 얼굴이면 성도님이 따로 배울 것이 없다.
    ⚠️ 줄 간격은 본문과 **같은 LINE_MM** 이다(`.ln` 을 그대로 쓴다) — 한 책 안에서 줄이
-      들쭉날쭉하면 손이 헷갈린다. */
-.ht-pray { position:absolute; left:22mm; right:22mm; bottom:24mm; text-align:left; }
+      들쭉날쭉하면 손이 헷갈린다.
+   ⚠️ 줄 색도 `--rule` 그대로 쓴다 — 크림 위라 조금 옅어 보이지만 말씀 칸도 같은 조건이다.
+      여기만 따로 색을 두면 다음에 한쪽만 고치게 된다. */
+.ht-pray { position:absolute; left:18mm; right:18mm; bottom:22mm; text-align:left;
+           background:var(--cream); border-left:2.6mm solid var(--navy);
+           border-radius:0 2mm 2mm 0; padding:4mm 4.4mm 1.4mm; }
 .ht-pl { font-family:var(--tf); font-weight:400; font-size:10pt; color:var(--navy);
-         letter-spacing:.02em; margin-bottom:3mm; }
+         letter-spacing:.02em; margin-bottom:2.6mm; }
 
 .back { justify-content:center; text-align:center; padding:18mm 15mm; }
 .bk-t { font-family:var(--tf); font-weight:400; font-size:15.6pt; color:var(--navy);
