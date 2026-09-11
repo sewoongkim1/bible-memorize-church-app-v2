@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260911h";
+const APP_BUILD = "20260911i";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1314,7 +1314,7 @@ const FEAT_SINCE = {
   //    NEW 는 신청 시작일부터 센다. 지금 날짜를 적으면 성도님이 보기도 전에 사라진다.
   ministry: "2026-12-13",
   event: "2026-09-10",        // 이벤트 플랫폼 — 썸머 써 바이블 명단을 여는 날
-  psalm: "2026-09-21",        // 쉴만한 물가(옛 이름 시편 말씀 액자) — 1일차와 같은 날부터 NEW
+  psalm: "2026-09-12",        // 쉴만한 물가(옛 이름 시편 말씀 액자) — 1일차와 같은 날부터 NEW
   prayer: "2026-09-03",
   meditation: "2026-07-20",   // 매일 묵상
   sermon: "2026-07-23",       // 내게 주시는 말씀
@@ -8353,7 +8353,7 @@ function renderAlbum() {
   // 게이트가 꺼져 있으면 칩 자체를 내지 않는다 — 눌러도 볼 것이 없다
   const trackChips = !psalmVisible() ? "" : `
     <div class="album-track">
-      ${[["weekly","주간 말씀"],["psalm","시편 액자"],["all","전부"]].map(([k, label]) =>
+      ${[["weekly","주간 말씀"],["psalm","쉴만한 물가"],["all","전부"]].map(([k, label]) =>
         `<button class="atk${albumTrack === k ? " on" : ""}" data-track="${k}">${label}</button>`).join("")}
     </div>`;
 

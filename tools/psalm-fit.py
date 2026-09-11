@@ -51,7 +51,7 @@ OUT_SQL = os.path.join(ROOT, "supabase", "psalm_frames.sql")
 SHEET = "구절 입력"
 FIRST_ROW = 4
 NO_BASE = 1000                      # 시편 구절 번호 = 1000 + day_no (주간 구절과 겹치지 않게)
-START_DATE = dt.date(2026, 9, 21)
+START_DATE = dt.date(2026, 9, 12)   # 1일차 — 2026-09-11 성도님 결정(처음 계획은 9/21)
 TOTAL_DAYS = 180
 FRAME_COUNT = 12
 
@@ -65,9 +65,17 @@ MIN_W = 30                          # 이보다 짧으면 다섯 줄을 못 채�
 
 WEEKDAY = "월화수목금토일"
 
-# "시편 1편 1절" / "시편 1편 1-2절" / "시 1:1" 모두 받는다
-RE_FULL = re.compile(r"^\s*시(?:편)?\s*(\d+)\s*편\s*(\d+)(?:\s*[-~–]\s*(\d+))?\s*절\s*$")
-RE_COLON = re.compile(r"^\s*시(?:편)?\s*(\d+)\s*[:：]\s*(\d+)(?:\s*[-~–]\s*(\d+))?\s*$")
+# 책 — 「쉴만한 물가」는 시편 뒤에 잠언·전도서도 담는다(2026-09-11 성도님 결정).
+#   출처에 쓰는 이름 → (정식 이름, 짧은 이름, 장 단위). 시편만 「편」이고 나머지는 「장」이다.
+BOOKS = {
+    "시편": ("시편", "시", "편"), "시": ("시편", "시", "편"),
+    "잠언": ("잠언", "잠", "장"), "잠": ("잠언", "잠", "장"),
+    "전도서": ("전도서", "전", "장"), "전": ("전도서", "전", "장"),
+}
+_BOOK = "(시편|잠언|전도서|시|잠|전)"      # 긴 이름을 앞에 둔다 — 「시」가 「시편」보다 먼저 걸리지 않게
+# "시편 1편 1절" / "잠언 3장 5-6절" / "시 1:1" / "잠 3:5" 모두 받는다
+RE_FULL = re.compile(r"^\s*" + _BOOK + r"\s*(\d+)\s*(?:편|장)\s*(\d+)(?:\s*[-~–]\s*(\d+))?\s*절\s*$")
+RE_COLON = re.compile(r"^\s*" + _BOOK + r"\s*(\d+)\s*[:：]\s*(\d+)(?:\s*[-~–]\s*(\d+))?\s*$")
 RE_LEAD_NO = re.compile(r"^\s*\d+\s+")          # 본문 앞에 딸려 온 절 번호
 RE_LEAD_NO_TIGHT = re.compile(r"^\s*\d+(?=[가-힣])")  # "1복 있는" 처럼 붙어 온 것
 
@@ -88,21 +96,24 @@ def font_for(w):
 
 
 def parse_ref(s):
-    """출처 문자열 → (편, 시작절, 끝절 or None). 못 읽으면 None."""
+    """출처 문자열 → (책 정식 이름, 장/편, 시작절, 끝절 or None). 못 읽으면 None."""
     for rx in (RE_FULL, RE_COLON):
         m = rx.match(s or "")
         if m:
-            ch, v1, v2 = int(m.group(1)), int(m.group(2)), m.group(3)
-            return ch, v1, (int(v2) if v2 else None)
+            book = BOOKS[m.group(1)][0]
+            ch, v1, v2 = int(m.group(2)), int(m.group(3)), m.group(4)
+            return book, ch, v1, (int(v2) if v2 else None)
     return None
 
 
-def ref_short(ch, v1, v2):
-    return f"시 {ch}:{v1}" + (f"-{v2}" if v2 else "")
+def ref_short(book, ch, v1, v2):
+    # ⚠️ 시편은 지금까지와 한 글자도 같아야 한다(「시 1:1」) — 이미 올라간 no 의 짝을
+    #    read_existing_no_ref 가 이 문자열로 견준다. 달라지면 번호 재배정으로 오인해 막는다.
+    return f"{BOOKS[book][1]} {ch}:{v1}" + (f"-{v2}" if v2 else "")
 
 
-def ref_full(ch, v1, v2):
-    return f"시편 {ch}편 {v1}" + (f"-{v2}" if v2 else "") + "절"
+def ref_full(book, ch, v1, v2):
+    return f"{book} {ch}{BOOKS[book][2]} {v1}" + (f"-{v2}" if v2 else "") + "절"
 
 
 def clean_text(s):
@@ -289,8 +300,8 @@ def main():
         parsed = parse_ref(r["ref"])
         if not parsed:
             bad_ref.append(r); continue
-        ch, v1, v2 = parsed
-        rs, rf = ref_short(ch, v1, v2), ref_full(ch, v1, v2)
+        book, ch, v1, v2 = parsed
+        rs, rf = ref_short(book, ch, v1, v2), ref_full(book, ch, v1, v2)
         if rs in seen:
             dup.append((r, seen[rs]))
         else:
@@ -343,7 +354,7 @@ def main():
                    f"(상한 {MAX_W}, {t[1]-MAX_W} 넘음)  {t[0]['text'][:26]}…")
     show("⚠️ 짧음 — 써도 되지만 액자가 허전합니다", too_short,
          lambda t: f"{t[0]['day']:3d}일차  {t[0]['ref']:14s} 폭 {t[1]:3d}  {t[0]['text'][:30]}")
-    show("❌ 출처를 못 읽었습니다 — 「시편 1편 1절」 꼴로 적어 주세요", bad_ref,
+    show("❌ 출처를 못 읽었습니다 — 「시편 1편 1절」·「잠언 3장 5절」 꼴로 적어 주세요", bad_ref,
          lambda r: f"{r['day']:3d}일차  「{r['ref']}」")
     show("❌ 같은 구절이 두 번 들어갔습니다", dup,
          lambda t: f"{t[0]['day']:3d}일차  {t[0]['ref']}  ← {t[1]}일차와 같음")

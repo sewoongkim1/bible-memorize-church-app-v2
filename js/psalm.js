@@ -12,7 +12,7 @@ const PSALM_NO_BASE = 1000;   // 시편 구절 번호 = 1000 + day_no. 이 번�
 let psalmVerses = [];         // 열린 구절만 (서버가 안 열린 것은 안 내려보낸다)
 let psalmOpen = 0;            // 오늘까지 열린 편수
 let psalmTotal = 180;
-const PSALM_DEFAULT_START = "2026-09-21";   // 서버가 안 알려줄 때 쓰는 값
+const PSALM_DEFAULT_START = "2026-09-12";   // 서버가 안 알려줄 때 쓰는 값 — 1일차(2026-09-11 성도님 결정, 처음 계획은 9/21)
 let psalmStartDate = "";
 let psalmLoaded = false;
 let psalmLoadedDay = "";      // 캐시가 속한 KST 날짜(YYYY-MM-DD) — 자정 넘김 판별용
@@ -115,11 +115,13 @@ function drawPsalmHome() {
   if (psalmOpen <= 0) {
     // ⚠️ 서버가 옛 판이면 startDate 가 안 온다 — 그때 「 에 시작해요」로 보였다(2026-09-10).
     const d = (psalmStartDate || PSALM_DEFAULT_START).replace(/-/g, ".");
+    // ⚠️ 「외운다」를 쓰지 않는다 — 성도님 결정(2026-09-11): 암송은 부담을 준다. 묵상으로 부른다.
+    //    「시편」도 뺐다 — 잠언·전도서도 함께 열린다. 이모지는 첫 화면 단추와 같은 🐑.
     wrap.innerHTML = `${psalmHomeHead(null)}
       <div class="ps-soon">
-        <div class="ps-soon-icon">📿</div>
+        <div class="ps-soon-icon">🐑</div>
         <div class="ps-soon-t">${psalmEsc(d)} 에 시작해요</div>
-        <div class="ps-soon-s">시편 말씀을 하루에 한 편씩 함께 외웁니다</div>
+        <div class="ps-soon-s">말씀을 하루에 한 편씩 함께 묵상합니다</div>
       </div>`;
     psalmWireHomeBack();
     return;
