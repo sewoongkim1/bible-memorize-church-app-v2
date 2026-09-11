@@ -429,7 +429,9 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
 .bk-rule { width:20mm; height:1px; background:var(--line); margin:7mm auto; }
 /* 그해 표어 — 뒷표지 맨 위. **이 책에서 가장 큰 글씨는 아니어야 한다**(앞표지 제목이 그 자리다).
    ⚠️ 낱말 가운데서 접히면 흉하다 — keep-all 로 낱말을 지킨다. */
-.bk-my { font-size:10.8pt; color:var(--gold); letter-spacing:.14em; margin-bottom:3.5mm; }
+/* 「2026년 표어」 — 금색(--gold #a8873c)은 작은 글씨에서 흐릿하게 인쇄된다.
+   ⚠️ 자간(.14em)까지 벌어져 있어 더 옅어 보인다 — 색을 한 단계 짙은 금갈색으로 내린다. */
+.bk-my { font-size:10.8pt; color:#8a6a22; letter-spacing:.14em; margin-bottom:3.5mm; }
 .bk-ml { font-family:var(--tf); font-weight:400; font-size:18pt; color:var(--navy);
          letter-spacing:.01em; word-break:keep-all; line-height:1.4; }
 .bk-mv { margin-top:5mm; font-size:13.2pt; line-height:1.8; color:#3f4855;
