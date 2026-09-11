@@ -193,11 +193,17 @@ def ensure_fonts():
 
 ensure_fonts()
 
-# 교회 마크 — 앞표지·뒷표지에 넣는다. 없으면 교회 이름 글자로 대신한다.
-LOGO = ''
-_lg = os.path.join('..', 'marketing', 'logo-data-uri.txt')
-if os.path.exists(_lg):
-    LOGO = io.open(_lg, encoding='utf-8').read().strip()
+# 교회 마크 두 벌 — **앞표지는 가로 CI**(가로조합1), 뒷표지는 세로 마크.
+#   앞표지는 마크가 맨 아래 한 줄로 앉아 가로가 낫고, 뒷표지는 가운데라 세로가 낫다.
+# ⚠️ 가로 CI 는 원본이 JPG 라 **흰 바탕이 딸려 온다** — 색지에 인쇄하면 흰 네모가 보인다.
+#    그래서 흰 화소를 투명으로 바꾼 `ci-h.png` 를 쓴다(만드는 법은 만들기 문서 참고).
+# ⚠️ 둘 중 하나가 없어도 멈추지 않는다 — 교회 이름 글자로 대신한다.
+def _uri(path):
+    return io.open(path, encoding='utf-8').read().strip() if os.path.exists(path) else ''
+
+
+LOGO = _uri(os.path.join('..', 'marketing', 'logo-data-uri.txt'))   # 세로 — 뒷표지
+LOGO_H = _uri('ci-h-data-uri.txt') or LOGO                          # 가로 — 앞표지
 
 # ── 자료 ────────────────────────────────────────────────────────────────
 D = json.load(io.open('classics.json', encoding='utf-8'))
@@ -336,10 +342,13 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
    ⚠️ `space-between` 이 세 덩이를 벌린다. 가운데 것을 `margin:auto 0` 로 잡으면 위아래
       빈자리가 한쪽으로 쏠린다 — 세 덩이를 그대로 두고 벌리는 편이 어느 판형에서나 안정적이다. */
 .cover { background:#fff; color:var(--navy); align-items:stretch;
-         justify-content:space-between; text-align:center; padding:26mm 18mm 22mm; }
-.cv-logo { width:30mm; }
-.cv-t { font-family:var(--tf); font-weight:400; font-size:27pt; line-height:1.42;
-        letter-spacing:.02em; }
+         justify-content:space-between; text-align:center; padding:26mm 10mm 22mm; }
+.cv-logo { width:46mm; }   /* 가로 CI — 가로세로비 2.8 이라 세로 마크보다 넓게 잡는다 */
+.cv-t { font-family:var(--tf); font-weight:400; font-size:31pt; line-height:1.38;
+        letter-spacing:.02em; word-break:keep-all; white-space:nowrap; }
+/* ⚠️ `white-space:nowrap` — 제목이 스스로 접히면 「함께하 / 는」처럼 낱말 가운데서 잘린다.
+      줄바꿈 자리는 내가 넣은 `<br>` 하나뿐이어야 한다. 제목을 더 키울 때는 이 줄 덕분에
+      **넘치는 것이 눈에 바로 보인다**(조용히 접히지 않는다). */
 .cv-t em { font-style:normal; color:var(--gold); }
 .cv-p { margin-top:7mm; font-size:12.5pt; color:var(--sub); letter-spacing:.06em; }
 /* ⚠️ 맺음말을 margin-top:auto 로 내리면 그 auto 마진이 남는 공간을 통째로 먹어
@@ -349,7 +358,9 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
    ⚠️ `position:absolute` 라 제목 덩어리를 밀지 않는다 — 표지 가운데 균형이 그대로다. */
 /* ⚠️ 라벨 칸 폭을 **가장 긴 라벨**(목장(교회학교))에 맞춰 못박는다 — 그래야 줄 셋이
       같은 자리에서 시작한다. 라벨마다 폭을 자동으로 두면 줄이 들쭉날쭉해진다. */
-.cv-own { text-align:left; }
+/* 적는 줄 — **폭을 반으로** 줄여 가운데에 둔다(2026-09-11 성도님 요청).
+   ⚠️ 줄만 짧게 하고 블록은 그대로 두면 오른쪽이 휑하다 — 블록째 좁혀 가운데 정렬한다. */
+.cv-own { text-align:left; width:74mm; margin:0 auto; }
 .cv-ow { display:flex; align-items:baseline; margin-bottom:11mm; }
 .cv-ow:last-child { margin-bottom:0; }
 .cv-ow span { width:34mm; flex:none; font-family:var(--tf); font-weight:400;
@@ -371,7 +382,7 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
 .ht-pl { font-family:var(--tf); font-weight:400; font-size:10pt; color:var(--navy);
          letter-spacing:.02em; margin-bottom:3mm; }
 
-.back { justify-content:center; text-align:center; padding:24mm 17mm; }
+.back { justify-content:center; text-align:center; padding:18mm 15mm; }
 .bk-t { font-family:var(--tf); font-weight:400; font-size:13pt; color:var(--navy);
         margin-bottom:5mm; }
 /* ⚠️ 여기 어느 줄에도 margin-top:auto 를 두지 말 것 — justify-content:center 와 만나면
@@ -385,7 +396,15 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
                 color:#3f4855; }
 .bk-how b { font-family:var(--tf); font-weight:400; color:var(--navy);
             width:30mm; flex:none; }
-.bk-rule { width:20mm; height:1px; background:var(--line); margin:8mm auto; }
+.bk-rule { width:20mm; height:1px; background:var(--line); margin:7mm auto; }
+/* 그해 표어 — 뒷표지 맨 위. **이 책에서 가장 큰 글씨는 아니어야 한다**(앞표지 제목이 그 자리다).
+   ⚠️ 낱말 가운데서 접히면 흉하다 — keep-all 로 낱말을 지킨다. */
+.bk-my { font-size:9pt; color:var(--gold); letter-spacing:.14em; margin-bottom:3.5mm; }
+.bk-ml { font-family:var(--tf); font-weight:400; font-size:15pt; color:var(--navy);
+         letter-spacing:.01em; word-break:keep-all; line-height:1.4; }
+.bk-mv { margin-top:5mm; font-size:11pt; line-height:1.8; color:#3f4855;
+         word-break:keep-all; }
+.bk-mr { margin-top:2.5mm; font-size:9pt; color:var(--sub); letter-spacing:.02em; }
 .bk-s { font-size:9.5pt; line-height:1.8; color:var(--sub); word-break:keep-all; }
 /* 뒷장 아래는 교회 마크만 — 글자를 넣지 않는다(2026-09-09 요청).
    ⚠️ 마크 파일이 없으면 교회 이름 글자로 대신한다(없다고 멈추지 않는다). */
@@ -517,7 +536,7 @@ def page_cover():
     """
     t = D['title']
     head, tail = t.split('함께하는')          # 뒷말(전교인 필사)을 금색으로
-    logo = ('<img class="cv-logo" src="%s" alt="고척교회">' % LOGO) if LOGO else            ('<div class="cv-p">%s</div>' % esc(D['church']))
+    logo = ('<img class="cv-logo" src="%s" alt="고척교회">' % LOGO_H) if LOGO_H else            ('<div class="cv-p">%s</div>' % esc(D['church']))
     # 적는 줄 — 라벨은 왼쪽에 나란히, 줄은 남는 폭을 채운다(참고 이미지와 같은 얼개).
     rows = ''.join('<div class="cv-ow"><span>%s</span><i></i></div>' % esc(lab)
                    for lab in ('성 명', '목장(교회학교)', '직분(학년)'))
@@ -531,6 +550,21 @@ def page_cover():
 </div>''' % (esc(head), esc(tail.strip()), esc(D['period']), rows, logo)
 
 
+def motto_html():
+    """그해 표어. 자료에 없으면 통째로 빠진다(해마다 갈아 끼우는 값이라)."""
+    m = D.get('motto')
+    if not m:
+        return ''
+    return ('<div class="bk-motto">'
+            '<div class="bk-my">%s</div>'
+            '<div class="bk-ml">%s</div>'
+            '<div class="bk-mv">%s</div>'
+            '<div class="bk-mr">%s</div>'
+            '</div><div class="bk-rule"></div>'
+            % (esc(m.get('year', '')), esc(m.get('line', '')),
+               '<br>'.join(esc(x) for x in m.get('verse', [])), esc(m.get('ref', ''))))
+
+
 def page_back(pno):
     """뒷표지.
 
@@ -542,6 +576,7 @@ def page_back(pno):
     # 아래에는 교회 마크만 — 글자를 넣지 않는다(2026-09-09 요청).
     mark = ('<img class="bk-mark" src="%s" alt="고척교회">' % LOGO) if LOGO else esc(D['church'])
     return '''<div class="page back">
+ %s
  <div class="bk-t">이렇게 쓰입니다</div>
  <div class="bk-n">왼쪽 쪽에서 그날의 고전 한 대목과 말씀을 읽고,<br>
   오른쪽 쪽에 손으로 옮겨 적습니다.</div>
@@ -554,7 +589,8 @@ def page_back(pno):
   새벽기도 설교도 그날의 성경본문으로 이어집니다.</div>
  <div class="bk-f">%s</div>
  <div class="bk-v">%s</div>
-</div>''' % (books, len(ITEMS), mark, esc(BOOK_VER + ' · 줄 %.1fmm' % LINE_MM))
+</div>''' % (motto_html(), books, len(ITEMS), mark,
+             esc(BOOK_VER + ' · 줄 %.1fmm' % LINE_MM))
 
 
 def page_half_title():
