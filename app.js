@@ -2008,12 +2008,16 @@ function renderSummary() {
           이미 공백으로 접으므로 boardEsc 의 \n→<br> 는 걸릴 일이 없다. */""}
     ${eventVisible() ? `<button class="summary-help" id="open-event-list">🏅 ${boardEsc(eventLabelCached())}${newBadge("event")}</button>` : ""}
     <button class="summary-help" id="open-board">💬 응원·기도·공감</button>
-    ${psalmVisible() ? `<button class="summary-help" id="open-psalm">🏞️ 쉴만한 물가${newBadge("psalm")}</button>` : ""}
+    ${psalmVisible() ? `<button class="summary-help" id="open-psalm">🐑 쉴만한 물가${newBadge("psalm")}</button>` : ""}
     <!-- ⚠️ 2026-09-11 이름 변경: 「시편 말씀 액자」 → 「쉴만한 물가」(시편 23편 2절,
          성도님 결정) — 「액자」가 낯설고, 매일 하지 않으면 안 될 것 같은 부담을 줄이려고
          쉼·인도받음의 이미지로 바꿨다. id="open-psalm"·내부 함수명(js/psalm.js)·엑셀·
          설계 문서는 그대로 「시편」이다 — 화면에 뜨는 이름만 바뀐 것이고, 코드 이름까지
-         바꾸면 그 파일들과 갈라져 오히려 헷갈린다. -->
+         바꾸면 그 파일들과 갈라져 오히려 헷갈린다.
+         이모지는 🐑(양) — 처음엔 🏞️(물가 풍경)이었는데, 산·나무·집이 겹친 작은 사각
+         그림처럼 보여 「액자」 느낌이 되살아난다는 지적(2026-09-11)으로 다시 바꿨다.
+         시편 23편이 "여호와는 나의 목자시니"로 시작하니, 장소(물가)보다 인도받아
+         쉰다는 이 시편의 핵심에 더 가깝다. -->
     <button class="summary-help" id="open-prayer">🙏 가정 축복 기도문${newBadge("prayer")}</button>
     ${ministryVisible() ? `<button class="summary-help" id="open-ministry">🤝 사역신청${newBadge("ministry")}</button>` : ""}
     ${passagesVisible() ? `<button class="summary-help" id="open-passages">📜 내 안에 거하는 말씀${newBadge("passages")}</button>` : ""}
@@ -6237,7 +6241,7 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev
           ${sermon ? `<button class="med-more" id="med-sermon">요약</button>` : ""}
           <button class="cheer-ok" id="dmsg-ok">확인</button>
         </div>
-        ${todayPsalm ? `<button class="med-psalm-cta" id="med-psalm">🏞️ 쉴만한 물가 · ${psalmEsc(todayPsalm.refShort || todayPsalm.refFull)}</button>` : ""}
+        ${todayPsalm ? `<button class="med-psalm-cta" id="med-psalm">🐑 쉴만한 물가 · ${psalmEsc(todayPsalm.refShort || todayPsalm.refFull)}</button>` : ""}
       </div>`;
     document.body.appendChild(wrap);
     const card = wrap.querySelector(".dmsg-card");
