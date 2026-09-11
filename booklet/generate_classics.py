@@ -93,6 +93,13 @@ PAR_FLOOR = 6
 NOTE_MIN = 3
 NOTE_MAX = max(NOTE_MIN, int(LINES_AVAIL_MM // LINE_MM) - PAR_FLOOR)
 
+# 말씀 칸 줄 수는 **왼쪽 쪽에 성경본문이 찍힌 줄 수**와 같게 준다(2026-09-11 성도님 지시).
+#   그전에는 「손글씨 몇 자니까 몇 줄」로 잡았는데, 그러면 **많이 찍힌 쪽이 적게 받았다** —
+#   24쪽은 발췌 9줄·성경 7줄이 찍혔는데 칸은 단락 6줄·말씀 9줄이었다.
+# ⚠️ **글자 수로 어림하지 않는다.** `word-break:keep-all` 때문에 줄 끝이 남아,
+#    자수로 나누면 편마다 1~2줄씩 틀린다. 그래서 **한 번 그려서 브라우저에 물어본다.**
+SCR_LINES = None        # 잰 값이 들어온다. 못 쟀으면 None — 아래 자수 어림으로 되돌아간다.
+
 CHROME_CANDS = [
     r'C:\Program Files\Google\Chrome\Application\chrome.exe',
     r'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe',
@@ -409,8 +416,11 @@ def page_note(it, pno):
        그래서 **말씀 칸은 필요한 만큼, 단락 칸은 남는 만큼** 가져간다 — 왼쪽 쪽에서
        성경 상자가 아래에 붙고 발췌문이 위를 채우는 것과 같은 구조다.
     """
-    n = len(it['scripture'])
-    rows = max(NOTE_MIN, min(NOTE_MAX, -(-n // HAND_PER_LINE)))
+    if SCR_LINES:
+        rows = SCR_LINES[ITEMS.index(it)]
+    else:                                   # 못 쟀을 때의 되돌아갈 자리
+        rows = -(-len(it['scripture']) // HAND_PER_LINE)
+    rows = max(NOTE_MIN, min(NOTE_MAX, rows))
     ln = '<div class="ln"></div>'
     return '''<div class="page pR">
  <div class="hd"><b>%(day)d일</b> · %(date)s</div>
@@ -604,6 +614,42 @@ def fit():
     return None
 
 
+def measure_scr_lines(body_pt):
+    """왼쪽 고전 쪽에서 **성경본문이 몇 줄로 찍히는지** 브라우저에 물어본다.
+
+    ⚠️ Range 의 `getClientRects()` 는 줄 상자마다 하나씩 준다 — 폭이 0 인 것이 섞이므로 거른다.
+    ⚠️ 서체가 오기 전에 재면 대체 서체 기준이라 값이 틀린다(`document.fonts.ready`).
+    """
+    chrome = find_chrome()
+    if not chrome:
+        return None
+    probe = """<script>
+document.fonts.ready.then(function(){
+  var out=[];
+  document.querySelectorAll('.scr-t').forEach(function(el){
+    var r=document.createRange(); r.selectNodeContents(el);
+    var n=0;
+    Array.prototype.forEach.call(r.getClientRects(), function(c){ if(c.width>1) n++; });
+    out.push(n);
+  });
+  document.title='SCR|'+out.join(',');
+});
+</script>"""
+    tmp = '_scr.html'
+    io.open(tmp, 'w', encoding='utf-8').write(
+        build(body_pt).replace('</body>', probe + '</body>'))
+    r = subprocess.run([chrome, '--headless', '--disable-gpu', '--dump-dom',
+                        '--virtual-time-budget=20000',
+                        'file:///' + os.path.abspath(tmp).replace(os.sep, '/')],
+                       capture_output=True)
+    os.remove(tmp)
+    m = re.search(r'<title>SCR\|([^<]*)</title>', r.stdout.decode('utf-8', 'replace'))
+    if not m:
+        return None
+    got = [int(x) for x in m.group(1).split(',') if x]
+    return got if len(got) == len(ITEMS) else None
+
+
 def count_lines():
     """노트 쪽에 줄이 실제로 몇 개씩 그려졌는지 **브라우저에 물어본다.**
 
@@ -709,6 +755,13 @@ if FIT_MODE:
     sys.exit(0)
 
 PT = BODY_PT or FITTED_PT
+
+# ⚠️ **두 번 그린다.** 첫 판으로 「성경본문이 몇 줄로 찍히는지」를 재고, 그 줄 수를
+#    말씀 칸에 주어 다시 그린다. 왼쪽 쪽은 말씀 칸과 무관하므로 첫 판의 값이 그대로 맞다.
+SCR_LINES = measure_scr_lines(PT)
+if SCR_LINES is None:
+    print('   !! 성경본문 줄 수를 재지 못해 자수 어림으로 갑니다(칸이 한두 줄 어긋날 수 있습니다).')
+
 OUT_NAME = arg_val('--out', '기독교고전_전교인필사_A5_%.1f(%s)' % (LINE_MM, BOOK_VER))
 html_path = OUT_NAME + '.html'
 io.open(html_path, 'w', encoding='utf-8').write(build(PT))
