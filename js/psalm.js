@@ -71,10 +71,14 @@ function renderPsalmHome(day) {
 // (아래 고정 단추를 없앴으므로 나가는 길이 이것뿐이다 — 빼먹으면 갇힌다).
 function psalmHomeHead(v) {
   const mark = v ? psalmMark(v) : "";
+  // ⚠️ 「전체 N편」을 없앴다(2026-09-11, 성도님 요청) — 지금은 실제 심어진 편수(10)를
+  //    보여 주는데, 180편이라는 계획과 동떨어진 작은 숫자가 「이게 다인가」로 읽힐 수
+  //    있다. 완료 화면의 `.ps-done-bar`("N편 중 M편 마쳤어요")는 그대로 둔다 — 거기는
+  //    진행을 축하하는 자리라 뜻이 다르다(이 head 는 두 화면이 공유하므로 이 한 줄만
+  //    없애면 둘 다에서 사라지고, done 화면은 `.ps-done-bar`로 총편수를 여전히 전한다).
   return `<div class="ps-head">
       ${v ? `<span class="ps-day">${v.dayNo}일차</span>` : ""}
       ${mark ? `<span class="ps-today-mark">${mark}</span>` : ""}
-      ${v ? `<span class="ps-total">전체 ${psalmTotal}편</span>` : ""}
       <button class="ps-back" id="ps-home-back">← 첫 화면</button>
     </div>`;
 }
