@@ -6190,14 +6190,25 @@ function maybeShowWeeklyMeditation(force, withTabs) {
       try { if (localStorage.getItem(key) === "1") return; } catch {}
       try { localStorage.setItem(key, "1"); } catch {}
     }
-    // 자동 팝업·어드민 미리보기는 '오늘 것 하나만'. 요일 탭은 매일 묵상 버튼으로 열 때만.
-    showMeditationModal(items, pick, verse, sermon, !!withTabs, usingPrev);
+    // ⚠️ 시편 배너용 자료를 창을 그리기 **전에** 받아 둔다(2026-09-11, 성도님 요청 —
+    //    매일 묵상과 시편 액자를 연계). 그린 뒤에 끼워 넣으면 창이 뜬 다음 배너만 늦게
+    //    나타나 깜빡인다. js/psalm.js 의 게이트·캐시를 그대로 쓴다 — 여기서 새로 만들지
+    //    않는다. 게이트가 꺼져 있으면(지금 상태) fetchPsalm 자체를 안 부른다.
+    const fetchPsalm = (psalmVisible() && typeof loadPsalmVerses === "function")
+      ? loadPsalmVerses().then(() => psalmToday()).catch(() => null)
+      : Promise.resolve(null);
+    fetchPsalm.then((todayPsalm) => {
+      // 자동 팝업·어드민 미리보기는 '오늘 것 하나만'. 요일 탭은 매일 묵상 버튼으로 열 때만.
+      showMeditationModal(items, pick, verse, sermon, !!withTabs, usingPrev, todayPsalm);
+    });
   }).catch(() => {});
 }
 
 // 오늘의 묵상 모달 — 이번주 묵상 전체를 탭으로 넘겨볼 수 있다(기본은 오늘 것).
 // usingPrev: 이번주 설교가 아직 준비 전이라 전주 자료로 대체해 보여주는 중임을 표시.
-function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev) {
+// todayPsalm: 시편 게이트가 켜져 있고 오늘 열린 편이 있을 때만 온다(그 밖엔 null) —
+// 여기서는 그 값만 보고 배너를 그릴지 말지 정한다(게이트·시작일 판단을 다시 하지 않는다).
+function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev, todayPsalm) {
   // 탭은 요일 한 글자(7일치일 때). 그 외에는 번호 — 제목을 쓰면 너무 길어 화면을 잡아먹는다.
   // 발행 주기가 월~일이라 배열 인덱스도 월요일 시작(maybeShowWeeklyMeditation의 dayIdx와 동일 기준).
   const DAYS = ["월", "화", "수", "목", "금", "토", "일"];
@@ -6216,6 +6227,7 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev
           : ""}
         <div class="dmsg-title" id="med-title"></div>
         <div class="cheer-msg dmsg-body" id="med-body"></div>
+        ${todayPsalm ? `<button class="med-psalm-cta" id="med-psalm">📿 오늘의 시편 말씀 · ${psalmEsc(todayPsalm.refFull)}</button>` : ""}
         <div class="med-actions">
           ${verse && verse.url ? `<a class="med-more" id="med-watch" href="${verse.url}" target="_blank" rel="noopener">설교</a>` : ""}
           ${sermon ? `<button class="med-more" id="med-sermon">요약</button>` : ""}
@@ -6245,6 +6257,11 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev
     if (sBtn) sBtn.addEventListener("click", () => {
       done();
       setTimeout(() => renderSermonSummary(verse, sermon, renderSummary, "← 뒤로"), 260);
+    });
+    const pBtn = wrap.querySelector("#med-psalm");     // 묵상 → 오늘의 시편으로 이동
+    if (pBtn) pBtn.addEventListener("click", () => {
+      done();
+      setTimeout(() => renderPsalmHome(), 260);
     });
     toTop();
     wrap.addEventListener("click", (e) => { if (e.target === wrap) done(); });

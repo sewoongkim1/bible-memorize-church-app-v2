@@ -336,6 +336,24 @@ h1 {
 .med-actions .med-more:hover { background: #1f7a4d; color: #fff; }
 .dark .med-actions .med-more { background: #17311f; color: #8fd6ab; border-color: #2f5a42; }
 .dark .med-actions .med-more:hover { background: #2f5a42; color: #fff; }
+
+/* 「오늘의 시편 말씀」 배너 — 매일 묵상과 시편 액자를 잇는다(2026-09-11, 성도님 요청).
+   ⚠️ 색은 위 .med-more(설교·요약)와 같은 초록이지만, **그 줄(.med-actions)에 끼워 넣지
+      않고 폭 100%의 독립된 줄로 둔다** — 한 줄에 셋이 꽉 차면 시편만 덜 띄고, 나란히
+      서면 「이 묵상에 딸린 부가 자료 하나」로 읽혀 별개의 초대라는 뜻이 흐려진다.
+      색은 튀지 않되 자리(온전한 한 줄)가 「따로 온 것」이라고 말해 준다.
+   ⚠️ 문구는 상태(오늘 편을 이미 마쳤는지)와 무관하게 하나다 — 성도님 결정: 암송(과제)이
+      아니라 말씀(초대)으로 읽히게 한다. renderPsalmHome 이동 뒤 진행 상태는 그 화면
+      자체가 보여 준다. */
+.med-psalm-cta {
+  display: block; width: 100%; margin: 10px 0 6px; padding: 12px 10px;
+  border-radius: 12px; cursor: pointer; font-family: inherit;
+  font-size: .95rem; font-weight: 800; text-align: center;
+  background: #eaf6ee; color: #1f7a4d; border: 1.5px solid #1f7a4d;
+}
+.med-psalm-cta:hover { background: #1f7a4d; color: #fff; }
+.dark .med-psalm-cta { background: #17311f; color: #8fd6ab; border-color: #2f5a42; }
+.dark .med-psalm-cta:hover { background: #2f5a42; color: #fff; }
 /* 이번주 묵상 요일 탭 — 일~토 한 글자로 한 줄에(제목은 아래 타이틀에 나온다) */
 .med-tabs { display: flex; gap: 4px; justify-content: center; flex-wrap: nowrap; margin: 8px 0 12px; }
 .med-tab {
