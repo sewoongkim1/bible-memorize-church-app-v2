@@ -45,6 +45,15 @@ FIT_MODE = '--fit' in sys.argv
 NO_BOLD = '--no-bold' in sys.argv
 LINES_MODE = '--lines' in sys.argv
 SPLIT = '--split' in sys.argv
+SIZE = arg_val('--size', 'a5')
+if SIZE not in ('a5', 'a4'):
+    raise SystemExit('!! --size 는 a5 또는 a4 여야 합니다(받은 값: %s)' % SIZE)
+# a4 = **프린터의 「소책자 인쇄」에 넣을 판**(2026-09-11 성도님 요청).
+#   쪽을 A4 로 키우고 길이를 모두 √2 배 한다 → 프린터가 두 쪽을 A4 한 장에 앉히며 반으로
+#   줄이면 **지금 다듬어 놓은 A5 크기 그대로** 나온다.
+# ⚠️ 그냥 A4 로 키우기만 하고 배율을 안 걸면, 프린터가 줄일 때 글씨가 71%로 작아진다
+#    — 「폰트 최대한 크게」로 맞춰 온 14pt 가 9.9pt 가 된다.
+# ⚠️ 이 판은 **미리 터잡지 않는다**(`--booklet` 무시) — 터잡기는 프린터가 한다.
 # 표지를 **따로** 뽑는다(겉면만 인쇄 → 색지·두꺼운 종이). 본문은 11장으로 접어 그 안에 끼운다.
 #   본문 p1 은 속표지, p44 는 줄노트가 된다 — 쪽 번호는 하나도 안 바뀐다.
 SAMPLE = int(arg_val('--sample', 0) or 0)
@@ -196,6 +205,21 @@ ITEMS = D['items']
 if SAMPLE:
     ITEMS = ITEMS[:SAMPLE]
 
+A4_SCALE = 2 ** 0.5     # A5 → A4: 가로·세로 모두 √2 배(148×210 → 210×297)
+
+
+def scale_lengths(css_text, factor):
+    r"""CSS 안의 mm·pt 길이를 한꺼번에 키운다.
+
+    ⚠️ `\d*\.?\d+` — `.8px` 처럼 앞자리 0 없이 쓴 값도 잡아야 한다(축복기도문에서 겪었다).
+    ⚠️ px 는 건드리지 않는다 — 테두리 두께는 판이 커져도 그대로가 낫다.
+    """
+    if factor == 1.0:
+        return css_text
+    return re.sub(r'(-?\d*\.?\d+)(mm|pt)(?![a-zA-Z])',
+                  lambda m: ('%g' % (float(m.group(1)) * factor)) + m.group(2), css_text)
+
+
 CSS_HEAD = ''
 if NO_BOLD:
     CSS_HEAD = ":root{--tf:'BookKR',serif}"
@@ -318,8 +342,14 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
 .cv-p { margin-top:9mm; font-size:12.5pt; color:var(--sub); letter-spacing:.06em; }
 /* ⚠️ 맺음말을 margin-top:auto 로 내리면 그 auto 마진이 남는 공간을 통째로 먹어
    제목이 위로 쏠린다 — 제목은 가운데에 두고 맺음말만 아래에 못박는다. */
-.cv-v { position:absolute; left:15mm; right:15mm; bottom:18mm;
-        font-size:9.5pt; line-height:1.85; color:var(--sub); word-break:keep-all; }
+/* 앞표지 아래 — **목장·성명·직분을 손으로 적는 자리**(2026-09-11 성도님 요청).
+   ⚠️ 맺음말(「새벽마다 …」)을 걷어내고 그 자리에 두었다. 둘을 다 두면 표지가 붐빈다.
+   ⚠️ `position:absolute` 라 제목 덩어리를 밀지 않는다 — 표지 가운데 균형이 그대로다. */
+.cv-own { position:absolute; left:28mm; right:28mm; bottom:20mm; }
+.cv-ow { display:flex; align-items:baseline; margin-top:7mm; }
+.cv-ow span { width:14mm; flex:none; font-size:10.5pt; color:var(--sub);
+              letter-spacing:.22em; }
+.cv-ow i { flex:1; border-bottom:.8px solid var(--line); height:7mm; }
 
 /* 속표지 — 표지를 따로 뽑을 때 첫 쪽. 표지보다 **조용하게**(글자만, 마크 없이). */
 .ht { align-items:center; justify-content:center; text-align:center; padding:22mm 15mm 46mm; }
@@ -328,6 +358,12 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
 .ht-t em { font-style:normal; color:var(--gold); }
 .ht-rule { width:16mm; height:1px; background:var(--line); margin:8mm auto; }
 .ht-p { font-size:10.5pt; color:var(--sub); letter-spacing:.06em; }
+/* 속표지 아래 — 기도제목 네 줄(2026-09-11 성도님 요청).
+   ⚠️ 줄 간격은 본문과 **같은 LINE_MM** 이다(`.ln` 을 그대로 쓴다) — 한 책 안에서 줄이
+      들쭉날쭉하면 손이 헷갈린다. */
+.ht-pray { position:absolute; left:22mm; right:22mm; bottom:24mm; text-align:left; }
+.ht-pl { font-family:var(--tf); font-weight:400; font-size:10pt; color:var(--navy);
+         letter-spacing:.02em; margin-bottom:3mm; }
 
 .back { justify-content:center; text-align:center; padding:24mm 17mm; }
 .bk-t { font-family:var(--tf); font-weight:400; font-size:13pt; color:var(--navy);
@@ -389,6 +425,18 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
       font-family:'BookKR',serif; letter-spacing:0; }
 '''
 
+if SIZE == 'a4':
+    CSS = scale_lengths(CSS, A4_SCALE)
+    # ⚠️ 쪽 크기는 배율이 아니라 **실제 A4** 로 못박는다 — 148×√2 는 209.3mm 라 A4(210)와
+    #    0.7mm 어긋난다. 그 틈이 프린터에서 여백으로 남는다.
+    CSS += '\n@page{size:210mm 297mm}\n.page{width:210mm;height:297mm}\n'
+    LINE_MM *= A4_SCALE
+    FITTED_PT *= A4_SCALE
+    if BODY_PT:
+        BODY_PT *= A4_SCALE
+    LINES_AVAIL_MM *= A4_SCALE      # 비율이 같으므로 NOTE_MAX 는 그대로다
+
+
 # ── 쪽 만들기 ───────────────────────────────────────────────────────────
 
 
@@ -403,7 +451,8 @@ def foot(page_no, left_text, right_text):
 
 def page_classic(it, pno, body_pt):
     """짝수쪽 — 고전 발췌문 + 성경본문."""
-    scr_pt = round(body_pt - 1.5, 2)
+    # ⚠️ 비율로 잡는다(뺄셈이 아니라) — A4 배율을 걸면 「-1.5pt」는 그대로라 비례가 깨진다.
+    scr_pt = round(body_pt * 12.5 / 14.0, 2)
     ps = ''.join('<p>%s</p>' % esc(p) for p in it['excerpt'])
     sub = '<div class="t-sub">%s</div>' % esc(it['sub']) if it['sub'] else ''
     return '''<div class="page pL">
@@ -468,8 +517,11 @@ def page_cover():
  <div class="cv-rule"></div>
  <div class="cv-t">%s함께하는<br><em>%s</em></div>
  <div class="cv-p">%s</div>
- <div class="cv-v">새벽마다 기독교 고전 한 대목과 말씀 한 절을<br>
-  손으로 옮겨 적으며 마음에 새깁니다.</div>
+ <div class="cv-own">
+  <div class="cv-ow"><span>목장</span><i></i></div>
+  <div class="cv-ow"><span>성명</span><i></i></div>
+  <div class="cv-ow"><span>직분</span><i></i></div>
+ </div>
 </div>''' % (logo, esc(head), esc(tail.strip()), esc(D['period']))
 
 
@@ -511,7 +563,12 @@ def page_half_title():
  <div class="ht-t">%s함께하는<br><em>%s</em></div>
  <div class="ht-rule"></div>
  <div class="ht-p">%s · %s</div>
-</div>''' % (esc(head), esc(tail.strip()), esc(D['church']), esc(D['period']))
+ <div class="ht-pray">
+  <div class="ht-pl">기도제목</div>
+  <div class="lines">%s</div>
+ </div>
+</div>''' % (esc(head), esc(tail.strip()), esc(D['church']), esc(D['period']),
+             '<div class="ln"></div>' * 4)
 
 
 def page_ruled(pno):
@@ -661,9 +718,17 @@ def measure(body_pt):
 
 
 def fit():
-    """들어가는 가장 큰 글씨를 찾는다 — 0.5pt 씩 내려가며."""
-    print('  넘침을 재며 가장 큰 글씨를 찾습니다 (한 번에 3초쯤)\n')
-    for pt in [x / 2.0 for x in range(36, 21, -1)]:       # 18.0 → 11.0
+    """들어가는 가장 큰 글씨를 찾는다 — 0.5pt 씩 내려가며.
+
+    ⚠️ **탐색 범위가 판형을 따라가야 한다.** A5 기준(18~11pt)을 박아 두었더니 A4 판에서
+       실제 값(19.8pt)을 아예 시험하지 못하고 「18.0 이 상한」이라고 잘못 알렸다
+       (2026-09-11). 넘치는 게 아니라 재지 않은 것이었다.
+    """
+    top, bot = (18.0, 11.0)
+    if SIZE == 'a4':
+        top, bot = top * A4_SCALE, bot * A4_SCALE
+    print('  넘침을 재며 가장 큰 글씨를 찾습니다 (한 번에 3초쯤 · %.1f~%.1fpt)\n' % (top, bot))
+    for pt in [x / 2.0 for x in range(int(top * 2), int(bot * 2) - 1, -1)]:
         bad = measure(pt)
         if bad is None:
             print('  !! 크롬으로 잴 수 없습니다.')
@@ -854,13 +919,30 @@ SCR_LINES = measure_scr_lines(PT)
 if SCR_LINES is None:
     print('   !! 성경본문 줄 수를 재지 못해 자수 어림으로 갑니다(칸이 한두 줄 어긋날 수 있습니다).')
 
-OUT_NAME = arg_val('--out', '기독교고전_전교인필사_A5_%.1f(%s)' % (LINE_MM, BOOK_VER))
+# 이름에 판형·줄 간격·판이 들어간다. A4 판은 줄 간격도 √2 배라 A5 기준 값을 적는다.
+_line_label = LINE_MM / A4_SCALE if SIZE == 'a4' else LINE_MM
+OUT_NAME = arg_val('--out', '기독교고전_전교인필사_%s_%.1f(%s)'
+                   % (SIZE.upper(), _line_label, BOOK_VER))
 pages = len(ITEMS) * 2 + 4
 pages += (-pages) % 4
 INFO = ('%d쪽 · 본문 %.1fpt · 줄 %gmm(한 줄 %d자) · 말씀 칸 최대 %d줄'
         % (pages, PT, LINE_MM, HAND_PER_LINE, NOTE_MAX))
 
-if SPLIT:
+if SPLIT and SIZE == 'a4':
+    # ── 프린터의 「소책자 인쇄」에 넣을 판 — **터잡지 않는다**(프린터가 한다) ──────
+    for tag, mode, note in (('표지', 'cover', '2쪽 → 프린터가 A4 한 장에 「뒷표지|앞표지」로'),
+                            ('본문', 'body', '%d쪽 → 프린터가 A4 %d장 양면으로' % (pages, pages // 4))):
+        h = '%s_%s.html' % (OUT_NAME, tag)
+        io.open(h, 'w', encoding='utf-8').write(build(PT, mode=mode))
+        if MAKE_PDF or MAKE_BOOKLET:
+            f = '%s_%s.pdf' % (OUT_NAME, tag)
+            if to_pdf(h, f):
+                print('  %s  ← A4 순서판 · %s' % (f, note))
+            os.remove(h)
+    print('\n  프린터에서 **인쇄 → 소책자(책자)** 를 고르세요.')
+    print('  ⚠️ 「실제 크기」로 두세요 — 「페이지에 맞춤」이 켜져 있으면 한 번 더 줄어듭니다.')
+
+elif SPLIT:
     # ── 표지 따로 · 본문 따로 ────────────────────────────────────────
     body_html = OUT_NAME + '_본문.html'
     io.open(body_html, 'w', encoding='utf-8').write(build(PT, mode='body'))
