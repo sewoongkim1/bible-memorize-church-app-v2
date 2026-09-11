@@ -332,24 +332,30 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
 /* ── 표지 ───────────────────────────────────────────── */
 /* 아래 여백을 위보다 넉넉히 줘 제목이 한가운데가 아니라 조금 위(약 44%)에 앉게 한다 —
    책 표지는 정가운데보다 살짝 위가 안정돼 보인다. */
-.cover { background:#fff; color:var(--navy); align-items:center; justify-content:center;
-         text-align:center; padding:22mm 15mm 46mm; }
-.cv-logo { width:34mm; margin-bottom:8mm; }
-.cv-rule { width:16mm; height:1px; background:var(--line); margin:7mm auto; }
+/* 앞표지 얼개 — **제목 맨 위 · 적는 줄 가운데 · 마크 맨 아래**(2026-09-11, 참고 이미지).
+   ⚠️ `space-between` 이 세 덩이를 벌린다. 가운데 것을 `margin:auto 0` 로 잡으면 위아래
+      빈자리가 한쪽으로 쏠린다 — 세 덩이를 그대로 두고 벌리는 편이 어느 판형에서나 안정적이다. */
+.cover { background:#fff; color:var(--navy); align-items:stretch;
+         justify-content:space-between; text-align:center; padding:26mm 18mm 22mm; }
+.cv-logo { width:30mm; }
 .cv-t { font-family:var(--tf); font-weight:400; font-size:27pt; line-height:1.42;
         letter-spacing:.02em; }
 .cv-t em { font-style:normal; color:var(--gold); }
-.cv-p { margin-top:9mm; font-size:12.5pt; color:var(--sub); letter-spacing:.06em; }
+.cv-p { margin-top:7mm; font-size:12.5pt; color:var(--sub); letter-spacing:.06em; }
 /* ⚠️ 맺음말을 margin-top:auto 로 내리면 그 auto 마진이 남는 공간을 통째로 먹어
    제목이 위로 쏠린다 — 제목은 가운데에 두고 맺음말만 아래에 못박는다. */
 /* 앞표지 아래 — **목장·성명·직분을 손으로 적는 자리**(2026-09-11 성도님 요청).
    ⚠️ 맺음말(「새벽마다 …」)을 걷어내고 그 자리에 두었다. 둘을 다 두면 표지가 붐빈다.
    ⚠️ `position:absolute` 라 제목 덩어리를 밀지 않는다 — 표지 가운데 균형이 그대로다. */
-.cv-own { position:absolute; left:28mm; right:28mm; bottom:20mm; }
-.cv-ow { display:flex; align-items:baseline; margin-top:7mm; }
-.cv-ow span { width:14mm; flex:none; font-size:10.5pt; color:var(--sub);
-              letter-spacing:.22em; }
-.cv-ow i { flex:1; border-bottom:.8px solid var(--line); height:7mm; }
+/* ⚠️ 라벨 칸 폭을 **가장 긴 라벨**(목장(교회학교))에 맞춰 못박는다 — 그래야 줄 셋이
+      같은 자리에서 시작한다. 라벨마다 폭을 자동으로 두면 줄이 들쭉날쭉해진다. */
+.cv-own { text-align:left; }
+.cv-ow { display:flex; align-items:baseline; margin-bottom:11mm; }
+.cv-ow:last-child { margin-bottom:0; }
+.cv-ow span { width:34mm; flex:none; font-family:var(--tf); font-weight:400;
+              font-size:13pt; color:var(--navy); }
+.cv-ow span::after { content:":"; }
+.cv-ow i { flex:1; border-bottom:1px solid var(--navy); height:8mm; }
 
 /* 속표지 — 표지를 따로 뽑을 때 첫 쪽. 표지보다 **조용하게**(글자만, 마크 없이). */
 .ht { align-items:center; justify-content:center; text-align:center; padding:22mm 15mm 46mm; }
@@ -512,17 +518,17 @@ def page_cover():
     t = D['title']
     head, tail = t.split('함께하는')          # 뒷말(전교인 필사)을 금색으로
     logo = ('<img class="cv-logo" src="%s" alt="고척교회">' % LOGO) if LOGO else            ('<div class="cv-p">%s</div>' % esc(D['church']))
+    # 적는 줄 — 라벨은 왼쪽에 나란히, 줄은 남는 폭을 채운다(참고 이미지와 같은 얼개).
+    rows = ''.join('<div class="cv-ow"><span>%s</span><i></i></div>' % esc(lab)
+                   for lab in ('성 명', '목장(교회학교)', '직분(학년)'))
     return '''<div class="page cover">
- %s
- <div class="cv-rule"></div>
- <div class="cv-t">%s함께하는<br><em>%s</em></div>
- <div class="cv-p">%s</div>
- <div class="cv-own">
-  <div class="cv-ow"><span>목장</span><i></i></div>
-  <div class="cv-ow"><span>성명</span><i></i></div>
-  <div class="cv-ow"><span>직분</span><i></i></div>
+ <div class="cv-top">
+  <div class="cv-t">%s함께하는<br><em>%s</em></div>
+  <div class="cv-p">%s</div>
  </div>
-</div>''' % (logo, esc(head), esc(tail.strip()), esc(D['period']))
+ <div class="cv-own">%s</div>
+ <div class="cv-foot">%s</div>
+</div>''' % (esc(head), esc(tail.strip()), esc(D['period']), rows, logo)
 
 
 def page_back(pno):
