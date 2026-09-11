@@ -339,6 +339,9 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
 .ix-note { margin-top:auto; font-size:9.5pt; line-height:1.75; color:var(--sub);
            background:#f5f7fa; border-radius:2mm; padding:3.4mm 4mm; word-break:keep-all; }
 .ix-note b { font-family:var(--tf); font-weight:400; color:var(--navy); }
+/* 출처 표기 — 일정 안내와 한 상자에 있되 가는 줄로 가른다(일정이 먼저, 출처는 각주). */
+.ix-src { margin-top:3mm; padding-top:2.8mm; border-top:.6px solid #d5dbe4;
+          font-size:9pt; line-height:1.7; color:#79818f; }
 
 /* 원 안의 숫자 — 서체마다 ①(U+2460)이 있기도 없기도 해서 직접 그린다.
    ⚠️ Noto Serif KR 한글 서브셋에는 ①~⑨ 가 아예 없고, 전에 쓰던 빙그레체는 ❖ 처럼
@@ -500,11 +503,14 @@ def index_pages(items, start_pno):
     #    대신 같은 것을 visibility:hidden 으로 두어 **두 쪽의 목록이 같은 높이에서 시작**하게 한다
     #    (빈 상자를 손으로 어림하면 제목 크기를 바꿀 때마다 어긋난다).
     head_blank = head.replace('class="ix-h"', 'class="ix-h blank"')
-    # 차례 아래 상자 — 2026-09-11부터 **출처 표기**다(성도님 요청).
-    #   그전에는 「담임목사 · 월삭/특별새벽기도회」 안내였다. 그 두 값(`skipped_staff`·`skipped`)은
-    #   자료에 그대로 남겨 두었으니 다시 쓰려면 꺼내 쓰면 된다.
-    # ⚠️ 글은 코드에 박지 않는다 — `classics.json` 의 `source_note` 를 읽는다.
-    note = '<div class="ix-note">%s</div>' % esc(D.get('source_note', ''))
+    # 차례 아래 상자 — 두 가지가 들어간다(2026-09-11 성도님 결정).
+    #   ① 고전이 없는 이레 안내(담임목사) ② 고전 출처 표기
+    #   일정이 먼저고 출처는 각주라 아래에 둔다. 사이는 가는 줄로 가른다.
+    # ⚠️ 글은 코드에 박지 않는다 — `classics.json` 의 `skipped_staff`·`skipped`·`source_note`.
+    note = ('<div class="ix-note"><b>%s</b><br>%s'
+            '<div class="ix-src">%s</div></div>'
+            % (esc(D.get('skipped_staff', '담임목사')), esc(D['skipped']),
+               esc(D.get('source_note', ''))))
     p1 = '<div class="page pL">%s%s%s</div>' % (
         head, ''.join(block(b) for b in books[:cut]), foot(start_pno, '', '차례'))
     p2 = '<div class="page pR">%s%s%s</div>' % (
