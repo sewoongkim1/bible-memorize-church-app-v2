@@ -44,7 +44,14 @@ FIT_MODE = '--fit' in sys.argv
 NO_BOLD = '--no-bold' in sys.argv
 LINES_MODE = '--lines' in sys.argv
 SAMPLE = int(arg_val('--sample', 0) or 0)
-OUT_NAME = arg_val('--out', '기독교고전_전교인필사_A5')
+
+BOOK_VER = 'V1.0'
+# 판 번호. **판을 올릴 때 이 한 줄만 고친다** — 결과물 이름에 그대로 들어간다.
+#   나오는 이름: `기독교고전_전교인필사_A5_9.5(V1.0).pdf` · `..._9.5(V1.0)_중철A4.pdf`
+# ⚠️ 이름에 **줄 간격과 판이 들어간다** — 간격을 바꿔 여러 벌을 뽑아도 서로 덮어쓰지 않고,
+#    인쇄본을 받아 들었을 때 어느 값으로 뽑은 것인지 파일 이름만 봐도 안다.
+#    (2026-09-11에 성도님이 손으로 그렇게 바꾸신 것을 규칙으로 굳혔다.)
+# ⚠️ 이름은 `LINE_MM` 이 정해진 **뒤에** 만든다 — 아래 「돌리기」 첫 줄에 있다.
 
 # ── 크기 ────────────────────────────────────────────────────────────────
 # ⚠️ 발췌문 크기는 **실측으로 정한 값**이다(--fit). 20편이 176~262자로 고르기 때문에
@@ -315,6 +322,12 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
 /* 뒷장 아래는 교회 마크만 — 글자를 넣지 않는다(2026-09-09 요청).
    ⚠️ 마크 파일이 없으면 교회 이름 글자로 대신한다(없다고 멈추지 않는다). */
 .bk-f { margin-top:12mm; font-size:10pt; color:var(--sub); letter-spacing:.08em; }
+/* 판 표기 — 쪽 맨 아래에 **아주 옅게**. 성도님이 읽을 글이 아니라, 인쇄본을 받아 들었을 때
+   어느 판인지 가리는 표식이다(파일 이름과 같은 값).
+   ⚠️ `position:absolute` 로 못박는다 — 흐름에 두면 가운데 정렬된 본문 덩어리를 아래로 밀어
+      뒷표지 전체의 균형이 틀어진다. */
+.bk-v { position:absolute; left:0; right:0; bottom:7mm; text-align:center;
+        font-size:7pt; letter-spacing:.12em; color:#c2c8d2; }
 .bk-mark { width:24mm; }
 
 /* ── 목차 ───────────────────────────────────────────── */
@@ -453,7 +466,8 @@ def page_back(pno):
  <div class="bk-s">기독교 고전 %d권에서 %d대목을 골라 엮었습니다.<br>
   새벽기도 설교도 그날의 성경본문으로 이어집니다.</div>
  <div class="bk-f">%s</div>
-</div>''' % (books, len(ITEMS), mark)
+ <div class="bk-v">%s</div>
+</div>''' % (books, len(ITEMS), mark, esc(BOOK_VER + ' · 줄 %.1fmm' % LINE_MM))
 
 
 def index_pages(items, start_pno):
@@ -695,6 +709,7 @@ if FIT_MODE:
     sys.exit(0)
 
 PT = BODY_PT or FITTED_PT
+OUT_NAME = arg_val('--out', '기독교고전_전교인필사_A5_%.1f(%s)' % (LINE_MM, BOOK_VER))
 html_path = OUT_NAME + '.html'
 io.open(html_path, 'w', encoding='utf-8').write(build(PT))
 pages = len(ITEMS) * 2 + 4
