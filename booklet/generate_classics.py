@@ -56,10 +56,11 @@ FITTED_PT = 14.0        # 2026-09-09 실측 — 14.5pt 에서는 4·22·24쪽이
 # ── 노트 쪽의 줄 ────────────────────────────────────────────────────────
 # **줄 간격 하나만 고르면 나머지는 따라온다.** 예전에는 셋을 따로 적어 두어 하나만
 # 고치면 조용히 어긋났다(2026-09-11에 `LINE_MM` 이 아예 죽어 있는 것도 그때 나왔다).
-LINE_MM = float(arg_val('--line', 9.0))
-# 줄 간격(mm). 2026-09-11에 8.0 → 9.0 으로 넓혔다 — **성도님들이 「칸 간격이 좁다」고** 하셨다.
-#   「좁다」는 말은 곧 실제 손글씨가 8mm 보다 크다는 뜻이다.
-#   `--line 9.5` 처럼 바꿔 가며 뽑아 견줄 수 있다.
+LINE_MM = float(arg_val('--line', 9.5))
+# 줄 간격(mm). 2026-09-11에 8.0 → **9.5** 로 넓혔다 — **성도님들이 「칸 간격이 좁다」고** 하셨다.
+#   「좁다」는 말은 곧 실제 손글씨가 8mm 보다 크다는 뜻이다. 9·9.5·10mm 세 벌을 뽑아
+#   견준 뒤 성도님이 9.5 를 고르셨다(한 쪽 15줄).
+#   `--line 10` 처럼 바꿔 가며 다시 견줄 수 있다.
 # ⚠️ **이 값은 CSS 에도 들어간다**(`.ln { flex:0 0 ...mm }`). 한때 이 상수를 정의만 해 두고
 #    CSS 에는 `8mm` 를 손으로 박아 놓아, **값을 고쳐도 아무 일도 안 일어났다.**
 
@@ -339,9 +340,6 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
 .ix-note { margin-top:auto; font-size:9.5pt; line-height:1.75; color:var(--sub);
            background:#f5f7fa; border-radius:2mm; padding:3.4mm 4mm; word-break:keep-all; }
 .ix-note b { font-family:var(--tf); font-weight:400; color:var(--navy); }
-/* 출처 표기 — 일정 안내와 한 상자에 있되 가는 줄로 가른다(일정이 먼저, 출처는 각주). */
-.ix-src { margin-top:3mm; padding-top:2.8mm; border-top:.6px solid #d5dbe4;
-          font-size:9pt; line-height:1.7; color:#79818f; }
 
 /* 원 안의 숫자 — 서체마다 ①(U+2460)이 있기도 없기도 해서 직접 그린다.
    ⚠️ Noto Serif KR 한글 서브셋에는 ①~⑨ 가 아예 없고, 전에 쓰던 빙그레체는 ❖ 처럼
@@ -503,14 +501,11 @@ def index_pages(items, start_pno):
     #    대신 같은 것을 visibility:hidden 으로 두어 **두 쪽의 목록이 같은 높이에서 시작**하게 한다
     #    (빈 상자를 손으로 어림하면 제목 크기를 바꿀 때마다 어긋난다).
     head_blank = head.replace('class="ix-h"', 'class="ix-h blank"')
-    # 차례 아래 상자 — 두 가지가 들어간다(2026-09-11 성도님 결정).
-    #   ① 고전이 없는 이레 안내(담임목사) ② 고전 출처 표기
-    #   일정이 먼저고 출처는 각주라 아래에 둔다. 사이는 가는 줄로 가른다.
-    # ⚠️ 글은 코드에 박지 않는다 — `classics.json` 의 `skipped_staff`·`skipped`·`source_note`.
-    note = ('<div class="ix-note"><b>%s</b><br>%s'
-            '<div class="ix-src">%s</div></div>'
-            % (esc(D.get('skipped_staff', '담임목사')), esc(D['skipped']),
-               esc(D.get('source_note', ''))))
+    # 차례 아래 상자 — **고전 출처 표기만** 둔다(2026-09-11 성도님 최종 결정).
+    #   고전이 없는 이레(월삭·특별새벽기도회) 안내는 함께 두었다가 빼기로 하셨다.
+    #   그 값(`skipped`·`skipped_staff`)은 `classics.json` 에 그대로 있으니 되살리기 쉽다.
+    # ⚠️ 글은 코드에 박지 않는다 — `classics.json` 의 `source_note` 를 읽는다.
+    note = '<div class="ix-note">%s</div>' % esc(D.get('source_note', ''))
     p1 = '<div class="page pL">%s%s%s</div>' % (
         head, ''.join(block(b) for b in books[:cut]), foot(start_pno, '', '차례'))
     p2 = '<div class="page pR">%s%s%s</div>' % (
