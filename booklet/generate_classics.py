@@ -256,6 +256,14 @@ CSS = r'''
         `.7px` · `1px` · `1.6px` 가 **모두 0.75pt(0.26mm)** 로 찍히는 것을 실측했다.
         또 희미하다는 말이 나오면 굵기가 아니라 **`--rule` 을 더 진하게**(`#8b93a1` 쯤). */
   --rule:#a3abb8; --rule-w:.7px;
+  /* 차례 쪽의 선들 — **손으로 쓰는 줄보다 한 단계 진하다**(2026-09-11, 두 번째 요청).
+     여기만 따로 두는 까닭: 차례의 선은 글을 적는 자리를 안내하는 줄이 아니라 **칸을 가르는
+     선**이다. 연필 글씨와 나란히 설 일이 없으니 진해도 다투지 않는다.
+     반대로 `--rule` 을 여기에 맞춰 올리면 성도님이 이미 「이 정도면 됐다」 하신
+     노트 줄까지 함께 진해진다.
+     ⚠️ 점선(`.ep .dot`)이 넷 중 가장 옅게 찍힌다 — 점 하나가 0.26mm 라 잉크가 가장 적다.
+        그래서 「차례가 아직 희미하다」는 말이 또 나오면 이 한 값을 `#374151` 로. */
+  --ix-rule:#4b5563;
 }
 * { box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
 html,body { margin:0; padding:0; background:#7c8595; }
@@ -457,10 +465,10 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
            letter-spacing:.06em; }
 /* 차례의 선들 — 2026-09-11에 진하게(성도님 요청). 본문 줄과 같은 이유로 **색만** 올린다
    (크롬이 가는 선의 굵기를 PDF 에서 스냅하므로 굵기를 만져도 안 바뀐다). */
-.ix-h .r { width:22mm; height:1px; background:var(--rule); margin:3mm auto 0; }
+.ix-h .r { width:22mm; height:1px; background:var(--ix-rule); margin:3mm auto 0; }
 .bk { margin-bottom:4.4mm; }
 .bk-hd { display:flex; align-items:baseline; gap:2mm;
-         border-bottom:.7px solid var(--line-strong); padding-bottom:1.4mm; margin-bottom:1.8mm; }
+         border-bottom:.7px solid var(--ix-rule); padding-bottom:1.4mm; margin-bottom:1.8mm; }
 .bk-hd .nm { font-family:var(--tf); font-weight:400; font-size:12.5pt; color:var(--navy); }
 .bk-hd .au { font-size:9.5pt; color:var(--sub); }
 .bk-hd .st { margin-left:auto; font-size:9.5pt; color:var(--gold); white-space:nowrap; }
@@ -468,7 +476,7 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
       color:#2b3240; padding:.5mm 0; }
 .ep { padding-left:5mm; }        /* 묶음 머리보다 한 칸 들여쓴다 */
 .ep .nm { word-break:keep-all; }
-.ep .dot { flex:1; border-bottom:1px dotted var(--rule); margin:0 1.6mm 1mm; min-width:4mm; }
+.ep .dot { flex:1; border-bottom:1px dotted var(--ix-rule); margin:0 1.6mm 1mm; min-width:4mm; }
 .ep .dt { font-size:9.5pt; color:var(--sub); white-space:nowrap; }
 .ep .pg { width:7mm; text-align:right; font-family:var(--tf); font-weight:400;
           color:var(--navy); white-space:nowrap; }
