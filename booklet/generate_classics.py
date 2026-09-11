@@ -365,13 +365,18 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
       같은 자리에서 시작한다. 라벨마다 폭을 자동으로 두면 줄이 들쭉날쭉해진다. */
 /* 적는 줄 — **폭을 반으로** 줄여 가운데에 둔다(2026-09-11 성도님 요청).
    ⚠️ 줄만 짧게 하고 블록은 그대로 두면 오른쪽이 휑하다 — 블록째 좁혀 가운데 정렬한다. */
-.cv-own { text-align:left; width:74mm; margin:0 auto; }
-.cv-ow { display:flex; align-items:baseline; margin-bottom:11mm; }
+/* ⚠️ 라벨 칸 폭은 **가장 긴 라벨의 실측**을 따른다 — 13pt 에서 「목장(교회학교):」이
+      31.9mm 였고, 1.5배(19.5pt)면 47.9mm 다. 50mm 로 두어 2mm 남긴다.
+      눈대중으로 잡으면 라벨이 밑줄을 밀어내거나 사이가 뜬다.
+   ⚠️ 블록 폭 = 라벨 칸 + 밑줄. 밑줄은 **지금 길이(40mm)를 지킨다** — 글씨만 커지고
+      쓰는 자리가 좁아지면 되레 못 쓴다. */
+.cv-own { text-align:left; width:90mm; margin:0 auto; }
+.cv-ow { display:flex; align-items:baseline; margin-bottom:13mm; }
 .cv-ow:last-child { margin-bottom:0; }
-.cv-ow span { width:34mm; flex:none; font-family:var(--tf); font-weight:400;
-              font-size:13pt; color:var(--navy); }
+.cv-ow span { width:50mm; flex:none; font-family:var(--tf); font-weight:400;
+              font-size:19.5pt; color:var(--navy); }
 .cv-ow span::after { content:":"; }
-.cv-ow i { flex:1; border-bottom:1px solid var(--navy); height:8mm; }
+.cv-ow i { flex:1; border-bottom:1px solid var(--navy); height:11mm; }
 
 /* 속표지 — 표지를 따로 뽑을 때 첫 쪽. 표지보다 **조용하게**(글자만, 마크 없이). */
 .ht { align-items:center; justify-content:center; text-align:center; padding:22mm 15mm 46mm; }
@@ -388,11 +393,11 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
          letter-spacing:.02em; margin-bottom:3mm; }
 
 .back { justify-content:center; text-align:center; padding:18mm 15mm; }
-.bk-t { font-family:var(--tf); font-weight:400; font-size:13pt; color:var(--navy);
+.bk-t { font-family:var(--tf); font-weight:400; font-size:15.6pt; color:var(--navy);
         margin-bottom:5mm; }
 /* ⚠️ 여기 어느 줄에도 margin-top:auto 를 두지 말 것 — justify-content:center 와 만나면
    auto 마진이 남는 공간을 통째로 먹어 글이 위로 쏠리고 아래가 텅 빈다(2026-09-09에 그랬다). */
-.bk-n { font-size:10.5pt; line-height:1.9; color:#3f4855; word-break:keep-all; }
+.bk-n { font-size:12.6pt; line-height:1.9; color:#3f4855; word-break:keep-all; }
 /* 뒷표지의 두 칸 설명 — 오른쪽 쪽의 두 칸이 무엇을 받는지 이름 그대로 적는다.
    ⚠️ 「단락은 닿는 데까지」라고 밝혀 둔다 — 단락 칸은 발췌문 전체를 담지 못하므로,
       적다가 줄이 떨어지면 성도님이 「내가 잘못 쓰고 있나」 하고 멈추신다. */
@@ -400,29 +405,29 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
       자식이 block 으로 바뀌어 폭을 다 차지하고, 그 안에서 글이 왼쪽에 붙는다(2026-09-11).
       flex 자식을 줄이면서 가운데로 두려면 `align-self:center` 다. */
 .bk-how { margin-top:6mm; text-align:left; align-self:center; }
-.bk-how > div { display:flex; align-items:baseline; font-size:10pt; line-height:1.95;
+.bk-how > div { display:flex; align-items:baseline; font-size:12pt; line-height:1.95;
                 color:#3f4855; }
 .bk-how b { font-family:var(--tf); font-weight:400; color:var(--navy);
-            width:26mm; flex:none; }
+            width:31.2mm; flex:none; }
 .bk-rule { width:20mm; height:1px; background:var(--line); margin:7mm auto; }
 /* 그해 표어 — 뒷표지 맨 위. **이 책에서 가장 큰 글씨는 아니어야 한다**(앞표지 제목이 그 자리다).
    ⚠️ 낱말 가운데서 접히면 흉하다 — keep-all 로 낱말을 지킨다. */
-.bk-my { font-size:9pt; color:var(--gold); letter-spacing:.14em; margin-bottom:3.5mm; }
-.bk-ml { font-family:var(--tf); font-weight:400; font-size:15pt; color:var(--navy);
+.bk-my { font-size:10.8pt; color:var(--gold); letter-spacing:.14em; margin-bottom:3.5mm; }
+.bk-ml { font-family:var(--tf); font-weight:400; font-size:18pt; color:var(--navy);
          letter-spacing:.01em; word-break:keep-all; line-height:1.4; }
-.bk-mv { margin-top:5mm; font-size:11pt; line-height:1.8; color:#3f4855;
+.bk-mv { margin-top:5mm; font-size:13.2pt; line-height:1.8; color:#3f4855;
          word-break:keep-all; }
-.bk-mr { margin-top:2.5mm; font-size:9pt; color:var(--sub); letter-spacing:.02em; }
-.bk-s { font-size:9.5pt; line-height:1.8; color:var(--sub); word-break:keep-all; }
+.bk-mr { margin-top:2.5mm; font-size:10.8pt; color:var(--sub); letter-spacing:.02em; }
+.bk-s { font-size:11.4pt; line-height:1.8; color:var(--sub); word-break:keep-all; }
 /* 뒷장 아래는 교회 마크만 — 글자를 넣지 않는다(2026-09-09 요청).
    ⚠️ 마크 파일이 없으면 교회 이름 글자로 대신한다(없다고 멈추지 않는다). */
-.bk-f { margin-top:12mm; font-size:10pt; color:var(--sub); letter-spacing:.08em; }
+.bk-f { margin-top:12mm; font-size:12pt; color:var(--sub); letter-spacing:.08em; }
 /* 판 표기 — 쪽 맨 아래에 **아주 옅게**. 성도님이 읽을 글이 아니라, 인쇄본을 받아 들었을 때
    어느 판인지 가리는 표식이다(파일 이름과 같은 값).
    ⚠️ `position:absolute` 로 못박는다 — 흐름에 두면 가운데 정렬된 본문 덩어리를 아래로 밀어
       뒷표지 전체의 균형이 틀어진다. */
 .bk-v { position:absolute; left:0; right:0; bottom:7mm; text-align:center;
-        font-size:7pt; letter-spacing:.12em; color:#c2c8d2; }
+        font-size:8.4pt; letter-spacing:.12em; color:#c2c8d2; }
 .bk-mark { width:40mm; }   /* 가로 CI(가로세로비 2.8) — 앞표지 46mm 보다 한 단계 작게.
                               뒷표지는 글이 많은 쪽이라 마크가 크면 무거워 보인다. */
 
