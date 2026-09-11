@@ -18,6 +18,7 @@
   python generate_classics.py --sample 2      앞 2편만 (모양 볼 때)
   python generate_classics.py --no-bold       제목도 본문 서체로 (인쇄소가 Type3 를 싫어할 때)
   python generate_classics.py --lines         노트 쪽에 줄이 몇 개씩 잡히는지 (간격을 바꾼 뒤)
+  python generate_classics.py --split --pdf   표지 따로 + 본문 따로 (표지를 색지에 단면 인쇄)
 
 ⚠️ 원고는 `classics.json` 이다. 글을 고칠 때 이 파일을 건드리지 말 것.
 ⚠️ 서체는 `fonts/NotoSerifKR-*.woff` — Noto Serif KR(본명조 계열), 한국 출판물의 표준 명조.
@@ -43,6 +44,9 @@ FIT_MODE = '--fit' in sys.argv
 #      비어 있어 크롬이 **Type3 폰트**로 박았고, 그걸 경고로 잡는 인쇄소가 있다.
 NO_BOLD = '--no-bold' in sys.argv
 LINES_MODE = '--lines' in sys.argv
+SPLIT = '--split' in sys.argv
+# 표지를 **따로** 뽑는다(겉면만 인쇄 → 색지·두꺼운 종이). 본문은 11장으로 접어 그 안에 끼운다.
+#   본문 p1 은 속표지, p44 는 줄노트가 된다 — 쪽 번호는 하나도 안 바뀐다.
 SAMPLE = int(arg_val('--sample', 0) or 0)
 
 BOOK_VER = 'V1.0'
@@ -317,6 +321,14 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
 .cv-v { position:absolute; left:15mm; right:15mm; bottom:18mm;
         font-size:9.5pt; line-height:1.85; color:var(--sub); word-break:keep-all; }
 
+/* 속표지 — 표지를 따로 뽑을 때 첫 쪽. 표지보다 **조용하게**(글자만, 마크 없이). */
+.ht { align-items:center; justify-content:center; text-align:center; padding:22mm 15mm 46mm; }
+.ht-t { font-family:var(--tf); font-weight:400; font-size:21pt; line-height:1.45;
+        color:var(--navy); letter-spacing:.02em; }
+.ht-t em { font-style:normal; color:var(--gold); }
+.ht-rule { width:16mm; height:1px; background:var(--line); margin:8mm auto; }
+.ht-p { font-size:10.5pt; color:var(--sub); letter-spacing:.06em; }
+
 .back { justify-content:center; text-align:center; padding:24mm 17mm; }
 .bk-t { font-family:var(--tf); font-weight:400; font-size:13pt; color:var(--navy);
         margin-bottom:5mm; }
@@ -487,6 +499,34 @@ def page_back(pno):
 </div>''' % (books, len(ITEMS), mark, esc(BOOK_VER + ' · 줄 %.1fmm' % LINE_MM))
 
 
+def page_half_title():
+    """속표지 — 표지를 따로 뽑을 때 p1 에 온다(앞표지 자리).
+
+    ⚠️ 조용해야 한다. 표지를 한 번 본 사람이 책장을 넘겨 처음 만나는 쪽이라,
+       표지를 그대로 되풀이하면 두 번 같은 것을 보는 셈이다. 제목과 기간만 둔다.
+    """
+    t = D['title']
+    head, tail = t.split('함께하는')
+    return '''<div class="page ht">
+ <div class="ht-t">%s함께하는<br><em>%s</em></div>
+ <div class="ht-rule"></div>
+ <div class="ht-p">%s · %s</div>
+</div>''' % (esc(head), esc(tail.strip()), esc(D['church']), esc(D['period']))
+
+
+def page_ruled(pno):
+    """줄노트 한 쪽 — 표지를 따로 뽑을 때 마지막 쪽(뒷표지 자리)에 온다.
+
+    성도님 요청(2026-09-11): 남는 한 쪽을 빈 채로 두지 말고 줄노트로.
+    ⚠️ 줄은 본문과 **같은 간격**(LINE_MM)이다 — 여기만 다르면 같은 책 안에서 손이 헷갈린다.
+    """
+    return '''<div class="page pL">
+ <div class="pr-hd"><span class="lab">메모</span></div>
+ <div class="lines grow">%s</div>
+ %s
+</div>''' % ('<div class="ln"></div>' * 26, foot(pno, '', '기독교 고전 필사'))
+
+
 def index_pages(items, start_pno):
     """목차 두 쪽 — 고전 9권으로 묶는다.
 
@@ -545,19 +585,30 @@ def index_pages(items, start_pno):
     return p1 + p2
 
 
-def build(body_pt, measure=False):
-    """44쪽을 짓는다. p1 표지 · p2|p3 차례 · p4~ 본문 · 마지막 뒷표지."""
+def build(body_pt, measure=False, mode='full'):
+    """44쪽을 짓는다.
+
+    mode='full'  p1 앞표지 · p2|p3 차례 · p4~ 본문 · p44 뒷표지   (표지까지 한 권)
+    mode='body'  p1 속표지 · p2|p3 차례 · p4~ 본문 · p44 줄노트   (표지를 따로 뽑을 때)
+    mode='cover' 앞표지 · 뒷표지 두 쪽만                          (표지 장 겉면)
+
+    ⚠️ body 는 full 과 **쪽 번호가 하나도 다르지 않다** — p1 과 p44 의 내용만 바뀐다.
+       그래서 차례가 가리키는 쪽(4·6·8…)을 다시 셀 필요가 없다.
+    """
     for k, it in enumerate(ITEMS):
         it['page'] = 4 + 2 * k              # 그 편의 고전 쪽 번호(차례가 가리키는 곳)
 
-    out = [page_cover()]
+    if mode == 'cover':
+        return _wrap(page_cover() + page_back(0), '')
+
+    out = [page_cover() if mode == 'full' else page_half_title()]
     out.append(index_pages(ITEMS, 2))
     pno = 4
     for it in ITEMS:
         out.append(page_classic(it, pno, body_pt))
         out.append(page_note(it, pno + 1))
         pno += 2
-    out.append(page_back(pno))              # 짝수쪽 = 펼침면 왼쪽. 44쪽이 되도록 아래에서 맞춘다
+    out.append(page_back(pno) if mode == 'full' else page_ruled(pno))
 
     total = len(ITEMS) * 2 + 4
     # ⚠️ 중철은 쪽수가 4의 배수라야 한다 — 모자라면 빈 쪽으로 채운다.
@@ -578,10 +629,14 @@ document.fonts.ready.then(function(){
 });
 </script>'''
 
+    return _wrap(''.join(out), probe)
+
+
+def _wrap(body, probe):
     return ('<!doctype html><html lang="ko"><meta charset="utf-8">'
             '<title>%s</title><style>%s%s</style><body>%s%s</body></html>'
             % (esc(D['title']), CSS.replace('__LINE__', '%g' % LINE_MM),
-               CSS_HEAD, ''.join(out), probe))
+               CSS_HEAD, body, probe))
 
 
 # ── 넘치는지 재기 ───────────────────────────────────────────────────────
@@ -750,6 +805,36 @@ def impose(src_pdf, dst_pdf):
     return True
 
 
+def cover_sheet(src_pdf, dst_pdf):
+    """앞표지·뒷표지 두 쪽 → **A4 가로 한 장**(뒷표지 | 앞표지).
+
+    표지 장을 **겉면만** 인쇄해 색지에 쓰려는 것이라, 안쪽 면은 만들지 않는다.
+    ⚠️ 중철에서 표지 장은 본디 네 면(겉 2 + 안 2)이다 — 안쪽 두 면에 있던 차례 첫 쪽과
+       마지막 노트 쪽은 **본문 책(`--split` 의 본문)이 가져간다.** 그래서 종이가 한 장 는다.
+    """
+    try:
+        from pypdf import PdfReader, PdfWriter, PageObject, Transformation
+    except ImportError:
+        print('   !! pypdf 가 없어 표지 장을 못 만듭니다 —  pip install pypdf')
+        return False
+    rd = PdfReader(src_pdf)
+    if len(rd.pages) != 2:
+        print('   !! 표지 원본이 2쪽이 아닙니다(%d쪽)' % len(rd.pages))
+        return False
+    W5, H5 = 148 * 72 / 25.4, 210 * 72 / 25.4
+    W4, H4 = 297 * 72 / 25.4, 210 * 72 / 25.4
+    gap = (W4 - 2 * W5) / 2
+    sheet = PageObject.create_blank_page(width=W4, height=H4)
+    for pg, x in ((2, gap), (1, gap + W5)):          # 왼쪽 뒷표지 · 오른쪽 앞표지
+        sheet.merge_transformed_page(rd.pages[pg - 1],
+                                     Transformation().translate(tx=x, ty=0))
+    wr = PdfWriter()
+    wr.add_page(sheet)
+    with open(dst_pdf, 'wb') as f:
+        wr.write(f)
+    return True
+
+
 # ── 돌리기 ──────────────────────────────────────────────────────────────
 if LINES_MODE:
     count_lines()
@@ -770,19 +855,45 @@ if SCR_LINES is None:
     print('   !! 성경본문 줄 수를 재지 못해 자수 어림으로 갑니다(칸이 한두 줄 어긋날 수 있습니다).')
 
 OUT_NAME = arg_val('--out', '기독교고전_전교인필사_A5_%.1f(%s)' % (LINE_MM, BOOK_VER))
-html_path = OUT_NAME + '.html'
-io.open(html_path, 'w', encoding='utf-8').write(build(PT))
 pages = len(ITEMS) * 2 + 4
 pages += (-pages) % 4
-print('  %s  (%d쪽 · 본문 %.1fpt · 줄 %gmm(한 줄 %d자) · 말씀 칸 최대 %d줄 · A4 %d장 중철)'
-      % (html_path, pages, PT, LINE_MM, HAND_PER_LINE, NOTE_MAX, pages // 4))
+INFO = ('%d쪽 · 본문 %.1fpt · 줄 %gmm(한 줄 %d자) · 말씀 칸 최대 %d줄'
+        % (pages, PT, LINE_MM, HAND_PER_LINE, NOTE_MAX))
 
-if MAKE_PDF or MAKE_BOOKLET:
-    pdf_path = OUT_NAME + '.pdf'
-    if to_pdf(html_path, pdf_path):
-        print('  %s  ← A5 순서판 (인쇄소·화면 검토용)' % pdf_path)
-        if MAKE_BOOKLET:
-            bk = OUT_NAME + '_중철A4.pdf'
-            if impose(pdf_path, bk):
-                print('  %s  ← A4 가로 %d면 (양면 인쇄 → 반 접기 → 가운데 스테이플)'
+if SPLIT:
+    # ── 표지 따로 · 본문 따로 ────────────────────────────────────────
+    body_html = OUT_NAME + '_본문.html'
+    io.open(body_html, 'w', encoding='utf-8').write(build(PT, mode='body'))
+    print('  %s  (%s · A4 %d장 중철 · p1 속표지 · p%d 줄노트)'
+          % (body_html, INFO, pages // 4, pages))
+    if MAKE_PDF or MAKE_BOOKLET:
+        body_pdf = OUT_NAME + '_본문.pdf'
+        if to_pdf(body_html, body_pdf):
+            print('  %s  ← A5 순서판 (본문 %d쪽)' % (body_pdf, pages))
+            bk = OUT_NAME + '_본문_중철A4.pdf'
+            if impose(body_pdf, bk):
+                print('  %s  ← A4 %d면 (양면 인쇄 → 반 접기 → 표지 안에)'
                       % (bk, pages // 2))
+        cov_html = OUT_NAME + '_표지.html'
+        io.open(cov_html, 'w', encoding='utf-8').write(build(PT, mode='cover'))
+        cov_a5 = OUT_NAME + '_표지_A5.pdf'
+        if to_pdf(cov_html, cov_a5):
+            cov = OUT_NAME + '_표지.pdf'
+            if cover_sheet(cov_a5, cov):
+                os.remove(cov_a5)
+                os.remove(cov_html)
+                print('  %s  ← A4 가로 1장 · **겉면만** (색지·두꺼운 종이에 단면 인쇄)' % cov)
+    print('\n  종이 %d장 = 표지 1장(단면) + 본문 %d장(양면)' % (pages // 4 + 1, pages // 4))
+else:
+    html_path = OUT_NAME + '.html'
+    io.open(html_path, 'w', encoding='utf-8').write(build(PT))
+    print('  %s  (%s · A4 %d장 중철)' % (html_path, INFO, pages // 4))
+    if MAKE_PDF or MAKE_BOOKLET:
+        pdf_path = OUT_NAME + '.pdf'
+        if to_pdf(html_path, pdf_path):
+            print('  %s  ← A5 순서판 (인쇄소·화면 검토용)' % pdf_path)
+            if MAKE_BOOKLET:
+                bk = OUT_NAME + '_중철A4.pdf'
+                if impose(pdf_path, bk):
+                    print('  %s  ← A4 가로 %d면 (양면 인쇄 → 반 접기 → 가운데 스테이플)'
+                          % (bk, pages // 2))
