@@ -17,6 +17,7 @@
   python generate_classics.py --fit           들어가는 가장 큰 글씨를 재서 알려 준다
   python generate_classics.py --sample 2      앞 2편만 (모양 볼 때)
   python generate_classics.py --no-bold       제목도 본문 서체로 (인쇄소가 Type3 를 싫어할 때)
+  python generate_classics.py --lines         노트 쪽에 줄이 몇 개씩 잡히는지 (간격을 바꾼 뒤)
 
 ⚠️ 원고는 `classics.json` 이다. 글을 고칠 때 이 파일을 건드리지 말 것.
 ⚠️ 서체는 `fonts/NotoSerifKR-*.woff` — Noto Serif KR(본명조 계열), 한국 출판물의 표준 명조.
@@ -41,6 +42,7 @@ FIT_MODE = '--fit' in sys.argv
 #   ⚠️ 서체를 바꿀 때 이 길을 남겨 둘 것 — 전에 쓰던 빙그레체Ⅱ 는 이름 레코드(name id1·id4)가
 #      비어 있어 크롬이 **Type3 폰트**로 박았고, 그걸 경고로 잡는 인쇄소가 있다.
 NO_BOLD = '--no-bold' in sys.argv
+LINES_MODE = '--lines' in sys.argv
 SAMPLE = int(arg_val('--sample', 0) or 0)
 OUT_NAME = arg_val('--out', '기독교고전_전교인필사_A5')
 
@@ -51,16 +53,37 @@ OUT_NAME = arg_val('--out', '기독교고전_전교인필사_A5')
 BODY_PT = float(arg_val('--pt', 0) or 0)          # 0 이면 아래 FITTED 를 쓴다
 FITTED_PT = 14.0        # 2026-09-09 실측 — 14.5pt 에서는 4·22·24쪽이 넘쳤다
 
-# 손글씨 한 줄에 들어가는 글자 수 — 필사 줄 수를 정하는 값.
-#   본문폭 119mm ÷ 글자 7mm ≈ 17자.
-# ⚠️ **여기에 여유를 더하지 말 것.** 노트 쪽 한 장에 들어가는 줄은 어느 편이든 늘 18줄이고,
-#    말씀 칸이 가져간 만큼 단락 칸이 줄어든다 — 한쪽의 여유가 곧 다른 쪽의 부족이다.
-#    한때 `+1` 을 두었더니 말씀은 20편 모두 남고 단락만 14편이 모자랐다(2026-09-09).
-#    뺀 뒤: 말씀은 여전히 20편 모두 담기고, 단락 부족이 14편 → 11편으로 줄었다.
-HAND_PER_LINE = 17
-LINE_MM = 8.0          # 줄 간격 — 필사노트(generate_print.py)와 같은 값. 새로 정하지 않는다.
-NOTE_MIN = 3           # 말씀 칸 최소 줄
-NOTE_MAX = 13          # 말씀 칸 최대 줄 — 넘으면 단락 칸이 사라진다
+# ── 노트 쪽의 줄 ────────────────────────────────────────────────────────
+# **줄 간격 하나만 고르면 나머지는 따라온다.** 예전에는 셋을 따로 적어 두어 하나만
+# 고치면 조용히 어긋났다(2026-09-11에 `LINE_MM` 이 아예 죽어 있는 것도 그때 나왔다).
+LINE_MM = float(arg_val('--line', 9.0))
+# 줄 간격(mm). 2026-09-11에 8.0 → 9.0 으로 넓혔다 — **성도님들이 「칸 간격이 좁다」고** 하셨다.
+#   「좁다」는 말은 곧 실제 손글씨가 8mm 보다 크다는 뜻이다.
+#   `--line 9.5` 처럼 바꿔 가며 뽑아 견줄 수 있다.
+# ⚠️ **이 값은 CSS 에도 들어간다**(`.ln { flex:0 0 ...mm }`). 한때 이 상수를 정의만 해 두고
+#    CSS 에는 `8mm` 를 손으로 박아 놓아, **값을 고쳐도 아무 일도 안 일어났다.**
+
+HAND_PER_LINE = max(8, int(round(136.0 / LINE_MM)))
+# 손글씨 한 줄에 들어가는 글자 수. **줄 간격을 따라간다** — 줄이 넓어지면 글씨도 커진다.
+#   136 은 실측 기준점에서 온 값이다(8mm 에서 17자 → 8 × 17 = 136). 9mm 면 15자, 10mm 면 14자.
+# ⚠️ **여기에 여유를 더하지 말 것.** 말씀 칸이 가져간 만큼 단락 칸이 줄어든다 —
+#    한쪽의 여유가 곧 다른 쪽의 부족이다. 한때 `+1` 을 두었더니 말씀은 20편 모두 남고
+#    단락만 14편이 모자랐다(2026-09-09).
+
+LINES_AVAIL_MM = 147.0
+# 노트 쪽에서 줄이 쓸 수 있는 높이(mm) — 머리·라벨·상자 여백을 뺀 나머지.
+# ⚠️ 어림값이다. **`--lines` 로 반드시 확인한다**(브라우저가 실제로 그린 줄을 센다).
+#    실측 네 점과 맞춘 값이다 — 8mm→18줄 · 9mm→16 · 9.5mm→15 · 10mm→14.
+#    처음에 150 으로 두었더니 10mm 에서 한 줄을 낙관해 단락 바닥이 5줄로 새었다.
+
+PAR_FLOOR = 6
+# 단락 칸이 어느 편에서나 가져야 할 최소 줄. **말씀 칸 상한이 곧 이 바닥을 만든다.**
+# ⚠️ 이 바닥이 없으면 성경본문이 긴 편(7번 회심으로의 초대 ② · 175자)에서 말씀 칸이
+#    쪽을 거의 다 먹어 **단락이 3줄까지 떨어진다** — 그건 못 쓰는 칸이다.
+# ⚠️ 대가: 성경본문이 가장 긴 한두 편은 말씀 칸이 조금 모자라다(나머지는 온전히 담긴다).
+
+NOTE_MIN = 3
+NOTE_MAX = max(NOTE_MIN, int(LINES_AVAIL_MM // LINE_MM) - PAR_FLOOR)
 
 CHROME_CANDS = [
     r'C:\Program Files\Google\Chrome\Application\chrome.exe',
@@ -222,8 +245,8 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
        color:var(--navy); background:#eef2f8; border-radius:1.6mm;
        padding:1.1mm 3mm; margin-bottom:2.6mm; letter-spacing:.02em; }
 .lab.m { margin-top:6mm; }
-/* 줄 — 따라쓰기와 묵상이 **똑같은 8mm**. 일반 노트의 간격이다.
-   ⚠️ `.ln` 에 flex:0 0 8mm 를 반드시 준다. 그냥 height 만 주면 묵상 칸(.grow, flex:1)
+/* 줄 — 단락 칸과 말씀 칸이 **똑같은 간격**(LINE_MM). 일반 노트의 간격이다.
+   ⚠️ `.ln` 에 flex:0 0 <간격> 을 반드시 준다. 그냥 height 만 주면 말씀 칸(.grow, flex:1)
       안에서 **flex 가 줄들을 눌러** 따라쓰기 8mm / 묵상 6.2mm 로 간격이 달라진다
       (2026-09-09에 그랬다 — 화면에서는 티가 잘 안 나고 뽑아 봐야 보인다).
    ⚠️ 되풀이 그라데이션(repeating-linear-gradient)으로 그리지 말 것 — 크롬이 PDF 로
@@ -231,7 +254,7 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
    묵상 칸은 남는 만큼 줄을 넉넉히 두고 넘치는 것은 잘라 낸다 — 잘린 줄은 아래 테두리가
    칸 밖이라 아예 안 그려지므로, 칸 높이가 얼마든 **딱 맞는 수만큼** 남는다. */
 .lines { display:flex; flex-direction:column; }
-.ln { flex:0 0 8mm; border-bottom:.7px solid #d7dce4; }
+.ln { flex:0 0 __LINE__mm; border-bottom:.7px solid #d7dce4; }
 .lines.grow { flex:1; min-height:0; overflow:hidden; }
 
 /* 말씀 따라 쓰기 칸 — 왼쪽 쪽의 성경본문 상자(.scr)와 같은 모양으로 맞춘다.
@@ -525,7 +548,8 @@ document.fonts.ready.then(function(){
 
     return ('<!doctype html><html lang="ko"><meta charset="utf-8">'
             '<title>%s</title><style>%s%s</style><body>%s%s</body></html>'
-            % (esc(D['title']), CSS, CSS_HEAD, ''.join(out), probe))
+            % (esc(D['title']), CSS.replace('__LINE__', '%g' % LINE_MM),
+               CSS_HEAD, ''.join(out), probe))
 
 
 # ── 넘치는지 재기 ───────────────────────────────────────────────────────
@@ -565,6 +589,63 @@ def fit():
     return None
 
 
+def count_lines():
+    """노트 쪽에 줄이 실제로 몇 개씩 그려졌는지 **브라우저에 물어본다.**
+
+    ⚠️ 손으로 계산하지 않는다 — 라벨 높이·여백이 조금만 달라져도 어긋난다.
+       단락 칸은 넘치는 줄을 잘라 내므로 `overflow` 밖으로 나간 줄은 빼고 센다.
+    """
+    chrome = find_chrome()
+    if not chrome:
+        print('   !! 크롬을 못 찾아 잴 수 없습니다.')
+        return
+    probe = """<script>
+document.fonts.ready.then(function(){
+  var out=[];
+  // ⚠️ 차례 쪽도 .pR 이다 — 말씀 상자를 가진 쪽만 노트 쪽이다(안 그러면 한 칸씩 밀린다)
+  document.querySelectorAll('.page.pR').forEach(function(p){
+    if(!p.querySelector('.wbox')) return;
+    var par=0, scr=0;
+    p.querySelectorAll('.lines.grow .ln').forEach(function(l){
+      // 아래 테두리가 칸 안에 있어야 실제로 그려진 줄이다
+      if(l.getBoundingClientRect().bottom <= l.parentNode.getBoundingClientRect().bottom+0.5) par++;
+    });
+    scr = p.querySelectorAll('.wbox .ln').length;
+    out.push(par+'/'+scr);
+  });
+  document.title='LINES|'+out.join(',');
+});
+</script>"""
+    tmp = '_lines.html'
+    io.open(tmp, 'w', encoding='utf-8').write(
+        build(BODY_PT or FITTED_PT).replace('</body>', probe + '</body>'))
+    r = subprocess.run([chrome, '--headless', '--disable-gpu', '--dump-dom',
+                        '--virtual-time-budget=20000',
+                        'file:///' + os.path.abspath(tmp).replace(os.sep, '/')],
+                       capture_output=True)
+    os.remove(tmp)
+    m = re.search(r'<title>LINES\|([^<]*)</title>', r.stdout.decode('utf-8', 'replace'))
+    if not m:
+        print('   !! 잴 수 없습니다.')
+        return
+    pairs = [x.split('/') for x in m.group(1).split(',') if x]
+    print('  줄 간격 %gmm · 한 줄에 약 %d자 · 말씀 칸 %d~%d줄\n'
+          % (LINE_MM, HAND_PER_LINE, NOTE_MIN, NOTE_MAX))
+    print('  %-3s %-22s %6s %6s %6s   %s' % ('#', '편', '단락', '말씀', '합', '단락에 담기는 양'))
+    print('  ' + '-' * 76)
+    worst = 99
+    for it, (par, scr) in zip(ITEMS, pairs):
+        par, scr = int(par), int(scr)
+        worst = min(worst, par)
+        ex = sum(len(x) for x in it['excerpt'])
+        print('  %-3d %-22s %6d %6d %6d   %d자 중 약 %d자'
+              % (it['no'], it['title'][:22], par, scr, par + scr, ex, par * HAND_PER_LINE))
+    print('  ' + '-' * 76)
+    print('  단락 칸 최소 %d줄' % worst)
+    if worst < 5:
+        print('  !! 단락 칸이 너무 얕습니다 — NOTE_MAX 를 낮추세요(말씀 칸 상한이 곧 단락의 바닥).')
+
+
 # ── 중철 배치 ───────────────────────────────────────────────────────────
 def impose(src_pdf, dst_pdf):
     """A5 순서판 → A4 가로 중철 배치판.
@@ -602,6 +683,10 @@ def impose(src_pdf, dst_pdf):
 
 
 # ── 돌리기 ──────────────────────────────────────────────────────────────
+if LINES_MODE:
+    count_lines()
+    sys.exit(0)
+
 if FIT_MODE:
     got = fit()
     if got and abs(got - FITTED_PT) > 1e-6:
@@ -613,7 +698,8 @@ html_path = OUT_NAME + '.html'
 io.open(html_path, 'w', encoding='utf-8').write(build(PT))
 pages = len(ITEMS) * 2 + 4
 pages += (-pages) % 4
-print('  %s  (%d쪽 · 본문 %.1fpt · A4 %d장 중철)' % (html_path, pages, PT, pages // 4))
+print('  %s  (%d쪽 · 본문 %.1fpt · 줄 %gmm(한 줄 %d자) · 말씀 칸 최대 %d줄 · A4 %d장 중철)'
+      % (html_path, pages, PT, LINE_MM, HAND_PER_LINE, NOTE_MAX, pages // 4))
 
 if MAKE_PDF or MAKE_BOOKLET:
     pdf_path = OUT_NAME + '.pdf'
