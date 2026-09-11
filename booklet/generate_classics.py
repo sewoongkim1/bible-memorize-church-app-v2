@@ -264,6 +264,13 @@ CSS = r'''
      ⚠️ 점선(`.ep .dot`)이 넷 중 가장 옅게 찍힌다 — 점 하나가 0.26mm 라 잉크가 가장 적다.
         그래서 「차례가 아직 희미하다」는 말이 또 나오면 이 한 값을 `#374151` 로. */
   --ix-rule:#4b5563;
+  /* 「적는 상자」 왼쪽에 세운 띠 — 성경 상자 · 말씀 따라 쓰기 · 기도제목 셋이 함께 쓴다.
+     ⚠️ 2026-09-11에 `--navy`(#1a3a6b) 에서 내렸다 — **흑백으로 뽑으면 검은 덩어리**가 되어
+        2.6mm 폭이 쪽에서 가장 진한 자리가 됐다. 상자가 어디서 시작하는지만 알려 주면 되는
+        띠라 그렇게 진할 까닭이 없다. 지금 값은 회색으로 바뀌면 75% 쯤 — 눈에는 띄되
+        글씨보다 뒤에 선다.
+     ⚠️ 굵기는 그대로 둔다 — 이건 테두리가 아니라 **면**이라 크롬의 0.75pt 스냅과 무관하다. */
+  --bar:#b3c2d8;
 }
 * { box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
 html,body { margin:0; padding:0; background:#7c8595; }
@@ -303,7 +310,7 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
 .body p:last-child { margin-bottom:0; }
 
 /* 성경본문 — 아래에 붙인다. 발췌문이 짧아도 상자는 늘 같은 자리에 온다. */
-.scr { margin-top:auto; background:var(--cream); border-left:2.6mm solid var(--navy);
+.scr { margin-top:auto; background:var(--cream); border-left:2.6mm solid var(--bar);
        border-radius:0 2mm 2mm 0; padding:4.6mm 5mm 4.2mm; }
 .scr-t { line-height:1.72; word-break:keep-all; }
 .scr-r { margin-top:2.6mm; text-align:right; font-family:var(--tf); font-weight:400;
@@ -328,12 +335,15 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
 
 /* 말씀 따라 쓰기 칸 — 왼쪽 쪽의 성경본문 상자(.scr)와 같은 모양으로 맞춘다.
    펼쳐 놓으면 왼쪽 상자와 오른쪽 상자가 나란히 서서 「이걸 여기다 옮겨 적는다」가 보인다. */
-.wbox { margin-top:auto; background:var(--cream); border-left:2.6mm solid var(--navy);
+.wbox { margin-top:auto; background:var(--cream); border-left:2.6mm solid var(--bar);
         border-radius:0 2mm 2mm 0; padding:4mm 4.4mm 1.4mm; }
 .wb-hd { display:flex; align-items:baseline; }
 .wb-hd .lab { margin-bottom:2.4mm; }
-.wb-r { margin-left:auto; font-family:var(--tf); font-size:9.5pt; color:var(--navy);
+.wb-r { margin-left:auto; font-family:var(--tf); font-weight:400; color:var(--navy);
         letter-spacing:.02em; }
+/* ⚠️ `.wb-r` 에 크기를 두지 않는다 — 왼쪽 쪽 성경 출처(.scr-r)와 **같은 값**이라야 해서
+   `scr_pt()` 가 낱쪽마다 넣어 준다(2026-09-11 성도님 요청 — 오른쪽 출처가 작았다).
+   여기에 pt 를 박아 두면 서체 크기를 다시 맞출 때 왼쪽만 따라 움직인다. */
 .wbox .ln { border-bottom-color:var(--rule); }
 
 /* 노트 쪽 머리 — **날짜를 「단락 따라 쓰기」 줄 오른쪽에 붙인다**(2026-09-11 성도님 제안).
@@ -405,17 +415,18 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
 .ht-rule { width:16mm; height:1px; background:var(--line); margin:8mm auto; }
 .ht-p { font-size:10.5pt; color:var(--sub); letter-spacing:.06em; }
 /* 속표지 아래 — 기도제목 네 줄(2026-09-11 성도님 요청).
-   **말씀 상자(.scr·.wbox)와 같은 모양**이다 — 크림 바탕 + 남색 왼쪽 띠.
-   한 책 안에서 「적는 상자」가 늘 같은 얼굴이면 성도님이 따로 배울 것이 없다.
+   **음영은 제목에만** 둔다(2026-09-11 성도님 요청 — 줄에는 넣지 말 것).
+   ⚠️ 크림 바탕을 걷어 낸 자리를 왼쪽 띠가 대신 맡는다 — 바탕도 띠도 없으면 네 줄이
+      쪽 아래에 떠 있는 것처럼 보여, 여기가 한 덩어리라는 것이 안 읽힌다.
+   ⚠️ 제목 음영은 본문 딱지(`.lab`)와 **같은 회색**이다 — 한 책에 「딱지」가 두 얼굴이면
+      따로 배울 것이 생긴다.
    ⚠️ 줄 간격은 본문과 **같은 LINE_MM** 이다(`.ln` 을 그대로 쓴다) — 한 책 안에서 줄이
-      들쭉날쭉하면 손이 헷갈린다.
-   ⚠️ 줄 색도 `--rule` 그대로 쓴다 — 크림 위라 조금 옅어 보이지만 말씀 칸도 같은 조건이다.
-      여기만 따로 색을 두면 다음에 한쪽만 고치게 된다. */
+      들쭉날쭉하면 손이 헷갈린다. */
 .ht-pray { position:absolute; left:18mm; right:18mm; bottom:22mm; text-align:left;
-           background:var(--cream); border-left:2.6mm solid var(--navy);
-           border-radius:0 2mm 2mm 0; padding:4mm 4.4mm 1.4mm; }
-.ht-pl { font-family:var(--tf); font-weight:400; font-size:10pt; color:var(--navy);
-         letter-spacing:.02em; margin-bottom:2.6mm; }
+           border-left:2.6mm solid var(--bar); padding:1mm 4.4mm 1.4mm; }
+.ht-pl { display:inline-block; font-family:var(--tf); font-weight:400; font-size:10pt;
+         color:var(--navy); background:#eef2f8; border-radius:1.6mm;
+         padding:1.1mm 3mm; letter-spacing:.02em; margin-bottom:2.6mm; }
 
 .back { justify-content:center; text-align:center; padding:18mm 15mm; }
 .bk-t { font-family:var(--tf); font-weight:400; font-size:15.6pt; color:var(--navy);
@@ -523,10 +534,18 @@ def foot(page_no, left_text, right_text):
             % (esc(left_text), page_no))
 
 
+def scr_pt(body_pt):
+    """성경본문 상자의 글씨 크기 — 발췌문보다 한 단계 작다.
+
+    ⚠️ 비율로 잡는다(뺄셈이 아니라) — A4 배율을 걸면 「-1.5pt」는 그대로라 비례가 깨진다.
+    ⚠️ **왼쪽 상자와 오른쪽 「말씀 따라 쓰기」 출처가 함께 쓴다.** 펼쳐 놓으면 두 쪽의
+       성경 출처가 나란히 서므로 크기가 다르면 오른쪽이 눌려 보인다.
+    """
+    return round(body_pt * 12.5 / 14.0, 2)
+
+
 def page_classic(it, pno, body_pt):
     """짝수쪽 — 고전 발췌문 + 성경본문."""
-    # ⚠️ 비율로 잡는다(뺄셈이 아니라) — A4 배율을 걸면 「-1.5pt」는 그대로라 비례가 깨진다.
-    scr_pt = round(body_pt * 12.5 / 14.0, 2)
     ps = ''.join('<p>%s</p>' % esc(p) for p in it['excerpt'])
     sub = '<div class="t-sub">%s</div>' % esc(it['sub']) if it['sub'] else ''
     return '''<div class="page pL">
@@ -541,12 +560,12 @@ def page_classic(it, pno, body_pt):
  </div>
  %(ft)s
 </div>''' % dict(day=it['day'], date=esc(it['date']), title=title_html(it), sub=sub,
-                 author=esc(it['author']), bp=body_pt, sp=scr_pt, ps=ps,
+                 author=esc(it['author']), bp=body_pt, sp=scr_pt(body_pt), ps=ps,
                  scr=esc(it['scripture']), ref=esc(it['ref']),
                  ft=foot(pno, '', '기독교 고전 필사'))
 
 
-def page_note(it, pno):
+def page_note(it, pno, body_pt):
     """홀수쪽 — **왼쪽 쪽을 그대로 비춘다**(2026-09-09).
 
     왼쪽 위 고전 발췌문 → 오른쪽 위 「단락 따라 쓰기」
@@ -569,11 +588,13 @@ def page_note(it, pno):
   <span class="pr-d"><b>%(day)d일</b> · %(date)s</span></div>
  <div class="lines grow">%(par)s</div>
  <div class="wbox">
-  <div class="wb-hd"><span class="lab">말씀 따라 쓰기</span><span class="wb-r">%(ref)s</span></div>
+  <div class="wb-hd"><span class="lab">말씀 따라 쓰기</span>
+   <span class="wb-r" style="font-size:%(sp)spt">%(ref)s</span></div>
   <div class="lines">%(scr)s</div>
  </div>
  %(ft)s
 </div>''' % dict(day=it['day'], date=esc(it['date']), ref=esc(it['ref']),
+                 sp=scr_pt(body_pt),
                  par=ln * 20,        # 넉넉히 두면 칸에 맞는 수만 남는다
                  scr=ln * rows, ft=foot(pno, D['church'], ''))
 
@@ -759,7 +780,7 @@ def build(body_pt, measure=False, mode='full'):
     pno = 4
     for it in ITEMS:
         out.append(page_classic(it, pno, body_pt))
-        out.append(page_note(it, pno + 1))
+        out.append(page_note(it, pno + 1, body_pt))
         pno += 2
     out.append(page_back(pno) if mode == 'full' else page_ruled(pno))
 
@@ -1000,6 +1021,12 @@ def cover_sheet(src_pdf, dst_pdf):
 
 # ── 돌리기 ──────────────────────────────────────────────────────────────
 if LINES_MODE:
+    # ⚠️ **재기 전에 말씀 줄 수부터 재야 한다.**  `SCR_LINES` 가 없으면 `page_note` 가
+    #    글자 수로 어림한 되돌아갈 값을 쓰는데, 그건 실제로 찍히는 책이 아니다
+    #    (2026-09-11에 잡았다 — 루터 선집 ① 을 「단락 8 · 말씀 8」로 보고했지만
+    #     PDF 에는 단락 12 · 말씀 4 로 찍혀 있었다. 107자를 14로 나눈 8 이었다).
+    #    두 판 그리기가 들어온 뒤로 이 보고가 줄곧 다른 책을 세고 있었다.
+    SCR_LINES = measure_scr_lines(BODY_PT or FITTED_PT)
     count_lines()
     sys.exit(0)
 
