@@ -1314,7 +1314,7 @@ const FEAT_SINCE = {
   //    NEW 는 신청 시작일부터 센다. 지금 날짜를 적으면 성도님이 보기도 전에 사라진다.
   ministry: "2026-12-13",
   event: "2026-09-10",        // 이벤트 플랫폼 — 썸머 써 바이블 명단을 여는 날
-  psalm: "2026-09-21",        // 시편 말씀 액자 — 1일차와 같은 날부터 NEW
+  psalm: "2026-09-21",        // 쉴만한 물가(옛 이름 시편 말씀 액자) — 1일차와 같은 날부터 NEW
   prayer: "2026-09-03",
   meditation: "2026-07-20",   // 매일 묵상
   sermon: "2026-07-23",       // 내게 주시는 말씀
@@ -2008,7 +2008,12 @@ function renderSummary() {
           이미 공백으로 접으므로 boardEsc 의 \n→<br> 는 걸릴 일이 없다. */""}
     ${eventVisible() ? `<button class="summary-help" id="open-event-list">🏅 ${boardEsc(eventLabelCached())}${newBadge("event")}</button>` : ""}
     <button class="summary-help" id="open-board">💬 응원·기도·공감</button>
-    ${psalmVisible() ? `<button class="summary-help" id="open-psalm">📿 시편 말씀 액자${newBadge("psalm")}</button>` : ""}
+    ${psalmVisible() ? `<button class="summary-help" id="open-psalm">🏞️ 쉴만한 물가${newBadge("psalm")}</button>` : ""}
+    <!-- ⚠️ 2026-09-11 이름 변경: 「시편 말씀 액자」 → 「쉴만한 물가」(시편 23편 2절,
+         성도님 결정) — 「액자」가 낯설고, 매일 하지 않으면 안 될 것 같은 부담을 줄이려고
+         쉼·인도받음의 이미지로 바꿨다. id="open-psalm"·내부 함수명(js/psalm.js)·엑셀·
+         설계 문서는 그대로 「시편」이다 — 화면에 뜨는 이름만 바뀐 것이고, 코드 이름까지
+         바꾸면 그 파일들과 갈라져 오히려 헷갈린다. -->
     <button class="summary-help" id="open-prayer">🙏 가정 축복 기도문${newBadge("prayer")}</button>
     ${ministryVisible() ? `<button class="summary-help" id="open-ministry">🤝 사역신청${newBadge("ministry")}</button>` : ""}
     ${passagesVisible() ? `<button class="summary-help" id="open-passages">📜 내 안에 거하는 말씀${newBadge("passages")}</button>` : ""}
@@ -6232,7 +6237,7 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev
           ${sermon ? `<button class="med-more" id="med-sermon">요약</button>` : ""}
           <button class="cheer-ok" id="dmsg-ok">확인</button>
         </div>
-        ${todayPsalm ? `<button class="med-psalm-cta" id="med-psalm">📿 오늘의 시편 · ${psalmEsc(todayPsalm.refShort || todayPsalm.refFull)}</button>` : ""}
+        ${todayPsalm ? `<button class="med-psalm-cta" id="med-psalm">🏞️ 쉴만한 물가 · ${psalmEsc(todayPsalm.refShort || todayPsalm.refFull)}</button>` : ""}
       </div>`;
     document.body.appendChild(wrap);
     const card = wrap.querySelector(".dmsg-card");
