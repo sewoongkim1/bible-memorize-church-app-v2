@@ -198,8 +198,8 @@ def ensure_fonts():
 
 ensure_fonts()
 
-# 교회 마크 두 벌 — **앞표지는 가로 CI**(가로조합1), 뒷표지는 세로 마크.
-#   앞표지는 마크가 맨 아래 한 줄로 앉아 가로가 낫고, 뒷표지는 가운데라 세로가 낫다.
+# 교회 마크 — **앞·뒷표지 모두 가로 CI**(가로조합1, 2026-09-11 성도님 요청).
+#   세로 마크는 `ci-h-data-uri.txt` 가 없을 때 되돌아갈 자리로만 남긴다.
 # ⚠️ 가로 CI 는 원본이 JPG 라 **흰 바탕이 딸려 온다** — 색지에 인쇄하면 흰 네모가 보인다.
 #    그래서 흰 화소를 투명으로 바꾼 `ci-h.png` 를 쓴다(만드는 법은 만들기 문서 참고).
 # ⚠️ 둘 중 하나가 없어도 멈추지 않는다 — 교회 이름 글자로 대신한다.
@@ -207,8 +207,8 @@ def _uri(path):
     return io.open(path, encoding='utf-8').read().strip() if os.path.exists(path) else ''
 
 
-LOGO = _uri(os.path.join('..', 'marketing', 'logo-data-uri.txt'))   # 세로 — 뒷표지
-LOGO_H = _uri('ci-h-data-uri.txt') or LOGO                          # 가로 — 앞표지
+LOGO = _uri(os.path.join('..', 'marketing', 'logo-data-uri.txt'))   # 세로 — 되돌아갈 자리
+LOGO_H = _uri('ci-h-data-uri.txt') or LOGO                          # 가로 — 앞·뒷표지 둘 다
 
 # ── 자료 ────────────────────────────────────────────────────────────────
 D = json.load(io.open('classics.json', encoding='utf-8'))
@@ -420,7 +420,8 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
       뒷표지 전체의 균형이 틀어진다. */
 .bk-v { position:absolute; left:0; right:0; bottom:7mm; text-align:center;
         font-size:7pt; letter-spacing:.12em; color:#c2c8d2; }
-.bk-mark { width:24mm; }
+.bk-mark { width:40mm; }   /* 가로 CI(가로세로비 2.8) — 앞표지 46mm 보다 한 단계 작게.
+                              뒷표지는 글이 많은 쪽이라 마크가 크면 무거워 보인다. */
 
 /* ── 목차 ───────────────────────────────────────────── */
 .ix-h { text-align:center; margin-bottom:6mm; }
@@ -584,7 +585,7 @@ def page_back(pno):
     """
     books = len({i['book'] for i in ITEMS})
     # 아래에는 교회 마크만 — 글자를 넣지 않는다(2026-09-09 요청).
-    mark = ('<img class="bk-mark" src="%s" alt="고척교회">' % LOGO) if LOGO else esc(D['church'])
+    mark = ('<img class="bk-mark" src="%s" alt="고척교회">' % LOGO_H) if LOGO_H else esc(D['church'])
     return '''<div class="page back">
  %s
  <div class="bk-t">이렇게 쓰입니다</div>
