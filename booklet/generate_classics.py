@@ -441,12 +441,13 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
 /* 뒷장 아래는 교회 마크만 — 글자를 넣지 않는다(2026-09-09 요청).
    ⚠️ 마크 파일이 없으면 교회 이름 글자로 대신한다(없다고 멈추지 않는다). */
 .bk-f { margin-top:12mm; font-size:12pt; color:var(--sub); letter-spacing:.08em; }
-/* 판 표기 — 쪽 맨 아래에 **아주 옅게**. 성도님이 읽을 글이 아니라, 인쇄본을 받아 들었을 때
-   어느 판인지 가리는 표식이다(파일 이름과 같은 값).
+/* 판 표기 — 쪽 맨 아래 **오른쪽**에 조용히. 만든 부서와 판을 밝히는 줄이다.
    ⚠️ `position:absolute` 로 못박는다 — 흐름에 두면 가운데 정렬된 본문 덩어리를 아래로 밀어
-      뒷표지 전체의 균형이 틀어진다. */
-.bk-v { position:absolute; left:0; right:0; bottom:7mm; text-align:center;
-        font-size:8.4pt; letter-spacing:.12em; color:#c2c8d2; }
+      뒷표지 전체의 균형이 틀어진다.
+   ⚠️ 자간(.12em)을 그대로 두면 오른쪽 끝이 한 글자 폭만큼 떠 보인다 — 마지막 글자 뒤에도
+      자간이 붙기 때문이다. 오른쪽 정렬에서는 그만큼 되돌려 준다(`margin-right:-.12em`). */
+.bk-v { position:absolute; left:0; right:15mm; bottom:7mm; text-align:right;
+        font-size:8.4pt; letter-spacing:.12em; margin-right:-.12em; color:#8b93a1; }
 .bk-mark { width:40mm; }   /* 가로 CI(가로세로비 2.8) — 앞표지 46mm 보다 한 단계 작게.
                               뒷표지는 글이 많은 쪽이라 마크가 크면 무거워 보인다. */
 
@@ -628,7 +629,7 @@ def page_back(pno):
  <div class="bk-f">%s</div>
  <div class="bk-v">%s</div>
 </div>''' % (motto_html(), books, len(ITEMS), mark,
-             esc(BOOK_VER + ' · 줄 %.1fmm' % LINE_LABEL))
+             esc(' '.join(x for x in (D.get('team'), BOOK_VER) if x)))
 
 
 def page_half_title():
