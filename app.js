@@ -6227,12 +6227,12 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev
           : ""}
         <div class="dmsg-title" id="med-title"></div>
         <div class="cheer-msg dmsg-body" id="med-body"></div>
-        ${todayPsalm ? `<button class="med-psalm-cta" id="med-psalm">📿 오늘의 시편 말씀 · ${psalmEsc(todayPsalm.refFull)}</button>` : ""}
         <div class="med-actions">
           ${verse && verse.url ? `<a class="med-more" id="med-watch" href="${verse.url}" target="_blank" rel="noopener">설교</a>` : ""}
           ${sermon ? `<button class="med-more" id="med-sermon">요약</button>` : ""}
           <button class="cheer-ok" id="dmsg-ok">확인</button>
         </div>
+        ${todayPsalm ? `<button class="med-psalm-cta" id="med-psalm">📿 오늘의 시편 · ${psalmEsc(todayPsalm.refShort || todayPsalm.refFull)}</button>` : ""}
       </div>`;
     document.body.appendChild(wrap);
     const card = wrap.querySelector(".dmsg-card");
