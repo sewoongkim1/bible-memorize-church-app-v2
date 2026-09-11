@@ -12,6 +12,12 @@ const PSALM_NO_BASE = 1000;   // 시편 구절 번호 = 1000 + day_no. 이 번�
 let psalmVerses = [];         // 열린 구절만 (서버가 안 열린 것은 안 내려보낸다)
 let psalmOpen = 0;            // 오늘까지 열린 편수
 let psalmTotal = 180;
+// ⚠️ 마지막 편에서 「다음」을 누르면 처음으로 돌아가는 동작 — **당분간 끈다**(성도님 결정 2026-09-11).
+//    개시 초기에는 넘겨 볼 편이 몇 안 되고, 끝에서 1일차로 튀는 것보다 「내일 새로운 묵상의 말씀이
+//    열린다」는 기대를 주는 편이 낫다. 편이 쌓이면 true 로 켜면 된다(drawPsalmHome 의 toFirst 가 되살아난다).
+const PSALM_WRAP_TO_FIRST = false;
+// 끝에 닿았을 때의 안내 — 첫 화면 「다음」과 완료 화면이 같은 말을 쓴다. ⚠️ 「외운다」·「암송」을 쓰지 않는다.
+const PSALM_TOMORROW_MSG = "오늘의 말씀은 여기까지예요. 내일 새로운 묵상의 말씀이 열려요 🐑";
 const PSALM_DEFAULT_START = "2026-09-12";   // 서버가 안 알려줄 때 쓰는 값 — 1일차(2026-09-11 성도님 결정, 처음 계획은 9/21)
 let psalmStartDate = "";
 let psalmLoaded = false;
@@ -148,7 +154,7 @@ function drawPsalmHome() {
   //    「다음을 눌렀는데 1일차」가 된다. 그래서 **실제로 가장 큰 일차일 때만** 되돌아간다.
   // ⚠️ 열린 편이 하나뿐이면(개시 첫날) 되돌아갈 데가 자기 자신이라 그대로 안내를 띄운다.
   const days = psalmVerses.map((v) => v.dayNo);
-  const toFirst = (!next && psalmVerses.length > 1 && shown.dayNo === Math.max(...days))
+  const toFirst = (PSALM_WRAP_TO_FIRST && !next && psalmVerses.length > 1 && shown.dayNo === Math.max(...days))
     ? psalmVerses.find((v) => v.dayNo === Math.min(...days)) : null;
 
   // ⚠️ 끝에 닿은 「이전·다음」도 눌리게 둔다(흐리게만 한다) — 눌러도 반응이 없으면 어르신은
@@ -173,7 +179,7 @@ function drawPsalmHome() {
   document.getElementById("ps-h-next").addEventListener("click", () => {
     if (next) flip(next);
     else if (toFirst) flip(toFirst);
-    else say("오늘 열린 말씀은 여기까지예요. 내일 한 편이 더 열려요.");
+    else say(PSALM_TOMORROW_MSG);
   });
   document.getElementById("ps-h-go").addEventListener("click", () => psalmStartMemorize(shown));
 }
@@ -585,7 +591,7 @@ function renderPsalmDone(verse, wasFirst) {
         <div class="ps-done-s">말씀 앨범에 담겼고, 복습이 예약됐어요</div>`}
       ${heartCheckHtml(verse, "-m")}
       ${navHtml}
-      ${next ? "" : `<div class="ps-done-wait">오늘 열린 말씀은 여기까지예요 · 내일 한 편이 더 열려요</div>`}
+      ${next ? "" : `<div class="ps-done-wait">${psalmEsc(PSALM_TOMORROW_MSG)}</div>`}
       <button class="${(prev || next) ? "ps-tool ps-wide" : "ps-go"}" id="ps-again">↺ 이 말씀 다시 암송</button>
       <button class="ps-tool ps-wide" id="ps-list">지난 말씀 보기</button>
     </div>`;
