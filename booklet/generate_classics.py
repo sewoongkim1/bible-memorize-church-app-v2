@@ -106,6 +106,11 @@ PAR_FLOOR = 6
 NOTE_MIN = 3
 NOTE_MAX = max(NOTE_MIN, int(LINES_AVAIL_MM // LINE_MM) - PAR_FLOOR)
 
+LINE_LABEL = LINE_MM
+# 사람에게 보이는 줄 간격(뒷표지 판 표기·파일 이름). **늘 A5 기준**이다 —
+# A4 판은 LINE_MM 이 √2 배지만, 표지는 A5 축척으로 그리고 파일 이름도 A5 기준이라
+# 여기만 A4 값을 적으면 종이와 파일이 어긋난다. 값은 아래 배율 블록에서 되돌린다.
+
 # 말씀 칸 줄 수는 **왼쪽 쪽에 성경본문이 찍힌 줄 수**와 같게 준다(2026-09-11 성도님 지시).
 #   그전에는 「손글씨 몇 자니까 몇 줄」로 잡았는데, 그러면 **많이 찍힌 쪽이 적게 받았다** —
 #   24쪽은 발췌 9줄·성경 7줄이 찍혔는데 칸은 단락 6줄·말씀 9줄이었다.
@@ -450,6 +455,10 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
       font-family:'BookKR',serif; letter-spacing:0; }
 '''
 
+CSS_A5 = CSS
+# ⚠️ **배율 전 CSS 를 간직한다** — 표지는 판형과 상관없이 A5 두 쪽으로 그려
+#    A4 한 장에 앉히기 때문이다(아래 「돌리기」 참고).
+
 if SIZE == 'a4':
     CSS = scale_lengths(CSS, A4_SCALE)
     # ⚠️ 쪽 크기는 배율이 아니라 **실제 A4** 로 못박는다 — 148×√2 는 209.3mm 라 A4(210)와
@@ -460,6 +469,7 @@ if SIZE == 'a4':
     if BODY_PT:
         BODY_PT *= A4_SCALE
     LINES_AVAIL_MM *= A4_SCALE      # 비율이 같으므로 NOTE_MAX 는 그대로다
+    # LINE_LABEL 은 키우지 않는다 — 사람에게 보이는 값은 늘 A5 기준(위 주석 참고)
 
 
 # ── 쪽 만들기 ───────────────────────────────────────────────────────────
@@ -590,7 +600,7 @@ def page_back(pno):
  <div class="bk-f">%s</div>
  <div class="bk-v">%s</div>
 </div>''' % (motto_html(), books, len(ITEMS), mark,
-             esc(BOOK_VER + ' · 줄 %.1fmm' % LINE_MM))
+             esc(BOOK_VER + ' · 줄 %.1fmm' % LINE_LABEL))
 
 
 def page_half_title():
@@ -698,7 +708,9 @@ def build(body_pt, measure=False, mode='full'):
         it['page'] = 4 + 2 * k              # 그 편의 고전 쪽 번호(차례가 가리키는 곳)
 
     if mode == 'cover':
-        return _wrap(page_cover() + page_back(0), '')
+        # 표지는 **늘 A5 두 쪽**이다 — 나란히 놓아야 A4 한 장이 된다.
+        return _wrap(page_cover() + page_back(0), '',
+                     css=CSS_A5, line_mm=LINE_MM / A4_SCALE if SIZE == 'a4' else LINE_MM)
 
     out = [page_cover() if mode == 'full' else page_half_title()]
     out.append(index_pages(ITEMS, 2))
@@ -731,10 +743,12 @@ document.fonts.ready.then(function(){
     return _wrap(''.join(out), probe)
 
 
-def _wrap(body, probe):
+def _wrap(body, probe, css=None, line_mm=None):
+    css = CSS if css is None else css
+    line_mm = LINE_MM if line_mm is None else line_mm
     return ('<!doctype html><html lang="ko"><meta charset="utf-8">'
             '<title>%s</title><style>%s%s</style><body>%s%s</body></html>'
-            % (esc(D['title']), CSS.replace('__LINE__', '%g' % LINE_MM),
+            % (esc(D['title']), css.replace('__LINE__', '%g' % line_mm),
                CSS_HEAD, body, probe))
 
 
@@ -962,9 +976,8 @@ if SCR_LINES is None:
     print('   !! 성경본문 줄 수를 재지 못해 자수 어림으로 갑니다(칸이 한두 줄 어긋날 수 있습니다).')
 
 # 이름에 판형·줄 간격·판이 들어간다. A4 판은 줄 간격도 √2 배라 A5 기준 값을 적는다.
-_line_label = LINE_MM / A4_SCALE if SIZE == 'a4' else LINE_MM
 OUT_NAME = arg_val('--out', '기독교고전_전교인필사_%s_%.1f(%s)'
-                   % (SIZE.upper(), _line_label, BOOK_VER))
+                   % (SIZE.upper(), LINE_LABEL, BOOK_VER))
 pages = len(ITEMS) * 2 + 4
 pages += (-pages) % 4
 INFO = ('%d쪽 · 본문 %.1fpt · 줄 %gmm(한 줄 %d자) · 말씀 칸 최대 %d줄'
@@ -972,15 +985,24 @@ INFO = ('%d쪽 · 본문 %.1fpt · 줄 %gmm(한 줄 %d자) · 말씀 칸 최대 
 
 if SPLIT and SIZE == 'a4':
     # ── 프린터의 「소책자 인쇄」에 넣을 판 — **터잡지 않는다**(프린터가 한다) ──────
-    for tag, mode, note in (('표지', 'cover', '2쪽 → 프린터가 A4 한 장에 「뒷표지|앞표지」로'),
-                            ('본문', 'body', '%d쪽 → 프린터가 A4 %d장 양면으로' % (pages, pages // 4))):
-        h = '%s_%s.html' % (OUT_NAME, tag)
-        io.open(h, 'w', encoding='utf-8').write(build(PT, mode=mode))
-        if MAKE_PDF or MAKE_BOOKLET:
-            f = '%s_%s.pdf' % (OUT_NAME, tag)
-            if to_pdf(h, f):
-                print('  %s  ← A4 순서판 · %s' % (f, note))
-            os.remove(h)
+    h = OUT_NAME + '_본문.html'
+    io.open(h, 'w', encoding='utf-8').write(build(PT, mode='body'))
+    if MAKE_PDF or MAKE_BOOKLET:
+        f = OUT_NAME + '_본문.pdf'
+        if to_pdf(h, f):
+            print('  %s  ← A4 순서판 %d쪽 → 프린터가 A4 %d장 양면으로'
+                  % (f, pages, pages // 4))
+        os.remove(h)
+        # 표지는 **미리 앉혀** A4 한 장으로 — 한 장뿐이라 프린터가 터잡을 것이 없다.
+        ch = OUT_NAME + '_표지.html'
+        io.open(ch, 'w', encoding='utf-8').write(build(PT, mode='cover'))
+        c5 = OUT_NAME + '_표지_A5.pdf'
+        if to_pdf(ch, c5):
+            cov = OUT_NAME + '_표지.pdf'
+            if cover_sheet(c5, cov):
+                os.remove(c5)
+                print('  %s  ← A4 가로 1장 · **겉면만** (그냥 단면으로 인쇄)' % cov)
+        os.remove(ch)
     print('\n  프린터에서 **인쇄 → 소책자(책자)** 를 고르세요.')
     print('  ⚠️ 「실제 크기」로 두세요 — 「페이지에 맞춤」이 켜져 있으면 한 번 더 줄어듭니다.')
 
