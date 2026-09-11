@@ -84,10 +84,17 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
         letter-spacing:.02em; }
 .wbox .ln { border-bottom-color:#cdd3dd; }
 
-/* 노트 쪽은 머리 줄과 **맨 끝 줄**을 진하게 — 쓰는 자리가 위아래로 갇혀 보인다.
+/* 노트 쪽 머리 — **날짜를 「단락 따라 쓰기」 줄 오른쪽에 붙인다**(2026-09-11 성도님 제안).
+   머리 줄을 따로 두지 않으니 **쓰는 줄이 하나 늘고**, 아래 말씀 상자의
+   「말씀 따라 쓰기 … 히브리서 4:15-16」과 같은 모양이 된다.
+   ⚠️ 진한 줄은 그대로 둔다 — 쓰는 자리를 위에서 가두는 것이 이 줄의 일이다.
    ⚠️ 끝 줄은 말씀 칸의 마지막 `.ln` 이다(단락 칸의 마지막 줄이 아니다) — 단락 칸은
       넘치는 줄을 잘라 내므로 `:last-child` 가 화면에 보이는 마지막 줄이 아닐 수 있다. */
-.pR .hd { border-bottom:1.1px solid var(--line-strong); }
+.pr-hd { display:flex; align-items:baseline; padding-bottom:2mm; margin-bottom:3mm;
+         border-bottom:1.1px solid var(--line-strong); }
+.pr-hd .lab { margin-bottom:0; }
+.pr-d { margin-left:auto; font-size:9.5pt; color:var(--sub); letter-spacing:.02em; }
+.pr-d b { font-family:var(--tf); color:var(--navy); font-weight:400; }
 .wbox .lines .ln:last-child { border-bottom:1.1px solid var(--line-strong); }
 
 /* ── 꼬리말 ─────────────────────────────────────────── */
@@ -189,8 +196,8 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
  </div>
  <div class="ft"><span class="pno">4</span><span>기독교 고전 필사</span></div>
 </div><div class="page pR">
- <div class="hd"><b>2일</b> · 10/2(금)</div>
- <div><span class="lab">단락 따라 쓰기</span></div>
+ <div class="pr-hd"><span class="lab">단락 따라 쓰기</span>
+  <span class="pr-d"><b>2일</b> · 10/2(금)</span></div>
  <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
  <div class="wbox">
   <div class="wb-hd"><span class="lab">말씀 따라 쓰기</span><span class="wb-r">베드로전서 2:9</span></div>
@@ -209,8 +216,8 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
  </div>
  <div class="ft"><span class="pno">6</span><span>기독교 고전 필사</span></div>
 </div><div class="page pR">
- <div class="hd"><b>3일</b> · 10/3(토)</div>
- <div><span class="lab">단락 따라 쓰기</span></div>
+ <div class="pr-hd"><span class="lab">단락 따라 쓰기</span>
+  <span class="pr-d"><b>3일</b> · 10/3(토)</span></div>
  <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
  <div class="wbox">
   <div class="wb-hd"><span class="lab">말씀 따라 쓰기</span><span class="wb-r">로마서 10:17</span></div>
@@ -229,8 +236,8 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
  </div>
  <div class="ft"><span class="pno">8</span><span>기독교 고전 필사</span></div>
 </div><div class="page pR">
- <div class="hd"><b>4일</b> · 10/5(월)</div>
- <div><span class="lab">단락 따라 쓰기</span></div>
+ <div class="pr-hd"><span class="lab">단락 따라 쓰기</span>
+  <span class="pr-d"><b>4일</b> · 10/5(월)</span></div>
  <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
  <div class="wbox">
   <div class="wb-hd"><span class="lab">말씀 따라 쓰기</span><span class="wb-r">갈라디아서 5:13</span></div>
@@ -249,8 +256,8 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
  </div>
  <div class="ft"><span class="pno">10</span><span>기독교 고전 필사</span></div>
 </div><div class="page pR">
- <div class="hd"><b>5일</b> · 10/6(화)</div>
- <div><span class="lab">단락 따라 쓰기</span></div>
+ <div class="pr-hd"><span class="lab">단락 따라 쓰기</span>
+  <span class="pr-d"><b>5일</b> · 10/6(화)</span></div>
  <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
  <div class="wbox">
   <div class="wb-hd"><span class="lab">말씀 따라 쓰기</span><span class="wb-r">로마서 6:23</span></div>
@@ -269,8 +276,8 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
  </div>
  <div class="ft"><span class="pno">12</span><span>기독교 고전 필사</span></div>
 </div><div class="page pR">
- <div class="hd"><b>6일</b> · 10/7(수)</div>
- <div><span class="lab">단락 따라 쓰기</span></div>
+ <div class="pr-hd"><span class="lab">단락 따라 쓰기</span>
+  <span class="pr-d"><b>6일</b> · 10/7(수)</span></div>
  <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
  <div class="wbox">
   <div class="wb-hd"><span class="lab">말씀 따라 쓰기</span><span class="wb-r">디모데전서 4:8</span></div>
@@ -289,8 +296,8 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
  </div>
  <div class="ft"><span class="pno">14</span><span>기독교 고전 필사</span></div>
 </div><div class="page pR">
- <div class="hd"><b>7일</b> · 10/8(목)</div>
- <div><span class="lab">단락 따라 쓰기</span></div>
+ <div class="pr-hd"><span class="lab">단락 따라 쓰기</span>
+  <span class="pr-d"><b>7일</b> · 10/8(목)</span></div>
  <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
  <div class="wbox">
   <div class="wb-hd"><span class="lab">말씀 따라 쓰기</span><span class="wb-r">로마서 8:5-7</span></div>
@@ -309,8 +316,8 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
  </div>
  <div class="ft"><span class="pno">16</span><span>기독교 고전 필사</span></div>
 </div><div class="page pR">
- <div class="hd"><b>8일</b> · 10/9(금)</div>
- <div><span class="lab">단락 따라 쓰기</span></div>
+ <div class="pr-hd"><span class="lab">단락 따라 쓰기</span>
+  <span class="pr-d"><b>8일</b> · 10/9(금)</span></div>
  <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
  <div class="wbox">
   <div class="wb-hd"><span class="lab">말씀 따라 쓰기</span><span class="wb-r">이사야 55:6-8</span></div>
@@ -329,8 +336,8 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
  </div>
  <div class="ft"><span class="pno">18</span><span>기독교 고전 필사</span></div>
 </div><div class="page pR">
- <div class="hd"><b>9일</b> · 10/10(토)</div>
- <div><span class="lab">단락 따라 쓰기</span></div>
+ <div class="pr-hd"><span class="lab">단락 따라 쓰기</span>
+  <span class="pr-d"><b>9일</b> · 10/10(토)</span></div>
  <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
  <div class="wbox">
   <div class="wb-hd"><span class="lab">말씀 따라 쓰기</span><span class="wb-r">사도행전 4:31</span></div>
@@ -349,8 +356,8 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
  </div>
  <div class="ft"><span class="pno">20</span><span>기독교 고전 필사</span></div>
 </div><div class="page pR">
- <div class="hd"><b>10일</b> · 10/12(월)</div>
- <div><span class="lab">단락 따라 쓰기</span></div>
+ <div class="pr-hd"><span class="lab">단락 따라 쓰기</span>
+  <span class="pr-d"><b>10일</b> · 10/12(월)</span></div>
  <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
  <div class="wbox">
   <div class="wb-hd"><span class="lab">말씀 따라 쓰기</span><span class="wb-r">시편 5:3</span></div>
@@ -369,8 +376,8 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
  </div>
  <div class="ft"><span class="pno">22</span><span>기독교 고전 필사</span></div>
 </div><div class="page pR">
- <div class="hd"><b>11일</b> · 10/13(화)</div>
- <div><span class="lab">단락 따라 쓰기</span></div>
+ <div class="pr-hd"><span class="lab">단락 따라 쓰기</span>
+  <span class="pr-d"><b>11일</b> · 10/13(화)</span></div>
  <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
  <div class="wbox">
   <div class="wb-hd"><span class="lab">말씀 따라 쓰기</span><span class="wb-r">마태복음 23:25-26</span></div>
@@ -389,8 +396,8 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
  </div>
  <div class="ft"><span class="pno">24</span><span>기독교 고전 필사</span></div>
 </div><div class="page pR">
- <div class="hd"><b>12일</b> · 10/14(수)</div>
- <div><span class="lab">단락 따라 쓰기</span></div>
+ <div class="pr-hd"><span class="lab">단락 따라 쓰기</span>
+  <span class="pr-d"><b>12일</b> · 10/14(수)</span></div>
  <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
  <div class="wbox">
   <div class="wb-hd"><span class="lab">말씀 따라 쓰기</span><span class="wb-r">히브리서 4:15-16</span></div>
@@ -409,8 +416,8 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
  </div>
  <div class="ft"><span class="pno">26</span><span>기독교 고전 필사</span></div>
 </div><div class="page pR">
- <div class="hd"><b>13일</b> · 10/15(목)</div>
- <div><span class="lab">단락 따라 쓰기</span></div>
+ <div class="pr-hd"><span class="lab">단락 따라 쓰기</span>
+  <span class="pr-d"><b>13일</b> · 10/15(목)</span></div>
  <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
  <div class="wbox">
   <div class="wb-hd"><span class="lab">말씀 따라 쓰기</span><span class="wb-r">잠언 23:23</span></div>
@@ -429,8 +436,8 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
  </div>
  <div class="ft"><span class="pno">28</span><span>기독교 고전 필사</span></div>
 </div><div class="page pR">
- <div class="hd"><b>14일</b> · 10/16(금)</div>
- <div><span class="lab">단락 따라 쓰기</span></div>
+ <div class="pr-hd"><span class="lab">단락 따라 쓰기</span>
+  <span class="pr-d"><b>14일</b> · 10/16(금)</span></div>
  <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
  <div class="wbox">
   <div class="wb-hd"><span class="lab">말씀 따라 쓰기</span><span class="wb-r">이사야 35:3-4</span></div>
@@ -449,8 +456,8 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
  </div>
  <div class="ft"><span class="pno">30</span><span>기독교 고전 필사</span></div>
 </div><div class="page pR">
- <div class="hd"><b>15일</b> · 10/17(토)</div>
- <div><span class="lab">단락 따라 쓰기</span></div>
+ <div class="pr-hd"><span class="lab">단락 따라 쓰기</span>
+  <span class="pr-d"><b>15일</b> · 10/17(토)</span></div>
  <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
  <div class="wbox">
   <div class="wb-hd"><span class="lab">말씀 따라 쓰기</span><span class="wb-r">누가복음 17:1-2</span></div>
@@ -469,8 +476,8 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
  </div>
  <div class="ft"><span class="pno">32</span><span>기독교 고전 필사</span></div>
 </div><div class="page pR">
- <div class="hd"><b>16일</b> · 10/19(월)</div>
- <div><span class="lab">단락 따라 쓰기</span></div>
+ <div class="pr-hd"><span class="lab">단락 따라 쓰기</span>
+  <span class="pr-d"><b>16일</b> · 10/19(월)</span></div>
  <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
  <div class="wbox">
   <div class="wb-hd"><span class="lab">말씀 따라 쓰기</span><span class="wb-r">로마서 14:8-9</span></div>
@@ -489,8 +496,8 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
  </div>
  <div class="ft"><span class="pno">34</span><span>기독교 고전 필사</span></div>
 </div><div class="page pR">
- <div class="hd"><b>17일</b> · 10/20(화)</div>
- <div><span class="lab">단락 따라 쓰기</span></div>
+ <div class="pr-hd"><span class="lab">단락 따라 쓰기</span>
+  <span class="pr-d"><b>17일</b> · 10/20(화)</span></div>
  <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
  <div class="wbox">
   <div class="wb-hd"><span class="lab">말씀 따라 쓰기</span><span class="wb-r">시편 51:10</span></div>
@@ -509,8 +516,8 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
  </div>
  <div class="ft"><span class="pno">36</span><span>기독교 고전 필사</span></div>
 </div><div class="page pR">
- <div class="hd"><b>18일</b> · 10/21(수)</div>
- <div><span class="lab">단락 따라 쓰기</span></div>
+ <div class="pr-hd"><span class="lab">단락 따라 쓰기</span>
+  <span class="pr-d"><b>18일</b> · 10/21(수)</span></div>
  <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
  <div class="wbox">
   <div class="wb-hd"><span class="lab">말씀 따라 쓰기</span><span class="wb-r">마태복음 11:28-29</span></div>
@@ -529,8 +536,8 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
  </div>
  <div class="ft"><span class="pno">38</span><span>기독교 고전 필사</span></div>
 </div><div class="page pR">
- <div class="hd"><b>19일</b> · 10/22(목)</div>
- <div><span class="lab">단락 따라 쓰기</span></div>
+ <div class="pr-hd"><span class="lab">단락 따라 쓰기</span>
+  <span class="pr-d"><b>19일</b> · 10/22(목)</span></div>
  <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
  <div class="wbox">
   <div class="wb-hd"><span class="lab">말씀 따라 쓰기</span><span class="wb-r">누가복음 15:20</span></div>
@@ -549,8 +556,8 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
  </div>
  <div class="ft"><span class="pno">40</span><span>기독교 고전 필사</span></div>
 </div><div class="page pR">
- <div class="hd"><b>20일</b> · 10/23(금)</div>
- <div><span class="lab">단락 따라 쓰기</span></div>
+ <div class="pr-hd"><span class="lab">단락 따라 쓰기</span>
+  <span class="pr-d"><b>20일</b> · 10/23(금)</span></div>
  <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
  <div class="wbox">
   <div class="wb-hd"><span class="lab">말씀 따라 쓰기</span><span class="wb-r">마태복음 16:24</span></div>
@@ -569,8 +576,8 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
  </div>
  <div class="ft"><span class="pno">42</span><span>기독교 고전 필사</span></div>
 </div><div class="page pR">
- <div class="hd"><b>21일</b> · 10/24(토)</div>
- <div><span class="lab">단락 따라 쓰기</span></div>
+ <div class="pr-hd"><span class="lab">단락 따라 쓰기</span>
+  <span class="pr-d"><b>21일</b> · 10/24(토)</span></div>
  <div class="lines grow"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
  <div class="wbox">
   <div class="wb-hd"><span class="lab">말씀 따라 쓰기</span><span class="wb-r">고린도전서 13:13</span></div>

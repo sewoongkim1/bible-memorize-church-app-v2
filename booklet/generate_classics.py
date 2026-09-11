@@ -282,10 +282,17 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
         letter-spacing:.02em; }
 .wbox .ln { border-bottom-color:#cdd3dd; }
 
-/* 노트 쪽은 머리 줄과 **맨 끝 줄**을 진하게 — 쓰는 자리가 위아래로 갇혀 보인다.
+/* 노트 쪽 머리 — **날짜를 「단락 따라 쓰기」 줄 오른쪽에 붙인다**(2026-09-11 성도님 제안).
+   머리 줄을 따로 두지 않으니 **쓰는 줄이 하나 늘고**, 아래 말씀 상자의
+   「말씀 따라 쓰기 … 히브리서 4:15-16」과 같은 모양이 된다.
+   ⚠️ 진한 줄은 그대로 둔다 — 쓰는 자리를 위에서 가두는 것이 이 줄의 일이다.
    ⚠️ 끝 줄은 말씀 칸의 마지막 `.ln` 이다(단락 칸의 마지막 줄이 아니다) — 단락 칸은
       넘치는 줄을 잘라 내므로 `:last-child` 가 화면에 보이는 마지막 줄이 아닐 수 있다. */
-.pR .hd { border-bottom:1.1px solid var(--line-strong); }
+.pr-hd { display:flex; align-items:baseline; padding-bottom:2mm; margin-bottom:3mm;
+         border-bottom:1.1px solid var(--line-strong); }
+.pr-hd .lab { margin-bottom:0; }
+.pr-d { margin-left:auto; font-size:9.5pt; color:var(--sub); letter-spacing:.02em; }
+.pr-d b { font-family:var(--tf); color:var(--navy); font-weight:400; }
 .wbox .lines .ln:last-child { border-bottom:1.1px solid var(--line-strong); }
 
 /* ── 꼬리말 ─────────────────────────────────────────── */
@@ -423,8 +430,8 @@ def page_note(it, pno):
     rows = max(NOTE_MIN, min(NOTE_MAX, rows))
     ln = '<div class="ln"></div>'
     return '''<div class="page pR">
- <div class="hd"><b>%(day)d일</b> · %(date)s</div>
- <div><span class="lab">단락 따라 쓰기</span></div>
+ <div class="pr-hd"><span class="lab">단락 따라 쓰기</span>
+  <span class="pr-d"><b>%(day)d일</b> · %(date)s</span></div>
  <div class="lines grow">%(par)s</div>
  <div class="wbox">
   <div class="wb-hd"><span class="lab">말씀 따라 쓰기</span><span class="wb-r">%(ref)s</span></div>
