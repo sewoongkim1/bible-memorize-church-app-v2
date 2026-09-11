@@ -248,7 +248,14 @@ CSS = r'''
   --navy:#1a3a6b; --navy-d:#132a4d; --gold:#a8873c;
   --ink:#1b1f27; --sub:#5a6474; --line:#c9cfd9; --cream:#fffdf8;
   --tf:'BookKRB','BookKR',serif;   /* 제목 — --no-bold 면 본문 서체로 바뀐다 */
-  --line-strong:#8b93a1;           /* 노트 쪽의 머리 줄·끝 줄 — 쓰는 자리를 가둔다 */
+  --line-strong:#6b7280;           /* 노트 쪽의 머리 줄·끝 줄 — 쓰는 자리를 가둔다 */
+  /* 손으로 쓰는 줄 — **여기 한 값만 고치면 네 곳이 함께 바뀐다**
+     (단락 칸 · 말씀 칸 · 속표지 기도제목 · 줄노트).
+     2026-09-11에 `#d7dce4` → `#a3abb8` 로 진하게 했다 — 성도님 프린터에서 너무 희미했다.
+     ⚠️⚠️ **굵기는 만져도 소용없다.** 크롬은 가는 테두리를 PDF 에서 같은 굵기로 스냅한다 —
+        `.7px` · `1px` · `1.6px` 가 **모두 0.75pt(0.26mm)** 로 찍히는 것을 실측했다.
+        또 희미하다는 말이 나오면 굵기가 아니라 **`--rule` 을 더 진하게**(`#8b93a1` 쯤). */
+  --rule:#a3abb8; --rule-w:.7px;
 }
 * { box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
 html,body { margin:0; padding:0; background:#7c8595; }
@@ -308,7 +315,7 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
    묵상 칸은 남는 만큼 줄을 넉넉히 두고 넘치는 것은 잘라 낸다 — 잘린 줄은 아래 테두리가
    칸 밖이라 아예 안 그려지므로, 칸 높이가 얼마든 **딱 맞는 수만큼** 남는다. */
 .lines { display:flex; flex-direction:column; }
-.ln { flex:0 0 __LINE__mm; border-bottom:.7px solid #d7dce4; }
+.ln { flex:0 0 __LINE__mm; border-bottom:var(--rule-w) solid var(--rule); }
 .lines.grow { flex:1; min-height:0; overflow:hidden; }
 
 /* 말씀 따라 쓰기 칸 — 왼쪽 쪽의 성경본문 상자(.scr)와 같은 모양으로 맞춘다.
@@ -319,7 +326,7 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
 .wb-hd .lab { margin-bottom:2.4mm; }
 .wb-r { margin-left:auto; font-family:var(--tf); font-size:9.5pt; color:var(--navy);
         letter-spacing:.02em; }
-.wbox .ln { border-bottom-color:#cdd3dd; }
+.wbox .ln { border-bottom-color:var(--rule); }
 
 /* 노트 쪽 머리 — **날짜를 「단락 따라 쓰기」 줄 오른쪽에 붙인다**(2026-09-11 성도님 제안).
    머리 줄을 따로 두지 않으니 **쓰는 줄이 하나 늘고**, 아래 말씀 상자의
@@ -333,6 +340,10 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
 .pr-d { margin-left:auto; font-size:9.5pt; color:var(--sub); letter-spacing:.02em; }
 .pr-d b { font-family:var(--tf); color:var(--navy); font-weight:400; }
 .wbox .lines .ln:last-child { border-bottom:1.1px solid var(--line-strong); }
+/* 줄노트(메모) 쪽 — 말씀 상자가 없어 끝 줄을 가두는 규칙이 안 걸려 있었다(2026-09-11).
+   ⚠️ 여기서는 `.grow` 가 넘치는 줄을 잘라 내므로 `:last-child` 가 **보이는 마지막 줄이
+      아니다** — 그래서 마지막 줄 대신 **칸 아래쪽에 선을 그어** 가둔다. */
+.page.pL > .lines.grow.memo { border-bottom:1.1px solid var(--line-strong); }
 
 /* ── 꼬리말 ─────────────────────────────────────────── */
 .ft { position:absolute; left:13mm; right:13mm; bottom:5.5mm;
@@ -640,7 +651,7 @@ def page_ruled(pno):
     """
     return '''<div class="page pL">
  <div class="pr-hd"><span class="lab">메모</span></div>
- <div class="lines grow">%s</div>
+ <div class="lines grow memo">%s</div>
  %s
 </div>''' % ('<div class="ln"></div>' * 26, foot(pno, '', '기독교 고전 필사'))
 
