@@ -500,11 +500,11 @@ def index_pages(items, start_pno):
     #    대신 같은 것을 visibility:hidden 으로 두어 **두 쪽의 목록이 같은 높이에서 시작**하게 한다
     #    (빈 상자를 손으로 어림하면 제목 크기를 바꿀 때마다 어긋난다).
     head_blank = head.replace('class="ix-h"', 'class="ix-h blank"')
-    # ⚠️ 사람 이름은 코드에 박지 않는다 — `classics.json` 의 skipped_staff 를 읽는다.
-    #    담당자가 바뀌면 자료만 고치면 된다.
-    note = ('<div class="ix-note"><b>%s</b><br>%s<br>'
-            '설교 말씀에서 마음에 남은 한 구절을 적어 보세요.</div>'
-            % (esc(D.get('skipped_staff', '담임목사')), esc(D['skipped'])))
+    # 차례 아래 상자 — 2026-09-11부터 **출처 표기**다(성도님 요청).
+    #   그전에는 「담임목사 · 월삭/특별새벽기도회」 안내였다. 그 두 값(`skipped_staff`·`skipped`)은
+    #   자료에 그대로 남겨 두었으니 다시 쓰려면 꺼내 쓰면 된다.
+    # ⚠️ 글은 코드에 박지 않는다 — `classics.json` 의 `source_note` 를 읽는다.
+    note = '<div class="ix-note">%s</div>' % esc(D.get('source_note', ''))
     p1 = '<div class="page pL">%s%s%s</div>' % (
         head, ''.join(block(b) for b in books[:cut]), foot(start_pno, '', '차례'))
     p2 = '<div class="page pR">%s%s%s</div>' % (
