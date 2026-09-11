@@ -708,9 +708,12 @@ def build(body_pt, measure=False, mode='full'):
         it['page'] = 4 + 2 * k              # 그 편의 고전 쪽 번호(차례가 가리키는 곳)
 
     if mode == 'cover':
-        # 표지는 **늘 A5 두 쪽**이다 — 나란히 놓아야 A4 한 장이 된다.
+        # 앉힐 판(a5 갈래)은 **A5 두 쪽**으로 — 나란히 놓아야 A4 한 장이 된다.
         return _wrap(page_cover() + page_back(0), '',
-                     css=CSS_A5, line_mm=LINE_MM / A4_SCALE if SIZE == 'a4' else LINE_MM)
+                     css=CSS_A5, line_mm=LINE_LABEL)
+    if mode == 'cover_full':
+        # 앉히지 않는 판(a4 갈래)은 **쪽 크기 그대로** — 한 쪽이 A4 한 장을 채운다.
+        return _wrap(page_cover() + page_back(0), '')
 
     out = [page_cover() if mode == 'full' else page_half_title()]
     out.append(index_pages(ITEMS, 2))
@@ -993,15 +996,12 @@ if SPLIT and SIZE == 'a4':
             print('  %s  ← A4 순서판 %d쪽 → 프린터가 A4 %d장 양면으로'
                   % (f, pages, pages // 4))
         os.remove(h)
-        # 표지는 **미리 앉혀** A4 한 장으로 — 한 장뿐이라 프린터가 터잡을 것이 없다.
+        # 표지도 **앉히지 않는다** — A4 두 쪽(1쪽 앞표지 · 2쪽 뒷표지).
         ch = OUT_NAME + '_표지.html'
-        io.open(ch, 'w', encoding='utf-8').write(build(PT, mode='cover'))
-        c5 = OUT_NAME + '_표지_A5.pdf'
-        if to_pdf(ch, c5):
-            cov = OUT_NAME + '_표지.pdf'
-            if cover_sheet(c5, cov):
-                os.remove(c5)
-                print('  %s  ← A4 가로 1장 · **겉면만** (그냥 단면으로 인쇄)' % cov)
+        io.open(ch, 'w', encoding='utf-8').write(build(PT, mode='cover_full'))
+        cov = OUT_NAME + '_표지.pdf'
+        if to_pdf(ch, cov):
+            print('  %s  ← A4 2쪽 (1쪽 앞표지 · 2쪽 뒷표지)' % cov)
         os.remove(ch)
     print('\n  프린터에서 **인쇄 → 소책자(책자)** 를 고르세요.')
     print('  ⚠️ 「실제 크기」로 두세요 — 「페이지에 맞춤」이 켜져 있으면 한 번 더 줄어듭니다.')
