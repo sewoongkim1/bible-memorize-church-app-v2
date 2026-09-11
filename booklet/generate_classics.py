@@ -396,11 +396,14 @@ body { font-family:'BookKR','Noto Serif KR',serif; color:var(--ink); }
 /* 뒷표지의 두 칸 설명 — 오른쪽 쪽의 두 칸이 무엇을 받는지 이름 그대로 적는다.
    ⚠️ 「단락은 닿는 데까지」라고 밝혀 둔다 — 단락 칸은 발췌문 전체를 담지 못하므로,
       적다가 줄이 떨어지면 성도님이 「내가 잘못 쓰고 있나」 하고 멈추신다. */
-.bk-how { margin-top:6mm; text-align:left; display:inline-block; }
+/* ⚠️ `display:inline-block` 으로는 가운데에 안 온다 — 부모(.back)가 **세로 flex** 라
+      자식이 block 으로 바뀌어 폭을 다 차지하고, 그 안에서 글이 왼쪽에 붙는다(2026-09-11).
+      flex 자식을 줄이면서 가운데로 두려면 `align-self:center` 다. */
+.bk-how { margin-top:6mm; text-align:left; align-self:center; }
 .bk-how > div { display:flex; align-items:baseline; font-size:10pt; line-height:1.95;
                 color:#3f4855; }
 .bk-how b { font-family:var(--tf); font-weight:400; color:var(--navy);
-            width:30mm; flex:none; }
+            width:26mm; flex:none; }
 .bk-rule { width:20mm; height:1px; background:var(--line); margin:7mm auto; }
 /* 그해 표어 — 뒷표지 맨 위. **이 책에서 가장 큰 글씨는 아니어야 한다**(앞표지 제목이 그 자리다).
    ⚠️ 낱말 가운데서 접히면 흉하다 — keep-all 로 낱말을 지킨다. */
