@@ -73,9 +73,8 @@ function psalmHomeHead(v) {
   const mark = v ? psalmMark(v) : "";
   // ⚠️ 「전체 N편」을 없앴다(2026-09-11, 성도님 요청) — 지금은 실제 심어진 편수(10)를
   //    보여 주는데, 180편이라는 계획과 동떨어진 작은 숫자가 「이게 다인가」로 읽힐 수
-  //    있다. 완료 화면의 `.ps-done-bar`("N편 중 M편 마쳤어요")는 그대로 둔다 — 거기는
-  //    진행을 축하하는 자리라 뜻이 다르다(이 head 는 두 화면이 공유하므로 이 한 줄만
-  //    없애면 둘 다에서 사라지고, done 화면은 `.ps-done-bar`로 총편수를 여전히 전한다).
+  //    있다. 완료 화면의 `.ps-done-bar`("N편 중 M편 마쳤어요")도 같은 이유로 뒤이어
+  //    없앴다(renderPsalmDone 참고) — 총편수는 이제 이 화면 어디에도 안 보인다.
   return `<div class="ps-head">
       ${v ? `<span class="ps-day">${v.dayNo}일차</span>` : ""}
       ${mark ? `<span class="ps-today-mark">${mark}</span>` : ""}
@@ -561,7 +560,6 @@ function renderPsalmDone(verse, wasFirst) {
   //    앞 편으로 가려면 「지난 말씀 보기」로 목록을 한 번 거쳐야 했다.
   //    psalmVerses 에는 열린 편만 들어 있으므로 dayNo > 1 이면 앞 편은 반드시 있다.
   const prev = psalmVerses.find((v) => v.dayNo === verse.dayNo - 1) || null;
-  const done = psalmDoneCount();
   // ⚠️ 「다음 말씀 ▶」을 없어도 그리면 죽은 단추가 된다(2026-09-10 리뷰 지적) — 첫 화면
   //    「외우기 시작」은 늘 오늘 편을 여는데, 시편은 하루 한 편이라 그 편을 마치면 next 는
   //    거의 항상 null 이다. 즉 기본 경로의 끝이 매번 이 화면인데, 매번 화면에서 가장 크고
@@ -583,7 +581,6 @@ function renderPsalmDone(verse, wasFirst) {
       <div class="ps-done-ref">${psalmEsc(verse.refFull)}</div>
       ${wasFirst ? FIRST_DONE_HTML : `
         <div class="ps-done-s">말씀 앨범에 담겼고, 복습이 예약됐어요</div>`}
-      <div class="ps-done-bar">${psalmTotal}편 중 <b>${done}편</b> 마쳤어요</div>
       ${heartCheckHtml(verse, "-m")}
       ${navHtml}
       ${next ? "" : `<div class="ps-done-wait">오늘 열린 말씀은 여기까지예요 · 내일 한 편이 더 열려요</div>`}
@@ -603,7 +600,7 @@ function renderPsalmDone(verse, wasFirst) {
   // 「👑 마음에 둠」 — 완료 화면에도 한 벌 둔다(2026-09-10 리뷰 지적). 그전에는 3단계
   // 빈칸 화면 맨 아래(자판에 가리는 자리)에만 있어, 마지막 빈칸을 채우는 순간 이 화면으로
   // 넘어오며 체크할 자리가 영영 사라졌다. 「이전/다음」을 누르기 전 반드시 지나가는
-  // 여기(.ps-done-bar 아래·.ps-nav 위)에 두면 놓칠 수 없다. silent 는 주지 않는다 —
+  // 여기(축하 문구 아래·.ps-nav 위)에 두면 놓칠 수 없다. silent 는 주지 않는다 —
   // 이 화면은 온전한 화면이지 겹칠 창이 없다(축하창이 떠도 괜찮다).
   setupHeartCheck(verse, "-m");
 }
