@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260911k";
+const APP_BUILD = "20260912a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -6133,6 +6133,19 @@ function sermonHasMeditationContent(s) {
   ));
 }
 
+// 그 설교의 묵상 주기가 이미 시작됐나 — 주기는 **등록일 다음 날(월)부터** 돈다.
+//   등록일이 오늘이거나 아직 안 왔으면(주일 오후에 막 올라온 설교) 아직 시작 전이다.
+// ⚠️ 날짜를 못 읽으면 「시작됐다」로 본다 — 자료가 있는데 안 보여 주는 쪽이 더 나쁘다.
+function sermonCycleStarted(sermon, parts) {
+  if (!sermonHasMeditationContent(sermon)) return false;
+  const d = String((sermon && sermon.date) || "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return true;
+  const p = parts || kstDateParts() || {};
+  if (!p.y) return true;
+  const today = `${p.y}-${String(p.m).padStart(2, "0")}-${String(p.d).padStart(2, "0")}`;
+  return d < today;
+}
+
 // 공지가 없는 날: 이번주 말씀 + 연결 설교의 핵심포인트·적용질문으로 '오늘의 묵상'을 매일 다르게 보여준다.
 function buildWeeklyMeditations(verse, sermon) {
   // ① 설교에 7일치 묵상(dailyMeditations)이 있으면 그것을 그대로 쓴다(요일별로 하나씩).
@@ -6171,23 +6184,31 @@ function maybeShowWeeklyMeditation(force, withTabs) {
   const info = getWeeklyVerseInfo();
   if (!info || !info.verse) return;
   loadSermons().then((sermons) => {
-    // 묵상 발행 주기는 '월~일'이다 — 설교(및 요일별 묵상)는 주일 오후에 등록되므로, 그 설교가
-    // 실제로 다루는 한 주는 다음날(월)부터 그다음 주일까지. 즉 주일(오늘)은 이번주 설교가
-    // 아직 없을뿐더러, 있다 해도 그 주기의 첫날이 아니라 직전 설교(지난주 등록분) 주기의
-    // 마지막 날이다 — 그래서 주일엔 항상 직전 주 말씀·설교를 쓴다.
-    // ⚠️ 다음 주 구절이 토요일에 먼저 올라올 때도 있다(2026-08-29 확인 — 35번이 8/28
-    // 토요일에 등록, 설교는 그다음 날인 주일 오후에야 연결됨). 그 사이 토요일에 접속하면
-    // 다음 주 구절이 '이번 주'로 잡혀 있는데 설교가 없어 '준비 중'만 뜬다 — 그래서
-    // 토요일도 주일과 똑같이 직전 주 말씀·설교를 쓴다.
+    // ── 교회의 실제 주기 (2026-09-12 성도님 확인 + 운영 기록 실측) ──────────────
+    //   토요일 오후   주간 말씀 행(verses)이 들어온다 — 설교 제목·설교자까지 함께.
+    //                 실측: 30~36번 입력이 토 16:12~21:02(34번만 일요일 아침 한 번).
+    //   주일 오후     설교 아카이브(sermons)에 요약·요일묵상 7개가 들어온다(svc_date = 그 주일).
+    //                 실측: 31~36번 입력이 주일 13:54~19:16.
+    //   일요일        그 주간 말씀 행에 설교 동영상(sermon_url)이 붙는다.
+    //   월~일         그 설교의 묵상이 요일마다 하나씩 도는 한 주기.
+    // 그래서 **가르는 것은 요일이 아니라 「그 설교의 주기가 시작됐는가」**다(sermonCycleStarted).
     const p = kstDateParts() || {};
     const todayDow = p.y ? new Date(p.y, (p.m || 1) - 1, p.d || 1).getDay() : (kstDayNumber() % 7);
-    const isWeekendGap = todayDow === 6 || todayDow === 0; // 토(6) · 일(0)
+    // ⚠️ **요일로 가르지 않는다**(2026-09-12 성도님 제보로 고침). 전에는 「토·일이면 무조건
+    //    직전 주」였는데, 이번 주 구절이 늦게 등록되면 그 규칙이 한 주 더 뒤로 밀어 **2주 전**
+    //    묵상을 보여 줬다 — 9/6 에 요일묵상 7개까지 갖춰 등록된 설교를 두고 8/30 것을 띄웠다.
+    //    가르는 것은 요일이 아니라 **그 설교의 주기가 시작됐는가**다(위 주석의 원래 뜻 그대로).
+    //    주기는 등록일 **다음 날(월)** 부터 도므로, 등록일이 오늘이면(주일 오후에 막 올라온
+    //    이번 설교) 아직 시작 전이라 직전 주 것을 쓴다. 이번 구절의 설교가 아예 없을 때도 같다.
+    //    ⚠️ 되돌릴 자리는 **직전 주에 실제로 자료가 있을 때뿐**이다 — 없으면 이번 것을 그대로
+    //       두어 「준비 중」 안내가 뜨게 한다(빈 화면보다 낫다).
     let verse = info.verse;
-    let usingPrev = false;
-    if (isWeekendGap && info.prevVerse) { verse = info.prevVerse; usingPrev = true; }
     let sermon = findSermonForVerse(verse.no, sermons);
-    if (usingPrev && !sermonHasMeditationContent(sermon)) { // 전주 자료조차 없으면(극초기) 이번주로 되돌림
-      verse = info.verse; sermon = findSermonForVerse(verse.no, sermons); usingPrev = false;
+    let usingPrev = false;
+    if (!sermonCycleStarted(sermon, p) && info.prevVerse) {
+      const pv = info.prevVerse;
+      const ps = findSermonForVerse(pv.no, sermons);
+      if (sermonHasMeditationContent(ps)) { verse = pv; sermon = ps; usingPrev = true; }
     }
     const items = buildWeeklyMeditations(verse, sermon);
     if (!items.length) return;
