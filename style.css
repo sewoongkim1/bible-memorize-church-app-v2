@@ -4448,7 +4448,11 @@ body.pr-full-on { overflow: hidden; }
    ⚠️ 아코디언은 가정 축복 기도문(.pr-acc)과 같은 규칙 — 한 번에 하나만 열린다.
    ========================================================================== */
 .min-screen { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
-.min-intro { display: flex; align-items: center; justify-content: center; gap: 11px;
+/* ⚠️ align-items:center 였을 때는 부제가 한 줄(확인 화면)이냐 두 줄(신청서 화면 —
+   벧전 4:10 인용)이냐에 따라 아이콘이 제목 기준으로 다른 높이에 떠 보였다
+   (성도님 지적 — 화면마다 타이틀 얼라인이 달라 보임). flex-start로 아이콘을
+   제목 첫 줄에 고정해 부제 줄 수와 상관없이 항상 같은 자리에 오게 한다. */
+.min-intro { display: flex; align-items: flex-start; justify-content: center; gap: 11px;
   margin: 2px 0 15px; }
 .min-intro-ico { display: grid; place-items: center; flex: 0 0 42px; width: 42px; height: 42px;
   border-radius: 13px; background: var(--light); font-size: 1.35rem; }

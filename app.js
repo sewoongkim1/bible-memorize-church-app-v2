@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260912d";
+const APP_BUILD = "20260912f";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -10014,11 +10014,7 @@ function minDoneHtml(u) {
   //    셋을 따로 두면 한 화면에 똑같은 단추가 셋이 되어 무엇을 눌러야 하는지가
   //    오히려 흐려진다(성도님 지적). 단추는 하나다.
   const canGo = canAdd || canEdit;
-  // ⚠️ 신청을 이미 낸 분은 이 화면이 사역신청의 **첫 화면**이다(위 minStep 초기값).
-  //    아래 min-acts 두 단추는 「고치기/취소」로 다 차 있어 나가는 길이 없다 —
-  //    그래서 여기만 위쪽에 작은 나가기를 따로 둔다(같은 id라 wireExit 가 그대로 잡는다).
-  return '<button class="back-btn" id="min-exit">← 나가기</button>' +
-    '<h2 class="rank-title">🤝 사역 신청현황</h2>' +
+  return '<h2 class="rank-title">🤝 사역 신청현황</h2>' +
     minStepsHtml(worst) +
     rows +
     '<div class="min-count has">' + (m ? m.used : 0) + ' / ' + MIN_MAX + ' 신청' +
@@ -10034,15 +10030,18 @@ function minDoneHtml(u) {
       : !canEdit
         ? '<div class="min-note min-lock">담당자가 접수한 신청은 고치거나 뺄 수 없어요.</div>'
         : "") +
-    // 두 단추를 한 줄에 나란히 — 수정은 남색(지금 할 일), 취소는 흰 바탕.
+    // 단추를 한 줄에 나란히 — 수정은 남색(지금 할 일), 취소·나가기는 흰 바탕.
     // 기간이든 아니든 목록은 늘 볼 수 있다: 막다른 화면을 만들지 않는다.
+    // ⚠️ 이 화면은 신청을 이미 낸 분이 여는 **첫 화면**이라(위 minStep 초기값)
+    //    나가기가 여기 없으면 첫 화면으로 돌아갈 길이 없다(성도님 지적).
     '<div class="min-acts">' +
       (canGo
-        ? '<button class="min-cta" id="min-go">사역신청 수정</button>'
+        ? '<button class="min-cta" id="min-go">신청 수정</button>'
         : '<button class="min-ghost" id="min-go">🗂️ 사역 목록 보기</button>') +
       (canEdit
-        ? '<button class="min-ghost min-cancel" id="min-cancel">사역신청 취소</button>'
+        ? '<button class="min-ghost min-cancel" id="min-cancel">신청 취소</button>'
         : "") +
+      '<button class="min-ghost" id="min-exit">나가기</button>' +
     '</div>';
 }
 
