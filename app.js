@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260912f";
+const APP_BUILD = "20260912g";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -10034,7 +10034,9 @@ function minDoneHtml(u) {
     // 기간이든 아니든 목록은 늘 볼 수 있다: 막다른 화면을 만들지 않는다.
     // ⚠️ 이 화면은 신청을 이미 낸 분이 여는 **첫 화면**이라(위 minStep 초기값)
     //    나가기가 여기 없으면 첫 화면으로 돌아갈 길이 없다(성도님 지적).
-    '<div class="min-acts">' +
+    // ⚠️ canEdit이면 단추가 셋이 된다 — 글자가 두 줄로 접히지 않게 min-acts-3으로
+    //    좁은 화면용 글씨·여백을 따로 준다(성도님 지적, 실기기 확인).
+    '<div class="min-acts' + (canEdit ? " min-acts-3" : "") + '">' +
       (canGo
         ? '<button class="min-cta" id="min-go">신청 수정</button>'
         : '<button class="min-ghost" id="min-go">🗂️ 사역 목록 보기</button>') +
