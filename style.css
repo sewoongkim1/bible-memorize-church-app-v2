@@ -4452,7 +4452,11 @@ body.pr-full-on { overflow: hidden; }
    벧전 4:10 인용)이냐에 따라 아이콘이 제목 기준으로 다른 높이에 떠 보였다
    (성도님 지적 — 화면마다 타이틀 얼라인이 달라 보임). flex-start로 아이콘을
    제목 첫 줄에 고정해 부제 줄 수와 상관없이 항상 같은 자리에 오게 한다. */
-.min-intro { display: flex; align-items: flex-start; justify-content: center; gap: 11px;
+/* ⚠️ justify-content:center였을 때는 부제가 있어 내용 폭이 넓은 화면(신청서·확인)만
+   왼쪽에 붙어 보이고, 부제가 없어 내용이 짧은 화면(신청현황)은 아이콘+제목 덩어리
+   전체가 가운데로 쏠려 보였다(성도님 지적 — 화면마다 타이틀이 다르게 정렬됨).
+   flex-start로 내용 길이와 상관없이 항상 왼쪽에서 시작하게 한다. */
+.min-intro { display: flex; align-items: flex-start; justify-content: flex-start; gap: 11px;
   margin: 2px 0 15px; }
 .min-intro-ico { display: grid; place-items: center; flex: 0 0 42px; width: 42px; height: 42px;
   border-radius: 13px; background: var(--light); font-size: 1.35rem; }
