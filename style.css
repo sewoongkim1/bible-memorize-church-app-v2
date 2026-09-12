@@ -4504,7 +4504,10 @@ body.pr-full-on { overflow: hidden; }
   padding: 7px 14px; margin: 0 0 10px; }
 .dark .min-who { background: #232c3f; color: #cfe0ff; }
 /* 소속 옆 「사역신청안내」 — 안내문을 펴 두는 대신 이 단추로 팝업을 연다 */
-.min-who-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+/* ⚠️ 배지(.min-who)의 아래 여백을 0으로 지웠는데 이 줄에는 다시 안 줘서
+   바로 아래(신청건 · 부서 찾기)와 붙어 버렸다(성도님 지적). 줄에 옮겨 준다. */
+.min-who-row { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin-bottom: 10px; }
 .min-who-row .min-who { margin: 0; min-width: 0; }
 .min-policy-btn { flex: none; font: inherit; font-size: .78rem; font-weight: 700;
   color: var(--navy); background: var(--white); border: 1.5px solid var(--border);
