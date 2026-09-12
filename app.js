@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260913b";
+const APP_BUILD = "20260913c";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -7136,6 +7136,9 @@ async function startReview() {
       //    똑같이 「복습 N구절」이 뜨고 단추는 계속 아무 일도 안 한다(성도님 제보
       //    2026-09-13 — 눌러도 화면이 그대로였다). 구절이 없어진 것뿐이니 조용히
       //    지우고 숫자를 맞춘다 — 굳이 알릴 일은 아니다.
+      // 🔎 임시 진단(2026-09-13) — 어느 no가 자꾸 되살아나는지 잡히지 않아 잠깐 남긴다.
+      //    문제가 풀리면 이 줄은 지운다.
+      appAlert("진단용: 못 찾은 복습 번호 = " + dueNos.join(", "));
       const r = loadReview();
       let changed = false;
       for (const no of dueNos) { if (r[no]) { delete r[no]; changed = true; } }
