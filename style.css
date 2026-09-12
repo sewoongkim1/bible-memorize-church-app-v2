@@ -4448,18 +4448,8 @@ body.pr-full-on { overflow: hidden; }
    ⚠️ 아코디언은 가정 축복 기도문(.pr-acc)과 같은 규칙 — 한 번에 하나만 열린다.
    ========================================================================== */
 .min-screen { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
-/* ⚠️ align-items:center 였을 때는 부제가 한 줄(확인 화면)이냐 두 줄(신청서 화면 —
-   벧전 4:10 인용)이냐에 따라 아이콘이 제목 기준으로 다른 높이에 떠 보였다
-   (성도님 지적 — 화면마다 타이틀 얼라인이 달라 보임). flex-start로 아이콘을
-   제목 첫 줄에 고정해 부제 줄 수와 상관없이 항상 같은 자리에 오게 한다. */
-/* ⚠️ 아이콘+제목 덩어리를 가운데로 몰되(justify-content:center), 안의 글도
-   같이 가운데 정렬해야 짧은 화면(신청현황)·긴 화면(신청서 — 벧전 4:10 인용)이
-   같은 자리·같은 정렬로 보인다(성도님 요청 — 센터로 통일).
-   왼쪽 정렬로 두면 부제 유무·길이에 따라 덩어리 폭이 달라 화면마다 위치가 튀었다. */
-.min-intro { display: flex; align-items: flex-start; justify-content: center; gap: 11px;
-  margin: 2px 0 15px; }
-.min-intro-ico { display: grid; place-items: center; flex: 0 0 42px; width: 42px; height: 42px;
-  border-radius: 13px; background: var(--light); font-size: 1.35rem; }
+/* 아이콘 배지는 뺐다(성도님 요청) — 제목·부제만 가운데로. */
+.min-intro { margin: 2px 0 15px; }
 .min-intro .rank-title { margin: 0 0 2px; text-align: center; }
 .min-intro .min-sub { margin: 0; text-align: center; }
 .min-sub { text-align: center; color: var(--gray); font-size: .92rem; margin: -4px 0 14px; line-height: 1.6; }
@@ -4768,7 +4758,7 @@ body.pr-full-on { overflow: hidden; }
   color: var(--gray); background: none; border: none; cursor: pointer; }
 
 .dark .min-row.lock { background: #1a2130; border-color: #46536b; }
-.dark .min-intro-ico, .dark .min-count { background: #1e2637; border-color: #3a4a68; }
+.dark .min-count { background: #1e2637; border-color: #3a4a68; }
 .dark .min-policy { background: #232c3f; border-color: #3a4a68; box-shadow: none; }
 .dark .min-policy-h, .dark .min-policy-key b, .dark .min-policy-more summary,
 .dark .min-policy-more b { color: #cfe0ff; }

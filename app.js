@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260912j";
+const APP_BUILD = "20260912k";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9451,8 +9451,8 @@ function renderMinistry(keepScroll) {
 // 한 자리에서 만든다 — 아이콘 배지·얼라인·글씨 크기가 화면마다 달라 보이던 것을
 // 고치며(성도님 지적), 다음에 화면을 늘려도 여기만 건드리면 다 같이 맞는다.
 function minTitleHtml(title, subtitleHtml) {
-  return '<div class="min-intro"><span class="min-intro-ico" aria-hidden="true">🤝</span>' +
-    '<div><h2 class="rank-title">' + title + '</h2>' + (subtitleHtml || "") + '</div></div>';
+  return '<div class="min-intro"><h2 class="rank-title">' + title + '</h2>' +
+    (subtitleHtml || "") + '</div>';
 }
 
 // 칩 한 줄. ⚠️ 새 색을 만들지 않는다 — 켜진 칩만 남색, 꺼진 칩은 흰 바탕.
@@ -9913,8 +9913,7 @@ function minConfirmHtml() {
       ' value="' + minEsc(pilsaPhoneFmt(minPhoneVal)) + '" autocomplete="off"></div>' +
     '<div class="min-note">' + (minMine ? '처음 신청하실 때 넣은 번호와 같아야 고쳐집니다. ' : '') +
       '직분과 휴대폰 번호는 <b>본인 확인·교적 대조와 임명 뒤 연락</b>에 씁니다. ' +
-      '번호는 임명이 정해지면 <b>바로 지웁니다</b>.<br>' +
-      '담당자가 접수하면 그 사역 안내에 <b>이름·직분·교구-목장</b>이 다른 성도님께도 보여요.</div>' +
+      '번호는 임명이 정해지면 <b>바로 지웁니다</b>.</div>' +
     '<button class="min-cta" id="min-submit">제출하기<span class="min-cta-s">신청 후 임명을 받아야 시작할 수 있어요</span></button>' +
     '<button class="min-ghost" id="min-back">사역신청 화면으로</button>';
 }
