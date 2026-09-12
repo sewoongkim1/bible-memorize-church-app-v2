@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260912c";
+const APP_BUILD = "20260912d";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9413,38 +9413,35 @@ function renderMinistry(keepScroll) {
   const u = loadUser();
   if (!u) { renderEntryScreen(); return; }
   const appEl = document.getElementById("app");
-  // ⚠️ 앨범·말씀목록·순위·기도문과 **같은 단추**를 쓴다(homeFabLabel = 두 줄, aria-label).
-  //    여기만 「🏠 첫 화면으로」를 한 줄로 박아 두어 혼자 달랐다(성도님 지적 2026-09-09).
-  //    .min-screen 의 padding-bottom(96px)은 이미 두 줄 높이에 맞춰 둔 값이다.
-  const fab = '<button class="home-fab" id="min-home" aria-label="첫 화면으로">' +
-    homeFabLabel(u) + '</button>';
-  const wireHome = function () {
-    const b = document.getElementById("min-home");
+  // 사역 신청 절차에서는 공용 「첫 화면으로」 큰 단추를 쓰지 않는다.
+  // 각 화면 안의 「나가기」만 첫 화면으로 연결한다.
+  const wireExit = function () {
+    const b = document.getElementById("min-exit");
     if (b) b.onclick = renderSummary;
   };
 
   if (!minLoaded) {
     // ⚠️ 여기에도 단추를 둔다 — 통신이 멎으면 빠져나갈 길이 없어진다
-    appEl.innerHTML = '<div class="min-screen"><h2 class="rank-title">🤝 사역 신청서</h2>' +
-      '<p class="msg">사역 목록을 불러오는 중…</p></div>' + fab;
+    appEl.innerHTML = '<div class="min-screen"><h2 class="rank-title">사역 신청서</h2>' +
+      '<p class="msg">사역 목록을 불러오는 중…</p></div>';
     window.scrollTo(0, 0);
-    wireHome();
     minLoad(u).then(function () { renderMinistry(); });
     return;
   }
   if (!minCat) {
-    appEl.innerHTML = '<div class="min-screen"><h2 class="rank-title">🤝 사역 신청서</h2>' +
-      '<p class="msg">사역 목록을 불러오지 못했어요.<br>잠시 뒤 다시 열어 주세요.</p></div>' + fab;
-    wireHome();
+    appEl.innerHTML = '<div class="min-screen"><h2 class="rank-title">사역 신청서</h2>' +
+      '<p class="msg">사역 목록을 불러오지 못했어요.<br>잠시 뒤 다시 열어 주세요.</p>' +
+      '<button class="min-ghost" id="min-exit">나가기</button></div>';
+    wireExit();
     return;
   }
 
   const body = minStep === "done" ? minDoneHtml(u)
              : minStep === "confirm" ? minConfirmHtml()
              : minPickHtml();
-  appEl.innerHTML = '<div class="min-screen">' + body + '</div>' + fab;
+  appEl.innerHTML = '<div class="min-screen">' + body + '</div>';
   window.scrollTo(0, keepScroll == null ? 0 : keepScroll);
-  wireHome();
+  wireExit();
   if (minStep === "pick") wireMinPick(u);
   else if (minStep === "confirm") wireMinConfirm(u);
   else wireMinDone(u);
@@ -9643,10 +9640,10 @@ function minPickHtml() {
     '<div class="min-acts">' +
       (openNow || minPrev()
         ? '<button class="min-cta" id="min-next"' + (minPicked.length ? "" : " disabled") + '>' +
-          (minPicked.length ? '선택한 사역 신청하기' : '신청할 사역을 골라 주세요') +
+          '신청하기' +
           '</button>'
         : "") +
-      (minMine ? '<button class="min-ghost" id="min-tomine">← 내 신청으로</button>' : "") +
+      '<button class="min-ghost" id="min-exit">나가기</button>' +
     '</div>';
 }
 
@@ -9762,8 +9759,6 @@ function wireMinPick(u) {
 
   const go = document.getElementById("min-next");
   if (go) go.addEventListener("click", function () { minStep = "confirm"; renderMinistry(); });
-  const back = document.getElementById("min-tomine");
-  if (back) back.addEventListener("click", function () { minStep = "done"; renderMinistry(); });
 }
 
 // 고르기·빼기 한 곳에서 — 목록에서도, 「자세히」 창에서도 같은 규칙을 따르게
@@ -9890,8 +9885,9 @@ function minConfirmHtml() {
       (meta ? '<span class="min-meta">' + meta + '</span>' : "") + '</span>' +
       '<button class="min-del" data-drop="' + t.id + '">취소</button></div>';
   }
-  return '<h2 class="rank-title">🤝 신청 사역 확인</h2>' +
-    '<p class="min-sub">이 사역으로 신청합니다</p>' +
+  return '<div class="min-intro min-intro-simple"><span class="min-intro-ico" aria-hidden="true">🤝</span>' +
+    '<div><h2 class="rank-title">신청 사역 확인</h2>' +
+      '<p class="min-sub">이 사역으로 신청합니다</p></div></div>' +
     (minLockedIds.length
       ? '<div class="min-note min-lock-note">📥 이미 접수된 <b>' + minLockedIds.length +
         '개</b>는 그대로 남습니다 — 아래 것만 새로 냅니다.</div>'
@@ -10018,7 +10014,11 @@ function minDoneHtml(u) {
   //    셋을 따로 두면 한 화면에 똑같은 단추가 셋이 되어 무엇을 눌러야 하는지가
   //    오히려 흐려진다(성도님 지적). 단추는 하나다.
   const canGo = canAdd || canEdit;
-  return '<h2 class="rank-title">🤝 사역 신청현황</h2>' +
+  // ⚠️ 신청을 이미 낸 분은 이 화면이 사역신청의 **첫 화면**이다(위 minStep 초기값).
+  //    아래 min-acts 두 단추는 「고치기/취소」로 다 차 있어 나가는 길이 없다 —
+  //    그래서 여기만 위쪽에 작은 나가기를 따로 둔다(같은 id라 wireExit 가 그대로 잡는다).
+  return '<button class="back-btn" id="min-exit">← 나가기</button>' +
+    '<h2 class="rank-title">🤝 사역 신청현황</h2>' +
     minStepsHtml(worst) +
     rows +
     '<div class="min-count has">' + (m ? m.used : 0) + ' / ' + MIN_MAX + ' 신청' +
