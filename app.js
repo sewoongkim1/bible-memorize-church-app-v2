@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260912g";
+const APP_BUILD = "20260912h";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9422,14 +9422,14 @@ function renderMinistry(keepScroll) {
 
   if (!minLoaded) {
     // ⚠️ 여기에도 단추를 둔다 — 통신이 멎으면 빠져나갈 길이 없어진다
-    appEl.innerHTML = '<div class="min-screen"><h2 class="rank-title">사역 신청서</h2>' +
+    appEl.innerHTML = '<div class="min-screen">' + minTitleHtml("사역 신청서") +
       '<p class="msg">사역 목록을 불러오는 중…</p></div>';
     window.scrollTo(0, 0);
     minLoad(u).then(function () { renderMinistry(); });
     return;
   }
   if (!minCat) {
-    appEl.innerHTML = '<div class="min-screen"><h2 class="rank-title">사역 신청서</h2>' +
+    appEl.innerHTML = '<div class="min-screen">' + minTitleHtml("사역 신청서") +
       '<p class="msg">사역 목록을 불러오지 못했어요.<br>잠시 뒤 다시 열어 주세요.</p>' +
       '<button class="min-ghost" id="min-exit">나가기</button></div>';
     wireExit();
@@ -9445,6 +9445,14 @@ function renderMinistry(keepScroll) {
   if (minStep === "pick") wireMinPick(u);
   else if (minStep === "confirm") wireMinConfirm(u);
   else wireMinDone(u);
+}
+
+// 사역신청 화면 다섯 곳(불러오는 중·오류·신청서·확인·신청현황)의 타이틀을
+// 한 자리에서 만든다 — 아이콘 배지·얼라인·글씨 크기가 화면마다 달라 보이던 것을
+// 고치며(성도님 지적), 다음에 화면을 늘려도 여기만 건드리면 다 같이 맞는다.
+function minTitleHtml(title, subtitleHtml) {
+  return '<div class="min-intro"><span class="min-intro-ico" aria-hidden="true">🤝</span>' +
+    '<div><h2 class="rank-title">' + title + '</h2>' + (subtitleHtml || "") + '</div></div>';
 }
 
 // 칩 한 줄. ⚠️ 새 색을 만들지 않는다 — 켜진 칩만 남색, 꺼진 칩은 흰 바탕.
@@ -9590,10 +9598,9 @@ function minAccBuild() {
 function minPickHtml() {
   const L = minAccBuild();
   const openNow = minIsOpen();
-  return '<div class="min-intro"><span class="min-intro-ico" aria-hidden="true">🤝</span>' +
-    '<div><h2 class="rank-title">사역 신청서</h2>' +
+  return minTitleHtml("사역 신청서",
       '<p class="min-sub min-verse">“각각 은사를 받은 대로 … 선한 청지기 같이 서로 봉사하라”' +
-        ' <span class="min-ref">벧전 4:10</span></p></div></div>' +
+        ' <span class="min-ref">벧전 4:10</span></p>') +
     (openNow || minPrev() ? "" :
       '<div class="min-closed">지금은 신청 기간이 아니에요. 목록만 살펴보실 수 있습니다.</div>') +
     '<section class="min-policy" aria-labelledby="min-policy-title">' +
@@ -9885,9 +9892,7 @@ function minConfirmHtml() {
       (meta ? '<span class="min-meta">' + meta + '</span>' : "") + '</span>' +
       '<button class="min-del" data-drop="' + t.id + '">취소</button></div>';
   }
-  return '<div class="min-intro min-intro-simple"><span class="min-intro-ico" aria-hidden="true">🤝</span>' +
-    '<div><h2 class="rank-title">신청 사역 확인</h2>' +
-      '<p class="min-sub">이 사역으로 신청합니다</p></div></div>' +
+  return minTitleHtml("신청 사역 확인", '<p class="min-sub">이 사역으로 신청합니다</p>') +
     (minLockedIds.length
       ? '<div class="min-note min-lock-note">📥 이미 접수된 <b>' + minLockedIds.length +
         '개</b>는 그대로 남습니다 — 아래 것만 새로 냅니다.</div>'
@@ -10014,7 +10019,7 @@ function minDoneHtml(u) {
   //    셋을 따로 두면 한 화면에 똑같은 단추가 셋이 되어 무엇을 눌러야 하는지가
   //    오히려 흐려진다(성도님 지적). 단추는 하나다.
   const canGo = canAdd || canEdit;
-  return '<h2 class="rank-title">🤝 사역 신청현황</h2>' +
+  return minTitleHtml("사역 신청현황") +
     minStepsHtml(worst) +
     rows +
     '<div class="min-count has">' + (m ? m.used : 0) + ' / ' + MIN_MAX + ' 신청' +
