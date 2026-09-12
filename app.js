@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260912u";
+const APP_BUILD = "20260913a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -7113,22 +7113,37 @@ function renderChallenge(verse, hard) {
 //    복습 큐에서 조용히 사라진다(예약은 되는데 화면에 안 나온다).
 //    시편은 아직 안 받았을 수 있으니 필요할 때만 기다린다.
 async function startReview() {
-  const dueNos = dueReviewNos();
-  let psalmLoadFailed = false;
-  if (dueNos.some(isPsalmNo)) {
-    // 못 받으면 주간 것만이라도 복습한다 — 다만 그 결과 큐가 통째로 비면(시편만
-    // 복습 대상이었다는 뜻) 아래에서 안내한다(2026-09-10 리뷰 지적 — 안 그러면
-    // 큰 단추를 눌러도 화면이 그대로라 어르신은 고장인 줄 알고 다시 누르신다).
-    try { await loadPsalmVerses(); } catch (e) { psalmLoadFailed = true; }
-  }
-  const pool = verses.concat(psalmVerses || []);
-  const queue = pool.filter((v) => dueNos.includes(v.no));
-  if (!queue.length) {
-    if (psalmLoadFailed) { appAlert("불러오지 못했어요. 잠시 뒤 다시 눌러 주세요."); return; }
+  try {
+    const dueNos = dueReviewNos();
+    let psalmLoadFailed = false;
+    if (dueNos.some(isPsalmNo)) {
+      // 못 받으면 주간 것만이라도 복습한다 — 다만 그 결과 큐가 통째로 비면(시편만
+      // 복습 대상이었다는 뜻) 아래에서 안내한다(2026-09-10 리뷰 지적 — 안 그러면
+      // 큰 단추를 눌러도 화면이 그대로라 어르신은 고장인 줄 알고 다시 누르신다).
+      try { await loadPsalmVerses(); } catch (e) { psalmLoadFailed = true; }
+    }
+    const pool = verses.concat(psalmVerses || []);
+    const queue = pool.filter((v) => dueNos.includes(v.no));
+    if (!queue.length) {
+      if (psalmLoadFailed) { appAlert("불러오지 못했어요. 잠시 뒤 다시 눌러 주세요."); return; }
+      // ⚠️ 지금 있는 구절 목록으로 찾지 못한 복습 예정은 지운다 — 안 그러면 다음에도
+      //    똑같이 「복습 N구절」이 뜨고 단추는 계속 아무 일도 안 한다(성도님 제보
+      //    2026-09-13 — 눌러도 화면이 그대로였다). 구절이 없어진 것뿐이니 조용히
+      //    지우고 숫자를 맞춘다 — 굳이 알릴 일은 아니다.
+      const r = loadReview();
+      let changed = false;
+      for (const no of dueNos) { if (r[no]) { delete r[no]; changed = true; } }
+      if (changed) saveReviewData(r);
+      renderSummary();
+      return;
+    }
+    renderReview(queue, 0);
+  } catch (e) {
+    // ⚠️ 여기서 문제가 나면 화면이 그대로 멈춰 「눌러도 안 넘어간다」로 보인다 —
+    //    조용히 실패하지 말고 알려 드리고 첫 화면으로 돌려보낸다.
+    appAlert("복습 화면을 열지 못했어요. 잠시 뒤 다시 눌러 주세요.");
     renderSummary();
-    return;
   }
-  renderReview(queue, 0);
 }
 
 function renderReview(queue, idx) {
