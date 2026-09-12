@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260912q";
+const APP_BUILD = "20260912r";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9604,7 +9604,7 @@ function minPickHtml() {
     // ⚠️ 안내문(.min-policy)을 화면에 늘 펴 두지 않는다(성도님 요청) — 소속 옆
     //    작은 단추로 접어 팝업으로만 연다. 신청 화면은 부서 찾기에 바로 들어간다.
     '<div class="min-who-row"><span class="min-who">👤 ' + minEsc(minWhoText()) + '</span>' +
-      '<button class="min-policy-btn" id="min-policy-open">📌 사역신청안내</button></div>' +
+      '<button class="min-policy-btn" id="min-policy-open">📌 신청안내</button></div>' +
     (openNow || minPrev() ? "" :
       '<div class="min-closed">지금은 신청 기간이 아니에요. 목록만 살펴보실 수 있습니다.</div>') +
     (minLocked.length
@@ -9794,11 +9794,63 @@ function minOpenPolicy() {
   for (const x of box.querySelectorAll("[data-dclose]")) x.addEventListener("click", close);
 }
 
+// ⚠️ 사역 신청 절차에서 쓰던 브라우저 기본 alert()·prompt()는 이 앱 화면과
+// 딴판이라 튀어 보인다(성도님 지적). 「사역 자세히 보기」와 같은 창(.min-d-*)
+// 모양으로 두 가지를 대신한다 — 알림 하나, 입력 하나. 다른 화면은 손대지 않는다.
+function minAlert(msg) {
+  const box = document.createElement("div");
+  box.className = "min-d-wrap";
+  box.innerHTML = '<div class="min-d-box" role="alertdialog" aria-modal="true">' +
+    '<div class="min-d-body"><p class="min-alert-msg">' + minEsc(msg).replace(/\n/g, "<br>") + '</p></div>' +
+    '<div class="min-d-foot"><button class="min-d-close2" data-dclose autofocus>확인</button></div></div>';
+  document.body.appendChild(box);
+  const esc = function (e) { if (e.key === "Escape" || e.key === "Enter") { e.preventDefault(); close(); } };
+  function close() {
+    document.removeEventListener("keydown", esc);
+    if (box.parentNode) box.parentNode.removeChild(box);
+  }
+  document.addEventListener("keydown", esc);
+  box.addEventListener("click", function (e) { if (e.target === box) close(); });
+  for (const x of box.querySelectorAll("[data-dclose]")) x.addEventListener("click", close);
+}
+
+// 취소 확인용 번호 입력 — 취소를 누르거나 바깥을 탭하면 null(=그만둠)을 돌려준다
+function minPromptPhone(msg, subMsg) {
+  return new Promise(function (resolve) {
+    const box = document.createElement("div");
+    box.className = "min-d-wrap";
+    box.innerHTML = '<div class="min-d-box" role="dialog" aria-modal="true">' +
+      '<div class="min-d-body"><p class="min-alert-msg">' + minEsc(msg) +
+        (subMsg ? '<span class="min-alert-sub">' + minEsc(subMsg) + '</span>' : "") + '</p>' +
+        '<input class="min-alert-input" id="min-alert-ph" type="tel" inputmode="numeric" maxlength="13"' +
+        ' placeholder="010-1234-5678" autocomplete="off"></div>' +
+      '<div class="min-d-foot min-d-foot-row">' +
+        '<button class="min-ghost" data-cancel>취소</button>' +
+        '<button class="min-cta" data-ok>확인</button></div></div>';
+    document.body.appendChild(box);
+    const input = box.querySelector("#min-alert-ph");
+    input.addEventListener("input", function () { this.value = pilsaPhoneFmt(this.value); });
+    input.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); ok(); } });
+    setTimeout(function () { input.focus(); }, 0);
+    function done(v) {
+      document.removeEventListener("keydown", esc);
+      if (box.parentNode) box.parentNode.removeChild(box);
+      resolve(v);
+    }
+    function ok() { done(input.value); }
+    const esc = function (e) { if (e.key === "Escape") { e.preventDefault(); done(null); } };
+    document.addEventListener("keydown", esc);
+    box.addEventListener("click", function (e) { if (e.target === box) done(null); });
+    box.querySelector("[data-cancel]").addEventListener("click", function () { done(null); });
+    box.querySelector("[data-ok]").addEventListener("click", ok);
+  });
+}
+
 // 고르기·빼기 한 곳에서 — 목록에서도, 「자세히」 창에서도 같은 규칙을 따르게
 function minTogglePick(id) {
   if (minLockedIds.indexOf(id) >= 0) {
     const st = minLockStatus(id);
-    alert(st === "미채택" ? "이 사역은 이번에 다른 분이 임명되셨어요. 다른 사역을 골라 주세요."
+    minAlert(st === "미채택" ? "이 사역은 이번에 다른 분이 임명되셨어요. 다른 사역을 골라 주세요."
         : st === "임명확정" ? "이미 임명이 확정된 사역이에요."
         : st === "취소" ? "이 신청은 부서 요청으로 취소되었어요. 자세한 것은 해당 부서에 여쭤봐 주세요."
         : "이미 담당자가 접수한 사역이라 뺄 수 없어요.");
@@ -9807,7 +9859,7 @@ function minTogglePick(id) {
   const i = minPicked.indexOf(id);
   if (i >= 0) { minPicked.splice(i, 1); return true; }
   if (minHeld() + minPicked.length >= MIN_MAX) {
-    alert(minHeld()
+    minAlert(minHeld()
       ? "이미 결정된 " + minHeld() + "개를 더하면 " + MIN_MAX + "개를 넘어요."
       : "사역 임명 원칙에 따라 최대 " + MIN_MAX + "개까지 신청하실 수 있어요.");
     return false;
@@ -9976,13 +10028,13 @@ function wireMinConfirm(u) {
   btn.addEventListener("click", async function () {
     minPosVal = posel ? posel.value : "";
     if (MIN_POSITIONS.indexOf(minPosVal) < 0) {
-      alert("직분을 골라 주세요.");
+      minAlert("직분을 골라 주세요.");
       if (posel) posel.focus();
       return;
     }
     minPhoneVal = phel ? pilsaPhoneFmt(phel.value) : "";
     if (!pilsaPhoneOk(minPhoneVal)) {
-      alert("휴대폰 번호를 010-1234-5678 꼴로 넣어 주세요.");
+      minAlert("휴대폰 번호를 010-1234-5678 꼴로 넣어 주세요.");
       if (phel) phel.focus();
       return;
     }
@@ -9995,13 +10047,13 @@ function wireMinConfirm(u) {
         user_id: u.user_id, name: u.name, who, choices: minPicked,
         phone: minPhoneVal, position: minPosVal, pw: minPw(), preview: minPrev(),
       });
-      if (!r || !r.ok) { alert((r && r.error) || "신청을 저장하지 못했어요."); renderMinistry(); return; }
+      if (!r || !r.ok) { minAlert((r && r.error) || "신청을 저장하지 못했어요."); renderMinistry(); return; }
       minMine = r.mine;
       minSyncPicked();
       minStep = "done";
       renderMinistry();
     } catch (e) {
-      alert(minErr(e, "연결이 고르지 않아 저장하지 못했어요. 잠시 뒤 다시 눌러 주세요."));
+      minAlert(minErr(e, "연결이 고르지 않아 저장하지 못했어요. 잠시 뒤 다시 눌러 주세요."));
       renderMinistry();
     }
   });
@@ -10088,9 +10140,12 @@ function minErr(e, fallback) {
 
 // 취소도 4자리로 한 번 확인한다 — 신청을 지우는 일이라 고치기와 같은 문턱을 둔다
 let minCancelPh = "";
-function minCancelAsk() {
-  const ph = pilsaPhoneFmt(prompt("아직 접수 전인 신청을 취소합니다. 휴대폰 번호를 넣어 주세요.\n(처음 신청하실 때 넣으신 번호입니다)") || "");
-  if (!pilsaPhoneOk(ph)) { if (ph) alert("휴대폰 번호를 010-1234-5678 꼴로 넣어 주세요."); return false; }
+async function minCancelAsk() {
+  const raw = await minPromptPhone("아직 접수 전인 신청을 취소합니다. 휴대폰 번호를 넣어 주세요.",
+    "(처음 신청하실 때 넣으신 번호입니다)");
+  if (raw == null) return false;                    // 취소·바깥 탭·esc — 아무 말 없이 그만둔다
+  const ph = pilsaPhoneFmt(raw || "");
+  if (!pilsaPhoneOk(ph)) { if (ph) minAlert("휴대폰 번호를 010-1234-5678 꼴로 넣어 주세요."); return false; }
   minCancelPh = ph;
   return true;
 }
@@ -10108,18 +10163,18 @@ function wireMinDone(u) {
   });
   const cancel = document.getElementById("min-cancel");
   if (cancel) cancel.addEventListener("click", async function () {
-    if (!minCancelAsk()) return;
+    if (!(await minCancelAsk())) return;
     cancel.disabled = true;
     try {
       const r = await api.ministryCancel(u.user_id, minPw(), minCancelPh, minPrev());
-      if (!r || !r.ok) { alert((r && r.error) || "취소하지 못했어요."); cancel.disabled = false; return; }
+      if (!r || !r.ok) { minAlert((r && r.error) || "취소하지 못했어요."); cancel.disabled = false; return; }
       // ⚠️ 접수된 건은 취소해도 남는다 — 「전부 지웠다」로 치면 화면이 사실과 어긋난다.
       minMine = r.mine || null;
       minSyncPicked();
       minStep = minMine ? "done" : "pick";
       renderMinistry();
     } catch (e) {
-      alert(minErr(e, "연결이 고르지 않아 취소하지 못했어요."));
+      minAlert(minErr(e, "연결이 고르지 않아 취소하지 못했어요."));
       cancel.disabled = false;
     }
   });

@@ -4765,6 +4765,18 @@ body.pr-full-on { overflow: hidden; }
 .min-d-close2 { width: 100%; padding: 11px; font: inherit; font-size: .88rem; font-weight: 700;
   color: var(--gray); background: none; border: none; cursor: pointer; }
 
+/* alert()·prompt() 대신 쓰는 사역신청 전용 팝업(minAlert·minPromptPhone) —
+   창 모양은 .min-d-* 그대로 두고 안 내용만 다르다. */
+.min-alert-msg { font-size: .92rem; line-height: 1.65; color: #333; }
+.min-alert-sub { display: block; color: var(--gray); font-size: .8rem; margin-top: 4px; }
+.min-alert-input { display: block; width: 100%; font: inherit; font-size: 1.05rem; font-weight: 700;
+  text-align: center; padding: 11px 10px; margin-top: 12px; border: 1.5px solid var(--border);
+  border-radius: 10px; background: var(--cream); color: #222; }
+.min-d-foot-row { flex-direction: row; }
+.min-d-foot-row > button { flex: 1; width: auto; margin-bottom: 0; }
+.dark .min-alert-msg { color: #d8dee8; }
+.dark .min-alert-input { background: #1b2233; border-color: #3a4a68; color: #e8ecf5; }
+
 .dark .min-row.lock { background: #1a2130; border-color: #46536b; }
 .dark .min-count { background: #1e2637; border-color: #3a4a68; }
 .dark .min-policy-key b { color: #cfe0ff; }
