@@ -2182,7 +2182,12 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
   transform: translateY(12px) scale(.97); transition: transform .16s ease;
 }
 .am-overlay.show .am-card { transform: none; }
-.am-title { font-weight: 800; font-size: 16px; color: var(--navy); margin-bottom: 8px; word-break: keep-all; }
+/* ⚠️ title 맨 앞 이모지를 appModal()이 떼어 큰 아이콘으로 보여준다(성도님
+   지적 — 필사 제출·취소 창이 "성의 없어 보인다"). 글자 속 작은 이모지 대신
+   가운데 큰 아이콘 + 굵은 제목으로. */
+.am-ico { font-size: 2.1rem; line-height: 1; text-align: center; margin-bottom: 8px; }
+.am-title { font-weight: 800; font-size: 16px; color: var(--navy); margin-bottom: 8px;
+  text-align: center; word-break: keep-all; }
 .am-msg { font-size: 14.5px; line-height: 1.7; color: #333; white-space: pre-line; word-break: keep-all; }
 .am-btns { display: flex; gap: 8px; margin-top: 18px; }
 .am-btn {

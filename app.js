@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260912t";
+const APP_BUILD = "20260912u";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1370,14 +1370,23 @@ function markBoardSeen() {
 }
 
 // ── 커스텀 모달(시스템 alert/confirm 대체) — Promise<boolean> 반환 ──
+// ⚠️ title이 "🗑 신청 취소"처럼 이모지로 시작하면 그 이모지를 큰 아이콘으로
+//    떼어 낸다 — 글자 크기 안에 묻혀 있던 것을 눈에 띄게 키운다(성도님 지적,
+//    필사 제출·취소 창이 "성의 없어 보인다"). title이 이모지뿐이면(드묾)
+//    본문 없이 아이콘만 남는다. 이모지 없는 title은 그대로 굵은 글씨로 남는다.
+const AM_ICON_RE = /^(\p{Extended_Pictographic}(?:‍\p{Extended_Pictographic}|️)*)\s*/u;
 function appModal({ title = "", msg = "", okText = "확인", cancelText = null, danger = false }) {
   return new Promise((resolve) => {
     const old = document.getElementById("app-modal"); if (old) old.remove();
+    let ico = "", t = title;
+    const m = AM_ICON_RE.exec(title);
+    if (m) { ico = m[1]; t = title.slice(m[0].length); }
     const wrap = document.createElement("div");
     wrap.id = "app-modal"; wrap.className = "am-overlay";
     wrap.innerHTML = `
       <div class="am-card" role="dialog" aria-modal="true">
-        ${title ? `<div class="am-title">${title}</div>` : ""}
+        ${ico ? `<div class="am-ico" aria-hidden="true">${ico}</div>` : ""}
+        ${t ? `<div class="am-title">${t}</div>` : ""}
         <div class="am-msg">${msg}</div>
         <div class="am-btns">
           ${cancelText ? `<button class="am-btn am-cancel">${cancelText}</button>` : ""}
