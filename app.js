@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260912b";
+const APP_BUILD = "20260912c";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9136,37 +9136,25 @@ let minSentIds = [];      // 이미 **낸** 것(신청완료) — 방금 고른 
       구간을 다시 그어도 부서에 두 번 묻지 않는다.
    ⚠️ 겹치는 구간이라 판정 규칙을 못 박아 둔다 — **모이는 시각이 그 구간에 들면 걸린다.**
       성도님이 묻는 것은 「몇 시에 나가야 하나」다.                                */
-// ⚠️ 금요일을 따로 둔다(성도님 지시 2026-09-10) — 금요성령집회·행복전도대(금)처럼
-//    금요일 사역이 많은데 「평일」로 뭉뚱그리면 금요일만 되는 분이 골라 찾을 수 없다.
-//    그래서 여기의 「평일」은 **금요일을 뺀 날**이다.
+// 화면에는 성도님이 실제로 비교할 세 요일만 간결하게 내놓는다.
 const MIN_DAYS = [
   { k: "sun",  t: "주일" },
   { k: "fri",  t: "금요일" },
-  { k: "sat",  t: "토요일" },
-  { k: "week", t: "평일" },
-  { k: "none", t: "정해진 날 없음" },
+  { k: "week", t: "수요일" },
 ];
 // ⚠️ 주기는 팀마다 **여럿일 수 있다**(매주 또는 격주인 팀이 있다). 그래서 서버가
 //    한 글자가 아니라 참·거짓 넷을 준다 — 요일과 같은 모양이라 같은 방식으로 다룬다.
 //    ⚠️ 이 열쇠 이름은 DB 칸 이름(freq_weekly …)과 짝이다. 한쪽만 고치면 조용히 안 걸린다.
 const MIN_FREQS = [
   { k: "weekly",   t: "매주" },
-  { k: "biweekly", t: "격주(교대형식)" },
-  { k: "monthly",  t: "매달" },
-  { k: "adhoc",    t: "그때그때" },
+  { k: "biweekly", t: "격주" },
+  { k: "monthly",  t: "한달" },
 ];
 const MIN_BANDS = [
-  // ⚠️ 새벽기도가 **1부 5시 · 2부 6시**라 6시부터로 두면 1부가 통째로 빠진다
-  //    (성도님 확인 2026-09-10). 구간은 화면이 묶는 것이라 여기 한 줄만 고치면 된다 —
-  //    DB 는 시각 그대로 갖고 있어 부서에 다시 묻지 않았다.
-  { k: "5-9",   t: "5~9",   a: 5,  b: 9 },
+  { k: "6-9",   t: "6~9",   a: 6,  b: 9 },
   { k: "8-11",  t: "8~11",  a: 8,  b: 11 },
   { k: "10-13", t: "10~13", a: 10, b: 13 },
-  { k: "12-14", t: "12~14", a: 12, b: 14 },
   { k: "14-16", t: "14~16", a: 14, b: 16 },
-  { k: "16-20", t: "16~20", a: 16, b: 20 },
-  { k: "20-22", t: "20~22", a: 20, b: 22 },
-  { k: "none",  t: "때마다 다름", a: -1, b: -1 },
 ];
 let minF = { day: [], freq: [], band: [] };
 let minQ = "";            // 이름으로 찾기 — 필터와 같은 취급(켜지면 목록이 좁아진다)
@@ -9495,16 +9483,25 @@ function minFilterHtml() {
   //    ?preview=ministry 로 여는 관리자는 값이 없어도 필터를 볼 수 있어야 한다.
   if (!minPrev() && (!apply.length || filled * 2 < apply.length)) return "";
 
-  return '<div class="min-filter">' +
-    minChipRow("언제", "day", MIN_DAYS) +
-    minChipRow("얼마나 자주", "freq", MIN_FREQS) +
-    minChipRow("몇 시쯤", "band", MIN_BANDS) +
-    '<div class="min-fr"><span class="min-fr-l">이름으로 찾기</span>' +
-      '<input id="min-q" class="min-q" type="search" placeholder="예: 오병이어, 주차"' +
-      ' value="' + minEsc(minQ) + '" autocomplete="off"></div>' +
-    '<button class="min-fclear" id="min-fclear"' + (minFOn() ? "" : " hidden") +
-      '>✕ 조건 지우기</button>' +
-    '</div>';
+  // details 자체의 접기 기능을 쓴다 — 별도 열림/닫힘 상태나 필터 로직을 만들지 않는다.
+  // 처음에는 한 줄만 보이고, 조건을 사용 중이면 현재 조건을 확인하도록 열린 채 그린다.
+  return '<details class="min-filter"' + (minFOn() ? " open" : "") + '>' +
+    '<summary class="min-filter-h">' +
+      '<span class="min-filter-ico" aria-hidden="true">⌕</span>' +
+      '<span class="min-filter-copy"><b>조건으로 빠르게 찾기</b>' +
+        '<small>이름·요일·시간으로 사역을 좁혀 보세요</small></span>' +
+      '<span class="min-filter-arr" aria-hidden="true"></span>' +
+    '</summary>' +
+    '<div class="min-filter-b">' +
+      '<div class="min-fr min-fr-search"><span class="min-fr-l">사역 이름</span>' +
+        '<input id="min-q" class="min-q" type="search" placeholder="예: 오병이어, 주차"' +
+        ' value="' + minEsc(minQ) + '" autocomplete="off"></div>' +
+      minChipRow("언제", "day", MIN_DAYS) +
+      minChipRow("얼마나 자주", "freq", MIN_FREQS) +
+      minChipRow("몇 시쯤", "band", MIN_BANDS) +
+      '<button class="min-fclear" id="min-fclear"' + (minFOn() ? "" : " hidden") +
+        '>✕ 조건 지우기</button>' +
+    '</div></details>';
 }
 
 /* ── ① 부서 고르기 ─────────────────────────────────────────── */
@@ -9596,15 +9593,31 @@ function minAccBuild() {
 function minPickHtml() {
   const L = minAccBuild();
   const openNow = minIsOpen();
-  return '<h2 class="rank-title">🤝 사역 신청서</h2>' +
-    '<p class="min-sub min-verse">“각각 은사를 받은 대로 … 선한 청지기 같이 서로 봉사하라”' +
-      ' <span class="min-ref">벧전 4:10</span></p>' +
+  return '<div class="min-intro"><span class="min-intro-ico" aria-hidden="true">🤝</span>' +
+    '<div><h2 class="rank-title">사역 신청서</h2>' +
+      '<p class="min-sub min-verse">“각각 은사를 받은 대로 … 선한 청지기 같이 서로 봉사하라”' +
+        ' <span class="min-ref">벧전 4:10</span></p></div></div>' +
     (openNow || minPrev() ? "" :
       '<div class="min-closed">지금은 신청 기간이 아니에요. 목록만 살펴보실 수 있습니다.</div>') +
-    '<div class="min-note"><b class="min-note-t">사역 임명 원칙</b>' +
-      '1인 <b>최대 ' + MIN_MAX + '개</b>까지 신청할 수 있어요. ' +
-      '신청 후 <b>임명을 받아야</b> 사역을 시작합니다.' +
+    '<section class="min-policy" aria-labelledby="min-policy-title">' +
+      '<div class="min-policy-h"><span aria-hidden="true">📌</span>' +
+        '<div><b id="min-policy-title">사역 신청 안내</b><small>신청 전에 꼭 확인해 주세요</small></div></div>' +
+      '<div class="min-policy-key">' +
+        '<span><b>등록 후 3개월</b><small>성실히 예배 출석</small></span>' +
+        '<span><b>최대 ' + MIN_MAX + '개</b><small>자치회장 포함</small></span>' +
+        '<span><b>임명 후 시작</b><small>홈페이지에서 확인</small></span>' +
+        '<span><b>매년 신청</b><small>해마다 새로 신청</small></span>' +
       '</div>' +
+      '<details class="min-policy-more"><summary>겸직 제한 등 전체 원칙 보기</summary>' +
+        '<ol>' +
+          '<li>등록식 후 <b>3개월 이상 성실히 예배에 출석</b>한 성도님이 신청할 수 있습니다.</li>' +
+          '<li>한 사람이 신청할 수 있는 사역은 <b>최대 ' + MIN_MAX + '개</b>이며, 자치회장도 사역 개수에 포함됩니다.</li>' +
+          '<li>부장·팀장·회계·찬양대 지휘자·자치회장은 다른 부서에서 <b>동일한 사역을 겸직할 수 없습니다.</b></li>' +
+          '<li>교사는 다른 교육부서 교사로, 찬양대원은 다른 찬양대원으로 이중 사역할 수 없습니다. 단, <b>새하늘찬양대는 예외</b>입니다.</li>' +
+          '<li>신청 후 <b>임명을 받아야</b> 사역할 수 있으며, 임명 결과는 교회 홈페이지 게시판에서 확인합니다.</li>' +
+          '<li>사역 신청은 <b>매년 새로</b> 해야 합니다.</li>' +
+        '</ol></details>' +
+      '</section>' +
     (minLocked.length
       ? '<div class="min-note min-lock-note">📥 이미 결정된 <b>' + minLocked.length + '건</b>은 ' +
         '고치거나 뺄 수 없어요.' +
@@ -9615,20 +9628,22 @@ function minPickHtml() {
     // ⚠️ 필터보다 **위**이고, 필터를 켜도 그대로 남는다 — 이미 낸 것은 거를 대상이 아니다.
     minSentListHtml() +
     minOverHtml() +
+    '<div class="min-browse-h"><span><b>사역 찾아보기</b>' +
+      '<small>부서를 눌러 사역을 살펴보세요</small></span>' +
+      '<div class="min-count' + (minPicked.length ? " has" : "") + '" id="min-count">' +
+        '선택 <b>' + (minHeld() + minPicked.length) + '</b> / ' + MIN_MAX + '</div></div>' +
     minFilterHtml() +
     // ⚠️ 이 셋은 **자리를 지킨다**(id 고정). 찾기를 칠 때 이 셋만 갈아 끼우고
     //    필터 상자는 손대지 않아야 한글 조합이 안 끊긴다.
     '<div class="min-fnum" id="min-fnum"' + (minFOn() ? "" : " hidden") + '>' +
       '지금 <b>' + L.shownN + '팀</b> 보임</div>' +
-    '<div class="min-count' + (minPicked.length ? " has" : "") + '" id="min-count">' +
-      (minHeld() + minPicked.length) + ' / ' + MIN_MAX + ' 선택' + '</div>' +
     '<div class="min-acc-wrap" id="min-list">' + L.html + '</div>' +
     // 신청현황 화면과 **같은 자리·같은 모양** — 남색이 지금 할 일, 흰 바탕이 되돌아가기.
     // 이미 낸 것이 있으면 돌아갈 길을 둔다: 없으면 목록에 갇힌다.
     '<div class="min-acts">' +
       (openNow || minPrev()
         ? '<button class="min-cta" id="min-next"' + (minPicked.length ? "" : " disabled") + '>' +
-          (minPicked.length ? '신청하기' : '사역을 하나 이상 골라 주세요') +
+          (minPicked.length ? '선택한 사역 신청하기' : '신청할 사역을 골라 주세요') +
           '</button>'
         : "") +
       (minMine ? '<button class="min-ghost" id="min-tomine">← 내 신청으로</button>' : "") +
@@ -9675,7 +9690,7 @@ function minRefreshList() {
   const c = document.getElementById("min-count");
   if (c) {
     c.className = "min-count" + (minPicked.length ? " has" : "");
-    c.textContent = (minHeld() + minPicked.length) + " / " + MIN_MAX + " 선택";
+    c.innerHTML = "선택 <b>" + (minHeld() + minPicked.length) + "</b> / " + MIN_MAX;
   }
   const cl = document.getElementById("min-fclear");
   if (cl) cl.hidden = !minFOn();
@@ -9793,25 +9808,22 @@ function minDetailHtml(t) {
     return val ? '<div class="min-d-row"><div class="min-d-l">' + label + '</div>' +
       '<div class="min-d-v">' + val + '</div></div>' : "";
   };
-  let rows = row("언제", t.sched) + row("하는 일", t.desc) + row("필요 인원", t.capacity);
-  // 「지금 섬기는 분」 — 이름과 하는 일만으로는 「내가 낄 자리인가」가 안 그려진다.
+  let rows = row("언제", t.sched) + row("하는 일", t.desc);
+  // 「섬기는 분」 — 이름과 하는 일만으로는 「내가 낄 자리인가」가 안 그려진다.
   // 아는 얼굴이 하나라도 보이면 문턱이 확 낮아진다(성도님 요청 2026-09-09).
   // ⚠️ 관리자가 한 줄에 한 분씩 넣은 것이라 <br> 로 갈린다 — 줄마다 칩으로 세운다.
+  let who = [];
   if (t.members) {
-    const who = String(t.members).split(/<br\s*\/?>/i)
+    who = String(t.members).split(/<br\s*\/?>/i)
       .map(function (x) { return x.trim(); }).filter(Boolean);
-    if (who.length) {
-      rows += '<div class="min-d-row"><div class="min-d-l">지금 섬기는 분 ' +
-        '<span class="min-d-n">' + who.length + '명</span></div>' +
-        '<div class="min-d-who">' +
-        who.map(function (x) { return '<span class="min-d-p">' + x + '</span>'; }).join("") +
-        '</div></div>';
-    }
   }
-  if (!rows) {
-    rows = '<p class="min-d-none">아직 자세한 안내가 올라오지 않았어요.<br>' +
-      '부서 확인이 끝나면 이 자리에 채워집니다.</p>';
-  }
+  rows += '<div class="min-d-row"><div class="min-d-l">섬기는 분' +
+    (who.length ? ' <span class="min-d-n">' + who.length + '명</span>' : "") + '</div>' +
+    (who.length
+      ? '<div class="min-d-who">' +
+        who.map(function (x) { return '<span class="min-d-p">' + x + '</span>'; }).join("") + '</div>'
+      : '<div class="min-d-empty">아직 등록된 분이 없습니다.</div>') + '</div>';
+  rows += row("필요 인원", t.capacity);
   // 신청 화면(고르는 중)에서만 담기 단추를 둔다 — 확인·완료 화면에서는 읽기만.
   // ⚠️ 이미 결정된 팀에는 내놓지 않는다 — 눌렀는데 「뺄 수 없어요」가 뜨면
   //    성도님은 단추가 고장 난 줄 아신다(2026-09-09 감사).

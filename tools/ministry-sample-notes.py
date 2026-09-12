@@ -60,7 +60,7 @@ S = {
  "동호회": ("동호회별 상이", "취미 모임을 꾸리고 이끕니다"),
  "스포츠": ("토요일 오전", "체육 모임을 준비하고 함께합니다"),
  # 방송전산부
- "방송실 운영": ("주일 예배 시간", "예배 음향·영상을 맡습니다"),
+ "방송실 운영": ("주일 예배 시간", "예배 중 카메라 조정, 자막 송출, 영상 전환(스위처), 음향 운영을 담당합니다"),
  "전산": ("주중 비정기", "교회 전산과 앱을 돌봅니다"),
  "미디어홍보": ("주중 비정기", "사진·영상으로 교회 소식을 전합니다"),
  "새물결": ("월 1회", "교회 소식지를 만듭니다"),
@@ -158,8 +158,9 @@ for r in ROWS:
     key = r["team"] + "|" + r["committee"]
     sched, desc = S.get(key, S.get(r["team"], DEFAULT))
     sets = []
-    if sched and not r["schedule_note"]:      # 확인된 값이 있으면 그대로 둔다
-        sets.append("schedule_note = " + q(sched))
+    if sched and not r["schedule_note"]:      # DB에 이미 입력된 값도 덮어쓰지 않는다
+        sets.append("schedule_note = case when coalesce(schedule_note, '') = '' then " +
+                    q(sched) + " else schedule_note end")
         n_s += 1
     if desc:
         sets.append("desc_note = " + q(desc + MARK))

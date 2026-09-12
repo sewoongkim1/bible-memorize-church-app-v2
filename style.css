@@ -4448,6 +4448,12 @@ body.pr-full-on { overflow: hidden; }
    ⚠️ 아코디언은 가정 축복 기도문(.pr-acc)과 같은 규칙 — 한 번에 하나만 열린다.
    ========================================================================== */
 .min-screen { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+.min-intro { display: flex; align-items: center; justify-content: center; gap: 11px;
+  margin: 2px 0 15px; }
+.min-intro-ico { display: grid; place-items: center; flex: 0 0 42px; width: 42px; height: 42px;
+  border-radius: 13px; background: var(--light); font-size: 1.35rem; }
+.min-intro .rank-title { margin: 0 0 2px; text-align: left; }
+.min-intro .min-sub { margin: 0; text-align: left; }
 .min-sub { text-align: center; color: var(--gray); font-size: .92rem; margin: -4px 0 14px; line-height: 1.6; }
 .min-sub b { color: var(--navy); }
 /* 부제가 말씀일 때 — 인용은 줄여 쓰고, 출처는 아래에 금색 한 줄로 */
@@ -4465,6 +4471,26 @@ body.pr-full-on { overflow: hidden; }
 /* ⚠️ b:first-child 로 잡으면 「마감(<b>기간</b>) 전까지」 같은 문장에서도 굵은 글씨가
    블록이 되어 줄이 끊긴다 — 제목으로 쓸 때만 클래스를 붙인다 */
 .min-note .min-note-t { display: block; margin-bottom: 3px; }
+.min-policy { margin-bottom: 13px; padding: 13px; border: 1.5px solid #d5dfef;
+  border-radius: 14px; background: var(--white); box-shadow: 0 3px 10px rgba(26,58,107,.055); }
+.min-policy-h { display: flex; align-items: center; gap: 8px; margin-bottom: 11px; color: var(--navy); }
+.min-policy-h > span { font-size: 1rem; }
+.min-policy-h > div { display: flex; flex-direction: column; gap: 1px; }
+.min-policy-h b { font-size: .94rem; }
+.min-policy-h small { color: var(--gray); font-size: .71rem; font-weight: 600; }
+.min-policy-key { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; }
+.min-policy-key > span { display: flex; min-width: 0; flex-direction: column; gap: 1px;
+  padding: 9px 10px; border-radius: 10px; background: var(--light); }
+.min-policy-key b { color: var(--navy); font-size: .82rem; line-height: 1.35; }
+.min-policy-key small { overflow: hidden; color: var(--gray); font-size: .68rem; font-weight: 600;
+  line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.min-policy-more { margin-top: 9px; border-top: 1px solid var(--border); }
+.min-policy-more summary { padding: 10px 2px 0; color: var(--navy); cursor: pointer;
+  font-size: .78rem; font-weight: 800; text-align: center; }
+.min-policy-more ol { margin: 10px 0 1px; padding: 11px 12px 11px 30px; border-radius: 10px;
+  background: var(--light); color: #4b5563; font-size: .78rem; line-height: 1.65; }
+.min-policy-more li + li { margin-top: 6px; }
+.min-policy-more b { color: var(--navy); }
 .min-lock { text-align: center; color: var(--gray); }
 /* 휴대폰 뒷 4자리 — 비밀번호가 없는 앱의 최소 확인. 큰 숫자로 넣기 쉽게 */
 .min-p4 { display: flex; align-items: center; gap: 12px; background: var(--white);
@@ -4484,15 +4510,25 @@ body.pr-full-on { overflow: hidden; }
 .dark .min-p4 input { background: #1b2233; border-color: #3a4a68; color: #e8ecf5; }
 .min-who { font-size: .86rem; color: var(--gray); margin: 0 2px 10px; }
 
-.min-count { text-align: right; font-size: .82rem; font-weight: 700; color: var(--gray);
-  margin: 0 2px 8px; }
-.min-count.has { color: #8a6a1e; }
+.min-browse-h { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin: 18px 2px 9px; }
+.min-browse-h > span { display: flex; min-width: 0; flex-direction: column; gap: 1px; }
+.min-browse-h > span > b { color: var(--navy); font-size: 1rem; }
+.min-browse-h small { color: var(--gray); font-size: .74rem; font-weight: 600; }
+.min-count { flex: none; min-width: 76px; padding: 7px 10px; text-align: center;
+  font-size: .78rem; font-weight: 700; color: var(--gray); background: var(--light);
+  border: 1px solid var(--border); border-radius: 999px; }
+.min-count b { color: var(--navy); font-size: 1rem; }
+.min-count.has { color: #7a5f1e; background: #fbf5e6; border-color: #e3cb8b; }
+.min-count.has b { color: #7a5f1e; }
 
 .min-acc-wrap { display: flex; flex-direction: column; gap: 9px; margin-bottom: 16px; }
-.min-acc { border: 1.5px solid var(--navy); border-radius: 12px; overflow: hidden; background: var(--white); }
+.min-acc { border: 1.5px solid var(--border); border-radius: 12px; overflow: hidden;
+  background: var(--white); box-shadow: 0 2px 7px rgba(26,58,107,.045); }
 .min-acc-h { display: flex; align-items: center; justify-content: space-between; gap: 8px;
   width: 100%; padding: 13px 14px; font: inherit; font-size: .98rem; font-weight: 700;
   color: var(--navy); background: var(--white); border: none; cursor: pointer; text-align: left; }
+.min-acc.open { border-color: var(--navy); box-shadow: 0 5px 15px rgba(26,58,107,.1); }
 .min-acc.open .min-acc-h { background: var(--navy); color: #fff; }
 .min-acc-h .min-n { font-size: .76rem; font-weight: 700; opacity: .85; white-space: nowrap; }
 .min-got { font-size: .76rem; font-weight: 700; color: var(--gold); }
@@ -4531,17 +4567,38 @@ body.pr-full-on { overflow: hidden; }
 .dark .min-over { background: #33301f; color: #e2c98a; }
 .dark .min-over b { color: #e2c98a; }
 
-.min-filter { background: var(--light); border-radius: 12px; padding: 10px 12px 12px; margin-bottom: 10px; }
+.min-filter { margin-bottom: 10px; border: 1.5px solid var(--border); border-radius: 12px;
+  background: var(--white); overflow: hidden; }
+.min-filter-h { display: flex; align-items: center; gap: 10px; padding: 12px 13px;
+  color: var(--navy); cursor: pointer; list-style: none; user-select: none; }
+.min-filter-h::-webkit-details-marker { display: none; }
+.min-filter-h::marker { content: ""; }
+.min-filter-ico { display: grid; place-items: center; flex: 0 0 30px; width: 30px; height: 30px;
+  border-radius: 9px; background: var(--light); font-size: 1.25rem; font-weight: 800; line-height: 1; }
+.min-filter-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 1px; }
+.min-filter-copy b { font-size: .9rem; line-height: 1.35; }
+.min-filter-copy small { overflow: hidden; color: var(--gray); font-size: .72rem; font-weight: 600;
+  line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.min-filter-arr { flex: 0 0 9px; width: 9px; height: 9px; margin-right: 3px;
+  border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+  transform: rotate(45deg) translate(-2px, 2px); transition: transform .18s ease; }
+.min-filter[open] .min-filter-h { background: var(--light); }
+.min-filter[open] .min-filter-arr { transform: rotate(225deg) translate(-2px, 2px); }
+.min-filter-b { padding: 12px; border-top: 1px solid var(--border); background: var(--light); }
 /* ⚠️ 이름표를 칩 **위**에 둔다. 왼쪽에 두면 「얼마나 자주」가 두 줄로 깨지고,
    폭이 좁은 폰일수록 칩이 쓸 자리를 이름표가 먹는다. */
 .min-fr { margin-top: 9px; }
 .min-fr:first-child { margin-top: 0; }
+.min-fr-search { margin: 0 0 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
 .min-fr-l { display: block; margin-bottom: 4px; font-size: .74rem; font-weight: 800;
   color: var(--gray); letter-spacing: .03em; }
-.min-fr-c { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 5px; }
+.min-fr-c { display: flex; flex-wrap: nowrap; gap: 5px; min-width: 0; overflow-x: auto;
+  padding-bottom: 2px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.min-fr-c::-webkit-scrollbar { display: none; }
 .min-chip { font: inherit; font-size: .8rem; font-weight: 700; color: var(--gray);
   background: var(--white); border: 1.5px solid var(--border); border-radius: 999px;
-  padding: 5px 11px; cursor: pointer; }
+  display: inline-flex; align-items: center; justify-content: center; flex: 0 0 92px;
+  width: 92px; min-height: 32px; padding: 5px 8px; cursor: pointer; white-space: nowrap; }
 .min-chip.on { color: #fff; background: var(--navy); border-color: var(--navy); }
 /* ⚠️ 켜진 칩에만 ✕ — 색만으로는 「눌러서 끄는 것」인 줄 모르신다 */
 .min-chip-x { margin-left: 6px; font-size: .78em; font-weight: 800; opacity: .75; }
@@ -4557,7 +4614,11 @@ body.pr-full-on { overflow: hidden; }
   padding: 22px 16px; text-align: center; font-size: .95rem; font-weight: 700; color: var(--navy); }
 .min-none-b { display: flex; flex-direction: column; gap: 7px; margin-top: 14px; }
 .min-none-b .min-ghost { font-size: .86rem; padding: 11px; }
-.dark .min-filter { background: #1e2637; }
+.dark .min-filter { background: #232c3f; border-color: #3a4a68; }
+.dark .min-filter-h { color: #cfe0ff; }
+.dark .min-filter-ico, .dark .min-filter[open] .min-filter-h,
+.dark .min-filter-b { background: #1e2637; }
+.dark .min-filter-b, .dark .min-fr-search { border-color: #3a4a68; }
 .dark .min-chip { background: #232c3f; border-color: #3a4a68; color: #b9c4d8; }
 .dark .min-none { background: #232c3f; border-color: #3a4a68; color: #cfe0ff; }
 
@@ -4642,7 +4703,11 @@ body.pr-full-on { overflow: hidden; }
 .min-cancel { color: #a33; border-color: #d9b3b3; }
 /* 두 단추를 한 줄에 — 하나뿐일 때는 그 하나가 줄을 다 쓴다.
    ⚠️ .min-cta/.min-ghost 가 block+width:100%+margin-bottom 이라 여기서 되돌린다. */
-.min-acts { display: flex; gap: 8px; }
+.min-acts { position: sticky; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); z-index: 8;
+  display: flex; gap: 8px; margin: 0 -4px; padding: 8px;
+  border: 1px solid rgba(214,219,230,.9); border-radius: 14px;
+  background: rgba(255,255,255,.94); box-shadow: 0 8px 28px rgba(26,42,72,.16);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
 .min-acts > button { flex: 1; width: auto; min-width: 0; margin-bottom: 0; }
 
 /* 큰 단추 = 지금 할 일(첫 화면 .todo-go 와 같은 위계) */
@@ -4677,6 +4742,7 @@ body.pr-full-on { overflow: hidden; }
 .min-d-who { display: flex; flex-wrap: wrap; gap: 6px; }
 .min-d-p { font-size: .86rem; color: #333; background: #eef1f8;
   border-radius: 999px; padding: 5px 11px; }
+.min-d-empty { font-size: .84rem; color: var(--gray); }
 .dark .min-d-p { color: #cfe0ff; background: #232c3f; }
 .min-d-none, .min-d-note { font-size: .85rem; line-height: 1.7; color: var(--gray); }
 .min-d-note { margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--border); }
@@ -4689,6 +4755,18 @@ body.pr-full-on { overflow: hidden; }
   color: var(--gray); background: none; border: none; cursor: pointer; }
 
 .dark .min-row.lock { background: #1a2130; border-color: #46536b; }
+.dark .min-intro-ico, .dark .min-count { background: #1e2637; border-color: #3a4a68; }
+.dark .min-policy { background: #232c3f; border-color: #3a4a68; box-shadow: none; }
+.dark .min-policy-h, .dark .min-policy-key b, .dark .min-policy-more summary,
+.dark .min-policy-more b { color: #cfe0ff; }
+.dark .min-policy-key > span, .dark .min-policy-more ol { background: #1e2637; }
+.dark .min-policy-more { border-color: #3a4a68; }
+.dark .min-policy-more ol { color: #b9c4d8; }
+.dark .min-browse-h > span > b, .dark .min-count b { color: #cfe0ff; }
+.dark .min-count.has { color: #e2c98a; background: #33301f; border-color: #5c5330; }
+.dark .min-count.has b { color: #e2c98a; }
+.dark .min-acts { background: rgba(27,34,51,.94); border-color: #3a4a68;
+  box-shadow: 0 8px 28px rgba(0,0,0,.28); }
 .dark .min-st.s-wait { background: #232c3f; color: #cfe0ff; }
 .dark .min-grp { background: #1e2637; border-bottom-color: #4a6394; }
 .dark .min-grp-h { color: #cfe0ff; }
