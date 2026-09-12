@@ -33,6 +33,7 @@
 | 기독교 고전 소책자 | `docs/notes/classics-booklet.md` |
 | 관리자 통계 '카드' 열 | `docs/notes/stats-admin.md` |
 | 측정(카드 쓰임·전환율) | `docs/notes/metrics.md` |
+| 액션·테이블·시크릿 목록 | `docs/notes/backend-api.md` |
 
 ## 스택 · 도메인
 - **Vanilla JS PWA**(프레임워크 없음) — `index.html` + `app.js`(대형 단일 파일) + `sw.js`
@@ -45,11 +46,8 @@
 ## 백엔드 (Supabase 통합 프로젝트 `xnomlgydifiqiybervtf`)
 성경암송·찬양·말씀 3앱이 공유하는 프로젝트. 이 앱은 Edge Function **`api`** 사용.
 - 배포: `supabase functions deploy api --no-verify-jwt --project-ref xnomlgydifiqiybervtf`
-- **액션:** authCheck · login · saveProgress · challenge · advanceReview · ranking(응원 수·내 오늘 여부 포함) · rankCheer/rankCheerers(순위 응원 👏) · mydays · stats · participants · verses/getVerses · saveVerse · seedVerses · generateNiv(영어 NIV 본문 AI 생성, DB 저장 없이 반환만) · passageHelp/passageHelpAll(내 안에 거하는 말씀 AI 도우미, 마디당 1회 생성 후 app_config 캐시) · getPassageProgress(마디 진행 기기간 동기화) · cleanupDummy · savePush · removePush · testPush · sendPush(hour/user_id로 대상 좁힘 가능) · weeklyVersePush(매주 주일 08시 KST 전체 발송, 이번주 말씀 없으면 skip — cron: weekly_verse_push_cron.sql) · monitor · weeklyReport · boardList/boardCheck/boardPost/boardReply/boardDeleteMine/boardModerate · pilsaMine/pilsaApply/pilsaCancel(성도) · pilsaList/pilsaSetStatus(관리자, 준비완료 전환 시 해당 성도에게 Web Push 1회)
-- **테이블:** `users`(교구·목장·이름 등 identity_key), `verses`(주간 암송구절, url=설교영상, `text_en`/`ref_en`=영어 NIV 본문·출처), `progress`(구절별 단계), `challenge_log`(암송/도전 로그, mode=learn-*), `reviews`(간격반복 복습), `push_subscriptions`·`push_log`(Web Push), `board_posts`·`board_replies`(게시판), `rank_cheers`(순위 응원 — 대상·보낸이·날짜가 기본키라 하루 한 번, 기간 집계는 cheer_date로), `pilsa_orders`(필사 노트 신청 — 한 건이 한 행, 최근 1건만 화면에 노출, notified_at으로 준비완료 알림 중복 방지)
-- **시크릿:** ADMIN_SECRET(관리자 비번, 3앱 공통), VAPID_*(Web Push), RESEND_API_KEY·REPORT_FROM·REPORT_RECIPIENTS(주간 리포트 메일), ANTHROPIC_API_KEY(NIV 생성 등 AI 공용), TELEGRAM_*(모니터 경보)
-- 통계 RPC(`stats-rpc.sql`): v2_stats·v2_participants(security definer, PII 반환→service_role만 grant)
-- **집계표(`daily-activity.sql`, 2026-08-15):** `daily_activity(day,user_id,mode,cnt)` — `challenge_log`에 INSERT·DELETE 트리거로 동기화(앱이 아니라 DB가 지킨다). `ranking`·`guRanking`·`mydays`가 로그 대신 이 표를 읽는다(`v2_ranking`·`v2_gu_ranking`·`v2_mydays`, 실패 시 `*Slow`로 폴백). **전체 기간 2,903ms → 516ms.** 로그 11,052행 = 집계 579행이고, 로그는 총 횟수만큼 늘지만 집계표는 참여자×활동일수만큼만 는다. `monitor`가 `v2_activity_drift()`로 매일 로그 행수 vs 집계 합계를 대조해 어긋나면 경보 — 틀어지면 백필(3번 블록)을 다시 실행하면 된다. 구절별 통계(`verseStats`·`verseCounts`)는 verse_no가 필요해 로그에 남는다.
+- **액션·테이블·시크릿 목록은 `docs/notes/backend-api.md`** — 원본은 `supabase/functions/api/index.ts` 의 `switch` 와 `supabase/schema.sql` 이다. 적어 둔 목록은 금세 낡으니 **다르면 코드가 맞다.**
+- ⚠️ **순위·`mydays` 는 `challenge_log` 가 아니라 집계표 `daily_activity` 를 읽는다**(`daily-activity.sql` · 2,903ms → 516ms). 로그에 넣고 지우는 것은 트리거가 맞춰 주지만, **집계를 안 거치는 질의를 새로 짜면 숫자가 조용히 갈린다.** `monitor` 가 매일 `v2_activity_drift()` 로 대조한다.
 
 ## 주요 기능
 - **로그인(식별자 방식, 비번 없음):** 교구→교구·목장·이름 / 교회학교→부서·학년·이름. `users.identity_key`로 식별, 서버 기록 동기화
@@ -146,15 +144,9 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
       ⚠️ **이미 된 것과 함정**(`supabase db query --linked` 는 운영이다 · 시드 SQL 만 돌리면 켜져 있던 구절이
       꺼진다 · 게시판 목록은 사진을 `photos` 로 준다)은 `docs/notes/psalm-still-waters.md` 에 있다.
 
-- [ ] **기독교 고전 소책자 — 인쇄 전 남은 것** (본편은 완성·커밋됨, 위 절 참고)
-      **2026-09-11 — PDF 를 최신으로 다시 뽑았다**(호칭 「님」 삭제 · 줄 9.5mm ·
-         차례 아래 출처 표기). 저장소의 PDF 두 벌이 `classics.json` 과 맞는 상태다.
-      ① **찬송 열이 비어 있다** — 원본 27행 모두 비어 있어 목차에서 뺐다. 담당자가 정하면
-         `classics.json`에 넣고 목차에 열을 더한다.
-      ② **실물 확인** — `_중철A4.pdf`를 A4 가로·양면(짧은 쪽 넘김)·100%로 한 부 뽑아 접어 볼 것.
-      ③ 원고 표기 중 담당자 확인이 필요한 곳: 「토마스 아 켐피스」·「E.M. 바운즈」로 통용 표기를
-         따랐고, 6번 「열러분은」→「여러분은」 오타를 고쳤다(원본 hwpx는 그대로 두었다).
-      ④ 단락 칸을 넉넉히 하려면 노트 두 쪽(44→64쪽)뿐이다 — 지금은 「그대로」로 결정된 상태.
+- [ ] **기독교 고전 소책자 — 인쇄 전 남은 것**(본편은 완성·커밋, PDF 도 2026-09-11에 다시 뽑았다):
+      ① 찬송 열(원본이 비어 목차에서 뺐다) ② `_중철A4.pdf` 한 부 뽑아 **접어서 쪽 순서 확인**
+      ③ 담당자에게 물을 표기 두 곳. 자세한 것은 `docs/notes/classics-booklet.md` 끝.
 - [ ] **사역신청(2027) — 담당자 데이터 확정 대기(개발 착수 전).** 앱이 열리기 전까지는 올해도 종이로 받는다.
       기획 `docs/superpowers/specs/2026-09-06-ministry-application-design.md` · 확인 양식 `tools/ministry-form-gen.py`
       · 종이 신청서 `tools/ministry-apply-form-gen.py`
@@ -162,8 +154,8 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
       **직분 목록이 세 곳**이라는 것, 사슬 일곱은 `docs/notes/ministry-2027.md`.
 
 - [ ] **축복 기도문 — 주제 그룹 검토 뒤 성도님께 열기**: ① `marketing/가정축복기도문_수정.xlsx` D열 「그룹」을 담당자가 손보면 ② `supabase/blessings.sql`·`blessings.json`을 다시 만들어 개발→운영 순으로 반영하고 ③ `renderSummary`의 「함께」 묶음에 `🙏 가정 축복 기도문` 한 줄을 더한다
-- [ ] **플레이스토어 출시 — 14일 대기 중**: 2026-08-26 비공개 테스트 게시 승인, **2026-08-27 테스터 12명 참여 완료(시계 시작)**. **2026-09-10 무렵** 「프로덕션 신청」이 열린다. ⚠️ 그동안 테스터가 12명 아래로 떨어지면 시계가 다시 시작된다. 신청서에 「어떻게 테스트했고 어떤 의견을 받았는지」를 적어야 하니 `store/closed-test.md`의 질문으로 의견을 모아 둘 것
-- [ ] **업로드 키 재설정** — `upload_certificate.pem`은 만들어 두었다(`성경암송 - Google Play package - New` 폴더). 콘솔 → Google Play로 보호됨 → Play 스토어 보호 → 앱 서명키 보호 → 「Play 앱 서명 관리」에서 요청. 급하지 않다(옛 업로드 키가 공개됐지만 앱 서명 키는 구글이 갖고 있어 앱 위조는 불가)
+- [ ] **플레이스토어 출시**: 2026-08-27 테스터 12명 참여 완료 → **2026-09-10 무렵** 프로덕션 신청이 열린다. ⚠️ 그동안 테스터가 12명 아래로 떨어지면 시계가 다시 시작된다. 신청서에 쓸 「어떻게 테스트했고 어떤 의견을 받았는지」는 `store/closed-test.md` 의 질문으로 모은다
+- [ ] **업로드 키 재설정**(급하지 않다 — 옛 업로드 키가 공개됐지만 앱 서명 키는 구글이 갖고 있어 위조는 불가): `upload_certificate.pem` 은 만들어 두었다(`성경암송 - Google Play package - New` 폴더). 콘솔 → Play 스토어 보호 → 「Play 앱 서명 관리」에서 요청
 - [ ] **영어(NIV) 본문 두 곳 손보기** — 34개 전부 들어갔고 검수도 마쳤는데, `no=31`(마태 10:31)이 마침표 뒤 `you`(→ `You`), `no=30`이 `2JN 1:12`(→ 다른 구절과 같은 `2 John 1:12` 꼴). 어드민에서 그 둘만
 - [ ] 필사 신청 알림이 **조용히 실패해도 아무도 모른다**(낮은 우선순위): `pilsaApply`가 `pilsaNotifyAdmins`를 `try/catch`로 감싸 결과를 버리고, 담당자가 없으면(`no-admin`) `push_log`에도 안 남는다 — 이 자리를 `push_log`에 남기게 고칠 것(단, `monitor`가 실패 행을 어떻게 보는지 먼저 확인해 헛경보를 만들지 말 것)
 - [x] ~~카드 모드 쓰임 · 도전 전환율~~ **2026-09-02 둘 다 쟀다** — 숫자와 ⚠️ 비교할 때의 함정은
