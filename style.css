@@ -4594,9 +4594,10 @@ body.pr-full-on { overflow: hidden; }
 .min-fr-search { margin: 0 0 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
 .min-fr-l { display: block; margin-bottom: 4px; font-size: .74rem; font-weight: 800;
   color: var(--gray); letter-spacing: .03em; }
-.min-fr-c { display: flex; flex-wrap: nowrap; gap: 5px; min-width: 0; overflow-x: auto;
-  padding-bottom: 2px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
-.min-fr-c::-webkit-scrollbar { display: none; }
+/* ⚠️ 가로 스크롤(overflow-x:auto)이었을 때는 스크롤바를 숨겨 놔서 칩이 화면
+   밖으로 잘린 것처럼 보였다(성도님 지적 — "선택하는게 화면에 벗어나네요").
+   칩이 3~4개뿐이라 줄바꿈이면 충분하다 — 스크롤 대신 wrap. */
+.min-fr-c { display: flex; flex-wrap: wrap; gap: 5px; }
 .min-chip { font: inherit; font-size: .8rem; font-weight: 700; color: var(--gray);
   background: var(--white); border: 1.5px solid var(--border); border-radius: 999px;
   display: inline-flex; align-items: center; justify-content: center; flex: 0 0 92px;
