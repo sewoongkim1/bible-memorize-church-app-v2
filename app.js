@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260912s";
+const APP_BUILD = "20260912t";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9800,9 +9800,12 @@ function minOpenPolicy() {
 function minAlert(msg) {
   const box = document.createElement("div");
   box.className = "min-d-wrap";
-  box.innerHTML = '<div class="min-d-box" role="alertdialog" aria-modal="true">' +
-    '<div class="min-d-body"><p class="min-alert-msg">' + minEsc(msg).replace(/\n/g, "<br>") + '</p></div>' +
-    '<div class="min-d-foot"><button class="min-d-close2" data-dclose autofocus>확인</button></div></div>';
+  // ⚠️ 밋밋한 텍스트 링크(.min-d-close2)였을 때 "성의가 없다"는 지적을 받았다 —
+  //    큰 남색 단추(.min-cta)와 아이콘을 줘서 실제 안내 창처럼 보이게 한다.
+  box.innerHTML = '<div class="min-d-box min-alert-box" role="alertdialog" aria-modal="true">' +
+    '<div class="min-d-body"><div class="min-alert-ico" aria-hidden="true">🔔</div>' +
+      '<p class="min-alert-msg">' + minEsc(msg).replace(/\n/g, "<br>") + '</p></div>' +
+    '<div class="min-d-foot"><button class="min-cta min-alert-ok" data-dclose autofocus>확인</button></div></div>';
   document.body.appendChild(box);
   const esc = function (e) { if (e.key === "Escape" || e.key === "Enter") { e.preventDefault(); close(); } };
   function close() {
