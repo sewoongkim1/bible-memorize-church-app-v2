@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>성도 기록 병합 안내</title>
+  <style>
+    :root { --navy:#213d68; --ink:#1e2c42; --muted:#5d6879; --line:#d9e0ea; --paper:#fff; --wash:#f4f7fb; --accent:#e8f0ff; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--wash); color:var(--ink); font:16px/1.75 system-ui,-apple-system,"Noto Sans KR",sans-serif; }
+    main { max-width:960px; margin:0 auto; padding:42px 22px 70px; }
+    article { background:var(--paper); border:1px solid var(--line); border-radius:18px; padding:38px; box-shadow:0 8px 30px rgba(33,61,104,.06); }
+    h1,h2 { color:var(--navy); line-height:1.35; } h1 { font-size:31px; margin:0 0 8px; } h2 { font-size:22px; margin:36px 0 14px; }
+    p { margin:10px 0; } .lead { color:var(--muted); margin:0; }
+    .flow { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:16px; margin:25px 0; }
+    .user { background:var(--accent); border-radius:14px; padding:20px; } .user strong { display:block; color:var(--navy); font-size:19px; }
+    .arrow { color:var(--navy); font-size:33px; font-weight:700; } .result { background:#eef8f1; border:1px solid #b8dcc3; border-radius:12px; padding:14px 17px; }
+    table { width:100%; border-collapse:collapse; margin:16px 0; overflow:hidden; border:1px solid var(--line); border-radius:10px; } th,td { padding:13px 14px; text-align:left; vertical-align:top; border-bottom:1px solid var(--line); } th { background:#edf2f9; color:var(--navy); } tr:last-child td { border-bottom:0; }
+    ol { padding-left:24px; } li { margin:7px 0; } code { background:#eff2f6; border-radius:4px; padding:1px 5px; color:#344d73; }
+    .note { padding:16px 18px; background:#fff7e7; border-left:4px solid #d79415; border-radius:8px; }
+    @media (max-width:640px) { main { padding:20px 12px; } article { padding:24px 18px; } h1 { font-size:26px; } .flow { grid-template-columns:1fr; } .arrow { transform:rotate(90deg); text-align:center; } table { font-size:14px; } th,td { padding:10px; } }
+  </style>
+</head>
+<body>
+<main><article>
+  <h1>성도 기록 병합 안내</h1>
+  <p class="lead">이름이나 교구·목장이 바뀐 뒤 새 소속으로 이미 사용하여 기록이 두 사용자로 나뉜 경우의 처리 방법입니다.</p>
+
+  <div class="flow">
+    <div class="user"><strong>이전 사용자 A</strong>사랑교구 1목장 김세웅<br><small>이전 소속에서 쌓인 기록</small></div>
+    <div class="arrow">→</div>
+    <div class="user"><strong>현재 사용자 B</strong>화평교구 20목장 김세웅<br><small>새 소속에서 이미 사용한 기록</small></div>
+  </div>
+  <div class="result"><strong>결과:</strong> B를 유지하고 A의 기록을 B에 모읍니다. 이전 소속이나 이전 기기에서 접속해도 B의 기록으로 연결됩니다.</div>
+
+  <h2>DB에서 일어나는 일</h2>
+  <ol>
+    <li><code>users</code>에서는 현재 사용자 <code>B</code>를 유지합니다.</li>
+    <li><code>A</code>에 연결된 기록의 <code>user_id</code>를 <code>B</code>로 변경하거나, 겹치는 기록은 아래 기준으로 병합합니다.</li>
+    <li>이전 식별 정보는 B의 로그인 별칭으로 저장합니다.</li>
+    <li><code>users</code>의 A 행은 삭제합니다.</li>
+    <li><code>user_merges</code>에는 A → B 연결, 병합 시점, 당시 프로필과 사유를 보관합니다.</li>
+  </ol>
+  <p>따라서 <code>users</code>에는 B만 남지만, 이전 소속 정보와 이전 사용자 번호는 B로 해석됩니다.</p>
+
+  <h2>기록별 처리 기준</h2>
+  <table>
+    <thead><tr><th>기록</th><th>병합 방법</th></tr></thead>
+    <tbody>
+      <tr><td>암송·도전 로그</td><td>모든 행과 기록 시각을 유지하고 B로 이전합니다. 횟수는 합산합니다.</td></tr>
+      <tr><td>한글·영어 진도</td><td>같은 구절·언어는 높은 단계를 유지합니다. 마음에 둠은 한쪽이라도 체크했으면 유지합니다.</td></tr>
+      <tr><td>복습 일정</td><td>마지막 복습일이 더 최근인 쪽의 상자와 예정일을 유지합니다.</td></tr>
+      <tr><td>긴 본문 암송</td><td>완료한 마디를 합치고 한쪽이라도 전체 완료면 완료 상태를 유지합니다.</td></tr>
+      <tr><td>축복 기도문 조회</td><td>같은 날짜·기도문은 조회 횟수를 합산합니다.</td></tr>
+      <tr><td>게시글·답글·필사 신청·알림 기기</td><td>원래 행을 보존하고 작성자 또는 신청자의 사용자 번호만 B로 변경합니다.</td></tr>
+      <tr><td>공감·이벤트 참여·순위 응원</td><td>동일한 반응·참여가 겹치면 한 건만 남깁니다. 병합 뒤 자기 자신에게 한 응원은 제거합니다.</td></tr>
+      <tr><td>사역·상세 이벤트 신청</td><td>서로 다른 신청은 이전합니다. 동일 사역팀이나 동일 회차 신청이 양쪽에 있으면 병합을 중단합니다.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>관리자 사용 방법</h2>
+  <ol>
+    <li>관리자 허브에서 <strong>성도 정보 관리</strong>를 엽니다.</li>
+    <li>이전 소속의 성도를 검색해 선택합니다.</li>
+    <li>현재 사용 중인 이름·소속을 입력하고 사유를 적습니다.</li>
+    <li>변경 내용을 확인하고 저장합니다.</li>
+    <li>현재 정보의 사용자가 이미 있으면 양쪽 기록 수를 확인합니다.</li>
+    <li>동일인 확인 체크 후 <strong>같은 성도 확인 후 기록 합치기</strong>를 누릅니다.</li>
+  </ol>
+
+  <h2>안전장치</h2>
+  <p class="note">이름이 같다는 이유만으로 자동 병합하지 않습니다. 관리자가 동일인 확인을 해야 하며, 실행 전에는 어떤 기록도 바뀌지 않습니다.</p>
+  <ul>
+    <li>병합은 하나의 트랜잭션으로 실행되어 오류가 나면 전체가 취소됩니다.</li>
+    <li>새 기능의 미지원 기록이 있으면 삭제하지 않고 병합을 중단합니다.</li>
+    <li>동일 사역팀 또는 동일 상세 이벤트 신청이 양쪽에 있으면 답변·상태 보존을 위해 중단합니다.</li>
+    <li>관리자 화면에는 분리 복구 기능이 없으므로 동일인일 때만 실행해야 합니다.</li>
+    <li>병합 후 이전 소속 정보는 다른 신규 사용자에게 재사용할 수 없습니다.</li>
+  </ul>
+
+  <h2>병합 후 확인</h2>
+  <p>이전 소속과 현재 소속으로 각각 접속해 같은 진도와 복습 기록이 보이는지 확인합니다. 관리자 화면에서 현재 소속으로 다시 검색하면 한 명만 표시됩니다.</p>
+</article></main>
+</body>
+</html>
