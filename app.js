@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260912p";
+const APP_BUILD = "20260912q";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9603,7 +9603,7 @@ function minPickHtml() {
         ' <span class="min-ref">벧전 4:10</span></p>') +
     // ⚠️ 안내문(.min-policy)을 화면에 늘 펴 두지 않는다(성도님 요청) — 소속 옆
     //    작은 단추로 접어 팝업으로만 연다. 신청 화면은 부서 찾기에 바로 들어간다.
-    '<div class="min-who min-who-row"><span>' + minEsc(minWhoText()) + '</span>' +
+    '<div class="min-who-row"><span class="min-who">👤 ' + minEsc(minWhoText()) + '</span>' +
       '<button class="min-policy-btn" id="min-policy-open">📌 사역신청안내</button></div>' +
     (openNow || minPrev() ? "" :
       '<div class="min-closed">지금은 신청 기간이 아니에요. 목록만 살펴보실 수 있습니다.</div>') +
@@ -9923,7 +9923,7 @@ function minConfirmHtml() {
       ? '<div class="min-note min-lock-note">📥 이미 접수된 <b>' + minLockedIds.length +
         '개</b>는 그대로 남습니다 — 아래 것만 새로 냅니다.</div>'
       : "") +
-    '<div class="min-who">' + minEsc(minWhoText()) + '</div>' +
+    '<div class="min-who">👤 ' + minEsc(minWhoText()) + '</div>' +
     minOverHtml() +
     rows +
     '<div class="min-p4"><label for="min-pos">직분</label>' +
@@ -10045,6 +10045,7 @@ function minDoneHtml(u) {
   //    오히려 흐려진다(성도님 지적). 단추는 하나다.
   const canGo = canAdd || canEdit;
   return minTitleHtml("사역 신청현황") +
+    '<div class="min-who">👤 ' + minEsc(minWhoText()) + '</div>' +
     minStepsHtml(worst) +
     rows +
     '<div class="min-count has">' + (m ? m.used : 0) + ' / ' + MIN_MAX + ' 신청' +

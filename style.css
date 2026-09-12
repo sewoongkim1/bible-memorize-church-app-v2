@@ -4496,9 +4496,16 @@ body.pr-full-on { overflow: hidden; }
 .dark .min-pos { background: #1b2233; border-color: #3a4a68; color: #e8ecf5; }
 .dark .min-p4 { background: #232c3f; border-color: #3a4a68; }
 .dark .min-p4 input { background: #1b2233; border-color: #3a4a68; color: #e8ecf5; }
-.min-who { font-size: .86rem; color: var(--gray); margin: 0 2px 10px; }
+/* ⚠️ 옅은 회색 글자였을 때는 「누구 이름으로 신청되는지」가 잘 안 보였다
+   (성도님 지적 — "눈에 드러나게"). 남색 굵은 글씨 + 옅은 배지로 도드라지게
+   한다. 사역신청 화면 셋(신청서·확인·신청현황) 모두 같은 모양. */
+.min-who { display: inline-flex; align-items: center; font-size: .92rem; font-weight: 800;
+  color: var(--navy); background: var(--light); border-radius: 999px;
+  padding: 7px 14px; margin: 0 0 10px; }
+.dark .min-who { background: #232c3f; color: #cfe0ff; }
 /* 소속 옆 「사역신청안내」 — 안내문을 펴 두는 대신 이 단추로 팝업을 연다 */
 .min-who-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.min-who-row .min-who { margin: 0; min-width: 0; }
 .min-policy-btn { flex: none; font: inherit; font-size: .78rem; font-weight: 700;
   color: var(--navy); background: var(--white); border: 1.5px solid var(--border);
   border-radius: 999px; padding: 6px 11px; cursor: pointer; white-space: nowrap; }
