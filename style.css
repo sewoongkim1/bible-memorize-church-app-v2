@@ -4596,12 +4596,14 @@ body.pr-full-on { overflow: hidden; }
   color: var(--gray); letter-spacing: .03em; }
 /* ⚠️ 가로 스크롤(overflow-x:auto)이었을 때는 스크롤바를 숨겨 놔서 칩이 화면
    밖으로 잘린 것처럼 보였다(성도님 지적 — "선택하는게 화면에 벗어나네요").
-   칩이 3~4개뿐이라 줄바꿈이면 충분하다 — 스크롤 대신 wrap. */
+   flex-wrap은 안전망으로 남기고, 칩 너비를 고정 92px 대신 flex:1로 줘서
+   한 줄(언제 3개·얼마나 자주 3개·몇 시쯤 4개)에 항상 다 들어오게 한다
+   (성도님 재지적 — "선택하는건 한줄에 나오게"). 폭이 좁아지면 글자만 줄어든다. */
 .min-fr-c { display: flex; flex-wrap: wrap; gap: 5px; }
 .min-chip { font: inherit; font-size: .8rem; font-weight: 700; color: var(--gray);
   background: var(--white); border: 1.5px solid var(--border); border-radius: 999px;
-  display: inline-flex; align-items: center; justify-content: center; flex: 0 0 92px;
-  width: 92px; min-height: 32px; padding: 5px 8px; cursor: pointer; white-space: nowrap; }
+  display: inline-flex; align-items: center; justify-content: center; flex: 1 1 0;
+  width: auto; min-width: 0; min-height: 32px; padding: 5px 4px; cursor: pointer; white-space: nowrap; }
 .min-chip.on { color: #fff; background: var(--navy); border-color: var(--navy); }
 /* ⚠️ 켜진 칩에만 ✕ — 색만으로는 「눌러서 끄는 것」인 줄 모르신다 */
 .min-chip-x { margin-left: 6px; font-size: .78em; font-weight: 800; opacity: .75; }
