@@ -4469,29 +4469,16 @@ body.pr-full-on { overflow: hidden; }
 /* ⚠️ b:first-child 로 잡으면 「마감(<b>기간</b>) 전까지」 같은 문장에서도 굵은 글씨가
    블록이 되어 줄이 끊긴다 — 제목으로 쓸 때만 클래스를 붙인다 */
 .min-note .min-note-t { display: block; margin-bottom: 3px; }
-/* ⚠️ 흰 카드+그림자는 아래 부서 목록(.min-acc)의 것 — 안내문이 같은 차림이면
-   「이것도 눌러야 하나」로 헷갈린다(성도님 지적). 배경을 페이지와 같은
-   cream으로 눕혀 눌리는 목록과 구분한다. 칩만 흰 바탕으로 도드라지게 둔다. */
-.min-policy { margin-bottom: 13px; padding: 13px; border: 1px solid var(--border);
-  border-radius: 14px; background: var(--cream); }
-.min-policy-h { display: flex; align-items: center; gap: 8px; margin-bottom: 11px; color: var(--navy); }
-.min-policy-h > span { font-size: 1rem; }
-.min-policy-h > div { display: flex; flex-direction: column; gap: 1px; }
-.min-policy-h b { font-size: .94rem; }
-.min-policy-h small { color: var(--gray); font-size: .71rem; font-weight: 600; }
+/* 안내문(.min-policy)은 화면에 늘 펴 두지 않는다(성도님 요청) — 소속 옆
+   단추 하나로 접어 팝업(.min-d-*)으로만 연다. 아래는 그 팝업 안 내용 스타일. */
 .min-policy-key { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; }
 .min-policy-key > span { display: flex; min-width: 0; flex-direction: column; gap: 1px;
-  padding: 9px 10px; border-radius: 10px; background: var(--white); }
+  padding: 9px 10px; border-radius: 10px; background: var(--light); }
 .min-policy-key b { color: var(--navy); font-size: .82rem; line-height: 1.35; }
-.min-policy-key small { overflow: hidden; color: var(--gray); font-size: .68rem; font-weight: 600;
-  line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
-.min-policy-more { margin-top: 9px; border-top: 1px solid var(--border); }
-.min-policy-more summary { padding: 10px 2px 0; color: var(--navy); cursor: pointer;
-  font-size: .78rem; font-weight: 800; text-align: center; }
-.min-policy-more ol { margin: 10px 0 1px; padding: 11px 12px 11px 30px; border-radius: 10px;
-  background: var(--light); color: #4b5563; font-size: .78rem; line-height: 1.65; }
-.min-policy-more li + li { margin-top: 6px; }
-.min-policy-more b { color: var(--navy); }
+.min-policy-ol { margin: 12px 0 0; padding: 11px 12px 11px 30px; border-radius: 10px;
+  background: var(--light); color: #4b5563; font-size: .82rem; line-height: 1.65; }
+.min-policy-ol li + li { margin-top: 6px; }
+.min-policy-ol b { color: var(--navy); }
 .min-lock { text-align: center; color: var(--gray); }
 /* 휴대폰 뒷 4자리 — 비밀번호가 없는 앱의 최소 확인. 큰 숫자로 넣기 쉽게 */
 .min-p4 { display: flex; align-items: center; gap: 12px; background: var(--white);
@@ -4510,6 +4497,12 @@ body.pr-full-on { overflow: hidden; }
 .dark .min-p4 { background: #232c3f; border-color: #3a4a68; }
 .dark .min-p4 input { background: #1b2233; border-color: #3a4a68; color: #e8ecf5; }
 .min-who { font-size: .86rem; color: var(--gray); margin: 0 2px 10px; }
+/* 소속 옆 「사역신청안내」 — 안내문을 펴 두는 대신 이 단추로 팝업을 연다 */
+.min-who-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.min-policy-btn { flex: none; font: inherit; font-size: .78rem; font-weight: 700;
+  color: var(--navy); background: var(--white); border: 1.5px solid var(--border);
+  border-radius: 999px; padding: 6px 11px; cursor: pointer; white-space: nowrap; }
+.dark .min-policy-btn { background: #232c3f; border-color: #3a4a68; color: #cfe0ff; }
 
 .min-browse-h { display: flex; align-items: center; justify-content: space-between; gap: 12px;
   margin: 18px 2px 9px; }
@@ -4767,12 +4760,10 @@ body.pr-full-on { overflow: hidden; }
 
 .dark .min-row.lock { background: #1a2130; border-color: #46536b; }
 .dark .min-count { background: #1e2637; border-color: #3a4a68; }
-/* background는 base가 var(--cream)/var(--border)라 .dark에서 이미 맞게 바뀐다 */
-.dark .min-policy-h, .dark .min-policy-key b, .dark .min-policy-more summary,
-.dark .min-policy-more b { color: #cfe0ff; }
-.dark .min-policy-more ol { background: #1e2637; }
-.dark .min-policy-more { border-color: #3a4a68; }
-.dark .min-policy-more ol { color: #b9c4d8; }
+.dark .min-policy-key b { color: #cfe0ff; }
+.dark .min-policy-key > span, .dark .min-policy-ol { background: #1e2637; }
+.dark .min-policy-ol { color: #b9c4d8; }
+.dark .min-policy-ol b { color: #cfe0ff; }
 .dark .min-browse-h > span > b, .dark .min-count b { color: #cfe0ff; }
 .dark .min-count.has { color: #e2c98a; background: #33301f; border-color: #5c5330; }
 .dark .min-count.has b { color: #e2c98a; }

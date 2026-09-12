@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260912o";
+const APP_BUILD = "20260912p";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9601,28 +9601,12 @@ function minPickHtml() {
   return minTitleHtml("사역 신청서",
       '<p class="min-sub min-verse">“각각 은사를 받은 대로 … 선한 청지기 같이 서로 봉사하라”' +
         ' <span class="min-ref">벧전 4:10</span></p>') +
-    '<div class="min-who">' + minEsc(minWhoText()) + '</div>' +
+    // ⚠️ 안내문(.min-policy)을 화면에 늘 펴 두지 않는다(성도님 요청) — 소속 옆
+    //    작은 단추로 접어 팝업으로만 연다. 신청 화면은 부서 찾기에 바로 들어간다.
+    '<div class="min-who min-who-row"><span>' + minEsc(minWhoText()) + '</span>' +
+      '<button class="min-policy-btn" id="min-policy-open">📌 사역신청안내</button></div>' +
     (openNow || minPrev() ? "" :
       '<div class="min-closed">지금은 신청 기간이 아니에요. 목록만 살펴보실 수 있습니다.</div>') +
-    '<section class="min-policy" aria-labelledby="min-policy-title">' +
-      '<div class="min-policy-h"><span aria-hidden="true">📌</span>' +
-        '<div><b id="min-policy-title">사역 신청 안내</b></div></div>' +
-      // ⚠️ 네 칸을 다 보이면 화면을 너무 차지한다(성도님 지적) — 「등록 후 3개월」·
-      //    「매년 신청」은 아래 「전체 원칙 보기」①·⑥에 이미 있어 여기서 뺀다.
-      '<div class="min-policy-key">' +
-        '<span><b>최대 ' + MIN_MAX + '개</b></span>' +
-        '<span><b>임명 후 시작</b></span>' +
-      '</div>' +
-      '<details class="min-policy-more"><summary>겸직 제한 등 전체 원칙 보기</summary>' +
-        '<ol>' +
-          '<li>등록식 후 <b>3개월 이상 성실히 예배에 출석</b>한 성도님이 신청할 수 있습니다.</li>' +
-          '<li>한 사람이 신청할 수 있는 사역은 <b>최대 ' + MIN_MAX + '개</b>이며, 자치회장도 사역 개수에 포함됩니다.</li>' +
-          '<li>부장·팀장·회계·찬양대 지휘자·자치회장은 다른 부서에서 <b>동일한 사역을 겸직할 수 없습니다.</b></li>' +
-          '<li>교사는 다른 교육부서 교사로, 찬양대원은 다른 찬양대원으로 이중 사역할 수 없습니다. 단, <b>새하늘찬양대는 예외</b>입니다.</li>' +
-          '<li>신청 후 <b>임명을 받아야</b> 사역할 수 있으며, 임명 결과는 교회 홈페이지 게시판에서 확인합니다.</li>' +
-          '<li>사역 신청은 <b>매년 새로</b> 해야 합니다.</li>' +
-        '</ol></details>' +
-      '</section>' +
     (minLocked.length
       ? '<div class="min-note min-lock-note">📥 이미 결정된 <b>' + minLocked.length + '건</b>은 ' +
         '고치거나 뺄 수 없어요.' +
@@ -9767,6 +9751,47 @@ function wireMinPick(u) {
 
   const go = document.getElementById("min-next");
   if (go) go.addEventListener("click", function () { minStep = "confirm"; renderMinistry(); });
+
+  const pol = document.getElementById("min-policy-open");
+  if (pol) pol.addEventListener("click", minOpenPolicy);
+}
+
+// 사역 신청 안내 — 화면에 늘 펴 두지 않고 소속 옆 단추로 열리는 팝업 하나로
+// (성도님 요청). 「사역 자세히 보기」(min-d-*)와 같은 창 모양을 그대로 쓴다.
+function minPolicyModalHtml() {
+  return '<div class="min-d-box" role="dialog" aria-modal="true">' +
+    '<div class="min-d-head"><div><div class="min-d-nm">📌 사역 신청 안내</div></div>' +
+      '<button class="min-d-x" data-dclose aria-label="닫기">✕</button></div>' +
+    '<div class="min-d-body">' +
+      '<div class="min-policy-key">' +
+        '<span><b>최대 ' + MIN_MAX + '개</b></span>' +
+        '<span><b>임명 후 시작</b></span>' +
+      '</div>' +
+      '<ol class="min-policy-ol">' +
+        '<li>등록식 후 <b>3개월 이상 성실히 예배에 출석</b>한 성도님이 신청할 수 있습니다.</li>' +
+        '<li>한 사람이 신청할 수 있는 사역은 <b>최대 ' + MIN_MAX + '개</b>이며, 자치회장도 사역 개수에 포함됩니다.</li>' +
+        '<li>부장·팀장·회계·찬양대 지휘자·자치회장은 다른 부서에서 <b>동일한 사역을 겸직할 수 없습니다.</b></li>' +
+        '<li>교사는 다른 교육부서 교사로, 찬양대원은 다른 찬양대원으로 이중 사역할 수 없습니다. 단, <b>새하늘찬양대는 예외</b>입니다.</li>' +
+        '<li>신청 후 <b>임명을 받아야</b> 사역할 수 있으며, 임명 결과는 교회 홈페이지 게시판에서 확인합니다.</li>' +
+        '<li>사역 신청은 <b>매년 새로</b> 해야 합니다.</li>' +
+      '</ol></div>' +
+    '<div class="min-d-foot"><button class="min-d-close2" data-dclose>닫기</button></div></div>';
+}
+
+function minOpenPolicy() {
+  const box = document.createElement("div");
+  box.className = "min-d-wrap";
+  box.innerHTML = minPolicyModalHtml();
+  document.body.appendChild(box);
+
+  const esc = function (e) { if (e.key === "Escape") { e.preventDefault(); close(); } };
+  function close() {
+    document.removeEventListener("keydown", esc);
+    if (box.parentNode) box.parentNode.removeChild(box);
+  }
+  document.addEventListener("keydown", esc);
+  box.addEventListener("click", function (e) { if (e.target === box) close(); });   // 바깥 탭
+  for (const x of box.querySelectorAll("[data-dclose]")) x.addEventListener("click", close);
 }
 
 // 고르기·빼기 한 곳에서 — 목록에서도, 「자세히」 창에서도 같은 규칙을 따르게
