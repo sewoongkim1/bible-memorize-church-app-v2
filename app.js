@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260912a";
+const APP_BUILD = "20260912b";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -51,7 +51,7 @@ let verses = []; // 화면에 쓰는 구절 데이터
 // 화면 전환 시 보이는 로딩 표시 (로고 + "불러오는 중...")
 const LOADING_HTML = `
   <div class="app-loading">
-    <img class="al-logo" src="https://summer.onlybible.kr/logo3.png" alt="" />
+    <img class="al-logo" src="img/logo-gocheok.png" alt="" />
     <div class="al-text">불러오는 중...</div>
   </div>`;
 

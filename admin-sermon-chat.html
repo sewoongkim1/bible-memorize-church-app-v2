@@ -120,7 +120,7 @@ function toast(m){ const t=$("toast"); t.textContent=m; t.classList.add("show");
 
 function renderLogin(msg){
   $("app").innerHTML = `<div class="login">
-    <img src="https://summer.onlybible.kr/logo3.png" alt="고척교회" style="height:48px;margin-bottom:6px" />
+    <img src="img/logo-gocheok.png" alt="고척교회" style="height:48px;margin-bottom:6px" />
     <h2>내게 주시는 말씀</h2>
     ${msg?`<p style="color:#c0392b;font-size:13px">${esc(msg)}</p>`:""}
     <input id="pw" type="password" placeholder="관리자 비밀번호" />
@@ -145,7 +145,7 @@ function renderMain(){
     : `<a href="index.html">← 홈</a>`;
   $("app").innerHTML = `<header>
       <div class="brand-row">
-        <img class="brand-logo" src="https://summer.onlybible.kr/logo3.png" alt="고척교회" />
+        <img class="brand-logo" src="img/logo-gocheok.png" alt="고척교회" />
         <h1>내게 주시는 말씀</h1>
       </div>
       ${headerRight}
