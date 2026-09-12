@@ -4469,8 +4469,11 @@ body.pr-full-on { overflow: hidden; }
 /* ⚠️ b:first-child 로 잡으면 「마감(<b>기간</b>) 전까지」 같은 문장에서도 굵은 글씨가
    블록이 되어 줄이 끊긴다 — 제목으로 쓸 때만 클래스를 붙인다 */
 .min-note .min-note-t { display: block; margin-bottom: 3px; }
-.min-policy { margin-bottom: 13px; padding: 13px; border: 1.5px solid #d5dfef;
-  border-radius: 14px; background: var(--white); box-shadow: 0 3px 10px rgba(26,58,107,.055); }
+/* ⚠️ 흰 카드+그림자는 아래 부서 목록(.min-acc)의 것 — 안내문이 같은 차림이면
+   「이것도 눌러야 하나」로 헷갈린다(성도님 지적). 배경을 페이지와 같은
+   cream으로 눕혀 눌리는 목록과 구분한다. 칩만 흰 바탕으로 도드라지게 둔다. */
+.min-policy { margin-bottom: 13px; padding: 13px; border: 1px solid var(--border);
+  border-radius: 14px; background: var(--cream); }
 .min-policy-h { display: flex; align-items: center; gap: 8px; margin-bottom: 11px; color: var(--navy); }
 .min-policy-h > span { font-size: 1rem; }
 .min-policy-h > div { display: flex; flex-direction: column; gap: 1px; }
@@ -4478,7 +4481,7 @@ body.pr-full-on { overflow: hidden; }
 .min-policy-h small { color: var(--gray); font-size: .71rem; font-weight: 600; }
 .min-policy-key { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; }
 .min-policy-key > span { display: flex; min-width: 0; flex-direction: column; gap: 1px;
-  padding: 9px 10px; border-radius: 10px; background: var(--light); }
+  padding: 9px 10px; border-radius: 10px; background: var(--white); }
 .min-policy-key b { color: var(--navy); font-size: .82rem; line-height: 1.35; }
 .min-policy-key small { overflow: hidden; color: var(--gray); font-size: .68rem; font-weight: 600;
   line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
@@ -4565,8 +4568,9 @@ body.pr-full-on { overflow: hidden; }
 .dark .min-over { background: #33301f; color: #e2c98a; }
 .dark .min-over b { color: #e2c98a; }
 
+/* 안내문(.min-policy)과 같은 이유로 배경을 cream으로 — 아래 부서 목록과 구분 */
 .min-filter { margin-bottom: 10px; border: 1.5px solid var(--border); border-radius: 12px;
-  background: var(--white); overflow: hidden; }
+  background: var(--cream); overflow: hidden; }
 .min-filter-h { display: flex; align-items: center; gap: 10px; padding: 12px 13px;
   color: var(--navy); cursor: pointer; list-style: none; user-select: none; }
 .min-filter-h::-webkit-details-marker { display: none; }
@@ -4612,7 +4616,8 @@ body.pr-full-on { overflow: hidden; }
   padding: 22px 16px; text-align: center; font-size: .95rem; font-weight: 700; color: var(--navy); }
 .min-none-b { display: flex; flex-direction: column; gap: 7px; margin-top: 14px; }
 .min-none-b .min-ghost { font-size: .86rem; padding: 11px; }
-.dark .min-filter { background: #232c3f; border-color: #3a4a68; }
+/* background는 base가 var(--cream)이라 .dark에서 이미 어두운 페이지색으로 바뀐다 */
+.dark .min-filter { border-color: #3a4a68; }
 .dark .min-filter-h { color: #cfe0ff; }
 .dark .min-filter-ico, .dark .min-filter[open] .min-filter-h,
 .dark .min-filter-b { background: #1e2637; }
@@ -4759,10 +4764,10 @@ body.pr-full-on { overflow: hidden; }
 
 .dark .min-row.lock { background: #1a2130; border-color: #46536b; }
 .dark .min-count { background: #1e2637; border-color: #3a4a68; }
-.dark .min-policy { background: #232c3f; border-color: #3a4a68; box-shadow: none; }
+/* background는 base가 var(--cream)/var(--border)라 .dark에서 이미 맞게 바뀐다 */
 .dark .min-policy-h, .dark .min-policy-key b, .dark .min-policy-more summary,
 .dark .min-policy-more b { color: #cfe0ff; }
-.dark .min-policy-key > span, .dark .min-policy-more ol { background: #1e2637; }
+.dark .min-policy-more ol { background: #1e2637; }
 .dark .min-policy-more { border-color: #3a4a68; }
 .dark .min-policy-more ol { color: #b9c4d8; }
 .dark .min-browse-h > span > b, .dark .min-count b { color: #cfe0ff; }

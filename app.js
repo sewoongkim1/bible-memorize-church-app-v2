@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260912k";
+const APP_BUILD = "20260912l";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9601,16 +9601,17 @@ function minPickHtml() {
   return minTitleHtml("사역 신청서",
       '<p class="min-sub min-verse">“각각 은사를 받은 대로 … 선한 청지기 같이 서로 봉사하라”' +
         ' <span class="min-ref">벧전 4:10</span></p>') +
+    '<div class="min-who">' + minEsc(minWhoText()) + '</div>' +
     (openNow || minPrev() ? "" :
       '<div class="min-closed">지금은 신청 기간이 아니에요. 목록만 살펴보실 수 있습니다.</div>') +
     '<section class="min-policy" aria-labelledby="min-policy-title">' +
       '<div class="min-policy-h"><span aria-hidden="true">📌</span>' +
         '<div><b id="min-policy-title">사역 신청 안내</b><small>신청 전에 꼭 확인해 주세요</small></div></div>' +
+      // ⚠️ 네 칸을 다 보이면 화면을 너무 차지한다(성도님 지적) — 「등록 후 3개월」·
+      //    「매년 신청」은 아래 「전체 원칙 보기」①·⑥에 이미 있어 여기서 뺀다.
       '<div class="min-policy-key">' +
-        '<span><b>등록 후 3개월</b><small>성실히 예배 출석</small></span>' +
         '<span><b>최대 ' + MIN_MAX + '개</b><small>자치회장 포함</small></span>' +
         '<span><b>임명 후 시작</b><small>홈페이지에서 확인</small></span>' +
-        '<span><b>매년 신청</b><small>해마다 새로 신청</small></span>' +
       '</div>' +
       '<details class="min-policy-more"><summary>겸직 제한 등 전체 원칙 보기</summary>' +
         '<ol>' +
