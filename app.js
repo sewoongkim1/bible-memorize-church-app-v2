@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260913a";
+const APP_BUILD = "20260913b";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1128,7 +1128,13 @@ function ensureReviewScheduled(no) {
 function dueReviewNos() {
   const r = loadReview(); const t = ymdLocal(new Date());
   return Object.keys(r).filter((no) => r[no] && r[no].next <= t).map(Number)
-    .filter((no) => psalmVisible() || !isPsalmNo(no));
+    .filter((no) => psalmVisible() || !isPsalmNo(no))
+    // ⚠️ 일반 구절인데 지금 verses 안에 없으면(관리자가 지웠거나 번호가 바뀐 것)
+    //    「오늘 복습 N구절」 큰 단추가 뜨고도 눌러도 찾을 게 없어 아무 일도 없는
+    //    것처럼 보였다(성도님 제보 2026-09-13 — "처음부터 안 나오게"). 시편은
+    //    이 화면에서 아직 안 받았을 수 있어 여기서는 건드리지 않는다 —
+    //    startReview()가 실제로 열 때 따로 확인한다.
+    .filter((no) => isPsalmNo(no) || verses.some((v) => v.no === no));
 }
 // 복습 완료 → 다음(더 긴) 간격으로
 function advanceReview(no) {
