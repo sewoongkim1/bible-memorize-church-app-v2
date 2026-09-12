@@ -23,6 +23,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # 배포 전 점검 — 여기서 실패하면 아래 배포 단계가 아예 안 돈다.
+      # 이 저장소는 push 가 곧 배포라, 문법이 깨진 app.js 가 나가면 전 성도의 앱이
+      # 통째로 안 뜨는데 오류창도 안 떠서(스플래시가 7초 뒤 닫히고 멈춘다) 제보가
+      # 올 때까지 아무도 모른다. 푸시 전에 손으로도 돌려 볼 수 있다:
+      #   python tools/preflight.py
+      - name: 배포 전 점검 (문법 · 캐시태그)
+        run: python3 tools/preflight.py
+
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
