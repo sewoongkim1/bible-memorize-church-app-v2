@@ -4452,16 +4452,16 @@ body.pr-full-on { overflow: hidden; }
    벧전 4:10 인용)이냐에 따라 아이콘이 제목 기준으로 다른 높이에 떠 보였다
    (성도님 지적 — 화면마다 타이틀 얼라인이 달라 보임). flex-start로 아이콘을
    제목 첫 줄에 고정해 부제 줄 수와 상관없이 항상 같은 자리에 오게 한다. */
-/* ⚠️ justify-content:center였을 때는 부제가 있어 내용 폭이 넓은 화면(신청서·확인)만
-   왼쪽에 붙어 보이고, 부제가 없어 내용이 짧은 화면(신청현황)은 아이콘+제목 덩어리
-   전체가 가운데로 쏠려 보였다(성도님 지적 — 화면마다 타이틀이 다르게 정렬됨).
-   flex-start로 내용 길이와 상관없이 항상 왼쪽에서 시작하게 한다. */
-.min-intro { display: flex; align-items: flex-start; justify-content: flex-start; gap: 11px;
+/* ⚠️ 아이콘+제목 덩어리를 가운데로 몰되(justify-content:center), 안의 글도
+   같이 가운데 정렬해야 짧은 화면(신청현황)·긴 화면(신청서 — 벧전 4:10 인용)이
+   같은 자리·같은 정렬로 보인다(성도님 요청 — 센터로 통일).
+   왼쪽 정렬로 두면 부제 유무·길이에 따라 덩어리 폭이 달라 화면마다 위치가 튀었다. */
+.min-intro { display: flex; align-items: flex-start; justify-content: center; gap: 11px;
   margin: 2px 0 15px; }
 .min-intro-ico { display: grid; place-items: center; flex: 0 0 42px; width: 42px; height: 42px;
   border-radius: 13px; background: var(--light); font-size: 1.35rem; }
-.min-intro .rank-title { margin: 0 0 2px; text-align: left; }
-.min-intro .min-sub { margin: 0; text-align: left; }
+.min-intro .rank-title { margin: 0 0 2px; text-align: center; }
+.min-intro .min-sub { margin: 0; text-align: center; }
 .min-sub { text-align: center; color: var(--gray); font-size: .92rem; margin: -4px 0 14px; line-height: 1.6; }
 .min-sub b { color: var(--navy); }
 /* 부제가 말씀일 때 — 인용은 줄여 쓰고, 출처는 아래에 금색 한 줄로 */
