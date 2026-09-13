@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260913c";
+const APP_BUILD = "20260913d";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1115,26 +1115,31 @@ function ymdLocal(d) {
 function afterDaysStr(days) { const d = new Date(); d.setDate(d.getDate() + days); return ymdLocal(d); }
 
 // 완료(3단계) 시 복습 일정 시작 (이미 있으면 유지)
+// ⚠️ 쉴만한 물가(시편)는 복습에 넣지 않는다(성도님 결정 2026-09-13) — 열리는 날짜가
+//    매일 달라져 복습 예정과 어긋나기 쉽다(no=1005가 실제로 그랬다: 예약은 됐는데
+//    복습을 열 때는 그 편을 찾을 수 없어 단추를 눌러도 아무 일도 안 일어났다).
 function ensureReviewScheduled(no) {
+  if (isPsalmNo(no)) return;
   const r = loadReview();
   if (!r[no]) { r[no] = { level: 0, next: afterDaysStr(REVIEW_INTERVALS[0]) }; saveReviewData(r); }
 }
-// 오늘까지 복습 예정인 구절No 목록
-// ⚠️ 게이트(psalmVisible)가 꺼져 있으면 시편 구절(no > 1000)은 여기서 뺀다 — 예약
-//    자체(ensureReviewScheduled/loadReview)는 그대로 둔다, 「지금 보여줄 것」만 거른다.
-//    grep 결과 호출부는 renderSummary 의 오늘 복습 개수 표시와 startReview 딱 둘뿐이고
-//    둘 다 「지금 보여줄 수 있는 것」을 원하므로, 각 호출부가 아니라 여기 한 곳에서만
-//    거른다(2026-09-10 리뷰 지적).
+// 오늘까지 복습 예정인 구절No 목록 — renderSummary 의 개수 표시와 startReview 딱
+// 둘이 쓰므로, 각 호출부가 아니라 여기 한 곳에서만 거른다(2026-09-10 리뷰 지적).
 function dueReviewNos() {
   const r = loadReview(); const t = ymdLocal(new Date());
+  // ⚠️ 예전에 걸린 시편 예약이 남아 있으면 여기서 지운다(위 ensureReviewScheduled
+  //    보다 먼저 쓰던 코드가 넣어 둔 것 — 새 예약은 이제 안 생기지만 이미 있던
+  //    것은 스스로 안 없어진다).
+  let purged = false;
+  for (const key of Object.keys(r)) {
+    if (isPsalmNo(key)) { delete r[key]; purged = true; }
+  }
+  if (purged) saveReviewData(r);
   return Object.keys(r).filter((no) => r[no] && r[no].next <= t).map(Number)
-    .filter((no) => psalmVisible() || !isPsalmNo(no))
-    // ⚠️ 일반 구절인데 지금 verses 안에 없으면(관리자가 지웠거나 번호가 바뀐 것)
-    //    「오늘 복습 N구절」 큰 단추가 뜨고도 눌러도 찾을 게 없어 아무 일도 없는
-    //    것처럼 보였다(성도님 제보 2026-09-13 — "처음부터 안 나오게"). 시편은
-    //    이 화면에서 아직 안 받았을 수 있어 여기서는 건드리지 않는다 —
-    //    startReview()가 실제로 열 때 따로 확인한다.
-    .filter((no) => isPsalmNo(no) || verses.some((v) => v.no === no));
+    // ⚠️ 지금 verses 안에 없는 no(관리자가 지웠거나 번호가 바뀐 것)는 뺀다 — 안 그러면
+    //    「오늘 복습 N구절」 단추가 뜨고도 눌러도 찾을 게 없어 아무 일도 없는 것처럼
+    //    보인다(성도님 제보 2026-09-13 — "처음부터 안 나오게").
+    .filter((no) => verses.some((v) => v.no === no));
 }
 // 복습 완료 → 다음(더 긴) 간격으로
 function advanceReview(no) {
@@ -7115,30 +7120,17 @@ function renderChallenge(verse, hard) {
 // ------------------------------------------------------------
 // 복습 화면 — 오늘 복습 대상 구절을 순서대로 3단계(전체 빈칸)로 다시 암송
 // ------------------------------------------------------------
-// ⚠️ 시편 말씀 액자 구절(no ≥ 1001)은 전역 verses 에 없다 — 여기서 합쳐 찾지 않으면
-//    복습 큐에서 조용히 사라진다(예약은 되는데 화면에 안 나온다).
-//    시편은 아직 안 받았을 수 있으니 필요할 때만 기다린다.
+// ⚠️ 쉴만한 물가(시편)는 복습 대상이 아니다(성도님 결정 2026-09-13) — dueReviewNos()가
+//    애초에 시편 번호를 걸러내므로 여기서는 일반 verses만 신경 쓰면 된다.
 async function startReview() {
   try {
     const dueNos = dueReviewNos();
-    let psalmLoadFailed = false;
-    if (dueNos.some(isPsalmNo)) {
-      // 못 받으면 주간 것만이라도 복습한다 — 다만 그 결과 큐가 통째로 비면(시편만
-      // 복습 대상이었다는 뜻) 아래에서 안내한다(2026-09-10 리뷰 지적 — 안 그러면
-      // 큰 단추를 눌러도 화면이 그대로라 어르신은 고장인 줄 알고 다시 누르신다).
-      try { await loadPsalmVerses(); } catch (e) { psalmLoadFailed = true; }
-    }
-    const pool = verses.concat(psalmVerses || []);
-    const queue = pool.filter((v) => dueNos.includes(v.no));
+    const queue = verses.filter((v) => dueNos.includes(v.no));
     if (!queue.length) {
-      if (psalmLoadFailed) { appAlert("불러오지 못했어요. 잠시 뒤 다시 눌러 주세요."); return; }
       // ⚠️ 지금 있는 구절 목록으로 찾지 못한 복습 예정은 지운다 — 안 그러면 다음에도
       //    똑같이 「복습 N구절」이 뜨고 단추는 계속 아무 일도 안 한다(성도님 제보
       //    2026-09-13 — 눌러도 화면이 그대로였다). 구절이 없어진 것뿐이니 조용히
       //    지우고 숫자를 맞춘다 — 굳이 알릴 일은 아니다.
-      // 🔎 임시 진단(2026-09-13) — 어느 no가 자꾸 되살아나는지 잡히지 않아 잠깐 남긴다.
-      //    문제가 풀리면 이 줄은 지운다.
-      appAlert("진단용: 못 찾은 복습 번호 = " + dueNos.join(", "));
       const r = loadReview();
       let changed = false;
       for (const no of dueNos) { if (r[no]) { delete r[no]; changed = true; } }
