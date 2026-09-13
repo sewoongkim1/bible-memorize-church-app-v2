@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260913f";
+const APP_BUILD = "20260913g";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -316,8 +316,12 @@ function refreshEventOpen() {
     // ⚠️ 이름과 「등록/조회」는 **서버가 정해서 내려준다**(shown·verb). 여기서 다시
     //    판단하면 성도 화면과 갈라진다 — 오늘만 그 부류를 셋 봤다.
     //    회차가 여럿이면 하나를 고를 수 없으니 묶어서 쓴다.
+    // ⚠️ 「조회」는 안 붙인다(성도님 요청) — 눌러 보면 어차피 보는 것이라, 뭘 하는지
+    //    꼭 알려야 하는 「등록」과 달리 없어도 헷갈리지 않는다. 짧아져서 좁은 폰에서
+    //    한 줄로 들어오는 데도 도움이 된다.
     const label = n === 1
-      ? [list[0].shown || list[0].title, list[0].verb].filter(Boolean).join(" ")
+      ? [list[0].shown || list[0].title, list[0].verb === "등록" ? list[0].verb : ""]
+          .filter(Boolean).join(" ")
       : (n > 1 ? "이벤트 " + n + "개" : "이벤트 신청·명단");
     try { localStorage.setItem(EVENT_LABEL_KEY, label); } catch (e) {}
     // ⚠️ **값이 바뀌면 그 자리에서 다시 그린다.** 캐시만 고치고 두면 새로고침해야만

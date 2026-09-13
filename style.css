@@ -1738,11 +1738,14 @@ html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
 .summary-change:hover { background: var(--cream); }
 
 /* 요약 화면 도움말 버튼 (한 줄 전체) */
+/* ⚠️ 글이 길면(예: "썸머 써 바이블 완서자") 좁은 폰에서 두 줄로 접혔다
+   (성도님 요청 — 작은 폰에서도 한 줄로). 줄바꿈 대신 말줄임으로 막는다. */
 .summary-help {
   width: 100%; padding: 12px; font-size: .98rem; font-weight: 700;
   color: var(--navy); background: #eef1f8; border: 1.5px solid var(--navy);
   border-radius: 12px; cursor: pointer; font-family: inherit; margin-bottom: 8px;
   transition: background .15s, color .15s;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .summary-help:hover { background: var(--navy); color: #fff; }
 
