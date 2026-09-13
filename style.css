@@ -5189,12 +5189,14 @@ html[data-fs] .ps-fr-body .word-input{ font-size:inherit; }
   border-radius:999px;padding:3px 10px;white-space:nowrap}
 /* ⚠️ 한 줄에 한 명씩이면 164명이 5,000px 넘게 흐른다 — 자기 이름까지 한참 굴려야
    한다. 소속으로 묶고 **한 줄에 여러 명**으로 흘린다(친구 지시 2026-09-10,
-   어드민 「묶음 보기」와 같은 모양). */
-.ev-grp-l{display:flex;flex-wrap:wrap;list-style:none;margin:0;padding:0;
-  line-height:2}
-.ev-grp-l li{padding:2px 4px;font-size:15px;color:#3a4250;white-space:nowrap}
-.ev-grp-l li::after{content:"·";color:#c9cfd9;margin-left:8px}
-.ev-grp-l li:last-child::after{content:""}
+   어드민 「묶음 보기」와 같은 모양).
+   ⚠️ flex-wrap + 항목마다 뒤에 「·」였을 때는, 이름 길이 때문에 한 줄에 꼭 둘씩만
+   접혀 매 줄 끝(=다음 사람과 안 이어지는 자리)에도 점이 대롱대롱 남았다
+   (성도님 지적 — "예쁘게 만들어 주세요"). 아예 2열 표로 고정하고 점을 뺀다. */
+.ev-grp-l{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));list-style:none;
+  margin:0;padding:0;gap:2px 10px}
+.ev-grp-l li{padding:4px 2px;font-size:15px;color:#3a4250;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
 
 .dark .ev-mine-card{background:linear-gradient(135deg,#14231c,#122019);border-color:#2f5a41;
   box-shadow:0 2px 8px rgba(0,0,0,.25)}
@@ -5209,7 +5211,6 @@ html[data-fs] .ps-fr-body .word-input{ font-size:inherit; }
 .dark .ev-grp-nm{color:#8fb3e6}
 .dark .ev-grp-n{background:#182739;color:#8fb3e6}
 .dark .ev-grp-l li{color:#c3cbd8}
-.dark .ev-grp-l li::after{color:#3d4a63}
 
 /* ===== 시편 말씀 액자 — 첫 화면 「이전 · 암송 · 다음」 (2026-09-10 성도님 요청) =====
    첫 화면은 액자 한 장 + 이 세 단추뿐이다. 지난 말씀 목록·진행 줄·아래 고정 단추는 걷어냈다.

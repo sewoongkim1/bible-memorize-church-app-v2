@@ -251,24 +251,15 @@ function evtDrawForm(u, eventId) {
     '<button class="ev-back" id="ev-back">← 목록</button></div>' +
     (e.subtitle ? '<p class="ev-lead">' + evtEsc(e.subtitle) + "</p>" : "") +
     (e.copy && e.copy.intro
-      ? '<div class="ev-note">' + evtEsc(e.copy.intro) + "</div>" : "") +
+      ? '<div class="ev-note">' + evtEsc(e.copy.intro) + "</div>" : "");
 
-    // 신원은 묻지 않는다 — 로그인 정보가 그대로 들어간다.
-    //  마감된 회차에서는 「등록됩니다」가 아니라 「이 정보로 찾습니다」다.
-    '<div class="ev-who"><div class="ev-who-l">' +
-    (canSignup ? "이렇게 등록됩니다" : "이 정보로 명단에서 찾습니다") + "</div>" +
-    '<div class="ev-who-v"><b>' + evtEsc(u.name) + "</b> · " + evtEsc(who) +
-    "</div></div>";
-
-  // ── 마감된 회차: 폼 대신 「내 등록 + 전체 명단」 ──────────────
+  // ── 마감된 회차: 폼 대신 「전체 명단」(안에서 내 것도 찾아 준다) ──────
   // 옛 사이트는 마감되면 조회까지 죽어 막다른 화면이 됐다. 여기서는 마감이
   // 「등록만 막히고 보는 것은 살아 있는」 상태다(events.status = closed).
   if (!canSignup) {
-    if (mine) {
-      html += '<div class="ev-mine-card"><div class="ev-mine-t">✅ 참여하셨어요</div>' +
-        (mine.position ? '<div class="ev-mine-v">' + evtEsc(mine.position) + "</div>" : "") +
-        '<div class="ev-mine-at">' + evtEsc(String(mine.at || "").slice(0, 10)) + " 신청</div></div>";
-    }
+    // ⚠️ 「이 정보로 명단에서 찾습니다」·「참여하셨어요」 카드를 여기서 뺐다
+    //    (2026-09-13 성도님 지적 — 셋이 같은 말을 반복했다: 이 안내, mine-card,
+    //    그리고 명단 안의 「찾았어요」). 명단 쪽 하나만 남긴다.
     html += evtRosterHtml(u, eventId) ||
       '<div class="ev-note">명단을 불러오지 못했어요. 잠시 뒤 다시 눌러 주세요.</div>';
     document.getElementById("app").innerHTML =
@@ -280,11 +271,14 @@ function evtDrawForm(u, eventId) {
       .addEventListener("click", function () { renderSummary(); });
     document.getElementById("ev-back")
       .addEventListener("click", function () { evtForm = null; renderEventList(null); });
-    // ⚠️ 명단 줄 안에서 「← 나」를 표시하거나 그 자리로 스크롤하지 않는다
-    //    (2026-09-10 성도님 지시) — 본인 것은 이미 위 안내(찾았어요/mine-card)에서
-    //    「앞에」 알려 줬으니, 아래 명단 안에서 또 짚어 주는 것은 중복이다.
     return;
   }
+
+  // 신원은 묻지 않는다 — 로그인 정보가 그대로 들어간다.
+  // 등록 중(canSignup)에만 보여 준다 — 마감 뒤에는 명단 쪽 「찾았어요」 하나로 충분하다.
+  html += '<div class="ev-who"><div class="ev-who-l">이렇게 등록됩니다</div>' +
+    '<div class="ev-who-v"><b>' + evtEsc(u.name) + "</b> · " + evtEsc(who) +
+    "</div></div>";
 
   if (needs.position) {
     // ⚠️ 목록을 여기 베껴 두지 않는다 — 사역신청(app.js:9081)·서버(index.ts)와 셋이
