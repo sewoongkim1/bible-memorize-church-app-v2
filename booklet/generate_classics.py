@@ -45,6 +45,11 @@ FIT_MODE = '--fit' in sys.argv
 NO_BOLD = '--no-bold' in sys.argv
 LINES_MODE = '--lines' in sys.argv
 SPLIT = '--split' in sys.argv
+# 담당 목사 이름을 **뺀 판**(2026-09-13 성도님 요청). 이름이 들어가는 곳은 차례의 묶음 머리
+#   오른쪽 한 자리뿐이다(`.bk-hd .st`). 원고의 `staff` 는 그대로 두고 그리기만 건너뛴다 —
+#   원고에서 지우면 이름 있는 판을 다시 뽑을 길이 사라진다.
+# ⚠️ 파일 이름에 `_이름없음` 이 붙는다 — 두 판이 같은 이름이면 서로를 덮어쓴다.
+NO_STAFF = '--no-staff' in sys.argv
 SIZE = arg_val('--size', 'a5')
 if SIZE not in ('a5', 'a4'):
     raise SystemExit('!! --size 는 a5 또는 a4 여야 합니다(받은 값: %s)' % SIZE)
@@ -723,9 +728,10 @@ def index_pages(items, start_pno):
             % (esc(e['sub'] or '%s %d' % (e['book'], CIRCLED.find(e['mark']) + 1)),
                esc(e['date']), e['page'])
             for e in b['eps'])
+        st = '' if NO_STAFF else '<span class="st">%s</span>' % esc(b['staff'])
         return ('<div class="bk"><div class="bk-hd"><span class="nm">%s</span>'
-                '<span class="au">%s</span><span class="st">%s</span></div>%s</div>'
-                % (esc(b['book']), esc(b['author']), esc(b['staff']), eps))
+                '<span class="au">%s</span>%s</div>%s</div>'
+                % (esc(b['book']), esc(b['author']), st, eps))
 
     # 줄 수(묶음머리 + 편)가 반씩 되게 가른다
     weights = [1 + len(b['eps']) for b in books]
@@ -1049,8 +1055,8 @@ if SCR_LINES is None:
     print('   !! 성경본문 줄 수를 재지 못해 자수 어림으로 갑니다(칸이 한두 줄 어긋날 수 있습니다).')
 
 # 이름에 판형·줄 간격·판이 들어간다. A4 판은 줄 간격도 √2 배라 A5 기준 값을 적는다.
-OUT_NAME = arg_val('--out', '기독교고전_전교인필사_%s_%.1f(%s)'
-                   % (SIZE.upper(), LINE_LABEL, BOOK_VER))
+OUT_NAME = arg_val('--out', '기독교고전_전교인필사_%s_%.1f(%s)%s'
+                   % (SIZE.upper(), LINE_LABEL, BOOK_VER, '_이름없음' if NO_STAFF else ''))
 pages = len(ITEMS) * 2 + 4
 pages += (-pages) % 4
 INFO = ('%d쪽 · 본문 %.1fpt · 줄 %gmm(한 줄 %d자) · 말씀 칸 최대 %d줄'
