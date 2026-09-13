@@ -1,0 +1,12 @@
+{
+  "appId": "kr.onlybible.gocheok.memorize",
+  "appName": "고척교회 성경암송",
+  "webDir": "www",
+  "server": {
+    "url": "https://gocheok.onlybible.kr",
+    "cleartext": false
+  },
+  "ios": {
+    "contentInset": "automatic"
+  }
+}

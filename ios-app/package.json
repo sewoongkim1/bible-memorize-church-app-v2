@@ -1,0 +1,16 @@
+{
+  "name": "gocheok-memorize-ios",
+  "version": "1.0.0",
+  "private": true,
+  "description": "고척교회 성경암송 iOS 앱 — gocheok.onlybible.kr을 불러오는 Capacitor 웹뷰 껍데기",
+  "scripts": {
+    "sync": "cap sync ios"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/ios": "^6.2.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0"
+  }
+}
