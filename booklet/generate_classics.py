@@ -719,14 +719,21 @@ def index_pages(items, start_pno):
     def block(b):
         # 편 이름은 **「참된 목자 1」 꼴**로 쓴다(2026-09-09 요청).
         #   한때 성경본문 출처(로마서 6:23)를 넣었으나, 차례에서 찾는 것은 「몇 번째 편인가」다.
-        #   ⚠️ 소제목(천로역정·고백록 등)이 있으면 그것이 이긴다 — 그 편에서만 알 수 있는
-        #      정보이고, 「천로역정 1」보다 「내가 진리의 길을 걷는다」가 훨씬 잘 가린다.
+        #   ⚠️ 소제목(고백록 등)이 있으면 그것이 이긴다 — 그 편에서만 알 수 있는 정보다.
+        #   ⚠️ 다만 `classics.json` 의 `toc_numbered` 에 적힌 책은 소제목이 있어도 **번호로** 쓴다
+        #      (2026-09-13 성도님 요청 — 천로역정 1·2·3). 소제목은 원고에 그대로 두어
+        #      고전 쪽 제목 아래에는 계속 나온다. 차례에서만 번호로 바뀐다.
+        numbered = set(D.get('toc_numbered', []))
+
+        def ep_name(e):
+            num = '%s %d' % (e['book'], CIRCLED.find(e['mark']) + 1)
+            return num if e['book'] in numbered else (e['sub'] or num)
+
         eps = ''.join(
             '<div class="ep"><span class="nm">%s</span>'
             '<span class="dot"></span><span class="dt">%s</span>'
             '<span class="pg">%d</span></div>'
-            % (esc(e['sub'] or '%s %d' % (e['book'], CIRCLED.find(e['mark']) + 1)),
-               esc(e['date']), e['page'])
+            % (esc(ep_name(e)), esc(e['date']), e['page'])
             for e in b['eps'])
         st = '' if NO_STAFF else '<span class="st">%s</span>' % esc(b['staff'])
         return ('<div class="bk"><div class="bk-hd"><span class="nm">%s</span>'
