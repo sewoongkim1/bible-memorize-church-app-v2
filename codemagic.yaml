@@ -1,0 +1,39 @@
+workflows:
+  ios-testflight:
+    name: iOS TestFlight 업로드
+    max_build_duration: 60
+    integrations:
+      app_store_connect: gocheok_memorize_asc  # Codemagic 콘솔에서 이 이름으로 API 키를 등록해 둔다
+    environment:
+      groups:
+        - ios_signing  # Codemagic 콘솔에서 이 그룹에 인증서 자동 관리 변수가 들어간다
+      vars:
+        BUNDLE_ID: "kr.onlybible.gocheok.memorize"
+      node: 20.11.1
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: npm install (ios-app)
+        script: |
+          cd ios-app
+          npm install
+      - name: 네이티브 iOS 프로젝트 생성 (매 빌드마다 새로)
+        script: |
+          cd ios-app
+          npx cap add ios
+          npx cap sync ios
+      - name: 코드 서명 설정 가져오기
+        script: |
+          xcode-project use-profiles
+      - name: Xcode 빌드
+        script: |
+          cd ios-app/ios/App
+          xcode-project build-ipa \
+            --workspace App.xcworkspace \
+            --scheme App
+    artifacts:
+      - ios-app/ios/App/build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
