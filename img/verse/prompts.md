@@ -3,6 +3,20 @@
 설계: `docs/superpowers/specs/2026-08-28-verse-image-design.md`
 모델: `nano_banana_pro` · 4:3 · 원본 2400×1792 PNG → 긴 변 1080px WebP(품질 78)
 
+## 37번 신규 (2026-09-13)
+
+이번주 말씀(고전 3:7, "심는 이나 물 주는 이는 아무 것도 아니로되 오직 자라게
+하시는 이는 하나님뿐이니라")에 세 장(대표 수채 + 구아슈 짝 둘)을 만들었다.
+같은 날 반영한 설교("하나님은 공장장이 아니라 아버지입니다")와 짝이 맞는 구절.
+
+심상: `A single small green seedling sprouting from dark soil in a terracotta
+pot, an old tin watering can resting quietly beside it, soft morning light
+falling on the tender new leaves.`
+
+「심는 이」·「물 주는 이」는 사람이라 화풍 문구(`no human figures`)에 걸린다 —
+**심는 도구(화분에 이미 자란 새싹)와 물 주는 도구(물뿌리개)로** 사람 없이
+구절의 두 행위를 함께 담았다. 셋 다 한 번에 통과(재시도 없음).
+
 ## 벡터 11장을 구아슈로 교체 · 35번 신규 (2026-09-03)
 
 Higgsfield 크레딧이 생겨(258) **벡터로 임시로 채웠던 11장을 구아슈로 다시
