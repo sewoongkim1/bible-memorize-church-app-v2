@@ -9,24 +9,25 @@ workflows:
         - ios_signing # CERTIFICATE_PRIVATE_KEY (배포 인증서 개인 키)를 secret으로 저장
       vars:
         BUNDLE_ID: "kr.onlybible.gocheok.memorize"
+        WIDGET_BUNDLE_ID: "kr.onlybible.gocheok.memorize.todayverse"
         APP_ID: "6811724527"
       node: 20.11.1
       xcode: latest
       cocoapods: default
     scripts:
-      - name: npm install (ios-app)
+      - name: 네이티브 iOS 프로젝트 동기화 (기존 ios/ 유지, 위젯 타겟 보존)
         script: |
           cd ios-app
           npm install
-      - name: 네이티브 iOS 프로젝트 생성 (매 빌드마다 새로)
-        script: |
-          cd ios-app
-          npx cap add ios
           npx cap sync ios
-      - name: 코드 서명 설정 가져오기 (자동)
+      - name: 코드 서명 설정 가져오기 (자동, 앱 + 위젯 둘 다)
         script: |
           keychain initialize
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create \
+            --certificate-key "@env:CERTIFICATE_PRIVATE_KEY"
+          app-store-connect fetch-signing-files "$WIDGET_BUNDLE_ID" \
             --type IOS_APP_STORE \
             --create \
             --certificate-key "@env:CERTIFICATE_PRIVATE_KEY"
