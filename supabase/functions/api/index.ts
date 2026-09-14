@@ -175,6 +175,7 @@ Deno.serve(async (req) => {
       case "pushSubscribers": return json(await pushSubscribers(body));
       case "sendPush":      return json(await sendPush(body));
       case "weeklyVersePush": return json(await weeklyVersePush(body));
+      case "getWeeklyVerse":  return json(await latestVerse() ?? {});
       // ---- 장애 모니터링 ----
       case "monitor":       return json(await monitor(body));
       // ---- 주간 리포트 메일 ----
