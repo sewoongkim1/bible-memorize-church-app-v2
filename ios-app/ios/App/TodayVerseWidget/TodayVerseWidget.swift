@@ -85,7 +85,20 @@ struct TodayVerseWidgetView: View {
             }
         }
         .padding()
-        .containerBackground(.background, for: .widget)
+        .widgetBackground()
+    }
+}
+
+// containerBackground(_:for:)는 iOS 17+ 전용 — 이 위젯의 배포 타겟은 16.0(설계 결정)
+// 이라 16에서도 도는 대체 배경을 함께 둔다.
+private extension View {
+    @ViewBuilder
+    func widgetBackground() -> some View {
+        if #available(iOS 17.0, *) {
+            containerBackground(.background, for: .widget)
+        } else {
+            background()
+        }
     }
 }
 
