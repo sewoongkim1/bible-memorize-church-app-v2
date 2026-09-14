@@ -30,7 +30,7 @@
 | 사용 설명서·guide/·인쇄물 | `docs/notes/manual-guide.md` |
 | 필사 노트 신청 | `docs/notes/pilsa-orders.md` |
 | 사역신청(2027) | `docs/notes/ministry-2027.md` |
-| 기독교 고전 소책자 | `docs/notes/classics-booklet.md` |
+| 기독교 고전 소책자(2026-09-14 완료 · 다시 뽑을 때만) | `docs/notes/classics-booklet.md` |
 | 관리자 통계 '카드' 열 | `docs/notes/stats-admin.md` |
 | 측정(카드 쓰임·전환율) | `docs/notes/metrics.md` |
 | 액션·테이블·시크릿 목록 | `docs/notes/backend-api.md` |
@@ -149,9 +149,6 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
       ⚠️ **이미 된 것과 함정**(`supabase db query --linked` 는 운영이다 · 시드 SQL 만 돌리면 켜져 있던 구절이
       꺼진다 · 게시판 목록은 사진을 `photos` 로 준다)은 `docs/notes/psalm-still-waters.md` 에 있다.
 
-- [ ] **기독교 고전 소책자 — 인쇄 전 남은 것**(본편은 완성·커밋, PDF 도 2026-09-11에 다시 뽑았다):
-      ① 찬송 열(원본이 비어 목차에서 뺐다) ② `_중철A4.pdf` 한 부 뽑아 **접어서 쪽 순서 확인**
-      ③ 담당자에게 물을 표기 두 곳. 자세한 것은 `docs/notes/classics-booklet.md` 끝.
 - [ ] **사역신청(2027) — 담당자 데이터 확정 대기(개발 착수 전).** 앱이 열리기 전까지는 올해도 종이로 받는다.
       기획 `docs/superpowers/specs/2026-09-06-ministry-application-design.md` · 확인 양식 `tools/ministry-form-gen.py`
       · 종이 신청서 `tools/ministry-apply-form-gen.py`
