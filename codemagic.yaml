@@ -22,6 +22,11 @@ workflows:
           cd ios-app
           npx cap add ios
           npx cap sync ios
+      - name: 빌드 번호 자동 증가 (TestFlight 최신 번호 + 1)
+        script: |
+          cd ios-app/ios/App
+          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-testflight-build-number "$BUNDLE_ID")
+          agvtool new-version -all $(($LATEST_BUILD_NUMBER + 1))
       - name: 코드 서명 설정 가져오기
         script: |
           xcode-project use-profiles
