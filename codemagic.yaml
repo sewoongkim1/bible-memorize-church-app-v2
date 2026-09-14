@@ -9,6 +9,7 @@ workflows:
         - ios_signing # CERTIFICATE_PRIVATE_KEY (배포 인증서 개인 키)를 secret으로 저장
       vars:
         BUNDLE_ID: "kr.onlybible.gocheok.memorize"
+        APP_ID: "6811724527"
       node: 20.11.1
       xcode: latest
       cocoapods: default
@@ -22,11 +23,6 @@ workflows:
           cd ios-app
           npx cap add ios
           npx cap sync ios
-      - name: 빌드 번호 자동 증가 (TestFlight 최신 번호 + 1)
-        script: |
-          cd ios-app/ios/App
-          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-testflight-build-number "$BUNDLE_ID")
-          agvtool new-version -all $(($LATEST_BUILD_NUMBER + 1))
       - name: 코드 서명 설정 가져오기 (자동)
         script: |
           keychain initialize
@@ -36,6 +32,13 @@ workflows:
             --certificate-key "@env:CERTIFICATE_PRIVATE_KEY"
           keychain add-certificates
           xcode-project use-profiles
+      - name: 빌드 번호 자동 증가
+        script: |
+          cd ios-app/ios/App
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_ID" || echo 0)
+          NEXT=$(($LATEST + 1))
+          echo "빌드 번호를 $NEXT 로 설정"
+          agvtool new-version -all "$NEXT" || plutil -replace CFBundleVersion -string "$NEXT" App/Info.plist
       - name: Xcode 빌드
         script: |
           cd ios-app/ios/App
