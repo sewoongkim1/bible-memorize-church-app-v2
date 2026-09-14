@@ -5,6 +5,8 @@ workflows:
     integrations:
       app_store_connect: gocheok_memorize_asc # Codemagic 콘솔에서 이 이름으로 API 키를 등록해 둔다
     environment:
+      groups:
+        - ios_signing # CERTIFICATE_PRIVATE_KEY (배포 인증서 개인 키)를 secret으로 저장
       vars:
         BUNDLE_ID: "kr.onlybible.gocheok.memorize"
       node: 20.11.1
@@ -25,7 +27,8 @@ workflows:
           keychain initialize
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
-            --create
+            --create \
+            --certificate-key "@env:CERTIFICATE_PRIVATE_KEY"
           keychain add-certificates
           xcode-project use-profiles
       - name: Xcode 빌드
