@@ -58,7 +58,9 @@ body {
   flex-direction: column;
   align-items: center;
   background: linear-gradient(135deg, #0d1b3e 0%, #1a3a6b 40%, #0d4a7a 100%);
-  padding: 6px 20px 6px;
+  /* 배경은 상태바·다이내믹 아일랜드까지 꽉 채우고, 로고·문구는 그 아래부터 —
+     viewport-fit=cover 를 켜야 env(safe-area-inset-top)이 실제 값을 준다(2026-09-15). */
+  padding: calc(6px + env(safe-area-inset-top, 0px)) 20px 6px;
   width: 100%;
 }
 .logo-wrap {
