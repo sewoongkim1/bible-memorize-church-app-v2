@@ -1,13 +1,27 @@
 import UIKit
 import Capacitor
 import UserNotifications
+import WebKit
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
     var window: UIWindow?
+    private let statusBarBackground = UIView()
+    private let brandNavy = UIColor(red: 0.05, green: 0.11, blue: 0.24, alpha: 1)
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        installStatusBarBackground()
+        configureNativeAppCss()
+        configureWebViewScrolling()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            self.configureNativeAppCss()
+            self.configureWebViewScrolling()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            self.configureNativeAppCss()
+            self.configureWebViewScrolling()
+        }
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
             guard granted else { return }
             DispatchQueue.main.async {
@@ -15,6 +29,54 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             }
         }
         return true
+    }
+
+    private func installStatusBarBackground() {
+        guard let window = window else { return }
+        window.backgroundColor = brandNavy
+        window.rootViewController?.view.backgroundColor = brandNavy
+        if statusBarBackground.superview == nil {
+            statusBarBackground.backgroundColor = brandNavy
+            statusBarBackground.isUserInteractionEnabled = false
+            statusBarBackground.translatesAutoresizingMaskIntoConstraints = false
+            window.addSubview(statusBarBackground)
+            NSLayoutConstraint.activate([
+                statusBarBackground.topAnchor.constraint(equalTo: window.topAnchor),
+                statusBarBackground.leadingAnchor.constraint(equalTo: window.leadingAnchor),
+                statusBarBackground.trailingAnchor.constraint(equalTo: window.trailingAnchor),
+                statusBarBackground.bottomAnchor.constraint(equalTo: window.safeAreaLayoutGuide.topAnchor),
+            ])
+        }
+        window.bringSubviewToFront(statusBarBackground)
+    }
+
+    private func configureNativeAppCss() {
+        guard let rootView = window?.rootViewController?.view else { return }
+        applyNativeAppCss(in: rootView)
+    }
+
+    private func applyNativeAppCss(in view: UIView) {
+        if let webView = view as? WKWebView {
+            webView.evaluateJavaScript("document.documentElement.style.setProperty('--app-safe-top', '0px')")
+        }
+        for subview in view.subviews {
+            applyNativeAppCss(in: subview)
+        }
+    }
+
+    private func configureWebViewScrolling() {
+        guard let rootView = window?.rootViewController?.view else { return }
+        disableBounce(in: rootView)
+    }
+
+    private func disableBounce(in view: UIView) {
+        if let webView = view as? WKWebView {
+            webView.scrollView.bounces = false
+            webView.scrollView.alwaysBounceVertical = false
+        }
+        for subview in view.subviews {
+            disableBounce(in: subview)
+        }
     }
 
     // 기기 토큰을 받으면, 웹뷰의 로그인 정보(localStorage의 memorize-user)를 읽어
@@ -63,6 +125,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
+        installStatusBarBackground()
+        configureNativeAppCss()
+        configureWebViewScrolling()
     }
 
     func applicationWillTerminate(_ application: UIApplication) {
