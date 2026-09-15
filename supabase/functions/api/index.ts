@@ -663,7 +663,21 @@ async function sendPush(b: any) {
     if (ok) sent++;
     else { failed++; if (errs.length < 3) errs.push(`[${lastCode || "ERR"}] ${lastMsg}`); }
   }
-  const total = (subs ?? []).length;
+  // ---- iOS 네이티브 푸시(APNs) — 같은 hour/user_id 필터로 함께 보낸다 ----
+  let iosQ = db.from("ios_push_tokens").select("id,device_token");
+  if (b.hour) iosQ = iosQ.eq("hour", Number(b.hour));
+  if (b.user_id) iosQ = iosQ.eq("user_id", b.user_id);
+  const { data: iosTokens } = await iosQ;
+  for (const t of (iosTokens ?? []) as any[]) {
+    const r = await sendApns(t.device_token, title || "성경말씀 암송", body || "오늘의 말씀을 암송해요! 🙌");
+    if (r === "ok") sent++;
+    else {
+      failed++;
+      if (r === "gone") await db.from("ios_push_tokens").delete().eq("id", t.id);
+      if (errs.length < 3) errs.push(`[ios:${r}] ${t.device_token.slice(0, 8)}…`);
+    }
+  }
+  const total = (subs ?? []).length + (iosTokens ?? []).length;
   // 진단 모드: 실제 에러/설정 상태를 반환(관리자 호출 시에만 노출)
   if (b.diag) return { ok: true, sent, failed, total, vapidReady, vapidSubject: VAPID_SUBJECT, errors: errs };
   // 장애 모니터링용 발송 로그 기록(실패해도 발송 결과에는 영향 없음)
