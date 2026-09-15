@@ -162,6 +162,7 @@ Deno.serve(async (req) => {
       case "importV1":      return json(await importV1(body));
       // ---- Web Push ----
       case "savePush":      return json(await savePush(body));
+      case "saveIosPushToken": return json(await saveIosPushToken(body));
       case "removePush":    return json(await removePush(body));
       case "removePushByUser": return json(await removePushByUser(body));
       case "testPush":      return json(await testPush(body));
@@ -342,6 +343,18 @@ async function savePush(b: any) {
     // hour 컬럼 마이그레이션 전이면 시간 없이 저장(폴백)
     ({ error } = await db.from("push_subscriptions").upsert(base, { onConflict: "endpoint" }));
   }
+  if (error) throw error;
+  return { ok: true, hour };
+}
+
+// ---------- saveIosPushToken: iOS 네이티브 푸시 토큰 저장 ----------
+async function saveIosPushToken(b: any) {
+  const token = String(b.deviceToken || "").trim();
+  if (!token) return { ok: false, error: "no-token" };
+  if (!b.user_id) return { ok: false, error: "no-user" };
+  const hour = [5, 6, 7, 8].includes(Number(b.hour)) ? Number(b.hour) : 7;
+  const { error } = await db.from("ios_push_tokens")
+    .upsert({ user_id: b.user_id, device_token: token, hour }, { onConflict: "device_token" });
   if (error) throw error;
   return { ok: true, hour };
 }
