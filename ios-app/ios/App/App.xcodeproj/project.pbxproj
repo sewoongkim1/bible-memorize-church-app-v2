@@ -345,6 +345,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				INFOPLIST_FILE = TodayVerseWidget/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = kr.onlybible.gocheok.memorize.todayverse;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -510,6 +511,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				INFOPLIST_FILE = TodayVerseWidget/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = kr.onlybible.gocheok.memorize.todayverse;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
