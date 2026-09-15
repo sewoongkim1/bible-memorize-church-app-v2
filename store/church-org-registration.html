@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>교회단체 개발자 계정 등록 안내</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", sans-serif;
+    color: #1c1c1c;
+    font-size: 11pt;
+    line-height: 1.65;
+    margin: 0;
+    word-break: keep-all;
+  }
+  h1 {
+    font-size: 18pt;
+    margin: 0 0 4pt;
+    border-bottom: 3px solid #2b4a7d;
+    padding-bottom: 10pt;
+  }
+  .subtitle {
+    color: #555;
+    font-size: 10pt;
+    margin: 0 0 18pt;
+  }
+  h2 {
+    font-size: 13pt;
+    color: #2b4a7d;
+    margin: 20pt 0 8pt;
+    display: flex;
+    align-items: center;
+    gap: 8pt;
+  }
+  h2 .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20pt;
+    height: 20pt;
+    flex: 0 0 20pt;
+    background: #2b4a7d;
+    color: #fff;
+    border-radius: 50%;
+    font-size: 10.5pt;
+  }
+  p { margin: 0 0 8pt; }
+  .lead {
+    background: #eef2f8;
+    border-left: 4px solid #2b4a7d;
+    padding: 10pt 12pt;
+    margin: 0 0 6pt;
+  }
+  .box {
+    border: 1px solid #d7dce4;
+    border-radius: 6pt;
+    padding: 10pt 12pt;
+    margin: 6pt 0 10pt;
+  }
+  table.compare {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8pt 0 14pt;
+    font-size: 10pt;
+  }
+  table.compare th, table.compare td {
+    border: 1px solid #d7dce4;
+    padding: 6pt 8pt;
+    text-align: left;
+    vertical-align: top;
+  }
+  table.compare th {
+    background: #2b4a7d;
+    color: #fff;
+    font-weight: 600;
+  }
+  table.compare tr:nth-child(even) td { background: #f7f9fc; }
+  ol.steps { margin: 4pt 0 10pt; padding-left: 18pt; }
+  ol.steps li { margin-bottom: 6pt; }
+  .checklist { margin: 6pt 0 10pt; padding: 0; list-style: none; }
+  .checklist li {
+    display: flex;
+    align-items: flex-start;
+    gap: 8pt;
+    margin-bottom: 9pt;
+    padding-bottom: 9pt;
+    border-bottom: 1px solid #e7ebf1;
+  }
+  .checkbox {
+    flex: 0 0 13pt;
+    width: 13pt;
+    height: 13pt;
+    border: 1.5px solid #2b4a7d;
+    border-radius: 2pt;
+    margin-top: 2pt;
+  }
+  .checklist .label { font-weight: 600; }
+  .checklist .note { color: #666; font-size: 9.5pt; margin-top: 2pt; }
+  .rail {
+    display: flex;
+  }
+  .rail .bar {
+    flex: 0 0 4pt;
+    background: #c98a2c;
+    border-radius: 2pt;
+    margin-right: 10pt;
+  }
+  .rail .content { flex: 1 1 auto; }
+  .callout-title { font-weight: 700; color: #9a5710; margin-bottom: 3pt; }
+  .footer {
+    margin-top: 22pt;
+    padding-top: 10pt;
+    border-top: 1px solid #d7dce4;
+    color: #777;
+    font-size: 9pt;
+  }
+  .contact-line { margin-top: 4pt; }
+  strong { color: #12233f; }
+</style>
+</head>
+<body>
+
+<h1>교회단체 개발자 계정 등록 안내</h1>
+<p class="subtitle">고척교회 성경말씀 암송 앱 — 애플 앱스토어 · 구글 플레이스토어 단체(교회 명의) 계정 전환 자료 · 2026년 9월</p>
+
+<p class="lead">
+지금 앱은 <strong>개인 명의</strong>로 스토어에 올리고 있습니다. 교회 명의(단체)로 계정을 등록하면
+① 앱스토어·플레이스토어에 <strong>"고척교회"</strong> 이름으로 정식 출시되고,
+② 특히 구글 플레이스토어에서 반복해서 발목을 잡은 <strong>"테스터 12명 × 14일 비공개 테스트"</strong>
+요건이 면제됩니다. 이 문서는 그 등록에 필요한 것과 절차를 정리한 것입니다.
+</p>
+
+<h2><span class="num">1</span> 공통 준비물 — D-U-N-S 번호</h2>
+<p>
+애플과 구글 모두 단체 계정 등록에 <strong>D-U-N-S 번호</strong>(던앤브래드스트리트가 발급하는
+사업자·단체 고유 9자리 식별번호)를 요구합니다. 이미 가진 단체도 있고 새로 받아야 하는 단체도 있어,
+먼저 교회가 이 번호를 갖고 있는지부터 확인이 필요합니다.
+</p>
+<div class="box">
+  <p style="margin:0 0 4pt"><strong>신청 방법</strong> (없을 경우, 무료)</p>
+  <p style="margin:0 0 4pt">애플 조회·신청 도구: developer.apple.com/enroll/duns-lookup</p>
+  <p style="margin:0 0 4pt">또는 던앤브래드스트리트 직접: dnb.co.kr (한국)</p>
+  <p style="margin:0">소요 기간: 보통 5영업일 내외 — 정보가 서류와 다르면 더 걸릴 수 있습니다</p>
+</div>
+
+<h2><span class="num">2</span> 플랫폼별 등록 절차</h2>
+<table class="compare">
+  <tr><th style="width:16%">구분</th><th style="width:42%">애플 앱스토어(Apple Developer)</th><th>구글 플레이스토어(Play Console)</th></tr>
+  <tr>
+    <td>계정 유형</td>
+    <td>developer.apple.com/enroll → <strong>Organization</strong> 선택</td>
+    <td>Play Console → 새 개발자 계정 → <strong>조직(Organization)</strong> 선택</td>
+  </tr>
+  <tr>
+    <td>필요 정보</td>
+    <td>D-U-N-S 번호 → 던앤브래드스트리트 기록상 교회 명칭·주소 자동 대조</td>
+    <td>D-U-N-S 번호 + 교회 명칭·주소(동일하게 대조)</td>
+  </tr>
+  <tr>
+    <td>등록 권한 확인</td>
+    <td>애플이 전화·이메일로 <strong>등록자가 교회를 대표할 권한이 있는지 직접 확인</strong></td>
+    <td>서류 검증 위주(직접 통화는 드묾)</td>
+  </tr>
+  <tr>
+    <td>비용</td>
+    <td>연 $99</td>
+    <td>$25 (1회성)</td>
+  </tr>
+  <tr>
+    <td>예상 소요</td>
+    <td><strong>1~2주</strong>(개인 등록보다 오래 걸림)</td>
+    <td>수일</td>
+  </tr>
+</table>
+
+<h2 style="page-break-before: always; margin-top: 0;"><span class="num">3</span> 교회에 요청드리는 것</h2>
+<p>아래 자료를 준비해 주시면 등록을 진행할 수 있습니다.</p>
+<ul class="checklist">
+  <li>
+    <span class="checkbox"></span>
+    <div>
+      <div class="label">교회 정식 명칭</div>
+      <div class="note">고유번호증 또는 사업자등록증에 적힌 이름과 정확히 일치해야 합니다(약칭 불가)</div>
+    </div>
+  </li>
+  <li>
+    <span class="checkbox"></span>
+    <div>
+      <div class="label">등록된 주소</div>
+      <div class="note">고유번호증/사업자등록증상 주소</div>
+    </div>
+  </li>
+  <li>
+    <span class="checkbox"></span>
+    <div>
+      <div class="label">공개된 대표 전화번호</div>
+      <div class="note">교회 홈페이지·안내문 등에 실제로 게시돼 있어 확인 가능한 번호</div>
+    </div>
+  </li>
+  <li>
+    <span class="checkbox"></span>
+    <div>
+      <div class="label">고유번호증(또는 사업자등록증) 사본</div>
+      <div class="note">스캔본이나 사진 파일이면 충분합니다</div>
+    </div>
+  </li>
+  <li>
+    <span class="checkbox"></span>
+    <div>
+      <div class="label">기존 D-U-N-S 번호 보유 여부 확인</div>
+      <div class="note">교회가 전에 다른 목적으로 이미 발급받은 적이 있는지 사무실에 확인 요청</div>
+    </div>
+  </li>
+  <li>
+    <span class="checkbox"></span>
+    <div>
+      <div class="label">등록 권한자 지정 및 협조</div>
+      <div class="note">담임목사님 또는 위임된 대표자 — 애플이 전화로 "이 분이 교회를 대표해 등록할 권한이 있는지" 직접 확인하는 절차가 있어, 미리 안내해 두면 통화가 매끄럽습니다</div>
+    </div>
+  </li>
+  <li>
+    <span class="checkbox"></span>
+    <div>
+      <div class="label">등록비 결제 방법 승인</div>
+      <div class="note">애플 연 $99 + 구글 $25(1회) — 교회 예산·카드로 처리할지 사전 확인 필요</div>
+    </div>
+  </li>
+</ul>
+
+<div class="rail">
+  <div class="bar"></div>
+  <div class="content">
+    <div class="callout-title">참고</div>
+    <p style="margin:0">
+      지금 개인 명의로 이미 진행 중인 애플 iOS 작업(위젯·TestFlight)은 이 전환과 무관하게 계속 진행됩니다.
+      단체 등록이 끝나면, 스토어 계정만 교회 명의로 옮기면 됩니다 — 앱 자체를 다시 만들 필요는 없습니다.
+    </p>
+  </div>
+</div>
+
+<div class="footer">
+  <p style="margin:0">고척교회 제자양육부 신앙운동팀 · 성경말씀 암송 앱(gocheok.onlybible.kr)</p>
+  <p class="contact-line">문의: sewkim00@gmail.com</p>
+</div>
+
+</body>
+</html>
