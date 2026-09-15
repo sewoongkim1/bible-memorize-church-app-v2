@@ -83,8 +83,8 @@
     display: flex;
     align-items: flex-start;
     gap: 8pt;
-    margin-bottom: 9pt;
-    padding-bottom: 9pt;
+    margin-bottom: 6pt;
+    padding-bottom: 6pt;
     border-bottom: 1px solid #e7ebf1;
   }
   .checkbox {
@@ -109,11 +109,13 @@
   .rail .content { flex: 1 1 auto; }
   .callout-title { font-weight: 700; color: #9a5710; margin-bottom: 3pt; }
   .footer {
-    margin-top: 22pt;
-    padding-top: 10pt;
+    margin-top: 12pt;
+    padding-top: 6pt;
     border-top: 1px solid #d7dce4;
     color: #777;
     font-size: 9pt;
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
   .contact-line { margin-top: 4pt; }
   strong { color: #12233f; }
@@ -201,8 +203,15 @@
   <li>
     <span class="checkbox"></span>
     <div>
-      <div class="label">고유번호증(또는 사업자등록증) 사본</div>
-      <div class="note">스캔본이나 사진 파일이면 충분합니다</div>
+      <div class="label">고유번호증(또는 사업자등록증) — 한글본 + 영문본 둘 다</div>
+      <div class="note">
+      <strong>한글본</strong>: 지금 갖고 계신 원본 스캔본·사진이면 충분합니다.<br>
+      <strong>영문본</strong>: <u>사업자등록번호가 있는 경우</u> 홈택스에서 공식 영문 증명서를 바로 받을 수
+      있습니다 — 홈택스 로그인 → [증명·등록·신청] → [즉시발급증명] → [사업자등록증명] → "영문 증명" 선택 →
+      상호·대표자명·주소·업종을 영문으로 입력·확인 → 신청 → [민원처리결과 조회]에서 출력.
+      <u>고유번호증만 있는 경우</u>(교회 대부분이 여기 해당)는 홈택스 자동 발급이 확인되지 않으니,
+      관할 세무서에 영문 발급이 되는지 문의하시거나, 정식 명칭·등록번호·주소를 담은 자체 번역본을
+      준비하시면 됩니다(공증 불필요)</div>
     </div>
   </li>
   <li>
@@ -229,10 +238,9 @@
   <li>
     <span class="checkbox"></span>
     <div>
-      <div class="label">교회 영문(로마자) 명칭 확정 + 고유번호증 영문 번역본</div>
-      <div class="note">D-U-N-S 국제 기록은 영문 명칭 기준이라 등록 시 정식 영문 표기를 정해야 합니다.
-      공증까지는 필요 없지만, 애플·구글의 자동 대조가 실패해 서류를 요청할 경우를 대비해
-      정식 명칭·등록번호·주소가 담긴 영문 번역본을 미리 준비해 두면 좋습니다</div>
+      <div class="label">교회 정식 영문(로마자) 명칭 확정</div>
+      <div class="note">D-U-N-S 국제 기록은 영문 명칭 기준이라, 등록 전에 교회가 대외적으로 쓸 정식 영문
+      표기 하나를 정해 주셔야 합니다 — 위 영문 서류에 나온 표기와 같게 맞추면 됩니다</div>
     </div>
   </li>
 </ul>
