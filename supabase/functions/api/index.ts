@@ -15,6 +15,88 @@ if (VAPID_PUBLIC && VAPID_PRIVATE) {
   try { webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE); } catch (_) {}
 }
 
+// ---------- APNs (iOS 네이티브 푸시) ----------
+// 외부 라이브러리 없이 Deno 내장 Web Crypto(ES256)로 JWT를 직접 서명한다.
+// ⚠️ 이 앱은 App Store 배포 서명만 쓴다(TestFlight 포함) — sandbox가 아니라
+//    항상 production APNs 엔드포인트를 쓴다.
+const APNS_KEY_ID = Deno.env.get("APNS_KEY_ID");
+const APNS_TEAM_ID = Deno.env.get("APNS_TEAM_ID");
+const APNS_PRIVATE_KEY = Deno.env.get("APNS_PRIVATE_KEY"); // .p8 파일 전체 내용(PEM)
+const APNS_BUNDLE_ID = "kr.onlybible.gocheok.memorize";
+const APNS_READY = !!(APNS_KEY_ID && APNS_TEAM_ID && APNS_PRIVATE_KEY);
+
+function base64url(bytes: Uint8Array): string {
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+let apnsKeyPromise: Promise<CryptoKey> | null = null;
+function getApnsKey(): Promise<CryptoKey> {
+  if (!apnsKeyPromise) {
+    const pem = (APNS_PRIVATE_KEY || "")
+      .replace(/-----BEGIN PRIVATE KEY-----/, "")
+      .replace(/-----END PRIVATE KEY-----/, "")
+      .replace(/\s+/g, "");
+    const der = Uint8Array.from(atob(pem), (c) => c.charCodeAt(0));
+    apnsKeyPromise = crypto.subtle.importKey(
+      "pkcs8", der, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"],
+    );
+  }
+  return apnsKeyPromise;
+}
+
+async function apnsJwt(): Promise<string> {
+  const header = base64url(new TextEncoder().encode(JSON.stringify({ alg: "ES256", kid: APNS_KEY_ID })));
+  const payload = base64url(new TextEncoder().encode(JSON.stringify({ iss: APNS_TEAM_ID, iat: Math.floor(Date.now() / 1000) })));
+  const key = await getApnsKey();
+  const sig = await crypto.subtle.sign(
+    { name: "ECDSA", hash: "SHA-256" }, key, new TextEncoder().encode(`${header}.${payload}`),
+  );
+  return `${header}.${payload}.${base64url(new Uint8Array(sig))}`;
+}
+
+// 반환: "ok"(발송 성공) | "gone"(토큰이 더 이상 유효하지 않음 — 표에서 지워야 함) | "error"(그 외)
+async function sendApns(deviceToken: string, title: string, body: string): Promise<"ok" | "gone" | "error"> {
+  if (!APNS_READY) return "error";
+  try {
+    const jwt = await apnsJwt();
+    const res = await fetch(`https://api.push.apple.com/3/device/${deviceToken}`, {
+      method: "POST",
+      headers: {
+        "authorization": `bearer ${jwt}`,
+        "apns-topic": APNS_BUNDLE_ID,
+        "apns-push-type": "alert",
+        "apns-priority": "10",
+      },
+      body: JSON.stringify({ aps: { alert: { title, body }, sound: "default" } }),
+    });
+    if (res.ok) return "ok";
+    const j = await res.json().catch(() => ({} as any));
+    if (res.status === 410 || j.reason === "BadDeviceToken" || j.reason === "Unregistered") return "gone";
+    return "error";
+  } catch (_) { return "error"; }
+}
+
+// 진단용 — testPush(diag:true)가 원인을 그대로 보게 해 준다(JWT/인증 문제인지, 그냥 가짜
+// 토큰이라 거절됐는지 구분할 수 있어야 한다).
+async function sendApnsDiag(deviceToken: string, title: string, body: string):
+  Promise<{ status: number; reason: string | null }> {
+  const jwt = await apnsJwt();
+  const res = await fetch(`https://api.push.apple.com/3/device/${deviceToken}`, {
+    method: "POST",
+    headers: {
+      "authorization": `bearer ${jwt}`,
+      "apns-topic": APNS_BUNDLE_ID,
+      "apns-push-type": "alert",
+      "apns-priority": "10",
+    },
+    body: JSON.stringify({ aps: { alert: { title, body }, sound: "default" } }),
+  });
+  const j = await res.json().catch(() => ({} as any));
+  return { status: res.status, reason: j.reason ?? null };
+}
+
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -449,6 +531,16 @@ async function removePushByUser(b: any) {
 
 // ---------- testPush: 본인 기기(endpoint)에만 테스트 발송 ----------
 async function testPush(b: any) {
+  // iOS 네이티브 푸시 진단 경로 — 기기 토큰이 있으면 여기로
+  if (b.iosDeviceToken) {
+    if (!APNS_READY) return { ok: false, error: "apns-not-configured" };
+    if (b.diag) {
+      const d = await sendApnsDiag(b.iosDeviceToken, "성경암송 — 알림 테스트", "이 메시지가 보이면 APNs 연결 성공입니다 🙌");
+      return { ok: d.status === 200, status: d.status, reason: d.reason };
+    }
+    const r = await sendApns(b.iosDeviceToken, "성경암송 — 알림 설정 완료 ✅", "알림이 정상 작동해요! 🙌");
+    return { ok: r === "ok", result: r };
+  }
   if (!b.endpoint) return { ok: false, error: "no-endpoint" };
   const { data: sub } = await db.from("push_subscriptions")
     .select("endpoint,p256dh,auth").eq("endpoint", b.endpoint).maybeSingle();
