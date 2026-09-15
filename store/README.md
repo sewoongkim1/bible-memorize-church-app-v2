@@ -191,6 +191,11 @@ registration fee"로 검색) → 정책 위반 점검 → Play Console에서 이
       D-U-N-S 조회/신청 ② 이 메일로 Play Console 단체 계정 만들기(이전 받는 쪽)
       ⚠️ 복구 전화번호는 우선 개인 번호로 등록했다 — 나중에 교회 사무실 번호 등 계속 유지되는
       번호로 바꿔둘 것. 비밀번호·복구정보는 신앙운동팀 여러 명이 아는 곳에 기록해 둘 것.
+- [x] **D-U-N-S 신청 접수**(2026-09-15 02:45 UTC): Case Number 10973922 / Tracking ID
+      10914163. 제출된 교회명이 **로마자 음역**("DAEHANYESUGYO JANGNOHOE GOCHEOK GYOHOE")
+      — 실제 영문 번역명("Gocheok Presbyterian Church" 등)으로 할지 결정 대기 중(정정하려면
+      Duns 번호 배정 전인 지금이 쉽다). D-U-N-S 번호 자체는 아직 배정 전 — 별도 메일로
+      결과 통보 예정.
 
 ---
 
