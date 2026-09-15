@@ -197,8 +197,8 @@ registration fee"로 검색) → 정책 위반 점검 → Play Console에서 이
       배정 후에 D&B 자체 정보수정 도구(`iupdate.dnb.com`/`duns-update.dnb.com`)에서
       영문 번역명으로 고친다** — 번호 자체는 이름을 바꿔도 유지되므로 이 경로가 더 안전
       (진행 중인 케이스를 건드려 지연될 위험 없음).
-      ⚠️ **영문 번역명 자체는 아직 미확정** — "Gocheok Presbyterian Church" 제안했으나
-      확답 안 받음. D-U-N-S 번호 나오면 이름 정정 전에 먼저 확정할 것.
+      **영문 번역명 확정(2026-09-15): "Gocheok Presbyterian Church"** — D-U-N-S 번호
+      나오면 이 이름으로 정정한다.
 
 ---
 
