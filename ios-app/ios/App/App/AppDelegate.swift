@@ -14,6 +14,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     // 등록 시점엔 아직 로그인(user_id)이 없을 수 있어 저장에 실패할 수 있다 — 토큰을
     // 기억해 뒀다가 앱이 다시 활성화될 때마다(로그인 뒤 재실행 포함) 다시 시도한다.
     private var cachedDeviceTokenHex: String?
+    // 가로로 조금이라도(픽셀 단위) 밀리면 즉시 0으로 되돌리는 관찰자 — bounces를 꺼서
+    // 세로 튕김을 없앤 부작용으로, 미세한 가로 밀림이 저절로 안 돌아오고 그 자리에
+    // 고정돼 버리는 문제(성도님 제보 2026-09-16)를 막는다.
+    private var horizontalScrollLock: NSKeyValueObservation?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         installStatusBarBackground()
@@ -153,9 +157,22 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         if let webView = view as? WKWebView {
             webView.scrollView.bounces = false
             webView.scrollView.alwaysBounceVertical = false
+            webView.scrollView.alwaysBounceHorizontal = false
+            lockHorizontalScrolling(for: webView)
         }
         for subview in view.subviews {
             disableBounce(in: subview)
+        }
+    }
+
+    // KVO로 감시만 한다(delegate를 가로채지 않는다) — Capacitor가 이 webView.scrollView에
+    // 이미 자기 자신의 delegate를 쓰고 있을 수 있어, 그걸 대체하지 않고도 안전하게
+    // contentOffset.x만 되돌릴 수 있는 방법이다. 한 웹뷰당 한 번만 등록한다.
+    private func lockHorizontalScrolling(for webView: WKWebView) {
+        guard horizontalScrollLock == nil else { return }
+        horizontalScrollLock = webView.scrollView.observe(\.contentOffset, options: [.new]) { scrollView, change in
+            guard let offset = change.newValue, offset.x != 0 else { return }
+            scrollView.contentOffset.x = 0
         }
     }
 
