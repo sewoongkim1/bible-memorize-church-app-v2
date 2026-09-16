@@ -245,6 +245,7 @@ Deno.serve(async (req) => {
       // ---- Web Push ----
       case "savePush":      return json(await savePush(body));
       case "saveIosPushToken": return json(await saveIosPushToken(body));
+      case "updateIosPushHour": return json(await updateIosPushHour(body));
       case "removePush":    return json(await removePush(body));
       case "removePushByUser": return json(await removePushByUser(body));
       case "testPush":      return json(await testPush(body));
@@ -441,6 +442,20 @@ async function saveIosPushToken(b: any) {
   return { ok: true, hour };
 }
 
+// ---------- updateIosPushHour: 네이티브 앱에서 알림 시간만 바꿀 때 ----------
+// 설정 화면의 "알림 시간" 선택은 원래 웹푸시(savePush)로만 서버에 반영됐다 —
+// 네이티브 앱(iOS)은 기기 토큰이 이미 등록돼 있어도 이 액션을 몰라 조용히
+// 무시되고 있었다(2026-09-16 실기기 확인 중 발견). device_token 없이 user_id로
+// 그 사람의 모든 등록 기기(여러 번 설치했을 수 있음)를 한 번에 갱신한다.
+async function updateIosPushHour(b: any) {
+  if (!b.user_id) return { ok: false, error: "no-user" };
+  const hour = [5, 6, 7, 8].includes(Number(b.hour)) ? Number(b.hour) : 7;
+  const { data, error } = await db.from("ios_push_tokens")
+    .update({ hour }).eq("user_id", b.user_id).select("id");
+  if (error) throw error;
+  return { ok: true, hour, updated: (data ?? []).length > 0 };
+}
+
 // DB verses에서 '이번 주(=오늘 기준 최신) 말씀'을 읽어 {ref,text} 반환.
 // prev: 직전 주 말씀(같은 형태) — 매일 묵상이 월~일 주기라 일요일엔 이걸 써야 해서 함께 반환.
 async function latestVerse(): Promise<{ no: number | null; ref: string; text: string; prev: { no: number | null; ref: string; text: string } | null } | null> {
@@ -539,6 +554,17 @@ async function testPush(b: any) {
       return { ok: d.status === 200, status: d.status, reason: d.reason };
     }
     const r = await sendApns(b.iosDeviceToken, "성경암송 — 알림 설정 완료 ✅", "알림이 정상 작동해요! 🙌");
+    return { ok: r === "ok", result: r };
+  }
+  // 네이티브 앱 설정 화면의 "내 기기로 테스트 알림" — 기기 토큰은 웹에 안 보여서
+  // user_id로 본인의 가장 최근 등록 기기를 찾아 보낸다(관리자 비번 없이, 본인 것만).
+  if (b.user_id && !b.endpoint) {
+    if (!APNS_READY) return { ok: false, error: "apns-not-configured" };
+    const { data: row } = await db.from("ios_push_tokens")
+      .select("device_token").eq("user_id", b.user_id)
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (!row) return { ok: false, error: "no-ios-token" };
+    const r = await sendApns(row.device_token, "성경암송 — 알림 설정 완료 ✅", "알림이 정상 작동해요! 🙌");
     return { ok: r === "ok", result: r };
   }
   if (!b.endpoint) return { ok: false, error: "no-endpoint" };
