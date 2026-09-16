@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260916a";
+const APP_BUILD = "20260916b";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1173,6 +1173,7 @@ const MOK_RE = /^(\d+|남성)$/;
 function renderEntryScreen() {
   const u = loadUser() || { type: "교구" };
   const appEl = document.getElementById("app");
+  window.scrollTo(0, 0); // 이전 화면(설정 등)의 스크롤 위치가 남지 않도록
 
   appEl.innerHTML = `
     <div class="entry-header">
