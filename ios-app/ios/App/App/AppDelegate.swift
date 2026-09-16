@@ -5,7 +5,7 @@ import WebKit
 import SwiftUI
 
 @UIApplicationMain
-class AppDelegate: UIResponder, UIApplicationDelegate {
+class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
 
     var window: UIWindow?
     private let statusBarBackground = UIView()
@@ -20,6 +20,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     private var horizontalScrollLock: NSKeyValueObservation?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // 이걸 안 하면 앱이 화면에 떠 있는(포그라운드) 동안 온 푸시는 iOS가 "보여줄까?"를
+        // 물어볼 데가 없어 조용히 무시해 버린다(애플 서버는 정상 전달했다고 답하는데도
+        // 화면엔 아무것도 안 뜨는 문제 — 실기기 테스트로 확인됨, 2026-09-16).
+        UNUserNotificationCenter.current().delegate = self
         installStatusBarBackground()
         configureNativeAppCss()
         configureWebViewScrolling()
@@ -187,6 +191,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
         // 조용히 무시 — 시뮬레이터·권한 거부 등에서 정상적으로 발생할 수 있다.
+    }
+
+    // 앱이 포그라운드(화면에 떠 있는 상태)일 때 푸시가 오면 iOS가 이 메서드로 "보여줘도
+    // 되는지" 물어본다 — 배너·소리·배지를 명시적으로 허락해야 뜬다(기본값은 무시).
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                 willPresent notification: UNNotification,
+                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound, .badge])
     }
 
     private func retryCachedPushTokenIfAny() {
