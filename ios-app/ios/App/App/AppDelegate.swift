@@ -11,6 +11,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     private let statusBarBackground = UIView()
     private let brandNavy = UIColor(red: 0.05, green: 0.11, blue: 0.24, alpha: 1)
     private let hasLoggedInKey = "hasLoggedInBefore"
+    // 등록 시점엔 아직 로그인(user_id)이 없을 수 있어 저장에 실패할 수 있다 — 토큰을
+    // 기억해 뒀다가 앱이 다시 활성화될 때마다(로그인 뒤 재실행 포함) 다시 시도한다.
+    private var cachedDeviceTokenHex: String?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         installStatusBarBackground()
@@ -22,10 +25,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
             self.configureNativeAppCss()
             self.configureWebViewScrolling()
+            self.retryCachedPushTokenIfAny()
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
             self.configureNativeAppCss()
             self.configureWebViewScrolling()
+            self.retryCachedPushTokenIfAny()
         }
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
             guard granted else { return }
@@ -80,6 +85,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         webView.evaluateJavaScript(js) { _, _ in
             DispatchQueue.main.async { self.dismissNativeLogin() }
         }
+        // 방금 심은 로그인 정보로 웹이 서버 동기화를 마칠 시간을 준 뒤, 이미 받아 둔
+        // 기기 토큰이 있으면 그제서야 user_id가 생겼을 테니 다시 저장을 시도한다.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { self.retryCachedPushTokenIfAny() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { self.retryCachedPushTokenIfAny() }
     }
 
     private func dismissNativeLogin() {
@@ -138,11 +147,27 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
     }
 
-    // 기기 토큰을 받으면, 웹뷰의 로그인 정보(localStorage의 memorize-user)를 읽어
-    // user_id 와 함께 서버에 저장한다. 로그인 전이면(아직 memorize-user 없음) 조용히 건너뛴다
-    // — 다음에 웹뷰가 다시 뜰 때(앱 재실행 등) 로그인 후 자연스럽게 재시도된다.
+    // 기기 토큰을 받으면 기억해 두고 저장을 시도한다. 이 시점엔 아직 로그인(user_id)이
+    // 안 끝났을 수 있어 한 번에 안 될 수 있다 — applicationDidBecomeActive에서 캐시된
+    // 토큰으로 계속 재시도하므로, 여기서 실패해도 다음 번 포그라운드 때 자연스레 이어진다.
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         let tokenHex = deviceToken.map { String(format: "%02x", $0) }.joined()
+        cachedDeviceTokenHex = tokenHex
+        attemptSavePushToken(deviceToken: tokenHex)
+    }
+
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        // 조용히 무시 — 시뮬레이터·권한 거부 등에서 정상적으로 발생할 수 있다.
+    }
+
+    private func retryCachedPushTokenIfAny() {
+        if let token = cachedDeviceTokenHex { attemptSavePushToken(deviceToken: token) }
+    }
+
+    // 웹뷰의 localStorage(memorize-user)에서 user_id를 읽어 서버에 기기 토큰을 저장한다.
+    // 로그인 전이면(아직 user_id 없음) 이번엔 조용히 건너뛴다 — applicationDidBecomeActive가
+    // 앱을 열 때마다 같은 캐시된 토큰으로 다시 불러 준다.
+    private func attemptSavePushToken(deviceToken: String) {
         guard let bridgeVC = window?.rootViewController as? CAPBridgeViewController,
               let webView = bridgeVC.webView else { return }
         webView.evaluateJavaScript("localStorage.getItem('memorize-user')") { result, _ in
@@ -150,12 +175,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                   let data = json.data(using: .utf8),
                   let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let userId = obj["user_id"] as? String else { return }
-            self.saveTokenToServer(userId: userId, deviceToken: tokenHex)
+            self.saveTokenToServer(userId: userId, deviceToken: deviceToken)
         }
-    }
-
-    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        // 조용히 무시 — 시뮬레이터·권한 거부 등에서 정상적으로 발생할 수 있다.
     }
 
     private func saveTokenToServer(userId: String, deviceToken: String) {
@@ -187,6 +208,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         installStatusBarBackground()
         configureNativeAppCss()
         configureWebViewScrolling()
+        // 등록 시점엔 로그인 전이라 저장이 안 됐을 수 있다 — 앱을 열 때마다 재시도해서,
+        // 로그인이 끝난 뒤 처음 여는 순간 반드시 한 번은 서버에 저장되게 한다.
+        retryCachedPushTokenIfAny()
     }
 
     func applicationWillTerminate(_ application: UIApplication) {
