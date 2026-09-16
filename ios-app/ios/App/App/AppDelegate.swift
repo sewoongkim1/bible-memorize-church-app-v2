@@ -32,13 +32,22 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             self.configureWebViewScrolling()
             self.retryCachedPushTokenIfAny()
         }
+        // 이미 로그인된(재실행) 사용자만 여기서 바로 알림 권한을 묻는다 — 최초 사용자는
+        // 아직 정보를 입력하기도 전이라 물어보면 맥락 없이 뜬금없다. 최초 사용자는
+        // completeNativeLogin()에서 로그인을 마친 직후에 대신 묻는다.
+        if UserDefaults.standard.bool(forKey: hasLoggedInKey) {
+            requestPushPermissionAndRegister()
+        }
+        return true
+    }
+
+    private func requestPushPermissionAndRegister() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
             guard granted else { return }
             DispatchQueue.main.async {
                 UIApplication.shared.registerForRemoteNotifications()
             }
         }
-        return true
     }
 
     // 이 기기에서 네이티브 로그인 화면으로 한 번이라도 로그인을 완료했으면(hasLoggedInKey)
@@ -85,6 +94,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         webView.evaluateJavaScript(js) { _, _ in
             DispatchQueue.main.async { self.dismissNativeLogin() }
         }
+        // 로그인을 마친 직후에야 알림 권한을 묻는다 — "정보도 안 넣었는데 왜 물어보지"
+        // 하는 혼란을 없애고, 이 시점부터는 곧 user_id가 생기므로 토큰 저장도 잘 이어진다.
+        requestPushPermissionAndRegister()
         // 방금 심은 로그인 정보로 웹이 서버 동기화를 마칠 시간을 준 뒤, 이미 받아 둔
         // 기기 토큰이 있으면 그제서야 user_id가 생겼을 테니 다시 저장을 시도한다.
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { self.retryCachedPushTokenIfAny() }
