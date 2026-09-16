@@ -2,6 +2,7 @@ import UIKit
 import Capacitor
 import UserNotifications
 import WebKit
+import SwiftUI
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -9,11 +10,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
     private let statusBarBackground = UIView()
     private let brandNavy = UIColor(red: 0.05, green: 0.11, blue: 0.24, alpha: 1)
+    private let hasLoggedInKey = "hasLoggedInBefore"
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         installStatusBarBackground()
         configureNativeAppCss()
         configureWebViewScrolling()
+        DispatchQueue.main.async {
+            self.presentNativeLoginIfNeeded()
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
             self.configureNativeAppCss()
             self.configureWebViewScrolling()
@@ -29,6 +34,60 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             }
         }
         return true
+    }
+
+    // 이 기기에서 네이티브 로그인 화면으로 한 번이라도 로그인을 완료했으면(hasLoggedInKey)
+    // 다시 안 보여준다 — 그다음부터는 웹뷰가 들고 있는 localStorage(memorize-user)로
+    // app.js가 앱을 켤 때마다 스스로 서버와 동기화한다(syncProgress, app.js:538).
+    // 이 앱엔 로그아웃 기능이 없어 이 플래그가 다시 내려갈 일이 없다.
+    private func presentNativeLoginIfNeeded() {
+        guard !UserDefaults.standard.bool(forKey: hasLoggedInKey) else { return }
+        guard let root = window?.rootViewController, root.presentedViewController == nil else { return }
+        let loginView = NativeLoginView { [weak self] payload in
+            self?.completeNativeLogin(payload)
+        }
+        let hosting = UIHostingController(rootView: loginView)
+        hosting.modalPresentationStyle = .fullScreen
+        root.present(hosting, animated: false)
+    }
+
+    // 로그인 화면에서 "시작하기"를 누르면: 서버를 직접 부르지 않고, 웹뷰가 이미 쓰는
+    // localStorage 키(memorize-user·privacy-consent)만 심어 둔 뒤 웹뷰를 새로 연다.
+    // app.js가 스스로 서버 로그인·진도 동기화를 처리한다(설계 문서:
+    // docs/superpowers/specs/2026-09-16-ios-native-login-design.md).
+    // ⚠️ 한글이 포함된 JSON을 JS 문자열에 그대로 끼워 넣으면 인용부호 문제가 생길 수
+    //    있어 base64로 감싸 JS 쪽에서 TextDecoder로 풀어낸다(UTF-8 손실 없음).
+    private func completeNativeLogin(_ payload: NativeLoginPayload) {
+        UserDefaults.standard.set(true, forKey: hasLoggedInKey)
+
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: payload.toDictionary()),
+              let bridgeVC = window?.rootViewController as? CAPBridgeViewController,
+              let webView = bridgeVC.webView else {
+            dismissNativeLogin()
+            return
+        }
+
+        let base64 = jsonData.base64EncodedString()
+        let js = """
+        (function () {
+          var bytes = Uint8Array.from(atob('\(base64)'), function (c) { return c.charCodeAt(0); });
+          var json = new TextDecoder().decode(bytes);
+          localStorage.setItem('memorize-user', json);
+          localStorage.setItem('privacy-consent', '1');
+          location.href = 'https://gocheok.onlybible.kr/?firstLogin=1';
+        })();
+        """
+        webView.evaluateJavaScript(js) { _, _ in
+            DispatchQueue.main.async { self.dismissNativeLogin() }
+        }
+    }
+
+    private func dismissNativeLogin() {
+        window?.rootViewController?.presentedViewController?.dismiss(animated: true) {
+            self.installStatusBarBackground()
+            self.configureNativeAppCss()
+            self.configureWebViewScrolling()
+        }
     }
 
     private func installStatusBarBackground() {

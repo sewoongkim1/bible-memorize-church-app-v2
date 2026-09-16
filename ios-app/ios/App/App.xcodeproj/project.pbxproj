@@ -19,6 +19,7 @@
 		A124BB3959050A1F639D7DE5 /* TodayVerseWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5CD0BA1F656639A1209A670E /* TodayVerseWidget.appex */; };
 		B3F7F4D8C3CD04DC7C79B145 /* TodayVerseWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 809EB57CDC346CEAB8E25AB3 /* TodayVerseWidget.swift */; };
 		B73642601B680AB8C8FC996F /* TodayVerseWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38A23ABEEE1840EEFB20B7FF /* TodayVerseWidgetBundle.swift */; };
+		ACD533CDC9BCE7F6B817635E /* NativeLoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ED697B54E31C0C9B4322268 /* NativeLoginView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -62,6 +63,7 @@
 		AF51FD2D460BCFE21FA515B2 /* Pods-App.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-App.release.xcconfig"; path = "Pods/Target Support Files/Pods-App/Pods-App.release.xcconfig"; sourceTree = "<group>"; };
 		D733F45298C8D7D232A87D88 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		FC68EB0AF532CFC21C3344DD /* Pods-App.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-App.debug.xcconfig"; path = "Pods/Target Support Files/Pods-App/Pods-App.debug.xcconfig"; sourceTree = "<group>"; };
+		4ED697B54E31C0C9B4322268 /* NativeLoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeLoginView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -127,6 +129,7 @@
 			children = (
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
+				4ED697B54E31C0C9B4322268 /* NativeLoginView.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
 				504EC3101FED79650016851F /* LaunchScreen.storyboard */,
@@ -304,6 +307,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
+				ACD533CDC9BCE7F6B817635E /* NativeLoginView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
