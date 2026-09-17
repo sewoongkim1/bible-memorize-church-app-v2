@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>사역신청 관리</title>
+<!-- 사역신청 담당자에게 드리는 주소. 관리자 통계 화면을 「사역신청만」 방식으로 연다(2026-09-17).
+     화면을 따로 만들지 않은 까닭: 사역신청 두 메뉴(현황·사역팀 정보)를 두 곳에서 따로 고치면 반드시 어긋난다.
+     ⚠️ 막는 것은 서버다 — 사역신청 암호는 사역 액션만 통과하고, 액션마다 등록된 담당자인지 본다. -->
+<script>location.replace("admin-stats.html?only=ministry");</script>
+<noscript><meta http-equiv="refresh" content="0;url=admin-stats.html?only=ministry"></noscript>
+</head>
+<body>
+<p><a href="admin-stats.html?only=ministry">사역신청 관리로 가기</a></p>
+</body>
+</html>

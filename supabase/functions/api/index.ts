@@ -136,6 +136,39 @@ function adminError(b: any): string | null {
   return null;
 }
 
+// 사역신청 담당자 확인 → null이면 통과 (2026-09-17)
+// 사역 담당자는 관리자 메뉴 전체를 볼 필요가 없다. 그런데 관리자 비번을 드리면 화면에서 메뉴를
+// 숨겨도 **그 비번 하나로 관리자 액션 50여 개**(알림 발송·성도 정보 변경·다른 앱 관리)를 다 부를 수
+// 있다 — 그래서 **사역신청 관리 액션만** 받는 비번(MINISTRY_SECRET)을 따로 둔다.
+// ⚠️ 비번만으로는 부족하다(성도님 요청): 그 비번으로 들어온 분이 **등록된 담당자**인지도 본다.
+//    담당자는 app_config `ministryAdmins`(identity_key 배열) — pilsaAdmins 와 같은 까닭으로 코드에
+//    이름을 두지 않는다(공개 저장소). 이름·소속은 비밀이 아니므로 **비번과 함께일 때만** 뜻이 있다.
+// ⚠️ 로그인 화면에서 한 번 보는 것으로 끝내지 않고 **액션마다** 본다 — 화면을 건너뛰고 API 를
+//    바로 부르면 그만이기 때문이다.
+// ⚠️ 관리자 비번은 그대로 통과한다(관리자는 모든 자료를 본다). authCheck(허브)에는 쓰지 말 것.
+async function ministryAdminError(b: any): Promise<string | null> {
+  if (!adminError(b)) return null;
+  const ms = Deno.env.get("MINISTRY_SECRET");
+  if (!ms || (b.pw ?? "") !== ms) return adminError(b);
+  return (await ministryStaffKey(b)) ? null : "not-manager";
+}
+
+// 비번과 함께 온 담당자(b.staff = {type,gu,mok,bu,grade,name})가 등록된 분이면 그 identity_key
+async function ministryStaffKey(b: any): Promise<string | null> {
+  const st = b.staff && typeof b.staff === "object" ? b.staff : null;
+  if (!st || !norm(st.name)) return null;
+  // 목장은 「20목장」으로 적어도 앱 로그인(「20」)과 같게 본다
+  const key = identityKey({ ...st, type: norm(st.type) || "교구", mok: norm(st.mok).replace(/목장$/, "") });
+  try {
+    const { data } = await db.from("app_config").select("value").eq("key", "ministryAdmins").maybeSingle();
+    const keys = Array.isArray(data?.value) ? (data!.value as any[]).map((x) => norm(String(x))) : [];
+    if (keys.indexOf(key) < 0) return null;
+    // 목록에 있어도 **앱 사용자로 있는 분**이어야 한다 — 오타로 넣은 키가 아무나를 통과시키지 않게
+    const { data: u } = await db.from("users").select("id").eq("identity_key", key).maybeSingle();
+    return u ? key : null;
+  } catch { return null; }
+}
+
 // ---------- 설교 챗봇: Voyage 임베딩 (myfavorite lib/voyage.ts의 Deno 이식) ----------
 const VOYAGE_URL = "https://api.voyageai.com/v1/embeddings";
 async function embedVoyage(
@@ -194,6 +227,11 @@ Deno.serve(async (req) => {
       case "authCheck": {   // 관리자 비번 검증(허브 로그인용)
         const e = adminError(body);
         return json(e ? { ok: false, error: e } : { ok: true }, e ? 403 : 200);
+      }
+      case "ministryAuth": {   // 사역신청 관리 화면 로그인 — 관리자 비번, 또는 사역 비번 + 등록된 담당자
+        const e = await ministryAdminError(body);
+        if (e) return json({ ok: false, error: e }, 403);
+        return json({ ok: true, role: adminError(body) ? "ministry" : "admin" });
       }
       case "login":         return json(await login(body));
       case "saveProgress":  return json(await saveProgress(body));
@@ -3724,7 +3762,7 @@ async function ministryCancel(b: any) {
 
 // 관리자 명단 — 신청은 많아야 수백 건이라 전부 내려주고 화면에서 추린다
 async function ministryList(b: any) {
-  const err = adminError(b); if (err) return { ok: false, error: err };
+  const err = await ministryAdminError(b); if (err) return { ok: false, error: err };
   const cfg = await ministryCfg();
   const year = Number(b.year) || cfg.year;
   const { data, error } = await db.from("ministry_orders")
@@ -3779,7 +3817,7 @@ async function ministryList(b: any) {
 
 // 관리자 상태 변경 — '임명확정'으로 바뀌면 앱 푸시를 한 번 보낸다
 async function ministrySetStatus(b: any) {
-  const err = adminError(b); if (err) return { ok: false, error: err };
+  const err = await ministryAdminError(b); if (err) return { ok: false, error: err };
   const id = Number(b.id) || 0;
   const status = norm(b.status);
   if (!id || MINISTRY_STATUS.indexOf(status) < 0) return { ok: false, error: "id/status 확인" };
@@ -3955,7 +3993,7 @@ function ministryTimeIn(v: unknown, label: string): { v: string | null; err?: st
 }
 
 async function ministryCatalogSave(b: any) {
-  const err = adminError(b); if (err) return { ok: false, error: err };
+  const err = await ministryAdminError(b); if (err) return { ok: false, error: err };
   const id = Number(b.id) || 0;
   if (!id) return { ok: false, error: "id 필요" };
   const patch: Record<string, unknown> = {
@@ -4022,7 +4060,7 @@ async function ministryCatalogSave(b: any) {
 // ⚠️ 팀 추가·삭제·이름은 여기서 하지 않는다(성도님 결정 2026-09-10 — 그쪽 원본은
 //    부서 확인 엑셀이다). 여기서 만들면 엑셀과 DB 가 갈라지고, 다음 시드에 지워진다.
 async function ministryCatalogOrder(b: any) {
-  const err = adminError(b); if (err) return { ok: false, error: err };
+  const err = await ministryAdminError(b); if (err) return { ok: false, error: err };
   const ids: number[] = Array.isArray(b.ids) ? b.ids.map(Number).filter((n: number) => n > 0) : [];
   if (!ids.length) return { ok: false, error: "순서를 바꿀 팀이 없습니다" };
   if (new Set(ids).size !== ids.length) return { ok: false, error: "같은 팀이 두 번 들어 있습니다" };

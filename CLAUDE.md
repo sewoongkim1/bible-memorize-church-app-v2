@@ -81,6 +81,7 @@
 - `admin-stats.html` — 성경암송 통계·알림발송·주간리포트·게시판
 - `admin-praise.html` — 찬양 아카이브 관리(praise-config.js/praise-api.js)
 - `admin-sermon.html` — 말씀 아카이브 관리(sermon 함수)
+- `admin-ministry.html` — **사역신청 담당자** 전용(두 메뉴만 · 사역 암호 `MINISTRY_SECRET` + 등록 담당자 `ministryAdmins`). ⚠️ 손대기 전에 `docs/notes/ministry-2027.md` 끝 절 — 관리자 암호를 드리면 안 되는 이유, 확인은 액션마다
 - 확장: admin.html의 `TOOLS` 배열에 한 줄 추가
 
 ## 모니터링

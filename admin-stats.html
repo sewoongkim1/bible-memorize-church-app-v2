@@ -33,6 +33,14 @@
   .login-card input{width:100%;padding:12px 13px;font-size:1rem;border:1px solid var(--border);
     border-radius:10px;background:var(--cream);font-family:inherit;margin-bottom:12px;}
   .login-card input:focus{outline:none;border-color:var(--navy);background:#fff;}
+  /* 사역신청 담당자 확인 — 암호 아래에 앱 로그인과 같은 소속·이름을 받는다 */
+  .login-card select{width:100%;padding:12px 13px;font-size:1rem;border:1px solid var(--border);
+    border-radius:10px;background:var(--cream);font-family:inherit;margin-bottom:12px;color:inherit;}
+  .login-card .staff-lb{text-align:left;font-size:.82rem;font-weight:700;color:var(--navy);margin:6px 0 6px;}
+  .login-card .staff-row{display:flex;gap:8px;}
+  /* ⚠️ display:flex 가 hidden 속성을 이긴다 — 없으면 교구·교회학교 칸이 둘 다 보인다 */
+  .login-card .staff-row[hidden]{display:none;}
+  .login-card .staff-row > *{flex:1;min-width:0;}
   .login-card button{width:100%;padding:13px;font-size:1.02rem;font-weight:700;color:#fff;background:var(--navy);
     border:none;border-radius:12px;cursor:pointer;font-family:inherit;transition:background .15s;}
   .login-card button:hover{background:var(--navy-dark);}
@@ -464,7 +472,7 @@
   <div class="topbar">
     <h1>📊 성경암송 관리자 통계</h1>
     <div style="display:flex;align-items:center;gap:8px;flex:none">
-      <a href="admin.html" style="padding:8px 13px;border:1.5px solid rgba(255,255,255,.5);border-radius:9px;color:#fff;text-decoration:none;font-weight:700;font-size:.82rem;white-space:nowrap">← 관리자 허브</a>
+      <a id="hub-link" href="admin.html" style="padding:8px 13px;border:1.5px solid rgba(255,255,255,.5);border-radius:9px;color:#fff;text-decoration:none;font-weight:700;font-size:.82rem;white-space:nowrap">← 관리자 허브</a>
       <button class="logout" id="logout" hidden>로그아웃</button>
     </div>
   </div>
@@ -490,7 +498,23 @@ async function callApi(payload){
   if(!res.ok && !data.error) data={ ok:false, error:"HTTP "+res.status };
   return data;
 }
-const PW_KEY = "admin-pw";
+// 사역신청 담당자 화면(admin-ministry.html → ?only=ministry) — 사역신청 두 메뉴만 보인다.
+// ⚠️ 막는 것은 서버다: 사역신청 암호는 사역 액션만 통과하고, 액션마다 등록된 담당자인지 본다.
+//    여기서 메뉴를 줄이는 것은 편의일 뿐이다.
+// ⚠️ 저장 칸을 관리자와 나눈다 — 담당자 암호가 admin-pw 에 들어가면 허브·다른 도구가 그 암호로
+//    부르다가 줄줄이 「비밀번호가 올바르지 않습니다」가 된다.
+const MINISTRY_ONLY = new URLSearchParams(location.search).get("only") === "ministry";
+const PW_KEY = MINISTRY_ONLY ? "ministry-pw" : "admin-pw";
+const STAFF_KEY = "ministry-staff";
+function getStaff(){
+  if(!MINISTRY_ONLY) return null;
+  try { return JSON.parse(sessionStorage.getItem(STAFF_KEY) || "null"); } catch(_) { return null; }
+}
+if(MINISTRY_ONLY){
+  document.title = "사역신청 관리";
+  document.querySelector(".topbar h1").textContent = "🤝 사역신청 관리";
+  document.getElementById("hub-link").hidden = true;
+}
 const GU_LIST = ["믿음","소망","사랑","섬김","은혜","화평","기쁨","새가족"];
 const BU_LIST = ["사랑부","영아부","유아부","유치부","유년부","초등부","중등부","고등부","청년부"];
 const app = document.getElementById("app");
@@ -498,6 +522,7 @@ const logoutBtn = document.getElementById("logout");
 
 logoutBtn.addEventListener("click", () => {
   sessionStorage.removeItem(PW_KEY);
+  sessionStorage.removeItem(STAFF_KEY);
   logoutBtn.hidden = true;
   renderLogin();
 });
@@ -524,6 +549,7 @@ async function callStats(from, to){
 
 // ---------- 로그인 ----------
 function renderLogin(){
+  if(MINISTRY_ONLY) return renderMinistryLogin();
   logoutBtn.hidden = true;
   app.innerHTML = `
     <div class="login-card">
@@ -556,7 +582,97 @@ function renderLogin(){
 }
 
 // ---------- 카드 메뉴 ----------
+// ---------- 사역신청 담당자 로그인 · 메뉴 ----------
+function renderMinistryLogin(){
+  logoutBtn.hidden = true;
+  const gu = GU_LIST.map(g=>`<option>${g}</option>`).join("");
+  const bu = BU_LIST.map(g=>`<option>${g}</option>`).join("");
+  app.innerHTML = `
+    <div class="login-card">
+      <h2>🔒 사역신청 관리</h2>
+      <p>사역신청 암호를 넣고, 앱에 로그인할 때와 같은 소속·이름으로 담당자 확인을 해 주세요.</p>
+      <div class="login-err" id="lerr"></div>
+      <input type="password" id="pw" placeholder="사역신청 암호" autocomplete="current-password" />
+      <div class="staff-lb">담당자 확인</div>
+      <select id="st-type"><option>교구</option><option>교회학교</option></select>
+      <div class="staff-row" id="st-gu-row">
+        <select id="st-gu">${gu}</select>
+        <input id="st-mok" placeholder="목장 (예: 3)" inputmode="text" />
+      </div>
+      <div class="staff-row" id="st-bu-row" hidden>
+        <select id="st-bu">${bu}</select>
+        <input id="st-grade" placeholder="학년 (없으면 비움)" />
+      </div>
+      <input id="st-name" placeholder="이름" autocomplete="name" />
+      <button id="login">로그인</button>
+      <a class="home-link" href="index.html">← 첫 화면으로</a>
+    </div>`;
+  const $ = id => document.getElementById(id);
+  const err = $("lerr");
+  $("st-type").addEventListener("change", ()=>{
+    const school = $("st-type").value === "교회학교";
+    $("st-gu-row").hidden = school; $("st-bu-row").hidden = !school;
+  });
+  async function tryLogin(){
+    const pw = $("pw").value.trim();
+    const type = $("st-type").value;
+    const staff = type === "교회학교"
+      ? { type, bu:$("st-bu").value, grade:$("st-grade").value.trim(), name:$("st-name").value.trim() }
+      : { type, gu:$("st-gu").value, mok:$("st-mok").value.trim(), name:$("st-name").value.trim() };
+    if(!pw){ err.textContent="사역신청 암호를 입력하세요."; return; }
+    if(!staff.name){ err.textContent="담당자 이름을 입력하세요."; return; }
+    err.textContent = "확인 중...";
+    const d = await callApi({ action:"ministryAuth", pw, staff }).catch(()=>({ok:false,error:"network"}));
+    if(d.ok){
+      sessionStorage.setItem(PW_KEY, pw);
+      sessionStorage.setItem(STAFF_KEY, JSON.stringify(staff));
+      renderMenu();
+      return;
+    }
+    err.textContent = d.error==="unauthorized" ? "암호가 올바르지 않습니다."
+      : d.error==="not-manager" ? "사역신청 담당자로 등록된 분이 아닙니다. 앱에 로그인할 때와 같은 교구·목장·이름인지 확인해 주세요."
+      : d.error==="no-password-set" ? "서버에 암호가 설정되지 않았습니다(관리자 설정 필요)."
+      : "연결 오류입니다. 잠시 후 다시 시도하세요.";
+  }
+  $("login").addEventListener("click", tryLogin);
+  ["pw","st-mok","st-grade","st-name"].forEach(id=>$(id).addEventListener("keydown", e=>{ if(e.key==="Enter") tryLogin(); }));
+  $("pw").focus();
+}
+
+function renderMinistryMenu(){
+  logoutBtn.hidden = false;
+  const st = getStaff();
+  app.innerHTML = `
+    ${st && st.name ? `<div class="section-title">${htmlEsc(st.name)} 담당자님</div>` : `<div class="section-title">사역신청</div>`}
+    <div class="privacy-notice">
+      <b>개인정보 취급 주의</b><br>
+      사역신청에는 성명 · 소속 · 직분 · <b>휴대폰 번호</b>가 들어 있습니다.
+      본인 확인 · 교적 대조 · 임명 뒤 연락 외에는 쓰지 말고, 밖으로 옮기거나 공유하지 말아 주세요.
+    </div>
+    <div class="card-grid">
+      <div class="rep-card" id="rep-ministry">
+        <div class="ic">🤝</div>
+        <div class="rep-text">
+          <div class="ti">사역신청 현황 (2027)</div>
+          <div class="de">신청 건(팀마다 한 건) · 상태 변경(신청완료→접수완료→임명확정/미채택)</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
+      <div class="rep-card" id="rep-mincat">
+        <div class="ic">🗂️</div>
+        <div class="rep-text">
+          <div class="ti">사역팀 정보 (시간·하는 일)</div>
+          <div class="de">성도님 화면에 보이는 설명 — 비어 있으면 이름만 보인다</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
+    </div>`;
+  document.getElementById("rep-ministry").addEventListener("click", renderMinistryAdmin);
+  document.getElementById("rep-mincat").addEventListener("click", renderMinistryCatalog);
+}
+
 function renderMenu(){
+  if(MINISTRY_ONLY) return renderMinistryMenu();
   logoutBtn.hidden = false;
   app.innerHTML = `
     <div class="dash" id="dash">
@@ -2972,7 +3088,7 @@ async function mnLoad(){
   const box=document.getElementById("mn-list"); if(!box) return;
   box.innerHTML=`<p class="msg">불러오는 중...</p>`;
   if(!mnLoaded){
-    const d=await callApi({ action:"ministryList", pw:getPw() }).catch(()=>({ok:false,error:"network"}));
+    const d=await callApi({ action:"ministryList", pw:getPw(), staff:getStaff() }).catch(()=>({ok:false,error:"network"}));
     if(!d.ok){
       box.innerHTML=`<p class="msg err">명단을 불러오지 못했습니다: ${plEsc(d.error||"오류")}</p>`;
       return;
@@ -3102,7 +3218,7 @@ async function mnSetStatus(id, status){
   }
   const before=r.status;
   r.status=status; mnRender();                 // 먼저 반영하고, 실패하면 되돌린다
-  const d=await callApi({ action:"ministrySetStatus", pw:getPw(), id, status,
+  const d=await callApi({ action:"ministrySetStatus", pw:getPw(), staff:getStaff(), id, status,
     ...(note!==undefined?{note}:{}) })
     .catch(()=>({ok:false,error:"network"}));
   if(!d.ok){
@@ -3379,7 +3495,7 @@ async function mcSaveOrder(){
   const ids=mcRows.filter(x=>x.committee===mcPick).map(x=>x.id);
   const btn=document.getElementById("mc-ord-save");
   if(btn){ btn.disabled=true; btn.textContent="보내는 중…"; }
-  const d=await callApi({ action:"ministryCatalogOrder", pw:getPw(), ids })
+  const d=await callApi({ action:"ministryCatalogOrder", pw:getPw(), staff:getStaff(), ids })
     .catch(()=>({ok:false,error:"network"}));
   if(!d.ok){
     if(btn){ btn.disabled=false; btn.textContent="차례 저장"; }
@@ -3409,7 +3525,7 @@ async function mcSave(id){
   MC_WHEN_KEYS.forEach(k=>{ next[k]=ck(k); });
   const btn=box.querySelector("[data-save]");
   if(btn){ btn.disabled=true; btn.textContent="저장 중…"; }
-  const d=await callApi({ action:"ministryCatalogSave", pw:getPw(), id,
+  const d=await callApi({ action:"ministryCatalogSave", pw:getPw(), staff:getStaff(), id,
     schedule_note:next.sched, desc_note:next.desc, capacity_note:next.capacity,
     members_note:next.members,
     day_sun:next.sun, day_fri:next.fri, day_sat:next.sat, day_week:next.week,
