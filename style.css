@@ -4732,12 +4732,24 @@ body.pr-full-on { overflow: hidden; }
 .min-cancel { color: #a33; border-color: #d9b3b3; }
 /* 두 단추를 한 줄에 — 하나뿐일 때는 그 하나가 줄을 다 쓴다.
    ⚠️ .min-cta/.min-ghost 가 block+width:100%+margin-bottom 이라 여기서 되돌린다. */
-.min-acts { position: sticky; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); z-index: 8;
-  display: flex; gap: 8px; margin: 0 -4px; padding: 8px;
+/* ⚠️ position:sticky 로 두었더니 **하나도 안 붙었다**(2026-09-18 성도님 제보).
+   body 에 overflow-x:hidden 이 걸려 있어 body 가 스크롤 상자가 되는데, 정작 스크롤은
+   문서(html)가 한다 — sticky 는 그 body 를 기준으로 계산하니 움직일 일이 없다.
+   그래서 첫 화면 고정 단추(.home-fab)와 같이 **position:fixed** 로 못 박는다.
+   폭은 본문과 같게(#app 은 max-width 600 · 좌우 여백 20). 아래 여백은 .min-screen 이 이미 준다. */
+.min-acts { position: fixed; left: 50%; transform: translateX(-50%); z-index: 40;
+  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  width: min(560px, calc(100% - 40px));
+  display: flex; gap: 8px; padding: 7px;
   border: 1px solid rgba(214,219,230,.9); border-radius: 14px;
   background: rgba(255,255,255,.94); box-shadow: 0 8px 28px rgba(26,42,72,.16);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
 .min-acts > button { flex: 1; width: auto; min-width: 0; margin-bottom: 0; }
+/* 단추 높이는 다른 화면(.home-fab 12px)과 같이 — 15px/13px 이라 띠가 너무 두꺼웠다(성도님) */
+.min-acts .min-cta, .min-acts .min-ghost { padding: 12px 10px; font-size: .95rem; border-radius: 12px; }
+/* 「🔄 새 버전이 나왔어요」 띠(#update-banner · position:fixed;bottom:0)가 단추를 덮는다 —
+   띠가 있는 동안만 그 높이(약 59px)만큼 올려 준다. 닫으면 app.js 가 요소를 지워 저절로 돌아온다. */
+body:has(#update-banner) .min-acts { bottom: calc(10px + 68px + env(safe-area-inset-bottom, 0px)); }
 /* 「내 신청」 화면은 고칠 수 있을 때 단추가 셋(신청 수정·신청 취소·나가기)이라
    기본 여백·글씨로는 좁은 화면에서 두 줄로 접혔다(성도님 실기기 확인).
    패딩·글씨를 줄이고 줄바꿈을 막아 한 줄로 고정한다. */
