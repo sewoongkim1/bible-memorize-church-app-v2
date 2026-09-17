@@ -3641,7 +3641,7 @@ async function ministryCatalog(b: any) {
   const year = Number(b.year) || cfg.year;
   const { data, error } = await db.from("ministry_catalog")
     .select("id,committee,group_name,team,kind,schedule_note,desc_note,capacity_note,"
-      + "option_note,members_note,sort_order,"
+      + "option_note,members_note,leader_note,sort_order,"
       + "day_sun,day_fri,day_sat,day_week,time_from,time_to," + MINISTRY_FREQ_COLS)
     .eq("year", year)
     .order("sort_order", { ascending: true })
@@ -3675,6 +3675,8 @@ async function ministryCatalog(b: any) {
       sched: ministryHtml(r.schedule_note, 160),
       desc: ministryHtml(r.desc_note, 400),
       capacity: ministryHtml(r.capacity_note, 80),
+      // 사역 담당자(문의처) — 그냥 글자다. 화면에서 「섬기는 분」 위에 보인다(2026-09-18 성도님).
+      leader: ministryHtml(r.leader_note, 200),
       // 「지금 섬기는 분」 — 관리자가 적어 둔 분들 + 담당자가 접수완료한 신청자
       members: [ministryHtml(r.members_note, 1200), (roster.get(Number(r.id)) ?? []).join("<br>")]
         .filter(Boolean).join("<br>"),
@@ -4128,6 +4130,9 @@ async function ministryCatalogSave(b: any) {
     capacity_note: ministryHtml(b.capacity_note, 80),
     members_note: ministryHtml(b.members_note, 1200),
   };
+  // ⚠️ 담당자 한 줄은 **보내온 때만** 고친다 — 옛 admin 화면을 물고 있는 브라우저가
+  //    저장 한 번에 이 칸을 비우지 않게(위 「보내온 칸만」 규칙과 같은 까닭).
+  if ("leader_note" in b) patch.leader_note = ministryHtml(b.leader_note, 200);
   // ── 「② 언제」 ────────────────────────────────────────────────
   // ⚠️ **보내온 칸만** 고친다. 늘 넣도록 짜면, 옛 admin 화면을 물고 있는 브라우저가
   //    저장 한 번에 이 칸들을 통째로 비운다(캐시가 남는 것을 막을 길이 없다).
