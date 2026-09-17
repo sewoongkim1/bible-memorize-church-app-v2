@@ -3905,9 +3905,28 @@ async function ministryCancel(b: any) {
 //    로그인하면 「내 신청」에 그대로 보인다. 이름·목장을 한 글자라도 다르게 적으면 딴 사람이 된다.
 const PAPER_MAX_ROWS = 300;
 const PAPER_STATUS = new Set(["임명확정", "취소", "신청완료", "접수완료"]);
+// 줄에 적은 상태 — 「임명」·「임명확정」 둘 다 받는다(엑셀에는 짧게 적으신다)
+const PAPER_ALIAS: Record<string, string> = {
+  "임명": "임명확정", "임명확정": "임명확정", "확정": "임명확정",
+  "취소": "취소", "신청": "신청완료", "신청완료": "신청완료",
+  "접수": "접수완료", "접수완료": "접수완료",
+};
 // 담당자 화면이 쓰는 짧은 이름 — 창과 목록이 「임명」인데 여기만 「임명확정」이면 따로 논다
 const paperName = (st: string) =>
   st === "임명확정" ? "임명" : st === "신청완료" ? "신청" : st === "접수완료" ? "접수" : st;
+
+// 종이에 적힌 날짜 한 칸 — 「2026-12-15」·「2026.12.15」·「2026. 12. 15.」 다 받는다.
+// ⚠️ 한국 날짜로 읽는다(자정 +09:00) — UTC 로 읽으면 하루가 밀린다.
+function paperDay(v: unknown): { v: string | null; err?: string } {
+  const t = norm(v);
+  if (!t) return { v: null };
+  const m = /^(\d{4})[.\-\/\s]+(\d{1,2})[.\-\/\s]+(\d{1,2})\.?$/.exec(t);
+  if (!m) return { v: null, err: "날짜는 2026-12-15 꼴로 적어 주세요" };
+  const iso = m[1] + "-" + m[2].padStart(2, "0") + "-" + m[3].padStart(2, "0") + "T00:00:00+09:00";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return { v: null, err: "날짜를 확인해 주세요 (" + t + ")" };
+  return { v: d.toISOString() };
+}
 
 function ministryPaperKeys(gu: string, mok: string, name: string): string[] {
   const m = norm(mok);
@@ -3928,11 +3947,21 @@ function ministryPaperOne(raw: any, i: number) {
     committee: norm(raw && raw.committee), team: norm(raw && raw.team),
     option: norm(raw && raw.option), ok: false, error: "", warn: "",
   };
+  const at = paperDay(raw && raw.appliedAt), dec = paperDay(raw && raw.decidedAt);
+  out.appliedAt = at.v; out.decidedAt = dec.v;
+  // 줄에 적은 상태·사유가 있으면 그 줄만 그대로 따른다(2026-09-18 성도님 — 한 명단에 임명·취소가 섞인다)
+  const stRaw = norm(raw && raw.status);
+  out.rowStatus = stRaw ? (PAPER_ALIAS[stRaw] || "") : "";
+  out.rowNote = norm(raw && raw.note);
+  if (stRaw && !out.rowStatus) out.badStatus = stRaw;
   if (!gu || !mok) out.error = "교구·목장을 적어 주세요";
   else if (!name) out.error = "이름을 적어 주세요";
   else if (!MIN_POSITIONS.has(position)) out.error = "직분이 목록에 없습니다";
   else if (!PILSA_PHONE_RE.test(phone)) out.error = "휴대폰 번호를 확인해 주세요 (010-1234-5678)";
   else if (!out.team) out.error = "사역팀을 적어 주세요";
+  else if (at.err) out.error = "신청일 — " + at.err;
+  else if (dec.err) out.error = "임명일 — " + dec.err;
+  else if (out.badStatus) out.error = "상태는 임명·취소·신청 중에 적어 주세요 (" + out.badStatus + ")";
   return out;
 }
 
@@ -3940,11 +3969,9 @@ async function ministryPaper(b: any, save: boolean) {
   const err = await ministryAdminError(b); if (err) return { ok: false, error: err };
   const cfg = await ministryCfg();
   const year = cfg.year;
-  const status = norm(b.status) || "임명확정";
-  if (!PAPER_STATUS.has(status)) return { ok: false, error: "상태가 목록에 없습니다" };
-  const note = norm(b.note);
-  // 취소는 까닭 없이 못 한다(한 건씩 바꿀 때와 같은 규칙 — 나중에 「왜 취소됐지」를 아무도 모른다)
-  if (status === "취소" && !note) return { ok: false, error: "취소 사유를 적어 주세요 (관리자만 봅니다)" };
+  // ⚠️ 상태는 **줄마다** 적는다(2026-09-18 성도님 — 한 명단에 임명과 취소가 섞인다).
+  //    비어 있으면 임명이다(종이는 이미 정해진 명단이니까). 취소 사유도 그 줄에 적는다.
+  const status = "임명확정";
   const raws = Array.isArray(b.rows) ? b.rows : [];
   if (!raws.length) return { ok: false, error: "올릴 줄이 없습니다" };
   if (raws.length > PAPER_MAX_ROWS) {
@@ -4003,7 +4030,14 @@ async function ministryPaper(b: any, save: boolean) {
       continue;
     }
     const t = cand[0];
-    if (t.kind === "appoint" && status !== "임명확정") {
+    const st = r.rowStatus || status;                 // 줄에 적었으면 그 줄만 그대로
+    r.status = st;
+    // 취소는 까닭 없이 못 한다 — 그 줄에 사유가 있어야 한다(한 건씩 바꿀 때와 같은 규칙)
+    if (st === "취소" && !r.rowNote) {
+      r.error = "취소 사유를 적어 주세요 (사유 칸)";
+      continue;
+    }
+    if (t.kind === "appoint" && st !== "임명확정") {
       r.error = "지명으로 정해지는 자리입니다";
       continue;
     }
@@ -4019,15 +4053,15 @@ async function ministryPaper(b: any, save: boolean) {
       const had = orders.find((o) => o.user_id === uid && Number(o.team_id) === Number(t.id));
       if (had) {
         r.dupId = had.id;
-        r.same = had.status === status;
+        r.same = had.status === st;
         r.warn = r.same
-          ? "이미 " + paperName(status) + " 상태입니다 — 그대로 둡니다"
+          ? "이미 " + paperName(st) + " 상태입니다 — 그대로 둡니다"
           : "앱으로 낸 신청(" + paperName(had.status) + ")이 있습니다 — 그 건을 " +
-            paperName(status) + "으로 바꿉니다";
+            paperName(st) + "으로 바꿉니다";
         r.ok = true;
         continue;
       }
-      if (countsToCap(status)) {
+      if (countsToCap(st)) {
         const held = heldOf(uid) + (addedBy.get(uid) ?? 0);
         if (held + 1 > MINISTRY_MAX) {
           r.error = "이미 " + held + "건이라 " + MINISTRY_MAX + "개를 넘습니다"; continue;
@@ -4048,7 +4082,7 @@ async function ministryPaper(b: any, save: boolean) {
 
   const good = rows.filter((r: any) => r.ok);
   if (!save) {
-    return { ok: true, year, status, rows, okCount: good.length, badCount: rows.length - good.length };
+    return { ok: true, year, rows, okCount: good.length, badCount: rows.length - good.length };
   }
 
   // ── 넣기 ──────────────────────────────────────────────────────
@@ -4056,15 +4090,18 @@ async function ministryPaper(b: any, save: boolean) {
   // ⚠️ 결정이 난 상태(임명확정·취소)면 한 건씩 바꿀 때와 같이 **휴대폰 번호를 지우고**
   //    decided_at 을 찍는다. 규칙이 들어온 길에 따라 달라지면 안 된다.
   const now = new Date().toISOString();
-  const decided = status === "임명확정" || status === "취소";
   let added = 0;
   for (const r of good) {
     try {
+      const st = r.status || status;
+      const decided = st === "임명확정" || st === "취소";
+      const why = r.rowNote || "";
       if (r.same) { r.saved = true; continue; }          // 이미 그 상태다 — 건드리지 않는다
       if (r.dupId) {                                      // 앱 신청이 있다 — 상태만 바꾼다
-        const patch: Record<string, unknown> = { status, updated_at: now };
-        if (decided) { patch.decided_at = now; patch.phone = null; }
-        if (note) patch.note = note;
+        // ⚠️ 신청일은 **앱에 남은 그대로 둔다** — 성도님이 실제로 낸 날이다. 임명일만 종이 것으로.
+        const patch: Record<string, unknown> = { status: st, updated_at: now };
+        if (decided) { patch.decided_at = r.decidedAt || now; patch.phone = null; }
+        if (why) patch.note = why;
         const { error: e5 } = await db.from("ministry_orders").update(patch).eq("id", r.dupId);
         if (e5) throw e5;
         r.saved = true; r.changed = true; added++;
@@ -4079,14 +4116,17 @@ async function ministryPaper(b: any, save: boolean) {
         if (e3) throw e3;
         uid = u.id;
       }
-      const { error: e4 } = await db.from("ministry_orders").insert({
+      // 종이에 적힌 날짜가 있으면 그것을 쓴다 — 없으면 지금(2026-09-18 성도님)
+      const insert: Record<string, unknown> = {
         year, user_id: uid, name: r.name,
         who: r.gu + " " + r.mok.replace(/목장$/, "") + "목장",
         position: r.position, phone: decided ? null : r.phone,
         team_id: r.team_id, committee: r.committee, team: r.team, option: r.option || "",
-        status, source: "paper", note: note || null,
-        decided_at: decided ? now : null, updated_at: now,
-      });
+        status: st, source: "paper", note: why || null,
+        decided_at: decided ? (r.decidedAt || now) : null, updated_at: now,
+      };
+      if (r.appliedAt) insert.created_at = r.appliedAt;
+      const { error: e4 } = await db.from("ministry_orders").insert(insert);
       if (e4) throw e4;
       r.saved = true; added++;
     } catch (ex) {
@@ -4094,7 +4134,7 @@ async function ministryPaper(b: any, save: boolean) {
       r.error = "넣지 못했습니다: " + String((ex as any)?.message ?? ex).slice(0, 120);
     }
   }
-  return { ok: true, year, status, rows, added,
+  return { ok: true, year, rows, added,
            changed: good.filter((r: any) => r.changed).length,
            same: good.filter((r: any) => r.same).length,
            failed: good.filter((r: any) => !r.saved).length,

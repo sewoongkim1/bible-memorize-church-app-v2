@@ -551,8 +551,11 @@ a.mn-tel.sm{font-size:11.5px;padding:2px 8px;}
 .mp-how{font-size:13px;line-height:1.7;color:#41506b;background:#f3f6fb;border-radius:12px;padding:11px 13px;margin-bottom:10px;}
 .mp-how ul{margin:6px 0 0;padding-left:18px;}
 .mp-how li{margin:2px 0;}
-.mp-dl{display:inline-block;margin:8px 0 2px;font-size:12.5px;font-weight:800;color:#1a3a6b;
-  background:#fff;border:1px solid #a9c3e8;border-radius:999px;padding:6px 12px;text-decoration:none;}
+.mp-files{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:8px 0 2px;}
+.mp-dl{display:inline-block;font-size:12.5px;font-weight:800;color:#1a3a6b;
+  background:#fff;border:1px solid #a9c3e8;border-radius:999px;padding:6px 12px;text-decoration:none;cursor:pointer;}
+.mp-dl.pick{background:#eef3fb;}
+.mp-fname{font-size:12px;color:#41506b;}
 .mp-dl:active{background:#dfe6f3;}
 .mp-cols{display:flex;flex-wrap:wrap;gap:4px;margin:7px 0 2px;}
 .mp-cols span{font-size:11.5px;font-weight:800;color:#1a3a6b;background:#fff;border:1px solid #cdd8ea;border-radius:7px;padding:2px 7px;}
@@ -575,6 +578,9 @@ a.mn-tel.sm{font-size:11.5px;padding:2px 8px;}
 .mp-i-top{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 7px;}
 .mp-i-top b{font-size:14px;font-weight:800;color:#1a3a6b;}
 .mp-i-top small{font-size:11.5px;color:#8a95a8;}
+.mp-i-st{font-size:11px;font-weight:800;color:#1a3a6b;background:#eef3fb;border:1px solid #cdd8ea;
+  border-radius:999px;padding:1px 8px;}
+.mp-i-st.off{color:#8a95a8;background:#f4f6fa;border-color:#dde3ee;}
 .mp-i-team{font-size:12.5px;font-weight:700;color:#41506b;margin-left:auto;}
 .mp-i-team i{font-style:normal;font-size:11px;color:#8a95a8;}
 .mp-i-msg{font-size:12px;line-height:1.6;margin-top:4px;}
@@ -3351,10 +3357,12 @@ let mnLoaded = false;
    ⚠️ **종이는 이미 임명·취소가 정해진 명단이다** — 기본 상태가 「임명」이다.
    ⚠️ **알림은 가지 않는다.** 임명 알림은 현황 화면에서 한 건씩 누를 때만 나간다.
    ⚠️ 서버가 줄마다 다시 살핀다(ministryPaperCheck/Save) — 이 화면의 판정은 보여 주기용이다. */
-const MP_COLS = ["교구", "목장", "이름", "직분", "휴대폰", "사역팀", "위원회(선택)", "하위 선택(선택)"];
+const MP_COLS = ["교구", "목장", "이름", "직분", "휴대폰", "사역팀", "위원회(선택)", "하위 선택(선택)", "신청일(선택)", "임명일(선택)", "상태(선택)", "사유(취소일 때)"];
 let mpRows = [];      // 서버가 살펴 준 줄들
 let mpBusy = false;
 
+// 「임명확정」을 화면에서는 「임명」으로 — 값은 서버·DB 가 쓰는 그대로 둔다
+function mpName(st){ return MN_SHORT[st] || st || "임명"; }
 function mpParse(text){
   const out=[];
   String(text||"").split(/\r?\n/).forEach(line=>{
@@ -3362,7 +3370,9 @@ function mpParse(text){
     const cells=(line.indexOf("\t")>=0 ? line.split("\t") : line.split(",")).map(x=>x.trim());
     if(!cells.some(Boolean)) return;
     out.push({ gu:cells[0]||"", mok:cells[1]||"", name:cells[2]||"", position:cells[3]||"",
-               phone:cells[4]||"", team:cells[5]||"", committee:cells[6]||"", option:cells[7]||"" });
+               phone:cells[4]||"", team:cells[5]||"", committee:cells[6]||"", option:cells[7]||"",
+               appliedAt:cells[8]||"", decidedAt:cells[9]||"",
+               status:cells[10]||"", note:cells[11]||"" });
   });
   // 엑셀에서 머리글까지 딸려 오는 일이 많다 — 첫 줄이 머리글이면 뺀다
   if(out.length && /교구/.test(out[0].gu) && /이름/.test(out[0].name)) out.shift();
@@ -3377,7 +3387,12 @@ function renderMinistryPaper(){
     <div class="push-card">
       <div class="mp-how">
         <b>엑셀에서 아래 차례대로</b> 칸을 복사해 붙여넣으세요. 머리글 줄은 있어도 됩니다.
-        <a class="mp-dl" href="ministry/2027_사역명단_올리기_양식.xlsx" download>⬇️ 엑셀 양식 내려받기</a>
+        <div class="mp-files">
+          <a class="mp-dl" href="ministry/2027_사역명단_올리기_양식.xlsx" download>⬇️ 엑셀 양식 내려받기</a>
+          <label class="mp-dl pick" for="mp-file">📂 엑셀 파일 올리기</label>
+          <input type="file" id="mp-file" accept=".xlsx,.xls,.csv" hidden>
+          <span class="mp-fname" id="mp-fname"></span>
+        </div>
         <div class="mp-cols">${MP_COLS.map((c,i)=>`<span${i>5?' class="dim"':''}>${plEsc(c)}</span>`).join("")}</div>
         <ul>
           <li><b>교구·목장·이름</b>은 앱 로그인과 <b>똑같이</b> 적어 주세요 — 한 글자만 달라도 다른 분이 됩니다.</li>
@@ -3385,22 +3400,13 @@ function renderMinistryPaper(){
           <li>사역팀 이름이 여러 위원회에 있으면 <b>위원회</b>도 적어 주세요.</li>
           <li>앱으로 이미 낸 신청과 겹치면 <b>새로 넣지 않고 그 건의 상태만</b> 바꿉니다.</li>
           <li>이미 같은 상태인 줄은 <b>손대지 않습니다</b> — 같은 명단을 두 번 올려도 안전합니다.</li>
+          <li><b>신청일·임명일</b>은 적으면 그 날짜로, 비우면 오늘로 들어갑니다 (2026-12-15 꼴).</li>
+          <li><b>상태</b>는 줄마다 「임명」·「취소」·「신청」으로 적습니다. <b>비우면 임명</b>이에요.
+              취소로 적은 줄은 <b>사유</b>도 함께 적어 주세요(관리자만 봅니다).</li>
           <li><b>알림은 가지 않습니다.</b> 임명 알림이 필요하면 현황 화면에서 한 분씩 눌러 주세요.</li>
         </ul>
       </div>
-      <div class="mp-row">
-        <label>이 명단의 상태
-          <select id="mp-status">
-            <option value="임명확정">임명 (종이로 정해진 명단)</option>
-            <option value="취소">취소</option>
-            <option value="신청완료">신청 (아직 결정 전)</option>
-          </select>
-        </label>
-        <label class="mp-note" id="mp-note-wrap" hidden>취소 사유 <span class="mp-dim">관리자만 봅니다</span>
-          <input type="text" id="mp-note" class="push-in" placeholder="예: 부서 요청으로 취소">
-        </label>
-      </div>
-      <textarea id="mp-text" class="mp-text" rows="8" placeholder="화평&#9;20&#9;김세웅&#9;안수집사&#9;010-1234-5678&#9;신앙운동"></textarea>
+      <textarea id="mp-text" class="mp-text" rows="8" placeholder="화평&#9;20&#9;홍길동&#9;집사&#9;010-1234-5678&#9;신앙운동&#9;제자양육부&#9;&#9;2026-12-15&#9;2026-12-27&#9;임명"></textarea>
       <div class="mp-acts">
         <button type="button" class="push-btn ghost" id="mp-check">붙여넣은 것 살펴보기</button>
         <button type="button" class="push-btn" id="mp-save" hidden>명단 넣기</button>
@@ -3410,14 +3416,69 @@ function renderMinistryPaper(){
     </div>
     <button class="ghost-btn" id="back">← 뒤로</button>`;
   document.getElementById("back").addEventListener("click", renderMenu);
-  const sel=document.getElementById("mp-status");
-  sel.addEventListener("change", ()=>{
-    document.getElementById("mp-note-wrap").hidden = sel.value!=="취소";
-    mpReset();
-  });
   document.getElementById("mp-text").addEventListener("input", mpReset);
+  document.getElementById("mp-file").addEventListener("change", mpFile);
   document.getElementById("mp-check").addEventListener("click", ()=>mpRun(false));
   document.getElementById("mp-save").addEventListener("click", ()=>mpRun(true));
+}
+
+// ── 엑셀 파일을 그대로 올리기 ────────────────────────────────────────
+// 붙여넣기와 **같은 길로 모은다** — 파일에서 읽은 것을 아래 칸에 글자로 채워 넣고,
+// 그다음은 붙여넣었을 때와 똑같이 「살펴보기 → 넣기」로 간다(담당자가 읽힌 것을 눈으로 본다).
+// ⚠️ .xlsx 는 압축 파일이라 브라우저가 혼자 못 읽는다 — 필요할 때만 SheetJS 를 내려받는다.
+//    통신이 막히면 「엑셀에서 복사해 붙여넣어 주세요」로 안내한다(길이 하나 더 있다).
+// ⚠️ 시트가 여럿이면 「명단」 시트를 먼저 본다(양식의 「적는 법」 시트를 읽지 않게).
+function mpLoadXlsx(){
+  if(window.XLSX) return Promise.resolve(window.XLSX);
+  return new Promise((res, rej)=>{
+    const s=document.createElement("script");
+    s.src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+    s.onload=()=>window.XLSX?res(window.XLSX):rej(new Error("no-xlsx"));
+    s.onerror=()=>rej(new Error("no-cdn"));
+    document.head.appendChild(s);
+  });
+}
+function mpCell(v){
+  if(v===null || v===undefined) return "";
+  if(v instanceof Date){                       // 엑셀 날짜 칸 → 2026-12-15
+    const p=n=>String(n).padStart(2,"0");
+    return v.getFullYear()+"-"+p(v.getMonth()+1)+"-"+p(v.getDate());
+  }
+  return String(v).trim();
+}
+async function mpFile(e){
+  const f=e.target.files && e.target.files[0]; if(!f) return;
+  const name=document.getElementById("mp-fname");
+  name.textContent=f.name+" 읽는 중…";
+  try{
+    let lines=[];
+    if(/\.csv$/i.test(f.name)){
+      const text=await f.text();
+      lines=text.split(/\r?\n/).map(l=>l.split(",").map(x=>x.trim()));
+    } else {
+      const XLSX=await mpLoadXlsx();
+      const wb=XLSX.read(await f.arrayBuffer(), { type:"array", cellDates:true });
+      const sheet=wb.SheetNames.indexOf("명단")>=0 ? "명단" : wb.SheetNames[0];
+      lines=XLSX.utils.sheet_to_json(wb.Sheets[sheet], { header:1, blankrows:false, raw:true })
+        .map(row=>(row||[]).map(mpCell));
+    }
+    // 빈 줄·안내 줄은 버린다(양식 맨 아래 「↑ 위 …」 한 줄)
+    lines=lines.filter(r=>r.some(x=>x) && !/^[↑※]/.test(r[0]||""));
+    if(!lines.length) throw new Error("empty");
+    document.getElementById("mp-text").value=lines.map(r=>r.join("\t")).join("\n");
+    mpReset();
+    name.textContent=f.name+" · "+lines.length+"줄 읽음";
+  }catch(err){
+    name.textContent="";
+    const why=String(err && err.message)==="no-cdn"
+      ? "인터넷에서 엑셀 읽기 도구를 못 받았습니다. 엑셀에서 칸을 복사해 아래 칸에 붙여넣어 주세요."
+      : String(err && err.message)==="empty"
+        ? "파일에서 읽을 줄이 없습니다. 「명단」 시트에 적으셨는지 봐 주세요."
+        : "파일을 읽지 못했습니다. 엑셀에서 칸을 복사해 붙여넣어 주셔도 됩니다.";
+    mnDialog({ icon:"📂", title:"파일을 읽지 못했습니다", tone:"danger", ok:"확인", cancel:null, html:plEsc(why) });
+  }finally{
+    e.target.value="";                         // 같은 파일을 다시 고를 수 있게
+  }
 }
 
 // 붙여넣은 글이 바뀌면 앞서 살핀 결과는 버린다 — 옛 판정으로 넣는 일을 막는다
@@ -3431,17 +3492,18 @@ function mpReset(){
 async function mpRun(save){
   if(mpBusy) return;
   const rows=mpParse(document.getElementById("mp-text").value);
-  const status=document.getElementById("mp-status").value;
-  const note=(document.getElementById("mp-note")?.value||"").trim();
   if(!rows.length){
     mnDialog({ icon:"📋", title:"붙여넣은 것이 없습니다", ok:"확인", cancel:null,
       html:"엑셀에서 칸을 복사해 붙여넣어 주세요." });
     return;
   }
   if(save){
-    const okN=mpRows.filter(r=>r.ok&&!r.same).length;
-    const yes=await mnDialog({ icon:"📥", title:"명단을 넣습니다", tone:"ok", ok:`${okN}건 넣기`, cancel:"그만두기",
-      html:`<b>${okN}건</b>을 <b>${plEsc(status==="임명확정"?"임명":status==="취소"?"취소":"신청")}</b>으로 넣습니다.`,
+    const go=mpRows.filter(r=>r.ok&&!r.same);
+    const by={};
+    go.forEach(r=>{ const k=mpName(r.status); by[k]=(by[k]||0)+1; });
+    const yes=await mnDialog({ icon:"📥", title:"명단을 넣습니다", tone:"ok", ok:`${go.length}건 넣기`, cancel:"그만두기",
+      html:`<b>${go.length}건</b>을 넣습니다 — ` +
+        Object.keys(by).map(k=>`<b>${plEsc(k)} ${by[k]}건</b>`).join(" · "),
       note:"앱 알림은 가지 않습니다. 넣은 뒤에는 현황 화면에서 한 건씩 고칠 수 있어요.", noteTone:"off" });
     if(!yes) return;
   }
@@ -3449,7 +3511,7 @@ async function mpRun(save){
   const btn=document.getElementById(save?"mp-save":"mp-check");
   const was=btn.textContent; btn.disabled=true; btn.textContent=save?"넣는 중…":"살펴보는 중…";
   const d=await callApi({ action: save?"ministryPaperSave":"ministryPaperCheck",
-    pw:getPw(), staff:getStaff(), status, note, rows })
+    pw:getPw(), staff:getStaff(), rows })
     .catch(()=>({ok:false,error:"network"}));
   mpBusy=false; btn.disabled=false; btn.textContent=was;
   if(minAuthLost(d)) return;
@@ -3479,6 +3541,7 @@ function mpRender(saved, d){
     return `<div class="mp-item ${cls}">
       <div class="mp-i-top"><span class="mp-i-ic">${mark}</span>
         <b>${plEsc(r.name||"(이름 없음)")}</b><small>${plEsc([r.gu,r.mok].filter(Boolean).join(" "))}</small>
+        ${r.status?`<span class="mp-i-st ${r.status==="취소"?"off":""}">${plEsc(mpName(r.status))}</span>`:""}
         <span class="mp-i-team">${plEsc(r.team||"")}${r.committee?` <i>${plEsc(r.committee)}</i>`:""}</span></div>
       ${r.error?`<div class="mp-i-msg bad">${plEsc(r.error)}</div>`:""}
       ${r.warn?`<div class="mp-i-msg warn">${plEsc(r.warn)}</div>`:""}
