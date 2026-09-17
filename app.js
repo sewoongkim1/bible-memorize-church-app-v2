@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260918g";
+const APP_BUILD = "20260918h";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -10106,10 +10106,12 @@ function minConfirmHtml() {
   for (const id of minPicked) {
     const t = minTeam(id); if (!t) continue;
     const meta = minShortOf(t);
+    // ⚠️ 이름 줄은 **칸을 가로질러** 놓는다(2026-09-18 성도님) — 오른쪽 단추 옆에 끼우면
+    //    폭이 좁아 「방송실 운영 · 방송전산부」가 두 줄로 접히고, 오른쪽에는 빈자리가 남았다.
     rows += '<div class="min-pick"><span class="min-pick-ck">✓</span>' +
-      '<span class="min-info"><span class="min-nm">' + minEsc(t.team) +
+      '<span class="min-nm">' + minEsc(t.team) +
       ' <span class="min-com">· ' + minEsc(t.committee) + '</span></span>' +
-      (meta ? '<span class="min-meta">' + meta + '</span>' : "") + '</span>' +
+      '<span class="min-info">' + (meta ? '<span class="min-meta">' + meta + '</span>' : "") + '</span>' +
       '<button class="min-del" data-drop="' + t.id + '">취소</button></div>';
   }
   return minTitleHtml("신청 사역 확인", '<p class="min-sub">이 사역으로 신청합니다</p>') +
@@ -10240,10 +10242,11 @@ function minDoneHtml(u) {
             it.status === "임명확정" ? "임명" : it.status === "취소" ? "취소" : "결정", decided)
         : "");
     rows += '<div class="min-pick"><span class="min-pick-ck ' + st.cls + '">' + st.ic + '</span>' +
-      '<span class="min-info"><span class="min-nm">' + minEsc(it.team) +
+      '<span class="min-nm">' + minEsc(it.team) +
       ' <span class="min-com">· ' + minEsc(it.committee) + '</span></span>' +
-      '<span class="min-st ' + st.cls + '">' + minEsc(minStName(it.status)) + '</span>' +
-      (meta ? '<span class="min-meta">' + meta + '</span>' : "") + dates + '</span>' +
+      '<span class="min-info">' +
+        '<span class="min-st ' + st.cls + '">' + minEsc(minStName(it.status)) + '</span>' +
+        (meta ? '<span class="min-meta">' + meta + '</span>' : "") + dates + '</span>' +
       (t ? minMoreBtn(t) : "") + '</div>';
   }
 

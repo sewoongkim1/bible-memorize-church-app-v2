@@ -4696,8 +4696,17 @@ body.pr-full-on { overflow: hidden; }
   border: none; border-top: 1px dashed var(--border); cursor: pointer; text-align: right; }
 .min-pick .min-more { flex: none; width: auto; border-top: none; padding: 6px 2px 6px 8px; }
 
-.min-pick { display: flex; align-items: center; gap: 11px; padding: 12px 13px;
+/* 카드 = [표] [이름 줄 — 칸 전체] / [상태·일정·날짜] [자세히 보기]
+   ⚠️ 그전에는 한 줄 flex 라 이름이 오른쪽 단추에 밀려 두 줄로 접히고 오른쪽에 빈자리가 남았다
+      (2026-09-18 성도님). 이름 줄만 칸을 가로지르게 해서 한 줄에 들어간다. */
+.min-pick { display: grid; grid-template-columns: auto 1fr auto; column-gap: 11px; row-gap: 2px;
+  align-items: center; padding: 12px 13px;
   border: 1.5px solid var(--border); border-radius: 12px; background: var(--white); margin-bottom: 9px; }
+.min-pick > .min-pick-ck { grid-column: 1; grid-row: 1 / span 2; }
+.min-pick > .min-nm { grid-column: 2 / span 2; grid-row: 1; }
+.min-pick > .min-info { grid-column: 2; grid-row: 2; }
+.min-pick > .min-more, .min-pick > .min-del { grid-column: 3; grid-row: 2; align-self: center; }
+.min-pick > .min-info:empty { display: none; }
 .min-pick-ck { flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--navy);
   color: #fff; font-size: .8rem; font-weight: 800; display: flex; align-items: center; justify-content: center; }
 .min-del { font: inherit; font-size: .8rem; color: #a33; background: none; border: none;
