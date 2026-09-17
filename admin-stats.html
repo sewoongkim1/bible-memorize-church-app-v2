@@ -349,14 +349,19 @@
 .mn-team-main i{font-style:normal;font-size:12.5px;color:#41506b;}
 .mn-team-com{font-size:12px;color:#7a869c;}
 /* 묶음 머리의 사역·사람 칩 — 색은 상태 막대와 같게 */
-.mn-grp-items{flex-basis:100%;display:flex;flex-wrap:wrap;gap:5px;padding-left:18px;}
-.mn-item{display:inline-flex;align-items:baseline;gap:4px;font-size:13px;font-weight:700;line-height:1.3;border-radius:8px;
-  padding:4px 8px;border:1px solid #a9c3e8;background:#eef3fb;color:#1a3a6b;}
-.mn-item small{font-size:11px;font-weight:600;color:#7a869c;}
-.mn-item em{font-style:normal;font-size:10.5px;font-weight:800;border-radius:999px;padding:0 5px;background:rgba(255,255,255,.75);}
-.mn-item.s2{border-color:#e6cf94;background:#fdf6e3;color:#7a5f16;}
-.mn-item.s3{border-color:#a9d8bb;background:#eaf6ee;color:#1f5c3a;}
-.mn-item.s4{border-color:#dde3ee;background:#f4f6fa;color:#8a95a8;text-decoration:line-through;}
+/* 묶음 머리의 줄 목록 — 사람별은 사역, 사역별은 사람. 줄마다 오른쪽에 상태를 글자로(색만으로 짐작하지 않게) */
+.mn-grp-rows{flex-basis:100%;display:flex;flex-direction:column;margin:2px 0 0 18px;background:#fff;
+  border:1px solid #e3e8f1;border-radius:10px;overflow:hidden;}
+.mn-rowi{display:flex;align-items:center;gap:8px;padding:7px 10px;border-top:1px solid #eef1f6;}
+.mn-rowi:first-child{border-top:none;}
+.mn-rowi-t{flex:1;min-width:0;display:flex;align-items:baseline;gap:6px;white-space:nowrap;overflow:hidden;}
+.mn-rowi-t b{font-size:14px;font-weight:800;color:#1a3a6b;overflow:hidden;text-overflow:ellipsis;}
+.mn-rowi-t small{font-size:11.5px;color:#8a95a8;flex:none;}
+.mn-rowi-st{flex:none;font-size:11.5px;font-weight:800;border-radius:999px;padding:2px 9px;background:#eef3fb;color:#1a3a6b;}
+.mn-rowi-st.s2{background:#fdf6e3;color:#7a5f16;}
+.mn-rowi-st.s3{background:#eaf6ee;color:#1f5c3a;}
+.mn-rowi-st.s4{background:#f1f3f7;color:#8a95a8;}
+.mn-rowi.s4 .mn-rowi-t{opacity:.55;}
 .mn-team{font-size:13px;background:#f3f6fb;border:1px solid #e2e8f4;border-radius:8px;padding:5px 9px;color:#2c3a52;}
 .mn-team em{font-style:normal;color:#7a869c;font-size:11.5px;margin-right:3px;}
 .mn-team i{font-style:normal;color:#8a95a8;font-size:11.5px;}
@@ -3658,11 +3663,17 @@ function mnStatusChips(list){
     return n?`<span class="pl-chip ${MN_CLS[st]}">${st} ${n}</span>`:"";
   }).join("");
 }
-// 묶음 머리의 칩 하나 — 접어 둔 채로도 사람별은 신청한 사역을, 사역별은 신청한 사람을 모두 본다(2026-09-17 성도님).
-// 색은 상태 막대와 같다. 신청완료가 아니면 상태를 작게 붙인다. inner 는 부르는 쪽이 plEsc 로 만든 HTML.
-function mnItem(r, inner){
-  const st = r.status==="신청완료" ? "" : `<em>${plEsc(MN_SHORT[r.status]||r.status)}</em>`;
-  return `<span class="mn-item ${MN_CLS[r.status]||""}">${inner}${st}</span>`;
+// 묶음 머리의 줄 목록 — 접어 둔 채로도 사람별은 신청한 사역을, 사역별은 신청한 사람을 **상태와 함께** 모두 본다
+// (2026-09-17 성도님). 줄은 상태 순서(신청→접수→확정→취소)로, 오른쪽에 상태를 글자로 붙인다.
+// main·sub 는 글자 그대로 받아 여기서 plEsc 한다.
+function mnRowsHtml(list, mainOf, subOf){
+  const order=st=>{ const i=MN_STATES.indexOf(st); return i<0 ? 99 : i; };
+  const sorted=[...list].sort((a,b)=>order(a.status)-order(b.status) || String(mainOf(a)).localeCompare(String(mainOf(b)),"ko"));
+  return `<span class="mn-grp-rows">${sorted.map(r=>{
+    const cls=MN_CLS[r.status]||"";
+    return `<span class="mn-rowi ${cls}"><span class="mn-rowi-t"><b>${plEsc(mainOf(r))}</b><small>${plEsc(subOf(r))}</small></span>`+
+      `<span class="mn-rowi-st ${cls}">${plEsc(MN_SHORT[r.status]||r.status)}</span></span>`;
+  }).join("")}</span>`;
 }
 function mnGroupsHtml(rows, card){
   const by=new Map();
@@ -3686,12 +3697,12 @@ function mnGroupsHtml(rows, card){
       title=`<span class="mn-grp-t">${plEsc(r0.name)}${pos?` <em>${plEsc(pos)}</em>`:""}<i>${plEsc(r0.who)}</i></span>
         <span class="mn-grp-n">${teams}개 사역</span>
         ${(phone||dup.length)?`<span class="mn-grp-sub">${phone?`<span class="mn-p4">📞 <b>${plEsc(phone)}</b></span>`:""}${mnDupBadge(dup)}</span>`:""}
-        <span class="mn-grp-items">${list.map(r=>mnItem(r, `<small>${plEsc(r.committee)}</small>${plEsc(r.team)}`)).join("")}</span>`;
+        ${mnRowsHtml(list, r=>r.team, r=>r.committee)}`;
     } else {
       const people=new Set(list.map(mnPersonKey)).size;
       title=`<span class="mn-grp-t"><em>${plEsc(r0.committee)}</em>${plEsc(r0.team)}</span>
         <span class="mn-grp-n">${list.length}건 · ${people}명</span>
-        <span class="mn-grp-items">${list.map(r=>mnItem(r, `${plEsc(r.name)}<small>${plEsc(r.who)}</small>`)).join("")}</span>`;
+        ${mnRowsHtml(list, r=>r.name, r=>r.who)}`;
     }
     return `<details class="mn-grp" data-mngk="${plEsc(gk)}"${mnOpen.has(gk)?" open":""}>
       <summary>${title}</summary>
