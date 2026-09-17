@@ -42,6 +42,7 @@ MARK = io.open(os.path.join(ROOT, 'marketing', 'logo-mark-data-uri.txt'), encodi
 # 사역신청서(ministry-apply-form-gen.py)와 같은 톤
 NAVY = '#123059'
 GOLD = '#765700'
+PEN = '#1d4ea3'   # 작성 예시의 손글씨 색
 
 # ── 지면 상수(실측 뒤 조정하는 자리) ────────────────────────────────
 TEAMS = 4             # 부서 소개서 한 장에 들어가는 팀 칸
@@ -57,20 +58,27 @@ FREQS = ['매주', '격주(교대형식)', '매달', '그때그때']
 KINDS = ['성도 신청', '임명직']
 
 
-def opts(labels, kind):
-    """kind='rd' 동그라미(하나만) · 'ck' 네모(여럿)"""
+def esc(s):
+    return (s or '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+
+def opts(labels, kind, on=()):
+    """kind='rd' 동그라미(하나만) · 'ck' 네모(여럿) · on=표시해 둘 보기(작성 예시)"""
     return '<span class="opts">' + ''.join(
-        '<span class="o"><i class="%s"></i>%s</span>' % (kind, s) for s in labels) + '</span>'
+        '<span class="o"><i class="%s%s"></i>%s</span>' % (kind, ' on' if s in on else '', s)
+        for s in labels) + '</span>'
 
 
-def ln(cls=''):
-    return '<span class="ln %s"></span>' % cls
+def ln(cls='', text=''):
+    """밑줄 한 칸 — text 가 있으면 손글씨로 채운다(작성 예시)."""
+    return '<span class="ln %s">%s</span>' % (cls, '<span class="v">%s</span>' % esc(text) if text else '')
 
 
-def lines(n, label=''):
-    """밑줄 n줄 — 첫 줄에만 이름표를 단다."""
-    return ''.join('<div class="row"><span class="lb">%s</span>%s</div>' % (label if i == 0 else '', ln('grow'))
-                   for i in range(n))
+def lines(n, label='', texts=()):
+    """밑줄 n줄 — 첫 줄에만 이름표를 단다. texts[i] 가 있으면 i번째 줄을 채운다."""
+    texts = list(texts) + [''] * n
+    return ''.join('<div class="row"><span class="lb">%s</span>%s</div>'
+                   % (label if i == 0 else '', ln('grow', texts[i])) for i in range(n))
 
 
 def sec(num, tag, inner, cls=''):
@@ -103,11 +111,12 @@ def team_block(n):
              'hm': hhmm()})
 
 
-def hhmm():
-    """__:__ ~ __:__"""
-    t = ln('w-t')
+def hhmm(t_from='', t_to=''):
+    """__:__ ~ __:__ — 'HH:MM' 을 주면 칸마다 나눠 채운다."""
+    a = (t_from.split(':') + [''])[:2] if t_from else ['', '']
+    b = (t_to.split(':') + [''])[:2] if t_to else ['', '']
     return ('%s<span class="unit">:</span>%s<span class="unit tilde">~</span>%s<span class="unit">:</span>%s'
-            % (t, t, t, t))
+            % (ln('w-t', a[0]), ln('w-t', a[1]), ln('w-t', b[0]), ln('w-t', b[1])))
 
 
 STYLE = """
@@ -139,7 +148,7 @@ body { font-family:'맑은 고딕','Malgun Gothic',sans-serif; color:#111; font-
 .lb2 { flex:0 0 auto; font-weight:700; color:%(navy)s; padding-bottom:0.9mm; margin-left:1.4mm; }
 .unit { flex:0 0 auto; padding-bottom:0.9mm; color:#333; }
 .unit.tilde { margin:0 0.8mm; }
-.ln  { display:block; border-bottom:0.3mm solid #8a8a8a; height:5mm; }
+.ln  { display:flex; align-items:flex-end; border-bottom:0.3mm solid #8a8a8a; height:5mm; }
 .ln.grow { flex:1 1 auto; min-width:10mm; }
 .ln.w-cap { flex:0 0 11mm; }
 .ln.w-t { flex:0 0 7.5mm; }
@@ -150,7 +159,7 @@ body { font-family:'맑은 고딕','Malgun Gothic',sans-serif; color:#111; font-
 
 .opts { display:flex; align-items:center; gap:2.1mm; padding-bottom:0.9mm; }
 .o { display:flex; align-items:center; gap:0.9mm; }
-.o i { display:block; flex:0 0 auto; width:3.4mm; height:3.4mm; border:0.3mm solid #444; }
+.o i { display:block; flex:0 0 auto; width:3.4mm; height:3.4mm; border:0.3mm solid #444; position:relative; }
 .o i.rd { border-radius:50%%; }
 .o i.ck { border-radius:0.5mm; }
 
@@ -181,13 +190,24 @@ body { font-family:'맑은 고딕','Malgun Gothic',sans-serif; color:#111; font-
 .roomy .how { font-size:7.8pt; color:#555; line-height:1.4; margin:0.6mm 0 0.4mm 20.1mm;
               white-space:normal; word-break:keep-all; }
 .roomy .how b { color:%(navy)s; font-weight:700; }
+/* 작성 예시 — 손으로 적은 것처럼(파란 펜). 표시는 글리프가 아니라 테두리로 그린다(빈 글리프 함정). */
+.ln .v { font-family:'Nanum Pen Script','맑은 고딕',cursive; color:%(pen)s; font-size:15.5pt; line-height:1;
+         padding:0 1.4mm 0.1mm; white-space:nowrap; }
+.ln.w-t .v { padding:0; margin:0 auto; }
+.o i.on.rd::after { content:''; position:absolute; left:0.5mm; top:0.5mm; right:0.5mm; bottom:0.5mm;
+                    border-radius:50%%; background:%(pen)s; }
+.o i.on.ck::after { content:''; position:absolute; left:0.95mm; top:-1mm; width:1.35mm; height:3mm;
+                    border:solid %(pen)s; border-width:0 0.6mm 0.6mm 0; transform:rotate(40deg); }
+.doc-head .sample { flex:0 0 auto; align-self:center; border:0.45mm solid %(pen)s; color:%(pen)s;
+                    font-weight:800; font-size:10pt; padding:1mm 2.6mm; border-radius:1.2mm; }
+
 /* 마지막 칸(비고)이 남은 높이를 채운다 — 줄을 더해 맞추면 크롬 판에 따라 2장으로 넘친다.
    쪽 높이(297 - 위 10 - 아래 8 = 279mm)보다 2mm 작게 잡아 여유를 둔다. */
 body.roomy { height:%(page_h)smm; display:flex; flex-direction:column; }
 .roomy .sec.fill { flex:1 1 auto; margin-bottom:0; }
 .roomy .sec.fill .body { display:flex; flex-direction:column; justify-content:space-between; }
 """ % {'navy': NAVY, 'gold': GOLD, 'fpt': FONT_PT, 'line': LINE_MM, 'roomy': ROOMY_LINE_MM,
-       'page_h': 277}
+       'page_h': 277, 'pen': PEN}
 
 # ── 두 양식이 함께 쓰는 ① 작성자 ─────────────────────────────────────
 WRITER = sec('①', '작성자', """
@@ -218,33 +238,38 @@ def dept_page():
     return '2027 부서 소개서', '', head + WRITER + dept + teams
 
 
-def team_page():
+def team_page(ex=None):
+    """ex 를 주면 그 값으로 채운 「작성 예시」가 된다(EXAMPLES 참고)."""
+    ex = ex or {}
     how = lambda s: '<div class="how">%s</div>' % s
     head = doc_head('2027 사역팀 소개서',
                     '<b>팀마다 한 장</b>씩 적어 주세요. 적어 주신 내용은 2027 사역신청 때 '
-                    '성도님이 사역을 고르시는 안내로 그대로 쓰입니다.')
+                    '성도님이 사역을 고르시는 안내로 그대로 쓰입니다.',
+                    '<div class="sample">작성 예시</div>' if ex else '')
     team = sec('②', '팀', (
-        lines(1, '부서명')
-        + lines(1, '팀 이름')
+        lines(1, '부서명', [ex.get('committee', '')])
+        + lines(1, '팀 이름', [ex.get('team', '')])
         + '<div class="row"><span class="lb">구분</span>%s'
-          '<span class="note">임명직이면 ③부터는 비워 두셔도 됩니다</span></div>' % opts(KINDS, 'rd')))
+          '<span class="note">임명직이면 ③부터는 비워 두셔도 됩니다</span></div>'
+          % opts(KINDS, 'rd', [ex['kind']] if ex.get('kind') else [])))
     when = sec('③', '언제', (
-        '<div class="row"><span class="lb">요일</span>%s</div>' % opts(DAYS, 'ck')
+        '<div class="row"><span class="lb">요일</span>%s</div>' % opts(DAYS, 'ck', ex.get('days', []))
         + how('해당하는 요일에 <b>모두</b> 표시해 주세요. <b>금요일은 평일에 넣지 않습니다</b> — 평일은 월~목입니다.')
-        + '<div class="row"><span class="lb">주기</span>%s</div>' % opts(FREQS, 'ck')
+        + '<div class="row"><span class="lb">주기</span>%s</div>' % opts(FREQS, 'ck', ex.get('freqs', []))
         + how('팀이 모이는 주기가 아니라 <b>한 분이 실제로 서는 주기</b>입니다. 여럿 고르셔도 됩니다 '
               '(예: 팀은 매주 모여도 넷이 돌아가며 서면 「매달」).')
-        + '<div class="row"><span class="lb">주일 시각</span>%s</div>' % hhmm()
+        + '<div class="row"><span class="lb">주일 시각</span>%s</div>' % hhmm(ex.get('from', ''), ex.get('to', ''))
         + how('<b>주일 사역만</b> 24시간 꼴로 적어 주세요(예: 09:30 ~ 11:00).')
-        + lines(2, '시간(문장)')
+        + lines(2, '시간(문장)', ex.get('sched', []))
         + how('성도님 화면에 그대로 보이는 한 줄입니다(예: 매주 화 오전 10시, 예배 30분 전 모임). '
               '주일이 아닌 사역의 시간은 여기에 적어 주세요.')))
     about = sec('④', '안내', (
-        lines(5, '하는 일')
+        lines(5, '하는 일', ex.get('desc', []))
         + how('이름만 보고는 알 수 없는 것을 적어 주세요(예: 오병이어 1팀과 2팀이 무엇이 다른지).')
         + '<div class="row"><span class="lb">필요 인원</span>%s<span class="unit">명</span>'
-          '<span class="note">참고로만 보여 드리고, 신청을 막지 않습니다</span></div>' % ln('w-cap')))
-    etc = sec('⑤', '비고', lines(BIGO_LINES, '전하실 말'), 'fill')
+          '<span class="note">참고로만 보여 드리고, 신청을 막지 않습니다</span></div>'
+          % ln('w-cap', ex.get('capacity', ''))))
+    etc = sec('⑤', '비고', lines(BIGO_LINES, '전하실 말', ex.get('note', [])), 'fill')
     return '2027 사역팀 소개서', 'roomy', head + WRITER + team + when + about + etc
 
 
@@ -257,11 +282,15 @@ CHROME_CANDS = [
 chrome = next((c for c in CHROME_CANDS if c and os.path.exists(c)), None)
 
 
-def build(stem, page):
+HAND_FONT = ('<link rel="stylesheet" '
+             'href="https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=block">')
+
+
+def build(stem, page, head_extra=''):
     title, body_cls, body = page()
     html = ('<!doctype html><html lang="ko"><head><meta charset="utf-8">'
-            '<title>%s</title><style>%s</style></head><body class="%s">%s</body></html>'
-            % (title, STYLE, body_cls, body))
+            '<title>%s</title>%s<style>%s</style></head><body class="%s">%s</body></html>'
+            % (title, head_extra, STYLE, body_cls, body))
     out_html = os.path.join(OUT_DIR, stem + '.html')
     io.open(out_html, 'w', encoding='utf-8', newline='').write(html)
     print('wrote:', os.path.relpath(out_html, ROOT))
@@ -283,5 +312,21 @@ def build(stem, page):
             pass
 
 
+# ── 작성 예시 ────────────────────────────────────────────────────────
+# 운영 DB ministry_catalog(2027) 값을 2026-09-17에 옮겨 적었다 — 관리자 화면(사역팀 정보)에서
+# 담당자가 넣은 실제 값이다(방송전산부에서 「· 예시」 꼬리표가 없는 팀은 이 하나).
+# ⚠️ 작성자·필요 인원·비고는 자료에 없어 비워 둔다 — 지어내지 않는다.
+EXAMPLES = {
+    '방송실운영': {
+        'committee': '방송전산부', 'team': '방송실 운영', 'kind': '성도 신청',
+        'days': ['주일', '금요일'], 'freqs': ['매주', '격주(교대형식)', '매달'],
+        'from': '06:30', 'to': '16:30',
+        'sched': ['주일 1,2,3,오후 예배, 금요 성령집회'],
+        'desc': ['카메라 조정, 자막 송출, 영상 전환(스위처), 음향 운영'],
+    },
+}
+
 build('2027_부서소개서_A4', dept_page)
 build('2027_사역팀소개서_A4', team_page)
+for key, ex in EXAMPLES.items():
+    build('2027_사역팀소개서_A4_예시_' + key, lambda ex=ex: team_page(ex), HAND_FONT)
