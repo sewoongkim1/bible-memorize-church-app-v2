@@ -573,6 +573,26 @@ a.mn-tel.sm{font-size:11.5px;padding:2px 8px;}
 .mn-grp-n{font-size:13px;font-weight:800;color:#41506b;margin-left:auto;white-space:nowrap;}
 .mn-grp-sub{flex-basis:100%;display:flex;flex-wrap:wrap;gap:5px;padding-left:18px;}
 .mn-grp-body{padding:0 10px 2px;}
+/* 펼친 묶음(2026-09-18) — 접혔을 때는 머리의 줄 목록이 요약, 펼치면 그 목록을 숨기고 카드(상태 바꾸기)가 대신한다.
+   머리는 짙게 칠해 「이 묶음 안」이 한눈에 보이게. */
+.mn-grp[open]{background:#fff;border-color:#1a3a6b;overflow:hidden;}
+.mn-grp[open] > summary{background:#1a3a6b;color:#fff;padding:10px 13px;}
+.mn-grp[open] > summary::before{color:#c9d6ec;}
+.mn-grp[open] > summary .mn-grp-rows{display:none;}
+.mn-grp[open] .mn-grp-t{color:#fff;}
+.mn-grp[open] .mn-grp-t em, .mn-grp[open] .mn-grp-t i{color:#c9d6ec;}
+.mn-grp[open] .mn-grp-n{color:#e4ebf7;}
+.mn-grp[open] > summary .mn-p4{background:rgba(255,255,255,.14);color:#e4ebf7;}
+.mn-grp[open] > summary .mn-p4 b{color:#fff;}
+.mn-grp[open] > summary .mn-dup.other{background:rgba(255,255,255,.14);color:#e4ebf7;border-color:rgba(255,255,255,.25);}
+.mn-grp[open] > .mn-grp-body{padding:10px 10px 2px;background:#f3f6fb;}
+/* 묶음 안 카드 — 머리에 있는 것은 뺐다 */
+.pl-card.mn-in{padding:10px 12px;}
+.mn-in-team{display:flex;align-items:baseline;gap:5px;flex-wrap:wrap;}
+.mn-in-team b{font-size:16px;font-weight:800;color:#1a3a6b;}
+.mn-in-team i{font-style:normal;font-size:12.5px;color:#41506b;margin:0;}
+.mn-in .mn-sub{margin-top:2px;}
+#mn-list .mn-in-opt{margin-left:5px;color:#41506b;}
 .mn-grp-tools{display:flex;justify-content:flex-end;gap:12px;margin:-2px 2px 8px;}
 .mn-grp-tools button{font:inherit;font-size:12.5px;font-weight:700;color:#1a3a6b;background:none;border:none;cursor:pointer;text-decoration:underline;}
 .mn-teams-t{font-size:12px;font-weight:800;color:#7a869c;margin-bottom:6px;}
@@ -3438,7 +3458,10 @@ function mnRender(){
   const vc={ row:rows.length, person:new Set(rows.map(mnPersonKey)).size, team:new Set(rows.map(mnTeamKey)).size };
   document.querySelectorAll("[data-vcnt]").forEach(el=>{ el.textContent=vc[el.dataset.vcnt]; });
 
-  const mnCard=r=>{
+  // inView: 묶음 안 카드면 "person"·"team". 머리에 이미 적힌 것은 카드에서 뺀다(2026-09-18 성도님 —
+  // 머리 목록과 펼친 카드가 같은 것을 두 번 보여 줘 구분이 안 됐다). 사람별 카드 = 사역·상태·신청일,
+  // 사역별 카드 = 사람·번호·상태. ⚠️ rows.map(mnCard) 로 부르면 둘째 인자에 번호가 들어온다 — 화살표로 감쌀 것.
+  const mnCard=(r, inView)=>{
     // 신청한 사역은 카드에서 가장 잘 보여야 한다(2026-09-17 성도님) — 이름 아래 굵게, 위원회는 작게
     const teams=`<div class="mn-team-main"><span class="mn-team-ico" aria-hidden="true">🤝</span><b>${plEsc(r.team)}</b>${
         r.option?`<i>(${plEsc(r.option)})</i>`:""}<span class="mn-team-com">${plEsc(r.committee)}</span></div>`;
@@ -3446,11 +3469,17 @@ function mnRender(){
     // 푸시가 안 가는 분이라는 안내는 임명확정 창(mnDialog)이 그 자리에서 한다.
     const dup = mnDupOthers(dupOf, r);
     const dupHtml = mnDupBadge(dup);
+    const at = plEsc((r.at||"").replace(/-/g,"."));
+    const nm = inView==="person"
+      ? `<div class="mn-in-team"><b>${plEsc(r.team)}</b>${r.option?`<i>(${plEsc(r.option)})</i>`:""}</div>`+
+        `<span class="mn-sub"><i>${plEsc(r.committee)}</i><span class="mn-date" title="신청일">${at} 신청</span></span>`
+      : `<b>${plEsc(r.name)}</b>${r.position?`<em class="mn-pos">${plEsc(r.position)}</em>`:""}`+
+        `<span class="mn-sub"><i>${plEsc(r.who)}</i>${inView==="team"&&r.option?`<i class="mn-in-opt">(${plEsc(r.option)})</i>`:""}<span class="mn-date" title="신청일">${at}</span></span>`;
     return `
-      <div class="pl-card ${MN_CLS[r.status]}">
+      <div class="pl-card ${MN_CLS[r.status]}${inView?" mn-in":""}">
         <div class="pl-hd">
           <div class="pl-nm">
-            <b>${plEsc(r.name)}</b>${r.position?`<em class="mn-pos">${plEsc(r.position)}</em>`:""}<span class="mn-sub"><i>${plEsc(r.who)}</i><span class="mn-date" title="신청일">${plEsc((r.at||"").replace(/-/g,"."))}</span></span>
+            ${nm}
           </div>
           <div class="pl-drop">
             <button type="button" class="pl-sel ${MN_CLS[r.status]}" data-mndrop="${r.id}"
@@ -3462,16 +3491,16 @@ function mnRender(){
             </div>
           </div>
         </div>
-        ${teams}
-        <div class="mn-contact">
+        ${inView?"":teams}
+        ${inView==="person"?"":`<div class="mn-contact">
           ${mnPhoneHtml(r.phone)}
           ${dupHtml?`<span class="mn-dups">${dupHtml}</span>`:""}
-        </div>
+        </div>`}
         ${r.note?`<div class="mn-note">📝 ${plEsc(r.note)} <i>(관리자만 봄)</i></div>`:""}
       </div>`;
   };
   if(!rows.length){ box.innerHTML=`<p class="msg">조건에 맞는 신청이 없습니다.</p>`; }
-  else if(mnView==="row") box.innerHTML=rows.map(mnCard).join("");
+  else if(mnView==="row") box.innerHTML=rows.map(r=>mnCard(r)).join("");
   else box.innerHTML=mnGroupsHtml(rows, mnCard);
   mnBindGroups(box);
 
@@ -3729,7 +3758,7 @@ function mnGroupsHtml(rows, card){
     }
     return `<details class="mn-grp" data-mngk="${plEsc(gk)}"${mnOpen.has(gk)?" open":""}>
       <summary>${title}</summary>
-      <div class="mn-grp-body">${list.map(card).join("")}</div>
+      <div class="mn-grp-body">${list.map(r=>card(r, mnView)).join("")}</div>
     </details>`;
   }).join("");
 }
