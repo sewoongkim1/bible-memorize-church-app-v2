@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260918a";
+const APP_BUILD = "20260918b";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9642,7 +9642,9 @@ function minAccBuild() {
         acc += '<div class="min-row' + (on ? " on" : "") + (t.appoint ? " off" : "") +
           (lock ? " lock" : "") + '">' +
           '<button class="min-team"' +
-          (t.appoint || lock ? " disabled" : ' data-team="' + t.id + '"') + '>' +
+          // ⚠️ 잠긴 줄도 누를 수 있게 둔다(2026-09-18 성도님) — disabled 면 눌러도 아무 일이 없어
+          //    「왜 안 빠지지」가 된다. 누르면 minTogglePick 이 까닭을 알리고 체크는 그대로 남는다.
+          (t.appoint ? " disabled" : ' data-team="' + t.id + '"') + '>' +
           '<span class="min-info"><span class="min-nm">' + minEsc(t.team) +
           (t.appoint ? '<span class="min-tag">지명</span>' : "") +
           (lock ? '<span class="min-tag lock">' + minEsc(minLockStatus(t.id)) + '</span>'
@@ -9916,12 +9918,18 @@ function minConfirm(msg, okLabel, cancelLabel) {
 }
 
 // 취소 확인용 번호 입력 — 취소를 누르거나 바깥을 탭하면 null(=그만둠)을 돌려준다
+// 받침에 따라 은/는 — 「장학은」「사랑부는」. 한글로 안 끝나면 은(는).
+function minEunNeun(word) {
+  const c = String(word || "").charCodeAt(String(word || "").length - 1);
+  if (!(c >= 0xAC00 && c <= 0xD7A3)) return word + "은(는)";
+  return word + ((c - 0xAC00) % 28 ? "은" : "는");
+}
 function minPromptPhone(msg, subMsg) {
   return new Promise(function (resolve) {
     const box = document.createElement("div");
     box.className = "min-d-wrap";
     box.innerHTML = '<div class="min-d-box" role="dialog" aria-modal="true">' +
-      '<div class="min-d-body"><p class="min-alert-msg">' + minEsc(msg) +
+      '<div class="min-d-body"><p class="min-alert-msg">' + minEsc(msg).replace(/\n/g, "<br>") +
         (subMsg ? '<span class="min-alert-sub">' + minEsc(subMsg) + '</span>' : "") + '</p>' +
         '<input class="min-alert-input" id="min-alert-ph" type="tel" inputmode="numeric" maxlength="13"' +
         ' placeholder="010-1234-5678" autocomplete="off"></div>' +
@@ -9950,11 +9958,14 @@ function minPromptPhone(msg, subMsg) {
 // 고르기·빼기 한 곳에서 — 목록에서도, 「자세히」 창에서도 같은 규칙을 따르게
 function minTogglePick(id) {
   if (minLockedIds.indexOf(id) >= 0) {
+    // 접수·임명된 줄을 눌러 빼려 하면 까닭을 알리고 체크는 그대로 둔다(2026-09-18 성도님)
     const st = minLockStatus(id);
+    const t = ((minCat && minCat.list) || []).find(function (x) { return x.id === id; });
+    const nm = t ? minEunNeun(t.team) + " " : "";
     minAlert(st === "미채택" ? "이 사역은 이번에 다른 분이 임명되셨어요. 다른 사역을 골라 주세요."
-        : st === "임명확정" ? "이미 임명이 확정된 사역이에요."
+        : st === "임명확정" ? nm + "이미 임명이 확정되어\n신청을 취소할 수 없어요."
         : st === "취소" ? "이 신청은 부서 요청으로 취소되었어요. 자세한 것은 해당 부서에 여쭤봐 주세요."
-        : "이미 담당자가 접수한 사역이라 뺄 수 없어요.");
+        : nm + "담당자가 이미 접수해\n신청을 취소할 수 없어요.");
     return false;
   }
   const i = minPicked.indexOf(id);
@@ -10250,7 +10261,16 @@ function minErr(e, fallback) {
 // 취소도 4자리로 한 번 확인한다 — 신청을 지우는 일이라 고치기와 같은 문턱을 둔다
 let minCancelPh = "";
 async function minCancelAsk() {
-  const raw = await minPromptPhone("아직 접수 전인 신청을 취소합니다. 휴대폰 번호를 넣어 주세요.",
+  // ⚠️ 접수·임명된 건은 서버가 남긴다(ministryCancel) — 무엇이 지워지고 무엇이 남는지 창에서 말한다.
+  //    「신청 취소」만 보면 접수된 사역까지 다 없어지는 줄 아신다(2026-09-18 성도님).
+  const items = (minMine && minMine.items) || [];
+  const kept = items.filter(function (x) { return x.status === "접수완료" || x.status === "임명확정"; })
+    .map(function (x) { return x.team; });
+  const kill = items.filter(function (x) { return !x.locked; }).map(function (x) { return x.team; });
+  const raw = await minPromptPhone(
+    (kill.length ? kill.join(", ") + " 신청을 취소합니다." : "아직 접수 전인 신청을 취소합니다.") +
+      (kept.length ? "\n접수·임명된 " + minEunNeun(kept.join(", ")) + " 그대로 남아요." : "") +
+      "\n휴대폰 번호를 넣어 주세요.",
     "(처음 신청하실 때 넣으신 번호입니다)");
   if (raw == null) return false;                    // 취소·바깥 탭·esc — 아무 말 없이 그만둔다
   const ph = pilsaPhoneFmt(raw || "");
