@@ -100,7 +100,11 @@
   @media (max-width:560px){ .card-grid{grid-template-columns:1fr;} .dash-panels{grid-template-columns:1fr;} }
 
   /* 리포트 */
+  /* 제목이 왼쪽, 「← 메뉴」는 **오른쪽 끝**(2026-09-18 성도님) — 화면마다 자리가 달라 보이지 않게
+     여기 한 곳에서 맞춘다. HTML 차례는 그대로 두고 order 로만 옮긴다(탭 차례는 단추가 먼저다). */
   .rep-head{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+  .rep-head h2{order:1;flex:1;min-width:0;}
+  .rep-head .back-btn{order:2;margin-left:auto;flex:none;white-space:nowrap;}
   .back-btn{background:#eef1f8;border:1.5px solid var(--navy);color:var(--navy);border-radius:999px;
     padding:7px 14px;font-size:.85rem;font-weight:700;cursor:pointer;font-family:inherit;}
   .back-btn:hover{background:var(--navy);color:#fff;}
