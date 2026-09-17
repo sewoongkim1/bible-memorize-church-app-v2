@@ -4337,15 +4337,14 @@ async function ministryCatalogSave(b: any) {
   const err = await ministryAdminError(b); if (err) return { ok: false, error: err };
   const id = Number(b.id) || 0;
   if (!id) return { ok: false, error: "id 필요" };
-  const patch: Record<string, unknown> = {
-    schedule_note: ministryHtml(b.schedule_note, 160),
-    desc_note: ministryHtml(b.desc_note, 400),
-    capacity_note: ministryHtml(b.capacity_note, 80),
-    members_note: ministryHtml(b.members_note, 1200),
-  };
-  // ⚠️ 담당자 한 줄은 **보내온 때만** 고친다 — 옛 admin 화면을 물고 있는 브라우저가
-  //    저장 한 번에 이 칸을 비우지 않게(위 「보내온 칸만」 규칙과 같은 까닭).
-  if ("leader_note" in b) patch.leader_note = ministryHtml(b.leader_note, 200);
+  // ⚠️ **보내온 칸만** 고친다 — 옛 admin 화면을 물고 있는 브라우저가 저장 한 번에 다른 칸을
+  //    비우는 일을 막고, 한 칸만 고치는 도구(담당 한 줄 채우기 같은)도 나머지를 안 지운다.
+  const patch: Record<string, unknown> = {};
+  for (const [key, max] of [["schedule_note", 160], ["desc_note", 400],
+                            ["capacity_note", 80], ["members_note", 1200],
+                            ["leader_note", 200]] as [string, number][]) {
+    if (key in b) patch[key] = ministryHtml((b as any)[key], max);
+  }
   // ── 「② 언제」 ────────────────────────────────────────────────
   // ⚠️ **보내온 칸만** 고친다. 늘 넣도록 짜면, 옛 admin 화면을 물고 있는 브라우저가
   //    저장 한 번에 이 칸들을 통째로 비운다(캐시가 남는 것을 막을 길이 없다).
@@ -4374,21 +4373,24 @@ async function ministryCatalogSave(b: any) {
   }
   if (!sunOn) { patch.time_from = null; patch.time_to = null; }
   // ⚠️ 말없이 자르면 관리자가 넣은 이름이 조용히 사라진다 — 잘린 칸을 돌려준다
+  // ⚠️ **이번에 보낸 칸만** 견준다 — 안 보낸 칸을 재려다 undefined.length 로 500 이 났다(2026-09-18).
   const cut: string[] = [];
-  if (ministryHtml(b.schedule_note, 99999).length > patch.schedule_note.length) cut.push("시간");
-  if (ministryHtml(b.desc_note, 99999).length > patch.desc_note.length) cut.push("하는 일");
-  if (ministryHtml(b.capacity_note, 99999).length > patch.capacity_note.length) cut.push("필요 인원");
-  if (ministryHtml(b.members_note, 99999).length > patch.members_note.length) cut.push("지금 섬기는 분");
+  for (const [key, label] of [["schedule_note", "시간"], ["desc_note", "하는 일"],
+                              ["capacity_note", "필요 인원"], ["members_note", "지금 섬기는 분"],
+                              ["leader_note", "담당(문의)"]] as [string, string][]) {
+    if (!(key in patch)) continue;
+    if (ministryHtml((b as any)[key], 99999).length > String(patch[key] ?? "").length) cut.push(label);
+  }
 
   const { data, error } = await db.from("ministry_catalog")
     .update(patch).eq("id", id)
-    .select("id,committee,team,schedule_note,desc_note,capacity_note,members_note,"
+    .select("id,committee,team,schedule_note,desc_note,capacity_note,members_note,leader_note,"
       + "day_sun,day_fri,day_sat,day_week,time_from,time_to," + MINISTRY_FREQ_COLS).single();
   if (error) throw error;
   // 걸러진 뒤의 값을 돌려준다 — 화면이 「내가 친 것」이 아니라 「실제 저장된 것」을 보여야 한다
   return { ok: true, id: data.id, team: data.team,
            sched: data.schedule_note, desc: data.desc_note, capacity: data.capacity_note,
-           membersNote: data.members_note, truncated: cut,
+           membersNote: data.members_note, leader: data.leader_note ?? "", truncated: cut,
            // 저장된 값을 그대로 돌려준다 — 화면이 「내가 친 것」이 아니라 「실제」를 보게
            // (주일을 끄면 시각이 비어 돌아온다 — 화면이 그걸 보고 칸을 비운다)
            day: { sun: !!data.day_sun, fri: !!data.day_fri,

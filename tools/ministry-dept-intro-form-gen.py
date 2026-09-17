@@ -276,7 +276,7 @@ def team_page(ex=None):
           % ln('w-cap', ex.get('capacity', ''))
         # 앱의 「담당자」 칸과 같은 것이다(2026-09-18) — 여기 적어 주신 한 줄이
         # 성도님 화면의 사역 설명 「섬기는 분」 위에 그대로 올라간다.
-        + '<div class="row"><span class="lb">담당자</span>%s'
+        + '<div class="row"><span class="lb">담당(문의)</span>%s'
           '<span class="note">궁금할 때 물을 곳 · 이름·직분·연락처 (앱 화면에 그대로 보입니다)</span></div>'
           % ln('grow', ex.get('contact', ''))))
     etc = sec('⑤', '비고', lines(BIGO_LINES, '전하실 말', ex.get('note', [])), 'fill')
@@ -335,7 +335,7 @@ EXAMPLES = {
         'sched': ['주일 1,2,3,오후 예배, 금요 성령집회', '비정기적 월삭, 부흥회 등'],
         'desc': ['카메라 조정, 자막 송출, 영상 전환(스위처), 음향 운영',
                  '처음 오신 분은 교육을 해 드립니다', '봉사는 예배별로 바뀝니다'],
-        'capacity': '20', 'contact': '김세웅 안수집사 (010-1234-5678)',
+        'capacity': '20', 'contact': '홍길동 집사 (010-1234-5678)',
         'writer': {'name': '고척교회', 'gu': '사랑', 'mok': '1', 'phone': '010-1234-5678', 'position': '권사'},
     },
 }
