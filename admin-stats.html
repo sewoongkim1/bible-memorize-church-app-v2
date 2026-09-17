@@ -3663,7 +3663,7 @@ function mnDupBadge(dup){
   const other=dup.filter(x=>x.kind==="사람");
   const more=n=>n>1?` 외 ${n-1}`:"";
   return [
-    same.length ? `<span class="mn-dup" title="같은 이름·번호로 다른 소속(${plEsc(same.map(x=>x.label).join(", "))})에서도 신청 — 다른 교구·목장으로 로그인해 한 번 더 내셨을 수 있습니다">⚠️ 중복 · ${plEsc(String(same[0].label).replace(/목장$/,""))}${more(same.length)}</span>` : "",
+    same.length ? `<span class="mn-dup" title="같은 이름·번호로 다른 소속(${plEsc(same.map(x=>x.label).join(", "))})에서도 신청 — 다른 교구·목장으로 로그인해 한 번 더 내셨을 수 있습니다">⚠️ ${plEsc(String(same[0].label).replace(/목장$/,""))}${more(same.length)}</span>` : "",
     other.length ? `<span class="mn-dup other" title="같은 번호로 다른 분(${plEsc(other.map(x=>x.label).join(", "))})도 신청 — 가족 등 번호를 함께 쓰는 분일 수 있습니다">☎️ 번호 같음 · ${plEsc(other[0].name||"이름 없음")}${more(other.length)}</span>` : "",
   ].join("");
 }
