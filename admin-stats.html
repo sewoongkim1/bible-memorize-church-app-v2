@@ -138,6 +138,11 @@
   .push-in{width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:10px;
     background:var(--cream);font-family:inherit;font-size:.98rem;color:#222;}
   .push-in:focus{outline:none;border-color:var(--navy);background:#fff;}
+  /* 조회·찾기 단추 — 규칙이 없어 브라우저 기본 회색 작은 단추로 보였다(2026-09-17 성도님 지적) */
+  .push-btn{min-height:46px;padding:0 24px;font-family:inherit;font-size:1rem;font-weight:800;color:#fff;
+    background:var(--navy);border:none;border-radius:10px;cursor:pointer;white-space:nowrap;transition:background .15s;}
+  .push-btn:hover{background:var(--navy-dark);}
+  .push-btn:disabled{opacity:.6;cursor:default;}
   textarea.push-in{resize:vertical;line-height:1.5;}
   .push-fill{width:100%;padding:10px;margin-bottom:14px;font-size:.9rem;font-weight:700;
     color:var(--navy);background:#eef1f8;border:1.5px solid var(--navy);border-radius:10px;cursor:pointer;font-family:inherit;}
@@ -306,7 +311,8 @@
 .pl-find{display:grid;grid-template-columns:1fr auto;gap:8px;margin:12px 0 10px;}
 .pl-find .push-in{min-width:0;}
 .pl-find #pl-q{grid-column:1/2;grid-row:1;}
-.pl-find #pl-search{grid-column:2/3;grid-row:1;white-space:nowrap;padding:0 16px;}
+.pl-find #pl-search, .pl-find #mn-search{grid-column:2/3;grid-row:1;}
+.pl-find #mn-q{grid-column:1/2;grid-row:1;}
 .pl-dates{grid-column:1/3;grid-row:2;display:flex;align-items:center;gap:6px;}
 .pl-dates .push-in{flex:1 1 0;min-width:0;font-size:13px;padding:8px 10px;}
 .pl-sep{color:#8a95a8;font-weight:700;flex:none;}
@@ -406,11 +412,46 @@
 /* ⚠️ 알림 미설정은 눈에 띄어야 한다 — 그냥 두면 확정만 누르고 게시를 잊는다 */
 .mn-push.off{background:#fdeceb;color:#a33;}
 .mn-teams{margin-top:14px;}
+/* 보기: 건별 · 사람별 · 사역별 (2026-09-17 성도님 요청) */
+.mn-view{display:flex;margin:0 0 10px;border:1.5px solid #1a3a6b;border-radius:10px;overflow:hidden;}
+.mn-view button{flex:1;min-height:42px;font-family:inherit;font-size:.95rem;font-weight:800;color:#1a3a6b;
+  background:#fff;border:none;cursor:pointer;}
+.mn-view button+button{border-left:1.5px solid #1a3a6b;}
+.mn-view button.on{background:#1a3a6b;color:#fff;}
+.mn-grp{border:1px solid #dde3ee;border-radius:12px;background:#f8fafd;margin-bottom:10px;}
+.mn-grp > summary{list-style:none;cursor:pointer;padding:11px 13px;display:flex;align-items:center;gap:6px 8px;flex-wrap:wrap;}
+.mn-grp > summary::-webkit-details-marker{display:none;}
+.mn-grp > summary::before{content:"▸";color:#7a869c;font-size:12px;width:10px;}
+.mn-grp[open] > summary::before{content:"▾";}
+.mn-grp-t{font-size:15px;font-weight:800;color:#1a3a6b;}
+.mn-grp-t em{font-style:normal;font-size:12px;color:#7a869c;font-weight:700;margin-right:4px;}
+.mn-grp-t i{font-style:normal;font-size:12.5px;color:#6b778c;font-weight:600;margin-left:5px;}
+.mn-grp-n{font-size:13px;font-weight:800;color:#41506b;margin-left:auto;white-space:nowrap;}
+.mn-grp-sub{flex-basis:100%;display:flex;flex-wrap:wrap;gap:5px;padding-left:18px;}
+.mn-grp-body{padding:0 10px 2px;}
+.mn-grp-tools{display:flex;justify-content:flex-end;gap:12px;margin:-2px 2px 8px;}
+.mn-grp-tools button{font:inherit;font-size:12.5px;font-weight:700;color:#1a3a6b;background:none;border:none;cursor:pointer;text-decoration:underline;}
 .mn-teams-t{font-size:12px;font-weight:800;color:#7a869c;margin-bottom:6px;}
 .mn-tcount{display:inline-block;font-size:12px;color:#41506b;background:#f3f6fb;border-radius:7px;
   padding:4px 8px;margin:0 5px 5px 0;}
 .mn-tcount b{color:#1a3a6b;}
 .pl-hd{display:flex;align-items:flex-start;gap:8px;flex-wrap:nowrap;}
+/* 🔑 사역신청 담당자 명단 */
+.ma-help{font-size:12.5px;color:#5a6273;line-height:1.65;background:#f6f8fc;border-radius:10px;padding:10px 12px;margin-bottom:6px;}
+.ma-help b{color:#1a3a6b;}
+.ma-sec{font-size:13px;font-weight:800;color:#41506b;margin:18px 2px 8px;}
+.ma-row{display:flex;align-items:center;gap:10px;border:1px solid #dde3ee;border-radius:12px;background:#fff;
+  padding:11px 13px;margin-bottom:8px;}
+.ma-row.stale{border-color:#e7b3ad;background:#fdf6f5;}
+.ma-nm{flex:1 1 auto;min-width:0;}
+.ma-nm b{font-size:15.5px;color:#1a3a6b;}
+.ma-nm i{font-style:normal;font-size:12.5px;color:#6b778c;margin-left:6px;}
+.ma-nm .ma-at{display:block;font-size:11px;color:#a0a9b8;margin-top:2px;}
+.ma-nm .ma-warn{display:block;font-size:12px;color:#a33;margin-top:3px;word-break:break-all;}
+.ma-btn{flex:none;font-size:12.5px;font-weight:800;font-family:inherit;cursor:pointer;border-radius:999px;
+  padding:6px 12px;border:1.5px solid #a9c3e8;background:#eef3fb;color:#1a3a6b;white-space:nowrap;}
+.ma-btn.del{border-color:#e7b3ad;background:#fdeceb;color:#a33;}
+.ma-btn:disabled{opacity:.55;cursor:default;}
 .pl-nm{flex:1 1 auto;min-width:0;}
 .pl-hd .pl-sel{align-self:flex-start;}
 .pl-nm b{font-size:16px;color:#1a3a6b;}
@@ -601,7 +642,7 @@ function renderMinistryLogin(){
       </div>
       <div class="staff-row" id="st-bu-row" hidden>
         <select id="st-bu">${bu}</select>
-        <input id="st-grade" placeholder="학년 (없으면 비움)" />
+        <input id="st-grade" placeholder="학년 (예: 3학년)" />
       </div>
       <input id="st-name" placeholder="이름" autocomplete="name" />
       <button id="login">로그인</button>
@@ -629,14 +670,25 @@ function renderMinistryLogin(){
       renderMenu();
       return;
     }
-    err.textContent = d.error==="unauthorized" ? "암호가 올바르지 않습니다."
-      : d.error==="not-manager" ? "사역신청 담당자로 등록된 분이 아닙니다. 앱에 로그인할 때와 같은 교구·목장·이름인지 확인해 주세요."
+    // ⚠️ 서버는 「암호가 틀림」과 「담당자가 아님」을 일부러 같은 답으로 준다 — 화면도 한 문장으로 안내한다
+    err.textContent = d.error==="unauthorized" ? "암호나 담당자 정보가 맞지 않습니다. 사역신청 암호와, 앱에 로그인할 때와 같은 소속·이름인지 확인해 주세요."
       : d.error==="no-password-set" ? "서버에 암호가 설정되지 않았습니다(관리자 설정 필요)."
       : "연결 오류입니다. 잠시 후 다시 시도하세요.";
   }
   $("login").addEventListener("click", tryLogin);
   ["pw","st-mok","st-grade","st-name"].forEach(id=>$(id).addEventListener("keydown", e=>{ if(e.key==="Enter") tryLogin(); }));
   $("pw").focus();
+}
+
+// ⑤ 담당자에서 빠졌거나 암호가 바뀌면 열린 화면을 그대로 두지 않고 로그인으로 돌려보낸다(2026-09-17 리뷰)
+function minAuthLost(d){
+  if(!MINISTRY_ONLY || !d || d.error!=="unauthorized") return false;
+  sessionStorage.removeItem(PW_KEY);
+  sessionStorage.removeItem(STAFF_KEY);
+  renderLogin();
+  const e=document.getElementById("lerr");
+  if(e) e.textContent="로그인이 풀렸습니다(담당자 등록이나 암호가 바뀌었을 수 있습니다). 다시 로그인해 주세요.";
+  return true;
 }
 
 function renderMinistryMenu(){
@@ -669,6 +721,8 @@ function renderMinistryMenu(){
     </div>`;
   document.getElementById("rep-ministry").addEventListener("click", renderMinistryAdmin);
   document.getElementById("rep-mincat").addEventListener("click", renderMinistryCatalog);
+  // 새로고침으로 들어왔어도 한 번 되짚는다 — 그사이 빠진 분이 메뉴를 계속 보지 않게
+  callApi({ action:"ministryAuth", pw:getPw(), staff:getStaff() }).then(minAuthLost).catch(()=>{});
 }
 
 function renderMenu(){
@@ -856,6 +910,14 @@ function renderMenu(){
         </div>
         <div class="rep-arrow">›</div>
       </div>
+      <div class="rep-card" id="rep-minadmins">
+        <div class="ic">🔑</div>
+        <div class="rep-text">
+          <div class="ti">사역신청 담당자</div>
+          <div class="de">사역신청 관리 화면에 들어올 분 등록 · 빼기</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
     </div>`;
   document.getElementById("rep-usage").addEventListener("click", renderUsageReport);
   document.getElementById("rep-participants").addEventListener("click", renderParticipants);
@@ -878,6 +940,7 @@ function renderMenu(){
   document.getElementById("rep-pilsa").addEventListener("click", renderPilsaAdmin);
   document.getElementById("rep-ministry").addEventListener("click", renderMinistryAdmin);
   document.getElementById("rep-mincat").addEventListener("click", renderMinistryCatalog);
+  document.getElementById("rep-minadmins").addEventListener("click", renderMinistryAdmins);
   loadDashboard();
 }
 
@@ -3048,6 +3111,8 @@ const MN_SHORT = { "신청완료": "신청", "접수완료": "접수", "임명�
 let mnRows = [];      // [{ id, at, who, name, position, committee, team, option, status, ... }]
 // ⚠️ 한 건 = 한 팀 이다(2026-09-09). 한 사람이 최대 3건이고, 담당자는 건마다 따로 접수한다.
 let mnCounts = {};    // { "위원회 · 팀": 신청수 }
+let mnView = "row";   // row 건별 · person 사람별 · team 사역별
+const mnOpen = new Set();   // 펼쳐 둔 묶음 — 상태를 바꿔 다시 그려도 접히지 않게
 let mnLoaded = false;
 
 function renderMinistryAdmin(){
@@ -3066,7 +3131,18 @@ function renderMinistryAdmin(){
       </div>
       <div class="pl-find">
         <input type="text" id="mn-q" class="push-in" placeholder="이름 · 소속 · 사역팀 (예: 김세웅 / 찬양부)">
+        <div class="pl-dates">
+          <span class="pl-sep">신청일</span>
+          <input type="date" id="mn-from" class="push-in" aria-label="신청일 시작">
+          <span class="pl-sep">~</span>
+          <input type="date" id="mn-to" class="push-in" aria-label="신청일 끝">
+        </div>
         <button class="push-btn" id="mn-search">조회</button>
+      </div>
+      <div class="mn-view" id="mn-view" role="tablist">
+        <button type="button" data-view="row" class="${mnView==="row"?"on":""}">건별</button>
+        <button type="button" data-view="person" class="${mnView==="person"?"on":""}">사람별</button>
+        <button type="button" data-view="team" class="${mnView==="team"?"on":""}">사역별</button>
       </div>
       <div id="mn-sum" class="pl-sum"></div>
       <div id="mn-list"><p class="msg">불러오는 중...</p></div>
@@ -3075,6 +3151,13 @@ function renderMinistryAdmin(){
   document.getElementById("back").addEventListener("click", renderMenu);
   document.getElementById("mn-search").addEventListener("click", ()=>{ mnLoaded=false; mnLoad(); });
   document.getElementById("mn-q").addEventListener("input", mnRender);
+  // 신청 기간 — 받아 둔 명단에서 바로 추린다(비우면 전체 기간)
+  ["mn-from","mn-to"].forEach(id=>document.getElementById(id).addEventListener("change", mnRender));
+  document.getElementById("mn-view").querySelectorAll("button").forEach(b=>b.addEventListener("click", ()=>{
+    mnView=b.dataset.view;
+    document.querySelectorAll("#mn-view button").forEach(x=>x.classList.toggle("on", x===b));
+    mnRender();
+  }));
   document.getElementById("mn-st").querySelectorAll("input").forEach(cb=>{
     cb.addEventListener("change", ()=>{
       cb.closest("label").classList.toggle("on", cb.checked);
@@ -3089,6 +3172,7 @@ async function mnLoad(){
   box.innerHTML=`<p class="msg">불러오는 중...</p>`;
   if(!mnLoaded){
     const d=await callApi({ action:"ministryList", pw:getPw(), staff:getStaff() }).catch(()=>({ok:false,error:"network"}));
+    if(minAuthLost(d)) return;
     if(!d.ok){
       box.innerHTML=`<p class="msg err">명단을 불러오지 못했습니다: ${plEsc(d.error||"오류")}</p>`;
       return;
@@ -3109,8 +3193,12 @@ function mnFiltered(){
   const box=document.getElementById("mn-st");
   const on=box?[...box.querySelectorAll("input:checked")].map(cb=>cb.dataset.st):[];
   const q=(document.getElementById("mn-q")?.value||"").trim();
+  const f=document.getElementById("mn-from")?.value||"";   // YYYY-MM-DD — r.at 도 같은 꼴(KST 날짜)
+  const t=document.getElementById("mn-to")?.value||"";
   return mnRows.filter(r=>{
     if(on.length && on.indexOf(r.status)<0) return false;   // 하나도 안 고르면 전체
+    if(f && r.at < f) return false;
+    if(t && r.at > t) return false;
     if(q){
       const hay=[r.name, r.who, r.position, r.team, r.committee].join(" ");
       if(hay.indexOf(q)<0) return false;
@@ -3129,17 +3217,17 @@ function mnRender(){
   });
   const sum=document.getElementById("mn-sum");
   if(sum){
-    const people=new Set(rows.map(r=>r.name+"/"+r.who)).size;
+    const people=new Set(rows.map(mnPersonKey)).size;
+    const teamsN=new Set(rows.map(mnTeamKey)).size;
     const by=MN_STATES.map(s=>{
       const n=rows.filter(r=>r.status===s).length;
       return n?`<span class="pl-chip ${MN_CLS[s]}">${s} ${n}</span>`:"";
     }).join("");
-    sum.innerHTML=`<div class="pl-total"><b>${rows.length}건</b> · <b>${people}명</b></div>
+    sum.innerHTML=`<div class="pl-total"><b>${rows.length}건</b> · <b>${people}명</b> · <b>${teamsN}개 사역</b></div>
       <div class="pl-chips">${by}</div>`;
   }
 
-  if(!rows.length){ box.innerHTML=`<p class="msg">조건에 맞는 신청이 없습니다.</p>`; }
-  else box.innerHTML=rows.map(r=>{
+  const mnCard=r=>{
     const teams=`<span class="mn-team"><em>${plEsc(r.committee)}</em> ${plEsc(r.team)}${
         r.option?` <i>(${plEsc(r.option)})</i>`:""}</span>`;
     // ⚠️ 알림을 켜지 않은 분은 확정해도 푸시가 안 간다 — 미리 보여 줘야 게시·연락으로 메운다
@@ -3173,7 +3261,11 @@ function mnRender(){
         </div>
         <div class="mn-teams-in">${teams}</div>
       </div>`;
-  }).join("");
+  };
+  if(!rows.length){ box.innerHTML=`<p class="msg">조건에 맞는 신청이 없습니다.</p>`; }
+  else if(mnView==="row") box.innerHTML=rows.map(mnCard).join("");
+  else box.innerHTML=mnGroupsHtml(rows, mnCard);
+  mnBindGroups(box);
 
   // 팀별 신청 수 — 담당자가 가장 먼저 궁금해하는 숫자
   const tbox=document.getElementById("mn-teams");
@@ -3183,6 +3275,7 @@ function mnRender(){
       ? `<div class="mn-teams-t">팀별 신청 수</div>` +
         list.map(([k,n])=>`<span class="mn-tcount">${plEsc(k)} <b>${n}</b></span>`).join("")
       : "";
+    tbox.hidden = mnView==="team";     // 사역별 보기에서는 묶음 머리가 같은 숫자를 보인다
   }
 
   box.querySelectorAll("[data-mndrop]").forEach(b=>{
@@ -3222,7 +3315,9 @@ async function mnSetStatus(id, status){
     ...(note!==undefined?{note}:{}) })
     .catch(()=>({ok:false,error:"network"}));
   if(!d.ok){
-    r.status=before; mnRender();
+    r.status=before;
+    if(minAuthLost(d)) return;
+    mnRender();
     alert("상태를 바꾸지 못했습니다.\n"+(d.error||"오류"));
     return;
   }
@@ -3239,6 +3334,59 @@ async function mnSetStatus(id, status){
                     mnNote(`📋 ${r.name}님은 앱 알림을 켜지 않으셨어요 — 게시판·주보로 알려 주세요`);
     else            mnNote(`⚠️ 알림 발송 실패 — 게시로 알려 주세요. (${d.pushError})`);
   }
+}
+
+// ---------- 사역신청 현황 — 사람별 · 사역별 묶음 ----------
+// ⚠️ 카드는 건별과 **같은 것**(mnCard)을 묶음 안에 넣는다 — 상태 바꾸기가 어느 보기에서나 그대로 된다.
+function mnPersonKey(r){ return (r.name||"")+"/"+(r.who||""); }
+function mnTeamKey(r){ return (r.committee||"")+" · "+(r.team||""); }
+function mnStatusChips(list){
+  return MN_STATES.map(st=>{
+    const n=list.filter(r=>r.status===st).length;
+    return n?`<span class="pl-chip ${MN_CLS[st]}">${st} ${n}</span>`:"";
+  }).join("");
+}
+function mnGroupsHtml(rows, card){
+  const by=new Map();
+  const keyOf = mnView==="person" ? mnPersonKey : mnTeamKey;
+  rows.forEach(r=>{ const k=keyOf(r); if(!by.has(k)) by.set(k, []); by.get(k).push(r); });
+  let groups=[...by.entries()];
+  if(mnView==="person") groups.sort((a,b)=>a[0].localeCompare(b[0],"ko"));
+  else groups.sort((a,b)=>b[1].length-a[1].length || a[0].localeCompare(b[0],"ko"));   // 신청 많은 사역부터
+  const tools=`<div class="mn-grp-tools"><button type="button" data-mnall="open">모두 펼치기</button>`+
+    `<button type="button" data-mnall="close">모두 접기</button></div>`;
+  return tools + groups.map(([k, list])=>{
+    const r0=list[0];
+    const gk=mnView+"|"+k;
+    let title;
+    if(mnView==="person"){
+      const pos=list.map(r=>r.position).find(Boolean)||"";
+      const phone=list.map(r=>r.phone).find(Boolean)||"";
+      const teams=new Set(list.map(mnTeamKey)).size;
+      title=`<span class="mn-grp-t">${plEsc(r0.name)}${pos?` <em>${plEsc(pos)}</em>`:""}<i>${plEsc(r0.who)}</i></span>
+        <span class="mn-grp-n">${teams}개 사역</span>
+        <span class="mn-grp-sub">${phone?`<span class="mn-p4">📞 <b>${plEsc(phone)}</b></span>`:""}${mnStatusChips(list)}</span>`;
+    } else {
+      const people=new Set(list.map(mnPersonKey)).size;
+      title=`<span class="mn-grp-t"><em>${plEsc(r0.committee)}</em>${plEsc(r0.team)}</span>
+        <span class="mn-grp-n">${list.length}건 · ${people}명</span>
+        <span class="mn-grp-sub">${mnStatusChips(list)}</span>`;
+    }
+    return `<details class="mn-grp" data-mngk="${plEsc(gk)}"${mnOpen.has(gk)?" open":""}>
+      <summary>${title}</summary>
+      <div class="mn-grp-body">${list.map(card).join("")}</div>
+    </details>`;
+  }).join("");
+}
+function mnBindGroups(box){
+  box.querySelectorAll("details.mn-grp").forEach(d=>d.addEventListener("toggle", ()=>{
+    const k=d.getAttribute("data-mngk");
+    if(d.open) mnOpen.add(k); else mnOpen.delete(k);
+  }));
+  box.querySelectorAll("[data-mnall]").forEach(b=>b.addEventListener("click", ()=>{
+    const open=b.dataset.mnall==="open";
+    box.querySelectorAll("details.mn-grp").forEach(d=>{ d.open=open; });
+  }));
 }
 
 // 명단 위에 잠깐 뜨는 안내 한 줄
@@ -3497,6 +3645,7 @@ async function mcSaveOrder(){
   if(btn){ btn.disabled=true; btn.textContent="보내는 중…"; }
   const d=await callApi({ action:"ministryCatalogOrder", pw:getPw(), staff:getStaff(), ids })
     .catch(()=>({ok:false,error:"network"}));
+  if(minAuthLost(d)) return;
   if(!d.ok){
     if(btn){ btn.disabled=false; btn.textContent="차례 저장"; }
     alert("차례를 저장하지 못했습니다.\n"+(d.error||"오류"));
@@ -3533,6 +3682,7 @@ async function mcSave(id){
     freq_monthly:next.monthly, freq_adhoc:next.adhoc,
     time_from:next.from, time_to:next.to })
     .catch(()=>({ok:false,error:"network"}));
+  if(minAuthLost(d)) return;
   if(!d.ok){
     if(btn){ btn.disabled=false; btn.textContent="저장"; }
     alert("저장하지 못했습니다.\n"+(d.error||"오류"));
@@ -3573,6 +3723,132 @@ async function mcSave(id){
   mcCounts();
 }
 
+
+// ---------- 🔑 사역신청 담당자 (관리자만) ----------
+// 사역신청 관리 화면(admin-ministry.html)에 들어올 수 있는 분 — 사역신청 암호 + 여기 등록된 분.
+// ⚠️ 이 메뉴는 사역신청 화면(?only=ministry)에 없고, 서버도 관리자 암호로만 받는다
+//    (사역 암호로 담당자를 더할 수 있으면 그 암호 하나로 스스로 문을 연다).
+// ⚠️ 동명이인이 흔하다(같은 이름 계정이 소속별로 여럿) — 찾기 결과에 소속·마지막 접속을 함께 보여 고르게 한다.
+let maList = [];
+let maFound = [];
+function maWho(u){
+  if(!u) return "";
+  return u.type==="교회학교"
+    ? [u.bu, u.grade].filter(Boolean).join(" ")
+    : [u.gu, u.mok ? u.mok+"목장" : ""].filter(Boolean).join(" ");
+}
+function maSeen(u){ return u && u.last_seen_at ? "마지막 접속 "+String(u.last_seen_at).slice(0,10) : "접속 기록 없음"; }
+
+function renderMinistryAdmins(){
+  app.innerHTML=`
+    <div class="rep-head">
+      <button class="back-btn" id="back">← 메뉴</button>
+      <h2>🔑 사역신청 담당자</h2>
+    </div>
+    <div class="push-card">
+      <div class="ma-help">
+        <b>사역신청 관리 화면</b>(<a href="admin-ministry.html" target="_blank" rel="noopener">admin-ministry.html</a>)에는
+        <b>사역신청 암호</b>와 함께 <b>여기 등록된 분의 교구·목장·이름</b>이 맞아야 들어갑니다.
+        들어오신 분은 사역신청 두 메뉴(현황 · 사역팀 정보)만 보고, 사역신청 자료는 모두 봅니다.
+        관리자 암호로는 등록 없이 들어갑니다.<br>
+        같은 이름의 계정이 여럿이면 <b>그분이 실제로 로그인하는 소속</b>을 골라 주세요 — 다른 소속으로는 막힙니다.
+      </div>
+      <div class="ma-sec">등록된 담당자</div>
+      <div id="ma-list"><p class="msg">불러오는 중...</p></div>
+      <div class="ma-sec">담당자 추가 — 이름으로 찾기</div>
+      <div class="pl-find">
+        <input type="text" id="ma-q" class="push-in" placeholder="이름 (예: 홍길동)">
+        <button class="push-btn" id="ma-search">찾기</button>
+      </div>
+      <div id="ma-found"></div>
+    </div>`;
+  document.getElementById("back").addEventListener("click", renderMenu);
+  document.getElementById("ma-search").addEventListener("click", maFind);
+  document.getElementById("ma-q").addEventListener("keydown", e=>{ if(e.key==="Enter") maFind(); });
+  maFound = [];
+  maLoad();
+}
+
+async function maLoad(){
+  const box=document.getElementById("ma-list"); if(!box) return;
+  const d=await callApi({ action:"ministryAdmins", pw:getPw() }).catch(()=>({ok:false,error:"network"}));
+  if(!d.ok){ box.innerHTML=`<p class="msg">불러오지 못했습니다 (${htmlEsc(d.error||"")})</p>`; return; }
+  maList = d.admins || [];
+  maRenderList();
+}
+
+function maRenderList(){
+  const box=document.getElementById("ma-list"); if(!box) return;
+  if(!maList.length){
+    box.innerHTML=`<p class="msg">등록된 담당자가 없습니다 — 사역신청 암호로는 아무도 들어오지 못합니다.</p>`;
+    return;
+  }
+  box.innerHTML = maList.map(a=>{
+    const u=a.user;
+    if(!u){
+      return `<div class="ma-row stale"><div class="ma-nm"><b>앱 사용자 없음</b>
+        <span class="ma-warn">앱에서 찾을 수 없는 계정입니다(지워졌을 수 있습니다) — 이 항목으로는 들어올 수 없습니다. 빼고 다시 추가해 주세요.<br>${htmlEsc(a.key)}</span></div>
+        <button class="ma-btn del" data-madel="${htmlEsc(a.key)}" data-maname="${htmlEsc(a.key)}">빼기</button></div>`;
+    }
+    return `<div class="ma-row"><div class="ma-nm"><b>${htmlEsc(u.name)}</b><i>${htmlEsc(u.type)} · ${htmlEsc(maWho(u))}</i>
+      <span class="ma-at">${htmlEsc(maSeen(u))}</span>
+      ${a.moved ? `<span class="ma-at">등록한 뒤 이름·소속이 바뀐 분입니다 — 지금 소속으로 들어오시면 됩니다.</span>` : ""}</div>
+      <button class="ma-btn del" data-madel="${htmlEsc(a.key)}" data-maname="${htmlEsc(u.name+" ("+maWho(u)+")")}">빼기</button></div>`;
+  }).join("");
+  box.querySelectorAll("[data-madel]").forEach(b=>b.addEventListener("click", ()=>{
+    const name=b.getAttribute("data-maname");
+    if(!confirm(name+" 님을 사역신청 담당자에서 뺄까요?\n빼면 사역신청 관리 화면에 바로 들어오지 못합니다.")) return;
+    maSave("remove", b.getAttribute("data-madel"), b);
+  }));
+}
+
+async function maFind(){
+  const q=document.getElementById("ma-q").value.trim();
+  const box=document.getElementById("ma-found");
+  if(!q){ box.innerHTML=`<p class="msg">이름을 넣어 주세요.</p>`; return; }
+  box.innerHTML=`<p class="msg">찾는 중...</p>`;
+  const d=await callApi({ action:"adminFindMembers", pw:getPw(), query:q }).catch(()=>({ok:false,error:"network"}));
+  if(!d.ok){ box.innerHTML=`<p class="msg">찾지 못했습니다 (${htmlEsc(d.error||"")})</p>`; return; }
+  maFound = d.users || [];
+  maRenderFound(!!d.more);
+}
+
+function maRenderFound(more){
+  const box=document.getElementById("ma-found"); if(!box) return;
+  if(!maFound.length){
+    box.innerHTML=`<p class="msg">그 이름의 앱 사용자가 없습니다 — 앱에 한 번은 로그인하신 분만 등록할 수 있습니다.</p>`;
+    return;
+  }
+  const have=new Set(maList.flatMap(a=>[a.key, a.current_key].filter(Boolean)));
+  box.innerHTML = maFound.map(u=>{
+    const on=have.has(u.identity_key);
+    return `<div class="ma-row"><div class="ma-nm"><b>${htmlEsc(u.name)}</b><i>${htmlEsc(u.type)} · ${htmlEsc(maWho(u))}</i>
+      <span class="ma-at">${htmlEsc(maSeen(u))}</span></div>
+      <button class="ma-btn" data-maadd="${htmlEsc(u.identity_key)}"${on?" disabled":""}>${on?"등록됨":"추가"}</button></div>`;
+  }).join("") + (more ? `<p class="msg">50명이 넘어 일부만 보입니다 — 이름을 더 정확히 넣어 주세요.</p>` : "");
+  box.querySelectorAll("[data-maadd]").forEach(b=>b.addEventListener("click", ()=>maSave("add", b.getAttribute("data-maadd"), b)));
+}
+
+let maBusy = false;
+async function maSave(op, key, btn){
+  // ⚠️ 한 번에 하나만 — 서버는 목록을 읽고 고쳐 쓰므로, 겹치면 먼저 한 추가·빼기가 덮인다(2026-09-17 리뷰)
+  if(maBusy) return;
+  maBusy = true;
+  document.querySelectorAll(".ma-btn").forEach(x=>{ x.disabled=true; });
+  if(btn){ btn.textContent = op==="add" ? "추가 중..." : "빼는 중..."; }
+  const d=await callApi({ action:"ministryAdminsSave", pw:getPw(), op, key }).catch(()=>({ok:false,error:"network"}));
+  maBusy = false;
+  if(!d.ok){
+    alert(d.error==="no-user" ? "그 계정을 찾지 못했습니다 — 이름·소속이 방금 바뀌었을 수 있습니다. 다시 찾아 주세요."
+      : "저장하지 못했습니다 ("+(d.error||"")+")");
+    maRenderList();
+    if(maFound.length) maRenderFound(false);
+    return;
+  }
+  maList = d.admins || [];
+  maRenderList();
+  if(maFound.length) maRenderFound(false);
+}
 </script>
 </body>
 </html>
