@@ -596,6 +596,7 @@ a.mn-tel.sm{font-size:11.5px;padding:2px 8px;}
 .mn-grp-tools{display:flex;justify-content:flex-end;gap:12px;margin:-2px 2px 8px;}
 .mn-grp-tools button{font:inherit;font-size:12.5px;font-weight:700;color:#1a3a6b;background:none;border:none;cursor:pointer;text-decoration:underline;}
 .mn-teams-t{font-size:12px;font-weight:800;color:#7a869c;margin-bottom:6px;}
+.mn-teams-t i{font-style:normal;font-weight:700;margin-left:4px;color:#1a3a6b;}
 .mn-tcount{display:inline-block;font-size:12px;color:#41506b;background:#f3f6fb;border-radius:7px;
   padding:4px 8px;margin:0 5px 5px 0;}
 .mn-tcount b{color:#1a3a6b;}
@@ -3285,7 +3286,6 @@ const MN_CLS = { "신청완료": "s1", "접수완료": "s2", "임명확정": "s3
 const MN_SHORT = { "신청완료": "신청", "접수완료": "접수", "임명확정": "확정", "미채택": "미채택", "취소": "취소" };
 let mnRows = [];      // [{ id, at, who, name, position, committee, team, option, status, ... }]
 // ⚠️ 한 건 = 한 팀 이다(2026-09-09). 한 사람이 최대 3건이고, 담당자는 건마다 따로 접수한다.
-let mnCounts = {};    // { "위원회 · 팀": 신청수 }
 let mnView = "row";   // row 건별 · person 사람별 · team 사역별
 const mnStOn = new Set(["신청완료"]);   // 상태 거르기 — 비면 전체. 처음엔 처리할 것(신청완료)만
 let mnRange = "all";   // 신청일: all · today · 7d · custom
@@ -3408,7 +3408,6 @@ async function mnLoad(){
       phone:x.phone||"", position:x.position||"", note:x.note||"",
       committee:x.committee||"", team:x.team||"", option:x.option||"",
     }));
-    mnCounts=d.counts||{};
     mnLoaded=true;
   }
   mnRender();
@@ -3505,11 +3504,15 @@ function mnRender(){
   mnBindGroups(box);
 
   // 팀별 신청 수 — 담당자가 가장 먼저 궁금해하는 숫자
+  // ⚠️ **지금 걸러진 목록(rows)** 으로 센다(2026-09-18). 서버의 d.counts 는 취소까지 넣은 전체라,
+  //    「접수」만 켜 두면 목록은 4건인데 팀 숫자는 합이 6으로 어긋났다.
   const tbox=document.getElementById("mn-teams");
   if(tbox){
-    const list=Object.entries(mnCounts).sort((a,b)=>b[1]-a[1]);
+    const cnt={};
+    rows.forEach(r=>{ const k=mnTeamKey(r); cnt[k]=(cnt[k]||0)+1; });
+    const list=Object.entries(cnt).sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0],"ko"));
     tbox.innerHTML=list.length
-      ? `<div class="mn-teams-t">팀별 신청 수</div>` +
+      ? `<div class="mn-teams-t">팀별 신청 수 <i>${rows.length}건</i></div>` +
         list.map(([k,n])=>`<span class="mn-tcount">${plEsc(k)} <b>${n}</b></span>`).join("")
       : "";
     tbox.hidden = mnView==="team";     // 사역별 보기에서는 묶음 머리가 같은 숫자를 보인다
