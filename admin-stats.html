@@ -4504,11 +4504,13 @@ function mcRender(){
       </button>`;
     // 펼쳐 본 모습 — 성도님 화면에 무엇이 보이는지 그대로
     const read=`<div class="mc-open">
-        ${mcLine("언제", plEsc(r.sched) || (when?plEsc(when):""), "비어 있음 — 「때마다 다름」으로 보입니다")}
+        <!-- ⚠️ sched·desc·leader·capacity·members 는 **서버가 이미 걸러 돌려준 HTML** 이다
+             (굵게·색·<br>). plEsc 로 또 싸면 태그가 글자로 보인다(2026-09-18 라이브에서 그랬다). -->
+        ${mcLine("언제", r.sched || (when?plEsc(when):""), "비어 있음 — 「때마다 다름」으로 보입니다")}
         ${mcLine("찾기 칸", when?plEsc(when):"", "비어 있음 — 성도님 필터에 안 걸립니다")}
         ${mcLine("하는 일", r.desc, "비어 있음 — 이름만 보입니다")}
-        ${mcLine("담당(문의)", plEsc(r.leader))}
-        ${mcLine("필요 인원", plEsc(r.capacity))}
+        ${mcLine("담당(문의)", r.leader)}
+        ${mcLine("필요 인원", r.capacity)}
         ${mcLine("섬기는 분", r.members)}
         <div class="mc-open-acts">
           <button type="button" class="mc-btn" data-edit="${r.id}">✏️ 고치기</button>
