@@ -14,8 +14,11 @@
 ■ 사실만 적는다
   「만들어진 것」은 git 기록(9/8~9/12 feat·fix)과 서버 코드에서 확인한 것만 적었다:
   최대 3개(MIN_MAX) · 상태 신청완료→접수완료→임명확정/미채택(MINISTRY_STATUS) ·
-  임명확정 때 알림은 **알림을 켠 분께만**(pushToSubs) · 신청 기간은 운영 app_config 의
-  2026-12-13 ~ 12-27. 바뀌면 여기도 고친다.
+  임명확정 때 알림은 **알림을 켠 분께만**(pushToSubs). 바뀌면 여기도 고친다.
+  · 단계의 날짜는 적지 않고, 신청은 「12월 중순」으로만 적는다(성도님 지시 2026-09-17 —
+    운영 app_config 는 12-13~27 이지만 확정 전이다).
+  · 테스트 URL(?preview=ministry)로 낸 신청은 **운영 DB 에 실제로 저장되고 취소도 된다**
+    (index.ts ministryApply 경고 — 신청 기간 전에 시험 행을 지운다). 그래서 문서에 그 말을 함께 적는다.
 
 ■ 지면 — 실측으로 확인한다
   캡처 폭·자르는 높이(CROP_H)는 상수. 1장을 넘으면 CROP_H 를 줄이고 다시 돌린다.
@@ -60,6 +63,17 @@ def shot_uri(n, y, ring):
     return 'data:image/jpeg;base64,' + base64.b64encode(buf.getvalue()).decode('ascii')
 
 
+TEST_URL = 'https://gocheok.onlybible.kr/?preview=ministry'
+
+
+def qr_uri(text):
+    import qrcode
+    im = qrcode.make(text, box_size=10, border=1)
+    buf = io.BytesIO()
+    im.save(buf, 'PNG')
+    return 'data:image/png;base64,' + base64.b64encode(buf.getvalue()).decode('ascii')
+
+
 NUMS = '①②③④⑤⑥'
 
 shots = ''.join(
@@ -94,15 +108,18 @@ h2.sec { font-size:9.4pt; font-weight:800; margin:0 0 2.2mm; padding-bottom:1.2m
 
 /* 진행 단계 — 세로 띠. 끝난 것 ✓, 지금 ●, 앞으로 ○ */
 .steps { list-style:none; margin:0; padding:0; }
-.steps li { display:grid; grid-template-columns:5mm 1fr; column-gap:2mm; position:relative; padding-bottom:1.5mm; }
+.steps li { display:grid; grid-template-columns:5mm 1fr; column-gap:2mm; position:relative; padding-bottom:1.3mm; }
 .steps li:not(:last-child)::before { content:''; position:absolute; left:2.35mm; top:5mm; bottom:0;
                                      border-left:0.3mm solid #c9ced8; }
 .steps .dot { width:5mm; height:5mm; border-radius:50%; display:flex; align-items:center; justify-content:center;
               font-size:7pt; font-weight:800; border:0.35mm solid #b9c0cc; color:#8a93a3; background:#fff; }
 .steps .done .dot { background:var(--navy); border-color:var(--navy); color:#fff; }
 .steps .now .dot { background:var(--brass); border-color:var(--brass); color:#fff; }
-.steps .when { font-size:7.6pt; color:var(--soft); font-weight:700; line-height:1.3; }
-.steps .what { font-size:8.8pt; font-weight:800; color:var(--navy-deep); line-height:1.35; }
+.steps .when { display:inline-block; font-size:7pt; color:var(--soft); font-weight:700; line-height:1.3;
+               border:0.25mm solid #c9ced8; border-radius:1mm; padding:0 1.2mm; margin-right:1.4mm;
+               vertical-align:0.3mm; background:#fff; }
+.steps .now .when { color:var(--brass); border-color:var(--brass); }
+.steps .what { font-size:8.8pt; font-weight:800; color:var(--navy-deep); line-height:1.35; padding-top:0.5mm; }
 .steps .now .what { color:var(--brass); }
 .steps .how { font-size:7.6pt; color:var(--soft); line-height:1.45; word-break:keep-all; }
 
@@ -111,16 +128,24 @@ h2.sec { font-size:9.4pt; font-weight:800; margin:0 0 2.2mm; padding-bottom:1.2m
 .built div { background:var(--alt); border-radius:1.6mm; padding:1.5mm 2.6mm; font-size:7.8pt; line-height:1.5; word-break:keep-all; }
 .built div b { display:block; font-size:8.3pt; color:var(--navy-deep); margin-bottom:0.4mm; }
 
-/* 부탁드립니다 */
-.ask { border-radius:1.8mm; padding:1.8mm 2.6mm; border:0.25mm solid var(--line); border-top-width:1mm; margin-bottom:1.6mm;
-       font-size:7.8pt; line-height:1.55; word-break:keep-all; }
-.ask .who { font-size:7.2pt; font-weight:800; letter-spacing:.05em; margin-bottom:0.8mm; }
-.ask.dept { border-top-color:var(--brass); background:var(--brass-tint); }
-.ask.dept .who { color:var(--brass); }
-.ask.pastor { border-top-color:var(--navy); background:var(--navy-tint); }
-.ask.pastor .who { color:var(--navy); }
-.ask b { color:#111; }
-.blank { display:inline-block; min-width:9mm; border-bottom:0.25mm solid #555; }
+/* 앞으로 해야 할 일 */
+.todo { list-style:none; counter-reset:t; margin:0; padding:0; display:flex; flex-direction:column; gap:1.4mm; }
+.todo li { counter-increment:t; position:relative; padding:1.5mm 2.6mm 1.5mm 8.6mm; background:var(--brass-tint);
+           border-radius:1.6mm; font-size:7.8pt; line-height:1.5; word-break:keep-all; }
+.todo li::before { content:counter(t); position:absolute; left:2.5mm; top:1.8mm; width:4.2mm; height:4.2mm; border-radius:50%;
+                   background:var(--brass); color:#fff; font-size:7pt; font-weight:800;
+                   display:flex; align-items:center; justify-content:center; line-height:1; }
+.todo li b { display:block; font-size:8.3pt; color:var(--navy-deep); margin-bottom:0.3mm; }
+
+/* 테스트 URL — 종이로 보시는 분은 QR 로 */
+.try { display:flex; gap:3mm; align-items:center; border:0.3mm solid var(--navy); border-radius:1.8mm;
+       padding:2mm 2.6mm; background:var(--navy-tint); }
+.try .t { flex:1; min-width:0; }
+.try .who { font-size:7.2pt; font-weight:800; color:var(--navy); letter-spacing:.05em; }
+.try .url { font-size:8.4pt; font-weight:800; color:var(--navy-deep); line-height:1.35; margin:0.4mm 0 0.8mm; }
+.try .how { font-size:7.3pt; line-height:1.5; color:var(--soft); word-break:keep-all; }
+.try .how b { color:var(--navy-deep); }
+.try .qr { width:19mm; height:19mm; flex:none; image-rendering:pixelated; background:#fff; }
 
 /* 화면 */
 .screens .lede2 { font-size:7.8pt; color:var(--soft); line-height:1.5; margin:-0.6mm 0 2.4mm; word-break:keep-all; }
@@ -149,28 +174,29 @@ BODY = """
 </div>
 
 <p class="lede">기획(안)에서 말씀드린 온라인 사역신청을 <b>성경말씀 암송 앱 안에 만들었습니다.</b>
-성도님 화면과 담당자 화면이 운영 서버에 올라가 있고, 지금은 <b>담당자 미리보기로만</b> 열립니다.
-남은 일은 <b>부서에서 사역팀 소개를 받는 것</b>입니다 — 성도님이 사역을 고르실 때 보는
-시간·하는 일 설명이 그 자료로 채워집니다.</p>
+성도님 화면과 담당자 기본 화면이 운영 서버에 올라가 있고, 아래 <b>테스트 URL</b>로 직접 눌러 보실 수 있습니다.
+지금은 담당 목사님·팀장님과 <b>임명까지의 세부 절차</b>를 기획하고 있습니다.</p>
 
 <div class="cols">
   <div>
     <div class="block">
       <h2 class="sec">진행 단계</h2>
       <ol class="steps">
-        <li class="done"><span class="dot">✓</span><div><div class="when">9월 8일</div>
+        <li class="done"><span class="dot">✓</span><div>
           <div class="what">기획(안) 공유</div></div></li>
-        <li class="done"><span class="dot">✓</span><div><div class="when">9월 8일 ~ 12일</div>
+        <li class="done"><span class="dot">✓</span><div>
           <div class="what">앱 화면 만들기</div>
-          <div class="how">성도 화면 · 담당자 화면 — 운영 서버에 올렸습니다</div></div></li>
-        <li class="now"><span class="dot">●</span><div><div class="when">지금</div>
-          <div class="what">부서 자료 받기</div>
+          <div class="how">성도 화면 · 담당자 기본 화면 — 운영 서버에 올렸습니다</div></div></li>
+        <li class="now"><span class="dot">●</span><div><div class="what"><span class="when">지금</span>사역신청 세부 절차 기획</div>
+          <div class="how">담당 목사님 · 팀장님</div></div></li>
+        <li><span class="dot"></span><div><div class="what"><span class="when">10월</span>부서 자료 받기</div>
           <div class="how">사역팀마다 「사역팀 소개서」 한 장</div></div></li>
-        <li><span class="dot"></span><div><div class="when">12월 13일 ~ 27일</div>
-          <div class="what">성도님 신청</div>
-          <div class="how">이 기간에만 첫 화면에 사역신청 단추가 보입니다</div></div></li>
-        <li><span class="dot"></span><div><div class="when">신청 뒤</div>
-          <div class="what">접수 · 임명</div>
+        <li><span class="dot"></span><div>
+          <div class="what">관리자 기능 만들기</div>
+          <div class="how">정해진 절차에 맞춰 접수 · 임명 기능을 완성합니다</div></div></li>
+        <li><span class="dot"></span><div><div class="what"><span class="when">12월 중순</span>성도님 신청</div>
+          <div class="how">신청 기간에만 첫 화면에 사역신청 단추가 보입니다</div></div></li>
+        <li><span class="dot"></span><div><div class="what"><span class="when">신청 뒤</span>접수 · 임명</div>
           <div class="how">임명이 확정되면 앱 알림을 켜 두신 분께 알림이 갑니다</div></div></li>
       </ol>
     </div>
@@ -178,23 +204,32 @@ BODY = """
     <div class="block">
       <h2 class="sec">만들어진 것</h2>
       <div class="built">
-        <div><b>성도 화면</b>부서를 펼쳐 팀을 고르고(최대 3개), 직분·휴대폰을 확인해 제출합니다.
-        이름·교구·목장은 로그인 정보로 채워집니다. 낸 뒤에는 내 신청이 어디까지 진행됐는지 앱에서 봅니다.</div>
-        <div><b>담당자 화면</b>신청을 상태별로 봅니다(신청완료 → 접수완료 → 임명확정 · 미채택).
-        팀마다 시간 · 하는 일 · 필요 인원 · 섬기는 분을 직접 고칠 수 있습니다.</div>
-        <div><b>부서 자료 양식(종이)</b>「부서 소개서」와 팀마다 한 장씩 쓰는 「사역팀 소개서」,
-        작성 예시(방송실 운영)를 만들었습니다. 적어 주신 내용이 ⑤ 자세히 보기의 설명이 됩니다.</div>
+        <div><b>성도 화면</b>부서를 펼쳐 팀을 고르고(최대 3개) 직분·휴대폰을 확인해 제출합니다.
+        낸 뒤에는 진행 상황을 앱에서 봅니다.</div>
+        <div><b>담당자 화면 (기본)</b>신청을 상태별로 보고(신청완료 → 접수완료 → 임명확정 · 미채택)
+        팀 설명을 고칩니다.</div>
+        <div><b>부서 자료 양식(종이)</b>「부서 소개서」 · 팀당 한 장 「사역팀 소개서」와 작성 예시.
+        적어 주신 내용이 ⑤의 설명이 됩니다.</div>
       </div>
     </div>
 
-    <div class="block" style="margin-bottom:0">
-      <h2 class="sec">부탁드립니다</h2>
-      <div class="ask dept"><div class="who">부서장님께</div>
-        사역팀마다 <b>「사역팀 소개서」를 한 장씩</b> 써 주세요
-        (<span class="blank"></span>월 <span class="blank"></span>일까지).
-        적어 주신 시간·하는 일이 성도님 화면에 그대로 보입니다.</div>
-      <div class="ask pastor"><div class="who">확인 사항</div>
-        신청 기간을 <b>12월 13일 ~ 27일</b>로 잡아 두었습니다. 다르면 알려 주세요.</div>
+    <div class="block">
+      <h2 class="sec">앞으로 해야 할 일</h2>
+      <ol class="todo">
+        <li><b>임명까지 사역신청 세부 절차 기획</b>신청 → 접수 → 임명 확정까지 누가 언제 무엇을 할지
+        정합니다. 관리자 기능의 기준이 됩니다.</li>
+        <li><b>부서 자료 배부 및 취합</b>10월에 두 소개서를 부서에 나눠 드리고 모읍니다.</li>
+      </ol>
+    </div>
+
+    <div class="try">
+      <div class="t">
+        <div class="who">테스트 URL</div>
+        <div class="url">%(url_html)s</div>
+        <div class="how">앱에 로그인한 뒤 이 주소로 열면 첫 화면 「함께」 묶음에 <b>사역신청</b> 단추가 보입니다.
+        시험으로 낸 신청도 저장되고 취소해 볼 수 있습니다 — 시험 신청은 실제 신청 전에 정리합니다.</div>
+      </div>
+      <img class="qr" src="%(qr)s" alt="">
     </div>
   </div>
 
@@ -207,7 +242,7 @@ BODY = """
 </div>
 
 <footer><span class="slogan">오직 성경, 말씀이 답이다!</span><span class="church">고척교회</span></footer>
-""" % {'mark': MARK, 'shots': shots}
+""" % {'mark': MARK, 'shots': shots, 'url_html': TEST_URL.replace('kr/', 'kr/<wbr>'), 'qr': qr_uri(TEST_URL)}
 
 html = ('<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>2027 사역신청 진행 공유</title>'
         '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
