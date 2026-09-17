@@ -48,6 +48,7 @@ TEAMS = 4             # 부서 소개서 한 장에 들어가는 팀 칸
 LINE_MM = 8           # 손글씨 한 줄 높이(부서 소개서)
 ROOMY_LINE_MM = 9.5   # 사역팀 소개서 — 한 장을 한 팀이 쓰니 넉넉히(아래 여백은 작성 방법 자리로 비워 둔다)
 FONT_PT = 9.2
+BIGO_LINES = 5        # 사역팀 소개서 비고 줄 — 칸은 쪽 끝까지 늘고, 줄은 그 안에 고르게 벌어진다
 
 # 앱 MIN_POSITIONS 에서 「학생」만 뺐다 — 부서를 대표해 적는 분이라.
 POSITIONS = ['성도', '집사', '권사', '안수집사', '장로', '전도사', '목사', '사모']
@@ -72,9 +73,9 @@ def lines(n, label=''):
                    for i in range(n))
 
 
-def sec(num, tag, inner):
-    return ('<div class="sec"><div class="tag"><span class="num">%s</span>%s</div>'
-            '<div class="body">%s</div></div>' % (num, tag, inner))
+def sec(num, tag, inner, cls=''):
+    return ('<div class="sec %s"><div class="tag"><span class="num">%s</span>%s</div>'
+            '<div class="body">%s</div></div>' % (cls, num, tag, inner))
 
 
 def doc_head(title, sub, right=''):
@@ -145,7 +146,6 @@ body { font-family:'맑은 고딕','Malgun Gothic',sans-serif; color:#111; font-
 .ln.w-name { flex:0 0 34mm; }
 .ln.w-gu { flex:0 0 22mm; }
 .ln.w-mok { flex:0 0 18mm; }
-.ln.w-grp { flex:0 0 42mm; }
 .sep { flex:0 0 0; align-self:stretch; border-left:0.3mm dotted #b5b5b5; margin:1.4mm 1.2mm 0.8mm; }
 
 .opts { display:flex; align-items:center; gap:2.1mm; padding-bottom:0.9mm; }
@@ -181,7 +181,13 @@ body { font-family:'맑은 고딕','Malgun Gothic',sans-serif; color:#111; font-
 .roomy .how { font-size:7.8pt; color:#555; line-height:1.4; margin:0.6mm 0 0.4mm 20.1mm;
               white-space:normal; word-break:keep-all; }
 .roomy .how b { color:%(navy)s; font-weight:700; }
-""" % {'navy': NAVY, 'gold': GOLD, 'fpt': FONT_PT, 'line': LINE_MM, 'roomy': ROOMY_LINE_MM}
+/* 마지막 칸(비고)이 남은 높이를 채운다 — 줄을 더해 맞추면 크롬 판에 따라 2장으로 넘친다.
+   쪽 높이(297 - 위 10 - 아래 8 = 279mm)보다 2mm 작게 잡아 여유를 둔다. */
+body.roomy { height:%(page_h)smm; display:flex; flex-direction:column; }
+.roomy .sec.fill { flex:1 1 auto; margin-bottom:0; }
+.roomy .sec.fill .body { display:flex; flex-direction:column; justify-content:space-between; }
+""" % {'navy': NAVY, 'gold': GOLD, 'fpt': FONT_PT, 'line': LINE_MM, 'roomy': ROOMY_LINE_MM,
+       'page_h': 277}
 
 # ── 두 양식이 함께 쓰는 ① 작성자 ─────────────────────────────────────
 WRITER = sec('①', '작성자', """
@@ -218,9 +224,7 @@ def team_page():
                     '<b>팀마다 한 장</b>씩 적어 주세요. 적어 주신 내용은 2027 사역신청 때 '
                     '성도님이 사역을 고르시는 안내로 그대로 쓰입니다.')
     team = sec('②', '팀', (
-        '<div class="row"><span class="lb">부서명</span>%s'
-        '<span class="lb2">묶음</span>%s<span class="note">있으면 · 예: 찬양대</span></div>'
-        % (ln('grow'), ln('w-grp'))
+        lines(1, '부서명')
         + lines(1, '팀 이름')
         + '<div class="row"><span class="lb">구분</span>%s'
           '<span class="note">임명직이면 ③부터는 비워 두셔도 됩니다</span></div>' % opts(KINDS, 'rd')))
@@ -240,7 +244,7 @@ def team_page():
         + how('이름만 보고는 알 수 없는 것을 적어 주세요(예: 오병이어 1팀과 2팀이 무엇이 다른지).')
         + '<div class="row"><span class="lb">필요 인원</span>%s<span class="unit">명</span>'
           '<span class="note">참고로만 보여 드리고, 신청을 막지 않습니다</span></div>' % ln('w-cap')))
-    etc = sec('⑤', '비고', lines(3, '전하실 말'))
+    etc = sec('⑤', '비고', lines(BIGO_LINES, '전하실 말'), 'fill')
     return '2027 사역팀 소개서', 'roomy', head + WRITER + team + when + about + etc
 
 
