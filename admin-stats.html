@@ -881,7 +881,7 @@ function renderMinistryMenu(){
         <div class="ic">🤝</div>
         <div class="rep-text">
           <div class="ti">사역신청 현황 (2027)</div>
-          <div class="de">신청 건(팀마다 한 건) · 상태 변경(신청완료→접수완료→임명확정 / 취소)</div>
+          <div class="de">신청 건(팀마다 한 건) · 상태 변경(신청→접수→임명 / 취소)</div>
         </div>
         <div class="rep-arrow">›</div>
       </div>
@@ -1081,7 +1081,7 @@ function renderMenu(){
         <div class="ic">🤝</div>
         <div class="rep-text">
           <div class="ti">사역신청 현황 (2027)</div>
-          <div class="de">신청 건(팀마다 한 건) · 접수완료로 잠그기 · 상태 변경(신청완료→접수완료→임명확정 / 취소)</div>
+          <div class="de">신청 건(팀마다 한 건) · 접수로 잠그기 · 상태 변경(신청→접수→임명 / 취소)</div>
         </div>
         <div class="rep-arrow">›</div>
       </div>
@@ -3482,11 +3482,11 @@ function mnRender(){
           </div>
           <div class="pl-drop">
             <button type="button" class="pl-sel ${MN_CLS[r.status]}" data-mndrop="${r.id}"
-              aria-haspopup="listbox" aria-expanded="false">${r.status}</button>
+              aria-haspopup="listbox" aria-expanded="false">${MN_SHORT[r.status]||r.status}</button>
             <div class="pl-menu" role="listbox">
               ${MN_STATES.map(x=>`
                 <button type="button" class="pl-opt ${MN_CLS[x]}${x===r.status?" on":""}"
-                  data-mnid="${r.id}" data-mnst="${x}" role="option">${x}</button>`).join("")}
+                  data-mnid="${r.id}" data-mnst="${x}" role="option">${MN_SHORT[x]||x}</button>`).join("")}
             </div>
           </div>
         </div>
@@ -3538,8 +3538,8 @@ async function mnSetStatus(id, status){
   const r=mnRows.find(x=>x.id===id); if(!r) return;
   // 확정은 성도님께 알림이 나가는 자리 — 한 번 묻는다(되돌려도 알림은 이미 갔다)
   if(status==="임명확정" && !r.notified_at && !(await mnDialog({
-    icon:"🎉", title:"임명 확정", tone:"ok", ok:"임명확정", cancel:"그만두기",
-    html:`<b>${plEsc(r.name)}</b>님의 <b>«${plEsc(r.team)}»</b> 사역을<br>임명확정으로 바꿉니다.`,
+    icon:"🎉", title:"임명", tone:"ok", ok:"임명", cancel:"그만두기",
+    html:`<b>${plEsc(r.name)}</b>님을 <b>«${plEsc(r.team)}»</b> 사역에<br><b>임명</b>합니다.`,
     note: r.canPush
       ? "🔔 앱 알림을 켜 두신 분이라 <b>알림이 한 번 나갑니다.</b><br>되돌려도 이미 나간 알림은 취소되지 않아요."
       : "🔕 앱 알림을 켜지 않으신 분이라 <b>알림이 가지 않아요.</b><br>게시판이나 연락으로 알려 주세요.",
@@ -3703,11 +3703,11 @@ function mnTeamKey(r){ return (r.committee||"")+" · "+(r.team||""); }
 function mnStatusChips(list){
   return MN_STATES.map(st=>{
     const n=list.filter(r=>r.status===st).length;
-    return n?`<span class="pl-chip ${MN_CLS[st]}">${st} ${n}</span>`:"";
+    return n?`<span class="pl-chip ${MN_CLS[st]}">${MN_SHORT[st]||st} ${n}</span>`:"";
   }).join("");
 }
 // 묶음 머리의 줄 목록 — 접어 둔 채로도 사람별은 신청한 사역을, 사역별은 신청한 사람을 **상태와 함께** 모두 본다
-// (2026-09-17 성도님). 줄은 상태 순서(신청→접수→확정→취소)로, 오른쪽에 상태를 글자로 붙인다.
+// (2026-09-17 성도님). 줄은 상태 순서(신청→접수→임명→취소)로, 오른쪽에 상태를 글자로 붙인다.
 // main·sub 는 글자 그대로 받아 여기서 plEsc 한다.
 function mnRowsHtml(list, mainOf, subOf, extraOf){
   const order=st=>{ const i=MN_STATES.indexOf(st); return i<0 ? 99 : i; };

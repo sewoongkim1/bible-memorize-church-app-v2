@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260918b";
+const APP_BUILD = "20260918c";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9335,10 +9335,15 @@ function minStepsHtml(cur) {
   return '<div class="pl-steps">' + steps.map(function (t, k) {
     return '<div class="pl-step ' + (k < i ? "done" : k === i ? "now" : "") +
       ((cur === "미채택" || cur === "취소") && k === 2 && k === i ? " none" : "") +
-      '"><i></i><span>' + minEsc(t) + '</span></div>';
+      '"><i></i><span>' + minEsc(minStName(t)) + '</span></div>';
   }).join("") + '</div>';
 }
 
+// 화면에 쓰는 짧은 이름(2026-09-18 성도님) — 「신청완료→신청 · 접수완료→접수 · 임명확정→임명」.
+// ⚠️ **값은 그대로 둔다.** "임명확정" 은 DB CHECK·서버 허용목록·관리자 화면이 함께 쓰는 값이라,
+//    값을 바꾸려면 세 곳을 한꺼번에 고쳐야 한다(docs/notes 「허용 목록은 세 곳」). 보이는 말만 바꾼다.
+const MIN_LABEL = { "신청완료": "신청", "접수완료": "접수", "임명확정": "임명" };
+function minStName(st) { return MIN_LABEL[st] || st; }
 const MIN_STATE = {
   "신청완료": { ic: "📝", cls: "s-wait", msg: "냈어요. 담당자가 접수하기 전까지는 고치실 수 있어요." },
   "접수완료": { ic: "📥", cls: "s-work", msg: "담당자가 접수했어요. 이제 고치실 수 없습니다." },
@@ -9472,10 +9477,28 @@ function minSentListHtml() {
       return '<div class="min-sent-r">' +
         '<span class="min-sent-n">' + minEsc(it.team) +
         ' <span class="min-com">· ' + minEsc(it.committee) + '</span></span>' +
-        '<span class="min-st ' + st.cls + '">' + st.ic + ' ' + minEsc(it.status) + '</span></div>';
+        '<span class="min-st ' + st.cls + '">' + st.ic + ' ' + minEsc(minStName(it.status)) + '</span></div>';
     }).join("") + '</div>';
 }
 
+// 신청서 맨 위 한 줄 — 무엇이 이미 정해졌는지 **상태마다 다른 말로**(2026-09-18 성도님).
+// ⚠️ 「이미 결정된 3건」 한 문장으로 뭉치면, 임명을 받은 분도 접수만 된 분도 같은 말을 읽는다.
+//    임명은 기쁜 소식이라 그 말부터 하고, 남은 자리는 0일 때 「남은 0자리만 고르시면」이 아니라
+//    「더 고르실 자리는 없어요」로 말한다(0을 고르라는 말이 된다).
+function minLockNoteHtml() {
+  if (!minLocked.length) return "";
+  const n = function (st) { return minLocked.filter(function (x) { return x.status === st; }).length; };
+  const done = n("임명확정"), took = n("접수완료"), back = n("미채택") + n("취소");
+  const left = Math.max(0, MIN_MAX - minHeld());
+  let msg = "";
+  if (done) msg += '<b>' + done + '개의 사역이 임명</b>되었습니다.';
+  if (took) msg += (msg ? " " : "") + '담당자가 접수한 <b>' + took + '건</b>은 고치거나 뺄 수 없어요.';
+  if (back) msg += (msg ? " " : "") + '<b>' + back + '건</b>은 취소되어 자리를 도로 내놓았어요.';
+  msg += (msg ? " " : "") + (left
+    ? '<b>남은 ' + left + '자리</b>를 더 고르실 수 있어요.'
+    : '더 고르실 자리는 없어요.');
+  return '<div class="min-note min-lock-note">' + (done ? "🎉" : "📥") + ' ' + msg + '</div>';
+}
 function minHasDetail(t) { return !!(t && (t.desc || t.capacity || t.sched || t.members)); }
 function minMoreBtn(t) {
   return minHasDetail(t)
@@ -9647,7 +9670,7 @@ function minAccBuild() {
           (t.appoint ? " disabled" : ' data-team="' + t.id + '"') + '>' +
           '<span class="min-info"><span class="min-nm">' + minEsc(t.team) +
           (t.appoint ? '<span class="min-tag">지명</span>' : "") +
-          (lock ? '<span class="min-tag lock">' + minEsc(minLockStatus(t.id)) + '</span>'
+          (lock ? '<span class="min-tag lock">' + minEsc(minStName(minLockStatus(t.id))) + '</span>'
             // ⚠️ 이미 낸 것과 방금 고른 것을 갈라 준다 — 둘 다 금색 체크뿐이면
             //    다시 들어온 성도님이 「낸 건가, 고르기만 한 건가」를 알 수 없다.
             : minSentIds.indexOf(t.id) >= 0 ? '<span class="min-tag sent">신청완료</span>'
@@ -9682,13 +9705,7 @@ function minPickHtml() {
       '<button class="min-policy-btn" id="min-policy-open">📌 신청안내</button></div>' +
     (openNow || minPrev() ? "" :
       '<div class="min-closed">지금은 신청 기간이 아니에요. 목록만 살펴보실 수 있습니다.</div>') +
-    (minLocked.length
-      ? '<div class="min-note min-lock-note">📥 이미 결정된 <b>' + minLocked.length + '건</b>은 ' +
-        '고치거나 뺄 수 없어요.' +
-        (minLocked.length > minHeld()
-          ? ' 그중 <b>' + (minLocked.length - minHeld()) + '건</b>(미채택·취소)은 자리를 도로 내놓았어요.' : "") +
-        ' <b>남은 ' + Math.max(0, MIN_MAX - minHeld()) + '자리</b>만 고르시면 됩니다.</div>'
-      : "") +
+    minLockNoteHtml() +
     // ⚠️ 필터보다 **위**이고, 필터를 켜도 그대로 남는다 — 이미 낸 것은 거를 대상이 아니다.
     minSentListHtml() +
     minOverHtml() +
@@ -9918,6 +9935,11 @@ function minConfirm(msg, okLabel, cancelLabel) {
 }
 
 // 취소 확인용 번호 입력 — 취소를 누르거나 바깥을 탭하면 null(=그만둠)을 돌려준다
+// 서버가 준 시각(ISO)을 한국 날짜 「2026.09.17」로 — 신청현황의 임명일·취소일
+function minDay(raw) {
+  const p = kstDateParts(raw);
+  return p ? p.y + "." + String(p.m).padStart(2, "0") + "." + String(p.d).padStart(2, "0") : "";
+}
 // 받침에 따라 은/는 — 「장학은」「사랑부는」. 한글로 안 끝나면 은(는).
 function minEunNeun(word) {
   const c = String(word || "").charCodeAt(String(word || "").length - 1);
@@ -10029,10 +10051,15 @@ function minDetailHtml(t) {
       '<button class="min-d-x" data-dclose aria-label="닫기">✕</button></div>' +
     '<div class="min-d-body">' + rows +
       (t.appoint ? '<p class="min-d-note">이 자리는 <b>지명</b>으로 정해집니다 — 신청 목록에는 담기지 않아요.</p>' : "") +
-      (lockSt ? '<p class="min-d-note">이 사역은 <b>' + minEsc(lockSt) + '</b> 상태예요 — ' +
-        (lockSt === "미채택" ? '이번에는 다른 분이 임명되셨어요.'
-          : lockSt === "취소" ? '부서 요청으로 취소되었어요. 자세한 것은 해당 부서에 여쭤봐 주세요.'
-          : '고치거나 뺄 수 없습니다.') + '</p>' : "") +
+      // ⚠️ 임명은 「못 고칩니다」로 시작할 소식이 아니다(2026-09-18 성도님) — 축하부터 말한다.
+      (lockSt === "임명확정"
+        ? '<p class="min-d-note min-d-appt">🎉 <b>이 사역에 임명되었습니다.</b>' +
+          '<span class="min-d-verse">“각각 은사를 받은 대로 하나님의 여러 가지 은혜를 맡은 ' +
+          '선한 청지기 같이 서로 봉사하라” <span class="min-ref">벧전 4:10</span></span></p>'
+        : lockSt ? '<p class="min-d-note">' +
+          (lockSt === "미채택" ? '이번에는 다른 분이 임명되셨어요.'
+            : lockSt === "취소" ? '이 신청은 <b>취소</b>되었어요 — 부서 요청으로 취소된 것이라 자세한 것은 해당 부서에 여쭤봐 주세요.'
+            : '담당자가 이미 <b>접수</b>한 사역이라 고치거나 뺄 수 없습니다.') + '</p>' : "") +
       (t.opt ? '<p class="min-d-note">' + minEsc(t.opt) + '</p>' : "") + '</div>' +
     '<div class="min-d-foot">' +
       (canPick
@@ -10197,11 +10224,23 @@ function minDoneHtml(u) {
     const st = MIN_STATE[it.status] || MIN_STATE["신청완료"];
     const t = minTeam(it.team_id);
     const meta = t ? minShortOf(t) : "";
+    // 신청일과 임명일을 한 줄로(2026-09-18 성도님) — decided_at 은 임명확정·취소 때 서버가 찍는다.
+    // ⚠️ 옛 행은 decided_at 이 비어 있을 수 있다 — 없으면 이름표만 남기지 말고 통째로 뺀다.
+    const decided = (it.status === "임명확정" || it.status === "미채택" || it.status === "취소")
+      ? minDay(it.decided_at) : "";
+    const dateLine = function (ic, label, day) {
+      return '<span class="min-meta min-dates">' + ic + ' ' + label + ' <b>' + minEsc(day) + '</b></span>';
+    };
+    const dates = (it.at ? dateLine("📝", "신청", it.at) : "") +
+      (decided
+        ? dateLine(it.status === "임명확정" ? "🎉" : it.status === "취소" ? "🚫" : "🔕",
+            it.status === "임명확정" ? "임명" : it.status === "취소" ? "취소" : "결정", decided)
+        : "");
     rows += '<div class="min-pick"><span class="min-pick-ck ' + st.cls + '">' + st.ic + '</span>' +
       '<span class="min-info"><span class="min-nm">' + minEsc(it.team) +
       ' <span class="min-com">· ' + minEsc(it.committee) + '</span></span>' +
-      '<span class="min-st ' + st.cls + '">' + minEsc(it.status) + '</span>' +
-      (meta ? '<span class="min-meta">' + meta + '</span>' : "") + '</span>' +
+      '<span class="min-st ' + st.cls + '">' + minEsc(minStName(it.status)) + '</span>' +
+      (meta ? '<span class="min-meta">' + meta + '</span>' : "") + dates + '</span>' +
       (t ? minMoreBtn(t) : "") + '</div>';
   }
 
@@ -10231,7 +10270,10 @@ function minDoneHtml(u) {
       ? '<div class="min-note min-lock">지금은 신청 기간이 아니에요. ' +
         '기간(<b>' + minPeriodText() + '</b>)이 되면 여기서 고치실 수 있어요.</div>'
       : !canEdit
-        ? '<div class="min-note min-lock">담당자가 접수한 신청은 고치거나 뺄 수 없어요.</div>'
+        ? '<div class="min-note min-lock">' +
+          (items.length && items.every(function (x) { return x.status === "임명확정"; })
+            ? '임명이 확정된 신청은 고치거나 뺄 수 없어요.'
+            : '담당자가 접수한 신청은 고치거나 뺄 수 없어요.') + '</div>'
         : "") +
     // 단추를 한 줄에 나란히 — 수정은 남색(지금 할 일), 취소·나가기는 흰 바탕.
     // 기간이든 아니든 목록은 늘 볼 수 있다: 막다른 화면을 만들지 않는다.

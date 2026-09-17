@@ -4676,6 +4676,10 @@ body.pr-full-on { overflow: hidden; }
    전체 내용은 「자세히 보기」 창이 맡는다. min-width:0 인 .min-info 안이라 잘린다. */
 .min-meta { font-size: .78rem; color: var(--gray); margin-top: 3px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 신청일·임명일(2026-09-18) — 한 줄에 둘을 이으면 390px 에서 「임명 20…」으로 잘려 있으나 마나다.
+   줄마다 하나씩 놓고, 날짜 글자는 조금 진하게. */
+.min-dates { color: #6b7684; }
+.min-dates b { font-weight: 700; color: #4b5563; }
 .min-com { color: var(--gray); font-weight: 500; }
 .min-tag { font-size: .7rem; color: var(--gray); margin-left: 6px; }
 .min-chk { flex: none; width: 28px; height: 28px; border-radius: 50%;
@@ -4713,7 +4717,7 @@ body.pr-full-on { overflow: hidden; }
 .min-tag.sent { color: #7a5f1e; background: #fbf1d8; border: 1px solid #ecd9a8;
   border-radius: 999px; padding: 0 7px; }
 .dark .min-tag.sent { color: #e2c98a; background: #33301f; border-color: #5c5330; }
-.min-lock-note { background: #eef1f8; color: var(--navy); }
+.min-lock-note { background: #eef1f8; color: var(--navy); word-break: keep-all; }
 
 /* 「내 신청」 줄마다 붙는 상태 딱지 */
 .min-st { display: inline-block; margin-top: 4px; padding: 2px 9px; border-radius: 999px;
@@ -4776,6 +4780,11 @@ body.pr-full-on { overflow: hidden; }
 .dark .min-d-p { color: #cfe0ff; background: #232c3f; }
 .min-d-none, .min-d-note { font-size: .85rem; line-height: 1.7; color: var(--gray); }
 .min-d-note { margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--border); }
+/* 임명 소식은 축하부터(2026-09-18) — 말씀 한 줄을 아래에 단다 */
+.min-d-appt { color: #1f5c3a; word-break: keep-all; }
+.min-d-appt b { color: #1f5c3a; }
+.min-d-verse { display: block; margin-top: 6px; font-size: .82rem; line-height: 1.7;
+  color: var(--gray); font-style: italic; }
 .min-d-foot { display: flex; flex-direction: column; gap: 8px;
   padding: 12px 15px 14px; border-top: 1px solid var(--border); }
 .min-d-go { width: 100%; padding: 14px; font: inherit; font-size: .98rem; font-weight: 800;
