@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260916c";
+const APP_BUILD = "20260917a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9864,6 +9864,31 @@ function minAlert(msg) {
   for (const x of box.querySelectorAll("[data-dclose]")) x.addEventListener("click", close);
 }
 
+// 예/아니오 확인 — 사역 신청 창과 같은 모양. 「그만두기」·바깥 탭·Esc 는 false
+function minConfirm(msg, okLabel, cancelLabel) {
+  return new Promise(function (resolve) {
+    const box = document.createElement("div");
+    box.className = "min-d-wrap";
+    box.innerHTML = '<div class="min-d-box min-alert-box" role="alertdialog" aria-modal="true">' +
+      '<div class="min-d-body"><div class="min-alert-ico" aria-hidden="true">⚠️</div>' +
+        '<p class="min-alert-msg">' + minEsc(msg).replace(/\n/g, "<br>") + '</p></div>' +
+      '<div class="min-d-foot min-d-foot-row">' +
+        '<button class="min-ghost" data-cancel>' + minEsc(cancelLabel || "그만두기") + '</button>' +
+        '<button class="min-cta" data-ok>' + minEsc(okLabel || "확인") + '</button></div></div>';
+    document.body.appendChild(box);
+    function done(v) {
+      document.removeEventListener("keydown", esc);
+      if (box.parentNode) box.parentNode.removeChild(box);
+      resolve(v);
+    }
+    const esc = function (e) { if (e.key === "Escape") { e.preventDefault(); done(false); } };
+    document.addEventListener("keydown", esc);
+    box.addEventListener("click", function (e) { if (e.target === box) done(false); });
+    box.querySelector("[data-cancel]").addEventListener("click", function () { done(false); });
+    box.querySelector("[data-ok]").addEventListener("click", function () { done(true); });
+  });
+}
+
 // 취소 확인용 번호 입력 — 취소를 누르거나 바깥을 탭하면 null(=그만둠)을 돌려준다
 function minPromptPhone(msg, subMsg) {
   return new Promise(function (resolve) {
@@ -10093,10 +10118,18 @@ function wireMinConfirm(u) {
       ? [u.gu, u.mok ? u.mok + "목장" : ""].filter(Boolean).join(" ")
       : [u.bu, u.grade].filter(Boolean).join(" ");
     try {
-      const r = await api.ministryApply({
+      const order = {
         user_id: u.user_id, name: u.name, who, choices: minPicked,
         phone: minPhoneVal, position: minPosVal, pw: minPw(), preview: minPrev(),
-      });
+      };
+      let r = await api.ministryApply(order);
+      // 같은 번호로 다른 소속의 신청이 있으면 서버가 한 번 묻는다(다른 교구·목장으로 로그인해 낸 경우)
+      // ⚠️ 문구는 r.message — error 에 담으면 supaCall 이 던져 이 자리에 오지 못한다
+      if (r && r.confirm === "dup-phone") {
+        const go = await minConfirm(r.message || "같은 이름과 번호로 들어온 신청이 이미 있습니다. 그래도 신청할까요?", "그래도 신청", "그만두기");
+        if (!go) { renderMinistry(); return; }
+        r = await api.ministryApply(Object.assign({}, order, { dupOk: true }));
+      }
       if (!r || !r.ok) { minAlert((r && r.error) || "신청을 저장하지 못했어요."); renderMinistry(); return; }
       minMine = r.mine;
       minSyncPicked();

@@ -3521,7 +3521,10 @@ async function boardModerate(b: any) {
 //   · 고른 사역이 최대 3개 — 순위는 없다(2026-09-08 결정)
 // ⚠️ 응답에 user_id 를 절대 싣지 않는다. 이 API 는 JWT 가 없어 남의 user_id 하나면
 //    그 사람 행세가 된다(boardList 가 실제로 그랬다). 화면이 필요한 건 "내 것인가"뿐이다.
-const MINISTRY_STATUS = ["신청완료", "접수완료", "임명확정", "미채택", "취소"];
+// ⚠️ 「미채택」은 2026-09-17 뺐다(성도님 결정) — 임명되지 않은 분은 「취소」+사유로 정리한다.
+//    아래 로직의 미채택 분기는 옛 행이 있어도 깨지지 않게 남겨 둔다(운영에는 한 건도 없었다).
+//    DB CHECK(ministry_cancel_status.sql)는 미채택을 여전히 받는다 — 더 좁히려면 개발→운영 마이그레이션.
+const MINISTRY_STATUS = ["신청완료", "접수완료", "임명확정", "취소"];
 // 담당자가 **접수완료**를 누르면 그 건은 잠긴다 — 성도가 고치거나 뺄 수 없고,
 // 그 순간 팀 「자세히 보기」의 명단에 이름이 올라간다(2026-09-09 성도님 요구).
 // ⚠️ 잠겨도 「3개가 안 찼으면 더 신청」은 열려 있다. 그래서 한 사람이 한 행이 아니라
@@ -3799,6 +3802,26 @@ async function ministryApply(b: any) {
   const toAdd = want.filter((id: number) => !haveTeam.has(Number(id)));
   const toDrop = openRows.filter((r) => !wantSet.has(Number(r.team_id)));
   const toKeep = openRows.filter((r) => wantSet.has(Number(r.team_id)));
+
+  // **같은 이름·같은 휴대폰 번호**로 다른 계정이 낸 신청이 있으면 한 번 묻는다(2026-09-17).
+  // 로그인은 교구·목장·이름이 다르면 새 계정을 만들어 주므로, 소속을 잘못 넣고 신청했다가 원래
+  // 소속으로 다시 신청하면 같은 분의 같은 사역이 두 건 생긴다(실제로 그랬다 — 한 분 네 건).
+  // ⚠️ 이름까지 같을 때만 묻는다(리뷰): 번호만 보면 아무나 번호를 넣어 「그 번호로 신청이 있나」를
+  //    알아낼 수 있고, 번호를 함께 쓰는 가족에게도 괜히 묻는다. 가족·다른 사람은 담당자 화면이 따로 표시한다.
+  // ⚠️ 막지 않고 묻는다. 상대 소속은 알려 주지 않는다.
+  // ⚠️ 문구를 `error` 에 넣지 않는다 — 앱의 supaCall 은 error 가 있으면 던져 버려 「그래도 신청」을
+  //    못 묻고 막다른 알림이 된다(리뷰에서 발견). `message` 로 보낸다.
+  if (toAdd.length && !b.dupOk && name) {
+    const { data: same, error: e0 } = await db.from("ministry_orders")
+      .select("id").eq("year", cfg.year).eq("phone", phone).eq("name", name).neq("user_id", userId).limit(1);
+    if (e0) throw e0;
+    if ((same ?? []).length) {
+      return { ok: false, confirm: "dup-phone",
+        message: "같은 이름과 휴대폰 번호로 들어온 사역신청이 이미 있습니다.\n" +
+          "다른 교구·목장으로 로그인해 신청하셨을 수 있어요 — 그렇다면 그쪽 신청을 확인해 주세요.\n" +
+          "그래도 지금 소속으로 신청할까요?" };
+    }
+  }
 
   if (toAdd.length) {
     const rows = toAdd.map((id: number) => {
