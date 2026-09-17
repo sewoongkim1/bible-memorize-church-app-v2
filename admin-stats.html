@@ -372,6 +372,8 @@
 .mc-help{font-size:13px;color:#5b6472;line-height:1.7;margin:0 0 12px;}
 .mn-note{font-size:12px;color:#7a5f1e;background:#fbf1d8;border-radius:8px;padding:6px 9px;margin-top:6px;line-height:1.5}
 .mn-note i{color:#a08a4a;font-style:normal}
+.mn-paper{font-style:normal;font-size:11px;font-weight:800;color:#41506b;background:#eef1f8;
+  border:1px solid #dde3ee;border-radius:999px;padding:1px 7px;margin-left:5px;white-space:nowrap;}
 .mn-pos{font-style:normal;font-size:.78rem;font-weight:700;color:#8a6a1e;
   background:#fbf1d8;border-radius:999px;padding:1px 8px;margin-left:6px}
 .mc-hint{font-weight:500;font-size:.74rem;color:#8a8f9a}
@@ -545,6 +547,39 @@ a.mn-tel.sm{font-size:11.5px;padding:2px 8px;}
 /* ⚠️ display:flex 가 hidden 속성을 이긴다 — 없으면 「직접」이 아닐 때도 날짜 칸이 보였다 */
 .mn-custom[hidden], .mn-cond[hidden]{display:none;}
 .mn-sum:empty{display:none;}
+/* 종이 명단 올리기 */
+.mp-how{font-size:13px;line-height:1.7;color:#41506b;background:#f3f6fb;border-radius:12px;padding:11px 13px;margin-bottom:10px;}
+.mp-how ul{margin:6px 0 0;padding-left:18px;}
+.mp-how li{margin:2px 0;}
+.mp-dl{display:inline-block;margin:8px 0 2px;font-size:12.5px;font-weight:800;color:#1a3a6b;
+  background:#fff;border:1px solid #a9c3e8;border-radius:999px;padding:6px 12px;text-decoration:none;}
+.mp-dl:active{background:#dfe6f3;}
+.mp-cols{display:flex;flex-wrap:wrap;gap:4px;margin:7px 0 2px;}
+.mp-cols span{font-size:11.5px;font-weight:800;color:#1a3a6b;background:#fff;border:1px solid #cdd8ea;border-radius:7px;padding:2px 7px;}
+.mp-cols span.dim{color:#8a95a8;border-color:#e3e8f1;font-weight:700;}
+.mp-row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:8px;}
+.mp-row label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;font-weight:800;color:#41506b;flex:1 1 150px;}
+.mp-row select{font:inherit;font-size:14px;padding:9px 8px;border:1px solid #dde3ee;border-radius:10px;background:#fff;color:#1a3a6b;}
+.mp-row label[hidden]{display:none;}
+.mp-dim{font-weight:600;color:#8a95a8;}
+.mp-text{width:100%;box-sizing:border-box;font:inherit;font-size:13px;line-height:1.6;padding:10px;border:1px solid #dde3ee;border-radius:10px;background:#fff;color:#1a3a6b;}
+.mp-acts{display:flex;gap:8px;margin:8px 0 4px;}
+.mp-acts .push-btn{flex:1;}
+.mp-acts .push-btn.ghost{background:#eef3fb;color:#1a3a6b;border:1px solid #a9c3e8;}
+.mp-acts .push-btn[hidden]{display:none;}
+.mp-item{border:1px solid #e3e8f1;border-left:4px solid #a9c3e8;border-radius:10px;padding:8px 10px;margin-top:6px;background:#fff;}
+.mp-item.bad{border-left-color:#e0a3a3;background:#fdf5f5;}
+.mp-item.done{border-left-color:#7fc39b;background:#f4faf6;}
+.mp-item.same{border-left-color:#cdd8ea;background:#f7f9fc;}
+.mp-item.same .mp-i-top b{color:#6b7a90;}
+.mp-i-top{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 7px;}
+.mp-i-top b{font-size:14px;font-weight:800;color:#1a3a6b;}
+.mp-i-top small{font-size:11.5px;color:#8a95a8;}
+.mp-i-team{font-size:12.5px;font-weight:700;color:#41506b;margin-left:auto;}
+.mp-i-team i{font-style:normal;font-size:11px;color:#8a95a8;}
+.mp-i-msg{font-size:12px;line-height:1.6;margin-top:4px;}
+.mp-i-msg.bad{color:#a33;}
+.mp-i-msg.warn{color:#7a5f16;}
 /* 머리 — 목록을 내려도 화면 위에 붙는다(카드 여백까지 덮게 음수 여백) */
 .mn-head{position:sticky;top:0;z-index:20;background:#fff;margin:-18px -18px 10px;padding:12px 18px 8px;
   border-radius:14px 14px 0 0;border-bottom:1px solid #eef1f6;}
@@ -885,6 +920,14 @@ function renderMinistryMenu(){
         </div>
         <div class="rep-arrow">›</div>
       </div>
+      <div class="rep-card" id="rep-minpaper">
+        <div class="ic">📋</div>
+        <div class="rep-text">
+          <div class="ti">종이 명단 올리기</div>
+          <div class="de">엑셀에서 붙여넣어 한꺼번에 — 종이는 정해진 명단이라 기본이 「임명」</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
       <div class="rep-card" id="rep-mincat">
         <div class="ic">🗂️</div>
         <div class="rep-text">
@@ -896,6 +939,7 @@ function renderMinistryMenu(){
     </div>`;
   document.getElementById("rep-ministry").addEventListener("click", renderMinistryAdmin);
   document.getElementById("rep-mincat").addEventListener("click", renderMinistryCatalog);
+  document.getElementById("rep-minpaper").addEventListener("click", renderMinistryPaper);
   // 새로고침으로 들어왔어도 한 번 되짚는다 — 그사이 빠진 분이 메뉴를 계속 보지 않게
   callApi({ action:"ministryAuth", pw:getPw(), staff:getStaff() }).then(minAuthLost).catch(()=>{});
 }
@@ -1069,6 +1113,14 @@ function renderMenu(){
         </div>
         <div class="rep-arrow">›</div>
       </div>
+      <div class="rep-card" id="rep-minpaper">
+        <div class="ic">📋</div>
+        <div class="rep-text">
+          <div class="ti">종이 명단 올리기</div>
+          <div class="de">엑셀에서 붙여넣어 한꺼번에 — 종이는 정해진 명단이라 기본이 「임명」</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
       <div class="rep-card" id="rep-mincat">
         <div class="ic">🗂️</div>
         <div class="rep-text">
@@ -1115,6 +1167,7 @@ function renderMenu(){
   document.getElementById("rep-pilsa").addEventListener("click", renderPilsaAdmin);
   document.getElementById("rep-ministry").addEventListener("click", renderMinistryAdmin);
   document.getElementById("rep-mincat").addEventListener("click", renderMinistryCatalog);
+  document.getElementById("rep-minpaper").addEventListener("click", renderMinistryPaper);
   document.getElementById("rep-minadmins").addEventListener("click", renderMinistryAdmins);
   loadDashboard();
 }
@@ -3293,6 +3346,146 @@ let mnCondOpen = false; // 조회 조건(검색·신청일) 펼침 — 처음엔
 const mnOpen = new Set();   // 펼쳐 둔 묶음 — 상태를 바꿔 다시 그려도 접히지 않게
 let mnLoaded = false;
 
+/* ── 종이(오프라인) 명단 올리기 ─────────────────────────────────────
+   담당자가 종이로 받은 것을 엑셀에 옮겨 적고, 그 칸을 통째로 붙여넣는다(2026-09-18 성도님).
+   ⚠️ **종이는 이미 임명·취소가 정해진 명단이다** — 기본 상태가 「임명」이다.
+   ⚠️ **알림은 가지 않는다.** 임명 알림은 현황 화면에서 한 건씩 누를 때만 나간다.
+   ⚠️ 서버가 줄마다 다시 살핀다(ministryPaperCheck/Save) — 이 화면의 판정은 보여 주기용이다. */
+const MP_COLS = ["교구", "목장", "이름", "직분", "휴대폰", "사역팀", "위원회(선택)", "하위 선택(선택)"];
+let mpRows = [];      // 서버가 살펴 준 줄들
+let mpBusy = false;
+
+function mpParse(text){
+  const out=[];
+  String(text||"").split(/\r?\n/).forEach(line=>{
+    const t=line.trim(); if(!t) return;
+    const cells=(line.indexOf("\t")>=0 ? line.split("\t") : line.split(",")).map(x=>x.trim());
+    if(!cells.some(Boolean)) return;
+    out.push({ gu:cells[0]||"", mok:cells[1]||"", name:cells[2]||"", position:cells[3]||"",
+               phone:cells[4]||"", team:cells[5]||"", committee:cells[6]||"", option:cells[7]||"" });
+  });
+  // 엑셀에서 머리글까지 딸려 오는 일이 많다 — 첫 줄이 머리글이면 뺀다
+  if(out.length && /교구/.test(out[0].gu) && /이름/.test(out[0].name)) out.shift();
+  return out;
+}
+
+function renderMinistryPaper(){
+  logoutBtn.hidden = false;
+  mpRows = [];
+  app.innerHTML = `
+    <div class="section-title">📋 종이 명단 올리기</div>
+    <div class="push-card">
+      <div class="mp-how">
+        <b>엑셀에서 아래 차례대로</b> 칸을 복사해 붙여넣으세요. 머리글 줄은 있어도 됩니다.
+        <a class="mp-dl" href="ministry/2027_사역명단_올리기_양식.xlsx" download>⬇️ 엑셀 양식 내려받기</a>
+        <div class="mp-cols">${MP_COLS.map((c,i)=>`<span${i>5?' class="dim"':''}>${plEsc(c)}</span>`).join("")}</div>
+        <ul>
+          <li><b>교구·목장·이름</b>은 앱 로그인과 <b>똑같이</b> 적어 주세요 — 한 글자만 달라도 다른 분이 됩니다.</li>
+          <li>앱에 없는 분이면 계정을 새로 만듭니다. 나중에 그분이 앱에 로그인하면 이 신청이 그대로 보입니다.</li>
+          <li>사역팀 이름이 여러 위원회에 있으면 <b>위원회</b>도 적어 주세요.</li>
+          <li>앱으로 이미 낸 신청과 겹치면 <b>새로 넣지 않고 그 건의 상태만</b> 바꿉니다.</li>
+          <li>이미 같은 상태인 줄은 <b>손대지 않습니다</b> — 같은 명단을 두 번 올려도 안전합니다.</li>
+          <li><b>알림은 가지 않습니다.</b> 임명 알림이 필요하면 현황 화면에서 한 분씩 눌러 주세요.</li>
+        </ul>
+      </div>
+      <div class="mp-row">
+        <label>이 명단의 상태
+          <select id="mp-status">
+            <option value="임명확정">임명 (종이로 정해진 명단)</option>
+            <option value="취소">취소</option>
+            <option value="신청완료">신청 (아직 결정 전)</option>
+          </select>
+        </label>
+        <label class="mp-note" id="mp-note-wrap" hidden>취소 사유 <span class="mp-dim">관리자만 봅니다</span>
+          <input type="text" id="mp-note" class="push-in" placeholder="예: 부서 요청으로 취소">
+        </label>
+      </div>
+      <textarea id="mp-text" class="mp-text" rows="8" placeholder="화평&#9;20&#9;김세웅&#9;안수집사&#9;010-1234-5678&#9;신앙운동"></textarea>
+      <div class="mp-acts">
+        <button type="button" class="push-btn ghost" id="mp-check">붙여넣은 것 살펴보기</button>
+        <button type="button" class="push-btn" id="mp-save" hidden>명단 넣기</button>
+      </div>
+      <div id="mp-sum" class="mn-sum"></div>
+      <div id="mp-list"></div>
+    </div>
+    <button class="ghost-btn" id="back">← 뒤로</button>`;
+  document.getElementById("back").addEventListener("click", renderMenu);
+  const sel=document.getElementById("mp-status");
+  sel.addEventListener("change", ()=>{
+    document.getElementById("mp-note-wrap").hidden = sel.value!=="취소";
+    mpReset();
+  });
+  document.getElementById("mp-text").addEventListener("input", mpReset);
+  document.getElementById("mp-check").addEventListener("click", ()=>mpRun(false));
+  document.getElementById("mp-save").addEventListener("click", ()=>mpRun(true));
+}
+
+// 붙여넣은 글이 바뀌면 앞서 살핀 결과는 버린다 — 옛 판정으로 넣는 일을 막는다
+function mpReset(){
+  mpRows=[];
+  const b=document.getElementById("mp-save"); if(b) b.hidden=true;
+  const l=document.getElementById("mp-list"); if(l) l.innerHTML="";
+  const s=document.getElementById("mp-sum"); if(s) s.textContent="";
+}
+
+async function mpRun(save){
+  if(mpBusy) return;
+  const rows=mpParse(document.getElementById("mp-text").value);
+  const status=document.getElementById("mp-status").value;
+  const note=(document.getElementById("mp-note")?.value||"").trim();
+  if(!rows.length){
+    mnDialog({ icon:"📋", title:"붙여넣은 것이 없습니다", ok:"확인", cancel:null,
+      html:"엑셀에서 칸을 복사해 붙여넣어 주세요." });
+    return;
+  }
+  if(save){
+    const okN=mpRows.filter(r=>r.ok&&!r.same).length;
+    const yes=await mnDialog({ icon:"📥", title:"명단을 넣습니다", tone:"ok", ok:`${okN}건 넣기`, cancel:"그만두기",
+      html:`<b>${okN}건</b>을 <b>${plEsc(status==="임명확정"?"임명":status==="취소"?"취소":"신청")}</b>으로 넣습니다.`,
+      note:"앱 알림은 가지 않습니다. 넣은 뒤에는 현황 화면에서 한 건씩 고칠 수 있어요.", noteTone:"off" });
+    if(!yes) return;
+  }
+  mpBusy=true;
+  const btn=document.getElementById(save?"mp-save":"mp-check");
+  const was=btn.textContent; btn.disabled=true; btn.textContent=save?"넣는 중…":"살펴보는 중…";
+  const d=await callApi({ action: save?"ministryPaperSave":"ministryPaperCheck",
+    pw:getPw(), staff:getStaff(), status, note, rows })
+    .catch(()=>({ok:false,error:"network"}));
+  mpBusy=false; btn.disabled=false; btn.textContent=was;
+  if(minAuthLost(d)) return;
+  if(!d.ok){
+    mnDialog({ icon:"⚠️", title: save?"넣지 못했습니다":"살펴보지 못했습니다", tone:"danger", ok:"확인", cancel:null,
+      html: plEsc(d.error||"오류") });
+    return;
+  }
+  mpRows=d.rows||[];
+  mpRender(save, d);
+}
+
+function mpRender(saved, d){
+  // ⚠️ 같은 명단을 다시 올린 줄(r.same)은 **손대지 않는다**(2026-09-18 성도님) — 「넣을 것」에서 빼고 따로 센다.
+  const okN=mpRows.filter(r=>r.ok&&!r.same).length;
+  const sameN=mpRows.filter(r=>r.same).length;
+  const badN=mpRows.filter(r=>!r.ok).length;
+  document.getElementById("mp-sum").innerHTML = saved
+    ? `📥 <b>${d.added||0}건</b>을 넣었습니다${d.changed?` (그중 상태만 바꾼 것 ${d.changed}건)`:""}` +
+      `${d.same?` · 그대로 둔 줄 ${d.same}`:""}${d.failed?` · 실패 ${d.failed}건`:""}${badN?` · 못 넣은 줄 ${badN}`:""}`
+    : `살펴본 줄 <b>${mpRows.length}</b> · 넣을 것 <b>${okN}</b>` +
+      `${sameN?` · 그대로 둘 것 <b>${sameN}</b>`:""}${badN?` · 고칠 것 <b>${badN}</b>`:""}`;
+  document.getElementById("mp-save").hidden = saved || !okN;
+  document.getElementById("mp-list").innerHTML = mpRows.map(r=>{
+    const cls = r.same ? "same" : r.saved ? "done" : r.ok ? "ok" : "bad";
+    const mark = r.same ? "＝" : r.saved ? "✅" : r.ok ? "◻️" : "⚠️";
+    return `<div class="mp-item ${cls}">
+      <div class="mp-i-top"><span class="mp-i-ic">${mark}</span>
+        <b>${plEsc(r.name||"(이름 없음)")}</b><small>${plEsc([r.gu,r.mok].filter(Boolean).join(" "))}</small>
+        <span class="mp-i-team">${plEsc(r.team||"")}${r.committee?` <i>${plEsc(r.committee)}</i>`:""}</span></div>
+      ${r.error?`<div class="mp-i-msg bad">${plEsc(r.error)}</div>`:""}
+      ${r.warn?`<div class="mp-i-msg warn">${plEsc(r.warn)}</div>`:""}
+    </div>`;
+  }).join("");
+}
+
 function renderMinistryAdmin(){
   // ⚠️ 거르기 영역을 작게 다시 짰다(2026-09-17 성도님 — 「칸만 크고 글꼴도 제각각」).
   //    상태는 숫자 막대(누르면 그 상태만, 더 누르면 더하고, 전체는 모두), 요약 숫자는 보기 단추 안으로,
@@ -3405,7 +3598,7 @@ async function mnLoad(){
     mnRows=(d.list||[]).map(x=>({
       id:x.id, at:(x.at||"").replace(/\./g,"-"), who:x.who||"", name:x.name||"",
       status:x.status, canPush:!!x.canPush, notified_at:x.notified_at||null,
-      phone:x.phone||"", position:x.position||"", note:x.note||"",
+      phone:x.phone||"", position:x.position||"", note:x.note||"", source:x.source||"app",
       committee:x.committee||"", team:x.team||"", option:x.option||"",
     }));
     mnLoaded=true;
@@ -3469,10 +3662,12 @@ function mnRender(){
     const dup = mnDupOthers(dupOf, r);
     const dupHtml = mnDupBadge(dup);
     const at = plEsc((r.at||"").replace(/-/g,"."));
+    // 종이로 올린 건은 한눈에 — 앱 알림이 가지 않는 분일 수 있다(2026-09-18)
+    const paper = r.source==="paper" ? `<em class="mn-paper" title="담당자가 올린 종이 명단">📋 종이</em>` : "";
     const nm = inView==="person"
       ? `<div class="mn-in-team"><b>${plEsc(r.team)}</b>${r.option?`<i>(${plEsc(r.option)})</i>`:""}</div>`+
         `<span class="mn-sub"><i>${plEsc(r.committee)}</i><span class="mn-date" title="신청일">${at} 신청</span></span>`
-      : `<b>${plEsc(r.name)}</b>${r.position?`<em class="mn-pos">${plEsc(r.position)}</em>`:""}`+
+      : `<b>${plEsc(r.name)}</b>${r.position?`<em class="mn-pos">${plEsc(r.position)}</em>`:""}${paper}`+
         `<span class="mn-sub"><i>${plEsc(r.who)}</i>${inView==="team"&&r.option?`<i class="mn-in-opt">(${plEsc(r.option)})</i>`:""}<span class="mn-date" title="신청일">${at}</span></span>`;
     return `
       <div class="pl-card ${MN_CLS[r.status]}${inView?" mn-in":""}">

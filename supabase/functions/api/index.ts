@@ -432,6 +432,8 @@ Deno.serve(async (req) => {
       case "ministryApply":    return json(await ministryApply(body));
       case "ministryCancel":   return json(await ministryCancel(body));
       case "ministryList":     return json(await ministryList(body));
+      case "ministryPaperCheck": return json(await ministryPaper(body, false));
+      case "ministryPaperSave":  return json(await ministryPaper(body, true));
       case "ministrySetStatus":return json(await ministrySetStatus(body));
       case "ministryCatalogSave": return json(await ministryCatalogSave(body));
       case "ministryCatalogOrder": return json(await ministryCatalogOrder(body));
@@ -3889,6 +3891,216 @@ async function ministryCancel(b: any) {
 
 
 // 관리자 명단 — 신청은 많아야 수백 건이라 전부 내려주고 화면에서 추린다
+
+// ── 종이(오프라인) 명단 올리기 ──────────────────────────────────────
+// 12월 신청은 앱과 종이가 섞인다. 담당자가 종이로 받은 것을 엑셀에 옮겨 적고, 그 칸을 통째로
+// 붙여넣어 한꺼번에 올린다(2026-09-18 성도님 결정).
+// ⚠️ **종이는 이미 임명·취소가 정해진 명단이다**(성도님) — 그래서 「신청완료」가 아니라
+//    담당자가 고른 상태(기본 임명확정)로 바로 들어간다.
+// ⚠️ **알림은 가지 않는다.** 임명 알림은 한 건씩 누를 때만 나간다(ministrySetStatus).
+//    수백 건을 올리며 푸시가 한꺼번에 나가면 되돌릴 수 없다.
+// ⚠️ **두 걸음이다.** check 가 줄마다 살펴 보여 주고, save 가 넣는다. save 도 **처음부터 다시 살핀다** —
+//    그 사이에 성도님이 앱으로 같은 사역을 냈을 수 있고, 화면이 보낸 판정을 믿어선 안 된다.
+// ⚠️ 계정은 **로그인과 같은 길**(member_login RPC)로 찾거나 만든다. 그래야 그분이 나중에 앱에
+//    로그인하면 「내 신청」에 그대로 보인다. 이름·목장을 한 글자라도 다르게 적으면 딴 사람이 된다.
+const PAPER_MAX_ROWS = 300;
+const PAPER_STATUS = new Set(["임명확정", "취소", "신청완료", "접수완료"]);
+// 담당자 화면이 쓰는 짧은 이름 — 창과 목록이 「임명」인데 여기만 「임명확정」이면 따로 논다
+const paperName = (st: string) =>
+  st === "임명확정" ? "임명" : st === "신청완료" ? "신청" : st === "접수완료" ? "접수" : st;
+
+function ministryPaperKeys(gu: string, mok: string, name: string): string[] {
+  const m = norm(mok);
+  const out = new Set<string>();
+  for (const one of [m, m.replace(/목장$/, "")]) {
+    out.add(identityKey({ type: "교구", gu, mok: one, bu: "", grade: "", name }));
+  }
+  return [...out];
+}
+
+// 줄 하나의 겉모양을 살핀다 — 되돌려주는 말은 화면이 그대로 보여 준다
+function ministryPaperOne(raw: any, i: number) {
+  const gu = norm(raw && raw.gu), mok = norm(raw && raw.mok), name = norm(raw && raw.name);
+  const position = norm(raw && raw.position);
+  const phone = pilsaPhone(raw && raw.phone);
+  const out: any = {
+    i, gu, mok, name, position, phone,
+    committee: norm(raw && raw.committee), team: norm(raw && raw.team),
+    option: norm(raw && raw.option), ok: false, error: "", warn: "",
+  };
+  if (!gu || !mok) out.error = "교구·목장을 적어 주세요";
+  else if (!name) out.error = "이름을 적어 주세요";
+  else if (!MIN_POSITIONS.has(position)) out.error = "직분이 목록에 없습니다";
+  else if (!PILSA_PHONE_RE.test(phone)) out.error = "휴대폰 번호를 확인해 주세요 (010-1234-5678)";
+  else if (!out.team) out.error = "사역팀을 적어 주세요";
+  return out;
+}
+
+async function ministryPaper(b: any, save: boolean) {
+  const err = await ministryAdminError(b); if (err) return { ok: false, error: err };
+  const cfg = await ministryCfg();
+  const year = cfg.year;
+  const status = norm(b.status) || "임명확정";
+  if (!PAPER_STATUS.has(status)) return { ok: false, error: "상태가 목록에 없습니다" };
+  const note = norm(b.note);
+  // 취소는 까닭 없이 못 한다(한 건씩 바꿀 때와 같은 규칙 — 나중에 「왜 취소됐지」를 아무도 모른다)
+  if (status === "취소" && !note) return { ok: false, error: "취소 사유를 적어 주세요 (관리자만 봅니다)" };
+  const raws = Array.isArray(b.rows) ? b.rows : [];
+  if (!raws.length) return { ok: false, error: "올릴 줄이 없습니다" };
+  if (raws.length > PAPER_MAX_ROWS) {
+    return { ok: false, error: "한 번에 " + PAPER_MAX_ROWS + "줄까지 올릴 수 있습니다 (지금 " + raws.length + "줄)" };
+  }
+
+  // 사역팀 — 이름만 적어도 찾게 하되, 같은 이름이 둘이면 위원회를 물어본다
+  const { data: cat, error: e1 } = await db.from("ministry_catalog")
+    .select("id,committee,team,kind").eq("year", year);
+  if (e1) throw e1;
+  const flat = (s: string) => norm(s).replace(/\s+/g, "").toLowerCase();
+  const byTeam = new Map<string, any[]>();
+  const byFull = new Map<string, any>();
+  for (const t of ((cat ?? []) as any[])) {
+    const k = flat(t.team);
+    if (!byTeam.has(k)) byTeam.set(k, []);
+    byTeam.get(k)!.push(t);
+    byFull.set(flat(t.committee) + "|" + k, t);
+  }
+
+  // 올해 신청 전부 — 3개 상한·같은 사역 중복·같은 이름/번호 확인에 쓴다
+  const { data: allOrders, error: e2 } = await db.from("ministry_orders")
+    .select("id,user_id,name,phone,team_id,status").eq("year", year).limit(5000);
+  if (e2) throw e2;
+  const orders = (allOrders ?? []) as any[];
+
+  const rows = raws.map((r: any, i: number) => ministryPaperOne(r, i));
+
+  // 줄마다 계정 찾기 — 있으면 잇고, 없으면 save 때 만든다
+  const keyOf = new Map<number, string[]>();
+  const allKeys: string[] = [];
+  for (const r of rows) {
+    if (r.error) continue;
+    const ks = ministryPaperKeys(r.gu, r.mok, r.name);
+    keyOf.set(r.i, ks);
+    allKeys.push(...ks);
+  }
+  const found = allKeys.length
+    ? await ministryKeysToUsers([...new Set(allKeys)]) : new Map<string, string>();
+
+  // 이 뭉치 안에서 같은 사람이 여러 줄이면 그 수도 상한에 더한다
+  const addedBy = new Map<string, number>();
+  const heldOf = (uid: string) =>
+    orders.filter((o) => o.user_id === uid && countsToCap(o.status)).length;
+
+  for (const r of rows) {
+    if (r.error) continue;
+    const tk = flat(r.team);
+    const cand = r.committee
+      ? [byFull.get(flat(r.committee) + "|" + tk)].filter(Boolean)
+      : (byTeam.get(tk) ?? []);
+    if (!cand.length) { r.error = "사역 목록에 없는 이름입니다"; continue; }
+    if (cand.length > 1) {
+      r.error = "같은 이름의 사역이 " + cand.length + "개입니다 — 위원회도 적어 주세요 (" +
+        cand.map((t: any) => t.committee).join(", ") + ")";
+      continue;
+    }
+    const t = cand[0];
+    if (t.kind === "appoint" && status !== "임명확정") {
+      r.error = "지명으로 정해지는 자리입니다";
+      continue;
+    }
+    r.team_id = t.id; r.committee = t.committee; r.team = t.team;
+
+    const uid = (keyOf.get(r.i) ?? []).map((k) => found.get(k)).find(Boolean) || "";
+    r.user_id = uid;
+    r.isNew = !uid;
+
+    if (uid) {
+      // ⚠️ 앱으로 낸 것과 겹치면 **새로 넣지 않고 그 건의 상태만** 바꾼다(2026-09-18 성도님).
+      //    종이는 결정 난 명단이라, 같은 사역이 두 건이 되는 것이 아니라 그 신청이 임명된 것이다.
+      const had = orders.find((o) => o.user_id === uid && Number(o.team_id) === Number(t.id));
+      if (had) {
+        r.dupId = had.id;
+        r.same = had.status === status;
+        r.warn = r.same
+          ? "이미 " + paperName(status) + " 상태입니다 — 그대로 둡니다"
+          : "앱으로 낸 신청(" + paperName(had.status) + ")이 있습니다 — 그 건을 " +
+            paperName(status) + "으로 바꿉니다";
+        r.ok = true;
+        continue;
+      }
+      if (countsToCap(status)) {
+        const held = heldOf(uid) + (addedBy.get(uid) ?? 0);
+        if (held + 1 > MINISTRY_MAX) {
+          r.error = "이미 " + held + "건이라 " + MINISTRY_MAX + "개를 넘습니다"; continue;
+        }
+        addedBy.set(uid, (addedBy.get(uid) ?? 0) + 1);
+      }
+    }
+
+    // 막지 않고 알리기만 하는 것들
+    const warns: string[] = [];
+    if (r.isNew) warns.push("앱에 없는 분 — 계정을 새로 만듭니다");
+    if (orders.some((o) => o.name === r.name && o.phone === r.phone && o.user_id !== uid)) {
+      warns.push("같은 이름·번호로 낸 다른 신청이 있습니다");
+    }
+    r.warn = warns.join(" · ");
+    r.ok = true;
+  }
+
+  const good = rows.filter((r: any) => r.ok);
+  if (!save) {
+    return { ok: true, year, status, rows, okCount: good.length, badCount: rows.length - good.length };
+  }
+
+  // ── 넣기 ──────────────────────────────────────────────────────
+  // ⚠️ 한 줄이 실패해도 나머지는 들어간다 — 담당자가 고친 줄만 다시 올리면 된다.
+  // ⚠️ 결정이 난 상태(임명확정·취소)면 한 건씩 바꿀 때와 같이 **휴대폰 번호를 지우고**
+  //    decided_at 을 찍는다. 규칙이 들어온 길에 따라 달라지면 안 된다.
+  const now = new Date().toISOString();
+  const decided = status === "임명확정" || status === "취소";
+  let added = 0;
+  for (const r of good) {
+    try {
+      if (r.same) { r.saved = true; continue; }          // 이미 그 상태다 — 건드리지 않는다
+      if (r.dupId) {                                      // 앱 신청이 있다 — 상태만 바꾼다
+        const patch: Record<string, unknown> = { status, updated_at: now };
+        if (decided) { patch.decided_at = now; patch.phone = null; }
+        if (note) patch.note = note;
+        const { error: e5 } = await db.from("ministry_orders").update(patch).eq("id", r.dupId);
+        if (e5) throw e5;
+        r.saved = true; r.changed = true; added++;
+        continue;
+      }
+      let uid = r.user_id;
+      if (!uid) {
+        const mok = r.mok.replace(/목장$/, "");
+        const profile = { type: "교구", gu: r.gu, mok, bu: null, grade: null, name: r.name };
+        const { data: u, error: e3 } = await db.rpc("member_login", {
+          p_profile: { ...profile, identity_key: identityKey({ type: "교구", gu: r.gu, mok, bu: "", grade: "", name: r.name }) } });
+        if (e3) throw e3;
+        uid = u.id;
+      }
+      const { error: e4 } = await db.from("ministry_orders").insert({
+        year, user_id: uid, name: r.name,
+        who: r.gu + " " + r.mok.replace(/목장$/, "") + "목장",
+        position: r.position, phone: decided ? null : r.phone,
+        team_id: r.team_id, committee: r.committee, team: r.team, option: r.option || "",
+        status, source: "paper", note: note || null,
+        decided_at: decided ? now : null, updated_at: now,
+      });
+      if (e4) throw e4;
+      r.saved = true; added++;
+    } catch (ex) {
+      r.ok = false; r.saved = false;
+      r.error = "넣지 못했습니다: " + String((ex as any)?.message ?? ex).slice(0, 120);
+    }
+  }
+  return { ok: true, year, status, rows, added,
+           changed: good.filter((r: any) => r.changed).length,
+           same: good.filter((r: any) => r.same).length,
+           failed: good.filter((r: any) => !r.saved).length,
+           badCount: rows.length - good.length };
+}
+
 async function ministryList(b: any) {
   const err = await ministryAdminError(b); if (err) return { ok: false, error: err };
   const cfg = await ministryCfg();
@@ -3930,6 +4142,7 @@ async function ministryList(b: any) {
       notified_at: r.notified_at,
       canPush: hasPush.has(r.user_id),
       phone: r.phone ?? "",       // 교적 대조·연락용 — 결정이 나면 서버가 지운다
+      source: r.source ?? "app",  // app 앱 신청 · paper 담당자가 올린 종이 명단
     };
   });
 
