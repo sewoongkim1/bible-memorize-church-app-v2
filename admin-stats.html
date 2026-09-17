@@ -382,7 +382,51 @@
 .mc-sum{font-size:13px;color:#41506b;background:#eef1f8;border-radius:8px;padding:8px 12px;margin-bottom:10px;}
 .mc-sum b{font-size:15px;color:#1a3a6b;}
 .mc-rest{color:#a33;margin-left:8px;font-size:12px;}
-.mc-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
+.mc-tabs{display:flex;gap:6px;margin-bottom:8px;overflow-x:auto;padding-bottom:2px;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+.mc-tabs::-webkit-scrollbar{display:none;}
+.mc-tabs .mc-tab{flex:none;white-space:nowrap;}
+/* ── 폰에서 보기 좋은 사역팀 정보(2026-09-18) — 한 팀 = 한 줄 카드, 눌러야 자세히 ── */
+.mc-panel{padding-top:10px;}
+.mc-head{position:sticky;top:0;z-index:20;background:#fff;margin:-10px -18px 10px;padding:10px 18px 6px;
+  border-bottom:1px solid #eef1f6;}
+.mc-search{height:40px;margin-bottom:8px;}
+.mc-head-b{display:flex;align-items:center;gap:8px;}
+.mc-only{display:flex;align-items:center;gap:5px;font-size:12.5px;font-weight:700;color:#41506b;cursor:pointer;}
+.mc-found{margin-left:auto;font-size:12.5px;color:#7a869c;}
+.mc-found b{color:#1a3a6b;}
+.mc-found i{font-style:normal;color:#a0a9b8;}
+.mc-guide{margin:0 0 10px;border:1px solid #e3e8f1;border-radius:10px;background:#f8fafd;}
+.mc-guide>summary{list-style:none;cursor:pointer;padding:9px 12px;font-size:13px;font-weight:800;color:#1a3a6b;}
+.mc-guide>summary::-webkit-details-marker{display:none;}
+.mc-guide[open]>summary{border-bottom:1px solid #e3e8f1;}
+.mc-guide .mc-help{margin:10px 12px;}
+.mc-card{border:1px solid #dde3ee;border-radius:12px;margin-bottom:8px;background:#fff;overflow:hidden;}
+.mc-card.off{background:#f7f8fa;}
+.mc-card.on{border-color:#1a3a6b;box-shadow:0 2px 10px rgba(26,58,107,.08);}
+.mc-card.dirty{border-color:#c3a253;box-shadow:0 0 0 2px #f6edd8;}
+.mc-c-h{display:flex;align-items:center;flex-wrap:wrap;gap:2px 8px;width:100%;text-align:left;
+  font:inherit;background:none;border:none;cursor:pointer;padding:11px 12px;}
+.mc-c-nm{flex:1 1 auto;min-width:0;display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 6px;}
+.mc-c-nm b{font-size:15px;font-weight:800;color:#1a3a6b;}
+.mc-c-nm em{font-style:normal;font-size:11.5px;color:#8a95a8;}
+.mc-c-sub{flex-basis:100%;font-size:12px;color:#7a869c;line-height:1.5;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.mc-c-x{flex:none;color:#8a95a8;font-size:12px;}
+.mc-tag.empty{background:#fdf1f1;border-color:#e6bcbc;color:#a33;}
+.mc-open{padding:2px 12px 12px;border-top:1px solid #eef1f6;}
+.mc-r{display:flex;gap:8px;padding:7px 0;border-top:1px solid #f3f5f9;font-size:13px;line-height:1.6;}
+.mc-r:first-child{border-top:none;}
+.mc-r-l{flex:none;width:66px;font-size:12px;font-weight:800;color:#8a6a1e;}
+.mc-r-v{flex:1;min-width:0;color:#41506b;word-break:break-word;}
+.mc-r-v.none{color:#a0a9b8;}
+.mc-open-acts{display:flex;align-items:center;gap:8px;margin-top:10px;}
+.mc-btn{font:inherit;font-size:13px;font-weight:800;color:#1a3a6b;background:#eef3fb;
+  border:1px solid #a9c3e8;border-radius:10px;padding:9px 14px;cursor:pointer;}
+.mc-open-acts .mc-ord{margin-left:auto;}
+.mc-in{padding:10px 12px 12px;border-top:1px solid #eef1f6;}
+.mc-in-acts{display:flex;gap:8px;align-items:center;margin-top:4px;}
+.mc-in-acts .mc-save{flex:1;}
 .mc-tab{font:inherit;font-size:12.5px;padding:6px 10px;border:1px solid #dde3ee;border-radius:8px;
   background:#fff;color:#41506b;cursor:pointer;}
 .mc-tab em{font-style:normal;color:#8a95a8;font-size:11px;margin-left:3px;}
@@ -727,6 +771,15 @@ a.mn-tel.sm{font-size:11.5px;padding:2px 8px;}
 .pl-won{font-size:15px;font-weight:800;color:#7a5f16;}
 /* '그중 카드'는 타이핑 안에 든 수 — 옆 열보다 조용하게 */
 .sub-col{ color:#6a7688; font-size:.92em; }
+/* 좁은 폰에서 고치기 폼 — 이름과 칸을 위아래로(2026-09-18).
+   ⚠️ 옛 .mc-in label 규칙(align-items:center)보다 **뒤에** 있어야 이긴다. */
+@media (max-width:420px){
+  .mc-r-l{width:58px;}
+  .mc-in label{flex-direction:column;align-items:flex-start;gap:4px;}
+  .mc-in label.wide{align-items:flex-start;}
+  .mc-in input,.mc-in textarea{width:100%;box-sizing:border-box;}
+  .mc-in .mc-when label{flex-direction:row;align-items:center;}
+}
 </style>
 </head>
 <body>
@@ -4254,33 +4307,53 @@ const MC_FREQS = [["weekly","매주",""],["biweekly","격주","(교대형식)"],
 const MC_WHEN_KEYS = MC_DAYS.map(x=>x[0]).concat(MC_FREQS.map(x=>x[0]));
 
 function renderMinistryCatalog(){
+  // 폰에서 **보는 일**이 먼저다(2026-09-18 성도님) — 찾기·위원회·「비어 있는 것만」을 위에 붙여 두고,
+  // 긴 안내는 접어 둔다. 자세한 것은 팀을 눌렀을 때만 펼친다.
   app.innerHTML=`
     <div class="rep-head">
       <button class="back-btn" id="back">← 메뉴</button>
       <h2>🗂️ 사역팀 정보</h2>
     </div>
-    <div class="push-card">
-      <p class="mc-help">성도님 화면에서 팀 이름 아래 작게 보이는 설명입니다.
-        <b>비어 있으면 이름만 보입니다</b> — 무엇을 하는 사역인지 알 수 없어 고르기 어렵습니다.<br>
-        부서 회신(확인 양식의 ②·③ 묶음)을 기다리는 동안, 아는 것부터 채워 두시면 됩니다.<br>
-        <b>「② 언제」 여섯 칸</b>은 성도님이 <b>필터로 사역을 찾을 때</b> 쓰입니다 —
-        비워 두면 「정해진 날 없음 · 때마다 다름」으로 보입니다(목록에서 사라지지는 않습니다).<br>
-        ▲▼로 <b>같은 위원회 안의 차례</b>를 바꿀 수 있습니다.
-        ⚠️ 팀을 <b>더하거나 지우거나 이름을 바꾸는 것은 부서 확인 엑셀</b>에서 합니다 —
-        여기서 만들면 다음에 목록을 다시 심을 때 지워집니다.<br>
-        <span class="mc-tags">꾸밈을 넣을 수 있습니다 —
-          <code>&lt;b&gt;굵게&lt;/b&gt;</code>
-          <code>&lt;span style="color:#c0392b"&gt;색&lt;/span&gt;</code>
-          <code>&lt;br&gt;</code>
-          <code>&lt;u&gt;</code> <code>&lt;em&gt;</code> <code>&lt;mark&gt;</code>.
-          ⚠️ 그 밖의 태그(스크립트·이미지·링크)는 서버가 지웁니다.</span></p>
+    <div class="push-card mc-panel">
+      <div class="mc-head">
+        <div class="mn-search mc-search">
+          <span class="mn-search-ico" aria-hidden="true">🔍</span>
+          <input type="search" id="mc-q" placeholder="팀 · 부서 · 담당자 · 하는 일" autocomplete="off">
+        </div>
+        <div id="mc-tabs" class="mc-tabs"></div>
+        <div class="mc-head-b">
+          <label class="mc-only"><input type="checkbox" id="mc-empty"> 비어 있는 것만</label>
+          <span id="mc-found" class="mc-found"></span>
+        </div>
+      </div>
       <div id="mc-sum" class="mc-sum"></div>
-      <div id="mc-tabs" class="mc-tabs"></div>
       <div id="mc-bar"></div>
+      <details class="mc-guide">
+        <summary>📌 적는 법 · 주의할 것</summary>
+        <p class="mc-help">성도님 화면에서 팀 이름 아래 작게 보이는 설명입니다.
+          <b>비어 있으면 이름만 보입니다</b> — 무엇을 하는 사역인지 알 수 없어 고르기 어렵습니다.<br>
+          <b>「② 언제」 여섯 칸</b>은 성도님이 <b>필터로 사역을 찾을 때</b> 쓰입니다 —
+          비워 두면 「정해진 날 없음 · 때마다 다름」으로 보입니다(목록에서 사라지지는 않습니다).<br>
+          팀을 눌러 <b>고치기</b>를 누르면 입력칸이 열리고, ▲▼로 <b>같은 위원회 안의 차례</b>를 바꿉니다.
+          ⚠️ 팀을 <b>더하거나 지우거나 이름을 바꾸는 것은 부서 확인 엑셀</b>에서 합니다 —
+          여기서 만들면 다음에 목록을 다시 심을 때 지워집니다.<br>
+          <span class="mc-tags">꾸밈을 넣을 수 있습니다 —
+            <code>&lt;b&gt;굵게&lt;/b&gt;</code>
+            <code>&lt;span style="color:#c0392b"&gt;색&lt;/span&gt;</code>
+            <code>&lt;br&gt;</code>
+            <code>&lt;u&gt;</code> <code>&lt;em&gt;</code> <code>&lt;mark&gt;</code>.
+            ⚠️ 그 밖의 태그(스크립트·이미지·링크)는 서버가 지웁니다.</span></p>
+      </details>
       <p id="mc-msg" class="mc-msg" hidden></p>
       <div id="mc-list"><p class="msg">불러오는 중...</p></div>
     </div>`;
   document.getElementById("back").addEventListener("click", renderMenu);
+  document.getElementById("mc-q").addEventListener("input", e=>{
+    mcQ=e.target.value.trim(); mcOpen=0; mcEdit=0; mcRender();
+  });
+  document.getElementById("mc-empty").addEventListener("change", e=>{
+    mcOnlyEmpty=e.target.checked; mcOpen=0; mcEdit=0; mcRender();
+  });
   mcLoad();
 }
 
@@ -4298,7 +4371,7 @@ async function mcLoad(){
       weekly:!!(x.freq&&x.freq.weekly), biweekly:!!(x.freq&&x.freq.biweekly),
       monthly:!!(x.freq&&x.freq.monthly), adhoc:!!(x.freq&&x.freq.adhoc),
       from:x.from||"", to:x.to||"" }));
-    if(!mcPick && mcRows.length) mcPick=mcRows[0].committee;
+    // 처음에는 「전체」다(2026-09-18) — 폰에서는 부서를 고르기보다 찾기부터 쓴다.
     mcLoaded=true;
   }
   mcRender();
@@ -4329,21 +4402,56 @@ function mcNote(t){
   if(t) setTimeout(()=>{ if(el.textContent===t){ el.hidden=true; el.textContent=""; } }, 3000);
 }
 
+/* ── 사역팀 정보 — 폰에서 「보는 화면」이 먼저다(2026-09-18 성도님) ──────────
+   ⚠️ 그전에는 94팀이 **저마다 입력 폼을 통째로 펼친 채** 늘어서 있었다(체크박스 열 개 넘게).
+      폰에서는 한 팀을 보려고 한참 내려야 했고, 무엇이 비었는지도 안 보였다.
+   이제 한 팀 = **한 줄 카드**다. 눌러야 자세히 열리고, 고칠 때만 입력칸이 나온다.
+   찾기·위원회·「비어 있는 것만」은 위에 붙어 따라온다. */
+let mcQ = "";            // 찾는 글자
+let mcOnlyEmpty = false; // 설명이 비어 있는 팀만
+let mcOpen = 0;          // 펼쳐 본 팀
+let mcEdit = 0;          // 고치는 중인 팀(한 번에 하나)
+
+// 「② 언제」를 사람 말로 — 카드 한 줄에 들어갈 만큼만
+function mcWhenText(r){
+  const days=[[ "sun","주일" ],[ "fri","금" ],[ "sat","토" ],[ "week","평일" ]]
+    .filter(([k])=>r[k]).map(([,t])=>t).join("·");
+  const freq=[[ "weekly","매주" ],[ "biweekly","격주" ],[ "monthly","매달" ],[ "adhoc","그때그때" ]]
+    .filter(([k])=>r[k]).map(([,t])=>t).join("·");
+  const time=r.from||r.to ? (r.from||"")+"~"+(r.to||"") : "";
+  return [days, time, freq].filter(Boolean).join(" ");
+}
+function mcEmpty(r){ return !r.appoint && !r.sched && !r.desc; }
+function mcHit(r){
+  if(!mcQ) return true;
+  const q=mcQ.toLowerCase();
+  return [r.team, r.committee, r.group, r.leader, r.desc, r.sched, r.capacity, r.members]
+    .some(v=>String(v||"").toLowerCase().indexOf(q)>=0);
+}
+// 읽기 줄 하나 — 비어 있으면 회색으로 「비어 있음」(빠뜨린 칸이 보이게)
+function mcLine(label, html, none){
+  return `<div class="mc-r"><span class="mc-r-l">${label}</span>` +
+    (html ? `<span class="mc-r-v">${html}</span>`
+          : `<span class="mc-r-v none">${none||"비어 있음"}</span>`) + `</div>`;
+}
+
 function mcRender(){
   const box=document.getElementById("mc-list"); if(!box) return;
-
   mcCounts();
 
-  // 위원회 탭 — 채운 팀 수를 함께 보여 어디가 비었는지 한눈에
+  // 위원회 고르기 — 「전체」를 앞에 두고, 채운 팀 수를 함께(어디가 비었는지 한눈에)
   const tabs=document.getElementById("mc-tabs");
   if(tabs){
     const names=[]; mcRows.forEach(r=>{ if(names.indexOf(r.committee)<0) names.push(r.committee); });
-    tabs.innerHTML=names.map(c=>{
-      const mine=mcRows.filter(r=>r.committee===c&&!r.appoint);
-      const got=mine.filter(r=>r.sched||r.desc).length;
-      return `<button class="mc-tab${c===mcPick?" on":""}${got===mine.length&&mine.length?" done":""}"
-        data-mc="${plEsc(c)}">${plEsc(c)} <em>${got}/${mine.length}</em></button>`;
-    }).join("");
+    const all=mcRows.filter(r=>!r.appoint);
+    tabs.innerHTML=`<button class="mc-tab${mcPick?"":" on"}" data-mc="">전체 <em>${
+      all.filter(r=>!mcEmpty(r)).length}/${all.length}</em></button>` +
+      names.map(c=>{
+        const mine=mcRows.filter(r=>r.committee===c&&!r.appoint);
+        const got=mine.filter(r=>!mcEmpty(r)).length;
+        return `<button class="mc-tab${c===mcPick?" on":""}${got===mine.length&&mine.length?" done":""}"
+          data-mc="${plEsc(c)}">${plEsc(c)} <em>${got}/${mine.length}</em></button>`;
+      }).join("");
     tabs.querySelectorAll("[data-mc]").forEach(b=>{
       b.addEventListener("click", async ()=>{
         // ⚠️ 옮겨만 놓고 안 보낸 차례가 있는데 말없이 버리면, 관리자는 저장된 줄 안다
@@ -4352,7 +4460,7 @@ function mcRender(){
           ok:"버리고 옮기기", cancel:"그대로 두기" }))) return;
         if(mcOrderDirty){ mcOrderDirty=false; mcLoaded=false; mcPick=b.dataset.mc; mcLoad(); return; }
         mcSyncInputs();
-        mcPick=b.dataset.mc; mcRender();
+        mcPick=b.dataset.mc; mcOpen=0; mcEdit=0; mcRender();
       });
     });
   }
@@ -4369,60 +4477,116 @@ function mcRender(){
     if(un) un.addEventListener("click", ()=>{ mcOrderDirty=false; mcLoaded=false; mcLoad(); });
   }
 
-  const rows=mcRows.filter(r=>r.committee===mcPick);
-  box.innerHTML=rows.map((r,ri)=>`
-    <div class="mc-row${r.appoint?" off":""}${r._d?" dirty":""}" data-row="${r.id}">
-      <div class="mc-nm">${r.group?`<em>${plEsc(r.group)}</em> `:""}${plEsc(r.team)}
-        ${r.appoint?`<span class="mc-tag">지명</span>`:""}
-        ${r._d?`<span class="mc-dot">● 저장 안 됨</span>`:""}
-        <span class="mc-ord">
-          <button data-up="${r.id}"${ri===0?" disabled":""} title="위로">▲</button>
-          <button data-dn="${r.id}"${ri===rows.length-1?" disabled":""} title="아래로">▼</button>
-        </span></div>
-      ${r.appoint
-        ? `<div class="mc-note">지명 자리라 성도님이 고르지 않습니다 — 설명이 없어도 됩니다.</div>`
-        : `<div class="mc-in">
-             <label>시간·요일<input type="text" data-f="sched" data-id="${r.id}"
-               value="${plEsc(r.sched)}" placeholder="예: 매주 화 오전 10시"></label>
-             <div class="mc-when">
-               <span class="mc-w-t">② 언제
-                 <em>성도님이 이걸로 사역을 찾습니다 — 비우면 「정해진 날 없음 · 때마다 다름」</em></span>
-               <span class="mc-w-r"><b>요일</b>${MC_DAYS.map(([k,t,h])=>
-                 `<label><input type="checkbox" data-f="${k}" data-id="${r.id}"${r[k]?" checked":""}>${t}${
-                   h?`<i>${h}</i>`:""}</label>`).join("")}</span>
-               <span class="mc-w-r"><b>주기</b>${MC_FREQS.map(([k,t,h])=>
-                 `<label><input type="checkbox" data-f="${k}" data-id="${r.id}"${r[k]?" checked":""}>${t}${
-                   h?`<i>${h}</i>`:""}</label>`).join("")}</span>
-               <span class="mc-w-r"><b>주일 시각</b>
-                 <input type="time" data-f="from" data-id="${r.id}" value="${plEsc(r.from)}" step="300"${r.sun?"":" disabled"}>
-                 <span class="mc-w-tw">~</span>
-                 <input type="time" data-f="to" data-id="${r.id}" value="${plEsc(r.to)}" step="300"${r.sun?"":" disabled"}>
-                 <i class="mc-w-off" data-off="${r.id}"${r.sun?" hidden":""}>주일을 체크하면 넣을 수 있어요</i></span>
-             </div>
-             <label class="wide">하는 일<textarea data-f="desc" data-id="${r.id}" rows="2"
-               placeholder="예: 주일 예배 전 주차를 안내합니다. &lt;b&gt;굵게&lt;/b&gt; 도 됩니다">${plEsc(r.desc)}</textarea></label>
-             <div class="mc-prev" data-prev="${r.id}">${r.desc||"<span class='mc-none'>비어 있음 — 성도님 화면에는 이름만 보입니다</span>"}</div>
-             <label>필요 인원<input type="text" data-f="capacity" data-id="${r.id}"
-               value="${plEsc(r.capacity)}" placeholder="예: 10명 (선택)"></label>
-             <label class="wide">담당(문의) <span class="mc-hint">성도님 화면 「하는 일」 아래에 보입니다 · 비우면 줄이 안 나옵니다</span>
-               <input type="text" data-f="leader" data-id="${r.id}"
-                 value="${plEsc(r.leader)}" placeholder="예: 홍길동 집사 (010-1234-5678)"></label>
-             <label class="wide">지금 섬기는 분 <span class="mc-hint">한 줄에 한 분씩</span>
-               <textarea data-f="members" data-id="${r.id}" rows="3"
-                 placeholder="홍길동 집사 (화평-20)&#10;이영희 권사 (사랑-3)">${plEsc(mcLines(r.members))}</textarea>
-               <span class="mc-hint">접수완료된 신청자는 여기 안 적어도 자동으로 함께 보입니다.</span></label>
-             <button class="mc-save" data-save="${r.id}">저장</button>
-           </div>`}
-    </div>`).join("");
+  // ⚠️ 찾을 때는 **위원회를 넘어 전체에서** 찾는다 — 「찬양」을 쳤는데 지금 고른 부서에만 없어서
+  //    0건이 되면, 없는 줄 알고 되돌아간다(2026-09-18 실제로 그랬다).
+  const inPick=mcRows.filter(r=>!mcPick || mcQ || r.committee===mcPick);
+  const rows=inPick.filter(r=>mcHit(r) && (!mcOnlyEmpty || mcEmpty(r)));
+  const found=document.getElementById("mc-found");
+  if(found) found.innerHTML = `보이는 팀 <b>${rows.length}</b>` +
+    (mcQ ? ` <i>(전체에서 찾음)</i>` : rows.length!==inPick.length ? ` <i>(${mcPick||"전체"} ${inPick.length})</i>` : "");
 
-  box.querySelectorAll("[data-save]").forEach(b=>{
-    b.addEventListener("click", ()=> mcSave(Number(b.dataset.save)));
-  });
+  if(!rows.length){
+    box.innerHTML=`<p class="msg">${mcQ?`‘${plEsc(mcQ)}’에 맞는 사역팀이 없습니다.`:"보여 줄 사역팀이 없습니다."}</p>`;
+    return;
+  }
+
+  box.innerHTML=rows.map((r,ri)=>{
+    const open=mcOpen===r.id, edit=mcEdit===r.id;
+    const when=mcWhenText(r);
+    const sub=[r.sched||when, r.leader, r.capacity].filter(Boolean).join(" · ");
+    const head=`<button type="button" class="mc-c-h" data-open="${r.id}" aria-expanded="${open}">
+        <span class="mc-c-nm">${r.group?`<em>${plEsc(r.group)}</em>`:""}<b>${plEsc(r.team)}</b>
+          ${r.appoint?`<span class="mc-tag">지명</span>`:""}
+          ${mcEmpty(r)?`<span class="mc-tag empty">설명 없음</span>`:""}
+          ${r._d?`<span class="mc-dot">● 저장 안 됨</span>`:""}</span>
+        <span class="mc-c-x" aria-hidden="true">${open?"▾":"▸"}</span>
+        ${sub?`<span class="mc-c-sub">${sub}</span>`:""}
+      </button>`;
+    // 펼쳐 본 모습 — 성도님 화면에 무엇이 보이는지 그대로
+    const read=`<div class="mc-open">
+        ${mcLine("언제", plEsc(r.sched) || (when?plEsc(when):""), "비어 있음 — 「때마다 다름」으로 보입니다")}
+        ${mcLine("찾기 칸", when?plEsc(when):"", "비어 있음 — 성도님 필터에 안 걸립니다")}
+        ${mcLine("하는 일", r.desc, "비어 있음 — 이름만 보입니다")}
+        ${mcLine("담당(문의)", plEsc(r.leader))}
+        ${mcLine("필요 인원", plEsc(r.capacity))}
+        ${mcLine("섬기는 분", r.members)}
+        <div class="mc-open-acts">
+          <button type="button" class="mc-btn" data-edit="${r.id}">✏️ 고치기</button>
+          <span class="mc-ord">
+            <button data-up="${r.id}"${ri===0?" disabled":""} title="위로">▲</button>
+            <button data-dn="${r.id}"${ri===rows.length-1?" disabled":""} title="아래로">▼</button>
+          </span>
+        </div>
+      </div>`;
+    return `<div class="mc-card${r.appoint?" off":""}${r._d?" dirty":""}${open?" on":""}" data-row="${r.id}">
+      ${head}
+      ${!open ? "" : edit ? mcFormHtml(r) : read}
+    </div>`;
+  }).join("");
+
+  mcWire(box);
+}
+
+// 고치는 폼 — 펼친 팀 하나에만 그린다(그전에는 94팀이 모두 폼이었다)
+function mcFormHtml(r){
+  if(r.appoint) return `<div class="mc-note">지명 자리라 성도님이 고르지 않습니다 — 설명이 없어도 됩니다.</div>`;
+  return `<div class="mc-in">
+    <label>시간·요일<input type="text" data-f="sched" data-id="${r.id}"
+      value="${plEsc(r.sched)}" placeholder="예: 매주 화 오전 10시"></label>
+    <div class="mc-when">
+      <span class="mc-w-t">② 언제
+        <em>성도님이 이걸로 사역을 찾습니다 — 비우면 「정해진 날 없음 · 때마다 다름」</em></span>
+      <span class="mc-w-r"><b>요일</b>${MC_DAYS.map(([k,t,h])=>
+        `<label><input type="checkbox" data-f="${k}" data-id="${r.id}"${r[k]?" checked":""}>${t}${
+          h?`<i>${h}</i>`:""}</label>`).join("")}</span>
+      <span class="mc-w-r"><b>주기</b>${MC_FREQS.map(([k,t,h])=>
+        `<label><input type="checkbox" data-f="${k}" data-id="${r.id}"${r[k]?" checked":""}>${t}${
+          h?`<i>${h}</i>`:""}</label>`).join("")}</span>
+      <span class="mc-w-r"><b>주일 시각</b>
+        <input type="time" data-f="from" data-id="${r.id}" value="${plEsc(r.from)}" step="300"${r.sun?"":" disabled"}>
+        <span class="mc-w-tw">~</span>
+        <input type="time" data-f="to" data-id="${r.id}" value="${plEsc(r.to)}" step="300"${r.sun?"":" disabled"}>
+        <i class="mc-w-off" data-off="${r.id}"${r.sun?" hidden":""}>주일을 체크하면 넣을 수 있어요</i></span>
+    </div>
+    <label class="wide">하는 일<textarea data-f="desc" data-id="${r.id}" rows="2"
+      placeholder="예: 주일 예배 전 주차를 안내합니다. &lt;b&gt;굵게&lt;/b&gt; 도 됩니다">${plEsc(r.desc)}</textarea></label>
+    <div class="mc-prev" data-prev="${r.id}">${r.desc||"<span class='mc-none'>비어 있음 — 성도님 화면에는 이름만 보입니다</span>"}</div>
+    <label>필요 인원<input type="text" data-f="capacity" data-id="${r.id}"
+      value="${plEsc(r.capacity)}" placeholder="예: 10명 (선택)"></label>
+    <label class="wide">담당(문의) <span class="mc-hint">성도님 화면 「하는 일」 아래에 보입니다 · 비우면 줄이 안 나옵니다</span>
+      <input type="text" data-f="leader" data-id="${r.id}"
+        value="${plEsc(r.leader)}" placeholder="예: 홍길동 집사 (010-1234-5678)"></label>
+    <label class="wide">지금 섬기는 분 <span class="mc-hint">한 줄에 한 분씩</span>
+      <textarea data-f="members" data-id="${r.id}" rows="3"
+        placeholder="홍길동 집사 (화평-20)&#10;이영희 권사 (사랑-3)">${plEsc(mcLines(r.members))}</textarea>
+      <span class="mc-hint">접수완료된 신청자는 여기 안 적어도 자동으로 함께 보입니다.</span></label>
+    <div class="mc-in-acts">
+      <button class="mc-save" data-save="${r.id}">저장</button>
+      <button type="button" class="mc-btn" data-done="${r.id}">보기로</button>
+    </div>
+  </div>`;
+}
+
+function mcWire(box){
+  box.querySelectorAll("[data-open]").forEach(b=>b.addEventListener("click", ()=>{
+    const id=Number(b.dataset.open);
+    mcSyncInputs();
+    if(mcOpen===id){ mcOpen=0; mcEdit=0; } else { mcOpen=id; mcEdit=0; }
+    mcRender();
+  }));
+  box.querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click", e=>{
+    e.stopPropagation(); mcEdit=Number(b.dataset.edit); mcOpen=mcEdit; mcRender();
+  }));
+  box.querySelectorAll("[data-done]").forEach(b=>b.addEventListener("click", e=>{
+    e.stopPropagation(); mcSyncInputs(); mcEdit=0; mcRender();
+  }));
+  box.querySelectorAll("[data-save]").forEach(b=>
+    b.addEventListener("click", ()=> mcSave(Number(b.dataset.save))));
   // ⚠️ 시각은 **주일에만** 받는다(DB 제약도 같다). 주일을 끄면 그 자리에서 칸을 잠가
   //    「넣었는데 저장되면 사라지는」 일을 없앤다. 다시 그리지 않는다 — 치던 글이 날아간다.
   box.querySelectorAll('[data-f="sun"]').forEach(ck=>{
     ck.addEventListener("change", ()=>{
-      const row=ck.closest(".mc-row"); if(!row) return;
+      const row=ck.closest(".mc-card"); if(!row) return;
       row.querySelectorAll('input[type="time"]').forEach(t=>{
         t.disabled = !ck.checked;
         if(!ck.checked) t.value = "";
@@ -4431,10 +4595,9 @@ function mcRender(){
     });
   });
   box.querySelectorAll("[data-up]").forEach(b=>
-    b.addEventListener("click", ()=> mcMove(Number(b.dataset.up), -1)));
+    b.addEventListener("click", e=>{ e.stopPropagation(); mcMove(Number(b.dataset.up), -1); }));
   box.querySelectorAll("[data-dn]").forEach(b=>
-    b.addEventListener("click", ()=> mcMove(Number(b.dataset.dn), 1)));
-  // 엔터로도 저장 — 한 줄씩 채우는 일이라 손이 자판을 떠나지 않게
+    b.addEventListener("click", e=>{ e.stopPropagation(); mcMove(Number(b.dataset.dn), 1); }));
   box.querySelectorAll("[data-f]").forEach(i=>{
     // 엔터로도 저장 — 단 여러 줄을 쓰는 「하는 일」은 빼고(줄바꿈이 막힌다)
     if(i.tagName!=="TEXTAREA")
