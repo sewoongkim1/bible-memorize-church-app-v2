@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260917a";
+const APP_BUILD = "20260917b";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -3508,7 +3508,13 @@ function renderSettings() {
         `}
         <button class="summary-install" id="test-push">🧪 내 기기로 테스트 알림</button>
         <button class="summary-install" id="share-btn">🔗 공유하기</button>
-        <a class="summary-install" href="admin.html">📊 관리자 페이지</a>
+        <!-- 관리 — 사역 담당자는 사역관리 페이지(사역 암호 + 등록 담당자), 관리자는 관리자 페이지로 나눠 들어간다(2026-09-17).
+             모든 성도님께 보이지만 둘 다 암호가 있어야 들어간다 — 헷갈리지 않게 「암호가 있는 분만」을 적어 둔다. -->
+        <div class="setting-block">
+          <div class="setting-label">🔒 관리 <span class="btn-sub">( 암호가 있는 분만 )</span></div>
+          <a class="summary-install" href="admin-ministry.html">🤝 사역관리 페이지</a>
+          <a class="summary-install" href="admin.html" style="margin-bottom:0">📊 관리자 페이지</a>
+        </div>
         <button class="summary-install" id="privacy-info">🔐 개인정보 안내 보기</button>
         <button class="push-off" id="clear-me">🚪 이 기기에서 내 정보 지우기<br><span class="btn-sub">( 공용 기기에서 사용하셨다면 눌러주세요 )</span></button>
         <div class="setting-block">
