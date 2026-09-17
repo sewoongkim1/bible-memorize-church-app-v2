@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260918d";
+const APP_BUILD = "20260918e";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9499,7 +9499,7 @@ function minLockNoteHtml() {
     : '더 고르실 자리는 없어요.');
   return '<div class="min-note min-lock-note">' + (done ? "🎉" : "📥") + ' ' + msg + '</div>';
 }
-function minHasDetail(t) { return !!(t && (t.desc || t.capacity || t.sched || t.members)); }
+function minHasDetail(t) { return !!(t && (t.desc || t.capacity || t.sched || t.members || t.leader)); }
 function minMoreBtn(t) {
   return minHasDetail(t)
     ? '<button class="min-more" data-more="' + t.id + '">자세히 보기 ›</button>' : "";
@@ -10023,6 +10023,9 @@ function minDetailHtml(t) {
       '<div class="min-d-v">' + val + '</div></div>' : "";
   };
   let rows = row("언제", t.sched) + row("하는 일", t.desc);
+  // 담당자(문의처) — 「궁금하면 누구에게 물어야 하나」가 신청 전 가장 큰 물음이다
+  // (2026-09-18 성도님 · 종이 양식의 문의처 칸과 같은 까닭). 「섬기는 분」 **위**에 놓는다.
+  rows += row("담당자", t.leader);
   // 「섬기는 분」 — 이름과 하는 일만으로는 「내가 낄 자리인가」가 안 그려진다.
   // 아는 얼굴이 하나라도 보이면 문턱이 확 낮아진다(성도님 요청 2026-09-09).
   // ⚠️ 관리자가 한 줄에 한 분씩 넣은 것이라 <br> 로 갈린다 — 줄마다 칩으로 세운다.

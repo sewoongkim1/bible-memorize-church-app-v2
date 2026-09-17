@@ -274,8 +274,10 @@ def team_page(ex=None):
         + '<div class="row"><span class="lb">필요 인원</span>%s<span class="unit">명</span>'
           '<span class="note">참고로만 보여 드리고, 신청을 막지 않습니다</span></div>'
           % ln('w-cap', ex.get('capacity', ''))
-        + '<div class="row"><span class="lb">문의처</span>%s'
-          '<span class="note">궁금할 때 물을 곳 · 예: 방송실, 담당 간사</span></div>'
+        # 앱의 「담당자」 칸과 같은 것이다(2026-09-18) — 여기 적어 주신 한 줄이
+        # 성도님 화면의 사역 설명 「섬기는 분」 위에 그대로 올라간다.
+        + '<div class="row"><span class="lb">담당자</span>%s'
+          '<span class="note">궁금할 때 물을 곳 · 이름·직분·연락처 (앱 화면에 그대로 보입니다)</span></div>'
           % ln('grow', ex.get('contact', ''))))
     etc = sec('⑤', '비고', lines(BIGO_LINES, '전하실 말', ex.get('note', [])), 'fill')
     return '2027 사역팀 소개서', 'roomy', head + writer(ex.get('writer')) + team + when + about + etc
@@ -333,7 +335,7 @@ EXAMPLES = {
         'sched': ['주일 1,2,3,오후 예배, 금요 성령집회', '비정기적 월삭, 부흥회 등'],
         'desc': ['카메라 조정, 자막 송출, 영상 전환(스위처), 음향 운영',
                  '처음 오신 분은 교육을 해 드립니다', '봉사는 예배별로 바뀝니다'],
-        'capacity': '20',
+        'capacity': '20', 'contact': '김세웅 안수집사 (010-1234-5678)',
         'writer': {'name': '고척교회', 'gu': '사랑', 'mok': '1', 'phone': '010-1234-5678', 'position': '권사'},
     },
 }
