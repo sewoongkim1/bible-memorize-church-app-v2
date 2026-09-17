@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260917b";
+const APP_BUILD = "20260917c";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -3508,13 +3508,9 @@ function renderSettings() {
         `}
         <button class="summary-install" id="test-push">🧪 내 기기로 테스트 알림</button>
         <button class="summary-install" id="share-btn">🔗 공유하기</button>
-        <!-- 관리 — 사역 담당자는 사역관리 페이지(사역 암호 + 등록 담당자), 관리자는 관리자 페이지로 나눠 들어간다(2026-09-17).
-             모든 성도님께 보이지만 둘 다 암호가 있어야 들어간다 — 헷갈리지 않게 「암호가 있는 분만」을 적어 둔다. -->
-        <div class="setting-block">
-          <div class="setting-label">🔒 관리 <span class="btn-sub">( 암호가 있는 분만 )</span></div>
-          <a class="summary-install" href="admin-ministry.html">🤝 사역관리 페이지</a>
-          <a class="summary-install" href="admin.html" style="margin-bottom:0">📊 관리자 페이지</a>
-        </div>
+        <!-- 관리 — 버튼 하나로 들어가 그 안에서 사역관리·관리자 페이지를 고른다(2026-09-17 성도님 요청:
+             관리할 메뉴가 더 생길 수 있으니). 메뉴 목록은 MANAGE_LINKS 한 곳. -->
+        <button class="summary-install" id="open-manage">🔒 관리 페이지<br><span class="btn-sub">( 담당자·관리자 — 암호가 있는 분만 )</span></button>
         <button class="summary-install" id="privacy-info">🔐 개인정보 안내 보기</button>
         <button class="push-off" id="clear-me">🚪 이 기기에서 내 정보 지우기<br><span class="btn-sub">( 공용 기기에서 사용하셨다면 눌러주세요 )</span></button>
         <div class="setting-block">
@@ -3529,6 +3525,7 @@ function renderSettings() {
   });
   document.getElementById("change-user").addEventListener("click", renderEntryScreen);
   document.getElementById("privacy-info").addEventListener("click", () => renderPrivacyInfo(renderSettings));
+  document.getElementById("open-manage").addEventListener("click", () => renderManageMenu(renderSettings));
   document.getElementById("share-btn").addEventListener("click", shareApp);
   document.getElementById("enable-push")?.addEventListener("click", () => { if (typeof enablePush === "function") enablePush(); });
   document.getElementById("disable-push")?.addEventListener("click", () => { if (typeof disablePush === "function") disablePush(); });
@@ -6550,6 +6547,29 @@ function renderLoginHelp(back) {
     );
   }
   draw();
+}
+
+// ── 관리 메뉴 — 설정의 「🔒 관리 페이지」에서 들어온다(2026-09-17) ──
+// 메뉴를 더하려면 **여기에 한 줄**. 입구는 모든 성도님께 보이므로, 각 페이지는 스스로 암호를 받아야 한다.
+const MANAGE_LINKS = [
+  { ic: "🤝", title: "사역관리 페이지", desc: "사역신청 담당자 · 사역 암호와 교구·목장·이름", href: "admin-ministry.html" },
+  { ic: "📊", title: "관리자 페이지", desc: "관리자 · 관리자 암호", href: "admin.html" },
+];
+function renderManageMenu(back) {
+  const appEl = document.getElementById("app");
+  appEl.innerHTML = `
+    <div class="summary-screen">
+      <div class="summary-card">
+        <div class="settings-head">
+          <h2 class="rank-title">🔒 관리</h2>
+          <button class="settings-back-btn" id="manage-back">← 뒤로</button>
+        </div>
+        <p class="btn-sub" style="text-align:center;margin:0 0 14px;word-break:keep-all">담당자·관리자가 쓰는 페이지예요. 들어가려면 암호가 필요해요.</p>
+        ${MANAGE_LINKS.map((m) => `<a class="summary-install" href="${m.href}">${m.ic} ${m.title}<br><span class="btn-sub">( ${m.desc} )</span></a>`).join("")}
+      </div>
+    </div>`;
+  window.scrollTo(0, 0);   // ⚠️ 설정 아래쪽에서 들어오므로 — 안 하면 화면 중간에서 열린다
+  document.getElementById("manage-back").addEventListener("click", back);
 }
 
 function renderPrivacyInfo(back) {
