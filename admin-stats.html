@@ -474,11 +474,60 @@
 #mn-st label.all input{accent-color:#fff;}
 .mn-teams{margin-top:14px;}
 /* 보기: 건별 · 사람별 · 사역별 (2026-09-17 성도님 요청) */
-.mn-view{display:flex;margin:0 0 10px;border:1.5px solid #1a3a6b;border-radius:10px;overflow:hidden;}
-.mn-view button{flex:1;min-height:42px;font-family:inherit;font-size:.95rem;font-weight:800;color:#1a3a6b;
-  background:#fff;border:none;cursor:pointer;}
-.mn-view button+button{border-left:1.5px solid #1a3a6b;}
-.mn-view button.on{background:#1a3a6b;color:#fff;}
+/* ── 사역신청 현황 거르기 — 작게 · 한 글꼴 (2026-09-17 다시 짬) ── */
+.mn-panel button, .mn-panel input{font-family:inherit;}
+.mn-search{display:flex;align-items:center;gap:6px;height:44px;padding:0 4px 0 12px;border:1px solid var(--border);
+  border-radius:12px;background:#fff;}
+.mn-search:focus-within{border-color:#1a3a6b;}
+.mn-search-ico{font-size:15px;opacity:.55;flex:none;}
+.mn-search input{flex:1;min-width:0;height:100%;border:none;outline:none;background:transparent;font-size:15px;color:#222;}
+.mn-search input::placeholder{color:#a0a9b8;}
+.mn-search button{flex:none;width:36px;height:36px;border:none;border-radius:9px;background:#eef3fb;color:#1a3a6b;
+  font-size:18px;font-weight:800;cursor:pointer;}
+.mn-stbar{display:grid;grid-template-columns:repeat(5,1fr);gap:0;margin:10px 0;border:1px solid #dde3ee;border-radius:12px;
+  overflow:hidden;background:#fff;}
+.mn-stbar button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:7px 2px 6px;
+  border:none;background:#fff;color:#8a95a8;cursor:pointer;border-right:1px solid #eef1f6;}
+.mn-stbar button:last-child{border-right:none;}
+.mn-stbar b{font-size:17px;line-height:1.1;font-weight:800;}
+.mn-stbar span{font-size:11.5px;font-weight:700;}
+.mn-stbar button.on{color:#1a3a6b;background:#eef3fb;box-shadow:inset 0 -3px 0 #1a3a6b;}
+.mn-stbar button.s2.on{color:#7a5f16;background:#fdf6e3;box-shadow:inset 0 -3px 0 #d9b45c;}
+.mn-stbar button.s3.on{color:#1f5c3a;background:#eaf6ee;box-shadow:inset 0 -3px 0 #5aab7c;}
+.mn-stbar button.s4.on{color:#5a6273;background:#f4f6fa;box-shadow:inset 0 -3px 0 #a0a9b8;}
+.mn-view{display:flex;margin:0 0 8px;padding:3px;gap:3px;background:#eef1f6;border-radius:11px;}
+.mn-view button{flex:1;min-height:34px;font-size:13.5px;font-weight:800;color:#5a6273;background:transparent;border:none;
+  border-radius:8px;cursor:pointer;}
+.mn-view button em{font-style:normal;font-weight:700;opacity:.7;margin-left:2px;}
+.mn-view button.on{background:#fff;color:#1a3a6b;box-shadow:0 1px 3px rgba(13,27,62,.12);}
+.mn-range{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin:0 0 10px;}
+.mn-range-lb{font-size:12px;font-weight:700;color:#8a95a8;margin-right:2px;}
+.mn-range button{font-size:12.5px;font-weight:700;color:#5a6273;background:#fff;border:1px solid #dde3ee;border-radius:999px;
+  padding:4px 11px;cursor:pointer;}
+.mn-range button.on{color:#fff;background:#1a3a6b;border-color:#1a3a6b;}
+.mn-custom{display:flex;align-items:center;gap:6px;margin:-4px 0 10px;}
+.mn-custom input{flex:1 1 0;min-width:0;height:40px;font-size:15px;padding:0 8px;border:1px solid var(--border);border-radius:10px;background:#fff;color:#222;}
+.mn-custom span{color:#a0a9b8;font-weight:700;}
+/* ⚠️ display:flex 가 hidden 속성을 이긴다 — 없으면 「직접」이 아닐 때도 날짜 칸이 보였다 */
+.mn-custom[hidden], .mn-cond[hidden]{display:none;}
+.mn-sum:empty{display:none;}
+/* 머리 — 목록을 내려도 화면 위에 붙는다(카드 여백까지 덮게 음수 여백) */
+.mn-head{position:sticky;top:0;z-index:20;background:#fff;margin:-18px -18px 10px;padding:12px 18px 8px;
+  border-radius:14px 14px 0 0;border-bottom:1px solid #eef1f6;}
+.mn-head .mn-stbar{margin:0 0 8px;}
+.mn-condbar{display:flex;gap:6px;align-items:stretch;}
+.mn-cond-toggle{flex:1;min-width:0;display:flex;align-items:center;gap:6px;height:36px;padding:0 10px;border:1px solid #dde3ee;
+  border-radius:10px;background:#fff;cursor:pointer;color:#41506b;}
+.mn-cond-t{font-size:13px;font-weight:800;flex:none;}
+.mn-cond-sum{flex:1;min-width:0;text-align:left;font-size:12.5px;color:#a0a9b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.mn-cond-sum.on{color:#1a3a6b;font-weight:700;}
+.mn-cond-arrow{flex:none;font-size:12px;color:#8a95a8;transition:transform .15s;}
+.mn-cond-toggle[aria-expanded="true"] .mn-cond-arrow{transform:rotate(180deg);}
+.mn-refresh{flex:none;width:36px;border:1px solid #dde3ee;border-radius:10px;background:#eef3fb;color:#1a3a6b;font-size:17px;font-weight:800;cursor:pointer;}
+.mn-cond{margin-top:8px;}
+.mn-cond .mn-search{height:40px;margin-bottom:8px;}
+.mn-cond .mn-range{margin-bottom:6px;}
+.mn-cond .mn-custom{margin:0 0 4px;}
 .mn-grp{border:1px solid #dde3ee;border-radius:12px;background:#f8fafd;margin-bottom:10px;}
 .mn-grp > summary{list-style:none;cursor:pointer;padding:11px 13px;display:flex;align-items:center;gap:6px 8px;flex-wrap:wrap;}
 .mn-grp > summary::-webkit-details-marker{display:none;}
@@ -3184,79 +3233,109 @@ let mnRows = [];      // [{ id, at, who, name, position, committee, team, option
 // ⚠️ 한 건 = 한 팀 이다(2026-09-09). 한 사람이 최대 3건이고, 담당자는 건마다 따로 접수한다.
 let mnCounts = {};    // { "위원회 · 팀": 신청수 }
 let mnView = "row";   // row 건별 · person 사람별 · team 사역별
+const mnStOn = new Set(["신청완료"]);   // 상태 거르기 — 비면 전체. 처음엔 처리할 것(신청완료)만
+let mnRange = "all";   // 신청일: all · today · 7d · custom
+let mnCondOpen = false; // 조회 조건(검색·신청일) 펼침 — 처음엔 접어 둔다(명단이 길다)
 const mnOpen = new Set();   // 펼쳐 둔 묶음 — 상태를 바꿔 다시 그려도 접히지 않게
 let mnLoaded = false;
 
 function renderMinistryAdmin(){
+  // ⚠️ 거르기 영역을 작게 다시 짰다(2026-09-17 성도님 — 「칸만 크고 글꼴도 제각각」).
+  //    상태는 숫자 막대(누르면 그 상태만, 더 누르면 더하고, 전체는 모두), 요약 숫자는 보기 단추 안으로,
+  //    신청일은 전체·오늘·7일·직접(직접일 때만 날짜 칸).
+  const stBtn=(key, cls, label, cntAttr)=>`<button type="button" class="${cls}" data-st="${key}">
+      <b ${cntAttr}>0</b><span>${label}</span></button>`;
   app.innerHTML=`
     <div class="rep-head">
       <button class="back-btn" id="back">← 메뉴</button>
       <h2>🤝 사역신청 현황</h2>
     </div>
-    <div class="push-card">
-      <div class="pl-st" id="mn-st">
-        <label class="all"><input type="checkbox" data-all>전체<em data-mncnt-all>0</em></label>
-        ${MN_STATES.map(x=>`
-          <label class="${MN_CLS[x]}${x==="신청완료"?" on":""}">
-            <input type="checkbox" data-st="${x}"${x==="신청완료"?" checked":""}>
-            ${MN_SHORT[x]}<em data-mncnt="${x}">0</em>
-          </label>`).join("")}
-      </div>
-      <div class="pl-find">
-        <input type="text" id="mn-q" class="push-in" placeholder="이름 · 소속 · 사역팀 (예: 김세웅 / 찬양부)">
-        <div class="mn-dates">
-          <span class="mn-dates-lb">신청일</span>
-          <div class="mn-dates-row">
-            <input type="date" id="mn-from" class="push-in" aria-label="신청일 시작">
-            <span class="pl-sep">~</span>
-            <input type="date" id="mn-to" class="push-in" aria-label="신청일 끝">
+    <div class="push-card mn-panel">
+      <!-- 머리: 상태 막대 · 보기 · 조회 조건(접기) — 300명 넘는 목록을 내려도 화면 위에 붙어 따라온다 -->
+      <div class="mn-head" id="mn-head">
+        <div class="mn-stbar" id="mn-st" role="group" aria-label="상태로 거르기">
+          ${stBtn("", "all", "전체", "data-mncnt-all")}
+          ${MN_STATES.map(x=>stBtn(x, MN_CLS[x], MN_SHORT[x], `data-mncnt="${x}"`)).join("")}
+        </div>
+        <div class="mn-view" id="mn-view" role="tablist">
+          <button type="button" data-view="row" class="${mnView==="row"?"on":""}">건별 <em data-vcnt="row">0</em></button>
+          <button type="button" data-view="person" class="${mnView==="person"?"on":""}">사람별 <em data-vcnt="person">0</em></button>
+          <button type="button" data-view="team" class="${mnView==="team"?"on":""}">사역별 <em data-vcnt="team">0</em></button>
+        </div>
+        <div class="mn-condbar">
+          <button type="button" class="mn-cond-toggle" id="mn-cond-toggle" aria-expanded="${mnCondOpen}" aria-controls="mn-cond">
+            <span class="mn-cond-t">🔍 조회 조건</span><span class="mn-cond-sum" id="mn-cond-sum"></span><span class="mn-cond-arrow" aria-hidden="true">▾</span>
+          </button>
+          <button type="button" class="mn-refresh" id="mn-search" title="새로 불러오기" aria-label="새로 불러오기">↻</button>
+        </div>
+        <div class="mn-cond" id="mn-cond"${mnCondOpen?"":" hidden"}>
+          <div class="mn-search">
+            <span class="mn-search-ico" aria-hidden="true">🔍</span>
+            <input type="search" id="mn-q" placeholder="이름 · 소속 · 사역팀" autocomplete="off">
+          </div>
+          <div class="mn-range" id="mn-range">
+            <span class="mn-range-lb">신청일</span>
+            ${[["all","전체"],["today","오늘"],["7d","7일"],["custom","직접"]].map(([k,t])=>
+              `<button type="button" data-range="${k}" class="${mnRange===k?"on":""}">${t}</button>`).join("")}
+          </div>
+          <div class="mn-custom" id="mn-custom"${mnRange==="custom"?"":" hidden"}>
+            <input type="date" id="mn-from" aria-label="신청일 시작"><span>~</span><input type="date" id="mn-to" aria-label="신청일 끝">
           </div>
         </div>
-        <button class="push-btn" id="mn-search">조회</button>
       </div>
-      <div class="mn-view" id="mn-view" role="tablist">
-        <button type="button" data-view="row" class="${mnView==="row"?"on":""}">건별</button>
-        <button type="button" data-view="person" class="${mnView==="person"?"on":""}">사람별</button>
-        <button type="button" data-view="team" class="${mnView==="team"?"on":""}">사역별</button>
-      </div>
-      <div id="mn-sum" class="pl-sum"></div>
+      <div id="mn-sum" class="mn-sum"></div>
       <div id="mn-list"><p class="msg">불러오는 중...</p></div>
       <div id="mn-teams" class="mn-teams"></div>
     </div>`;
   document.getElementById("back").addEventListener("click", renderMenu);
   document.getElementById("mn-search").addEventListener("click", ()=>{ mnLoaded=false; mnLoad(); });
   document.getElementById("mn-q").addEventListener("input", mnRender);
-  // 신청 기간 — 받아 둔 명단에서 바로 추린다(비우면 전체 기간)
   ["mn-from","mn-to"].forEach(id=>document.getElementById(id).addEventListener("change", mnRender));
-  document.getElementById("mn-view").querySelectorAll("button").forEach(b=>b.addEventListener("click", ()=>{
+  document.getElementById("mn-cond-toggle").addEventListener("click", ()=>{
+    mnCondOpen=!mnCondOpen;
+    document.getElementById("mn-cond").hidden=!mnCondOpen;
+    document.getElementById("mn-cond-toggle").setAttribute("aria-expanded", mnCondOpen);
+    if(mnCondOpen) setTimeout(()=>document.getElementById("mn-q").focus(), 0);
+  });
+  document.querySelectorAll("#mn-view button").forEach(b=>b.addEventListener("click", ()=>{
     mnView=b.dataset.view;
     document.querySelectorAll("#mn-view button").forEach(x=>x.classList.toggle("on", x===b));
     mnRender();
   }));
-  const stBox=document.getElementById("mn-st");
-  const stAll=stBox.querySelector("input[data-all]");
-  const syncAll=()=>{
-    const each=[...stBox.querySelectorAll("input[data-st]")];
-    stAll.checked=each.every(x=>x.checked);
-    stAll.closest("label").classList.toggle("on", stAll.checked);
-  };
-  stBox.querySelectorAll("input[data-st]").forEach(cb=>{
-    cb.addEventListener("change", ()=>{
-      cb.closest("label").classList.toggle("on", cb.checked);
-      syncAll();
-      mnRender();                      // 이미 받아 둔 명단에서 추리기만 한다
-    });
-  });
-  // 「전체」 — 켜면 상태 다섯을 모두 켜고, 끄면 모두 끈다(하나도 안 고르면 어차피 전체가 보인다)
-  stAll.addEventListener("change", ()=>{
-    stBox.querySelectorAll("input[data-st]").forEach(x=>{
-      x.checked=stAll.checked; x.closest("label").classList.toggle("on", x.checked);
-    });
-    syncAll();
+  document.querySelectorAll("#mn-range button").forEach(b=>b.addEventListener("click", ()=>{
+    mnRange=b.dataset.range;
+    document.querySelectorAll("#mn-range button").forEach(x=>x.classList.toggle("on", x===b));
+    document.getElementById("mn-custom").hidden = mnRange!=="custom";
     mnRender();
-  });
-  syncAll();
+  }));
+  // 상태 막대 — 「전체」 상태에서 하나를 누르면 그것만, 이미 고른 게 있으면 더하거나 뺀다. 「전체」는 모두.
+  document.querySelectorAll("#mn-st button").forEach(b=>b.addEventListener("click", ()=>{
+    const st=b.dataset.st;
+    if(!st) mnStOn.clear();
+    else if(mnStOn.has(st)) mnStOn.delete(st);
+    else mnStOn.add(st);
+    if(mnStOn.size===MN_STATES.length) mnStOn.clear();   // 다 고르면 곧 전체
+    mnSyncStBar();
+    mnRender();
+  }));
+  mnSyncStBar();
   mnLoad();
+}
+function mnSyncStBar(){
+  document.querySelectorAll("#mn-st button").forEach(b=>{
+    const st=b.dataset.st;
+    b.classList.toggle("on", st ? mnStOn.has(st) : mnStOn.size===0);
+    b.setAttribute("aria-pressed", b.classList.contains("on"));
+  });
+}
+// 신청일 범위 → [from, to] (YYYY-MM-DD, KST)
+function mnRangeDates(){
+  const kst=d=>new Date(d.getTime()+9*3600*1000).toISOString().slice(0,10);
+  const now=new Date();
+  if(mnRange==="today"){ const t=kst(now); return [t,t]; }
+  if(mnRange==="7d") return [kst(new Date(now.getTime()-6*86400*1000)), kst(now)];
+  if(mnRange==="custom") return [document.getElementById("mn-from")?.value||"", document.getElementById("mn-to")?.value||""];
+  return ["",""];
 }
 
 async function mnLoad(){
@@ -3282,11 +3361,9 @@ async function mnLoad(){
 }
 
 function mnFiltered(){
-  const box=document.getElementById("mn-st");
-  const on=box?[...box.querySelectorAll("input[data-st]:checked")].map(cb=>cb.dataset.st):[];
+  const on=[...mnStOn];
   const q=(document.getElementById("mn-q")?.value||"").trim();
-  const f=document.getElementById("mn-from")?.value||"";   // YYYY-MM-DD — r.at 도 같은 꼴(KST 날짜)
-  const t=document.getElementById("mn-to")?.value||"";
+  const [f, t]=mnRangeDates();   // YYYY-MM-DD — r.at 도 같은 꼴(KST 날짜)
   return mnRows.filter(r=>{
     if(on.length && on.indexOf(r.status)<0) return false;   // 하나도 안 고르면 전체
     if(f && r.at < f) return false;
@@ -3310,17 +3387,22 @@ function mnRender(){
   const allEl=document.querySelector("[data-mncnt-all]");
   if(allEl) allEl.textContent=mnRows.length;
   const dupOf=mnDupMap();
-  const sum=document.getElementById("mn-sum");
-  if(sum){
-    const people=new Set(rows.map(mnPersonKey)).size;
-    const teamsN=new Set(rows.map(mnTeamKey)).size;
-    const by=MN_STATES.map(s=>{
-      const n=rows.filter(r=>r.status===s).length;
-      return n?`<span class="pl-chip ${MN_CLS[s]}">${s} ${n}</span>`:"";
-    }).join("");
-    sum.innerHTML=`<div class="pl-total"><b>${rows.length}건</b> · <b>${people}명</b> · <b>${teamsN}개 사역</b></div>
-      <div class="pl-chips">${by}</div>`;
+  // 조회 조건 요약 — 접혀 있어도 무엇이 걸렸는지 보인다(안 보이는 조건이 명단을 줄이면 헷갈린다)
+  const condSum=document.getElementById("mn-cond-sum");
+  if(condSum){
+    const q=(document.getElementById("mn-q")?.value||"").trim();
+    const [f,t]=mnRangeDates();
+    const bits=[];
+    if(q) bits.push(`‘${q}’`);
+    if(mnRange==="today") bits.push("오늘");
+    else if(mnRange==="7d") bits.push("최근 7일");
+    else if(mnRange==="custom" && (f||t)) bits.push(`${(f||"").slice(5).replace("-",".")}~${(t||"").slice(5).replace("-",".")}`);
+    condSum.textContent = bits.length ? bits.join(" · ") : "없음";
+    condSum.classList.toggle("on", bits.length>0);
   }
+  // 요약 숫자는 보기 단추 안에 — 지금 걸러진 것 기준(건·명·사역)
+  const vc={ row:rows.length, person:new Set(rows.map(mnPersonKey)).size, team:new Set(rows.map(mnTeamKey)).size };
+  document.querySelectorAll("[data-vcnt]").forEach(el=>{ el.textContent=vc[el.dataset.vcnt]; });
 
   const mnCard=r=>{
     const teams=`<span class="mn-team"><em>${plEsc(r.committee)}</em> ${plEsc(r.team)}${
