@@ -126,7 +126,7 @@ STYLE = """
 html, body { margin:0; }
 body { font-family:'맑은 고딕','Malgun Gothic',sans-serif; color:#111; font-size:%(fpt)spt; }
 
-.doc-head { display:flex; align-items:center; gap:3.5mm; border-bottom:0.9mm solid %(navy)s;
+.doc-head { position:relative; display:flex; align-items:center; gap:3.5mm; border-bottom:0.9mm solid %(navy)s;
             padding-bottom:2.2mm; margin-bottom:2.6mm; }
 .doc-head img { height:12mm; width:auto; flex:0 0 auto; }
 .doc-head .ttl { flex:1; }
@@ -199,7 +199,7 @@ body { font-family:'맑은 고딕','Malgun Gothic',sans-serif; color:#111; font-
                     border-radius:50%%; background:%(pen)s; }
 .o i.on.ck::after { content:''; position:absolute; left:0.95mm; top:-1mm; width:1.35mm; height:3mm;
                     border:solid %(pen)s; border-width:0 0.6mm 0.6mm 0; transform:rotate(40deg); }
-.doc-head .sample { flex:0 0 auto; align-self:center; border:0.45mm solid %(pen)s; color:%(pen)s;
+.doc-head .sample { position:absolute; top:0; right:0; border:0.45mm solid %(pen)s; color:%(pen)s;  /* 제목 줄 높이 — 설명 글 자리를 뺏지 않게 */
                     font-weight:800; font-size:10pt; padding:1mm 2.6mm; border-radius:1.2mm; }
 
 /* 마지막 칸(비고)이 남은 높이를 채운다 — 줄을 더해 맞추면 크롬 판에 따라 2장으로 넘친다.
