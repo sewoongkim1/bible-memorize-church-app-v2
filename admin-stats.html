@@ -547,6 +547,20 @@ a.mn-tel.sm{font-size:11.5px;padding:2px 8px;}
 /* ⚠️ display:flex 가 hidden 속성을 이긴다 — 없으면 「직접」이 아닐 때도 날짜 칸이 보였다 */
 .mn-custom[hidden], .mn-cond[hidden]{display:none;}
 .mn-sum:empty{display:none;}
+/* 임명현황 — 사람은 「김세웅-화평20」 한 가지 꼴로만 */
+.mapl-g{border:1px solid #e3e8f1;border-radius:12px;background:#fff;padding:10px 12px;margin-bottom:10px;}
+.mapl-h{display:flex;align-items:baseline;gap:8px;border-bottom:1px solid #eef1f6;padding-bottom:7px;margin-bottom:8px;}
+.mapl-h b{font-size:15px;font-weight:800;color:#1a3a6b;}
+.mapl-h em{font-style:normal;font-size:12.5px;font-weight:800;color:#41506b;margin-left:auto;}
+.mapl-t{margin:0 0 9px;}
+.mapl-tn{font-size:13px;font-weight:800;color:#41506b;margin-bottom:4px;}
+.mapl-tn i{font-style:normal;font-size:11.5px;font-weight:700;color:#8a95a8;margin-left:3px;}
+.mapl-ps{display:flex;flex-wrap:wrap;gap:5px;}
+.mapl-p{display:inline-block;font-size:13px;font-weight:700;color:#1a3a6b;background:#eef3fb;
+  border:1px solid #cdd8ea;border-radius:8px;padding:3px 9px;white-space:nowrap;}
+.mapl-one{display:flex;align-items:baseline;gap:8px;padding:6px 0;border-top:1px solid #eef1f6;}
+.mapl-one:first-child{border-top:none;}
+.mapl-tm{font-size:12.5px;color:#41506b;min-width:0;}
 /* 종이 명단 올리기 */
 .mp-how{font-size:13px;line-height:1.7;color:#41506b;background:#f3f6fb;border-radius:12px;padding:11px 13px;margin-bottom:10px;}
 .mp-how ul{margin:6px 0 0;padding-left:18px;}
@@ -926,6 +940,14 @@ function renderMinistryMenu(){
         </div>
         <div class="rep-arrow">›</div>
       </div>
+      <div class="rep-card" id="rep-minappt">
+        <div class="ic">🎉</div>
+        <div class="rep-text">
+          <div class="ti">임명현황</div>
+          <div class="de">임명된 분만 — 부서별·교구별·사람별로 보고 내려받기</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
       <div class="rep-card" id="rep-minpaper">
         <div class="ic">📋</div>
         <div class="rep-text">
@@ -946,6 +968,7 @@ function renderMinistryMenu(){
   document.getElementById("rep-ministry").addEventListener("click", renderMinistryAdmin);
   document.getElementById("rep-mincat").addEventListener("click", renderMinistryCatalog);
   document.getElementById("rep-minpaper").addEventListener("click", renderMinistryPaper);
+  document.getElementById("rep-minappt").addEventListener("click", renderMinistryAppointed);
   // 새로고침으로 들어왔어도 한 번 되짚는다 — 그사이 빠진 분이 메뉴를 계속 보지 않게
   callApi({ action:"ministryAuth", pw:getPw(), staff:getStaff() }).then(minAuthLost).catch(()=>{});
 }
@@ -1119,6 +1142,14 @@ function renderMenu(){
         </div>
         <div class="rep-arrow">›</div>
       </div>
+      <div class="rep-card" id="rep-minappt">
+        <div class="ic">🎉</div>
+        <div class="rep-text">
+          <div class="ti">임명현황</div>
+          <div class="de">임명된 분만 — 부서별·교구별·사람별로 보고 내려받기</div>
+        </div>
+        <div class="rep-arrow">›</div>
+      </div>
       <div class="rep-card" id="rep-minpaper">
         <div class="ic">📋</div>
         <div class="rep-text">
@@ -1174,6 +1205,7 @@ function renderMenu(){
   document.getElementById("rep-ministry").addEventListener("click", renderMinistryAdmin);
   document.getElementById("rep-mincat").addEventListener("click", renderMinistryCatalog);
   document.getElementById("rep-minpaper").addEventListener("click", renderMinistryPaper);
+  document.getElementById("rep-minappt").addEventListener("click", renderMinistryAppointed);
   document.getElementById("rep-minadmins").addEventListener("click", renderMinistryAdmins);
   loadDashboard();
 }
@@ -3351,6 +3383,152 @@ let mnRange = "all";   // 신청일: all · today · 7d · custom
 let mnCondOpen = false; // 조회 조건(검색·신청일) 펼침 — 처음엔 접어 둔다(명단이 길다)
 const mnOpen = new Set();   // 펼쳐 둔 묶음 — 상태를 바꿔 다시 그려도 접히지 않게
 let mnLoaded = false;
+
+/* ── 임명현황 ────────────────────────────────────────────────────────
+   임명이 끝난 명단만 모아 **부서별·교구별·사람별**로 본다(2026-09-18 성도님).
+   ⚠️ 사람은 **「김세웅-화평20」 한 가지 꼴**로만 적는다(성도님) — 직분·번호는 여기 싣지 않는다.
+      임명이 끝난 자리라 번호는 서버가 이미 지웠고, 이 화면은 「누가 어디에」만 본다.
+   ⚠️ 상태는 **임명확정만**. 신청·접수는 현황 화면이 맡는다.
+   내려받기는 CSV — 엑셀이 한글을 깨뜨리지 않게 BOM 을 앞에 붙인다. */
+let maplRows = [];          // 임명된 건들
+let maplView = "dept";      // dept 부서별 · gu 교구별 · person 사람별
+let maplLoaded = false;
+
+// 「김세웅-화평20」 — 소속의 빈칸을 없애고 「목장」을 뗀다. 교회학교는 「유년부3학년」이 된다.
+function maplWho(who){ return String(who||"").replace(/\s+/g,"").replace(/목장$/,""); }
+function maplLabel(r){ return (r.name||"이름 없음") + "-" + maplWho(r.who); }
+function maplGu(r){ return String(r.who||"").trim().split(/\s+/)[0] || "그 밖"; }
+function maplMok(r){ const m=/(\d+)/.exec(String(r.who||"")); return m ? Number(m[1]) : 9999; }
+
+async function renderMinistryAppointed(){
+  logoutBtn.hidden = false;
+  app.innerHTML = `
+    <div class="section-title">🎉 임명현황</div>
+    <div class="mp-acts">
+      <button type="button" class="push-btn ghost" id="mapl-csv">내려받기</button>
+      <button type="button" class="push-btn ghost" id="mapl-reload">새로 불러오기</button>
+      <button type="button" class="push-btn ghost" id="back">나가기</button>
+    </div>
+    <div class="push-card">
+      <div class="mn-view" id="mapl-view" role="tablist">
+        <button type="button" data-v="dept" class="${maplView==="dept"?"on":""}">부서별 <em data-vn="dept">0</em></button>
+        <button type="button" data-v="gu" class="${maplView==="gu"?"on":""}">교구별 <em data-vn="gu">0</em></button>
+        <button type="button" data-v="person" class="${maplView==="person"?"on":""}">사람별 <em data-vn="person">0</em></button>
+      </div>
+      <div id="mapl-sum" class="mn-sum"></div>
+      <div id="mapl-list"><p class="msg">불러오는 중…</p></div>
+    </div>`;
+  document.getElementById("back").addEventListener("click", renderMenu);
+  document.getElementById("mapl-csv").addEventListener("click", maplCsv);
+  document.getElementById("mapl-reload").addEventListener("click", ()=>{ maplLoaded=false; maplLoad(); });
+  document.querySelectorAll("#mapl-view button").forEach(b=>b.addEventListener("click", ()=>{
+    maplView=b.dataset.v;
+    document.querySelectorAll("#mapl-view button").forEach(x=>x.classList.toggle("on", x===b));
+    maplRender();
+  }));
+  maplLoad();
+}
+
+async function maplLoad(){
+  const box=document.getElementById("mapl-list"); if(!box) return;
+  if(!maplLoaded){
+    box.innerHTML=`<p class="msg">불러오는 중…</p>`;
+    const d=await callApi({ action:"ministryList", pw:getPw(), staff:getStaff() })
+      .catch(()=>({ok:false,error:"network"}));
+    if(minAuthLost(d)) return;
+    if(!d.ok){ box.innerHTML=`<p class="msg err">불러오지 못했습니다: ${plEsc(d.error||"오류")}</p>`; return; }
+    maplRows=(d.list||[]).filter(x=>x.status==="임명확정").map(x=>({
+      name:x.name||"", who:x.who||"", committee:x.committee||"", team:x.team||"",
+      option:x.option||"", at:x.at||"", decided_at:x.decided_at||null, source:x.source||"app",
+    }));
+    maplLoaded=true;
+  }
+  maplRender();
+}
+
+function maplRender(){
+  const box=document.getElementById("mapl-list"); if(!box) return;
+  const rows=maplRows;
+  const people=new Set(rows.map(r=>maplLabel(r)));
+  const vn={ dept:new Set(rows.map(r=>r.committee)).size, gu:new Set(rows.map(maplGu)).size, person:people.size };
+  document.querySelectorAll("[data-vn]").forEach(el=>{ el.textContent=vn[el.dataset.vn]; });
+  document.getElementById("mapl-sum").innerHTML =
+    `임명 <b>${rows.length}건</b> · <b>${people.size}명</b>`;
+  if(!rows.length){ box.innerHTML=`<p class="msg">임명된 신청이 아직 없습니다.</p>`; return; }
+
+  const chip=r=>`<span class="mapl-p">${plEsc(maplLabel(r))}</span>`;
+  const sortName=(a,b)=>String(a.name).localeCompare(String(b.name),"ko");
+  let html="";
+  if(maplView==="dept"){
+    // 위원회 → 사역팀 → 사람
+    const byCom=new Map();
+    rows.forEach(r=>{
+      if(!byCom.has(r.committee)) byCom.set(r.committee, new Map());
+      const t=byCom.get(r.committee);
+      const k=r.team+(r.option?" ("+r.option+")":"");
+      if(!t.has(k)) t.set(k, []);
+      t.get(k).push(r);
+    });
+    html=[...byCom.entries()].sort((a,b)=>a[0].localeCompare(b[0],"ko")).map(([com, teams])=>{
+      const n=[...teams.values()].reduce((s,l)=>s+l.length,0);
+      return `<div class="mapl-g"><div class="mapl-h"><b>${plEsc(com)}</b><em>${n}명</em></div>` +
+        [...teams.entries()].sort((a,b)=>a[0].localeCompare(b[0],"ko")).map(([team, list])=>
+          `<div class="mapl-t"><div class="mapl-tn">${plEsc(team)} <i>${list.length}</i></div>` +
+          `<div class="mapl-ps">${list.sort(sortName).map(chip).join("")}</div></div>`).join("") +
+        `</div>`;
+    }).join("");
+  } else if(maplView==="gu"){
+    // 교구 → 사람(목장 차례) · 한 사람이 여럿이면 한 번만
+    const byGu=new Map();
+    rows.forEach(r=>{ const g=maplGu(r); if(!byGu.has(g)) byGu.set(g, []); byGu.get(g).push(r); });
+    html=[...byGu.entries()].sort((a,b)=>{
+      const ia=GU_LIST.indexOf(a[0]), ib=GU_LIST.indexOf(b[0]);
+      return (ia<0?99:ia)-(ib<0?99:ib) || a[0].localeCompare(b[0],"ko");
+    }).map(([gu, list])=>{
+      const seen=new Map();
+      list.forEach(r=>{ const k=maplLabel(r); if(!seen.has(k)) seen.set(k, r); });
+      const ones=[...seen.values()].sort((a,b)=>maplMok(a)-maplMok(b) || sortName(a,b));
+      return `<div class="mapl-g"><div class="mapl-h"><b>${plEsc(gu)}</b><em>${ones.length}명</em></div>` +
+        `<div class="mapl-ps">${ones.map(chip).join("")}</div></div>`;
+    }).join("");
+  } else {
+    // 사람 → 그분이 임명된 사역들
+    const byP=new Map();
+    rows.forEach(r=>{ const k=maplLabel(r); if(!byP.has(k)) byP.set(k, []); byP.get(k).push(r); });
+    html=`<div class="mapl-g">` + [...byP.entries()].sort((a,b)=>a[0].localeCompare(b[0],"ko"))
+      .map(([label, list])=>
+        `<div class="mapl-one"><span class="mapl-p">${plEsc(label)}</span>` +
+        `<span class="mapl-tm">${list.map(r=>plEsc(r.team)).join(" · ")}</span></div>`).join("") + `</div>`;
+  }
+  box.innerHTML=html;
+}
+
+// 내려받기 — 엑셀에서 바로 열리게 CSV(BOM). 지금 보기와 같은 차례로 적는다.
+function maplCsv(){
+  if(!maplRows.length){
+    mnDialog({ icon:"📋", title:"내려받을 것이 없습니다", ok:"확인", cancel:null,
+      html:"임명된 신청이 아직 없습니다." });
+    return;
+  }
+  const esc=v=>`"${String(v==null?"":v).replace(/"/g,'""')}"`;
+  const day=iso=>{ if(!iso) return ""; const d=new Date(iso);
+    if(isNaN(d.getTime())) return "";
+    const k=new Date(d.getTime()+9*3600*1000).toISOString();
+    return k.slice(0,10); };
+  const head=["표시","이름","소속","교구·부서","위원회","사역팀","하위 선택","신청일","임명일","들어온 길"];
+  const body=[...maplRows].sort((a,b)=>
+      a.committee.localeCompare(b.committee,"ko") || a.team.localeCompare(b.team,"ko") ||
+      String(a.name).localeCompare(String(b.name),"ko"))
+    .map(r=>[maplLabel(r), r.name, r.who, maplGu(r), r.committee, r.team, r.option,
+             (r.at||"").replace(/\./g,"-"), day(r.decided_at), r.source==="paper"?"종이":"앱"]);
+  const csv="﻿" + [head, ...body].map(row=>row.map(esc).join(",")).join("\r\n");
+  const url=URL.createObjectURL(new Blob([csv], { type:"text/csv;charset=utf-8" }));
+  const a=document.createElement("a");
+  const t=new Date(Date.now()+9*3600*1000).toISOString().slice(0,10).replace(/-/g,"");
+  a.href=url; a.download=`2027_임명현황_${t}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
 
 /* ── 종이(오프라인) 명단 올리기 ─────────────────────────────────────
    담당자가 종이로 받은 것을 엑셀에 옮겨 적고, 그 칸을 통째로 붙여넣는다(2026-09-18 성도님).
