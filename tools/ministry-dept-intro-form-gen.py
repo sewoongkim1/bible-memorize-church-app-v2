@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
-"""2027 부서 소개서 · A4 세로 1장 — 부서가 손으로 적어 내는 공통 빈 양식.
+"""2027 소개서 양식 · A4 세로 — 부서가 손으로 적어 내는 공통 빈 양식 두 가지.
+
+  · 부서 소개서   부서당 1장 — 작성자 · 부서 소개 · 사역팀 4칸(팀이 더 있으면 더 뽑는다)
+  · 사역팀 소개서 팀당 1장   — 한 팀을 한 장에 넉넉히(칸마다 적는 법을 바로 밑에 단다)
 
 ■ 왜 이 파일이 필요한가
   2027 사역신청을 앱으로 받으려면 부서마다 사역팀의 이름·요일·주기·시각·하는 일을
   받아야 한다. 부서별 엑셀(tools/ministry-form-gen.py)은 가로 24칸이라 종이에 뽑아
-  손으로 적기 어렵다 — 그래서 **모든 부서에 같은 종이 한 장**을 나눠 드리고
-  부서가 팀 이름부터 적게 한다(2026-09-17, 성도님 결정: 빈 공통 양식 · 세로 PDF).
+  손으로 적기 어렵다 — 그래서 **모든 부서에 같은 종이**를 나눠 드리고
+  부서가 팀 이름부터 적게 한다(2026-09-17, 성도님 결정: 빈 공통 양식 · 세로 PDF ·
+  부서용과 함께 팀당 1장짜리도).
 
 ■ 칸 규칙 — 앱의 「② 언제」와 같은 뜻이어야 한다(docs/notes/ministry-2027.md)
   · 적는 것(밑줄): 작성자 이름·교구·목장·전화번호 / 부서명·부서 소개 / 팀 이름·필요 인원·
@@ -16,17 +20,17 @@
   ⚠️ 주기는 팀이 모이는 주기가 아니라 **한 분이 서는 주기**, 여러 개 고를 수 있다.
   ⚠️ 시각은 **주일 사역에만** 받는다(DB 제약 ministry_catalog_time_sun_chk).
   보기 이름을 바꾸려면 앱·서버·DB 도 함께 봐야 한다 — 여기만 고치면 받은 종이를
-  옮겨 적을 자리가 없다.
+  옮겨 적을 자리가 없다. 두 양식은 이 파일의 같은 목록(DAYS·FREQS·POSITIONS)을 쓴다.
 
 ■ 지면 — 실측으로 확인한다
   괘선은 낱개 요소 + flex:0 0 <높이>로 긋는다(repeating-linear-gradient 는 PDF 에서
   래스터로 뭉개진다 · 메모 print-layout-traps). ○□ 도 글리프가 아니라 테두리로 그린다.
-  팀 칸 수(TEAMS)·줄 높이(LINE_MM)는 상수 — 1장을 넘으면 줄이고 다시 돌린다.
+  팀 칸 수(TEAMS)·줄 높이(LINE_MM·ROOMY_LINE_MM)는 상수 — 1장을 넘으면 줄이고 다시 돌린다.
   PDF 쪽수는 pymupdf 로 재서 콘솔에 찍는다.
 
-출력 (ministry/ 폴더)
-  2027_부서소개서_A4.html   원본
-  2027_부서소개서_A4.pdf    인쇄용(크롬 --print-to-pdf, 없으면 건너뜀)
+출력 (ministry/ 폴더) — 각각 .html(원본) + .pdf(인쇄용, 크롬 없으면 건너뜀)
+  2027_부서소개서_A4
+  2027_사역팀소개서_A4
 """
 import io, os, subprocess
 
@@ -40,14 +44,16 @@ NAVY = '#123059'
 GOLD = '#765700'
 
 # ── 지면 상수(실측 뒤 조정하는 자리) ────────────────────────────────
-TEAMS = 4          # 한 장에 들어가는 팀 칸
-LINE_MM = 8        # 손글씨 한 줄 높이
+TEAMS = 4             # 부서 소개서 한 장에 들어가는 팀 칸
+LINE_MM = 8           # 손글씨 한 줄 높이(부서 소개서)
+ROOMY_LINE_MM = 9.5   # 사역팀 소개서 — 한 장을 한 팀이 쓰니 넉넉히(아래 여백은 작성 방법 자리로 비워 둔다)
 FONT_PT = 9.2
 
 # 앱 MIN_POSITIONS 에서 「학생」만 뺐다 — 부서를 대표해 적는 분이라.
 POSITIONS = ['성도', '집사', '권사', '안수집사', '장로', '전도사', '목사', '사모']
 DAYS = ['주일', '금요일', '토요일', '평일(월~목)']
 FREQS = ['매주', '격주(교대형식)', '매달', '그때그때']
+KINDS = ['성도 신청', '임명직']
 
 
 def opts(labels, kind):
@@ -60,6 +66,22 @@ def ln(cls=''):
     return '<span class="ln %s"></span>' % cls
 
 
+def lines(n, label=''):
+    """밑줄 n줄 — 첫 줄에만 이름표를 단다."""
+    return ''.join('<div class="row"><span class="lb">%s</span>%s</div>' % (label if i == 0 else '', ln('grow'))
+                   for i in range(n))
+
+
+def sec(num, tag, inner):
+    return ('<div class="sec"><div class="tag"><span class="num">%s</span>%s</div>'
+            '<div class="body">%s</div></div>' % (num, tag, inner))
+
+
+def doc_head(title, sub, right=''):
+    return ('<div class="doc-head"><img src="%s"><div class="ttl"><h1>%s</h1>'
+            '<div class="sub">%s</div></div>%s</div>' % (MARK, title, sub, right))
+
+
 def team_block(n):
     return ("""
 <div class="team">
@@ -70,15 +92,21 @@ def team_block(n):
       <span class="lb2">필요 인원</span>%(cap)s<span class="unit">명</span></div>
     <div class="row"><span class="lb">요일</span>%(days)s
       <span class="sep"></span><span class="lb2">주기</span>%(freqs)s</div>
-    <div class="row"><span class="lb">주일 시각</span>
-      %(hm)s<span class="unit">:</span>%(mm)s<span class="unit tilde">~</span>%(hm)s<span class="unit">:</span>%(mm)s
+    <div class="row"><span class="lb">주일 시각</span>%(hm)s
       <span class="sep"></span><span class="lb2">시간(문장)</span>%(ln)s</div>
     <div class="row"><span class="lb">하는 일</span>%(ln)s</div>
     <div class="row"><span class="lb"></span>%(ln)s</div>
   </div>
-</div>""" % {'n': n, 'ln': ln('grow'), 'kind': opts(['성도 신청', '임명직'], 'rd'),
+</div>""" % {'n': n, 'ln': ln('grow'), 'kind': opts(KINDS, 'rd'),
              'cap': ln('w-cap'), 'days': opts(DAYS, 'ck'), 'freqs': opts(FREQS, 'ck'),
-             'hm': ln('w-t'), 'mm': ln('w-t')})
+             'hm': hhmm()})
+
+
+def hhmm():
+    """__:__ ~ __:__"""
+    t = ln('w-t')
+    return ('%s<span class="unit">:</span>%s<span class="unit tilde">~</span>%s<span class="unit">:</span>%s'
+            % (t, t, t, t))
 
 
 STYLE = """
@@ -117,6 +145,7 @@ body { font-family:'맑은 고딕','Malgun Gothic',sans-serif; color:#111; font-
 .ln.w-name { flex:0 0 34mm; }
 .ln.w-gu { flex:0 0 22mm; }
 .ln.w-mok { flex:0 0 18mm; }
+.ln.w-grp { flex:0 0 42mm; }
 .sep { flex:0 0 0; align-self:stretch; border-left:0.3mm dotted #b5b5b5; margin:1.4mm 1.2mm 0.8mm; }
 
 .opts { display:flex; align-items:center; gap:2.1mm; padding-bottom:0.9mm; }
@@ -126,6 +155,7 @@ body { font-family:'맑은 고딕','Malgun Gothic',sans-serif; color:#111; font-
 .o i.ck { border-radius:0.5mm; }
 
 .note { font-size:7.6pt; color:#666; padding-bottom:1mm; }
+.row .note { flex:0 1 auto; margin-left:2mm; padding-bottom:1.1mm; }
 
 .teams-head { display:flex; align-items:center; gap:2.4mm; margin:0.4mm 0 1.4mm; }
 .teams-head .t { background:%(navy)s; color:#fff; font-weight:700; font-size:9pt;
@@ -143,60 +173,98 @@ body { font-family:'맑은 고딕','Malgun Gothic',sans-serif; color:#111; font-
 .team .no { flex:0 0 8mm; background:#e9edf3; color:%(navy)s; font-weight:800; font-size:11pt;
             display:flex; align-items:center; justify-content:center; border-right:0.3mm solid #c5ccd6; }
 .team .tb { flex:1; padding:0 3mm 1.4mm; }
-""" % {'navy': NAVY, 'gold': GOLD, 'fpt': FONT_PT, 'line': LINE_MM}
 
-head = ('<div class="doc-head"><img src="%s"><div class="ttl">'
-        '<h1>2027 부서 소개서</h1>'
-        '<div class="sub">적어 주신 내용은 2027 사역신청 때 성도님이 사역을 고르시는 안내로 그대로 쓰입니다.</div></div>'
-        '<div class="page">쪽 %s / %s</div></div>' % (MARK, ln(), ln()))
+/* 사역팀 소개서 — 한 장을 한 팀이 쓴다: 줄을 넓히고, 칸마다 적는 법을 바로 밑에 */
+.roomy .row { flex-basis:%(roomy)smm; height:%(roomy)smm; }
+.roomy .lb { flex-basis:18.5mm; }
+.roomy .sec { margin-bottom:2.6mm; }
+.roomy .how { font-size:7.8pt; color:#555; line-height:1.4; margin:0.6mm 0 0.4mm 20.1mm;
+              white-space:normal; word-break:keep-all; }
+.roomy .how b { color:%(navy)s; font-weight:700; }
+""" % {'navy': NAVY, 'gold': GOLD, 'fpt': FONT_PT, 'line': LINE_MM, 'roomy': ROOMY_LINE_MM}
 
-writer = ("""
-<div class="sec"><div class="tag"><span class="num">①</span>작성자</div><div class="body">
+# ── 두 양식이 함께 쓰는 ① 작성자 ─────────────────────────────────────
+WRITER = sec('①', '작성자', """
   <div class="row"><span class="lb">이름</span>%(name)s
     <span class="lb2">교구</span>%(gu)s<span class="lb2">목장</span>%(mok)s
     <span class="lb2">전화번호</span>%(phone)s</div>
   <div class="row"><span class="lb">직분</span>%(pos)s</div>
   <div class="note">전화번호는 적어 주신 내용을 여쭐 때만 쓰고, 앱에는 올리지 않습니다.</div>
-</div></div>""" % {'name': ln('w-name'), 'gu': ln('w-gu'), 'mok': ln('w-mok'), 'phone': ln('grow'),
-                   'pos': opts(POSITIONS, 'rd')})
+""" % {'name': ln('w-name'), 'gu': ln('w-gu'), 'mok': ln('w-mok'), 'phone': ln('grow'),
+       'pos': opts(POSITIONS, 'rd')})
 
-dept = ("""
-<div class="sec"><div class="tag"><span class="num">②</span>부서</div><div class="body">
-  <div class="row"><span class="lb">부서명</span>%(ln)s</div>
-  <div class="row"><span class="lb">부서 소개</span>%(ln)s</div>
-  <div class="row"><span class="lb"></span>%(ln)s</div>
-  <div class="row"><span class="lb"></span>%(ln)s</div>
-</div></div>""" % {'ln': ln('grow')})
 
-hint = ('<div class="hint">'
-        '<span class="ex"><i class="rd"></i></span> 는 <b>하나만</b>, '
-        '<span class="ex"><i class="ck"></i></span> 는 <b>해당하는 것 모두</b> · '
-        '<b>평일은 월~목</b>(금요일은 따로) · '
-        '<b>주기</b>는 팀이 아니라 <b>한 분이 서는 주기</b> · '
-        '<b>주일 시각</b>은 주일 사역만 24시간 꼴(예 13:30), 다른 날은 「시간(문장)」에 · '
-        '임명직은 팀 이름만 · 모르는 칸은 비워 두시고, <b>팀이 더 있으면 이 장을 더 뽑아</b> 쪽을 적어 주세요.'
-        '</div>')
+def dept_page():
+    head = doc_head('2027 부서 소개서',
+                    '적어 주신 내용은 2027 사역신청 때 성도님이 사역을 고르시는 안내로 그대로 쓰입니다.',
+                    '<div class="page">쪽 %s / %s</div>' % (ln(), ln()))
+    dept = sec('②', '부서', lines(1, '부서명') + lines(3, '부서 소개'))
+    hint = ('<div class="hint">'
+            '<span class="ex"><i class="rd"></i></span> 는 <b>하나만</b>, '
+            '<span class="ex"><i class="ck"></i></span> 는 <b>해당하는 것 모두</b> · '
+            '<b>평일은 월~목</b>(금요일은 따로) · '
+            '<b>주기</b>는 팀이 아니라 <b>한 분이 서는 주기</b> · '
+            '<b>주일 시각</b>은 주일 사역만 24시간 꼴(예 13:30), 다른 날은 「시간(문장)」에 · '
+            '임명직은 팀 이름만 · 모르는 칸은 비워 두시고, <b>팀이 더 있으면 이 장을 더 뽑아</b> 쪽을 적어 주세요.'
+            '</div>')
+    teams = ('<div class="teams-head"><span class="t">③ 사역팀</span></div>' + hint
+             + ''.join(team_block(i + 1) for i in range(TEAMS)))
+    return '2027 부서 소개서', '', head + WRITER + dept + teams
 
-teams = ('<div class="teams-head"><span class="t">③ 사역팀</span></div>' + hint
-         + ''.join(team_block(i + 1) for i in range(TEAMS)))
 
-html = ('<!doctype html><html lang="ko"><head><meta charset="utf-8">'
-        '<title>2027 부서 소개서</title><style>' + STYLE + '</style></head><body>'
-        + head + writer + dept + teams + '</body></html>')
+def team_page():
+    how = lambda s: '<div class="how">%s</div>' % s
+    head = doc_head('2027 사역팀 소개서',
+                    '<b>팀마다 한 장</b>씩 적어 주세요. 적어 주신 내용은 2027 사역신청 때 '
+                    '성도님이 사역을 고르시는 안내로 그대로 쓰입니다.')
+    team = sec('②', '팀', (
+        '<div class="row"><span class="lb">부서명</span>%s'
+        '<span class="lb2">묶음</span>%s<span class="note">있으면 · 예: 찬양대</span></div>'
+        % (ln('grow'), ln('w-grp'))
+        + lines(1, '팀 이름')
+        + '<div class="row"><span class="lb">구분</span>%s'
+          '<span class="note">임명직이면 ③부터는 비워 두셔도 됩니다</span></div>' % opts(KINDS, 'rd')))
+    when = sec('③', '언제', (
+        '<div class="row"><span class="lb">요일</span>%s</div>' % opts(DAYS, 'ck')
+        + how('해당하는 요일에 <b>모두</b> 표시해 주세요. <b>금요일은 평일에 넣지 않습니다</b> — 평일은 월~목입니다.')
+        + '<div class="row"><span class="lb">주기</span>%s</div>' % opts(FREQS, 'ck')
+        + how('팀이 모이는 주기가 아니라 <b>한 분이 실제로 서는 주기</b>입니다. 여럿 고르셔도 됩니다 '
+              '(예: 팀은 매주 모여도 넷이 돌아가며 서면 「매달」).')
+        + '<div class="row"><span class="lb">주일 시각</span>%s</div>' % hhmm()
+        + how('<b>주일 사역만</b> 24시간 꼴로 적어 주세요(예: 09:30 ~ 11:00).')
+        + lines(2, '시간(문장)')
+        + how('성도님 화면에 그대로 보이는 한 줄입니다(예: 매주 화 오전 10시, 예배 30분 전 모임). '
+              '주일이 아닌 사역의 시간은 여기에 적어 주세요.')))
+    about = sec('④', '안내', (
+        lines(5, '하는 일')
+        + how('이름만 보고는 알 수 없는 것을 적어 주세요(예: 오병이어 1팀과 2팀이 무엇이 다른지).')
+        + '<div class="row"><span class="lb">필요 인원</span>%s<span class="unit">명</span>'
+          '<span class="note">참고로만 보여 드리고, 신청을 막지 않습니다</span></div>' % ln('w-cap')))
+    etc = sec('⑤', '비고', lines(3, '전하실 말'))
+    return '2027 사역팀 소개서', 'roomy', head + WRITER + team + when + about + etc
 
-out_html = os.path.join(OUT_DIR, '2027_부서소개서_A4.html')
-io.open(out_html, 'w', encoding='utf-8', newline='').write(html)
-print('wrote:', os.path.relpath(out_html, ROOT))
 
-# ── PDF ──────────────────────────────────────────────────────────
+# ── HTML → PDF ───────────────────────────────────────────────────────
 CHROME_CANDS = [
     r'C:\Program Files\Google\Chrome\Application\chrome.exe',
     r'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe',
     os.path.join(os.environ.get('LOCALAPPDATA', ''), r'Google\Chrome\Application\chrome.exe'),
 ]
 chrome = next((c for c in CHROME_CANDS if c and os.path.exists(c)), None)
-out_pdf = os.path.join(OUT_DIR, '2027_부서소개서_A4.pdf')
-if chrome:
+
+
+def build(stem, page):
+    title, body_cls, body = page()
+    html = ('<!doctype html><html lang="ko"><head><meta charset="utf-8">'
+            '<title>%s</title><style>%s</style></head><body class="%s">%s</body></html>'
+            % (title, STYLE, body_cls, body))
+    out_html = os.path.join(OUT_DIR, stem + '.html')
+    io.open(out_html, 'w', encoding='utf-8', newline='').write(html)
+    print('wrote:', os.path.relpath(out_html, ROOT))
+    if not chrome:
+        print('!! 크롬을 못 찾아 PDF는 건너뜁니다 — HTML을 열어 직접 인쇄하세요.')
+        return
+    out_pdf = os.path.join(OUT_DIR, stem + '.pdf')
     subprocess.run([chrome, '--headless', '--disable-gpu', '--no-pdf-header-footer',
                     '--print-to-pdf=' + os.path.abspath(out_pdf),
                     '--virtual-time-budget=8000',
@@ -205,10 +273,11 @@ if chrome:
     if os.path.exists(out_pdf):
         print('wrote:', os.path.relpath(out_pdf, ROOT))
         try:
-            import fitz
-            doc = fitz.open(out_pdf)
-            print('페이지 수:', doc.page_count, '(목표 1장)')
+            import pymupdf
+            print('  페이지 수:', pymupdf.open(out_pdf).page_count, '(목표 1장)')
         except ImportError:
             pass
-else:
-    print('!! 크롬을 못 찾아 PDF는 건너뜁니다 — HTML을 열어 직접 인쇄하세요.')
+
+
+build('2027_부서소개서_A4', dept_page)
+build('2027_사역팀소개서_A4', team_page)
