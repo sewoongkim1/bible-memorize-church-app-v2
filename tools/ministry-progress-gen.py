@@ -274,3 +274,27 @@ if chrome:
             pass
 else:
     print('!! 크롬을 못 찾아 PDF는 건너뜁니다 — HTML을 열어 직접 인쇄하세요.')
+
+# ── 묶음 한 파일 — 진행 공유 · 처음 기획(안) · 사역팀 소개서 · 작성 예시 (성도님 요청 2026-09-17) ──
+# ⚠️ 뒤의 셋은 이 파일이 만들지 않는다(기획서는 손으로 만든 HTML, 소개서 둘은
+#    ministry-dept-intro-form-gen.py). 그쪽을 다시 뽑았으면 이 파일도 다시 돌려야 묶음에 반영된다.
+BUNDLE = [
+    (STEM + '.pdf', '1. 2027 사역신청 진행 공유'),
+    ('2027_사역신청_기획서_A4.pdf', '2. 2027 사역신청서 기획(안)'),
+    ('2027_사역팀소개서_A4.pdf', '3. 2027 사역팀 소개서 (양식)'),
+    ('2027_사역팀소개서_A4_예시_방송실운영.pdf', '4. 2027 사역팀 소개서 (작성 예시 · 방송실 운영)'),
+]
+try:
+    import pymupdf
+    out = pymupdf.open()
+    toc = []
+    for name, title in BUNDLE:
+        src = pymupdf.open(os.path.join(OUT_DIR, name))
+        toc.append([1, title, out.page_count + 1])   # 책갈피 — PDF 보기 옆 목록에서 바로 간다
+        out.insert_pdf(src)
+    out.set_toc(toc)
+    out_bundle = os.path.join(OUT_DIR, '2027_사역신청_진행공유_묶음.pdf')
+    out.save(out_bundle, garbage=3, deflate=True)
+    print('wrote:', os.path.relpath(out_bundle, ROOT), '— %d쪽 (목표 %d쪽)' % (out.page_count, len(BUNDLE)))
+except ImportError:
+    print('!! pymupdf 가 없어 묶음은 건너뜁니다.')
