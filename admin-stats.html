@@ -433,6 +433,23 @@
 .mn-modal-foot .no{background:#fff;color:#41506b;border:1.5px solid #dde3ee;}
 .mn-modal-foot .yes{background:#a33;color:#fff;border:none;}
 .mn-modal-foot .yes:disabled{opacity:.45;cursor:default;}
+/* 공용 창(mnDialog) — 브라우저 기본 confirm/alert 는 휴대폰에서 「gocheok.onlybible.kr 내용:」으로 떠
+   앱과 딴판이었다(2026-09-17 성도님 지적). 취소 사유 창과 같은 모양으로 맞춘다. */
+.mn-dialog{text-align:center;padding-top:22px;}
+.mn-dialog .mn-modal-ico{font-size:34px;line-height:1;margin:0 0 10px;}
+.mn-dialog h3{font-size:1.12rem;margin:0 0 8px;}
+.mn-dialog h3.t-primary{color:#1a3a6b;}
+.mn-dialog h3.t-ok{color:#2c5f2d;}
+.mn-dialog h3.t-danger{color:#a33;}
+.mn-modal-body{font-size:.92rem;color:#41506b;line-height:1.6;margin:0 0 14px;word-break:keep-all;}
+.mn-modal-body b{color:#1a3a6b;}
+.mn-modal-note{text-align:left;font-size:.85rem;line-height:1.55;border-radius:10px;padding:10px 12px;margin:0 0 16px;word-break:keep-all;
+  background:#f3f6fb;color:#41506b;}
+.mn-modal-note.on{background:#e7f3e8;color:#2c5f2d;}
+.mn-modal-note.off{background:#fdeceb;color:#a33;}
+.mn-modal-foot .yes.primary{background:#1a3a6b;}
+.mn-modal-foot .yes.ok{background:#2c5f2d;}
+.mn-modal-foot .yes.danger{background:#a33;}
 .mn-dup{font-size:11.5px;font-weight:800;border-radius:999px;padding:3px 9px;background:#fff4d6;color:#8a5a00;border:1px solid #f0d58a;}
 .mn-dup.other{background:#f3f6fb;color:#41506b;border-color:#dde3ee;}
 .mn-dup{white-space:normal;}
@@ -3364,11 +3381,14 @@ function mnRender(){
 async function mnSetStatus(id, status){
   const r=mnRows.find(x=>x.id===id); if(!r) return;
   // 확정은 성도님께 알림이 나가는 자리 — 한 번 묻는다(되돌려도 알림은 이미 갔다)
-  if(status==="임명확정" && !r.notified_at && !confirm(
-`${r.name}님을 «임명확정»으로 바꿉니다.
-
-앱 알림이 한 번 나갑니다(알림을 켜신 경우). 되돌려도 알림은 취소되지 않습니다.
-계속하시겠습니까?`)) return;
+  if(status==="임명확정" && !r.notified_at && !(await mnDialog({
+    icon:"🎉", title:"임명 확정", tone:"ok", ok:"임명확정", cancel:"그만두기",
+    html:`<b>${plEsc(r.name)}</b>님의 <b>«${plEsc(r.team)}»</b> 사역을<br>임명확정으로 바꿉니다.`,
+    note: r.canPush
+      ? "🔔 앱 알림을 켜 두신 분이라 <b>알림이 한 번 나갑니다.</b><br>되돌려도 이미 나간 알림은 취소되지 않아요."
+      : "🔕 앱 알림을 켜지 않으신 분이라 <b>알림이 가지 않아요.</b><br>게시판이나 연락으로 알려 주세요.",
+    noteTone: r.canPush ? "on" : "off",
+  }))) return;
   // ⚠️ 취소는 **부서장에게 오프라인으로 요청받아** 하는 일이다. 왜 취소했는지 적어 두지
   //    않으면 나중에 아무도 모른다 — 사유 없이는 보내지 않는다(성도님 결정 2026-09-10).
   let note;
@@ -3385,7 +3405,8 @@ async function mnSetStatus(id, status){
     r.status=before;
     if(minAuthLost(d)) return;
     mnRender();
-    alert("상태를 바꾸지 못했습니다.\n"+(d.error||"오류"));
+    mnDialog({ icon:"⚠️", title:"상태를 바꾸지 못했습니다", tone:"danger", ok:"확인", cancel:null,
+      html: plEsc(d.error||"오류") });
     return;
   }
   // 결정이 나면 서버가 번호를 지운다 — 카드도 그 자리에서 지워야 사실과 맞다
@@ -3401,6 +3422,41 @@ async function mnSetStatus(id, status){
                     mnNote(`📋 ${r.name}님은 앱 알림을 켜지 않으셨어요 — 게시판·주보로 알려 주세요`);
     else            mnNote(`⚠️ 알림 발송 실패 — 게시로 알려 주세요. (${d.pushError})`);
   }
+}
+
+// ---------- 공용 창 (확인·알림) ----------
+// mnDialog({icon, title, html, note, noteTone, ok, cancel, tone}) → Promise<boolean>
+//   · cancel:null 이면 알림(단추 하나) — 닫으면 true
+//   · title·html·note 는 **HTML 로 넣는다** — 사람 이름·팀·오류 글처럼 밖에서 온 값은 부르는 쪽이 plEsc 로 감싼다
+//   · tone: primary(남색) · ok(초록) · danger(빨강) — 확인 단추와 제목 색
+function mnDialog(o){
+  o=o||{};
+  const tone=o.tone||"primary", hasCancel=o.cancel!==null;
+  return new Promise(resolve=>{
+    const wrap=document.createElement("div");
+    wrap.className="mn-modal";
+    wrap.innerHTML=`<div class="mn-modal-box mn-dialog" role="${hasCancel?"dialog":"alertdialog"}" aria-modal="true">
+      ${o.icon?`<div class="mn-modal-ico" aria-hidden="true">${o.icon}</div>`:""}
+      <h3 class="t-${tone}">${o.title||""}</h3>
+      ${o.html?`<div class="mn-modal-body">${o.html}</div>`:""}
+      ${o.note?`<div class="mn-modal-note ${o.noteTone||""}">${o.note}</div>`:""}
+      <div class="mn-modal-foot">
+        ${hasCancel?`<button type="button" class="no" data-no>${o.cancel||"그만두기"}</button>`:""}
+        <button type="button" class="yes ${tone}" data-yes>${o.ok||"확인"}</button>
+      </div>
+    </div>`;
+    document.body.appendChild(wrap);
+    const done=v=>{ document.removeEventListener("keydown", onKey); wrap.remove(); resolve(v); };
+    const onKey=e=>{ if(e.key==="Escape") done(!hasCancel); };
+    wrap.querySelector("[data-yes]").addEventListener("click", ()=>done(true));
+    if(hasCancel) wrap.querySelector("[data-no]").addEventListener("click", ()=>done(false));
+    // 누르기와 떼기가 모두 바깥일 때만 닫는다
+    let downOut=false;
+    wrap.addEventListener("mousedown", e=>{ downOut = e.target===wrap; });
+    wrap.addEventListener("click", e=>{ if(downOut && e.target===wrap) done(!hasCancel); downOut=false; });
+    document.addEventListener("keydown", onKey);
+    setTimeout(()=>wrap.querySelector(hasCancel?"[data-no]":"[data-yes]").focus(), 0);
+  });
 }
 
 // ---------- 취소 사유 창 ----------
@@ -3660,9 +3716,11 @@ function mcRender(){
         data-mc="${plEsc(c)}">${plEsc(c)} <em>${got}/${mine.length}</em></button>`;
     }).join("");
     tabs.querySelectorAll("[data-mc]").forEach(b=>{
-      b.addEventListener("click", ()=>{
+      b.addEventListener("click", async ()=>{
         // ⚠️ 옮겨만 놓고 안 보낸 차례가 있는데 말없이 버리면, 관리자는 저장된 줄 안다
-        if(mcOrderDirty && !confirm("아직 보내지 않은 차례 변경이 있습니다.\n버리고 다른 부서로 옮길까요?")) return;
+        if(mcOrderDirty && !(await mnDialog({ icon:"↕️", title:"저장하지 않은 차례가 있어요", tone:"danger",
+          html:"▲▼로 바꾼 차례를 아직 저장하지 않았습니다.<br>버리고 다른 부서로 옮길까요?",
+          ok:"버리고 옮기기", cancel:"그대로 두기" }))) return;
         if(mcOrderDirty){ mcOrderDirty=false; mcLoaded=false; mcPick=b.dataset.mc; mcLoad(); return; }
         mcSyncInputs();
         mcPick=b.dataset.mc; mcRender();
@@ -3795,7 +3853,7 @@ async function mcSaveOrder(){
   if(minAuthLost(d)) return;
   if(!d.ok){
     if(btn){ btn.disabled=false; btn.textContent="차례 저장"; }
-    alert("차례를 저장하지 못했습니다.\n"+(d.error||"오류"));
+    mnDialog({ icon:"⚠️", title:"차례를 저장하지 못했습니다", tone:"danger", ok:"확인", cancel:null, html: plEsc(d.error||"오류") });
     return;
   }
   mcOrderDirty=false;
@@ -3832,7 +3890,7 @@ async function mcSave(id){
   if(minAuthLost(d)) return;
   if(!d.ok){
     if(btn){ btn.disabled=false; btn.textContent="저장"; }
-    alert("저장하지 못했습니다.\n"+(d.error||"오류"));
+    mnDialog({ icon:"⚠️", title:"저장하지 못했습니다", tone:"danger", ok:"확인", cancel:null, html: plEsc(d.error||"오류") });
     return;
   }
   Object.assign(r, next);
@@ -3861,8 +3919,8 @@ async function mcSave(id){
   }
   // ⚠️ 넘치면 서버가 말없이 자른다 — 그대로 두면 넣은 이름이 조용히 사라진다
   if(d.truncated && d.truncated.length){
-    alert("길이가 넘어 「"+d.truncated.join(", ")+"」 칸이 잘렸습니다.\n"
-      +"잘린 뒤의 내용은 저장되지 않았습니다 — 줄여서 다시 넣어 주세요.");
+    mnDialog({ icon:"✂️", title:"글이 길어 잘렸습니다", tone:"danger", ok:"확인", cancel:null,
+      html:`「${plEsc(d.truncated.join(", "))}」 칸이 길이를 넘어 잘렸습니다.<br>잘린 뒤의 내용은 저장되지 않았어요 — 줄여서 다시 넣어 주세요.` });
   }
   if(btn){ btn.disabled=false; btn.textContent="저장됨 ✓"; btn.classList.add("ok");
            setTimeout(()=>{ btn.textContent="저장"; btn.classList.remove("ok"); }, 1800); }
@@ -3942,9 +4000,11 @@ function maRenderList(){
       ${a.moved ? `<span class="ma-at">등록한 뒤 이름·소속이 바뀐 분입니다 — 지금 소속으로 들어오시면 됩니다.</span>` : ""}</div>
       <button class="ma-btn del" data-madel="${htmlEsc(a.key)}" data-maname="${htmlEsc(u.name+" ("+maWho(u)+")")}">빼기</button></div>`;
   }).join("");
-  box.querySelectorAll("[data-madel]").forEach(b=>b.addEventListener("click", ()=>{
+  box.querySelectorAll("[data-madel]").forEach(b=>b.addEventListener("click", async ()=>{
     const name=b.getAttribute("data-maname");
-    if(!confirm(name+" 님을 사역신청 담당자에서 뺄까요?\n빼면 사역신청 관리 화면에 바로 들어오지 못합니다.")) return;
+    if(!(await mnDialog({ icon:"🔑", title:"담당자에서 빼기", tone:"danger", ok:"빼기", cancel:"그만두기",
+      html:`<b>${plEsc(name)}</b> 님을<br>사역신청 담당자에서 뺄까요?`,
+      note:"빼면 이분은 사역관리 페이지에 <b>바로</b> 들어오지 못합니다.", noteTone:"off" }))) return;
     maSave("remove", b.getAttribute("data-madel"), b);
   }));
 }
@@ -3986,8 +4046,9 @@ async function maSave(op, key, btn){
   const d=await callApi({ action:"ministryAdminsSave", pw:getPw(), op, key }).catch(()=>({ok:false,error:"network"}));
   maBusy = false;
   if(!d.ok){
-    alert(d.error==="no-user" ? "그 계정을 찾지 못했습니다 — 이름·소속이 방금 바뀌었을 수 있습니다. 다시 찾아 주세요."
-      : "저장하지 못했습니다 ("+(d.error||"")+")");
+    mnDialog({ icon:"⚠️", title:"저장하지 못했습니다", tone:"danger", ok:"확인", cancel:null,
+      html: d.error==="no-user" ? "그 계정을 찾지 못했습니다.<br>이름·소속이 방금 바뀌었을 수 있어요 — 다시 찾아 주세요."
+        : plEsc(d.error||"오류") });
     maRenderList();
     if(maFound.length) maRenderFound(false);
     return;
