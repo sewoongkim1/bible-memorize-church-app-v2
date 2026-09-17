@@ -352,7 +352,10 @@
 /* 묶음 머리의 줄 목록 — 사람별은 사역, 사역별은 사람. 줄마다 오른쪽에 상태를 글자로(색만으로 짐작하지 않게) */
 .mn-grp-rows{flex-basis:100%;display:flex;flex-direction:column;margin:2px 0 0 18px;background:#fff;
   border:1px solid #e3e8f1;border-radius:10px;overflow:hidden;}
-.mn-rowi{display:flex;align-items:center;gap:8px;padding:7px 10px;border-top:1px solid #eef1f6;}
+.mn-rowi{display:flex;flex-direction:column;gap:4px;padding:7px 10px;border-top:1px solid #eef1f6;}
+.mn-rowi-top{display:flex;align-items:center;gap:8px;}
+.mn-rowi-ex{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.mn-rowi-ex .mn-dup{font-size:11px;padding:2px 8px;}
 .mn-rowi:first-child{border-top:none;}
 .mn-rowi-t{flex:1;min-width:0;display:flex;align-items:baseline;gap:6px;white-space:nowrap;overflow:hidden;}
 .mn-rowi-t b{font-size:14px;font-weight:800;color:#1a3a6b;overflow:hidden;text-overflow:ellipsis;}
@@ -439,6 +442,16 @@
 .mn-dups{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:4px;}
 .mn-dups .mn-dup{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.4;border-radius:999px;padding:3px 8px;align-self:flex-start;max-width:100%;}
 .mn-contact{gap:6px;}
+/* 전화번호 — 누르면 전화 연결 */
+a.mn-tel{text-decoration:none;cursor:pointer;}
+a.mn-tel:active{background:#dfe6f3;}
+a.mn-tel.sm{font-size:11.5px;padding:2px 8px;}
+.mn-phone-line{align-items:center;}
+/* 전화번호 옆에 중복 정보를 **한 줄로** — 좁으면 중복 문구 끝만 줄임표 */
+.mn-rowi-ex, .mn-grp-sub.mn-phone-line{flex-wrap:nowrap;min-width:0;}
+.mn-phone-line a.mn-tel{flex:none;}
+.mn-phone-line a.mn-tel b{letter-spacing:.01em;}
+.mn-phone-line .mn-dup{flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .mn-contact .mn-p4 b{letter-spacing:.02em;}
 /* 둘째 줄: 소속 · 신청일 — 한 줄에 이름·직분·소속·상태 단추가 다 안 들어가 신청일만 떨어지던 것 */
 .mn-sub{display:block;margin-top:3px;white-space:nowrap;}
@@ -3451,9 +3464,7 @@ function mnRender(){
         </div>
         ${teams}
         <div class="mn-contact">
-          ${r.phone
-            ? `<span class="mn-p4">📞 <b>${plEsc(r.phone)}</b></span>`
-            : `<span class="mn-p4 none">번호 없음 · 결정 후 삭제</span>`}
+          ${mnPhoneHtml(r.phone)}
           ${dupHtml?`<span class="mn-dups">${dupHtml}</span>`:""}
         </div>
         ${r.note?`<div class="mn-note">📝 ${plEsc(r.note)} <i>(관리자만 봄)</i></div>`:""}
@@ -3666,14 +3677,23 @@ function mnStatusChips(list){
 // 묶음 머리의 줄 목록 — 접어 둔 채로도 사람별은 신청한 사역을, 사역별은 신청한 사람을 **상태와 함께** 모두 본다
 // (2026-09-17 성도님). 줄은 상태 순서(신청→접수→확정→취소)로, 오른쪽에 상태를 글자로 붙인다.
 // main·sub 는 글자 그대로 받아 여기서 plEsc 한다.
-function mnRowsHtml(list, mainOf, subOf){
+function mnRowsHtml(list, mainOf, subOf, extraOf){
   const order=st=>{ const i=MN_STATES.indexOf(st); return i<0 ? 99 : i; };
   const sorted=[...list].sort((a,b)=>order(a.status)-order(b.status) || String(mainOf(a)).localeCompare(String(mainOf(b)),"ko"));
   return `<span class="mn-grp-rows">${sorted.map(r=>{
     const cls=MN_CLS[r.status]||"";
-    return `<span class="mn-rowi ${cls}"><span class="mn-rowi-t"><b>${plEsc(mainOf(r))}</b><small>${plEsc(subOf(r))}</small></span>`+
-      `<span class="mn-rowi-st ${cls}">${plEsc(MN_SHORT[r.status]||r.status)}</span></span>`;
+    const ex=extraOf ? extraOf(r) : "";      // 사역별: 둘째 줄에 전화번호 · 중복 정보(HTML)
+    return `<span class="mn-rowi ${cls}"><span class="mn-rowi-top"><span class="mn-rowi-t"><b>${plEsc(mainOf(r))}</b><small>${plEsc(subOf(r))}</small></span>`+
+      `<span class="mn-rowi-st ${cls}">${plEsc(MN_SHORT[r.status]||r.status)}</span></span>`+
+      (ex ? `<span class="mn-rowi-ex mn-phone-line">${ex}</span>` : "")+`</span>`;
   }).join("")}</span>`;
+}
+// 전화번호 — 누르면 전화로 연결(tel:). 번호가 지워졌으면(결정 뒤) 안내만. small=true 는 줄 목록용 작은 꼴.
+// ⚠️ 묶음 머리(summary) 안에서 눌러도 묶음이 열고 닫히지 않게 mnBindGroups 가 막는다.
+function mnPhoneHtml(phone, small){
+  const digits=String(phone||"").replace(/[^0-9]/g,"");
+  if(!digits) return small ? "" : `<span class="mn-p4 none">번호 없음 · 결정 후 삭제</span>`;
+  return `<a class="mn-p4 mn-tel${small?" sm":""}" href="tel:${digits}" title="전화 걸기">📞 <b>${plEsc(phone)}</b></a>`;
 }
 function mnGroupsHtml(rows, card){
   const by=new Map();
@@ -3696,13 +3716,16 @@ function mnGroupsHtml(rows, card){
       const dup=mnDupOthers(dupAll, list);
       title=`<span class="mn-grp-t">${plEsc(r0.name)}${pos?` <em>${plEsc(pos)}</em>`:""}<i>${plEsc(r0.who)}</i></span>
         <span class="mn-grp-n">${teams}개 사역</span>
-        ${(phone||dup.length)?`<span class="mn-grp-sub">${phone?`<span class="mn-p4">📞 <b>${plEsc(phone)}</b></span>`:""}${mnDupBadge(dup)}</span>`:""}
+        ${(phone||dup.length)?`<span class="mn-grp-sub mn-phone-line">${phone?mnPhoneHtml(phone):""}${mnDupBadge(dup)}</span>`:""}
         ${mnRowsHtml(list, r=>r.team, r=>r.committee)}`;
     } else {
       const people=new Set(list.map(mnPersonKey)).size;
       title=`<span class="mn-grp-t"><em>${plEsc(r0.committee)}</em>${plEsc(r0.team)}</span>
         <span class="mn-grp-n">${list.length}건 · ${people}명</span>
-        ${mnRowsHtml(list, r=>r.name, r=>r.who)}`;
+        ${mnRowsHtml(list, r=>r.name, r=>r.who, r=>{
+          const dup=mnDupOthers(dupAll, r);
+          return (r.phone||dup.length) ? mnPhoneHtml(r.phone, true)+mnDupBadge(dup) : "";
+        })}`;
     }
     return `<details class="mn-grp" data-mngk="${plEsc(gk)}"${mnOpen.has(gk)?" open":""}>
       <summary>${title}</summary>
@@ -3711,6 +3734,12 @@ function mnGroupsHtml(rows, card){
   }).join("");
 }
 function mnBindGroups(box){
+  box.querySelectorAll("summary .mn-tel").forEach(a=>a.addEventListener("click", e=>{
+    // 전화는 걸고, 묶음은 그대로 — summary 의 열고 닫기만 막는다(링크 이동은 막지 않는다)
+    e.stopPropagation();
+    const d=a.closest("details"); if(!d) return;
+    const was=d.open; setTimeout(()=>{ if(d.open!==was) d.open=was; }, 0);
+  }));
   box.querySelectorAll("details.mn-grp").forEach(d=>d.addEventListener("toggle", ()=>{
     const k=d.getAttribute("data-mngk");
     if(d.open) mnOpen.add(k); else mnOpen.delete(k);
