@@ -1,0 +1,214 @@
+# -*- coding: utf-8 -*-
+"""2027 부서 소개서 · A4 세로 1장 — 부서가 손으로 적어 내는 공통 빈 양식.
+
+■ 왜 이 파일이 필요한가
+  2027 사역신청을 앱으로 받으려면 부서마다 사역팀의 이름·요일·주기·시각·하는 일을
+  받아야 한다. 부서별 엑셀(tools/ministry-form-gen.py)은 가로 24칸이라 종이에 뽑아
+  손으로 적기 어렵다 — 그래서 **모든 부서에 같은 종이 한 장**을 나눠 드리고
+  부서가 팀 이름부터 적게 한다(2026-09-17, 성도님 결정: 빈 공통 양식 · 세로 PDF).
+
+■ 칸 규칙 — 앱의 「② 언제」와 같은 뜻이어야 한다(docs/notes/ministry-2027.md)
+  · 적는 것(밑줄): 작성자 이름·교구·목장·전화번호 / 부서명·부서 소개 / 팀 이름·필요 인원·
+    주일 시각·시간(문장)·하는 일
+  · 고르는 것은 **보기를 모두 종이에 찍는다**(성도님: "라디오버튼 체크박스로 모든 정보가
+    표시되어야") — ○ 하나만(직분·구분) / □ 여럿(요일·주기)
+  ⚠️ 요일 넷은 **주일 · 금요일 · 토요일 · 평일(월~목)** — 금요일은 평일이 아니다.
+  ⚠️ 주기는 팀이 모이는 주기가 아니라 **한 분이 서는 주기**, 여러 개 고를 수 있다.
+  ⚠️ 시각은 **주일 사역에만** 받는다(DB 제약 ministry_catalog_time_sun_chk).
+  보기 이름을 바꾸려면 앱·서버·DB 도 함께 봐야 한다 — 여기만 고치면 받은 종이를
+  옮겨 적을 자리가 없다.
+
+■ 지면 — 실측으로 확인한다
+  괘선은 낱개 요소 + flex:0 0 <높이>로 긋는다(repeating-linear-gradient 는 PDF 에서
+  래스터로 뭉개진다 · 메모 print-layout-traps). ○□ 도 글리프가 아니라 테두리로 그린다.
+  팀 칸 수(TEAMS)·줄 높이(LINE_MM)는 상수 — 1장을 넘으면 줄이고 다시 돌린다.
+  PDF 쪽수는 pymupdf 로 재서 콘솔에 찍는다.
+
+출력 (ministry/ 폴더)
+  2027_부서소개서_A4.html   원본
+  2027_부서소개서_A4.pdf    인쇄용(크롬 --print-to-pdf, 없으면 건너뜀)
+"""
+import io, os, subprocess
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.join(HERE, '..')
+OUT_DIR = os.path.join(ROOT, 'ministry')
+MARK = io.open(os.path.join(ROOT, 'marketing', 'logo-mark-data-uri.txt'), encoding='utf-8').read().strip()
+
+# 사역신청서(ministry-apply-form-gen.py)와 같은 톤
+NAVY = '#123059'
+GOLD = '#765700'
+
+# ── 지면 상수(실측 뒤 조정하는 자리) ────────────────────────────────
+TEAMS = 4          # 한 장에 들어가는 팀 칸
+LINE_MM = 8        # 손글씨 한 줄 높이
+FONT_PT = 9.2
+
+# 앱 MIN_POSITIONS 에서 「학생」만 뺐다 — 부서를 대표해 적는 분이라.
+POSITIONS = ['성도', '집사', '권사', '안수집사', '장로', '전도사', '목사', '사모']
+DAYS = ['주일', '금요일', '토요일', '평일(월~목)']
+FREQS = ['매주', '격주(교대형식)', '매달', '그때그때']
+
+
+def opts(labels, kind):
+    """kind='rd' 동그라미(하나만) · 'ck' 네모(여럿)"""
+    return '<span class="opts">' + ''.join(
+        '<span class="o"><i class="%s"></i>%s</span>' % (kind, s) for s in labels) + '</span>'
+
+
+def ln(cls=''):
+    return '<span class="ln %s"></span>' % cls
+
+
+def team_block(n):
+    return ("""
+<div class="team">
+  <div class="no">%(n)d</div>
+  <div class="tb">
+    <div class="row"><span class="lb">팀 이름</span>%(ln)s
+      <span class="lb2">구분</span>%(kind)s
+      <span class="lb2">필요 인원</span>%(cap)s<span class="unit">명</span></div>
+    <div class="row"><span class="lb">요일</span>%(days)s
+      <span class="sep"></span><span class="lb2">주기</span>%(freqs)s</div>
+    <div class="row"><span class="lb">주일 시각</span>
+      %(hm)s<span class="unit">:</span>%(mm)s<span class="unit tilde">~</span>%(hm)s<span class="unit">:</span>%(mm)s
+      <span class="sep"></span><span class="lb2">시간(문장)</span>%(ln)s</div>
+    <div class="row"><span class="lb">하는 일</span>%(ln)s</div>
+    <div class="row"><span class="lb"></span>%(ln)s</div>
+  </div>
+</div>""" % {'n': n, 'ln': ln('grow'), 'kind': opts(['성도 신청', '임명직'], 'rd'),
+             'cap': ln('w-cap'), 'days': opts(DAYS, 'ck'), 'freqs': opts(FREQS, 'ck'),
+             'hm': ln('w-t'), 'mm': ln('w-t')})
+
+
+STYLE = """
+@page { size: A4; margin: 10mm 12mm 8mm; }
+* { box-sizing:border-box; }
+html, body { margin:0; }
+body { font-family:'맑은 고딕','Malgun Gothic',sans-serif; color:#111; font-size:%(fpt)spt; }
+
+.doc-head { display:flex; align-items:center; gap:3.5mm; border-bottom:0.9mm solid %(navy)s;
+            padding-bottom:2.2mm; margin-bottom:2.6mm; }
+.doc-head img { height:12mm; width:auto; flex:0 0 auto; }
+.doc-head .ttl { flex:1; }
+.doc-head h1 { font-size:18pt; font-weight:800; color:%(navy)s; margin:0; line-height:1.15; }
+.doc-head .sub { font-size:8.6pt; color:#333; margin-top:0.8mm; line-height:1.45; word-break:keep-all; }
+.doc-head .page { flex:0 0 auto; align-self:flex-end; display:flex; align-items:flex-end; gap:1.2mm;
+                  font-size:9pt; color:#333; }
+.doc-head .page .ln { flex:0 0 8mm; }
+
+.sec { display:flex; border:0.35mm solid #8d8d8d; border-radius:1.5mm; margin-bottom:2.4mm; overflow:hidden; }
+.sec .tag { flex:0 0 13mm; background:%(navy)s; color:#fff; font-weight:700; font-size:9pt;
+            display:flex; flex-direction:column; align-items:center; justify-content:center;
+            line-height:1.3; text-align:center; }
+.sec .tag .num { font-size:8pt; color:#d9c89a; }
+.sec .body { flex:1; padding:0.6mm 3mm 1.6mm; }
+
+.row { display:flex; align-items:flex-end; gap:1.6mm; flex:0 0 %(line)smm; height:%(line)smm;
+       white-space:nowrap; }
+.lb  { flex:0 0 15mm; font-weight:700; color:%(navy)s; padding-bottom:0.9mm; }
+.lb2 { flex:0 0 auto; font-weight:700; color:%(navy)s; padding-bottom:0.9mm; margin-left:1.4mm; }
+.unit { flex:0 0 auto; padding-bottom:0.9mm; color:#333; }
+.unit.tilde { margin:0 0.8mm; }
+.ln  { display:block; border-bottom:0.3mm solid #8a8a8a; height:5mm; }
+.ln.grow { flex:1 1 auto; min-width:10mm; }
+.ln.w-cap { flex:0 0 11mm; }
+.ln.w-t { flex:0 0 7.5mm; }
+.ln.w-name { flex:0 0 34mm; }
+.ln.w-gu { flex:0 0 22mm; }
+.ln.w-mok { flex:0 0 18mm; }
+.sep { flex:0 0 0; align-self:stretch; border-left:0.3mm dotted #b5b5b5; margin:1.4mm 1.2mm 0.8mm; }
+
+.opts { display:flex; align-items:center; gap:2.1mm; padding-bottom:0.9mm; }
+.o { display:flex; align-items:center; gap:0.9mm; }
+.o i { display:block; flex:0 0 auto; width:3.4mm; height:3.4mm; border:0.3mm solid #444; }
+.o i.rd { border-radius:50%%; }
+.o i.ck { border-radius:0.5mm; }
+
+.note { font-size:7.6pt; color:#666; padding-bottom:1mm; }
+
+.teams-head { display:flex; align-items:center; gap:2.4mm; margin:0.4mm 0 1.4mm; }
+.teams-head .t { background:%(navy)s; color:#fff; font-weight:700; font-size:9pt;
+                 padding:0.9mm 2.6mm; border-radius:1mm; flex:0 0 auto; }
+.hint { font-size:7.8pt; color:#333; line-height:1.5; background:#f3efe4; border-left:0.9mm solid %(gold)s;
+        padding:1mm 2.4mm; margin-bottom:1.8mm; word-break:keep-all; }
+.hint b { color:%(navy)s; }
+.hint .ex { display:inline-flex; align-items:center; gap:0.8mm; vertical-align:-0.6mm; }
+.hint .ex i { display:inline-block; width:3mm; height:3mm; border:0.3mm solid #444; }
+.hint .ex i.rd { border-radius:50%%; }
+.hint .ex i.ck { border-radius:0.5mm; }
+
+.team { display:flex; border:0.35mm solid #8d8d8d; border-radius:1.5mm; margin-bottom:2mm;
+        break-inside:avoid; overflow:hidden; }
+.team .no { flex:0 0 8mm; background:#e9edf3; color:%(navy)s; font-weight:800; font-size:11pt;
+            display:flex; align-items:center; justify-content:center; border-right:0.3mm solid #c5ccd6; }
+.team .tb { flex:1; padding:0 3mm 1.4mm; }
+""" % {'navy': NAVY, 'gold': GOLD, 'fpt': FONT_PT, 'line': LINE_MM}
+
+head = ('<div class="doc-head"><img src="%s"><div class="ttl">'
+        '<h1>2027 부서 소개서</h1>'
+        '<div class="sub">적어 주신 내용은 2027 사역신청 때 성도님이 사역을 고르시는 안내로 그대로 쓰입니다.</div></div>'
+        '<div class="page">쪽 %s / %s</div></div>' % (MARK, ln(), ln()))
+
+writer = ("""
+<div class="sec"><div class="tag"><span class="num">①</span>작성자</div><div class="body">
+  <div class="row"><span class="lb">이름</span>%(name)s
+    <span class="lb2">교구</span>%(gu)s<span class="lb2">목장</span>%(mok)s
+    <span class="lb2">전화번호</span>%(phone)s</div>
+  <div class="row"><span class="lb">직분</span>%(pos)s</div>
+  <div class="note">전화번호는 적어 주신 내용을 여쭐 때만 쓰고, 앱에는 올리지 않습니다.</div>
+</div></div>""" % {'name': ln('w-name'), 'gu': ln('w-gu'), 'mok': ln('w-mok'), 'phone': ln('grow'),
+                   'pos': opts(POSITIONS, 'rd')})
+
+dept = ("""
+<div class="sec"><div class="tag"><span class="num">②</span>부서</div><div class="body">
+  <div class="row"><span class="lb">부서명</span>%(ln)s</div>
+  <div class="row"><span class="lb">부서 소개</span>%(ln)s</div>
+  <div class="row"><span class="lb"></span>%(ln)s</div>
+  <div class="row"><span class="lb"></span>%(ln)s</div>
+</div></div>""" % {'ln': ln('grow')})
+
+hint = ('<div class="hint">'
+        '<span class="ex"><i class="rd"></i></span> 는 <b>하나만</b>, '
+        '<span class="ex"><i class="ck"></i></span> 는 <b>해당하는 것 모두</b> · '
+        '<b>평일은 월~목</b>(금요일은 따로) · '
+        '<b>주기</b>는 팀이 아니라 <b>한 분이 서는 주기</b> · '
+        '<b>주일 시각</b>은 주일 사역만 24시간 꼴(예 13:30), 다른 날은 「시간(문장)」에 · '
+        '임명직은 팀 이름만 · 모르는 칸은 비워 두시고, <b>팀이 더 있으면 이 장을 더 뽑아</b> 쪽을 적어 주세요.'
+        '</div>')
+
+teams = ('<div class="teams-head"><span class="t">③ 사역팀</span></div>' + hint
+         + ''.join(team_block(i + 1) for i in range(TEAMS)))
+
+html = ('<!doctype html><html lang="ko"><head><meta charset="utf-8">'
+        '<title>2027 부서 소개서</title><style>' + STYLE + '</style></head><body>'
+        + head + writer + dept + teams + '</body></html>')
+
+out_html = os.path.join(OUT_DIR, '2027_부서소개서_A4.html')
+io.open(out_html, 'w', encoding='utf-8', newline='').write(html)
+print('wrote:', os.path.relpath(out_html, ROOT))
+
+# ── PDF ──────────────────────────────────────────────────────────
+CHROME_CANDS = [
+    r'C:\Program Files\Google\Chrome\Application\chrome.exe',
+    r'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe',
+    os.path.join(os.environ.get('LOCALAPPDATA', ''), r'Google\Chrome\Application\chrome.exe'),
+]
+chrome = next((c for c in CHROME_CANDS if c and os.path.exists(c)), None)
+out_pdf = os.path.join(OUT_DIR, '2027_부서소개서_A4.pdf')
+if chrome:
+    subprocess.run([chrome, '--headless', '--disable-gpu', '--no-pdf-header-footer',
+                    '--print-to-pdf=' + os.path.abspath(out_pdf),
+                    '--virtual-time-budget=8000',
+                    'file:///' + os.path.abspath(out_html).replace(os.sep, '/')],
+                   capture_output=True)
+    if os.path.exists(out_pdf):
+        print('wrote:', os.path.relpath(out_pdf, ROOT))
+        try:
+            import fitz
+            doc = fitz.open(out_pdf)
+            print('페이지 수:', doc.page_count, '(목표 1장)')
+        except ImportError:
+            pass
+else:
+    print('!! 크롬을 못 찾아 PDF는 건너뜁니다 — HTML을 열어 직접 인쇄하세요.')
