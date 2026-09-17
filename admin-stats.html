@@ -3515,7 +3515,7 @@ function mnRender(){
       ? `<div class="mn-teams-t">팀별 신청 수 <i>${rows.length}건</i></div>` +
         list.map(([k,n])=>`<span class="mn-tcount">${plEsc(k)} <b>${n}</b></span>`).join("")
       : "";
-    tbox.hidden = mnView==="team";     // 사역별 보기에서는 묶음 머리가 같은 숫자를 보인다
+    // 사역별 보기에서도 보인다(2026-09-18 성도님) — 묶음 머리에도 숫자가 있지만, 보기마다 아래 통계가 있다 없다 하면 헷갈린다
   }
 
   box.querySelectorAll("[data-mndrop]").forEach(b=>{
