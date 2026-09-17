@@ -412,8 +412,21 @@
 .mn-p4 b{letter-spacing:.08em;color:#1a3a6b;}
 .mn-p4.none{color:#a0a9b8;background:#f5f6f8;font-weight:600;}
 /* 사역신청 현황 카드 — 전화·알림은 상태 단추 기둥 아래로 빼 카드 전체 폭을 쓴다(두 줄로 꺾이던 것) */
-.mn-contact{margin-top:8px;}
-.mn-p4, .mn-push, .mn-dup{white-space:nowrap;}
+/* 전화번호 오른쪽에 중복 문구 — 번호는 한 줄로 두고, 문구는 남은 폭에서 줄바꿈 */
+.mn-contact{display:flex;align-items:flex-start;gap:8px;margin-top:8px;}
+.mn-contact .mn-p4{flex:none;white-space:nowrap;}
+.mn-dups{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:4px;}
+.mn-dups .mn-dup{white-space:normal;word-break:keep-all;line-height:1.4;border-radius:10px;padding:4px 9px;}
+/* 둘째 줄: 소속 · 신청일 — 한 줄에 이름·직분·소속·상태 단추가 다 안 들어가 신청일만 떨어지던 것 */
+.mn-sub{display:block;margin-top:3px;white-space:nowrap;}
+#mn-list .mn-sub i{margin-left:0;}
+.mn-date{font-size:12px;color:#a0a9b8;}
+.mn-date::before{content:"·";margin:0 5px;color:#c3cad6;}
+/* 신청일 거르기 — 글자를 위로 올려 날짜 두 칸이 한 줄 전체를 나눠 쓴다(좁아 날짜가 잘렸다) */
+.pl-find .mn-dates{grid-column:1/3;grid-row:2;}
+.mn-dates-lb{display:block;font-size:12px;font-weight:700;color:#7a869c;margin:0 2px 4px;}
+.mn-dates-row{display:flex;align-items:center;gap:6px;}
+.mn-dates-row .push-in{flex:1 1 0;min-width:0;font-size:15px;padding:10px 8px;}
 #mn-list .pl-nm i{white-space:nowrap;}
 /* 취소 사유 창 — 브라우저 기본 prompt 는 휴대폰에서 눈에 안 띄고 앱과 딴판이었다 */
 .mn-modal{position:fixed;inset:0;background:rgba(13,27,62,.45);display:flex;align-items:center;justify-content:center;
@@ -457,10 +470,6 @@
 #mn-st{flex-wrap:wrap;overflow:visible;}
 #mn-st label.all.on{background:#1a3a6b;border-color:#1a3a6b;color:#fff;}
 #mn-st label.all input{accent-color:#fff;}
-.mn-push{font-size:11.5px;font-weight:700;border-radius:999px;padding:3px 9px;}
-.mn-push.on{background:#e7f3e8;color:#2c5f2d;}
-/* ⚠️ 알림 미설정은 눈에 띄어야 한다 — 그냥 두면 확정만 누르고 게시를 잊는다 */
-.mn-push.off{background:#fdeceb;color:#a33;}
 .mn-teams{margin-top:14px;}
 /* 보기: 건별 · 사람별 · 사역별 (2026-09-17 성도님 요청) */
 .mn-view{display:flex;margin:0 0 10px;border:1.5px solid #1a3a6b;border-radius:10px;overflow:hidden;}
@@ -3193,11 +3202,13 @@ function renderMinistryAdmin(){
       </div>
       <div class="pl-find">
         <input type="text" id="mn-q" class="push-in" placeholder="이름 · 소속 · 사역팀 (예: 김세웅 / 찬양부)">
-        <div class="pl-dates">
-          <span class="pl-sep">신청일</span>
-          <input type="date" id="mn-from" class="push-in" aria-label="신청일 시작">
-          <span class="pl-sep">~</span>
-          <input type="date" id="mn-to" class="push-in" aria-label="신청일 끝">
+        <div class="mn-dates">
+          <span class="mn-dates-lb">신청일</span>
+          <div class="mn-dates-row">
+            <input type="date" id="mn-from" class="push-in" aria-label="신청일 시작">
+            <span class="pl-sep">~</span>
+            <input type="date" id="mn-to" class="push-in" aria-label="신청일 끝">
+          </div>
         </div>
         <button class="push-btn" id="mn-search">조회</button>
       </div>
@@ -3312,18 +3323,15 @@ function mnRender(){
   const mnCard=r=>{
     const teams=`<span class="mn-team"><em>${plEsc(r.committee)}</em> ${plEsc(r.team)}${
         r.option?` <i>(${plEsc(r.option)})</i>`:""}</span>`;
-    // ⚠️ 알림을 켜지 않은 분은 확정해도 푸시가 안 간다 — 미리 보여 줘야 게시·연락으로 메운다
-    const push = r.canPush
-      ? `<span class="mn-push on">🔔 알림 받음${r.notified_at?" · 발송함":""}</span>`
-      : `<span class="mn-push off">🔕 알림 미설정 — 게시로 알려야 함</span>`;
+    // 알림을 켰는지는 카드에서 뺐다(2026-09-17 성도님 요청 — 화면을 덜어 낸다).
+    // 푸시가 안 가는 분이라는 안내는 임명확정 창(mnDialog)이 그 자리에서 한다.
     const dup = mnDupOthers(dupOf, r);
+    const dupHtml = mnDupBadge(dup);
     return `
       <div class="pl-card ${MN_CLS[r.status]}">
         <div class="pl-hd">
           <div class="pl-nm">
-            <b>${plEsc(r.name)}</b>${r.position?`<em class="mn-pos">${plEsc(r.position)}</em>`:""}<i>${plEsc(r.who)}</i>
-
-            <span class="pl-at">신청일 ${plEsc((r.at||"").replace(/-/g,"."))}</span>
+            <b>${plEsc(r.name)}</b>${r.position?`<em class="mn-pos">${plEsc(r.position)}</em>`:""}<span class="mn-sub"><i>${plEsc(r.who)}</i><span class="mn-date" title="신청일">${plEsc((r.at||"").replace(/-/g,"."))}</span></span>
           </div>
           <div class="pl-drop">
             <button type="button" class="pl-sel ${MN_CLS[r.status]}" data-mndrop="${r.id}"
@@ -3335,12 +3343,11 @@ function mnRender(){
             </div>
           </div>
         </div>
-        <div class="pl-contact mn-contact">
+        <div class="mn-contact">
           ${r.phone
             ? `<span class="mn-p4">📞 <b>${plEsc(r.phone)}</b></span>`
             : `<span class="mn-p4 none">번호 없음 · 결정 후 삭제</span>`}
-          ${push}
-          ${mnDupBadge(dup)}
+          ${dupHtml?`<span class="mn-dups">${dupHtml}</span>`:""}
         </div>
         ${r.note?`<div class="mn-note">📝 ${plEsc(r.note)} <i>(관리자만 봄)</i></div>`:""}
         <div class="mn-teams-in">${teams}</div>
