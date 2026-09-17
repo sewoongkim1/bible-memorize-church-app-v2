@@ -210,14 +210,18 @@ body.roomy { height:%(page_h)smm; display:flex; flex-direction:column; }
        'page_h': 277, 'pen': PEN}
 
 # ── 두 양식이 함께 쓰는 ① 작성자 ─────────────────────────────────────
-WRITER = sec('①', '작성자', """
+def writer(w=None):
+    """① 작성자 — w 를 주면 그 값으로 채운다(작성 예시)."""
+    w = w or {}
+    return sec('①', '작성자', """
   <div class="row"><span class="lb">이름</span>%(name)s
     <span class="lb2">교구</span>%(gu)s<span class="lb2">목장</span>%(mok)s
     <span class="lb2">전화번호</span>%(phone)s</div>
   <div class="row"><span class="lb">직분</span>%(pos)s</div>
   <div class="note">전화번호는 적어 주신 내용을 여쭐 때만 쓰고, 앱에는 올리지 않습니다.</div>
-""" % {'name': ln('w-name'), 'gu': ln('w-gu'), 'mok': ln('w-mok'), 'phone': ln('grow'),
-       'pos': opts(POSITIONS, 'rd')})
+""" % {'name': ln('w-name', w.get('name', '')), 'gu': ln('w-gu', w.get('gu', '')),
+       'mok': ln('w-mok', w.get('mok', '')), 'phone': ln('grow', w.get('phone', '')),
+       'pos': opts(POSITIONS, 'rd', [w['position']] if w.get('position') else [])})
 
 
 def dept_page():
@@ -235,7 +239,7 @@ def dept_page():
             '</div>')
     teams = ('<div class="teams-head"><span class="t">③ 사역팀</span></div>' + hint
              + ''.join(team_block(i + 1) for i in range(TEAMS)))
-    return '2027 부서 소개서', '', head + WRITER + dept + teams
+    return '2027 부서 소개서', '', head + writer() + dept + teams
 
 
 def team_page(ex=None):
@@ -270,7 +274,7 @@ def team_page(ex=None):
           '<span class="note">참고로만 보여 드리고, 신청을 막지 않습니다</span></div>'
           % ln('w-cap', ex.get('capacity', ''))))
     etc = sec('⑤', '비고', lines(BIGO_LINES, '전하실 말', ex.get('note', [])), 'fill')
-    return '2027 사역팀 소개서', 'roomy', head + WRITER + team + when + about + etc
+    return '2027 사역팀 소개서', 'roomy', head + writer(ex.get('writer')) + team + when + about + etc
 
 
 # ── HTML → PDF ───────────────────────────────────────────────────────
@@ -315,14 +319,17 @@ def build(stem, page, head_extra=''):
 # ── 작성 예시 ────────────────────────────────────────────────────────
 # 운영 DB ministry_catalog(2027) 값을 2026-09-17에 옮겨 적었다 — 관리자 화면(사역팀 정보)에서
 # 담당자가 넣은 실제 값이다(방송전산부에서 「· 예시」 꼬리표가 없는 팀은 이 하나).
-# ⚠️ 작성자·필요 인원·비고는 자료에 없어 비워 둔다 — 지어내지 않는다.
+# 작성자·필요 인원·「시간(문장)」 둘째 줄은 자료에 없어 성도님이 예시로 정해 주셨다(2026-09-17).
+#   이름 「고척교회」·전화번호 010-1234-5678 은 **가짜 자리값**이다 — 실제 분 것을 넣지 말 것.
 EXAMPLES = {
     '방송실운영': {
         'committee': '방송전산부', 'team': '방송실 운영', 'kind': '성도 신청',
         'days': ['주일', '금요일'], 'freqs': ['매주', '격주(교대형식)', '매달'],
         'from': '06:30', 'to': '16:30',
-        'sched': ['주일 1,2,3,오후 예배, 금요 성령집회'],
+        'sched': ['주일 1,2,3,오후 예배, 금요 성령집회', '비정기적 월삭, 부흥회 등'],
         'desc': ['카메라 조정, 자막 송출, 영상 전환(스위처), 음향 운영'],
+        'capacity': '20',
+        'writer': {'name': '고척교회', 'gu': '사랑', 'mok': '1', 'phone': '010-1234-5678', 'position': '권사'},
     },
 }
 
