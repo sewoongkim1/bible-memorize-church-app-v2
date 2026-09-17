@@ -4680,7 +4680,10 @@ body.pr-full-on { overflow: hidden; }
    줄마다 하나씩 놓고, 날짜 글자는 조금 진하게. */
 .min-dates { color: #6b7684; }
 .min-dates b { font-weight: 700; color: #4b5563; }
-.min-com { color: var(--gray); font-weight: 500; }
+/* ⚠️ 「방송실 운영 · 방송전산부」가 **낱말 가운데서** 「방송전/산부」로 끊겼다(2026-09-18 성도님).
+   줄은 팀 이름과 위원회 **사이에서만** 바뀌게 한다 — 위원회는 통째로 다음 줄로 내려간다. */
+.min-nm, .min-sent-n { word-break: keep-all; }
+.min-com { color: var(--gray); font-weight: 500; white-space: nowrap; }
 .min-tag { font-size: .7rem; color: var(--gray); margin-left: 6px; }
 .min-chk { flex: none; width: 28px; height: 28px; border-radius: 50%;
   border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center;
