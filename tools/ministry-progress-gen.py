@@ -27,7 +27,7 @@
 출력: ministry/2027_사역신청_진행공유_A4.html · .pdf
 """
 import base64, io, os, subprocess
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, '..')
@@ -41,6 +41,9 @@ SHOT_PX = 540      # 문서에 넣을 폭(px) — 46mm 폭에 300dpi 쯤
 BRASS = (200, 168, 75)
 
 # (파일, 자르기 시작 y, 제목, 설명, 강조 상자(원본 좌표) 또는 None)
+# ⚠️ 흐림 상자(BLURS) — 사람 이름이 찍힌 자리. 저장소가 공개이고 문서가 돌려 읽히므로
+#    ⑤의 「섬기는 분」 간사님 두 분 이름·교구목장을 글자만 흐린다(성도님 요청 2026-09-17).
+#    캡처를 다시 찍으면 이 좌표도 다시 볼 것 — 어긋나면 이름이 그대로 나간다.
 CROPS = [
     (0, 425, '첫 화면', '「함께」 묶음에 사역신청 — 신청 기간에만 보입니다', (112, 1335, 968, 1513)),
     (1, 270, '조건으로 빠르게 찾기', '이름 · 언제 · 얼마나 자주 · 몇 시쯤', None),
@@ -51,8 +54,19 @@ CROPS = [
 ]
 
 
+BLURS = {
+    4: [(122, 1392, 562, 1466), (122, 1507, 562, 1581)],   # 「섬기는 분」 이름 칸 둘
+}
+
+
 def shot_uri(n, y, ring):
     im = Image.open(os.path.join(SHOT_DIR, '%d.jpg' % n)).convert('RGB')
+    for box in BLURS.get(n, []):
+        # 한 번 흐리면 굵은 글자는 윤곽이 남는다 — 세 번 겹쳐 읽을 수 없게
+        region = im.crop(box)
+        for _ in range(3):
+            region = region.filter(ImageFilter.GaussianBlur(18))
+        im.paste(region, box[:2])
     if ring:
         d = ImageDraw.Draw(im)
         d.rounded_rectangle(ring, radius=46, outline=BRASS, width=12)
