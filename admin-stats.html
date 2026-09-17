@@ -416,7 +416,9 @@
 .mn-contact{display:flex;align-items:flex-start;gap:8px;margin-top:8px;}
 .mn-contact .mn-p4{flex:none;white-space:nowrap;}
 .mn-dups{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:4px;}
-.mn-dups .mn-dup{white-space:normal;word-break:keep-all;line-height:1.4;border-radius:10px;padding:4px 9px;}
+.mn-dups .mn-dup{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.4;border-radius:999px;padding:3px 8px;align-self:flex-start;max-width:100%;}
+.mn-contact{gap:6px;}
+.mn-contact .mn-p4 b{letter-spacing:.02em;}
 /* 둘째 줄: 소속 · 신청일 — 한 줄에 이름·직분·소속·상태 단추가 다 안 들어가 신청일만 떨어지던 것 */
 .mn-sub{display:block;margin-top:3px;white-space:nowrap;}
 #mn-list .mn-sub i{margin-left:0;}
@@ -3535,16 +3537,19 @@ function mnDupOthers(m, rows){
   });
   const name=(list[0]||{}).name||"";
   return [...seen.values()].map(p=> p.name===name
-    ? { kind:"소속", label:p.who||"소속 없음" }
-    : { kind:"사람", label:(p.name||"이름 없음")+(p.who?" · "+p.who:"") });
+    ? { kind:"소속", label:p.who||"소속 없음", name:p.name, who:p.who }
+    : { kind:"사람", label:(p.name||"이름 없음")+(p.who?" · "+p.who:""), name:p.name, who:p.who });
 }
+// ⚠️ **한 줄에 들어가게 짧게**(2026-09-17 성도님 요청 — 전화번호 옆에서 두세 줄로 꺾였다).
+//    전체 설명은 title(길게 누르기·마우스 올리기)에 둔다. 여럿이면 「외 N」.
 function mnDupBadge(dup){
   if(!dup.length) return "";
-  const same=dup.filter(x=>x.kind==="소속").map(x=>x.label);
-  const other=dup.filter(x=>x.kind==="사람").map(x=>x.label);
+  const same=dup.filter(x=>x.kind==="소속");
+  const other=dup.filter(x=>x.kind==="사람");
+  const more=n=>n>1?` 외 ${n-1}`:"";
   return [
-    same.length ? `<span class="mn-dup" title="다른 교구·목장으로 로그인해 한 번 더 내셨을 수 있습니다">⚠️ 같은 이름·번호 · 다른 소속(${plEsc(same.join(", "))})에서도 신청</span>` : "",
-    other.length ? `<span class="mn-dup other" title="가족 등 번호를 함께 쓰는 분일 수 있습니다">☎️ 같은 번호 · 다른 신청자(${plEsc(other.join(", "))})</span>` : "",
+    same.length ? `<span class="mn-dup" title="같은 이름·번호로 다른 소속(${plEsc(same.map(x=>x.label).join(", "))})에서도 신청 — 다른 교구·목장으로 로그인해 한 번 더 내셨을 수 있습니다">⚠️ 중복 · ${plEsc(String(same[0].label).replace(/목장$/,""))}${more(same.length)}</span>` : "",
+    other.length ? `<span class="mn-dup other" title="같은 번호로 다른 분(${plEsc(other.map(x=>x.label).join(", "))})도 신청 — 가족 등 번호를 함께 쓰는 분일 수 있습니다">☎️ 번호 같음 · ${plEsc(other[0].name||"이름 없음")}${more(other.length)}</span>` : "",
   ].join("");
 }
 function mnTeamKey(r){ return (r.committee||"")+" · "+(r.team||""); }
