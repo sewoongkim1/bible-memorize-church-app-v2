@@ -36,6 +36,10 @@
   /* 사역신청 담당자 확인 — 암호 아래에 앱 로그인과 같은 소속·이름을 받는다 */
   .login-card select{width:100%;padding:12px 13px;font-size:1rem;border:1px solid var(--border);
     border-radius:10px;background:var(--cream);font-family:inherit;margin-bottom:12px;color:inherit;}
+  .login-card .staff-me{display:inline-block;margin:0 0 14px;padding:8px 14px;border-radius:999px;background:#eef3fb;
+    border:1px solid #d3deef;color:#41506b;font-size:.95rem;}
+  .login-card .staff-me b{color:var(--navy);}
+  .login-card .staff-hint{font-size:.78rem;color:var(--gray);margin:-8px 0 16px;}
   .login-card .staff-lb{text-align:left;font-size:.82rem;font-weight:700;color:var(--navy);margin:6px 0 6px;}
   .login-card .staff-row{display:flex;gap:8px;}
   /* ⚠️ display:flex 가 hidden 속성을 이긴다 — 없으면 교구·교회학교 칸이 둘 다 보인다 */
@@ -654,43 +658,38 @@ function renderLogin(){
 // ---------- 카드 메뉴 ----------
 // ---------- 사역신청 담당자 로그인 · 메뉴 ----------
 function renderMinistryLogin(){
+  // 담당자 확인은 **이 기기의 앱 로그인 정보**로 한다(2026-09-17 성도님 요청 — 입력 없이 암호만).
+  // 앱(아이폰 앱 포함)과 같은 주소 아래라 localStorage 「memorize-user」를 함께 쓴다.
+  // ⚠️ 이름·소속은 비밀이 아니다 — 막는 것은 암호와, 서버가 액션마다 보는 담당자 등록이다.
   logoutBtn.hidden = true;
-  const gu = GU_LIST.map(g=>`<option>${g}</option>`).join("");
-  const bu = BU_LIST.map(g=>`<option>${g}</option>`).join("");
+  const u = minAppUser();
+  if(!u){
+    app.innerHTML = `
+      <div class="login-card">
+        <h2>🔒 사역신청 관리</h2>
+        <p>이 기기에서 <b>앱에 먼저 로그인</b>해 주세요.<br>로그인한 정보(교구·목장·이름)로 담당자를 확인합니다.</p>
+        <button id="go-app">앱에서 로그인하기</button>
+        <a class="home-link" href="index.html">← 첫 화면으로</a>
+      </div>`;
+    document.getElementById("go-app").addEventListener("click", ()=>{ location.href="index.html"; });
+    return;
+  }
+  const staff = minStaffOf(u);
   app.innerHTML = `
     <div class="login-card">
       <h2>🔒 사역신청 관리</h2>
-      <p>사역신청 암호를 넣고, 앱에 로그인할 때와 같은 소속·이름으로 담당자 확인을 해 주세요.</p>
+      <p>앱에 로그인한 정보로 담당자를 확인합니다.</p>
+      <div class="staff-me">👤 ${htmlEsc(minWho(staff))} · <b>${htmlEsc(staff.name)}</b></div>
+      <div class="staff-hint">다른 분이면 앱에서 로그인을 바꿔 주세요</div>
       <div class="login-err" id="lerr"></div>
       <input type="password" id="pw" placeholder="사역신청 암호" autocomplete="current-password" />
-      <div class="staff-lb">담당자 확인</div>
-      <select id="st-type"><option>교구</option><option>교회학교</option></select>
-      <div class="staff-row" id="st-gu-row">
-        <select id="st-gu">${gu}</select>
-        <input id="st-mok" placeholder="목장 (예: 3)" inputmode="text" />
-      </div>
-      <div class="staff-row" id="st-bu-row" hidden>
-        <select id="st-bu">${bu}</select>
-        <input id="st-grade" placeholder="학년 (예: 3학년)" />
-      </div>
-      <input id="st-name" placeholder="이름" autocomplete="name" />
       <button id="login">로그인</button>
       <a class="home-link" href="index.html">← 첫 화면으로</a>
     </div>`;
-  const $ = id => document.getElementById(id);
-  const err = $("lerr");
-  $("st-type").addEventListener("change", ()=>{
-    const school = $("st-type").value === "교회학교";
-    $("st-gu-row").hidden = school; $("st-bu-row").hidden = !school;
-  });
+  const err = document.getElementById("lerr"), pwInput = document.getElementById("pw");
   async function tryLogin(){
-    const pw = $("pw").value.trim();
-    const type = $("st-type").value;
-    const staff = type === "교회학교"
-      ? { type, bu:$("st-bu").value, grade:$("st-grade").value.trim(), name:$("st-name").value.trim() }
-      : { type, gu:$("st-gu").value, mok:$("st-mok").value.trim(), name:$("st-name").value.trim() };
+    const pw = pwInput.value.trim();
     if(!pw){ err.textContent="사역신청 암호를 입력하세요."; return; }
-    if(!staff.name){ err.textContent="담당자 이름을 입력하세요."; return; }
     err.textContent = "확인 중...";
     const d = await callApi({ action:"ministryAuth", pw, staff }).catch(()=>({ok:false,error:"network"}));
     if(d.ok){
@@ -700,13 +699,28 @@ function renderMinistryLogin(){
       return;
     }
     // ⚠️ 서버는 「암호가 틀림」과 「담당자가 아님」을 일부러 같은 답으로 준다 — 화면도 한 문장으로 안내한다
-    err.textContent = d.error==="unauthorized" ? "암호나 담당자 정보가 맞지 않습니다. 사역신청 암호와, 앱에 로그인할 때와 같은 소속·이름인지 확인해 주세요."
+    err.textContent = d.error==="unauthorized"
+      ? `암호가 맞지 않거나, 지금 로그인된 분(${minWho(staff)} ${staff.name})이 사역신청 담당자로 등록되어 있지 않습니다.`
       : d.error==="no-password-set" ? "서버에 암호가 설정되지 않았습니다(관리자 설정 필요)."
       : "연결 오류입니다. 잠시 후 다시 시도하세요.";
   }
-  $("login").addEventListener("click", tryLogin);
-  ["pw","st-mok","st-grade","st-name"].forEach(id=>$(id).addEventListener("keydown", e=>{ if(e.key==="Enter") tryLogin(); }));
-  $("pw").focus();
+  document.getElementById("login").addEventListener("click", tryLogin);
+  pwInput.addEventListener("keydown", e=>{ if(e.key==="Enter") tryLogin(); });
+  pwInput.focus();
+}
+// 이 기기의 앱 로그인 정보(없으면 null)
+function minAppUser(){
+  try { const u=JSON.parse(localStorage.getItem("memorize-user")||"null"); return u && u.name ? u : null; }
+  catch(_) { return null; }
+}
+function minStaffOf(u){
+  return u.type==="교회학교"
+    ? { type:"교회학교", bu:u.bu||"", grade:u.grade||"", name:u.name }
+    : { type:"교구", gu:u.gu||"", mok:u.mok||"", name:u.name };
+}
+function minWho(st){
+  return st.type==="교회학교" ? [st.bu, st.grade].filter(Boolean).join(" ")
+    : [st.gu, st.mok ? st.mok+"목장" : ""].filter(Boolean).join(" ");
 }
 
 // ⑤ 담당자에서 빠졌거나 암호가 바뀌면 열린 화면을 그대로 두지 않고 로그인으로 돌려보낸다(2026-09-17 리뷰)
