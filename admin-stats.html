@@ -382,10 +382,17 @@
 .mc-sum{font-size:13px;color:#41506b;background:#eef1f8;border-radius:8px;padding:8px 12px;margin-bottom:10px;}
 .mc-sum b{font-size:15px;color:#1a3a6b;}
 .mc-rest{color:#a33;margin-left:8px;font-size:12px;}
-.mc-tabs{display:flex;gap:6px;margin-bottom:8px;overflow-x:auto;padding-bottom:2px;
-  scrollbar-width:none;-webkit-overflow-scrolling:touch;}
-.mc-tabs::-webkit-scrollbar{display:none;}
+.mc-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
+.mc-tabs[hidden]{display:none;}
 .mc-tabs .mc-tab{flex:none;white-space:nowrap;}
+/* 부서 고르기 — 접어 두고 펴서 고른다(가로 스크롤을 없앴다) */
+.mc-pick{display:flex;align-items:center;gap:7px;width:100%;height:38px;padding:0 12px;margin-bottom:8px;
+  font:inherit;background:#fff;border:1px solid #dde3ee;border-radius:10px;cursor:pointer;color:#41506b;}
+.mc-pick-l{font-size:12px;font-weight:800;color:#8a95a8;flex:none;}
+.mc-pick b{flex:1;min-width:0;text-align:left;font-size:13.5px;font-weight:800;color:#1a3a6b;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.mc-pick-x{flex:none;font-size:12px;color:#8a95a8;transition:transform .15s;}
+.mc-pick[aria-expanded="true"] .mc-pick-x{transform:rotate(180deg);}
 /* ── 폰에서 보기 좋은 사역팀 정보(2026-09-18) — 한 팀 = 한 줄 카드, 눌러야 자세히 ── */
 .mc-panel{padding-top:10px;}
 .mc-head{position:sticky;top:0;z-index:20;background:#fff;margin:-10px -18px 10px;padding:10px 18px 6px;
@@ -4327,7 +4334,14 @@ function renderMinistryCatalog(){
           <span class="mn-search-ico" aria-hidden="true">🔍</span>
           <input type="search" id="mc-q" placeholder="팀 · 부서 · 담당자 · 하는 일" autocomplete="off">
         </div>
-        <div id="mc-tabs" class="mc-tabs"></div>
+        <!-- ⚠️ 부서 칩을 옆으로 미는 줄(가로 스크롤)로 두었더니 **뒤쪽 부서가 있는지도 모른다**
+             (2026-09-18 성도님) — 접어 두고 펴서 고른다. 고르면 저절로 접힌다. -->
+        <button type="button" class="mc-pick" id="mc-pick-t" aria-expanded="false" aria-controls="mc-tabs">
+          <span class="mc-pick-l">부서</span>
+          <b id="mc-pick-n">전체</b>
+          <span class="mc-pick-x" aria-hidden="true">▾</span>
+        </button>
+        <div id="mc-tabs" class="mc-tabs" hidden></div>
         <div class="mc-head-b">
           <label class="mc-only"><input type="checkbox" id="mc-empty"> 비어 있는 것만</label>
           <span id="mc-found" class="mc-found"></span>
@@ -4360,6 +4374,9 @@ function renderMinistryCatalog(){
   });
   document.getElementById("mc-empty").addEventListener("change", e=>{
     mcOnlyEmpty=e.target.checked; mcOpen=0; mcEdit=0; mcRender();
+  });
+  document.getElementById("mc-pick-t").addEventListener("click", ()=>{
+    mcTabsOpen=!mcTabsOpen; mcSyncTabs();
   });
   mcLoad();
 }
@@ -4414,6 +4431,7 @@ function mcNote(t){
       폰에서는 한 팀을 보려고 한참 내려야 했고, 무엇이 비었는지도 안 보였다.
    이제 한 팀 = **한 줄 카드**다. 눌러야 자세히 열리고, 고칠 때만 입력칸이 나온다.
    찾기·위원회·「비어 있는 것만」은 위에 붙어 따라온다. */
+let mcTabsOpen = false;  // 부서 고르기를 펴 두었나(접어 두는 것이 기본)
 let mcQ = "";            // 찾는 글자
 let mcOnlyEmpty = false; // 설명이 비어 있는 팀만
 let mcOpen = 0;          // 펼쳐 본 팀
@@ -4442,6 +4460,16 @@ function mcLine(label, html, none){
           : `<span class="mc-r-v none">${none||"비어 있음"}</span>`) + `</div>`;
 }
 
+// 부서 고르기 — 접힘/펼침과 지금 고른 부서 이름을 맞춘다
+function mcSyncTabs(){
+  const t=document.getElementById("mc-tabs"), btn=document.getElementById("mc-pick-t");
+  if(!t||!btn) return;
+  t.hidden=!mcTabsOpen;
+  btn.setAttribute("aria-expanded", mcTabsOpen);
+  const n=document.getElementById("mc-pick-n");
+  if(n) n.textContent = mcPick || "전체";
+}
+
 function mcRender(){
   const box=document.getElementById("mc-list"); if(!box) return;
   mcCounts();
@@ -4467,10 +4495,11 @@ function mcRender(){
           ok:"버리고 옮기기", cancel:"그대로 두기" }))) return;
         if(mcOrderDirty){ mcOrderDirty=false; mcLoaded=false; mcPick=b.dataset.mc; mcLoad(); return; }
         mcSyncInputs();
-        mcPick=b.dataset.mc; mcOpen=0; mcEdit=0; mcRender();
+        mcPick=b.dataset.mc; mcOpen=0; mcEdit=0; mcTabsOpen=false; mcRender();
       });
     });
   }
+  mcSyncTabs();
 
   const bar=document.getElementById("mc-bar");
   if(bar){
