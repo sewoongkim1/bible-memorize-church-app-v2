@@ -3283,7 +3283,7 @@ if(getPw()) { logoutBtn.hidden=false; renderMenu(); } else { renderLogin(); }
 // ⚠️ 「미채택」은 뺐다(2026-09-17 성도님 결정) — 서버 MINISTRY_STATUS 와 같게.
 const MN_STATES = ["신청완료", "접수완료", "임명확정", "취소"];
 const MN_CLS = { "신청완료": "s1", "접수완료": "s2", "임명확정": "s3", "미채택": "s4", "취소": "s4" };
-const MN_SHORT = { "신청완료": "신청", "접수완료": "접수", "임명확정": "확정", "미채택": "미채택", "취소": "취소" };
+const MN_SHORT = { "신청완료": "신청", "접수완료": "접수", "임명확정": "임명", "미채택": "미채택", "취소": "취소" };
 let mnRows = [];      // [{ id, at, who, name, position, committee, team, option, status, ... }]
 // ⚠️ 한 건 = 한 팀 이다(2026-09-09). 한 사람이 최대 3건이고, 담당자는 건마다 따로 접수한다.
 let mnView = "row";   // row 건별 · person 사람별 · team 사역별
