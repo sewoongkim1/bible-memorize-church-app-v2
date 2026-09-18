@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260918k";
+const APP_BUILD = "20260918l";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5150,18 +5150,23 @@ function scrollPastBtnRow() {
 })();
 
 // 아이폰 키보드가 열리면 .test-ref-sticky(요절 고정 배너, position:fixed)가 화면 밖으로
-// 밀리거나 안 보이게 되는 문제(성도님 제보 2026-09-18) — 키보드 뜬 동안은 위치를 억지로
-// 맞추는 대신 배너를 잠깐 숨긴다(이미 본 구절이라 타이핑 중엔 안 보여도 지장 없다).
-// visualViewport 높이가 창 높이보다 뚜렷이 작아지면 키보드가 열린 것으로 본다.
-(function watchKeyboardForStickyRef() {
+// 밀리거나 안 보이게 되는 문제(성도님 제보 2026-09-18) — 키보드가 뜨면서 포커스된 입력칸을
+// 보이려고 페이지 자체가 스크롤(layout viewport 기준)되는데, position:fixed는 그 layout
+// viewport 맨 위에 그대로 있어 실제 보이는 화면(visual viewport) 밖으로 밀려난다.
+// ⚠️ 처음엔 "키보드 열린 동안 숨기기"로 고쳤는데, 성도님이 "계속 고정돼 보여야 한다"고
+// 다시 알려주셔서(2026-09-18) — 숨기는 대신 visualViewport.offsetTop만큼 같이 따라가게
+// 바꿨다. offsetTop은 키보드가 없을 땐 0이라 평소엔 아무 효과가 없다.
+(function trackStickyRefWithKeyboard() {
   if (!window.visualViewport) return;
-  const KB_THRESHOLD = 150; // 이 정도 줄면 키보드로 판단(회전·동적툴바 오차 흡수)
   const sync = () => {
-    const shrunk = (window.innerHeight - window.visualViewport.height) > KB_THRESHOLD;
-    document.body.classList.toggle("kb-open", shrunk);
+    const el = document.querySelector(".test-ref-sticky");
+    if (!el) return;
+    const offset = window.visualViewport.offsetTop || 0;
+    el.style.transform = offset ? `translate(-50%, ${offset}px)` : "";
   };
   window.visualViewport.addEventListener("resize", sync);
-  sync();
+  window.visualViewport.addEventListener("scroll", sync);
+  new MutationObserver(sync).observe(document.getElementById("app"), { childList: true, subtree: true });
 })();
 
 // 영어 관용 비교용 정규화 — 대소문자·문장부호·스마트따옴표 차이는 정답으로 인정
