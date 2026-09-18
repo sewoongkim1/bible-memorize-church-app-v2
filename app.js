@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260918v";
+const APP_BUILD = "20260918w";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -7386,18 +7386,13 @@ function setupChallengeTyping(verse, onComplete) {
     return true;
   }
   inputs.forEach((input, idx) => {
-    // ⚠️ 700ms 디바운스로 짰다가 되돌렸다(2026-09-18) — 쉬지 않고 계속 틀리게 치면
-    // 타이머가 매번 새로 밀려 검사 자체가 영영 안 돌아, "여러 글자를 넣어도 계속
-    // 받아진다"는 제보로 드러났다. isComposingJamo가 이벤트가 아니라 값 자체로
-    // "아직 조합 중"을 판정하므로, 굳이 기다리지 않고 매 이벤트마다 바로 검사해도
-    // 안전하다.
-    function onChange() {
-      // ⚠️ 이미 맞혀서 잠긴(disabled) 칸에 같은 키 입력의 뒤따르는 이벤트(예: input 다음의
-      // keyup)가 또 들어올 수 있다. checkAccept는 disabled면 false를 돌려주는데, 그걸
-      // "오답"으로 잘못 읽으면 방금 맞힌 칸을 도로 지워버린다("첫 단어가 맞아도 클리어
-      // 된다" 제보, 2026-09-18) — 여기서 먼저 걸러야 한다.
+    let timer = null;
+    // ⚠️ 이미 맞혀서 잠긴(disabled) 칸에 같은 키 입력의 뒤따르는 이벤트(예: input 다음의
+    // keyup)가 또 들어올 수 있다. checkAccept는 disabled면 false를 돌려주는데, 그걸
+    // "오답"으로 잘못 읽으면 방금 맞힌 칸을 도로 지워버린다("첫 단어가 맞아도 클리어
+    // 된다" 제보, 2026-09-18) — 여기서 먼저 걸러야 한다.
+    function tryWrong() {
       if (input.disabled) return;
-      if (input.classList.contains("wrong")) return; // 지워지는 0.4초 동안은 건너뜀
       if (checkAccept(input, idx)) return;
       const val = input.value.trim();
       if (isComposingJamo(val)) return; // 아직 조합 중
@@ -7409,6 +7404,16 @@ function setupChallengeTyping(verse, onComplete) {
         input.classList.remove("correct");
         setTimeout(() => { input.blur(); input.value = ""; input.classList.remove("wrong"); input.focus(); }, 400);
       }
+    }
+    // 즉시 한 번 검사하고(쉬지 않고 계속 쳐도 매번 검사되도록), 700ms 뒤에도 한 번 더
+    // 검사한다 — 아이폰은 마지막 글자의 input/keyup이 씹히는 경우가 있어("길게 틀리게
+    // 넣고 기다려도 안 지워짐" 제보, 2026-09-18), 즉시 검사만으로는 그 마지막 순간을
+    // 놓칠 수 있다. 둘 다 disabled·조합 중이면 아무 일도 안 하므로 두 번 돌아도 안전하다.
+    function onChange() {
+      if (input.disabled || input.classList.contains("wrong")) return; // 지워지는 0.4초 동안은 건너뜀
+      clearTimeout(timer);
+      tryWrong();
+      timer = setTimeout(tryWrong, 700);
     }
     input.addEventListener("compositionend", onChange);
     input.addEventListener("input", onChange);
