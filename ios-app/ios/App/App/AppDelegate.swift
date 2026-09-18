@@ -30,6 +30,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private var verseRefTimer: Timer?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // ⚠️ WKWebView는 실시간으로 불러오는 gocheok.onlybible.kr의 app.js·style.css를
+        // 자체 디스크 캐시에 남겨 둔다 — 사파리는 즉시 새 판을 받는데, 앱은 완전종료했다
+        // 다시 켜도 옛 CSS·JS를 계속 보여줬다(서버는 이미 새 판을 내보내는 게 확인됐는데도,
+        // 성도님 실기기로 여러 번 재확인, 2026-09-18). 로그인 정보(localStorage)·쿠키는
+        // 안 건드리고 리소스 캐시만 비워, 앱을 켤 때마다 서버에서 새로 받게 한다.
+        WKWebsiteDataStore.default().removeData(
+            ofTypes: [WKWebsiteDataTypeDiskCache, WKWebsiteDataTypeMemoryCache],
+            modifiedSince: Date(timeIntervalSince1970: 0)
+        ) {}
+
         // 이걸 안 하면 앱이 화면에 떠 있는(포그라운드) 동안 온 푸시는 iOS가 "보여줄까?"를
         // 물어볼 데가 없어 조용히 무시해 버린다(애플 서버는 정상 전달했다고 답하는데도
         // 화면엔 아무것도 안 뜨는 문제 — 실기기 테스트로 확인됨, 2026-09-16).
