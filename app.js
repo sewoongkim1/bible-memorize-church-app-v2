@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260918h";
+const APP_BUILD = "20260918i";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9502,7 +9502,7 @@ function minLockNoteHtml() {
 function minHasDetail(t) { return !!(t && (t.desc || t.capacity || t.sched || t.members || t.leader)); }
 function minMoreBtn(t) {
   return minHasDetail(t)
-    ? '<button class="min-more" data-more="' + t.id + '">자세히 보기 ›</button>' : "";
+    ? '<button class="min-more" data-more="' + t.id + '">보기 ›</button>' : "";
 }
 
 function renderMinistry(keepScroll) {
@@ -10241,12 +10241,13 @@ function minDoneHtml(u) {
         ? dateLine(it.status === "임명확정" ? "🎉" : it.status === "취소" ? "🚫" : "🔕",
             it.status === "임명확정" ? "임명" : it.status === "취소" ? "취소" : "결정", decided)
         : "");
+    // ⚠️ 첫 줄에 **이름과 상태를 나란히**(2026-09-18 성도님). 사역 시간(meta)은 이 카드에서 뺐다 —
+    //    「내 신청」에서 궁금한 것은 「무엇을·어디까지」이고, 시간은 「보기」 창이 맡는다.
     rows += '<div class="min-pick"><span class="min-pick-ck ' + st.cls + '">' + st.ic + '</span>' +
-      '<span class="min-nm">' + minEsc(it.team) +
-      ' <span class="min-com">· ' + minEsc(it.committee) + '</span></span>' +
-      '<span class="min-info">' +
-        '<span class="min-st ' + st.cls + '">' + minEsc(minStName(it.status)) + '</span>' +
-        (meta ? '<span class="min-meta">' + meta + '</span>' : "") + dates + '</span>' +
+      '<span class="min-hd"><span class="min-nm">' + minEsc(it.team) +
+        ' <span class="min-com">· ' + minEsc(it.committee) + '</span></span>' +
+        '<span class="min-st ' + st.cls + '">' + minEsc(minStName(it.status)) + '</span></span>' +
+      '<span class="min-info">' + dates + '</span>' +
       (t ? minMoreBtn(t) : "") + '</div>';
   }
 

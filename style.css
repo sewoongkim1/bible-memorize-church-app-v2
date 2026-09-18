@@ -4703,7 +4703,11 @@ body.pr-full-on { overflow: hidden; }
   align-items: center; padding: 12px 13px;
   border: 1.5px solid var(--border); border-radius: 12px; background: var(--white); margin-bottom: 9px; }
 .min-pick > .min-pick-ck { grid-column: 1; grid-row: 1 / span 2; }
-.min-pick > .min-nm { grid-column: 2 / span 2; grid-row: 1; }
+.min-pick > .min-nm, .min-pick > .min-hd { grid-column: 2 / span 2; grid-row: 1; }
+/* 첫 줄 = 이름 + 상태 딱지(2026-09-18) */
+.min-hd { display: flex; align-items: baseline; flex-wrap: wrap; gap: 3px 7px; }
+.min-hd .min-nm { flex: 1 1 auto; min-width: 0; }
+.min-hd .min-st { flex: none; margin-top: 0; }
 .min-pick > .min-info { grid-column: 2; grid-row: 2; }
 .min-pick > .min-more, .min-pick > .min-del { grid-column: 3; grid-row: 2; align-self: center; }
 .min-pick > .min-info:empty { display: none; }
