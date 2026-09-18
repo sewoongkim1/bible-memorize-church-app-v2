@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260918t";
+const APP_BUILD = "20260918u";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -7156,18 +7156,13 @@ function renderChallenge(verse, hard) {
   setupHint();
   setupChallengeTyping(verse, (mode) => challengeComplete(verse, cardUsed ? "card" : mode));
   setupVoice(verse, 3, () => challengeComplete(verse, "voice"));
-  // "구절" 칸이 스크롤하면 위쪽 고정 배너(.test-ref-sticky, position:fixed;top:0)
-  // 아래로 가려 안 보이는 문제가 있었다(2026-08-31 제보 — 키보드가 아니라 이 고정
-  // 배너가 원인이었다). scrollIntoView는 fixed 요소를 모르고 맨 위까지 붙여버리므로,
-  // .ref-input에 준 scroll-margin-top(스타일시트)이 그 자리만큼 여유를 두게 한다.
-  if (refFirst) {
-    setTimeout(() => {
-      const ref = document.querySelector(".ref-input");
-      if (ref) ref.scrollIntoView({ block: "start" }); // 즉시 이동 — smooth는 키보드가
-      // 같이 올라오는 애니메이션과 겹치면 오히려 덜 매끄럽고, 헤드리스 테스트에서도
-      // 끝났는지 확인하기 어려웠다(가상시간에서 애니메이션이 제대로 안 끝남).
-    }, 250);
-  }
+  // ⚠️ 예전엔 여기서 "구절" 칸을 화면 렌더 250ms 뒤 무조건 scrollIntoView(block:"start")로
+  // 맨 위까지 붙였다(2026-08-31 — 위쪽 고정 배너에 가려 안 보이던 문제 때문). 그런데 이
+  // 타이머는 사용자가 그새 뭘 했는지 모른다 — 빠르게 타이핑해 이미 다음 칸으로 넘어간
+  // 뒤에도 뒤늦게 발동해 화면을 도로 맨 위로 끌어올렸다("첫 단어 넣고 다음 칸 가면
+  // 처음으로 스크롤됨" 제보, 2026-09-18). setupChallengeTyping이 모든 입력칸에
+  // focus 리스너(scrollIntoCenter)를 붙였으므로 — .ref-input이 처음 포커스될 때도
+  // 이미 같은 일을 하고 있다 — 이 중복되고 성급한 타이머는 없앤다.
 }
 
 // ------------------------------------------------------------
