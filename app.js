@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260918r";
+const APP_BUILD = "20260918s";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -7356,6 +7356,20 @@ function setupChallengeTyping(verse, onComplete) {
   // 한다(성도님 제보: "틀려도 클리어가 안 되고 계속 입력됨"). 그래서 이벤트를 아예 믿지 않고,
   // 남은 낱자모(호환 자모 ㄱ~ㆎ·U+1100대 자모)가 값에 있는지 **내용 자체**로만 판단한다.
   const isComposingJamo = (s) => /[ㄱ-ㆎᄀ-ᇿ]/.test(String(s || ""));
+  // 암송 화면(setupAutoCheck)의 scrollIntoCenter와 같은 것(거기도 지역 함수라 그대로
+  // 옮겨 둔다). 자판이 뜬 채로 다음 빈칸에 포커스가 넘어갈 때, 사파리 기본 스크롤에
+  // 맡기면 매번 화면이 확 튀어 "처음부터 다시 올라오는" 것처럼 보인다(성도님 제보,
+  // 2026-09-18 — 위 커밋에서 자판이 안정적으로 뜨게 고치고 나서야 드러났다). 이미 잘
+  // 보이면 그대로 두고, 가려질 때만 부드럽게 옮긴다.
+  function scrollIntoCenter(input) {
+    setTimeout(() => {
+      const vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+      const top = input.getBoundingClientRect().top;
+      if (top >= 40 && top <= vh - 60) return; // 이미 충분히 보임 — 그대로 둠
+      const target = vh / 2 - 80; // 화면 중앙보다 약 2cm(80px) 위
+      window.scrollBy({ top: top - target, behavior: "smooth" });
+    }, 250);
+  }
   function checkAccept(input, idx) {
     if (input.disabled) return false;
     const val = input.value.trim();
@@ -7401,6 +7415,7 @@ function setupChallengeTyping(verse, onComplete) {
     input.addEventListener("compositionend", onChange);
     input.addEventListener("input", onChange);
     input.addEventListener("keyup", onChange); // 아이폰은 조합 완료 신호가 늦거나 누락될 수 있음
+    input.addEventListener("focus", () => scrollIntoCenter(input));
   });
 
   // 카드 모드 — 낱말을 눌러서 채운다(암송 화면과 같은 방식).
