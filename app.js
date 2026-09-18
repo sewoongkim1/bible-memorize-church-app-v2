@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260918s";
+const APP_BUILD = "20260918t";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -7391,26 +7391,22 @@ function setupChallengeTyping(verse, onComplete) {
     return true;
   }
   inputs.forEach((input, idx) => {
-    let timer = null;
-    // 오답 처리는 "입력이 멈춘 뒤"에만(setupAutoCheck와 같은 700ms 디바운스) — 타이핑
-    // 도중의 중간 상태를 성급하게 틀렸다고 보지 않는다.
-    function scheduleWrongCheck() {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        if (input.disabled || checkAccept(input, idx)) return;
-        const val = input.value.trim();
-        if (isComposingJamo(val)) return; // 아직 조합 중
-        const answer = input.dataset.answer;
-        if (val && Array.from(val).length >= Array.from(answer).length) {
-          input.classList.add("wrong");
-          input.classList.remove("correct");
-          setTimeout(() => { input.blur(); input.value = ""; input.classList.remove("wrong"); input.focus(); }, 400);
-        }
-      }, 700);
-    }
+    // ⚠️ 700ms 디바운스로 짰다가 되돌렸다(2026-09-18) — 쉬지 않고 계속 틀리게 치면
+    // 타이머가 매번 새로 밀려 검사 자체가 영영 안 돌아, "여러 글자를 넣어도 계속
+    // 받아진다"는 제보로 드러났다. isComposingJamo가 이벤트가 아니라 값 자체로
+    // "아직 조합 중"을 판정하므로, 굳이 기다리지 않고 매 이벤트마다 바로 검사해도
+    // 안전하다.
     function onChange() {
-      clearTimeout(timer);
-      if (!checkAccept(input, idx)) scheduleWrongCheck();
+      if (input.classList.contains("wrong")) return; // 지워지는 0.4초 동안은 건너뜀
+      if (checkAccept(input, idx)) return;
+      const val = input.value.trim();
+      if (isComposingJamo(val)) return; // 아직 조합 중
+      const answer = input.dataset.answer;
+      if (val && Array.from(val).length >= Array.from(answer).length) {
+        input.classList.add("wrong");
+        input.classList.remove("correct");
+        setTimeout(() => { input.blur(); input.value = ""; input.classList.remove("wrong"); input.focus(); }, 400);
+      }
     }
     input.addEventListener("compositionend", onChange);
     input.addEventListener("input", onChange);
