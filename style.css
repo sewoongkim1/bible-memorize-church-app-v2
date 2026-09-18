@@ -938,8 +938,15 @@ body.native-app-hide-ref .test-ref-sticky { visibility: hidden; }
 .test-card.with-ref-banner { padding-top: 50px; }
 /* 아이폰 네이티브 앱의 진짜 네이티브 배너(AppDelegate.swift)는 그림자까지 합친 실제
    높이가 이 50px보다 커서, 그대로 두면 첫 줄(빈칸)을 살짝 가린다(성도님 스크린샷으로
-   확인, 2026-09-18). 78px로 한 번 올렸는데도 계속 가려서 훨씬 넉넉하게 더 올린다. */
-body.native-app-hide-ref .test-card.with-ref-banner { padding-top: 115px; }
+   확인, 2026-09-18). ⚠️ 78px→115px로 37px나 올렸는데도 화면이 똑같았다 — padding을
+   더 키우는 게 문제가 아니라, 브라우저의 스크롤 위치 자동 보정(overflow-anchor)이
+   카드 위쪽 높이가 커진 만큼 스크롤도 같이 밀어서 "보던 자리"를 그대로 유지시켜
+   버려 내 padding 변경 자체가 화면에 안 보이던 것으로 보인다. 이 카드에서만 그
+   보정을 끈다. */
+body.native-app-hide-ref .test-card.with-ref-banner {
+  padding-top: 90px;
+  overflow-anchor: none;
+}
 .test-sentence {
   font-family: "Gowun Batang", serif;
   font-weight: 700;
