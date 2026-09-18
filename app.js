@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260918p";
+const APP_BUILD = "20260918q";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -4456,7 +4456,12 @@ function showStageDoneModal(verse, stage, wasFirst) {
     wrap.classList.remove("show");
     setTimeout(() => wrap.remove(), 250);
   };
-  const go = (fn) => { close(); if (fn) setTimeout(fn, 60); };
+  // ⚠️ fn()은 close()와 같은 동기 흐름(탭 이벤트 안)에서 바로 불러야 한다. setTimeout으로
+  // 미루면 다음 화면의 inputs[0].focus()가 사용자 탭과 끊어져, 사파리가 자판을 자동으로
+  // 안 띄운다("한 단계 끝내고 다음 단계 넘어갈 때만" 재현됨, 2026-09-18 실기기 확인 —
+  // 크롬은 더 관대해 문제없이 보였다). 오버레이가 반투명(rgba(...,.45))이라 뒤 화면이
+  // 지연 없이 바뀌어도 티가 안 난다.
+  const go = (fn) => { close(); if (fn) fn(); };
   const main = () => go(stage < 3
     ? () => renderTestScreen(verse, stage + 1)
     : next ? () => startTest(next)
