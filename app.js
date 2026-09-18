@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260918q";
+const APP_BUILD = "20260918r";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -7349,42 +7349,58 @@ function setupChallengeTyping(verse, onComplete) {
   // 구절 빈칸(예 "삿 8:23")은 콜론이 자판을 바꿔야 나오는 기기가 많아 치기 번거롭다 —
   // 콜론 대신 띄어쓰기를 넣어도 같은 것으로 본다(2026-08-31 사용자 요청: "':' 는 ':' 또는 ' '").
   const refNorm = (s) => String(s || "").replace(/[: ]+/g, " ").trim();
-  // 암송 화면(setupAutoCheck)의 isComposingJamo와 같은 것. 아이폰 사파리는 다음 음절을
-  // 조합하는 중(예: "항상"을 치다가 "항ㅅ")에 compositionstart/isComposing이 늦게 잡히거나
-  // 아예 안 잡힐 때가 있어, 글자 수만 보고 오답 처리하면 조합 중인데 지워진다(2026-09-18,
-  // 실기기 영상으로 "항ㅅ"이 찍혔다 사라지는 것을 확인 — 크롬은 이 문제가 없었다). 남은
-  // 낱자모(호환 자모 ㄱ~ㆎ·U+1100대 자모)가 값에 있으면 이벤트와 무관하게 "아직 조합 중"으로
-  // 본다.
+  // 암송 화면(setupAutoCheck)의 isComposingJamo와 같은 것. 아이폰 사파리는 compositionstart/
+  // compositionend·isComposing 이벤트가 양쪽으로 다 불안정하다 — 조합 중인데 안 잡혀서
+  // 오답으로 지워지기도 하고(2026-09-18, "항ㅅ"이 찍혔다 사라지는 실기기 영상으로 확인),
+  // 반대로 조합이 끝났는데도 isComposing이 계속 true로 남아 오답 판정이 영영 안 걸리기도
+  // 한다(성도님 제보: "틀려도 클리어가 안 되고 계속 입력됨"). 그래서 이벤트를 아예 믿지 않고,
+  // 남은 낱자모(호환 자모 ㄱ~ㆎ·U+1100대 자모)가 값에 있는지 **내용 자체**로만 판단한다.
   const isComposingJamo = (s) => /[ㄱ-ㆎᄀ-ᇿ]/.test(String(s || ""));
-  function evaluate(input, idx, isComposing) {
-    if (input.disabled) return;
+  function checkAccept(input, idx) {
+    if (input.disabled) return false;
     const val = input.value.trim();
     const answer = input.dataset.answer;
     const isRef = input.classList.contains("ref-input");
     const match = en ? easyEnNorm(val) === easyEnNorm(answer)
       : isRef ? refNorm(val) === refNorm(answer)
       : val === answer;
-    if (match) {
-      input.value = answer;
-      input.classList.add("correct");
-      input.classList.remove("wrong");
-      input.disabled = true;
-      const left = updateRemain();
-      // 남은 빈칸이 0이면 완료 (입력 순서와 무관하게 확실히 판정)
-      if (left === 0 && !done) { done = true; onComplete("typing"); return; }
-      const next = inputs.slice(idx + 1).find((inp) => !inp.disabled) || inputs.find((inp) => !inp.disabled);
-      if (next) next.focus();
-    } else if (!isComposing && !isComposingJamo(val) && Array.from(val).length >= Array.from(answer).length) {
-      input.classList.add("wrong");
-      input.classList.remove("correct");
-      setTimeout(() => { input.blur(); input.value = ""; input.classList.remove("wrong"); input.focus(); }, 400);
-    }
+    if (!match) return false;
+    input.value = answer;
+    input.classList.add("correct");
+    input.classList.remove("wrong");
+    input.disabled = true;
+    const left = updateRemain();
+    // 남은 빈칸이 0이면 완료 (입력 순서와 무관하게 확실히 판정)
+    if (left === 0 && !done) { done = true; onComplete("typing"); return true; }
+    const next = inputs.slice(idx + 1).find((inp) => !inp.disabled) || inputs.find((inp) => !inp.disabled);
+    if (next) next.focus();
+    return true;
   }
   inputs.forEach((input, idx) => {
-    let composing = false;
-    input.addEventListener("compositionstart", () => { composing = true; });
-    input.addEventListener("compositionend", () => { composing = false; evaluate(input, idx, false); });
-    input.addEventListener("input", (e) => { evaluate(input, idx, composing || e.isComposing); });
+    let timer = null;
+    // 오답 처리는 "입력이 멈춘 뒤"에만(setupAutoCheck와 같은 700ms 디바운스) — 타이핑
+    // 도중의 중간 상태를 성급하게 틀렸다고 보지 않는다.
+    function scheduleWrongCheck() {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (input.disabled || checkAccept(input, idx)) return;
+        const val = input.value.trim();
+        if (isComposingJamo(val)) return; // 아직 조합 중
+        const answer = input.dataset.answer;
+        if (val && Array.from(val).length >= Array.from(answer).length) {
+          input.classList.add("wrong");
+          input.classList.remove("correct");
+          setTimeout(() => { input.blur(); input.value = ""; input.classList.remove("wrong"); input.focus(); }, 400);
+        }
+      }, 700);
+    }
+    function onChange() {
+      clearTimeout(timer);
+      if (!checkAccept(input, idx)) scheduleWrongCheck();
+    }
+    input.addEventListener("compositionend", onChange);
+    input.addEventListener("input", onChange);
+    input.addEventListener("keyup", onChange); // 아이폰은 조합 완료 신호가 늦거나 누락될 수 있음
   });
 
   // 카드 모드 — 낱말을 눌러서 채운다(암송 화면과 같은 방식).
@@ -7415,7 +7431,7 @@ function setupChallengeTyping(verse, onComplete) {
           btn.disabled = true;
           cardUsed = true;
           target.value = target.dataset.answer;
-          evaluate(target, idx, false);
+          checkAccept(target, idx);
         } else {
           btn.classList.add("shake");
           target.classList.add("wrong");
