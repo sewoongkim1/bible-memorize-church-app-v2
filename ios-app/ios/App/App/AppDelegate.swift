@@ -180,11 +180,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         verseRefContainer.addSubview(verseRefLabel)
         window.addSubview(verseRefContainer)
 
+        // ⚠️ leading/trailing을 >=/<=(최소 여백)로 두면 컨테이너가 글자 길이에 맞춰
+        // 좁게 줄어들어, 웹의 .test-ref-sticky(가로로 넓게 퍼짐)와 다르게 보인다
+        // (성도님 스크린샷으로 확인, 2026-09-18 — 앱은 좁은 상자, 웹은 옆으로 넓음).
+        // 등호(=)로 바꿔 안전 영역 양옆 20pt를 뺀 만큼 실제로 채우게 한다.
         NSLayoutConstraint.activate([
             verseRefContainer.topAnchor.constraint(equalTo: window.safeAreaLayoutGuide.topAnchor),
-            verseRefContainer.centerXAnchor.constraint(equalTo: window.centerXAnchor),
-            verseRefContainer.leadingAnchor.constraint(greaterThanOrEqualTo: window.leadingAnchor, constant: 20),
-            verseRefContainer.trailingAnchor.constraint(lessThanOrEqualTo: window.trailingAnchor, constant: -20),
+            verseRefContainer.leadingAnchor.constraint(equalTo: window.leadingAnchor, constant: 20),
+            verseRefContainer.trailingAnchor.constraint(equalTo: window.trailingAnchor, constant: -20),
 
             verseRefLabel.topAnchor.constraint(equalTo: verseRefContainer.topAnchor, constant: 10),
             verseRefLabel.bottomAnchor.constraint(equalTo: verseRefContainer.bottomAnchor, constant: -10),
