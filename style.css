@@ -903,9 +903,15 @@ html[data-fs="xl"] .sermon-sum-card .ss-top > .back-btn { font-size: 17px; paddi
 
 /* 암송화면 상단에 요절 전체 표기를 크게 고정 표시(요절·본문 연결을 돕는다). 모든 단계 공통.
    스크롤 위치를 계산해 조건부로 고정하는 방식은 모바일 키보드가 열렸다 닫힐 때 타이밍이
-   꼬여 중간에 사라지는 문제가 있어, #update-banner와 동일하게 처음부터 항상 고정시킨다. */
+   꼬여 중간에 사라지는 문제가 있어, #update-banner와 동일하게 처음부터 항상 고정시킨다.
+   ⚠️ 2026-09-18: 아이폰 네이티브 앱(WKWebView)에서는 키보드가 뜬 채로 있으면 이 fixed
+   요소가 화면 위치를 다시 못 그려서, 위로 스크롤하는 그 순간에만 잠깐 보였다가 손을 떼면
+   사라지는 문제가 실기기 영상으로 확인됐다. position은 그대로 두고(조건부 방식으로
+   되돌리지 않는다), translateZ(0)로 GPU 레이어로 승격시켜 다시 그리기를 강제한다. */
 .test-ref-sticky {
-  position: fixed; top: env(safe-area-inset-top, 0px); left: 50%; transform: translateX(-50%);
+  position: fixed; top: env(safe-area-inset-top, 0px); left: 50%;
+  transform: translateX(-50%) translateZ(0);
+  will-change: transform;
   width: min(calc(100% - 40px), 480px);
   z-index: 50;
   padding: 10px 16px;
