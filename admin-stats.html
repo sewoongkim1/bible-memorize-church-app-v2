@@ -839,6 +839,9 @@ a.mn-tel.sm{font-size:11.5px;padding:2px 8px;}
 
 /* ④ 눌리지 않는 <span> 칩은 단추처럼 보이지 않게 — 테두리를 버리고 회색으로 */
 .mapl-p,.mp-cols span,.mn-tcount{border:none;background:#f3f6fb;color:#41506b;}
+.mapl-search,.mn-search-top{margin-bottom:10px;}
+.mn-search-top{height:var(--tap);}
+#mapl-sum i{font-style:normal;color:#6b778c;font-weight:600;}
 
 /* ⑤ 판단에 쓰는 작은 글씨 — 13px 바닥, 회색은 #6b778c 까지만(11~12px + #a0a9b8 은 대비 2.4:1) */
 .mn-date,.mn-rowi-t small,.ma-nm .ma-at,.mc-tag,.mc-r-v.none,.mp-cols span.dim,.mn-cond-sum{
@@ -3563,6 +3566,7 @@ let mnLoaded = false;
    내려받기는 CSV — 엑셀이 한글을 깨뜨리지 않게 BOM 을 앞에 붙인다. */
 let maplRows = [];          // 임명된 건들
 let maplView = "dept";      // dept 부서별 · gu 교구별 · person 사람별
+let maplQ = "";             // 찾는 글자(이름·소속·사역팀·부서)
 let maplLoaded = false;
 
 // 「김세웅-화평20」 — 소속의 빈칸을 없애고 「목장」을 뗀다. 교회학교는 「유년부3학년」이 된다.
@@ -3584,6 +3588,10 @@ async function renderMinistryAppointed(){
       <button type="button" class="push-btn ghost" id="mapl-reload">↻ 새로 불러오기</button>
     </div>
     <div class="push-card">
+      <div class="mn-search mapl-search">
+        <span class="mn-search-ico" aria-hidden="true">🔍</span>
+        <input type="search" id="mapl-q" placeholder="이름 · 소속 · 사역팀 · 부서" autocomplete="off">
+      </div>
       <div class="mn-view" id="mapl-view" role="tablist">
         <button type="button" data-v="dept" class="${maplView==="dept"?"on":""}">부서별 <em data-vn="dept">0</em></button>
         <button type="button" data-v="gu" class="${maplView==="gu"?"on":""}">교구별 <em data-vn="gu">0</em></button>
@@ -3594,6 +3602,7 @@ async function renderMinistryAppointed(){
     </div>`;
   document.getElementById("back").addEventListener("click", renderMenu);
   document.getElementById("mapl-csv").addEventListener("click", maplCsv);
+  document.getElementById("mapl-q").addEventListener("input", e=>{ maplQ=e.target.value.trim(); maplRender(); });
   document.getElementById("mapl-reload").addEventListener("click", ()=>{ maplLoaded=false; maplLoad(); });
   document.querySelectorAll("#mapl-view button").forEach(b=>b.addEventListener("click", ()=>{
     maplView=b.dataset.v;
@@ -3622,13 +3631,20 @@ async function maplLoad(){
 
 function maplRender(){
   const box=document.getElementById("mapl-list"); if(!box) return;
-  const rows=maplRows;
+  // 찾기는 이름·소속·사역팀·부서 어디에 걸려도 된다(표준 v1 — 찾는 자리를 화면마다 맞춘다)
+  const q=maplQ.toLowerCase();
+  const rows=q ? maplRows.filter(r=>[r.name,r.who,r.team,r.committee,maplLabel(r)]
+    .some(v=>String(v||"").toLowerCase().indexOf(q)>=0)) : maplRows;
   const people=new Set(rows.map(r=>maplLabel(r)));
   const vn={ dept:new Set(rows.map(r=>r.committee)).size, gu:new Set(rows.map(maplGu)).size, person:people.size };
   document.querySelectorAll("[data-vn]").forEach(el=>{ el.textContent=vn[el.dataset.vn]; });
   document.getElementById("mapl-sum").innerHTML =
-    `임명 <b>${rows.length}건</b> · <b>${people.size}명</b>`;
-  if(!rows.length){ box.innerHTML=`<p class="msg">임명된 신청이 아직 없습니다.</p>`; return; }
+    `임명 <b>${rows.length}건</b> · <b>${people.size}명</b>` +
+    (q ? ` <i>(‘${plEsc(maplQ)}’로 찾은 것 · 전체 ${maplRows.length}건)</i>` : "");
+  if(!rows.length){
+    box.innerHTML=`<p class="msg">${q?`‘${plEsc(maplQ)}’에 맞는 임명이 없습니다.`:"임명된 신청이 아직 없습니다."}</p>`;
+    return;
+  }
 
   const chip=r=>`<span class="mapl-p">${plEsc(maplLabel(r))}</span>`;
   const sortName=(a,b)=>String(a.name).localeCompare(String(b.name),"ko");
@@ -3677,6 +3693,12 @@ function maplRender(){
   box.innerHTML=html;
 }
 
+// 내려받기는 **지금 화면에 보이는 것**만(찾기가 걸려 있으면 그것만) — 화면과 파일이 달라지면 안 된다
+function maplCsvRows(){
+  const q=maplQ.toLowerCase();
+  return q ? maplRows.filter(r=>[r.name,r.who,r.team,r.committee,maplLabel(r)]
+    .some(v=>String(v||"").toLowerCase().indexOf(q)>=0)) : maplRows;
+}
 // 내려받기 — 엑셀에서 바로 열리게 CSV(BOM). 지금 보기와 같은 차례로 적는다.
 function maplCsv(){
   if(!maplRows.length){
@@ -3689,8 +3711,9 @@ function maplCsv(){
     if(isNaN(d.getTime())) return "";
     const k=new Date(d.getTime()+9*3600*1000).toISOString();
     return k.slice(0,10); };
-  const head=["표시","이름","소속","교구·부서","위원회","사역팀","하위 선택","신청일","임명일","들어온 길"];
-  const body=[...maplRows].sort((a,b)=>
+  // ⚠️ 낱말은 한 가지로(2026-09-18) — committee 는 어디서나 「부서」, 소속 쪽은 「교구」.
+  const head=["표시","이름","소속","교구","부서","사역팀","하위 선택","신청일","임명일","들어온 길"];
+  const body=[...maplCsvRows()].sort((a,b)=>
       a.committee.localeCompare(b.committee,"ko") || a.team.localeCompare(b.team,"ko") ||
       String(a.name).localeCompare(String(b.name),"ko"))
     .map(r=>[maplLabel(r), r.name, r.who, maplGu(r), r.committee, r.team, r.option,
@@ -3709,7 +3732,7 @@ function maplCsv(){
    ⚠️ **종이는 이미 임명·취소가 정해진 명단이다** — 기본 상태가 「임명」이다.
    ⚠️ **알림은 가지 않는다.** 임명 알림은 현황 화면에서 한 건씩 누를 때만 나간다.
    ⚠️ 서버가 줄마다 다시 살핀다(ministryPaperCheck/Save) — 이 화면의 판정은 보여 주기용이다. */
-const MP_COLS = ["교구", "목장", "이름", "직분", "휴대폰", "사역팀", "위원회(선택)", "하위 선택(선택)", "신청일(선택)", "임명일(선택)", "상태(선택)", "사유(취소일 때)"];
+const MP_COLS = ["교구", "목장", "이름", "직분", "휴대폰", "사역팀", "부서(선택)", "하위 선택(선택)", "신청일(선택)", "임명일(선택)", "상태(선택)", "사유(취소일 때)"];
 let mpRows = [];      // 서버가 살펴 준 줄들
 let mpBusy = false;
 
@@ -3762,7 +3785,7 @@ function renderMinistryPaper(){
         <ul class="mp-how-ul">
           <li><b>교구·목장·이름</b>은 앱 로그인과 <b>똑같이</b> 적어 주세요 — 한 글자만 달라도 다른 분이 됩니다.</li>
           <li>앱에 없는 분이면 계정을 새로 만듭니다. 나중에 그분이 앱에 로그인하면 이 신청이 그대로 보입니다.</li>
-          <li>사역팀 이름이 여러 위원회에 있으면 <b>위원회</b>도 적어 주세요.</li>
+          <li>사역팀 이름이 여러 부서에 있으면 <b>부서</b>도 적어 주세요.</li>
           <li>앱으로 이미 낸 신청과 겹치면 <b>새로 넣지 않고 그 건의 상태만</b> 바꿉니다.</li>
           <li>이미 같은 상태인 줄은 <b>손대지 않습니다</b> — 같은 명단을 두 번 올려도 안전합니다.</li>
           <li><b>신청일·임명일</b>은 적으면 그 날짜로, 비우면 오늘로 들어갑니다 (2026-12-15 꼴).</li>
@@ -3939,7 +3962,7 @@ function renderMinistryAdmin(){
         </div>
         <div class="mn-condbar">
           <button type="button" class="mn-cond-toggle" id="mn-cond-toggle" aria-expanded="${mnCondOpen}" aria-controls="mn-cond">
-            <span class="mn-cond-t">🔍 조회 조건</span><span class="mn-cond-sum" id="mn-cond-sum"></span><span class="mn-cond-arrow" aria-hidden="true">▾</span>
+            <span class="mn-cond-t">📅 신청일</span><span class="mn-cond-sum" id="mn-cond-sum"></span><span class="mn-cond-arrow" aria-hidden="true">▾</span>
           </button>
         </div>
       </div>
@@ -3949,11 +3972,13 @@ function renderMinistryAdmin(){
         <button type="button" data-view="person" class="${mnView==="person"?"on":""}">사람별 <em data-vcnt="person">0</em>명</button>
         <button type="button" data-view="team" class="${mnView==="team"?"on":""}">사역별 <em data-vcnt="team">0</em>팀</button>
       </div>
+      <!-- 찾기는 세 화면(현황·사역팀 정보·임명현황) 모두 **늘 보이는 같은 자리**에 둔다(2026-09-18).
+           그전에는 이 칸만 접힌 「조회 조건」 안에 숨어, 같은 모양인데 하나만 펴야 보이는 꼴이었다. -->
+      <div class="mn-search mn-search-top">
+        <span class="mn-search-ico" aria-hidden="true">🔍</span>
+        <input type="search" id="mn-q" placeholder="이름 · 소속 · 사역팀" autocomplete="off">
+      </div>
       <div class="mn-cond" id="mn-cond"${mnCondOpen?"":" hidden"}>
-          <div class="mn-search">
-            <span class="mn-search-ico" aria-hidden="true">🔍</span>
-            <input type="search" id="mn-q" placeholder="이름 · 소속 · 사역팀" autocomplete="off">
-          </div>
           <div class="mn-range" id="mn-range">
             <span class="mn-range-lb">신청일</span>
             ${[["all","전체"],["today","오늘"],["7d","7일"],["custom","직접"]].map(([k,t])=>
@@ -4071,15 +4096,12 @@ function mnRender(){
   if(condSum){
     const q=(document.getElementById("mn-q")?.value||"").trim();
     const [f,t]=mnRangeDates();
+    // 이 토글 안에 남은 조건은 **신청일 하나**다(찾기는 위 칸, 상태는 위 막대) — 그것만 적는다
     const bits=[];
-    // ⚠️ 처음부터 「신청」만 켜져 있다 — 걸러진 채로 「없음」이라 하면 안 된다(표준 v1 ⑫)
-    if(mnStOn.size && mnStOn.size < MN_STATES.length)
-      bits.push([...mnStOn].map(x=>MN_SHORT[x]||x).join("·"));
-    if(q) bits.push(`‘${q}’`);
     if(mnRange==="today") bits.push("오늘");
     else if(mnRange==="7d") bits.push("최근 7일");
     else if(mnRange==="custom" && (f||t)) bits.push(`${(f||"").slice(5).replace("-",".")}~${(t||"").slice(5).replace("-",".")}`);
-    condSum.textContent = bits.length ? bits.join(" · ") : "전체 보기";
+    condSum.textContent = bits.length ? bits.join(" · ") : "전체";
     condSum.classList.toggle("on", bits.length>0);
   }
   // 요약 숫자는 보기 단추 안에 — 지금 걸러진 것 기준(건·명·사역)
@@ -4497,7 +4519,7 @@ function renderMinistryCatalog(){
           <b>비어 있으면 이름만 보입니다</b> — 무엇을 하는 사역인지 알 수 없어 고르기 어렵습니다.<br>
           <b>「② 언제」 여섯 칸</b>은 성도님이 <b>필터로 사역을 찾을 때</b> 쓰입니다 —
           비워 두면 「정해진 날 없음 · 때마다 다름」으로 보입니다(목록에서 사라지지는 않습니다).<br>
-          팀을 눌러 <b>고치기</b>를 누르면 입력칸이 열리고, ▲▼로 <b>같은 위원회 안의 차례</b>를 바꿉니다.
+          팀을 눌러 <b>고치기</b>를 누르면 입력칸이 열리고, ▲▼로 <b>같은 부서 안의 차례</b>를 바꿉니다.
           ⚠️ 팀을 <b>더하거나 지우거나 이름을 바꾸는 것은 부서 확인 엑셀</b>에서 합니다 —
           여기서 만들면 다음에 목록을 다시 심을 때 지워집니다.<br>
           <span class="mc-tags">꾸밈을 넣을 수 있습니다 —
@@ -4949,6 +4971,8 @@ function renderMinistryAdmins(){
     </div>`;
   document.getElementById("back").addEventListener("click", renderMenu);
   document.getElementById("ma-search").addEventListener("click", maFind);
+  // 여기만 서버를 부른다(교적에서 찾는다) — 단추는 남기되 엔터로도 되게(세 화면의 찾기 감을 맞춘다)
+  document.getElementById("ma-q").addEventListener("keydown", e=>{ if(e.key==="Enter") maFind(); });
   document.getElementById("ma-q").addEventListener("keydown", e=>{ if(e.key==="Enter") maFind(); });
   maFound = [];
   maLoad();
