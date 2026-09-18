@@ -688,8 +688,10 @@ a.mn-tel.sm{font-size:11.5px;padding:2px 8px;}
 .mn-grp-body{padding:0 10px 2px;}
 /* 펼친 묶음(2026-09-18) — 접혔을 때는 머리의 줄 목록이 요약, 펼치면 그 목록을 숨기고 카드(상태 바꾸기)가 대신한다.
    머리는 짙게 칠해 「이 묶음 안」이 한눈에 보이게. */
-.mn-grp[open]{background:#fff;border-color:#1a3a6b;overflow:hidden;}
-.mn-grp[open] > summary{background:#1a3a6b;color:#fff;padding:10px 13px;}
+/* ⚠️ 여기에 overflow:hidden 을 두면 **묶음 안 카드의 상태 메뉴(.pl-menu)가 잘려** 사람별·사역별에서
+   임명·취소를 누를 수 없다(2026-09-18 점검에서 발견 — 건별에서만 되던 까닭). 둥근 모서리는 summary 가 맡는다. */
+.mn-grp[open]{background:#fff;border-color:#1a3a6b;}
+.mn-grp[open] > summary{background:#1a3a6b;color:#fff;padding:10px 13px;border-radius:11px 11px 0 0;}
 .mn-grp[open] > summary::before{color:#c9d6ec;}
 .mn-grp[open] > summary .mn-grp-rows{display:none;}
 .mn-grp[open] .mn-grp-t{color:#fff;}
