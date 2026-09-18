@@ -938,15 +938,19 @@ body.native-app-hide-ref .test-ref-sticky { visibility: hidden; }
 .test-card.with-ref-banner { padding-top: 50px; }
 /* 아이폰 네이티브 앱의 진짜 네이티브 배너(AppDelegate.swift)는 그림자까지 합친 실제
    높이가 이 50px보다 커서, 그대로 두면 첫 줄(빈칸)을 살짝 가린다(성도님 스크린샷으로
-   확인, 2026-09-18). ⚠️ 78px→115px로 37px나 올렸는데도 화면이 똑같았다 — padding을
-   더 키우는 게 문제가 아니라, 브라우저의 스크롤 위치 자동 보정(overflow-anchor)이
-   카드 위쪽 높이가 커진 만큼 스크롤도 같이 밀어서 "보던 자리"를 그대로 유지시켜
-   버려 내 padding 변경 자체가 화면에 안 보이던 것으로 보인다. 이 카드에서만 그
-   보정을 끈다. */
-body.native-app-hide-ref .test-card.with-ref-banner {
-  padding-top: 90px;
-  overflow-anchor: none;
-}
+   확인, 2026-09-18). ⚠️ padding을 50→78→115px로 올려도, 캐시(WKWebView 리소스 캐시를
+   비우는 새 빌드)를 의심해 봐도 화면이 계속 똑같았다 — 진짜 원인은 padding이 아니라
+   스크롤이었다. 긴 구절에서 뒤쪽 빈칸으로 넘어가 페이지가 스크롤되면, padding-top은
+   맨 위(스크롤 0)에서만 뜻이 있고 스크롤된 뒤에는 무관해진다. 그런데 "출렁거림" 제보로
+   포커스 시 스크롤 보정(scrollIntoCenter)을 꺼 둔 채였어서, 키보드가 뜬 채로 뒤쪽 칸에
+   포커스가 가도 화면이 전혀 안 움직여 그 칸이 고정 배너 바로 아래(정확히는 뒤)에
+   걸려 있었다. 아래 .word-input의 scroll-margin-top(배너 높이만큼)과 함께,
+   scrollIntoCenter를 다시 켜서 실제로 풀었다. */
+body.native-app-hide-ref .test-card.with-ref-banner { padding-top: 90px; }
+/* scrollIntoView(스크립트)든 브라우저 자체 포커스 스크롤이든, 이 여유만큼은 위로
+   붙지 않게 한다 — .ref-input과 같은 원리(위 62px), 네이티브 배너는 그보다 커서 값도
+   더 크게 잡는다. */
+body.native-app-hide-ref .word-input { scroll-margin-top: 90px; }
 .test-sentence {
   font-family: "Gowun Batang", serif;
   font-weight: 700;

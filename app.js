@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260918ah";
+const APP_BUILD = "20260918ai";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5872,11 +5872,13 @@ function setupAutoCheck(verse, stage, onDone) {
     input.addEventListener("compositionend", onChange);
     input.addEventListener("input", onChange);
     input.addEventListener("keyup", onChange);
-    // preventScroll로 사파리 자동 스크롤 자체를 껐더니(위 accept()), 그 위에 이
-    // scrollIntoCenter가 매번 한 번 더 보정하려 들면서 "출렁거린다"는 제보가 있었다
-    // (2026-09-18). preventScroll만으로 이미 크게 튀는 문제는 없어졌으니, 이 보정은
-    // 잠시 빼고 정말 필요한지부터 확인한다.
-    // input.addEventListener("focus", () => scrollIntoCenter(input));
+    // ⚠️ preventScroll로 크게 튀는 문제를 고치면서 "출렁거린다"는 제보에 이 스크롤 보정을
+    // 잠시 껐었는데(2026-09-18), 그러자 긴 구절에서 뒤쪽 칸으로 넘어갈 때 화면이 전혀 안
+    // 움직여 그 칸이 고정 배너 뒤에 걸리는 새 문제가 생겼다(같은 날 재확인). preventScroll은
+    // 브라우저의 "자동" 스크롤만 끄고 이 명시적 scrollIntoView는 그대로 작동하므로, 다시
+    // 켠다 — 이제 이게 화면을 움직이는 유일한 통로라 꼭 필요하다. .word-input의
+    // scroll-margin-top(네이티브 앱 전용)이 배너와 안 겹치게 잡아 준다.
+    input.addEventListener("focus", () => scrollIntoCenter(input));
   });
 
   // 👆 카드 모드 — 정답 단어만 섞어 카드로 띄우고, 순서대로 탭해 빈칸을 채운다.
@@ -7446,11 +7448,13 @@ function setupChallengeTyping(verse, onComplete) {
     input.addEventListener("compositionend", onChange);
     input.addEventListener("input", onChange);
     input.addEventListener("keyup", onChange); // 아이폰은 조합 완료 신호가 늦거나 누락될 수 있음
-    // preventScroll로 사파리 자동 스크롤 자체를 껐더니(위 checkAccept()), 그 위에 이
-    // scrollIntoCenter가 매번 한 번 더 보정하려 들면서 "출렁거린다"는 제보가 있었다
-    // (2026-09-18). preventScroll만으로 이미 크게 튀는 문제는 없어졌으니, 이 보정은
-    // 잠시 빼고 정말 필요한지부터 확인한다.
-    // input.addEventListener("focus", () => scrollIntoCenter(input));
+    // ⚠️ preventScroll로 크게 튀는 문제를 고치면서 "출렁거린다"는 제보에 이 스크롤 보정을
+    // 잠시 껐었는데(2026-09-18), 그러자 긴 구절에서 뒤쪽 칸으로 넘어갈 때 화면이 전혀 안
+    // 움직여 그 칸이 고정 배너 뒤에 걸리는 새 문제가 생겼다(같은 날 재확인). preventScroll은
+    // 브라우저의 "자동" 스크롤만 끄고 이 명시적 scrollIntoView는 그대로 작동하므로, 다시
+    // 켠다 — 이제 이게 화면을 움직이는 유일한 통로라 꼭 필요하다. .word-input의
+    // scroll-margin-top(네이티브 앱 전용)이 배너와 안 겹치게 잡아 준다.
+    input.addEventListener("focus", () => scrollIntoCenter(input));
   });
 
   // 카드 모드 — 낱말을 눌러서 채운다(암송 화면과 같은 방식).
