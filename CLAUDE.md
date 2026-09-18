@@ -179,8 +179,27 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
       `37d849d`) — window 위에 진짜 네이티브 뷰를 얹어 0.4초마다 웹의 `.test-ref-sticky`
       textContent를 읽어와 그대로 보여준다. 웹 쪽 배너는 네이티브 앱에서
       `body.native-app-hide-ref`로 visibility만 숨김(텍스트는 계속 읽혀야 해서 display:none은
-      안 씀). **아직 실기기 미확인** — Codemagic으로 새 빌드 → TestFlight 재설치 → 키보드를
-      켠 채 위아래로 스크롤해서 배너가 진짜로 고정되는지 확인할 것.
+      안 씀). **실기기로 확인·완결(2026-09-18 같은 날 저녁)** — 배너 자체는 잘 떴고,
+      이어진 실기기 테스트로 다섯 가지를 더 발견해 전부 고쳤다:
+      ① **사파리 한글 조합 오판정** — `setupChallengeTyping`(도전 등 공용)이 `isComposing`
+      이벤트에만 의존해 조합 타이밍이 틀어지면 오답 판정이 잘못됐다(`setupAutoCheck`처럼
+      `isComposingJamo`로 값 자체를 보게 고치고, 즉시검사·300ms·1200ms 세 겹 안전망을 둠 —
+      자음/모음만 남으면 영영 "조합 중"으로 오판되던 것(안드로이드 제보)도 이걸로 해결).
+      ② **다음 빈칸 포커스 시 화면이 크게 튐** — 원인은 iOS WebKit(사파리·아이폰 크롬 전부
+      같은 엔진)의 자동 포커스 스크롤. `focus({preventScroll:true})`로 원천 차단.
+      ③ **단계 완료 뒤 자판 자동 안 뜸** — `showStageDoneModal`의 `go()`와 `checkAllComplete`의
+      반복해서 쓰기 경로가 화면 전환을 `setTimeout`으로 미뤄 사용자 탭과 끊어졌다. 지연을 없앰.
+      ④ **네이티브 배너 폭·가림** — 처음엔 글자 길이만큼 좁게 떠서 `leading/trailing`을
+      등호 제약으로 바꿔 넓혔다. 그 뒤 긴 구절 첫 줄이 배너에 가리는 문제는 padding을
+      아무리 올려도(50→115px) 안 고쳐졌는데, **원인은 padding이 아니라 스크롤 보정을 꺼둔
+      것**이었다(②를 고치며 "출렁거림" 오해로 `scrollIntoCenter`를 꺼둔 채였다) — 다시 켜고
+      `.word-input`에 `scroll-margin-top`(네이티브 전용)을 더해 해결.
+      ⑤ **WKWebView 리소스 캐시** — 앱은 완전종료 후 재실행해도 옛 CSS·JS를 계속 썼다
+      (사파리는 정상 반영됨). `didFinishLaunchingWithOptions`에서 매번
+      `WKWebsiteDataStore.default().removeData(diskCache+memoryCache)`로 비운다
+      (localStorage·쿠키는 안 건드려 로그인 상태는 유지). ⚠️ **"고쳤는데 화면이 똑같다"는
+      제보가 오면 캐시부터 의심하지 말고 스크롤 보정이 꺼져 있는지부터 볼 것** — 이번엔
+      padding 세 번·새 빌드 두 번을 헛되이 썼다.
       ⚠️ **네이티브 푸시(APNs)는 아직 실기기에서 안 뜬다** — 서버(애플 API)는 `status:200/reason:null`로
       완전 정상 수신을 확인했는데, 기기 화면(배너·잠금화면·알림센터 전부)엔 아무것도 안 뜸.
       포그라운드 표시 델리게이트를 추가했는데도 그대로라 앱 코드만으로는 더 못 짚었다 —
