@@ -30,6 +30,7 @@
 | 사용 설명서·guide/·인쇄물 | `docs/notes/manual-guide.md` |
 | 필사 노트 신청 | `docs/notes/pilsa-orders.md` |
 | 사역신청(2027) | `docs/notes/ministry-2027.md` |
+| 사역신청 **관리 화면**(단추·여백·구조 표준) | `docs/notes/ministry-admin-ui.md` |
 | 기독교 고전 소책자(2026-09-14 완료 · 다시 뽑을 때만) | `docs/notes/classics-booklet.md` |
 | 관리자 통계 '카드' 열 | `docs/notes/stats-admin.md` |
 | 측정(카드 쓰임·전환율) | `docs/notes/metrics.md` |
