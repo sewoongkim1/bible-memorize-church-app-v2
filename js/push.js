@@ -8,6 +8,12 @@ function isNativeApp() {
   try { return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()); }
   catch (e) { return false; }
 }
+// 네이티브 앱에서는 요절 고정 배너(.test-ref-sticky)를 AppDelegate가 그리는 진짜 네이티브
+// 오버레이가 대신하므로, 웹 쪽은 (레이아웃/textContent는 남기고) 안 보이게만 한다.
+if (isNativeApp()) {
+  document.addEventListener("DOMContentLoaded", () => document.body.classList.add("native-app-hide-ref"));
+  if (document.body) document.body.classList.add("native-app-hide-ref");
+}
 
 // 알림 받을 시간(5·6·7·8시). 기본 7시. localStorage에 보관.
 function getPushHour() {

@@ -928,6 +928,11 @@ html[data-fs="xl"] .sermon-sum-card .ss-top > .back-btn { font-size: 17px; paddi
 .dark .test-ref-sticky { background: #1b2333; color: #cdd9f2; }
 html[data-fs="lg"] .test-ref-sticky { font-size: 1.3rem; }
 html[data-fs="xl"] .test-ref-sticky { font-size: 1.45rem; }
+/* 아이폰 네이티브 앱은 이 배너 대신 진짜 네이티브(UIKit) 오버레이를 그 위에 따로 얹는다
+   (AppDelegate.swift, 2026-09-18) — 위 CSS 방식이 키보드 중 다시 그리기를 못해 근본적으로
+   못 고쳐서다. 그래서 네이티브 안에서는 이 요소를 visibility만 숨긴다(display:none이면
+   AppDelegate가 폴링으로 읽는 textContent도 같이 비어버린다 — 레이아웃은 그대로 둬야 한다). */
+body.native-app-hide-ref .test-ref-sticky { visibility: hidden; }
 /* 항상 고정된 배너가 카드 상단 내용(버튼 줄)을 가리지 않도록 여유 공간 확보.
    앱 상단 로고 배너(.page-header)는 이 화면에서 JS가 숨겨주므로, 배너 자체 높이만큼만 있으면 된다. */
 .test-card.with-ref-banner { padding-top: 50px; }

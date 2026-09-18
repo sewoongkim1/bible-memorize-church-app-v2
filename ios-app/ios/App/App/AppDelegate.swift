@@ -19,14 +19,26 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     // 고정돼 버리는 문제(성도님 제보 2026-09-16)를 막는다.
     private var horizontalScrollLock: NSKeyValueObservation?
 
+    // 암송 화면 상단 요절 배너(.test-ref-sticky) — 웹의 position:fixed 가 WKWebView에서
+    // 키보드가 뜬 채로는 다시 그리기를 못해(2026-09-18, 실기기 영상으로 확인) 화면 CSS만으로는
+    // 못 고쳤다. window 위에 진짜 네이티브 뷰를 따로 얹어 웹의 스크롤·키보드와 완전히
+    // 무관하게 항상 제자리에 보이게 한다. 텍스트는 웹의 .test-ref-sticky를 그대로 옮겨 온다
+    // (문구를 두 군데서 관리하지 않기 위해 폴링으로 읽어 온다 — 이 코드베이스에 아직
+    // WKScriptMessageHandler 다리가 없어, 새로 놓는 것보다 가벼운 폴링이 더 안전하다).
+    private let verseRefContainer = UIView()
+    private let verseRefLabel = UILabel()
+    private var verseRefTimer: Timer?
+
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // 이걸 안 하면 앱이 화면에 떠 있는(포그라운드) 동안 온 푸시는 iOS가 "보여줄까?"를
         // 물어볼 데가 없어 조용히 무시해 버린다(애플 서버는 정상 전달했다고 답하는데도
         // 화면엔 아무것도 안 뜨는 문제 — 실기기 테스트로 확인됨, 2026-09-16).
         UNUserNotificationCenter.current().delegate = self
         installStatusBarBackground()
+        installVerseRefOverlay()
         configureNativeAppCss()
         configureWebViewScrolling()
+        startVerseRefPolling()
         DispatchQueue.main.async {
             self.presentNativeLoginIfNeeded()
         }
@@ -138,6 +150,77 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         window.bringSubviewToFront(statusBarBackground)
     }
 
+    // 요절 배너 컨테이너를 window에 한 번만 만들어 얹는다(statusBarBackground와 같은 자리 —
+    // window에 직접 붙여야 웹뷰의 스크롤·키보드 리사이즈가 이 뷰의 위치에 전혀 영향을
+    // 못 준다). 스타일은 style.css의 .test-ref-sticky를 그대로 옮긴 값이다.
+    private func installVerseRefOverlay() {
+        guard let window = window, verseRefContainer.superview == nil else { return }
+
+        verseRefContainer.backgroundColor = .white
+        verseRefContainer.layer.borderColor = UIColor(red: 0.784, green: 0.659, blue: 0.294, alpha: 1).cgColor // --gold
+        verseRefContainer.layer.borderWidth = 1.5
+        verseRefContainer.layer.cornerRadius = 12
+        verseRefContainer.layer.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner] // 아래쪽만 둥글게
+        verseRefContainer.layer.shadowColor = UIColor.black.cgColor
+        verseRefContainer.layer.shadowOpacity = 0.15
+        verseRefContainer.layer.shadowOffset = CGSize(width: 0, height: 4)
+        verseRefContainer.layer.shadowRadius = 8
+        verseRefContainer.isUserInteractionEnabled = false
+        verseRefContainer.isHidden = true
+        verseRefContainer.translatesAutoresizingMaskIntoConstraints = false
+
+        verseRefLabel.font = UIFont(name: "NanumMyeongjo-ExtraBold", size: 17) ?? UIFont.boldSystemFont(ofSize: 17)
+        verseRefLabel.textColor = UIColor(red: 0.051, green: 0.106, blue: 0.243, alpha: 1) // --navy-dark
+        verseRefLabel.textAlignment = .center
+        verseRefLabel.numberOfLines = 1
+        verseRefLabel.adjustsFontSizeToFitWidth = true
+        verseRefLabel.minimumScaleFactor = 0.7
+        verseRefLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        verseRefContainer.addSubview(verseRefLabel)
+        window.addSubview(verseRefContainer)
+
+        NSLayoutConstraint.activate([
+            verseRefContainer.topAnchor.constraint(equalTo: window.safeAreaLayoutGuide.topAnchor),
+            verseRefContainer.centerXAnchor.constraint(equalTo: window.centerXAnchor),
+            verseRefContainer.leadingAnchor.constraint(greaterThanOrEqualTo: window.leadingAnchor, constant: 20),
+            verseRefContainer.trailingAnchor.constraint(lessThanOrEqualTo: window.trailingAnchor, constant: -20),
+
+            verseRefLabel.topAnchor.constraint(equalTo: verseRefContainer.topAnchor, constant: 10),
+            verseRefLabel.bottomAnchor.constraint(equalTo: verseRefContainer.bottomAnchor, constant: -10),
+            verseRefLabel.leadingAnchor.constraint(equalTo: verseRefContainer.leadingAnchor, constant: 16),
+            verseRefLabel.trailingAnchor.constraint(equalTo: verseRefContainer.trailingAnchor, constant: -16),
+        ])
+    }
+
+    // 0.4초마다 웹의 .test-ref-sticky 글자를 읽어 온다 — 있으면(암송 화면이면) 네이티브
+    // 배너를 보여주고, 없으면(다른 화면) 숨긴다. 이 값을 웹의 것과 별도로 계산하지 않고
+    // 그대로 옮겨 오므로, 구절 문구를 두 군데서 관리할 필요가 없다.
+    private func startVerseRefPolling() {
+        verseRefTimer?.invalidate()
+        verseRefTimer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { [weak self] _ in
+            self?.pollVerseRef()
+        }
+    }
+
+    private func pollVerseRef() {
+        guard let bridgeVC = window?.rootViewController as? CAPBridgeViewController,
+              let webView = bridgeVC.webView else { return }
+        webView.evaluateJavaScript(
+            "(function(){var e=document.querySelector('.test-ref-sticky');return e?e.textContent:'';})()"
+        ) { [weak self] result, _ in
+            guard let self = self else { return }
+            let text = (result as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if text.isEmpty {
+                self.verseRefContainer.isHidden = true
+            } else {
+                if self.verseRefLabel.text != text { self.verseRefLabel.text = text }
+                self.verseRefContainer.isHidden = false
+                self.window?.bringSubviewToFront(self.verseRefContainer)
+            }
+        }
+    }
+
     private func configureNativeAppCss() {
         guard let rootView = window?.rootViewController?.view else { return }
         applyNativeAppCss(in: rootView)
@@ -247,8 +330,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     func applicationDidBecomeActive(_ application: UIApplication) {
         installStatusBarBackground()
+        installVerseRefOverlay()
         configureNativeAppCss()
         configureWebViewScrolling()
+        startVerseRefPolling()
         // 등록 시점엔 로그인 전이라 저장이 안 됐을 수 있다 — 앱을 열 때마다 재시도해서,
         // 로그인이 끝난 뒤 처음 여는 순간 반드시 한 번은 서버에 저장되게 한다.
         retryCachedPushTokenIfAny()
