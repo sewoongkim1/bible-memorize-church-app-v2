@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260918u";
+const APP_BUILD = "20260918v";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -7392,12 +7392,19 @@ function setupChallengeTyping(verse, onComplete) {
     // "아직 조합 중"을 판정하므로, 굳이 기다리지 않고 매 이벤트마다 바로 검사해도
     // 안전하다.
     function onChange() {
+      // ⚠️ 이미 맞혀서 잠긴(disabled) 칸에 같은 키 입력의 뒤따르는 이벤트(예: input 다음의
+      // keyup)가 또 들어올 수 있다. checkAccept는 disabled면 false를 돌려주는데, 그걸
+      // "오답"으로 잘못 읽으면 방금 맞힌 칸을 도로 지워버린다("첫 단어가 맞아도 클리어
+      // 된다" 제보, 2026-09-18) — 여기서 먼저 걸러야 한다.
+      if (input.disabled) return;
       if (input.classList.contains("wrong")) return; // 지워지는 0.4초 동안은 건너뜀
       if (checkAccept(input, idx)) return;
       const val = input.value.trim();
       if (isComposingJamo(val)) return; // 아직 조합 중
       const answer = input.dataset.answer;
-      if (val && Array.from(val).length >= Array.from(answer).length) {
+      // setupAutoCheck와 같이 '넘을 때'(>)만 오답으로 본다 — 정답과 글자 수가 같은
+      // 중간 상태(예: 받침만 다른 마지막 음절)까지 성급하게 지우지 않기 위함이다.
+      if (val && Array.from(val).length > Array.from(answer).length) {
         input.classList.add("wrong");
         input.classList.remove("correct");
         setTimeout(() => { input.blur(); input.value = ""; input.classList.remove("wrong"); input.focus(); }, 400);
