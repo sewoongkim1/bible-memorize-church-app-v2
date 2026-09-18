@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260918o";
+const APP_BUILD = "20260918p";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -7344,6 +7344,13 @@ function setupChallengeTyping(verse, onComplete) {
   // 구절 빈칸(예 "삿 8:23")은 콜론이 자판을 바꿔야 나오는 기기가 많아 치기 번거롭다 —
   // 콜론 대신 띄어쓰기를 넣어도 같은 것으로 본다(2026-08-31 사용자 요청: "':' 는 ':' 또는 ' '").
   const refNorm = (s) => String(s || "").replace(/[: ]+/g, " ").trim();
+  // 암송 화면(setupAutoCheck)의 isComposingJamo와 같은 것. 아이폰 사파리는 다음 음절을
+  // 조합하는 중(예: "항상"을 치다가 "항ㅅ")에 compositionstart/isComposing이 늦게 잡히거나
+  // 아예 안 잡힐 때가 있어, 글자 수만 보고 오답 처리하면 조합 중인데 지워진다(2026-09-18,
+  // 실기기 영상으로 "항ㅅ"이 찍혔다 사라지는 것을 확인 — 크롬은 이 문제가 없었다). 남은
+  // 낱자모(호환 자모 ㄱ~ㆎ·U+1100대 자모)가 값에 있으면 이벤트와 무관하게 "아직 조합 중"으로
+  // 본다.
+  const isComposingJamo = (s) => /[ㄱ-ㆎᄀ-ᇿ]/.test(String(s || ""));
   function evaluate(input, idx, isComposing) {
     if (input.disabled) return;
     const val = input.value.trim();
@@ -7362,7 +7369,7 @@ function setupChallengeTyping(verse, onComplete) {
       if (left === 0 && !done) { done = true; onComplete("typing"); return; }
       const next = inputs.slice(idx + 1).find((inp) => !inp.disabled) || inputs.find((inp) => !inp.disabled);
       if (next) next.focus();
-    } else if (!isComposing && Array.from(val).length >= Array.from(answer).length) {
+    } else if (!isComposing && !isComposingJamo(val) && Array.from(val).length >= Array.from(answer).length) {
       input.classList.add("wrong");
       input.classList.remove("correct");
       setTimeout(() => { input.blur(); input.value = ""; input.classList.remove("wrong"); input.focus(); }, 400);
