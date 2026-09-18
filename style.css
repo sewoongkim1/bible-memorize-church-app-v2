@@ -4541,6 +4541,9 @@ body.pr-full-on { overflow: hidden; }
 .min-count b { color: var(--navy); font-size: 1rem; }
 .min-count.has { color: #7a5f1e; background: #fbf5e6; border-color: #e3cb8b; }
 .min-count.has b { color: #7a5f1e; }
+/* 「2 / 3 신청」 알약과 바로 아래 안내 상자가 딱 붙어 보였다(2026-09-18 성도님) — 사이를 띄운다.
+   ⚠️ 고르기 화면에서는 이 알약이 「사역 찾아보기」 줄 안에 든 조각이라 그때는 여백을 주지 않는다. */
+.min-screen > .min-count { display: block; margin: 12px 0 10px; }
 
 .min-acc-wrap { display: flex; flex-direction: column; gap: 9px; margin-bottom: 16px; }
 .min-acc { border: 1.5px solid var(--border); border-radius: 12px; overflow: hidden;
