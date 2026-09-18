@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260918z";
+const APP_BUILD = "20260918aa";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5808,17 +5808,16 @@ function setupAutoCheck(verse, stage, onDone) {
     }, 400);
   }
 
-  // 모바일 키보드에 가리지 않도록, 포커스된 입력 칸을 화면 중앙보다 약간 위로 올린다.
-  // 단, 이미 화면(키보드 위) 안에 충분히 보이면 그대로 두고 가려질 때만 스크롤한다
-  // — 매 빈칸마다 화면이 계속 움직이는 걸 막기 위함.
+  // 모바일 키보드에 가리지 않도록, 포커스된 입력 칸이 화면 밖(키보드 위)으로 가려질
+  // 때만 보이게 옮긴다. ⚠️ visualViewport.height를 직접 읽어 손으로 스크롤 양을 계산하던
+  // 예전 방식은, 이 값이 키보드가 이미 떠 있는 채로 다음 칸에 포커스가 넘어갈 때 아이폰
+  // 사파리에서 못 미더워서 탭 바까지 다시 보일 만큼 크게 위로 튀는 문제가 있었다(성도님
+  // 실기기 영상으로 확인, 2026-09-18). block:"nearest"는 이미 보이면 그대로 두고, 안
+  // 보일 때만 딱 필요한 만큼만 옮겨 준다 — 키보드 높이 계산을 브라우저에 맡기므로 이
+  // 문제에서 자유롭다.
   function scrollIntoCenter(input) {
-    // 키보드가 올라온 뒤 위치가 잡히도록 약간 지연
     setTimeout(() => {
-      const vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
-      const top = input.getBoundingClientRect().top;
-      if (top >= 40 && top <= vh - 60) return; // 이미 충분히 보임 — 그대로 둠
-      const target = vh / 2 - 80; // 화면 중앙보다 약 2cm(80px) 위
-      window.scrollBy({ top: top - target, behavior: "smooth" });
+      input.scrollIntoView({ block: "nearest", behavior: "smooth" });
     }, 250);
   }
 
@@ -7361,17 +7360,14 @@ function setupChallengeTyping(verse, onComplete) {
   // 남은 낱자모(호환 자모 ㄱ~ㆎ·U+1100대 자모)가 값에 있는지 **내용 자체**로만 판단한다.
   const isComposingJamo = (s) => /[ㄱ-ㆎᄀ-ᇿ]/.test(String(s || ""));
   // 암송 화면(setupAutoCheck)의 scrollIntoCenter와 같은 것(거기도 지역 함수라 그대로
-  // 옮겨 둔다). 자판이 뜬 채로 다음 빈칸에 포커스가 넘어갈 때, 사파리 기본 스크롤에
-  // 맡기면 매번 화면이 확 튀어 "처음부터 다시 올라오는" 것처럼 보인다(성도님 제보,
-  // 2026-09-18 — 위 커밋에서 자판이 안정적으로 뜨게 고치고 나서야 드러났다). 이미 잘
-  // 보이면 그대로 두고, 가려질 때만 부드럽게 옮긴다.
+  // 옮겨 둔다). ⚠️ visualViewport.height를 손으로 읽어 계산하던 방식은, 키보드가 이미
+  // 떠 있는 채로 다음 칸에 포커스가 넘어갈 때 아이폰 사파리에서 못 미더워서 탭 바까지
+  // 다시 보일 만큼 크게 위로 튀는 문제가 있었다(실기기 영상으로 확인, 2026-09-18).
+  // block:"nearest"는 이미 보이면 그대로 두고 안 보일 때만 필요한 만큼만 옮긴다 —
+  // 키보드 높이 계산을 브라우저에 맡기므로 이 문제에서 자유롭다.
   function scrollIntoCenter(input) {
     setTimeout(() => {
-      const vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
-      const top = input.getBoundingClientRect().top;
-      if (top >= 40 && top <= vh - 60) return; // 이미 충분히 보임 — 그대로 둠
-      const target = vh / 2 - 80; // 화면 중앙보다 약 2cm(80px) 위
-      window.scrollBy({ top: top - target, behavior: "smooth" });
+      input.scrollIntoView({ block: "nearest", behavior: "smooth" });
     }, 250);
   }
   function checkAccept(input, idx) {
