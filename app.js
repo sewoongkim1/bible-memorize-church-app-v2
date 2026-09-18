@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260918ab";
+const APP_BUILD = "20260918ac";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5793,7 +5793,12 @@ function setupAutoCheck(verse, stage, onDone) {
     input.disabled = true;
 
     const next = inputs.slice(idx + 1).find((inp) => !inp.disabled);
-    if (next) next.focus();
+    // ⚠️ 키보드가 이미 떠 있는 채로 다음 칸에 포커스를 주면, 아이폰 WebKit(사파리·아이폰
+    // 크롬 전부 같은 엔진이라 똑같이 재현됨)이 그 칸을 "편하게" 보여준다며 화면을 위쪽
+    // 탭 바까지 다시 보일 만큼 크게 스크롤해 버린다 — 안드로이드는 재현 안 됨(실기기
+    // 영상으로 확인, 2026-09-18). preventScroll로 그 자동 스크롤 자체를 끄고, 필요하면
+    // scrollIntoCenter가 대신 필요한 만큼만 부드럽게 옮긴다.
+    if (next) next.focus({ preventScroll: true });
     else checkAllComplete(inputs, verse, stage, onDone);
   }
 
@@ -5804,7 +5809,7 @@ function setupAutoCheck(verse, stage, onDone) {
       input.blur();
       input.value = "";
       input.classList.remove("wrong");
-      input.focus();
+      input.focus({ preventScroll: true });
     }, 400);
   }
 
@@ -5867,11 +5872,10 @@ function setupAutoCheck(verse, stage, onDone) {
     input.addEventListener("compositionend", onChange);
     input.addEventListener("input", onChange);
     input.addEventListener("keyup", onChange);
-    // ⚠️ 진단용으로 잠시 뺐다(2026-09-18) — scrollIntoCenter를 손계산에서
-    // scrollIntoView(block:"nearest")로 바꿔도 똑같이 크게 튀어서, 이 JS 호출 자체가
-    // 원인이 아니라 사파리 자체의 키보드 스크롤일 가능성이 있다. 그걸 확인하려고
-    // 뺀 것이니, 원인이 다른 데 있다고 확인되면 되돌리거나 다른 방식으로 다시 넣는다.
-    // input.addEventListener("focus", () => scrollIntoCenter(input));
+    // 진단으로 밝혀졌듯(2026-09-18) 사파리의 자동 스크롤 자체가 문제였다 — 이제 위
+    // accept()에서 next.focus({preventScroll:true})로 그 자동 스크롤을 끄고, 필요한
+    // 경우에만 이 scrollIntoCenter가 대신 부드럽게 옮긴다.
+    input.addEventListener("focus", () => scrollIntoCenter(input));
   });
 
   // 👆 카드 모드 — 정답 단어만 섞어 카드로 띄우고, 순서대로 탭해 빈칸을 채운다.
@@ -5905,7 +5909,7 @@ function setupAutoCheck(verse, stage, onDone) {
     });
   }
 
-  if (!isCardMode() && inputs[0]) inputs[0].focus(); // 카드 모드에선 키보드를 띄우지 않는다
+  if (!isCardMode() && inputs[0]) inputs[0].focus({ preventScroll: true }); // 카드 모드에선 키보드를 띄우지 않는다
 }
 
 function checkAllComplete(inputs, verse, stage, onDone) {
@@ -7391,7 +7395,9 @@ function setupChallengeTyping(verse, onComplete) {
     // 남은 빈칸이 0이면 완료 (입력 순서와 무관하게 확실히 판정)
     if (left === 0 && !done) { done = true; onComplete("typing"); return true; }
     const next = inputs.slice(idx + 1).find((inp) => !inp.disabled) || inputs.find((inp) => !inp.disabled);
-    if (next) next.focus();
+    // preventScroll로 아이폰 WebKit의 자동 스크롤(탭 바까지 다시 보일 만큼 크게 튐,
+    // 2026-09-18 실기기 확인)을 끈다 — setupAutoCheck의 accept()와 같은 이유.
+    if (next) next.focus({ preventScroll: true });
     return true;
   }
   inputs.forEach((input, idx) => {
@@ -7416,7 +7422,7 @@ function setupChallengeTyping(verse, onComplete) {
       if (val && Array.from(val).length > Array.from(answer).length) {
         input.classList.add("wrong");
         input.classList.remove("correct");
-        setTimeout(() => { input.blur(); input.value = ""; input.classList.remove("wrong"); input.focus(); }, 400);
+        setTimeout(() => { input.blur(); input.value = ""; input.classList.remove("wrong"); input.focus({ preventScroll: true }); }, 400);
       }
     }
     // 즉시 한 번, 300ms 뒤 한 번 더(마지막 글자의 input/keyup 이벤트가 씹히는 경우 대비),
@@ -7434,8 +7440,10 @@ function setupChallengeTyping(verse, onComplete) {
     input.addEventListener("compositionend", onChange);
     input.addEventListener("input", onChange);
     input.addEventListener("keyup", onChange); // 아이폰은 조합 완료 신호가 늦거나 누락될 수 있음
-    // ⚠️ 진단용으로 잠시 뺐다(2026-09-18) — setupAutoCheck와 같은 이유.
-    // input.addEventListener("focus", () => scrollIntoCenter(input));
+    // 진단으로 밝혀졌듯(2026-09-18) 사파리의 자동 스크롤 자체가 문제였다 — 이제 위
+    // checkAccept()에서 next.focus({preventScroll:true})로 그 자동 스크롤을 끄고, 필요한
+    // 경우에만 이 scrollIntoCenter가 대신 부드럽게 옮긴다.
+    input.addEventListener("focus", () => scrollIntoCenter(input));
   });
 
   // 카드 모드 — 낱말을 눌러서 채운다(암송 화면과 같은 방식).
@@ -7477,7 +7485,7 @@ function setupChallengeTyping(verse, onComplete) {
   }
 
   updateRemain();
-  if (!isCardMode() && inputs[0]) inputs[0].focus();   // 카드일 땐 키보드를 띄우지 않는다
+  if (!isCardMode() && inputs[0]) inputs[0].focus({ preventScroll: true });   // 카드일 땐 키보드를 띄우지 않는다
 }
 
 // 도전 완료 처리 → 서버 기록 + 완료 화면
