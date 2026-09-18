@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260918y";
+const APP_BUILD = "20260918z";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5824,12 +5824,14 @@ function setupAutoCheck(verse, stage, onDone) {
 
   inputs.forEach((input, idx) => {
     let timer = null;
+    let timer2 = null;
 
     // 정답이면 즉시 통과(조합 상태와 무관). 매 입력마다 검사.
     function checkAccept() {
       if (input.disabled) return false;
       if (same(input.value, input.dataset.answer)) {
         clearTimeout(timer);
+        clearTimeout(timer2);
         accept(input, idx);
         return true;
       }
@@ -5840,25 +5842,28 @@ function setupAutoCheck(verse, stage, onDone) {
     //  - 칸에 조합 중 낱자모가 없고(천지인 등 조합 완료),
     //  - 글자 수가 정답보다 '많을 때'만 지운다.
     // (한글 받침/모음을 채우는 동안의 동일 글자수 중간 상태는 절대 지우지 않음)
-    function tryWrong() {
+    // ⚠️ force=true면 "조합 중" 검사를 건너뛴다 — 자음만(ㄱㄴㄷ) 또는 모음만(ㅏㅓㅗ)으로
+    // 이루어진 값은 isComposingJamo가 그 값이 아무리 길어져도 절대 "조합 끝"으로 안 봐서
+    // 영영 안 지워졌다(안드로이드 크롬 실기기 제보, 2026-09-18). 충분히 오래(아래 두 번째
+    // 타이머) 새 입력이 없으면 그때는 그 값을 최종으로 보고 강제로 판정한다.
+    function tryWrong(force) {
       if (input.disabled) return;
       if (checkAccept()) return;
-      if (isComposingJamo(input.value)) return; // 아직 조합 중
+      if (!force && isComposingJamo(input.value)) return; // 아직 조합 중
       const val = norm(input.value);
       const answer = norm(input.dataset.answer);
       if (val && len(val) > len(answer)) markWrong(input);
     }
 
-    // 즉시 한 번 검사하고(쉬지 않고 계속 쳐도 매번 검사되도록), 700ms 뒤에도 한 번 더
-    // 검사한다 — 아이폰은 마지막 글자의 input/keyup이 씹히는 경우가 있어, 즉시 검사만으론
-    // 그 순간을 놓칠 수 있다(예전엔 700ms 디바운스만 있어 지워지기까지 2~3초씩 걸린다는
-    // 제보가 있었다, 2026-09-18 — 도전 화면과 같은 이유로 고침). 안전망 시간도 700ms는
-    // 여전히 느리다는 제보가 있어 300ms로 줄였다 — 한글 조합은 다음 글자가 오거나
-    // 손을 떼면 사실상 바로 끝나므로, 이 정도로도 조합 중 오판을 막기엔 충분하다.
+    // 즉시 한 번, 300ms 뒤 한 번 더(마지막 글자의 input/keyup 이벤트가 씹히는 경우 대비),
+    // 1200ms 뒤엔 조합 중 검사까지 무시하고 한 번 더(자음·모음만 남아 영영 "조합 중"으로
+    // 보이는 값 대비) — 세 겹으로 검사한다.
     function onChange() {
       clearTimeout(timer);
-      tryWrong();
-      timer = setTimeout(tryWrong, 300);
+      clearTimeout(timer2);
+      tryWrong(false);
+      timer = setTimeout(() => tryWrong(false), 300);
+      timer2 = setTimeout(() => tryWrong(true), 1200);
     }
     input.addEventListener("compositionend", onChange);
     input.addEventListener("input", onChange);
@@ -7391,15 +7396,20 @@ function setupChallengeTyping(verse, onComplete) {
   }
   inputs.forEach((input, idx) => {
     let timer = null;
+    let timer2 = null;
     // ⚠️ 이미 맞혀서 잠긴(disabled) 칸에 같은 키 입력의 뒤따르는 이벤트(예: input 다음의
     // keyup)가 또 들어올 수 있다. checkAccept는 disabled면 false를 돌려주는데, 그걸
     // "오답"으로 잘못 읽으면 방금 맞힌 칸을 도로 지워버린다("첫 단어가 맞아도 클리어
     // 된다" 제보, 2026-09-18) — 여기서 먼저 걸러야 한다.
-    function tryWrong() {
+    // force=true면 "조합 중" 검사를 건너뛴다 — 자음만(ㄱㄴㄷ) 또는 모음만(ㅏㅓㅗ)으로
+    // 이루어진 값은 isComposingJamo가 절대 "조합 끝"으로 안 봐서 영영 안 지워졌다
+    // (안드로이드 크롬 실기기 제보, 2026-09-18). 충분히 오래(아래 두 번째 타이머) 새
+    // 입력이 없으면 그때는 그 값을 최종으로 보고 강제로 판정한다.
+    function tryWrong(force) {
       if (input.disabled) return;
       if (checkAccept(input, idx)) return;
       const val = input.value.trim();
-      if (isComposingJamo(val)) return; // 아직 조합 중
+      if (!force && isComposingJamo(val)) return; // 아직 조합 중
       const answer = input.dataset.answer;
       // setupAutoCheck와 같이 '넘을 때'(>)만 오답으로 본다 — 정답과 글자 수가 같은
       // 중간 상태(예: 받침만 다른 마지막 음절)까지 성급하게 지우지 않기 위함이다.
@@ -7409,16 +7419,17 @@ function setupChallengeTyping(verse, onComplete) {
         setTimeout(() => { input.blur(); input.value = ""; input.classList.remove("wrong"); input.focus(); }, 400);
       }
     }
-    // 즉시 한 번 검사하고(쉬지 않고 계속 쳐도 매번 검사되도록), 300ms 뒤에도 한 번 더
-    // 검사한다 — 아이폰은 마지막 글자의 input/keyup이 씹히는 경우가 있어("길게 틀리게
-    // 넣고 기다려도 안 지워짐" 제보, 2026-09-18), 즉시 검사만으로는 그 마지막 순간을
-    // 놓칠 수 있다. 둘 다 disabled·조합 중이면 아무 일도 안 하므로 두 번 돌아도 안전하다.
-    // (700ms로 시작했다가, 그래도 느리다는 제보로 300ms로 줄였다 — 암송 화면과 같은 값.)
+    // 즉시 한 번, 300ms 뒤 한 번 더(마지막 글자의 input/keyup 이벤트가 씹히는 경우 대비),
+    // 1200ms 뒤엔 조합 중 검사까지 무시하고 한 번 더(자음·모음만 남아 영영 "조합 중"으로
+    // 보이는 값 대비) — 세 겹으로 검사한다. 다 disabled·정상 판정이면 아무 일도 안 하므로
+    // 여러 번 돌아도 안전하다.
     function onChange() {
       if (input.disabled || input.classList.contains("wrong")) return; // 지워지는 0.4초 동안은 건너뜀
       clearTimeout(timer);
-      tryWrong();
-      timer = setTimeout(tryWrong, 300);
+      clearTimeout(timer2);
+      tryWrong(false);
+      timer = setTimeout(() => tryWrong(false), 300);
+      timer2 = setTimeout(() => tryWrong(true), 1200);
     }
     input.addEventListener("compositionend", onChange);
     input.addEventListener("input", onChange);
