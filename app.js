@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260918ad";
+const APP_BUILD = "20260918ae";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5944,14 +5944,19 @@ function checkAllComplete(inputs, verse, stage, onDone) {
   // 마음에 두었나이다 체크는 3단계 진입과 동시에 항상 가능해서, 자동 진행 중에도 체크할 수 있다.
   // 도전에서 '다시 암송'으로 들어온 화면이면 여기서 도전으로 돌아간다.
   // 반복해서 쓰기 검사보다 먼저 봐야 한다 — 뒤에 두면 같은 구절에 갇힌다.
+  // ⚠️ 예전엔 이 둘 다 setTimeout으로 화면 전환을 미뤘다(마지막 글자 정답 표시가 잠깐
+  // 보이도록·문구를 읽을 시간을 주려고). 그런데 showStageDoneModal의 go()와 같은 이유로,
+  // setTimeout을 거치면 사파리가 다음 화면의 inputs[0].focus()를 사용자 입력과 끊어진
+  // 것으로 보고 자판을 자동으로 안 띄운다("반복해서 쓰기로 다음 암송화면 갈 때 자판이
+  // 기본으로 안 뜬다" 제보, 2026-09-18). 정답 표시는 이미 accept()에서 동기적으로 바로
+  // 칠해지므로(초록색), 화면 전환 자체는 지연 없이 바로 한다.
   if (relearnBackToChallenge) {
     relearnBackToChallenge = false;
-    if (resultEl) resultEl.innerHTML = `<div class="relearn-back">잘하셨어요! 다음 구절로 넘어갑니다…</div>`;
-    setTimeout(startChallenge, 900);
+    startChallenge();
     return;
   }
   if (isRepeatPractice()) {
-    setTimeout(() => renderTestScreen(verse, 3), 350); // 마지막 글자 정답 표시가 잠깐 보이도록만
+    renderTestScreen(verse, 3);
     return;
   }
   renderCompleteNav(verse, wasFirst);
