@@ -938,8 +938,8 @@ body.native-app-hide-ref .test-ref-sticky { visibility: hidden; }
 .test-card.with-ref-banner { padding-top: 50px; }
 /* 아이폰 네이티브 앱의 진짜 네이티브 배너(AppDelegate.swift)는 그림자까지 합친 실제
    높이가 이 50px보다 커서, 그대로 두면 첫 줄(빈칸)을 살짝 가린다(성도님 스크린샷으로
-   확인, 2026-09-18). 네이티브 안에서만 더 넉넉하게 띄운다. */
-body.native-app-hide-ref .test-card.with-ref-banner { padding-top: 78px; }
+   확인, 2026-09-18). 78px로 한 번 올렸는데도 계속 가려서 훨씬 넉넉하게 더 올린다. */
+body.native-app-hide-ref .test-card.with-ref-banner { padding-top: 115px; }
 .test-sentence {
   font-family: "Gowun Batang", serif;
   font-weight: 700;
