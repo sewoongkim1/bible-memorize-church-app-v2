@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260918aa";
+const APP_BUILD = "20260918ab";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5867,7 +5867,11 @@ function setupAutoCheck(verse, stage, onDone) {
     input.addEventListener("compositionend", onChange);
     input.addEventListener("input", onChange);
     input.addEventListener("keyup", onChange);
-    input.addEventListener("focus", () => scrollIntoCenter(input));
+    // ⚠️ 진단용으로 잠시 뺐다(2026-09-18) — scrollIntoCenter를 손계산에서
+    // scrollIntoView(block:"nearest")로 바꿔도 똑같이 크게 튀어서, 이 JS 호출 자체가
+    // 원인이 아니라 사파리 자체의 키보드 스크롤일 가능성이 있다. 그걸 확인하려고
+    // 뺀 것이니, 원인이 다른 데 있다고 확인되면 되돌리거나 다른 방식으로 다시 넣는다.
+    // input.addEventListener("focus", () => scrollIntoCenter(input));
   });
 
   // 👆 카드 모드 — 정답 단어만 섞어 카드로 띄우고, 순서대로 탭해 빈칸을 채운다.
@@ -7430,7 +7434,8 @@ function setupChallengeTyping(verse, onComplete) {
     input.addEventListener("compositionend", onChange);
     input.addEventListener("input", onChange);
     input.addEventListener("keyup", onChange); // 아이폰은 조합 완료 신호가 늦거나 누락될 수 있음
-    input.addEventListener("focus", () => scrollIntoCenter(input));
+    // ⚠️ 진단용으로 잠시 뺐다(2026-09-18) — setupAutoCheck와 같은 이유.
+    // input.addEventListener("focus", () => scrollIntoCenter(input));
   });
 
   // 카드 모드 — 낱말을 눌러서 채운다(암송 화면과 같은 방식).
