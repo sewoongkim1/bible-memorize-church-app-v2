@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260918j";
+const APP_BUILD = "20260918k";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5147,6 +5147,21 @@ function scrollPastBtnRow() {
   };
   sync();
   new MutationObserver(sync).observe(appEl, { childList: true });
+})();
+
+// 아이폰 키보드가 열리면 .test-ref-sticky(요절 고정 배너, position:fixed)가 화면 밖으로
+// 밀리거나 안 보이게 되는 문제(성도님 제보 2026-09-18) — 키보드 뜬 동안은 위치를 억지로
+// 맞추는 대신 배너를 잠깐 숨긴다(이미 본 구절이라 타이핑 중엔 안 보여도 지장 없다).
+// visualViewport 높이가 창 높이보다 뚜렷이 작아지면 키보드가 열린 것으로 본다.
+(function watchKeyboardForStickyRef() {
+  if (!window.visualViewport) return;
+  const KB_THRESHOLD = 150; // 이 정도 줄면 키보드로 판단(회전·동적툴바 오차 흡수)
+  const sync = () => {
+    const shrunk = (window.innerHeight - window.visualViewport.height) > KB_THRESHOLD;
+    document.body.classList.toggle("kb-open", shrunk);
+  };
+  window.visualViewport.addEventListener("resize", sync);
+  sync();
 })();
 
 // 영어 관용 비교용 정규화 — 대소문자·문장부호·스마트따옴표 차이는 정답으로 인정
