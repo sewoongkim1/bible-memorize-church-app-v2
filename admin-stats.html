@@ -663,9 +663,9 @@ a.mn-tel.sm{font-size:11.5px;padding:2px 8px;}
 .mp-i-msg.bad{color:#a33;}
 .mp-i-msg.warn{color:#7a5f16;}
 /* 머리 — 목록을 내려도 화면 위에 붙는다(카드 여백까지 덮게 음수 여백) */
-.mn-head{position:sticky;top:0;z-index:20;background:#fff;margin:-18px -18px 10px;padding:12px 18px 8px;
+.mn-head{position:sticky;top:0;z-index:20;background:#fff;margin:calc(-1 * var(--card-pad)) calc(-1 * var(--card-pad)) 10px;padding:10px 18px 8px;
   border-radius:14px 14px 0 0;border-bottom:1px solid #eef1f6;}
-.mn-head .mn-stbar{margin:0 0 8px;}
+.mn-head .mn-stbar{margin:0 0 6px;}
 .mn-condbar{display:flex;gap:6px;align-items:stretch;}
 .mn-cond-toggle{flex:1;min-width:0;display:flex;align-items:center;gap:6px;height:36px;padding:0 10px;border:1px solid #dde3ee;
   border-radius:10px;background:#fff;cursor:pointer;color:#41506b;}
@@ -843,11 +843,18 @@ a.mn-tel.sm{font-size:11.5px;padding:2px 8px;}
 /* ⑤ 판단에 쓰는 작은 글씨 — 13px 바닥, 회색은 #6b778c 까지만(11~12px + #a0a9b8 은 대비 2.4:1) */
 .mn-date,.mn-rowi-t small,.ma-nm .ma-at,.mc-tag,.mc-r-v.none,.mp-cols span.dim,.mn-cond-sum{
   font-size:13px;color:#6b778c;}
+.mn-stbar span,.mn-rowi-st,.mc-c-sub,.mn-tcount,.mp-i-st,.mc-r-l,.mn-teams-t{font-size:13px;}
+.mc-c-sub,.mc-r-l,.mn-teams-t{color:#6b778c;}
 
 /* ⑥ 고치기 폼 — 손가락에 닿는 칸 44px, 체크박스 20px(방향은 적지 않는다) */
 .mc-when input[type=checkbox]{width:20px;height:20px;}
 .mc-in .mc-when label{min-height:var(--tap);padding:0 10px;border:1px solid #dde3ee;border-radius:10px;font-size:13px;}
-.mc-in .mc-when input[type=time]{min-height:var(--tap);font-size:15px;padding:0 10px;}
+.mc-in .mc-when input[type=time]{min-height:var(--tap);font-size:15px;padding:0 6px;width:auto;min-width:0;flex:1 1 0;}
+.mc-in .mc-when .mc-w-tw{flex:none;}
+/* 시각 두 칸은 이름표를 윗줄로 올려 한 줄을 다 쓴다 — 84px 로 좁아지면 「오전 ]」처럼 잘린다 */
+.mc-in .mc-when .mc-w-time{flex-wrap:wrap;}
+.mc-in .mc-when .mc-w-time>b{flex-basis:100%;margin-bottom:4px;}
+.mc-in .mc-when .mc-w-time input[type=time]{flex:1 1 0;min-width:108px;padding:0 8px;}
 .mc-w-r{gap:8px;}
 
 /* ⑦ 카드 사이 여백은 한 값(10px) */
@@ -875,10 +882,11 @@ a.mn-tel.sm{font-size:11.5px;padding:2px 8px;}
 .mc-only input[type=checkbox]{width:20px;height:20px;}
 
 /* ⑪ 화면 전체에 대한 동작은 제목 줄 바로 아래 한 줄에만 — 한 줄에 둘까지, 48px */
-.mn-stlb,.mn-vlb{font-size:12.5px;font-weight:800;color:#8a95a8;margin:0 2px 4px;}
+.mn-stlb,.mn-vlb{font-size:11.5px;font-weight:800;color:#8a95a8;margin:0 2px 3px;line-height:1.2;}
 .mn-vlb{margin-top:10px;}
 .mn-stlb i{font-style:normal;font-weight:700;color:#a0a9b8;}
 .ma-btn.ghost,.push-btn.ghost{background:#eef3fb;color:#1a3a6b;border:1px solid #a9c3e8;}
+.ma-btn[data-maadd]{background:var(--navy);color:#fff;border-color:var(--navy);}   /* 등록을 확정하는 단추 */
 .adm-toast{position:fixed;left:16px;right:16px;bottom:16px;z-index:1100;min-height:var(--tap);
   display:flex;align-items:center;gap:8px;padding:12px 14px;border-radius:12px;
   background:#eef3fb;border:1px solid #a9c3e8;color:#1a3a6b;font-size:14px;font-weight:700;
@@ -895,7 +903,7 @@ a.mn-tel.sm{font-size:11.5px;padding:2px 8px;}
   <div class="topbar">
     <h1>📊 성경암송 관리자 통계</h1>
     <div style="display:flex;align-items:center;gap:8px;flex:none">
-      <a id="hub-link" href="admin.html" style="padding:8px 13px;border:1.5px solid rgba(255,255,255,.5);border-radius:9px;color:#fff;text-decoration:none;font-weight:700;font-size:.82rem;white-space:nowrap">← 관리자 허브</a>
+      <a id="hub-link" href="admin.html" style="min-height:40px;padding:0 16px;display:inline-flex;align-items:center;border:1.5px solid rgba(255,255,255,.5);border-radius:9px;color:#fff;text-decoration:none;font-weight:700;font-size:.85rem;white-space:nowrap">← 관리자 허브</a>
       <button class="logout" id="logout" hidden>로그아웃</button>
     </div>
   </div>
@@ -2265,7 +2273,7 @@ function plSms(id){
 function plCloseMenus(){
   document.querySelectorAll(".pl-drop.open").forEach(w=>{
     w.classList.remove("open"); w.classList.remove("up");
-    const b=w.querySelector("[data-drop]"); if(b) b.setAttribute("aria-expanded","false");
+    const b=w.querySelector("[data-drop],[data-mndrop]"); if(b) b.setAttribute("aria-expanded","false");
   });
 }
 if(!window.__plMenuBound){
@@ -3875,6 +3883,8 @@ async function mpRun(save){
   }
   mpRows=d.rows||[];
   mpRender(save, d);
+  // 단추는 맨 위, 결과는 칸 아래 — 살펴본 뒤 결과로 데려간다(왕복을 없앤다)
+  document.getElementById("mp-sum")?.scrollIntoView({ block:"center" });
 }
 
 function mpRender(saved, d){
@@ -4146,7 +4156,8 @@ function mnRender(){
       plCloseMenus();
       if(!was){
         // 메뉴 높이 ≈ 4×44+12 = 188px — 아래가 모자라면 위로 연다(표준 v1 ⑨)
-        wrap.classList.toggle("up", b.getBoundingClientRect().bottom + 190 > innerHeight);
+        // 메뉴 높이 = 44×4 + 여백 12 + 취소 구분선 6 + 테두리 ≈ 195px, top 이 +6px 이라 201px 필요
+        wrap.classList.toggle("up", b.getBoundingClientRect().bottom + 210 > innerHeight);
         wrap.classList.add("open"); b.setAttribute("aria-expanded","true");
       }
     });
@@ -4714,7 +4725,7 @@ function mcFormHtml(r){
       <span class="mc-w-r"><b>주기</b>${MC_FREQS.map(([k,t,h])=>
         `<label><input type="checkbox" data-f="${k}" data-id="${r.id}"${r[k]?" checked":""}>${t}${
           h?`<i>${h}</i>`:""}</label>`).join("")}</span>
-      <span class="mc-w-r"><b>주일 시각</b>
+      <span class="mc-w-r mc-w-time"><b>주일 시각</b>
         <input type="time" data-f="from" data-id="${r.id}" value="${plEsc(r.from)}" step="300"${r.sun?"":" disabled"}>
         <span class="mc-w-tw">~</span>
         <input type="time" data-f="to" data-id="${r.id}" value="${plEsc(r.to)}" step="300"${r.sun?"":" disabled"}>
