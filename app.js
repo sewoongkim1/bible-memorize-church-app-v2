@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260918x";
+const APP_BUILD = "20260918y";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5852,11 +5852,13 @@ function setupAutoCheck(verse, stage, onDone) {
     // 즉시 한 번 검사하고(쉬지 않고 계속 쳐도 매번 검사되도록), 700ms 뒤에도 한 번 더
     // 검사한다 — 아이폰은 마지막 글자의 input/keyup이 씹히는 경우가 있어, 즉시 검사만으론
     // 그 순간을 놓칠 수 있다(예전엔 700ms 디바운스만 있어 지워지기까지 2~3초씩 걸린다는
-    // 제보가 있었다, 2026-09-18 — 도전 화면과 같은 이유로 고침).
+    // 제보가 있었다, 2026-09-18 — 도전 화면과 같은 이유로 고침). 안전망 시간도 700ms는
+    // 여전히 느리다는 제보가 있어 300ms로 줄였다 — 한글 조합은 다음 글자가 오거나
+    // 손을 떼면 사실상 바로 끝나므로, 이 정도로도 조합 중 오판을 막기엔 충분하다.
     function onChange() {
       clearTimeout(timer);
       tryWrong();
-      timer = setTimeout(tryWrong, 700);
+      timer = setTimeout(tryWrong, 300);
     }
     input.addEventListener("compositionend", onChange);
     input.addEventListener("input", onChange);
@@ -7407,15 +7409,16 @@ function setupChallengeTyping(verse, onComplete) {
         setTimeout(() => { input.blur(); input.value = ""; input.classList.remove("wrong"); input.focus(); }, 400);
       }
     }
-    // 즉시 한 번 검사하고(쉬지 않고 계속 쳐도 매번 검사되도록), 700ms 뒤에도 한 번 더
+    // 즉시 한 번 검사하고(쉬지 않고 계속 쳐도 매번 검사되도록), 300ms 뒤에도 한 번 더
     // 검사한다 — 아이폰은 마지막 글자의 input/keyup이 씹히는 경우가 있어("길게 틀리게
     // 넣고 기다려도 안 지워짐" 제보, 2026-09-18), 즉시 검사만으로는 그 마지막 순간을
     // 놓칠 수 있다. 둘 다 disabled·조합 중이면 아무 일도 안 하므로 두 번 돌아도 안전하다.
+    // (700ms로 시작했다가, 그래도 느리다는 제보로 300ms로 줄였다 — 암송 화면과 같은 값.)
     function onChange() {
       if (input.disabled || input.classList.contains("wrong")) return; // 지워지는 0.4초 동안은 건너뜀
       clearTimeout(timer);
       tryWrong();
-      timer = setTimeout(tryWrong, 700);
+      timer = setTimeout(tryWrong, 300);
     }
     input.addEventListener("compositionend", onChange);
     input.addEventListener("input", onChange);
