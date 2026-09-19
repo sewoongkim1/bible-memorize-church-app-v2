@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260920d";
+const APP_BUILD = "20260920e";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -140,6 +140,19 @@ function routeAfterLoad() {
     const v = verses.find((x) => x.no === deepNo);
     if (v) { startTest(v); return; } // 로그인 없이도 암송 화면 진입(완료 시 로그인 유도)
   }
+  // 아이폰 위젯에서 눌러 들어온 길(?w=meditation|prayer).
+  // 로그인 전이면 평소대로 로그인 화면으로 떨어뜨린다(위젯은 공개 정보만 보여 주므로 여기서 막아도 잃는 게 없다).
+  const widgetTo = getWidgetTarget();
+  if (widgetTo && loadUser()) {
+    if (widgetTo === "prayer") { renderPrayerBook(); return; }
+    if (widgetTo === "meditation") {
+      // 하루 1회 자동 묵상(maybeShowDailyMessage → maybeShowWeeklyMeditation)과 겹치지 않게 막고,
+      // 「매일 묵상」 단추와 똑같이 연다(요일 탭 있음). ?preview=daily 와 같은 방식이다.
+      _skipAutoDaily = true; enterAfterLogin(); _skipAutoDaily = false;
+      maybeShowWeeklyMeditation(true, true);
+      return;
+    }
+  }
   // 미리보기(?preview=intro|blessing): 관리자 허브에서 확인용으로 강제 노출.
   // "이미 봤음" 상태를 건드리지 않아 성도님들 화면에는 영향이 없다.
   const preview = getPreviewKind();
@@ -198,6 +211,19 @@ function routeAfterLoad() {
     if (loadUser()) enterAfterLogin({ fresh: firstLogin });
     else renderEntryScreen();
   });
+}
+
+// URL의 ?w=<어디>를 1회 읽어 반환 — 아이폰 위젯을 누르면 AppDelegate 가 이 주소로 연다
+// (gocheokmemorize://meditation → /?w=meditation). 읽은 뒤 주소를 정리해 새로고침 때 또 열리지 않게 한다.
+function getWidgetTarget() {
+  try {
+    const w = new URLSearchParams(location.search).get("w");
+    if (w === "meditation" || w === "prayer") {
+      history.replaceState(null, "", location.pathname);
+      return w;
+    }
+  } catch (e) {}
+  return null;
 }
 
 // URL의 ?preview=<종류>를 1회 읽어 반환(읽은 뒤 URL 정리 → 새로고침 시 재진입 방지)
