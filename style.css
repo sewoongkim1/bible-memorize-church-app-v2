@@ -5084,7 +5084,9 @@ body:has(#update-banner) .min-acts { bottom: calc(10px + 68px + env(safe-area-in
 
 .dark .ps-fr-body .word-input{background:#1d2430;border-bottom-color:#4a5666;color:#dde5f0}
 
-.ps-done{text-align:center;padding-top:26px}
+/* ⚠️ 위 여백은 .ps-wrap 의 것을 **덮어쓴다** — 그래서 상태바 높이(env)를 여기서도 더해야 한다
+   (2026-09-20 화면 전수 점검에서 발견: .ps-wrap 에만 더했더니 이 화면만 머리가 상태바 밑에 남았다). */
+.ps-done{text-align:center;padding-top:calc(26px + env(safe-area-inset-top,0px))}
 .ps-done-icon{font-size:52px}
 .ps-done-t{font-size:24px;font-weight:700;color:var(--navy,#1a3a6b);margin-top:8px}
 .ps-done-ref{font-size:16px;color:var(--gray);margin-top:4px}
