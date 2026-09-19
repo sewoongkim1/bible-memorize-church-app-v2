@@ -29,12 +29,13 @@ select public.member_login(jsonb_build_object(
 ));
 
 -- 2) 진짜 참여자 표 event_signups에 추가 — eventSignup()이 만드는 행과 같은 모양으로.
+--    직분(집사)은 성도님이 알려주신 값 — MIN_POSITIONS 목록에 있는 허용된 값이다.
 insert into public.event_signups
-  (event_id, user_id, ident_key, who_type, group_name, sub_name, name, source)
-select 'summer-2026', u.id, '교구|화평|37|||신종숙', '교구', '화평', '37', '신종숙', 'app'
+  (event_id, user_id, ident_key, who_type, group_name, sub_name, name, position, source)
+select 'summer-2026', u.id, '교구|화평|37|||신종숙', '교구', '화평', '37', '신종숙', '집사', 'app'
 from public.users u
 where u.identity_key = '교구|화평|37|||신종숙'
-on conflict (event_id, user_id) do nothing;
+on conflict (event_id, user_id) do update set position = excluded.position;
 
 commit;
 
