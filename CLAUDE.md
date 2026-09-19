@@ -207,6 +207,13 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
       **Mac+Xcode로 실기기 콘솔 로그를 직접 봐야 원인이 잡힐 것 같다**(이전 세션에서 한 번
       확인됐던 기능인데 이번 재확인에서 막힘 — 이전 "완료" 기록을 신뢰하지 말 것).
 
+- [ ] 📱 **아이폰 위젯 1.1.0 — 빌드·실기기 확인 대기(2026-09-20 코드·서버는 끝).** 잠금 화면 이번주 말씀(누르면
+      그 구절 암송) · 오늘의 묵상 · 오늘의 축복 기도문. 서버 액션 셋은 **운영 배포까지 끝**났고
+      `tests/widget-parity.py` 가 앱 화면과 140/140 일치를 확인했다. 남은 것: Codemagic `ios-testflight` 빌드 →
+      TestFlight 실기기 확인(설계 `docs/superpowers/specs/2026-09-20-ios-widgets-design.md` ④) → 심사 제출.
+      ⚠️ 묵상·기도문 고르는 규칙은 **app.js 와 서버 두 곳**이다(`docs/notes/meditation.md`·`prayer-book.md`).
+      ⚠️ **아침 알림(`latestVerse()`)은 아직 UTC 자정 기준**이라 구절이 바뀌는 날 0~9시에는 지난 구절을 쓴다 —
+      위젯 쪽만 한국 날짜로 고쳤다(`weeklyVerseKst`). 알림도 고칠지는 정하지 않았다.
 - [ ] ⏰ **쉴만한 물가 — 2026-09-12(토) 개시했다.** 프런트·운영 DB·공개 게이트까지 끝.
       **남은 것:** ① 실기기 확인(카드·어두운 모드·「아주 큼」 글씨) ② 2주 뒤 전환율(`supabase/psalm_metrics.sql`)
       ③ 본문이 다 들어온 뒤 다시 볼 것 셋(짧은 구절의 빈 자리·큰 글씨 넘침·단추 크기)

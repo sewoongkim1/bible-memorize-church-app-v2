@@ -17,4 +17,11 @@
 이제 `sermonCycleStarted(sermon, parts)` 하나로 가른다 — **주기는 `svc_date` 다음 날(월)부터**
 돌므로, 등록일이 오늘이거나(주일 오후에 막 올라온 설교) 자료가 아예 없으면 직전 주 것을 쓴다.
 되돌릴 자리는 **직전 주에 실제로 자료가 있을 때뿐**이다(없으면 「준비 중」 안내가 뜬다).
+⚠️ **이 고르는 규칙은 이제 두 곳에 있다(2026-09-20)** — app.js(`maybeShowWeeklyMeditation`·`sermonCycleStarted`·
+`buildWeeklyMeditations`·`halfText`)와 **서버**(`supabase/functions/api/index.ts` 의 「위젯(아이폰)」 절,
+아이폰 위젯이 쓰는 `getTodayMeditation`). **한쪽만 고치면 앱과 위젯이 다른 묵상을 보여 준다.**
+고친 뒤에는 `python tests/widget-parity.py` 로 대조한다 — 운영 사이트의 웹 함수와 서버 응답을 날짜별로
+한 글자까지 견준다(처음 돌린 9/13~9/26 은 140/140 일치). 서버는 `sermon` 함수의 `getSermons`(142편·1.9MB)를
+부르지 않고 `sermons` 표에서 **그 두 구절 것만** 읽는다 — 칸 이름은 gocheok-sermons 의 `toApp` 과 같다.
+
 ⚠️ `verses` 에는 `updated_at`·`url` 칸이 **없다** — 동영상은 `sermon_url`, 수정 시각은 안 남는다.
