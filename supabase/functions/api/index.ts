@@ -398,7 +398,9 @@ Deno.serve(async (req) => {
       case "pushSubscribers": return json(await pushSubscribers(body));
       case "sendPush":      return json(await sendPush(body));
       case "weeklyVersePush": return json(await weeklyVersePush(body));
-      case "getWeeklyVerse":  return json(await latestVerse() ?? {});
+      case "getWeeklyVerse":     return json(await getWeeklyVerseForWidget(body));   // 위젯 — 앱과 같은 한국 날짜 기준
+      case "getTodayMeditation": return json(await getTodayMeditation(body));        // 위젯 — 오늘의 묵상
+      case "getTodayBlessing":   return json(await getTodayBlessing(body));          // 위젯 — 오늘의 축복 기도문
       // ---- 장애 모니터링 ----
       case "monitor":       return json(await monitor(body));
       // ---- 주간 리포트 메일 ----
@@ -630,6 +632,184 @@ async function latestVerse(): Promise<{ no: number | null; ref: string; text: st
     });
     return { ...toShape(list[curIdx]), prev: curIdx > 0 ? toShape(list[curIdx - 1]) : null };
   } catch (_) { return null; }
+}
+
+// ---------- 위젯(아이폰) — 이번 주 구절 · 오늘의 묵상 · 오늘의 축복 기도문 (2026-09-20) ----------
+// 위젯은 로그인 없이 이 셋을 받아 그리기만 한다 — 공개 정보만, user_id 없음.
+// ⚠️ 여기 규칙은 **app.js 와 두 곳**이다. 한쪽을 고치면 다른 쪽도 함께 고친다.
+//    이번 주 구절 = getWeeklyVerseInfo(+kstDayNumber) · 묵상 = maybeShowWeeklyMeditation
+//    (+findSermonForVerse · sermonCycleStarted · sermonHasMeditationContent · buildWeeklyMeditations · halfText)
+//    · 기도문 = loadPrayers · prayToday · prayJong · prayFill.
+//    확인: python tests/widget-parity.py — 운영 사이트의 웹 함수와 날짜별로 한 글자까지 견준다.
+// 선택 입력 date("YYYY-MM-DD") — 그날 기준으로 계산한다(시험용 · 공개 정보뿐이라 열어 둔다).
+const WIDGET_YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
+function widgetYmd(b: any): string {
+  const d = String(b?.date || "");
+  return WIDGET_YMD_RE.test(d) ? d : kstDay(new Date().toISOString());
+}
+function ymdDayNumber(ymd: string): number {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return Math.floor(Date.UTC(y, m - 1, d) / 86400000);
+}
+
+type WidgetVerse = { no: number | null; ref: string; text: string };
+
+// 이번 주 구절 — 앱 getWeeklyVerseInfo 와 같은 기준(한국 **날짜**).
+//   ⚠️ latestVerse() 는 시각(UTC 자정)으로 골라 구절이 바뀌는 날 0~9시에 앱과 달랐다.
+//      아침 알림 등 latestVerse() 를 쓰는 기존 경로는 그대로 둔다(범위 밖).
+//   ⚠️ 날짜가 없는 구절은 **그날(ymd)로 본다** — 앱의 kstDayNumber(null) 이 「오늘」을 돌려주기 때문이다
+//      (날짜 없이 먼저 들어온 구절을 앱은 곧바로 이번 주 말씀으로 보인다 — 2026-09-20 에 38번이 그랬다). 앱과 같게.
+async function weeklyVerseKst(ymd: string): Promise<{ cur: WidgetVerse; prev: WidgetVerse | null } | null> {
+  const COLS = "no,ref_short,ref_full,ref,text,date";
+  let { data, error } = await db.from("verses").select(COLS)
+    .eq("is_active", true).eq("track", "weekly").order("no");   // getVerses 와 같은 순서(같은 날끼리의 차례)
+  if (error) {                                                   // track 칸이 없는 DB — latestVerse 와 같은 폴백
+    const r = await db.from("verses").select(COLS).eq("is_active", true).order("no");
+    if (r.error) throw r.error;
+    data = r.data;
+  }
+  const today = ymdDayNumber(ymd);
+  const dayOf = (raw: unknown): number | null => {
+    if (!raw) return today;
+    const t = Date.parse(String(raw));
+    return isNaN(t) ? null : ymdDayNumber(kstDay(new Date(t).toISOString()));
+  };
+  const dated = (data ?? [])
+    .map((v: any) => ({ v, day: dayOf(v.date) }))
+    .filter((x: any) => x.day !== null)
+    .sort((a: any, b: any) => a.day - b.day);
+  if (!dated.length) return null;
+  const shape = (x: any): WidgetVerse => ({
+    no: x.v.no ?? null,
+    ref: x.v.ref_short || x.v.ref_full || x.v.ref || "",
+    text: x.v.text || "",
+  });
+  let idx = -1;
+  dated.forEach((x: any, i: number) => { if (x.day <= today) idx = i; });
+  if (idx < 0) return { cur: shape(dated[0]), prev: null };      // 앱의 「곧 시작할 말씀」
+  return { cur: shape(dated[idx]), prev: idx > 0 ? shape(dated[idx - 1]) : null };
+}
+
+async function getWeeklyVerseForWidget(b: any) {
+  const wk = await weeklyVerseKst(widgetYmd(b));
+  return wk ? { ...wk.cur, prev: wk.prev } : {};
+}
+
+// ---- 오늘의 묵상 ----
+const MED_PREP_MSG = "이번 주 설교 묵상 자료를 준비하고 있어요.\n잠시 후 다시 확인해 주세요 🙏";
+const MED_DEFAULT_Q = "오늘 이 말씀을 삶의 어느 자리에 적용할 수 있을까요?";
+function medHasContent(s: any): boolean {
+  return !!(s && ((s.daily_meditations && s.daily_meditations.length) ||
+                  (s.points && s.points.length) || (s.questions && s.questions.length)));
+}
+function medCycleStarted(s: any, ymd: string): boolean {       // 앱 sermonCycleStarted
+  if (!medHasContent(s)) return false;
+  const d = String((s && s.svc_date) || "").slice(0, 10);
+  if (!WIDGET_YMD_RE.test(d)) return true;
+  return d < ymd;
+}
+function medHalfText(text: unknown): string {                  // 앱 halfText
+  const t = String(text || "").trim();
+  const parts = t.match(/[^.!?。]+[.!?。]*\s*/g);
+  if (!parts || parts.length <= 1) return t;
+  const target = t.length * 0.5;
+  let out = "";
+  for (const p of parts) { out += p; if (out.length >= target) break; }
+  return out.trim();
+}
+const medPlain = (t: unknown) => String(t ?? "").replace(/\*\*([^*]+)\*\*/g, "$1");   // 앱 scEmphasis 의 굵게 표시를 벗긴 것
+type MedItem = { heading: string; message: string; question: string; prep?: boolean };
+function medItems(verse: WidgetVerse, s: any): MedItem[] {      // 앱 buildWeeklyMeditations
+  const daily = (s && s.daily_meditations) || [];
+  if (daily.length) {
+    return daily
+      .filter((d: any) => d && (d.message || d.question))
+      .map((d: any) => ({ heading: d.heading || "", message: d.message || "", question: d.question || "" }));
+  }
+  const items: MedItem[] = [];
+  const pts = (s && s.points) || [];
+  const qs = (s && s.questions) || [];
+  const n = Math.max(pts.length, qs.length);
+  for (let i = 0; i < n; i++) {
+    const p = pts[i];
+    const q = qs.length ? qs[i % qs.length] : "";
+    const full = p ? (p.body || "") : ((s && s.summary) || verse.text);
+    const message = medHalfText(full);
+    if (!message && !q) continue;
+    items.push({ heading: p ? (p.heading || "") : "", message, question: q });
+  }
+  if (!items.length) {
+    items.push(!s
+      ? { heading: "", message: MED_PREP_MSG, question: "", prep: true }
+      : { heading: "", message: verse.text, question: MED_DEFAULT_Q });
+  }
+  return items;
+}
+
+async function getTodayMeditation(b: any) {
+  const ymd = widgetYmd(b);
+  const [y, m, d] = ymd.split("-").map(Number);
+  const dayIdx = (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7;   // 월 0 … 일 6
+  const dayLabel = "월화수목금토일"[dayIdx];
+  const prep = { ok: true, ready: false, date: ymd, dayLabel, heading: "", message: MED_PREP_MSG,
+                 question: "", sermonTitle: "", usingPrev: false };
+  const wk = await weeklyVerseKst(ymd);
+  if (!wk) return prep;
+  // 설교는 **두 구절 것만** 읽는다 — sermon 함수의 getSermons 는 142편·1.9MB 라 위젯마다 받기엔 무겁다.
+  // 칸 이름은 gocheok-sermons 저장소 sermon 함수의 toApp 과 같다(svc_date→date, mem_verse_no→memVerseNo …).
+  const nos = [wk.cur.no, wk.prev ? wk.prev.no : null].filter((n) => n != null);
+  let rows: any[] = [];
+  if (nos.length) {
+    const { data, error } = await db.from("sermons")
+      .select("title,svc_date,summary,points,questions,daily_meditations,mem_verse_no")
+      .eq("hidden", false).in("mem_verse_no", nos).order("svc_date", { ascending: false });
+    if (!error) rows = data ?? [];                     // 표가 없는 DB(개발)면 설교 없음 = 「준비하고 있어요」
+  }
+  const find = (no: number | null) => rows.find((s) => s.mem_verse_no === no && s.summary) || null;   // 앱 findSermonForVerse
+  let verse = wk.cur;
+  let sermon = find(wk.cur.no);
+  let usingPrev = false;
+  if (!medCycleStarted(sermon, ymd) && wk.prev) {
+    const ps = find(wk.prev.no);
+    if (medHasContent(ps)) { verse = wk.prev; sermon = ps; usingPrev = true; }
+  }
+  const items = medItems(verse, sermon);
+  if (!items.length) return prep;
+  const it = items[dayIdx % items.length];
+  return {
+    ok: true, ready: !it.prep, date: ymd, dayLabel,
+    heading: medPlain(it.heading), message: medPlain(it.message), question: medPlain(it.question),
+    sermonTitle: sermon ? (sermon.title || "") : "", usingPrev,
+  };
+}
+
+// ---- 오늘의 축복 기도문 ----
+// 위젯은 로그인 이름을 모른다 — {이름} 자리에 「우리 가족」(2026-09-20 친구 결정).
+const BLESS_WIDGET_NAME = "우리 가족";
+function blessJong(name: string): number {                   // 앱 prayJong
+  const c = name.charCodeAt(name.length - 1);
+  return (c >= 0xac00 && c <= 0xd7a3) ? (c - 0xac00) % 28 : 0;
+}
+function blessFill(t: unknown, name: string): string {       // 앱 prayFill — ⚠️ ㄹ 받침(8)이면 「로」
+  const j = blessJong(name);
+  return String(t || "")
+    .replace(/\{이름\}/g, name)
+    .replace(/\{이\}/g, j ? "이" : "가")
+    .replace(/\{을\}/g, j ? "을" : "를")
+    .replace(/\{은\}/g, j ? "은" : "는")
+    .replace(/\{과\}/g, j ? "과" : "와")
+    .replace(/\{으로\}/g, (j === 0 || j === 8) ? "로" : "으로");
+}
+async function getTodayBlessing(b: any) {
+  const ymd = widgetYmd(b);
+  const { blessings } = await getBlessings();                // 앱 loadPrayers 와 같은 목록·차례
+  const n = blessings.length;
+  if (!n) return { ok: true, date: ymd, no: null, title: "", ref: "", prayer: "" };
+  // 앱 prayToday 는 new Date("YYYY-MM-DDT00:00:00") 을 **폰의 지역 시간**으로 읽는다 —
+  // 한국 시간 폰에서는 (그날 UTC 날수 − 1) 이 된다. 성도님 폰은 한국 시간이므로 그 값에 맞춘다.
+  const i = (((ymdDayNumber(ymd) - 1) % n) + n) % n;
+  const x = blessings[i];
+  return { ok: true, date: ymd, no: x.no, title: x.title, ref: x.ref, prayer: blessFill(x.prayer, BLESS_WIDGET_NAME) };
 }
 
 // 매일 아침 푸시 문구 — 오늘의 묵상(요일별) 뒤에 이번주 말씀을 붙인다.
