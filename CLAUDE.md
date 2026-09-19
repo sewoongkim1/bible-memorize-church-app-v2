@@ -109,6 +109,7 @@ localhost·미리보기·브랜치·github.io는 전부 개발이다. 개발일 
 ### 프론트를 고쳤을 때
 1. 고친다 → `python -m http.server`로 **localhost에서 확인**(자동으로 개발 DB를 본다)
 2. **`python tools/bump.py`** — 캐시태그·판 번호·APP_BUILD 일괄. 손으로 고치지 말 것
+   · 여러 화면에 걸친 CSS·레이아웃이면 **`python tools/screen-sweep.py`**(화면 39개 × 8조건, 개발 DB) — ⚠️ 읽을 것 `docs/notes/capture-tools.md`
 3. 커밋·푸시 → Actions가 자동 배포
 4. **「이번 판에만 있는 표식」으로 배포를 확인한다**(아래)
 

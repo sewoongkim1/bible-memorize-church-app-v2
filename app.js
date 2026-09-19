@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260920c";
+const APP_BUILD = "20260920d";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5132,7 +5132,10 @@ function initStickyRef() {
   }
   const ref = document.querySelector(".test-ref-sticky");
   if (!ref || !window.visualViewport) return;
-  const update = () => { ref.style.top = `${window.visualViewport.offsetTop}px`; };
+  // ⚠️ 인라인 top 에 상태바 높이(env)를 함께 넣는다 — 그냥 offsetTop 만 넣으면 CSS 의
+  //    top:env(safe-area-inset-top) 을 덮어써 홈 화면 웹앱에서 배너가 상태바 밑에 깔린다
+  //    (2026-09-20 화면 전수 점검). 사파리는 env 가 0 이고, 앱은 이 배너를 숨긴다.
+  const update = () => { ref.style.top = `calc(env(safe-area-inset-top, 0px) + ${window.visualViewport.offsetTop}px)`; };
   _stickyRefOnVV = update;
   update();
   window.visualViewport.addEventListener("resize", _stickyRefOnVV);
@@ -5165,7 +5168,11 @@ function scrollPastBtnRow() {
   const header = document.querySelector(".page-header");
   if (!appEl || !header) return;
   const sync = () => {
-    header.style.display = appEl.querySelector(".test-ref-sticky, .album-screen, .pr-wrap, .min-screen, .ps-wrap") ? "none" : "";
+    const hide = !!appEl.querySelector(".test-ref-sticky, .album-screen, .pr-wrap, .min-screen, .ps-wrap");
+    header.style.display = hide ? "none" : "";
+    // 로고 배너가 지던 상태바 여백을 #app 이 대신 진다(style.css body.no-page-header).
+    // 쉴만한 물가(.ps-wrap)는 제 여백을 스스로 지므로 빼야 두 번 들어가지 않는다.
+    document.body.classList.toggle("no-page-header", hide && !appEl.querySelector(".ps-wrap"));
   };
   sync();
   new MutationObserver(sync).observe(appEl, { childList: true });

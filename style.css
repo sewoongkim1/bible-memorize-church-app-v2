@@ -97,6 +97,15 @@ body {
   margin: 0 auto;
   padding: 6px 20px 28px;
 }
+/* 로고 배너(.page-header)를 숨기는 화면(암송·도전·앨범·기도문·사역신청)에서는 그 배너가 지던
+   상태바 여백을 #app 이 대신 진다 — 2026-09-20 화면 전수 점검에서 홈 화면 웹앱(black-translucent)
+   이면 이 화면들의 머리가 상태바 밑에 깔리는 것이 잡혔다. 로고 배너와 **같은 식**
+   (var(--app-safe-top, env(...)))이라 아이폰 앱(앱이 --app-safe-top 을 0 으로 박는다)과
+   사파리(env 가 0)에서는 달라지는 것이 없다. 켜고 끄는 것은 app.js watchPageHeaderVsStickyRef.
+   ⚠️ 쉴만한 물가(.ps-wrap)는 여기서 빠진다 — 제 여백을 env 로 스스로 진다(앱에서도 필요해서). */
+body.no-page-header #app {
+  padding-top: calc(6px + var(--app-safe-top, env(safe-area-inset-top, 0px)));
+}
 
 h1 {
   font-family: "Nanum Myeongjo", serif;
@@ -2434,7 +2443,9 @@ body.native-app-hide-ref .word-input { scroll-margin-top: 90px; }
    화면 맨 위를 차지해서, scrollIntoView로 이 칸을 맨 위까지 붙이면 배너 밑에 가려
    안 보였다("키보드가 아니라 윗 타이틀에 가려서" 제보, 2026-08-31). scroll-margin-top으로
    배너 높이(대략 50px, 글씨 크게 설정이면 조금 더 큼)만큼 여유를 준다. */
-.ref-input { scroll-margin-top: 62px; }
+/* 홈 화면 웹앱에서는 배너가 상태바 높이만큼 내려오므로 그만큼 더 비킨다 — 로고 배너와 같은 식이라
+   아이폰 앱(--app-safe-top:0)·사파리(env 0)에서는 그대로 62px 이다. */
+.ref-input { scroll-margin-top: calc(62px + var(--app-safe-top, env(safe-area-inset-top, 0px))); }
 
 /* 도전 완료 화면 */
 .cd-card{ text-align:center; }

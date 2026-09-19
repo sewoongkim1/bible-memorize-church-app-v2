@@ -180,7 +180,9 @@
   /* ── 조작 줄 (마우스를 움직일 때만) ───────── */
   .bar {
     /* 오른쌄 구통이로 — 가운데 두면 가운데 정렬된 요절과 겹친다. */
-    position:fixed; right:18px; bottom:18px;
+    /* 아래는 홈 막대(env)만큼 더 띄운다 — 아이폰 앱·홈 화면 웹앱에서 단추가 홈 막대에 걸렸다
+       (2026-09-20 화면 전수 점검). 사파리·PC 는 env 가 0 이라 그대로다. */
+    position:fixed; right:18px; bottom:calc(18px + env(safe-area-inset-bottom, 0px));
     display:flex; gap:8px; padding:8px; border-radius:14px;
     background:var(--veil); border:1px solid var(--line);
     opacity:0; pointer-events:none; transition:opacity .2s;
