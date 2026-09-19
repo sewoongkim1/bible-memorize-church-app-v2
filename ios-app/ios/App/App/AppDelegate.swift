@@ -11,6 +11,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private let statusBarBackground = UIView()
     private let brandNavy = UIColor(red: 0.05, green: 0.11, blue: 0.24, alpha: 1)
     private let hasLoggedInKey = "hasLoggedInBefore"
+    // ⚠️ 위젯(WidgetShared.swift 의 widgetScheme)·Info.plist(CFBundleURLSchemes)와 **같은 값**이어야 한다.
+    private let widgetURLScheme = "gocheokmemorize"
     // 등록 시점엔 아직 로그인(user_id)이 없을 수 있어 저장에 실패할 수 있다 — 토큰을
     // 기억해 뒀다가 앱이 다시 활성화될 때마다(로그인 뒤 재실행 포함) 다시 시도한다.
     private var cachedDeviceTokenHex: String?
@@ -356,7 +358,45 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
 
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+        if url.scheme == widgetURLScheme {
+            openFromWidget(url)
+            return true
+        }
         return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
+    }
+
+    // 위젯을 누르면 gocheokmemorize://verse?no=31 · ://meditation · ://prayer 로 앱이 열린다.
+    // 웹 주소로 바꿔 웹뷰에 실어 준다 — /?v=31(구절 암송) · /?w=meditation · /?w=prayer
+    // (받는 쪽은 app.js 의 routeAfterLoad · getDeepLinkVerseNo · getWidgetTarget).
+    // ⚠️ 스킴 이름은 위젯 쪽 WidgetShared.swift 의 widgetScheme, Info.plist 의 CFBundleURLSchemes 와 같아야 한다.
+    private func openFromWidget(_ url: URL) {
+        // 첫 로그인 전이면 네이티브 로그인 화면이 먼저다 — 그 위로 다른 화면을 열지 않는다.
+        guard UserDefaults.standard.bool(forKey: hasLoggedInKey) else { return }
+
+        let base = "https://gocheok.onlybible.kr/"
+        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        var target: String?
+        switch url.host ?? "" {
+        case "verse":
+            if let no = items.first(where: { $0.name == "no" })?.value.flatMap({ Int($0) }) {
+                target = base + "?v=\(no)"
+            }
+        case "meditation":
+            target = base + "?w=meditation"
+        case "prayer":
+            target = base + "?w=prayer"
+        default:
+            target = nil            // ://home 등 — 앱만 열고 보던 화면 그대로 둔다
+        }
+
+        guard let target = target, let dest = URL(string: target),
+              let bridgeVC = window?.rootViewController as? CAPBridgeViewController,
+              let webView = bridgeVC.webView else { return }
+        webView.load(URLRequest(url: dest))
+        // 새 문서로 넘어가면 documentElement 에 심어 둔 --app-safe-top 이 사라진다 —
+        // 앱을 켤 때와 같은 간격으로 다시 넣는다(configureNativeAppCss 는 여러 번 불러도 안전하다).
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.configureNativeAppCss() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { self.configureNativeAppCss() }
     }
 
     func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
