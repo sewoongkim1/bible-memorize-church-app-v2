@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260920a";
+const APP_BUILD = "20260920b";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2659,6 +2659,20 @@ function prayFullClose(keepAwake, fromPop) {
 //      **위로 넘친 만큼은 scrollHeight 에 안 잡혀** 넘쳤는지 모른 채 지나간다
 //      (말씀 카드에서 출처가 테두리 밖으로 나갔던 것과 같은 함정).
 //      안쪽 덩이의 실제 높이를 재서 견준다.
+// 화면 가장자리의 안전 여백(상태바·노치·홈 막대, px) — env() 는 CSS 에서만 읽히므로
+// 보이지 않는 상자에 여백으로 걸어 잰다. 사파리·안드로이드에서는 대개 0 이다.
+function safeAreaInsets() {
+  const p = document.createElement("div");
+  p.style.cssText = "position:fixed;top:0;left:0;visibility:hidden;pointer-events:none;" +
+    "padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) " +
+    "env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)";
+  document.body.appendChild(p);
+  const cs = getComputedStyle(p);
+  const r = { t: parseFloat(cs.paddingTop) || 0, r: parseFloat(cs.paddingRight) || 0,
+              b: parseFloat(cs.paddingBottom) || 0, l: parseFloat(cs.paddingLeft) || 0 };
+  p.remove();
+  return r;
+}
 function prayFitText(wrap) {
   const box = wrap.querySelector(".pr-f-in");
   const cs = getComputedStyle(wrap);
@@ -2669,8 +2683,11 @@ function prayFitText(wrap) {
   // ⚠️ 100vw/100vh 로 쓰지 않는다(주소창 때문에 실제 덮개 크기와 어긋난다) — 덮개를 직접 잰다.
   const frame = wrap.querySelector(".pr-frame");
   if (frame) {
-    frame.style.width = rot ? wrap.clientHeight + "px" : "";
-    frame.style.height = rot ? wrap.clientWidth + "px" : "";
+    // ⚠️ 덮개는 물리 화면 끝까지라, 돌려 볼 때 덮개 크기를 그대로 쓰면 액자 테두리가
+    //    상태바·홈 막대 밑으로 들어간다(아이폰 앱) — 안전 여백을 빼서 넣는다.
+    const sa = rot ? safeAreaInsets() : null;
+    frame.style.width = rot ? (wrap.clientHeight - sa.t - sa.b) + "px" : "";
+    frame.style.height = rot ? (wrap.clientWidth - sa.l - sa.r) + "px" : "";
     // ⚠️ 잎가지 폭은 **화면의 짧은 쪽**을 따라간다. `%`로 두면 액자의 가로를 따르는데,
     //    돌려 보기에서는 그 가로가 화면 세로(긴 쪽)라 잎가지가 두 배로 부풀어
     //    화면 폭의 3분의 2를 덮었다(2026-09-04 실측). 여기서 픽셀로 정한다.
