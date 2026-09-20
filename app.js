@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260920e";
+const APP_BUILD = "20260920f";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1638,43 +1638,77 @@ function fillEventExplain(verse) {
 }
 
 // 빈칸 채점 — 맞히면 다음 구절로, 마지막이면 응모 처리.
+// ⚠️ 판정 규칙은 암송(setupAutoCheck)·도전(setupChallengeTyping)과 **같아야 한다.** 2026-09-20에
+//    이 화면만 옛 방식(조합 이벤트에 의존 + 「글자 수가 같거나 많으면 오답」)이라
+//    「아이폰에서 정답을 입력해도 지워진다」는 제보를 받았다. 원인 둘:
+//     ① 마지막 글자를 조합하는 **중간 상태**는 정답과 글자 수가 같다(정답 「생명」 → 「생며」).
+//        아이폰은 그때 input 이벤트를 isComposing=false 로 주기도 해서 그대로 오답이 됐다.
+//        → 암송·도전과 같이 **정답보다 길 때만** 지운다.
+//     ② 자판이 값을 **NFD(자모 분리형)** 로 줄 수 있다 — 눈에는 같은데 === 가 어긋난다.
+//        → NFC 로 맞춘 뒤 견준다.
+//    조합 중인지는 이벤트가 아니라 **값에 남은 낱자모**로 보고(아이폰은 이벤트가 양쪽으로 불안정),
+//    즉시·300ms·1200ms 세 겹으로 검사한다(마지막 글자의 이벤트가 씹히는 경우 대비).
+//    회귀 시험: python tests/event-input.py
 function setupEventInput(queue, idx, answer) {
   const input = document.getElementById("ev-input");
   const hint = document.getElementById("ev-hint");
   if (!input) return;
   let done = false;
+  let timer = null;
+  let timer2 = null;
+  const norm = (s) => String(s || "").trim().normalize("NFC");
+  const len = (s) => Array.from(s).length;
+  const isComposingJamo = (s) => /[ㄱ-ㆎᄀ-ᇿ]/.test(String(s || ""));
+  const target = norm(answer);
 
-  const evaluate = (isComposing) => {
-    if (done || input.disabled) return;
-    const val = input.value.trim();
-    if (val === answer) {
-      done = true;
-      input.value = answer;
-      input.classList.add("correct");
+  function accept() {
+    done = true;
+    clearTimeout(timer);
+    clearTimeout(timer2);
+    input.value = target;
+    input.classList.add("correct");
+    input.classList.remove("wrong");
+    input.disabled = true;
+    if (hint) hint.textContent = "";
+    _eventAdvanceTimer = setTimeout(() => {
+      _eventAdvanceTimer = null;
+      if (idx + 1 < queue.length) renderEventStep(queue, idx + 1);
+      else finishEvent();
+    }, 400);
+  }
+
+  function markWrong() {
+    input.classList.add("wrong");
+    if (hint) hint.textContent = "다시 한 번 입력해 보세요";
+    setTimeout(() => {
+      if (done) return;
+      input.value = "";
       input.classList.remove("wrong");
-      input.disabled = true;
       if (hint) hint.textContent = "";
-      _eventAdvanceTimer = setTimeout(() => {
-        _eventAdvanceTimer = null;
-        if (idx + 1 < queue.length) renderEventStep(queue, idx + 1);
-        else finishEvent();
-      }, 400);
-    } else if (!isComposing && Array.from(val).length >= Array.from(answer).length) {
-      input.classList.add("wrong");
-      if (hint) hint.textContent = "다시 한 번 입력해 보세요";
-      setTimeout(() => {
-        if (done) return;
-        input.value = "";
-        input.classList.remove("wrong");
-        input.focus();
-      }, 400);
-    }
-  };
+      input.focus({ preventScroll: true });
+    }, 400);
+  }
 
-  let composing = false;
-  input.addEventListener("compositionstart", () => { composing = true; });
-  input.addEventListener("compositionend", () => { composing = false; evaluate(false); });
-  input.addEventListener("input", (e) => evaluate(composing || e.isComposing));
+  function tryWrong(force) {
+    if (done || input.disabled) return;
+    if (norm(input.value) === target) { accept(); return; }   // 정답이면 조합 상태와 무관하게 즉시 통과
+    if (!force && isComposingJamo(input.value)) return;       // 아직 조합 중(천지인 등)
+    const val = norm(input.value);
+    if (val && len(val) > len(target)) markWrong();
+  }
+
+  function onChange() {
+    if (done || input.disabled || input.classList.contains("wrong")) return;  // 지워지는 0.4초 동안은 건너뛴다
+    clearTimeout(timer);
+    clearTimeout(timer2);
+    tryWrong(false);
+    timer = setTimeout(() => tryWrong(false), 300);
+    timer2 = setTimeout(() => tryWrong(true), 1200);
+  }
+
+  input.addEventListener("compositionend", onChange);
+  input.addEventListener("input", onChange);
+  input.addEventListener("keyup", onChange);   // 아이폰은 조합 완료 신호가 늦거나 누락될 수 있다
   input.focus();
 }
 
@@ -7418,6 +7452,10 @@ function setupChallengeTyping(verse, onComplete) {
   // 구절 빈칸(예 "삿 8:23")은 콜론이 자판을 바꿔야 나오는 기기가 많아 치기 번거롭다 —
   // 콜론 대신 띄어쓰기를 넣어도 같은 것으로 본다(2026-08-31 사용자 요청: "':' 는 ':' 또는 ' '").
   const refNorm = (s) => String(s || "").replace(/[: ]+/g, " ").trim();
+  // 암송 화면(setupAutoCheck)의 norm 과 같은 것 — 모바일 자판(3벌식·아이폰 등)이 한글을
+  // NFD(자모 분리형)로 줄 수 있어, NFC 로 맞춘 뒤 견줘야 정답이 정답으로 잡힌다.
+  // ⚠️ 2026-09-20 이벤트 화면에서 이것이 빠져 「정답을 쳐도 지워진다」가 났다 — 여기도 같은 자리다.
+  const norm = (t) => String(t || "").trim().normalize("NFC");
   // 암송 화면(setupAutoCheck)의 isComposingJamo와 같은 것. 아이폰 사파리는 compositionstart/
   // compositionend·isComposing 이벤트가 양쪽으로 다 불안정하다 — 조합 중인데 안 잡혀서
   // 오답으로 지워지기도 하고(2026-09-18, "항ㅅ"이 찍혔다 사라지는 실기기 영상으로 확인),
@@ -7425,6 +7463,7 @@ function setupChallengeTyping(verse, onComplete) {
   // 한다(성도님 제보: "틀려도 클리어가 안 되고 계속 입력됨"). 그래서 이벤트를 아예 믿지 않고,
   // 남은 낱자모(호환 자모 ㄱ~ㆎ·U+1100대 자모)가 값에 있는지 **내용 자체**로만 판단한다.
   const isComposingJamo = (s) => /[ㄱ-ㆎᄀ-ᇿ]/.test(String(s || ""));
+  // 회귀 시험: python tests/event-input.py — 이 화면과 이벤트 화면의 판정이 같은지 본다.
   // 암송 화면(setupAutoCheck)의 scrollIntoCenter와 같은 것(거기도 지역 함수라 그대로
   // 옮겨 둔다). ⚠️ visualViewport.height를 손으로 읽어 계산하던 방식은, 키보드가 이미
   // 떠 있는 채로 다음 칸에 포커스가 넘어갈 때 아이폰 사파리에서 못 미더워서 탭 바까지
@@ -7442,8 +7481,8 @@ function setupChallengeTyping(verse, onComplete) {
     const answer = input.dataset.answer;
     const isRef = input.classList.contains("ref-input");
     const match = en ? easyEnNorm(val) === easyEnNorm(answer)
-      : isRef ? refNorm(val) === refNorm(answer)
-      : val === answer;
+      : isRef ? refNorm(norm(val)) === refNorm(norm(answer))
+      : norm(val) === norm(answer);
     if (!match) return false;
     input.value = answer;
     input.classList.add("correct");
@@ -7477,7 +7516,7 @@ function setupChallengeTyping(verse, onComplete) {
       const answer = input.dataset.answer;
       // setupAutoCheck와 같이 '넘을 때'(>)만 오답으로 본다 — 정답과 글자 수가 같은
       // 중간 상태(예: 받침만 다른 마지막 음절)까지 성급하게 지우지 않기 위함이다.
-      if (val && Array.from(val).length > Array.from(answer).length) {
+      if (val && Array.from(norm(val)).length > Array.from(norm(answer)).length) {
         input.classList.add("wrong");
         input.classList.remove("correct");
         setTimeout(() => { input.blur(); input.value = ""; input.classList.remove("wrong"); input.focus({ preventScroll: true }); }, 400);
@@ -7512,10 +7551,9 @@ function setupChallengeTyping(verse, onComplete) {
   // 그대로 태워, 완료 판정이 타자와 한 길로 흐르게 한다.
   const tray = document.getElementById("card-tray");
   if (isCardMode() && tray && inputs.length) {
-    // 암송 화면(setupAutoCheck)의 norm과 같은 것. 거기서는 그 함수 안의 지역 함수라
-    // 여기서 그냥 부르면 'norm is not defined'로 도전 화면이 통째로 멈춘다
-    // (카드 모드일 때만 나므로, 확인 없이 배포하면 카드 쓰시는 분만 골라 망가진다).
-    const norm = (t) => String(t || "").trim().normalize("NFC");
+    // norm 은 이 함수 맨 위에 있다(2026-09-20에 정답 비교에도 쓰려고 올렸다).
+    // ⚠️ 암송 화면(setupAutoCheck)의 norm 은 그 함수 안의 지역 함수라 여기서 부를 수 없다 —
+    //    예전에 그렇게 썼다가 카드 모드에서만 'norm is not defined'로 화면이 통째로 멈췄다.
     inputs.forEach((inp) => { inp.readOnly = true; inp.setAttribute("inputmode", "none"); });
     const shuffled = inputs
       .map((inp) => norm(inp.dataset.answer))
