@@ -264,7 +264,14 @@
     }
 
     async function loadList() {
-      try { LIST = await API.adminList(SECRET); renderList(); buildOrderLists(); } catch (e) {}
+      try {
+        // 한글은 완성형(NFC)으로 통일 — 맥에서 온 자모분리(NFD) 이름이 섞이면
+        // 같은 「시온찬양대」가 코드포인트가 달라 콤보 목록에 두 번 뜬다(2026-09-20)
+        LIST = (await API.adminList(SECRET)).map((s) => ({
+          ...s, song: (s.song || "").normalize("NFC"), choir: (s.choir || "").normalize("NFC"),
+        }));
+        renderList(); buildOrderLists();
+      } catch (e) {}
     }
 
     // ----- 콤보 순서 관리 -----
