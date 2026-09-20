@@ -2534,6 +2534,19 @@ body.native-app-hide-ref .word-input { scroll-margin-top: 90px; }
 .dark .my-rank .mr-cnt.none{ color:#b0a179; }
 
 /* 순위 리스트 */
+/* 순위 목록 열 머리글 — 「회」와 「👏」의 뜻을 목록 첫 줄부터 알 수 있게.
+   ⚠️ 오른쪽 두 칸의 폭·간격은 .rank-row 의 .rk-cnt(56px)·.rk-cheer(54px)·gap(8px)과
+      반드시 같이 움직여야 한다. 한쪽만 고치면 머리글이 열에서 한 칸씩 밀린다.
+   좌우 15px = .rank-row 의 padding 14px + border 1px(머리글엔 테두리가 없다). */
+.rank-head{
+  display:flex; align-items:center; gap:8px;
+  padding:0 15px; margin:2px 0 6px;
+  font-size:.7rem; font-weight:700; color:var(--gray); white-space:nowrap;
+}
+.rank-head .rh-who{ flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; }
+.rank-head .rh-cnt{ flex:0 0 auto; min-width:56px; text-align:right; }
+.rank-head .rh-cheer{ flex:0 0 auto; min-width:54px; text-align:center; }
+
 .rank-list{ display:flex; flex-direction:column; gap:7px; }
 /* 순위 줄은 폰에서도 반드시 한 줄이어야 한다. 줄바꿈을 허용하면 넘침은 막히지만
    순위표가 들쭉날쭉해져 훑어보기 나빠진다. 그래서 소속만 신축 칸으로 두고 나머지는
@@ -2565,6 +2578,11 @@ body.native-app-hide-ref .word-input { scroll-margin-top: 90px; }
   .rank-row{ gap:6px; }
   .rank-row .rk-cnt{ min-width:48px; }
   .rank-row .rk-cheer{ min-width:46px; padding:4px 6px; }
+  /* 머리글도 같이 줄인다. 글자는 그대로 두고 크기만 줄여 「도전 횟수」·「눌러 응원」이
+     좁아진 칸 안에 들어오게 한다 — 안 줄이면 칸이 밀려 열이 어긋난다. */
+  .rank-head{ gap:6px; font-size:.64rem; }
+  .rank-head .rh-cnt{ min-width:48px; }
+  .rank-head .rh-cheer{ min-width:46px; }
 }
 .rank-row.top .rk-cnt{ color:var(--gold); border-bottom-color:#d8c88a; }
 .rank-row.top .rk-cnt.open{ border-bottom-color:var(--gold); }
@@ -2626,6 +2644,13 @@ body.native-app-hide-ref .word-input { scroll-margin-top: 90px; }
 .rank-note b{ color:var(--navy); }
 .dark .rank-note{ background:#232c3f; color:#aeb8c8; }
 .dark .rank-note b{ color:#cdd9f2; }
+/* 개인 순위의 뜻풀이는 여러 줄이다 — 가운데 정렬하면 줄 끝이 들쭉날쭉해 읽기 나쁘다.
+   .rn-sub 는 앞줄에 딸린 부연이라 한 칸 들여 쓴다(👏 · 🏆 머리와 줄을 맞춘다). */
+.rank-note.left{ text-align:left; padding:11px 13px; }
+.rank-note.left .rn-l{ display:block; }
+.rank-note.left .rn-l + .rn-l{ margin-top:5px; }
+/* 앞선 .rn-l + .rn-l 규칙(5px)보다 선택자가 길어야 2px 이 먹는다 */
+.rank-note.left .rn-l + .rn-l.rn-sub{ padding-left:1.35em; margin-top:2px; opacity:.9; }
 
 /* 도전 화면 — 남은 빈칸 표시 */
 .challenge-remain{

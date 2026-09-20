@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260920g";
+const APP_BUILD = "20260920h";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -8931,11 +8931,14 @@ async function loadRankingBody(r) {
   const rangeHasToday = !r.to || r.to >= ymdKo(new Date());
   const canGive = !!u && !!data.canCheer && rangeHasToday;
 
-  // 한 줄에 손댈 곳이 둘이다. 뜻을 확실히 갈라 둔다 —
-  //   👏 칩  = 응원 주기/취소만 (+ / −)
-  //   42회   = 누르면 '누가 응원했나' 명단
-  // 칩 하나에 두 뜻을 겹쳐 뒀더니 명단을 보려다 응원이 지워졌다. 칩 안을 다시 둘로
-  // 쪼개는 것도 탭 영역이 30px도 안 돼 위험하다. 이미 넉넉한 '횟수'를 명단 자리로 쓴다.
+  // 목록 줄에서 누를 수 있는 것은 👏 칩 하나뿐이고, 하는 일도 하나뿐이다 —
+  //   👏 칩  = 응원 주기/취소 (+ / −)
+  //   42회   = 그냥 숫자다. 안 눌린다.
+  // 칩 하나에 '응원'과 '누가 응원했나 명단' 두 뜻을 겹쳐 뒀더니 명단을 보려다 응원이
+  // 지워졌다. 칩 안을 다시 둘로 쪼개는 것도 탭 영역이 30px도 안 돼 위험하다. 그래서
+  // 명단은 목록이 아니라 위쪽 「내 순위」 바의 👏(#mr-cheer)로만 펼친다.
+  // ⚠️ 한때 '42회를 누르면 명단'으로 적혀 있었으나 그렇게 구현된 적은 없다
+  //    (.rk-cnt 의 border-bottom·.open CSS 가 그 시절 흔적이다 — 지금은 열 구분선 노릇).
   const chip = (x, i, isMe) => {
     const n = x.cheers || 0;
     const num = n ? `<b>${n}</b>` : ""; // 0이면 숫자를 그리지 않는다(0이 줄줄이 드러나면 상처가 된다)
@@ -8997,8 +9000,29 @@ async function loadRankingBody(r) {
   const liveHtml = liveCount
     ? `<p class="rank-live-line"><i class="rk-dot"></i> 지금 <b>${liveCount}명</b>이 함께 암송하고 있어요</p>`
     : "";
-  body.innerHTML = myHtml + lockHtml + liveHtml + `<div class="rank-list">${rows}</div>` +
-    `<p class="rank-more">전체 ${list.length}명 참여</p>`;
+  // 열 머리글 — 「회」가 무엇이고 👏를 눌러도 되는지 목록 첫 줄부터 알 수 있게(자세한 것은 맨 아래).
+  // ⚠️ 응원할 수 없을 때(자물쇠 줄이 뜨는 때·비로그인)는 「눌러」를 뺀다 — 못 누르는데
+  //    누르라고 적으면 그 자리에서 사실이 아닌 말이 된다.
+  // ⚠️ 오른쪽 두 칸은 .rk-cnt·.rk-cheer 와 폭을 맞춰야 열이 어긋나지 않는다(style.css 에서 함께 둔다).
+  const headHtml = `<div class="rank-head" aria-hidden="true">
+      <span class="rh-who">이름 · 소속</span>
+      <span class="rh-cnt">도전 횟수</span>
+      <span class="rh-cheer">${canGive ? "눌러 응원" : "응원"}</span>
+    </div>`;
+
+  // 맨 아래 뜻풀이 — 교구 순위와 같은 .rank-note 자리다. 「회」의 기준도 거기와 같다
+  // (v2_ranking 은 mode 를 안 가리고 sum(cnt) 한다 — 암송·도전·복습이 모두 들어간다).
+  // 셋째 줄이 중요하다: 하루 초반엔 대부분 줄이 locked 로 흐려져 👏 열이 장식처럼 보인다.
+  // 넷째 줄은 목록 안 내 줄 칩이 아니라 「내 순위」 바의 👏를 가리킨다(명단은 거기서만 펼쳐진다).
+  const noteHtml = `<p class="rank-note left">
+      <span class="rn-l"><b>🏆 횟수</b>는 암송 · 도전 · 복습을 <b>모두 합한 수</b>예요 (외운 구절 수가 아니에요)</span>
+      <span class="rn-l"><b>👏</b> 다른 분 줄의 👏를 누르면 응원이 전해져요 — 하루에 한 분당 한 번, 다시 누르면 취소돼요</span>
+      <span class="rn-l rn-sub">오늘 기록이 아직 없는 분의 👏는 흐리게 보여요</span>
+      ${u ? `<span class="rn-l rn-sub">맨 위 「내 이름」 줄의 👏를 누르면 나를 응원해 주신 분들 이름이 보여요</span>` : ""}
+    </p>`;
+
+  body.innerHTML = myHtml + lockHtml + liveHtml + headHtml + `<div class="rank-list">${rows}</div>` +
+    `<p class="rank-more">전체 ${list.length}명 참여</p>` + noteHtml;
 
   const goTest = document.getElementById("rk-go-test");
   if (goTest) goTest.addEventListener("click", renderSummary);
