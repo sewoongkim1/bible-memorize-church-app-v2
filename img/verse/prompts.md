@@ -191,6 +191,7 @@ no letters or writing of any kind.
 | 33 | 막 6:31 | A single empty wooden chair on a still lakeshore at dawn, calm water and a few reeds. |
 | 34 | 사 48:15 | A quiet dirt path winding through an open grassy field, leading over a low hill toward a warm sunrise on the horizon. |
 | 36 | 합 2:4 | A single weathered rock pillar rising naturally from a windswept hilltop, unmoving as the tall grass around it bends in the wind, overlooking a wide valley at dawn. |
+| 38 | 롬 14:8 | A single old tree standing alone in a quiet field, one branch full of fresh green leaves and the other bare and dry, both growing from the same strong trunk, in warm afternoon light. |
 
 **36번 메모:** 짝 그림 c(가까이 본 장면)가 첫 시도에서 **종이가 비스듬히 촬영된
 사진처럼**(모서리·바닥면이 비침) 나왔다 — 8·10·15·23번과 같은 액자화지만 이번엔
