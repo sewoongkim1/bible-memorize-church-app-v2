@@ -292,6 +292,8 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>" -- supabase/
 
 ### Task 3: `api` — 설교 올리기 액션
 
+> ⚠️ **리뷰로 고친 뒤의 최종 코드는 커밋 `10cf5ad`·`b6daeac`(가지 `feat/sermon-staff`)에 있다** — 아래 코드는 고치기 전이다. 달라진 것: `sermonJobUpdate` 가 끝난 작업·다른 실행이 맡은 작업의 기록을 `stale` 로 거절(run_url 로 비교해 쓰기) · GitHub 연결 실패·10초 제한 · `isYmd` 로 날짜를 달력까지 · 구절 날짜 `bad-date` · 길이 제한 · 구분·올린 분 NFC · 영상 번호 11자 끝.
+
 **Files:**
 - Modify: `supabase/functions/api/index.ts` — 파일 끝(마지막 함수 뒤)에 새 덩이 · 라우터에 11줄
 
@@ -896,6 +898,8 @@ export function jobApi(env) {
   // ⚠️ 모르는 주소면 여기서 멈춘다 — 관리자 암호를 그리로 보내지 않는다
   if (!modeOf(base)) throw new Error(`모르는 API_BASE: ${base}`);
   if (!pw || !Number.isInteger(id)) throw new Error("SERMON_ADMIN · JOB_ID 가 필요하다");
+  // ⚠️ GitHub 에서 돌 때는 실행 주소가 꼭 있어야 한다 — 없으면 서버의 「다른 실행이 맡은 작업」 검사가 꺼진다(Task 3 리뷰)
+  if (env.GITHUB_ACTIONS === "true" && !env.RUN_URL) throw new Error("RUN_URL 이 비었다");
   const key = anonKeyOf(base);
   async function call(action, extra = {}) {
     const r = await fetch(base, {
