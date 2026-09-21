@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260921a";
+const APP_BUILD = "20260921b";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -6722,6 +6722,7 @@ function renderPrivacyInfo(back) {
             <li>사역 신청 시 <b>휴대폰 번호</b> (임명이 정해지면 삭제)<b>와 직분</b><br>
               <small>접수되면 그 사역 안내에 이름·직분·교구-목장이 다른 성도님께도 보여요</small></li>
             <li>기기 식별용 임의 ID (알림을 켤 때만)</li>
+            <li>「내게 주시는 말씀」에 적으신 <b>질문 글</b> (답을 찾는 AI에 전달)</li>
           </ul>
         </section>
         <section class="help-section">
@@ -6754,19 +6755,25 @@ function renderPrivacyInfo(back) {
 //   글이 빽빽한 기존 도움말(renderHelp)은 맨 끝 '자세한 안내'로 옮겼다.
 //   그림은 실제 화면 사진이 아니라 단순한 그림이다 — 사진은 폰마다 다르고
 //   화면이 바뀌면 곧 낡는데, 낡은 사진은 없느니만 못하다.
+// ⚠️ 단추를 **자리와 이름으로** 가리키므로, 첫 화면·설정의 단추를 옮기거나 이름을 바꾸면
+//    여기도 함께 고친다(2026-09-21 점검 때 「첫 화면 위쪽 📲·🔔·⚙️」가 남아 있었다 —
+//    9/02 첫 화면 정리로 아이콘 줄은 **맨 아래**로 갔고 📲 자리는 카드 전환이 차지했다).
+//    `guide/index.html` 의 자막도 같은 단추를 가리킨다.
+// when: 있으면 그 값이 참일 때만 목차에 넣는다(게이트가 꺼진 기능·이미 설치한 분의 설치 안내).
 // ============================================================
 const MANUAL = [
   {
     icon: "📱", title: "홈 화면에 앱 만들기",
     lead: "한 번만 해 두면 다음부터 바로 열려요.",
+    when: () => !manualInstalled(),
     art: '<div class="mn-phone"><div class="mn-ico">📖</div><div class="mn-cap">말씀암송</div></div>',
     steps: [
-      "첫 화면 위쪽 <b>📲</b>를 누르세요.",
-      "<b>안드로이드</b>는 <b>「설치」</b> 창이 바로 떠요. 누르면 끝이에요.",
-      "<b>아이폰</b>은 화면 아래 <b>공유 단추</b>(□에 ↑)를 누르고,",
-      "목록에서 <b>「홈 화면에 추가」</b> → <b>「추가」</b>를 누르세요.",
+      "바로 아래 <b>📲 지금 만들기</b>를 누르세요.",
+      "<b>안드로이드</b>는 <b>「설치」</b> 창이 떠요. 누르면 끝이에요.",
+      "<b>아이폰</b>은 어느 단추를 누를지 <b>그림으로</b> 알려 드려요.",
+      "화면 아래 <b>공유 단추</b>(□에 ↑) → <b>「홈 화면에 추가」</b> → <b>「추가」</b>를 누르세요.",
     ],
-    tip: "바탕화면에 📖 그림이 생겨요. 다음부터는 그것만 누르시면 됩니다.",
+    tip: "<b>카카오톡</b> 안에서 여셨다면 먼저 <b>사파리</b>(아이폰)나 <b>크롬</b>(안드로이드)으로 열어 주세요. 카카오톡 안에서는 만들어지지 않아요.",
     act: { id: "install", label: "📲 지금 만들기" },
   },
   {
@@ -6774,9 +6781,10 @@ const MANUAL = [
     lead: "아침에 오늘의 말씀을 알려 드려요.",
     art: '<div class="mn-row"><span class="mn-btn">🔔 알림</span></div>',
     steps: [
-      "첫 화면 위쪽 <b>🔔</b>를 누르세요.",
+      "첫 화면을 <b>맨 아래까지</b> 내리면 동그란 단추 줄이 있어요. 거기서 <b>🔔 알림</b>을 누르세요.",
       "폰이 <b>「허용하시겠습니까?」</b> 하고 물어봐요.",
       "<b>「허용」</b>을 누르세요.",
+      "알림 받을 시간(<b>아침 5~8시</b>)은 <b>⚙️ 설정</b>에서 고를 수 있어요.",
     ],
     tip: "「허용 안 함」을 누르셨다면 폰 설정에서 다시 켜야 해요. 옆에 계신 분께 부탁하세요.",
     act: { id: "alarm", label: "🔔 지금 켜기" },
@@ -6790,6 +6798,7 @@ const MANUAL = [
       "교구는 <b>교구 · 목장 · 이름</b>을 넣어요.",
       "교회학교는 <b>부서 · 학년 · 이름</b>을 넣어요.",
       "한 번 넣으면 다음부터 그대로 이어집니다.",
+      "폰을 바꾸셔도 <b>같은 소속·이름</b>으로 넣으시면 기록이 그대로 이어져요.",
     ],
     tip: "비밀번호는 없어요. 이름만 맞으면 됩니다.",
   },
@@ -6798,46 +6807,72 @@ const MANUAL = [
     lead: "빈칸을 채우며 세 번에 나누어 외워요.",
     art: '<div class="mn-verse">주의 말씀은 내 <span class="mn-blank">◻︎◻︎</span>에 <span class="mn-blank">◻︎</span>이요</div>',
     steps: [
+      "첫 화면 <b>📖 암송하기</b>를 누르고 외울 구절을 고르세요.",
       "<b>1단계</b> — 빈칸이 조금 (넷 중 하나쯤)",
       "<b>2단계</b> — 빈칸이 많이 (셋 중 둘쯤)",
       "<b>3단계</b> — 전부 빈칸",
       "맞으면 <b>초록색</b>으로 바뀌고 다음 칸으로 넘어가요.",
       "틀리면 잠깐 <b>빨간색</b>이 되고, 다시 넣으면 돼요.",
     ],
-    tip: "막히면 <b>💡 힌트</b>를 누르세요. 한 글자씩 보여 줍니다.",
+    tip: "막히면 위쪽 <b>보기</b>를 누르세요. 정답이 나와요. <b>이번주 말씀</b>은 첫 화면 가운데 카드의 <b>암송하기</b>로 바로 갈 수 있어요.",
+  },
+  {
+    icon: "👆", title: "카드로 채우기",
+    lead: "자판이 어려우시면 낱말을 눌러서 채워요.",
+    art: '<div class="mn-row"><span class="mn-chip">내</span><span class="mn-chip">말씀은</span><span class="mn-chip">발에</span><span class="mn-chip">주의</span></div>',
+    steps: [
+      "암송 화면 위쪽 <b>👆 카드</b>를 누르세요.",
+      "아래에 말씀의 <b>낱말 카드</b>가 섞여서 나와요.",
+      "빈칸 <b>순서대로</b> 맞는 카드를 누르면 채워져요.",
+      "틀린 카드는 흔들리기만 하고 넘어가지 않아요.",
+    ],
+    tip: "늘 카드로 하시려면 첫 화면 맨 아래 <b>⌨️ 쓰기</b>를 한 번 누르세요. <b>👆 카드</b>로 바뀌어 다음부터 카드로 시작해요(<b>⚙️ 설정</b>의 「암송 입력 방법」과 같아요).",
   },
   {
     icon: "🔊", title: "말씀 듣기",
     lead: "눈이 피로하실 땐 귀로 들으세요.",
     art: '<div class="mn-row"><span class="mn-btn mn-btn-on">▶️ 전체 듣기</span><span class="mn-btn">🔊</span></div>',
     steps: [
-      "구절 옆 <b>🔊</b>를 누르면 그 말씀 하나를 읽어 줘요.",
+      "<b>말씀 목록</b>에서 구절 옆 <b>🔊</b>를 누르면 그 말씀 하나를 읽어 줘요.",
+      "<b>🔊</b>를 <b>빠르게 여러 번</b> 누르면 누른 만큼 되풀이해 읽어 줘요.",
       "<b>말씀 목록</b> 맨 위 <b>▶️ 전체 듣기</b>를 누르면 처음부터 끝까지 이어서 읽어 줘요.",
       "요절을 먼저 부르고, 잠깐 쉰 뒤 다음 말씀으로 넘어가요.",
       "듣는 동안 <b>화면이 저절로 꺼지지 않아요.</b>",
     ],
-    tip: "「나의 말씀 앨범」에서는 <b>📻 3분요약</b>(설교 요약)도 함께 들을 수 있어요.",
+    tip: "「나의 말씀 앨범」에서 <b>📄 요약 함께</b>를 켜면 설교 <b>3분요약</b>도 이어서 들려 드려요.",
   },
   {
     icon: "🎤", title: "소리 내어 암송하기",
     lead: "소리 내어 외우셔도 됩니다.",
-    art: '<div class="mn-row"><span class="mn-btn mn-btn-on">🎤 암송 시작</span></div>',
+    art: '<div class="mn-row"><span class="mn-btn mn-btn-on">🎤 암송</span></div>',
     steps: [
-      "<b>🎤 암송 시작</b>을 누르세요.",
+      "암송 화면 위쪽 <b>🎤 암송</b>을 누르세요.",
       "말씀을 <b>소리 내어</b> 외우세요.",
       "다 하시면 <b>■ 종료</b>를 누르세요.",
-      "얼마나 맞았는지 알려 줍니다.",
+      "얼마나 맞았는지 알려 줍니다. <b>85%</b> 넘게 맞으면 통과예요.",
     ],
     tip: "처음에 폰이 <b>마이크를 써도 되냐</b>고 물어봐요. <b>「허용」</b>을 누르세요.",
+  },
+  {
+    icon: "🔥", title: "말씀 도전 · 복습",
+    lead: "외운 말씀을 잊지 않게 다시 꺼내 봐요.",
+    art: '<div class="mn-row"><span class="mn-btn mn-btn-on">🔥 말씀 도전</span><span class="mn-btn">🔁 복습</span></div>',
+    steps: [
+      "첫 화면 <b>🔥 말씀 도전</b>을 누르면 말씀 하나가 <b>무작위로</b> 나와요. 전부 빈칸이에요.",
+      "막히면 <b>💡 힌트</b>를 누르세요. 앞 글자부터 한 글자씩 보여 줍니다.",
+      "다른 말씀으로 하고 싶으시면 <b>🔀 다른말씀</b>을 누르세요.",
+      "3단계까지 마친 말씀은 <b>3일 · 1주 · 2주 · 한 달 · 두 달</b> 간격으로 첫 화면에 <b>🔁 복습</b>으로 다시 나와요.",
+    ],
+    tip: "암송·도전·복습을 한 횟수가 모두 <b>🏆 도전 순위</b>에 올라가요. 첫 화면 맨 아래 <b>📕 구절</b>을 켜 두면 도전 때 <b>구절(예: 시 119:105)</b>도 함께 써요.",
   },
   {
     icon: "👑", title: "마음에 둠 · 나의 말씀 앨범",
     lead: "외운 말씀을 모아 두는 곳이에요.",
     art: '<div class="mn-row"><span class="mn-btn">👑 마음에 두었나이다</span></div>',
     steps: [
-      "3단계까지 마치면 <b>👑 마음에 두었나이다</b>를 누를 수 있어요.",
-      "첫 화면 <b>📖 나의 말씀 앨범</b>에 모입니다.",
-      "앨범에서는 <b>요절이나 말씀을 가리고</b> 스스로 맞혀 볼 수 있어요.",
+      "3단계까지 마친 말씀은 첫 화면 <b>📖 나의 말씀 앨범</b>에 모입니다.",
+      "완전히 외우셨으면 3단계 화면의 <b>「이 말씀을 내 마음에 두었나이다」</b>에 체크하세요. <b>👑</b>가 달리고 다음부터 바로 3단계로 시작해요.",
+      "앨범에서는 <b>👁 요절 숨김 · 말씀 숨김</b>으로 가리고 스스로 맞혀 볼 수 있어요.",
     ],
     tip: "앨범에서도 <b>▶️ 전부 듣기</b>로 이어서 들을 수 있어요.",
   },
@@ -6846,22 +6881,23 @@ const MANUAL = [
     lead: "함께 하면 더 오래 갑니다.",
     art: '<div class="mn-rank"><span>1위  화평-20 김○○</span><span class="mn-chip">👏 3</span></div>',
     steps: [
-      "첫 화면 <b>🏆 순위</b>에서 이번 주 도전 순위를 봐요.",
-      "다른 분 줄의 <b>👏</b>를 누르면 응원이 전해져요.",
+      "첫 화면 <b>🏆 도전 순위 보기</b>를 누르세요.",
+      "<b>오늘 · 전일~당일 · 이번주 · 전체</b>를 눌러 기간을 바꿔 볼 수 있어요.",
+      "다른 분 줄의 <b>👏</b>를 누르면 응원이 전해져요. 다시 누르면 취소돼요.",
       "응원은 <b>하루에 한 분당 한 번</b>이에요.",
     ],
-    tip: "내가 <b>오늘 한 번이라도 도전</b>해야 응원을 보낼 수 있어요.",
+    tip: "<b>오늘 말씀을 한 번이라도 암송</b>(암송·도전·복습)하셔야 응원을 보낼 수 있어요. 받는 분도 오늘 암송하신 분이어야 해요.",
   },
   {
     icon: "💬", title: "응원·기도·공감 게시판",
     lead: "서로 격려하는 자리예요.",
     art: '<div class="mn-row"><span class="mn-chip">👍</span><span class="mn-chip">🙏</span><span class="mn-chip">❤️</span></div>',
     steps: [
-      "첫 화면 <b>💬 응원·기도·공감</b>을 누르세요.",
-      "글을 남기거나 남의 글에 답글을 달 수 있어요.",
+      "첫 화면 <b>「함께」</b>에서 <b>💬 응원·기도·공감</b>을 누르세요.",
+      "글을 남기거나 남의 글에 답글을 달 수 있어요. <b>사진</b>도 4장까지 올릴 수 있어요.",
       "<b>👍 🙏 ❤️</b>를 눌러 마음을 표시할 수도 있어요.",
     ],
-    tip: "기도 제목을 남기시면 함께 기도합니다.",
+    tip: "기도 제목을 남기시면 함께 기도합니다. 글과 사진은 <b>모든 분께</b> 보여요.",
   },
   {
     icon: "💬", title: "내게 주시는 말씀",
@@ -6870,7 +6906,7 @@ const MANUAL = [
     steps: [
       "첫 화면 <b>💬 내게 주시는 말씀</b>을 누르세요.",
       "궁금한 것이나 마음에 걸리는 일을 적으세요.",
-      "<b>목사님 설교에서 찾아</b> 답해 드립니다.",
+      "<b>AI가 목사님 설교에서 찾아</b> 답해 드립니다.",
     ],
     tip: "인터넷에서 아무 말이나 가져오는 것이 아니라, <b>목사님 설교</b> 안에서만 찾습니다.",
   },
@@ -6890,6 +6926,7 @@ const MANUAL = [
   {
     icon: "🐑", title: "쉴만한 물가",
     lead: "하루에 한 편씩 열리는 말씀을 액자로 만나요.",
+    when: () => psalmVisible(),   // 첫 화면 단추와 같은 게이트 — 단추가 없는데 안내만 있으면 안 된다
     art: '<div class="mn-row"><span class="mn-btn mn-btn-on">🐑 쉴만한 물가</span></div>',
     steps: [
       "첫 화면 <b>「함께」</b>에서 <b>🐑 쉴만한 물가</b>를 누르세요.",
@@ -6900,11 +6937,24 @@ const MANUAL = [
     tip: "<b>매일 새 말씀이 하나씩</b> 열립니다. <b>🌿 매일 묵상</b> 창 아래 <b>🐑 쉴만한 물가</b>를 눌러도 오늘 말씀으로 바로 가요.",
   },
   {
+    icon: "🙏", title: "가정 축복 기도문",
+    lead: "날마다 한 편, 내 이름이 들어간 기도문이에요.",
+    art: '<div class="mn-row"><span class="mn-btn mn-btn-on">🔊 들려주기</span><span class="mn-btn">🙍 이름</span></div>',
+    steps: [
+      "첫 화면 <b>「함께」</b>에서 <b>🙏 가정 축복 기도문</b>을 누르세요.",
+      "<b>오늘의 기도문</b> 한 편이 <b>내 이름</b>을 넣어 나와요.",
+      "<b>🔊 들려주기</b>를 누르면 소리 내어 읽어 드려요.",
+      "가족을 위해 기도하시려면 이름이 적힌 <b>🙍</b> 단추를 눌러 이름을 바꾸세요.",
+      "아래 <b>주제로 찾기</b>에서 다른 기도문도 고를 수 있어요.",
+    ],
+    tip: "<b>연속듣기</b>를 켜면 다음 기도문으로 이어서, <b>🎵배경음악</b>을 켜면 잔잔한 음악과 함께 들려 드려요.",
+  },
+  {
     icon: "✍️", title: "성경필사 노트 신청",
     lead: "말씀을 손으로 따라 쓰는 노트예요.",
     art: '<div class="mn-row"><span class="mn-btn mn-btn-on">✍️ 성경필사 노트 신청</span></div>',
     steps: [
-      "첫 화면 <b>✍️ 성경필사 노트 신청</b>을 누르세요.",
+      "첫 화면 아래 <b>더 보기 ▾</b>를 펴고 <b>✍️ 성경필사 노트 신청</b>을 누르세요.",
       "노트 크기(A5·A4)와 <b>필사 유형</b>, 번역본을 고르세요.",
       "원하는 성경을 골라 담으세요. <b>한 분 5부까지</b>.",
       "휴대폰 번호를 남기시면 준비되는 대로 알려 드립니다.",
@@ -6916,24 +6966,49 @@ const MANUAL = [
     lead: "잘 안 보이시면 키우세요.",
     art: '<div class="mn-row"><span class="mn-btn">가</span><span class="mn-btn mn-btn-mid">가</span><span class="mn-btn mn-btn-on mn-btn-big">가</span></div>',
     steps: [
-      "첫 화면 위쪽 <b>⚙️</b>를 누르세요.",
-      "<b>글씨 크기</b>에서 <b>큼</b>이나 <b>아주 큼</b>을 고르세요.",
-      "이름이나 목장이 바뀌었으면 <b>정보 변경</b>에서 고치세요.",
+      "첫 화면을 <b>맨 아래까지</b> 내려 <b>⚙️ 설정</b>을 누르세요.",
+      "<b>글씨 크기</b>에서 <b>크게</b>나 <b>아주 크게</b>를 고르세요.",
+      "눈이 부시면 <b>화면 밝기</b>에서 <b>🌙 어둡게</b>를 고르세요.",
+      "이름이나 목장이 바뀌었으면 <b>👤 로그인 정보변경</b>에서 고치세요.",
     ],
-    tip: "읽어 주는 <b>속도</b>도 여기서 느리게 할 수 있어요.",
+    tip: "<b>말씀 듣기 속도</b>도 여기서 느리게 할 수 있어요. 영어로 외우고 싶으시면 <b>암송 언어</b>에서 <b>English (NIV)</b>를 고르세요.",
   },
 ];
+
+// 이미 앱으로 쓰고 계신가 — 홈 화면에 올린 웹앱·플레이스토어 앱(standalone)·아이폰 앱(Capacitor).
+// 그런 분께 「홈 화면에 앱 만들기」는 할 일이 없는 장이다.
+function manualInstalled() {
+  try {
+    if (typeof isNativeApp === "function" && isNativeApp()) return true;
+    return !!((window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
+              window.navigator.standalone === true);
+  } catch (e) { return false; }
+}
+// 이 기기에서 보일 항목만 — 목차 번호·「n / 전체」·이전/다음이 모두 이 목록을 따른다.
+function manualItems() { return MANUAL.filter((m) => !m.when || m.when()); }
 
 let manualIdx = -1;      // -1이면 목차 화면
 let _manualClose = null; // 닫을 때 돌아갈 곳
 
 // 목차 <-> 한 항목. 어느 쪽에서든 X로 나갈 수 있어야 갇힌 느낌이 안 든다.
+// ⚠️ 위의 ✕ 닫기만으로는 모자랐다(2026-09-21) — 목차가 열일곱 줄이고 항목도 글씨를 키우면
+//    한 화면을 넘어, 읽어 내려가는 중에는 ✕가 화면 밖에 있다. 그래서 다른 긴 화면(앨범·순위·
+//    기도문)과 같은 아래 고정 단추(.home-fab)를 둔다. sticky 는 이 앱에서 안 붙는다
+//    (html·body 의 overflow-x:hidden — style.css .min-acts 주석) — 그래서 fixed 인 fab 이다.
+function manualHomeFab(appEl) {
+  appEl.insertAdjacentHTML("beforeend",
+    `<button class="home-fab" id="mn-home" aria-label="첫 화면으로">${homeFabLabel(loadUser())}</button>`);
+  document.getElementById("mn-home").addEventListener("click", renderSummary);
+}
+
 function renderManual(onClose, idx) {
   if (onClose) _manualClose = onClose;
   manualIdx = typeof idx === "number" ? idx : -1;
   const appEl = document.getElementById("app");
   const back = () => (_manualClose || renderSummary)();
-  const NUM = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮";
+  const NUM = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳";
+  const items = manualItems();
+  if (manualIdx >= items.length) manualIdx = -1;
 
   if (manualIdx < 0) {
     appEl.innerHTML = `
@@ -6945,7 +7020,7 @@ function renderManual(onClose, idx) {
         <p class="mn-lead2">어려우시면 <b>①번부터 하나씩</b> 따라 해 보세요.</p>
         <a class="mn-watch" href="guide/">▶️ 화면으로 따라 하기</a>
         <div class="mn-toc">
-          ${MANUAL.map((m, i) => `
+          ${items.map((m, i) => `
             <button class="mn-item" data-go="${i}">
               <span class="mn-num">${NUM.charAt(i) || (i + 1)}</span>
               <span class="mn-ic">${m.icon}</span>
@@ -6956,6 +7031,7 @@ function renderManual(onClose, idx) {
         <button class="mn-more" id="mn-more">❓ 자세한 안내 · 개인정보 보기</button>
         <p class="mn-help-line">잘 안 되시면 주일 <b>1층 로비</b>에서 도와드립니다 🙌</p>
       </div>`;
+    manualHomeFab(appEl);
     document.getElementById("mn-close").addEventListener("click", back);
     document.getElementById("mn-more").addEventListener("click", () => renderHelp(() => renderManual(null, -1)));
     appEl.querySelectorAll(".mn-item").forEach((b) =>
@@ -6964,14 +7040,14 @@ function renderManual(onClose, idx) {
     return;
   }
 
-  const m = MANUAL[manualIdx];
+  const m = items[manualIdx];
   const prev = manualIdx > 0 ? manualIdx - 1 : null;
-  const next = manualIdx < MANUAL.length - 1 ? manualIdx + 1 : null;
+  const next = manualIdx < items.length - 1 ? manualIdx + 1 : null;
   appEl.innerHTML = `
     <div class="mn-screen mn-detail">
       <div class="mn-top">
         <button class="mn-back" id="mn-toc">☰ 목차</button>
-        <span class="mn-count">${manualIdx + 1} / ${MANUAL.length}</span>
+        <span class="mn-count">${manualIdx + 1} / ${items.length}</span>
         <button class="mn-close" id="mn-close">✕ 닫기</button>
       </div>
       <div class="mn-card">
@@ -6990,6 +7066,7 @@ function renderManual(onClose, idx) {
           : `<button class="mn-nav-btn mn-nav-main" id="mn-done">✓ 다 봤어요</button>`}
       </div>
     </div>`;
+  manualHomeFab(appEl);
   document.getElementById("mn-close").addEventListener("click", back);
   document.getElementById("mn-toc").addEventListener("click", () => renderManual(null, -1));
   if (prev !== null) document.getElementById("mn-prev").addEventListener("click", () => renderManual(null, prev));
@@ -7005,11 +7082,13 @@ function renderManual(onClose, idx) {
   window.scrollTo(0, 0);
 }
 
-// 도움말 전체 화면 (onClose: 닫을 때 돌아갈 처리)
+// 도움말 전체 화면 (onClose: 닫을 때 돌아갈 처리 — 지금은 사용 설명서 목차에서만 들어온다)
+// ⚠️ 개인정보 칸은 privacy/index.html(공개 방침)·renderPrivacyInfo 와 **같은 것을 말해야 한다.**
+//    모으는 것을 하나라도 빠뜨리면 성도님께 사실이 아닌 말을 한 것이 된다(CLAUDE.md 「개인정보」).
 function renderHelp(onClose) {
   const appEl = document.getElementById("app");
   appEl.innerHTML = `
-    <div class="help-screen">
+    <div class="help-screen with-fab">
       <div class="help-card">
         <div class="help-top">
           <h2 class="help-title">❓ 도움말</h2>
@@ -7023,7 +7102,7 @@ function renderHelp(onClose) {
 
         <section class="help-section">
           <h3>🙋 로그인 (정보 입력)</h3>
-          <p>처음에 <b>구분(교구/교회학교)</b>을 고르고 정보를 입력해요. 교구는 <b>교구·목장·이름</b>, 교회학교는 <b>부서·학년·이름</b>이에요. 한 번 입력하면 다음부터는 그대로 이어집니다. <b>정보 변경</b>으로 언제든 바꿀 수 있어요.</p>
+          <p>처음에 <b>구분(교구/교회학교)</b>을 고르고 정보를 입력해요. 교구는 <b>교구·목장·이름</b>, 교회학교는 <b>부서·학년·이름</b>이에요. 한 번 입력하면 다음부터는 그대로 이어집니다. <b>⚙️ 설정 → 로그인 정보변경</b>으로 언제든 바꿀 수 있어요.</p>
         </section>
 
         <section class="help-section">
@@ -7033,44 +7112,52 @@ function renderHelp(onClose) {
             <li><b>2단계</b> 빈칸 늘리기 — 더 많은 빈칸 (약 65%)</li>
             <li><b>3단계</b> 전체 암송 — 출처만 보고 전체 입력</li>
           </ul>
-          <p>맞으면 초록색으로 잠기고 다음 칸으로 이동해요. 틀리면 잠깐 빨갛게 표시된 뒤 다시 입력할 수 있어요. 모든 칸을 맞히면 다음 단계로 넘어가요.</p>
+          <p>맞으면 초록색으로 잠기고 다음 칸으로 이동해요. 틀리면 잠깐 빨갛게 표시된 뒤 다시 입력할 수 있어요. 모든 칸을 맞히면 다음 단계로 넘어가요. 막히면 위쪽 <b>보기</b>로 정답을 볼 수 있어요.</p>
+          <p>자판이 번거로우시면 <b>👆 카드</b>를 누르세요. 낱말 카드를 순서대로 눌러 채워요. 늘 카드로 하시려면 <b>⚙️ 설정 → 암송 입력 방법</b>(첫 화면 맨 아래 <b>⌨️ 쓰기</b> 단추와 같아요)에서 바꿔 두세요.</p>
+        </section>
+
+        <section class="help-section">
+          <h3>🔥 말씀 도전 · 🔁 복습</h3>
+          <p><b>말씀 도전</b>은 말씀 하나를 무작위로 골라 전부 빈칸으로 내 줘요. 막히면 <b>💡 힌트</b>가 앞 글자부터 한 글자씩 보여 줘요. 3단계까지 마친 말씀은 <b>3일 · 1주 · 2주 · 한 달 · 두 달</b> 간격으로 첫 화면에 <b>복습</b>으로 다시 나와요. 암송·도전·복습 횟수는 모두 <b>도전 순위</b>에 더해져요.</p>
         </section>
 
         <section class="help-section">
           <h3>🔊 말씀 듣기</h3>
-          <p>목록의 <b>🔊</b> 버튼이나 테스트 화면의 <b>🔊 듣기</b>로 말씀을 들을 수 있어요. <b>빠르게 여러 번 누르면 그 횟수만큼 반복</b>해서 읽어줘요.</p>
+          <p>말씀 목록의 <b>🔊</b>로 말씀을 들을 수 있어요. <b>빠르게 여러 번 누르면 그 횟수만큼 반복</b>해서 읽어줘요. 목록 맨 위 <b>▶️ 전체 듣기</b>는 처음부터 끝까지 이어서 읽어 주고, 암송 화면의 <b>🔊 듣기</b>는 한 번 더 누르면 멈춰요. 읽는 속도는 <b>⚙️ 설정</b>에서 바꿀 수 있어요.</p>
         </section>
 
         <section class="help-section">
           <h3>🎤 음성 암송</h3>
-          <p><b>🎤 암송 시작</b>을 누르고 말씀을 소리 내어 외운 뒤 <b>■ 종료</b>를 누르면 정확도를 알려줘요 (정확도가 충분히 높으면 통과). 크롬·사파리에서 마이크를 허용해 주세요.</p>
+          <p><b>🎤 암송</b>을 누르고 말씀을 소리 내어 외운 뒤 <b>■ 종료</b>를 누르면 정확도를 알려줘요 (<b>85%</b> 이상이면 통과). 크롬·사파리에서 마이크를 허용해 주세요.</p>
         </section>
 
         <section class="help-section">
           <h3>🏷️ 내 기록 & 진행 표시</h3>
-          <p><b>기록보기</b>에서 전체 완료율과 단계별 개수를 한눈에 볼 수 있어요. 카드 배지는 <b>미시도 · 1단계 · 2단계 · 완료</b>(+ 암송 횟수)를 나타내요.</p>
+          <p>첫 화면 위쪽 막대에 <b>마친 구절 수와 %</b>가 보여요. 말씀 목록의 카드 배지는 <b>미시도 · 1단계 완료 · 2단계 완료 · 완료</b>(+ 암송 횟수)를 나타내요. 3단계를 마친 말씀은 <b>📖 나의 말씀 앨범</b>에 모여요.</p>
         </section>
 
         <section class="help-section">
           <h3>📲 공유 & 홈 화면 추가</h3>
-          <p>요약 화면의 <b>공유하기</b>로 가족·목장원들에게 링크를 보낼 수 있고, <b>홈 화면에 추가</b>로 앱처럼 바로 열 수 있어요.</p>
+          <p><b>⚙️ 설정</b>의 <b>🔗 공유하기</b>로 가족·목장원들에게 링크를 보낼 수 있고, <b>⛪ 홈 화면에 추가</b>로 앱처럼 바로 열 수 있어요.</p>
         </section>
 
         <section class="help-section">
           <h3>🔒 개인정보 안내</h3>
           <ul>
-            <li><b>수집 항목</b>: 구분(교구/교회학교)·소속·목장/학년·이름과 암송·도전 기록이에요. <b>성경필사 노트를 신청할 때만 휴대폰 번호</b>를 받습니다(노트가 준비되면 연락드리기 위해). <b>사역 신청을 할 때는 휴대폰 번호와 직분</b>을 받습니다(본인 확인·교적 대조·임명 뒤 연락 — 번호는 임명이 정해지면 지웁니다). 담당자가 신청을 <b>접수하면</b> 그 사역 안내 화면에 <b>이름·직분·교구-목장</b>이 로그인하신 다른 성도님께도 보입니다(함께 섬길 분을 알고 신청하실 수 있도록). 주민등록번호·주소·결제정보는 <b>받지 않습니다</b>.</li>
-            <li><b>저장·용도</b>: 기록은 교회가 쓰는 클라우드 데이터베이스에 암호화 전송으로 저장되어 <b>본인 진도 관리와 도전 순위</b>에만 쓰입니다. 광고에 쓰거나 팔지 않습니다. 「내게 주시는 말씀」에 물어보신 <b>질문 글은 답을 만드는 AI로 전달</b>됩니다.</li>
-            <li><b>순위 공개 범위</b>: 도전 순위에는 <b>이름과 소속</b>만 표시됩니다(연락처 없음). 참여한 분만 표시돼요.</li>
-            <li><b>변경·삭제</b>: 이름·소속은 <b>로그인 정보변경</b>에서 언제든 수정할 수 있어요. 기록을 지우고 싶으시면 <a href="privacy/" target="_blank" rel="noopener">개인정보 안내</a>의 방법으로 알려 주세요(게시판·이메일·로비).</li>
+            <li><b>수집 항목</b>: 구분(교구/교회학교)·소속·목장/학년·이름과 암송·도전·복습 기록이에요. <b>게시판에 남기신 글·답글·사진</b>은 모든 분께 보입니다. <b>알림을 켜실 때만</b> 그 기기로 알림을 보내기 위한 등록 정보(기기 식별용 임의 값)를 받습니다. <b>성경필사 노트를 신청할 때만 휴대폰 번호</b>를 받습니다(노트가 준비되면 연락드리기 위해 — 배부가 끝나면 지웁니다). <b>사역 신청을 할 때는 휴대폰 번호와 직분</b>을 받습니다(본인 확인·교적 대조·임명 뒤 연락 — 번호는 임명이 정해지면 지웁니다). 담당자가 신청을 <b>접수하면</b> 그 사역 안내 화면에 <b>이름·직분·교구-목장</b>이 로그인하신 다른 성도님께도 보입니다(함께 섬길 분을 알고 신청하실 수 있도록). 주민등록번호·주소·결제정보는 <b>받지 않습니다</b>.</li>
+            <li><b>저장·용도</b>: 기록은 교회가 쓰는 클라우드 데이터베이스에 암호화 전송으로 저장되어 <b>본인 진도 관리·복습 예약·도전 순위</b>에 쓰이고, 교구·부서별 합계는 운영 보고 자료로 씁니다. 광고에 쓰거나 팔지 않습니다. 「내게 주시는 말씀」에 물어보신 <b>질문 글은 답을 만드는 AI로 전달</b>됩니다.</li>
+            <li><b>공개 범위</b>: 도전 순위와 게시판에는 <b>이름과 소속</b>만 표시됩니다(연락처 없음). 순위에는 참여한 분만 표시돼요.</li>
+            <li><b>변경·삭제</b>: 이름·소속은 <b>⚙️ 설정 → 로그인 정보변경</b>에서 언제든 수정할 수 있어요. 기록을 지우고 싶으시면 <a href="privacy/" target="_blank" rel="noopener">개인정보 안내</a>의 방법으로 알려 주세요(게시판·이메일·로비).</li>
           </ul>
         </section>
 
-        <button class="help-go" id="help-go">닫고 시작하기</button>
+        <button class="help-go" id="help-go">← 사용 설명서로</button>
       </div>
     </div>`;
+  manualHomeFab(appEl);
   document.getElementById("help-close").addEventListener("click", onClose);
   document.getElementById("help-go").addEventListener("click", onClose);
+  window.scrollTo(0, 0);   // 설명서 목차 아래쪽에서 들어오므로 — 안 하면 중간부터 열린다
 }
 
 // ============================================================

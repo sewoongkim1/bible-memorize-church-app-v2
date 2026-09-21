@@ -3639,7 +3639,11 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
 /* ── 📘 사용 설명서 ────────────────────────────────────────────
    어르신이 혼자 보시는 화면이다. 다른 화면보다 한 단계씩 크게 잡고,
    누를 곳은 손가락으로 편한 크기(최소 56px)로 둔다. */
-.mn-screen { max-width: 560px; margin: 0 auto; padding: 10px 12px 40px; }
+/* 아래 여백은 고정 단추 「첫 화면으로」(.home-fab) 높이를 따른다 — 끝까지 내렸을 때
+   「다음 ▶」·「자세한 안내」가 그 밑에 깔리지 않게(.album-screen 등과 같은 값).
+   도움말 긴 글(.help-screen.with-fab)도 같은 단추를 단다. */
+.mn-screen { max-width: 560px; margin: 0 auto; padding: 10px 12px calc(96px + env(safe-area-inset-bottom, 0px)); }
+.help-screen.with-fab { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .mn-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
 .mn-title { font-size: 1.5rem; font-weight: 800; color: var(--navy); margin: 0; }
 .mn-count { font-size: 1rem; font-weight: 700; color: #6a7688; }
