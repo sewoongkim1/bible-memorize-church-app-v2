@@ -30,7 +30,7 @@
 1. **두 단계 메뉴:** 「① 설교/말씀 등록」(기존 「📖 설교/말씀 관리」 화면 — 암송구절 + 설교 영상 링크) → 「② 설교 내용 등록」(자막 붙여넣기). 설계 3장의 「② 안에서 구절 등록 칸을 여는 것」·「[연결] 단추」는 **만들지 않는다.** ②는 연결된 구절이 없으면 「① 에서 먼저」로 보낸다. ①에서 저장하면 「② 설교 내용 등록으로 →」 단추(링크를 들고 간다).
 2. **개발까지만, 운영은 9/27 뒤.** 9/27 설교는 지금처럼 친구 PC(`add-local.mjs`)로 올린다. 담당자 첫 실전은 운영 반영 뒤.
 3. 설계 3장 「🔑 담당자」는 역할마다 한 화면: 성경암송 관리의 「🔑 사역신청 담당자」 · 설교·찬양 관리의 「🔑 설교·찬양 담당자」(같은 함수 `renderStaffAdmins(role)`).
-4. **찾은 버그도 함께 고친다:** 「설교/말씀 관리」에서 구절을 열어 저장만 해도 **날짜가 하루씩 당겨진다**(`isoDateInput` 이 UTC 로 읽는다 — 38번 9/19 토가 칸에 9/18 로 보이고 저장하면 9/18). 34~36번이 금요일인 까닭으로 보인다. Task 8.
+4. **찾은 버그는 먼저 따로 고쳤다(2026-09-21 `3bf3141`, 운영 반영):** 「설교/말씀 관리」에서 구절을 열어 저장만 해도 **날짜가 하루씩 당겨졌다**(`isoDateInput` 이 UTC 로 읽었다). Task 8 은 그 함수를 도우미 덩이로 옮기고 시험을 붙인다.
 
 ## 파일 지도
 
@@ -1516,13 +1516,16 @@ test('날짜 더하기 · 글자 수',()=>{
 Run: `node --test tests/sermon-text.test.cjs`
 Expected: FAIL — `admin-stats.html 에서 sermon-text 덩이를 못 찾았다`
 
-- [ ] **Step 3: `isoDateInput` 함수를 덩이로 바꾼다**
+- [ ] **Step 3: `isoDateInput` 함수를 덩이로 바꾼다** — 날짜 버그는 2026-09-21 `main` 에서 먼저 고쳤다(`3bf3141`).
+  worktree 는 그 뒤에 만들었으니 아래 모양이다. 덩이로 옮기면서 시험을 붙인다.
 
 찾을 것:
 ```js
-function isoDateInput(d){ // 'YYYY-MM-DDTHH:mm' → date input용 'YYYY-MM-DD'
+function isoDateInput(d){ // DB 시각(UTC) → date input용 **한국 날짜** 'YYYY-MM-DD'
+  // ⚠️ UTC 로 읽으면 한국 0시 구절(38번 9/19 토)이 칸에 9/18 로 보이고, 저장은 그 값 + "T00:00:00+09:00" 이라
+  //    **열고 저장할 때마다 하루씩 당겨졌다**(2026-09-21 발견 — 설교 링크를 넣으려 다시 저장한 34~38번이 그렇다).
   if(!d) return ""; const x=new Date(d); if(isNaN(x)) return "";
-  return x.toISOString().slice(0,10);
+  return new Date(x.getTime()+9*3600*1000).toISOString().slice(0,10);
 }
 ```
 바꿀 것:
@@ -1581,10 +1584,7 @@ Expected: `# pass 10` `# fail 0`
 - [ ] **Step 5: 커밋**
 
 ```bash
-git add -- tests/sermon-text.test.cjs && git commit -m "fix(관리자): 설교/말씀 관리 날짜가 열고 저장할 때마다 하루씩 당겨지던 것 · 설교 올리기 도우미 덩이와 시험
-
-isoDateInput 이 UTC 로 읽어 한국 0시(38번 9/19 토)가 칸에 9/18 로 보였고, 화면이 그 값에
-+09:00 을 붙여 저장해 하루 당겨졌다. 34~36번이 금요일인 까닭으로 보인다.
+git add -- tests/sermon-text.test.cjs && git commit -m "feat(관리자): 설교 올리기 도우미 덩이와 시험 — 영상 번호·자막 정리·제목·한국 날짜(날짜 버그 3bf3141 의 시험 포함)
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>" -- admin-stats.html tests/sermon-text.test.cjs
 ```
