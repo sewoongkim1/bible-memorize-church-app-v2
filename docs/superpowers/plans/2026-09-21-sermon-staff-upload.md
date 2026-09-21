@@ -869,7 +869,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>" -- scripts/j
 
 **Interfaces:**
 - Consumes: `sermonJobGet`·`sermonJobUpdate`(Task 3), `modeOf`·`anonKeyOf`·`mergeMeta`·`adoptSermon`·`noteOf`(Task 5)
-- Produces: `jobApi(env) → { id, get(): Promise<row>, update(fields): Promise }` · 워크플로 입력 `job_id`·`api_base`
+- Produces: `jobApi(env) → { id, get(): Promise<row>, update(fields): Promise }` · `prodSermons() → Promise<sermon[]>`(운영 getSermons) · 워크플로 입력 `job_id`·`api_base`
 - 준비(친구): gocheok-sermons 저장소 시크릿 `DEV_SERMON_ADMIN`(개발 관리자 암호) · `TELEGRAM_TOKEN` · `TELEGRAM_CHAT_ID`(성경암송 `monitor.yml` 과 같은 값)
 
 - [ ] **Step 1: `scripts/job-api.mjs`**
@@ -877,6 +877,18 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>" -- scripts/j
 ```js
 // sermon_jobs 한 건을 읽고 적는다 — api 함수의 sermonJobGet·sermonJobUpdate(관리자 암호).
 import { modeOf, anonKeyOf } from "./job-lib.mjs";
+
+const SERMON_FN = "https://xnomlgydifiqiybervtf.supabase.co/functions/v1/sermon";
+const SERMON_KEY = "sb_publishable_oLtieT_jw7Gjb8etEsy0jw_thBaDjl-";
+// 운영 말씀 아카이브의 공개 목록(getSermons) — 다시 시도(job-run)와 배포 뒤 확인(job-verify)이 함께 쓴다
+export async function prodSermons() {
+  const r = await fetch(SERMON_FN, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: SERMON_KEY, Authorization: `Bearer ${SERMON_KEY}` },
+    body: JSON.stringify({ action: "getSermons" }),
+  });
+  return (await r.json()).sermons || [];
+}
 
 export function jobApi(env) {
   const base = env.API_BASE, pw = env.SERMON_ADMIN, id = Number(env.JOB_ID);
@@ -907,11 +919,9 @@ export function jobApi(env) {
 // 환경: API_BASE · SERMON_ADMIN · JOB_ID · RUN_URL · ANTHROPIC_API_KEY · AZURE_SPEECH_KEY · AZURE_SPEECH_REGION
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
-import { jobApi } from "./job-api.mjs";
+import { jobApi, prodSermons } from "./job-api.mjs";
 import { modeOf, mergeMeta, adoptSermon, noteOf } from "./job-lib.mjs";
 
-const SERMON_FN = "https://xnomlgydifiqiybervtf.supabase.co/functions/v1/sermon";
-const SERMON_KEY = "sb_publishable_oLtieT_jw7Gjb8etEsy0jw_thBaDjl-";
 const OUT = "src/data/sermons.json";
 const MODE = modeOf(process.env.API_BASE);
 const api = jobApi(process.env);
@@ -943,12 +953,7 @@ try {
 
   // 다시 시도: 첫 시도가 저장까지 갔으면 DB 내용으로 이어 간다(설계 10장)
   if (MODE === "prod") {
-    const r = await fetch(SERMON_FN, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", apikey: SERMON_KEY, Authorization: `Bearer ${SERMON_KEY}` },
-      body: JSON.stringify({ action: "getSermons" }),
-    });
-    const row = ((await r.json()).sermons || []).find((s) => s.id === id);
+    const row = (await prodSermons()).find((s) => s.id === id);
     if (row) {
       writeFileSync(OUT, JSON.stringify(adoptSermon(readSermons(), row), null, 2), "utf8");
       console.log("  이미 DB 에 있는 설교 — 그 내용으로 이어 간다");
@@ -985,10 +990,8 @@ try {
 ```js
 // 배포 뒤 — 설교가 사이트에 정말 들어갔는지 보고서야 「완료」라고 적는다.
 //   「스크립트가 끝났다」를 완료로 치지 않는다(옛 add-sermon.yml 은 자막이 없어도 초록불이었다).
-import { jobApi } from "./job-api.mjs";
+import { jobApi, prodSermons } from "./job-api.mjs";
 
-const SERMON_FN = "https://xnomlgydifiqiybervtf.supabase.co/functions/v1/sermon";
-const SERMON_KEY = "sb_publishable_oLtieT_jw7Gjb8etEsy0jw_thBaDjl-";
 const SITE = "https://sermon.onlybible.kr/";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const api = jobApi(process.env);
@@ -999,14 +1002,7 @@ await api.update({ step: "verify" });
 let row = null, audioOk = false;
 for (let i = 0; i < 9 && !(row && audioOk); i++) {        // 20초 × 9 = 3분까지 — Pages 배포가 늦을 때
   if (i) await sleep(20000);
-  try {
-    const r = await fetch(SERMON_FN, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", apikey: SERMON_KEY, Authorization: `Bearer ${SERMON_KEY}` },
-      body: JSON.stringify({ action: "getSermons" }),
-    });
-    row = ((await r.json()).sermons || []).find((s) => s.id === id && s.summary) || null;
-  } catch { /* 다음 번에 */ }
+  try { row = (await prodSermons()).find((s) => s.id === id && s.summary) || null; } catch { /* 다음 번에 */ }
   if (row?.audio) {
     try { audioOk = (await fetch(SITE + row.audio, { method: "HEAD" })).ok; } catch { /* 다음 번에 */ }
   }
