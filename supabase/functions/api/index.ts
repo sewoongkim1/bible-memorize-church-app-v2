@@ -398,6 +398,13 @@ Deno.serve(async (req) => {
       case "sermonStaffSave": return json(await sermonStaffSave(body));
       case "sermonDelete":    return json(await sermonDelete(body));
       case "staffVerseSave":  return json(await staffVerseSave(body));
+      // ---- 말씀 연상 그림 — 설교·찬양 담당자(2026-09-21) ----
+      case "verseImgList":     return json(await verseImgList(body));
+      case "verseImgScenes":   return json(await verseImgScenes(body));
+      case "verseImgGenerate": return json(await verseImgGenerate(body));
+      case "verseImgAlt":      return json(await verseImgAlt(body));
+      case "verseImgSave":     return json(await verseImgSave(body));
+      case "verseImgHide":     return json(await verseImgHide(body));
       case "sermonJobGet":    return json(await sermonJobGet(body));      // 워크플로 — 관리자 암호만
       case "sermonJobUpdate": return json(await sermonJobUpdate(body));   // 워크플로 — 관리자 암호만
       case "sermonChat":    return json(await sermonChat(body));
@@ -1239,6 +1246,10 @@ async function getVerses(b: any = {}) {
     if (r.error) throw r.error;
     data = r.data;
   }
+  // 말씀 연상 그림(DB · 2026-09-21) — ⚠️ 표가 아직 없는 DB 에서도 살아남아야 한다(위 track 과 같은 까닭).
+  //   그림 조회가 실패하면 그림 없이 돌려준다(말씀 목록은 성도님 앱의 본진이다).
+  let imgMap = new Map<number, { slot: string; url: string; alt: string }[]>();
+  try { imgMap = await vimgPublicMap(); } catch (e) { console.error("verse images:", (e as Error)?.message ?? e); }
   const verses = (data ?? []).map((v: any) => ({
     no: v.no, date: v.date,
     refShort: v.ref_short || v.ref || "",
@@ -1250,6 +1261,7 @@ async function getVerses(b: any = {}) {
     sermonTitle: v.sermon_title || "",
     pastor: v.pastor || "",
     url: v.sermon_url || "",
+    images: imgMap.get(v.no),          // 없으면 JSON 에서 빠진다 — 옛 앱은 이 칸을 모른 채 지나간다
   }));
   return { ok: true, verses };
 }
@@ -5607,4 +5619,278 @@ async function sermonJobUpdate(b: any) {
   const { data, error } = await q.select("id").maybeSingle();
   if (error) throw error;
   return data ? { ok: true } : { ok: false, error: "stale" };
+}
+
+// ============================================================
+// 말씀 연상 그림 — 설교·찬양 담당자(2026-09-21)
+//   설계: docs/superpowers/specs/2026-09-21-verse-image-staff-design.md
+//   화면(③ 연상 그림) → 장면(Claude) → 그림(Gemini) → 브라우저가 줄인 것을 저장. 앱은 getVerses 의 images 로 받는다.
+//   ⚠️ 쓰지 않은 그림은 어디에도 저장하지 않는다 — 생성 결과는 화면으로만 간다.
+// ============================================================
+const VIMG_BUCKET = "verse-img";
+const VIMG_SLOTS = ["a", "b", "c"];
+const VIMG_DAILY = 15;
+const VIMG_MAX_BYTES = 500_000;
+const vimgModel = () => Deno.env.get("VERSE_IMG_MODEL") || "gemini-3-pro-image";
+const vimgSize = () => Deno.env.get("VERSE_IMG_SIZE") || "1K";
+const sceneModel = () => Deno.env.get("SCENE_MODEL") || "claude-sonnet-5";
+const vimgUrl = (p: string) => db.storage.from(VIMG_BUCKET).getPublicUrl(p).data.publicUrl;
+
+// ⚠️ 화풍 문구 — img/verse/암송말씀_그림_만들기.md 2장을 **글자 그대로** 옮겼다. 한 글자도 바꾸지 말 것
+//    (이미 들어간 116장과 「같은 책의 그림」으로 보여야 한다). 안내서를 고치면 여기도 함께.
+const VIMG_STYLE_A = [
+  "Soft watercolor painting with delicate ink linework, warm muted earth tones,",
+  "cream paper background, generous white space, gentle and reverent mood.",
+  "The illustration is painted directly onto the plain cream page with no border,",
+  "no frame, no rectangle outline, no card, no drop shadow around the edges —",
+  "the subject and background fade softly and irregularly into the bare cream",
+  "paper at the edges, never a straight or hard edge, never a boxy or",
+  "rounded-rectangle silhouette.",
+  "This is a single subject resting in open space, not a page inside another",
+  "book, not on a stand or easel — no easel, no book, no sketchbook, no spiral",
+  "binding, no book spine, no page curl.",
+  "This is a flat digital illustration viewed straight-on, not a photograph of a",
+  "physical painting — no photographed paper sheet, no visible paper corners or",
+  "torn edges, no tilted or angled page, no tabletop or surface visible beyond",
+  "the illustration.",
+  "No people, no human figures, no buildings, no text, no lettering,",
+  "no letters or writing of any kind, no signature, no watermark, no monogram.",
+].join("\n");
+const VIMG_STYLE_BC = [
+  "Soft gouache and colored pencil illustration, rich saturated warm tones,",
+  "visible pencil grain and soft matte texture, slightly more solid and",
+  "painterly than watercolor, cream paper background, generous white space,",
+  "gentle and reverent mood. The illustration is painted directly onto the",
+  "plain cream page with no border, no frame, no rectangle outline, no card,",
+  "no drop shadow around the edges — the subject and background fade softly",
+  "and irregularly into the bare cream paper at the edges, never a straight",
+  "or hard edge, never a boxy or rounded-rectangle silhouette.",
+  "This is a single subject resting in open space, not a page inside another",
+  "book, not on a stand or easel — no easel, no book, no sketchbook, no spiral",
+  "binding, no book spine, no page curl.",
+  "This is a flat digital illustration viewed straight-on, not a photograph of a",
+  "physical painting — no photographed paper sheet, no visible paper corners or",
+  "torn edges, no tilted or angled page, no tabletop or surface visible beyond",
+  "the illustration.",
+  "No people, no human figures, no buildings, no text, no lettering,",
+  "no letters or writing of any kind, no signature, no watermark, no monogram.",
+].join("\n");
+const VIMG_TAIL: Record<string, string> = {
+  a: "", b: " Wide open scene with distant space around it.", c: " Close-up view of the subject filling the frame.",
+};
+const vimgPrompt = (sceneEn: string, slot: string) =>
+  `${sceneEn}${VIMG_TAIL[slot]}\n\n${slot === "a" ? VIMG_STYLE_A : VIMG_STYLE_BC}`;
+
+// 장면을 짓는 규칙 — 안내서 3장(한 가지 · 빛으로 맺기 · 뜻이 아니라 사물 · 사람은 흔적으로)
+const VIMG_SCENE_RULES = [
+  "당신은 교회 성경 암송 앱의 삽화가입니다. 구절을 읽고 떠오르는 **한 장면**을 짓습니다.",
+  "- 한 가지 사물이나 풍경만 담습니다(여러 장면을 섞지 않기).",
+  "- 뜻을 그리지 말고 사물을 그립니다(「말씀이 등불」 → 등불).",
+  "- 빛으로 분위기를 맺습니다(새벽, 따스한 오후 빛, 달빛 등).",
+  "- 사람은 그리지 않습니다. 사람이 나오는 구절은 그 일의 흔적으로 바꿉니다(「손에 든 다림줄」 → 줄에 매달려 멈춘 추와 발치의 주춧돌).",
+  "- 글자·책 속 글씨·두루마리 위 글씨, 다른 종교의 상징, 건물은 넣지 않습니다.",
+  "예) 시 119:105 → 밤 돌길 위, 몇 걸음 앞만 비추는 작은 등불 / 창 12:2 → 새벽 언덕 위 홀로 가지를 넓게 펼친 올리브나무",
+].join("\n");
+
+async function vimgClaude(system: string, content: unknown, schema: unknown, maxTokens = 400): Promise<any | null> {
+  const key = Deno.env.get("ANTHROPIC_API_KEY");
+  if (!key) return null;
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: sceneModel(), max_tokens: maxTokens, system,
+        output_config: { format: { type: "json_schema", schema } },
+        messages: [{ role: "user", content }],
+      }),
+      signal: AbortSignal.timeout(60000),
+    });
+    if (!res.ok) return null;
+    const d = await res.json();
+    return JSON.parse((d.content ?? []).find((x: any) => x.type === "text")?.text ?? "null");
+  } catch { return null; }
+}
+
+async function vimgVerse(no: number) {
+  const { data: v, error } = await db.from("verses").select("no,ref_short,ref,text").eq("no", no).maybeSingle();
+  if (error) throw error;
+  if (!v) return null;
+  // 이어진 설교가 있으면 한 줄 요약도 장면의 실마리로(없어도 된다)
+  const { data: s } = await db.from("sermons").select("summary")
+    .eq("mem_verse_no", no).order("svc_date", { ascending: false }).limit(1).maybeSingle();
+  return { no: v.no, ref: v.ref_short || v.ref || "", text: v.text || "", summary: (s as any)?.summary || "" };
+}
+
+async function vimgUsedToday(no: number): Promise<number> {
+  const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  const { count, error } = await db.from("verse_image_gens").select("id", { count: "exact", head: true })
+    .eq("verse_no", no).gte("created_at", since);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+// 파일 앞머리 — 확장자가 아니라 내용으로 본다
+function vimgKind(bytes: Uint8Array): "webp" | "jpg" | null {
+  const s = (a: number, b: number) => String.fromCharCode(...bytes.slice(a, b));
+  if (bytes.length > 12 && s(0, 4) === "RIFF" && s(8, 12) === "WEBP") return "webp";
+  if (bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "jpg";
+  return null;
+}
+function vimgDecode(raw: unknown): Uint8Array | null {
+  try {
+    const s = String(raw ?? "");
+    const b64 = s.includes(",") ? s.slice(s.indexOf(",") + 1) : s;
+    const bin = atob(b64);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  } catch { return null; }
+}
+
+// getVerses 가 부른다 — 숨김 제외, 대표(a)가 있는 구절만, a→b→c
+async function vimgPublicMap(): Promise<Map<number, { slot: string; url: string; alt: string }[]>> {
+  const { data, error } = await db.from("verse_images").select("verse_no,slot,path,alt").eq("hidden", false);
+  if (error) throw error;
+  const by = new Map<number, any[]>();
+  for (const r of (data ?? []) as any[]) {
+    if (!by.has(r.verse_no)) by.set(r.verse_no, []);
+    by.get(r.verse_no)!.push({ slot: r.slot, url: vimgUrl(r.path), alt: r.alt });
+  }
+  const out = new Map<number, { slot: string; url: string; alt: string }[]>();
+  for (const [no, list] of by) {
+    if (!list.some((x) => x.slot === "a")) continue;
+    out.set(no, list.sort((x, y) => VIMG_SLOTS.indexOf(x.slot) - VIMG_SLOTS.indexOf(y.slot)));
+  }
+  return out;
+}
+
+async function verseImgList(b: any) {
+  const err = await contentError(b); if (err) return { ok: false, error: err };
+  const { data, error } = await db.from("verse_images")
+    .select("verse_no,slot,path,alt,hidden,updated_at").order("verse_no", { ascending: false });
+  if (error) throw error;
+  const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  const { data: g, error: e2 } = await db.from("verse_image_gens").select("verse_no").gte("created_at", since);
+  if (e2) throw e2;
+  const used: Record<string, number> = {};
+  for (const r of (g ?? []) as any[]) used[r.verse_no] = (used[r.verse_no] || 0) + 1;
+  return {
+    ok: true, daily: VIMG_DAILY, used,
+    images: (data ?? []).map((r: any) => ({
+      verseNo: r.verse_no, slot: r.slot, url: vimgUrl(r.path), alt: r.alt, hidden: !!r.hidden, updatedAt: r.updated_at,
+    })),
+  };
+}
+
+async function verseImgScenes(b: any) {
+  const err = await contentError(b); if (err) return { ok: false, error: err };
+  const v = await vimgVerse(Number(b.verseNo));
+  if (!v) return { ok: false, error: "no-verse" };
+  const out = await vimgClaude(VIMG_SCENE_RULES + "\n세 가지 장면을 서로 다른 사물로 짓고, 각각 우리말 한 문장(20~60자)으로 씁니다.",
+    `[구절] ${v.ref}\n${v.text}${v.summary ? `\n[그 주 설교 한 줄] ${v.summary}` : ""}`,
+    { type: "object", additionalProperties: false, required: ["scenes"],
+      properties: { scenes: { type: "array", items: { type: "string" } } } }, 600);
+  const scenes = (out?.scenes ?? []).map((x: unknown) => norm(x).normalize("NFC")).filter((x: string) => x.length >= 5 && x.length <= 120).slice(0, 3);
+  if (scenes.length < 3) return { ok: false, error: "ai" };
+  return { ok: true, scenes };
+}
+
+async function verseImgGenerate(b: any) {
+  const err = await contentError(b); if (err) return { ok: false, error: err };
+  const no = Number(b.verseNo), slot = String(b.slot || "");
+  if (!VIMG_SLOTS.includes(slot)) return { ok: false, error: "bad-slot" };
+  const sceneKo = norm(b.sceneKo).normalize("NFC");
+  if (sceneKo.length < 2 || sceneKo.length > 300) return { ok: false, error: "bad-scene" };
+  const v = await vimgVerse(no);
+  if (!v) return { ok: false, error: "no-verse" };
+  const key = Deno.env.get("GEMINI_API_KEY");
+  if (!key) return { ok: false, error: "no-key" };
+  const used = await vimgUsedToday(no);
+  if (used >= VIMG_DAILY) return { ok: false, error: "limit" };
+  // 우리말 장면 → 영어 한 줄. ⚠️ 한 줄·300자로 잘라 넣는다 — 화풍 문구를 흔들 수 없게
+  const tr = await vimgClaude(VIMG_SCENE_RULES + "\nTranslate the given Korean scene into ONE English sentence for an illustration prompt. " +
+    "Start with 'A single' or 'A quiet' when natural, end with the light (e.g. 'at dawn'). No people, no text. Output only that sentence.",
+    `[구절] ${v.ref} ${v.text}\n[장면] ${sceneKo}`,
+    { type: "object", additionalProperties: false, required: ["en"], properties: { en: { type: "string" } } }, 200);
+  const sceneEn = String(tr?.en ?? "").replace(/[\r\n"`]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 300);
+  if (sceneEn.length < 10) return { ok: false, error: "ai" };
+  let res: Response;
+  try {
+    res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${vimgModel()}:generateContent`, {
+      method: "POST",
+      headers: { "x-goog-api-key": key, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: vimgPrompt(sceneEn, slot) }] }],
+        generationConfig: { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: "4:3", imageSize: vimgSize() } },
+      }),
+      signal: AbortSignal.timeout(110000),   // 함수 한도 150초 안에서 끊는다
+    });
+  } catch { return { ok: false, error: "gen" }; }
+  if (!res.ok) return { ok: false, error: "gen", detail: `Gemini ${res.status}: ${(await res.text()).slice(0, 160)}` };
+  const d = await res.json().catch(() => null);
+  const parts = d?.candidates?.[0]?.content?.parts ?? [];
+  const img = parts.find((p: any) => p.inlineData?.data)?.inlineData;
+  if (!img) return { ok: false, error: "no-image", detail: String(d?.candidates?.[0]?.finishReason ?? d?.promptFeedback?.blockReason ?? "") };
+  const { error: e2 } = await db.from("verse_image_gens").insert({ verse_no: no, slot, created_by: staffLabel(b) });
+  if (e2) throw e2;
+  return { ok: true, image: img.data, mime: img.mimeType || "image/png", sceneEn, left: VIMG_DAILY - used - 1 };
+}
+
+async function verseImgAlt(b: any) {
+  const err = await contentError(b); if (err) return { ok: false, error: err };
+  const mime = String(b.mime || "");
+  const bytes = vimgDecode(b.image);
+  if (!bytes || !vimgKind(bytes) || !["image/webp", "image/jpeg"].includes(mime) || bytes.length > VIMG_MAX_BYTES) return { ok: false, error: "bad-file" };
+  const raw = String(b.image); const data = raw.includes(",") ? raw.slice(raw.indexOf(",") + 1) : raw;
+  const out = await vimgClaude(
+    "그림을 보고, 무엇이 보이는지 우리말 한 구절(15~40자)로 적습니다. 화면 낭독기가 읽는 설명입니다. " +
+    "「그림」「수채화」 같은 말과 마침표 없이, 보이는 사물·빛·자리만. 보이지 않는 뜻을 보태지 않습니다.",
+    [{ type: "image", source: { type: "base64", media_type: mime, data } }, { type: "text", text: "이 그림의 설명 한 구절" }],
+    { type: "object", additionalProperties: false, required: ["alt"], properties: { alt: { type: "string" } } }, 200);
+  const alt = norm(out?.alt).normalize("NFC").replace(/[.。]$/, "").slice(0, 80);
+  if (alt.length < 4) return { ok: false, error: "ai" };
+  return { ok: true, alt };
+}
+
+async function verseImgSave(b: any) {
+  const err = await contentError(b); if (err) return { ok: false, error: err };
+  const no = Number(b.verseNo), slot = String(b.slot || "");
+  if (!VIMG_SLOTS.includes(slot)) return { ok: false, error: "bad-slot" };
+  const alt = norm(b.alt).normalize("NFC");
+  if (!alt || alt.length > 80) return { ok: false, error: "no-alt" };
+  const bytes = vimgDecode(b.image);
+  const kind = bytes ? vimgKind(bytes) : null;
+  const mime = String(b.mime || "");
+  if (!bytes || !kind || (kind === "webp" ? mime !== "image/webp" : mime !== "image/jpeg")) return { ok: false, error: "bad-file" };
+  if (bytes.length > VIMG_MAX_BYTES) return { ok: false, error: "too-big" };
+  const { data: v, error: e0 } = await db.from("verses").select("no").eq("no", no).maybeSingle();
+  if (e0) throw e0;
+  if (!v) return { ok: false, error: "no-verse" };
+  // 바꿀 때마다 새 이름 — 캐시에 옛 그림이 남지 않게. 이름은 서버가 정한다
+  const path = `${no}${slot === "a" ? "" : slot}-${Date.now()}.${kind}`;
+  const { error: e1 } = await db.storage.from(VIMG_BUCKET).upload(path, bytes, { contentType: mime, upsert: false });
+  if (e1) return { ok: false, error: "save", detail: e1.message };
+  const { data: old, error: e2 } = await db.from("verse_images").select("path").eq("verse_no", no).eq("slot", slot).maybeSingle();
+  if (e2) throw e2;
+  const { error: e3 } = await db.from("verse_images").upsert({
+    verse_no: no, slot, path, alt,
+    scene_ko: norm(b.sceneKo).normalize("NFC").slice(0, 300) || null,
+    scene_en: String(b.sceneEn ?? "").replace(/[\r\n]+/g, " ").trim().slice(0, 300) || null,
+    hidden: false, created_by: staffLabel(b), updated_at: new Date().toISOString(),
+  }, { onConflict: "verse_no,slot" });
+  if (e3) throw e3;
+  if (old?.path && old.path !== path) await db.storage.from(VIMG_BUCKET).remove([old.path]).catch(() => {});   // 옛 파일 치우기 실패가 저장을 막지 않는다
+  return { ok: true, url: vimgUrl(path) };
+}
+
+async function verseImgHide(b: any) {
+  const err = await contentError(b); if (err) return { ok: false, error: err };
+  const no = Number(b.verseNo), slot = String(b.slot || "");
+  if (!VIMG_SLOTS.includes(slot)) return { ok: false, error: "bad-slot" };
+  const { data, error } = await db.from("verse_images")
+    .update({ hidden: !!b.hidden, updated_at: new Date().toISOString() })
+    .eq("verse_no", no).eq("slot", slot).select("verse_no").maybeSingle();
+  if (error) throw error;
+  return data ? { ok: true } : { ok: false, error: "not-found" };
 }
