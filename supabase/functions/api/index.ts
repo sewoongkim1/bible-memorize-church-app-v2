@@ -5340,8 +5340,12 @@ function ytIdOf(u: unknown): string {
   return m ? m[1] : "";
 }
 
-// 「YYYY-MM-DD」이면서 달력에 있는 날(2026-02-30 같은 것은 거른다 — DB 가 500 으로 튕긴다)
-const isYmd = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d) && new Date(d + "T00:00:00Z").toISOString().slice(0, 10) === d;
+// 「YYYY-MM-DD」이면서 달력에 있는 날 — 2026-02-30·2026-13-01 같은 것은 거른다(DB 가 500 으로 튕긴다)
+function isYmd(d: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return false;
+  const t = new Date(d + "T00:00:00Z");
+  return !isNaN(t.getTime()) && t.toISOString().slice(0, 10) === d;
+}
 
 // 올린 분 「소속 이름」 — 보이기용(user_id 를 싣지 않는다)
 function staffLabel(b: any): string {
@@ -5525,7 +5529,9 @@ async function staffVerseSave(b: any) {
   }
   const refFull = norm(v.refFull).normalize("NFC").slice(0, 120);
   const vdate = v.date == null || v.date === "" ? null : String(v.date);
-  if (vdate && isNaN(Date.parse(vdate))) return { ok: false, error: "bad-date" };
+  // 화면은 「YYYY-MM-DDT00:00:00+09:00」을 보낸다(getVerses 가 되읽는 ISO 시각도 마찬가지) —
+  // 앞 10글자가 달력에 있는 날인지 따로 본다. Date.parse 만으로는 "2026-02-30"·"1" 도 통과해 버린다.
+  if (vdate && (!isYmd(vdate.slice(0, 10)) || isNaN(Date.parse(vdate)))) return { ok: false, error: "bad-date" };
   const row: any = {
     date: vdate, ref_short: refShort, ref_full: refFull || null, ref: refFull || refShort, text,
     hint: norm(v.hintText).normalize("NFC").slice(0, 300) || null, pastor: norm(v.pastor).normalize("NFC").slice(0, 60) || null,
@@ -5569,11 +5575,11 @@ async function sermonJobUpdate(b: any) {
   if (b.step != null) { if (!JOB_STEPS.includes(b.step)) return { ok: false, error: "bad-step" }; patch.step = b.step; }
   if (b.error !== undefined) patch.error = b.error == null ? null : String(b.error).slice(0, 300);
   if (caller != null) patch.run_url = caller;
-  const { data, error } = await db.from("sermon_jobs").update(patch).eq("id", id)
-    .in("status", ["queued", "running"]).select("id").maybeSingle();
-  if (error) {
-    if ((error as any).code === "23505") return { ok: false, error: "busy" };
-    throw error;
-  }
+  // 비교하며 쓰기(compare-and-set) — 위에서 읽은 그 run_url 그대로일 때만 적는다.
+  // 앞서 읽고 여기 쓰는 사이에 다른 실행이 먼저 적었으면(run_url 이 바뀌었으면) 0행이 되어 stale.
+  let q = db.from("sermon_jobs").update(patch).eq("id", id).in("status", ["queued", "running"]);
+  q = cur.run_url ? q.eq("run_url", cur.run_url) : q.is("run_url", null);
+  const { data, error } = await q.select("id").maybeSingle();
+  if (error) throw error;
   return data ? { ok: true } : { ok: false, error: "stale" };
 }
