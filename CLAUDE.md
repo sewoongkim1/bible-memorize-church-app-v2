@@ -35,6 +35,7 @@
 | 관리자 통계 '카드' 열 | `docs/notes/stats-admin.md` |
 | 측정(카드 쓰임·전환율) | `docs/notes/metrics.md` |
 | 액션·테이블·시크릿 목록 | `docs/notes/backend-api.md` |
+| 아이폰 앱(Swift)·「앱이면 …」 웹 코드·껍데기 판 표식 | `docs/notes/ios-app.md` |
 
 ## 스택 · 도메인
 - **Vanilla JS PWA**(프레임워크 없음) — `index.html` + `app.js`(대형 단일 파일) + `sw.js`
@@ -214,6 +215,9 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
       `tests/widget-parity.py` 가 앱 화면과 140/140 일치를 확인했다.
       ⏰ **「출시」를 누른 날 `app.js` 의 `WIDGET_GUIDE.ios = true` → bump → 푸시** — 설명서의 위젯 안내가 그때 켜진다
       (웹은 앱 판 번호를 몰라 미리 켜면 없는 위젯을 안내한다). 읽을 것 `docs/notes/manual-guide.md` 「위젯 안내」
+      🏷️ **다음 빌드(1.1.1)부터 껍데기 판 표식이 들어간다**(`installAppInfoMarker` · 2026-09-22 커밋, ⚠️ Mac 컴파일 미확인).
+      빌드 전에 `MARKETING_VERSION` 을 손으로 1.1.1 로(두 곳) · TestFlight 로 받아 **설정 맨 아래 「📱 아이폰 앱 1.1.1 (빌드 N)」**
+      이 뜨는지 볼 것. 1.0.1·1.1.0 은 표식이 없어 둘 다 `version:""` 로 보인다. 읽을 것 `docs/notes/ios-app.md`
       ⚠️ 실기기를 보고 9/21에 바꾼 넷(작게 뺌 · 크게 더함 · 교회 마크 · 묵상 질문 뺌)과 그 이유는
       설계 `docs/superpowers/specs/2026-09-20-ios-widgets-design.md` ① 끝 절 — **작게를 다시 넣지 말 것.**
       ⚠️ 묵상·기도문 고르는 규칙은 **app.js 와 서버 두 곳**이다(`docs/notes/meditation.md`·`prayer-book.md`).

@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260921e";
+const APP_BUILD = "20260922a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -3515,6 +3515,16 @@ async function deleteMine(btn) {
 }
 
 // 설정 화면 — 로그인 정보변경 · 알림 · 홈 화면 추가 · 공유 (요약에서 분리)
+// 설정 맨 아래 한 줄 — 아이폰 앱 껍데기의 판. 「무슨 판 쓰세요?」에 답할 자리이자,
+// 새 빌드에 판 표식(AppDelegate.installAppInfoMarker)이 들어갔는지 폰에서 확인하는 자리다.
+// 표식이 없는 옛 판(1.1.0 이하)·웹 브라우저에서는 아무것도 안 보인다.
+function nativeAppVersionHtml() {
+  const a = (typeof nativeAppInfo === "function") ? nativeAppInfo() : null;
+  if (!a || !a.version) return "";
+  const build = a.build ? ` (빌드 ${a.build})` : "";      // nativeAppInfo 가 숫자·점만 남겨 준다
+  return `<div class="btn-sub" style="text-align:center;margin-top:12px;">📱 아이폰 앱 ${a.version}${build}</div>`;
+}
+
 function renderSettings() {
   // 실시간 구독 상태 진단(아래 startPushLiveStatus)이 화면을 나가도 계속 도는 걸
   // 막는다 — 여러 번 설정에 들어오면 이전 타이머가 쌓이지 않게 먼저 멈춘다.
@@ -3599,6 +3609,7 @@ function renderSettings() {
           <div class="setting-label">☁️ 동기화 상태</div>
           ${syncStatusHtml()}
         </div>
+        ${nativeAppVersionHtml()}
       </div>
     </div>`;
   document.getElementById("settings-back").addEventListener("click", () => {

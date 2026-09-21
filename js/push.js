@@ -8,6 +8,15 @@ function isNativeApp() {
   try { return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()); }
   catch (e) { return false; }
 }
+// 아이폰 앱 껍데기의 판 — AppDelegate.installAppInfoMarker 가 window.GOCHEOK_APP 을 심는다(1.1.0 다음 판부터).
+// 웹은 늘 최신인데 껍데기는 성도님마다 판이 달라서, 옛 판에만 App Store 업데이트를 안내할 때 쓴다.
+// 앱이 아니면 null · 앱인데 표식이 없으면 version:"" (= 1.1.0 이하, 표식이 들어가기 전 판).
+function nativeAppInfo() {
+  if (!isNativeApp()) return null;
+  const a = window.GOCHEOK_APP || {};
+  const num = (v) => String(v == null ? "" : v).replace(/[^0-9.]/g, "");   // 숫자와 점만 — 화면에 그대로 싣는다
+  return { platform: "ios", version: num(a.version), build: num(a.build) };
+}
 // 네이티브 앱에서는 요절 고정 배너(.test-ref-sticky)를 AppDelegate가 그리는 진짜 네이티브
 // 오버레이가 대신하므로, 웹 쪽은 (레이아웃/textContent는 남기고) 안 보이게만 한다.
 if (isNativeApp()) {
