@@ -935,13 +935,13 @@ a.mn-tel.sm{font-size:11.5px;padding:2px 8px;}
 .sl-acts .ghost{background:#eef3fb;color:#1a3a6b;border:1px solid #a9c3e8;}
 .sl-acts .del{background:#fdeceb;color:#a33;border:1px solid #e7b3ad;}
 .vi-slot{border:1px solid #dde3ee;border-radius:12px;background:#fff;padding:14px;margin:var(--gap) 0;}
-.vi-slot h3{font-size:1rem;color:var(--navy);margin:0 0 8px;}
 .vi-img{width:100%;max-width:640px;aspect-ratio:4/3;object-fit:contain;background:#fdf8f0;border-radius:10px;display:block;margin:8px 0;}
 .vi-thumb{width:120px;aspect-ratio:4/3;object-fit:cover;border-radius:8px;flex:none;}
 .vi-have{display:flex;gap:12px;align-items:center;font-size:14px;margin:6px 0;}
 .vi-checks label{display:flex;align-items:center;gap:10px;min-height:var(--tap);font-size:14px;}
 .vi-checks input{width:22px;height:22px;flex:none;}
 .vi-scenes label{display:flex;align-items:flex-start;gap:10px;min-height:var(--tap);font-size:14px;padding:6px 0;}
+.vi-scenes input{width:22px;height:22px;flex:none;margin-top:2px;}
 .vi-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
 .vi-left{font-size:14px;color:#6b778c;}
 </style>
@@ -1215,7 +1215,7 @@ function renderSermonMenu(){
   const card = (id, ic, ti, de) => `<div class="rep-card" id="${id}"><div class="ic">${ic}</div>
       <div class="rep-text"><div class="ti">${ti}</div><div class="de">${de}</div></div><div class="rep-arrow">›</div></div>`;
   app.innerHTML = `
-    <div class="section-title">${st && st.name ? htmlEsc(st.name)+" 담당자님 — " : ""}설교 올리기 (두 단계)</div>
+    <div class="section-title">${st && st.name ? htmlEsc(st.name)+" 담당자님 — " : ""}설교 올리기 · 연상 그림</div>
     <div class="card-grid">
       ${card("rep-content", "①", "설교/말씀 등록", "이번 주 암송구절과 설교 영상 링크 — 먼저 이것부터")}
       ${card("rep-sermonup", "②", "설교 내용 등록", "자막을 붙여넣으면 AI 노트 · 3분 음성 · 챗봇까지")}
@@ -1578,13 +1578,19 @@ async function suRetry(id, btn){
 async function suShowResult(job){
   const box = document.getElementById("su-res"); if(!box) return;
   // 연결된 구절이 있으면 ③ 연상 그림으로 이어 간다(그 구절 번호를 들고)
-  const vno = suState && suState.verse ? suState.verse.no : null;
-  if(vno){
+  const addGo = vno => {
+    if(!box.isConnected) return;   // 기다리는 사이 카드가 다시 그려졌거나 다른 화면으로 갔다
     const go = document.createElement("button");
     go.className = "push-send"; go.textContent = "③ 연상 그림 만들기 →";
     go.addEventListener("click", ()=>{ clearInterval(suTimer); viPrefillNo = vno; renderVerseImages(); });
     box.after(go);
-  }
+  };
+  if(suState && suState.verse && suState.id === job.videoId) addGo(suState.verse.no);
+  // ② 를 다시 열면 suState.verse 가 비어 있다 — 작업의 영상 번호로 구절을 찾는다(결과 카드는 기다리지 않는다)
+  else callApi({ action:"getVerses" }).then(d=>{
+    const v = d && d.ok && (d.verses||[]).find(x => stVideoId(x.url) === job.videoId);
+    if(v) addGo(v.no);
+  }).catch(()=>{});
   if(window.SUPA.env !== "prod"){ box.innerHTML = `<p class="push-hint">🧪 개발 DB 시험 모드 — AI 노트·음성까지만 만들고 저장·배포는 건너뛰었어요.</p>`; return; }
   try{
     const r = await fetch(SERMON_FN, { method:"POST", headers:{ "Content-Type":"application/json", apikey:SERMON_ANON, Authorization:"Bearer "+SERMON_ANON },
@@ -1600,6 +1606,10 @@ async function suShowResult(job){
 // ---------- ③ 연상 그림 (2026-09-21) ----------
 // 설계: docs/superpowers/specs/2026-09-21-verse-image-staff-design.md 3장
 // ⚠️ 쓰지 않은 그림은 저장하지 않는다 — 「쓰기」 전의 그림은 이 화면의 메모리에만 있다.
+// ⚠️ 칸(a·b·c)은 저마다 그린다 — 한 칸을 고치려고 칸 모두를 다시 그리면, 옆 칸에서 그리는 중이거나
+//    검수 중인 그림이 사라진다(2026-09-21 리뷰). 다시 그리는 것은 바뀐 그 칸뿐이다.
+// ⚠️ 늦게 온 답은 버린다 — 구절을 바꾸면 viState.token 이 오른다. 기다리는 함수는 모두 await 앞에서
+//    token 을 쥐고, 돌아와 다르면 아무것도 그리지 않는다(다른 구절 자리에 그림이 뜨거나 저장되지 않게).
 const VI_SLOTS = [["a","대표 그림 (수채·먹선)"],["b","짝 — 넓은 장면 (구아슈·색연필)"],["c","짝 — 가까이 본 장면 (구아슈·색연필)"]];
 const VI_CHECKS = ["글자·서명·낙관이 없다","사람(손·발·뒷모습 포함)이 없다","액자·카드처럼 네모나게 잘리지 않았다",
                    "종이를 찍은 사진처럼 보이지 않는다","이젤·스케치북·책이 없다","구절의 뜻과 맞다(다른 종교 상징이 없다)"];
@@ -1612,8 +1622,12 @@ const VI_ERR = {
   "no-verse":"그 구절을 찾지 못했어요.", save:"저장하지 못했어요 — 다시 눌러 주세요.",
   network:"인터넷 연결을 확인해 주세요 — 잠시 뒤 다시 눌러 주세요.",
 };
+const VI_PAIR_PRE = "구아슈·색연필 화풍 — ";   // 짝 그림 설명의 앞머리(기존 관례) — 이것만으로는 설명이 아니다
 let viPrefillNo = null;
-let viState = null;   // { verses, db:{no:{slot:{url,alt,hidden}}}, used, daily, no, scene, gen:{slot:{b64,mime,sceneEn}}, pairs }
+// { token, verses, db:{no:{slot:{url,alt,hidden}}}, old:{no:bool}, used, daily, summaries:{no:요약},
+//   no, scene, scenes, pairs, slots:{a|b|c:{req, busy}} }
+// ⚠️ 뽑은 그림은 여기에 두지 않는다 — 그린 함수가 쥔 g 를 「쓰기」·「저장」까지 그대로 넘긴다(검수한 그 그림이 저장되게)
+let viState = null;
 
 // 브라우저가 긴 변 1080px 로 줄인다 — WebP(0.78), 못 만들면 JPEG(0.85)
 async function viShrink(b64, mime){
@@ -1633,31 +1647,55 @@ async function viHasOld(no){   // 옛 그림 파일(1~38번 등)이 있나 — �
   try { const r = await fetch(`img/verse/${no}.webp`, { method:"HEAD", cache:"no-store" }); return r.ok; } catch(_) { return false; }
 }
 
+function viVisA(no){   // 앱에 보이는 DB 대표 그림이 있나(숨긴 것·짝만 있는 것은 아니다 — 설계 7장)
+  const a = (viState.db[no] || {}).a;
+  return !!(a && !a.hidden);
+}
+function viOptLabel(v){
+  return `${v.no}. ${v.refShort || ""} ${viVisA(v.no) || viState.old[v.no] ? "· 🖼️ 그림 있음" : "· 그림 없음"}`;
+}
+// 저장·내리기 뒤 — 그 구절의 목록 이름(그림 있음/없음)과, 지금 보는 구절이면 옛 그림 안내를 맞춘다
+function viRefreshHas(no){
+  const opt = document.querySelector(`#vi-sel option[value="${Number(no)}"]`);
+  const v = viState.verses.find(x => Number(x.no) === Number(no));
+  if(opt && v) opt.textContent = viOptLabel(v);
+  const h = document.getElementById("vi-oldhint");
+  if(h && Number(no) === viState.no) h.innerHTML = viState.old[no] && !viVisA(no)
+    ? `<p class="push-hint">이 구절에는 예전에 넣은 그림이 있어요. 새로 만들어 저장하면 새 그림이 앞서 보여요.</p>` : "";
+}
+
 async function renderVerseImages(){
   window.scrollTo(0, 0);
   app.innerHTML = `
     <div class="rep-head mn-top"><button class="back-btn" id="back">← 메뉴</button><h2>③ 연상 그림</h2></div>
     <div class="push-card" id="vi-body"><p class="msg">불러오는 중...</p></div>`;
   document.getElementById("back").addEventListener("click", renderMenu);
+  const body = document.getElementById("vi-body");
+  const prefill = viPrefillNo; viPrefillNo = null;
   const [vd, ld] = await Promise.all([
     callApi({ action:"getVerses" }).catch(()=>({ok:false,error:"network"})),
     callApi({ action:"verseImgList", pw:getPw(), staff:getStaff() }).catch(()=>({ok:false,error:"network"})),
   ]);
   if(minAuthLost(ld)) return;
-  const body = document.getElementById("vi-body"); if(!body) return;
+  if(!body.isConnected) return;   // 그사이 다른 화면으로 갔다(다시 들어왔으면 그 화면이 그린다)
   if(!vd.ok || !ld.ok){ body.innerHTML = `<p class="msg err">불러오지 못했습니다 — 화면을 다시 열어 주세요 (${htmlEsc((vd.error||ld.error)||"")})</p>`; return; }
   const verses = [...(vd.verses||[])].sort((a,b)=>Number(b.no)-Number(a.no));
   const dbi = {};
   for(const x of ld.images||[]){ (dbi[x.verseNo] = dbi[x.verseNo] || {})[x.slot] = x; }
-  const old = {};
-  await Promise.all(verses.slice(0, 60).filter(v=>!dbi[v.no]).map(async v=>{ old[v.no] = await viHasOld(v.no); }));
-  viState = { verses, db:dbi, old, used: ld.used||{}, daily: ld.daily||15, no:null, scene:"", scenes:[], gen:{}, pairs:false };
-  const has = v => !!(dbi[v.no] && dbi[v.no].a && !dbi[v.no].a.hidden) || !!old[v.no];
-  const pick = viPrefillNo || (verses.find(v=>!has(v)) || verses[0] || {}).no;
-  viPrefillNo = null;
+  // token 은 앞 화면 것에 이어 센다 — 앞 화면에서 기다리던 답이 새 화면의 token 과 우연히 같지 않게
+  viState = { token: viState ? viState.token : 0, verses, db:dbi, old:{}, used: ld.used||{}, daily: ld.daily||15,
+              summaries: ld.summaries||{}, no:null, scene:"", scenes:[], pairs:false, slots:{} };
+  const S = viState;
+  // 옛 그림 파일은 앱에 보이는 DB 대표 그림이 없는 구절마다 본다 — 대표를 숨긴 구절·짝만 있는 구절도(앱은 그때 옛 파일을 보인다)
+  await Promise.all(verses.filter(v=>!viVisA(v.no)).map(async v=>{ S.old[v.no] = await viHasOld(v.no); }));
+  if(!body.isConnected || S !== viState) return;
+  const has = v => viVisA(v.no) || !!S.old[v.no];
+  // 넘겨받은 번호가 목록에 없으면(구절이 빠졌다 등) 처음 규칙으로 — 그림이 없는 가장 최근 구절
+  const pick = prefill != null && verses.some(v=>Number(v.no)===Number(prefill))
+    ? Number(prefill) : (verses.find(v=>!has(v)) || verses[0] || {}).no;
   body.innerHTML = `
     <label class="push-lb">구절</label>
-    <select id="vi-sel" class="push-in">${verses.map(v=>`<option value="${v.no}">${htmlEsc(v.no)}. ${htmlEsc(v.refShort||"")} ${has(v)?"· 🖼️ 그림 있음":"· 그림 없음"}</option>`).join("")}</select>
+    <select id="vi-sel" class="push-in">${verses.map(v=>`<option value="${htmlEsc(v.no)}">${htmlEsc(viOptLabel(v))}</option>`).join("")}</select>
     <div id="vi-verse"></div>`;
   const sel = document.getElementById("vi-sel");
   if(pick != null) sel.value = String(pick);
@@ -1666,121 +1704,215 @@ async function renderVerseImages(){
 }
 
 function viOpen(no){
-  viState.no = no; viState.scene = ""; viState.scenes = []; viState.gen = {}; viState.pairs = !!(viState.db[no] && (viState.db[no].b || viState.db[no].c));
-  const v = viState.verses.find(x=>Number(x.no)===no) || {};
+  const S = viState;
+  S.token++;   // 앞 구절에서 기다리던 답은 이제 버린다
+  S.no = no; S.scene = ""; S.scenes = [];
+  S.slots = { a:{req:0,busy:false}, b:{req:0,busy:false}, c:{req:0,busy:false} };
+  S.pairs = !!(S.db[no] && (S.db[no].b || S.db[no].c));
+  const v = S.verses.find(x=>Number(x.no)===no) || {};
   const box = document.getElementById("vi-verse"); if(!box) return;
-  const left = viState.daily - (viState.used[no]||0);
+  const sum = String(S.summaries[no] || "").replace(/\*\*/g, "").trim();   // 요약 속 **굵게** 표시는 걷어 낸다
   box.innerHTML = `
     <div class="su-verse">📖 <b>${htmlEsc(v.refShort||"")}</b><br>${htmlEsc(v.text||"")}</div>
-    ${viState.old[no] && !(viState.db[no]||{}).a ? `<p class="push-hint">이 구절에는 예전에 넣은 그림이 있어요. 새로 만들어 저장하면 새 그림이 앞서 보여요.</p>` : ""}
+    ${sum ? `<div class="push-hint">🎙️ 설교: ${htmlEsc(sum)}</div>` : ""}
+    <div id="vi-oldhint"></div>
     <div class="su-step"><b>1</b> 장면 고르기</div>
     <button class="push-btn ghost" id="vi-sugg">🤖 장면 제안 받기</button>
     <div id="vi-scenes" class="vi-scenes"></div>
     <label class="push-lb">장면 (고쳐 써도 돼요)</label>
     <textarea id="vi-scene" class="push-in" rows="2" maxlength="300" placeholder="예: 새벽 언덕 위 홀로 가지를 넓게 펼친 올리브나무"></textarea>
-    <p class="vi-left" id="vi-left">오늘 이 구절에 ${left}장 더 뽑을 수 있어요.</p>
-    <div id="vi-slots"></div>`;
+    <p class="vi-left" id="vi-left"></p>
+    <div id="vi-slots"></div>
+    ${S.pairs ? "" : `<button class="push-btn ghost" id="vi-pairs">짝 그림도 만들기 (넓은 장면 · 가까이)</button>`}`;
   document.getElementById("vi-sugg").addEventListener("click", viSuggest);
-  document.getElementById("vi-scene").addEventListener("input", e=>{ viState.scene = e.target.value.trim(); });
-  viRenderSlots();
+  document.getElementById("vi-scene").addEventListener("input", e=>{ S.scene = e.target.value.trim(); });
+  viRenderSlot("a");
+  if(S.pairs){ viRenderSlot("b"); viRenderSlot("c"); }
+  // 짝 두 칸을 뒤에 붙인다 — 대표 칸(그리는 중·검수 중일 수 있다)은 건드리지 않는다
+  const pr = document.getElementById("vi-pairs");
+  if(pr) pr.addEventListener("click", ()=>{ pr.remove(); S.pairs = true; viRenderSlot("b"); viRenderSlot("c"); });
+  viSyncLeft();
+  viRefreshHas(no);
 }
 
 async function viSuggest(){
-  const btn = document.getElementById("vi-sugg"); btn.disabled = true; btn.textContent = "생각하는 중…";
-  const d = await callApi({ action:"verseImgScenes", pw:getPw(), staff:getStaff(), verseNo:viState.no }).catch(()=>({ok:false,error:"network"}));
+  const S = viState, tok = S.token, no = S.no;
+  const btn = document.getElementById("vi-sugg"); if(!btn || btn.disabled) return;
+  btn.disabled = true; btn.textContent = "생각하는 중…";
+  const d = await callApi({ action:"verseImgScenes", pw:getPw(), staff:getStaff(), verseNo:no }).catch(()=>({ok:false,error:"network"}));
+  if(tok !== viState.token || !btn.isConnected) return;   // 그사이 다른 구절로 갔다 — 그 구절의 장면이 아니다
   btn.disabled = false; btn.textContent = "🤖 장면 제안 다시 받기";
   if(minAuthLost(d)) return;
   if(!d.ok){ mnNote(VI_ERR[d.error] || ("오류: "+(d.error||"")), "warn"); return; }
-  viState.scenes = d.scenes;
-  const box = document.getElementById("vi-scenes");
-  box.innerHTML = d.scenes.map((s,i)=>`<label><input type="radio" name="vi-sc" value="${i}"> ${htmlEsc(s)}</label>`).join("");
+  const scenes = d.scenes || []; S.scenes = scenes;
+  const box = document.getElementById("vi-scenes"); if(!box) return;
+  box.innerHTML = scenes.map((s,i)=>`<label><input type="radio" name="vi-sc" value="${i}"> ${htmlEsc(s)}</label>`).join("");
   box.querySelectorAll("input").forEach(r=>r.addEventListener("change", ()=>{
-    const t = document.getElementById("vi-scene"); t.value = viState.scenes[Number(r.value)]; viState.scene = t.value;
+    const t = document.getElementById("vi-scene"); if(!t) return;
+    t.value = scenes[Number(r.value)] || ""; S.scene = t.value.trim();
   }));
 }
 
-function viRenderSlots(){
-  const box = document.getElementById("vi-slots"); if(!box) return;
-  const dbs = viState.db[viState.no] || {};
-  const slots = VI_SLOTS.filter(([k])=> k==="a" || viState.pairs);
-  box.innerHTML = slots.map(([k,label])=>`
-    <div class="vi-slot" id="vi-slot-${k}">
-      <div class="su-step"><b>${k==="a"?"2":"3"}</b> ${label}</div>
-      ${dbs[k] ? `<div class="vi-have"><img class="vi-thumb" src="${htmlEsc(dbs[k].url)}" alt=""><div>${htmlEsc(dbs[k].alt)}${dbs[k].hidden?" <b>(내림)</b>":""}
-        <div class="vi-acts"><button class="push-btn ghost" data-hide="${k}">${dbs[k].hidden?"되올리기":"내리기"}</button></div></div></div>
-        <p class="push-hint">아래에서 새로 만들어 저장하면 이 그림을 바꿔요.</p>` : ""}
-      <button class="push-send" data-gen="${k}">🎨 ${dbs[k]?"새로 만들기":"그림 만들기"}</button>
-      <div id="vi-out-${k}"></div>
-    </div>`).join("") + (viState.pairs ? "" : `<button class="push-btn ghost" id="vi-pairs">짝 그림도 만들기 (넓은 장면 · 가까이)</button>`);
-  box.querySelectorAll("[data-gen]").forEach(b=>b.addEventListener("click", ()=>viGenerate(b.dataset.gen, b)));
-  box.querySelectorAll("[data-hide]").forEach(b=>b.addEventListener("click", ()=>viHide(b.dataset.hide)));
-  const pr = document.getElementById("vi-pairs"); if(pr) pr.addEventListener("click", ()=>{ viState.pairs = true; viRenderSlots(); });
+// 칸 하나 — 처음이면 그 칸의 틀을 #vi-slots 끝에 붙이고, 있으면 「이미 만든 그림」 줄과 🎨 단추만 새로 맞춘다.
+// ⚠️ 그린 그림·확인표·설명 칸([data-out])은 여기서 건드리지 않는다 — 그리는 중·검수 중인 것이 지워지지 않게
+function viRenderSlot(slot){
+  const wrap = document.getElementById("vi-slots"); if(!wrap) return;
+  let el = document.getElementById("vi-slot-"+slot);
+  if(!el){
+    const label = (VI_SLOTS.find(([k])=>k===slot) || [])[1] || "";
+    el = document.createElement("div"); el.className = "vi-slot"; el.id = "vi-slot-"+slot;
+    el.innerHTML = `<div class="su-step"><b>${slot==="a"?"2":"3"}</b> ${label}</div>
+      <div data-have></div>
+      <button class="push-send" data-gen></button>
+      <div data-out></div>`;
+    el.querySelector("[data-gen]").addEventListener("click", ()=>viGenerate(slot));
+    wrap.appendChild(el);
+  }
+  const cur = (viState.db[viState.no] || {})[slot];
+  const have = el.querySelector("[data-have]");
+  have.innerHTML = cur ? `<div class="vi-have"><img class="vi-thumb" src="${htmlEsc(cur.url)}" alt=""><div>${htmlEsc(cur.alt)}${cur.hidden?" <b>(내림)</b>":""}
+      <div class="vi-acts"><button class="push-btn ghost" data-hide>${cur.hidden?"되올리기":"내리기"}</button></div></div></div>
+      <p class="push-hint">아래에서 새로 만들어 저장하면 이 그림을 바꿔요.</p>` : "";
+  const hb = have.querySelector("[data-hide]"); if(hb) hb.addEventListener("click", ()=>viHide(slot, hb));
+  viSyncGen(slot);
 }
 
-async function viGenerate(slot, btn){
-  if(!viState.scene){ mnNote("먼저 장면을 고르거나 적어 주세요", "warn"); return; }
-  const out = document.getElementById("vi-out-"+slot);
-  btn.disabled = true; out.innerHTML = `<p class="msg">그리는 중… 30초쯤 걸려요</p>`;
-  const d = await callApi({ action:"verseImgGenerate", pw:getPw(), staff:getStaff(), verseNo:viState.no, slot, sceneKo:viState.scene }).catch(()=>({ok:false,error:"network"}));
-  btn.disabled = false;
+// 🎨 단추 — 그리는 동안은 「그리는 중…」으로 잠그고, 오늘 뽑을 수를 다 쓰면 잠근다(🔁 다시 뽑기도)
+function viSyncGen(slot){
+  const el = document.getElementById("vi-slot-"+slot); if(!el) return;
+  const S = viState, st = S.slots[slot], full = S.daily - (S.used[S.no]||0) <= 0;
+  const b = el.querySelector("[data-gen]");
+  b.disabled = st.busy || full;
+  b.textContent = st.busy ? "그리는 중…" : `🎨 ${(S.db[S.no]||{})[slot] ? "새로 만들기" : "그림 만들기"}`;
+  const again = el.querySelector("[data-again]"); if(again) again.disabled = full;
+}
+
+function viSyncLeft(){
+  const S = viState, left = S.daily - (S.used[S.no]||0);
+  const el = document.getElementById("vi-left");
+  if(el) el.textContent = left > 0 ? `오늘 이 구절에 ${left}장 더 뽑을 수 있어요.` : "오늘은 이 구절에 더 뽑을 수 없어요";
+  VI_SLOTS.forEach(([k])=>viSyncGen(k));
+}
+
+async function viGenerate(slot){
+  const S = viState, tok = S.token, no = S.no, sceneKo = S.scene, st = S.slots[slot];
+  if(!sceneKo){ mnNote("먼저 장면을 고르거나 적어 주세요", "warn"); return; }
+  const out = document.querySelector(`#vi-slot-${slot} [data-out]`); if(!out || st.busy) return;
+  const id = ++st.req; st.busy = true; viSyncGen(slot);
+  out.innerHTML = `<p class="msg">그리는 중… 30초쯤 걸려요</p>`;
+  const d = await callApi({ action:"verseImgGenerate", pw:getPw(), staff:getStaff(), verseNo:no, slot, sceneKo }).catch(()=>({ok:false,error:"network"}));
+  if(id === st.req) st.busy = false;
+  // 뽑은 수는 요청한 그 구절 것만 고친다 — 그사이 다른 구절로 갔어도 그 구절의 오늘 수는 줄었다.
+  // 두 칸을 함께 뽑으면 서버의 left 가 서로를 모른다 — 이 화면에서 센 수와 견줘 큰 쪽을 쓴다
+  if(d.ok) S.used[no] = Math.max((S.used[no]||0) + 1, Number.isFinite(d.left) ? S.daily - d.left : 0);
+  else if(d.error === "limit") S.used[no] = S.daily;
+  if(tok !== viState.token || id !== st.req || !out.isConnected) return;   // 늦게 온 답 — 다른 구절·새 요청의 자리에 보이지 않는다
+  viSyncLeft();
   if(minAuthLost(d)) return;
   if(!d.ok){ out.innerHTML = `<p class="msg err">${htmlEsc(VI_ERR[d.error] || ("오류: "+(d.error||"")))}</p>`; return; }
-  viState.used[viState.no] = (viState.used[viState.no]||0) + 1;
-  const left = document.getElementById("vi-left"); if(left) left.textContent = `오늘 이 구절에 ${d.left}장 더 뽑을 수 있어요.`;
-  viState.gen[slot] = { b64:d.image, mime:d.mime, sceneEn:d.sceneEn };
-  out.innerHTML = `<img class="vi-img" src="data:${htmlEsc(d.mime)};base64,${d.image}" alt="">
+  // 받은 그림을 페이지에 넣기 전에 모양을 한 번 더 본다 — 그림 종류 셋과 base64 글자만
+  if(!/^image\/(jpeg|png|webp)$/.test(String(d.mime||"")) || !/^[A-Za-z0-9+/=]+$/.test(String(d.image||""))){
+    out.innerHTML = `<p class="msg err">${htmlEsc(VI_ERR["bad-file"])}</p>`; return;
+  }
+  // 검수할 그 그림 — 장면(우리말)도 그릴 때의 것을 붙여 둔다(그 뒤에 칸을 고쳐도 저장에 섞이지 않게)
+  const g = { no, slot, req:id, b64:d.image, mime:d.mime, sceneEn:String(d.sceneEn||""), sceneKo };
+  out.innerHTML = `<img class="vi-img" src="data:${d.mime};base64,${d.image}" alt="">
     <div class="vi-checks">${VI_CHECKS.map((c,i)=>`<label><input type="checkbox" data-ck="${i}"> ${c}</label>`).join("")}</div>
     <div class="vi-acts"><button class="push-btn ghost" data-again>🔁 다시 뽑기</button><button class="push-send" data-use disabled>✅ 이 그림 쓰기</button></div>
     <div data-save></div>`;
   const use = out.querySelector("[data-use]");
   const cks = [...out.querySelectorAll("[data-ck]")];
-  cks.forEach(c=>c.addEventListener("change", ()=>{ use.disabled = !cks.every(x=>x.checked); }));
-  out.querySelector("[data-again]").addEventListener("click", ()=>viGenerate(slot, btn));
-  use.addEventListener("click", ()=>viUse(slot, out));
+  cks.forEach(c=>c.addEventListener("change", ()=>{ use.disabled = !!use.dataset.lock || !cks.every(x=>x.checked); }));
+  out.querySelector("[data-again]").addEventListener("click", ()=>viGenerate(slot));
+  use.addEventListener("click", ()=>viUse(g, out));
+  viSyncGen(slot);   // 오늘 수를 다 썼으면 🔁 도 잠근다
 }
 
-async function viUse(slot, out){
-  const g = viState.gen[slot]; if(!g) return;
-  const box = out.querySelector("[data-save]");
+async function viUse(g, out){
+  const tok = viState.token, slot = g.slot;
+  const box = out.querySelector("[data-save]"), use = out.querySelector("[data-use]");
+  if(!box || !use || use.dataset.lock) return;
+  // 줄이고 설명을 받는 동안 잠근다 — 두 번 눌러 설명을 두 번 받거나, 고친 설명이 새 제안으로 지워지지 않게.
+  // 설명 칸이 뜬 뒤에도 풀지 않는다(다시 누르면 고친 설명이 지워진다). 줄이기에 실패했을 때만 푼다.
+  use.dataset.lock = "1"; use.disabled = true;
   box.innerHTML = `<p class="msg">그림을 줄이고 설명을 만드는 중…</p>`;
+  const gone = () => tok !== viState.token || !box.isConnected;   // 구절을 바꿨거나 🔁 로 새로 뽑았다
   let small;
-  try { small = await viShrink(g.b64, g.mime); } catch(_) { box.innerHTML = `<p class="msg err">${VI_ERR["bad-file"]}</p>`; return; }
+  try { small = await viShrink(g.b64, g.mime); }
+  catch(_){
+    if(gone()) return;
+    box.innerHTML = `<p class="msg err">${htmlEsc(VI_ERR["bad-file"])}</p>`;
+    delete use.dataset.lock; use.disabled = ![...out.querySelectorAll("[data-ck]")].every(x=>x.checked);
+    return;
+  }
+  if(gone()) return;
   g.small = small;
-  const d = await callApi({ action:"verseImgAlt", pw:getPw(), staff:getStaff(), verseNo:viState.no, slot, image:small.b64, mime:small.mime }).catch(()=>({ok:false,error:"network"}));
+  const d = await callApi({ action:"verseImgAlt", pw:getPw(), staff:getStaff(), verseNo:g.no, slot, image:small.b64, mime:small.mime }).catch(()=>({ok:false,error:"network"}));
+  if(gone()) return;
   if(minAuthLost(d)) return;
-  const pre = slot === "a" ? "" : "구아슈·색연필 화풍 — ";
-  const alt = d.ok ? (pre + d.alt) : pre;
+  // 짝은 앞머리를 채워 둔다. 앞머리 + 제안이 80자를 넘지 않게 제안 쪽을 자른다
+  const pre = slot === "a" ? "" : VI_PAIR_PRE;
+  const ai = d.ok ? String(d.alt || "").slice(0, 80 - pre.length) : "";
   box.innerHTML = `<label class="push-lb">그림 설명 (낭독기가 읽어요 — 그림에 보이는 것을 적어 주세요)</label>
-    <input class="push-in" data-alt maxlength="80" value="${htmlEsc(alt)}">
-    ${d.ok ? "" : `<p class="push-hint">설명을 제안받지 못했어요 — 직접 적어 주세요.</p>`}
+    <input class="push-in" data-alt maxlength="80">
+    ${ai ? "" : `<p class="push-hint">설명을 제안받지 못했어요 — 직접 적어 주세요.</p>`}
     <button class="push-send" data-store>💾 저장</button>`;
-  box.querySelector("[data-store]").addEventListener("click", ()=>viSave(slot, box));
+  box.querySelector("[data-alt]").value = pre + ai;   // 속성이 아니라 값으로 넣는다
+  box.querySelector("[data-store]").addEventListener("click", ()=>viSave(g, box));
 }
 
-async function viSave(slot, box){
-  const g = viState.gen[slot]; const alt = box.querySelector("[data-alt]").value.trim();
-  if(!alt){ mnNote(VI_ERR["no-alt"], "warn"); return; }
-  const btn = box.querySelector("[data-store]"); btn.disabled = true; btn.textContent = "저장 중…";
-  const d = await callApi({ action:"verseImgSave", pw:getPw(), staff:getStaff(), verseNo:viState.no, slot,
-    image:g.small.b64, mime:g.small.mime, alt, sceneKo:viState.scene, sceneEn:g.sceneEn }).catch(()=>({ok:false,error:"network"}));
+async function viSave(g, box){
+  const S = viState, tok = S.token, slot = g.slot, no = g.no;
+  const inp = box.querySelector("[data-alt]"), btn = box.querySelector("[data-store]");
+  if(!inp || !btn || btn.disabled) return;
+  const alt = inp.value.trim();
+  // 짝 그림은 앞머리를 떼고 본다 — 「구아슈·색연필 화풍 —」만으로는 낭독기가 그림을 말해 주지 못한다
+  const pre = VI_PAIR_PRE.trim();
+  const bare = slot !== "a" && alt.startsWith(pre) ? alt.slice(pre.length).trim() : alt;
+  if(!bare){ mnNote(VI_ERR["no-alt"], "warn"); inp.focus(); return; }
+  if(!g.small){ mnNote(VI_ERR["bad-file"], "warn"); return; }   // 줄인 그림이 없으면 보낼 것이 없다
+  // 보낼 것을 다 꾸린 뒤에 잠근다 — 여기서 멈춰 단추가 잠긴 채 남지 않게
+  const req = { action:"verseImgSave", pw:getPw(), staff:getStaff(), verseNo:no, slot,
+    image:g.small.b64, mime:g.small.mime, alt, sceneKo:g.sceneKo, sceneEn:g.sceneEn };
+  btn.disabled = true; btn.textContent = "저장 중…";
+  const d = await callApi(req).catch(()=>({ok:false,error:"network"}));
   btn.disabled = false; btn.textContent = "💾 다시 저장";
+  // 저장은 서버에서 끝났다 — 그 구절의 기록은 화면이 바뀌었어도 고쳐 둔다(다시 고르면 맞게 보이게)
+  if(d.ok){
+    (S.db[no] = S.db[no] || {})[slot] = { url:d.url, alt, hidden:false };
+    if(S === viState) viRefreshHas(no);
+  }
+  if(tok !== viState.token) return;   // 다른 구절로 갔다 — 그 화면에는 아무것도 그리지 않는다
   if(minAuthLost(d)) return;
-  if(!d.ok){ mnNote(VI_ERR[d.error] || ("오류: "+(d.error||"")), "warn"); return; }
-  (viState.db[viState.no] = viState.db[viState.no] || {})[slot] = { url:d.url, alt, hidden:false };
-  delete viState.gen[slot];
+  if(!d.ok){ if(box.isConnected) mnNote(VI_ERR[d.error] || ("오류: "+(d.error||"")), "warn"); return; }
   mnNote("저장했어요 — 앱에 바로 떠요");
-  viRenderSlots();
+  // 검수 칸은 저장한 그 그림이 아직 떠 있을 때만 비운다 — 그사이 🔁 로 새로 뽑는 중이면 그대로 둔다
+  const st = S.slots[slot];
+  if(g.req === st.req && !st.busy){ const out = document.querySelector(`#vi-slot-${slot} [data-out]`); if(out) out.innerHTML = ""; }
+  viRenderSlot(slot);
 }
 
-async function viHide(slot){
-  const cur = (viState.db[viState.no]||{})[slot]; if(!cur) return;
+async function viHide(slot, btn){
+  const S = viState, tok = S.token, no = S.no;
+  const cur = (S.db[no]||{})[slot]; if(!cur || btn.disabled) return;
   const hidden = !cur.hidden;
   if(hidden && !(await mnDialog({ icon:"🖼️", title:"그림 내리기", tone:"danger", ok:"내리기", cancel:"그만두기",
     html:"이 그림을 앱에서 내릴까요?", note:"언제든 「되올리기」로 다시 보이게 할 수 있어요." }))) return;
-  const d = await callApi({ action:"verseImgHide", pw:getPw(), staff:getStaff(), verseNo:viState.no, slot, hidden }).catch(()=>({ok:false,error:"network"}));
+  if(tok !== viState.token || !btn.isConnected) return;
+  btn.disabled = true;
+  const d = await callApi({ action:"verseImgHide", pw:getPw(), staff:getStaff(), verseNo:no, slot, hidden }).catch(()=>({ok:false,error:"network"}));
+  btn.disabled = false;
+  if(d.ok){
+    cur.hidden = hidden;
+    // 대표를 내리면 앱은 옛 그림 파일로 돌아간다 — 그 파일이 있는지 아직 모르면 본다(목록의 「그림 있음」이 맞게)
+    if(slot === "a" && hidden && S.old[no] === undefined) S.old[no] = await viHasOld(no);
+    if(S === viState) viRefreshHas(no);
+  }
+  if(tok !== viState.token || !btn.isConnected) return;
   if(minAuthLost(d)) return;
   if(!d.ok){ mnNote(VI_ERR[d.error] || ("오류: "+(d.error||"")), "warn"); return; }
-  cur.hidden = hidden; mnNote(hidden ? "내렸어요" : "다시 보이게 했어요"); viRenderSlots();
+  mnNote(hidden ? "내렸어요" : "다시 보이게 했어요");
+  viRenderSlot(slot);
 }
 
 function renderMenu(){
