@@ -230,7 +230,12 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
       **직분 목록이 세 곳**이라는 것, 사슬 일곱은 `docs/notes/ministry-2027.md`.
 
 - [ ] **축복 기도문 — 주제 그룹 검토 뒤 성도님께 열기**: ① `marketing/가정축복기도문_수정.xlsx` D열 「그룹」을 담당자가 손보면 ② `supabase/blessings.sql`·`blessings.json`을 다시 만들어 개발→운영 순으로 반영하고 ③ `renderSummary`의 「함께」 묶음에 `🙏 가정 축복 기도문` 한 줄을 더한다
-- [ ] 🤖 **안드로이드 위젯 — 2026-09-27 이후에 한다(친구 결정 2026-09-20).** 지금 안드로이드 앱은
+- [ ] 🤖 **안드로이드 위젯 — 2026-09-21 설계 확정, 로컬 제작·실기기(USB) 시험 중. Play 업로드는 9/27 프로덕션 승인 뒤.**
+      설계 `docs/superpowers/specs/2026-09-21-android-widgets-design.md` — Bubblewrap 으로 TWA 를 소스째 만들어
+      `android-app/` 에 두고 위젯 셋을 더한다(시험판 `…memorize.dev` 는 따로 깔려 테스터 시계를 안 건드린다).
+      ⚠️ 저장소가 공개이고 사이트가 저장소 전체를 배포한다 — **서명 키·비밀번호를 절대 커밋하지 말 것.**
+      ⚠️ Capacitor 로 바꾸지 말 것 — 업데이트 순간 로그인이 풀리고 웹 푸시가 멈춘다(설계 「왜 A 인가」).
+      아래는 9/20 에 적은 배경이다. 지금 안드로이드 앱은
       PWABuilder 로 만든 TWA 껍데기라 **저장소에 안드로이드 소스 프로젝트가 아예 없다** — 위젯은
       네이티브 코드가 있어야 한다(안드로이드는 PWA 위젯을 지원하지 않는다).
       **유리한 점 셋:** ① 서버는 이미 끝났다(`getWeeklyVerse`·`getTodayMeditation`·`getTodayBlessing`
