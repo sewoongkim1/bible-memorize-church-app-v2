@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 위젯 색(밝을 때) — 아이폰 위젯의 시스템 바탕·글씨·보조 글씨와 같은 값. 어두울 때는 values-night. -->
+<!-- 위젯 색(밝을 때) — 글씨는 아이폰 위젯의 시스템 글씨·보조 글씨와 같은 값. 어두울 때는 values-night.
+     바탕은 **반투명**(2026-09-21 친구 결정) — 흰색을 75%만 칠해 배경화면이 비친다(앞 두 자리 BF = 75%).
+     ⚠️ 더 옅게 하면 밝거나 복잡한 배경화면에서 글씨가 묻힌다 — 농도를 낮추기 전에 실기기로 볼 것. -->
 <resources>
-    <color name="widget_bg">#FFFFFF</color>
+    <color name="widget_bg">#BFFFFFFF</color>
     <color name="widget_text">#141414</color>
     <color name="widget_secondary">#78787F</color>
 </resources>

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 위젯 색(어두울 때) — 바탕은 짙은 회색 75%(반투명). values/widget_colors.xml 머리말 참고. -->
 <resources>
-    <color name="widget_bg">#1C1C1E</color>
+    <color name="widget_bg">#BF1C1C1E</color>
     <color name="widget_text">#F5F5F7</color>
     <color name="widget_secondary">#98989D</color>
 </resources>
