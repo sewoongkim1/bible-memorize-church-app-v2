@@ -1011,7 +1011,9 @@ const BU_LIST = ["사랑부","영아부","유아부","유치부","유년부","�
 const app = document.getElementById("app");
 const logoutBtn = document.getElementById("logout");
 
-logoutBtn.addEventListener("click", () => {
+logoutBtn.addEventListener("click", async () => {
+  // ③ 연상 그림에서 만들던 그림이 있으면 로그아웃도 한 번 묻는다(viConfirmLeave — 다른 화면에서는 늘 통과한다)
+  if(!(await viConfirmLeave())) return;
   sessionStorage.removeItem(PW_KEY);
   sessionStorage.removeItem(STAFF_KEY);
   logoutBtn.hidden = true;
@@ -1615,6 +1617,8 @@ const VI_CHECKS = ["글자·서명·낙관이 없다","사람(손·발·뒷모�
                    "종이를 찍은 사진처럼 보이지 않는다","이젤·스케치북·책이 없다","구절의 뜻과 맞다(다른 종교 상징이 없다)"];
 const VI_ERR = {
   limit:"오늘은 이 구절에 더 뽑을 수 없어요 — 내일 다시 해 주세요.",
+  "daily-all":"오늘은 그림을 모두 60장 뽑았어요 — 내일 다시 해 주세요.",
+  "bad-no":"이 구절에는 그림을 만들 수 없어요(주간 암송 구절만).",
   "no-image":"이 장면으로는 그림이 안 나왔어요 — 장면을 조금 바꿔 주세요.",
   gen:"그림을 만들지 못했어요 — 다시 눌러 주세요.", ai:"AI 가 답하지 않았어요 — 잠시 뒤 다시 눌러 주세요.",
   "no-key":"그림 열쇠가 없어요 — 친구에게 알려 주세요.", "bad-file":"그림 파일이 이상해요 — 다시 만들어 주세요.",
@@ -1643,10 +1647,12 @@ async function viShrink(b64, mime){
   return { b64: out, mime: blob.type, bytes: blob.size, w: c.width, h: c.height };
 }
 
-const VI_OLD_MAX = 38;   // 옛 그림 파일은 2026-09 까지 친구가 넣은 1~38번뿐 — 새 그림은 DB 로 간다
-async function viHasOld(no){   // 옛 그림 파일(1~38번 등)이 있나 — 같은 주소의 HEAD
-  if(Number(no) > VI_OLD_MAX) return false;
-  try { const r = await fetch(`img/verse/${no}.webp`, { method:"HEAD", cache:"no-store" }); return r.ok; } catch(_) { return false; }
+// ⚠️ 상한을 두지 않는다(2026-09-21 리뷰) — 친구가 9/27 설교를 옛 방식(파일 + app.js VERSE_IMG)으로
+//    올리면 39번 이후에도 옛 그림 파일이 생길 수 있다. 주간 구절(no<1000) 전부를 본다.
+async function viHasOld(no){   // 옛 그림 파일(img/verse/*.webp)이 있나 — 같은 주소의 HEAD
+  if(!(Number(no) < 1000)) return false;
+  try { const r = await fetch(`img/verse/${no}.webp`, { method:"HEAD", cache:"no-store", signal:AbortSignal.timeout(5000) }); return r.ok; }
+  catch(_) { return false; }   // 시간 초과도 「옛 파일 없음」으로 — HEAD 하나로 화면이 멈추지 않게
 }
 
 function viVisA(no){   // 앱에 보이는 DB 대표 그림이 있나(숨긴 것·짝만 있는 것은 아니다 — 설계 7장)
@@ -1663,7 +1669,7 @@ function viRefreshHas(no){
   if(opt && v) opt.textContent = viOptLabel(v);
   const h = document.getElementById("vi-oldhint");
   if(h && Number(no) === viState.no) h.innerHTML = viState.old[no] && !viVisA(no)
-    ? `<p class="push-hint">이 구절에는 예전에 넣은 그림이 있어요. 새로 만들어 저장하면 새 그림이 앞서 보여요.</p>` : "";
+    ? `<p class="push-hint">이 구절에는 예전에 넣은 그림이 있어요. 새로 만들어 저장하면 예전 그림 세 장 대신 새 그림만 보여요.</p>` : "";
 }
 
 // 지금 구절에 만들다 만 것이 있나 — 그리는 중이거나, 뽑은 그림이 검수·설명·저장을 거치는 동안(아직 안 지워졌다)
@@ -1682,13 +1688,19 @@ async function viConfirmLeave(){
   return await mnDialog({ icon:"🖼️", title:"만들던 그림이 사라져요", tone:"danger", ok:"그래도 옮기기", cancel:"그만두기",
     html:"아직 저장하지 않은 그림이 있어요.", note:"다시 만들면 오늘 뽑을 수 있는 수가 줄어요." });
 }
+// 탭을 닫거나 새로고침하면 확인창 없이 만들던 그림이 그대로 사라진다 — 브라우저 기본 확인을 띄운다(2026-09-21 리뷰)
+window.addEventListener("beforeunload", (e)=>{
+  if(!viDirty()) return;
+  e.preventDefault(); e.returnValue = "";
+});
 
 async function renderVerseImages(){
   window.scrollTo(0, 0);
   app.innerHTML = `
     <div class="rep-head mn-top"><button class="back-btn" id="back">← 메뉴</button><h2>③ 연상 그림</h2></div>
     <div class="push-card" id="vi-body"><p class="msg">불러오는 중...</p></div>`;
-  document.getElementById("back").addEventListener("click", async ()=>{ if(await viConfirmLeave()) renderMenu(); });
+  // ③ 화면을 떠나면 지운다 — beforeunload·로그아웃의 viDirty() 가 다른 화면에서 옛 상태로 걸리지 않게
+  document.getElementById("back").addEventListener("click", async ()=>{ if(await viConfirmLeave()){ viState = null; renderMenu(); } });
   const body = document.getElementById("vi-body");
   const prefill = viPrefillNo; viPrefillNo = null;
   const [vd, ld] = await Promise.all([
@@ -1797,7 +1809,7 @@ function viRenderSlot(slot){
   const have = el.querySelector("[data-have]");
   have.innerHTML = cur ? `<div class="vi-have"><img class="vi-thumb" src="${htmlEsc(cur.url)}" alt=""><div>${htmlEsc(cur.alt)}${cur.hidden?" <b>(내림)</b>":""}
       <div class="vi-acts"><button class="push-btn ghost" data-hide>${cur.hidden?"되올리기":"내리기"}</button></div></div></div>
-      <p class="push-hint">아래에서 새로 만들어 저장하면 이 그림을 바꿔요.</p>` : "";
+      <p class="push-hint">아래에서 새로 만들어 저장하면 이 그림을 바꿔요.${cur.hidden ? " 저장하면 앱에 다시 떠요." : ""}</p>` : "";
   const hb = have.querySelector("[data-hide]"); if(hb) hb.addEventListener("click", ()=>viHide(slot, hb));
   viSyncGen(slot);
 }
@@ -1890,7 +1902,11 @@ async function viUse(g, out){
     ${ai ? "" : `<p class="push-hint">설명을 제안받지 못했어요 — 직접 적어 주세요.</p>`}
     <button class="push-send" data-store>💾 저장</button>`;
   box.querySelector("[data-alt]").value = pre + ai;   // 속성이 아니라 값으로 넣는다
-  box.querySelector("[data-store]").addEventListener("click", ()=>viSave(g, box));
+  // ⚠️ 확인표를 다 채운 뒤에만 켠다 — 「이 그림 쓰기」는 이미 확인표를 거쳤지만, 이 사이에 체크를 풀 수도 있다
+  const store = box.querySelector("[data-store]");
+  const cks = [...out.querySelectorAll("[data-ck]")];
+  store.disabled = !cks.every(c => c.checked);
+  store.addEventListener("click", ()=>viSave(g, box));
 }
 
 async function viSave(g, box){
@@ -1908,7 +1924,9 @@ async function viSave(g, box){
     image:g.small.b64, mime:g.small.mime, alt, sceneKo:g.sceneKo, sceneEn:g.sceneEn };
   btn.disabled = true; btn.textContent = "저장 중…";
   const d = await callApi(req).catch(()=>({ok:false,error:"network"}));
-  btn.disabled = false; btn.textContent = "💾 다시 저장";
+  // 실패했을 때만 다시 켜진다 — 확인표를 그사이 풀었으면 「다시 저장」도 잠근다
+  const cks = [...box.parentElement.querySelectorAll("[data-ck]")];
+  btn.disabled = !cks.every(c => c.checked); btn.textContent = "💾 다시 저장";
   // 저장은 서버에서 끝났다 — 그 구절의 기록은 화면이 바뀌었어도 고쳐 둔다(다시 고르면 맞게 보이게)
   if(d.ok){
     (S.db[no] = S.db[no] || {})[slot] = { url:d.url, alt, hidden:false };
@@ -1917,6 +1935,7 @@ async function viSave(g, box){
   if(minAuthLost(d)) return;
   // 결과는 몇 번 구절인지와 함께 알린다 — 구절을 바꿨거나 칸이 다시 그려졌어도 만든 그림이 어떻게 됐는지는 꼭 알아야 한다
   if(!d.ok) mnNote(`${g.no}번 그림을 저장하지 못했어요 — ${VI_ERR[d.error] || d.error || ""}`, "warn");
+  else if(slot !== "a" && !viVisA(no)) mnNote(`${g.no}번 짝 그림을 저장했어요 — 대표 그림을 저장하면(되올리면) 함께 떠요`);
   else mnNote(`${g.no}번 그림을 저장했어요 — 앱에 바로 떠요`);
   if(tok !== viState.token) return;   // 다른 구절로 갔다 — 그 화면에는 아무것도 더 그리지 않는다
   if(!d.ok) return;
@@ -1942,10 +1961,12 @@ async function viHide(slot, btn){
     if(slot === "a" && hidden && S.old[no] === undefined) S.old[no] = await viHasOld(no);
     if(S === viState) viRefreshHas(no);
   }
-  if(tok !== viState.token || !btn.isConnected) return;
   if(minAuthLost(d)) return;
-  if(!d.ok){ mnNote(VI_ERR[d.error] || ("오류: "+(d.error||"")), "warn"); return; }
-  mnNote(hidden ? "내렸어요" : "다시 보이게 했어요");
+  // ⚠️ 담당자가 그사이 구절을 바꿨어도 알림은 띄운다(viSave 처럼) — 구절 번호를 넣어 어느 구절인지 밝힌다
+  if(!d.ok){ mnNote(`${no}번: ${VI_ERR[d.error] || ("오류: "+(d.error||""))}`, "warn"); return; }
+  mnNote(hidden ? `${no}번 그림을 내렸어요`
+    : `${no}번 그림을 다시 보이게 했어요${(slot !== "a" && !viVisA(no)) ? " — 대표 그림이 보여야 앱에 떠요" : ""}`);
+  if(tok !== viState.token || !btn.isConnected) return;
   viRenderSlot(slot);
 }
 

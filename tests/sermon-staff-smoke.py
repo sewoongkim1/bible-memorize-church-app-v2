@@ -79,6 +79,14 @@ chk("staffVerify 다른 역할", call({"action": "staffVerify", "role": "ministr
 print("[7] 연상 그림")
 chk("verseImgList 담당자", call(dict(S, action="verseImgList")).get("ok"), True)
 chk("verseImgList 틀린 암호", call({"action": "verseImgList", "pw": "wrong", "staff": ME}).get("error"), "unauthorized")
+# ⚠️ 아래 다섯은 틀린 암호로 부른다 — 인증이 맨 먼저라, 돈이 드는 AI·그림 호출 전에 unauthorized 로 돌아온다
+chk("verseImgScenes 틀린 암호", call({"action": "verseImgScenes", "pw": "wrong", "staff": ME, "verseNo": 1}).get("error"), "unauthorized")
+chk("verseImgGenerate 틀린 암호", call({"action": "verseImgGenerate", "pw": "wrong", "staff": ME, "verseNo": 1, "slot": "a", "sceneKo": "시험"}).get("error"), "unauthorized")
+chk("verseImgAlt 틀린 암호", call({"action": "verseImgAlt", "pw": "wrong", "staff": ME, "verseNo": 1, "slot": "a", "image": "", "mime": "image/webp"}).get("error"), "unauthorized")
+chk("verseImgSave 틀린 암호", call({"action": "verseImgSave", "pw": "wrong", "staff": ME, "verseNo": 1, "slot": "a", "image": "", "mime": "image/webp", "alt": "시험"}).get("error"), "unauthorized")
+chk("verseImgHide 틀린 암호", call({"action": "verseImgHide", "pw": "wrong", "staff": ME, "verseNo": 1, "slot": "a", "hidden": True}).get("error"), "unauthorized")
+# 시편 번호(1001)는 비싼 AI 호출 전에 bad-no 로 막힌다 — 이 시험도 돈이 들지 않는다
+chk("시편 번호로는 그림 못 만든다", call(dict(S, action="verseImgScenes", verseNo=1001)).get("error"), "bad-no")
 chk("칸 d", call(dict(S, action="verseImgGenerate", verseNo=1, slot="d", sceneKo="시험 장면")).get("error"), "bad-slot")
 chk("빈 장면", call(dict(S, action="verseImgGenerate", verseNo=1, slot="a", sceneKo="")).get("error"), "bad-scene")
 import base64

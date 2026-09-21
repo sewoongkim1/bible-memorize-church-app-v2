@@ -5634,6 +5634,8 @@ async function sermonJobUpdate(b: any) {
 const VIMG_BUCKET = "verse-img";
 const VIMG_SLOTS = ["a", "b", "c"];
 const VIMG_DAILY = 15;
+// 모든 구절을 합쳐 하루 최대 — 새어 나간 암호 하나로 구절마다 15장씩 긁어도 여기서 막힌다(2026-09-21 최종 리뷰)
+const VIMG_DAILY_ALL = 60;
 const VIMG_MAX_BYTES = 500_000;
 const vimgModel = () => Deno.env.get("VERSE_IMG_MODEL") || "gemini-3-pro-image";
 const vimgSize = () => Deno.env.get("VERSE_IMG_SIZE") || "1K";
@@ -5720,10 +5722,15 @@ async function vimgClaude(system: string, content: unknown, schema: unknown, max
   } catch (e) { console.error("vimgClaude", (e as Error)?.name, (e as Error)?.message); return null; }
 }
 
+// 시편(no>=1000) · track 이 "weekly" 아닌 줄은 비싼 그림 생성 대상이 아니다 —
+// staffVerseSave 의 bad-no 와 같은 규칙(2026-09-21 최종 리뷰). is_active 는 요구하지 않는다
+// (다음 주 구절을 미리 등록해 두고 그림부터 만들 수 있어야 한다). vimgVerse 를 쓰는 모든 액션에 이대로 걸린다.
 async function vimgVerse(no: number) {
-  const { data: v, error } = await db.from("verses").select("no,ref_short,ref,text").eq("no", no).maybeSingle();
+  if (no >= 1000) return "bad-no" as const;
+  const { data: v, error } = await db.from("verses").select("no,ref_short,ref,text,track").eq("no", no).maybeSingle();
   if (error) throw error;
   if (!v) return null;
+  if ((v as any).track && (v as any).track !== "weekly") return "bad-no" as const;
   // 이어진 설교가 있으면 한 줄 요약도 장면의 실마리로(없어도 된다)
   const { data: s } = await db.from("sermons").select("summary")
     .eq("mem_verse_no", no).eq("hidden", false).order("svc_date", { ascending: false }).limit(1).maybeSingle();
@@ -5734,6 +5741,15 @@ async function vimgUsedToday(no: number): Promise<number> {
   const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
   const { count, error } = await db.from("verse_image_gens").select("id", { count: "exact", head: true })
     .eq("verse_no", no).gte("created_at", since);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+// 구절을 가리지 않고 24시간 전체 — VIMG_DAILY(구절별)와 같은 표를 같은 자리에서 센다
+async function vimgUsedAllToday(): Promise<number> {
+  const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  const { count, error } = await db.from("verse_image_gens").select("id", { count: "exact", head: true })
+    .gte("created_at", since);
   if (error) throw error;
   return count ?? 0;
 }
@@ -5808,6 +5824,7 @@ async function verseImgScenes(b: any) {
   const no = Number(b.verseNo);
   if (!Number.isInteger(no) || no < 1) return { ok: false, error: "no-verse" };
   const v = await vimgVerse(no);
+  if (v === "bad-no") return { ok: false, error: "bad-no" };
   if (!v) return { ok: false, error: "no-verse" };
   const out = await vimgClaude(VIMG_SCENE_RULES + "\n세 가지 장면을 서로 다른 사물로 짓고, 각각 우리말 한 문장(20~60자)으로 씁니다.",
     `[구절] ${v.ref}\n${v.text}${v.summary ? `\n[그 주 설교 한 줄] ${v.summary}` : ""}`,
@@ -5827,11 +5844,14 @@ async function verseImgGenerate(b: any) {
   const sceneKo = norm(b.sceneKo).normalize("NFC");
   if (sceneKo.length < 2 || sceneKo.length > 300) return { ok: false, error: "bad-scene" };
   const v = await vimgVerse(no);
+  if (v === "bad-no") return { ok: false, error: "bad-no" };
   if (!v) return { ok: false, error: "no-verse" };
   const key = Deno.env.get("GEMINI_API_KEY");
   if (!key) return { ok: false, error: "no-key" };
   const used = await vimgUsedToday(no);
   if (used >= VIMG_DAILY) return { ok: false, error: "limit" };
+  const usedAll = await vimgUsedAllToday();
+  if (usedAll >= VIMG_DAILY_ALL) return { ok: false, error: "daily-all" };
   // 우리말 장면 → 영어 한 줄. ⚠️ 한 줄·300자로 잘라 넣는다 — 화풍 문구를 흔들 수 없게
   const tr = await vimgClaude(VIMG_SCENE_RULES + "\nTranslate the given Korean scene into ONE English sentence for an illustration prompt. " +
     "Start with 'A single' or 'A quiet' when natural, end with the light (e.g. 'at dawn'). No people, no text. Output only that sentence.",
@@ -5866,13 +5886,19 @@ async function verseImgGenerate(b: any) {
   const imgParts = parts.filter((p: any) => p.inlineData?.data && p.thought !== true);
   const img = imgParts[imgParts.length - 1]?.inlineData;
   if (!img) return { ok: false, error: "no-image", detail: String(d?.candidates?.[0]?.finishReason ?? d?.promptFeedback?.blockReason ?? "") };
+  // 여기까지 왔으면 이미 돈이 든 호출이 끝났다 — 기록만 실패해도 방금 받은 그림은 잃지 않는다(2026-09-21 리뷰)
   const { error: e2 } = await db.from("verse_image_gens").insert({ verse_no: no, slot, created_by: staffLabel(b) });
-  if (e2) throw e2;
-  return { ok: true, image: img.data, mime: img.mimeType || "image/png", sceneEn, left: VIMG_DAILY - used - 1 };
+  if (e2) console.error("verseImgGenerate 기록 실패", e2.message);
+  return { ok: true, image: img.data, mime: img.mimeType || "image/png", sceneEn, left: Math.min(VIMG_DAILY - used - 1, VIMG_DAILY_ALL - usedAll - 1) };
 }
 
 async function verseImgAlt(b: any) {
   const err = await contentError(b); if (err) return { ok: false, error: err };
+  const no = Number(b.verseNo);
+  if (!Number.isInteger(no) || no < 1) return { ok: false, error: "no-verse" };
+  const v = await vimgVerse(no);
+  if (v === "bad-no") return { ok: false, error: "bad-no" };
+  if (!v) return { ok: false, error: "no-verse" };
   const mime = String(b.mime || "");
   const raw = String(b.image ?? ""); const data = raw.includes(",") ? raw.slice(raw.indexOf(",") + 1) : raw;
   if (data.length > 668_000) return { ok: false, error: "bad-file" };   // 디코드 전에 크기부터 거른다
@@ -5894,6 +5920,9 @@ async function verseImgSave(b: any) {
   const no = Number(b.verseNo), slot = String(b.slot || "");
   if (!Number.isInteger(no) || no < 1) return { ok: false, error: "no-verse" };
   if (!VIMG_SLOTS.includes(slot)) return { ok: false, error: "bad-slot" };
+  const v = await vimgVerse(no);
+  if (v === "bad-no") return { ok: false, error: "bad-no" };
+  if (!v) return { ok: false, error: "no-verse" };
   const alt = norm(b.alt).normalize("NFC");
   if (!alt || alt.length > 80) return { ok: false, error: "no-alt" };
   const rawImg = String(b.image ?? ""); const b64 = rawImg.includes(",") ? rawImg.slice(rawImg.indexOf(",") + 1) : rawImg;
@@ -5903,12 +5932,11 @@ async function verseImgSave(b: any) {
   const mime = String(b.mime || "");
   if (!bytes || !kind || (kind === "webp" ? mime !== "image/webp" : mime !== "image/jpeg")) return { ok: false, error: "bad-file" };
   if (bytes.length > VIMG_MAX_BYTES) return { ok: false, error: "too-big" };
-  const { data: v, error: e0 } = await db.from("verses").select("no").eq("no", no).maybeSingle();
-  if (e0) throw e0;
-  if (!v) return { ok: false, error: "no-verse" };
+  // 구절이 있는지는 위에서 vimgVerse 로 이미 확인했다
   // 바꿀 때마다 새 이름 — 캐시에 옛 그림이 남지 않게. 이름은 서버가 정한다
   const path = `${no}${slot === "a" ? "" : slot}-${Date.now()}.${kind}`;
-  const { error: e1 } = await db.storage.from(VIMG_BUCKET).upload(path, bytes, { contentType: mime, upsert: false });
+  // 파일 이름이 저장마다 새것이라(Date.now()) 1년을 캐싱해도 안전하다
+  const { error: e1 } = await db.storage.from(VIMG_BUCKET).upload(path, bytes, { contentType: mime, upsert: false, cacheControl: "31536000" });
   if (e1) return { ok: false, error: "save", detail: e1.message };
   let old: { path: string } | null = null;
   try {
