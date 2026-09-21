@@ -937,17 +937,30 @@ async function callApi(payload){
 //    여기서 메뉴를 줄이는 것은 편의일 뿐이다.
 // ⚠️ 저장 칸을 관리자와 나눈다 — 담당자 암호가 admin-pw 에 들어가면 허브·다른 도구가 그 암호로
 //    부르다가 줄줄이 「비밀번호가 올바르지 않습니다」가 된다.
-const MINISTRY_ONLY = new URLSearchParams(location.search).get("only") === "ministry";
-const PW_KEY = MINISTRY_ONLY ? "ministry-pw" : "admin-pw";
-const STAFF_KEY = "ministry-staff";
+// 설교·찬양 관리(admin-sermon.html → ?only=sermon · 2026-09-21)도 같은 길이다. 허브에서 넘어온 관리자는
+// 관리자 암호 그대로(모든 카드), 담당자는 설교·찬양 암호 + 앱 로그인 정보.
+const ONLY = (q => (q === "ministry" || q === "sermon") ? q : null)(new URLSearchParams(location.search).get("only"));
+const MINISTRY_ONLY = ONLY === "ministry";
+const SERMON_ONLY = ONLY === "sermon";
+const STAFF_MODE = MINISTRY_ONLY || (SERMON_ONLY && !sessionStorage.getItem("admin-pw"));
+const PW_KEY = MINISTRY_ONLY ? "ministry-pw" : STAFF_MODE ? "content-pw" : "admin-pw";
+const STAFF_KEY = SERMON_ONLY ? "content-staff" : "ministry-staff";
+const STAFF_CFG = SERMON_ONLY
+  ? { title:"설교·찬양 관리", pw:"설교·찬양 암호", auth:"contentAuth", who:"설교·찬양 담당자" }
+  : { title:"사역신청 관리", pw:"사역신청 암호", auth:"ministryAuth", who:"사역신청 담당자" };
 function getStaff(){
-  if(!MINISTRY_ONLY) return null;
+  if(!STAFF_MODE) return null;
   try { return JSON.parse(sessionStorage.getItem(STAFF_KEY) || "null"); } catch(_) { return null; }
 }
 if(MINISTRY_ONLY){
   document.title = "사역신청 관리";
   document.querySelector(".topbar h1").textContent = "🤝 사역신청 관리";
   document.getElementById("hub-link").hidden = true;
+}
+if(SERMON_ONLY){
+  document.title = "설교·찬양 관리";
+  document.querySelector(".topbar h1").textContent = "⛪ 설교·찬양 관리";
+  if(STAFF_MODE) document.getElementById("hub-link").hidden = true;
 }
 const GU_LIST = ["믿음","소망","사랑","섬김","은혜","화평","기쁨","새가족"];
 const BU_LIST = ["사랑부","영아부","유아부","유치부","유년부","초등부","중등부","고등부","청년부"];
@@ -983,7 +996,7 @@ async function callStats(from, to){
 
 // ---------- 로그인 ----------
 function renderLogin(){
-  if(MINISTRY_ONLY) return renderMinistryLogin();
+  if(STAFF_MODE) return renderMinistryLogin();   // 사역신청 · 설교·찬양 담당자 — 문구는 STAFF_CFG
   logoutBtn.hidden = true;
   app.innerHTML = `
     <div class="login-card">
@@ -1026,7 +1039,7 @@ function renderMinistryLogin(){
   if(!u){
     app.innerHTML = `
       <div class="login-card">
-        <h2>🔒 사역신청 관리</h2>
+        <h2>🔒 ${STAFF_CFG.title}</h2>
         <p>이 기기에서 <b>앱에 먼저 로그인</b>해 주세요.<br>로그인한 정보(교구·목장·이름)로 담당자를 확인합니다.</p>
         <button id="go-app">앱에서 로그인하기</button>
         <a class="home-link" href="index.html">← 첫 화면으로</a>
@@ -1037,22 +1050,24 @@ function renderMinistryLogin(){
   const staff = minStaffOf(u);
   app.innerHTML = `
     <div class="login-card">
-      <h2>🔒 사역신청 관리</h2>
+      <h2>🔒 ${STAFF_CFG.title}</h2>
       <p>앱에 로그인한 정보로 담당자를 확인합니다.</p>
       <div class="staff-me">👤 ${htmlEsc(minWho(staff))} · <b>${htmlEsc(staff.name)}</b></div>
       <div class="staff-hint">다른 분이면 앱에서 로그인을 바꿔 주세요</div>
       <div class="login-err" id="lerr"></div>
-      <input type="password" id="pw" placeholder="사역신청 암호" autocomplete="current-password" />
+      <input type="password" id="pw" placeholder="${STAFF_CFG.pw}" autocomplete="current-password" />
       <button id="login">로그인</button>
       <a class="home-link" href="index.html">← 첫 화면으로</a>
     </div>`;
   const err = document.getElementById("lerr"), pwInput = document.getElementById("pw");
   async function tryLogin(){
     const pw = pwInput.value.trim();
-    if(!pw){ err.textContent="사역신청 암호를 입력하세요."; return; }
+    if(!pw){ err.textContent=`${STAFF_CFG.pw}를 입력하세요.`; return; }
     err.textContent = "확인 중...";
-    const d = await callApi({ action:"ministryAuth", pw, staff }).catch(()=>({ok:false,error:"network"}));
+    const d = await callApi({ action:STAFF_CFG.auth, pw, staff }).catch(()=>({ok:false,error:"network"}));
     if(d.ok){
+      // 설교·찬양 관리에 관리자 암호를 넣었으면 관리자로 연다 — 담당자 칸이 아니라 admin-pw 에
+      if(SERMON_ONLY && d.role==="admin"){ sessionStorage.setItem("admin-pw", pw); location.reload(); return; }
       sessionStorage.setItem(PW_KEY, pw);
       sessionStorage.setItem(STAFF_KEY, JSON.stringify(staff));
       renderMenu();
@@ -1060,7 +1075,7 @@ function renderMinistryLogin(){
     }
     // ⚠️ 서버는 「암호가 틀림」과 「담당자가 아님」을 일부러 같은 답으로 준다 — 화면도 한 문장으로 안내한다
     err.textContent = d.error==="unauthorized"
-      ? `암호가 맞지 않거나, 지금 로그인된 분(${minWho(staff)} ${staff.name})이 사역신청 담당자로 등록되어 있지 않습니다.`
+      ? `암호가 맞지 않거나, 지금 로그인된 분(${minWho(staff)} ${staff.name})이 ${STAFF_CFG.who}로 등록되어 있지 않습니다.`
       : d.error==="no-password-set" ? "서버에 암호가 설정되지 않았습니다(관리자 설정 필요)."
       : "연결 오류입니다. 잠시 후 다시 시도하세요.";
   }
@@ -1085,7 +1100,7 @@ function minWho(st){
 
 // ⑤ 담당자에서 빠졌거나 암호가 바뀌면 열린 화면을 그대로 두지 않고 로그인으로 돌려보낸다(2026-09-17 리뷰)
 function minAuthLost(d){
-  if(!MINISTRY_ONLY || !d || d.error!=="unauthorized") return false;
+  if(!STAFF_MODE || !d || d.error!=="unauthorized") return false;
   sessionStorage.removeItem(PW_KEY);
   sessionStorage.removeItem(STAFF_KEY);
   renderLogin();
@@ -1147,8 +1162,42 @@ function renderMinistryMenu(){
   callApi({ action:"ministryAuth", pw:getPw(), staff:getStaff() }).then(minAuthLost).catch(()=>{});
 }
 
+// ---------- 설교·찬양 관리 메뉴 (2026-09-21) ----------
+// ⚠️ 막는 것은 서버다 — 설교·찬양 암호는 contentError 를 거치는 액션만 통과한다. 메뉴를 줄이는 것은 편의.
+function renderSermonMenu(){
+  window.scrollTo(0, 0);
+  logoutBtn.hidden = false;
+  const st = getStaff();
+  const card = (id, ic, ti, de) => `<div class="rep-card" id="${id}"><div class="ic">${ic}</div>
+      <div class="rep-text"><div class="ti">${ti}</div><div class="de">${de}</div></div><div class="rep-arrow">›</div></div>`;
+  app.innerHTML = `
+    <div class="section-title">${st && st.name ? htmlEsc(st.name)+" 담당자님 — " : ""}설교 올리기 (두 단계)</div>
+    <div class="card-grid">
+      ${card("rep-content", "①", "설교/말씀 등록", "이번 주 암송구절과 설교 영상 링크 — 먼저 이것부터")}
+      ${card("rep-sermonup", "②", "설교 내용 등록", "자막을 붙여넣으면 AI 노트 · 3분 음성 · 챗봇까지")}
+    </div>
+    <div class="section-title">살펴보기 · 고치기</div>
+    <div class="card-grid">
+      ${card("rep-sermonlist", "📜", "설교 목록", "제목·예배일·구분·설교자 고치기 · 숨김 · 점검")}
+      ${card("rep-medlib", "🌿", "매일 묵상 조회", "주차별 7일 묵상 내용(주제·메시지·질문)")}
+      ${STAFF_MODE ? "" : card("rep-praise", "🎵", "찬양 아카이브 관리", "곡 등록 · 콤보순서 · 조회수 · 사용현황")}
+      ${STAFF_MODE ? "" : card("rep-contentadmins", "🔑", "설교·찬양 담당자", "이 화면에 들어올 분 등록 · 빼기")}
+    </div>`;
+  document.getElementById("rep-content").addEventListener("click", renderContent);
+  document.getElementById("rep-sermonup").addEventListener("click", renderSermonUpload);
+  document.getElementById("rep-sermonlist").addEventListener("click", renderSermonList);
+  document.getElementById("rep-medlib").addEventListener("click", renderMedLibrary);
+  const pr = document.getElementById("rep-praise");
+  if(pr) pr.addEventListener("click", ()=>{ location.href="admin-praise.html"; });
+  const ca = document.getElementById("rep-contentadmins");
+  if(ca) ca.addEventListener("click", ()=>renderStaffAdmins("content"));
+  // 새로고침으로 들어왔어도 한 번 되짚는다 — 그사이 빠진 분이 메뉴를 계속 보지 않게
+  if(STAFF_MODE) callApi({ action:"contentAuth", pw:getPw(), staff:getStaff() }).then(minAuthLost).catch(()=>{});
+}
+
 function renderMenu(){
   if(MINISTRY_ONLY) return renderMinistryMenu();
+  if(SERMON_ONLY) return renderSermonMenu();
   logoutBtn.hidden = false;
   app.innerHTML = `
     <div class="dash" id="dash">
@@ -1212,14 +1261,6 @@ function renderMenu(){
         </div>
         <div class="rep-arrow">›</div>
       </div>
-      <div class="rep-card" id="rep-medlib">
-        <div class="ic">🌿</div>
-        <div class="rep-text">
-          <div class="ti">매일 묵상 조회</div>
-          <div class="de">주차별 7일 묵상 내용(주제·메시지·질문)</div>
-        </div>
-        <div class="rep-arrow">›</div>
-      </div>
       <div class="rep-card" id="rep-pushlog">
         <div class="ic">📨</div>
         <div class="rep-text">
@@ -1228,11 +1269,11 @@ function renderMenu(){
         </div>
         <div class="rep-arrow">›</div>
       </div>
-      <div class="rep-card" id="rep-content">
-        <div class="ic">📖</div>
+      <div class="rep-card" id="rep-sermonhub">
+        <div class="ic">⛪</div>
         <div class="rep-text">
-          <div class="ti">설교/말씀 관리</div>
-          <div class="de">주간 말씀·설교영상 추가·수정</div>
+          <div class="ti">설교·찬양 관리 →</div>
+          <div class="de">설교/말씀 등록 · 설교 내용 등록 · 매일 묵상 조회 · 찬양 (2026-09 이리로 옮겼어요)</div>
         </div>
         <div class="rep-arrow">›</div>
       </div>
@@ -1363,9 +1404,8 @@ function renderMenu(){
   document.getElementById("rep-challenge").addEventListener("click", renderChallengeReport);
   document.getElementById("rep-blessing").addEventListener("click", renderBlessingUsage);
   document.getElementById("rep-push").addEventListener("click", renderPush);
-  document.getElementById("rep-medlib").addEventListener("click", renderMedLibrary);
   document.getElementById("rep-pushlog").addEventListener("click", renderPushLog);
-  document.getElementById("rep-content").addEventListener("click", renderContent);
+  document.getElementById("rep-sermonhub").addEventListener("click", ()=>{ location.href="admin-stats.html?only=sermon"; });
   document.getElementById("rep-passages").addEventListener("click", renderPassages);
   document.getElementById("rep-monitor").addEventListener("click", renderMonitor);
   document.getElementById("rep-report").addEventListener("click", renderReportMail);
