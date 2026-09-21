@@ -2365,6 +2365,20 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>" -- admin-pra
 
 **Files:** 코드 없음 — 순서가 전부다.
 
+> ⚠️ **최종 전체 리뷰(2026-09-21)로 더한 것 — 이 절의 단계보다 먼저 읽는다**
+> 1. **운영 `sermon_jobs.sql` 에는 `attempt` 칸이 들어 있다**(파일 끝의 `alter` 줄까지 통째로 돌린다).
+> 2. ⚠️ **gocheok-sermons 가지를 `main` 에 합친 뒤에만 운영 `api` 를 올린다**(Step 2 → Step 3 순서를 바꾸지 않는다) —
+>    새 `api` 는 디스패치에 `attempt` 를 싣는데, 합치기 전 `main` 의 워크플로에는 그 입력이 없어 GitHub 가 422 로 거절한다.
+>    반대로 옛 `api` 는 새 워크플로와도 돈다(`attempt` 기본값 1).
+> 3. **운영 텔레그램 시험**(어떤 행도 건드리지 않는다): 합친 뒤 GitHub → Actions → 「설교 올리기 (관리자 화면)」 → Run workflow
+>    (`job_id=999999`, `api_base=https://xnomlgydifiqiybervtf.supabase.co/functions/v1/api`, `attempt=1`) → `make` 가 not-found 로 멈추고
+>    `fail` 잡이 「작업 #999999」 알림을 보낸다. 텔레그램이 안 오면 비밀값 `TELEGRAM_TOKEN`·`TELEGRAM_CHAT_ID`(2026-09-21 넣음)부터 본다.
+> 4. **담당자에게 넘기기 전에 친구가 운영에서 한 편을 직접 끝까지**(예: 암송구절 없는 새벽기도) — 저장·챗봇 색인·커밋·`pull --rebase`·
+>    Pages 배포·`job-verify` 는 개발 시험에서 한 번도 안 돌았다. 사이트·3분 음성·챗봇(「내게 주시는 말씀」)에서 확인한 뒤 담당자 첫 실전.
+> 5. **실제 유튜브 「스크립트 표시」에서 복사한 글 한 편**을 `tests/sermon-text.test.cjs` 에 표본으로 더한다(「3초」 같은 읽기용 글이 딸려 오는지).
+> 6. 개발 시크릿 `GH_DISPATCH_REF` 는 **`feat/sermon-staff` 가지를 지우기 전에** 지운다(아니면 개발 디스패치가 422).
+> 7. **연상 그림**(`2026-09-21-verse-image-staff.md` Task 7)을 같은 판에 함께 낸다 — `verse_images.sql` · 운영 `GEMINI_API_KEY`.
+
 - [ ] **Step 1: 친구 — 운영 준비**
   - 운영 SQL Editor: `supabase/sermon_jobs.sql` **만**(⚠️ `dev-sermons-tables.sql` 은 돌리지 말 것)
   - 운영 시크릿: `CONTENT_STAFF_SECRET` (`GH_DISPATCH_TOKEN` 은 있다 · `GH_DISPATCH_REF` 는 넣지 않는다 → `main`)
@@ -2404,6 +2418,9 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>" -- admin-pra
 ---
 
 ### Task 16: 문서
+
+> 노트에 꼭 적을 것(최종 리뷰): 「**다시 시도는 화면에서만** — GitHub 화면의 Re-run 은 작업을 되살리지 못하고(stale), 끝난 실행을 Re-run 하면 가짜 실패 알림이 간다」 ·
+> 「**같은 설교를 친구 PC(`add-local.mjs`)로 동시에 올리지 말 것** — rebase 가 부딪히고 음성·글이 어긋날 수 있다」 · 「**지우기보다 숨김** — 지운 설교는 다음 올리기 때 sermons.json 에서 되살아난다」.
 
 **Files:**
 - Create: `docs/notes/sermon-staff-upload.md`
