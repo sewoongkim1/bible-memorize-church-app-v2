@@ -387,6 +387,16 @@ Deno.serve(async (req) => {
       case "seedVerses":    return json(await seedVerses(body));
       case "generateNiv":   return json(await generateNiv(body));
       case "embedSermons":  return json(await embedSermons(body));
+      // ---- 설교 올리기 — 설교·찬양 담당자(2026-09-21) ----
+      case "sermonStaffList": return json(await sermonStaffList(body));
+      case "sermonJobCreate": return json(await sermonJobCreate(body));
+      case "sermonJobs":      return json(await sermonJobs(body));
+      case "sermonJobRetry":  return json(await sermonJobRetry(body));
+      case "sermonStaffSave": return json(await sermonStaffSave(body));
+      case "sermonDelete":    return json(await sermonDelete(body));
+      case "staffVerseSave":  return json(await staffVerseSave(body));
+      case "sermonJobGet":    return json(await sermonJobGet(body));      // 워크플로 — 관리자 암호만
+      case "sermonJobUpdate": return json(await sermonJobUpdate(body));   // 워크플로 — 관리자 암호만
       case "sermonChat":    return json(await sermonChat(body));
       case "debugSermonSearch": return json(await debugSermonSearch(body));
       case "sermonSummary": return json(await sermonSummary(body));
@@ -5299,4 +5309,249 @@ async function eventImport(b: any) {
     .filter((p: string) => p && !MIN_POSITIONS.has(p)))];
 
   return { ok: true, received: rows.length, inserted, matched, dropped, noDate, oddPositions };
+}
+
+// ============================================================
+// 설교 올리기 — 설교·찬양 담당자(2026-09-21)
+//   설계: docs/superpowers/specs/2026-09-21-sermon-staff-upload-design.md 4·6장
+//   화면(설교·찬양 관리 → ② 설교 내용 등록)이 sermon_jobs 에 한 줄 넣고 gocheok-sermons 의
+//   sermon-job.yml 을 깨운다. 워크플로가 sermonJobGet 으로 자막을 받아 파이프라인을 돌리며
+//   sermonJobUpdate 로 단계를 적는다. 유튜브에는 가지 않는다(GitHub 서버에서 자막이 막힌다).
+// ============================================================
+// ⚠️ 같은 목록이 화면(admin-stats.html SERMON_CATS)에도 있다 — 함께 고칠 것
+const SERMON_CATS = ["주일설교", "금요성령집회", "새벽기도회", "송구영신예배", "특별집회", "청년예배"];
+const JOB_STATUS = ["queued", "running", "done", "failed"];
+const JOB_STEPS = ["dispatch", "prep", "notes", "tts", "link", "versehelp", "save", "embed", "publish", "verify"];
+const JOB_COLS = "id,video_id,title,svc_date,category,preacher,status,step,error,run_url,created_by,created_at,updated_at";
+const GH_SERMON_WORKFLOW =
+  "https://api.github.com/repos/sewoongkim1/gocheok-sermons/actions/workflows/sermon-job.yml/dispatches";
+
+const toJob = (r: any) => ({
+  id: r.id, videoId: r.video_id, title: r.title, date: r.svc_date, category: r.category,
+  preacher: r.preacher, status: r.status, step: r.step, error: r.error, runUrl: r.run_url,
+  createdBy: r.created_by, createdAt: r.created_at, updatedAt: r.updated_at,
+});
+
+// 영상 번호 — ⚠️ 같은 규칙이 세 곳: 여기 · admin-stats.html stVideoId · gocheok-sermons scripts/job-lib.mjs vidOf
+function ytIdOf(u: unknown): string {
+  const s = String(u ?? "").trim();
+  if (/^[A-Za-z0-9_-]{11}$/.test(s)) return s;
+  const m = s.match(/(?:[?&]v=|youtu\.be\/|\/live\/|\/shorts\/|\/embed\/)([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : "";
+}
+
+// 올린 분 「소속 이름」 — 보이기용(user_id 를 싣지 않는다)
+function staffLabel(b: any): string {
+  if (!adminError(b)) return "관리자";
+  const st = b.staff || {};
+  const mok = norm(st.mok) ? norm(st.mok).replace(/목장$/, "") + "목장" : "";
+  return [st.gu, mok, st.bu, st.grade, st.name].map(norm).filter(Boolean).join(" ").slice(0, 60);
+}
+
+// 30분 넘게 소식이 없는 작업은 멈춘 것으로 본다 — 그래야 「한 번에 하나만」이 영원히 막지 않는다.
+// 워크플로는 단계마다 updated_at 을 새로 적는다(가장 긴 단계도 몇 분).
+async function sermonJobsSweep() {
+  const cut = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+  const { error } = await db.from("sermon_jobs")
+    .update({ status: "failed", error: "30분 넘게 소식이 없어 멈춘 것으로 봤어요", updated_at: new Date().toISOString() })
+    .in("status", ["queued", "running"]).lt("updated_at", cut);
+  if (error) throw error;
+}
+
+async function sermonRecentJobs() {
+  const { data, error } = await db.from("sermon_jobs").select(JOB_COLS)
+    .order("updated_at", { ascending: false }).limit(5);
+  if (error) throw error;
+  return (data ?? []).map(toJob);
+}
+
+async function sermonJobFail(id: number, step: string, msg: string) {
+  const { data, error } = await db.from("sermon_jobs")
+    .update({ status: "failed", step, error: String(msg).slice(0, 300), updated_at: new Date().toISOString() })
+    .eq("id", id).select(JOB_COLS).maybeSingle();
+  if (error) throw error;
+  return data ? toJob(data) : null;
+}
+
+async function dispatchSermonJob(id: number): Promise<{ ok: boolean; error?: string }> {
+  const token = Deno.env.get("GH_DISPATCH_TOKEN");
+  if (!token) return { ok: false, error: "GH_DISPATCH_TOKEN 시크릿 미설정" };
+  // 개발 DB 는 가지(feat/sermon-staff)에서 시험한다 — GH_DISPATCH_REF 로 고른다. 운영은 main.
+  const ref = Deno.env.get("GH_DISPATCH_REF") || "main";
+  const apiBase = `${Deno.env.get("SUPABASE_URL")}/functions/v1/api`;
+  const r = await fetch(GH_SERMON_WORKFLOW, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "gocheok-sermon-admin", "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ ref, inputs: { job_id: String(id), api_base: apiBase } }),
+  });
+  if (r.status === 204) return { ok: true };
+  return { ok: false, error: `GitHub ${r.status}: ${(await r.text()).slice(0, 200)}` };
+}
+
+async function sermonStaffList(b: any) {
+  const err = await contentError(b); if (err) return { ok: false, error: err };
+  const { data, error } = await db.from("sermons")
+    .select("id,title,svc_date,category,preacher,scripture,mem_verse_no,mem_ref,hidden,summary,points,key_verse,audio_script,audio")
+    .order("svc_date", { ascending: false });
+  if (error) throw error;
+  const sermons = (data ?? []).map((r: any) => ({
+    id: r.id, title: r.title, date: r.svc_date || "", category: r.category, preacher: r.preacher || "",
+    scripture: r.scripture || "", memVerseNo: r.mem_verse_no ?? null, memRef: r.mem_ref || "", hidden: !!r.hidden,
+    hasNote: !!(r.summary && (r.points || []).length && r.key_verse), hasScript: !!r.audio_script, audio: r.audio || "",
+  }));
+  return { ok: true, role: adminError(b) ? "content" : "admin", sermons, jobs: await sermonRecentJobs() };
+}
+
+async function sermonJobCreate(b: any) {
+  const err = await contentError(b); if (err) return { ok: false, error: err };
+  const j = b.job || {};
+  const video_id = String(j.videoId || "");
+  if (!/^[A-Za-z0-9_-]{11}$/.test(video_id)) return { ok: false, error: "bad-video" };
+  const title = norm(j.title).normalize("NFC").slice(0, 200);
+  if (!title) return { ok: false, error: "no-title" };
+  const svc_date = String(j.date || "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(svc_date)) return { ok: false, error: "bad-date" };
+  const category = String(j.category || "");
+  if (!SERMON_CATS.includes(category)) return { ok: false, error: "bad-category" };
+  const preacher = norm(j.preacher).normalize("NFC").slice(0, 60);
+  if (!preacher) return { ok: false, error: "no-preacher" };
+  const transcript = String(j.transcript || "").normalize("NFC").replace(/\s+/g, " ").trim();
+  if (transcript.length < 1000) return { ok: false, error: "short-transcript" };
+  if (transcript.length > 200000) return { ok: false, error: "long-transcript" };
+  // 이미 있으면 받지 않는다 — 두 번 돌리면 AI 비용만 든다
+  const { data: ex, error: e1 } = await db.from("sermons").select("id").eq("id", video_id).maybeSingle();
+  if (e1) throw e1;
+  if (ex) return { ok: false, error: "exists" };
+  await sermonJobsSweep();
+  const { data: row, error: e2 } = await db.from("sermon_jobs")
+    .insert({ video_id, title, svc_date, category, preacher, transcript, created_by: staffLabel(b) })
+    .select(JOB_COLS).single();
+  if (e2) {
+    if ((e2 as any).code === "23505") return { ok: false, error: "busy" };   // sermon_jobs_one_active
+    throw e2;
+  }
+  const d = await dispatchSermonJob(row.id);
+  if (!d.ok) return { ok: false, error: "dispatch", detail: d.error, job: await sermonJobFail(row.id, "dispatch", d.error!) };
+  return { ok: true, job: toJob(row) };
+}
+
+async function sermonJobs(b: any) {
+  const err = await contentError(b); if (err) return { ok: false, error: err };
+  await sermonJobsSweep();
+  return { ok: true, jobs: await sermonRecentJobs() };
+}
+
+async function sermonJobRetry(b: any) {
+  const err = await contentError(b); if (err) return { ok: false, error: err };
+  const id = Number(b.id);
+  if (!Number.isInteger(id)) return { ok: false, error: "invalid" };
+  await sermonJobsSweep();
+  // ⚠️ 「이미 있음」은 보지 않는다 — 첫 시도가 저장까지 갔다가 멈췄을 수 있다(설계 10장)
+  const { data: row, error } = await db.from("sermon_jobs")
+    .update({ status: "queued", step: null, error: null, run_url: null, updated_at: new Date().toISOString() })
+    .eq("id", id).eq("status", "failed").select(JOB_COLS).maybeSingle();
+  if (error) {
+    if ((error as any).code === "23505") return { ok: false, error: "busy" };
+    throw error;
+  }
+  if (!row) return { ok: false, error: "not-failed" };
+  const d = await dispatchSermonJob(id);
+  if (!d.ok) return { ok: false, error: "dispatch", detail: d.error, job: await sermonJobFail(id, "dispatch", d.error!) };
+  return { ok: true, job: toJob(row) };
+}
+
+async function sermonStaffSave(b: any) {
+  const err = await contentError(b); if (err) return { ok: false, error: err };
+  const s = b.sermon || {};
+  const id = String(s.id || "");
+  const title = norm(s.title).normalize("NFC");
+  if (!id || !title) return { ok: false, error: "invalid" };
+  const { data: cur, error: e1 } = await db.from("sermons").select("category").eq("id", id).maybeSingle();
+  if (e1) throw e1;
+  if (!cur) return { ok: false, error: "not-found" };
+  const category = String(s.category || "");
+  // 목록 밖의 옛 구분은 그대로 두는 것만 허락한다(바꾸면 목록 안에서)
+  if (!SERMON_CATS.includes(category) && category !== cur.category) return { ok: false, error: "bad-category" };
+  const date = String(s.date || "");
+  if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) return { ok: false, error: "bad-date" };
+  // ⚠️ 다섯 칸만 바꾼다 — 옛 saveSermon 은 통째 upsert 라 빠진 칸이 null 이 됐다
+  const { error } = await db.from("sermons").update({
+    title, svc_date: date || null, category, preacher: norm(s.preacher).normalize("NFC") || null,
+    hidden: !!s.hidden, updated_at: new Date().toISOString(),
+  }).eq("id", id);
+  if (error) throw error;
+  return { ok: true };
+}
+
+async function sermonDelete(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const id = String(b.id || "");
+  if (!/^[A-Za-z0-9_-]{6,40}$/.test(id)) return { ok: false, error: "invalid" };
+  // 챗봇이 지운 설교를 인용하지 않게 색인부터
+  const { error: e1 } = await db.from("sermon_chunks").delete().eq("sermon_id", id);
+  if (e1) throw e1;
+  const { error: e2 } = await db.from("sermons").delete().eq("id", id);
+  if (e2) throw e2;
+  return { ok: true };
+}
+
+// ① 설교/말씀 등록의 담당자 저장 — 한글 칸만. ⚠️ text_en·ref_en 은 건드리지 않는다
+//    (관리자 saveVerse 는 행을 통째로 upsert 해서, 빈 칸을 보내면 영어 본문이 지워진다).
+async function staffVerseSave(b: any) {
+  const err = await contentError(b); if (err) return { ok: false, error: err };
+  const v = b.verse || {};
+  const no = Number(v.no);
+  if (!Number.isInteger(no) || no < 1 || no > 9999) return { ok: false, error: "no-required" };
+  const refShort = norm(v.refShort).normalize("NFC");
+  const text = String(v.text ?? "").normalize("NFC").trim();
+  if (!refShort || !text) return { ok: false, error: "required" };
+  let url = String(v.url ?? "").trim();
+  if (url) {
+    const id = ytIdOf(url);
+    if (!id) return { ok: false, error: "bad-url" };
+    url = `https://www.youtube.com/watch?v=${id}`;   // 4-link 가 틀림없이 찾는 꼴로
+  }
+  const refFull = norm(v.refFull).normalize("NFC");
+  const row: any = {
+    date: v.date || null, ref_short: refShort, ref_full: refFull || null, ref: refFull || refShort, text,
+    hint: norm(v.hintText).normalize("NFC") || null, pastor: norm(v.pastor).normalize("NFC") || null,
+    sermon_title: norm(v.sermonTitle).normalize("NFC") || null, sermon_url: url || null,
+    is_active: v.is_active !== false,
+  };
+  const { data: ex, error: e1 } = await db.from("verses").select("no").eq("no", no).maybeSingle();
+  if (e1) throw e1;
+  const { error } = ex
+    ? await db.from("verses").update(row).eq("no", no)
+    : await db.from("verses").insert({ no, week: no, ...row });
+  if (error) throw error;
+  return { ok: true, url };
+}
+
+async function sermonJobGet(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const id = Number(b.id);
+  if (!Number.isInteger(id)) return { ok: false, error: "invalid" };
+  const { data, error } = await db.from("sermon_jobs").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data ? { ok: true, job: data } : { ok: false, error: "not-found" };
+}
+
+async function sermonJobUpdate(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const id = Number(b.id);
+  if (!Number.isInteger(id)) return { ok: false, error: "invalid" };
+  const patch: any = { updated_at: new Date().toISOString() };
+  if (b.status != null) { if (!JOB_STATUS.includes(b.status)) return { ok: false, error: "bad-status" }; patch.status = b.status; }
+  if (b.step != null) { if (!JOB_STEPS.includes(b.step)) return { ok: false, error: "bad-step" }; patch.step = b.step; }
+  if (b.error !== undefined) patch.error = b.error == null ? null : String(b.error).slice(0, 300);
+  if (b.run_url != null) patch.run_url = String(b.run_url).slice(0, 300);
+  const { data, error } = await db.from("sermon_jobs").update(patch).eq("id", id).select("id").maybeSingle();
+  if (error) {
+    if ((error as any).code === "23505") return { ok: false, error: "busy" };
+    throw error;
+  }
+  return data ? { ok: true } : { ok: false, error: "not-found" };
 }
