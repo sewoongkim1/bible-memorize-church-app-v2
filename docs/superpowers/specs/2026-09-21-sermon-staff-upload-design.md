@@ -12,6 +12,7 @@
 |---|---|---|
 | ① | 설교 반영(링크 → 아카이브·3분 음성·암송 도우미·챗봇 색인) | **여기** |
 | ② | 이번 주 암송구절 등록·설교 연결 | **여기** (①의 한 단계로 합쳤다) |
+| ②-b | 설교 관련 메뉴를 「설교·찬양 관리」로 옮기기 · **찬양 등록도 담당자가** | **여기** (14장 · 같은 날 오후에 더했다) |
 | ③ | 말씀 연상 그림 3장 | **다음 설계서** — 정해 둔 것만 9장에 적는다 |
 
 ## 1. 지금 무엇이 막혀 있나 (조사한 사실)
@@ -37,19 +38,42 @@
 | 맡길 범위 | 설교 + 암송구절 + 연상 그림까지 (그림은 다음 설계서) |
 | 자막을 얻는 법 | **항상 붙여넣기** — 담당자가 PC 유튜브 「스크립트 표시」에서 복사해 붙인다. 외부 서비스 없음 |
 | 담당자 확인 | **전용 암호 + 등록된 담당자** — 사역신청과 같은 방식 |
-| 설교 암호 | 친구가 정해 알려 주었다. ⚠️ **파일·커밋·메모리 어디에도 적지 않는다** — Supabase 시크릿 `SERMON_STAFF_SECRET` 에만 넣는다(저장소가 공개다) |
+| 설교 암호 | 친구가 정해 알려 주었다. ⚠️ **파일·커밋·메모리 어디에도 적지 않는다** — Supabase 시크릿 `CONTENT_STAFF_SECRET` 에만 넣는다(저장소가 공개다) |
 | 그림 만드는 곳 | 구글 Gemini API 로 지금과 같은 모델(nano banana pro) |
 | 첫 실전 | 2026-09-27 주일 설교 |
+| 옮길 메뉴 | 성경암송 관리의 「📖 설교/말씀 관리」 · 「🌿 매일 묵상 조회」 → 「설교·찬양 관리」. 성경암송 관리에서는 빠진다 |
+| 찬양 | **담당자가 찬양 등록도 맡는다** — 찬양 아카이브 관리도 같은 암호 + 등록된 담당자로 열린다(곡 삭제·일괄 가져오기는 친구만) |
 
-## 3. 담당자가 보는 화면 — `admin-sermon.html`
+> 역할 이름: 설교와 찬양을 한 분이 맡으므로 역할은 하나다 — **「설교·찬양 담당자」**(코드 `content`,
+> 시크릿 `CONTENT_STAFF_SECRET`, 명단 app_config `contentAdmins`). 아래에서 「설교 암호」는 이 암호다.
 
-화면을 새로 만들지 않고 지금 화면을 고친다(두 벌로 두면 반드시 어긋난다 — `admin-ministry.html` 과 같은 까닭).
+## 3. 담당자가 보는 화면 — 「설교·찬양 관리」 = `admin-stats.html?only=sermon`
+
+**새 파일을 만들지 않는다.** 사역신청 담당자 화면(`admin-ministry.html` → `admin-stats.html?only=ministry`)과 같은 길이다 —
+「📖 설교/말씀 관리」·「🌿 매일 묵상 조회」가 이미 `admin-stats.html` 안에 있고, 담당자 로그인·화면 표준 v1
+(`docs/notes/ministry-admin-ui.md`)도 거기 있다. 두 벌로 두면 반드시 어긋난다.
+- `admin-sermon.html` 은 `admin-ministry.html` 처럼 **`admin-stats.html?only=sermon` 으로 넘겨 주는 주소**가 된다
+  (담당자께 드릴 주소 · 허브 링크가 그대로 살아 있게). 지금 그 파일의 설교 목록·점검은 새 모드의 한 화면으로 옮긴다.
+- 모드는 `MINISTRY_ONLY` 한 개를 **`ONLY = "ministry" | "sermon" | null`** 로 넓힌다. 저장 칸도 모드마다 나눈다.
+
+### 「설교·찬양 관리」 메뉴
+| 카드 | 누가 | 무엇 |
+|---|---|---|
+| ➕ 새 설교 올리기 | 담당자·관리자 | 아래 네 단계 |
+| 📜 설교 목록 | 담당자·관리자 | 제목·예배일·구분·설교자 고치기 · 숨김 · 🩺 점검 · (관리자만) 삭제 — 옛 `admin-sermon.html` |
+| 📖 암송구절 관리 | 담당자·관리자 | 옛 「설교/말씀 관리」(`renderContent`). **영어(NIV) 칸·NIV 생성·초기 적재는 관리자에게만** 보인다(8장) |
+| 🌿 매일 묵상 조회 | 담당자·관리자 | 옛 그 화면 그대로(`renderMedLibrary`) |
+| 🎵 찬양 아카이브 관리 | 담당자·관리자 | `admin-praise.html` 로 — 14장 |
+| 🔑 담당자 | **관리자만** | 설교·찬양 담당자 명단(7장) |
+
+성경암송 관리(기본 모드) 메뉴에서는 「설교/말씀 관리」·「매일 묵상 조회」 카드를 빼고 **「⛪ 설교·찬양 관리 →」 카드 하나**를 둔다(친구가 길을 잃지 않게).
+허브(`admin.html` `TOOLS`)의 「📜 말씀 아카이브 관리」는 **「⛪ 설교·찬양 관리」**(`admin-sermon.html`)로 이름과 설명을 바꾼다.
 
 ### 로그인
-- **관리자:** 허브에서 넘어오면(`sessionStorage admin-pw`) 지금처럼 자동으로 들어온다. 모든 단추가 보인다.
+- **관리자:** 허브에서 넘어오면(`sessionStorage admin-pw`) 그대로 관리자로 들어온다. 모든 카드·칸이 보인다.
 - **담당자:** 사역신청 담당자와 똑같이 **이 기기의 앱 로그인 정보**(`localStorage memorize-user`)를 읽어
   「👤 소속 · 이름」을 보이고 **설교 암호만** 받는다. 앱에 로그인하지 않았으면 「이 기기에서 앱에 먼저 로그인해
-  주세요」. 저장 칸은 `sermon-pw` · `sermon-staff` — ⚠️ `admin-pw` 에 넣지 않는다(허브·다른 도구가 그 암호로 부르다 줄줄이 실패한다).
+  주세요」. 저장 칸은 `content-pw` · `content-staff` — ⚠️ `admin-pw` 에 넣지 않는다(허브·다른 도구가 그 암호로 부르다 줄줄이 실패한다).
 - 담당자에게는 「삭제」가 안 보인다(서버도 막는다).
 
 ### 「새 설교 올리기」 — 네 단계
@@ -91,18 +115,18 @@
 ## 4. 뒤에서 도는 구조
 
 ```
-admin-sermon.html ──sermonJobCreate──▶ api 함수 ──▶ sermon_jobs 에 한 줄(자막·정보·상태)
+설교·찬양 관리 ──sermonJobCreate──▶ api 함수 ──▶ sermon_jobs 에 한 줄(자막·정보·상태)
                                           └──────▶ GitHub: gocheok-sermons 의 sermon-job.yml 깨우기(job_id, api_base)
 sermon-job.yml: sermonJobGet 으로 자막·정보를 받아 → 2~6단계 → 커밋·푸시 → Pages 배포 → 확인
                 단계마다 sermonJobUpdate(step) · 끝에 done / 실패하면 failed + 까닭
-admin-sermon.html: 10초마다 sermonJobs 로 막대를 채운다
+설교·찬양 관리: 10초마다 sermonJobs 로 막대를 채운다
 ```
 
 - **유튜브에 아예 가지 않는다.** 자막은 붙인 것, 제목·날짜·구분·설교자는 ③의 값. `yt-dlp` 도 쓰지 않는다 → 봇 차단과 무관.
 - **담당자가 부르는 것은 이 저장소의 `api` 함수에 둔다**(sermon 함수가 아니라). 담당자 확인 코드가 거기 있다 —
   두 함수에 복사해 두면 한쪽만 고쳐진다. `api` 와 `sermon` 은 같은 Supabase 프로젝트라 `sermons` 표를 함께 본다.
-  `admin-sermon.html` 은 이제 **`js/config.js` 를 따른다**(localhost = 개발 DB). sermon 함수의 `adminList`·`saveSermon`·
-  `deleteSermon`·`addByUrl` 은 이 화면이 더는 부르지 않는다 — `addByUrl` 과 옛 `add-sermon.yml` 은 9/27 성공 뒤 지운다.
+  새 화면은 `admin-stats.html` 이라 **`js/config.js` 를 따른다**(localhost = 개발 DB) — 옛 `admin-sermon.html` 은 운영 sermon 함수를
+  바로 불렀다. sermon 함수의 `adminList`·`saveSermon`·`deleteSermon`·`addByUrl` 은 이 화면이 더는 부르지 않는다 — `addByUrl` 과 옛 `add-sermon.yml` 은 9/27 성공 뒤 지운다.
 - **새 워크플로 `sermon-job.yml`**(gocheok-sermons) — 입력 `job_id` · `api_base`.
   - `api_base` 는 **두 주소만 받는다**(운영·개발 `…/functions/v1/api`) — 다른 값이면 곧바로 끝낸다(관리자 시크릿을 모르는 곳에 보내지 않게).
   - 운영이면 시크릿 `SERMON_ADMIN`, 개발이면 `DEV_SERMON_ADMIN`(친구가 한 번 넣는다)으로 `sermonJobGet`·`sermonJobUpdate` 를 부른다.
@@ -159,7 +183,8 @@ revoke all on public.sermon_jobs from anon, authenticated;
 
 | 액션 | 누가 | 하는 일 |
 |---|---|---|
-| `sermonAuth` | 설교 암호 + 담당자 | 들어올 수 있는지만 (`ministryAuth` 와 같은 꼴) |
+| `contentAuth` | 설교 암호 + 담당자 | 들어올 수 있는지만 (`ministryAuth` 와 같은 꼴) |
+| `staffVerify` | (찬양 함수가 부른다) | `{role, pw, staff}` 가 통과하는지만 — 14장 |
 | `sermonStaffList` | 담당자·관리자 | 설교 목록(숨김 포함, 고칠 칸만) + 최근 작업 5개(자막 빼고) |
 | `sermonJobCreate` | 담당자·관리자 | 검사 → `sermon_jobs` 에 넣고 → GitHub 깨우기. 깨우기 실패면 그 줄을 `failed` 로 두고 오류를 돌려준다 |
 | `sermonJobs` | 담당자·관리자 | 최근 작업(자막 빼고) — 10초 묻기용 |
@@ -180,7 +205,7 @@ revoke all on public.sermon_jobs from anon, authenticated;
 
 - 지금 `ministryAdminError` · `ministryStaffKey` · `ministryAdminKeys` · `ministryAdminsSave` 를
   **역할을 받는 공용 함수**로 바꾼다: `사역 = MINISTRY_SECRET + app_config ministryAdmins`,
-  `설교 = SERMON_STAFF_SECRET + app_config sermonAdmins`. 옛 이름(`ministryAdminError`, `ministryAdmins` 액션 등)은
+  `설교·찬양 = CONTENT_STAFF_SECRET + app_config contentAdmins`. 옛 이름(`ministryAdminError`, `ministryAdmins` 액션 등)은
   감싸서 그대로 둔다 — 사역신청 화면을 건드리지 않는다.
 - 지켜 온 규칙을 그대로 가져간다(`docs/notes/ministry-2027.md` 「사역신청 담당자 화면」):
   - 확인은 **액션마다** — 화면에서 한 번 보는 것으로 끝내지 않는다
@@ -210,7 +235,7 @@ revoke all on public.sermon_jobs from anon, authenticated;
   배포 없이 바로 뜬다.
 - 담당자 순서: 우리말 장면 제안 고르기 → 세 장 → 확인표로 눈 검수·그 장만 다시 뽑기 → 설명 한 줄 → 저장.
   화풍 문구는 고정(`img/verse/암송말씀_그림_만들기.md`).
-- 권한은 이 설계서의 **설교 역할**을 그대로 쓴다.
+- 권한은 이 설계서의 **설교·찬양 담당자(`content`) 역할**을 그대로 쓴다. 메뉴는 「설교·찬양 관리」에 카드 하나를 더한다.
 
 ## 10. 실패할 때
 
@@ -246,13 +271,13 @@ revoke all on public.sermon_jobs from anon, authenticated;
 **친구가 해 줄 것**(제가 못 하는 자리)
 - `supabase/sermon_jobs.sql` 을 **개발 → 운영** 순으로 SQL Editor 에서(메모리 `supabase-sql-needs-user`)
 - 개발 DB 에 `sermons` 표가 없으면 `gocheok-sermons/supabase/schema.sql` 의 그 표도 개발에
-- Supabase 시크릿: 운영·개발 모두 `SERMON_STAFF_SECRET`(설교 암호) · 개발에 `GH_DISPATCH_TOKEN`(운영엔 있다 — 만료일·권한은 시험 3에서 확인)
+- Supabase 시크릿: 운영·개발 모두 `CONTENT_STAFF_SECRET`(설교 암호 — 찬양 함수도 같은 프로젝트라 따로 넣을 것 없다) · 개발에 `GH_DISPATCH_TOKEN`(운영엔 있다 — 만료일·권한은 시험 3에서 확인)
 - gocheok-sermons 저장소 시크릿: `DEV_SERMON_ADMIN`(개발 관리자 암호) · `TELEGRAM_TOKEN` · `TELEGRAM_CHAT_ID`
 - 관리자 화면 「🔑 담당자」에서 설교 담당자 등록(개발에 시험용 한 분 · 운영에 실제 담당자)
 
 **순서** — 새 표에 새 액션만 얹으므로 **표가 먼저**(CLAUDE.md 「배포 순서는 기능마다 다르다」)
 1. 개발: 표 → `api` 함수 → 워크플로·스크립트(gocheok-sermons 푸시) → localhost 시험 1~3
-2. 운영: 표 → `api` 함수 → `admin-sermon.html` · `admin-stats.html` → `python tools/bump.py` → 푸시
+2. 운영: 표 → `api` 함수 → `praise` 함수(praise-songs) → `admin-stats.html` · `admin-sermon.html` · `admin.html` · `admin-praise.html` · `praise-api.js` → `python tools/bump.py` → 푸시
 - ⚠️ `supabase functions deploy api` 는 **작업 트리를 통째로** 올린다 — 배포 전 `git status` 로 남의 미완성 코드가 없는지 본다
   (메모리 `edge-function-shared-deploy`).
 - ⚠️ 공용 파일(`index.ts` · `admin-stats.html`)은 `git commit -- <경로>` 로, 내 것만 담는다(메모리 `stage-only-changed-files`).
@@ -262,3 +287,29 @@ revoke all on public.sermon_jobs from anon, authenticated;
 - `docs/notes/` 에 `sermon-staff-upload.md` — 이 기능의 함정 기록. CLAUDE.md 표에 한 줄.
 - `gocheok-sermons/docs/설교-url-반영-절차.md` 맨 위에 「이제 담당자는 관리자 화면으로 올린다 — 이 문서는 친구 PC 방식」.
 - `reflect-sermon` 스킬: 설교 반영은 관리자 화면이 먼저라는 것.
+
+## 14. 메뉴 옮기기 · 찬양 등록도 담당자가 (같은 날 오후에 더함)
+
+### 메뉴
+3장 표 그대로. 옮기는 두 화면(`renderContent`·`renderMedLibrary`)은 **함수를 옮기지 않고 부르는 카드만 옮긴다** —
+기본 모드 메뉴에서 카드를 빼고, `?only=sermon` 메뉴에 카드를 둔다. 「← 메뉴」는 지금 모드의 메뉴로 돌아간다.
+
+### 암송구절 관리의 담당자 모드
+- 담당자에게는 영어 출처·영어 본문·「🤖 NIV 생성」·「⬇️ 초기 적재」가 **안 보이고**, 저장은 `staffVerseSave`(8장)로 간다.
+- 관리자에게는 지금 그대로(`saveVerse` · 저장 전 관리자 암호 다시 묻기).
+
+### 찬양 아카이브 관리 — `admin-praise.html` + `praise` 함수(praise-songs 저장소)
+- 화면: `content-pw`·`content-staff` 가 있으면 그것으로 들어온다(없으면 지금처럼 관리자 암호 화면).
+  `praise-api.js` 의 `call` 이 담당자면 `staff` 를 함께 보낸다. 담당자에게는 곡 **삭제**·**일괄 가져오기** 단추가 안 보인다.
+- 서버: `isAdmin()`(관리자 암호) 옆에 `isStaff()` — 관리자가 아니고 `b.staff` 가 오면 **같은 프로젝트의 `api` 함수
+  `staffVerify`**(`role:"content"`)에 물어 통과 여부만 받는다. ⚠️ 담당자 확인 코드를 찬양 함수에 **복사하지 않는다**
+  (소속이 바뀐 분·합쳐진 계정을 따라가는 코드가 두 벌이 된다). 부를 주소는 `Deno.env.get("SUPABASE_URL") + "/functions/v1/api"`.
+- 담당자에게 여는 액션: `authCheck` · `ytFetch` · `adminList` · `saveSong` · `setOrdering` · `refreshViews` · `usageStats`.
+  **관리자만:** `deleteSong` · `importSongs`.
+- ⚠️ 찬양 함수의 `authCheck` 를 담당자에게 열어도 성경암송 허브(`api` 의 `authCheck`)와는 다른 함수다 — 허브는 그대로 관리자 암호만.
+- 시험: 담당자로 곡 하나 저장·순서 바꾸기 성공 / 삭제·일괄 가져오기가 막히는지 / 틀린 암호·등록 안 된 분이 막히는지.
+  찬양 함수는 개발 프로젝트가 없다(운영만) — **곡을 지우지 않는 시험만** 운영에서 한다.
+
+### 일정
+9/27 에 꼭 되어야 하는 것은 **설교 올리기**다. 순서: 담당자 역할 → 설교 올리기 → 메뉴 옮기기 → 찬양.
+찬양은 9/27 뒤로 밀려도 된다(지금처럼 친구가 올리면 된다).
