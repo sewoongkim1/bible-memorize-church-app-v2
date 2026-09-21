@@ -5717,7 +5717,7 @@ async function vimgClaude(system: string, content: unknown, schema: unknown, max
     try {
       return JSON.parse((d.content ?? []).find((x: any) => x.type === "text")?.text ?? "null");
     } catch { console.error("vimgClaude parse"); return null; }
-  } catch { return null; }
+  } catch (e) { console.error("vimgClaude", (e as Error)?.name, (e as Error)?.message); return null; }
 }
 
 async function vimgVerse(no: number) {
@@ -5840,8 +5840,15 @@ async function verseImgGenerate(b: any) {
       signal: AbortSignal.timeout(Math.max(20000, Math.min(110000, 140000 - (Date.now() - t0)))),
     });
   } catch { return { ok: false, error: "gen" }; }
-  if (!res.ok) return { ok: false, error: "gen", detail: `Gemini ${res.status}: ${(await res.text()).slice(0, 160)}` };
-  const d = await res.json().catch(() => null);
+  if (!res.ok) {
+    // 시간 초과로 신호가 끊기면 본문을 못 읽을 수 있다 — 그래도 gen 으로 답한다
+    let t = "";
+    try { t = (await res.text()).slice(0, 160); } catch { /* 시간 초과 */ }
+    return { ok: false, error: "gen", detail: `Gemini ${res.status}: ${t}` };
+  }
+  // 본문을 읽는 도중 시간 초과가 나면 500 이 아니라 gen 으로 — no-image 로 잘못 읽히지 않게
+  let d: any = null;
+  try { d = await res.json(); } catch { return { ok: false, error: "gen" }; }
   const parts = d?.candidates?.[0]?.content?.parts ?? [];
   // 「생각」 조각은 건너뛰고, 그림이 있는 마지막 조각을 쓴다
   const imgParts = parts.filter((p: any) => p.inlineData?.data && p.thought !== true);
@@ -5891,9 +5898,11 @@ async function verseImgSave(b: any) {
   const path = `${no}${slot === "a" ? "" : slot}-${Date.now()}.${kind}`;
   const { error: e1 } = await db.storage.from(VIMG_BUCKET).upload(path, bytes, { contentType: mime, upsert: false });
   if (e1) return { ok: false, error: "save", detail: e1.message };
+  let old: { path: string } | null = null;
   try {
-    const { data: old, error: e2 } = await db.from("verse_images").select("path").eq("verse_no", no).eq("slot", slot).maybeSingle();
+    const { data: oldRow, error: e2 } = await db.from("verse_images").select("path").eq("verse_no", no).eq("slot", slot).maybeSingle();
     if (e2) throw e2;
+    old = oldRow;
     const { error: e3 } = await db.from("verse_images").upsert({
       verse_no: no, slot, path, alt,
       scene_ko: norm(b.sceneKo).normalize("NFC").slice(0, 300) || null,
@@ -5901,15 +5910,16 @@ async function verseImgSave(b: any) {
       hidden: false, created_by: staffLabel(b), updated_at: new Date().toISOString(),
     }, { onConflict: "verse_no,slot" });
     if (e3) throw e3;
-    if (old?.path && old.path !== path) {
-      const { error: re } = await db.storage.from(VIMG_BUCKET).remove([old.path]);
-      if (re) console.error("verse image remove", re.message);   // 옛 파일 치우기 실패가 저장을 막지 않는다
-    }
-    return { ok: true, url: vimgUrl(path) };
   } catch (e) {
     await db.storage.from(VIMG_BUCKET).remove([path]);   // 표에 못 남기면 방금 올린 파일이 떠돈다 — 치운다
     throw e;
   }
+  // 저장이 끝난 뒤에만 옛 파일을 치운다 — 이 실패가 방금 저장한 새 파일을 지우면 안 되기 때문
+  if (old?.path && old.path !== path) {
+    const { error: re } = await db.storage.from(VIMG_BUCKET).remove([old.path]);
+    if (re) console.error("verse image remove", re.message);   // 옛 파일 치우기 실패가 저장을 막지 않는다
+  }
+  return { ok: true, url: vimgUrl(path) };
 }
 
 async function verseImgHide(b: any) {
