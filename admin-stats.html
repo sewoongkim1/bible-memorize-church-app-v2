@@ -1327,6 +1327,222 @@ async function slCheck(){
         : `<div style="margin-top:8px">✅ 모든 설교가 정상이에요</div>`) });
 }
 
+// ---------- ② 설교 내용 등록 (2026-09-21) ----------
+// 설계: docs/superpowers/specs/2026-09-21-sermon-staff-upload-design.md 3·4장
+// ⚠️ 유튜브에 가지 않는다 — 자막은 담당자가 붙인 것, 제목·날짜·구분·설교자는 이 화면의 값
+//    (유튜브가 GitHub 서버에서 자막을 막아 옛 「링크로 추가」가 2026-08 부터 실패했다).
+const SU_STEPS = [["prep","자막 준비"],["notes","AI 노트"],["tts","3분 음성"],["link","암송 연결"],["versehelp","암송 도우미"],
+                  ["save","저장"],["embed","챗봇 색인"],["publish","사이트 배포"],["verify","확인"]];
+const SU_ERR = {
+  exists:"이미 올라와 있는 설교예요 — 「📜 설교 목록」에서 확인해 주세요.",
+  busy:"다른 설교가 올라가는 중이에요. 끝난 뒤 다시 눌러 주세요.",
+  "short-transcript":"자막이 너무 짧아요 — 스크립트를 끝까지 복사했는지 봐 주세요.",
+  "long-transcript":"자막이 너무 길어요 — 다른 글이 섞였는지 봐 주세요.",
+  "bad-video":"영상 링크를 알아보지 못했어요.", "bad-date":"예배일을 넣어 주세요.", "bad-category":"구분을 골라 주세요.",
+  "no-title":"제목을 넣어 주세요.", "no-preacher":"설교자를 넣어 주세요.",
+  dispatch:"작업을 시작하지 못했어요 — 친구에게 알려 주세요.", "not-failed":"멈춘 작업만 다시 시도할 수 있어요.",
+};
+let suPrefill = "";          // ① 에서 넘겨준 링크
+let suState = null;          // { id, verse, noVerse, transcript, autoTitle }
+let suTimer = null;
+let suBusy = false;
+let suSermonIds = new Set();
+
+async function renderSermonUpload(){
+  window.scrollTo(0, 0);
+  clearInterval(suTimer);
+  suState = { id:"", verse:null, noVerse:false, transcript:"", autoTitle:"" };
+  const pre = suPrefill; suPrefill = "";
+  app.innerHTML = `
+    <div class="rep-head mn-top"><button class="back-btn" id="back">← 메뉴</button><h2>② 설교 내용 등록</h2></div>
+    <div id="su-job"></div>
+    <div class="push-card" id="su-form">
+      <div class="su-step"><b>1</b> 설교 영상 링크</div>
+      <input id="su-url" class="push-in" placeholder="https://www.youtube.com/watch?v=..." value="${htmlEsc(pre)}">
+      <div id="su-video" class="su-video"></div>
+      <div class="su-step"><b>2</b> 자막 붙여넣기</div>
+      <details class="mc-guide" open><summary>📌 자막 복사하는 법 (PC)</summary><div class="ma-help">
+        ① 유튜브에서 설교 영상을 열고, 영상 아래 설명란의 <b>「…더보기」</b>를 누른 뒤 <b>「스크립트 표시」</b>를 누릅니다.<br>
+        ② 오른쪽에 뜬 스크립트의 <b>첫 줄</b>을 한 번 누르고, 맨 아래까지 내려 <b>Shift 를 누른 채 마지막 줄</b>을 누릅니다.<br>
+        ③ <b>Ctrl+C</b> 로 복사한 뒤, 아래 칸을 누르고 <b>Ctrl+V</b> 로 붙여넣습니다. 시각(0:03 같은 것)은 저절로 지워집니다.
+      </div></details>
+      <textarea id="su-text" class="push-in" rows="6" placeholder="여기에 자막을 붙여넣어 주세요"></textarea>
+      <div id="su-count" class="push-hint"></div>
+      <div class="su-step"><b>3</b> 정보 확인</div>
+      <label class="push-lb">제목</label><input id="su-title" class="push-in">
+      <label class="push-lb">예배일</label><input id="su-date" class="push-in" type="date" value="${stLastSundayKst(new Date())}">
+      <label class="push-lb">구분</label><select id="su-cat" class="push-in">${SERMON_CATS.map(c=>`<option>${c}</option>`).join("")}</select>
+      <label class="push-lb">설교자</label><input id="su-preacher" class="push-in" value="차동혁 위임목사">
+      <p class="push-hint">초청 설교자가 오신 주에는 설교자를 바꿔 주세요.</p>
+      <div id="su-verse" class="su-verse"></div>
+      <button class="push-send" id="su-go" disabled>🚀 올리기</button>
+      <p class="push-hint" id="su-why"></p>
+    </div>`;
+  document.getElementById("back").addEventListener("click", ()=>{ clearInterval(suTimer); renderMenu(); });
+  let t = null;
+  document.getElementById("su-url").addEventListener("input", ()=>{ clearTimeout(t); t = setTimeout(suLoadVideo, 400); });
+  document.getElementById("su-text").addEventListener("input", suOnText);
+  ["su-title","su-date","su-cat","su-preacher"].forEach(id => document.getElementById(id).addEventListener("input", suCheck));
+  document.getElementById("su-go").addEventListener("click", suGo);
+  suCheck();
+  const d = await callApi({ action:"sermonStaffList", pw:getPw(), staff:getStaff() }).catch(()=>({ok:false,error:"network"}));
+  if(minAuthLost(d)) return;
+  if(!d.ok){ const j=document.getElementById("su-job"); if(j) j.innerHTML=`<p class="msg err">불러오지 못했습니다 (${htmlEsc(d.error||"")})</p>`; return; }
+  suSermonIds = new Set((d.sermons||[]).map(s => s.id));
+  // 가장 최근 작업: 진행 중이면 그것부터, 끝났으면 하루 안의 것만 보인다
+  const last = (d.jobs||[])[0];
+  if(last && (last.status==="queued" || last.status==="running" || Date.now()-new Date(last.updatedAt).getTime() < 24*3600*1000)) suShowJob(last);
+  if(pre) suLoadVideo();
+}
+
+async function suLoadVideo(){
+  const box = document.getElementById("su-video"); if(!box) return;
+  const raw = document.getElementById("su-url").value;
+  const id = stVideoId(raw);
+  suState.id = ""; suState.verse = null;
+  const vbox = document.getElementById("su-verse"); vbox.className = "su-verse"; vbox.innerHTML = "";
+  if(!id){ box.innerHTML = raw.trim() ? `<p class="msg err">유튜브 영상 링크를 알아보지 못했어요.</p>` : ""; suCheck(); return; }
+  if(suSermonIds.has(id)){ box.innerHTML = `<p class="msg err">${SU_ERR.exists}</p>`; suCheck(); return; }
+  box.innerHTML = `<p class="msg">영상을 확인하는 중...</p>`;
+  let title = "", thumb = `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+  try{   // oEmbed 는 이 도메인에 CORS 를 열어 준다(2026-09-21 확인)
+    const r = await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent("https://www.youtube.com/watch?v="+id)}`);
+    if(r.ok){ const j = await r.json(); title = j.title || ""; thumb = j.thumbnail_url || thumb; }
+  }catch(_){}
+  if(stVideoId(document.getElementById("su-url")?.value) !== id) return;   // 그사이 링크가 바뀌었다
+  suState.id = id;
+  box.innerHTML = `<img src="${htmlEsc(thumb)}" alt=""><div class="t">${title ? `<b>${htmlEsc(title)}</b><br>` : ""}<span class="push-hint">이 영상이 맞나요? (${htmlEsc(id)})</span></div>`;
+  const tIn = document.getElementById("su-title"), clean = stCleanTitle(title);
+  if(clean && (!tIn.value.trim() || tIn.value === suState.autoTitle)){ tIn.value = clean; suState.autoTitle = clean; }
+  await suLoadVerse(id);
+  suCheck();
+}
+
+async function suLoadVerse(id){
+  const box = document.getElementById("su-verse"); if(!box) return;
+  const d = await callApi({ action:"getVerses" }).catch(()=>({ok:false}));
+  const v = (d.verses||[]).find(x => stVideoId(x.url) === id);
+  suState.verse = v || null;
+  if(v){ box.className = "su-verse"; box.innerHTML = `📖 <b>${htmlEsc(v.no)}번 (${htmlEsc(v.refShort)})</b>과 연결돼요 — 암송 도우미(쉬운 풀이·기억법)도 함께 만들어져요.`; return; }
+  box.className = "su-verse warn";
+  box.innerHTML = `⚠️ 이 링크를 가진 암송구절이 없어요.<br>이번 주 암송구절 설교라면 <b>① 설교/말씀 등록</b>에서 이 링크를 먼저 넣어 주세요 — 나중에 넣으면 이어지지 않아요.
+    <br><button class="push-btn ghost" id="su-to1">① 설교/말씀 등록으로 가기</button>
+    <label><input type="checkbox" id="su-nov"${suState.noVerse?" checked":""}> 암송구절 없이 올리기 (새벽기도 등)</label>`;
+  document.getElementById("su-to1").addEventListener("click", ()=>{ clearInterval(suTimer); cmPrefillUrl = "https://www.youtube.com/watch?v="+id; renderContent(); });
+  document.getElementById("su-nov").addEventListener("change", e=>{ suState.noVerse = e.target.checked; suCheck(); });
+}
+
+function suOnText(){
+  suState.transcript = stCleanTranscript(document.getElementById("su-text").value);
+  const n = suState.transcript.length, el = document.getElementById("su-count");
+  el.className = "push-hint" + (n && n < 5000 ? " su-warn" : "");
+  el.textContent = !n ? "" : n < 5000 ? `${stKorCount(n)} — 일부만 복사된 것 같아요. 스크립트를 끝까지 선택했는지 봐 주세요.`
+                                      : `약 ${stKorCount(n)} 받았어요.`;
+  suCheck();
+}
+
+function suCheck(){
+  const go = document.getElementById("su-go"); if(!go || !suState) return;
+  const why = [];
+  if(!suState.id) why.push("영상 링크");
+  if(suState.transcript.length < 1000) why.push("자막");
+  if(!document.getElementById("su-title").value.trim()) why.push("제목");
+  if(!document.getElementById("su-date").value) why.push("예배일");
+  if(!document.getElementById("su-preacher").value.trim()) why.push("설교자");
+  if(suState.id && !suState.verse && !suState.noVerse) why.push("암송구절 연결(또는 「없이 올리기」)");
+  go.disabled = why.length > 0 || suBusy;
+  document.getElementById("su-why").textContent = why.length ? "아직 필요한 것: " + why.join(" · ") : "";
+}
+
+async function suGo(){
+  if(suBusy) return;
+  const job = { videoId:suState.id, title:document.getElementById("su-title").value.trim(),
+    date:document.getElementById("su-date").value, category:document.getElementById("su-cat").value,
+    preacher:document.getElementById("su-preacher").value.trim(), transcript:suState.transcript };
+  if(!(await mnDialog({ icon:"🚀", title:"설교 올리기", ok:"올리기", cancel:"그만두기",
+    html:`<b>${plEsc(job.title)}</b><br>${plEsc(job.date)} · ${plEsc(job.category)} · ${plEsc(job.preacher)}`,
+    note:"몇 분 걸려요. 이 창을 닫아도 계속 진행되고, 다시 열면 이어서 보여요." }))) return;
+  suBusy = true; suCheck();
+  const d = await callApi({ action:"sermonJobCreate", pw:getPw(), staff:getStaff(), job }).catch(()=>({ok:false,error:"network"}));
+  suBusy = false;
+  if(minAuthLost(d)) return;
+  if(!d.ok){
+    if(d.job) suShowJob(d.job);
+    mnDialog({ icon:"⚠️", title:"올리지 못했습니다", tone:"danger", ok:"확인", cancel:null,
+      html: plEsc(SU_ERR[d.error] || ("오류: "+(d.error||""))) + (d.detail ? `<br><small>${plEsc(d.detail)}</small>` : "") });
+    suCheck(); return;
+  }
+  suSermonIds.add(job.videoId);
+  suShowJob(d.job);
+}
+
+function suShowJob(job){
+  const box = document.getElementById("su-job"); if(!box) return;
+  const active = job.status === "queued" || job.status === "running";
+  const form = document.getElementById("su-form"); if(form) form.hidden = active;
+  const idx = SU_STEPS.findIndex(s => s[0] === job.step);
+  const items = SU_STEPS.map(([k, label], i) => {
+    const c = job.status === "done" ? "done"
+      : job.status === "failed" ? (i < idx ? "done" : i === idx ? "bad" : "")
+      : job.status === "running" ? (i < idx ? "done" : i === idx ? "now" : "") : "";
+    return `<li class="${c}">${label}</li>`;
+  }).join("");
+  const head = job.status === "done" ? "✅ 다 올렸어요" : job.status === "failed" ? "⚠️ 멈췄어요"
+    : job.status === "queued" ? "⏳ 시작을 기다리는 중" : "⏳ 올리는 중 — 몇 분 걸려요";
+  // ⚠️ createdAt 이 아니라 updatedAt — 다시 시도한 작업은 만든 지 오래라 곧바로 「늦어진다」가 떴다
+  const ageMin = (Date.now() - new Date(job.updatedAt).getTime()) / 60000;
+  let note = "";
+  if(job.status === "queued" && ageMin > 3) note = `<p class="msg err">시작이 늦어지고 있어요. 5분이 넘도록 그대로면 친구에게 알려 주세요.</p>`;
+  if(job.status === "failed") note = `<p class="msg err">${htmlEsc(job.error || "까닭을 모릅니다")}</p>
+      <p class="push-hint">친구에게 알려 주세요.${job.runUrl ? ` <a href="${htmlEsc(job.runUrl)}" target="_blank" rel="noopener">작업 기록</a>` : ""}</p>
+      <button class="push-send" id="su-retry">🔁 다시 시도</button>`;
+  box.innerHTML = `<div class="push-card"><div class="su-step">${head}</div>
+    <div><b>${htmlEsc(job.title)}</b> <span class="push-hint">${htmlEsc(job.date)} · ${htmlEsc(job.createdBy || "")}</span></div>
+    <ul class="su-prog">${items}</ul>${note}<div id="su-res"></div>
+    ${active ? "" : `<button class="push-btn ghost" id="su-new">➕ 다른 설교 올리기</button>`}</div>`;
+  const rt = document.getElementById("su-retry"); if(rt) rt.addEventListener("click", ()=>suRetry(job.id, rt));
+  const nw = document.getElementById("su-new"); if(nw) nw.addEventListener("click", renderSermonUpload);
+  clearInterval(suTimer);
+  if(active) suTimer = setInterval(suPoll, 10000);
+  if(job.status === "done") suShowResult(job);
+}
+
+async function suPoll(){
+  if(!document.getElementById("su-job")){ clearInterval(suTimer); return; }   // 다른 화면으로 갔다
+  const d = await callApi({ action:"sermonJobs", pw:getPw(), staff:getStaff() }).catch(()=>null);
+  if(!d) return;                       // 한 번 끊겨도 다음 번에 다시
+  if(minAuthLost(d)){ clearInterval(suTimer); return; }
+  if(d.ok && d.jobs && d.jobs[0]) suShowJob(d.jobs[0]);
+}
+
+async function suRetry(id, btn){
+  btn.disabled = true;
+  const d = await callApi({ action:"sermonJobRetry", pw:getPw(), staff:getStaff(), id }).catch(()=>({ok:false,error:"network"}));
+  btn.disabled = false;
+  if(minAuthLost(d)) return;
+  if(!d.ok){
+    if(d.job) suShowJob(d.job);
+    mnDialog({ icon:"⚠️", title:"다시 시작하지 못했습니다", tone:"danger", ok:"확인", cancel:null,
+      html: plEsc(SU_ERR[d.error] || ("오류: "+(d.error||""))) + (d.detail ? `<br><small>${plEsc(d.detail)}</small>` : "") });
+    return;
+  }
+  suShowJob(d.job);
+}
+
+async function suShowResult(job){
+  const box = document.getElementById("su-res"); if(!box) return;
+  if(window.SUPA.env !== "prod"){ box.innerHTML = `<p class="push-hint">🧪 개발 DB 시험 모드 — AI 노트·음성까지만 만들고 저장·배포는 건너뛰었어요.</p>`; return; }
+  try{
+    const r = await fetch(SERMON_FN, { method:"POST", headers:{ "Content-Type":"application/json", apikey:SERMON_ANON, Authorization:"Bearer "+SERMON_ANON },
+      body: JSON.stringify({ action:"getSermons" }) });
+    const s = ((await r.json()).sermons || []).find(x => x.id === job.videoId);
+    if(!s){ box.innerHTML = `<p class="push-hint">사이트 목록에서 아직 안 보여요 — 잠시 뒤 새로고침해 보세요.</p>`; return; }
+    box.innerHTML = `<div class="su-res">📖 ${htmlEsc(s.scripture || "")}${s.memRef ? ` · 암송 ${htmlEsc(s.memRef)}` : ""}
+      <div class="sum">${mdBold(s.summary || "")}</div>
+      <a class="push-btn ghost" href="${SERMON_SITE}?s=${encodeURIComponent(s.id)}" target="_blank" rel="noopener">사이트에서 보기</a></div>`;
+  }catch(_){ box.innerHTML = ""; }
+}
+
 function renderMenu(){
   if(MINISTRY_ONLY) return renderMinistryMenu();
   if(SERMON_ONLY) return renderSermonMenu();
