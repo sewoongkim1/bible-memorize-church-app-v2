@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260920h";
+const APP_BUILD = "20260921a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -6565,9 +6565,9 @@ function markIntroSeen() {
 // 인트로 기본값(폴백) — 관리자가 introSlides를 안 넣었거나 못 불러올 때 사용.
 const INTRO_SLIDES_DEFAULT = [
   { icon: "🙏", title: "환영합니다", body: "고척교회 <b>성경말씀 암송</b>에<br>오신 것을 진심으로 환영합니다.<br><br>주의 말씀을 마음에 새기는 이 길에<br>하나님의 은혜가 함께하시기를<br>기도합니다. 🌿" },
-  { icon: "📖", title: "성경말씀 암송하기", body: "성경 구절을 단계별로 직접 채우며 암송해요.<br>교구·교회학교로 로그인하면 내 진도가 저장돼요." },
-  { icon: "✍️", title: "3단계로 익혀요", body: "① 빈칸 맛보기 (약 25%)<br>② 빈칸 늘리기 (약 65%)<br>③ 전체 암송 (100%)<br><br>맞으면 다음 칸으로, 틀리면 다시 입력해요." },
-  { icon: "🔊", title: "듣고, 말하며 암송", body: "🔊 듣기로 말씀을 들어요 (빠르게 여러 번 누르면 반복).<br>🎤 음성 암송으로 직접 말해서 점검해요." },
+  { icon: "📖", title: "성경말씀 암송하기", body: "성경 구절을 단계별로<br>직접 채우며 암송해요.<br><br>교구·교회학교로 로그인하면<br>내 진도가 저장돼요." },
+  { icon: "✍️", title: "3단계로 익혀요", body: "① 빈칸 맛보기 (약 25%)<br>② 빈칸 늘리기 (약 65%)<br>③ 전체 암송 (100%)<br><br>맞으면 다음 칸으로,<br>틀리면 다시 입력해요." },
+  { icon: "🔊", title: "듣고, 말하며 암송", body: "🔊 <b>듣기</b>로 말씀을 들어요<br>(빠르게 여러 번 누르면 반복)<br><br>🎤 <b>음성 암송</b>으로<br>직접 말해서 점검해요." },
 ];
 let introSlidesCache = null; // 관리자 설정(app_config.introSlides) 캐시
 
@@ -6584,36 +6584,48 @@ function loadIntroSlides() {
 }
 
 // 첫 방문 인트로 (관리자 편집 가능, 없으면 기본값)
+//   모든 장을 한 칸(.intro-stack)에 겹쳐 두고 지금 장만 보인다 — 카드 높이가 가장 긴 장에
+//   맞춰 고정되어 넘길 때 「다음」 단추가 오르내리지 않는다. 장마다 다시 그리면 장 길이대로
+//   카드가 줄었다 늘었다 했다. 글씨 크게·관리자가 고친 문구에도 저절로 맞는다.
 function renderIntro(next) {
   const slides = (introSlidesCache && introSlidesCache.length) ? introSlidesCache : INTRO_SLIDES_DEFAULT;
+  const lastIdx = slides.length - 1;
   let idx = 0;
   const appEl = document.getElementById("app");
-
-  function draw() {
-    const s = slides[idx];
-    const last = idx === slides.length - 1;
-    appEl.innerHTML = `
-      <div class="intro-screen">
-        <div class="intro-card">
-          <div class="intro-icon">${s.icon}</div>
-          <div class="intro-title">${s.title}</div>
-          <div class="intro-body">${s.body}</div>
-          <div class="intro-dots">${slides.map((_, i) => `<span class="intro-dot ${i === idx ? "on" : ""}"></span>`).join("")}</div>
-          ${last ? `<a class="intro-watch" href="guide/">▶️ 화면으로 따라 하기</a>` : ""}
-          <div class="intro-nav">
-            <button class="intro-skip" id="intro-skip">건너뛰기</button>
-            <button class="intro-next" id="intro-next">${last ? "시작하기" : "다음 ▸"}</button>
-          </div>
+  appEl.innerHTML = `
+    <div class="intro-screen">
+      <div class="intro-card">
+        <div class="intro-stack">
+          ${slides.map((s, i) => `
+          <div class="intro-slide">
+            <div class="intro-icon">${s.icon || ""}</div>
+            <div class="intro-title">${s.title || ""}</div>
+            <div class="intro-body">${s.body || ""}</div>
+            ${i === lastIdx ? `<a class="intro-watch" href="guide/">▶️ 화면으로 따라 하기</a>` : ""}
+          </div>`).join("")}
         </div>
-      </div>`;
-    document.getElementById("intro-skip").addEventListener("click", done);
-    document.getElementById("intro-next").addEventListener("click", () => {
-      if (last) done();
-      else { idx++; draw(); }
-    });
+        <div class="intro-dots">${slides.map(() => `<span class="intro-dot"></span>`).join("")}</div>
+        <div class="intro-nav">
+          <button class="intro-skip" id="intro-skip">건너뛰기</button>
+          <button class="intro-next" id="intro-next"></button>
+        </div>
+      </div>
+    </div>`;
+  const slideEls = appEl.querySelectorAll(".intro-slide");
+  const dotEls = appEl.querySelectorAll(".intro-dot");
+  const nextBtn = document.getElementById("intro-next");
+  function show() {
+    slideEls.forEach((el, i) => el.classList.toggle("on", i === idx));
+    dotEls.forEach((el, i) => el.classList.toggle("on", i === idx));
+    nextBtn.textContent = idx === lastIdx ? "시작하기" : "다음 ▸";
   }
   function done() { markIntroSeen(); next(); }
-  draw();
+  document.getElementById("intro-skip").addEventListener("click", done);
+  nextBtn.addEventListener("click", () => {
+    if (idx === lastIdx) done();
+    else { idx++; show(); }
+  });
+  show();
 }
 
 // 로그인 방법 안내 (교구/교회학교 탭으로 분리)

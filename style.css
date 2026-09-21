@@ -2307,12 +2307,23 @@ body.native-app-hide-ref .word-input { scroll-margin-top: 90px; }
   padding: 34px 24px 24px; text-align: center;
   box-shadow: 0 6px 24px rgba(13, 27, 62, 0.08);
 }
+/* 모든 장을 한 칸에 겹친다 — 카드 높이 = 가장 긴 장. 넘겨도 카드 크기·단추 자리가 그대로다.
+   visibility:hidden 이라 숨은 장의 「따라 하기」 링크는 눌리지도, 낭독되지도 않는다. */
+.intro-stack { display: grid; }
+.intro-slide { grid-area: 1 / 1; visibility: hidden; opacity: 0; }
+.intro-slide.on { visibility: visible; opacity: 1; transition: opacity .25s ease; }
+@media (prefers-reduced-motion: reduce) { .intro-slide.on { transition: none; } }
 .intro-icon { font-size: 52px; line-height: 1; margin-bottom: 14px; }
 .intro-title {
   font-family: "Nanum Myeongjo", serif; font-weight: 800;
   font-size: 1.4rem; color: var(--navy); margin-bottom: 14px;
+  word-break: keep-all; text-wrap: balance;
 }
-.intro-body { color: #444; font-size: 0.98rem; line-height: 1.65; min-height: 110px; }
+/* keep-all: 「누/르면」처럼 낱말 가운데서 끊기지 않게 · balance: 「돼요.」 한 낱말만 넘어가지 않게 */
+.intro-body { color: #444; font-size: 0.98rem; line-height: 1.65; word-break: keep-all; text-wrap: balance; }
+.dark .intro-title { color: #cdd9f2; }
+.dark .intro-body { color: #c3ccd9; }
+.dark .intro-body b { color: #e6e9ef; }
 /* 첫 로그인 축복 인사 카드 — 스크롤 없이 한 화면에 담기도록 여백을 죈다 */
 .bless-screen { padding: 14px 0 18px; }
 .bless-card {
@@ -2339,14 +2350,16 @@ body.native-app-hide-ref .word-input { scroll-margin-top: 90px; }
 .bless-go { width: 100%; }
 
 .dark .bless-card { background: #2b2717; border-color: #8d7531; }
+.dark .bless-title { color: #e8d9a3; }
 .dark .bless-verse { background: #232012; border-color: #4a4225; color: #e8d9a3; }
 .dark .bless-ref { color: #cdbb88; }
 .dark .bless-msg { color: #e6e9ef; }
 .dark .bless-from { color: #aeb8c8; }
 
 .intro-dots { display: flex; justify-content: center; gap: 7px; margin: 18px 0 20px; }
-.intro-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); transition: background 0.15s; }
-.intro-dot.on { background: var(--navy); }
+.intro-dot { width: 8px; height: 8px; border-radius: 4px; background: var(--border); transition: width 0.2s, background 0.2s; }
+.intro-dot.on { width: 20px; background: var(--navy); }
+.dark .intro-dot.on { background: #cdd9f2; }
 .intro-nav { display: flex; gap: 10px; }
 .intro-skip {
   flex: 0 0 auto; padding: 13px 18px; border-radius: 12px;
@@ -2358,7 +2371,8 @@ body.native-app-hide-ref .word-input { scroll-margin-top: 90px; }
   background: var(--navy); color: #fff; font-weight: 700; font-size: 1.02rem;
   cursor: pointer; font-family: inherit; transition: background 0.15s;
 }
-.intro-next:hover { background: var(--navy-dark); }
+/* 손가락으로 누르면 :hover 가 그 자리에 남아 단추가 어두운 채로 있다 — 마우스에서만 */
+@media (hover: hover) { .intro-next:hover { background: var(--navy-dark); } }
 .intro-foot { margin-top: 16px; font-size: 0.78rem; color: var(--gray); }
 
 /* ---------- 도움말 화면 ---------- */
