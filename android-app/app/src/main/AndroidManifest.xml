@@ -212,5 +212,27 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_verse_info" />
         </receiver>
+        <receiver
+            android:name="kr.onlybible.gocheok.memorize.widget.MeditationWidget"
+            android:exported="false"
+            android:label="@string/widget_meditation_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_meditation_info" />
+        </receiver>
+        <receiver
+            android:name="kr.onlybible.gocheok.memorize.widget.BlessingWidget"
+            android:exported="false"
+            android:label="@string/widget_blessing_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_blessing_info" />
+        </receiver>
     </application>
 </manifest>

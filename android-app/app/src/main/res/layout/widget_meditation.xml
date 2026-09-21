@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 이번주 말씀 — 가로로 긴 것(4×2). 머리글(마크+이름) / 본문 / 구절 이름.
-     ⚠️ 마크는 이름 옆에만 — 글 뒤에 옅게 깔면(워터마크) 대비가 무너진다(기도문 액자 1.86:1).
-     본문은 칸에 맞춰 글씨가 줄어든다(autoSize, 안드로이드 8.0+). 그 아래 판은 textSize 13sp 로 그린다. -->
+<!-- 오늘의 묵상 — 머리글(마크+「오늘의 묵상 · 월요일」) / 제목 / 본문.
+     ⚠️ 적용 질문은 싣지 않는다(2026-09-21) — 본문이 74~117자인데 질문이 한 줄을 먹으면 본문이 잘렸다.
+     한 모양으로 4×2 와 늘린 크기를 다 받는다 — 본문은 칸에 맞춰 글씨가 줄고 늘어난다. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
@@ -27,35 +27,38 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="4dp"
             android:maxLines="1"
-            android:text="@string/widget_verse_name"
+            android:text="@string/widget_meditation_name"
             android:textColor="@color/widget_secondary"
             android:textSize="11sp" />
     </LinearLayout>
 
     <TextView
+        android:id="@+id/widget_heading"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:ellipsize="end"
+        android:fontFamily="serif"
+        android:maxLines="1"
+        android:text="@string/widget_meditation_sample_heading"
+        android:textColor="@color/widget_text"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <TextView
         android:id="@+id/widget_body"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_marginTop="6dp"
+        android:layout_marginTop="4dp"
         android:layout_weight="1"
-        android:autoSizeMaxTextSize="20sp"
+        android:autoSizeMaxTextSize="24sp"
         android:autoSizeMinTextSize="10sp"
         android:autoSizeStepGranularity="1sp"
         android:autoSizeTextType="uniform"
         android:fontFamily="serif"
         android:gravity="top|start"
-        android:text="@string/widget_verse_sample"
+        android:lineSpacingExtra="3dp"
+        android:text="@string/widget_meditation_sample"
         android:textColor="@color/widget_text"
         android:textSize="13sp" />
-
-    <TextView
-        android:id="@+id/widget_ref"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:maxLines="1"
-        android:text="@string/widget_verse_sample_ref"
-        android:textColor="@color/widget_secondary"
-        android:textSize="11sp"
-        android:textStyle="bold" />
 </LinearLayout>
