@@ -96,9 +96,7 @@ struct TodayVerseWidgetView: View {
             // 구절 길이가 20~69자로 벌어져서, 긴 구절은 minimumScaleFactor 가 알아서 줄인다
             // (글씨 크기 설정을 「아주 큼」으로 쓰시는 분도 이 덕에 잘리지 않는다).
             VStack(alignment: .leading, spacing: 10) {
-                Text("이번주 말씀")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                WidgetHeader(title: "이번주 말씀", large: true)
                 Spacer(minLength: 0)
                 Text(entry.text)
                     .font(.system(.title, design: .serif))
@@ -121,9 +119,7 @@ struct TodayVerseWidgetView: View {
             //    69자라(삼상 26:24) 정사각형 폭으로는 어떻게 줄여도 뒤가 잘린다 — 「다 안 보이는 말씀」은
             //    안 보여 주느니만 못하다. 잘릴 일이 없으니 줄 수를 넉넉히 두고 축소도 덜 쓴다.
             VStack(alignment: .leading, spacing: 6) {
-                Text("이번주 말씀")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                WidgetHeader(title: "이번주 말씀")
                 Text(entry.text)
                     .font(.system(.footnote, design: .serif))
                     .lineLimit(5)

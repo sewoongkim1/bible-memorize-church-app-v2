@@ -75,6 +75,32 @@ func refreshDate(fresh: Bool, next: Date) -> Date {
     fresh ? next : Date().addingTimeInterval(30 * 60)
 }
 
+// 홈 화면 위젯 머리글 — 교회 마크 + 이름(2026-09-21 친구 요청 · 아침 알림에 뜨는 것과 같은 그림).
+// 그림은 WidgetAssets.xcassets/ChurchMark(루트 icon-512.png 의 여백을 잘라 낸 것).
+// ⚠️ 마크는 글 **옆에만** 둔다. 글 뒤에 옅게 깔면(워터마크) 본문 대비가 무너진다 —
+//    기도문 액자에서 잎가지 위 금색 글씨가 1.86:1 까지 떨어졌던 자리다(docs/notes/prayer-book.md).
+// ⚠️ 잠금 화면(accessory)에는 쓰지 않는다 — 시스템이 한 가지 색으로 칠해 파랑·주황이 뭉개진다.
+struct WidgetHeader: View {
+    let title: String
+    var large: Bool = false
+
+    var body: some View {
+        HStack(spacing: large ? 6 : 4) {
+            Image("ChurchMark")
+                .resizable()
+                .scaledToFit()
+                // 13pt 로 먼저 그려 봤더니 마크가 점처럼 보였다 — 글씨보다 한 치수 크게 둔다.
+                // (그림은 24pt 기준 3배까지 있어 22pt 로 써도 흐려지지 않는다)
+                .frame(height: large ? 22 : 16)
+                .accessibilityHidden(true)
+            Text(title)
+                .font(large ? .subheadline : .caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+    }
+}
+
 // containerBackground(_:for:)는 iOS 17+ 전용 — 이 위젯의 배포 타겟은 16.0(설계 결정)이라
 // 16에서도 도는 대체 배경을 함께 둔다. 잠금 화면(accessory)은 바탕을 깔지 않는다(시스템이 그린다).
 extension View {

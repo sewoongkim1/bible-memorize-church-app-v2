@@ -23,6 +23,7 @@
 		2A903E1315BB4398963F7AC5 /* BlessingWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E3D22D36AB54F79AC92FD00 /* BlessingWidget.swift */; };
 		B73642601B680AB8C8FC996F /* TodayVerseWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38A23ABEEE1840EEFB20B7FF /* TodayVerseWidgetBundle.swift */; };
 		ACD533CDC9BCE7F6B817635E /* NativeLoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ED697B54E31C0C9B4322268 /* NativeLoginView.swift */; };
+		5743FE2727C976A6D0C233EE /* WidgetAssets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C90EA6461A6CB640F48D0FC0 /* WidgetAssets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -70,6 +71,7 @@
 		D733F45298C8D7D232A87D88 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		FC68EB0AF532CFC21C3344DD /* Pods-App.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-App.debug.xcconfig"; path = "Pods/Target Support Files/Pods-App/Pods-App.debug.xcconfig"; sourceTree = "<group>"; };
 		4ED697B54E31C0C9B4322268 /* NativeLoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeLoginView.swift; sourceTree = "<group>"; };
+		C90EA6461A6CB640F48D0FC0 /* WidgetAssets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = WidgetAssets.xcassets; path = TodayVerseWidget/WidgetAssets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -109,6 +111,7 @@
 				1DEDB71D81DA4DDA93E9C615 /* MeditationWidget.swift */,
 				6E3D22D36AB54F79AC92FD00 /* BlessingWidget.swift */,
 				38A23ABEEE1840EEFB20B7FF /* TodayVerseWidgetBundle.swift */,
+				C90EA6461A6CB640F48D0FC0 /* WidgetAssets.xcassets */,
 			);
 			name = TodayVerseWidget;
 			sourceTree = "<group>";
@@ -247,6 +250,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5743FE2727C976A6D0C233EE /* WidgetAssets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

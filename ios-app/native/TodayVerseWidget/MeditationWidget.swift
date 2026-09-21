@@ -69,9 +69,7 @@ struct MeditationWidgetView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(entry.dayLabel.isEmpty ? "오늘의 묵상" : "오늘의 묵상 · \(entry.dayLabel)요일")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+            WidgetHeader(title: entry.dayLabel.isEmpty ? "오늘의 묵상" : "오늘의 묵상 · \(entry.dayLabel)요일")
             if !entry.heading.isEmpty {
                 Text(entry.heading)
                     .font(.system(.subheadline, design: .serif).weight(.semibold))

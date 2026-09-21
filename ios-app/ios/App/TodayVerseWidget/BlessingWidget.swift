@@ -62,9 +62,7 @@ struct BlessingWidgetView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text("오늘의 축복 기도문")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+            WidgetHeader(title: "오늘의 축복 기도문")
             if !entry.title.isEmpty {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(entry.title)
