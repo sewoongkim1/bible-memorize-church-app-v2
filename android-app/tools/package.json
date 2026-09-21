@@ -1,0 +1,8 @@
+{
+  "name": "gocheok-android-generate",
+  "private": true,
+  "description": "안드로이드 앱 뼈대를 Bubblewrap core 로 한 번 만든다(2026-09-21). 다시 돌리지 말 것 — generate.cjs 머리말 참고.",
+  "dependencies": {
+    "@bubblewrap/core": "1.25.0"
+  }
+}

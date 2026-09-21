@@ -169,6 +169,9 @@ Expected: `package: name='kr.onlybible.gocheok.memorize' versionCode='…' versi
 ```
 
 `android-app/tools/generate.cjs`:
+> ⚠️ **실행하며 고침(2026-09-21):** 옛 APK 를 읽어 보니 앱 이름이 「성경말씀 암송」이 아니라 **「성경암송」**이었고,
+> 색 여덟 칸(상태 표시줄·아래 막대·구분선, 밝을 때·어두울 때)이 모두 `#1A3A6B`, `orientation 'default'`, `minSdkVersion 23` 이었다.
+> 실제로 쓴 값은 저장소의 `android-app/tools/generate.cjs` 다(아래는 처음 초안). 대조 결과 판 이름만 달랐다.
 ```js
 // 안드로이드 앱 뼈대를 Bubblewrap 으로 **한 번** 만든다(2026-09-21).
 // 명령줄 도구(bubblewrap init)는 대화형 질문을 던져서, 같은 일을 하는 core 를 직접 부른다.
