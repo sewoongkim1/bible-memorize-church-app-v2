@@ -146,14 +146,22 @@ function adminError(b: any): string | null {
 // ⚠️ 로그인 화면에서 한 번 보는 것으로 끝내지 않고 **액션마다** 본다 — 화면을 건너뛰고 API 를
 //    바로 부르면 그만이기 때문이다.
 // ⚠️ 관리자 비번은 그대로 통과한다(관리자는 모든 자료를 본다). authCheck(허브)에는 쓰지 말 것.
-async function ministryAdminError(b: any): Promise<string | null> {
+// 담당자 역할 — 사역신청(2026-09-17) · 설교·찬양(2026-09-21). 역할마다 암호 하나 + 등록된 담당자 명단.
+// 설교·찬양 담당자는 설교를 올리고 암송구절·찬양을 고친다 — 관리자 암호를 드리면 알림 발송·성도 정보까지 열린다.
+const STAFF_ROLES: Record<string, { secret: string; list: string }> = {
+  ministry: { secret: "MINISTRY_SECRET", list: "ministryAdmins" },
+  content:  { secret: "CONTENT_STAFF_SECRET", list: "contentAdmins" },
+};
+async function staffRoleError(b: any, role: string): Promise<string | null> {
   if (!adminError(b)) return null;
-  const ms = Deno.env.get("MINISTRY_SECRET");
-  if (!ms || (b.pw ?? "") !== ms) return adminError(b);
-  // ⚠️ 담당자가 아니어도 「unauthorized」 — 틀린 암호와 **같은 답**을 준다(2026-09-17 리뷰).
-  //    답을 가르면 담당자를 몰라도 「사역 암호가 맞았다」를 알아낼 수 있어 두 겹 확인이 한 겹씩 뚫린다.
-  return (await ministryStaffKey(b)) ? null : "unauthorized";
+  const r = STAFF_ROLES[role];
+  const s = r ? Deno.env.get(r.secret) : "";
+  if (!s || (b.pw ?? "") !== s) return adminError(b);
+  // ⚠️ 담당자가 아니어도 「unauthorized」 — 틀린 암호와 **같은 답**(2026-09-17 리뷰)
+  return (await staffUserId(b, role)) ? null : "unauthorized";
 }
+const ministryAdminError = (b: any) => staffRoleError(b, "ministry");
+const contentError = (b: any) => staffRoleError(b, "content");
 
 // 비번과 함께 온 담당자(b.staff = {type,gu,mok,bu,grade,name})가 등록된 분이면 그분의 user id
 // ⚠️ **키가 아니라 사람(user_id)으로** 맞댄다(2026-09-17 리뷰). 관리자가 이름·소속을 고치거나 계정을
@@ -161,10 +169,10 @@ async function ministryAdminError(b: any): Promise<string | null> {
 //    새 소속으로도(목록에 없음) 옛 소속으로도(users 에 없음) 막힌다. 앱 로그인(member_login)이
 //    별칭을 따라가듯 여기서도 등록 키·적은 키를 둘 다 사람으로 풀어 비교한다.
 // ⚠️ DB 오류는 삼키지 않는다 — 「담당자가 아닙니다」로 보이면 등록된 분이 까닭 없이 막힌 줄 안다.
-async function ministryStaffKey(b: any): Promise<string | null> {
+async function staffUserId(b: any, role: string): Promise<string | null> {
   const st = b.staff && typeof b.staff === "object" && !Array.isArray(b.staff) ? b.staff : null;
   if (!st || !norm(st.name)) return null;
-  const keys = await ministryAdminKeys();
+  const keys = await staffKeys(role);
   if (!keys.length) return null;
   const cands = ministryStaffCandidates(st);
   const who = await ministryKeysToUsers([...cands, ...keys]);
@@ -216,8 +224,10 @@ async function ministryKeysToUsers(list: string[]): Promise<Map<string, string>>
 //    (supabase/ministry_admins.sql 도 통째로 바꾸는 방식이라 「기존 분을 함께 적으라」고 적어 둬야 했다).
 // ⚠️ 더할 때는 **users 에 있는 identity_key 만** 받는다 — 화면은 이름 찾기(adminFindMembers) 결과에서
 //    고르게 한다. 동명이인(같은 이름 여러 계정)을 소속·마지막 접속으로 갈라 고르게 하려는 것.
-async function ministryAdminKeys(): Promise<string[]> {
-  const { data, error } = await db.from("app_config").select("value").eq("key", "ministryAdmins").maybeSingle();
+async function staffKeys(role: string): Promise<string[]> {
+  const r = STAFF_ROLES[role];
+  if (!r) return [];
+  const { data, error } = await db.from("app_config").select("value").eq("key", r.list).maybeSingle();
   if (error) throw error;
   return Array.isArray(data?.value) ? (data!.value as any[]).map((x) => norm(String(x))).filter(Boolean) : [];
 }
@@ -242,17 +252,20 @@ async function ministryAdminsView(keys: string[]) {
   });
 }
 
-async function ministryAdmins(b: any) {
+async function staffAdmins(b: any) {
   const err = adminError(b); if (err) return { ok: false, error: err };
-  return { ok: true, admins: await ministryAdminsView(await ministryAdminKeys()) };
+  const role = STAFF_ROLES[b.role] ? b.role : "";
+  if (!role) return { ok: false, error: "invalid" };
+  return { ok: true, admins: await ministryAdminsView(await staffKeys(role)) };
 }
 
-async function ministryAdminsSave(b: any) {
+async function staffAdminsSave(b: any) {
   const err = adminError(b); if (err) return { ok: false, error: err };
+  const role = STAFF_ROLES[b.role] ? b.role : "";
   const op = String(b.op || "");
   const key = norm(b.key);
-  if ((op !== "add" && op !== "remove") || !key || key.length > 200) return { ok: false, error: "invalid" };
-  const keys = await ministryAdminKeys();
+  if (!role || (op !== "add" && op !== "remove") || !key || key.length > 200) return { ok: false, error: "invalid" };
+  const keys = await staffKeys(role);
   if (op === "add") {
     const { data: u, error } = await db.from("users").select("id").eq("identity_key", key).maybeSingle();
     if (error) throw error;
@@ -263,11 +276,11 @@ async function ministryAdminsSave(b: any) {
     if (i >= 0) keys.splice(i, 1);
   }
   const { error } = await db.from("app_config").upsert(
-    { key: "ministryAdmins", value: keys, updated_at: new Date().toISOString() }, { onConflict: "key" });
+    { key: STAFF_ROLES[role].list, value: keys, updated_at: new Date().toISOString() }, { onConflict: "key" });
   if (error) throw error;
   // ⚠️ 메모리의 목록이 아니라 **다시 읽은 목록**을 돌려준다 — 두 저장이 겹쳐 한쪽이 덮였으면 화면이 사실을 보인다
   //    (막는 것은 화면이 한 번에 하나만 보내는 것이다. 관리자 둘이 같은 순간 누르는 일은 드물다.)
-  return { ok: true, admins: await ministryAdminsView(await ministryAdminKeys()) };
+  return { ok: true, admins: await ministryAdminsView(await staffKeys(role)) };
 }
 
 // ---------- 설교 챗봇: Voyage 임베딩 (myfavorite lib/voyage.ts의 Deno 이식) ----------
@@ -333,6 +346,16 @@ Deno.serve(async (req) => {
         const e = await ministryAdminError(body);
         if (e) return json({ ok: false, error: e }, 403);
         return json({ ok: true, role: adminError(body) ? "ministry" : "admin" });
+      }
+      case "contentAuth": {    // 설교·찬양 관리 로그인 — 관리자 비번, 또는 설교·찬양 비번 + 등록된 담당자(2026-09-21)
+        const e = await contentError(body);
+        if (e) return json({ ok: false, error: e }, 403);
+        return json({ ok: true, role: adminError(body) ? "content" : "admin" });
+      }
+      case "staffVerify": {    // 찬양 함수가 묻는다 — 이 비번·담당자가 설교·찬양 담당자로 통과하나
+        if (body.role !== "content") return json({ ok: false, error: "invalid" }, 400);
+        const e = await contentError(body);
+        return json(e ? { ok: false, error: e } : { ok: true }, e ? 403 : 200);
       }
       case "login":         return json(await login(body));
       case "saveProgress":  return json(await saveProgress(body));
@@ -439,8 +462,10 @@ Deno.serve(async (req) => {
       case "ministrySetStatus":return json(await ministrySetStatus(body));
       case "ministryCatalogSave": return json(await ministryCatalogSave(body));
       case "ministryCatalogOrder": return json(await ministryCatalogOrder(body));
-      case "ministryAdmins":     return json(await ministryAdmins(body));      // 담당자 명단(관리자만)
-      case "ministryAdminsSave": return json(await ministryAdminsSave(body));  // 한 분씩 추가·빼기(관리자만)
+      case "ministryAdmins":     return json(await staffAdmins({ ...body, role: "ministry" }));      // 담당자 명단(관리자만)
+      case "ministryAdminsSave": return json(await staffAdminsSave({ ...body, role: "ministry" }));  // 한 분씩 추가·빼기(관리자만)
+      case "staffAdmins":        return json(await staffAdmins(body));       // 역할별 명단(관리자만 · role)
+      case "staffAdminsSave":    return json(await staffAdminsSave(body));
 
       // ---- 순위 응원 ----
       case "rankCheer":     return json(await rankCheer(body));
