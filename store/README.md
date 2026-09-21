@@ -307,6 +307,21 @@ registration fee"로 검색) → 정책 위반 점검 → Play Console에서 이
       (진행 중인 케이스를 건드려 지연될 위험 없음).
       **영문 번역명 확정(2026-09-15): "Gocheok Presbyterian Church"** — D-U-N-S 번호
       나오면 이 이름으로 정정한다.
+- [ ] ⚠️ **교회 Gmail 사용정지(2026-09-17 확인)** — `church.gocheok@gmail.com`. 애플 단체 등록은
+      어차피 **단체 도메인 이메일**을 요구한다("Your work email address needs to associated with
+      your organization's domain name") → Gmail 을 살리기보다 `@gocheok.or.kr` 주소를 교회에서
+      받아 Apple ID·D&B 연락처·Play 단체 계정을 그 주소로 옮기는 쪽으로 권했다(미정).
+- [ ] ❌ **D-U-N-S 신청 반려(2026-09-21 06:50 UTC)** — Case 10973922 종결. Resolution: "D-U-N-S Number
+      could not be created" / Sub-Resolution: "Required documents not provided" / 코멘트: 회사 실재를
+      확인하지 못했으니 **국세청(홈택스)이 3개월 이내에 발급한 영문 사업자등록증명**을 첨부해 다시
+      신청하라(Request Key 는 공개 저장소라 적지 않는다 — 결과 메일에 있다).
+      → 교회 고유번호로 홈택스 **사업자등록증명 → 발급유형 「영문증명」**을 뽑는다(영문 상호·대표자·
+      주소를 입력하는 칸이 있다 — 상호는 확정한 "Gocheok Presbyterian Church"). 교회 사무실에서
+      기부금영수증을 홈택스로 내고 있다면 단체 인증서가 이미 있다. 없으면 구로세무서 민원실.
+      → **다시 신청할 땐 처음부터 영문 이름으로** — 케이스가 닫혔으니 "번호 받은 뒤 이름 정정"(위 B안)은
+      더 이상 필요 없다. 증명서의 영문 상호·주소와 **글자 하나까지 같게** 넣는다.
+      ⚠️ 서류 요청 메일이 따로 왔었는지 확인할 것 — 연락처가 정지된 Gmail 이었다면 요청을 못 받아
+      "서류 미제출"로 닫혔을 수 있다. 재신청 연락처는 매일 보는 주소로.
 
 ---
 
