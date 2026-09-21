@@ -307,10 +307,10 @@ registration fee"로 검색) → 정책 위반 점검 → Play Console에서 이
       (진행 중인 케이스를 건드려 지연될 위험 없음).
       **영문 번역명 확정(2026-09-15): "Gocheok Presbyterian Church"** — D-U-N-S 번호
       나오면 이 이름으로 정정한다.
-- [ ] ⚠️ **교회 Gmail 사용정지(2026-09-17 확인)** — `church.gocheok@gmail.com`. 애플 단체 등록은
-      어차피 **단체 도메인 이메일**을 요구한다("Your work email address needs to associated with
-      your organization's domain name") → Gmail 을 살리기보다 `@gocheok.or.kr` 주소를 교회에서
-      받아 Apple ID·D&B 연락처·Play 단체 계정을 그 주소로 옮기는 쪽으로 권했다(미정).
+- [x] **교회 Gmail 사용정지(2026-09-17) → 복구(2026-09-22)** — `church.gocheok@gmail.com` 다시 쓴다.
+      ⚠️ 다만 애플 단체 **등록** 단계는 **단체 도메인 이메일**을 요구한다("Your work email address
+      needs to associated with your organization's domain name") — 그때 `@gocheok.or.kr` 주소가
+      필요할 수 있다.
 - [ ] ❌ **D-U-N-S 신청 반려(2026-09-21 06:50 UTC)** — Case 10973922 종결. Resolution: "D-U-N-S Number
       could not be created" / Sub-Resolution: "Required documents not provided" / 코멘트: 회사 실재를
       확인하지 못했으니 **국세청(홈택스)이 3개월 이내에 발급한 영문 사업자등록증명**을 첨부해 다시
@@ -324,6 +324,11 @@ registration fee"로 검색) → 정책 위반 점검 → Play Console에서 이
       애플 전용 문의 양식 `support.dnb.com/?CUST=APPLEDEV` 「Submit Case」로 보낸다 — 법적 서류를
       **두 개 이상** 올리게 돼 있다(영문 사업자등록증명 + 국문 고유번호증 사본). 설명란에 옛
       Case·Tracking 번호와 반려 사유를 적는다. 개인 신분증·통장 사본은 넣지 않는다.
+      양식 첫 화면 「User Group」은 **Developer Program**(Apple Business Manager 는 기기 관리용).
+      → 발급받은 **영문 사업자등록증명의 상호가 로마자 음역**("DAEHANYESUGYO JANGNOHOE GOCHEOK
+      GYOHOE")이라(2026-09-22) 신청서도 그 이름 그대로 넣는다. ⚠️ 애플은 단체 이름을 **App Store
+      판매자 이름**으로 보여 준다 — 그 이름이 싫으면 제출 **전에** 영문 상호를 고친 증명서를 다시
+      뽑는 게 가장 싸다(홈택스 영문증명 발급 때 영문 상호를 입력한다고 안내돼 있음 · 미확인).
       ⚠️ 서류 요청 메일이 따로 왔었는지 확인할 것 — 연락처가 정지된 Gmail 이었다면 요청을 못 받아
       "서류 미제출"로 닫혔을 수 있다. 재신청 연락처는 매일 보는 주소로.
 
