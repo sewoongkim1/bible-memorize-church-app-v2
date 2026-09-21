@@ -1651,12 +1651,18 @@ async function viShrink(b64, mime){
 //    올리면 39번 이후에도 옛 그림 파일이 생길 수 있다. 주간 구절(no<1000) 전부를 본다.
 async function viHasOld(no){   // 옛 그림 파일(img/verse/*.webp)이 있나 — 같은 주소의 HEAD
   if(!(Number(no) < 1000)) return false;
-  try { const r = await fetch(`img/verse/${no}.webp`, { method:"HEAD", cache:"no-store", signal:AbortSignal.timeout(5000) }); return r.ok; }
+  try { const r = await fetch(`img/verse/${no}.webp`, { method:"HEAD", cache:"no-store", signal:viTimeout(5000) }); return r.ok; }
   catch(_) { return false; }   // 시간 초과도 「옛 파일 없음」으로 — HEAD 하나로 화면이 멈추지 않게
 }
+// AbortSignal.timeout 은 사파리 16 부터다 — 옛 아이폰에서는 던져서 모든 구절이 「옛 파일 없음」이 된다
+function viTimeout(ms){
+  if(typeof AbortSignal !== "undefined" && AbortSignal.timeout) return AbortSignal.timeout(ms);
+  const c = new AbortController(); setTimeout(()=>c.abort(), ms); return c.signal;
+}
 
-function viVisA(no){   // 앱에 보이는 DB 대표 그림이 있나(숨긴 것·짝만 있는 것은 아니다 — 설계 7장)
-  const a = (viState.db[no] || {}).a;
+// S 는 저장·내리기처럼 답을 기다린 뒤 부를 때 넘긴다 — 그사이 화면을 떠났다 들어와도 요청한 그 화면의 기록을 본다
+function viVisA(no, S = viState){   // 앱에 보이는 DB 대표 그림이 있나(숨긴 것·짝만 있는 것은 아니다 — 설계 7장)
+  const a = (S.db[no] || {}).a;
   return !!(a && !a.hidden);
 }
 function viOptLabel(v){
@@ -1699,8 +1705,13 @@ async function renderVerseImages(){
   app.innerHTML = `
     <div class="rep-head mn-top"><button class="back-btn" id="back">← 메뉴</button><h2>③ 연상 그림</h2></div>
     <div class="push-card" id="vi-body"><p class="msg">불러오는 중...</p></div>`;
-  // ③ 화면을 떠나면 지운다 — beforeunload·로그아웃의 viDirty() 가 다른 화면에서 옛 상태로 걸리지 않게
-  document.getElementById("back").addEventListener("click", async ()=>{ if(await viConfirmLeave()){ viState = null; renderMenu(); } });
+  // ③ 화면을 떠나면 보던 구절을 비운다 — beforeunload·로그아웃의 viDirty() 가 다른 화면에서 옛 상태로 걸리지 않게.
+  // ⚠️ viState 를 null 로 지우지 않는다 — 기다리던 저장·내리기의 답이 viState.token 을 읽다 던지고, 다시 들어온 화면의 token 이 1 부터 다시 세어져 옛 답이 새 화면에 끼어든다
+  document.getElementById("back").addEventListener("click", async ()=>{
+    if(!(await viConfirmLeave())) return;
+    if(viState){ viState.token++; viState.no = null; }
+    renderMenu();
+  });
   const body = document.getElementById("vi-body");
   const prefill = viPrefillNo; viPrefillNo = null;
   const [vd, ld] = await Promise.all([
@@ -1809,7 +1820,7 @@ function viRenderSlot(slot){
   const have = el.querySelector("[data-have]");
   have.innerHTML = cur ? `<div class="vi-have"><img class="vi-thumb" src="${htmlEsc(cur.url)}" alt=""><div>${htmlEsc(cur.alt)}${cur.hidden?" <b>(내림)</b>":""}
       <div class="vi-acts"><button class="push-btn ghost" data-hide>${cur.hidden?"되올리기":"내리기"}</button></div></div></div>
-      <p class="push-hint">아래에서 새로 만들어 저장하면 이 그림을 바꿔요.${cur.hidden ? " 저장하면 앱에 다시 떠요." : ""}</p>` : "";
+      <p class="push-hint">아래에서 새로 만들어 저장하면 이 그림을 바꿔요.${cur.hidden && (slot === "a" || viVisA(viState.no)) ? " 저장하면 앱에 다시 떠요." : ""}</p>` : "";
   const hb = have.querySelector("[data-hide]"); if(hb) hb.addEventListener("click", ()=>viHide(slot, hb));
   viSyncGen(slot);
 }
@@ -1817,7 +1828,7 @@ function viRenderSlot(slot){
 // 🎨 단추 — 그리는 동안은 「그리는 중…」으로 잠그고, 오늘 뽑을 수를 다 쓰면 잠근다(🔁 다시 뽑기도)
 function viSyncGen(slot){
   const el = document.getElementById("vi-slot-"+slot); if(!el) return;
-  const S = viState, st = S.slots[slot], full = S.daily - (S.used[S.no]||0) <= 0;
+  const S = viState, st = S.slots[slot], full = S.allFull || S.daily - (S.used[S.no]||0) <= 0;
   const b = el.querySelector("[data-gen]");
   b.disabled = st.busy || full;
   b.textContent = st.busy ? "그리는 중…" : `🎨 ${(S.db[S.no]||{})[slot] ? "새로 만들기" : "그림 만들기"}`;
@@ -1827,7 +1838,9 @@ function viSyncGen(slot){
 function viSyncLeft(){
   const S = viState, left = S.daily - (S.used[S.no]||0);
   const el = document.getElementById("vi-left");
-  if(el) el.textContent = left > 0 ? `오늘 이 구절에 ${left}장 더 뽑을 수 있어요.` : "오늘은 이 구절에 더 뽑을 수 없어요";
+  // 모든 구절을 합친 하루 한도(서버 VIMG_DAILY_ALL)는 서버가 daily-all 로 알려 줄 때 안다 — 그 뒤로는 어느 구절도 못 뽑는다
+  if(el) el.textContent = S.allFull ? VI_ERR["daily-all"]
+    : left > 0 ? `오늘 이 구절에 ${left}장 더 뽑을 수 있어요.` : "오늘은 이 구절에 더 뽑을 수 없어요";
   VI_SLOTS.forEach(([k])=>viSyncGen(k));
 }
 
@@ -1843,6 +1856,7 @@ async function viGenerate(slot){
   // 두 칸을 함께 뽑으면 서버의 left 가 서로를 모른다 — 이 화면에서 센 수와 견줘 큰 쪽을 쓴다
   if(d.ok) S.used[no] = Math.max((S.used[no]||0) + 1, Number.isFinite(d.left) ? S.daily - d.left : 0);
   else if(d.error === "limit") S.used[no] = S.daily;
+  else if(d.error === "daily-all") S.allFull = true;
   if(tok !== viState.token || id !== st.req || !out.isConnected) return;   // 늦게 온 답 — 다른 구절·새 요청의 자리에 보이지 않는다
   viSyncLeft();
   if(minAuthLost(d)) return;
@@ -1922,10 +1936,11 @@ async function viSave(g, box){
   // 보낼 것을 다 꾸린 뒤에 잠근다 — 여기서 멈춰 단추가 잠긴 채 남지 않게
   const req = { action:"verseImgSave", pw:getPw(), staff:getStaff(), verseNo:no, slot,
     image:g.small.b64, mime:g.small.mime, alt, sceneKo:g.sceneKo, sceneEn:g.sceneEn };
+  // 확인표는 기다리기 전에 쥐어 둔다 — 저장 중에 🔁·🎨 로 칸이 다시 그려지면 box 가 떨어져 나가 parentElement 가 null 이 된다
+  const cks = [...box.parentElement.querySelectorAll("[data-ck]")];
   btn.disabled = true; btn.textContent = "저장 중…";
   const d = await callApi(req).catch(()=>({ok:false,error:"network"}));
   // 실패했을 때만 다시 켜진다 — 확인표를 그사이 풀었으면 「다시 저장」도 잠근다
-  const cks = [...box.parentElement.querySelectorAll("[data-ck]")];
   btn.disabled = !cks.every(c => c.checked); btn.textContent = "💾 다시 저장";
   // 저장은 서버에서 끝났다 — 그 구절의 기록은 화면이 바뀌었어도 고쳐 둔다(다시 고르면 맞게 보이게)
   if(d.ok){
@@ -1935,7 +1950,7 @@ async function viSave(g, box){
   if(minAuthLost(d)) return;
   // 결과는 몇 번 구절인지와 함께 알린다 — 구절을 바꿨거나 칸이 다시 그려졌어도 만든 그림이 어떻게 됐는지는 꼭 알아야 한다
   if(!d.ok) mnNote(`${g.no}번 그림을 저장하지 못했어요 — ${VI_ERR[d.error] || d.error || ""}`, "warn");
-  else if(slot !== "a" && !viVisA(no)) mnNote(`${g.no}번 짝 그림을 저장했어요 — 대표 그림을 저장하면(되올리면) 함께 떠요`);
+  else if(slot !== "a" && !viVisA(no, S)) mnNote(`${g.no}번 짝 그림을 저장했어요 — 대표 그림을 저장하면(되올리면) 함께 떠요`);
   else mnNote(`${g.no}번 그림을 저장했어요 — 앱에 바로 떠요`);
   if(tok !== viState.token) return;   // 다른 구절로 갔다 — 그 화면에는 아무것도 더 그리지 않는다
   if(!d.ok) return;
@@ -1965,7 +1980,7 @@ async function viHide(slot, btn){
   // ⚠️ 담당자가 그사이 구절을 바꿨어도 알림은 띄운다(viSave 처럼) — 구절 번호를 넣어 어느 구절인지 밝힌다
   if(!d.ok){ mnNote(`${no}번: ${VI_ERR[d.error] || ("오류: "+(d.error||""))}`, "warn"); return; }
   mnNote(hidden ? `${no}번 그림을 내렸어요`
-    : `${no}번 그림을 다시 보이게 했어요${(slot !== "a" && !viVisA(no)) ? " — 대표 그림이 보여야 앱에 떠요" : ""}`);
+    : `${no}번 그림을 다시 보이게 했어요${(slot !== "a" && !viVisA(no, S)) ? " — 대표 그림이 보여야 앱에 떠요" : ""}`);
   if(tok !== viState.token || !btn.isConnected) return;
   viRenderSlot(slot);
 }
