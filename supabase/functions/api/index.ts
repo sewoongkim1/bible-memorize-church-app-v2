@@ -5783,8 +5783,16 @@ async function verseImgList(b: any) {
   if (e2) throw e2;
   const used: Record<string, number> = {};
   for (const r of (g ?? []) as any[]) used[r.verse_no] = (used[r.verse_no] || 0) + 1;
+  // 구절 아래 보일 설교 한 줄 요약 — 최신 예배일부터, 구절마다 요약이 있는 첫 설교(앱 findSermonForVerse 와 같은 규칙)
+  const { data: sm, error: e3 } = await db.from("sermons").select("mem_verse_no,summary")
+    .not("mem_verse_no", "is", null).eq("hidden", false).order("svc_date", { ascending: false });
+  if (e3) throw e3;
+  const summaries: Record<string, string> = {};
+  for (const r of (sm ?? []) as any[]) {
+    if (r.summary && !(r.mem_verse_no in summaries)) summaries[r.mem_verse_no] = r.summary;
+  }
   return {
-    ok: true, daily: VIMG_DAILY, used,
+    ok: true, daily: VIMG_DAILY, used, summaries,
     images: (data ?? []).map((r: any) => ({
       verseNo: r.verse_no, slot: r.slot, url: vimgUrl(r.path), alt: r.alt, hidden: !!r.hidden, updatedAt: r.updated_at,
     })),
