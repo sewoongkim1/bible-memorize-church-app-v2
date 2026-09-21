@@ -2660,7 +2660,8 @@ async function loadContentList(selNo){
   const body=document.getElementById("cms-body");
   const data=await callApi({action:"getVerses"}).catch(()=>({ok:false,error:"network"}));
   const list=(data&&data.verses)||[];
-  const opts=`<option value="">+ 새 말씀 추가</option>`+list.map(v=>`<option value="${v.no}">${v.no}. ${htmlEsc(v.refShort||"")} — ${htmlEsc(v.sermonTitle||"")}</option>`).join("");
+  // 최신 말씀(큰 번호)이 먼저 — 고치는 것은 거의 늘 이번 주 구절이다(2026-09-21 성도님 요청)
+  const opts=`<option value="">+ 새 말씀 추가</option>`+[...list].sort((a,b)=>Number(b.no)-Number(a.no)).map(v=>`<option value="${v.no}">${v.no}. ${htmlEsc(v.refShort||"")} — ${htmlEsc(v.sermonTitle||"")}</option>`).join("");
   body.innerHTML=`
     <div class="push-card">
       <label class="push-lb">편집할 말씀 선택</label>
