@@ -2,7 +2,7 @@ import WidgetKit
 import SwiftUI
 
 // 고척교회 성경암송 — 이번주 말씀 위젯
-//   홈 화면: 가로로 긴 것 하나  ·  잠금 화면(2026-09-20 더함): 네모·시계 위 한 줄
+//   홈 화면: 가로로 긴 것 · 큰 네모(글씨 크게)  ·  잠금 화면(2026-09-20 더함): 네모·시계 위 한 줄
 //   누르면 그 구절 암송 화면으로 바로 간다(gocheokmemorize://verse?no=번호 → AppDelegate → /?v=번호).
 // 로그인 없이 보이는 공개 정보만 다룬다. user_id·개인정보는 절대 포함하지 않는다.
 
@@ -90,10 +90,35 @@ struct TodayVerseWidgetView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .widgetBackground(clear: true)
+        case .systemLarge:
+            // 홈 화면 큰 네모(4×4) — 같은 말씀을 **글씨만 크게**(2026-09-21 친구 결정).
+            // 멀리서도, 돋보기 없이도 읽히게 하려는 크기라 중간 것과 내용은 같다.
+            // 구절 길이가 20~69자로 벌어져서, 긴 구절은 minimumScaleFactor 가 알아서 줄인다
+            // (글씨 크기 설정을 「아주 큼」으로 쓰시는 분도 이 덕에 잘리지 않는다).
+            VStack(alignment: .leading, spacing: 10) {
+                Text("이번주 말씀")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+                Text(entry.text)
+                    .font(.system(.title, design: .serif))
+                    .lineSpacing(4)
+                    .lineLimit(9)
+                    .minimumScaleFactor(0.6)
+                Spacer(minLength: 0)
+                if !entry.reference.isEmpty {
+                    Text(entry.reference)
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(20)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .widgetBackground()
         default:
-            // 홈 화면 — 가로로 긴 것(systemMedium) 하나뿐이다.
+            // 홈 화면 가로로 긴 것(systemMedium). 큰 네모는 위 가지.
             // ⚠️ 작은 네모(systemSmall)를 일부러 뺐다(2026-09-21 친구 요청). 본문이 가장 긴 구절은
-            //    69자라(삼상 26:24) 네모 폭으로는 어떻게 줄여도 뒤가 잘린다 — 「다 안 보이는 말씀」은
+            //    69자라(삼상 26:24) 정사각형 폭으로는 어떻게 줄여도 뒤가 잘린다 — 「다 안 보이는 말씀」은
             //    안 보여 주느니만 못하다. 잘릴 일이 없으니 줄 수를 넉넉히 두고 축소도 덜 쓴다.
             VStack(alignment: .leading, spacing: 6) {
                 Text("이번주 말씀")
@@ -127,6 +152,6 @@ struct TodayVerseWidget: Widget {
         .description("이번주 암송 구절을 홈 화면·잠금 화면에서 봅니다. 누르면 바로 암송 화면으로 갑니다.")
         // ⚠️ .systemSmall 을 다시 넣지 말 것 — 본문이 잘린다(위 default 가지의 설명).
         //    이미 작은 네모로 놓아 둔 분은 지우고 다시 넣으셔야 한다(크기는 나중에 못 바꾼다).
-        .supportedFamilies([.systemMedium, .accessoryRectangular, .accessoryInline])
+        .supportedFamilies([.systemMedium, .systemLarge, .accessoryRectangular, .accessoryInline])
     }
 }
