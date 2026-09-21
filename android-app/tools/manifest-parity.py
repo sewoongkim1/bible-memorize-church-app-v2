@@ -41,6 +41,7 @@ def manifest(apk):
     out = run("dump", "xmltree", "--file", "AndroidManifest.xml", apk)
     out = re.sub(r"@0x7f[0-9a-f]{6}", "@res", out)      # 리소스 번호는 빌드마다 다르다
     out = re.sub(r"\s*\(Raw: [^)]*\)", "", out)
+    out = re.sub(r" \(line=\d+\)", "", out)              # 받이 하나만 더해도 뒤의 줄 번호가 다 밀린다
     return [l.rstrip() for l in out.splitlines() if l.strip()]
 
 

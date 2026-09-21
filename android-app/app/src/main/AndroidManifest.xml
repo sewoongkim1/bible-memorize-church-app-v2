@@ -24,7 +24,12 @@
 
     
         <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-    
+
+    <!-- 위젯이 서버에 직접 묻는다(2026-09-21). TWA 는 화면을 크롬이 불러와서 원래 이 권한이 없었다 —
+         빠지면 통신이 조용히 막혀 위젯에 「불러오지 못했습니다」만 뜬다(친구 폰에서 실제로 그랬다).
+         일반 권한이라 설치·업데이트 때 성도님께 묻는 창은 뜨지 않는다. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
 
     
 
@@ -193,8 +198,19 @@
 
         
             <activity android:name="com.google.androidbrowserhelper.trusted.NotificationPermissionRequestActivity" />
-        
 
-        
+
+        <!-- 위젯(2026-09-21) — 설계 docs/superpowers/specs/2026-09-21-android-widgets-design.md -->
+        <receiver
+            android:name="kr.onlybible.gocheok.memorize.widget.VerseWidget"
+            android:exported="false"
+            android:label="@string/widget_verse_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_verse_info" />
+        </receiver>
     </application>
 </manifest>

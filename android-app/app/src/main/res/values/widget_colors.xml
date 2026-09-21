@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 위젯 색(밝을 때) — 아이폰 위젯의 시스템 바탕·글씨·보조 글씨와 같은 값. 어두울 때는 values-night. -->
+<resources>
+    <color name="widget_bg">#FFFFFF</color>
+    <color name="widget_text">#141414</color>
+    <color name="widget_secondary">#78787F</color>
+</resources>

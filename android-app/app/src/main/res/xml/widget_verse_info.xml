@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 4×2(250×110dp)로 놓이고 그보다 작게는 못 줄인다 — 정사각형에서는 69자 구절이 잘린다(아이폰에서 뺀 이유).
+     updatePeriodMillis(3시간)는 안전망이다. 자정 새로 고침은 BaseWidgetProvider 가 따로 예약한다. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_verse_desc"
+    android:initialLayout="@layout/widget_verse_medium"
+    android:minHeight="110dp"
+    android:minResizeHeight="110dp"
+    android:minResizeWidth="250dp"
+    android:minWidth="250dp"
+    android:previewLayout="@layout/widget_verse_medium"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellHeight="2"
+    android:targetCellWidth="4"
+    android:updatePeriodMillis="10800000"
+    android:widgetCategory="home_screen" />

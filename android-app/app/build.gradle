@@ -71,6 +71,10 @@ android {
             applicationIdSuffix ".dev"
             resValue "string", "appName", "성경암송 시험"
             resValue "string", "launcherName", "성경암송 시험"
+            // ⚠️ 파일 공유 부품 이름도 갈라야 한다 — defaultConfig 가 twaManifest.applicationId(정식 패키지)로
+            //    만들어서, 그대로 두면 플레이스토어 앱이 깔린 폰에 INSTALL_FAILED_CONFLICTING_PROVIDER 로
+            //    설치가 막힌다(2026-09-21 친구 폰에서 실제로 막혔다).
+            resValue "string", "providerAuthority", "kr.onlybible.gocheok.memorize.dev.fileprovider"
             buildConfigField "String", "WIDGET_DATE", "\"${project.findProperty('widgetDate') ?: ''}\""
         }
     }
