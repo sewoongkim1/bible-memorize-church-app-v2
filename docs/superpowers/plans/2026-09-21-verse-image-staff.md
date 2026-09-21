@@ -732,10 +732,15 @@ async function viHide(slot){
 
 ### Task 7: 운영 반영(9/27 뒤 · 설교 올리기 Task 15 와 한 번에)
 
-- [ ] `supabase/verse_images.sql` 운영 · 운영 시크릿 `GEMINI_API_KEY`(+ Task 3 에서 정한 `VERSE_IMG_SIZE`)
+- [ ] `supabase/verse_images.sql` 운영 · 운영 시크릿 `GEMINI_API_KEY`(`VERSE_IMG_SIZE` 는 두지 않는다 — 1K 기본값으로 충분, Task 3 실측)
+- [ ] 운영 `api` 배포 **전에** `supabase functions download api --project-ref xnomlgydifiqiybervtf` 로 받아 main 의 `index.ts` 와 대조한다(커밋 안 된 배포가 있으면 조용히 지워진다)
 - [ ] 설교 올리기 Task 15 의 순서 그대로(api 배포 → 화면·`app.js` 합치기 → `bump.py` → 배포 확인). 이번 판에만 있는 표식: 라이브 `app.js` 에 `const dbImgs = Array.isArray(verse.images)`
-- [ ] 첫 실전: 그 주 구절의 대표 그림을 담당자가 만들고, 친구가 앱에서 본다
-- [ ] 문서: `docs/notes/verse-image-staff.md`(화풍 문구는 서버 상수와 안내서 두 곳 · 하루 15장 · 내리기 · 1K/2K 결정) · `img/verse/암송말씀_그림_만들기.md` 맨 위에 「담당자는 관리자 화면 ③ 으로」
+- [ ] 운영 SQL 뒤: `select policyname, cmd, roles from pg_policies where schemaname='storage' and tablename='objects'` 로 `verse-img` 까지 덮는 넓은 anon insert 정책이 없는지 · 공개 키로 `GET /rest/v1/verse_images?select=*&limit=1` 가 행을 안 내주는지 확인
+- [ ] Gemini 키: 그 구글 프로젝트에 결제가 켜져 있는지 확인 · **Google Cloud 에 예산 알림과 하루 요청 한도**를 건다(시간 초과된 호출은 앱이 안 세도 청구될 수 있다)
+- [ ] 운영에서 바꾸지 않는 확인: `getVerses` 가 ok 이고 아직 `images` 가 없다 · 틀린 암호 `verseImgList` → `unauthorized` · 담당자 `verseImgList` → ok + `summaries`(운영 요약으로 처음 도는 길)
+- [ ] 첫 실전: 그 주 구절의 대표 그림을 담당자가 만들고, 친구가 앱에서 본다 — 돌려받은 저장소 주소를 로그인 없이 열어 200·`image/webp` · 1~38번이면 옛 짝 그림이 사라지는 것이 맞다
+- [ ] 문서: `docs/notes/verse-image-staff.md`(화풍 문구는 서버 상수와 안내서 두 곳 · 하루 15장(+ 전체 60장) · 내리기 · 1K/2K 결정) · `img/verse/암송말씀_그림_만들기.md` 맨 위에 「담당자는 관리자 화면 ③ 으로」
+- [ ] `.claude/skills/reflect-sermon/SKILL.md`(이 저장소 `bible-memorize-church-app-v2` 안, 「말씀 연상 그림까지 요청받았다면」절)가 지금 `img/verse/암송말씀_그림_만들기.md`(옛 파일 방식)를 가리킨다 — ③ 화면으로 고친다(2026-09-21 최종 리뷰에서 찾음 · 이번에는 고치지 않는다, 운영 반영 때)
 
 ## 자체 점검
 
