@@ -230,7 +230,7 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
       **직분 목록이 세 곳**이라는 것, 사슬 일곱은 `docs/notes/ministry-2027.md`.
 
 - [ ] **축복 기도문 — 주제 그룹 검토 뒤 성도님께 열기**: ① `marketing/가정축복기도문_수정.xlsx` D열 「그룹」을 담당자가 손보면 ② `supabase/blessings.sql`·`blessings.json`을 다시 만들어 개발→운영 순으로 반영하고 ③ `renderSummary`의 「함께」 묶음에 `🙏 가정 축복 기도문` 한 줄을 더한다
-- [ ] 🤖 **안드로이드 위젯 — 2026-09-21 설계 확정, 로컬 제작·실기기(USB) 시험 중. Play 업로드는 9/27 프로덕션 승인 뒤.**
+- [ ] 🤖 **안드로이드 위젯 — 2026-09-21 시험판 실기기 확인 끝(갤럭시 S23 울트라). 남은 것: 비행기 모드 · 다음 날 아침 확인, 그리고 9/27 프로덕션 승인 뒤 계획 Task 8(서명·판 번호·업로드).**
       설계 `docs/superpowers/specs/2026-09-21-android-widgets-design.md` — Bubblewrap 으로 TWA 를 소스째 만들어
       `android-app/` 에 두고 위젯 셋을 더한다(시험판 `…memorize.dev` 는 따로 깔려 테스터 시계를 안 건드린다).
       ⚠️ 저장소가 공개이고 사이트가 저장소 전체를 배포한다 — **서명 키·비밀번호를 절대 커밋하지 말 것.**
