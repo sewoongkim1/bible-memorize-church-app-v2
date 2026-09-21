@@ -4895,7 +4895,9 @@ function fillVerseHelp(verse, opts) {
     //   그림이 있는 구절만 탭이 뜬다(풀이가 없으면 풀이 탭이 없는 것과 같은 규칙).
     //   ⚠️ 아래 items.length 검사보다 먼저다 — 뒤에 두면 설교 도우미가 없는 구절에서
     //      함수가 먼저 빠져나가 그림 탭까지 함께 사라진다.
-    if (VERSE_IMG[verse.no]) items.push({ k: "img", label: "🖼️ 그림" });
+    // DB 그림(설교·찬양 담당자가 만든 것 · 2026-09-21)이 있으면 그것이 앞선다 — getVerses 의 images(대표 a 가 있을 때만 온다)
+    const dbImgs = Array.isArray(verse.images) && verse.images.length ? verse.images : null;
+    if (dbImgs || VERSE_IMG[verse.no]) items.push({ k: "img", label: "🖼️ 그림" });
     if (!items.length) return;
 
     el.innerHTML = `
@@ -4921,14 +4923,16 @@ function fillVerseHelp(verse, opts) {
           // 탭을 누른 지금에야 받는다 — 화면에 들어올 때 미리 받으면 첫 실행이
           // 무거워진다(글꼴 CSS 765KB 사건과 같은 길, 2026-08-27).
           // VERSE_IMG_MORE가 없는 33장은 imgs.length===1이라 예전과 똑같이 한 장만 뜬다.
-          const imgs = [{ file: String(verse.no), alt: VERSE_IMG[verse.no] },
-                        ...(VERSE_IMG_MORE[verse.no] || [])];
+          const imgs = dbImgs
+            ? dbImgs.map((x) => ({ url: x.url, alt: x.alt }))
+            : [{ file: String(verse.no), alt: VERSE_IMG[verse.no] }, ...(VERSE_IMG_MORE[verse.no] || [])];
           let idx = 0;
           const img = document.createElement("img");
           img.className = "help-img";
           const showImg = () => {
             img.alt = imgs[idx].alt;
-            img.src = `img/verse/${imgs[idx].file}.webp?v=${APP_BUILD}`;
+            // DB 그림은 저장소 주소 그대로 — 바꿀 때마다 이름이 바뀌니 ?v= 를 붙이지 않는다
+            img.src = imgs[idx].url || `img/verse/${imgs[idx].file}.webp?v=${APP_BUILD}`;
           };
           img.addEventListener("error", () => {
             const msg = document.createElement("div");
