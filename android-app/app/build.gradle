@@ -207,7 +207,11 @@ repositories {
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
-    
+    // 위젯 규칙(WidgetLogic) JVM 시험 — org.json 을 진짜로 쓰려면 라이브러리가 따로 필요하다
+    // (안드로이드 android.jar 의 org.json 은 JVM 에서 "Stub!" 을 던진다).
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20240303'
+
         implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.6.2'
     
 }
