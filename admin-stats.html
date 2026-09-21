@@ -922,6 +922,8 @@ a.mn-tel.sm{font-size:11.5px;padding:2px 8px;}
 .su-prog li.bad{color:var(--error);font-weight:800;} .su-prog li.bad::before{content:"✕";}
 .su-res{margin-top:12px;font-size:14px;line-height:1.6;}
 .su-res .sum{margin:6px 0 10px;}
+.su-res .push-btn{display:inline-flex;align-items:center;min-height:var(--tap);text-decoration:none;}
+#su-count,#su-why{font-size:14px;}
 .sl-row{border:1px solid #dde3ee;border-radius:12px;background:#fff;padding:14px;margin-bottom:var(--gap);}
 .sl-row.hid{opacity:.62;}
 .sl-grid{display:grid;grid-template-columns:1fr;gap:4px 10px;}
@@ -1341,6 +1343,7 @@ const SU_ERR = {
   "bad-video":"영상 링크를 알아보지 못했어요.", "bad-date":"예배일을 넣어 주세요.", "bad-category":"구분을 골라 주세요.",
   "no-title":"제목을 넣어 주세요.", "no-preacher":"설교자를 넣어 주세요.",
   dispatch:"작업을 시작하지 못했어요 — 친구에게 알려 주세요.", "not-failed":"멈춘 작업만 다시 시도할 수 있어요.",
+  network:"인터넷 연결을 확인해 주세요 — 잠시 뒤 다시 눌러 주세요.",
 };
 let suPrefill = "";          // ① 에서 넘겨준 링크
 let suState = null;          // { id, verse, noVerse, transcript, autoTitle }
@@ -1387,7 +1390,11 @@ async function renderSermonUpload(){
   suCheck();
   const d = await callApi({ action:"sermonStaffList", pw:getPw(), staff:getStaff() }).catch(()=>({ok:false,error:"network"}));
   if(minAuthLost(d)) return;
-  if(!d.ok){ const j=document.getElementById("su-job"); if(j) j.innerHTML=`<p class="msg err">불러오지 못했습니다 (${htmlEsc(d.error||"")})</p>`; return; }
+  if(!d.ok){
+    const j=document.getElementById("su-job"); if(j) j.innerHTML=`<p class="msg err">불러오지 못했습니다 (${htmlEsc(SU_ERR[d.error] || d.error || "")})</p>`;
+    if(pre) suLoadVideo();   // 목록은 못 받아도, 넘어온 링크는 그대로 확인해 준다(exists 검사는 서버가 다시 한다)
+    return;
+  }
   suSermonIds = new Set((d.sermons||[]).map(s => s.id));
   // 가장 최근 작업: 진행 중이면 그것부터, 끝났으면 하루 안의 것만 보인다
   const last = (d.jobs||[])[0];
@@ -1399,7 +1406,7 @@ async function suLoadVideo(){
   const box = document.getElementById("su-video"); if(!box) return;
   const raw = document.getElementById("su-url").value;
   const id = stVideoId(raw);
-  suState.id = ""; suState.verse = null;
+  suState.id = ""; suState.verse = null; suState.noVerse = false;
   const vbox = document.getElementById("su-verse"); vbox.className = "su-verse"; vbox.innerHTML = "";
   if(!id){ box.innerHTML = raw.trim() ? `<p class="msg err">유튜브 영상 링크를 알아보지 못했어요.</p>` : ""; suCheck(); return; }
   if(suSermonIds.has(id)){ box.innerHTML = `<p class="msg err">${SU_ERR.exists}</p>`; suCheck(); return; }
@@ -1421,6 +1428,7 @@ async function suLoadVideo(){
 async function suLoadVerse(id){
   const box = document.getElementById("su-verse"); if(!box) return;
   const d = await callApi({ action:"getVerses" }).catch(()=>({ok:false}));
+  if(!suState || suState.id !== id || !box.isConnected) return;   // 그사이 링크가 바뀌었거나 다른 화면으로 갔다
   const v = (d.verses||[]).find(x => stVideoId(x.url) === id);
   suState.verse = v || null;
   if(v){ box.className = "su-verse"; box.innerHTML = `📖 <b>${htmlEsc(v.no)}번 (${htmlEsc(v.refShort)})</b>과 연결돼요 — 암송 도우미(쉬운 풀이·기억법)도 함께 만들어져요.`; return; }
@@ -1428,8 +1436,8 @@ async function suLoadVerse(id){
   box.innerHTML = `⚠️ 이 링크를 가진 암송구절이 없어요.<br>이번 주 암송구절 설교라면 <b>① 설교/말씀 등록</b>에서 이 링크를 먼저 넣어 주세요 — 나중에 넣으면 이어지지 않아요.
     <br><button class="push-btn ghost" id="su-to1">① 설교/말씀 등록으로 가기</button>
     <label><input type="checkbox" id="su-nov"${suState.noVerse?" checked":""}> 암송구절 없이 올리기 (새벽기도 등)</label>`;
-  document.getElementById("su-to1").addEventListener("click", ()=>{ clearInterval(suTimer); cmPrefillUrl = "https://www.youtube.com/watch?v="+id; renderContent(); });
-  document.getElementById("su-nov").addEventListener("change", e=>{ suState.noVerse = e.target.checked; suCheck(); });
+  box.querySelector("#su-to1").addEventListener("click", ()=>{ clearInterval(suTimer); cmPrefillUrl = "https://www.youtube.com/watch?v="+id; renderContent(); });
+  box.querySelector("#su-nov").addEventListener("change", e=>{ suState.noVerse = e.target.checked; suCheck(); });
 }
 
 function suOnText(){
@@ -1469,7 +1477,7 @@ async function suGo(){
   if(!d.ok){
     if(d.job) suShowJob(d.job);
     mnDialog({ icon:"⚠️", title:"올리지 못했습니다", tone:"danger", ok:"확인", cancel:null,
-      html: plEsc(SU_ERR[d.error] || ("오류: "+(d.error||""))) + (d.detail ? `<br><small>${plEsc(d.detail)}</small>` : "") });
+      html: plEsc(SU_ERR[d.error] || ("오류: "+(d.error||""))) + (d.detail ? `<br><span style="font-size:13px">${plEsc(d.detail)}</span>` : "") });
     suCheck(); return;
   }
   suSermonIds.add(job.videoId);
@@ -1479,7 +1487,7 @@ async function suGo(){
 function suShowJob(job){
   const box = document.getElementById("su-job"); if(!box) return;
   const active = job.status === "queued" || job.status === "running";
-  const form = document.getElementById("su-form"); if(form) form.hidden = active;
+  const form = document.getElementById("su-form"); if(form) form.hidden = active || job.status === "done";
   const idx = SU_STEPS.findIndex(s => s[0] === job.step);
   const items = SU_STEPS.map(([k, label], i) => {
     const c = job.status === "done" ? "done"
@@ -1493,8 +1501,9 @@ function suShowJob(job){
   const ageMin = (Date.now() - new Date(job.updatedAt).getTime()) / 60000;
   let note = "";
   if(job.status === "queued" && ageMin > 3) note = `<p class="msg err">시작이 늦어지고 있어요. 5분이 넘도록 그대로면 친구에게 알려 주세요.</p>`;
+  if(job.status === "running" && ageMin > 10) note = `<p class="push-hint">평소보다 오래 걸리고 있어요. 30분이 넘도록 그대로면 친구에게 알려 주세요.</p>`;
   if(job.status === "failed") note = `<p class="msg err">${htmlEsc(job.error || "까닭을 모릅니다")}</p>
-      <p class="push-hint">친구에게 알려 주세요.${job.runUrl ? ` <a href="${htmlEsc(job.runUrl)}" target="_blank" rel="noopener">작업 기록</a>` : ""}</p>
+      <p class="push-hint">친구에게 알려 주세요.${job.runUrl && job.runUrl.startsWith("https://github.com/") ? ` <a href="${htmlEsc(job.runUrl)}" target="_blank" rel="noopener">작업 기록</a>` : ""}</p>
       <button class="push-send" id="su-retry">🔁 다시 시도</button>`;
   box.innerHTML = `<div class="push-card"><div class="su-step">${head}</div>
     <div><b>${htmlEsc(job.title)}</b> <span class="push-hint">${htmlEsc(job.date)} · ${htmlEsc(job.createdBy || "")}</span></div>
@@ -1513,6 +1522,7 @@ async function suPoll(){
   if(!d) return;                       // 한 번 끊겨도 다음 번에 다시
   if(minAuthLost(d)){ clearInterval(suTimer); return; }
   if(d.ok && d.jobs && d.jobs[0]) suShowJob(d.jobs[0]);
+  else if(d.ok) clearInterval(suTimer);   // 작업이 사라졌다 — 계속 두드릴 이유가 없다
 }
 
 async function suRetry(id, btn){
@@ -1523,7 +1533,7 @@ async function suRetry(id, btn){
   if(!d.ok){
     if(d.job) suShowJob(d.job);
     mnDialog({ icon:"⚠️", title:"다시 시작하지 못했습니다", tone:"danger", ok:"확인", cancel:null,
-      html: plEsc(SU_ERR[d.error] || ("오류: "+(d.error||""))) + (d.detail ? `<br><small>${plEsc(d.detail)}</small>` : "") });
+      html: plEsc(SU_ERR[d.error] || ("오류: "+(d.error||""))) + (d.detail ? `<br><span style="font-size:13px">${plEsc(d.detail)}</span>` : "") });
     return;
   }
   suShowJob(d.job);
