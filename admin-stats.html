@@ -2642,9 +2642,11 @@ async function adminBoardReply(btn){
 }
 
 // ---------- 설교/말씀 관리(CMS) ----------
-function isoDateInput(d){ // 'YYYY-MM-DDTHH:mm' → date input용 'YYYY-MM-DD'
+function isoDateInput(d){ // DB 시각(UTC) → date input용 **한국 날짜** 'YYYY-MM-DD'
+  // ⚠️ UTC 로 읽으면 한국 0시 구절(38번 9/19 토)이 칸에 9/18 로 보이고, 저장은 그 값 + "T00:00:00+09:00" 이라
+  //    **열고 저장할 때마다 하루씩 당겨졌다**(2026-09-21 발견 — 설교 링크를 넣으려 다시 저장한 34~38번이 그렇다).
   if(!d) return ""; const x=new Date(d); if(isNaN(x)) return "";
-  return x.toISOString().slice(0,10);
+  return new Date(x.getTime()+9*3600*1000).toISOString().slice(0,10);
 }
 async function renderContent(){
   app.innerHTML=`
