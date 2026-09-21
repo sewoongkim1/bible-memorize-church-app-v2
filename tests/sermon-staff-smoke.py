@@ -76,5 +76,21 @@ chk("staffVerify 담당자", call({"action": "staffVerify", "role": "content", "
 chk("staffVerify 틀린 암호", call({"action": "staffVerify", "role": "content", "pw": "wrong", "staff": ME}).get("error"), "unauthorized")
 chk("staffVerify 다른 역할", call({"action": "staffVerify", "role": "ministry", "pw": STAFF, "staff": ME}).get("error"), "invalid")
 
+print("[7] 연상 그림")
+chk("verseImgList 담당자", call(dict(S, action="verseImgList")).get("ok"), True)
+chk("verseImgList 틀린 암호", call({"action": "verseImgList", "pw": "wrong", "staff": ME}).get("error"), "unauthorized")
+chk("칸 d", call(dict(S, action="verseImgGenerate", verseNo=1, slot="d", sceneKo="시험 장면")).get("error"), "bad-slot")
+chk("빈 장면", call(dict(S, action="verseImgGenerate", verseNo=1, slot="a", sceneKo="")).get("error"), "bad-scene")
+import base64
+fake = base64.b64encode(b"not an image at all" * 10).decode()
+chk("가짜 파일", call(dict(S, action="verseImgSave", verseNo=1, slot="a", image=fake, mime="image/webp", alt="시험")).get("error"), "bad-file")
+big = base64.b64encode(b"RIFF\x00\x00\x00\x00WEBP" + b"\x00" * 600_000).decode()
+chk("큰 파일", call(dict(S, action="verseImgSave", verseNo=1, slot="a", image=big, mime="image/webp", alt="시험")).get("error"), "too-big")
+tiny = base64.b64encode(b"RIFF\x00\x00\x00\x00WEBPVP8 " + b"\x00" * 20).decode()
+chk("빈 설명", call(dict(S, action="verseImgSave", verseNo=1, slot="a", image=tiny, mime="image/webp", alt="")).get("error"), "no-alt")
+chk("없는 칸 내리기", call(dict(S, action="verseImgHide", verseNo=999, slot="a", hidden=True)).get("error"), "not-found")
+chk("getVerses 는 그대로", call({"action": "getVerses"}).get("ok"), True)
+chk("숫자 아닌 구절", call(dict(S, action="verseImgScenes", verseNo="abc")).get("error"), "no-verse")
+
 print("\n실패 %d" % fails)
 sys.exit(1 if fails else 0)
