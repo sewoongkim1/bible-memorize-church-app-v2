@@ -5784,12 +5784,16 @@ async function verseImgList(b: any) {
   const used: Record<string, number> = {};
   for (const r of (g ?? []) as any[]) used[r.verse_no] = (used[r.verse_no] || 0) + 1;
   // 구절 아래 보일 설교 한 줄 요약 — 최신 예배일부터, 구절마다 요약이 있는 첫 설교(앱 findSermonForVerse 와 같은 규칙)
+  // ⚠️ 이 조회가 실패해도 화면은 열려야 한다 — 요약은 거들 뿐, 그림 만들기의 본줄기가 아니다
   const { data: sm, error: e3 } = await db.from("sermons").select("mem_verse_no,summary")
     .not("mem_verse_no", "is", null).eq("hidden", false).order("svc_date", { ascending: false });
-  if (e3) throw e3;
   const summaries: Record<string, string> = {};
-  for (const r of (sm ?? []) as any[]) {
-    if (r.summary && !(r.mem_verse_no in summaries)) summaries[r.mem_verse_no] = r.summary;
+  if (e3) {
+    console.error("verseImgList summaries", e3.message);
+  } else {
+    for (const r of (sm ?? []) as any[]) {
+      if (r.summary && !(r.mem_verse_no in summaries)) summaries[r.mem_verse_no] = r.summary;
+    }
   }
   return {
     ok: true, daily: VIMG_DAILY, used, summaries,

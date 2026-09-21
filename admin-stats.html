@@ -1643,7 +1643,9 @@ async function viShrink(b64, mime){
   return { b64: out, mime: blob.type, bytes: blob.size, w: c.width, h: c.height };
 }
 
+const VI_OLD_MAX = 38;   // 옛 그림 파일은 2026-09 까지 친구가 넣은 1~38번뿐 — 새 그림은 DB 로 간다
 async function viHasOld(no){   // 옛 그림 파일(1~38번 등)이 있나 — 같은 주소의 HEAD
+  if(Number(no) > VI_OLD_MAX) return false;
   try { const r = await fetch(`img/verse/${no}.webp`, { method:"HEAD", cache:"no-store" }); return r.ok; } catch(_) { return false; }
 }
 
@@ -1664,12 +1666,29 @@ function viRefreshHas(no){
     ? `<p class="push-hint">이 구절에는 예전에 넣은 그림이 있어요. 새로 만들어 저장하면 새 그림이 앞서 보여요.</p>` : "";
 }
 
+// 지금 구절에 만들다 만 것이 있나 — 그리는 중이거나, 뽑은 그림이 검수·설명·저장을 거치는 동안(아직 안 지워졌다)
+function viDirty(){
+  const S = viState; if(!S || !S.no) return false;
+  return VI_SLOTS.some(([slot])=>{
+    const st = S.slots[slot];
+    if(st && st.busy) return true;
+    const out = document.querySelector(`#vi-slot-${slot} [data-out]`);
+    return !!(out && out.querySelector(".vi-img"));
+  });
+}
+// 만들다 만 것이 있으면 옮기기 전에 한 번 묻는다 — 그만두면 false
+async function viConfirmLeave(){
+  if(!viDirty()) return true;
+  return await mnDialog({ icon:"🖼️", title:"만들던 그림이 사라져요", tone:"danger", ok:"그래도 옮기기", cancel:"그만두기",
+    html:"아직 저장하지 않은 그림이 있어요.", note:"다시 만들면 오늘 뽑을 수 있는 수가 줄어요." });
+}
+
 async function renderVerseImages(){
   window.scrollTo(0, 0);
   app.innerHTML = `
     <div class="rep-head mn-top"><button class="back-btn" id="back">← 메뉴</button><h2>③ 연상 그림</h2></div>
     <div class="push-card" id="vi-body"><p class="msg">불러오는 중...</p></div>`;
-  document.getElementById("back").addEventListener("click", renderMenu);
+  document.getElementById("back").addEventListener("click", async ()=>{ if(await viConfirmLeave()) renderMenu(); });
   const body = document.getElementById("vi-body");
   const prefill = viPrefillNo; viPrefillNo = null;
   const [vd, ld] = await Promise.all([
@@ -1699,7 +1718,11 @@ async function renderVerseImages(){
     <div id="vi-verse"></div>`;
   const sel = document.getElementById("vi-sel");
   if(pick != null) sel.value = String(pick);
-  sel.addEventListener("change", ()=>viOpen(Number(sel.value)));
+  sel.addEventListener("change", async ()=>{
+    const next = sel.value;
+    if(await viConfirmLeave()){ viOpen(Number(next)); return; }
+    if(S.no != null) sel.value = String(S.no);   // 그만두면 보던 구절로 되돌린다
+  });
   if(pick != null) viOpen(Number(pick));
 }
 
@@ -1711,7 +1734,9 @@ function viOpen(no){
   S.pairs = !!(S.db[no] && (S.db[no].b || S.db[no].c));
   const v = S.verses.find(x=>Number(x.no)===no) || {};
   const box = document.getElementById("vi-verse"); if(!box) return;
-  const sum = String(S.summaries[no] || "").replace(/\*\*/g, "").trim();   // 요약 속 **굵게** 표시는 걷어 낸다
+  const sumFull = String(S.summaries[no] || "").replace(/\*\*/g, "").trim();   // 요약 속 **굵게** 표시는 걷어 낸다
+  const sum0 = sumFull.split(/(?<=[.!?。])\s/)[0] || "";   // 첫 문장만 — 한 줄 요약이라 나머지는 안 보여도 된다
+  const sum = sum0.length > 80 ? sum0.slice(0, 80) + "…" : sum0;
   box.innerHTML = `
     <div class="su-verse">📖 <b>${htmlEsc(v.refShort||"")}</b><br>${htmlEsc(v.text||"")}</div>
     ${sum ? `<div class="push-hint">🎙️ 설교: ${htmlEsc(sum)}</div>` : ""}
@@ -1822,7 +1847,14 @@ async function viGenerate(slot){
     <div data-save></div>`;
   const use = out.querySelector("[data-use]");
   const cks = [...out.querySelectorAll("[data-ck]")];
-  cks.forEach(c=>c.addEventListener("change", ()=>{ use.disabled = !!use.dataset.lock || !cks.every(x=>x.checked); }));
+  // 확인표를 하나라도 풀면 💾(설명 단계에서 뜨는 저장 단추)도 함께 잠근다 — 검수 뒤에 다시 보고 마음이 바뀔 수 있다
+  const syncCks = ()=>{
+    const ok = cks.every(x=>x.checked);
+    use.disabled = !!use.dataset.lock || !ok;
+    const store = out.querySelector("[data-store]");
+    if(store) store.disabled = !ok;
+  };
+  cks.forEach(c=>c.addEventListener("change", syncCks));
   out.querySelector("[data-again]").addEventListener("click", ()=>viGenerate(slot));
   use.addEventListener("click", ()=>viUse(g, out));
   viSyncGen(slot);   // 오늘 수를 다 썼으면 🔁 도 잠근다
@@ -1882,10 +1914,12 @@ async function viSave(g, box){
     (S.db[no] = S.db[no] || {})[slot] = { url:d.url, alt, hidden:false };
     if(S === viState) viRefreshHas(no);
   }
-  if(tok !== viState.token) return;   // 다른 구절로 갔다 — 그 화면에는 아무것도 그리지 않는다
   if(minAuthLost(d)) return;
-  if(!d.ok){ if(box.isConnected) mnNote(VI_ERR[d.error] || ("오류: "+(d.error||"")), "warn"); return; }
-  mnNote("저장했어요 — 앱에 바로 떠요");
+  // 결과는 몇 번 구절인지와 함께 알린다 — 구절을 바꿨거나 칸이 다시 그려졌어도 만든 그림이 어떻게 됐는지는 꼭 알아야 한다
+  if(!d.ok) mnNote(`${g.no}번 그림을 저장하지 못했어요 — ${VI_ERR[d.error] || d.error || ""}`, "warn");
+  else mnNote(`${g.no}번 그림을 저장했어요 — 앱에 바로 떠요`);
+  if(tok !== viState.token) return;   // 다른 구절로 갔다 — 그 화면에는 아무것도 더 그리지 않는다
+  if(!d.ok) return;
   // 검수 칸은 저장한 그 그림이 아직 떠 있을 때만 비운다 — 그사이 🔁 로 새로 뽑는 중이면 그대로 둔다
   const st = S.slots[slot];
   if(g.req === st.req && !st.busy){ const out = document.querySelector(`#vi-slot-${slot} [data-out]`); if(out) out.innerHTML = ""; }

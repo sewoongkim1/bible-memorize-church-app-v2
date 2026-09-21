@@ -4896,8 +4896,8 @@ function fillVerseHelp(verse, opts) {
     //   ⚠️ 아래 items.length 검사보다 먼저다 — 뒤에 두면 설교 도우미가 없는 구절에서
     //      함수가 먼저 빠져나가 그림 탭까지 함께 사라진다.
     // DB 그림(설교·찬양 담당자가 만든 것 · 2026-09-21)이 있으면 그것이 앞선다 — getVerses 의 images(대표 a 가 있을 때만 온다)
-    const dbImgs = Array.isArray(verse.images) && verse.images.length ? verse.images : null;
-    if (dbImgs || VERSE_IMG[verse.no]) items.push({ k: "img", label: "🖼️ 그림" });
+    const dbImgs = Array.isArray(verse.images) ? verse.images.filter((x) => x && x.url) : [];
+    if (dbImgs.length || VERSE_IMG[verse.no]) items.push({ k: "img", label: "🖼️ 그림" });
     if (!items.length) return;
 
     el.innerHTML = `
@@ -4923,7 +4923,7 @@ function fillVerseHelp(verse, opts) {
           // 탭을 누른 지금에야 받는다 — 화면에 들어올 때 미리 받으면 첫 실행이
           // 무거워진다(글꼴 CSS 765KB 사건과 같은 길, 2026-08-27).
           // VERSE_IMG_MORE가 없는 33장은 imgs.length===1이라 예전과 똑같이 한 장만 뜬다.
-          const imgs = dbImgs
+          const imgs = dbImgs.length
             ? dbImgs.map((x) => ({ url: x.url, alt: x.alt }))
             : [{ file: String(verse.no), alt: VERSE_IMG[verse.no] }, ...(VERSE_IMG_MORE[verse.no] || [])];
           let idx = 0;
