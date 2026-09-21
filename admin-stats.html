@@ -3091,7 +3091,9 @@ function stCleanTitle(t){
 }
 // 유튜브 제목 → 예배일·구분 짐작 { date:"YYYY-MM-DD"|null, category:이름|null } — ② 가 칸을 미리 채운다
 //   예배일: 제목 앞이나 속의 「YYYY.MM.DD」(달력에 있는 날만 — 2026.02.30 은 버린다)
-//   구분: 낱말로, 이 차례대로(「송구영신 새벽」 같은 제목은 앞의 것) — 주일은 짐작하지 않는다(기본값이 주일설교)
+//   구분: 예배 이름으로만, 이 차례대로(「송구영신 새벽」 같은 제목은 앞의 것) — 주일은 짐작하지 않는다(기본값이 주일설교)
+//   ⚠️ 낱말 하나(「새벽」·「청년」…)로 넓게 잡으면 "새벽 날개를 치며"·"청년의 때에…" 같은 설교 제목까지
+//      잘못 짐작한다(2026-09-21 재검토에서 발견) — 반드시 예배 이름 전체로 좁혀서 본다.
 function stGuessFromTitle(t){
   const s=String(t==null?"":t).normalize("NFC");
   let date=null;
@@ -3100,8 +3102,8 @@ function stGuessFromTitle(t){
     const d=m[1]+"-"+m[2].padStart(2,"0")+"-"+m[3].padStart(2,"0"), x=new Date(d+"T00:00:00Z");
     if(!isNaN(x.getTime()) && x.toISOString().slice(0,10)===d) date=d;
   }
-  const category=/송구영신/.test(s)?"송구영신예배":/새벽/.test(s)?"새벽기도회":/금요|성령집회/.test(s)?"금요성령집회"
-    :/특별집회|부흥|사경회/.test(s)?"특별집회":/청년/.test(s)?"청년예배":null;
+  const category=/송구영신/.test(s)?"송구영신예배":/새벽기도/.test(s)?"새벽기도회":/금요\s*(성령|기도)|성령\s*집회/.test(s)?"금요성령집회"
+    :/특별집회|부흥회|사경회/.test(s)?"특별집회":/청년예배/.test(s)?"청년예배":null;
   return {date,category};
 }
 // DB 의 시각(UTC) → 한국 날짜. ⚠️ 예전 isoDateInput 은 UTC 로 읽어 한국 0시 구절이 하루 전으로 보였고,
@@ -3227,8 +3229,9 @@ async function loadContentList(selNo){
     const r=document.getElementById("c-result");
     if(!verse.no||!verse.refShort||!verse.text){ r.className="msg err"; r.textContent="순번·출처(짧게)·말씀 본문은 필수예요."; return; }
     if(verse.textEn&&!verse.refEn){ r.className="msg err"; r.textContent="영어 본문이 있으면 영어 출처도 입력하세요. (예: John 3:16)"; return; }
-    // 「+ 새 말씀 추가」에서 저장하면 새 구절이라고 알린다 — 그 번호가 이미 있으면 서버가 덮어쓰지 않고 「exists」
-    if(STAFF_MODE) return cmStaffSave(sel.value === "" ? { ...verse, isNew:true } : verse);
+    // 「+ 새 말씀 추가」에서 저장하거나, 고른 구절의 번호를 다른 값으로 바꿔 저장하면 새 구절이라고 알린다
+    // — 그 번호가 이미 있으면 서버가 덮어쓰지 않고 「exists」. (번호를 바꿨는데 그대로 두면 원래 고른 구절을 덮어써 버린다)
+    if(STAFF_MODE) return cmStaffSave((sel.value === "" || sel.value !== String(verse.no)) ? { ...verse, isNew:true } : verse);
     // 실수 방지: 저장 전 관리자 비밀번호 재확인
     const confirmPw = prompt("⚠️ 저장하면 앱 전체(목록·이번 주 말씀·알림)에 즉시 반영됩니다.\n확인을 위해 관리자 비밀번호를 다시 입력하세요:");
     if(confirmPw === null) return; // 취소
@@ -3254,7 +3257,7 @@ const CM_ERR = { "no-required":"순번을 넣어 주세요.", required:"출처(�
                  "bad-url":"설교 영상 링크를 알아보지 못했어요 — 유튜브 주소를 넣어 주세요.",
                  "bad-date":"날짜를 알아보지 못했어요 — 날짜 칸을 다시 골라 주세요.",
                  "bad-no":"그 번호는 쓸 수 없어요 — 주간 암송구절 번호(1~999)만 넣어 주세요.",
-                 exists:"그 번호의 구절이 이미 있어요 — 위 목록에서 그 구절을 골라 고쳐 주세요." };
+                 exists:"그 번호의 구절이 이미 있어요 — 위 목록에서 그 구절을 골라 고치거나, 다른 번호를 넣어 주세요(목록에 없으면 친구에게 알려 주세요)." };
 async function cmStaffSave(verse){
   const r=document.getElementById("c-result"), btn=document.getElementById("c-save");
   if(!(await mnDialog({ icon:"💾", title:"저장할까요?", ok:"저장", cancel:"그만두기",

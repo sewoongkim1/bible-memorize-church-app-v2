@@ -41,12 +41,25 @@ test('제목 → 예배일·구분 짐작(② 가 칸을 미리 채운다)',()=>
   assert.deepEqual(g('[고척교회] 2026.09.21(월) 새벽기도회'),{date:'2026-09-21',category:'새벽기도회'});
   assert.deepEqual(g('2026.09.18 금요성령집회'),{date:'2026-09-18',category:'금요성령집회'});
   assert.deepEqual(g('하나님은 공장장이 아니라 아버지입니다'),{date:null,category:null});
-  assert.equal(g('2026.02.30 새벽').date,null);                         // 달력에 없는 날
-  assert.equal(g('2026.02.30 새벽').category,'새벽기도회');
-  assert.equal(g('2026.12.31 송구영신예배 새벽').category,'송구영신예배');   // 앞의 낱말이 먼저
+  assert.equal(g('2026.02.30 새벽기도').date,null);                     // 달력에 없는 날
+  assert.equal(g('2026.02.30 새벽기도').category,'새벽기도회');
+  assert.equal(g('2026.12.31 송구영신예배 새벽기도').category,'송구영신예배');   // 앞의 낱말이 먼저
   assert.equal(g('2026.10.05 가을 부흥사경회').category,'특별집회');
-  assert.equal(g('청년부 예배').category,'청년예배');
+  assert.equal(g('청년예배').category,'청년예배');
   assert.deepEqual(g(''),{date:null,category:null});
+});
+
+// ⚠️ 2026-09-21 재검토 — 낱말 하나(「새벽」·「청년」)로 넓게 잡던 것을 예배 이름 전체로 좁혔다.
+// 아래는 옛 규칙이면 잘못 짐작했을 실제 설교 제목들(구분과 무관한 설교인데 구분이 찍히던 문제).
+test('제목 → 구분 짐작 — 낱말만 들어간 설교 제목은 구분을 짐작하지 않는다(2026-09-21 좁힘)',()=>{
+  const g=t=>({...ctx.stGuessFromTitle(t)});
+  assert.equal(g('새벽 날개를 치며').category,null);
+  assert.equal(g('청년의 때에 창조주를 기억하라').category,null);
+  assert.equal(g('부흥을 사모하라').category,null);
+  assert.deepEqual(g('2026.09.16 가을 부흥사경회 둘째 날'),{date:'2026-09-16',category:'특별집회'});
+  // 기존에 통과하던 것은 그대로 통과해야 한다
+  assert.deepEqual(g('[고척교회] 2026.09.21(월) 새벽기도회'),{date:'2026-09-21',category:'새벽기도회'});
+  assert.deepEqual(g('2026.09.18 금요성령집회'),{date:'2026-09-18',category:'금요성령집회'});
 });
 
 test('한국 날짜 — 9/19 0시(한국)가 9/18 로 보이던 버그',()=>{
