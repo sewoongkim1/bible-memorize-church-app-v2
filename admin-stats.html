@@ -900,6 +900,38 @@ a.mn-tel.sm{font-size:11.5px;padding:2px 8px;}
   overflow:hidden;text-overflow:ellipsis;}
 .adm-acts>.push-btn[hidden]{display:none;}
 .push-btn.ghost{background:#eef3fb;color:#1a3a6b;border:1px solid #a9c3e8;}
+
+/* ═══ 설교·찬양 관리 (2026-09-21) — 표준 v1 의 값만 쓴다 ═══ */
+.su-step{display:flex;align-items:center;gap:8px;margin:18px 0 8px;font-weight:800;color:var(--navy);font-size:1rem;}
+.su-step b{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;
+  background:var(--navy);color:#fff;font-size:14px;flex:none;}
+.su-video{display:flex;gap:12px;align-items:center;margin:8px 0;}
+.su-video img{width:120px;height:68px;object-fit:cover;border-radius:8px;flex:none;}
+.su-video .t{font-size:14px;line-height:1.45;}
+.su-verse{margin:14px 0;padding:12px 14px;border-radius:12px;border:1px solid #dde3ee;background:#f7f9fd;font-size:14px;line-height:1.55;}
+.su-verse:empty{display:none;}
+.su-verse.warn{background:#fdf6e7;border-color:#e9d39c;}
+.su-verse .push-btn{margin-top:8px;}
+.su-verse label{display:flex;align-items:center;gap:8px;min-height:var(--tap);margin-top:6px;}
+.su-warn{color:var(--error);font-weight:700;}
+.su-prog{list-style:none;margin:10px 0 0;padding:0;}
+.su-prog li{display:flex;align-items:center;gap:10px;min-height:36px;font-size:14px;color:#6b778c;}
+.su-prog li::before{content:"○";width:22px;text-align:center;flex:none;}
+.su-prog li.done{color:var(--green);} .su-prog li.done::before{content:"✓";font-weight:800;}
+.su-prog li.now{color:var(--navy);font-weight:800;} .su-prog li.now::before{content:"▶";}
+.su-prog li.bad{color:var(--error);font-weight:800;} .su-prog li.bad::before{content:"✕";}
+.su-res{margin-top:12px;font-size:14px;line-height:1.6;}
+.su-res .sum{margin:6px 0 10px;}
+.sl-row{border:1px solid #dde3ee;border-radius:12px;background:#fff;padding:14px;margin-bottom:var(--gap);}
+.sl-row.hid{opacity:.62;}
+.sl-grid{display:grid;grid-template-columns:1fr;gap:4px 10px;}
+@media (min-width:640px){.sl-grid{grid-template-columns:2fr 1fr 1fr 1fr;}}
+.sl-meta{font-size:13px;color:#6b778c;margin:8px 0;word-break:break-all;}
+.sl-acts{display:flex;gap:8px;flex-wrap:wrap;}
+.sl-acts button{min-height:var(--tap);padding:0 16px;font-size:.95rem;border-radius:10px;font-family:inherit;font-weight:700;cursor:pointer;}
+.sl-acts .save{background:var(--navy);color:#fff;border:0;min-height:var(--tap-lg);}
+.sl-acts .ghost{background:#eef3fb;color:#1a3a6b;border:1px solid #a9c3e8;}
+.sl-acts .del{background:#fdeceb;color:#a33;border:1px solid #e7b3ad;}
 </style>
 </head>
 <body>
@@ -1193,6 +1225,106 @@ function renderSermonMenu(){
   if(ca) ca.addEventListener("click", ()=>renderStaffAdmins("content"));
   // 새로고침으로 들어왔어도 한 번 되짚는다 — 그사이 빠진 분이 메뉴를 계속 보지 않게
   if(STAFF_MODE) callApi({ action:"contentAuth", pw:getPw(), staff:getStaff() }).then(minAuthLost).catch(()=>{});
+}
+
+// ⚠️ 같은 목록이 api 함수 SERMON_CATS 에도 있다 — 함께 고칠 것
+const SERMON_CATS = ["주일설교","금요성령집회","새벽기도회","송구영신예배","특별집회","청년예배"];
+const SERMON_SITE = "https://sermon.onlybible.kr/";
+
+// ---------- 📜 설교 목록 — 옛 admin-sermon.html(2026-09-21 이리로 옮김) ----------
+// 저장은 제목·예배일·구분·설교자·숨김 다섯 칸만(sermonStaffSave). 삭제는 관리자만(서버도 막는다).
+let slAll = [];
+async function renderSermonList(){
+  window.scrollTo(0, 0);
+  app.innerHTML = `
+    <div class="rep-head mn-top"><button class="back-btn" id="back">← 메뉴</button><h2>📜 설교 목록</h2></div>
+    <div class="adm-acts"><button class="push-btn ghost" id="sl-check">🩺 점검</button></div>
+    <div class="push-card">
+      <input id="sl-q" class="push-in" placeholder="제목·구분·설교자로 찾기">
+      <div id="sl-count" class="push-hint"></div>
+      <div id="sl-rows"><p class="msg">불러오는 중...</p></div>
+    </div>`;
+  document.getElementById("back").addEventListener("click", renderMenu);
+  document.getElementById("sl-q").addEventListener("input", slRender);
+  document.getElementById("sl-check").addEventListener("click", slCheck);
+  const d = await callApi({ action:"sermonStaffList", pw:getPw(), staff:getStaff() }).catch(()=>({ok:false,error:"network"}));
+  if(minAuthLost(d)) return;
+  const box = document.getElementById("sl-rows"); if(!box) return;
+  if(!d.ok){ box.innerHTML = `<p class="msg err">불러오지 못했습니다 (${htmlEsc(d.error||"")})</p>`; return; }
+  slAll = d.sermons || [];
+  slRender();
+}
+function slRender(){
+  const box = document.getElementById("sl-rows"); if(!box) return;
+  const q = (document.getElementById("sl-q").value || "").trim().toLowerCase();
+  const list = slAll.filter(s => !q || [s.title, s.category, s.preacher].join(" ").toLowerCase().includes(q));
+  document.getElementById("sl-count").textContent = `${list.length}편 / 전체 ${slAll.length}편`;
+  // 목록에 없는 옛 구분도 그대로 보이게(고르면 그대로 저장된다)
+  const cats = s => (SERMON_CATS.includes(s.category) ? SERMON_CATS : [s.category, ...SERMON_CATS]);
+  box.innerHTML = list.map(s => `<div class="sl-row${s.hidden?" hid":""}" data-id="${htmlEsc(s.id)}">
+      <div class="sl-grid">
+        <div><label class="push-lb">제목</label><input class="push-in" data-f="title" value="${htmlEsc(s.title)}"></div>
+        <div><label class="push-lb">예배일</label><input class="push-in" type="date" data-f="date" value="${htmlEsc(s.date)}"></div>
+        <div><label class="push-lb">구분</label><select class="push-in" data-f="category">${cats(s).map(c=>`<option${c===s.category?" selected":""}>${htmlEsc(c)}</option>`).join("")}</select></div>
+        <div><label class="push-lb">설교자</label><input class="push-in" data-f="preacher" value="${htmlEsc(s.preacher)}"></div>
+      </div>
+      <div class="sl-meta">${htmlEsc(s.id)} · 📖 ${htmlEsc(s.scripture||"")}${s.memRef?" · 암송 "+htmlEsc(s.memRef):""}${s.hidden?" · 숨김":""}</div>
+      <div class="sl-acts">
+        <button class="save" data-act="save">저장</button>
+        <button class="ghost" data-act="hide">${s.hidden?"공개":"숨김"}</button>
+        ${STAFF_MODE ? "" : `<button class="del" data-act="del">삭제</button>`}
+      </div></div>`).join("") || `<p class="msg">찾는 설교가 없습니다.</p>`;
+  box.querySelectorAll("[data-act]").forEach(b => b.addEventListener("click", () => slAct(b.closest(".sl-row").dataset.id, b.dataset.act, b)));
+}
+async function slAct(id, act, btn){
+  const s = slAll.find(x => x.id === id); if(!s) return;
+  if(act === "del"){
+    if(!(await mnDialog({ icon:"🗑️", title:"설교 삭제", tone:"danger", ok:"삭제", cancel:"그만두기",
+      html:`<b>${plEsc(s.title)}</b><br>이 설교를 아카이브에서 지울까요?`,
+      note:"챗봇 색인도 함께 지워집니다. 되돌릴 수 없습니다.", noteTone:"off" }))) return;
+    const d = await callApi({ action:"sermonDelete", pw:getPw(), id }).catch(()=>({ok:false,error:"network"}));
+    if(!d.ok){ mnNote("삭제하지 못했습니다: "+(d.error||""), "warn"); return; }
+    slAll = slAll.filter(x => x.id !== id); mnNote("삭제했습니다"); slRender(); return;
+  }
+  const row = btn.closest(".sl-row");
+  const v = f => row.querySelector(`[data-f="${f}"]`).value.trim();
+  const next = { id, title:v("title"), date:v("date"), category:v("category"), preacher:v("preacher"),
+                 hidden: act === "hide" ? !s.hidden : s.hidden };
+  if(!next.title){ mnNote("제목을 넣어 주세요", "warn"); return; }
+  btn.disabled = true;
+  const d = await callApi({ action:"sermonStaffSave", pw:getPw(), staff:getStaff(), sermon:next }).catch(()=>({ok:false,error:"network"}));
+  btn.disabled = false;
+  if(minAuthLost(d)) return;
+  if(!d.ok){ mnNote("저장하지 못했습니다: "+(d.error||""), "warn"); return; }
+  Object.assign(s, next);
+  mnNote(act === "hide" ? (s.hidden ? "숨겼습니다" : "공개했습니다") : "저장했습니다");
+  if(act === "hide") slRender();
+}
+function slTestAudio(url){
+  return new Promise(res => {
+    const a = new Audio(); let done = false;
+    const fin = ok => { if(done) return; done = true; a.src = ""; res(ok); };
+    a.onloadedmetadata = () => fin(true); a.onerror = () => fin(false);
+    setTimeout(() => fin(false), 8000); a.src = url;
+  });
+}
+async function slCheck(){
+  const btn = document.getElementById("sl-check"); btn.disabled = true; btn.textContent = "점검 중…";
+  const res = await Promise.all(slAll.map(async s => {
+    const errs = [];
+    if(!s.hasNote) errs.push("노트");
+    if(!s.hasScript) errs.push("대본");
+    if(!s.audio) errs.push("오디오 없음");
+    else if(!(await slTestAudio(SERMON_SITE + s.audio))) errs.push("오디오 재생 안 됨");
+    return { s, errs };
+  }));
+  btn.disabled = false; btn.textContent = "🩺 점검";
+  const bad = res.filter(r => r.errs.length), linked = slAll.filter(s => s.memVerseNo).length;
+  mnDialog({ icon:"🩺", title:"점검 결과", ok:"닫기", cancel:null,
+    html:`총 <b>${slAll.length}</b>편 · 정상 <b>${slAll.length-bad.length}</b> · 문제 <b>${bad.length}</b> · 📖 암송 연결 <b>${linked}</b>`
+      + (bad.length
+        ? `<div style="text-align:left;margin-top:10px;max-height:40vh;overflow:auto;font-size:14px">${bad.map(r=>`<div>• <b>${plEsc(r.s.title)}</b> ${plEsc(r.s.date)} — ${r.errs.map(plEsc).join(", ")}</div>`).join("")}</div>`
+        : `<div style="margin-top:8px">✅ 모든 설교가 정상이에요</div>`) });
 }
 
 function renderMenu(){
