@@ -305,7 +305,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>" -- supabase/
   - `sermonJobRetry {pw,staff,id}` → `{ok, job}` / `not-failed`·`busy`·`dispatch`
   - `sermonStaffSave {pw,staff,sermon:{id,title,date,category,preacher,hidden}}` → `{ok}`
   - `sermonDelete {pw,id}` — 관리자만
-  - `staffVerseSave {pw,staff,verse:{no,date,refShort,refFull,text,hintText,pastor,sermonTitle,url,is_active}}` → `{ok, url}` / `no-required`·`required`·`bad-url`
+  - `staffVerseSave {pw,staff,verse:{no,date,refShort,refFull,text,hintText,pastor,sermonTitle,url,is_active}}` → `{ok, url}` / `no-required`·`required`·`bad-url`·`bad-date`
   - `sermonJobGet {pw,id}` → `{ok, job: 표 한 줄 그대로(snake_case · transcript 포함)}` — 관리자만(워크플로)
   - `sermonJobUpdate {pw,id,status?,step?,error?,run_url?}` → `{ok}` — 관리자만(워크플로)
   - 시크릿 `GH_DISPATCH_TOKEN`(있음) · `GH_DISPATCH_REF`(없으면 `main`)
@@ -338,7 +338,7 @@ const toJob = (r: any) => ({
 function ytIdOf(u: unknown): string {
   const s = String(u ?? "").trim();
   if (/^[A-Za-z0-9_-]{11}$/.test(s)) return s;
-  const m = s.match(/(?:[?&]v=|youtu\.be\/|\/live\/|\/shorts\/|\/embed\/)([A-Za-z0-9_-]{11})/);
+  const m = s.match(/(?:[?&]v=|youtu\.be\/|\/live\/|\/shorts\/|\/embed\/)([A-Za-z0-9_-]{11})(?![A-Za-z0-9_-])/);
   return m ? m[1] : "";
 }
 
@@ -732,6 +732,7 @@ test("영상 번호 — 여러 꼴", () => {
     "https://www.youtube.com/watch?feature=share&v=9YgDMXP77NE", "9YgDMXP77NE"]) assert.equal(vidOf(u), "9YgDMXP77NE", u);
   assert.equal(vidOf(""), "");
   assert.equal(vidOf("https://example.com/watch?v=short"), "");
+  assert.equal(vidOf("https://www.youtube.com/watch?v=9YgDMXP77NEX"), "");   // 12자로 잘못 쓴 것은 거른다
 });
 
 test("meta — 같은 영상은 한 줄, 날짜 최신순", () => {
@@ -774,7 +775,7 @@ export const anonKeyOf = (base) => KEYS[base] || KEYS[PROD_API];
 export function vidOf(u) {
   const s = String(u ?? "").trim();
   if (/^[A-Za-z0-9_-]{11}$/.test(s)) return s;
-  const m = s.match(/(?:[?&]v=|youtu\.be\/|\/live\/|\/shorts\/|\/embed\/)([A-Za-z0-9_-]{11})/);
+  const m = s.match(/(?:[?&]v=|youtu\.be\/|\/live\/|\/shorts\/|\/embed\/)([A-Za-z0-9_-]{11})(?![A-Za-z0-9_-])/);
   return m ? m[1] : "";
 }
 
@@ -869,7 +870,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>" -- scripts/j
 
 **Interfaces:**
 - Consumes: `sermonJobGet`·`sermonJobUpdate`(Task 3), `modeOf`·`anonKeyOf`·`mergeMeta`·`adoptSermon`·`noteOf`(Task 5)
-- Produces: `jobApi(env) → { id, get(): Promise<row>, update(fields): Promise }` · `prodSermons() → Promise<sermon[]>`(운영 getSermons) · 워크플로 입력 `job_id`·`api_base`
+- Produces: `jobApi(env) → { id, runUrl, get(): Promise<row>, update(fields): Promise }`(update 는 늘 run_url 을 싣는다 · 서버가 `stale` 이면 던진다) · `prodSermons() → Promise<sermon[]>`(운영 getSermons) · 워크플로 입력 `job_id`·`api_base`
 - 준비(친구): gocheok-sermons 저장소 시크릿 `DEV_SERMON_ADMIN`(개발 관리자 암호) · `TELEGRAM_TOKEN` · `TELEGRAM_CHAT_ID`(성경암송 `monitor.yml` 과 같은 값)
 
 - [ ] **Step 1: `scripts/job-api.mjs`**
@@ -906,7 +907,14 @@ export function jobApi(env) {
     if (!j.ok) throw new Error(`${action}: ${j.error || "HTTP " + r.status}`);
     return j;
   }
-  return { id, get: async () => (await call("sermonJobGet")).job, update: (fields) => call("sermonJobUpdate", fields) };
+  // ⚠️ 모든 기록에 이 실행의 주소(run_url)를 싣는다 — 서버는 끝난 작업이나 다른 실행이 맡은 작업의 기록을
+  //    「stale」로 거절한다(30분 스윕 뒤 되살아난 옛 실행이 다시 시도한 새 실행과 번갈아 적지 않게 · Task 3 리뷰).
+  const runUrl = env.RUN_URL || null;
+  return {
+    id, runUrl,
+    get: async () => (await call("sermonJobGet")).job,
+    update: (fields) => call("sermonJobUpdate", { run_url: runUrl, ...fields }),
+  };
 }
 ```
 
@@ -1026,6 +1034,8 @@ import { modeOf } from "./job-lib.mjs";
 const api = jobApi(process.env);
 let job = null;
 try { job = await api.get(); } catch (e) { console.error("작업을 못 읽었다:", e.message); }
+// 다른 실행이 이 작업을 맡았으면(다시 시도) 이 실행은 밀려난 것 — 적지도 알리지도 않는다(헛경보)
+if (job && job.run_url && job.run_url !== api.runUrl) { console.log("다른 실행이 맡은 작업 — 알리지 않는다"); process.exit(0); }
 if (job && job.status !== "failed") {
   await api.update({ status: "failed", error: "GitHub 작업이 도중에 멈췄어요" }).catch(() => {});
   try { job = await api.get(); } catch { /* 위 값으로 */ }
@@ -1460,6 +1470,7 @@ test('영상 번호 — 여러 꼴 (job-lib.test.mjs 와 같은 표본)',()=>{
     'https://www.youtube.com/watch?feature=share&v=9YgDMXP77NE','9YgDMXP77NE']) assert.equal(ctx.stVideoId(u),'9YgDMXP77NE',u);
   assert.equal(ctx.stVideoId(''),'');
   assert.equal(ctx.stVideoId('https://example.com/watch?v=short'),'');
+  assert.equal(ctx.stVideoId('https://www.youtube.com/watch?v=9YgDMXP77NEX'),'');   // 12자로 잘못 쓴 것은 거른다
 });
 
 test('자막 — 시각이 제 줄에 있는 꼴',()=>{
@@ -1531,7 +1542,7 @@ function isoDateInput(d){ // DB 시각(UTC) → date input용 **한국 날짜** 
 function stVideoId(u){
   const s=String(u==null?"":u).trim();
   if(/^[A-Za-z0-9_-]{11}$/.test(s)) return s;
-  const m=s.match(/(?:[?&]v=|youtu\.be\/|\/live\/|\/shorts\/|\/embed\/)([A-Za-z0-9_-]{11})/);
+  const m=s.match(/(?:[?&]v=|youtu\.be\/|\/live\/|\/shorts\/|\/embed\/)([A-Za-z0-9_-]{11})(?![A-Za-z0-9_-])/);
   return m ? m[1] : "";
 }
 // 유튜브 「스크립트 표시」에서 복사한 글 → 자막 본문. 줄 앞 시각(0:03 · 1:02:15)과 빈 줄을 지운다.
@@ -1836,7 +1847,8 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>" -- admin-sta
 // ② 설교 내용 등록이 「① 로 가기」 때 넣는 링크 — 가장 최근 구절에 미리 채워 둔다
 let cmPrefillUrl = "";
 const CM_ERR = { "no-required":"순번을 넣어 주세요.", required:"출처(짧게)·말씀 본문은 꼭 넣어 주세요.",
-                 "bad-url":"설교 영상 링크를 알아보지 못했어요 — 유튜브 주소를 넣어 주세요." };
+                 "bad-url":"설교 영상 링크를 알아보지 못했어요 — 유튜브 주소를 넣어 주세요.",
+                 "bad-date":"날짜를 알아보지 못했어요 — 날짜 칸을 다시 골라 주세요." };
 async function cmStaffSave(verse){
   const r=document.getElementById("c-result"), btn=document.getElementById("c-save");
   if(!(await mnDialog({ icon:"💾", title:"저장할까요?", ok:"저장", cancel:"그만두기",
