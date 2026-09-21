@@ -75,16 +75,14 @@ struct MeditationWidgetView: View {
                     .font(.system(.subheadline, design: .serif).weight(.semibold))
                     .lineLimit(1)
             }
-            Text(entry.message)
-                .font(.system(.footnote, design: .serif))
-                .lineLimit(family == .systemLarge ? 12 : 3)
-                .minimumScaleFactor(0.85)
-            if !entry.question.isEmpty {
-                Text("💬 " + entry.question)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(family == .systemLarge ? 4 : 1)
-            }
+            // ⚠️ 적용 질문은 위젯에 싣지 않는다(2026-09-21 친구 요청) — 본문이 74~117자인데
+            //    질문이 한 줄을 차지하면 가로로 긴 위젯에 본문이 3줄(약 75자)밖에 안 남아 거의 매일
+            //    뒤가 잘렸다. 질문은 눌러서 여는 앱의 묵상 창에 그대로 있다.
+            //    본문이 비고 질문만 있는 날(daily_meditations 가 그렇게 올 수 있다)에만 질문을 본문 자리에 쓴다.
+            Text(entry.message.isEmpty ? entry.question : entry.message)
+                .font(.system(family == .systemLarge ? .body : .footnote, design: .serif))
+                .lineLimit(family == .systemLarge ? 14 : 6)
+                .minimumScaleFactor(0.75)
             Spacer(minLength: 0)
         }
         .padding()
@@ -101,7 +99,7 @@ struct MeditationWidget: Widget {
             MeditationWidgetView(entry: entry)
         }
         .configurationDisplayName("오늘의 묵상")
-        .description("이번주 설교의 오늘 요일 묵상과 적용 질문을 봅니다.")
+        .description("이번주 설교의 오늘 요일 묵상을 봅니다. 누르면 적용 질문까지 함께 봅니다.")
         .supportedFamilies([.systemMedium, .systemLarge])
     }
 }
