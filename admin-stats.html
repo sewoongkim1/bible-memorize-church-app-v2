@@ -2682,12 +2682,50 @@ async function adminBoardReply(btn){
 }
 
 // ---------- 설교/말씀 관리(CMS) ----------
-function isoDateInput(d){ // DB 시각(UTC) → date input용 **한국 날짜** 'YYYY-MM-DD'
-  // ⚠️ UTC 로 읽으면 한국 0시 구절(38번 9/19 토)이 칸에 9/18 로 보이고, 저장은 그 값 + "T00:00:00+09:00" 이라
-  //    **열고 저장할 때마다 하루씩 당겨졌다**(2026-09-21 발견 — 설교 링크를 넣으려 다시 저장한 34~38번이 그렇다).
+// ==== sermon-text — tests/sermon-text.test.cjs 가 이 덩이를 그대로 떼어 시험한다(덩이 밖을 부르지 말 것) ====
+// 영상 번호 — ⚠️ 같은 규칙이 세 곳: 여기 · api 함수 ytIdOf · gocheok-sermons scripts/job-lib.mjs vidOf
+function stVideoId(u){
+  const s=String(u==null?"":u).trim();
+  if(/^[A-Za-z0-9_-]{11}$/.test(s)) return s;
+  const m=s.match(/(?:[?&]v=|youtu\.be\/|\/live\/|\/shorts\/|\/embed\/)([A-Za-z0-9_-]{11})(?![A-Za-z0-9_-])/);
+  return m ? m[1] : "";
+}
+// 유튜브 「스크립트 표시」에서 복사한 글 → 자막 본문. 줄 앞 시각(0:03 · 1:02:15)과 빈 줄을 지운다.
+// ⚠️ 시각 뒤에 빈칸이 있을 때만 — 「3:16절」 같은 본문 속 장절을 지우지 않게
+function stCleanTranscript(t){
+  return String(t==null?"":t).normalize("NFC").split(/\r?\n/)
+    .map(l=>l.replace(/^\s*\d{1,2}:\d{2}(?::\d{2})?(?=\s|$)\s*/,""))
+    .filter(l=>l.trim())
+    .join(" ").replace(/\s+/g," ").trim();
+}
+// 유튜브 제목 → 설교 제목 — gocheok-sermons add-video.mjs cleanTitle + 5-migrate 의 날짜 떼기와 같은 규칙
+function stCleanTitle(t){
+  return String(t==null?"":t).normalize("NFC")
+    .replace(/^\[고척교회\]\s*/,"")
+    .replace(/\s*[lIㅣ|]+\s*[차치]동혁\s*(위임|담임)?\s*목사(님)?\s*$/,"")
+    .replace(/[ㅣ|].*$/,"")
+    .replace(/^\d{4}\.\d{2}\.\d{2}\s+/,"")
+    .trim();
+}
+// DB 의 시각(UTC) → 한국 날짜. ⚠️ 예전 isoDateInput 은 UTC 로 읽어 한국 0시 구절이 하루 전으로 보였고,
+//    화면이 그 값 + "T00:00:00+09:00" 으로 저장해 **열고 저장할 때마다 하루씩 당겨졌다**(2026-09-21 발견).
+function stKstDate(d){
   if(!d) return ""; const x=new Date(d); if(isNaN(x)) return "";
   return new Date(x.getTime()+9*3600*1000).toISOString().slice(0,10);
 }
+function stLastSundayKst(now){
+  const k=new Date(now.getTime()+9*3600*1000);   // 한국 시각을 UTC 칸에 얹어 읽는다
+  k.setUTCDate(k.getUTCDate()-k.getUTCDay());     // 일=0 → 그대로, 월=1 → 하루 전 …
+  return k.toISOString().slice(0,10);
+}
+function stAddDays(ymd,n){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(ymd||"")) return "";
+  const d=new Date(ymd+"T00:00:00Z"); d.setUTCDate(d.getUTCDate()+n);
+  return d.toISOString().slice(0,10);
+}
+function stKorCount(n){ return n>=10000 ? (n/10000).toFixed(1)+"만 자" : n.toLocaleString("en-US")+"자"; }
+function isoDateInput(d){ return stKstDate(d); }   // date 칸용 — 한국 날짜
+// ==== /sermon-text ====
 async function renderContent(){
   app.innerHTML=`
     <div class="rep-head">
