@@ -14,6 +14,7 @@ create table if not exists public.sermon_jobs (
   step        text,                      -- 지금(또는 멈춘) 단계
   error       text,                      -- 실패 까닭 한 줄(담당자 화면에 그대로 보인다)
   run_url     text,                      -- GitHub 실행 주소
+  attempt     int not null default 1,    -- 다시 시도 번호 — 옛 실행이 새 시도의 줄에 쓰지 못하게
   created_by  text,                      -- 올린 분 「소속 이름」 — 보이기용, user_id 아님
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
@@ -24,3 +25,5 @@ create unique index if not exists sermon_jobs_one_active
 create index if not exists sermon_jobs_updated_idx on public.sermon_jobs (updated_at desc);
 alter table public.sermon_jobs enable row level security;   -- ⚠️ 그 자리에서 켠다
 revoke all on public.sermon_jobs from anon, authenticated;
+-- 2026-09-21 리뷰: 다시 시도마다 1 씩 올린다 — 옛 실행이 새 시도의 줄에 쓰지 못하게(이미 만든 표에는 이 줄로)
+alter table public.sermon_jobs add column if not exists attempt int not null default 1;

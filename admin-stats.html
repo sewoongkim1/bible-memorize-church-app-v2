@@ -1283,7 +1283,7 @@ async function slAct(id, act, btn){
   if(act === "del"){
     if(!(await mnDialog({ icon:"🗑️", title:"설교 삭제", tone:"danger", ok:"삭제", cancel:"그만두기",
       html:`<b>${plEsc(s.title)}</b><br>이 설교를 아카이브에서 지울까요?`,
-      note:"챗봇 색인도 함께 지워집니다. 되돌릴 수 없습니다.", noteTone:"off" }))) return;
+      note:"챗봇 색인도 함께 지워집니다. 지운 설교는 다음 올리기 때 다시 들어올 수 있어요 — 가리기만 하려면 「숨김」을 쓰세요.", noteTone:"off" }))) return;
     const d = await callApi({ action:"sermonDelete", pw:getPw(), id }).catch(()=>({ok:false,error:"network"}));
     if(!d.ok){ mnNote("삭제하지 못했습니다: "+(d.error||""), "warn"); return; }
     slAll = slAll.filter(x => x.id !== id); mnNote("삭제했습니다"); slRender(); return;
@@ -1344,17 +1344,22 @@ const SU_ERR = {
   "no-title":"제목을 넣어 주세요.", "no-preacher":"설교자를 넣어 주세요.",
   dispatch:"작업을 시작하지 못했어요 — 친구에게 알려 주세요.", "not-failed":"멈춘 작업만 다시 시도할 수 있어요.",
   network:"인터넷 연결을 확인해 주세요 — 잠시 뒤 다시 눌러 주세요.",
+  stopped:"이 설교는 올리다 멈췄어요 — 위의 「🔁 다시 시도」를 눌러 주세요.",
 };
 let suPrefill = "";          // ① 에서 넘겨준 링크
-let suState = null;          // { id, verse, noVerse, transcript, autoTitle }
+let suState = null;          // { id, verse, noVerse, transcript, autoTitle, defDate, autoDate, autoCat }
 let suTimer = null;
 let suBusy = false;
 let suSermonIds = new Set();
+let suLastJob = null;        // 화면 위에 보이는 가장 최근 작업 — 저장까지 갔다가 멈춘 설교를 「이미 있음」과 가른다
 
 async function renderSermonUpload(){
   window.scrollTo(0, 0);
   clearInterval(suTimer);
-  suState = { id:"", verse:null, noVerse:false, transcript:"", autoTitle:"" };
+  // autoDate·autoCat — 제목에서 짐작해 채운 값(처음엔 기본값). 칸이 이 값 그대로면 담당자가 안 고친 것이다
+  const defDate = stLastSundayKst(new Date());
+  suState = { id:"", verse:null, noVerse:false, transcript:"", autoTitle:"", defDate, autoDate:defDate, autoCat:SERMON_CATS[0] };
+  suLastJob = null;
   const pre = suPrefill; suPrefill = "";
   app.innerHTML = `
     <div class="rep-head mn-top"><button class="back-btn" id="back">← 메뉴</button><h2>② 설교 내용 등록</h2></div>
@@ -1373,7 +1378,7 @@ async function renderSermonUpload(){
       <div id="su-count" class="push-hint"></div>
       <div class="su-step"><b>3</b> 정보 확인</div>
       <label class="push-lb">제목</label><input id="su-title" class="push-in">
-      <label class="push-lb">예배일</label><input id="su-date" class="push-in" type="date" value="${stLastSundayKst(new Date())}">
+      <label class="push-lb">예배일</label><input id="su-date" class="push-in" type="date" value="${defDate}">
       <label class="push-lb">구분</label><select id="su-cat" class="push-in">${SERMON_CATS.map(c=>`<option>${c}</option>`).join("")}</select>
       <label class="push-lb">설교자</label><input id="su-preacher" class="push-in" value="차동혁 위임목사">
       <p class="push-hint">초청 설교자가 오신 주에는 설교자를 바꿔 주세요.</p>
@@ -1409,7 +1414,11 @@ async function suLoadVideo(){
   suState.id = ""; suState.verse = null; suState.noVerse = false;
   const vbox = document.getElementById("su-verse"); vbox.className = "su-verse"; vbox.innerHTML = "";
   if(!id){ box.innerHTML = raw.trim() ? `<p class="msg err">유튜브 영상 링크를 알아보지 못했어요.</p>` : ""; suCheck(); return; }
-  if(suSermonIds.has(id)){ box.innerHTML = `<p class="msg err">${SU_ERR.exists}</p>`; suCheck(); return; }
+  if(suSermonIds.has(id)){
+    // 저장까지 갔다가 멈춘 작업(챗봇·배포·확인에서)이면 「이미 있음」이 아니라 다시 시도로 이끈다
+    const stopped = !!suLastJob && suLastJob.status === "failed" && suLastJob.videoId === id;
+    box.innerHTML = `<p class="msg err">${stopped ? SU_ERR.stopped : SU_ERR.exists}</p>`; suCheck(); return;
+  }
   box.innerHTML = `<p class="msg">영상을 확인하는 중...</p>`;
   let title = "", thumb = `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
   try{   // oEmbed 는 이 도메인에 CORS 를 열어 준다(2026-09-21 확인)
@@ -1421,6 +1430,11 @@ async function suLoadVideo(){
   box.innerHTML = `<img src="${htmlEsc(thumb)}" alt=""><div class="t">${title ? `<b>${htmlEsc(title)}</b><br>` : ""}<span class="push-hint">이 영상이 맞나요? (${htmlEsc(id)})</span></div>`;
   const tIn = document.getElementById("su-title"), clean = stCleanTitle(title);
   if(clean && (!tIn.value.trim() || tIn.value === suState.autoTitle)){ tIn.value = clean; suState.autoTitle = clean; }
+  // 제목 속 날짜·예배 이름으로 예배일·구분도 채운다 — 담당자가 고친 칸은 그대로 둔다(제목 칸과 같은 규칙).
+  // 짐작이 없으면 처음 값으로 돌린다 — 링크를 바꿨을 때 앞 영상의 날짜·구분이 남지 않게
+  const g = stGuessFromTitle(title), dIn = document.getElementById("su-date"), cIn = document.getElementById("su-cat");
+  if(dIn.value === suState.autoDate){ dIn.value = g.date || suState.defDate; suState.autoDate = dIn.value; }
+  if(cIn.value === suState.autoCat){ cIn.value = g.category || SERMON_CATS[0]; suState.autoCat = cIn.value; }
   await suLoadVerse(id);
   suCheck();
 }
@@ -1492,6 +1506,7 @@ async function suGo(){
 
 function suShowJob(job){
   const box = document.getElementById("su-job"); if(!box) return;
+  suLastJob = job;   // 목록을 처음 받을 때·10초마다 두드릴 때·올리기/다시 시도 뒤 — 「🔁 다시 시도」가 보이는 그 작업
   const active = job.status === "queued" || job.status === "running";
   // ⚠️ 「끝남」이어도 양식이 붙어 있는 영상의 작업일 때만 숨긴다 — 처음 열 때는
   //    suLoadVideo(pre) 가 이 함수 뒤에 돌아 suState.id 가 아직 "" 라, 옛 작업(다른 영상)이
@@ -3074,6 +3089,21 @@ function stCleanTitle(t){
     .replace(/^\d{4}\.\d{2}\.\d{2}\s+/,"")
     .trim();
 }
+// 유튜브 제목 → 예배일·구분 짐작 { date:"YYYY-MM-DD"|null, category:이름|null } — ② 가 칸을 미리 채운다
+//   예배일: 제목 앞이나 속의 「YYYY.MM.DD」(달력에 있는 날만 — 2026.02.30 은 버린다)
+//   구분: 낱말로, 이 차례대로(「송구영신 새벽」 같은 제목은 앞의 것) — 주일은 짐작하지 않는다(기본값이 주일설교)
+function stGuessFromTitle(t){
+  const s=String(t==null?"":t).normalize("NFC");
+  let date=null;
+  const m=s.match(/(?:^|\D)(\d{4})\.(\d{1,2})\.(\d{1,2})(?!\d)/);
+  if(m){
+    const d=m[1]+"-"+m[2].padStart(2,"0")+"-"+m[3].padStart(2,"0"), x=new Date(d+"T00:00:00Z");
+    if(!isNaN(x.getTime()) && x.toISOString().slice(0,10)===d) date=d;
+  }
+  const category=/송구영신/.test(s)?"송구영신예배":/새벽/.test(s)?"새벽기도회":/금요|성령집회/.test(s)?"금요성령집회"
+    :/특별집회|부흥|사경회/.test(s)?"특별집회":/청년/.test(s)?"청년예배":null;
+  return {date,category};
+}
 // DB 의 시각(UTC) → 한국 날짜. ⚠️ 예전 isoDateInput 은 UTC 로 읽어 한국 0시 구절이 하루 전으로 보였고,
 //    화면이 그 값 + "T00:00:00+09:00" 으로 저장해 **열고 저장할 때마다 하루씩 당겨졌다**(2026-09-21 발견).
 function stKstDate(d){
@@ -3197,7 +3227,8 @@ async function loadContentList(selNo){
     const r=document.getElementById("c-result");
     if(!verse.no||!verse.refShort||!verse.text){ r.className="msg err"; r.textContent="순번·출처(짧게)·말씀 본문은 필수예요."; return; }
     if(verse.textEn&&!verse.refEn){ r.className="msg err"; r.textContent="영어 본문이 있으면 영어 출처도 입력하세요. (예: John 3:16)"; return; }
-    if(STAFF_MODE) return cmStaffSave(verse);
+    // 「+ 새 말씀 추가」에서 저장하면 새 구절이라고 알린다 — 그 번호가 이미 있으면 서버가 덮어쓰지 않고 「exists」
+    if(STAFF_MODE) return cmStaffSave(sel.value === "" ? { ...verse, isNew:true } : verse);
     // 실수 방지: 저장 전 관리자 비밀번호 재확인
     const confirmPw = prompt("⚠️ 저장하면 앱 전체(목록·이번 주 말씀·알림)에 즉시 반영됩니다.\n확인을 위해 관리자 비밀번호를 다시 입력하세요:");
     if(confirmPw === null) return; // 취소
@@ -3221,7 +3252,9 @@ async function loadContentList(selNo){
 let cmPrefillUrl = "";
 const CM_ERR = { "no-required":"순번을 넣어 주세요.", required:"출처(짧게)·말씀 본문은 꼭 넣어 주세요.",
                  "bad-url":"설교 영상 링크를 알아보지 못했어요 — 유튜브 주소를 넣어 주세요.",
-                 "bad-date":"날짜를 알아보지 못했어요 — 날짜 칸을 다시 골라 주세요." };
+                 "bad-date":"날짜를 알아보지 못했어요 — 날짜 칸을 다시 골라 주세요.",
+                 "bad-no":"그 번호는 쓸 수 없어요 — 주간 암송구절 번호(1~999)만 넣어 주세요.",
+                 exists:"그 번호의 구절이 이미 있어요 — 위 목록에서 그 구절을 골라 고쳐 주세요." };
 async function cmStaffSave(verse){
   const r=document.getElementById("c-result"), btn=document.getElementById("c-save");
   if(!(await mnDialog({ icon:"💾", title:"저장할까요?", ok:"저장", cancel:"그만두기",

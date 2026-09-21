@@ -152,9 +152,12 @@ const STAFF_ROLES: Record<string, { secret: string; list: string }> = {
   ministry: { secret: "MINISTRY_SECRET", list: "ministryAdmins" },
   content:  { secret: "CONTENT_STAFF_SECRET", list: "contentAdmins" },
 };
+// ⚠️ 제 칸만 역할로 친다 — STAFF_ROLES[role] 로 보면 「constructor」 같은 이름이 물려받은 칸으로 통과한다(2026-09-21 리뷰)
+const staffRole = (role: unknown) =>
+  typeof role === "string" && Object.hasOwn(STAFF_ROLES, role) ? STAFF_ROLES[role] : null;
 async function staffRoleError(b: any, role: string): Promise<string | null> {
   if (!adminError(b)) return null;
-  const r = STAFF_ROLES[role];
+  const r = staffRole(role);
   const s = r ? Deno.env.get(r.secret) : "";
   if (!s || (b.pw ?? "") !== s) return adminError(b);
   // ⚠️ 담당자가 아니어도 「unauthorized」 — 틀린 암호와 **같은 답**(2026-09-17 리뷰)
@@ -225,7 +228,7 @@ async function ministryKeysToUsers(list: string[]): Promise<Map<string, string>>
 // ⚠️ 더할 때는 **users 에 있는 identity_key 만** 받는다 — 화면은 이름 찾기(adminFindMembers) 결과에서
 //    고르게 한다. 동명이인(같은 이름 여러 계정)을 소속·마지막 접속으로 갈라 고르게 하려는 것.
 async function staffKeys(role: string): Promise<string[]> {
-  const r = STAFF_ROLES[role];
+  const r = staffRole(role);
   if (!r) return [];
   const { data, error } = await db.from("app_config").select("value").eq("key", r.list).maybeSingle();
   if (error) throw error;
@@ -254,14 +257,14 @@ async function ministryAdminsView(keys: string[]) {
 
 async function staffAdmins(b: any) {
   const err = adminError(b); if (err) return { ok: false, error: err };
-  const role = STAFF_ROLES[b.role] ? b.role : "";
+  const role = staffRole(b.role) ? b.role : "";
   if (!role) return { ok: false, error: "invalid" };
   return { ok: true, admins: await ministryAdminsView(await staffKeys(role)) };
 }
 
 async function staffAdminsSave(b: any) {
   const err = adminError(b); if (err) return { ok: false, error: err };
-  const role = STAFF_ROLES[b.role] ? b.role : "";
+  const role = staffRole(b.role) ? b.role : "";
   const op = String(b.op || "");
   const key = norm(b.key);
   if (!role || (op !== "add" && op !== "remove") || !key || key.length > 200) return { ok: false, error: "invalid" };
@@ -276,7 +279,7 @@ async function staffAdminsSave(b: any) {
     if (i >= 0) keys.splice(i, 1);
   }
   const { error } = await db.from("app_config").upsert(
-    { key: STAFF_ROLES[role].list, value: keys, updated_at: new Date().toISOString() }, { onConflict: "key" });
+    { key: staffRole(role)!.list, value: keys, updated_at: new Date().toISOString() }, { onConflict: "key" });
   if (error) throw error;
   // ⚠️ 메모리의 목록이 아니라 **다시 읽은 목록**을 돌려준다 — 두 저장이 겹쳐 한쪽이 덮였으면 화면이 사실을 보인다
   //    (막는 것은 화면이 한 번에 하나만 보내는 것이다. 관리자 둘이 같은 순간 누르는 일은 드물다.)
@@ -5322,13 +5325,13 @@ async function eventImport(b: any) {
 const SERMON_CATS = ["주일설교", "금요성령집회", "새벽기도회", "송구영신예배", "특별집회", "청년예배"];
 const JOB_STATUS = ["queued", "running", "done", "failed"];
 const JOB_STEPS = ["dispatch", "prep", "notes", "tts", "link", "versehelp", "save", "embed", "publish", "verify"];
-const JOB_COLS = "id,video_id,title,svc_date,category,preacher,status,step,error,run_url,created_by,created_at,updated_at";
+const JOB_COLS = "id,video_id,title,svc_date,category,preacher,status,step,error,run_url,attempt,created_by,created_at,updated_at";
 const GH_SERMON_WORKFLOW =
   "https://api.github.com/repos/sewoongkim1/gocheok-sermons/actions/workflows/sermon-job.yml/dispatches";
 
 const toJob = (r: any) => ({
   id: r.id, videoId: r.video_id, title: r.title, date: r.svc_date, category: r.category,
-  preacher: r.preacher, status: r.status, step: r.step, error: r.error, runUrl: r.run_url,
+  preacher: r.preacher, status: r.status, step: r.step, error: r.error, runUrl: r.run_url, attempt: r.attempt,
   createdBy: r.created_by, createdAt: r.created_at, updatedAt: r.updated_at,
 });
 
@@ -5381,7 +5384,8 @@ async function sermonJobFail(id: number, step: string, msg: string) {
   return data ? toJob(data) : null;
 }
 
-async function dispatchSermonJob(id: number): Promise<{ ok: boolean; error?: string }> {
+// attempt — 다시 시도 번호. 워크플로가 모든 기록에 이 번호를 싣고, 서버는 지금 번호와 다르면 「stale」로 거절한다.
+async function dispatchSermonJob(id: number, attempt: number): Promise<{ ok: boolean; error?: string }> {
   const token = Deno.env.get("GH_DISPATCH_TOKEN");
   if (!token) return { ok: false, error: "GH_DISPATCH_TOKEN 시크릿 미설정" };
   // 개발 DB 는 가지(feat/sermon-staff)에서 시험한다 — GH_DISPATCH_REF 로 고른다. 운영은 main.
@@ -5394,7 +5398,7 @@ async function dispatchSermonJob(id: number): Promise<{ ok: boolean; error?: str
         Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "gocheok-sermon-admin", "Content-Type": "application/json",
       },
-      body: JSON.stringify({ ref, inputs: { job_id: String(id), api_base: apiBase } }),
+      body: JSON.stringify({ ref, inputs: { job_id: String(id), api_base: apiBase, attempt: String(attempt) } }),
       signal: AbortSignal.timeout(10000),
     });
     if (r.status === 204) return { ok: true };
@@ -5446,7 +5450,7 @@ async function sermonJobCreate(b: any) {
     if ((e2 as any).code === "23505") return { ok: false, error: "busy" };   // sermon_jobs_one_active
     throw e2;
   }
-  const d = await dispatchSermonJob(row.id);
+  const d = await dispatchSermonJob(row.id, row.attempt);
   if (!d.ok) return { ok: false, error: "dispatch", detail: d.error, job: await sermonJobFail(row.id, "dispatch", d.error!) };
   return { ok: true, job: toJob(row) };
 }
@@ -5463,15 +5467,22 @@ async function sermonJobRetry(b: any) {
   if (!Number.isInteger(id)) return { ok: false, error: "invalid" };
   await sermonJobsSweep();
   // ⚠️ 「이미 있음」은 보지 않는다 — 첫 시도가 저장까지 갔다가 멈췄을 수 있다(설계 10장)
+  // ⚠️ 다시 시도마다 번호(attempt)를 하나 올린다(2026-09-21 최종 리뷰). run_url 만 비우면, 늦게 도는
+  //    옛 실행의 fail 잡이 빈 run_url 을 「내 줄」로 알고 멈춤·텔레그램을 적었고 새 실행은 stale 로 밀려났다.
+  //    읽은 번호 그대로일 때만 올린다 — 두 분이 같은 순간 눌러도 한 번만 올라간다.
+  const { data: cur, error: e0 } = await db.from("sermon_jobs").select("status,attempt").eq("id", id).maybeSingle();
+  if (e0) throw e0;
+  if (!cur || cur.status !== "failed") return { ok: false, error: "not-failed" };
+  const attempt = Number(cur.attempt) + 1;
   const { data: row, error } = await db.from("sermon_jobs")
-    .update({ status: "queued", step: null, error: null, run_url: null, updated_at: new Date().toISOString() })
-    .eq("id", id).eq("status", "failed").select(JOB_COLS).maybeSingle();
+    .update({ status: "queued", step: null, error: null, run_url: null, attempt, updated_at: new Date().toISOString() })
+    .eq("id", id).eq("status", "failed").eq("attempt", cur.attempt).select(JOB_COLS).maybeSingle();
   if (error) {
     if ((error as any).code === "23505") return { ok: false, error: "busy" };
     throw error;
   }
   if (!row) return { ok: false, error: "not-failed" };
-  const d = await dispatchSermonJob(id);
+  const d = await dispatchSermonJob(id, row.attempt);
   if (!d.ok) return { ok: false, error: "dispatch", detail: d.error, job: await sermonJobFail(id, "dispatch", d.error!) };
   return { ok: true, job: toJob(row) };
 }
@@ -5518,6 +5529,8 @@ async function staffVerseSave(b: any) {
   const v = b.verse || {};
   const no = Number(v.no);
   if (!Number.isInteger(no) || no < 1 || no > 9999) return { ok: false, error: "no-required" };
+  // ⚠️ 1001~ 은 쉴만한 물가(시편) 줄이다 — 주간 암송구절 번호(1~999)만 받는다(2026-09-21 최종 리뷰)
+  if (no >= 1000) return { ok: false, error: "bad-no" };
   const refShort = norm(v.refShort).normalize("NFC").slice(0, 60);
   const text = String(v.text ?? "").normalize("NFC").trim().slice(0, 2000);
   if (!refShort || !text) return { ok: false, error: "required" };
@@ -5538,8 +5551,17 @@ async function staffVerseSave(b: any) {
     sermon_title: norm(v.sermonTitle).normalize("NFC").slice(0, 200) || null, sermon_url: url || null,
     is_active: v.is_active !== false,
   };
-  const { data: ex, error: e1 } = await db.from("verses").select("no").eq("no", no).maybeSingle();
-  if (e1) throw e1;
+  // 있는 줄을 track 과 함께 읽는다 — 주간 구절이 아닌 줄(시편 등)은 이 화면에서 덮어쓰지 않는다.
+  // ⚠️ track 칸이 아직 없는 DB 에서도 살아남게(getVerses 와 같은 까닭) — 그 칸이 없다는 오류면 번호만 다시 읽는다.
+  let r1: { data: any; error: any } = await db.from("verses").select("no,track").eq("no", no).maybeSingle();
+  if (r1.error && (r1.error.code === "42703" || /track/i.test(String(r1.error.message ?? "")))) {
+    r1 = await db.from("verses").select("no").eq("no", no).maybeSingle();
+  }
+  if (r1.error) throw r1.error;
+  const ex = r1.data;
+  if (ex && ex.track && ex.track !== "weekly") return { ok: false, error: "bad-no" };
+  // 「+ 새 말씀 추가」로 저장한 것 — 그 번호가 이미 있으면 덮어쓰지 않는다(번호를 잘못 넣어 남의 주 구절이 바뀌지 않게)
+  if (v.isNew === true && ex) return { ok: false, error: "exists" };
   const { error } = ex
     ? await db.from("verses").update(row).eq("no", no)
     : await db.from("verses").insert({ no, week: no, ...row });
@@ -5563,9 +5585,12 @@ async function sermonJobUpdate(b: any) {
   // ⚠️ 끝난 작업(완료·멈춤)과 다른 실행이 맡은 작업에는 적지 않는다 — 30분 스윕으로 멈춤 처리된 뒤에도
   //    옛 GitHub 실행이 살아 있으면, 다시 시도한 새 실행과 같은 줄에 번갈아 적었다(2026-09-21 리뷰).
   //    워크플로는 모든 호출에 자기 run_url 을 싣는다(job-api.mjs) — 「stale」을 받으면 스스로 멈춘다.
-  const { data: cur, error: e0 } = await db.from("sermon_jobs").select("status,run_url").eq("id", id).maybeSingle();
+  // ⚠️ 다시 시도 번호(attempt)도 본다(2026-09-21 최종 리뷰) — 다시 시도는 run_url 을 비우므로, 번호가 없으면
+  //    옛 실행이 빈 run_url 을 제 것으로 알고 새 시도의 줄에 적는다. 번호는 워크플로가 싣는다(job-api.mjs).
+  const { data: cur, error: e0 } = await db.from("sermon_jobs").select("status,run_url,attempt").eq("id", id).maybeSingle();
   if (e0) throw e0;
   if (!cur) return { ok: false, error: "not-found" };
+  if (b.attempt != null && Number(b.attempt) !== cur.attempt) return { ok: false, error: "stale" };
   const caller = b.run_url == null ? null : String(b.run_url).slice(0, 300);
   if (!["queued", "running"].includes(cur.status) || (cur.run_url && cur.run_url !== caller)) {
     return { ok: false, error: "stale" };
@@ -5575,9 +5600,9 @@ async function sermonJobUpdate(b: any) {
   if (b.step != null) { if (!JOB_STEPS.includes(b.step)) return { ok: false, error: "bad-step" }; patch.step = b.step; }
   if (b.error !== undefined) patch.error = b.error == null ? null : String(b.error).slice(0, 300);
   if (caller != null) patch.run_url = caller;
-  // 비교하며 쓰기(compare-and-set) — 위에서 읽은 그 run_url 그대로일 때만 적는다.
-  // 앞서 읽고 여기 쓰는 사이에 다른 실행이 먼저 적었으면(run_url 이 바뀌었으면) 0행이 되어 stale.
-  let q = db.from("sermon_jobs").update(patch).eq("id", id).in("status", ["queued", "running"]);
+  // 비교하며 쓰기(compare-and-set) — 위에서 읽은 그 run_url·번호 그대로일 때만 적는다.
+  // 앞서 읽고 여기 쓰는 사이에 다른 실행이 먼저 적었거나 다시 시도가 번호를 올렸으면 0행이 되어 stale.
+  let q = db.from("sermon_jobs").update(patch).eq("id", id).in("status", ["queued", "running"]).eq("attempt", cur.attempt);
   q = cur.run_url ? q.eq("run_url", cur.run_url) : q.is("run_url", null);
   const { data, error } = await q.select("id").maybeSingle();
   if (error) throw error;

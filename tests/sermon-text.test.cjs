@@ -35,6 +35,20 @@ test('제목 — 교회 머리표·목사님 꼬리표·날짜를 뗀다(add-vid
   assert.equal(ctx.stCleanTitle(''),'');
 });
 
+// ⚠️ 덩이는 vm 안에서 돈다 — 돌려준 객체는 프로토타입이 달라 그대로 deepEqual 하면 틀린다. 펼쳐서 비교한다.
+test('제목 → 예배일·구분 짐작(② 가 칸을 미리 채운다)',()=>{
+  const g=t=>({...ctx.stGuessFromTitle(t)});
+  assert.deepEqual(g('[고척교회] 2026.09.21(월) 새벽기도회'),{date:'2026-09-21',category:'새벽기도회'});
+  assert.deepEqual(g('2026.09.18 금요성령집회'),{date:'2026-09-18',category:'금요성령집회'});
+  assert.deepEqual(g('하나님은 공장장이 아니라 아버지입니다'),{date:null,category:null});
+  assert.equal(g('2026.02.30 새벽').date,null);                         // 달력에 없는 날
+  assert.equal(g('2026.02.30 새벽').category,'새벽기도회');
+  assert.equal(g('2026.12.31 송구영신예배 새벽').category,'송구영신예배');   // 앞의 낱말이 먼저
+  assert.equal(g('2026.10.05 가을 부흥사경회').category,'특별집회');
+  assert.equal(g('청년부 예배').category,'청년예배');
+  assert.deepEqual(g(''),{date:null,category:null});
+});
+
 test('한국 날짜 — 9/19 0시(한국)가 9/18 로 보이던 버그',()=>{
   assert.equal(ctx.stKstDate('2026-09-18T15:00:00+00:00'),'2026-09-19');
   assert.equal(ctx.isoDateInput('2026-09-18T15:00:00+00:00'),'2026-09-19');

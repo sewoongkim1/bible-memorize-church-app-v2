@@ -65,7 +65,12 @@ J = {"videoId": "AAAAAAAAAAA", "title": "시험", "date": "2026-09-20", "categor
 chk("영상 번호", call(dict(S, action="sermonJobCreate", job=dict(J, videoId="bad"))).get("error"), "bad-video")
 chk("구분", call(dict(S, action="sermonJobCreate", job=dict(J, category="없는구분"))).get("error"), "bad-category")
 chk("짧은 자막", call(dict(S, action="sermonJobCreate", job=dict(J, transcript="가" * 50))).get("error"), "short-transcript")
-chk("구절 링크 꼴", call(dict(S, action="staffVerseSave", verse={"no": 9998, "refShort": "시험", "text": "시험", "url": "https://example.com"})).get("error"), "bad-url")
+# ⚠️ 번호는 999 아래로 — 1000 넘는 번호는 링크를 보기 전에 bad-no 로 막힌다(아래). 링크 검사는 DB 를 읽기 전이라 아무것도 안 쓴다.
+chk("구절 링크 꼴", call(dict(S, action="staffVerseSave", verse={"no": 998, "refShort": "시험", "text": "시험", "url": "https://example.com"})).get("error"), "bad-url")
+chk("구절 번호 1001(쉴만한 물가 줄)", call(dict(S, action="staffVerseSave", verse={"no": 1001, "refShort": "시험", "text": "시험"})).get("error"), "bad-no")
+chk("새 구절인데 있는 번호(1)", call(dict(S, action="staffVerseSave", verse={"no": 1, "refShort": "시험", "text": "시험", "isNew": True})).get("error"), "exists")
+chk("역할 이름 constructor", call({"action": "staffAdmins", "pw": ADMIN, "role": "constructor"}).get("error"), "invalid")
+chk("역할 이름 constructor(저장)", call({"action": "staffAdminsSave", "pw": ADMIN, "role": "constructor", "op": "add", "key": ME_KEY}).get("error"), "invalid")
 print("[6] 찬양 함수가 묻는 길")
 chk("staffVerify 담당자", call({"action": "staffVerify", "role": "content", "pw": STAFF, "staff": ME}).get("ok"), True)
 chk("staffVerify 틀린 암호", call({"action": "staffVerify", "role": "content", "pw": "wrong", "staff": ME}).get("error"), "unauthorized")
