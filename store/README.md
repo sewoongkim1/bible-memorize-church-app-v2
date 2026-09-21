@@ -333,6 +333,14 @@ registration fee"로 검색) → 정책 위반 점검 → Play Console에서 이
       → 가진 증명서: 구로세무서 **2026-09-15 발급**(3개월 기준이면 12월 중순까지 쓸 수 있다) · 영문 주소
       `79 Jungang-ro, Guro-gu, Seoul, Republic of Korea` · 개업일 1954-10-28. ⚠️ 대표자 생년월일이 찍혀
       있으니 **이 저장소에 파일로 넣지 말 것**(공개 저장소).
+- [ ] ⏳ **D-U-N-S 재신청 접수(2026-09-22)** — D&B 애플 전용 양식(`support.dnb.com/?CUST=APPLEDEV`)
+      → 「I need to lookup my DUNS」 → 검색 결과(송파구 "MS Gocheok" 주식회사 둘 — **우리 아님**)를 고르지 않고
+      「click here to submit a request to create a new D-U-N-S」 → **Case #34865071**.
+      넣은 값: 법적 이름 = 증명서 로마자 음역 · 사업자번호 113-82-04045 · Legal Structure `Non-profit Organization`
+      · 대표 Donghyuk Cha(Pastor) · 개업일 10/28/1954 · 우편번호 08228(확인함) · 첨부 = 영문·국문 사업자등록증명.
+      D&B 안내: **7~14영업일** → 10/1(목)~10/12(월)쯤(추석 연휴로 늦어질 수 있다). 답은 `church.gocheok@gmail.com`
+      으로 온다. 진행 상황은 같은 사이트 **「Case Status Report」** 탭. D&B 가 교회 사무실(02-2686-5871)로
+      확인 전화를 걸 수 있다. 번호가 나오면 → 애플 반영 2영업일 → 애플 조회 도구로 확인 → 단체 등록.
       ⚠️ 서류 요청 메일이 따로 왔었는지 확인할 것 — 연락처가 정지된 Gmail 이었다면 요청을 못 받아
       "서류 미제출"로 닫혔을 수 있다. 재신청 연락처는 매일 보는 주소로.
 
