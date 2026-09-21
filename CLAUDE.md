@@ -209,15 +209,14 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
       **Mac+Xcode로 실기기 콘솔 로그를 직접 봐야 원인이 잡힐 것 같다**(이전 세션에서 한 번
       확인됐던 기능인데 이번 재확인에서 막힘 — 이전 "완료" 기록을 신뢰하지 말 것).
 
-- [ ] 📱 **아이폰 위젯 1.1.0 — 2026-09-21 심사 제출(최종 빌드, `7ae11de` 까지 포함). 결과 대기.** 승인되면
-      App Store Connect 에서 **「출시」를 눌러야** 공개된다(1.0.1 때처럼 수동). 잠금 화면 이번주 말씀(누르면
+- [ ] 📱 **아이폰 위젯 1.1.0 — 2026-09-22 출시됐다**(App Store 조회로 확인 · 02:33 KST). 잠금 화면 이번주 말씀(누르면
       그 구절 암송) · 오늘의 묵상 · 오늘의 축복 기도문 + 홈 「크게」·교회 마크. 서버 액션 셋은 **운영 배포까지 끝**났고
       `tests/widget-parity.py` 가 앱 화면과 140/140 일치를 확인했다.
-      ⏰ **「출시」를 누른 날 `app.js` 의 `WIDGET_GUIDE.ios = true` → bump → 푸시** — 설명서의 위젯 안내가 그때 켜진다
-      (웹은 앱 판 번호를 몰라 미리 켜면 없는 위젯을 안내한다). 읽을 것 `docs/notes/manual-guide.md` 「위젯 안내」
-      🏷️ **다음 빌드(1.1.1)부터 껍데기 판 표식이 들어간다**(`installAppInfoMarker` · 2026-09-22 커밋, ⚠️ Mac 컴파일 미확인).
-      빌드 전에 `MARKETING_VERSION` 을 손으로 1.1.1 로(두 곳) · TestFlight 로 받아 **설정 맨 아래 「📱 아이폰 앱 1.1.1 (빌드 N)」**
-      이 뜨는지 볼 것. 1.0.1·1.1.0 은 표식이 없어 둘 다 `version:""` 로 보인다. 읽을 것 `docs/notes/ios-app.md`
+      ✅ 같은 날 설명서 위젯 안내를 켰다(`WIDGET_GUIDE.ios = true` — 아이폰 앱에서만 보인다). 읽을 것 `docs/notes/manual-guide.md` 「위젯 안내」
+      🏷️ **남은 것: 다음 빌드(1.1.1)에 껍데기 판 표식이 들어간다**(`installAppInfoMarker` · ⚠️ Mac 컴파일 미확인).
+      `MARKETING_VERSION` 은 이미 1.1.1 로 올려 두었다(앱·위젯 × Debug·Release **네 곳**). TestFlight 로 받아
+      **설정 맨 아래 「📱 아이폰 앱 1.1.1 (빌드 N)」** 이 뜨는지 볼 것. 1.0.1·1.1.0 은 표식이 없어 둘 다 `version:""` 로 보인다.
+      읽을 것 `docs/notes/ios-app.md`
       ⚠️ 실기기를 보고 9/21에 바꾼 넷(작게 뺌 · 크게 더함 · 교회 마크 · 묵상 질문 뺌)과 그 이유는
       설계 `docs/superpowers/specs/2026-09-20-ios-widgets-design.md` ① 끝 절 — **작게를 다시 넣지 말 것.**
       ⚠️ 묵상·기도문 고르는 규칙은 **app.js 와 서버 두 곳**이다(`docs/notes/meditation.md`·`prayer-book.md`).

@@ -38,6 +38,10 @@
 ## 판 번호 올리기
 
 - **빌드 번호**는 Codemagic 이 TestFlight 최신 + 1 로 저절로 올린다(`codemagic.yaml` 「빌드 번호 자동 증가」).
-- **판(MARKETING_VERSION)** 은 `ios-app/ios/App/App.xcodeproj/project.pbxproj` 에 두 곳(Debug·Release) — 손으로 올린다.
-  App Store 에 **승인된 판과 같은 번호로는 새로 낼 수 없다**(심사 중·반려된 판이면 같은 번호에 빌드만 갈아 끼울 수 있다).
-  위젯 판은 앱 본체를 따라간다(커밋 7335ac8).
+- **판(MARKETING_VERSION)** 은 `ios-app/ios/App/App.xcodeproj/project.pbxproj` 에 **네 곳**(앱·위젯 × Debug·Release) — 손으로 올린다.
+  위젯의 Info.plist 가 `$(MARKETING_VERSION)` 을 읽으므로(커밋 7335ac8) **네 곳을 모두 같은 값으로** 둔다 —
+  앱과 위젯 판이 어긋나면 빌드 경고(「must match that of its containing parent app」)가 난다.
+  `sed 's/MARKETING_VERSION = 1.1.0;/…1.1.1;/g'` 처럼 한 번에 바꾸고 4를 센다.
+  ⚠️ App Store 에 **승인된 판과 같은 번호로는 TestFlight 업로드부터 거부된다**(오류 90062/90186 — Codemagic Publishing
+  단계 실패로 보인다, 커밋 5da610b). 심사 중·반려된 판이면 같은 번호에 빌드만 갈아 끼울 수 있다.
+- 판 이력: 1.0.1(2026-09-19 출시) · 1.1.0 위젯(2026-09-22 출시) · **1.1.1 = 다음 빌드**(판 표식 · 2026-09-22 에 번호만 올려 둠).
