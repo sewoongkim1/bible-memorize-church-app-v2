@@ -51,6 +51,30 @@ def twaManifest = [
 ]
 
 android {
+    // BuildConfig 를 만든다(AGP 8 은 기본으로 끈다) — 위젯이 WIDGET_DATE 를 읽는다.
+    buildFeatures {
+        buildConfig true
+    }
+
+    // 두 벌(설계 ③): 시험판은 이름·패키지가 달라 플레이스토어 앱 옆에 따로 깔린다 → 테스터 시계를 안 건드린다.
+    //   ./gradlew assembleDevDebug                         시험판(오늘 날짜)
+    //   ./gradlew assembleDevDebug -PwidgetDate=2026-04-20  시험판(그날로 보기 — 가장 긴 글 확인용)
+    //   ./gradlew bundleProdRelease                         정식판(9/27 이후, 계획 Task 8)
+    flavorDimensions "channel"
+    productFlavors {
+        prod {
+            dimension "channel"
+            buildConfigField "String", "WIDGET_DATE", '""'
+        }
+        dev {
+            dimension "channel"
+            applicationIdSuffix ".dev"
+            resValue "string", "appName", "성경암송 시험"
+            resValue "string", "launcherName", "성경암송 시험"
+            buildConfigField "String", "WIDGET_DATE", "\"${project.findProperty('widgetDate') ?: ''}\""
+        }
+    }
+
     compileSdkVersion 36
     namespace "kr.onlybible.gocheok.memorize"
     defaultConfig {
