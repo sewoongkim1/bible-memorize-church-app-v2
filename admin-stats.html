@@ -1391,7 +1391,7 @@ async function renderSermonUpload(){
   const d = await callApi({ action:"sermonStaffList", pw:getPw(), staff:getStaff() }).catch(()=>({ok:false,error:"network"}));
   if(minAuthLost(d)) return;
   if(!d.ok){
-    const j=document.getElementById("su-job"); if(j) j.innerHTML=`<p class="msg err">불러오지 못했습니다 (${htmlEsc(SU_ERR[d.error] || d.error || "")})</p>`;
+    const j=document.getElementById("su-job"); if(j) j.innerHTML=`<p class="msg err">불러오지 못했습니다 — 인터넷 연결을 확인하고 화면을 다시 열어 주세요 (${htmlEsc(d.error||"")})</p>`;
     if(pre) suLoadVideo();   // 목록은 못 받아도, 넘어온 링크는 그대로 확인해 준다(exists 검사는 서버가 다시 한다)
     return;
   }
@@ -1429,6 +1429,12 @@ async function suLoadVerse(id){
   const box = document.getElementById("su-verse"); if(!box) return;
   const d = await callApi({ action:"getVerses" }).catch(()=>({ok:false}));
   if(!suState || suState.id !== id || !box.isConnected) return;   // 그사이 링크가 바뀌었거나 다른 화면으로 갔다
+  if(!d.ok || !d.verses){
+    suState.verse = null;
+    box.className = "su-verse warn";
+    box.innerHTML = "⚠️ 암송구절 목록을 불러오지 못했어요 — 화면을 다시 열어 주세요.";
+    return;
+  }
   const v = (d.verses||[]).find(x => stVideoId(x.url) === id);
   suState.verse = v || null;
   if(v){ box.className = "su-verse"; box.innerHTML = `📖 <b>${htmlEsc(v.no)}번 (${htmlEsc(v.refShort)})</b>과 연결돼요 — 암송 도우미(쉬운 풀이·기억법)도 함께 만들어져요.`; return; }
@@ -1487,7 +1493,10 @@ async function suGo(){
 function suShowJob(job){
   const box = document.getElementById("su-job"); if(!box) return;
   const active = job.status === "queued" || job.status === "running";
-  const form = document.getElementById("su-form"); if(form) form.hidden = active || job.status === "done";
+  // ⚠️ 「끝남」이어도 양식이 붙어 있는 영상의 작업일 때만 숨긴다 — 처음 열 때는
+  //    suLoadVideo(pre) 가 이 함수 뒤에 돌아 suState.id 가 아직 "" 라, 옛 작업(다른 영상)이
+  //    양식을 가리고 ① 이 넘겨준 링크 확인까지 막아버렸다.
+  const form = document.getElementById("su-form"); if(form) form.hidden = active || (job.status === "done" && !!suState && job.videoId === suState.id);
   const idx = SU_STEPS.findIndex(s => s[0] === job.step);
   const items = SU_STEPS.map(([k, label], i) => {
     const c = job.status === "done" ? "done"
@@ -1522,7 +1531,7 @@ async function suPoll(){
   if(!d) return;                       // 한 번 끊겨도 다음 번에 다시
   if(minAuthLost(d)){ clearInterval(suTimer); return; }
   if(d.ok && d.jobs && d.jobs[0]) suShowJob(d.jobs[0]);
-  else if(d.ok) clearInterval(suTimer);   // 작업이 사라졌다 — 계속 두드릴 이유가 없다
+  else if(d.ok){ clearInterval(suTimer); const f = document.getElementById("su-form"); if(f) f.hidden = false; }   // 작업이 사라졌다 — 계속 두드릴 이유가 없다
 }
 
 async function suRetry(id, btn){
