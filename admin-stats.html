@@ -2860,10 +2860,11 @@ function isoDateInput(d){ return stKstDate(d); }   // date 칸용 — 한국 날
 // ==== /sermon-text ====
 async function renderContent(){
   app.innerHTML=`
-    <div class="rep-head">
+    <div class="rep-head mn-top">
       <button class="back-btn" id="back">← 메뉴</button>
-      <h2>📖 설교/말씀 관리</h2>
+      <h2>${SERMON_ONLY ? "① 설교/말씀 등록" : "📖 설교/말씀 관리"}</h2>
     </div>
+    ${SERMON_ONLY ? `<p class="push-hint" style="margin:0 0 10px">이번 주 암송구절을 고르고 <b>설교 영상 링크</b>를 넣어 저장한 뒤 ② 로 가세요. 링크를 먼저 넣어야 설교와 구절이 이어집니다.</p>` : ""}
     <div id="cms-body"><div class="msg">불러오는 중...</div></div>`;
   document.getElementById("back").addEventListener("click", renderMenu);
   loadContentList();
@@ -2873,12 +2874,14 @@ async function loadContentList(selNo){
   const data=await callApi({action:"getVerses"}).catch(()=>({ok:false,error:"network"}));
   const list=(data&&data.verses)||[];
   // 최신 말씀(큰 번호)이 먼저 — 고치는 것은 거의 늘 이번 주 구절이다(2026-09-21 성도님 요청)
-  const opts=`<option value="">+ 새 말씀 추가</option>`+[...list].sort((a,b)=>Number(b.no)-Number(a.no)).map(v=>`<option value="${v.no}">${v.no}. ${htmlEsc(v.refShort||"")} — ${htmlEsc(v.sermonTitle||"")}</option>`).join("");
+  const cmSorted=[...list].sort((a,b)=>Number(b.no)-Number(a.no));
+  const cmLatest=cmSorted[0]||null, cmMaxNo=cmLatest?Number(cmLatest.no):0;
+  const opts=`<option value="">+ 새 말씀 추가</option>`+cmSorted.map(v=>`<option value="${v.no}">${v.no}. ${htmlEsc(v.refShort||"")} — ${htmlEsc(v.sermonTitle||"")}</option>`).join("");
   body.innerHTML=`
     <div class="push-card">
       <label class="push-lb">편집할 말씀 선택</label>
       <select id="c-sel" class="push-in">${opts}</select>
-      ${list.length? "" : `<p class="push-hint">아직 DB에 말씀이 없어요. 아래 '초기 적재'로 verses.json을 불러오세요.</p>
+      ${list.length || STAFF_MODE ? "" : `<p class="push-hint">아직 DB에 말씀이 없어요. 아래 '초기 적재'로 verses.json을 불러오세요.</p>
         <button class="push-fill" id="c-seed">⬇️ verses.json → DB 초기 적재</button>`}
       <hr style="border:none;border-top:1px solid var(--border);margin:14px 0;">
       <label class="push-lb">순번(no) *</label><input id="c-no" class="push-in" inputmode="numeric" placeholder="예: 27">
@@ -2886,10 +2889,12 @@ async function loadContentList(selNo){
       <label class="push-lb">출처(짧게, refShort) *</label><input id="c-refshort" class="push-in" placeholder="예: 딤전 1:11">
       <label class="push-lb">출처(전체, refFull)</label><input id="c-reffull" class="push-in" placeholder="예: 디모데전서 1장 11절">
       <label class="push-lb">말씀 본문 *</label><textarea id="c-text" class="push-in" rows="3"></textarea>
+      <div id="c-niv"${STAFF_MODE ? " hidden" : ""}>
       <label class="push-lb">영어 출처(NIV, 선택)</label><input id="c-refen" class="push-in" placeholder="예: 1 Timothy 1:11">
       <label class="push-lb">영어 본문(NIV, 선택)</label><textarea id="c-texten" class="push-in" rows="3"></textarea>
       <button class="push-fill" id="c-gen-niv">🤖 NIV 생성 (AI)</button>
       <p class="push-hint">AI가 만든 본문은 실제 NIV와 다를 수 있어요. 성경과 대조·검수 후 저장하세요. 영어 본문이 있는 구절만 앱에서 한/영 전환이 나타납니다.</p>
+      </div>
       <label class="push-lb">힌트(선택)</label><input id="c-hint" class="push-in" placeholder="예: 이 OOO OO">
       <label class="push-lb">설교 제목</label><input id="c-sermon" class="push-in" placeholder="예: 유리 보석에 속지 마십시오">
       <label class="push-lb">설교자</label><input id="c-pastor" class="push-in" placeholder="예: 차동혁 담임목사">
@@ -2900,8 +2905,9 @@ async function loadContentList(selNo){
     </div>`;
   const sel=document.getElementById("c-sel");
   function fill(v){
-    document.getElementById("c-no").value=v?v.no:"";
-    document.getElementById("c-date").value=v?isoDateInput(v.date):"";
+    // 새 구절이면 번호는 가장 큰 번호 + 1, 날짜는 가장 최근 구절 + 7일(지금 쓰는 규칙을 따라간다)
+    document.getElementById("c-no").value=v?v.no:(cmMaxNo?cmMaxNo+1:"");
+    document.getElementById("c-date").value=v?isoDateInput(v.date):(cmLatest&&cmLatest.date?stAddDays(isoDateInput(cmLatest.date),7):"");
     document.getElementById("c-refshort").value=v?(v.refShort||""):"";
     document.getElementById("c-reffull").value=v?(v.refFull||""):"";
     document.getElementById("c-text").value=v?(v.text||""):"";
@@ -2956,6 +2962,7 @@ async function loadContentList(selNo){
     const r=document.getElementById("c-result");
     if(!verse.no||!verse.refShort||!verse.text){ r.className="msg err"; r.textContent="순번·출처(짧게)·말씀 본문은 필수예요."; return; }
     if(verse.textEn&&!verse.refEn){ r.className="msg err"; r.textContent="영어 본문이 있으면 영어 출처도 입력하세요. (예: John 3:16)"; return; }
+    if(STAFF_MODE) return cmStaffSave(verse);
     // 실수 방지: 저장 전 관리자 비밀번호 재확인
     const confirmPw = prompt("⚠️ 저장하면 앱 전체(목록·이번 주 말씀·알림)에 즉시 반영됩니다.\n확인을 위해 관리자 비밀번호를 다시 입력하세요:");
     if(confirmPw === null) return; // 취소
@@ -2964,9 +2971,44 @@ async function loadContentList(selNo){
     const data=await callApi({action:"saveVerse",pw:confirmPw,verse}).catch(()=>({ok:false,error:"network"}));
     btn.disabled=false;
     if(!data.ok){ if(data.error==="unauthorized"){sessionStorage.removeItem(PW_KEY);renderLogin();return;} r.className="msg err"; r.textContent="저장 실패: "+(data.error||"오류"); return; }
-    r.className="msg"; r.textContent="✅ 저장되었습니다.";
-    loadContentList(verse.no);
+    cmAfterSave(verse.no, verse.url);
   });
+  if(cmPrefillUrl){
+    const u=cmPrefillUrl; cmPrefillUrl="";
+    if(cmLatest){ sel.value=String(cmLatest.no); fill(cmLatest); }
+    const cu=document.getElementById("c-url"), res=document.getElementById("c-result");
+    res.className="msg";
+    if(!cu.value.trim()){ cu.value=u; res.textContent=`가장 최근 구절(${cmLatest?cmLatest.no+"번":"새 구절"})에 설교 링크를 넣어 두었어요. 맞는지 보고 저장해 주세요.`; }
+    else if(stVideoId(cu.value)!==stVideoId(u)) res.textContent="가장 최근 구절에 이미 다른 링크가 있어요. 링크를 넣을 구절을 골라 주세요.";
+  }
+}
+// ② 설교 내용 등록이 「① 로 가기」 때 넣는 링크 — 가장 최근 구절에 미리 채워 둔다
+let cmPrefillUrl = "";
+const CM_ERR = { "no-required":"순번을 넣어 주세요.", required:"출처(짧게)·말씀 본문은 꼭 넣어 주세요.",
+                 "bad-url":"설교 영상 링크를 알아보지 못했어요 — 유튜브 주소를 넣어 주세요.",
+                 "bad-date":"날짜를 알아보지 못했어요 — 날짜 칸을 다시 골라 주세요." };
+async function cmStaffSave(verse){
+  const r=document.getElementById("c-result"), btn=document.getElementById("c-save");
+  if(!(await mnDialog({ icon:"💾", title:"저장할까요?", ok:"저장", cancel:"그만두기",
+    html:`<b>${plEsc(verse.no)}번 ${plEsc(verse.refShort)}</b>`,
+    note:"저장하면 앱 전체(이번 주 말씀·알림)에 바로 반영돼요." }))) return;
+  btn.disabled=true; r.className="msg"; r.textContent="저장 중...";
+  const d=await callApi({ action:"staffVerseSave", pw:getPw(), staff:getStaff(), verse }).catch(()=>({ok:false,error:"network"}));
+  btn.disabled=false;
+  if(minAuthLost(d)) return;
+  if(!d.ok){ r.className="msg err"; r.textContent="저장 실패: "+(CM_ERR[d.error]||d.error||"오류"); return; }
+  cmAfterSave(verse.no, d.url);
+}
+async function cmAfterSave(no, url){
+  await loadContentList(no);
+  const r=document.getElementById("c-result"); if(!r) return;
+  r.className="msg"; r.textContent="✅ 저장되었습니다.";
+  if(SERMON_ONLY && url){
+    const b=document.createElement("button");
+    b.className="push-send"; b.textContent="② 설교 내용 등록으로 →";
+    b.addEventListener("click", ()=>{ suPrefill=url; renderSermonUpload(); });
+    r.after(b);
+  }
 }
 
 // ---------- 핵심 암송(긴 본문) 관리 ----------
