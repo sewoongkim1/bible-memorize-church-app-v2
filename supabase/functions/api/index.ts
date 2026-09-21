@@ -5336,16 +5336,20 @@ const toJob = (r: any) => ({
 function ytIdOf(u: unknown): string {
   const s = String(u ?? "").trim();
   if (/^[A-Za-z0-9_-]{11}$/.test(s)) return s;
-  const m = s.match(/(?:[?&]v=|youtu\.be\/|\/live\/|\/shorts\/|\/embed\/)([A-Za-z0-9_-]{11})/);
+  const m = s.match(/(?:[?&]v=|youtu\.be\/|\/live\/|\/shorts\/|\/embed\/)([A-Za-z0-9_-]{11})(?![A-Za-z0-9_-])/);
   return m ? m[1] : "";
 }
+
+// 「YYYY-MM-DD」이면서 달력에 있는 날(2026-02-30 같은 것은 거른다 — DB 가 500 으로 튕긴다)
+const isYmd = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d) && new Date(d + "T00:00:00Z").toISOString().slice(0, 10) === d;
 
 // 올린 분 「소속 이름」 — 보이기용(user_id 를 싣지 않는다)
 function staffLabel(b: any): string {
   if (!adminError(b)) return "관리자";
   const st = b.staff || {};
-  const mok = norm(st.mok) ? norm(st.mok).replace(/목장$/, "") + "목장" : "";
-  return [st.gu, mok, st.bu, st.grade, st.name].map(norm).filter(Boolean).join(" ").slice(0, 60);
+  const mokNorm = norm(st.mok).normalize("NFC");
+  const mok = mokNorm ? mokNorm.replace(/목장$/, "") + "목장" : "";
+  return [st.gu, mok, st.bu, st.grade, st.name].map((x: unknown) => norm(x).normalize("NFC")).filter(Boolean).join(" ").slice(0, 60);
 }
 
 // 30분 넘게 소식이 없는 작업은 멈춘 것으로 본다 — 그래야 「한 번에 하나만」이 영원히 막지 않는다.
@@ -5379,16 +5383,21 @@ async function dispatchSermonJob(id: number): Promise<{ ok: boolean; error?: str
   // 개발 DB 는 가지(feat/sermon-staff)에서 시험한다 — GH_DISPATCH_REF 로 고른다. 운영은 main.
   const ref = Deno.env.get("GH_DISPATCH_REF") || "main";
   const apiBase = `${Deno.env.get("SUPABASE_URL")}/functions/v1/api`;
-  const r = await fetch(GH_SERMON_WORKFLOW, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json",
-      "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "gocheok-sermon-admin", "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ ref, inputs: { job_id: String(id), api_base: apiBase } }),
-  });
-  if (r.status === 204) return { ok: true };
-  return { ok: false, error: `GitHub ${r.status}: ${(await r.text()).slice(0, 200)}` };
+  try {
+    const r = await fetch(GH_SERMON_WORKFLOW, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "gocheok-sermon-admin", "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ ref, inputs: { job_id: String(id), api_base: apiBase } }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (r.status === 204) return { ok: true };
+    return { ok: false, error: `GitHub ${r.status}: ${(await r.text()).slice(0, 200)}` };
+  } catch (e) {
+    return { ok: false, error: `GitHub 연결 실패: ${String((e as Error)?.message ?? e).slice(0, 150)}` };
+  }
 }
 
 async function sermonStaffList(b: any) {
@@ -5413,8 +5422,8 @@ async function sermonJobCreate(b: any) {
   const title = norm(j.title).normalize("NFC").slice(0, 200);
   if (!title) return { ok: false, error: "no-title" };
   const svc_date = String(j.date || "");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(svc_date)) return { ok: false, error: "bad-date" };
-  const category = String(j.category || "");
+  if (!isYmd(svc_date)) return { ok: false, error: "bad-date" };
+  const category = String(j.category || "").normalize("NFC");
   if (!SERMON_CATS.includes(category)) return { ok: false, error: "bad-category" };
   const preacher = norm(j.preacher).normalize("NFC").slice(0, 60);
   if (!preacher) return { ok: false, error: "no-preacher" };
@@ -5467,19 +5476,19 @@ async function sermonStaffSave(b: any) {
   const err = await contentError(b); if (err) return { ok: false, error: err };
   const s = b.sermon || {};
   const id = String(s.id || "");
-  const title = norm(s.title).normalize("NFC");
+  const title = norm(s.title).normalize("NFC").slice(0, 200);
   if (!id || !title) return { ok: false, error: "invalid" };
   const { data: cur, error: e1 } = await db.from("sermons").select("category").eq("id", id).maybeSingle();
   if (e1) throw e1;
   if (!cur) return { ok: false, error: "not-found" };
-  const category = String(s.category || "");
+  const category = String(s.category || "").normalize("NFC");
   // 목록 밖의 옛 구분은 그대로 두는 것만 허락한다(바꾸면 목록 안에서)
   if (!SERMON_CATS.includes(category) && category !== cur.category) return { ok: false, error: "bad-category" };
   const date = String(s.date || "");
-  if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) return { ok: false, error: "bad-date" };
+  if (date && !isYmd(date)) return { ok: false, error: "bad-date" };
   // ⚠️ 다섯 칸만 바꾼다 — 옛 saveSermon 은 통째 upsert 라 빠진 칸이 null 이 됐다
   const { error } = await db.from("sermons").update({
-    title, svc_date: date || null, category, preacher: norm(s.preacher).normalize("NFC") || null,
+    title, svc_date: date || null, category, preacher: norm(s.preacher).normalize("NFC").slice(0, 60) || null,
     hidden: !!s.hidden, updated_at: new Date().toISOString(),
   }).eq("id", id);
   if (error) throw error;
@@ -5505,8 +5514,8 @@ async function staffVerseSave(b: any) {
   const v = b.verse || {};
   const no = Number(v.no);
   if (!Number.isInteger(no) || no < 1 || no > 9999) return { ok: false, error: "no-required" };
-  const refShort = norm(v.refShort).normalize("NFC");
-  const text = String(v.text ?? "").normalize("NFC").trim();
+  const refShort = norm(v.refShort).normalize("NFC").slice(0, 60);
+  const text = String(v.text ?? "").normalize("NFC").trim().slice(0, 2000);
   if (!refShort || !text) return { ok: false, error: "required" };
   let url = String(v.url ?? "").trim();
   if (url) {
@@ -5514,11 +5523,13 @@ async function staffVerseSave(b: any) {
     if (!id) return { ok: false, error: "bad-url" };
     url = `https://www.youtube.com/watch?v=${id}`;   // 4-link 가 틀림없이 찾는 꼴로
   }
-  const refFull = norm(v.refFull).normalize("NFC");
+  const refFull = norm(v.refFull).normalize("NFC").slice(0, 120);
+  const vdate = v.date == null || v.date === "" ? null : String(v.date);
+  if (vdate && isNaN(Date.parse(vdate))) return { ok: false, error: "bad-date" };
   const row: any = {
-    date: v.date || null, ref_short: refShort, ref_full: refFull || null, ref: refFull || refShort, text,
-    hint: norm(v.hintText).normalize("NFC") || null, pastor: norm(v.pastor).normalize("NFC") || null,
-    sermon_title: norm(v.sermonTitle).normalize("NFC") || null, sermon_url: url || null,
+    date: vdate, ref_short: refShort, ref_full: refFull || null, ref: refFull || refShort, text,
+    hint: norm(v.hintText).normalize("NFC").slice(0, 300) || null, pastor: norm(v.pastor).normalize("NFC").slice(0, 60) || null,
+    sermon_title: norm(v.sermonTitle).normalize("NFC").slice(0, 200) || null, sermon_url: url || null,
     is_active: v.is_active !== false,
   };
   const { data: ex, error: e1 } = await db.from("verses").select("no").eq("no", no).maybeSingle();
@@ -5543,15 +5554,26 @@ async function sermonJobUpdate(b: any) {
   const err = adminError(b); if (err) return { ok: false, error: err };
   const id = Number(b.id);
   if (!Number.isInteger(id)) return { ok: false, error: "invalid" };
+  // ⚠️ 끝난 작업(완료·멈춤)과 다른 실행이 맡은 작업에는 적지 않는다 — 30분 스윕으로 멈춤 처리된 뒤에도
+  //    옛 GitHub 실행이 살아 있으면, 다시 시도한 새 실행과 같은 줄에 번갈아 적었다(2026-09-21 리뷰).
+  //    워크플로는 모든 호출에 자기 run_url 을 싣는다(job-api.mjs) — 「stale」을 받으면 스스로 멈춘다.
+  const { data: cur, error: e0 } = await db.from("sermon_jobs").select("status,run_url").eq("id", id).maybeSingle();
+  if (e0) throw e0;
+  if (!cur) return { ok: false, error: "not-found" };
+  const caller = b.run_url == null ? null : String(b.run_url).slice(0, 300);
+  if (!["queued", "running"].includes(cur.status) || (cur.run_url && cur.run_url !== caller)) {
+    return { ok: false, error: "stale" };
+  }
   const patch: any = { updated_at: new Date().toISOString() };
   if (b.status != null) { if (!JOB_STATUS.includes(b.status)) return { ok: false, error: "bad-status" }; patch.status = b.status; }
   if (b.step != null) { if (!JOB_STEPS.includes(b.step)) return { ok: false, error: "bad-step" }; patch.step = b.step; }
   if (b.error !== undefined) patch.error = b.error == null ? null : String(b.error).slice(0, 300);
-  if (b.run_url != null) patch.run_url = String(b.run_url).slice(0, 300);
-  const { data, error } = await db.from("sermon_jobs").update(patch).eq("id", id).select("id").maybeSingle();
+  if (caller != null) patch.run_url = caller;
+  const { data, error } = await db.from("sermon_jobs").update(patch).eq("id", id)
+    .in("status", ["queued", "running"]).select("id").maybeSingle();
   if (error) {
     if ((error as any).code === "23505") return { ok: false, error: "busy" };
     throw error;
   }
-  return data ? { ok: true } : { ok: false, error: "not-found" };
+  return data ? { ok: true } : { ok: false, error: "stale" };
 }
