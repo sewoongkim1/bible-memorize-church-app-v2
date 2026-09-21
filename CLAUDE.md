@@ -212,6 +212,8 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
       App Store Connect 에서 **「출시」를 눌러야** 공개된다(1.0.1 때처럼 수동). 잠금 화면 이번주 말씀(누르면
       그 구절 암송) · 오늘의 묵상 · 오늘의 축복 기도문 + 홈 「크게」·교회 마크. 서버 액션 셋은 **운영 배포까지 끝**났고
       `tests/widget-parity.py` 가 앱 화면과 140/140 일치를 확인했다.
+      ⏰ **「출시」를 누른 날 `app.js` 의 `WIDGET_GUIDE.ios = true` → bump → 푸시** — 설명서의 위젯 안내가 그때 켜진다
+      (웹은 앱 판 번호를 몰라 미리 켜면 없는 위젯을 안내한다). 읽을 것 `docs/notes/manual-guide.md` 「위젯 안내」
       ⚠️ 실기기를 보고 9/21에 바꾼 넷(작게 뺌 · 크게 더함 · 교회 마크 · 묵상 질문 뺌)과 그 이유는
       설계 `docs/superpowers/specs/2026-09-20-ios-widgets-design.md` ① 끝 절 — **작게를 다시 넣지 말 것.**
       ⚠️ 묵상·기도문 고르는 규칙은 **app.js 와 서버 두 곳**이다(`docs/notes/meditation.md`·`prayer-book.md`).
@@ -233,6 +235,7 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
 - [ ] 🤖 **안드로이드 위젯 — 2026-09-21 시험판 실기기 확인 끝(갤럭시 S23 울트라). 남은 것: 비행기 모드 · 다음 날 아침 확인, 그리고 9/27 프로덕션 승인 뒤 계획 Task 8(서명·판 번호·업로드).**
       설계 `docs/superpowers/specs/2026-09-21-android-widgets-design.md` — Bubblewrap 으로 TWA 를 소스째 만들어
       `android-app/` 에 두고 위젯 셋을 더한다(시험판 `…memorize.dev` 는 따로 깔려 테스터 시계를 안 건드린다).
+      ⏰ **위젯 판이 플레이스토어에 나간 날 `app.js` 의 `WIDGET_GUIDE.android = true` → bump → 푸시**(설명서 위젯 안내).
       ⚠️ 저장소가 공개이고 사이트가 저장소 전체를 배포한다 — **서명 키·비밀번호를 절대 커밋하지 말 것.**
       ⚠️ Capacitor 로 바꾸지 말 것 — 업데이트 순간 로그인이 풀리고 웹 푸시가 멈춘다(설계 「왜 A 인가」).
       아래는 9/20 에 적은 배경이다. 지금 안드로이드 앱은

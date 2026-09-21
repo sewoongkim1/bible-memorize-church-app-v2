@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260921d";
+const APP_BUILD = "20260921e";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -179,6 +179,11 @@ function routeAfterLoad() {
     if (loadUser()) renderPrayerBook(); else renderEntryScreen();
     return;
   }
+  if (preview === "widget") {         // 위젯 안내 — 출시 전에 설명서 문구를 미리 본다(WIDGET_GUIDE 와 무관, 두 폰 것 모두)
+    _widgetPreview = true;
+    if (loadUser()) renderManual(renderSummary, -1); else renderEntryScreen();
+    return;
+  }
   if (preview === "pilsa") {          // 성경필사 노트 신청 — 성도 화면 그대로 바로 진입
     if (loadUser()) renderPilsaApply(); else renderEntryScreen();
     return;
@@ -230,7 +235,7 @@ function getWidgetTarget() {
 function getPreviewKind() {
   try {
     const p = new URLSearchParams(location.search).get("preview");
-    if (p === "intro" || p === "blessing" || p === "daily" || p === "promo" || p === "pilsa" || p === "prayer" || p === "event") {
+    if (p === "intro" || p === "blessing" || p === "daily" || p === "promo" || p === "pilsa" || p === "prayer" || p === "event" || p === "widget") {
       history.replaceState(null, "", location.pathname);
       return p;
     }
@@ -6789,6 +6794,38 @@ const MANUAL = [
     tip: "「허용 안 함」을 누르셨다면 폰 설정에서 다시 켜야 해요. 옆에 계신 분께 부탁하세요.",
     act: { id: "alarm", label: "🔔 지금 켜기" },
   },
+  // 위젯(2026-09-21) — 스토어 앱에만 있다(웹·홈 화면 웹앱에는 없다). 폰마다 넣는 길이 달라 두 장이고,
+  //   한 기기에는 하나만 보인다. 켜는 때는 WIDGET_GUIDE — 아래 manualInstalled 옆.
+  //   목록에 뜨는 이름: 아이폰 「고척교회 성경암송」(CFBundleDisplayName) · 안드로이드 「성경암송」(launcherName),
+  //   위젯 셋은 두 폰 모두 「이번주 말씀 · 오늘의 묵상 · 오늘의 축복 기도문」. 앱 쪽 이름을 바꾸면 여기도.
+  {
+    icon: "🧩", title: "바탕화면에 말씀 두기 (위젯)",
+    lead: "앱을 열지 않아도 말씀이 바탕화면에 보여요.",
+    when: () => widgetGuideOn("ios"),
+    art: '<div class="mn-row"><span class="mn-chip">이번주 말씀</span><span class="mn-chip">오늘의 묵상</span><span class="mn-chip">오늘의 축복 기도문</span></div>',
+    steps: [
+      "바탕화면의 빈 곳을 <b>꾹 누르세요</b>. 그림들이 흔들려요.",
+      "왼쪽 위 <b>「+」</b>(또는 <b>「편집」 → 「위젯 추가」</b>)를 누르세요.",
+      "목록에서 <b>「고척교회 성경암송」</b>을 찾아 누르세요.",
+      "옆으로 넘겨 <b>이번주 말씀 · 오늘의 묵상 · 오늘의 축복 기도문</b> 가운데 고르고 <b>「위젯 추가」</b>를 누르세요.",
+      "<b>잠금 화면</b>에는 이번주 말씀을 둘 수 있어요. 잠금 화면을 꾹 누르고 <b>「사용자화」</b> → 시계 아래 칸에서 <b>「고척교회 성경암송」</b>을 고르세요.",
+    ],
+    tip: "위젯을 누르면 <b>그 말씀 암송</b> · <b>매일 묵상</b> · <b>기도문</b> 화면이 바로 열려요. 기도문 위젯은 <b>「우리 가족」</b>으로 읽어요.",
+  },
+  {
+    icon: "🧩", title: "바탕화면에 말씀 두기 (위젯)",
+    lead: "앱을 열지 않아도 말씀이 바탕화면에 보여요.",
+    when: () => widgetGuideOn("android"),
+    art: '<div class="mn-row"><span class="mn-chip">이번주 말씀</span><span class="mn-chip">오늘의 묵상</span><span class="mn-chip">오늘의 축복 기도문</span></div>',
+    steps: [
+      "바탕화면의 빈 곳을 <b>꾹 누르세요</b>.",
+      "아래에 나오는 <b>「위젯」</b>을 누르세요.",
+      "목록에서 <b>「성경암송」</b>을 찾아 누르세요.",
+      "<b>이번주 말씀 · 오늘의 묵상 · 오늘의 축복 기도문</b> 가운데 하나를 고르고 <b>「추가」</b>를 누르세요. 꾹 눌러 끌어다 놓으셔도 돼요.",
+      "놓은 위젯을 꾹 누르면 테두리가 생겨요. <b>모서리를 끌어 키우면</b> 글씨도 커져요.",
+    ],
+    tip: "위젯을 누르면 <b>그 말씀 암송</b> · <b>매일 묵상</b> · <b>기도문</b> 화면이 바로 열려요. 기도문 위젯은 <b>「우리 가족」</b>으로 읽어요.",
+  },
   {
     icon: "🙋", title: "처음 시작하기",
     lead: "이름을 넣으면 내 기록이 저장돼요.",
@@ -6980,10 +7017,37 @@ const MANUAL = [
 function manualInstalled() {
   try {
     if (typeof isNativeApp === "function" && isNativeApp()) return true;
+    if (isPlayStoreApp()) return true;   // 플레이스토어 앱이 깔린 폰 — 크롬 탭에서 열어도 설치는 이미 했다
     return !!((window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
               window.navigator.standalone === true);
   } catch (e) { return false; }
 }
+// ── 위젯 안내를 켤지 — 스토어에 **나간 날** 켠다(2026-09-21 친구 결정) ─────────────
+// ⚠️ 웹은 앱 판 번호를 모른다 — 아이폰 1.0.1(이번주 말씀 하나)과 1.1.0(셋 · 잠금 화면)을 못 가른다.
+//    출시 전에 켜면 **아직 없는 위젯을 안내**하게 된다. 그래서 날을 사람이 정한다.
+//      ios     : App Store 에서 1.1.0 「출시」를 누른 날 true
+//      android : 플레이스토어에 위젯 판이 나간 날 true (9/27 프로덕션 승인 뒤 · 계획 Task 8)
+//    출시 전에 문구를 보려면 ?preview=widget (두 폰 것이 둘 다 뜬다).
+const WIDGET_GUIDE = { ios: false, android: false };
+let _widgetPreview = false;
+
+// 플레이스토어 앱(TWA)으로 열렸나 — TWA 는 앱을 열 때 referrer 를 android-app://<패키지> 로 준다.
+// 그 순간에만 알 수 있어 기기에 적어 둔다(clearPersonalData 는 안 지운다 — 사람이 아니라 기기 이야기다).
+// 시험판(…memorize.dev)도 같은 앞머리라 함께 걸린다. TWA 는 크롬과 저장소를 같이 쓰므로
+// 크롬 탭에서 열어도 남는데, 그 폰에 앱이 깔려 있다는 뜻이라 위젯 안내가 맞다.
+// ⚠️ 이 줄이 나간 뒤 앱을 한 번도 안 연 분은 아직 모른다 — 모르면 안 보인다(없는 것을 안내하지 않는 쪽).
+const PLAY_APP_KEY = "play-store-app";
+try {
+  if (/^android-app:\/\/kr\.onlybible\.gocheok\.memorize/.test(document.referrer || "")) localStorage.setItem(PLAY_APP_KEY, "1");
+} catch (e) {}
+function isPlayStoreApp() { try { return localStorage.getItem(PLAY_APP_KEY) === "1"; } catch (e) { return false; } }
+
+function widgetGuideOn(os) {
+  if (_widgetPreview) return true;
+  if (!WIDGET_GUIDE[os]) return false;
+  return os === "ios" ? (typeof isNativeApp === "function" && isNativeApp()) : isPlayStoreApp();
+}
+
 // 이 기기에서 보일 항목만 — 목차 번호·「n / 전체」·이전/다음이 모두 이 목록을 따른다.
 function manualItems() { return MANUAL.filter((m) => !m.when || m.when()); }
 
