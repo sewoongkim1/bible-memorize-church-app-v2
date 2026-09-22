@@ -132,6 +132,54 @@ def test_parse_ignores_continuation_line_in_other_chapter():
     assert [v['verse'] for v in verses] == [1]
 
 
+# ── ③ UTF-8 (BOM 포함) → CP949 순으로 읽는다 ──────────────────────────
+
+def test_load_book_file_decodes_utf8(tmp_path):
+    p = tmp_path / 'utf8.txt'
+    p.write_text('유1:1 예수 그리스도의 종이요', encoding='utf-8')
+    text = load_book_file(str(p))
+    assert '유1:1' in text
+    assert '예수 그리스도의 종이요' in text
+
+
+def test_load_book_file_decodes_utf8_with_bom(tmp_path):
+    p = tmp_path / 'utf8bom.txt'
+    p.write_bytes('유1:1 예수 그리스도의 종이요'.encode('utf-8-sig'))
+    text = load_book_file(str(p))
+    assert '유1:1' in text
+    assert '예수 그리스도의 종이요' in text
+    assert '﻿' not in text  # BOM 자체가 글 속에 남으면 안 된다
+
+
+def test_load_book_file_decodes_cp949_bytes(tmp_path):
+    p = tmp_path / 'cp949.txt'
+    p.write_bytes('유1:1 예수 그리스도의 종이요'.encode('cp949'))
+    text = load_book_file(str(p))
+    assert '유1:1' in text
+    assert '예수 그리스도의 종이요' in text
+
+
+def test_load_book_file_utf8_bom_and_cp949_read_same_text(tmp_path):
+    content = '유1:1 <인사> 예수 그리스도의 종이요'
+    p_utf8 = tmp_path / 'a.txt'
+    p_bom = tmp_path / 'b.txt'
+    p_cp949 = tmp_path / 'c.txt'
+    p_utf8.write_text(content, encoding='utf-8')
+    p_bom.write_bytes(content.encode('utf-8-sig'))
+    p_cp949.write_bytes(content.encode('cp949'))
+    texts = {load_book_file(str(p)) for p in (p_utf8, p_bom, p_cp949)}
+    assert len(texts) == 1
+
+
+def test_load_book_file_raises_on_undecodable_bytes(tmp_path):
+    p = tmp_path / 'bad.txt'
+    p.write_bytes(b'\xff\xff\xff')  # UTF-8 도 CP949 도 아니다
+    with pytest.raises(ValueError) as e:
+        load_book_file(str(p))
+    assert 'UTF-8' in str(e.value)
+    assert 'CP949' in str(e.value)
+
+
 @needs_bible
 def test_load_book_file_decodes_cp949():
     text = load_book_file(JUDE)

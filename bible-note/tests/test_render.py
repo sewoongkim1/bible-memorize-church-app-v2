@@ -3,12 +3,15 @@ import os
 import re
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+import render
 from render import (
-    BASE_CSS, PAGE_CSS, build_draft_html, build_final_html, esc,
-    lines_per_page, num_col_css, num_digits, orig_width_mm, usable_body_mm,
-    write_width_mm,
+    all_font_urls, base_css, build_draft_html, build_final_html, esc,
+    footer_texts, lines_per_page, num_col_css, num_digits, orig_width_mm,
+    page_css, usable_body_mm, write_width_mm,
 )
 
 
@@ -60,9 +63,9 @@ def test_draft_and_final_share_orig_col_rule():
     # 줄바꿈 지점이 같다. 2차에서 인라인 style 로 폭을 따로 주면 이 약속이 깨진다.
     draft = build_draft_html([_v(1)])
     final = build_final_html([[_v(1)]], '유다서')
-    assert '.orig-col { width:135.5mm; padding-right:4mm; }' in BASE_CSS
-    assert BASE_CSS in draft
-    assert BASE_CSS in final
+    assert '.orig-col { width:135.5mm; padding-right:4mm; }' in base_css()
+    assert base_css() in draft
+    assert base_css() in final
     assert 'class="orig-col" style=' not in final
 
 
@@ -70,8 +73,8 @@ def test_page_css_orig_col_has_no_width_or_padding():
     # 인라인 style= 만 막는 위 테스트로는 PAGE_CSS 의 .orig-col 규칙 자체에
     # width·padding 이 섞여 들어가는 것을 못 잡는다 — 섞이면 2차(인쇄)의 원문 열
     # 폭이 1차(실측)와 달라져도 조용히 통과한다(2026-09-22 최종 검토 Minor).
-    m = re.search(r'\.orig-col\s*\{([^}]*)\}', PAGE_CSS)
-    assert m, 'PAGE_CSS 에 .orig-col 규칙이 없습니다'
+    m = re.search(r'\.orig-col\s*\{([^}]*)\}', page_css())
+    assert m, 'page_css() 에 .orig-col 규칙이 없습니다'
     rule = m.group(1)
     assert 'width' not in rule
     assert 'padding' not in rule
@@ -119,8 +122,8 @@ def test_final_html_header_single_verse_page_shows_once():
 
 def test_final_html_page_numbers_increment():
     html = build_final_html([[_v(1)], [_v(2)]], '유다서')
-    assert '<span class="pg">1</span>' in html
-    assert '<span class="pg">2</span>' in html
+    assert '<span class="fr pg">1 / 2</span>' in html
+    assert '<span class="fr pg">2 / 2</span>' in html
 
 
 def test_final_html_prints_a4_landscape():
@@ -174,10 +177,147 @@ def test_draft_and_final_share_num_col_rule():
 
 
 def test_hanging_indent_css():
-    assert '.orig-col p { display:flex; }' in BASE_CSS
-    assert '.orig-col .txt { flex:1 1 auto; min-width:0; }' in BASE_CSS
+    assert '.orig-col p { display:flex; }' in base_css()
+    assert '.orig-col .txt { flex:1 1 auto; min-width:0; }' in base_css()
 
 
 def test_footer_has_top_rule():
-    ft = PAGE_CSS.split('.ft {')[1].split('}')[0]
+    ft = page_css().split('.ft {')[1].split('}')[0]
     assert 'border-top:0.75pt solid #333' in ft
+
+
+def test_footer_css_is_grid_with_three_columns():
+    ft = page_css().split('.ft {')[1].split('}')[0]
+    assert 'display:grid' in ft
+    assert 'grid-template-columns:1fr auto 1fr' in ft
+
+
+# ── ① 날짜 칸 ──────────────────────────────────────────────────────────
+
+def test_date_field_markup_has_no_underscore_and_three_blanks():
+    html = build_final_html([[_v(1)]], '유다서')
+    m = re.search(r'<span class="date">.*?</span></div>', html)
+    assert m, 'date span not found'
+    date_html = m.group(0)
+    assert '_' not in date_html
+    assert ('<span class="date"><span class="blank by"></span>년'
+            '<span class="blank bm"></span>월<span class="blank bd"></span>일</span>') in date_html
+
+
+def test_date_blank_css_widths():
+    css = page_css()
+    assert '.hd .date .blank { display:inline-block; }' in css
+    assert '.hd .date .by { width:20mm; }' in css
+    assert '.hd .date .bm, .hd .date .bd { width:12mm; }' in css
+
+
+# ── ② 바닥글 세 칸 ──────────────────────────────────────────────────────
+
+def test_footer_texts_default():
+    fl, fc, fr = footer_texts(1, 2)
+    assert fl == 'God is Love'
+    assert fc == '주의 말씀은 내 발에 등이요 내 길에 빛이니이다'
+    assert fr == '1 / 2'
+
+
+def test_footer_texts_even_page_uses_english_center():
+    fl, fc, fr = footer_texts(2, 2)
+    assert fc == 'Your word is a lamp to my feet and a light for my path.'
+    assert fr == '2 / 2'
+
+
+def test_footer_texts_even_falls_back_to_korean_when_center_even_blank(monkeypatch):
+    monkeypatch.setattr(render, 'FOOTER_CENTER_EVEN', '')
+    fl, fc, fr = render.footer_texts(2, 2)
+    assert fc == render.FOOTER_CENTER
+
+
+def test_footer_texts_replace_handles_literal_braces(monkeypatch):
+    # str.format 이 아니라 str.replace 를 쓴다 — 사람이 넣은 글에 { 가 있어도 깨지지 않는다.
+    monkeypatch.setattr(render, 'FOOTER_RIGHT', '{page}/{total} {안내}')
+    fl, fc, fr = render.footer_texts(1, 3)
+    assert fr == '1/3 {안내}'
+
+
+def test_footer_markup_has_three_spans():
+    html = build_final_html([[_v(1)]], '유다서')
+    assert '<div class="ft"><span class="fl">God is Love</span>' in html
+    assert '<span class="fc">주의 말씀은 내 발에 등이요 내 길에 빛이니이다</span>' in html
+    assert '<span class="fr pg">1 / 1</span></div>' in html
+
+
+def test_footer_texts_are_escaped_in_html(monkeypatch):
+    monkeypatch.setattr(render, 'FOOTER_LEFT', 'A&B')
+    monkeypatch.setattr(render, 'FOOTER_CENTER', '<x>')
+    html = build_final_html([[_v(1)]], '유다서')
+    assert 'A&amp;B' in html
+    assert '&lt;x&gt;' in html
+    assert '<x>' not in html
+
+
+# ── ⑤ 머리글·바닥글 글씨 설정 ──────────────────────────────────────────
+
+def test_header_and_footer_font_sizes_default():
+    css = page_css()
+    hd = css.split('.hd {')[1].split('}')[0]
+    ft = css.split('.ft {')[1].split('}')[0]
+    assert 'font-size:11pt' in hd
+    assert 'font-size:9pt' in ft
+    assert 'NSKH' not in css
+
+
+def test_header_and_footer_font_sizes_configurable(monkeypatch):
+    monkeypatch.setattr(render, 'HEADER_PT', 14)
+    monkeypatch.setattr(render, 'FOOTER_PT', 10)
+    css = page_css()
+    hd = css.split('.hd {')[1].split('}')[0]
+    ft = css.split('.ft {')[1].split('}')[0]
+    assert 'font-size:14pt' in hd
+    assert 'font-size:10pt' in ft
+
+
+def test_header_font_url_adds_face_only_to_page_css(monkeypatch):
+    monkeypatch.setattr(render, 'HEADER_FONT_URL',
+                         {'fonts/GowunDodum-400.woff': 'https://example.com/x.woff'})
+    css = page_css()
+    assert "@font-face { font-family:'NSKH';" in css
+    assert "'fonts/GowunDodum-400.woff'" in css
+    assert "font-family:'NSKH','NSK',serif" in css
+    # 1차(실측) HTML은 page_css() 를 아예 쓰지 않으므로 자동으로 NSKH 가 빠진다.
+    draft = build_draft_html([_v(1)])
+    assert 'NSKH' not in draft
+    final = build_final_html([[_v(1)]], '유다서')
+    assert 'NSKH' in final
+
+
+def test_header_font_url_default_is_empty():
+    assert render.HEADER_FONT_URL == {}
+
+
+def test_all_font_urls_merges_header_font(monkeypatch):
+    monkeypatch.setattr(render, 'HEADER_FONT_URL', {'fonts/X.woff': 'https://x'})
+    urls = render.all_font_urls()
+    assert 'fonts/X.woff' in urls
+    for k in render.FONT_URL:
+        assert k in urls
+
+
+def test_all_font_urls_rejects_more_than_one_header_font(monkeypatch):
+    monkeypatch.setattr(render, 'HEADER_FONT_URL', {'a.woff': 'x', 'b.woff': 'y'})
+    with pytest.raises(ValueError):
+        render.all_font_urls()
+
+
+# ── ⑥ 원문 자간 설정 ────────────────────────────────────────────────────
+
+def test_letter_spacing_default_is_zero():
+    assert 'letter-spacing:0em' in base_css()
+
+
+def test_letter_spacing_is_configurable(monkeypatch):
+    monkeypatch.setattr(render, 'LETTER_SPACING_EM', -0.03)
+    assert 'letter-spacing:-0.03em' in base_css()
+    draft = build_draft_html([_v(1)])
+    final = build_final_html([[_v(1)]], '유다서')
+    assert 'letter-spacing:-0.03em' in draft
+    assert 'letter-spacing:-0.03em' in final

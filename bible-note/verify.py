@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""최종 HTML을 헤드리스 크롬으로 열어 네 가지를 확인한다.
+"""최종 HTML을 헤드리스 크롬으로 열어 다섯 가지를 확인한다.
 
 ① 원문 열·필사 열의 내용이 칸(164mm) 밖으로 넘치지 않았는가 — scrollHeight 로 잰다.
    ⚠️ getBoundingClientRect().bottom 으로 재면 안 된다 — 열은 flex 로 늘 칸 높이와 같고
@@ -8,6 +8,13 @@
    (줄 수는 높이 ÷ 줄 높이 — generate.py 와 같은 방법)
 ③ 그 문단과 필사줄 묶음이 같은 높이에서 시작하는가(원문 한 줄 = 필사줄 한 줄)
 ④ 인쇄하면 쪽 수가 .page 개수와 같고, 쪽마다 A4 가로(297×210mm)인가
+⑤ 머리글(.hd)이 제 칸(HEADER_MM)을 넘치지 않았는가 · 바닥글(.ft)의 세 칸(왼쪽·가운데·오른쪽)이
+   글이 길어 잘리지 않았는가(scrollWidth) — 2026-09-22 성도님 요청으로 HEADER_PT·FOOTER_PT·
+   바닥글 글을 사람이 정하게 되어, 잘못 정하면 조용히 잘릴 수 있다.
+   ⚠️ 머리글은 `.hd`의 scrollHeight로 재면 안 된다 — align-items:flex-end라 넘친 내용이
+      위쪽으로 자라는데, scrollHeight는 스크롤 원점(위쪽) 기준 아래쪽 넘침만 잡는다(실측
+      확인: HEADER_PT를 60까지 올려도 scrollHeight==clientHeight로 그대로였다). 그래서
+      자식 span의 getBoundingClientRect().height를 칸 높이(clientHeight)와 직접 견준다.
 """
 import io
 import os
@@ -32,6 +39,25 @@ document.fonts.ready.then(function(){
     var write = pg.querySelector('.write-col');
     if (orig.scrollHeight > orig.clientHeight + 1) out.push(no + ':ORIG_OVERFLOW');
     if (write.scrollHeight > write.clientHeight + 1) out.push(no + ':WRITE_OVERFLOW');
+    var hd = pg.querySelector('.hd');
+    if (hd) {
+      // .hd 는 align-items:flex-end 라 넘친 내용이 위쪽으로 자란다 — scrollHeight 는
+      // 아래쪽 넘침만 잡아서(스크롤 원점 기준) 이 방향은 못 본다(2026-09-22 실측 확인).
+      // 그래서 자식(span)의 실제 렌더 높이를 칸 높이와 직접 견준다.
+      var hdMax = 0;
+      hd.querySelectorAll(':scope > span').forEach(function(sp){
+        hdMax = Math.max(hdMax, sp.getBoundingClientRect().height);
+      });
+      if (hdMax > hd.clientHeight + 1) out.push(no + ':HEADER_OVERFLOW');
+    }
+    var ft = pg.querySelector('.ft');
+    if (ft) {
+      ft.querySelectorAll(':scope > span').forEach(function(sp){
+        if (sp.scrollWidth > sp.clientWidth + 1) {
+          out.push(no + ':FOOTER_OVERFLOW:' + sp.className.split(' ')[0]);
+        }
+      });
+    }
     var ps = orig.querySelectorAll('p');
     var groups = write.querySelectorAll('.vs-write');
     if (ps.length !== groups.length) {

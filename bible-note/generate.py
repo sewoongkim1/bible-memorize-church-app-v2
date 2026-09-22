@@ -23,7 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from parse import parse_book, load_book_file, book_name_from_filename
 from paginate import paginate
-from render import build_draft_html, build_final_html, lines_per_page, FONT_URL
+from render import build_draft_html, build_final_html, lines_per_page, all_font_urls
 
 CHROME_CANDS = [
     r'C:\Program Files\Google\Chrome\Application\chrome.exe',
@@ -83,11 +83,17 @@ def _chrome(chrome, flags, target_path):
 def _git_repo_root():
     """이 스크립트(generate.py)가 들어있는 저장소의 루트를 돌려준다.
     git 이 없거나(FileNotFoundError) 이 폴더가 저장소가 아니면(예: bible-note/ 만
-    복사해 따로 쓰는 경우) None — 그 경우 ensure_out_path_safe 는 검사 없이 허용한다."""
+    복사해 따로 쓰는 경우) None — 그 경우 ensure_out_path_safe 는 검사 없이 허용한다.
+
+    ⚠️ encoding='utf-8'을 못박는다 — 로캘(이 PC는 cp949)로 풀면 저장소 경로에 한글이
+       섞였을 때 UnicodeDecodeError 로 생성기가 그대로 죽는다(2026-09-22 최종 검토 r2
+       Minor, 이 PC에서 재현). errors='replace'는 그래도 못 푸는 글자가 있을 때 죽는
+       대신 대체 문자로 넘긴다 — 저장소 루트 경로는 정상적으로는 항상 유효한 UTF-8이다.
+    """
     here = os.path.dirname(os.path.abspath(__file__))
     try:
         r = subprocess.run(['git', 'rev-parse', '--show-toplevel'],
-                            cwd=here, capture_output=True, text=True)
+                            cwd=here, capture_output=True, encoding='utf-8', errors='replace')
     except OSError:
         return None  # git 이 없다
     if r.returncode != 0:
@@ -110,28 +116,44 @@ def ensure_out_path_safe(out_path):
       폴더)면 SystemExit 로 멈춘다 — bible-note/ 아래나 저장소 밖을 쓰라고 알려 준다.
     - git 이 없거나 이 폴더가 저장소가 아니면 검사 없이 허용한다.
     (2026-09-22 최종 검토 Important 1 — `--out`으로 다른 폴더에 낼 때 이 확인이 없었다.)
+
+    ⚠️ HTML 이 bible-note/ 밖이면 `_copy_fonts_beside`가 그 옆에 `fonts/`도 함께 둔다.
+       HTML 자체는 무시돼도(예: 루트의 `_유다서.html`은 `/_*.html`로 무시된다) 그 옆
+       `fonts/…woff`는 저장소 안인데 안 막혀 있을 수 있다(2026-09-22 최종 검토 r2 —
+       실제로 이 PC에서 확인된 자리). 그래서 HTML 이 bible-note/ 밖일 때는
+       `render.all_font_urls()`의 서체마다 `<출력 폴더>/fonts/<서체 파일명>`도 같이 본다.
+       bible-note/ 안에 쓸 때는 `bible-note/**/fonts/`가 이미 통째로 막혀 있어 보지 않는다.
     """
     root = _git_repo_root()
     if root is None:
         return
-    abs_path = os.path.realpath(os.path.abspath(out_path))
-    norm_path = os.path.normcase(abs_path)
-    if norm_path != root and not norm_path.startswith(root + os.sep):
-        return  # 저장소 밖 — 허용
-    if _is_git_ignored(root, abs_path):
-        return
-    raise SystemExit(
-        '!! "%s" 는 저장소 안인데 커밋에서 무시되지 않는 자리입니다.\n'
-        '   이 HTML 에는 개역개정 본문이 그대로 들어 있고, 이 저장소는 push 하면\n'
-        '   사이트 전체가 그대로 배포됩니다.\n'
-        '   bible-note/ 아래(예: bible-note/out/파일명.html)나 저장소 밖(바탕화면·USB 등)에\n'
-        '   --out 을 주세요.' % out_path)
+    out_abs = os.path.realpath(os.path.abspath(out_path))
+    checks = [(out_path, out_abs)]
+    out_dir = os.path.dirname(out_abs) or os.getcwd()
+    bible_note_dir = os.path.dirname(os.path.abspath(__file__))
+    if os.path.normcase(os.path.realpath(out_dir)) != os.path.normcase(os.path.realpath(bible_note_dir)):
+        for font_path in all_font_urls():
+            font_label = os.path.join(out_dir, 'fonts', os.path.basename(font_path))
+            checks.append((font_label, os.path.realpath(font_label)))
+    for label, abs_path in checks:
+        norm_path = os.path.normcase(abs_path)
+        if norm_path != root and not norm_path.startswith(root + os.sep):
+            continue  # 저장소 밖 — 허용
+        if _is_git_ignored(root, abs_path):
+            continue
+        raise SystemExit(
+            '!! "%s" 는 저장소 안인데 커밋에서 무시되지 않는 자리입니다.\n'
+            '   이 HTML(또는 함께 둘 서체)에는 개역개정 본문이 그대로 들어 있고, 이 저장소는\n'
+            '   push 하면 사이트 전체가 그대로 배포됩니다.\n'
+            '   bible-note/ 아래(예: bible-note/out/파일명.html)나 저장소 밖(바탕화면·USB 등)에\n'
+            '   --out 을 주세요.' % label)
 
 
 def ensure_fonts():
-    """Noto Serif KR 을 받아 둔다 — 없으면 여기서만 한 번 인터넷이 필요하다."""
+    """필요한 서체(원문 + HEADER_FONT_URL 이 있으면 머리글도)를 받아 둔다 —
+    없으면 여기서만 한 번 인터넷이 필요하다."""
     os.makedirs('fonts', exist_ok=True)
-    for path, url in FONT_URL.items():
+    for path, url in all_font_urls().items():
         if os.path.exists(path) and os.path.getsize(path) > 100000:
             continue
         print('  서체를 받습니다 — %s' % os.path.basename(path))
@@ -145,8 +167,8 @@ def ensure_fonts():
 
 
 def _copy_fonts_beside(out_path):
-    """최종 HTML은 상대 경로 'fonts/...'로 서체를 부른다(render.BASE_CSS). --out이
-    fonts/가 있는 이 폴더(bible-note/, generate()가 이미 os.chdir 해 둔 cwd)가 아닌
+    """최종 HTML은 상대 경로 'fonts/...'로 서체를 부른다(render.base_css()·render.page_css()).
+    --out이 fonts/가 있는 이 폴더(bible-note/, generate()가 이미 os.chdir 해 둔 cwd)가 아닌
     다른 폴더를 가리키면, 그 폴더에 fonts/를 함께 두어야 옮긴 자리에서도 서체가 그대로
     불린다 — 안 그러면 조용히 대체 서체로 바뀐다(2026-09-22 최종 검토 Important 2).
     HTML 자체에도 서체 로드 실패 경고 배너가 있어(render.FONT_WARN_HTML), 이 복사를
@@ -160,7 +182,7 @@ def _copy_fonts_beside(out_path):
         return
     dst_fonts = os.path.join(out_dir, 'fonts')
     os.makedirs(dst_fonts, exist_ok=True)
-    for path in FONT_URL:
+    for path in all_font_urls():
         shutil.copy2(path, os.path.join(dst_fonts, os.path.basename(path)))
     print('  서체 폴더를 함께 두었습니다 — %s' % dst_fonts)
 
@@ -229,6 +251,12 @@ def generate(book_name, chapter=None, out_path=None):
         # 폴더가 아니라 bible-note/ 기준으로 풀린다(2026-09-22 최종 검토 Important 1 원인).
         out_path = os.path.abspath(out_path)
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
+    if not out_path:
+        suffix = '_%d장' % chapter if chapter else ''
+        out_path = '%s%s.html' % (book_name, suffix)
+    # 막힐 자리면 서체를 받고 크롬으로 다 잰 뒤가 아니라 처음에 멈춘다
+    # (2026-09-22 최종 검토 r2 Minor — 예전엔 이 확인이 맨 끝에 있었다).
+    ensure_out_path_safe(out_path)
     ensure_fonts()
     chrome = find_chrome()
     if not chrome:
@@ -260,10 +288,6 @@ def generate(book_name, chapter=None, out_path=None):
         v['lines'] = body_n + sub_n
 
     pages = paginate(verses, lines_per_page())
-    if not out_path:
-        suffix = '_%d장' % chapter if chapter else ''
-        out_path = '%s%s.html' % (book_name, suffix)
-    ensure_out_path_safe(out_path)
     _copy_fonts_beside(out_path)
     with io.open(out_path, 'w', encoding='utf-8') as f:
         f.write(build_final_html(pages, book_name))

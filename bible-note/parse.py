@@ -24,10 +24,19 @@ FILENAME_RE = re.compile(r'^\d+-\d+(.+)\.txt$')
 
 
 def load_book_file(path):
-    """CP949 로 저장된 성경 파일을 읽어 유니코드 문자열로 돌려준다."""
+    """원문 파일을 읽는다 — UTF-8(BOM 있어도)을 먼저, 안 되면 CP949.
+
+    bible/ 의 개역개정은 CP949 이고, 메모장의 기본 저장은 UTF-8 이다(2026-09-22 — 영어·다른
+    번역본을 넣을 때 필요하다). CP949 로 저장한 한글은 UTF-8 로 풀리지 않으므로 순서가 안전하다.
+    """
     with open(path, 'rb') as f:
         raw = f.read()
-    return raw.decode('cp949')
+    for enc in ('utf-8-sig', 'cp949'):
+        try:
+            return raw.decode(enc)
+        except UnicodeDecodeError:
+            pass
+    raise ValueError('%s: UTF-8 도 CP949 도 아닌 파일입니다 — 메모장에서 UTF-8 로 다시 저장해 주세요' % path)
 
 
 def book_name_from_filename(path):

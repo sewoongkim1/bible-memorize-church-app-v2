@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import generate
 from generate import ensure_out_path_safe, find_book_file, _git_repo_root
+from render import all_font_urls
 
 # generate.py 는 bible-note/ 안에 있고, _git_repo_root() 는 늘 이 스크립트 기준으로
 # 저장소 루트를 찾는다(호출한 쪽 cwd 와 무관) — 테스트도 같은 방법으로 기대값을 만든다.
@@ -53,6 +54,78 @@ def test_ensure_out_path_safe_allows_when_no_repo(monkeypatch):
     # 검사 없이 허용한다 — 저장소 안이라면 막혔을 자리를 넣어 확인한다.
     monkeypatch.setattr(generate, '_git_repo_root', lambda: None)
     ensure_out_path_safe(os.path.join(ROOT, 'marketing', '유다서.html'))
+
+
+# ── ④ 저장 경로 안전 — 서체 자리까지 본다(2026-09-22 최종 검토 r2 Minor) ──────
+# 만든 HTML이 bible-note/ 밖으로 나가면 fonts/ 도 옆에 함께 두는데(generate._copy_fonts_beside),
+# 그 자리가 저장소 안인데 무시되지 않으면 HTML 자체는 무시돼도 서체가 새 나갈 수 있다.
+
+def test_ensure_out_path_safe_checks_font_dir_when_outside_bible_note(monkeypatch):
+    checked = []
+
+    def fake_ignored(root, abs_path):
+        checked.append(abs_path)
+        return True  # 실제로 멈추지는 않게 하고, 어떤 자리를 봤는지만 기록한다
+
+    monkeypatch.setattr(generate, '_is_git_ignored', fake_ignored)
+    ensure_out_path_safe(os.path.join(ROOT, 'marketing', '유다서.html'))
+    assert any('fonts' in os.path.normcase(p).replace('\\', '/') for p in checked)
+
+
+def test_ensure_out_path_safe_skips_font_check_inside_bible_note(monkeypatch):
+    checked = []
+
+    def fake_ignored(root, abs_path):
+        checked.append(abs_path)
+        return True
+
+    monkeypatch.setattr(generate, '_is_git_ignored', fake_ignored)
+    ensure_out_path_safe(os.path.join(ROOT, 'bible-note', '유다서.html'))
+    assert not any('fonts' in os.path.normcase(p).replace('\\', '/') for p in checked)
+
+
+def test_ensure_out_path_safe_blocks_unignored_font_dir_next_to_html():
+    # 검토에서 실제로 걸렸던 자리를 그대로 재현한다 — 저장소 루트의 「_유다서.html」
+    # 자체는 .gitignore의 /_*.html 로 무시되지만, 그 옆 fonts/ 는 안 막혀 있었다.
+    with pytest.raises(SystemExit):
+        ensure_out_path_safe(os.path.join(ROOT, '_유다서.html'))
+
+
+def test_ensure_out_path_safe_checks_every_font_in_all_font_urls(monkeypatch):
+    monkeypatch.setattr(
+        'render.HEADER_FONT_URL', {'fonts/GowunDodum-400.woff': 'https://example.com/x.woff'})
+    checked = []
+
+    def fake_ignored(root, abs_path):
+        checked.append(abs_path)
+        return True
+
+    monkeypatch.setattr(generate, '_is_git_ignored', fake_ignored)
+    ensure_out_path_safe(os.path.join(ROOT, 'marketing', '유다서.html'))
+    names = {os.path.basename(p) for p in checked}
+    for font_path in all_font_urls():
+        assert os.path.basename(font_path) in names
+
+
+# ── _git_repo_root — 로캘이 아니라 UTF-8 로 subprocess 출력을 푼다 ─────────
+# (2026-09-22 최종 검토 r2 — cp949 로캘에서 저장소 경로에 한글이 섞이면 죽었다)
+
+def test_git_repo_root_decodes_subprocess_output_as_utf8(monkeypatch):
+    calls = {}
+
+    def fake_run(cmd, **kwargs):
+        calls.update(kwargs)
+
+        class R:
+            returncode = 0
+            stdout = ROOT + '\n'
+        return R()
+
+    monkeypatch.setattr(generate.subprocess, 'run', fake_run)
+    result = _git_repo_root()
+    assert calls.get('encoding') == 'utf-8'
+    assert calls.get('errors') == 'replace'
+    assert result == ROOT
 
 
 # ── find_book_file ─────────────────────────────────────────────────────

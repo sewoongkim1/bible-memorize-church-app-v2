@@ -4,10 +4,10 @@
 ⚠️ 페이지 기하(여백·헤더·푸터·줄 높이·열 폭)는 이 파일의 상수에서만 나온다.
    `generate.py`의 페이지 배분도 lines_per_page() 를 그대로 쓴다 — 두 곳에서 따로
    계산하면 나중에 한쪽만 고쳐 어긋난다.
-⚠️ 원문 열의 폭·안쪽 여백은 BASE_CSS 의 `.orig-col` 규칙 하나가 정한다. 1차·2차가
+⚠️ 원문 열의 폭·안쪽 여백은 base_css() 의 `.orig-col` 규칙 하나가 정한다. 1차·2차가
    이 규칙을 같이 쓰므로 실측한 줄바꿈이 인쇄본에서도 그대로 나온다. 2차에서 폭을
    인라인 style 로 따로 주지 말 것.
-⚠️ 최종 HTML은 `fonts/`를 상대 경로로 부른다(BASE_CSS의 @font-face). 파일만 옮기면
+⚠️ 최종 HTML은 `fonts/`를 상대 경로로 부른다(base_css()의 @font-face). 파일만 옮기면
    (담당자에게 보내기·USB·다른 폴더로 --out) 서체가 조용히 대체 서체로 바뀌어 줄이
    어긋나고, 원문 열은 overflow:hidden이라 넘친 글자가 인쇄에서 잘린다. 그런데도 화면엔
    경고가 없었다(2026-09-22 최종 검토 Important 2) — `build_final_html`이 넣는
@@ -35,6 +35,54 @@ FONT_URL = {
         'https://cdn.jsdelivr.net/npm/@fontsource/noto-serif-kr@5.3.0/'
         'files/noto-serif-kr-korean-700-normal.woff',
 }
+
+# ── 사람이 고치는 설정(2026-09-22 성도님 요청) ──────────────────────────
+
+# 원문 글자 사이 간격(자간), em 단위. 0 이 서체 기본값. 한글은 보통 -0.03 ~ 0.05 사이에서 고른다.
+LETTER_SPACING_EM = 0
+
+# 머리글(책·절 범위 · 날짜) — 원문과 따로 정한다.
+HEADER_PT = 11
+# 머리글 서체 파일. 비우면({}) 원문 서체를 그대로 쓴다. 넣으면 처음 한 번 받아 fonts/ 에 둔다.
+# 예: {'fonts/GowunDodum-400.woff':
+#      'https://cdn.jsdelivr.net/npm/@fontsource/gowun-dodum/files/gowun-dodum-korean-400-normal.woff'}
+HEADER_FONT_URL = {}
+# 바닥글 글씨 크기.
+FOOTER_PT = 9
+
+# 바닥글 — 왼쪽 · 가운데 · 오른쪽. 비우려면 ''.
+# 오른쪽의 {page} · {total} 은 그 쪽 번호 · 전체 쪽 수로 바뀐다(footer_texts 가 str.replace 로 바꾼다).
+# 가운데는 홀수 쪽 FOOTER_CENTER, 짝수 쪽 FOOTER_CENTER_EVEN(비우면 홀수와 같다).
+FOOTER_LEFT = 'God is Love'
+FOOTER_CENTER = '주의 말씀은 내 발에 등이요 내 길에 빛이니이다'
+FOOTER_CENTER_EVEN = 'Your word is a lamp to my feet and a light for my path.'
+FOOTER_RIGHT = '{page} / {total}'
+
+
+def all_font_urls():
+    """FONT_URL(원문 서체)과 HEADER_FONT_URL(머리글 서체)을 합친 것.
+
+    generate.ensure_fonts() · generate._copy_fonts_beside() · generate.ensure_out_path_safe()
+    의 서체 자리 검사가 이 함수 하나를 돈다 — 한 곳만 FONT_URL 을 보면 머리글 서체가 받아지지
+    않거나 옮긴 자리에 빠진다.
+    """
+    if len(HEADER_FONT_URL) > 1:
+        raise ValueError('머리글 서체는 한 벌만 지정할 수 있습니다: %r' % (HEADER_FONT_URL,))
+    merged = dict(FONT_URL)
+    merged.update(HEADER_FONT_URL)
+    return merged
+
+
+def footer_texts(page_no, total):
+    """(왼쪽, 가운데, 오른쪽) 바닥글 글을 돌려준다.
+
+    {page}·{total} 은 str.replace 로 바꾼다(str.format 은 쓰지 않는다 — 사람이 넣은 글에
+    {가 있으면 깨진다). 가운데는 짝수 쪽에서 FOOTER_CENTER_EVEN을 쓰되, 비어 있으면 홀수와
+    같은 FOOTER_CENTER를 쓴다.
+    """
+    center = FOOTER_CENTER if page_no % 2 == 1 else (FOOTER_CENTER_EVEN or FOOTER_CENTER)
+    right = FOOTER_RIGHT.replace('{page}', str(page_no)).replace('{total}', str(total))
+    return FOOTER_LEFT, center, right
 
 
 def esc(text):
@@ -68,7 +116,15 @@ def write_width_mm():
     return round(_avail_width_mm() - orig_width_mm(), 2)
 
 
-BASE_CSS = """
+def base_css():
+    """1차(실측)·2차(인쇄)가 함께 쓰는 규칙 — 원문 열 폭·글자 크기·자간이 여기 하나에서 나온다.
+
+    ⚠️ LETTER_SPACING_EM(원문 자간)은 반드시 여기(1차·2차 공용)에 넣어야 한다. 한쪽에만
+       넣으면 실측과 인쇄의 줄바꿈이 달라져 필사줄 수가 어긋난다.
+    함수로 둔 것은 LETTER_SPACING_EM 등을 monkeypatch로 바꿔 가며 시험할 수 있게 하려는
+    것이다(모듈을 다시 불러오지 않고도 호출마다 지금 값을 반영한다).
+    """
+    return """
 @font-face { font-family:'NSK'; src:url('fonts/NotoSerifKR-400.woff') format('woff');
              font-weight:400; font-display:block; }
 @font-face { font-family:'NSKB'; src:url('fonts/NotoSerifKR-700.woff') format('woff');
@@ -79,12 +135,14 @@ body { font-family:'NSK',serif; color:#111; }
 .orig-col { width:%(ow)smm; padding-right:%(pad)smm; }
 .orig-col p, .orig-col .sub, .write-col .sub {
   font-size:%(fpt)spt; line-height:%(line)smm; margin:0; word-break:keep-all;
+  letter-spacing:%(ls)sem;
 }
 .orig-col .sub, .write-col .sub { font-family:'NSKB',serif; font-weight:400; }
 .orig-col p { display:flex; }
 .orig-col .num { flex:0 0 auto; font-family:'NSKB',serif; font-weight:400; }
 .orig-col .txt { flex:1 1 auto; min-width:0; }
-""" % {'ow': orig_width_mm(), 'pad': COL_PAD_MM, 'fpt': FONT_PT, 'line': LINE_MM}
+""" % {'ow': orig_width_mm(), 'pad': COL_PAD_MM, 'fpt': FONT_PT, 'line': LINE_MM,
+       'ls': _mm(LETTER_SPACING_EM)}
 
 
 def num_digits(verses):
@@ -121,33 +179,58 @@ def build_draft_html(verses):
         '<!doctype html><html lang="ko"><head><meta charset="utf-8">'
         '<style>%s%s</style></head>'
         '<body><div class="orig-col">%s</div></body></html>'
-        % (BASE_CSS, num_col_css(num_digits(verses)), ''.join(parts))
+        % (base_css(), num_col_css(num_digits(verses)), ''.join(parts))
     )
 
 
-PAGE_CSS = """
-@page { size: A4 landscape; margin: 0; }
+def page_css():
+    """페이지(.page)·머리글(.hd)·필사 열(.write-col)·바닥글(.ft) 규칙 — 2차(인쇄) 전용.
+
+    1차(실측) HTML은 이 CSS를 아예 쓰지 않는다(build_draft_html 참고) — 그래서
+    HEADER_FONT_URL로 넣는 머리글 전용 서체(@font-face)도 여기 있으면 자동으로 2차에만
+    실린다. 1차에 실리면 머리글이 없어 쓰이지 않는 서체가 document.fonts에서 unloaded로
+    남아 실측이 서체 실패로 오인해 멈춘다(FONTFAIL).
+    """
+    header_font_face = ''
+    hd_font_rule = ''
+    if HEADER_FONT_URL:
+        header_path = next(iter(HEADER_FONT_URL))
+        header_font_face = (
+            "@font-face { font-family:'NSKH'; src:url('%s') format('woff');"
+            " font-weight:400; font-display:block; }\n" % header_path)
+        hd_font_rule = " font-family:'NSKH','NSK',serif;"
+    return ("""
+%(header_font_face)s@page { size: A4 landscape; margin: 0; }
 .page { width:%(w)smm; height:%(h)smm; padding:%(m)smm; background:#fff; }
 @media print {
   .page { page-break-after:always; }
   .page:last-of-type { page-break-after:auto; }
 }
 .hd { height:%(hh)smm; display:flex; justify-content:space-between; align-items:flex-end;
-      padding-bottom:1.5mm; border-bottom:0.75pt solid #333; font-size:11pt; }
+      padding-bottom:1.5mm; border-bottom:0.75pt solid #333; font-size:%(hpt)spt;%(hd_font_rule)s
+      overflow:hidden; }
 .hd .date { color:#555; letter-spacing:.05em; }
+.hd .date .blank { display:inline-block; }
+.hd .date .by { width:20mm; }
+.hd .date .bm, .hd .date .bd { width:12mm; }
 .row { height:%(rh)smm; display:flex; }
 .orig-col { flex:0 0 auto; overflow:hidden; }
 .write-col { flex:0 0 auto; width:%(ww)smm; padding-left:%(pad)smm;
              border-left:0.75pt solid #ccc; overflow:hidden; }
 .write-col .ln { height:%(line)smm; border-bottom:0.5pt solid #999; }
-.ft { height:%(fh)smm; display:flex; align-items:center; justify-content:center;
-      font-size:9pt; color:#555; border-top:0.75pt solid #333; }
-""" % {'w': PAGE_W_MM, 'h': PAGE_H_MM, 'm': MARGIN_MM, 'hh': HEADER_MM,
-       'rh': usable_body_mm(), 'fh': FOOTER_MM, 'line': LINE_MM,
-       'ww': write_width_mm(), 'pad': COL_PAD_MM}
+.ft { height:%(fh)smm; display:grid; grid-template-columns:1fr auto 1fr; align-items:center;
+      column-gap:6mm; font-size:%(fpt)spt; color:#555; border-top:0.75pt solid #333; }
+.ft span { white-space:nowrap; overflow:hidden; }
+.ft .fl { text-align:left; }
+.ft .fc { text-align:center; }
+.ft .fr { text-align:right; }
+""" % {'header_font_face': header_font_face, 'w': PAGE_W_MM, 'h': PAGE_H_MM, 'm': MARGIN_MM,
+       'hh': HEADER_MM, 'hpt': HEADER_PT, 'hd_font_rule': hd_font_rule,
+       'rh': usable_body_mm(), 'fh': FOOTER_MM, 'fpt': FOOTER_PT, 'line': LINE_MM,
+       'ww': write_width_mm(), 'pad': COL_PAD_MM})
 
 
-def _page_html(page_verses, book, page_no):
+def _page_html(page_verses, book, page_no, total):
     first, last = page_verses[0], page_verses[-1]
     if (first['chapter'], first['verse']) == (last['chapter'], last['verse']):
         # 절 하나뿐인 쪽 — 「룻기 1:22 ~ 1:22」가 아니라 「룻기 1:22」 하나만 쓴다
@@ -172,17 +255,20 @@ def _page_html(page_verses, book, page_no):
         body_lines = v['lines'] - sub_lines
         write_parts.append(
             '<div class="vs-write">%s</div>' % ('<div class="ln"></div>' * body_lines))
+    fl, fc, fr = footer_texts(page_no, total)
     return (
         '<div class="page">'
         '<div class="hd"><span class="rng">%s</span>'
-        '<span class="date">____년 __월 __일</span></div>'
+        '<span class="date"><span class="blank by"></span>년'
+        '<span class="blank bm"></span>월<span class="blank bd"></span>일</span></div>'
         '<div class="row">'
         '<div class="orig-col">%s</div>'
         '<div class="write-col">%s</div>'
         '</div>'
-        '<div class="ft"><span class="pg">%d</span></div>'
+        '<div class="ft"><span class="fl">%s</span><span class="fc">%s</span>'
+        '<span class="fr pg">%s</span></div>'
         '</div>'
-        % (esc(rng), ''.join(orig_parts), ''.join(write_parts), page_no)
+        % (esc(rng), ''.join(orig_parts), ''.join(write_parts), esc(fl), esc(fc), esc(fr))
     )
 
 
@@ -218,10 +304,11 @@ def build_final_html(pages, book):
     """
     all_verses = [v for pg in pages for v in pg]
     num_css = num_col_css(num_digits(all_verses))
-    page_divs = [_page_html(pg, book, i + 1) for i, pg in enumerate(pages)]
+    total = len(pages)
+    page_divs = [_page_html(pg, book, i + 1, total) for i, pg in enumerate(pages)]
     return (
         '<!doctype html><html lang="ko"><head><meta charset="utf-8">'
         '<title>%s 필사노트</title>'
         '<style>%s%s%s</style></head><body>%s%s</body></html>'
-        % (esc(book), BASE_CSS, num_css, PAGE_CSS, FONT_WARN_HTML, ''.join(page_divs))
+        % (esc(book), base_css(), num_css, page_css(), FONT_WARN_HTML, ''.join(page_divs))
     )
