@@ -37,6 +37,10 @@ Noto Serif KR(SIL OFL, 최초 실행 시 자동 다운로드), pymupdf(검증의
   `Your word is a lamp to my feet and a light for my path.`) · 오른쪽 `{page} / {total}`. `render.py` 맨 위 설정으로
   바꾼다. 한 줄을 넘치면 verify 가 잡는다. (처음엔 「간결하게」로 쪽번호만이었다 — 2026-09-22 성도님이 바꿨다. Task 8)
 - 원문 파일은 UTF-8(BOM 있어도)과 CP949 를 모두 읽는다. (Task 8)
+- 원문의 세 꼴 — 권 제목(`시1:제일권`) · 끊긴 절(`요5:이 날은 안식일이니`) · 합쳐진 절(`롬9:1-2`) — 은 **멈추지 않고 인쇄 성경처럼**
+  찍는다. 이 셋에도 안 맞는 절 번호 없는 줄만 여전히 멈춘다. 권 제목은 **가운데 정렬**. (Task 9 — Task 1 의 「멈춘다」를 세 꼴에 한해 바꿨다)
+- 장이 시작하는 자리마다 **왼쪽 정렬 「N장」**(시편은 「N편」)을 원문·필사 양쪽에 찍는다. (Task 9)
+- 바닥글 서체도 따로 정한다(`FOOTER_FONT_URL`). 머리글·바닥글 서체는 내 PC 의 서체 파일(`fonts/` 에 복사, 주소 `''`)도 쓸 수 있다. (Task 9)
 - 머리글의 글씨 크기·서체, 바닥글의 글씨 크기, 원문 자간은 `render.py` 맨 위 설정으로 정한다(자간은 1차·2차 공용 규칙에). 머리글·바닥글이
   제 칸(12mm · 8mm)을 넘치면 verify 가 잡는다 — 칸 높이가 그대로라 17줄은 안 바뀐다. (Task 8)
 - **만든 HTML과 서체는 커밋하지 않는다** — `bible-note/*.html`·`bible-note/fonts/`·`bible-note/_*`를
@@ -1612,6 +1616,123 @@ def load_book_file(path):
   그리고 `grep -o 'class="fc">[^<]*' 유다서.html` 로 홀·짝 가운데 글이 번갈아 나오는지, `grep -c '_' ` 대신
   `grep -o 'class="date">.*</span></div>' 유다서.html | head -1` 로 날짜 칸에 밑줄이 없는지 보고서에 옮긴다.
 - [ ] **Step 6:** 경로를 못 박아 커밋(`git add -- <바꾼 파일들>` · `git commit -m "…" -- <바꾼 파일들>`). HTML·fonts 는 커밋하지 않는다.
+
+---
+
+### Task 9: 멈추지 않게 — 권 제목 · 끊긴 절 · 합쳐진 절 · 장 표시 · 바닥글 서체 · 시편 1편 견본
+
+> 2026-09-22 성도님 결정: 원문의 세 가지 꼴을 **멈추지 말고 인쇄 성경처럼** 찍는다(「방법 2」). 권 제목은 **가운데 정렬**.
+> 장이 시작하는 자리에 **왼쪽 정렬로 「1장」**(시편은 **「1편」**)을 찍는다(성도님 요청 — 참조 PDF 처럼). 시편 1편을 견본에 더한다. Task 1~8 은 끝나 있다. 이 태스크가 Task 1 의 「발견하면 멈춘다」 결정을 **세 꼴에 한해** 바꾼다 —
+> 그 밖의 절 번호 없는 줄은 여전히 멈춘다.
+
+원문 66권을 전부 훑어 확인한 꼴(컨트롤러, 2026-09-22):
+
+| 꼴 | 곳 | 원문 예 | 뜻 |
+|---|---|---|---|
+| 권 제목 | 5 (시편 1·42·73·90·107편 첫 줄) | `시1:제일권` | 시편 제1~5권 머리 |
+| 끊긴 절(이어지는 줄) | 45 (21권) | `요5:이 날은 안식일이니` · `요12:예수께서 <그들이 예수를 믿지 아니하다> 이 말씀을 하시고 …` · `창35:야곱의 <야곱의 아들들(대상 2:1-2)> 아들은 열둘이라` | 앞 절이 소제목 자리에서 둘로 나뉜 것 |
+| 합쳐진 절 | 11 | `롬9:1-2 <약속의 자녀 약속의 말씀> 내가 …` · `신6:18-19 …` | 두세 절을 한 줄로 번역한 곳 |
+
+⚠️ **끊긴 줄의 소제목은 「첫 낱말 뒤」에 끼어 있다.** 원문은 한 줄의 첫 낱말(보통 `요1:1`) 뒤에 `<소제목>` 을 둔다. 끊긴 줄은
+`요12:예수께서` 가 붙어 한 낱말이라, 소제목이 본문 첫 낱말 뒤에 끼어 보인다. 실제 뜻은 「소제목 → `예수께서 이 말씀을 하시고 …`」다.
+그래서 `^\D+(\d+):(\S*)\s*(?:<([^>]*)>)?\s*(.*)$` 로 읽어 **본문 = 첫 낱말 + ' ' + 나머지**, 소제목 = `<…>` 로 둔다.
+
+**Files:**
+- Modify: `bible-note/parse.py` · `bible-note/render.py` · `bible-note/generate.py` · `bible-note/verify.py`(필요하면)
+- Modify: `bible-note/tests/test_parse.py` · `test_render.py` · `test_generate.py` · `test_paginate.py`(필요하면)
+
+**Interfaces — 절 dict 가 「조각」이 된다(하위 호환: 기존 키는 그대로)**
+
+```python
+{'book', 'chapter', 'verse',          # 기존 — verse 는 조각이 속한 절(합쳐진 절은 첫 절)
+ 'subtitle', 'body',                  # 기존
+ 'part': 0,                           # 새 — 같은 절의 몇 번째 조각(끊긴 줄이면 1, 2 …)
+ 'verse_end': None,                   # 새 — 합쳐진 절의 끝 절(롬9:1-2 → 2). 아니면 None
+ 'heading': None,                     # 새 — 권 제목(「제일권」). 없으면 None
+ 'label': '1',                        # 새 — 번호 칸에 찍을 글자(마침표 빼고). 합쳐진 절 '1-2', 끊긴 조각 ''
+ 'chapter_start': False}               # 새 — 그 장(요청 범위 안)의 첫 조각이면 True → 장 표시를 이 조각 위에 찍는다
+```
+
+**① parse.py**
+- 순서대로 본다: 빈 줄 → 건너뜀 · **권 제목** `^\D+(\d+):(제[일이삼사오]권)\s*$` → 바로 다음 절 조각의 `heading` 으로 붙인다
+  (다음 줄이 같은 장의 절이 아니거나 파일 끝이면 `ValueError`) · **합쳐진 절** `^\D+(\d+):(\d+)-(\d+)\s*(?:<([^>]*)>)?\s*(.*)$` →
+  `verse=a, verse_end=b, label='a-b'` · **보통 절**(지금의 VERSE_RE) → `label=str(verse)` · **끊긴 줄** `^\D+(\d+):(\S*)\s*(?:<([^>]*)>)?\s*(.*)$`
+  (첫 글자가 숫자가 아닐 때) → 바로 앞 조각과 **같은 장·같은 절**, `part = 앞 조각 part + 1`, `label=''`, 본문은 위 ⚠️ 대로.
+  앞 조각이 없거나 다른 장이면 `ValueError`.
+- 장이 요청한 장이 아니면 지금처럼 버린다(권 제목·끊긴 줄도 그 장을 따른다).
+- 이 넷 어디에도 안 맞는 줄은 **지금처럼 `ValueError`**(몇 번째 줄인지).
+- docstring·모듈 머리 ⚠️ 를 새 규칙으로 고친다(Task 1 의 「멈춘다」는 세 꼴에 한해 바뀌었다는 것과 날짜).
+
+**② render.py**
+- 번호 칸: `<span class="num">%s</span>` 에 `label + '.'`(label 이 비면 빈 칸 — **칸 폭은 그대로** 두어 본문이 번호 뒤 글자에 줄을 맞춘다).
+- 번호 칸 폭: `num_digits` 를 **가장 긴 label 의 글자 수**로(합쳐진 절 `10-11` 은 5). 1차·2차가 같은 값(지금 규칙 그대로).
+- 권 제목: 원문·필사 양쪽에 `<div class="head">제일권</div>` — **가운데 정렬**, 굵게(NSKB), 글씨 크기·줄 높이는 소제목과 같게.
+  필사 쪽은 소제목처럼 원문 쪽 **실측 줄 수에 높이를 못박는다**(`head_lines`). 순서는 권 제목 → 소제목 → 본문.
+- 1차(실측) 마크업의 `data-*` 에 **조각 번호**를 더한다(`data-pt`) — 같은 절의 두 조각이 한 키로 겹치지 않게.
+  역할은 `head` · `chap` · `sub` · `body` 넷.
+- 머리글 절 범위: 끝 조각이 합쳐진 절이면 `verse_end` 로(`로마서 9:1 ~ 9:2`). 한 절뿐인 쪽 규칙(「1:22」)은 그대로.
+- CSS: `.orig-col .head, .write-col .head { text-align:center; font-family:'NSKB',serif; … }` — BASE_CSS(공용)에 둔다.
+- **장 표시**: `chapter_start` 인 조각 맨 위에 `<div class="chap">1장</div>`(시편은 `1편`) — **왼쪽 정렬**, 굵게(NSKB), 소제목과 같은
+  글씨 크기·줄 높이, 원문·필사 양쪽. 필사 쪽 높이는 원문 쪽 실측 줄 수로 못박는다(`chap_lines`). 단위 글자는 책이 시편이면 「편」,
+  아니면 「장」 — 한 함수(`chapter_unit(book)`)에서만 정하고 generate 의 파일 이름도 같은 함수를 쓴다.
+- 조각 위쪽 순서: **권 제목(가운데) → 장 표시(왼쪽) → 소제목(왼쪽) → 본문.** 인쇄 성경처럼 「제일권」이 「1편」 위에 온다.
+- 한 장만 뽑아도(`--chapter 1`), 장이 하나뿐인 책(유다서)도 첫 조각에 장 표시가 붙는다(참조 PDF 의 유다서도 「1 장」으로 시작한다).
+
+**③ generate.py**
+- `measure_lines` 결과 키를 `(chapter, verse, part, role)` 로. 조각마다 `lines = head_n + chap_n + sub_n + body_n`, `head_lines`·`chap_lines`·`sub_lines` 를 채운다.
+- 기본 출력 이름: `render.chapter_unit(book)` 으로 — 시편이면 `시편_1편.html`, 그 밖은 지금처럼 `_N장`.
+
+**③-2 바닥글 서체 (render.py · generate.py — 성도님 요청)**
+- `FOOTER_PT`(Task 8) 옆에 `FOOTER_FONT_URL = {}` 을 더한다 — 머리글의 `HEADER_FONT_URL` 과 **똑같은 규칙**(비우면 본문 서체,
+  파일 한 벌만, 키가 둘 이상이면 ValueError, 로컬 파일은 주소 `''`, @font-face 는 **2차(인쇄) CSS 에만**).
+  글꼴 이름은 `'NSKF'`, `.ft { font-family:'NSKF','NSK',serif; }`.
+- 머리글 코드를 복사해 붙이지 말고 **한 도우미로 묶는다**(예: 서체 자리 이름과 URL 사전을 받아 @font-face·font-family 를 만드는 함수) —
+  두 벌이 되면 한쪽만 고치게 된다.
+- `all_font_urls()` 에 바닥글 서체도 들어가야 한다 — `ensure_fonts` · `_copy_fonts_beside` · `ensure_out_path_safe` 가 모두 받는다.
+- 테스트: 기본값이면 NSKF 없음 · monkeypatch 로 넣으면 2차에만 @font-face 와 `.ft` 의 font-family · `all_font_urls()` 에 포함 ·
+  머리글·바닥글에 **같은 파일**을 넣어도 두 번 받거나 두 번 복사하지 않는다.
+- ⚠️ **내 PC 서체(로컬 파일)가 실제로 되게** — 가이드가 「`fonts/` 에 복사하고 `{'fonts/파일.ttf': ''}` 로 적는다」고 안내한다.
+  Task 8 코드에는 두 곳이 걸린다(컨트롤러 확인):
+  ① `render.py` 가 머리글 @font-face 에 `format('woff')` 를 박아 둬 `.ttf`·`.otf` 와 안 맞는다 → 확장자로 고른다
+     (`.woff`→woff · `.woff2`→woff2 · `.ttf`→truetype · `.otf`→opentype, 그 밖은 ValueError — `.ttc` 는 브라우저가 못 읽는다고 알린다).
+  ② `generate.ensure_fonts()` 가 100KB 보다 작은 파일을 「덜 받았다」로 보고 주소로 다시 받는다 — 주소가 `''` 이면 오류가 난다.
+     → 주소가 `''` 인 항목은 **내려받지 않는다**. 파일이 있으면(크기 무관) 그대로 쓰고, 없으면 「`fonts/<파일>` 을 넣어 주세요」로 멈춘다.
+  테스트: 로컬 `.ttf` 항목이 작은 파일이어도 받지 않음 · 없으면 SystemExit(한국어) · format 힌트가 확장자를 따름 · `.ttc` 는 ValueError.
+
+**④ 테스트 (TDD)**
+- parse(가짜 문자열): 권 제목이 다음 절 heading 으로 · 권 제목 다음이 절이 아니면 ValueError · 끊긴 줄 → part 1, label '', 본문 합침 ·
+  끊긴 줄 한가운데 소제목(`요12:예수께서 <그들이…> 이 말씀을`) → subtitle 과 본문 「예수께서 이 말씀을」 · 합쳐진 절 → verse 1, verse_end 2,
+  label '1-2' · 알 수 없는 줄은 여전히 ValueError.
+- parse(실제 원문, `needs_bible`): **66권 전부 `chapter=None` 으로 멈추지 않는다** · 권 제목 5개가 모두 heading 으로 붙는다 ·
+  시편 1편 → 6조각, 첫 조각 heading '제일권' · 요한복음 5장에 9절 두 조각(둘째 본문이 「이 날은 안식일이니」로 시작) ·
+  로마서 9장 첫 조각 label '1-2' · **본문 보존**: 각 권에서 원문의 모든 글자(절 표시·`<>` 빼고)가 조각 본문·소제목·권 제목에 빠짐없이 들어간다.
+- 기존 테스트 중 「멈춘다」를 확인하던 것(이어지는 줄·합쳐진 절·요한복음 전체가 멈춘다)은 **새 규칙에 맞게 바꾼다** — 지우지 말고,
+  「이제는 이렇게 읽는다」를 확인하도록.
+- render: 권 제목 div 가 양쪽에 있고 필사 쪽 높이가 못박힘 · 끊긴 조각의 번호 칸이 비어 있음 · 합쳐진 절 번호 `1-2.` ·
+  번호 칸 폭이 가장 긴 label 을 따름 · 1차 data-pt · 장 첫 조각에 `<div class="chap">1장</div>` 이 양쪽에(시편은 `1편`) ·
+  장이 둘인 책을 만들면 둘째 장 첫 쪽에 「2장」 · 권 제목이 장 표시보다 위.
+- generate: 측정 결과 풀이가 part 를 포함 · 시편 기본 파일 이름 `_1편`.
+
+**⑤ 견본과 검증**
+```
+cd bible-note
+PYTHONIOENCODING=utf-8 python generate.py 시편 --chapter 1
+PYTHONIOENCODING=utf-8 python verify.py 시편_1편.html
+PYTHONIOENCODING=utf-8 python generate.py 유다서
+PYTHONIOENCODING=utf-8 python verify.py 유다서.html
+PYTHONIOENCODING=utf-8 python generate.py 요한복음 --chapter 1
+PYTHONIOENCODING=utf-8 python verify.py 요한복음_1장.html
+```
+마지막으로 `grep -o 'class="chap"[^<]*<' 시편_1편.html 유다서.html` 로 「1편」·「1장」이 찍혔는지 보고서에 옮긴다.
+그리고 새 꼴이 실제로 찍히는지 — **커밋하지 않는** 확인용으로:
+```
+PYTHONIOENCODING=utf-8 python generate.py 요한복음 --chapter 12      # 끊긴 절 + 한가운데 소제목
+PYTHONIOENCODING=utf-8 python generate.py 로마서 --chapter 9         # 합쳐진 절
+PYTHONIOENCODING=utf-8 python generate.py 시편 --chapter 42          # 권 제목 + 소제목
+```
+각각 verify 가 `모두 통과했습니다.` 여야 한다. 유다서 · 요한복음 1장은 장 표시 한 줄이 더해져 쪽 수가 같거나 한 쪽 늘 수 있다 — 새 쪽 수를 보고서에 적는다.
+
+**⑥ 커밋** — 경로를 못 박아 코드·테스트만. 만든 HTML 은 커밋하지 않는다.
 
 ---
 
