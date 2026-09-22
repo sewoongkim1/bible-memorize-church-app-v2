@@ -131,3 +131,5 @@ bible-note/**/fonts/
 bible-note/**/*.html
 bible-note/**/_*
 bible-note/.pytest_cache/
+# 사용 가이드는 본문이 없는 설명서라 올린다(2026-09-22). _샘플/ 은 원문이라 위 `_*` 로 막힌다.
+!bible-note/필사노트_만들기.html

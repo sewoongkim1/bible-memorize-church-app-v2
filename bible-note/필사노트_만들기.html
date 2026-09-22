@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>가로형 필사노트 만들기</title>
+<!-- 이 파일은 bible-note/필사노트_만들기.md 와 같은 내용이다. 하나를 고치면 다른 하나도 함께 고친다. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+html, body { margin: 0; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+:root {
+  --ground: #f5f6f9;
+  --surface: #ffffff;
+  --ink: #1b2233;
+  --muted: #5b6477;
+  --navy: #1a3a6b;
+  --gold: #9a7a31;
+  --line: #d8dce5;
+  --rule: #b9c0cc;
+  --code-bg: #eef1f6;
+  --warn-bg: #fbf4e4;
+  --warn-ink: #6f5213;
+  --warn-edge: #e3cf9c;
+  --paper: #ffffff;
+  --paper-ink: #222a3a;
+  --sans: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --serif: "Noto Serif KR", "Nanum Myeongjo", "Batang", serif;
+  --mono: "JetBrains Mono", Consolas, "Noto Sans KR", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #11151d;
+    --surface: #181e2a;
+    --ink: #e5e8ef;
+    --muted: #a2aabb;
+    --navy: #93b2e6;
+    --gold: #d8b86a;
+    --line: #2b3346;
+    --rule: #4a5470;
+    --code-bg: #0d1118;
+    --warn-bg: #2a2416;
+    --warn-ink: #ead294;
+    --warn-edge: #5a4a22;
+    --paper: #f3f4f7;
+    --paper-ink: #222a3a;
+  }
+}
+:root[data-theme="dark"] {
+  --ground: #11151d;
+  --surface: #181e2a;
+  --ink: #e5e8ef;
+  --muted: #a2aabb;
+  --navy: #93b2e6;
+  --gold: #d8b86a;
+  --line: #2b3346;
+  --rule: #4a5470;
+  --code-bg: #0d1118;
+  --warn-bg: #2a2416;
+  --warn-ink: #ead294;
+  --warn-edge: #5a4a22;
+  --paper: #f3f4f7;
+  --paper-ink: #222a3a;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 17px;
+  line-height: 1.75;
+  padding-inline: 20px;
+  padding-block: 40px 72px;
+}
+.wrap { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 56px; }
+
+header.top { display: flex; flex-direction: column; gap: 14px; }
+.eyebrow { font-size: 13px; letter-spacing: .12em; color: var(--gold); font-weight: 700; }
+h1 { font-family: var(--serif); font-weight: 600; font-size: clamp(30px, 6vw, 42px); line-height: 1.3; margin: 0; color: var(--navy); text-wrap: balance; }
+.lede { margin: 0; font-size: 19px; color: var(--ink); max-width: 36em; }
+.lede em { font-style: normal; color: var(--navy); font-weight: 700; }
+
+nav.toc { display: flex; flex-wrap: wrap; gap: 8px 10px; }
+nav.toc a {
+  color: var(--navy); text-decoration: none; font-size: 15px; font-weight: 500;
+  padding: 4px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface);
+}
+nav.toc a:hover { border-color: var(--navy); }
+a:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+section { display: flex; flex-direction: column; gap: 16px; scroll-margin-top: 16px; }
+h2 { font-family: var(--serif); font-weight: 600; font-size: 26px; margin: 0; color: var(--navy); text-wrap: balance; }
+h3 { font-size: 18px; margin: 8px 0 0; font-weight: 700; }
+p { margin: 0; max-width: 40em; }
+.muted { color: var(--muted); }
+strong { font-weight: 700; }
+
+/* 한 쪽을 줄여 그린 그림 */
+figure.sheet { margin: 0; display: flex; flex-direction: column; gap: 12px; }
+.paper {
+  width: 100%; max-width: 640px; aspect-ratio: 297 / 210;
+  background: var(--paper); color: var(--paper-ink);
+  border: 1px solid var(--line); border-radius: 4px;
+  box-shadow: 0 10px 30px -18px rgba(20, 30, 60, .45);
+  padding: 4.4%;
+  display: grid; grid-template-rows: auto 1fr auto; gap: 2.5%;
+  font-family: var(--serif); font-size: clamp(8px, 1.55vw, 11px); line-height: 1.5;
+  position: relative;
+}
+.p-hd { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1px solid #333; padding-bottom: .4em; }
+.p-hd .date { display: flex; gap: .2em; color: #555; }
+.p-hd .date i { display: inline-block; width: 3.2em; }
+.p-hd .date i.m { width: 2em; }
+.p-body { display: grid; grid-template-columns: 1fr 1fr; min-height: 0; }
+.p-orig { padding-right: 4%; display: flex; flex-direction: column; }
+.p-write { padding-left: 4%; border-left: 1px solid #c9ced8; display: flex; flex-direction: column; }
+.p-sub { font-weight: 600; height: 2.1em; display: flex; align-items: center; }
+.p-chap { font-weight: 700; height: 2.1em; display: flex; align-items: center; }
+.p-v { display: grid; grid-template-columns: 1.7em 1fr; }
+.p-v span:first-child { font-weight: 600; }
+.p-v span:last-child { line-height: 2.1em; }
+.p-ln { height: 2.1em; border-bottom: 1px solid #9aa2b0; }
+.p-ft { display: grid; grid-template-columns: 1fr auto 1fr; gap: 1em; border-top: 1px solid #333; padding-top: .35em; color: #555; font-size: .85em; }
+.p-ft span:last-child { text-align: right; }
+figcaption { font-size: 15px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 18px; }
+figcaption b { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+
+/* 표 */
+.table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 16px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+tr:last-child td { border-bottom: 0; }
+th { font-size: 13px; letter-spacing: .06em; color: var(--muted); font-weight: 700; background: var(--code-bg); }
+td:first-child { white-space: nowrap; }
+
+/* 명령 */
+pre, code { font-family: var(--mono); }
+code { font-size: .88em; background: var(--code-bg); padding: 1px 6px; border-radius: 4px; }
+pre {
+  margin: 0; background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px;
+  padding: 14px 16px; overflow-x: auto; font-size: 15px; line-height: 1.7;
+}
+pre code { background: none; padding: 0; font-size: inherit; }
+
+/* 세 걸음 — 실제로 순서가 있는 과정이라 번호를 쓴다 */
+ol.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 28px; counter-reset: step; }
+ol.steps > li { counter-increment: step; display: grid; grid-template-columns: 44px 1fr; gap: 0 14px; }
+ol.steps > li::before {
+  content: counter(step); grid-row: span 2;
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--navy); color: var(--surface);
+  display: grid; place-items: center; font-weight: 700; font-size: 17px; margin-top: 2px;
+}
+ol.steps h3 { margin: 4px 0 8px; }
+.step-body { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 6px; max-width: 40em; }
+
+.note {
+  background: var(--warn-bg); color: var(--warn-ink); border: 1px solid var(--warn-edge);
+  border-radius: 8px; padding: 14px 16px; font-size: 16px;
+}
+.note strong { color: inherit; }
+.rules { display: flex; flex-direction: column; gap: 12px; }
+.rules p { padding-left: 16px; border-left: 3px solid var(--gold); }
+
+footer.end { font-size: 14px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+
+@media (max-width: 520px) {
+  body { font-size: 16px; }
+  ol.steps > li { grid-template-columns: 36px 1fr; }
+  ol.steps > li::before { width: 30px; height: 30px; font-size: 15px; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div class="eyebrow">고척교회 · 성경 필사노트</div>
+  <h1>가로형 필사노트 만들기</h1>
+  <p class="lede">성경 한 권(또는 한 장)을 고르면 <em>왼쪽엔 본문, 오른쪽엔 따라 쓸 줄</em>이 있는 A4 가로 인쇄용 파일이 만들어집니다. 크롬으로 열어 바로 인쇄하면 됩니다.</p>
+  <nav class="toc" aria-label="차례">
+    <a href="#what">무슨 도구인가요</a>
+    <a href="#ready">준비물</a>
+    <a href="#make">만들기 세 걸음</a>
+    <a href="#source">원문 파일 모양</a>
+    <a href="#style">모양 바꾸기</a>
+    <a href="#stuck">멈췄을 때</a>
+    <a href="#rules">꼭 지킬 것</a>
+  </nav>
+</header>
+
+<section id="what">
+  <h2>무슨 도구인가요</h2>
+  <figure class="sheet">
+    <div class="paper" role="img" aria-label="A4 가로 한 쪽 — 왼쪽 원문, 오른쪽 필사줄, 양쪽에 장 표시, 위 머리글과 날짜 칸, 아래 바닥글 세 칸">
+      <div class="p-hd"><span>유다서 1:1 ~ 1:5</span><span class="date"><i></i>년<i class="m"></i>월<i class="m"></i>일</span></div>
+      <div class="p-body">
+        <div class="p-orig">
+          <div class="p-chap">1장</div>
+          <div class="p-sub">인사</div>
+          <div class="p-v"><span>1.</span><span>예수 그리스도의 종이요 야고보의 형제인 유다는 부르심을 받은 자 곧 …</span></div>
+          <div class="p-v"><span>2.</span><span>긍휼과 평강과 사랑이 너희에게 더욱 많을지어다</span></div>
+        </div>
+        <div class="p-write">
+          <div class="p-chap">1장</div>
+          <div class="p-sub">인사</div>
+          <div class="p-ln"></div><div class="p-ln"></div><div class="p-ln"></div>
+        </div>
+      </div>
+      <div class="p-ft"><span>God is Love</span><span>주의 말씀은 내 발에 등이요 …</span><span>1 / 5</span></div>
+    </div>
+    <figcaption>
+      <span>용지 <b>A4 가로 297 × 210 mm</b></span>
+      <span>여백 <b>13 mm</b></span>
+      <span>줄 간격 <b>9.5 mm</b></span>
+      <span>한 쪽 <b>17줄</b></span>
+      <span>원문 : 필사 <b>50 : 50</b></span>
+    </figcaption>
+  </figure>
+  <p>필사노트를 손으로 만든다고 생각해 보세요. 왼쪽에 구절을 옮겨 적고, 그 구절이 <strong>세 줄</strong>을 차지했다면 오른쪽에 자를 대고 <strong>세 줄</strong>을 긋습니다. 종이가 차면 다음 장으로 넘어가되, 한 구절이 두 장에 걸쳐 잘리지 않게 합니다.</p>
+  <p>이 도구가 그 일을 대신합니다. 구절이 몇 줄이 될지 눈대중으로 세지 않고, <strong>크롬에 실제로 찍어 본 뒤 자로 재듯 재서</strong> 그만큼 줄을 긋습니다. 그래서 글씨 크기나 칸 넓이를 바꿔도 줄 수가 늘 딱 맞습니다.</p>
+  <p>인쇄 성경처럼 찍습니다. 장이 시작하는 자리에는 <strong>왼쪽에 「1장」</strong>(시편은 <strong>「1편」</strong>)이, 시편의 권이 바뀌는 편 위에는 <strong>가운데에 「제일권」</strong> 같은 권 제목이 찍힙니다. 오른쪽 필사 칸에도 같은 자리에 같은 글이 들어가 양쪽 줄이 늘 나란히 갑니다.</p>
+  <p class="muted">만들어지는 것은 웹 페이지 파일(HTML) 하나입니다. 크롬으로 열어 <code>Ctrl+P</code> 로 인쇄합니다.</p>
+</section>
+
+<section id="ready">
+  <h2>한 번만 준비할 것</h2>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>준비물</th><th>담당 PC</th><th>다른 PC에서 쓰려면</th></tr></thead>
+      <tbody>
+        <tr><td>파이썬(Python)</td><td>설치되어 있음</td><td>python.org 에서 설치</td></tr>
+        <tr><td>크롬</td><td>설치되어 있음</td><td>크롬 설치</td></tr>
+        <tr><td>성경 원문 <code>bible</code> 폴더</td><td>있음 · 개역개정 66권</td><td>담당 PC의 폴더를 통째로 복사</td></tr>
+        <tr><td>인터넷</td><td colspan="2">처음 한 번만 — 서체를 받아 <code>bible-note\fonts</code> 에 둡니다</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted"><code>bible</code> 폴더는 인터넷 저장소(GitHub)에 올리지 않습니다. 개역개정은 대한성서공회 저작물입니다.</p>
+</section>
+
+<section id="make">
+  <h2>만들기 세 걸음</h2>
+  <ol class="steps">
+    <li>
+      <h3>명령 창 열기</h3>
+      <div class="step-body">
+        <p>탐색기에서 <code>bible-note</code> 폴더를 엽니다. 위쪽 <strong>주소창을 누르고 <code>cmd</code> 라고 쓴 뒤 Enter</strong> — 까만 명령 창이 그 폴더에서 열립니다.</p>
+      </div>
+    </li>
+    <li>
+      <h3>만들기</h3>
+      <div class="step-body">
+        <p>책 이름을 넣어 한 줄 칩니다.</p>
+<pre><code>python generate.py 유다서
+python generate.py 요한복음 --chapter 1
+python generate.py 시편 --chapter 1</code></pre>
+        <ul class="plain">
+          <li><code>--chapter 1</code> 은 「1장만」(시편은 「1편만」)이라는 뜻입니다. 빼면 그 책 전체를 만들고, 장이 바뀔 때마다 새 쪽에서 시작합니다.</li>
+          <li>끝나면 <code>완료: 유다서.html (5쪽 · 25절)</code> 처럼 나옵니다. 파일은 <code>bible-note</code> 폴더에 생깁니다(<code>유다서.html</code> · <code>요한복음_1장.html</code> · <code>시편_1편.html</code>).</li>
+          <li>바탕화면에 바로 만들려면 끝에 <code>--out C:\Users\sewki\Desktop\유다서.html</code> 을 붙입니다. 서체 폴더도 함께 복사됩니다.</li>
+        </ul>
+        <p class="muted">Git Bash 를 쓰신다면 명령 앞에 <code>PYTHONIOENCODING=utf-8</code> 을 붙이세요. 까만 명령 창(cmd)에서는 필요 없습니다.</p>
+      </div>
+    </li>
+    <li>
+      <h3>확인하고 인쇄하기</h3>
+      <div class="step-body">
+<pre><code>python verify.py 유다서.html</code></pre>
+        <p><code>모두 통과했습니다.</code> 가 나오면 줄 수 · 줄 맞춤 · 쪽 나눔 · A4 가로 크기가 모두 맞는 것입니다. 그다음 파일을 <strong>크롬으로 열고 <code>Ctrl+P</code></strong>:</p>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>항목</th><th>고를 것</th></tr></thead>
+            <tbody>
+              <tr><td>용지 크기</td><td>A4</td></tr>
+              <tr><td>레이아웃</td><td>가로 — 저절로 잡힙니다</td></tr>
+              <tr><td>여백 · 배율</td><td>기본값 그대로. <strong>「페이지에 맞춤」은 켜지 마세요</strong> — 줄이 잰 크기보다 작아집니다</td></tr>
+              <tr><td>머리글과 바닥글</td><td>끄기 — 브라우저가 주소·날짜를 찍지 않게</td></tr>
+              <tr><td>양면</td><td>왼쪽에 와이어를 끼울 거라면 「짧은 쪽으로 넘기기」. 처음엔 <strong>한 장만</strong> 뽑아 뒷면 방향을 확인하세요</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </li>
+  </ol>
+</section>
+
+<section id="source">
+  <h2>원문 파일 모양</h2>
+  <p>개역개정은 이미 들어 있어 준비할 것이 없습니다. 새번역·쉬운성경·영어 성경을 넣으시거나, 원문이 어떻게 생겼는지 궁금하실 때 읽으세요.</p>
+  <h3>파일 하나가 책 한 권</h3>
+  <p>이름은 <code>구분-순번책이름.txt</code> — 구분은 1 구약, 2 신약입니다. 명령에 쓰는 이름은 파일 이름의 책 이름 부분과 <strong>똑같아야</strong> 합니다.</p>
+<pre><code>2-26유다서.txt        →  python generate.py 유다서</code></pre>
+  <h3>한 줄에 한 절</h3>
+<pre><code>유1:1 &lt;인사&gt; 예수 그리스도의 종이요 야고보의 형제인 유다는 …
+유1:2 긍휼과 평강과 사랑이 너희에게 더욱 많을지어다
+Jude1:3 Dear friends, although I was very eager to write to you …</code></pre>
+  <ul class="plain">
+    <li><strong>약자</strong>는 숫자로 시작하지만 않으면 무엇이든 됩니다(<code>유</code>, <code>Jude</code>, <code>요일</code>). <code>1John1:1</code> 처럼 숫자로 시작하면 읽지 못합니다.</li>
+    <li><strong>소제목</strong>은 없어도 됩니다. 넣으려면 절 번호 바로 뒤에 <code>&lt; &gt;</code> 로 감쌉니다.</li>
+    <li>빈 줄은 그냥 건너뜁니다.</li>
+    <li>메모장의 기본 저장(UTF-8)이든 ANSI 든 둘 다 읽습니다.</li>
+  </ul>
+  <h3>본보기 파일</h3>
+  <p><code>bible-note\_샘플</code> 폴더에 개역개정 원문을 그대로 옮긴 본보기가 있습니다. 메모장으로 열어 모양을 보세요.</p>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>파일</th><th>담은 곳</th><th>볼 수 있는 것</th></tr></thead>
+      <tbody>
+        <tr><td><code>_샘플\1-19시편.txt</code></td><td>시편 1편</td><td>권 제목 줄 <code>시1:제일권</code></td></tr>
+        <tr><td><code>_샘플\2-04요한복음.txt</code></td><td>요한복음 1장</td><td>소제목, 괄호가 든 긴 소제목</td></tr>
+        <tr><td><code>_샘플\2-26유다서.txt</code></td><td>유다서 전체</td><td>한 권 전체, 소제목 여럿</td></tr>
+        <tr><td><code>_샘플\특별한_줄\2-04요한복음.txt</code></td><td>요한복음 12장</td><td>절이 두 줄로 나뉜 줄</td></tr>
+        <tr><td><code>_샘플\특별한_줄\2-06로마서.txt</code></td><td>로마서 9장</td><td>두 절이 합쳐진 줄 <code>롬9:1-2</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">본보기는 모양을 보여 주려는 것입니다. 도구는 <code>bible</code> 폴더에서만 원문을 찾습니다. <code>_샘플</code> 폴더는 개역개정 본문이라 인터넷 저장소에 올라가지 않습니다.</p>
+
+  <h3>이런 줄도 그대로 찍습니다</h3>
+  <p>원문에는 「한 줄에 한 절」에서 벗어난 줄이 세 가지 있습니다. 인쇄 성경처럼 찍으니 <strong>고치지 않아도 됩니다.</strong></p>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>줄 모양</th><th>예</th><th>이렇게 찍힙니다</th></tr></thead>
+      <tbody>
+        <tr><td>권 제목</td><td><code>시1:제일권</code></td><td>그 편 첫 절 위 <strong>가운데</strong>에 「제일권」 → 그 아래 왼쪽에 「1편」</td></tr>
+        <tr><td>절이 두 줄로 나뉜 줄</td><td><code>요12:예수께서 &lt;그들이 예수를 믿지 아니하다&gt; 이 말씀을 하시고 …</code></td><td>앞 절(36절)에 이어 <strong>번호 없이</strong>. 소제목이 있으면 그 줄을 먼저 찍고, 그 아래 「예수께서 이 말씀을 하시고 …」</td></tr>
+        <tr><td>두 절이 합쳐진 줄</td><td><code>롬9:1-2 …</code></td><td>번호를 <strong>「1-2.」</strong> 로 찍고 한 절처럼 다룹니다</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">개역개정에는 권 제목 5곳(시편 1 · 42 · 73 · 90 · 107편), 나뉜 줄 45곳, 합쳐진 절 11곳이 있습니다.</p>
+
+  <h3>이런 줄은 멈춥니다</h3>
+  <p>틀린 채 인쇄되지 않게 일부러 그렇게 했습니다. 몇 번째 줄인지 알려 줍니다.</p>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>멈추는 줄</th><th>할 일</th></tr></thead>
+      <tbody>
+        <tr><td><code>약자장:</code> 으로 시작하지 않는 줄(본문만 덩그러니 있는 줄)</td><td>앞에 <code>유1:3</code> 처럼 붙이거나 앞 줄에 이어 붙입니다</td></tr>
+        <tr><td><code>유1:</code> 처럼 번호 뒤에 아무것도 없는 줄</td><td>지웁니다</td></tr>
+        <tr><td>나뉜 줄인데 바로 앞에 같은 장의 절이 없다</td><td>앞 절이 빠지지 않았는지 봅니다</td></tr>
+        <tr><td>권 제목 다음 줄이 같은 장의 절이 아니다 · 권 제목 뒤에 절이 없다</td><td>권 제목 자리를 확인합니다</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="style">
+  <h2>모양 바꾸기</h2>
+  <p><code>bible-note\render.py</code> 를 메모장으로 열면 맨 위에 설정이 모여 있습니다. 숫자와 글자만 바꾸고 저장하세요.</p>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>설정</th><th>지금 값</th><th>뜻</th></tr></thead>
+      <tbody>
+        <tr><td><code>FONT_PT</code></td><td><code>12</code></td><td>본문 글씨 크기(pt). 16 정도까지 무난합니다</td></tr>
+        <tr><td><code>LINE_MM</code></td><td><code>9.5</code></td><td>줄 간격(mm) — 손글씨 칸 높이. 9.5 이면 한 쪽 17줄, 10 이면 16줄</td></tr>
+        <tr><td><code>ORIG_PCT</code></td><td><code>50</code></td><td>왼쪽 원문 칸의 비율(%). 50 이면 반반</td></tr>
+        <tr><td><code>LETTER_SPACING_EM</code></td><td><code>0</code></td><td>본문 자간. 한글은 보통 -0.03 ~ 0.05</td></tr>
+        <tr><td><code>HEADER_PT</code></td><td><code>11</code></td><td>머리글(책·절 범위 · 날짜 칸) 글씨 크기</td></tr>
+        <tr><td><code>HEADER_FONT_URL</code></td><td><code>{}</code></td><td>머리글 서체. 비우면 본문 서체</td></tr>
+        <tr><td><code>FOOTER_PT</code></td><td><code>9</code></td><td>바닥글 글씨 크기</td></tr>
+        <tr><td><code>FOOTER_FONT_URL</code></td><td><code>{}</code></td><td>바닥글 서체. 비우면 본문 서체. 쓰는 법은 머리글 서체와 똑같습니다</td></tr>
+        <tr><td><code>FOOTER_LEFT</code></td><td><code>'God is Love'</code></td><td>바닥글 왼쪽</td></tr>
+        <tr><td><code>FOOTER_CENTER</code></td><td>표어(한글)</td><td>바닥글 가운데 — 홀수 쪽</td></tr>
+        <tr><td><code>FOOTER_CENTER_EVEN</code></td><td>표어(영어)</td><td>바닥글 가운데 — 짝수 쪽. <code>''</code> 로 비우면 홀수 쪽과 같습니다</td></tr>
+        <tr><td><code>FOOTER_RIGHT</code></td><td><code>'{page} / {total}'</code></td><td>바닥글 오른쪽. <code>{page}</code> 는 쪽 번호, <code>{total}</code> 은 전체 쪽 수로 바뀝니다</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note"><strong>고친 뒤에는 꼭 다시 만들고(2번) 확인(3번)하세요.</strong> 옷 치수를 바꾸면 다시 재단해야 하듯, 이 도구는 다시 만들 때마다 줄 수를 새로 재서 필사줄을 맞춥니다.</div>
+
+  <h3>내 PC에 있는 서체를 머리글·바닥글에 쓰려면</h3>
+  <ul class="plain">
+    <li>서체 파일을 찾습니다 — <code>C:\Windows\Fonts</code>, 또는 직접 설치한 서체는 <code>C:\Users\sewki\AppData\Local\Microsoft\Windows\Fonts</code></li>
+    <li>그 파일을 <code>bible-note\fonts</code> 에 복사합니다.</li>
+    <li><code>HEADER_FONT_URL = {'fonts/BMJUA_ttf.ttf': ''}</code> 처럼 적습니다. 파일이 이미 있으니 주소는 비워 둡니다. 바닥글도 같은 방법으로 <code>FOOTER_FONT_URL</code> 에 적습니다(머리글과 같은 파일이어도 됩니다).</li>
+    <li>파일 이름 앞에 꼭 <code>fonts/</code> 를 붙입니다. 도구는 <code>fonts</code> 폴더 안의 파일만 HTML 옆으로 함께 옮깁니다. 머리글·바닥글 서체는 각각 한 파일만 적습니다.</li>
+    <li><code>.ttf</code> · <code>.otf</code> · <code>.woff</code> · <code>.woff2</code> 는 됩니다. 여러 서체를 묶은 <code>.ttc</code>(바탕체 등)는 브라우저가 읽지 못해 멈춥니다.</li>
+  </ul>
+  <h3>본문 서체를 바꾸려면</h3>
+  <p><code>render.py</code> 의 <code>FONT_URL</code>(받아 올 주소)과 그 아래 <code>@font-face</code> 두 줄의 파일 이름을 <strong>함께</strong> 바꿉니다. 한 곳만 바꾸면 서체가 조용히 기본 명조로 바뀝니다. 한글이 다 들어 있는 서체여야 합니다.</p>
+</section>
+
+<section id="stuck">
+  <h2>멈췄을 때</h2>
+  <p>빨간 글씨가 길게 나와도 놀라지 마세요. <strong>맨 아래 한 줄</strong>이 이유입니다.</p>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>이렇게 나오면</th><th>할 일</th></tr></thead>
+      <tbody>
+        <tr><td>시편 12번째 줄: 장·절 번호가 없는 줄이라… 처럼 「…번째 줄:」</td><td>「원문 파일 모양」의 「이런 줄은 멈춥니다」 표대로 원문을 고칩니다</td></tr>
+        <tr><td>bible/ 에서 "…"를 못 찾았습니다</td><td>비슷한 이름을 보여 주니 그대로 칩니다</td></tr>
+        <tr><td>서체를 받지 못했습니다</td><td>인터넷이 되는 곳에서 한 번 돌립니다</td></tr>
+        <tr><td>서체 파일이 없습니다</td><td>주소를 비운 내 PC 서체 파일을 <code>bible-note\fonts</code> 에 복사합니다</td></tr>
+        <tr><td>.ttc(여러 서체를 묶은 파일)는 브라우저가 읽지 못합니다</td><td><code>.ttf</code> · <code>.otf</code> 서체를 씁니다</td></tr>
+        <tr><td>서체는 한 벌만 지정할 수 있습니다</td><td>머리글(또는 바닥글) 서체에 파일을 하나만 남깁니다</td></tr>
+        <tr><td>크롬을 못 찾았습니다</td><td>크롬을 설치합니다</td></tr>
+        <tr><td>…절이 N줄이라 한 쪽에 들어가지 않습니다</td><td>글씨를 줄이거나 원문 칸을 넓힙니다</td></tr>
+        <tr><td>저장소 안인데 커밋에서 무시되지 않는 자리</td><td><code>--out</code> 을 바탕화면 등 다른 곳으로</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <h3>확인(verify)이 「문제 발견」을 낼 때</h3>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>문제</th><th>뜻</th></tr></thead>
+      <tbody>
+        <tr><td><code>ORIG_OVERFLOW</code> · <code>WRITE_OVERFLOW</code></td><td>본문이나 필사줄이 칸을 넘쳤습니다</td></tr>
+        <tr><td><code>LINE_MISMATCH</code> · <code>ALIGN_MISMATCH</code> · <code>GROUP_COUNT_MISMATCH</code></td><td>필사줄 수나 높이가 원문과 어긋났습니다 — 다시 만들어 보고, 그래도면 담당자에게</td></tr>
+        <tr><td><code>BLOCK_…_MISMATCH</code> · <code>BLOCK_OVERFLOW</code></td><td>권 제목·장 표시·소제목 칸이 양쪽에서 어긋났습니다 — 다시 만들어 보고, 그래도면 담당자에게</td></tr>
+        <tr><td><code>HEADER_OVERFLOW</code> · <code>FOOTER_OVERFLOW</code></td><td>머리글·바닥글 글이 칸을 넘쳤습니다 — 글이나 글씨 크기를 줄입니다</td></tr>
+        <tr><td><code>FONT_NOT_LOADED</code></td><td>서체가 안 불렸습니다 — <code>fonts</code> 폴더가 HTML 옆에 있는지 봅니다</td></tr>
+        <tr><td><code>PRINT_PAGES</code> · <code>PRINT_SIZE</code></td><td>인쇄했을 때 쪽 수나 용지 크기가 다릅니다</td></tr>
+        <tr><td><code>PRINT_FAILED</code></td><td>크롬이 PDF 를 만들지 못했습니다 — 가끔 한 번 헛돕니다. 그대로 다시 돌려 봅니다</td></tr>
+        <tr><td><code>PRINT_CHECK_UNAVAILABLE</code></td><td>인쇄 확인에 쓰는 꾸러미가 없습니다 — <code>pip install pymupdf</code> 한 번</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">확인은 <strong>한 번에 하나씩</strong> 돌립니다. 같은 폴더에서 둘을 동시에 돌리면 서로의 임시 파일을 읽어 결과가 틀릴 수 있습니다.</p>
+  <p>화면 맨 위에 <strong>붉은 띠</strong>(서체를 불러오지 못했습니다)가 보이면, HTML 을 옮기면서 <code>fonts</code> 폴더를 빠뜨린 것입니다.</p>
+</section>
+
+<section id="rules">
+  <h2>꼭 지킬 것</h2>
+  <div class="rules">
+    <p><strong>만든 HTML 은 인터넷 저장소에 올리지 않습니다.</strong> 개역개정 본문이 통째로 들어 있습니다. <code>bible-note</code> 안에 만들면 저절로 빠지게 해 두었고, 올라갈 수 있는 곳에 저장하려 하면 도구가 멈춥니다.</p>
+    <p><strong>HTML 을 옮길 때는 <code>fonts</code> 폴더도 함께.</strong> 없으면 서체가 바뀌어 줄이 어긋납니다.</p>
+    <p><strong>처음 인쇄할 때는 한 장만</strong> 뽑아 가로 방향 · 양면 방향 · 와이어 자리를 확인합니다.</p>
+  </div>
+</section>
+
+<footer class="end">2026-09-22 · 권 제목 · 장 표시 · 나뉜 절 · 합쳐진 절까지 반영한 판입니다.</footer>
+
+</div>
+</body>
+</html>

@@ -32,6 +32,7 @@
 | 사역신청(2027) | `docs/notes/ministry-2027.md` |
 | 사역신청 **관리 화면**(단추·여백·구조 표준) | `docs/notes/ministry-admin-ui.md` |
 | 기독교 고전 소책자(2026-09-14 완료 · 다시 뽑을 때만) | `docs/notes/classics-booklet.md` |
+| 성경 필사노트 가로형(`bible-note/` · 만든 HTML·원문은 커밋 금지) | `docs/notes/bible-note.md` |
 | 관리자 통계 '카드' 열 | `docs/notes/stats-admin.md` |
 | 측정(카드 쓰임·전환율) | `docs/notes/metrics.md` |
 | 액션·테이블·시크릿 목록 | `docs/notes/backend-api.md` |
