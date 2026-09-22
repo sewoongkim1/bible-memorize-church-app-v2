@@ -31,10 +31,18 @@ Noto Serif KR(SIL OFL, 최초 실행 시 자동 다운로드), pymupdf(검증의
   소제목은 필사 열에서도 원문 쪽과 **같은 높이**를 차지한다(필사 열이 넓어 더 적은 줄로 끝나도).
 - 인쇄는 `@page { size: A4 landscape; margin: 0; }` 로 가로가 저절로 잡힌다.
 - 서체: Noto Serif KR. 절 중간에서 페이지를 자르지 않는다. 소제목은 바로 다음 절과 한 묶음.
-- 산출물은 HTML 파일만(PDF 변환 없음). 로고·표어·자유메모 페이지는 넣지 않는다.
+- 산출물은 HTML 파일만(PDF 변환 없음). 로고·자유메모 페이지는 넣지 않는다.
+- 머리글 오른쪽 날짜 칸은 밑줄 없이 빈 공간만(연 20mm · 월 12mm · 일 12mm) — 손으로 적는다. (Task 8)
+- 바닥글은 세 칸 — 왼쪽 `God is Love` · 가운데 `주의 말씀은 내 발에 등이요 내 길에 빛이니이다`(짝수 쪽은
+  `Your word is a lamp to my feet and a light for my path.`) · 오른쪽 `{page} / {total}`. `render.py` 맨 위 설정으로
+  바꾼다. 한 줄을 넘치면 verify 가 잡는다. (처음엔 「간결하게」로 쪽번호만이었다 — 2026-09-22 성도님이 바꿨다. Task 8)
+- 원문 파일은 UTF-8(BOM 있어도)과 CP949 를 모두 읽는다. (Task 8)
+- 머리글의 글씨 크기·서체, 바닥글의 글씨 크기, 원문 자간은 `render.py` 맨 위 설정으로 정한다(자간은 1차·2차 공용 규칙에). 머리글·바닥글이
+  제 칸(12mm · 8mm)을 넘치면 verify 가 잡는다 — 칸 높이가 그대로라 17줄은 안 바뀐다. (Task 8)
 - **만든 HTML과 서체는 커밋하지 않는다** — `bible-note/*.html`·`bible-note/fonts/`·`bible-note/_*`를
-  `.gitignore`에 넣는다. HTML에는 개역개정 본문이 통째로 들어 있다(`bible/`을 이미 같은 이유로 빼 두었다 —
-  대한성서공회 저작물, 공개 저장소).
+  `.gitignore`에 넣는다(지금 패턴은 `bible-note/**/*.html` · `bible-note/**/fonts/` · `bible-note/**/_*` — f9f49f3).
+  HTML에는 개역개정 본문이 통째로 들어 있다(`bible/`을 이미 같은 이유로 빼 두었다 — 대한성서공회 저작물, 공개 저장소).
+  ⚠️ 그래서 `bible-note/` 안의 **소스 파일 이름을 `_` 로 시작하거나 `.html` 로 만들면 조용히 무시된다.**
 - 이번 범위는 유다서(1장 전체) · 요한복음 1장 두 견본뿐이다. 66권 자동화는 범위 밖.
 
 **이 PC(Windows + Git Bash)에서 지킬 것:**
@@ -1474,11 +1482,144 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>" -- bible-not
 
 ---
 
+### Task 8: 날짜 칸 · 바닥글 세 칸 · UTF-8 · 저장 경로 안전
+
+> 2026-09-22 성도님 요청(날짜 칸의 밑줄을 빼고 공간을 넉넉히 · 바닥글 세 칸 · 짝수 쪽 영어 · 「1 / 5」 · UTF-8)과
+> 가지 전체 최종 검토(r2 — Ready: Yes)의 Minor 중 실제로 멈추는 것. Task 1~7 은 끝나 있다(HEAD 75ac8d9 이후).
+
+**Files:**
+- Modify: `bible-note/render.py` · `bible-note/parse.py` · `bible-note/generate.py` · `bible-note/verify.py`
+- Modify: `bible-note/tests/test_render.py` · `bible-note/tests/test_parse.py` · `bible-note/tests/test_generate.py`
+
+**Interfaces:**
+- Produces (render.py 맨 위, 사람이 고치는 설정):
+  ```python
+  # 바닥글 — 왼쪽 · 가운데 · 오른쪽(2026-09-22 성도님 요청). 비우려면 ''.
+  # 오른쪽의 {page} · {total} 은 그 쪽 번호 · 전체 쪽 수로 바뀐다.
+  # 가운데는 홀수 쪽 FOOTER_CENTER, 짝수 쪽 FOOTER_CENTER_EVEN(비우면 홀수와 같다).
+  FOOTER_LEFT = 'God is Love'
+  FOOTER_CENTER = '주의 말씀은 내 발에 등이요 내 길에 빛이니이다'
+  FOOTER_CENTER_EVEN = 'Your word is a lamp to my feet and a light for my path.'
+  FOOTER_RIGHT = '{page} / {total}'
+  ```
+- `footer_texts(page_no: int, total: int) -> tuple[str, str, str]` — (왼쪽, 가운데, 오른쪽). `{page}`·`{total}` 은
+  `str.replace` 로 바꾼다(`str.format` 은 쓰지 않는다 — 사람이 넣은 글에 `{` 가 있으면 깨진다).
+- `_page_html(page_verses, book, page_no, total)` — `total` 인자가 는다. `build_final_html` 이 `len(pages)` 를 넘긴다.
+- `parse.load_book_file(path)` — UTF-8(BOM 포함) → CP949 순으로 풀고, 둘 다 안 되면 `ValueError`(한국어 안내).
+
+**① 날짜 칸 (render.py)**
+- 마크업: `<span class="date"><span class="blank by"></span>년<span class="blank bm"></span>월<span class="blank bd"></span>일</span>`
+- PAGE_CSS:
+  ```css
+  .hd .date .blank { display:inline-block; }
+  .hd .date .by { width:20mm; }
+  .hd .date .bm, .hd .date .bd { width:12mm; }
+  ```
+- 밑줄(`_`)은 한 글자도 남기지 않는다.
+
+**② 바닥글 세 칸 (render.py · verify.py)**
+- 마크업: `<div class="ft"><span class="fl">왼쪽</span><span class="fc">가운데</span><span class="fr pg">오른쪽</span></div>` — 세 글 모두 `esc()`.
+- PAGE_CSS 의 `.ft` 를 grid 로(Task 7 의 `border-top:0.75pt solid #333` 과 높이 8mm 는 그대로 — 17줄이 안 바뀐다):
+  ```css
+  .ft { height:%(fh)smm; display:grid; grid-template-columns:1fr auto 1fr; align-items:center;
+        column-gap:6mm; font-size:9pt; color:#555; border-top:0.75pt solid #333; }
+  .ft span { white-space:nowrap; overflow:hidden; }
+  .ft .fl { text-align:left; }
+  .ft .fc { text-align:center; }
+  .ft .fr { text-align:right; }
+  ```
+- verify.py 의 LAYOUT_PROBE 에 쪽마다 `.ft > span` 을 돌며 `scrollWidth > clientWidth + 1` 이면 `no + ':FOOTER_OVERFLOW:' + 칸이름` 을 더한다
+  (가운데 글이 길어 잘리면 조용히 넘기지 않는다 — 성도님 원칙).
+
+**③ UTF-8 (parse.py)**
+```python
+def load_book_file(path):
+    """원문 파일을 읽는다 — UTF-8(BOM 있어도)을 먼저, 안 되면 CP949.
+
+    bible/ 의 개역개정은 CP949 이고, 메모장의 기본 저장은 UTF-8 이다(2026-09-22 — 영어·다른
+    번역본을 넣을 때 필요하다). CP949 로 저장한 한글은 UTF-8 로 풀리지 않으므로 순서가 안전하다.
+    """
+    with open(path, 'rb') as f:
+        raw = f.read()
+    for enc in ('utf-8-sig', 'cp949'):
+        try:
+            return raw.decode(enc)
+        except UnicodeDecodeError:
+            pass
+    raise ValueError('%s: UTF-8 도 CP949 도 아닌 파일입니다 — 메모장에서 UTF-8 로 다시 저장해 주세요' % path)
+```
+
+**⑤ 머리글·바닥글 글씨 설정 (render.py · generate.py · verify.py — 2026-09-22 성도님 요청)**
+- render.py 맨 위, FOOTER_* 옆에 둔다:
+  ```python
+  # 머리글(책·절 범위 · 날짜) — 원문과 따로 정한다(2026-09-22 성도님 요청).
+  HEADER_PT = 11
+  # 머리글 서체 파일. 비우면({}) 원문 서체를 그대로 쓴다. 넣으면 처음 한 번 받아 fonts/ 에 둔다.
+  # 예: {'fonts/GowunDodum-400.woff':
+  #      'https://cdn.jsdelivr.net/npm/@fontsource/gowun-dodum/files/gowun-dodum-korean-400-normal.woff'}
+  HEADER_FONT_URL = {}
+  # 바닥글 글씨 크기.
+  FOOTER_PT = 9
+  ```
+- `all_font_urls() -> dict` — `FONT_URL` 과 `HEADER_FONT_URL` 을 합친 것. `generate.ensure_fonts()` · `_copy_fonts_beside()` ·
+  `ensure_out_path_safe()` 의 서체 자리 검사가 **이 함수 하나**를 돈다(한 곳만 FONT_URL 을 보면 머리글 서체가 받아지지 않거나
+  옮긴 자리에 빠진다).
+- `HEADER_FONT_URL` 이 있으면 `@font-face { font-family:'NSKH'; src:url('<그 키>') … }` 를 **2차(인쇄) CSS 에만** 넣고
+  `.hd { font-family:'NSKH','NSK',serif; }` 로 쓴다. 1차(실측) HTML 에는 넣지 않는다 — 머리글이 없어 쓰이지 않는 서체는
+  `document.fonts` 에서 unloaded 로 남아, 실측이 서체 실패로 오인해 멈춘다(`FONTFAIL`). 비어 있으면 `.hd` 는 원문 서체.
+  파일 키가 둘 이상이면 `ValueError`(머리글 서체는 한 벌만).
+- `.hd` 의 `font-size:11pt` → `HEADER_PT`, `.ft` 의 `font-size:9pt` → `FOOTER_PT`.
+- verify.py LAYOUT_PROBE: 쪽마다 `.hd` 와 `.ft` 가 제 칸을 넘치면(`scrollHeight > clientHeight + 1`, 또는 안의
+  span 이 `scrollWidth > clientWidth + 1`) `no + ':HEADER_OVERFLOW'` · `':FOOTER_OVERFLOW:' + 칸이름` 을 더한다
+  (②의 바닥글 검사와 한 자리로 합친다).
+- 테스트: 기본값에서 `.hd` 에 11pt · `.ft` 에 9pt · NSKH 없음 / monkeypatch 로 `HEADER_PT=14` · `FOOTER_PT=10` ·
+  `HEADER_FONT_URL={…}` 이면 CSS 에 그대로 나오고 NSKH @font-face 가 **2차에만** 있다 / `all_font_urls()` 에 머리글 서체가
+  들어간다 / 키가 둘이면 ValueError.
+
+**⑥ 원문 자간 설정 (render.py — 2026-09-22 성도님 요청)**
+- render.py 맨 위 설정에 더한다:
+  ```python
+  # 원문 글자 사이 간격(자간), em 단위. 0 이 서체 기본값. 한글은 보통 -0.03 ~ 0.05 사이에서 고른다.
+  LETTER_SPACING_EM = 0
+  ```
+- BASE_CSS 의 원문 규칙(`.orig-col p, .orig-col .sub, .write-col .sub { … }`)에 `letter-spacing:<값>em;` 을 넣는다.
+  ⚠️ **BASE_CSS(1차·2차가 함께 쓰는 규칙)에 넣어야 한다** — 한쪽에만 넣으면 실측과 인쇄의 줄바꿈이 달라져 필사줄 수가 어긋난다.
+  기본값 0 이면 지금과 글자 배치가 같다(쪽 수 그대로).
+- 테스트: 기본 `letter-spacing:0em` 이 BASE_CSS 에 있다 / monkeypatch 로 값을 바꾸면(모듈을 다시 불러 BASE_CSS 를 새로
+  만드는 방식이든, BASE_CSS 를 함수로 만드는 방식이든 기존 테스트가 쓰는 모양을 따른다) 1차·2차 HTML 모두에 같은 값이 나온다.
+
+**④ 저장 경로 안전 (generate.py — 최종 검토 r2 Minor 중 실제로 멈추는 것)**
+- `_git_repo_root()` 의 `subprocess.run(..., text=True)` → `encoding='utf-8', errors='replace'`. 지금은 로캘(cp949)로 풀어,
+  경로에 한글이 섞이면 `UnicodeDecodeError` 로 생성기가 죽는다(검토가 이 PC 에서 재현).
+- `ensure_out_path_safe(out_path)` 가 HTML 뿐 아니라 **함께 복사할 서체 자리**(`<HTML 폴더>/fonts/<서체 파일>`, HTML 이
+  bible-note/ 가 아닐 때)도 본다 — 저장소 안인데 무시되지 않으면 멈춘다(검토 확인: 루트 `_유다서.html` 은 무시되지만
+  루트 `fonts/…woff` 는 안 막혔다).
+- `generate()` 에서 기본 출력 경로 계산과 `ensure_out_path_safe` 를 **`ensure_fonts()` 앞**으로 옮긴다 — 막힐 자리면
+  서체를 받고 크롬으로 다 잰 뒤가 아니라 처음에 멈춘다.
+
+- [ ] **Step 1: 실패하는 테스트 먼저** — 기존 테스트의 모양·도우미(`_v`, tmp_path, monkeypatch)를 따라 넣는다.
+  - test_render: 날짜 칸에 `_` 가 없고 `blank by/bm/bd` 셋이 있다 · CSS 폭 20/12/12mm · 바닥글 기본값(1쪽 `God is Love` ·
+    한글 가운데 · `1 / 2`) · 짝수 쪽 가운데가 영어 · `FOOTER_CENTER_EVEN = ''` 이면 짝수도 한글(monkeypatch) · 바닥글 글이
+    이스케이프된다(`<` `&`) · `footer_texts` 가 `{` 가 섞인 글에서도 깨지지 않는다.
+    기존 `test_final_html_page_numbers_increment` 는 `<span class="fr pg">1 / 2</span>` · `<span class="fr pg">2 / 2</span>` 로 바꾼다.
+  - test_parse: UTF-8 · UTF-8(BOM) · CP949 로 같은 글을 저장한 파일 셋이 같은 문자열로 읽힌다 · 둘 다 아닌 바이트는 `ValueError`.
+  - test_generate: 서체 자리가 무시되지 않는 저장소 안이면 `ensure_out_path_safe` 가 멈춘다(기존 테스트처럼 `_git_repo_root`·
+    `_is_git_ignored` 를 monkeypatch) · bible-note/ 안에 쓸 때는 서체 자리를 보지 않는다.
+- [ ] **Step 2:** `cd bible-note && python -m pytest tests -v` — 새 테스트가 실패하는지 본다.
+- [ ] **Step 3:** ①~⑥ 구현.
+- [ ] **Step 4:** `python -m pytest tests -v` 전부 통과(개수를 보고서에).
+- [ ] **Step 5:** 두 견본을 다시 만들고 `verify.py` 두 번 — `모두 통과했습니다.` · 쪽 수(유다서 4 · 요한복음 1장 7)가 그대로인지.
+  그리고 `grep -o 'class="fc">[^<]*' 유다서.html` 로 홀·짝 가운데 글이 번갈아 나오는지, `grep -c '_' ` 대신
+  `grep -o 'class="date">.*</span></div>' 유다서.html | head -1` 로 날짜 칸에 밑줄이 없는지 보고서에 옮긴다.
+- [ ] **Step 6:** 경로를 못 박아 커밋(`git add -- <바꾼 파일들>` · `git commit -m "…" -- <바꾼 파일들>`). HTML·fonts 는 커밋하지 않는다.
+
+---
+
 ## Self-Review
 
 **스펙 커버리지:**
 - 전체 흐름(파싱→1차→실측→배분→2차→검증) — Task 1~5 ✅
-- 페이지 레이아웃(297×210, 여백 13, 헤더/푸터, 좌우 38:62, 9.5mm, Noto Serif KR, A4 가로 인쇄) — Task 3 ✅
+- 페이지 레이아웃(297×210, 여백 13, 헤더/푸터, 좌우 38:62 → Task 7 에서 50:50, 9.5mm, Noto Serif KR, A4 가로 인쇄) — Task 3 ✅
 - 절 표기(번호+본문 한 줄, 소제목 양쪽 반복) — Task 3 ✅
 - 필사줄 대응(N줄 ↔ N개 빈 줄, 같은 높이에서 시작) — Task 3(렌더링) + Task 4(실측) + Task 5(검증) ✅
 - 페이지 나누기(절 안 자름, 소제목 다음 절과 묶음) — Task 2 ✅
