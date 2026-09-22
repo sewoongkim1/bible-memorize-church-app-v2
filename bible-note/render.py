@@ -14,8 +14,13 @@
    `FONT_WARN_HTML`이 서체 로드 실패를 감지해 화면·인쇄 모두에 붉은 띠를 띄운다.
    `document.title`은 건드리지 않는다 — verify.py가 검증용으로 따로 심는
    `document.fonts.ready` 콜백과 같은 값을 놓고 다툴 수 있어서다.
+⚠️ 그리는 단위는 parse.py 의 「조각」이다(2026-09-22 Task 9). 조각 하나의 위쪽 순서는
+   **권 제목(가운데) → 장 표시(왼쪽) → 소제목(왼쪽) → 본문** 이고(piece_blocks 한 곳이 정한다 —
+   1차·2차가 같은 순서를 쓴다), 필사 열의 권 제목·장 표시·소제목은 원문 쪽 **실측 줄 수에 높이를
+   못박는다**(head_lines · chap_lines · sub_lines). 필사줄은 본문 몫(lines − 셋)만 긋는다.
 """
 import html as _html
+import os
 
 PAGE_W_MM = 297
 PAGE_H_MM = 210
@@ -46,9 +51,14 @@ HEADER_PT = 11
 # 머리글 서체 파일. 비우면({}) 원문 서체를 그대로 쓴다. 넣으면 처음 한 번 받아 fonts/ 에 둔다.
 # 예: {'fonts/GowunDodum-400.woff':
 #      'https://cdn.jsdelivr.net/npm/@fontsource/gowun-dodum/files/gowun-dodum-korean-400-normal.woff'}
+# 내 PC 서체: 파일을 fonts/ 에 복사하고 주소는 비운다 — {'fonts/BMJUA_ttf.ttf': ''}
+#   (.ttf · .otf · .woff · .woff2 가 된다. .ttc 는 브라우저가 못 읽는다.)
 HEADER_FONT_URL = {}
 # 바닥글 글씨 크기.
 FOOTER_PT = 9
+# 바닥글 서체 파일 — 머리글 서체(HEADER_FONT_URL)와 규칙이 똑같다(비우면 원문 서체, 한 벌만,
+# 내 PC 서체는 주소 ''). 머리글과 같은 파일을 넣어도 한 번만 받고 한 번만 복사한다.
+FOOTER_FONT_URL = {}
 
 # 바닥글 — 왼쪽 · 가운데 · 오른쪽. 비우려면 ''.
 # 오른쪽의 {page} · {total} 은 그 쪽 번호 · 전체 쪽 수로 바뀐다(footer_texts 가 str.replace 로 바꾼다).
@@ -59,17 +69,61 @@ FOOTER_CENTER_EVEN = 'Your word is a lamp to my feet and a light for my path.'
 FOOTER_RIGHT = '{page} / {total}'
 
 
+# @font-face 의 format() 힌트 — 파일 확장자로 고른다. Task 8 은 format('woff') 를 박아 두어
+# 가이드가 안내하는 내 PC 서체(.ttf)와 맞지 않았다(2026-09-22 Task 9).
+FONT_FORMATS = {'.woff': 'woff', '.woff2': 'woff2', '.ttf': 'truetype', '.otf': 'opentype'}
+
+
+def font_format(path):
+    """서체 파일 경로 → @font-face 의 format() 이름. 모르는 확장자·.ttc 는 ValueError."""
+    ext = os.path.splitext(path)[1].lower()
+    if ext == '.ttc':
+        raise ValueError('%s: .ttc(여러 서체를 묶은 파일)는 브라우저가 읽지 못합니다 — '
+                         '.ttf · .otf · .woff · .woff2 파일을 써 주세요' % path)
+    if ext not in FONT_FORMATS:
+        raise ValueError('%s: 서체 파일은 .ttf · .otf · .woff · .woff2 만 쓸 수 있습니다' % path)
+    return FONT_FORMATS[ext]
+
+
+def _slot_fonts():
+    """따로 정하는 서체 자리 — (글꼴 이름, 설정 사전, 이름). 호출할 때마다 지금 값을 읽는다
+    (테스트가 monkeypatch 로 바꾼 값도)."""
+    return [('NSKH', HEADER_FONT_URL, '머리글'), ('NSKF', FOOTER_FONT_URL, '바닥글')]
+
+
+def _slot_font(family, urls, what):
+    """서체 자리 하나(머리글·바닥글) → (@font-face 한 줄, font-family 규칙 조각).
+
+    ⚠️ 머리글·바닥글이 이 도우미 하나를 같이 쓴다 — 두 벌로 두면 한쪽만 고치게 된다.
+    비었으면 ('', '') — 원문 서체를 그대로 쓴다. 파일은 한 벌만. format() 은 확장자로 고른다.
+    """
+    if not urls:
+        return '', ''
+    if len(urls) > 1:
+        raise ValueError('%s 서체는 한 벌만 지정할 수 있습니다: %r' % (what, urls))
+    path = next(iter(urls))
+    face = ("@font-face { font-family:'%s'; src:url('%s') format('%s');"
+            " font-weight:400; font-display:block; }\n" % (family, path, font_format(path)))
+    return face, " font-family:'%s','NSK',serif;" % family
+
+
 def all_font_urls():
-    """FONT_URL(원문 서체)과 HEADER_FONT_URL(머리글 서체)을 합친 것.
+    """FONT_URL(원문 서체) · HEADER_FONT_URL(머리글) · FOOTER_FONT_URL(바닥글)을 합친 것.
 
     generate.ensure_fonts() · generate._copy_fonts_beside() · generate.ensure_out_path_safe()
-    의 서체 자리 검사가 이 함수 하나를 돈다 — 한 곳만 FONT_URL 을 보면 머리글 서체가 받아지지
-    않거나 옮긴 자리에 빠진다.
+    의 서체 자리 검사가 이 함수 하나를 돈다 — 한 곳만 FONT_URL 을 보면 머리글·바닥글 서체가
+    받아지지 않거나 옮긴 자리에 빠진다. 사전이라 머리글·바닥글에 같은 파일을 넣어도 한 번만
+    나온다(두 번 받거나 두 번 복사하지 않는다). 같은 파일에 주소가 둘이면 ValueError.
+    주소가 '' 인 것은 내 PC 서체(fonts/ 에 이미 넣어 둔 파일)다 — 받지 않는다.
     """
-    if len(HEADER_FONT_URL) > 1:
-        raise ValueError('머리글 서체는 한 벌만 지정할 수 있습니다: %r' % (HEADER_FONT_URL,))
     merged = dict(FONT_URL)
-    merged.update(HEADER_FONT_URL)
+    for family, urls, what in _slot_fonts():
+        _slot_font(family, urls, what)  # 한 벌인지 · 브라우저가 읽는 확장자인지 먼저 본다
+        for path, url in urls.items():
+            if path in merged and merged[path] != url:
+                raise ValueError('서체 파일 %s 에 주소가 둘입니다(%r · %r) — 같은 파일이면 주소도 '
+                                 '같게 적어 주세요' % (path, merged[path], url))
+            merged[path] = url
     return merged
 
 
@@ -133,11 +187,14 @@ def base_css():
 html, body { margin:0; }
 body { font-family:'NSK',serif; color:#111; }
 .orig-col { width:%(ow)smm; padding-right:%(pad)smm; }
-.orig-col p, .orig-col .sub, .write-col .sub {
+.orig-col p, .orig-col .head, .orig-col .chap, .orig-col .sub,
+.write-col .head, .write-col .chap, .write-col .sub {
   font-size:%(fpt)spt; line-height:%(line)smm; margin:0; word-break:keep-all;
   letter-spacing:%(ls)sem;
 }
-.orig-col .sub, .write-col .sub { font-family:'NSKB',serif; font-weight:400; }
+.orig-col .head, .write-col .head { text-align:center; font-family:'NSKB',serif; font-weight:400; }
+.orig-col .chap, .write-col .chap { text-align:left; }
+.orig-col .chap, .write-col .chap, .orig-col .sub, .write-col .sub { font-family:'NSKB',serif; font-weight:400; }
 .orig-col p { display:flex; }
 .orig-col .num { flex:0 0 auto; font-family:'NSKB',serif; font-weight:400; }
 .orig-col .txt { flex:1 1 auto; min-width:0; }
@@ -145,9 +202,22 @@ body { font-family:'NSK',serif; color:#111; }
        'ls': _mm(LETTER_SPACING_EM)}
 
 
+def _label(v):
+    """번호 칸에 찍을 글자(마침표 빼고) — parse 가 준 label. 없는 dict(예전 꼴)는 절 번호.
+    ⚠️ 끊긴 조각의 label 은 '' 라 `or` 로 절 번호에 떨어뜨리면 안 된다."""
+    return v['label'] if 'label' in v else str(v['verse'])
+
+
+def _num_text(v):
+    """번호 칸 안의 글 — 「1.」 · 「1-2.」, 끊긴 조각은 빈 칸(칸 폭은 그대로)."""
+    label = _label(v)
+    return label + '.' if label else ''
+
+
 def num_digits(verses):
-    """가장 큰 절 번호의 자릿수 — 번호 칸 폭을 정한다(시편 119편은 세 자리)."""
-    return max(len(str(v['verse'])) for v in verses)
+    """가장 긴 번호 칸 글자 수(label) — 번호 칸 폭을 정한다
+    (시편 119편은 세 자리, 합쳐진 절 「10-11」은 다섯)."""
+    return max(len(_label(v)) for v in verses)
 
 
 def num_col_css(digits):
@@ -159,22 +229,54 @@ def num_col_css(digits):
     return '.orig-col .num { width:calc(%dch + 0.6ch + 1.5mm); }' % digits
 
 
+def chapter_unit(book):
+    """장 표시·기본 파일 이름의 단위 글자 — 시편은 「편」, 그 밖은 「장」.
+    ⚠️ 여기 한 곳에서만 정한다(generate 의 파일 이름도 이 함수를 쓴다)."""
+    return '편' if book == '시편' else '장'
+
+
+def chapter_mark(v):
+    """장 표시 글 — 「1장」 · 「1편」."""
+    return '%d%s' % (v['chapter'], chapter_unit(v['book']))
+
+
+def piece_blocks(v):
+    """조각 본문 위에 얹는 칸들을 위에서부터 — [(역할, 글)].
+
+    ⚠️ 순서는 권 제목(가운데) → 장 표시(왼쪽) → 소제목(왼쪽). 인쇄 성경처럼 「제일권」이 「1편」
+       위에 온다. 1차(실측)·2차(인쇄)가 이 함수 하나를 같이 쓴다.
+    """
+    blocks = []
+    if v.get('heading'):
+        blocks.append(('head', v['heading']))
+    if v.get('chapter_start'):
+        blocks.append(('chap', chapter_mark(v)))
+    if v.get('subtitle'):
+        blocks.append(('sub', v['subtitle']))
+    return blocks
+
+
+def _block_lines(v, role):
+    """칸 하나의 실측 줄 수(generate 가 채운 head_lines · chap_lines · sub_lines). 없으면 1."""
+    return v.get('%s_lines' % role, 1)
+
+
 def build_draft_html(verses):
     """1차 그리기 — 페이지를 나누지 않고 원문 열만 그린다.
 
-    각 절(과 소제목)에 data-ch/data-vs/data-role 을 붙여, 브라우저에서
-    실제로 몇 줄로 찍혔는지 그 속성으로 찾아 잴 수 있게 한다.
+    각 조각의 칸(권 제목·장 표시·소제목)과 본문에 data-ch/data-vs/data-pt/data-role 을 붙여,
+    브라우저에서 실제로 몇 줄로 찍혔는지 그 속성으로 찾아 잴 수 있게 한다. data-pt(조각 번호)가
+    있어야 끊긴 절의 두 조각이 한 키로 겹치지 않는다. 역할은 head · chap · sub · body.
     """
     parts = []
     for v in verses:
-        if v['subtitle']:
-            parts.append(
-                '<div class="sub" data-ch="%d" data-vs="%d" data-role="sub">%s</div>'
-                % (v['chapter'], v['verse'], esc(v['subtitle'])))
+        key = 'data-ch="%d" data-vs="%d" data-pt="%d"' % (v['chapter'], v['verse'], v.get('part', 0))
+        for role, text in piece_blocks(v):
+            parts.append('<div class="%s" %s data-role="%s">%s</div>' % (role, key, role, esc(text)))
         parts.append(
-            '<p data-ch="%d" data-vs="%d" data-role="body">'
-            '<span class="num">%d.</span><span class="txt">%s</span></p>'
-            % (v['chapter'], v['verse'], v['verse'], esc(v['body'])))
+            '<p %s data-role="body">'
+            '<span class="num">%s</span><span class="txt">%s</span></p>'
+            % (key, esc(_num_text(v)), esc(v['body'])))
     return (
         '<!doctype html><html lang="ko"><head><meta charset="utf-8">'
         '<style>%s%s</style></head>'
@@ -187,20 +289,14 @@ def page_css():
     """페이지(.page)·머리글(.hd)·필사 열(.write-col)·바닥글(.ft) 규칙 — 2차(인쇄) 전용.
 
     1차(실측) HTML은 이 CSS를 아예 쓰지 않는다(build_draft_html 참고) — 그래서
-    HEADER_FONT_URL로 넣는 머리글 전용 서체(@font-face)도 여기 있으면 자동으로 2차에만
-    실린다. 1차에 실리면 머리글이 없어 쓰이지 않는 서체가 document.fonts에서 unloaded로
-    남아 실측이 서체 실패로 오인해 멈춘다(FONTFAIL).
+    HEADER_FONT_URL · FOOTER_FONT_URL 로 넣는 머리글·바닥글 서체(@font-face)도 여기 있으면
+    자동으로 2차에만 실린다. 1차에 실리면 머리글·바닥글이 없어 쓰이지 않는 서체가
+    document.fonts에서 unloaded로 남아 실측이 서체 실패로 오인해 멈춘다(FONTFAIL).
     """
-    header_font_face = ''
-    hd_font_rule = ''
-    if HEADER_FONT_URL:
-        header_path = next(iter(HEADER_FONT_URL))
-        header_font_face = (
-            "@font-face { font-family:'NSKH'; src:url('%s') format('woff');"
-            " font-weight:400; font-display:block; }\n" % header_path)
-        hd_font_rule = " font-family:'NSKH','NSK',serif;"
+    header_font_face, hd_font_rule = _slot_font('NSKH', HEADER_FONT_URL, '머리글')
+    footer_font_face, ft_font_rule = _slot_font('NSKF', FOOTER_FONT_URL, '바닥글')
     return ("""
-%(header_font_face)s@page { size: A4 landscape; margin: 0; }
+%(header_font_face)s%(footer_font_face)s@page { size: A4 landscape; margin: 0; }
 .page { width:%(w)smm; height:%(h)smm; padding:%(m)smm; background:#fff; }
 @media print {
   .page { page-break-after:always; }
@@ -219,12 +315,13 @@ def page_css():
              border-left:0.75pt solid #ccc; overflow:hidden; }
 .write-col .ln { height:%(line)smm; border-bottom:0.5pt solid #999; }
 .ft { height:%(fh)smm; display:grid; grid-template-columns:1fr auto 1fr; align-items:center;
-      column-gap:6mm; font-size:%(fpt)spt; color:#555; border-top:0.75pt solid #333; }
+      column-gap:6mm; font-size:%(fpt)spt;%(ft_font_rule)s color:#555; border-top:0.75pt solid #333; }
 .ft span { white-space:nowrap; overflow:hidden; }
 .ft .fl { text-align:left; }
 .ft .fc { text-align:center; }
 .ft .fr { text-align:right; }
-""" % {'header_font_face': header_font_face, 'w': PAGE_W_MM, 'h': PAGE_H_MM, 'm': MARGIN_MM,
+""" % {'header_font_face': header_font_face, 'footer_font_face': footer_font_face,
+       'ft_font_rule': ft_font_rule, 'w': PAGE_W_MM, 'h': PAGE_H_MM, 'm': MARGIN_MM,
        'hh': HEADER_MM, 'hpt': HEADER_PT, 'hd_font_rule': hd_font_rule,
        'rh': usable_body_mm(), 'fh': FOOTER_MM, 'fpt': FOOTER_PT, 'line': LINE_MM,
        'ww': write_width_mm(), 'pad': COL_PAD_MM})
@@ -232,27 +329,35 @@ def page_css():
 
 def _page_html(page_verses, book, page_no, total):
     first, last = page_verses[0], page_verses[-1]
-    if (first['chapter'], first['verse']) == (last['chapter'], last['verse']):
+    # 끝 조각이 합쳐진 절이면 끝 절까지(「로마서 9:1 ~ 9:2」).
+    last_verse = last.get('verse_end') or last['verse']
+    if (first['chapter'], first['verse']) == (last['chapter'], last_verse):
         # 절 하나뿐인 쪽 — 「룻기 1:22 ~ 1:22」가 아니라 「룻기 1:22」 하나만 쓴다
         # (2026-09-22 최종 검토 Minor — 장 바뀜 규칙이 생겨 장 끝에서 더 자주 나온다).
         rng = '%s %d:%d' % (book, first['chapter'], first['verse'])
     else:
         rng = '%s %d:%d ~ %d:%d' % (book, first['chapter'], first['verse'],
-                                     last['chapter'], last['verse'])
+                                     last['chapter'], last_verse)
     orig_parts = []
     write_parts = []
     for v in page_verses:
-        sub_lines = v.get('sub_lines', 1 if v['subtitle'] else 0)
-        if v['subtitle']:
-            orig_parts.append('<div class="sub">%s</div>' % esc(v['subtitle']))
-            # 필사 열은 더 넓어 같은 소제목이 더 적은 줄로 끝날 수 있다 — 높이를 원문 쪽
-            # 실측 줄 수에 못박아야 아래 필사줄이 원문 줄과 같은 높이에서 시작한다.
-            write_parts.append('<div class="sub" style="height:%smm">%s</div>'
-                               % (_mm(sub_lines * LINE_MM), esc(v['subtitle'])))
+        fixed_lines = 0
+        for role, text in piece_blocks(v):
+            n = _block_lines(v, role)
+            fixed_lines += n
+            orig_parts.append('<div class="%s">%s</div>' % (role, esc(text)))
+            # 필사 열은 폭이 원문 열과 다를 수 있어(ORIG_PCT) 같은 글이 다른 줄 수로 끝날 수
+            # 있다 — 높이를 원문 쪽 실측 줄 수에 못박아야 아래 필사줄이 원문 줄과 같은 높이에서
+            # 시작한다(권 제목·장 표시·소제목 모두).
+            write_parts.append('<div class="%s" style="height:%smm">%s</div>'
+                               % (role, _mm(n * LINE_MM), esc(text)))
         orig_parts.append(
-            '<p><span class="num">%d.</span><span class="txt">%s</span></p>'
-            % (v['verse'], esc(v['body'])))
-        body_lines = v['lines'] - sub_lines
+            '<p><span class="num">%s</span><span class="txt">%s</span></p>'
+            % (esc(_num_text(v)), esc(v['body'])))
+        body_lines = v['lines'] - fixed_lines
+        if body_lines < 1:
+            raise ValueError('%d:%d 조각의 본문 줄 수가 잘못됐습니다(전체 %r줄 − 위 칸 %d줄)'
+                             % (v['chapter'], v['verse'], v['lines'], fixed_lines))
         write_parts.append(
             '<div class="vs-write">%s</div>' % ('<div class="ln"></div>' * body_lines))
     fl, fc, fr = footer_texts(page_no, total)

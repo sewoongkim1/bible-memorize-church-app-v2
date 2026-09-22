@@ -158,3 +158,164 @@ def test_find_book_file_raises_without_suggestion_when_nothing_close(tmp_path):
     with pytest.raises(SystemExit) as e:
         find_book_file('유다서', bible_dir=str(tmp_path))
     assert '창세기' not in str(e.value)
+
+
+# ── Task 9: 실측 결과 풀이 · 줄 수 채우기 · 기본 파일 이름 ─────────────────
+
+class _FakeRun:
+    def __init__(self, title):
+        self.stdout = ('<html><head><title>%s</title></head><body></body></html>' % title).encode('utf-8')
+        self.stderr = b''
+
+
+def test_measure_probe_reports_part():
+    assert 'el.dataset.pt' in generate.MEASURE_PROBE
+
+
+def test_measure_lines_key_includes_part(monkeypatch, tmp_path):
+    # 끊긴 절의 두 조각(5:9 조각 0 · 조각 1)이 한 키로 겹치지 않는다.
+    html = tmp_path / '_draft.html'
+    html.write_text('<html><body></body></html>', encoding='utf-8')
+    monkeypatch.setattr(generate, '_chrome', lambda chrome, flags, target: _FakeRun(
+        'LINES|5,9,0,body,2;5,9,1,body,1;5,1,0,chap,1;5,1,0,head,1'))
+    result = generate.measure_lines(str(html), 'chrome')
+    assert result == {(5, 9, 0, 'body'): 2, (5, 9, 1, 'body'): 1,
+                      (5, 1, 0, 'chap'): 1, (5, 1, 0, 'head'): 1}
+
+
+def _piece(verse, part=0, **extra):
+    d = {'book': '시편', 'chapter': 1, 'verse': verse, 'part': part, 'subtitle': None,
+         'heading': None, 'chapter_start': False, 'body': '본문', 'label': str(verse),
+         'verse_end': None}
+    d.update(extra)
+    return d
+
+
+def test_apply_line_counts_sums_head_chap_sub_body():
+    pieces = [_piece(1, heading='제일권', chapter_start=True, subtitle='소제목')]
+    generate.apply_line_counts(pieces, {
+        (1, 1, 0, 'head'): 1, (1, 1, 0, 'chap'): 1, (1, 1, 0, 'sub'): 2, (1, 1, 0, 'body'): 3})
+    p = pieces[0]
+    assert (p['head_lines'], p['chap_lines'], p['sub_lines']) == (1, 1, 2)
+    assert p['lines'] == 7
+
+
+def test_apply_line_counts_keeps_parts_apart():
+    pieces = [_piece(9), _piece(9, part=1, label='')]
+    generate.apply_line_counts(pieces, {(1, 9, 0, 'body'): 2, (1, 9, 1, 'body'): 1})
+    assert [p['lines'] for p in pieces] == [2, 1]
+    assert all((p['head_lines'], p['chap_lines'], p['sub_lines']) == (0, 0, 0) for p in pieces)
+
+
+def test_apply_line_counts_stops_when_body_not_measured():
+    with pytest.raises(SystemExit):
+        generate.apply_line_counts([_piece(9, part=1)], {(1, 9, 0, 'body'): 2})
+
+
+def test_apply_line_counts_stops_when_chapter_mark_not_measured():
+    # 장 표시가 붙는 조각인데 그 줄 수를 못 쟀으면 0 으로 두지 않고 멈춘다(필사줄이 밀린다).
+    with pytest.raises(SystemExit):
+        generate.apply_line_counts([_piece(1, chapter_start=True)], {(1, 1, 0, 'body'): 2})
+
+
+def test_apply_line_counts_stops_on_duplicate_piece_keys():
+    # 같은 (장, 절, 조각) 이 둘이면 실측 결과가 한 키에 덮여 한쪽 줄 수가 틀린다.
+    with pytest.raises(SystemExit):
+        generate.apply_line_counts([_piece(9), _piece(9)], {(1, 9, 0, 'body'): 2})
+
+
+def test_default_out_name_uses_chapter_unit():
+    assert generate.default_out_name('시편', 1) == '시편_1편.html'
+    assert generate.default_out_name('요한복음', 1) == '요한복음_1장.html'
+    assert generate.default_out_name('유다서', None) == '유다서.html'
+
+
+def test_verse_count_counts_verses_not_pieces():
+    pieces = [_piece(1), _piece(1, part=1, label=''), _piece(2, verse_end=3, label='2-3')]
+    assert generate.verse_count(pieces) == 3
+
+
+# ── Task 9: 바닥글 서체 · 내 PC 서체(주소 '') ─────────────────────────────
+
+def _no_base_fonts(monkeypatch):
+    # 원문 서체(FONT_URL)는 이 시험과 상관없다 — 빈 임시 폴더에서 받으려 들지 않게 비운다.
+    monkeypatch.setattr('render.FONT_URL', {})
+
+
+def test_ensure_fonts_local_font_small_file_is_not_downloaded(monkeypatch, tmp_path):
+    # 내 PC 서체(주소 '')는 크기와 무관하게 그대로 쓴다 — Task 8 은 100KB 보다 작으면 「덜
+    # 받았다」로 보고 주소 ''로 다시 받으려다 오류가 났다.
+    _no_base_fonts(monkeypatch)
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'fonts').mkdir()
+    (tmp_path / 'fonts' / 'My.ttf').write_bytes(b'x' * 10)
+    monkeypatch.setattr('render.HEADER_FONT_URL', {'fonts/My.ttf': ''})
+    calls = []
+    monkeypatch.setattr(generate.urllib.request, 'urlretrieve', lambda *a: calls.append(a))
+    generate.ensure_fonts()
+    assert calls == []
+
+
+def test_ensure_fonts_local_font_missing_stops_in_korean(monkeypatch, tmp_path):
+    _no_base_fonts(monkeypatch)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr('render.FOOTER_FONT_URL', {'fonts/My.ttf': ''})
+    calls = []
+    monkeypatch.setattr(generate.urllib.request, 'urlretrieve', lambda *a: calls.append(a))
+    with pytest.raises(SystemExit) as e:
+        generate.ensure_fonts()
+    assert 'fonts/My.ttf' in str(e.value)
+    assert '넣어 주세요' in str(e.value)
+    assert calls == []
+
+
+def test_ensure_fonts_still_redownloads_small_url_font(monkeypatch, tmp_path):
+    # 주소가 있는 서체는 지금처럼 — 덜 받은(작은) 파일은 다시 받는다.
+    _no_base_fonts(monkeypatch)
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'fonts').mkdir()
+    (tmp_path / 'fonts' / 'X.woff').write_bytes(b'x' * 10)
+    monkeypatch.setattr('render.HEADER_FONT_URL', {'fonts/X.woff': 'https://example.com/x.woff'})
+    calls = []
+    monkeypatch.setattr(generate.urllib.request, 'urlretrieve', lambda *a: calls.append(a))
+    generate.ensure_fonts()
+    assert calls == [('https://example.com/x.woff', 'fonts/X.woff')]
+
+
+def test_ensure_fonts_same_file_for_header_and_footer_downloads_once(monkeypatch, tmp_path):
+    _no_base_fonts(monkeypatch)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr('render.HEADER_FONT_URL', {'fonts/X.woff': 'https://example.com/x.woff'})
+    monkeypatch.setattr('render.FOOTER_FONT_URL', {'fonts/X.woff': 'https://example.com/x.woff'})
+    calls = []
+    monkeypatch.setattr(generate.urllib.request, 'urlretrieve', lambda *a: calls.append(a))
+    generate.ensure_fonts()
+    assert len(calls) == 1
+
+
+def test_copy_fonts_beside_same_file_for_header_and_footer_copies_once(monkeypatch, tmp_path):
+    _no_base_fonts(monkeypatch)
+    here = tmp_path / 'here'
+    (here / 'fonts').mkdir(parents=True)
+    (here / 'fonts' / 'My.ttf').write_bytes(b'x' * 10)
+    monkeypatch.chdir(here)
+    monkeypatch.setattr('render.HEADER_FONT_URL', {'fonts/My.ttf': ''})
+    monkeypatch.setattr('render.FOOTER_FONT_URL', {'fonts/My.ttf': ''})
+    copied = []
+    monkeypatch.setattr(generate.shutil, 'copy2', lambda src, dst: copied.append((src, dst)))
+    generate._copy_fonts_beside(str(tmp_path / 'elsewhere' / '시편_1편.html'))
+    assert len(copied) == 1
+    assert copied[0][0] == 'fonts/My.ttf'
+
+
+def test_ensure_out_path_safe_checks_footer_font(monkeypatch):
+    monkeypatch.setattr('render.FOOTER_FONT_URL', {'fonts/Footer-400.woff': 'https://example.com/f.woff'})
+    checked = []
+
+    def fake_ignored(root, abs_path):
+        checked.append(abs_path)
+        return True
+
+    monkeypatch.setattr(generate, '_is_git_ignored', fake_ignored)
+    ensure_out_path_safe(os.path.join(ROOT, 'marketing', '유다서.html'))
+    assert 'Footer-400.woff' in {os.path.basename(p) for p in checked}

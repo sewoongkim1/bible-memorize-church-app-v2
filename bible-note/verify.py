@@ -16,6 +16,10 @@
       위쪽으로 자라는데, scrollHeight는 스크롤 원점(위쪽) 기준 아래쪽 넘침만 잡는다(실측
       확인: HEADER_PT를 60까지 올려도 scrollHeight==clientHeight로 그대로였다). 그래서
       자식 span의 getBoundingClientRect().height를 칸 높이(clientHeight)와 직접 견준다.
+⑥ 권 제목(.head)·장 표시(.chap)·소제목(.sub)이 원문·필사 양쪽에 같은 개수로 있고, 칸마다
+   원문 쪽 줄 수 = 필사 쪽 못박은 높이의 줄 수이며 같은 높이에서 시작하는가 · 필사 쪽 글이
+   못박은 칸을 넘치지 않았는가(2026-09-22 Task 9 — 본문 문단 줄 맞춤(③)만 보면 마지막 칸이
+   어긋나도 뒤따르는 문단이 없을 때 못 잡는다).
 """
 import io
 import os
@@ -66,14 +70,30 @@ document.fonts.ready.then(function(){
         }
       });
     }
+    var o0 = orig.getBoundingClientRect().top;
+    var w0 = write.getBoundingClientRect().top;
+    ['head', 'chap', 'sub'].forEach(function(cls){
+      var obs = orig.querySelectorAll('.' + cls);
+      var wbs = write.querySelectorAll('.' + cls);
+      if (obs.length !== wbs.length) {
+        out.push(no + ':BLOCK_COUNT_MISMATCH:' + cls + ':' + obs.length + '!=' + wbs.length);
+        return;
+      }
+      obs.forEach(function(ob, k){
+        var wb = wbs[k];
+        var n = lines(ob), m = lines(wb);
+        if (n !== m) out.push(no + ':BLOCK_LINE_MISMATCH:' + cls + ':' + k + ':' + n + '!=' + m);
+        if (wb.scrollHeight > wb.clientHeight + 1) out.push(no + ':BLOCK_OVERFLOW:' + cls + ':' + k);
+        var dy = (ob.getBoundingClientRect().top - o0) - (wb.getBoundingClientRect().top - w0);
+        if (Math.abs(dy) > 0.5) out.push(no + ':BLOCK_ALIGN_MISMATCH:' + cls + ':' + k + ':' + dy.toFixed(1) + 'px');
+      });
+    });
     var ps = orig.querySelectorAll('p');
     var groups = write.querySelectorAll('.vs-write');
     if (ps.length !== groups.length) {
       out.push(no + ':GROUP_COUNT_MISMATCH:' + ps.length + '!=' + groups.length);
       return;
     }
-    var o0 = orig.getBoundingClientRect().top;
-    var w0 = write.getBoundingClientRect().top;
     ps.forEach(function(p, k){
       var n = lines(p);
       var lns = groups[k].querySelectorAll('.ln').length;

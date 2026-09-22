@@ -1,25 +1,42 @@
 # -*- coding: utf-8 -*-
-"""bible/*.txt(개역개정, CP949) 를 절 목록으로 파싱한다.
+"""bible/*.txt(개역개정, CP949) 를 「조각」 목록으로 파싱한다.
 
 파일 한 줄은 대개 `약자N:M <소제목>? 본문` 꼴이다(예: `유1:1 <인사> 예수 그리스도의…`).
 소제목 안에 다른 책의 장:절 인용이 그대로 들어있는 경우가 있다
 (예: `<세례 요한의 증언(마 3:1-12; 막 1:7-8; 눅 3:15-17)>`) — `<...>` 안을 통째로 잡으므로 문제없다.
 
-⚠️ 예외가 둘 있다 — 요청한 장에 있으면 **멈춘다**(ValueError, 몇 번째 줄인지 알린다).
-   ① 소제목이 절 한가운데 끼면 한 절이 두 줄로 나뉘고 뒷줄에는 절 번호가 없다
-      (`요5:이 날은 안식일이니`, 성경 전체 50개·21권). 건너뛰면 그 절 뒷부분이 빠진 채 인쇄된다.
-   ② 여러 절이 한 줄로 합쳐진 줄(`롬9:1-2 …`, 11개). 그냥 읽으면 1절 하나로 잡혀
-      「-2 <소제목> …」가 본문으로 찍히고 2절 번호가 사라진다.
-   제대로 된 처리(이어 붙이기·합친 절 표기)는 66권으로 넓힐 때 한다(2026-09-22 결정).
-   원문 66권을 훑어 확인한 이상한 꼴은 이 둘뿐이다. 「절 번호가 끊기면 멈춘다」는 넣지 않는다 —
-   사도행전 24장은 개역개정 본문에 7절이 없다.
+조각 하나 = 인쇄되는 문단 하나. 보통은 절 하나가 조각 하나다. 키:
+  book · chapter · verse(합쳐진 절은 첫 절) · subtitle · body       — 처음부터 있던 것
+  part          같은 절의 몇 번째 조각(끊긴 줄이면 1, 2 …)
+  verse_end     합쳐진 절의 끝 절(`롬9:1-2` → 2). 아니면 None
+  heading       권 제목(「제일권」). 없으면 None
+  label         번호 칸에 찍을 글자(마침표 빼고). 합쳐진 절 '1-2', 끊긴 조각 ''
+  chapter_start 그 장(요청 범위 안)의 첫 조각이면 True — 장 표시(「1장」·「1편」)를 이 위에 찍는다
+
+⚠️ 원문에는 절 번호로 시작하지 않는 꼴이 셋 있다(66권을 훑어 확인 — 권 제목 5 · 끊긴 줄 45 ·
+   합쳐진 절 11, 어느 꼴에도 안 맞는 줄 0). Task 1 은 이 줄을 만나면 **멈췄다**. 2026-09-22 성도님
+   결정(「방법 2」)으로 **이 세 꼴에 한해** 인쇄 성경처럼 읽는다 — 그 밖의 줄은 여전히 멈춘다.
+   ① 권 제목 `시1:제일권`(시편 1·42·73·90·107편 첫 줄) → 바로 다음 절 조각의 heading.
+      다음 줄이 같은 장의 절이 아니거나 파일 끝이면 멈춘다.
+   ② 끊긴 절 `요5:이 날은 안식일이니` — 소제목 자리에서 한 절이 두 줄로 나뉘어 뒷줄에 절 번호가
+      없다. 건너뛰면 절 뒷부분이 빠진 채 인쇄된다 → 바로 앞 조각과 같은 절의 다음 조각(part+1,
+      번호 칸은 비움). 앞 조각이 없거나 다른 장이면 멈춘다.
+      ⚠️ 끊긴 줄의 소제목은 「첫 낱말 뒤」에 끼어 있다 — 원문은 한 줄의 첫 낱말(보통 `요1:1`) 뒤에
+      `<소제목>` 을 두는데, 끊긴 줄은 `요12:예수께서` 가 붙어 한 낱말이다. 뜻은 「소제목 →
+      예수께서 이 말씀을 하시고 …」이므로 본문 = 첫 낱말 + ' ' + 나머지로 둔다.
+   ③ 합쳐진 절 `롬9:1-2 …` — 두세 절을 한 줄로 번역한 곳. 그냥 읽으면 「-2 <소제목> …」가 본문으로
+      찍힌다 → verse=1, verse_end=2, 번호 칸 「1-2.」.
+   「절 번호가 끊기면 멈춘다」는 넣지 않는다 — 사도행전 24장은 개역개정 본문에 7절이 없다.
 """
 import os
 import re
 
+# 순서가 뜻을 가진다 — 권 제목·합쳐진 절을 보통 절·끊긴 줄보다 먼저 본다
+# (`시1:제일권` 은 끊긴 줄 꼴에도, `롬9:1-2` 는 보통 절 꼴에도 맞기 때문이다).
+HEADING_RE = re.compile(r'^\D+(\d+):(제[일이삼사오]권)\s*$')
+MERGED_RE = re.compile(r'^\D+(\d+):(\d+)-(\d+)\s*(?:<([^>]*)>)?\s*(.*)$')
 VERSE_RE = re.compile(r'^\D+(\d+):(\d+)\s*(?:<([^>]*)>)?\s*(.*)$')
-CHAPTER_RE = re.compile(r'^\D+(\d+):')
-MERGED_RE = re.compile(r'^\D+\d+:\d+-\d+')
+CONT_RE = re.compile(r'^\D+(\d+):(\S*)\s*(?:<([^>]*)>)?\s*(.*)$')
 FILENAME_RE = re.compile(r'^\d+-\d+(.+)\.txt$')
 
 
@@ -48,42 +65,95 @@ def book_name_from_filename(path):
     return m.group(1)
 
 
-def parse_book(text, book_name, chapter=None):
-    """성경 파일 전체 텍스트를 절 목록으로 바꾼다.
+def _classify(line):
+    """(꼴, match) — 꼴은 'heading' · 'merged' · 'verse' · 'cont', 어디에도 안 맞으면 (None, None)."""
+    m = HEADING_RE.match(line)
+    if m:
+        return 'heading', m
+    m = MERGED_RE.match(line)
+    if m:
+        return 'merged', m
+    m = VERSE_RE.match(line)
+    if m:
+        return 'verse', m
+    m = CONT_RE.match(line)
+    if m and not m.group(2)[:1].isdigit():
+        return 'cont', m
+    return None, None
 
-    chapter 를 주면 그 장만 남긴다(요한복음처럼 여러 장인 책에서 1장만 뽑을 때 쓴다).
-    절 번호 없이 이어지는 줄이나 여러 절이 합쳐진 줄이 그 장(chapter 가 None 이면 어느 장이든)에
-    있으면 ValueError.
+
+def parse_book(text, book_name, chapter=None):
+    """성경 파일 전체 텍스트를 조각 목록으로 바꾼다(키는 모듈 머리 참고).
+
+    chapter 를 주면 그 장만 남긴다(요한복음처럼 여러 장인 책에서 1장만 뽑을 때 쓴다) —
+    권 제목·끊긴 줄도 자기 장을 따른다. 권 제목·끊긴 줄·합쳐진 절 셋 밖의 절 번호 없는 줄,
+    이을 앞 절이 없는 끊긴 줄, 절이 뒤따르지 않는 권 제목이 그 장(chapter 가 None 이면 어느
+    장이든)에 있으면 ValueError(몇 번째 줄인지). 장 번호조차 없는 줄은 어느 장이든 멈춘다.
     """
-    verses = []
+    pieces = []
+    pending = None        # (줄 번호, 장, 권 제목) — 다음 절 조각에 붙기를 기다린다
+    started = set()       # 첫 조각을 이미 낸 장
+
+    def stop(lineno, why, line):
+        raise ValueError('%s %d번째 줄: %s — %s' % (book_name, lineno, why, line[:40]))
+
     for lineno, line in enumerate(text.splitlines(), 1):
         line = line.strip()
         if not line:
             continue
-        m = VERSE_RE.match(line)
-        merged = MERGED_RE.match(line)
-        if not m or merged:
-            c = CHAPTER_RE.match(line)
-            if c is None or chapter is None or int(c.group(1)) == chapter:
-                if merged:
-                    why = '여러 절이 한 줄로 합쳐져 있어 절마다 나눌 수 없습니다'
-                elif c is None:
-                    # 장 번호조차 없다(예: 순수 머리말 줄) — 절 번호만 없는 경우와 구분한다
-                    # (2026-09-22 최종 검토 Minor).
-                    why = '장·절 번호가 없는 줄이라 어느 절인지 알 수 없습니다'
-                else:
-                    why = '절 번호가 없는 줄이라 어느 절인지 알 수 없습니다'
-                raise ValueError('%s %d번째 줄: %s — %s' % (book_name, lineno, why, line[:40]))
-            continue
-        ch_s, vs_s, subtitle, body = m.groups()
-        ch = int(ch_s)
+        kind, m = _classify(line)
+        if kind is None:
+            stop(lineno, '장·절 번호가 없는 줄이라 어느 절인지 알 수 없습니다', line)
+        ch = int(m.group(1))
+        if pending is not None:
+            h_lineno, h_ch, h_text = pending
+            if kind not in ('verse', 'merged') or ch != h_ch:
+                stop(h_lineno, '권 제목 「%s」 다음 줄이 같은 장의 절이 아닙니다' % h_text, line)
         if chapter is not None and ch != chapter:
             continue
-        verses.append({
+
+        if kind == 'heading':
+            pending = (lineno, ch, m.group(2))
+            continue
+
+        if kind == 'cont':
+            prev = pieces[-1] if pieces else None
+            if prev is None or prev['chapter'] != ch:
+                stop(lineno, '절 번호가 없는 줄인데 바로 앞에 같은 장의 절이 없어 어느 절에 '
+                             '이어지는지 알 수 없습니다', line)
+            first, subtitle, rest = m.group(2), m.group(3), m.group(4).strip()
+            body = ' '.join(s for s in (first, rest) if s)
+            if not body:
+                stop(lineno, '절 번호도 본문도 없는 줄입니다', line)
+            verse, verse_end, part, label = prev['verse'], prev['verse_end'], prev['part'] + 1, ''
+        elif kind == 'merged':
+            ch_s, a, b, subtitle, body = m.groups()
+            verse, verse_end, part = int(a), int(b), 0
+            label = '%d-%d' % (verse, verse_end)
+        else:
+            ch_s, vs_s, subtitle, body = m.groups()
+            verse, verse_end, part = int(vs_s), None, 0
+            label = str(verse)
+
+        heading = None
+        if pending is not None:
+            heading = pending[2]
+            pending = None
+        pieces.append({
             'book': book_name,
             'chapter': ch,
-            'verse': int(vs_s),
+            'verse': verse,
             'subtitle': subtitle,
             'body': body.strip(),
+            'part': part,
+            'verse_end': verse_end,
+            'heading': heading,
+            'label': label,
+            'chapter_start': ch not in started,
         })
-    return verses
+        started.add(ch)
+
+    if pending is not None:
+        h_lineno, h_ch, h_text = pending
+        stop(h_lineno, '권 제목 「%s」 뒤에 절이 없습니다(파일 끝)' % h_text, h_text)
+    return pieces

@@ -23,7 +23,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from parse import parse_book, load_book_file, book_name_from_filename
 from paginate import paginate
-from render import build_draft_html, build_final_html, lines_per_page, all_font_urls
+from render import (build_draft_html, build_final_html, lines_per_page, all_font_urls,
+                    chapter_unit, piece_blocks)
 
 CHROME_CANDS = [
     r'C:\Program Files\Google\Chrome\Application\chrome.exe',
@@ -37,6 +38,7 @@ CHROME_TIMEOUT_SEC = 120
 # ⚠️ 줄 수 = 높이 ÷ 줄 높이. Range.getClientRects() 로 상자를 세면 절 번호 <span> 때문에
 #    첫 줄을 두세 번 센다(상자·그 안 글자·본문 조각이 따로 잡힌다).
 # ⚠️ 서체가 안 불렸으면 대체 서체 기준 줄 수라 인쇄본과 어긋난다 — 재지 않고 멈춘다.
+# ⚠️ 키는 (장, 절, 조각, 역할) — 끊긴 절의 두 조각이 한 키로 겹치지 않게 조각 번호(data-pt)를 싣는다.
 MEASURE_PROBE = """<script>
 document.fonts.ready.then(function(){
   var bad = [];
@@ -46,7 +48,7 @@ document.fonts.ready.then(function(){
   document.querySelectorAll('[data-role]').forEach(function(el){
     var lh = parseFloat(getComputedStyle(el).lineHeight);
     var n = Math.round(el.getBoundingClientRect().height / lh);
-    out.push(el.dataset.ch + ',' + el.dataset.vs + ',' + el.dataset.role + ',' + n);
+    out.push(el.dataset.ch + ',' + el.dataset.vs + ',' + el.dataset.pt + ',' + el.dataset.role + ',' + n);
   });
   document.title = 'LINES|' + out.join(';');
 });
@@ -150,10 +152,22 @@ def ensure_out_path_safe(out_path):
 
 
 def ensure_fonts():
-    """필요한 서체(원문 + HEADER_FONT_URL 이 있으면 머리글도)를 받아 둔다 —
-    없으면 여기서만 한 번 인터넷이 필요하다."""
+    """필요한 서체(원문 + 머리글·바닥글 서체가 있으면 그것도)를 받아 둔다 —
+    없으면 여기서만 한 번 인터넷이 필요하다.
+
+    ⚠️ 주소가 '' 인 것은 내 PC 서체다(가이드: 「fonts/ 에 복사하고 {'fonts/파일.ttf': ''}」).
+       받지 않는다 — 파일이 있으면 크기와 무관하게 그대로 쓰고, 없으면 넣어 달라고 멈춘다.
+       Task 8 은 100KB 보다 작은 파일을 「덜 받았다」로 보고 주소 ''로 다시 받으려다 오류가 났다.
+    """
     os.makedirs('fonts', exist_ok=True)
     for path, url in all_font_urls().items():
+        if not url:
+            if os.path.exists(path):
+                continue
+            raise SystemExit(
+                '!! 서체 파일이 없습니다 — %s\n'
+                '   내 PC 서체를 쓰려면 그 파일을 bible-note 폴더의 %s 에 넣어 주세요'
+                '(주소를 비워 두었으므로 받아 오지 않습니다).' % (path, path))
         if os.path.exists(path) and os.path.getsize(path) > 100000:
             continue
         print('  서체를 받습니다 — %s' % os.path.basename(path))
@@ -216,7 +230,8 @@ def find_book_file(book_name, bible_dir=None):
 
 
 def measure_lines(html_path, chrome):
-    """브라우저에 '이 절(과 소제목)이 몇 줄로 찍혔는지' 물어본다."""
+    """브라우저에 '이 조각(과 그 위 권 제목·장 표시·소제목)이 몇 줄로 찍혔는지' 물어본다.
+    결과 키는 (장, 절, 조각, 역할) — 역할은 head · chap · sub · body."""
     with io.open(html_path, encoding='utf-8') as f:
         html = f.read()
     tmp = _beside(html_path, '_measure.html')
@@ -240,9 +255,50 @@ def measure_lines(html_path, chrome):
     for item in m.group(1).split(';'):
         if not item:
             continue
-        ch, vs, role, n = item.split(',')
-        result[(int(ch), int(vs), role)] = int(n)
+        ch, vs, pt, role, n = item.split(',')
+        result[(int(ch), int(vs), int(pt), role)] = int(n)
     return result
+
+
+def apply_line_counts(pieces, lines_map):
+    """실측 결과를 조각마다 채운다 — head_lines · chap_lines · sub_lines 와
+    lines = 권 제목 + 장 표시 + 소제목 + 본문.
+
+    어느 칸이 있는지는 render.piece_blocks 한 곳이 정한다(1차에 그린 칸 = 여기서 채우는 칸).
+    그 칸이 있는데 줄 수를 못 쟀으면(0 도) 멈춘다 — 0 으로 두면 필사 열의 그 칸 높이가 사라져
+    아래 필사줄이 원문 줄과 어긋난다. 같은 (장, 절, 조각) 이 둘이면 실측 결과가 한 키에 덮이므로
+    역시 멈춘다.
+    """
+    keys = [(v['chapter'], v['verse'], v.get('part', 0)) for v in pieces]
+    if len(set(keys)) != len(keys):
+        dup = sorted(k for k in set(keys) if keys.count(k) > 1)[0]
+        raise SystemExit('!! %d:%d(조각 %d)이 두 번 나옵니다 — 원문을 확인하세요' % dup)
+    for v, key in zip(pieces, keys):
+        body_n = lines_map.get(key + ('body',))
+        if not body_n:
+            raise SystemExit('!! %d:%d(조각 %d) 본문 줄 수를 못 쟀습니다' % key)
+        counts = {'head': 0, 'chap': 0, 'sub': 0}
+        for role, _text in piece_blocks(v):
+            n = lines_map.get(key + (role,))
+            if not n:
+                raise SystemExit('!! %d:%d(조각 %d) %s 줄 수를 못 쟀습니다' % (key + (role,)))
+            counts[role] = n
+        for role, n in counts.items():
+            v['%s_lines' % role] = n
+        v['lines'] = body_n + sum(counts.values())
+
+
+def default_out_name(book_name, chapter):
+    """기본 출력 파일 이름 — 「유다서.html」 · 「요한복음_1장.html」 · 「시편_1편.html」.
+    단위 글자는 render.chapter_unit 한 곳에서 정한다(장 표시와 같은 글자)."""
+    suffix = '_%d%s' % (chapter, chapter_unit(book_name)) if chapter else ''
+    return '%s%s.html' % (book_name, suffix)
+
+
+def verse_count(pieces):
+    """조각이 아니라 절 수 — 끊긴 조각은 세지 않고, 합쳐진 절(2-3)은 둘로 센다."""
+    return sum((v.get('verse_end') or v['verse']) - v['verse'] + 1
+               for v in pieces if v.get('part', 0) == 0)
 
 
 def generate(book_name, chapter=None, out_path=None):
@@ -252,8 +308,7 @@ def generate(book_name, chapter=None, out_path=None):
         out_path = os.path.abspath(out_path)
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     if not out_path:
-        suffix = '_%d장' % chapter if chapter else ''
-        out_path = '%s%s.html' % (book_name, suffix)
+        out_path = default_out_name(book_name, chapter)
     # 막힐 자리면 서체를 받고 크롬으로 다 잰 뒤가 아니라 처음에 멈춘다
     # (2026-09-22 최종 검토 r2 Minor — 예전엔 이 확인이 맨 끝에 있었다).
     ensure_out_path_safe(out_path)
@@ -265,8 +320,9 @@ def generate(book_name, chapter=None, out_path=None):
     text = load_book_file(find_book_file(book_name))
     verses = parse_book(text, book_name, chapter=chapter)
     if not verses:
-        raise SystemExit('!! "%s"(%s장)에서 절을 찾지 못했습니다'
-                         % (book_name, chapter or '전체'))
+        raise SystemExit('!! "%s"(%s)에서 절을 찾지 못했습니다'
+                         % (book_name, '%d%s' % (chapter, chapter_unit(book_name))
+                            if chapter else '전체'))
 
     draft_path = '_draft.html'
     with io.open(draft_path, 'w', encoding='utf-8') as f:
@@ -279,20 +335,14 @@ def generate(book_name, chapter=None, out_path=None):
     if lines_map is None:
         raise SystemExit('!! 줄 수를 재지 못했습니다')
 
-    for v in verses:
-        body_n = lines_map.get((v['chapter'], v['verse'], 'body'))
-        if not body_n:
-            raise SystemExit('!! %d:%d 본문 줄 수를 못 쟀습니다' % (v['chapter'], v['verse']))
-        sub_n = lines_map.get((v['chapter'], v['verse'], 'sub'), 0) if v['subtitle'] else 0
-        v['sub_lines'] = sub_n
-        v['lines'] = body_n + sub_n
+    apply_line_counts(verses, lines_map)
 
     pages = paginate(verses, lines_per_page())
     _copy_fonts_beside(out_path)
     with io.open(out_path, 'w', encoding='utf-8') as f:
         f.write(build_final_html(pages, book_name))
 
-    print('완료: %s (%d쪽 · %d절)' % (out_path, len(pages), len(verses)))
+    print('완료: %s (%d쪽 · %d절)' % (out_path, len(pages), verse_count(verses)))
     return out_path
 
 

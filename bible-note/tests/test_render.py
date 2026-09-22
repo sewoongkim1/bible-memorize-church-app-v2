@@ -42,16 +42,35 @@ def test_esc_handles_none_and_empty():
 
 
 def test_draft_html_has_data_attributes_for_each_verse():
+    # data-pt(조각 번호)가 더해졌다(Task 9) — 같은 절의 두 조각이 한 키로 겹치지 않게.
     html = build_draft_html([
         _v(1, subtitle='인사', body='예수 그리스도의'),
         _v(2, body='긍휼과 평강과'),
     ])
-    assert 'data-ch="1" data-vs="1" data-role="sub"' in html
-    assert 'data-ch="1" data-vs="1" data-role="body"' in html
-    assert 'data-ch="1" data-vs="2" data-role="body"' in html
-    assert 'data-ch="1" data-vs="2" data-role="sub"' not in html
+    assert 'data-ch="1" data-vs="1" data-pt="0" data-role="sub"' in html
+    assert 'data-ch="1" data-vs="1" data-pt="0" data-role="body"' in html
+    assert 'data-ch="1" data-vs="2" data-pt="0" data-role="body"' in html
+    assert 'data-ch="1" data-vs="2" data-pt="0" data-role="sub"' not in html
     assert '예수 그리스도의' in html
     assert '인사' in html
+
+
+def test_draft_html_part_attribute_keeps_two_pieces_of_one_verse_apart():
+    html = build_draft_html([
+        _v(9, chapter=5, body='그 사람이 곧 나아서', label='9', part=0),
+        _v(9, chapter=5, body='이 날은 안식일이니', label='', part=1),
+    ])
+    assert 'data-ch="5" data-vs="9" data-pt="0" data-role="body"' in html
+    assert 'data-ch="5" data-vs="9" data-pt="1" data-role="body"' in html
+
+
+def test_draft_html_roles_head_chap_sub_body():
+    html = build_draft_html([_v(1, book='시편', heading='제일권', chapter_start=True,
+                                subtitle='소제목', body='복 있는 사람은', label='1', part=0)])
+    for role in ('head', 'chap', 'sub', 'body'):
+        assert 'data-ch="1" data-vs="1" data-pt="0" data-role="%s"' % role in html
+    assert '>제일권</div>' in html
+    assert '>1편</div>' in html
 
 
 def test_draft_html_has_no_page_elements():
@@ -321,3 +340,252 @@ def test_letter_spacing_is_configurable(monkeypatch):
     final = build_final_html([[_v(1)]], '유다서')
     assert 'letter-spacing:-0.03em' in draft
     assert 'letter-spacing:-0.03em' in final
+
+
+# ── Task 9: 끊긴 조각 · 합쳐진 절 · 권 제목 · 장 표시 ─────────────────────
+
+def _orig_and_write(html):
+    """최종 HTML 첫 쪽의 원문 열 · 필사 열 안쪽."""
+    orig = html.split('<div class="orig-col">', 1)[1].split('<div class="write-col">', 1)[0]
+    write = html.split('<div class="write-col">', 1)[1].split('<div class="ft">', 1)[0]
+    return orig, write
+
+
+def test_continuation_piece_has_empty_number_cell():
+    # 끊긴 조각은 번호 칸을 비운다 — 칸 폭은 그대로라 본문이 앞 절 글자와 줄을 맞춘다.
+    piece = _v(9, body='이 날은 안식일이니', label='', part=1)
+    for html in (build_draft_html([piece]), build_final_html([[piece]], '요한복음')):
+        assert '<span class="num"></span><span class="txt">이 날은 안식일이니</span>' in html
+
+
+def test_merged_verse_number_shows_range():
+    piece = _v(1, body='내가 그리스도 안에서', label='1-2', verse_end=2)
+    for html in (build_draft_html([piece]), build_final_html([[piece]], '로마서')):
+        assert '<span class="num">1-2.</span><span class="txt">내가 그리스도 안에서</span>' in html
+
+
+def test_num_digits_follows_longest_label():
+    assert num_digits([_v(9, label='9'), _v(10, label='10-11', verse_end=11)]) == 5
+    assert num_digits([_v(9, label='9'), _v(9, label='', part=1)]) == 1
+    # label 이 없는 dict(예전 꼴)는 절 번호로 센다
+    assert num_digits([_v(99), _v(176)]) == 3
+
+
+def test_num_col_width_follows_merged_label_in_both_passes():
+    verses = [_v(9, label='9'), _v(10, label='10-11', verse_end=11)]
+    rule = num_col_css(5)
+    assert rule in build_draft_html(verses)
+    assert rule in build_final_html([[verses[0]], [verses[1]]], '예레미야')
+
+
+def test_chapter_unit():
+    assert render.chapter_unit('시편') == '편'
+    assert render.chapter_unit('요한복음') == '장'
+    assert render.chapter_unit('유다서') == '장'
+
+
+def test_chapter_mark_on_first_piece_both_sides():
+    html = build_final_html([[_v(1, lines=3, chapter_start=True), _v(2)]], '유다서')
+    orig, write = _orig_and_write(html)
+    assert orig.startswith('<div class="chap">1장</div>')
+    assert write.startswith('<div class="chap" style="height:9.5mm">1장</div>')
+    assert html.count('class="chap"') == 2
+    # 장 표시 1줄은 필사줄이 아니다 — 첫 조각 3줄 중 본문 몫 2줄 + 둘째 조각 1줄
+    assert html.count('class="ln"') == 3
+
+
+def test_chapter_mark_psalm_uses_pyeon():
+    html = build_final_html([[_v(1, book='시편', lines=2, chapter_start=True)]], '시편')
+    assert '<div class="chap">1편</div>' in html
+    assert '1장' not in html
+
+
+def test_chapter_mark_height_pinned_to_measured_lines():
+    html = build_final_html([[_v(1, lines=4, chapter_start=True, chap_lines=2)]], '유다서')
+    assert '<div class="chap" style="height:19mm">1장</div>' in html
+    assert html.count('class="ln"') == 2
+
+
+def test_no_chapter_mark_without_chapter_start():
+    html = build_final_html([[_v(1, lines=2)]], '유다서')
+    assert 'class="chap"' not in html
+    assert html.count('class="ln"') == 2
+
+
+def test_second_chapter_first_page_shows_2jang():
+    pages = [[_v(1, chapter=1, chapter_start=True, lines=2), _v(2, chapter=1)],
+             [_v(1, chapter=2, chapter_start=True, lines=2), _v(2, chapter=2)]]
+    html = build_final_html(pages, '룻기')
+    first_page, second_page = html.split('<div class="page">')[1:3]
+    assert '<div class="chap">1장</div>' in first_page
+    assert '<div class="chap">2장</div>' in second_page
+    assert '2장' not in first_page
+
+
+def test_book_heading_both_sides_with_pinned_height():
+    html = build_final_html([[_v(1, book='시편', lines=5, heading='제일권', head_lines=1,
+                                 chapter_start=True, chap_lines=1)]], '시편')
+    orig, write = _orig_and_write(html)
+    assert '<div class="head">제일권</div>' in orig
+    assert '<div class="head" style="height:9.5mm">제일권</div>' in write
+    # 5줄 = 권 제목 1 + 장 표시 1 + 본문 3
+    assert html.count('class="ln"') == 3
+
+
+def test_heading_above_chapter_mark_above_subtitle_above_body():
+    piece = _v(1, book='시편', lines=6, heading='제이권', chapter_start=True,
+               subtitle='고라 자손의 마스길', sub_lines=1)
+    orig, write = _orig_and_write(build_final_html([[piece]], '시편'))
+    for side, body_mark in ((orig, '<p>'), (write, 'class="vs-write"')):
+        pos = [side.index(s) for s in ('class="head"', 'class="chap"', 'class="sub"', body_mark)]
+        assert pos == sorted(pos), side
+    draft = build_draft_html([piece])
+    pos = [draft.index('data-role="%s"' % r) for r in ('head', 'chap', 'sub', 'body')]
+    assert pos == sorted(pos)
+    # 본문 몫 필사줄 = 6 - 권 제목 1 - 장 표시 1 - 소제목 1
+    assert build_final_html([[piece]], '시편').count('class="ln"') == 3
+
+
+def test_continuation_piece_with_subtitle_keeps_subtitle_above_body():
+    piece = _v(36, lines=3, part=1, label='', subtitle='그들이 예수를 믿지 아니하다',
+               sub_lines=1, body='예수께서 이 말씀을 하시고')
+    html = build_final_html([[piece]], '요한복음')
+    orig, write = _orig_and_write(html)
+    assert orig.index('class="sub"') < orig.index('<span class="num"></span>')
+    assert html.count('class="ln"') == 2
+
+
+def test_head_and_chap_css_shared_by_both_passes():
+    css = base_css()
+    assert ".orig-col .head, .write-col .head { text-align:center; font-family:'NSKB',serif;" in css
+    # 권 제목·장 표시는 소제목과 같은 글씨 크기·줄 높이를 쓴다(같은 규칙에 함께 든다)
+    m = re.search(r'([^{}]*)\{\s*font-size:12pt; line-height:9\.5mm;', css)
+    assert m, 'font-size 규칙을 못 찾았습니다'
+    selectors = m.group(1)
+    for sel in ('.orig-col .head', '.write-col .head', '.orig-col .chap', '.write-col .chap',
+                '.orig-col .sub', '.write-col .sub'):
+        assert sel in selectors
+    bold = re.search(r"([^{}]*)\{ font-family:'NSKB',serif; font-weight:400; \}", css)
+    assert bold
+    for sel in ('.orig-col .chap', '.write-col .chap', '.orig-col .sub', '.write-col .sub'):
+        assert sel in bold.group(1)
+
+
+def test_chap_css_is_left_aligned():
+    assert '.orig-col .chap, .write-col .chap { text-align:left; }' in base_css()
+
+
+def test_header_range_uses_verse_end_of_last_merged_piece():
+    html = build_final_html([[_v(1, chapter=9, label='1-2', verse_end=2)]], '로마서')
+    assert '로마서 9:1 ~ 9:2' in html
+
+
+def test_header_range_ends_at_merged_verse_end_on_multi_piece_page():
+    html = build_final_html([[_v(3, chapter=24, label='3', verse_end=None),
+                              _v(4, chapter=24, label='4-5', verse_end=5)]], '에스겔')
+    assert '에스겔 24:3 ~ 24:5' in html
+
+
+def test_header_single_verse_page_rule_unchanged_for_two_pieces_of_one_verse():
+    # 한 절의 두 조각뿐인 쪽 — 「요한복음 5:9」 하나만(한 절뿐인 쪽 규칙 그대로).
+    html = build_final_html([[_v(9, chapter=5, label='9', part=0),
+                              _v(9, chapter=5, label='', part=1)]], '요한복음')
+    assert '요한복음 5:9' in html
+    assert '~ 5:9' not in html
+
+
+# ── Task 9: 바닥글 서체 · 내 PC 서체(로컬 파일) ───────────────────────────
+
+def test_footer_font_url_default_is_empty():
+    assert render.FOOTER_FONT_URL == {}
+    assert 'NSKF' not in page_css()
+    assert 'NSKF' not in build_final_html([[_v(1)]], '유다서')
+
+
+def test_footer_font_url_adds_face_only_to_page_css(monkeypatch):
+    monkeypatch.setattr(render, 'FOOTER_FONT_URL',
+                         {'fonts/Footer-400.woff2': 'https://example.com/f.woff2'})
+    css = page_css()
+    assert ("@font-face { font-family:'NSKF'; src:url('fonts/Footer-400.woff2') format('woff2');"
+            in css)
+    ft = css.split('.ft {')[1].split('}')[0]
+    assert "font-family:'NSKF','NSK',serif;" in ft
+    assert 'NSKF' not in build_draft_html([_v(1)])
+    assert 'NSKF' in build_final_html([[_v(1)]], '유다서')
+
+
+def test_all_font_urls_includes_footer_font(monkeypatch):
+    monkeypatch.setattr(render, 'FOOTER_FONT_URL', {'fonts/F.woff': 'https://f'})
+    urls = render.all_font_urls()
+    assert urls['fonts/F.woff'] == 'https://f'
+    for k in render.FONT_URL:
+        assert k in urls
+
+
+def test_all_font_urls_rejects_more_than_one_footer_font(monkeypatch):
+    monkeypatch.setattr(render, 'FOOTER_FONT_URL', {'a.woff': 'x', 'b.woff': 'y'})
+    with pytest.raises(ValueError):
+        render.all_font_urls()
+
+
+def test_all_font_urls_same_file_for_header_and_footer_listed_once(monkeypatch):
+    monkeypatch.setattr(render, 'HEADER_FONT_URL', {'fonts/BMJUA_ttf.ttf': ''})
+    monkeypatch.setattr(render, 'FOOTER_FONT_URL', {'fonts/BMJUA_ttf.ttf': ''})
+    urls = render.all_font_urls()
+    assert list(urls).count('fonts/BMJUA_ttf.ttf') == 1
+    assert len(urls) == len(render.FONT_URL) + 1
+
+
+def test_all_font_urls_rejects_same_file_with_different_urls(monkeypatch):
+    monkeypatch.setattr(render, 'HEADER_FONT_URL', {'fonts/X.woff': 'https://a'})
+    monkeypatch.setattr(render, 'FOOTER_FONT_URL', {'fonts/X.woff': 'https://b'})
+    with pytest.raises(ValueError):
+        render.all_font_urls()
+
+
+def test_header_and_footer_fonts_share_one_helper(monkeypatch):
+    # 머리글·바닥글이 같은 도우미로 만든다 — 같은 파일을 주면 이름만 다르고 모양이 같다.
+    monkeypatch.setattr(render, 'HEADER_FONT_URL', {'fonts/BMJUA_ttf.ttf': ''})
+    monkeypatch.setattr(render, 'FOOTER_FONT_URL', {'fonts/BMJUA_ttf.ttf': ''})
+    css = page_css()
+    faces = re.findall(
+        r"@font-face \{ font-family:'(NSK[HF])'; src:url\('([^']*)'\) format\('([^']*)'\);", css)
+    assert sorted(faces) == [('NSKF', 'fonts/BMJUA_ttf.ttf', 'truetype'),
+                             ('NSKH', 'fonts/BMJUA_ttf.ttf', 'truetype')]
+
+
+def test_font_format_follows_extension():
+    assert render.font_format('fonts/a.woff') == 'woff'
+    assert render.font_format('fonts/a.woff2') == 'woff2'
+    assert render.font_format('fonts/a.ttf') == 'truetype'
+    assert render.font_format('fonts/A.TTF') == 'truetype'
+    assert render.font_format('fonts/a.otf') == 'opentype'
+
+
+def test_font_format_rejects_ttc():
+    with pytest.raises(ValueError) as e:
+        render.font_format('fonts/batang.ttc')
+    assert '.ttc' in str(e.value)
+    assert '브라우저' in str(e.value)
+
+
+def test_font_format_rejects_unknown_extension():
+    with pytest.raises(ValueError):
+        render.font_format('fonts/a.fon')
+
+
+def test_local_ttf_header_font_uses_truetype_hint(monkeypatch):
+    # 가이드대로 「fonts/ 에 복사하고 {'fonts/파일.ttf': ''}」로 적은 경우 — Task 8 은 format('woff')
+    # 를 박아 두어 .ttf 와 맞지 않았다.
+    monkeypatch.setattr(render, 'HEADER_FONT_URL', {'fonts/BMJUA_ttf.ttf': ''})
+    css = page_css()
+    assert "src:url('fonts/BMJUA_ttf.ttf') format('truetype');" in css
+    assert "src:url('fonts/BMJUA_ttf.ttf') format('woff')" not in css
+
+
+def test_ttc_slot_font_is_rejected_everywhere(monkeypatch):
+    monkeypatch.setattr(render, 'HEADER_FONT_URL', {'fonts/batang.ttc': ''})
+    with pytest.raises(ValueError):
+        page_css()
+    with pytest.raises(ValueError):
+        render.all_font_urls()
