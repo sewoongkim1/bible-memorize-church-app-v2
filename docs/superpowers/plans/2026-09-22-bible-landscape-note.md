@@ -60,6 +60,12 @@ Noto Serif KR(SIL OFL, 최초 실행 시 자동 다운로드), pymupdf(검증의
     다른 장에 있으면 무시한다. 장 번호조차 없는 줄도 멈춘다. ⚠️ 조용히 건너뛰면 그 절 뒷부분이 빠진 채
     인쇄된다 — 성도님이 그대로 받아 적는 인쇄물이다(2026-09-22 성도님 결정: 발견하면 멈춘다. 앞 절에
     이어 붙이는 제대로 된 처리는 66권으로 넓힐 때 한다).
+  - **여러 절이 한 줄로 합쳐진 줄**(예 `롬9:1-2 <약속의 자녀 약속의 말씀> 내가…`, 성경 전체 11개)도 같은
+    규칙이다 — 요청한 장에 있으면 `ValueError`, 다른 장이면 무시. ⚠️ 그냥 두면 앞 절(1절) 하나로 읽혀
+    「-2 <약속의 자녀…> 내가…」가 본문으로 찍히고 2절 번호가 사라진다.
+  - 원문 전체(66권)를 훑어 확인한 이상한 꼴은 이 두 가지뿐이다(본문 한가운데 소제목·같은 절 번호·빈 절은 0).
+    ⚠️ 「절 번호가 이어지지 않으면 멈춘다」는 검사는 넣지 않는다 — 사도행전 24장은 개역개정 본문에 7절이
+    없어(6 → 8) 멀쩡한 장을 멈춰 세운다.
 
 - [ ] **Step 1: 폴더와 실패하는 테스트 작성**
 
@@ -153,13 +159,31 @@ def test_parse_raises_on_continuation_line_in_requested_chapter():
 
 def test_parse_raises_on_continuation_line_without_chapter_filter():
     text = "요5:9 그 사람이 곧 나아서\n요5:이 날은 안식일이니"
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as e:
         parse_book(text, '요한복음')
+    assert '2번째 줄' in str(e.value)
 
 
 def test_parse_raises_on_line_without_chapter_number():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as e:
         parse_book("요1:1 태초에\n머리말 한 줄", '요한복음', chapter=1)
+    assert '2번째 줄' in str(e.value)
+
+
+def test_parse_raises_on_merged_verse_line_in_requested_chapter():
+    # 로마서 9:1-2 는 원문에서 두 절이 한 줄로 합쳐져 있다. 1절로 읽으면
+    # 「-2 <약속의 자녀 약속의 말씀> 내가…」가 본문으로 찍히고 2절 번호가 사라진다.
+    text = "롬8:39 높음이나 깊음이나\n롬9:1-2 <약속의 자녀 약속의 말씀> 내가 그리스도 안에서 참말을 하고"
+    with pytest.raises(ValueError) as e:
+        parse_book(text, '로마서', chapter=9)
+    assert '2번째 줄' in str(e.value)
+    assert '합쳐' in str(e.value)
+
+
+def test_parse_ignores_merged_verse_line_in_other_chapter():
+    text = "롬8:39 높음이나 깊음이나\n롬9:1-2 내가 그리스도 안에서 참말을 하고"
+    verses = parse_book(text, '로마서', chapter=8)
+    assert [v['verse'] for v in verses] == [39]
 
 
 def test_parse_ignores_continuation_line_in_other_chapter():
@@ -215,16 +239,21 @@ Expected: `ModuleNotFoundError: No module named 'parse'` (아직 `parse.py`가 �
 소제목 안에 다른 책의 장:절 인용이 그대로 들어있는 경우가 있다
 (예: `<세례 요한의 증언(마 3:1-12; 막 1:7-8; 눅 3:15-17)>`) — `<...>` 안을 통째로 잡으므로 문제없다.
 
-⚠️ 예외가 있다 — 소제목이 절 한가운데 끼면 한 절이 두 줄로 나뉘고 뒷줄에는 절 번호가 없다
-   (`요5:이 날은 안식일이니`, 성경 전체 50개·21권). 요청한 장에 그런 줄이 있으면 **멈춘다**
-   (ValueError). 조용히 건너뛰면 그 절 뒷부분이 빠진 채 인쇄된다. 앞 절에 이어 붙이는 처리는
-   66권으로 넓힐 때 한다(2026-09-22 결정).
+⚠️ 예외가 둘 있다 — 요청한 장에 있으면 **멈춘다**(ValueError, 몇 번째 줄인지 알린다).
+   ① 소제목이 절 한가운데 끼면 한 절이 두 줄로 나뉘고 뒷줄에는 절 번호가 없다
+      (`요5:이 날은 안식일이니`, 성경 전체 50개·21권). 건너뛰면 그 절 뒷부분이 빠진 채 인쇄된다.
+   ② 여러 절이 한 줄로 합쳐진 줄(`롬9:1-2 …`, 11개). 그냥 읽으면 1절 하나로 잡혀
+      「-2 <소제목> …」가 본문으로 찍히고 2절 번호가 사라진다.
+   제대로 된 처리(이어 붙이기·합친 절 표기)는 66권으로 넓힐 때 한다(2026-09-22 결정).
+   원문 66권을 훑어 확인한 이상한 꼴은 이 둘뿐이다. 「절 번호가 끊기면 멈춘다」는 넣지 않는다 —
+   사도행전 24장은 개역개정 본문에 7절이 없다.
 """
 import os
 import re
 
 VERSE_RE = re.compile(r'^\D+(\d+):(\d+)\s*(?:<([^>]*)>)?\s*(.*)$')
 CHAPTER_RE = re.compile(r'^\D+(\d+):')
+MERGED_RE = re.compile(r'^\D+\d+:\d+-\d+')
 FILENAME_RE = re.compile(r'^\d+-\d+(.+)\.txt$')
 
 
@@ -248,7 +277,8 @@ def parse_book(text, book_name, chapter=None):
     """성경 파일 전체 텍스트를 절 목록으로 바꾼다.
 
     chapter 를 주면 그 장만 남긴다(요한복음처럼 여러 장인 책에서 1장만 뽑을 때 쓴다).
-    절 번호 없이 이어지는 줄이 그 장(chapter 가 None 이면 어느 장이든)에 있으면 ValueError.
+    절 번호 없이 이어지는 줄이나 여러 절이 합쳐진 줄이 그 장(chapter 가 None 이면 어느 장이든)에
+    있으면 ValueError.
     """
     verses = []
     for lineno, line in enumerate(text.splitlines(), 1):
@@ -256,12 +286,13 @@ def parse_book(text, book_name, chapter=None):
         if not line:
             continue
         m = VERSE_RE.match(line)
-        if not m:
+        merged = MERGED_RE.match(line)
+        if not m or merged:
             c = CHAPTER_RE.match(line)
             if c is None or chapter is None or int(c.group(1)) == chapter:
-                raise ValueError(
-                    '%s %d번째 줄: 절 번호가 없는 줄이라 어느 절인지 알 수 없습니다 — %s'
-                    % (book_name, lineno, line[:40]))
+                why = ('여러 절이 한 줄로 합쳐져 있어 절마다 나눌 수 없습니다' if merged
+                       else '절 번호가 없는 줄이라 어느 절인지 알 수 없습니다')
+                raise ValueError('%s %d번째 줄: %s — %s' % (book_name, lineno, why, line[:40]))
             continue
         ch_s, vs_s, subtitle, body = m.groups()
         ch = int(ch_s)
@@ -280,7 +311,7 @@ def parse_book(text, book_name, chapter=None):
 - [ ] **Step 4: 테스트 실행 — 통과 확인**
 
 Run: `cd bible-note && python -m pytest tests/test_parse.py -v`
-Expected: `16 passed` (이 PC에는 `bible/`이 있으므로 건너뛰는 테스트가 없어야 한다)
+Expected: `18 passed` (이 PC에는 `bible/`이 있으므로 건너뛰는 테스트가 없어야 한다)
 
 - [ ] **Step 5: 커밋**
 
@@ -291,8 +322,9 @@ git commit -m "feat(성경필사노트): 성경 텍스트 파싱
 
 bible/*.txt(CP949)에서 절 목록을 뽑는다. 소제목 안에 다른 책 인용이
 그대로 들어있는 경우(요1:19)도 정규식이 <...> 를 통째로 잡아 안전하다.
-절 번호 없이 이어지는 줄(요5:「이 날은 안식일이니」 등)이 요청한 장에 있으면
-조용히 버리지 않고 멈춘다 — 그 절 뒷부분이 빠진 채 인쇄되기 때문이다.
+절 번호 없이 이어지는 줄(요5:「이 날은 안식일이니」 등)이나 여러 절이 합쳐진 줄
+(롬9:1-2 등)이 요청한 장에 있으면 조용히 넘기지 않고 멈춘다 — 그대로 두면 절 뒷부분이
+빠지거나 「-2 <소제목>」이 본문으로 찍힌 채 인쇄되기 때문이다.
 원문 파일을 읽는 테스트는 bible/ 이 없는 PC 에서 건너뛴다(저장소에서 뺀 폴더).
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>" -- bible-note/parse.py bible-note/tests/test_parse.py
@@ -987,7 +1019,7 @@ N은 대략 5~8이다(참조 PDF는 세로라 한 쪽에 약 27줄이었고, 가
 - [ ] **Step 4: 전체 테스트 한 번**
 
 Run: `cd bible-note && python -m pytest tests -v`
-Expected: `36 passed` (parse 16 · paginate 6 · render 14)
+Expected: `38 passed` (parse 18 · paginate 6 · render 14)
 
 - [ ] **Step 5: 만든 HTML이 커밋 대상에서 빠졌는지 확인**
 
@@ -1272,6 +1304,8 @@ Expected: 아무것도 안 나온다(HTML은 `.gitignore`로 빠진다).
 - 원문 파일을 읽는 테스트가 `bible/` 없는 PC에서 깨졌다 → 없으면 건너뛴다.
 - (Task 1 검토 → 성도님 결정) 절 번호 없이 이어지는 줄을 `continue`로 조용히 버려 절 뒷부분이
   빠진 채 인쇄될 수 있었다(요한복음 5:9·12:36·18:38 등 성경 전체 50개) → 요청한 장에 있으면 멈춘다.
+- (Task 1 두 번째 검토) 여러 절이 합쳐진 줄(롬9:1-2 등 11개)을 1절로 읽어 「-2 <소제목>」이 본문에
+  찍혔다 → 같은 규칙으로 멈춘다(성도님이 정한 원칙과 같은 종류). 원문 66권을 훑어 이상한 꼴이 이 둘뿐인 것을 확인했다.
 
 **타입 일관성:**
 - `parse_book` 반환 dict 키(`book/chapter/verse/subtitle/body`) — `render.py`·`paginate.py` 전체에서 동일.
