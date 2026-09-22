@@ -1765,11 +1765,13 @@ PYTHONIOENCODING=utf-8 python generate.py 시편 --chapter 42          # 권 제
   잘못된 줄 수(실측 실패로 0 등)·페이지당 줄 수도 받는 자리에서 확인한다.
 
 **타입 일관성:**
-- `parse_book` 반환 dict 키(`book/chapter/verse/subtitle/body`) — `render.py`·`paginate.py` 전체에서 동일.
-- `'lines'`·`'sub_lines'` — `generate.generate()`가 채우고, `paginate()`는 `'lines'`를,
-  `render._page_html`은 둘 다 읽는다 — 일치.
-- `measure_lines()`의 키 `(chapter, verse, 'body'|'sub')` — `build_draft_html`의
-  `data-ch`/`data-vs`/`data-role`과 1:1 — 일치.
+- `parse_book` 반환 「조각」 dict 키(`book/chapter/verse/subtitle/body` + Task 9 의
+  `part/verse_end/heading/label/chapter_start`) — `render.py`·`paginate.py` 전체에서 동일.
+- `'lines'`·`'head_lines'`·`'chap_lines'`·`'sub_lines'` — `generate.apply_line_counts()`가 채우고
+  (`lines` = 권 제목 + 장 표시 + 소제목 + 본문), `paginate()`는 `'lines'`를, `render._page_html`은
+  모두 읽는다 — 일치.
+- `measure_lines()`의 키 `(chapter, verse, part, 'head'|'chap'|'sub'|'body')` — `build_draft_html`의
+  `data-ch`/`data-vs`/`data-pt`/`data-role`과 1:1 — 일치(어느 칸이 있는지는 `render.piece_blocks` 한 곳).
 - 줄 수 세는 법(높이 ÷ 줄 높이) — `generate.MEASURE_PROBE`와 `verify.LAYOUT_PROBE`가 같다.
 - `find_chrome`은 `generate.py`에 정의하고 `verify.py`가 import — 중복 정의 없음.
 
