@@ -112,3 +112,26 @@ def test_paginate_message_without_chapter_key_omits_colon():
     msg = str(e.value)
     assert '5절' in msg
     assert '5:5' not in msg
+
+
+def test_paginate_messages_include_piece_number():
+    # 끊긴 절의 두 조각이 같은 「5:9절」로 보이지 않게 조각 번호를 적는다 — render · generate 의
+    # 「5:9(조각 1)」과 같은 꼴(2026-09-22 Minor 검토 0 Minor 2).
+    with pytest.raises(ValueError) as e:
+        paginate([{'verse': 9, 'chapter': 5, 'part': 1, 'lines': 0}], lines_per_page=17)
+    assert '5:9(조각 1)의 줄 수가 잘못됐습니다' in str(e.value)
+    with pytest.raises(ValueError) as e:
+        paginate([{'verse': 9, 'chapter': 5, 'part': 2, 'lines': 30}], lines_per_page=17)
+    assert '5:9(조각 2)이 30줄이라 한 쪽(17줄)에 들어가지 않습니다' in str(e.value)
+
+
+def test_paginate_messages_first_piece_keep_verse_form():
+    # 첫 조각(part 0)과 part 가 없는 절은 예전 문구 그대로 — 「5:9절…」, 조각 번호 없음.
+    for v in ({'verse': 9, 'chapter': 5, 'part': 0, 'lines': 0}, {'verse': 9, 'chapter': 5, 'lines': 0}):
+        with pytest.raises(ValueError) as e:
+            paginate([v], lines_per_page=17)
+        assert str(e.value) == '5:9절의 줄 수가 잘못됐습니다: 0'
+    with pytest.raises(ValueError) as e:
+        paginate([{'verse': 9, 'chapter': 5, 'part': 0, 'lines': 30}], lines_per_page=17)
+    assert str(e.value) == ('5:9절이 30줄이라 한 쪽(17줄)에 들어가지 않습니다 — '
+                            '절을 쪽 중간에서 자를 수 없습니다')
