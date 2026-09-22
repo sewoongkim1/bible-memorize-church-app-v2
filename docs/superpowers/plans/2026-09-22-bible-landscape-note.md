@@ -343,6 +343,12 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>" -- bible-not
   소제목 줄과 본문 줄을 이미 합친 값)가 더해진 리스트. `'lines'` 키는 Task 4에서
   실측 결과로 채워진다.
 - Produces: `paginate(verses: list[dict], lines_per_page: int) -> list[list[dict]]`
+  - **한 쪽(lines_per_page)보다 긴 절은 `ValueError`로 멈춘다** — 절을 쪽 중간에서 자를 수 없으니 들어갈
+    자리가 없다. 혼자 한 쪽을 차지하게 두면 17줄이 넘는 쪽이 조용히 인쇄된다(잘리거나 종이 한 장이 더 나온다).
+    원문에서 가장 긴 보통 절은 열왕기하 6:32(194자 ≈ 9줄)이라 실제로는 일어나지 않는다.
+  - 받은 줄 수가 정수 1 이상이 아니거나(`'lines'`가 0이면 실측 실패 — 절들이 한 쪽에 몰려 들어간다)
+    `lines_per_page`가 1 미만이어도 `ValueError`. (2026-09-22 — 성도님이 정한 「제대로 못 하면 조용히 넘기지
+    말고 멈춘다」와 같은 원칙)
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
@@ -351,6 +357,8 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>" -- bible-not
 # -*- coding: utf-8 -*-
 import os
 import sys
+
+import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
@@ -381,12 +389,29 @@ def test_paginate_never_splits_a_single_verse():
     assert pages[1] == [verses[1]]
 
 
-def test_paginate_oversized_verse_gets_its_own_page():
-    # 17줄보다 큰 절은 있을 수 없다고 가정하지만, 방어적으로 혼자 페이지를 차지한다
-    verses = [{'verse': 1, 'lines': 30}]
-    pages = paginate(verses, lines_per_page=17)
-    assert len(pages) == 1
-    assert len(pages[0]) == 1
+def test_paginate_oversized_verse_raises():
+    # 17줄보다 긴 절은 한 쪽에 안 들어가고, 절을 쪽 중간에서 자를 수도 없다.
+    # 혼자 한 쪽을 차지하게 두면 17줄이 넘는 쪽이 조용히 인쇄되므로 멈춘다.
+    with pytest.raises(ValueError) as e:
+        paginate([{'verse': 1, 'lines': 30}], lines_per_page=17)
+    assert '30줄' in str(e.value)
+
+
+def test_paginate_oversized_verse_after_others_raises():
+    verses = [{'verse': 1, 'lines': 3}, {'verse': 2, 'lines': 18}]
+    with pytest.raises(ValueError):
+        paginate(verses, lines_per_page=17)
+
+
+def test_paginate_rejects_zero_lines():
+    # 실측이 실패해 0줄이 오면 절들이 한 쪽에 몰려 들어간다 — 받는 자리에서 멈춘다
+    with pytest.raises(ValueError):
+        paginate([{'verse': 1, 'lines': 0}], lines_per_page=17)
+
+
+def test_paginate_rejects_non_positive_lines_per_page():
+    with pytest.raises(ValueError):
+        paginate([{'verse': 1, 'lines': 1}], lines_per_page=0)
 
 
 def test_paginate_empty_list_returns_empty():
@@ -415,17 +440,27 @@ Expected: `ModuleNotFoundError: No module named 'paginate'`
 ⚠️ 절 중간에서 페이지를 자르지 않는다 — 한 절(소제목 포함)의 'lines' 가 통째로
    한 페이지에 들어간다. 소제목은 parse.py 단계에서 이미 그 절 dict 안에 붙어
    있으므로(별도 원소가 아니다) 여기서 따로 다룰 것이 없다.
+⚠️ 한 쪽보다 긴 절은 들어갈 자리가 없으므로 멈춘다(ValueError). 혼자 한 쪽을
+   차지하게 두면 17줄이 넘는 쪽이 조용히 인쇄된다. 원문에서 가장 긴 보통 절은
+   열왕기하 6:32(194자 ≈ 9줄)이라 실제로는 일어나지 않는다.
+⚠️ 줄 수가 정수 1 이상이 아니면 멈춘다 — 0 이면 실측이 실패한 것이고, 그대로 두면
+   절들이 한 쪽에 몰려 들어간다.
 """
 
 
 def paginate(verses, lines_per_page):
-    if not verses:
-        return []
+    if not isinstance(lines_per_page, int) or lines_per_page < 1:
+        raise ValueError('페이지당 줄 수가 잘못됐습니다: %r' % (lines_per_page,))
     pages = []
     current = []
     remaining = lines_per_page
     for v in verses:
         need = v['lines']
+        if not isinstance(need, int) or need < 1:
+            raise ValueError('%s절의 줄 수가 잘못됐습니다: %r' % (v.get('verse'), need))
+        if need > lines_per_page:
+            raise ValueError('%s절이 %d줄이라 한 쪽(%d줄)에 들어가지 않습니다 — 절을 쪽 중간에서 자를 수 없습니다'
+                             % (v.get('verse'), need, lines_per_page))
         if current and need > remaining:
             pages.append(current)
             current = []
@@ -440,7 +475,7 @@ def paginate(verses, lines_per_page):
 - [ ] **Step 4: 테스트 실행 — 통과 확인**
 
 Run: `cd bible-note && python -m pytest tests/test_paginate.py -v`
-Expected: `6 passed`
+Expected: `9 passed`
 
 - [ ] **Step 5: 커밋**
 
@@ -450,7 +485,8 @@ git add -- bible-note/paginate.py bible-note/tests/test_paginate.py
 git commit -m "feat(성경필사노트): 절을 페이지에 배분하는 알고리즘
 
 절 중간에서 페이지를 자르지 않는다 — 실측한 줄 수를 보고 순서대로
-쌓다가 남은 자리에 안 들어가면 새 페이지로 넘긴다.
+쌓다가 남은 자리에 안 들어가면 새 페이지로 넘긴다. 한 쪽보다 긴 절이나
+잘못된 줄 수(0 등)는 넘친 쪽을 조용히 만들지 않고 멈춘다.
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>" -- bible-note/paginate.py bible-note/tests/test_paginate.py
 ```
@@ -1019,7 +1055,7 @@ N은 대략 5~8이다(참조 PDF는 세로라 한 쪽에 약 27줄이었고, 가
 - [ ] **Step 4: 전체 테스트 한 번**
 
 Run: `cd bible-note && python -m pytest tests -v`
-Expected: `38 passed` (parse 18 · paginate 6 · render 14)
+Expected: `41 passed` (parse 18 · paginate 9 · render 14)
 
 - [ ] **Step 5: 만든 HTML이 커밋 대상에서 빠졌는지 확인**
 
@@ -1306,6 +1342,8 @@ Expected: 아무것도 안 나온다(HTML은 `.gitignore`로 빠진다).
   빠진 채 인쇄될 수 있었다(요한복음 5:9·12:36·18:38 등 성경 전체 50개) → 요청한 장에 있으면 멈춘다.
 - (Task 1 두 번째 검토) 여러 절이 합쳐진 줄(롬9:1-2 등 11개)을 1절로 읽어 「-2 <소제목>」이 본문에
   찍혔다 → 같은 규칙으로 멈춘다(성도님이 정한 원칙과 같은 종류). 원문 66권을 훑어 이상한 꼴이 이 둘뿐인 것을 확인했다.
+- (Task 2 검토) 한 쪽보다 긴 절을 「혼자 한 쪽」으로 두어 17줄이 넘는 쪽이 조용히 인쇄될 수 있었다 → 멈춘다.
+  잘못된 줄 수(실측 실패로 0 등)·페이지당 줄 수도 받는 자리에서 확인한다.
 
 **타입 일관성:**
 - `parse_book` 반환 dict 키(`book/chapter/verse/subtitle/body`) — `render.py`·`paginate.py` 전체에서 동일.
