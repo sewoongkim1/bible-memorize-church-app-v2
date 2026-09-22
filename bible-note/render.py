@@ -74,21 +74,41 @@ FOOTER_RIGHT = '{page} / {total}'
 FONT_FORMATS = {'.woff': 'woff', '.woff2': 'woff2', '.ttf': 'truetype', '.otf': 'opentype'}
 
 
+class FontSettingError(ValueError):
+    """위 서체 설정(HEADER_FONT_URL · FOOTER_FONT_URL)이 잘못됐다 — 성도님이 설정을 고치면 풀린다.
+
+    generate.main() 이 이 종류만 골라 트레이스백 대신 `!! …` 한 줄로 보인다
+    (2026-09-22 최종 검토 r5 Minor 4). ValueError 를 이어받아 예전처럼 잡을 수도 있다.
+    """
+
+
 def font_format(path):
-    """서체 파일 경로 → @font-face 의 format() 이름. 모르는 확장자·.ttc 는 ValueError."""
+    """서체 파일 경로 → @font-face 의 format() 이름. 모르는 확장자·.ttc 는 FontSettingError."""
     ext = os.path.splitext(path)[1].lower()
     if ext == '.ttc':
-        raise ValueError('%s: .ttc(여러 서체를 묶은 파일)는 브라우저가 읽지 못합니다 — '
-                         '.ttf · .otf · .woff · .woff2 파일을 써 주세요' % path)
+        raise FontSettingError('%s: .ttc(여러 서체를 묶은 파일)는 브라우저가 읽지 못합니다 — '
+                               '.ttf · .otf · .woff · .woff2 파일을 써 주세요' % path)
     if ext not in FONT_FORMATS:
-        raise ValueError('%s: 서체 파일은 .ttf · .otf · .woff · .woff2 만 쓸 수 있습니다' % path)
+        raise FontSettingError('%s: 서체 파일은 .ttf · .otf · .woff · .woff2 만 쓸 수 있습니다' % path)
     return FONT_FORMATS[ext]
 
 
+def _is_fonts_file_name(path):
+    """'fonts/파일이름' 꼴인가 — fonts/ 바로 아래 파일 하나, 가름은 / 만."""
+    name = path[len('fonts/'):]
+    return path.startswith('fonts/') and bool(name) and '/' not in name and '\\' not in name
+
+
 def _slot_fonts():
-    """따로 정하는 서체 자리 — (글꼴 이름, 설정 사전, 이름). 호출할 때마다 지금 값을 읽는다
-    (테스트가 monkeypatch 로 바꾼 값도)."""
-    return [('NSKH', HEADER_FONT_URL, '머리글'), ('NSKF', FOOTER_FONT_URL, '바닥글')]
+    """따로 정하는 서체 자리 — (글꼴 이름, 설정 사전, 이름, 칸).
+
+    ⚠️ 서체 자리 목록은 여기 한 벌이다. all_font_urls()(받기·복사·저장 자리 검사)와
+       page_css()(@font-face · 칸의 font-family)가 모두 이 목록을 돈다(2026-09-22 최종 검토 r5
+       Minor 3 — page_css 가 자리를 손으로 다시 적어 두 벌이었다). 칸은 규칙이 붙는 선택자
+       `.hd` · `.ft` 의 이름이고, page_css() 의 `%(<칸>_font_rule)s` 자리에 들어간다.
+    호출할 때마다 지금 값을 읽는다(테스트가 monkeypatch 로 바꾼 값도).
+    """
+    return [('NSKH', HEADER_FONT_URL, '머리글', 'hd'), ('NSKF', FOOTER_FONT_URL, '바닥글', 'ft')]
 
 
 def _slot_font(family, urls, what):
@@ -96,12 +116,18 @@ def _slot_font(family, urls, what):
 
     ⚠️ 머리글·바닥글이 이 도우미 하나를 같이 쓴다 — 두 벌로 두면 한쪽만 고치게 된다.
     비었으면 ('', '') — 원문 서체를 그대로 쓴다. 파일은 한 벌만. format() 은 확장자로 고른다.
+    ⚠️ 주소가 '' 인 내 PC 서체는 'fonts/파일이름' 이어야 한다 — @font-face 는 키를 그대로 url() 에
+       쓰고, 다른 폴더로 옮길 때는 fonts/<이름> 으로만 복사하므로, 제 자리 경로(C:/…)나 하위
+       폴더를 적으면 받기 검사는 통과해 놓고 서체가 안 불린다(2026-09-22 최종 검토 r5 Minor 5).
     """
     if not urls:
         return '', ''
     if len(urls) > 1:
-        raise ValueError('%s 서체는 한 벌만 지정할 수 있습니다: %r' % (what, urls))
+        raise FontSettingError('%s 서체는 한 벌만 지정할 수 있습니다: %r' % (what, urls))
     path = next(iter(urls))
+    if not urls[path] and not _is_fonts_file_name(path):
+        raise FontSettingError("%s 서체 — 내 PC 서체는 bible-note\\fonts\\ 에 복사한 뒤 "
+                               "'fonts/파일이름' 으로 적어 주세요: %s" % (what, path))
     face = ("@font-face { font-family:'%s'; src:url('%s') format('%s');"
             " font-weight:400; font-display:block; }\n" % (family, path, font_format(path)))
     return face, " font-family:'%s','NSK',serif;" % family
@@ -117,12 +143,12 @@ def all_font_urls():
     주소가 '' 인 것은 내 PC 서체(fonts/ 에 이미 넣어 둔 파일)다 — 받지 않는다.
     """
     merged = dict(FONT_URL)
-    for family, urls, what in _slot_fonts():
-        _slot_font(family, urls, what)  # 한 벌인지 · 브라우저가 읽는 확장자인지 먼저 본다
+    for family, urls, what, _key in _slot_fonts():
+        _slot_font(family, urls, what)  # 한 벌인지 · 브라우저가 읽는 확장자인지 · 자리 먼저 본다
         for path, url in urls.items():
             if path in merged and merged[path] != url:
-                raise ValueError('서체 파일 %s 에 주소가 둘입니다(%r · %r) — 같은 파일이면 주소도 '
-                                 '같게 적어 주세요' % (path, merged[path], url))
+                raise FontSettingError('서체 파일 %s 에 주소가 둘입니다(%r · %r) — 같은 파일이면 '
+                                       '주소도 같게 적어 주세요' % (path, merged[path], url))
             merged[path] = url
     return merged
 
@@ -137,6 +163,15 @@ def footer_texts(page_no, total):
     center = FOOTER_CENTER if page_no % 2 == 1 else (FOOTER_CENTER_EVEN or FOOTER_CENTER)
     right = FOOTER_RIGHT.replace('{page}', str(page_no)).replace('{total}', str(total))
     return FOOTER_LEFT, center, right
+
+
+def footer_has_text(total):
+    """전체 total 쪽 가운데 바닥글에 글이 한 글자라도 찍히는 쪽이 있는가.
+
+    설정 넷(FOOTER_LEFT · FOOTER_CENTER · FOOTER_CENTER_EVEN · FOOTER_RIGHT)이 모두 비면 당연히
+    없고, 짝수 쪽 글만 있는데 한 쪽짜리(시편 1편)여도 없다 — 실제로 찍히는 글(footer_texts)로 본다.
+    """
+    return any(t.strip() for n in range(1, total + 1) for t in footer_texts(n, total))
 
 
 def esc(text):
@@ -285,18 +320,33 @@ def build_draft_html(verses):
     )
 
 
-def page_css():
+def page_css(empty_slots=()):
     """페이지(.page)·머리글(.hd)·필사 열(.write-col)·바닥글(.ft) 규칙 — 2차(인쇄) 전용.
 
     1차(실측) HTML은 이 CSS를 아예 쓰지 않는다(build_draft_html 참고) — 그래서
     HEADER_FONT_URL · FOOTER_FONT_URL 로 넣는 머리글·바닥글 서체(@font-face)도 여기 있으면
     자동으로 2차에만 실린다. 1차에 실리면 머리글·바닥글이 없어 쓰이지 않는 서체가
     document.fonts에서 unloaded로 남아 실측이 서체 실패로 오인해 멈춘다(FONTFAIL).
+
+    empty_slots 는 글이 한 글자도 찍히지 않는 자리의 칸 이름(예 ('ft',))이다 — 그 자리 서체는
+    싣지 않는다. 같은 함정이 2차에서 「바닥글 글을 모두 비운 경우」로 다시 생겨, 서체가 멀쩡해도
+    붉은 띠가 뜨고 verify 가 FONT_NOT_LOADED:NSKF 로 떨어졌다(2026-09-22 최종 검토 r5 Minor 6).
+    서체 설정은 그래도 검사한다(_slot_font 를 먼저 부른다).
     """
-    header_font_face, hd_font_rule = _slot_font('NSKH', HEADER_FONT_URL, '머리글')
-    footer_font_face, ft_font_rule = _slot_font('NSKF', FOOTER_FONT_URL, '바닥글')
+    faces = []
+    fields = {}
+    for family, urls, what, key in _slot_fonts():
+        face, rule = _slot_font(family, urls, what)
+        if key in empty_slots:
+            face, rule = '', ''
+        faces.append(face)
+        fields['%s_font_rule' % key] = rule
+    fields.update({'slot_font_faces': ''.join(faces), 'w': PAGE_W_MM, 'h': PAGE_H_MM,
+                   'm': MARGIN_MM, 'hh': HEADER_MM, 'hpt': HEADER_PT, 'rh': usable_body_mm(),
+                   'fh': FOOTER_MM, 'fpt': FOOTER_PT, 'line': LINE_MM,
+                   'ww': write_width_mm(), 'pad': COL_PAD_MM})
     return ("""
-%(header_font_face)s%(footer_font_face)s@page { size: A4 landscape; margin: 0; }
+%(slot_font_faces)s@page { size: A4 landscape; margin: 0; }
 .page { width:%(w)smm; height:%(h)smm; padding:%(m)smm; background:#fff; }
 @media print {
   .page { page-break-after:always; }
@@ -320,11 +370,7 @@ def page_css():
 .ft .fl { text-align:left; }
 .ft .fc { text-align:center; }
 .ft .fr { text-align:right; }
-""" % {'header_font_face': header_font_face, 'footer_font_face': footer_font_face,
-       'ft_font_rule': ft_font_rule, 'w': PAGE_W_MM, 'h': PAGE_H_MM, 'm': MARGIN_MM,
-       'hh': HEADER_MM, 'hpt': HEADER_PT, 'hd_font_rule': hd_font_rule,
-       'rh': usable_body_mm(), 'fh': FOOTER_MM, 'fpt': FOOTER_PT, 'line': LINE_MM,
-       'ww': write_width_mm(), 'pad': COL_PAD_MM})
+""" % fields)
 
 
 def _page_html(page_verses, book, page_no, total):
@@ -356,8 +402,11 @@ def _page_html(page_verses, book, page_no, total):
             % (esc(_num_text(v)), esc(v['body'])))
         body_lines = v['lines'] - fixed_lines
         if body_lines < 1:
-            raise ValueError('%d:%d 조각의 본문 줄 수가 잘못됐습니다(전체 %r줄 − 위 칸 %d줄)'
-                             % (v['chapter'], v['verse'], v['lines'], fixed_lines))
+            # 조각 번호까지 적는다 — 끊긴 절의 두 조각이 같은 「5:9」로 보이지 않게(generate 의
+            # 「%d:%d(조각 %d)」와 같은 꼴 · 2026-09-22 최종 검토 r5 Minor 7).
+            raise ValueError('%d:%d(조각 %d)의 본문 줄 수가 잘못됐습니다(전체 %r줄 − 위 칸 %d줄)'
+                             % (v['chapter'], v['verse'], v.get('part', 0), v['lines'],
+                                fixed_lines))
         write_parts.append(
             '<div class="vs-write">%s</div>' % ('<div class="ln"></div>' * body_lines))
     fl, fc, fr = footer_texts(page_no, total)
@@ -381,11 +430,13 @@ def _page_html(page_verses, book, page_no, total):
 # position:fixed라 인쇄 시에도 매 쪽 반복해서 찍힌다(Chrome 기준). document.title은
 # 건드리지 않는다 — verify.py가 검증용으로 따로 심는 document.fonts.ready 콜백과
 # 값을 놓고 다투면(레이스) verify 결과 파싱이 깨진다.
+# ⚠️ 문구에 서체 이름을 적지 않는다 — 머리글·바닥글 서체(내 PC 서체 포함)가 안 불려도 이 띠가
+#    뜬다. 예전 「서체(Noto Serif KR)를 불러오지 못했습니다」는 원인을 잘못 가리켰다(최종 검토 r5 Minor 5).
 FONT_WARN_HTML = """
 <div id="font-warn" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;
   background:#c0392b;color:#fff;font-family:sans-serif;font-size:12pt;font-weight:bold;
   text-align:center;padding:4mm;">
-  ⚠ 서체(Noto Serif KR)를 불러오지 못했습니다 — 이 파일은 fonts 폴더와 반드시 함께 두어야 합니다.
+  ⚠ 서체를 불러오지 못했습니다 — HTML 옆에 fonts 폴더가 있는지 확인하세요.
   지금 화면은 줄 수가 원본과 다를 수 있습니다.
 </div>
 <script>
@@ -406,14 +457,18 @@ def build_final_html(pages, book):
 
     번호 칸 폭은 쪽마다가 아니라 펼친 전체 절로 계산한다(둘째 쪽에만 두 자리
     번호가 있어도 첫 쪽도 두 자리 폭이어야 1차와 같은 규칙을 쓴다).
+    바닥글에 찍히는 글이 한 쪽도 없으면 바닥글 서체는 싣지 않는다(page_css 참고 —
+    머리글은 책·절 범위가 늘 찍힌다).
     """
     all_verses = [v for pg in pages for v in pg]
     num_css = num_col_css(num_digits(all_verses))
     total = len(pages)
+    empty_slots = () if footer_has_text(total) else ('ft',)
     page_divs = [_page_html(pg, book, i + 1, total) for i, pg in enumerate(pages)]
     return (
         '<!doctype html><html lang="ko"><head><meta charset="utf-8">'
         '<title>%s 필사노트</title>'
         '<style>%s%s%s</style></head><body>%s%s</body></html>'
-        % (esc(book), base_css(), num_css, page_css(), FONT_WARN_HTML, ''.join(page_divs))
+        % (esc(book), base_css(), num_css, page_css(empty_slots), FONT_WARN_HTML,
+           ''.join(page_divs))
     )

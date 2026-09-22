@@ -308,6 +308,187 @@ def test_copy_fonts_beside_same_file_for_header_and_footer_copies_once(monkeypat
     assert copied[0][0] == 'fonts/My.ttf'
 
 
+# ── 최종 검토 r5 Minor 1 — 임시 파일 이름을 실행마다 다르게 ──────────────────
+# 고정 이름(_draft.html · _measure.html)이면 같은 폴더에서 두 실행이 서로의 파일을 읽고 지운다.
+
+def test_temp_beside_names_differ_each_call(tmp_path):
+    html = str(tmp_path / 'a.html')
+    p1 = generate._temp_beside(html, '_verify_', '.html')
+    p2 = generate._temp_beside(html, '_verify_', '.html')
+    try:
+        assert p1 != p2
+        for p in (p1, p2):
+            # fonts/ 상대 경로가 풀리도록 HTML 과 같은 폴더 · `_` 로 시작(.gitignore bible-note/**/_*)
+            assert os.path.dirname(p) == str(tmp_path)
+            assert os.path.basename(p).startswith('_verify_')
+            assert p.endswith('.html')
+            assert os.path.exists(p)  # mkstemp 가 자리를 잡아 둔다(다른 실행이 같은 이름을 못 쓴다)
+    finally:
+        for p in (p1, p2):
+            os.remove(p)
+
+
+def test_temp_name_must_start_with_underscore(tmp_path):
+    with pytest.raises(ValueError):
+        generate._temp_in(str(tmp_path), 'verify_', '.html')
+
+
+@pytest.mark.parametrize('prefix, suffix', [('_draft_', '.html'), ('_measure_', '.html'),
+                                            ('_verify_', '.html'), ('_verify_print_', '.pdf')])
+def test_temp_names_in_bible_note_are_git_ignored(prefix, suffix):
+    # 본문이 든 임시 파일이 지워지기 전에 커밋에 걸리면 안 된다.
+    p = generate._temp_in(os.path.join(ROOT, 'bible-note'), prefix, suffix)
+    try:
+        assert generate._is_git_ignored(ROOT, p), p
+    finally:
+        os.remove(p)
+
+
+def test_measure_lines_uses_unique_temp_and_removes_it(monkeypatch, tmp_path):
+    draft = tmp_path / '_draft_x.html'
+    draft.write_text('<html><body></body></html>', encoding='utf-8')
+    seen = []
+
+    def fake_chrome(chrome, flags, target):
+        assert os.path.exists(target)
+        seen.append(target)
+        return _FakeRun('LINES|1,1,0,body,2')
+
+    monkeypatch.setattr(generate, '_chrome', fake_chrome)
+    for _ in range(2):
+        assert generate.measure_lines(str(draft), 'chrome') == {(1, 1, 0, 'body'): 2}
+    assert seen[0] != seen[1]
+    assert all(os.path.basename(p).startswith('_measure_') for p in seen)
+    assert sorted(os.listdir(str(tmp_path))) == ['_draft_x.html']
+
+
+def test_measure_lines_removes_temp_when_chrome_fails(monkeypatch, tmp_path):
+    draft = tmp_path / '_draft_x.html'
+    draft.write_text('<html><body></body></html>', encoding='utf-8')
+
+    def fake_chrome(chrome, flags, target):
+        raise SystemExit('!! 크롬이 멈췄다')
+
+    monkeypatch.setattr(generate, '_chrome', fake_chrome)
+    with pytest.raises(SystemExit):
+        generate.measure_lines(str(draft), 'chrome')
+    assert sorted(os.listdir(str(tmp_path))) == ['_draft_x.html']
+
+
+def test_measure_draft_uses_unique_draft_and_removes_it(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    # 다른 실행이 쓰던 옛 고정 이름 파일 — 건드리지 않아야 한다.
+    (tmp_path / '_draft.html').write_text('다른 실행', encoding='utf-8')
+    seen = []
+
+    def fake_measure(path, chrome):
+        with open(path, encoding='utf-8') as f:
+            assert 'data-role="body"' in f.read()
+        seen.append(os.path.abspath(path))
+        return {(1, 1, 0, 'body'): 1}
+
+    monkeypatch.setattr(generate, 'measure_lines', fake_measure)
+    for _ in range(2):
+        assert generate.measure_draft([_piece(1)], 'chrome') == {(1, 1, 0, 'body'): 1}
+    assert seen[0] != seen[1]
+    assert all(os.path.dirname(p) == str(tmp_path) for p in seen)
+    assert all(os.path.basename(p).startswith('_draft_') for p in seen)
+    assert sorted(os.listdir(str(tmp_path))) == ['_draft.html']
+    assert (tmp_path / '_draft.html').read_text(encoding='utf-8') == '다른 실행'
+
+
+def test_measure_draft_removes_draft_when_measuring_fails(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+
+    def fake_measure(path, chrome):
+        raise SystemExit('!! 크롬이 멈췄다')
+
+    monkeypatch.setattr(generate, 'measure_lines', fake_measure)
+    with pytest.raises(SystemExit):
+        generate.measure_draft([_piece(1)], 'chrome')
+    assert os.listdir(str(tmp_path)) == []
+
+
+# ── 최종 검토 r5 Minor 4 — 서체 설정 · 원문 줄 문제는 `!! …` 한 줄로 ────────────
+
+def test_main_shows_font_setting_error_as_one_line(monkeypatch):
+    monkeypatch.chdir(os.getcwd())  # generate() 가 chdir 해도 끝나면 돌려 둔다
+    monkeypatch.setattr(sys, 'argv', ['generate.py', '유다서'])
+    monkeypatch.setattr('render.HEADER_FONT_URL', {'fonts/batang.ttc': ''})
+    with pytest.raises(SystemExit) as e:
+        generate.main()
+    msg = str(e.value)
+    assert msg.startswith('!! ')
+    assert '.ttc(여러 서체를 묶은 파일)는 브라우저가 읽지 못합니다' in msg
+
+
+def test_main_shows_source_text_error_as_one_line_keeping_message(monkeypatch):
+    import parse
+    text = '시편 12번째 줄: 장·절 번호가 없는 줄이라 어느 절인지 알 수 없습니다 — 머리말'
+
+    def fake_generate(*a, **k):
+        raise parse.SourceTextError(text)
+
+    monkeypatch.setattr(sys, 'argv', ['generate.py', '시편'])
+    monkeypatch.setattr(generate, 'generate', fake_generate)
+    with pytest.raises(SystemExit) as e:
+        generate.main()
+    assert str(e.value) == '!! ' + text  # 가이드가 인용하는 본문은 그대로
+
+
+def test_main_leaves_other_value_errors_alone(monkeypatch):
+    # 서체 설정·원문 줄 밖의 ValueError(예: 한 쪽보다 긴 절)는 지금처럼 그대로 올라간다.
+    def fake_generate(*a, **k):
+        raise ValueError('다른 문제')
+
+    monkeypatch.setattr(sys, 'argv', ['generate.py', '유다서'])
+    monkeypatch.setattr(generate, 'generate', fake_generate)
+    with pytest.raises(ValueError) as e:
+        generate.main()
+    assert str(e.value) == '다른 문제'
+
+
+# ── 최종 검토 r5 Minor 9(r2 Minor 3) — git 이 PATH 에 없을 때 ────────────────
+
+def test_git_repo_root_reports_missing_git(monkeypatch):
+    def fake_run(cmd, **kwargs):
+        raise FileNotFoundError('git')
+
+    monkeypatch.setattr(generate.subprocess, 'run', fake_run)
+    assert generate._git_repo_root() is generate.NO_GIT
+
+
+@pytest.mark.parametrize('git_is_file', [False, True])
+def test_ensure_out_path_safe_stops_inside_repo_when_git_missing(monkeypatch, tmp_path, git_is_file):
+    # git 이 없으면 무시되는 자리인지 알 수 없다 — .git 이 보이는 폴더(저장소 안)면 멈춘다.
+    # .git 은 폴더일 수도(보통), 파일일 수도(worktree · submodule) 있다.
+    repo = tmp_path / 'repo'
+    repo.mkdir()
+    if git_is_file:
+        (repo / '.git').write_text('gitdir: elsewhere', encoding='utf-8')
+    else:
+        (repo / '.git').mkdir()
+    monkeypatch.setattr(generate, '_git_repo_root', lambda: generate.NO_GIT)
+    with pytest.raises(SystemExit) as e:
+        ensure_out_path_safe(str(repo / 'bible-note' / 'out' / '유다서.html'))
+    msg = str(e.value)
+    assert msg.startswith('!! ')
+    assert 'git 이 없어 커밋에서 빠지는 자리인지 확인할 수 없습니다' in msg
+    assert '저장소 밖(바탕화면 등)에 저장하세요' in msg
+
+
+def test_ensure_out_path_safe_allows_outside_repo_when_git_missing(monkeypatch, tmp_path):
+    monkeypatch.setattr(generate, '_git_repo_root', lambda: generate.NO_GIT)
+    ensure_out_path_safe(str(tmp_path / 'desk' / '유다서.html'))
+
+
+def test_ensure_out_path_safe_stops_in_this_repo_when_git_missing(monkeypatch):
+    # 기본 자리(bible-note/)도 저장소 안이다 — git 없이는 무시 규칙을 확인할 수 없어 멈춘다.
+    monkeypatch.setattr(generate, '_git_repo_root', lambda: generate.NO_GIT)
+    with pytest.raises(SystemExit):
+        ensure_out_path_safe(os.path.join(ROOT, 'bible-note', '유다서.html'))
+
+
 def test_ensure_out_path_safe_checks_footer_font(monkeypatch):
     monkeypatch.setattr('render.FOOTER_FONT_URL', {'fonts/Footer-400.woff': 'https://example.com/f.woff'})
     checked = []

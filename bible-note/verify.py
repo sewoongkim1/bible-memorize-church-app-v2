@@ -20,6 +20,11 @@
    원문 쪽 줄 수 = 필사 쪽 못박은 높이의 줄 수이며 같은 높이에서 시작하는가 · 필사 쪽 글이
    못박은 칸을 넘치지 않았는가(2026-09-22 Task 9 — 본문 문단 줄 맞춤(③)만 보면 마지막 칸이
    어긋나도 뒤따르는 문단이 없을 때 못 잡는다).
+
+⚠️ 임시 파일(검사 스크립트를 심은 사본 · 인쇄 PDF)은 실행마다 다른 이름(`_verify_…html` ·
+   `_verify_print_…pdf`)으로 HTML 옆에 두고, 끝나면(실패해도) 지운다. 미리 지우지 않는다.
+   예전 고정 이름은 같은 폴더에서 두 verify 를 함께 돌리면 서로의 파일을 읽고 지워, 필사줄을
+   하나 뺀 HTML 이 세 번 중 세 번 「모두 통과」로 나왔다(2026-09-22 최종 검토 r5 Minor 1).
 """
 import io
 import os
@@ -27,7 +32,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from generate import find_chrome, _beside, _chrome
+from generate import find_chrome, _temp_beside, _remove_temp, _chrome
 
 A4_LANDSCAPE_PT = (841.89, 595.28)
 
@@ -107,28 +112,29 @@ document.fonts.ready.then(function(){
 </script>"""
 
 
-# 헤드리스 크롬 호출(_chrome)·임시 파일 자리(_beside)는 generate.py 것을 그대로 쓴다
-# (2026-09-22 최종 검토 Minor — 두 곳에 따로 있으면 timeout 등을 한쪽만 고치기 쉽다).
+# 헤드리스 크롬 호출(_chrome)·임시 파일(_temp_beside · _remove_temp)은 generate.py 것을 그대로
+# 쓴다(2026-09-22 최종 검토 Minor — 두 곳에 따로 있으면 timeout 등을 한쪽만 고치기 쉽다).
+
+
+def _with_stderr(msg, r):
+    """실패 문구 뒤에 크롬 stderr(있으면, 500자까지)를 붙인다 — 원인이 보이게."""
+    stderr = r.stderr.decode('utf-8', 'replace').strip()[:500]
+    return msg + ' — ' + stderr if stderr else msg
 
 
 def check_layout(html_path, chrome):
     with io.open(html_path, encoding='utf-8') as f:
         html = f.read()
-    tmp = _beside(html_path, '_verify.html')
-    with io.open(tmp, 'w', encoding='utf-8') as f:
-        f.write(html.replace('</body>', LAYOUT_PROBE + '</body>'))
+    tmp = _temp_beside(html_path, '_verify_', '.html')
     try:
+        with io.open(tmp, 'w', encoding='utf-8') as f:
+            f.write(html.replace('</body>', LAYOUT_PROBE + '</body>'))
         r = _chrome(chrome, ['--dump-dom', '--virtual-time-budget=20000'], tmp)
     finally:
-        if os.path.exists(tmp):
-            os.remove(tmp)
+        _remove_temp(tmp)
     m = re.search(r'<title>CHECK\|([^<]*)</title>', r.stdout.decode('utf-8', 'replace'))
     if not m:
-        stderr = r.stderr.decode('utf-8', 'replace').strip()[:500]
-        msg = 'LAYOUT_CHECK_FAILED: 크롬 결과를 읽지 못했습니다'
-        if stderr:
-            msg += ' — ' + stderr
-        return [msg]
+        return [_with_stderr('LAYOUT_CHECK_FAILED: 크롬 결과를 읽지 못했습니다', r)]
     return [item for item in m.group(1).split(';') if item]
 
 
@@ -143,14 +149,14 @@ def check_print(html_path, chrome):
                     '(pip install pymupdf)']
     with io.open(html_path, encoding='utf-8') as f:
         expected = f.read().count('class="page"')
-    pdf = _beside(html_path, '_verify_print.pdf')
-    if os.path.exists(pdf):
-        os.remove(pdf)
+    # mkstemp 가 빈 파일로 자리를 잡아 두고, 크롬이 그 위에 PDF 를 쓴다 — 그래서 「파일이 있는가」가
+    # 아니라 「비어 있지 않은가」로 크롬이 PDF 를 만들었는지 본다.
+    pdf = _temp_beside(html_path, '_verify_print_', '.pdf')
     try:
-        _chrome(chrome, ['--no-pdf-header-footer', '--print-to-pdf=' + pdf,
-                         '--virtual-time-budget=20000'], html_path)
-        if not os.path.exists(pdf):
-            return ['PRINT_FAILED: 크롬이 PDF 를 만들지 못했습니다']
+        r = _chrome(chrome, ['--no-pdf-header-footer', '--print-to-pdf=' + pdf,
+                             '--virtual-time-budget=20000'], html_path)
+        if not os.path.exists(pdf) or os.path.getsize(pdf) == 0:
+            return [_with_stderr('PRINT_FAILED: 크롬이 PDF 를 만들지 못했습니다', r)]
         problems = []
         doc = pymupdf.open(pdf)
         try:
@@ -164,8 +170,7 @@ def check_print(html_path, chrome):
             doc.close()
         return problems
     finally:
-        if os.path.exists(pdf):
-            os.remove(pdf)
+        _remove_temp(pdf)
 
 
 def verify(html_path):

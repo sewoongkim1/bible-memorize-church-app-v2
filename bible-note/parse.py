@@ -27,6 +27,11 @@
    ③ 합쳐진 절 `롬9:1-2 …` — 두세 절을 한 줄로 번역한 곳. 그냥 읽으면 「-2 <소제목> …」가 본문으로
       찍힌다 → verse=1, verse_end=2, 번호 칸 「1-2.」.
    「절 번호가 끊기면 멈춘다」는 넣지 않는다 — 사도행전 24장은 개역개정 본문에 7절이 없다.
+⚠️ 어느 꼴이든 본문·소제목에 `<` · `>` 가 남으면 멈춘다(닫히지 않은 소제목 · 떨어진 꺾쇠).
+   그대로 두면 꺾쇠가 본문 글자로 인쇄된다. 끊긴 줄의 첫 낱말은 `<` 를 먹지 않는다 —
+   `요5:<소제목> 이 날은` 은 소제목 「소제목」 + 본문 「이 날은」이다(2026-09-22 최종 검토 r5
+   Minor 2 — 예전 `(\\S*)` 는 `<소제목>` 을 첫 낱말로 삼아 꺾쇠째 본문에 찍었다. 개역개정 66권에는
+   이런 줄이 없고, 다른 번역본을 넣을 때 드러날 자리다).
 """
 import os
 import re
@@ -36,8 +41,16 @@ import re
 HEADING_RE = re.compile(r'^\D+(\d+):(제[일이삼사오]권)\s*$')
 MERGED_RE = re.compile(r'^\D+(\d+):(\d+)-(\d+)\s*(?:<([^>]*)>)?\s*(.*)$')
 VERSE_RE = re.compile(r'^\D+(\d+):(\d+)\s*(?:<([^>]*)>)?\s*(.*)$')
-CONT_RE = re.compile(r'^\D+(\d+):(\S*)\s*(?:<([^>]*)>)?\s*(.*)$')
+CONT_RE = re.compile(r'^\D+(\d+):([^\s<]*)\s*(?:<([^>]*)>)?\s*(.*)$')
 FILENAME_RE = re.compile(r'^\d+-\d+(.+)\.txt$')
+
+
+class SourceTextError(ValueError):
+    """원문 파일 문제(읽을 수 없는 줄 · 인코딩) — 성도님이 원문을 고치면 풀린다.
+
+    generate.main() 이 이 종류만 골라 트레이스백 대신 `!! …` 한 줄로 보인다
+    (2026-09-22 최종 검토 r5 Minor 4). ValueError 를 이어받아 예전처럼 잡을 수도 있다.
+    """
 
 
 def load_book_file(path):
@@ -53,7 +66,8 @@ def load_book_file(path):
             return raw.decode(enc)
         except UnicodeDecodeError:
             pass
-    raise ValueError('%s: UTF-8 도 CP949 도 아닌 파일입니다 — 메모장에서 UTF-8 로 다시 저장해 주세요' % path)
+    raise SourceTextError('%s: UTF-8 도 CP949 도 아닌 파일입니다 — 메모장에서 UTF-8 로 다시 저장해 주세요'
+                          % path)
 
 
 def book_name_from_filename(path):
@@ -87,15 +101,16 @@ def parse_book(text, book_name, chapter=None):
 
     chapter 를 주면 그 장만 남긴다(요한복음처럼 여러 장인 책에서 1장만 뽑을 때 쓴다) —
     권 제목·끊긴 줄도 자기 장을 따른다. 권 제목·끊긴 줄·합쳐진 절 셋 밖의 절 번호 없는 줄,
-    이을 앞 절이 없는 끊긴 줄, 절이 뒤따르지 않는 권 제목이 그 장(chapter 가 None 이면 어느
-    장이든)에 있으면 ValueError(몇 번째 줄인지). 장 번호조차 없는 줄은 어느 장이든 멈춘다.
+    이을 앞 절이 없는 끊긴 줄, 절이 뒤따르지 않는 권 제목, 본문·소제목에 남은 꺾쇠(`<` · `>`)가
+    그 장(chapter 가 None 이면 어느 장이든)에 있으면 SourceTextError(ValueError · 몇 번째 줄인지).
+    장 번호조차 없는 줄은 어느 장이든 멈춘다.
     """
     pieces = []
     pending = None        # (줄 번호, 장, 권 제목) — 다음 절 조각에 붙기를 기다린다
     started = set()       # 첫 조각을 이미 낸 장
 
     def stop(lineno, why, line):
-        raise ValueError('%s %d번째 줄: %s — %s' % (book_name, lineno, why, line[:40]))
+        raise SourceTextError('%s %d번째 줄: %s — %s' % (book_name, lineno, why, line[:40]))
 
     for lineno, line in enumerate(text.splitlines(), 1):
         line = line.strip()
@@ -127,13 +142,16 @@ def parse_book(text, book_name, chapter=None):
                 stop(lineno, '절 번호도 본문도 없는 줄입니다', line)
             verse, verse_end, part, label = prev['verse'], prev['verse_end'], prev['part'] + 1, ''
         elif kind == 'merged':
-            ch_s, a, b, subtitle, body = m.groups()
+            _, a, b, subtitle, body = m.groups()
             verse, verse_end, part = int(a), int(b), 0
             label = '%d-%d' % (verse, verse_end)
         else:
-            ch_s, vs_s, subtitle, body = m.groups()
+            _, vs_s, subtitle, body = m.groups()
             verse, verse_end, part = int(vs_s), None, 0
             label = str(verse)
+
+        if any(c in s for s in (body, subtitle or '') for c in '<>'):
+            stop(lineno, '소제목 꺾쇠(< >)가 짝이 맞지 않습니다', line)
 
         heading = None
         if pending is not None:

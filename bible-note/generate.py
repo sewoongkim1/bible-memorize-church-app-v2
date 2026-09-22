@@ -17,14 +17,15 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from parse import parse_book, load_book_file, book_name_from_filename
+from parse import parse_book, load_book_file, book_name_from_filename, SourceTextError
 from paginate import paginate
 from render import (build_draft_html, build_final_html, lines_per_page, all_font_urls,
-                    chapter_unit, piece_blocks)
+                    chapter_unit, piece_blocks, FontSettingError)
 
 CHROME_CANDS = [
     r'C:\Program Files\Google\Chrome\Application\chrome.exe',
@@ -62,10 +63,33 @@ def find_chrome():
     return None
 
 
-def _beside(html_path, name):
+def _temp_in(folder, prefix, suffix):
+    """folder 안에 실행마다 다른 이름의 빈 임시 파일을 만들어 그 경로를 돌려준다.
+
+    ⚠️ 이름을 고정하지 않는다(2026-09-22 최종 검토 r5 Minor 1) — `_verify.html` ·
+       `_verify_print.pdf` · `_draft.html` · `_measure.html` 처럼 고정이면 같은 폴더에서 두
+       실행이 서로의 파일을 읽고 지워, 망친 HTML 이 verify 「모두 통과」로 나왔다(재현함).
+       mkstemp 가 이름을 고르고 자리를 잡아 두므로 다른 실행이 같은 이름을 쓰지 못한다.
+    ⚠️ 이름은 `_` 로 시작해야 한다 — bible-note/ 아래라면 .gitignore 의 `bible-note/**/_*` 에
+       걸려, 지우기 전에 커밋에 딸려 가지 않는다(본문이 들어 있다).
+    쓰는 쪽이 끝나면(실패해도) finally 에서 _remove_temp 로 지운다. 여기서 연 fd 는 바로 닫는다.
+    """
+    if not prefix.startswith('_'):
+        raise ValueError('임시 파일 이름은 _ 로 시작해야 합니다: %r' % prefix)
+    fd, path = tempfile.mkstemp(dir=folder, prefix=prefix, suffix=suffix)
+    os.close(fd)
+    return path
+
+
+def _temp_beside(html_path, prefix, suffix):
     """임시 파일은 대상 HTML 옆에 둔다 — 그래야 fonts/ 상대 경로가 그대로 풀린다.
     generate(줄 수 재기)·verify(레이아웃·인쇄) 가 같이 쓴다."""
-    return os.path.join(os.path.dirname(os.path.abspath(html_path)), name)
+    return _temp_in(os.path.dirname(os.path.abspath(html_path)), prefix, suffix)
+
+
+def _remove_temp(path):
+    if os.path.exists(path):
+        os.remove(path)
 
 
 def _chrome(chrome, flags, target_path):
@@ -82,10 +106,15 @@ def _chrome(chrome, flags, target_path):
                           % (CHROME_TIMEOUT_SEC, target_path))
 
 
+# _git_repo_root() 가 「git 이 PATH 에 없다」를 알릴 때 돌려주는 표 — None(저장소가 아니다)과 다르다.
+NO_GIT = object()
+
+
 def _git_repo_root():
     """이 스크립트(generate.py)가 들어있는 저장소의 루트를 돌려준다.
-    git 이 없거나(FileNotFoundError) 이 폴더가 저장소가 아니면(예: bible-note/ 만
-    복사해 따로 쓰는 경우) None — 그 경우 ensure_out_path_safe 는 검사 없이 허용한다.
+    이 폴더가 저장소가 아니면(예: bible-note/ 만 복사해 따로 쓰는 경우) None — 그 경우
+    ensure_out_path_safe 는 검사 없이 허용한다. git 이 PATH 에 없으면(OSError) NO_GIT —
+    저장소인지조차 git 에 물을 수 없으므로 ensure_out_path_safe 가 .git 을 직접 찾는다.
 
     ⚠️ encoding='utf-8'을 못박는다 — 로캘(이 PC는 cp949)로 풀면 저장소 경로에 한글이
        섞였을 때 UnicodeDecodeError 로 생성기가 그대로 죽는다(2026-09-22 최종 검토 r2
@@ -97,10 +126,23 @@ def _git_repo_root():
         r = subprocess.run(['git', 'rev-parse', '--show-toplevel'],
                             cwd=here, capture_output=True, encoding='utf-8', errors='replace')
     except OSError:
-        return None  # git 이 없다
+        return NO_GIT  # git 이 없다
     if r.returncode != 0:
         return None  # 저장소가 아니다
     return os.path.normcase(os.path.realpath(r.stdout.strip()))
+
+
+def _enclosing_repo(path):
+    """path 가 들어 있는 폴더에서 위로 올라가며 .git(폴더 · worktree 의 파일)이 있는 폴더를 찾는다.
+    없으면 None. git 없이 「저장소 안인가」만 판단할 때 쓴다."""
+    d = os.path.dirname(os.path.realpath(os.path.abspath(path)))
+    while True:
+        if os.path.exists(os.path.join(d, '.git')):
+            return d
+        parent = os.path.dirname(d)
+        if parent == d:
+            return None
+        d = parent
 
 
 def _is_git_ignored(repo_root, abs_path):
@@ -116,7 +158,11 @@ def ensure_out_path_safe(out_path):
     - 저장소 밖(바탕화면·USB 등)이면 그대로 허용한다.
     - 저장소 안인데 git 이 무시하지 않는 자리(예: marketing/, .gitignore 패턴 밖의 다른
       폴더)면 SystemExit 로 멈춘다 — bible-note/ 아래나 저장소 밖을 쓰라고 알려 준다.
-    - git 이 없거나 이 폴더가 저장소가 아니면 검사 없이 허용한다.
+    - 이 폴더가 저장소가 아니면 검사 없이 허용한다.
+    - git 이 PATH 에 없으면 무시되는 자리인지 물을 수 없다 — 출력 폴더에서 위로 올라가며 .git 이
+      보이면(저장소 안) 멈추고, 안 보이면 허용한다(2026-09-22 최종 검토 r5 Minor 9 · r2 Minor 3 —
+      예전엔 git 이 없으면 어디든 허용했다). 기본 자리(bible-note/)도 저장소 안이라 멈춘다.
+      서체는 HTML 과 같은 폴더의 fonts/ 에 두므로 HTML 자리 하나만 보면 된다.
     (2026-09-22 최종 검토 Important 1 — `--out`으로 다른 폴더에 낼 때 이 확인이 없었다.)
 
     ⚠️ HTML 이 bible-note/ 밖이면 `_copy_fonts_beside`가 그 옆에 `fonts/`도 함께 둔다.
@@ -127,6 +173,16 @@ def ensure_out_path_safe(out_path):
        bible-note/ 안에 쓸 때는 `bible-note/**/fonts/`가 이미 통째로 막혀 있어 보지 않는다.
     """
     root = _git_repo_root()
+    if root is NO_GIT:
+        repo = _enclosing_repo(out_path)
+        if repo is not None:
+            raise SystemExit(
+                '!! git 이 없어 커밋에서 빠지는 자리인지 확인할 수 없습니다 — '
+                '저장소 밖(바탕화면 등)에 저장하세요\n'
+                '   저장할 자리: %s (저장소 %s 안)\n'
+                '   이 HTML 에는 개역개정 본문이 그대로 들어 있습니다 — --out 으로 저장소 밖을 주세요.'
+                % (os.path.abspath(out_path), repo))
+        return
     if root is None:
         return
     out_abs = os.path.realpath(os.path.abspath(out_path))
@@ -231,17 +287,17 @@ def find_book_file(book_name, bible_dir=None):
 
 def measure_lines(html_path, chrome):
     """브라우저에 '이 조각(과 그 위 권 제목·장 표시·소제목)이 몇 줄로 찍혔는지' 물어본다.
-    결과 키는 (장, 절, 조각, 역할) — 역할은 head · chap · sub · body."""
+    결과 키는 (장, 절, 조각, 역할) — 역할은 head · chap · sub · body.
+    실측용 사본은 실행마다 다른 이름(_measure_…html)으로 HTML 옆에 두고, 끝나면 지운다."""
     with io.open(html_path, encoding='utf-8') as f:
         html = f.read()
-    tmp = _beside(html_path, '_measure.html')
-    with io.open(tmp, 'w', encoding='utf-8') as f:
-        f.write(html.replace('</body>', MEASURE_PROBE + '</body>'))
+    tmp = _temp_beside(html_path, '_measure_', '.html')
     try:
+        with io.open(tmp, 'w', encoding='utf-8') as f:
+            f.write(html.replace('</body>', MEASURE_PROBE + '</body>'))
         r = _chrome(chrome, ['--dump-dom', '--virtual-time-budget=20000'], tmp)
     finally:
-        if os.path.exists(tmp):
-            os.remove(tmp)
+        _remove_temp(tmp)
     dom = r.stdout.decode('utf-8', 'replace')
     m = re.search(r'<title>LINES\|([^<]*)</title>', dom)
     if not m:
@@ -258,6 +314,19 @@ def measure_lines(html_path, chrome):
         ch, vs, pt, role, n = item.split(',')
         result[(int(ch), int(vs), int(pt), role)] = int(n)
     return result
+
+
+def measure_draft(verses, chrome):
+    """1차(실측용) HTML 을 지금 폴더(bible-note/ — fonts/ 가 있는 곳)에 실행마다 다른 이름
+    (_draft_…html)으로 써서 줄 수를 잰다. 끝나면(실패해도) 지운다 — 고정 이름(_draft.html)이면
+    같은 폴더에서 함께 돌린 다른 생성이 이 실측을 가져갈 수 있었다(최종 검토 r5 Minor 1)."""
+    draft_path = _temp_in(os.getcwd(), '_draft_', '.html')
+    try:
+        with io.open(draft_path, 'w', encoding='utf-8') as f:
+            f.write(build_draft_html(verses))
+        return measure_lines(draft_path, chrome)
+    finally:
+        _remove_temp(draft_path)
 
 
 def apply_line_counts(pieces, lines_map):
@@ -324,14 +393,7 @@ def generate(book_name, chapter=None, out_path=None):
                          % (book_name, '%d%s' % (chapter, chapter_unit(book_name))
                             if chapter else '전체'))
 
-    draft_path = '_draft.html'
-    with io.open(draft_path, 'w', encoding='utf-8') as f:
-        f.write(build_draft_html(verses))
-    try:
-        lines_map = measure_lines(draft_path, chrome)
-    finally:
-        if os.path.exists(draft_path):
-            os.remove(draft_path)
+    lines_map = measure_draft(verses, chrome)
     if lines_map is None:
         raise SystemExit('!! 줄 수를 재지 못했습니다')
 
@@ -352,7 +414,13 @@ def main():
     ap.add_argument('--chapter', type=int, default=None, help='특정 장만(예: 1)')
     ap.add_argument('--out', default=None, help='출력 파일명')
     args = ap.parse_args()
-    generate(args.book, chapter=args.chapter, out_path=args.out)
+    try:
+        generate(args.book, chapter=args.chapter, out_path=args.out)
+    except (FontSettingError, SourceTextError) as e:
+        # 서체 설정·원문 줄 문제는 성도님이 고칠 수 있는 것이다 — 파이썬 트레이스백 대신 다른 멈춤과
+        # 같은 `!! …` 한 줄로 보인다. 메시지 본문은 그대로(가이드가 인용한다). 그 밖의 오류는
+        # 지금처럼 그대로 올라간다(2026-09-22 최종 검토 r5 Minor 4).
+        raise SystemExit('!! %s' % e)
 
 
 if __name__ == '__main__':

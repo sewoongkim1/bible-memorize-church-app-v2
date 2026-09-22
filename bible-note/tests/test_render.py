@@ -88,6 +88,61 @@ def test_draft_and_final_share_orig_col_rule():
     assert 'class="orig-col" style=' not in final
 
 
+def _css_rules(html):
+    """HTML 의 <style> 안 규칙들 → [(선택자 목록, 선언 목록)]. 공백 차이는 없앤다.
+    @media 안 규칙도 한 겹으로 펼쳐 나온다(선택자에 { 가 없는 가장 안쪽 블록만 잡는다)."""
+    css = ''.join(re.findall(r'<style>(.*?)</style>', html, re.S))
+    rules = []
+    for sel, body in re.findall(r'([^{}]+)\{([^{}]*)\}', css):
+        sels = tuple(s.strip() for s in sel.split(','))
+        decls = tuple(d.strip() for d in body.split(';') if d.strip())
+        rules.append((sels, decls))
+    return rules
+
+
+def _orig_col_rules(html):
+    return {r for r in _css_rules(html) if any('.orig-col' in s for s in r[0])}
+
+
+# 2차에만 있어도 되는 원문 열 규칙의 속성 — 쪽 틀(flex 한 칸 · 넘침 자르기)뿐이다.
+# 폭·여백·자간·글씨·줄 높이가 여기 들어오면 1차(실측)와 2차(인쇄)의 줄바꿈이 갈린다.
+PAGE_ONLY_ORIG_COL_PROPS = {'flex', 'overflow'}
+
+
+def _final_only_orig_col_rules(draft, final):
+    return _orig_col_rules(final) - _orig_col_rules(draft)
+
+
+def test_final_orig_col_rules_are_the_draft_rules():
+    # 2026-09-22 최종 검토 r5 Minor 9(r2 Minor 6) — 예전 테스트는 규칙이 「있는지」만 보고
+    # page_css 의 첫 .orig-col 하나만 봤다. 이제 .orig-col 을 선택자에 가진 규칙을 모두 뽑아
+    # 1차 규칙이 2차에 그대로 있고, 2차에만 있는 원문 열 규칙은 쪽 틀뿐인 것을 본다.
+    verses = [_v(1, subtitle='인사', heading='제일권', chapter_start=True, lines=4),
+              _v(2, label='2-3', verse_end=3), _v(4, label='', part=1)]
+    draft = build_draft_html(verses)
+    final = build_final_html([verses], '유다서')
+    assert _orig_col_rules(draft) <= _orig_col_rules(final)
+    only = _final_only_orig_col_rules(draft, final)
+    assert only == {(('.orig-col',), ('flex:0 0 auto', 'overflow:hidden'))}
+    for _sels, decls in only:
+        assert {d.split(':', 1)[0].strip() for d in decls} <= PAGE_ONLY_ORIG_COL_PROPS
+    # 원문 열에는 인라인 style 이 하나도 없다(폭은 공용 규칙 하나가 정한다).
+    for page in final.split('<div class="page">')[1:]:
+        orig = page.split('<div class="orig-col"', 1)[1].split('<div class="write-col">', 1)[0]
+        assert orig.startswith('>'), '원문 열 여는 태그에 속성이 붙었습니다'
+        assert 'style=' not in orig
+
+
+def test_orig_col_rule_check_catches_final_only_width(monkeypatch):
+    # 위 검사가 실제로 잡는지 — 2차 전용 CSS 에 원문 열 폭 규칙을 몰래 더하면 걸려야 한다.
+    real = render.page_css
+    monkeypatch.setattr(render, 'page_css',
+                        lambda *a, **k: real(*a, **k) + '.orig-col, .x { width:100mm; }')
+    verses = [_v(1)]
+    only = _final_only_orig_col_rules(build_draft_html(verses), build_final_html([verses], '유다서'))
+    assert (('.orig-col', '.x'), ('width:100mm',)) in only
+
+
 def test_page_css_orig_col_has_no_width_or_padding():
     # 인라인 style= 만 막는 위 테스트로는 PAGE_CSS 의 .orig-col 규칙 자체에
     # width·padding 이 섞여 들어가는 것을 못 잡는다 — 섞이면 2차(인쇄)의 원문 열
@@ -589,3 +644,125 @@ def test_ttc_slot_font_is_rejected_everywhere(monkeypatch):
         page_css()
     with pytest.raises(ValueError):
         render.all_font_urls()
+
+
+# ── 최종 검토 r5 Minor 3~7 ─────────────────────────────────────────────────
+
+def test_font_setting_errors_are_one_kind(monkeypatch):
+    # generate.main() 이 서체 설정 오류만 골라 `!! …` 한 줄로 보이도록 한 종류로 낸다(Minor 4).
+    assert issubclass(render.FontSettingError, ValueError)
+    with pytest.raises(render.FontSettingError):
+        render.font_format('fonts/batang.ttc')
+    with pytest.raises(render.FontSettingError):
+        render.font_format('fonts/a.fon')
+    monkeypatch.setattr(render, 'HEADER_FONT_URL', {'fonts/a.woff': 'x', 'fonts/b.woff': 'y'})
+    with pytest.raises(render.FontSettingError):
+        render.all_font_urls()
+    monkeypatch.setattr(render, 'HEADER_FONT_URL', {'fonts/X.woff': 'https://a'})
+    monkeypatch.setattr(render, 'FOOTER_FONT_URL', {'fonts/X.woff': 'https://b'})
+    with pytest.raises(render.FontSettingError):
+        render.all_font_urls()
+
+
+@pytest.mark.parametrize('key', [
+    'C:/Users/나/Fonts/x.ttf',    # 복사하지 않고 제 자리 그대로 적은 것
+    'x.ttf',                     # fonts/ 를 빠뜨린 것
+    'fonts\\x.ttf',              # 역슬래시 — CSS url() 에서 이스케이프로 읽힌다
+    'fonts/sub/x.ttf',           # 옮길 때 fonts/<이름> 으로만 복사된다
+    'fonts/',
+])
+@pytest.mark.parametrize('slot', ['HEADER_FONT_URL', 'FOOTER_FONT_URL'])
+def test_local_font_key_must_be_fonts_file_name(monkeypatch, slot, key):
+    # 주소가 '' 인 내 PC 서체가 fonts/ 밖이면 ensure_fonts 는 통과하는데 @font-face 는 그 키를,
+    # 복사는 fonts/<이름> 을 써서 서체가 안 불린다(Minor 5) — 설정 단계에서 멈춘다.
+    monkeypatch.setattr(render, slot, {key: ''})
+    for call in (render.all_font_urls, page_css):
+        with pytest.raises(render.FontSettingError) as e:
+            call()
+        msg = str(e.value)
+        assert "내 PC 서체는 bible-note\\fonts\\ 에 복사한 뒤 'fonts/파일이름' 으로 적어 주세요" in msg
+        assert key in msg
+
+
+def test_local_font_key_in_fonts_is_accepted(monkeypatch):
+    monkeypatch.setattr(render, 'FOOTER_FONT_URL', {'fonts/My Font.ttf': ''})
+    assert 'fonts/My Font.ttf' in render.all_font_urls()
+    assert "src:url('fonts/My Font.ttf') format('truetype');" in page_css()
+
+
+def test_font_warning_banner_does_not_name_one_font():
+    # 머리글·바닥글 서체도 이 띠를 띄운다 — 「Noto Serif KR」 로 적으면 원인을 잘못 가리킨다.
+    assert 'Noto Serif KR' not in render.FONT_WARN_HTML
+    assert '서체를 불러오지 못했습니다 — HTML 옆에 fonts 폴더가 있는지 확인하세요' in render.FONT_WARN_HTML
+
+
+def test_page_css_follows_slot_list(monkeypatch):
+    # 서체 자리 목록은 _slot_fonts() 한 벌이다(Minor 3) — page_css 가 손으로 다시 적지 않는다.
+    monkeypatch.setattr(render, '_slot_fonts',
+                        lambda: [('NSKX', {'fonts/X.woff': ''}, '머리글', 'hd'),
+                                 ('NSKF', {}, '바닥글', 'ft')])
+    css = page_css()
+    assert "@font-face { font-family:'NSKX'; src:url('fonts/X.woff') format('woff');" in css
+    assert "font-family:'NSKX','NSK',serif;" in css.split('.hd {')[1].split('}')[0]
+    assert 'NSKH' not in css and 'NSKF' not in css
+
+
+def test_every_slot_gets_face_and_rule(monkeypatch):
+    # 목록의 자리마다 얼굴(@font-face)과 그 자리 칸(.<key>)의 font-family 가 함께 실린다 —
+    # 자리를 하나 더할 때 CSS 에 자리를 안 만들면 여기서 걸린다.
+    real = render._slot_fonts()
+    filled = [(f, {'fonts/T%d.woff' % i: ''}, w, k) for i, (f, _u, w, k) in enumerate(real)]
+    monkeypatch.setattr(render, '_slot_fonts', lambda: filled)
+    css = page_css()
+    for family, _urls, _what, key in filled:
+        assert "@font-face { font-family:'%s';" % family in css
+        block = css.split('.%s {' % key)[1].split('}')[0]
+        assert "font-family:'%s','NSK',serif;" % family in block
+
+
+def _no_footer_text(monkeypatch):
+    for name in ('FOOTER_LEFT', 'FOOTER_CENTER', 'FOOTER_CENTER_EVEN', 'FOOTER_RIGHT'):
+        monkeypatch.setattr(render, name, '')
+
+
+def test_footer_font_not_loaded_when_footer_has_no_text(monkeypatch):
+    # 바닥글 글이 모두 비면 NSKF 가 쓰이지 않아 unloaded 로 남고, 서체가 멀쩡해도 붉은 띠가
+    # 뜨고 verify 가 FONT_NOT_LOADED:NSKF 로 떨어졌다(Minor 6) — 글이 없는 자리 서체는 안 싣는다.
+    monkeypatch.setattr(render, 'FOOTER_FONT_URL', {'fonts/My.ttf': ''})
+    _no_footer_text(monkeypatch)
+    html = build_final_html([[_v(1)], [_v(2)]], '유다서')
+    assert 'NSKF' not in html
+    assert '<div class="ft"><span class="fl"></span>' in html  # 칸은 그대로 있다
+
+
+def test_footer_font_kept_when_any_footer_text(monkeypatch):
+    monkeypatch.setattr(render, 'FOOTER_FONT_URL', {'fonts/My.ttf': ''})
+    _no_footer_text(monkeypatch)
+    monkeypatch.setattr(render, 'FOOTER_RIGHT', '{page}')
+    html = build_final_html([[_v(1)]], '유다서')
+    assert "@font-face { font-family:'NSKF';" in html
+    assert "font-family:'NSKF','NSK',serif;" in html
+
+
+def test_footer_font_follows_texts_actually_printed(monkeypatch):
+    # 짝수 쪽 글만 있으면 한 쪽짜리(시편 1편)에는 바닥글 글이 한 글자도 찍히지 않는다.
+    monkeypatch.setattr(render, 'FOOTER_FONT_URL', {'fonts/My.ttf': ''})
+    _no_footer_text(monkeypatch)
+    monkeypatch.setattr(render, 'FOOTER_CENTER_EVEN', 'Your word')
+    assert 'NSKF' not in build_final_html([[_v(1)]], '시편')
+    assert 'NSKF' in build_final_html([[_v(1)], [_v(2)]], '시편')
+
+
+def test_header_font_always_loaded_even_without_footer_text(monkeypatch):
+    # 머리글은 늘 글(책·절 범위)이 있다 — 바닥글이 비어도 머리글 서체는 싣는다.
+    monkeypatch.setattr(render, 'HEADER_FONT_URL', {'fonts/H.woff': ''})
+    _no_footer_text(monkeypatch)
+    assert "font-family:'NSKH','NSK',serif;" in build_final_html([[_v(1)]], '유다서')
+
+
+def test_bad_body_lines_message_names_the_piece():
+    # 끊긴 절의 두 조각이 같은 「5:9」로 보이지 않게 조각 번호를 적는다(Minor 7).
+    piece = _v(9, chapter=5, lines=1, part=1, label='', subtitle='소제목', sub_lines=1)
+    with pytest.raises(ValueError) as e:
+        build_final_html([[piece]], '요한복음')
+    assert '5:9(조각 1)' in str(e.value)

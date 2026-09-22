@@ -129,6 +129,58 @@ def test_parse_continuation_with_subtitle_after_first_word():
     assert second['body'] == '예수께서 이 말씀을 하시고 그들을 떠나가서 숨으시니라'
 
 
+def test_parse_continuation_subtitle_right_after_colon():
+    # 2026-09-22 최종 검토 r5 Minor 2 — 끊긴 줄의 첫 낱말이 비고 콜론 바로 뒤에 소제목이 오면
+    # `(\S*)` 가 `<소제목>` 을 첫 낱말로 삼아 꺾쇠째 본문에 찍었다. 첫 낱말은 `<` 를 먹지 않는다.
+    text = "요5:9 그 사람이 곧 나아서\n요5:<소제목> 이 날은 안식일이니"
+    second = parse_book(text, '요한복음')[1]
+    assert (second['verse'], second['part'], second['label']) == (9, 1, '')
+    assert second['subtitle'] == '소제목'
+    assert second['body'] == '이 날은 안식일이니'
+
+
+def test_parse_continuation_subtitle_with_spaces_right_after_colon():
+    text = "요5:9 그 사람이 곧 나아서\n요5:<세례 요한의 증언> 이 날은"
+    second = parse_book(text, '요한복음')[1]
+    assert second['subtitle'] == '세례 요한의 증언'
+    assert second['body'] == '이 날은'
+
+
+@pytest.mark.parametrize('text, lineno', [
+    ("요5:8 <소제목 가나다", 1),                       # 보통 절 — 닫히지 않은 소제목
+    ("요5:8 가나 > 다", 1),                            # 보통 절 — 본문에 떨어진 꺾쇠
+    ("요5:8 <가<나> 다", 1),                           # 소제목 안에 또 여는 꺾쇠
+    ("롬9:1-2 <약속의 자녀 내가", 1),                  # 합쳐진 절 — 닫히지 않은 소제목
+    ("요5:9 가\n요5:나<다", 2),                        # 끊긴 줄 — 첫 낱말에 붙은 꺾쇠
+    ("요5:9 가\n요5:<소제목 이 날은", 2),              # 끊긴 줄 — 닫히지 않은 소제목
+    ("요5:9 가\n요5:나 >다", 2),                       # 끊긴 줄 — 본문에 떨어진 꺾쇠
+])
+def test_parse_stops_when_angle_bracket_left_in_text(text, lineno):
+    # 어떤 꼴이든 본문·소제목에 < 또는 > 가 남으면 틀린 채 인쇄하지 않고 멈춘다(몇 번째 줄인지).
+    with pytest.raises(ValueError) as e:
+        parse_book(text, '요한복음' if text.startswith('요') else '로마서')
+    assert '%d번째 줄' % lineno in str(e.value)
+    assert '소제목 꺾쇠(< >)가 짝이 맞지 않습니다' in str(e.value)
+
+
+def test_parse_errors_are_source_text_errors():
+    # generate.main() 이 트레이스백 대신 `!! …` 한 줄로 보이도록 원문 문제는 한 종류로 낸다.
+    import parse
+    assert issubclass(parse.SourceTextError, ValueError)
+    with pytest.raises(parse.SourceTextError):
+        parse_book("요1:1 태초에\n머리말 한 줄", '요한복음')
+    with pytest.raises(parse.SourceTextError):
+        parse_book("요5:8 <소제목 가나다", '요한복음')
+
+
+def test_load_book_file_undecodable_is_source_text_error(tmp_path):
+    import parse
+    p = tmp_path / 'bad.txt'
+    p.write_bytes(b'\xff\xff\xff')
+    with pytest.raises(parse.SourceTextError):
+        load_book_file(str(p))
+
+
 def test_parse_continuation_parts_count_up():
     text = "요5:9 가\n요5:나\n요5:다"
     pieces = parse_book(text, '요한복음')
