@@ -8,6 +8,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+import parse as parse_mod
 from parse import parse_book, book_name_from_filename, load_book_file
 
 ROOT = os.path.join(os.path.dirname(__file__), '..', '..')
@@ -210,6 +211,58 @@ def test_parse_raises_on_line_without_chapter_number_in_any_chapter_filter():
     with pytest.raises(ValueError) as e:
         parse_book("요1:1 태초에\n머리말 한 줄\n요2:1 사흘째", '요한복음', chapter=2)
     assert '2번째 줄' in str(e.value)
+
+
+# 본문만 있는 줄 안에 다른 곳의 「장:절」이 들어 있으면, 그 앞까지를 약자로 읽어 다른 장·절로
+# 조용히 끼워 넣었다(가이드 대조 2차 A9 — 유다서 사본 4번째 줄에 넣으니 5쪽 · 25절 → 6쪽 · 26절).
+# 약자 자리에는 숫자·공백·괄호·꺾쇠·콜론이 올 수 없다 — 그런 줄은 「장·절 번호가 없는 줄」로 멈춘다.
+@pytest.mark.parametrize('line', [
+    '(요 3:16 참고) 그들에게 화가 있을진저',       # 괄호 · 공백으로 시작
+    '그들에게 (요3:16) 화가 있을진저',              # 앞에 낱말 · 괄호
+    '그 날에 3:16 을 보라',                         # 공백 뒤 장:절
+    '<소제목> 요3:16 그들에게',                      # 꺾쇠로 시작
+    '참고:요3:16 그들에게',                          # 콜론 뒤 장:절
+    'Jude 1:3 Dear friends',                        # 약자와 장 번호 사이에 공백
+    '(요 3:16-17 참고) 그들에게',                    # 합쳐진 절 꼴
+    '(시 1:제일권)',                                 # 권 제목 꼴
+    '(요 3:참고) 그들에게',                          # 끊긴 줄 꼴
+])
+def test_parse_stops_on_reference_inside_body_only_line(line):
+    text = '유1:1 예수 그리스도의 종이요\n' + line + '\n유1:2 긍휼과 평강과'
+    with pytest.raises(ValueError) as e:
+        parse_book(text, '유다서')
+    assert '2번째 줄' in str(e.value)
+    assert '장·절 번호가 없는 줄' in str(e.value)
+
+
+def test_parse_stops_on_reference_inside_body_only_line_even_with_chapter_filter():
+    # 예전엔 3장으로 읽혀 --chapter 1 에서 조용히 걸러졌다 — 줄이 통째로 빠진 채 인쇄된다.
+    text = '유1:1 예수 그리스도의 종이요\n(요 3:16 참고) 그들에게 화가 있을진저\n유1:2 긍휼과'
+    with pytest.raises(ValueError) as e:
+        parse_book(text, '유다서', chapter=1)
+    assert '2번째 줄' in str(e.value)
+
+
+@pytest.mark.parametrize('line, book, expect', [
+    ('Jude1:3 Dear friends', '유다서', (1, 3, 0, '3', 'Dear friends')),
+    ('요일1:1 태초부터 있는 생명의 말씀', '요한일서', (1, 1, 0, '1', '태초부터 있는 생명의 말씀')),
+    ('요이1:1 장로인 나는', '요한이서', (1, 1, 0, '1', '장로인 나는')),
+    ('요삼1:1 장로인 나는', '요한삼서', (1, 1, 0, '1', '장로인 나는')),
+    ('대상1:1 아담, 셋, 에노스', '역대상', (1, 1, 0, '1', '아담, 셋, 에노스')),
+    ('왕하6:32 그 때에 엘리사가', '열왕기하', (6, 32, 0, '32', '그 때에 엘리사가')),
+    ('Rom9:1-2 I speak the truth', '로마서', (9, 1, 0, '1-2', 'I speak the truth')),
+])
+def test_parse_reads_normal_abbreviations(line, book, expect):
+    # 약자 자리를 좁혀도 개역개정 약자(한 글자 · 두 글자 · 요일/요이/요삼)와 영문 약자는 그대로다.
+    p = parse_book(line, book)[0]
+    assert (p['chapter'], p['verse'], p['part'], p['label'], p['body']) == expect
+
+
+def test_parse_reads_heading_and_continuation_with_long_abbreviation():
+    text = '요일1:제일권\n요일1:1 가\n요일1:나'
+    pieces = parse_book(text, '요한일서')
+    assert [(p['verse'], p['part'], p['heading'], p['body']) for p in pieces] == \
+        [(1, 0, '제일권', '가'), (1, 1, None, '나')]
 
 
 def test_parse_raises_on_continuation_line_without_verse_before_it():
@@ -486,7 +539,8 @@ def test_parse_all_66_books_whole_book_does_not_stop():
 
 
 # 절 표시(`약자N:` · `약자N:M` · `약자N:M-K`)만 떼는 식 — 본문 보존 검사에 쓴다.
-MARK_RE = re.compile(r'^\D+\d+:(?:\d+-\d+|\d+)?')
+# 약자 자리는 parse.ABBR 과 같게 둔다(예전 `\D+` 는 본문 속 장:절까지 약자로 먹었다).
+MARK_RE = re.compile(r'^' + parse_mod.ABBR + r'\d+:(?:\d+-\d+|\d+)?')
 
 
 def _chars(s):
