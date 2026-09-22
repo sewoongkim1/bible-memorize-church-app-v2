@@ -105,3 +105,19 @@ def test_final_html_page_numbers_increment():
 def test_final_html_prints_a4_landscape():
     html = build_final_html([[_v(1)]], '유다서')
     assert '@page { size: A4 landscape; margin: 0; }' in html
+
+
+def test_final_html_has_font_warning_banner():
+    # 파일만 옮겨져 fonts/ 가 없으면(담당자에게 보내기·USB·다른 폴더 --out) 서체가
+    # 조용히 대체 서체로 바뀐다 — 화면에 경고가 뜨게 한다(2026-09-22 최종 검토 Important 2).
+    html = build_final_html([[_v(1)]], '유다서')
+    assert 'id="font-warn"' in html
+    assert 'document.fonts.ready' in html
+    # verify.py 가 따로 심는 document.fonts.ready 콜백과 document.title 을 두고
+    # 다투면 안 되므로, 이 배너는 title 을 건드리지 않는다.
+    assert 'document.title' not in html
+
+
+def test_draft_html_has_no_font_warning_banner():
+    # 1차(실측용)는 브라우저에서 곧바로 지워지는 임시 파일이라 경고가 필요 없다.
+    assert 'id="font-warn"' not in build_draft_html([_v(1)])

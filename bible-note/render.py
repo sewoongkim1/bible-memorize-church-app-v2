@@ -7,6 +7,13 @@
 ⚠️ 원문 열의 폭·안쪽 여백은 BASE_CSS 의 `.orig-col` 규칙 하나가 정한다. 1차·2차가
    이 규칙을 같이 쓰므로 실측한 줄바꿈이 인쇄본에서도 그대로 나온다. 2차에서 폭을
    인라인 style 로 따로 주지 말 것.
+⚠️ 최종 HTML은 `fonts/`를 상대 경로로 부른다(BASE_CSS의 @font-face). 파일만 옮기면
+   (담당자에게 보내기·USB·다른 폴더로 --out) 서체가 조용히 대체 서체로 바뀌어 줄이
+   어긋나고, 원문 열은 overflow:hidden이라 넘친 글자가 인쇄에서 잘린다. 그런데도 화면엔
+   경고가 없었다(2026-09-22 최종 검토 Important 2) — `build_final_html`이 넣는
+   `FONT_WARN_HTML`이 서체 로드 실패를 감지해 화면·인쇄 모두에 붉은 띠를 띄운다.
+   `document.title`은 건드리지 않는다 — verify.py가 검증용으로 따로 심는
+   `document.fonts.ready` 콜백과 같은 값을 놓고 다툴 수 있어서다.
 """
 import html as _html
 
@@ -157,12 +164,36 @@ def _page_html(page_verses, book, page_no):
     )
 
 
+# 최종 HTML이 fonts/ 없이 열리면(파일만 옮겨졌을 때) 화면·인쇄 모두에 띄우는 경고.
+# position:fixed라 인쇄 시에도 매 쪽 반복해서 찍힌다(Chrome 기준). document.title은
+# 건드리지 않는다 — verify.py가 검증용으로 따로 심는 document.fonts.ready 콜백과
+# 값을 놓고 다투면(레이스) verify 결과 파싱이 깨진다.
+FONT_WARN_HTML = """
+<div id="font-warn" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;
+  background:#c0392b;color:#fff;font-family:sans-serif;font-size:12pt;font-weight:bold;
+  text-align:center;padding:4mm;">
+  ⚠ 서체(Noto Serif KR)를 불러오지 못했습니다 — 이 파일은 fonts 폴더와 반드시 함께 두어야 합니다.
+  지금 화면은 줄 수가 원본과 다를 수 있습니다.
+</div>
+<script>
+document.fonts.ready.then(function(){
+  var bad = false;
+  document.fonts.forEach(function(f){ if (f.status !== 'loaded') bad = true; });
+  if (bad) {
+    var w = document.getElementById('font-warn');
+    if (w) w.style.display = 'block';
+  }
+});
+</script>
+"""
+
+
 def build_final_html(pages, book):
     """2차 그리기 — 페이지별로 원문 열 + 필사줄 열을 나란히 그린다."""
     page_divs = [_page_html(pg, book, i + 1) for i, pg in enumerate(pages)]
     return (
         '<!doctype html><html lang="ko"><head><meta charset="utf-8">'
         '<title>%s 필사노트</title>'
-        '<style>%s%s</style></head><body>%s</body></html>'
-        % (esc(book), BASE_CSS, PAGE_CSS, ''.join(page_divs))
+        '<style>%s%s</style></head><body>%s%s</body></html>'
+        % (esc(book), BASE_CSS, PAGE_CSS, FONT_WARN_HTML, ''.join(page_divs))
     )

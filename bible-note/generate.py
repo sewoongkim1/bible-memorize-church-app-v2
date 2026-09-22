@@ -14,6 +14,7 @@ import argparse
 import io
 import os
 import re
+import shutil
 import subprocess
 import sys
 import urllib.request
@@ -71,6 +72,24 @@ def ensure_fonts():
                 '!! 서체를 받지 못했습니다(%s)\n'
                 '   인터넷이 되는 곳에서 한 번만 돌리면 fonts/ 에 저장됩니다.\n'
                 '   직접 받으려면: %s' % (e, url))
+
+
+def _copy_fonts_beside(out_path):
+    """최종 HTML은 상대 경로 'fonts/...'로 서체를 부른다(render.BASE_CSS). --out이
+    fonts/가 있는 이 폴더(bible-note/, generate()가 이미 os.chdir 해 둔 cwd)가 아닌
+    다른 폴더를 가리키면, 그 폴더에 fonts/를 함께 두어야 옮긴 자리에서도 서체가 그대로
+    불린다 — 안 그러면 조용히 대체 서체로 바뀐다(2026-09-22 최종 검토 Important 2).
+    HTML 자체에도 서체 로드 실패 경고 배너가 있어(render.FONT_WARN_HTML), 이 복사를
+    깜빡하거나 나중에 파일만 다시 옮기더라도 화면에서 바로 드러난다.
+    """
+    out_dir = os.path.dirname(os.path.abspath(out_path)) or os.getcwd()
+    if os.path.abspath(out_dir) == os.path.abspath(os.getcwd()):
+        return
+    dst_fonts = os.path.join(out_dir, 'fonts')
+    os.makedirs(dst_fonts, exist_ok=True)
+    for path in FONT_URL:
+        shutil.copy2(path, os.path.join(dst_fonts, os.path.basename(path)))
+    print('  서체 폴더를 함께 두었습니다 — %s' % dst_fonts)
 
 
 def find_book_file(book_name):
@@ -144,6 +163,7 @@ def generate(book_name, chapter=None, out_path=None):
     if not out_path:
         suffix = '_%d장' % chapter if chapter else ''
         out_path = '%s%s.html' % (book_name, suffix)
+    _copy_fonts_beside(out_path)
     with io.open(out_path, 'w', encoding='utf-8') as f:
         f.write(build_final_html(pages, book_name))
 

@@ -67,3 +67,25 @@ def test_paginate_exact_fit_does_not_overflow_to_new_page():
     pages = paginate(verses, lines_per_page=17)
     assert len(pages) == 1
     assert len(pages[0]) == 2
+
+
+def test_paginate_starts_new_page_on_chapter_change():
+    # 룻기·빌립보서 등 여러 장짜리 책을 --chapter 없이 통째로 돌릴 때, 한 쪽 안에서
+    # 장 표시 없이 절 번호만 이어지면 안 된다(설계 §7 · 2026-09-22 최종 검토 Important 1).
+    verses = [
+        {'verse': 1, 'chapter': 1, 'lines': 2},
+        {'verse': 2, 'chapter': 1, 'lines': 2},
+        {'verse': 1, 'chapter': 2, 'lines': 2},  # 남은 줄(17-4=13)이 넉넉해도 장이 바뀌면 새 쪽
+    ]
+    pages = paginate(verses, lines_per_page=17)
+    assert len(pages) == 2
+    assert [v['verse'] for v in pages[0]] == [1, 2]
+    assert [(v['chapter'], v['verse']) for v in pages[1]] == [(2, 1)]
+
+
+def test_paginate_ignores_chapter_when_key_absent():
+    # 'chapter' 키가 없는 절(단위 테스트용 더미)은 지금까지처럼 줄 수만 본다.
+    verses = [{'verse': i, 'lines': 2} for i in range(1, 6)]
+    pages = paginate(verses, lines_per_page=17)
+    assert len(pages) == 1
+    assert len(pages[0]) == 5

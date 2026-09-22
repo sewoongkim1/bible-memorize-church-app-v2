@@ -9,6 +9,10 @@
    열왕기하 6:32(194자 ≈ 9줄)이라 실제로는 일어나지 않는다.
 ⚠️ 줄 수가 정수 1 이상이 아니면 멈춘다 — 0 이면 실측이 실패한 것이고, 그대로 두면
    절들이 한 쪽에 몰려 들어간다.
+⚠️ 장이 바뀌면 새 페이지에서 시작한다(설계 §7). 절 dict에 'chapter'가 있으면 이전
+   절과 비교해 장이 바뀐 시점에 남은 줄이 있어도 새 페이지로 넘긴다 — 안 그러면
+   한 쪽 안에서 「30.」 다음에 장 표시 없이 「1.」이 이어져 찍힌다(2026-09-22 최종
+   검토 Important 1). 'chapter' 키가 없는 절(테스트용 더미 등)은 지금처럼 줄 수만 본다.
 """
 
 
@@ -25,7 +29,8 @@ def paginate(verses, lines_per_page):
         if need > lines_per_page:
             raise ValueError('%s절이 %d줄이라 한 쪽(%d줄)에 들어가지 않습니다 — 절을 쪽 중간에서 자를 수 없습니다'
                              % (v.get('verse'), need, lines_per_page))
-        if current and need > remaining:
+        chapter_changed = current and v.get('chapter') != current[-1].get('chapter')
+        if current and (need > remaining or chapter_changed):
             pages.append(current)
             current = []
             remaining = lines_per_page
