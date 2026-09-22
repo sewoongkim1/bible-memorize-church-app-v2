@@ -86,13 +86,31 @@ def test_parse_raises_on_continuation_line_in_requested_chapter():
 
 def test_parse_raises_on_continuation_line_without_chapter_filter():
     text = "요5:9 그 사람이 곧 나아서\n요5:이 날은 안식일이니"
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as e:
         parse_book(text, '요한복음')
+    assert '2번째 줄' in str(e.value)
 
 
 def test_parse_raises_on_line_without_chapter_number():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as e:
         parse_book("요1:1 태초에\n머리말 한 줄", '요한복음', chapter=1)
+    assert '2번째 줄' in str(e.value)
+
+
+def test_parse_raises_on_merged_verse_line_in_requested_chapter():
+    # 로마서 9:1-2 는 원문에서 두 절이 한 줄로 합쳐져 있다. 1절로 읽으면
+    # 「-2 <약속의 자녀 약속의 말씀> 내가…」가 본문으로 찍히고 2절 번호가 사라진다.
+    text = "롬8:39 높음이나 깊음이나\n롬9:1-2 <약속의 자녀 약속의 말씀> 내가 그리스도 안에서 참말을 하고"
+    with pytest.raises(ValueError) as e:
+        parse_book(text, '로마서', chapter=9)
+    assert '2번째 줄' in str(e.value)
+    assert '합쳐' in str(e.value)
+
+
+def test_parse_ignores_merged_verse_line_in_other_chapter():
+    text = "롬8:39 높음이나 깊음이나\n롬9:1-2 내가 그리스도 안에서 참말을 하고"
+    verses = parse_book(text, '로마서', chapter=8)
+    assert [v['verse'] for v in verses] == [39]
 
 
 def test_parse_ignores_continuation_line_in_other_chapter():

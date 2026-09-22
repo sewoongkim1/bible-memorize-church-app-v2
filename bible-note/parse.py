@@ -5,16 +5,21 @@
 소제목 안에 다른 책의 장:절 인용이 그대로 들어있는 경우가 있다
 (예: `<세례 요한의 증언(마 3:1-12; 막 1:7-8; 눅 3:15-17)>`) — `<...>` 안을 통째로 잡으므로 문제없다.
 
-⚠️ 예외가 있다 — 소제목이 절 한가운데 끼면 한 절이 두 줄로 나뉘고 뒷줄에는 절 번호가 없다
-   (`요5:이 날은 안식일이니`, 성경 전체 50개·21권). 요청한 장에 그런 줄이 있으면 **멈춘다**
-   (ValueError). 조용히 건너뛰면 그 절 뒷부분이 빠진 채 인쇄된다. 앞 절에 이어 붙이는 처리는
-   66권으로 넓힐 때 한다(2026-09-22 결정).
+⚠️ 예외가 둘 있다 — 요청한 장에 있으면 **멈춘다**(ValueError, 몇 번째 줄인지 알린다).
+   ① 소제목이 절 한가운데 끼면 한 절이 두 줄로 나뉘고 뒷줄에는 절 번호가 없다
+      (`요5:이 날은 안식일이니`, 성경 전체 50개·21권). 건너뛰면 그 절 뒷부분이 빠진 채 인쇄된다.
+   ② 여러 절이 한 줄로 합쳐진 줄(`롬9:1-2 …`, 11개). 그냥 읽으면 1절 하나로 잡혀
+      「-2 <소제목> …」가 본문으로 찍히고 2절 번호가 사라진다.
+   제대로 된 처리(이어 붙이기·합친 절 표기)는 66권으로 넓힐 때 한다(2026-09-22 결정).
+   원문 66권을 훑어 확인한 이상한 꼴은 이 둘뿐이다. 「절 번호가 끊기면 멈춘다」는 넣지 않는다 —
+   사도행전 24장은 개역개정 본문에 7절이 없다.
 """
 import os
 import re
 
 VERSE_RE = re.compile(r'^\D+(\d+):(\d+)\s*(?:<([^>]*)>)?\s*(.*)$')
 CHAPTER_RE = re.compile(r'^\D+(\d+):')
+MERGED_RE = re.compile(r'^\D+\d+:\d+-\d+')
 FILENAME_RE = re.compile(r'^\d+-\d+(.+)\.txt$')
 
 
@@ -38,7 +43,8 @@ def parse_book(text, book_name, chapter=None):
     """성경 파일 전체 텍스트를 절 목록으로 바꾼다.
 
     chapter 를 주면 그 장만 남긴다(요한복음처럼 여러 장인 책에서 1장만 뽑을 때 쓴다).
-    절 번호 없이 이어지는 줄이 그 장(chapter 가 None 이면 어느 장이든)에 있으면 ValueError.
+    절 번호 없이 이어지는 줄이나 여러 절이 합쳐진 줄이 그 장(chapter 가 None 이면 어느 장이든)에
+    있으면 ValueError.
     """
     verses = []
     for lineno, line in enumerate(text.splitlines(), 1):
@@ -46,12 +52,13 @@ def parse_book(text, book_name, chapter=None):
         if not line:
             continue
         m = VERSE_RE.match(line)
-        if not m:
+        merged = MERGED_RE.match(line)
+        if not m or merged:
             c = CHAPTER_RE.match(line)
             if c is None or chapter is None or int(c.group(1)) == chapter:
-                raise ValueError(
-                    '%s %d번째 줄: 절 번호가 없는 줄이라 어느 절인지 알 수 없습니다 — %s'
-                    % (book_name, lineno, line[:40]))
+                why = ('여러 절이 한 줄로 합쳐져 있어 절마다 나눌 수 없습니다' if merged
+                       else '절 번호가 없는 줄이라 어느 절인지 알 수 없습니다')
+                raise ValueError('%s %d번째 줄: %s — %s' % (book_name, lineno, why, line[:40]))
             continue
         ch_s, vs_s, subtitle, body = m.groups()
         ch = int(ch_s)
