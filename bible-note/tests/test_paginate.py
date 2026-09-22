@@ -2,6 +2,8 @@
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from paginate import paginate
@@ -31,12 +33,29 @@ def test_paginate_never_splits_a_single_verse():
     assert pages[1] == [verses[1]]
 
 
-def test_paginate_oversized_verse_gets_its_own_page():
-    # 17줄보다 큰 절은 있을 수 없다고 가정하지만, 방어적으로 혼자 페이지를 차지한다
-    verses = [{'verse': 1, 'lines': 30}]
-    pages = paginate(verses, lines_per_page=17)
-    assert len(pages) == 1
-    assert len(pages[0]) == 1
+def test_paginate_oversized_verse_raises():
+    # 17줄보다 긴 절은 한 쪽에 안 들어가고, 절을 쪽 중간에서 자를 수도 없다.
+    # 혼자 한 쪽을 차지하게 두면 17줄이 넘는 쪽이 조용히 인쇄되므로 멈춘다.
+    with pytest.raises(ValueError) as e:
+        paginate([{'verse': 1, 'lines': 30}], lines_per_page=17)
+    assert '30줄' in str(e.value)
+
+
+def test_paginate_oversized_verse_after_others_raises():
+    verses = [{'verse': 1, 'lines': 3}, {'verse': 2, 'lines': 18}]
+    with pytest.raises(ValueError):
+        paginate(verses, lines_per_page=17)
+
+
+def test_paginate_rejects_zero_lines():
+    # 실측이 실패해 0줄이 오면 절들이 한 쪽에 몰려 들어간다 — 받는 자리에서 멈춘다
+    with pytest.raises(ValueError):
+        paginate([{'verse': 1, 'lines': 0}], lines_per_page=17)
+
+
+def test_paginate_rejects_non_positive_lines_per_page():
+    with pytest.raises(ValueError):
+        paginate([{'verse': 1, 'lines': 1}], lines_per_page=0)
 
 
 def test_paginate_empty_list_returns_empty():
