@@ -20,8 +20,11 @@ Noto Serif KR(SIL OFL, 최초 실행 시 자동 다운로드), pymupdf(검증의
 - 새 폴더는 `bible-note/`. 기존 `booklet/`(기독교 고전 소책자 전용)과 섞지 않는다.
 - 페이지: 297×210mm, 여백 13mm, 헤더 12mm, 푸터 8mm → **가용 본문 높이 164mm**.
 - 줄 높이: **9.5mm** 고정 → **페이지당 17줄**(161.5mm 사용, 여유 2.5mm).
-- 좌우 폭(가용폭 271mm 기준): 원문 열 **38%**(102.98mm) : 필사 열 **62%**(168.02mm).
-  두 열 모두 세로선 쪽으로 안쪽 여백 **4mm**.
+- 좌우 폭(가용폭 271mm 기준): 원문 열 **50%**(135.5mm) : 필사 열 **50%**(135.5mm).
+  두 열 모두 세로선 쪽으로 안쪽 여백 **4mm**. (처음엔 38:62였다 — 2026-09-22 견본을 본 성도님이 50:50으로 바꿨다. Task 7)
+- 쪽 아래(쪽번호 위)에도 머리글 밑줄과 같은 선(0.75pt, #333)을 긋는다. 푸터 8mm 칸 안에 들어가 17줄은 그대로다. (Task 7)
+- 절 번호와 본문은 **따로 나눈다(내어쓰기)** — 본문이 다음 줄로 넘어가면 번호 칸만큼 비우고 시작한다.
+  번호 칸 폭은 그 책의 가장 큰 절 번호 자릿수에 맞추고, 1차(실측)·2차(인쇄)가 같은 값을 쓴다. (Task 7)
 - **1차(실측)와 2차(인쇄)의 원문 열 폭·안쪽 여백은 반드시 같은 CSS 규칙 하나**에서 나온다.
   다르면 줄바꿈 지점이 달라져 필사줄 수가 어긋난다.
 - **원문 한 줄 = 필사줄 한 줄**: 원문 절의 각 줄과 그 절의 필사줄이 같은 높이에서 시작한다.
@@ -1314,6 +1317,160 @@ Expected: 소제목마다 높이가 찍힌다. `height:19mm`(2줄)가 하나라�
 
 Run: `git status --porcelain -- bible-note`
 Expected: 아무것도 안 나온다(HTML은 `.gitignore`로 빠진다).
+
+---
+
+### Task 7: 성도님 요청 세 가지 — 50:50 · 쪽 아래 선 · 절 번호 나누기
+
+> 2026-09-22 견본(유다서 5쪽 · 요한복음 1장 8쪽)을 본 성도님 요청. Task 1~6 과 최종 검토 수정(`f9f49f3`)은 끝나 있다.
+
+**Files:**
+- Modify: `bible-note/render.py`
+- Modify: `bible-note/tests/test_render.py`
+- (만든 HTML 두 개는 다시 만들되 커밋하지 않는다 — `.gitignore`)
+
+**Interfaces:**
+- Consumes: 지금의 `render.py`(BASE_CSS · PAGE_CSS · `build_draft_html` · `_page_html` · `build_final_html`)
+- Produces:
+  - `ORIG_PCT = 50` → `orig_width_mm() == 135.5`, `write_width_mm() == 135.5`
+  - `num_digits(verses: list[dict]) -> int` — 가장 큰 절 번호의 자릿수(1~3)
+  - `num_col_css(digits: int) -> str` — 번호 칸 폭 규칙 한 줄. **1차·2차가 같은 문자열을 쓴다**
+  - 원문 문단 마크업: `<p …><span class="num">N.</span><span class="txt">본문</span></p>` (1차·2차 모두)
+
+**⚠️ 지켜야 할 것**
+- 번호 칸 폭은 **1차(실측)와 2차(인쇄)가 같은 값**이어야 한다 — 다르면 줄바꿈이 달라져 필사줄 수가 어긋난다.
+  그래서 폭을 `num_col_css(num_digits(모든 절))` 하나로만 만든다. 2차는 페이지 목록을 펼친 **전체 절**로 계산한다
+  (쪽마다 따로 계산하면 1차와 달라진다).
+- `text-indent` 음수 + `inline-block` 방식은 쓰지 않는다 — `text-indent` 가 상속돼 번호가 칸 밖으로 밀린다.
+  `p` 를 flex 로 두고 번호·본문을 따로 두는 쪽이 줄 수 재기(높이 ÷ 줄 높이)와도 그대로 맞는다.
+- 쪽 아래 선은 푸터 칸 **안**에 긋는다(`box-sizing:border-box` 라 8mm 가 그대로다). 가용 본문 164mm·17줄을 바꾸지 않는다.
+
+- [ ] **Step 1: 실패하는 테스트로 바꾸고 더하기** — `bible-note/tests/test_render.py`
+
+`test_column_widths` 와 `test_draft_and_final_share_orig_col_rule` 의 기대값을 새 폭으로 바꾼다:
+```python
+def test_column_widths():
+    assert orig_width_mm() == 135.5
+    assert write_width_mm() == 135.5
+```
+```python
+    assert '.orig-col { width:135.5mm; padding-right:4mm; }' in BASE_CSS
+```
+그리고 아래를 더한다(`num_digits`, `num_col_css`, `PAGE_CSS` 를 import 목록에 더한다):
+```python
+def test_verse_number_and_text_are_separate():
+    # 번호와 본문을 따로 둬야 본문이 다음 줄로 넘어갈 때 번호 칸만큼 비울 수 있다
+    draft = build_draft_html([_v(1, body='예수 그리스도의')])
+    final = build_final_html([[_v(1, body='예수 그리스도의')]], '유다서')
+    for html in (draft, final):
+        assert '<span class="num">1.</span><span class="txt">예수 그리스도의</span>' in html
+
+
+def test_num_digits():
+    assert num_digits([_v(1), _v(9)]) == 1
+    assert num_digits([_v(1), _v(25)]) == 2
+    assert num_digits([_v(99), _v(176)]) == 3
+
+
+def test_num_col_css_follows_digits():
+    assert '2ch' in num_col_css(2)
+    assert '3ch' in num_col_css(3)
+    assert num_col_css(2) != num_col_css(3)
+
+
+def test_draft_and_final_share_num_col_rule():
+    # 1차·2차의 번호 칸 폭이 다르면 줄바꿈이 달라진다 — 같은 절 목록이면 같은 규칙이어야 한다.
+    # 2차는 쪽마다가 아니라 전체 절로 계산한다(둘째 쪽에만 두 자리 번호가 있어도 첫 쪽도 두 자리 폭).
+    verses = [_v(9), _v(10)]
+    rule = num_col_css(2)
+    assert rule in build_draft_html(verses)
+    assert rule in build_final_html([[verses[0]], [verses[1]]], '유다서')
+
+
+def test_hanging_indent_css():
+    assert '.orig-col p { display:flex; }' in BASE_CSS
+    assert '.orig-col .txt { flex:1 1 auto; min-width:0; }' in BASE_CSS
+
+
+def test_footer_has_top_rule():
+    ft = PAGE_CSS.split('.ft {')[1].split('}')[0]
+    assert 'border-top:0.75pt solid #333' in ft
+```
+
+- [ ] **Step 2: 테스트 실행 — 실패 확인**
+
+Run: `cd bible-note && python -m pytest tests/test_render.py -v`
+Expected: 새 테스트와 바꾼 두 테스트가 FAIL(ImportError 또는 assert) — 구현 전이므로.
+
+- [ ] **Step 3: `render.py` 구현**
+
+① `ORIG_PCT = 38` → `ORIG_PCT = 50` (주석에 「2026-09-22 성도님 결정 50:50 — 처음엔 38:62」).
+
+② BASE_CSS 의 `.orig-col .num` 규칙을 아래 셋으로 바꾼다(`margin-right:1.5mm` 는 없앤다 — 틈은 번호 칸 폭에 들어간다):
+```css
+.orig-col p { display:flex; }
+.orig-col .num { flex:0 0 auto; font-family:'NSKB',serif; font-weight:400; }
+.orig-col .txt { flex:1 1 auto; min-width:0; }
+```
+
+③ 번호 칸 폭 함수 둘:
+```python
+def num_digits(verses):
+    """가장 큰 절 번호의 자릿수 — 번호 칸 폭을 정한다(시편 119편은 세 자리)."""
+    return max(len(str(v['verse'])) for v in verses)
+
+
+def num_col_css(digits):
+    """번호 칸 폭 규칙 — 숫자 자릿수 + 마침표 + 틈.
+
+    ⚠️ 1차(실측)와 2차(인쇄)가 반드시 같은 값을 써야 한다. 다르면 줄바꿈이 달라져
+       필사줄 수가 어긋난다. `ch` 는 번호 서체(NSKB)의 숫자 폭이다.
+    """
+    return '.orig-col .num { width:calc(%dch + 0.6ch + 1.5mm); }' % digits
+```
+
+④ `build_draft_html`: 문단을 `<span class="num">%d.</span><span class="txt">%s</span>` 로 바꾸고,
+   `<style>` 에 `BASE_CSS + num_col_css(num_digits(verses))` 를 넣는다.
+
+⑤ `_page_html`: 원문 문단을 같은 꼴(`<span class="num">…</span><span class="txt">…</span>`)로 바꾼다.
+
+⑥ `build_final_html`: 페이지를 펼친 전체 절로 `num_col_css(num_digits([v for pg in pages for v in pg]))` 를 만들어
+   `<style>` 에 BASE_CSS 바로 뒤에 넣는다.
+
+⑦ PAGE_CSS 의 `.ft` 규칙에 `border-top:0.75pt solid #333;` 를 더한다(머리글 밑줄과 같은 선).
+
+- [ ] **Step 4: 테스트 실행 — 통과 확인**
+
+Run: `cd bible-note && python -m pytest tests -v`
+Expected: 전부 통과(바뀐 2 + 새 6 포함). 개수를 보고서에 적는다.
+
+- [ ] **Step 5: 두 견본을 다시 만들고 검증**
+
+Run:
+```bash
+cd bible-note
+PYTHONIOENCODING=utf-8 python generate.py 유다서
+PYTHONIOENCODING=utf-8 python generate.py 요한복음 --chapter 1
+PYTHONIOENCODING=utf-8 python verify.py 유다서.html
+PYTHONIOENCODING=utf-8 python verify.py 요한복음_1장.html
+```
+Expected: 두 파일 모두 `모두 통과했습니다.` 원문 칸이 넓어져 쪽 수는 전(유다서 5쪽 · 요한복음 1장 8쪽)보다
+같거나 줄어든다 — 새 쪽 수를 보고서에 적는다. 쪽 수가 **늘면** 멈추고 DONE_WITH_CONCERNS 로 알린다.
+
+- [ ] **Step 6: 커밋**
+
+```bash
+git diff --cached --name-only        # 비어 있어야 한다
+git status --porcelain -- bible-note # render.py · tests/test_render.py 만 보여야 한다(HTML 은 무시된다)
+git add -- bible-note/render.py bible-note/tests/test_render.py
+git commit -m "feat(성경필사노트): 50:50 · 쪽 아래 선 · 절 번호 나누기 (성도님 요청)
+
+원문·필사 열을 38:62 에서 50:50(각 135.5mm)으로. 쪽번호 위에 머리글 밑줄과 같은 선을 긋는다
+(푸터 칸 안이라 17줄 그대로). 절 번호와 본문을 따로 두어 본문이 다음 줄로 넘어가면 번호 칸만큼
+비운다 — 번호 칸 폭은 그 책의 가장 큰 절 번호 자릿수로 정하고 1차·2차가 같은 규칙을 쓴다.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>" -- bible-note/render.py bible-note/tests/test_render.py
+```
 
 ---
 
