@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260922c";
+const APP_BUILD = "20260923a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -7005,7 +7005,7 @@ const MANUAL = [
     art: '<div class="mn-row"><span class="mn-btn mn-btn-on">✍️ 성경필사 노트 신청</span></div>',
     steps: [
       "첫 화면 아래 <b>더 보기 ▾</b>를 펴고 <b>✍️ 성경필사 노트 신청</b>을 누르세요.",
-      "노트 크기(A5·A4)와 <b>필사 유형</b>, 번역본을 고르세요.",
+      "노트 크기와 <b>필사 유형</b>, 번역본을 고르세요.",
       "원하는 성경을 골라 담으세요. <b>한 분 5부까지</b>.",
       "휴대폰 번호를 남기시면 준비되는 대로 알려 드립니다.",
     ],
@@ -7882,6 +7882,12 @@ const PILSA_SIZE = [
   ["A4", "큰 것"],
   ["A5", "작은 것"],
 ];
+// 지금 신청을 받지 않는 크기 — 값은 버튼에 그대로 적는 이유다.
+// 다시 받으려면 이 줄에서 빼면 된다(다른 곳은 손댈 것이 없다).
+// ⚠️ 목록에서 지우지는 않는다 — 이미 A5로 신청하신 분의 내용을 불러올 때
+//    그 크기를 그대로 보여 주어야 하고, 2권 계산(pilsaMult)도 살아 있어야 한다.
+const PILSA_SIZE_OFF = { "A5": "지금은 신청받지 않아요" };
+function pilsaSizeOff(size) { return PILSA_SIZE_OFF[size] || ""; }
 const PILSA_TYPE1 = [
   ["아래쪽 필사형", "본문 아래 필사 공간"],
   ["오른쪽 필사형", "본문 오른쪽에 필사 공간"],
@@ -8212,8 +8218,10 @@ function pilsaFormHtml(u) {
   const mult = pilsaMult(f);
 
   const sz = PILSA_SIZE.map(function (t) {
-    return '<button class="pl-type' + (f.size === t[0] ? " on" : "") + '" data-size="' + t[0] + '">' +
-      '<b>' + t[0] + '</b><i>' + t[1] + '</i></button>';
+    const why = pilsaSizeOff(t[0]);
+    return '<button class="pl-type' + (f.size === t[0] ? " on" : "") + '" data-size="' + t[0] + '"' +
+      (why ? " disabled" : "") + '><b>' + t[0] + '</b><i>' +
+      (why ? why : t[1]) + '</i></button>';
   }).join("");
   const t1 = PILSA_TYPE1.map(function (t) {
     const off = pilsaBlocked(f.size, t[0]);
@@ -8259,7 +8267,10 @@ function pilsaFormHtml(u) {
 
     '<div class="pl-sec">성경 선택 및 부수</div>' +
     '<div class="pl-notice">신청 단위별로 부수를 골라 주세요. 묶음 항목은 함께 제작되는 한 권입니다.<br>' +
-      '<b>A5(작은 것)</b>와 <b>한영·영한</b>은 한 부가 <b>2권</b>으로 나와 권수와 금액이 2배가 됩니다.<br>' +
+      // A5는 지금 못 고른다 — 이미 A5로 신청하신 분에게만 그대로 알려 준다
+      (f.size === "A5"
+        ? '<b>A5(작은 것)</b>와 <b>한영·영한</b>은 한 부가 <b>2권</b>으로 나와 권수와 금액이 2배가 됩니다.<br>'
+        : '<b>한영·영한</b>은 한 부가 <b>2권</b>으로 나와 권수와 금액이 2배가 됩니다.<br>') +
       '말씀이 길면 <b>한 단위가 여러 권</b>으로 나올 수 있어 권수는 늘거나 줄 수 있습니다.<br>' +
       '<b>권당 3,000원</b> · ' +
       '<b>한 분당 총 ' + PILSA_TOTAL_MAX + '부까지</b> 신청하실 수 있어요' +
