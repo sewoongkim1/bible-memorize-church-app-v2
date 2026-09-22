@@ -9,8 +9,9 @@
 ③ 그 문단과 필사줄 묶음이 같은 높이에서 시작하는가(원문 한 줄 = 필사줄 한 줄)
 ④ 인쇄하면 쪽 수가 .page 개수와 같고, 쪽마다 A4 가로(297×210mm)인가
 ⑤ 머리글(.hd)이 제 칸(HEADER_MM)을 넘치지 않았는가 · 바닥글(.ft)의 세 칸(왼쪽·가운데·오른쪽)이
-   글이 길어 잘리지 않았는가(scrollWidth) — 2026-09-22 성도님 요청으로 HEADER_PT·FOOTER_PT·
-   바닥글 글을 사람이 정하게 되어, 잘못 정하면 조용히 잘릴 수 있다.
+   글이 길어 가로로 잘리지 않았는가(scrollWidth) · 글씨가 커져 세로로 칸 아래로 빠져나가지
+   않았는가(span bottom vs .ft bottom) — 2026-09-22 성도님 요청으로 HEADER_PT·FOOTER_PT·
+   바닥글 글을 사람이 정하게 되어, 잘못 정하면 조용히 잘리거나 밀려날 수 있다.
    ⚠️ 머리글은 `.hd`의 scrollHeight로 재면 안 된다 — align-items:flex-end라 넘친 내용이
       위쪽으로 자라는데, scrollHeight는 스크롤 원점(위쪽) 기준 아래쪽 넘침만 잡는다(실측
       확인: HEADER_PT를 60까지 올려도 scrollHeight==clientHeight로 그대로였다). 그래서
@@ -52,8 +53,15 @@ document.fonts.ready.then(function(){
     }
     var ft = pg.querySelector('.ft');
     if (ft) {
+      // 가로(scrollWidth)뿐 아니라 세로도 본다 — .ft는 grid+align-items:center라
+      // FOOTER_PT를 올리면 칸(8mm)보다 글줄이 커져 아래로 빠져나가는데(잘리지 않고
+      // 밀려난다) 가로만 보면 조용히 통과한다(2026-09-22 최종 검토 Important 1 —
+      // 실측 FOOTER_PT=18에서 세 칸 모두 .ft 아래로 2.9px 빠져나감을 확인).
+      var ftBottom = ft.getBoundingClientRect().bottom;
       ft.querySelectorAll(':scope > span').forEach(function(sp){
-        if (sp.scrollWidth > sp.clientWidth + 1) {
+        var overflowW = sp.scrollWidth > sp.clientWidth + 1;
+        var overflowH = sp.getBoundingClientRect().bottom > ftBottom + 1;
+        if (overflowW || overflowH) {
           out.push(no + ':FOOTER_OVERFLOW:' + sp.className.split(' ')[0]);
         }
       });
