@@ -7,7 +7,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from render import (
     BASE_CSS, PAGE_CSS, build_draft_html, build_final_html, esc,
-    lines_per_page, orig_width_mm, usable_body_mm, write_width_mm,
+    lines_per_page, num_col_css, num_digits, orig_width_mm, usable_body_mm,
+    write_width_mm,
 )
 
 
@@ -27,8 +28,8 @@ def test_lines_per_page_is_17():
 
 
 def test_column_widths():
-    assert orig_width_mm() == 102.98
-    assert write_width_mm() == 168.02
+    assert orig_width_mm() == 135.5
+    assert write_width_mm() == 135.5
 
 
 def test_esc_handles_none_and_empty():
@@ -59,7 +60,7 @@ def test_draft_and_final_share_orig_col_rule():
     # 줄바꿈 지점이 같다. 2차에서 인라인 style 로 폭을 따로 주면 이 약속이 깨진다.
     draft = build_draft_html([_v(1)])
     final = build_final_html([[_v(1)]], '유다서')
-    assert '.orig-col { width:102.98mm; padding-right:4mm; }' in BASE_CSS
+    assert '.orig-col { width:135.5mm; padding-right:4mm; }' in BASE_CSS
     assert BASE_CSS in draft
     assert BASE_CSS in final
     assert 'class="orig-col" style=' not in final
@@ -141,3 +142,42 @@ def test_final_html_has_font_warning_banner():
 def test_draft_html_has_no_font_warning_banner():
     # 1차(실측용)는 브라우저에서 곧바로 지워지는 임시 파일이라 경고가 필요 없다.
     assert 'id="font-warn"' not in build_draft_html([_v(1)])
+
+
+def test_verse_number_and_text_are_separate():
+    # 번호와 본문을 따로 둬야 본문이 다음 줄로 넘어갈 때 번호 칸만큼 비울 수 있다
+    draft = build_draft_html([_v(1, body='예수 그리스도의')])
+    final = build_final_html([[_v(1, body='예수 그리스도의')]], '유다서')
+    for html in (draft, final):
+        assert '<span class="num">1.</span><span class="txt">예수 그리스도의</span>' in html
+
+
+def test_num_digits():
+    assert num_digits([_v(1), _v(9)]) == 1
+    assert num_digits([_v(1), _v(25)]) == 2
+    assert num_digits([_v(99), _v(176)]) == 3
+
+
+def test_num_col_css_follows_digits():
+    assert '2ch' in num_col_css(2)
+    assert '3ch' in num_col_css(3)
+    assert num_col_css(2) != num_col_css(3)
+
+
+def test_draft_and_final_share_num_col_rule():
+    # 1차·2차의 번호 칸 폭이 다르면 줄바꿈이 달라진다 — 같은 절 목록이면 같은 규칙이어야 한다.
+    # 2차는 쪽마다가 아니라 전체 절로 계산한다(둘째 쪽에만 두 자리 번호가 있어도 첫 쪽도 두 자리 폭).
+    verses = [_v(9), _v(10)]
+    rule = num_col_css(2)
+    assert rule in build_draft_html(verses)
+    assert rule in build_final_html([[verses[0]], [verses[1]]], '유다서')
+
+
+def test_hanging_indent_css():
+    assert '.orig-col p { display:flex; }' in BASE_CSS
+    assert '.orig-col .txt { flex:1 1 auto; min-width:0; }' in BASE_CSS
+
+
+def test_footer_has_top_rule():
+    ft = PAGE_CSS.split('.ft {')[1].split('}')[0]
+    assert 'border-top:0.75pt solid #333' in ft

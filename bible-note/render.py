@@ -23,7 +23,7 @@ MARGIN_MM = 13
 HEADER_MM = 12
 FOOTER_MM = 8
 LINE_MM = 9.5
-ORIG_PCT = 38      # 원문 열이 가용폭에서 차지하는 비율(퍼센트)
+ORIG_PCT = 50      # 원문 열이 가용폭에서 차지하는 비율(퍼센트) — 2026-09-22 성도님 결정 50:50(처음엔 38:62)
 COL_PAD_MM = 4     # 세로선 쪽 안쪽 여백 — 원문 열 오른쪽, 필사 열 왼쪽
 FONT_PT = 12
 
@@ -81,8 +81,24 @@ body { font-family:'NSK',serif; color:#111; }
   font-size:%(fpt)spt; line-height:%(line)smm; margin:0; word-break:keep-all;
 }
 .orig-col .sub, .write-col .sub { font-family:'NSKB',serif; font-weight:400; }
-.orig-col .num { font-family:'NSKB',serif; font-weight:400; margin-right:1.5mm; }
+.orig-col p { display:flex; }
+.orig-col .num { flex:0 0 auto; font-family:'NSKB',serif; font-weight:400; }
+.orig-col .txt { flex:1 1 auto; min-width:0; }
 """ % {'ow': orig_width_mm(), 'pad': COL_PAD_MM, 'fpt': FONT_PT, 'line': LINE_MM}
+
+
+def num_digits(verses):
+    """가장 큰 절 번호의 자릿수 — 번호 칸 폭을 정한다(시편 119편은 세 자리)."""
+    return max(len(str(v['verse'])) for v in verses)
+
+
+def num_col_css(digits):
+    """번호 칸 폭 규칙 — 숫자 자릿수 + 마침표 + 틈.
+
+    ⚠️ 1차(실측)와 2차(인쇄)가 반드시 같은 값을 써야 한다. 다르면 줄바꿈이 달라져
+       필사줄 수가 어긋난다. `ch` 는 번호 서체(NSKB)의 숫자 폭이다.
+    """
+    return '.orig-col .num { width:calc(%dch + 0.6ch + 1.5mm); }' % digits
 
 
 def build_draft_html(verses):
@@ -99,13 +115,13 @@ def build_draft_html(verses):
                 % (v['chapter'], v['verse'], esc(v['subtitle'])))
         parts.append(
             '<p data-ch="%d" data-vs="%d" data-role="body">'
-            '<span class="num">%d.</span>%s</p>'
+            '<span class="num">%d.</span><span class="txt">%s</span></p>'
             % (v['chapter'], v['verse'], v['verse'], esc(v['body'])))
     return (
         '<!doctype html><html lang="ko"><head><meta charset="utf-8">'
-        '<style>%s</style></head>'
+        '<style>%s%s</style></head>'
         '<body><div class="orig-col">%s</div></body></html>'
-        % (BASE_CSS, ''.join(parts))
+        % (BASE_CSS, num_col_css(num_digits(verses)), ''.join(parts))
     )
 
 
@@ -125,7 +141,7 @@ PAGE_CSS = """
              border-left:0.75pt solid #ccc; overflow:hidden; }
 .write-col .ln { height:%(line)smm; border-bottom:0.5pt solid #999; }
 .ft { height:%(fh)smm; display:flex; align-items:center; justify-content:center;
-      font-size:9pt; color:#555; }
+      font-size:9pt; color:#555; border-top:0.75pt solid #333; }
 """ % {'w': PAGE_W_MM, 'h': PAGE_H_MM, 'm': MARGIN_MM, 'hh': HEADER_MM,
        'rh': usable_body_mm(), 'fh': FOOTER_MM, 'line': LINE_MM,
        'ww': write_width_mm(), 'pad': COL_PAD_MM}
@@ -151,7 +167,8 @@ def _page_html(page_verses, book, page_no):
             write_parts.append('<div class="sub" style="height:%smm">%s</div>'
                                % (_mm(sub_lines * LINE_MM), esc(v['subtitle'])))
         orig_parts.append(
-            '<p><span class="num">%d.</span>%s</p>' % (v['verse'], esc(v['body'])))
+            '<p><span class="num">%d.</span><span class="txt">%s</span></p>'
+            % (v['verse'], esc(v['body'])))
         body_lines = v['lines'] - sub_lines
         write_parts.append(
             '<div class="vs-write">%s</div>' % ('<div class="ln"></div>' * body_lines))
@@ -194,11 +211,17 @@ document.fonts.ready.then(function(){
 
 
 def build_final_html(pages, book):
-    """2차 그리기 — 페이지별로 원문 열 + 필사줄 열을 나란히 그린다."""
+    """2차 그리기 — 페이지별로 원문 열 + 필사줄 열을 나란히 그린다.
+
+    번호 칸 폭은 쪽마다가 아니라 펼친 전체 절로 계산한다(둘째 쪽에만 두 자리
+    번호가 있어도 첫 쪽도 두 자리 폭이어야 1차와 같은 규칙을 쓴다).
+    """
+    all_verses = [v for pg in pages for v in pg]
+    num_css = num_col_css(num_digits(all_verses))
     page_divs = [_page_html(pg, book, i + 1) for i, pg in enumerate(pages)]
     return (
         '<!doctype html><html lang="ko"><head><meta charset="utf-8">'
         '<title>%s 필사노트</title>'
-        '<style>%s%s</style></head><body>%s%s</body></html>'
-        % (esc(book), BASE_CSS, PAGE_CSS, FONT_WARN_HTML, ''.join(page_divs))
+        '<style>%s%s%s</style></head><body>%s%s</body></html>'
+        % (esc(book), BASE_CSS, num_css, PAGE_CSS, FONT_WARN_HTML, ''.join(page_divs))
     )
