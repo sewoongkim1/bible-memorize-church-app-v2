@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260923a";
+const APP_BUILD = "20260923b";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -8060,8 +8060,11 @@ function pilsaActionsHtml(showForm) {
   }
   if (editable) btns.push('<button class="pl-act danger" id="pl-cancel">취소</button>');
   btns.push('<button class="pl-act ghost" id="pl-exit">뒤로</button>');
-  // 성경 31단위를 훑다 보면 화면이 길어진다 — 버튼은 늘 아래에 붙여 둔다
-  return '<div class="pl-acts sticky">' + btns.join("") + '</div>';
+  // 성경 31단위를 훑다 보면 화면이 길어진다 — 버튼은 늘 화면 아래에 못 박는다(.pl-acts.sticky)
+  // ⚠️ 고칠 수 있을 때는 단추가 셋(수정하기·취소·뒤로)이라 좁은 폰에서 글자가 두 줄로 접힌다
+  //    — 사역신청의 min-acts-3 과 같은 처리를 붙인다.
+  return '<div class="pl-acts sticky' + (btns.length >= 3 ? " pl-acts-3" : "") + '">' +
+    btns.join("") + '</div>';
 }
 
 function wirePilsaActions(u) {

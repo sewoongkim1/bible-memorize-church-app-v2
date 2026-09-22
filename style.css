@@ -3227,7 +3227,10 @@ html[data-fs="xl"] .test-card .btn-row { row-gap: 10px; margin-bottom: 18px; pad
 /* ── 성경필사 노트 신청 ─────────────────────────────────────
    registration.html의 짜임(탭 → 입력 → 확인 → 결과)을 그대로 따르되,
    교구·목장·이름은 로그인 정보로 대신하므로 다시 묻지 않는다. */
-.pilsa-screen { padding-bottom: 72px; }
+/* 아래 고정 단추(.pl-acts.sticky)가 마지막 줄을 가리지 않도록 — .min-screen 과 같은 값.
+   ⚠️ env() 를 여백에도 넣어야 한다: 단추의 bottom 이 안전영역만큼 올라가므로
+   여백만 고정값으로 두면 아이폰에서 그만큼 가려진다. */
+.pilsa-screen { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .pilsa-sub { text-align: center; font-size: .86rem; color: #6a7688; margin: -6px 0 14px; }
 .pilsa-tab { margin-bottom: 14px; }
 
@@ -3475,15 +3478,34 @@ html[data-fs="xl"] .test-card .btn-row { row-gap: 10px; margin-bottom: 18px; pad
 .dark .summary-help.pilsa-cta { background: #1e2a44; color: #cdd9f2; border-color: #3a5680; }
 .dark .summary-help.pilsa-cta:hover { background: #3a5680; color: #fff; }
 
-/* 신청 내용 확인 — 버튼을 화면 아래에 붙여 둔다.
-   길게 훑다가 확인을 못 누르고 나가는 일을 막는다. */
-.pl-acts.sticky { position: sticky; bottom: 0; z-index: 5;
-                  margin: 18px -20px 0; padding: 12px 20px;
-                  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-                  background: var(--cream); border-top: 1px solid var(--border);
-                  box-shadow: 0 -6px 18px rgba(26, 42, 72, .07); }
-.dark .pl-acts.sticky { background: #1a2233; border-top-color: #3a4a68;
-                        box-shadow: 0 -6px 18px rgba(0, 0, 0, .28); }
+/* 신청·확인 화면의 단추 — 화면 아래에 못 박는다.
+   성경 31단위를 훑다 보면 화면이 길어져, 단추가 본문 끝에 있으면 끝까지 내려야 보인다.
+   ⚠️ position:sticky 로 두었더니 **하나도 안 붙었다**(2026-09-23 · 사역신청 .min-acts 가
+   2026-09-18에 성도님 제보로 이미 겪은 것과 같은 자리다). body 에 overflow-x:hidden 이
+   걸려 있어 body 가 스크롤 상자가 되는데, 정작 스크롤은 문서(html)가 한다 — sticky 는
+   그 body 를 기준으로 계산하니 움직일 일이 없다. 여기서는 `.pilsa-screen` 의 아래 여백
+   72px 안에서만 잠깐 붙어, 끝까지 내리기 전에는 붙는 것처럼 보이지도 않았다.
+   그래서 첫 화면 고정 단추(.home-fab)·사역신청(.min-acts)과 같이 position:fixed 로 못 박고,
+   폭은 본문과 같게 맞춘다(#app 은 max-width 600 · 좌우 여백 20).
+   아래 여백은 .pilsa-screen 이 진다(96px + 안전영역 — .min-screen 과 같은 값). */
+.pl-acts.sticky { position: fixed; left: 50%; transform: translateX(-50%); z-index: 40;
+                  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+                  width: min(560px, calc(100% - 40px));
+                  margin: 0; padding: 7px; border-radius: 14px;
+                  border: 1px solid rgba(214, 219, 230, .9);
+                  background: rgba(255, 255, 255, .94);
+                  box-shadow: 0 8px 28px rgba(26, 42, 72, .16);
+                  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+/* 막대가 두껍지 않게 — 본문 단추(14px)보다 한 단계 낮춘다(.min-acts 와 같은 12px) */
+.pl-acts.sticky .pl-act { padding: 12px 8px; }
+/* 단추가 셋(수정하기·취소·뒤로)이면 좁은 폰에서 글자가 두 줄로 접힌다 — 한 줄로 고정 */
+.pl-acts.sticky.pl-acts-3 .pl-act { padding-left: 4px; padding-right: 4px;
+                                    font-size: .82rem; white-space: nowrap; }
+.dark .pl-acts.sticky { background: rgba(27, 34, 51, .94); border-color: #3a4a68;
+                        box-shadow: 0 8px 28px rgba(0, 0, 0, .28); }
+/* 「🔄 새 버전이 나왔어요」 띠(#update-banner · position:fixed;bottom:0)가 단추를 덮는다 —
+   띠가 있는 동안만 그 높이(약 59px)만큼 올려 준다(.min-acts 와 같은 처리). */
+body:has(#update-banner) .pl-acts.sticky { bottom: calc(10px + 68px + env(safe-area-inset-bottom, 0px)); }
 
 /* 상한에 닿은 ＋ — 잠긴 듯 보이되 눌리기는 한다(왜 안 되는지 알려주려고) */
 .pl-ctl button.off { opacity: .35; }
