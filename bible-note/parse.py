@@ -1,14 +1,20 @@
 # -*- coding: utf-8 -*-
 """bible/*.txt(개역개정, CP949) 를 절 목록으로 파싱한다.
 
-파일 한 줄은 `약자N:M <소제목>? 본문` 꼴이다(예: `유1:1 <인사> 예수 그리스도의…`).
+파일 한 줄은 대개 `약자N:M <소제목>? 본문` 꼴이다(예: `유1:1 <인사> 예수 그리스도의…`).
 소제목 안에 다른 책의 장:절 인용이 그대로 들어있는 경우가 있다
-(예: `<세례 요한의 증언(막 1:7-8; 눅 3:15-17)>`) — `<...>` 안을 통째로 잡으므로 문제없다.
+(예: `<세례 요한의 증언(마 3:1-12; 막 1:7-8; 눅 3:15-17)>`) — `<...>` 안을 통째로 잡으므로 문제없다.
+
+⚠️ 예외가 있다 — 소제목이 절 한가운데 끼면 한 절이 두 줄로 나뉘고 뒷줄에는 절 번호가 없다
+   (`요5:이 날은 안식일이니`, 성경 전체 50개·21권). 요청한 장에 그런 줄이 있으면 **멈춘다**
+   (ValueError). 조용히 건너뛰면 그 절 뒷부분이 빠진 채 인쇄된다. 앞 절에 이어 붙이는 처리는
+   66권으로 넓힐 때 한다(2026-09-22 결정).
 """
 import os
 import re
 
 VERSE_RE = re.compile(r'^\D+(\d+):(\d+)\s*(?:<([^>]*)>)?\s*(.*)$')
+CHAPTER_RE = re.compile(r'^\D+(\d+):')
 FILENAME_RE = re.compile(r'^\d+-\d+(.+)\.txt$')
 
 
@@ -32,14 +38,20 @@ def parse_book(text, book_name, chapter=None):
     """성경 파일 전체 텍스트를 절 목록으로 바꾼다.
 
     chapter 를 주면 그 장만 남긴다(요한복음처럼 여러 장인 책에서 1장만 뽑을 때 쓴다).
+    절 번호 없이 이어지는 줄이 그 장(chapter 가 None 이면 어느 장이든)에 있으면 ValueError.
     """
     verses = []
-    for line in text.splitlines():
+    for lineno, line in enumerate(text.splitlines(), 1):
         line = line.strip()
         if not line:
             continue
         m = VERSE_RE.match(line)
         if not m:
+            c = CHAPTER_RE.match(line)
+            if c is None or chapter is None or int(c.group(1)) == chapter:
+                raise ValueError(
+                    '%s %d번째 줄: 절 번호가 없는 줄이라 어느 절인지 알 수 없습니다 — %s'
+                    % (book_name, lineno, line[:40]))
             continue
         ch_s, vs_s, subtitle, body = m.groups()
         ch = int(ch_s)

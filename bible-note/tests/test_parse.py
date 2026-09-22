@@ -37,10 +37,10 @@ def test_parse_verse_with_subtitle():
 
 
 def test_parse_subtitle_with_nested_reference():
-    # 소제목 안에 다른 책의 장:절 인용이 통째로 들어있는 경우(요한복음 1:19 실제 원문 형태)
-    text = "요1:19 <세례 요한의 증언(막 1:7-8; 눅 3:15-17)> 유대인들이 예루살렘에서"
+    # 소제목 안에 다른 책의 장:절 인용이 통째로 들어있는 경우(요한복음 1:19 실제 원문 그대로)
+    text = "요1:19 <세례 요한의 증언(마 3:1-12; 막 1:7-8; 눅 3:15-17)> 유대인들이 예루살렘에서"
     verses = parse_book(text, '요한복음')
-    assert verses[0]['subtitle'] == '세례 요한의 증언(막 1:7-8; 눅 3:15-17)'
+    assert verses[0]['subtitle'] == '세례 요한의 증언(마 3:1-12; 막 1:7-8; 눅 3:15-17)'
     assert verses[0]['body'] == '유대인들이 예루살렘에서'
 
 
@@ -70,6 +70,37 @@ def test_book_name_from_filename():
     assert book_name_from_filename('1-01창세기.txt') == '창세기'
 
 
+def test_book_name_from_filename_rejects_bad_name():
+    with pytest.raises(ValueError):
+        book_name_from_filename('유다서.txt')
+
+
+def test_parse_raises_on_continuation_line_in_requested_chapter():
+    # 요한복음 5:9 는 원문에서 두 줄로 나뉘어 있다 — 뒷줄에 절 번호가 없다.
+    # 조용히 건너뛰면 「이 날은 안식일이니」가 빠진 채 인쇄되므로 멈춰야 한다.
+    text = "요5:9 그 사람이 곧 나아서 자리를 들고 걸어가니라\n요5:이 날은 안식일이니"
+    with pytest.raises(ValueError) as e:
+        parse_book(text, '요한복음', chapter=5)
+    assert '2번째 줄' in str(e.value)
+
+
+def test_parse_raises_on_continuation_line_without_chapter_filter():
+    text = "요5:9 그 사람이 곧 나아서\n요5:이 날은 안식일이니"
+    with pytest.raises(ValueError):
+        parse_book(text, '요한복음')
+
+
+def test_parse_raises_on_line_without_chapter_number():
+    with pytest.raises(ValueError):
+        parse_book("요1:1 태초에\n머리말 한 줄", '요한복음', chapter=1)
+
+
+def test_parse_ignores_continuation_line_in_other_chapter():
+    text = "요1:1 태초에 말씀이 계시니라\n요5:이 날은 안식일이니"
+    verses = parse_book(text, '요한복음', chapter=1)
+    assert [v['verse'] for v in verses] == [1]
+
+
 @needs_bible
 def test_load_book_file_decodes_cp949():
     text = load_book_file(JUDE)
@@ -80,13 +111,22 @@ def test_load_book_file_decodes_cp949():
 @needs_bible
 def test_parse_actual_jude_file_has_25_verses():
     verses = parse_book(load_book_file(JUDE), '유다서')
-    assert len(verses) == 25
-    assert verses[0]['verse'] == 1
-    assert verses[-1]['verse'] == 25
+    assert [v['verse'] for v in verses] == list(range(1, 26))
 
 
 @needs_bible
 def test_parse_actual_john_chapter1_has_51_verses():
     verses = parse_book(load_book_file(JOHN), '요한복음', chapter=1)
-    assert len(verses) == 51
+    assert [v['verse'] for v in verses] == list(range(1, 52))
     assert all(v['chapter'] == 1 for v in verses)
+    v19 = verses[18]
+    assert v19['subtitle'] == '세례 요한의 증언(마 3:1-12; 막 1:7-8; 눅 3:15-17)'
+    assert v19['body'].startswith('유대인들이 예루살렘에서')
+
+
+@needs_bible
+def test_parse_actual_john_whole_book_stops_at_continuation_line():
+    # 요한복음에는 절 번호 없이 이어지는 줄이 셋(5:9·12:36·18:38 뒷부분) 있다 — 첫 줄에서 멈춘다
+    with pytest.raises(ValueError) as e:
+        parse_book(load_book_file(JOHN), '요한복음')
+    assert '이 날은 안식일이니' in str(e.value)
