@@ -133,8 +133,13 @@ PAGE_CSS = """
 
 def _page_html(page_verses, book, page_no):
     first, last = page_verses[0], page_verses[-1]
-    rng = '%s %d:%d ~ %d:%d' % (book, first['chapter'], first['verse'],
-                                 last['chapter'], last['verse'])
+    if (first['chapter'], first['verse']) == (last['chapter'], last['verse']):
+        # 절 하나뿐인 쪽 — 「룻기 1:22 ~ 1:22」가 아니라 「룻기 1:22」 하나만 쓴다
+        # (2026-09-22 최종 검토 Minor — 장 바뀜 규칙이 생겨 장 끝에서 더 자주 나온다).
+        rng = '%s %d:%d' % (book, first['chapter'], first['verse'])
+    else:
+        rng = '%s %d:%d ~ %d:%d' % (book, first['chapter'], first['verse'],
+                                     last['chapter'], last['verse'])
     orig_parts = []
     write_parts = []
     for v in page_verses:

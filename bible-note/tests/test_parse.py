@@ -95,6 +95,19 @@ def test_parse_raises_on_line_without_chapter_number():
     with pytest.raises(ValueError) as e:
         parse_book("요1:1 태초에\n머리말 한 줄", '요한복음', chapter=1)
     assert '2번째 줄' in str(e.value)
+    # 장 번호조차 없으면 「절 번호가 없는 줄」이 아니라 「장·절 번호가 없는 줄」이어야
+    # 한다(2026-09-22 최종 검토 Minor — 이어지는 줄과 구분).
+    assert '장·절 번호가 없는 줄' in str(e.value)
+
+
+def test_parse_raises_on_continuation_line_message_says_verse_only():
+    # 장 번호는 있고(요5:) 절 번호만 없는 이어지는 줄은 「장·절」이 아니라
+    # 「절 번호가 없는 줄」이어야 한다.
+    text = "요5:9 그 사람이 곧 나아서 자리를 들고 걸어가니라\n요5:이 날은 안식일이니"
+    with pytest.raises(ValueError) as e:
+        parse_book(text, '요한복음', chapter=5)
+    assert '절 번호가 없는 줄' in str(e.value)
+    assert '장·절' not in str(e.value)
 
 
 def test_parse_raises_on_merged_verse_line_in_requested_chapter():

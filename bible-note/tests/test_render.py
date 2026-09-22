@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from render import (
-    BASE_CSS, build_draft_html, build_final_html, esc,
+    BASE_CSS, PAGE_CSS, build_draft_html, build_final_html, esc,
     lines_per_page, orig_width_mm, usable_body_mm, write_width_mm,
 )
 
@@ -64,6 +65,17 @@ def test_draft_and_final_share_orig_col_rule():
     assert 'class="orig-col" style=' not in final
 
 
+def test_page_css_orig_col_has_no_width_or_padding():
+    # 인라인 style= 만 막는 위 테스트로는 PAGE_CSS 의 .orig-col 규칙 자체에
+    # width·padding 이 섞여 들어가는 것을 못 잡는다 — 섞이면 2차(인쇄)의 원문 열
+    # 폭이 1차(실측)와 달라져도 조용히 통과한다(2026-09-22 최종 검토 Minor).
+    m = re.search(r'\.orig-col\s*\{([^}]*)\}', PAGE_CSS)
+    assert m, 'PAGE_CSS 에 .orig-col 규칙이 없습니다'
+    rule = m.group(1)
+    assert 'width' not in rule
+    assert 'padding' not in rule
+
+
 def test_final_html_has_one_page_div_per_page():
     html = build_final_html([[_v(1)], [_v(2)]], '유다서')
     assert html.count('class="page"') == 2
@@ -94,6 +106,14 @@ def test_final_html_two_line_subtitle_keeps_rows_aligned():
 def test_final_html_header_shows_verse_range():
     html = build_final_html([[_v(6), _v(7)]], '유다서')
     assert '유다서 1:6 ~ 1:7' in html
+
+
+def test_final_html_header_single_verse_page_shows_once():
+    # 절 하나뿐인 쪽은 「룻기 1:22 ~ 1:22」가 아니라 「룻기 1:22」 하나만 쓴다
+    # (2026-09-22 최종 검토 Minor).
+    html = build_final_html([[_v(22)]], '룻기')
+    assert '룻기 1:22' in html
+    assert '~ 1:22' not in html
 
 
 def test_final_html_page_numbers_increment():

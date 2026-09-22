@@ -89,3 +89,26 @@ def test_paginate_ignores_chapter_when_key_absent():
     pages = paginate(verses, lines_per_page=17)
     assert len(pages) == 1
     assert len(pages[0]) == 5
+
+
+def test_paginate_oversized_verse_message_includes_chapter():
+    # 여러 장을 한꺼번에 돌릴 수 있게 된 뒤로는 절 번호만으로 몇 장인지 알 수 없다
+    # (2026-09-22 최종 검토 Minor).
+    with pytest.raises(ValueError) as e:
+        paginate([{'verse': 3, 'chapter': 2, 'lines': 30}], lines_per_page=17)
+    assert '2:3' in str(e.value)
+
+
+def test_paginate_zero_lines_message_includes_chapter():
+    with pytest.raises(ValueError) as e:
+        paginate([{'verse': 5, 'chapter': 1, 'lines': 0}], lines_per_page=17)
+    assert '1:5' in str(e.value)
+
+
+def test_paginate_message_without_chapter_key_omits_colon():
+    # 'chapter' 키가 없는 더미 절은 옛날처럼 절 번호만 보인다.
+    with pytest.raises(ValueError) as e:
+        paginate([{'verse': 5, 'lines': 0}], lines_per_page=17)
+    msg = str(e.value)
+    assert '5절' in msg
+    assert '5:5' not in msg

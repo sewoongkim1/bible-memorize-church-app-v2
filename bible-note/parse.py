@@ -56,8 +56,14 @@ def parse_book(text, book_name, chapter=None):
         if not m or merged:
             c = CHAPTER_RE.match(line)
             if c is None or chapter is None or int(c.group(1)) == chapter:
-                why = ('여러 절이 한 줄로 합쳐져 있어 절마다 나눌 수 없습니다' if merged
-                       else '절 번호가 없는 줄이라 어느 절인지 알 수 없습니다')
+                if merged:
+                    why = '여러 절이 한 줄로 합쳐져 있어 절마다 나눌 수 없습니다'
+                elif c is None:
+                    # 장 번호조차 없다(예: 순수 머리말 줄) — 절 번호만 없는 경우와 구분한다
+                    # (2026-09-22 최종 검토 Minor).
+                    why = '장·절 번호가 없는 줄이라 어느 절인지 알 수 없습니다'
+                else:
+                    why = '절 번호가 없는 줄이라 어느 절인지 알 수 없습니다'
                 raise ValueError('%s %d번째 줄: %s — %s' % (book_name, lineno, why, line[:40]))
             continue
         ch_s, vs_s, subtitle, body = m.groups()

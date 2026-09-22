@@ -21,7 +21,7 @@ import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from parse import parse_book, load_book_file
+from parse import parse_book, load_book_file, book_name_from_filename
 from paginate import paginate
 from render import build_draft_html, build_final_html, lines_per_page, FONT_URL
 
@@ -31,6 +31,8 @@ CHROME_CANDS = [
     os.path.join(os.environ.get('LOCALAPPDATA', ''), r'Google\Chrome\Application\chrome.exe'),
     r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe',
 ]
+
+CHROME_TIMEOUT_SEC = 120
 
 # ⚠️ 줄 수 = 높이 ÷ 줄 높이. Range.getClientRects() 로 상자를 세면 절 번호 <span> 때문에
 #    첫 줄을 두세 번 센다(상자·그 안 글자·본문 조각이 따로 잡힌다).
@@ -58,6 +60,74 @@ def find_chrome():
     return None
 
 
+def _beside(html_path, name):
+    """임시 파일은 대상 HTML 옆에 둔다 — 그래야 fonts/ 상대 경로가 그대로 풀린다.
+    generate(줄 수 재기)·verify(레이아웃·인쇄) 가 같이 쓴다."""
+    return os.path.join(os.path.dirname(os.path.abspath(html_path)), name)
+
+
+def _chrome(chrome, flags, target_path):
+    """헤드리스 크롬 호출 한 곳 — generate·verify 가 같이 쓴다.
+    ⚠️ timeout 이 없으면 크롬이 멈췄을 때 끝없이 기다린다. 실패해도 원인이 안 보이던 것도
+       바로 위(호출한 쪽)에서 stderr 를 실어 알린다(2026-09-22 최종 검토 Minor)."""
+    try:
+        return subprocess.run(
+            [chrome, '--headless', '--disable-gpu'] + flags +
+            ['file:///' + os.path.abspath(target_path).replace(os.sep, '/')],
+            capture_output=True, timeout=CHROME_TIMEOUT_SEC)
+    except subprocess.TimeoutExpired:
+        raise SystemExit('!! 크롬이 %d초 안에 끝나지 않았습니다(멈췄을 수 있습니다) — %s'
+                          % (CHROME_TIMEOUT_SEC, target_path))
+
+
+def _git_repo_root():
+    """이 스크립트(generate.py)가 들어있는 저장소의 루트를 돌려준다.
+    git 이 없거나(FileNotFoundError) 이 폴더가 저장소가 아니면(예: bible-note/ 만
+    복사해 따로 쓰는 경우) None — 그 경우 ensure_out_path_safe 는 검사 없이 허용한다."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    try:
+        r = subprocess.run(['git', 'rev-parse', '--show-toplevel'],
+                            cwd=here, capture_output=True, text=True)
+    except OSError:
+        return None  # git 이 없다
+    if r.returncode != 0:
+        return None  # 저장소가 아니다
+    return os.path.normcase(os.path.realpath(r.stdout.strip()))
+
+
+def _is_git_ignored(repo_root, abs_path):
+    r = subprocess.run(['git', 'check-ignore', '-q', abs_path],
+                        cwd=repo_root, capture_output=True)
+    return r.returncode == 0
+
+
+def ensure_out_path_safe(out_path):
+    """만든 HTML 에는 개역개정 본문이 그대로 들어 있다. 이 저장소는 push 가 곧 배포라
+    커밋에 걸리지 않는 자리에만 쓸 수 있게, 쓰기 전에 미리 막는다.
+
+    - 저장소 밖(바탕화면·USB 등)이면 그대로 허용한다.
+    - 저장소 안인데 git 이 무시하지 않는 자리(예: marketing/, .gitignore 패턴 밖의 다른
+      폴더)면 SystemExit 로 멈춘다 — bible-note/ 아래나 저장소 밖을 쓰라고 알려 준다.
+    - git 이 없거나 이 폴더가 저장소가 아니면 검사 없이 허용한다.
+    (2026-09-22 최종 검토 Important 1 — `--out`으로 다른 폴더에 낼 때 이 확인이 없었다.)
+    """
+    root = _git_repo_root()
+    if root is None:
+        return
+    abs_path = os.path.realpath(os.path.abspath(out_path))
+    norm_path = os.path.normcase(abs_path)
+    if norm_path != root and not norm_path.startswith(root + os.sep):
+        return  # 저장소 밖 — 허용
+    if _is_git_ignored(root, abs_path):
+        return
+    raise SystemExit(
+        '!! "%s" 는 저장소 안인데 커밋에서 무시되지 않는 자리입니다.\n'
+        '   이 HTML 에는 개역개정 본문이 그대로 들어 있고, 이 저장소는 push 하면\n'
+        '   사이트 전체가 그대로 배포됩니다.\n'
+        '   bible-note/ 아래(예: bible-note/out/파일명.html)나 저장소 밖(바탕화면·USB 등)에\n'
+        '   --out 을 주세요.' % out_path)
+
+
 def ensure_fonts():
     """Noto Serif KR 을 받아 둔다 — 없으면 여기서만 한 번 인터넷이 필요하다."""
     os.makedirs('fonts', exist_ok=True)
@@ -83,7 +153,10 @@ def _copy_fonts_beside(out_path):
     깜빡하거나 나중에 파일만 다시 옮기더라도 화면에서 바로 드러난다.
     """
     out_dir = os.path.dirname(os.path.abspath(out_path)) or os.getcwd()
-    if os.path.abspath(out_dir) == os.path.abspath(os.getcwd()):
+    # normcase+realpath 로 비교한다 — 안 그러면 윈도에서 bible-note 와 대소문자만
+    # 다른 경로를 '다른 폴더'로 보고 서체를 자기 자신 위에 복사하려다 실측을 다 마친
+    # 뒤에 PermissionError 로 죽는다(2026-09-22 최종 검토 Minor).
+    if os.path.normcase(os.path.realpath(out_dir)) == os.path.normcase(os.path.realpath(os.getcwd())):
         return
     dst_fonts = os.path.join(out_dir, 'fonts')
     os.makedirs(dst_fonts, exist_ok=True)
@@ -92,32 +165,52 @@ def _copy_fonts_beside(out_path):
     print('  서체 폴더를 함께 두었습니다 — %s' % dst_fonts)
 
 
-def find_book_file(book_name):
-    """bible/ 폴더에서 이 책 이름으로 끝나는 파일을 찾는다."""
-    bible_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'bible')
-    target = book_name + '.txt'
+def find_book_file(book_name, bible_dir=None):
+    """bible/ 폴더에서 이 책과 이름이 정확히 같은 파일을 찾는다.
+
+    예전엔 endswith 로 찾아 부분 이름이 조용히 걸렸다(「서」→ 전도서, 「애가」→
+    예레미야애가인데 인쇄본 머리글은 「애가」로 찍힘 — 2026-09-22 최종 검토 Minor).
+    파일명에서 뽑은 책 이름(parse.book_name_from_filename)이 딱 같은 것만 찾고,
+    없으면 비슷한 이름 후보를 보여 주고 멈춘다.
+    """
+    if bible_dir is None:
+        bible_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'bible')
+    candidates = []
     for fn in sorted(os.listdir(bible_dir)):
-        if fn.endswith(target):
+        if not fn.endswith('.txt'):
+            continue
+        try:
+            name = book_name_from_filename(fn)
+        except ValueError:
+            continue
+        if name == book_name:
             return os.path.join(bible_dir, fn)
-    raise SystemExit('!! bible/ 에서 "%s"를 못 찾았습니다' % book_name)
+        if book_name in name or name in book_name:
+            candidates.append(name)
+    msg = '!! bible/ 에서 "%s"를 못 찾았습니다' % book_name
+    if candidates:
+        msg += ' — 혹시 %s?' % ', '.join(sorted(set(candidates)))
+    raise SystemExit(msg)
 
 
 def measure_lines(html_path, chrome):
     """브라우저에 '이 절(과 소제목)이 몇 줄로 찍혔는지' 물어본다."""
     with io.open(html_path, encoding='utf-8') as f:
         html = f.read()
-    tmp = os.path.join(os.path.dirname(os.path.abspath(html_path)), '_measure.html')
+    tmp = _beside(html_path, '_measure.html')
     with io.open(tmp, 'w', encoding='utf-8') as f:
         f.write(html.replace('</body>', MEASURE_PROBE + '</body>'))
-    r = subprocess.run(
-        [chrome, '--headless', '--disable-gpu', '--dump-dom',
-         '--virtual-time-budget=20000',
-         'file:///' + tmp.replace(os.sep, '/')],
-        capture_output=True)
-    os.remove(tmp)
+    try:
+        r = _chrome(chrome, ['--dump-dom', '--virtual-time-budget=20000'], tmp)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
     dom = r.stdout.decode('utf-8', 'replace')
     m = re.search(r'<title>LINES\|([^<]*)</title>', dom)
     if not m:
+        stderr = r.stderr.decode('utf-8', 'replace').strip()[:500]
+        if stderr:
+            print('  (크롬 stderr) %s' % stderr)
         return None
     if m.group(1) == 'FONTFAIL':
         raise SystemExit('!! 서체가 불리지 않아 줄 수를 잴 수 없습니다 — fonts/ 를 확인하세요')
@@ -131,6 +224,10 @@ def measure_lines(html_path, chrome):
 
 
 def generate(book_name, chapter=None, out_path=None):
+    if out_path:
+        # chdir 전에 미리 절대경로로 풀어 둔다 — 안 그러면 상대 --out 이 부른 사람의
+        # 폴더가 아니라 bible-note/ 기준으로 풀린다(2026-09-22 최종 검토 Important 1 원인).
+        out_path = os.path.abspath(out_path)
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     ensure_fonts()
     chrome = find_chrome()
@@ -146,8 +243,11 @@ def generate(book_name, chapter=None, out_path=None):
     draft_path = '_draft.html'
     with io.open(draft_path, 'w', encoding='utf-8') as f:
         f.write(build_draft_html(verses))
-    lines_map = measure_lines(draft_path, chrome)
-    os.remove(draft_path)
+    try:
+        lines_map = measure_lines(draft_path, chrome)
+    finally:
+        if os.path.exists(draft_path):
+            os.remove(draft_path)
     if lines_map is None:
         raise SystemExit('!! 줄 수를 재지 못했습니다')
 
@@ -163,6 +263,7 @@ def generate(book_name, chapter=None, out_path=None):
     if not out_path:
         suffix = '_%d장' % chapter if chapter else ''
         out_path = '%s%s.html' % (book_name, suffix)
+    ensure_out_path_safe(out_path)
     _copy_fonts_beside(out_path)
     with io.open(out_path, 'w', encoding='utf-8') as f:
         f.write(build_final_html(pages, book_name))

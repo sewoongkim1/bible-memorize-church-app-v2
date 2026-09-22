@@ -13,7 +13,18 @@
    절과 비교해 장이 바뀐 시점에 남은 줄이 있어도 새 페이지로 넘긴다 — 안 그러면
    한 쪽 안에서 「30.」 다음에 장 표시 없이 「1.」이 이어져 찍힌다(2026-09-22 최종
    검토 Important 1). 'chapter' 키가 없는 절(테스트용 더미 등)은 지금처럼 줄 수만 본다.
+⚠️ 오류 메시지는 「(장):(절)」로 적는다 — 여러 장을 한꺼번에 돌릴 수 있게 된 뒤로는
+   절 번호만으로 몇 장인지 알 수 없다('chapter' 키가 없으면 절 번호만 적는다. 2026-09-22
+   최종 검토 Minor).
 """
+
+
+def _verse_label(v):
+    chapter = v.get('chapter')
+    verse = v.get('verse')
+    if chapter is None:
+        return '%s' % (verse,)
+    return '%s:%s' % (chapter, verse)
 
 
 def paginate(verses, lines_per_page):
@@ -25,10 +36,10 @@ def paginate(verses, lines_per_page):
     for v in verses:
         need = v['lines']
         if not isinstance(need, int) or need < 1:
-            raise ValueError('%s절의 줄 수가 잘못됐습니다: %r' % (v.get('verse'), need))
+            raise ValueError('%s절의 줄 수가 잘못됐습니다: %r' % (_verse_label(v), need))
         if need > lines_per_page:
             raise ValueError('%s절이 %d줄이라 한 쪽(%d줄)에 들어가지 않습니다 — 절을 쪽 중간에서 자를 수 없습니다'
-                             % (v.get('verse'), need, lines_per_page))
+                             % (_verse_label(v), need, lines_per_page))
         chapter_changed = current and v.get('chapter') != current[-1].get('chapter')
         if current and (need > remaining or chapter_changed):
             pages.append(current)

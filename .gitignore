@@ -125,7 +125,9 @@ ministry/화면/
 # 성경 필사노트(bible-note/) — 서체는 없으면 generate.py 가 받아 온다.
 # ⚠️ 만든 HTML 에는 개역개정 본문이 통째로 들어 있다 — 위 bible/ 와 같은 이유(저작권 ·
 #    공개 저장소)로 올리지 않는다. _로 시작하는 것은 실측·검증 중에 잠깐 생기는 파일이다.
-bible-note/fonts/
-bible-note/*.html
-bible-note/_*
+# ⚠️ --out 으로 bible-note/ 아래 다른 폴더(예 out/)에 낼 수도 있으므로 `**`로 그 밑까지
+#    막는다(2026-09-22 최종 검토 Important 1 — `bible-note/*.html`은 바로 아래만 막았다).
+bible-note/**/fonts/
+bible-note/**/*.html
+bible-note/**/_*
 bible-note/.pytest_cache/

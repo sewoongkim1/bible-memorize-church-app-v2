@@ -12,11 +12,10 @@
 import io
 import os
 import re
-import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from generate import find_chrome
+from generate import find_chrome, _beside, _chrome
 
 A4_LANDSCAPE_PT = (841.89, 595.28)
 
@@ -54,16 +53,8 @@ document.fonts.ready.then(function(){
 </script>"""
 
 
-def _chrome(chrome, flags, html_path):
-    return subprocess.run(
-        [chrome, '--headless', '--disable-gpu'] + flags +
-        ['file:///' + os.path.abspath(html_path).replace(os.sep, '/')],
-        capture_output=True)
-
-
-def _beside(html_path, name):
-    """검사용 임시 파일은 HTML 옆에 둔다 — 그래야 fonts/ 상대 경로가 그대로 풀린다."""
-    return os.path.join(os.path.dirname(os.path.abspath(html_path)), name)
+# 헤드리스 크롬 호출(_chrome)·임시 파일 자리(_beside)는 generate.py 것을 그대로 쓴다
+# (2026-09-22 최종 검토 Minor — 두 곳에 따로 있으면 timeout 등을 한쪽만 고치기 쉽다).
 
 
 def check_layout(html_path, chrome):
@@ -72,11 +63,18 @@ def check_layout(html_path, chrome):
     tmp = _beside(html_path, '_verify.html')
     with io.open(tmp, 'w', encoding='utf-8') as f:
         f.write(html.replace('</body>', LAYOUT_PROBE + '</body>'))
-    r = _chrome(chrome, ['--dump-dom', '--virtual-time-budget=20000'], tmp)
-    os.remove(tmp)
+    try:
+        r = _chrome(chrome, ['--dump-dom', '--virtual-time-budget=20000'], tmp)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
     m = re.search(r'<title>CHECK\|([^<]*)</title>', r.stdout.decode('utf-8', 'replace'))
     if not m:
-        return ['LAYOUT_CHECK_FAILED: 크롬 결과를 읽지 못했습니다']
+        stderr = r.stderr.decode('utf-8', 'replace').strip()[:500]
+        msg = 'LAYOUT_CHECK_FAILED: 크롬 결과를 읽지 못했습니다'
+        if stderr:
+            msg += ' — ' + stderr
+        return [msg]
     return [item for item in m.group(1).split(';') if item]
 
 
@@ -94,23 +92,26 @@ def check_print(html_path, chrome):
     pdf = _beside(html_path, '_verify_print.pdf')
     if os.path.exists(pdf):
         os.remove(pdf)
-    _chrome(chrome, ['--no-pdf-header-footer', '--print-to-pdf=' + pdf,
-                     '--virtual-time-budget=20000'], html_path)
-    if not os.path.exists(pdf):
-        return ['PRINT_FAILED: 크롬이 PDF 를 만들지 못했습니다']
-    problems = []
-    doc = pymupdf.open(pdf)
     try:
-        if doc.page_count != expected:
-            problems.append('PRINT_PAGES:%d!=%d' % (doc.page_count, expected))
-        for i in range(doc.page_count):
-            w, h = doc[i].rect.width, doc[i].rect.height
-            if abs(w - A4_LANDSCAPE_PT[0]) > 2 or abs(h - A4_LANDSCAPE_PT[1]) > 2:
-                problems.append('PRINT_SIZE:%d:%.0fx%.0fpt' % (i + 1, w, h))
+        _chrome(chrome, ['--no-pdf-header-footer', '--print-to-pdf=' + pdf,
+                         '--virtual-time-budget=20000'], html_path)
+        if not os.path.exists(pdf):
+            return ['PRINT_FAILED: 크롬이 PDF 를 만들지 못했습니다']
+        problems = []
+        doc = pymupdf.open(pdf)
+        try:
+            if doc.page_count != expected:
+                problems.append('PRINT_PAGES:%d!=%d' % (doc.page_count, expected))
+            for i in range(doc.page_count):
+                w, h = doc[i].rect.width, doc[i].rect.height
+                if abs(w - A4_LANDSCAPE_PT[0]) > 2 or abs(h - A4_LANDSCAPE_PT[1]) > 2:
+                    problems.append('PRINT_SIZE:%d:%.0fx%.0fpt' % (i + 1, w, h))
+        finally:
+            doc.close()
+        return problems
     finally:
-        doc.close()
-        os.remove(pdf)
-    return problems
+        if os.path.exists(pdf):
+            os.remove(pdf)
 
 
 def verify(html_path):
