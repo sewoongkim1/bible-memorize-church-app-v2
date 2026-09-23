@@ -115,6 +115,13 @@ async function loadVerses() {
 
 // 사용자 정보가 있으면 (서버 기록 동기화 후) 본인 기록 요약, 없으면 진입 화면
 function routeAfterLoad() {
+  // 푸시 알림을 눌러 들어온 표시(?from=push)를 함수 맨 앞에서 읽는다.
+  // ⚠️ 아래로 내리지 말 것 — 이 함수의 갈래(딥링크 ?v=·미리보기 ?preview=·위젯 ?w=·
+  //    어드민 진입 ?passages=/?psalm= 등)는 저마다 자리에서 곧장 return 한다.
+  //    이 줄이 그 갈래들보다 아래에 있으면 그 길로 들어온 클릭은 기록되지 않는다
+  //    (?v=1&from=push 처럼 딥링크와 겹치는 경우가 실제로 그랬다). readPushMark 는
+  //    from 파라미터만 지우고 v·lang 등 나머지는 그대로 두므로 먼저 불러도 안전하다.
+  readPushMark();
   _passagesPreview = getPassagesPreview();
   _psalmPreview = getPsalmPreview();
   _songPreview = getSongPreview();
@@ -215,7 +222,6 @@ function routeAfterLoad() {
       firstLogin = new URLSearchParams(location.search).get("firstLogin") === "1";
       if (firstLogin) history.replaceState(null, "", location.pathname);
     } catch (e) {}
-    readPushMark();          // 로그인한 분만 기록된다(logFeature 안에서 거른다)
     if (loadUser()) enterAfterLogin({ fresh: firstLogin });
     else renderEntryScreen();
   });
