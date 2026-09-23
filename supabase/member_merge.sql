@@ -62,8 +62,13 @@ create or replace function public.member_merge_counts(p_id uuid)
 returns jsonb language plpgsql security invoker set search_path = public as $$
 declare t text; n bigint; result jsonb := '{}';
 begin
+  -- ⚠️ 이 목록은 **합치기 본체가 실제로 옮기는 표**와 같아야 한다. 여기 없는 표는 미리보기
+  --    (adminPreviewMemberMerge)에 아예 안 보이고 합친 뒤 before/after 에도 흔적이 안 남는다 —
+  --    옮기기는 제대로 되는데 담당자 눈에는 「그런 기록이 없었다」로 보인다.
+  --    2026-09-23 에 blessing_log·daily_activity·feature_log 셋이 이렇게 빠져 있었다.
   foreach t in array array['challenge_log','progress','reviews','passage_progress','board_posts',
-    'board_replies','event_entries','pilsa_orders','ministry_orders','event_signups','push_subscriptions'] loop
+    'board_replies','event_entries','pilsa_orders','ministry_orders','event_signups','push_subscriptions',
+    'blessing_log','daily_activity','feature_log'] loop
     if to_regclass('public.' || t) is not null then
       execute format('select count(*) from public.%I where user_id::text=$1',t) into n using p_id::text;
       result := result || jsonb_build_object(t,n);
