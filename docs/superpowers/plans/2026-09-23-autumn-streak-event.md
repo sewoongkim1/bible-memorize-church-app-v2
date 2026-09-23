@@ -40,6 +40,30 @@ PostgreSQL(RPC + RLS) · 스모크 시험은 bash + curl + python(`tests/*.sh`)
     `xnomlgydifiqiybervtf`(운영). 운영 배포는 **맨 마지막 과제**에서 한 번에.
 11. 커밋 메시지 끝에 붙인다: `Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>`
 
+### 누가 무엇을 하나 (2026-09-23 정함)
+
+**일꾼(구현자)은 코드를 쓰고 커밋하고 보고한다.**
+**SQL 실행 · Edge Function 배포 · curl 검증은 컨트롤러(주 세션)가 한다** —
+이 저장소가 이전 작업에서 정한 방식이다(`.superpowers/sdd/progress.md`).
+
+### 개발 DB 에 SQL 을 돌리는 법 (브라우저 없이)
+
+저장소의 `supabase/.temp` 는 **운영**에 링크돼 있다. 개발에 돌리려면 **스크래치 폴더를 따로 링크**한다.
+
+    SP="<스크래치>/devwd"
+    mkdir -p "$SP/supabase"
+    printf '[api]\nenabled = true\n' > "$SP/supabase/config.toml"
+    supabase --workdir "$SP" link --project-ref ktpwthwqzgcqcrmsafdo --yes
+    supabase --workdir "$SP" db query --linked -f supabase/<파일>.sql
+
+`--linked` 는 **Management API** 로 돌아서 DB 비밀번호가 필요 없다.
+⚠️ 저장소 루트 `.env` 의 키 이름에 하이픈이 있어 CLI 가 dotenv 파서에서 죽는다 —
+   그래서 **`.env` 가 없는 폴더**에서 부른다. 다 쓰면 지운다(링크 정보가 들어 있다).
+⚠️ **개발인지 확인하는 법:** `select count(*) from users;` 가 **스물 남짓**이면 개발,
+   **사백이 넘으면 운영**이다. 운영이면 **그 자리에서 멈춘다.**
+운영 SQL(Task 11)은 컨트롤러가 친구에게 확인받고 돌린다.
+
+
 ### 확정된 값 (여러 파일에 같은 값이 들어간다 — 한 글자도 다르면 안 된다)
 
 | 이름 | 값 |
@@ -1909,8 +1933,12 @@ supabase functions deploy api --no-verify-jwt --project-ref xnomlgydifiqiybervtf
 2. 확인: `select proname, proacl from pg_proc where proname='v2_event_weeks' and (proacl::text like '%anon=%' or proacl::text like '%authenticated=%');` → **0행**
 3. `supabase/event_stamp_2026.sql` 전체 (회차가 `draft` 로 들어간다 — 아직 아무도 못 본다)
 4. 확인: `select id,status,opens_on,closes_on,list_until from public.events where status in ('open','closed') order by closes_on;`
-   → `summer-2026` 이 남아 있으면 `list_until` 을 박거나 `status='archived'` 로 내린다
-   (⚠️ 안 그러면 개시일에 첫 화면이 「이벤트 2개」로 접힌다)
+   → ✅ **2026-09-23 확인: `summer-2026` 은 이미 목록에서 빠졌다**
+     (`status='closed'` · `list_until='2026-09-20'` 이 지났다). 그래서 지금 첫 화면에는
+     이벤트 단추가 **아예 없고**, 이 기능을 배포해도 10/11 에 `draft → open` 을 누르기
+     전까지 성도님 화면은 안 바뀐다.
+   → 그래도 **이 자리에서 한 번 더 본다.** 그 사이 누가 회차를 열어 둘이 되면
+     첫 화면 라벨이 「이벤트 2개」로 접혀(app.js:365) 진행 줄의 주인이 사라진다.
 
 ⚠️ `dev_seed_stamp.sql` 은 **절대 운영에 돌리지 않는다.**
 
