@@ -235,9 +235,16 @@ else
   KEY="${DEV_ANON:?DEV_ANON 환경변수가 필요합니다}"
 fi
 
+CALL_TMP=$(mktemp)
+trap 'rm -f "$CALL_TMP"' EXIT
+
+# ⚠️ 명령줄 리터럴 한글은 (특히 Git Bash/Windows 에서) 깨져서 서버에 도착한다 —
+# 이걸 모르면 서버가 허용 목록에 있는 값을 거부하는 것처럼 보여 서버 버그로 오해하게 된다.
+# 그래서 body 는 UTF-8 파일로 써서 보낸다.
 call() {
+  printf '%s' "$1" > "$CALL_TMP"
   curl -s -X POST "$BASE" -H "Content-Type: application/json" \
-    -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -d "$1"
+    -H "apikey: $KEY" -H "Authorization: Bearer $KEY" --data-binary @"$CALL_TMP"
 }
 
 pass=0; fail=0
