@@ -20,7 +20,7 @@
 | 매일 묵상 | **없음** | ❌ |
 | 말씀 앨범(이어 듣기·TTS) | **없음** | ❌ |
 | 사용 설명서 · `guide/` | **없음** | ❌ |
-| 위젯(아이폰·안드로이드) | **없음** | ❌ |
+| 위젯(아이폰·안드로이드) | **없음** | ❌ → ⚠️ **묵상 위젯만 됐다**(2장 — 처음 전제가 틀렸다) |
 | 푸시 **열람** | 발송만(`push_log`) | ❌ |
 
 시편 쪽에 남는 흔적은 「시편 구절을 **암송**한 기록」 248회·14명뿐이다.
@@ -43,12 +43,41 @@
 
 **이번에 심는 곳** — 시편 액자 · 매일 묵상 · 말씀 앨범 · 사용 설명서 + 푸시 열람.
 
-**이번에 빼는 것 — 위젯.** 이유를 적어 둔다(안 적으면 「넷인데 왜 셋이지」가 된다).
-`ios-app/.../WidgetShared.swift` 에 **「위젯은 로그인 없이 보이는 공개 정보만 다룬다 —
-`user_id`·개인정보는 절대 담지 않는다」** 가 원칙으로 박혀 있다. 아래 표는 `user_id` 가
-기본키라 **위젯 기록은 여기에 못 들어온다.** 넣으려면 그 원칙을 깨거나 익명 기기값을
-새로 만들어야 하고, 그건 이 작업과 성격이 다른 결정이다.
-→ 다음 판에서 **「횟수·기기 수만 세는 별도 표」** 로 따로 다룬다.
+### ⚠️ 「위젯은 이 표에 못 들어온다」 — 틀린 전제였다 (2026-09-23 같은 날 고침)
+
+처음 이 장은 이렇게 적었다. `ios-app/.../WidgetShared.swift` 에 **「위젯은 로그인 없이 보이는
+공개 정보만 다룬다 — `user_id`·개인정보는 절대 담지 않는다」** 가 원칙으로 박혀 있고, 아래 표는
+`user_id` 가 기본키이니 **위젯 기록은 여기에 못 들어온다**, 넣으려면 그 원칙을 깨거나 익명
+기기값을 새로 만들어야 한다 — 그래서 뺀다.
+
+**그 전제는 「위젯 프로세스가 스스로 서버에 보고할 때」만 맞다.** 실제 길은 다르다. 위젯을 누르면
+위젯이 보고하는 것이 아니라 **로그인된 앱이** `/?w=meditation` 으로 열린다
+(`AppDelegate.openFromWidget` → `app.js` 의 `getWidgetTarget`). 그 시점에 앱은 이미
+`user_id` 를 들고 있다 — 위젯은 여전히 공개 정보만 다루고, 원칙은 하나도 안 깨진다.
+**푸시 열람을 `?from=push` 로 재는 것과 글자 그대로 같은 구조**인데, 바로 아래 절에 그 구조를
+적어 두고도 위젯에는 같은 수가 있다는 것을 못 봤다. 네이티브 코드도 스토어 심사도 필요 없다.
+→ **이번에 실제로 심었다**(`meditation-widget`, 3장 표).
+
+### 그래도 아직 못 재는 것 (실제 코드를 확인하고 적는다)
+
+- **이번주 말씀 위젯 — 못 가른다.** 아이폰 `TodayVerseWidget.swift` 의 `link` 는
+  **모든 크기가 함께 쓰는 하나**다(잠금 네모 · 잠금 시계 위 한 줄 · 홈 가로 · 홈 「크게」).
+  전부 `gocheokmemorize://verse?no=N` → `AppDelegate` 가 `/?v=N` 로 바꿔 싣는다. 그 주소는
+  **말씀 아카이브(sermon.onlybible.kr) 딥링크와 글자 그대로 같다** — 위젯에서 온 것인지
+  아카이브에서 온 것인지 가를 수가 없다. 안드로이드도 같다(`WidgetLogic.verseUrl` → `/?v=번호`).
+  ⚠️ **홈 「크게」가 별도 스킴이라 못 가른다는 말은 사실이 아니다**(설계 검토 중 그렇게 적힐 뻔했다) —
+  `systemLarge` 는 화면 모양만 다른 가지이고 주소는 같은 `link` 를 쓴다. 갈라지는 자리는 단 하나,
+  **구절 번호를 모를 때 `://home`** 인데 그건 앱만 열고 아무 표식도 안 남기는 길이다.
+  → 가르려면 위젯 쪽 주소에 표식을 더해야 한다(예: `?v=N&from=widget`). **이번 범위 밖이고,
+    아이폰은 스토어 판을 새로 내야 반영된다.**
+- **기기(아이폰/안드로이드)·위젯 크기 — 못 가른다.** 안드로이드 위젯도 같은 `/?w=meditation` 을
+  쓴다(`android-app/.../WidgetLogic.java` 의 `MEDITATION_URL`). 플레이스토어에 나가는 날부터
+  같은 `meditation-widget` 칸에 섞여 든다 — 그날 이후 숫자를 「아이폰 위젯」이라 부르면 틀린다.
+- **축복 기도문 위젯(`/?w=prayer`) — 가를 수는 있는데 안 심었다.** 주소가 이미 갈라져 있어
+  묵상과 똑같이 하면 된다. 안 한 이유는 기도문 열람이 이 표가 아니라 **`blessing_log`** 에
+  남기 때문이다(`app.js` `drawPrayer`) — 거기에 갈래를 더하는 것은 다른 표의 모양을 바꾸는
+  일이라 성격이 다르다. ⚠️ 그래서 **기도문은 지금도 「한 통」이다** — 위젯으로 온 분과 단추로
+  누른 분이 `blessing_log` 에 섞여 있다. 묵상에서 고친 그 결함이 기도문에는 그대로 남아 있다.
 
 **이번에 빼는 것 — 아이폰 네이티브 푸시(APNs).** 지금 실기기에서 알림이 안 뜬다
 (`CLAUDE.md` 다음 작업 절). 동작을 확인할 수 없는 경로에 계측을 얹으면
@@ -69,21 +98,44 @@
 | `feature` | 언제 한 번 | `item` 의 뜻 | 이걸로 답하는 질문 |
 |---|---|---|---|
 | `psalm` | 시편 액자 한 편을 펼쳐 볼 때 | 편 번호(`no`) | 180편이 **몇 명**에게 닿나 · 어느 편이 읽히나 |
-| `meditation` | 성도님이 **눌러서** 열 때 | 그 주 구절 번호 | 스스로 찾아 읽는 분이 몇 명인가 |
-| `meditation-auto` | 하루 한 번 **저절로** 뜰 때 | 그 주 구절 번호 | `meditation` 과 함께 분모(합집합)를 이룸 — 아래 ⚠️ 참고 |
+| `meditation` | 첫 화면 **「오늘의 묵상」 단추**로 열 때 | 그 주 구절 번호 | 앱 안에서 스스로 찾아 읽는 분이 몇 명인가 |
+| `meditation-widget` | **위젯을 눌러** 열 때(`?w=meditation`) | 그 주 구절 번호 | 위젯이 실제로 쓰이나 — 이것도 능동이다 |
+| `meditation-auto` | 하루 한 번 **저절로** 뜰 때 | 그 주 구절 번호 | 위 둘과 함께 분모(합집합)를 이룸 — 아래 ⚠️ 참고 |
+| (안 남김) | 관리자 **미리보기**(`?preview=daily`) | — | 성도님 행위가 아니다 — 아래 ⚠️ 참고 |
 | `album` | 앨범 화면을 열 때 | 0 | |
 | `album-play` | **듣기를 시작**할 때 | 0 | 열고도 안 듣는 분이 얼마나 되나 |
 | `guide` | `guide/` 를 열 때 | 0 | 설명서가 쓰이나 |
 | `push` | 알림을 눌러 앱이 열릴 때 | 0 | 켜 둔 분 중 **실제로 누르는** 비율 |
 
-### ⚠️ `meditation` ÷ `meditation-auto` 는 몫이 아니다 (실측 뒤 고침)
+### ⚠️ 묵상은 **한 통이 아니라 세 갈래**다 (2026-09-23 같은 날 고침)
 
-`meditation`(눌러서 연 분)과 `meditation-auto`(저절로 뜬 분)는 서로 겹친다 — 같은 호출 자리에서
-`force ? "meditation" : "meditation-auto"` 로만 나뉘어 남을 뿐이라, 한 사람이 둘 다에도, 하나에만도,
-아예 없을 수도 있다. 그래서 `meditation ÷ meditation-auto` 처럼 하나를 다른 하나로 나누면 **100% 를
-넘을 수 있어 「몫」이 될 수 없다.** 분모는 둘의 **합집합**(묵상을 한 번이라도 본 분, 한 사람당 한 번만
-셈)이어야 한다 — `능동_비율_퍼센트 = meditation ÷ (meditation ∪ meditation-auto)`. 이렇게 두면 분자가
-분모의 부분집합이 되어 0~100 을 벗어나지 않는다(실제 `feature_log.sql` ③이 이 모양으로 짜여 있다).
+처음엔 `maybeShowWeeklyMeditation(force)` 의 `force` 하나로 `meditation` / `meditation-auto` 둘만
+갈랐다. **그런데 `force=true` 로 들어오는 길이 셋이었다** — 첫 화면 단추 · 위젯 탭(`?w=meditation`) ·
+관리자 미리보기(`?preview=daily`). 셋이 한 통에 담기면 「스스로 찾아 읽는 분」 숫자가 부풀고,
+쌓인 행에는 `day·feature·item` 만 남아 **나중에 갈라낼 방법이 아예 없다.** 그래서 `source` 인자를
+하나 더해(화면 동작은 안 바뀌고 **기록 이름만** 갈린다) 이렇게 나눴다.
+
+| 부르는 자리 | 넘기는 것 | 남는 `feature` |
+|---|---|---|
+| `app.js` — 첫 화면 「오늘의 묵상」 단추(`open-meditation`) | `(true, true)` | `meditation` |
+| `app.js` — 위젯 탭(`?w=meditation`, `widgetTo === "meditation"`) | `(true, true, "widget")` | `meditation-widget` |
+| `app.js` — 하루 한 번 자동 팝업(`maybeShowDailyMessage`, `catch` 폴백 포함) | `()` | `meditation-auto` |
+| `app.js` — 관리자 미리보기(`previewDailyMessage`, `?preview=daily`) | `(true, false, "preview")` | **안 남김** |
+
+**⚠️ 관리자 미리보기는 기록하지 않는다.** 담당자가 확인하려고 연 것이지 성도님이 읽은 것이 아니다.
+남기면 그만큼 숫자가 부푸는데, 그 부풀림은 **소수의 관리자가 여러 번 누르는 것**이라 표본이 작은
+초기에 특히 크게 튄다. 「안 남기는 것」이 이 자리에서는 더 정확한 기록이다.
+
+### ⚠️ 그래서 묵상 비율의 분모는 **합집합**이다 (하나로 다른 하나를 나누면 안 된다)
+
+세 갈래는 서로 겹친다 — 한 사람이 자동으로도 보고 단추로도 열 수 있다. 그래서
+`meditation ÷ meditation-auto` 처럼 하나를 다른 하나로 나누면 **100% 를 넘을 수 있어 「몫」이
+될 수 없다.** 분모는 셋의 **합집합**(묵상을 한 번이라도 본 분, 한 사람당 한 번만 셈)이어야 한다.
+
+- **묵상을 본 분** = `meditation` ∪ `meditation-widget` ∪ `meditation-auto`
+- **스스로 찾아 연 분** = `meditation` ∪ `meditation-widget` (위젯 탭도 일부러 누른 능동이다)
+- `능동_비율_퍼센트` = 둘째 ÷ 첫째 — 분자가 분모의 부분집합이라 0~100 을 벗어나지 않는다
+  (실제 `feature_log.sql` ③이 이 모양으로 짜여 있다).
 
 ### ⚠️ `push` 의 `item` 이 0 인 이유
 
@@ -102,7 +154,7 @@ Postgres 기본키에는 null 을 못 넣는다. `blessing_log` 가 `no` 를 not
 create table if not exists public.feature_log (
   user_id uuid not null references public.users(id) on delete cascade,
   day     date not null default ((now() at time zone 'Asia/Seoul')::date),
-  feature text not null,             -- psalm | meditation | meditation-auto | album | album-play | guide | push
+  feature text not null,             -- psalm | meditation | meditation-widget | meditation-auto | album | ... (늘어난다)
   item    int  not null default 0,   -- 기능마다 뜻이 다르다(3장의 표)
   cnt     int  not null default 1,
   primary key (user_id, day, feature, item)
@@ -160,7 +212,8 @@ grant execute on function public.v2_feature_log(uuid, text, int) to service_role
 `blessingLog` 를 그대로 본뜬다.
 
 ```ts
-const FEATURES = new Set(["psalm","meditation","meditation-auto","album","album-play","guide","push"]);
+const FEATURES = new Set(["psalm","meditation","meditation-widget","meditation-auto",
+                          "album","album-play","guide","push"]);   // ⚠️ 여기만 고친다 — 늘어난다
 
 async function featureLog(b: any) {
   if (!b.user_id || !FEATURES.has(String(b.feature))) return { ok: true, skipped: true };
@@ -205,7 +258,7 @@ function logFeature(feature, item) {
 | 파일 | 자리 | 부르는 것 |
 |---|---|---|
 | `js/psalm.js` | `drawPsalmHome()` — 오늘 편을 그린 직후 | `psalm`, 편 번호 |
-| `app.js` | 묵상 창을 여는 호출부(`force` 여부를 아는 자리) | `meditation` / `meditation-auto` |
+| `app.js` | 묵상 창을 여는 호출부 **넷**(3장의 표 — 어느 길로 들어왔는지 아는 자리) | `meditation` / `meditation-widget` / `meditation-auto` / 안 남김 |
 | `app.js` | 앨범을 **여는 단추**(`open-album` 클릭 핸들러) — `renderAlbum()` 시작부가 **아니다** | `album`, 0 |
 | `app.js` | `albumPlayStart()` | `album-play`, 0 |
 | `guide/index.html` | 페이지가 열릴 때 | `guide`, 0 |
@@ -232,8 +285,10 @@ function logFeature(feature, item) {
 「설치 전에도, 로비에서 QR로도 바로 열린다」). localStorage 에 `user_id` 가 없는 분은
 기록되지 않는다. 그러니 이 숫자는 **「설명서를 본 사람 수」가 아니라 「앱에 로그인한 채
 설명서를 누른 사람 수」** 다. 나중에 이 숫자를 읽을 때 그 차이를 잊으면 안 된다.
-로비 QR·주보로 들어온 분까지 세려면 익명 계측이 필요하고, 그건 위젯과 같은 성격의
-별도 결정이다(이번 범위 밖).
+로비 QR·주보로 들어온 분까지 세려면 **로그인 없는 분을 세는 익명 계측**이 필요하고,
+그건 이 표(기본키에 `user_id` 가 있다)로는 못 하는 다른 성격의 결정이다(이번 범위 밖).
+⚠️ 위젯을 예로 들지 말 것 — 위젯은 **로그인된 앱이 열려 기록하므로 익명 계측이 필요 없었다**
+(2장). 이 자리와 위젯을 같은 문제로 묶은 것이 처음 설계가 위젯을 뺀 까닭이었다.
 
 ### 푸시 열람 (`sw.js` + `app.js`)
 
@@ -255,9 +310,9 @@ function logFeature(feature, item) {
 
 1. 기능별 한눈에 — 사람 수 · 횟수 · 첫날 · 마지막날
 2. 날짜별 추이 (기능 × 날짜)
-3. **능동 대 수동** — `meditation` ÷ (`meditation` ∪ `meditation-auto`) — **분모는 합집합이다.**
-   `meditation ÷ meditation-auto` 로 그대로 나누면 두 집합이 겹쳐 100% 를 넘을 수 있어
-   몫이 아니다(위 3장 표 뒤 ⚠️ 참고).
+3. **능동 대 수동** — (`meditation` ∪ `meditation-widget`) ÷ (그 둘 ∪ `meditation-auto`) —
+   **분모는 합집합이다.** 하나를 다른 하나로 그대로 나누면 두 집합이 겹쳐 100% 를 넘을 수 있어
+   몫이 아니다(위 3장 표 뒤 ⚠️ 참고). 관리자 미리보기는 애초에 안 남으므로 뺄 것이 없다.
 4. **앨범 새는 자리** — `album` 연 사람 중 `album-play` 까지 간 비율
 5. 사람별 본 날수 분포 (한 번 보고 마셨나, 이어 보시나)
 6. 소속별 (⚠️ 이름이 나오므로 관리자만)
@@ -330,10 +385,15 @@ select (select count(*) from seen)                                as 액자를_�
 
 - `select feature, count(distinct user_id), sum(cnt) from feature_log group by feature;`
   → `psalm`·`meditation-auto`·`album` 세 줄은 반드시 나온다(자동으로 닿는 경로다).
-- `meditation` · `album-play` · `guide` · `push` 는 0 일 수 있다 —
-  **그 0 자체가 이 작업이 찾던 답이다.**
+- `meditation` · `meditation-widget` · `album-play` · `guide` · `push` 는 0 일 수 있다 —
+  **그 0 자체가 이 작업이 찾던 답이다.** 특히 `meditation-widget` 이 0 이면 그것은
+  「위젯을 깔아 둔 분이 잠금화면에서 안 누른다」는 뜻이다 — 1.1.0 을 출시한 값어치를 처음으로
+  숫자로 보는 자리다. ⚠️ 다만 **아이폰 위젯을 쓰는 분 자체가 몇 분 안 될 수 있다** — 0 을
+  「위젯이 쓸모없다」로 곧장 읽지 말 것.
+- ⚠️ **2026-09-23 하루치의 `meditation` 에는 관리자 미리보기가 섞여 있다**(같은 날 고쳤다).
+  첫 주 숫자를 볼 때 그 하루를 빼거나, 최소한 섞였다고 밝힐 것.
 
-2주 뒤 `psalm_metrics.sql` ②를 돌려 시편 전환율을 처음으로 숫자로 말할 수 있다.
+2주 뒤(= **2026-10-07**) `psalm_metrics.sql` ②를 돌려 시편 전환율을 처음으로 숫자로 말할 수 있다.
 
 ## 9. 하지 않는 것 (YAGNI)
 
@@ -342,3 +402,9 @@ select (select count(*) from seen)                                as 액자를_�
 - **`blessing_log` 흡수** — 운영 데이터 이사 + `member_merge.sql` + admin 통계 칸이 함께
   바뀌어야 한다. 기록을 심으려다 멀쩡한 것을 건드리게 된다. 나란히 둔다.
 - **체류 시간·스크롤 깊이** — 「몇 명에게 닿나」를 모르는 상태에서 깊이를 재는 것은 순서가 틀렸다.
+- **이번주 말씀 위젯·기도문 위젯 가르기** — 둘 다 **할 수는 있다**(2장). 말씀 위젯은 주소에
+  `&from=widget` 을 더하고 스토어 판을 새로 내야 하고, 기도문은 `blessing_log` 의 모양을
+  바꿔야 한다. ⚠️ **「위젯은 원리상 못 잰다」로 적지 말 것** — 이번에 바로 그 전제가 틀렸다.
+  안 하는 이유는 「못 해서」가 아니라 **「스토어 판·다른 표를 건드려야 해서」**다.
+- **위젯 기기·크기 가르기(아이폰/안드로이드, 잠금/홈)** — 지금은 `meditation-widget` 한 칸에
+  섞인다. 가르려면 주소에 표식을 더해야 하고, 그건 양쪽 스토어 판을 새로 내는 일이다.

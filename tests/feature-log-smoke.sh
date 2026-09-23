@@ -43,7 +43,12 @@ if [ -z "$TEST_UID" ]; then echo "  ✗ 시험 계정을 못 만들었다: $UID_
 echo "  · user_id = ${TEST_UID:0:8}…"
 
 echo "■ 올바른 기록은 ok"
-for F in psalm meditation meditation-auto album album-play guide push; do
+# ⚠️ 여기 목록은 index.ts 의 FEATURES **전부**여야 한다. 일곱만 돌리던 때 다른 세션이 더한
+#    event 가 빠진 줄 몰랐다 — 빠진 값은 「거부되는지」도 「통과하는지」도 시험되지 않는다.
+#    FEATURES 를 늘리면 이 줄도 그 자리에서 함께 늘린다(통과 개수는 pass 가 세므로 손댈 것 없다).
+# ⚠️ song 은 일부러 없다 — FEATURES 를 거치지 않고 서버가 직접 v2_feature_log 를 부르는 값이라
+#    여기로 보내면 skipped 가 맞다(오류가 아니다). 그 경로는 오늘의 찬양 액션으로 시험한다.
+for F in psalm meditation meditation-widget meditation-auto album album-play guide push ranking-scope event; do
   R=$(call "{\"action\":\"featureLog\",\"user_id\":\"$TEST_UID\",\"feature\":\"$F\",\"item\":0}")
   chk "$F" "$(echo "$R" | grep -o '"ok":true')" '"ok":true'
 done

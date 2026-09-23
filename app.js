@@ -158,7 +158,10 @@ function routeAfterLoad() {
       // 하루 1회 자동 묵상(maybeShowDailyMessage → maybeShowWeeklyMeditation)과 겹치지 않게 막고,
       // 「매일 묵상」 단추와 똑같이 연다(요일 탭 있음). ?preview=daily 와 같은 방식이다.
       _skipAutoDaily = true; enterAfterLogin(); _skipAutoDaily = false;
-      maybeShowWeeklyMeditation(true, true);
+      // 세 번째 인자 "widget" 은 화면이 아니라 **기록 이름만** 가른다(meditation-widget).
+      // 잠금화면에서 일부러 누른 능동이지만 첫 화면 단추와는 다른 길이라 따로 세어야
+      // 위젯이 실제로 쓰이는지 볼 수 있다.
+      maybeShowWeeklyMeditation(true, true, "widget");
       return;
     }
   }
@@ -6687,7 +6690,10 @@ function buildWeeklyMeditations(verse, sermon) {
 
 // force   : '하루 1회' 제한을 무시하고 무조건 표시(미리보기·버튼)
 // withTabs: 요일 탭 표시 여부 — 자동 팝업/어드민 미리보기는 false(성도가 보는 그대로), 매일묵상 버튼만 true
-function maybeShowWeeklyMeditation(force, withTabs) {
+// source  : 열람 기록을 어느 이름으로 남길지만 가른다(화면 동작은 안 바뀐다).
+//           "widget" = 아이폰 위젯 탭 · "preview" = 관리자 미리보기(안 남김) ·
+//           안 넘기면 지금까지대로(force 면 meditation, 아니면 meditation-auto).
+function maybeShowWeeklyMeditation(force, withTabs, source) {
   const info = getWeeklyVerseInfo();
   if (!info || !info.verse) return;
   loadSermons().then((sermons) => {
@@ -6746,7 +6752,16 @@ function maybeShowWeeklyMeditation(force, withTabs) {
       //    실패를 삼켜 못 일어나지만, 그 계약이 나중에 바뀌면 조용히 벌어진다).
       //    저절로 뜬 것과 눌러서 연 것을 가른다 — 뭉쳐 남기면 「묵상을 본 사람 = 앱을 연 사람」이
       //    되어 숫자가 뜻을 잃는다. 나중에 meditation ÷ meditation-auto 로 능동 비율을 본다.
-      logFeature(force ? "meditation" : "meditation-auto", info.verse.no);
+      // ⚠️ 위젯 탭(source="widget")도 스스로 누른 능동이지만 **경로가 달라 따로 센다** —
+      //    잠금화면에서 들어온 길이라 첫 화면 단추와 뜻이 같지 않고, 한 이름으로 뭉치면
+      //    위젯이 실제로 쓰이는지 영영 알 수 없다. 「스스로 찾아 연 분」은 meditation ∪
+      //    meditation-widget 이고, 「묵상을 본 분」은 거기에 meditation-auto 까지 합친 것이다.
+      // ⚠️ 관리자 미리보기(source="preview")는 **아예 안 남긴다** — 성도님 행위가 아니라
+      //    숫자를 부풀리는 오염원이다. 쌓인 행에는 day·feature·item 만 남아 나중에 못 갈라낸다.
+      if (source !== "preview") {
+        logFeature(source === "widget" ? "meditation-widget"
+                                       : (force ? "meditation" : "meditation-auto"), info.verse.no);
+      }
       // 자동 팝업·어드민 미리보기는 '오늘 것 하나만'. 요일 탭은 매일 묵상 버튼으로 열 때만.
       showMeditationModal(items, pick, verse, sermon, !!withTabs, usingPrev, { psalm: todayPsalm, song: todaySong });
     });
@@ -6881,7 +6896,10 @@ function previewDailyMessage() {
   api.getConfig("dailyMessage").then((d) => {
     const m = pickActiveDailyMessage(d && d.value);
     if (m) showDailyMessage(m);        // 공지·격려가 있으면 미리보기
-    maybeShowWeeklyMeditation(true);   // 공지 유무와 무관하게 오늘의 묵상도 항상 미리보기(하루1회 상태 무시)
+    // 공지 유무와 무관하게 오늘의 묵상도 항상 미리보기(하루1회 상태 무시).
+    // "preview" 는 열람 기록을 **안 남기게** 한다 — 관리자가 확인하려고 연 것이지
+    // 성도님이 읽은 것이 아니라서, 남기면 「묵상을 본 분」 숫자가 그만큼 부푼다.
+    maybeShowWeeklyMeditation(true, false, "preview");
   }).catch(() => {});
 }
 function showDailyMessage(m) {

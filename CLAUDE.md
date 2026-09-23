@@ -35,7 +35,7 @@
 | 기독교 고전 소책자(2026-09-14 완료 · 다시 뽑을 때만) | `docs/notes/classics-booklet.md` |
 | 성경 필사노트 가로형(`bible-note/` · 만든 HTML·원문은 커밋 금지) | `docs/notes/bible-note.md` |
 | 관리자 통계 '카드' 열 | `docs/notes/stats-admin.md` |
-| 측정(카드 쓰임·전환율) | `docs/notes/metrics.md` |
+| 측정(카드 쓰임·전환율·열람 기록) | `docs/notes/metrics.md` |
 | 액션·테이블·시크릿 목록 | `docs/notes/backend-api.md` |
 | 아이폰 앱(Swift)·「앱이면 …」 웹 코드·껍데기 판 표식 | `docs/notes/ios-app.md` |
 
@@ -232,7 +232,7 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
       ⚠️ **아침 알림(`latestVerse()`)은 아직 UTC 자정 기준**이라 구절이 바뀌는 날 0~9시에는 지난 구절을 쓴다 —
       위젯 쪽만 한국 날짜로 고쳤다(`weeklyVerseKst`). 알림도 고칠지는 정하지 않았다.
 - [ ] ⏰ **쉴만한 물가 — 2026-09-12(토) 개시했다.** 프런트·운영 DB·공개 게이트까지 끝.
-      **남은 것:** ① 실기기 확인(카드·어두운 모드·「아주 큼」 글씨) ② 2주 뒤 전환율(`supabase/psalm_metrics.sql`)
+      **남은 것:** ① 실기기 확인(카드·어두운 모드·「아주 큼」 글씨) ② 전환율(`supabase/psalm_metrics.sql` — 이제 실제로 있다). ⚠️ 기준일은 개시일이 아니라 **열람 기록 배포일 2026-09-23 + 2주 = 2026-10-07**(그전 열람은 기록 자체가 없다)
       ③ 본문이 다 들어온 뒤 다시 볼 것 셋(짧은 구절의 빈 자리·큰 글씨 넘침·단추 크기)
       ⚠️ **이미 된 것과 함정**(`supabase db query --linked` 는 운영이다 · 시드 SQL 만 돌리면 켜져 있던 구절이
       꺼진다 · 게시판 목록은 사진을 `photos` 로 준다)은 `docs/notes/psalm-still-waters.md` 에 있다.

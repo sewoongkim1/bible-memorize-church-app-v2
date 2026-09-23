@@ -65,9 +65,12 @@ order by 사람 desc, 횟수 desc
 limit 30;
 
 -- ⑤ 매일 묵상 창의 시편 배너를 거쳐 오시나 — 묵상을 본 분 중 액자도 본 분
---    ⚠️ meditation·meditation-auto 에는 관리자 미리보기가 섞인다(feature_log.sql ③ 참고).
---       관리자가 몇 명뿐이라 이 겹침_퍼센트 를 크게 왜곡하진 않지만, 아주 작은 표본에서는
---       그 몇 건이 비율을 눈에 띄게 흔들 수 있다는 점을 감안해서 읽는다.
+--    ⚠️ meditation 에는 **2026-09-23 하루치에 한해** 관리자 미리보기가 섞여 있다.
+--       그날 `?preview=daily` 를 기록에서 빼도록 고쳤으므로 **그 이후로는 안 섞인다**
+--       (feature_log.sql ③ 참고). 그 하루치는 day·feature·item 만 남아 갈라낼 수 없다 —
+--       표본이 작을 때는 그 몇 건이 비율을 눈에 띄게 흔들 수 있으니 감안해서 읽는다.
+--    ⚠️ `like 'meditation%'` 라 meditation-widget(위젯에서 열린 것)까지 함께 센다 — 그것이 맞다.
+--       여기서 묻는 것은 「묵상을 본 분」이지 「어느 길로 왔나」가 아니다.
 with med as (select distinct user_id from public.feature_log where feature like 'meditation%'),
      ps  as (select distinct user_id from public.feature_log where feature = 'psalm')
 select (select count(*) from med)                                 as 묵상을_본_사람,

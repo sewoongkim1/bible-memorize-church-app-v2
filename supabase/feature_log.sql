@@ -14,8 +14,9 @@
 --
 -- ■ 이 표는 이 기능 하나만 쓰는 표가 아니다 — **여러 세션·여러 기능이 함께 쓰는 표**다.
 --   처음 심은 것은 일곱 값(psalm · meditation · meditation-auto · album · album-play ·
---   guide · push)인데, 배포하고 하루도 안 지나 다른 두 세션이 이미 여기 더 쓰고 있었다
---   (2026-09-23 확인 — song · ranking-scope, 아래). **일곱이라는 숫자를 믿지 말 것** —
+--   guide · push)인데, 배포하고 하루도 안 지나 다른 세션들이 이미 여기 더 쓰고 있었다.
+--   2026-09-23 하루 만에 **열한 값**이 됐다 — song · ranking-scope · event(다른 세션들) ·
+--   meditation-widget(같은 날 저녁, 위젯 탭을 따로 세려고). **어떤 숫자도 믿지 말 것** —
 --   앞으로도 늘어난다. `select distinct feature from public.feature_log` 로 지금 값을 본다.
 --   ⚠️ **CHECK 제약을 일부러 걸지 않았다.** 걸면 허용 목록이 화면·서버·DB 세 곳이 되어,
 --      새 기능을 더할 때 앱은 보내는데 저장만 조용히 막힌다(challenge_log.mode 에서 겪었다).
@@ -25,9 +26,19 @@
 --      직접 부르는 값(예: song)은 이 관문을 거치지 않는다.
 --
 -- ■ item 의 뜻은 기능마다 다르다 — **표 전체를 관통하는 단일한 뜻은 없다**
---     psalm                       = 구절 번호 no (= 1000 + day_no)
---     meditation, meditation-auto = 그 주 구절 번호
+--   (2026-09-23 저녁 기준 열한 값. 앞 열은 FEATURES(index.ts)가 거르는 값, song 만 서버 안쪽 호출)
+--     psalm                       = 구절 번호 no (= 1000 + day_no · js/psalm.js 150행)
+--     meditation                  = 그 주 구절 번호 — 첫 화면 「오늘의 묵상」 단추로 연 것
+--     meditation-widget           = 그 주 구절 번호 — 아이폰 위젯(잠금화면)을 눌러 연 것(?w=meditation).
+--                                    이것도 능동이지만 **들어온 길이 달라 따로 센다** — 한 이름으로
+--                                    뭉치면 위젯(1.1.0 · 2026-09-22 출시)이 실제로 쓰이는지 영영 모른다
+--     meditation-auto             = 그 주 구절 번호 — 하루 한 번 저절로 뜬 것
+--                                    ⚠️ 관리자 미리보기(?preview=daily)는 이 셋 **어디에도 안 남는다**
+--                                       (2026-09-23 배포부터. 성도님 행위가 아니라 오염원이다 — ③ 참고)
 --     album, album-play, guide, push = 0
+--     event                       = 0 고정 — 이벤트 화면(「가을 말씀 동행」 등)을 연 것.
+--                                    js/events.js 의 renderEventList 가 화면을 그리는 자리에서 한 번
+--                                    (회차가 여럿이어도 회차 번호는 안 담는다 — 목록 화면 단위로 센다)
 --     ranking-scope               = 숫자가 아니라 **깃발**이다 — 1=우리 교구 · 0=전체
 --                                    (app.js 의 logFeature("ranking-scope", v==="mine"?1:0))
 --     song("오늘의 찬양")           = 0 고정 — index.ts 의 logSongClick 이 FEATURES 를 거치지
@@ -90,27 +101,40 @@ select day, feature, count(distinct user_id) as 사람, sum(cnt) as 횟수
 from public.feature_log
 group by day, feature order by day desc, feature limit 100;
 
--- ③ 매일 묵상 — 눌러서 연 분 대 저절로 뜬 분
---    ⚠️ meditation(눌러서 연 분)과 meditation-auto(저절로 뜬 분)는 서로 겹친다 — 같은 호출
---       자리에서 force ? "meditation" : "meditation-auto" 로 나뉘어 남을 뿐이라, 한 사람이
---       둘 다에도, 하나에만도, 아예 없을 수도 있다. 그래서 하나를 다른 하나로 나누면 100%
---       를 넘을 수 있어 「몫」이 아니다 — 분모는 둘의 합집합(묵상을 한 번이라도 본 분, 한
---       사람당 한 번만 셈)이어야 한다.
---    ⚠️ meditation 에는 관리자 미리보기가 섞인다. maybeShowWeeklyMeditation(force=true) 는
---       「성도님이 눌러서 열었다」보다 넓다 — 그 함수 머리 주석대로 force 는 '하루 1회'
---       제한을 무시하고 무조건 표시(미리보기·버튼)하는 것이다. admin.html 의 ?preview=daily
---       (previewDailyMessage())도 같은 경로로 meditation 을 기록한다. 관리자가 몇 명뿐이라
---       양은 적지만, 이 숫자를 「성도님이 스스로 누른 횟수」로 곧이곧대로 읽지 말 것.
-with a as (select distinct user_id from public.feature_log where feature = 'meditation'),
-     b as (select distinct user_id from public.feature_log where feature = 'meditation-auto'),
-     seen as (select user_id from a union select user_id from b)
-select (select count(*) from a)    as 눌러서_연_분,
-       (select count(*) from b)    as 저절로_뜬_분,
-       (select count(*) from seen) as 묵상을_본_분,
-       round(100.0 * (select count(*) from a) / nullif((select count(*) from seen), 0), 1)
-                                   as 능동_비율_퍼센트;
---    → 능동_비율_퍼센트 = 묵상을_본_분 가운데 스스로 눌러서 연 분의 몫. a 는 seen(=a∪b) 의
---      부분집합이므로 이 비율은 0~100 을 벗어날 수 없다.
+-- ③ 매일 묵상 — 스스로 찾아 연 분 대 저절로 뜬 분
+--    ⚠️ 세 값(meditation · meditation-widget · meditation-auto)은 서로 겹친다 — 같은 호출
+--       자리에서 어느 길로 들어왔느냐로만 갈려 남을 뿐이라, 한 사람이 셋 다에도, 하나에만도,
+--       아예 없을 수도 있다. 그래서 하나를 다른 하나로 나누면 100% 를 넘을 수 있어 「몫」이
+--       아니다 — 분모는 셋의 합집합(묵상을 한 번이라도 본 분, 한 사람당 한 번만 셈)이어야 한다.
+--    ⚠️ 그래서 분자를 원시 카운트로 두지 않는다. act(스스로 연 분) = meditation ∪
+--       meditation-widget 이고 seen(묵상을 본 분) = act ∪ meditation-auto 라, act 는 **집합을
+--       짜는 방식 자체로** seen 의 부분집합이다 — 비율이 0~100 을 벗어날 길이 없다.
+--       (④ 앨범에서 교집합으로 고친 것과 같은 방법이다.)
+--    ⚠️ 관리자 미리보기(?preview=daily · previewDailyMessage)는 **2026-09-23 배포까지는**
+--       meditation 에 섞여 있었다. 그날 이후 기록에는 안 섞인다 — 성도님 행위가 아니라
+--       숫자를 부풀리는 오염원이라 아예 안 남기게 고쳤다(maybeShowWeeklyMeditation 의
+--       source="preview"). 그러니 **2026-09-23 이전 하루치에 한해** meditation 을
+--       「성도님이 스스로 누른 횟수」로 곧이곧대로 읽지 말 것. 관리자가 몇 명뿐이라 양은 적다.
+--       그 하루를 아예 빼고 보려면 아래 세 CTE 에 `and day > date '2026-09-23'` 을 붙인다.
+with m    as (select distinct user_id from public.feature_log where feature = 'meditation'),
+     w    as (select distinct user_id from public.feature_log where feature = 'meditation-widget'),
+     a    as (select distinct user_id from public.feature_log where feature = 'meditation-auto'),
+     act  as (select user_id from m union select user_id from w),      -- 스스로 찾아 연 분
+     seen as (select user_id from act union select user_id from a)     -- 묵상을 한 번이라도 본 분
+select (select count(*) from seen) as 묵상을_본_분,
+       (select count(*) from act)  as 스스로_연_분,
+       (select count(*) from m)    as 첫화면_단추,
+       (select count(*) from w)    as 위젯,
+       (select count(*) from a)    as 저절로_뜬_분,
+       round(100.0 * (select count(*) from act) / nullif((select count(*) from seen), 0), 1)
+                                   as 능동_비율_퍼센트,
+       round(100.0 * (select count(*) from w)   / nullif((select count(*) from seen), 0), 1)
+                                   as 위젯_비율_퍼센트;
+--    → 능동_비율_퍼센트 = 묵상을_본_분 가운데 스스로 찾아 연 분의 몫.
+--    → 위젯_비율_퍼센트 = 그 가운데 잠금화면 위젯으로 들어온 분의 몫 — 「위젯이 실제로 쓰이나」.
+--      w 역시 seen 의 부분집합이라(seen 에 act ⊇ w 가 들어 있다) 100% 를 넘지 않는다.
+--    ⚠️ 첫화면_단추 + 위젯 은 스스로_연_분 보다 **클 수 있다** — 두 길로 다 들어온 분이
+--       양쪽에 한 번씩 세어지기 때문이다. 이 셋을 더하거나 빼서 새 숫자를 만들지 말 것.
 
 -- ④ 말씀 앨범 — 열고도 안 듣는 분
 --    ⚠️ album-play 는 앨범 화면(album)뿐 아니라 말씀 목록 화면(renderVerseList 의 '전체 듣기')

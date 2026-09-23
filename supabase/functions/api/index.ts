@@ -1392,8 +1392,9 @@ async function blessingLog(b: any) {
 // ⚠️ 응답에 user_id 를 싣지 않는다 — 이 API 에는 JWT 가 없다.
 const FEATURES = new Set([
   "psalm",            // 시편 액자 한 편을 펼쳐 봄 (item = 구절 번호)
-  "meditation",       // 성도님이 눌러서 연 묵상 (item = 그 주 구절 번호)
-  "meditation-auto",  // 하루 한 번 저절로 뜬 묵상 (위 숫자의 분모)
+  "meditation",         // 첫 화면 「오늘의 묵상」 단추로 연 묵상 (item = 그 주 구절 번호)
+  "meditation-widget",  // 아이폰 위젯(잠금화면)을 눌러 연 묵상 — 이것도 능동이지만 경로가 달라 따로 센다
+  "meditation-auto",    // 하루 한 번 저절로 뜬 묵상 (위 둘의 분모)
   "album",            // 앨범 화면을 엶
   "album-play",       // 듣기를 시작함 — 화면만 열고 마는 분을 가른다
   "guide",            // 사용 설명서를 엶
