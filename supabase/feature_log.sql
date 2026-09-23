@@ -74,25 +74,39 @@ from public.feature_log
 group by day, feature order by day desc, feature limit 100;
 
 -- ③ 매일 묵상 — 눌러서 연 분 대 저절로 뜬 분
---    이 비율이 「스스로 찾아 읽는 분」의 몫이다. 저절로 뜬 것만 많으면 그 기능은
---    성도님이 고른 것이 아니라 앱이 들이민 것이다.
+--    ⚠️ meditation(눌러서 연 분)과 meditation-auto(저절로 뜬 분)는 서로 겹친다 — 같은 호출
+--       자리에서 force ? "meditation" : "meditation-auto" 로 나뉘어 남을 뿐이라, 한 사람이
+--       둘 다에도, 하나에만도, 아예 없을 수도 있다. 그래서 하나를 다른 하나로 나누면 100%
+--       를 넘을 수 있어 「몫」이 아니다 — 분모는 둘의 합집합(묵상을 한 번이라도 본 분, 한
+--       사람당 한 번만 셈)이어야 한다.
 --    ⚠️ meditation 에는 관리자 미리보기가 섞인다. maybeShowWeeklyMeditation(force=true) 는
 --       「성도님이 눌러서 열었다」보다 넓다 — 그 함수 머리 주석대로 force 는 '하루 1회'
 --       제한을 무시하고 무조건 표시(미리보기·버튼)하는 것이다. admin.html 의 ?preview=daily
 --       (previewDailyMessage())도 같은 경로로 meditation 을 기록한다. 관리자가 몇 명뿐이라
 --       양은 적지만, 이 숫자를 「성도님이 스스로 누른 횟수」로 곧이곧대로 읽지 말 것.
-select (select count(distinct user_id) from public.feature_log where feature='meditation')      as 눌러서_연_분,
-       (select count(distinct user_id) from public.feature_log where feature='meditation-auto') as 저절로_뜬_분,
-       round(100.0 * (select count(distinct user_id) from public.feature_log where feature='meditation')
-                   / nullif((select count(distinct user_id) from public.feature_log where feature='meditation-auto'), 0), 1)
-                                                                                                 as 능동_비율_퍼센트;
+with a as (select distinct user_id from public.feature_log where feature = 'meditation'),
+     b as (select distinct user_id from public.feature_log where feature = 'meditation-auto'),
+     seen as (select user_id from a union select user_id from b)
+select (select count(*) from a)    as 눌러서_연_분,
+       (select count(*) from b)    as 저절로_뜬_분,
+       (select count(*) from seen) as 묵상을_본_분,
+       round(100.0 * (select count(*) from a) / nullif((select count(*) from seen), 0), 1)
+                                   as 능동_비율_퍼센트;
+--    → 능동_비율_퍼센트 = 묵상을_본_분 가운데 스스로 눌러서 연 분의 몫. a 는 seen(=a∪b) 의
+--      부분집합이므로 이 비율은 0~100 을 벗어날 수 없다.
 
 -- ④ 말씀 앨범 — 열고도 안 듣는 분
+--    ⚠️ album-play 는 앨범 화면(album)뿐 아니라 말씀 목록 화면(renderVerseList 의 '전체 듣기')
+--       에서도 남는데, 그 화면은 album 을 기록하지 않는다 — 그래서 album-play 가 album 의
+--       부분집합이라는 보장은 없다(전환율_퍼센트가 이론상 100 을 넘을 수 있다는 뜻. 이 질의는
+--       그 계산은 그대로 두고 열고도_안_듣는_분만 더한다). 그 열은 o 를 거른 것이라 이 문제와
+--       상관없이 항상 0 이상·화면을_연_분 이하다.
 with o as (select distinct user_id from public.feature_log where feature='album'),
      p as (select distinct user_id from public.feature_log where feature='album-play')
-select (select count(*) from o)                                   as 화면을_연_분,
-       (select count(*) from p)                                   as 듣기까지_간_분,
-       round(100.0 * (select count(*) from p) / nullif((select count(*) from o),0), 1) as 전환율_퍼센트;
+select (select count(*) from o)                                                       as 화면을_연_분,
+       (select count(*) from p)                                                       as 듣기까지_간_분,
+       round(100.0 * (select count(*) from p) / nullif((select count(*) from o),0), 1) as 전환율_퍼센트,
+       (select count(*) from o where user_id not in (select user_id from p))           as 열고도_안_듣는_분;
 
 -- ⑤ 한 번 보고 마셨나, 이어 보시나 — 기능별·사람별 본 날수 분포
 select feature, 본_날수, count(*) as 사람수 from (
