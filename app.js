@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260923d";
+const APP_BUILD = "20260923e";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1573,8 +1573,7 @@ const FEAT_SINCE = {
   //    ⚠️ 개시일을 옮기면 supabase/event_stamp_2026.sql 과 함께 옮긴다.
   stamp: "2026-10-11",        // 가을 말씀 동행 — 도장 시작일과 같은 날부터 NEW
   psalm: "2026-09-12",        // 쉴만한 물가(옛 이름 시편 말씀 액자) — 1일차와 같은 날부터 NEW
-  // ⚠️ 오늘의 찬양 — 게이트를 켜는 날(9/27 이후)의 날짜로 바꾼다. 빈 문자열이면 NEW 가 안 뜬다.
-  song: "",
+  song: "2026-09-23",         // 오늘의 찬양 — 게이트(songPublic)를 켠 날
   prayer: "2026-09-03",
   meditation: "2026-07-20",   // 매일 묵상
   sermon: "2026-07-23",       // 내게 주시는 말씀
@@ -2463,7 +2462,7 @@ function renderSummary() {
     renderPilsaApply();
   });
   { const b = document.getElementById("open-song");   // 게이트가 꺼져 있으면 없다
-    if (b) b.addEventListener("click", () => openSongToday(songCacheToday())); }
+    if (b) b.addEventListener("click", () => { markFeatSeen("song"); openSongToday(songCacheToday()); }); }
   loadTodaySong();   // 캐시가 없으면 받아서 곡명을 채운다
   // 형제 앱(찬양·말씀 아카이브)으로 이동 — 새 탭이라 암송 진행 상태를 잃지 않는다
   document.getElementById("open-praise").addEventListener("click", () => window.open("https://worship.onlybible.kr/", "_blank", "noopener"));
