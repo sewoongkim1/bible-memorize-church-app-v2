@@ -9,6 +9,16 @@
 --   도장둘    1·2주만 3일씩       → 자격 X · 남은 주로 닿을 수 있음(기간 중이면)
 --   늦게온이  5·6주만 3일씩, 그전 기록이 전혀 없음 → 중간 합류 → 필요 2주 → 자격 O
 
+-- ⚠️ 빗장 — 주석은 사람이 안 읽을 수 있다. 파일이 스스로 운영을 거부하게 한다.
+--    개발은 사람이 수십, 운영은 사백이 넘는다(2026-09-23 기준 416명).
+do $$
+begin
+  if (select count(*) from users) > 200 then
+    raise exception '여기는 운영으로 보입니다(users %). dev_seed_stamp.sql 은 개발 전용입니다.',
+      (select count(*) from users);
+  end if;
+end $$;
+
 do $$
 declare
   v_start date := '2026-10-11';
@@ -24,8 +34,13 @@ begin
 
   -- ① 사람 넷 (identity_key 는 login 이 만드는 것과 같은 꼴이 아니어도 된다 —
   --    이 자료는 화면 로그인용이 아니라 서버 계산 확인용이다)
-  delete from challenge_log where user_id in (select id from users where name in ('도장여섯','도장셋','도장둘','늦게온이'));
-  delete from users where name in ('도장여섯','도장셋','도장둘','늦게온이');
+  -- ⚠️ **이름으로 지우지 않는다.** 이 앱은 비밀번호가 없고 이름+소속으로 로그인해서
+  --    동명이인이 실재한다. identity_key 는 이 파일이 만든 값이라 남과 겹칠 수 없다.
+  delete from challenge_log where user_id in (
+    select id from users where identity_key in (
+      '교구|사랑|1|도장여섯','교구|사랑|1|도장셋','교구|사랑|1|도장둘','교구|사랑|1|늦게온이'));
+  delete from users where identity_key in (
+    '교구|사랑|1|도장여섯','교구|사랑|1|도장셋','교구|사랑|1|도장둘','교구|사랑|1|늦게온이');
 
   insert into users (type, gu, mok, name, identity_key) values
     ('교구','사랑','1','도장여섯','교구|사랑|1|도장여섯'),
