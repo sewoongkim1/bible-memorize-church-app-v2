@@ -216,7 +216,7 @@ PostgREST 로 여러 사람 주차를 세면 안 된다 — 한 번에 **1000행
 `group by`·`count(distinct)` 는 애초에 안 된다.
 
 ```sql
--- supabase/event_stamp_2026.sql 에 함께 둔다
+-- supabase/event_streak.sql (구조 — 회차를 넘어 산다. 회차 자료는 event_stamp_2026.sql)
 create or replace function v2_event_weeks(p_start date, p_weeks int, p_per_week int, p_users text[] default null)
 returns table(user_id text, week_no int, days int) …
 create index if not exists daily_activity_user_day_idx on public.daily_activity (user_id, day);
