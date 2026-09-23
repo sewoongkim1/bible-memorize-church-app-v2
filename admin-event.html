@@ -218,7 +218,15 @@ async function load(pick){
   evMissing = d.missing || [];
   evMissingTotal = d.missingTotal != null ? d.missingTotal : evMissing.length;
   if(pick) evPick = pick;
-  else if(!evPick) evPick = (evEvents.find(e => e.status === "open") || evEvents[0] || {}).id || "";
+  else if(!evPick){
+    evPick = (evEvents.find(e => e.status === "open") || evEvents[0] || {}).id || "";
+    // ⚠️ 첫 진입은 event_id 없이 불렀다 — 서버는 그때 「아직 신청 안 하신 분」을 **아예 안 센다**
+    //    (회차를 골라야 자격 규칙을 알 수 있다). 기본 회차를 방금 정했으니 한 번 더 부른다.
+    //    안 그러면 담당자가 **화면을 여는 그 순간에만** 그 배지가 조용히 안 뜬다
+    //    — 칩을 한 번 더 눌러야 나오는데, 그걸 알아챌 사람이 없다.
+    //    ⚠️ 되돌이 걱정 없음: 아래는 pick 을 주고 부르므로 이 갈래로 다시 오지 않는다.
+    if(evPick) return load(evPick);
+  }
   render();
 }
 
@@ -460,12 +468,20 @@ function downloadCsv(){
 }
 
 // 사정이 있으셨던 주를 인정 — 사유를 반드시 받는다(비우면 서버가 no-reason 으로 막는다)
+// 서버 슬러그를 사람 말로 — 담당자 화면에 영문 코드가 그대로 뜨면 무슨 일인지 모른다.
+function admErr(e){
+  if(e === "no-reason") return "사유를 적어 주세요. (공백만으로는 안 됩니다)";
+  if(e === "not-found") return "그 줄을 찾지 못했습니다. 새로고침한 뒤 다시 해 주세요.";
+  if(e === "bad-args") return "요청이 올바르지 않습니다.";
+  return e || "알 수 없는 까닭";
+}
+
 async function askExcuse(id, on){
   const reason = on ? prompt("사유를 적어 주세요 (예: 10월 3주 입원)") : "";
   if(on && !reason) return;
   const d = await callApi({ action:"eventExcuse", pw:getPw(), id, excused:on, reason });
   if(!guard(d)) return;
-  if(!d.ok){ alert("바꾸지 못했습니다 — " + (d.error||"")); return; }
+  if(!d.ok){ alert("바꾸지 못했습니다 — " + admErr(d.error)); return; }
   await load(evPick);
 }
 async function askNote(id, cur){
@@ -473,7 +489,7 @@ async function askNote(id, cur){
   if(note == null) return;
   const d = await callApi({ action:"eventSetNote", pw:getPw(), id, note });
   if(!guard(d)) return;
-  if(!d.ok){ alert("저장하지 못했습니다 — " + (d.error||"")); return; }
+  if(!d.ok){ alert("저장하지 못했습니다 — " + admErr(d.error)); return; }
   await load(evPick);
 }
 
