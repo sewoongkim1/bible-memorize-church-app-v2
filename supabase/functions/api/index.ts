@@ -110,6 +110,15 @@ const db = createClient(
 );
 
 const REVIEW_DAYS = [3, 7, 14, 30, 60]; // 복습(Leitner) 간격(일)
+// 시편 구절 번호 = 1000 + day_no. 앱(js/psalm.js 의 PSALM_NO_BASE)과 **같은 이름·같은 값**이라야
+// 한쪽만 바뀔 때 눈에 띈다. 쓸 곳이 늘면 isPsalmNo() 를 같이 쓴다.
+const PSALM_NO_BASE = 1000;
+// ⚠ 쉴만한 물가(시편)는 **복습에 넣지 않는다**(성도님 결정 2026-09-13). 앱은
+//   dueReviewNos() 에서 걸러 내지만 **서버가 안 걸러 예약을 계속 만들었다** —
+//   화면엔 안 보이니 아무도 모른 채 reviews 에 41행(13명)이 쌓였고,
+//   review_metrics.sql ③④(복습대상·밀린건수)가 그만큼 부풀어 나왔다(2026-09-23).
+//   지우기만 하면 로그인 한 번에 되살아난다 — 아래 두 자리를 함께 막는다.
+function isPsalmNo(no: any) { return Number(no) > PSALM_NO_BASE; }
 // 같은 구절이라도 한글과 영어는 서로 다른 암송 — 진도를 따로 센다
 const progLang = (v: unknown) => (String(v ?? "") === "en" ? "en" : "ko");
 const KST = "+09:00";
@@ -2076,7 +2085,7 @@ async function login(b: any) {
   const due = new Date(); due.setDate(due.getDate() + REVIEW_DAYS[0]);
   // 한글·영어 두 행이 모두 3단계일 수 있어, 구절 하나로 추린 뒤 예약한다
   const need = [...new Set((prog ?? [])
-    .filter((p: any) => p.stage === 3 && !revSet.has(p.verse_no))
+    .filter((p: any) => p.stage === 3 && !revSet.has(p.verse_no) && !isPsalmNo(p.verse_no))
     .map((p: any) => p.verse_no))];
   const toAdd = need.map((no) => ({ user_id: user.id, verse_no: no, box: 1, due_at: ymd(due) }));
   if (toAdd.length) {
@@ -2186,7 +2195,7 @@ async function saveProgress(b: any) {
   }
   if (logError) throw logError;
 
-  if (Number(b.stage) === 3) {
+  if (Number(b.stage) === 3 && !isPsalmNo(b.verse_no)) {
     // 복습은 언어를 가리지 않는다 — 어느 쪽으로 마쳤든 그 구절 하나로 예약
     const due = new Date(); due.setDate(due.getDate() + REVIEW_DAYS[0]);
     await db.from("reviews").upsert({
