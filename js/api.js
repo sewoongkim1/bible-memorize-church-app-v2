@@ -79,6 +79,7 @@ const api = {
   getPassages: () => supaCall("getPassages", {}),
   getBlessings: () => supaCall("getBlessings", {}),
   blessingLog: (p) => supaCall("blessingLog", p),
+  featureLog: (p) => supaCall("featureLog", p),          // 열람 기록 — 응답을 기다리지 않는다
   savePassage: (pw, passage) => supaCall("savePassage", { pw, passage }),
   deletePassage: (pw, id) => supaCall("deletePassage", { pw, id }),
   savePassageProgress: (user_id, passage_id, doneSeq, completed) =>

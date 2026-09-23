@@ -2364,6 +2364,25 @@ function renderPrayerBook(idx) {
   });
 }
 
+// ---------- 열람 기록 ----------
+// 못 재던 기능이 「몇 명에게 닿는지」를 남긴다(설계: docs/superpowers/specs/2026-09-23-feature-log-design.md).
+// ⚠️ await 하지 않는다 — 기다릴 이유가 없고, 기다리면 느린 통신에서 화면이 늦어진다.
+// ⚠️ 어떤 실패도 화면을 막지 않는다. 기록 때문에 액자가 안 열리면 본말이 뒤집힌다.
+// ⚠️ 같은 (기능,항목)을 60초 안에 다시 보내지 않는다 — 화면이 다시 그려지는 것과
+//    사람이 다시 들어오는 것을 가른다. 하루로 막으면 cnt 가 1 에 고정돼 뜻이 사라지고,
+//    아예 안 막으면 재렌더마다 가짜로 오른다. 60초가 그 사이를 가른다.
+const featSent = {};                       // 창을 닫으면 사라진다(메모리만 · localStorage 를 쓰지 않는다)
+function logFeature(feature, item) {
+  try {
+    const u = loadUser();
+    if (!u || !u.user_id) return;          // 로그인 전이면 아무것도 안 한다
+    const k = feature + ":" + (item || 0), now = Date.now();
+    if (featSent[k] && now - featSent[k] < 60000) return;
+    featSent[k] = now;
+    api.featureLog({ user_id: u.user_id, feature: feature, item: item || 0 });
+  } catch (e) {}
+}
+
 let prayLogged = null;   // 방금 기록한 편 — 이름 바꾸기 등으로 다시 그릴 때 두 번 세지 않게
 
 function drawPrayer(list, i) {
