@@ -182,7 +182,7 @@ eventStamps { user_id, event_id }
   → { ok:true,
       rule:   {start, weeks, perWeek, need} | null,   // null 이면 자격 회차가 아니다
       phase:  "before" | "measuring" | "signup" | "over",
-      days:   ["2026-10-11", …],   // 채운 날
+      days:   {"2026-10-11": 3, …} | null,   // 채운 날. ⚠️ **null = 「모른다」**
       weekDays: [3,2,0,1,3,0],     // 주별 채운 날 수
       weeksDone: 3,
       need: 3,                     // 이분에게 필요한 주 수(중간 합류 반영)
