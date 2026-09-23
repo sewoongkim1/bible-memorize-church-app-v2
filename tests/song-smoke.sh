@@ -21,9 +21,10 @@ d = json.load(sys.stdin)
 print(eval(sys.argv[1]))
 ' "$1" <<< "$2"; }
 
-pass=0; fail=0
+pass=0; fail=0; skip=0
 chk() { if [ "$2" = "$3" ]; then echo "  ✓ $1 = $2"; pass=$((pass+1));
         else echo "  ✗ $1 = $2  (기대 $3)"; fail=$((fail+1)); fi }
+sk() { echo "  − $1 … 건너뜀 ($2)"; skip=$((skip+1)); }
 
 S=$(call '{"action":"getTodaySong"}')
 echo "① 응답 모양"
@@ -34,6 +35,13 @@ SONG="$(jqn 'd.get("song")' "$S")"
 if [ "$SONG" = "None" ]; then
   echo "  ℹ️ song=null — 후보가 없는 DB 다(개발에 시드를 안 넣었거나 거르개가 전부 걸렀다)."
   echo "     supabase/praise_songs_dev_seed.sql 을 먼저 돌렸는지 보세요."
+  sk "id 가 있다" "후보가 없어 검증할 수 없습니다 — supabase/praise_songs_dev_seed.sql 을 먼저 돌리세요"
+  sk "곡명이 있다" "후보가 없어 검증할 수 없습니다 — supabase/praise_songs_dev_seed.sql 을 먼저 돌리세요"
+  sk "곡명이 「찬양」이 아니다" "후보가 없어 검증할 수 없습니다 — supabase/praise_songs_dev_seed.sql 을 먼저 돌리세요"
+  sk "곡명 ≠ 찬양대 이름" "후보가 없어 검증할 수 없습니다 — supabase/praise_songs_dev_seed.sql 을 먼저 돌리세요"
+  sk "duration 은 \"m:ss\" 꼴" "후보가 없어 검증할 수 없습니다 — supabase/praise_songs_dev_seed.sql 을 먼저 돌리세요"
+  sk "응답에 관리용 칸이 없다" "후보가 없어 검증할 수 없습니다 — supabase/praise_songs_dev_seed.sql 을 먼저 돌리세요"
+  sk "두 번째도 같은 곡" "후보가 없어 검증할 수 없습니다 — supabase/praise_songs_dev_seed.sql 을 먼저 돌리세요"
 else
   echo "② 곡 정보"
   chk "id 가 있다"     "$(jqn 'bool(d["song"].get("id"))' "$S")" "True"
@@ -54,8 +62,13 @@ echo "④ date 입력을 열지 않는다 — 쓰는 액션이기 때문"
 F=$(call '{"action":"getTodaySong","date":"2030-01-01"}')
 if [ "$SONG" != "None" ]; then
   chk "미래 날짜를 줘도 오늘 곡" "$(jqn 'd["song"]["id"]' "$F")" "$(jqn 'd["song"]["id"]' "$S")"
+else
+  sk "미래 날짜를 줘도 오늘 곡" "후보가 없어 검증할 수 없습니다 — supabase/praise_songs_dev_seed.sql 을 먼저 돌리세요"
 fi
 
 echo
-echo "통과 $pass · 실패 $fail"
+echo "통과 $pass · 건너뜀 $skip · 실패 $fail"
+if [ "$skip" -gt 0 ]; then
+  echo "⚠️ 후보가 없을 때는 모든 검증을 다시 돌려야 확인됩니다"
+fi
 [ "$fail" -eq 0 ]
