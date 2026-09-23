@@ -10,8 +10,12 @@
    (window 프로퍼티와 전역 렉시컬 바인딩은 별개다 — 실측으로 확인함). 이 파일의
    모든 SEED 는 `verses = [...]` (전역 할당)로 심는다.
 
-⚠️ 「기한이 같으면 구절 번호순」·startReview 실사 시험은 REVIEW_BATCH=3 을 전제한다 —
-   app.js 의 REVIEW_BATCH 상수를 바꾸면 이 시험들의 기대값도 같이 바뀐다.
+⚠️ REVIEW_BATCH=3 을 전제하는 갈래는 둘이다 — 「세 구절만 돌려준다」와 「동률 다섯 중 셋」.
+   startReview 실사 갈래는 큐의 **첫 구절**만 보므로 상수와 무관하다.
+
+⚠️ startReview 실사 갈래가 깨지면 먼저 두 가지를 보라 — `.test-ref-sticky` 클래스 이름이
+   바뀌었는지, 스텁으로 덮는 함수들이 `function` 선언에서 화살표 상수로 바뀌었는지
+   (`let`/`const` 로 선언되면 window 프로퍼티가 아니라 스텁이 조용히 무시된다).
 
 사용법:  python tests/review-batch.py
 """
@@ -94,7 +98,7 @@ try:
           r[5] = { level: 0, next: '2026-09-12' };  // 가장 오래 밀림
           localStorage.setItem('memorize-review', JSON.stringify(r));
 
-          // startReview 는 async 지만 본문에 await 가 없다 — 불러서 기다리면 렌더까지 끝나 있다.
+          // await 가 반환 프라미스를 기다리므로, 돌아왔을 때 렌더는 끝나 있다.
           await startReview();
           const ref = document.querySelector('.test-ref-sticky');
           return ref ? ref.textContent : null;
@@ -102,10 +106,15 @@ try:
         """)
         check("startReview 가 실제로 그린 첫 구절이 가장 오래 밀린 것(no=5 → ref5)", order == "ref5", order)
 
-        # 기한이 같으면 구절 번호순 — 동률이 REVIEW_BATCH(3)보다 많을 때 자르기가
-        # 정렬 **뒤**에 오는지도 함께 본다(2026-09-23 리뷰 지적 ③). 예전엔 항목이
-        # 셋뿐이라 비교 함수의 a - b 를 0 으로 바꿔도, 심지어 자르기를 정렬보다 먼저
-        # 해도 통과했다 — tie-break 도 정렬-뒤-자르기도 실은 안 재고 있었다.
+        # 동률 다섯 중 번호 작은 셋만 남는다(= 자르기가 일어난다).
+        # ⚠️ **이 갈래는 tie-break(비교 함수의 `a - b`)를 재지 못한다 — 원리상 못 잰다.**
+        #    `Object.keys` 가 정수 키를 삽입 순서와 무관하게 오름차순으로 주고
+        #    `Array.prototype.sort` 가 안정 정렬이라, `a - b` 를 `0` 으로 바꿔도 순서가 그대로다.
+        #    즉 `a - b` 는 `dueReviewNos` 를 통해서는 관측할 수 없는 **방어용**이다.
+        #    (재려면 비교 함수 자체를 꺼내 섞인 입력으로 불러야 하는데, 그만한 값어치가 없다.)
+        # ⚠️ **「자르기가 정렬 뒤」를 지키는 것은 이 갈래가 아니라 위의 「가장 오래 밀린 것부터」다** —
+        #    거기서 slice 를 sort 앞으로 옮기면 [3,2,1] 이 나와 FAIL 한다. 여기서는 전부 동률이라
+        #    앞으로 옮겨도 [3,7,9] 그대로 통과한다.
         # ⚠️ 기대값 [3, 7, 9] 는 REVIEW_BATCH=3 을 전제한다 — 상수를 바꾸면 같이 바뀐다.
         same = page.evaluate("""
         () => {
@@ -120,7 +129,7 @@ try:
           return dueReviewNos();
         }
         """)
-        check("기한이 같으면 구절 번호순, 자르기는 정렬 뒤 (3,7,9 만 남고 12·15 는 잘림)", same == [3, 7, 9], same)
+        check("동률 다섯 중 번호 작은 셋만 남는다 (3,7,9 · 12·15 는 잘림)", same == [3, 7, 9], same)
 
         # 아직 기한이 안 된 것은 안 나온다
         future = page.evaluate("""
