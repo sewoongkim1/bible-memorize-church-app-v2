@@ -24,6 +24,7 @@
 | 첫 화면·묶음·색·아래 고정 단추 | `docs/notes/home-screen.md` |
 | 게시판 글·답글·사진 | `docs/notes/board.md` |
 | 앨범 이어 듣기·TTS | `docs/notes/album-audio.md` |
+| 오늘의 찬양(하루 한 곡·찬양 앱 딥링크) | `docs/notes/today-song.md` |
 | 순위·응원·「지금 N명」 | `docs/notes/ranking-cheer.md` |
 | 영어(NIV) 모드 | `docs/notes/english-niv.md` |
 | 화면 캡처·안내 그림 만들기 | `docs/notes/capture-tools.md` |
@@ -77,6 +78,8 @@
 
 - **딥링크:** `gocheok.onlybible.kr/?v=구절번호` → 로그인 없이 해당 구절 암송화면(startTest) 바로 진입 (말씀 아카이브 sermon.onlybible.kr에서 연동). `&lang=en`이면 영어(NIV) 모드로 진입
 - **영어(NIV) 암송 모드(2026-07-22)** — `text_en` 이 있는 구절만 한/EN 토글. ⚠️ 손대기 전에 `docs/notes/english-niv.md` — 진도는 **언어별로 따로** 세고(복습·순위는 언어 무관), 영문은 Lora 로 한 단계 크게 쓴다.
+
+- **오늘의 찬양(2026-09-23 개시)** — 서버가 우리 교회 찬양 **하루 한 곡**을 정하고(모두 같은 곡), 첫 화면과 매일 묵상 창의 `🎵 찬양 · 곡명 ↗` 을 누르면 **찬양 아카이브**에서 그 곡이 열린다. ⚠️ 손대기 전에 `docs/notes/today-song.md` — **앱 안에 유튜브를 임베드하지 않기로 한 근거 넷**(되돌리기 전에 읽을 것)·「기록을 비우고 새 바퀴」 금지·LRU 를 곡별 `max(day)` 로 묶는 이유·`openPlayer` 첫 인자 함정·게이트 키를 `PUBLIC_CONFIG_KEYS` 에 넣어야 하는 것이 있다.
 
 - **쉴만한 물가(2026-09-12 개시)** — 시편·잠언·전도서 180편을 하루 한 편씩 액자로(`js/psalm.js`). 이름은 시편 23편 2절에서. ⚠️ 손대기 전에 `docs/notes/psalm-still-waters.md` — 번호(`no`) 재배정 금지·잠금은 「안 열린 것을 안 내려보내는 것」·게이트·시드 순서·「외운다」를 쓰지 않는 문구 규칙이 있다.
 
