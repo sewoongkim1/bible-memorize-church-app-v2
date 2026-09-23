@@ -224,6 +224,8 @@ create index if not exists daily_activity_user_day_idx on public.daily_activity 
 
 - `floor((d.day - p_start)/7)` · `d.day between p_start and p_start + (p_weeks*7 - 1)`
 - **반환에 이름·소속을 넣지 않는다.**
+- ⚠️ **활동이 없는 사람은 행이 아예 안 나온다**(부재이지 0 행이 아니다).
+  부르는 쪽이 「없으면 0 주」를 스스로 해야 한다.
 - ⚠️ 파일 끝에 `revoke all on function … from public, anon, authenticated` +
   `grant execute … to service_role` 를 **반드시** 붙이고, `proacl` 확인 질의로 「anon 열림 0건」을 눈으로 본다.
   본보기는 `supabase/daily-activity.sql:169-176`. **2026-09-23 에 `stats-rpc-card.sql` 이 이걸 빠뜨려

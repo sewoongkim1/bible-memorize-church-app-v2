@@ -27,6 +27,10 @@ create index if not exists daily_activity_user_day_idx
   on public.daily_activity (user_id, day);
 
 -- 2) 주차 집계
+-- ⚠️ **활동이 하나도 없는 사람은 행이 아예 안 나온다**(0 으로 채운 행이 아니라 부재다).
+--    p_users 로 명단을 넘겨도 마찬가지다 — 「그 명단 중 창 안에 활동이 있는 사람」만 돌아온다.
+--    부르는 쪽이 **없으면 0 주로 친다**를 스스로 해야 한다. 안 그러면 기록이 없는 분이
+--    명단에서 조용히 사라진다.
 create or replace function v2_event_weeks(
   p_start    date,
   p_weeks    int,

@@ -227,7 +227,10 @@ git commit -m "$(printf 'feat(이벤트): 가을 말씀 동행 기준선 질의 
   → `setof (user_id text, weeks_done int, week_days int[], all_weeks boolean, first_day date)`
   - `week_days` 는 **길이가 정확히 `p_weeks`** 인 배열. 0주차가 첫 칸이다.
   - `first_day` 는 **전 기간**에서 잰 그 사람의 가장 이른 활동일(중간 합류 판정에 쓴다).
-  - `p_users` 가 `null` 이면 활동한 사람 전부, 배열이면 그 사람들만.
+  - `p_users` 가 `null` 이면 활동한 사람 전부, 배열이면 **그 명단 중 창 안에 활동이 있는 사람만**.
+  - ⚠️ **활동이 없는 사람은 행이 아예 안 나온다**(0 으로 채운 행이 아니라 부재다).
+    부르는 쪽이 「없으면 0 주」를 스스로 해야 한다 — Task 4 의 `evtStampsFor` 와
+    Task 6 의 명단이 둘 다 이 자리를 밟는다. 안 하면 **기록이 없는 분이 명단에서 조용히 사라진다.**
 
 - [ ] **Step 1: 실패하는 확인 질의를 먼저 돌린다**
 
