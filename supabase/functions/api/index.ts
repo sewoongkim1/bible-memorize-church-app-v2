@@ -422,6 +422,8 @@ Deno.serve(async (req) => {
       case "eventSignup":   return json(await eventSignup(body));
       case "eventDrop":     return json(await eventDrop(body));
       case "eventRoster":   return json(await eventRoster(body));
+      case "eventSetNote":  return json(await eventSetNote(body));
+      case "eventExcuse":   return json(await eventExcuse(body));
       case "eventSave":     return json(await eventSave(body));
       case "eventImport":   return json(await eventImport(body));
       case "eventRosterPublic": return json(await eventRosterPublic(body));
@@ -1396,6 +1398,7 @@ const FEATURES = new Set([
   "album-play",       // 듣기를 시작함 — 화면만 열고 마는 분을 가른다
   "guide",            // 사용 설명서를 엶
   "push",             // 알림을 눌러 앱이 열림
+  "ranking-scope",    // 순위 범위 칩 — item: 1=우리 교구 · 0=전체
 ]);
 
 async function featureLog(b: any) {
@@ -5200,6 +5203,67 @@ async function eventRoster(b: any) {
   const { data, error } = await q;
   if (error) throw error;
 
+  // ── 자격 회차면 「지금 다시 센 값」을 함께 내려 준다 ───────────────────
+  // ⚠️ 응모 시점 스냅샷(answers)으로 시상하지 않는다 — 일찍 신청한 분의 스냅샷은
+  //    그때 값으로 굳어, 그 뒤 더 채워도 안 바뀐다(일찍 신청한 분이 벌을 받는다).
+  // ⚠️ answers 원본은 내보내지 않는다. 파생값만.
+  const rowsOut = (data ?? []).map((r: any) => ({
+    id: r.id, eventId: r.event_id, name: r.name, whoType: r.who_type,
+    group: r.group_name, sub: r.sub_name ?? "", position: r.position ?? "",
+    phone: r.phone ?? "", memo: r.memo ?? "", note: r.note ?? "",
+    source: r.source, at: r.created_at, hasUser: !!r.user_id,
+    excused: !!((r.answers ?? {}) as any).excused,
+  })) as any[];
+
+  let missing: any[] = [];
+  const pickedEv = eventId ? (evs ?? []).find((e: any) => e.id === eventId) : null;
+  const pickedRule = pickedEv ? evtRule(pickedEv) : null;
+  if (pickedRule) {
+    const today = evtToday();
+    // 신청한 분들 — 한 사람씩 다시 센다. 회차 하나의 신청자 수는 수십이라 이 정도면 된다.
+    const { data: srows } = await db.from("event_signups")
+      .select("id,user_id").eq("event_id", eventId).limit(2000);
+    const byId = new Map<number, any>();
+    for (const s of ((srows ?? []) as any[])) {
+      if (!s.user_id) continue;
+      const st = await evtStampsFor(String(s.user_id), pickedRule, today);
+      byId.set(s.id, st);
+    }
+    const stampedAt = new Date().toISOString();
+    for (const row of rowsOut) {
+      const st = byId.get(row.id);
+      if (!st) continue;
+      row.weeksDone = st.weeksDone;
+      row.perfect = st.allWeeks;
+      row.eligible = st.eligible || row.excused;
+      row.computedAt = stampedAt;
+    }
+
+    // 자격은 되는데 아직 신청 안 하신 분 — 마감 전에 알려 드리려고.
+    // ⚠️ 이름·소속만. user_id 를 싣지 않는다.
+    const signedUp = new Set(((srows ?? []) as any[]).map((s) => String(s.user_id)));
+    const { data: all } = await db.rpc("v2_event_weeks", {
+      p_start: pickedRule.start, p_weeks: pickedRule.weeks,
+      p_per_week: pickedRule.perWeek, p_users: null,
+    });
+    const cand = ((all ?? []) as any[]).filter((w) => {
+      if (signedUp.has(String(w.user_id))) return false;
+      const fd = w.first_day ? String(w.first_day).slice(0, 10) : null;
+      return Number(w.weeks_done) >= evtNeedFor(pickedRule, fd);
+    });
+    if (cand.length) {
+      const { data: us } = await db.from("users")
+        .select("id,type,gu,mok,bu,grade,name")
+        .in("id", cand.map((w) => String(w.user_id)).slice(0, 300));
+      missing = ((us ?? []) as any[]).map((u: any) => ({
+        name: norm(u.name),
+        whoType: u.type,
+        group: u.type === "교구" ? norm(u.gu) : norm(u.bu),
+        sub: u.type === "교구" ? norm(u.mok) : norm(u.grade),
+      }));
+    }
+  }
+
   return {
     ok: true,
     events: (evs ?? []).map((e: any) => ({
@@ -5211,23 +5275,48 @@ async function eventRoster(b: any) {
       // 지금 성도님께 보이는가 — 관리자가 「왜 안 보이지」를 화면에서 바로 알게.
       listedNow: evtListable(e, evtToday()),
     })),
-    rows: (data ?? []).map((r: any) => ({
-      id: r.id,
-      eventId: r.event_id,
-      name: r.name,
-      whoType: r.who_type,
-      group: r.group_name,
-      sub: r.sub_name ?? "",
-      position: r.position ?? "",
-      phone: r.phone ?? "",
-      memo: r.memo ?? "",
-      note: r.note ?? "",
-      source: r.source,
-      at: r.created_at,
-      // ⚠️ user_id 자체는 싣지 않는다. 「앱에서 낸 것인가」만 알려 준다.
-      hasUser: !!r.user_id,
-    })),
+    rows: rowsOut,
+    missing,
   };
+}
+
+// ---------- eventSetNote: 담당자 메모 ----------
+// ⚠️ note 는 성도님 응답(evtRow·eventRosterPublic)에 절대 실리지 않는다 — 담당자만 본다.
+async function eventSetNote(b: any) {
+  const err = adminError(b);
+  if (err) return { ok: false, error: err };
+  const id = Number(b.id);
+  if (!Number.isInteger(id) || id <= 0) return { ok: false, error: "bad-args" };
+  const note = norm(b.note).slice(0, 500);
+  const { error } = await db.from("event_signups")
+    .update({ note, updated_at: new Date().toISOString() }).eq("id", id);
+  if (error) throw error;
+  return { ok: true };
+}
+
+// ---------- eventExcuse: 사정이 있으셨던 분을 인정 ----------
+// 입원·장례·간병처럼 자동 규칙으로 못 잡는 자리. 사유를 반드시 남긴다.
+// ⚠️ challenge_log·daily_activity 를 손대지 않는다 — 순위·통계·주간 리포트가 함께 오염된다.
+//    event_signups 쪽에만 쓴다.
+async function eventExcuse(b: any) {
+  const err = adminError(b);
+  if (err) return { ok: false, error: err };
+  const id = Number(b.id);
+  if (!Number.isInteger(id) || id <= 0) return { ok: false, error: "bad-args" };
+  const excused = !!b.excused;
+  const reason = norm(b.reason).slice(0, 200);
+  if (excused && !reason) return { ok: false, error: "no-reason" };
+
+  const { data: cur, error: e1 } = await db.from("event_signups")
+    .select("answers").eq("id", id).maybeSingle();
+  if (e1) throw e1;
+  if (!cur) return { ok: false, error: "not-found" };
+
+  const answers = { ...((cur.answers ?? {}) as any), excused, excuseReason: reason };
+  const { error } = await db.from("event_signups")
+    .update({ answers, updated_at: new Date().toISOString() }).eq("id", id);
+  if (error) throw error;
+  return { ok: true };
 }
 
 // ---------- eventSave: 관리자 회차 만들기 / 고치기 ----------
