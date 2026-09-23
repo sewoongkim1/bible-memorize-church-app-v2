@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260923e";
+const APP_BUILD = "20260923f";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -430,21 +430,150 @@ function loadTodaySong() {
   if (!songVisible()) return;
   fetchTodaySong().then((s) => { if (s) fillSongButton(); });
 }
-// 찬양 아카이브(형제 앱)의 그 곡으로 — 새 탭이라 암송 진행 상태를 잃지 않는다.
-//   ⚠️ 아이폰 앱에서는 Capacitor 가 가로채 사파리로 나간다(설계 문서 「대신 잃는 것」).
+// 오늘의 찬양 — 이제 앱 안 화면으로 연다(2026-09-23, 성도님 제보: 새 탭으로 나가면
+//   아이폰 앱은 사파리로 나가 버려 또 ▶ 를 눌러야 하고, 돌아오려면 탭을 닫아야 했다).
+//   ⚠️ 「앱 안에서 유튜브를 직접 재생하지 않는다」던 처음 결정(docs/notes/today-song.md)을
+//      뒤집은 것이다 — 그 문서에 적힌 넷 중 ①(찬양 앱에 이미 플레이어가 있다)·
+//      ④(유튜브 자체 UI로 나가는 길은 못 막는다)는 그대로 남는 위험이라, 화면을
+//      renderSongScreen 하나로 최소화했다. ②·③(개인정보·보호자 재동의)은 문구로 대응한다.
 //   ⚠️ 내 id 는 `myUserId()`로 얻는다. `loadUser()` 가 돌려주는 객체의 칸 이름은
 //      `id` 가 아니라 **`user_id`** 다 — 직접 꺼내 쓰면 조용히 undefined 가 되어 기록이 안 쌓인다.
-//   ⚠️ 곡을 못 받아도(서버 지연·자정 넘어 캐시가 비었을 때) 단추는 죽지 않는다 —
-//      `song.id`가 없으면 아카이브 홈으로 보낸다. 아무 반응이 없는 것보다 낫다.
+//   ⚠️ 곡을 못 받았으면(서버 지연·자정 넘어 캐시가 비었을 때) 보여 줄 영상이 없다 —
+//      옛 동작 그대로 아카이브 홈을 새 탭으로 연다(단추가 죽지 않는다).
 function openSongToday(song) {
-  const url = (song && song.id)
-    ? "https://worship.onlybible.kr/?song=" + encodeURIComponent(song.id)
-    : "https://worship.onlybible.kr/";     // 곡을 못 받았어도 아카이브 홈은 열어 준다
   try {
     const uid = (typeof myUserId === "function") ? myUserId() : null;
     if (song && song.id && uid && api.logSongClick) api.logSongClick(uid, song.id).catch(() => {});
   } catch (e) {}
-  window.open(url, "_blank", "noopener");
+  if (!song || !song.id) { window.open("https://worship.onlybible.kr/", "_blank", "noopener"); return; }
+  renderSongScreen(song);
+}
+
+// ── 오늘의 찬양 — 앱 안 화면(파사드: 그림 먼저, 누르면 영상) ──────────────────
+//   ⚠️ 이 저장소에 iframe 전례가 0건이다 — 아래 규칙은 전부 적대적 검토를 거친 것이라
+//      바꾸려면 근거를 남긴다(.superpowers/sdd/embed-task-a-brief.md).
+let songYtPlayer = null;   // 지금 화면의 YT.Player — onStateChange(엔드) 감지용
+let songPop = null;        // 뒤로가기(popstate) 핸들러 — 나갈 때 뗀다
+let songCur = null;        // 지금 화면에 걸린 곡 — 「유튜브에서 보기」가 참조한다
+
+function renderSongScreen(song) {
+  albumPlayStop();     // ⚠️ stopSpeaking() 만으로는 모자라다 — #ab-play-bar·body.ab-playing 이 남는다
+  songYtPlayer = null;
+  songCur = song || null;
+  const u = loadUser();
+  const appEl = document.getElementById("app");
+  const hasVideo = !!(song && song.id);
+  // 섬네일은 서버가 준 것을 먼저 쓰고, 없으면 유튜브 기본 썸네일 주소로 짐작한다.
+  const thumb = boardEsc((song && song.thumbnail) ||
+    (hasVideo ? "https://i.ytimg.com/vi/" + song.id + "/hqdefault.jpg" : ""));
+  const metaParts = [song && song.choir, song && song.svc_date].filter(Boolean).map(boardEsc);
+  appEl.innerHTML = `
+    <div class="song-screen">
+      <h2 class="rank-title">🎵 오늘의 찬양</h2>
+      <div class="song-media" id="song-media">
+        ${thumb ? `<img class="song-thumb" id="song-thumb" src="${thumb}" alt="">` : ""}
+        ${hasVideo ? `<button class="song-play" id="song-play">▶ 찬양 듣기</button>` : ""}
+      </div>
+      <div class="song-name">${boardEsc((song && song.song) || "오늘의 찬양")}</div>
+      ${metaParts.length ? `<div class="song-meta">${metaParts.join(" · ")}</div>` : ""}
+      <p class="song-help">
+        소리가 안 나면 폰 옆 무음 단추와 볼륨을 확인해 주세요.<br>
+        영상이 안 열리면 아래 「유튜브에서 보기」를 눌러 주세요.
+      </p>
+      <button class="summary-help" id="song-ext">🎵 유튜브에서 보기 <span class="ext-mark">↗</span></button>
+    </div>
+    <button class="home-fab" id="song-home" aria-label="첫 화면으로">${homeFabLabel(u, true)}</button>`;
+  window.scrollTo(0, 0);
+
+  // 섬네일이 안 오면 회색 바탕(.song-media 자체 배경)만 남기고 단추는 그대로 둔다
+  const thumbImg = document.getElementById("song-thumb");
+  if (thumbImg) thumbImg.onerror = () => { thumbImg.style.display = "none"; };
+
+  const playBtn = document.getElementById("song-play");
+  if (playBtn) playBtn.addEventListener("click", songStartPlay);
+  document.getElementById("song-ext").addEventListener("click", () => {
+    const url = (songCur && songCur.id)
+      ? "https://worship.onlybible.kr/?song=" + encodeURIComponent(songCur.id)
+      : "https://worship.onlybible.kr/";
+    window.open(url, "_blank", "noopener");
+  });
+  document.getElementById("song-home").addEventListener("click", () => songClose(false));
+
+  // 안드로이드 「뒤로 가기」로도 나가지게 — 본보기는 prayFullOpen/Close(이 앱의 유일한 pushState)
+  try { history.pushState({ song: 1 }, ""); } catch (e) {}
+  songPop = () => songClose(true);
+  window.addEventListener("popstate", songPop);
+}
+
+// 「▶ 찬양 듣기」를 누른 그 순간에만 iframe 을 만든다 — 자동재생·느린 통신·구글로 나가는
+// 요청·안드로이드 뒤로가기, 넷을 한 번에 푸는 수(브리프 참고). 도메인은 youtube-nocookie 로 못 박는다.
+function songStartPlay() {
+  const media = document.getElementById("song-media");
+  if (!media || !songCur || !songCur.id) return;
+  const src = "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(songCur.id) +
+    "?autoplay=1&playsinline=1&rel=0&fs=0&enablejsapi=1&origin=" + encodeURIComponent(location.origin);
+  media.innerHTML =
+    `<iframe id="song-iframe" class="song-iframe" src="${src}" title="찬양 영상"
+       allow="accelerometer; encrypted-media" referrerpolicy="strict-origin"></iframe>`;
+  // ⚠️ iframe_api 스크립트도 누른 뒤에만 얹는다 — 처음부터 얹으면 youtube.com(nocookie 아님)으로
+  //    요청이 나가 파사드의 근거가 무너진다. 이미 있으면 그대로 쓴다(두 번 안 얹는다).
+  songLoadYtApi(() => {
+    if (!document.getElementById("song-iframe")) return;   // 그새 화면을 나갔으면 만들지 않는다
+    try {
+      songYtPlayer = new YT.Player("song-iframe", {
+        events: { onStateChange: (e) => { if (e.data === 0) songShowEnded(); } }
+      });
+    } catch (e) {}
+  });
+}
+
+function songLoadYtApi(cb) {
+  if (window.YT && window.YT.Player) { cb(); return; }
+  const prev = window.onYouTubeIframeAPIReady;
+  window.onYouTubeIframeAPIReady = () => { try { if (prev) prev(); } catch (e) {} cb(); };
+  if (!document.getElementById("yt-iframe-api")) {
+    const s = document.createElement("script");
+    s.id = "yt-iframe-api";
+    s.src = "https://www.youtube.com/iframe_api";
+    document.head.appendChild(s);
+  }
+}
+
+// rel=0 은 추천을 끄지 못한다(2018년부터 「같은 채널로 한정」일 뿐) — 우리 채널이 「고척교회」라
+// 3분 찬양이 끝나면 1시간짜리 전체예배 영상 타일이 뜬다. 그래서 ENDED(0) 순간 우리 화면으로 덮는다.
+function songShowEnded() {
+  const media = document.getElementById("song-media");
+  if (!media) return;
+  songYtPlayer = null;
+  media.innerHTML =
+    `<div class="song-ended">
+       <button class="summary-help" id="song-replay">🔁 다시 듣기</button>
+       <button class="summary-help" id="song-ended-home">⌂ 첫 화면으로</button>
+     </div>`;
+  const rp = document.getElementById("song-replay");
+  if (rp) rp.addEventListener("click", songStartPlay);
+  const eh = document.getElementById("song-ended-home");
+  if (eh) eh.addEventListener("click", () => songClose(false));
+}
+
+// 나갈 때 세 단계 순서(고정) — ① postMessage 로 멈추라 명령 ② iframe 을 비운다 ③ 그다음 화면 전환.
+//   ⚠️ 「화면을 바꾸면 소리가 멈춘다」는 사파리 가정이다 — Capacitor 는 AirPlay 재생을 켜 둬서
+//      iframe 을 지워도 소리가 남을 수 있다(그래도 멈추라는 명령은 보낸다).
+function songStopPlayer() {
+  const iframe = document.getElementById("song-iframe");
+  if (iframe) {
+    try { iframe.contentWindow.postMessage(JSON.stringify({ event: "command", func: "stopVideo" }), "*"); } catch (e) {}
+    try { iframe.src = "about:blank"; } catch (e) {}
+  }
+  songYtPlayer = null;
+}
+// fromPop=true 면 popstate(뒤로가기)로 이미 닫힌 뒤라 history.back()을 또 부르지 않는다
+// (prayFullClose와 같은 규칙).
+function songClose(fromPop) {
+  songStopPlayer();
+  if (songPop) { window.removeEventListener("popstate", songPop); songPop = null; }
+  if (!fromPop) { try { if (history.state && history.state.song) history.back(); } catch (e) {} }
+  renderSummary();
 }
 
 // ── 사역 신청: 기간에만 첫 화면에 뜬다 ──────────────────────────────
@@ -5574,17 +5703,19 @@ function scrollPastBtnRow() {
 //   .min-screen      — 사역 신청. 위원회 아코디언을 길게 훑는 화면이라 위를 내준다
 //   .ps-wrap         — 시편 말씀 액자. 액자 한 장이 주인공인 화면이라 위를 온전히 내준다
 //                      (성도님 제보 2026-09-10: 로고 배너가 액자를 눌러 화면 밖으로 밀었다)
+//   .song-screen     — 오늘의 찬양. 화면 하나 높이짜리 파사드라 ps-wrap과 같은 처지
+//                      (2026-09-23 · screen-sweep 의 app 모드 (fits) 경고로 먼저 잡았다)
 // #app 내용이 바뀔 때마다 감시해서, 어떤 경로로 전환되든(뒤로가기 포함) 항상 따라간다.
 (function watchPageHeaderVsStickyRef() {
   const appEl = document.getElementById("app");
   const header = document.querySelector(".page-header");
   if (!appEl || !header) return;
   const sync = () => {
-    const hide = !!appEl.querySelector(".test-ref-sticky, .album-screen, .pr-wrap, .min-screen, .ps-wrap");
+    const hide = !!appEl.querySelector(".test-ref-sticky, .album-screen, .pr-wrap, .min-screen, .ps-wrap, .song-screen");
     header.style.display = hide ? "none" : "";
     // 로고 배너가 지던 상태바 여백을 #app 이 대신 진다(style.css body.no-page-header).
-    // 쉴만한 물가(.ps-wrap)는 제 여백을 스스로 지므로 빼야 두 번 들어가지 않는다.
-    document.body.classList.toggle("no-page-header", hide && !appEl.querySelector(".ps-wrap"));
+    // 쉴만한 물가(.ps-wrap)·오늘의 찬양(.song-screen)은 제 여백을 스스로 지므로 빼야 두 번 들어가지 않는다.
+    document.body.classList.toggle("no-page-header", hide && !appEl.querySelector(".ps-wrap, .song-screen"));
   };
   sync();
   new MutationObserver(sync).observe(appEl, { childList: true });
@@ -6831,10 +6962,12 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev
       done();
       setTimeout(() => renderPsalmHome(), 260);
     });
-    const gBtn = wrap.querySelector("#med-song");     // 묵상 → 오늘의 찬양(찬양 아카이브)
+    const gBtn = wrap.querySelector("#med-song");     // 묵상 → 오늘의 찬양(앱 안 화면)
     if (gBtn) gBtn.addEventListener("click", () => {
       done();                                        // ⚠️ close() 가 아니다
-      openSongToday(todaySong);                      // 새 탭이라 setTimeout 이 필요 없다
+      // ⚠️ 이제 화면을 갈아끼우므로(2026-09-23, 앱 안 재생) 시편·설교 CTA 와 같이
+      //    닫힘 애니메이션(250ms)이 끝난 뒤에 부른다.
+      setTimeout(() => openSongToday(todaySong), 260);
     });
     toTop();
     wrap.addEventListener("click", (e) => { if (e.target === wrap) done(); });
