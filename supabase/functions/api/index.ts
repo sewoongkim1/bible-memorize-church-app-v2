@@ -402,6 +402,8 @@ Deno.serve(async (req) => {
       case "getWeeklyVerse":     return json(await getWeeklyVerseForWidget(body));   // 위젯 — 앱과 같은 한국 날짜 기준
       case "getTodayMeditation": return json(await getTodayMeditation(body));        // 위젯 — 오늘의 묵상
       case "getTodayBlessing":   return json(await getTodayBlessing(body));          // 위젯 — 오늘의 축복 기도문
+      case "getTodaySong":       return json(await getTodaySong(body));            // 오늘의 찬양 — 하루 한 곡
+      case "logSongClick":       return json(await logSongClick(body));            // 오늘의 찬양 단추를 누른 횟수
       // ---- 장애 모니터링 ----
       case "monitor":       return json(await monitor(body));
       // ---- 주간 리포트 메일 ----
@@ -813,6 +815,50 @@ async function getTodayBlessing(b: any) {
   return { ok: true, date: ymd, no: x.no, title: x.title, ref: x.ref, prayer: blessFill(x.prayer, BLESS_WIDGET_NAME) };
 }
 
+// ---------- 오늘의 찬양 (2026-09-23) ----------
+//   찬양 아카이브의 songs 표를 **읽기 전용**으로 걸러(v2_song_pool) 하루 한 곡을
+//   daily_song 에 적는다. 고르는 규칙은 SQL 쪽에 있다 — supabase/daily_song.sql.
+//   ⚠️ **date 입력을 열지 않는다.** 위젯 셋(getWeeklyVerse·getTodayMeditation·
+//      getTodayBlessing)은 widgetYmd(b) 로 date 를 받지만 그건 **읽기 전용**이라
+//      안전했다(index.ts:644 주석). 이건 **쓰는** 액션이라, 같은 입력을 베끼면 인증 없는
+//      호출 한 줄로 365일치 행을 미리 박아 성도님이 볼 곡을 태울 수 있다.
+//      시험은 개발 DB 에 SQL 로 행을 넣어 한다.
+//   ⚠️ 표·뷰·함수가 없거나 후보가 0이면 **오류가 아니라** { ok:true, song:null } 이다.
+//      개발 DB 에는 songs 표가 아예 없고(PGRST205), 이 값을 기다리는 곳이 매일 묵상
+//      팝업이라 여기서 던지면 **묵상 창이 통째로 안 뜬다.**
+async function getTodaySong(_b: any) {
+  const day = kstDay(new Date().toISOString());
+  try {
+    const { data, error } = await db.rpc("v2_today_song", { p_day: day });
+    if (error) return { ok: true, song: null };
+    const row = (data ?? [])[0];
+    if (!row) return { ok: true, song: null };
+    return {
+      ok: true,
+      song: {
+        id: row.id, song: row.song, choir: row.choir,
+        svc_date: row.svc_date, duration: row.duration, thumbnail: row.thumbnail,
+      },
+    };
+  } catch { return { ok: true, song: null }; }
+}
+
+// 단추를 누른 것만 센다(재생 자체는 찬양 앱의 logPlay 가 이미 센다).
+//   ⚠️ 응답에 user_id 를 싣지 않는다. 실패해도 조용히 ok 로 돌려준다 — 이걸로
+//      성도님 화면이 막히면 안 된다.
+async function logSongClick(b: any) {
+  const uid = String(b.user_id || "");
+  const sid = String(b.song_id || "");
+  if (!uid || !sid) return { ok: true };
+  // ⚠️ 열람 기록 **통합 표**에 쌓는다(supabase/feature_log.sql · 다른 세션이 2026-09-23 에 만들었다).
+  //    표를 따로 만들지 않는다 — 그 표가 바로 이런 중복을 없애려고 생긴 것이고,
+  //    member_merge.sql 의 계정 합치기 목록에도 이미 들어가 있다.
+  //    ⚠️ 그 세션이 통합 액션(logFeature)을 내놓으면 **이 액션을 지우고** 그걸 쓴다.
+  //       그때까지는 FEATURES 배열(그쪽 코드)을 건드리지 않으려고 따로 둔다.
+  try { await db.rpc("v2_feature_log", { uid, f: "song", n: 0 }); } catch { /* 조용히 */ }
+  return { ok: true };
+}
+
 // 매일 아침 푸시 문구 — 오늘의 묵상(요일별) 뒤에 이번주 말씀을 붙인다.
 //   제목: 🌿 오늘의 묵상 · <주제>
 //   본문: <적용질문>  +  📖 <이번주 말씀> (<출처>)
@@ -1145,6 +1191,22 @@ async function monitor(b: any) {
     }
   } catch (_) { /* 집계표 미설치 → 점검 생략(순위는 폴백 경로로 돈다) */ }
 
+  // 오늘의 찬양 — ⚠️ 「오늘 행이 없다」를 problems 에 넣지 않는다. 오늘 행은 **첫 사용자가
+  //   만든다** — monitor 는 07:12 KST 에 도는데, 그때까지 아무도 앱을 안 연 날마다 헛경보가 난다.
+  //   정말 조용히 틀어지는 것은 **후보 수가 급감하는 것**이다(찬양 담당자가 구분 이름을 바꾸면
+  //   오류 없이 곡 수만 준다 — 2026-07 에 기타→특별찬양으로 실제로 바뀌었다).
+  let songPool: number | null = null;
+  let songToday = false;
+  try {
+    const { count, error: pErr } = await db.from("v2_song_pool").select("id", { count: "exact", head: true });
+    if (!pErr) songPool = count ?? 0;
+    const { data: ds } = await db.from("daily_song").select("day").eq("day", kstDay(new Date().toISOString())).maybeSingle();
+    songToday = !!ds;
+    if (songPool !== null && songPool < 100) {
+      problems.push(`오늘의 찬양 후보가 ${songPool}곡뿐입니다 — songs 의 category 이름이 바뀌었을 수 있습니다(supabase/daily_song.sql 의 ② 질의로 확인)`);
+    }
+  } catch (_) { /* 표 미설치 → 점검 생략 */ }
+
   return {
     ok: problems.length === 0,
     serverTimeKST: kstNow.toISOString().replace("T", " ").slice(0, 16) + " KST",
@@ -1154,6 +1216,8 @@ async function monitor(b: any) {
     todayPush,
     weeklyReportLastRun,
     activity,
+    songPool,
+    songToday,
     problems,
   };
 }
