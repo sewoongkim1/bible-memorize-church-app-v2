@@ -119,6 +119,11 @@ const api = {
   eventRosterPublic: (event_id) => supaCall("eventRosterPublic", { event_id }),
   eventRoster: (pw, event_id) => supaCall("eventRoster", { pw, event_id }),
   eventSave: (pw, event) => supaCall("eventSave", { pw, event }),
+
+  // ---- 오늘의 찬양 (2026-09-23) ----
+  //  ⚠️ getTodaySong 은 입력이 없다 — 날짜를 열면 쓰는 액션이라 미리 태울 수 있다(서버 주석 참고).
+  getTodaySong: () => supaCall("getTodaySong", {}),
+  logSongClick: (user_id, song_id) => supaCall("logSongClick", { user_id, song_id }),
 };
 
 window.api = api;

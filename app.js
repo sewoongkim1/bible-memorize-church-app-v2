@@ -117,8 +117,10 @@ async function loadVerses() {
 function routeAfterLoad() {
   _passagesPreview = getPassagesPreview();
   _psalmPreview = getPsalmPreview();
+  _songPreview = getSongPreview();
   refreshPassagesPublic();
   refreshPsalmPublic();
+  refreshSongPublic();
   refreshMinistryPeriod();
   refreshEventOpen();
   // 어드민 테스트 진입(?passages=1): 홈을 거치지 않고 곧바로 핵심 암송 목록으로.
@@ -305,6 +307,76 @@ function refreshPsalmPublic() {
   }).catch(() => {});
 }
 function psalmVisible() { return _psalmPreview || psalmPublicCached(); }
+
+// ── 오늘의 찬양: 하루 한 곡 ────────────────────────────────────────
+//   ⚠️ 「자료 자체가 게이트」가 성립하지 않는다 — songs 는 운영에 이미 1,700곡이 있어
+//      자료가 비는 순간이 없다. push 가 곧 배포인 저장소라 게이트 없이 푸시하면 그 순간
+//      전 성도에게 열린다(2026-09-10 에 시편 액자가 남의 커밋에 딸려 나가 첫 화면에 떴다).
+//      psalmPublic 과 같은 방식이다 — 첫 화면은 동기 렌더라 미리 받아 둔 값을 본다.
+let _songPreview = false;
+function getSongPreview() {
+  try {
+    if (new URLSearchParams(location.search).get("song") === "1") {
+      history.replaceState(null, "", location.pathname);
+      return true;
+    }
+  } catch (e) {}
+  return false;
+}
+const SONG_PUB_KEY = "song-public";
+function songPublicCached() { try { return localStorage.getItem(SONG_PUB_KEY) === "1"; } catch (e) { return false; } }
+function refreshSongPublic() {
+  if (!window.api || !api.getConfig) return;
+  api.getConfig("songPublic").then((d) => {
+    try { localStorage.setItem(SONG_PUB_KEY, d && d.value ? "1" : "0"); } catch (e) {}
+  }).catch(() => {});
+}
+function songVisible() { return _songPreview || songPublicCached(); }
+
+// 오늘치 캐시 — 하루 한 곡이고 모두가 같은 곡이라 어긋날 일이 없다.
+//   ⚠️ 열쇠는 **한국 날짜**다. UTC 로 두면 밤에 캐시가 하루 일찍 만료된다.
+function songDayKey() {
+  const d = new Date(Date.now() + 9 * 3600 * 1000);
+  return "song-" + d.toISOString().slice(0, 10);
+}
+function songCacheToday() {
+  try { return JSON.parse(localStorage.getItem(songDayKey()) || "null"); } catch (e) { return null; }
+}
+function songCachePut(song) {
+  try {
+    localStorage.setItem(songDayKey(), JSON.stringify(song));
+    // 어제 것들을 치운다(열쇠가 날마다 달라 그냥 두면 쌓인다)
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith("song-2") && k !== songDayKey()) localStorage.removeItem(k);
+    }
+  } catch (e) {}
+}
+
+// ⚠️ 이 저장소에는 타임아웃 헬퍼가 없다(js/api.js 에도 없다) — 여기서 만든다.
+//    느린 통신에서 묵상 창이 이 왕복만큼 늦게 뜨는 것을 막는 것이 목적이다.
+function withTimeout(p, ms) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error("timeout")), ms);
+    p.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
+  });
+}
+
+// 오늘 곡 하나 — 캐시가 있으면 서버를 안 친다.
+//   ⚠️ 부르는 쪽이 둘(첫 화면·묵상 창)이지만 **왕복은 하루 한 번**이어야 한다.
+//      첫 화면이 먼저 그려지므로 대개 첫 화면이 채우고 묵상 창은 캐시를 쓴다.
+function fetchTodaySong() {
+  if (!songVisible() || !window.api || !api.getTodaySong) return Promise.resolve(null);
+  const cached = songCacheToday();
+  if (cached) return Promise.resolve(cached);
+  return withTimeout(api.getTodaySong(), 1500)
+    .then((r) => {
+      const s = r && r.song;
+      if (s) songCachePut(s);
+      return s || null;
+    })
+    .catch(() => null);   // ⚠️ 반드시 삼킨다 — 묵상 창이 이 리젝션에 통째로 사라진다
+}
 
 // ── 사역 신청: 기간에만 첫 화면에 뜬다 ──────────────────────────────
 //   ⚠️ 상시 기능이 아니다. 기간(app_config.ministry)을 캐시해 두고 그 안에서만 보여 준다.
