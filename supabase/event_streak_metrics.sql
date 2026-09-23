@@ -31,7 +31,8 @@ d as (
    group by da.user_id, da.day, p.s
 ),
 w as (select user_id, wk, count(*) as days from d group by 1, 2),
-q as (select user_id, count(*) filter (where days >= 3) as okw from w group by 1)
+-- ⚠️ 문턱은 ① 의 p.per_week 하나만 고치면 된다 — 여기에 숫자를 박지 않는다.
+q as (select w.user_id, count(*) filter (where w.days >= p.per_week) as okw from w, p group by 1)
 select count(*)                          as "활동한 분",
        count(*) filter (where okw >= 1)  as "1주 이상",
        count(*) filter (where okw >= 2)  as "2주 이상",
