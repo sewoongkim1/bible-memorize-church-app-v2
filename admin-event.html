@@ -144,6 +144,8 @@ let evEvents = [];       // 회차 목록
 let evRows = [];         // ⚠️ 「지금 고른 회차」가 아니다 — load(pick) 을 인자 없이 부르면(첫 진입·
                           //    로그인 직후) 서버가 event_id 필터 없이 **전 회차**를 담아 준다.
                           //    회차 하나로 좁힌 값이 필요하면 반드시 curRows() 를 쓸 것.
+let evMissing = [];      // 자격은 되는데 아직 신청 안 하신 분(이름·소속만 — user_id 없음)
+let evMissingTotal = 0;  // ⚠️ evMissing 은 300명에서 잘린다 — 이건 자르기 전 총수다.
 let evPick = "";         // 고른 회차 id
 let evSort = { key:"at", dir:-1 };
 let evQ = "", evType = "", evGroup = "";
@@ -211,6 +213,10 @@ async function load(pick){
   }
   evEvents = d.events || [];
   evRows = d.rows || [];
+  // 자격은 되는데 아직 신청 안 하신 분 — 서버가 event_id 를 골랐을 때만(자격 규칙이
+  // 있는 회차일 때만) 채워 준다. missingTotal 은 300명 자르기 **전** 총수.
+  evMissing = d.missing || [];
+  evMissingTotal = d.missingTotal != null ? d.missingTotal : evMissing.length;
   if(pick) evPick = pick;
   else if(!evPick) evPick = (evEvents.find(e => e.status === "open") || evEvents[0] || {}).id || "";
   render();
@@ -309,6 +315,10 @@ function shown(){
     return true;
   }).sort((a,b) => {
     const k = evSort.key;
+    // ⚠️ 숫자 정렬 — 문자열 비교로는 "10" < "2" 가 된다(evSubRank 가 다루는 것과 같은 함정).
+    if(k === "weeksDone"){
+      return (Number(a.weeksDone || 0) - Number(b.weeksDone || 0)) * evSort.dir;
+    }
     const x = String(a[k]==null?"":a[k]), y = String(b[k]==null?"":b[k]);
     const n1 = parseFloat(x), n2 = parseFloat(y);
     const c = (!isNaN(n1) && !isNaN(n2) && k === "sub") ? n1 - n2 : x.localeCompare(y, "ko");
@@ -328,11 +338,20 @@ function evListHtml(ev){
     `<th data-k="${k}">${label}${evSort.key===k ? (evSort.dir>0?" ▲":" ▼") : ""}</th>`;
   return `<div class="card">
     <h2>명단 — ${esc(ev.title)}</h2>
+    ${rows.some(r => r.weeksDone != null) ? `<div class="sum"><span class="tag">
+      도장 기간 2026-10-11 ~ 11-21 · 주 3일 · 6주 중 3주 (원본 supabase/event_stamp_2026.sql)
+    </span></div>` : ""}
     <div class="sum">
       <span><b>${rows.length}</b>명</span>
       <span class="tag">앱 계정 연결 ${app_}명</span>
       <span class="tag">앱 등록 ${rows.filter(r=>r.source==="app").length}건</span>
       <span class="tag">이관 ${rows.filter(r=>r.source==="import").length}건</span>
+      ${rows.some(r => r.weeksDone != null) ? `
+        <span class="tag">채운 주 3주 이상 ${rows.filter(r=>r.eligible).length}명</span>
+        <span class="tag">여섯 주 ${rows.filter(r=>r.perfect).length}명</span>
+        <span class="tag">인정 ${rows.filter(r=>r.excused).length}명</span>` : ""}
+      ${evMissing.length ? `<span class="tag">아직 신청 안 하신 분 ${evMissing.length}명${
+        evMissingTotal > evMissing.length ? ` 외 ${evMissingTotal - evMissing.length}명` : ""}</span>` : ""}
       ${evQ||evType||evGroup ? `<span class="tag">추린 결과 ${list.length}명</span>` : ""}
     </div>
     <div class="bar no-print">
@@ -346,20 +365,26 @@ function evListHtml(ev){
       <button class="btn" id="q-view">${evView==="table" ? "🧾 묶음 보기" : "📊 표 보기"}</button>
       <button class="btn" id="q-clear">초기화</button>
       <button class="btn" id="q-print">🖨️ 인쇄</button>
+      <button class="btn" id="q-csv">⬇️ CSV (찾은 것만)</button>
     </div>
     ${list.length && evView === "group" ? evGroupedHtml(list) : ""}
     ${list.length && evView === "table" ? `<div class="tw"><table><thead><tr>
       <th class="num">#</th>${head("whoType","구분")}${head("group","소속")}${head("sub","목장·학년")}
-      ${head("position","직분")}${head("name","성명")}${head("at","등록일")}<th>기록</th>
+      ${head("position","직분")}${head("name","성명")}${head("weeksDone","주")}${head("at","등록일")}<th>기록</th>
     </tr></thead><tbody>${
       list.map((r,i) => `<tr>
         <td class="num">${i+1}</td>
         <td><span class="badge ${r.whoType==="교구"?"gu":"sc"}">${esc(r.whoType)}</span></td>
         <td>${esc(r.group)}</td><td>${esc(r.sub)}</td>
         <td>${esc(r.position)}</td><td><b>${esc(r.name)}</b></td>
+        <td>${r.weeksDone == null ? "" :
+             esc(String(r.weeksDone)) + (r.perfect ? " ✨" : "") + (r.excused ? (" (인정" + (r.excuseReason ? " · " + esc(r.excuseReason) : "") + ")") : "")}</td>
         <td>${esc(kstDate(r.at))}</td>
         <td><span class="badge ${r.source==="app"?"app":"imp"}">${r.source==="app"?"앱":"이관"}</span>${
-          r.hasUser ? ` <span class="badge app">계정</span>` : ""}</td>
+          r.hasUser ? ` <span class="badge app">계정</span>` : ""}
+          ${r.weeksDone == null ? "" : ` <button class="btn no-print" data-excuse="${r.id}" data-on="${r.excused?0:1}">${r.excused?"인정 취소":"인정"}</button>`}
+          <button class="btn no-print" data-note="${r.id}">메모</button>
+        </td>
       </tr>`).join("")
     }</tbody></table></div>` : ""}
     ${list.length ? "" : `<div class="empty">${rows.length ? "추린 결과가 없습니다." : "아직 신청이 없습니다."}</div>`}
@@ -410,6 +435,48 @@ function kstDate(iso){
   }catch(e){ return String(iso).slice(0,10); }
 }
 
+// ⚠️ 「찾은 것만」 나간다 — 화면에서 좁혀 놓고 전체가 나가면 담당자가 모르고 쓴다.
+function downloadCsv(){
+  const rows = shown();
+  // ⚠️ memo 와 note 는 **다른 것**이다. memo 는 성도님이 남기신 한 줄,
+  //    note 는 담당자 전용 메모다(성도님 응답에는 절대 안 실린다).
+  //    둘을 한 칸에 뭉치면 성도님이 하신 말이 사라진다 — 칸을 나눠 싣는다. 인정 사유도 함께.
+  const head = ["이름","구분","소속","목장·학년","직분","주","여섯주","인정","인정 사유",
+                "등록일","성도 메모","담당자 메모"];
+  // 줄바꿈·탭을 공백 하나로 — CSV 한 칸이 여러 줄로 깨지지 않게
+  const oneline = (v) => String(v || "").replace(/\s+/g, " ").trim();
+  const body = rows.map(r => [r.name, r.whoType, r.group, r.sub, r.position,
+    r.weeksDone ?? "", r.perfect ? "O" : "", r.excused ? "O" : "", oneline(r.excuseReason),
+    kstDate(r.at), oneline(r.memo), oneline(r.note)]);
+  const csv = [head, ...body]
+    .map(cols => cols.map(c => `"${String(c ?? "").replace(/"/g,'""')}"`).join(",")).join("\n");
+  // ⚠️ BOM 을 붙인다 — 없으면 엑셀이 한글을 깨뜨린다
+  const blob = new Blob(["﻿" + csv], { type:"text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${evPick || "event"}-명단.csv`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// 사정이 있으셨던 주를 인정 — 사유를 반드시 받는다(비우면 서버가 no-reason 으로 막는다)
+async function askExcuse(id, on){
+  const reason = on ? prompt("사유를 적어 주세요 (예: 10월 3주 입원)") : "";
+  if(on && !reason) return;
+  const d = await callApi({ action:"eventExcuse", pw:getPw(), id, excused:on, reason });
+  if(!guard(d)) return;
+  if(!d.ok){ alert("바꾸지 못했습니다 — " + (d.error||"")); return; }
+  await load(evPick);
+}
+async function askNote(id, cur){
+  const note = prompt("담당자 메모 (성도님께는 안 보입니다)", cur || "");
+  if(note == null) return;
+  const d = await callApi({ action:"eventSetNote", pw:getPw(), id, note });
+  if(!guard(d)) return;
+  if(!d.ok){ alert("저장하지 못했습니다 — " + (d.error||"")); return; }
+  await load(evPick);
+}
+
 // ---------- 배선 ----------
 function wire(){
   const chips = document.getElementById("ev-chips");
@@ -437,6 +504,15 @@ function wire(){
   if(c) c.addEventListener("click", () => { evQ=""; evType=""; evGroup=""; render(); });
   const p = document.getElementById("q-print");
   if(p) p.addEventListener("click", () => window.print());
+  const cs = document.getElementById("q-csv");
+  if(cs) cs.addEventListener("click", downloadCsv);
+  app.querySelectorAll("[data-excuse]").forEach(b => b.addEventListener("click", () =>
+    askExcuse(Number(b.getAttribute("data-excuse")), b.getAttribute("data-on") === "1")));
+  app.querySelectorAll("[data-note]").forEach(b => b.addEventListener("click", () => {
+    const id = Number(b.getAttribute("data-note"));
+    const row = evRows.find(r => r.id === id);
+    askNote(id, row ? row.note : "");
+  }));
   const v = document.getElementById("q-view");
   if(v) v.addEventListener("click", () => {
     evView = evView === "table" ? "group" : "table";
@@ -456,8 +532,9 @@ function wire(){
 async function saveEvent(){
   const err = document.getElementById("f-err"), ok = document.getElementById("f-ok");
   err.textContent = ""; ok.textContent = "";
-  // ⚠️ eventSave 는 **받은 것으로 통째로 덮어쓴다.** 화면에 안 보이는 칸(kind)도
-  //    지금 값을 그대로 실어 보내야 한다 — 안 보내면 기본값으로 되돌아간다.
+  // ⚠️ 2026-09-10 이후 서버는 **보낸 칸만 바꾼다**(index.ts 의 `has("needs") ? … : cur.needs`).
+  //    그러니 needs·copy 를 **보내지 않는다** — 보내면 자격 규칙이 조용히 지워지고,
+  //    오류도 안 나며 아무에게도(또는 모두에게) 단추가 열린다.
   const cur = evEvents.find(e => e.id === evPick) || {};
   const ev = {
     id: document.getElementById("f-id").value.trim(),

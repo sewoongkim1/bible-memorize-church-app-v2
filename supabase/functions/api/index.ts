@@ -5213,6 +5213,8 @@ async function eventRoster(b: any) {
     phone: r.phone ?? "", memo: r.memo ?? "", note: r.note ?? "",
     source: r.source, at: r.created_at, hasUser: !!r.user_id,
     excused: !!((r.answers ?? {}) as any).excused,
+    // 인정한 까닭 — 담당자만 보는 응답이라 실어도 된다. 화면이 「(인정)」 옆에 그대로 보여 준다.
+    excuseReason: norm(((r.answers ?? {}) as any).excuseReason),
   })) as any[];
 
   let missing: any[] = [];
