@@ -876,6 +876,10 @@ function clearPersonalData() {
     HEART_KEY, PASSAGE_KEY, DAILY_MILESTONE_KEY, BLESS_KEY, EVENT_ENTERED_KEY,
     "board-seen", "album-checked", RANK_SCOPE_KEY,
   ].forEach((k) => { try { localStorage.removeItem(k); } catch {} });
+  // ⚠️ 메모리에 있는 것도 비운다. localStorage 만 지우면, 다음 사람이 로그인했을 때
+  //    applyStampPill 이 **동기로** 먼저 그려서 서버 응답이 오기 전 한 왕복 동안
+  //    **앞사람의 알약**이 보인다(이 화면 전환은 새로고침이 아니다).
+  stampCache = null;
   // 가을 말씀 동행 진행 캐시 — user_id 별이라 목록에 못 적는다. 앞자리로 훑어 지운다.
   try {
     for (let i = localStorage.length - 1; i >= 0; i--) {
@@ -1634,15 +1638,24 @@ function stampWrite(uid, v) {
   try { localStorage.setItem(STAMP_KEY(uid), JSON.stringify(v)); } catch {}
 }
 
+// 오늘이 몇 주차인가 — 기간 밖이거나 값이 망가졌으면 -1.
+// ⚠️ NaN 을 꼭 걸러야 한다. `i < 0 || i >= weeks` 는 NaN 에서 **둘 다 false** 라
+//    가드를 그냥 통과해 「기간 밖이면 숨긴다」가 「빈 알약을 그린다」로 뒤집힌다.
+function stampWeekIndex(s) {
+  if (!s || !s.start) return -1;
+  const i = Math.floor(
+    (Date.parse(todayYmd() + "T00:00:00Z") - Date.parse(s.start + "T00:00:00Z")) / 86400000 / 7);
+  return (isFinite(i) && i >= 0 && i < s.weeks) ? i : -1;
+}
+
 function applyStampPill() {
   const btn = document.getElementById("open-event-list");
   if (!btn || !stampCache) return;
   const old = btn.querySelector(".ev-pill");
   if (old) old.remove();
   const s = stampCache;
-  const i = Math.floor(
-    (Date.parse(todayYmd() + "T00:00:00Z") - Date.parse(s.start + "T00:00:00Z")) / 86400000 / 7);
-  if (i < 0 || i >= s.weeks) return;                 // 기간 밖이면 아무것도 안 붙인다
+  const i = stampWeekIndex(s);
+  if (i < 0) return;                                 // 기간 밖이면 아무것도 안 붙인다
   const n = (s.weekDays && s.weekDays[i]) || 0;
   let dots = "";
   for (let k = 0; k < s.perWeek; k++) dots += k < n ? "●" : "○";
@@ -1661,11 +1674,20 @@ function fillStampPill(u) {
   if (cached && cached.eventId === evId) { stampCache = cached; applyStampPill(); }
   api.eventStamps(u.user_id, evId).then((s) => {
     if (!s || !s.ok || !s.rule) return;
+    const prev = stampCache;
     stampCache = {
       eventId: evId, day: todayYmd(), start: s.rule.start,
       weeks: s.rule.weeks, perWeek: s.rule.perWeek,
-      weekDays: s.weekDays, eligible: !!s.eligible,
+      weekDays: (s.weekDays || []).slice(), eligible: !!s.eligible,
     };
+    // ⚠️ 방금 낙관적으로 찍은 이번 주 칸을 **서버의 아직 안 반영된 값이 되돌리지 않게.**
+    //    저장은 fire-and-forget 이라, 암송을 마치고 곧장 홈에 오면 집계가 아직 안 따라왔을 수 있다.
+    //    하필 「방금 했는데」 하고 확인하는 순간이다. loadTodayCount 가 쓰는 방어와 같은 것이다.
+    const wi = stampWeekIndex(stampCache);
+    if (wi >= 0 && prev && prev.eventId === evId && prev.day === stampCache.day && prev.weekDays) {
+      stampCache.weekDays[wi] = Math.max(
+        Number(stampCache.weekDays[wi] || 0), Number(prev.weekDays[wi] || 0));
+    }
     stampWrite(u.user_id, stampCache);
     applyStampPill();                                // ⚠️ renderSummary 를 다시 부르지 않는다
   }).catch(() => {});
