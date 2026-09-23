@@ -466,9 +466,19 @@
   <div class="tile bad"><p class="k">기한이 이미 지난 것</p><p class="v">83.9</p><p class="n">% · 2,383건</p></div>
   <div class="tile bad"><p class="k">7일 이상 밀린 것</p><p class="v">73.9</p><p class="n">% · 2,099건</p></div>
   <div class="tile bad"><p class="k">30일 이상 밀린 것</p><p class="v">456</p><p class="n">건</p></div>
-  <div class="tile bad"><p class="k">한 번도 복습 안 한 사람</p><p class="v">122</p><p class="n">명 · 대상 174명의 70.1%</p></div>
+  <div class="tile bad"><p class="k">한 번도 복습 안 한 사람</p><p class="v">122</p><p class="n">명 · 대상 174명의 70.1% †</p></div>
   <div class="tile bad"><p class="k">복습이 차지하는 반복</p><p class="v">0.6</p><p class="n">% · 755회 / 123,776회</p></div>
 </div>
+<div class="warnbox">
+  <b>† 이 122 는 <code>reviews.last_at</code> 기준이다.</b> 같은 항목을
+  <code>supabase/review_metrics.sql</code> 의 질의 ③은 <b>132명(75.9%)</b> 으로 센다 —
+  그쪽은 <code>challenge_log</code> 에 <code>review%</code> 기록이 있나로 보기 때문이다.
+  차이 10명은 <b>2026-09-02 이전에 복습한 분들</b>이다. 그날까지 복습 완료가
+  <code>review-typing</code> 이 아니라 그냥 <code>typing</code> 으로 남아 로그에서 복습으로 안 잡힌다.
+  <b>앞으로 다시 잴 때는 <code>review_metrics.sql</code> 의 정의(로그 기준, 132)를 쓴다</b> —
+  이 타일의 122 와 나란히 놓지 말 것.
+</div>
+
 
 <p>2026-09-02 개편으로 복습을 <b>첫 화면 맨 위 단추</b>로 올렸는데도 이 숫자다.
 자리를 옮겨서 해결되는 문제가 아니라는 뜻이다. 원인 후보 셋을 순서대로 의심할 만하다.</p>
