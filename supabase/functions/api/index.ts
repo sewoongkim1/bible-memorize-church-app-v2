@@ -395,6 +395,7 @@ Deno.serve(async (req) => {
       case "savePush":      return json(await savePush(body));
       case "saveIosPushToken": return json(await saveIosPushToken(body));
       case "updateIosPushHour": return json(await updateIosPushHour(body));
+      case "updatePushEvening": return json(await updatePushEvening(body));
       case "removePush":    return json(await removePush(body));
       case "removePushByUser": return json(await removePushByUser(body));
       case "testPush":      return json(await testPush(body));
@@ -614,6 +615,30 @@ async function updateIosPushHour(b: any) {
     .update({ hour }).eq("user_id", b.user_id).select("id");
   if (error) throw error;
   return { ok: true, hour, updated: (data ?? []).length > 0 };
+}
+
+// ---------- updatePushEvening: 저녁 알림만 켜고 끄기 (2026-09-23, 0판) ----------
+// ⚠️ 저녁 on/off 는 **사람 단위**다 — 시각(hour)이 기기 단위인 것과 다르다.
+//    한 분이 웹과 아이폰을 함께 쓰시면 저녁은 둘 다 같이 꺼지는 것이 자연스럽다.
+// ⚠️ 응답에 user_id 를 싣지 않는다(이 API 는 JWT 가 없다).
+// ⚠️ evening 칸이 아직 없는 DB(함수가 먼저 올라간 순간)에서도 죽지 않아야 한다 —
+//    savePush 의 hour 폴백과 같은 까닭이다. 그때는 ok:true, migrated:false 로 돌려준다.
+async function updatePushEvening(b: any) {
+  if (!b.user_id) return { ok: false, error: "no-user" };
+  const on = b.on !== false;   // 기본은 켜짐 — 빠뜨린 호출이 사람을 조용히 끄면 안 된다
+  let web = 0, ios = 0, migrated = true;
+  const hit = async (table: string) => {
+    const { data, error } = await db.from(table)
+      .update({ evening: on }).eq("user_id", b.user_id).select("id");
+    if (error) {
+      if (/evening/i.test(String(error.message || ""))) { migrated = false; return 0; }
+      throw error;
+    }
+    return (data ?? []).length;
+  };
+  web = await hit("push_subscriptions");
+  ios = await hit("ios_push_tokens");
+  return { ok: true, on, web, ios, migrated };
 }
 
 // DB verses에서 '이번 주(=오늘 기준 최신) 말씀'을 읽어 {ref,text} 반환.
