@@ -715,29 +715,34 @@ git commit -m "$(printf 'feat(이벤트): eventStamps — 자격 계산을 서�
 - Produces: 거절 슬러그 `not-yet`(새로) · `not-eligible`(새로) · `closed-period`·`not-open`(이미 있다)
   — Task 8 의 `evtErrText` 가 이 셋을 문구로 옮긴다.
 
-- [ ] **Step 1: 실패하는 스모크를 먼저 쓴다**
+- [ ] **Step 1: 되돌이 방지 스모크를 쓴다**
+
+⚠️ **이것은 「실패 먼저」 시험이 아니다.** 솔직하게 적어 둔다 —
+이 액션의 응답은 **오늘 날짜와 회차 상태에 달려 있어** 실패를 먼저 만들 수가 없다.
+**이 과제의 진짜 검증은 Task 7 의 Step 5~6** 이다(개발 DB 에서 날짜를 우리가 정해
+`not-eligible` 과 `answers` 덮어쓰기를 **정확한 값으로** 확인한다).
+여기 스모크는 **나중에 누가 이 자리를 되돌리지 못하게** 못 박는 울타리다.
 
 `tests/event-smoke.sh` 의 `4-1)` 블록 **아래**에:
 
 ```bash
-echo "4-2) eventSignup - 자격 회차는 서버가 다시 센다"
-G=$(call '{"action":"eventSignup","user_id":"00000000-0000-0000-0000-000000000000","event_id":"autumn-2026"}')
-chk "없는 회차/미달은 열리지 않는다" \
-  "$(jqn 'd.get("error") in ("not-found","not-eligible","not-yet","closed-period","not-open")' "$G")" "True"
+echo "4-2) eventSignup - 클라이언트가 보낸 answers 는 저장되지 않는다"
+# 되돌이 방지용이다. 값이 날짜에 달려 있어 「실패 먼저」로 쓸 수 없다 —
+# 자격 판정의 정확한 값은 개발 DB 에서 Task 7 Step 5~6 으로 확인한다.
+G=$(call '{"action":"eventSignup","user_id":"00000000-0000-0000-0000-000000000000","event_id":"autumn-2026","answers":{"weeks":[9,9,9,9,9,9]}}')
 chk "ok=false" "$(jqn 'd.get("ok")' "$G")" "False"
-chk "지어낸 answers 가 그대로 들어가지 않는다" \
-  "$(jqn '"weeks" not in json.dumps(d.get("signup") or {})' \
-     "$(call '{"action":"eventSignup","user_id":"00000000-0000-0000-0000-000000000000","event_id":"autumn-2026","answers":{"weeks":[9,9,9,9,9,9]}}')")" "True"
+chk "지어낸 weeks 가 응답에 없다" "$(jqn '"[9, 9, 9, 9, 9, 9]" not in json.dumps(d)' "$G")" "True"
+chk "거절 슬러그가 아는 것 중 하나" "$(jqn 'd.get("error") in ("not-found","not-eligible","not-yet","closed-period","not-open")' "$G")" "True"
+chk "user_id 를 싣지 않는다" "$(jqn '"user_id" not in json.dumps(d)' "$G")" "True"
 ```
 
-- [ ] **Step 2: 실패를 확인한다**
+- [ ] **Step 2: 지금 상태를 확인한다**
 
 ```bash
 bash tests/event-smoke.sh
 ```
-기대: `4-2)` 는 이 단계에서 **통과할 수도 있다**(회차가 없어 `not-found` 다).
-**그래도 그대로 둔다** — Task 7 에서 회차가 생긴 뒤 이 줄들이 진짜 일을 한다.
-지금 확인할 것은 **맨 아래 `실패 0`** 이다.
+기대: **맨 아래 `실패 0`.** (`autumn-2026` 회차가 아직 없어 `not-found` 로 거부된다 — 맞는 결과다.)
+
 
 - [ ] **Step 3: 거절 슬러그를 세 갈래로 고친다**
 
