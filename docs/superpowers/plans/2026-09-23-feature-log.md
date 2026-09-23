@@ -868,15 +868,22 @@ select (select count(*) from a)    as 눌러서_연_분,
 --      부분집합이므로 이 비율은 0~100 을 벗어날 수 없다.
 
 -- ④ 말씀 앨범 — 열고도 안 듣는 분
---    ⚠️ album-play 는 말씀 목록 화면('전체 듣기')에서도 남아 album 의 부분집합이 아닐 수
---       있다(전환율_퍼센트가 이론상 100 을 넘을 수 있다). 열고도_안_듣는_분은 o 를 거른
---       것이라 그 문제와 상관없이 항상 0 이상·화면을_연_분 이하다.
-with o as (select distinct user_id from public.feature_log where feature='album'),
-     p as (select distinct user_id from public.feature_log where feature='album-play')
-select (select count(*) from o)                                                       as 화면을_연_분,
-       (select count(*) from p)                                                       as 듣기까지_간_분,
-       round(100.0 * (select count(*) from p) / nullif((select count(*) from o),0), 1) as 전환율_퍼센트,
-       (select count(*) from o where user_id not in (select user_id from p))           as 열고도_안_듣는_분;
+--    ⚠️ album-play 는 앨범 화면(album)뿐 아니라 말씀 목록 화면(renderVerseList 의 '전체 듣기')
+--       에서도 남는다 — 그 화면은 album 을 기록하지 않으므로 album-play 에는 album 을 한 번도
+--       안 연 분도 섞인다. 그래서 분자를 album-play 원 인원(p)으로 그대로 두고 album(o) 으로
+--       나누면 두 독립 집합의 비율이라 전환율이 100% 를 넘을 수 있다 — psalm_metrics.sql ②가
+--       쓰는 것과 같은 방법으로, 분자를 **교집합**(화면도 열고 재생도 시작한 분, op)으로 바꿔
+--       분모(o)의 부분집합이 되게 한다. album-play 원 인원은 듣기_전체_인원 열로 따로 남겨
+--       '전체 듣기' 경로가 안 묻히게 한다 — 그 열과 op(열고_들은_분)의 차이가 화면을 한 번도
+--       안 열고(말씀 목록의 '전체 듣기'로만) 들은 분이다.
+with o  as (select distinct user_id from public.feature_log where feature='album'),
+     p  as (select distinct user_id from public.feature_log where feature='album-play'),
+     op as (select user_id from o intersect select user_id from p)
+select (select count(*) from o)                                                        as 화면을_연_분,
+       (select count(*) from op)                                                       as 열고_들은_분,
+       (select count(*) from p)                                                        as 듣기_전체_인원,
+       round(100.0 * (select count(*) from op) / nullif((select count(*) from o),0), 1) as 전환율_퍼센트,
+       (select count(*) from o) - (select count(*) from op)                            as 열고도_안_듣는_분;
 
 -- ⑤ 한 번 보고 마셨나, 이어 보시나 — 기능별·사람별 본 날수 분포
 select feature, 본_날수, count(*) as 사람수 from (
