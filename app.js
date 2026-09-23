@@ -1328,8 +1328,9 @@ function ensureReviewScheduled(no) {
   const r = loadReview();
   if (!r[no]) { r[no] = { level: 0, next: afterDaysStr(REVIEW_INTERVALS[0]) }; saveReviewData(r); }
 }
-// 오늘까지 복습 예정인 구절No 목록 — renderSummary 의 개수 표시와 startReview 딱
-// 둘이 쓰므로, 각 호출부가 아니라 여기 한 곳에서만 거른다(2026-09-10 리뷰 지적).
+// 오늘까지 복습 예정인 구절No 목록 — renderSummary 의 개수 표시·startReview 의 큐·
+// renderReviewDone 의 「더 남았나」 셋이 쓰므로, 각 호출부가 아니라 여기 한 곳에서만
+// 거른다(2026-09-10 리뷰 지적).
 // ⚠️ 2026-09-23부터: 기한이 된 것 **전부**가 아니라 최대 REVIEW_BATCH 개만,
 //    next(기한) 오름차순(=가장 오래 밀린 것부터)으로 골라 돌려준다(아래 sort·slice).
 function dueReviewNos() {
@@ -1359,7 +1360,7 @@ function dueReviewNos() {
       return na < nb ? -1 : na > nb ? 1 : a - b;
     })
     // 묶음으로 자른다. 여기 한 곳에서 자르면 첫 화면 숫자·큐 길이·완료 화면 숫자가
-    // 저절로 같은 수가 된다(호출처가 renderSummary 와 startReview 둘뿐이다).
+    // 저절로 같은 수가 된다(호출처는 renderSummary·startReview·renderReviewDone 셋).
     .slice(0, REVIEW_BATCH);
 }
 // 복습 완료 → 다음(더 긴) 간격으로
@@ -7810,19 +7811,25 @@ function renderChallenge(verse, hard) {
 // ------------------------------------------------------------
 // ⚠️ 쉴만한 물가(시편)는 복습 대상이 아니다(성도님 결정 2026-09-13) — dueReviewNos()가
 //    애초에 시편 번호를 걸러내므로 여기서는 일반 verses만 신경 쓰면 된다.
-async function startReview() {
+// keepMode === true 면 카드 상태를 그대로 이어받는다 — 완료 화면의 「더 하기」 전용.
+// ⚠️ **`!== true` 여야 한다.** 첫 화면 단추는 `addEventListener("click", startReview)` 로
+//    직통 등록돼 있어(아래 renderSummary) **MouseEvent 가 1번 인자로 들어온다.**
+//    `if (!keepMode)` 로 쓰면 Event 가 truthy 라 홈에서 들어올 때도 리셋이 안 된다.
+async function startReview(keepMode) {
   try {
     // 복습에 들어올 때 **한 번만** 설정값으로 되돌린다 — 도전에서 켠 카드가 복습
     // 첫 구절까지 따라오지 않게. reviewNext 로 다음 구절로 넘어갈 때는 여기를 다시
     // 거치지 않으므로, 세션 안에서 👆로 바꾼 것은 남은 구절에 그대로 이어진다(의도된
     // 동작이다 — 복습은 한 번에 세 구절을 도는 화면이라 구절마다 꺼지면 매번 다시
     // 눌러야 한다).
+    // ⚠️ 그래서 **「더 하기」는 리셋하지 않는다**(keepMode). 자판이 벽이라 카드를 켜고
+    //    복습하시는 분이 이 기능의 표적인데, 세 구절마다 👆를 다시 누르게 하면 안 된다.
     // ⚠️ renderReview 가 아니라 **여기**여야 한다. 토글이 renderReview 를 다시 그리는
     //    방식이라, 리셋을 renderReview 안에 두면 👆를 누르는 순간 설정값으로 되돌아가
     //    「눌러도 안 바뀐다」가 된다.
     // ⚠️ 암송(startTest)·시편(renderPsalmReview 안의 리셋)은 구절마다 꺼진다 — 여기와
     //    다른 규칙이다. 복습은 일부러 세션 단위로 다르게 간다. 혼동하지 말 것.
-    setCardMode(isCardStart());
+    if (keepMode !== true) setCardMode(isCardStart());
     const dueNos = dueReviewNos();
     // ⚠️ verses.filter 로 만들면 순서가 verses 배열 순(서버 order("no") = 구절 번호순)으로
     //    덮여 dueReviewNos 가 정한 「오래 밀린 순」이 통째로 버려진다. dueNos 를 축으로 만든다.
@@ -7969,7 +7976,8 @@ function renderReviewDone(count) {
         <button class="${more ? "summary-change" : "summary-go"}" id="rv-home">기록 화면으로</button>
       </div>
     </div>`;
-  if (more) document.getElementById("rv-more").addEventListener("click", startReview);
+  // keepMode=true — 카드로 복습하시던 분이 「더 하기」에서 자판으로 되돌아가지 않게.
+  if (more) document.getElementById("rv-more").addEventListener("click", () => startReview(true));
   document.getElementById("rv-home").addEventListener("click", renderSummary);
 }
 

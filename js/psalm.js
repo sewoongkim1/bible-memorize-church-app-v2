@@ -454,9 +454,9 @@ function psalmStageDone(verse, stage, cardUsed) {
     //    (cardUsed 인자를 받고도 안 쓴다) — 구분보다 기록이 먼저였던 결정을 아직
     //    유지한다. 반면 **주간 복습**(app.js renderReview → reviewLogMode)은
     //    2026-09-23부터 카드면 `review-typing-card` 로 가른다 — 이 값은 이제
-    //    CHECK 제약에도 있다(`supabase/migrate_modes_review_card.sql`. ⚠️ DB 적용은
-    //    아직 — 파일만 있다). 시편도 구분하려면 위에서 받은 cardUsed 를 여기
-    //    postChallenge 호출에 반영해야 한다(아직 안 했다).
+    //    CHECK 제약에도 있다(`supabase/migrate_modes_review_card.sql` —
+    //    2026-09-23 개발·운영 **양쪽 적용 완료**). 시편도 구분하려면 위에서 받은
+    //    cardUsed 를 여기 postChallenge 호출에 반영해야 한다(아직 안 했다).
     postChallenge(verse, "review-typing");
     // ⚠️ 주간 복습(renderReview)과 같은 경로(reviewNext)를 타야 한다 — 여기서 직접
     //    renderReview/renderSummary 로 가르면 큐의 마지막 구절일 때 renderReviewDone

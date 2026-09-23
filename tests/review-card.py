@@ -161,6 +161,58 @@ try:
         """)
         check("startReview 가 카드 상태를 설정값으로 되돌린다", reset_ok is False, reset_ok)
 
+        # ⑧ 「늘 카드로 시작」을 켜 두면 복습이 카드로 열린다
+        #    (⑦만으로는 setCardMode(false) 로 바꿔 놔도 통과한다 — isCardStart() 를
+        #     진짜로 읽는지 못 박는 갈래다)
+        start_on = page.evaluate("""
+        () => {
+          localStorage.setItem('input-card-mode', '0');
+          localStorage.setItem('card-start', '1');
+          startReview();
+          return isCardMode();
+        }
+        """)
+        check("「늘 카드로 시작」을 켜 두면 복습도 카드로 열린다", start_on is True, start_on)
+
+        # ⑨ ★ 「더 하기」는 카드 상태를 **이어받는다** (startReview(true))
+        #    자판이 벽이라 카드를 켜고 복습하시는 분이 이 기능의 표적인데,
+        #    세 구절마다 👆를 다시 누르게 하면 안 된다.
+        #    ⚠️ 첫 화면 단추는 addEventListener("click", startReview) 로 직통 등록돼
+        #       MouseEvent 가 1번 인자로 들어온다 — 그래서 구현이 `!== true` 여야 한다.
+        #       아래 두 갈래가 그 둘을 함께 못 박는다.
+        #    ⚠️ **실제로 단추를 누른다.** startReview(true) 를 직접 부르면 배선
+        #       (rv-more 리스너가 keepMode 를 넘기는가)을 한 줄도 재지 못한다 —
+        #       래퍼를 지워도 통과해 버린다(돌연변이로 확인함).
+        keep = page.evaluate("""
+        () => {
+          // 완료 화면이 「더 하기」를 그리려면 아직 기한이 된 구절이 남아 있어야 한다
+          verses = [1,2,3,4].map(n => ({ no: n, ref: 'r'+n, refShort: 'r'+n, text: '말씀 ' + n, week: 1 }));
+          const r = {};
+          [1,2,3,4].forEach(n => { r[n] = { level: 0, next: '2026-09-10' }; });
+          localStorage.setItem('memorize-review', JSON.stringify(r));
+          localStorage.setItem('card-start', '0');   // 설정은 자판
+          setCardMode(true);                          // 이 세션에서 👆로 카드로 바꿈
+          renderReviewDone(3);
+          return { more: !!document.getElementById('rv-more'), card: isCardMode() };
+        }
+        """)
+        check("완료 화면에 「더 하기」 단추가 그려진다", keep["more"] is True, keep)
+        if keep["more"]:
+            page.locator("#rv-more").click()
+            page.wait_for_timeout(500)
+            after = page.evaluate("() => isCardMode()")
+            check("「더 하기」를 눌러도 카드 상태가 이어진다", after is True, after)
+
+        evt = page.evaluate("""
+        () => {
+          localStorage.setItem('card-start', '0');
+          setCardMode(true);
+          startReview(new MouseEvent('click'));       // 첫 화면 단추가 부르는 꼴
+          return isCardMode();
+        }
+        """)
+        check("첫 화면 단추(MouseEvent)로 들어오면 설정값으로 되돌린다", evt is False, evt)
+
         browser.close()
 finally:
     srv.terminate()
