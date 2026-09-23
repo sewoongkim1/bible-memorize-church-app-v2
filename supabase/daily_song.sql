@@ -85,7 +85,7 @@ as $$
 declare
   v_id text;
 begin
-  -- ① 오늘 행이 있으면 그것. 단 후보 조건을 다시 건다(담당자가 그 사이 숨겼을 수 있다).
+  -- ① 오늘 행이 있으면 그것. 단 후보 조건을 다시 건다 — 무효하면 그 자리에서 새 곡으로 갈아 낀다(② 참고).
   select d.song_id into v_id
     from public.daily_song d
    where d.day = p_day
@@ -104,10 +104,13 @@ begin
              on t.song_id = p.id
      order by t.last_day asc nulls first, random()
      limit 1
-    on conflict (day) do nothing
+    on conflict (day) do update
+       set song_id = excluded.song_id, created_at = now()
+     where not exists (select 1 from public.v2_song_pool q
+                        where q.id = public.daily_song.song_id)
     returning public.daily_song.song_id into v_id;
 
-    -- ③ 경쟁에서 졌으면(do nothing) 새 문장으로 다시 읽는다.
+    -- ③ 경쟁에서 졌거나 저장된 곡이 멀쩡해서 교체가 안 일어났으면(where절), 새 문장으로 다시 읽는다.
     if v_id is null then
       select d.song_id into v_id from public.daily_song d where d.day = p_day;
     end if;
