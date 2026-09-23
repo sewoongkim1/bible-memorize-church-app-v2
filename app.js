@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260923c";
+const APP_BUILD = "20260923d";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9552,6 +9552,13 @@ function drawRankingBody(r, data) {
   const narrowOn = rankScope === "mine" && nr.ok;
   const view = narrowOn ? nr.list : list;
 
+  // 「우리 교구를 실제로 보고 계신 분이 몇 분인가」를 잰다.
+  // ⚠️ 칩을 **누를 때만** 재면 안 된다 — 기본값 그대로 보고 나가시는 분이 가장 많은데
+  //    그분들이 한 건도 안 잡힌다(그게 바로 재려던 수다).
+  // ⚠️ 여기는 기간 탭을 옮길 때도 불린다. logFeature 의 60초 창이 같은 값의 중복을 막고,
+  //    칩을 바꾸면 item 이 달라져 그 즉시 따로 기록된다.
+  logFeature("ranking-scope", narrowOn ? 1 : 0);
+
   // 교구와 교회학교를 말로 가른다 — GU_LIST 는 접미사가 없고("사랑"), BU_LIST 는 이미 부로 끝난다("청년부").
   // ⚠️ sosok 뒤에 그냥 「교구」를 붙이면 교회학교가 「청년부교구」가 된다.
   const soWord = u && u.type === "교구" ? "교구" : "부서";
@@ -9733,7 +9740,6 @@ function wireRankScope(r, data) {
     rankScope = v;
     // ⚠️ 성도님이 **직접 누른 것만** 저장한다(게이트가 강제로 켠 「전체」는 저장하지 않는다).
     try { localStorage.setItem(RANK_SCOPE_KEY, v); } catch {}
-    logFeature("ranking-scope", v === "mine" ? 1 : 0);
     drawRankingBody(r, data);
     // 133줄이 8줄로 줄면 아래를 보던 분이 빈 화면을 본다. 목록 맨 위로 되돌린다.
     const sc = document.querySelector(".rank-screen");
