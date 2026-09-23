@@ -2488,7 +2488,8 @@ function logFeature(feature, item) {
     const k = feature + ":" + (item || 0), now = Date.now();
     if (featSent[k] && now - featSent[k] < 60000) return;
     featSent[k] = now;
-    api.featureLog({ user_id: u.user_id, feature: feature, item: item || 0 });
+    // await 하지 않으므로 rejection 이 try/catch 를 빠져나간다
+    api.featureLog({ user_id: u.user_id, feature: feature, item: item || 0 }).catch(() => {});
   } catch (e) {}
 }
 
@@ -2501,7 +2502,7 @@ function drawPrayer(list, i) {
   if (prayLogged !== b.no) {
     prayLogged = b.no;
     const u = loadUser();
-    if (u && u.user_id) { try { api.blessingLog({ user_id: u.user_id, no: b.no }); } catch (e) {} }
+    if (u && u.user_id) { try { api.blessingLog({ user_id: u.user_id, no: b.no }).catch(() => {}); } catch (e) {} }
   }
   const chunks = prayChunks(b.prayer);
   const prayer = chunks.map((sent, k) =>
@@ -6534,18 +6535,26 @@ function maybeShowWeeklyMeditation(force, withTabs) {
     const fetchPsalm = (psalmVisible() && typeof loadPsalmVerses === "function")
       ? loadPsalmVerses().then(() => psalmToday()).catch(() => null)
       : Promise.resolve(null);
-    fetchPsalm.then((todayPsalm) => {
+    // ⚠️ 시편과 **나란히** 받는다. 체인으로 이으면 시편이 끝난 뒤에야 찬양을 요청해
+    //    창이 두 번 늦게 뜬다 — 깜빡임을 피하려다 더 나쁜 지연을 만든다.
+    // ⚠️ fetchTodaySong 은 캐시가 있으면 서버를 안 친다(첫 화면이 대개 먼저 채운다).
+    //    실패는 그 안에서 삼킨다 — 여기서 새면 바깥 catch 에 걸려 **묵상 창이 통째로 안 뜬다.**
+    const fetchSong = fetchTodaySong();
+    Promise.all([fetchPsalm, fetchSong]).then(([todayPsalm, todaySong]) => {
       // 자동 팝업·어드민 미리보기는 '오늘 것 하나만'. 요일 탭은 매일 묵상 버튼으로 열 때만.
-      showMeditationModal(items, pick, verse, sermon, !!withTabs, usingPrev, todayPsalm);
+      showMeditationModal(items, pick, verse, sermon, !!withTabs, usingPrev, { psalm: todayPsalm, song: todaySong });
     });
   }).catch(() => {});
 }
 
 // 오늘의 묵상 모달 — 이번주 묵상 전체를 탭으로 넘겨볼 수 있다(기본은 오늘 것).
 // usingPrev: 이번주 설교가 아직 준비 전이라 전주 자료로 대체해 보여주는 중임을 표시.
-// todayPsalm: 시편 게이트가 켜져 있고 오늘 열린 편이 있을 때만 온다(그 밖엔 null) —
+// extra.psalm: 시편 게이트가 켜져 있고 오늘 열린 편이 있을 때만 온다(그 밖엔 null) —
+// extra.song: 찬양 게이트가 켜져 있고 오늘의 찬양이 있을 때만 온다(그 밖엔 null) —
 // 여기서는 그 값만 보고 배너를 그릴지 말지 정한다(게이트·시작일 판단을 다시 하지 않는다).
-function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev, todayPsalm) {
+function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev, extra) {
+  const todayPsalm = extra && extra.psalm;
+  const todaySong = extra && extra.song;
   // 탭은 요일 한 글자(7일치일 때). 그 외에는 번호 — 제목을 쓰면 너무 길어 화면을 잡아먹는다.
   // 발행 주기가 월~일이라 배열 인덱스도 월요일 시작(maybeShowWeeklyMeditation의 dayIdx와 동일 기준).
   const DAYS = ["월", "화", "수", "목", "금", "토", "일"];
@@ -6570,6 +6579,7 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev
           <button class="cheer-ok" id="dmsg-ok">확인</button>
         </div>
         ${todayPsalm ? `<button class="med-psalm-cta" id="med-psalm">🐑 쉴만한 물가 · ${psalmEsc(todayPsalm.refShort || todayPsalm.refFull)}</button>` : ""}
+        ${todaySong ? `<button class="med-song-cta" id="med-song">🎵 찬양 · ${boardEsc(todaySong.song)} <span class="ext-mark">↗</span></button>` : ""}
       </div>`;
     document.body.appendChild(wrap);
     const card = wrap.querySelector(".dmsg-card");
@@ -6599,6 +6609,11 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev
     if (pBtn) pBtn.addEventListener("click", () => {
       done();
       setTimeout(() => renderPsalmHome(), 260);
+    });
+    const gBtn = wrap.querySelector("#med-song");     // 묵상 → 오늘의 찬양(찬양 아카이브)
+    if (gBtn) gBtn.addEventListener("click", () => {
+      done();                                        // ⚠️ close() 가 아니다
+      openSongToday(todaySong);                      // 새 탭이라 setTimeout 이 필요 없다
     });
     toTop();
     wrap.addEventListener("click", (e) => { if (e.target === wrap) done(); });
