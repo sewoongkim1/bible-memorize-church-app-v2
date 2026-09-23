@@ -43,7 +43,7 @@ grant execute on function public.redirect_merged_member_write() to service_role;
 do $$
 declare t text;
 begin
-  foreach t in array array['progress','challenge_log','reviews','passage_progress','blessing_log',
+  foreach t in array array['progress','challenge_log','reviews','passage_progress','blessing_log','feature_log',
     'board_posts','board_replies','board_reactions','event_entries','push_subscriptions',
     'pilsa_orders','ministry_orders','event_signups','daily_activity'] loop
     if to_regclass('public.' || t) is not null then
@@ -129,7 +129,7 @@ begin
     where c.contype='f' and c.confrelid='public.users'::regclass and c.conrelid not in
       ('public.user_merges'::regclass,'public.user_identity_aliases'::regclass,'public.user_profile_changes'::regclass)
   loop
-    if ref.tbl::text not in ('progress','challenge_log','reviews','passage_progress','blessing_log',
+    if ref.tbl::text not in ('progress','challenge_log','reviews','passage_progress','blessing_log','feature_log',
       'push_subscriptions','board_posts','board_replies','event_signups') then
       execute format('select count(*) from %s where %I::text=$1',ref.tbl,ref.col) into n using s.id::text;
       if n>0 then return jsonb_build_object('ok',false,'error','merge-unsupported-records'); end if;
@@ -139,7 +139,7 @@ begin
     from information_schema.columns c join information_schema.tables b
       on b.table_schema=c.table_schema and b.table_name=c.table_name
     where c.table_schema='public' and b.table_type='BASE TABLE' and c.column_name='user_id'
-      and c.table_name not in ('progress','challenge_log','reviews','passage_progress','blessing_log',
+      and c.table_name not in ('progress','challenge_log','reviews','passage_progress','blessing_log','feature_log',
         'push_subscriptions','board_posts','board_replies','board_reactions','event_entries',
         'daily_activity','pilsa_orders','ministry_orders','event_signups','user_identity_aliases','user_profile_changes')
   loop
@@ -175,6 +175,12 @@ begin
       select t.id,day,no,cnt from public.blessing_log where user_id=s.id
       on conflict(user_id,day,no) do update set cnt=blessing_log.cnt+excluded.cnt;
     delete from public.blessing_log where user_id=s.id;
+  end if;
+  if to_regclass('public.feature_log') is not null then
+    insert into public.feature_log(user_id,day,feature,item,cnt)
+      select t.id,day,feature,item,cnt from public.feature_log where user_id=s.id
+      on conflict(user_id,day,feature,item) do update set cnt=feature_log.cnt+excluded.cnt;
+    delete from public.feature_log where user_id=s.id;
   end if;
   if to_regclass('public.event_entries') is not null then
     insert into public.event_entries(event_id,user_id,entered_at)
