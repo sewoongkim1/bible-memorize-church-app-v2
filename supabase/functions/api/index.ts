@@ -1399,6 +1399,7 @@ const FEATURES = new Set([
   "guide",            // 사용 설명서를 엶
   "push",             // 알림을 눌러 앱이 열림
   "ranking-scope",    // 순위 범위 칩 — item: 1=우리 교구 · 0=전체
+  "event",            // 이벤트 화면을 엶 — ⚠️ 개시일부터 켠다. 나중에 켜면 그 구간이 영구히 빈다
 ]);
 
 async function featureLog(b: any) {

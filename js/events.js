@@ -129,6 +129,9 @@ function evtDdayText(closesOn) {
 // ── 목록 화면 ────────────────────────────────────────────────
 // focusId: 딥링크(?ev=)로 들어왔을 때 그 회차의 등록 화면을 바로 연다.
 function renderEventList(focusId) {
+  // 열람 기록 — app.js 의 전역 logFeature 를 그대로 쓴다(js/psalm.js 와 같은 방식).
+  // ⚠️ FEATURES(index.ts)에 "event" 가 없으면 서버가 조용히 버린다(skipped:true) — 화면은 안 죽는다.
+  if (typeof logFeature === "function") logFeature("event", 0);
   if (typeof stopSpeaking === "function") stopSpeaking();
   var u = loadUser();
   if (!u) { renderEntryScreen(); return; }
