@@ -14,7 +14,7 @@
 -- mode까지 기본키에 넣는 이유:
 --   앱 순위는 암송(learn-*)을 포함해 세고, 관리자 도전현황은 뺀다. 타이핑/음성도 나눠야
 --   한다. mode를 남겨 두면 그 모든 조합을 합계만으로 뽑아낼 수 있다.
---   mode: typing/voice(도전) · review-typing/voice(복습) · learn-typing/voice(암송)
+--   mode: typing/voice(도전) · review-typing/voice/review-typing-card(복습) · learn-typing/voice(암송)
 
 -- 1) 집계표
 create table if not exists public.daily_activity (

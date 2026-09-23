@@ -434,8 +434,9 @@ function psalmInReview(verse) {
 function renderPsalmReview(queue, idx) {
   psalmReviewCtx = { queue, idx };
   // 복습도 한 구절이 한 번의 시작이다 — psalmStartMemorize 와 같은 이유로 설정을 다시 읽는다.
-  // ⚠️ 주간 복습(renderReview)에는 카드 입력 자체가 없어 견줄 자리가 없다. 시편 복습은
-  //    이 화면(renderPsalmBlank)을 그대로 쓰므로 카드가 있고, 그래서 여기도 필요하다.
+  // ⚠️ 주간 복습(renderReview)에도 카드가 생겼다(2026-09-23) — 두 화면이 같은 뜻(isCardMode()로
+  //    마쳤는가)으로 센다. 시편 복습은 이 화면(renderPsalmBlank)을 그대로 쓰므로 카드가
+  //    있고, 그래서 여기도 설정을 다시 읽어야 한다.
   setCardMode(isCardStart());
   renderPsalmBlank(queue[idx], 3);
 }
@@ -449,15 +450,23 @@ function psalmStageDone(verse, stage, cardUsed) {
     // ⚠️ postChallenge 는 **구절 객체**를 받는다(verse_no 가 아니다) — app.js:7120.
     // ⚠️ 복습은 review- 접두사로 남긴다(2026-09-02 결정). 보이는 숫자는 안 바뀐다
     //    (순위·통계가 %typing%·includes("typing") 으로 세므로 그대로 들어간다).
-    // ⚠️ 복습 화면에는 원래 카드가 없어 `review-typing-card` 가 CHECK 제약에 없다.
-    //    카드로 풀었어도 `review-typing` 으로 남긴다 — 구분보다 기록이 먼저다.
-    //    구분하고 싶으면 supabase/migrate_modes_card.sql 에 그 값을 **먼저** 더한다.
+    // ⚠️ 시편 복습은 카드로 풀었어도 여기서는 여전히 `review-typing` 으로만 남긴다
+    //    (cardUsed 인자를 받고도 안 쓴다) — 구분보다 기록이 먼저였던 결정을 아직
+    //    유지한다. 반면 **주간 복습**(app.js renderReview → reviewLogMode)은
+    //    2026-09-23부터 카드면 `review-typing-card` 로 가른다 — 이 값은 이제
+    //    CHECK 제약에도 있다(`supabase/migrate_modes_review_card.sql`. ⚠️ DB 적용은
+    //    아직 — 파일만 있다). 시편도 구분하려면 위에서 받은 cardUsed 를 여기
+    //    postChallenge 호출에 반영해야 한다(아직 안 했다).
     postChallenge(verse, "review-typing");
     // ⚠️ 주간 복습(renderReview)과 같은 경로(reviewNext)를 타야 한다 — 여기서 직접
     //    renderReview/renderSummary 로 가르면 큐의 마지막 구절일 때 renderReviewDone
-    //    (「🎉 복습 완료!」)을 건너뛰고 첫 화면으로 바로 떨어진다. 시편은 늘 큐의 뒤쪽이라
-    //    (startReview 의 pool = verses.concat(psalmVerses)) 시편 복습이 하나라도 있으면
-    //    매번 축하 없이 끝나고 있었다(2026-09-10 리뷰 지적). stopSpeaking()도 reviewNext가 한다.
+    //    (「🎉 복습 완료!」)을 건너뛰고 첫 화면으로 바로 떨어진다(2026-09-10 리뷰 지적,
+    //    당시엔 시편이 늘 큐의 뒤쪽이라 하나라도 있으면 매번 축하 없이 끝났다).
+    // ⚠️ 이 「pool = verses.concat(psalmVerses)」 전제는 이미 거짓이다 — 지금
+    //    startReview 의 pool 은 dueNos.map(...)이고, 시편은 애초에 복습 대상이
+    //    아니다(2026-09-13 결정 — app.js ensureReviewScheduled 가 시편 번호는
+    //    예약조차 안 하고, dueReviewNos 가 서버에서 딸려 온 옛 시편 예약도 걸러낸다).
+    //    그래도 reviewNext 규칙은 그대로 남겨 둔다. stopSpeaking()도 reviewNext가 한다.
     return reviewNext(queue, idx);
   }
   const wasFirst = psalmWasFirst();

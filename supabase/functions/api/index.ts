@@ -2208,7 +2208,7 @@ async function challenge(b: any) {
   // ⚠️ 되돌릴 값은 **접두사를 보존**해야 한다. 전부 "typing"으로 통일하면 복습과
   //    긴 본문(app.js:454 logPassageActivity 가 learn-* 를 이 액션으로 보낸다)이
   //    「도전」으로 둔갑해 전환율이 조용히 부풀어 오른다 —
-  //    challenge_funnel.sql 의 도전 판정이 `mode not like 'learn%' and not like 'review%'` 다.
+  //    challenge_funnel.sql 의 도전 판정이 `mode not like 'learn%' and mode not like 'review%'` 다.
   //    2026-09-02 이전에 겪은 그 사고를 다시 만드는 셈이 된다.
   if (error && typeof m === "string" && m.endsWith("-card")) {
     const base = m.startsWith("review-") ? "review-typing"
