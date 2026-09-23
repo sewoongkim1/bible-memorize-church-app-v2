@@ -6528,6 +6528,10 @@ function maybeShowWeeklyMeditation(force, withTabs) {
       try { if (localStorage.getItem(key) === "1") return; } catch {}
       try { localStorage.setItem(key, "1"); } catch {}
     }
+    // ⚠️ 여기는 창이 **실제로 뜨는 것이 확정된** 자리다(위에서 '오늘 이미 봤으면' return 했다).
+    //    저절로 뜬 것과 눌러서 연 것을 가른다 — 뭉쳐 남기면 「묵상을 본 사람 = 앱을 연 사람」이
+    //    되어 숫자가 뜻을 잃는다. 나중에 meditation ÷ meditation-auto 로 능동 비율을 본다.
+    logFeature(force ? "meditation" : "meditation-auto", info.verse.no);
     // ⚠️ 시편 배너용 자료를 창을 그리기 **전에** 받아 둔다(2026-09-11, 성도님 요청 —
     //    매일 묵상과 시편 액자를 연계). 그린 뒤에 끼워 넣으면 창이 뜬 다음 배너만 늦게
     //    나타나 깜빡인다. js/psalm.js 의 게이트·캐시를 그대로 쓴다 — 여기서 새로 만들지
