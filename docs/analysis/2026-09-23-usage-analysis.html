@@ -1,0 +1,1279 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>성경말씀 암송 앱 — 사용률 분석과 개선 방향 (2026-09-23)</title>
+<style>
+  :root{
+    color-scheme: light;
+    --plane:#f9f9f7; --surface:#fcfcfb;
+    --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+    --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10);
+    --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a;
+    --o1:#86b6ef; --o2:#3987e5; --o3:#1c5cab; --o4:#0d366b;
+    --good:#0ca30c; --warn:#fab219; --serious:#ec835a; --crit:#d03b3b;
+    --deltaup:#006300;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:where(:not([data-theme="light"])){
+      color-scheme: dark;
+      --plane:#0d0d0d; --surface:#1a1a19;
+      --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
+      --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
+      --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+      --o1:#184f95; --o2:#256abf; --o3:#3987e5; --o4:#86b6ef;
+      --deltaup:#0ca30c;
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme: dark;
+    --plane:#0d0d0d; --surface:#1a1a19;
+    --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+    --o1:#184f95; --o2:#256abf; --o3:#3987e5; --o4:#86b6ef;
+    --deltaup:#0ca30c;
+  }
+
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--plane); color:var(--ink);
+    font:15px/1.7 system-ui,-apple-system,"Segoe UI","Malgun Gothic",sans-serif;
+    padding-block:0;
+  }
+  .wrap{max-width:980px; margin:0 auto; padding:32px 20px 96px}
+
+  header.top{border-bottom:1px solid var(--border); padding-bottom:24px; margin-bottom:32px}
+  h1{font-size:26px; line-height:1.35; margin:0 0 12px; letter-spacing:-.01em}
+  .lede{font-size:17px; line-height:1.65; margin:0 0 14px;
+        border-left:3px solid var(--s1); padding-left:14px; color:var(--ink)}
+  .meta{font-size:13px; color:var(--muted); margin:0}
+
+  h2{font-size:20px; margin:52px 0 6px; letter-spacing:-.01em;
+     padding-top:18px; border-top:1px solid var(--border)}
+  h2 .num{color:var(--muted); font-weight:600; margin-right:8px}
+  h3{font-size:16px; margin:32px 0 8px}
+  p{margin:10px 0}
+  .sub{color:var(--ink2); font-size:14px; margin:4px 0 18px}
+  a{color:var(--s1)}
+  code{font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+       background:var(--surface); border:1px solid var(--border);
+       border-radius:4px; padding:1px 5px}
+
+  /* ── 카드 ── */
+  .card{background:var(--surface); border:1px solid var(--border);
+        border-radius:10px; padding:20px 20px 16px; margin:18px 0}
+  .card > h3:first-child{margin-top:0}
+  .cap{font-size:13px; color:var(--muted); margin:0 0 16px}
+
+  /* ── 스탯 타일 ── */
+  .tiles{display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); margin:18px 0}
+  .tile{background:var(--surface); border:1px solid var(--border);
+        border-radius:10px; padding:14px 16px}
+  .tile .k{font-size:12.5px; color:var(--ink2); margin:0 0 6px; line-height:1.45}
+  .tile .v{font-size:27px; font-weight:650; line-height:1.15; margin:0; letter-spacing:-.02em}
+  .tile .n{font-size:12px; color:var(--muted); margin:5px 0 0; line-height:1.45}
+  .tile.bad .v{color:var(--crit)}
+  .tile.ok  .v{color:var(--deltaup)}
+
+  /* ── 가로 막대 ── */
+  .hbars{display:grid; gap:9px; margin:4px 0 0}
+  .hrow{display:grid; grid-template-columns:minmax(88px,auto) 1fr; gap:12px; align-items:center}
+  .hrow .lab{font-size:13px; color:var(--ink2); text-align:right; line-height:1.35}
+  .track{position:relative; height:26px; display:flex; align-items:center}
+  .bar{height:18px; border-radius:0 4px 4px 0; background:var(--s1);
+       min-width:2px; transition:filter .12s}
+  .bar:hover{filter:brightness(1.12)}
+  .bval{font-size:13px; color:var(--ink2); margin-left:8px; white-space:nowrap;
+        font-variant-numeric:tabular-nums}
+  .bval b{color:var(--ink); font-weight:650}
+
+  /* ── 범례 ── */
+  .legend{display:flex; flex-wrap:wrap; gap:14px; margin:0 0 14px; font-size:13px; color:var(--ink2)}
+  .legend span{display:inline-flex; align-items:center; gap:6px}
+  .sw{width:11px; height:11px; border-radius:3px; flex:none}
+
+  /* ── SVG ── */
+  .chartbox{overflow-x:auto; margin:0 -4px}
+  svg{display:block; max-width:100%; height:auto}
+  .gl{stroke:var(--grid); stroke-width:1}
+  .ax{stroke:var(--axis); stroke-width:1}
+  .tick{fill:var(--muted); font-size:11px; font-variant-numeric:tabular-nums}
+  .dlab{fill:var(--ink); font-size:11.5px; font-weight:650}
+  .dlab2{fill:var(--ink2); font-size:11px}
+
+  /* ── 표 ── */
+  details{margin:14px 0 0; border-top:1px solid var(--border); padding-top:10px}
+  summary{cursor:pointer; font-size:13px; color:var(--ink2); list-style:none}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"▸ "; color:var(--muted)}
+  details[open] summary::before{content:"▾ "}
+  .tblbox{overflow-x:auto; margin-top:10px}
+  table{border-collapse:collapse; width:100%; font-size:13.5px}
+  th,td{text-align:left; padding:7px 10px; border-bottom:1px solid var(--border);
+        vertical-align:top}
+  th{color:var(--ink2); font-weight:600; white-space:nowrap}
+  td.n,th.n{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap}
+  tbody tr:last-child td{border-bottom:none}
+
+  /* ── 권고 ── */
+  .rec{background:var(--surface); border:1px solid var(--border);
+       border-left:4px solid var(--s1); border-radius:10px;
+       padding:18px 20px; margin:16px 0}
+  .rec.p1{border-left-color:var(--crit)}
+  .rec.p2{border-left-color:var(--serious)}
+  .rec.p3{border-left-color:var(--warn)}
+  .rec.p4{border-left-color:var(--s1)}
+  .rec.p5{border-left-color:var(--s3)}
+  .rec h3{margin:0 0 4px; font-size:16.5px}
+  .rec .why{font-size:13.5px; color:var(--ink2); margin:8px 0}
+  .rec ul{margin:10px 0 0; padding-left:20px}
+  .rec li{margin:5px 0}
+  .tag{display:inline-block; font-size:11.5px; font-weight:650; letter-spacing:.02em;
+       border-radius:999px; padding:2px 9px; margin-right:8px; vertical-align:2px;
+       border:1px solid var(--border); color:var(--ink2)}
+  .warnbox{border:1px solid var(--border); border-left:4px solid var(--warn);
+           background:var(--surface); border-radius:8px; padding:12px 16px;
+           margin:14px 0; font-size:13.5px; color:var(--ink2)}
+  .warnbox b{color:var(--ink)}
+  ul.plain{padding-left:20px}
+  ul.plain li{margin:6px 0}
+
+  /* 툴팁 */
+  #tip{position:fixed; z-index:50; pointer-events:none; opacity:0;
+       background:var(--surface); color:var(--ink);
+       border:1px solid var(--border); border-radius:7px;
+       padding:7px 10px; font-size:12.5px; line-height:1.5;
+       box-shadow:0 4px 14px rgba(0,0,0,.16); transition:opacity .1s;
+       max-width:240px}
+  #tip b{font-weight:650}
+  #tip .t{color:var(--ink2); font-size:11.5px}
+
+  @media (max-width:560px){
+    .wrap{padding:24px 16px 72px}
+    h1{font-size:22px}
+    .hrow{grid-template-columns:minmax(72px,auto) 1fr; gap:8px}
+    .hrow .lab{font-size:12px}
+    /* 좁은 화면에서는 줄이지 말고 옆으로 밀어서 본다 — 줄이면 글씨를 못 읽는다 */
+    .chartbox svg{min-width:600px}
+    .chartbox::after{content:"← 옆으로 밀어서 보세요"; display:block;
+                     font-size:11.5px; color:var(--muted); padding:6px 0 0}
+  }
+</style>
+</head>
+<body>
+<div id="tip" role="status" aria-live="polite"></div>
+<div class="wrap">
+
+<header class="top">
+  <h1>성경말씀 암송 앱 — 사용률 분석과 개선 방향</h1>
+  <p class="lede">
+    앱은 잘 돌아가지만 <b>새로 오신 분을 첫날에 놓치고 있다.</b>
+    가입 416명 중 225명(54.1%)만 한 번이라도 암송했고, 그 225명 중 <b>82명(36.4%)은 하루만 쓰고 안 돌아왔다.</b>
+    반복 횟수의 67.7%가 상위 10명에게서 나온다. 가장 값싸고 효과가 큰 손질은
+    ① 첫날 <b>둘째 구절</b>까지 데려가기 ② <b>복습 화면에 카드 모드</b> 넣기 ③ <b>저녁 알림</b> 추가다.
+  </p>
+  <p class="meta">
+    작성 2026-09-23 · 대상 저장소 <code>bible-memorize-church-app-v2</code> (gocheok.onlybible.kr) ·
+    자료 출처 운영 Supabase <code>xnomlgydifiqiybervtf</code> 읽기 전용 조회
+  </p>
+</header>
+
+<!-- ══════════════ 0. 배경·전제 ══════════════ -->
+<h2><span class="num">0</span>이 문서는 무엇인가</h2>
+<p class="sub">대화 맥락 없이 이 파일만 읽어도 이해되도록 배경과 전제를 먼저 적는다.</p>
+
+<p><b>무엇에 대한 앱인가.</b> 고척교회 제자양육부 신앙운동팀의 <b>성경말씀 암송</b> 웹앱이다.
+성도님이 이름·소속으로 로그인하면 주간 암송구절을 <b>보기 → 듣기 → 암송(빈칸 채우기)</b> 3단계로 외우고,
+3단계를 마친 구절은 <b>복습(간격반복)</b>으로 다시 만난다. 그 밖에 말씀 도전·순위·게시판·
+매일 묵상·가정 축복 기도문·쉴만한 물가(시편 액자)·말씀 앨범(듣기)·필사 노트 신청이 있다.
+아이폰·안드로이드 앱과 위젯도 나가 있다.</p>
+
+<p><b>왜 이걸 봤나.</b> 친구의 요청 — <i>“현재 자료를 이용하여 사이트 사용률 분석을 해주고,
+어떤 방향으로 더 앱을 개선 및 추가 기능을 넣어야 하는지 분석을 해주세요.”</i></p>
+
+<h3>본 것 / 안 본 것</h3>
+<div class="tblbox">
+<table>
+  <thead><tr><th>구분</th><th>내용</th></tr></thead>
+  <tbody>
+    <tr><td><b>본 것</b></td><td>운영 DB의 <code>users</code> · <code>daily_activity</code> ·
+      <code>challenge_log</code> · <code>progress</code> · <code>reviews</code> ·
+      <code>push_subscriptions</code> · <code>ios_push_tokens</code> · <code>blessing_log</code> ·
+      <code>board_posts/replies/reactions</code> · <code>rank_cheers</code> ·
+      <code>pilsa_orders</code> · <code>event_signups/entries</code> · <code>verses</code>.
+      기준 시각 2026-09-23 오전(KST).</td></tr>
+    <tr><td><b>안 본 것</b></td><td>
+      ① <b>화면 열람 기록</b> — 이 앱은 페이지 조회를 아예 안 남긴다(6장 참고). 그래서
+         “쉴만한 물가를 몇 명이 봤나” 같은 질문에는 <b>답할 자료가 없다</b>.<br>
+      ② 앱 스토어·플레이스토어 설치 수, 웹 방문자 수(GA 같은 도구가 없다).<br>
+      ③ 푸시 <b>열람률</b>(발송 수만 <code>push_log</code>에 있고 누가 눌렀는지는 없다).<br>
+      ④ 형제 앱(찬양 worship·말씀 sermon)의 사용률. 같은 Supabase 프로젝트를 쓰지만 이 분석 범위 밖이다.</td></tr>
+    <tr><td><b>환경</b></td><td>조회는 <code>supabase db query --linked</code>(운영)로 <code>SELECT</code>만 돌렸다.
+      쓰기·변경은 하지 않았다.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="warnbox">
+  <b>⚠ 「가입」의 뜻을 오해하면 안 된다.</b> 이 앱은 비밀번호가 없고, 로그인 화면에서
+  소속과 이름을 넣으면 <b>서버가 모르는 이름이면 계정을 새로 만들어 준다</b>. 따라서
+  <code>users</code> 416행은 “회원가입을 마친 사람”이 아니라 <b>로그인 화면을 끝까지 통과한 사람</b>이다.
+  한 사람이 이름을 다르게 적어 두 계정이 생긴 경우도 섞일 수 있다(<code>user_merges</code> 표가 그걸 합치는 장치다).
+  그래서 아래 「활동 0회 191명」은 <b>“로그인은 했는데 암송을 한 번도 안 한 사람”</b>으로 읽어야 한다.
+</div>
+
+<!-- ══════════════ 1. 한눈에 ══════════════ -->
+<h2><span class="num">1</span>한눈에</h2>
+<p class="sub">2026-09-23 오전 기준. 첫 활동일은 2026-06-25로, 약 3개월치 기록이다.</p>
+
+<div class="tiles">
+  <div class="tile"><p class="k">로그인을 통과한 사람</p><p class="v">416</p><p class="n">명 · <code>users</code></p></div>
+  <div class="tile"><p class="k">한 번이라도 암송한 사람</p><p class="v">225</p><p class="n">명 · 416명의 54.1%</p></div>
+  <div class="tile bad"><p class="k">로그인만 하고 끝</p><p class="v">191</p><p class="n">명 · 416명의 45.9%</p></div>
+  <div class="tile"><p class="k">최근 7일 활동(WAU)</p><p class="v">73</p><p class="n">명 · 활동자 225명의 32.4%</p></div>
+  <div class="tile"><p class="k">최근 30일 활동(MAU)</p><p class="v">162</p><p class="n">명</p></div>
+  <div class="tile"><p class="k">하루 활동(DAU)</p><p class="v">40</p><p class="n">명 안팎 · 9월 실측 33~53</p></div>
+  <div class="tile"><p class="k">누적 반복 횟수</p><p class="v">123,776</p><p class="n">회 · <code>challenge_log</code></p></div>
+  <div class="tile bad"><p class="k">상위 10명이 차지하는 반복</p><p class="v">67.7</p><p class="n">% · 중위값은 1인 22회</p></div>
+</div>
+
+<p><b>붙어 있는 정도(DAU÷MAU)는 약 24.7%</b>(40÷162)다. 한 달에 한 번이라도 오는 사람 넷 중 하나가
+그날 온다는 뜻으로, 매일 하는 습관 앱으로는 낮지 않다. 문제는 <b>그 모집단 자체가 작다</b>는 것이다 —
+416명이 문을 열었는데 한 달 안에 움직이는 사람이 162명이다.</p>
+
+<!-- ══════════════ 2. 퍼널 ══════════════ -->
+<h2><span class="num">2</span>어디서 새는가 — 참여 퍼널</h2>
+<p class="sub">로그인부터 습관이 붙기까지. 막대 길이는 인원, 색이 진해질수록 뒤쪽 단계다.</p>
+
+<div class="card">
+  <h3>로그인 → 첫 암송 → 이틀 → 여드레</h3>
+  <p class="cap">단계마다 「앞 단계 대비 남은 비율」을 함께 적었다.</p>
+  <div class="hbars" id="funnel">
+    <div class="hrow"><div class="lab">로그인 통과</div><div class="track">
+      <div class="bar" style="width:100%; background:var(--o1)" data-tip="로그인 통과|416명|users 표 전체"></div>
+      <span class="bval"><b>416</b>명 · 100%</span></div></div>
+    <div class="hrow"><div class="lab">첫 암송 1회</div><div class="track">
+      <div class="bar" style="width:54.1%; background:var(--o2)" data-tip="첫 암송 1회 이상|225명|앞 단계의 54.1%"></div>
+      <span class="bval"><b>225</b>명 · 앞 단계의 54.1%</span></div></div>
+    <div class="hrow"><div class="lab">이틀 이상</div><div class="track">
+      <div class="bar" style="width:34.4%; background:var(--o3)" data-tip="활동일 2일 이상|143명|앞 단계의 63.6%"></div>
+      <span class="bval"><b>143</b>명 · 앞 단계의 63.6%</span></div></div>
+    <div class="hrow"><div class="lab">여드레 이상</div><div class="track">
+      <div class="bar" style="width:16.8%; background:var(--o4)" data-tip="활동일 8일 이상|70명|앞 단계의 49.0%"></div>
+      <span class="bval"><b>70</b>명 · 앞 단계의 49.0%</span></div></div>
+  </div>
+  <details>
+    <summary>표로 보기</summary>
+    <div class="tblbox"><table>
+      <thead><tr><th>단계</th><th class="n">인원</th><th class="n">416명 대비</th><th class="n">앞 단계 대비</th></tr></thead>
+      <tbody>
+        <tr><td>로그인 통과</td><td class="n">416</td><td class="n">100%</td><td class="n">—</td></tr>
+        <tr><td>첫 암송 1회 이상</td><td class="n">225</td><td class="n">54.1%</td><td class="n">54.1%</td></tr>
+        <tr><td>활동일 2일 이상</td><td class="n">143</td><td class="n">34.4%</td><td class="n">63.6%</td></tr>
+        <tr><td>활동일 8일 이상</td><td class="n">70</td><td class="n">16.8%</td><td class="n">49.0%</td></tr>
+      </tbody>
+    </table></div>
+  </details>
+</div>
+
+<p><b>가장 큰 누수는 첫 칸이다.</b> 로그인을 끝까지 통과한 191명이 암송을 <b>한 번도</b> 안 했다.
+이 앱은 로그인하면 바로 암송 화면으로 들어가는 구조이므로, 이 191명은 “아직 시간이 없었던 사람”이 아니라
+<b>첫 화면에서 돌아선 사람</b>으로 봐야 한다.</p>
+
+<p>그리고 최근 코호트가 특히 나쁘다. 가입 주별 「활동 0회」 비율을 보면
+<b>09-14 주 10명 전원(100%)</b>, <b>09-21 주 2명 전원(100%)</b>이 아무것도 하지 않았다.
+8월 대량 유입기(08-10 ~ 08-31)도 42~62%가 활동 0이다.</p>
+
+<div class="card">
+  <h3>가입 주별 「활동 0회」 비율</h3>
+  <p class="cap">가로축은 가입한 주, 막대는 그 주에 들어온 사람 가운데 암송을 한 번도 안 한 비율.
+     최근 두 주는 표본이 10명·2명으로 작다.</p>
+  <div class="chartbox" id="neverchart"></div>
+  <details>
+    <summary>표로 보기</summary>
+    <div class="tblbox"><table>
+      <thead><tr><th>가입 주</th><th class="n">가입</th><th class="n">활동 0회</th><th class="n">비율</th></tr></thead>
+      <tbody id="nevertbl"></tbody>
+    </table></div>
+  </details>
+</div>
+
+<!-- ══════════════ 3. 추이 ══════════════ -->
+<h2><span class="num">3</span>추이 — 정점을 지났다</h2>
+<p class="sub">주 단위 활동자와 신규 참여자. 신규는 「그 주에 처음 암송한 사람」이다.</p>
+
+<div class="card">
+  <h3>주별 활동자 · 신규</h3>
+  <p class="cap">둘 다 단위가 「명」이라 한 축에 그렸다.
+     ⚠ 맨 오른쪽 09-21 주는 <b>사흘치(9/21~9/23)</b>라 앞 주들과 그대로 견주면 안 된다.</p>
+  <div class="legend">
+    <span><i class="sw" style="background:var(--s1)"></i>활동자</span>
+    <span><i class="sw" style="background:var(--s2)"></i>신규</span>
+  </div>
+  <div class="chartbox" id="weekchart"></div>
+  <details>
+    <summary>표로 보기</summary>
+    <div class="tblbox"><table>
+      <thead><tr><th>주 시작</th><th class="n">활동자</th><th class="n">신규</th><th class="n">반복 횟수</th></tr></thead>
+      <tbody id="weektbl"></tbody>
+    </table></div>
+  </details>
+</div>
+
+<p><b>읽는 법 셋.</b></p>
+<ul class="plain">
+  <li><b>8월에 폭발했다.</b> 활동자 14명(08-03 주) → 34 → 63 → <b>113명</b>(08-24 주). 이 자리에
+      「말씀암송이 답이다!」 이벤트 시작(8/16)과 암송·도전 화면 개선(8/25)이 겹쳐 있다.</li>
+  <li><b>9월 중순부터 내려온다.</b> 101명(09-07 주) → 76명(09-14 주)으로 <b>한 주에 25% 줄었다</b>.
+      같은 기간 하루 반복 횟수도 4,000~5,600회에서 3,200~3,900회로 내려왔다.</li>
+  <li><b>신규가 말랐다.</b> 60명(08-24 주) → 20 → 18 → <b>2명</b>(09-14 주) → <b>0명</b>(09-21 주).
+      새로 들어오는 물줄기가 사실상 끊겼다. 이벤트가 <b>9/30에 끝난다</b>는 점을 함께 보아야 한다.</li>
+</ul>
+
+<!-- ══════════════ 4. 리텐션 ══════════════ -->
+<h2><span class="num">4</span>왜 떠나는가 — 첫날에 답이 있다</h2>
+<p class="sub">활동자 225명을 「며칠 썼나」로 갈라 보고, 그 사람들이 <b>첫날에 무엇을 했는지</b> 대조했다.</p>
+
+<div class="card">
+  <h3>활동일수 분포와 생존</h3>
+  <p class="cap">「지금도 활동」은 최근 7일 안에 활동한 사람이다. 두 막대 모두 단위는 「명」.</p>
+  <div class="legend">
+    <span><i class="sw" style="background:var(--s1)"></i>인원</span>
+    <span><i class="sw" style="background:var(--s3)"></i>그중 지금도 활동(최근 7일)</span>
+  </div>
+  <div class="chartbox" id="retchart"></div>
+  <details>
+    <summary>표로 보기</summary>
+    <div class="tblbox"><table>
+      <thead><tr><th>활동일수</th><th class="n">인원</th><th class="n">비율</th><th class="n">지금도 활동</th><th class="n">생존율</th></tr></thead>
+      <tbody id="rettbl"></tbody>
+    </table></div>
+  </details>
+</div>
+
+<p><b>계단이 하나 있다.</b> 활동일이 <b>여드레를 넘긴 70명</b> 중 57명(81.4%)이 지금도 활동한다.
+반대로 <b>하루·이틀에서 멈춘 110명</b>(활동자의 48.9%) 중 지금 남은 사람은 <b>2명</b>이다.
+즉 이 앱은 <b>여드레만 붙들면 습관이 된다</b>. 문제는 그 앞이다.</p>
+
+<div class="card">
+  <h3>첫날에 무엇을 했나 — 남은 사람과 떠난 사람</h3>
+  <p class="cap">같은 「첫날」만 잘라서 견줬다. 단위가 달라(횟수 / 구절 수) <b>두 개의 차트로</b> 나눴다.</p>
+  <div class="chartbox" id="firstday"></div>
+  <details>
+    <summary>표로 보기</summary>
+    <div class="tblbox"><table>
+      <thead><tr><th>집단</th><th class="n">인원</th><th class="n">첫날 반복</th><th class="n">첫날 구절 수</th>
+        <th class="n">구절 1개만</th><th class="n">첫날 카드 사용</th><th class="n">첫날 도전까지</th></tr></thead>
+      <tbody>
+        <tr><td>하루만 쓴 사람</td><td class="n">82</td><td class="n">4.6회</td><td class="n">1.70개</td>
+            <td class="n">68.3%</td><td class="n">17.1%</td><td class="n">11.0%</td></tr>
+        <tr><td>2~4일 쓴 사람</td><td class="n">57</td><td class="n">6.1회</td><td class="n">2.05개</td>
+            <td class="n">63.2%</td><td class="n">14.0%</td><td class="n">10.5%</td></tr>
+        <tr><td>5일 이상 쓴 사람</td><td class="n">86</td><td class="n">29.3회</td><td class="n">6.42개</td>
+            <td class="n">39.5%</td><td class="n">23.3%</td><td class="n">22.1%</td></tr>
+      </tbody>
+    </table></div>
+  </details>
+</div>
+
+<p><b>★ 이 분석에서 가장 값나가는 발견.</b> 남은 사람과 떠난 사람은 <b>첫날부터 달랐다</b>.
+떠난 82명은 첫날 평균 <b>1.70개 구절</b>을 만졌고 <b>68.3%는 구절 하나만</b> 열었다.
+5일 이상 남은 86명은 첫날 <b>6.42개 구절</b>, 하나만 만진 사람은 39.5%뿐이다.
+반복 횟수로는 <b>4.6회 대 29.3회, 6.4배</b>다.</p>
+
+<p>첫날 <b>도전</b>까지 가 본 비율도 11.0% 대 22.1%로 두 배 차이다.
+카드 모드를 쓴 비율은 17.1% 대 23.3%로 벌어져 있다.</p>
+
+<div class="warnbox">
+  <b>⚠ 인과로 읽지 말 것.</b> 「첫날 많이 했으니 남았다」와 「원래 의욕 있는 사람이 첫날에도 많이 했다」는
+  이 자료로 가를 수 없다. 다만 <b>어느 쪽이든 손댈 자리는 같다</b> — 첫날에 둘째 구절까지 가는 길을
+  넓히는 것은 전자가 맞으면 리텐션을 올리고, 후자가 맞아도 잃는 것이 없다.
+  확인하려면 첫날 안내를 바꾼 뒤 <b>그 전후 코호트</b>를 견주어야 한다(9장).
+</div>
+
+<!-- ══════════════ 5. 기능별 쓰임 ══════════════ -->
+<h2><span class="num">5</span>기능별 쓰임 — 무엇이 살아 있고 무엇이 죽었나</h2>
+<p class="sub">분모는 <b>활동자 225명</b>이다. 로그인만 한 191명은 뺐다(그 사람들은 어떤 기능도 안 썼다).</p>
+
+<div class="card">
+  <h3>기능별 도달률</h3>
+  <p class="cap">각 기능을 한 번이라도 쓴 사람 수. 단위는 「명」, 괄호는 활동자 225명 대비 비율.</p>
+  <div class="hbars" id="reach"></div>
+  <details>
+    <summary>표로 보기</summary>
+    <div class="tblbox"><table>
+      <thead><tr><th>기능</th><th class="n">사용자</th><th class="n">비율</th><th>상태</th></tr></thead>
+      <tbody id="reachtbl"></tbody>
+    </table></div>
+  </details>
+</div>
+
+<ul class="plain">
+  <li><b>암송은 건강하다</b> — 217명(96.4%). 들어온 사람은 암송을 한다.</li>
+  <li><b>도전 38.2%</b>(86명). 2026-09-02 측정 때의 누적 전환율 31.3%보다 올랐다.
+      화면 개편과 카드 모드가 효과를 냈다고 볼 수 있다.</li>
+  <li><b>축복 기도문 23.1%</b>(52명) — 9/3 개시라 3주 만에 이 정도면 출발은 좋았다.
+      다만 <b>식는 속도가 빠르다</b>: 9/10에는 하루 13명이 봤는데 최근 7일은 <b>10명</b>(하루 1~5명)이다.</li>
+  <li><b>복습 18.7%</b>(42명) — 첫 화면 맨 위 단추인데도 다섯 명 중 한 명만 쓴다. 7장에서 따로 본다.</li>
+  <li><b>순위 응원 16.4%</b>(37명)이지만 <b>최근 7일에 650건</b>이 오갔다(보낸 사람 18명, 받은 사람 74명).
+      쓰는 사람은 적은데 열심이고, <b>받는 사람은 넓다</b>. 소통 장치로는 이게 이기고 있다.</li>
+  <li><b>게시판은 사실상 죽었다</b> — 3개월간 글 32개, 그중 16개는 계정 없이 올라왔고,
+      계정이 있는 글쓴이는 <b>4명</b>(1.8%)이다. 공감을 누른 사람도 7명이다. 마지막 글은 9/16.</li>
+  <li><b>필사 노트 신청 3명</b>(4건), 마지막 신청은 <b>8/25</b> — 한 달째 0건이다.</li>
+  <li><b>푸시 구독 15.1%</b> — 6장에서 따로 본다. 여기가 두 번째로 큰 기회다.</li>
+</ul>
+
+<!-- ══════════════ 6. 카드/자판/음성 ══════════════ -->
+<h2><span class="num">6</span>입력 방식 — 카드가 이겼고, 복습만 뒤처졌다</h2>
+<p class="sub">화면마다 「카드 · 자판 · 음성」이 차지하는 반복 비중. 세 화면 모두 100%로 맞췄다.</p>
+
+<div class="card">
+  <h3>화면별 입력 방식 비중</h3>
+  <p class="cap">막대 안 숫자는 비중(%), 오른쪽은 그 화면의 총 반복 횟수.
+     ⚠ 복습 막대에 카드가 <b>없는 것은 취향이 아니라 기능이 없기 때문</b>이다.</p>
+  <div class="legend">
+    <span><i class="sw" style="background:var(--s1)"></i>카드</span>
+    <span><i class="sw" style="background:var(--s2)"></i>자판</span>
+    <span><i class="sw" style="background:var(--s3)"></i>음성</span>
+  </div>
+  <div class="chartbox" id="modechart"></div>
+  <details>
+    <summary>표로 보기</summary>
+    <div class="tblbox"><table>
+      <thead><tr><th>mode</th><th class="n">반복</th><th class="n">전체 비중</th><th class="n">사용자</th></tr></thead>
+      <tbody id="modetbl"></tbody>
+    </table></div>
+  </details>
+</div>
+
+<ul class="plain">
+  <li><b>카드가 전체 반복의 65.2%</b>(80,709 / 123,776)를 먹었다. 2026-09-02 측정 때 암송의 28.5%였는데
+      지금 <b>암송의 59.6%, 도전의 77.5%</b>다. 「자판이 벽이었다」는 가설이 크게 맞았다.</li>
+  <li><b>복습만 자판 99.9%</b>다. 카드 모드가 없다. 암송·도전에서 카드로 외우던 사람이
+      복습에 오면 갑자기 자판을 만난다.</li>
+  <li><b>음성은 죽었다</b> — 565회로 전체의 0.46%. 도전 음성은 <b>2회·2명</b>, 복습 음성은 <b>1회·1명</b>이다.</li>
+</ul>
+
+<!-- ══════════════ 7. 복습 ══════════════ -->
+<h2><span class="num">7</span>복습은 기능이 아니라 「빚」이 됐다</h2>
+<p class="sub">간격반복은 이 앱의 핵심 설계인데, 숫자로 보면 작동하지 않는다.</p>
+
+<div class="tiles">
+  <div class="tile"><p class="k">복습 대기</p><p class="v">2,841</p><p class="n">건 · 174명</p></div>
+  <div class="tile bad"><p class="k">기한이 이미 지난 것</p><p class="v">83.9</p><p class="n">% · 2,383건</p></div>
+  <div class="tile bad"><p class="k">7일 이상 밀린 것</p><p class="v">73.9</p><p class="n">% · 2,099건</p></div>
+  <div class="tile bad"><p class="k">30일 이상 밀린 것</p><p class="v">456</p><p class="n">건</p></div>
+  <div class="tile bad"><p class="k">한 번도 복습 안 한 사람</p><p class="v">122</p><p class="n">명 · 대상 174명의 70.1%</p></div>
+  <div class="tile bad"><p class="k">복습이 차지하는 반복</p><p class="v">0.6</p><p class="n">% · 755회 / 123,776회</p></div>
+</div>
+
+<p>2026-09-02 개편으로 복습을 <b>첫 화면 맨 위 단추</b>로 올렸는데도 이 숫자다.
+자리를 옮겨서 해결되는 문제가 아니라는 뜻이다. 원인 후보 셋을 순서대로 의심할 만하다.</p>
+
+<ol class="plain">
+  <li><b>카드 모드가 없다</b>(6장). 가장 유력하고 가장 값싸게 고칠 수 있다.</li>
+  <li><b>적체가 심리적 벽이다.</b> 2,383건이 「기한 지남」으로 쌓여 있으면 열고 싶지 않다.
+      한 사람 평균 13.7건(2,383÷174)이 밀려 있다.</li>
+  <li><b>복습만을 위한 알림이 없다.</b> 아침 알림 하나가 전부다(8장).</li>
+</ol>
+
+<!-- ══════════════ 8. 알림 ══════════════ -->
+<h2><span class="num">8</span>알림 — 가장 효과 큰 장치가 88%에게 꺼져 있다</h2>
+
+<div class="card">
+  <h3>푸시 구독 여부와 지속</h3>
+  <p class="cap">활동자 225명을 구독 여부로 갈랐다. 왼쪽은 「평균 활동일수」, 오른쪽은 「최근 7일에 활동한 비율」.
+     단위가 달라 두 차트로 나눴다.</p>
+  <div class="chartbox" id="pushchart"></div>
+  <details>
+    <summary>표로 보기</summary>
+    <div class="tblbox"><table>
+      <thead><tr><th>집단</th><th class="n">인원</th><th class="n">평균 활동일</th><th class="n">최근 7일 활동</th><th class="n">비율</th></tr></thead>
+      <tbody>
+        <tr><td>푸시 구독</td><td class="n">27</td><td class="n">16.1일</td><td class="n">13명</td><td class="n">48.1%</td></tr>
+        <tr><td>미구독</td><td class="n">198</td><td class="n">7.5일</td><td class="n">60명</td><td class="n">30.3%</td></tr>
+      </tbody>
+    </table></div>
+  </details>
+</div>
+
+<p>구독자는 활동일이 <b>2.1배</b>, 최근 7일 활동률이 <b>1.6배</b>다.
+그런데 <b>활동자 225명 중 구독은 27명(12.0%)</b>뿐이다(웹 33 + iOS 토큰 14 = 서로 겹쳐 전체 34명,
+그중 실제 활동 기록이 있는 사람이 27명).</p>
+
+<div class="warnbox">
+  <b>⚠ 여기도 인과가 아니다.</b> 열심인 사람이 알림을 켰을 가능성이 크다. 그래도
+  <b>켤 기회를 88%에게 못 준 것</b> 자체는 사실이고, 그건 고칠 수 있다.
+</div>
+
+<div class="card">
+  <h3>시간대별 활동 — 알림은 아침에만 간다</h3>
+  <p class="cap">최근 30일, 시각(KST)별로 <b>그 시간에 활동한 사람 수</b>(같은 사람이 여러 시간대에 셀 수 있다).
+     아침 알림이 닿는 구간을 진하게 표시했다.</p>
+  <div class="chartbox" id="hourchart"></div>
+  <details>
+    <summary>표로 보기</summary>
+    <div class="tblbox"><table>
+      <thead><tr><th class="n">시각</th><th class="n">사람 수</th><th class="n">반복 횟수</th></tr></thead>
+      <tbody id="hourtbl"></tbody>
+    </table></div>
+  </details>
+</div>
+
+<p><b>알림이 가는 시간과 사람들이 실제로 쓰는 시간이 어긋나 있다.</b>
+알림은 아침(pg_cron 20~23 UTC = KST 5~8시) 한 번뿐인데,
+사람 수 정점은 <b>오전 11시(71명)·오전 10시(67명)·오후 2시(67명)</b>이고,
+반복 횟수 정점은 <b>저녁 7시(7,296회)</b>다. 저녁 7~10시 구간은 반복이 가장 많은데 알림이 없다.</p>
+
+<!-- ══════════════ 9. 계측 구멍 ══════════════ -->
+<h2><span class="num">9</span>못 재는 것들 — 다음 판단을 막는 구멍</h2>
+<p class="sub">이 장은 「사용률이 낮다」가 아니라 <b>「사용률을 알 수가 없다」</b>는 이야기다.</p>
+
+<div class="tblbox">
+<table>
+  <thead><tr><th>기능</th><th>서버에 남는 기록</th><th>지금 잴 수 있나</th></tr></thead>
+  <tbody>
+    <tr><td>암송 · 도전 · 복습</td><td><code>challenge_log</code> → <code>daily_activity</code></td><td>✅ 완전히</td></tr>
+    <tr><td>가정 축복 기도문</td><td><code>blessing_log</code>(하루 × 사람 × 편 = 1행)</td><td>✅ 좋은 본보기</td></tr>
+    <tr><td>게시판 · 응원 · 필사 · 이벤트</td><td>각자의 표</td><td>✅</td></tr>
+    <tr><td><b>쉴만한 물가</b>(시편·잠언·전도서 180편)</td><td><b>없음</b></td><td>❌ 열람 기록이 아예 없다</td></tr>
+    <tr><td><b>매일 묵상</b></td><td><b>없음</b> (운영에 <code>daily_meditations</code> 표가 없고 코드 규칙으로 고른다)</td><td>❌</td></tr>
+    <tr><td><b>말씀 앨범</b>(이어 듣기·TTS)</td><td><b>없음</b></td><td>❌</td></tr>
+    <tr><td><b>사용 설명서 · guide/</b></td><td><b>없음</b></td><td>❌</td></tr>
+    <tr><td><b>위젯</b>(아이폰·안드로이드)</td><td><b>없음</b> (서버 액션을 부르지만 부른 흔적을 안 남긴다)</td><td>❌</td></tr>
+    <tr><td>푸시 <b>열람</b></td><td>발송만(<code>push_log</code>)</td><td>❌ 누가 눌렀는지 모른다</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="warnbox">
+  <b>⚠ 두 가지를 바로잡아야 한다.</b><br>
+  ① <code>CLAUDE.md</code>의 남은 과제에 <b>「2주 뒤 전환율(<code>supabase/psalm_metrics.sql</code>)」</b>이 적혀 있는데,
+     <b>그 파일은 저장소에 없다</b>(<code>psalm_dev_seed.sql</code>·<code>psalm_frames.sql</code>만 있다).
+     즉 그 과제는 지금 상태로는 <b>영원히 못 잰다</b>.<br>
+  ② 운영 DB에 <code>visits</code>·<code>activity_log</code> 표가 있어 방문 계측이 있는 것처럼 보이지만,
+     이 앱의 Edge Function은 그 이름을 <b>한 번도 쓰지 않는다</b>(<code>grep</code> 0건).
+     형제 앱(찬양·말씀)이 같은 Supabase 프로젝트를 쓰기 때문에 보이는 것이다 —
+     <b>이 앱 것으로 오해하면 안 된다</b>.
+</div>
+
+<p>시편 쪽에 남는 흔적은 「시편 구절을 <b>암송</b>한 기록」 248회·<b>14명</b>뿐이다.
+액자로 읽는 행위 자체가 기록되지 않으니, 180편을 매일 한 편씩 내보내는 이 기능이
+<b>몇 명에게 닿는지 알 수 없다</b>.</p>
+
+<!-- ══════════════ 10. 집중도 ══════════════ -->
+<h2><span class="num">10</span>집중도 — 사실상 열 명의 앱이다</h2>
+
+<div class="tiles">
+  <div class="tile bad"><p class="k">상위 10명 비중</p><p class="v">67.7</p><p class="n">% of 123,776회</p></div>
+  <div class="tile bad"><p class="k">상위 20명 비중</p><p class="v">85.7</p><p class="n">%</p></div>
+  <div class="tile bad"><p class="k">상위 50명 비중</p><p class="v">95.4</p><p class="n">%</p></div>
+  <div class="tile"><p class="k">1인 반복 — 중위값</p><p class="v">22</p><p class="n">회 · 평균은 550회</p></div>
+  <div class="tile"><p class="k">3단계 완료 구절 — 중위값</p><p class="v">7</p><p class="n">개 · 평균 15.5개</p></div>
+  <div class="tile"><p class="k">암송 구절(활성)</p><p class="v">38</p><p class="n">개 · 시편 액자 180편은 별도</p></div>
+</div>
+
+<p>중위값 22회, 평균 550회 — <b>25배</b> 차이다. 평균은 상위 몇 분이 끌어올린 값이라
+<b>「평균 550회」를 기준으로 무엇을 판단하면 거의 틀린다</b>. 중위 성도님은 22회,
+완료 구절 7개(38개 중 18.4%)다.</p>
+
+<p>이것은 순위 기능에도 영향을 준다. 전체 순위표는 상위 10명이 67.7%를 차지하는 구조이므로,
+중위 성도님에게는 <b>닿을 수 없는 표</b>로 보인다.</p>
+
+<div class="card">
+  <h3>소속별 참여</h3>
+  <p class="cap">가입 5명 이상인 소속만. 「활동」은 한 번이라도 암송한 사람, 「최근 7일」은 이번 주에 움직인 사람.</p>
+  <div class="tblbox"><table>
+    <thead><tr><th>소속</th><th>구분</th><th class="n">가입</th><th class="n">활동</th><th class="n">활동률</th><th class="n">최근 7일</th></tr></thead>
+    <tbody id="grouptbl"></tbody>
+  </table></div>
+</div>
+
+<p>교구 사이 <b>활동률은 49~62%로 고른데</b>, <b>최근 7일은 갈린다</b> —
+은혜 13명·소망 17명인데 <b>기쁨 3명</b>(가입 48명 중 6.3%)·섬김 5명이다.
+청년부(교회학교)는 활동률 38.1%로 가장 낮다.
+목장·부서 단위로 개입할 여지가 여기 있다.</p>
+
+<!-- ══════════════ 11. 이벤트 ══════════════ -->
+<h2><span class="num">11</span>이벤트로 모은 200명이 앱으로 안 왔다</h2>
+
+<div class="tiles">
+  <div class="tile"><p class="k">이벤트 등록</p><p class="v">200</p><p class="n">명 · <code>event_signups</code></p></div>
+  <div class="tile bad"><p class="k">앱 계정이 연결된 등록</p><p class="v">79</p><p class="n">명 · 200명의 39.5%</p></div>
+  <div class="tile bad"><p class="k">그중 앱 활동까지</p><p class="v">59</p><p class="n">명 · 200명의 29.5%</p></div>
+</div>
+
+<p>「2026 썸머 써 바이블 완서자 등록」에 <b>200명</b>이 이름을 올렸는데,
+앱 계정(<code>user_id</code>)이 붙은 것은 79건이고 그중 앱에서 실제로 암송한 사람은 <b>59명</b>이다.
+<b>121명은 앱 계정조차 없다</b>. 이미 말씀에 마음이 있는 200명이 손에 잡혀 있는데
+그 가운데 70%를 앱으로 못 데려온 것이다 — 지금 가장 값싼 유입원이다.</p>
+
+<!-- ══════════════ 12. 개선 방향 ══════════════ -->
+<h2><span class="num">12</span>개선 방향 — 우선순위</h2>
+<p class="sub">「영향 × 값싼 정도」로 매겼다. 각 항목의 <b>근거</b>는 위 장의 실측값이다.</p>
+
+<div class="rec p1">
+  <h3><span class="tag">1순위</span>첫날에 「둘째 구절」까지 데려간다</h3>
+  <p class="why"><b>근거</b> · 떠난 82명은 첫날 구절 1.70개(68.3%가 하나만), 남은 86명은 6.42개(4장).
+    첫 칸 누수가 191명으로 가장 크다(2장). 최근 가입 코호트는 100%가 활동 0이다.</p>
+  <ul>
+    <li><b>단계 완료 창의 기본 행동을 「다음 구절」로.</b> 지금은 「이전 / 다시 암송 / 다음」이 나란하다 —
+        첫 구절을 막 끝낸 사람에게는 <b>다음</b>이 한 눈에 커야 한다.</li>
+    <li><b>첫 구절은 가장 짧은 것부터.</b> 지금은 주간 구절이나 딥링크가 첫 구절이 된다.
+        처음 오신 분에게는 <b>짧은 구절</b>을 권해 「끝까지 해봤다」를 첫날에 만든다.</li>
+    <li><b>처음 오신 분에게는 카드 모드를 기본으로.</b> 카드가 이미 암송의 59.6%를 먹었고(6장),
+        첫날 카드 사용률은 남은 사람 23.3% 대 떠난 사람 17.1%다.</li>
+    <li><b>「둘째 구절」 이정표를 더한다.</b> 첫 구절 이정표는 이미 있다 — 하나 더가 필요한 자리다.</li>
+  </ul>
+  <p class="why">⚠ <b>손대기 전에 읽을 것</b> — <code>docs/notes/memorize-flow.md</code>.
+    단계 완료 창(<code>showStageDoneModal</code>)과 공용 <code>setupChallengeTyping</code>(4곳)은
+    이미 여러 번 사고가 난 자리다. 특히 <b>화면 전환을 <code>setTimeout</code>으로 미루면
+    iOS에서 자판이 자동으로 안 뜬다</b>(2026-09-18에 겪은 문제).</p>
+</div>
+
+<div class="rec p2">
+  <h3><span class="tag">2순위</span>복습 화면에 카드 모드를 넣는다</h3>
+  <p class="why"><b>근거</b> · 복습은 자판 99.9%인데 암송은 카드 59.6%·도전 77.5%다(6장).
+    복습 실행은 전체 반복의 0.6%, 대상 174명 중 122명(70.1%)이 한 번도 안 했다(7장).
+    이 구멍은 <code>docs/notes/metrics.md</code>에 2026-09-02에 이미 적혀 있었다.</p>
+  <ul>
+    <li><b>공용 <code>setupChallengeTyping</code>을 복습 화면에도 붙인다.</b> 새로 만들 것이 거의 없다.</li>
+    <li><b>밀린 복습을 「오늘 3개」로 잘라서 보여준다.</b> 한 사람 평균 13.7건이 밀려 있다 —
+        전부 보여주면 안 연다.</li>
+    <li><b>가장 오래 밀린 것부터</b> 내보낸다(30일 이상 456건).</li>
+  </ul>
+  <p class="why">⚠ <b>mode 값을 더할 때 세 곳을 함께 고친다</b> — 화면 · 서버 · DB의
+    <code>challenge_log.mode</code> CHECK 제약. 두 곳만 고치면 화면은 열리는데 저장이 막혀
+    성도님께 「연결이 고르지 않아요」로 보인다. 본보기는 <code>supabase/migrate_modes_card.sql</code>.
+    그리고 <code>supabase/challenge_funnel.sql</code>의 도전·복습 구분 정의도 함께 본다.</p>
+</div>
+
+<div class="rec p3">
+  <h3><span class="tag">3순위</span>저녁 알림을 더하고, 알림 권한을 「첫 구절 완료 직후」에 묻는다</h3>
+  <p class="why"><b>근거</b> · 구독자는 활동일 2.1배·최근 활동률 1.6배인데 활동자의 12%만 구독했다(8장).
+    알림은 아침(KST 5~8시) 한 번인데 반복 정점은 저녁 7시다.</p>
+  <ul>
+    <li><b>저녁 알림(20~21시) 추가.</b> 아침 알림을 받고 못 한 분에게 한 번 더 닿는다.</li>
+    <li><b>권한 요청 시점을 옮긴다.</b> 「앱을 켠 직후」가 아니라 <b>첫 구절을 끝낸 직후</b>에 묻는다 —
+        그 순간이 승낙률이 가장 높다. (iOS는 이미 로그인 전→후로 한 번 고쳤다.)</li>
+    <li><b>복습 밀림 알림</b>을 2순위와 묶는다 — 「외운 말씀 3개가 기다려요」.</li>
+  </ul>
+  <p class="why">⚠ <b>알림을 늘리기 전에 먼저 고칠 것</b> — <code>latestVerse()</code>가 아직
+    <b>UTC 자정 기준</b>이라 구절이 바뀌는 날 0~9시에는 <b>지난 구절</b>을 보낸다
+    (위젯 쪽만 <code>weeklyVerseKst</code>로 고쳤다). 저녁 알림은 이 버그 구간에 걸리지 않지만,
+    아침 알림을 손댈 때 함께 고치는 것이 맞다.</p>
+</div>
+
+<div class="rec p4">
+  <h3><span class="tag">4순위</span>못 재는 기능에 기록을 심는다</h3>
+  <p class="why"><b>근거</b> · 시편 180편·묵상·앨범·설명서·위젯이 전부 서버 기록 0이다(9장).
+    <code>supabase/psalm_metrics.sql</code>은 <code>CLAUDE.md</code>에 적혀 있는데 파일이 없다.</p>
+  <ul>
+    <li><b><code>blessing_log</code> 방식을 그대로 복제한다</b> — 「하루 × 사람 × 번호 = 1행,
+        같은 날 여러 번 봐도 <code>cnt</code>만 올림」. 이미 검증된 모양이라 새로 설계할 것이 없다.</li>
+    <li>심을 곳 넷 — <b>시편 액자</b> · <b>매일 묵상</b> · <b>말씀 앨범</b>(듣기 시작) · <b>위젯</b>(서버 액션 호출).</li>
+    <li><b><code>psalm_metrics.sql</code>을 실제로 만든다.</b> 없는 파일을 과제로 남겨 두면
+        그 과제는 계속 미뤄진다.</li>
+  </ul>
+  <p class="why">⚠ 표를 새로 만들면 <b>그 자리에서 <code>enable row level security</code></b>를 켠다.
+    그리고 <b>뷰는 RLS 대상이 아니다</b> — 만들면 <code>revoke ... from anon, authenticated</code> +
+    <code>security_invoker = on</code>. <code>user_id</code>는 어떤 응답에도 나가면 안 된다(이 API에 JWT가 없다).
+    개발 DB(<code>ktpwthwqzgcqcrmsafdo</code>)에서 먼저 돌린다.</p>
+</div>
+
+<div class="rec p5">
+  <h3><span class="tag">5순위</span>이벤트 200명을 앱으로 연결한다</h3>
+  <p class="why"><b>근거</b> · 등록 200명 중 앱 활동은 59명(29.5%), 121명은 계정조차 없다(11장).</p>
+  <ul>
+    <li><b>이벤트 등록에 앱 로그인을 붙인다</b> — 지금은 계정 없이 등록되는 길이 열려 있다.</li>
+    <li><b>등록자 명단으로 첫 구절 안내</b>를 보낸다(주보·목장 단위가 현실적이다).</li>
+    <li><b>9/30 이벤트 종료 뒤의 공백을 미리 채운다.</b> 신규가 이미 0명이다(3장) —
+        이벤트가 끝나면 유입이 아니라 <b>이탈</b>만 남는다.</li>
+  </ul>
+</div>
+
+<div class="rec">
+  <h3><span class="tag">6순위</span>중위 성도님을 위한 좁은 순위</h3>
+  <p class="why"><b>근거</b> · 상위 10명이 67.7%, 중위는 22회(10장). 전체 순위표는 중위 성도님에게
+    닿을 수 없는 표다. 소속별 최근 7일 활동은 은혜 13명 대 기쁨 3명으로 갈린다.</p>
+  <ul>
+    <li><b>「우리 목장 안에서」 순위</b>를 기본으로 두고 전체 순위는 접어 둔다.</li>
+    <li><b>목장·부서 단위 집계를 담당자에게</b> — 개입이 필요한 곳이 숫자로 보인다.</li>
+    <li>응원은 이미 살아 있다(최근 7일 650건·받은 사람 74명). <b>응원을 목장 단위로 묶으면</b>
+        가장 잘 되는 기능을 가장 약한 자리에 쓸 수 있다.</li>
+  </ul>
+</div>
+
+<h3>접을 것 — 근거가 충분한 정리</h3>
+<div class="tblbox">
+<table>
+  <thead><tr><th>대상</th><th>근거</th><th>제안</th></tr></thead>
+  <tbody>
+    <tr><td><b>음성 모드</b></td>
+        <td>565회 = 전체의 0.46%. 도전 음성 <b>2회·2명</b>, 복습 음성 <b>1회·1명</b></td>
+        <td>화면에서 내린다. 카드가 「자판이 어렵다」를 이미 해결했다 —
+            2026-09-02에 세운 조건(「카드가 잘 쓰이면 음성은 굳이 살릴 필요 없다」)이 충족됐다</td></tr>
+    <tr><td><b>게시판</b></td>
+        <td>3개월 32글 · 계정 있는 글쓴이 <b>4명</b>(1.8%) · 공감 7명 · 마지막 글 9/16</td>
+        <td>글쓰기를 접고 <b>공지판</b>으로 격하하거나, 살아 있는 <b>응원</b>에 흡수시킨다.
+            ⚠ 지우지는 말 것 — 기도 요청 글이 섞여 있을 수 있다</td></tr>
+    <tr><td><b>필사 노트 신청</b></td>
+        <td>누적 4건 · 3명 · 마지막 <b>8/25</b>(한 달째 0건)</td>
+        <td>시즌 기능으로 <b>닫아 둔다</b>(노출 게이트). 상시 단추로 두면 첫 화면만 무거워진다</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="warnbox">
+  <b>⚠ 「접기」는 지우기가 아니다.</b> 이 저장소는 <b>push가 곧 배포</b>라서
+  성도님 화면이 그 자리에서 바뀐다. 접을 때도 <b>노출 게이트</b>로 가리고
+  데이터는 그대로 둔다(<code>psalmVisible()</code>·<code>passagesVisible()</code>가 본보기다).
+</div>
+
+<!-- ══════════════ 13. 결론 ══════════════ -->
+<h2><span class="num">13</span>결론</h2>
+<ol class="plain">
+  <li><b>앱의 품질은 문제가 아니다.</b> 들어와서 암송을 시작한 사람은 96.4%가 암송을 하고,
+      여드레를 넘기면 81.4%가 지금도 쓴다. 카드 모드는 크게 성공했다(전체 반복의 65.2%).</li>
+  <li><b>문제는 입구와 둘째 날이다.</b> 416명 중 191명이 로그인만 하고 떠났고,
+      암송을 시작한 225명 중 82명이 하루만 썼다. 떠난 사람은 <b>첫날 구절 하나</b>만 열었다.</li>
+  <li><b>가장 값싼 개선은 복습에 카드를 넣는 것이다.</b> 이미 있는 공용 코드를 한 화면 더 붙이는 일인데,
+      핵심 기능 하나(간격반복)가 0.6%에서 살아날 여지가 있다.</li>
+  <li><b>지금 손대야 하는 시점이다.</b> 활동자는 101 → 76명으로 내려오고, 신규는 0명이며,
+      이벤트는 9/30에 끝난다.</li>
+  <li><b>그리고 절반의 기능은 잴 수가 없다.</b> 시편·묵상·앨범·위젯·설명서에 기록이 없다.
+      다음에 “무엇이 잘 됐나”를 물으면 지금과 똑같이 <b>답할 수 없다</b>.</li>
+</ol>
+
+<!-- ══════════════ 14. 불확실 ══════════════ -->
+<h2><span class="num">14</span>⚠ 불확실한 것 · 확인이 필요한 것</h2>
+<div class="tblbox">
+<table>
+  <thead><tr><th>항목</th><th>왜 불확실한가</th><th>확인 방법</th></tr></thead>
+  <tbody>
+    <tr><td>첫날 행동 ↔ 리텐션의 <b>인과</b></td>
+        <td>「첫날 많이 했으니 남았다」와 「원래 의욕 있어 첫날에도 많이 했다」를 가를 수 없다</td>
+        <td>1순위 개선을 배포한 뒤 <b>전후 코호트</b>를 견준다(같은 질의로)</td></tr>
+    <tr><td>푸시 구독 ↔ 지속의 <b>인과</b></td>
+        <td>같은 문제. 열심인 사람이 알림을 켰을 수 있다</td>
+        <td>권한 요청 시점을 옮긴 뒤 <b>새 구독자</b>만 따로 추적</td></tr>
+    <tr><td>09-21 주 수치</td><td><b>사흘치</b>(9/21~9/23)다. 활동자 55명을 앞 주와 그대로 못 견준다</td>
+        <td>9/28 이후에 다시 잰다</td></tr>
+    <tr><td>최근 가입 코호트 「100% 미활동」</td><td>표본이 10명·2명으로 작다</td>
+        <td>2주 더 모아서 다시 본다</td></tr>
+    <tr><td><code>users</code> 416명 안의 중복</td>
+        <td>같은 분이 이름·소속을 달리 적어 두 계정이 생길 수 있다(<code>user_merges</code>가 그 장치)</td>
+        <td><code>adminPreviewMemberMerge</code>로 후보를 뽑아 본다</td></tr>
+    <tr><td>축복 기도문 09-11의 192회</td><td>6명이 192회 — 한 사람의 대량 열람(시험)일 가능성</td>
+        <td><code>blessing_log</code>에서 그 날 사람별로 쪼개 본다</td></tr>
+    <tr><td>게시판 「계정 없는 글 16건」의 정체</td><td>관리자 공지인지 익명 글인지 이 조회로는 못 가른다</td>
+        <td>관리자 화면에서 눈으로 본다</td></tr>
+    <tr><td>2026-09-02 기준선과의 비교</td>
+        <td>그날 <b>복습이 <code>typing</code>에서 <code>review-typing</code>으로 갈라졌다</b> —
+            그 전 「도전 전환율」에는 복습이 섞여 있다</td>
+        <td><code>supabase/challenge_funnel.sql</code>을 <b>손으로 고치지 말고 그대로</b> 돌린다</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ══════════════ 15. 용어 ══════════════ -->
+<h2><span class="num">15</span>용어</h2>
+<div class="tblbox">
+<table>
+  <thead><tr><th>용어</th><th>뜻</th></tr></thead>
+  <tbody>
+    <tr><td><b>활동 · 반복</b></td><td>암송·도전·복습 화면에서 한 단계를 완료한 것. <code>challenge_log</code> 한 행 = 1회</td></tr>
+    <tr><td><b><code>daily_activity</code></b></td><td>(날짜 × 사람 × mode) 단위 집계표.
+      순위·<code>mydays</code>는 로그가 아니라 <b>이 표</b>를 읽는다(2,903ms → 516ms). 로그 11,047행 ↔ 집계 449행처럼 25배 차이가 난다</td></tr>
+    <tr><td><b>mode</b></td><td>어느 화면·어떤 입력인지. <code>learn-*</code> 암송 · <code>review-*</code> 복습 ·
+      그 밖(<code>typing</code>·<code>typing-card</code>·<code>voice</code>) 도전. <code>-card</code>가 붙으면 카드 모드</td></tr>
+    <tr><td><b>카드 모드</b></td><td>빈칸에 자판으로 쓰는 대신 <b>보기 카드를 골라</b> 채우는 방식. 2026-08-25 도입</td></tr>
+    <tr><td><b>도전</b></td><td>배우는 화면이 아니라 <b>시험</b>처럼 처음부터 빈칸을 채우는 화면</td></tr>
+    <tr><td><b>복습 · 간격반복</b></td><td>3단계를 마친 구절을 주 단위로 다시 만나는 것. <code>reviews.due_at</code>이 다음 예정일</td></tr>
+    <tr><td><b>DAU · WAU · MAU</b></td><td>하루 · 최근 7일 · 최근 30일에 활동한 사람 수</td></tr>
+    <tr><td><b>쉴만한 물가</b></td><td>시편·잠언·전도서 180편을 하루 한 편씩 액자로 보여 주는 기능(2026-09-12 개시).
+      이름은 시편 23편 2절에서. <b>외우는 기능이 아니라 읽는 기능</b>이다</td></tr>
+    <tr><td><b>노출 게이트</b></td><td>만들었지만 아직 안 보이게 가리는 장치(<code>psalmVisible()</code> 등).
+      이 저장소는 push가 곧 배포라서 필요하다</td></tr>
+    <tr><td><b>중위값</b></td><td>줄 세워 가운데 있는 값. 상위 몇 명이 끌어올리는 평균보다 <b>보통 성도님</b>을 잘 나타낸다</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ══════════════ 16. 출처 ══════════════ -->
+<h2><span class="num">16</span>출처</h2>
+<ul class="plain">
+  <li><b>수치 전부</b> — 운영 Supabase <code>xnomlgydifiqiybervtf</code>,
+      <code>supabase db query --linked</code>로 <code>SELECT</code>만 실행(2026-09-23 오전 KST).
+      표는 0장 「본 것」에 적었다.</li>
+  <li><b>2026-09-02 기준선</b>(카드 28.5% · 도전 전환율 31.3%) — <code>docs/notes/metrics.md</code>,
+      질의는 <code>supabase/challenge_funnel.sql</code></li>
+  <li><b>집계표를 쓰는 이유와 실측</b> — <code>supabase/daily-activity.sql</code> 머리 주석</li>
+  <li><b>암송·도전 화면의 함정</b>(단계 완료 창 · 공용 <code>setupChallengeTyping</code> 4곳 · mode CHECK)
+      — <code>docs/notes/memorize-flow.md</code></li>
+  <li><b>복습에 카드가 없다는 지적</b>(2026-09-02에 이미 적힘) — <code>docs/notes/metrics.md</code></li>
+  <li><b>아침 알림이 UTC 자정 기준이라는 것</b> · 위젯만 <code>weeklyVerseKst</code>로 고침
+      — <code>CLAUDE.md</code> 「다음 작업」 위젯 절</li>
+  <li><b>뷰는 RLS 대상이 아니라는 것</b> · <code>user_id</code> 비노출 원칙
+      — <code>CLAUDE.md</code> 「보안 · 새어 나가는 길」, <code>supabase/security_close_public_views.sql</code></li>
+  <li><b><code>visits</code>·<code>activity_log</code>가 형제 앱 것이라는 확인</b> —
+      <code>grep -c 'visits\|activity_log' supabase/functions/api/index.ts</code> → <b>0</b></li>
+  <li><b><code>psalm_metrics.sql</code>이 없다는 확인</b> — <code>ls supabase/ | grep -i psalm</code> →
+      <code>psalm_dev_seed.sql</code> · <code>psalm_frames.sql</code> 둘뿐</li>
+  <li><b>차트 색</b> — <code>dataviz</code> 기준 팔레트. 범주 3슬롯과 순서 램프를
+      <code>validate_palette.js</code>로 밝음·어두움 양쪽 검증(전 항목 PASS,
+      밝은 모드 aqua는 대비 WARN이라 <b>직접 라벨 + 표 보기</b>로 보완했다)</li>
+</ul>
+
+<script>
+(function(){
+  "use strict";
+
+  // ── 자료 (모두 2026-09-23 운영 DB 실측) ──────────────────────
+  var NEVER = [
+    ["06-29",52,9,17.3],["07-06",41,20,48.8],["07-13",13,3,23.1],["07-20",4,1,25.0],
+    ["07-27",3,1,33.3],["08-10",74,43,58.1],["08-17",82,40,48.8],["08-24",96,41,42.7],
+    ["08-31",29,18,62.1],["09-07",10,3,30.0],["09-14",10,10,100.0],["09-21",2,2,100.0]
+  ];
+  var WEEKS = [
+    ["07-06",30,20,1162],["07-13",22,9,1431],["07-20",20,3,2418],["07-27",16,3,1915],
+    ["08-03",14,0,2050],["08-10",34,19,2086],["08-17",63,33,4364],["08-24",113,60,9923],
+    ["08-31",106,20,27159],["09-07",101,18,34059],["09-14",76,2,26408],["09-21",55,0,10397]
+  ];
+  var RET = [
+    ["1일",82,36.4,1],["2일",28,12.4,1],["3~4일",29,12.9,7],["5~7일",16,7.1,7],
+    ["8~14일",25,11.1,19],["15~30일",33,14.7,28],["31일+",12,5.3,10]
+  ];
+  var REACH = [
+    ["암송",217,96.4,"건강"],["도전",86,38.2,"양호"],["카드 모드",80,35.6,"양호"],
+    ["축복 기도문",52,23.1,"식는 중"],["복습",42,18.7,"막힘"],["순위 응원",37,16.4,"소수 열심"],
+    ["푸시 구독",34,15.1,"기회"],["게시판 공감",7,3.1,"죽음"],["게시판 글",4,1.8,"죽음"],
+    ["필사 신청",3,1.3,"휴면"]
+  ];
+  var MODES = [
+    ["learn-typing-card",48715,39.4,72],["learn-typing",32459,26.2,190],
+    ["typing-card",31994,25.8,46],["typing",9289,7.5,61],
+    ["review-typing",754,0.6,42],["learn-voice",562,0.5,31],
+    ["voice",2,0.0,2],["review-voice",1,0.0,1]
+  ];
+  // 화면별 [카드, 자판, 음성, 총합]
+  var SCREENS = [
+    ["암송",48715,32459,562,81736],
+    ["도전",31994,9289,2,41285],
+    ["복습",0,754,1,755]
+  ];
+  var HOURS = [
+    [0,25,2360],[1,12,1698],[2,10,909],[3,8,564],[4,16,1828],[5,22,3976],
+    [6,38,4483],[7,52,5000],[8,60,4842],[9,57,4295],[10,67,4191],[11,71,4652],
+    [12,59,5155],[13,55,4369],[14,67,5610],[15,59,5764],[16,61,5574],[17,59,5375],
+    [18,58,6006],[19,55,7296],[20,56,6126],[21,51,6510],[22,55,5842],[23,42,5294]
+  ];
+  var GROUPS = [
+    ["사랑","교구",71,40,56.3,14],["소망","교구",69,34,49.3,17],["화평","교구",55,31,56.4,11],
+    ["믿음","교구",50,30,60.0,8],["기쁨","교구",48,27,56.3,3],["은혜","교구",47,29,61.7,13],
+    ["섬김","교구",40,23,57.5,5],["청년부","교회학교",21,8,38.1,1]
+  ];
+
+  // ── 툴팁 ──────────────────────────────────────────────
+  var tip = document.getElementById("tip");
+  function showTip(e, text){
+    tip.textContent = "";
+    text.split("|").forEach(function(line,i){
+      var el = document.createElement(i===0 ? "b" : "div");
+      if(i>1) el.className = "t";
+      el.textContent = line;
+      tip.appendChild(el);
+      if(i===0) tip.appendChild(document.createElement("br"));
+    });
+    tip.style.opacity = "1";
+    moveTip(e);
+  }
+  function moveTip(e){
+    var x = (e.clientX || 0) + 14, y = (e.clientY || 0) + 14;
+    var r = tip.getBoundingClientRect();
+    if(x + r.width > window.innerWidth - 8) x = (e.clientX||0) - r.width - 14;
+    if(y + r.height > window.innerHeight - 8) y = (e.clientY||0) - r.height - 14;
+    tip.style.left = Math.max(8,x) + "px";
+    tip.style.top  = Math.max(8,y) + "px";
+  }
+  function hideTip(){ tip.style.opacity = "0"; }
+  function bindTips(root){
+    root.querySelectorAll("[data-tip]").forEach(function(el){
+      el.addEventListener("pointerenter", function(e){ showTip(e, el.dataset.tip); });
+      el.addEventListener("pointermove", moveTip);
+      el.addEventListener("pointerleave", hideTip);
+      el.setAttribute("tabindex","0");
+      el.addEventListener("focus", function(){
+        var r = el.getBoundingClientRect();
+        showTip({clientX:r.left+r.width/2, clientY:r.top}, el.dataset.tip);
+      });
+      el.addEventListener("blur", hideTip);
+    });
+  }
+
+  // ── SVG 도우미 ────────────────────────────────────────
+  var NS = "http://www.w3.org/2000/svg";
+  function svg(w,h){
+    var s = document.createElementNS(NS,"svg");
+    s.setAttribute("viewBox","0 0 "+w+" "+h);
+    s.setAttribute("width",w); s.setAttribute("height",h);
+    s.setAttribute("role","img");
+    return s;
+  }
+  function el(tag,attrs){
+    var n = document.createElementNS(NS,tag);
+    for(var k in attrs) n.setAttribute(k, attrs[k]);
+    return n;
+  }
+  function txt(x,y,s,cls,anchor){
+    var t = el("text",{x:x,y:y,class:cls||"tick"});
+    if(anchor) t.setAttribute("text-anchor",anchor);
+    t.textContent = s;
+    return t;
+  }
+  // 위쪽 두 귀퉁이만 4px 둥근 세로 막대 (데이터 끝은 둥글게, 기준선은 붙인다)
+  function vbar(x,y,w,h,fill,tipText){
+    var r = Math.min(4, w/2, h);
+    var d = "M"+x+","+(y+h)+"V"+(y+r)+"Q"+x+","+y+" "+(x+r)+","+y
+          + "H"+(x+w-r)+"Q"+(x+w)+","+y+" "+(x+w)+","+(y+r)+"V"+(y+h)+"Z";
+    var p = el("path",{d:d, fill:fill});
+    if(tipText) p.setAttribute("data-tip", tipText);
+    return p;
+  }
+
+  // ── ① 가입 주별 미활동 비율 ─────────────────────────────
+  (function(){
+    var W=760, H=210, L=38, R=12, T=16, B=42;
+    var pw=W-L-R, ph=H-T-B, n=NEVER.length, step=pw/n, bw=Math.min(34, step-10);
+    var s=svg(W,H);
+    s.setAttribute("aria-label","가입 주별 활동 0회 비율 막대 그래프");
+    [0,25,50,75,100].forEach(function(v){
+      var y=T+ph-ph*v/100;
+      s.appendChild(el("line",{x1:L,y1:y,x2:W-R,y2:y,class:"gl"}));
+      s.appendChild(txt(L-7,y+4,v+"%","tick","end"));
+    });
+    NEVER.forEach(function(d,i){
+      var x=L+step*i+(step-bw)/2, h=Math.max(1.5, ph*d[3]/100), y=T+ph-h;
+      var hot = d[3] >= 60;
+      s.appendChild(vbar(x,y,bw,h, hot ? "var(--crit)" : "var(--s1)",
+        d[0]+" 주 가입|"+d[3]+"% 가 활동 0회|가입 "+d[1]+"명 중 "+d[2]+"명"));
+      s.appendChild(txt(x+bw/2, y-5, d[3]+"%", "dlab", "middle"));
+      s.appendChild(txt(x+bw/2, T+ph+15, d[0], "tick", "middle"));
+      s.appendChild(txt(x+bw/2, T+ph+29, d[1]+"명", "dlab2", "middle"));
+    });
+    s.appendChild(el("line",{x1:L,y1:T+ph,x2:W-R,y2:T+ph,class:"ax"}));
+    var box=document.getElementById("neverchart"); box.appendChild(s); bindTips(box);
+    var tb=document.getElementById("nevertbl");
+    NEVER.forEach(function(d){
+      var tr=document.createElement("tr");
+      [d[0], d[1], d[2], d[3]+"%"].forEach(function(v,i){
+        var td=document.createElement(i===0?"th":"td");
+        if(i>0) td.className="n";
+        td.textContent=v; tr.appendChild(td);
+      });
+      tb.appendChild(tr);
+    });
+  })();
+
+  // ── ② 주별 활동자·신규 ────────────────────────────────
+  (function(){
+    var W=760,H=250,L=38,R=14,T=18,B=44;
+    var pw=W-L-R, ph=H-T-B, n=WEEKS.length, step=pw/n;
+    var max=120, bw=Math.min(22, step-12);
+    var s=svg(W,H);
+    s.setAttribute("aria-label","주별 활동자와 신규 참여자");
+    [0,30,60,90,120].forEach(function(v){
+      var y=T+ph-ph*v/max;
+      s.appendChild(el("line",{x1:L,y1:y,x2:W-R,y2:y,class:"gl"}));
+      s.appendChild(txt(L-7,y+4,v,"tick","end"));
+    });
+    // 신규 = 막대
+    WEEKS.forEach(function(d,i){
+      var cx=L+step*i+step/2, h=Math.max(d[2]>0?1.5:0, ph*d[2]/max), y=T+ph-h;
+      if(d[2]>0) s.appendChild(vbar(cx-bw/2,y,bw,h,"var(--s2)",
+        d[0]+" 주|신규 "+d[2]+"명|활동자 "+d[1]+"명 · 반복 "+d[3].toLocaleString()+"회"));
+    });
+    // 활동자 = 선
+    var pts = WEEKS.map(function(d,i){
+      return [L+step*i+step/2, T+ph-ph*d[1]/max];
+    });
+    s.appendChild(el("polyline",{
+      points: pts.map(function(p){return p[0]+","+p[1];}).join(" "),
+      fill:"none", stroke:"var(--s1)", "stroke-width":2,
+      "stroke-linecap":"round", "stroke-linejoin":"round"
+    }));
+    pts.forEach(function(p,i){
+      var c=el("circle",{cx:p[0],cy:p[1],r:4,fill:"var(--s1)",
+        stroke:"var(--surface)","stroke-width":2,
+        "data-tip":WEEKS[i][0]+" 주|활동자 "+WEEKS[i][1]+"명|신규 "+WEEKS[i][2]+"명 · 반복 "+WEEKS[i][3].toLocaleString()+"회"});
+      s.appendChild(c);
+    });
+    // 선택적 직접 라벨 — 정점·마지막·이벤트 시작
+    [[7,"113명"],[9,"101명"],[10,"76명"]].forEach(function(m){
+      s.appendChild(txt(pts[m[0]][0], pts[m[0]][1]-10, m[1], "dlab", "middle"));
+    });
+    s.appendChild(txt(pts[11][0], pts[11][1]-10, "55명*", "dlab", "end"));
+    // 신규 0 표시
+    s.appendChild(txt(L+step*11+step/2, T+ph-8, "신규 0", "dlab2", "middle"));
+    WEEKS.forEach(function(d,i){
+      s.appendChild(txt(L+step*i+step/2, T+ph+16, d[0], "tick", "middle"));
+    });
+    s.appendChild(txt(W-R, H-6, "* 09-21 주는 사흘치(9/21~9/23)", "dlab2", "end"));
+    s.appendChild(el("line",{x1:L,y1:T+ph,x2:W-R,y2:T+ph,class:"ax"}));
+    var box=document.getElementById("weekchart"); box.appendChild(s); bindTips(box);
+    var tb=document.getElementById("weektbl");
+    WEEKS.forEach(function(d,i){
+      var tr=document.createElement("tr");
+      var cells=[d[0]+(i===11?" *":""), d[1], d[2], d[3].toLocaleString()];
+      cells.forEach(function(v,j){
+        var td=document.createElement(j===0?"th":"td");
+        if(j>0) td.className="n";
+        td.textContent=v; tr.appendChild(td);
+      });
+      tb.appendChild(tr);
+    });
+  })();
+
+  // ── ③ 리텐션 버킷 ────────────────────────────────────
+  (function(){
+    var W=760,H=230,L=38,R=14,T=18,B=46;
+    var pw=W-L-R, ph=H-T-B, n=RET.length, step=pw/n;
+    var max=90, bw=Math.min(24, (step-16)/2);
+    var s=svg(W,H);
+    s.setAttribute("aria-label","활동일수 분포와 최근 7일 생존");
+    [0,30,60,90].forEach(function(v){
+      var y=T+ph-ph*v/max;
+      s.appendChild(el("line",{x1:L,y1:y,x2:W-R,y2:y,class:"gl"}));
+      s.appendChild(txt(L-7,y+4,v,"tick","end"));
+    });
+    RET.forEach(function(d,i){
+      var cx=L+step*i+step/2;
+      var h1=Math.max(1.5, ph*d[1]/max), h2=Math.max(d[3]>0?1.5:0, ph*d[3]/max);
+      // 2px 표면 간격
+      s.appendChild(vbar(cx-bw-1, T+ph-h1, bw, h1, "var(--s1)",
+        "활동일 "+d[0]+"|"+d[1]+"명 ("+d[2]+"%)|그중 지금도 활동 "+d[3]+"명"));
+      if(d[3]>0) s.appendChild(vbar(cx+1, T+ph-h2, bw, h2, "var(--s3)",
+        "활동일 "+d[0]+"|지금도 활동 "+d[3]+"명|전체 "+d[1]+"명 중"));
+      s.appendChild(txt(cx-bw/2-1, T+ph-h1-5, d[1], "dlab", "middle"));
+      s.appendChild(txt(cx+bw/2+1, T+ph-h2-5, d[3], "dlab2", "middle"));
+      s.appendChild(txt(cx, T+ph+16, d[0], "tick", "middle"));
+    });
+    s.appendChild(txt(L, H-6, "여드레를 넘긴 70명 중 57명(81.4%)이 지금도 활동한다", "dlab2", "start"));
+    s.appendChild(el("line",{x1:L,y1:T+ph,x2:W-R,y2:T+ph,class:"ax"}));
+    var box=document.getElementById("retchart"); box.appendChild(s); bindTips(box);
+    var tb=document.getElementById("rettbl");
+    RET.forEach(function(d){
+      var tr=document.createElement("tr");
+      var surv = d[1] ? (100*d[3]/d[1]).toFixed(1)+"%" : "—";
+      [d[0], d[1], d[2]+"%", d[3], surv].forEach(function(v,i){
+        var td=document.createElement(i===0?"th":"td");
+        if(i>0) td.className="n";
+        td.textContent=v; tr.appendChild(td);
+      });
+      tb.appendChild(tr);
+    });
+  })();
+
+  // ── ④ 첫날 행동 (작은 배수 2개) ───────────────────────
+  (function(){
+    var G=[["하루만",82,4.6,1.70],["2~4일",57,6.1,2.05],["5일 이상",86,29.3,6.42]];
+    var W=760,H=220, half=W/2, L=44,R=18,T=34,B=44;
+    var pw=half-L-R, ph=H-T-B;
+    var s=svg(W,H);
+    s.setAttribute("aria-label","첫날 반복 횟수와 첫날 구절 수 비교");
+    function panel(ox, max, idx, title, unit, ticks, dec){
+      s.appendChild(txt(ox+L, 18, title, "dlab", "start"));
+      ticks.forEach(function(v){
+        var y=T+ph-ph*v/max;
+        s.appendChild(el("line",{x1:ox+L,y1:y,x2:ox+half-R,y2:y,class:"gl"}));
+        s.appendChild(txt(ox+L-7,y+4,v,"tick","end"));
+      });
+      var step=pw/G.length, bw=Math.min(46, step-20);
+      G.forEach(function(d,i){
+        var x=ox+L+step*i+(step-bw)/2, v=d[idx], lab=v.toFixed(dec)+unit;
+        var h=Math.max(1.5, ph*v/max), y=T+ph-h;
+        var c = i===2 ? "var(--s3)" : "var(--s1)";
+        s.appendChild(vbar(x,y,bw,h,c,
+          d[0]+" 쓴 사람 ("+d[1]+"명)|첫날 "+lab));
+        s.appendChild(txt(x+bw/2, y-5, lab, "dlab", "middle"));
+        s.appendChild(txt(x+bw/2, T+ph+16, d[0], "tick", "middle"));
+        s.appendChild(txt(x+bw/2, T+ph+30, d[1]+"명", "dlab2", "middle"));
+      });
+      s.appendChild(el("line",{x1:ox+L,y1:T+ph,x2:ox+half-R,y2:T+ph,class:"ax"}));
+    }
+    panel(0, 32, 2, "첫날 반복 횟수 (회)", "회", [0,10,20,30], 1);
+    panel(half, 7, 3, "첫날 만진 구절 수 (개)", "개", [0,2,4,6], 2);
+    var box=document.getElementById("firstday"); box.appendChild(s); bindTips(box);
+  })();
+
+  // ── ⑤ 기능별 도달률 (가로 막대) ──────────────────────
+  (function(){
+    var box=document.getElementById("reach");
+    var max=225;
+    REACH.forEach(function(d){
+      var row=document.createElement("div"); row.className="hrow";
+      var lab=document.createElement("div"); lab.className="lab"; lab.textContent=d[0];
+      var tr=document.createElement("div"); tr.className="track";
+      var bar=document.createElement("div"); bar.className="bar";
+      bar.style.width=(100*d[1]/max)+"%";
+      bar.dataset.tip = d[0]+"|"+d[1]+"명 ("+d[2]+"%)|활동자 225명 기준 · "+d[3];
+      var v=document.createElement("span"); v.className="bval";
+      var b=document.createElement("b"); b.textContent=d[1];
+      v.appendChild(b);
+      v.appendChild(document.createTextNode("명 · "+d[2]+"%"));
+      tr.appendChild(bar); tr.appendChild(v);
+      row.appendChild(lab); row.appendChild(tr);
+      box.appendChild(row);
+    });
+    bindTips(box);
+    var tb=document.getElementById("reachtbl");
+    REACH.forEach(function(d){
+      var tr=document.createElement("tr");
+      [d[0],d[1],d[2]+"%",d[3]].forEach(function(v,i){
+        var td=document.createElement(i===0?"th":"td");
+        if(i===1||i===2) td.className="n";
+        td.textContent=v; tr.appendChild(td);
+      });
+      tb.appendChild(tr);
+    });
+  })();
+
+  // ── ⑥ 화면별 입력 방식 (100% 누적) ───────────────────
+  (function(){
+    var W=760,H=200,L=52,R=104,T=24,B=30;
+    var pw=W-L-R;
+    var s=svg(W,H);
+    s.setAttribute("aria-label","화면별 카드·자판·음성 비중");
+    var rowh=30, gap=22;
+    SCREENS.forEach(function(d,i){
+      var y=T+i*(rowh+gap), tot=d[4];
+      var parts=[["카드",d[1],"var(--s1)"],["자판",d[2],"var(--s2)"],["음성",d[3],"var(--s3)"]];
+      var x=L;
+      s.appendChild(txt(L-10, y+rowh/2+4, d[0], "dlab", "end"));
+      parts.forEach(function(p,k){
+        if(p[1]<=0) return;
+        var w=pw*p[1]/tot;
+        var pct=100*p[1]/tot;
+        // 2px 표면 간격
+        var drawW = Math.max(1, w - (k<2 ? 2 : 0));
+        var rr = el("rect",{x:x, y:y, width:drawW, height:rowh, fill:p[2],
+          rx: (k===0||k===2) ? 4 : 0,
+          "data-tip": d[0]+" · "+p[0]+"|"+pct.toFixed(1)+"%|"+p[1].toLocaleString()+"회 / "+tot.toLocaleString()+"회"});
+        s.appendChild(rr);
+        if(pct >= 14){
+          var t=txt(x+drawW/2, y+rowh/2+4.5, pct.toFixed(1)+"%", "dlab", "middle");
+          t.setAttribute("fill","#ffffff");
+          s.appendChild(t);
+        }
+        x += w;
+      });
+      s.appendChild(txt(W-R+10, y+rowh/2+4.5, tot.toLocaleString()+"회", "dlab2", "start"));
+    });
+    s.appendChild(txt(L, H-6, "복습에 파란 칸이 없는 것은 취향이 아니라 카드 모드가 없기 때문이다", "dlab2", "start"));
+    var box=document.getElementById("modechart"); box.appendChild(s); bindTips(box);
+    var tb=document.getElementById("modetbl");
+    MODES.forEach(function(d){
+      var tr=document.createElement("tr");
+      [d[0], d[1].toLocaleString(), d[2]+"%", d[3]].forEach(function(v,i){
+        var td=document.createElement(i===0?"th":"td");
+        if(i>0) td.className="n";
+        td.textContent=v; tr.appendChild(td);
+      });
+      tb.appendChild(tr);
+    });
+  })();
+
+  // ── ⑦ 푸시 비교 (작은 배수 2개) ──────────────────────
+  (function(){
+    var P=[["푸시 구독",27,16.1,48.1],["미구독",198,7.5,30.3]];
+    var W=760,H=200, half=W/2, L=48,R=20,T=34,B=44;
+    var pw=half-L-R, ph=H-T-B;
+    var s=svg(W,H);
+    s.setAttribute("aria-label","푸시 구독 여부와 지속 비교");
+    function panel(ox,max,idx,title,unit,ticks){
+      s.appendChild(txt(ox+L, 18, title, "dlab", "start"));
+      ticks.forEach(function(v){
+        var y=T+ph-ph*v/max;
+        s.appendChild(el("line",{x1:ox+L,y1:y,x2:ox+half-R,y2:y,class:"gl"}));
+        s.appendChild(txt(ox+L-7,y+4,v,"tick","end"));
+      });
+      var step=pw/P.length, bw=Math.min(58, step-24);
+      P.forEach(function(d,i){
+        var x=ox+L+step*i+(step-bw)/2, v=d[idx];
+        var h=Math.max(1.5, ph*v/max), y=T+ph-h;
+        s.appendChild(vbar(x,y,bw,h, i===0 ? "var(--s1)" : "var(--s2)",
+          d[0]+" ("+d[1]+"명)|"+v+unit));
+        s.appendChild(txt(x+bw/2, y-5, v+unit, "dlab", "middle"));
+        s.appendChild(txt(x+bw/2, T+ph+16, d[0], "tick", "middle"));
+        s.appendChild(txt(x+bw/2, T+ph+30, d[1]+"명", "dlab2", "middle"));
+      });
+      s.appendChild(el("line",{x1:ox+L,y1:T+ph,x2:ox+half-R,y2:T+ph,class:"ax"}));
+    }
+    panel(0, 18, 2, "평균 활동일수 (일)", "일", [0,6,12,18]);
+    panel(half, 60, 3, "최근 7일 활동 비율 (%)", "%", [0,20,40,60]);
+    var box=document.getElementById("pushchart"); box.appendChild(s); bindTips(box);
+  })();
+
+  // ── ⑧ 시간대별 활동 ──────────────────────────────────
+  (function(){
+    var W=760,H=230,L=36,R=14,T=34,B=48;
+    var pw=W-L-R, ph=H-T-B, step=pw/24, bw=Math.min(22, step-6);
+    var max=80;
+    var s=svg(W,H);
+    s.setAttribute("aria-label","시간대별 활동 사람 수");
+    [0,20,40,60,80].forEach(function(v){
+      var y=T+ph-ph*v/max;
+      s.appendChild(el("line",{x1:L,y1:y,x2:W-R,y2:y,class:"gl"}));
+      s.appendChild(txt(L-7,y+4,v,"tick","end"));
+    });
+    HOURS.forEach(function(d){
+      var x=L+step*d[0]+(step-bw)/2, h=Math.max(1.5, ph*d[1]/max), y=T+ph-h;
+      var morning = d[0]>=5 && d[0]<=8;
+      s.appendChild(vbar(x,y,bw,h, morning ? "var(--s2)" : "var(--s1)",
+        d[0]+"시|"+d[1]+"명|반복 "+d[2].toLocaleString()+"회"+(morning?" · 아침 알림 구간":"")));
+      if(d[0]%3===0) s.appendChild(txt(x+bw/2, T+ph+16, d[0], "tick", "middle"));
+    });
+    // 정점 직접 라벨
+    var peak = HOURS[11];
+    s.appendChild(txt(L+step*11+step/2, T+ph-ph*peak[1]/max-6, "71명", "dlab", "middle"));
+    // 알림 구간 주석 — 주황 막대 무리 바로 위에 가운데 맞춤
+    s.appendChild(txt(L+step*6.5, 18, "아침 알림(5~8시) — 이 앱의 유일한 알림", "dlab2", "middle"));
+    s.appendChild(txt(L, H-6, "반복 횟수 정점은 저녁 7시(7,296회)인데 그 시간에는 알림이 없다 — 표로 보기 참고", "dlab2", "start"));
+    s.appendChild(el("line",{x1:L,y1:T+ph,x2:W-R,y2:T+ph,class:"ax"}));
+    var box=document.getElementById("hourchart"); box.appendChild(s); bindTips(box);
+    var tb=document.getElementById("hourtbl");
+    HOURS.forEach(function(d){
+      var tr=document.createElement("tr");
+      [d[0]+"시", d[1], d[2].toLocaleString()].forEach(function(v,i){
+        var td=document.createElement(i===0?"th":"td");
+        td.className="n";
+        td.textContent=v; tr.appendChild(td);
+      });
+      tb.appendChild(tr);
+    });
+  })();
+
+  // ── ⑨ 소속별 표 ──────────────────────────────────────
+  (function(){
+    var tb=document.getElementById("grouptbl");
+    GROUPS.forEach(function(d){
+      var tr=document.createElement("tr");
+      [d[0],d[1],d[2],d[3],d[4]+"%",d[5]].forEach(function(v,i){
+        var td=document.createElement(i===0?"th":"td");
+        if(i>=2) td.className="n";
+        td.textContent=v; tr.appendChild(td);
+      });
+      tb.appendChild(tr);
+    });
+  })();
+
+  bindTips(document.getElementById("funnel"));
+  window.addEventListener("scroll", hideTip, {passive:true});
+})();
+</script>
+</div>
+</body>
+</html>
