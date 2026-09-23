@@ -431,13 +431,17 @@ function loadTodaySong() {
 //   ⚠️ 아이폰 앱에서는 Capacitor 가 가로채 사파리로 나간다(설계 문서 「대신 잃는 것」).
 //   ⚠️ 내 id 는 `myUserId()`로 얻는다. `loadUser()` 가 돌려주는 객체의 칸 이름은
 //      `id` 가 아니라 **`user_id`** 다 — 직접 꺼내 쓰면 조용히 undefined 가 되어 기록이 안 쌓인다.
+//   ⚠️ 곡을 못 받아도(서버 지연·자정 넘어 캐시가 비었을 때) 단추는 죽지 않는다 —
+//      `song.id`가 없으면 아카이브 홈으로 보낸다. 아무 반응이 없는 것보다 낫다.
 function openSongToday(song) {
-  if (!song || !song.id) return;
+  const url = (song && song.id)
+    ? "https://worship.onlybible.kr/?song=" + encodeURIComponent(song.id)
+    : "https://worship.onlybible.kr/";     // 곡을 못 받았어도 아카이브 홈은 열어 준다
   try {
     const uid = (typeof myUserId === "function") ? myUserId() : null;
-    if (uid && api.logSongClick) api.logSongClick(uid, song.id).catch(() => {});
+    if (song && song.id && uid && api.logSongClick) api.logSongClick(uid, song.id).catch(() => {});
   } catch (e) {}
-  window.open("https://worship.onlybible.kr/?song=" + encodeURIComponent(song.id), "_blank", "noopener");
+  window.open(url, "_blank", "noopener");
 }
 
 // ── 사역 신청: 기간에만 첫 화면에 뜬다 ──────────────────────────────
