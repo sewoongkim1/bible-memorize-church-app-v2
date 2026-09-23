@@ -5617,3 +5617,6 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .dark .ev-stampbox { background: #151a21; border-color: #2b323d; }
 .dark .ev-wk { border-color: #2b323d; }
 .dark .ev-wk.on { background: #2a2417; border-color: #5a4e2a; color: #dcb669; }
+
+/* 도장판 빈 주 — 조용히 둔다(굵은 0 이 넉 장이면 나무라는 것이 된다) */
+.ev-wk-v.zero { font-weight: 400; opacity: .35; }

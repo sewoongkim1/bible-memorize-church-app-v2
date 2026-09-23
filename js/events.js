@@ -209,6 +209,12 @@ function evtSentHtml() {
     }).join("") + "</div>";
 }
 
+// 「2026-10-27」 → 「10월 27일」. 성도님께는 연도를 말하지 않는다(올해 일이 뻔하다).
+function evtDateKo(ymd) {
+  var m = /^\d{4}-(\d{2})-(\d{2})$/.exec(String(ymd || ""));
+  return m ? (Number(m[1]) + "월 " + Number(m[2]) + "일") : String(ymd || "");
+}
+
 // 한글 수사 — 문구에 아라비아 숫자를 박으면 「3주」처럼 읽혀 딱딱하다.
 // ⚠️ 필요 주수는 **사람마다 다르다**(이벤트 중 처음 오신 분은 두 주일 수 있다).
 //    그래서 문구에 「세 주」를 박으면 그분께 사실이 아닌 말을 하게 된다.
@@ -240,7 +246,11 @@ function evtStampHtml(u) {
     var full = n >= r.perWeek;
     cells += '<div class="ev-wk' + (full ? " on" : "") + '">' +
       '<div class="ev-wk-t">' + evtEsc(evtWeekLabel(r.start, i)) + "</div>" +
-      '<div class="ev-wk-v">' + (full ? "✓" : n + "일") + "</div></div>";
+      // ⚠️ 빈 주에 굵은 「0일」을 박지 않는다 — 이 화면의 말투는 「나무라지 않는다」인데
+      //    굵은 0 이 넉 장이면 그게 나무라는 것이다. 채운 칸은 축하하고 빈 칸은 조용히 둔다.
+      //    하루라도 하신 주는 그 숫자를 보여 드린다(그건 격려다).
+      '<div class="ev-wk-v' + (n ? "" : " zero") + '">' +
+      (full ? "✓" : (n ? n + "일" : "·")) + "</div></div>";
   }
 
   // 이번 주 남은 만큼을 말로. ⚠️ 「2일 남음」처럼 남은 것을 세면 빚처럼 읽힌다.
@@ -346,8 +356,19 @@ function evtDrawForm(u, eventId) {
     // ⚠️ 「이 정보로 명단에서 찾습니다」·「참여하셨어요」 카드를 여기서 뺐다
     //    (2026-09-13 성도님 지적 — 셋이 같은 말을 반복했다: 이 안내, mine-card,
     //    그리고 명단 안의 「찾았어요」). 명단 쪽 하나만 남긴다.
-    html += evtRosterHtml(u, eventId) ||
-      '<div class="ev-note">명단을 불러오지 못했어요. 잠시 뒤 다시 눌러 주세요.</div>';
+    // ⚠️ **「아직 신청 전」과 「마감」은 다르다.** 측정 중(measuring)에는 명단이 비어 있는 것이
+    //    당연한데, 그때 명단을 보여 주면 「참여자 0명」 + 「명단에서 자기를 찾아보라」는
+    //    앞뒤가 안 맞는 말을 하게 된다. 그런데 이 화면이 **10/11~10/26 열엿새 동안** 보인다.
+    //    phase 는 서버가 정해 준다 — 화면이 날짜를 다시 재지 않는다.
+    // ⚠️ phase 를 모를 때(통신이 끊겼을 때)는 지금까지 하던 대로 명단을 그린다.
+    var ph = (evtStampState === "ready" && evtStamp) ? evtStamp.phase : "";
+    if (ph === "before" || ph === "measuring") {
+      html += '<div class="ev-note">' + evtEsc(evtDateKo(e.opensOn)) +
+        "부터 신청을 받아요.<br>그때까지는 도장만 채우시면 돼요.</div>";
+    } else {
+      html += evtRosterHtml(u, eventId) ||
+        '<div class="ev-note">명단을 불러오지 못했어요. 잠시 뒤 다시 눌러 주세요.</div>';
+    }
     document.getElementById("app").innerHTML =
       '<div class="ev-wrap">' + html + "</div>" +
       '<button class="home-fab" id="ev-home" aria-label="첫 화면으로">' +
