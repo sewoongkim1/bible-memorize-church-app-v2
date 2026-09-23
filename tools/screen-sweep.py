@@ -127,6 +127,8 @@ STEPS = [
     ("36-blessing", ["renderBlessing(function(){})"]),
     ("37-review-typing", ["renderReview([verses[0]],0)"]),
     ("38-review-card", ["localStorage.setItem('input-card-mode','1'); renderReview([verses[0]],0); localStorage.setItem('input-card-mode','0');"]),
+    # 오늘의 찬양(앱 안 화면) — 진입점이 단추뿐이라 renderSongScreen을 직접 불러야 DB 없이도 찍힌다.
+    ("39-song", ["NOHOME", "renderSongScreen({id:'y4I3e18fkI4',song:'변함없는 은혜',choir:'임마누엘찬양대',svc_date:'2026-03-22',duration:'3:40',thumbnail:''})"]),
     ("P1-privacy-page", ["GOTO privacy/"]),
     ("P2-quiz-page", ["GOTO quiz/"]),
     ("P3-guide-page", ["GOTO guide/"]),
