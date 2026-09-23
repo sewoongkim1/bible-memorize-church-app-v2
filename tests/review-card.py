@@ -23,7 +23,6 @@ VERSE = {"no": 1, "ref": "요 1:1", "refShort": "요 1:1", "text": "태초에 �
 # 복습 화면을 그리기 전에 바깥 세계를 막는다 — 서버로 나가는 길과 다음 화면으로 넘어가는 길.
 SETUP = """
 (verse) => {
-  window.verses = [verse];
   window.__posted = null;
   window.postChallenge = (v, m) => { window.__posted = m; };
   window.advanceReview = () => {};
@@ -142,9 +141,25 @@ try:
         check("카드를 켜 두고 음성으로 마치면 review-voice", m == "review-voice", m)
         m = page.evaluate("() => reviewLogMode('typing')")
         check("카드를 켜 두고 자판이면 review-typing-card", m == "review-typing-card", m)
+        m = page.evaluate("() => reviewLogMode()")
+        check("인자가 없으면 review-voice(옛 방어)", m == "review-voice", m)
         open_review(False)
         m = page.evaluate("() => reviewLogMode('voice')")
         check("자판 모드에서 음성이면 review-voice", m == "review-voice", m)
+
+        # ⑦ startReview 가 카드 상태를 설정값으로 되돌린다
+        #    (리셋이 없으면 도전에서 켠 카드가 복습까지 따라온다 — 원래 증상)
+        page.goto(f"http://localhost:{PORT}/", wait_until="load")
+        page.wait_for_selector(".intro-screen, .entry-screen, .summary-screen, .error", timeout=10000)
+        reset_ok = page.evaluate("""
+        () => {
+          localStorage.setItem('input-card-mode', '1');
+          localStorage.setItem('card-start', '0');
+          startReview();
+          return isCardMode();
+        }
+        """)
+        check("startReview 가 카드 상태를 설정값으로 되돌린다", reset_ok is False, reset_ok)
 
         browser.close()
 finally:

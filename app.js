@@ -1341,7 +1341,10 @@ function advanceReview(no) {
 //    isCardMode ? "card" : "typing")·시편(psalmStageDone)과 같은 정의라야
 //    세 화면 숫자를 나란히 놓을 수 있다.
 function reviewLogMode(mode) {
-  if (mode === "voice") return "review-voice";
+  // 옛 (mode || "voice") 방어를 지킨다. setupVoice 가 onPass("voice") 로 인자를
+  // 주는 지금은 없어도 되지만, 누군가 onPass() 로 인자를 빠뜨리게 바꾸면 그 순간부터
+  // 음성 복습이 조용히 review-typing 으로 기록된다 — 오류가 안 나 아무도 못 알아챈다.
+  if (!mode || mode === "voice") return "review-voice";
   return isCardMode() ? "review-typing-card" : "review-typing";
 }
 
@@ -7656,11 +7659,16 @@ function renderChallenge(verse, hard) {
 //    애초에 시편 번호를 걸러내므로 여기서는 일반 verses만 신경 쓰면 된다.
 async function startReview() {
   try {
-    // 구절마다 설정값으로 되돌린다 — 도전에서 켠 카드가 복습까지 따라오지 않게.
+    // 복습에 들어올 때 **한 번만** 설정값으로 되돌린다 — 도전에서 켠 카드가 복습
+    // 첫 구절까지 따라오지 않게. reviewNext 로 다음 구절로 넘어갈 때는 여기를 다시
+    // 거치지 않으므로, 세션 안에서 👆로 바꾼 것은 남은 구절에 그대로 이어진다(의도된
+    // 동작이다 — 복습은 한 번에 세 구절을 도는 화면이라 구절마다 꺼지면 매번 다시
+    // 눌러야 한다).
     // ⚠️ renderReview 가 아니라 **여기**여야 한다. 토글이 renderReview 를 다시 그리는
     //    방식이라, 리셋을 renderReview 안에 두면 👆를 누르는 순간 설정값으로 되돌아가
-    //    「눌러도 안 바뀐다」가 된다(시편이 피한 방식 그대로 — js/psalm.js 의
-    //    renderPsalmReview 에 리셋, renderPsalmBlank 만 재렌더).
+    //    「눌러도 안 바뀐다」가 된다.
+    // ⚠️ 암송(startTest)·시편(renderPsalmReview 안의 리셋)은 구절마다 꺼진다 — 여기와
+    //    다른 규칙이다. 복습은 일부러 세션 단위로 다르게 간다. 혼동하지 말 것.
     setCardMode(isCardStart());
     const dueNos = dueReviewNos();
     const queue = verses.filter((v) => dueNos.includes(v.no));
@@ -7936,7 +7944,7 @@ function setupChallengeTyping(verse, onComplete) {
   });
 
   // 카드 모드 — 낱말을 눌러서 채운다(암송 화면과 같은 방식).
-  // #card-tray 가 있는 화면에서만 만들어진다(지금은 도전). 맞으면 evaluate의 성공 경로를
+  // #card-tray 가 있는 화면에서만 만들어진다(지금은 도전·복습). 맞으면 evaluate의 성공 경로를
   // 그대로 태워, 완료 판정이 타자와 한 길로 흐르게 한다.
   const tray = document.getElementById("card-tray");
   if (isCardMode() && tray && inputs.length) {
