@@ -440,10 +440,11 @@ h1 {
 .song-modal-actions { display: flex; gap: 8px; margin-top: 10px; }
 .song-modal-actions .summary-help,
 .song-modal-actions .cheer-ok { flex: 1; width: auto; margin-bottom: 0; }
-/* .summary-help 기본은 한 줄 말줄임인데, 좁은 폭에 둘이 나란히 서면 320px·아주 큰 글씨에서
-   「유튜브로」가 「유튜…」로 잘렸다(screen-sweep 로 확인). 바로 위 .med-psalm-cta·.med-song-cta 와
-   같은 규칙(docs/notes/home-screen.md) — 잘리게 두느니 두 줄이 낫다. */
-.song-modal-actions .summary-help { white-space: normal; overflow: visible; text-overflow: clip; }
+/* ⚠️ 「유튜브로」는 **한 줄**이어야 한다(2026-09-23 저녁 성도님 결정 — 그림으로 지목하셨다).
+   잠깐 두 줄을 허용했었다: 앞에 🎵 가 붙어 있어 320px·아주 큰 글씨에서 「유튜…」로 잘렸기 때문이다.
+   ⚠️ 그 이모지를 빼서 폭이 남았으므로 다시 한 줄로 되돌린다 — **이모지를 다시 붙이면 그때 잘린다.**
+   글자를 늘리거나 이모지를 더할 일이 생기면 320px·아주 큰 글씨에서 먼저 재 볼 것. */
+.song-modal-actions .summary-help { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* 이번주 묵상 요일 탭 — 일~토 한 글자로 한 줄에(제목은 아래 타이틀에 나온다) */
 .med-tabs { display: flex; gap: 4px; justify-content: center; flex-wrap: nowrap; margin: 8px 0 12px; }

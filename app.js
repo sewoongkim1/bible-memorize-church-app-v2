@@ -487,8 +487,8 @@ function openSongModal(song) {
         <div class="song-name">${boardEsc((song && song.song) || "오늘의 찬양")}</div>
         ${metaParts.length ? `<div class="song-meta">${metaParts.join(" · ")}</div>` : ""}
         <div class="song-modal-actions">
-          <button class="summary-help" id="song-ext">🎵 유튜브로 <span class="ext-mark">↗</span></button>
-          <button class="cheer-ok" id="song-close">닫기</button>
+          <button class="summary-help" id="song-ext">유튜브로 <span class="ext-mark">↗</span></button>
+          <button class="cheer-ok" id="song-close">확인</button>
         </div>
       </div>`;
     document.body.appendChild(wrap);
@@ -499,10 +499,14 @@ function openSongModal(song) {
 
     const playBtn = document.getElementById("song-play");
     if (playBtn) playBtn.addEventListener("click", songStartPlay);
+    // ⚠️ **유튜브로 곧장 간다**(2026-09-23 저녁 성도님 결정) — 전에는 찬양 아카이브의 그 곡
+    //    (`worship.onlybible.kr/?song=`)으로 보냈는데, 단추 이름이 「유튜브로」이므로 이름과 가는 곳을
+    //    맞췄다. 설교 보기(app.js 의 `.watch`)와 같은 꼴이다.
+    //    ⚠️ 찬양 아카이브의 `?song=` 딥링크는 그쪽에 그대로 살아 있다 — 다시 쓸 때 건들 것 없다.
     document.getElementById("song-ext").addEventListener("click", () => {
       const url = (songCur && songCur.id)
-        ? "https://worship.onlybible.kr/?song=" + encodeURIComponent(songCur.id)
-        : "https://worship.onlybible.kr/";
+        ? "https://www.youtube.com/watch?v=" + encodeURIComponent(songCur.id)
+        : "https://worship.onlybible.kr/";   // 곡을 모르면(여기까진 안 온다) 아카이브 홈
       window.open(url, "_blank", "noopener");
     });
 
@@ -579,7 +583,7 @@ function songShowEnded() {
   media.innerHTML =
     `<div class="song-ended">
        <button class="summary-help" id="song-replay">🔁 다시 듣기</button>
-       <button class="summary-help" id="song-ended-close">닫기</button>
+       <button class="summary-help" id="song-ended-close">확인</button>
      </div>`;
   const rp = document.getElementById("song-replay");
   if (rp) rp.addEventListener("click", songStartPlay);
