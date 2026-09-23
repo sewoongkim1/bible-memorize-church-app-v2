@@ -5216,41 +5216,57 @@ async function eventRoster(b: any) {
   })) as any[];
 
   let missing: any[] = [];
+  let missingTotal = 0;
   const pickedEv = eventId ? (evs ?? []).find((e: any) => e.id === eventId) : null;
   const pickedRule = pickedEv ? evtRule(pickedEv) : null;
   if (pickedRule) {
-    const today = evtToday();
-    // 신청한 분들 — 한 사람씩 다시 센다. 회차 하나의 신청자 수는 수십이라 이 정도면 된다.
+    // ⚠️ **한 번만 부른다.** 예전에는 신청자마다 evtStampsFor 를 await 했는데,
+    //    그 함수는 한 사람당 RPC 두 번(v2_event_weeks + v2_mydays)을 만든다 —
+    //    신청자 200명이면 **순차 400왕복**이고, 그중 days 는 이 응답에 쓰지도 않는다.
+    //    게다가 아래 「안 하신 분」 계산이 이미 전 교인을 한 번에 받아 온다.
+    //    그 한 번의 결과로 둘 다 만든다(200명 기준 401왕복 → 2왕복).
+    const { data: all, error: allErr } = await db.rpc("v2_event_weeks", {
+      p_start: pickedRule.start, p_weeks: pickedRule.weeks,
+      p_per_week: pickedRule.perWeek, p_users: null,
+    });
+    if (allErr) throw allErr;
+    // ⚠️ 창 안에 활동이 없는 사람은 **행이 아예 없다**(0 행이 아니라 부재다).
+    //    그래서 못 찾으면 0 주로 친다 — 안 그러면 기록 없는 분이 명단에서 조용히 사라진다.
+    const byUser = new Map<string, any>();
+    for (const w of ((all ?? []) as any[])) byUser.set(String(w.user_id), w);
+
     const { data: srows } = await db.from("event_signups")
       .select("id,user_id").eq("event_id", eventId).limit(2000);
-    const byId = new Map<number, any>();
-    for (const s of ((srows ?? []) as any[])) {
-      if (!s.user_id) continue;
-      const st = await evtStampsFor(String(s.user_id), pickedRule, today);
-      byId.set(s.id, st);
+    const rowUser = new Map<number, string>();
+    for (const sr of ((srows ?? []) as any[])) {
+      if (sr.user_id) rowUser.set(sr.id, String(sr.user_id));
     }
+
     const stampedAt = new Date().toISOString();
     for (const row of rowsOut) {
-      const st = byId.get(row.id);
-      if (!st) continue;
-      row.weeksDone = st.weeksDone;
-      row.perfect = st.allWeeks;
-      row.eligible = st.eligible || row.excused;
+      const uid = rowUser.get(row.id);
+      if (!uid) continue;                       // 이관된 옛 기록(user_id 없음)
+      const w = byUser.get(uid) ?? null;
+      const weeksDone = Number(w?.weeks_done ?? 0);
+      const firstDay = w?.first_day ? String(w.first_day).slice(0, 10) : null;
+      const need = evtNeedFor(pickedRule, firstDay);
+      row.weeksDone = weeksDone;
+      row.perfect = weeksDone >= pickedRule.weeks;
+      row.eligible = weeksDone >= need || row.excused;
       row.computedAt = stampedAt;
     }
 
     // 자격은 되는데 아직 신청 안 하신 분 — 마감 전에 알려 드리려고.
     // ⚠️ 이름·소속만. user_id 를 싣지 않는다.
-    const signedUp = new Set(((srows ?? []) as any[]).map((s) => String(s.user_id)));
-    const { data: all } = await db.rpc("v2_event_weeks", {
-      p_start: pickedRule.start, p_weeks: pickedRule.weeks,
-      p_per_week: pickedRule.perWeek, p_users: null,
-    });
+    const signedUp = new Set([...rowUser.values()]);
     const cand = ((all ?? []) as any[]).filter((w) => {
       if (signedUp.has(String(w.user_id))) return false;
       const fd = w.first_day ? String(w.first_day).slice(0, 10) : null;
       return Number(w.weeks_done) >= evtNeedFor(pickedRule, fd);
     });
+    // ⚠️ 300 에서 자른다(.in 의 주소 길이). **자른 사실을 화면이 알아야 한다** —
+    //    모르면 담당자가 「이게 전부」로 읽는다. 그래서 총수를 함께 내려 준다.
+    missingTotal = cand.length;
     if (cand.length) {
       const { data: us } = await db.from("users")
         .select("id,type,gu,mok,bu,grade,name")
@@ -5277,6 +5293,7 @@ async function eventRoster(b: any) {
     })),
     rows: rowsOut,
     missing,
+    missingTotal,
   };
 }
 
@@ -5288,9 +5305,14 @@ async function eventSetNote(b: any) {
   const id = Number(b.id);
   if (!Number.isInteger(id) || id <= 0) return { ok: false, error: "bad-args" };
   const note = norm(b.note).slice(0, 500);
-  const { error } = await db.from("event_signups")
-    .update({ note, updated_at: new Date().toISOString() }).eq("id", id);
+  // ⚠️ PostgREST 는 **맞는 행이 없어도 오류를 안 낸다.** 그냥 update 만 하면
+  //    없는 id 에도 {ok:true} 가 돌아가, 담당자는 저장된 줄 알지만 아무 일도 안 일어난다.
+  //    자매 함수 eventExcuse 와 같은 잣대로 맞춘다 — 없으면 not-found.
+  const { data: hit, error } = await db.from("event_signups")
+    .update({ note, updated_at: new Date().toISOString() })
+    .eq("id", id).select("id").maybeSingle();
   if (error) throw error;
+  if (!hit) return { ok: false, error: "not-found" };
   return { ok: true };
 }
 
