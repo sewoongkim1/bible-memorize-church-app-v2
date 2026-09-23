@@ -184,11 +184,21 @@ app.js:9172-9175 의 「아직 도전 기록이 없어요」 가지는 `myHtml` 
 `featureLog` 는 표가 없으면 `skipped:"no-table"` 로 **ok 를 돌려주고 조용히 버린다**(일부러 그렇게 만들었다).
 즉 코드에 이미 심어 둔 **일곱 기능**(시편·묵상·묵상자동·앨범·듣기·설명서·푸시)이 **지금 하나도 안 재이고 있다.**
 
-보고서 종합 ⑤가 「절반의 기능은 잴 수가 없다」고 한 자리가 이것이다. 그래서 이번 판에 함께 세운다:
+보고서 종합 ⑤가 「절반의 기능은 잴 수가 없다」고 한 자리가 이것이다.
 
-1. `supabase/feature_log.sql` 을 **개발 → 운영** 순으로 돌린다
-2. `index.ts` 의 `FEATURES` 에 **`"ranking-scope"` 한 줄** (⚠️ 허용 목록은 **여기 한 곳뿐**이다 — DB CHECK 없음)
-3. app.js 에서 칩이 정해질 때 `featureLog("ranking-scope", item)` — `item` 은 `1`(우리 교구) / `0`(전체)
+⚠️ **2026-09-23 갱신 — 그 인프라는 다른 세션이 이미 만들고 있다**(`docs/superpowers/plans/2026-09-23-feature-log.md`).
+표(`2c7f54b`) · 서버 액션(`18cd921`) · 앱 공용 함수 `logFeature()`(`d9675f6`)까지 커밋됐고,
+남은 것은 그 계획의 **Task 9(운영 배포)** 다. 그래서 **이 설계는 그 위에 두 줄만 얹는다**:
+
+1. `index.ts` 의 `FEATURES` 에 **`"ranking-scope"` 한 줄** (⚠️ 허용 목록은 **여기 한 곳뿐**이다 — DB CHECK 없음)
+2. app.js 에서 칩이 정해질 때 `logFeature("ranking-scope", item)` — `item` 은 `1`(우리 교구) / `0`(전체)
+
+⚠️ **이 설계가 `logFeature` 의 첫 호출자다**(지금 부르는 자리가 0곳이다). `supaCall` 은 실패하면 `throw` 하고
+`logFeature` 의 `try/catch` 는 **동기 예외만** 삼키므로, `.catch(() => {})` 를 함께 붙여야 한다 —
+안 그러면 운영에 액션이 없는 동안 `unhandledrejection` 이 줄줄이 뜬다.
+
+⚠️ **운영 배포 전까지 기록은 0 이다.** 그건 정상이고 화면은 영향을 안 받는다.
+그리고 `supabase functions deploy` 는 작업 트리를 통째로 올리므로, 배포는 그 세션과 **순서를 맞춰서** 한다.
 
 이걸로 **「우리 교구를 실제로 보고 계신 분이 몇 분인가」**를 잴 수 있다.
 카드 모드는 도입하고 여덟 달을 못 재다가 28.5%인 걸 뒤늦게 알았다(`docs/notes/metrics.md`). 같은 실수를 반복하지 않는다.
@@ -197,24 +207,23 @@ app.js:9172-9175 의 「아직 도전 기록이 없어요」 가지는 `myHtml` 
 
 ## ⑥ 적용 순서
 
-> ⚠️ **배포 순서는 기능마다 다르다.** `feature_log` 는 **새 표**라 **표가 먼저**다(빈 표는 아무도 안 읽는다).
-> 순위 칩은 표에 아무것도 안 더하므로 순서 제약이 없다.
+> 상세한 단계별 계획은 **`docs/superpowers/plans/2026-09-23-narrow-ranking.md`** 에 있다(코드 포함).
+> 아래는 그 요약이다.
 
 | # | 무엇을 | 어디서 |
 |---|---|---|
 | 1 | `docs/notes/ranking-cheer.md` 정독 | — |
-| 2 | `feature_log.sql` 실행 | **개발** DB |
-| 3 | 개발에서 확인 → `feature_log.sql` 실행 | **운영** DB |
-| 4 | `FEATURES` 에 `ranking-scope` 한 줄 → 배포 | **개발** Edge Function |
-| 5 | 확인 → 배포 | **운영** Edge Function |
-| 6 | `narrowRanking(list, me)` 순수 함수 — 거르기·재번호·3명 게이트 | app.js |
-| 7 | `loadRankingBody` 에 칩·필터·featureLog 연결 (④의 1~7) | app.js |
-| 8 | `.rank-scope` + 어두운 모드 | style.css |
-| 9 | 개발 DB 시드 — **같은 교구 5명 + 다른 교구 3명** | 개발 DB |
-| 10 | localhost 확인 · 폭 320·344·360·390·430 × 밝음/어두움 | — |
-| 11 | `python tools/bump.py` → `git commit -- app.js style.css index.html` → 푸시 | — |
-| 12 | `APP_BUILD` 대조로 배포 확인 | — |
-| 13 | `docs/notes/ranking-cheer.md` 한 절 · CLAUDE.md 한 줄 · 사용 설명서 순위 절 | — |
+| 2 | `narrowRanking` 순수 함수 + `tests/ranking-scope.test.cjs` + `tools/preflight.py` — **한 커밋** | app.js·tests·tools |
+| 3 | 개발 DB 시드 — **같은 교구 5명 + 다른 교구 3명** | 개발 DB |
+| 4 | `loadRankingBody` 를 받아오기/그리기로 가른다 (동작 불변) | app.js |
+| 5 | 칩 세 갈래 + 좁힌 목록 + 문구 + `.rank-scope` | app.js·style.css |
+| 6 | `FEATURES` 에 `ranking-scope` · `logFeature` 호출 + `.catch` | app.js·index.ts |
+| 7 | localhost 확인 · 폭 320·344·360·390·430 × 밝음/어두움 | — |
+| 8 | `docs/notes/ranking-cheer.md` 한 절 · CLAUDE.md 한 줄 · 사용 설명서 | — |
+| 9 | `python tools/bump.py` → 경로를 못 박아 커밋 → 푸시 | — |
+| 10 | `APP_BUILD` 와 `MIN_SCOPE_ROWS` 로 배포 확인 | — |
+
+⚠️ **2번의 세 파일은 반드시 한 커밋으로.** `preflight.py` 만 먼저 들어가면 **그 푸시부터 배포가 멈춘다**.
 
 ⚠️ **4~5번 배포 전에 `git status` 를 본다** — `supabase functions deploy` 는 git 이 아니라 **작업 트리를 올린다.**
 남의 커밋 안 된 `index.ts` 코드가 함께 나간다(`edge-function-shared-deploy`).
