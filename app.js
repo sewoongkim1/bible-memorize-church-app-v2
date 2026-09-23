@@ -2181,7 +2181,7 @@ function renderSummary() {
   const notDone = counts[0] + counts[1] + counts[2];   // 아직 3단계를 못 마친 구절
   const TODO = dueCount > 0
     ? { id: "go-review", cls: "review-cta", ic: "🔁",
-        tx: `오늘 복습 ${dueCount}구절`, sub: "잊기 전에 다시 한 번" }
+        tx: `복습 ${dueCount}구절`, sub: "잊기 전에 다시 한 번" }
     : notDone > 0
     ? { id: "go-list", cls: "", ic: "📖",
         tx: "말씀 암송하기", sub: `아직 ${notDone}구절 남았어요` }
@@ -7828,16 +7828,21 @@ function reviewNext(queue, idx) {
 
 function renderReviewDone(count) {
   const appEl = document.getElementById("app");
+  // 다음 묶음이 남아 있나 — 방금 마친 구절들은 advanceReview 가 기한을 미뤘으므로
+  // 여기서 다시 물으면 「아직 기한 지난 것이 남았나」가 그대로 나온다(최대 REVIEW_BATCH).
+  const more = dueReviewNos().length;
   appEl.innerHTML = `
     <div class="summary-screen">
       <div class="summary-card cd-card">
         <div class="cd-emoji">🎉</div>
         <div class="cd-title">복습 완료!</div>
-        <div class="cd-sub">오늘 복습 ${count}구절을 마쳤어요. 잘하셨어요! 🙌</div>
-        <div class="cd-count">다음 복습은 자동으로 안내됩니다.</div>
-        <button class="summary-go" id="rv-home">기록 화면으로</button>
+        <div class="cd-sub">복습 ${count}구절을 마쳤어요. 잘하셨어요! 🙌</div>
+        <div class="cd-count">${more ? `말씀 ${more}구절이 더 기다리고 있어요.` : "다음 복습은 자동으로 안내됩니다."}</div>
+        ${more ? `<button class="summary-go review-cta" id="rv-more">🔁 ${more}구절 더 하기</button>` : ""}
+        <button class="${more ? "summary-change" : "summary-go"}" id="rv-home">기록 화면으로</button>
       </div>
     </div>`;
+  if (more) document.getElementById("rv-more").addEventListener("click", startReview);
   document.getElementById("rv-home").addEventListener("click", renderSummary);
 }
 
