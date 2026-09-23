@@ -64,6 +64,32 @@ else:
         else:
             ok('app.js 의 APP_BUILD 도 "%s" 로 같다' % tag)
 
+# ── 3) 순수 함수 검사 (꾸러미 없이 도는 것만) ───────────────────────
+# ⚠️ 여기에는 **npm 꾸러미가 필요 없는** 검사만 적는다. tests/member-*.test.cjs 는
+#    PGlite·jsdom·typescript 가 있어야 해서 못 넣는다 — 넣으면 Actions 러너에
+#    node_modules 가 없어 배포가 통째로 멈춘다. 새 검사를 더할 때도 기준은 같다:
+#    node 내장(node:test·node:assert·node:fs·node:path·node:vm)만 쓰는가.
+PURE_TESTS = ["tests/ranking-scope.test.cjs"]
+
+print("\n[3] 순수 함수 검사 (node --test)")
+for t in PURE_TESTS:
+    if not os.path.exists(os.path.join(ROOT, t)):
+        bad("%s — 파일이 없다 (지웠으면 preflight.py 의 PURE_TESTS 에서도 뺄 것)" % t)
+        continue
+    r = subprocess.run(["node", "--test", t], cwd=ROOT,
+                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    out = r.stdout.decode("utf-8", "replace")
+    if r.returncode == 0:
+        m = re.search(r"^# pass (\d+)", out, re.M)
+        ok("%s — %s가지 통과" % (t, m.group(1) if m else "?"))
+    else:
+        hits = [ln for ln in out.splitlines()
+                if ln.startswith("not ok") or "AssertionError" in ln or "Error:" in ln]
+        detail = "\n".join("        " + ln.strip() for ln in hits[:12])
+        if not detail:
+            detail = "        " + out.strip()[:400]
+        bad("%s — 검사가 떨어졌다\n%s\n        → node --test %s 로 자세히 볼 것" % (t, detail, t))
+
 # ── 결과 ────────────────────────────────────────────────────────────
 print()
 if fail:

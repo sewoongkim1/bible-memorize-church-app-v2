@@ -9222,6 +9222,37 @@ function renderRanking(range) {
   loadRankingBody(r);
 }
 
+// 순위 목록을 「나와 같은 소속」으로 좁힌다 — 거르기 · 재번호 · 3명 게이트.
+// ⚠️ 순수 함수로 둔다(DOM·전역·localStorage·fetch 를 안 본다). tests/ranking-scope.test.cjs 가
+//    이 덩어리만 떼어 내 node 로 돌리고, tools/preflight.py 가 그 검사를 배포 앞에 건다.
+// ⚠️ 원본 줄 객체를 그대로 담는다(사본 금지) — 응원은 배열 원소를 제자리에서 고치므로
+//    사본을 쓰면 「우리 교구」에서 누른 👏가 「전체」로 돌아갔을 때 안 눌린 것으로 보인다.
+// ⚠️ x.rank 를 덮어쓰지 않는다 — me 는 list 안의 같은 객체라 「내 순위」 바가 함께 바뀐다.
+//    화면 등수는 ranks[i] 로만 만든다(🥇 와 .rank-row.top 이 같은 값을 봐야 한다).
+// ⚠️ 거른 뒤 다시 정렬하지 않는다 — v2_ranking 이 이미 (cnt desc, name) 순이라
+//    거르기가 순서를 보존하면 i+1 이 서버 규칙과 어긋나지 않는다.
+// 돌려주는 것 { ok, reason, list, ranks, count }
+//   ok      같은 소속이 3명 이상이라 「우리 교구」를 보여 줄 수 있나
+//   reason  ""(ok) · "no-scope"(비로그인·소속 빈칸) · "too-few"(2명 이하)
+//   list    좁힌 줄들 — 원본 객체 그대로 (ok 가 아니면 [])
+//   ranks   list 와 짝이 되는 화면 등수 1,2,3…
+//   count   같은 소속으로 걸러진 줄 수 (게이트를 못 넘어도 안내 문구의 「N명」에 쓴다)
+const MIN_SCOPE_ROWS = 3; // 나 + 둘. 둘이라도 있어야 「순위」라는 말이 성립한다
+
+function narrowRanking(list, me) {
+  const rows = Array.isArray(list) ? list : [];
+  const gubun = me && me.gubun ? String(me.gubun) : "";
+  const sosok = me && me.sosok ? String(me.sosok) : "";
+  // 비로그인 · 소속 빈칸 — 칩 자체를 안 그린다
+  if (!gubun || !sosok) return { ok: false, reason: "no-scope", list: [], ranks: [], count: 0 };
+  // ⚠️ sebu(목장·학년)로는 거르지 않는다 — 자유 입력이고, 목장 단위는 설계상 이번에 안 한다
+  const mine = rows.filter((x) => x && x.gubun === gubun && x.sosok === sosok);
+  if (mine.length < MIN_SCOPE_ROWS) {
+    return { ok: false, reason: "too-few", list: [], ranks: [], count: mine.length };
+  }
+  return { ok: true, reason: "", list: mine, ranks: mine.map((_, i) => i + 1), count: mine.length };
+}
+
 async function loadRankingBody(r) {
   const body = document.getElementById("rank-body");
   const u = loadUser();
