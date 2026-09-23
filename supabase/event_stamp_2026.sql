@@ -11,6 +11,10 @@
 --    3주가 가장 빨리 성립하는 날이 10/27 이라, 그전에 신청을 열면 화면이 16일 동안
 --    「등록하세요」라고 거짓말한다.
 -- ⚠️ 날짜를 옮기면 app.js 의 FEAT_SINCE.stamp 도 함께 옮긴다(7일 단위로만).
+-- ⚠️ **opens_on 은 언제나 eligibility.start 보다 뒤여야 한다.** 앞서면 화면은
+--    「10월 11일에 시작해요」(phase=before)라고 하면서 신청 단추는 열린 상태가 된다
+--    — 두 값을 보는 잣대가 다르기 때문이다(phase 는 start, 신청 가능은 opens_on).
+--    2026-09-23 개발에서 날짜를 당겨 시험하다 실제로 그 상태를 만들어 봤다.
 
 insert into public.events
   (id, title, short_title, subtitle, season, kind, status,
