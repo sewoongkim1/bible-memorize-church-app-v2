@@ -144,6 +144,10 @@ function drawPsalmHome() {
     return;
   }
   psalmHomeDay = shown.dayNo;
+  // 이 액자가 실제로 펼쳐졌다 — 「180편이 몇 명에게 닿나」는 이 기록으로만 알 수 있다.
+  // item 은 dayNo 가 아니라 구절 번호(no)다 — challenge_log.verse_no 와 같은 값이라야
+  // 「액자를 본 분 중 몇 %가 암송까지 갔나」를 join 으로 잴 수 있다(psalm_metrics.sql).
+  if (typeof logFeature === "function") logFeature("psalm", shown.no);
   const prev = psalmVerses.find((v) => v.dayNo === shown.dayNo - 1) || null;
   const next = psalmVerses.find((v) => v.dayNo === shown.dayNo + 1) || null;
   // 마지막 편에서 「다음」은 **처음으로 돌아간다** — 성도님 요청(2026-09-10).

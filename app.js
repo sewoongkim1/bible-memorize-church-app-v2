@@ -8715,6 +8715,7 @@ function albumItemsFor(list) {
 // 모르고 눌렀다가 당황하지 않도록 버튼에 미리 적어 둔다(전부+요약이면 한 시간이 넘는다)
 function albumPlayStart(items) {
   if (!items.length) { appAlert("들을 것을 하나 이상 골라 주세요."); return; }
+  logFeature("album-play", 0);     // 실제로 듣기 시작한 것. album 과의 차이가 「열고도 안 듣는 분」이다
   albumPlayer = { items: items, i: 0, paused: false };
   keepScreenAwake(true).then(() => albumPlayBar());   // 탭한 그 자리에서 요청해야 받아 준다
   albumPlayStep();
@@ -8901,6 +8902,7 @@ function albumFind(no) {
 
 function renderAlbum() {
   const u = loadUser();
+  logFeature("album", 0);          // 화면을 연 것. 아래 album-play 와 짝이다
   const appEl = document.getElementById("app");
   if (!psalmVisible()) albumTrack = "weekly";   // 게이트가 꺼지면 되돌린다
   const pool = albumTrack === "psalm" ? (psalmVerses || [])
