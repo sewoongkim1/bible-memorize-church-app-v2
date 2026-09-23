@@ -372,6 +372,7 @@ Deno.serve(async (req) => {
       case "clearChatCache": return json(await clearChatCache(body));
       case "getBlessings":        return json(await getBlessings());
       case "blessingLog":         return json(await blessingLog(body));
+      case "featureLog":          return json(await featureLog(body));
       case "getPassages":         return json(await getPassages());
       case "savePassage":         return json(await savePassage(body));
       case "deletePassage":       return json(await deletePassage(body));
@@ -1300,6 +1301,44 @@ async function blessingLog(b: any) {
   if (!b.user_id || !Number.isFinite(no) || no < 1 || no > 999) return { ok: true, skipped: true };
   try {
     const { error } = await db.rpc("v2_blessing_log", { uid: b.user_id, n: no });
+    if (error) {
+      const m = String(error.message || "");
+      const why = /does not exist|schema cache|function/i.test(m) ? "no-table"
+                : /foreign key|violates/i.test(m) ? "no-user" : "db";
+      return { ok: true, skipped: why };
+    }
+  } catch (_e) {
+    return { ok: true, skipped: "error" };
+  }
+  return { ok: true };
+}
+
+// ---------- 열람 기록(featureLog) ----------
+// 못 재던 기능들이 「몇 명에게 닿는지」를 남긴다 — blessing_log 를 일반화한 것이다.
+// ⚠️ 허용 목록은 **여기 한 곳뿐이다.** DB 에 CHECK 를 걸지 않았다 — 걸면 목록이 세 곳이
+//    되어 새 기능을 더할 때 앱은 보내는데 저장만 조용히 막힌다(challenge_log.mode 에서 겪었다).
+// ⚠️ 이 목록은 **클라이언트가 보낸 값을 거르는 관문**이다 — 표에 들어갈 수 있는 값의
+//    전체 목록이 아니다. 서버가 스스로 부르는 기록(다른 기능이 db.rpc("v2_feature_log", ...)
+//    를 직접 호출하는 경우, 예: "오늘의 찬양"의 feature="song")은 여기를 지나지 않는다.
+// ⚠️ 실패해도 조용히 넘긴다. 기록 때문에 시편 액자가 안 열리면 본말이 뒤집힌다.
+// ⚠️ 표(feature_log.sql)를 아직 안 만든 판에서도 앱은 그대로 돌아야 한다.
+// ⚠️ 응답에 user_id 를 싣지 않는다 — 이 API 에는 JWT 가 없다.
+const FEATURES = new Set([
+  "psalm",            // 시편 액자 한 편을 펼쳐 봄 (item = 구절 번호)
+  "meditation",       // 성도님이 눌러서 연 묵상 (item = 그 주 구절 번호)
+  "meditation-auto",  // 하루 한 번 저절로 뜬 묵상 (위 숫자의 분모)
+  "album",            // 앨범 화면을 엶
+  "album-play",       // 듣기를 시작함 — 화면만 열고 마는 분을 가른다
+  "guide",            // 사용 설명서를 엶
+  "push",             // 알림을 눌러 앱이 열림
+]);
+
+async function featureLog(b: any) {
+  if (!b.user_id || !FEATURES.has(String(b.feature))) return { ok: true, skipped: true };
+  try {
+    const { error } = await db.rpc("v2_feature_log", {
+      uid: b.user_id, f: String(b.feature), n: Number(b.item) || 0,
+    });
     if (error) {
       const m = String(error.message || "");
       const why = /does not exist|schema cache|function/i.test(m) ? "no-table"
