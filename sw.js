@@ -34,10 +34,20 @@ self.addEventListener("push", (e) => {
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();
   const url = (e.notification.data && e.notification.data.url) || "./";
+  // 알림을 눌러 들어온 것임을 앱에 알린다 — 발송(push_log)은 남지만 「누가 눌렀는지」는
+  // 지금껏 아무 데도 안 남았다. 앱이 이 표식을 보고 한 번 기록한 뒤 주소에서 지운다.
+  // ⚠️ 기존 딥링크(?v=38)와 섞여도 안전하도록 파라미터로 붙인다.
+  const marked = url + (url.indexOf("?") >= 0 ? "&" : "?") + "from=push";
   e.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
-      for (const c of list) { if ("focus" in c) return c.focus(); }
-      return self.clients.openWindow(url);
+      for (const c of list) {
+        if ("focus" in c) {
+          // ⚠️ 이미 열린 창은 focus 만 하고 주소가 안 바뀐다 — 그래서 따로 알린다.
+          try { c.postMessage({ type: "from-push" }); } catch (_) {}
+          return c.focus();
+        }
+      }
+      return self.clients.openWindow(marked);
     })
   );
 });

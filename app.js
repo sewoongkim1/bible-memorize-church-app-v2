@@ -215,6 +215,7 @@ function routeAfterLoad() {
       firstLogin = new URLSearchParams(location.search).get("firstLogin") === "1";
       if (firstLogin) history.replaceState(null, "", location.pathname);
     } catch (e) {}
+    readPushMark();          // 로그인한 분만 기록된다(logFeature 안에서 거른다)
     if (loadUser()) enterAfterLogin({ fresh: firstLogin });
     else renderEntryScreen();
   });
@@ -259,6 +260,30 @@ function getDeepLinkVerseNo() {
   } catch (e) {}
   return null;
 }
+
+// URL의 ?from=push 를 1회 읽어 기록한다(읽은 뒤 주소를 정리 → 새로고침 시 재기록 방지).
+// 알림은 발송(push_log)만 남고 「누가 눌렀는지」는 지금껏 아무 데도 안 남았다.
+// ⚠️ item 은 0 이다 — 푸시 payload 의 주소에 구절 번호가 실려 있지 않다.
+//    「어느 구절 알림이 먹혔나」는 day 로 역산한다(verses.date 가 있다).
+// ⚠️ 주소를 지우는 것이 핵심이다. 안 지우면 새로고침마다 다시 세어진다.
+//    다른 파라미터(?v=)가 함께 있을 수 있으므로 from 만 빼고 나머지는 살린다.
+function readPushMark() {
+  try {
+    const q = new URLSearchParams(location.search);
+    if (q.get("from") !== "push") return;
+    q.delete("from");
+    const rest = q.toString();
+    history.replaceState(null, "", location.pathname + (rest ? "?" + rest : ""));
+    logFeature("push", 0);
+  } catch (e) {}
+}
+
+// 이미 열려 있는 창을 알림으로 되살린 경우 — 주소가 안 바뀌므로 서비스워커가 따로 알려 준다.
+try {
+  navigator.serviceWorker.addEventListener("message", (e) => {
+    if (e.data && e.data.type === "from-push") logFeature("push", 0);
+  });
+} catch (e) {}
 
 // 📜 내 안에 거하는 말씀(긴 본문 암송, 구 '핵심 암송') — 사용자 노출 게이트 & 데이터 로더 & 진행 기록
 let _passagesPreview = false; // ?passages=1 이면 공개 플래그와 무관하게 노출(어드민 미리보기)
