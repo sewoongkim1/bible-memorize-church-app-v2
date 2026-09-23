@@ -1273,3 +1273,70 @@ Expected: **보인다.** 눌러서 찬양 앱의 그 곡이 열린다.
 | `_songPreview` | Task 3 Step 2 | Task 3 Step 3 · Task 4 Step 6(screen-sweep) |
 
 모두 일치한다.
+
+---
+
+# 남은 절차 (2026-09-23 · 작업 1~6 완료 시점에 적음)
+
+**개발까지 다 끝났고 검증됐다. 운영에는 아무것도 안 나갔다.**
+멈춘 이유: `main` 이 `origin/main` 보다 **45커밋 앞**인데 그중 대부분이 **다른 세션 넷의 작업**이다
+(계측 `feature_log` · 이벤트 「가을 말씀 동행」 · 우리 교구 순위 · 복습 카드 모드).
+push = gocheok.onlybible.kr 배포라, 누르면 그분들의 미완성 기능까지 함께 나간다.
+
+## 개발에서 확인된 것
+
+| | |
+|---|---|
+| 후보 곡 수 | **29곡**(시드 34곡 중 걸러질 다섯이 걸러짐) · PostgreSQL 17 |
+| `v2_today_song()` | 두 번 불러 같은 곡(「감사 찬송」·임마누엘찬양대·3:16) |
+| `tests/song-smoke.sh` | 통과 10 · 건너뜀 0 · 실패 0 |
+| 공개 키 점검 | `daily_song`·`v2_song_pool`·`rpc/v2_today_song` 전부 `42501 permission denied` |
+| 게이트 | `getConfig("songPublic")` → `{"ok":true,"value":null}` (허용됨·값 없음 = **꺼짐**) |
+| 화면 | `screen-sweep` 8조건 깨끗 · 320px·아주 큰 글씨에서 단추 폭 242px |
+| 찬양 앱 딥링크 | 세 경우 헤드리스 크롬 확인(있는 id / 없는 id / 파라미터 없음) |
+
+## 순서 — ⚠️ 이 차례를 지킨다
+
+1. **찬양 앱(`c:\Projects\praise-songs`)을 **먼저** 배포한다.** 커밋 `922a3ad`·`679553d`, 캐시 태그 `20260923a`.
+   ⚠️ **이게 먼저여야 한다** — 딥링크가 라이브에 없으면 단추를 눌러도 그 곡이 아니라 **찬양 앱 홈**이 뜬다.
+2. **운영 SQL** (Supabase SQL Editor, `xnomlgydifiqiybervtf`)
+   - `supabase/feature_log.sql` 이 **먼저** 돌아가 있어야 한다(다른 세션 것 — 없으면 클릭 기록이 조용히 0건이 된다)
+   - `supabase/daily_song.sql`
+   - ⚠️ `supabase/praise_songs_dev_seed.sql` 은 **절대 운영에 돌리지 말 것**(개발 전용)
+   - 돌린 뒤: `select count(*) from public.v2_song_pool;` → **1,500 안팎**이어야 한다.
+     훨씬 적으면 찬양 앱 담당자가 `category` 이름을 또 바꾼 것이다(파일 끝 ② 질의로 실제 값 확인)
+3. **운영 Edge Function 배포** — `supabase functions deploy api --no-verify-jwt --project-ref xnomlgydifiqiybervtf`
+   ⚠️ 작업 트리를 통째로 올린다. 배포 전 `git status` 로 남의 미커밋 코드가 없는지 본다.
+4. **`python tools/bump.py` 한 번** → 커밋 → **푸시**
+   ⚠️⚠️ **이걸 빠뜨리면 새 CSS·JS 가 성도님께 안 간다.** 지금 `index.html` 은 `origin/main` 과 한 글자도 다르지 않은데
+   `app.js` 는 288줄이 쌓여 있다. `preflight` 는 **내부 일치만** 보므로 「모두 통과」라고 말하면서 통과시킨다.
+   ⚠️ 여러 세션이 각자 bump 하면 충돌한다 — **머지 뒤 한 번만.**
+5. 배포 확인 — 라이브 `app.js` 의 `APP_BUILD` 가 `index.html` 의 `?v=` 와 같은지, `songVisible` 이 들어 있는지
+6. 이 시점까지 **성도님께는 아무것도 안 보인다.** `https://gocheok.onlybible.kr/?song=1` 로만 보인다.
+
+## 성도님께 여는 날 (9/27 플레이스토어 프로덕션 승인을 확인한 뒤)
+
+1. 운영 SQL Editor:
+   `insert into app_config(key, value) values ('songPublic', 'true'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();`
+   ⚠️ 값은 **JSON 불리언 `true`** 여야 한다(문자열 `"false"` 를 넣으면 자바스크립트에서 참이라 **켜진다**)
+2. `app.js` 의 `FEAT_SINCE` 에서 `song: ""` → 그날 날짜(예 `song: "2026-09-28"`). 안 채우면 NEW 배지가 안 뜬다
+3. `python tools/bump.py` → 푸시
+4. 설명서·공지에 한 줄
+
+## 지켜볼 것
+
+- **`monitor` 의 `songPool` 이 숫자인지** 한 번 본다. `null` 이면 뷰 미설치·권한 문제이고, 그러면 **후보 급감 경보가 영영 안 울린다**(조용히 점검이 생략된다). `songToday:false` 는 아침엔 정상이다 — 오늘 행은 그날 첫 사용자가 만든다.
+- **임계값 100 은 「구분 하나가 통째로 사라질 때」만 잡는다.** 중창단만 이름이 바뀌어 1,500→1,400 이 되면 안 울린다.
+- **어느 곡을 눌렀는지는 안 남는다** — 통합 표 `feature_log(feature='song', item=0)` 에 횟수만 쌓인다. 날짜로 `daily_song` 과 조인하면 복원된다(`supabase/daily_song.sql` 끝 ⑤ 질의).
+- **한 바퀴는 약 4년**(1,500곡 ÷ 하루 1곡).
+
+## 안 고치고 남긴 것 (최종 검토가 「운영 전에 안 고쳐도 된다」로 판정)
+
+- `on conflict` 의 `WHERE` 에서 별칭 대신 스키마 한정 — 개발 PG17 에서 실제로 돌아감을 확인했다
+- 개발 시드 `songs` 에 명시적 `revoke` 없음(RLS 만) — 운영 `schema.sql` 도 같은 모양이고 개발 전용이다
+- `songCachePut` 정리 루프의 `startsWith("song-2")` — 지금 `song-` 열쇠와 안 겹친다
+- `markFeatSeen("song")` 이 없다 — 눌러도 NEW 가 14일 내내 남는다(`open-prayer` 도 같은 상태라 관행이 섞여 있다)
+- CLAUDE.md 지도 표와 `docs/notes/` 에 이 기능 항목이 아직 없다 — 열 때 함께 적으면 된다
+- ⚠️ **범위 밖 발견 둘**
+  - `.home-fab` 에 `body:has(#update-banner)` 보정이 없다 — 배포 직후 앨범·기도문·순위·이벤트 화면의 **유일한 출구**가 「🔄 새 버전」 띠에 가린다. CSS 한 줄이면 넷이 함께 고쳐진다
+  - `tools/screen-sweep.py` 의 HOME 리셋이 `.cheer-overlay`(오늘의 묵상 자동 팝업)를 안 걷어내 `01-summary` 캡처가 매번 그 창에 가린다
