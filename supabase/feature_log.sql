@@ -12,15 +12,32 @@
 --
 -- ■ 날짜는 한국 시간 기준이다. UTC 로 두면 밤에 보신 것이 다음 날로 넘어간다.
 --
--- ■ feature 값 일곱 — psalm · meditation · meditation-auto · album · album-play · guide · push
+-- ■ 이 표는 이 기능 하나만 쓰는 표가 아니다 — **여러 세션·여러 기능이 함께 쓰는 표**다.
+--   처음 심은 것은 일곱 값(psalm · meditation · meditation-auto · album · album-play ·
+--   guide · push)인데, 배포하고 하루도 안 지나 다른 두 세션이 이미 여기 더 쓰고 있었다
+--   (2026-09-23 확인 — song · ranking-scope, 아래). **일곱이라는 숫자를 믿지 말 것** —
+--   앞으로도 늘어난다. `select distinct feature from public.feature_log` 로 지금 값을 본다.
 --   ⚠️ **CHECK 제약을 일부러 걸지 않았다.** 걸면 허용 목록이 화면·서버·DB 세 곳이 되어,
 --      새 기능을 더할 때 앱은 보내는데 저장만 조용히 막힌다(challenge_log.mode 에서 겪었다).
 --      허용 목록은 supabase/functions/api/index.ts 의 FEATURES 한 곳에만 둔다.
+--      ⚠️ 그 FEATURES 도 **표에 들어갈 수 있는 값의 전체 목록이 아니다** — 클라이언트가
+--      보낸 값을 거르는 관문일 뿐이다. 서버가 스스로 db.rpc("v2_feature_log", ...) 를
+--      직접 부르는 값(예: song)은 이 관문을 거치지 않는다.
 --
--- ■ item 의 뜻은 기능마다 다르다
---     psalm                      = 구절 번호 no (= 1000 + day_no)
+-- ■ item 의 뜻은 기능마다 다르다 — **표 전체를 관통하는 단일한 뜻은 없다**
+--     psalm                       = 구절 번호 no (= 1000 + day_no)
 --     meditation, meditation-auto = 그 주 구절 번호
 --     album, album-play, guide, push = 0
+--     ranking-scope               = 숫자가 아니라 **깃발**이다 — 1=우리 교구 · 0=전체
+--                                    (app.js 의 logFeature("ranking-scope", v==="mine"?1:0))
+--     song("오늘의 찬양")           = 0 고정 — index.ts 의 logSongClick 이 FEATURES 를 거치지
+--                                    않고 직접 v2_feature_log 를 부른다(서버 안쪽 호출이라
+--                                    허용 목록 밖이다. index.ts 861행 근처)
+--
+-- ⚠️ **feature 값을 늘리거나(FEATURES 에 추가) 서버가 스스로 새 값을 쓰기 시작하면,
+--    이 머리 주석도 그 자리에서 함께 고친다.** 안 고치면 이 목록이 다시 낡고, 다음에
+--    보는 사람이 여기 없는 값을 「일곱뿐이라던데 왜 더 있지, 데이터가 오염됐나」로
+--    오해한다 — 실제로 이번에 그렇게 낡아 있었다.
 
 create table if not exists public.feature_log (
   user_id uuid not null references public.users(id) on delete cascade,
@@ -125,3 +142,47 @@ select u.gu, u.mok, u.name, f.feature,
 from public.feature_log f join public.users u on u.id = f.user_id
 group by u.gu, u.mok, u.name, f.feature
 order by 횟수 desc limit 50;
+
+-- ⑦ 알림을 켜 둔 분 중 누른 분 — 「켜 둔 분」은 push_subscriptions, 「누른 분」은
+--    feature_log(push). ⚠️ 이 둘은 포함관계가 아니라 **깔때기가 아니라 거친 비율**로만
+--    읽는다 — 눌러서 열고 나중에 알림을 끈 분(구독은 지금 없는데 옛 클릭 기록은 남음),
+--    반대로 지금 구독 중인데 아직 한 번도 안 누른 분이 둘 다 있을 수 있어 「눌러_연_사람」이
+--    「켜_둔_사람」의 부분집합이라는 보장이 없다(비율이 100% 를 넘을 수도 있다).
+with sub as (select distinct user_id from public.push_subscriptions),
+     tap as (select distinct user_id from public.feature_log where feature = 'push')
+select (select count(*) from sub)                                       as 켜_둔_사람,
+       (select count(*) from tap)                                       as 눌러_연_사람,
+       (select count(*) from sub s join tap t using (user_id))          as 지금도_켜져있고_누른_사람,
+       round(100.0 * (select count(*) from tap)
+                   / nullif((select count(*) from sub), 0), 1)          as 거친_비율_퍼센트;
+
+-- ⑧ 어느 구절 알림이 먹혔나 — day 를 그날의 이번 주 구절에 붙인다
+--    ⚠️ feature_log(push) 의 item 은 늘 0 이라(위 item 표) 구절을 직접 안 담고 있다 —
+--       day 를 verses.date 와 맞춰 그날 「이번 주」였던 구절을 찾아야 한다.
+--       아래 weekly CTE 는 index.ts 의 weeklyVerseKst 와 **같은 규칙**을 SQL 로 옮긴 것이다
+--       (그날짜(KST)까지 시작한 track='weekly' 구절 중 가장 늦게 시작한 것을 그날의 구절로
+--       본다) — 지어낸 매칭이 아니라 서버가 실제로 쓰는 규칙과 같은 것을 확인하고 옮겼다.
+--    ⚠️ is_active 는 보지 않는다 — verses 는 이력표가 아니라 지금 상태만 담아서, 나중에
+--       그 구절을 숨겨도(is_active=false) 「그날은 그게 이번 주 구절이었다」는 사실 자체는
+--       바뀌지 않는다고 보기 때문이다.
+--    ⚠️ 그래도 완전히 못 믿을 구석이 남는다 — 이 규칙은 **지금** verses 에 남아 있는 행만
+--       본다. 만약 어떤 주간 구절 행이 통째로 지워졌다면(숨김이 아니라 삭제) 그 기간은
+--       빈 채로, 그 다음 구절이 원래보다 일찍 시작한 것처럼 보일 수 있다. 완전한 확답이
+--       필요하면 이 표의 구절번호를 admin-stats.html 의 말씀 등록 이력과 눈으로 맞춰 본다.
+with weekly as (
+  select no, ref_full, ref, (date at time zone 'Asia/Seoul')::date as start_day
+  from public.verses where track = 'weekly' and date is not null
+),
+days as (select distinct day from public.feature_log where feature = 'push')
+select d.day,
+       w.no                       as 구절번호,
+       coalesce(w.ref_full, w.ref) as 본문,
+       count(distinct f.user_id)  as 사람,
+       sum(f.cnt)                 as 횟수
+from days d
+join public.feature_log f on f.day = d.day and f.feature = 'push'
+left join lateral (
+  select no, ref_full, ref from weekly where start_day <= d.day order by start_day desc limit 1
+) w on true
+group by d.day, w.no, w.ref_full, w.ref
+order by d.day desc;

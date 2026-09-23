@@ -29,8 +29,19 @@ from public.feature_log where feature = 'psalm';
 --       (2,903ms → 516ms 때문에 만든 것), 그 집계표에는 verse_no 가 없어 「시편 구절인지」를
 --       가릴 수가 없다 — 여긴 순위가 아니라 시편만 골라 세는 질의라 challenge_log 가 맞다.
 --       (다음에 볼 사람이 「규칙 위반」으로 오해해 daily_activity 로 고치지 않도록 적어 둔다.)
+--    ⚠️ **memo 는 로그를 심은 날로 바닥을 깐다(2026-09-23 리뷰 지적으로 고침).** seen(feature_log)
+--       은 이 열람 기록을 배포한 날부터만 쌓이는데, memo(challenge_log)는 처음부터 다 있다 —
+--       시편은 2026-09-12 개시라, 이 로그가 생기기 전에 이미 14명·248회가 challenge_log 에
+--       들어가 있었다. 바닥을 안 깔면 「9/15 에 외운 분이 9/25 에야 액자를 처음 폈다」도
+--       "액자 → 암송" 전환으로 잡혀 인과가 거꾸로 되고, 전환율이 실제보다 부풀려진다.
+--       min(day) 로 바닥을 깔면 **양쪽을 다 볼 수 있는 기간(로그를 심은 뒤)만** 놓고 재는
+--       것이 된다 — 그 전의 진짜 전환(액자 없이 외운 분)은 이 표로는 영영 못 잰다는 뜻이다.
+--    ⚠️ feature_log 에 psalm 행이 아직 하나도 없으면 min(day) 가 null 이 되어 `created_at >= null`
+--       은 전부 거짓이라 memo 가 통째로 빈다 — 틀린 값이 아니라 「아직 비교할 대상이 없다」는
+--       뜻이다. 이때 전환율_퍼센트 도 0 이 아니라 분모(액자를_본_사람) 가 0 이라 null 로 뜬다.
 with seen as (select distinct user_id from public.feature_log where feature = 'psalm'),
-     memo as (select distinct user_id from public.challenge_log where verse_no > 1000)
+     memo as (select distinct user_id from public.challenge_log where verse_no > 1000
+               and created_at >= (select min(day) from public.feature_log where feature = 'psalm'))
 select (select count(*) from seen)                                as 액자를_본_사람,
        (select count(*) from memo)                                as 암송까지_간_사람,
        (select count(*) from seen s join memo m using (user_id))   as 둘_다,
