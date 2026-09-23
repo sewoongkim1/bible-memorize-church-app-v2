@@ -1272,6 +1272,12 @@ const STATUS_LABEL = {
 // ------------------------------------------------------------
 const REVIEW_KEY = "memorize-review";
 const REVIEW_INTERVALS = [3, 7, 14, 30, 60];
+// 한 번에 보여 줄 복습 구절 수. **상한이 아니라 묶음**이다 — 다 하면 그다음 묶음이
+// 곧바로 기한이 된다(advanceReview 가 마친 구절을 즉시 다음 간격으로 밀기 때문).
+// 2026-09-23 실측 — 복습한 날 그날 복습 구절 중위값이 3이고, 한 사람 평균 13.9건이
+// 밀려 있었다(2,383건 중 73.6%를 21~40건 밀린 52명이 쥐고 있었다). 적체 자체가 벽이었다.
+// ⚠️ 되돌리려면 이 값만 큰 수(999)로 바꾸면 자르기가 무효가 된다.
+const REVIEW_BATCH = 3;
 
 function reviewKey() {
   const u = loadUser();
@@ -1316,7 +1322,14 @@ function dueReviewNos() {
     // ⚠️ 지금 verses 안에 없는 no(관리자가 지웠거나 번호가 바뀐 것)는 뺀다 — 안 그러면
     //    「오늘 복습 N구절」 단추가 뜨고도 눌러도 찾을 게 없어 아무 일도 없는 것처럼
     //    보인다(성도님 제보 2026-09-13 — "처음부터 안 나오게").
-    .filter((no) => verses.some((v) => v.no === no));
+    .filter((no) => verses.some((v) => v.no === no))
+    // ⚠️ 가장 오래 밀린 것부터. 전에는 정렬이 **아예 없어** Object.keys 의 정수 키
+    //    순회(사실상 구절 번호순)에 암묵적으로 기대고 있었다. 그래서 번호가 큰 구절은
+    //    30일을 밀려도 차례가 안 왔다(2026-09-23 실측 — 30일 이상 밀린 것 456건).
+    .sort((a, b) => (r[a].next < r[b].next ? -1 : r[a].next > r[b].next ? 1 : a - b))
+    // 묶음으로 자른다. 여기 한 곳에서 자르면 첫 화면 숫자·큐 길이·완료 화면 숫자가
+    // 저절로 같은 수가 된다(호출처가 renderSummary 와 startReview 둘뿐이다).
+    .slice(0, REVIEW_BATCH);
 }
 // 복습 완료 → 다음(더 긴) 간격으로
 function advanceReview(no) {
@@ -7671,7 +7684,9 @@ async function startReview() {
     //    다른 규칙이다. 복습은 일부러 세션 단위로 다르게 간다. 혼동하지 말 것.
     setCardMode(isCardStart());
     const dueNos = dueReviewNos();
-    const queue = verses.filter((v) => dueNos.includes(v.no));
+    // ⚠️ verses.filter 로 만들면 순서가 verses 배열 순(서버 order("no") = 구절 번호순)으로
+    //    덮여 dueReviewNos 가 정한 「오래 밀린 순」이 통째로 버려진다. dueNos 를 축으로 만든다.
+    const queue = dueNos.map((no) => verses.find((v) => v.no === no)).filter(Boolean);
     if (!queue.length) {
       // ⚠️ 지금 있는 구절 목록으로 찾지 못한 복습 예정은 지운다 — 안 그러면 다음에도
       //    똑같이 「복습 N구절」이 뜨고 단추는 계속 아무 일도 안 한다(성도님 제보
