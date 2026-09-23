@@ -5073,9 +5073,12 @@ async function eventSignup(b: any) {
   if (!ev) return { ok: false, error: "not-found" };
 
   const isAdmin = adminError(b) === null;
-  if (!evtOpenNow(ev, evtToday()) && !isAdmin) {
-    // 「아직 안 열렸다」와 「마감했다」를 뭉개지 않는다 — 성도에게 할 말이 다르다.
-    return { ok: false, error: ev.status === "open" ? "closed-period" : "not-open" };
+  const today = evtToday();
+  if (!evtOpenNow(ev, today) && !isAdmin) {
+    // 「아직 안 열렸다」·「아직 안 시작했다」·「마감했다」를 뭉개지 않는다.
+    // ⚠️ 옛 코드는 status 가 open 이면 아직 시작 전이어도 「마감했어요」라고 답했다.
+    if (ev.status !== "open") return { ok: false, error: "not-open" };
+    return { ok: false, error: today < norm(ev.opens_on) ? "not-yet" : "closed-period" };
   }
 
   // 이름·소속은 앱이 보낸 값을 믿지 않고 users 에서 가져온다.
@@ -5100,8 +5103,24 @@ async function eventSignup(b: any) {
     if (!PILSA_PHONE_RE.test(phone)) return { ok: false, error: "bad-phone" };
   }
   const memo = needs.memo ? norm(b.memo).slice(0, EVT_MEMO_MAX) : "";
-  const answers = (b.answers && typeof b.answers === "object" && !Array.isArray(b.answers))
-    ? b.answers : {};
+  // 자격 회차 — 서버가 다시 센다. **화면이 잠겨 있어도 이 액션은 열려 있다.**
+  // ⚠️ b.answers 를 읽지 않는다. JWT 가 없어 누구나 weeks:[9,9,9,9,9,9] 를 보낼 수 있다.
+  const rule = evtRule(ev);
+  let answers: any;
+  if (rule) {
+    const st = await evtStampsFor(userId, rule, today);
+    if (!st.eligible && !isAdmin) return { ok: false, error: "not-eligible" };
+    answers = {
+      weeks: st.weekDays,
+      weeksDone: st.weeksDone,
+      need: st.need,
+      rule: { start: rule.start, weeks: rule.weeks, perWeek: rule.perWeek, need: rule.need },
+      computed_at: new Date().toISOString(),
+    };
+  } else {
+    answers = (b.answers && typeof b.answers === "object" && !Array.isArray(b.answers))
+      ? b.answers : {};
+  }
 
   const row = {
     event_id: eventId,

@@ -82,6 +82,15 @@ P3=$(call '{"action":"eventStamps","user_id":"00000000-0000-0000-0000-0000000000
 chk "not-found 거부" "$(jqn 'd.get("error")' "$P3")" "not-found"
 chk "user_id 를 싣지 않는다" "$(jqn '"user_id" not in json.dumps(d)' "$P3")" "True"
 
+echo "4-2) eventSignup - 클라이언트가 보낸 answers 는 저장되지 않는다"
+# 되돌이 방지용이다. 값이 날짜에 달려 있어 「실패 먼저」로 쓸 수 없다 —
+# 자격 판정의 정확한 값은 개발 DB 에서 Task 7 Step 5~6 으로 확인한다.
+G=$(call '{"action":"eventSignup","user_id":"00000000-0000-0000-0000-000000000000","event_id":"autumn-2026","answers":{"weeks":[9,9,9,9,9,9]}}')
+chk "ok=false" "$(jqn 'd.get("ok")' "$G")" "False"
+chk "지어낸 weeks 가 응답에 없다" "$(jqn '"[9, 9, 9, 9, 9, 9]" not in json.dumps(d)' "$G")" "True"
+chk "거절 슬러그가 아는 것 중 하나" "$(jqn 'd.get("error") in ("not-found","not-eligible","not-yet","closed-period","not-open")' "$G")" "True"
+chk "user_id 를 싣지 않는다" "$(jqn '"user_id" not in json.dumps(d)' "$G")" "True"
+
 echo "5) 관리자 액션은 비번 없이 열리지 않는다"
 R=$(call '{"action":"eventRoster"}')
 chk "eventRoster 거부" "$(jqn 'd.get("error") in ("unauthorized","no-password-set")' "$R")" "True"
