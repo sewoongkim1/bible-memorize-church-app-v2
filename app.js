@@ -472,6 +472,9 @@ const EVENT_OPEN_KEY = "event-open";
 //   {n: 회차 수, label: "썸머 써 바이블 조회"}
 // ⚠️ 옛 값("1"/"0")이 폰에 남아 있을 수 있다 — 그때도 안 깨지게 읽는다.
 const EVENT_LABEL_KEY = "event-label";
+// 자격(도장) 회차 id — **개인정보가 아니다**(EVENT_LABEL_KEY 와 같은 취급).
+// 진행은 여기 담지 않는다. 그건 event-stamp::<user_id> 다.
+const EVENT_STAMP_ID_KEY = "event-stamp-id";
 function eventOpenCached() {
   try { return localStorage.getItem(EVENT_OPEN_KEY) === "1"; } catch (e) { return false; }
 }
@@ -501,6 +504,10 @@ function refreshEventOpen() {
           .filter(Boolean).join(" ")
       : (n > 1 ? "이벤트 " + n + "개" : "이벤트 신청·명단");
     try { localStorage.setItem(EVENT_LABEL_KEY, label); } catch (e) {}
+    // 첫 화면 알약이 이걸 보고 eventStamps 를 **한 번만** 부른다(왕복을 둘로 늘리지 않으려고).
+    // ⚠️ 둘 이상이면 빈 값 — 누구의 진행인지 화면이 말할 수 없다(라벨도 「이벤트 2개」가 된다).
+    const stampEvs = list.filter((e) => e.needs && e.needs.eligibility);
+    try { localStorage.setItem(EVENT_STAMP_ID_KEY, stampEvs.length === 1 ? stampEvs[0].id : ""); } catch (e) {}
     // ⚠️ **값이 바뀌면 그 자리에서 다시 그린다.** 캐시만 고치고 두면 새로고침해야만
     //    반영된다 — 담당자가 회차를 내려도 성도님 화면에는 **눌러도 아무것도 없는
     //    단추**가 그대로 남는다(2026-09-10 실제로 그랬다: 친구가 「지금 뜨는데요」).
@@ -869,6 +876,13 @@ function clearPersonalData() {
     HEART_KEY, PASSAGE_KEY, DAILY_MILESTONE_KEY, BLESS_KEY, EVENT_ENTERED_KEY,
     "board-seen", "album-checked", RANK_SCOPE_KEY,
   ].forEach((k) => { try { localStorage.removeItem(k); } catch {} });
+  // 가을 말씀 동행 진행 캐시 — user_id 별이라 목록에 못 적는다. 앞자리로 훑어 지운다.
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && k.indexOf("event-stamp::") === 0) localStorage.removeItem(k);
+    }
+  } catch {}
   try { sessionStorage.clear(); } catch {}
 }
 
@@ -1549,6 +1563,10 @@ const FEAT_SINCE = {
   //    NEW 는 신청 시작일부터 센다. 지금 날짜를 적으면 성도님이 보기도 전에 사라진다.
   ministry: "2026-12-13",
   event: "2026-09-10",        // 이벤트 플랫폼 — 썸머 써 바이블 명단을 여는 날
+  // ⚠️ 「event」키를 다시 쓰면 안 된다 — 9월에 썸머 명단을 눌러 본 분은
+  //    feat-seen-event 가 이미 1 이라(featIsNew 첫 줄) 영영 안 뜬다.
+  //    ⚠️ 개시일을 옮기면 supabase/event_stamp_2026.sql 과 함께 옮긴다.
+  stamp: "2026-10-11",        // 가을 말씀 동행 — 도장 시작일과 같은 날부터 NEW
   psalm: "2026-09-12",        // 쉴만한 물가(옛 이름 시편 말씀 액자) — 1일차와 같은 날부터 NEW
   // ⚠️ 오늘의 찬양 — 게이트를 켜는 날(9/27 이후)의 날짜로 바꾼다. 빈 문자열이면 NEW 가 안 뜬다.
   song: "",
@@ -1597,6 +1615,76 @@ async function fillBoardBadge() {
   const btn = document.getElementById("open-board");
   if (btn && n > 0 && !btn.querySelector(".board-new")) btn.insertAdjacentHTML("beforeend", `<span class="board-new">새글 ${n}</span>`);
 }
+
+// 가을 말씀 동행 — 이벤트 단추 안 진행 알약.
+// ⚠️ EVENT_LABEL_KEY·EVENT_OPEN_KEY 에 담지 않는다. 그 둘은 user_id 로 안 나뉘어 있고
+//    clearPersonalData 목록에도 없다 — 공용 기기에서 남의 진행이 남는다.
+const STAMP_KEY = (uid) => `event-stamp::${uid}`;
+let stampCache = null;   // { eventId, day, weekDays, perWeek, weeks, eligible }
+
+function stampRead(uid) {
+  try {
+    const v = JSON.parse(localStorage.getItem(STAMP_KEY(uid)) || "null");
+    // ⚠️ 날이 바뀌었거나 회차가 다르면 **그 자리에서 버린다** — 틀린 도장보다 없는 편이 낫다.
+    if (!v || v.day !== todayYmd()) return null;
+    return v;
+  } catch { return null; }
+}
+function stampWrite(uid, v) {
+  try { localStorage.setItem(STAMP_KEY(uid), JSON.stringify(v)); } catch {}
+}
+
+function applyStampPill() {
+  const btn = document.getElementById("open-event-list");
+  if (!btn || !stampCache) return;
+  const old = btn.querySelector(".ev-pill");
+  if (old) old.remove();
+  const s = stampCache;
+  const i = Math.floor(
+    (Date.parse(todayYmd() + "T00:00:00Z") - Date.parse(s.start + "T00:00:00Z")) / 86400000 / 7);
+  if (i < 0 || i >= s.weeks) return;                 // 기간 밖이면 아무것도 안 붙인다
+  const n = (s.weekDays && s.weekDays[i]) || 0;
+  let dots = "";
+  for (let k = 0; k < s.perWeek; k++) dots += k < n ? "●" : "○";
+  btn.insertAdjacentHTML("beforeend", `<span class="ev-pill">${dots}</span>`);
+}
+
+function fillStampPill(u) {
+  applyStampPill();                                  // 캐시가 있으면 즉시(깜빡임 방지)
+  if (!u || !u.user_id || !window.api || !api.eventStamps) return;
+  // ⚠️ 여기서 eventOpenList 를 다시 부르지 않는다 — 첫 화면을 그릴 때마다 왕복이 둘이 된다.
+  //    회차 id 는 부팅 때 refreshEventOpen 이 이미 받아 적어 둔 것을 읽는다(Step 5-1).
+  let evId = "";
+  try { evId = localStorage.getItem(EVENT_STAMP_ID_KEY) || ""; } catch {}
+  if (!evId) return;                                 // 자격 회차가 없거나 둘 이상이다
+  const cached = stampRead(u.user_id);
+  if (cached && cached.eventId === evId) { stampCache = cached; applyStampPill(); }
+  api.eventStamps(u.user_id, evId).then((s) => {
+    if (!s || !s.ok || !s.rule) return;
+    stampCache = {
+      eventId: evId, day: todayYmd(), start: s.rule.start,
+      weeks: s.rule.weeks, perWeek: s.rule.perWeek,
+      weekDays: s.weekDays, eligible: !!s.eligible,
+    };
+    stampWrite(u.user_id, stampCache);
+    applyStampPill();                                // ⚠️ renderSummary 를 다시 부르지 않는다
+  }).catch(() => {});
+}
+
+// 활동 직후 오늘 칸을 그 자리에서 뒤집는다 — 하필 「방금 했는데」 하고 확인하는 순간이다.
+// ⚠️ 자격(단추 열기)은 여기서 하지 않는다. 그것은 서버 응답을 받은 뒤에만.
+function bumpStampToday() {
+  if (!stampCache || stampCache.day !== todayYmd()) return;
+  const i = Math.floor(
+    (Date.parse(todayYmd() + "T00:00:00Z") - Date.parse(stampCache.start + "T00:00:00Z"))
+    / 86400000 / 7);
+  if (i < 0 || i >= stampCache.weeks) return;
+  if (todayCountCache != null && todayCountCache > 1) return;   // 오늘 첫 번째일 때만
+  stampCache.weekDays = (stampCache.weekDays || []).slice();
+  stampCache.weekDays[i] = (stampCache.weekDays[i] || 0) + 1;
+  applyStampPill();
+}
+
 // 게시판을 봤다고 기록 — 배지 즉시 소멸(캐시도 0으로 갱신해 재조회 없이 반영)
 function markBoardSeen() {
   try {
@@ -2288,7 +2376,11 @@ function renderSummary() {
     ${/* 이름은 관리자가 적는 값이라 날 HTML 로 그리지 않는다. boardEsc 를 빌려 쓴다 —
           escape 헬퍼를 하나 더 만들면 그만큼 갈라진다. 서버가 norm() 으로 줄바꿈을
           이미 공백으로 접으므로 boardEsc 의 \n→<br> 는 걸릴 일이 없다. */""}
-    ${eventVisible() ? `<button class="summary-help" id="open-event-list">🏅 ${boardEsc(eventLabelCached())}${newBadge("event")}</button>` : ""}
+    ${/* ⚠️ 새 CSS 를 쓰지 않는다 — .summary-help.event-cta 금색이 style.css:2046-2053 에
+          이미 있고 쓰는 곳이 0건이었다. class 를 한 단어 늘리는 것이 전부다.
+          ⚠️ 이름 뒤에 진행 문구를 이어 붙이지 않는다 — 이 단추는 nowrap+ellipsis 라
+          잘리는 쪽이 「이름」이다. 진행은 아래 fillStampPill 이 알약으로 꽂는다. */""}
+    ${eventVisible() ? `<button class="summary-help event-cta" id="open-event-list">🏅 ${boardEsc(eventLabelCached())}${newBadge("stamp")}</button>` : ""}
     <button class="summary-help" id="open-board">💬 응원·기도·공감</button>
     ${psalmVisible() ? `<button class="summary-help" id="open-psalm">🐑 쉴만한 물가${newBadge("psalm")}</button>` : ""}
     ${songVisible() ? `<button class="summary-help" id="open-song">🎵 찬양${songBtnSuffix()}<span class="ext-mark">↗</span>${newBadge("song")}</button>` : ""}
@@ -2333,6 +2425,7 @@ function renderSummary() {
   document.getElementById("go-list").addEventListener("click", renderVerseList);
   setupMoreToggle();   // 「더 보기」 — 필사·퀴즈·아카이브 둘
   loadTodayCount(u); // 첫 화면 '오늘 N회' 띠 채우기
+  fillStampPill(u);  // 가을 말씀 동행 — 이벤트 단추 안 진행 알약(●●○)
   renderEventButton();  // 이미 로드된 설정이 있으면 즉시 표시
   loadEventState();     // 서버에서 설정·응모여부 갱신 후 다시 표시
   document.getElementById("open-board").addEventListener("click", renderBoard);
@@ -2372,7 +2465,7 @@ function renderSummary() {
   //    않게 막고, 말없이 아무 일도 안 일어나는 대신 까닭을 알려 준다.
   { const b = document.getElementById("open-event-list");
     if (b) b.addEventListener("click", () => {
-      markFeatSeen("event");
+      markFeatSeen("stamp");
       if (typeof renderEventList === "function") renderEventList(null);
       else appAlert("이벤트 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
     }); }
@@ -4174,6 +4267,7 @@ function bumpTodayCount() {
   if (todayCountCache == null || todayCountDay !== todayYmd()) return;
   todayCountCache += 1;
   applyTodayStrip(); // 홈 화면이면 즉시 반영, 아니면 다음 renderSummary에서 보임
+  bumpStampToday();   // 가을 말씀 동행 — 오늘 칸을 그 자리에서 뒤집는다
 }
 // 저장 실패 시 낙관적 +1 되돌리기(과다 계상 방지)
 function unbumpTodayCount() {

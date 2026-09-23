@@ -5620,3 +5620,8 @@ body:has(#update-banner) .ps-wrap.ps-home{
 
 /* 도장판 빈 주 — 조용히 둔다(굵은 0 이 넉 장이면 나무라는 것이 된다) */
 .ev-wk-v.zero { font-weight: 400; opacity: .35; }
+
+/* 이벤트 단추 안 진행 알약 — .board-new 와 같은 방식(async 로 꽂는다) */
+.summary-help .ev-pill { margin-left: 6px; padding: 1px 7px; border-radius: 999px;
+  background: #c8a84b; color: #fff; font-size: 12px; font-weight: 700; vertical-align: middle; }
+.dark .summary-help .ev-pill { background: #5a4e2a; color: #f2e4c2; }
