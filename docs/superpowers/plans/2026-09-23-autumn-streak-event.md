@@ -565,6 +565,8 @@ function evtRule(ev: any): any | null {
   const weeks = Number(e.weeks), perWeek = Number(e.perWeek), need = Number(e.need);
   const minNeed = Number(e.minNeed ?? 2);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) return null;
+  // ⚠️ 정수를 강제한다. 3.5 같은 값이 들어오면 evtCanReach 의 for 경계가 어긋난다.
+  if (![weeks, perWeek, need, minNeed].every(Number.isInteger)) return null;
   if (!(weeks >= 1 && weeks <= 26)) return null;
   if (!(perWeek >= 1 && perWeek <= 7)) return null;
   if (!(need >= 1 && need <= weeks)) return null;
@@ -622,12 +624,20 @@ async function evtStampsFor(userId: string, rule: any, today: string) {
 
   // 날짜별 횟수 — 도장판이 「이 계정으로 채운 날」을 날짜로 보여 준다.
   // v2_mydays 를 그대로 쓴다(앱의 다른 숫자와 같은 잣대를 지키려고).
+  // ⚠️ 실패를 조용히 삼키지 않는다. {} 로 두면 「통신이 끊긴 날」과 「정말 안 한 날」이
+  //    같아진다 — 이 기능이 지키려는 원칙을 바로 그 자리에서 어기는 것이다.
+  // ⚠️ challenge_log 폴백(mydaysSlow)을 쓰지 않는다. 집계표를 우회하면 숫자가 조용히 갈린다(§6.4).
+  //    모르면 **모른다고 말한다** — days 가 null 이면 화면은 날짜를 아예 안 그린다.
+  //    주차(weekDays·weeksDone)는 위 v2_event_weeks 가 throw 로 지키므로 영향이 없다.
   const end = evtDayAdd(rule.start, rule.weeks * 7 - 1);
-  const { data: md } = await db.rpc("v2_mydays", {
+  const { data: md, error: mderr } = await db.rpc("v2_mydays", {
     p_user: userId, p_from: rule.start, p_to: end,
   });
-  const days: Record<string, number> = {};
-  for (const r of (md ?? []) as any[]) days[String(r.day)] = Number(r.cnt);
+  let days: Record<string, number> | null = null;
+  if (!mderr) {
+    days = {};
+    for (const r of (md ?? []) as any[]) days[String(r.day)] = Number(r.cnt);
+  }
 
   return {
     days, weekDays, weeksDone, need,
