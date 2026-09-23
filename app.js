@@ -867,7 +867,7 @@ function clearPersonalData() {
   [
     USER_KEY, PRIVACY_CONSENT_KEY, PROGRESS_KEY, PROGRESS_KEY + "-en", SYNC_STATUS_KEY, REVIEW_KEY,
     HEART_KEY, PASSAGE_KEY, DAILY_MILESTONE_KEY, BLESS_KEY, EVENT_ENTERED_KEY,
-    "board-seen", "album-checked",
+    "board-seen", "album-checked", RANK_SCOPE_KEY,
   ].forEach((k) => { try { localStorage.removeItem(k); } catch {} });
   try { sessionStorage.clear(); } catch {}
 }
@@ -9355,6 +9355,13 @@ function renderRanking(range) {
 //   list    좁힌 줄들 — 원본 객체 그대로 (ok 가 아니면 [])
 //   ranks   list 와 짝이 되는 화면 등수 1,2,3…
 //   count   같은 소속으로 걸러진 줄 수 (게이트를 못 넘어도 안내 문구의 「N명」에 쓴다)
+// 범위 칩(우리 교구 / 전체) — 성도님이 **직접 고른 것만** 기억한다.
+// ⚠️ 게이트가 강제로 켠 「전체」를 저장하면, 나중에 그 교구가 3명을 넘어도
+//    그분께는 영영 「우리 교구」가 기본이 되지 않는다.
+// ⚠️ 이 키는 clearPersonalData 의 목록에도 들어간다 — 기기 설정이 아니라 「그 사람」의 흔적이다.
+const RANK_SCOPE_KEY = "rank-scope";
+let rankScope = null;   // "mine" | "all" | null(아직 안 정함 — 화면에 처음 들어올 때 한 번만 정한다)
+
 const MIN_SCOPE_ROWS = 3; // 나 + 둘. 둘이라도 있어야 「순위」라는 말이 성립한다
 
 function narrowRanking(list, me) {
@@ -9386,6 +9393,29 @@ function drawRankingBody(r, data) {
   const u = loadUser();
 
   const list = data.list || [];
+
+  // ⚠️ narrowRanking 에 넘기는 것은 me(list.find 결과)가 아니라 **로그인 정보의 변환**이다.
+  //    me 는 이 기간에 기록이 없는 분께 null 이다(「아직 기록 없어요 🔥」 가지) —
+  //    me 를 넘기면 정작 순위를 좁혀 드려야 할 그분께 칩이 안 그려진다.
+  //    칸 이름은 아래 mySo 가 쓰는 변환과 같다. sebu 는 거르기에 안 쓰므로 뺀다.
+  const myScope = u ? { gubun: u.type, sosok: u.gu || u.bu || "" } : null;
+  const nr = narrowRanking(list, myScope);
+
+  // 기본값은 **화면에 처음 들어올 때 한 번만** 정한다.
+  // ⚠️ 기간 탭을 옮길 때마다 다시 판정하면 칩이 저절로 켜졌다 꺼진다.
+  if (rankScope === null) {
+    let saved = null;
+    try { saved = localStorage.getItem(RANK_SCOPE_KEY); } catch {}
+    rankScope = (saved === "mine" || saved === "all") ? saved : (nr.ok ? "mine" : "all");
+  }
+  // 고른 기간에 우리 소속이 3명 아래로 내려가면 그 기간만 전체를 보여 준다(칩 선택은 그대로 둔다).
+  const narrowOn = rankScope === "mine" && nr.ok;
+  const view = narrowOn ? nr.list : list;
+
+  // 교구와 교회학교를 말로 가른다 — GU_LIST 는 접미사가 없고("사랑"), BU_LIST 는 이미 부로 끝난다("청년부").
+  // ⚠️ sosok 뒤에 그냥 「교구」를 붙이면 교회학교가 「청년부교구」가 된다.
+  const soWord = u && u.type === "교구" ? "교구" : "부서";
+  const soName = u ? (u.type === "교구" ? `${u.gu || ""}교구` : (u.bu || "")) : "";
   const keyOf = (g, s, sb, n) => g + "|" + s + "|" + sb + "|" + n;
   const myKey = u ? keyOf(u.type, u.gu || u.bu || "", u.mok || u.grade || "", u.name) : null;
   const me = myKey ? list.find((x) => keyOf(x.gubun, x.sosok, x.sebu, x.name) === myKey) : null;
@@ -9454,15 +9484,52 @@ function drawRankingBody(r, data) {
          <button id="rk-go-test">도전하러 가기 ›</button></p>`
     : "";
 
-  if (!list.length) {
-    body.innerHTML = myHtml + `<p class="rank-msg">아직 도전 기록이 없어요.<br>첫 도전의 주인공이 되어보세요! 🔥</p>`;
+  // 범위 칩 — #rank-body 맨 위. 왼쪽 라벨이 예전 .rank-more(「전체 N명 참여」)를 흡수한다.
+  // ⚠️ .rank-mode 밖에 둔다. wireRankMode() 가 .rank-mode button 을 전부 집어
+  //    renderRanking() 을 인자 없이 불러 기간을 기본값으로 되돌린다.
+  // ⚠️ .rank-filter(기간 탭)를 재사용하지 않는다 — 다섯 화면이 나눠 쓰는 공용 클래스이고,
+  //    마지막 탭이 「전체」라 같은 모양이면 「전체」 알약이 한 화면에 두 개가 된다.
+  const scopeSeg = (mineOn, mineDisabled) => `<span class="rs-seg" role="group" aria-label="순위 범위">
+      <button type="button" data-s="mine" class="${mineOn ? "on" : ""}"${mineDisabled ? " disabled" : ""}>우리 ${soWord}</button>
+      <button type="button" data-s="all" class="${mineOn ? "" : "on"}">전체</button>
+    </span>`;
+  let scopeHtml;
+  if (nr.reason === "no-scope") {
+    // (c) 비로그인·소속 빈칸 — 칩 자체를 안 그린다. 라벨만 남아 예전 「N명 참여」 자리가 된다.
+    scopeHtml = `<div class="rank-scope rs-solo" id="rk-scope">
+      <span class="rs-label">전체 <b>${list.length}</b>명 참여</span></div>`;
+  } else if (!nr.ok) {
+    // (b) 같은 소속이 2명 이하 — 「전체」가 켜지고 안내가 아랫줄에 흐른다.
+    // ⚠️ 문구에 반드시 **기간**을 넣는다. 서버 목록은 「그 기간에 기록이 있는 분」뿐이라
+    //    「우리 교구엔 3명뿐이에요」로 쓰면 교구 인원으로 읽혀 사실이 아닌 말이 된다.
+    scopeHtml = `<div class="rank-scope rs-note" id="rk-scope">
+      ${scopeSeg(false, true)}
+      <span class="rs-label">이번 기간에 ${soName}에서 기록하신 분은 <b>${nr.count}</b>명이에요</span></div>`;
+  } else {
+    // (a) 3명 이상 — 칩 둘 다 누를 수 있다.
+    scopeHtml = `<div class="rank-scope" id="rk-scope">
+      <span class="rs-label">${narrowOn ? `${soName} <b>${view.length}</b>명 참여` : `전체 <b>${list.length}</b>명 참여`}</span>
+      ${scopeSeg(narrowOn, false)}</div>`;
+  }
+
+  // ⚠️ 빈 판정은 **거르기 전 원본**으로 가른다. 그리고 칩을 반드시 함께 그린다 —
+  //    안 그리면 「우리 교구」에 아무도 없는 기간에서 돌아갈 길이 사라져 화면이 막힌다.
+  if (!view.length) {
+    body.innerHTML = scopeHtml + myHtml + (list.length
+      ? `<p class="rank-msg">이번 기간에 ${soName}에서 기록하신 분이 아직 없어요.<br>「전체」를 눌러 다른 분들을 볼 수 있어요 🙌</p>`
+      : `<p class="rank-msg">아직 도전 기록이 없어요.<br>첫 도전의 주인공이 되어보세요! 🔥</p>`);
+    wireRankScope(r, data);
     return;
   }
 
-  const rows = list.map((x, i) => {
+  // ⚠️ 번호와 금색 줄(.rank-row.top)이 **같은 값**을 봐야 한다.
+  //    번호만 고치면 🥇는 뜨는데 그 줄이 금색이 아닌 채로 남는다.
+  // ⚠️ x.rank 를 덮어쓰지 않는다 — me 가 같은 객체라 「내 순위」 바의 전체 순위가 사라진다.
+  const rows = view.map((x, i) => {
     const isMe = keyOf(x.gubun, x.sosok, x.sebu, x.name) === myKey;
-    return `<div class="rank-row ${x.rank <= 3 ? "top" : ""} ${isMe ? "me" : ""} ${x.liveNow ? "live" : ""}">
-      <span class="rk-no">${medal(x.rank)}</span>
+    const n = i + 1;
+    return `<div class="rank-row ${n <= 3 ? "top" : ""} ${isMe ? "me" : ""} ${x.liveNow ? "live" : ""}">
+      <span class="rk-no">${medal(n)}</span>
       <span class="rk-name">${x.liveNow ? `<i class="rk-dot" aria-label="지금 암송 중"></i>` : ""}${x.name}</span>
       <span class="rk-so">${soLabel(x)}</span>
       <span class="rk-cnt">${x.count}회</span>
@@ -9471,7 +9538,7 @@ function drawRankingBody(r, data) {
   }).join("");
 
   // 지금 함께하고 있는 분이 있으면 그것부터 알린다 — 초록 점이 무슨 뜻인지도 여기서 알게 된다
-  const liveCount = list.filter((x) => x.liveNow).length;
+  const liveCount = view.filter((x) => x.liveNow).length;
   const liveHtml = liveCount
     ? `<p class="rank-live-line"><i class="rk-dot"></i> 지금 <b>${liveCount}명</b>이 함께 암송하고 있어요</p>`
     : "";
@@ -9494,17 +9561,44 @@ function drawRankingBody(r, data) {
       <span class="rn-l"><b>👏</b> 다른 분 줄의 👏를 누르면 응원이 전해져요 — 하루에 한 분당 한 번, 다시 누르면 취소돼요</span>
       <span class="rn-l rn-sub">오늘 기록이 아직 없는 분의 👏는 흐리게 보여요</span>
       ${u ? `<span class="rn-l rn-sub">맨 위 「내 이름」 줄의 👏를 누르면 나를 응원해 주신 분들 이름이 보여요</span>` : ""}
+      ${narrowOn
+        ? `<span class="rn-l rn-sub">지금은 ${soName} 안에서만 보고 있어요${me ? ` — 전체에서는 <b>${me.rank}</b>위예요` : ""}. 👏 수는 전체에서 받은 것이에요</span>`
+        : ""}
     </p>`;
 
-  body.innerHTML = myHtml + lockHtml + liveHtml + headHtml + `<div class="rank-list">${rows}</div>` +
-    `<p class="rank-more">전체 ${list.length}명 참여</p>` + noteHtml;
+  // 「N명 참여」는 칩 줄의 왼쪽 라벨이 흡수했다(.rank-more 를 더 그리지 않는다).
+  body.innerHTML = scopeHtml + myHtml + lockHtml + liveHtml + headHtml +
+    `<div class="rank-list">${rows}</div>` + noteHtml;
 
   const goTest = document.getElementById("rk-go-test");
   if (goTest) goTest.addEventListener("click", renderSummary);
+  // ⚠️ 이 인덱스는 chip(x, i, isMe) 가 심은 것과 **같은 배열**(view)을 가리켜야 한다.
+  //    한쪽만 고치면 엉뚱한 분께 응원이 간다.
   body.querySelectorAll("[data-rkact]").forEach((btn) => btn.addEventListener("click", () =>
-    toggleRankCheer(list[+btn.dataset.rkact], btn, canGive)));
+    toggleRankCheer(view[+btn.dataset.rkact], btn, canGive)));
   const mrc = document.getElementById("mr-cheer");
   if (mrc) mrc.addEventListener("click", () => toggleMyCheerers(mrc, r));
+  wireRankScope(r, data);
+}
+
+// 범위 칩 배선 — ⚠️ #rk-scope 안으로만 한정한다.
+//    .rank-mode button 전역 수집(wireRankMode)과 절대 섞지 않는다.
+// ⚠️ 서버를 다시 부르지 않는다 — 받아 둔 data 로 그리기만 다시 한다.
+function wireRankScope(r, data) {
+  const box = document.getElementById("rk-scope");
+  if (!box) return;
+  box.querySelectorAll("button[data-s]").forEach((b) => b.addEventListener("click", () => {
+    const v = b.dataset.s;
+    if (v === rankScope) return;
+    rankScope = v;
+    // ⚠️ 성도님이 **직접 누른 것만** 저장한다(게이트가 강제로 켠 「전체」는 저장하지 않는다).
+    try { localStorage.setItem(RANK_SCOPE_KEY, v); } catch {}
+    logFeature("ranking-scope", v === "mine" ? 1 : 0);
+    drawRankingBody(r, data);
+    // 133줄이 8줄로 줄면 아래를 보던 분이 빈 화면을 본다. 목록 맨 위로 되돌린다.
+    const sc = document.querySelector(".rank-screen");
+    if (sc) sc.scrollIntoView({ block: "start" });
+  }));
 }
 
 // 「내 순위」의 👏 = 나를 응원한 사람 명단(다시 누르면 접힘).

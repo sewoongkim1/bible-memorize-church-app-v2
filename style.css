@@ -2680,6 +2680,88 @@ body.native-app-hide-ref .word-input { scroll-margin-top: 90px; }
 .rank-note.left .rn-l + .rn-l{ margin-top:5px; }
 /* 앞선 .rn-l + .rn-l 규칙(5px)보다 선택자가 길어야 2px 이 먹는다 */
 .rank-note.left .rn-l + .rn-l.rn-sub{ padding-left:1.35em; margin-top:2px; opacity:.9; }
+/* ── 「우리 교구 안에서」 범위 칩 (2026-09-23) ──────────────────────
+   설계: docs/superpowers/specs/2026-09-23-narrow-ranking-design.md ③
+   한 줄에 왼쪽 라벨(「믿음교구 5명 참여」 — .rank-more 를 흡수한다) + 오른쪽 범위 칩 두 개.
+
+   ⚠️ .rank-filter(기간 탭)를 재사용하지 않는다 — 앨범 자가점검·이어 듣기·필사 칩·
+      필사 탭·교구 순위가 나눠 쓰는 공용 클래스다. 생김새도 달라야 한다:
+      기간 탭 마지막이 「전체」라 같은 모양이면 「전체」 알약이 한 화면에 두 개가 된다.
+   ⚠️ 색으로 가르지 않는다. 이 화면의 색은 이미 뜻이 박혀 있다 —
+      금색 = 상위 3명(.rank-row.top), 초록 = 지금 함께 암송 중(.rank-row.live),
+      남색 채움 = 눌린 단추(모드 바·기간 탭·응원 칩·하단 고정 단추).
+      그래서 **모양**으로 가른다: 둥근 알약이 아니라 홈에 눌린 판이고, 고른 쪽만
+      흰 판으로 떠오른다. 새 색을 한 개도 안 만든다.
+   ⚠️ 좁은 폭 보정을 위쪽 @media (max-width:344px) 묶음에 넣지 않는다 — 그 블록이
+      파일에서 **앞**이라 특이도가 같아 아래 기본값이 이겨 버린다. 제 블록을 달고 간다.
+   ⚠️ font-family:inherit 를 뺄 수 없다 — 이 파일에는 맨 button 선택자 규칙이 없어서
+      안 쓰면 브라우저 기본 글꼴로 떨어진다. */
+.rank-scope{
+  display:flex; align-items:center; gap:8px; flex-wrap:nowrap;
+  margin:0 0 10px; padding:0 2px;
+}
+/* 남는 폭을 흡수하는 칸 — .rank-row .rk-so · .rank-head .rh-who 와 같은 방식이다.
+   라벨이 아무리 길어도 …로 줄 뿐, 줄을 늘리거나 칩을 밀어내지 못한다. */
+.rank-scope .rs-label{
+  flex:1 1 auto; min-width:0;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  font-size:.78rem; font-weight:700; color:var(--gray);
+}
+.rank-scope .rs-label b{ color:var(--navy); font-weight:800; }
+/* (c) 갈래 — 칩을 아예 안 그릴 때. 라벨만 남으면 왼쪽으로 붙어 예전 .rank-more(가운데)와
+   달라 보인다. 가운데로 되돌린다. */
+.rank-scope.rs-solo .rs-label{ text-align:center; }
+/* 홈 — 둘을 한 판에 담아 「둘 중 하나」임을 모양으로 알린다(사이에 gap 없음) */
+.rank-scope .rs-seg{
+  flex:0 0 auto; display:flex;
+  background:#eef1f8; border:1px solid #cfd8e4;
+  border-radius:9px; padding:2px;
+}
+.rank-scope .rs-seg button{
+  border:none; background:transparent; color:#5a6273;
+  border-radius:7px; padding:5px 10px;
+  font-size:.75rem; font-weight:700; line-height:1.25;
+  white-space:nowrap; cursor:pointer; font-family:inherit; transition:all .15s;
+}
+.rank-scope .rs-seg button:hover{ color:var(--navy); }
+.rank-scope .rs-seg button.on{
+  background:#fff; color:var(--navy); font-weight:800;
+  box-shadow:0 1px 3px rgba(26,58,107,.18);
+}
+.rank-scope .rs-seg button:disabled{ opacity:.45; cursor:default; }
+
+/* (b) 갈래 — 같은 소속이 2명 이하라 「전체」가 강제로 켜진 경우.
+   안내 문구에는 반드시 기간이 들어가므로 한 줄에 안 들어온다.
+   칩을 윗줄 오른쪽에 두고 문구를 아랫줄 통짜로 흐르게 한다.
+   ⚠️ 위 .rank-scope 의 gap:8px 은 wrap 했을 때 row-gap 으로도 쓰인다. 라벨에 margin-top 을
+      또 주면 8+6=14px 로 벌어진다 — row-gap 만 6px 로 덮는다. */
+.rank-scope.rs-note{ flex-wrap:wrap; row-gap:6px; }
+.rank-scope.rs-note .rs-seg{ order:1; margin-left:auto; }
+.rank-scope.rs-note .rs-label{
+  order:2; flex:1 1 100%;
+  white-space:normal; overflow:visible; text-overflow:clip;
+  font-weight:600; line-height:1.5; word-break:keep-all;
+}
+
+/* 아주 좁은 화면 — 위 .rank-row/.rank-head 블록과 같은 344px 선을 쓴다.
+   글자는 그대로 두고 좌우 padding 과 gap 만 덜어 라벨 칸을 넓힌다. */
+@media (max-width: 344px){
+  .rank-scope{ gap:6px; }
+  .rank-scope .rs-seg button{ padding:5px 7px; }
+  .rank-scope .rs-label{ font-size:.74rem; }
+}
+
+/* 어두운 모드.
+   ⚠️ --navy 는 .dark 에서 재정의되지 않는다(.dark{} 토큰 묶음에 --cream/--white/--light/
+      --border/--gray 다섯만 있다). var(--navy) 를 쓴 자리는 전부 여기서 되돌려야 한다.
+   --gray 는 토큰이 알아서 바뀌므로 .rs-label 본체는 손대지 않는다. */
+.dark .rank-scope .rs-label b{ color:#cdd9f2; }
+.dark .rank-scope .rs-seg{ background:#1b2436; border-color:#33405a; }
+.dark .rank-scope .rs-seg button{ color:#9aa6b8; }
+.dark .rank-scope .rs-seg button:hover{ color:#cdd9f2; }
+.dark .rank-scope .rs-seg button.on{
+  background:#3a4a68; color:#fff; box-shadow:none;
+}
 
 /* 도전 화면 — 남은 빈칸 표시 */
 .challenge-remain{
