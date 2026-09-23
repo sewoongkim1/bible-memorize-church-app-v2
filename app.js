@@ -2361,7 +2361,11 @@ function renderSummary() {
   document.getElementById("go-challenge").addEventListener("click", startChallenge);
   document.getElementById("open-meditation").addEventListener("click", () => { markFeatSeen("meditation"); scRemoveBadge("open-meditation"); maybeShowWeeklyMeditation(true, true); });
   document.getElementById("open-sermon-chat").addEventListener("click", () => { markFeatSeen("sermon"); renderSermonChat(); });
-  document.getElementById("open-album").addEventListener("click", () => renderAlbum());
+  // ⚠️ logFeature("album",0) 은 여기(연 자리)에 둔다 — renderAlbum() 안에 두면 그 화면 안
+  //    갈래 칩·가리기·섞기·고르기 같은 칩을 누를 때마다 renderAlbum() 이 다시 불려 "다시 그림"을
+  //    "다시 엶"으로 잘못 센다(2026-09-23 리뷰). renderAlbum() 은 이 단추 말고 자기 자신 안에서만
+  //    또 불린다 — 이 자리가 유일한 진입점이다.
+  document.getElementById("open-album").addEventListener("click", () => { logFeature("album", 0); renderAlbum(); });
   { const b = document.getElementById("open-passages"); if (b) b.addEventListener("click", () => { markFeatSeen("passages"); renderPassageList(); }); }
   { const b = document.getElementById("open-psalm"); if (b) b.addEventListener("click", () => { markFeatSeen("psalm"); renderPsalmHome(); }); }
   // ⚠️ renderEventList 는 js/events.js 에 있다 — 그 파일이 안 실려도 첫 화면이 죽지
@@ -6607,10 +6611,6 @@ function maybeShowWeeklyMeditation(force, withTabs) {
       try { if (localStorage.getItem(key) === "1") return; } catch {}
       try { localStorage.setItem(key, "1"); } catch {}
     }
-    // ⚠️ 여기는 창이 **실제로 뜨는 것이 확정된** 자리다(위에서 '오늘 이미 봤으면' return 했다).
-    //    저절로 뜬 것과 눌러서 연 것을 가른다 — 뭉쳐 남기면 「묵상을 본 사람 = 앱을 연 사람」이
-    //    되어 숫자가 뜻을 잃는다. 나중에 meditation ÷ meditation-auto 로 능동 비율을 본다.
-    logFeature(force ? "meditation" : "meditation-auto", info.verse.no);
     // ⚠️ 시편 배너용 자료를 창을 그리기 **전에** 받아 둔다(2026-09-11, 성도님 요청 —
     //    매일 묵상과 시편 액자를 연계). 그린 뒤에 끼워 넣으면 창이 뜬 다음 배너만 늦게
     //    나타나 깜빡인다. js/psalm.js 의 게이트·캐시를 그대로 쓴다 — 여기서 새로 만들지
@@ -6624,6 +6624,13 @@ function maybeShowWeeklyMeditation(force, withTabs) {
     //    실패는 그 안에서 삼킨다 — 여기서 새면 바깥 catch 에 걸려 **묵상 창이 통째로 안 뜬다.**
     const fetchSong = fetchTodaySong();
     Promise.all([fetchPsalm, fetchSong]).then(([todayPsalm, todaySong]) => {
+      // ⚠️ 여기가 창이 **실제로 뜨는** 자리다 — 이 앞은 두 fetch 가 성공해야 도착한다.
+      //    logFeature 를 여기로 옮겼다(2026-09-23 리뷰) — 예전엔 이 Promise.all 앞에서
+      //    불러 「기록은 남는데 창은 안 뜨는」 좁은 틈이 있었다(지금은 두 fetch 가 각자
+      //    실패를 삼켜 못 일어나지만, 그 계약이 나중에 바뀌면 조용히 벌어진다).
+      //    저절로 뜬 것과 눌러서 연 것을 가른다 — 뭉쳐 남기면 「묵상을 본 사람 = 앱을 연 사람」이
+      //    되어 숫자가 뜻을 잃는다. 나중에 meditation ÷ meditation-auto 로 능동 비율을 본다.
+      logFeature(force ? "meditation" : "meditation-auto", info.verse.no);
       // 자동 팝업·어드민 미리보기는 '오늘 것 하나만'. 요일 탭은 매일 묵상 버튼으로 열 때만.
       showMeditationModal(items, pick, verse, sermon, !!withTabs, usingPrev, { psalm: todayPsalm, song: todaySong });
     });
@@ -9012,7 +9019,6 @@ function albumFind(no) {
 
 function renderAlbum() {
   const u = loadUser();
-  logFeature("album", 0);          // 화면을 연 것. 아래 album-play 와 짝이다
   const appEl = document.getElementById("app");
   if (!psalmVisible()) albumTrack = "weekly";   // 게이트가 꺼지면 되돌린다
   const pool = albumTrack === "psalm" ? (psalmVerses || [])
