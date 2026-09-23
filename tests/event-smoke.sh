@@ -96,6 +96,10 @@ R=$(call '{"action":"eventRoster"}')
 chk "eventRoster 거부" "$(jqn 'd.get("error") in ("unauthorized","no-password-set")' "$R")" "True"
 V=$(call '{"action":"eventSave","event":{"id":"x","title":"x","opens_on":"2026-01-01","closes_on":"2026-01-02"}}')
 chk "eventSave 거부" "$(jqn 'd.get("error") in ("unauthorized","no-password-set")' "$V")" "True"
+N1=$(call '{"action":"eventSetNote","id":1,"note":"x"}')
+chk "eventSetNote 거부" "$(jqn 'd.get("error") in ("unauthorized","no-password-set")' "$N1")" "True"
+N2=$(call '{"action":"eventExcuse","id":1,"excused":true}')
+chk "eventExcuse 거부" "$(jqn 'd.get("error") in ("unauthorized","no-password-set")' "$N2")" "True"
 
 echo "6) 관리자 목록(비번이 있을 때만)"
 if [ -z "${ADMIN_PW:-}" ]; then
@@ -107,6 +111,8 @@ else
   chk "events 가 배열" "$(jqn 'isinstance(d.get("events"), list)' "$RA")" "True"
   chk "rows 가 배열" "$(jqn 'isinstance(d.get("rows"), list)' "$RA")" "True"
   chk "관리자 응답에도 user_id 가 없다" "$(jqn '"user_id" not in json.dumps(d)' "$RA")" "True"
+  chk "missing 이 배열" "$(jqn 'isinstance(d.get("missing"), list)' "$RA")" "True"
+  chk "missing 에도 user_id 가 없다" "$(jqn 'all("user_id" not in m for m in d.get("missing", []))' "$RA")" "True"
 fi
 
 echo "7) 남의 경로가 멀쩡한가 (내 배포가 남의 코드도 함께 내보낸다)"

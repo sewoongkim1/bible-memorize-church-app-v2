@@ -119,6 +119,8 @@ const api = {
   eventDrop: (user_id, id) => supaCall("eventDrop", { user_id, id }),
   eventRosterPublic: (event_id) => supaCall("eventRosterPublic", { event_id }),
   eventRoster: (pw, event_id) => supaCall("eventRoster", { pw, event_id }),
+  eventSetNote: (pw, id, note) => supaCall("eventSetNote", { pw, id, note }),
+  eventExcuse: (pw, id, excused, reason) => supaCall("eventExcuse", { pw, id, excused, reason }),
   eventSave: (pw, event) => supaCall("eventSave", { pw, event }),
 
   // ---- 오늘의 찬양 (2026-09-23) ----
