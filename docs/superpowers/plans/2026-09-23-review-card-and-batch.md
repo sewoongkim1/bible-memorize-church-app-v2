@@ -342,9 +342,11 @@ learn-* 는 learn-typing 으로 되돌린다.
 
 **Interfaces:**
 - Consumes: Task 1의 CHECK, Task 2의 폴백
-- Produces: 복습 화면에 `#card-tray` 와 `#rv-mode-toggle` 이 존재한다.
-  복습 완료 시 `postChallenge(verse, mode)` 의 mode 가
-  `"review-voice"` | `"review-typing-card"` | `"review-typing"` 중 하나다.
+- Produces:
+  - `reviewLogMode(mode: string) => "review-voice" | "review-typing-card" | "review-typing"`
+    — 최상위 함수. Task 4·5는 안 쓰지만 `tests/review-card.py` 가 직접 부른다.
+  - 복습 화면에 `#card-tray`(쟁반)와 `#rv-mode-toggle`(토글 단추)이 존재한다.
+  - 복습 완료 시 `postChallenge(verse, reviewLogMode(mode))` 가 불린다.
 
 - [ ] **Step 1: 실패하는 시험을 쓴다**
 
@@ -468,13 +470,18 @@ try:
         posted = page.evaluate("() => window.__posted")
         check("자판으로 마치면 review-typing", posted == "review-typing", posted)
 
-        # ⑥ ★ 카드 모드로 켜 두고 음성으로 마치면 review-voice 여야 한다
-        #    (도전 코드를 그대로 베끼면 여기서 review-typing-card 가 나온다)
+        # ⑥ ★ 카드 모드를 켜 두고 음성으로 마치면 review-voice 여야 한다.
+        #    복습은 타자·음성이 같은 onDone 을 공유하므로, 도전 코드를 그대로 베껴
+        #    카드 여부를 먼저 보면 여기서 review-typing-card 가 나온다.
+        #    판정 자체는 reviewLogMode() 로 뽑혀 있어 화면 없이 바로 부를 수 있다.
         open_review(True)
-        page.evaluate("() => { const f = window.__reviewOnDone; if (f) f('voice'); }")
-        page.wait_for_timeout(300)
-        posted = page.evaluate("() => window.__posted")
-        check("카드를 켜 두고 음성으로 마치면 review-voice", posted == "review-voice", posted)
+        m = page.evaluate("() => reviewLogMode('voice')")
+        check("카드를 켜 두고 음성으로 마치면 review-voice", m == "review-voice", m)
+        m = page.evaluate("() => reviewLogMode('typing')")
+        check("카드를 켜 두고 자판이면 review-typing-card", m == "review-typing-card", m)
+        open_review(False)
+        m = page.evaluate("() => reviewLogMode('voice')")
+        check("자판 모드에서 음성이면 review-voice", m == "review-voice", m)
 
         browser.close()
 finally:
@@ -485,8 +492,10 @@ print("모두 통과" if not fails else "실패 %d건: %s" % (len(fails), ", ".j
 sys.exit(1 if fails else 0)
 ```
 
-⚠️ ⑥번은 `onDone` 을 밖에서 부를 수 있어야 한다. Step 3에서 `renderReview` 안에
-`window.__reviewOnDone = onDone;` 한 줄을 함께 넣는다(시험 전용 손잡이 — 주석으로 그 뜻을 밝힌다).
+⚠️ ⑥번은 mode 판정을 화면 없이 부를 수 있어야 한다. Step 5에서 그 판정을
+**최상위 함수 `reviewLogMode(mode)` 로 뽑는다** — `renderReview` 안 클로저에 두면
+밖에서 부를 길이 없어 시험용 손잡이를 프로덕션 코드에 심게 된다. 뽑아 두면
+손잡이가 필요 없고, 판정 규칙이 한자리에 모여 다음 사람이 읽기도 쉽다.
 
 - [ ] **Step 2: 시험을 돌려 실패를 확인한다**
 
@@ -543,33 +552,47 @@ python tests/review-card.py
   });
 ```
 
-- [ ] **Step 5: `onDone` 의 mode 매핑을 고친다**
+- [ ] **Step 5: mode 판정을 함수로 뽑고 `onDone` 이 그것을 쓰게 한다**
 
-`renderReview` 안의 `onDone`(7560~7574)에서 `postChallenge(verse, "review-" + (mode || "voice"));` 를
-다음으로 바꾼다:
-
-```js
-    // ⚠️ 복습은 타자와 음성이 **같은 onDone 을 공유**한다(아래 setupChallengeTyping·setupVoice).
-    //    도전은 두 콜백이 갈려 있어(renderChallenge) 음성이 "voice" 로 박혀 있지만 여기는 아니다.
-    //    그래서 **음성을 먼저 가른다** — 안 그러면 카드를 누르다 🎤 로 마친 기록이
-    //    review-typing-card 로 남아 「음성은 죽었다」는 판단 근거가 흔들린다.
-    // ⚠️ "review-" + mode 로 이어 붙이면 카드일 때 review-card 가 나온다.
-    //    이름에 typing 이 없어 순위·통계의 %typing% 집계에서 조용히 빠진다 —
-    //    반드시 review-typing-card 꼴이어야 한다(migrate_modes_review_card.sql).
-    // ⚠️ 「카드로 했다」의 기준은 isCardMode()(모드를 켠 상태)다 — 암송(saveProgress)·
-    //    시편(psalmStageDone)과 같은 정의라야 세 화면 숫자를 나란히 놓을 수 있다.
-    const logMode = mode === "voice" ? "review-voice"
-      : (isCardMode() ? "review-typing-card" : "review-typing");
-    postChallenge(verse, logMode);
-```
-
-같은 함수 바로 아래(`setupChallengeTyping(verse, onDone);` 앞)에 시험용 손잡이를 둔다:
+먼저 `advanceReview` 함수 바로 뒤(app.js:1196 근처 — 복습 정책이 모인 자리)에
+최상위 함수를 하나 더한다:
 
 ```js
-  // 시험(tests/review-card.py)이 음성 경로를 밖에서 부를 수 있게 하는 손잡이.
-  // 화면 동작에는 아무 영향이 없다.
-  window.__reviewOnDone = onDone;
+// 복습 기록에 쓸 mode 를 고른다.
+// ⚠️ **음성을 먼저 가른다.** 복습은 타자와 음성이 **같은 콜백을 공유**하기 때문이다
+//    (renderReview 가 setupChallengeTyping 과 setupVoice 에 같은 onDone 을 넘긴다).
+//    도전은 두 콜백이 갈려 있어 음성이 "voice" 로 박혀 있지만 여기는 아니다 —
+//    카드 여부를 먼저 보면 카드를 누르다 🎤 로 마친 기록이 review-typing-card 로 남아
+//    「음성은 사실상 죽었다」는 판단 근거가 흔들린다.
+// ⚠️ "review-" + mode 로 이어 붙이면 카드일 때 **review-card** 가 나온다. 이름에
+//    typing 이 없어 순위·통계의 %typing% 집계에서 조용히 빠진다 — 반드시
+//    review-typing-card 꼴이어야 한다(supabase/migrate_modes_review_card.sql).
+// ⚠️ 「카드로 했다」의 기준은 isCardMode()(모드를 켠 상태)다 — 암송(saveProgress 의
+//    isCardMode ? "card" : "typing")·시편(psalmStageDone)과 같은 정의라야
+//    세 화면 숫자를 나란히 놓을 수 있다.
+function reviewLogMode(mode) {
+  if (mode === "voice") return "review-voice";
+  return isCardMode() ? "review-typing-card" : "review-typing";
+}
 ```
+
+그다음 `renderReview` 안의 `onDone`(7560~7574)에서
+
+```js
+    postChallenge(verse, "review-" + (mode || "voice"));
+```
+
+를 다음으로 바꾼다(옛 mode 주석 가운데 「복습 화면에는 카드 입력이 없어…」 문단은 지운다 —
+이제 사실이 아니다):
+
+```js
+    postChallenge(verse, reviewLogMode(mode));
+```
+
+⚠️ `mode` 가 빈 값으로 올 수 있던 옛 `(mode || "voice")` 방어는 사라진다.
+`setupChallengeTyping` 은 늘 `"typing"` 을, `setupVoice` 는 늘 `"voice"` 를 준다 —
+둘 다 값을 주므로 방어가 필요 없고, 설령 빈 값이 와도 `reviewLogMode` 는
+`review-typing`/`review-typing-card` 를 돌려주어 제약에 걸리지 않는다.
 
 - [ ] **Step 6: `startReview` 에 카드 상태 리셋을 넣는다**
 
