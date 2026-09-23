@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260923f";
+const APP_BUILD = "20260923g";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2537,7 +2537,10 @@ function renderSummary() {
     ${eventVisible() ? `<button class="summary-help event-cta" id="open-event-list">🏅 ${boardEsc(eventLabelCached())}${newBadge("stamp")}</button>` : ""}
     <button class="summary-help" id="open-board">💬 응원·기도·공감</button>
     ${psalmVisible() ? `<button class="summary-help" id="open-psalm">🐑 쉴만한 물가${newBadge("psalm")}</button>` : ""}
-    ${songVisible() ? `<button class="summary-help" id="open-song">🎵 찬양${songBtnSuffix()}<span class="ext-mark">↗</span>${newBadge("song")}</button>` : ""}
+    ${/* ⚠️ 2026-09-23 첫 화면 단추를 뺀다(성도님 결정) — 「🎵 찬양 · 곡명 ↗」은
+          **매일 묵상 창 맨 아래 줄**에만 둔다. 게이트(app_config.songPublic)는 켜진 채라
+          묵상 창 CTA·앱 안 찬양 화면(openSongToday)·기록(feature_log)은 그대로 산다.
+          다시 넣으려면 songVisible() 조건으로 id="open-song" 단추를 이 자리에 되살린다. */""}
     <!-- ⚠️ 2026-09-11 이름 변경: 「시편 말씀 액자」 → 「쉴만한 물가」(시편 23편 2절,
          성도님 결정) — 「액자」가 낯설고, 매일 하지 않으면 안 될 것 같은 부담을 줄이려고
          쉼·인도받음의 이미지로 바꿨다. id="open-psalm"·내부 함수명(js/psalm.js)·엑셀·
@@ -2593,9 +2596,9 @@ function renderSummary() {
     pilsaLoaded = false;          // 들어올 때마다 서버에서 지금 상태를 받는다
     renderPilsaApply();
   });
-  { const b = document.getElementById("open-song");   // 게이트가 꺼져 있으면 없다
+  { const b = document.getElementById("open-song");   // 2026-09-23부터 첫 화면엔 없다(위 주석)
     if (b) b.addEventListener("click", () => { markFeatSeen("song"); openSongToday(songCacheToday()); }); }
-  loadTodaySong();   // 캐시가 없으면 받아서 곡명을 채운다
+  loadTodaySong();   // 단추는 없어도 오늘 곡을 미리 받아 둔다 — 묵상 창이 그 캐시를 쓴다(왕복은 하루 한 번)
   // 형제 앱(찬양·말씀 아카이브)으로 이동 — 새 탭이라 암송 진행 상태를 잃지 않는다
   document.getElementById("open-praise").addEventListener("click", () => window.open("https://worship.onlybible.kr/", "_blank", "noopener"));
   document.getElementById("open-sermon-archive").addEventListener("click", () => window.open("https://sermon.onlybible.kr/", "_blank", "noopener"));
