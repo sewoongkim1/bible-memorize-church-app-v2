@@ -209,6 +209,14 @@ function evtSentHtml() {
     }).join("") + "</div>";
 }
 
+// 한글 수사 — 문구에 아라비아 숫자를 박으면 「3주」처럼 읽혀 딱딱하다.
+// ⚠️ 필요 주수는 **사람마다 다르다**(이벤트 중 처음 오신 분은 두 주일 수 있다).
+//    그래서 문구에 「세 주」를 박으면 그분께 사실이 아닌 말을 하게 된다.
+function evtKoNum(n) {
+  var w = ["", "한", "두", "세", "네", "다섯", "여섯", "일곱", "여덟", "아홉", "열"];
+  return (n >= 1 && n < w.length) ? w[n] : String(n);
+}
+
 // 한 주 칸의 날짜 범위 — 「1주 10/11~10/17」
 function evtWeekLabel(start, i) {
   var a = new Date(Date.parse(start + "T00:00:00Z") + i * 7 * 86400000);
@@ -224,7 +232,7 @@ function evtStampHtml(u) {
     return '<div class="ev-note">기록을 맞추는 중이에요. 잠시 뒤 다시 열어 주세요.</div>';
   }
   var s = evtStamp, r = s.rule;
-  var head = evtEsc(u.name) + " 님의 도장판 · 지금까지 " + s.weeksDone + "주 채웠어요";
+  var head = evtEsc(u.name) + " 님의 도장판 · 지금까지 " + evtKoNum(s.weeksDone) + " 주 채웠어요";
 
   var cells = "";
   for (var i = 0; i < r.weeks; i++) {
@@ -238,16 +246,18 @@ function evtStampHtml(u) {
   // 이번 주 남은 만큼을 말로. ⚠️ 「2일 남음」처럼 남은 것을 세면 빚처럼 읽힌다.
   var tail;
   if (s.eligible) {
+    // ⚠️ 채우신 주를 말한다(필요 주수가 아니다) — 다섯 주 채운 분께 「세 주 채우셨어요」는 틀린 말이다.
     tail = s.allWeeks
-      ? "여섯 주를 다 채우셨어요 ✨"
-      : (r.need + "주를 채우셨어요. 남은 주도 편한 만큼 함께해요.");
+      ? (evtKoNum(r.weeks) + " 주를 다 채우셨어요 ✨")
+      : (evtKoNum(s.weeksDone) + " 주를 채우셨어요. 남은 주도 편한 만큼 함께해요.");
   } else if (s.canStillReach) {
-    tail = "지금까지 " + s.weeksDone + "주를 채우셨어요.<br>" +
-      "세 주가 되면 이 자리에 신청 단추가 열려요.<br>" +
+    // ⚠️ s.need 를 쓴다. 중간에 처음 오신 분은 두 주면 열린다 — 「세 주」를 박으면 안 된다.
+    tail = "지금까지 " + evtKoNum(s.weeksDone) + " 주를 채우셨어요.<br>" +
+      evtKoNum(s.need) + " 주가 되면 이 자리에 신청 단추가 열려요.<br>" +
       "남은 주에 " + r.perWeek + "일씩만 채우시면 돼요.";
   } else {
-    tail = "이번 신청은 여기까지예요. 채우신 " + s.weeksDone +
-      "주는 그대로 남아요 — 다음에 또 함께해요.";
+    tail = "이번 신청은 여기까지예요. 채우신 " + evtKoNum(s.weeksDone) +
+      " 주는 그대로 남아요 — 다음에 또 함께해요.";
   }
 
   return '<div class="ev-stampbox">' +
