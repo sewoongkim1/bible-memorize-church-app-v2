@@ -52,3 +52,57 @@ $$;
 
 revoke all on function public.v2_feature_log(uuid, text, int) from public, anon, authenticated;
 grant execute on function public.v2_feature_log(uuid, text, int) to service_role;
+
+-- ─────────────────────────────────────────────────────────────
+-- 보는 법 (관리자 SQL Editor 에서, 읽기 전용)
+-- ─────────────────────────────────────────────────────────────
+
+-- ① 기능별 한눈에
+--    ⚠️ guide 는 일부러 로그인 없이도 열리는 페이지다(guide/) — 여기 나오는 숫자는
+--       「설명서를 본 사람 수」가 아니라 「앱에 로그인한 채로 설명서를 누른 사람 수」다.
+--       로그인 없이 guide/ 를 바로 연 분(카카오톡 링크 등)은 이 표에 안 잡힌다.
+select feature,
+       count(distinct user_id) as 사람,
+       sum(cnt)                as 횟수,
+       min(day) as 처음, max(day) as 마지막
+from public.feature_log
+group by feature order by 사람 desc;
+
+-- ② 날짜별 추이
+select day, feature, count(distinct user_id) as 사람, sum(cnt) as 횟수
+from public.feature_log
+group by day, feature order by day desc, feature limit 100;
+
+-- ③ 매일 묵상 — 눌러서 연 분 대 저절로 뜬 분
+--    이 비율이 「스스로 찾아 읽는 분」의 몫이다. 저절로 뜬 것만 많으면 그 기능은
+--    성도님이 고른 것이 아니라 앱이 들이민 것이다.
+--    ⚠️ meditation 에는 관리자 미리보기가 섞인다. maybeShowWeeklyMeditation(force=true) 는
+--       「성도님이 눌러서 열었다」보다 넓다 — 그 함수 머리 주석대로 force 는 '하루 1회'
+--       제한을 무시하고 무조건 표시(미리보기·버튼)하는 것이다. admin.html 의 ?preview=daily
+--       (previewDailyMessage())도 같은 경로로 meditation 을 기록한다. 관리자가 몇 명뿐이라
+--       양은 적지만, 이 숫자를 「성도님이 스스로 누른 횟수」로 곧이곧대로 읽지 말 것.
+select (select count(distinct user_id) from public.feature_log where feature='meditation')      as 눌러서_연_분,
+       (select count(distinct user_id) from public.feature_log where feature='meditation-auto') as 저절로_뜬_분,
+       round(100.0 * (select count(distinct user_id) from public.feature_log where feature='meditation')
+                   / nullif((select count(distinct user_id) from public.feature_log where feature='meditation-auto'), 0), 1)
+                                                                                                 as 능동_비율_퍼센트;
+
+-- ④ 말씀 앨범 — 열고도 안 듣는 분
+with o as (select distinct user_id from public.feature_log where feature='album'),
+     p as (select distinct user_id from public.feature_log where feature='album-play')
+select (select count(*) from o)                                   as 화면을_연_분,
+       (select count(*) from p)                                   as 듣기까지_간_분,
+       round(100.0 * (select count(*) from p) / nullif((select count(*) from o),0), 1) as 전환율_퍼센트;
+
+-- ⑤ 한 번 보고 마셨나, 이어 보시나 — 기능별·사람별 본 날수 분포
+select feature, 본_날수, count(*) as 사람수 from (
+  select feature, user_id, count(distinct day) as 본_날수
+  from public.feature_log group by feature, user_id
+) t group by feature, 본_날수 order by feature, 본_날수;
+
+-- ⑥ 누가 얼마나 (⚠️ 관리자만 · 이름이 나오므로 밖으로 내보내지 말 것)
+select u.gu, u.mok, u.name, f.feature,
+       count(distinct f.day) as 본_날수, sum(f.cnt) as 횟수, max(f.day) as 마지막
+from public.feature_log f join public.users u on u.id = f.user_id
+group by u.gu, u.mok, u.name, f.feature
+order by 횟수 desc limit 50;
