@@ -379,6 +379,21 @@ h1 {
 .med-psalm-cta:hover { background: var(--navy); color: #fff; }
 .dark .med-psalm-cta { background: #232c3f; color: #cdd9f2; border-color: #3a4a68; }
 .dark .med-psalm-cta:hover { background: #3a4a68; color: #fff; }
+/* 오늘의 찬양 — 시편 CTA 와 나란히 선다. 같은 옷을 입히고 구분은 이모지와 ↗ 가 맡는다.
+   ⚠️ 새 색을 만들지 않는다 — 색을 하나 늘릴 때마다 나머지가 그만큼 흐려진다
+      (docs/notes/home-screen.md ⑤).
+   ⚠️ white-space:nowrap 을 주지 않는다 — 바로 위 .med-psalm-cta 가 「잘리게 두느니
+      두 줄이 낫다」로 정해져 있고, 나란히 선 두 줄이 서로 다른 규칙을 따르면 안 된다.
+      곡명은 refShort 보다 길다(스냅샷 기준 최장 31자). */
+.med-song-cta {
+  display: block; width: 100%; margin: 8px 0 0; padding: 12px 10px;
+  border-radius: 12px; cursor: pointer; font-family: inherit;
+  font-size: .95rem; font-weight: 800; text-align: center;
+  background: #eef1f8; color: var(--navy); border: 1.5px solid var(--navy);
+}
+.med-song-cta:hover { background: var(--navy); color: #fff; }
+.dark .med-song-cta { background: #232c3f; color: #cdd9f2; border-color: #3a4a68; }
+.dark .med-song-cta:hover { background: #3a4a68; color: #fff; }
 /* 이번주 묵상 요일 탭 — 일~토 한 글자로 한 줄에(제목은 아래 타이틀에 나온다) */
 .med-tabs { display: flex; gap: 4px; justify-content: center; flex-wrap: nowrap; margin: 8px 0 12px; }
 .med-tab {
