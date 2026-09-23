@@ -127,8 +127,17 @@ STEPS = [
     ("36-blessing", ["renderBlessing(function(){})"]),
     ("37-review-typing", ["renderReview([verses[0]],0)"]),
     ("38-review-card", ["localStorage.setItem('input-card-mode','1'); renderReview([verses[0]],0); localStorage.setItem('input-card-mode','0');"]),
-    # 오늘의 찬양(앱 안 화면) — 진입점이 단추뿐이라 renderSongScreen을 직접 불러야 DB 없이도 찍힌다.
-    ("39-song", ["NOHOME", "renderSongScreen({id:'y4I3e18fkI4',song:'변함없는 은혜',choir:'임마누엘찬양대',svc_date:'2026-03-22',duration:'3:40',thumbnail:''})"]),
+    # 오늘의 찬양(팝업) — 진입점이 묵상 창 맨 아래 단추뿐이라(서버 daily_song 이 있어야 뜬다)
+    # openSongModal을 직접 불러야 DB 없이도 찍힌다. 2026-09-23 저녁 팝업으로 바뀌며 NOHOME을
+    # 뗐다 — 뒤 화면(첫 화면) 위에 뜨는 모습이 실제와 같고, 「닫기」가 그 화면을 안 갈아끼우는지도
+    # 사진으로 보인다.
+    # ⚠️ HOME이 renderSummary()를 부르면 그 자리에서 「오늘의 묵상」 자동 팝업(하루 1회,
+    #    서버 dailyMessage 조회 뒤)이 비동기로 뜰 수 있다 — 우리 모달과 같은 .cheer-overlay라
+    #    먼저 뜨면 openSongModal의 자체 재시도 루프(다른 .cheer-overlay가 있으면 300ms 뒤 재시도)
+    #    가 영영 못 이긴다(그 자동 팝업은 아무도 안 닫는다). 그래서 부르기 직전, 같은 동작
+    #    안에서 떠 있는 .cheer-overlay를 지운다(그 사이 다른 코드가 끼어들 틈이 없다).
+    ("39-song", ["document.querySelectorAll('.cheer-overlay').forEach(function(el){el.remove()}); "
+                 "openSongModal({id:'y4I3e18fkI4',song:'변함없는 은혜',choir:'임마누엘찬양대',svc_date:'2026-03-22',duration:'3:40',thumbnail:''})"]),
     ("P1-privacy-page", ["GOTO privacy/"]),
     ("P2-quiz-page", ["GOTO quiz/"]),
     ("P3-guide-page", ["GOTO guide/"]),

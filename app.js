@@ -430,12 +430,14 @@ function loadTodaySong() {
   if (!songVisible()) return;
   fetchTodaySong().then((s) => { if (s) fillSongButton(); });
 }
-// 오늘의 찬양 — 이제 앱 안 화면으로 연다(2026-09-23, 성도님 제보: 새 탭으로 나가면
-//   아이폰 앱은 사파리로 나가 버려 또 ▶ 를 눌러야 하고, 돌아오려면 탭을 닫아야 했다).
+// 오늘의 찬양 — 팝업(모달)으로 연다(2026-09-23 저녁, 성도님이 실제로 써 보신 뒤
+//   화면 그림과 함께 정해 주셨다: 전체 화면 대신 팝업으로 · 안내 두 줄 삭제 ·
+//   아래 단추를 「유튜브로」·「닫기」 둘로). 같은 날 오전엔 전체 화면(옛 renderSongScreen)
+//   이었다 — .superpowers/sdd/song-modal-brief.md 가 그 결정과 지켜야 할 것을 담고 있다.
 //   ⚠️ 「앱 안에서 유튜브를 직접 재생하지 않는다」던 처음 결정(docs/notes/today-song.md)을
 //      뒤집은 것이다 — 그 문서에 적힌 넷 중 ①(찬양 앱에 이미 플레이어가 있다)·
 //      ④(유튜브 자체 UI로 나가는 길은 못 막는다)는 그대로 남는 위험이라, 화면을
-//      renderSongScreen 하나로 최소화했다. ②·③(개인정보·보호자 재동의)은 문구로 대응한다.
+//      openSongModal 하나로 최소화했다. ②·③(개인정보·보호자 재동의)은 문구로 대응한다.
 //   ⚠️ 내 id 는 `myUserId()`로 얻는다. `loadUser()` 가 돌려주는 객체의 칸 이름은
 //      `id` 가 아니라 **`user_id`** 다 — 직접 꺼내 쓰면 조용히 undefined 가 되어 기록이 안 쌓인다.
 //   ⚠️ 곡을 못 받았으면(서버 지연·자정 넘어 캐시가 비었을 때) 보여 줄 영상이 없다 —
@@ -446,63 +448,92 @@ function openSongToday(song) {
     if (song && song.id && uid && api.logSongClick) api.logSongClick(uid, song.id).catch(() => {});
   } catch (e) {}
   if (!song || !song.id) { window.open("https://worship.onlybible.kr/", "_blank", "noopener"); return; }
-  renderSongScreen(song);
+  openSongModal(song);
 }
 
-// ── 오늘의 찬양 — 앱 안 화면(파사드: 그림 먼저, 누르면 영상) ──────────────────
+// ── 오늘의 찬양 — 팝업 안 재생(파사드: 그림 먼저, 누르면 영상) ──────────────────
 //   ⚠️ 이 저장소에 iframe 전례가 0건이다 — 아래 규칙은 전부 적대적 검토를 거친 것이라
 //      바꾸려면 근거를 남긴다(.superpowers/sdd/embed-task-a-brief.md).
+//   본보기는 showMeditationModal(.cheer-overlay > .cheer-card, wireModalConfirm) —
+//   이 팝업도 같은 꼴을 따른다.
 let songYtPlayer = null;   // 지금 화면의 YT.Player — onStateChange(엔드) 감지용
 let songPop = null;        // 뒤로가기(popstate) 핸들러 — 나갈 때 뗀다
-let songCur = null;        // 지금 화면에 걸린 곡 — 「유튜브에서 보기」가 참조한다
+let songCur = null;        // 지금 화면에 걸린 곡 — 「유튜브로」가 참조한다
+let songModalClose = null; // 지금 뜬 팝업을 완전히 닫는 함수 — 끝난 화면(songShowEnded)의
+                            // 「닫기」도 같은 절차를 타야 해서 밖에서 부를 수 있게 둔다.
 
-function renderSongScreen(song) {
+function openSongModal(song) {
   albumPlayStop();     // ⚠️ stopSpeaking() 만으로는 모자라다 — #ab-play-bar·body.ab-playing 이 남는다
   songYtPlayer = null;
   songCur = song || null;
-  const u = loadUser();
-  const appEl = document.getElementById("app");
   const hasVideo = !!(song && song.id);
   // 섬네일은 서버가 준 것을 먼저 쓰고, 없으면 유튜브 기본 썸네일 주소로 짐작한다.
   const thumb = boardEsc((song && song.thumbnail) ||
     (hasVideo ? "https://i.ytimg.com/vi/" + song.id + "/hqdefault.jpg" : ""));
   const metaParts = [song && song.choir, song && song.svc_date].filter(Boolean).map(boardEsc);
-  appEl.innerHTML = `
-    <div class="song-screen">
-      <h2 class="rank-title">🎵 오늘의 찬양</h2>
-      <div class="song-media" id="song-media">
-        ${thumb ? `<img class="song-thumb" id="song-thumb" src="${thumb}" alt="">` : ""}
-        ${hasVideo ? `<button class="song-play" id="song-play">▶ 찬양 듣기</button>` : ""}
-      </div>
-      <div class="song-name">${boardEsc((song && song.song) || "오늘의 찬양")}</div>
-      ${metaParts.length ? `<div class="song-meta">${metaParts.join(" · ")}</div>` : ""}
-      <p class="song-help">
-        소리가 안 나면 폰 옆 무음 단추와 볼륨을 확인해 주세요.<br>
-        영상이 안 열리면 아래 「유튜브에서 보기」를 눌러 주세요.
-      </p>
-      <button class="summary-help" id="song-ext">🎵 유튜브에서 보기 <span class="ext-mark">↗</span></button>
-    </div>
-    <button class="home-fab" id="song-home" aria-label="첫 화면으로">${homeFabLabel(u, true)}</button>`;
-  window.scrollTo(0, 0);
 
-  // 섬네일이 안 오면 회색 바탕(.song-media 자체 배경)만 남기고 단추는 그대로 둔다
-  const thumbImg = document.getElementById("song-thumb");
-  if (thumbImg) thumbImg.onerror = () => { thumbImg.style.display = "none"; };
+  const open = () => {
+    if (document.querySelector(".cheer-overlay")) { setTimeout(open, 300); return; }
+    const wrap = document.createElement("div");
+    wrap.id = "song-modal";
+    wrap.className = "cheer-overlay";
+    wrap.innerHTML = `
+      <div class="cheer-card dmsg-card" role="dialog" aria-modal="true">
+        <div class="cheer-ref dmsg-badge">🎵 오늘의 찬양</div>
+        <div class="song-media" id="song-media">
+          ${thumb ? `<img class="song-thumb" id="song-thumb" src="${thumb}" alt="">` : ""}
+          ${hasVideo ? `<button class="song-play" id="song-play">▶ 찬양 듣기</button>` : ""}
+        </div>
+        <div class="song-name">${boardEsc((song && song.song) || "오늘의 찬양")}</div>
+        ${metaParts.length ? `<div class="song-meta">${metaParts.join(" · ")}</div>` : ""}
+        <div class="song-modal-actions">
+          <button class="summary-help" id="song-ext">🎵 유튜브로 <span class="ext-mark">↗</span></button>
+          <button class="cheer-ok" id="song-close">닫기</button>
+        </div>
+      </div>`;
+    document.body.appendChild(wrap);
 
-  const playBtn = document.getElementById("song-play");
-  if (playBtn) playBtn.addEventListener("click", songStartPlay);
-  document.getElementById("song-ext").addEventListener("click", () => {
-    const url = (songCur && songCur.id)
-      ? "https://worship.onlybible.kr/?song=" + encodeURIComponent(songCur.id)
-      : "https://worship.onlybible.kr/";
-    window.open(url, "_blank", "noopener");
-  });
-  document.getElementById("song-home").addEventListener("click", () => songClose(false));
+    // 섬네일이 안 오면 회색 바탕(.song-media 자체 배경)만 남기고 단추는 그대로 둔다
+    const thumbImg = document.getElementById("song-thumb");
+    if (thumbImg) thumbImg.onerror = () => { thumbImg.style.display = "none"; };
 
-  // 안드로이드 「뒤로 가기」로도 나가지게 — 본보기는 prayFullOpen/Close(이 앱의 유일한 pushState)
-  try { history.pushState({ song: 1 }, ""); } catch (e) {}
-  songPop = () => songClose(true);
-  window.addEventListener("popstate", songPop);
+    const playBtn = document.getElementById("song-play");
+    if (playBtn) playBtn.addEventListener("click", songStartPlay);
+    document.getElementById("song-ext").addEventListener("click", () => {
+      const url = (songCur && songCur.id)
+        ? "https://worship.onlybible.kr/?song=" + encodeURIComponent(songCur.id)
+        : "https://worship.onlybible.kr/";
+      window.open(url, "_blank", "noopener");
+    });
+
+    requestAnimationFrame(() => wrap.classList.add("show"));
+    const close = () => { wrap.classList.remove("show"); setTimeout(() => wrap.remove(), 250); };
+
+    // ⚠️ 팝업이 되며 「닫기」의 뜻이 달라졌다 — renderSummary() 로 뒤 화면을 갈아끼우지
+    // 않는다. 뒤에 있던 화면이 그대로 남아 있으므로 덮개(overlay)만 걷어낸다.
+    // fromPop: popstate(안드로이드 뒤로가기)로 이미 history 가 물러난 뒤인지 — 그때는
+    // history.back()을 또 부르지 않는다(옛 songClose(fromPop)과 같은 규칙).
+    let fromPop = false;
+    const finish = () => {
+      songStopPlayer();   // ① postMessage stopVideo → about:blank (나갈 때 세 단계 중 앞 둘)
+      if (songPop) { window.removeEventListener("popstate", songPop); songPop = null; }
+      if (!fromPop) { try { if (history.state && history.state.song) history.back(); } catch (e) {} }
+      songModalClose = null;
+      close();             // ② 덮개를 걷어낸다 — 뒤 화면은 손대지 않는다
+    };
+    // wireModalConfirm 이 Enter·Space·Escape 를 받고, 문서 캡처 단계 keydown 리스너를
+    // 돌려준 done() 이 뗀다 — close()만 부르면 그 뒤로 키 입력이 통째로 먹힌다.
+    const done = wireModalConfirm(document.getElementById("song-close"), finish);
+    songModalClose = done;   // 끝난 화면(songShowEnded)의 「닫기」도 이 함수로 닫는다
+
+    wrap.addEventListener("click", (e) => { if (e.target === wrap) done(); });
+
+    // 안드로이드 「뒤로 가기」로도 나가지게 — 본보기는 prayFullOpen/Close(이 앱의 유일한 pushState)
+    try { history.pushState({ song: 1 }, ""); } catch (e) {}
+    songPop = () => { fromPop = true; done(); };
+    window.addEventListener("popstate", songPop);
+  };
+  open();
 }
 
 // 「▶ 찬양 듣기」를 누른 그 순간에만 iframe 을 만든다 — 자동재생·느린 통신·구글로 나가는
@@ -548,12 +579,14 @@ function songShowEnded() {
   media.innerHTML =
     `<div class="song-ended">
        <button class="summary-help" id="song-replay">🔁 다시 듣기</button>
-       <button class="summary-help" id="song-ended-home">⌂ 첫 화면으로</button>
+       <button class="summary-help" id="song-ended-close">닫기</button>
      </div>`;
   const rp = document.getElementById("song-replay");
   if (rp) rp.addEventListener("click", songStartPlay);
-  const eh = document.getElementById("song-ended-home");
-  if (eh) eh.addEventListener("click", () => songClose(false));
+  const ec = document.getElementById("song-ended-close");
+  // ⚠️ 팝업 자체를 닫아야 한다(옛 songClose(false) 대신 openSongModal 이 남겨 둔
+  //    songModalClose — 같은 절차를 타야 나갈 때 세 단계·popstate 정리가 함께 된다).
+  if (ec) ec.addEventListener("click", () => { if (songModalClose) songModalClose(); });
 }
 
 // 나갈 때 세 단계 순서(고정) — ① postMessage 로 멈추라 명령 ② iframe 을 비운다 ③ 그다음 화면 전환.
@@ -566,14 +599,6 @@ function songStopPlayer() {
     try { iframe.src = "about:blank"; } catch (e) {}
   }
   songYtPlayer = null;
-}
-// fromPop=true 면 popstate(뒤로가기)로 이미 닫힌 뒤라 history.back()을 또 부르지 않는다
-// (prayFullClose와 같은 규칙).
-function songClose(fromPop) {
-  songStopPlayer();
-  if (songPop) { window.removeEventListener("popstate", songPop); songPop = null; }
-  if (!fromPop) { try { if (history.state && history.state.song) history.back(); } catch (e) {} }
-  renderSummary();
 }
 
 // ── 사역 신청: 기간에만 첫 화면에 뜬다 ──────────────────────────────
@@ -5706,19 +5731,19 @@ function scrollPastBtnRow() {
 //   .min-screen      — 사역 신청. 위원회 아코디언을 길게 훑는 화면이라 위를 내준다
 //   .ps-wrap         — 시편 말씀 액자. 액자 한 장이 주인공인 화면이라 위를 온전히 내준다
 //                      (성도님 제보 2026-09-10: 로고 배너가 액자를 눌러 화면 밖으로 밀었다)
-//   .song-screen     — 오늘의 찬양. 화면 하나 높이짜리 파사드라 ps-wrap과 같은 처지
-//                      (2026-09-23 · screen-sweep 의 app 모드 (fits) 경고로 먼저 잡았다)
+//   ⚠️ 오늘의 찬양은 2026-09-23 저녁부터 팝업(.cheer-overlay, document.body 에 붙는다)이라
+//      여기서 뺐다 — #app 내용을 갈아끼우지 않으므로 로고 배너를 가릴 일이 없다.
 // #app 내용이 바뀔 때마다 감시해서, 어떤 경로로 전환되든(뒤로가기 포함) 항상 따라간다.
 (function watchPageHeaderVsStickyRef() {
   const appEl = document.getElementById("app");
   const header = document.querySelector(".page-header");
   if (!appEl || !header) return;
   const sync = () => {
-    const hide = !!appEl.querySelector(".test-ref-sticky, .album-screen, .pr-wrap, .min-screen, .ps-wrap, .song-screen");
+    const hide = !!appEl.querySelector(".test-ref-sticky, .album-screen, .pr-wrap, .min-screen, .ps-wrap");
     header.style.display = hide ? "none" : "";
     // 로고 배너가 지던 상태바 여백을 #app 이 대신 진다(style.css body.no-page-header).
-    // 쉴만한 물가(.ps-wrap)·오늘의 찬양(.song-screen)은 제 여백을 스스로 지므로 빼야 두 번 들어가지 않는다.
-    document.body.classList.toggle("no-page-header", hide && !appEl.querySelector(".ps-wrap, .song-screen"));
+    // 쉴만한 물가(.ps-wrap)는 제 여백을 스스로 지므로 빼야 두 번 들어가지 않는다.
+    document.body.classList.toggle("no-page-header", hide && !appEl.querySelector(".ps-wrap"));
   };
   sync();
   new MutationObserver(sync).observe(appEl, { childList: true });
