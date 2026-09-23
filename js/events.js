@@ -29,6 +29,11 @@ var evtHint = "";         // 직분 기본값
 var evtForm = null;       // 등록/고치기 중인 값 { eventId, position, phone, memo }
 var _evtPreview = false;  // ?preview=event 로 들어왔나(관리자)
 
+// 도장판 — ⚠️ 「아직 모른다」와 「0주」를 뭉개지 않는다. 통신이 잠깐 끊긴 분께
+//    「0주 채우셨어요」라고 말하면 사실이 아닌 말을 하는 것이다(evtState 와 같은 까닭).
+var evtStamp = null;            // eventStamps 응답 또는 null
+var evtStampState = "unknown";  // "unknown" | "ready"
+
 function evtEsc(v) {
   return String(v == null ? "" : v)
     .replace(/&/g, "&amp;").replace(/</g, "&lt;")
@@ -71,11 +76,26 @@ function evtLoad(u) {
     evtMine = (r && r.mine) || [];
     evtHint = (r && r.positionHint) || "";
     evtState = evtEvents.length ? "some" : "none";
+
+    // 자격 회차가 있으면 그 도장도 받아 둔다. ⚠️ 하나뿐일 때만 — 둘 이상이면
+    //    어느 것의 진행인지 화면이 말할 수 없다(첫 화면 라벨도 「이벤트 2개」가 된다).
+    var withRule = evtEvents.filter(function (e) {
+      return e.needs && e.needs.eligibility;
+    });
+    if (!uid || withRule.length !== 1 || !api.eventStamps) {
+      evtStamp = null; evtStampState = "unknown";
+      return;
+    }
+    return api.eventStamps(uid, withRule[0].id).then(function (s) {
+      if (s && s.ok && s.rule) { evtStamp = s; evtStampState = "ready"; }
+      else { evtStamp = null; evtStampState = "unknown"; }
+    }).catch(function () { evtStamp = null; evtStampState = "unknown"; });
   }).catch(function (e) {
     // 서버가 옛 판이라 액션이 없다 · 표가 없다 · 통신 실패 — 전부 「모른다」다.
     // 「없다」로 뭉개지 않는다.
     evtState = "unknown";
     evtEvents = []; evtMine = []; evtHint = "";
+    evtStamp = null; evtStampState = "unknown";
     if (window.console) console.warn("eventOpenList 실패:", e && e.message);
   });
 }
@@ -189,6 +209,55 @@ function evtSentHtml() {
     }).join("") + "</div>";
 }
 
+// 한 주 칸의 날짜 범위 — 「1주 10/11~10/17」
+function evtWeekLabel(start, i) {
+  var a = new Date(Date.parse(start + "T00:00:00Z") + i * 7 * 86400000);
+  var b = new Date(a.getTime() + 6 * 86400000);
+  var f = function (d) { return (d.getUTCMonth() + 1) + "/" + d.getUTCDate(); };
+  return (i + 1) + "주 " + f(a) + "~" + f(b);
+}
+
+// 도장판. ⚠️ evtDrawForm 의 `if (!canSignup)` **앞**에서 부른다 —
+//    그 분기는 폼 대신 명단만 그려서, 신청 창이 열리기 전에는 도장판이 아예 안 보인다.
+function evtStampHtml(u) {
+  if (evtStampState !== "ready" || !evtStamp || !evtStamp.rule) {
+    return '<div class="ev-note">기록을 맞추는 중이에요. 잠시 뒤 다시 열어 주세요.</div>';
+  }
+  var s = evtStamp, r = s.rule;
+  var head = evtEsc(u.name) + " 님의 도장판 · 지금까지 " + s.weeksDone + "주 채웠어요";
+
+  var cells = "";
+  for (var i = 0; i < r.weeks; i++) {
+    var n = (s.weekDays && s.weekDays[i]) || 0;
+    var full = n >= r.perWeek;
+    cells += '<div class="ev-wk' + (full ? " on" : "") + '">' +
+      '<div class="ev-wk-t">' + evtEsc(evtWeekLabel(r.start, i)) + "</div>" +
+      '<div class="ev-wk-v">' + (full ? "✓" : n + "일") + "</div></div>";
+  }
+
+  // 이번 주 남은 만큼을 말로. ⚠️ 「2일 남음」처럼 남은 것을 세면 빚처럼 읽힌다.
+  var tail;
+  if (s.eligible) {
+    tail = s.allWeeks
+      ? "여섯 주를 다 채우셨어요 ✨"
+      : (r.need + "주를 채우셨어요. 남은 주도 편한 만큼 함께해요.");
+  } else if (s.canStillReach) {
+    tail = "지금까지 " + s.weeksDone + "주를 채우셨어요.<br>" +
+      "세 주가 되면 이 자리에 신청 단추가 열려요.<br>" +
+      "남은 주에 " + r.perWeek + "일씩만 채우시면 돼요.";
+  } else {
+    tail = "이번 신청은 여기까지예요. 채우신 " + s.weeksDone +
+      "주는 그대로 남아요 — 다음에 또 함께해요.";
+  }
+
+  return '<div class="ev-stampbox">' +
+    '<div class="ev-stamp-h">' + head + "</div>" +
+    '<div class="ev-wks">' + cells + "</div>" +
+    '<div class="ev-stamp-tail">' + tail + "</div>" +
+    '<div class="ev-stamp-fine">한 날에 여러 번 하셔도 그날 한 칸이에요.<br>' +
+    "인터넷이 연결된 상태에서 저장된 날만 셉니다.</div></div>";
+}
+
 function evtCardHtml(e) {
   var closed = !e.canSignup;
   var cls = "ev-card" + (e.mine ? " done" : "") + (closed ? " closed" : "");
@@ -197,16 +266,19 @@ function evtCardHtml(e) {
   //    옛 사이트는 마감되면 조회까지 죽어 막다른 화면이 됐다.
   // ⚠️ 「등록」/「조회」는 서버가 정해 내려준다(verb) — 화면마다 따로 판단하면 갈라진다.
   var verb = e.verb || (closed ? "조회" : "등록");
-  var btnLabel = e.mine ? "낸 것 보기 →" : verb + "하기 →";
+  // ⚠️ 하드코딩하지 않는다 — 6주를 다 채우고 신청만 안 한 분이 「참여」가 없는 카드를 본다.
+  var cp = e.copy || {};
+  var btnLabel = e.mine ? (cp.mineBtn || "낸 것 보기 →")
+    : (e.needs && e.needs.eligibility && !e.mine ? "도장판 보기 →" : verb + "하기 →");
   return '<div class="' + cls + '">' +
     (e.season ? '<div class="ev-season">' + evtEsc(e.season) + "</div>" : "") +
     '<h3 class="ev-card-t">' + evtEsc(e.shown || e.title) + "</h3>" +
     (e.subtitle ? '<p class="ev-card-s">' + evtEsc(e.subtitle) + "</p>" : "") +
     '<div class="ev-meta"><span class="ev-period">' + evtEsc(e.opensOn) +
     " ~ " + evtEsc(e.closesOn) + "</span>" +
-    (closed ? "" : '<span class="ev-dday' + (dday === "오늘 마감" ? " urgent" : "") +
+    (closed || (e.needs && e.needs.eligibility) ? "" : '<span class="ev-dday' + (dday === "오늘 마감" ? " urgent" : "") +
       '">' + evtEsc(dday) + "</span>") + "</div>" +
-    (e.mine ? '<div class="ev-badge-done">✅ 참여하셨어요</div>' : "") +
+    (e.mine ? '<div class="ev-badge-done">' + evtEsc(cp.doneBadge || "✅ 참여하셨어요") + "</div>" : "") +
     '<button class="ev-go" id="ev-go-' + evtEsc(e.id) + '">' + btnLabel + "</button>" +
     "</div>";
 }
@@ -252,6 +324,10 @@ function evtDrawForm(u, eventId) {
     (e.subtitle ? '<p class="ev-lead">' + evtEsc(e.subtitle) + "</p>" : "") +
     (e.copy && e.copy.intro
       ? '<div class="ev-note">' + evtEsc(e.copy.intro) + "</div>" : "");
+
+  // ⚠️ 이 줄은 `if (!canSignup)` **앞**에 있어야 한다. 그 분기는 폼 대신 명단만
+  //    그려서, 신청 창이 열리기 전(measuring)에는 도장판이 아예 안 보이게 된다.
+  if (e.needs && e.needs.eligibility) html += evtStampHtml(u);
 
   // ── 마감된 회차: 폼 대신 「전체 명단」(안에서 내 것도 찾아 준다) ──────
   // 옛 사이트는 마감되면 조회까지 죽어 막다른 화면이 됐다. 여기서는 마감이
@@ -307,9 +383,16 @@ function evtDrawForm(u, eventId) {
       evtEsc(evtForm.memo) + "</textarea></div>";
   }
 
+  // ⚠️ disabled 단추를 그리지 않는다 — 어르신께 회색 단추는 「나는 안 된다」로 읽힌다.
+  //    자격이 아직이면 단추 자리를 비운다(도장판이 이미 그 말을 하고 있다).
+  // ⚠️ 「모른다」로는 잠그지 않는다. evtStampState 가 "ready" 일 때만 잠근다 —
+  //    통신이 잠깐 끊긴 분을 영영 못 내게 하면 안 된다. 어차피 서버가 not-eligible 로 막는다.
+  var evtLocked = !!(e.needs && e.needs.eligibility) &&
+    evtStampState === "ready" && !!evtStamp && !evtStamp.eligible;
+
   html += '<div class="ev-acts">' +
-    '<button class="ev-submit" id="ev-submit">' +
-    (mine ? "고치기" : "참여 등록하기") + "</button>" +
+    (evtLocked ? "" : '<button class="ev-submit" id="ev-submit">' +
+    (mine ? "고치기" : "참여 등록하기") + "</button>") +
     (mine ? '<button class="ev-cancel" id="ev-cancel">참여 취소</button>' : "") +
     "</div>";
 
@@ -348,8 +431,10 @@ function evtDrawForm(u, eventId) {
   var mm = document.getElementById("ev-memo");
   if (mm) mm.addEventListener("input", function () { evtForm.memo = mm.value; });
 
-  document.getElementById("ev-submit")
-    .addEventListener("click", function () { evtSubmit(u, eventId); });
+  if (!evtLocked) {
+    document.getElementById("ev-submit")
+      .addEventListener("click", function () { evtSubmit(u, eventId); });
+  }
   var cc = document.getElementById("ev-cancel");
   if (cc) cc.addEventListener("click", function () { evtAskDrop(u, eventId); });
 }
@@ -448,6 +533,17 @@ function evtSubmit(u, eventId) {
     evtForm = null;
     return evtLoad(u);
   }).then(function () {
+    var e2 = evtFind(eventId);
+    if (e2 && e2.needs && e2.needs.eligibility) {
+      // ⚠️ appAlert 한 줄로 끝내지 않는다 — 스냅샷을 성도님 말로 옮겨야
+      //    「신청한 뒤에 한 주 쉬면 취소되나요」를 담당자에게 묻지 않는다.
+      var wd = (evtStamp && evtStamp.weeksDone) || 0;
+      appAlert("<b>신청이 끝났어요</b><br>" + evtEsc(u.name) +
+        " 성도님 이름을 명단에 올렸어요.<br>지금까지 채우신 " + wd +
+        "주를 그대로 적어 두었어요.<br>남은 주도 편한 만큼 함께해요.");
+      renderEventForm(u, eventId);   // ⚠️ 목록으로 보내지 않는다 — 도장판과 함께 다시 본다
+      return;
+    }
     appAlert("참여를 등록했어요. 고맙습니다!");
     evtDrawListFresh(u);
   }).catch(function (err) {
@@ -495,5 +591,8 @@ function evtErrText(err) {
   if (m === "not-found") return "이벤트를 찾을 수 없어요.";
   if (m === "no-user") return "로그인 정보를 확인할 수 없어요. 다시 로그인해 주세요.";
   if (m === "bad-args") return "요청이 올바르지 않아요. 다시 시도해 주세요.";
+  if (m === "not-eligible") return "아직 신청이 열리지 않았어요.<br>여섯 주 가운데 세 주를 채우시면 열려요.";
+  if (m === "not-yet") return "10월 27일부터 신청을 받아요.";
+  if (m === "no-rule") return "준비 중이에요. 잠시 뒤 다시 열어 주세요.";
   return m || "잠시 뒤 다시 시도해 주세요.";
 }

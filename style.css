@@ -5603,3 +5603,17 @@ body:has(#update-banner) .ps-wrap.ps-home{
 /* 좁은 칸(320px 폰이면 한 칸 92px)에서 두 줄로 접히면 그 단추만 키가 커져 다시 제각각이
    된다 — 첫 화면 .ps-hn-btn 과 같이 한 줄로 못 박는다. */
 .ps-tool{white-space:nowrap}
+
+/* 가을 말씀 동행 도장판 — 색은 이벤트(금색) 계열 하나만 빌려 쓴다. 새 색을 만들지 않는다. */
+.ev-stampbox { margin: 14px 0; padding: 14px; border: 1px solid #e3e6ee; border-radius: 12px; background: #fff; }
+.ev-stamp-h { font-weight: 700; margin-bottom: 10px; }
+.ev-wks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.ev-wk { border: 1px solid #e3e6ee; border-radius: 10px; padding: 8px 6px; text-align: center; }
+.ev-wk.on { background: #fdf3d8; border-color: #c8a84b; color: #8a6a1e; }
+.ev-wk-t { font-size: 12px; opacity: .75; }
+.ev-wk-v { font-size: 20px; font-weight: 700; margin-top: 2px; }
+.ev-stamp-tail { margin-top: 12px; line-height: 1.6; }
+.ev-stamp-fine { margin-top: 10px; font-size: 13px; opacity: .7; line-height: 1.5; }
+.dark .ev-stampbox { background: #151a21; border-color: #2b323d; }
+.dark .ev-wk { border-color: #2b323d; }
+.dark .ev-wk.on { background: #2a2417; border-color: #5a4e2a; color: #dcb669; }
