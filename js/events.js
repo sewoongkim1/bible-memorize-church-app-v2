@@ -220,6 +220,8 @@ function evtDateKo(ymd) {
 //    그래서 문구에 「세 주」를 박으면 그분께 사실이 아닌 말을 하게 된다.
 function evtKoNum(n) {
   var w = ["", "한", "두", "세", "네", "다섯", "여섯", "일곱", "여덟", "아홉", "열"];
+  n = Number(n);
+  if (!isFinite(n) || n < 0) n = 0;   // 화면에 「NaN」이 뜨는 일은 없어야 한다
   return (n >= 1 && n < w.length) ? w[n] : String(n);
 }
 
@@ -234,11 +236,14 @@ function evtWeekLabel(start, i) {
 // 도장판. ⚠️ evtDrawForm 의 `if (!canSignup)` **앞**에서 부른다 —
 //    그 분기는 폼 대신 명단만 그려서, 신청 창이 열리기 전에는 도장판이 아예 안 보인다.
 function evtStampHtml(u) {
-  if (evtStampState !== "ready" || !evtStamp || !evtStamp.rule) {
+  // ⚠️ weekDays 가 통째로 없으면 0 으로 그리면 안 된다 — 그건 「모른다」다.
+  if (evtStampState !== "ready" || !evtStamp || !evtStamp.rule || !evtStamp.weekDays) {
     return '<div class="ev-note">기록을 맞추는 중이에요. 잠시 뒤 다시 열어 주세요.</div>';
   }
   var s = evtStamp, r = s.rule;
-  var head = evtEsc(u.name) + " 님의 도장판 · 지금까지 " + evtKoNum(s.weeksDone) + " 주 채웠어요";
+  var head = evtEsc(u.name) + " 님의 도장판 · " +
+    (s.weeksDone ? ("지금까지 " + evtKoNum(s.weeksDone) + " 주 채웠어요")
+                 : "첫 주를 채우는 중이에요");
 
   var cells = "";
   for (var i = 0; i < r.weeks; i++) {
@@ -361,7 +366,11 @@ function evtDrawForm(u, eventId) {
     //    앞뒤가 안 맞는 말을 하게 된다. 그런데 이 화면이 **10/11~10/26 열엿새 동안** 보인다.
     //    phase 는 서버가 정해 준다 — 화면이 날짜를 다시 재지 않는다.
     // ⚠️ phase 를 모를 때(통신이 끊겼을 때)는 지금까지 하던 대로 명단을 그린다.
-    var ph = (evtStampState === "ready" && evtStamp) ? evtStamp.phase : "";
+    // ⚠️ **이 회차가 자격 회차일 때만** phase 로 갈린다. 이 검사를 빠뜨리면
+    //    자격 요건이 없는 **다른 회차**를 열었을 때도 「10월 27일부터…도장만 채우시면」이
+    //    떠서 날짜도 뜻도 틀린 말을 하게 된다(evtStamp 는 전역이다).
+    var ph = (e.needs && e.needs.eligibility &&
+              evtStampState === "ready" && evtStamp) ? evtStamp.phase : "";
     if (ph === "before" || ph === "measuring") {
       html += '<div class="ev-note">' + evtEsc(evtDateKo(e.opensOn)) +
         "부터 신청을 받아요.<br>그때까지는 도장만 채우시면 돼요.</div>";
@@ -622,7 +631,7 @@ function evtErrText(err) {
   if (m === "not-found") return "이벤트를 찾을 수 없어요.";
   if (m === "no-user") return "로그인 정보를 확인할 수 없어요. 다시 로그인해 주세요.";
   if (m === "bad-args") return "요청이 올바르지 않아요. 다시 시도해 주세요.";
-  if (m === "not-eligible") return "아직 신청이 열리지 않았어요.<br>여섯 주 가운데 세 주를 채우시면 열려요.";
+  if (m === "not-eligible") return "아직 신청이 열리지 않았어요.<br>몇 주가 더 필요한지는 도장판에 적혀 있어요.";
   if (m === "not-yet") return "10월 27일부터 신청을 받아요.";
   if (m === "no-rule") return "준비 중이에요. 잠시 뒤 다시 열어 주세요.";
   return m || "잠시 뒤 다시 시도해 주세요.";
