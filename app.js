@@ -1308,6 +1308,8 @@ function ensureReviewScheduled(no) {
 }
 // 오늘까지 복습 예정인 구절No 목록 — renderSummary 의 개수 표시와 startReview 딱
 // 둘이 쓰므로, 각 호출부가 아니라 여기 한 곳에서만 거른다(2026-09-10 리뷰 지적).
+// ⚠️ 2026-09-23부터: 기한이 된 것 **전부**가 아니라 최대 REVIEW_BATCH 개만,
+//    next(기한) 오름차순(=가장 오래 밀린 것부터)으로 골라 돌려준다(아래 sort·slice).
 function dueReviewNos() {
   const r = loadReview(); const t = ymdLocal(new Date());
   // ⚠️ 예전에 걸린 시편 예약이 남아 있으면 여기서 지운다(위 ensureReviewScheduled
@@ -1326,7 +1328,14 @@ function dueReviewNos() {
     // ⚠️ 가장 오래 밀린 것부터. 전에는 정렬이 **아예 없어** Object.keys 의 정수 키
     //    순회(사실상 구절 번호순)에 암묵적으로 기대고 있었다. 그래서 번호가 큰 구절은
     //    30일을 밀려도 차례가 안 왔다(2026-09-23 실측 — 30일 이상 밀린 것 456건).
-    .sort((a, b) => (r[a].next < r[b].next ? -1 : r[a].next > r[b].next ? 1 : a - b))
+    // ⚠️ 서버 due_at 이 null 이면 next 가 빈 문자열이 된다(mergeServerReviews). 그대로
+    //    정렬하면 「언제인지 모르는 것」이 「가장 오래 밀린 것」을 제치고 묶음 자리를
+    //    차지한다 — 모르는 것을 오늘로 보아 오늘치와 나란히 세운다(위 필터의 「기한
+    //    지남」 판정은 그대로 둔다 — 여기 정렬에서만 바꾼다).
+    .sort((a, b) => {
+      const na = r[a].next || t, nb = r[b].next || t;
+      return na < nb ? -1 : na > nb ? 1 : a - b;
+    })
     // 묶음으로 자른다. 여기 한 곳에서 자르면 첫 화면 숫자·큐 길이·완료 화면 숫자가
     // 저절로 같은 수가 된다(호출처가 renderSummary 와 startReview 둘뿐이다).
     .slice(0, REVIEW_BATCH);
