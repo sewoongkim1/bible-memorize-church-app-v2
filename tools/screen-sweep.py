@@ -125,6 +125,8 @@ STEPS = [
     ("34-login-help", ["renderLoginHelp(renderEntryScreen)"]),
     ("35-install-guide", ["renderInstallGuide()"]),
     ("36-blessing", ["renderBlessing(function(){})"]),
+    ("37-review-typing", ["renderReview([verses[0]],0)"]),
+    ("38-review-card", ["localStorage.setItem('input-card-mode','1'); renderReview([verses[0]],0); localStorage.setItem('input-card-mode','0');"]),
     ("P1-privacy-page", ["GOTO privacy/"]),
     ("P2-quiz-page", ["GOTO quiz/"]),
     ("P3-guide-page", ["GOTO guide/"]),
