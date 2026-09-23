@@ -2199,12 +2199,20 @@ async function challenge(b: any) {
     user_id: b.user_id, verse_no: b.verse_no,
     mode: m, score: b.score ?? null,
   });
-  // 제약(migrate_modes_card.sql)이 아직 안 넓혀진 DB면 새 값이 거부된다.
-  // 그때는 기록을 잃지 말고 옛 값으로 되돌린다 — 구분보다 기록이 먼저다.
-  if (error && m === "typing-card") {
+  // 제약(migrate_modes_card.sql · migrate_modes_review_card.sql)이 아직 안 넓혀진 DB면
+  // 새 값이 거부된다. 그때는 기록을 잃지 말고 옛 값으로 되돌린다 — 구분보다 기록이 먼저다.
+  // ⚠️ 되돌릴 값은 **접두사를 보존**해야 한다. 전부 "typing"으로 통일하면 복습과
+  //    긴 본문(app.js:454 logPassageActivity 가 learn-* 를 이 액션으로 보낸다)이
+  //    「도전」으로 둔갑해 전환율이 조용히 부풀어 오른다 —
+  //    challenge_funnel.sql 의 도전 판정이 `mode not like 'learn%' and not like 'review%'` 다.
+  //    2026-09-02 이전에 겪은 그 사고를 다시 만드는 셈이 된다.
+  if (error && typeof m === "string" && m.endsWith("-card")) {
+    const base = m.startsWith("review-") ? "review-typing"
+               : m.startsWith("learn-")  ? "learn-typing"
+               : "typing";
     const retry = await db.from("challenge_log").insert({
       user_id: b.user_id, verse_no: b.verse_no,
-      mode: "typing", score: b.score ?? null,
+      mode: base, score: b.score ?? null,
     });
     error = retry.error;
   }
