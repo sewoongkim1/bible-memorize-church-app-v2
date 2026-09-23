@@ -9360,9 +9360,17 @@ function narrowRanking(list, me) {
 
 async function loadRankingBody(r) {
   const body = document.getElementById("rank-body");
-  const u = loadUser();
   const data = await callRanking(r.from, r.to).catch(() => ({ ok: false }));
   if (!data || !data.ok) { body.innerHTML = `<p class="rank-msg err">순위를 불러오지 못했습니다.</p>`; return; }
+  drawRankingBody(r, data);
+}
+
+// 받아 둔 data 로 화면만 그린다 — 범위 칩을 바꿀 때 서버를 다시 부르지 않으려고 나눴다.
+// (giveRankCheer 위 주석과 같은 이유다: 「전체」 기간은 집계가 무거워 누를 때마다 다시
+//  받으면 버튼이 멈춘 것처럼 느려진다.)
+function drawRankingBody(r, data) {
+  const body = document.getElementById("rank-body");
+  const u = loadUser();
 
   const list = data.list || [];
   const keyOf = (g, s, sb, n) => g + "|" + s + "|" + sb + "|" + n;
