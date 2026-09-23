@@ -34,7 +34,7 @@
 | 파일 | 만드나/고치나 | 무엇을 맡나 |
 |---|---|---|
 | `supabase/praise_songs_dev_seed.sql` | **새로** | 개발 DB 에만 `songs` 표를 만들고 시드 35곡(걸러져야 할 것을 일부러 섞는다) |
-| `supabase/daily_song.sql` | **새로** | 표 둘(`daily_song`·`song_click_log`) · 뷰 `v2_song_pool` · 함수 `v2_today_song` · RLS·revoke·grant · 보는 법 질의 |
+| `supabase/daily_song.sql` | **새로** | 표 `daily_song` · 뷰 `v2_song_pool` · 함수 `v2_today_song` · RLS·revoke·grant · 보는 법 질의 |
 | `supabase/functions/api/index.ts` | 고침 | 액션 `getTodaySong`·`logSongClick` · `monitor` 에 정보 두 값 |
 | `tests/song-smoke.sh` | **새로** | 읽기 전용 스모크(`tests/psalm-smoke.sh` 와 같은 꼴) |
 | `js/api.js` | 고침 | `getTodaySong`·`logSongClick` 두 줄 |
@@ -52,7 +52,8 @@
 - Create: `supabase/daily_song.sql`
 
 **Interfaces:**
-- Produces: 뷰 `public.v2_song_pool(id, song, choir, svc_date, duration, thumbnail)` · 함수 `public.v2_today_song(p_day date) returns table(id text, song text, choir text, svc_date date, duration text, thumbnail text)` · 표 `public.daily_song(day, song_id, created_at)` · 표 `public.song_click_log(user_id, day, song_id)`
+- Consumes: **`supabase/feature_log.sql` 의 `v2_feature_log(uid, f, n)`** — 다른 세션이 2026-09-23 에 만든 열람 기록 통합 표(커밋 `2c7f54b`). 쓰임 기록은 여기에 `feature='song'` 으로 쌓는다. ⚠️ 그 파일이 개발·운영에 **먼저 돌아가 있어야 한다.**
+- Produces: 뷰 `public.v2_song_pool(id, song, choir, svc_date, duration, thumbnail)` · 함수 `public.v2_today_song(p_day date) returns table(id text, song text, choir text, svc_date date, duration text, thumbnail text)` · 표 `public.daily_song(day, song_id, created_at)`
 
 - [ ] **Step 1: 개발 시드 SQL 을 만든다**
 
@@ -196,18 +197,12 @@ revoke all on table public.daily_song from anon, authenticated;
 -- ⚠️ song_id 에 references songs(id) 를 **걸지 않는다.** 걸면 찬양 담당자의 곡 삭제가 막혀
 --    남의 앱 관리 화면이 고장나고, 「songs 는 읽기만 한다」는 약속이 FK 로 깨진다.
 
--- 쓰임 재기 — 성도님께 열기 전에 잴 길을 먼저 만든다(blessing_log 와 같은 생각).
---   ⚠️ 나중에 붙이면 그때부터 0 부터 쌓인다. 표를 만드는 지금이 가장 싸다.
-create table if not exists public.song_click_log (
-  user_id uuid not null references public.users(id) on delete cascade,
-  day     date not null default ((now() at time zone 'Asia/Seoul')::date),
-  song_id text not null,
-  cnt     int  not null default 1,
-  primary key (user_id, day, song_id)
-);
-alter table public.song_click_log enable row level security;
-revoke all on table public.song_click_log from anon, authenticated;
-create index if not exists song_click_log_day_idx on public.song_click_log (day);
+-- ⚠️ **쓰임 기록용 표를 새로 만들지 않는다.** 다른 세션이 2026-09-23 에 열람 기록 통합 표
+--    `feature_log` 를 만들어 두었다(supabase/feature_log.sql · 커밋 2c7f54b). 그 파일 머리말이
+--    「blessing_log 를 일반화한 것」이라고 적고 있고, member_merge.sql 의 계정 합치기 목록에도
+--    이미 들어가 있다. 여기에 표를 하나 더 만들면 그 통합이 첫날부터 깨진다.
+--    → 오늘의 찬양은 `v2_feature_log(uid, 'song', 0)` 을 부른다. 이 파일은 그 표를 만들지 않고,
+--       **supabase/feature_log.sql 이 먼저 돌아가 있어야 한다**(그 세션이 개발·운영에 돌린다).
 
 -- ─────────────────────────────────────────────────────────────
 -- ② 후보 풀 — 거르는 조건은 **여기 한 곳**에만 둔다
@@ -296,20 +291,6 @@ $$;
 revoke all on function public.v2_today_song(date) from public, anon, authenticated;
 grant execute on function public.v2_today_song(date) to service_role;
 
--- 클릭 한 번 세기 (blessing_log 의 v2_blessing_log 와 같은 꼴)
-create or replace function public.v2_song_click(uid uuid, sid text)
-returns void
-language sql
-security definer
-set search_path = public
-as $$
-  insert into public.song_click_log (user_id, song_id) values (uid, sid)
-  on conflict (user_id, day, song_id) do update set cnt = public.song_click_log.cnt + 1;
-$$;
-
-revoke all on function public.v2_song_click(uuid, text) from public, anon, authenticated;
-grant execute on function public.v2_song_click(uuid, text) to service_role;
-
 notify pgrst, 'reload schema';
 
 -- ─────────────────────────────────────────────────────────────
@@ -335,8 +316,10 @@ select (select count(*) from public.v2_song_pool) as 후보,
          where not exists (select 1 from public.daily_song d where d.song_id = p.id)) as 남은곡;
 
 -- ⑤ 누가 얼마나 눌렀나 (⚠️ 이름이 나오므로 관리자만)
+--    ⚠️ 기록은 이 파일이 아니라 supabase/feature_log.sql 의 통합 표에 쌓인다(feature = 'song').
 select u.gu, u.mok, u.name, count(distinct l.day) as 누른_날수, sum(l.cnt) as 횟수
-from public.song_click_log l join public.users u on u.id = l.user_id
+from public.feature_log l join public.users u on u.id = l.user_id
+where l.feature = 'song'
 group by u.gu, u.mok, u.name order by 횟수 desc limit 50;
 ```
 
@@ -363,14 +346,14 @@ Expected: 첫 질의가 **한 행**(곡 정보) · 둘째가 **30 안팎**. 35�
 ```bash
 K="sb_publishable_eJKP6u95IU9_DBXTvnvYBA_-yGCf-0Y"
 B="https://ktpwthwqzgcqcrmsafdo.supabase.co"
-for P in "daily_song?select=*&limit=1" "song_click_log?select=*&limit=1" "v2_song_pool?select=*&limit=1"; do
+for P in "daily_song?select=*&limit=1" "v2_song_pool?select=*&limit=1"; do
   echo "--- $P"; curl -s "$B/rest/v1/$P" -H "apikey: $K" | head -c 200; echo
 done
 echo "--- rpc"; curl -s -X POST "$B/rest/v1/rpc/v2_today_song" -H "apikey: $K" \
   -H "Content-Type: application/json" -d '{"p_day":"2026-09-23"}' | head -c 200; echo
 ```
 
-Expected: 넷 모두 **행이 오면 안 된다** — 권한 오류(`42501`) 또는 빈 결과. 곡 정보가 오면 그 자리가 열려 있는 것이므로 `revoke` 를 다시 확인한다.
+Expected: 셋 모두 **행이 오면 안 된다** — 권한 오류(`42501`) 또는 빈 결과. 곡 정보가 오면 그 자리가 열려 있는 것이므로 `revoke` 를 다시 확인한다.
 
 - [ ] **Step 7: 커밋**
 
@@ -379,7 +362,7 @@ cd /c/Projects/bible-memorize-church-app-v2
 git add supabase/praise_songs_dev_seed.sql supabase/daily_song.sql
 git diff --cached --stat        # ⚠️ 이 둘만 있어야 한다
 git commit -F - <<'EOF'
-feat(오늘의 찬양): SQL — daily_song·song_click_log·v2_song_pool·v2_today_song
+feat(오늘의 찬양): SQL — daily_song·v2_song_pool·v2_today_song
 
 하루 한 곡을 LRU 로 고른다(한 번도 안 나온 곡 먼저, 없으면 가장 오래전에 나온 곡).
 「기록을 비우고 새 바퀴」는 쓰지 않는다 — 후보가 0일 때 무한 루프에 빠지고 그 전에
@@ -388,6 +371,9 @@ feat(오늘의 찬양): SQL — daily_song·song_click_log·v2_song_pool·v2_tod
 
 개발 DB 에는 songs 표가 없어 확인이 안 되므로 시드 SQL 을 함께 둔다 —
 걸러져야 할 다섯(칸타타·찬양팀·곡명이 「찬양」·곡명=찬양대·hidden)을 일부러 섞었다.
+
+쓰임 기록용 표는 만들지 않는다 — 같은 날 다른 세션이 만든 열람 기록 통합 표
+feature_log 에 feature='song' 으로 쌓는다(supabase/feature_log.sql · 2c7f54b).
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 EOF
@@ -521,7 +507,12 @@ async function logSongClick(b: any) {
   const uid = String(b.user_id || "");
   const sid = String(b.song_id || "");
   if (!uid || !sid) return { ok: true };
-  try { await db.rpc("v2_song_click", { uid, sid }); } catch { /* 조용히 */ }
+  // ⚠️ 열람 기록 **통합 표**에 쌓는다(supabase/feature_log.sql · 다른 세션이 2026-09-23 에 만들었다).
+  //    표를 따로 만들지 않는다 — 그 표가 바로 이런 중복을 없애려고 생긴 것이고,
+  //    member_merge.sql 의 계정 합치기 목록에도 이미 들어가 있다.
+  //    ⚠️ 그 세션이 통합 액션(logFeature)을 내놓으면 **이 액션을 지우고** 그걸 쓴다.
+  //       그때까지는 FEATURES 배열(그쪽 코드)을 건드리지 않으려고 따로 둔다.
+  try { await db.rpc("v2_feature_log", { uid, f: "song", n: 0 }); } catch { /* 조용히 */ }
   return { ok: true };
 }
 ```
@@ -1151,14 +1142,14 @@ Expected: **1,500~1,700 사이.** ⚠️ 그보다 훨씬 적으면 `category` �
 ```bash
 K="sb_publishable_oLtieT_jw7Gjb8etEsy0jw_thBaDjl-"
 B="https://xnomlgydifiqiybervtf.supabase.co"
-for P in "daily_song?select=*&limit=1" "song_click_log?select=*&limit=1" "v2_song_pool?select=*&limit=1"; do
+for P in "daily_song?select=*&limit=1" "v2_song_pool?select=*&limit=1"; do
   echo "--- $P"; curl -s "$B/rest/v1/$P" -H "apikey: $K" | head -c 200; echo
 done
 echo "--- rpc"; curl -s -X POST "$B/rest/v1/rpc/v2_today_song" -H "apikey: $K" \
   -H "Content-Type: application/json" -d '{"p_day":"2026-09-23"}' | head -c 200; echo
 ```
 
-Expected: 넷 모두 **행이 오면 안 된다.**
+Expected: 셋 모두 **행이 오면 안 된다.**
 
 - [ ] **Step 4: 운영 Edge Function 을 배포한다**
 
