@@ -135,6 +135,10 @@ button{font-family:inherit;cursor:pointer}
   </div>
 </div>
 
+<!-- 열람 기록에 쓸 Supabase 주소·공개 키. 주소를 보고 운영/개발이 저절로 갈린다.
+     ⚠️ tools/bump.py 는 index.html 만 훑으므로 이 태그에는 캐시번호가 안 붙는다 —
+        js/config.js 를 고치는 날엔 이 페이지도 함께 봐야 한다. -->
+<script src="../js/config.js"></script>
 <script>
 // ============================================================
 // 따라 하기 — 실제 앱 화면(guide/shots/*.png)을 한 걸음씩 넘기며 보여 준다.
@@ -143,6 +147,30 @@ button{font-family:inherit;cursor:pointer}
 //     따로 녹음할 사람이 없어도 '말로 설명하는' 안내가 된다.
 //   · tap은 화면 그림 위에 찍는 동그라미. x·y는 그림 기준 백분율.
 // ============================================================
+
+// ---------- 열람 기록 ----------
+// 이 설명서가 실제로 쓰이는지 남긴다. ⚠️ 이 페이지는 로그인이 필요 없다 —
+// localStorage 에 user_id 가 없는 분(로비 QR·주보로 온 분)은 기록되지 않는다.
+// 그러니 이 숫자는 「앱에 로그인한 채 설명서를 누른 사람 수」다.
+// ⚠️ 무엇이 실패해도 설명서는 그대로 열려야 한다 — 전부 try 안에 둔다.
+(function () {
+  try {
+    var raw = localStorage.getItem("memorize-user");
+    if (!raw || !window.SUPA) return;
+    var uid = (JSON.parse(raw) || {}).user_id;
+    if (!uid) return;
+    fetch(window.SUPA.URL + "/functions/v1/api", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + window.SUPA.ANON,
+        "apikey": window.SUPA.ANON,
+      },
+      body: JSON.stringify({ action: "featureLog", user_id: uid, feature: "guide", item: 0 }),
+    }).catch(function () {});
+  } catch (e) {}
+})();
+
 var STEPS = [
   { img:"shots/install.png", t:"① 바탕화면에 앱 만들기",
     s:"한 번만 해 두면 다음부터 바로 열려요.",
