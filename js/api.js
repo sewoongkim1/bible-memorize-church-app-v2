@@ -114,6 +114,7 @@ const api = {
   //  ⚠️ 위 event* 넷(eventEnter/Status/Board/Entrants)은 옛 「말씀 이벤트」(퀴즈형)
   //     것이다. 이름이 비슷하지만 표도 흐름도 다르다 — 섞지 말 것.
   eventOpenList: (user_id) => supaCall("eventOpenList", { user_id }),
+  eventStamps: (user_id, event_id) => supaCall("eventStamps", { user_id, event_id }),
   eventSignup: (payload) => supaCall("eventSignup", payload),
   eventDrop: (user_id, id) => supaCall("eventDrop", { user_id, id }),
   eventRosterPublic: (event_id) => supaCall("eventRosterPublic", { event_id }),

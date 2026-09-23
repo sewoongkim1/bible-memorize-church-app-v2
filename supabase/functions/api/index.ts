@@ -418,6 +418,7 @@ Deno.serve(async (req) => {
       //     (퀴즈형, app_config('event') + event_entries)다. 이름이 비슷하지만
       //     표도 흐름도 다르다 — 섞지 말 것.
       case "eventOpenList": return json(await eventOpenList(body));
+      case "eventStamps":   return json(await eventStamps(body));
       case "eventSignup":   return json(await eventSignup(body));
       case "eventDrop":     return json(await eventDrop(body));
       case "eventRoster":   return json(await eventRoster(body));
@@ -4849,6 +4850,95 @@ function evtRow(r: any) {
   };
 }
 
+// ---------- 자격(도장판) ----------
+// ⚠️ mode 를 세지 않는다. 「그날 daily_activity 에 행이 있는가」로만 본다 —
+//    카드(learn-typing-card·typing-card)가 전체 반복의 65.2% 라, mode 를 열거하면
+//    카드로만 하시는 분은 매일 하셔도 도장이 하나도 안 찍힌다.
+
+// 날짜 더하기 — UTC 자정 기준으로만 더한다(시분초를 안 끌고 온다)
+const evtDayAdd = (ymd: string, n: number) =>
+  new Date(Date.parse(ymd + "T00:00:00Z") + n * 86400000).toISOString().slice(0, 10);
+
+// needs.eligibility 를 읽어 규칙으로. 모양이 틀리면 null — 「자격 회차가 아니다」다.
+function evtRule(ev: any): any | null {
+  const e = ((ev?.needs ?? {}) as any).eligibility;
+  if (!e || typeof e !== "object") return null;
+  const start = norm(e.start);
+  const weeks = Number(e.weeks), perWeek = Number(e.perWeek), need = Number(e.need);
+  const minNeed = Number(e.minNeed ?? 2);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) return null;
+  if (!(weeks >= 1 && weeks <= 26)) return null;
+  if (!(perWeek >= 1 && perWeek <= 7)) return null;
+  if (!(need >= 1 && need <= weeks)) return null;
+  if (!(minNeed >= 1 && minNeed <= need)) return null;
+  return { start, weeks, perWeek, need, minNeed };
+}
+
+// 지금 어느 국면인가 — 화면이 날짜를 다시 재지 않게 서버가 정한다(verb 와 같은 까닭).
+// ⚠️ 측정과 신청은 겹친다(10/27~11/21). 그때는 "signup" 이다 —
+//    화면이 달라지는 것은 「단추가 열리느냐」이기 때문이다.
+function evtPhase(ev: any, rule: any, today: string): string {
+  const measureStart = rule ? rule.start : norm(ev.opens_on);
+  if (today < measureStart) return "before";
+  if (today < norm(ev.opens_on)) return "measuring";
+  if (today <= norm(ev.closes_on)) return "signup";
+  return "over";
+}
+
+// 이분에게 필요한 주 수 — 이벤트 중 처음 오신 분은 남은 주로 분모를 줄인다.
+// ⚠️ firstDay 는 **전 기간**에서 잰다. 이벤트 안에서만 보면 기존 회원이 일부러 늦게
+//    시작해 문턱을 낮출 수 있다(먼저 시작한 분이 손해를 본다).
+function evtNeedFor(rule: any, firstDay: string | null): number {
+  if (!firstDay || firstDay < rule.start) return rule.need;   // 기존에 쓰시던 분
+  const wk = Math.floor(
+    (Date.parse(firstDay + "T00:00:00Z") - Date.parse(rule.start + "T00:00:00Z")) / 86400000 / 7);
+  if (wk < 0 || wk >= rule.weeks) return rule.need;
+  const remain = rule.weeks - wk;                              // 그 주부터 남은 주 수
+  return Math.min(rule.need, Math.max(rule.minNeed, Math.floor(remain / 2)));
+}
+
+// 남은 주를 다 채워도 닿을 수 있나. 못 닿는 분께 「세 주가 되면 열려요」를 계속 띄우면
+// 헛수고를 권하는 것이고, 마감 화면에서 처음 알면 그게 「떨어졌다」가 된다.
+function evtCanReach(rule: any, weekDays: number[], need: number, today: string): boolean {
+  let done = 0, left = 0;
+  for (let i = 0; i < rule.weeks; i++) {
+    if ((weekDays[i] ?? 0) >= rule.perWeek) done++;
+    else if (today <= evtDayAdd(rule.start, i * 7 + 6)) left++;  // 아직 안 끝난 주
+  }
+  return done + left >= need;
+}
+
+// 한 사람의 도장 — 화면(eventStamps)과 판정(eventSignup)이 **같은 함수**를 쓴다.
+// 두 벌을 두면 「화면은 열렸는데 서버가 막는다」가 된다.
+async function evtStampsFor(userId: string, rule: any, today: string) {
+  const { data, error } = await db.rpc("v2_event_weeks", {
+    p_start: rule.start, p_weeks: rule.weeks,
+    p_per_week: rule.perWeek, p_users: [userId],
+  });
+  if (error) throw error;
+  const row = ((data ?? []) as any[])[0] ?? null;
+  const weekDays: number[] = row?.week_days ?? new Array(rule.weeks).fill(0);
+  const firstDay: string | null = row?.first_day ? String(row.first_day).slice(0, 10) : null;
+  const weeksDone = Number(row?.weeks_done ?? 0);
+  const need = evtNeedFor(rule, firstDay);
+
+  // 날짜별 횟수 — 도장판이 「이 계정으로 채운 날」을 날짜로 보여 준다.
+  // v2_mydays 를 그대로 쓴다(앱의 다른 숫자와 같은 잣대를 지키려고).
+  const end = evtDayAdd(rule.start, rule.weeks * 7 - 1);
+  const { data: md } = await db.rpc("v2_mydays", {
+    p_user: userId, p_from: rule.start, p_to: end,
+  });
+  const days: Record<string, number> = {};
+  for (const r of (md ?? []) as any[]) days[String(r.day)] = Number(r.cnt);
+
+  return {
+    days, weekDays, weeksDone, need,
+    eligible: weeksDone >= need,
+    allWeeks: weeksDone >= rule.weeks,
+    canStillReach: evtCanReach(rule, weekDays, need, today),
+  };
+}
+
 // 직분 기본값 ① 이 사람의 가장 최근 이벤트 직분(created_at desc 로 받아 온 목록)
 function evtPositionHint(mine: any[]): string {
   for (const r of mine) {
@@ -4871,6 +4961,29 @@ async function evtPositionFromMinistry(userId: string): Promise<string> {
   } catch (_) {
     return "";   // 사역신청 표가 없는 DB 에서도 이벤트가 죽지 않는다
   }
+}
+
+// ---------- eventStamps: 이 회차에서 이분의 도장 ----------
+// ⚠️ eventOpenList 에 얹지 않는다 — 그건 매 부팅에 불리고 일부러 user_id 를 안 보낸다.
+//    응답 모양을 첫 화면 게이트·이벤트 카드·관리자 미리보기 셋이 함께 쓴다.
+async function eventStamps(b: any) {
+  const userId = String(b.user_id ?? "").trim();
+  if (!userId) return { ok: false, error: "no-user" };
+  const eventId = norm(b.event_id);
+  if (!EVT_ID_RE.test(eventId)) return { ok: false, error: "bad-args" };
+
+  const { data: ev, error } = await db.from("events")
+    .select("*").eq("id", eventId).maybeSingle();
+  if (error) throw error;
+  if (!ev) return { ok: false, error: "not-found" };
+
+  const today = evtToday();
+  const rule = evtRule(ev);
+  // rule 이 null 이면 「자격 회차가 아니다」 — 화면은 도장판을 아예 안 그린다.
+  if (!rule) return { ok: true, rule: null, phase: evtPhase(ev, null, today) };
+
+  const st = await evtStampsFor(userId, rule, today);
+  return { ok: true, rule, phase: evtPhase(ev, rule, today), ...st };
 }
 
 // ---------- eventOpenList: 보여 줄 회차 + 내가 낸 것 + 직분 기본값 ----------

@@ -73,6 +73,15 @@ echo "4) eventDrop - 인자가 모자라면 거부한다"
 D=$(call '{"action":"eventDrop"}')
 chk "bad-args 거부" "$(jqn 'd.get("error")' "$D")" "bad-args"
 
+echo "4-1) eventStamps - 신원·인자를 지킨다"
+P1=$(call '{"action":"eventStamps"}')
+chk "no-user 거부" "$(jqn 'd.get("error")' "$P1")" "no-user"
+P2=$(call '{"action":"eventStamps","user_id":"00000000-0000-0000-0000-000000000000"}')
+chk "bad-args 거부" "$(jqn 'd.get("error")' "$P2")" "bad-args"
+P3=$(call '{"action":"eventStamps","user_id":"00000000-0000-0000-0000-000000000000","event_id":"definitely-not-a-real-event"}')
+chk "not-found 거부" "$(jqn 'd.get("error")' "$P3")" "not-found"
+chk "user_id 를 싣지 않는다" "$(jqn '"user_id" not in json.dumps(d)' "$P3")" "True"
+
 echo "5) 관리자 액션은 비번 없이 열리지 않는다"
 R=$(call '{"action":"eventRoster"}')
 chk "eventRoster 거부" "$(jqn 'd.get("error") in ("unauthorized","no-password-set")' "$R")" "True"
