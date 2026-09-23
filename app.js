@@ -1297,6 +1297,23 @@ function advanceReview(no) {
   if (u && u.user_id) api.advanceReview(u.user_id, no).catch(() => {});
 }
 
+// 복습 기록에 쓸 mode 를 고른다.
+// ⚠️ **음성을 먼저 가른다.** 복습은 타자와 음성이 **같은 콜백을 공유**하기 때문이다
+//    (renderReview 가 setupChallengeTyping 과 setupVoice 에 같은 onDone 을 넘긴다).
+//    도전은 두 콜백이 갈려 있어 음성이 "voice" 로 박혀 있지만 여기는 아니다 —
+//    카드 여부를 먼저 보면 카드를 누르다 🎤 로 마친 기록이 review-typing-card 로 남아
+//    「음성은 사실상 죽었다」는 판단 근거가 흔들린다.
+// ⚠️ "review-" + mode 로 이어 붙이면 카드일 때 **review-card** 가 나온다. 이름에
+//    typing 이 없어 순위·통계의 %typing% 집계에서 조용히 빠진다 — 반드시
+//    review-typing-card 꼴이어야 한다(supabase/migrate_modes_review_card.sql).
+// ⚠️ 「카드로 했다」의 기준은 isCardMode()(모드를 켠 상태)다 — 암송(saveProgress 의
+//    isCardMode ? "card" : "typing")·시편(psalmStageDone)과 같은 정의라야
+//    세 화면 숫자를 나란히 놓을 수 있다.
+function reviewLogMode(mode) {
+  if (mode === "voice") return "review-voice";
+  return isCardMode() ? "review-typing-card" : "review-typing";
+}
+
 // ------------------------------------------------------------
 // 화면 0: 진입(식별) 화면 — 구분(교구/교회학교) 분기 입력
 // ------------------------------------------------------------
@@ -7608,6 +7625,12 @@ function renderChallenge(verse, hard) {
 //    애초에 시편 번호를 걸러내므로 여기서는 일반 verses만 신경 쓰면 된다.
 async function startReview() {
   try {
+    // 구절마다 설정값으로 되돌린다 — 도전에서 켠 카드가 복습까지 따라오지 않게.
+    // ⚠️ renderReview 가 아니라 **여기**여야 한다. 토글이 renderReview 를 다시 그리는
+    //    방식이라, 리셋을 renderReview 안에 두면 👆를 누르는 순간 설정값으로 되돌아가
+    //    「눌러도 안 바뀐다」가 된다(시편이 피한 방식 그대로 — js/psalm.js 의
+    //    renderPsalmReview 에 리셋, renderPsalmBlank 만 재렌더).
+    setCardMode(isCardStart());
     const dueNos = dueReviewNos();
     const queue = verses.filter((v) => dueNos.includes(v.no));
     if (!queue.length) {
@@ -7656,6 +7679,7 @@ function renderReview(queue, idx) {
           <button class="answer-btn" id="show-answer-btn">보기</button>
           <button class="answer-btn" id="listen-answer-btn" aria-label="정답 음성으로 듣기">🔊 듣기</button>
           <button class="voice-btn" id="voice-toggle">🎤 암송</button>
+          <button class="answer-btn mode-btn" id="rv-mode-toggle">${isCardMode() ? "⌨️ 쓰기" : "👆 카드"}</button>
         </div>
         <div class="test-top">
           <div class="test-head">
@@ -7665,6 +7689,7 @@ function renderReview(queue, idx) {
         </div>
         <div class="challenge-hint-line">복습 ${idx + 1} / ${queue.length} · 다시 외워볼까요?</div>
         <div class="test-sentence">${wordsHtml}</div>
+        <div id="card-tray" class="card-tray"></div>
         <div class="challenge-remain" id="ch-remain"></div>
         <div id="result-area"></div>
         <div id="answer-panel" class="answer-panel" hidden>
@@ -7687,6 +7712,14 @@ function renderReview(queue, idx) {
   initStickyRef();
   scrollPastBtnRow();
   document.getElementById("rv-exit").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
+  // 복습도 카드로 할 수 있어야 한다. 2026-09-23 실측 — 암송은 카드 59.6%,
+  // 도전은 77.5%인데 복습은 자판 99.9%였다. 카드로 외우시던 분이 복습에 오면
+  // 갑자기 자판만 있는 화면을 만나던 자리다.
+  document.getElementById("rv-mode-toggle").addEventListener("click", () => {
+    stopSpeaking();
+    setCardMode(!isCardMode());
+    renderReview(queue, idx);
+  });
   fillVerseHelp(verse);
   fillSermonSummaryBtn(verse, null, () => renderReview(queue, idx));
   setupHeartCheck(verse);
@@ -7712,10 +7745,7 @@ function renderReview(queue, idx) {
     // ⚠️ **보이는 숫자는 하나도 안 바뀐다** — 순위·통계는 모두 `%typing%`·
     //    `includes("typing")` 으로 세므로 `review-typing` 도 그대로 들어간다.
     //    「복습도 도전 순위에 함께 센다」는 본래 뜻은 그대로다.
-    // ⚠️ 복습 화면에는 카드 입력이 없어 `review-typing-card` 는 나오지 않는다.
-    //    복습에도 카드를 넣게 되면 제약(supabase/migrate_modes_card.sql)에 그 값을
-    //    **먼저** 더할 것 — 안 그러면 기록이 통째로 거부된다.
-    postChallenge(verse, "review-" + (mode || "voice"));
+    postChallenge(verse, reviewLogMode(mode));
     advanceReview(verse.no);
     reviewNext(queue, idx);
   };
