@@ -378,6 +378,37 @@ function fetchTodaySong() {
     .catch(() => null);   // ⚠️ 반드시 삼킨다 — 묵상 창이 이 리젝션에 통째로 사라진다
 }
 
+// 첫 화면 단추 글자 — 캐시가 있으면 곡명까지, 없으면 「🎵 찬양」만.
+//   ⚠️ 단추를 **나중에 생기게 하지 않는다.** 묶음 안에서 줄이 하나 늘면 성도님이 누르려던
+//      자리가 밀린다. 자리는 처음부터 두고 글자만 채운다(renderEventButton 과 같은 생각).
+function songBtnSuffix() {
+  const s = songCacheToday();
+  return s && s.song ? " · " + boardEsc(s.song) + " " : " ";
+}
+function fillSongButton() {
+  const b = document.getElementById("open-song");
+  if (!b) return;
+  const s = songCacheToday();
+  if (!s || !s.song) return;
+  b.innerHTML = "🎵 찬양 · " + boardEsc(s.song) + ' <span class="ext-mark">↗</span>' + newBadge("song");
+}
+function loadTodaySong() {
+  if (!songVisible()) return;
+  fetchTodaySong().then((s) => { if (s) fillSongButton(); });
+}
+// 찬양 아카이브(형제 앱)의 그 곡으로 — 새 탭이라 암송 진행 상태를 잃지 않는다.
+//   ⚠️ 아이폰 앱에서는 Capacitor 가 가로채 사파리로 나간다(설계 문서 「대신 잃는 것」).
+//   ⚠️ 내 id 는 `myUserId()`로 얻는다. `loadUser()` 가 돌려주는 객체의 칸 이름은
+//      `id` 가 아니라 **`user_id`** 다 — 직접 꺼내 쓰면 조용히 undefined 가 되어 기록이 안 쌓인다.
+function openSongToday(song) {
+  if (!song || !song.id) return;
+  try {
+    const uid = (typeof myUserId === "function") ? myUserId() : null;
+    if (uid && api.logSongClick) api.logSongClick(uid, song.id).catch(() => {});
+  } catch (e) {}
+  window.open("https://worship.onlybible.kr/?song=" + encodeURIComponent(song.id), "_blank", "noopener");
+}
+
 // ── 사역 신청: 기간에만 첫 화면에 뜬다 ──────────────────────────────
 //   ⚠️ 상시 기능이 아니다. 기간(app_config.ministry)을 캐시해 두고 그 안에서만 보여 준다.
 //      passagesPublic 과 같은 방식 — 첫 화면은 동기 렌더라 미리 받아 둔 값을 본다.
@@ -1442,6 +1473,8 @@ const FEAT_SINCE = {
   ministry: "2026-12-13",
   event: "2026-09-10",        // 이벤트 플랫폼 — 썸머 써 바이블 명단을 여는 날
   psalm: "2026-09-12",        // 쉴만한 물가(옛 이름 시편 말씀 액자) — 1일차와 같은 날부터 NEW
+  // ⚠️ 오늘의 찬양 — 게이트를 켜는 날(9/27 이후)의 날짜로 바꾼다. 빈 문자열이면 NEW 가 안 뜬다.
+  song: "",
   prayer: "2026-09-03",
   meditation: "2026-07-20",   // 매일 묵상
   sermon: "2026-07-23",       // 내게 주시는 말씀
@@ -2179,6 +2212,7 @@ function renderSummary() {
     ${eventVisible() ? `<button class="summary-help" id="open-event-list">🏅 ${boardEsc(eventLabelCached())}${newBadge("event")}</button>` : ""}
     <button class="summary-help" id="open-board">💬 응원·기도·공감</button>
     ${psalmVisible() ? `<button class="summary-help" id="open-psalm">🐑 쉴만한 물가${newBadge("psalm")}</button>` : ""}
+    ${songVisible() ? `<button class="summary-help" id="open-song">🎵 찬양${songBtnSuffix()}<span class="ext-mark">↗</span>${newBadge("song")}</button>` : ""}
     <!-- ⚠️ 2026-09-11 이름 변경: 「시편 말씀 액자」 → 「쉴만한 물가」(시편 23편 2절,
          성도님 결정) — 「액자」가 낯설고, 매일 하지 않으면 안 될 것 같은 부담을 줄이려고
          쉼·인도받음의 이미지로 바꿨다. id="open-psalm"·내부 함수명(js/psalm.js)·엑셀·
@@ -2233,6 +2267,9 @@ function renderSummary() {
     pilsaLoaded = false;          // 들어올 때마다 서버에서 지금 상태를 받는다
     renderPilsaApply();
   });
+  { const b = document.getElementById("open-song");   // 게이트가 꺼져 있으면 없다
+    if (b) b.addEventListener("click", () => openSongToday(songCacheToday())); }
+  loadTodaySong();   // 캐시가 없으면 받아서 곡명을 채운다
   // 형제 앱(찬양·말씀 아카이브)으로 이동 — 새 탭이라 암송 진행 상태를 잃지 않는다
   document.getElementById("open-praise").addEventListener("click", () => window.open("https://worship.onlybible.kr/", "_blank", "noopener"));
   document.getElementById("open-sermon-archive").addEventListener("click", () => window.open("https://sermon.onlybible.kr/", "_blank", "noopener"));

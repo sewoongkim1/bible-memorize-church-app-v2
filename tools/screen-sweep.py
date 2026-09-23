@@ -78,7 +78,7 @@ RUNS = [
 HOME = ("try{ if(document.querySelector('.pr-full')) prayFullClose(); }catch(e){}"
         "try{ stopSpeaking(); }catch(e){}"
         "document.querySelectorAll('.modal-backdrop,.sd-modal,.daily-msg-overlay').forEach(function(m){m.remove()});"
-        "try{ _psalmPreview=true; _passagesPreview=true; localStorage.setItem('event-open','1'); }catch(e){}"
+        "try{ _psalmPreview=true; _passagesPreview=true; _songPreview=true; localStorage.setItem('event-open','1'); }catch(e){}"
         "renderSummary(); window.scrollTo(0,0);")
 
 

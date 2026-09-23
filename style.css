@@ -4164,7 +4164,7 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
       「앱 밖으로 나감」은 이제 ↗(.ext-mark) 혼자 말한다. 되돌릴 때 쓰라고 규칙은 남긴다. */
 .summary-help.ext-cta { background: #fff; color: var(--gray); border-color: var(--border); }
 .summary-help.ext-cta:hover { background: var(--cream); color: var(--navy); border-color: var(--navy); }
-.summary-help .ext-mark { font-size: .82rem; opacity: .7; }
+.summary-help .ext-mark, .med-song-cta .ext-mark { font-size: .82rem; opacity: .7; }
 /* 목록 단추에도 NEW 가 붙을 수 있다(내 안에 거하는 말씀이 여기로 내려왔다) */
 .summary-help { position: relative; }
 .summary-help .new-badge { position: absolute; top: 6px; right: 8px; margin: 0; }
