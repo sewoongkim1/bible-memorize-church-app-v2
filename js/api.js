@@ -50,6 +50,7 @@ const api = {
   verseCounts: (user_id) => supaCall("verseCounts", { user_id }),   // { ok, counts:{ verse_no:n } } 암송·도전·복습 전부
   savePush: (user_id, subscription, hour) => supaCall("savePush", { user_id, subscription, hour }),
   updateIosPushHour: (user_id, hour) => supaCall("updateIosPushHour", { user_id, hour }),  // 네이티브(iOS) 앱에서 알림 시간만 바꿀 때
+  updatePushEvening: (user_id, on) => supaCall("updatePushEvening", { user_id, on }),  // 저녁 알림만 켜고 끄기(사람 단위)
   removePush: (endpoint) => supaCall("removePush", { endpoint }),
   testPush: (endpoint, hour, preview) => supaCall("testPush", { endpoint, hour, preview }),
   testIosPush: (user_id) => supaCall("testPush", { user_id }),  // 네이티브(iOS) 앱 — 본인의 최근 등록 기기로

@@ -56,6 +56,36 @@ async function setPushHour(hour) {
 }
 window.setPushHour = setPushHour;
 
+// 저녁 알림(20시)을 받을지 — 기본 켜짐. localStorage 에 보관.
+// ⚠️ 기본이 「켜짐」이다. 값이 없거나 못 읽으면 true 로 본다 — 읽기 실패가
+//    성도님을 조용히 끄면 안 된다(사파리 프라이빗 모드 등).
+function getPushEvening() {
+  try { return localStorage.getItem("pushEvening") !== "0"; }
+  catch (e) { return true; }
+}
+window.getPushEvening = getPushEvening;
+
+// 저녁 알림 켜고 끄기 — 로컬 저장 + (로그인돼 있으면) 서버 반영.
+// ⚠️ 네이티브 앱도 웹도 **같은 액션**을 쓴다. 서버가 두 표를 함께 고치기 때문이다.
+//    setPushHour 는 웹푸시 구독(endpoint)이 있어야 해서 분기가 필요했지만,
+//    저녁은 사람 단위라 user_id 하나면 된다 — 그래서 여기엔 분기가 없다.
+//    (2026-09-16 에 setPushHour 의 네이티브 분기가 없어 조용히 무시된 사고가 있었다.
+//     이 함수가 그 함정을 피하는 방식이 「분기를 두는 것」이 아니라 「분기가 필요 없게 만든 것」이다.
+//     회귀 시험: tests/push-evening-native.py)
+async function setPushEvening(on) {
+  on = on !== false;
+  try { localStorage.setItem("pushEvening", on ? "1" : "0"); } catch (e) {}
+  const u = (typeof loadUser === "function") ? loadUser() : null;
+  if (u && u.user_id) {
+    try {
+      const r = await api.updatePushEvening(u.user_id, on);
+      if (r && r.ok) return { updated: true, on };
+    } catch (e) {}
+  }
+  return { updated: false, on };
+}
+window.setPushEvening = setPushEvening;
+
 function urlB64ToUint8Array(base64) {
   const pad = "=".repeat((4 - (base64.length % 4)) % 4);
   const b64 = (base64 + pad).replace(/-/g, "+").replace(/_/g, "/");
