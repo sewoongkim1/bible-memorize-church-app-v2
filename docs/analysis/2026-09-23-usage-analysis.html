@@ -671,10 +671,12 @@
         그 순간이 승낙률이 가장 높다. (iOS는 이미 로그인 전→후로 한 번 고쳤다.)</li>
     <li><b>복습 밀림 알림</b>을 2순위와 묶는다 — 「외운 말씀 3개가 기다려요」.</li>
   </ul>
-  <p class="why">⚠ <b>알림을 늘리기 전에 먼저 고칠 것</b> — <code>latestVerse()</code>가 아직
-    <b>UTC 자정 기준</b>이라 구절이 바뀌는 날 0~9시에는 <b>지난 구절</b>을 보낸다
-    (위젯 쪽만 <code>weeklyVerseKst</code>로 고쳤다). 저녁 알림은 이 버그 구간에 걸리지 않지만,
-    아침 알림을 손댈 때 함께 고치는 것이 맞다.</p>
+  <p class="why">
+    <b>정정(2026-09-23)</b> — 위에 적었던 「latestVerse()가 UTC 자정 기준」은 <b>틀린 말이었다</b>.
+    verses.date 가 항상 KST 자정 순간으로 저장되어(관리자 폼이 +09:00 을 붙인다) KST 자정에 정확히
+    넘어간다 — 2,232시간 매시 대조 <b>불일치 0건</b>.
+    <code>weeklyVerseKst</code> 로 갈아끼우면 오히려 날짜 없는 구절이 주일 아침 전체 발송에 실린다.
+  </p>
 </div>
 
 <div class="rec p4">
@@ -825,7 +827,7 @@
   <li><b>암송·도전 화면의 함정</b>(단계 완료 창 · 공용 <code>setupChallengeTyping</code> 4곳 · mode CHECK)
       — <code>docs/notes/memorize-flow.md</code></li>
   <li><b>복습에 카드가 없다는 지적</b>(2026-09-02에 이미 적힘) — <code>docs/notes/metrics.md</code></li>
-  <li><b>아침 알림이 UTC 자정 기준이라는 것</b> · 위젯만 <code>weeklyVerseKst</code>로 고침
+  <li><b>「아침 알림이 UTC 자정 기준」은 틀린 말이었다</b>(2026-09-23 정정 · 불일치 0건)
       — <code>CLAUDE.md</code> 「다음 작업」 위젯 절</li>
   <li><b>뷰는 RLS 대상이 아니라는 것</b> · <code>user_id</code> 비노출 원칙
       — <code>CLAUDE.md</code> 「보안 · 새어 나가는 길」, <code>supabase/security_close_public_views.sql</code></li>

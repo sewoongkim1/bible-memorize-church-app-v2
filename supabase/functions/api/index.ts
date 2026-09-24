@@ -695,8 +695,11 @@ function ymdDayNumber(ymd: string): number {
 type WidgetVerse = { no: number | null; ref: string; text: string };
 
 // 이번 주 구절 — 앱 getWeeklyVerseInfo 와 같은 기준(한국 **날짜**).
-//   ⚠️ latestVerse() 는 시각(UTC 자정)으로 골라 구절이 바뀌는 날 0~9시에 앱과 달랐다.
-//      아침 알림 등 latestVerse() 를 쓰는 기존 경로는 그대로 둔다(범위 밖).
+//   ⚠️ 2026-09-23 정정 — 「latestVerse() 는 UTC 자정으로 골라 앱과 달랐다」는 **틀린 말이었다**.
+//      verses.date 가 항상 KST 자정 순간이라 Date.parse 비교도 KST 자정에 넘어간다(2,232시간 대조·불일치 0건).
+//      ⚠️ 그래도 latestVerse() 를 이 함수로 갈아끼우지 말 것 — 이 함수는 날짜 없는 구절을 「오늘 것」으로
+//      보므로(아래 dayOf), 주일 아침 weeklyVersePush 가 아직 시작 안 한 구절을 전체 구독자에게 뿌린다.
+//      읽을 것: docs/superpowers/specs/2026-09-23-evening-push-design.md 맨 앞 절.
 //   ⚠️ 날짜가 없는 구절은 **그날(ymd)로 본다** — 앱의 kstDayNumber(null) 이 「오늘」을 돌려주기 때문이다
 //      (날짜 없이 먼저 들어온 구절을 앱은 곧바로 이번 주 말씀으로 보인다 — 2026-09-20 에 38번이 그랬다). 앱과 같게.
 async function weeklyVerseKst(ymd: string): Promise<{ cur: WidgetVerse; prev: WidgetVerse | null } | null> {
