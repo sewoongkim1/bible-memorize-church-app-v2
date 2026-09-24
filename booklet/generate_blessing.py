@@ -434,6 +434,20 @@ def back_cover():
                  frame, ORN, BACK_VERSE, html.escape(BACK_REF))
 
 
+def memo_page():
+    """맺음 앞의 빈 쪽 — 그냥 비우지 않고 「🙏 기도 제목」 자리로 쓴다.
+       ⚠️ 쪽수를 4의 배수로 맞추느라 생기는 쪽이다(close_book). 비워 두면 「낭비된 종이」로
+          보이지만, 이름을 붙이면 「일부러 둔 자리」가 된다.
+       ⚠️ 상자는 기도문 쪽의 축복노트(.b-box)와 같은 것을 쓰되, max-height 와 margin-top:auto 를
+          풀어 쪽을 가득 채운다 — 부속 쪽이라 위로 밀 까닭이 없다."""
+    #   ⚠️ 이모지(🙏)를 쓰지 않는다 — 이 책의 장식은 표지·뒷장·기도문 쪽까지 **전부 금색 한 색**이라
+    #      컬러 이모지 하나만 보라·노랑으로 튄다. 흑백판(--theme bw)에서는 회색으로 뭉개지고
+    #      인쇄소 컬러 단가도 오른다. phead 가 이미 붙여 주는 금색 마름모(ORN)로 충분하다.
+    #   ⚠️ 상자 안 라벨(.b-box-t)도 안 붙인다 — 머리와 같은 말이 두 번 나온다.
+    return ('<section class="page">%s<div class="b-box memo-box"></div></section>'
+            % phead('기도 제목', '마음에 품은 이름과 사정을 적어 두세요'))
+
+
 def close_book(pages):
     """맺음 — 빈 쪽으로 채운 뒤 뒷장을 붙여 한 덩어리 HTML 로 돌려준다.
 
@@ -446,7 +460,7 @@ def close_book(pages):
        남는 빈 쪽은 뒷장 **앞**에 둔다 — 메모로 쓰기 좋은 자리다."""
     body = ''.join(pages)
     pad = (-(body.count('class="page') + 1)) % 4
-    return body + '<section class="page blank"></section>' * pad + back_cover(), pad
+    return body + memo_page() * pad + back_cover(), pad
 
 
 def intro(name, n):
@@ -588,6 +602,8 @@ body { margin:0; font-family:var(--body-font); color:#1c2333; letter-spacing:0.0
          border:1px solid #2b3444; border-radius:2.5mm; padding:2.5mm 3mm; position:relative; }
 .b-box-t { font-family:var(--head-font); font-weight:var(--head-weight);
            position:absolute; right:3.5mm; top:2mm; font-size:9pt; color:#6b7383; }
+/* 「🙏 기도 제목」 쪽 — 상자가 쪽을 가득 채운다(축복노트처럼 위로 밀지 않는다). */
+.memo-box { max-height:none; margin-top:0; }
 /* ── 꼬리말 ───────────────────────────────────────────────── */
 .b-foot { font-family:var(--foot-font); font-weight:var(--foot-weight);
           position:absolute; left:20mm; right:13mm; bottom:5mm; display:flex; align-items:baseline;
@@ -940,6 +956,15 @@ print('   가장 좁은 박스  %2.0fmm   %d번 %s' % (boxes[0][0], boxes[0][1],
 print('   가장 넓은 박스  %2.0fmm   %d번 %s' % (boxes[-1][0], boxes[-1][1], boxes[-1][2]))
 tight = [b for b in boxes if b[0] < BOX_MIN]
 print('   박스가 %dmm 미만인 편   %s' % (BOX_MIN, [b[1] for b in tight] or '없음'))
+# ⚠️ 위 숫자는 **어림(box_mm)이지 실측이 아니다.** 글자 수로 줄을 세므로 브라우저가 실제로
+#    어디서 접는지를 모른다 — 지금은 **너무 비관적**이어서 음수(넘쳤다)를 내지만 사실이 아니다.
+#    2026-09-24 에 완성 PDF 를 PyMuPDF 로 세 겹으로 재서 확인했다:
+#      ① 104편 원문이 모두 제 쪽에 그대로 있다(빠진 글자 0)
+#      ② 기도문 104쪽 어느 것도 글자가 종이 밖으로 안 나간다(가장 빠듯한 쪽도 아래 8mm 남음)
+#      ③ 가장 나쁘다던 40번(순종의 축복)을 눈으로 봐도 축복노트가 50mm 넘게 남는다
+#    같은 파일 머리말이 반대 방향 사고도 적어 두었다 — 예전엔 어림이 **너무 낙관적**이라
+#    16pt 로 정했다가 7쪽이 넘쳤다. 어느 쪽이든 **어림을 믿지 말고 PDF 를 재라.**
+print('   ⚠️ 위 박스 숫자는 어림이다 — 실제로 넘치는지는 PDF 를 재서 확인한다(2026-09-24: 104편 모두 안 넘침).')
 print('')
 print('테마: %s(%s) · 서체: %s(%s) · 판형: %s%s'
       % (THEME_NAME, THEME['label'], FONT_NAME, FONT['label'],
