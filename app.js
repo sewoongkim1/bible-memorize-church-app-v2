@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260925b";
+const APP_BUILD = "20260925c";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2365,8 +2365,9 @@ function eventDaysLeft() {
 }
 
 function renderEventButton() {
-  // 참여 전에는 맨 위(#event-slot)에서 눈에 띄게, 응모를 마치면 맨 아래
-  // (#event-slot-bottom)로 내려 자리를 비운다.
+  // 이벤트 카드는 **늘 맨 아래**(#event-slot-bottom)에 둔다(2026-09-25 친구 요청).
+  // 전에는 참여 전이면 맨 위(#event-slot, 「오늘 할 일」 바로 위)에 올렸는데, 첫 화면을 열자마자
+  // 큰 카드가 오늘 할 일을 밀어내렸다. #event-slot 은 되돌릴 때를 위해 비운 채 남겨 둔다.
   const topSlot = document.getElementById("event-slot");
   const botSlot = document.getElementById("event-slot-bottom");
   if (topSlot) topSlot.innerHTML = "";
@@ -2374,7 +2375,7 @@ function renderEventButton() {
   const pool = eventVerses();
   if (!eventActive() || !pool.length) return;
   const done = eventEntered();
-  const slot = (done ? botSlot : topSlot) || topSlot || botSlot;
+  const slot = botSlot || topSlot;
   if (!slot) return;
   const name = (eventConfig && eventConfig.name) || "말씀 이벤트";
   const left = eventDaysLeft();
@@ -2724,6 +2725,22 @@ let prayOpenVerse = false; // 말씀을 펴 뒀나 — 이전/다음에도 이�
 let prayGroup = null;      // 어느 주제 목록에서 들어왔나 — 돌아갈 길을 남긴다
 let prayAutoPlay = false;  // 연속듣기 모드 — TTS 끝나면 다음 편으로 자동 이동
 let prayRepeat  = false;  // 반복듣기 모드 — TTS 끝나면 같은 편 다시 재생
+// 연속듣기·배경음악 체크박스 — **처음엔 켜져 있다**(2026-09-25 친구 요청).
+// ⚠️ 체크박스는 「지금 재생 중인가」(prayAutoPlay·prayBgAudio.paused)가 아니라 **고른 설정**을 비춘다.
+//    전에는 재생 상태를 그대로 비춰, 기본을 켜 둬도 멈춤·이전·다음 한 번에 체크가 풀렸다.
+// ⚠️ 끄신 것은 기억한다 — 켜 둔 설정을 새 기능이 조건부로 무시하지 않는다(v3.181→182 되돌림 교훈).
+// ⚠️ 배경음악은 브라우저가 누르기 전 자동 재생을 막는다 — 「켜짐」은 들려주기를 누를 때 함께 시작한다는 뜻이다.
+// 「▶ 이 주제 전체 듣기」로 시작했으면 그 주제의 편 번호들(0-based)을 순서대로 담는다.
+// 연속듣기가 104편 전체 대신 이 줄만 따라가고, 끝나면 멈춘다. 멈춤·이전·다음·첫 화면에서 비운다.
+let prayQueue = null;
+const PRAY_AUTO_KEY = "pray-auto";
+const PRAY_BGM_KEY = "pray-bgm";
+function prayPref(key) {
+  try { return localStorage.getItem(key) !== "0"; } catch { return true; }
+}
+function setPrayPref(key, on) {
+  try { localStorage.setItem(key, on ? "1" : "0"); } catch {}
+}
 // 배경음악 파일 목록 — music/ 폴더에 파일을 추가하면 이 배열에도 넣는다. 순서대로 재생 후 처음으로 돌아간다.
 const PRAY_BGM_LIST = [
   "music/catholicrelax-small-boat-into-silence-471285.mp3",
@@ -2830,7 +2847,7 @@ function renderPrayerBook(idx) {
   app.innerHTML = `<div class="pr-wrap"><div class="pr-loading">불러오는 중…</div></div>
     <button class="home-fab" id="pr-home" aria-label="첫 화면으로">${homeFabLabel(u, true)}</button>`;
   window.scrollTo(0, 0);
-  document.getElementById("pr-home").addEventListener("click", () => { prayAutoPlay = false; stopSpeaking(); stopPrayBgMusic(); renderSummary(); });
+  document.getElementById("pr-home").addEventListener("click", () => { prayAutoPlay = false; prayQueue = null; stopSpeaking(); stopPrayBgMusic(); renderSummary(); });
   loadPrayers().then((list) => {
     if (idx == null) idx = prayToday(list.length);
     prayIdx = ((idx % list.length) + list.length) % list.length;
@@ -2913,9 +2930,9 @@ function drawPrayer(list, i) {
         <div class="pr-cfg-info">속도·볼륨을 바꾸면 재생이 멈춥니다. 들려주기를 다시 눌러 시작하세요.</div>
       </div>
       <div class="pr-opts">
-        <label class="pr-opt-label"><input type="checkbox" id="pr-auto-chk"${prayAutoPlay ? " checked" : ""}> 연속듣기</label>
+        <label class="pr-opt-label"><input type="checkbox" id="pr-auto-chk"${!prayRepeat && prayPref(PRAY_AUTO_KEY) ? " checked" : ""}> 연속듣기</label>
         <label class="pr-opt-label"><input type="checkbox" id="pr-repeat-chk"${prayRepeat ? " checked" : ""}> 반복듣기</label>
-        <label class="pr-opt-label"><input type="checkbox" id="pr-bgm-chk"${prayBgAudio && !prayBgAudio.paused ? " checked" : ""}> 🎵배경음악</label>
+        <label class="pr-opt-label"><input type="checkbox" id="pr-bgm-chk"${prayPref(PRAY_BGM_KEY) ? " checked" : ""}> 🎵배경음악</label>
       </div>
       <div class="pr-nav">
         <button class="pr-arrow" id="pr-prev">← 이전</button>
@@ -2934,6 +2951,7 @@ function drawPrayer(list, i) {
             <span class="pr-acc-caret">▾</span>
           </button>
           <div class="pr-acc-body">
+            <button class="summary-help pr-group-play" data-g="${prayEsc(g.g)}" data-q="${items.map((o) => o.xi).join(",")}">▶ 이 주제 전체 듣기 <span class="pr-item-ref">${items.length}편</span></button>
             ${items.map((o) => `<button class="summary-help pr-item${o.xi === todayNo ? " on" : ""}" data-i="${o.xi}" data-g="${prayEsc(g.g)}">${prayEsc(o.x.title)}
                <span class="pr-item-ref">${o.xi === todayNo ? "오늘 · " : ""}${prayEsc(prayRefShort(o.x.ref))}</span></button>`).join("")}
           </div>
@@ -2941,11 +2959,11 @@ function drawPrayer(list, i) {
       }).join("")}
     </div>`;
   // ⚠️ 이전/다음은 주제 안이 아니라 104편 전체를 돈다 — 그러면 「목록으로」가 거짓말이 되므로 내린다
-  document.getElementById("pr-prev").addEventListener("click", () => { prayAutoPlay = false; prayRepeat = false; stopSpeaking(); prayGroup = null; drawPrayer(list, (i - 1 + list.length) % list.length); window.scrollTo(0,0); });
-  document.getElementById("pr-next").addEventListener("click", () => { prayAutoPlay = false; prayRepeat = false; stopSpeaking(); prayGroup = null; drawPrayer(list, (i + 1) % list.length); window.scrollTo(0,0); });
+  document.getElementById("pr-prev").addEventListener("click", () => { prayAutoPlay = false; prayQueue = null; prayRepeat = false; stopSpeaking(); prayGroup = null; drawPrayer(list, (i - 1 + list.length) % list.length); window.scrollTo(0,0); });
+  document.getElementById("pr-next").addEventListener("click", () => { prayAutoPlay = false; prayQueue = null; prayRepeat = false; stopSpeaking(); prayGroup = null; drawPrayer(list, (i + 1) % list.length); window.scrollTo(0,0); });
   document.getElementById("pr-name").addEventListener("click", () => askPrayName(list, i));
   const toList = document.getElementById("pr-tolist");
-  if (toList) toList.addEventListener("click", () => { stopSpeaking(); renderPrayerGroup(list, prayGroup); });
+  if (toList) toList.addEventListener("click", () => { prayAutoPlay = false; prayQueue = null; stopSpeaking(); renderPrayerGroup(list, prayGroup); });
   document.getElementById("pr-big").addEventListener("click", () => { stopSpeaking(); prayFullOpen(list, i); });
   document.getElementById("pr-cfg").addEventListener("click", () => {
     const panel = document.getElementById("pr-tts-cfg");
@@ -2957,12 +2975,12 @@ function drawPrayer(list, i) {
     if (window.speechSynthesis && window.speechSynthesis.speaking) {
       prayAutoPlay = false;
       prayRepeat = false;
+      prayQueue = null;
       stopSpeaking();
       const sp = document.getElementById("pr-speak");
       if (sp) sp.textContent = "🔊 들려주기";
-      const chkA = document.getElementById("pr-auto-chk");
+      // 연속듣기 체크는 「고른 설정」이라 멈춘다고 풀지 않는다(위 PRAY_AUTO_KEY 주석)
       const chkR = document.getElementById("pr-repeat-chk");
-      if (chkA) chkA.checked = false;
       if (chkR) chkR.checked = false;
     }
   };
@@ -3001,10 +3019,26 @@ function drawPrayer(list, i) {
   });
   document.querySelectorAll(".pr-acc-item .pr-item").forEach((el) =>
     el.addEventListener("click", () => {
+      prayAutoPlay = false; prayQueue = null;
       stopSpeaking();
       prayGroup = el.dataset.g;   // 「← <주제> 목록」이 여기로 돌아올 수 있게
       drawPrayer(list, Number(el.dataset.i));
       window.scrollTo(0, 0);
+    }));
+  // 주제 전체 듣기 — 첫 편을 그리고 **이 탭 안에서 바로** 들려주기를 누른다.
+  // ⚠️ setTimeout 으로 미루면 사용자 동작과 끊겨 아이폰이 낭독·배경음악을 막는다.
+  document.querySelectorAll(".pr-group-play").forEach((el) =>
+    el.addEventListener("click", () => {
+      const q = el.dataset.q.split(",").map(Number).filter((n) => n >= 0 && n < list.length);
+      if (!q.length) return;
+      stopSpeaking();
+      prayRepeat = false;
+      prayGroup = el.dataset.g;
+      drawPrayer(list, q[0]);
+      prayQueue = q;            // drawPrayer 뒤에 넣는다 — 그리기가 비우는 일은 없지만 순서를 분명히
+      window.scrollTo(0, 0);
+      const btn = document.getElementById("pr-speak");
+      if (btn) btn.click();
     }));
   const tog = document.getElementById("pr-vtog"), vs = document.getElementById("pr-verse");
   tog.addEventListener("click", () => {
@@ -3032,9 +3066,17 @@ function drawPrayer(list, i) {
         }, 2000);
         return;
       }
-      if (!prayAutoPlay) { if (s) s.textContent = "🔊 들려주기"; return; }
-      const nextIdx = (idx + 1) % list.length;
-      if (nextIdx === 0) { prayAutoPlay = false; if (s) s.textContent = "🔊 들려주기"; return; }
+      if (!prayAutoPlay) { prayQueue = null; if (s) s.textContent = "🔊 들려주기"; return; }
+      // 주제 전체 듣기면 그 주제 줄만 따라가고 마지막 편에서 멈춘다. 아니면 104편을 한 바퀴.
+      let nextIdx;
+      if (prayQueue) {
+        const k = prayQueue.indexOf(idx);
+        nextIdx = k >= 0 && k < prayQueue.length - 1 ? prayQueue[k + 1] : -1;
+        if (nextIdx < 0) { prayAutoPlay = false; prayQueue = null; if (s) s.textContent = "🔊 들려주기"; return; }
+      } else {
+        nextIdx = (idx + 1) % list.length;
+        if (nextIdx === 0) { prayAutoPlay = false; if (s) s.textContent = "🔊 들려주기"; return; }
+      }
       drawPrayer(list, nextIdx);
       window.scrollTo(0, 0);
       setTimeout(() => {
@@ -3049,19 +3091,25 @@ function drawPrayer(list, i) {
     if (window.speechSynthesis && window.speechSynthesis.speaking) {
       prayAutoPlay = false;
       prayRepeat = false;
+      prayQueue = null;
       stopSpeaking();
       sp.textContent = "🔊 들려주기";
       return;
     }
     const chkAuto = document.getElementById("pr-auto-chk");
     const chkRep  = document.getElementById("pr-repeat-chk");
-    prayAutoPlay = !!(chkAuto && chkAuto.checked);
-    prayRepeat   = !!(chkRep  && chkRep.checked);
+    // 주제 전체 듣기는 연속듣기 체크와 상관없이 이어서 읽는다(그걸 하려고 누른 단추다)
+    prayAutoPlay = !!prayQueue || !!(chkAuto && chkAuto.checked);
+    prayRepeat   = !prayQueue && !!(chkRep  && chkRep.checked);
+    // 배경음악이 켜져 있으면 이 탭(사용자 동작) 안에서 함께 시작한다 — 탭 밖에서는 브라우저가 막는다
+    const chkBgm = document.getElementById("pr-bgm-chk");
+    if (chkBgm && chkBgm.checked && (!prayBgAudio || prayBgAudio.paused)) togglePrayBgMusic(true);
     sp.textContent = "⏹ 그만듣기";
     playFrom(i);
   });
   document.getElementById("pr-auto-chk").addEventListener("change", (e) => {
     prayAutoPlay = e.target.checked;
+    setPrayPref(PRAY_AUTO_KEY, e.target.checked);  // 직접 누른 것만 기억한다(반복듣기가 끈 것은 안 남긴다)
     if (e.target.checked) { prayRepeat = false; document.getElementById("pr-repeat-chk").checked = false; }
   });
   document.getElementById("pr-repeat-chk").addEventListener("change", (e) => {
@@ -3069,6 +3117,7 @@ function drawPrayer(list, i) {
     if (e.target.checked) { prayAutoPlay = false; document.getElementById("pr-auto-chk").checked = false; }
   });
   document.getElementById("pr-bgm-chk").addEventListener("change", (e) => {
+    setPrayPref(PRAY_BGM_KEY, e.target.checked);
     togglePrayBgMusic(e.target.checked);
   });
 }
@@ -3077,12 +3126,28 @@ function drawPrayer(list, i) {
 //   ⚠️ max-height 를 큰 고정값(2000px 등)으로 트랜지션하면 실제 내용 높이에 먼저
 //      도달해 버려 "확 펼쳐졌다 뚝 멈추는" 느낌이 난다 — scrollHeight 를 실측해
 //      정확한 값을 준다(닫을 때도 먼저 그 값이어야 0으로 되짚어 갈 수 있다).
+//   ⚠️ 다 펼친 뒤에는 max-height 를 **풀어 준다(none)**. 잰 높이를 그대로 두면, 그 뒤 글씨가
+//      커지거나(웹폰트 교체·글씨 크기 설정) 줄이 바뀌어 내용이 길어질 때 단추들이 좁은 상자 안에
+//      눌려 납작해지고 글자가 반쯤 잘렸다(2026-09-25 실기기 제보 — 「지혜와 형통」 다섯 칸).
+//      접을 때는 none 에서는 트랜지션이 안 되므로 지금 높이로 되돌려 놓고 한 번 그린 뒤 0 으로 간다.
 function prAccSet(item, open) {
   const body = item.querySelector(".pr-acc-body");
   const head = item.querySelector(".pr-acc-head");
   item.classList.toggle("open", open);
   head.setAttribute("aria-expanded", String(open));
-  body.style.maxHeight = open ? body.scrollHeight + "px" : "0px";
+  if (open) {
+    body.style.maxHeight = body.scrollHeight + "px";
+    const done = (e) => {
+      if (e.target !== body) return;
+      body.removeEventListener("transitionend", done);
+      if (item.classList.contains("open")) body.style.maxHeight = "none";
+    };
+    body.addEventListener("transitionend", done);
+  } else {
+    body.style.maxHeight = body.scrollHeight + "px";
+    void body.offsetHeight; // 지금 높이를 한 번 그려야 0 까지 트랜지션이 걸린다
+    body.style.maxHeight = "0px";
+  }
 }
 
 // ── 크게 보기(전체 화면) ──────────────────────────────────────

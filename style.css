@@ -4501,6 +4501,11 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
   display: flex; flex-direction: column; gap: 6px; padding: 0 8px; background: #fff;
 }
 .pr-acc-item.open .pr-acc-body { padding: 8px; }
+/* ⚠️ 세로 flex 안의 단추는 기본값이 flex-shrink:1 이라, 상자가 모자라면 넘치지 않고 **눌려 납작해진다**
+   (overflow:hidden 이라 글자가 반쯤 잘려 보였다 — 2026-09-25 제보). 단추는 제 높이를 지킨다. */
+.pr-acc-body > * { flex-shrink: 0; }
+/* 주제 전체 듣기 — 새 색을 만들지 않는다(색은 네 단계뿐). 굵기로만 목록 첫 줄과 가른다. */
+.pr-group-play { font-weight: 800; }
 .pr-item { text-align: left; }
 .pr-item-ref { float: right; font-weight: 600; color: var(--gray); font-size: .84rem; }
 .dark .pr-card { background: #151d2b; border-color: #6b5a2c; }
