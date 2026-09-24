@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260925a";
+const APP_BUILD = "20260925b";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2569,6 +2569,8 @@ function renderSummary() {
           잘리는 쪽이 「이름」이다. 진행은 아래 fillStampPill 이 알약으로 꽂는다. */""}
     ${eventVisible() ? `<button class="summary-help event-cta" id="open-event-list">🏅 ${boardEsc(eventLabelCached())}${newBadge("stamp")}</button>` : ""}
     <button class="summary-help" id="open-board">💬 응원·기도·공감</button>
+    ${/* 2026-09-25 순서 바꿈(친구 요청) — 가정 축복 기도문이 쉴만한 물가보다 위. */""}
+    <button class="summary-help" id="open-prayer">🙏 가정 축복 기도문${newBadge("prayer")}</button>
     ${psalmVisible() ? `<button class="summary-help" id="open-psalm">🐑 쉴만한 물가${newBadge("psalm")}</button>` : ""}
     ${/* ⚠️ 2026-09-23 첫 화면 단추를 뺀다(성도님 결정) — 「🎵 찬양 · 곡명 ↗」은
           **매일 묵상 창 맨 아래 줄**에만 둔다. 게이트(app_config.songPublic)는 켜진 채라
@@ -2583,7 +2585,6 @@ function renderSummary() {
          그림처럼 보여 「액자」 느낌이 되살아난다는 지적(2026-09-11)으로 다시 바꿨다.
          시편 23편이 "여호와는 나의 목자시니"로 시작하니, 장소(물가)보다 인도받아
          쉰다는 이 시편의 핵심에 더 가깝다. -->
-    <button class="summary-help" id="open-prayer">🙏 가정 축복 기도문${newBadge("prayer")}</button>
     ${ministryVisible() ? `<button class="summary-help" id="open-ministry">🤝 사역신청${newBadge("ministry")}</button>` : ""}
     ${passagesVisible() ? `<button class="summary-help" id="open-passages">📜 내 안에 거하는 말씀${newBadge("passages")}</button>` : ""}
     <!-- 「더 보기」 — 자주 누르지 않는 넷을 접어 둔다(연 상태는 기억한다).
