@@ -46,19 +46,39 @@ function getApnsKey(): Promise<CryptoKey> {
   return apnsKeyPromise;
 }
 
+// APNs provider token — ⚠️ **기기마다 새로 만들면 안 된다.**
+//   애플은 이 토큰을 20분에 한 번보다 자주 갱신하면 거절한다(403 TooManyProviderTokenUpdates).
+//   예전에는 sendApns 가 기기마다 이 함수를 불러, 13대에 연달아 보내면 몇 초 안에 토큰
+//   13개를 만들었다 — 그래서 아이폰 알림이 통째로 막혔다.
+//   (2026-09-24 발견: 8일간 sent 가 36에 붙박이인데 failed 가 iOS 토큰 수와 정확히 같았다.
+//    한 통짜리 시험 발송은 토큰을 하나만 만들어 통과했기 때문에 오래 안 보였다.)
+//   토큰 유효기간은 최대 1시간이므로 45분만 쓴다.
+//   ⚠️ Edge Function 은 요청마다 새 아이소레이트일 수 있다 — 그래도 **한 번의 발송 안에서**
+//      13대가 같은 토큰을 쓰는 것이 핵심이고, 그 자리가 바로 막히던 곳이다.
+let apnsJwtCache: { token: string; at: number } | null = null;
+const APNS_JWT_TTL_MS = 45 * 60 * 1000;
+
 async function apnsJwt(): Promise<string> {
+  const now = Date.now();
+  if (apnsJwtCache && now - apnsJwtCache.at < APNS_JWT_TTL_MS) return apnsJwtCache.token;
   const header = base64url(new TextEncoder().encode(JSON.stringify({ alg: "ES256", kid: APNS_KEY_ID })));
-  const payload = base64url(new TextEncoder().encode(JSON.stringify({ iss: APNS_TEAM_ID, iat: Math.floor(Date.now() / 1000) })));
+  const payload = base64url(new TextEncoder().encode(JSON.stringify({ iss: APNS_TEAM_ID, iat: Math.floor(now / 1000) })));
   const key = await getApnsKey();
   const sig = await crypto.subtle.sign(
     { name: "ECDSA", hash: "SHA-256" }, key, new TextEncoder().encode(`${header}.${payload}`),
   );
-  return `${header}.${payload}.${base64url(new Uint8Array(sig))}`;
+  const token = `${header}.${payload}.${base64url(new Uint8Array(sig))}`;
+  apnsJwtCache = { token, at: now };
+  return token;
 }
 
 // 반환: "ok"(발송 성공) | "gone"(토큰이 더 이상 유효하지 않음 — 표에서 지워야 함) | "error"(그 외)
-async function sendApns(deviceToken: string, title: string, body: string): Promise<"ok" | "gone" | "error"> {
-  if (!APNS_READY) return "error";
+//   out 을 주면 out.reason 에 **왜 실패했는지**를 담아 준다(예: "403 TooManyProviderTokenUpdates").
+//   ⚠️ 기기 토큰이나 user_id 는 담지 않는다 — 이유 문자열만.
+async function sendApns(
+  deviceToken: string, title: string, body: string, out?: { reason?: string },
+): Promise<"ok" | "gone" | "error"> {
+  if (!APNS_READY) { if (out) out.reason = "apns-not-configured"; return "error"; }
   try {
     const jwt = await apnsJwt();
     const res = await fetch(`https://api.push.apple.com/3/device/${deviceToken}`, {
@@ -73,9 +93,15 @@ async function sendApns(deviceToken: string, title: string, body: string): Promi
     });
     if (res.ok) return "ok";
     const j = await res.json().catch(() => ({} as any));
+    if (out) out.reason = `${res.status} ${j.reason ?? "?"}`;
+    // ⚠️ 토큰이 죽었다는 신호일 때만 "gone" 이다. 그 밖(403·400 등)은 표를 건드리지 않는다 —
+    //    2026-09-24 에 13개가 전부 "error" 라 안 지워진 것이 원인을 좁히는 단서였다.
     if (res.status === 410 || j.reason === "BadDeviceToken" || j.reason === "Unregistered") return "gone";
     return "error";
-  } catch (_) { return "error"; }
+  } catch (e: any) {
+    if (out) out.reason = `throw ${(e && e.message ? e.message : String(e)).slice(0, 60)}`;
+    return "error";
+  }
 }
 
 // 진단용 — testPush(diag:true)가 원인을 그대로 보게 해 준다(JWT/인증 문제인지, 그냥 가짜
@@ -1100,17 +1126,23 @@ async function sendPush(b: any) {
     else { failed++; if (errs.length < 3) errs.push(`[${lastCode || "ERR"}] ${lastMsg}`); }
   }
   // ---- iOS 네이티브 푸시(APNs) — 같은 hour/user_id 필터로 함께 보낸다 ----
+  const iosWhy: Record<string, number> = {};   // 거절 이유별 건수 — push_log.note 로 나간다
   let iosQ = db.from("ios_push_tokens").select("id,device_token");
   if (b.hour) iosQ = iosQ.eq("hour", Number(b.hour));
   if (b.user_id) iosQ = iosQ.eq("user_id", b.user_id);
   const { data: iosTokens } = await iosQ;
   for (const t of (iosTokens ?? []) as any[]) {
-    const r = await sendApns(t.device_token, title || "성경말씀 암송", body || "오늘의 말씀을 암송해요! 🙌");
+    const o: { reason?: string } = {};
+    const r = await sendApns(t.device_token, title || "성경말씀 암송", body || "오늘의 말씀을 암송해요! 🙌", o);
     if (r === "ok") sent++;
     else {
       failed++;
       if (r === "gone") await db.from("ios_push_tokens").delete().eq("id", t.id);
-      if (errs.length < 3) errs.push(`[ios:${r}] ${t.device_token.slice(0, 8)}…`);
+      // ⚠️ 이유를 세어 둔다(토큰은 담지 않는다). 아래 push_log.note 로 나간다 —
+      //    이것이 없어서 아이폰 13분이 8일 동안 못 받는 걸 아무도 몰랐다.
+      const why = o.reason || r;
+      iosWhy[why] = (iosWhy[why] || 0) + 1;
+      if (errs.length < 3) errs.push(`[ios:${r}] ${o.reason || ""}`.trim());
     }
   }
   const total = (subs ?? []).length + (iosTokens ?? []).length;
@@ -1123,8 +1155,13 @@ async function sendPush(b: any) {
       title: title || "성경말씀 암송",
       sent, failed, total, ok: sent > 0,
     };
-    // body 컬럼이 있으면 본문까지 기록(이력 관리용). 없으면(구 스키마) 본문 없이 재시도.
-    const { error } = await db.from("push_log").insert({ ...logBase, body: body || null });
+    // 왜 실패했는지 — 이유별 건수를 한 줄로. ⚠️ 기기 토큰·user_id 는 안 넣는다.
+    const whyList = Object.keys(iosWhy).map((k) => `ios ${iosWhy[k]}건: ${k}`);
+    const note = whyList.length ? whyList.join(" · ").slice(0, 300) : null;
+    // body·note 컬럼이 있으면 함께 기록. 없으면(구 스키마) 빼고 재시도 — 로그 때문에
+    // 발송이 실패하면 본말이 뒤집힌다.
+    let { error } = await db.from("push_log").insert({ ...logBase, body: body || null, note });
+    if (error) ({ error } = await db.from("push_log").insert({ ...logBase, body: body || null }));
     if (error) await db.from("push_log").insert(logBase);
   } catch (_) { /* 로그 실패 무시 */ }
   return { ok: true, sent, failed, total };

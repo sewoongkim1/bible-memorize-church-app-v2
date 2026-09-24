@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260924a";
+const APP_BUILD = "20260924b";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9864,8 +9864,10 @@ function drawRankingBody(r, data) {
   //    renderRanking() 을 인자 없이 불러 기간을 기본값으로 되돌린다.
   // ⚠️ .rank-filter(기간 탭)를 재사용하지 않는다 — 다섯 화면이 나눠 쓰는 공용 클래스이고,
   //    마지막 탭이 「전체」라 같은 모양이면 「전체」 알약이 한 화면에 두 개가 된다.
+  // ⚠️ 잠긴 칩에 `disabled` 를 쓰지 않는다 — 눌러도 아무 일이 없어 「고장」으로 읽힌다(2026-09-24 제보).
+  //    눌리게 두고, 누르면 아래 안내 줄이 왜 안 되는지 알려 준다(wireRankScope).
   const scopeSeg = (mineOn, mineDisabled) => `<span class="rs-seg" role="group" aria-label="순위 범위">
-      <button type="button" data-s="mine" class="${mineOn ? "on" : ""}"${mineDisabled ? " disabled" : ""}>우리 ${soWord}</button>
+      <button type="button" data-s="mine" class="${mineOn ? "on" : ""}${mineDisabled ? " locked" : ""}"${mineDisabled ? ` aria-disabled="true"` : ""}>우리 ${soWord}</button>
       <button type="button" data-s="all" class="${mineOn ? "" : "on"}">전체</button>
     </span>`;
   let scopeHtml;
@@ -9879,7 +9881,7 @@ function drawRankingBody(r, data) {
     //    「우리 교구엔 3명뿐이에요」로 쓰면 교구 인원으로 읽혀 사실이 아닌 말이 된다.
     scopeHtml = `<div class="rank-scope rs-note" id="rk-scope">
       ${scopeSeg(false, true)}
-      <span class="rs-label">이번 기간에 ${soName}에서 기록하신 분은 <b>${nr.count}</b>명이에요</span></div>`;
+      <span class="rs-label">이번 기간에 ${soName}에서 기록하신 분은 <b>${nr.count}</b>명이에요<span class="rs-why"> — ${MIN_SCOPE_ROWS}명이 되면 「우리 ${soWord}」 순위를 볼 수 있어요</span></span></div>`;
   } else {
     // (a) 3명 이상 — 칩 둘 다 누를 수 있다.
     scopeHtml = `<div class="rank-scope" id="rk-scope">
@@ -9964,6 +9966,16 @@ function wireRankScope(r, data) {
   if (!box) return;
   box.querySelectorAll("button[data-s]").forEach((b) => b.addEventListener("click", () => {
     const v = b.dataset.s;
+    // 잠긴 칩(같은 소속 2명 이하) — 목록은 그대로 두고 안내 줄을 짚어 까닭을 보여 준다.
+    // 고른 뜻은 기억해 둔다(성도님이 직접 누른 것이다) — 3명이 넘는 기간으로 가면 그때 좁혀진다.
+    if (b.getAttribute("aria-disabled") === "true") {
+      rankScope = v;
+      try { localStorage.setItem(RANK_SCOPE_KEY, v); } catch {}
+      box.classList.remove("rs-flash");
+      void box.offsetWidth; // 연달아 눌러도 다시 깜박이게
+      box.classList.add("rs-flash");
+      return;
+    }
     if (v === rankScope) return;
     rankScope = v;
     // ⚠️ 성도님이 **직접 누른 것만** 저장한다(게이트가 강제로 켠 「전체」는 저장하지 않는다).

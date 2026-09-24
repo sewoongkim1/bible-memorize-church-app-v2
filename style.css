@@ -2780,7 +2780,15 @@ body.native-app-hide-ref .word-input { scroll-margin-top: 90px; }
   background:#fff; color:var(--navy); font-weight:800;
   box-shadow:0 1px 3px rgba(26,58,107,.18);
 }
-.rank-scope .rs-seg button:disabled{ opacity:.45; cursor:default; }
+/* 잠긴 칩 — disabled 가 아니라 눌린다(누르면 아래 안내 줄이 깜박여 까닭을 보여 준다) */
+.rank-scope .rs-seg button.locked{ opacity:.45; }
+.rank-scope .rs-seg button.locked:hover{ color:#5a6273; }
+.rank-scope.rs-flash .rs-label{ animation:rsFlash 1.2s ease; border-radius:6px; }
+.rank-scope .rs-why{ font-weight:600; }
+@keyframes rsFlash{
+  0%,40%{ background:rgba(26,58,107,.12); color:var(--navy); }
+  100%{ background:transparent; }
+}
 
 /* (b) 갈래 — 같은 소속이 2명 이하라 「전체」가 강제로 켜진 경우.
    안내 문구에는 반드시 기간이 들어가므로 한 줄에 안 들어온다.
@@ -2811,6 +2819,7 @@ body.native-app-hide-ref .word-input { scroll-margin-top: 90px; }
 .dark .rank-scope .rs-seg{ background:#1b2436; border-color:#33405a; }
 .dark .rank-scope .rs-seg button{ color:#9aa6b8; }
 .dark .rank-scope .rs-seg button:hover{ color:#cdd9f2; }
+.dark .rank-scope .rs-seg button.locked:hover{ color:#9aa6b8; }
 .dark .rank-scope .rs-seg button.on{
   background:#3a4a68; color:#fff; box-shadow:none;
 }
