@@ -142,7 +142,11 @@ async function enablePush() {
     }
     // 설정 직후 본인 기기로 '오늘의 묵상'을 첫 알림으로 발송(preview=true) — 무엇을 받을지 바로 체감
     api.testPush(sub.endpoint, hour, true).catch(() => {});
-    appAlert("🔔 알림이 설정되었습니다!\n매일 오전 " + hour + "시에 오늘의 묵상을 보내드려요.\n방금 오늘의 묵상을 이 기기로 보냈어요 — 잠시 후 확인해보세요.");
+    const eveOn = (typeof getPushEvening === "function") ? getPushEvening() : true;
+    appAlert("🔔 알림이 설정되었습니다!\n매일 오전 " + hour + "시"
+      + (eveOn ? "와 저녁 8시" : "") + "에 말씀을 보내드려요."
+      + (eveOn ? "\n(저녁은 ⚙️ 설정에서 끄실 수 있어요)" : "")
+      + "\n방금 오늘의 묵상을 이 기기로 보냈어요 — 잠시 후 확인해보세요.");
     if (typeof updateAppStatus === "function") updateAppStatus();
     return true;
   } catch (e) {

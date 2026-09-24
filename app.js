@@ -3321,8 +3321,8 @@ function showPushNudge() {
   slot.innerHTML = `
     <div class="push-nudge">
       <button class="pn-x" id="pn-x" aria-label="닫기">✕</button>
-      <div class="pn-title">🔔 매일 아침, 오늘의 묵상을 받아보세요</div>
-      <div class="pn-sub">하루 한 구절 · 짧은 묵상으로 하루를 시작해요</div>
+      <div class="pn-title">🔔 아침·저녁, 오늘의 묵상을 받아보세요</div>
+      <div class="pn-sub">하루 한 구절 · 아침에 한 번, 저녁 8시에 한 번</div>
       <button class="pn-btn" id="pn-on">🔔 알림 켜기</button>
     </div>`;
   document.getElementById("pn-on").addEventListener("click", async () => {
@@ -4072,7 +4072,7 @@ function renderSettings() {
           <button class="tts-preview" id="tts-preview">🔊 이 속도로 들어보기</button>
         </div>
         <div class="setting-block">
-          <div class="setting-label">🕖 알림 시간 (아침)</div>
+          <div class="setting-label">🕖 아침 알림 시간</div>
           <div class="tts-rate-row" id="pushhour-row">
             <button data-hour="5">5시</button>
             <button data-hour="6">6시</button>
@@ -4092,7 +4092,7 @@ function renderSettings() {
         ${(typeof isNativeApp === "function" && isNativeApp()) ? `
         <div class="app-status">🔔 알림은 로그인하시면 자동으로 설정됩니다. 안 오면 아이폰 설정 → 고척교회 성경암송 → 알림을 확인해 주세요.</div>
         ` : `
-        <button class="summary-install" id="enable-push">🔔 매일 암송 알림 받기<br><span class="btn-sub">( 매일 아침 · 위에서 시간 선택 )</span></button>
+        <button class="summary-install" id="enable-push">🔔 매일 암송 알림 받기<br><span class="btn-sub">( 아침 · 저녁 두 번 · 위에서 아침 시간 선택 )</span></button>
         <div class="app-status" id="app-status"></div>
         <div class="app-status" id="push-live-status" style="color:#8a6d1f"></div>
         <button class="push-off" id="disable-push">🔕 알림 끄기</button>
@@ -7361,13 +7361,13 @@ const MANUAL = [
   },
   {
     icon: "🔔", title: "알림 켜기",
-    lead: "아침에 오늘의 말씀을 알려 드려요.",
+    lead: "아침과 저녁에 오늘의 말씀을 알려 드려요.",
     art: '<div class="mn-row"><span class="mn-btn">🔔 알림</span></div>',
     steps: [
       "첫 화면을 <b>맨 아래까지</b> 내리면 동그란 단추 줄이 있어요. 거기서 <b>🔔 알림</b>을 누르세요.",
       "폰이 <b>「허용하시겠습니까?」</b> 하고 물어봐요.",
       "<b>「허용」</b>을 누르세요.",
-      "알림 받을 시간(<b>아침 5~8시</b>)은 <b>⚙️ 설정</b>에서 고를 수 있어요.",
+      "아침 시간(<b>5~8시</b>)과 <b>저녁 알림 끄기</b>는 <b>⚙️ 설정</b>에서 고를 수 있어요.",
     ],
     tip: "「허용 안 함」을 누르셨다면 폰 설정에서 다시 켜야 해요. 옆에 계신 분께 부탁하세요.",
     act: { id: "alarm", label: "🔔 지금 켜기" },
