@@ -17,6 +17,7 @@
 
 | 무엇을 손댈 때 | 읽을 것 |
 |---|---|
+| 지나온 길 전체 · 남은 일 · 앞으로 계획(2026-09-24 정리) | `docs/backlog.md` |
 | 암송·도전·복습 화면, 카드 입력, 단계 완료 창 | `docs/notes/memorize-flow.md` |
 | 쉴만한 물가(시편·잠언·전도서 액자) | `docs/notes/psalm-still-waters.md` |
 | 매일 묵상(무엇을 보여 줄지) | `docs/notes/meditation.md` |
