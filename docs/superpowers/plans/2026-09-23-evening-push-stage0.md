@@ -14,6 +14,9 @@
 
 ## Global Constraints
 
+> ⚠️ **`<( )` 프로세스 치환을 쓰지 말 것** — 이 환경(윈도우 Git Bash)에서 열리지 않는다
+> (2026-09-24 Task 3 에서 실제로 실패했다). 임시 파일로 돌아서 담는다.
+
 - **저녁 기본값은 `true`(켜짐).** 기존 구독자 34분은 그대로 받으시되 끌 수 있게 한다. `default false` 로 쓰지 말 것.
 - **저녁 시각은 20시**로 문구에 적는다. 「저녁 8시」로 쓴다(24시 표기 안 씀).
 - **어떤 응답·로그·`diag` 에도 `user_id` 를 싣지 않는다.** 이 API 는 JWT 가 없다(`--no-verify-jwt`) — CLAUDE.md 보안 절.
@@ -23,6 +26,21 @@
 - **`supabase functions deploy` 는 git 이 아니라 작업 트리를 올린다.** 배포 직전 `git diff HEAD -- supabase/functions/api/index.ts` 로 남의 커밋 안 된 헝크가 함께 나가는지 본다.
 - **`localStorage` 키 이름은 `pushEvening`** (기존 `pushHour` 와 같은 꼴). `push-invite-asked` 는 4판 것이니 여기서 만들지 않는다.
 - 새 표를 만들지 않는다 — 기존 표에 **칸만** 더한다. 그래도 `enable row level security` 는 이미 두 표 모두 켜져 있다(확인만 하고 건드리지 않는다).
+
+---
+
+## 누가 무엇을 하는가
+
+이 저장소의 확립된 분담이다(지난 과제 원장에도 같은 줄이 있다) —
+
+| | 누가 |
+|---|---|
+| 코드·시험 쓰기, 커밋 | **서브에이전트** |
+| **SQL 실행 · Edge Function 배포 · curl 검증 · push** | **메인 세션(컨트롤러)** |
+
+⚠️ 서브에이전트는 `supabase` 명령을 **부르지 않는다.** 운영 DB 와 성도님 기록이 걸린 자리이고,
+대시보드에서 프로젝트 이름을 눈으로 확인해야 하는 단계가 있다. 각 Task 의 「돌린다/배포한다」
+단계는 컨트롤러가 한다.
 
 ---
 
@@ -56,7 +74,8 @@
 
 **Interfaces:**
 - Produces: 액션 `updatePushEvening` — 요청 `{ action:"updatePushEvening", user_id: string, on: boolean }`,
-  응답 `{ ok: true, on: boolean, web: number, ios: number }` (`web`·`ios` 는 바뀐 **행 수**).
+  응답 `{ ok: true, on: boolean, web: number, ios: number, migrated: boolean }`
+  (`web`·`ios` 는 바뀐 **행 수** · `migrated` 는 `evening` 칸이 이미 있는 DB 인지).
   ⚠️ 응답에 `user_id` 를 싣지 않는다.
 - Produces: 두 표의 `evening` 칸(기본 `true`). Task 2 의 `setPushEvening` 이 이 액션을 부른다.
 
@@ -93,6 +112,9 @@ call() {
     -H "apikey: $KEY" -H "Authorization: Bearer $KEY" --data-binary @"$CALL_TMP"
 }
 
+# ⚠️ migrated 를 반드시 본다 — on 은 요청값을 그대로 되돌려주므로, SQL(evening 칸)을 안 돌린
+#    채 함수만 배포해도 ok:true·on:<요청값> 이 나와 **거짓 통과**한다. migrated:false 가 곧
+#    「칸이 아직 없다」는 신호다. 이 한 줄이 배포 순서 착오를 잡는다.
 pass=0; fail=0
 chk() { # 이름, 실제, 기대
   if [ "$2" = "$3" ]; then echo "  ✓ $1 = $2"; pass=$((pass+1));
@@ -112,11 +134,13 @@ echo "■ 끄기"
 R=$(call "{\"action\":\"updatePushEvening\",\"user_id\":\"$TEST_UID\",\"on\":false}")
 chk "ok"  "$(echo "$R" | grep -o '"ok":[a-z]*'  | cut -d: -f2)" "true"
 chk "on"  "$(echo "$R" | grep -o '"on":[a-z]*'  | cut -d: -f2)" "false"
+chk "migrated" "$(echo "$R" | grep -o '"migrated":[a-z]*' | cut -d: -f2)" "true"
 
 echo "■ 켜기"
 R=$(call "{\"action\":\"updatePushEvening\",\"user_id\":\"$TEST_UID\",\"on\":true}")
 chk "ok"  "$(echo "$R" | grep -o '"ok":[a-z]*'  | cut -d: -f2)" "true"
 chk "on"  "$(echo "$R" | grep -o '"on":[a-z]*'  | cut -d: -f2)" "true"
+chk "migrated" "$(echo "$R" | grep -o '"migrated":[a-z]*' | cut -d: -f2)" "true"
 
 echo "■ user_id 가 없으면 거절한다"
 R=$(call '{"action":"updatePushEvening","on":true}')
@@ -234,13 +258,13 @@ Expected: `Deployed Functions on project ktpwthwqzgcqcrmsafdo`
 - [ ] **Step 8: 스모크를 다시 돌려 통과를 본다**
 
 Run: `DEV_ANON=<개발 anon 키> bash tests/push-evening-smoke.sh`
-Expected: **통과 6 · 실패 0**
+Expected: **통과 8 · 실패 0**
 
 - [ ] **Step 9: 커밋**
 
 ```bash
 git add supabase/push_evening.sql tests/push-evening-smoke.sh
-git apply --cached <(git diff -- supabase/functions/api/index.ts)
+git diff -- supabase/functions/api/index.ts > /tmp/my.patch && git apply --cached /tmp/my.patch && rm /tmp/my.patch
 git commit -m "feat(알림): 저녁 on/off 칸과 updatePushEvening 액션 — 0판
 
 저녁 알림을 보내기 전에 「저녁만 끄는 길」부터 만든다. disablePush 는 구독
@@ -433,7 +457,7 @@ Expected: **통과 10 · 실패 0**
 
 ```bash
 git add tests/push-evening-native.py
-git apply --cached <(git diff -- js/push.js js/api.js)
+git diff -- js/push.js js/api.js > /tmp/my.patch && git apply --cached /tmp/my.patch && rm /tmp/my.patch
 git commit -m "feat(알림): 저녁 토글의 프런트 저장소 계층 — 0판
 
 setPushEvening 은 사람 단위(user_id)라 네이티브 분기가 아예 필요 없다.
@@ -546,7 +570,7 @@ Run: `python -m http.server 8808`
 - [ ] **Step 6: 커밋**
 
 ```bash
-git apply --cached <(git diff -- app.js)
+git diff -- app.js > /tmp/my.patch && git apply --cached /tmp/my.patch && rm /tmp/my.patch
 git commit -m "feat(알림): 설정에 저녁 알림 토글 — 0판
 
 저녁만 끄는 길을 성도님 손에 드린다. 지금은 disablePush 가 구독 자체를
@@ -661,7 +685,7 @@ Expected: 아무것도 안 나온다.
 - [ ] **Step 9: 커밋**
 
 ```bash
-git apply --cached <(git diff -- app.js js/push.js privacy/index.html)
+git diff -- app.js js/push.js privacy/index.html > /tmp/my.patch && git apply --cached /tmp/my.patch && rm /tmp/my.patch
 git commit -m "fix(알림): 「아침만」이라 약속한 일곱 곳을 아침·저녁으로
 
 저녁 알림이 한 통이라도 나가면 이 문구들이 거짓이 된다. 그중
@@ -781,7 +805,7 @@ Expected: 아무것도 안 나온다(이 Task 는 `app.js` 를 안 고치지만,
 - [ ] **Step 7: 커밋**
 
 ```bash
-git apply --cached <(git diff -- CLAUDE.md docs/analysis/2026-09-23-usage-analysis.md docs/analysis/2026-09-23-usage-analysis.html supabase/functions/api/index.ts)
+git diff -- CLAUDE.md docs/analysis/2026-09-23-usage-analysis.md docs/analysis/2026-09-23-usage-analysis.html supabase/functions/api/index.ts > /tmp/my.patch && git apply --cached /tmp/my.patch && rm /tmp/my.patch
 git commit -m "docs: latestVerse UTC 자정 버그는 없었다 — 네 곳 정정
 
 CLAUDE.md 는 매 세션 통째로 읽힌다. 거기 적힌 「아침 알림은 아직 UTC 자정
@@ -816,10 +840,12 @@ Run: `git status --short`
 1. `git diff HEAD -- supabase/functions/api/index.ts` 가 **비어 있어야** 한다.
    비어 있지 않으면 **멈춘다** — `supabase functions deploy` 는 git 이 아니라 **작업 트리**를 올리므로
    남의 커밋 안 된 코드가 운영에 함께 나간다.
-2. `git diff HEAD -- admin.html` 이 **비어 있어야** 한다.
-   비어 있지 않으면 **멈춘다** — `tools/bump.py` 가 `admin.html` 의 `admin-stats.html?v=` 를 고치는데,
-   같은 줄에 남의 변경이 있으면 `git apply --cached` 로도 못 가른다.
-   → 친구에게 그 헝크를 먼저 커밋해 달라고 한다.
+2. `git diff HEAD -- admin.html` 을 본다.
+   - **비어 있으면** 그대로 진행한다.
+   - **`admin-stats.html?v=…` 한 줄뿐이면** 그대로 진행한다 — 그 줄은 `tools/bump.py` 가 소유하고,
+     이번 bump 가 어차피 새 태그로 덮어쓴다(2026-09-23 실제로 `20260923g` 가 커밋 안 된 채 남아 있었다).
+   - **그 밖의 줄이 있으면 멈춘다** — 같은 파일에 남의 미완성 변경이 있는 것이고,
+     `git apply --cached` 로도 못 가른다. 친구에게 먼저 커밋해 달라고 한다.
 
 - [ ] **Step 2: 운영 DB 에 SQL 을 돌린다**
 
@@ -844,7 +870,7 @@ Expected: `Deployed Functions on project xnomlgydifiqiybervtf`
 - [ ] **Step 4: 운영에서 스모크를 돌린다**
 
 Run: `PE_ENV=prod PROD_ANON=sb_publishable_oLtieT_jw7Gjb8etEsy0jw_thBaDjl- bash tests/push-evening-smoke.sh`
-Expected: **통과 6 · 실패 0**
+Expected: **통과 8 · 실패 0**
 
 ⚠️ 이 시험은 운영 DB 에 「저녁/저녁/저녁시험」이라는 **시험용 계정을 하나 만든다.**
 끝나면 SQL Editor 에서 지운다:
@@ -869,7 +895,7 @@ Expected: 전부 ✓ (문법 · 캐시태그 · `APP_BUILD` 일치).
 - [ ] **Step 7: 커밋하고 푸시한다**
 
 ```bash
-git apply --cached <(git diff -- index.html app.js admin.html)
+git diff -- index.html app.js admin.html > /tmp/my.patch && git apply --cached /tmp/my.patch && rm /tmp/my.patch
 git commit -m "chore(판): 저녁 알림 토글 · 아침·저녁 문구 — 0판
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
@@ -916,7 +942,7 @@ Expected: 둘 다 **1 이상**.
 ```
 
 ```bash
-git apply --cached <(git diff -- CLAUDE.md)
+git diff -- CLAUDE.md > /tmp/my.patch && git apply --cached /tmp/my.patch && rm /tmp/my.patch
 git commit -m "docs: 다음 작업에 저녁 알림 남은 판 적기
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
