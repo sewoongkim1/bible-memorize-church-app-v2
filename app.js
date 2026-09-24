@@ -185,8 +185,12 @@ function routeAfterLoad() {
     if (loadUser()) enterAfterLogin(); else renderEntryScreen();
     return;
   }
-  // 가정 축복 기도문 — 아직 성도님 첫 화면에는 없다(어드민에서만 확인).
-  //   성도님께 열 때: renderSummary 의 「함께」 묶음에 한 줄을 더하면 된다.
+  // 가정 축복 기도문 — **2026-09-03 에 이미 성도님께 열렸다**(커밋 11a1bea).
+  //   첫 화면 「함께」 묶음의 `🙏 가정 축복 기도문` 단추에 게이트가 없다(이웃한
+  //   ministryVisible()·passagesVisible() 과 다르다) — 모두에게 보인다.
+  //   ⚠️ 이 주석은 만든 날부터 3주 넘게 「아직 없다」로 남아 있었다(2026-09-24 정정).
+  //      CLAUDE.md 와 백로그도 같이 낡아 「첫 화면에 한 줄 더하기」가 남은 일로 적혀 있었다.
+  //   이 ?preview=prayer 는 그래서 지금은 **로그인 없이 바로 보려는 용도**로만 남는다.
   if (preview === "prayer") {
     if (loadUser()) renderPrayerBook(); else renderEntryScreen();
     return;
