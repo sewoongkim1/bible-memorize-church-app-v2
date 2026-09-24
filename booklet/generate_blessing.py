@@ -32,7 +32,15 @@
      --size  a5|a4            a4 는 어르신 큰글씨판 — 한 쪽에 한 편, 판·글씨를 √2배로.
      --1vol                   104편을 한 권으로(기본은 52편씩 두 권).
      --2up                    (a5 전용) 인쇄용 — A4 가로 한 장에 소책자 두 쪽을 나란히.
+     --title 권사님           표지·사용법의 호칭(기본 '성도님'). **기도문 본문에는 안 붙는다.**
      예)  python generate_blessing.py 김세웅 --theme teal --font pc --size a4
+
+   사용법 (2026-09-24 더한 것):
+     --nomark                 **표지에서 교회 마크를 뺀다.** 대신 금색 액자와 마름모 문양으로
+                              짓는다(선물용). 파일 이름에 `_마크없음` 이 붙어 기본 판과 안 겹친다.
+     · 파일 이름에 **성함이 들어간다** — 예) 축복기도문_1권_김세웅.pdf
+       (전에는 --list 로 여럿 뽑을 때만 넣었다. 폴더에서 파일만 보고 누구 책인지 알게 바꿨다.)
+     예)  python generate_blessing.py 서명자 --title 권사님 --size a4 --pdf --nomark
 """
 import json, io, re, html, os, sys
 
@@ -45,6 +53,12 @@ NAME = sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith('-') else
 #      다시 재 볼 것(A5 가 더 좁으니 A5 로 잰다).
 FOOT_MID = '여호와는 그 얼굴을 네게로 향하여 드사 평강 주시기를 원하노라'
 AMEN = '예수님의 이름으로 축복하며 기도합니다. 아멘!'
+# 뒷장 말씀 — 가정의 복을 노래하는 시편이라 이 책의 맺음으로 둔다(개역개정).
+#   바꾸려면 여기 두 줄만 고치면 된다. <br> 로 줄을 끊는다 — 읽는 숨을 그대로 따른다.
+#   ⚠️ 길면 액자를 넘친다. 바꾼 뒤에는 반드시 뽑아서 눈으로 볼 것.
+BACK_VERSE = ('여호와를 경외하며<br>그의 길을 걷는 자마다 복이 있도다<br><br>'
+              '네가 네 손이 수고한 대로 먹을 것이라<br>네가 복되고 형통하리로다')
+BACK_REF = '시편 128편 1~2절'
 ONE_VOL = '--1vol' in sys.argv
 PER_VOL = 999 if ONE_VOL else 52   # --1vol: 104편 한 권 / 기본: 52편씩 두 권
 
@@ -127,6 +141,9 @@ SIZE_NAME = arg_val('--size', 'a5')
 if SIZE_NAME not in ('a5', 'a4'):
     raise SystemExit('!! --size 는 a5 또는 a4 여야 합니다(받은 값: %s)' % SIZE_NAME)
 TWOUP = '--2up' in sys.argv
+# 표지에서 교회 마크를 뺀 판 — 선물로 드리기 좋게 액자와 문양만으로 짓는다.
+#   ⚠️ 파일 이름이 기본 판과 겹치면 덮어쓴다. SUFFIX 로 가른다.
+NOMARK = '--nomark' in sys.argv
 
 # ── 여러 사람 몫을 한 번에 (--list 명단.txt) · PDF 로 굽기 (--pdf) ─────────────
 #   ⚠️ 명단으로 돌릴 때는 **파일 이름에 성함을 넣는다** — 안 그러면 다음 사람이
@@ -373,19 +390,63 @@ def page(r, pno, name):
 
 
 def cover(vol, name, first, last):
-    logo = '<img class="c-logo" src="%s">' % LOGO if LOGO else ''
+    # --nomark : 교회 마크를 빼고 액자와 마름모 문양만으로 짓는다(선물용).
+    #   ⚠️ 문양은 글자(❖)가 아니라 **인라인 SVG(ORN)** 다 — 서체 cmap 에 있어도 윤곽이
+    #      빈 글리프인 경우가 있어(빙그레체) 장식 글자는 표지에 쓰지 않는다.
+    if NOMARK:
+        logo = '<div class="c-frame"></div><div class="c-orn">%s</div>' % ORN
+    else:
+        logo = '<img class="c-logo" src="%s">' % LOGO if LOGO else ''
+    # 권 표시 — **나뉠 때만** 낸다(--1vol 이면 한 권뿐이라 「제1권」이 오히려 혼란스럽다).
+    #   몇 편부터 몇 편까지인지 함께 적어, 두 권을 나란히 두었을 때 어느 쪽을 펼지 알 수 있게.
+    vol_line = '' if ONE_VOL else (
+        '<div class="c-vol">제%d권<span>%d~%d편</span></div>' % (vol, first['no'], last['no']))
     return """
-<section class="page c%s">
+<section class="page c%s%s">
   <div class="c-in">
     %s
     <h1 class="c-t">가정 축복 기도문</h1>
     <div class="c-line"></div>
+    %s
     <div class="c-name">%s %s</div>
     <div class="c-v">여호와는 네게 복을 주시고 너를 지키시기를 원하며<br><b>민수기 6장 24절</b></div>
   </div>
 </section>
 <section class="page blank"></section>""" % ('' if THEME.get('cover_fill', True) else ' bw',
-                                             logo, html.escape(name), html.escape(TITLE_SUFFIX))
+                                             ' cx' if NOMARK else '',
+                                             logo, vol_line,
+                                             html.escape(name), html.escape(TITLE_SUFFIX))
+
+
+def back_cover():
+    """뒷장 — 앞표지와 같은 언어(액자·마름모·금색 선)로, 말씀 하나만 둔다.
+       ⚠️ 쪽번호(꼬리말)를 넣지 않는다 — 표지와 짝이라 책의 바깥이다."""
+    frame = '<div class="c-frame"></div>' if NOMARK else ''
+    return """
+<section class="page c%s%s cb">
+  <div class="c-in">
+    %s
+    <div class="c-orn">%s</div>
+    <div class="c-v cb-v">%s<br><b>%s</b></div>
+  </div>
+</section>""" % ('' if THEME.get('cover_fill', True) else ' bw',
+                 ' cx' if NOMARK else '',
+                 frame, ORN, BACK_VERSE, html.escape(BACK_REF))
+
+
+def close_book(pages):
+    """맺음 — 빈 쪽으로 채운 뒤 뒷장을 붙여 한 덩어리 HTML 로 돌려준다.
+
+       ⚠️ **뒷장은 짝수 쪽이라야 한다.** 제본하면 홀수 쪽은 오른쪽 면이라, 책을 덮었을 때
+          뒤에서 보이는 것이 뒷장이 아니라 그 뒤의 빈 면이 된다(2026-09-24 에 113쪽으로
+          한 번 그랬다).
+       ⚠️ 인쇄소는 보통 **4의 배수**를 요구한다(대수 한 장이 4쪽이다).
+       두 가지를 한 규칙으로 푼다 — **뒷장까지의 쪽수를 4의 배수로 맞춘다.**
+          그러면 뒷장 번호 = 총 쪽수 = 4의 배수 = 짝수라, 둘 다 저절로 지켜진다.
+       남는 빈 쪽은 뒷장 **앞**에 둔다 — 메모로 쓰기 좋은 자리다."""
+    body = ''.join(pages)
+    pad = (-(body.count('class="page') + 1)) % 4
+    return body + '<section class="page blank"></section>' * pad + back_cover(), pad
 
 
 def intro(name, n):
@@ -551,11 +612,48 @@ body { margin:0; font-family:var(--body-font); color:#1c2333; letter-spacing:0.0
 .c.bw .c-vol, .c.bw .c-v { opacity:1; color:#4a5364; }
 .c-in { padding:0 6mm; }
 .c-logo { width:20mm; margin-bottom:4mm; }
+/* 마크 없는 표지(--nomark) — 받는 분이 「갖고 싶게」. 장식은 액자와 마름모뿐이다.
+   ⚠️ .c 는 justify-content:center 다. 여기에 margin:auto 를 쓰면 auto 가 남는 공간을
+      통째로 먹어 글이 위로 쏠린다(2026-09-09 에 한 번 겪었다) — 액자는 absolute 로 띄운다.
+   ⚠️ 액자 선은 border/outline 로 그린다. repeating-linear-gradient 로 그리면 크롬이
+      PDF 로 구울 때 래스터로 바꿔 굵기가 뭉개진다. */
+.c.cx { position:relative; }
+.c.cx .c-frame { position:absolute; left:9mm; right:9mm; top:9mm; bottom:9mm;
+                 border:.45mm solid var(--accent); pointer-events:none; }
+.c.cx .c-frame::after { content:""; position:absolute; left:1.8mm; right:1.8mm; top:1.8mm; bottom:1.8mm;
+                        border:.15mm solid var(--accent); opacity:.75; }
+/* 시각 중심 — 기하학적 한가운데에 두면 아래가 무거워 보인다. 살짝 위로 올린다.
+   ⚠️ margin:auto 로 올리지 말 것(.c 가 justify-content:center 라 auto 가 공간을 먹는다).
+      padding 으로 아래를 밀어 올린다. */
+.c.cx .c-in { padding-bottom:12mm; }
+/* 액자 아래 작은 마름모 — 비어 보이는 아랫부분을 잡아 준다.
+   ⚠️ 글자(◆)가 아니라 CSS 로 그린 네모를 돌린 것이다 — 서체에 따라 안 그려지는 일이 없다. */
+.c.cx .c-frame::before { content:""; position:absolute; left:50%; bottom:7mm;
+                         width:2.4mm; height:2.4mm; margin-left:-1.2mm;
+                         background:var(--accent); transform:rotate(45deg); }
+/* 문양 — 앞표지(--nomark)와 뒷장이 함께 쓴다. .c 밑에 두어야 마크 있는 판의 뒷장에도 나온다. */
+.c .c-orn { color:var(--accent); line-height:0; margin-bottom:7mm; }
+.c .c-orn svg { width:12mm; height:12mm; }
+.c .c-orn i { display:none; }             /* ORN 양옆의 가로줄은 표지·뒷장에서 안 쓴다 */
+.c.bw .c-orn { color:#8a6a1e; }           /* 흰 바탕에서는 밝은 금색이 안 보인다 */
+/* ── 뒷장 ─────────────────────────────────────────────────── */
+/* 말씀 하나만 크게. .c-v 를 그대로 물려받아 테마 처리(금색 출처 표기)를 공짜로 얻는다. */
+.c.cb .cb-v { margin-top:0; font-size:13pt; line-height:2.15; opacity:1; }
+.c.cb .cb-v b { display:inline-block; margin-top:7mm; font-size:10.5pt; letter-spacing:.04em; }
+.c.cb .c-in { padding-bottom:6mm; }       /* 앞표지(12mm)보다 덜 올린다 — 글이 한 덩어리라 */
+.c.cx .c-t { font-size:30pt; }            /* 액자 안이라 한 눈금 줄여 숨통을 준다 */
+.c.cx .c-name { margin-top:11mm; }
+.c.cx .c-v { margin-top:14mm; }
+/* 흑백판에서도 액자는 금갈색으로 — 흰 바탕에 밝은 금색은 안 보인다 */
+.c.bw.cx .c-frame, .c.bw.cx .c-orn { color:#8a6a1e; border-color:#8a6a1e; }
+.c.bw.cx .c-frame::after { border-color:#8a6a1e; }
+.c.bw.cx .c-frame::before { background:#8a6a1e; }
 .c-church { font-size:10pt; letter-spacing:2px; opacity:.85; }
 .c-t { font-family:var(--title-font); font-size:32pt; font-weight:var(--title-weight);
        line-height:1.3; margin:4mm 0 0; letter-spacing:var(--title-track); }
 .c-line { width:22mm; height:1.2mm; background:var(--accent); margin:5mm auto; }
-.c-vol { font-size:10.5pt; opacity:.9; }
+.c-vol { font-size:10.5pt; opacity:.9; letter-spacing:.06em; }
+.c-vol span { display:block; margin-top:1.4mm; font-size:8.5pt; letter-spacing:.02em; opacity:.7; }
 .c-name { margin-top:9mm; font-family:var(--title-font); font-size:17pt; font-weight:var(--title-weight); color:var(--accent-light); }
 .c-v { margin-top:12mm; font-size:9.5pt; line-height:1.8; opacity:.85; }
 .c-v b { color:var(--accent-light); }
@@ -636,7 +734,8 @@ window.addEventListener("load", function () {
 # 기본(gold·a5)과 파일 이름이 같아야 지금까지 쓰던 안내 문서·기존 파일명이 안 깨진다.
 SUFFIX = (('' if THEME_NAME == 'gold' else '_' + THEME_NAME)
           + ('' if FONT_NAME == 'web' else '_' + FONT_NAME)
-          + ('' if SIZE_NAME == 'a5' else '_A4'))
+          + ('' if SIZE_NAME == 'a5' else '_A4')
+          + ('_마크없음' if NOMARK else ''))
 
 FONT_LINK = ('<link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800'
              '&family=Noto+Serif+KR:wght@400;600;700;900'
@@ -681,8 +780,10 @@ def out_path(fname):
 
 
 def name_tag(name):
-    """명단으로 돌릴 때만 성함을 파일 이름에 넣는다(한 사람 몫은 예전 이름 그대로)."""
-    return ('_' + name) if LIST_FILE else ''
+    """파일 이름에 성함을 넣는다 — 폴더에서 파일만 보고 누구 책인지 알 수 있게(2026-09-24).
+       ⚠️ 윈도우에서 파일 이름에 못 쓰는 글자와 공백은 지운다.
+          호칭은 --title 로 따로 주므로 여기 들어오는 것은 보통 이름뿐이다."""
+    return '_' + re.sub(r'[\\/:*?"<>|\s]', '', name)
 
 
 def build(vol, items, name):
@@ -692,7 +793,8 @@ def build(vol, items, name):
     for i, r in enumerate(items):
         pages.append(page(r, base + i, name))
     pages.append(index_by_group(items, base, base + len(items)))
-    out = html_doc(CSS, ''.join(pages))
+    body, _pad = close_book(pages)      # 빈 쪽으로 4의 배수를 맞추고 뒷장(시편 128편)
+    out = html_doc(CSS, body)
     vol_tag = '' if ONE_VOL else '_%d권' % vol
     f = out_path('축복기도문%s%s%s.html' % (vol_tag, name_tag(name), SUFFIX))
     io.open(f, 'w', encoding='utf-8', newline='').write(out)
@@ -728,7 +830,8 @@ def build_2up(vol, items, name):
     for i, r in enumerate(items):
         pages.append(page(r, base + i, name))
     pages.append(index_by_group(items, base, base + len(items)))
-    secs = re.findall(r'<section class="page[^"]*">.*?</section>', ''.join(pages), re.S)
+    body, _pad = close_book(pages)      # 빈 쪽으로 4의 배수를 맞추고 뒷장(시편 128편)
+    secs = re.findall(r'<section class="page[^"]*">.*?</section>', body, re.S)
     sheets = ['<div class="sheet">%s</div>' % ''.join(secs[i:i + 2]) for i in range(0, len(secs), 2)]
     out = html_doc(CSS + CSS_2UP, ''.join(sheets))
     vol_tag = '' if ONE_VOL else '_%d권' % vol
