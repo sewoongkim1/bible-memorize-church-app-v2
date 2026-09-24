@@ -4081,6 +4081,14 @@ function renderSettings() {
           </div>
           <div id="pushhour-msg" class="btn-sub" style="text-align:center;color:#2f6b4f;min-height:16px"></div>
         </div>
+        <div class="setting-block">
+          <div class="setting-label">🌙 저녁 알림</div>
+          <div class="tts-rate-row" id="pushevening-row">
+            <button data-evening="1">저녁 8시에도 받기</button>
+            <button data-evening="0">아침에만 받기</button>
+          </div>
+          <div id="pushevening-msg" class="btn-sub" style="text-align:center;color:#2f6b4f;min-height:16px"></div>
+        </div>
         ${(typeof isNativeApp === "function" && isNativeApp()) ? `
         <div class="app-status">🔔 알림은 로그인하시면 자동으로 설정됩니다. 안 오면 아이폰 설정 → 고척교회 성경암송 → 알림을 확인해 주세요.</div>
         ` : `
@@ -4124,6 +4132,7 @@ function renderSettings() {
   setupLangSetting();
   setupTtsRate();
   setupPushHour();
+  setupPushEvening();
   setupInstallButton();
 }
 
@@ -4177,6 +4186,31 @@ function setupPushHour() {
       if (msg) msg.textContent = r.updated
         ? `✅ 매일 오전 ${h}시에 받도록 변경됐어요.`
         : `오전 ${h}시로 설정했어요. 아래 '알림 받기'를 켜면 적용돼요.`;
+    });
+  });
+}
+
+// 저녁 알림(20시) 켜고 끄기 — 고르면 즉시 서버 반영(로그인돼 있을 때).
+// ⚠️ setupPushHour 와 같은 꼴을 지킨다(sync → 저장 중 → 결과 문구).
+function setupPushEvening() {
+  const row = document.getElementById("pushevening-row");
+  if (!row) return;
+  const msg = document.getElementById("pushevening-msg");
+  const btns = Array.from(row.querySelectorAll("button"));
+  const cur = (typeof getPushEvening === "function") ? getPushEvening() : true;
+  const sync = (on) => btns.forEach((b) => b.classList.toggle("on", (b.dataset.evening === "1") === on));
+  sync(cur);
+  btns.forEach((b) => {
+    b.addEventListener("click", async () => {
+      const on = b.dataset.evening === "1";
+      sync(on);
+      if (msg) msg.textContent = "저장 중...";
+      let r = { updated: false, on };
+      if (typeof setPushEvening === "function") r = await setPushEvening(on);
+      if (msg) msg.textContent = r.updated
+        ? (on ? "✅ 저녁 8시에도 보내 드릴게요." : "✅ 아침에만 보내 드릴게요.")
+        : (on ? "저녁 8시에도 받도록 해 두었어요. 아래 '알림 받기'를 켜면 적용돼요."
+              : "아침에만 받도록 해 두었어요. 아래 '알림 받기'를 켜면 적용돼요.");
     });
   });
 }
