@@ -24,6 +24,15 @@ if (isNativeApp()) {
   if (document.body) document.body.classList.add("native-app-hide-ref");
 }
 
+// 저녁 알림(20시)이 실제로 나가기 시작한 날 true 로 바꾼다.
+//   ⚠️ 이것을 false 로 두는 동안에는 **저녁을 약속하는 문구를 성도님께 보이지 않는다.**
+//      칸·토글·액션은 미리 다 있지만 보내는 크론이 아직 없기 때문이다(0판은 준비, 3판이 켠다).
+//      켜지 않은 채 「저녁 8시에도 보내드려요」를 내보내면, 기다리시는데 안 오는 일이 생긴다.
+//   ⚠️ 켜는 날 할 일 — 이 값을 true 로 → python tools/bump.py → 푸시.
+//      같은 꼴의 본보기가 app.js 의 WIDGET_GUIDE 다.
+const EVENING_LIVE = false;
+window.EVENING_LIVE = EVENING_LIVE;
+
 // 알림 받을 시간(5·6·7·8시). 기본 7시. localStorage에 보관.
 function getPushHour() {
   try { const h = Number(localStorage.getItem("pushHour")); return [5, 6, 7, 8].includes(h) ? h : 7; }
@@ -142,7 +151,8 @@ async function enablePush() {
     }
     // 설정 직후 본인 기기로 '오늘의 묵상'을 첫 알림으로 발송(preview=true) — 무엇을 받을지 바로 체감
     api.testPush(sub.endpoint, hour, true).catch(() => {});
-    const eveOn = (typeof getPushEvening === "function") ? getPushEvening() : true;
+    // 저녁 알림이 아직 안 나가는 동안(EVENING_LIVE=false)은 저녁 이야기를 빼고 예전 문구 그대로.
+    const eveOn = window.EVENING_LIVE && ((typeof getPushEvening === "function") ? getPushEvening() : true);
     appAlert("🔔 알림이 설정되었습니다!\n매일 오전 " + hour + "시"
       + (eveOn ? "와 저녁 8시" : "") + "에 말씀을 보내드려요."
       + (eveOn ? "\n(저녁은 ⚙️ 설정에서 끄실 수 있어요)" : "")
