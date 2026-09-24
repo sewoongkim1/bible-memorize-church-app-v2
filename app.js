@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260924c";
+const APP_BUILD = "20260925a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5042,11 +5042,14 @@ function showStageDoneModal(verse, stage, wasFirst) {
   //    9개월 전 구절로 돌아갔다. 2026-09-23 실측 — 하루만 쓰고 떠난 82명은 첫날 1.38구절,
   //    5일 이상 쓴 분은 4.73구절. 완주는 둘 다 하지만(구절당 기록 3.1 vs 3.7) 갈 곳이 없었다.
   //    38(이번 주) → 37(지난주) → 36 … 시간을 거슬러 오르므로 설교 기억과도 이어진다.
-  //    다 외우셨으면 null → 아래 first 갈래(「↺ 처음 말씀으로」)가 받는다.
-  //    설계 docs/superpowers/specs/2026-09-23-first-day-next-verse-design.md · 시험 tests/stage-done.py
-  const next = verses
+  //    ⚠️ **다 외우셨으면 예전처럼 번호순 다음**으로 간다. 이걸 빼먹고 곧장 first 갈래로 보냈더니
+  //    38구절을 다 외우신 분이 1번을 마치고 「↺ 처음 말씀으로」= **같은 1번**에 갇혔다(2026-09-25 제보).
+  //    번호순 다음마저 없을 때(맨 끝)만 아래 first 갈래(「↺ 처음 말씀으로」)가 받는다.
+  //    설계 docs/superpowers/specs/2026-09-23-first-day-next-verse-design.md · 시험 tests/stage-done.py ⑧
+  const unlearned = verses
     .filter((v) => v.no !== verse.no && getPassedStage(v.no) < 3)
     .reduce((best, v) => (!best || v.no > best.no ? v : best), null);
+  const next = unlearned || ((idx >= 0 && idx < verses.length - 1) ? verses[idx + 1] : null);
   const head = stage < 3
     ? `<div class="cheer-icon">✅</div>
        <div class="cheer-ref">${stage}단계 완료!</div>

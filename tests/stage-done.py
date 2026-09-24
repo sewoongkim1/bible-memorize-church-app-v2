@@ -94,6 +94,16 @@ try:
         went = press_main()
         check("⑦ 2를 마치면 3이 아니라 가장 최근인 5로", went == 5, went)
 
+        # ⑧ ★ 다 외우신 분은 번호순 다음으로 — 1번을 마치고 「처음 말씀으로」(= 같은 1번)에 갇히면 안 된다
+        #    (2026-09-25 제보: 38구절을 다 외우신 분이 1번에서 계속 「↺ 처음 말씀으로」)
+        label = open_modal(done=[1, 2, 3, 4, 5], cur=1)
+        check("⑧ 다 외우고 1번을 마치면 「다음 말씀 ▶」", label == "다음 말씀 ▶", label)
+        went = press_main()
+        check("⑧ 그때 누르면 2번으로", went == 2, went)
+        open_modal(done=[1, 2, 3, 4, 5], cur=3)
+        went = press_main()
+        check("⑧ 다 외우고 3번을 마치면 4번으로", went == 4, went)
+
         browser.close()
 finally:
     srv.terminate()
