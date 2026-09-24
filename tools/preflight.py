@@ -69,7 +69,8 @@ else:
 #    PGlite·jsdom·typescript 가 있어야 해서 못 넣는다 — 넣으면 Actions 러너에
 #    node_modules 가 없어 배포가 통째로 멈춘다. 새 검사를 더할 때도 기준은 같다:
 #    node 내장(node:test·node:assert·node:fs·node:path·node:vm)만 쓰는가.
-PURE_TESTS = ["tests/ranking-scope.test.cjs", "tests/send-push-opts.test.cjs"]
+PURE_TESTS = ["tests/ranking-scope.test.cjs", "tests/send-push-opts.test.cjs",
+              "tests/evening-push.test.cjs"]
 
 print("\n[3] 순수 함수 검사 (node --test)")
 for t in PURE_TESTS:

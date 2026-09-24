@@ -1107,6 +1107,35 @@ function pickMessage(userBodies, uid, title, body) {
 }
 // ── 저녁 알림 옵션 — 순수 함수 (여기까지) ──
 
+// ── 저녁 알림 문구 — 순수 함수 (여기부터) ──
+// ⚠️ 이 구간도 **타입 표기 없이** 쓴다. tests/evening-push.test.cjs 가 두 표식 사이만 잘라
+//    돌린다(꾸러미 없이 — tools/preflight.py 가 배포 앞 그물에 건다).
+//    주석에도 표기를 예로 적지 않는다 — 가드 정규식이 주석까지 본다.
+//
+// ⚠️ 문구 규칙 둘. 둘 다 이유가 있다.
+//   ① **「만」을 쓰지 않는다.** 첫 화면이 일부러 피한 표현이다 — 3구절은 상한이 아니라 묶음이고,
+//      다 하면 앱이 곧장 「3구절 더 하기」를 내민다. 「3구절만」은 그 결정을 되돌린다.
+//   ② **부정 전제를 쓰지 않는다**(「오늘 아직 못 하셨죠」 따위). 저녁 8시에 보내는데
+//      22시에 늘 하시는 분이 적지 않다 — 그분들께는 사실이 아닌 말이 된다.
+function eveningMessage(dueCount, verseLine) {
+  var n = Number(dueCount);
+  if (!(n >= 1)) {
+    // 밀린 복습이 없는 분 — 이번 주 말씀을 한 줄 드린다.
+    return {
+      title: "📖 오늘의 말씀",
+      body: verseLine || "오늘도 말씀 한 구절 마음에 새겨 보세요 🙌",
+    };
+  }
+  // 한 번에 하는 묶음이 3구절이라, 그보다 많이 밀렸어도 3으로 말한다 —
+  // 적체 숫자(평균 13.7)를 보이면 벽처럼 느껴진다.
+  var k = n < 3 ? n : 3;
+  return {
+    title: "🔁 복습이 기다려요",
+    body: "외운 말씀 " + k + "구절 다시 만나 보실래요?",
+  };
+}
+// ── 저녁 알림 문구 — 순수 함수 (여기까지) ──
+
 async function sendPush(b: any) {
   const err = adminError(b); if (err) return { ok: false, error: err };
   let title = b.title, body = b.body;
