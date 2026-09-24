@@ -435,6 +435,7 @@ Deno.serve(async (req) => {
       case "pushSubscribers": return json(await pushSubscribers(body));
       case "sendPush":      return json(await sendPush(body));
       case "weeklyVersePush": return json(await weeklyVersePush(body));
+      case "eveningPush":   return json(await eveningPush(body));
       case "getWeeklyVerse":     return json(await getWeeklyVerseForWidget(body));   // 위젯 — 앱과 같은 한국 날짜 기준
       case "getTodayMeditation": return json(await getTodayMeditation(body));        // 위젯 — 오늘의 묵상
       case "getTodayBlessing":   return json(await getTodayBlessing(body));          // 위젯 — 오늘의 축복 기도문
@@ -1245,6 +1246,77 @@ async function weeklyVersePush(b: any) {
   const title = "📖 이번주 암송 말씀이 도착했어요!";
   const body = `${verseLine}\n\n오늘부터 한 주간 이 말씀을 암송해요 🙌`;
   return await sendPush({ ...b, title, body, mode: "weekly-verse", url: b.url || "https://gocheok.onlybible.kr/" });
+}
+
+// ---------- eveningPush: 저녁 20시 — 오늘 아직 안 하신 분께만 (2026-09-24, 2판) ----------
+// 근거 — 구독자는 활동일 2.1배·최근 활동률 1.6배인데 활동자의 12%만 구독했고,
+//        알림은 아침 한 번뿐인데 반복 정점은 저녁이다(docs/analysis/2026-09-23-usage-analysis.md).
+//
+// ⚠️ **latest 를 절대 안 넘긴다.** sendPush 의 if (b.latest) 가 dailyPushContent() 로 제목·본문을
+//    덮어써, 저녁에 아침과 똑같은 묵상 알림이 한 번 더 나간다. 말씀 한 줄은 여기서 직접 만든다.
+// ⚠️ **사람 단위로 먼저 정한다.** 구독 행(47) ≠ 사람(35) — 웹과 아이폰을 둘 다 켜신 분이
+//    기기 단위로는 개인 문구를 두 번 받는다.
+// ⚠️ **대상이 0명이어도 push_log 에 한 줄 남긴다**(sendPush 가 남긴다) — 「조용히 안 나간 것」과
+//    「모두가 참여한 좋은 날」을 나중에 가를 수 있어야 한다.
+async function eveningPush(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const today = kstDay(new Date().toISOString());   // ⚠️ ymd() 는 UTC 다. 반드시 kstDay.
+
+  // 1) 저녁을 켠 구독자를 **사람 단위**로 모은다
+  const [webRes, iosRes] = await Promise.all([
+    db.from("push_subscriptions").select("user_id").eq("evening", true),
+    db.from("ios_push_tokens").select("user_id").eq("evening", true),
+  ]);
+  const people = new Set<string>();
+  for (const r of ((webRes.data ?? []) as any[])) if (r.user_id) people.add(String(r.user_id));
+  for (const r of ((iosRes.data ?? []) as any[])) if (r.user_id) people.add(String(r.user_id));
+
+  // 2) 오늘(KST) 활동한 사람을 뺀다 — 집계표 daily_activity 를 읽는다(순위·mydays 와 같은 원천).
+  const { data: acted } = await db.from("daily_activity").select("user_id").eq("day", today);
+  for (const r of ((acted ?? []) as any[])) people.delete(String(r.user_id));
+  const only = Array.from(people);
+
+  // 3) 밀린 복습 — **대상만**, **주간 구절만**.
+  //    ⚠️ verses 조인을 PostgREST 로 못 하므로, 살아 있는 주간 구절 번호를 먼저 읽어 JS 로 거른다.
+  //    ⚠️ 1000행 벽 — 주간 35구절 × 구독자 35명 = 최대 1,225행이라 이론상 넘는다.
+  //       넘으면 뒤쪽 성도님이 조용히 「복습 0」 갈래로 떨어져 틀린 문구를 받는다. fetchAllRows 를 쓴다.
+  const dueBy: Record<string, number> = {};
+  if (only.length) {
+    const { data: vs } = await db.from("verses").select("no")
+      .eq("is_active", true).eq("track", "weekly");
+    const weekly = new Set(((vs ?? []) as any[]).map((v) => Number(v.no)));
+    const rows = await fetchAllRows(() => db.from("reviews")
+      .select("user_id,verse_no").in("user_id", only).lte("due_at", today));
+    for (const r of rows) {
+      if (!weekly.has(Number(r.verse_no))) continue;
+      const u = String(r.user_id);
+      dueBy[u] = (dueBy[u] || 0) + 1;
+    }
+  }
+
+  // 4) 사람마다 문구
+  const v = await latestVerse();
+  const verseLine = v ? (v.ref ? `${v.text} (${v.ref})` : v.text) : "";
+  const userBodies: Record<string, { title: string; body: string }> = {};
+  let review = 0, verse = 0;
+  for (const u of only) {
+    const n = dueBy[u] || 0;
+    userBodies[u] = eveningMessage(n, verseLine);
+    if (n >= 1) review++; else verse++;
+  }
+
+  // 5) 보낸다 — 발송은 sendPush 가 한다(웹푸시·APNs 두 루프).
+  //    ⚠️ latest 를 안 넘긴다. mode 로 push_log 에서 아침 행과 갈라진다.
+  //    url 의 pe=1 은 저녁 클릭을 아침과 가르는 표식이다(app.js readPushMark).
+  const r = await sendPush({
+    pw: b.pw, only, userBodies,
+    title: "📖 오늘의 말씀", body: verseLine || "오늘도 말씀 한 구절 마음에 새겨 보세요 🙌",
+    mode: "evening", url: "https://gocheok.onlybible.kr/?from=push&pe=1",
+  });
+
+  // ⚠️ 응답에 user_id 를 싣지 않는다 — 수를 센 것만.
+  return { ok: true, targets: only.length, review, verse,
+           sent: (r as any).sent ?? 0, failed: (r as any).failed ?? 0, total: (r as any).total ?? 0 };
 }
 
 // ---------- monitor: 백엔드/발송/데이터 상태 종합 점검 (ADMIN_SECRET 보호) ----------
