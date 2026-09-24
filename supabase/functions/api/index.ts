@@ -1082,6 +1082,31 @@ async function pushStats(b: any) {
   return { ok: true, total: rows.length, byHour };
 }
 
+// ── 저녁 알림 옵션 — 순수 함수 (여기부터) ──
+// ⚠️ 이 구간은 **타입 표기 없이** 쓴다. tests/send-push-opts.test.cjs 가 두 표식 사이만 잘라
+//    node:vm 으로 돌린다(꾸러미 없이 — tools/preflight.py 가 배포 앞 그물에 건다).
+//    타입 표기를 하나라도 더하면 그 검사가 깨지고, 검사가 먼저 알려 준다.
+//    (그래서 이 주석에도 표기를 예로 적지 않는다 — 가드 정규식이 주석까지 본다.)
+function buildOnlySet(only) {
+  // ⚠️ **빈 배열은 「아무에게도」다.** `only && only.length` 로 쓰면 모두가 오늘 참여한 날
+  //    전 구독자에게 저녁 알림이 나간다. 안 넘겼을 때(null)와 반드시 갈라야 한다.
+  if (!Array.isArray(only)) return null;
+  return new Set(only.map(function (u) { return String(u); }));
+}
+function keepUser(onlySet, uid) {
+  return !onlySet || onlySet.has(String(uid));
+}
+function pickMessage(userBodies, uid, title, body) {
+  // ⚠️ userBodies 에 없는 사람이 대부분이다 — 옵셔널로 읽어 TypeError 를 막는다.
+  //    여기서 터지면 sendPush 가 통째로 빠져나가 아침 알림이 일부만 나가고 로그도 안 남는다.
+  var m = (userBodies && typeof userBodies === "object") ? userBodies[String(uid)] : null;
+  return {
+    title: (m && m.title) || title || "성경말씀 암송",
+    body: (m && m.body) || body || "오늘의 말씀을 암송해요! 🙌",
+  };
+}
+// ── 저녁 알림 옵션 — 순수 함수 (여기까지) ──
+
 async function sendPush(b: any) {
   const err = adminError(b); if (err) return { ok: false, error: err };
   let title = b.title, body = b.body;
@@ -1091,16 +1116,20 @@ async function sendPush(b: any) {
     const c = await dailyPushContent();
     if (c) { title = c.title; body = c.body; }
   }
+  // 저녁 알림용 — only(이 사람들에게만) · userBodies(사람마다 다른 문구).
+  // ⚠️ 기존 호출자(아침 크론 넷·주일 발송·관리자 수동·monitor diag)는 둘 다 안 넘긴다.
+  //    그때는 onlySet 이 null 이라 아무도 안 걸러지고, 문구도 지금과 똑같다.
+  const onlySet = buildOnlySet(b.only);
+  const pushUrl = b.url || "https://gocheok.onlybible.kr/";
+
   // hour 지정 시 그 시간을 고른 구독자에게만(시간대별 cron), user_id 지정 시 그 성도 기기에만(개별 테스트 발송), 둘 다 없으면 전체(관리자 수동 발송)
-  let subQ = db.from("push_subscriptions").select("id,endpoint,p256dh,auth");
+  let subQ = db.from("push_subscriptions").select("id,endpoint,p256dh,auth,user_id");
   if (b.hour) subQ = subQ.eq("hour", Number(b.hour));
   if (b.user_id) subQ = subQ.eq("user_id", b.user_id);
-  const { data: subs } = await subQ;
-  const payload = JSON.stringify({
-    title: title || "성경말씀 암송",
-    body: body || "오늘의 말씀을 암송해요! 🙌",
-    url: b.url || "https://gocheok.onlybible.kr/",
-  });
+  const { data: subsRaw } = await subQ;
+  // ⚠️ 거르기는 JS 로 한다 — .in() 에 uuid 수백 개를 실으면 쿼리스트링 길이에 걸린다.
+  //    구독자는 34명뿐이라 전부 읽어도 싸다.
+  const subs = ((subsRaw ?? []) as any[]).filter((s) => keepUser(onlySet, s.user_id));
   let sent = 0, failed = 0;
   const errs: string[] = [];
   const vapidReady = !!(VAPID_PUBLIC && VAPID_PRIVATE);
@@ -1108,9 +1137,12 @@ async function sendPush(b: any) {
     let ok = false, lastCode: any = null, lastMsg = "";
     for (let attempt = 1; attempt <= 2; attempt++) {   // 일시적 오류 대비 1회 재시도
       try {
+        // ⚠️ 함수 스코프 title/body 를 **덮지 않는다** — 덮으면 루프 뒤의 iOS 발송과
+        //    push_log 가 마지막 구독자의 개인 문구로 오염된다.
+        const m = pickMessage(b.userBodies, s.user_id, title, body);
         await webpush.sendNotification(
           { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-          payload,
+          JSON.stringify({ title: m.title, body: m.body, url: pushUrl }),
         );
         ok = true; break;
       } catch (e: any) {
@@ -1126,14 +1158,18 @@ async function sendPush(b: any) {
     else { failed++; if (errs.length < 3) errs.push(`[${lastCode || "ERR"}] ${lastMsg}`); }
   }
   // ---- iOS 네이티브 푸시(APNs) — 같은 hour/user_id 필터로 함께 보낸다 ----
+  // ⚠️ **발송 루프는 둘이다.** 웹만 고치면 아이폰 쓰시는 분은 오늘 다 하셨어도 저녁 알림을
+  //    받고, 그것도 남의 복습 개수로 받는다. 2026-09-23 리뷰가 잡은 자리다.
   const iosWhy: Record<string, number> = {};   // 거절 이유별 건수 — push_log.note 로 나간다
-  let iosQ = db.from("ios_push_tokens").select("id,device_token");
+  let iosQ = db.from("ios_push_tokens").select("id,device_token,user_id");
   if (b.hour) iosQ = iosQ.eq("hour", Number(b.hour));
   if (b.user_id) iosQ = iosQ.eq("user_id", b.user_id);
-  const { data: iosTokens } = await iosQ;
+  const { data: iosRaw } = await iosQ;
+  const iosTokens = ((iosRaw ?? []) as any[]).filter((t) => keepUser(onlySet, t.user_id));
   for (const t of (iosTokens ?? []) as any[]) {
+    const m = pickMessage(b.userBodies, t.user_id, title, body);
     const o: { reason?: string } = {};
-    const r = await sendApns(t.device_token, title || "성경말씀 암송", body || "오늘의 말씀을 암송해요! 🙌", o);
+    const r = await sendApns(t.device_token, m.title, m.body, o);
     if (r === "ok") sent++;
     else {
       failed++;
@@ -1145,7 +1181,9 @@ async function sendPush(b: any) {
       if (errs.length < 3) errs.push(`[ios:${r}] ${o.reason || ""}`.trim());
     }
   }
-  const total = (subs ?? []).length + (iosTokens ?? []).length;
+  // ⚠️ 거른 **뒤** 수다 — 안 그러면 「보내지도 않은 사람」이 total 에 들어가
+  //    monitor 의 `total>0 && sent===0` 판정이 어긋난다.
+  const total = subs.length + iosTokens.length;
   // 진단 모드: 실제 에러/설정 상태를 반환(관리자 호출 시에만 노출)
   if (b.diag) return { ok: true, sent, failed, total, vapidReady, vapidSubject: VAPID_SUBJECT, errors: errs };
   // 장애 모니터링용 발송 로그 기록(실패해도 발송 결과에는 영향 없음)
