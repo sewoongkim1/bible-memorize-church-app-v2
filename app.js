@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260924b";
+const APP_BUILD = "20260924c";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5032,7 +5032,17 @@ const FIRST_DONE_HTML = `
 //   · 3단계에는 '마음에 둠'을 창 안에 둔다. 밖에 두면 Enter 한 번에 지나쳐 버린다.
 function showStageDoneModal(verse, stage, wasFirst) {
   const idx = verses.findIndex((v) => v.no === verse.no);
-  const next = (idx >= 0 && idx < verses.length - 1) ? verses[idx + 1] : null;
+  // ⚠️ 번호순 +1 이 아니라 **아직 안 외운 것 중 가장 최근**을 고른다.
+  //    이번 주 말씀은 목록의 **맨 마지막**이라(verses 는 no 오름차순, 주간 구절은 최대 no)
+  //    번호순으로 찾으면 언제나 다음이 없어, 첫 구절을 막 마친 분이 「↺ 처음 말씀으로」를 보고
+  //    9개월 전 구절로 돌아갔다. 2026-09-23 실측 — 하루만 쓰고 떠난 82명은 첫날 1.38구절,
+  //    5일 이상 쓴 분은 4.73구절. 완주는 둘 다 하지만(구절당 기록 3.1 vs 3.7) 갈 곳이 없었다.
+  //    38(이번 주) → 37(지난주) → 36 … 시간을 거슬러 오르므로 설교 기억과도 이어진다.
+  //    다 외우셨으면 null → 아래 first 갈래(「↺ 처음 말씀으로」)가 받는다.
+  //    설계 docs/superpowers/specs/2026-09-23-first-day-next-verse-design.md · 시험 tests/stage-done.py
+  const next = verses
+    .filter((v) => v.no !== verse.no && getPassedStage(v.no) < 3)
+    .reduce((best, v) => (!best || v.no > best.no ? v : best), null);
   const head = stage < 3
     ? `<div class="cheer-icon">✅</div>
        <div class="cheer-ref">${stage}단계 완료!</div>
@@ -5044,7 +5054,10 @@ function showStageDoneModal(verse, stage, wasFirst) {
   // 처음 말씀으로 돌려보내 한 바퀴를 잇는다.
   const first = (!next && idx >= 0 && verses.length > 1) ? verses[0] : null;
   const mainLabel = stage < 3 ? `${stage + 1}단계로 계속하기`
-    : next ? "다음 말씀 ▶" : (first ? "↺ 처음 말씀으로" : "목록으로");
+    // 첫 구절을 막 마친 분께는 「37구절 중 다음」이 아니라 「한 구절 더」로 들리게 한다.
+    // ⚠️ 남은 개수를 보여주지 않는다 — 적체를 벽으로 만들지 않는다.
+    : next ? (wasFirst ? "이어서 한 구절 더 ▶" : "다음 말씀 ▶")
+    : (first ? "↺ 처음 말씀으로" : "목록으로");
 
   // 도전에는 이 앱의 '함께'가 모여 있다(순위·응원·어려운 도전). 그런데 4명 중 3명이
   // 한 번도 들어와 보지 않았다 — 2026-08-25 기준 오늘 33명 중 8명(24%)뿐.
