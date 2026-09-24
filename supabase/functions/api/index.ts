@@ -1305,6 +1305,16 @@ async function eveningPush(b: any) {
     if (n >= 1) review++; else verse++;
   }
 
+  // 4-b) dryRun — **아무에게도 안 보내고** 누구에게 무슨 갈래가 갈지만 돌려준다.
+  //   ⚠️ 이것이 없으면 이 액션의 **첫 실행이 곧 성도님 수십 분께 실제 발송**이다.
+  //      한 번도 안 돌려 본 코드로 그러면 안 된다. 크론을 걸기 전에(3판) 반드시 한 번
+  //      dryRun 으로 대상 수와 갈래를 눈으로 보고, 그 숫자가 SQL 로 센 것과 맞는지 견준다.
+  //   ⚠️ 그래도 user_id 는 안 돌려준다 — 수와 본보기 문구만. 발송도 로그도 남기지 않는다.
+  if (b.dryRun) {
+    return { ok: true, dryRun: true, targets: only.length, review, verse,
+             sampleReview: eveningMessage(1, verseLine), sampleVerse: eveningMessage(0, verseLine) };
+  }
+
   // 5) 보낸다 — 발송은 sendPush 가 한다(웹푸시·APNs 두 루프).
   //    ⚠️ latest 를 안 넘긴다. mode 로 push_log 에서 아침 행과 갈라진다.
   //    url 의 pe=1 은 저녁 클릭을 아침과 가르는 표식이다(app.js readPushMark).
