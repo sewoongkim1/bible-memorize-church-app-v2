@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260925d";
+const APP_BUILD = "20260926a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2837,6 +2837,59 @@ function prayFill(t, name) {
 function prayToday(n) {
   const d = new Date(todayYmd() + "T00:00:00");
   return Math.floor(d.getTime() / 864e5) % n;
+}
+
+// 매일 묵상 창의 「🙏 오늘의 기도」 줄 — 아이폰 위젯과 같은 서버 액션(getTodayBlessing)을 쓴다.
+//   ⚠️ blessings 전체(83KB)를 받지 않는다 — 기도문 화면에 들어갈 때만 받는 자료다. 여기선 제목만 있으면 된다.
+//   ⚠️ 반드시 null 로 삼킨다 — 묵상 창이 이 리젝션에 통째로 사라진다(fetchTodaySong 과 같은 계약).
+//   ⚠️ 누르면 renderPrayerBook() 이 prayToday 로 같은 편을 연다 — 서버와 앱의 「오늘 한 편」은
+//      tests/widget-parity.py 가 대조한다. date 를 todayYmd() 로 넘겨 두 쪽이 같은 날을 보게 한다.
+let blessToday = null;   // { ymd, b } — 창이 하루에 몇 번 떠도 서버는 한 번만
+function fetchTodayBlessing() {
+  if (!window.api || !api.getTodayBlessing) return Promise.resolve(null);
+  const ymd = todayYmd();
+  if (blessToday && blessToday.ymd === ymd) return Promise.resolve(blessToday.b);
+  return withTimeout(api.getTodayBlessing(ymd), 1500)
+    .then((r) => {
+      const b = r && r.ok && r.title ? r : null;
+      if (b) blessToday = { ymd, b };
+      return b;
+    })
+    .catch(() => null);
+}
+
+// 오늘의 기도 전용 팝업 — 위젯과 같은 내용(제목·말씀·기도문, 이름 자리는 서버가 「우리 가족」으로 채운다).
+//   ⚠️ 「확인」은 덮개만 걷는다 — renderSummary() 를 부르지 않는다(뒤 화면이 튕긴다 · today-song.md).
+//   「기도문 더 보기」만 화면을 바꾼다(오늘 한 편 = 같은 편, 거기선 내 이름으로 읽힌다).
+function openBlessingModal(b) {
+  if (!b) return;
+  const open = () => {
+    if (document.querySelector(".cheer-overlay")) { setTimeout(open, 300); return; }
+    const wrap = document.createElement("div");
+    wrap.id = "bless-modal";
+    wrap.className = "cheer-overlay";
+    wrap.innerHTML = `
+      <div class="cheer-card dmsg-card bless" role="dialog" aria-modal="true">
+        <div class="cheer-ref dmsg-badge">🙏 오늘의 기도</div>
+        <div class="dmsg-title">${boardEsc(b.title || "")}</div>
+        ${b.ref ? `<div class="bless-ref">${boardEsc(b.ref)}</div>` : ""}
+        <div class="cheer-msg dmsg-body bless-body">${boardEsc(b.prayer || "")}</div>
+        <div class="song-modal-actions">
+          <button class="summary-help" id="bless-more">기도문 더 보기</button>
+          <button class="cheer-ok" id="bless-close">확인</button>
+        </div>
+      </div>`;
+    document.body.appendChild(wrap);
+    requestAnimationFrame(() => wrap.classList.add("show"));
+    const close = () => { wrap.classList.remove("show"); setTimeout(() => wrap.remove(), 250); };
+    const done = wireModalConfirm(document.getElementById("bless-close"), close);
+    document.getElementById("bless-more").addEventListener("click", () => {
+      done();
+      setTimeout(() => renderPrayerBook(), 260);
+    });
+    wrap.addEventListener("click", (e) => { if (e.target === wrap) done(); });
+  };
+  open();
 }
 
 function renderPrayerBook(idx) {
@@ -7033,7 +7086,8 @@ function maybeShowWeeklyMeditation(force, withTabs, source) {
     // ⚠️ fetchTodaySong 은 캐시가 있으면 서버를 안 친다(첫 화면이 대개 먼저 채운다).
     //    실패는 그 안에서 삼킨다 — 여기서 새면 바깥 catch 에 걸려 **묵상 창이 통째로 안 뜬다.**
     const fetchSong = fetchTodaySong();
-    Promise.all([fetchPsalm, fetchSong]).then(([todayPsalm, todaySong]) => {
+    const fetchBless = fetchTodayBlessing();   // 셋 다 나란히 — 체인으로 잇지 않는다(위 주석)
+    Promise.all([fetchPsalm, fetchSong, fetchBless]).then(([todayPsalm, todaySong, todayBless]) => {
       // ⚠️ 여기가 창이 **실제로 뜨는** 자리다 — 이 앞은 두 fetch 가 성공해야 도착한다.
       //    logFeature 를 여기로 옮겼다(2026-09-23 리뷰) — 예전엔 이 Promise.all 앞에서
       //    불러 「기록은 남는데 창은 안 뜨는」 좁은 틈이 있었다(지금은 두 fetch 가 각자
@@ -7051,7 +7105,7 @@ function maybeShowWeeklyMeditation(force, withTabs, source) {
                                        : (force ? "meditation" : "meditation-auto"), info.verse.no);
       }
       // 자동 팝업·어드민 미리보기는 '오늘 것 하나만'. 요일 탭은 매일 묵상 버튼으로 열 때만.
-      showMeditationModal(items, pick, verse, sermon, !!withTabs, usingPrev, { psalm: todayPsalm, song: todaySong });
+      showMeditationModal(items, pick, verse, sermon, !!withTabs, usingPrev, { psalm: todayPsalm, song: todaySong, blessing: todayBless });
     });
   }).catch(() => {});
 }
@@ -7064,6 +7118,7 @@ function maybeShowWeeklyMeditation(force, withTabs, source) {
 function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev, extra) {
   const todayPsalm = extra && extra.psalm;
   const todaySong = extra && extra.song;
+  const todayBless = extra && extra.blessing;
   // 탭은 요일 한 글자(7일치일 때). 그 외에는 번호 — 제목을 쓰면 너무 길어 화면을 잡아먹는다.
   // 발행 주기가 월~일이라 배열 인덱스도 월요일 시작(maybeShowWeeklyMeditation의 dayIdx와 동일 기준).
   const DAYS = ["월", "화", "수", "목", "금", "토", "일"];
@@ -7088,6 +7143,7 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev
           <button class="cheer-ok" id="dmsg-ok">확인</button>
         </div>
         ${todayPsalm ? `<button class="med-psalm-cta" id="med-psalm">🐑 쉴만한 물가 · ${psalmEsc(todayPsalm.refShort || todayPsalm.refFull)}</button>` : ""}
+        ${todayBless ? `<button class="med-pray-cta" id="med-pray">🙏 오늘의 기도 · ${boardEsc(todayBless.title)}</button>` : ""}
         ${todaySong ? `<button class="med-song-cta" id="med-song">🎵 찬양 · ${boardEsc(todaySong.song)} <span class="ext-mark">↗</span></button>` : ""}
       </div>`;
     document.body.appendChild(wrap);
@@ -7118,6 +7174,11 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev
     if (pBtn) pBtn.addEventListener("click", () => {
       done();
       setTimeout(() => renderPsalmHome(), 260);
+    });
+    const bBtn = wrap.querySelector("#med-pray");      // 묵상 → 오늘의 기도(전용 팝업 · 위젯과 같은 내용)
+    if (bBtn) bBtn.addEventListener("click", () => {
+      done();
+      setTimeout(() => openBlessingModal(todayBless), 260);   // 묵상 창이 걷힌 뒤(open 이 덮개를 기다린다)
     });
     const gBtn = wrap.querySelector("#med-song");     // 묵상 → 오늘의 찬양(앱 안 화면)
     if (gBtn) gBtn.addEventListener("click", () => {

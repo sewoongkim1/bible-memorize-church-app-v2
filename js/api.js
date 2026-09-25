@@ -128,6 +128,10 @@ const api = {
   //  ⚠️ getTodaySong 은 입력이 없다 — 날짜를 열면 쓰는 액션이라 미리 태울 수 있다(서버 주석 참고).
   getTodaySong: () => supaCall("getTodaySong", {}),
   logSongClick: (user_id, song_id) => supaCall("logSongClick", { user_id, song_id }),
+
+  // ---- 오늘의 기도 (2026-09-26) — 아이폰 위젯과 같은 액션 · 매일 묵상 창 한 줄 ----
+  //  읽기 전용이라 date 를 넘겨도 안전하다. 앱 prayToday 와 같은 날을 보도록 todayYmd() 를 넘긴다.
+  getTodayBlessing: (date) => supaCall("getTodayBlessing", { date }),
 };
 
 window.api = api;

@@ -385,15 +385,16 @@ h1 {
    ⚠️ white-space:nowrap 을 주지 않는다 — 바로 위 .med-psalm-cta 가 「잘리게 두느니
       두 줄이 낫다」로 정해져 있고, 나란히 선 두 줄이 서로 다른 규칙을 따르면 안 된다.
       곡명은 refShort 보다 길다(스냅샷 기준 최장 31자). */
-.med-song-cta {
+/* 오늘의 기도(2026-09-26) — 시편 바로 아래. 같은 옷, 구분은 🙏 가 맡는다. */
+.med-song-cta, .med-pray-cta {
   display: block; width: 100%; margin: 8px 0 0; padding: 12px 10px;
   border-radius: 12px; cursor: pointer; font-family: inherit;
   font-size: .95rem; font-weight: 800; text-align: center;
   background: #eef1f8; color: var(--navy); border: 1.5px solid var(--navy);
 }
-.med-song-cta:hover { background: var(--navy); color: #fff; }
-.dark .med-song-cta { background: #232c3f; color: #cdd9f2; border-color: #3a4a68; }
-.dark .med-song-cta:hover { background: #3a4a68; color: #fff; }
+.med-song-cta:hover, .med-pray-cta:hover { background: var(--navy); color: #fff; }
+.dark .med-song-cta, .dark .med-pray-cta { background: #232c3f; color: #cdd9f2; border-color: #3a4a68; }
+.dark .med-song-cta:hover, .dark .med-pray-cta:hover { background: #3a4a68; color: #fff; }
 
 /* ===== 오늘의 찬양 — 팝업 안 재생(파사드) ===================================
    2026-09-23 오전: 새 탭으로 나가면 아이폰 앱은 사파리로 나가 버려 돌아오기 불편하다는
@@ -437,6 +438,10 @@ h1 {
 /* 팝업 하단 단추 둘 — 「유튜브로」·「닫기」, 한 줄에 나란히(.med-actions 와 같은 꼴).
    ⚠️ 새 색을 만들지 않는다 — .summary-help(연한 남색)·.cheer-ok(금색)는 이미 이 앱의
    네 색 규칙 안에 있는 값이다(docs/notes/home-screen.md). */
+/* 오늘의 기도 전용 팝업(2026-09-26) — 기도문은 줄바꿈을 살려 읽힌다 */
+.cheer-card.bless .bless-ref { font-size: .85rem; color: #8d7531; margin: -4px 0 10px; font-weight: 700; }
+.cheer-card.bless .bless-body { white-space: pre-line; line-height: 1.8; text-align: left; }
+.dark .cheer-card.bless .bless-ref { color: #d9c27a; }
 .song-modal-actions { display: flex; gap: 8px; margin-top: 10px; }
 .song-modal-actions .summary-help,
 .song-modal-actions .cheer-ok { flex: 1; width: auto; margin-bottom: 0; }
