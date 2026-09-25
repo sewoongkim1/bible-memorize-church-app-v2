@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260926a";
+const APP_BUILD = "20260926b";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2858,11 +2858,14 @@ function fetchTodayBlessing() {
     .catch(() => null);
 }
 
-// 오늘의 기도 전용 팝업 — 위젯과 같은 내용(제목·말씀·기도문, 이름 자리는 서버가 「우리 가족」으로 채운다).
+// 「🙏 기도」 전용 팝업 — 위젯과 같은 편(제목·말씀·기도문). 이름 자리는 **로그인 이름**으로 채운다
+//   (2026-09-26 성도님 요청 — 서버가 준 tpl 원문을 prayFill. 옛 서버라 tpl 이 없으면 위젯 글 그대로).
 //   ⚠️ 「확인」은 덮개만 걷는다 — renderSummary() 를 부르지 않는다(뒤 화면이 튕긴다 · today-song.md).
 //   「기도문 더 보기」만 화면을 바꾼다(오늘 한 편 = 같은 편, 거기선 내 이름으로 읽힌다).
 function openBlessingModal(b) {
   if (!b) return;
+  const u = loadUser();
+  const body = b.tpl ? prayFillHtml(b.tpl, (u && u.name) || "우리 가정") : boardEsc(b.prayer || "");
   const open = () => {
     if (document.querySelector(".cheer-overlay")) { setTimeout(open, 300); return; }
     const wrap = document.createElement("div");
@@ -2870,10 +2873,10 @@ function openBlessingModal(b) {
     wrap.className = "cheer-overlay";
     wrap.innerHTML = `
       <div class="cheer-card dmsg-card bless" role="dialog" aria-modal="true">
-        <div class="cheer-ref dmsg-badge">🙏 오늘의 기도</div>
+        <div class="cheer-ref dmsg-badge">🙏 기도</div>
         <div class="dmsg-title">${boardEsc(b.title || "")}</div>
         ${b.ref ? `<div class="bless-ref">${boardEsc(b.ref)}</div>` : ""}
-        <div class="cheer-msg dmsg-body bless-body">${boardEsc(b.prayer || "")}</div>
+        <div class="cheer-msg dmsg-body bless-body">${body}</div>
         <div class="song-modal-actions">
           <button class="summary-help" id="bless-more">기도문 더 보기</button>
           <button class="cheer-ok" id="bless-close">확인</button>
@@ -7143,7 +7146,7 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev
           <button class="cheer-ok" id="dmsg-ok">확인</button>
         </div>
         ${todayPsalm ? `<button class="med-psalm-cta" id="med-psalm">🐑 쉴만한 물가 · ${psalmEsc(todayPsalm.refShort || todayPsalm.refFull)}</button>` : ""}
-        ${todayBless ? `<button class="med-pray-cta" id="med-pray">🙏 오늘의 기도 · ${boardEsc(todayBless.title)}</button>` : ""}
+        ${todayBless ? `<button class="med-pray-cta" id="med-pray">🙏 기도 · ${boardEsc(todayBless.title)}</button>` : ""}
         ${todaySong ? `<button class="med-song-cta" id="med-song">🎵 찬양 · ${boardEsc(todaySong.song)} <span class="ext-mark">↗</span></button>` : ""}
       </div>`;
     document.body.appendChild(wrap);

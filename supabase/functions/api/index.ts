@@ -879,7 +879,9 @@ async function getTodayBlessing(b: any) {
   // 한국 시간 폰에서는 (그날 UTC 날수 − 1) 이 된다. 성도님 폰은 한국 시간이므로 그 값에 맞춘다.
   const i = (((ymdDayNumber(ymd) - 1) % n) + n) % n;
   const x = blessings[i];
-  return { ok: true, date: ymd, no: x.no, title: x.title, ref: x.ref, prayer: blessFill(x.prayer, BLESS_WIDGET_NAME) };
+  // tpl — 이름 토큰을 채우지 않은 원문(2026-09-26). 앱의 매일 묵상 「🙏 기도」 팝업이 로그인 이름으로
+  //   prayFill 한다. 위젯은 이 칸을 읽지 않는다(prayer 가 그대로 「우리 가족」).
+  return { ok: true, date: ymd, no: x.no, title: x.title, ref: x.ref, prayer: blessFill(x.prayer, BLESS_WIDGET_NAME), tpl: x.prayer };
 }
 
 // ---------- 오늘의 찬양 (2026-09-23) ----------
