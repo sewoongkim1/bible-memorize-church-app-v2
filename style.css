@@ -525,7 +525,16 @@ h1 {
 
 /* 3단계 "이 말씀을 내 마음에 두었나이다" 체크 */
 /* 👆 단어 카드 배열 모드 — 타이핑이 어려운 성도용(정답 단어만 섞어 순서 맞추기) */
-.card-tray { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 14px 0 2px; }
+/* 쟁반을 상자로 감싼다(2026-09-26 성도님 요청) — 카드와 아래 「풀이·기억법·영어·그림」 단추가
+   모양이 비슷해 한 덩어리로 보였다. 옅은 남색 바탕 + 가는 테두리로 「누르는 낱말은 여기」를 가른다.
+   ⚠️ 새 색을 만들지 않는다 — #eef1f8 은 시편·찬양 CTA 와 같은 바탕이다(home-screen.md ⑤). */
+.card-tray {
+  display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+  margin: 14px 0 14px; padding: 14px 10px;
+  background: #eef1f8; border: 1.5px solid #cfd8e8; border-radius: 16px;
+}
+.card-tray .wcard { background: #fff; }
+.dark .card-tray { background: #1a2130; border-color: #33465f; }
 .card-tray:empty { display: none; }
 .wcard {
   padding: 12px 15px; border-radius: 12px;
