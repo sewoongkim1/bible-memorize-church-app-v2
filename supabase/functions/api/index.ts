@@ -480,6 +480,7 @@ Deno.serve(async (req) => {
       case "ministryPaperCheck": return json(await ministryPaper(body, false));
       case "ministryPaperSave":  return json(await ministryPaper(body, true));
       case "ministrySetStatus":return json(await ministrySetStatus(body));
+      case "ministryDelete":   return json(await ministryDelete(body));
       case "ministryCatalogSave": return json(await ministryCatalogSave(body));
       case "ministryCatalogOrder": return json(await ministryCatalogOrder(body));
       case "ministryAdmins":     return json(await ministryAdmins(body));      // 담당자 명단(관리자만)
@@ -4719,6 +4720,27 @@ async function ministryList(b: any) {
 }
 
 // 관리자 상태 변경 — '임명확정'으로 바뀌면 앱 푸시를 한 번 보낸다
+// 신청 한 건을 **아주 지운다**(2026-09-26 성도님) — 「완전히 잘못 들어온 것은 남기지 않는다」.
+// ⚠️ 되돌릴 수 없다. 상태 「취소」와 다르다 — 취소는 자취가 남고(사유·decided_at) 성도님 화면에도
+//    「부서 요청으로 취소되었어요」로 보인다. 지우면 성도님 화면에서도 그 줄이 통째로 사라지고,
+//    3개 상한의 자리도 도로 비어 다시 신청할 수 있게 된다.
+// ⚠️ 화면(mnDialog)이 한 번 더 묻지만, **서버도 자기 자리에서 막는다** — 담당자 암호가 없으면 안 된다.
+async function ministryDelete(b: any) {
+  const err = await ministryAdminError(b); if (err) return { ok: false, error: err };
+  const id = Number(b.id) || 0;
+  if (!id) return { ok: false, error: "id 확인" };
+  const { data: row, error: e0 } = await db.from("ministry_orders")
+    .select("id,year,name,who,committee,team,status").eq("id", id).maybeSingle();
+  if (e0) throw e0;
+  if (!row) return { ok: false, error: "신청을 찾을 수 없습니다 (이미 지워졌을 수 있어요)" };
+  const { error } = await db.from("ministry_orders").delete().eq("id", id);
+  if (error) throw error;
+  // 무엇을 지웠는지 돌려준다 — 화면이 「○○님의 △△ 신청을 지웠습니다」로 알릴 수 있게.
+  // ⚠️ user_id 는 싣지 않는다(공개 API 규칙).
+  return { ok: true, deleted: { id: row.id, name: row.name ?? "", who: row.who ?? "",
+                                committee: row.committee ?? "", team: row.team ?? "", status: row.status } };
+}
+
 async function ministrySetStatus(b: any) {
   const err = await ministryAdminError(b); if (err) return { ok: false, error: err };
   const id = Number(b.id) || 0;

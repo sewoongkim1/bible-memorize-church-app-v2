@@ -814,6 +814,9 @@ a.mn-tel.sm{font-size:11.5px;padding:2px 8px;}
 .pl-opt{min-height:var(--tap);padding:0 14px;font-size:14px;display:flex;align-items:center;}
 .pl-menu{min-width:150px;padding:6px;}
 .pl-opt.s4{margin-top:6px;border-top:1px solid #eef1f6;}   /* 되돌릴 수 없는 「취소」만 떼어 놓는다 */
+/* 삭제는 상태가 아니라 하는 일이다 — 줄을 긋고 붉은 꼴로(2026-09-26) */
+.pl-opt.pl-del{margin-top:6px;border-top:1px solid #eef1f6;color:#a33;font-weight:800;}
+.pl-opt.pl-del:hover{background:#fdeceb;}
 /* 아래 자리가 모자라면 위로 연다(메뉴 높이 ≈ 4×44+12 = 188px) */
 .pl-drop.up .pl-menu{top:auto;bottom:calc(100% + 6px);}
 
@@ -4143,6 +4146,9 @@ function mnRender(){
               ${MN_STATES.map(x=>`
                 <button type="button" class="pl-opt ${MN_CLS[x]}${x===r.status?" on":""}"
                   data-mnid="${r.id}" data-mnst="${x}" role="option">${MN_SHORT[x]||x}</button>`).join("")}
+              <!-- ⚠️ 삭제는 상태가 아니라 **하는 일**이다(되돌릴 수 없다) — 줄을 긋고 붉은 꼴로 떼어 둔다 -->
+              <button type="button" class="pl-opt pl-del" data-mnid="${r.id}" data-mndel="${r.id}"
+                role="option">🗑 삭제</button>
             </div>
           </div>
         </div>
@@ -4193,6 +4199,44 @@ function mnRender(){
       mnSetStatus(Number(o.dataset.mnid), o.dataset.mnst);
     });
   });
+  box.querySelectorAll("[data-mndel]").forEach(o=>{
+    o.addEventListener("click", e=>{
+      e.stopPropagation(); plCloseMenus();
+      mnDeleteOne(Number(o.dataset.mndel));
+    });
+  });
+}
+
+// 신청 한 건을 아주 지운다(2026-09-26 성도님 — 「완전히 잘못 들어온 것은 남기지 않는다」).
+// ⚠️ **되돌릴 수 없다.** 그래서 ① 무엇을 지우는지 이름·사역·상태를 보여 주고 ② 한 번 더 묻는다.
+// ⚠️ 「취소」와 다르다 — 취소는 자취가 남고 성도님 화면에도 보이지만, 지우면 그 줄이 통째로 사라지고
+//    3개 상한의 자리도 도로 비어 성도님이 다시 신청하실 수 있게 된다. 창에 그 말을 적는다.
+async function mnDeleteOne(id){
+  const r=mnRows.find(x=>x.id===id); if(!r) return;
+  const 무엇 = `<b>${plEsc(r.name)}</b>님의 <b>«${plEsc(r.team)}»</b> 신청` +
+    `<br><span style="color:#6b778c">${plEsc(r.who||"")} · ${plEsc(r.committee||"")} · 지금 ` +
+    `${plEsc(MN_SHORT[r.status]||r.status)}</span>`;
+  if(!(await mnDialog({ icon:"🗑", title:"이 신청을 지울까요?", tone:"danger",
+    ok:"지웁니다", cancel:"그만두기", html:
+      `${무엇}<br><br>잘못 들어온 신청을 <b>아주 지웁니다.</b>`,
+    note:"되돌릴 수 없어요. 결정을 남겨 두려면 「취소」를 쓰세요 — 취소는 자취가 남습니다.",
+    noteTone:"off" }))) return;
+  // ⚠️ 한 번 더 묻는다(성도님 요구) — 첫 창은 무엇인지 보는 자리, 둘째 창은 정말인지 답하는 자리다
+  if(!(await mnDialog({ icon:"⚠️", title:"정말 지웁니다", tone:"danger",
+    ok:"네, 지웁니다", cancel:"아니요",
+    html:`마지막 확인이에요.<br>${무엇}<br><br>이 줄은 성도님 화면에서도 사라집니다.` }))) return;
+
+  const d=await callApi({ action:"ministryDelete", pw:getPw(), staff:getStaff(), id })
+    .catch(()=>({ok:false,error:"network"}));
+  if(!d.ok){
+    if(minAuthLost(d)) return;
+    mnDialog({ icon:"⚠️", title:"지우지 못했습니다", tone:"danger", ok:"확인", cancel:null,
+      html: plEsc(d.error||"오류") });
+    return;
+  }
+  mnRows = mnRows.filter(x=>x.id!==id);       // 화면에서도 그 자리에서 뺀다
+  mnRender();
+  mnNote(`🗑 ${r.name}님의 ${r.team} 신청을 지웠습니다`);
 }
 
 async function mnSetStatus(id, status){
