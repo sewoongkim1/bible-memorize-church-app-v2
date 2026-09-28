@@ -24,7 +24,7 @@
         │ ① 카카오 로그인 → Supabase Auth 가 JWT 발급
         │ ② 모든 요청에 JWT
         ▼
-[Edge Function church-admin]  (verify_jwt 켬)
+[Edge Function church-admin]  (--no-verify-jwt 배포 · 토큰은 코드가 요청마다 auth.getUser 로 검사)
    · JWT → 누구인지 → admin_members / admin_role_grants 로 역할 확인 (액션마다)
    · 바꾸는 요청은 admin_audit 에 기록
         ▼
@@ -78,7 +78,7 @@ tools/preflight.py       문법 + 액션·역할 표 검사
 
 | 표 | 칸 |
 |---|---|
-| `admin_members` | id · auth_user_id(unique) · name · gu · mokjang · kakao_nickname · status(`pending`/`active`/`disabled`) · approved_by · approved_at · last_login_at · created_at |
+| `admin_members` | id · auth_user_id(unique) · type · gu · mok · bu · grade · name(앱 로그인과 같은 여섯 칸) · kakao_nickname · status(`pending`/`active`/`disabled`) · approved_by · approved_at · last_login_at · created_at |
 | `admin_roles` | id(`super`·`ministry`) · label · description |
 | `admin_role_grants` | member_id · role_id(→ admin_roles) · granted_by · granted_at |
 | `admin_audit` | id · at · member_id · action · target · detail(jsonb) |
@@ -93,7 +93,7 @@ tools/preflight.py       문법 + 액션·역할 표 검사
 |---|---|
 | `me` · `register`(대기 등록) | 로그인만 되어 있으면 |
 | `ministryList` · `ministrySetStatus` · `ministryDelete` · `ministryCatalogSave` · `ministryCatalogOrder` · `ministryPaperCheck` · `ministryPaperSave` | `ministry` |
-| `membersList` · `membersApprove` · `membersSetRoles` · `membersDisable` · `auditList` | `super` |
+| `membersList` · `membersApprove` · `membersSetRoles` · `membersSetStatus`(정지·다시 사용·대기 거절) · `auditList` | `super` |
 
 `super` 는 모든 액션을 통과한다. 이 표는 서버 코드 안 한 곳(`ACTION_ROLES`)에 두고, preflight 가 모든 액션에 역할이 있는지 본다.
 
@@ -105,6 +105,9 @@ tools/preflight.py       문법 + 액션·역할 표 검사
 ### ⚠️ 먼저 확인할 위험
 - **카카오 이메일:** Supabase 카카오 로그인이 이메일을 요구한 적이 있고, 카카오는 이메일 동의에 비즈앱 전환이 필요할 수 있다.
   구현 **첫 단계**에서 개발 프로젝트로 「이메일 없이 로그인」이 되는지 확인한다. 안 되면 비즈앱 전환 여부를 친구와 다시 정한다.
+- **로그인한 사용자(authenticated)가 읽는 표:** 통합 프로젝트에 로그인이 생기면 `authenticated` 역할에 SELECT 가 남은 표·뷰가
+  「로그인만 하면 누구나」 읽힌다(이메일 가입이 켜져 있으면 지금도 그렇다). 운영에서 카카오를 켜기 **전에**
+  `check-authenticated-exposure.sql` 로 보고 막는다. 운영 이메일 가입은 쓰는 곳이 없으면 끈다.
 - **앱 안 화면(WKWebView·TWA):** 앱에서 새 웹을 열 때는 **폰 기본 브라우저로** 연다. 앱 안 화면에서는 카카오톡 앱으로 넘어갔다
   돌아오지 못할 수 있다. 실기기(아이폰·갤럭시)로 확인한다.
 
