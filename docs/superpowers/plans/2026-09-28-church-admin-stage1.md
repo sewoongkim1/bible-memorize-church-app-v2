@@ -473,7 +473,7 @@ Expected: 두 번째 실행 성공. `curl -s https://sewoongkim1.github.io/churc
 - Create: `supabase/sql/001_admin_tables.sql`, `supabase/sql/check-authenticated-exposure.sql`
 
 **Interfaces:**
-- Produces: 표 `admin_roles(id,label,description)` · `admin_members(id,auth_user_id,type,gu,mok,bu,grade,name,kakao_nickname,status,approved_by,approved_at,last_login_at,created_at)` · `admin_role_grants(member_id,role_id,granted_by,granted_at)` · `admin_audit(id,at,member_id,action,target,detail)`. 역할 씨앗 `super`·`ministry`.
+- Produces: 표 `admin_roles(id,label,description)` · `admin_members(id,auth_user_id,type,gu,mok,bu,grade,name,kakao_nickname,kakao_avatar,status,approved_by,approved_at,last_login_at,created_at)` · `admin_role_grants(member_id,role_id,granted_by,granted_at)` · `admin_audit(id,at,member_id,action,target,detail)`. 역할 씨앗 `super`·`ministry`.
 
 - [ ] **Step 1: `supabase/sql/001_admin_tables.sql`**
 
@@ -504,6 +504,7 @@ create table if not exists admin_members (
   grade          text not null default '',
   name           text not null,
   kakao_nickname text not null default '',
+  kakao_avatar   text not null default '',   -- 카카오 프로필 사진 주소(https). 승인 목록에서 본인 확인용
   status         text not null default 'pending' check (status in ('pending', 'active', 'disabled')),
   approved_by    uuid references admin_members(id) on delete set null,
   approved_at    timestamptz,
@@ -640,6 +641,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `identityCandidates(u: Identity): string[]` — 목장 「20」/「20목장」 · 학년 「3」/「3학년」 표기 차이를 모두 담은 키들
   - `parseRoles(x: unknown, known: string[]): {ok:true; roles: string[]} | {ok:false; error: "invalid-roles"|"roles-required"|"unknown-role"}`
   - `kakaoNickname(meta: unknown): string` — 최대 40자
+  - `kakaoAvatar(meta: unknown): string` — `avatar_url` 을 `https://` 로, 주소 꼴이 아니면 `""`, 최대 500자
 
 - [ ] **Step 1: 실패하는 시험 쓰기 — `tests/authz.test.mjs`**
 
@@ -648,7 +650,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   ACTION_ROLES, canCall, knownRoles, norm, parseIdentity, identityKey,
-  identityCandidates, parseRoles, kakaoNickname,
+  identityCandidates, parseRoles, kakaoNickname, kakaoAvatar,
 } from "../supabase/functions/church-admin/authz.ts";
 
 test("모르는 액션은 막는다 — 객체 기본 이름(toString·__proto__)도", () => {
@@ -733,11 +735,21 @@ test("parseRoles", () => {
   assert.deepEqual(parseRoles(["root"], known), { ok: false, error: "unknown-role" });
 });
 
-test("kakaoNickname — 여러 칸 중 있는 것", () => {
+test("kakaoNickname — 여러 칸 중 있는 것(카카오는 실제로 name 에 담아 온다 — Task 1)", () => {
   assert.equal(kakaoNickname({ nickname: " 행복 " }), "행복");
+  assert.equal(kakaoNickname({ name: "홍길동", full_name: "홍길동", preferred_username: "홍길동" }), "홍길동");
   assert.equal(kakaoNickname({ nickname: "", name: "홍길동" }), "홍길동");
   assert.equal(kakaoNickname({ full_name: "가".repeat(50) }).length, 40);
   assert.equal(kakaoNickname(null), "");
+});
+
+test("kakaoAvatar — http 는 https 로, 주소가 아니면 비움", () => {
+  assert.equal(kakaoAvatar({ avatar_url: "http://k.kakaocdn.net/dn/a/img_640x640.jpg" }), "https://k.kakaocdn.net/dn/a/img_640x640.jpg");
+  assert.equal(kakaoAvatar({ avatar_url: "https://k.kakaocdn.net/x.jpg" }), "https://k.kakaocdn.net/x.jpg");
+  assert.equal(kakaoAvatar({ avatar_url: "javascript:alert(1)" }), "");
+  assert.equal(kakaoAvatar({ avatar_url: 'https://a.b/x" onerror="y' }), "");
+  assert.equal(kakaoAvatar({}), "");
+  assert.equal(kakaoAvatar(null), "");
 });
 ```
 
@@ -750,7 +762,7 @@ Expected: FAIL — `Cannot find module '…/authz.ts'`
 
 - [ ] **Step 3: `supabase/functions/church-admin/authz.ts` 쓰기**
 
-Task 1 결과에서 별명 칸이 `nickname`·`name`·`full_name`·`preferred_username`·`user_name` 밖이라면 `kakaoNickname` 의 칸 목록 **맨 앞에** 그 이름을 더하고 시험에도 한 줄 더한다.
+Task 1 결과: 카카오 별명은 `name`(과 `full_name`·`preferred_username`·`user_name`)에 온다 — 아래 순서 그대로 맞다.
 
 ```ts
 // 교회 어드민 — 권한과 신원 규칙(순수 함수)
@@ -845,18 +857,28 @@ export function parseRoles(x: unknown, known: string[]):
   return { ok: true, roles };
 }
 
-// 카카오 별명 — Supabase 가 user_metadata 의 어느 칸에 담는지는 판마다 달라 여럿을 본다(Task 1 에서 실제 칸 확인)
+// 카카오 별명 — 2026-09-28 확인: Supabase 는 user_metadata.name(·full_name·preferred_username·user_name)에 담는다.
+// nickname 칸은 오지 않지만 판이 바뀔 때를 대비해 여럿을 본다.
 export function kakaoNickname(meta: unknown): string {
   const m = (meta && typeof meta === "object" ? meta : {}) as Record<string, unknown>;
   const v = m.nickname || m.name || m.full_name || m.preferred_username || m.user_name || "";
   return norm(v).slice(0, MAX_LEN);
+}
+
+// 카카오 프로필 사진 — 승인 목록에서 본인 확인용(카카오 동의항목에 그렇게 적었다).
+// 카카오는 http:// 로 준다 → https 페이지에서 막히지 않게 https:// 로. 주소 꼴이 아니면 버린다(<img src> 에 들어간다).
+export function kakaoAvatar(meta: unknown): string {
+  const m = (meta && typeof meta === "object" ? meta : {}) as Record<string, unknown>;
+  const v = String(m.avatar_url || m.picture || "").trim();
+  if (!/^https?:\/\/[^\s"'<>]+$/i.test(v)) return "";
+  return v.replace(/^http:\/\//i, "https://").slice(0, 500);
 }
 ```
 
 - [ ] **Step 4: 통과 확인**
 
 Run: `node --experimental-strip-types --test tests/authz.test.mjs`
-Expected: `# pass 12` · `# fail 0`
+Expected: `# pass 13` · `# fail 0`
 
 - [ ] **Step 5: preflight 확인 후 커밋**
 
@@ -887,7 +909,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `membersList` → `{ok:true, members: Member[] & {roles:string[], approved_by_name:string, known_ministry_staff:boolean}, roles:{id,label,description}[]}`
   - `membersApprove {member_id, roles}` · `membersSetRoles {member_id, roles}` · `membersSetStatus {member_id, status:"active"|"disabled"}` → `{ok:true}` 또는 `{ok:false,error}`
   - `auditList {limit?, before?}` → `{ok:true, rows:{id,at,who,action,target,detail}[]}`
-  - `Member` = `{id,type,gu,mok,bu,grade,name,kakao_nickname,status,approved_by,approved_at,last_login_at,created_at}` (**`auth_user_id` 없음**)
+  - `Member` = `{id,type,gu,mok,bu,grade,name,kakao_nickname,kakao_avatar,status,approved_by,approved_at,last_login_at,created_at}` (**`auth_user_id` 없음**)
 
 - [ ] **Step 1: 개발 비밀 값 파일 만들기(저장소 밖)**
 
@@ -1097,7 +1119,7 @@ Expected: FAIL — 함수가 아직 없어 `404`(「토큰 없음 → 401」 등
 //   ⚠️ 응답에 auth_user_id 를 싣지 않는다(MEMBER_COLS 에 없다).
 // ============================================================
 import { createClient } from "npm:@supabase/supabase-js@2.117.2";
-import { canCall, identityCandidates, kakaoNickname, norm, parseIdentity, parseRoles } from "./authz.ts";
+import { canCall, identityCandidates, kakaoAvatar, kakaoNickname, norm, parseIdentity, parseRoles } from "./authz.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -1112,12 +1134,12 @@ function json(obj: unknown, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: { ...cors, "Content-Type": "application/json" } });
 }
 
-const MEMBER_COLS = "id,type,gu,mok,bu,grade,name,kakao_nickname,status,approved_by,approved_at,last_login_at,created_at";
+const MEMBER_COLS = "id,type,gu,mok,bu,grade,name,kakao_nickname,kakao_avatar,status,approved_by,approved_at,last_login_at,created_at";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type Member = {
   id: string; type: string; gu: string; mok: string; bu: string; grade: string; name: string;
-  kakao_nickname: string; status: "pending" | "active" | "disabled";
+  kakao_nickname: string; kakao_avatar: string; status: "pending" | "active" | "disabled";
   approved_by: string | null; approved_at: string | null; last_login_at: string | null; created_at: string;
 };
 type Ctx = { uid: string; meta: unknown; member: Member | null; roles: string[] };
@@ -1213,7 +1235,7 @@ async function register(ctx: Ctx, b: any) {
   if (ctx.member && ctx.member.status !== "pending") return { ok: false, error: "already-registered" };
   const p = parseIdentity(b.identity);
   if (!p.ok) return { ok: false, error: p.error };
-  const row = { ...p.identity, kakao_nickname: kakaoNickname(ctx.meta) };
+  const row = { ...p.identity, kakao_nickname: kakaoNickname(ctx.meta), kakao_avatar: kakaoAvatar(ctx.meta) };
   if (ctx.member) {
     const { error } = await db.from("admin_members").update(row).eq("id", ctx.member.id).eq("status", "pending");
     if (error) throw error;
@@ -2055,6 +2077,8 @@ a.card{display:block;color:inherit;text-decoration:none}
 .muted{color:var(--gray);font-size:13px}
 .badge{display:inline-flex;align-items:center;min-height:24px;padding:0 8px;border-radius:999px;font-size:13px;background:var(--light);color:#333}
 .badge.ok{background:#e6f2e6;color:var(--green)}
+.who-row{display:flex;align-items:center;gap:10px}
+.avatar{width:40px;height:40px;border-radius:50%;object-fit:cover;flex:none;background:var(--light)}
 .empty{padding:28px 0;text-align:center;color:var(--gray);font-size:14px}
 
 /* 입력 */
@@ -2107,6 +2131,8 @@ Run: `python -m http.server 8000`(저장소 루트, 백그라운드) → PC 브�
 5. 「승인됐는지 다시 보기」 → 머리줄·메뉴(시스템: 담당자·역할, 바꾼 기록)·처음 화면 「역할: 총괄 관리자」.
 6. 폭 360px(개발자 도구 기기 모드): ☰ 로 서랍이 열리고 메뉴를 누르면 닫힌다. 1280px: 왼쪽 메뉴가 늘 보인다.
 7. `#/members` 에서 새로고침 → 로그인 유지, 같은 화면. 로그아웃 → 로그인 화면.
+8. **이메일 없이 로그인(Task 1 에서 못 본 것):** 두 번째 카카오 계정(가족 폰 등)으로, 동의 화면에서 **이메일 체크를 빼고** 로그인 → 「처음 오셨어요」까지 와야 한다.
+   막히면(Supabase 오류) 개발 대시보드 Kakao 의 「Allow users without an email」이 켜져 있는지부터 본다.
 
 - [ ] **Step 13: 커밋 · 푸시**
 
@@ -2156,9 +2182,13 @@ function roleChecks(roles, checked, disabledIds = []) {
     ${esc(ro.label)}</label>`).join("")}</div>`;
 }
 
+// 카카오 프로필 사진 — 승인할 때 본인을 알아보기 위해(카카오 동의항목에 적은 목적). 주소는 서버가 https 로 걸러 둔다.
+const avatar = (m) => m.kakao_avatar
+  ? `<img class="avatar" src="${esc(m.kakao_avatar)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : "";
+
 function pendingCard(m, roles) {
   return `<div class="card" data-id="${esc(m.id)}">
-    <div>${who(m)}</div>
+    <div class="who-row">${avatar(m)}<div>${who(m)}</div></div>
     <div class="muted">카카오 「${esc(m.kakao_nickname || "별명 없음")}」 · 요청 ${esc(kstTime(m.created_at))}</div>
     ${m.known_ministry_staff ? `<p style="margin-top:6px"><span class="badge ok">✅ 기존 사역 담당자와 같은 분</span></p>` : ""}
     ${roleChecks(roles, m.known_ministry_staff ? ["ministry"] : [])}
@@ -2287,7 +2317,7 @@ Run: `python tools/preflight.py` → `모두 통과`
 
 Run: `set -a && . /c/Users/sewki/.church-admin/dev.env && set +a && node tests/seed-dev.mjs` → 셋 `201`
 `http://localhost:8000/#/members`(친구 super 계정)에서 확인:
-1. 승인 대기 3명. 「사역담당시험(사랑 1목장)」에만 「✅ 기존 사역 담당자와 같은 분」이 붙고 「사역신청 담당」이 미리 체크돼 있다. (개발 `app_config.ministryAdmins` 에 그분이 없어 표시가 안 나오면: `select value from app_config where key='ministryAdmins'` 로 등록 키를 보고 씨앗의 목장·이름을 그 키에 맞춘다.)
+1. 승인 대기 3명(씨앗은 사진이 없어 이름만 — 친구 카카오 계정으로 등록한 대기 카드가 있으면 사진이 동그랗게 보인다). 「사역담당시험(사랑 1목장)」에만 「✅ 기존 사역 담당자와 같은 분」이 붙고 「사역신청 담당」이 미리 체크돼 있다. (개발 `app_config.ministryAdmins` 에 그분이 없어 표시가 안 나오면: `select value from app_config where key='ministryAdmins'` 로 등록 키를 보고 씨앗의 목장·이름을 그 키에 맞춘다.)
 2. 역할 없이 「승인」 → 토스트 「역할을 하나 이상 골라 주세요」. 체크하고 승인 → 확인 창 → 「사용 중」으로 옮겨진다.
 3. 「교사시험」 거절 → 「정지됨」에 「승인된 적 없음」. 「다시 사용」 → 사용 중, 「역할 없음 — 메뉴가 보이지 않아요」.
 4. 내 카드: 「나」 표시 · 정지 단추 없음 · 역할 바꾸기에서 총괄 관리자 체크가 잠겨 있다.
@@ -2412,6 +2442,21 @@ Expected: `git show --stat` 에 `CLAUDE.md` 한 파일만.
 
 ---
 
-## Task 1 결과
+## Task 1 결과 (2026-09-28)
 
-(Task 1 Step 6 에서 채운다: 로그인 성공 여부 · 별명 칸 이름 · 카카오 동의항목/비즈앱 설정 · 운영에 똑같이 할 설정)
+- **로그인 성공**(개발 `ktpwthwqzgcqcrmsafdo`, PC 크롬). 돌아온 `user_metadata` 칸: `name`·`full_name`·`preferred_username`·`user_name`(모두 카카오 별명과 같은 값) · `avatar_url` · `email`·`email_verified` · `sub`·`provider_id`(카카오 회원번호) · `iss`. **`nickname` 칸은 없다** — `kakaoNickname` 은 `name` 에서 읽는다(순서 그대로 둬도 된다).
+- **처음엔 KOE205** — Supabase 가 카카오에 `account_email` 을 **늘 요청**하도록 박혀 있다(「Allow users without an email」을 켜도 빠지지 않는다 · supabase/supabase#36878). 비즈앱이 아니면 이메일이 「권한 없음」이라 카카오가 거절한다.
+  → **개인 개발자 비즈 앱 전환**(사업자 번호 없이, 콘솔에서 바로 됨 · 전환 목적은 목록에서 「이메일 필수 동의」를 골랐지만 실제 동의 단계는 동의항목 화면에서 정한다).
+- 카카오 동의항목: **닉네임 필수** · **카카오계정(이메일) 선택 동의**(「정보 수집 후 제공」 체크 안 함) · **프로필 사진 선택 동의**.
+  목적 문구 — 닉네임 「교회 관리 화면에 로그인한 담당자를 총괄 관리자가 승인할 때 본인을 알아보기 위해 표시합니다.」
+  이메일 「교회 관리 화면의 로그인 계정을 구분하기 위해 받습니다. 연락이나 광고에는 쓰지 않습니다.」
+  프로필 사진 「교회 관리 화면의 담당자 승인 목록에서 본인을 알아보기 위해 표시합니다.」
+  ⚠️ 프로필 사진 목적이 사실이 되도록 **승인 목록에 사진을 보인다**(아래 반영).
+- 카카오 앱: 「고척교회 관리」(ID 1589758) · 카카오 로그인 ON · OpenID Connect ON(그대로) · **로그인 리다이렉트 URI 는 「앱 → 플랫폼 키 → REST API 키」 화면에** 있다(「고급 → 로그아웃 리다이렉트 URI」와 헷갈리지 말 것) · 호출 허용 IP 비움 · Client Secret 사용.
+- Supabase 개발: Kakao 켬(REST API 키 = Client ID) · **Allow users without an email 켬** · Site URL `http://localhost:8000` · Redirect URLs `http://localhost:8000/**`·`https://sewoongkim1.github.io/church-admin/**`.
+- **운영(Task 8)에 똑같이 할 것:** 카카오 REST API 키 화면에 운영 콜백 추가 · 운영 Supabase Kakao 켜기(같은 키·시크릿·Allow users without an email) · Redirect URLs 에 `https://admin.onlybible.kr/**` 추가(Site URL 은 건드리지 않음).
+- 아직 확인 안 한 것: 이메일 동의를 **빼고** 로그인(선택 동의라 되어야 한다) — Task 6 Step 12 에서 두 번째 카카오 계정으로 본다.
+- `avatar_url` 은 `http://` 로 온다 → https 페이지에서 막히지 않게 서버가 `https://` 로 바꿔 저장한다(`kakaoAvatar`).
+
+### 이 결과로 계획에 더한 것
+- `admin_members.kakao_avatar` 칸(Task 3 SQL) · `kakaoAvatar(meta)`(Task 4) · `register` 가 저장하고 `MEMBER_COLS` 에 넣음(Task 5) · 승인 대기 카드에 사진(Task 7).
