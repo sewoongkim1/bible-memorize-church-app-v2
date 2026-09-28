@@ -485,6 +485,7 @@ Deno.serve(async (req) => {
       case "ministryCatalogOrder": return json(await ministryCatalogOrder(body));
       case "ministryAdmins":     return json(await ministryAdmins(body));      // 담당자 명단(관리자만)
       case "ministryAdminsSave": return json(await ministryAdminsSave(body));  // 한 분씩 추가·빼기(관리자만)
+      case "internalMinistryNotify": return json(await internalMinistryNotify(req, body));  // church-admin 전용(x-internal-key)
 
       // ---- 순위 응원 ----
       case "rankCheer":     return json(await rankCheer(body));
@@ -5037,6 +5038,41 @@ async function ministryNotify(row: any) {
     url: "https://gocheok.onlybible.kr/",
   });
   return await pushToSubs(list, payload, "ministry", "사역 임명확정");
+}
+
+// ---------- 교회 어드민이 부르는 내부 전용(2026-09-28) ----------
+// church-admin 함수가 사역신청을 「임명확정」으로 바꾼 뒤 부른다. 알림 코드(한 사람 한 해 한 번 · 발송 · push_log)를
+// 두 벌로 만들지 않으려고 여기 둔다 — ministrySetStatus 의 알림 부분과 같은 규칙.
+// ⚠️ 성도·담당자 화면이 부르는 길이 아니다: 같은 프로젝트의 서비스 키를 머리(x-internal-key)로 받은 때만 연다.
+function sameSecret(a: string, b: string) {
+  if (!a || !b || a.length !== b.length) return false;
+  let d = 0;
+  for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return d === 0;
+}
+
+async function internalMinistryNotify(req: Request, b: any) {
+  if (!sameSecret(req.headers.get("x-internal-key") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "")) {
+    return { ok: false, error: "unauthorized" };
+  }
+  const id = Number(b.id) || 0;
+  const { data: row, error } = await db.from("ministry_orders")
+    .select("id,year,user_id,name,team,status,notified_at").eq("id", id).maybeSingle();
+  if (error) throw error;
+  if (!row) return { ok: false, error: "not-found" };
+  if (row.status !== "임명확정") return { ok: false, error: "not-appointed" };
+  // ⚠️ 아직 살아 있는 확정만 센다(되돌린 확정의 흔적까지 세면 그 뒤 어떤 팀을 확정해도 영영 안 간다)
+  const { data: sentRows, error: e2 } = await db.from("ministry_orders")
+    .select("id").eq("year", row.year).eq("user_id", row.user_id)
+    .eq("status", "임명확정").not("notified_at", "is", null).limit(1);
+  if (e2) throw e2;
+  if ((sentRows ?? []).length) return { ok: true, pushed: 0, pushError: null, already: true };
+  const res = await ministryNotify(row);
+  if (res.sent > 0) {
+    const { error: e3 } = await db.from("ministry_orders").update({ notified_at: new Date().toISOString() }).eq("id", id);
+    if (e3) throw e3;
+  }
+  return { ok: true, pushed: res.sent, pushError: res.error, already: false };
 }
 
 // ============================================================
