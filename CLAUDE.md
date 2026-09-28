@@ -39,6 +39,7 @@
 | 측정(카드 쓰임·전환율·열람 기록) | `docs/notes/metrics.md` |
 | 액션·테이블·시크릿 목록 | `docs/notes/backend-api.md` |
 | 아이폰 앱(Swift)·「앱이면 …」 웹 코드·껍데기 판 표식 | `docs/notes/ios-app.md` |
+| 교회 어드민(admin.onlybible.kr · 별도 저장소 `c:\Projects\church-admin`) — 카카오 로그인·담당자 승인, 사역신청 관리를 옮겨 가는 중 | 설계 `docs/superpowers/specs/2026-09-28-church-admin-design.md` · 그 저장소 `CLAUDE.md` |
 
 ## 스택 · 도메인
 - **Vanilla JS PWA**(프레임워크 없음) — `index.html` + `app.js`(대형 단일 파일) + `sw.js`
@@ -158,6 +159,9 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
 
 ## 다음 작업 (이어서 할 것)
 > 여기에 다음에 진행할 과제를 적어두면, 다음 세션에서 이 문서를 읽고 바로 이어감.
+- [ ] 🏛️ **교회 어드민 — 1단계(뼈대·카카오 로그인·담당자 관리) 운영 개시(2026-09-28).** 다음은 2단계 임명현황 옮기기.
+      ⚠️ 옮기는 동안 `admin-stats.html` 의 사역 화면·`api` 의 담당자용 사역 액션 7개는 **얼린다**(기능 추가 금지).
+      계획 `docs/superpowers/plans/2026-09-28-church-admin-stage1.md` · 설계 위 표의 문서 · 진행 기록 `c:\Projects\church-admin\.superpowers\sdd\progress.md`.
 - [x] **iOS 2단계(네이티브 기능 3종) — 위젯·네이티브 로그인 화면 실기기 확인 완료(2026-09-16).**
       설계 `docs/superpowers/specs/2026-09-13-ios-app-design.md`(총괄)·
       `2026-09-16-ios-native-login-design.md`(로그인)·계획 `docs/superpowers/plans/2026-09-16-ios-native-login.md`.
@@ -280,6 +284,10 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
 - ⚠️ **표를 새로 만들면 `enable row level security`를 그 자리에서 켠다.** `event_entries`가 그걸 빠뜨려 `user_id` 47건이 공개 키로 읽혔다.
 - 2026-08-25에 막은 것: `v_ranking_all`(133행 · user_id·이름·교구·목장) · `event_entries`(47행 · user_id) · `v_verse_status`(34행 · 개인정보 없음). → `supabase/security_close_public_views.sql`
 - **점검하는 법:** 공개 키로 `GET {URL}/rest/v1/{이름}?select=*&limit=1`. 행이 오면 열려 있는 것이다. 나머지 표는 모두 RLS로 막혀 있었다.
+- ⚠️ **2026-09-28 부터 운영에 카카오 로그인이 켜졌다(교회 어드민).** 이제 `authenticated` = **카카오 계정만 있으면 누구나**다.
+  새 표·뷰·함수·storage 정책을 **`TO authenticated` 로 열지 말 것**, revoke 는 `anon`·`authenticated` **둘 다**.
+  같은 프로젝트의 다른 앱(digest.onlybible.kr · `memos` 등 다섯 표)은 그 앱 허가 명단 `legacy_app_users` 로 묶어 두었다.
+  바꾼 뒤엔 `c:\Projects\church-admin\supabase\sql\check-authenticated-exposure.sql` 을 운영에서 돌려 **0행**인지 본다.
 
 ## 여러 세션이 같은 저장소에서 동시에 일한다 (2026-09-10)
 세 세션(시편 액자·사역신청/관리자·이벤트 플랫폼)이 **같은 체크아웃**에서 동시에 일하다 사고가 났다.
