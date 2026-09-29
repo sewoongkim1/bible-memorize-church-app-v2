@@ -240,6 +240,10 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.json:json:20240303'
 
-        implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.6.2'
+        // 2.7.3(2026-09-30 올림) — Play Console 「다음 출시 버전을 위한 발견 항목」 둘(안드로이드 15 더 넓은 화면 ·
+        // 지원 중단된 창 API)은 우리 코드가 아니라 2.6.2 의 스플래시가 Window.setStatusBarColor·setNavigationBarColor 를
+        // 부른 것이었다. 2.7.x 는 LauncherActivity 가 WindowCompat.enableEdgeToEdge 를 부르고 스플래시를 EdgeToEdgeController 로
+        // 그리며, 옛 API 는 WebViewFallbackActivity 에서 안드로이드 14 이하일 때만 부른다(javap 로 확인).
+        implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.7.3'
     
 }

@@ -148,7 +148,45 @@ android-app/twa-manifest.json:24  "appVersionCode": 1
 9. D&B 발급 메일(2026-09-30) — D-U-N-S 690031840 · 법적 이름 DAEHANYESUGYO JANGNOHOE GOCHEOK GYOHOE
 10. 저장소: `store/closed-test.md`(1·2차 경과) · `store/README.md` 「단체(교회 명의) 계정」 절 · `android-app/app/build.gradle:88` · `.well-known/assetlinks.json`
 
+## 부록 — Play Console 「다음 출시 버전을 위한 발견 항목」 둘 (같은 날 추가)
+
+같은 날 친구가 콘솔의 경고 두 건을 보여 주었다. 둘 다 지금 나가 있는 판(「1.0.0 · 첫 출시 (웹 v3.221)」)에 붙은 것이다.
+
+| 콘솔 문구 | 뜻 |
+|---|---|
+| 일부 사용자에게는 더 넓은 화면이 표시되지 않을 수 있습니다 | 안드로이드 15 부터는 앱이 상태 표시줄·아래 막대 밑까지 그린다(edge-to-edge). `enableEdgeToEdge()` 를 부르라는 권고 |
+| 앱에서 더 넓은 화면용으로 지원 중단된 API 또는 파라미터를 사용합니다 | 안드로이드 15 에서 지원이 중단된 창 색 API 를 부른다 |
+
+**⚠ 반려 사유와는 관계가 없다.** 반려 메일의 사유는 1절의 두 줄뿐이다. 이 두 건은 「다음 판에서 고치라」는 권고다.
+
+**어디서 왔나 — 우리 코드가 아니라 TWA 라이브러리였다.** `androidbrowserhelper` 2.6.2 를 풀어 `javap` 로 보았다.
+
+```
+2.6.2  PwaWrapperSplashScreenStrategy → Utils.setStatusBarColor / setNavigationBarColor
+       Utils → Window.setStatusBarColor · Window.setNavigationBarColor · View.setSystemUiVisibility   (안드로이드 15 에서 지원 중단)
+2.7.3  LauncherActivity → WindowCompat.enableEdgeToEdge(getWindow())       ← 경고 ①이 권하는 바로 그것
+       스플래시 → EdgeToEdgeController(androidx ProtectionLayout)           ← 옛 API 를 안 부른다
+       WebViewFallbackActivity → 옛 API 를 SDK_INT ≤ 34(안드로이드 14 이하)일 때만
+```
+
+우리 코드(`LauncherActivity.java`, 위젯 일곱 파일)는 창 API 를 부르지 않는다. 위젯은 화면(Activity)이 없다.
+
+**한 일:** `android-app/app/build.gradle` 의 라이브러리를 **2.6.2 → 2.7.3** 으로 올렸다(2.7.3 은 2026-08-13 에 나온 최신판).
+
+| 검증 | 결과 |
+|---|---|
+| 시험판 빌드 + 위젯 JVM 시험(`assembleDevDebug testDevDebugUnitTest`) | 통과 |
+| 정식판 빌드(R8 축소, `assembleProdRelease`) | 통과 |
+| 새 APK 안에 `EdgeToEdgeController`·`enableEdgeToEdge` 가 들었나 | 들었다 |
+| **실기기** | ⚠ **안 봤다** — 폰이 연결돼 있지 않았다. 업로드 전에 본다(위젯 계획 Task 8 에 적었다) |
+
+⚠ 남는 불확실한 것 둘:
+
+1. 콘솔의 검사가 **호출 자리만 보고** 경고를 띄운다면, 안드로이드 14 이하에서만 부르는 `WebViewFallbackActivity` 때문에 경고 ②가 남을 수 있다. 다음 판을 올린 뒤 이 화면을 다시 본다.
+2. 라이브러리 저장소에 **크롬 152 부터 TWA 스플래시가 아예 안 뜨는** 문제가 열려 있다(GoogleChrome/android-browser-helper#623, 2026-09-03). 크롬 쪽 보안 검사가 바뀐 탓이라 2.6.2·2.7.3 모두 해당한다. 앱은 정상으로 열린다. 실기기에서 스플래시가 안 보여도 이번 변경 탓으로 단정하지 말 것.
+
 ## 갱신 이력
 
 - 2026-09-30 처음 씀(반려 메일 없이 추정으로)
 - 2026-09-30 반려 메일 원문을 받아 사유 둘을 확인 — 추정했던 두 원인(판 업데이트 없음 · 참여 부족)이 그대로 맞았다. 결론은 그대로다
+- 2026-09-30 부록 추가 — 콘솔 「다음 출시 버전을 위한 발견 항목」 둘은 TWA 라이브러리 2.6.2 탓이었다 · 2.7.3 으로 올림(실기기 확인 전)
