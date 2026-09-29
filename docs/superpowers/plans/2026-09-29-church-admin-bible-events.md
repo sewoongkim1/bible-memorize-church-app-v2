@@ -10,6 +10,8 @@
 
 **설계:** `docs/superpowers/specs/2026-09-29-church-admin-bible-events-design.md` (이 계획과 어긋나면 설계가 맞다)
 
+**과제 차례:** `1 → 2 → … → 12 → 16 → 13 → 14 → 15` — Task 16(이름을 누르면 교적 창 · 친구 결정 2026-09-30)은 계획을 쓴 뒤에 더해져 번호만 16 이다. 문서에서도 Task 12 와 Task 13 사이에 있다(Task 13 의 개인정보 안내 글이 Task 16 이 6번에 넣은 한 줄을 먼저 찾는다).
+
 ## Global Constraints
 
 - 코드 저장소 `C:\Projects\church-admin`, 작업 가지 `bible-events`(워크트리 `.worktrees/bible-events`). 성경암송 저장소는 Task 15 에서만 고친다.
@@ -17,12 +19,12 @@
 - **`events`·`event_signups` 의 칸·제약·RLS 를 바꾸지 않는다.** 새 SQL 은 `admin_roles` 한 줄(`004_bibleevent_role.sql`)뿐, 개발 먼저.
 - 역할 id `bibleevent`(라벨 「성경필사(암송)」). `pilsa` 는 쓰지 않는다(성경암송 필사 노트 신청이 쓰는 이름).
 - 새 액션 = `authz.ts` `ACTION_ROLES` + `index.ts` switch case + `tests/server.dev.test.mjs` PROBE **세 곳**(하나라도 빠지면 400·시험 실패).
-- 응답에 `user_id`·`auth_user_id`·`ident_key`·`answers`·`phone`·`memo`·`person_id` 를 싣지 않는다. 명시적 칸 지도로만 만든다. `note`(담당자 메모)와 `memo`(성도님 한 줄)는 다른 칸 — 이 기능은 `memo` 를 쓰지 않는다.
+- 응답에 `user_id`·`auth_user_id`·`ident_key`·`answers`·`phone`·`memo`·`person_id` 를 싣지 않는다 — 예외 하나: `evPerson` 의 `full`(교인명부 역할·총괄에게만 교인ID · Task 16). 명시적 칸 지도로만 만든다. `note`(담당자 메모)와 `memo`(성도님 한 줄)는 다른 칸 — 이 기능은 `memo` 를 쓰지 않는다.
 - `ident_key` 는 `paper.ts` 의 `appIdentityKey`(NFC 안 함)로. `authz.ts` 의 `identityKey`(NFC)를 쓰면 앱 계정과 영영 안 맞는다.
 - 1,000행: 표를 읽을 때는 `allRows`(쪽 나누기 + `order(id)`), 개수는 `head:true`. 한글 키 `.in()` 은 100개씩 나눈다.
 - 앱에서 낸 줄(`source='app'`)과 자격 회차(`needs.eligibility` 있음)의 줄은 **담당자 메모만** 고친다. 자격 회차에는 더하기·올리기·빼기를 막는다(`eligibility-event`).
 - 담당자가 더한 줄: `source='import'`, `note` 앞에 `담당자가 더함`(올리기는 `명단 올리기`, 교인명부로 채운 줄은 `소속: 교인명부로 채움`, 겹치면 ` / `). 앱 계정은 **조회만** 해서 잇는다(만들지 않는다).
-- 교인명부에서 담당자에게 주는 값은 **이름·구분·소속·세부·직분 다섯**뿐. 찾을 때마다 `people.lookup`(검색어), 살펴보기에서 채울 때마다 `people.fill`(채운 이름) 기록.
+- 교인명부에서 담당자에게 주는 값은 **이름·구분·소속·세부·직분 다섯**뿐(예외: 교인명부 역할·총괄이 명단의 이름을 누르면 교인명부 「자세히」 창 — Task 16 `evPerson` `full`). 찾을 때마다 `people.lookup`(검색어), 살펴보기에서 채울 때마다 `people.fill`(채운 이름) 기록.
 - 팝업: `alert`·`confirm`·`prompt`·`beforeunload` 금지 · `<select>`·`<input type=date|time>`·`datalist` 금지 → `ui.js` `dialog`/`toast`, `js/core/modal.js` `openForm`, `js/core/picker.js` `pickOne`/`pickMany`/`pickDate`. 유일한 예외는 엑셀 파일 고르기(붙여넣기·끌어다 놓기를 함께 둔다).
 - UI 표준 v1: 주 단추 48px · 둘째 44px · 칩 36px · 글자 13px 이상 · 폰 카드 / PC(≥1024px) 표 · 메뉴마다 새 `<section>` · 저장 중 `busy()` · CSS 는 `be-` 접두 블록.
 - 공개 저장소: 실명·전화·진짜 명단을 코드·시험·문서에 넣지 않는다(시험 이름은 `ca-test-…`, 예시는 「홍길동」). leak-scan·pre-commit 그대로.
@@ -42,16 +44,18 @@
 | `supabase/functions/church-admin/events-stats.ts` | 사람 묶음(합집합)·통계·빠른 고르기 | 4 |
 | `supabase/functions/church-admin/events-rows.ts` | 한 분 더하기·고치기의 줄 규칙(붙임말·바뀐 칸·같은 분 키) | 7 |
 | `supabase/functions/church-admin/events-upload.ts` | 올리기 판정·채우기·건수 | 8 |
+| `supabase/functions/church-admin/events-person.ts` | 이름을 누르면 교적 창 — 고르는 규칙(교적 표시와 같은 `sameAffiliation`)·응답 모양 | 16 |
 | `supabase/sql/004_bibleevent_role.sql` | 역할 한 줄 | 5 |
-| `supabase/functions/church-admin/authz.ts` | 새 액션 12개의 역할 | 5–8 |
-| `supabase/functions/church-admin/index.ts` | 새 액션 12개·도움 함수 | 5–8 |
-| `tests/events-*.test.mjs`·`tests/people-match.test.mjs`·`tests/authz.test.mjs`·`tests/server.dev.test.mjs` | 시험 | 2–8 |
+| `supabase/functions/church-admin/authz.ts` | 새 액션 13개의 역할 | 5–8, 16 |
+| `supabase/functions/church-admin/index.ts` | 새 액션 13개·도움 함수 | 5–8, 16 |
+| `tests/events-*.test.mjs`·`tests/people-match.test.mjs`·`tests/authz.test.mjs`·`tests/server.dev.test.mjs` | 시험 | 2–8, 16 |
 | `js/core/modal.js` · `js/main.js` · `tests/modal.test.mjs` | 직접 만든 입력 창 · 메뉴 옮길 때 닫기 | 9 |
 | `js/menus/bibleevent/roster*.js`·`event-form.js`·`row-form.js` | 📋 회차·명단 | 10 |
 | `js/menus/bibleevent/upload*.js` | 📤 명단 올리기 | 11 |
 | `js/menus/bibleevent/history*.js` | 👤 사람별 이력·통계 | 12 |
-| `js/menus/registry.js` · `js/core/ui.js` · `css/admin.css` | 메뉴 줄 · 오류 문구 · `be-` 모양 | 9–12 |
-| `js/menus/system/audit.js` · `tests/audit.test.mjs` · `privacy.html` · `CLAUDE.md` | 기록 이름 · 개인정보 안내 · 문서 | 13 |
+| `js/menus/bibleevent/person-*.js` · `tests/be-person-logic.test.mjs` · `js/menus/people/search.js`(`openPerson` 내보내기 한 단어) | 이름을 누르면 교적 창(화면 · 뒤로 가기 한 칸) · 📋·👤 이름 단추(`roster-ui.js`·`roster.js`·`history.js`) | 16 |
+| `js/menus/registry.js` · `js/core/ui.js` · `css/admin.css` | 메뉴 줄 · 오류 문구 · `be-` 모양 | 9–12, 16 |
+| `js/menus/system/audit.js` · `tests/audit.test.mjs` · `privacy.html` · `CLAUDE.md` | 기록 이름 · 개인정보 안내 · 문서 | 13(`privacy.html` 6번 「이름을 누르면」 한 줄은 16) |
 | `tests/seed-bible-events-dev.mjs` | localhost 확인용 개발 DB 재료(가짜 명단) | 14 |
 | (성경암송) `supabase/functions/api/index.ts` · `admin-event.html` · `supabase/event_stamp_2026.sql` · 가을 설계 문서 · `CLAUDE.md` | 얼리기 · 안내 띠 · 다시 돌리지 말 것 · 개시 절차 · 문서 | 15 |
 
@@ -9852,6 +9856,1260 @@ git status --short        # 아무것도 없어야 한다
 > ① 이름을 치는 동안에는 서버를 부르지 않고 「찾기」·Enter 때만 부른다(개발자 도구 네트워크 탭) ② 같은 이름이 두 소속이면 묶음 둘(① ②, 이름표 「이름 · 소속」), 계정 이어진 묶음에 「🔗 앱 계정」 ③ 회차 이름을 누르면 📋 회차·명단의 그 회차 ④ 「✔️ 직접 고르기」가 우리 고르개(시스템 창 아님)로 뜨고, 보관 회차까지 모두 나온다 · 모두 해제하고 확인하면 「회차를 하나 이상 골라 주세요」 ⑤ 「✝️ 사순절」 칩을 누르면 `lent-booklet-` 회차는 빠진다(그건 「📘 소책자」) ⑥ 「N회 이상」 칩을 바꾸면 목록·내려받기가 같이 바뀐다 · 여러 번 참여한 분은 「이름 · 소속」(예 「홍길동 · 화평 20목장」)으로 보인다 ⑦ 내려받은 CSV 를 엑셀로 열면 한글이 안 깨진다(BOM) · 여러 번 참여 표의 칸이 「이름」「소속」「횟수」「참여 회차」 ⑧ 여러 번 참여한 분을 누르면 👤 사람별 이력으로 넘어가 그 이름을 찾는다 ⑨ 메뉴를 옮겼다 돌아오면 보던 쪽·고른 회차·찾던 이름이 남아 있다.
 
 
+### Task 16: 이름을 누르면 교적 창 — evPerson · 역할에 따라 「자세히」 창 또는 다섯 칸
+
+> **차례 — Task 12 뒤, Task 13 앞에 돈다.** 실행 차례는 `5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 16 → 13 → 14 → 15` 다.
+> 번호가 16 인 것은 친구 결정(2026-09-30 · 설계 §0 「이름을 누르면 교적 창」·§2 `evPerson`·§3·§8-8)이 계획을 쓴 뒤에 와서다.
+> 이 과제는 Task 5·8(서버 도움 함수·`lookupName`·`EV_LOOKUP_COLS`·`upFixtures`)·Task 9(`modal.js` — 같은 뒤로 가기 규칙 · 두 파일이 popstate 를 함께 듣는다)와 Task 10·12(명단 카드·표·이력 화면)의 **끝난 코드**에 얹는다.
+>
+> **뒤 과제는 이 과제를 이미 담고 있다** — 이 과제를 계획에 넣을 때 뒤 과제의 글을 함께 고쳤다. 그래서 뒤 과제를 돌리는 분이 따로 챙길 것은 없다:
+> Task 13 Step 1 은 기록 줄 **아홉**(`people.lookup` 이 `evPeopleLookup`·`evPerson` 두 곳)을 기대하고, Step 7 은 이 과제가 6번에 더한 한 줄이 있는지 먼저 본 뒤 7번·6번 보는 사람 글을 이 과제까지 담아 **처음부터** 쓰며, Step 8 의 `CLAUDE.md` 절에는 `evPerson` 줄과 모듈 여섯(`events-person.ts`)이 들어 있다 ·
+> Task 14 Step 7·11·12 점검표에 이 과제의 줄이 있고 액션은 13개다 · Task 15 는 액션 13개 · 운영 함수에 `events-person.ts` 와 `case "evPerson"` 을 본다 ·
+> 계획 머리의 Global Constraints(교인ID 예외 하나)·파일 지도와 설계 §2 `evPerson` 줄도 이 과제의 응답 모양으로 맞췄다.
+> `audit.js`(Task 13 Step 4)에는 더할 것이 없다 — `evPerson` 은 새 기록 이름을 만들지 않고 `people.lookup`(`{q, count}`)을 그대로 쓴다.
+
+**정한 것**(설계 §0·§2·§3 을 코드로 옮기며 정한 것 — 설계와 다르게 읽힐 수 있는 자리는 까닭을 함께 적는다):
+- **고르는 규칙은 새로 만들지 않는다** — 명단의 교적 표시(`people-match.ts matchChurch`)가 쓰는 `sameAffiliation` 그대로: ① 소속까지 같은 분이 한 분 → 그분 ② 같은 소속이 없고 이름이 명부 전체에 한 분뿐 → 그분 ③ 그 밖 → 후보만. 그래서 교적 표시가 「맞음」인 줄은 **늘** 그 한 분이 열린다(순수 시험이 맞대 본다).
+- **모양은 서버가 역할로 정한다**(`ctx.roles` — 화면이 보낸 것을 믿지 않는다): `directory` 또는 `super` → `full`(교인ID·이름·소속 한 줄·직분) · 그 밖 → `basic`(다섯 칸 + 교적 표시) · 명부가 한 번도 안 올라왔으면 `none`.
+  ⚠️ Global Constraints 의 「응답에 `person_id` 를 싣지 않는다」의 **유일한 예외**가 `full` 이다(Global Constraints 에도 이 예외를 적었다) — 설계 §2 `evPerson` 줄(친구 결정 2026-09-30)이 정했고, 받는 분은 🔎 교인 찾기에서 교인ID 를 이미 보는 교인명부 역할·총괄뿐이다. 사진·연락처·주소·가족은 여기서 싣지 않고 `peoplePerson` 이 교인명부 역할을 **다시** 확인하고 준다.
+- **고른 분이 있으면 그 한 분만** 싣는다(`full`·`basic` 둘 다) — 같은 이름의 다른 분 값은 고르지 못했을 때만 나간다(스무 분까지 · `evPeopleLookup` 과 같은 상한). 대신 **`total`**(명부에서 이 이름인 분 수 · 자르기 전)을 함께 준다 — 스무 분으로 잘렸을 때 화면이 「같은 이름이 21분 있어요(앞 20분만 보여요)」·고르개 제목 「(같은 이름 21분 중 앞 20분)」으로 사실대로 적게(옆 교적 표시 「같은 이름 21명」과 수가 어긋나지 않게).
+- `basic` 의 교적 표시는 **줄 하나에 하나**(`church`)다 — 설계 표의 `people:[{…, church}]` 를 이렇게 읽었다(설계 §2 줄도 이 모양으로 고쳤다). 교적 표시는 「명단 줄 ↔ 교인명부」를 맞댄 결과라 사람마다 붙일 값이 아니고, 명단(`evRoster`)과 **같은 함수·같은 후보**로 만들어 창과 명단의 표시가 늘 같다(개발 시험이 맞대 본다).
+- **기록 — 교인명부 값이 이 창에 나가면 남긴다**: `people.lookup {q, count}` — `evPeopleLookup` 과 같은 action·같은 모양(`count` = 보여 준 분 수 · 개인정보 안내가 약속한 「찾은 검색어」). `basic` 은 **늘**. `full` 은 **고르지 못했을 때(`pick: null` — 후보 스무 분까지·빈 후보)만** — 이때는 이름·소속·직분·교인ID 가 여러 분 나가는데 고르개를 닫으면 `people.view` 도 남지 않아, 여기서 안 남기면 기록이 아예 없다.
+  `full` 에서 서버가 한 분을 골랐으면(`pick: 0`) **남기지 않는다** — 화면이 곧바로 「자세히」 창을 열고 `peoplePerson` 이 `people.view`(그분 이름·교인ID)를 남긴다. 여기서도 남기면 이름 한 번에 두 줄이다.
+- **창**: `basic` = `ui.js dialog`(읽기만 하는 창 — 설계 §3 「확인·알림은 `dialog`/`toast` · 입력이 있는 창은 전용 창」이라 `openForm` 을 쓰지 않는다) · `full` 후보 고르기 = `picker.js pickOne`(고르기는 공용 고르개 — 한 번 누르면 곧 닫히고, 폰은 아래 판) · 「자세히」 = 교인명부 `openPerson`(내보내기만 더한다).
+- **뒤로 가기는 창만 닫는다**(설계 §3 「팝업 — 뒤로 가기」 그대로 · 폰에서 창을 닫는 가장 흔한 손짓이라 명단 자리를 잃지 않게): 창(작은 창·고르개·「자세히」 창)을 열 때 `history.pushState({bePerson:1}, "")` 로 한 칸을 쌓고 `popstate` 를 「창 닫기」로 받는다. 「닫기」·Esc 로 닫으면 `history.back()` 으로 그 칸을 거두고 **그 popstate 가 온 뒤에** 끝낸다(`modal.js` 와 같은 차례 — 안 거두면 다음 뒤로 가기 한 번이 헛 누름). 주소가 같은 칸이라 `hashchange`·`route()` 는 돌지 않는다. `modal.js` 의 popstate 처리와는 서로 비켜 간다(그쪽은 열린 입력 창·제 칸이 없으면 아무것도 안 한다 — 2026-09-30 헤드리스 크롬 사본에서 이 창을 닫은 뒤 입력 창을 열고 뒤로 가기로 닫아 봤다).
+- **이름 한 번 누름 = 한 묶음**: 작은 창 하나, 또는 [고르개 →] 「자세히」 창(가족 이름으로 넘어간 창까지)이 한 칸을 함께 쓴다. 묶음 동안 **메뉴를 옮기면**(`hashchange`) 떠 있는 우리 창을 닫고, 아직 묻는 중이면 답이 와도 띄우지 않는다(`evPerson` 답 뒤·고르개 뒤에 다시 보고, 「자세히」 창처럼 `openPerson` 이 답을 받은 **뒤에** 붙이는 창은 `MutationObserver` 로 붙는 즉시 닫는다). 뒤로 가기 뒤에 늦게 뜬 창도 같다. 교인 찾기(🔎)의 「자세히」 창은 묶음 밖이라 건드리지 않는다.
+- 명부가 없을 때(`none`)는 「교인명부가 아직 올라오지 않아 찾을 수 없어요」, 찾은 분이 없을 때만 「교인명부에서 찾지 못했어요」 — 「아직 모른다」와 「없다」를 한 문장으로 뭉개지 않는다.
+- 👤 통계의 「여러 번 참여한 분」은 응답(`repeaters`)에 소속 칸이 따로 없다(`label` 소속 한 줄뿐 · Task 4·5 모양을 바꾸지 않는다) — 화면이 `rowFromLabel` 로 되읽는다(서버 `affLabel` 과 맞대 보는 순수 시험). 이 줄의 이름은 교적 창이 되고, 예전의 「이름을 누르면 그분 이력으로」는 줄 끝 **「📜 이력」** 단추로 옮긴다.
+- 「자세히」 창의 가족 단추(`person-detail.js` 의 `data-fam`·`data-fam-all`)는 `person-popup.js` 가 잡는 단계(capture)에서 먼저 받는다: 가족 이름 → 그 창을 닫고 **같은 칸에서** 그분 창을 연다(`openPerson` 이 스스로 넘기면 첫 창이 닫히는 순간 묶음이 끝난 줄 알아 칸·메뉴 옮기기 처리가 끊긴다) · 「👪 가족 모두 목록으로」 → 이 메뉴에는 가족 목록이 없어 알림 한 줄(「가족 목록은 🔎 교인 찾기에서 …」)만, **창은 그대로**. `search.js` 는 `export` 한 단어와 주석 한 줄만 고친다.
+
+**Files:**
+- Create: `supabase/functions/church-admin/events-person.ts` · `tests/events-person.test.mjs`
+- Modify: `supabase/functions/church-admin/authz.ts` — 앵커 `  evPeopleLookup: "bibleevent",`(Task 8) 바로 뒤에 세 줄
+- Modify: `tests/authz.test.mjs` — bibleevent 블록 목록의 조각 `"evPeopleLookup", "evRoster",`(Task 8) 한 곳
+- Modify: `supabase/functions/church-admin/index.ts` — 앵커 `const cors = {` 바로 위에 새 import 문 · 앵커 `Deno.serve(async (req) => {` 바로 위에 새 절 · 앵커 `      case "evPeopleLookup": return json(await evPeopleLookup(ctx, b));`(Task 8) 바로 뒤에 case 한 줄
+- Modify: `tests/server.dev.test.mjs` — 앵커 `  evPeopleLookup: { name: "" },`(Task 8 PROBE) 바로 뒤에 한 줄 · 파일 끝에 도움 함수 하나·시험 둘
+- Modify: `js/menus/people/search.js` — 앵커 `async function openPerson(call, id, onFamily, back) {` 한 줄(`export` + 주석 한 줄)
+- Create: `js/menus/bibleevent/person-logic.js`(순수) · `js/menus/bibleevent/person-popup.js`(창) · `tests/be-person-logic.test.mjs`
+- Modify: `js/menus/bibleevent/roster-ui.js`(Task 10 · 앵커 셋) · `js/menus/bibleevent/roster.js`(Task 10 · 앵커 둘) · `js/menus/bibleevent/history.js`(Task 12 · 앵커 다섯)
+- Modify: `css/admin.css` — 파일 끝에 「be-name · be-pp-」 블록
+- Modify: `privacy.html` — 6번에 한 줄(앵커 `      보관: 새 명단이 나오면 통째로 갈아 끼우고, …` 앞). 7번·6번 「보는 사람」 글과 `CLAUDE.md` 의 `evPerson` 줄은 **Task 13 이 처음부터 이 과제를 담아** 쓴다(이 과제 뒤에 돈다).
+
+**Interfaces:**
+- Consumes:
+  - Task 3 `events-people.ts`: `mapChurchPerson(p)` · `positionFromChurch(p)` · `type ChurchPerson` · Task 4 `events-stats.ts`: `affLabel({who_type, group_name, sub_name})` · Task 2 `events-rules.ts`: `BE_FIELD_MAX`
+  - Task 8 `events-upload.ts`: `lookupOut(p) → {name, who_type, group, sub, position}` · `LOOKUP_MAX`(20) · `lookupName(v) → {name, key, error}`(index.ts 에는 Task 8 이 이미 들였다 — **다시 들이지 않는다**)
+  - `people-match.ts`: `applicantFromSignup` · `matchChurch` · `sameAffiliation` · `toCand` · `type Church`
+  - index.ts: Task 8 `EV_LOOKUP_COLS`(= `"name," + EV_FILL_COLS`) · main 의 `db`·`allRows`·`audit`·`peopleSource`·`type Ctx`(`ctx.roles`) · 교인명부 `peoplePerson`(바꾸지 않는다 — `people.view` 를 남긴다)
+  - `server.dev.test.mjs`: Task 5 `people.bibleevent`·`people.directory`·`people.super` · `makeUser`·`makeMember` · `EV_ID` · `CHURCH_ONLY_PHONE` · before() 의 교인명부 세 분(990000001 `ca-test-min` 시험-0목장 집사 · 990000003 `DIR_NAME` 시험B) · Task 8 `upFixtures()`·`upName(k)`(정: 소망 12 권사 · 기: 믿음 1·사랑 2 집사 · 다: 은혜 1 스물한 분) · `UP_DIR_IDS` · `UP_UUID` · `UP_ROW_KEYS`
+  - 화면: `people/search.js` `openPerson(call, id, onFamily, back)`(이 과제가 내보낸다 — `onFamily(세대주 교인ID, 세대주 이름)`는 「👪 가족 모두 목록으로」 · `back` 은 창이 닫히면 초점을 돌려줄 요소) · `ui.js` `esc`·`toast`·`dialog`·`errorText` · `picker.js` `pickOne` · `people/church-badge.js` `churchBadgeHtml` · Task 10 `roster-logic.js` `GU_ORDER`·`norm`·`whoText` · `roster-ui.js` `cardHtml`·`tableHtml` · Task 12 `history.js` 의 `groupHtml`·「여러 번 참여한 분」 줄·눌림 처리
+- Produces:
+  - `events-person.ts`: `type PersonCand` · `type PersonAsk` · `type PersonOut` · `personAsk(b, name): PersonAsk` · `personPick(cands, ask): {pick: 0 | null, list}` · `personLabel(p): string` · `personOut(cands, ask, full): PersonOut`
+  - index.ts: `EV_PERSON_COLS` · `evPerson(ctx, b)`
+  - 액션 `evPerson {name, who_type, group, sub}`(명단 줄 그대로) →
+    `{ok, mode:"none"}` | `{ok, mode:"full", pick: 0|null, total, candidates:[{person_id, name, label, position}]}` | `{ok, mode:"basic", pick: 0|null, total, people:[{name, who_type, group, sub, position}], church:{state, reason}}` ·
+    오류 `no-name`·`bad-char`·`too-long`(`evPeopleLookup` 과 같다 · 명부에 묻지 않는다) · `pick` 은 늘 `0` 또는 `null`(고르면 그 한 분만 싣는다) · `total` = 명부에서 이 이름인 분 수(스무 분으로 자르기 전)
+  - 기록: `people.lookup` · target `""` · `{ q, count }`(`count` = 보여 준 분 수) — `basic` 이면 늘, `full` 이면 `pick: null` 일 때만(`pick: 0` 이면 「자세히」 창의 `people.view` 가 남는다)
+  - `search.js`: `export async function openPerson`
+  - `person-logic.js`: `NOT_FOUND` · `NO_DIRECTORY` · `CONTACT_NOTE` · `FAMILY_NOTE` · `personAttrs(p)` · `personPayload(dataset)` · `nameButtonHtml(p, text?)` · `rowFromLabel(label)` · `personDecision(r)` · `candOptions(cands)` · `chooseTitle(name, r)` · `basicHtml(r)`
+  - `person-popup.js`: `openChurchPerson({ call, name, who_type, group, sub, anchor })` — 창을 여는 동안 뒤로 가기 한 칸(`history.state` `{bePerson: 1}`)
+  - 이름 단추 `<button type="button" class="be-name" data-act="person" data-name data-who data-group data-sub>` — 📋 카드·표 · 👤 이력 묶음 머리 · 👤 여러 번 참여한 분 · CSS `.be-name` · `.be-pp-*`
+
+모든 명령은 워크트리에서(`cd /c/Projects/church-admin/.worktrees/bible-events`). **줄 번호로 찾지 않는다** — 고칠 자리는 앵커 글로 찾고 Step 0 에서 한 번만 나오는지 본다. 기존 import 줄은 다시 쓰지 않고 **새 import 문**을 더한다. 작업 트리 파일은 CRLF(`core.autocrlf=true`) — 앵커는 모두 **한 줄 안의 글**이고, Edit 도구로 넣은 줄이 LF 여도 커밋할 때 git 이 맞춘다. 푸시하지 않는다.
+
+- [ ] **Step 0: 선행 확인 — 앞 과제의 이름·앵커가 있고, 이 과제는 아직 안 들어갔나**
+
+```bash
+cd /c/Projects/church-admin/.worktrees/bible-events
+A=supabase/functions/church-admin/authz.ts; I=supabase/functions/church-admin/index.ts
+S=tests/server.dev.test.mjs; T=tests/authz.test.mjs; PS=js/menus/people/search.js
+R=js/menus/bibleevent/roster-ui.js; RO=js/menus/bibleevent/roster.js; H=js/menus/bibleevent/history.js
+c() { printf '%s  %s\n' "$(grep -cF -- "$2" "$1")" "$2"; }
+# ① 앵커 — 모두 맨 앞 1
+c $A '  evPeopleLookup: "bibleevent",'
+c $T '"evPeopleLookup", "evRoster",'
+c $I 'const cors = {'
+c $I 'Deno.serve(async (req) => {'
+c $I '      case "evPeopleLookup": return json(await evPeopleLookup(ctx, b));'
+c $S '  evPeopleLookup: { name: "" },'
+c $PS 'async function openPerson(call, id, onFamily, back) {'
+c $R 'import { STATUS_KO, SRC_LABEL, subText, filterActive } from "./roster-logic.js";'
+c $R '`<b>${esc(r.name)}</b>${posHtml(r)}${sub ?'
+c $R '<td><b>${esc(r.name)}</b> ${dupHtml(dups.has(r.id))}</td>'
+c $RO 'import { openRowForm, openRowDelete } from "./row-form.js";'
+c $RO '    else if (act === "row") rowMenu(b);'
+c $H '} from "./history-logic.js";'
+c $H '<span class="be-hi-n">${esc(g.n)}</span><b>${esc(g.label)}</b><em>${g.rows.length}회</em>'
+c $H '<button type="button" class="be-hi-who-btn" data-name="${esc(p.name)}" title="이 분의 이력 보기"><b>${esc(p.name)}</b><span class="be-hi-aff"> · ${esc(p.label)}</span></button>'
+c $H '    if (who) {   // 여러 번 참여한 분을 누르면 그분 이력으로'
+c $H '    const b = e.target.closest("button[data-act]");'
+c privacy.html '      보관: 새 명단이 나오면 통째로 갈아 끼우고, 명단에서 빠진 분의 정보와 사진은 그때 지워요.'
+# ② 쓰는 이름(Task 5·8) — 2 · 1 · 6
+grep -cE '^const EV_LOOKUP_COLS = |^async function evPeopleLookup\(' $I
+grep -cE '^import .*[{ ,]lookupName[ ,}]' $I
+grep -cE '^function upFixtures\(|^const upName = |^const UP_DIR_IDS = |^const UP_UUID = |^const UP_ROW_KEYS = |^const CHURCH_ONLY_PHONE = ' $S
+# ③ 이 과제가 아직 안 들어갔나 — 파일마다 :0 · 0 · 0 · 0 · 없음 다섯
+grep -c 'evPerson' $A $I $T $S
+grep -c 'export async function openPerson' $PS
+grep -c 'be-name' $R $RO $H | grep -v ':0' ; echo "(위에 아무것도 없으면 0)"
+grep -c '^\.be-name{' css/admin.css
+for f in supabase/functions/church-admin/events-person.ts tests/events-person.test.mjs js/menus/bibleevent/person-logic.js \
+  js/menus/bibleevent/person-popup.js tests/be-person-logic.test.mjs; do test -e "$f" && echo "있음: $f" || echo "없음"; done
+# ④ Task 13 은 아직 안 돌았나 — 0 · 0(Task 13 은 이 과제 뒤 · 그 과제의 privacy 7번 글이 이 과제의 6번 한 줄을 먼저 찾는다)
+grep -c '"people.lookup"' js/menus/system/audit.js
+grep -c "7. 성경필사(암송) 명단" privacy.html
+# ⑤ 들여올 이름 · lookupOut 이 다섯 칸인가
+node --experimental-strip-types --input-type=module -e "
+const need = {
+  './supabase/functions/church-admin/events-upload.ts': ['lookupOut', 'LOOKUP_MAX', 'lookupName'],
+  './supabase/functions/church-admin/events-people.ts': ['mapChurchPerson', 'positionFromChurch'],
+  './supabase/functions/church-admin/events-stats.ts': ['affLabel'],
+  './supabase/functions/church-admin/events-rules.ts': ['BE_FIELD_MAX'],
+  './supabase/functions/church-admin/people-match.ts': ['applicantFromSignup', 'matchChurch', 'sameAffiliation', 'toCand'],
+  './js/menus/bibleevent/roster-logic.js': ['GU_ORDER', 'norm', 'whoText'],
+  './js/menus/bibleevent/roster-ui.js': ['cardHtml', 'tableHtml'],
+  './js/menus/people/church-badge.js': ['churchBadgeHtml'],
+  './js/core/picker.js': ['pickOne'],
+  './js/core/ui.js': ['esc', 'toast', 'dialog', 'errorText'],
+};
+for (const [f, ks] of Object.entries(need)) { const m = await import(f); for (const k of ks) if (typeof m[k] === 'undefined') throw new Error(f + ' 에 ' + k + ' 가 없다'); }
+const { lookupOut } = await import('./supabase/functions/church-admin/events-upload.ts');
+const o = lookupOut({ name: '홍길동', name_key: '홍길동', kind2: '장년', mok1: '화평', mok3: '화평-20목장', school_dept: '', position: '집사', position_detail: '' });
+if (JSON.stringify(Object.keys(o).sort()) !== JSON.stringify(['group', 'name', 'position', 'sub', 'who_type'])) throw new Error('lookupOut 이 다섯 칸이 아니다: ' + JSON.stringify(o));
+console.log('앞 과제 이름 모두 있음');
+"
+```
+Expected: ① 열여덟 줄 모두 맨 앞 `1` · ② `2` · `1` · `6` · ③ 네 파일 모두 `…:0` · `0` · `(위에 아무것도 없으면 0)` 한 줄뿐 · `0` · `없음` 다섯 · ④ `0` · `0` · ⑤ `앞 과제 이름 모두 있음`(ExperimentalWarning 한 줄은 괜찮다).
+하나라도 어긋나면 **멈춘다** — ①·② 가 `0` 이면 그 과제(5·8·10·12)가 덜 끝났거나 main 이 그 자리를 바꾼 것이다(같은 뜻의 글로 앵커를 다시 잡는다). `2` 이상이면 앵커를 더 길게 잡는다. ③ 이 `0` 이 아니면 이 과제가 이미 (일부) 들어간 것이니 `git log --oneline -5` 로 보고 들어간 단계부터 잇는다. ④ 가 `1` 이면 과제 차례가 틀렸다(Task 13 이 먼저 돌았다) — 멈추고 친구에게 알린다.
+
+- [ ] **Step 1: 실패하는 순수 시험 — `tests/events-person.test.mjs`(새 파일)**
+
+```js
+// 성경필사(암송) 이름을 누르면 교적 창(evPerson) — 순수 함수 시험(preflight 가 돈다 · 계획 Task 16)
+// 이름·교인ID 는 모두 지어낸 것(홍길동 · 11~). 교인명부 칸 모양은 서버가 읽는 EV_PERSON_COLS 그대로.
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { personAsk, personPick, personLabel, personOut } from "../supabase/functions/church-admin/events-person.ts";
+import { matchChurch, toCand, applicantFromSignup } from "../supabase/functions/church-admin/people-match.ts";
+import { LOOKUP_MAX } from "../supabase/functions/church-admin/events-upload.ts";
+
+// 교인명부 한 분 — 서버가 읽는 칸(person_id·name + ChurchPerson 일곱)만
+const P = (person_id, o = {}) => ({ person_id, name: "홍길동", name_key: "홍길동", kind2: "장년", mok1: "화평", mok3: "화평-20목장",
+  school_dept: "", position: "집사", position_detail: "", ...o });
+const ask = (who_type, group_name, sub_name, name = "홍길동") => ({ who_type, group_name, sub_name, name });
+
+test("personAsk — 한 줄로 다듬고 40자로 자른다 · 구분은 교구·교회학교 밖이면 비운다 · 이름은 받은 그대로(검사는 lookupName)", () => {
+  assert.deepEqual(personAsk({ who_type: " 교구 ", group: " 화평 ", sub: "20", name: "무시" }, "홍길동"),
+    { who_type: "교구", group_name: "화평", sub_name: "20", name: "홍길동" });
+  assert.deepEqual(personAsk({ who_type: "교회학교", group: "청년부", sub: "" }, "홍 길동"),
+    { who_type: "교회학교", group_name: "청년부", sub_name: "", name: "홍 길동" });
+  assert.equal(personAsk({ who_type: "아무개" }, "홍길동").who_type, "");
+  assert.equal(personAsk({ group: "가".repeat(60) }, "홍길동").group_name.length, 40);
+  assert.deepEqual(personAsk(null, "홍길동"), { who_type: "", group_name: "", sub_name: "", name: "홍길동" });
+  assert.deepEqual(personAsk([1, 2], "홍길동"), { who_type: "", group_name: "", sub_name: "", name: "홍길동" });
+});
+
+test("personPick — ① 소속까지 같은 분 한 분이면 그분 ② 같은 소속이 없고 이름이 한 분뿐이면 그분 ③ 그 밖은 고르지 않는다", () => {
+  const a = P(12, { mok3: "화평-20목장" }), b = P(11, { mok1: "소망", mok3: "소망-3목장" }), c = P(13, { mok3: "화평-20목장" });
+  // ① 같은 소속 한 분 — 동명이인이 있어도 그분이 앞에 오고 고른다
+  const one = personPick([a, b], ask("교구", "화평", "20"));
+  assert.equal(one.pick, 0);
+  assert.deepEqual(one.list.map((p) => p.person_id), [12, 11]);
+  // 「07」·「7목장」처럼 적힌 목장도 같은 소속(sameAffiliation 이 mokNumber 로 본다)
+  assert.equal(personPick([P(1, { mok3: "화평-7목장" }), b], ask("교구", "화평", "07")).pick, 0);
+  // ② 같은 소속이 없어도 이름이 한 분뿐이면 그분
+  assert.equal(personPick([b], ask("교구", "화평", "20")).pick, 0);
+  // ③ 같은 소속 둘 · 소속 다른 동명이인 둘 · 명부에 없음 → 고르지 않는다
+  const two = personPick([c, a, b], ask("교구", "화평", "20"));
+  assert.equal(two.pick, null);
+  assert.deepEqual(two.list.map((p) => p.person_id), [12, 13, 11], "같은 소속 먼저 · 안에서는 교인ID 차례");
+  assert.equal(personPick([a, b], ask("교구", "화평", "5")).pick, null);
+  assert.deepEqual(personPick([], ask("교구", "화평", "20")), { pick: null, list: [] });
+  // 목장을 모르는 줄(「남성」·빈칸)은 같은 소속으로 보지 않는다 — 명부에 한 분뿐일 때만 그분
+  assert.equal(personPick([a, b], ask("교구", "화평", "남성")).pick, null);
+  assert.equal(personPick([a], ask("교구", "화평", "")).pick, 0);
+  // 교회학교 — 부서가 같으면(청년부는 명부의 교구 칸에 있다)
+  const y = P(21, { kind2: "청년", mok1: "청년부", mok3: "청년-3", position: "" });
+  assert.equal(personPick([y, a], ask("교회학교", "청년부", "")).pick, 0);
+  assert.equal(personPick([y, a], ask("교회학교", "청년부", "")).list[0].person_id, 21);
+  // 받은 배열은 그대로
+  const input = [c, a, b];
+  personPick(input, ask("교구", "화평", "20"));
+  assert.deepEqual(input.map((p) => p.person_id), [13, 12, 11]);
+});
+
+test("personPick — 명단의 교적 표시와 같은 규칙: 「맞음」이면 늘 고르고, 고른 분이 같은 소속의 그 한 분이다", () => {
+  const dir = [P(12), P(11, { mok1: "소망", mok3: "소망-3목장" }), P(14, { mok1: "소망", mok3: "소망-3목장" }), P(15, { mok1: "믿음", mok3: "믿음-1목장" })];
+  const asks = [ask("교구", "화평", "20"), ask("교구", "소망", "3"), ask("교구", "믿음", "1"), ask("교구", "기쁨", "2"),
+    ask("교구", "화평", "남성"), ask("교회학교", "중등부", "")];
+  for (const q of asks) {
+    for (const cands of [dir, dir.slice(0, 1), dir.slice(1, 3), []]) {
+      const st = matchChurch(cands.map(toCand), applicantFromSignup(q)).state;
+      const { pick, list } = personPick(cands, q);
+      if (st === "맞음") {
+        assert.equal(pick, 0, JSON.stringify(q));
+        assert.equal(matchChurch([toCand(list[0])], applicantFromSignup(q)).state, "맞음", "고른 분이 같은 소속의 그분");
+      }
+      if (st === "없음") assert.equal(pick, null);
+      if (pick === 0 && st !== "맞음") assert.equal(cands.length, 1, "맞음이 아닌데 고르는 것은 명부에 한 분뿐일 때만");
+    }
+  }
+});
+
+test("personLabel — 명단과 같은 소속 한 줄 · 옮겨 적기가 소속을 못 정하면 명부 교구(부서) 칸 그대로", () => {
+  assert.equal(personLabel(P(1)), "화평 20목장");
+  assert.equal(personLabel(P(1, { mok1: "소망", mok3: "소망-남성1" })), "소망 남성");
+  assert.equal(personLabel(P(1, { kind2: "교회학교", mok1: "화평", school_dept: "중등부" })), "중등부");
+  assert.equal(personLabel(P(1, { mok1: "새가족", mok3: "2026-09" })), "새가족");
+  assert.equal(personLabel(P(1, { mok1: "", mok3: "" })), "(소속 없음)");
+});
+
+test("personOut full — 교인ID·이름·소속 한 줄·직분 넷뿐 · 고르면 그 한 분만 · 못 고르면 스무 분까지 · total 은 자르기 전 수", () => {
+  const a = P(12, { position: "권사", position_detail: "은퇴협동권사" }), b = P(11, { mok1: "소망", mok3: "소망-3목장" });
+  const o = personOut([b, a], ask("교구", "화평", "20"), true);
+  assert.deepEqual(o, { mode: "full", pick: 0, total: 2, candidates: [{ person_id: 12, name: "홍길동", label: "화평 20목장", position: "은퇴권사" }] });
+  const many = Array.from({ length: 25 }, (_, i) => P(100 + i, { mok3: "화평-1목장" }));
+  const m = personOut(many, ask("교구", "화평", "20"), true);
+  assert.equal(m.pick, null);
+  assert.equal(m.candidates.length, LOOKUP_MAX);
+  assert.equal(m.total, 25, "자르기 전 수 — 화면이 「같은 이름 25분(앞 20분)」으로 적는다");
+  assert.deepEqual(m.candidates.map((c) => c.person_id).slice(0, 3), [100, 101, 102]);
+  assert.deepEqual(personOut([], ask("교구", "화평", "20"), true), { mode: "full", pick: null, total: 0, candidates: [] });
+  assert.equal(typeof personOut([P("12")], ask("", "", ""), true).candidates[0].person_id, "number");
+});
+
+test("personOut basic — 다섯 칸(evPeopleLookup 과 같은 칸 지도)과 교적 표시 · 교인ID 없음 · 고르면 그 한 분만 · total", () => {
+  const a = P(12), b = P(11, { mok1: "소망", mok3: "소망-3목장", position: "" });
+  const o = personOut([b, a], ask("교구", "화평", "20"), false);
+  assert.deepEqual(o, { mode: "basic", pick: 0, total: 2,
+    people: [{ name: "홍길동", who_type: "교구", group: "화평", sub: "20", position: "집사" }],
+    church: { state: "맞음", reason: "" } });
+  const two = personOut([b, a], ask("교구", "화평", "5"), false);
+  assert.deepEqual([two.pick, two.total], [null, 2]);
+  assert.deepEqual(two.people.map((p) => p.group), ["소망", "화평"], "교인ID 차례(같은 소속이 없으니)");
+  assert.deepEqual(two.church, { state: "확인 필요", reason: "같은 이름 2명" });
+  assert.deepEqual(personOut([], ask("교구", "화평", "20"), false),
+    { mode: "basic", pick: null, total: 0, people: [], church: { state: "없음", reason: "" } });
+  const many = personOut(Array.from({ length: 21 }, (_, i) => P(100 + i, { mok3: "화평-1목장" })), ask("교구", "화평", "20"), false);
+  assert.deepEqual([many.pick, many.people.length, many.total], [null, LOOKUP_MAX, 21]);
+  assert.deepEqual(many.church, { state: "확인 필요", reason: "같은 이름 21명" }, "교적 표시의 수와 total 이 같다");
+  for (const p of two.people) assert.deepEqual(Object.keys(p).sort(), ["group", "name", "position", "sub", "who_type"]);
+});
+
+test("personOut — 명부의 다른 칸(연락처·주소·생년월일·사진·교인ID·원래 칸)이 따라 나가지 않는다(스프레드 금지)", () => {
+  const leaky = P(990001, { phone1: "010-0000-1111", address: "비밀주소", birth: "1950-01-01", photo: "x.jpg", has_photo: true,
+    mok3: "화평-20목장", position_detail: "시무집사" });
+  const q = ask("교구", "화평", "20");
+  const basic = JSON.stringify(personOut([leaky], q, false));
+  for (const k of ["990001", "person_id", "010-0000-1111", "비밀주소", "1950", "photo", "name_key", "mok1", "mok3", "kind2", "position_detail", "화평-20목장"]) {
+    assert.ok(!basic.includes(k), "basic 에 새어 나감: " + k);
+  }
+  const full = JSON.stringify(personOut([leaky], q, true));
+  for (const k of ["010-0000-1111", "비밀주소", "1950", "photo", "name_key", "mok3", "kind2", "position_detail", "화평-20목장"]) {
+    assert.ok(!full.includes(k), "full 에 새어 나감: " + k);
+  }
+  assert.ok(full.includes('"person_id":990001'), "full 은 교인ID 를 싣는다(「자세히」 창을 열려고)");
+});
+```
+
+```bash
+cd /c/Projects/church-admin/.worktrees/bible-events
+node --experimental-strip-types --test tests/events-person.test.mjs
+```
+Expected: FAIL — `Cannot find module '…/supabase/functions/church-admin/events-person.ts'`(`ERR_MODULE_NOT_FOUND`) · `# fail 1`.
+
+- [ ] **Step 2: `supabase/functions/church-admin/events-person.ts` 를 만든다**
+
+```ts
+// 성경필사(암송) — 이름을 누르면 교적 창(evPerson)의 순수 함수(2026-09-30 · 계획 Task 16)
+//   설계: bible-memorize-church-app-v2 docs/superpowers/specs/2026-09-29-church-admin-bible-events-design.md
+//         §0 「이름을 누르면 교적 창」 · §2 evPerson · §3 「이름을 누르면 교적 창」 · §8-8
+//   서버(Deno, index.ts)와 시험(Node, tests/events-person.test.mjs)이 **같은 파일**을 읽는다 —
+//   authz.ts 와 같은 제약(원격 import·enum·namespace 금지, node --experimental-strip-types 가 그대로 읽는다).
+//
+// ⚠️ 고르는 규칙을 새로 만들지 않는다 — 명단의 교적 표시(people-match.ts matchChurch)가 쓰는 **sameAffiliation 그대로**다.
+//    ① 소속까지 같은 분이 한 분 → 그분(교적 표시 「맞음」인 줄은 늘 그 한 분이 열린다)
+//    ② 소속이 같은 분이 없고 이름이 명부 전체에 한 분뿐 → 그분(교적 표시는 「확인 필요 · 같은 이름 1명」 — 창에도 그 표시가 보인다)
+//    ③ 그 밖(같은 소속 둘 이상 · 소속 다른 동명이인) → 고르지 않는다(후보만 · 화면이 고르게 한다)
+// ⚠️ 고른 분이 있으면 **그 한 분만** 싣는다 — 같은 이름의 다른 분 값은 필요할 때(고르지 못했을 때)만 나간다.
+//    total 은 명부에서 이 이름인 분 수(스무 분으로 자르기 전) — 화면이 「같은 이름 21분(앞 20분)」처럼 사실대로 적게.
+// ⚠️ 모양은 부른 사람의 역할로 갈린다(역할 확인은 index.ts — ctx.roles):
+//    full(교인명부 역할·총괄) — 교인ID·이름·소속 한 줄·직분. 화면이 교인ID 로 교인명부 peoplePerson(「자세히」 창)을 연다.
+//    basic(성경필사 역할만) — 다섯 칸(lookupOut — evPeopleLookup 과 같은 칸 지도)과 교적 표시. 교인ID 는 싣지 않는다.
+//    연락처·주소·생년월일·사진은 어느 쪽에도 없다(서버도 그 칸을 읽지 않는다 · 스프레드 금지).
+import { mapChurchPerson, positionFromChurch, type ChurchPerson } from "./events-people.ts";
+import { affLabel } from "./events-stats.ts";
+import { lookupOut, LOOKUP_MAX } from "./events-upload.ts";
+import { legacyNorm } from "./paper.ts";
+import { applicantFromSignup, matchChurch, sameAffiliation, toCand, type Church } from "./people-match.ts";
+import { BE_FIELD_MAX } from "./events-rules.ts";
+
+export type PersonCand = ChurchPerson & { person_id: number | string; name: string };
+export type PersonAsk = { who_type: string; group_name: string; sub_name: string; name: string };
+export type PersonFull = { person_id: number; name: string; label: string; position: string };
+export type PersonBasic = { name: string; who_type: string; group: string; sub: string; position: string };
+export type PersonOut =
+  | { mode: "full"; pick: 0 | null; total: number; candidates: PersonFull[] }
+  | { mode: "basic"; pick: 0 | null; total: number; people: PersonBasic[]; church: Church };
+
+const cut = (v: unknown): string => legacyNorm(v).slice(0, BE_FIELD_MAX);
+const txt = (v: unknown): string => legacyNorm(String(v ?? "").normalize("NFC"));
+
+// 화면이 보낸 명단 줄(구분·소속·세부) + 다듬은 이름(부르는 쪽이 lookupName 으로 검사한 것) → 맞대 볼 줄.
+// 소속 칸은 DB 에 묻지 않고 메모리에서 견주기만 한다 — 그래도 한 칸 40자로 자른다. 구분은 둘 밖이면 비운다.
+export function personAsk(b: unknown, name: string): PersonAsk {
+  const o = (b && typeof b === "object" && !Array.isArray(b) ? b : {}) as Record<string, unknown>;
+  const who = legacyNorm(o.who_type);
+  return {
+    who_type: who === "교구" || who === "교회학교" ? who : "",
+    group_name: cut(o.group), sub_name: cut(o.sub), name: legacyNorm(name),
+  };
+}
+
+// 후보 차례와 고른 분 — 같은 소속 먼저(교인ID 차례), 그다음 나머지(교인ID 차례). pick 은 list 의 자리(늘 0 또는 null).
+// 받은 배열은 바꾸지 않는다.
+export function personPick(cands: PersonCand[], ask: PersonAsk): { pick: 0 | null; list: PersonCand[] } {
+  const all = [...(cands ?? [])].sort((a, b) => Number(a.person_id) - Number(b.person_id));
+  const a = applicantFromSignup(ask);
+  const same = all.filter((c) => sameAffiliation(toCand(c), a));
+  const list = [...same, ...all.filter((c) => !same.includes(c))];
+  if (same.length === 1) return { pick: 0, list };
+  if (same.length === 0 && all.length === 1) return { pick: 0, list };
+  return { pick: null, list };
+}
+
+// 교인명부 역할에게 보이는 소속 한 줄 — 명단과 같은 꼴(affLabel · 「화평 20목장」·「소망 남성」·「중등부」).
+// 옮겨 적는 규칙이 소속을 못 정한 분(새가족·임시교구 등)은 명부의 교구(또는 부서) 칸 그대로 — 교인명부 역할은 원래 보는 값이다.
+export function personLabel(p: ChurchPerson): string {
+  const a = mapChurchPerson(p);
+  if (a) return affLabel(a);
+  return txt(p?.mok1) || txt(p?.school_dept) || "(소속 없음)";
+}
+
+// 응답(ok 빼고) — 명시적 칸 지도로만. 고르지 못했으면 스무 분까지(evPeopleLookup 과 같은 상한) · total 은 자르기 전 수.
+export function personOut(cands: PersonCand[], ask: PersonAsk, full: boolean): PersonOut {
+  const { pick, list } = personPick(cands, ask);
+  const shown = pick === null ? list.slice(0, LOOKUP_MAX) : [list[pick]];
+  const total = list.length;
+  if (full) {
+    return {
+      mode: "full", pick, total,
+      candidates: shown.map((p) => ({
+        person_id: Number(p.person_id), name: legacyNorm(p.name), label: personLabel(p), position: positionFromChurch(p),
+      })),
+    };
+  }
+  // 교적 표시 — 명단(evRoster)과 같은 함수·같은 후보(이 이름의 명부 전체)로. 그래서 창의 표시와 명단의 표시가 같다.
+  return {
+    mode: "basic", pick, total, people: shown.map((p) => lookupOut(p)),
+    church: matchChurch((cands ?? []).map(toCand), applicantFromSignup(ask)),
+  };
+}
+```
+
+```bash
+cd /c/Projects/church-admin/.worktrees/bible-events
+node --experimental-strip-types --test tests/events-person.test.mjs
+```
+Expected: PASS — `# tests 7` · `# pass 7` · `# fail 0`.
+(이 모듈과 시험은 2026-09-29~30 에 워크트리 사본 + Task 6~8 초안 위에서 실제로 돌려 일곱 개 모두 통과했다 — `total` 을 더한 판도 2026-09-30 에 다시 돌렸다.)
+`personPick — 명단의 교적 표시와 같은 규칙` 이 실패하면 `people-match.ts` 의 `sameAffiliation`·`matchChurch` 가 바뀐 것이다 — 여기 기대값을 맞추지 말고 **멈춰** 무엇이 바뀌었는지 본다(교적 표시와 창이 다른 분을 가리키게 된다).
+
+- [ ] **Step 3: preflight · 커밋(순수 모듈)**
+
+```bash
+cd /c/Projects/church-admin/.worktrees/bible-events
+python tools/preflight.py | tail -1
+git add supabase/functions/church-admin/events-person.ts tests/events-person.test.mjs
+git commit -F - <<'EOF'
+feat(성경필사): 이름을 누르면 교적 창 — 고르는 규칙·응답 모양 순수 모듈(events-person.ts · 교적 표시와 같은 sameAffiliation · 고르면 한 분만 · 자르기 전 수 total · full 은 교인ID·basic 은 다섯 칸+교적 표시)
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+EOF
+git show --stat HEAD      # 두 파일만인지 본다
+```
+Expected: `모두 통과` · 커밋 1개(두 파일).
+
+- [ ] **Step 4: 권한 — `tests/authz.test.mjs`(실패) → `authz.ts`(통과)**
+
+4-1. `tests/authz.test.mjs` — Edit 도구로 bibleevent 블록 목록의 조각 **하나**를 바꾼다(Step 0 에서 한 번만 나오는 것을 봤다 · 한 줄 안이라 CRLF 와 상관없다).
+old:
+```js
+"evPeopleLookup", "evRoster",
+```
+new:
+```js
+"evPeopleLookup", "evPerson", "evRoster",
+```
+(`sort()` 차례: `evPeopleLookup` < `evPerson` < `evRoster` — 넷째 글자 뒤 `o`(111) < `r`(114), `P`(80) < `R`(82).)
+
+```bash
+cd /c/Projects/church-admin/.worktrees/bible-events
+grep -c '"evPeopleLookup", "evPerson", "evRoster",' tests/authz.test.mjs     # 1
+node --experimental-strip-types --test tests/authz.test.mjs
+```
+Expected: `1` · FAIL — bibleevent 블록에서 `Expected values to be strictly deep-equal`(`evPerson` 이 아직 없다) · `# fail 1`.
+
+4-2. `supabase/functions/church-admin/authz.ts` — Edit 도구로 앵커 줄 `  evPeopleLookup: "bibleevent",` 을 아래로 바꾼다(그 줄은 그대로 두고 **바로 뒤에** 세 줄):
+```ts
+  evPeopleLookup: "bibleevent",
+  // 성경필사(암송) — 이름을 누르면 교적 창(계획 Task 16 · 2026-09-30). 모양은 index.ts evPerson 이 부른 분의 역할로 정한다:
+  // 교인명부 역할·총괄이면 교인ID(「자세히」 창은 peoplePerson 이 역할을 다시 본다), 아니면 다섯 칸 + 교적 표시(people.lookup).
+  evPerson: "bibleevent",
+```
+
+```bash
+cd /c/Projects/church-admin/.worktrees/bible-events
+grep -c '^  evPerson: "bibleevent",' supabase/functions/church-admin/authz.ts     # 1
+node --experimental-strip-types --test tests/authz.test.mjs tests/registry.test.mjs
+```
+Expected: `1` · PASS — `# fail 0`. (아직 커밋하지 않는다 — index.ts 의 case 와 함께 Step 10 에서. 이 줄만 들어간 채 배포되면 400 `unknown-action` 이 된다.)
+
+- [ ] **Step 5: 실패하는 개발 서버 시험 — `tests/server.dev.test.mjs` 두 곳**
+
+5-1. PROBE — Edit 도구로 앵커 줄 `  evPeopleLookup: { name: "" },`(Task 8) 을 아래로 바꾼다(그 줄 그대로 + 바로 뒤에 두 줄):
+```js
+  evPeopleLookup: { name: "" },
+  // 이름을 누르면 교적 창(Task 16) — 빈 이름 → no-name(명부에 묻지도 기록하지도 않는다)
+  evPerson: { name: "" },
+```
+
+5-2. 파일 **끝에** 붙인다(Task 8 의 시험들 뒤 — node:test 는 파일 차례로 돈다 · `bedirPerson` 은 함수 선언이라 어디서든 먼저 읽힌다):
+```bash
+cd /c/Projects/church-admin/.worktrees/bible-events
+cat >> tests/server.dev.test.mjs <<'EOF'
+
+// ---------- 성경필사(암송) — 이름을 누르면 교적 창 evPerson (계획 Task 16) ----------
+// 교인명부는 before() 의 세 분(990000001~3)과 Task 8 upFixtures 의 스물다섯 분(ca-test-up-<STAMP>-정·무·기·기·다×21)을 쓴다.
+// 「성경필사 + 교인명부」 두 역할을 가진 분은 처음 부를 때 한 번 만든다 — people 에 먼저 넣어 두면 after() 가 지운다
+// (권한 표는 사람 이름을 따로 적어 돌므로 이분은 거기 끼지 않는다). 함수 선언이라 파일 끝에 있어도 먼저 읽힌다.
+async function bedirPerson() {
+  if (!people.bedir) {
+    people.bedir = await makeUser("bedir");
+    await makeMember(people.bedir, "active", ["bibleevent", "directory"]);
+  }
+  return people.bedir;
+}
+
+test("성경필사 이름을 누르면(evPerson) — 성경필사 역할만: 다섯 칸 + 교적 표시 · 교인ID·연락처·주소 없음 · 고르는 규칙은 명단의 교적 표시와 같다 · people.lookup", async () => {
+  await upFixtures();
+  const t = people.bibleevent.token;
+  const ask = (name, who_type, group, sub) => call(t, "evPerson", { name, who_type, group, sub });
+  const none = "ca-test-pp-" + STAMP;   // 명부에 없는 이름 — 이 두 시험만 쓴다(기록 세기)
+
+  // ① 소속까지 같은 분 한 분(명부 믿음 1) → 그분 한 분만(같은 이름의 사랑 2 분은 싣지 않는다)
+  const one = await ask(upName("기"), "교구", "믿음", "1");
+  assert.equal(one.body.ok, true, JSON.stringify(one.body));
+  assert.deepEqual(Object.keys(one.body).sort(), ["church", "mode", "ok", "people", "pick", "total"]);
+  assert.deepEqual([one.body.mode, one.body.pick, one.body.total], ["basic", 0, 2], "total 은 명부의 같은 이름 수(고른 한 분만 싣더라도)");
+  assert.deepEqual(one.body.people, [{ name: upName("기"), who_type: "교구", group: "믿음", sub: "1", position: "집사" }]);
+  assert.deepEqual(one.body.church, { state: "맞음", reason: "" });
+  // ② 같은 소속이 없고 동명이인 둘 → 고르지 않고 둘 다(교인ID 차례)
+  const two = await ask(upName("기"), "교구", "믿음", "3");
+  assert.deepEqual([two.body.pick, two.body.total], [null, 2]);
+  assert.deepEqual(two.body.people.map((p) => p.group), ["믿음", "사랑"]);
+  assert.deepEqual(two.body.church, { state: "확인 필요", reason: "같은 이름 2명" });
+  // ③ 이름이 명부에 한 분뿐 → 소속이 달라도 그분(교적 표시는 「확인 필요」 그대로 함께 간다)
+  const lone = await ask(upName("정"), "교구", "화평", "5");
+  assert.deepEqual([lone.body.pick, lone.body.total], [0, 1]);
+  assert.deepEqual(lone.body.people.map((p) => [p.group, p.sub, p.position]), [["소망", "12", "권사"]]);
+  assert.deepEqual(lone.body.church, { state: "확인 필요", reason: "같은 이름 1명" });
+  // ④ 명단(evRoster)의 교적 표시와 같다 — 같은 줄로 물으면 같은 표시(같은 함수·같은 후보)
+  const ros = await call(t, "evRoster", { event_id: EV_ID });
+  for (const row of ros.body.rows) {
+    const r = await ask(row.name, row.who_type, row.group, row.sub);
+    assert.deepEqual(r.body.church, row.church, row.name);
+  }
+  // ⑤ 명부에 없는 이름 → 빈 목록 · 「없음」
+  const miss = await ask(none, "교구", "시험", "7");
+  assert.deepEqual([miss.body.mode, miss.body.pick, miss.body.total, miss.body.people, miss.body.church],
+    ["basic", null, 0, [], { state: "없음", reason: "" }]);
+  // ⑥ 못 고르면 스무 분까지(evPeopleLookup 과 같은 상한) — total 은 자르기 전 수(화면이 「21분(앞 20분만)」으로 적는다)
+  const many = (await ask(upName("다"), "교구", "화평", "1")).body;
+  assert.deepEqual([many.pick, many.people.length, many.total], [null, 20, 21]);
+  // ⑦ 새어 나가지 않는다 — 교인ID(숫자)·UUID·명부에만 있는 전화·주소·원래 칸
+  const min = await ask("ca-test-min", "교구", "시험", "0");
+  assert.deepEqual(min.body.people, [{ name: "ca-test-min", who_type: "", group: "", sub: "", position: "집사" }],
+    "명부 교구 칸이 일곱 교구 밖(시험)이면 소속 세 칸은 비운다(옮겨 적기 규칙)");
+  const text = JSON.stringify([one.body, two.body, lone.body, min.body]);
+  assert.ok(!UP_UUID.test(text), "UUID 꼴 값이 실렸다");
+  for (const id of [990000001, 990000003, ...UP_DIR_IDS]) assert.ok(!text.includes(String(id)), "교인ID 가 실렸다: " + id);
+  for (const k of ["person_id", CHURCH_ONLY_PHONE, "010-0000-0000", "비밀주소", "photo", "name_key", "mok1", "mok3", "kind2",
+    "position_detail", "소망-12목장"]) assert.ok(!text.includes(k), "새어 나감: " + k);
+  for (const b of [one.body, two.body, lone.body, min.body]) for (const p of b.people) assert.deepEqual(Object.keys(p).sort(), UP_ROW_KEYS);
+  // ⑧ 틀린 이름은 명부에 묻지 않는다
+  assert.equal((await ask("", "교구", "화평", "1")).body.error, "no-name");
+  assert.equal((await ask("홍,길동", "교구", "화평", "1")).body.error, "bad-char");
+  assert.equal((await ask("가".repeat(41), "교구", "화평", "1")).body.error, "too-long");
+  // ⑨ 기록 — 부를 때마다 people.lookup {q, count}(「교인명부 기록」 · evPeopleLookup 과 같은 모양) · 명부에 없는 이름도
+  const logs = (await call(people.super.token, "auditList", { limit: 100, kind: "people" })).body.rows
+    .filter((r) => r.action === "people.lookup");
+  const mine = logs.filter((r) => r.detail.q === none);
+  assert.equal(mine.length, 1, JSON.stringify(mine));
+  assert.deepEqual(mine[0].detail, { q: none, count: 0 });
+  assert.ok(logs.some((r) => r.detail.q === upName("기") && r.detail.count === 1), "고른 한 분만 보여 준 것도 남는다(결과 수 1)");
+});
+
+test("성경필사 이름을 누르면(evPerson) — 교인명부 역할도 있으면·총괄: 교인ID 로 「자세히」 창 · 못 고르면 후보 · 한 분을 골랐으면 기록하지 않고 못 고르면 people.lookup", async () => {
+  await upFixtures();
+  const bedir = await bedirPerson();
+  const q = { name: upName("기"), who_type: "교구", group: "믿음", sub: "1" };
+  // 교인명부 기록 가운데 mark(기록 id) 뒤에 남은 people.lookup — 최근 것이 앞(auditList 는 id 내림차순)
+  const lookupsAfter = async (mark) => (await call(people.super.token, "auditList", { limit: 100, kind: "people" })).body.rows
+    .filter((r) => r.id > mark && r.action === "people.lookup").map((r) => r.detail);
+  const mark = (await call(people.super.token, "auditList", { limit: 1, kind: "people" })).body.rows[0]?.id ?? 0;
+  for (const who of ["bedir", "super"]) {
+    const r = await call(people[who].token, "evPerson", q);
+    assert.equal(r.body.ok, true, who + " " + JSON.stringify(r.body));
+    assert.deepEqual(Object.keys(r.body).sort(), ["candidates", "mode", "ok", "pick", "total"], who);
+    assert.deepEqual([r.body.mode, r.body.pick, r.body.total], ["full", 0, 2], who);
+    assert.deepEqual(r.body.candidates, [{ person_id: 990000013, name: upName("기"), label: "믿음 1목장", position: "집사" }], who);
+  }
+  // 한 분을 골랐으면(pick 0) 여기서는 남기지 않는다 — 화면이 곧바로 「자세히」 창을 열고 peoplePerson 이 people.view 를 남긴다
+  assert.deepEqual(await lookupsAfter(mark), [], "pick 0 인 full 이 people.lookup 을 남겼다(이름 한 번에 두 줄이 된다)");
+  // 못 고르면 후보 — 교인ID 차례 · 이때는 이름·소속·직분·교인ID 가 여러 분 나가므로 people.lookup {q, count}
+  const two = await call(bedir.token, "evPerson", { ...q, sub: "3" });
+  assert.deepEqual([two.body.pick, two.body.total], [null, 2]);
+  assert.deepEqual(two.body.candidates.map((c) => [c.person_id, c.label]), [[990000013, "믿음 1목장"], [990000014, "사랑 2목장"]]);
+  assert.deepEqual(await lookupsAfter(mark), [{ q: upName("기"), count: 2 }]);
+  // 연락처·주소·사진·원래 칸은 full 에도 없다 — 그것은 「자세히」 창(peoplePerson)이 교인명부 역할을 다시 확인하고 준다
+  const min = await call(bedir.token, "evPerson", { name: "ca-test-min", who_type: "교구", group: "시험", sub: "0" });
+  assert.deepEqual(min.body.candidates, [{ person_id: 990000001, name: "ca-test-min", label: "시험", position: "집사" }]);
+  const text = JSON.stringify([min.body, two.body]);
+  assert.ok(!UP_UUID.test(text), "UUID 꼴 값이 실렸다");
+  for (const k of [CHURCH_ONLY_PHONE, "010-0000-0000", "비밀주소", "photo", "household", "name_key", "mok3", "kind2", "position_detail"]) {
+    assert.ok(!text.includes(k), "새어 나감: " + k);
+  }
+  const pp = await call(bedir.token, "peoplePerson", { id: min.body.candidates[0].person_id });
+  assert.equal(pp.body.ok, true, JSON.stringify(pp.body));
+  assert.equal(pp.body.person.name, "ca-test-min");
+  // 명부에 없는 이름 → 빈 후보(pick null) · 못 고른 것이니 people.lookup {q, count: 0} — 앞 시험의 basic 한 줄과 합해 두 줄
+  //   (ca-test-min 은 명부에 한 분뿐이라 골랐다(pick 0) — 그 부름은 기록이 없고, 위 peoplePerson 이 people.view 를 남겼다)
+  const none = "ca-test-pp-" + STAMP;
+  const miss = await call(bedir.token, "evPerson", { name: none, who_type: "교구", group: "시험", sub: "7" });
+  assert.deepEqual([miss.body.mode, miss.body.pick, miss.body.total, miss.body.candidates], ["full", null, 0, []]);
+  assert.deepEqual(await lookupsAfter(mark), [{ q: none, count: 0 }, { q: upName("기"), count: 2 }]);
+  const logs = (await call(people.super.token, "auditList", { limit: 100, kind: "people" })).body.rows;
+  assert.equal(logs.filter((r) => r.action === "people.lookup" && r.detail.q === none).length, 2, "basic(앞 시험) 한 줄 + 못 고른 full 한 줄");
+  // 교인명부 역할만 있는 분은 이 액션을 못 부른다(성경필사 메뉴의 액션 — 권한 표도 PROBE 로 본다)
+  const dir = await call(people.directory.token, "evPerson", q);
+  assert.deepEqual([dir.status, dir.body.error], [403, "forbidden"]);
+});
+EOF
+node --check tests/server.dev.test.mjs && echo "문법 통과"
+grep -c '^  evPerson: { name: "" },' tests/server.dev.test.mjs     # 1
+set -a; . ~/.church-admin/dev.env; set +a
+node --experimental-strip-types --test tests/server.dev.test.mjs
+```
+Expected: `문법 통과` · `1` · FAIL(개발에 배포된 함수는 아직 Task 8 판이다) — 「역할이 필요한 액션마다 시험 입력(PROBE)이 있다」는 **통과**, 「권한 표」는 `not ok`(`none evPerson` 이 400 `unknown-action`), 새 시험 둘(「성경필사 이름을 누르면(evPerson) — 성경필사 역할만 …」·「… 교인명부 역할도 있으면·총괄 …」)이 `unknown-action` 으로 `not ok` — 합해서 `# fail 3`. 나머지는 통과하고 `after()` 에 `정리 실패` 가 없다(둘째 시험이 만든 `bedir` 계정도 지워진다).
+
+- [ ] **Step 6: index.ts — 새 import 문 하나**
+
+기존 import 줄은 **하나도 고치지 않는다.** 이 과제의 이름(`personAsk`·`personOut`·`PersonCand`)은 index.ts 에 아직 없다(Step 0 ③). `lookupName` 은 Task 8 이 이미 들였으니 다시 들이지 않는다.
+Edit 도구로 앵커 줄 `const cors = {` 를 아래로 바꾼다(그 줄 **바로 위에** 두 줄과 빈 줄 하나):
+```ts
+// 성경필사(암송) 이름을 누르면 교적 창(Task 16) — 이 과제의 이름은 events-person.ts 에서만 가져온다(CONTRACT 5)
+import { personAsk, personOut, type PersonCand } from "./events-person.ts";
+
+const cors = {
+```
+
+- [ ] **Step 7: index.ts — 새 절(`EV_PERSON_COLS` · `evPerson`)**
+
+Edit 도구로 앵커 줄 `Deno.serve(async (req) => {` 를 아래로 바꾼다(그 줄 **바로 위에** — Task 8 의 `evPeopleLookup` 함수 뒤가 된다 · 사이에 빈 줄 하나):
+```ts
+// ---------- 성경필사(암송) — 이름을 누르면 교적 창 (Task 16 · 2026-09-30) ----------
+// 설계 §0 「이름을 누르면 교적 창」·§2 evPerson·§3 · 친구 결정 §8-8. 고르는 규칙·응답 모양은 events-person.ts(순수 함수)에 있다.
+// ⚠️ 모양은 **부른 분의 역할**로 여기서 정한다(ctx.roles — 화면이 보낸 것을 믿지 않는다):
+//    「교인명부」(directory) 또는 총괄(super) → full: 교인ID·이름·소속 한 줄·직분. 화면은 그 교인ID 로 peoplePerson(「자세히」 창)을
+//    부른다 — 사진·연락처·주소·가족은 **그 액션**이 directory 역할을 다시 확인하고 내준다(여기서는 싣지 않는다).
+//    그 밖(성경필사 역할만) → basic: 이름·구분·소속·세부·직분 다섯 칸 + 교적 표시. 교인ID 는 싣지 않는다(설계 §0 「교인명부 쓰기」).
+// ⚠️ 기록 — people.lookup {q, count}(evPeopleLookup 과 같은 action·같은 모양 → 「교인명부 기록」 · audit.js 가 그대로 읽는다 · count = 보여 준 분 수).
+//    basic 은 늘 남긴다. full 은 **고르지 못했을 때(pick null — 후보 스무 분까지·빈 후보)만** 남긴다 — 이름·소속·직분·교인ID 가
+//    여러 분 나가는데, 고르개를 닫으면 people.view 도 없어 여기서 안 남기면 기록이 아예 없다.
+//    한 분을 골랐으면(pick 0) 남기지 않는다: 화면이 곧바로 「자세히」 창을 열고 peoplePerson 이 people.view(그분 이름·교인ID)를
+//    남긴다. 여기서도 남기면 이름 한 번 누를 때마다 교인명부 기록이 두 줄씩 쌓여 누가 누구를 봤는지 읽기 어려워진다.
+// ⚠️ 읽는 칸은 EV_PERSON_COLS 뿐 — Task 8 의 EV_LOOKUP_COLS(이름 + 옮겨 적기 재료 일곱)에 교인ID 하나. 연락처·주소·생년월일·사진은 읽지 않는다.
+// ⚠️ 같은 이름을 **모두** 읽는다(allRows) — 같은 소속인 분이 교인ID 차례로 스무 번째 뒤에 있어도 고르는 규칙이 틀리지 않게(total 도 이 수).
+const EV_PERSON_COLS = "person_id," + EV_LOOKUP_COLS;
+
+async function evPerson(ctx: Ctx, b: any) {
+  const q = lookupName(b.name);                                     // no-name · bad-char · too-long(evPeopleLookup 과 같은 규칙)
+  if (q.error) return { ok: false, error: q.error };
+  if (!(await peopleSource())) return { ok: true, mode: "none" };   // 명부가 한 번도 안 올라왔다 — 묻지도 기록하지도 않는다
+  const cands = await allRows(() => db.from("church_people").select(EV_PERSON_COLS)
+    .eq("name_key", q.key).order("person_id", { ascending: true }));
+  const full = ctx.roles.includes("directory") || ctx.roles.includes("super");
+  const out = personOut(cands as PersonCand[], personAsk(b, q.name), full);
+  if (out.mode === "basic" || out.pick === null) {
+    await audit(ctx, "people.lookup", "", { q: q.name, count: out.mode === "basic" ? out.people.length : out.candidates.length });
+  }
+  return { ok: true, ...out };
+}
+
+Deno.serve(async (req) => {
+```
+(이 절의 흐름은 워크트리 사본에서 `db`·`allRows`·`audit`·`peopleSource` 를 흉내 낸 채 돌려 보았다 — 성경필사 역할은 다섯 칸 + 기록 한 줄, 교인명부 역할은 교인ID · 한 분을 골랐으면 기록 없음 · 못 골랐으면(후보·빈 후보) 기록 한 줄, 빈 이름은 `no-name`, 명부 없음은 `{ok:true, mode:"none"}`, 읽는 칸은 `person_id,name,name_key,kind2,mok1,mok3,school_dept,position,position_detail`.)
+
+- [ ] **Step 8: index.ts — switch 한 줄**
+
+Edit 도구로 앵커 줄 `      case "evPeopleLookup": return json(await evPeopleLookup(ctx, b));`(Task 8) 을 아래로 바꾼다(그 줄 그대로 + 바로 뒤에 한 줄):
+```ts
+      case "evPeopleLookup": return json(await evPeopleLookup(ctx, b));
+      case "evPerson":       return json(await evPerson(ctx, b));
+```
+
+- [ ] **Step 9: 이름·자리 점검 · preflight**
+
+`node --check` 는 TS 오류를 못 잡는다(CONTRACT 5) — index.ts 의 문법은 Step 10 의 **개발 함수 배포**가 검사한다. 여기서는 배포가 거절할 「같은 이름 두 번 들이기」와 빠진 자리를 grep 으로 본다.
+```bash
+cd /c/Projects/church-admin/.worktrees/bible-events
+I=supabase/functions/church-admin/index.ts
+grep -c 'from "./events-person.ts"' $I                                              # 1
+for n in personAsk personOut PersonCand lookupName; do
+  printf '%s %s\n' "$n" "$(grep -cE "^import .*[{ ,](type )?$n[ ,}]" $I)"
+done                                                                                 # 넷 모두 1
+grep -cE '^const EV_PERSON_COLS = |^async function evPerson\(' $I                    # 2
+grep -c 'case "evPerson":' $I                                                        # 1
+grep -c 'audit(ctx, "people.lookup"' $I                                              # 2 — evPeopleLookup(Task 8) · evPerson(이 과제)
+python tools/preflight.py | tail -1
+```
+Expected: `1` · `personAsk 1`·`personOut 1`·`PersonCand 1`·`lookupName 1`(2 이상이면 같은 이름을 두 번 들였다 — 배포가 거절하거나 함수가 뜨지 않는다) · `2` · `1` · `2` · `모두 통과`.
+
+- [ ] **Step 10: 개발 배포(문법 검사) · 개발 시험 · 커밋**
+
+```bash
+cd /c/Projects/church-admin/.worktrees/bible-events
+git status --short        # 네 줄만 — M authz.ts · M index.ts · M tests/authz.test.mjs · M tests/server.dev.test.mjs
+supabase functions deploy church-admin --no-verify-jwt --project-ref ktpwthwqzgcqcrmsafdo
+set -a; . ~/.church-admin/dev.env; set +a
+node --experimental-strip-types --test tests/server.dev.test.mjs
+```
+Expected: `git status` 네 줄뿐(다른 것이 보이면 멈춘다 — 배포는 작업 트리를 통째로 올린다) · `Deployed Functions on project ktpwthwqzgcqcrmsafdo: church-admin`(배포는 **워크트리 루트**에서) · 개발 시험 끝에 `# fail 0` — 새 시험 둘 · 「권한 표」(`directory` 는 `forbidden`, `bibleevent`·`super` 는 `no-name`) · 「PROBE」 모두 통과, `정리 실패` 없음.
+배포가 문법 오류로 거절되거나, 배포는 됐는데 모든 요청이 500·503 이면(함수가 뜨지 못했다 — 겹친 이름 등) Step 9 부터 다시 본다. 아직 커밋 전이니 고쳐서 다시 배포·시험한다.
+⚠️ 「④ 명단의 교적 표시와 같다」가 실패하면 창과 명단이 **다른 분**을 가리킨다는 뜻이다 — `evRoster` 의 `churchLookup` 과 `evPerson` 이 읽는 후보가 다른지(이름 키 · 1,000행) 본다. 기대값을 고쳐 넘기지 않는다.
+
+통과하면 커밋:
+```bash
+cd /c/Projects/church-admin/.worktrees/bible-events
+git add supabase/functions/church-admin/authz.ts supabase/functions/church-admin/index.ts tests/authz.test.mjs tests/server.dev.test.mjs
+git commit -F - <<'EOF'
+feat(성경필사): evPerson — 이름을 누르면 교적 창(교인명부 역할·총괄이면 교인ID로 「자세히」 창, 성경필사만이면 다섯 칸+교적 표시 · 고르면 한 분만 · basic 과 못 고른 full 은 people.lookup · 연락처·주소·사진은 읽지도 않는다)
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+EOF
+git show --stat HEAD      # 네 파일만인지 본다
+git status --short        # 아무것도 안 나와야 한다
+```
+⚠️ 운영(`xnomlgydifiqiybervtf`)에는 배포하지 않는다 — 운영은 Task 15 에서만. 푸시하지 않는다.
+
+- [ ] **Step 11: 화면 — 실패하는 순수 시험 `tests/be-person-logic.test.mjs`(새 파일)**
+
+```js
+// 이름을 누르면 교적 창(js/menus/bibleevent/person-logic.js) — 순수 함수 시험(계획 Task 16). 창을 여닫는 동작은
+// 브라우저에서 본다(Task 16 Step 18 · Task 14 점검표). 이름은 가짜(홍길동 …)만.
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { NOT_FOUND, NO_DIRECTORY, CONTACT_NOTE, FAMILY_NOTE, personAttrs, personPayload, nameButtonHtml, rowFromLabel,
+  personDecision, candOptions, chooseTitle, basicHtml } from "../js/menus/bibleevent/person-logic.js";
+import { whoText } from "../js/menus/bibleevent/roster-logic.js";
+import { cardHtml, tableHtml } from "../js/menus/bibleevent/roster-ui.js";
+import { affLabel } from "../supabase/functions/church-admin/events-stats.ts";
+
+// 브라우저가 data-* 를 dataset 으로 풀어 주는 것과 같게(글자 참조를 푼다) — Node 에는 DOM 이 없다
+const unesc = (s) => s.replace(/&(amp|lt|gt|quot|#39);/g, (_, k) => ({ amp: "&", lt: "<", gt: ">", quot: '"', "#39": "'" }[k]));
+const datasetOf = (html) => {
+  const ds = {};
+  for (const [, k, v] of html.matchAll(/data-([a-z]+)="([^"]*)"/g)) ds[k] = unesc(v);
+  return ds;
+};
+
+test("personAttrs → dataset → personPayload — 이름·구분·소속·세부 넷이 그대로 돌아온다(esc 된 글자 포함)", () => {
+  const rows = [
+    { name: "홍길동", who_type: "교구", group: "화평", sub: "20" },
+    { name: "  홍  길동 ", who_type: "교구", group: "소망", sub: "남성" },
+    { name: "홍<길&동>'", who_type: "교회학교", group: "중등부", sub: "3학년" },
+    { name: "홍길동".normalize("NFD"), who_type: "", group: "", sub: "" },
+  ];
+  for (const r of rows) {
+    const ds = datasetOf(`<button ${personAttrs(r)}>`);
+    assert.equal(ds.act, "person");
+    assert.deepEqual(personPayload(ds), { name: r.name.trim().replace(/\s+/g, " "), who_type: r.who_type, group: r.group, sub: r.sub });
+  }
+  assert.ok(!personAttrs(rows[2]).includes("<길"), "속성 안의 글자는 esc");
+  assert.deepEqual(personPayload(undefined), { name: "", who_type: "", group: "", sub: "" });
+  // 교적 값·줄 id 같은 다른 칸은 싣지 않는다
+  assert.deepEqual(Object.keys(datasetOf(personAttrs({ ...rows[0], id: 7, church: { state: "맞음" }, note: "메모" }))).sort(),
+    ["act", "group", "name", "sub", "who"]);
+});
+
+test("nameButtonHtml — 단추(type=button · be-name) · 보이는 글자는 이름 또는 이름표 · aria-label · esc", () => {
+  const h = nameButtonHtml({ name: "홍<길동>", who_type: "교구", group: "화평", sub: "20" });
+  assert.match(h, /^<button type="button" class="be-name" data-act="person" /);
+  assert.ok(h.includes("<b>홍&lt;길동&gt;</b>") && !h.includes("<길동>"));
+  assert.ok(h.includes('aria-label="홍&lt;길동&gt; — 교적 보기"'));
+  const g = nameButtonHtml({ name: "홍길동", who_type: "교구", group: "화평", sub: "20" }, "홍길동 · 화평 20목장");
+  assert.ok(g.includes("<b>홍길동 · 화평 20목장</b>") && g.includes('data-name="홍길동"'));
+  assert.ok(nameButtonHtml({ name: "" }).includes("<b>이름 없음</b>"));
+  assert.ok(!h.includes("\n"));
+});
+
+test("rowFromLabel — 서버 affLabel(통계 repeaters 의 소속 한 줄)을 구분·소속·세부로 되읽는다 · 다시 쓰면 같은 글자", () => {
+  const rows = [
+    { who_type: "교구", group: "화평", sub: "20" }, { who_type: "교구", group: "소망", sub: "남성" },
+    { who_type: "교구", group: "새가족", sub: "" }, { who_type: "교구", group: "화평", sub: "" },
+    { who_type: "교회학교", group: "청년부", sub: "" }, { who_type: "교회학교", group: "중등부", sub: "3학년" },
+    { who_type: "교구", group: "시험", sub: "0" },                 // 모르는 교구라도 숫자 목장이면 교구로
+  ];
+  for (const r of rows) {
+    const label = affLabel({ who_type: r.who_type, group_name: r.group, sub_name: r.sub });
+    assert.deepEqual(rowFromLabel(label), r, label);
+    assert.equal(whoText(rowFromLabel(label)), whoText(r), label);
+  }
+  assert.deepEqual(rowFromLabel("(소속 없음)"), { who_type: "", group: "", sub: "" });
+  assert.deepEqual(rowFromLabel(""), { who_type: "", group: "", sub: "" });
+  assert.deepEqual(rowFromLabel(undefined), { who_type: "", group: "", sub: "" });
+});
+
+test("personDecision — 오류 · 명부 없음 · 찾은 분 없음 · 작은 창 · 곧바로 「자세히」 · 고르기", () => {
+  assert.deepEqual(personDecision({ ok: false, error: "forbidden" }), { kind: "error" });
+  assert.deepEqual(personDecision(null), { kind: "error" });
+  assert.deepEqual(personDecision({ ok: true, mode: "none" }), { kind: "none" });
+  assert.deepEqual(personDecision({ ok: true, mode: "full", pick: null, candidates: [] }), { kind: "empty" });
+  assert.deepEqual(personDecision({ ok: true, mode: "basic", pick: null, people: [], church: { state: "없음", reason: "" } }), { kind: "empty" });
+  assert.deepEqual(personDecision({ ok: true, mode: "basic", pick: 0, people: [{ name: "홍길동" }] }), { kind: "basic" });
+  assert.deepEqual(personDecision({ ok: true, mode: "full", pick: 0, candidates: [{ person_id: 12 }] }), { kind: "open", id: "12" });
+  assert.deepEqual(personDecision({ ok: true, mode: "full", pick: null, candidates: [{ person_id: 12 }, { person_id: 13 }] }), { kind: "choose" });
+  assert.deepEqual(personDecision({ ok: true, mode: "full", pick: 5, candidates: [{ person_id: 12 }] }), { kind: "choose" });
+  assert.deepEqual(personDecision({ ok: true, mode: "이상한" }), { kind: "error" });
+});
+
+test("candOptions · chooseTitle — 고르개 한 줄 = 이름 · 「소속 · 직분」 · 값은 교인ID 글자 · 스무 분을 넘으면 제목에 「앞 20분」", () => {
+  assert.deepEqual(candOptions([{ person_id: 12, name: "홍길동", label: "화평 20목장", position: "집사" },
+    { person_id: 13, name: "홍길동", label: "(소속 없음)", position: "" }]), [
+    { value: "12", label: "홍길동", hint: "화평 20목장 · 집사" },
+    { value: "13", label: "홍길동", hint: "(소속 없음)" }]);
+  assert.deepEqual(candOptions(undefined), []);
+  const c = (n) => Array.from({ length: n }, (_, i) => ({ person_id: 100 + i, name: "홍길동", label: "화평 1목장", position: "" }));
+  assert.equal(chooseTitle("홍길동", { candidates: c(2), total: 2 }), "홍길동 — 어느 분인가요?");
+  assert.equal(chooseTitle("홍길동", { candidates: c(20), total: 21 }), "홍길동 — 어느 분인가요? (같은 이름 21분 중 앞 20분)");
+  assert.equal(chooseTitle("홍길동", { candidates: c(2) }), "홍길동 — 어느 분인가요?", "total 이 없으면 보여 주는 수로");
+});
+
+test("basicHtml — 고른 분 한 분 · 동명이인이면 모두와 안내 · 교적 표시 · 연락처 안내 · 줄바꿈 글자 없음 · esc", () => {
+  const P = (o) => ({ name: "홍길동", who_type: "교구", group: "화평", sub: "20", position: "집사", ...o });
+  const one = basicHtml({ ok: true, mode: "basic", pick: 0, people: [P()], church: { state: "맞음", reason: "" } });
+  assert.equal((one.match(/<li /g) || []).length, 1);
+  assert.ok(one.includes("화평 20목장") && one.includes("집사") && one.includes("교적 ✓"));
+  assert.ok(one.includes(CONTACT_NOTE));
+  assert.ok(!one.includes("같은 이름이"));
+  const many = basicHtml({ ok: true, mode: "basic", pick: null, church: { state: "확인 필요", reason: "같은 이름 2명" },
+    people: [P({ name: "홍<길동>" }), P({ who_type: "", group: "", sub: "", position: "" })] });
+  assert.equal((many.match(/<li /g) || []).length, 2);
+  assert.ok(many.includes("같은 이름이 <b>2분</b>") && many.includes("교적 확인") && many.includes("같은 이름 2명"));
+  assert.ok(many.includes("홍&lt;길동&gt;") && !many.includes("<길동>"));
+  assert.ok(many.includes("소속을 정하지 못했어요"));
+  for (const h of [one, many]) assert.ok(!/[\r\n]/.test(h), "dialog 본문은 pre-line — 줄바꿈 글자를 넣지 않는다");
+  assert.ok(!basicHtml({ pick: 0, people: [P()], church: null }).includes("맞대 보면"), "교적 표시가 없으면(null) 그 줄도 없다");
+  // 스무 분으로 잘린 목록 — 수는 서버 total(자르기 전)로 적고 「앞 20분만」을 붙인다(옆 교적 표시 「같은 이름 21명」과 같게)
+  const capped = basicHtml({ ok: true, mode: "basic", pick: null, total: 21, church: { state: "확인 필요", reason: "같은 이름 21명" },
+    people: Array.from({ length: 20 }, () => P()) });
+  assert.equal((capped.match(/<li /g) || []).length, 20);
+  assert.ok(capped.includes("같은 이름이 <b>21분</b> 있어요(앞 20분만 보여요)") && capped.includes("같은 이름 21명"), capped.slice(0, 200));
+  assert.ok(many.includes("같은 이름이 <b>2분</b> 있어요 — "), "total 이 없으면 받은 수 그대로 · 「앞 N분만」 없음");
+});
+
+test("문구 — 설계 §3 그대로 · 「명부 없음」과 「찾지 못함」을 가른다", () => {
+  assert.equal(CONTACT_NOTE, "연락처·사진은 교인명부 담당자만 볼 수 있어요");
+  assert.equal(NOT_FOUND, "교인명부에서 찾지 못했어요");
+  assert.notEqual(NO_DIRECTORY, NOT_FOUND);
+  assert.ok(FAMILY_NOTE.includes("교인 찾기"));
+});
+
+test("📋 회차·명단의 카드·표 — 이름이 교적 창 단추(명단 줄의 넷을 싣는다)", () => {
+  const ROW = { id: 7, who_type: "교구", group: "화평", sub: "20", name: "홍<길동>", position: "집사", note: "", source: "import",
+    hasUser: false, at: "2026-10-01", updated_at: "u", church: null };
+  for (const h of [cardHtml(ROW, false), tableHtml([{ key: "교구|화평", label: "화평", rows: [ROW] }], new Set())]) {
+    const btn = h.match(/<button type="button" class="be-name"[^>]*>/);
+    assert.ok(btn, "이름 단추가 없다");
+    assert.deepEqual(personPayload(datasetOf(btn[0])), { name: "홍<길동>", who_type: "교구", group: "화평", sub: "20" });
+    assert.ok(h.includes("<b>홍&lt;길동&gt;</b>"));
+  }
+});
+
+test("화면 모듈이 Node 에서 읽힌다 — 교인명부 openPerson 을 내보냈고, 두 화면이 새 이름을 들인다", async () => {
+  const pop = await import("../js/menus/bibleevent/person-popup.js");
+  const search = await import("../js/menus/people/search.js");
+  assert.equal(typeof pop.openChurchPerson, "function");
+  assert.equal(typeof search.openPerson, "function");
+  assert.equal(typeof (await import("../js/menus/bibleevent/roster.js")).render, "function");
+  assert.equal(typeof (await import("../js/menus/bibleevent/history.js")).render, "function");
+});
+```
+
+```bash
+cd /c/Projects/church-admin/.worktrees/bible-events
+node --experimental-strip-types --test tests/be-person-logic.test.mjs
+```
+Expected: FAIL — `Cannot find module '…/js/menus/bibleevent/person-logic.js'`(`ERR_MODULE_NOT_FOUND`) · `# fail 1`.
+
+- [ ] **Step 12: `js/menus/bibleevent/person-logic.js`(순수 · 새 파일)**
+
+```js
+// 이름을 누르면 교적 창 — 화면 논리(순수 함수 · 2026-09-30 · 계획 Task 16). tests/be-person-logic.test.mjs 가 같은 파일을 읽는다(DOM 없음).
+// 설계: v2 docs/superpowers/specs/2026-09-29-church-admin-bible-events-design.md §0 「이름을 누르면 교적 창」·§3 · 친구 결정 §8-8.
+// ⚠️ 이름 단추에는 명단 줄의 이름·구분·소속·세부만 싣는다(서버 evPerson 이 받는 넷) — 교적 값은 서버 답으로만 창에 들어간다.
+// ⚠️ 작은 창(ui.js dialog)의 본문은 white-space:pre-line 이다 — 여기서 만드는 HTML 에 줄바꿈 글자를 넣지 않는다(설계 §3 「팝업」).
+// ⚠️ 사람·서버 글자는 모두 esc — 이 파일이 만든 글이 그대로 innerHTML 로 들어간다.
+import { esc } from "../../core/ui.js";
+import { churchBadgeHtml } from "../people/church-badge.js";
+import { GU_ORDER, norm, whoText } from "./roster-logic.js";
+
+export const NOT_FOUND = "교인명부에서 찾지 못했어요";
+// 「아직 모른다」와 「없다」를 뭉개지 않는다 — 명부가 한 번도 안 올라왔으면 「찾지 못했어요」라 하지 않는다
+export const NO_DIRECTORY = "교인명부가 아직 올라오지 않아 찾을 수 없어요";
+export const CONTACT_NOTE = "연락처·사진은 교인명부 담당자만 볼 수 있어요";
+// 「자세히」 창의 「👪 가족 모두 목록으로」 — 이 메뉴에는 가족 목록이 없다(🔎 교인 찾기에서 본다)
+export const FAMILY_NOTE = "가족 목록은 🔎 교인 찾기에서 그분을 찾아 「가족 모두 목록으로」로 볼 수 있어요";
+
+// 단추에 싣는 것(명단 줄 그대로) — data-act="person" 은 📋 회차·명단 · 👤 사람별 이력·통계의 눌림 처리가 읽는다
+export function personAttrs(p) {
+  return `data-act="person" data-name="${esc(norm(p?.name))}" data-who="${esc(norm(p?.who_type))}" ` +
+    `data-group="${esc(norm(p?.group))}" data-sub="${esc(norm(p?.sub))}"`;
+}
+
+// 단추의 dataset(브라우저가 &lt; 같은 것을 풀어 준 글자) → evPerson 에 보낼 것
+export const personPayload = (ds) => ({
+  name: norm(ds?.name), who_type: norm(ds?.who), group: norm(ds?.group), sub: norm(ds?.sub),
+});
+
+// 이름 단추 — 보이는 글자는 이름(기본) 또는 「이름 · 소속」 이름표(👤 이력의 묶음 머리). 이름처럼 보이고 누르면 교적 창.
+export function nameButtonHtml(p, text) {
+  const t = norm(text ?? p?.name) || "이름 없음";
+  return `<button type="button" class="be-name" ${personAttrs(p)} aria-label="${esc(t)} — 교적 보기"><b>${esc(t)}</b></button>`;
+}
+
+// 👤 통계 「여러 번 참여한 분」의 소속 한 줄(서버 affLabel — 「화평 20목장」·「소망 남성」·「중등부 3학년」·「(소속 없음)」)을
+// 구분·소속·세부로 되읽는다. 통계 응답(repeaters)에는 소속 칸이 따로 없어서다(Task 4·5 의 응답 모양을 바꾸지 않는다).
+// 교구 이름 여덟(GU_ORDER)이 아니면서 「N목장」도 아니면 교회학교로 본다 — 서버 affLabel 이 교구 줄의 숫자 목장에만 「목장」을 붙이므로
+// 「시험 0목장」처럼 모르는 교구도 교구로 돌아온다. 틀리게 읽어도 교적 창의 「누구인지 고르기」만 달라진다(이름으로 찾는다).
+export function rowFromLabel(label) {
+  const s = norm(label);
+  if (!s || s === "(소속 없음)") return { who_type: "", group: "", sub: "" };
+  const m = /^(\S+) (\d+)목장$/.exec(s);
+  if (m) return { who_type: "교구", group: m[1], sub: m[2] };
+  const i = s.indexOf(" ");
+  const head = i < 0 ? s : s.slice(0, i), rest = i < 0 ? "" : s.slice(i + 1);
+  return { who_type: GU_ORDER.includes(head) ? "교구" : "교회학교", group: head, sub: rest };
+}
+
+// 서버 답 → 할 일. full 은 고른 분(pick)이 있으면 곧바로 「자세히」 창, 없으면 고르개.
+export function personDecision(r) {
+  if (!r || !r.ok) return { kind: "error" };
+  if (r.mode === "none") return { kind: "none" };
+  if (r.mode === "full") {
+    const c = Array.isArray(r.candidates) ? r.candidates : [];
+    if (!c.length) return { kind: "empty" };
+    if (Number.isInteger(r.pick) && c[r.pick]) return { kind: "open", id: String(c[r.pick].person_id) };
+    return { kind: "choose" };
+  }
+  if (r.mode === "basic") return Array.isArray(r.people) && r.people.length ? { kind: "basic" } : { kind: "empty" };
+  return { kind: "error" };
+}
+
+// 고르개(pickOne)에 넣을 후보 — 이름 · 「소속 · 직분」
+export const candOptions = (cands) => (cands || []).map((c) => ({
+  value: String(c.person_id), label: norm(c.name) || "이름 없음",
+  hint: [norm(c.label), norm(c.position)].filter(Boolean).join(" · "),
+}));
+
+// 서버가 준 수(total — 스무 분으로 자르기 전)와 보여 주는 수. total 이 없거나 이상하면 보여 주는 수로.
+const shownTotal = (total, shown) => (Number.isInteger(total) && total >= shown ? total : shown);
+
+// 고르개 제목 — 같은 이름이 스무 분을 넘으면 「앞 20분」임을 적는다(목록이 다인 줄 알고 찾는 분이 없다고 여기지 않게)
+export function chooseTitle(name, r) {
+  const n = Array.isArray(r?.candidates) ? r.candidates.length : 0;
+  const total = shownTotal(r?.total, n);
+  return `${norm(name) || "이름 없음"} — 어느 분인가요?` + (total > n ? ` (같은 이름 ${total}분 중 앞 ${n}분)` : "");
+}
+
+// 성경필사 역할만 — 작은 창 본문. 고른 분이 있으면 그 한 분, 못 골랐으면 같은 이름 모두(서버가 스무 분까지 준다).
+const personLi = (p) => `<li class="be-pp-p"><b class="be-pp-nm">${esc(norm(p.name) || "이름 없음")}</b>` +
+  (norm(p.position) ? `<em class="be-pos">${esc(norm(p.position))}</em>` : "") +
+  `<span class="be-pp-aff">${esc(whoText(p) || "소속을 정하지 못했어요(새가족 등)")}</span></li>`;
+export function basicHtml(r) {
+  const people = Array.isArray(r?.people) ? r.people : [];
+  const one = Number.isInteger(r?.pick) && people[r.pick] ? people[r.pick] : null;
+  // 같은 이름의 수는 서버의 total(자르기 전) — 스무 분만 받았어도 「21분」이라 적고 「앞 20분만」을 붙인다(옆 교적 표시 「같은 이름 21명」과 같게)
+  const total = shownTotal(r?.total, people.length);
+  const more = total > people.length ? `(앞 ${people.length}분만 보여요)` : "";
+  const head = one ? "" : `<p class="be-pp-many">교인명부에 같은 이름이 <b>${total}분</b> 있어요${more} — 소속으로 누구인지 확인해 주세요</p>`;
+  const cb = churchBadgeHtml(r?.church);
+  return `<div class="be-pp">${head}<ul class="be-pp-list">${(one ? [one] : people).map(personLi).join("")}</ul>` +
+    (cb ? `<p class="be-pp-cb">명단의 소속과 맞대 보면 ${cb}</p>` : "") +
+    `<p class="be-pp-note">🔒 ${esc(CONTACT_NOTE)}</p></div>`;
+}
+```
+
+```bash
+cd /c/Projects/church-admin/.worktrees/bible-events
+node --check js/menus/bibleevent/person-logic.js && echo "문법 통과"
+node --experimental-strip-types --test tests/be-person-logic.test.mjs
+```
+Expected: `문법 통과` · `# pass 7` · `# fail 2` — `not ok 8 - 📋 회차·명단의 카드·표 …`(이름 단추가 아직 없다) · `not ok 9 - 화면 모듈이 Node 에서 읽힌다 …`(`person-popup.js` 가 아직 없다).
+
+- [ ] **Step 13: 교인명부 `openPerson` 내보내기 · `js/menus/bibleevent/person-popup.js`(새 파일)**
+
+13-1. `js/menus/people/search.js` — Edit 도구로 앵커 줄 `async function openPerson(call, id, onFamily, back) {` **한 줄**을 아래 두 줄로 바꾼다(함수 몸통은 한 글자도 안 바꾼다 — 교인명부는 다른 세션도 고치는 공용 파일이다):
+```js
+// 성경필사(암송) 「이름을 누르면 교적 창」(js/menus/bibleevent/person-popup.js)도 이것을 부른다 — 이름·인자·가족 단추(data-fam·data-fam-all)를 바꾸면 그쪽도.
+export async function openPerson(call, id, onFamily, back) {
+```
+
+13-2. `js/menus/bibleevent/person-popup.js` 를 만든다:
+```js
+// 이름을 누르면 교적 창 — 📋 회차·명단 · 👤 사람별 이력·통계의 이름 단추가 부른다(2026-09-30 · 친구 결정 · 계획 Task 16).
+// 설계: v2 docs/superpowers/specs/2026-09-29-church-admin-bible-events-design.md §0 「이름을 누르면 교적 창」·§2 evPerson·§3.
+// ⚠️ 무엇을 보여 줄지는 **서버**(evPerson)가 부른 분의 역할로 정한다 — 화면은 받은 모양(mode)대로 그리기만 한다.
+//    full(교인명부 역할·총괄) → 교인명부 「자세히」 창(people/search.js openPerson — 그쪽이 peoplePerson 을 불러 people.view 가 남는다).
+//      고른 분이 없으면(동명이인) 먼저 고르개(pickOne)로 고른다.
+//    basic(성경필사 역할만) → 작은 창(ui.js dialog)에 이름·소속·직분·교적 표시 + 「연락처·사진은 교인명부 담당자만 볼 수 있어요」.
+//    none(교인명부가 아직 없음) · 찾은 분 없음 → 알림 한 줄(toast).
+// ⚠️ 브라우저·시스템 창을 띄우지 않는다 — dialog·pickOne·toast 만. 읽기만 하는 창이라 입력 창(openForm)을 쓰지 않는다
+//    (설계 §3 「확인·알림은 ui.js dialog/toast · 입력이 있는 창은 전용 창」).
+// ⚠️ 이름 한 번 누름 = 한 묶음(session): 작은 창 하나, 또는 [고르개 →] 「자세히」 창(가족 이름으로 넘어간 창까지). 묶음 동안만 —
+//    ① 뒤로 가기(설계 §3 「팝업」): 창을 열 때 history.pushState({bePerson:1}) 로 한 칸을 쌓고 popstate 를 「창 닫기」로 받는다
+//       → 창만 닫히고 명단(회차·거르기·스크롤)은 그대로. 「닫기」·Esc 로 닫으면 history.back() 으로 그 칸을 거두고 **거둔 뒤에**
+//       끝낸다(js/core/modal.js 와 같은 차례 — 안 거두면 다음 뒤로 가기 한 번이 헛 누름이 된다).
+//    ② 메뉴 옮기기(hashchange — 주소창·메뉴 누르기): 떠 있는 우리 창을 닫고, 아직 묻는 중이면 답이 와도 창을 띄우지 않는다.
+//       쌓은 칸은 거두지 않는다(이미 새 메뉴다 — modal.js closeAllForms 와 같은 까닭).
+//    ③ 늦게 뜬 창: 「자세히」 창은 openPerson 이 peoplePerson 답을 받은 **뒤에** 붙는다 — ①·② 뒤에 붙으면 곧바로 닫는다(MutationObserver).
+//    ④ 가족: 「자세히」 창의 가족 이름은 여기서 먼저 받아 그 창을 닫고 **같은 칸에서** 그분 창을 연다(openPerson 이 스스로 넘기면
+//       첫 창이 닫히는 순간 묶음이 끝난 줄 알게 된다) · 「👪 가족 모두 목록으로」는 알림 한 줄(이 메뉴에는 가족 목록이 없다 — 창은 그대로).
+//    교인 찾기(🔎)의 「자세히」 창은 묶음 밖이라 건드리지 않는다.
+// ⚠️ 이 파일은 Node 시험(tests/be-person-logic.test.mjs)이 불러 본다 — 맨 위에서 document·window·history 를 만지지 않는다(bind 는 처음 누를 때).
+import { toast, dialog, errorText } from "../../core/ui.js";
+import { pickOne } from "../../core/picker.js";
+import { openPerson } from "../people/search.js";
+import { NOT_FOUND, NO_DIRECTORY, FAMILY_NOTE, personDecision, candOptions, chooseTitle, basicHtml } from "./person-logic.js";
+
+// 우리 창 — 작은 창(be-pp-dlg) · 「자세히」 창(pd — 교인명부 openPerson 이 dialog 에 주는 cls). 고르개(.pk-dim)는 한 번에 하나뿐이다.
+const OUR_DLG = ".dlg-dim > .dlg.be-pp-dlg, .dlg-dim > .dlg.pd";
+
+let session = null;     // 지금 묶음 { pushed, popped, cancelled, next } — 묻는 중이거나 창이 떠 있는 동안(두 번 눌러도 창·기록은 하나)
+let backWaiter = null;  // 우리가 부른 history.back() 이 돌아오면 부를 것
+let bound = false;
+let watcher = null;
+
+// 떠 있는 우리 창을 닫는다 — 고르개는 Esc 로(picker.js 는 keydown 을 잡는 단계에서 받는다 · 뜬 뒤 300ms 누름 막기에 안 걸린다),
+// 작은 창·「자세히」 창은 「닫기」 단추로(modal.js 가 고르개를 닫는 방법과 같다)
+function closeOurs() {
+  if (document.querySelector(".pk-dim")) document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  for (const d of document.querySelectorAll(OUR_DLG)) d.querySelector('[data-v="1"]')?.click();
+}
+
+function bind() {
+  if (bound) return;
+  bound = true;
+  window.addEventListener("popstate", () => {
+    if (backWaiter) { const w = backWaiter; backWaiter = null; w(); return; }   // 우리가 거둔 칸 — 닫기 요청이 아니다
+    const s = session;
+    if (!s || !s.pushed || s.popped) return;
+    s.popped = true;              // ① 뒤로 가기 — 우리 칸이 빠졌다(주소·메뉴·명단은 그대로)
+    closeOurs();
+  });
+  window.addEventListener("hashchange", () => {
+    const s = session;
+    if (!s) return;
+    s.cancelled = true;           // ② 메뉴를 옮겼다 — 떠 있는 창을 닫고, 묻는 중이면 답이 와도 띄우지 않는다
+    closeOurs();
+  });
+  // ④ 「자세히」 창의 가족 단추(person-detail.js 의 data-fam · data-fam-all) — 잡는 단계(capture)에서 먼저 받는다
+  //    (openPerson 은 창의 click 거품에서 받는다 · 여기서 멈추면 그쪽 가족 처리는 돌지 않는다)
+  document.addEventListener("click", (e) => {
+    const s = session;
+    const t = s && e.target instanceof Element ? e.target : null;
+    const fam = t?.closest(".dlg.pd [data-fam]"), all = t?.closest(".dlg.pd [data-fam-all]");
+    if (!fam && !all) return;
+    e.stopPropagation();
+    if (all) { toast(FAMILY_NOTE); return; }          // 이 메뉴에는 가족 목록이 없다 — 창은 그대로
+    s.next = fam.dataset.fam;                         // 이 창을 닫고 같은 칸에서 그분 창을 연다(openChurchPerson 의 되풀이)
+    fam.closest(".dlg-dim")?.querySelector('[data-v="1"]')?.click();
+  }, true);
+}
+
+// ③ 묶음 동안 몸(body)에 창이 붙으면 — 이미 뒤로 갔거나 메뉴를 옮겼으면 곧바로 닫는다
+function watch(on) {
+  if (!on) { watcher?.disconnect(); return; }
+  watcher = watcher || new MutationObserver(() => {
+    const s = session;
+    if (s && (s.cancelled || s.popped)) closeOurs();
+  });
+  watcher.observe(document.body, { childList: true });
+}
+
+function push(s) {
+  history.pushState({ bePerson: 1 }, "");
+  s.pushed = true;
+}
+
+// 쌓은 칸을 거두고, 거둔 뒤에 끝낸다. popstate 가 안 오는 드문 경우에도 1초 뒤엔 끝낸다(modal.js backThen 과 같다).
+function back() {
+  return new Promise((resolve) => {
+    let t = 0;
+    const done = () => { clearTimeout(t); if (backWaiter === done) backWaiter = null; resolve(); };
+    t = setTimeout(done, 1000);
+    backWaiter = done;
+    history.back();
+  });
+}
+
+// name·who_type·group·sub = 명단 줄 그대로(person-logic.js personPayload) · anchor = 누른 단추(창이 닫히면 초점을 돌려준다)
+export async function openChurchPerson({ call, name = "", who_type = "", group = "", sub = "", anchor = null } = {}) {
+  if (session) return;                                  // 묻는 중이거나 창이 떠 있다 — 두 번 눌러도 하나만
+  bind();
+  const s = session = { pushed: false, popped: false, cancelled: false, next: null };
+  // 그사이 뒤로 갔거나(①) 메뉴를 옮겼거나(②) 명단을 다시 그려 누른 단추가 없어졌다 — 창을 띄우지 않는다
+  const gone = () => s.cancelled || s.popped || (anchor != null && !anchor.isConnected);
+  watch(true);
+  try {
+    const r = await call("evPerson", { name, who_type, group, sub });
+    if (gone()) return;
+    const d = personDecision(r);
+    if (d.kind === "error") { toast(errorText(r)); return; }
+    if (d.kind === "none") { toast(NO_DIRECTORY); return; }
+    if (d.kind === "empty") { toast(NOT_FOUND); return; }
+    push(s);                                            // 창 한 칸 — 뒤로 가기는 이 칸을 빼며 창만 닫는다
+    if (d.kind === "basic") {
+      const closed = dialog({ title: `🪪 ${name}님 교적`, html: basicHtml(r), ok: "닫기", cancel: null, cls: "be-pp-dlg" });
+      // dialog 는 창을 곧바로(동기로) 붙인다 — 초점을 「닫기」로(단추에 남으면 Enter 한 번에 같은 창이 또 뜬다 · search.js 와 같다)
+      [...document.querySelectorAll(".dlg-dim")].pop()?.querySelector('[data-v="1"]')?.focus();
+      await closed;
+      if (anchor && anchor.isConnected) anchor.focus({ preventScroll: true });
+      return;
+    }
+    // full — 고른 분이 있으면 곧바로, 없으면 고르개(닫으면 null — 아무것도 열지 않는다 · 초점은 고르개가 단추로 돌려준다)
+    let id = d.kind === "open" ? d.id : await pickOne({ anchor, title: chooseTitle(name, r), options: candOptions(r.candidates) });
+    // 「자세히」 창 — 사진·연락처·주소·가족은 peoplePerson 이 교인명부 역할을 다시 확인하고 준다(people.view 기록 · 초점은 그쪽이 돌려준다).
+    // 가족 이름을 누르면(④) 그 창이 닫히고 s.next 에 그분 교인ID 가 남는다 — 같은 칸에서 이어 연다.
+    while (id != null && !gone()) {
+      s.next = null;
+      await openPerson(call, id, () => toast(FAMILY_NOTE), anchor);
+      id = s.next;
+    }
+  } finally {
+    watch(false);
+    // 「닫기」·Esc 로 끝났으면 쌓은 칸을 거둔다(거둔 뒤에 끝낸다). 뒤로 가기(①)·메뉴 옮기기(②)로 끝났으면 거두지 않는다.
+    if (s.pushed && !s.popped && !s.cancelled) await back();
+    session = null;
+  }
+}
+```
+
+```bash
+cd /c/Projects/church-admin/.worktrees/bible-events
+grep -c '^export async function openPerson(call, id, onFamily, back) {' js/menus/people/search.js     # 1
+grep -c 'async function openPerson(' js/menus/people/search.js                                        # 1 — 두 벌이 되지 않았다
+node --check js/menus/people/search.js && node --check js/menus/bibleevent/person-popup.js && echo "문법 통과"
+node --experimental-strip-types --test tests/be-person-logic.test.mjs tests/people-logic.test.mjs tests/person-detail.test.mjs
+```
+Expected: `1` · `1` · `문법 통과` · be-person-logic 은 `not ok 8 - 📋 회차·명단의 카드·표 …` 하나만 남는다(교인명부 시험 둘은 그대로 통과) · `# fail 1`.
+(창을 여닫는 동작은 Node 시험이 못 본다 — 2026-09-30 에 이 파일을 헤드리스 크롬 사본에서 가짜 `call` 로 돌려 보았다: 작은 창 「닫기」 뒤 `history.state` 가 비고 뒤로 가기 한 번에 앞 주소로 · 창을 연 채 뒤로 가기 → 창만 닫히고 주소 그대로 · 가족 이름 → 같은 칸에서 그분 창 · 「가족 모두 목록으로」 → 알림, 창 그대로 · 고르개를 연 채 뒤로 가기 → 아무것도 안 열림 · 묻는 중·「자세히」 답을 기다리는 중에 뒤로 가기·메뉴 옮기기 → 창이 남지 않음 · 두 번 눌러도 `evPerson` 한 번 · 이 창 뒤에 연 입력 창(`modal.js`)의 뒤로 가기도 그대로. 화면에서는 Step 18 과 Task 14 가 본다.)
+
+- [ ] **Step 14: 이름을 단추로 — `roster-ui.js`·`roster.js`(Task 10) · `history.js`(Task 12)**
+
+모두 Edit 도구로, 앵커는 Step 0 에서 한 번씩만 나오는 것을 봤다. 있던 import 줄은 그대로 두고 **새 import 문**을 그 아래에 더한다.
+
+14-1. `js/menus/bibleevent/roster-ui.js`
+① 앵커 줄 `import { STATUS_KO, SRC_LABEL, subText, filterActive } from "./roster-logic.js";` 을 아래로(그 줄 그대로 + 두 줄):
+```js
+import { STATUS_KO, SRC_LABEL, subText, filterActive } from "./roster-logic.js";
+// 이름을 누르면 교적 창(Task 16) — 이름 단추 모양
+import { nameButtonHtml } from "./person-logic.js";
+```
+② 카드(`cardHtml`) — 조각 `` `<b>${esc(r.name)}</b>${posHtml(r)}${sub ? `` 을 아래 조각으로(그 줄의 나머지는 그대로):
+```js
+`${nameButtonHtml(r)}${posHtml(r)}${sub ?
+```
+③ 표(`tableHtml`) — 조각 `<td><b>${esc(r.name)}</b> ${dupHtml(dups.has(r.id))}</td>` 를 아래 조각으로:
+```js
+<td>${nameButtonHtml(r)} ${dupHtml(dups.has(r.id))}</td>
+```
+
+14-2. `js/menus/bibleevent/roster.js`
+① 앵커 줄 `import { openRowForm, openRowDelete } from "./row-form.js";` 을 아래로(그 줄 그대로 + 세 줄):
+```js
+import { openRowForm, openRowDelete } from "./row-form.js";
+// 이름을 누르면 교적 창(Task 16)
+import { openChurchPerson } from "./person-popup.js";
+import { personPayload } from "./person-logic.js";
+```
+② 눌림 처리 — 앵커 줄 `    else if (act === "row") rowMenu(b);` 을 아래로(그 줄 그대로 + 한 줄). 이름 단추는 `button[data-act]` 라 이미 있는 위임 처리(`el.addEventListener("click", …)`)에 한 갈래만 더한다:
+```js
+    else if (act === "row") rowMenu(b);
+    else if (act === "person") openChurchPerson({ call, ...personPayload(b.dataset), anchor: b });   // 이름 → 교적 창(Task 16)
+```
+
+14-3. `js/menus/bibleevent/history.js`
+① 앵커 줄 `} from "./history-logic.js";`(여러 줄 import 의 끝줄) 을 아래로(그 줄 그대로 + 세 줄):
+```js
+} from "./history-logic.js";
+// 이름을 누르면 교적 창(Task 16)
+import { openChurchPerson } from "./person-popup.js";
+import { nameButtonHtml, personPayload, rowFromLabel } from "./person-logic.js";
+```
+② 이력 묶음 머리(`groupHtml`) — 조각 `<span class="be-hi-n">${esc(g.n)}</span><b>${esc(g.label)}</b><em>${g.rows.length}회</em>` 를 아래 조각으로.
+묶음 이름표(「이름 · 소속」)는 서버가 **가장 최근 줄**로 만든다 — 그 줄이 `g.rows[0]` 이다(Task 5 `evHistory`). 이름은 찾은 이름(`hist.name`) — 이력 줄에는 이름 칸이 없고, 서버는 이름 키(완성형·띄어쓰기 없음)로 찾으니 같은 분이 나온다:
+```js
+<span class="be-hi-n">${esc(g.n)}</span>${nameButtonHtml({ ...(g.rows[0] || {}), name: hist.name }, g.label)}<em>${g.rows.length}회</em>
+```
+③ 여러 번 참여한 분 — 조각 `<button type="button" class="be-hi-who-btn" data-name="${esc(p.name)}" title="이 분의 이력 보기"><b>${esc(p.name)}</b><span class="be-hi-aff"> · ${esc(p.label)}</span></button>` 을 아래 조각으로(한 줄 · 이름은 교적 창, 예전의 「이력으로」는 「📜 이력」 단추 — 줄 끝 자리는 CSS `order` 가 잡는다):
+```js
+${nameButtonHtml({ name: p.name, ...rowFromLabel(p.label) })}<span class="be-hi-aff">${esc(p.label)}</span><button type="button" class="be-hi-who-btn" data-name="${esc(p.name)}" aria-label="${esc(p.name)} · ${esc(p.label)} — 이력 보기">📜 이력</button>
+```
+④ 앵커 줄 `    if (who) {   // 여러 번 참여한 분을 누르면 그분 이력으로` 을 아래 한 줄로(주석만 — 동작은 그대로 `.be-hi-who-btn`):
+```js
+    if (who) {   // 여러 번 참여한 분의 「📜 이력」 → 그분 이력으로(이름을 누르면 교적 창 — 아래 data-act="person")
+```
+⑤ 앵커 줄 `    const b = e.target.closest("button[data-act]");` 을 아래로(그 줄 그대로 + 한 줄 · 내려받기 갈래보다 앞):
+```js
+    const b = e.target.closest("button[data-act]");
+    if (b && b.dataset.act === "person") { openChurchPerson({ call, ...personPayload(b.dataset), anchor: b }); return; }   // Task 16
+```
+
+```bash
+cd /c/Projects/church-admin/.worktrees/bible-events
+grep -c 'nameButtonHtml(' js/menus/bibleevent/roster-ui.js      # 2 — 카드·표
+grep -c '<b>${esc(r.name)}</b>' js/menus/bibleevent/roster-ui.js # 0 — 옛 이름 글자가 남지 않았다
+grep -c 'act === "person"' js/menus/bibleevent/roster.js js/menus/bibleevent/history.js   # 파일마다 1
+grep -c 'nameButtonHtml(' js/menus/bibleevent/history.js         # 2 — 묶음 머리·여러 번 참여
+grep -c '>📜 이력</button>' js/menus/bibleevent/history.js       # 1
+for f in js/menus/bibleevent/roster-ui.js js/menus/bibleevent/roster.js js/menus/bibleevent/history.js; do node --check "$f" || echo "문법 실패: $f"; done
+node --experimental-strip-types --test tests/be-person-logic.test.mjs tests/be-roster-ui.test.mjs tests/be-roster-logic.test.mjs tests/be-history-logic.test.mjs
+```
+Expected: `2` · `0` · `…roster.js:1`·`…history.js:1` · `2` · `1` · 문법 실패 줄 없음 · `# fail 0` — be-person-logic 9 · be-roster-ui 6 · be-roster-logic 11 · be-history-logic 13(Task 10·12 의 시험이 그대로 통과한다 — 카드·표의 `홍&lt;길동&gt;` 은 단추 안 `<b>` 에 그대로 있다).
+(이 네 파일의 시험은 2026-09-30 에 Task 10·12 초안 코드에 위 고치기를 얹은 사본에서 모두 통과했다.)
+
+- [ ] **Step 15: `css/admin.css` 끝에 「be-name · be-pp-」 블록**
+
+```bash
+cd /c/Projects/church-admin/.worktrees/bible-events
+grep -c '^\.be-name{' css/admin.css      # 0 이어야 한다(두 번 붙이지 않는다)
+echo >> css/admin.css
+cat >> css/admin.css <<'EOF'
+/* ── 성경필사(암송) 이름을 누르면 교적 창(be-name · be-pp- · Task 16 · 2026-09-30) ─────────────────────
+   이름은 이름처럼 보이는 단추 — 마우스를 올리거나 키보드 초점이면 밑줄. 폰에서 누르는 자리는 44px(--tap):
+   위아래 여백을 늘리고 같은 만큼 음수 margin 으로 되돌려 줄 높이는 그대로 둔다.
+   작은 창(ui.js dialog · cls "be-pp-dlg")은 읽기만 — 본문은 person-logic.js basicHtml(줄바꿈 글자 없음). */
+.be-name{display:inline-block;min-height:var(--tap);margin:-10px -4px;padding:10px 4px;border:0;border-radius:8px;background:none;
+  color:inherit;font:inherit;line-height:inherit;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.be-name:hover b,.be-name:focus-visible b{text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:2px}
+.be-name:focus-visible{outline:2px solid var(--navy);outline-offset:-2px}
+.be-name:disabled{cursor:default}
+/* PC 표 — 좁은 칸에서 이름이 한 글자씩 꺾이지 않게 */
+.be-table .be-name{white-space:nowrap}
+/* 👤 여러 번 참여한 분 — 이름(교적 창) · 소속 · 횟수 · 「📜 이력」(줄 오른쪽 끝) · 참여 회차(다음 줄) */
+.be-hi-reps .be-hi-who-btn{order:1;margin-left:auto}
+.be-hi-reps .be-hi-evs{order:2}
+/* 작은 창 본문 */
+.be-pp-many{margin-bottom:10px;font-size:14px;line-height:1.6;color:var(--navy-dark)}
+.be-pp-many b{color:var(--navy)}
+.be-pp-list{list-style:none;display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.be-pp-p{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 0;padding:10px 12px;border:1px solid var(--border);border-radius:10px;
+  background:var(--cream)}
+.be-pp-nm{font-size:16px;font-weight:800;color:var(--navy)}
+.be-pp-aff{flex-basis:100%;font-size:14px;color:var(--navy-dark)}
+.be-pp-cb{margin-bottom:12px;font-size:13px;color:var(--gray)}
+.be-pp .cb,.be-pp .cb small{font-size:13px}
+.be-pp-note{padding:8px 10px;border-radius:8px;background:var(--ghost-bg);color:var(--navy);font-size:13px;line-height:1.5}
+EOF
+python -c "s=open('css/admin.css',encoding='utf-8').read(); print(s.count('{'), s.count('}'))"
+grep -c '^\.be-name{' css/admin.css
+node -e "const s=require('fs').readFileSync('css/admin.css','utf8'); const b=s.slice(s.indexOf('(be-name · be-pp-')); const small=(b.match(/font-size:\d+px/g)||[]).filter((x)=>parseInt(x.slice(10),10)<13); console.log(small.length ? '작은 글씨: ' + small.join(' ') : '이 블록에 13px 미만 글씨 없음')"
+```
+Expected: `0`(붙이기 전) · 두 숫자가 같다 · `1` · `이 블록에 13px 미만 글씨 없음`.
+(모양은 2026-09-30 에 헤드리스 크롬으로 카드·표·이력 머리·여러 번 참여·작은 창 둘을 그려 보았다 — 누르는 자리 44px 가 이름 위아래로 넓어지고 카드·표의 줄 높이는 그대로였다.)
+
+- [ ] **Step 16: 문법 · 금지 부품 · preflight · 커밋(화면)**
+
+```bash
+cd /c/Projects/church-admin/.worktrees/bible-events
+for f in js/menus/people/search.js js/menus/bibleevent/*.js; do node --check "$f" || echo "문법 실패: $f"; done
+# 금지 부품 — 설명 주석(// …)에 적힌 이름은 빼고 본다
+grep -nE "\b(alert|confirm|prompt)\(|<select|type=\"?(date|time)\"?|datalist|beforeunload" js/menus/bibleevent/person-*.js js/menus/people/search.js \
+  | grep -vE "^[^:]+:[0-9]+:\s*//" || echo "금지 부품 없음"
+python tools/preflight.py
+git status --short
+```
+Expected: 문법 실패 줄 없음 · `금지 부품 없음` · preflight `[1]` 에 `person-logic.js`·`person-popup.js` 통과 · `[2]` 시험 파일 수가 Step 3 보다 하나 늘었다(`be-person-logic.test.mjs`) · 끝줄 `모두 통과` · `git status` 여덟 줄 — `M css/admin.css` · `M js/menus/bibleevent/history.js` · `M js/menus/bibleevent/roster-ui.js` · `M js/menus/bibleevent/roster.js` · `M js/menus/people/search.js` · `?? js/menus/bibleevent/person-logic.js` · `?? js/menus/bibleevent/person-popup.js` · `?? tests/be-person-logic.test.mjs`(다른 것이 보이면 멈춘다).
+
+```bash
+cd /c/Projects/church-admin/.worktrees/bible-events
+git add css/admin.css js/menus/bibleevent/history.js js/menus/bibleevent/roster-ui.js js/menus/bibleevent/roster.js js/menus/people/search.js \
+  js/menus/bibleevent/person-logic.js js/menus/bibleevent/person-popup.js tests/be-person-logic.test.mjs
+git commit -F - <<'EOF'
+feat(성경필사): 📋·👤 이름을 누르면 교적 창 — 명단 카드·표·이력 묶음·여러 번 참여한 분의 이름을 단추로 · 교인명부 역할이면 「자세히」 창(openPerson 내보냄 · 동명이인은 고르개), 성경필사만이면 작은 창(이름·소속·직분·교적 표시·연락처 안내) · 뒤로 가기는 창만 닫는다(한 칸) · 여러 번 참여한 분의 이력은 「📜 이력」으로
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+EOF
+git show --stat HEAD      # 여덟 파일만인지 본다
+```
+
+- [ ] **Step 17: 개인정보 안내 6번 — 이 기능 한 줄(여러 번 돌려도 같다)**
+
+이 과제는 Task 13 **앞**에 돈다 — 그래서 `privacy.html` 6번에 **이 기능 한 줄만** 더한다(「보관:」 줄 앞). 이 줄은 Task 13 의 앵커 넷(6번 「쓰는 곳」·「보는 사람」·「기록」 줄 · `</main>`)과 선행 검사(`7. 성경필사(암송) 명단` 0 · `「성경필사(암송)」 역할` 0 · 카드 6)를 건드리지 않는 글이다.
+7번 「성경필사(암송) 명단」·6번 「보는 사람」 글과 교회 어드민 `CLAUDE.md` 의 `evPerson` 줄은 **Task 13 이 이 과제까지 담아 처음부터** 쓴다(Task 13 Step 7 은 이 줄이 있는지 먼저 본다) — 여기서는 쓰지 않는다.
+`audit.js` 도 고치지 않는다 — `evPerson` 은 `people.lookup` 을 그대로 쓰고, Task 13 의 이름표·설명 줄이 그 모양(`{q, count}`)을 읽는다.
+⚠️ 「보는 사람」은 **총괄 관리자와** 「교인명부」 역할도 있는 담당자다(서버가 `super` 에게도 `full` 을 준다 — 총괄을 「그 밖의 담당자」에 넣으면 사실이 아닌 안내가 된다).
+
+```bash
+cd /c/Projects/church-admin/.worktrees/bible-events
+node - <<'JS'
+// 이름을 누르면 교적 창(Task 16) — 개인정보 안내 6번에 한 줄. 여러 번 돌려도 같다(이미 있으면 건너뛴다). 줄 끝(CRLF)은 파일 것을 따른다.
+const fs = require("fs");
+const p = "privacy.html";
+let s = fs.readFileSync(p, "utf8");
+const nl = s.includes("\r\n") ? "\r\n" : "\n";
+const LINE = "      이름을 누르면(성경필사(암송) 명단): 명단의 이름을 누르면 교인명부에서 그분을 찾아 보여 드려요." +
+  " 총괄 관리자와 「교인명부」 역할도 있는 담당자에게는 교인 찾기와 같은 자세히 보기(사진·연락처·주소·가족)가 열리고" +
+  "(자세히 보기를 열면 본 교인의 이름과 교인ID 가, 한 분으로 정하지 못해 고르는 창이 뜨거나 찾지 못하면 찾은 이름과 결과 수가 기록에 남아요)," +
+  " 그 밖의 담당자에게는 이름·구분·소속·세부·직분 다섯 가지와 「교적과 맞는지」 표시만 보여요(찾은 이름과 결과 수가 기록에 남아요).<br>";
+const ANCHOR = "      보관: 새 명단이 나오면 통째로 갈아 끼우고, 명단에서 빠진 분의 정보와 사진은 그때 지워요.";
+if (s.includes("이름을 누르면(성경필사(암송) 명단):")) console.log("privacy 6번 줄 — 이미 있음");
+else {
+  const n = s.split(ANCHOR).length - 1;
+  if (n !== 1) throw new Error(`앵커가 ${n}번 — 멈춘다(아무것도 쓰지 않았다): ${ANCHOR.slice(0, 30)}`);
+  fs.writeFileSync(p, s.replace(ANCHOR, LINE + nl + ANCHOR));
+  console.log("privacy 6번 줄 — 더함");
+}
+JS
+grep -c "이름을 누르면(성경필사(암송) 명단):" privacy.html
+grep -c "총괄 관리자와 「교인명부」 역할도 있는 담당자에게는" privacy.html
+grep -c "7. 성경필사(암송) 명단" privacy.html; grep -c "「성경필사(암송)」 역할" privacy.html; grep -c '<div class="card">' privacy.html
+grep -cF '보는 사람: 총괄 관리자와, 총괄 관리자가 「교인명부」 역할을 드린 담당자가 봐요.' privacy.html
+grep -cF '기록: 누가 언제 누구를 찾아보고 내려받았는지 남겨요' privacy.html
+python tools/preflight.py | tail -1
+git status --short
+```
+Expected: `privacy 6번 줄 — 더함` · `1` · `1` · `0` · `0` · `6`(Task 13 의 선행 검사 `0 · 0 · 6` 이 그대로다) · `1` · `1`(Task 13 의 6번 앵커가 여전히 한 번씩) · `모두 통과` · `git status` 에 ` M privacy.html` 한 줄.
+(2026-09-30 에 워크트리의 `privacy.html` 사본(CRLF)으로 두 번 돌려 보았다 — 두 번째는 `이미 있음` · 줄 끝은 파일 것 그대로 · Task 13 Step 7 의 네 Edit 앵커와 선행 검사가 모두 그대로 맞았다.)
+`앵커가 N번 — 멈춘다` 로 끝나면 「보관:」 줄의 글이 바뀐 것이다(파일은 쓰지 않았다) — 그 자리를 눈으로 보고 앵커를 새로 잡은 뒤 다시 돌린다.
+
+```bash
+cd /c/Projects/church-admin/.worktrees/bible-events
+git add privacy.html
+git commit -m "docs(성경필사): 개인정보 안내 6번 — 명단의 이름을 누르면(총괄·교인명부 역할이면 자세히 보기 · 그 밖은 다섯 가지와 교적 표시 · 기록)" -m "Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
+git show --stat HEAD      # privacy.html 하나
+```
+
+- [ ] **Step 18: localhost 에서 잠깐 본다**
+
+개발 함수는 Step 10 에서 이 판으로 올라가 있다. 워크트리에서 `python -m http.server 8000` → http://localhost:8000 (오른쪽 위 「개발 DB」 띠) → 총괄 관리자로 로그인 →
+📋 회차·명단에서 이름 하나를 눌러 「자세히」 창(또는 고르개)이 뜨는지 · 창을 연 채 뒤로 가기(Alt+←) **한 번에 창만** 닫히고 명단(회차·거르기·스크롤)이 그대로인지 · 다시 열어 「닫기」로 닫은 뒤 뒤로 가기 한 번이면 앞 화면으로 가는지(헛 누름 없음) ·
+👤 사람별 이력·통계에서 묶음 머리 하나를 눌러 창이 뜨는지만 본다. 창을 연 채 콘솔 `document.querySelectorAll('select, input[type=date], input[type=time], datalist').length` → `0`. `Ctrl+C` 로 끈다.
+나머지(두 번째 계정의 작은 창 · 기록 · 늦게 뜬 창 · 메뉴 옮기기 · 가족)는 **Task 14 점검표에 이미 들어 있다**(Step 7 「📋 이름을 누르면 교적 창」 · Step 11 👤 이력·통계와 바꾼 기록 · Step 12 개인정보 안내) — 친구와 함께 거기서 본다.
+
+
 ### Task 13: 바꾼 기록 이름 · 개인정보 안내 7번 · 교회 어드민 CLAUDE.md (교회 어드민 파일만)
 
 이 과제가 끝나면 총괄 관리자의 「📜 바꾼 기록」·「교인명부 기록」에 성경필사(암송) 기록 여덟 가지가 한국말 이름과 한 줄 설명으로 보인다. 교회 어드민 `privacy.html` 에는 이 기능이 보는 것·가져오는 것·남기는 기록이 사실대로 적히고, 교회 어드민 `CLAUDE.md` 에는 「명단을 고치는 곳은 여기 한 곳」이 적힌다.
@@ -9876,7 +11134,7 @@ git status --short        # 아무것도 없어야 한다
   - `event.edit` target=줄 id · `{event_id, name, before:{…}, after:{…}}` — 바뀐 칸만 들어가고, 칸 이름은 `who_type`·`group`·`sub`·`name`·`position`·`note` 다(Task 7 `EV_AUDIT_FIELD`)
   - `event.delete` target=줄 id · `{event_id, name, row:{who_type,group,sub,position,note,source,hasUser}}`(Task 7)
   - `event.upload` target=회차 id · **납작한 모양** `{rows, fillOn, add, same, blank, bad, fill, sameName, oddPosition, saved, failed}` — `failed` 는 개수이고 이름은 싣지 않는다(Task 8)
-  - `people.lookup` target=`""` · `{q, count}`(Task 8)
+  - `people.lookup` target=`""` · `{q, count}`(Task 8 `evPeopleLookup` · Task 16 `evPerson` 도 같은 모양 — 남기는 곳 두 곳)
   - `people.fill` target=회차 id · `{rows, names:string[]}`(Task 8)
 - Produces:
   - `js/menus/system/audit.js`: `export const LABEL` · `export function detailText(r) → string`(원래 내보내지 않던 것이다. 시험하려고 내보낼 뿐 화면 동작은 그대로다)
@@ -9896,9 +11154,9 @@ grep -nA3 'audit(ctx, "event.\(add\|delete\)"' supabase/functions/church-admin/i
 ```
 Expected:
 - `기준점 a2dfd7c 이후`.
-- `8`(액션마다 한 줄). 여덟이 안 되면 **멈춘다.** Task 6~8 가운데 끝나지 않은 과제가 있다.
+- `9`(기록마다 한 줄 · `people.lookup` 만 두 줄 — `evPeopleLookup`(Task 8)·`evPerson`(Task 16)). 아홉이 아니면 **멈춘다.** 여덟 이하면 Task 6~8·16 가운데 끝나지 않은 과제가 있고, 열 이상이면 같은 기록을 남기는 곳이 더 생긴 것이다(그 줄을 눈으로 본다).
 - `event.upload` 줄에 `rows:`·`fillOn:`·`...counts`·`saved`·`failed: failed.length` 가 있다. `counts` 를 펼쳐 넣어야 하고 `counts:` 로 싸면 안 된다.
-- `people.lookup` 줄에 `count:` 가 있다. `people.fill` 줄에 `rows:`·`names:` 가 있다.
+- `people.lookup` 은 **두 줄**(`evPeopleLookup`·`evPerson`)이고 두 줄 모두 `q:`·`count:` 가 있다(한 줄이면 Task 16 이 덜 끝났다 — 멈춘다). `people.fill` 줄에 `rows:`·`names:` 가 있다.
 - `event.add`·`event.delete` 의 `row:` 에 `group:`·`sub:` 가 있다(`group_name` 이 아니다).
 
 모양이 위 **Interfaces · Consumes** 와 다르면 **서버는 고치지 않는다.** 서버의 개발 시험이 이미 그 모양을 믿고 있다. 대신 아래 Step 2 의 기대값과 Step 4 의 코드를 서버 칸 이름에 맞추고, 이 계획의 Interfaces 줄도 고쳐 둔다.
@@ -10174,8 +11432,9 @@ grep -cF '보는 사람: 총괄 관리자와, 총괄 관리자가 「교인명�
 grep -cF '기록: 누가 언제 누구를 찾아보고 내려받았는지 남겨요' privacy.html
 grep -c '</main>' privacy.html
 grep -c "7. 성경필사(암송) 명단" privacy.html; grep -c "「성경필사(암송)」 역할" privacy.html; grep -c '<div class="card">' privacy.html
+grep -c "이름을 누르면(성경필사(암송) 명단):" privacy.html     # Task 16 Step 17 이 먼저 넣은 6번 한 줄
 ```
-Expected: `1` · `1` · `1` · `1` · `0` · `0` · `6`.
+Expected: `1` · `1` · `1` · `1` · `0` · `0` · `6` · `1`. 마지막이 `0` 이면 Task 16 이 아직 안 돌았다 — 이 과제는 Task 16 **뒤**다(아래 7번 글이 그 기능을 적는다). 멈춘다.
 
 Edit 네 번(모두 한 줄 앵커):
 
@@ -10196,7 +11455,7 @@ new:
 new:
 ```html
       보는 사람: 총괄 관리자와, 총괄 관리자가 「교인명부」 역할을 드린 담당자가 봐요. 사역신청 담당자에게는 「교적과 맞는지」 표시만 보여요.
-      「성경필사(암송)」 역할을 드린 담당자에게는 「교적과 맞는지」 표시와, 이름으로 찾거나 빈칸을 채울 때 이름·구분·소속·세부·직분 다섯 가지만 보여요(7번).<br>
+      「성경필사(암송)」 역할만 드린 담당자에게는 「교적과 맞는지」 표시와, 이름으로 찾거나 · 명단의 이름을 누르거나 · 빈칸을 채울 때 이름·구분·소속·세부·직분 다섯 가지만 보여요(7번 · 이름을 누를 때는 아래 「이름을 누르면」).<br>
 ```
 
 ③ 6번 「기록」 — old(한 줄):
@@ -10206,7 +11465,7 @@ new:
 new:
 ```html
       기록: 누가 언제 누구를 찾아보고 내려받았는지 남겨요(찾은 검색어와 거르기 조건 · 본 교인의 이름과 교인ID · 내려받은 명수 ·
-      성경필사(암송) 담당자가 찾은 이름과 결과 수 · 빈칸을 채운 분의 이름).<br>
+      성경필사(암송) 담당자가 찾거나 명단에서 누른 이름과 결과 수 · 빈칸을 채운 분의 이름).<br>
 ```
 
 ④ 7번 — old(한 줄):
@@ -10223,8 +11482,8 @@ new:
       보는 것: 이름, 구분(교구·교회학교), 소속(교구·부서), 세부(목장·학년), 직분, 등록일, 들어온 길(앱에서 신청 · 담당자가 넣음),
       앱 계정과 이어졌는지(예·아니오만), 「교적과 맞는지」 표시, 담당자 메모(담당자만 보고, 성도님 화면에는 나가지 않아요).<br>
       보지 않는 것: 앱 계정 번호, 성도님이 앱에 적으신 한 줄 메모와 전화번호, 가을 말씀 동행의 자격 판정 기록.<br>
-      교인명부에서 가져오는 것: 이름으로 찾을 때와 빈칸을 채울 때, 이름·구분·소속·세부·직분 다섯 가지만 보여 드려요.
-      연락처·주소·생년월일·사진·가족·교인ID 는 보여 드리지 않아요.<br>
+      교인명부에서 가져오는 것: 이름으로 찾을 때 · 명단의 이름을 누를 때 · 빈칸을 채울 때, 이름·구분·소속·세부·직분 다섯 가지만 보여 드려요.
+      연락처·주소·생년월일·사진·가족·교인ID 는 보여 드리지 않아요 — 다만 총괄 관리자와 「교인명부」 역할도 있는 담당자가 명단의 이름을 누르면 교인 찾기와 같은 자세히 보기가 열려요(6번 · 본 교인의 이름과 교인ID 가 기록에 남아요).<br>
       내려받기: 화면에 보이는 명단과 통계를 엑셀(CSV)로 내려받을 수 있어요. 담당자 메모는 싣지 않아요.
       여러 번 참여하신 분은 같은 이름·같은 소속(또는 같은 앱 계정)을 한 분으로 센 근삿값이에요.<br>
       성도님께 보이는 것: 담당자가 넣거나 고친 이름·소속·직분은 그 회차 명단이 공개된 동안 성경암송 앱의 명단 화면에 보여요(로그인 없이 보이는 명단이에요).
@@ -10233,7 +11492,7 @@ new:
       이어진 분은 앱의 「이미 내신 것」에서 보시고, 등록 기간 중인 회차면 앱에서 고치거나 취소하실 수 있어요.<br>
       보는 사람: 총괄 관리자와, 총괄 관리자가 「성경필사(암송)」 역할을 드린 담당자가 봐요.<br>
       기록: 누가 언제 회차를 만들고 설정을 바꾸고, 명단에 더하고 · 고치고 · 뺐는지(그분의 이름과 바꾼 값), 명단을 올렸는지(건수만),
-      교인명부에서 찾은 이름과 결과 수, 빈칸을 채운 분의 이름을 남겨요.<br>
+      교인명부에서 찾거나 명단에서 누른 이름과 결과 수, 빈칸을 채운 분의 이름, 명단의 이름을 눌러 자세히 보기로 본 교인의 이름과 교인ID 를 남겨요.<br>
       보관과 삭제: 명단의 보관과 공개 기간은 성경암송 앱의 안내(<a href="https://gocheok.onlybible.kr/privacy/">gocheok.onlybible.kr/privacy/</a>)를 따라요.
       명단에서 빼 달라고 하시려면 4번의 요청처(총괄 관리자 · 이메일 · 교회 사무실)로 말씀해 주세요.</p>
   </div>
@@ -10273,8 +11532,8 @@ new:
 ## 성경필사(암송) (개발 중 — 운영 여는 날 이 줄에 날짜를 적는다)
 성경암송 앱의 이벤트 명단(`events`·`event_signups` — 사순절·썸머 써 바이블·소책자·가을 말씀 동행)을 역할 `bibleevent`(「성경필사(암송)」) 담당자가
 보고·고치고·올리고·통계 낸다. 메뉴 셋 `js/menus/bibleevent/`: 📋 회차·명단(`be-roster`) · 📤 명단 올리기(`be-upload`) · 👤 사람별 이력·통계(`be-history`).
-규칙은 순수 모듈 다섯 — `events-rules.ts`(회차·줄 검사 · 신원 키 · 자격 회차 `isEligEvent`/`eligibilityStart`) · `events-people.ts`(교인명부 → 줄) ·
-`events-stats.ts`(사람 묶음·통계) · `events-rows.ts`(한 분 더하기·고치기 · 같은 분 후보 키 `sameKeys`) · `events-upload.ts`(올리기 판정). Node 시험이 같은 파일을 읽는다.
+규칙은 순수 모듈 여섯 — `events-rules.ts`(회차·줄 검사 · 신원 키 · 자격 회차 `isEligEvent`/`eligibilityStart`) · `events-people.ts`(교인명부 → 줄) ·
+`events-stats.ts`(사람 묶음·통계) · `events-rows.ts`(한 분 더하기·고치기 · 같은 분 후보 키 `sameKeys`) · `events-upload.ts`(올리기 판정) · `events-person.ts`(이름을 누르면 교적 창). Node 시험이 같은 파일을 읽는다.
 설계 v2 `docs/superpowers/specs/2026-09-29-church-admin-bible-events-design.md` · 옛 동작 원문 `docs/port/event-roster-legacy.md`.
 - ⚠️ **명단을 고치는 곳은 여기 한 곳이다.** 운영을 여는 날부터 성경암송 `api` 의 `eventImport`·`eventSave`·`eventSetNote` 는 비밀번호 확인 **바로 뒤**에서
   `moved-to-church-admin` 을 돌려준다(`EVT_MOVED` · 비밀번호 없는 호출은 예전처럼 `unauthorized`). **되살리지 말 것** — `eventImport` 는 그 회차의 `source='import'` 줄을
@@ -10291,8 +11550,10 @@ new:
 - 빈칸 채우기(`fillDecision`)는 교인명부 전체에서 이름이 한 분일 때만, 빈 칸만 채운다. 줄에 적힌 소속이 명부 소속과 다르면 아무것도 채우지 않는다(`different-affiliation`).
 - 회차를 성도님께 보이게 하는 저장은 `needs-confirm`(아무것도 안 쓴 상태) → 화면 확인 창 → `confirmListed:true`. 공개 확인은 쓰기 **전**이다.
   회차 차례(`sort_order`)는 설정에 없다 — 새 회차는 0(바꾸려면 개발 먼저 SQL).
-- 교인명부에서 주는 값은 **이름·구분·소속·세부·직분 다섯**뿐. 기록: `event.*` 는 「바꾼 기록」 · `people.lookup`(`{q, count}`)·`people.fill`(`{rows, names}`)은 「교인명부 기록」 ·
+- 교인명부에서 주는 값은 **이름·구분·소속·세부·직분 다섯**뿐(예외 하나 — 아래 `evPerson` 의 `full`). 기록: `event.*` 는 「바꾼 기록」 · `people.lookup`(`{q, count}` · `evPeopleLookup`·`evPerson` 두 곳)·`people.fill`(`{rows, names}`)은 「교인명부 기록」 ·
   `event.upload` 는 건수만 **납작하게**. 칸 이름을 바꾸면 `js/menus/system/audit.js`·`tests/audit.test.mjs` 도 함께(안 고치면 기록 줄이 0·빈칸으로 보인다).
+- 이름을 누르면 교적 창(`evPerson` · `events-person.ts` · 화면 `person-popup.js`): **부른 분의 역할로 서버가 모양을 정한다**(`ctx.roles` — 화면이 보낸 것을 믿지 않는다) — `directory`·`super` 면 `full`(교인ID·이름·소속·직분 → 화면이 교인명부 `openPerson` → `peoplePerson` 「자세히」 창 · 기록은 그쪽 `people.view`, 한 분으로 못 골라 후보를 줄 때만 여기서 `people.lookup`), 성경필사만이면 `basic`(다섯 칸 + 교적 표시 · 늘 `people.lookup`). **교인ID 를 `basic` 에 싣지 말 것** — 위 「다섯뿐」의 유일한 예외가 `full` 이다.
+  고르는 규칙은 교적 표시와 같은 `sameAffiliation`(같은 소속 한 분 → 이름이 한 분뿐 → 못 고르면 후보 스무 분 · `total` 은 자르기 전 수). 창은 뒤로 가기 한 칸(`history.state` `{bePerson:1}`)을 쌓아 뒤로 가기가 창만 닫는다 — `modal.js` 와 같은 차례(「닫기」로 닫으면 그 칸을 거둔 뒤에 끝낸다).
 - 1,000행: 명단·이력·통계·계정 읽기는 `allRows`(`order(id)`), 인원은 `head:true`. 올리기 상한 600줄(회차 최대가 515줄).
 - 개발 서버 시험의 회차는 `ca-test-`(시험이 만들고 지운다).
 - 팝업 없음(친구 결정 2026-09-29): `alert`·`confirm`·`prompt`·`beforeunload`·`<select>`·`<input type=date|time>`·`datalist` 금지 →
@@ -10306,12 +11567,13 @@ new:
 cd /c/Projects/church-admin/.worktrees/bible-events
 grep -c "^## 성경필사(암송) (개발 중 — 운영 여는 날 이 줄에 날짜를 적는다)" CLAUDE.md
 grep -c "^- 개인정보 안내는 \`privacy.html\` 7번" CLAUDE.md
+grep -c "^- 이름을 누르면 교적 창(\`evPerson\`" CLAUDE.md
 python tools/preflight.py | tail -1
 git add CLAUDE.md
 git commit -m "docs(성경필사): CLAUDE.md 성경필사(암송) 절 — 역할·메뉴·쓰는 곳 하나·얼리는 액션·팝업 없음" -m "Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 git show --stat HEAD
 ```
-Expected: `1` · `1` · `모두 통과` · 커밋에 `CLAUDE.md` 하나. **푸시하지 않는다.**
+Expected: `1` · `1` · `1` · `모두 통과` · 커밋에 `CLAUDE.md` 하나. **푸시하지 않는다.**
 
 ---
 
@@ -10321,7 +11583,7 @@ Expected: `1` · `1` · `모두 통과` · 커밋에 `CLAUDE.md` 하나. **푸�
 
 > 푸시하지 않는다(푸시하면 운영 화면이 바뀐다). 개발 DB 에는 가짜 이름만 넣는다. 아래 시드는 회차 명단의 이름을 음절 표로 지어낸다. 찾기·채우기에 쓸 이름은 개발의 **가짜** 교인명부에서 그때그때 고르고, 파일에는 적지 않는다.
 > 화면 확인에 쓰는 회차 id 는 `ca-demo-` 로 시작한다. 개발 서버 시험의 `before()`·`after()` 는 `ca-test-` 만 지우므로 서로 건드리지 않는다.
-> 점검표에 옮겨 적은 화면 문구는 Task 10·11·12 초안에서 가져왔다. 글자가 조금 다르면 **그 과제 파일의 글자가 맞다.** 뜻이 다를 때만 걸린 것으로 적는다.
+> 점검표에 옮겨 적은 화면 문구는 Task 10·11·12·16 초안에서 가져왔다. 글자가 조금 다르면 **그 과제 파일의 글자가 맞다.** 뜻이 다를 때만 걸린 것으로 적는다.
 
 **Files:**
 - Create: `tests/seed-bible-events-dev.mjs`(개발 전용 · preflight 는 `*.test.mjs` 만 돌리므로 이 파일은 돌지 않는다)
@@ -10329,7 +11591,7 @@ Expected: `1` · `1` · `모두 통과` · 커밋에 `CLAUDE.md` 하나. **푸�
 - 걸린 것을 고칠 때만: 그 화면·서버 파일과 그 시험(Task 5~12 의 파일)
 
 **Interfaces:**
-- Consumes: Task 5~12 의 서버 액션 12개(개발 배포본) · 메뉴 `be-roster`·`be-upload`·`be-history` · `js/core/modal.js` `openForm`/`closeAllForms` · `js/core/picker.js` `pickOne`/`pickMany`/`pickDate` · Task 13 `audit.js` · `paper.ts` `appIdentityKey` · 개발 가짜 교인명부(`church_people` — `tools/people/fake_people.py`)
+- Consumes: Task 5~8·16 의 서버 액션 13개(개발 배포본) · 메뉴 `be-roster`·`be-upload`·`be-history` · `js/core/modal.js` `openForm`/`closeAllForms` · `js/core/picker.js` `pickOne`/`pickMany`/`pickDate` · Task 13 `audit.js` · Task 16 이름을 누르면 교적 창(`evPerson` · `person-popup.js`) · `paper.ts` `appIdentityKey` · 개발 가짜 교인명부(`church_people` — `tools/people/fake_people.py`)
 - Produces: 개발 DB 의 가짜 회차 셋 — `ca-demo-big`(1,100줄 · 마감 · 안 보임) · `ca-demo-small`(준비 중 · 앱 줄 둘 · 중복 둘 · 교적 맞음/확인 필요 한 줄씩) · `ca-demo-el`(자격 회차). 앱 사용자 셋(이름 `데모앱성도가`·`데모앱성도나`·`데모앱성도다`). 친구의 확인(Task 15 의 선행 조건)
 
 - [ ] **Step 1: 출발점 — 가지 끝이 개발에 올라가 있고 시험이 모두 통과하는가**
@@ -10640,7 +11902,13 @@ Expected: `[[], [], true]` — 36px 보다 작은 단추·칩이 없고, 13px �
   (C 줄이 「확인 필요」로 나오면 교적 표시 규칙(설계 §2 · 사역신청과 같은 모양)과 견줘 어느 쪽이 맞는지부터 본다.)
 - ☐ **새는 것 없음**: 작은 회차를 연 채 Ctrl+F 로 「성도 한 줄」·「010-0000」을 찾으면 **0건**이다. 자격 회차에서 「weeks」 → 0건. Network 탭에서 `evRoster` 응답을 열어 `user_id`·`ident_key`·`memo`·`phone`·`answers` 가 **없는지** 본다.
 - ☐ 폰(360·390)은 카드, PC(1280)는 표로 보인다. 폭을 바꾸면 새로고침 없이 바뀐다.
-- ☐ 🔎 DOM 두 줄 모두 기대대로다.
+- ☐ **📋 이름을 누르면 교적 창(Task 16)** — 이름 단추: 폰(390) 카드와 PC(1280) 표에서 이름에 마우스를 올리면 밑줄 · Tab 으로 오면 초점 테두리 · Enter·Space 로도 열린다. 폰에서 이름을 눌러도 옆 ⋯(줄 메뉴)가 눌리지 않고, 줄 높이·카드 모양은 전과 같다(누르는 자리만 44px).
+- ☐ 총괄(교인명부 역할)로: 교적 「맞음」 줄(Step 2 의 **C**)의 이름 → 곧바로 교인명부 「자세히」 창(사진·연락처·가족). 동명이인 줄(기쁨 1 · 「확인 필요」)의 이름 → 먼저 우리 고르개(제목 「<이름> — 어느 분인가요?」 · 줄마다 이름과 「소속 · 직분」) → 고르면 「자세히」 · 고르개 Esc → 아무것도 안 열린다. 「자세히」 창의 가족 이름 → 그분 창 · 「👪 가족 모두 목록으로」 → 알림 「가족 목록은 🔎 교인 찾기에서 …」 한 줄, **창과 메뉴는 그대로**.
+- ☐ (친구에게 두 번째 카카오 계정이 있을 때만 — Step 6 과 함께) 「성경필사(암송)」만 준 계정: 이름 → 작은 창(🪪 ○○님 교적) — 이름·직분·소속·「명단의 소속과 맞대 보면 교적 ✓」·「🔒 연락처·사진은 교인명부 담당자만 볼 수 있어요」 · 교적 표시가 명단 카드의 표시와 같다 · Network 의 `evPerson` 응답에 `person_id`·전화·주소가 없다 · 「닫기」·Esc 로 닫히고 초점이 그 이름으로 돌아온다. 동명이인 줄 → 「교인명부에 같은 이름이 N분 있어요 — 소속으로 누구인지 확인해 주세요」와 N분의 이름·소속·직분. (두 번째 계정이 없으면 이 모양은 Task 16 의 개발 서버 시험이 본다.)
+- ☐ 지어낸 이름 줄(교적 「없음」)의 이름 → 알림 「교인명부에서 찾지 못했어요」 한 줄(창이 뜨지 않는다). 이름을 빠르게 두 번 눌러도 창이 하나만 뜬다(Network 에 `evPerson` 한 번).
+- ☐ **뒤로 가기는 창만 닫는다**: 작은 창·고르개·「자세히」 창(가족 이름으로 넘어간 창도)을 연 채 뒤로 가기(Alt+← · 마우스 뒤로 단추 · 폰은 뒤로 몸짓) → **창만 닫히고 명단은 그대로**(같은 회차·같은 거르기·같은 스크롤). 창을 연 채 콘솔 `history.state` → `{bePerson: 1}`. 「닫기」로 닫은 뒤 뒤로 가기 **한 번** → 앞 화면으로 간다(헛 누름이 없다).
+- ☐ 창을 연 채 주소창을 `#/be-history` 로 바꾸고 Enter → 창이 사라지고 이력 화면이 나온다. DevTools Network 를 「Slow 3G」로 두고 이름을 누른 뒤 창이 뜨기 전에 왼쪽 메뉴 👤 를 누르면 → 이력 화면 위에 창이 **뜨지 않는다**(교적 「맞음」 줄로 한 번 더 — 「자세히」 창이 늦게 뜨는 자리). 끝나면 「No throttling」으로 되돌린다.
+- ☐ 🔎 DOM 두 줄 모두 기대대로다(이름 단추·교적 창이 열린 채로도).
 
 - [ ] **Step 8: C. 입력 창 · 고르개 · 뒤로 가기 · 공개 확인(`needs-confirm`)**
 
@@ -10729,7 +11997,8 @@ Expected: `[[], [], true]` — 36px 보다 작은 단추·칩이 없고, 13px �
 👤:
 - ☐ 이름 「사햇살」 → 묶음 가운데 「사햇살 · 사랑 <N>목장」(Step 2 출력의 N) 하나에 회차 셋(큰 회차·작은 회차·자격 회차)이 최근 먼저 보인다. 나머지 아홉 묶음은 큰 회차의 다른 소속이다. 근삿값 안내(「같은 이름·같은 소속(또는 같은 앱 계정)을 한 분으로 셌어요 — 근삿값이에요 …」)가 보인다.
 - ☐ 이름 「데모앱성도가」 → 한 묶음 · 회차 둘(작은·자격) · 계정 이어진 줄 표시.
-- ☐ 통계: 기본은 전부 · 빠른 고르기 「사순절」「썸머」「소책자」(개발에 그 id 가 없으면 0 또는 비활성) · ca-demo 셋만 고르기 → 회차별 인원이 칩 숫자와 같다 · 교구(부서)×회차 표의 합이 인원 합과 같다 · 「여러 번 참여한 분」(3회 이상)에 「사햇살 · 사랑 <N>목장 · 3회」가 **이름 · 소속** 꼴로 보인다.
+- ☐ **이름을 누르면 교적 창(Task 16)**: 👤 묶음 머리 「이름 · 소속」을 누르면 교적 창(총괄이면 「자세히」 창 또는 고르개) · 회차 이름 링크는 그대로 📋 그 회차로 간다 · 뒤로 가기는 창만 닫는다(이력 화면 그대로).
+- ☐ 통계: 기본은 전부 · 빠른 고르기 「사순절」「썸머」「소책자」(개발에 그 id 가 없으면 0 또는 비활성) · ca-demo 셋만 고르기 → 회차별 인원이 칩 숫자와 같다 · 교구(부서)×회차 표의 합이 인원 합과 같다 · 「여러 번 참여한 분」(3회 이상)에 사햇살 줄이 **이름(교적 창 단추) · 사랑 <N>목장 · 3회 · 줄 끝 「📜 이력」** 꼴로 보인다 — 이름 → 교적 창 · 「📜 이력」 → 👤 사람별 이력으로 넘어가 그 이름을 찾는다(Task 12 점검 ⑧ 은 이제 이 단추다 · Task 16).
 - ☐ 통계 내려받기 → 「여러 번 참여한 분」 표의 머리 칸이 「이름」·「소속」·「횟수」·「참여 회차」이고, 「소속」 칸에 이름이 겹쳐 들어가지 않는다.
 
 내려받기 = 화면(📋 `ca-demo-big`):
@@ -10743,10 +12012,11 @@ Expected: `[[], [], true]` — 36px 보다 작은 단추·칩이 없고, 13px �
 바꾼 기록(📜 — 총괄 관리자):
 - ☐ 「바꾼 기록」 탭에 `event.create`·`event.settings`·`event.add`·`event.edit`·`event.delete`·`event.upload` 가 **한국말 이름**(성경필사 …)과 한 줄 설명으로 보인다 · 영문 코드가 보이지 않는다.
 - ☐ `people.lookup`·`people.fill` 은 「교인명부 기록」 탭에만 있고 「바꾼 기록」 탭에는 없다.
+- ☐ **교적 창 기록(Task 16)** 「교인명부 기록」: 총괄로 이름을 눌러 곧바로 「자세히」가 열린 것은 「교인 보기」 한 줄뿐 · 고르개가 뜬 것(동명이인)은 「명부 찾기(성경필사) · ‘이름’ · N명」 한 줄 + 고른 뒤 「교인 보기」 한 줄(고르개를 닫았으면 「명부 찾기」 한 줄만) · 지어낸 이름은 「‘이름’ · 0명」 · (두 번째 계정이 있으면) 성경필사 역할로 누른 것은 늘 「명부 찾기(성경필사) · ‘이름’ · N명」 한 줄.
 
 - [ ] **Step 12: J. 개인정보 안내 · 모양**
 
-- ☐ http://localhost:8000/privacy.html → 6번에 성경필사(암송) 세 곳(쓰는 곳·보는 사람·기록) · 7번 「성경필사(암송) 명단」 · 폰 폭에서 옆으로 밀리지 않는다.
+- ☐ http://localhost:8000/privacy.html → 6번에 성경필사(암송) 네 곳(쓰는 곳·보는 사람·기록·「이름을 누르면」 한 줄 — 총괄 관리자와 「교인명부」 역할도 있는 담당자에게는 자세히 보기) · 7번 「성경필사(암송) 명단」(「교인명부에서 가져오는 것」에 명단의 이름을 누를 때와 자세히 보기 예외 · 「기록」에 자세히 보기로 본 교인) · 폰 폭에서 옆으로 밀리지 않는다.
 - ☐ 세 메뉴 모두 360px 에서 `scrollWidth <= innerWidth` · 주 단추 48px · 둘째 44px · 칩 36px(Step 5 의 둘째 줄).
 
 - [ ] **Step 13: 걸린 것 고치기(있을 때만) — 한 건씩**
@@ -10796,8 +12066,8 @@ CONTRACT 5 「Task 15 순서」에 따라 **운영에 쓰지 않는 준비를 �
 - Claude 메모리(저장소 밖 · `C:\Users\sewki\.claude\projects\c--Projects-bible-memorize-church-app-v2\memory\`): `summer-write-bible-add-member.md` · `event-rosters-align-to-directory.md` · `MEMORY.md` · Create `bible-events-admin-live.md`
 
 **Interfaces:**
-- Consumes: 가지 `bible-events` 끝(Task 1~14 · Task 14 친구 OK) · `supabase/sql/004_bibleevent_role.sql` · `supabase/sql/check-authenticated-exposure.sql` · Task 13 의 제목 글 `## 성경필사(암송) (개발 중 — 운영 여는 날 이 줄에 날짜를 적는다)`
-- Produces: 운영 `admin_roles` 에 `bibleevent` · 운영 성경암송 `api` 에서 `eventImport`·`eventSave`·`eventSetNote` 가 비밀번호가 맞으면 `{ok:false, error:"moved-to-church-admin"}`(비밀번호가 없거나 틀리면 예전처럼 `unauthorized`) · 운영 교회 어드민 함수(새 액션 12개) · admin.onlybible.kr 화면(세 메뉴) · 성경암송 `admin-event.html` 안내 띠 · 성경암송 `docs/notes/bible-events-admin.md` · 성경암송 CLAUDE.md 표 한 줄 · 담당자 역할 · 고친 Claude 메모리
+- Consumes: 가지 `bible-events` 끝(Task 1~14·16 · Task 14 친구 OK) · `supabase/sql/004_bibleevent_role.sql` · `supabase/sql/check-authenticated-exposure.sql` · Task 13 의 제목 글 `## 성경필사(암송) (개발 중 — 운영 여는 날 이 줄에 날짜를 적는다)`
+- Produces: 운영 `admin_roles` 에 `bibleevent` · 운영 성경암송 `api` 에서 `eventImport`·`eventSave`·`eventSetNote` 가 비밀번호가 맞으면 `{ok:false, error:"moved-to-church-admin"}`(비밀번호가 없거나 틀리면 예전처럼 `unauthorized`) · 운영 교회 어드민 함수(새 액션 13개) · admin.onlybible.kr 화면(세 메뉴) · 성경암송 `admin-event.html` 안내 띠 · 성경암송 `docs/notes/bible-events-admin.md` · 성경암송 CLAUDE.md 표 한 줄 · 담당자 역할 · 고친 Claude 메모리
 
 - [ ] **Step 0: 여는 날 확인 — 일곱 가지가 모두 「예」일 때만**
 
@@ -11357,9 +12627,10 @@ for f in $(git ls-files supabase/functions/church-admin | sed 's#supabase/functi
   if diff -q <(tr -d '\r' < "$D/$f" 2>/dev/null) <(git show HEAD:supabase/functions/church-admin/$f | tr -d '\r') >/dev/null; then echo "같음 $f"; else echo "다름 $f"; fi
 done
 grep -c 'case "evUploadSave"' "$D/index.ts"
+grep -c 'case "evPerson"' "$D/index.ts"
 curl -s -w "  HTTP %{http_code}\n" -X POST https://xnomlgydifiqiybervtf.supabase.co/functions/v1/church-admin -H "Content-Type: application/json" -d '{"action":"evEvents"}'
 ```
-Expected: 빈 status · `Deployed Functions on project xnomlgydifiqiybervtf: church-admin` · 내려받은 폴더에 `index.ts`·`authz.ts`·`catalog.ts`·`ministry.ts`·`paper.ts`·`people-match.ts`·`people-query.ts`·`events-rules.ts`·`events-people.ts`·`events-stats.ts`·`events-rows.ts`·`events-upload.ts` · 모든 줄 `같음` · `1` · `{"error":"unauthenticated"}  HTTP 401`(함수가 살아 있고 토큰 없는 요청을 막는다).
+Expected: 빈 status · `Deployed Functions on project xnomlgydifiqiybervtf: church-admin` · 내려받은 폴더에 `index.ts`·`authz.ts`·`catalog.ts`·`ministry.ts`·`paper.ts`·`people-match.ts`·`people-query.ts`·`events-rules.ts`·`events-people.ts`·`events-stats.ts`·`events-rows.ts`·`events-upload.ts`·`events-person.ts` · 모든 줄 `같음` · `1` · `1` · `{"error":"unauthenticated"}  HTTP 401`(함수가 살아 있고 토큰 없는 요청을 막는다).
 `다름` 이나 빠진 파일이 있으면 **푸시하지 않고** 다시 배포한다. 모듈 하나가 빠지면 함수가 뜰 때 모든 요청이 500 이 된다.
 
 - [ ] **Step 10: 교회 어드민 — main 합치기 · 푸시(= 운영 화면) · 이번 판에만 있는 표식**
