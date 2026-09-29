@@ -190,6 +190,8 @@ create table if not exists church_people (
   spouse_position text not null default '',
   household_head  text not null default '',
   household_rel   text not null default '',
+  household_id    int,                               -- 신앙세대주의 교인ID(원본 PersonMiniViewJs 번호 · 가족 묶기).
+                                                     -- 세대주가 이 명단에 없을 수 있어 FK 를 걸지 않는다(2026-09-29: 331명)
   kind1           text not null default '',
   kind2           text not null default '',
   kind3           text not null default '',
@@ -220,6 +222,7 @@ create table if not exists church_people (
 );
 create index if not exists church_people_name_key_idx on church_people (name_key);
 create index if not exists church_people_mok1_idx on church_people (mok1);
+create index if not exists church_people_household_idx on church_people (household_id);
 
 create table if not exists church_people_imports (
   id          bigserial primary key,
@@ -504,11 +507,11 @@ git commit -m "feat(교인명부): 교적 맞대기 순수 모듈 — 목장 번
 - Consumes: `MATCH_GU` (Task 3)
 - Produces (Task 5 가 쓴다):
   - `PAGE_SIZE = 50` · `PHOTO_TTL = 600`
-  - `type Search = { name, tail, mok1, kind2, kind3, position: string; noPhoto: boolean; page: number }`
-  - `parseSearch(b): { ok: true; s: Search } | { ok: false; error: "invalid" }`
+  - `type Search = { name, tail, mok1, kind2, kind3, position: string; noPhoto: boolean; household: number | null; page: number }`
+  - `parseSearch(b): { ok: true; s: Search } | { ok: false; error: "invalid" }` — `b.household` 는 세대주 교인ID(가족 보기)
   - `searchDetail(s: Search): Record<string, string|boolean>`
   - `AGE_BANDS: string[]` · `ageBand(age): string`
-  - `statsOf(rows)` → `{ total, noPhoto, gu: {gu,n,moks}[], kind2, kind3, position, school: [string,number][], age: {band,m,f,x}[], options: {mok1,kind2,kind3,position: string[]} }`
+  - `statsOf(rows)` → `{ total, noPhoto, households, gu: {gu,n,moks}[], kind2, kind3, position, school: [string,number][], age: {band,m,f,x}[], options: {mok1,kind2,kind3,position: string[]} }`
 
 - [ ] **Step 1: 실패하는 시험** — `tests/people-query.test.mjs`
 
@@ -532,12 +535,19 @@ test("parseSearch — 숫자 4자리 이상은 전화 뒷자리, 그 밖은 이�
   assert.equal(parseSearch({ noPhoto: "true" }).s.noPhoto, false);  // 참은 true 만
   assert.equal(parseSearch({ noPhoto: true }).s.noPhoto, true);
   assert.equal(parseSearch({ mok1: " 기쁨 " }).s.mok1, "기쁨");
+  assert.equal(parseSearch({}).s.household, null);                  // 가족 보기(세대주 교인ID)
+  assert.equal(parseSearch({ household: 45458 }).s.household, 45458);
+  assert.equal(parseSearch({ household: "45458" }).s.household, 45458);
+  assert.equal(parseSearch({ household: "" }).s.household, null);
+  assert.equal(parseSearch({ household: "x" }).ok, false);
+  assert.equal(parseSearch({ household: -1 }).ok, false);
   assert.equal(PAGE_SIZE, 50);
   assert.equal(PHOTO_TTL, 600);   // 사진 주소 10분 — 설계 값
 });
 
 test("searchDetail — 빈 거르기는 기록에 남기지 않는다", () => {
   assert.deepEqual(searchDetail(parseSearch({ mok1: "기쁨", noPhoto: true }).s), { mok1: "기쁨", noPhoto: true });
+  assert.deepEqual(searchDetail(parseSearch({ household: 45458 }).s), { household: "45458" });
   assert.deepEqual(searchDetail(parseSearch({}).s), {});
 });
 
@@ -552,16 +562,17 @@ test("ageBand", () => {
   assert.equal(ageBand("9.9"), "10살 아래");
 });
 
-test("statsOf — 교구 차례 · 목장 수 · 사진 없음 · 연령대×성별 · 거르기 목록", () => {
-  const R = (o) => ({ mok1: "", mok3: "", kind2: "", kind3: "", position: "", school_dept: "", gender: "", age: null, has_photo: true, ...o });
+test("statsOf — 교구 차례 · 목장 수 · 사진 없음 · 가구 수 · 연령대×성별 · 거르기 목록", () => {
+  const R = (o) => ({ mok1: "", mok3: "", kind2: "", kind3: "", position: "", school_dept: "", gender: "", age: null, has_photo: true, household_id: null, ...o });
   const s = statsOf([
-    R({ mok1: "기쁨", mok3: "기쁨-01목장", kind2: "장년", position: "집사", gender: "남", age: 51 }),
-    R({ mok1: "기쁨", mok3: "기쁨-02목장", kind2: "장년", position: "집사", gender: "여", age: 55, has_photo: false }),
-    R({ mok1: "믿음", mok3: "믿음-01목장", kind2: "장년", position: "권사", gender: "여", age: 70 }),
+    R({ mok1: "기쁨", mok3: "기쁨-01목장", kind2: "장년", position: "집사", gender: "남", age: 51, household_id: 1 }),
+    R({ mok1: "기쁨", mok3: "기쁨-02목장", kind2: "장년", position: "집사", gender: "여", age: 55, has_photo: false, household_id: 1 }),
+    R({ mok1: "믿음", mok3: "믿음-01목장", kind2: "장년", position: "권사", gender: "여", age: 70, household_id: 3 }),
     R({ kind2: "교회학교", school_dept: "고등부", gender: "남", age: 17 }),
   ]);
   assert.equal(s.total, 4);
   assert.equal(s.noPhoto, 1);
+  assert.equal(s.households, 2);                                 // 세대주 교인ID 가 없는 분은 세지 않는다
   assert.deepEqual(s.gu.map((g) => g.gu), ["믿음", "기쁨", "(목장 없음)"]);   // 앱 교구 차례, 목록 밖은 뒤
   assert.deepEqual(s.gu.find((g) => g.gu === "기쁨"), { gu: "기쁨", n: 2, moks: 2 });
   assert.deepEqual(s.position[0], ["집사", 2]);
@@ -584,7 +595,9 @@ export const PAGE_SIZE = 50;    // 목록 한 쪽
 export const PHOTO_TTL = 600;   // 사진 주소 만료(초) — 새어 나가도 10분 뒤 닫힌다
 
 export type Search = {
-  name: string; tail: string; mok1: string; kind2: string; kind3: string; position: string; noPhoto: boolean; page: number;
+  name: string; tail: string; mok1: string; kind2: string; kind3: string; position: string; noPhoto: boolean;
+  household: number | null;   // 가족 보기 — 신앙세대주의 교인ID
+  page: number;
 };
 
 const clean = (s: unknown, max = 20): string => String(s ?? "").normalize("NFC").trim().slice(0, max);
@@ -598,8 +611,11 @@ export function parseSearch(b: any): { ok: true; s: Search } | { ok: false; erro
   const name = tail ? "" : raw.replace(/[^가-힣A-Za-z0-9-]/g, "");   // - 는 남긴다(시험 이름 ca-test-… · ilike 에 무해)
   const page = b?.page === undefined || b?.page === null ? 0 : Number(b.page);
   if (!Number.isSafeInteger(page) || page < 0 || page > 1000) return { ok: false, error: "invalid" };
+  const hv = b?.household;
+  const household = hv === undefined || hv === null || hv === "" ? null : Number(hv);
+  if (household !== null && (!Number.isSafeInteger(household) || household <= 0)) return { ok: false, error: "invalid" };
   return { ok: true, s: { name, tail, mok1: clean(b?.mok1), kind2: clean(b?.kind2), kind3: clean(b?.kind3),
-    position: clean(b?.position), noPhoto: b?.noPhoto === true, page } };
+    position: clean(b?.position), noPhoto: b?.noPhoto === true, household, page } };
 }
 
 // 열람 기록에 남길 거르기 — 빈 것은 뺀다
@@ -607,6 +623,7 @@ export function searchDetail(s: Search): Record<string, string | boolean> {
   const out: Record<string, string | boolean> = {};
   for (const k of ["mok1", "kind2", "kind3", "position"] as const) if (s[k]) out[k] = s[k];
   if (s.noPhoto) out.noPhoto = true;
+  if (s.household) out.household = String(s.household);
   return out;
 }
 
@@ -653,6 +670,7 @@ export function statsOf(rows: any[]) {
   return {
     total: rows.length,
     noPhoto: rows.filter((r) => !r.has_photo).length,
+    households: new Set(rows.map((r) => r.household_id).filter(Boolean)).size,   // 신앙세대주 교인ID 기준
     gu, kind2, kind3, position,
     school: countBy(rows.filter((r) => r.school_dept), (r) => r.school_dept),
     age,
@@ -681,8 +699,8 @@ git commit -m "feat(교인명부): 찾기 조건·현황 세기 순수 모듈"
 **Interfaces:**
 - Consumes: Task 3 `nameKey`… (Task 6 에서), Task 4 `parseSearch`·`searchDetail`·`statsOf`·`PAGE_SIZE`·`PHOTO_TTL`
 - Produces (화면 Task 9·10 이 쓴다):
-  - `peopleSearch {q?, mok1?, kind2?, kind3?, position?, noPhoto?, page?}` → `{ ok, source: {source_date,total}|null, total, page, pageSize, rows: [{person_id,name,position,gender,age,mok1,mok3,school_dept,kind2,phone1,has_photo,photo}] }`
-  - `peoplePerson {id}` → `{ ok, person: {…PEOPLE_ALL_COLS, photo} }` 또는 `{ok:false,error:"not-found"}`
+  - `peopleSearch {q?, mok1?, kind2?, kind3?, position?, noPhoto?, household?, page?}` → `{ ok, source: {source_date,total}|null, total, page, pageSize, rows: [{person_id,name,position,gender,age,mok1,mok3,school_dept,kind2,phone1,has_photo,household_id,household_rel,photo}] }` — `household` 는 세대주 교인ID(가족 보기)
+  - `peoplePerson {id}` → `{ ok, person: {…PEOPLE_ALL_COLS, photo}, family: [{person_id,name,household_rel,gender,age,position}] }`(같은 `household_id` 의 다른 분 · 최대 50) 또는 `{ok:false,error:"not-found"}`
   - `peopleStats {}` → `{ ok, source|null, stats: statsOf(...)|null }`
   - `peopleExport {같은 거르기}` → `{ ok, source|null, rows: [...PEOPLE_ALL_COLS] }`
   - `auditList {limit, before?, kind?: "people"}` — kind 가 `"people"` 이면 `people.*` 만, 아니면 `people.*` 를 뺀다.
@@ -743,10 +761,12 @@ import { parseSearch, searchDetail, statsOf, PAGE_SIZE, PHOTO_TTL, type Search }
 // ⚠️ 찾기·보기·내려받기는 admin_audit 에 남긴다(people.*). 현황은 숫자만이라 남기지 않는다.
 // ⚠️ 사진은 비공개 칸 — 10분짜리 서명 주소만 준다. 목록은 그 쪽 사람 것만 만든다.
 const PEOPLE_BUCKET = "church-people-photos";
-const PEOPLE_LIST_COLS = "person_id,name,position,gender,age,mok1,mok3,school_dept,kind2,phone1,has_photo";
+const PEOPLE_LIST_COLS = "person_id,name,position,gender,age,mok1,mok3,school_dept,kind2,phone1,has_photo,household_id,household_rel";
 const PEOPLE_ALL_COLS = "person_id,name,position,position_detail,gender,birth,lunar,age,spouse,spouse_position," +
-  "household_head,household_rel,kind1,kind2,kind3,registered,reg_type,phone1,phone2,guide,email," +
+  "household_head,household_rel,household_id,kind1,kind2,kind3,registered,reg_type,phone1,phone2,guide,email," +
   "mok_path,mok1,mok2,mok3,mok_leader,school_path,school_dept,teacher,youth_path,mission,address,address_jibun,has_photo";
+// 가족(같은 신앙세대주) — 자세히 보기 아래에 이름·관계만. 연락처는 그분을 눌러 열어야 보인다(열람 기록이 남게).
+const FAMILY_COLS = "person_id,name,household_rel,gender,age,position";
 
 // 명부 기준일 — 마지막으로 올린 기록. 한 번도 안 올렸으면 null(화면은 「아직 명부가 없어요」)
 async function peopleSource(): Promise<{ source_date: string; total: number } | null> {
@@ -764,6 +784,7 @@ function peopleFilter(q: any, s: Search) {
   if (s.kind3) q = q.eq("kind3", s.kind3);
   if (s.position) q = q.eq("position", s.position);
   if (s.noPhoto) q = q.eq("has_photo", false);
+  if (s.household) q = q.eq("household_id", s.household);
   return q;
 }
 
@@ -805,15 +826,22 @@ async function peoplePerson(ctx: Ctx, b: any) {
   if (error) throw error;
   if (!data) return { ok: false, error: "not-found" };
   const urls = data.has_photo ? await photoUrls([id]) : new Map<number, string>();
+  let family: any[] = [];
+  if (data.household_id) {
+    const { data: fam, error: e2 } = await db.from("church_people").select(FAMILY_COLS)
+      .eq("household_id", data.household_id).neq("person_id", id).order("person_id", { ascending: true }).limit(50);
+    if (e2) throw e2;
+    family = fam ?? [];
+  }
   await audit(ctx, "people.view", String(id), { name: data.name });
-  return { ok: true, person: { ...data, photo: urls.get(id) ?? "" } };
+  return { ok: true, person: { ...data, photo: urls.get(id) ?? "" }, family };
 }
 
 async function peopleStats() {
   const source = await peopleSource();
   if (!source) return { ok: true, source: null, stats: null };
   const rows = await allRows(() => db.from("church_people")
-    .select("mok1,mok3,kind2,kind3,position,school_dept,gender,age,has_photo").order("person_id", { ascending: true }));
+    .select("mok1,mok3,kind2,kind3,position,school_dept,gender,age,has_photo,household_id").order("person_id", { ascending: true }));
   return { ok: true, source, stats: statsOf(rows) };
 }
 
@@ -866,9 +894,11 @@ let peopleImportId = null;
   await rest("church_people", "POST", [
     { person_id: 990000001, name: "ca-test-min", name_key: "ca-test-min", mok1: "시험", mok2: "시험", mok3: "시험-0목장",
       mok_path: "시험 > 시험 > 시험-0목장", kind1: "교인", kind2: "장년", kind3: "출석교인", position: "집사",
-      phone1: "010-0000-0000", phone_digits: "01000000000", address: "시험시 비밀주소 " + STAMP, has_photo: true, photo_hash: "t" },
+      phone1: "010-0000-0000", phone_digits: "01000000000", address: "시험시 비밀주소 " + STAMP, has_photo: true, photo_hash: "t",
+      household_id: 990000001, household_head: "ca-test-min", household_rel: "본인" },
     { person_id: 990000002, name: PAPER_NAME, name_key: PAPER_NAME, mok1: "시험", mok2: "시험", mok3: "시험-5목장",
-      phone1: "010-1234-5678", phone_digits: "01012345678", has_photo: false },
+      phone1: "010-1234-5678", phone_digits: "01012345678", has_photo: false,
+      household_id: 990000001, household_head: "ca-test-min", household_rel: "아들1" },   // 두 분은 한 가족
   ]);
   const [imp] = await rest("church_people_imports", "POST",
     { source_date: "2000-01-01", total: 2, added: 2, changed: 0, removed: 0, photos: 1 });
@@ -912,7 +942,8 @@ test("교인명부: 찾기(이름·전화 뒷자리·사진 없음) · 한 분 �
   const row = s.body.rows.find((x) => x.person_id === 990000001);
   assert.ok(row, JSON.stringify(s.body));
   assert.deepEqual(Object.keys(row).sort(),
-    ["age", "gender", "has_photo", "kind2", "mok1", "mok3", "name", "person_id", "phone1", "photo", "position", "school_dept"]);
+    ["age", "gender", "has_photo", "household_id", "household_rel", "kind2", "mok1", "mok3", "name", "person_id", "phone1",
+     "photo", "position", "school_dept"]);
   assert.match(row.photo, /\/storage\/v1\/object\/sign\/church-people-photos\/990000001\.jpg\?token=/);
   assert.equal((await fetch(row.photo)).status, 200, "서명 주소로 사진이 열려야 한다");
   const t = await call(d, "peopleSearch", { q: "0000", mok1: "시험" });
@@ -920,10 +951,17 @@ test("교인명부: 찾기(이름·전화 뒷자리·사진 없음) · 한 분 �
   const np = await call(d, "peopleSearch", { q: PAPER_NAME, noPhoto: true });
   assert.deepEqual(np.body.rows.map((x) => x.person_id), [990000002]);
   assert.equal((await call(d, "peopleSearch", { page: -1 })).body.error, "invalid");
+  // 가족 보기 — 세대주 교인ID 로 한 가족만
+  const fam = await call(d, "peopleSearch", { household: 990000001 });
+  assert.deepEqual(fam.body.rows.map((x) => x.person_id).sort(), [990000001, 990000002]);
+  assert.equal((await call(d, "peopleSearch", { household: "x" })).body.error, "invalid");
 
   const one = await call(d, "peoplePerson", { id: 990000001 });
   assert.equal(one.body.ok, true, JSON.stringify(one.body));
   assert.equal(one.body.person.address, "시험시 비밀주소 " + STAMP);
+  assert.equal(one.body.person.household_id, 990000001);
+  assert.deepEqual(one.body.family.map((f) => f.person_id), [990000002]);          // 자기는 빼고
+  assert.deepEqual(Object.keys(one.body.family[0]).sort(), ["age", "gender", "household_rel", "name", "person_id", "position"]);
   for (const k of ["name_key", "phone_digits", "photo_hash", "birth_date", "registered_date", "updated_at"]) {
     assert.equal(k in one.body.person, false, "내부 칸이 나갔다: " + k);
   }
@@ -932,6 +970,7 @@ test("교인명부: 찾기(이름·전화 뒷자리·사진 없음) · 한 분 �
   const st = await call(d, "peopleStats");
   assert.equal(st.body.ok, true, JSON.stringify(st.body));
   assert.ok(st.body.stats.total >= 2);
+  assert.ok(st.body.stats.households >= 1);
   assert.ok(st.body.stats.options.mok1.includes("시험"));
 
   const ex = await call(d, "peopleExport", { q: "ca-test-min" });
@@ -1080,7 +1119,7 @@ Expected: 모든 시험 통과.
 
 **Interfaces:**
 - Produces(작업 폴더 `C:\Projects\교인명부_작업\<기준일>\` — 저장소 밖):
-  - `people.json` = `{ "meta": {"source_date","fake": false,"source_file","count"}, "people": [ {person_id, name, position, position_detail, gender, birth, birth_date, lunar, age, spouse, spouse_position, household_head, household_rel, kind1, kind2, kind3, registered, registered_date, reg_type, phone1, phone2, guide, email, mok_path, mok1, mok2, mok3, mok_leader, school_path, school_dept, teacher, youth_path, mission, address, address_jibun, name_key, phone_digits} ] }`
+  - `people.json` = `{ "meta": {"source_date","fake": false,"source_file","count"}, "people": [ {person_id, name, position, position_detail, gender, birth, birth_date, lunar, age, spouse, spouse_position, household_head, household_rel, household_id, kind1, kind2, kind3, registered, registered_date, reg_type, phone1, phone2, guide, email, mok_path, mok1, mok2, mok3, mok_leader, school_path, school_dept, teacher, youth_path, mission, address, address_jibun, name_key, phone_digits} ] }`
   - `photo_urls.json` = `{ "<교인ID>": "<dimode 사진 주소>" }`
   - `photos/<교인ID>.jpg` · `photos.json` = `{ "<교인ID>": {"hash": md5, "mime": "image/jpeg"} | null }` (null = 기본 그림)
 
@@ -1191,6 +1230,10 @@ def parse_one(p, doc):
     r["신앙세대주"] = one(li[0].text_content()) if li else ""
     fl = td.xpath('./div[@style="float:left"]')
     r["세대주관계"] = re.sub(r"^의\s*", "", one(fl[1].text_content()) if len(fl) > 1 else "")
+    # 세대주의 교인ID — 이름 위에 마우스를 올리면 뜨는 창의 번호(PersonMiniViewJs('36580',…)).
+    # 2026-09-29 대조: 관계가 「본인」인 4,334명 중 4,274명이 자기 교인ID 와 같다 → 같은 번호 체계. 가족 묶기에 쓴다.
+    m = re.search(r"PersonMiniViewJs\('(\d+)'", lxml.html.tostring(td, encoding="unicode"))
+    r["세대주ID"] = int(m.group(1)) if m else ""
 
     ks = [one(x.text_content()) for x in d["교인구분"].xpath("./span")] + ["", "", ""]
     r["교인구분1"], r["교인구분2"], r["교인구분3"] = ks[:3]
@@ -1280,7 +1323,7 @@ def to_db(r):
         "gender": r["성별"], "birth": r["생년월일"], "birth_date": iso_date(r["생년월일"]), "lunar": r["양음력"],
         "age": None if r["나이"] == "" else r["나이"],
         "spouse": r["배우자"], "spouse_position": r["배우자직분"],
-        "household_head": r["신앙세대주"], "household_rel": r["세대주관계"],
+        "household_head": r["신앙세대주"], "household_rel": r["세대주관계"], "household_id": r["세대주ID"] or None,
         "kind1": r["교인구분1"], "kind2": r["교인구분2"], "kind3": r["교인구분3"],
         "registered": r["등록일"], "registered_date": iso_date(r["등록일"]), "reg_type": r["등록구분"],
         "phone1": r["연락처1"], "phone2": r["연락처2"], "guide": r["인도자"], "email": r["이메일"],
@@ -1340,6 +1383,8 @@ if __name__ == "__main__":
 Run: `python tools/people/parse_people.py "C:/Projects/교인목록_2026_09_29.xls" --date 2026-09-29`
 Expected: `교인 8672명 · 대조한 낱말 210899 · 못 찾은 낱말 0` · `썼다: C:\Projects\교인명부_작업\2026-09-29`
 (2026-09-29 에 같은 규칙으로 쟀던 수다. 조금 다르면 괜찮지만 **못 찾은 낱말은 0 이어야** 한다.)
+  - 가족 번호 확인(수만): `python -c "import json;p=json.load(open(r'C:/Projects/교인명부_작업/2026-09-29/people.json',encoding='utf-8'))['people'];print(sum(1 for x in p if x['household_id']), len({x['household_id'] for x in p if x['household_id']}))"`
+    → `8672 5388`(모두 세대주 번호가 있고 5,388가구)
 ⚠️ 결과의 **이름·번호를 화면에 찍지 않는다** — 수만 본다.
 
 - [ ] **Step 3: `tools/people/fetch_photos.py`**
@@ -1513,19 +1558,31 @@ def blank(pid):
             "guide", "email", "mok_path", "mok1", "mok2", "mok3", "mok_leader", "school_path", "school_dept", "teacher",
             "youth_path", "mission", "address", "address_jibun", "name_key", "phone_digits"]
     r = {k: "" for k in keys}
-    r.update({"person_id": pid, "birth_date": None, "registered_date": None, "age": None})
+    r.update({"person_id": pid, "birth_date": None, "registered_date": None, "age": None, "household_id": None})
     return r
 
 
-def person(i):
+def name_of(i):
     # ⚠️ 사람마다 따로 뽑는다 — 한 줄기로 이어 뽑으면 2판에서 몇 명만 빠져도 뒤의 모두가 「바뀜」이 된다
+    if i in (5, 12):
+        return "김하늘"          # 5·12 는 같은 이름(확인 필요 시험)
+    rnd = random.Random(f"name-{i}")
+    return rnd.choice(SURNAMES) + rnd.choice(GIVEN)
+
+
+def person(i):
     rnd = random.Random(f"fake-{i}")
     r = blank(900000 + i)
-    r["name"] = "김하늘" if i in (5, 12) else rnd.choice(SURNAMES) + rnd.choice(GIVEN)   # 5·12 는 같은 이름(확인 필요 시험)
+    r["name"] = name_of(i)
     r["gender"] = "남" if i % 2 else "여"
     r["kind1"] = "교인"
+    # 가족 — 1~60 은 셋씩 한 가족(첫 분이 세대주), 나머지는 혼자 세대주
+    head = i - (i - 1) % 3 if i <= 60 else i
+    r["household_id"] = 900000 + head
+    r["household_head"] = name_of(head)
+    r["household_rel"] = ["본인", "처", "아들1"][(i - 1) % 3] if i <= 60 else "본인"
     if i <= 70:
-        gu, n = GU[i % 7], 1 + i % 12
+        gu, n = GU[head % 7], 1 + head % 12      # 가족은 같은 목장
         r.update(mok1=gu, mok2=gu, mok3=f"{gu}-{n:02d}목장", mok_path=f"{gu} > {gu} > {gu}-{n:02d}목장",
                  kind2="장년", kind3=KIND3[i % 3])
         r["position"], r["position_detail"] = POS[i % len(POS)]
@@ -1621,7 +1678,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 BUCKET = "church-people-photos"
 REF = {"dev": "ktpwthwqzgcqcrmsafdo", "prod": "xnomlgydifiqiybervtf"}
 DATA_COLS = ["name", "position", "position_detail", "gender", "birth", "birth_date", "lunar", "age", "spouse",
-             "spouse_position", "household_head", "household_rel", "kind1", "kind2", "kind3", "registered",
+             "spouse_position", "household_head", "household_rel", "household_id", "kind1", "kind2", "kind3", "registered",
              "registered_date", "reg_type", "phone1", "phone2", "guide", "email", "mok_path", "mok1", "mok2", "mok3",
              "mok_leader", "school_path", "school_dept", "teacher", "youth_path", "mission", "address", "address_jibun",
              "name_key", "phone_digits", "has_photo", "photo_hash"]
@@ -1834,13 +1891,14 @@ git commit -m "feat(교인명부): 가짜 명부(개발 전용) · ③살펴보�
 **Interfaces:**
 - Consumes: Task 5 액션 넷의 응답 모양
 - Produces(Task 10 이 쓴다): `churchBadgeHtml(c)` · `CHURCH_LEGEND` · `hasChurch(rows)` (church-badge.js)
+- 가족(2026-09-29 친구 요청 「가족단위로 묶어 보게」): 자세히 보기 아래 **가족 목록**(누르면 그분 자세히) · **「👪 가족 모두 목록으로」**(세대주 교인ID 로 찾기) · 현황의 **가구 수** · 내려받기의 **세대주 교인ID** 칸.
 
 - [ ] **Step 1: 실패하는 시험** — `tests/people-logic.test.mjs`
 
 ```js
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { sourceLine, affText, initialOf, csvText, EXPORT_COLS, detailRows, searchPayload, pageInfo, exportName }
+import { sourceLine, affText, initialOf, csvText, EXPORT_COLS, detailRows, searchPayload, pageInfo, exportName, familyOrder }
   from "../js/menus/people/people-logic.js";
 import { churchBadgeHtml, hasChurch } from "../js/menus/people/church-badge.js";
 
@@ -1867,7 +1925,17 @@ test("initialOf · pageInfo · exportName · searchPayload", () => {
   assert.deepEqual(pageInfo(0, 0, 50), { from: 0, to: 0, hasPrev: false, hasNext: false });
   assert.equal(exportName({ source_date: "2026-09-29" }, 12), "교인명부_2026-09-29_12명.csv");
   assert.deepEqual(searchPayload({ q: "김", mok1: "", kind2: "", kind3: "", position: "", noPhoto: 1, page: 2 }),
-    { q: "김", mok1: "", kind2: "", kind3: "", position: "", noPhoto: true, page: 2 });
+    { q: "김", mok1: "", kind2: "", kind3: "", position: "", noPhoto: true, household: null, page: 2 });
+  assert.equal(searchPayload({ household: 45458 }).household, 45458);
+});
+
+test("familyOrder — 세대주가 맨 앞, 그다음 나이 많은 차례, 같으면 가나다", () => {
+  const out = familyOrder([
+    { person_id: 3, name: "다", age: 10 }, { person_id: 2, name: "나", age: 40 },
+    { person_id: 1, name: "가", age: 38 }, { person_id: 4, name: "라", age: null },
+  ], 1);
+  assert.deepEqual(out.map((x) => x.person_id), [1, 2, 3, 4]);
+  assert.deepEqual(familyOrder([], 1), []);
 });
 
 test("csvText — BOM · 머리글 · 따옴표 · 사진 있음/없음", () => {
@@ -1927,8 +1995,15 @@ export const initialOf = (name) => String(name || "").trim().charAt(0) || "?";
 
 export const searchPayload = (s) => ({
   q: s.q || "", mok1: s.mok1 || "", kind2: s.kind2 || "", kind3: s.kind3 || "", position: s.position || "",
-  noPhoto: !!s.noPhoto, page: s.page || 0,
+  noPhoto: !!s.noPhoto, household: s.household || null, page: s.page || 0,
 });
+
+// 가족 차례 — 세대주(교인ID = 세대주 교인ID)가 맨 앞, 그다음 나이 많은 차례, 같으면 가나다
+export function familyOrder(list, headId) {
+  const age = (x) => (x.age === null || x.age === undefined || x.age === "" ? -1 : Number(x.age));
+  return [...list].sort((a, b) => (b.person_id === headId) - (a.person_id === headId)
+    || age(b) - age(a) || String(a.name).localeCompare(String(b.name), "ko"));
+}
 
 export function pageInfo(total, page, size) {
   return { from: total ? page * size + 1 : 0, to: Math.min(total, (page + 1) * size),
@@ -1941,7 +2016,8 @@ export const exportName = (source, n) => `교인명부_${source?.source_date || 
 export const EXPORT_COLS = [
   ["person_id", "교인ID"], ["name", "이름"], ["position", "직분"], ["position_detail", "직분상세"], ["gender", "성별"],
   ["birth", "생년월일"], ["lunar", "양음력"], ["age", "나이"], ["spouse", "배우자"], ["spouse_position", "배우자직분"],
-  ["household_head", "신앙세대주"], ["household_rel", "세대주관계"], ["kind1", "교인구분1"], ["kind2", "교인구분2"],
+  ["household_head", "신앙세대주"], ["household_rel", "세대주관계"], ["household_id", "세대주 교인ID"],
+  ["kind1", "교인구분1"], ["kind2", "교인구분2"],
   ["kind3", "교인구분3"], ["registered", "등록일"], ["reg_type", "등록구분"], ["phone1", "연락처1"], ["phone2", "연락처2"],
   ["guide", "인도자"], ["email", "이메일"], ["mok_path", "목장"], ["mok_leader", "목장리더"], ["school_path", "교회학교"],
   ["teacher", "교사"], ["youth_path", "청년"], ["mission", "선교회"], ["address", "주소"], ["address_jibun", "지번주소"],
@@ -2004,7 +2080,7 @@ export const CHURCH_LEGEND = `<p class="muted cb-legend">교적 표시 — <em c
   <em class="cb cb-check">교적 확인</em> 소속이 다르거나 같은 이름이 여럿 · <em class="cb cb-none">교적 없음</em> 교적에 같은 이름이 없음</p>`;
 ```
 
-Run: `node --experimental-strip-types --test tests/people-logic.test.mjs` → PASS 6/6
+Run: `node --experimental-strip-types --test tests/people-logic.test.mjs` → PASS 7/7
 
 - [ ] **Step 4: `js/menus/people/search.js`**
 
@@ -2015,11 +2091,13 @@ Run: `node --experimental-strip-types --test tests/people-logic.test.mjs` → PA
 //    자세히 보기는 열 때마다 서버가 새 주소를 준다.
 // ⚠️ 내려받기는 **마지막으로 찾은 조건** 그대로다(칸을 바꾸고 「찾기」를 안 눌렀으면 옛 조건) — 화면의 수와 파일이 같게.
 import { esc, toast, dialog, busy, errorText } from "../../core/ui.js";
-import { sourceLine, affText, csvText, detailRows, searchPayload, initialOf, exportName, pageInfo } from "./people-logic.js";
+import { sourceLine, affText, csvText, detailRows, searchPayload, initialOf, exportName, pageInfo, familyOrder }
+  from "./people-logic.js";
 
 const TITLE = `<h2 class="page-title">🔎 교인 찾기</h2>`;
-// 찾기 조건은 메뉴를 옮겨 다녀도 남는다(임명현황과 같게)
-let state = { q: "", mok1: "", kind2: "", kind3: "", position: "", noPhoto: false, page: 0 };
+// 찾기 조건은 메뉴를 옮겨 다녀도 남는다(임명현황과 같게). household = 가족 보기(세대주 교인ID)
+const BLANK = { q: "", mok1: "", kind2: "", kind3: "", position: "", noPhoto: false, page: 0, household: null, householdName: "" };
+let state = { ...BLANK };
 let options = null;   // 거르기 목록 — 교인 현황(peopleStats)에서 한 번 받는다
 const mqWide = window.matchMedia("(min-width:1024px)");
 
@@ -2034,16 +2112,19 @@ const telHtml = (phone) => {
 const ageText = (p) => [p.gender, p.age != null && p.age !== "" ? `${p.age}세` : ""].filter(Boolean).join(" · ");
 const posHtml = (p) => (p.position ? `<em class="mn-pos">${esc(p.position)}</em>` : "");
 
+// 가족 보기일 때만 관계(본인·처·아들1 …)를 붙인다
+const relHtml = (p) => (state.household && p.household_rel ? `<span class="pp-rel">${esc(p.household_rel)}</span>` : "");
+
 const cardsHtml = (rows) => rows.map((p) => `<div class="pp-card" data-id="${esc(p.person_id)}" role="button" tabindex="0">
     ${photoHtml(p, "pp-ph")}
-    <div class="pp-main"><div><b>${esc(p.name)}</b>${posHtml(p)} <span class="muted">${esc(ageText(p))}</span></div>
+    <div class="pp-main"><div>${relHtml(p)}<b>${esc(p.name)}</b>${posHtml(p)} <span class="muted">${esc(ageText(p))}</span></div>
       <div class="pp-aff">${esc(affText(p))}</div><div>${telHtml(p.phone1)}</div></div>
   </div>`).join("");
 
 const tableHtml = (rows) => `<table class="pp-table"><thead><tr><th>사진</th><th>이름(직분)</th><th>성별·나이</th>` +
   `<th>소속</th><th>구분</th><th>연락처</th></tr></thead><tbody>` +
   rows.map((p) => `<tr class="pp-row" data-id="${esc(p.person_id)}" tabindex="0"><td>${photoHtml(p, "pp-ph sm")}</td>` +
-    `<td><b>${esc(p.name)}</b>${posHtml(p)}</td><td>${esc(ageText(p))}</td><td>${esc(affText(p))}</td>` +
+    `<td>${relHtml(p)}<b>${esc(p.name)}</b>${posHtml(p)}</td><td>${esc(ageText(p))}</td><td>${esc(affText(p))}</td>` +
     `<td>${esc(p.kind2 || "")}</td><td>${telHtml(p.phone1)}</td></tr>`).join("") + `</tbody></table>`;
 
 const selectHtml = (key, label, values) => `<label class="pp-sel"><span>${label}</span><select data-f="${key}">` +
@@ -2061,7 +2142,9 @@ function download(text, name) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-async function openPerson(call, id) {
+// 한 분 자세히 + 가족(같은 신앙세대주). 가족 이름을 누르면 이 창을 닫고 그분을 연다(열람 기록이 그분 몫으로 남는다).
+// 「가족 모두 목록으로」는 onFamily(세대주 교인ID, 세대주 이름) — 목록을 그 가족으로 바꾼다.
+async function openPerson(call, id, onFamily) {
   const r = await call("peoplePerson", { id: Number(id) });
   if (!r.ok) { toast(errorText(r)); return; }
   const p = r.person;
@@ -2069,9 +2152,24 @@ async function openPerson(call, id) {
   const photo = p.photo
     ? `<img class="pp-big" src="${esc(p.photo)}" alt="${esc(p.name)} 사진" referrerpolicy="no-referrer">`
     : `<div class="pp-big pp-ini">${esc(initialOf(p.name))}</div>`;
+  const fam = familyOrder(r.family || [], p.household_id);
+  const famHtml = !p.household_id || !fam.length ? "" :
+    `<div class="pp-fam"><div class="pp-fam-t"><b>가족</b> <span class="muted">세대주 ${esc(p.household_head || "(명단에 없음)")} · ${fam.length + 1}명</span></div>` +
+    fam.map((f) => `<button type="button" class="pp-fam-b" data-fam="${esc(f.person_id)}">${esc(f.name)} <small>${esc(
+      [f.household_rel, f.age != null && f.age !== "" ? f.age + "세" : ""].filter(Boolean).join(" · "))}</small></button>`).join("") +
+    `<button type="button" class="btn pp-fam-all" data-fam-all="${esc(p.household_id)}">👪 가족 모두 목록으로</button></div>`;
   // ⚠️ dialog 본문은 pre-line — html 안에 줄바꿈 글자를 넣지 않는다
-  await dialog({ title: p.name + (p.position ? " " + p.position : ""), html: `<div class="pp-detail">${photo}<dl>${rows}</dl></div>`,
-    ok: "닫기", cancel: null });
+  const closed = dialog({ title: p.name + (p.position ? " " + p.position : ""),
+    html: `<div class="pp-detail">${photo}<dl>${rows}</dl>${famHtml}</div>`, ok: "닫기", cancel: null });
+  const dlg = [...document.querySelectorAll(".dlg-dim")].pop();   // dialog 는 창을 곧바로(동기로) 붙인다
+  dlg.addEventListener("click", (e) => {
+    const f = e.target.closest("[data-fam]"), all = e.target.closest("[data-fam-all]");
+    if (!f && !all) return;
+    dlg.querySelector('[data-v="1"]').click();                    // 이 창을 닫고
+    if (f) openPerson(call, f.dataset.fam, onFamily);
+    else onFamily(Number(all.dataset.famAll), p.household_head || "");
+  });
+  await closed;
 }
 
 export async function render(el, { call, query }) {
@@ -2083,7 +2181,7 @@ export async function render(el, { call, query }) {
     if (!st.source) { el.innerHTML = TITLE + `<p class="empty">${esc(sourceLine(null).text)}</p>`; return; }
     options = st.stats.options;
   }
-  el.innerHTML = TITLE + `<p class="pp-src muted"></p>
+  el.innerHTML = TITLE + `<p class="pp-src muted"></p><p class="pp-famon" hidden></p>
     <form class="pp-form" autocomplete="off">
       <input type="search" class="search" name="q" placeholder="🔍 이름 또는 전화 뒷자리 4개" aria-label="찾기">
       <div class="pp-filters">${selectHtml("mok1", "교구", options.mok1)}${selectHtml("kind2", "구분", options.kind2)}` +
@@ -2103,6 +2201,17 @@ export async function render(el, { call, query }) {
     state.q = form.q.value.trim();
     el.querySelectorAll("select[data-f]").forEach((s) => { state[s.dataset.f] = s.value; });
     state.noPhoto = el.querySelector('input[data-f="noPhoto"]').checked;
+    state.household = null;          // 「찾기」를 누르면 가족 보기는 끝난다
+    state.householdName = "";
+  };
+
+  // 가족 보기 — 다른 조건은 모두 비우고 세대주 교인ID 하나로 찾는다
+  const showFamily = (hid, headName) => {
+    state = { ...BLANK, household: hid, householdName: headName };
+    form.q.value = "";
+    el.querySelectorAll("select[data-f]").forEach((s) => { s.value = ""; });
+    el.querySelector('input[data-f="noPhoto"]').checked = false;
+    load();
   };
 
   function draw() {
@@ -2110,9 +2219,15 @@ export async function render(el, { call, query }) {
     const info = pageInfo(last.total, last.page, last.pageSize);
     el.querySelector(".pp-sum").innerHTML = last.total
       ? `<b>${last.total.toLocaleString("ko-KR")}명</b> 중 ${info.from}–${info.to}` : "";
+    const famOn = el.querySelector(".pp-famon");
+    famOn.hidden = !state.household;
+    famOn.innerHTML = state.household
+      ? `👪 가족 보기 — 세대주 ${esc(state.householdName || String(state.household))} ` +
+        `<button type="button" class="btn" data-act="famoff">✕ 가족 보기 끝</button>` : "";
+    const shown = state.household ? familyOrder(last.rows, state.household) : last.rows;
     const list = el.querySelector(".pp-list");
-    list.innerHTML = !last.rows.length ? `<p class="empty">조건에 맞는 분이 없어요</p>`
-      : mqWide.matches ? tableHtml(last.rows) : cardsHtml(last.rows);
+    list.innerHTML = !shown.length ? `<p class="empty">조건에 맞는 분이 없어요</p>`
+      : mqWide.matches ? tableHtml(shown) : cardsHtml(shown);
     list.querySelectorAll("img[data-ini]").forEach((img) => img.addEventListener("error", () => {
       const s = document.createElement("span");
       s.className = img.className + " pp-ini";
@@ -2154,13 +2269,14 @@ export async function render(el, { call, query }) {
       if (b.dataset.act === "prev" && state.page > 0) { state.page--; load(); }
       if (b.dataset.act === "next") { state.page++; load(); }
       if (b.dataset.act === "csv") exportCsv();
+      if (b.dataset.act === "famoff") { state.household = null; state.householdName = ""; state.page = 0; load(); }
       return;
     }
     const row = e.target.closest("[data-id]");
-    if (row) openPerson(call, row.dataset.id);
+    if (row) openPerson(call, row.dataset.id, showFamily);
   });
   el.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && e.target.matches("[data-id]")) openPerson(call, e.target.dataset.id);
+    if (e.key === "Enter" && e.target.matches("[data-id]")) openPerson(call, e.target.dataset.id, showFamily);
   });
   // 폭이 바뀌면 카드↔표 — 이 화면을 떠나면 스스로 뗀다(status.js 와 같은 방식)
   const onMq = () => { if (el.isConnected) draw(); else mqWide.removeEventListener("change", onMq); };
@@ -2192,6 +2308,7 @@ export async function render(el, { call }) {
   el.innerHTML = TITLE + `<p class="pp-src muted${src.stale ? " stale" : ""}">${esc(src.text)}</p>
     <div class="pp-kpis">
       <div class="card pp-kpi"><span class="muted">전체</span><b>${n(s.total)}명</b></div>
+      <div class="card pp-kpi"><span class="muted">가구</span><b>${n(s.households)}</b><span class="muted">신앙세대주 기준</span></div>
       <a class="card pp-kpi" href="#/people?nophoto=1"><span class="muted">사진 없는 분</span><b>${n(s.noPhoto)}명</b>
         <span class="muted">눌러서 명단 보기 →</span></a>
     </div>
@@ -2251,6 +2368,13 @@ export async function render(el, { call }) {
 .pp-detail dl{display:grid;grid-template-columns:max-content 1fr;gap:4px 12px;width:100%;font-size:14px}
 .pp-detail dt{color:var(--gray)}
 .pp-detail dd{overflow-wrap:anywhere}
+.pp-fam{width:100%;display:flex;flex-wrap:wrap;gap:6px;align-items:center;border-top:1px solid var(--light);padding-top:10px}
+.pp-fam-t{width:100%;font-size:14px}
+.pp-fam-b{min-height:var(--chip);padding:0 12px;border-radius:999px;border:1px solid var(--border);background:#fff;cursor:pointer;font-size:14px}
+.pp-fam-b small{color:var(--gray)}
+.pp-fam-all{width:100%;margin-top:4px}
+.pp-famon{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:-4px 0 10px;font-weight:700;color:var(--navy)}
+.pp-rel{display:inline-flex;align-items:center;min-height:22px;padding:0 8px;margin-right:6px;border-radius:999px;background:var(--ghost-bg);color:var(--navy);font-size:12px;font-weight:700}
 .pp-kpis{display:flex;gap:var(--gap);flex-wrap:wrap}
 .pp-kpi{flex:1 1 160px;display:flex;flex-direction:column;gap:2px}
 .pp-kpi b{font-size:1.4rem;color:var(--navy)}
@@ -2326,7 +2450,8 @@ const LABEL = {
 const STATUS = { pending: "대기", active: "사용", disabled: "정지" };
 const KINDS = [["", "바꾼 기록"], ["people", "교인명부 기록"]];
 
-const filtersText = (f) => Object.entries(f || {}).map(([k, v]) => (k === "noPhoto" ? "사진 없음" : v)).join(" · ");
+const filtersText = (f) => Object.entries(f || {})
+  .map(([k, v]) => (k === "noPhoto" ? "사진 없음" : k === "household" ? `가족(세대주 ${v})` : v)).join(" · ");
 
 function detailText(r) {
   const d = r.detail || {};
