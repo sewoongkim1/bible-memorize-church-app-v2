@@ -1,7 +1,8 @@
 # 플레이스토어 프로덕션 2차 반려 — 개인 계정 3차 대신 교회(단체) 계정으로 간다
 
-> **한 줄 결론.** 2차 반려의 가장 유력한 원인은 **테스트 14일 동안 앱 판이 한 번도 안 바뀐 것**(`versionCode 1` 그대로)이다.
-> 우리 앱은 웹을 감싼 껍데기(TWA)라 고친 것이 전부 웹으로 나가서 구글 눈에는 「업데이트 없음」으로 보인다 — 3차를 해도 같은 자리에서 또 걸릴 수 있다.
+> **한 줄 결론.** 반려 메일이 든 사유는 둘이다 — **① 테스터가 앱에 참여하지 않았다 ② 앱 업데이트로 의견을 받아 고치는 권장사항을 안 따랐다.**
+> ②는 **테스트 14일 동안 앱 판이 한 번도 안 바뀐 것**(`versionCode 1` 그대로)이다. 우리 앱은 웹을 감싼 껍데기(TWA)라 고친 것이 전부 웹으로 나가서
+> 구글 눈에는 「업데이트 없음」이다 — 3차를 해도 같은 자리에서 또 걸릴 수 있다.
 > 마침 **D-U-N-S 번호가 나왔으므로(2026-09-30) 교회 명의 단체 계정을 만들고 앱을 그리로 옮긴다.** 12명·14일 요건은 개인 계정에만 있다.
 > 작성 2026-09-30 · 대상 저장소: bible-memorize-church-app-v2(`store/`)
 
@@ -23,12 +24,21 @@
 09-30  ✅ D-U-N-S 번호 발급 (D&B 메일)
 ```
 
+2차 반려 메일(Google Play Console팀, 원문 그대로):
+
+> **Google Play 프로덕션에 액세스하려면 추가 테스트 필요**
+> 신청을 검토한 결과, 프로덕션에 액세스하려면 앱에 추가 테스트가 필요한 것으로 확인되었습니다.
+> 프로덕션 액세스 권한이 부여되지 않는 이유는 다음과 같습니다.
+> - 비공개 테스트 중에 테스터가 앱에 참여하지 않았습니다.
+> - 앱 업데이트를 통해 사용자 의견을 수집하고 조치를 취하는 등의 테스트 권장사항을 따르지 않았습니다.
+>
+> 다시 신청하기 전에 실제 테스터를 대상으로 14일간 비공개 테스트를 진행하여 앱을 테스트하세요.
+
 ## 2. 전제와 범위
 
-- **본 것:** 친구가 보낸 Play Console 통계(설치한 사용자 수, 9/2~9/23) · `store/closed-test.md` · `store/README.md` 단체 계정 절 ·
+- **본 것:** 2차 반려 메일(위) · 친구가 보낸 Play Console 통계(설치한 사용자 수, 9/2~9/23) · `store/closed-test.md` · `store/README.md` 단체 계정 절 ·
   `android-app/` 의 판 번호 · 구글 공식 도움말 넷(아래 출처) · 반려 사례를 모은 글 셋.
-- **안 본 것:** ⚠ **2차 반려 메일의 실제 문구.** 구글은 반려 메일에 사유를 몇 줄 적어 보낸다. 아래 원인 분석은 그 문구 없이 한 것이라 **추정**이다.
-  Play Console 안의 테스터 참여 지표(하루 몇 명이 앱을 열었나)도 못 봤다.
+- **안 본 것:** Play Console 안의 테스터 참여 지표(하루 몇 명이 스토어 앱을 열었나). 그래서 **「왜 참여가 없다고 봤나」(3-3)는 여전히 추정**이다.
 - **환경:** 구글 개인 개발자 계정(2023-11-13 이후 가입 → 12명·14일 요건 대상). 앱 패키지 `kr.onlybible.gocheok.memorize`.
 
 ## 3. 분석
@@ -40,7 +50,7 @@
 
 ⚠ 그래프의 「설치한 사용자」와 요건의 「참여를 선택한 테스터」는 다른 값이다(`store/closed-test.md` 에 적혀 있다). 다만 설치 21명이면 옵트인이 12명 아래일 가능성은 낮다.
 
-### 3-2. 가장 유력한 원인 — 앱 판이 한 번도 안 바뀌었다
+### 3-2. 사유 ② — 앱 판이 한 번도 안 바뀌었다 (반려 메일로 확인)
 
 ```
 android-app/app/build.gradle:88   versionCode 1
@@ -59,9 +69,10 @@ android-app/twa-manifest.json:24  "appVersionCode": 1
 웹폰트 CSS 765KB 로 첫 실행이 느리던 것, 안드로이드 한글 조합 오판정 — 은 **모두 웹으로 나갔다.**
 신청서 ④칸(「테스트로 고친 것」)에 이 셋을 적었지만, 구글이 볼 수 있는 앱 묶음(.aab)에는 **아무 변화도 없다.** 적은 말과 보이는 증거가 어긋난다.
 
-### 3-3. 두 번째 후보 — 「참여 부족」으로 보였을 수 있다
+### 3-3. 사유 ① — 「테스터가 앱에 참여하지 않았다」 (반려 메일로 확인 · 까닭은 추정)
 
-공식 도움말은 반려 사유로 「12명 미만」과 함께 **「테스트 기간의 참여 부족(insufficient tester engagement)」**을 든다.
+공식 도움말도 반려 사유로 「12명 미만」과 함께 **「테스트 기간의 참여 부족(insufficient tester engagement)」**을 든다.
+설치는 21~27명이었는데도 이 사유가 붙었다 — 구글은 「깔았나」가 아니라 **「스토어 앱으로 썼나」**를 본다.
 
 추정되는 우리 쪽 사정: 테스터 대부분이 이미 **웹(홈 화면 추가)으로 쓰시던 성도님**이다. 스토어 앱을 깔고도 늘 누르던 홈 화면 아이콘을
 계속 누르시면 기록은 서버에 똑같이 쌓이지만 **구글이 재는 「스토어 앱 사용」에는 안 잡힌다.** ⚠ 확인 안 된 추정이다(5절).
@@ -105,7 +116,6 @@ android-app/twa-manifest.json:24  "appVersionCode": 1
 
 | 항목 | 왜 불확실한가 | 확인 방법 |
 |---|---|---|
-| 2차 반려의 실제 사유 | 반려 메일 문구를 아직 못 봤다 | 계정 소유자 메일함의 구글 메일 → 사유 줄을 이 문서 3절에 옮긴다 |
 | 옮긴 앱이 12명·14일 요건에서 풀리는가 | 공식 도움말 어디에도 「이전한 앱」 이야기가 없다. 요건이 개인 계정 대상이라는 것만 확실 | 이전 뒤 단체 계정 대시보드에 「프로덕션 액세스 신청」 단계가 없는지 본다 |
 | 앱 서명 키가 함께 오는가 | 도움말은 「패키지 이름과 그에 딸린 키」가 옮겨진다고만 적는다 | 이전 뒤 콘솔 「앱 무결성」의 SHA-256 이 `.well-known/assetlinks.json` 첫 줄(`BE:91:31:…`)과 같은지 본다. 다르면 앱이 열릴 때 주소창이 뜬다 |
 | 비공개 테스트 트랙에 올린 판(versionCode 1)이 따라오는가 | 도움말은 「테스트 그룹」이 안 옮겨진다고만 적는다 | 이전 뒤 「출시 → 앱 번들 탐색기」 |
@@ -134,5 +144,11 @@ android-app/twa-manifest.json:24  "appVersionCode": 1
 5. DEV Community, *Google Play Production Access Rejected: Why & Fixes* — https://dev.to/vmzavas/google-play-production-access-rejected-why-fixes-3l5h (비공식)
 6. Testers Community, *More Testing Required to Access Google Play Production* — https://www.testerscommunity.com/blog/google-play-production-access-rejected (비공식)
 7. Testers Community, *Google Play Developer Account: Cost, Types, and Setup* — https://www.testerscommunity.com/blog/google-play-developer-account-guide (단체 계정은 12명·14일 면제 · 비공식)
-8. D&B 발급 메일(2026-09-30) — D-U-N-S 690031840 · 법적 이름 DAEHANYESUGYO JANGNOHOE GOCHEOK GYOHOE
-9. 저장소: `store/closed-test.md`(1·2차 경과) · `store/README.md` 「단체(교회 명의) 계정」 절 · `android-app/app/build.gradle:88` · `.well-known/assetlinks.json`
+8. Google Play Console팀 반려 메일(2026-09-30) — 사유 둘(1절에 원문)
+9. D&B 발급 메일(2026-09-30) — D-U-N-S 690031840 · 법적 이름 DAEHANYESUGYO JANGNOHOE GOCHEOK GYOHOE
+10. 저장소: `store/closed-test.md`(1·2차 경과) · `store/README.md` 「단체(교회 명의) 계정」 절 · `android-app/app/build.gradle:88` · `.well-known/assetlinks.json`
+
+## 갱신 이력
+
+- 2026-09-30 처음 씀(반려 메일 없이 추정으로)
+- 2026-09-30 반려 메일 원문을 받아 사유 둘을 확인 — 추정했던 두 원인(판 업데이트 없음 · 참여 부족)이 그대로 맞았다. 결론은 그대로다
