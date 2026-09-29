@@ -20,6 +20,14 @@ plugins {
     id 'com.android.application'
 }
 
+// 정식판 서명 — 값은 git 밖의 keystore.properties 에만 있다(저장소 공개 · 사이트가 저장소 전체를 배포한다).
+// 한글 경로라 UTF-8 로 읽는다. 파일이 없으면 서명 없이 뽑힌다(시험판·빌드 확인은 그대로 된다).
+def keystoreProps = new Properties()
+def keystorePropsFile = rootProject.file("keystore.properties")
+if (keystorePropsFile.exists()) {
+    keystorePropsFile.withReader("UTF-8") { keystoreProps.load(it) }
+}
+
 def twaManifest = [
     applicationId: 'kr.onlybible.gocheok.memorize',
     hostName: 'gocheok.onlybible.kr', // The domain being opened in the TWA.
@@ -59,7 +67,7 @@ android {
     // 두 벌(설계 ③): 시험판은 이름·패키지가 달라 플레이스토어 앱 옆에 따로 깔린다 → 테스터 시계를 안 건드린다.
     //   ./gradlew assembleDevDebug                         시험판(오늘 날짜)
     //   ./gradlew assembleDevDebug -PwidgetDate=2026-04-20  시험판(그날로 보기 — 가장 긴 글 확인용)
-    //   ./gradlew bundleProdRelease                         정식판(9/27 이후, 계획 Task 8)
+    //   ./gradlew bundleProdRelease                         정식판(서명은 keystore.properties · 계획 Task 8)
     flavorDimensions "channel"
     productFlavors {
         prod {
@@ -85,8 +93,10 @@ android {
         applicationId "kr.onlybible.gocheok.memorize"
         minSdkVersion 23
         targetSdkVersion 36
-        versionCode 1
-        versionName "1"
+        // 판 번호 — 지금 스토어에 있는 것은 PWABuilder 로 뽑은 versionCode 1 · 「1.0.0.0」(old-app/badging.txt).
+        // 위젯 판이 2 · 1.1.0(2026-09-30 · 아이폰 위젯 판 이름과 맞춤). 올릴 때마다 versionCode 를 하나씩 올린다.
+        versionCode 2
+        versionName "1.1.0"
 
         // The name for the application
         resValue "string", "appName", twaManifest.name
@@ -178,9 +188,22 @@ android {
 
         
     }
+    signingConfigs {
+        release {
+            if (keystorePropsFile.exists()) {
+                storeFile file(keystoreProps['storeFile'])
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled true
+            if (keystorePropsFile.exists()) {
+                signingConfig signingConfigs.release
+            }
         }
     }
     compileOptions {
