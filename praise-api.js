@@ -10,7 +10,8 @@
         "Authorization": "Bearer " + KEY,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ action, ...body }),
+      // 설교·찬양 담당자로 들어왔으면 누구인지 함께(서버가 성경암송 api 에 묻는다 · 2026-09-30)
+      body: JSON.stringify({ action, ...body, ...(window.PRAISE_STAFF ? { staff: window.PRAISE_STAFF } : {}) }),
     });
     const j = await r.json().catch(() => ({ ok: false, error: "응답 파싱 실패" }));
     if (!j.ok) throw new Error(j.error || ("HTTP " + r.status));

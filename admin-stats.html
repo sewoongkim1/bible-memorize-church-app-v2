@@ -1230,7 +1230,7 @@ function renderSermonMenu(){
     <div class="card-grid">
       ${card("rep-sermonlist", "📜", "설교 목록", "제목·예배일·구분·설교자 고치기 · 숨김 · 점검")}
       ${card("rep-medlib", "🌿", "매일 묵상 조회", "주차별 7일 묵상 내용(주제·메시지·질문)")}
-      ${STAFF_MODE ? "" : card("rep-praise", "🎵", "찬양 아카이브 관리", "곡 등록 · 콤보순서 · 조회수 · 사용현황")}
+      ${card("rep-praise", "🎵", "찬양 아카이브 관리", "곡 등록 · 콤보순서 · 조회수 · 사용현황")}
       ${STAFF_MODE ? "" : card("rep-contentadmins", "🔑", "설교·찬양 담당자", "이 화면에 들어올 분 등록 · 빼기")}
     </div>`;
   document.getElementById("rep-content").addEventListener("click", renderContent);
@@ -5920,7 +5920,7 @@ const MA_TEXT = {
   ministry: { title:"🔑 사역신청 담당자", name:"사역신청 담당자", page:"admin-ministry.html", pw:"사역신청 암호",
               scope:"사역신청 두 메뉴(현황 · 사역팀 정보)만 보고, 사역신청 자료는 모두 봅니다.", out:"사역관리 페이지" },
   content:  { title:"🔑 설교·찬양 담당자", name:"설교·찬양 담당자", page:"admin-sermon.html", pw:"설교·찬양 암호",
-              scope:"설교 올리기(두 단계) · 설교 목록 · 매일 묵상 조회만 봅니다. 삭제·알림·통계는 못 합니다.", out:"설교·찬양 관리 화면" },
+              scope:"설교 올리기(두 단계) · 설교 목록 · 매일 묵상 조회 · 찬양 아카이브만 봅니다. 삭제·알림·통계는 못 합니다.", out:"설교·찬양 관리 화면" },
 };
 let maFound = [];
 function maWho(u){
