@@ -5473,13 +5473,17 @@ async function eventRoster(b: any) {
   if (e1) throw e1;
 
   // 회차 칩에 적을 건수는 **추리기 전 전체 기준**이어야 한다(필사·사역과 같은 규약).
+  // ⚠️ 행을 받아서 세지 않는다 — PostgREST 는 한 번에 1,000행까지만 돌려주고
+  //    `.limit(20000)` 으로도 그 위로 못 올린다. 표 전체가 1,000행을 넘는 순간 칩 숫자가
+  //    **오류 없이 조용히** 줄어든다(2026-09-29 지난 회차 명단 이관으로 1,723행이 되자
+  //    실제 244명인 회차가 0으로 보였다). 회차마다 개수만 묻는다(head — 행은 안 받는다).
   const counts: Record<string, number> = {};
-  const { data: all, error: e2 } = await db.from("event_signups")
-    .select("event_id").limit(20000);
-  if (e2) throw e2;
-  (all ?? []).forEach((r: any) => {
-    counts[r.event_id] = (counts[r.event_id] ?? 0) + 1;
-  });
+  await Promise.all(((evs ?? []) as any[]).map(async (ev) => {
+    const { count, error: e2 } = await db.from("event_signups")
+      .select("id", { count: "exact", head: true }).eq("event_id", ev.id);
+    if (e2) throw e2;
+    counts[ev.id] = count ?? 0;
+  }));
 
   const eventId = norm(b.event_id);
   let q = db.from("event_signups").select("*")
