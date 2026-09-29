@@ -363,6 +363,17 @@ registration fee"로 검색) → 정책 위반 점검 → Play Console에서 이
       확인 전화를 걸 수 있다. 번호가 나오면 → 애플 반영 2영업일 → 애플 조회 도구로 확인 → 단체 등록.
       ⚠️ 서류 요청 메일이 따로 왔었는지 확인할 것 — 연락처가 정지된 Gmail 이었다면 요청을 못 받아
       "서류 미제출"로 닫혔을 수 있다. 재신청 연락처는 매일 보는 주소로.
+- [x] ✅ **D-U-N-S 발급(2026-09-30)** — **690031840** · 법적 이름 **`DAEHANYESUGYO JANGNOHOE GOCHEOK GYOHOE`**
+      (D&B 메일: 애플 등록엔 번호와 이름을 **적힌 그대로** 넣을 것 · 애플 쪽은 24~48시간 뒤부터 쓸 수 있다).
+      같은 날 플레이 프로덕션 2차 반려 → **구글 단체 계정부터 만든다.**
+- [ ] **구글 단체 계정 만들기 → 앱 이전** — `church.gocheok@gmail.com` · 조직 · $25 · D-U-N-S 위 번호.
+      ⚠️ 결제 프로필은 「조직」으로 새로 만들고 이름·주소를 D&B 와 **글자 하나까지** 같게
+      (`DAEHANYESUGYO JANGNOHOE GOCHEOK GYOHOE` · `79 Jungang-ro, Guro-gu, Seoul 08228, Republic of Korea`).
+      스토어에 보이는 「개발자 이름」은 달라도 된다(한글 「고척교회」 등).
+      인증 → 개인 계정에서 이전 요청(받는 쪽 등록 거래 ID) → 2영업일 → 프로덕션 출시.
+      이전 뒤 확인 둘: 대시보드에 「프로덕션 액세스 신청」 단계가 **없는지** · 「앱 무결성」 SHA-256 이
+      `.well-known/assetlinks.json` 첫 줄과 같은지. 순서와 불확실한 것은
+      `docs/analysis/2026-09-30-play-production-rejected-org-account.md`.
 
 ---
 
