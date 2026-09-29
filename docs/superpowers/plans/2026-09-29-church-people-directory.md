@@ -2560,3 +2560,32 @@ git commit -m "feat(교인명부): 사역 화면 교적 표시 · 바꾼 기록�
   - v2 `CLAUDE.md` 「어디에 무엇이 적혀 있나」 표에 한 줄: `| 교인명부(어드민 · dimode 교인목록·사진) | docs/superpowers/specs/2026-09-29-church-people-directory-design.md |` · 다음 작업에 「dimode 에 사진 주소가 로그인 없이 열린다고 알리기」.
   - 친구에게 묻기: `~/.church-admin/prod.env` 를 지울지(다음 명단 때 다시 만들지) · `C:\Projects\교인목록_2026_09_29_정리.xlsx`·`교인사진_2026_09_29` 를 지울지.
 - [ ] **Step 9: 커밋** — 각 저장소에서 바꾼 파일만 경로로(v2 는 여러 세션이 함께 쓰므로 `git diff --cached` 로 남의 것이 없는지 본다).
+
+---
+
+## 부록: 최종 검토의 「나중」 목록 (2026-09-29 · 다음 명단 전에)
+
+가지 전체 최종 검토(여섯 관점 · 반박 검증)에서 「합치기 전」 12항목은 고쳐 운영에 나갔다. 아래는 급하지 않아 미룬 것 — **다음 명단(12월 무렵)을 넣기 전에** 볼 것.
+
+- **「전화 뒷자리」 찾기가 번호 어디든 맞으면 걸린다** — `supabase/functions/church-admin/index.ts:861`  
+  %tail% 이라 가운데 네 자리가 같은 번호나 집 전화 가운데가 같은 번호도 걸린다. 열람 기록에는 결과 명단이 남지 않고(903), directory 역할은 원래 전체를 볼 수 있으니 결과가 시끄러워지는 불편에 그친다. 고칠 때는 or(phone_digits.ilike.%tail, phone_digits.ilike.%tail %) 로 번호 끝만 보고, people-query 시험을 더한다.
+- **「명부 없음 → church:null」을 정하는 서버 한 줄을 지키는 시험이 없다** — `supabase/functions/church-admin/index.ts:843-844 · tests/people-match.test.mjs`  
+  개발 DB 에는 늘 imports 가 있어 이 길을 지나는 시험이 없다. 이 줄이 빠지면 모든 신청 줄에 「없음」이 뜬다. 운영에는 이미 명부가 들어가 있어서 급하지 않다. buildChurchIndex(hasSource, rows) 같은 순수 함수로 떼어 내 시험한다.
+- **넣기가 DB 의 마지막 기준일보다 옛 폴더로도 돈다(명부가 뒤로 감긴다)** — `tools/people/load_people.py:124-135·160-162`  
+  church_people_imports 를 읽지 않으므로, 빠짐이 5% 아래면 옛 명단으로 덮이고 기준일도 뒤로 간다. 다음 명단(12월)을 넣기 전에 「DB 기준일」을 찍고, 파일 기준일이 그보다 이르면 --allow-older 가 있어야만 넘어가게 한다.
+- **원본을 errors="replace" 로 읽어 깨진 글자가 대조를 통과한다** — `tools/people/parse_people.py:224`  
+  일부 바이트만 깨지면 「김�수」가 올라가 이름 찾기와 교적 맞대기가 빗나간다. errors="strict" 로 읽거나 '�' 개수가 0 이 아니면 멈춘다(교인ID 만 찍는다). 다음 명단 전에 하면 된다.
+- **씨앗(--seed) 사진 복사가 원자적이지 않고, 그림인지도 주소가 같은지도 보지 않는다** — `tools/people/fetch_photos.py:50-60·96-98`  
+  끊기면 잘린 JPEG 가 「실제 사진」으로 올라간다. 12월에 9월 씨앗을 붙이면 바뀐 사진 대신 옛 사진이 들어간다. .part 에 쓴 뒤 replace 하고, mime None 은 실패로 센다. 씨앗은 첫 기준일 전용이라고 문서에 적거나 주소가 같을 때만 복사한다.
+- **people.json 과 photos.json 의 교인ID 집합을 맞대지 않는다** — `tools/people/load_people.py:110-123`  
+  parse 만 다시 돌리고 fetch 를 건너뛰면 새로 온 분이 경고 없이 사진 없이 올라가고, 사진이 바뀐 분도 반영되지 않는다. 키가 빠진 수가 0 이 아니면 멈추고 「fetch_photos 를 다시 돌릴 것」이라고 알린다.
+- **도중에 끊긴 뒤 다시 돌리면 기록이 「새로 0 · 바뀜 0」으로 남는다(+ 지운 분의 사진이 남을 수 있음)** — `tools/people/load_people.py:124-131·150-164`  
+  기록 숫자만 틀릴 뿐 데이터는 맞다. 운영 첫 넣기는 imports #1 로 끝까지 갔으므로 이번에는 해당하지 않는다. 진행 기록부 Task 8 의 「줄 지운 뒤 사진 지우기 전에 끊기면 사진이 남음」도 다시 돌려서는 안 지워진다(그분은 이미 cur 에 없다). 기록 줄을 먼저 만들어 두고 끝에 완료로 바꾸게 한다. 또 사진 칸 목록과 표를 맞대 고아 사진을 지우는 한 단계를 더한다.
+- **새 꼴 서비스 키(sb_secret_) 길은 한 번도 돌지 않았다** — `tools/people/load_people.py:54-59 · 계획 Task 11 Step 4`  
+  진행 기록부에 따르면 운영 넣기는 옛 service_role 키로 했으므로 이번에는 문제가 없었다. 다음에 새 키를 쓰면 처음 가는 길이 된다. Step 4 에 「옛 service_role 키로 했다 · 새 키로 401/403 이 나면 hdr() 분기를 볼 것」이라고 적어 둔다.
+- **leak-scan 의 나머지 빈틈(번호 없는 명단 .tsv·.json, 숫자 이름 그림 폴더)** — `tools/leak-scan.mjs`  
+  .gitignore 로 막는 것(합치기 전)과 별도로, 두 번째 겹의 검사를 넓힌다. 사람이 복사해 넣어야만 생기는 2차 안전망의 빈틈이다.
+- **진행 기록부의 나머지 다듬기(아래 분류의 「나중」)** — `.superpowers/sdd/progress.md`  
+  mokNumber 뒤 글자 · 괄호·점 든 번호 · clean 20자 시험 · 두 자리표시 · peopleSource 중복 호출 · URLError traceback · stderr 한글 · photo_urls.json 없을 때 오류 · leak-scan CLI 예외와 시험 · 내려받기 칸 모양 시험 · 헛시험 칸. 올리기 도구 쪽은 다음 명단을 넣기 전에 묶어서 한다.
+
+진행 기록부의 사소한 지적 중 「나중」으로 가른 것: leak-scan CLI 경로의 git/readFile 예외가 날것으로  · leak-scan CLI 경로 시험 없음 · mokNumber 가 「12목장(신설)」처럼 뒤에 글자가 붙으면 null · 「(010)1234-5678」처럼 괄호·점 든 번호는 이름으로 읽힘 · clean() 20자 자르기 시험 없음 · 「(목장 없음)」/「(없음)」 두 자리표시 · 내부 칸 시험 중 birth_date·registered_date·upd · 내려받기 줄 칸 모양 시험 없음 · photo_urls.json 없을 때 날 오류 · ministryList·종이 명단마다 peopleSource 한 번 더 · URLError·시간초과는 날 traceback · 줄 지운 뒤 사진 지우기 전에 끊기면 사진이 남음 · stderr 한글 깨짐(stdout 만 utf-8)

@@ -40,6 +40,7 @@
 | 액션·테이블·시크릿 목록 | `docs/notes/backend-api.md` |
 | 아이폰 앱(Swift)·「앱이면 …」 웹 코드·껍데기 판 표식 | `docs/notes/ios-app.md` |
 | 교회 어드민(admin.onlybible.kr · 별도 저장소 `c:\Projects\church-admin`) — 카카오 로그인·담당자 승인, 사역신청 관리를 옮겨 가는 중 | 설계 `docs/superpowers/specs/2026-09-28-church-admin-design.md` · 그 저장소 `CLAUDE.md` |
+| 교인명부(어드민 · dimode 교인목록·사진 · 2026-09-29 운영) — 찾기·현황·가족·사역 교적 표시 | 설계 `docs/superpowers/specs/2026-09-29-church-people-directory-design.md` · 계획(끝에 「나중」 목록) · church-admin `CLAUDE.md` 「교인명부」 절 |
 
 ## 스택 · 도메인
 - **Vanilla JS PWA**(프레임워크 없음) — `index.html` + `app.js`(대형 단일 파일) + `sw.js`
@@ -159,6 +160,10 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
 
 ## 다음 작업 (이어서 할 것)
 > 여기에 다음에 진행할 과제를 적어두면, 다음 세션에서 이 문서를 읽고 바로 이어감.
+- [ ] 👥 **교인명부 — 2026-09-29 운영 개시**(명단 8,672명 · 사진 4,645 · 5,387가구 · church-admin main 1307c65). 남은 것:
+      ① 친구가 교인명부 볼 분에게 역할 「교인명부」 주기(🔑 담당자·역할) ② dimode 업체에 **사진 주소가 로그인 없이 열린다**고 알리기(`…/Handler/DisplayImage.ashx?id=숫자`)
+      ③ `~/.church-admin/prod.env`(운영 service_role 키) 지울지 친구가 정하기 ④ 다음 명단(12월 무렵) 전에 계획서 끝 「나중」 목록.
+      ⚠️ 진짜 명단은 **저장소 밖**(`C:\Projects\교인명부_작업\`)에만 — 올리는 순서·함정은 church-admin `CLAUDE.md` 「교인명부」 절.
 - [ ] 🏛️ **교회 어드민 — 사역신청 다섯 메뉴 모두 운영 개시(2026-09-29 · 신청 현황·사역팀 정보·종이 명단·임명현황·담당자).** 다음은 **갈아타기**: 사역 담당자 초대(카카오 로그인→승인) → 앱 설정 「🔒 관리 페이지 → 🤝 사역관리」 단추를 admin.onlybible.kr 로(브라우저로 열기) → 옛 사역 화면·`api` 담당자용 사역 액션·사역 암호 걷기. 임명 알림은 `api` `internalMinistryNotify` 한 곳.
       ⚠️ 옮기는 동안 `admin-stats.html` 의 사역 화면·`api` 의 담당자용 사역 액션 7개는 **얼린다**(기능 추가 금지).
       계획 `docs/superpowers/plans/2026-09-28-church-admin-stage1.md` · 설계 위 표의 문서 · 진행 기록 `c:\Projects\church-admin\.superpowers\sdd\progress.md`.
