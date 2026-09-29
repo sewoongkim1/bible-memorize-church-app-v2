@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 위젯 글 — 아이폰 위젯(ios-app/ios/App/TodayVerseWidget)과 같은 문구. -->
+<resources>
+    <string name="widget_verse_name">이번주 말씀</string>
+    <string name="widget_verse_desc">이번주 암송 구절을 봅니다. 누르면 바로 암송 화면으로 갑니다.</string>
+    <string name="widget_verse_fail">말씀을 불러오지 못했습니다</string>
+    <string name="widget_verse_sample">하나님이 세상을 이처럼 사랑하사 독생자를 주셨으니</string>
+    <string name="widget_verse_sample_ref">요한복음 3:16</string>
+
+    <string name="widget_meditation_name">오늘의 묵상</string>
+    <string name="widget_meditation_desc">이번주 설교의 오늘 요일 묵상을 봅니다. 누르면 적용 질문까지 함께 봅니다.</string>
+    <string name="widget_meditation_fail">묵상을 불러오지 못했습니다</string>
+    <string name="widget_meditation_sample_heading">공장이 아닌 아버지</string>
+    <string name="widget_meditation_sample">하나님은 나를 단숨에 찍어내는 공장이 아니라 시간을 들여 기르시는 아버지이십니다.</string>
+
+    <string name="widget_blessing_name">오늘의 축복 기도문</string>
+    <string name="widget_blessing_desc">가정 축복 기도문 오늘 한 편을 봅니다. 「우리 가족」으로 읽습니다.</string>
+    <string name="widget_blessing_fail">기도문을 불러오지 못했습니다</string>
+    <string name="widget_blessing_sample_title">아론의 축복</string>
+    <string name="widget_blessing_sample_ref">민수기 6:24-26</string>
+    <string name="widget_blessing_sample">하나님, 우리 가족에게 복을 주시고 우리 가족을 지키시며, 여호와의 얼굴을 우리 가족에게 비추사 은혜를 베풀어 주옵소서.</string>
+</resources>

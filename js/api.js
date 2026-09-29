@@ -50,6 +50,7 @@ const api = {
   verseCounts: (user_id) => supaCall("verseCounts", { user_id }),   // { ok, counts:{ verse_no:n } } 암송·도전·복습 전부
   savePush: (user_id, subscription, hour) => supaCall("savePush", { user_id, subscription, hour }),
   updateIosPushHour: (user_id, hour) => supaCall("updateIosPushHour", { user_id, hour }),  // 네이티브(iOS) 앱에서 알림 시간만 바꿀 때
+  updatePushEvening: (user_id, on) => supaCall("updatePushEvening", { user_id, on }),  // 저녁 알림만 켜고 끄기(사람 단위)
   removePush: (endpoint) => supaCall("removePush", { endpoint }),
   testPush: (endpoint, hour, preview) => supaCall("testPush", { endpoint, hour, preview }),
   testIosPush: (user_id) => supaCall("testPush", { user_id }),  // 네이티브(iOS) 앱 — 본인의 최근 등록 기기로
@@ -79,6 +80,7 @@ const api = {
   getPassages: () => supaCall("getPassages", {}),
   getBlessings: () => supaCall("getBlessings", {}),
   blessingLog: (p) => supaCall("blessingLog", p),
+  featureLog: (p) => supaCall("featureLog", p),          // 열람 기록 — 응답을 기다리지 않는다
   savePassage: (pw, passage) => supaCall("savePassage", { pw, passage }),
   deletePassage: (pw, id) => supaCall("deletePassage", { pw, id }),
   savePassageProgress: (user_id, passage_id, doneSeq, completed) =>
@@ -113,11 +115,23 @@ const api = {
   //  ⚠️ 위 event* 넷(eventEnter/Status/Board/Entrants)은 옛 「말씀 이벤트」(퀴즈형)
   //     것이다. 이름이 비슷하지만 표도 흐름도 다르다 — 섞지 말 것.
   eventOpenList: (user_id) => supaCall("eventOpenList", { user_id }),
+  eventStamps: (user_id, event_id) => supaCall("eventStamps", { user_id, event_id }),
   eventSignup: (payload) => supaCall("eventSignup", payload),
   eventDrop: (user_id, id) => supaCall("eventDrop", { user_id, id }),
   eventRosterPublic: (event_id) => supaCall("eventRosterPublic", { event_id }),
   eventRoster: (pw, event_id) => supaCall("eventRoster", { pw, event_id }),
+  eventSetNote: (pw, id, note) => supaCall("eventSetNote", { pw, id, note }),
+  eventExcuse: (pw, id, excused, reason) => supaCall("eventExcuse", { pw, id, excused, reason }),
   eventSave: (pw, event) => supaCall("eventSave", { pw, event }),
+
+  // ---- 오늘의 찬양 (2026-09-23) ----
+  //  ⚠️ getTodaySong 은 입력이 없다 — 날짜를 열면 쓰는 액션이라 미리 태울 수 있다(서버 주석 참고).
+  getTodaySong: () => supaCall("getTodaySong", {}),
+  logSongClick: (user_id, song_id) => supaCall("logSongClick", { user_id, song_id }),
+
+  // ---- 오늘의 기도 (2026-09-26) — 아이폰 위젯과 같은 액션 · 매일 묵상 창 한 줄 ----
+  //  읽기 전용이라 date 를 넘겨도 안전하다. 앱 prayToday 와 같은 날을 보도록 todayYmd() 를 넘긴다.
+  getTodayBlessing: (date) => supaCall("getTodayBlessing", { date }),
 };
 
 window.api = api;

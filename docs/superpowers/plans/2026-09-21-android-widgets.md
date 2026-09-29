@@ -19,6 +19,7 @@ JDK 17(Temurin) · Android SDK 명령줄 도구 · adb.
 ## Global Constraints
 
 - ⚠️ **9/27 프로덕션 승인 전에는 Play Console 에 아무것도 올리지 않는다.** Task 8 만 업로드하며, 그 전에는 시작하지 않는다.
+  ⚠️ **2026-09-30 갱신:** 2차 신청도 반려돼 **교회 단체 계정으로 앱을 옮긴 뒤**에 Task 8 을 한다(`docs/analysis/2026-09-30-play-production-rejected-org-account.md`).
 - ⚠️ **서명 키(`*.keystore`)·비밀번호·`signing-key-info.txt`·`keystore.properties` 는 절대 커밋하지 않는다.** 저장소는 공개이고
   사이트 배포(`deploy.yml` `path: "."`)가 저장소 전체를 올린다. 비밀번호는 화면(대화)에도 찍지 않는다.
 - ⚠️ 위젯을 더한 뒤에는 **`bubblewrap update` · `generate.cjs` 를 다시 돌리지 않는다**(고친 파일을 덮어쓴다).
@@ -1831,6 +1832,14 @@ git push -q origin main
 ### Task 8: (⚠️ 2026-09-27 프로덕션 승인 **뒤에만**) 정식판 서명·판 번호·업로드
 
 **시작 조건:** 친구가 「프로덕션 승인이 났다」고 알려 준 뒤. 그 전에는 이 Task 의 어떤 단계도 하지 않는다.
+⚠️ **2026-09-30 갱신:** 조건이 「교회 단체 계정으로 앱 이전이 끝난 뒤」로 바뀌었다(2차 반려 · 위 분석 문서).
+
+**업로드 전에 실기기로 볼 것(2026-09-30 더함):** TWA 라이브러리를 `androidbrowserhelper` **2.6.2 → 2.7.3** 으로 올렸다
+(Play Console 「다음 출시 버전을 위한 발견 항목」 둘 — 안드로이드 15 더 넓은 화면 · 지원 중단된 창 API — 이 2.6.2 스플래시 탓이었다).
+빌드·위젯 JVM 시험·정식판(R8) 빌드는 통과했지만 **폰에서는 아직 안 봤다.** 시험판을 깔아 ① 스플래시가 상태 표시줄·아래 막대까지
+덮여 그려지고 글씨·로고가 막대에 안 가리는지 ② 앱 화면(크롬)이 예전과 같은지 ③ 위젯 셋이 그대로 도는지 본다.
+참고: 크롬 152 부터 TWA 스플래시가 아예 안 뜨는 문제가 라이브러리 저장소에 열려 있다(GoogleChrome/android-browser-helper#623) —
+스플래시가 안 보여도 우리 코드 탓으로 단정하지 말 것.
 
 **Files:**
 - Modify: `android-app/app/build.gradle`(서명 설정 · versionCode/versionName) · `CLAUDE.md`

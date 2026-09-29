@@ -9,6 +9,9 @@
   이벤트 플랫폼 관리자 화면 — 2026-09-10
     설계: docs/superpowers/specs/2026-09-10-event-platform-design.html
     계획: docs/superpowers/plans/2026-09-10-event-platform.md (4단계)
+    ⚠️ 교회 어드민으로 옮김(2026-09-30): 회차 만들기·설정·담당자 메모·명단 고치기는 admin.onlybible.kr 「성경필사(암송)」.
+       서버 eventSave·eventSetNote·eventImport 는 moved-to-church-admin(얼림). 이 화면에 남은 것은
+       명단 보기·인쇄·CSV·자격 인정(eventExcuse)뿐 — 설계 docs/superpowers/specs/2026-09-29-church-admin-bible-events-design.md §4
 
   ⚠️ admin-stats.html 이 아니라 새 파일로 지었다. 그 파일은 188KB 이고 여러 작업이
      함께 쓰고 있어, 여기에 또 얹으면 충돌 표면만 커진다.
@@ -90,6 +93,12 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;color:#6a7383}
 .ok{background:#eef6f1;border:1px solid #bcd9c8;color:#2f6b4f;border-radius:8px;
   padding:9px 11px;font-size:13.5px;margin:10px 0}
 .ok:empty,.note:empty{display:none}
+/* 교회 어드민으로 옮긴 자리 — 저장·메모 단추 대신 페이지 안 띠(팝업 아님) */
+.moved{background:#eef1f8;border:1.5px solid #1a3a6b;border-radius:10px;padding:11px 13px;
+  font-size:14px;color:#1a3a6b;line-height:1.7;margin:12px 0}
+.moved a{color:#1a3a6b;font-weight:800}
+fieldset.ro{border:0;padding:0;margin:0;min-width:0}
+fieldset.ro input,fieldset.ro select{background:#f7f8fb;color:#232730;opacity:1}
 
 /* 묶음 보기 — 소속으로 묶고 한 줄에 여러 명. 주보·공지에 그대로 옮겨 적기 좋다. */
 .gv-g{margin:0 0 13px;break-inside:avoid}
@@ -139,11 +148,20 @@ const logoutBtn = document.getElementById("logout");
 
 const EV_STATUS = ["draft", "open", "closed", "archived"];
 const EV_STATUS_KO = { draft:"준비 중", open:"열림", closed:"마감", archived:"보관" };
+// ⚠️ 회차 만들기·설정·담당자 메모·명단 고치기는 교회 어드민 한 곳에서 한다(2026-09-30 부터).
+//    서버 eventSave·eventSetNote·eventImport 는 moved-to-church-admin 을 돌려준다(얼림) — 여기에 저장 단추를
+//    되살려도 저장되지 않는다. 남은 쓰기는 자격 인정(eventExcuse)뿐(가을 말씀 동행 · 다음 단계에서 옮긴다).
+//    docs/notes/bible-events-admin.md
+const MOVED_HTML = `<div class="moved no-print">회차 만들기·설정과 담당자 메모는 <b>교회 어드민 → 성경필사(암송)</b>에서 합니다 —
+  <a href="https://admin.onlybible.kr/#/be-roster" target="_blank" rel="noopener">admin.onlybible.kr</a>
+  (카카오 로그인 · 「성경필사(암송)」 역할)</div>`;
 
 let evEvents = [];       // 회차 목록
 let evRows = [];         // ⚠️ 「지금 고른 회차」가 아니다 — load(pick) 을 인자 없이 부르면(첫 진입·
                           //    로그인 직후) 서버가 event_id 필터 없이 **전 회차**를 담아 준다.
                           //    회차 하나로 좁힌 값이 필요하면 반드시 curRows() 를 쓸 것.
+let evMissing = [];      // 자격은 되는데 아직 신청 안 하신 분(이름·소속만 — user_id 없음)
+let evMissingTotal = 0;  // ⚠️ evMissing 은 300명에서 잘린다 — 이건 자르기 전 총수다.
 let evPick = "";         // 고른 회차 id
 let evSort = { key:"at", dir:-1 };
 let evQ = "", evType = "", evGroup = "";
@@ -211,8 +229,20 @@ async function load(pick){
   }
   evEvents = d.events || [];
   evRows = d.rows || [];
+  // 자격은 되는데 아직 신청 안 하신 분 — 서버가 event_id 를 골랐을 때만(자격 규칙이
+  // 있는 회차일 때만) 채워 준다. missingTotal 은 300명 자르기 **전** 총수.
+  evMissing = d.missing || [];
+  evMissingTotal = d.missingTotal != null ? d.missingTotal : evMissing.length;
   if(pick) evPick = pick;
-  else if(!evPick) evPick = (evEvents.find(e => e.status === "open") || evEvents[0] || {}).id || "";
+  else if(!evPick){
+    evPick = (evEvents.find(e => e.status === "open") || evEvents[0] || {}).id || "";
+    // ⚠️ 첫 진입은 event_id 없이 불렀다 — 서버는 그때 「아직 신청 안 하신 분」을 **아예 안 센다**
+    //    (회차를 골라야 자격 규칙을 알 수 있다). 기본 회차를 방금 정했으니 한 번 더 부른다.
+    //    안 그러면 담당자가 **화면을 여는 그 순간에만** 그 배지가 조용히 안 뜬다
+    //    — 칩을 한 번 더 눌러야 나오는데, 그걸 알아챌 사람이 없다.
+    //    ⚠️ 되돌이 걱정 없음: 아래는 pick 을 주고 부르므로 이 갈래로 다시 오지 않는다.
+    if(evPick) return load(evPick);
+  }
   render();
 }
 
@@ -226,7 +256,7 @@ function render(){
 function evChipsHtml(){
   if(!evEvents.length){
     return `<div class="card"><h2>회차</h2>
-      <p class="sub">아직 만든 회차가 없습니다. 아래에서 새 회차를 만드세요.</p></div>`;
+      <p class="sub">아직 만든 회차가 없습니다. 회차는 교회 어드민에서 만듭니다.</p></div>`;
   }
   return `<div class="card"><h2>회차</h2>
     <p class="sub">숫자는 그 회차의 <b>전체</b> 신청 건수입니다(아래 필터와 무관).</p>
@@ -242,14 +272,15 @@ function evFormHtml(ev){
   //    빈 칸으로 그려지고 저장하는 순간 원래 값이 지워진다.
   const v = ev || { id:"", title:"", shortTitle:"", subtitle:"", season:"", kind:"signup",
                     opensOn:"", closesOn:"", status:"draft", sortOrder:0, listUntil:"" };
+  // ⚠️ 회차 만들기·설정은 교회 어드민으로 옮겼다 — 여기서는 보기만 한다(서버 eventSave 는 얼렸다).
+  if(!ev) return `<div class="card no-print"><h2>회차</h2>${MOVED_HTML}</div>`;
   return `<div class="card no-print">
-    <h2>${ev ? "회차 고치기" : "새 회차 만들기"}</h2>
+    <h2>회차 설정 <span style="font-weight:400;color:#8a93a3;font-size:13px">(보기만)</span></h2>
     <p class="sub">
       <b>준비 중</b>은 성도님께 안 보입니다 · <b>열림</b>은 기간 안에서만 등록됩니다 ·
       <b>마감</b>은 등록만 막히고 <b>조회는 살아 있습니다</b> · <b>보관</b>은 목록에서 사라집니다.
     </p>
-    <div class="ok" id="f-ok"></div><div class="err" id="f-err"></div>
-    <div class="form">
+    <fieldset class="ro" disabled><div class="form">
       <div><label for="f-id">회차 ID</label>
         <input id="f-id" value="${esc(v.id)}" placeholder="summer-2026" ${ev?"readonly":""} />
       </div>
@@ -271,11 +302,8 @@ function evFormHtml(ev){
         <input id="f-season" value="${esc(v.season||"")}" placeholder="2026-3Q" /></div>
       <div><label for="f-order">차례 <span style="font-weight:400;color:#8a93a3">(작을수록 위)</span></label>
         <input id="f-order" type="number" value="${Number(v.sortOrder)||0}" /></div>
-    </div>
-    <div class="bar">
-      <button class="btn p" id="f-save">${ev ? "고치기" : "만들기"}</button>
-      ${ev ? `<button class="btn" id="f-new">+ 새 회차</button>` : ""}
-    </div>
+    </div></fieldset>
+    ${MOVED_HTML}
     ${ev && !ev.listedNow ? `<div class="note" style="background:#fbeeec;border-color:#e6bdb6;color:#a8322a">
       <b>지금 성도님께 안 보입니다.</b> ${
         ev.status === "draft" ? "상태가 <b>준비 중</b>이라 그렇습니다 — <b>마감</b>이나 <b>열림</b>으로 바꾸면 보입니다."
@@ -309,6 +337,10 @@ function shown(){
     return true;
   }).sort((a,b) => {
     const k = evSort.key;
+    // ⚠️ 숫자 정렬 — 문자열 비교로는 "10" < "2" 가 된다(evSubRank 가 다루는 것과 같은 함정).
+    if(k === "weeksDone"){
+      return (Number(a.weeksDone || 0) - Number(b.weeksDone || 0)) * evSort.dir;
+    }
     const x = String(a[k]==null?"":a[k]), y = String(b[k]==null?"":b[k]);
     const n1 = parseFloat(x), n2 = parseFloat(y);
     const c = (!isNaN(n1) && !isNaN(n2) && k === "sub") ? n1 - n2 : x.localeCompare(y, "ko");
@@ -328,11 +360,20 @@ function evListHtml(ev){
     `<th data-k="${k}">${label}${evSort.key===k ? (evSort.dir>0?" ▲":" ▼") : ""}</th>`;
   return `<div class="card">
     <h2>명단 — ${esc(ev.title)}</h2>
+    ${rows.some(r => r.weeksDone != null) ? `<div class="sum"><span class="tag">
+      도장 기간 2026-10-11 ~ 11-21 · 주 3일 · 6주 중 3주 (원본 supabase/event_stamp_2026.sql)
+    </span></div>` : ""}
     <div class="sum">
       <span><b>${rows.length}</b>명</span>
       <span class="tag">앱 계정 연결 ${app_}명</span>
       <span class="tag">앱 등록 ${rows.filter(r=>r.source==="app").length}건</span>
       <span class="tag">이관 ${rows.filter(r=>r.source==="import").length}건</span>
+      ${rows.some(r => r.weeksDone != null) ? `
+        <span class="tag">채운 주 3주 이상 ${rows.filter(r=>r.eligible).length}명</span>
+        <span class="tag">여섯 주 ${rows.filter(r=>r.perfect).length}명</span>
+        <span class="tag">인정 ${rows.filter(r=>r.excused).length}명</span>` : ""}
+      ${evMissing.length ? `<span class="tag">아직 신청 안 하신 분 ${evMissing.length}명${
+        evMissingTotal > evMissing.length ? ` 외 ${evMissingTotal - evMissing.length}명` : ""}</span>` : ""}
       ${evQ||evType||evGroup ? `<span class="tag">추린 결과 ${list.length}명</span>` : ""}
     </div>
     <div class="bar no-print">
@@ -346,20 +387,25 @@ function evListHtml(ev){
       <button class="btn" id="q-view">${evView==="table" ? "🧾 묶음 보기" : "📊 표 보기"}</button>
       <button class="btn" id="q-clear">초기화</button>
       <button class="btn" id="q-print">🖨️ 인쇄</button>
+      <button class="btn" id="q-csv">⬇️ CSV (찾은 것만)</button>
     </div>
     ${list.length && evView === "group" ? evGroupedHtml(list) : ""}
     ${list.length && evView === "table" ? `<div class="tw"><table><thead><tr>
       <th class="num">#</th>${head("whoType","구분")}${head("group","소속")}${head("sub","목장·학년")}
-      ${head("position","직분")}${head("name","성명")}${head("at","등록일")}<th>기록</th>
+      ${head("position","직분")}${head("name","성명")}${head("weeksDone","주")}${head("at","등록일")}<th>기록</th>
     </tr></thead><tbody>${
       list.map((r,i) => `<tr>
         <td class="num">${i+1}</td>
         <td><span class="badge ${r.whoType==="교구"?"gu":"sc"}">${esc(r.whoType)}</span></td>
         <td>${esc(r.group)}</td><td>${esc(r.sub)}</td>
         <td>${esc(r.position)}</td><td><b>${esc(r.name)}</b></td>
+        <td>${r.weeksDone == null ? "" :
+             esc(String(r.weeksDone)) + (r.perfect ? " ✨" : "") + (r.excused ? (" (인정" + (r.excuseReason ? " · " + esc(r.excuseReason) : "") + ")") : "")}</td>
         <td>${esc(kstDate(r.at))}</td>
         <td><span class="badge ${r.source==="app"?"app":"imp"}">${r.source==="app"?"앱":"이관"}</span>${
-          r.hasUser ? ` <span class="badge app">계정</span>` : ""}</td>
+          r.hasUser ? ` <span class="badge app">계정</span>` : ""}
+          ${r.weeksDone == null ? "" : ` <button class="btn no-print" data-excuse="${r.id}" data-on="${r.excused?0:1}">${r.excused?"인정 취소":"인정"}</button>`}
+        </td>
       </tr>`).join("")
     }</tbody></table></div>` : ""}
     ${list.length ? "" : `<div class="empty">${rows.length ? "추린 결과가 없습니다." : "아직 신청이 없습니다."}</div>`}
@@ -410,6 +456,49 @@ function kstDate(iso){
   }catch(e){ return String(iso).slice(0,10); }
 }
 
+// ⚠️ 「찾은 것만」 나간다 — 화면에서 좁혀 놓고 전체가 나가면 담당자가 모르고 쓴다.
+function downloadCsv(){
+  const rows = shown();
+  // ⚠️ memo 와 note 는 **다른 것**이다. memo 는 성도님이 남기신 한 줄,
+  //    note 는 담당자 전용 메모다(성도님 응답에는 절대 안 실린다).
+  //    둘을 한 칸에 뭉치면 성도님이 하신 말이 사라진다 — 칸을 나눠 싣는다. 인정 사유도 함께.
+  const head = ["이름","구분","소속","목장·학년","직분","주","여섯주","인정","인정 사유",
+                "등록일","성도 메모","담당자 메모"];
+  // 줄바꿈·탭을 공백 하나로 — CSV 한 칸이 여러 줄로 깨지지 않게
+  const oneline = (v) => String(v || "").replace(/\s+/g, " ").trim();
+  const body = rows.map(r => [r.name, r.whoType, r.group, r.sub, r.position,
+    r.weeksDone ?? "", r.perfect ? "O" : "", r.excused ? "O" : "", oneline(r.excuseReason),
+    kstDate(r.at), oneline(r.memo), oneline(r.note)]);
+  const csv = [head, ...body]
+    .map(cols => cols.map(c => `"${String(c ?? "").replace(/"/g,'""')}"`).join(",")).join("\n");
+  // ⚠️ BOM 을 붙인다 — 없으면 엑셀이 한글을 깨뜨린다
+  const blob = new Blob(["﻿" + csv], { type:"text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${evPick || "event"}-명단.csv`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// 사정이 있으셨던 주를 인정 — 사유를 반드시 받는다(비우면 서버가 no-reason 으로 막는다)
+// 서버 슬러그를 사람 말로 — 담당자 화면에 영문 코드가 그대로 뜨면 무슨 일인지 모른다.
+function admErr(e){
+  if(e === "no-reason") return "사유를 적어 주세요. (공백만으로는 안 됩니다)";
+  if(e === "not-found") return "그 줄을 찾지 못했습니다. 새로고침한 뒤 다시 해 주세요.";
+  if(e === "bad-args") return "요청이 올바르지 않습니다.";
+  return e || "알 수 없는 까닭";
+}
+
+async function askExcuse(id, on){
+  const reason = on ? prompt("사유를 적어 주세요 (예: 10월 3주 입원)") : "";
+  if(on && !reason) return;
+  const d = await callApi({ action:"eventExcuse", pw:getPw(), id, excused:on, reason });
+  if(!guard(d)) return;
+  if(!d.ok){ alert("바꾸지 못했습니다 — " + admErr(d.error)); return; }
+  await load(evPick);
+}
+// 담당자 메모(askNote · eventSetNote)는 교회 어드민 줄 「고치기」로 옮겼다.
+
 // ---------- 배선 ----------
 function wire(){
   const chips = document.getElementById("ev-chips");
@@ -418,11 +507,6 @@ function wire(){
     evPick = b.getAttribute("data-id"); evQ = ""; evType = ""; evGroup = "";
     load(evPick);
   });
-
-  const save = document.getElementById("f-save");
-  if(save) save.addEventListener("click", saveEvent);
-  const nw = document.getElementById("f-new");
-  if(nw) nw.addEventListener("click", () => { evPick = ""; evRows = []; render(); });
 
   const t = document.getElementById("q-type");
   if(t) t.addEventListener("change", () => { evType = t.value; render(); });
@@ -437,6 +521,10 @@ function wire(){
   if(c) c.addEventListener("click", () => { evQ=""; evType=""; evGroup=""; render(); });
   const p = document.getElementById("q-print");
   if(p) p.addEventListener("click", () => window.print());
+  const cs = document.getElementById("q-csv");
+  if(cs) cs.addEventListener("click", downloadCsv);
+  app.querySelectorAll("[data-excuse]").forEach(b => b.addEventListener("click", () =>
+    askExcuse(Number(b.getAttribute("data-excuse")), b.getAttribute("data-on") === "1")));
   const v = document.getElementById("q-view");
   if(v) v.addEventListener("click", () => {
     evView = evView === "table" ? "group" : "table";
@@ -453,46 +541,7 @@ function wire(){
   });
 }
 
-async function saveEvent(){
-  const err = document.getElementById("f-err"), ok = document.getElementById("f-ok");
-  err.textContent = ""; ok.textContent = "";
-  // ⚠️ eventSave 는 **받은 것으로 통째로 덮어쓴다.** 화면에 안 보이는 칸(kind)도
-  //    지금 값을 그대로 실어 보내야 한다 — 안 보내면 기본값으로 되돌아간다.
-  const cur = evEvents.find(e => e.id === evPick) || {};
-  const ev = {
-    id: document.getElementById("f-id").value.trim(),
-    title: document.getElementById("f-title").value.trim(),
-    subtitle: document.getElementById("f-sub").value.trim(),
-    short_title: document.getElementById("f-short").value.trim(),
-    list_until: document.getElementById("f-until").value,
-    season: document.getElementById("f-season").value.trim(),
-    kind: cur.kind || "signup",
-    status: document.getElementById("f-status").value,
-    opens_on: document.getElementById("f-opens").value,
-    closes_on: document.getElementById("f-closes").value,
-    sort_order: Number(document.getElementById("f-order").value) || 0,
-  };
-  // 서버도 같은 것을 다시 검사한다 — 여기 검사는 성도님(담당자)께 먼저 말해 주기 위한 것.
-  if(!/^[a-z0-9][a-z0-9-]{1,40}$/.test(ev.id)){
-    err.textContent = "회차 ID 는 영문 소문자·숫자·붙임표만 씁니다 (예: summer-2026)"; return; }
-  if(!ev.title){ err.textContent = "이벤트 이름을 적어 주세요."; return; }
-  if(!ev.opens_on || !ev.closes_on){ err.textContent = "기간을 골라 주세요."; return; }
-  if(ev.closes_on < ev.opens_on){ err.textContent = "마감일이 시작일보다 앞섭니다."; return; }
-  // 명단 공개 종료일은 등록 마감일보다 앞설 수 없다 — 마감 전에 명단이 사라지면
-  // 앞뒤가 안 맞는다(등록은 받는데 명단은 안 보이는 상태).
-  if(ev.list_until && ev.list_until < ev.closes_on){
-    err.textContent = "명단 공개 종료일이 등록 마감일보다 앞섭니다."; return; }
-
-  const btn = document.getElementById("f-save");
-  const label = btn.textContent; btn.disabled = true; btn.textContent = "저장 중…";
-  const d = await callApi({ action:"eventSave", pw:getPw(), event:ev });
-  btn.disabled = false; btn.textContent = label;
-  if(!guard(d)) return;
-  if(!d.ok){ err.textContent = "저장하지 못했습니다 — " + (d.error||""); return; }
-  ok.textContent = "저장했습니다.";
-  await load(ev.id);
-  const o = document.getElementById("f-ok"); if(o) o.textContent = "저장했습니다.";
-}
+// 회차 저장(saveEvent · eventSave)은 교회 어드민 회차 설정으로 옮겼다 — 되살려도 서버가 moved-to-church-admin 을 돌려준다.
 
 logoutBtn.addEventListener("click", () => {
   sessionStorage.removeItem(PW_KEY); logoutBtn.hidden = true; renderLogin();

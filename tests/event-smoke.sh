@@ -73,11 +73,50 @@ echo "4) eventDrop - 인자가 모자라면 거부한다"
 D=$(call '{"action":"eventDrop"}')
 chk "bad-args 거부" "$(jqn 'd.get("error")' "$D")" "bad-args"
 
+echo "4-1) eventStamps - 신원·인자를 지킨다"
+P1=$(call '{"action":"eventStamps"}')
+chk "no-user 거부" "$(jqn 'd.get("error")' "$P1")" "no-user"
+P2=$(call '{"action":"eventStamps","user_id":"00000000-0000-0000-0000-000000000000"}')
+chk "bad-args 거부" "$(jqn 'd.get("error")' "$P2")" "bad-args"
+P3=$(call '{"action":"eventStamps","user_id":"00000000-0000-0000-0000-000000000000","event_id":"definitely-not-a-real-event"}')
+chk "not-found 거부" "$(jqn 'd.get("error")' "$P3")" "not-found"
+chk "user_id 를 싣지 않는다" "$(jqn '"user_id" not in json.dumps(d)' "$P3")" "True"
+
+echo "4-2) eventSignup - 클라이언트가 보낸 answers 는 저장되지 않는다"
+# 되돌이 방지용이다. 값이 날짜에 달려 있어 「실패 먼저」로 쓸 수 없다 —
+# 자격 판정의 정확한 값은 개발 DB 에서 Task 7 Step 5~6 으로 확인한다.
+G=$(call '{"action":"eventSignup","user_id":"00000000-0000-0000-0000-000000000000","event_id":"autumn-2026","answers":{"weeks":[9,9,9,9,9,9]}}')
+chk "ok=false" "$(jqn 'd.get("ok")' "$G")" "False"
+chk "지어낸 weeks 가 응답에 없다" "$(jqn '"[9, 9, 9, 9, 9, 9]" not in json.dumps(d)' "$G")" "True"
+chk "거절 슬러그가 아는 것 중 하나" "$(jqn 'd.get("error") in ("not-found","not-eligible","not-yet","closed-period","not-open")' "$G")" "True"
+chk "user_id 를 싣지 않는다" "$(jqn '"user_id" not in json.dumps(d)' "$G")" "True"
+
 echo "5) 관리자 액션은 비번 없이 열리지 않는다"
 R=$(call '{"action":"eventRoster"}')
 chk "eventRoster 거부" "$(jqn 'd.get("error") in ("unauthorized","no-password-set")' "$R")" "True"
 V=$(call '{"action":"eventSave","event":{"id":"x","title":"x","opens_on":"2026-01-01","closes_on":"2026-01-02"}}')
 chk "eventSave 거부" "$(jqn 'd.get("error") in ("unauthorized","no-password-set")' "$V")" "True"
+N1=$(call '{"action":"eventSetNote","id":1,"note":"x"}')
+chk "eventSetNote 거부" "$(jqn 'd.get("error") in ("unauthorized","no-password-set")' "$N1")" "True"
+N2=$(call '{"action":"eventExcuse","id":1,"excused":true}')
+chk "eventExcuse 거부" "$(jqn 'd.get("error") in ("unauthorized","no-password-set")' "$N2")" "True"
+
+echo "5-1) 교회 어드민으로 옮긴 쓰기 셋은 비밀번호가 맞아도 막힌다(eventRoster·eventExcuse 는 남긴다)"
+# ⚠️ eventSave·eventSetNote·eventImport 는 교회 어드민(admin.onlybible.kr 「성경필사(암송)」)으로 옮겨 얼렸다.
+#    비밀번호 확인 **바로 뒤**에서 moved-to-church-admin 을 돌려준다 — 비밀번호 없는 호출은 위 5) 처럼 그대로 unauthorized.
+#    설계 docs/superpowers/specs/2026-09-29-church-admin-bible-events-design.md §4 · docs/notes/bible-events-admin.md
+# 얼리기 전에 돌려도 아무것도 쓰지 않는 입력만 던진다 — eventSave 는 모양이 틀린 id(bad-event-id) ·
+#   eventSetNote 는 id 0(bad-args) · eventImport 는 없는 회차(not-found — 줄을 지우기 전에 멈춘다).
+if [ -z "${ADMIN_PW:-}" ]; then
+  sk "eventSave·eventSetNote·eventImport 얼림" "ADMIN_PW 환경변수가 없습니다"
+else
+  F1=$(call "{\"action\":\"eventSave\",\"pw\":\"$ADMIN_PW\",\"event\":{\"id\":\"x\",\"title\":\"x\",\"opens_on\":\"2026-01-01\",\"closes_on\":\"2026-01-02\"}}")
+  chk "eventSave 얼림" "$(jqn 'd.get("error")' "$F1")" "moved-to-church-admin"
+  F2=$(call "{\"action\":\"eventSetNote\",\"pw\":\"$ADMIN_PW\",\"id\":0,\"note\":\"x\"}")
+  chk "eventSetNote 얼림" "$(jqn 'd.get("error")' "$F2")" "moved-to-church-admin"
+  F3=$(call "{\"action\":\"eventImport\",\"pw\":\"$ADMIN_PW\",\"event_id\":\"definitely-not-a-real-event\",\"rows\":[]}")
+  chk "eventImport 얼림" "$(jqn 'd.get("error")' "$F3")" "moved-to-church-admin"
+fi
 
 echo "6) 관리자 목록(비번이 있을 때만)"
 if [ -z "${ADMIN_PW:-}" ]; then
@@ -89,6 +128,8 @@ else
   chk "events 가 배열" "$(jqn 'isinstance(d.get("events"), list)' "$RA")" "True"
   chk "rows 가 배열" "$(jqn 'isinstance(d.get("rows"), list)' "$RA")" "True"
   chk "관리자 응답에도 user_id 가 없다" "$(jqn '"user_id" not in json.dumps(d)' "$RA")" "True"
+  chk "missing 이 배열" "$(jqn 'isinstance(d.get("missing"), list)' "$RA")" "True"
+  chk "missing 에도 user_id 가 없다" "$(jqn 'all("user_id" not in m for m in d.get("missing", []))' "$RA")" "True"
 fi
 
 echo "7) 남의 경로가 멀쩡한가 (내 배포가 남의 코드도 함께 내보낸다)"

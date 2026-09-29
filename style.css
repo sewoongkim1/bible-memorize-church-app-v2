@@ -379,6 +379,78 @@ h1 {
 .med-psalm-cta:hover { background: var(--navy); color: #fff; }
 .dark .med-psalm-cta { background: #232c3f; color: #cdd9f2; border-color: #3a4a68; }
 .dark .med-psalm-cta:hover { background: #3a4a68; color: #fff; }
+/* 오늘의 찬양 — 시편 CTA 와 나란히 선다. 같은 옷을 입히고 구분은 이모지와 ↗ 가 맡는다.
+   ⚠️ 새 색을 만들지 않는다 — 색을 하나 늘릴 때마다 나머지가 그만큼 흐려진다
+      (docs/notes/home-screen.md ⑤).
+   ⚠️ white-space:nowrap 을 주지 않는다 — 바로 위 .med-psalm-cta 가 「잘리게 두느니
+      두 줄이 낫다」로 정해져 있고, 나란히 선 두 줄이 서로 다른 규칙을 따르면 안 된다.
+      곡명은 refShort 보다 길다(스냅샷 기준 최장 31자). */
+/* 오늘의 기도(2026-09-26) — 시편 바로 아래. 같은 옷, 구분은 🙏 가 맡는다. */
+.med-song-cta, .med-pray-cta {
+  display: block; width: 100%; margin: 8px 0 0; padding: 12px 10px;
+  border-radius: 12px; cursor: pointer; font-family: inherit;
+  font-size: .95rem; font-weight: 800; text-align: center;
+  background: #eef1f8; color: var(--navy); border: 1.5px solid var(--navy);
+}
+.med-song-cta:hover, .med-pray-cta:hover { background: var(--navy); color: #fff; }
+.dark .med-song-cta, .dark .med-pray-cta { background: #232c3f; color: #cdd9f2; border-color: #3a4a68; }
+.dark .med-song-cta:hover, .dark .med-pray-cta:hover { background: #3a4a68; color: #fff; }
+
+/* ===== 오늘의 찬양 — 팝업 안 재생(파사드) ===================================
+   2026-09-23 오전: 새 탭으로 나가면 아이폰 앱은 사파리로 나가 버려 돌아오기 불편하다는
+   제보로, 그림 먼저 보여 주고 누르면 그 자리에 영상을 얹는 전체 화면으로 만들었다.
+   같은 날 저녁: 성도님이 실제로 써 보신 뒤 화면 그림과 함께 **팝업(.cheer-overlay >
+   .cheer-card)** 으로 바꿔 달라 정하셨다 — 전체 화면용 .song-screen 래퍼·안전영역
+   padding-top·.home-fab 은 이제 필요 없어 뺐다(모달은 다른 창들처럼 가운데 뜬다).
+   근거·iframe 파라미터는 docs/notes/today-song.md·.superpowers/sdd/embed-task-a-brief.md·
+   .superpowers/sdd/song-modal-brief.md. */
+.song-media {
+  position: relative; width: 100%; aspect-ratio: 16 / 9;
+  background: #e7ebf3; border-radius: 16px; overflow: hidden; margin-bottom: 14px;
+}
+/* 섬네일·영상은 어두운 모드에서 유일하게 밝은 덩어리라 테두리로 바탕과 갈라 준다 */
+.dark .song-media { background: #232c3f; border: 1.5px solid #3a4a68; }
+.song-thumb { display: block; width: 100%; height: 100%; object-fit: cover; }
+.song-iframe { display: block; width: 100%; height: 100%; border: 0; }
+/* ▶ 찬양 듣기 — 연한 남색(.summary-help·.med-song-cta 와 같은 값), 그림 위에 얹는 알약 단추 */
+.song-play {
+  position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
+  padding: 12px 22px; font-size: 1rem; font-weight: 800; font-family: inherit;
+  color: var(--navy); background: #eef1f8; border: 1.5px solid var(--navy);
+  border-radius: 999px; cursor: pointer; white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(13, 27, 62, .28);
+}
+.song-play:hover { background: var(--navy); color: #fff; }
+.dark .song-play { background: #232c3f; color: #cdd9f2; border-color: #3a4a68; }
+.dark .song-play:hover { background: #3a4a68; color: #fff; }
+/* 영상이 끝난 뒤(YT onStateChange=0) — rel=0 이어도 추천 격자가 뜨므로 우리 화면으로 덮는다 */
+.song-ended {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; width: 100%; height: 100%; padding: 0 20px; box-sizing: border-box;
+}
+.song-ended .summary-help { width: 80%; max-width: 260px; margin: 0; }
+.song-name {
+  text-align: center; font-family: "Nanum Myeongjo", serif; color: var(--navy);
+  font-size: 1.12rem; font-weight: 800; margin: 0 0 4px;
+}
+.dark .song-name { color: #cdd9f2; }
+.song-meta { text-align: center; color: var(--gray); font-size: .88rem; margin-bottom: 14px; }
+/* 팝업 하단 단추 둘 — 「유튜브로」·「닫기」, 한 줄에 나란히(.med-actions 와 같은 꼴).
+   ⚠️ 새 색을 만들지 않는다 — .summary-help(연한 남색)·.cheer-ok(금색)는 이미 이 앱의
+   네 색 규칙 안에 있는 값이다(docs/notes/home-screen.md). */
+/* 오늘의 기도 전용 팝업(2026-09-26) — 기도문은 줄바꿈을 살려 읽힌다 */
+.cheer-card.bless .bless-ref { font-size: .85rem; color: #8d7531; margin: -4px 0 10px; font-weight: 700; }
+.cheer-card.bless .bless-body { white-space: pre-line; line-height: 1.8; text-align: left; }
+.dark .cheer-card.bless .bless-ref { color: #d9c27a; }
+.song-modal-actions { display: flex; gap: 8px; margin-top: 10px; }
+.song-modal-actions .summary-help,
+.song-modal-actions .cheer-ok { flex: 1; width: auto; margin-bottom: 0; }
+/* ⚠️ 「유튜브로」는 **한 줄**이어야 한다(2026-09-23 저녁 성도님 결정 — 그림으로 지목하셨다).
+   잠깐 두 줄을 허용했었다: 앞에 🎵 가 붙어 있어 320px·아주 큰 글씨에서 「유튜…」로 잘렸기 때문이다.
+   ⚠️ 그 이모지를 빼서 폭이 남았으므로 다시 한 줄로 되돌린다 — **이모지를 다시 붙이면 그때 잘린다.**
+   글자를 늘리거나 이모지를 더할 일이 생기면 320px·아주 큰 글씨에서 먼저 재 볼 것. */
+.song-modal-actions .summary-help { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 /* 이번주 묵상 요일 탭 — 일~토 한 글자로 한 줄에(제목은 아래 타이틀에 나온다) */
 .med-tabs { display: flex; gap: 4px; justify-content: center; flex-wrap: nowrap; margin: 8px 0 12px; }
 .med-tab {
@@ -453,7 +525,16 @@ h1 {
 
 /* 3단계 "이 말씀을 내 마음에 두었나이다" 체크 */
 /* 👆 단어 카드 배열 모드 — 타이핑이 어려운 성도용(정답 단어만 섞어 순서 맞추기) */
-.card-tray { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 14px 0 2px; }
+/* 쟁반을 상자로 감싼다(2026-09-26 성도님 요청) — 카드와 아래 「풀이·기억법·영어·그림」 단추가
+   모양이 비슷해 한 덩어리로 보였다. 옅은 남색 바탕 + 가는 테두리로 「누르는 낱말은 여기」를 가른다.
+   ⚠️ 새 색을 만들지 않는다 — #eef1f8 은 시편·찬양 CTA 와 같은 바탕이다(home-screen.md ⑤). */
+.card-tray {
+  display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+  margin: 14px 0 14px; padding: 14px 10px;
+  background: #eef1f8; border: 1.5px solid #cfd8e8; border-radius: 16px;
+}
+.card-tray .wcard { background: #fff; }
+.dark .card-tray { background: #1a2130; border-color: #33465f; }
 .card-tray:empty { display: none; }
 .wcard {
   padding: 12px 15px; border-radius: 12px;
@@ -2307,12 +2388,23 @@ body.native-app-hide-ref .word-input { scroll-margin-top: 90px; }
   padding: 34px 24px 24px; text-align: center;
   box-shadow: 0 6px 24px rgba(13, 27, 62, 0.08);
 }
+/* 모든 장을 한 칸에 겹친다 — 카드 높이 = 가장 긴 장. 넘겨도 카드 크기·단추 자리가 그대로다.
+   visibility:hidden 이라 숨은 장의 「따라 하기」 링크는 눌리지도, 낭독되지도 않는다. */
+.intro-stack { display: grid; }
+.intro-slide { grid-area: 1 / 1; visibility: hidden; opacity: 0; }
+.intro-slide.on { visibility: visible; opacity: 1; transition: opacity .25s ease; }
+@media (prefers-reduced-motion: reduce) { .intro-slide.on { transition: none; } }
 .intro-icon { font-size: 52px; line-height: 1; margin-bottom: 14px; }
 .intro-title {
   font-family: "Nanum Myeongjo", serif; font-weight: 800;
   font-size: 1.4rem; color: var(--navy); margin-bottom: 14px;
+  word-break: keep-all; text-wrap: balance;
 }
-.intro-body { color: #444; font-size: 0.98rem; line-height: 1.65; min-height: 110px; }
+/* keep-all: 「누/르면」처럼 낱말 가운데서 끊기지 않게 · balance: 「돼요.」 한 낱말만 넘어가지 않게 */
+.intro-body { color: #444; font-size: 0.98rem; line-height: 1.65; word-break: keep-all; text-wrap: balance; }
+.dark .intro-title { color: #cdd9f2; }
+.dark .intro-body { color: #c3ccd9; }
+.dark .intro-body b { color: #e6e9ef; }
 /* 첫 로그인 축복 인사 카드 — 스크롤 없이 한 화면에 담기도록 여백을 죈다 */
 .bless-screen { padding: 14px 0 18px; }
 .bless-card {
@@ -2339,14 +2431,16 @@ body.native-app-hide-ref .word-input { scroll-margin-top: 90px; }
 .bless-go { width: 100%; }
 
 .dark .bless-card { background: #2b2717; border-color: #8d7531; }
+.dark .bless-title { color: #e8d9a3; }
 .dark .bless-verse { background: #232012; border-color: #4a4225; color: #e8d9a3; }
 .dark .bless-ref { color: #cdbb88; }
 .dark .bless-msg { color: #e6e9ef; }
 .dark .bless-from { color: #aeb8c8; }
 
 .intro-dots { display: flex; justify-content: center; gap: 7px; margin: 18px 0 20px; }
-.intro-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); transition: background 0.15s; }
-.intro-dot.on { background: var(--navy); }
+.intro-dot { width: 8px; height: 8px; border-radius: 4px; background: var(--border); transition: width 0.2s, background 0.2s; }
+.intro-dot.on { width: 20px; background: var(--navy); }
+.dark .intro-dot.on { background: #cdd9f2; }
 .intro-nav { display: flex; gap: 10px; }
 .intro-skip {
   flex: 0 0 auto; padding: 13px 18px; border-radius: 12px;
@@ -2358,7 +2452,8 @@ body.native-app-hide-ref .word-input { scroll-margin-top: 90px; }
   background: var(--navy); color: #fff; font-weight: 700; font-size: 1.02rem;
   cursor: pointer; font-family: inherit; transition: background 0.15s;
 }
-.intro-next:hover { background: var(--navy-dark); }
+/* 손가락으로 누르면 :hover 가 그 자리에 남아 단추가 어두운 채로 있다 — 마우스에서만 */
+@media (hover: hover) { .intro-next:hover { background: var(--navy-dark); } }
 .intro-foot { margin-top: 16px; font-size: 0.78rem; color: var(--gray); }
 
 /* ---------- 도움말 화면 ---------- */
@@ -2651,6 +2746,97 @@ body.native-app-hide-ref .word-input { scroll-margin-top: 90px; }
 .rank-note.left .rn-l + .rn-l{ margin-top:5px; }
 /* 앞선 .rn-l + .rn-l 규칙(5px)보다 선택자가 길어야 2px 이 먹는다 */
 .rank-note.left .rn-l + .rn-l.rn-sub{ padding-left:1.35em; margin-top:2px; opacity:.9; }
+/* ── 「우리 교구 안에서」 범위 칩 (2026-09-23) ──────────────────────
+   설계: docs/superpowers/specs/2026-09-23-narrow-ranking-design.md ③
+   한 줄에 왼쪽 라벨(「믿음교구 5명 참여」 — .rank-more 를 흡수한다) + 오른쪽 범위 칩 두 개.
+
+   ⚠️ .rank-filter(기간 탭)를 재사용하지 않는다 — 앨범 자가점검·이어 듣기·필사 칩·
+      필사 탭·교구 순위가 나눠 쓰는 공용 클래스다. 생김새도 달라야 한다:
+      기간 탭 마지막이 「전체」라 같은 모양이면 「전체」 알약이 한 화면에 두 개가 된다.
+   ⚠️ 색으로 가르지 않는다. 이 화면의 색은 이미 뜻이 박혀 있다 —
+      금색 = 상위 3명(.rank-row.top), 초록 = 지금 함께 암송 중(.rank-row.live),
+      남색 채움 = 눌린 단추(모드 바·기간 탭·응원 칩·하단 고정 단추).
+      그래서 **모양**으로 가른다: 둥근 알약이 아니라 홈에 눌린 판이고, 고른 쪽만
+      흰 판으로 떠오른다. 새 색을 한 개도 안 만든다.
+   ⚠️ 좁은 폭 보정을 위쪽 @media (max-width:344px) 묶음에 넣지 않는다 — 그 블록이
+      파일에서 **앞**이라 특이도가 같아 아래 기본값이 이겨 버린다. 제 블록을 달고 간다.
+   ⚠️ font-family:inherit 를 뺄 수 없다 — 이 파일에는 맨 button 선택자 규칙이 없어서
+      안 쓰면 브라우저 기본 글꼴로 떨어진다. */
+.rank-scope{
+  display:flex; align-items:center; gap:8px; flex-wrap:nowrap;
+  margin:0 0 10px; padding:0 2px;
+}
+/* 남는 폭을 흡수하는 칸 — .rank-row .rk-so · .rank-head .rh-who 와 같은 방식이다.
+   라벨이 아무리 길어도 …로 줄 뿐, 줄을 늘리거나 칩을 밀어내지 못한다. */
+.rank-scope .rs-label{
+  flex:1 1 auto; min-width:0;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  font-size:.78rem; font-weight:700; color:var(--gray);
+}
+.rank-scope .rs-label b{ color:var(--navy); font-weight:800; }
+/* (c) 갈래 — 칩을 아예 안 그릴 때. 라벨만 남으면 왼쪽으로 붙어 예전 .rank-more(가운데)와
+   달라 보인다. 가운데로 되돌린다. */
+.rank-scope.rs-solo .rs-label{ text-align:center; }
+/* 홈 — 둘을 한 판에 담아 「둘 중 하나」임을 모양으로 알린다(사이에 gap 없음) */
+.rank-scope .rs-seg{
+  flex:0 0 auto; display:flex;
+  background:#eef1f8; border:1px solid #cfd8e4;
+  border-radius:9px; padding:2px;
+}
+.rank-scope .rs-seg button{
+  border:none; background:transparent; color:#5a6273;
+  border-radius:7px; padding:5px 10px;
+  font-size:.75rem; font-weight:700; line-height:1.25;
+  white-space:nowrap; cursor:pointer; font-family:inherit; transition:all .15s;
+}
+.rank-scope .rs-seg button:hover{ color:var(--navy); }
+.rank-scope .rs-seg button.on{
+  background:#fff; color:var(--navy); font-weight:800;
+  box-shadow:0 1px 3px rgba(26,58,107,.18);
+}
+/* 잠긴 칩 — disabled 가 아니라 눌린다(누르면 아래 안내 줄이 깜박여 까닭을 보여 준다) */
+.rank-scope .rs-seg button.locked{ opacity:.45; }
+.rank-scope .rs-seg button.locked:hover{ color:#5a6273; }
+.rank-scope.rs-flash .rs-label{ animation:rsFlash 1.2s ease; border-radius:6px; }
+.rank-scope .rs-why{ font-weight:600; }
+@keyframes rsFlash{
+  0%,40%{ background:rgba(26,58,107,.12); color:var(--navy); }
+  100%{ background:transparent; }
+}
+
+/* (b) 갈래 — 같은 소속이 2명 이하라 「전체」가 강제로 켜진 경우.
+   안내 문구에는 반드시 기간이 들어가므로 한 줄에 안 들어온다.
+   칩을 윗줄 오른쪽에 두고 문구를 아랫줄 통짜로 흐르게 한다.
+   ⚠️ 위 .rank-scope 의 gap:8px 은 wrap 했을 때 row-gap 으로도 쓰인다. 라벨에 margin-top 을
+      또 주면 8+6=14px 로 벌어진다 — row-gap 만 6px 로 덮는다. */
+.rank-scope.rs-note{ flex-wrap:wrap; row-gap:6px; }
+.rank-scope.rs-note .rs-seg{ order:1; margin-left:auto; }
+.rank-scope.rs-note .rs-label{
+  order:2; flex:1 1 100%;
+  white-space:normal; overflow:visible; text-overflow:clip;
+  font-weight:600; line-height:1.5; word-break:keep-all;
+}
+
+/* 아주 좁은 화면 — 위 .rank-row/.rank-head 블록과 같은 344px 선을 쓴다.
+   글자는 그대로 두고 좌우 padding 과 gap 만 덜어 라벨 칸을 넓힌다. */
+@media (max-width: 344px){
+  .rank-scope{ gap:6px; }
+  .rank-scope .rs-seg button{ padding:5px 7px; }
+  .rank-scope .rs-label{ font-size:.74rem; }
+}
+
+/* 어두운 모드.
+   ⚠️ --navy 는 .dark 에서 재정의되지 않는다(.dark{} 토큰 묶음에 --cream/--white/--light/
+      --border/--gray 다섯만 있다). var(--navy) 를 쓴 자리는 전부 여기서 되돌려야 한다.
+   --gray 는 토큰이 알아서 바뀌므로 .rs-label 본체는 손대지 않는다. */
+.dark .rank-scope .rs-label b{ color:#cdd9f2; }
+.dark .rank-scope .rs-seg{ background:#1b2436; border-color:#33405a; }
+.dark .rank-scope .rs-seg button{ color:#9aa6b8; }
+.dark .rank-scope .rs-seg button:hover{ color:#cdd9f2; }
+.dark .rank-scope .rs-seg button.locked:hover{ color:#9aa6b8; }
+.dark .rank-scope .rs-seg button.on{
+  background:#3a4a68; color:#fff; box-shadow:none;
+}
 
 /* 도전 화면 — 남은 빈칸 표시 */
 .challenge-remain{
@@ -2998,6 +3184,15 @@ html[data-fs="xl"] .remind-cta { font-size: 19px; padding: 17px; }
 html[data-fs="lg"] h1, html[data-fs="lg"] .page-title { font-size: 15px; }
 html[data-fs="xl"] h1, html[data-fs="xl"] .page-title { font-size: 17px; }
 
+/* --- 오늘의 찬양(.song-*) — 우리가 그리는 부분만. 유튜브 컨트롤 안에는 「아주 크게」가
+   안 먹혀 우리 단추를 크게 두는 것이 그 해법이다. --- */
+html[data-fs="lg"] .song-name { font-size: 1.28rem; }
+html[data-fs="xl"] .song-name { font-size: 1.42rem; }
+html[data-fs="lg"] .song-meta { font-size: .98rem; }
+html[data-fs="xl"] .song-meta { font-size: 1.08rem; }
+html[data-fs="lg"] .song-play { font-size: 1.1rem; padding: 14px 24px; }
+html[data-fs="xl"] .song-play { font-size: 1.2rem; padding: 16px 26px; }
+
 /* =====================================================================
    듣기(TTS) 버튼 크게 / 강조 — 고령 성도가 쉽게 찾도록
    ===================================================================== */
@@ -3213,7 +3408,10 @@ html[data-fs="xl"] .test-card .btn-row { row-gap: 10px; margin-bottom: 18px; pad
 /* ── 성경필사 노트 신청 ─────────────────────────────────────
    registration.html의 짜임(탭 → 입력 → 확인 → 결과)을 그대로 따르되,
    교구·목장·이름은 로그인 정보로 대신하므로 다시 묻지 않는다. */
-.pilsa-screen { padding-bottom: 72px; }
+/* 아래 고정 단추(.pl-acts.sticky)가 마지막 줄을 가리지 않도록 — .min-screen 과 같은 값.
+   ⚠️ env() 를 여백에도 넣어야 한다: 단추의 bottom 이 안전영역만큼 올라가므로
+   여백만 고정값으로 두면 아이폰에서 그만큼 가려진다. */
+.pilsa-screen { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .pilsa-sub { text-align: center; font-size: .86rem; color: #6a7688; margin: -6px 0 14px; }
 .pilsa-tab { margin-bottom: 14px; }
 
@@ -3461,15 +3659,34 @@ html[data-fs="xl"] .test-card .btn-row { row-gap: 10px; margin-bottom: 18px; pad
 .dark .summary-help.pilsa-cta { background: #1e2a44; color: #cdd9f2; border-color: #3a5680; }
 .dark .summary-help.pilsa-cta:hover { background: #3a5680; color: #fff; }
 
-/* 신청 내용 확인 — 버튼을 화면 아래에 붙여 둔다.
-   길게 훑다가 확인을 못 누르고 나가는 일을 막는다. */
-.pl-acts.sticky { position: sticky; bottom: 0; z-index: 5;
-                  margin: 18px -20px 0; padding: 12px 20px;
-                  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-                  background: var(--cream); border-top: 1px solid var(--border);
-                  box-shadow: 0 -6px 18px rgba(26, 42, 72, .07); }
-.dark .pl-acts.sticky { background: #1a2233; border-top-color: #3a4a68;
-                        box-shadow: 0 -6px 18px rgba(0, 0, 0, .28); }
+/* 신청·확인 화면의 단추 — 화면 아래에 못 박는다.
+   성경 31단위를 훑다 보면 화면이 길어져, 단추가 본문 끝에 있으면 끝까지 내려야 보인다.
+   ⚠️ position:sticky 로 두었더니 **하나도 안 붙었다**(2026-09-23 · 사역신청 .min-acts 가
+   2026-09-18에 성도님 제보로 이미 겪은 것과 같은 자리다). body 에 overflow-x:hidden 이
+   걸려 있어 body 가 스크롤 상자가 되는데, 정작 스크롤은 문서(html)가 한다 — sticky 는
+   그 body 를 기준으로 계산하니 움직일 일이 없다. 여기서는 `.pilsa-screen` 의 아래 여백
+   72px 안에서만 잠깐 붙어, 끝까지 내리기 전에는 붙는 것처럼 보이지도 않았다.
+   그래서 첫 화면 고정 단추(.home-fab)·사역신청(.min-acts)과 같이 position:fixed 로 못 박고,
+   폭은 본문과 같게 맞춘다(#app 은 max-width 600 · 좌우 여백 20).
+   아래 여백은 .pilsa-screen 이 진다(96px + 안전영역 — .min-screen 과 같은 값). */
+.pl-acts.sticky { position: fixed; left: 50%; transform: translateX(-50%); z-index: 40;
+                  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+                  width: min(560px, calc(100% - 40px));
+                  margin: 0; padding: 7px; border-radius: 14px;
+                  border: 1px solid rgba(214, 219, 230, .9);
+                  background: rgba(255, 255, 255, .94);
+                  box-shadow: 0 8px 28px rgba(26, 42, 72, .16);
+                  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+/* 막대가 두껍지 않게 — 본문 단추(14px)보다 한 단계 낮춘다(.min-acts 와 같은 12px) */
+.pl-acts.sticky .pl-act { padding: 12px 8px; }
+/* 단추가 셋(수정하기·취소·뒤로)이면 좁은 폰에서 글자가 두 줄로 접힌다 — 한 줄로 고정 */
+.pl-acts.sticky.pl-acts-3 .pl-act { padding-left: 4px; padding-right: 4px;
+                                    font-size: .82rem; white-space: nowrap; }
+.dark .pl-acts.sticky { background: rgba(27, 34, 51, .94); border-color: #3a4a68;
+                        box-shadow: 0 8px 28px rgba(0, 0, 0, .28); }
+/* 「🔄 새 버전이 나왔어요」 띠(#update-banner · position:fixed;bottom:0)가 단추를 덮는다 —
+   띠가 있는 동안만 그 높이(약 59px)만큼 올려 준다(.min-acts 와 같은 처리). */
+body:has(#update-banner) .pl-acts.sticky { bottom: calc(10px + 68px + env(safe-area-inset-bottom, 0px)); }
 
 /* 상한에 닿은 ＋ — 잠긴 듯 보이되 눌리기는 한다(왜 안 되는지 알려주려고) */
 .pl-ctl button.off { opacity: .35; }
@@ -3625,7 +3842,11 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
 /* ── 📘 사용 설명서 ────────────────────────────────────────────
    어르신이 혼자 보시는 화면이다. 다른 화면보다 한 단계씩 크게 잡고,
    누를 곳은 손가락으로 편한 크기(최소 56px)로 둔다. */
-.mn-screen { max-width: 560px; margin: 0 auto; padding: 10px 12px 40px; }
+/* 아래 여백은 고정 단추 「첫 화면으로」(.home-fab) 높이를 따른다 — 끝까지 내렸을 때
+   「다음 ▶」·「자세한 안내」가 그 밑에 깔리지 않게(.album-screen 등과 같은 값).
+   도움말 긴 글(.help-screen.with-fab)도 같은 단추를 단다. */
+.mn-screen { max-width: 560px; margin: 0 auto; padding: 10px 12px calc(96px + env(safe-area-inset-bottom, 0px)); }
+.help-screen.with-fab { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .mn-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
 .mn-title { font-size: 1.5rem; font-weight: 800; color: var(--navy); margin: 0; }
 .mn-count { font-size: 1rem; font-weight: 700; color: #6a7688; }
@@ -3655,7 +3876,6 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
   border: 1.5px solid var(--border); background: var(--cream); color: var(--navy);
   border-radius: 12px; font-size: 1rem; font-weight: 700; cursor: pointer; font-family: inherit;
 }
-.mn-help-line { text-align: center; font-size: .95rem; color: #6a7688; line-height: 1.7; word-break: keep-all; }
 
 /* 한 항목 — 한 화면에 한 가지만 */
 .mn-card { background: var(--white); border: 1.5px solid var(--border); border-radius: 16px; padding: 20px 16px; }
@@ -3794,8 +4014,10 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
 
 /* 설명서 목차 → 「화면으로 따라 하기」 (guide/) — 실제 앱 화면을 한 걸음씩 보여 주는 페이지.
    로그인이 필요 없어 설치 전에도, 로비에서 QR로도 바로 열린다. */
+/* 아래 여백 — 0 이던 때 목차 ① 칸에 바로 붙어 한 덩어리로 보였다(2026-09-21 친구 지적).
+   목차 줄 사이(.mn-toc gap 9px)보다 넉넉히 둬야 「다른 것」으로 읽힌다. */
 .mn-watch {
-  display: block; width: 100%; margin: 16px 0 0; padding: 15px; text-align: center;
+  display: block; width: 100%; margin: 16px 0 18px; padding: 15px; text-align: center;
   border-radius: 14px; text-decoration: none;
   background: var(--navy); color: #fff; border: 1.5px solid var(--navy);
   font-size: 1.08rem; font-weight: 800;
@@ -4123,7 +4345,7 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
       「앱 밖으로 나감」은 이제 ↗(.ext-mark) 혼자 말한다. 되돌릴 때 쓰라고 규칙은 남긴다. */
 .summary-help.ext-cta { background: #fff; color: var(--gray); border-color: var(--border); }
 .summary-help.ext-cta:hover { background: var(--cream); color: var(--navy); border-color: var(--navy); }
-.summary-help .ext-mark { font-size: .82rem; opacity: .7; }
+.summary-help .ext-mark, .med-song-cta .ext-mark { font-size: .82rem; opacity: .7; }
 /* 목록 단추에도 NEW 가 붙을 수 있다(내 안에 거하는 말씀이 여기로 내려왔다) */
 .summary-help { position: relative; }
 .summary-help .new-badge { position: absolute; top: 6px; right: 8px; margin: 0; }
@@ -4293,6 +4515,16 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
   display: flex; flex-direction: column; gap: 6px; padding: 0 8px; background: #fff;
 }
 .pr-acc-item.open .pr-acc-body { padding: 8px; }
+/* ⚠️ 세로 flex 안의 단추는 기본값이 flex-shrink:1 이라, 상자가 모자라면 넘치지 않고 **눌려 납작해진다**
+   (overflow:hidden 이라 글자가 반쯤 잘려 보였다 — 2026-09-25 제보). 단추는 제 높이를 지킨다. */
+.pr-acc-body > * { flex-shrink: 0; }
+/* 주제 전체 듣기 — 아래 편 단추들과 한눈에 갈리게 **남색 채움**(2026-09-25 친구 요청).
+   새 색이 아니라 바로 위 「🔊 들려주기」(.pr-speak)와 같은 색이다 — 「듣기」끼리 같은 옷을 입는다.
+   ⚠️ .summary-help 의 연한 바탕·hover 를 이겨야 하므로 두 클래스로 잡는다. */
+.summary-help.pr-group-play { font-weight: 800; color: #fff; background: var(--navy); border-color: var(--navy); }
+.summary-help.pr-group-play:hover { background: var(--navy-dark); }
+.summary-help.pr-group-play .pr-item-ref { color: var(--gold); }
+.dark .summary-help.pr-group-play { background: #26406b; border-color: #26406b; color: #fff; }
 .pr-item { text-align: left; }
 .pr-item-ref { float: right; font-weight: 600; color: var(--gray); font-size: .84rem; }
 .dark .pr-card { background: #151d2b; border-color: #6b5a2c; }
@@ -5465,3 +5697,25 @@ body:has(#update-banner) .ps-wrap.ps-home{
 /* 좁은 칸(320px 폰이면 한 칸 92px)에서 두 줄로 접히면 그 단추만 키가 커져 다시 제각각이
    된다 — 첫 화면 .ps-hn-btn 과 같이 한 줄로 못 박는다. */
 .ps-tool{white-space:nowrap}
+
+/* 가을 말씀 동행 도장판 — 색은 이벤트(금색) 계열 하나만 빌려 쓴다. 새 색을 만들지 않는다. */
+.ev-stampbox { margin: 14px 0; padding: 14px; border: 1px solid #e3e6ee; border-radius: 12px; background: #fff; }
+.ev-stamp-h { font-weight: 700; margin-bottom: 10px; }
+.ev-wks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.ev-wk { border: 1px solid #e3e6ee; border-radius: 10px; padding: 8px 6px; text-align: center; }
+.ev-wk.on { background: #fdf3d8; border-color: #c8a84b; color: #8a6a1e; }
+.ev-wk-t { font-size: 12px; opacity: .75; }
+.ev-wk-v { font-size: 20px; font-weight: 700; margin-top: 2px; }
+.ev-stamp-tail { margin-top: 12px; line-height: 1.6; }
+.ev-stamp-fine { margin-top: 10px; font-size: 13px; opacity: .7; line-height: 1.5; }
+.dark .ev-stampbox { background: #151a21; border-color: #2b323d; }
+.dark .ev-wk { border-color: #2b323d; }
+.dark .ev-wk.on { background: #2a2417; border-color: #5a4e2a; color: #dcb669; }
+
+/* 도장판 빈 주 — 조용히 둔다(굵은 0 이 넉 장이면 나무라는 것이 된다) */
+.ev-wk-v.zero { font-weight: 400; opacity: .35; }
+
+/* 이벤트 단추 안 진행 알약 — .board-new 와 같은 방식(async 로 꽂는다) */
+.summary-help .ev-pill { margin-left: 6px; padding: 1px 7px; border-radius: 999px;
+  background: #c8a84b; color: #fff; font-size: 12px; font-weight: 700; vertical-align: middle; }
+.dark .summary-help .ev-pill { background: #5a4e2a; color: #f2e4c2; }

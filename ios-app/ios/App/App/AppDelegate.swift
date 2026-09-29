@@ -49,6 +49,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         installStatusBarBackground()
         installVerseRefOverlay()
         configureNativeAppCss()
+        installAppInfoMarker()
         configureWebViewScrolling()
         startVerseRefPolling()
         DispatchQueue.main.async {
@@ -56,11 +57,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
             self.configureNativeAppCss()
+            self.installAppInfoMarker()
             self.configureWebViewScrolling()
             self.retryCachedPushTokenIfAny()
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
             self.configureNativeAppCss()
+            self.installAppInfoMarker()
             self.configureWebViewScrolling()
             self.retryCachedPushTokenIfAny()
         }
@@ -139,6 +142,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         window?.rootViewController?.presentedViewController?.dismiss(animated: true) {
             self.installStatusBarBackground()
             self.configureNativeAppCss()
+            self.installAppInfoMarker()
             self.configureWebViewScrolling()
         }
     }
@@ -250,6 +254,36 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
     }
 
+    // 앱 판 표식 — 웹(app.js)은 늘 최신인데 이 껍데기는 성도님마다 판이 다르다. 웹이 「몇 판
+    // 껍데기 안에서 도는가」를 알아야 옛 판에만 「App Store에서 업데이트해 주세요」를 띄울 수 있어,
+    // window.GOCHEOK_APP = {platform, version, build} 를 심는다(받는 쪽: js/push.js 의 nativeAppInfo).
+    // 값은 Info.plist 에서 읽는다 — MARKETING_VERSION 과 Codemagic 이 올린 빌드 번호가 그대로 오므로
+    // 손으로 맞출 곳이 없다. ⚠️ 이 표식이 없는 앱 = 이 코드가 들어가기 전 판(1.1.0 이하).
+    private var appInfoScriptInstalled = false
+
+    private func installAppInfoMarker() {
+        guard let bridgeVC = window?.rootViewController as? CAPBridgeViewController,
+              let webView = bridgeVC.webView else { return }
+        let info = Bundle.main.infoDictionary ?? [:]
+        // JS 문자열에 그대로 끼워 넣으므로 숫자와 점만 남긴다
+        let digitsOnly: (Any?) -> String = { value in
+            String(((value as? String) ?? "").filter { $0.isASCII && ($0.isNumber || $0 == ".") })
+        }
+        let version = digitsOnly(info["CFBundleShortVersionString"])
+        let build = digitsOnly(info["CFBundleVersion"])
+        let js = "window.GOCHEOK_APP={platform:'ios',version:'\(version)',build:'\(build)'};"
+            + "try{window.dispatchEvent(new Event('gocheok-app'))}catch(e){}"
+        if !appInfoScriptInstalled {
+            appInfoScriptInstalled = true
+            // 앞으로 열리는 모든 문서(위젯으로 연 주소·첫 로그인 뒤 다시 여는 것 포함)에 문서 시작 때 심는다
+            webView.configuration.userContentController.addUserScript(
+                WKUserScript(source: js, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+            )
+        }
+        // 앱을 켤 때 이미 열리기 시작한 첫 문서는 위 스크립트를 놓쳤을 수 있다 — 지금 문서에도 바로 심는다
+        webView.evaluateJavaScript(js)
+    }
+
     private func configureWebViewScrolling() {
         guard let rootView = window?.rootViewController?.view else { return }
         disableBounce(in: rootView)
@@ -347,6 +381,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         installStatusBarBackground()
         installVerseRefOverlay()
         configureNativeAppCss()
+        installAppInfoMarker()
         configureWebViewScrolling()
         startVerseRefPolling()
         // 등록 시점엔 로그인 전이라 저장이 안 됐을 수 있다 — 앱을 열 때마다 재시도해서,

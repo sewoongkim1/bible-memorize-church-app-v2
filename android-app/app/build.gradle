@@ -20,6 +20,14 @@ plugins {
     id 'com.android.application'
 }
 
+// 정식판 서명 — 값은 git 밖의 keystore.properties 에만 있다(저장소 공개 · 사이트가 저장소 전체를 배포한다).
+// 한글 경로라 UTF-8 로 읽는다. 파일이 없으면 서명 없이 뽑힌다(시험판·빌드 확인은 그대로 된다).
+def keystoreProps = new Properties()
+def keystorePropsFile = rootProject.file("keystore.properties")
+if (keystorePropsFile.exists()) {
+    keystorePropsFile.withReader("UTF-8") { keystoreProps.load(it) }
+}
+
 def twaManifest = [
     applicationId: 'kr.onlybible.gocheok.memorize',
     hostName: 'gocheok.onlybible.kr', // The domain being opened in the TWA.
@@ -59,7 +67,7 @@ android {
     // 두 벌(설계 ③): 시험판은 이름·패키지가 달라 플레이스토어 앱 옆에 따로 깔린다 → 테스터 시계를 안 건드린다.
     //   ./gradlew assembleDevDebug                         시험판(오늘 날짜)
     //   ./gradlew assembleDevDebug -PwidgetDate=2026-04-20  시험판(그날로 보기 — 가장 긴 글 확인용)
-    //   ./gradlew bundleProdRelease                         정식판(9/27 이후, 계획 Task 8)
+    //   ./gradlew bundleProdRelease                         정식판(서명은 keystore.properties · 계획 Task 8)
     flavorDimensions "channel"
     productFlavors {
         prod {
@@ -71,6 +79,10 @@ android {
             applicationIdSuffix ".dev"
             resValue "string", "appName", "성경암송 시험"
             resValue "string", "launcherName", "성경암송 시험"
+            // ⚠️ 파일 공유 부품 이름도 갈라야 한다 — defaultConfig 가 twaManifest.applicationId(정식 패키지)로
+            //    만들어서, 그대로 두면 플레이스토어 앱이 깔린 폰에 INSTALL_FAILED_CONFLICTING_PROVIDER 로
+            //    설치가 막힌다(2026-09-21 친구 폰에서 실제로 막혔다).
+            resValue "string", "providerAuthority", "kr.onlybible.gocheok.memorize.dev.fileprovider"
             buildConfigField "String", "WIDGET_DATE", "\"${project.findProperty('widgetDate') ?: ''}\""
         }
     }
@@ -81,8 +93,10 @@ android {
         applicationId "kr.onlybible.gocheok.memorize"
         minSdkVersion 23
         targetSdkVersion 36
-        versionCode 1
-        versionName "1"
+        // 판 번호 — 지금 스토어에 있는 것은 PWABuilder 로 뽑은 versionCode 1 · 「1.0.0.0」(old-app/badging.txt).
+        // 위젯 판이 2 · 1.1.0(2026-09-30 · 아이폰 위젯 판 이름과 맞춤). 올릴 때마다 versionCode 를 하나씩 올린다.
+        versionCode 2
+        versionName "1.1.0"
 
         // The name for the application
         resValue "string", "appName", twaManifest.name
@@ -174,9 +188,22 @@ android {
 
         
     }
+    signingConfigs {
+        release {
+            if (keystorePropsFile.exists()) {
+                storeFile file(keystoreProps['storeFile'])
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled true
+            if (keystorePropsFile.exists()) {
+                signingConfig signingConfigs.release
+            }
         }
     }
     compileOptions {
@@ -236,6 +263,10 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.json:json:20240303'
 
-        implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.6.2'
+        // 2.7.3(2026-09-30 올림) — Play Console 「다음 출시 버전을 위한 발견 항목」 둘(안드로이드 15 더 넓은 화면 ·
+        // 지원 중단된 창 API)은 우리 코드가 아니라 2.6.2 의 스플래시가 Window.setStatusBarColor·setNavigationBarColor 를
+        // 부른 것이었다. 2.7.x 는 LauncherActivity 가 WindowCompat.enableEdgeToEdge 를 부르고 스플래시를 EdgeToEdgeController 로
+        // 그리며, 옛 API 는 WebViewFallbackActivity 에서 안드로이드 14 이하일 때만 부른다(javap 로 확인).
+        implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.7.3'
     
 }

@@ -46,19 +46,39 @@ function getApnsKey(): Promise<CryptoKey> {
   return apnsKeyPromise;
 }
 
+// APNs provider token — ⚠️ **기기마다 새로 만들면 안 된다.**
+//   애플은 이 토큰을 20분에 한 번보다 자주 갱신하면 거절한다(403 TooManyProviderTokenUpdates).
+//   예전에는 sendApns 가 기기마다 이 함수를 불러, 13대에 연달아 보내면 몇 초 안에 토큰
+//   13개를 만들었다 — 그래서 아이폰 알림이 통째로 막혔다.
+//   (2026-09-24 발견: 8일간 sent 가 36에 붙박이인데 failed 가 iOS 토큰 수와 정확히 같았다.
+//    한 통짜리 시험 발송은 토큰을 하나만 만들어 통과했기 때문에 오래 안 보였다.)
+//   토큰 유효기간은 최대 1시간이므로 45분만 쓴다.
+//   ⚠️ Edge Function 은 요청마다 새 아이소레이트일 수 있다 — 그래도 **한 번의 발송 안에서**
+//      13대가 같은 토큰을 쓰는 것이 핵심이고, 그 자리가 바로 막히던 곳이다.
+let apnsJwtCache: { token: string; at: number } | null = null;
+const APNS_JWT_TTL_MS = 45 * 60 * 1000;
+
 async function apnsJwt(): Promise<string> {
+  const now = Date.now();
+  if (apnsJwtCache && now - apnsJwtCache.at < APNS_JWT_TTL_MS) return apnsJwtCache.token;
   const header = base64url(new TextEncoder().encode(JSON.stringify({ alg: "ES256", kid: APNS_KEY_ID })));
-  const payload = base64url(new TextEncoder().encode(JSON.stringify({ iss: APNS_TEAM_ID, iat: Math.floor(Date.now() / 1000) })));
+  const payload = base64url(new TextEncoder().encode(JSON.stringify({ iss: APNS_TEAM_ID, iat: Math.floor(now / 1000) })));
   const key = await getApnsKey();
   const sig = await crypto.subtle.sign(
     { name: "ECDSA", hash: "SHA-256" }, key, new TextEncoder().encode(`${header}.${payload}`),
   );
-  return `${header}.${payload}.${base64url(new Uint8Array(sig))}`;
+  const token = `${header}.${payload}.${base64url(new Uint8Array(sig))}`;
+  apnsJwtCache = { token, at: now };
+  return token;
 }
 
 // 반환: "ok"(발송 성공) | "gone"(토큰이 더 이상 유효하지 않음 — 표에서 지워야 함) | "error"(그 외)
-async function sendApns(deviceToken: string, title: string, body: string): Promise<"ok" | "gone" | "error"> {
-  if (!APNS_READY) return "error";
+//   out 을 주면 out.reason 에 **왜 실패했는지**를 담아 준다(예: "403 TooManyProviderTokenUpdates").
+//   ⚠️ 기기 토큰이나 user_id 는 담지 않는다 — 이유 문자열만.
+async function sendApns(
+  deviceToken: string, title: string, body: string, out?: { reason?: string },
+): Promise<"ok" | "gone" | "error"> {
+  if (!APNS_READY) { if (out) out.reason = "apns-not-configured"; return "error"; }
   try {
     const jwt = await apnsJwt();
     const res = await fetch(`https://api.push.apple.com/3/device/${deviceToken}`, {
@@ -73,9 +93,15 @@ async function sendApns(deviceToken: string, title: string, body: string): Promi
     });
     if (res.ok) return "ok";
     const j = await res.json().catch(() => ({} as any));
+    if (out) out.reason = `${res.status} ${j.reason ?? "?"}`;
+    // ⚠️ 토큰이 죽었다는 신호일 때만 "gone" 이다. 그 밖(403·400 등)은 표를 건드리지 않는다 —
+    //    2026-09-24 에 13개가 전부 "error" 라 안 지워진 것이 원인을 좁히는 단서였다.
     if (res.status === 410 || j.reason === "BadDeviceToken" || j.reason === "Unregistered") return "gone";
     return "error";
-  } catch (_) { return "error"; }
+  } catch (e: any) {
+    if (out) out.reason = `throw ${(e && e.message ? e.message : String(e)).slice(0, 60)}`;
+    return "error";
+  }
 }
 
 // 진단용 — testPush(diag:true)가 원인을 그대로 보게 해 준다(JWT/인증 문제인지, 그냥 가짜
@@ -110,6 +136,15 @@ const db = createClient(
 );
 
 const REVIEW_DAYS = [3, 7, 14, 30, 60]; // 복습(Leitner) 간격(일)
+// 시편 구절 번호 = 1000 + day_no. 앱(js/psalm.js 의 PSALM_NO_BASE)과 **같은 이름·같은 값**이라야
+// 한쪽만 바뀔 때 눈에 띈다. 쓸 곳이 늘면 isPsalmNo() 를 같이 쓴다.
+const PSALM_NO_BASE = 1000;
+// ⚠ 쉴만한 물가(시편)는 **복습에 넣지 않는다**(성도님 결정 2026-09-13). 앱은
+//   dueReviewNos() 에서 걸러 내지만 **서버가 안 걸러 예약을 계속 만들었다** —
+//   화면엔 안 보이니 아무도 모른 채 reviews 에 41행(13명)이 쌓였고,
+//   review_metrics.sql ③④(복습대상·밀린건수)가 그만큼 부풀어 나왔다(2026-09-23).
+//   지우기만 하면 로그인 한 번에 되살아난다 — 아래 두 자리를 함께 막는다.
+function isPsalmNo(no: any) { return Number(no) > PSALM_NO_BASE; }
 // 같은 구절이라도 한글과 영어는 서로 다른 암송 — 진도를 따로 센다
 const progLang = (v: unknown) => (String(v ?? "") === "en" ? "en" : "ko");
 const KST = "+09:00";
@@ -415,6 +450,7 @@ Deno.serve(async (req) => {
       case "clearChatCache": return json(await clearChatCache(body));
       case "getBlessings":        return json(await getBlessings());
       case "blessingLog":         return json(await blessingLog(body));
+      case "featureLog":          return json(await featureLog(body));
       case "getPassages":         return json(await getPassages());
       case "savePassage":         return json(await savePassage(body));
       case "deletePassage":       return json(await deletePassage(body));
@@ -428,6 +464,7 @@ Deno.serve(async (req) => {
       case "savePush":      return json(await savePush(body));
       case "saveIosPushToken": return json(await saveIosPushToken(body));
       case "updateIosPushHour": return json(await updateIosPushHour(body));
+      case "updatePushEvening": return json(await updatePushEvening(body));
       case "removePush":    return json(await removePush(body));
       case "removePushByUser": return json(await removePushByUser(body));
       case "testPush":      return json(await testPush(body));
@@ -441,9 +478,12 @@ Deno.serve(async (req) => {
       case "pushSubscribers": return json(await pushSubscribers(body));
       case "sendPush":      return json(await sendPush(body));
       case "weeklyVersePush": return json(await weeklyVersePush(body));
+      case "eveningPush":   return json(await eveningPush(body));
       case "getWeeklyVerse":     return json(await getWeeklyVerseForWidget(body));   // 위젯 — 앱과 같은 한국 날짜 기준
       case "getTodayMeditation": return json(await getTodayMeditation(body));        // 위젯 — 오늘의 묵상
       case "getTodayBlessing":   return json(await getTodayBlessing(body));          // 위젯 — 오늘의 축복 기도문
+      case "getTodaySong":       return json(await getTodaySong(body));            // 오늘의 찬양 — 하루 한 곡
+      case "logSongClick":       return json(await logSongClick(body));            // 오늘의 찬양 단추를 누른 횟수
       // ---- 장애 모니터링 ----
       case "monitor":       return json(await monitor(body));
       // ---- 주간 리포트 메일 ----
@@ -458,9 +498,12 @@ Deno.serve(async (req) => {
       //     (퀴즈형, app_config('event') + event_entries)다. 이름이 비슷하지만
       //     표도 흐름도 다르다 — 섞지 말 것.
       case "eventOpenList": return json(await eventOpenList(body));
+      case "eventStamps":   return json(await eventStamps(body));
       case "eventSignup":   return json(await eventSignup(body));
       case "eventDrop":     return json(await eventDrop(body));
       case "eventRoster":   return json(await eventRoster(body));
+      case "eventSetNote":  return json(await eventSetNote(body));
+      case "eventExcuse":   return json(await eventExcuse(body));
       case "eventSave":     return json(await eventSave(body));
       case "eventImport":   return json(await eventImport(body));
       case "eventRosterPublic": return json(await eventRosterPublic(body));
@@ -480,12 +523,14 @@ Deno.serve(async (req) => {
       case "ministryPaperCheck": return json(await ministryPaper(body, false));
       case "ministryPaperSave":  return json(await ministryPaper(body, true));
       case "ministrySetStatus":return json(await ministrySetStatus(body));
+      case "ministryDelete":   return json(await ministryDelete(body));
       case "ministryCatalogSave": return json(await ministryCatalogSave(body));
       case "ministryCatalogOrder": return json(await ministryCatalogOrder(body));
       case "ministryAdmins":     return json(await staffAdmins({ ...body, role: "ministry" }));      // 담당자 명단(관리자만)
       case "ministryAdminsSave": return json(await staffAdminsSave({ ...body, role: "ministry" }));  // 한 분씩 추가·빼기(관리자만)
       case "staffAdmins":        return json(await staffAdmins(body));       // 역할별 명단(관리자만 · role)
       case "staffAdminsSave":    return json(await staffAdminsSave(body));
+      case "internalMinistryNotify": return json(await internalMinistryNotify(req, body));  // church-admin 전용(x-internal-key)
 
       // ---- 순위 응원 ----
       case "rankCheer":     return json(await rankCheer(body));
@@ -646,6 +691,30 @@ async function updateIosPushHour(b: any) {
   return { ok: true, hour, updated: (data ?? []).length > 0 };
 }
 
+// ---------- updatePushEvening: 저녁 알림만 켜고 끄기 (2026-09-23, 0판) ----------
+// ⚠️ 저녁 on/off 는 **사람 단위**다 — 시각(hour)이 기기 단위인 것과 다르다.
+//    한 분이 웹과 아이폰을 함께 쓰시면 저녁은 둘 다 같이 꺼지는 것이 자연스럽다.
+// ⚠️ 응답에 user_id 를 싣지 않는다(이 API 는 JWT 가 없다).
+// ⚠️ evening 칸이 아직 없는 DB(함수가 먼저 올라간 순간)에서도 죽지 않아야 한다 —
+//    savePush 의 hour 폴백과 같은 까닭이다. 그때는 ok:true, migrated:false 로 돌려준다.
+async function updatePushEvening(b: any) {
+  if (!b.user_id) return { ok: false, error: "no-user" };
+  const on = b.on !== false;   // 기본은 켜짐 — 빠뜨린 호출이 사람을 조용히 끄면 안 된다
+  let web = 0, ios = 0, migrated = true;
+  const hit = async (table: string) => {
+    const { data, error } = await db.from(table)
+      .update({ evening: on }).eq("user_id", b.user_id).select("id");
+    if (error) {
+      if (/evening/i.test(String(error.message || ""))) { migrated = false; return 0; }
+      throw error;
+    }
+    return (data ?? []).length;
+  };
+  web = await hit("push_subscriptions");
+  ios = await hit("ios_push_tokens");
+  return { ok: true, on, web, ios, migrated };
+}
+
 // DB verses에서 '이번 주(=오늘 기준 최신) 말씀'을 읽어 {ref,text} 반환.
 // prev: 직전 주 말씀(같은 형태) — 매일 묵상이 월~일 주기라 일요일엔 이걸 써야 해서 함께 반환.
 async function latestVerse(): Promise<{ no: number | null; ref: string; text: string; prev: { no: number | null; ref: string; text: string } | null } | null> {
@@ -700,8 +769,11 @@ function ymdDayNumber(ymd: string): number {
 type WidgetVerse = { no: number | null; ref: string; text: string };
 
 // 이번 주 구절 — 앱 getWeeklyVerseInfo 와 같은 기준(한국 **날짜**).
-//   ⚠️ latestVerse() 는 시각(UTC 자정)으로 골라 구절이 바뀌는 날 0~9시에 앱과 달랐다.
-//      아침 알림 등 latestVerse() 를 쓰는 기존 경로는 그대로 둔다(범위 밖).
+//   ⚠️ 2026-09-23 정정 — 「latestVerse() 는 UTC 자정으로 골라 앱과 달랐다」는 **틀린 말이었다**.
+//      verses.date 가 항상 KST 자정 순간이라 Date.parse 비교도 KST 자정에 넘어간다(2,232시간 대조·불일치 0건).
+//      ⚠️ 그래도 latestVerse() 를 이 함수로 갈아끼우지 말 것 — 이 함수는 날짜 없는 구절을 「오늘 것」으로
+//      보므로(아래 dayOf), 주일 아침 weeklyVersePush 가 아직 시작 안 한 구절을 전체 구독자에게 뿌린다.
+//      읽을 것: docs/superpowers/specs/2026-09-23-evening-push-design.md 맨 앞 절.
 //   ⚠️ 날짜가 없는 구절은 **그날(ymd)로 본다** — 앱의 kstDayNumber(null) 이 「오늘」을 돌려주기 때문이다
 //      (날짜 없이 먼저 들어온 구절을 앱은 곧바로 이번 주 말씀으로 보인다 — 2026-09-20 에 38번이 그랬다). 앱과 같게.
 async function weeklyVerseKst(ymd: string): Promise<{ cur: WidgetVerse; prev: WidgetVerse | null } | null> {
@@ -854,7 +926,53 @@ async function getTodayBlessing(b: any) {
   // 한국 시간 폰에서는 (그날 UTC 날수 − 1) 이 된다. 성도님 폰은 한국 시간이므로 그 값에 맞춘다.
   const i = (((ymdDayNumber(ymd) - 1) % n) + n) % n;
   const x = blessings[i];
-  return { ok: true, date: ymd, no: x.no, title: x.title, ref: x.ref, prayer: blessFill(x.prayer, BLESS_WIDGET_NAME) };
+  // tpl — 이름 토큰을 채우지 않은 원문(2026-09-26). 앱의 매일 묵상 「🙏 기도」 팝업이 로그인 이름으로
+  //   prayFill 한다. 위젯은 이 칸을 읽지 않는다(prayer 가 그대로 「우리 가족」).
+  return { ok: true, date: ymd, no: x.no, title: x.title, ref: x.ref, prayer: blessFill(x.prayer, BLESS_WIDGET_NAME), tpl: x.prayer };
+}
+
+// ---------- 오늘의 찬양 (2026-09-23) ----------
+//   찬양 아카이브의 songs 표를 **읽기 전용**으로 걸러(v2_song_pool) 하루 한 곡을
+//   daily_song 에 적는다. 고르는 규칙은 SQL 쪽에 있다 — supabase/daily_song.sql.
+//   ⚠️ **date 입력을 열지 않는다.** 위젯 셋(getWeeklyVerse·getTodayMeditation·
+//      getTodayBlessing)은 widgetYmd(b) 로 date 를 받지만 그건 **읽기 전용**이라
+//      안전했다(index.ts:644 주석). 이건 **쓰는** 액션이라, 같은 입력을 베끼면 인증 없는
+//      호출 한 줄로 365일치 행을 미리 박아 성도님이 볼 곡을 태울 수 있다.
+//      시험은 개발 DB 에 SQL 로 행을 넣어 한다.
+//   ⚠️ 표·뷰·함수가 없거나 후보가 0이면 **오류가 아니라** { ok:true, song:null } 이다.
+//      개발 DB 에는 songs 표가 아예 없고(PGRST205), 이 값을 기다리는 곳이 매일 묵상
+//      팝업이라 여기서 던지면 **묵상 창이 통째로 안 뜬다.**
+async function getTodaySong(_b: any) {
+  const day = kstDay(new Date().toISOString());
+  try {
+    const { data, error } = await db.rpc("v2_today_song", { p_day: day });
+    if (error) return { ok: true, song: null };
+    const row = (data ?? [])[0];
+    if (!row) return { ok: true, song: null };
+    return {
+      ok: true,
+      song: {
+        id: row.id, song: row.song, choir: row.choir,
+        svc_date: row.svc_date, duration: row.duration, thumbnail: row.thumbnail,
+      },
+    };
+  } catch { return { ok: true, song: null }; }
+}
+
+// 단추를 누른 것만 센다(재생 자체는 찬양 앱의 logPlay 가 이미 센다).
+//   ⚠️ 응답에 user_id 를 싣지 않는다. 실패해도 조용히 ok 로 돌려준다 — 이걸로
+//      성도님 화면이 막히면 안 된다.
+async function logSongClick(b: any) {
+  const uid = String(b.user_id || "");
+  const sid = String(b.song_id || "");
+  if (!uid || !sid) return { ok: true };
+  // ⚠️ 열람 기록 **통합 표**에 쌓는다(supabase/feature_log.sql · 다른 세션이 2026-09-23 에 만들었다).
+  //    표를 따로 만들지 않는다 — 그 표가 바로 이런 중복을 없애려고 생긴 것이고,
+  //    member_merge.sql 의 계정 합치기 목록에도 이미 들어가 있다.
+  //    ⚠️ 그 세션이 통합 액션(logFeature)을 내놓으면 **이 액션을 지우고** 그걸 쓴다.
+  //       그때까지는 FEATURES 배열(그쪽 코드)을 건드리지 않으려고 따로 둔다.
+  try { await db.rpc("v2_feature_log", { uid, f: "song", n: 0 }); } catch { /* 조용히 */ }
+  return { ok: true };
 }
 
 // 매일 아침 푸시 문구 — 오늘의 묵상(요일별) 뒤에 이번주 말씀을 붙인다.
@@ -1014,6 +1132,60 @@ async function pushStats(b: any) {
   return { ok: true, total: rows.length, byHour };
 }
 
+// ── 저녁 알림 옵션 — 순수 함수 (여기부터) ──
+// ⚠️ 이 구간은 **타입 표기 없이** 쓴다. tests/send-push-opts.test.cjs 가 두 표식 사이만 잘라
+//    node:vm 으로 돌린다(꾸러미 없이 — tools/preflight.py 가 배포 앞 그물에 건다).
+//    타입 표기를 하나라도 더하면 그 검사가 깨지고, 검사가 먼저 알려 준다.
+//    (그래서 이 주석에도 표기를 예로 적지 않는다 — 가드 정규식이 주석까지 본다.)
+function buildOnlySet(only) {
+  // ⚠️ **빈 배열은 「아무에게도」다.** `only && only.length` 로 쓰면 모두가 오늘 참여한 날
+  //    전 구독자에게 저녁 알림이 나간다. 안 넘겼을 때(null)와 반드시 갈라야 한다.
+  if (!Array.isArray(only)) return null;
+  return new Set(only.map(function (u) { return String(u); }));
+}
+function keepUser(onlySet, uid) {
+  return !onlySet || onlySet.has(String(uid));
+}
+function pickMessage(userBodies, uid, title, body) {
+  // ⚠️ userBodies 에 없는 사람이 대부분이다 — 옵셔널로 읽어 TypeError 를 막는다.
+  //    여기서 터지면 sendPush 가 통째로 빠져나가 아침 알림이 일부만 나가고 로그도 안 남는다.
+  var m = (userBodies && typeof userBodies === "object") ? userBodies[String(uid)] : null;
+  return {
+    title: (m && m.title) || title || "성경말씀 암송",
+    body: (m && m.body) || body || "오늘의 말씀을 암송해요! 🙌",
+  };
+}
+// ── 저녁 알림 옵션 — 순수 함수 (여기까지) ──
+
+// ── 저녁 알림 문구 — 순수 함수 (여기부터) ──
+// ⚠️ 이 구간도 **타입 표기 없이** 쓴다. tests/evening-push.test.cjs 가 두 표식 사이만 잘라
+//    돌린다(꾸러미 없이 — tools/preflight.py 가 배포 앞 그물에 건다).
+//    주석에도 표기를 예로 적지 않는다 — 가드 정규식이 주석까지 본다.
+//
+// ⚠️ 문구 규칙 둘. 둘 다 이유가 있다.
+//   ① **「만」을 쓰지 않는다.** 첫 화면이 일부러 피한 표현이다 — 3구절은 상한이 아니라 묶음이고,
+//      다 하면 앱이 곧장 「3구절 더 하기」를 내민다. 「3구절만」은 그 결정을 되돌린다.
+//   ② **부정 전제를 쓰지 않는다**(「오늘 아직 못 하셨죠」 따위). 저녁 8시에 보내는데
+//      22시에 늘 하시는 분이 적지 않다 — 그분들께는 사실이 아닌 말이 된다.
+function eveningMessage(dueCount, verseLine) {
+  var n = Number(dueCount);
+  if (!(n >= 1)) {
+    // 밀린 복습이 없는 분 — 이번 주 말씀을 한 줄 드린다.
+    return {
+      title: "📖 오늘의 말씀",
+      body: verseLine || "오늘도 말씀 한 구절 마음에 새겨 보세요 🙌",
+    };
+  }
+  // 한 번에 하는 묶음이 3구절이라, 그보다 많이 밀렸어도 3으로 말한다 —
+  // 적체 숫자(평균 13.7)를 보이면 벽처럼 느껴진다.
+  var k = n < 3 ? n : 3;
+  return {
+    title: "🔁 복습이 기다려요",
+    body: "외운 말씀 " + k + "구절 다시 만나 보실래요?",
+  };
+}
+// ── 저녁 알림 문구 — 순수 함수 (여기까지) ──
+
 async function sendPush(b: any) {
   const err = adminError(b); if (err) return { ok: false, error: err };
   let title = b.title, body = b.body;
@@ -1023,16 +1195,20 @@ async function sendPush(b: any) {
     const c = await dailyPushContent();
     if (c) { title = c.title; body = c.body; }
   }
+  // 저녁 알림용 — only(이 사람들에게만) · userBodies(사람마다 다른 문구).
+  // ⚠️ 기존 호출자(아침 크론 넷·주일 발송·관리자 수동·monitor diag)는 둘 다 안 넘긴다.
+  //    그때는 onlySet 이 null 이라 아무도 안 걸러지고, 문구도 지금과 똑같다.
+  const onlySet = buildOnlySet(b.only);
+  const pushUrl = b.url || "https://gocheok.onlybible.kr/";
+
   // hour 지정 시 그 시간을 고른 구독자에게만(시간대별 cron), user_id 지정 시 그 성도 기기에만(개별 테스트 발송), 둘 다 없으면 전체(관리자 수동 발송)
-  let subQ = db.from("push_subscriptions").select("id,endpoint,p256dh,auth");
+  let subQ = db.from("push_subscriptions").select("id,endpoint,p256dh,auth,user_id");
   if (b.hour) subQ = subQ.eq("hour", Number(b.hour));
   if (b.user_id) subQ = subQ.eq("user_id", b.user_id);
-  const { data: subs } = await subQ;
-  const payload = JSON.stringify({
-    title: title || "성경말씀 암송",
-    body: body || "오늘의 말씀을 암송해요! 🙌",
-    url: b.url || "https://gocheok.onlybible.kr/",
-  });
+  const { data: subsRaw } = await subQ;
+  // ⚠️ 거르기는 JS 로 한다 — .in() 에 uuid 수백 개를 실으면 쿼리스트링 길이에 걸린다.
+  //    구독자는 34명뿐이라 전부 읽어도 싸다.
+  const subs = ((subsRaw ?? []) as any[]).filter((s) => keepUser(onlySet, s.user_id));
   let sent = 0, failed = 0;
   const errs: string[] = [];
   const vapidReady = !!(VAPID_PUBLIC && VAPID_PRIVATE);
@@ -1040,9 +1216,12 @@ async function sendPush(b: any) {
     let ok = false, lastCode: any = null, lastMsg = "";
     for (let attempt = 1; attempt <= 2; attempt++) {   // 일시적 오류 대비 1회 재시도
       try {
+        // ⚠️ 함수 스코프 title/body 를 **덮지 않는다** — 덮으면 루프 뒤의 iOS 발송과
+        //    push_log 가 마지막 구독자의 개인 문구로 오염된다.
+        const m = pickMessage(b.userBodies, s.user_id, title, body);
         await webpush.sendNotification(
           { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-          payload,
+          JSON.stringify({ title: m.title, body: m.body, url: pushUrl }),
         );
         ok = true; break;
       } catch (e: any) {
@@ -1058,20 +1237,32 @@ async function sendPush(b: any) {
     else { failed++; if (errs.length < 3) errs.push(`[${lastCode || "ERR"}] ${lastMsg}`); }
   }
   // ---- iOS 네이티브 푸시(APNs) — 같은 hour/user_id 필터로 함께 보낸다 ----
-  let iosQ = db.from("ios_push_tokens").select("id,device_token");
+  // ⚠️ **발송 루프는 둘이다.** 웹만 고치면 아이폰 쓰시는 분은 오늘 다 하셨어도 저녁 알림을
+  //    받고, 그것도 남의 복습 개수로 받는다. 2026-09-23 리뷰가 잡은 자리다.
+  const iosWhy: Record<string, number> = {};   // 거절 이유별 건수 — push_log.note 로 나간다
+  let iosQ = db.from("ios_push_tokens").select("id,device_token,user_id");
   if (b.hour) iosQ = iosQ.eq("hour", Number(b.hour));
   if (b.user_id) iosQ = iosQ.eq("user_id", b.user_id);
-  const { data: iosTokens } = await iosQ;
+  const { data: iosRaw } = await iosQ;
+  const iosTokens = ((iosRaw ?? []) as any[]).filter((t) => keepUser(onlySet, t.user_id));
   for (const t of (iosTokens ?? []) as any[]) {
-    const r = await sendApns(t.device_token, title || "성경말씀 암송", body || "오늘의 말씀을 암송해요! 🙌");
+    const m = pickMessage(b.userBodies, t.user_id, title, body);
+    const o: { reason?: string } = {};
+    const r = await sendApns(t.device_token, m.title, m.body, o);
     if (r === "ok") sent++;
     else {
       failed++;
       if (r === "gone") await db.from("ios_push_tokens").delete().eq("id", t.id);
-      if (errs.length < 3) errs.push(`[ios:${r}] ${t.device_token.slice(0, 8)}…`);
+      // ⚠️ 이유를 세어 둔다(토큰은 담지 않는다). 아래 push_log.note 로 나간다 —
+      //    이것이 없어서 아이폰 13분이 8일 동안 못 받는 걸 아무도 몰랐다.
+      const why = o.reason || r;
+      iosWhy[why] = (iosWhy[why] || 0) + 1;
+      if (errs.length < 3) errs.push(`[ios:${r}] ${o.reason || ""}`.trim());
     }
   }
-  const total = (subs ?? []).length + (iosTokens ?? []).length;
+  // ⚠️ 거른 **뒤** 수다 — 안 그러면 「보내지도 않은 사람」이 total 에 들어가
+  //    monitor 의 `total>0 && sent===0` 판정이 어긋난다.
+  const total = subs.length + iosTokens.length;
   // 진단 모드: 실제 에러/설정 상태를 반환(관리자 호출 시에만 노출)
   if (b.diag) return { ok: true, sent, failed, total, vapidReady, vapidSubject: VAPID_SUBJECT, errors: errs };
   // 장애 모니터링용 발송 로그 기록(실패해도 발송 결과에는 영향 없음)
@@ -1081,8 +1272,13 @@ async function sendPush(b: any) {
       title: title || "성경말씀 암송",
       sent, failed, total, ok: sent > 0,
     };
-    // body 컬럼이 있으면 본문까지 기록(이력 관리용). 없으면(구 스키마) 본문 없이 재시도.
-    const { error } = await db.from("push_log").insert({ ...logBase, body: body || null });
+    // 왜 실패했는지 — 이유별 건수를 한 줄로. ⚠️ 기기 토큰·user_id 는 안 넣는다.
+    const whyList = Object.keys(iosWhy).map((k) => `ios ${iosWhy[k]}건: ${k}`);
+    const note = whyList.length ? whyList.join(" · ").slice(0, 300) : null;
+    // body·note 컬럼이 있으면 함께 기록. 없으면(구 스키마) 빼고 재시도 — 로그 때문에
+    // 발송이 실패하면 본말이 뒤집힌다.
+    let { error } = await db.from("push_log").insert({ ...logBase, body: body || null, note });
+    if (error) ({ error } = await db.from("push_log").insert({ ...logBase, body: body || null }));
     if (error) await db.from("push_log").insert(logBase);
   } catch (_) { /* 로그 실패 무시 */ }
   return { ok: true, sent, failed, total };
@@ -1099,6 +1295,87 @@ async function weeklyVersePush(b: any) {
   const title = "📖 이번주 암송 말씀이 도착했어요!";
   const body = `${verseLine}\n\n오늘부터 한 주간 이 말씀을 암송해요 🙌`;
   return await sendPush({ ...b, title, body, mode: "weekly-verse", url: b.url || "https://gocheok.onlybible.kr/" });
+}
+
+// ---------- eveningPush: 저녁 20시 — 오늘 아직 안 하신 분께만 (2026-09-24, 2판) ----------
+// 근거 — 구독자는 활동일 2.1배·최근 활동률 1.6배인데 활동자의 12%만 구독했고,
+//        알림은 아침 한 번뿐인데 반복 정점은 저녁이다(docs/analysis/2026-09-23-usage-analysis.md).
+//
+// ⚠️ **latest 를 절대 안 넘긴다.** sendPush 의 if (b.latest) 가 dailyPushContent() 로 제목·본문을
+//    덮어써, 저녁에 아침과 똑같은 묵상 알림이 한 번 더 나간다. 말씀 한 줄은 여기서 직접 만든다.
+// ⚠️ **사람 단위로 먼저 정한다.** 구독 행(47) ≠ 사람(35) — 웹과 아이폰을 둘 다 켜신 분이
+//    기기 단위로는 개인 문구를 두 번 받는다.
+// ⚠️ **대상이 0명이어도 push_log 에 한 줄 남긴다**(sendPush 가 남긴다) — 「조용히 안 나간 것」과
+//    「모두가 참여한 좋은 날」을 나중에 가를 수 있어야 한다.
+async function eveningPush(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const today = kstDay(new Date().toISOString());   // ⚠️ ymd() 는 UTC 다. 반드시 kstDay.
+
+  // 1) 저녁을 켠 구독자를 **사람 단위**로 모은다
+  const [webRes, iosRes] = await Promise.all([
+    db.from("push_subscriptions").select("user_id").eq("evening", true),
+    db.from("ios_push_tokens").select("user_id").eq("evening", true),
+  ]);
+  const people = new Set<string>();
+  for (const r of ((webRes.data ?? []) as any[])) if (r.user_id) people.add(String(r.user_id));
+  for (const r of ((iosRes.data ?? []) as any[])) if (r.user_id) people.add(String(r.user_id));
+
+  // 2) 오늘(KST) 활동한 사람을 뺀다 — 집계표 daily_activity 를 읽는다(순위·mydays 와 같은 원천).
+  const { data: acted } = await db.from("daily_activity").select("user_id").eq("day", today);
+  for (const r of ((acted ?? []) as any[])) people.delete(String(r.user_id));
+  const only = Array.from(people);
+
+  // 3) 밀린 복습 — **대상만**, **주간 구절만**.
+  //    ⚠️ verses 조인을 PostgREST 로 못 하므로, 살아 있는 주간 구절 번호를 먼저 읽어 JS 로 거른다.
+  //    ⚠️ 1000행 벽 — 주간 35구절 × 구독자 35명 = 최대 1,225행이라 이론상 넘는다.
+  //       넘으면 뒤쪽 성도님이 조용히 「복습 0」 갈래로 떨어져 틀린 문구를 받는다. fetchAllRows 를 쓴다.
+  const dueBy: Record<string, number> = {};
+  if (only.length) {
+    const { data: vs } = await db.from("verses").select("no")
+      .eq("is_active", true).eq("track", "weekly");
+    const weekly = new Set(((vs ?? []) as any[]).map((v) => Number(v.no)));
+    const rows = await fetchAllRows(() => db.from("reviews")
+      .select("user_id,verse_no").in("user_id", only).lte("due_at", today));
+    for (const r of rows) {
+      if (!weekly.has(Number(r.verse_no))) continue;
+      const u = String(r.user_id);
+      dueBy[u] = (dueBy[u] || 0) + 1;
+    }
+  }
+
+  // 4) 사람마다 문구
+  const v = await latestVerse();
+  const verseLine = v ? (v.ref ? `${v.text} (${v.ref})` : v.text) : "";
+  const userBodies: Record<string, { title: string; body: string }> = {};
+  let review = 0, verse = 0;
+  for (const u of only) {
+    const n = dueBy[u] || 0;
+    userBodies[u] = eveningMessage(n, verseLine);
+    if (n >= 1) review++; else verse++;
+  }
+
+  // 4-b) dryRun — **아무에게도 안 보내고** 누구에게 무슨 갈래가 갈지만 돌려준다.
+  //   ⚠️ 이것이 없으면 이 액션의 **첫 실행이 곧 성도님 수십 분께 실제 발송**이다.
+  //      한 번도 안 돌려 본 코드로 그러면 안 된다. 크론을 걸기 전에(3판) 반드시 한 번
+  //      dryRun 으로 대상 수와 갈래를 눈으로 보고, 그 숫자가 SQL 로 센 것과 맞는지 견준다.
+  //   ⚠️ 그래도 user_id 는 안 돌려준다 — 수와 본보기 문구만. 발송도 로그도 남기지 않는다.
+  if (b.dryRun) {
+    return { ok: true, dryRun: true, targets: only.length, review, verse,
+             sampleReview: eveningMessage(1, verseLine), sampleVerse: eveningMessage(0, verseLine) };
+  }
+
+  // 5) 보낸다 — 발송은 sendPush 가 한다(웹푸시·APNs 두 루프).
+  //    ⚠️ latest 를 안 넘긴다. mode 로 push_log 에서 아침 행과 갈라진다.
+  //    url 의 pe=1 은 저녁 클릭을 아침과 가르는 표식이다(app.js readPushMark).
+  const r = await sendPush({
+    pw: b.pw, only, userBodies,
+    title: "📖 오늘의 말씀", body: verseLine || "오늘도 말씀 한 구절 마음에 새겨 보세요 🙌",
+    mode: "evening", url: "https://gocheok.onlybible.kr/?from=push&pe=1",
+  });
+
+  // ⚠️ 응답에 user_id 를 싣지 않는다 — 수를 센 것만.
+  return { ok: true, targets: only.length, review, verse,
+           sent: (r as any).sent ?? 0, failed: (r as any).failed ?? 0, total: (r as any).total ?? 0 };
 }
 
 // ---------- monitor: 백엔드/발송/데이터 상태 종합 점검 (ADMIN_SECRET 보호) ----------
@@ -1189,6 +1466,22 @@ async function monitor(b: any) {
     }
   } catch (_) { /* 집계표 미설치 → 점검 생략(순위는 폴백 경로로 돈다) */ }
 
+  // 오늘의 찬양 — ⚠️ 「오늘 행이 없다」를 problems 에 넣지 않는다. 오늘 행은 **첫 사용자가
+  //   만든다** — monitor 는 07:12 KST 에 도는데, 그때까지 아무도 앱을 안 연 날마다 헛경보가 난다.
+  //   정말 조용히 틀어지는 것은 **후보 수가 급감하는 것**이다(찬양 담당자가 구분 이름을 바꾸면
+  //   오류 없이 곡 수만 준다 — 2026-07 에 기타→특별찬양으로 실제로 바뀌었다).
+  let songPool: number | null = null;
+  let songToday = false;
+  try {
+    const { count, error: pErr } = await db.from("v2_song_pool").select("id", { count: "exact", head: true });
+    if (!pErr) songPool = count ?? 0;
+    const { data: ds } = await db.from("daily_song").select("day").eq("day", kstDay(new Date().toISOString())).maybeSingle();
+    songToday = !!ds;
+    if (songPool !== null && songPool < 100) {
+      problems.push(`오늘의 찬양 후보가 ${songPool}곡뿐입니다 — songs 의 category 이름이 바뀌었을 수 있습니다(supabase/daily_song.sql 의 ② 질의로 확인)`);
+    }
+  } catch (_) { /* 표 미설치 → 점검 생략 */ }
+
   return {
     ok: problems.length === 0,
     serverTimeKST: kstNow.toISOString().replace("T", " ").slice(0, 16) + " KST",
@@ -1198,6 +1491,8 @@ async function monitor(b: any) {
     todayPush,
     weeklyReportLastRun,
     activity,
+    songPool,
+    songToday,
     problems,
   };
 }
@@ -1354,6 +1649,47 @@ async function blessingLog(b: any) {
   if (!b.user_id || !Number.isFinite(no) || no < 1 || no > 999) return { ok: true, skipped: true };
   try {
     const { error } = await db.rpc("v2_blessing_log", { uid: b.user_id, n: no });
+    if (error) {
+      const m = String(error.message || "");
+      const why = /does not exist|schema cache|function/i.test(m) ? "no-table"
+                : /foreign key|violates/i.test(m) ? "no-user" : "db";
+      return { ok: true, skipped: why };
+    }
+  } catch (_e) {
+    return { ok: true, skipped: "error" };
+  }
+  return { ok: true };
+}
+
+// ---------- 열람 기록(featureLog) ----------
+// 못 재던 기능들이 「몇 명에게 닿는지」를 남긴다 — blessing_log 를 일반화한 것이다.
+// ⚠️ 허용 목록은 **여기 한 곳뿐이다.** DB 에 CHECK 를 걸지 않았다 — 걸면 목록이 세 곳이
+//    되어 새 기능을 더할 때 앱은 보내는데 저장만 조용히 막힌다(challenge_log.mode 에서 겪었다).
+// ⚠️ 이 목록은 **클라이언트가 보낸 값을 거르는 관문**이다 — 표에 들어갈 수 있는 값의
+//    전체 목록이 아니다. 서버가 스스로 부르는 기록(다른 기능이 db.rpc("v2_feature_log", ...)
+//    를 직접 호출하는 경우, 예: "오늘의 찬양"의 feature="song")은 여기를 지나지 않는다.
+// ⚠️ 실패해도 조용히 넘긴다. 기록 때문에 시편 액자가 안 열리면 본말이 뒤집힌다.
+// ⚠️ 표(feature_log.sql)를 아직 안 만든 판에서도 앱은 그대로 돌아야 한다.
+// ⚠️ 응답에 user_id 를 싣지 않는다 — 이 API 에는 JWT 가 없다.
+const FEATURES = new Set([
+  "psalm",            // 시편 액자 한 편을 펼쳐 봄 (item = 구절 번호)
+  "meditation",         // 첫 화면 「오늘의 묵상」 단추로 연 묵상 (item = 그 주 구절 번호)
+  "meditation-widget",  // 아이폰 위젯(잠금화면)을 눌러 연 묵상 — 이것도 능동이지만 경로가 달라 따로 센다
+  "meditation-auto",    // 하루 한 번 저절로 뜬 묵상 (위 둘의 분모)
+  "album",            // 앨범 화면을 엶
+  "album-play",       // 듣기를 시작함 — 화면만 열고 마는 분을 가른다
+  "guide",            // 사용 설명서를 엶
+  "push",             // 알림을 눌러 앱이 열림
+  "ranking-scope",    // 순위 범위 칩 — item: 1=우리 교구 · 0=전체
+  "event",            // 이벤트 화면을 엶 — ⚠️ 개시일부터 켠다. 나중에 켜면 그 구간이 영구히 빈다
+]);
+
+async function featureLog(b: any) {
+  if (!b.user_id || !FEATURES.has(String(b.feature))) return { ok: true, skipped: true };
+  try {
+    const { error } = await db.rpc("v2_feature_log", {
+      uid: b.user_id, f: String(b.feature), n: Number(b.item) || 0,
+    });
     if (error) {
       const m = String(error.message || "");
       const why = /does not exist|schema cache|function/i.test(m) ? "no-table"
@@ -2021,7 +2357,7 @@ async function login(b: any) {
   const due = new Date(); due.setDate(due.getDate() + REVIEW_DAYS[0]);
   // 한글·영어 두 행이 모두 3단계일 수 있어, 구절 하나로 추린 뒤 예약한다
   const need = [...new Set((prog ?? [])
-    .filter((p: any) => p.stage === 3 && !revSet.has(p.verse_no))
+    .filter((p: any) => p.stage === 3 && !revSet.has(p.verse_no) && !isPsalmNo(p.verse_no))
     .map((p: any) => p.verse_no))];
   const toAdd = need.map((no) => ({ user_id: user.id, verse_no: no, box: 1, due_at: ymd(due) }));
   if (toAdd.length) {
@@ -2062,7 +2398,7 @@ async function login(b: any) {
 
 // ---------- app_config: 관리자가 배포 없이 편집하는 설정(키-값) ----------
 // 공개로 읽어도 되는 키만 화이트리스트로 허용(임의 키 노출 방지).
-const PUBLIC_CONFIG_KEYS = new Set(["heartMessages", "dailyMessage", "introSlides", "milestoneMessages", "passagesPublic", "psalmPublic", "event", "ministry"]);
+const PUBLIC_CONFIG_KEYS = new Set(["heartMessages", "dailyMessage", "introSlides", "milestoneMessages", "passagesPublic", "psalmPublic", "songPublic", "event", "ministry"]);
 
 async function getConfig(b: any) {
   const key = String(b.key || "");
@@ -2131,7 +2467,7 @@ async function saveProgress(b: any) {
   }
   if (logError) throw logError;
 
-  if (Number(b.stage) === 3) {
+  if (Number(b.stage) === 3 && !isPsalmNo(b.verse_no)) {
     // 복습은 언어를 가리지 않는다 — 어느 쪽으로 마쳤든 그 구절 하나로 예약
     const due = new Date(); due.setDate(due.getDate() + REVIEW_DAYS[0]);
     await db.from("reviews").upsert({
@@ -2150,12 +2486,20 @@ async function challenge(b: any) {
     user_id: b.user_id, verse_no: b.verse_no,
     mode: m, score: b.score ?? null,
   });
-  // 제약(migrate_modes_card.sql)이 아직 안 넓혀진 DB면 새 값이 거부된다.
-  // 그때는 기록을 잃지 말고 옛 값으로 되돌린다 — 구분보다 기록이 먼저다.
-  if (error && m === "typing-card") {
+  // 제약(migrate_modes_card.sql · migrate_modes_review_card.sql)이 아직 안 넓혀진 DB면
+  // 새 값이 거부된다. 그때는 기록을 잃지 말고 옛 값으로 되돌린다 — 구분보다 기록이 먼저다.
+  // ⚠️ 되돌릴 값은 **접두사를 보존**해야 한다. 전부 "typing"으로 통일하면 복습과
+  //    긴 본문(app.js:454 logPassageActivity 가 learn-* 를 이 액션으로 보낸다)이
+  //    「도전」으로 둔갑해 전환율이 조용히 부풀어 오른다 —
+  //    challenge_funnel.sql 의 도전 판정이 `mode not like 'learn%' and mode not like 'review%'` 다.
+  //    2026-09-02 이전에 겪은 그 사고를 다시 만드는 셈이 된다.
+  if (error && typeof m === "string" && m.endsWith("-card")) {
+    const base = m.startsWith("review-") ? "review-typing"
+               : m.startsWith("learn-")  ? "learn-typing"
+               : "typing";
     const retry = await db.from("challenge_log").insert({
       user_id: b.user_id, verse_no: b.verse_no,
-      mode: "typing", score: b.score ?? null,
+      mode: base, score: b.score ?? null,
     });
     error = retry.error;
   }
@@ -4431,6 +4775,27 @@ async function ministryList(b: any) {
 }
 
 // 관리자 상태 변경 — '임명확정'으로 바뀌면 앱 푸시를 한 번 보낸다
+// 신청 한 건을 **아주 지운다**(2026-09-26 성도님) — 「완전히 잘못 들어온 것은 남기지 않는다」.
+// ⚠️ 되돌릴 수 없다. 상태 「취소」와 다르다 — 취소는 자취가 남고(사유·decided_at) 성도님 화면에도
+//    「부서 요청으로 취소되었어요」로 보인다. 지우면 성도님 화면에서도 그 줄이 통째로 사라지고,
+//    3개 상한의 자리도 도로 비어 다시 신청할 수 있게 된다.
+// ⚠️ 화면(mnDialog)이 한 번 더 묻지만, **서버도 자기 자리에서 막는다** — 담당자 암호가 없으면 안 된다.
+async function ministryDelete(b: any) {
+  const err = await ministryAdminError(b); if (err) return { ok: false, error: err };
+  const id = Number(b.id) || 0;
+  if (!id) return { ok: false, error: "id 확인" };
+  const { data: row, error: e0 } = await db.from("ministry_orders")
+    .select("id,year,name,who,committee,team,status").eq("id", id).maybeSingle();
+  if (e0) throw e0;
+  if (!row) return { ok: false, error: "신청을 찾을 수 없습니다 (이미 지워졌을 수 있어요)" };
+  const { error } = await db.from("ministry_orders").delete().eq("id", id);
+  if (error) throw error;
+  // 무엇을 지웠는지 돌려준다 — 화면이 「○○님의 △△ 신청을 지웠습니다」로 알릴 수 있게.
+  // ⚠️ user_id 는 싣지 않는다(공개 API 규칙).
+  return { ok: true, deleted: { id: row.id, name: row.name ?? "", who: row.who ?? "",
+                                committee: row.committee ?? "", team: row.team ?? "", status: row.status } };
+}
+
 async function ministrySetStatus(b: any) {
   const err = await ministryAdminError(b); if (err) return { ok: false, error: err };
   const id = Number(b.id) || 0;
@@ -4729,6 +5094,41 @@ async function ministryNotify(row: any) {
   return await pushToSubs(list, payload, "ministry", "사역 임명확정");
 }
 
+// ---------- 교회 어드민이 부르는 내부 전용(2026-09-28) ----------
+// church-admin 함수가 사역신청을 「임명확정」으로 바꾼 뒤 부른다. 알림 코드(한 사람 한 해 한 번 · 발송 · push_log)를
+// 두 벌로 만들지 않으려고 여기 둔다 — ministrySetStatus 의 알림 부분과 같은 규칙.
+// ⚠️ 성도·담당자 화면이 부르는 길이 아니다: 같은 프로젝트의 서비스 키를 머리(x-internal-key)로 받은 때만 연다.
+function sameSecret(a: string, b: string) {
+  if (!a || !b || a.length !== b.length) return false;
+  let d = 0;
+  for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return d === 0;
+}
+
+async function internalMinistryNotify(req: Request, b: any) {
+  if (!sameSecret(req.headers.get("x-internal-key") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "")) {
+    return { ok: false, error: "unauthorized" };
+  }
+  const id = Number(b.id) || 0;
+  const { data: row, error } = await db.from("ministry_orders")
+    .select("id,year,user_id,name,team,status,notified_at").eq("id", id).maybeSingle();
+  if (error) throw error;
+  if (!row) return { ok: false, error: "not-found" };
+  if (row.status !== "임명확정") return { ok: false, error: "not-appointed" };
+  // ⚠️ 아직 살아 있는 확정만 센다(되돌린 확정의 흔적까지 세면 그 뒤 어떤 팀을 확정해도 영영 안 간다)
+  const { data: sentRows, error: e2 } = await db.from("ministry_orders")
+    .select("id").eq("year", row.year).eq("user_id", row.user_id)
+    .eq("status", "임명확정").not("notified_at", "is", null).limit(1);
+  if (e2) throw e2;
+  if ((sentRows ?? []).length) return { ok: true, pushed: 0, pushError: null, already: true };
+  const res = await ministryNotify(row);
+  if (res.sent > 0) {
+    const { error: e3 } = await db.from("ministry_orders").update({ notified_at: new Date().toISOString() }).eq("id", id);
+    if (e3) throw e3;
+  }
+  return { ok: true, pushed: res.sent, pushError: res.error, already: false };
+}
+
 // ============================================================
 // 이벤트 플랫폼 (분기 회차) — 2026-09-10
 //   설계: docs/superpowers/specs/2026-09-10-event-platform-design.html
@@ -4792,6 +5192,105 @@ function evtRow(r: any) {
   };
 }
 
+// ---------- 자격(도장판) ----------
+// ⚠️ mode 를 세지 않는다. 「그날 daily_activity 에 행이 있는가」로만 본다 —
+//    카드(learn-typing-card·typing-card)가 전체 반복의 65.2% 라, mode 를 열거하면
+//    카드로만 하시는 분은 매일 하셔도 도장이 하나도 안 찍힌다.
+
+// 날짜 더하기 — UTC 자정 기준으로만 더한다(시분초를 안 끌고 온다)
+const evtDayAdd = (ymd: string, n: number) =>
+  new Date(Date.parse(ymd + "T00:00:00Z") + n * 86400000).toISOString().slice(0, 10);
+
+// needs.eligibility 를 읽어 규칙으로. 모양이 틀리면 null — 「자격 회차가 아니다」다.
+function evtRule(ev: any): any | null {
+  const e = ((ev?.needs ?? {}) as any).eligibility;
+  if (!e || typeof e !== "object") return null;
+  const start = norm(e.start);
+  const weeks = Number(e.weeks), perWeek = Number(e.perWeek), need = Number(e.need);
+  const minNeed = Number(e.minNeed ?? 2);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) return null;
+  // ⚠️ 정수를 강제한다. 3.5 같은 값이 들어오면 evtCanReach 의 for 경계가 어긋난다.
+  if (![weeks, perWeek, need, minNeed].every(Number.isInteger)) return null;
+  if (!(weeks >= 1 && weeks <= 26)) return null;
+  if (!(perWeek >= 1 && perWeek <= 7)) return null;
+  if (!(need >= 1 && need <= weeks)) return null;
+  if (!(minNeed >= 1 && minNeed <= need)) return null;
+  return { start, weeks, perWeek, need, minNeed };
+}
+
+// 지금 어느 국면인가 — 화면이 날짜를 다시 재지 않게 서버가 정한다(verb 와 같은 까닭).
+// ⚠️ 측정과 신청은 겹친다(10/27~11/21). 그때는 "signup" 이다 —
+//    화면이 달라지는 것은 「단추가 열리느냐」이기 때문이다.
+function evtPhase(ev: any, rule: any, today: string): string {
+  const measureStart = rule ? rule.start : norm(ev.opens_on);
+  if (today < measureStart) return "before";
+  if (today < norm(ev.opens_on)) return "measuring";
+  if (today <= norm(ev.closes_on)) return "signup";
+  return "over";
+}
+
+// 이분에게 필요한 주 수 — 이벤트 중 처음 오신 분은 남은 주로 분모를 줄인다.
+// ⚠️ firstDay 는 **전 기간**에서 잰다. 이벤트 안에서만 보면 기존 회원이 일부러 늦게
+//    시작해 문턱을 낮출 수 있다(먼저 시작한 분이 손해를 본다).
+function evtNeedFor(rule: any, firstDay: string | null): number {
+  if (!firstDay || firstDay < rule.start) return rule.need;   // 기존에 쓰시던 분
+  const wk = Math.floor(
+    (Date.parse(firstDay + "T00:00:00Z") - Date.parse(rule.start + "T00:00:00Z")) / 86400000 / 7);
+  if (wk < 0 || wk >= rule.weeks) return rule.need;
+  const remain = rule.weeks - wk;                              // 그 주부터 남은 주 수
+  return Math.min(rule.need, Math.max(rule.minNeed, Math.floor(remain / 2)));
+}
+
+// 남은 주를 다 채워도 닿을 수 있나. 못 닿는 분께 「세 주가 되면 열려요」를 계속 띄우면
+// 헛수고를 권하는 것이고, 마감 화면에서 처음 알면 그게 「떨어졌다」가 된다.
+function evtCanReach(rule: any, weekDays: number[], need: number, today: string): boolean {
+  let done = 0, left = 0;
+  for (let i = 0; i < rule.weeks; i++) {
+    if ((weekDays[i] ?? 0) >= rule.perWeek) done++;
+    else if (today <= evtDayAdd(rule.start, i * 7 + 6)) left++;  // 아직 안 끝난 주
+  }
+  return done + left >= need;
+}
+
+// 한 사람의 도장 — 화면(eventStamps)과 판정(eventSignup)이 **같은 함수**를 쓴다.
+// 두 벌을 두면 「화면은 열렸는데 서버가 막는다」가 된다.
+async function evtStampsFor(userId: string, rule: any, today: string) {
+  const { data, error } = await db.rpc("v2_event_weeks", {
+    p_start: rule.start, p_weeks: rule.weeks,
+    p_per_week: rule.perWeek, p_users: [userId],
+  });
+  if (error) throw error;
+  const row = ((data ?? []) as any[])[0] ?? null;
+  const weekDays: number[] = row?.week_days ?? new Array(rule.weeks).fill(0);
+  const firstDay: string | null = row?.first_day ? String(row.first_day).slice(0, 10) : null;
+  const weeksDone = Number(row?.weeks_done ?? 0);
+  const need = evtNeedFor(rule, firstDay);
+
+  // 날짜별 횟수 — 도장판이 「이 계정으로 채운 날」을 날짜로 보여 준다.
+  // v2_mydays 를 그대로 쓴다(앱의 다른 숫자와 같은 잣대를 지키려고).
+  const end = evtDayAdd(rule.start, rule.weeks * 7 - 1);
+  // ⚠️ 실패를 조용히 삼키지 않는다. {} 로 두면 「통신이 끊긴 날」과 「정말 안 한 날」이
+  //    같아진다 — 이 기능이 지키려는 원칙(「모른다」와 「없다」를 뭉개지 않는다)을 어기는 자리다.
+  // ⚠️ challenge_log 폴백(mydaysSlow)을 쓰지 않는다. 집계표를 우회하면 숫자가 조용히 갈린다.
+  //    모르면 **모른다고 말한다** — days 가 null 이면 화면은 날짜를 아예 안 그린다.
+  //    주차(weekDays·weeksDone)는 위 v2_event_weeks 가 throw 로 지키므로 영향이 없다.
+  const { data: md, error: mderr } = await db.rpc("v2_mydays", {
+    p_user: userId, p_from: rule.start, p_to: end,
+  });
+  let days: Record<string, number> | null = null;
+  if (!mderr) {
+    days = {};
+    for (const r of (md ?? []) as any[]) days[String(r.day)] = Number(r.cnt);
+  }
+
+  return {
+    days, weekDays, weeksDone, need,
+    eligible: weeksDone >= need,
+    allWeeks: weeksDone >= rule.weeks,
+    canStillReach: evtCanReach(rule, weekDays, need, today),
+  };
+}
+
 // 직분 기본값 ① 이 사람의 가장 최근 이벤트 직분(created_at desc 로 받아 온 목록)
 function evtPositionHint(mine: any[]): string {
   for (const r of mine) {
@@ -4814,6 +5313,29 @@ async function evtPositionFromMinistry(userId: string): Promise<string> {
   } catch (_) {
     return "";   // 사역신청 표가 없는 DB 에서도 이벤트가 죽지 않는다
   }
+}
+
+// ---------- eventStamps: 이 회차에서 이분의 도장 ----------
+// ⚠️ eventOpenList 에 얹지 않는다 — 그건 매 부팅에 불리고 일부러 user_id 를 안 보낸다.
+//    응답 모양을 첫 화면 게이트·이벤트 카드·관리자 미리보기 셋이 함께 쓴다.
+async function eventStamps(b: any) {
+  const userId = String(b.user_id ?? "").trim();
+  if (!userId) return { ok: false, error: "no-user" };
+  const eventId = norm(b.event_id);
+  if (!EVT_ID_RE.test(eventId)) return { ok: false, error: "bad-args" };
+
+  const { data: ev, error } = await db.from("events")
+    .select("*").eq("id", eventId).maybeSingle();
+  if (error) throw error;
+  if (!ev) return { ok: false, error: "not-found" };
+
+  const today = evtToday();
+  const rule = evtRule(ev);
+  // rule 이 null 이면 「자격 회차가 아니다」 — 화면은 도장판을 아예 안 그린다.
+  if (!rule) return { ok: true, rule: null, phase: evtPhase(ev, null, today) };
+
+  const st = await evtStampsFor(userId, rule, today);
+  return { ok: true, rule, phase: evtPhase(ev, rule, today), ...st };
 }
 
 // ---------- eventOpenList: 보여 줄 회차 + 내가 낸 것 + 직분 기본값 ----------
@@ -4877,7 +5399,13 @@ async function eventOpenList(b: any) {
     return x.id < y.id ? -1 : 1;
   });
 
-  return { ok: true, events: list, mine: mine.map(evtRow), positionHint: hint };
+  // ⚠️ 「📋 이미 내신 것」에는 **이 목록에 있는 회차의 줄만** 내려보낸다(2026-09-30 · 교회 어드민 개시).
+  //    담당자가 지난 회차(준비 중·보관·공개 종료일 지남)에 분을 더하고 계정을 이으면, 목록에 없는 회차라
+  //    화면(js/events.js evtSentHtml)이 제목을 못 찾아 회차 ID(「lent-2022 접수」)를 그대로 띄웠고,
+  //    「고를 회차가 하나면 바로 열기」(evtMine.length === 0)도 막혔다. 목록 밖 회차의 줄은 그 화면에 쓸 곳이 없다.
+  //    직분 힌트(evtPositionHint)는 위에서 모든 줄로 이미 뽑았다 — 서버 안에서만 쓴다.
+  const listed = new Set(list.map((x) => x.id));
+  return { ok: true, events: list, mine: mine.filter((r) => listed.has(r.event_id)).map(evtRow), positionHint: hint };
 }
 
 // ---------- eventSignup: 등록 / 고치기(덮어쓰기) ----------
@@ -4893,9 +5421,12 @@ async function eventSignup(b: any) {
   if (!ev) return { ok: false, error: "not-found" };
 
   const isAdmin = adminError(b) === null;
-  if (!evtOpenNow(ev, evtToday()) && !isAdmin) {
-    // 「아직 안 열렸다」와 「마감했다」를 뭉개지 않는다 — 성도에게 할 말이 다르다.
-    return { ok: false, error: ev.status === "open" ? "closed-period" : "not-open" };
+  const today = evtToday();
+  if (!evtOpenNow(ev, today) && !isAdmin) {
+    // 「아직 안 열렸다」·「아직 안 시작했다」·「마감했다」를 뭉개지 않는다.
+    // ⚠️ 옛 코드는 status 가 open 이면 아직 시작 전이어도 「마감했어요」라고 답했다.
+    if (ev.status !== "open") return { ok: false, error: "not-open" };
+    return { ok: false, error: today < norm(ev.opens_on) ? "not-yet" : "closed-period" };
   }
 
   // 이름·소속은 앱이 보낸 값을 믿지 않고 users 에서 가져온다.
@@ -4920,8 +5451,24 @@ async function eventSignup(b: any) {
     if (!PILSA_PHONE_RE.test(phone)) return { ok: false, error: "bad-phone" };
   }
   const memo = needs.memo ? norm(b.memo).slice(0, EVT_MEMO_MAX) : "";
-  const answers = (b.answers && typeof b.answers === "object" && !Array.isArray(b.answers))
-    ? b.answers : {};
+  // 자격 회차 — 서버가 다시 센다. **화면이 잠겨 있어도 이 액션은 열려 있다.**
+  // ⚠️ b.answers 를 읽지 않는다. JWT 가 없어 누구나 weeks:[9,9,9,9,9,9] 를 보낼 수 있다.
+  const rule = evtRule(ev);
+  let answers: any;
+  if (rule) {
+    const st = await evtStampsFor(userId, rule, today);
+    if (!st.eligible && !isAdmin) return { ok: false, error: "not-eligible" };
+    answers = {
+      weeks: st.weekDays,
+      weeksDone: st.weeksDone,
+      need: st.need,
+      rule: { start: rule.start, weeks: rule.weeks, perWeek: rule.perWeek, need: rule.need },
+      computed_at: new Date().toISOString(),
+    };
+  } else {
+    answers = (b.answers && typeof b.answers === "object" && !Array.isArray(b.answers))
+      ? b.answers : {};
+  }
 
   const row = {
     event_id: eventId,
@@ -4986,13 +5533,17 @@ async function eventRoster(b: any) {
   if (e1) throw e1;
 
   // 회차 칩에 적을 건수는 **추리기 전 전체 기준**이어야 한다(필사·사역과 같은 규약).
+  // ⚠️ 행을 받아서 세지 않는다 — PostgREST 는 한 번에 1,000행까지만 돌려주고
+  //    `.limit(20000)` 으로도 그 위로 못 올린다. 표 전체가 1,000행을 넘는 순간 칩 숫자가
+  //    **오류 없이 조용히** 줄어든다(2026-09-29 지난 회차 명단 이관으로 1,723행이 되자
+  //    실제 244명인 회차가 0으로 보였다). 회차마다 개수만 묻는다(head — 행은 안 받는다).
   const counts: Record<string, number> = {};
-  const { data: all, error: e2 } = await db.from("event_signups")
-    .select("event_id").limit(20000);
-  if (e2) throw e2;
-  (all ?? []).forEach((r: any) => {
-    counts[r.event_id] = (counts[r.event_id] ?? 0) + 1;
-  });
+  await Promise.all(((evs ?? []) as any[]).map(async (ev) => {
+    const { count, error: e2 } = await db.from("event_signups")
+      .select("id", { count: "exact", head: true }).eq("event_id", ev.id);
+    if (e2) throw e2;
+    counts[ev.id] = count ?? 0;
+  }));
 
   const eventId = norm(b.event_id);
   let q = db.from("event_signups").select("*")
@@ -5000,6 +5551,85 @@ async function eventRoster(b: any) {
   if (eventId) q = q.eq("event_id", eventId);
   const { data, error } = await q;
   if (error) throw error;
+
+  // ── 자격 회차면 「지금 다시 센 값」을 함께 내려 준다 ───────────────────
+  // ⚠️ 응모 시점 스냅샷(answers)으로 시상하지 않는다 — 일찍 신청한 분의 스냅샷은
+  //    그때 값으로 굳어, 그 뒤 더 채워도 안 바뀐다(일찍 신청한 분이 벌을 받는다).
+  // ⚠️ answers 원본은 내보내지 않는다. 파생값만.
+  const rowsOut = (data ?? []).map((r: any) => ({
+    id: r.id, eventId: r.event_id, name: r.name, whoType: r.who_type,
+    group: r.group_name, sub: r.sub_name ?? "", position: r.position ?? "",
+    phone: r.phone ?? "", memo: r.memo ?? "", note: r.note ?? "",
+    source: r.source, at: r.created_at, hasUser: !!r.user_id,
+    excused: !!((r.answers ?? {}) as any).excused,
+    // 인정한 까닭 — 담당자만 보는 응답이라 실어도 된다. 화면이 「(인정)」 옆에 그대로 보여 준다.
+    excuseReason: norm(((r.answers ?? {}) as any).excuseReason),
+  })) as any[];
+
+  let missing: any[] = [];
+  let missingTotal = 0;
+  const pickedEv = eventId ? (evs ?? []).find((e: any) => e.id === eventId) : null;
+  const pickedRule = pickedEv ? evtRule(pickedEv) : null;
+  if (pickedRule) {
+    // ⚠️ **한 번만 부른다.** 예전에는 신청자마다 evtStampsFor 를 await 했는데,
+    //    그 함수는 한 사람당 RPC 두 번(v2_event_weeks + v2_mydays)을 만든다 —
+    //    신청자 200명이면 **순차 400왕복**이고, 그중 days 는 이 응답에 쓰지도 않는다.
+    //    게다가 아래 「안 하신 분」 계산이 이미 전 교인을 한 번에 받아 온다.
+    //    그 한 번의 결과로 둘 다 만든다(200명 기준 401왕복 → 2왕복).
+    const { data: all, error: allErr } = await db.rpc("v2_event_weeks", {
+      p_start: pickedRule.start, p_weeks: pickedRule.weeks,
+      p_per_week: pickedRule.perWeek, p_users: null,
+    });
+    if (allErr) throw allErr;
+    // ⚠️ 창 안에 활동이 없는 사람은 **행이 아예 없다**(0 행이 아니라 부재다).
+    //    그래서 못 찾으면 0 주로 친다 — 안 그러면 기록 없는 분이 명단에서 조용히 사라진다.
+    const byUser = new Map<string, any>();
+    for (const w of ((all ?? []) as any[])) byUser.set(String(w.user_id), w);
+
+    const { data: srows } = await db.from("event_signups")
+      .select("id,user_id").eq("event_id", eventId).limit(2000);
+    const rowUser = new Map<number, string>();
+    for (const sr of ((srows ?? []) as any[])) {
+      if (sr.user_id) rowUser.set(sr.id, String(sr.user_id));
+    }
+
+    const stampedAt = new Date().toISOString();
+    for (const row of rowsOut) {
+      const uid = rowUser.get(row.id);
+      if (!uid) continue;                       // 이관된 옛 기록(user_id 없음)
+      const w = byUser.get(uid) ?? null;
+      const weeksDone = Number(w?.weeks_done ?? 0);
+      const firstDay = w?.first_day ? String(w.first_day).slice(0, 10) : null;
+      const need = evtNeedFor(pickedRule, firstDay);
+      row.weeksDone = weeksDone;
+      row.perfect = weeksDone >= pickedRule.weeks;
+      row.eligible = weeksDone >= need || row.excused;
+      row.computedAt = stampedAt;
+    }
+
+    // 자격은 되는데 아직 신청 안 하신 분 — 마감 전에 알려 드리려고.
+    // ⚠️ 이름·소속만. user_id 를 싣지 않는다.
+    const signedUp = new Set([...rowUser.values()]);
+    const cand = ((all ?? []) as any[]).filter((w) => {
+      if (signedUp.has(String(w.user_id))) return false;
+      const fd = w.first_day ? String(w.first_day).slice(0, 10) : null;
+      return Number(w.weeks_done) >= evtNeedFor(pickedRule, fd);
+    });
+    // ⚠️ 300 에서 자른다(.in 의 주소 길이). **자른 사실을 화면이 알아야 한다** —
+    //    모르면 담당자가 「이게 전부」로 읽는다. 그래서 총수를 함께 내려 준다.
+    missingTotal = cand.length;
+    if (cand.length) {
+      const { data: us } = await db.from("users")
+        .select("id,type,gu,mok,bu,grade,name")
+        .in("id", cand.map((w) => String(w.user_id)).slice(0, 300));
+      missing = ((us ?? []) as any[]).map((u: any) => ({
+        name: norm(u.name),
+        whoType: u.type,
+        group: u.type === "교구" ? norm(u.gu) : norm(u.bu),
+        sub: u.type === "교구" ? norm(u.mok) : norm(u.grade),
+      }));
+    }
+  }
 
   return {
     ok: true,
@@ -5012,29 +5642,74 @@ async function eventRoster(b: any) {
       // 지금 성도님께 보이는가 — 관리자가 「왜 안 보이지」를 화면에서 바로 알게.
       listedNow: evtListable(e, evtToday()),
     })),
-    rows: (data ?? []).map((r: any) => ({
-      id: r.id,
-      eventId: r.event_id,
-      name: r.name,
-      whoType: r.who_type,
-      group: r.group_name,
-      sub: r.sub_name ?? "",
-      position: r.position ?? "",
-      phone: r.phone ?? "",
-      memo: r.memo ?? "",
-      note: r.note ?? "",
-      source: r.source,
-      at: r.created_at,
-      // ⚠️ user_id 자체는 싣지 않는다. 「앱에서 낸 것인가」만 알려 준다.
-      hasUser: !!r.user_id,
-    })),
+    rows: rowsOut,
+    missing,
+    missingTotal,
   };
+}
+
+// ---------- 교회 어드민으로 옮긴 쓰기 액션 (얼림) ----------
+// ⚠️ 이벤트 명단을 고치는 곳은 교회 어드민(admin.onlybible.kr · 「성경필사(암송)」) **한 곳**이다.
+//    eventImport 는 돌 때마다 그 회차의 source='import' 줄을 **전부 지우고** 다시 넣는다 —
+//    살아 있으면 어드민에서 고친 것·더한 분·줄 id·이어 둔 계정이 한 번에 사라진다.
+//    화면 단추만 닫으면 관리자 비밀번호로 API 를 직접 부르는 길이 남아 **서버에서** 막는다. **되살리지 말 것.**
+//    자리: 비밀번호 확인 **바로 뒤** — 무엇도 읽거나 쓰기 전에. 비밀번호 없는 호출은 예전처럼 unauthorized 다
+//    (tests/event-smoke.sh 5) 기대값 그대로 · 얼림은 5-1 이 비밀번호로 본다).
+//    남긴 것: eventRoster(읽기) · eventExcuse(자격 인정 — 가을 말씀 동행용, 다음 단계에서 옮긴다) · 성도님 앱 액션 전부.
+//    설계 docs/superpowers/specs/2026-09-29-church-admin-bible-events-design.md §4 · docs/notes/bible-events-admin.md
+//    (함수 몸통은 옛 동작 기록으로 남겨 둔다 — 원문은 church-admin docs/port/event-roster-legacy.md)
+const EVT_MOVED = new Set(["eventImport", "eventSave", "eventSetNote"]);
+
+// ---------- eventSetNote: 담당자 메모 ----------
+// ⚠️ note 는 성도님 응답(evtRow·eventRosterPublic)에 절대 실리지 않는다 — 담당자만 본다.
+async function eventSetNote(b: any) {
+  const err = adminError(b);
+  if (err) return { ok: false, error: err };
+  if (EVT_MOVED.has("eventSetNote")) return { ok: false, error: "moved-to-church-admin" };
+  const id = Number(b.id);
+  if (!Number.isInteger(id) || id <= 0) return { ok: false, error: "bad-args" };
+  const note = norm(b.note).slice(0, 500);
+  // ⚠️ PostgREST 는 **맞는 행이 없어도 오류를 안 낸다.** 그냥 update 만 하면
+  //    없는 id 에도 {ok:true} 가 돌아가, 담당자는 저장된 줄 알지만 아무 일도 안 일어난다.
+  //    자매 함수 eventExcuse 와 같은 잣대로 맞춘다 — 없으면 not-found.
+  const { data: hit, error } = await db.from("event_signups")
+    .update({ note, updated_at: new Date().toISOString() })
+    .eq("id", id).select("id").maybeSingle();
+  if (error) throw error;
+  if (!hit) return { ok: false, error: "not-found" };
+  return { ok: true };
+}
+
+// ---------- eventExcuse: 사정이 있으셨던 분을 인정 ----------
+// 입원·장례·간병처럼 자동 규칙으로 못 잡는 자리. 사유를 반드시 남긴다.
+// ⚠️ challenge_log·daily_activity 를 손대지 않는다 — 순위·통계·주간 리포트가 함께 오염된다.
+//    event_signups 쪽에만 쓴다.
+async function eventExcuse(b: any) {
+  const err = adminError(b);
+  if (err) return { ok: false, error: err };
+  const id = Number(b.id);
+  if (!Number.isInteger(id) || id <= 0) return { ok: false, error: "bad-args" };
+  const excused = !!b.excused;
+  const reason = norm(b.reason).slice(0, 200);
+  if (excused && !reason) return { ok: false, error: "no-reason" };
+
+  const { data: cur, error: e1 } = await db.from("event_signups")
+    .select("answers").eq("id", id).maybeSingle();
+  if (e1) throw e1;
+  if (!cur) return { ok: false, error: "not-found" };
+
+  const answers = { ...((cur.answers ?? {}) as any), excused, excuseReason: reason };
+  const { error } = await db.from("event_signups")
+    .update({ answers, updated_at: new Date().toISOString() }).eq("id", id);
+  if (error) throw error;
+  return { ok: true };
 }
 
 // ---------- eventSave: 관리자 회차 만들기 / 고치기 ----------
 async function eventSave(b: any) {
   const err = adminError(b);
   if (err) return { ok: false, error: err };
+  if (EVT_MOVED.has("eventSave")) return { ok: false, error: "moved-to-church-admin" };
 
   const e = (b.event ?? {}) as any;
   const id = norm(e.id);
@@ -5210,6 +5885,7 @@ function evtImportPosition(v: unknown): string {
 async function eventImport(b: any) {
   const err = adminError(b);
   if (err) return { ok: false, error: err };
+  if (EVT_MOVED.has("eventImport")) return { ok: false, error: "moved-to-church-admin" };
 
   const eventId = norm(b.event_id);
   if (!EVT_ID_RE.test(eventId)) return { ok: false, error: "bad-event-id" };

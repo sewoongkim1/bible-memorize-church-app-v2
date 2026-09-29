@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260920h";
+const APP_BUILD = "20260927a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -115,10 +115,19 @@ async function loadVerses() {
 
 // 사용자 정보가 있으면 (서버 기록 동기화 후) 본인 기록 요약, 없으면 진입 화면
 function routeAfterLoad() {
+  // 푸시 알림을 눌러 들어온 표시(?from=push)를 함수 맨 앞에서 읽는다.
+  // ⚠️ 아래로 내리지 말 것 — 이 함수의 갈래(딥링크 ?v=·미리보기 ?preview=·위젯 ?w=·
+  //    어드민 진입 ?passages=/?psalm= 등)는 저마다 자리에서 곧장 return 한다.
+  //    이 줄이 그 갈래들보다 아래에 있으면 그 길로 들어온 클릭은 기록되지 않는다
+  //    (?v=1&from=push 처럼 딥링크와 겹치는 경우가 실제로 그랬다). readPushMark 는
+  //    from 파라미터만 지우고 v·lang 등 나머지는 그대로 두므로 먼저 불러도 안전하다.
+  readPushMark();
   _passagesPreview = getPassagesPreview();
   _psalmPreview = getPsalmPreview();
+  _songPreview = getSongPreview();
   refreshPassagesPublic();
   refreshPsalmPublic();
+  refreshSongPublic();
   refreshMinistryPeriod();
   refreshEventOpen();
   // 어드민 테스트 진입(?passages=1): 홈을 거치지 않고 곧바로 핵심 암송 목록으로.
@@ -149,7 +158,10 @@ function routeAfterLoad() {
       // 하루 1회 자동 묵상(maybeShowDailyMessage → maybeShowWeeklyMeditation)과 겹치지 않게 막고,
       // 「매일 묵상」 단추와 똑같이 연다(요일 탭 있음). ?preview=daily 와 같은 방식이다.
       _skipAutoDaily = true; enterAfterLogin(); _skipAutoDaily = false;
-      maybeShowWeeklyMeditation(true, true);
+      // 세 번째 인자 "widget" 은 화면이 아니라 **기록 이름만** 가른다(meditation-widget).
+      // 잠금화면에서 일부러 누른 능동이지만 첫 화면 단추와는 다른 길이라 따로 세어야
+      // 위젯이 실제로 쓰이는지 볼 수 있다.
+      maybeShowWeeklyMeditation(true, true, "widget");
       return;
     }
   }
@@ -173,10 +185,19 @@ function routeAfterLoad() {
     if (loadUser()) enterAfterLogin(); else renderEntryScreen();
     return;
   }
-  // 가정 축복 기도문 — 아직 성도님 첫 화면에는 없다(어드민에서만 확인).
-  //   성도님께 열 때: renderSummary 의 「함께」 묶음에 한 줄을 더하면 된다.
+  // 가정 축복 기도문 — **2026-09-03 에 이미 성도님께 열렸다**(커밋 11a1bea).
+  //   첫 화면 「함께」 묶음의 `🙏 가정 축복 기도문` 단추에 게이트가 없다(이웃한
+  //   ministryVisible()·passagesVisible() 과 다르다) — 모두에게 보인다.
+  //   ⚠️ 이 주석은 만든 날부터 3주 넘게 「아직 없다」로 남아 있었다(2026-09-24 정정).
+  //      CLAUDE.md 와 백로그도 같이 낡아 「첫 화면에 한 줄 더하기」가 남은 일로 적혀 있었다.
+  //   이 ?preview=prayer 는 그래서 지금은 **로그인 없이 바로 보려는 용도**로만 남는다.
   if (preview === "prayer") {
     if (loadUser()) renderPrayerBook(); else renderEntryScreen();
+    return;
+  }
+  if (preview === "widget") {         // 위젯 안내 — 출시 전에 설명서 문구를 미리 본다(WIDGET_GUIDE 와 무관, 두 폰 것 모두)
+    _widgetPreview = true;
+    if (loadUser()) renderManual(renderSummary, -1); else renderEntryScreen();
     return;
   }
   if (preview === "pilsa") {          // 성경필사 노트 신청 — 성도 화면 그대로 바로 진입
@@ -230,7 +251,7 @@ function getWidgetTarget() {
 function getPreviewKind() {
   try {
     const p = new URLSearchParams(location.search).get("preview");
-    if (p === "intro" || p === "blessing" || p === "daily" || p === "promo" || p === "pilsa" || p === "prayer" || p === "event") {
+    if (p === "intro" || p === "blessing" || p === "daily" || p === "promo" || p === "pilsa" || p === "prayer" || p === "event" || p === "widget") {
       history.replaceState(null, "", location.pathname);
       return p;
     }
@@ -252,6 +273,30 @@ function getDeepLinkVerseNo() {
   } catch (e) {}
   return null;
 }
+
+// URL의 ?from=push 를 1회 읽어 기록한다(읽은 뒤 주소를 정리 → 새로고침 시 재기록 방지).
+// 알림은 발송(push_log)만 남고 「누가 눌렀는지」는 지금껏 아무 데도 안 남았다.
+// ⚠️ item 은 0 이다 — 푸시 payload 의 주소에 구절 번호가 실려 있지 않다.
+//    「어느 구절 알림이 먹혔나」는 day 로 역산한다(verses.date 가 있다).
+// ⚠️ 주소를 지우는 것이 핵심이다. 안 지우면 새로고침마다 다시 세어진다.
+//    다른 파라미터(?v=)가 함께 있을 수 있으므로 from 만 빼고 나머지는 살린다.
+function readPushMark() {
+  try {
+    const q = new URLSearchParams(location.search);
+    if (q.get("from") !== "push") return;
+    q.delete("from");
+    const rest = q.toString();
+    history.replaceState(null, "", location.pathname + (rest ? "?" + rest : ""));
+    logFeature("push", 0);
+  } catch (e) {}
+}
+
+// 이미 열려 있는 창을 알림으로 되살린 경우 — 주소가 안 바뀌므로 서비스워커가 따로 알려 준다.
+try {
+  navigator.serviceWorker.addEventListener("message", (e) => {
+    if (e.data && e.data.type === "from-push") logFeature("push", 0);
+  });
+} catch (e) {}
 
 // 📜 내 안에 거하는 말씀(긴 본문 암송, 구 '핵심 암송') — 사용자 노출 게이트 & 데이터 로더 & 진행 기록
 let _passagesPreview = false; // ?passages=1 이면 공개 플래그와 무관하게 노출(어드민 미리보기)
@@ -301,6 +346,269 @@ function refreshPsalmPublic() {
 }
 function psalmVisible() { return _psalmPreview || psalmPublicCached(); }
 
+// ── 오늘의 찬양: 하루 한 곡 ────────────────────────────────────────
+//   ⚠️ 「자료 자체가 게이트」가 성립하지 않는다 — songs 는 운영에 이미 1,700곡이 있어
+//      자료가 비는 순간이 없다. push 가 곧 배포인 저장소라 게이트 없이 푸시하면 그 순간
+//      전 성도에게 열린다(2026-09-10 에 시편 액자가 남의 커밋에 딸려 나가 첫 화면에 떴다).
+//      psalmPublic 과 같은 방식이다 — 첫 화면은 동기 렌더라 미리 받아 둔 값을 본다.
+let _songPreview = false;
+function getSongPreview() {
+  try {
+    if (new URLSearchParams(location.search).get("song") === "1") {
+      history.replaceState(null, "", location.pathname);
+      return true;
+    }
+  } catch (e) {}
+  return false;
+}
+const SONG_PUB_KEY = "song-public";
+function songPublicCached() { try { return localStorage.getItem(SONG_PUB_KEY) === "1"; } catch (e) { return false; } }
+function refreshSongPublic() {
+  if (!window.api || !api.getConfig) return;
+  api.getConfig("songPublic").then((d) => {
+    try { localStorage.setItem(SONG_PUB_KEY, d && d.value ? "1" : "0"); } catch (e) {}
+  }).catch(() => {});
+}
+function songVisible() { return _songPreview || songPublicCached(); }
+
+// 오늘치 캐시 — 하루 한 곡이고 모두가 같은 곡이라 어긋날 일이 없다.
+//   ⚠️ 열쇠는 **한국 날짜**다. UTC 로 두면 밤에 캐시가 하루 일찍 만료된다.
+function songDayKey() {
+  const d = new Date(Date.now() + 9 * 3600 * 1000);
+  return "song-" + d.toISOString().slice(0, 10);
+}
+function songCacheToday() {
+  try { return JSON.parse(localStorage.getItem(songDayKey()) || "null"); } catch (e) { return null; }
+}
+function songCachePut(song) {
+  try {
+    localStorage.setItem(songDayKey(), JSON.stringify(song));
+    // 어제 것들을 치운다(열쇠가 날마다 달라 그냥 두면 쌓인다)
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith("song-2") && k !== songDayKey()) localStorage.removeItem(k);
+    }
+  } catch (e) {}
+}
+
+// ⚠️ 이 저장소에는 타임아웃 헬퍼가 없다(js/api.js 에도 없다) — 여기서 만든다.
+//    느린 통신에서 묵상 창이 이 왕복만큼 늦게 뜨는 것을 막는 것이 목적이다.
+function withTimeout(p, ms) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error("timeout")), ms);
+    p.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
+  });
+}
+
+// 오늘 곡 하나 — 캐시가 있으면 서버를 안 친다.
+//   ⚠️ 부르는 쪽이 둘(첫 화면·묵상 창)이지만 **왕복은 하루 한 번**이어야 한다.
+//      첫 화면이 먼저 그려지므로 대개 첫 화면이 채우고 묵상 창은 캐시를 쓴다.
+function fetchTodaySong() {
+  if (!songVisible() || !window.api || !api.getTodaySong) return Promise.resolve(null);
+  const cached = songCacheToday();
+  if (cached) return Promise.resolve(cached);
+  return withTimeout(api.getTodaySong(), 1500)
+    .then((r) => {
+      const s = r && r.song;
+      if (s) songCachePut(s);
+      return s || null;
+    })
+    .catch(() => null);   // ⚠️ 반드시 삼킨다 — 묵상 창이 이 리젝션에 통째로 사라진다
+}
+
+// 첫 화면 단추 글자 — 캐시가 있으면 곡명까지, 없으면 「🎵 찬양」만.
+//   ⚠️ 단추를 **나중에 생기게 하지 않는다.** 묶음 안에서 줄이 하나 늘면 성도님이 누르려던
+//      자리가 밀린다. 자리는 처음부터 두고 글자만 채운다(renderEventButton 과 같은 생각).
+function songBtnSuffix() {
+  const s = songCacheToday();
+  return s && s.song ? " · " + boardEsc(s.song) + " " : " ";
+}
+function fillSongButton() {
+  const b = document.getElementById("open-song");
+  if (!b) return;
+  const s = songCacheToday();
+  if (!s || !s.song) return;
+  b.innerHTML = "🎵 찬양 · " + boardEsc(s.song) + ' <span class="ext-mark">↗</span>' + newBadge("song");
+}
+function loadTodaySong() {
+  if (!songVisible()) return;
+  fetchTodaySong().then((s) => { if (s) fillSongButton(); });
+}
+// 오늘의 찬양 — 팝업(모달)으로 연다(2026-09-23 저녁, 성도님이 실제로 써 보신 뒤
+//   화면 그림과 함께 정해 주셨다: 전체 화면 대신 팝업으로 · 안내 두 줄 삭제 ·
+//   아래 단추를 「유튜브로」·「닫기」 둘로). 같은 날 오전엔 전체 화면(옛 renderSongScreen)
+//   이었다 — .superpowers/sdd/song-modal-brief.md 가 그 결정과 지켜야 할 것을 담고 있다.
+//   ⚠️ 「앱 안에서 유튜브를 직접 재생하지 않는다」던 처음 결정(docs/notes/today-song.md)을
+//      뒤집은 것이다 — 그 문서에 적힌 넷 중 ①(찬양 앱에 이미 플레이어가 있다)·
+//      ④(유튜브 자체 UI로 나가는 길은 못 막는다)는 그대로 남는 위험이라, 화면을
+//      openSongModal 하나로 최소화했다. ②·③(개인정보·보호자 재동의)은 문구로 대응한다.
+//   ⚠️ 내 id 는 `myUserId()`로 얻는다. `loadUser()` 가 돌려주는 객체의 칸 이름은
+//      `id` 가 아니라 **`user_id`** 다 — 직접 꺼내 쓰면 조용히 undefined 가 되어 기록이 안 쌓인다.
+//   ⚠️ 곡을 못 받았으면(서버 지연·자정 넘어 캐시가 비었을 때) 보여 줄 영상이 없다 —
+//      옛 동작 그대로 아카이브 홈을 새 탭으로 연다(단추가 죽지 않는다).
+function openSongToday(song) {
+  try {
+    const uid = (typeof myUserId === "function") ? myUserId() : null;
+    if (song && song.id && uid && api.logSongClick) api.logSongClick(uid, song.id).catch(() => {});
+  } catch (e) {}
+  if (!song || !song.id) { window.open("https://worship.onlybible.kr/", "_blank", "noopener"); return; }
+  openSongModal(song);
+}
+
+// ── 오늘의 찬양 — 팝업 안 재생(파사드: 그림 먼저, 누르면 영상) ──────────────────
+//   ⚠️ 이 저장소에 iframe 전례가 0건이다 — 아래 규칙은 전부 적대적 검토를 거친 것이라
+//      바꾸려면 근거를 남긴다(.superpowers/sdd/embed-task-a-brief.md).
+//   본보기는 showMeditationModal(.cheer-overlay > .cheer-card, wireModalConfirm) —
+//   이 팝업도 같은 꼴을 따른다.
+let songYtPlayer = null;   // 지금 화면의 YT.Player — onStateChange(엔드) 감지용
+let songPop = null;        // 뒤로가기(popstate) 핸들러 — 나갈 때 뗀다
+let songCur = null;        // 지금 화면에 걸린 곡 — 「유튜브로」가 참조한다
+let songModalClose = null; // 지금 뜬 팝업을 완전히 닫는 함수 — 끝난 화면(songShowEnded)의
+                            // 「닫기」도 같은 절차를 타야 해서 밖에서 부를 수 있게 둔다.
+
+function openSongModal(song) {
+  albumPlayStop();     // ⚠️ stopSpeaking() 만으로는 모자라다 — #ab-play-bar·body.ab-playing 이 남는다
+  songYtPlayer = null;
+  songCur = song || null;
+  const hasVideo = !!(song && song.id);
+  // 섬네일은 서버가 준 것을 먼저 쓰고, 없으면 유튜브 기본 썸네일 주소로 짐작한다.
+  const thumb = boardEsc((song && song.thumbnail) ||
+    (hasVideo ? "https://i.ytimg.com/vi/" + song.id + "/hqdefault.jpg" : ""));
+  const metaParts = [song && song.choir, song && song.svc_date].filter(Boolean).map(boardEsc);
+
+  const open = () => {
+    if (document.querySelector(".cheer-overlay")) { setTimeout(open, 300); return; }
+    const wrap = document.createElement("div");
+    wrap.id = "song-modal";
+    wrap.className = "cheer-overlay";
+    wrap.innerHTML = `
+      <div class="cheer-card dmsg-card" role="dialog" aria-modal="true">
+        <div class="cheer-ref dmsg-badge">🎵 오늘의 찬양</div>
+        <div class="song-media" id="song-media">
+          ${thumb ? `<img class="song-thumb" id="song-thumb" src="${thumb}" alt="">` : ""}
+          ${hasVideo ? `<button class="song-play" id="song-play">▶ 찬양 듣기</button>` : ""}
+        </div>
+        <div class="song-name">${boardEsc((song && song.song) || "오늘의 찬양")}</div>
+        ${metaParts.length ? `<div class="song-meta">${metaParts.join(" · ")}</div>` : ""}
+        <div class="song-modal-actions">
+          <button class="summary-help" id="song-ext">유튜브로 <span class="ext-mark">↗</span></button>
+          <button class="cheer-ok" id="song-close">확인</button>
+        </div>
+      </div>`;
+    document.body.appendChild(wrap);
+
+    // 섬네일이 안 오면 회색 바탕(.song-media 자체 배경)만 남기고 단추는 그대로 둔다
+    const thumbImg = document.getElementById("song-thumb");
+    if (thumbImg) thumbImg.onerror = () => { thumbImg.style.display = "none"; };
+
+    const playBtn = document.getElementById("song-play");
+    if (playBtn) playBtn.addEventListener("click", songStartPlay);
+    // ⚠️ **유튜브로 곧장 간다**(2026-09-23 저녁 성도님 결정) — 전에는 찬양 아카이브의 그 곡
+    //    (`worship.onlybible.kr/?song=`)으로 보냈는데, 단추 이름이 「유튜브로」이므로 이름과 가는 곳을
+    //    맞췄다. 설교 보기(app.js 의 `.watch`)와 같은 꼴이다.
+    //    ⚠️ 찬양 아카이브의 `?song=` 딥링크는 그쪽에 그대로 살아 있다 — 다시 쓸 때 건들 것 없다.
+    document.getElementById("song-ext").addEventListener("click", () => {
+      const url = (songCur && songCur.id)
+        ? "https://www.youtube.com/watch?v=" + encodeURIComponent(songCur.id)
+        : "https://worship.onlybible.kr/";   // 곡을 모르면(여기까진 안 온다) 아카이브 홈
+      window.open(url, "_blank", "noopener");
+    });
+
+    requestAnimationFrame(() => wrap.classList.add("show"));
+    const close = () => { wrap.classList.remove("show"); setTimeout(() => wrap.remove(), 250); };
+
+    // ⚠️ 팝업이 되며 「닫기」의 뜻이 달라졌다 — renderSummary() 로 뒤 화면을 갈아끼우지
+    // 않는다. 뒤에 있던 화면이 그대로 남아 있으므로 덮개(overlay)만 걷어낸다.
+    // fromPop: popstate(안드로이드 뒤로가기)로 이미 history 가 물러난 뒤인지 — 그때는
+    // history.back()을 또 부르지 않는다(옛 songClose(fromPop)과 같은 규칙).
+    let fromPop = false;
+    const finish = () => {
+      songStopPlayer();   // ① postMessage stopVideo → about:blank (나갈 때 세 단계 중 앞 둘)
+      if (songPop) { window.removeEventListener("popstate", songPop); songPop = null; }
+      if (!fromPop) { try { if (history.state && history.state.song) history.back(); } catch (e) {} }
+      songModalClose = null;
+      close();             // ② 덮개를 걷어낸다 — 뒤 화면은 손대지 않는다
+    };
+    // wireModalConfirm 이 Enter·Space·Escape 를 받고, 문서 캡처 단계 keydown 리스너를
+    // 돌려준 done() 이 뗀다 — close()만 부르면 그 뒤로 키 입력이 통째로 먹힌다.
+    const done = wireModalConfirm(document.getElementById("song-close"), finish);
+    songModalClose = done;   // 끝난 화면(songShowEnded)의 「닫기」도 이 함수로 닫는다
+
+    wrap.addEventListener("click", (e) => { if (e.target === wrap) done(); });
+
+    // 안드로이드 「뒤로 가기」로도 나가지게 — 본보기는 prayFullOpen/Close(이 앱의 유일한 pushState)
+    try { history.pushState({ song: 1 }, ""); } catch (e) {}
+    songPop = () => { fromPop = true; done(); };
+    window.addEventListener("popstate", songPop);
+  };
+  open();
+}
+
+// 「▶ 찬양 듣기」를 누른 그 순간에만 iframe 을 만든다 — 자동재생·느린 통신·구글로 나가는
+// 요청·안드로이드 뒤로가기, 넷을 한 번에 푸는 수(브리프 참고). 도메인은 youtube-nocookie 로 못 박는다.
+function songStartPlay() {
+  const media = document.getElementById("song-media");
+  if (!media || !songCur || !songCur.id) return;
+  const src = "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(songCur.id) +
+    "?autoplay=1&playsinline=1&rel=0&fs=0&enablejsapi=1&origin=" + encodeURIComponent(location.origin);
+  media.innerHTML =
+    `<iframe id="song-iframe" class="song-iframe" src="${src}" title="찬양 영상"
+       allow="accelerometer; encrypted-media" referrerpolicy="strict-origin"></iframe>`;
+  // ⚠️ iframe_api 스크립트도 누른 뒤에만 얹는다 — 처음부터 얹으면 youtube.com(nocookie 아님)으로
+  //    요청이 나가 파사드의 근거가 무너진다. 이미 있으면 그대로 쓴다(두 번 안 얹는다).
+  songLoadYtApi(() => {
+    if (!document.getElementById("song-iframe")) return;   // 그새 화면을 나갔으면 만들지 않는다
+    try {
+      songYtPlayer = new YT.Player("song-iframe", {
+        events: { onStateChange: (e) => { if (e.data === 0) songShowEnded(); } }
+      });
+    } catch (e) {}
+  });
+}
+
+function songLoadYtApi(cb) {
+  if (window.YT && window.YT.Player) { cb(); return; }
+  const prev = window.onYouTubeIframeAPIReady;
+  window.onYouTubeIframeAPIReady = () => { try { if (prev) prev(); } catch (e) {} cb(); };
+  if (!document.getElementById("yt-iframe-api")) {
+    const s = document.createElement("script");
+    s.id = "yt-iframe-api";
+    s.src = "https://www.youtube.com/iframe_api";
+    document.head.appendChild(s);
+  }
+}
+
+// rel=0 은 추천을 끄지 못한다(2018년부터 「같은 채널로 한정」일 뿐) — 우리 채널이 「고척교회」라
+// 3분 찬양이 끝나면 1시간짜리 전체예배 영상 타일이 뜬다. 그래서 ENDED(0) 순간 우리 화면으로 덮는다.
+function songShowEnded() {
+  const media = document.getElementById("song-media");
+  if (!media) return;
+  songYtPlayer = null;
+  media.innerHTML =
+    `<div class="song-ended">
+       <button class="summary-help" id="song-replay">🔁 다시 듣기</button>
+       <button class="summary-help" id="song-ended-close">확인</button>
+     </div>`;
+  const rp = document.getElementById("song-replay");
+  if (rp) rp.addEventListener("click", songStartPlay);
+  const ec = document.getElementById("song-ended-close");
+  // ⚠️ 팝업 자체를 닫아야 한다(옛 songClose(false) 대신 openSongModal 이 남겨 둔
+  //    songModalClose — 같은 절차를 타야 나갈 때 세 단계·popstate 정리가 함께 된다).
+  if (ec) ec.addEventListener("click", () => { if (songModalClose) songModalClose(); });
+}
+
+// 나갈 때 세 단계 순서(고정) — ① postMessage 로 멈추라 명령 ② iframe 을 비운다 ③ 그다음 화면 전환.
+//   ⚠️ 「화면을 바꾸면 소리가 멈춘다」는 사파리 가정이다 — Capacitor 는 AirPlay 재생을 켜 둬서
+//      iframe 을 지워도 소리가 남을 수 있다(그래도 멈추라는 명령은 보낸다).
+function songStopPlayer() {
+  const iframe = document.getElementById("song-iframe");
+  if (iframe) {
+    try { iframe.contentWindow.postMessage(JSON.stringify({ event: "command", func: "stopVideo" }), "*"); } catch (e) {}
+    try { iframe.src = "about:blank"; } catch (e) {}
+  }
+  songYtPlayer = null;
+}
+
 // ── 사역 신청: 기간에만 첫 화면에 뜬다 ──────────────────────────────
 //   ⚠️ 상시 기능이 아니다. 기간(app_config.ministry)을 캐시해 두고 그 안에서만 보여 준다.
 //      passagesPublic 과 같은 방식 — 첫 화면은 동기 렌더라 미리 받아 둔 값을 본다.
@@ -329,6 +637,9 @@ const EVENT_OPEN_KEY = "event-open";
 //   {n: 회차 수, label: "썸머 써 바이블 조회"}
 // ⚠️ 옛 값("1"/"0")이 폰에 남아 있을 수 있다 — 그때도 안 깨지게 읽는다.
 const EVENT_LABEL_KEY = "event-label";
+// 자격(도장) 회차 id — **개인정보가 아니다**(EVENT_LABEL_KEY 와 같은 취급).
+// 진행은 여기 담지 않는다. 그건 event-stamp::<user_id> 다.
+const EVENT_STAMP_ID_KEY = "event-stamp-id";
 function eventOpenCached() {
   try { return localStorage.getItem(EVENT_OPEN_KEY) === "1"; } catch (e) { return false; }
 }
@@ -358,6 +669,10 @@ function refreshEventOpen() {
           .filter(Boolean).join(" ")
       : (n > 1 ? "이벤트 " + n + "개" : "이벤트 신청·명단");
     try { localStorage.setItem(EVENT_LABEL_KEY, label); } catch (e) {}
+    // 첫 화면 알약이 이걸 보고 eventStamps 를 **한 번만** 부른다(왕복을 둘로 늘리지 않으려고).
+    // ⚠️ 둘 이상이면 빈 값 — 누구의 진행인지 화면이 말할 수 없다(라벨도 「이벤트 2개」가 된다).
+    const stampEvs = list.filter((e) => e.needs && e.needs.eligibility);
+    try { localStorage.setItem(EVENT_STAMP_ID_KEY, stampEvs.length === 1 ? stampEvs[0].id : ""); } catch (e) {}
     // ⚠️ **값이 바뀌면 그 자리에서 다시 그린다.** 캐시만 고치고 두면 새로고침해야만
     //    반영된다 — 담당자가 회차를 내려도 성도님 화면에는 **눌러도 아무것도 없는
     //    단추**가 그대로 남는다(2026-09-10 실제로 그랬다: 친구가 「지금 뜨는데요」).
@@ -724,8 +1039,19 @@ function clearPersonalData() {
   [
     USER_KEY, PRIVACY_CONSENT_KEY, PROGRESS_KEY, PROGRESS_KEY + "-en", SYNC_STATUS_KEY, REVIEW_KEY,
     HEART_KEY, PASSAGE_KEY, DAILY_MILESTONE_KEY, BLESS_KEY, EVENT_ENTERED_KEY,
-    "board-seen", "album-checked",
+    "board-seen", "album-checked", RANK_SCOPE_KEY,
   ].forEach((k) => { try { localStorage.removeItem(k); } catch {} });
+  // ⚠️ 메모리에 있는 것도 비운다. localStorage 만 지우면, 다음 사람이 로그인했을 때
+  //    applyStampPill 이 **동기로** 먼저 그려서 서버 응답이 오기 전 한 왕복 동안
+  //    **앞사람의 알약**이 보인다(이 화면 전환은 새로고침이 아니다).
+  stampCache = null;
+  // 가을 말씀 동행 진행 캐시 — user_id 별이라 목록에 못 적는다. 앞자리로 훑어 지운다.
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && k.indexOf("event-stamp::") === 0) localStorage.removeItem(k);
+    }
+  } catch {}
   try { sessionStorage.clear(); } catch {}
 }
 
@@ -1133,6 +1459,12 @@ const STATUS_LABEL = {
 // ------------------------------------------------------------
 const REVIEW_KEY = "memorize-review";
 const REVIEW_INTERVALS = [3, 7, 14, 30, 60];
+// 한 번에 보여 줄 복습 구절 수. **상한이 아니라 묶음**이다 — 다 하면 그다음 묶음이
+// 곧바로 기한이 된다(advanceReview 가 마친 구절을 즉시 다음 간격으로 밀기 때문).
+// 2026-09-23 실측 — 복습한 날 그날 복습 구절 중위값이 3이고, 한 사람 평균 13.9건이
+// 밀려 있었다(2,383건 중 73.6%를 21~40건 밀린 52명이 쥐고 있었다). 적체 자체가 벽이었다.
+// ⚠️ 되돌리려면 이 값만 큰 수(999)로 바꾸면 자르기가 무효가 된다.
+const REVIEW_BATCH = 3;
 
 function reviewKey() {
   const u = loadUser();
@@ -1161,8 +1493,11 @@ function ensureReviewScheduled(no) {
   const r = loadReview();
   if (!r[no]) { r[no] = { level: 0, next: afterDaysStr(REVIEW_INTERVALS[0]) }; saveReviewData(r); }
 }
-// 오늘까지 복습 예정인 구절No 목록 — renderSummary 의 개수 표시와 startReview 딱
-// 둘이 쓰므로, 각 호출부가 아니라 여기 한 곳에서만 거른다(2026-09-10 리뷰 지적).
+// 오늘까지 복습 예정인 구절No 목록 — renderSummary 의 개수 표시·startReview 의 큐·
+// renderReviewDone 의 「더 남았나」 셋이 쓰므로, 각 호출부가 아니라 여기 한 곳에서만
+// 거른다(2026-09-10 리뷰 지적).
+// ⚠️ 2026-09-23부터: 기한이 된 것 **전부**가 아니라 최대 REVIEW_BATCH 개만,
+//    next(기한) 오름차순(=가장 오래 밀린 것부터)으로 골라 돌려준다(아래 sort·slice).
 function dueReviewNos() {
   const r = loadReview(); const t = ymdLocal(new Date());
   // ⚠️ 예전에 걸린 시편 예약이 남아 있으면 여기서 지운다(위 ensureReviewScheduled
@@ -1177,7 +1512,21 @@ function dueReviewNos() {
     // ⚠️ 지금 verses 안에 없는 no(관리자가 지웠거나 번호가 바뀐 것)는 뺀다 — 안 그러면
     //    「오늘 복습 N구절」 단추가 뜨고도 눌러도 찾을 게 없어 아무 일도 없는 것처럼
     //    보인다(성도님 제보 2026-09-13 — "처음부터 안 나오게").
-    .filter((no) => verses.some((v) => v.no === no));
+    .filter((no) => verses.some((v) => v.no === no))
+    // ⚠️ 가장 오래 밀린 것부터. 전에는 정렬이 **아예 없어** Object.keys 의 정수 키
+    //    순회(사실상 구절 번호순)에 암묵적으로 기대고 있었다. 그래서 번호가 큰 구절은
+    //    30일을 밀려도 차례가 안 왔다(2026-09-23 실측 — 30일 이상 밀린 것 456건).
+    // ⚠️ 서버 due_at 이 null 이면 next 가 빈 문자열이 된다(mergeServerReviews). 그대로
+    //    정렬하면 「언제인지 모르는 것」이 「가장 오래 밀린 것」을 제치고 묶음 자리를
+    //    차지한다 — 모르는 것을 오늘로 보아 오늘치와 나란히 세운다(위 필터의 「기한
+    //    지남」 판정은 그대로 둔다 — 여기 정렬에서만 바꾼다).
+    .sort((a, b) => {
+      const na = r[a].next || t, nb = r[b].next || t;
+      return na < nb ? -1 : na > nb ? 1 : a - b;
+    })
+    // 묶음으로 자른다. 여기 한 곳에서 자르면 첫 화면 숫자·큐 길이·완료 화면 숫자가
+    // 저절로 같은 수가 된다(호출처는 renderSummary·startReview·renderReviewDone 셋).
+    .slice(0, REVIEW_BATCH);
 }
 // 복습 완료 → 다음(더 긴) 간격으로
 function advanceReview(no) {
@@ -1187,6 +1536,26 @@ function advanceReview(no) {
   saveReviewData(r);
   const u = loadUser();
   if (u && u.user_id) api.advanceReview(u.user_id, no).catch(() => {});
+}
+
+// 복습 기록에 쓸 mode 를 고른다.
+// ⚠️ **음성을 먼저 가른다.** 복습은 타자와 음성이 **같은 콜백을 공유**하기 때문이다
+//    (renderReview 가 setupChallengeTyping 과 setupVoice 에 같은 onDone 을 넘긴다).
+//    도전은 두 콜백이 갈려 있어 음성이 "voice" 로 박혀 있지만 여기는 아니다 —
+//    카드 여부를 먼저 보면 카드를 누르다 🎤 로 마친 기록이 review-typing-card 로 남아
+//    「음성은 사실상 죽었다」는 판단 근거가 흔들린다.
+// ⚠️ "review-" + mode 로 이어 붙이면 카드일 때 **review-card** 가 나온다. 이름에
+//    typing 이 없어 순위·통계의 %typing% 집계에서 조용히 빠진다 — 반드시
+//    review-typing-card 꼴이어야 한다(supabase/migrate_modes_review_card.sql).
+// ⚠️ 「카드로 했다」의 기준은 isCardMode()(모드를 켠 상태)다 — 암송(saveProgress 의
+//    isCardMode ? "card" : "typing")·시편(psalmStageDone)과 같은 정의라야
+//    세 화면 숫자를 나란히 놓을 수 있다.
+function reviewLogMode(mode) {
+  // 옛 (mode || "voice") 방어를 지킨다. setupVoice 가 onPass("voice") 로 인자를
+  // 주는 지금은 없어도 되지만, 누군가 onPass() 로 인자를 빠뜨리게 바꾸면 그 순간부터
+  // 음성 복습이 조용히 review-typing 으로 기록된다 — 오류가 안 나 아무도 못 알아챈다.
+  if (!mode || mode === "voice") return "review-voice";
+  return isCardMode() ? "review-typing-card" : "review-typing";
 }
 
 // ------------------------------------------------------------
@@ -1364,7 +1733,12 @@ const FEAT_SINCE = {
   //    NEW 는 신청 시작일부터 센다. 지금 날짜를 적으면 성도님이 보기도 전에 사라진다.
   ministry: "2026-12-13",
   event: "2026-09-10",        // 이벤트 플랫폼 — 썸머 써 바이블 명단을 여는 날
+  // ⚠️ 「event」키를 다시 쓰면 안 된다 — 9월에 썸머 명단을 눌러 본 분은
+  //    feat-seen-event 가 이미 1 이라(featIsNew 첫 줄) 영영 안 뜬다.
+  //    ⚠️ 개시일을 옮기면 supabase/event_stamp_2026.sql 과 함께 옮긴다.
+  stamp: "2026-10-11",        // 가을 말씀 동행 — 도장 시작일과 같은 날부터 NEW
   psalm: "2026-09-12",        // 쉴만한 물가(옛 이름 시편 말씀 액자) — 1일차와 같은 날부터 NEW
+  song: "2026-09-23",         // 오늘의 찬양 — 게이트(songPublic)를 켠 날
   prayer: "2026-09-03",
   meditation: "2026-07-20",   // 매일 묵상
   sermon: "2026-07-23",       // 내게 주시는 말씀
@@ -1410,6 +1784,94 @@ async function fillBoardBadge() {
   const btn = document.getElementById("open-board");
   if (btn && n > 0 && !btn.querySelector(".board-new")) btn.insertAdjacentHTML("beforeend", `<span class="board-new">새글 ${n}</span>`);
 }
+
+// 가을 말씀 동행 — 이벤트 단추 안 진행 알약.
+// ⚠️ EVENT_LABEL_KEY·EVENT_OPEN_KEY 에 담지 않는다. 그 둘은 user_id 로 안 나뉘어 있고
+//    clearPersonalData 목록에도 없다 — 공용 기기에서 남의 진행이 남는다.
+const STAMP_KEY = (uid) => `event-stamp::${uid}`;
+let stampCache = null;   // { eventId, day, weekDays, perWeek, weeks, eligible }
+
+function stampRead(uid) {
+  try {
+    const v = JSON.parse(localStorage.getItem(STAMP_KEY(uid)) || "null");
+    // ⚠️ 날이 바뀌었거나 회차가 다르면 **그 자리에서 버린다** — 틀린 도장보다 없는 편이 낫다.
+    if (!v || v.day !== todayYmd()) return null;
+    return v;
+  } catch { return null; }
+}
+function stampWrite(uid, v) {
+  try { localStorage.setItem(STAMP_KEY(uid), JSON.stringify(v)); } catch {}
+}
+
+// 오늘이 몇 주차인가 — 기간 밖이거나 값이 망가졌으면 -1.
+// ⚠️ NaN 을 꼭 걸러야 한다. `i < 0 || i >= weeks` 는 NaN 에서 **둘 다 false** 라
+//    가드를 그냥 통과해 「기간 밖이면 숨긴다」가 「빈 알약을 그린다」로 뒤집힌다.
+function stampWeekIndex(s) {
+  if (!s || !s.start) return -1;
+  const i = Math.floor(
+    (Date.parse(todayYmd() + "T00:00:00Z") - Date.parse(s.start + "T00:00:00Z")) / 86400000 / 7);
+  return (isFinite(i) && i >= 0 && i < s.weeks) ? i : -1;
+}
+
+function applyStampPill() {
+  const btn = document.getElementById("open-event-list");
+  if (!btn || !stampCache) return;
+  const old = btn.querySelector(".ev-pill");
+  if (old) old.remove();
+  const s = stampCache;
+  const i = stampWeekIndex(s);
+  if (i < 0) return;                                 // 기간 밖이면 아무것도 안 붙인다
+  const n = (s.weekDays && s.weekDays[i]) || 0;
+  let dots = "";
+  for (let k = 0; k < s.perWeek; k++) dots += k < n ? "●" : "○";
+  btn.insertAdjacentHTML("beforeend", `<span class="ev-pill">${dots}</span>`);
+}
+
+function fillStampPill(u) {
+  applyStampPill();                                  // 캐시가 있으면 즉시(깜빡임 방지)
+  if (!u || !u.user_id || !window.api || !api.eventStamps) return;
+  // ⚠️ 여기서 eventOpenList 를 다시 부르지 않는다 — 첫 화면을 그릴 때마다 왕복이 둘이 된다.
+  //    회차 id 는 부팅 때 refreshEventOpen 이 이미 받아 적어 둔 것을 읽는다(Step 5-1).
+  let evId = "";
+  try { evId = localStorage.getItem(EVENT_STAMP_ID_KEY) || ""; } catch {}
+  if (!evId) return;                                 // 자격 회차가 없거나 둘 이상이다
+  const cached = stampRead(u.user_id);
+  if (cached && cached.eventId === evId) { stampCache = cached; applyStampPill(); }
+  api.eventStamps(u.user_id, evId).then((s) => {
+    if (!s || !s.ok || !s.rule) return;
+    const prev = stampCache;
+    stampCache = {
+      eventId: evId, day: todayYmd(), start: s.rule.start,
+      weeks: s.rule.weeks, perWeek: s.rule.perWeek,
+      weekDays: (s.weekDays || []).slice(), eligible: !!s.eligible,
+    };
+    // ⚠️ 방금 낙관적으로 찍은 이번 주 칸을 **서버의 아직 안 반영된 값이 되돌리지 않게.**
+    //    저장은 fire-and-forget 이라, 암송을 마치고 곧장 홈에 오면 집계가 아직 안 따라왔을 수 있다.
+    //    하필 「방금 했는데」 하고 확인하는 순간이다. loadTodayCount 가 쓰는 방어와 같은 것이다.
+    const wi = stampWeekIndex(stampCache);
+    if (wi >= 0 && prev && prev.eventId === evId && prev.day === stampCache.day && prev.weekDays) {
+      stampCache.weekDays[wi] = Math.max(
+        Number(stampCache.weekDays[wi] || 0), Number(prev.weekDays[wi] || 0));
+    }
+    stampWrite(u.user_id, stampCache);
+    applyStampPill();                                // ⚠️ renderSummary 를 다시 부르지 않는다
+  }).catch(() => {});
+}
+
+// 활동 직후 오늘 칸을 그 자리에서 뒤집는다 — 하필 「방금 했는데」 하고 확인하는 순간이다.
+// ⚠️ 자격(단추 열기)은 여기서 하지 않는다. 그것은 서버 응답을 받은 뒤에만.
+function bumpStampToday() {
+  if (!stampCache || stampCache.day !== todayYmd()) return;
+  const i = Math.floor(
+    (Date.parse(todayYmd() + "T00:00:00Z") - Date.parse(stampCache.start + "T00:00:00Z"))
+    / 86400000 / 7);
+  if (i < 0 || i >= stampCache.weeks) return;
+  if (todayCountCache != null && todayCountCache > 1) return;   // 오늘 첫 번째일 때만
+  stampCache.weekDays = (stampCache.weekDays || []).slice();
+  stampCache.weekDays[i] = (stampCache.weekDays[i] || 0) + 1;
+  applyStampPill();
+}
+
 // 게시판을 봤다고 기록 — 배지 즉시 소멸(캐시도 0으로 갱신해 재조회 없이 반영)
 function markBoardSeen() {
   try {
@@ -1903,8 +2365,9 @@ function eventDaysLeft() {
 }
 
 function renderEventButton() {
-  // 참여 전에는 맨 위(#event-slot)에서 눈에 띄게, 응모를 마치면 맨 아래
-  // (#event-slot-bottom)로 내려 자리를 비운다.
+  // 이벤트 카드는 **늘 맨 아래**(#event-slot-bottom)에 둔다(2026-09-25 친구 요청).
+  // 전에는 참여 전이면 맨 위(#event-slot, 「오늘 할 일」 바로 위)에 올렸는데, 첫 화면을 열자마자
+  // 큰 카드가 오늘 할 일을 밀어내렸다. #event-slot 은 되돌릴 때를 위해 비운 채 남겨 둔다.
   const topSlot = document.getElementById("event-slot");
   const botSlot = document.getElementById("event-slot-bottom");
   if (topSlot) topSlot.innerHTML = "";
@@ -1912,7 +2375,7 @@ function renderEventButton() {
   const pool = eventVerses();
   if (!eventActive() || !pool.length) return;
   const done = eventEntered();
-  const slot = (done ? botSlot : topSlot) || topSlot || botSlot;
+  const slot = botSlot || topSlot;
   if (!slot) return;
   const name = (eventConfig && eventConfig.name) || "말씀 이벤트";
   const left = eventDaysLeft();
@@ -1993,8 +2456,10 @@ function renderSummary() {
   // 순서: 복습(잊기 전이 먼저) → 안 외운 게 남았으면 암송 → 다 외웠으면 도전.
   const notDone = counts[0] + counts[1] + counts[2];   // 아직 3단계를 못 마친 구절
   const TODO = dueCount > 0
+    // ⚠️ 「오늘 복습」이 아니라 「복습」이다 — 3구절은 상한이 아니라 묶음이라 다 하면
+    //    또 나온다. 「오늘」이라 하면 하루에도 여러 번 보게 되어 거짓이 된다.
     ? { id: "go-review", cls: "review-cta", ic: "🔁",
-        tx: `오늘 복습 ${dueCount}구절`, sub: "잊기 전에 다시 한 번" }
+        tx: `복습 ${dueCount}구절`, sub: "잊기 전에 다시 한 번" }
     : notDone > 0
     ? { id: "go-list", cls: "", ic: "📖",
         tx: "말씀 암송하기", sub: `아직 ${notDone}구절 남았어요` }
@@ -2099,9 +2564,19 @@ function renderSummary() {
     ${/* 이름은 관리자가 적는 값이라 날 HTML 로 그리지 않는다. boardEsc 를 빌려 쓴다 —
           escape 헬퍼를 하나 더 만들면 그만큼 갈라진다. 서버가 norm() 으로 줄바꿈을
           이미 공백으로 접으므로 boardEsc 의 \n→<br> 는 걸릴 일이 없다. */""}
-    ${eventVisible() ? `<button class="summary-help" id="open-event-list">🏅 ${boardEsc(eventLabelCached())}${newBadge("event")}</button>` : ""}
+    ${/* ⚠️ 새 CSS 를 쓰지 않는다 — .summary-help.event-cta 금색이 style.css:2046-2053 에
+          이미 있고 쓰는 곳이 0건이었다. class 를 한 단어 늘리는 것이 전부다.
+          ⚠️ 이름 뒤에 진행 문구를 이어 붙이지 않는다 — 이 단추는 nowrap+ellipsis 라
+          잘리는 쪽이 「이름」이다. 진행은 아래 fillStampPill 이 알약으로 꽂는다. */""}
+    ${eventVisible() ? `<button class="summary-help event-cta" id="open-event-list">🏅 ${boardEsc(eventLabelCached())}${newBadge("stamp")}</button>` : ""}
     <button class="summary-help" id="open-board">💬 응원·기도·공감</button>
+    ${/* 2026-09-25 순서 바꿈(친구 요청) — 가정 축복 기도문이 쉴만한 물가보다 위. */""}
+    <button class="summary-help" id="open-prayer">🙏 가정 축복 기도문${newBadge("prayer")}</button>
     ${psalmVisible() ? `<button class="summary-help" id="open-psalm">🐑 쉴만한 물가${newBadge("psalm")}</button>` : ""}
+    ${/* ⚠️ 2026-09-23 첫 화면 단추를 뺀다(성도님 결정) — 「🎵 찬양 · 곡명 ↗」은
+          **매일 묵상 창 맨 아래 줄**에만 둔다. 게이트(app_config.songPublic)는 켜진 채라
+          묵상 창 CTA·앱 안 찬양 화면(openSongToday)·기록(feature_log)은 그대로 산다.
+          다시 넣으려면 songVisible() 조건으로 id="open-song" 단추를 이 자리에 되살린다. */""}
     <!-- ⚠️ 2026-09-11 이름 변경: 「시편 말씀 액자」 → 「쉴만한 물가」(시편 23편 2절,
          성도님 결정) — 「액자」가 낯설고, 매일 하지 않으면 안 될 것 같은 부담을 줄이려고
          쉼·인도받음의 이미지로 바꿨다. id="open-psalm"·내부 함수명(js/psalm.js)·엑셀·
@@ -2111,7 +2586,6 @@ function renderSummary() {
          그림처럼 보여 「액자」 느낌이 되살아난다는 지적(2026-09-11)으로 다시 바꿨다.
          시편 23편이 "여호와는 나의 목자시니"로 시작하니, 장소(물가)보다 인도받아
          쉰다는 이 시편의 핵심에 더 가깝다. -->
-    <button class="summary-help" id="open-prayer">🙏 가정 축복 기도문${newBadge("prayer")}</button>
     ${ministryVisible() ? `<button class="summary-help" id="open-ministry">🤝 사역신청${newBadge("ministry")}</button>` : ""}
     ${passagesVisible() ? `<button class="summary-help" id="open-passages">📜 내 안에 거하는 말씀${newBadge("passages")}</button>` : ""}
     <!-- 「더 보기」 — 자주 누르지 않는 넷을 접어 둔다(연 상태는 기억한다).
@@ -2143,6 +2617,7 @@ function renderSummary() {
   document.getElementById("go-list").addEventListener("click", renderVerseList);
   setupMoreToggle();   // 「더 보기」 — 필사·퀴즈·아카이브 둘
   loadTodayCount(u); // 첫 화면 '오늘 N회' 띠 채우기
+  fillStampPill(u);  // 가을 말씀 동행 — 이벤트 단추 안 진행 알약(●●○)
   renderEventButton();  // 이미 로드된 설정이 있으면 즉시 표시
   loadEventState();     // 서버에서 설정·응모여부 갱신 후 다시 표시
   document.getElementById("open-board").addEventListener("click", renderBoard);
@@ -2156,6 +2631,9 @@ function renderSummary() {
     pilsaLoaded = false;          // 들어올 때마다 서버에서 지금 상태를 받는다
     renderPilsaApply();
   });
+  { const b = document.getElementById("open-song");   // 2026-09-23부터 첫 화면엔 없다(위 주석)
+    if (b) b.addEventListener("click", () => { markFeatSeen("song"); openSongToday(songCacheToday()); }); }
+  loadTodaySong();   // 단추는 없어도 오늘 곡을 미리 받아 둔다 — 묵상 창이 그 캐시를 쓴다(왕복은 하루 한 번)
   // 형제 앱(찬양·말씀 아카이브)으로 이동 — 새 탭이라 암송 진행 상태를 잃지 않는다
   document.getElementById("open-praise").addEventListener("click", () => window.open("https://worship.onlybible.kr/", "_blank", "noopener"));
   document.getElementById("open-sermon-archive").addEventListener("click", () => window.open("https://sermon.onlybible.kr/", "_blank", "noopener"));
@@ -2168,14 +2646,18 @@ function renderSummary() {
   document.getElementById("go-challenge").addEventListener("click", startChallenge);
   document.getElementById("open-meditation").addEventListener("click", () => { markFeatSeen("meditation"); scRemoveBadge("open-meditation"); maybeShowWeeklyMeditation(true, true); });
   document.getElementById("open-sermon-chat").addEventListener("click", () => { markFeatSeen("sermon"); renderSermonChat(); });
-  document.getElementById("open-album").addEventListener("click", () => renderAlbum());
+  // ⚠️ logFeature("album",0) 은 여기(연 자리)에 둔다 — renderAlbum() 안에 두면 그 화면 안
+  //    갈래 칩·가리기·섞기·고르기 같은 칩을 누를 때마다 renderAlbum() 이 다시 불려 "다시 그림"을
+  //    "다시 엶"으로 잘못 센다(2026-09-23 리뷰). renderAlbum() 은 이 단추 말고 자기 자신 안에서만
+  //    또 불린다 — 이 자리가 유일한 진입점이다.
+  document.getElementById("open-album").addEventListener("click", () => { logFeature("album", 0); renderAlbum(); });
   { const b = document.getElementById("open-passages"); if (b) b.addEventListener("click", () => { markFeatSeen("passages"); renderPassageList(); }); }
   { const b = document.getElementById("open-psalm"); if (b) b.addEventListener("click", () => { markFeatSeen("psalm"); renderPsalmHome(); }); }
   // ⚠️ renderEventList 는 js/events.js 에 있다 — 그 파일이 안 실려도 첫 화면이 죽지
   //    않게 막고, 말없이 아무 일도 안 일어나는 대신 까닭을 알려 준다.
   { const b = document.getElementById("open-event-list");
     if (b) b.addEventListener("click", () => {
-      markFeatSeen("event");
+      markFeatSeen("stamp");
       if (typeof renderEventList === "function") renderEventList(null);
       else appAlert("이벤트 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
     }); }
@@ -2243,6 +2725,22 @@ let prayOpenVerse = false; // 말씀을 펴 뒀나 — 이전/다음에도 이�
 let prayGroup = null;      // 어느 주제 목록에서 들어왔나 — 돌아갈 길을 남긴다
 let prayAutoPlay = false;  // 연속듣기 모드 — TTS 끝나면 다음 편으로 자동 이동
 let prayRepeat  = false;  // 반복듣기 모드 — TTS 끝나면 같은 편 다시 재생
+// 연속듣기·배경음악 체크박스 — **처음엔 켜져 있다**(2026-09-25 친구 요청).
+// ⚠️ 체크박스는 「지금 재생 중인가」(prayAutoPlay·prayBgAudio.paused)가 아니라 **고른 설정**을 비춘다.
+//    전에는 재생 상태를 그대로 비춰, 기본을 켜 둬도 멈춤·이전·다음 한 번에 체크가 풀렸다.
+// ⚠️ 끄신 것은 기억한다 — 켜 둔 설정을 새 기능이 조건부로 무시하지 않는다(v3.181→182 되돌림 교훈).
+// ⚠️ 배경음악은 브라우저가 누르기 전 자동 재생을 막는다 — 「켜짐」은 들려주기를 누를 때 함께 시작한다는 뜻이다.
+// 「▶ 이 주제 전체 듣기」로 시작했으면 그 주제의 편 번호들(0-based)을 순서대로 담는다.
+// 연속듣기가 104편 전체 대신 이 줄만 따라가고, 끝나면 멈춘다. 멈춤·이전·다음·첫 화면에서 비운다.
+let prayQueue = null;
+const PRAY_AUTO_KEY = "pray-auto";
+const PRAY_BGM_KEY = "pray-bgm";
+function prayPref(key) {
+  try { return localStorage.getItem(key) !== "0"; } catch { return true; }
+}
+function setPrayPref(key, on) {
+  try { localStorage.setItem(key, on ? "1" : "0"); } catch {}
+}
 // 배경음악 파일 목록 — music/ 폴더에 파일을 추가하면 이 배열에도 넣는다. 순서대로 재생 후 처음으로 돌아간다.
 const PRAY_BGM_LIST = [
   "music/catholicrelax-small-boat-into-silence-471285.mp3",
@@ -2341,6 +2839,62 @@ function prayToday(n) {
   return Math.floor(d.getTime() / 864e5) % n;
 }
 
+// 매일 묵상 창의 「🙏 오늘의 기도」 줄 — 아이폰 위젯과 같은 서버 액션(getTodayBlessing)을 쓴다.
+//   ⚠️ blessings 전체(83KB)를 받지 않는다 — 기도문 화면에 들어갈 때만 받는 자료다. 여기선 제목만 있으면 된다.
+//   ⚠️ 반드시 null 로 삼킨다 — 묵상 창이 이 리젝션에 통째로 사라진다(fetchTodaySong 과 같은 계약).
+//   ⚠️ 누르면 renderPrayerBook() 이 prayToday 로 같은 편을 연다 — 서버와 앱의 「오늘 한 편」은
+//      tests/widget-parity.py 가 대조한다. date 를 todayYmd() 로 넘겨 두 쪽이 같은 날을 보게 한다.
+let blessToday = null;   // { ymd, b } — 창이 하루에 몇 번 떠도 서버는 한 번만
+function fetchTodayBlessing() {
+  if (!window.api || !api.getTodayBlessing) return Promise.resolve(null);
+  const ymd = todayYmd();
+  if (blessToday && blessToday.ymd === ymd) return Promise.resolve(blessToday.b);
+  return withTimeout(api.getTodayBlessing(ymd), 1500)
+    .then((r) => {
+      const b = r && r.ok && r.title ? r : null;
+      if (b) blessToday = { ymd, b };
+      return b;
+    })
+    .catch(() => null);
+}
+
+// 「🙏 기도」 전용 팝업 — 위젯과 같은 편(제목·말씀·기도문). 이름 자리는 **로그인 이름**으로 채운다
+//   (2026-09-26 성도님 요청 — 서버가 준 tpl 원문을 prayFill. 옛 서버라 tpl 이 없으면 위젯 글 그대로).
+//   ⚠️ 「확인」은 덮개만 걷는다 — renderSummary() 를 부르지 않는다(뒤 화면이 튕긴다 · today-song.md).
+//   「축복 기도문」만 화면을 바꾼다(오늘 한 편 = 같은 편, 거기선 내 이름으로 읽힌다).
+function openBlessingModal(b) {
+  if (!b) return;
+  const u = loadUser();
+  const body = b.tpl ? prayFillHtml(b.tpl, (u && u.name) || "우리 가정") : boardEsc(b.prayer || "");
+  const open = () => {
+    if (document.querySelector(".cheer-overlay")) { setTimeout(open, 300); return; }
+    const wrap = document.createElement("div");
+    wrap.id = "bless-modal";
+    wrap.className = "cheer-overlay";
+    wrap.innerHTML = `
+      <div class="cheer-card dmsg-card bless" role="dialog" aria-modal="true">
+        <div class="cheer-ref dmsg-badge">🙏 기도</div>
+        <div class="dmsg-title">${boardEsc(b.title || "")}</div>
+        ${b.ref ? `<div class="bless-ref">${boardEsc(b.ref)}</div>` : ""}
+        <div class="cheer-msg dmsg-body bless-body">${body}</div>
+        <div class="song-modal-actions">
+          <button class="summary-help" id="bless-more">축복 기도문</button>
+          <button class="cheer-ok" id="bless-close">확인</button>
+        </div>
+      </div>`;
+    document.body.appendChild(wrap);
+    requestAnimationFrame(() => wrap.classList.add("show"));
+    const close = () => { wrap.classList.remove("show"); setTimeout(() => wrap.remove(), 250); };
+    const done = wireModalConfirm(document.getElementById("bless-close"), close);
+    document.getElementById("bless-more").addEventListener("click", () => {
+      done();
+      setTimeout(() => renderPrayerBook(), 260);
+    });
+    wrap.addEventListener("click", (e) => { if (e.target === wrap) done(); });
+  };
+  open();
+}
+
 function renderPrayerBook(idx) {
   prayFullClose();          // 다른 화면에서 돌아올 때 덮개가 남아 있지 않게
   const u = loadUser();
@@ -2349,7 +2903,7 @@ function renderPrayerBook(idx) {
   app.innerHTML = `<div class="pr-wrap"><div class="pr-loading">불러오는 중…</div></div>
     <button class="home-fab" id="pr-home" aria-label="첫 화면으로">${homeFabLabel(u, true)}</button>`;
   window.scrollTo(0, 0);
-  document.getElementById("pr-home").addEventListener("click", () => { prayAutoPlay = false; stopSpeaking(); stopPrayBgMusic(); renderSummary(); });
+  document.getElementById("pr-home").addEventListener("click", () => { prayAutoPlay = false; prayQueue = null; stopSpeaking(); stopPrayBgMusic(); renderSummary(); });
   loadPrayers().then((list) => {
     if (idx == null) idx = prayToday(list.length);
     prayIdx = ((idx % list.length) + list.length) % list.length;
@@ -2357,6 +2911,26 @@ function renderPrayerBook(idx) {
   }).catch(() => {
     document.querySelector(".pr-loading").textContent = "기도문을 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.";
   });
+}
+
+// ---------- 열람 기록 ----------
+// 못 재던 기능이 「몇 명에게 닿는지」를 남긴다(설계: docs/superpowers/specs/2026-09-23-feature-log-design.md).
+// ⚠️ await 하지 않는다 — 기다릴 이유가 없고, 기다리면 느린 통신에서 화면이 늦어진다.
+// ⚠️ 어떤 실패도 화면을 막지 않는다. 기록 때문에 액자가 안 열리면 본말이 뒤집힌다.
+// ⚠️ 같은 (기능,항목)을 60초 안에 다시 보내지 않는다 — 화면이 다시 그려지는 것과
+//    사람이 다시 들어오는 것을 가른다. 하루로 막으면 cnt 가 1 에 고정돼 뜻이 사라지고,
+//    아예 안 막으면 재렌더마다 가짜로 오른다. 60초가 그 사이를 가른다.
+const featSent = {};                       // 창을 닫으면 사라진다(메모리만 · localStorage 를 쓰지 않는다)
+function logFeature(feature, item) {
+  try {
+    const u = loadUser();
+    if (!u || !u.user_id) return;          // 로그인 전이면 아무것도 안 한다
+    const k = feature + ":" + (item || 0), now = Date.now();
+    if (featSent[k] && now - featSent[k] < 60000) return;
+    featSent[k] = now;
+    // await 하지 않으므로 rejection 이 try/catch 를 빠져나간다
+    api.featureLog({ user_id: u.user_id, feature: feature, item: item || 0 }).catch(() => {});
+  } catch (e) {}
 }
 
 let prayLogged = null;   // 방금 기록한 편 — 이름 바꾸기 등으로 다시 그릴 때 두 번 세지 않게
@@ -2368,7 +2942,7 @@ function drawPrayer(list, i) {
   if (prayLogged !== b.no) {
     prayLogged = b.no;
     const u = loadUser();
-    if (u && u.user_id) { try { api.blessingLog({ user_id: u.user_id, no: b.no }); } catch (e) {} }
+    if (u && u.user_id) { try { api.blessingLog({ user_id: u.user_id, no: b.no }).catch(() => {}); } catch (e) {} }
   }
   const chunks = prayChunks(b.prayer);
   const prayer = chunks.map((sent, k) =>
@@ -2412,9 +2986,9 @@ function drawPrayer(list, i) {
         <div class="pr-cfg-info">속도·볼륨을 바꾸면 재생이 멈춥니다. 들려주기를 다시 눌러 시작하세요.</div>
       </div>
       <div class="pr-opts">
-        <label class="pr-opt-label"><input type="checkbox" id="pr-auto-chk"${prayAutoPlay ? " checked" : ""}> 연속듣기</label>
+        <label class="pr-opt-label"><input type="checkbox" id="pr-auto-chk"${!prayRepeat && prayPref(PRAY_AUTO_KEY) ? " checked" : ""}> 연속듣기</label>
         <label class="pr-opt-label"><input type="checkbox" id="pr-repeat-chk"${prayRepeat ? " checked" : ""}> 반복듣기</label>
-        <label class="pr-opt-label"><input type="checkbox" id="pr-bgm-chk"${prayBgAudio && !prayBgAudio.paused ? " checked" : ""}> 🎵배경음악</label>
+        <label class="pr-opt-label"><input type="checkbox" id="pr-bgm-chk"${prayPref(PRAY_BGM_KEY) ? " checked" : ""}> 🎵배경음악</label>
       </div>
       <div class="pr-nav">
         <button class="pr-arrow" id="pr-prev">← 이전</button>
@@ -2433,6 +3007,7 @@ function drawPrayer(list, i) {
             <span class="pr-acc-caret">▾</span>
           </button>
           <div class="pr-acc-body">
+            <button class="summary-help pr-group-play" data-g="${prayEsc(g.g)}" data-q="${items.map((o) => o.xi).join(",")}">▶ 이 주제 전체 듣기 <span class="pr-item-ref">${items.length}편</span></button>
             ${items.map((o) => `<button class="summary-help pr-item${o.xi === todayNo ? " on" : ""}" data-i="${o.xi}" data-g="${prayEsc(g.g)}">${prayEsc(o.x.title)}
                <span class="pr-item-ref">${o.xi === todayNo ? "오늘 · " : ""}${prayEsc(prayRefShort(o.x.ref))}</span></button>`).join("")}
           </div>
@@ -2440,11 +3015,11 @@ function drawPrayer(list, i) {
       }).join("")}
     </div>`;
   // ⚠️ 이전/다음은 주제 안이 아니라 104편 전체를 돈다 — 그러면 「목록으로」가 거짓말이 되므로 내린다
-  document.getElementById("pr-prev").addEventListener("click", () => { prayAutoPlay = false; prayRepeat = false; stopSpeaking(); prayGroup = null; drawPrayer(list, (i - 1 + list.length) % list.length); window.scrollTo(0,0); });
-  document.getElementById("pr-next").addEventListener("click", () => { prayAutoPlay = false; prayRepeat = false; stopSpeaking(); prayGroup = null; drawPrayer(list, (i + 1) % list.length); window.scrollTo(0,0); });
+  document.getElementById("pr-prev").addEventListener("click", () => { prayAutoPlay = false; prayQueue = null; prayRepeat = false; stopSpeaking(); prayGroup = null; drawPrayer(list, (i - 1 + list.length) % list.length); window.scrollTo(0,0); });
+  document.getElementById("pr-next").addEventListener("click", () => { prayAutoPlay = false; prayQueue = null; prayRepeat = false; stopSpeaking(); prayGroup = null; drawPrayer(list, (i + 1) % list.length); window.scrollTo(0,0); });
   document.getElementById("pr-name").addEventListener("click", () => askPrayName(list, i));
   const toList = document.getElementById("pr-tolist");
-  if (toList) toList.addEventListener("click", () => { stopSpeaking(); renderPrayerGroup(list, prayGroup); });
+  if (toList) toList.addEventListener("click", () => { prayAutoPlay = false; prayQueue = null; stopSpeaking(); renderPrayerGroup(list, prayGroup); });
   document.getElementById("pr-big").addEventListener("click", () => { stopSpeaking(); prayFullOpen(list, i); });
   document.getElementById("pr-cfg").addEventListener("click", () => {
     const panel = document.getElementById("pr-tts-cfg");
@@ -2456,12 +3031,12 @@ function drawPrayer(list, i) {
     if (window.speechSynthesis && window.speechSynthesis.speaking) {
       prayAutoPlay = false;
       prayRepeat = false;
+      prayQueue = null;
       stopSpeaking();
       const sp = document.getElementById("pr-speak");
       if (sp) sp.textContent = "🔊 들려주기";
-      const chkA = document.getElementById("pr-auto-chk");
+      // 연속듣기 체크는 「고른 설정」이라 멈춘다고 풀지 않는다(위 PRAY_AUTO_KEY 주석)
       const chkR = document.getElementById("pr-repeat-chk");
-      if (chkA) chkA.checked = false;
       if (chkR) chkR.checked = false;
     }
   };
@@ -2500,10 +3075,26 @@ function drawPrayer(list, i) {
   });
   document.querySelectorAll(".pr-acc-item .pr-item").forEach((el) =>
     el.addEventListener("click", () => {
+      prayAutoPlay = false; prayQueue = null;
       stopSpeaking();
       prayGroup = el.dataset.g;   // 「← <주제> 목록」이 여기로 돌아올 수 있게
       drawPrayer(list, Number(el.dataset.i));
       window.scrollTo(0, 0);
+    }));
+  // 주제 전체 듣기 — 첫 편을 그리고 **이 탭 안에서 바로** 들려주기를 누른다.
+  // ⚠️ setTimeout 으로 미루면 사용자 동작과 끊겨 아이폰이 낭독·배경음악을 막는다.
+  document.querySelectorAll(".pr-group-play").forEach((el) =>
+    el.addEventListener("click", () => {
+      const q = el.dataset.q.split(",").map(Number).filter((n) => n >= 0 && n < list.length);
+      if (!q.length) return;
+      stopSpeaking();
+      prayRepeat = false;
+      prayGroup = el.dataset.g;
+      drawPrayer(list, q[0]);
+      prayQueue = q;            // drawPrayer 뒤에 넣는다 — 그리기가 비우는 일은 없지만 순서를 분명히
+      window.scrollTo(0, 0);
+      const btn = document.getElementById("pr-speak");
+      if (btn) btn.click();
     }));
   const tog = document.getElementById("pr-vtog"), vs = document.getElementById("pr-verse");
   tog.addEventListener("click", () => {
@@ -2531,9 +3122,17 @@ function drawPrayer(list, i) {
         }, 2000);
         return;
       }
-      if (!prayAutoPlay) { if (s) s.textContent = "🔊 들려주기"; return; }
-      const nextIdx = (idx + 1) % list.length;
-      if (nextIdx === 0) { prayAutoPlay = false; if (s) s.textContent = "🔊 들려주기"; return; }
+      if (!prayAutoPlay) { prayQueue = null; if (s) s.textContent = "🔊 들려주기"; return; }
+      // 주제 전체 듣기면 그 주제 줄만 따라가고 마지막 편에서 멈춘다. 아니면 104편을 한 바퀴.
+      let nextIdx;
+      if (prayQueue) {
+        const k = prayQueue.indexOf(idx);
+        nextIdx = k >= 0 && k < prayQueue.length - 1 ? prayQueue[k + 1] : -1;
+        if (nextIdx < 0) { prayAutoPlay = false; prayQueue = null; if (s) s.textContent = "🔊 들려주기"; return; }
+      } else {
+        nextIdx = (idx + 1) % list.length;
+        if (nextIdx === 0) { prayAutoPlay = false; if (s) s.textContent = "🔊 들려주기"; return; }
+      }
       drawPrayer(list, nextIdx);
       window.scrollTo(0, 0);
       setTimeout(() => {
@@ -2548,19 +3147,25 @@ function drawPrayer(list, i) {
     if (window.speechSynthesis && window.speechSynthesis.speaking) {
       prayAutoPlay = false;
       prayRepeat = false;
+      prayQueue = null;
       stopSpeaking();
       sp.textContent = "🔊 들려주기";
       return;
     }
     const chkAuto = document.getElementById("pr-auto-chk");
     const chkRep  = document.getElementById("pr-repeat-chk");
-    prayAutoPlay = !!(chkAuto && chkAuto.checked);
-    prayRepeat   = !!(chkRep  && chkRep.checked);
+    // 주제 전체 듣기는 연속듣기 체크와 상관없이 이어서 읽는다(그걸 하려고 누른 단추다)
+    prayAutoPlay = !!prayQueue || !!(chkAuto && chkAuto.checked);
+    prayRepeat   = !prayQueue && !!(chkRep  && chkRep.checked);
+    // 배경음악이 켜져 있으면 이 탭(사용자 동작) 안에서 함께 시작한다 — 탭 밖에서는 브라우저가 막는다
+    const chkBgm = document.getElementById("pr-bgm-chk");
+    if (chkBgm && chkBgm.checked && (!prayBgAudio || prayBgAudio.paused)) togglePrayBgMusic(true);
     sp.textContent = "⏹ 그만듣기";
     playFrom(i);
   });
   document.getElementById("pr-auto-chk").addEventListener("change", (e) => {
     prayAutoPlay = e.target.checked;
+    setPrayPref(PRAY_AUTO_KEY, e.target.checked);  // 직접 누른 것만 기억한다(반복듣기가 끈 것은 안 남긴다)
     if (e.target.checked) { prayRepeat = false; document.getElementById("pr-repeat-chk").checked = false; }
   });
   document.getElementById("pr-repeat-chk").addEventListener("change", (e) => {
@@ -2568,6 +3173,7 @@ function drawPrayer(list, i) {
     if (e.target.checked) { prayAutoPlay = false; document.getElementById("pr-auto-chk").checked = false; }
   });
   document.getElementById("pr-bgm-chk").addEventListener("change", (e) => {
+    setPrayPref(PRAY_BGM_KEY, e.target.checked);
     togglePrayBgMusic(e.target.checked);
   });
 }
@@ -2576,12 +3182,28 @@ function drawPrayer(list, i) {
 //   ⚠️ max-height 를 큰 고정값(2000px 등)으로 트랜지션하면 실제 내용 높이에 먼저
 //      도달해 버려 "확 펼쳐졌다 뚝 멈추는" 느낌이 난다 — scrollHeight 를 실측해
 //      정확한 값을 준다(닫을 때도 먼저 그 값이어야 0으로 되짚어 갈 수 있다).
+//   ⚠️ 다 펼친 뒤에는 max-height 를 **풀어 준다(none)**. 잰 높이를 그대로 두면, 그 뒤 글씨가
+//      커지거나(웹폰트 교체·글씨 크기 설정) 줄이 바뀌어 내용이 길어질 때 단추들이 좁은 상자 안에
+//      눌려 납작해지고 글자가 반쯤 잘렸다(2026-09-25 실기기 제보 — 「지혜와 형통」 다섯 칸).
+//      접을 때는 none 에서는 트랜지션이 안 되므로 지금 높이로 되돌려 놓고 한 번 그린 뒤 0 으로 간다.
 function prAccSet(item, open) {
   const body = item.querySelector(".pr-acc-body");
   const head = item.querySelector(".pr-acc-head");
   item.classList.toggle("open", open);
   head.setAttribute("aria-expanded", String(open));
-  body.style.maxHeight = open ? body.scrollHeight + "px" : "0px";
+  if (open) {
+    body.style.maxHeight = body.scrollHeight + "px";
+    const done = (e) => {
+      if (e.target !== body) return;
+      body.removeEventListener("transitionend", done);
+      if (item.classList.contains("open")) body.style.maxHeight = "none";
+    };
+    body.addEventListener("transitionend", done);
+  } else {
+    body.style.maxHeight = body.scrollHeight + "px";
+    void body.offsetHeight; // 지금 높이를 한 번 그려야 0 까지 트랜지션이 걸린다
+    body.style.maxHeight = "0px";
+  }
 }
 
 // ── 크게 보기(전체 화면) ──────────────────────────────────────
@@ -2822,11 +3444,14 @@ function showPushNudge() {
     const until = Number(localStorage.getItem(PUSH_NUDGE_SNOOZE) || 0);
     if (until && Date.now() < until) return; // 최근에 ✕로 닫음
   } catch (e) {}
+  // 저녁 알림이 아직 안 나가는 동안(EVENING_LIVE=false)은 저녁을 약속하지 않는다 — js/push.js 참고.
+  const pnTitle = window.EVENING_LIVE ? "🔔 아침·저녁, 오늘의 묵상을 받아보세요" : "🔔 매일 아침, 오늘의 묵상을 받아보세요";
+  const pnSub = window.EVENING_LIVE ? "하루 한 구절 · 아침에 한 번, 저녁 8시에 한 번" : "하루 한 구절 · 짧은 묵상으로 하루를 시작해요";
   slot.innerHTML = `
     <div class="push-nudge">
       <button class="pn-x" id="pn-x" aria-label="닫기">✕</button>
-      <div class="pn-title">🔔 매일 아침, 오늘의 묵상을 받아보세요</div>
-      <div class="pn-sub">하루 한 구절 · 짧은 묵상으로 하루를 시작해요</div>
+      <div class="pn-title">${pnTitle}</div>
+      <div class="pn-sub">${pnSub}</div>
       <button class="pn-btn" id="pn-on">🔔 알림 켜기</button>
     </div>`;
   document.getElementById("pn-on").addEventListener("click", async () => {
@@ -3510,6 +4135,16 @@ async function deleteMine(btn) {
 }
 
 // 설정 화면 — 로그인 정보변경 · 알림 · 홈 화면 추가 · 공유 (요약에서 분리)
+// 설정 맨 아래 한 줄 — 아이폰 앱 껍데기의 판. 「무슨 판 쓰세요?」에 답할 자리이자,
+// 새 빌드에 판 표식(AppDelegate.installAppInfoMarker)이 들어갔는지 폰에서 확인하는 자리다.
+// 표식이 없는 옛 판(1.1.0 이하)·웹 브라우저에서는 아무것도 안 보인다.
+function nativeAppVersionHtml() {
+  const a = (typeof nativeAppInfo === "function") ? nativeAppInfo() : null;
+  if (!a || !a.version) return "";
+  const build = a.build ? ` (빌드 ${a.build})` : "";      // nativeAppInfo 가 숫자·점만 남겨 준다
+  return `<div class="btn-sub" style="text-align:center;margin-top:12px;">📱 아이폰 앱 ${a.version}${build}</div>`;
+}
+
 function renderSettings() {
   // 실시간 구독 상태 진단(아래 startPushLiveStatus)이 화면을 나가도 계속 도는 걸
   // 막는다 — 여러 번 설정에 들어오면 이전 타이머가 쌓이지 않게 먼저 멈춘다.
@@ -3566,7 +4201,7 @@ function renderSettings() {
           <button class="tts-preview" id="tts-preview">🔊 이 속도로 들어보기</button>
         </div>
         <div class="setting-block">
-          <div class="setting-label">🕖 알림 시간 (아침)</div>
+          <div class="setting-label">🕖 아침 알림 시간</div>
           <div class="tts-rate-row" id="pushhour-row">
             <button data-hour="5">5시</button>
             <button data-hour="6">6시</button>
@@ -3575,10 +4210,20 @@ function renderSettings() {
           </div>
           <div id="pushhour-msg" class="btn-sub" style="text-align:center;color:#2f6b4f;min-height:16px"></div>
         </div>
+        ${window.EVENING_LIVE ? `
+        <div class="setting-block">
+          <div class="setting-label">🌙 저녁 알림</div>
+          <div class="tts-rate-row" id="pushevening-row">
+            <button data-evening="1">저녁 8시에도 받기</button>
+            <button data-evening="0">아침에만 받기</button>
+          </div>
+          <div id="pushevening-msg" class="btn-sub" style="text-align:center;color:#2f6b4f;min-height:16px"></div>
+        </div>
+        ` : ""}
         ${(typeof isNativeApp === "function" && isNativeApp()) ? `
         <div class="app-status">🔔 알림은 로그인하시면 자동으로 설정됩니다. 안 오면 아이폰 설정 → 고척교회 성경암송 → 알림을 확인해 주세요.</div>
         ` : `
-        <button class="summary-install" id="enable-push">🔔 매일 암송 알림 받기<br><span class="btn-sub">( 매일 아침 · 위에서 시간 선택 )</span></button>
+        <button class="summary-install" id="enable-push">🔔 매일 암송 알림 받기<br><span class="btn-sub">( ${window.EVENING_LIVE ? "아침 · 저녁 두 번 · 위에서 아침 시간 선택" : "매일 아침 · 위에서 시간 선택"} )</span></button>
         <div class="app-status" id="app-status"></div>
         <div class="app-status" id="push-live-status" style="color:#8a6d1f"></div>
         <button class="push-off" id="disable-push">🔕 알림 끄기</button>
@@ -3594,6 +4239,7 @@ function renderSettings() {
           <div class="setting-label">☁️ 동기화 상태</div>
           ${syncStatusHtml()}
         </div>
+        ${nativeAppVersionHtml()}
       </div>
     </div>`;
   document.getElementById("settings-back").addEventListener("click", () => {
@@ -3617,6 +4263,7 @@ function renderSettings() {
   setupLangSetting();
   setupTtsRate();
   setupPushHour();
+  setupPushEvening();
   setupInstallButton();
 }
 
@@ -3670,6 +4317,31 @@ function setupPushHour() {
       if (msg) msg.textContent = r.updated
         ? `✅ 매일 오전 ${h}시에 받도록 변경됐어요.`
         : `오전 ${h}시로 설정했어요. 아래 '알림 받기'를 켜면 적용돼요.`;
+    });
+  });
+}
+
+// 저녁 알림(20시) 켜고 끄기 — 고르면 즉시 서버 반영(로그인돼 있을 때).
+// ⚠️ setupPushHour 와 같은 꼴을 지킨다(sync → 저장 중 → 결과 문구).
+function setupPushEvening() {
+  const row = document.getElementById("pushevening-row");
+  if (!row) return;
+  const msg = document.getElementById("pushevening-msg");
+  const btns = Array.from(row.querySelectorAll("button"));
+  const cur = (typeof getPushEvening === "function") ? getPushEvening() : true;
+  const sync = (on) => btns.forEach((b) => b.classList.toggle("on", (b.dataset.evening === "1") === on));
+  sync(cur);
+  btns.forEach((b) => {
+    b.addEventListener("click", async () => {
+      const on = b.dataset.evening === "1";
+      sync(on);
+      if (msg) msg.textContent = "저장 중...";
+      let r = { updated: false, on };
+      if (typeof setPushEvening === "function") r = await setPushEvening(on);
+      if (msg) msg.textContent = r.updated
+        ? (on ? "✅ 저녁 8시에도 보내 드릴게요." : "✅ 아침에만 보내 드릴게요.")
+        : (on ? "저녁 8시에도 받도록 해 두었어요. 아래 '알림 받기'를 켜면 적용돼요."
+              : "아침에만 받도록 해 두었어요. 아래 '알림 받기'를 켜면 적용돼요.");
     });
   });
 }
@@ -3946,6 +4618,7 @@ function bumpTodayCount() {
   if (todayCountCache == null || todayCountDay !== todayYmd()) return;
   todayCountCache += 1;
   applyTodayStrip(); // 홈 화면이면 즉시 반영, 아니면 다음 renderSummary에서 보임
+  bumpStampToday();   // 가을 말씀 동행 — 오늘 칸을 그 자리에서 뒤집는다
 }
 // 저장 실패 시 낙관적 +1 되돌리기(과다 계상 방지)
 function unbumpTodayCount() {
@@ -4485,7 +5158,20 @@ const FIRST_DONE_HTML = `
 //   · 3단계에는 '마음에 둠'을 창 안에 둔다. 밖에 두면 Enter 한 번에 지나쳐 버린다.
 function showStageDoneModal(verse, stage, wasFirst) {
   const idx = verses.findIndex((v) => v.no === verse.no);
-  const next = (idx >= 0 && idx < verses.length - 1) ? verses[idx + 1] : null;
+  // ⚠️ 번호순 +1 이 아니라 **아직 안 외운 것 중 가장 최근**을 고른다.
+  //    이번 주 말씀은 목록의 **맨 마지막**이라(verses 는 no 오름차순, 주간 구절은 최대 no)
+  //    번호순으로 찾으면 언제나 다음이 없어, 첫 구절을 막 마친 분이 「↺ 처음 말씀으로」를 보고
+  //    9개월 전 구절로 돌아갔다. 2026-09-23 실측 — 하루만 쓰고 떠난 82명은 첫날 1.38구절,
+  //    5일 이상 쓴 분은 4.73구절. 완주는 둘 다 하지만(구절당 기록 3.1 vs 3.7) 갈 곳이 없었다.
+  //    38(이번 주) → 37(지난주) → 36 … 시간을 거슬러 오르므로 설교 기억과도 이어진다.
+  //    ⚠️ **다 외우셨으면 예전처럼 번호순 다음**으로 간다. 이걸 빼먹고 곧장 first 갈래로 보냈더니
+  //    38구절을 다 외우신 분이 1번을 마치고 「↺ 처음 말씀으로」= **같은 1번**에 갇혔다(2026-09-25 제보).
+  //    번호순 다음마저 없을 때(맨 끝)만 아래 first 갈래(「↺ 처음 말씀으로」)가 받는다.
+  //    설계 docs/superpowers/specs/2026-09-23-first-day-next-verse-design.md · 시험 tests/stage-done.py ⑧
+  const unlearned = verses
+    .filter((v) => v.no !== verse.no && getPassedStage(v.no) < 3)
+    .reduce((best, v) => (!best || v.no > best.no ? v : best), null);
+  const next = unlearned || ((idx >= 0 && idx < verses.length - 1) ? verses[idx + 1] : null);
   const head = stage < 3
     ? `<div class="cheer-icon">✅</div>
        <div class="cheer-ref">${stage}단계 완료!</div>
@@ -4497,7 +5183,10 @@ function showStageDoneModal(verse, stage, wasFirst) {
   // 처음 말씀으로 돌려보내 한 바퀴를 잇는다.
   const first = (!next && idx >= 0 && verses.length > 1) ? verses[0] : null;
   const mainLabel = stage < 3 ? `${stage + 1}단계로 계속하기`
-    : next ? "다음 말씀 ▶" : (first ? "↺ 처음 말씀으로" : "목록으로");
+    // 첫 구절을 막 마친 분께는 「37구절 중 다음」이 아니라 「한 구절 더」로 들리게 한다.
+    // ⚠️ 남은 개수를 보여주지 않는다 — 적체를 벽으로 만들지 않는다.
+    : next ? (wasFirst ? "이어서 한 구절 더 ▶" : "다음 말씀 ▶")
+    : (first ? "↺ 처음 말씀으로" : "목록으로");
 
   // 도전에는 이 앱의 '함께'가 모여 있다(순위·응원·어려운 도전). 그런데 4명 중 3명이
   // 한 번도 들어와 보지 않았다 — 2026-08-25 기준 오늘 33명 중 8명(24%)뿐.
@@ -4712,6 +5401,7 @@ const VERSE_IMG = {
   36: "바람 부는 언덕 위, 마른 풀 사이로 우뚝 선 바위기둥과 그 너머 펼쳐진 골짜기",
   37: "화분에서 막 돋아난 새싹과 그 옆에 놓인 낡은 양철 물뿌리개",
   38: "한 줄기에서 갈라져 한쪽은 푸른 잎이 무성하고 한쪽은 잎 없이 마른 큰 나무",
+  39: "잘 익은 무화과가 가득 담긴 소박한 바구니",
 };
 
 // 짝 그림(다른 화풍 보기) — 이 표에 없는 번호는 대표 그림 한 장만 뜬다.
@@ -4868,6 +5558,10 @@ const VERSE_IMG_MORE = {
   38: [
     { file: "38b", alt: "구아슈·색연필 화풍 — 들판에 홀로 선 나무, 한쪽 가지에만 잎이 달린 넓은 장면" },
     { file: "38c", alt: "구아슈·색연필 화풍 — 굵은 줄기가 화면을 채우고 왼쪽 가지에만 푸른 잎이 달린 가까운 장면" },
+  ],
+  39: [
+    { file: "39b", alt: "구아슈·색연필 화풍 — 마른 땅에 놓인 무화과 바구니, 둘레가 넓은 장면" },
+    { file: "39c", alt: "구아슈·색연필 화풍 — 반으로 가른 무화과까지 보이는 바구니를 가까이서 본 장면" },
   ],
 };
 
@@ -5231,6 +5925,8 @@ function scrollPastBtnRow() {
 //   .min-screen      — 사역 신청. 위원회 아코디언을 길게 훑는 화면이라 위를 내준다
 //   .ps-wrap         — 시편 말씀 액자. 액자 한 장이 주인공인 화면이라 위를 온전히 내준다
 //                      (성도님 제보 2026-09-10: 로고 배너가 액자를 눌러 화면 밖으로 밀었다)
+//   ⚠️ 오늘의 찬양은 2026-09-23 저녁부터 팝업(.cheer-overlay, document.body 에 붙는다)이라
+//      여기서 뺐다 — #app 내용을 갈아끼우지 않으므로 로고 배너를 가릴 일이 없다.
 // #app 내용이 바뀔 때마다 감시해서, 어떤 경로로 전환되든(뒤로가기 포함) 항상 따라간다.
 (function watchPageHeaderVsStickyRef() {
   const appEl = document.getElementById("app");
@@ -6347,7 +7043,10 @@ function buildWeeklyMeditations(verse, sermon) {
 
 // force   : '하루 1회' 제한을 무시하고 무조건 표시(미리보기·버튼)
 // withTabs: 요일 탭 표시 여부 — 자동 팝업/어드민 미리보기는 false(성도가 보는 그대로), 매일묵상 버튼만 true
-function maybeShowWeeklyMeditation(force, withTabs) {
+// source  : 열람 기록을 어느 이름으로 남길지만 가른다(화면 동작은 안 바뀐다).
+//           "widget" = 아이폰 위젯 탭 · "preview" = 관리자 미리보기(안 남김) ·
+//           안 넘기면 지금까지대로(force 면 meditation, 아니면 meditation-auto).
+function maybeShowWeeklyMeditation(force, withTabs, source) {
   const info = getWeeklyVerseInfo();
   if (!info || !info.verse) return;
   loadSermons().then((sermons) => {
@@ -6394,18 +7093,44 @@ function maybeShowWeeklyMeditation(force, withTabs) {
     const fetchPsalm = (psalmVisible() && typeof loadPsalmVerses === "function")
       ? loadPsalmVerses().then(() => psalmToday()).catch(() => null)
       : Promise.resolve(null);
-    fetchPsalm.then((todayPsalm) => {
+    // ⚠️ 시편과 **나란히** 받는다. 체인으로 이으면 시편이 끝난 뒤에야 찬양을 요청해
+    //    창이 두 번 늦게 뜬다 — 깜빡임을 피하려다 더 나쁜 지연을 만든다.
+    // ⚠️ fetchTodaySong 은 캐시가 있으면 서버를 안 친다(첫 화면이 대개 먼저 채운다).
+    //    실패는 그 안에서 삼킨다 — 여기서 새면 바깥 catch 에 걸려 **묵상 창이 통째로 안 뜬다.**
+    const fetchSong = fetchTodaySong();
+    const fetchBless = fetchTodayBlessing();   // 셋 다 나란히 — 체인으로 잇지 않는다(위 주석)
+    Promise.all([fetchPsalm, fetchSong, fetchBless]).then(([todayPsalm, todaySong, todayBless]) => {
+      // ⚠️ 여기가 창이 **실제로 뜨는** 자리다 — 이 앞은 두 fetch 가 성공해야 도착한다.
+      //    logFeature 를 여기로 옮겼다(2026-09-23 리뷰) — 예전엔 이 Promise.all 앞에서
+      //    불러 「기록은 남는데 창은 안 뜨는」 좁은 틈이 있었다(지금은 두 fetch 가 각자
+      //    실패를 삼켜 못 일어나지만, 그 계약이 나중에 바뀌면 조용히 벌어진다).
+      //    저절로 뜬 것과 눌러서 연 것을 가른다 — 뭉쳐 남기면 「묵상을 본 사람 = 앱을 연 사람」이
+      //    되어 숫자가 뜻을 잃는다. 나중에 meditation ÷ meditation-auto 로 능동 비율을 본다.
+      // ⚠️ 위젯 탭(source="widget")도 스스로 누른 능동이지만 **경로가 달라 따로 센다** —
+      //    잠금화면에서 들어온 길이라 첫 화면 단추와 뜻이 같지 않고, 한 이름으로 뭉치면
+      //    위젯이 실제로 쓰이는지 영영 알 수 없다. 「스스로 찾아 연 분」은 meditation ∪
+      //    meditation-widget 이고, 「묵상을 본 분」은 거기에 meditation-auto 까지 합친 것이다.
+      // ⚠️ 관리자 미리보기(source="preview")는 **아예 안 남긴다** — 성도님 행위가 아니라
+      //    숫자를 부풀리는 오염원이다. 쌓인 행에는 day·feature·item 만 남아 나중에 못 갈라낸다.
+      if (source !== "preview") {
+        logFeature(source === "widget" ? "meditation-widget"
+                                       : (force ? "meditation" : "meditation-auto"), info.verse.no);
+      }
       // 자동 팝업·어드민 미리보기는 '오늘 것 하나만'. 요일 탭은 매일 묵상 버튼으로 열 때만.
-      showMeditationModal(items, pick, verse, sermon, !!withTabs, usingPrev, todayPsalm);
+      showMeditationModal(items, pick, verse, sermon, !!withTabs, usingPrev, { psalm: todayPsalm, song: todaySong, blessing: todayBless });
     });
   }).catch(() => {});
 }
 
 // 오늘의 묵상 모달 — 이번주 묵상 전체를 탭으로 넘겨볼 수 있다(기본은 오늘 것).
 // usingPrev: 이번주 설교가 아직 준비 전이라 전주 자료로 대체해 보여주는 중임을 표시.
-// todayPsalm: 시편 게이트가 켜져 있고 오늘 열린 편이 있을 때만 온다(그 밖엔 null) —
+// extra.psalm: 시편 게이트가 켜져 있고 오늘 열린 편이 있을 때만 온다(그 밖엔 null) —
+// extra.song: 찬양 게이트가 켜져 있고 오늘의 찬양이 있을 때만 온다(그 밖엔 null) —
 // 여기서는 그 값만 보고 배너를 그릴지 말지 정한다(게이트·시작일 판단을 다시 하지 않는다).
-function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev, todayPsalm) {
+function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev, extra) {
+  const todayPsalm = extra && extra.psalm;
+  const todaySong = extra && extra.song;
+  const todayBless = extra && extra.blessing;
   // 탭은 요일 한 글자(7일치일 때). 그 외에는 번호 — 제목을 쓰면 너무 길어 화면을 잡아먹는다.
   // 발행 주기가 월~일이라 배열 인덱스도 월요일 시작(maybeShowWeeklyMeditation의 dayIdx와 동일 기준).
   const DAYS = ["월", "화", "수", "목", "금", "토", "일"];
@@ -6430,6 +7155,8 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev
           <button class="cheer-ok" id="dmsg-ok">확인</button>
         </div>
         ${todayPsalm ? `<button class="med-psalm-cta" id="med-psalm">🐑 쉴만한 물가 · ${psalmEsc(todayPsalm.refShort || todayPsalm.refFull)}</button>` : ""}
+        ${todayBless ? `<button class="med-pray-cta" id="med-pray">🙏 기도 · ${boardEsc(todayBless.title)}</button>` : ""}
+        ${todaySong ? `<button class="med-song-cta" id="med-song">🎵 찬양 · ${boardEsc(todaySong.song)} <span class="ext-mark">↗</span></button>` : ""}
       </div>`;
     document.body.appendChild(wrap);
     const card = wrap.querySelector(".dmsg-card");
@@ -6459,6 +7186,18 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev
     if (pBtn) pBtn.addEventListener("click", () => {
       done();
       setTimeout(() => renderPsalmHome(), 260);
+    });
+    const bBtn = wrap.querySelector("#med-pray");      // 묵상 → 오늘의 기도(전용 팝업 · 위젯과 같은 내용)
+    if (bBtn) bBtn.addEventListener("click", () => {
+      done();
+      setTimeout(() => openBlessingModal(todayBless), 260);   // 묵상 창이 걷힌 뒤(open 이 덮개를 기다린다)
+    });
+    const gBtn = wrap.querySelector("#med-song");     // 묵상 → 오늘의 찬양(앱 안 화면)
+    if (gBtn) gBtn.addEventListener("click", () => {
+      done();                                        // ⚠️ close() 가 아니다
+      // ⚠️ 이제 화면을 갈아끼우므로(2026-09-23, 앱 안 재생) 시편·설교 CTA 와 같이
+      //    닫힘 애니메이션(250ms)이 끝난 뒤에 부른다.
+      setTimeout(() => openSongToday(todaySong), 260);
     });
     toTop();
     wrap.addEventListener("click", (e) => { if (e.target === wrap) done(); });
@@ -6520,7 +7259,10 @@ function previewDailyMessage() {
   api.getConfig("dailyMessage").then((d) => {
     const m = pickActiveDailyMessage(d && d.value);
     if (m) showDailyMessage(m);        // 공지·격려가 있으면 미리보기
-    maybeShowWeeklyMeditation(true);   // 공지 유무와 무관하게 오늘의 묵상도 항상 미리보기(하루1회 상태 무시)
+    // 공지 유무와 무관하게 오늘의 묵상도 항상 미리보기(하루1회 상태 무시).
+    // "preview" 는 열람 기록을 **안 남기게** 한다 — 관리자가 확인하려고 연 것이지
+    // 성도님이 읽은 것이 아니라서, 남기면 「묵상을 본 분」 숫자가 그만큼 부푼다.
+    maybeShowWeeklyMeditation(true, false, "preview");
   }).catch(() => {});
 }
 function showDailyMessage(m) {
@@ -6569,9 +7311,9 @@ function markIntroSeen() {
 // 인트로 기본값(폴백) — 관리자가 introSlides를 안 넣었거나 못 불러올 때 사용.
 const INTRO_SLIDES_DEFAULT = [
   { icon: "🙏", title: "환영합니다", body: "고척교회 <b>성경말씀 암송</b>에<br>오신 것을 진심으로 환영합니다.<br><br>주의 말씀을 마음에 새기는 이 길에<br>하나님의 은혜가 함께하시기를<br>기도합니다. 🌿" },
-  { icon: "📖", title: "성경말씀 암송하기", body: "성경 구절을 단계별로 직접 채우며 암송해요.<br>교구·교회학교로 로그인하면 내 진도가 저장돼요." },
-  { icon: "✍️", title: "3단계로 익혀요", body: "① 빈칸 맛보기 (약 25%)<br>② 빈칸 늘리기 (약 65%)<br>③ 전체 암송 (100%)<br><br>맞으면 다음 칸으로, 틀리면 다시 입력해요." },
-  { icon: "🔊", title: "듣고, 말하며 암송", body: "🔊 듣기로 말씀을 들어요 (빠르게 여러 번 누르면 반복).<br>🎤 음성 암송으로 직접 말해서 점검해요." },
+  { icon: "📖", title: "성경말씀 암송하기", body: "성경 구절을 단계별로<br>직접 채우며 암송해요.<br><br>교구·교회학교로 로그인하면<br>내 진도가 저장돼요." },
+  { icon: "✍️", title: "3단계로 익혀요", body: "① 빈칸 맛보기 (약 25%)<br>② 빈칸 늘리기 (약 65%)<br>③ 전체 암송 (100%)<br><br>맞으면 다음 칸으로,<br>틀리면 다시 입력해요." },
+  { icon: "🔊", title: "듣고, 말하며 암송", body: "🔊 <b>듣기</b>로 말씀을 들어요<br>(빠르게 여러 번 누르면 반복)<br><br>🎤 <b>음성 암송</b>으로<br>직접 말해서 점검해요." },
 ];
 let introSlidesCache = null; // 관리자 설정(app_config.introSlides) 캐시
 
@@ -6588,36 +7330,48 @@ function loadIntroSlides() {
 }
 
 // 첫 방문 인트로 (관리자 편집 가능, 없으면 기본값)
+//   모든 장을 한 칸(.intro-stack)에 겹쳐 두고 지금 장만 보인다 — 카드 높이가 가장 긴 장에
+//   맞춰 고정되어 넘길 때 「다음」 단추가 오르내리지 않는다. 장마다 다시 그리면 장 길이대로
+//   카드가 줄었다 늘었다 했다. 글씨 크게·관리자가 고친 문구에도 저절로 맞는다.
 function renderIntro(next) {
   const slides = (introSlidesCache && introSlidesCache.length) ? introSlidesCache : INTRO_SLIDES_DEFAULT;
+  const lastIdx = slides.length - 1;
   let idx = 0;
   const appEl = document.getElementById("app");
-
-  function draw() {
-    const s = slides[idx];
-    const last = idx === slides.length - 1;
-    appEl.innerHTML = `
-      <div class="intro-screen">
-        <div class="intro-card">
-          <div class="intro-icon">${s.icon}</div>
-          <div class="intro-title">${s.title}</div>
-          <div class="intro-body">${s.body}</div>
-          <div class="intro-dots">${slides.map((_, i) => `<span class="intro-dot ${i === idx ? "on" : ""}"></span>`).join("")}</div>
-          ${last ? `<a class="intro-watch" href="guide/">▶️ 화면으로 따라 하기</a>` : ""}
-          <div class="intro-nav">
-            <button class="intro-skip" id="intro-skip">건너뛰기</button>
-            <button class="intro-next" id="intro-next">${last ? "시작하기" : "다음 ▸"}</button>
-          </div>
+  appEl.innerHTML = `
+    <div class="intro-screen">
+      <div class="intro-card">
+        <div class="intro-stack">
+          ${slides.map((s, i) => `
+          <div class="intro-slide">
+            <div class="intro-icon">${s.icon || ""}</div>
+            <div class="intro-title">${s.title || ""}</div>
+            <div class="intro-body">${s.body || ""}</div>
+            ${i === lastIdx ? `<a class="intro-watch" href="guide/">▶️ 화면으로 따라 하기</a>` : ""}
+          </div>`).join("")}
         </div>
-      </div>`;
-    document.getElementById("intro-skip").addEventListener("click", done);
-    document.getElementById("intro-next").addEventListener("click", () => {
-      if (last) done();
-      else { idx++; draw(); }
-    });
+        <div class="intro-dots">${slides.map(() => `<span class="intro-dot"></span>`).join("")}</div>
+        <div class="intro-nav">
+          <button class="intro-skip" id="intro-skip">건너뛰기</button>
+          <button class="intro-next" id="intro-next"></button>
+        </div>
+      </div>
+    </div>`;
+  const slideEls = appEl.querySelectorAll(".intro-slide");
+  const dotEls = appEl.querySelectorAll(".intro-dot");
+  const nextBtn = document.getElementById("intro-next");
+  function show() {
+    slideEls.forEach((el, i) => el.classList.toggle("on", i === idx));
+    dotEls.forEach((el, i) => el.classList.toggle("on", i === idx));
+    nextBtn.textContent = idx === lastIdx ? "시작하기" : "다음 ▸";
   }
   function done() { markIntroSeen(); next(); }
-  draw();
+  document.getElementById("intro-skip").addEventListener("click", done);
+  nextBtn.addEventListener("click", () => {
+    if (idx === lastIdx) done();
+    else { idx++; show(); }
+  });
+  show();
 }
 
 // 로그인 방법 안내 (교구/교회학교 탭으로 분리)
@@ -6714,6 +7468,8 @@ function renderPrivacyInfo(back) {
             <li>사역 신청 시 <b>휴대폰 번호</b> (임명이 정해지면 삭제)<b>와 직분</b><br>
               <small>접수되면 그 사역 안내에 이름·직분·교구-목장이 다른 성도님께도 보여요</small></li>
             <li>기기 식별용 임의 ID (알림을 켤 때만)</li>
+            <li>「내게 주시는 말씀」에 적으신 <b>질문 글</b> (답을 찾는 AI에 전달)</li>
+            <li>「오늘의 찬양」 영상을 재생하면 <b>구글(유튜브)</b>에 접속 기록이 남습니다 (<b>▶ 찬양 듣기</b>를 누르실 때만)</li>
           </ul>
         </section>
         <section class="help-section">
@@ -6746,32 +7502,79 @@ function renderPrivacyInfo(back) {
 //   글이 빽빽한 기존 도움말(renderHelp)은 맨 끝 '자세한 안내'로 옮겼다.
 //   그림은 실제 화면 사진이 아니라 단순한 그림이다 — 사진은 폰마다 다르고
 //   화면이 바뀌면 곧 낡는데, 낡은 사진은 없느니만 못하다.
+// ⚠️ 단추를 **자리와 이름으로** 가리키므로, 첫 화면·설정의 단추를 옮기거나 이름을 바꾸면
+//    여기도 함께 고친다(2026-09-21 점검 때 「첫 화면 위쪽 📲·🔔·⚙️」가 남아 있었다 —
+//    9/02 첫 화면 정리로 아이콘 줄은 **맨 아래**로 갔고 📲 자리는 카드 전환이 차지했다).
+//    `guide/index.html` 의 자막도 같은 단추를 가리킨다.
+// when: 있으면 그 값이 참일 때만 목차에 넣는다(게이트가 꺼진 기능·이미 설치한 분의 설치 안내).
 // ============================================================
 const MANUAL = [
   {
     icon: "📱", title: "홈 화면에 앱 만들기",
     lead: "한 번만 해 두면 다음부터 바로 열려요.",
+    when: () => !manualInstalled(),
     art: '<div class="mn-phone"><div class="mn-ico">📖</div><div class="mn-cap">말씀암송</div></div>',
     steps: [
-      "첫 화면 위쪽 <b>📲</b>를 누르세요.",
-      "<b>안드로이드</b>는 <b>「설치」</b> 창이 바로 떠요. 누르면 끝이에요.",
-      "<b>아이폰</b>은 화면 아래 <b>공유 단추</b>(□에 ↑)를 누르고,",
-      "목록에서 <b>「홈 화면에 추가」</b> → <b>「추가」</b>를 누르세요.",
+      "바로 아래 <b>📲 지금 만들기</b>를 누르세요.",
+      "<b>안드로이드</b>는 <b>「설치」</b> 창이 떠요. 누르면 끝이에요.",
+      "<b>아이폰</b>은 어느 단추를 누를지 <b>그림으로</b> 알려 드려요.",
+      "화면 아래 <b>공유 단추</b>(□에 ↑) → <b>「홈 화면에 추가」</b> → <b>「추가」</b>를 누르세요.",
     ],
-    tip: "바탕화면에 📖 그림이 생겨요. 다음부터는 그것만 누르시면 됩니다.",
+    tip: "<b>카카오톡</b> 안에서 여셨다면 먼저 <b>사파리</b>(아이폰)나 <b>크롬</b>(안드로이드)으로 열어 주세요. 카카오톡 안에서는 만들어지지 않아요.",
     act: { id: "install", label: "📲 지금 만들기" },
   },
   {
     icon: "🔔", title: "알림 켜기",
-    lead: "아침에 오늘의 말씀을 알려 드려요.",
+    // 저녁 알림이 아직 안 나가는 동안(js/push.js 의 EVENING_LIVE=false)은 저녁을 약속하지 않는다.
+    // get 으로 둔 건 ?preview= 없이도, 콘솔에서 값을 바꾼 뒤 다시 열면 바로 반영되게 하려는 것.
+    get lead() { return window.EVENING_LIVE ? "아침과 저녁에 오늘의 말씀을 알려 드려요." : "아침에 오늘의 말씀을 알려 드려요."; },
     art: '<div class="mn-row"><span class="mn-btn">🔔 알림</span></div>',
-    steps: [
-      "첫 화면 위쪽 <b>🔔</b>를 누르세요.",
-      "폰이 <b>「허용하시겠습니까?」</b> 하고 물어봐요.",
-      "<b>「허용」</b>을 누르세요.",
-    ],
+    get steps() {
+      return [
+        "첫 화면을 <b>맨 아래까지</b> 내리면 동그란 단추 줄이 있어요. 거기서 <b>🔔 알림</b>을 누르세요.",
+        "폰이 <b>「허용하시겠습니까?」</b> 하고 물어봐요.",
+        "<b>「허용」</b>을 누르세요.",
+        window.EVENING_LIVE
+          ? "아침 시간(<b>5~8시</b>)과 <b>저녁 알림 끄기</b>는 <b>⚙️ 설정</b>에서 고를 수 있어요."
+          : "알림 받을 시간(<b>아침 5~8시</b>)은 <b>⚙️ 설정</b>에서 고를 수 있어요.",
+      ];
+    },
     tip: "「허용 안 함」을 누르셨다면 폰 설정에서 다시 켜야 해요. 옆에 계신 분께 부탁하세요.",
     act: { id: "alarm", label: "🔔 지금 켜기" },
+  },
+  // 위젯(2026-09-21) — 스토어 앱에만 있다(웹·홈 화면 웹앱에는 없다). 폰마다 넣는 길이 달라 두 장이고,
+  //   한 기기에는 하나만 보인다. 켜는 때는 WIDGET_GUIDE — 아래 manualInstalled 옆.
+  //   목록에 뜨는 이름: 아이폰 「고척교회 성경암송」(CFBundleDisplayName) · 안드로이드 「성경암송」(launcherName),
+  //   위젯 셋은 두 폰 모두 「이번주 말씀 · 오늘의 묵상 · 오늘의 축복 기도문」. 앱 쪽 이름을 바꾸면 여기도.
+  {
+    icon: "🧩", title: "바탕화면에 말씀 두기 (위젯)",
+    lead: "앱을 열지 않아도 말씀이 바탕화면에 보여요.",
+    when: () => widgetGuideOn("ios"),
+    art: '<div class="mn-row"><span class="mn-chip">이번주 말씀</span><span class="mn-chip">오늘의 묵상</span><span class="mn-chip">오늘의 축복 기도문</span></div>',
+    steps: [
+      "바탕화면의 빈 곳을 <b>꾹 누르세요</b>. 그림들이 흔들려요.",
+      "왼쪽 위 <b>「+」</b>(또는 <b>「편집」 → 「위젯 추가」</b>)를 누르세요.",
+      "목록에서 <b>「고척교회 성경암송」</b>을 찾아 누르세요.",
+      "옆으로 넘겨 <b>이번주 말씀 · 오늘의 묵상 · 오늘의 축복 기도문</b> 가운데 고르고 <b>「위젯 추가」</b>를 누르세요.",
+      "<b>잠금 화면</b>에는 이번주 말씀을 둘 수 있어요. 잠금 화면을 꾹 누르고 <b>「사용자화」</b> → 시계 아래 칸에서 <b>「고척교회 성경암송」</b>을 고르세요.",
+    ],
+    // ⚠️ 웹은 앱 판 번호를 몰라 1.0.1(이번주 말씀 하나 · 잠금 화면 없음) 폰에도 이 장이 보인다 —
+    //    그분이 안내대로 해도 안 나오므로 알아보는 표시(「이번주 말씀만 보인다」)와 할 일을 적어 둔다.
+    tip: "위젯을 누르면 <b>그 말씀 암송</b> · <b>매일 묵상</b> · <b>기도문</b> 화면이 바로 열려요. 기도문 위젯은 <b>「우리 가족」</b>으로 읽어요. 목록에 <b>이번주 말씀만</b> 보이거나 잠금 화면에 앱이 안 나오면 <b>App Store</b>에서 앱을 <b>업데이트</b>해 주세요.",
+  },
+  {
+    icon: "🧩", title: "바탕화면에 말씀 두기 (위젯)",
+    lead: "앱을 열지 않아도 말씀이 바탕화면에 보여요.",
+    when: () => widgetGuideOn("android"),
+    art: '<div class="mn-row"><span class="mn-chip">이번주 말씀</span><span class="mn-chip">오늘의 묵상</span><span class="mn-chip">오늘의 축복 기도문</span></div>',
+    steps: [
+      "바탕화면의 빈 곳을 <b>꾹 누르세요</b>.",
+      "아래에 나오는 <b>「위젯」</b>을 누르세요.",
+      "목록에서 <b>「성경암송」</b>을 찾아 누르세요.",
+      "<b>이번주 말씀 · 오늘의 묵상 · 오늘의 축복 기도문</b> 가운데 하나를 고르고 <b>「추가」</b>를 누르세요. 꾹 눌러 끌어다 놓으셔도 돼요.",
+      "놓은 위젯을 꾹 누르면 테두리가 생겨요. <b>모서리를 끌어 키우면</b> 글씨도 커져요.",
+    ],
+    tip: "위젯을 누르면 <b>그 말씀 암송</b> · <b>매일 묵상</b> · <b>기도문</b> 화면이 바로 열려요. 기도문 위젯은 <b>「우리 가족」</b>으로 읽어요.",
   },
   {
     icon: "🙋", title: "처음 시작하기",
@@ -6782,6 +7585,7 @@ const MANUAL = [
       "교구는 <b>교구 · 목장 · 이름</b>을 넣어요.",
       "교회학교는 <b>부서 · 학년 · 이름</b>을 넣어요.",
       "한 번 넣으면 다음부터 그대로 이어집니다.",
+      "폰을 바꾸셔도 <b>같은 소속·이름</b>으로 넣으시면 기록이 그대로 이어져요.",
     ],
     tip: "비밀번호는 없어요. 이름만 맞으면 됩니다.",
   },
@@ -6790,46 +7594,73 @@ const MANUAL = [
     lead: "빈칸을 채우며 세 번에 나누어 외워요.",
     art: '<div class="mn-verse">주의 말씀은 내 <span class="mn-blank">◻︎◻︎</span>에 <span class="mn-blank">◻︎</span>이요</div>',
     steps: [
+      "첫 화면 <b>📖 암송하기</b>를 누르고 외울 구절을 고르세요.",
       "<b>1단계</b> — 빈칸이 조금 (넷 중 하나쯤)",
       "<b>2단계</b> — 빈칸이 많이 (셋 중 둘쯤)",
       "<b>3단계</b> — 전부 빈칸",
       "맞으면 <b>초록색</b>으로 바뀌고 다음 칸으로 넘어가요.",
       "틀리면 잠깐 <b>빨간색</b>이 되고, 다시 넣으면 돼요.",
     ],
-    tip: "막히면 <b>💡 힌트</b>를 누르세요. 한 글자씩 보여 줍니다.",
+    tip: "막히면 위쪽 <b>보기</b>를 누르세요. 정답이 나와요. <b>이번주 말씀</b>은 첫 화면 가운데 카드의 <b>암송하기</b>로 바로 갈 수 있어요.",
+  },
+  {
+    icon: "👆", title: "카드로 채우기",
+    lead: "자판이 어려우시면 낱말을 눌러서 채워요.",
+    art: '<div class="mn-row"><span class="mn-chip">내</span><span class="mn-chip">말씀은</span><span class="mn-chip">발에</span><span class="mn-chip">주의</span></div>',
+    steps: [
+      "<b>암송·도전·복습</b> 어느 화면에서나 위쪽 <b>👆 카드</b>를 누르세요.",
+      "아래에 말씀의 <b>낱말 카드</b>가 섞여서 나와요.",
+      "빈칸 <b>순서대로</b> 맞는 카드를 누르면 채워져요.",
+      "틀린 카드는 흔들리기만 하고 넘어가지 않아요.",
+    ],
+    tip: "늘 카드로 하시려면 첫 화면 맨 아래 <b>⌨️ 쓰기</b>를 한 번 누르세요. <b>👆 카드</b>로 바뀌어 다음부터 카드로 시작해요(<b>⚙️ 설정</b>의 「암송 입력 방법」과 같아요).",
   },
   {
     icon: "🔊", title: "말씀 듣기",
     lead: "눈이 피로하실 땐 귀로 들으세요.",
     art: '<div class="mn-row"><span class="mn-btn mn-btn-on">▶️ 전체 듣기</span><span class="mn-btn">🔊</span></div>',
     steps: [
-      "구절 옆 <b>🔊</b>를 누르면 그 말씀 하나를 읽어 줘요.",
+      "<b>말씀 목록</b>에서 구절 옆 <b>🔊</b>를 누르면 그 말씀 하나를 읽어 줘요.",
+      "<b>🔊</b>를 <b>빠르게 여러 번</b> 누르면 누른 만큼 되풀이해 읽어 줘요.",
       "<b>말씀 목록</b> 맨 위 <b>▶️ 전체 듣기</b>를 누르면 처음부터 끝까지 이어서 읽어 줘요.",
       "요절을 먼저 부르고, 잠깐 쉰 뒤 다음 말씀으로 넘어가요.",
       "듣는 동안 <b>화면이 저절로 꺼지지 않아요.</b>",
     ],
-    tip: "「나의 말씀 앨범」에서는 <b>📻 3분요약</b>(설교 요약)도 함께 들을 수 있어요.",
+    tip: "「나의 말씀 앨범」에서 <b>📄 요약 함께</b>를 켜면 설교 <b>3분요약</b>도 이어서 들려 드려요.",
   },
   {
     icon: "🎤", title: "소리 내어 암송하기",
     lead: "소리 내어 외우셔도 됩니다.",
-    art: '<div class="mn-row"><span class="mn-btn mn-btn-on">🎤 암송 시작</span></div>',
+    art: '<div class="mn-row"><span class="mn-btn mn-btn-on">🎤 암송</span></div>',
     steps: [
-      "<b>🎤 암송 시작</b>을 누르세요.",
+      "암송 화면 위쪽 <b>🎤 암송</b>을 누르세요.",
       "말씀을 <b>소리 내어</b> 외우세요.",
       "다 하시면 <b>■ 종료</b>를 누르세요.",
-      "얼마나 맞았는지 알려 줍니다.",
+      "얼마나 맞았는지 알려 줍니다. <b>85%</b> 넘게 맞으면 통과예요.",
     ],
     tip: "처음에 폰이 <b>마이크를 써도 되냐</b>고 물어봐요. <b>「허용」</b>을 누르세요.",
+  },
+  {
+    icon: "🔥", title: "말씀 도전 · 복습",
+    lead: "외운 말씀을 잊지 않게 다시 꺼내 봐요.",
+    art: '<div class="mn-row"><span class="mn-btn mn-btn-on">🔥 말씀 도전</span><span class="mn-btn">🔁 복습</span></div>',
+    steps: [
+      "첫 화면 <b>🔥 말씀 도전</b>을 누르면 말씀 하나가 <b>무작위로</b> 나와요. 전부 빈칸이에요.",
+      "막히면 <b>💡 힌트</b>를 누르세요. 앞 글자부터 한 글자씩 보여 줍니다.",
+      "다른 말씀으로 하고 싶으시면 <b>🔀 다른말씀</b>을 누르세요.",
+      "3단계까지 마친 말씀은 <b>3일 · 1주 · 2주 · 한 달 · 두 달</b> 간격으로 첫 화면에 <b>🔁 복습</b>으로 다시 나와요.",
+      "복습은 한 번에 <b>3구절씩</b> 나와요. 더 하고 싶으시면 마친 뒤 <b>더 하기</b>를 누르세요.",
+    ],
+    tip: "암송·도전·복습을 한 횟수가 모두 <b>🏆 도전 순위</b>에 올라가요. 첫 화면 맨 아래 <b>📕 구절</b>을 켜 두면 도전 때 <b>구절(예: 시 119:105)</b>도 함께 써요.",
   },
   {
     icon: "👑", title: "마음에 둠 · 나의 말씀 앨범",
     lead: "외운 말씀을 모아 두는 곳이에요.",
     art: '<div class="mn-row"><span class="mn-btn">👑 마음에 두었나이다</span></div>',
     steps: [
-      "3단계까지 마치면 <b>👑 마음에 두었나이다</b>를 누를 수 있어요.",
-      "첫 화면 <b>📖 나의 말씀 앨범</b>에 모입니다.",
-      "앨범에서는 <b>요절이나 말씀을 가리고</b> 스스로 맞혀 볼 수 있어요.",
+      "3단계까지 마친 말씀은 첫 화면 <b>📖 나의 말씀 앨범</b>에 모입니다.",
+      "완전히 외우셨으면 3단계 화면의 <b>「이 말씀을 내 마음에 두었나이다」</b>에 체크하세요. <b>👑</b>가 달리고 다음부터 바로 3단계로 시작해요.",
+      "앨범에서는 <b>👁 요절 숨김 · 말씀 숨김</b>으로 가리고 스스로 맞혀 볼 수 있어요.",
     ],
     tip: "앨범에서도 <b>▶️ 전부 듣기</b>로 이어서 들을 수 있어요.",
   },
@@ -6838,22 +7669,24 @@ const MANUAL = [
     lead: "함께 하면 더 오래 갑니다.",
     art: '<div class="mn-rank"><span>1위  화평-20 김○○</span><span class="mn-chip">👏 3</span></div>',
     steps: [
-      "첫 화면 <b>🏆 순위</b>에서 이번 주 도전 순위를 봐요.",
-      "다른 분 줄의 <b>👏</b>를 누르면 응원이 전해져요.",
+      "첫 화면 <b>🏆 도전 순위 보기</b>를 누르세요.",
+      "<b>오늘 · 전일~당일 · 이번주 · 전체</b>를 눌러 기간을 바꿔 볼 수 있어요.",
+      "<b>우리 교구</b>를 누르면 같은 교구(교회학교는 같은 부서) 분들만 모아 1위부터 다시 보여드려요.",
+      "다른 분 줄의 <b>👏</b>를 누르면 응원이 전해져요. 다시 누르면 취소돼요.",
       "응원은 <b>하루에 한 분당 한 번</b>이에요.",
     ],
-    tip: "내가 <b>오늘 한 번이라도 도전</b>해야 응원을 보낼 수 있어요.",
+    tip: "<b>오늘 말씀을 한 번이라도 암송</b>(암송·도전·복습)하셔야 응원을 보낼 수 있어요. 받는 분도 오늘 암송하신 분이어야 해요.",
   },
   {
     icon: "💬", title: "응원·기도·공감 게시판",
     lead: "서로 격려하는 자리예요.",
     art: '<div class="mn-row"><span class="mn-chip">👍</span><span class="mn-chip">🙏</span><span class="mn-chip">❤️</span></div>',
     steps: [
-      "첫 화면 <b>💬 응원·기도·공감</b>을 누르세요.",
-      "글을 남기거나 남의 글에 답글을 달 수 있어요.",
+      "첫 화면 <b>「함께」</b>에서 <b>💬 응원·기도·공감</b>을 누르세요.",
+      "글을 남기거나 남의 글에 답글을 달 수 있어요. <b>사진</b>도 4장까지 올릴 수 있어요.",
       "<b>👍 🙏 ❤️</b>를 눌러 마음을 표시할 수도 있어요.",
     ],
-    tip: "기도 제목을 남기시면 함께 기도합니다.",
+    tip: "기도 제목을 남기시면 함께 기도합니다. 글과 사진은 <b>모든 분께</b> 보여요.",
   },
   {
     icon: "💬", title: "내게 주시는 말씀",
@@ -6862,7 +7695,7 @@ const MANUAL = [
     steps: [
       "첫 화면 <b>💬 내게 주시는 말씀</b>을 누르세요.",
       "궁금한 것이나 마음에 걸리는 일을 적으세요.",
-      "<b>목사님 설교에서 찾아</b> 답해 드립니다.",
+      "<b>AI가 목사님 설교에서 찾아</b> 답해 드립니다.",
     ],
     tip: "인터넷에서 아무 말이나 가져오는 것이 아니라, <b>목사님 설교</b> 안에서만 찾습니다.",
   },
@@ -6882,6 +7715,7 @@ const MANUAL = [
   {
     icon: "🐑", title: "쉴만한 물가",
     lead: "하루에 한 편씩 열리는 말씀을 액자로 만나요.",
+    when: () => psalmVisible(),   // 첫 화면 단추와 같은 게이트 — 단추가 없는데 안내만 있으면 안 된다
     art: '<div class="mn-row"><span class="mn-btn mn-btn-on">🐑 쉴만한 물가</span></div>',
     steps: [
       "첫 화면 <b>「함께」</b>에서 <b>🐑 쉴만한 물가</b>를 누르세요.",
@@ -6892,12 +7726,25 @@ const MANUAL = [
     tip: "<b>매일 새 말씀이 하나씩</b> 열립니다. <b>🌿 매일 묵상</b> 창 아래 <b>🐑 쉴만한 물가</b>를 눌러도 오늘 말씀으로 바로 가요.",
   },
   {
+    icon: "🙏", title: "가정 축복 기도문",
+    lead: "날마다 한 편, 내 이름이 들어간 기도문이에요.",
+    art: '<div class="mn-row"><span class="mn-btn mn-btn-on">🔊 들려주기</span><span class="mn-btn">🙍 이름</span></div>',
+    steps: [
+      "첫 화면 <b>「함께」</b>에서 <b>🙏 가정 축복 기도문</b>을 누르세요.",
+      "<b>오늘의 기도문</b> 한 편이 <b>내 이름</b>을 넣어 나와요.",
+      "<b>🔊 들려주기</b>를 누르면 소리 내어 읽어 드려요.",
+      "가족을 위해 기도하시려면 이름이 적힌 <b>🙍</b> 단추를 눌러 이름을 바꾸세요.",
+      "아래 <b>주제로 찾기</b>에서 다른 기도문도 고를 수 있어요.",
+    ],
+    tip: "<b>연속듣기</b>를 켜면 다음 기도문으로 이어서, <b>🎵배경음악</b>을 켜면 잔잔한 음악과 함께 들려 드려요.",
+  },
+  {
     icon: "✍️", title: "성경필사 노트 신청",
     lead: "말씀을 손으로 따라 쓰는 노트예요.",
     art: '<div class="mn-row"><span class="mn-btn mn-btn-on">✍️ 성경필사 노트 신청</span></div>',
     steps: [
-      "첫 화면 <b>✍️ 성경필사 노트 신청</b>을 누르세요.",
-      "노트 크기(A5·A4)와 <b>필사 유형</b>, 번역본을 고르세요.",
+      "첫 화면 아래 <b>더 보기 ▾</b>를 펴고 <b>✍️ 성경필사 노트 신청</b>을 누르세요.",
+      "노트 크기와 <b>필사 유형</b>, 번역본을 고르세요.",
       "원하는 성경을 골라 담으세요. <b>한 분 5부까지</b>.",
       "휴대폰 번호를 남기시면 준비되는 대로 알려 드립니다.",
     ],
@@ -6908,24 +7755,77 @@ const MANUAL = [
     lead: "잘 안 보이시면 키우세요.",
     art: '<div class="mn-row"><span class="mn-btn">가</span><span class="mn-btn mn-btn-mid">가</span><span class="mn-btn mn-btn-on mn-btn-big">가</span></div>',
     steps: [
-      "첫 화면 위쪽 <b>⚙️</b>를 누르세요.",
-      "<b>글씨 크기</b>에서 <b>큼</b>이나 <b>아주 큼</b>을 고르세요.",
-      "이름이나 목장이 바뀌었으면 <b>정보 변경</b>에서 고치세요.",
+      "첫 화면을 <b>맨 아래까지</b> 내려 <b>⚙️ 설정</b>을 누르세요.",
+      "<b>글씨 크기</b>에서 <b>크게</b>나 <b>아주 크게</b>를 고르세요.",
+      "눈이 부시면 <b>화면 밝기</b>에서 <b>🌙 어둡게</b>를 고르세요.",
+      "이름이나 목장이 바뀌었으면 <b>👤 로그인 정보변경</b>에서 고치세요.",
     ],
-    tip: "읽어 주는 <b>속도</b>도 여기서 느리게 할 수 있어요.",
+    tip: "<b>말씀 듣기 속도</b>도 여기서 느리게 할 수 있어요. 영어로 외우고 싶으시면 <b>암송 언어</b>에서 <b>English (NIV)</b>를 고르세요.",
   },
 ];
+
+// 이미 앱으로 쓰고 계신가 — 홈 화면에 올린 웹앱·플레이스토어 앱(standalone)·아이폰 앱(Capacitor).
+// 그런 분께 「홈 화면에 앱 만들기」는 할 일이 없는 장이다.
+function manualInstalled() {
+  try {
+    if (typeof isNativeApp === "function" && isNativeApp()) return true;
+    if (isPlayStoreApp()) return true;   // 플레이스토어 앱이 깔린 폰 — 크롬 탭에서 열어도 설치는 이미 했다
+    return !!((window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
+              window.navigator.standalone === true);
+  } catch (e) { return false; }
+}
+// ── 위젯 안내를 켤지 — 스토어에 **나간 날** 켠다(2026-09-21 친구 결정) ─────────────
+// ⚠️ 웹은 앱 판 번호를 모른다 — 아이폰 1.0.1(이번주 말씀 하나)과 1.1.0(셋 · 잠금 화면)을 못 가른다.
+//    출시 전에 켜면 **아직 없는 위젯을 안내**하게 된다. 그래서 날을 사람이 정한다.
+//      ios     : App Store 에서 1.1.0 「출시」를 누른 날 true — 2026-09-22 켰다(스토어 1.1.0 확인).
+//                자동 업데이트 전인 1.0.1 폰에도 보이지만, 친구가 정한 대로 출시일에 켠다.
+//      android : 플레이스토어에 위젯 판이 나간 날 true (9/27 프로덕션 승인 뒤 · 계획 Task 8)
+//    출시 전에 문구를 보려면 ?preview=widget (두 폰 것이 둘 다 뜬다).
+const WIDGET_GUIDE = { ios: true, android: false };
+let _widgetPreview = false;
+
+// 플레이스토어 앱(TWA)으로 열렸나 — TWA 는 앱을 열 때 referrer 를 android-app://<패키지> 로 준다.
+// 그 순간에만 알 수 있어 기기에 적어 둔다(clearPersonalData 는 안 지운다 — 사람이 아니라 기기 이야기다).
+// 시험판(…memorize.dev)도 같은 앞머리라 함께 걸린다. TWA 는 크롬과 저장소를 같이 쓰므로
+// 크롬 탭에서 열어도 남는데, 그 폰에 앱이 깔려 있다는 뜻이라 위젯 안내가 맞다.
+// ⚠️ 이 줄이 나간 뒤 앱을 한 번도 안 연 분은 아직 모른다 — 모르면 안 보인다(없는 것을 안내하지 않는 쪽).
+const PLAY_APP_KEY = "play-store-app";
+try {
+  if (/^android-app:\/\/kr\.onlybible\.gocheok\.memorize/.test(document.referrer || "")) localStorage.setItem(PLAY_APP_KEY, "1");
+} catch (e) {}
+function isPlayStoreApp() { try { return localStorage.getItem(PLAY_APP_KEY) === "1"; } catch (e) { return false; } }
+
+function widgetGuideOn(os) {
+  if (_widgetPreview) return true;
+  if (!WIDGET_GUIDE[os]) return false;
+  return os === "ios" ? (typeof isNativeApp === "function" && isNativeApp()) : isPlayStoreApp();
+}
+
+// 이 기기에서 보일 항목만 — 목차 번호·「n / 전체」·이전/다음이 모두 이 목록을 따른다.
+function manualItems() { return MANUAL.filter((m) => !m.when || m.when()); }
 
 let manualIdx = -1;      // -1이면 목차 화면
 let _manualClose = null; // 닫을 때 돌아갈 곳
 
 // 목차 <-> 한 항목. 어느 쪽에서든 X로 나갈 수 있어야 갇힌 느낌이 안 든다.
+// ⚠️ 위의 ✕ 닫기만으로는 모자랐다(2026-09-21) — 목차가 열일곱 줄이고 항목도 글씨를 키우면
+//    한 화면을 넘어, 읽어 내려가는 중에는 ✕가 화면 밖에 있다. 그래서 다른 긴 화면(앨범·순위·
+//    기도문)과 같은 아래 고정 단추(.home-fab)를 둔다. sticky 는 이 앱에서 안 붙는다
+//    (html·body 의 overflow-x:hidden — style.css .min-acts 주석) — 그래서 fixed 인 fab 이다.
+function manualHomeFab(appEl) {
+  appEl.insertAdjacentHTML("beforeend",
+    `<button class="home-fab" id="mn-home" aria-label="첫 화면으로">${homeFabLabel(loadUser())}</button>`);
+  document.getElementById("mn-home").addEventListener("click", renderSummary);
+}
+
 function renderManual(onClose, idx) {
   if (onClose) _manualClose = onClose;
   manualIdx = typeof idx === "number" ? idx : -1;
   const appEl = document.getElementById("app");
   const back = () => (_manualClose || renderSummary)();
-  const NUM = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮";
+  const NUM = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳";
+  const items = manualItems();
+  if (manualIdx >= items.length) manualIdx = -1;
 
   if (manualIdx < 0) {
     appEl.innerHTML = `
@@ -6937,7 +7837,7 @@ function renderManual(onClose, idx) {
         <p class="mn-lead2">어려우시면 <b>①번부터 하나씩</b> 따라 해 보세요.</p>
         <a class="mn-watch" href="guide/">▶️ 화면으로 따라 하기</a>
         <div class="mn-toc">
-          ${MANUAL.map((m, i) => `
+          ${items.map((m, i) => `
             <button class="mn-item" data-go="${i}">
               <span class="mn-num">${NUM.charAt(i) || (i + 1)}</span>
               <span class="mn-ic">${m.icon}</span>
@@ -6946,8 +7846,8 @@ function renderManual(onClose, idx) {
             </button>`).join("")}
         </div>
         <button class="mn-more" id="mn-more">❓ 자세한 안내 · 개인정보 보기</button>
-        <p class="mn-help-line">잘 안 되시면 주일 <b>1층 로비</b>에서 도와드립니다 🙌</p>
       </div>`;
+    manualHomeFab(appEl);
     document.getElementById("mn-close").addEventListener("click", back);
     document.getElementById("mn-more").addEventListener("click", () => renderHelp(() => renderManual(null, -1)));
     appEl.querySelectorAll(".mn-item").forEach((b) =>
@@ -6956,14 +7856,14 @@ function renderManual(onClose, idx) {
     return;
   }
 
-  const m = MANUAL[manualIdx];
+  const m = items[manualIdx];
   const prev = manualIdx > 0 ? manualIdx - 1 : null;
-  const next = manualIdx < MANUAL.length - 1 ? manualIdx + 1 : null;
+  const next = manualIdx < items.length - 1 ? manualIdx + 1 : null;
   appEl.innerHTML = `
     <div class="mn-screen mn-detail">
       <div class="mn-top">
         <button class="mn-back" id="mn-toc">☰ 목차</button>
-        <span class="mn-count">${manualIdx + 1} / ${MANUAL.length}</span>
+        <span class="mn-count">${manualIdx + 1} / ${items.length}</span>
         <button class="mn-close" id="mn-close">✕ 닫기</button>
       </div>
       <div class="mn-card">
@@ -6982,6 +7882,7 @@ function renderManual(onClose, idx) {
           : `<button class="mn-nav-btn mn-nav-main" id="mn-done">✓ 다 봤어요</button>`}
       </div>
     </div>`;
+  manualHomeFab(appEl);
   document.getElementById("mn-close").addEventListener("click", back);
   document.getElementById("mn-toc").addEventListener("click", () => renderManual(null, -1));
   if (prev !== null) document.getElementById("mn-prev").addEventListener("click", () => renderManual(null, prev));
@@ -6997,11 +7898,13 @@ function renderManual(onClose, idx) {
   window.scrollTo(0, 0);
 }
 
-// 도움말 전체 화면 (onClose: 닫을 때 돌아갈 처리)
+// 도움말 전체 화면 (onClose: 닫을 때 돌아갈 처리 — 지금은 사용 설명서 목차에서만 들어온다)
+// ⚠️ 개인정보 칸은 privacy/index.html(공개 방침)·renderPrivacyInfo 와 **같은 것을 말해야 한다.**
+//    모으는 것을 하나라도 빠뜨리면 성도님께 사실이 아닌 말을 한 것이 된다(CLAUDE.md 「개인정보」).
 function renderHelp(onClose) {
   const appEl = document.getElementById("app");
   appEl.innerHTML = `
-    <div class="help-screen">
+    <div class="help-screen with-fab">
       <div class="help-card">
         <div class="help-top">
           <h2 class="help-title">❓ 도움말</h2>
@@ -7015,7 +7918,7 @@ function renderHelp(onClose) {
 
         <section class="help-section">
           <h3>🙋 로그인 (정보 입력)</h3>
-          <p>처음에 <b>구분(교구/교회학교)</b>을 고르고 정보를 입력해요. 교구는 <b>교구·목장·이름</b>, 교회학교는 <b>부서·학년·이름</b>이에요. 한 번 입력하면 다음부터는 그대로 이어집니다. <b>정보 변경</b>으로 언제든 바꿀 수 있어요.</p>
+          <p>처음에 <b>구분(교구/교회학교)</b>을 고르고 정보를 입력해요. 교구는 <b>교구·목장·이름</b>, 교회학교는 <b>부서·학년·이름</b>이에요. 한 번 입력하면 다음부터는 그대로 이어집니다. <b>⚙️ 설정 → 로그인 정보변경</b>으로 언제든 바꿀 수 있어요.</p>
         </section>
 
         <section class="help-section">
@@ -7025,44 +7928,53 @@ function renderHelp(onClose) {
             <li><b>2단계</b> 빈칸 늘리기 — 더 많은 빈칸 (약 65%)</li>
             <li><b>3단계</b> 전체 암송 — 출처만 보고 전체 입력</li>
           </ul>
-          <p>맞으면 초록색으로 잠기고 다음 칸으로 이동해요. 틀리면 잠깐 빨갛게 표시된 뒤 다시 입력할 수 있어요. 모든 칸을 맞히면 다음 단계로 넘어가요.</p>
+          <p>맞으면 초록색으로 잠기고 다음 칸으로 이동해요. 틀리면 잠깐 빨갛게 표시된 뒤 다시 입력할 수 있어요. 모든 칸을 맞히면 다음 단계로 넘어가요. 막히면 위쪽 <b>보기</b>로 정답을 볼 수 있어요.</p>
+          <p>자판이 번거로우시면 <b>👆 카드</b>를 누르세요. 낱말 카드를 순서대로 눌러 채워요. <b>암송·도전·복습</b>에서 모두 쓸 수 있어요. 늘 카드로 하시려면 <b>⚙️ 설정 → 암송 입력 방법</b>(첫 화면 맨 아래 <b>⌨️ 쓰기</b> 단추와 같아요)에서 바꿔 두세요.</p>
+        </section>
+
+        <section class="help-section">
+          <h3>🔥 말씀 도전 · 🔁 복습</h3>
+          <p><b>말씀 도전</b>은 말씀 하나를 무작위로 골라 전부 빈칸으로 내 줘요. 막히면 <b>💡 힌트</b>가 앞 글자부터 한 글자씩 보여 줘요. 3단계까지 마친 말씀은 <b>3일 · 1주 · 2주 · 한 달 · 두 달</b> 간격으로 첫 화면에 <b>복습</b>으로 다시 나와요. 한 번에 3구절씩 나와요. 더 하고 싶으시면 마친 뒤 <b>더 하기</b>를 누르세요. 암송·도전·복습 횟수는 모두 <b>도전 순위</b>에 더해져요.</p>
         </section>
 
         <section class="help-section">
           <h3>🔊 말씀 듣기</h3>
-          <p>목록의 <b>🔊</b> 버튼이나 테스트 화면의 <b>🔊 듣기</b>로 말씀을 들을 수 있어요. <b>빠르게 여러 번 누르면 그 횟수만큼 반복</b>해서 읽어줘요.</p>
+          <p>말씀 목록의 <b>🔊</b>로 말씀을 들을 수 있어요. <b>빠르게 여러 번 누르면 그 횟수만큼 반복</b>해서 읽어줘요. 목록 맨 위 <b>▶️ 전체 듣기</b>는 처음부터 끝까지 이어서 읽어 주고, 암송 화면의 <b>🔊 듣기</b>는 한 번 더 누르면 멈춰요. 읽는 속도는 <b>⚙️ 설정</b>에서 바꿀 수 있어요.</p>
         </section>
 
         <section class="help-section">
           <h3>🎤 음성 암송</h3>
-          <p><b>🎤 암송 시작</b>을 누르고 말씀을 소리 내어 외운 뒤 <b>■ 종료</b>를 누르면 정확도를 알려줘요 (정확도가 충분히 높으면 통과). 크롬·사파리에서 마이크를 허용해 주세요.</p>
+          <p><b>🎤 암송</b>을 누르고 말씀을 소리 내어 외운 뒤 <b>■ 종료</b>를 누르면 정확도를 알려줘요 (<b>85%</b> 이상이면 통과). 크롬·사파리에서 마이크를 허용해 주세요.</p>
         </section>
 
         <section class="help-section">
           <h3>🏷️ 내 기록 & 진행 표시</h3>
-          <p><b>기록보기</b>에서 전체 완료율과 단계별 개수를 한눈에 볼 수 있어요. 카드 배지는 <b>미시도 · 1단계 · 2단계 · 완료</b>(+ 암송 횟수)를 나타내요.</p>
+          <p>첫 화면 위쪽 막대에 <b>마친 구절 수와 %</b>가 보여요. 말씀 목록의 카드 배지는 <b>미시도 · 1단계 완료 · 2단계 완료 · 완료</b>(+ 암송 횟수)를 나타내요. 3단계를 마친 말씀은 <b>📖 나의 말씀 앨범</b>에 모여요.</p>
         </section>
 
         <section class="help-section">
           <h3>📲 공유 & 홈 화면 추가</h3>
-          <p>요약 화면의 <b>공유하기</b>로 가족·목장원들에게 링크를 보낼 수 있고, <b>홈 화면에 추가</b>로 앱처럼 바로 열 수 있어요.</p>
+          <p><b>⚙️ 설정</b>의 <b>🔗 공유하기</b>로 가족·목장원들에게 링크를 보낼 수 있고, <b>⛪ 홈 화면에 추가</b>로 앱처럼 바로 열 수 있어요.</p>
         </section>
 
         <section class="help-section">
           <h3>🔒 개인정보 안내</h3>
           <ul>
-            <li><b>수집 항목</b>: 구분(교구/교회학교)·소속·목장/학년·이름과 암송·도전 기록이에요. <b>성경필사 노트를 신청할 때만 휴대폰 번호</b>를 받습니다(노트가 준비되면 연락드리기 위해). <b>사역 신청을 할 때는 휴대폰 번호와 직분</b>을 받습니다(본인 확인·교적 대조·임명 뒤 연락 — 번호는 임명이 정해지면 지웁니다). 담당자가 신청을 <b>접수하면</b> 그 사역 안내 화면에 <b>이름·직분·교구-목장</b>이 로그인하신 다른 성도님께도 보입니다(함께 섬길 분을 알고 신청하실 수 있도록). 주민등록번호·주소·결제정보는 <b>받지 않습니다</b>.</li>
-            <li><b>저장·용도</b>: 기록은 교회가 쓰는 클라우드 데이터베이스에 암호화 전송으로 저장되어 <b>본인 진도 관리와 도전 순위</b>에만 쓰입니다. 광고에 쓰거나 팔지 않습니다. 「내게 주시는 말씀」에 물어보신 <b>질문 글은 답을 만드는 AI로 전달</b>됩니다.</li>
-            <li><b>순위 공개 범위</b>: 도전 순위에는 <b>이름과 소속</b>만 표시됩니다(연락처 없음). 참여한 분만 표시돼요.</li>
-            <li><b>변경·삭제</b>: 이름·소속은 <b>로그인 정보변경</b>에서 언제든 수정할 수 있어요. 기록을 지우고 싶으시면 <a href="privacy/" target="_blank" rel="noopener">개인정보 안내</a>의 방법으로 알려 주세요(게시판·이메일·로비).</li>
+            <li><b>수집 항목</b>: 구분(교구/교회학교)·소속·목장/학년·이름과 암송·도전·복습 기록이에요. <b>게시판에 남기신 글·답글·사진</b>은 모든 분께 보입니다. <b>알림을 켜실 때만</b> 그 기기로 알림을 보내기 위한 등록 정보(기기 식별용 임의 값)를 받습니다. <b>성경필사 노트를 신청할 때만 휴대폰 번호</b>를 받습니다(노트가 준비되면 연락드리기 위해 — 배부가 끝나면 지웁니다). <b>사역 신청을 할 때는 휴대폰 번호와 직분</b>을 받습니다(본인 확인·교적 대조·임명 뒤 연락 — 번호는 임명이 정해지면 지웁니다). 담당자가 신청을 <b>접수하면</b> 그 사역 안내 화면에 <b>이름·직분·교구-목장</b>이 로그인하신 다른 성도님께도 보입니다(함께 섬길 분을 알고 신청하실 수 있도록). 주민등록번호·주소·결제정보는 <b>받지 않습니다</b>.</li>
+            <li><b>저장·용도</b>: 기록은 교회가 쓰는 클라우드 데이터베이스에 암호화 전송으로 저장되어 <b>본인 진도 관리·복습 예약·도전 순위</b>에 쓰이고, 교구·부서별 합계는 운영 보고 자료로 씁니다. 광고에 쓰거나 팔지 않습니다. 「내게 주시는 말씀」에 물어보신 <b>질문 글은 답을 만드는 AI로 전달</b>됩니다. <b>「오늘의 찬양」에서 ▶ 찬양 듣기를 누르시면</b> 그 순간에만 <b>구글(유튜브)</b>에 접속 기록(IP·기기 정보·본 영상 기록)이 남습니다 — 이름·소속·진도는 구글로 가지 않습니다.</li>
+            <li><b>공개 범위</b>: 도전 순위와 게시판에는 <b>이름과 소속</b>만 표시됩니다(연락처 없음). 순위에는 참여한 분만 표시돼요.</li>
+            <li><b>이벤트에 신청하시면</b> 이름과 소속이 그 이벤트 명단에서 다른 성도님께 보입니다. 명단은 이벤트가 끝나고 정해진 날까지만 보이고, 그 뒤에는 사라집니다.</li>
+            <li><b>변경·삭제</b>: 이름·소속은 <b>⚙️ 설정 → 로그인 정보변경</b>에서 언제든 수정할 수 있어요. 기록을 지우고 싶으시면 <a href="privacy/" target="_blank" rel="noopener">개인정보 안내</a>의 방법으로 알려 주세요(게시판·이메일·로비).</li>
           </ul>
         </section>
 
-        <button class="help-go" id="help-go">닫고 시작하기</button>
+        <button class="help-go" id="help-go">← 사용 설명서로</button>
       </div>
     </div>`;
+  manualHomeFab(appEl);
   document.getElementById("help-close").addEventListener("click", onClose);
   document.getElementById("help-go").addEventListener("click", onClose);
+  window.scrollTo(0, 0);   // 설명서 목차 아래쪽에서 들어오므로 — 안 하면 중간부터 열린다
 }
 
 // ============================================================
@@ -7287,10 +8199,29 @@ function renderChallenge(verse, hard) {
 // ------------------------------------------------------------
 // ⚠️ 쉴만한 물가(시편)는 복습 대상이 아니다(성도님 결정 2026-09-13) — dueReviewNos()가
 //    애초에 시편 번호를 걸러내므로 여기서는 일반 verses만 신경 쓰면 된다.
-async function startReview() {
+// keepMode === true 면 카드 상태를 그대로 이어받는다 — 완료 화면의 「더 하기」 전용.
+// ⚠️ **`!== true` 여야 한다.** 첫 화면 단추는 `addEventListener("click", startReview)` 로
+//    직통 등록돼 있어(아래 renderSummary) **MouseEvent 가 1번 인자로 들어온다.**
+//    `if (!keepMode)` 로 쓰면 Event 가 truthy 라 홈에서 들어올 때도 리셋이 안 된다.
+async function startReview(keepMode) {
   try {
+    // 복습에 들어올 때 **한 번만** 설정값으로 되돌린다 — 도전에서 켠 카드가 복습
+    // 첫 구절까지 따라오지 않게. reviewNext 로 다음 구절로 넘어갈 때는 여기를 다시
+    // 거치지 않으므로, 세션 안에서 👆로 바꾼 것은 남은 구절에 그대로 이어진다(의도된
+    // 동작이다 — 복습은 한 번에 세 구절을 도는 화면이라 구절마다 꺼지면 매번 다시
+    // 눌러야 한다).
+    // ⚠️ 그래서 **「더 하기」는 리셋하지 않는다**(keepMode). 자판이 벽이라 카드를 켜고
+    //    복습하시는 분이 이 기능의 표적인데, 세 구절마다 👆를 다시 누르게 하면 안 된다.
+    // ⚠️ renderReview 가 아니라 **여기**여야 한다. 토글이 renderReview 를 다시 그리는
+    //    방식이라, 리셋을 renderReview 안에 두면 👆를 누르는 순간 설정값으로 되돌아가
+    //    「눌러도 안 바뀐다」가 된다.
+    // ⚠️ 암송(startTest)·시편(renderPsalmReview 안의 리셋)은 구절마다 꺼진다 — 여기와
+    //    다른 규칙이다. 복습은 일부러 세션 단위로 다르게 간다. 혼동하지 말 것.
+    if (keepMode !== true) setCardMode(isCardStart());
     const dueNos = dueReviewNos();
-    const queue = verses.filter((v) => dueNos.includes(v.no));
+    // ⚠️ verses.filter 로 만들면 순서가 verses 배열 순(서버 order("no") = 구절 번호순)으로
+    //    덮여 dueReviewNos 가 정한 「오래 밀린 순」이 통째로 버려진다. dueNos 를 축으로 만든다.
+    const queue = dueNos.map((no) => verses.find((v) => v.no === no)).filter(Boolean);
     if (!queue.length) {
       // ⚠️ 지금 있는 구절 목록으로 찾지 못한 복습 예정은 지운다 — 안 그러면 다음에도
       //    똑같이 「복습 N구절」이 뜨고 단추는 계속 아무 일도 안 한다(성도님 제보
@@ -7337,6 +8268,7 @@ function renderReview(queue, idx) {
           <button class="answer-btn" id="show-answer-btn">보기</button>
           <button class="answer-btn" id="listen-answer-btn" aria-label="정답 음성으로 듣기">🔊 듣기</button>
           <button class="voice-btn" id="voice-toggle">🎤 암송</button>
+          <button class="answer-btn mode-btn" id="rv-mode-toggle">${isCardMode() ? "⌨️ 쓰기" : "👆 카드"}</button>
         </div>
         <div class="test-top">
           <div class="test-head">
@@ -7346,6 +8278,7 @@ function renderReview(queue, idx) {
         </div>
         <div class="challenge-hint-line">복습 ${idx + 1} / ${queue.length} · 다시 외워볼까요?</div>
         <div class="test-sentence">${wordsHtml}</div>
+        <div id="card-tray" class="card-tray"></div>
         <div class="challenge-remain" id="ch-remain"></div>
         <div id="result-area"></div>
         <div id="answer-panel" class="answer-panel" hidden>
@@ -7368,6 +8301,14 @@ function renderReview(queue, idx) {
   initStickyRef();
   scrollPastBtnRow();
   document.getElementById("rv-exit").addEventListener("click", () => { stopSpeaking(); renderSummary(); });
+  // 복습도 카드로 할 수 있어야 한다. 2026-09-23 실측 — 암송은 카드 59.6%,
+  // 도전은 77.5%인데 복습은 자판 99.9%였다. 카드로 외우시던 분이 복습에 오면
+  // 갑자기 자판만 있는 화면을 만나던 자리다.
+  document.getElementById("rv-mode-toggle").addEventListener("click", () => {
+    stopSpeaking();
+    setCardMode(!isCardMode());
+    renderReview(queue, idx);
+  });
   fillVerseHelp(verse);
   fillSermonSummaryBtn(verse, null, () => renderReview(queue, idx));
   setupHeartCheck(verse);
@@ -7393,10 +8334,7 @@ function renderReview(queue, idx) {
     // ⚠️ **보이는 숫자는 하나도 안 바뀐다** — 순위·통계는 모두 `%typing%`·
     //    `includes("typing")` 으로 세므로 `review-typing` 도 그대로 들어간다.
     //    「복습도 도전 순위에 함께 센다」는 본래 뜻은 그대로다.
-    // ⚠️ 복습 화면에는 카드 입력이 없어 `review-typing-card` 는 나오지 않는다.
-    //    복습에도 카드를 넣게 되면 제약(supabase/migrate_modes_card.sql)에 그 값을
-    //    **먼저** 더할 것 — 안 그러면 기록이 통째로 거부된다.
-    postChallenge(verse, "review-" + (mode || "voice"));
+    postChallenge(verse, reviewLogMode(mode));
     advanceReview(verse.no);
     reviewNext(queue, idx);
   };
@@ -7412,16 +8350,22 @@ function reviewNext(queue, idx) {
 
 function renderReviewDone(count) {
   const appEl = document.getElementById("app");
+  // 다음 묶음이 남아 있나 — 방금 마친 구절들은 advanceReview 가 기한을 미뤘으므로
+  // 여기서 다시 물으면 「아직 기한 지난 것이 남았나」가 그대로 나온다(최대 REVIEW_BATCH).
+  const more = dueReviewNos().length;
   appEl.innerHTML = `
     <div class="summary-screen">
       <div class="summary-card cd-card">
         <div class="cd-emoji">🎉</div>
         <div class="cd-title">복습 완료!</div>
-        <div class="cd-sub">오늘 복습 ${count}구절을 마쳤어요. 잘하셨어요! 🙌</div>
-        <div class="cd-count">다음 복습은 자동으로 안내됩니다.</div>
-        <button class="summary-go" id="rv-home">기록 화면으로</button>
+        <div class="cd-sub">복습 ${count}구절을 마쳤어요. 잘하셨어요! 🙌</div>
+        <div class="cd-count">${more ? `말씀 ${more}구절이 더 기다리고 있어요.` : "다음 복습은 자동으로 안내됩니다."}</div>
+        ${more ? `<button class="summary-go review-cta" id="rv-more">🔁 ${more}구절 더 하기</button>` : ""}
+        <button class="${more ? "summary-change" : "summary-go"}" id="rv-home">기록 화면으로</button>
       </div>
     </div>`;
+  // keepMode=true — 카드로 복습하시던 분이 「더 하기」에서 자판으로 되돌아가지 않게.
+  if (more) document.getElementById("rv-more").addEventListener("click", () => startReview(true));
   document.getElementById("rv-home").addEventListener("click", renderSummary);
 }
 
@@ -7556,7 +8500,7 @@ function setupChallengeTyping(verse, onComplete) {
   });
 
   // 카드 모드 — 낱말을 눌러서 채운다(암송 화면과 같은 방식).
-  // #card-tray 가 있는 화면에서만 만들어진다(지금은 도전). 맞으면 evaluate의 성공 경로를
+  // #card-tray 가 있는 화면에서만 만들어진다(지금은 도전·복습). 맞으면 evaluate의 성공 경로를
   // 그대로 태워, 완료 판정이 타자와 한 길로 흐르게 한다.
   const tray = document.getElementById("card-tray");
   if (isCardMode() && tray && inputs.length) {
@@ -7710,6 +8654,12 @@ const PILSA_SIZE = [
   ["A4", "큰 것"],
   ["A5", "작은 것"],
 ];
+// 지금 신청을 받지 않는 크기 — 값은 버튼에 그대로 적는 이유다.
+// 다시 받으려면 이 줄에서 빼면 된다(다른 곳은 손댈 것이 없다).
+// ⚠️ 목록에서 지우지는 않는다 — 이미 A5로 신청하신 분의 내용을 불러올 때
+//    그 크기를 그대로 보여 주어야 하고, 2권 계산(pilsaMult)도 살아 있어야 한다.
+const PILSA_SIZE_OFF = { "A5": "지금은 신청받지 않아요" };
+function pilsaSizeOff(size) { return PILSA_SIZE_OFF[size] || ""; }
 const PILSA_TYPE1 = [
   ["아래쪽 필사형", "본문 아래 필사 공간"],
   ["오른쪽 필사형", "본문 오른쪽에 필사 공간"],
@@ -7882,8 +8832,11 @@ function pilsaActionsHtml(showForm) {
   }
   if (editable) btns.push('<button class="pl-act danger" id="pl-cancel">취소</button>');
   btns.push('<button class="pl-act ghost" id="pl-exit">뒤로</button>');
-  // 성경 31단위를 훑다 보면 화면이 길어진다 — 버튼은 늘 아래에 붙여 둔다
-  return '<div class="pl-acts sticky">' + btns.join("") + '</div>';
+  // 성경 31단위를 훑다 보면 화면이 길어진다 — 버튼은 늘 화면 아래에 못 박는다(.pl-acts.sticky)
+  // ⚠️ 고칠 수 있을 때는 단추가 셋(수정하기·취소·뒤로)이라 좁은 폰에서 글자가 두 줄로 접힌다
+  //    — 사역신청의 min-acts-3 과 같은 처리를 붙인다.
+  return '<div class="pl-acts sticky' + (btns.length >= 3 ? " pl-acts-3" : "") + '">' +
+    btns.join("") + '</div>';
 }
 
 function wirePilsaActions(u) {
@@ -8040,8 +8993,10 @@ function pilsaFormHtml(u) {
   const mult = pilsaMult(f);
 
   const sz = PILSA_SIZE.map(function (t) {
-    return '<button class="pl-type' + (f.size === t[0] ? " on" : "") + '" data-size="' + t[0] + '">' +
-      '<b>' + t[0] + '</b><i>' + t[1] + '</i></button>';
+    const why = pilsaSizeOff(t[0]);
+    return '<button class="pl-type' + (f.size === t[0] ? " on" : "") + '" data-size="' + t[0] + '"' +
+      (why ? " disabled" : "") + '><b>' + t[0] + '</b><i>' +
+      (why ? why : t[1]) + '</i></button>';
   }).join("");
   const t1 = PILSA_TYPE1.map(function (t) {
     const off = pilsaBlocked(f.size, t[0]);
@@ -8087,7 +9042,10 @@ function pilsaFormHtml(u) {
 
     '<div class="pl-sec">성경 선택 및 부수</div>' +
     '<div class="pl-notice">신청 단위별로 부수를 골라 주세요. 묶음 항목은 함께 제작되는 한 권입니다.<br>' +
-      '<b>A5(작은 것)</b>와 <b>한영·영한</b>은 한 부가 <b>2권</b>으로 나와 권수와 금액이 2배가 됩니다.<br>' +
+      // A5는 지금 못 고른다 — 이미 A5로 신청하신 분에게만 그대로 알려 준다
+      (f.size === "A5"
+        ? '<b>A5(작은 것)</b>와 <b>한영·영한</b>은 한 부가 <b>2권</b>으로 나와 권수와 금액이 2배가 됩니다.<br>'
+        : '<b>한영·영한</b>은 한 부가 <b>2권</b>으로 나와 권수와 금액이 2배가 됩니다.<br>') +
       '말씀이 길면 <b>한 단위가 여러 권</b>으로 나올 수 있어 권수는 늘거나 줄 수 있습니다.<br>' +
       '<b>권당 3,000원</b> · ' +
       '<b>한 분당 총 ' + PILSA_TOTAL_MAX + '부까지</b> 신청하실 수 있어요' +
@@ -8386,6 +9344,7 @@ function albumItemsFor(list) {
 // 모르고 눌렀다가 당황하지 않도록 버튼에 미리 적어 둔다(전부+요약이면 한 시간이 넘는다)
 function albumPlayStart(items) {
   if (!items.length) { appAlert("들을 것을 하나 이상 골라 주세요."); return; }
+  logFeature("album-play", 0);     // 실제로 듣기 시작한 것. album 과의 차이가 「열고도 안 듣는 분」이다
   albumPlayer = { items: items, i: 0, paused: false };
   keepScreenAwake(true).then(() => albumPlayBar());   // 탭한 그 자리에서 요청해야 받아 준다
   albumPlayStep();
@@ -8908,13 +9867,89 @@ function renderRanking(range) {
   loadRankingBody(r);
 }
 
+// 순위 목록을 「나와 같은 소속」으로 좁힌다 — 거르기 · 재번호 · 3명 게이트.
+// ⚠️ 순수 함수로 둔다(DOM·전역·localStorage·fetch 를 안 본다). tests/ranking-scope.test.cjs 가
+//    이 덩어리만 떼어 내 node 로 돌리고, tools/preflight.py 가 그 검사를 배포 앞에 건다.
+// ⚠️ 원본 줄 객체를 그대로 담는다(사본 금지) — 응원은 배열 원소를 제자리에서 고치므로
+//    사본을 쓰면 「우리 교구」에서 누른 👏가 「전체」로 돌아갔을 때 안 눌린 것으로 보인다.
+// ⚠️ x.rank 를 덮어쓰지 않는다 — me 는 list 안의 같은 객체라 「내 순위」 바가 함께 바뀐다.
+//    화면 등수는 ranks[i] 로만 만든다(🥇 와 .rank-row.top 이 같은 값을 봐야 한다).
+// ⚠️ 거른 뒤 다시 정렬하지 않는다 — v2_ranking 이 이미 (cnt desc, name) 순이라
+//    거르기가 순서를 보존하면 i+1 이 서버 규칙과 어긋나지 않는다.
+// 돌려주는 것 { ok, reason, list, ranks, count }
+//   ok      같은 소속이 3명 이상이라 「우리 교구」를 보여 줄 수 있나
+//   reason  ""(ok) · "no-scope"(비로그인·소속 빈칸) · "too-few"(2명 이하)
+//   list    좁힌 줄들 — 원본 객체 그대로 (ok 가 아니면 [])
+//   ranks   list 와 짝이 되는 화면 등수 1,2,3…
+//   count   같은 소속으로 걸러진 줄 수 (게이트를 못 넘어도 안내 문구의 「N명」에 쓴다)
+// 범위 칩(우리 교구 / 전체) — 성도님이 **직접 고른 것만** 기억한다.
+// ⚠️ 게이트가 강제로 켠 「전체」를 저장하면, 나중에 그 교구가 3명을 넘어도
+//    그분께는 영영 「우리 교구」가 기본이 되지 않는다.
+// ⚠️ 이 키는 clearPersonalData 의 목록에도 들어간다 — 기기 설정이 아니라 「그 사람」의 흔적이다.
+const RANK_SCOPE_KEY = "rank-scope";
+let rankScope = null;   // "mine" | "all" | null(아직 안 정함 — 화면에 처음 들어올 때 한 번만 정한다)
+
+const MIN_SCOPE_ROWS = 3; // 나 + 둘. 둘이라도 있어야 「순위」라는 말이 성립한다
+
+function narrowRanking(list, me) {
+  const rows = Array.isArray(list) ? list : [];
+  const gubun = me && me.gubun ? String(me.gubun) : "";
+  const sosok = me && me.sosok ? String(me.sosok) : "";
+  // 비로그인 · 소속 빈칸 — 칩 자체를 안 그린다
+  if (!gubun || !sosok) return { ok: false, reason: "no-scope", list: [], ranks: [], count: 0 };
+  // ⚠️ sebu(목장·학년)로는 거르지 않는다 — 자유 입력이고, 목장 단위는 설계상 이번에 안 한다
+  const mine = rows.filter((x) => x && x.gubun === gubun && x.sosok === sosok);
+  if (mine.length < MIN_SCOPE_ROWS) {
+    return { ok: false, reason: "too-few", list: [], ranks: [], count: mine.length };
+  }
+  return { ok: true, reason: "", list: mine, ranks: mine.map((_, i) => i + 1), count: mine.length };
+}
+
 async function loadRankingBody(r) {
   const body = document.getElementById("rank-body");
-  const u = loadUser();
   const data = await callRanking(r.from, r.to).catch(() => ({ ok: false }));
   if (!data || !data.ok) { body.innerHTML = `<p class="rank-msg err">순위를 불러오지 못했습니다.</p>`; return; }
+  drawRankingBody(r, data);
+}
+
+// 받아 둔 data 로 화면만 그린다 — 범위 칩을 바꿀 때 서버를 다시 부르지 않으려고 나눴다.
+// (giveRankCheer 위 주석과 같은 이유다: 「전체」 기간은 집계가 무거워 누를 때마다 다시
+//  받으면 버튼이 멈춘 것처럼 느려진다.)
+function drawRankingBody(r, data) {
+  const body = document.getElementById("rank-body");
+  const u = loadUser();
 
   const list = data.list || [];
+
+  // ⚠️ narrowRanking 에 넘기는 것은 me(list.find 결과)가 아니라 **로그인 정보의 변환**이다.
+  //    me 는 이 기간에 기록이 없는 분께 null 이다(「아직 기록 없어요 🔥」 가지) —
+  //    me 를 넘기면 정작 순위를 좁혀 드려야 할 그분께 칩이 안 그려진다.
+  //    칸 이름은 아래 mySo 가 쓰는 변환과 같다. sebu 는 거르기에 안 쓰므로 뺀다.
+  const myScope = u ? { gubun: u.type, sosok: u.gu || u.bu || "" } : null;
+  const nr = narrowRanking(list, myScope);
+
+  // 기본값은 **화면에 처음 들어올 때 한 번만** 정한다.
+  // ⚠️ 기간 탭을 옮길 때마다 다시 판정하면 칩이 저절로 켜졌다 꺼진다.
+  if (rankScope === null) {
+    let saved = null;
+    try { saved = localStorage.getItem(RANK_SCOPE_KEY); } catch {}
+    rankScope = (saved === "mine" || saved === "all") ? saved : (nr.ok ? "mine" : "all");
+  }
+  // 고른 기간에 우리 소속이 3명 아래로 내려가면 그 기간만 전체를 보여 준다(칩 선택은 그대로 둔다).
+  const narrowOn = rankScope === "mine" && nr.ok;
+  const view = narrowOn ? nr.list : list;
+
+  // 「우리 교구를 실제로 보고 계신 분이 몇 분인가」를 잰다.
+  // ⚠️ 칩을 **누를 때만** 재면 안 된다 — 기본값 그대로 보고 나가시는 분이 가장 많은데
+  //    그분들이 한 건도 안 잡힌다(그게 바로 재려던 수다).
+  // ⚠️ 여기는 기간 탭을 옮길 때도 불린다. logFeature 의 60초 창이 같은 값의 중복을 막고,
+  //    칩을 바꾸면 item 이 달라져 그 즉시 따로 기록된다.
+  logFeature("ranking-scope", narrowOn ? 1 : 0);
+
+  // 교구와 교회학교를 말로 가른다 — GU_LIST 는 접미사가 없고("사랑"), BU_LIST 는 이미 부로 끝난다("청년부").
+  // ⚠️ sosok 뒤에 그냥 「교구」를 붙이면 교회학교가 「청년부교구」가 된다.
+  const soWord = u && u.type === "교구" ? "교구" : "부서";
+  const soName = u ? (u.type === "교구" ? `${u.gu || ""}교구` : (u.bu || "")) : "";
   const keyOf = (g, s, sb, n) => g + "|" + s + "|" + sb + "|" + n;
   const myKey = u ? keyOf(u.type, u.gu || u.bu || "", u.mok || u.grade || "", u.name) : null;
   const me = myKey ? list.find((x) => keyOf(x.gubun, x.sosok, x.sebu, x.name) === myKey) : null;
@@ -8983,15 +10018,54 @@ async function loadRankingBody(r) {
          <button id="rk-go-test">도전하러 가기 ›</button></p>`
     : "";
 
-  if (!list.length) {
-    body.innerHTML = myHtml + `<p class="rank-msg">아직 도전 기록이 없어요.<br>첫 도전의 주인공이 되어보세요! 🔥</p>`;
+  // 범위 칩 — #rank-body 맨 위. 왼쪽 라벨이 예전 .rank-more(「전체 N명 참여」)를 흡수한다.
+  // ⚠️ .rank-mode 밖에 둔다. wireRankMode() 가 .rank-mode button 을 전부 집어
+  //    renderRanking() 을 인자 없이 불러 기간을 기본값으로 되돌린다.
+  // ⚠️ .rank-filter(기간 탭)를 재사용하지 않는다 — 다섯 화면이 나눠 쓰는 공용 클래스이고,
+  //    마지막 탭이 「전체」라 같은 모양이면 「전체」 알약이 한 화면에 두 개가 된다.
+  // ⚠️ 잠긴 칩에 `disabled` 를 쓰지 않는다 — 눌러도 아무 일이 없어 「고장」으로 읽힌다(2026-09-24 제보).
+  //    눌리게 두고, 누르면 아래 안내 줄이 왜 안 되는지 알려 준다(wireRankScope).
+  const scopeSeg = (mineOn, mineDisabled) => `<span class="rs-seg" role="group" aria-label="순위 범위">
+      <button type="button" data-s="mine" class="${mineOn ? "on" : ""}${mineDisabled ? " locked" : ""}"${mineDisabled ? ` aria-disabled="true"` : ""}>우리 ${soWord}</button>
+      <button type="button" data-s="all" class="${mineOn ? "" : "on"}">전체</button>
+    </span>`;
+  let scopeHtml;
+  if (nr.reason === "no-scope") {
+    // (c) 비로그인·소속 빈칸 — 칩 자체를 안 그린다. 라벨만 남아 예전 「N명 참여」 자리가 된다.
+    scopeHtml = `<div class="rank-scope rs-solo" id="rk-scope">
+      <span class="rs-label">전체 <b>${list.length}</b>명 참여</span></div>`;
+  } else if (!nr.ok) {
+    // (b) 같은 소속이 2명 이하 — 「전체」가 켜지고 안내가 아랫줄에 흐른다.
+    // ⚠️ 문구에 반드시 **기간**을 넣는다. 서버 목록은 「그 기간에 기록이 있는 분」뿐이라
+    //    「우리 교구엔 3명뿐이에요」로 쓰면 교구 인원으로 읽혀 사실이 아닌 말이 된다.
+    scopeHtml = `<div class="rank-scope rs-note" id="rk-scope">
+      ${scopeSeg(false, true)}
+      <span class="rs-label">이번 기간에 ${soName}에서 기록하신 분은 <b>${nr.count}</b>명이에요<span class="rs-why"> — ${MIN_SCOPE_ROWS}명이 되면 「우리 ${soWord}」 순위를 볼 수 있어요</span></span></div>`;
+  } else {
+    // (a) 3명 이상 — 칩 둘 다 누를 수 있다.
+    scopeHtml = `<div class="rank-scope" id="rk-scope">
+      <span class="rs-label">${narrowOn ? `${soName} <b>${view.length}</b>명 참여` : `전체 <b>${list.length}</b>명 참여`}</span>
+      ${scopeSeg(narrowOn, false)}</div>`;
+  }
+
+  // ⚠️ 빈 판정은 **거르기 전 원본**으로 가른다. 그리고 칩을 반드시 함께 그린다 —
+  //    안 그리면 「우리 교구」에 아무도 없는 기간에서 돌아갈 길이 사라져 화면이 막힌다.
+  if (!view.length) {
+    body.innerHTML = scopeHtml + myHtml + (list.length
+      ? `<p class="rank-msg">이번 기간에 ${soName}에서 기록하신 분이 아직 없어요.<br>「전체」를 눌러 다른 분들을 볼 수 있어요 🙌</p>`
+      : `<p class="rank-msg">아직 도전 기록이 없어요.<br>첫 도전의 주인공이 되어보세요! 🔥</p>`);
+    wireRankScope(r, data);
     return;
   }
 
-  const rows = list.map((x, i) => {
+  // ⚠️ 번호와 금색 줄(.rank-row.top)이 **같은 값**을 봐야 한다.
+  //    번호만 고치면 🥇는 뜨는데 그 줄이 금색이 아닌 채로 남는다.
+  // ⚠️ x.rank 를 덮어쓰지 않는다 — me 가 같은 객체라 「내 순위」 바의 전체 순위가 사라진다.
+  const rows = view.map((x, i) => {
     const isMe = keyOf(x.gubun, x.sosok, x.sebu, x.name) === myKey;
-    return `<div class="rank-row ${x.rank <= 3 ? "top" : ""} ${isMe ? "me" : ""} ${x.liveNow ? "live" : ""}">
-      <span class="rk-no">${medal(x.rank)}</span>
+    const n = i + 1;
+    return `<div class="rank-row ${n <= 3 ? "top" : ""} ${isMe ? "me" : ""} ${x.liveNow ? "live" : ""}">
+      <span class="rk-no">${medal(n)}</span>
       <span class="rk-name">${x.liveNow ? `<i class="rk-dot" aria-label="지금 암송 중"></i>` : ""}${x.name}</span>
       <span class="rk-so">${soLabel(x)}</span>
       <span class="rk-cnt">${x.count}회</span>
@@ -9000,7 +10074,7 @@ async function loadRankingBody(r) {
   }).join("");
 
   // 지금 함께하고 있는 분이 있으면 그것부터 알린다 — 초록 점이 무슨 뜻인지도 여기서 알게 된다
-  const liveCount = list.filter((x) => x.liveNow).length;
+  const liveCount = view.filter((x) => x.liveNow).length;
   const liveHtml = liveCount
     ? `<p class="rank-live-line"><i class="rk-dot"></i> 지금 <b>${liveCount}명</b>이 함께 암송하고 있어요</p>`
     : "";
@@ -9023,17 +10097,53 @@ async function loadRankingBody(r) {
       <span class="rn-l"><b>👏</b> 다른 분 줄의 👏를 누르면 응원이 전해져요 — 하루에 한 분당 한 번, 다시 누르면 취소돼요</span>
       <span class="rn-l rn-sub">오늘 기록이 아직 없는 분의 👏는 흐리게 보여요</span>
       ${u ? `<span class="rn-l rn-sub">맨 위 「내 이름」 줄의 👏를 누르면 나를 응원해 주신 분들 이름이 보여요</span>` : ""}
+      ${narrowOn
+        ? `<span class="rn-l rn-sub">지금은 ${soName} 안에서만 보고 있어요${me ? ` — 전체에서는 <b>${me.rank}</b>위예요` : ""}. 👏 수는 전체에서 받은 것이에요</span>`
+        : ""}
     </p>`;
 
-  body.innerHTML = myHtml + lockHtml + liveHtml + headHtml + `<div class="rank-list">${rows}</div>` +
-    `<p class="rank-more">전체 ${list.length}명 참여</p>` + noteHtml;
+  // 「N명 참여」는 칩 줄의 왼쪽 라벨이 흡수했다(.rank-more 를 더 그리지 않는다).
+  body.innerHTML = scopeHtml + myHtml + lockHtml + liveHtml + headHtml +
+    `<div class="rank-list">${rows}</div>` + noteHtml;
 
   const goTest = document.getElementById("rk-go-test");
   if (goTest) goTest.addEventListener("click", renderSummary);
+  // ⚠️ 이 인덱스는 chip(x, i, isMe) 가 심은 것과 **같은 배열**(view)을 가리켜야 한다.
+  //    한쪽만 고치면 엉뚱한 분께 응원이 간다.
   body.querySelectorAll("[data-rkact]").forEach((btn) => btn.addEventListener("click", () =>
-    toggleRankCheer(list[+btn.dataset.rkact], btn, canGive)));
+    toggleRankCheer(view[+btn.dataset.rkact], btn, canGive)));
   const mrc = document.getElementById("mr-cheer");
   if (mrc) mrc.addEventListener("click", () => toggleMyCheerers(mrc, r));
+  wireRankScope(r, data);
+}
+
+// 범위 칩 배선 — ⚠️ #rk-scope 안으로만 한정한다.
+//    .rank-mode button 전역 수집(wireRankMode)과 절대 섞지 않는다.
+// ⚠️ 서버를 다시 부르지 않는다 — 받아 둔 data 로 그리기만 다시 한다.
+function wireRankScope(r, data) {
+  const box = document.getElementById("rk-scope");
+  if (!box) return;
+  box.querySelectorAll("button[data-s]").forEach((b) => b.addEventListener("click", () => {
+    const v = b.dataset.s;
+    // 잠긴 칩(같은 소속 2명 이하) — 목록은 그대로 두고 안내 줄을 짚어 까닭을 보여 준다.
+    // 고른 뜻은 기억해 둔다(성도님이 직접 누른 것이다) — 3명이 넘는 기간으로 가면 그때 좁혀진다.
+    if (b.getAttribute("aria-disabled") === "true") {
+      rankScope = v;
+      try { localStorage.setItem(RANK_SCOPE_KEY, v); } catch {}
+      box.classList.remove("rs-flash");
+      void box.offsetWidth; // 연달아 눌러도 다시 깜박이게
+      box.classList.add("rs-flash");
+      return;
+    }
+    if (v === rankScope) return;
+    rankScope = v;
+    // ⚠️ 성도님이 **직접 누른 것만** 저장한다(게이트가 강제로 켠 「전체」는 저장하지 않는다).
+    try { localStorage.setItem(RANK_SCOPE_KEY, v); } catch {}
+    drawRankingBody(r, data);
+    // 133줄이 8줄로 줄면 아래를 보던 분이 빈 화면을 본다. 목록 맨 위로 되돌린다.
+    const sc = document.querySelector(".rank-screen");
+    if (sc) sc.scrollIntoView({ block: "start" });
+  }));
 }
 
 // 「내 순위」의 👏 = 나를 응원한 사람 명단(다시 누르면 접힘).

@@ -4,7 +4,7 @@
 -- [2026-07-17] 집계 기준 통일: learn-* (암송)만 세던 것 → 암송·도전·복습 전부.
 --   앱 도전순위/암송횟수/교구순위가 '전부' 기준인데 여기만 learn-*이라
 --   같은 사람·같은 기간인데 숫자가 달랐다(예: 김세웅 111회 vs 108회).
---   mode: typing/voice(도전) · review-typing/voice(복습) · learn-typing/voice(암송)
+--   mode: typing/voice(도전) · review-typing/voice/review-typing-card(복습) · learn-typing/voice(암송)
 --   → typing 계열은 like '%typing', voice 계열은 like '%voice' 로 묶는다.
 
 -- 1) 인덱스 (없으면 생성)

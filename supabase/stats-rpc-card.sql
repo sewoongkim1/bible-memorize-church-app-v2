@@ -92,6 +92,19 @@ language sql stable security definer set search_path = public as $$
   order by total desc;
 $$;
 
+-- ⚠️⚠️ 보안 — 이 네 줄을 지우지 말 것 (2026-09-23 추가)
+--   이 파일은 위에서 v2_stats(18줄)·v2_participants(63줄)를 **`drop function`** 한다.
+--   Postgres 는 drop 하면 ACL 이 함께 사라지고, 다시 만들면 **PUBLIC 에 EXECUTE 가
+--   기본으로 붙는다.** 그래서 2026-08-27 에 이 파일을 돌린 뒤로 두 함수가 공개 키(anon)에
+--   열려 있었다 — v2_participants 는 **성도님 실명·교구·목장**을 돌려주는 함수다
+--   (`security definer` 라 RLS 도 지나간다). 2026-09-23 에 발견해 닫았다.
+--   → 원래 `stats-rpc.sql`(105-112줄)이 회수해 두었던 것을 여기서 **되살린다.**
+--   자세한 경위는 `supabase/security_close_stats_rpc.sql`.
+revoke all on function v2_stats(text, text)                 from public, anon, authenticated;
+revoke all on function v2_participants(text, text, text)    from public, anon, authenticated;
+grant execute on function v2_stats(text, text)              to service_role;
+grant execute on function v2_participants(text, text, text) to service_role;
+
 -- 확인 — typing + voice = total 이어야 하고, card 는 typing 안에 든 수다
 select gubun, sosok, typing, voice, card, total,
        (typing + voice = total) as 합이_맞나

@@ -17,6 +17,7 @@
 
 | 무엇을 손댈 때 | 읽을 것 |
 |---|---|
+| 지나온 길 전체 · 남은 일 · 앞으로 계획(2026-09-24 정리) | `docs/backlog.md` |
 | 암송·도전·복습 화면, 카드 입력, 단계 완료 창 | `docs/notes/memorize-flow.md` |
 | 쉴만한 물가(시편·잠언·전도서 액자) | `docs/notes/psalm-still-waters.md` |
 | 매일 묵상(무엇을 보여 줄지) | `docs/notes/meditation.md` |
@@ -24,6 +25,7 @@
 | 첫 화면·묶음·색·아래 고정 단추 | `docs/notes/home-screen.md` |
 | 게시판 글·답글·사진 | `docs/notes/board.md` |
 | 앨범 이어 듣기·TTS | `docs/notes/album-audio.md` |
+| 오늘의 찬양(하루 한 곡·앱 안 유튜브 재생) | `docs/notes/today-song.md` |
 | 순위·응원·「지금 N명」 | `docs/notes/ranking-cheer.md` |
 | 영어(NIV) 모드 | `docs/notes/english-niv.md` |
 | 화면 캡처·안내 그림 만들기 | `docs/notes/capture-tools.md` |
@@ -32,9 +34,14 @@
 | 사역신청(2027) | `docs/notes/ministry-2027.md` |
 | 사역신청 **관리 화면**(단추·여백·구조 표준) | `docs/notes/ministry-admin-ui.md` |
 | 기독교 고전 소책자(2026-09-14 완료 · 다시 뽑을 때만) | `docs/notes/classics-booklet.md` |
+| 성경 필사노트 가로형(`bible-note/` · 만든 HTML·원문은 커밋 금지) | `docs/notes/bible-note.md` |
 | 관리자 통계 '카드' 열 | `docs/notes/stats-admin.md` |
-| 측정(카드 쓰임·전환율) | `docs/notes/metrics.md` |
+| 측정(카드 쓰임·전환율·열람 기록) | `docs/notes/metrics.md` |
 | 액션·테이블·시크릿 목록 | `docs/notes/backend-api.md` |
+| 아이폰 앱(Swift)·「앱이면 …」 웹 코드·껍데기 판 표식 | `docs/notes/ios-app.md` |
+| 교회 어드민(admin.onlybible.kr · 별도 저장소 `c:\Projects\church-admin`) — 카카오 로그인·담당자 승인, 사역신청 관리를 옮겨 가는 중 | 설계 `docs/superpowers/specs/2026-09-28-church-admin-design.md` · 그 저장소 `CLAUDE.md` |
+| 이벤트 명단(사순절·썸머·소책자·가을 말씀 동행 — `events`·`event_signups`) — **2026-09-30 교회 어드민 「성경필사(암송)」으로 옮겼다** · `eventImport`·`eventSave`·`eventSetNote` 는 얼렸다(되살리지 말 것 · `api` 는 얼림이 든 판에서만 배포) | `docs/notes/bible-events-admin.md` · 설계 `docs/superpowers/specs/2026-09-29-church-admin-bible-events-design.md` |
+| 교인명부(어드민 · dimode 교인목록·사진 · 2026-09-29 운영) — 찾기·현황·가족·사역 교적 표시 | 설계 `docs/superpowers/specs/2026-09-29-church-people-directory-design.md` · 계획(끝에 「나중」 목록) · church-admin `CLAUDE.md` 「교인명부」 절 |
 
 ## 스택 · 도메인
 - **Vanilla JS PWA**(프레임워크 없음) — `index.html` + `app.js`(대형 단일 파일) + `sw.js`
@@ -62,6 +69,11 @@
 
 - **말씀 앨범 이어 듣기(2026-08-21)** — 완료 구절을 귀로 듣는다(보이는 순서 = 재생 목록, 3분요약 MP3, 화면 깨우기). ⚠️ 손대기 전에 `docs/notes/album-audio.md` — `speechSynthesis.cancel()` 이 옛 콜백을 부르는 문제(`_ttsGen`)와 낭독 순서 규칙이 있다.
 
+- **「우리 교구 안에서」 순위(2026-09-23)** — 전체 순위는 상위 10명이 67.7%라 중위 성도님(22회)에게 닿지 않는다.
+  같은 소속 **3명 이상**이면 우리 교구를 기본으로 보여 준다. ⚠️ 손대기 전에 `docs/notes/ranking-cheer.md` —
+  **목장 단위 금지**(178개·활동자 중위 1명이라는 실측)·**사본 금지**·**`x.rank` 덮어쓰기 금지**·
+  **응원 인덱스 통일**·**「청년부교구」 함정**이 거기 있다.
+
 - **순위 응원 · 지금 함께 암송 중(2026-08-15·22)** — 👏 하루 한 번, 최근 10분 활동 표시. ⚠️ 손대기 전에 `docs/notes/ranking-cheer.md` — **응답에 `user_id` 를 실으면 안 되는 이유**와 대칭 검사 규칙이 있다.
 
 - **안내 그림 · 화면 캡처 도구(2026-08-25·28)** — `tools/demo-anim.py`(움직이는 그림) · `img/verse/*.webp`(말씀 연상 그림). ⚠️ **화면을 찍거나 재기 전에 `docs/notes/capture-tools.md`** — `?go=` 에 `+ < # % 백틱`을 쓰면 조용히 깨지고, 가상 시간은 CSS 트랜지션을 안 돌리며, 스크롤한 뒤엔 `position:fixed` 가 안 찍힌다.
@@ -70,6 +82,8 @@
 
 - **딥링크:** `gocheok.onlybible.kr/?v=구절번호` → 로그인 없이 해당 구절 암송화면(startTest) 바로 진입 (말씀 아카이브 sermon.onlybible.kr에서 연동). `&lang=en`이면 영어(NIV) 모드로 진입
 - **영어(NIV) 암송 모드(2026-07-22)** — `text_en` 이 있는 구절만 한/EN 토글. ⚠️ 손대기 전에 `docs/notes/english-niv.md` — 진도는 **언어별로 따로** 세고(복습·순위는 언어 무관), 영문은 Lora 로 한 단계 크게 쓴다.
+
+- **오늘의 찬양(2026-09-23 개시)** — 서버가 우리 교회 찬양 **하루 한 곡**을 정하고(모두 같은 곡), **매일 묵상 창 맨 아래**의 `🎵 찬양 · 곡명` 을 누르면 **앱 안 팝업 창**(`openSongModal`·파사드)이 떠 그 자리에서 재생된다. ⚠️ 손대기 전에 `docs/notes/today-song.md` — **개시한 날 하루에 두 번 뒤집힌 자리**(찬양 앱으로 보냈다가 성도님 제보로 다시 앱 안 재생 · 옮기기 전에 그 절을 다 읽을 것)·「기록을 비우고 새 바퀴」 금지·LRU 를 곡별 `max(day)` 로 묶는 이유·**유튜브 임베드 규칙 여덟**(파사드·nocookie·`fs=0`·PiP 금지·`iframe_api` 를 탭 뒤에만·나갈 때 세 단계 등)·**팝업의 「닫기」가 `renderSummary()` 를 부르면 안 되는 이유**·게이트 키를 `PUBLIC_CONFIG_KEYS` 에 넣어야 하는 것이 있다. **임베드라 개인정보 방침을 고쳤다**(`privacy/` 2·6항 · 앱 안 화면 둘 · 스토어 신고는 담당자 확인 목록).
 
 - **쉴만한 물가(2026-09-12 개시)** — 시편·잠언·전도서 180편을 하루 한 편씩 액자로(`js/psalm.js`). 이름은 시편 23편 2절에서. ⚠️ 손대기 전에 `docs/notes/psalm-still-waters.md` — 번호(`no`) 재배정 금지·잠금은 「안 열린 것을 안 내려보내는 것」·게이트·시드 순서·「외운다」를 쓰지 않는 문구 규칙이 있다.
 
@@ -115,7 +129,7 @@ localhost·미리보기·브랜치·github.io는 전부 개발이다. 개발일 
 4. **「이번 판에만 있는 표식」으로 배포를 확인한다**(아래)
 
 ⚠️ **깨진 판은 배포되지 않는다(2026-09-12).** Actions 가 `python tools/preflight.py` 를 먼저 돌려
-**문법(`node --check`)과 캐시태그(`?v=` 끼리 · `APP_BUILD` 와)**를 보고, 하나라도 걸리면 **배포 단계가 아예 안 돈다**(0.35초).
+**문법(`node --check`)과 캐시태그(`?v=` 끼리 · `APP_BUILD` 와)**를 보고, 하나라도 걸리면 **배포 단계가 아예 안 돈다**(1.8초 — 순수 함수 검사가 붙어 늘었다).
 푸시 전에 손으로도 돌릴 수 있다. 검사를 더 세우려면 그 파일에 더한다 — **준비물이 필요한 검사는 넣지 말 것**
 (`tests/*.cjs` 는 npm 꾸러미가 있어야 해서 못 넣었다).
 
@@ -147,6 +161,13 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
 
 ## 다음 작업 (이어서 할 것)
 > 여기에 다음에 진행할 과제를 적어두면, 다음 세션에서 이 문서를 읽고 바로 이어감.
+- [ ] 👥 **교인명부 — 2026-09-29 운영 개시**(명단 8,672명 · 사진 4,645 · 5,387가구 · church-admin main 1307c65). 남은 것:
+      ① 친구가 교인명부 볼 분에게 역할 「교인명부」 주기(🔑 담당자·역할) ② dimode 업체에 **사진 주소가 로그인 없이 열린다**고 알리기(`…/Handler/DisplayImage.ashx?id=숫자`)
+      ③ `~/.church-admin/prod.env`(운영 service_role 키) 지울지 친구가 정하기 ④ 다음 명단(12월 무렵) 전에 계획서 끝 「나중」 목록.
+      ⚠️ 진짜 명단은 **저장소 밖**(`C:\Projects\교인명부_작업\`)에만 — 올리는 순서·함정은 church-admin `CLAUDE.md` 「교인명부」 절.
+- [ ] 🏛️ **교회 어드민 — 사역신청 다섯 메뉴 모두 운영 개시(2026-09-29 · 신청 현황·사역팀 정보·종이 명단·임명현황·담당자).** 다음은 **갈아타기**: 사역 담당자 초대(카카오 로그인→승인) → 앱 설정 「🔒 관리 페이지 → 🤝 사역관리」 단추를 admin.onlybible.kr 로(브라우저로 열기) → 옛 사역 화면·`api` 담당자용 사역 액션·사역 암호 걷기. 임명 알림은 `api` `internalMinistryNotify` 한 곳.
+      ⚠️ 옮기는 동안 `admin-stats.html` 의 사역 화면·`api` 의 담당자용 사역 액션 7개는 **얼린다**(기능 추가 금지).
+      계획 `docs/superpowers/plans/2026-09-28-church-admin-stage1.md` · 설계 위 표의 문서 · 진행 기록 `c:\Projects\church-admin\.superpowers\sdd\progress.md`.
 - [x] **iOS 2단계(네이티브 기능 3종) — 위젯·네이티브 로그인 화면 실기기 확인 완료(2026-09-16).**
       설계 `docs/superpowers/specs/2026-09-13-ios-app-design.md`(총괄)·
       `2026-09-16-ios-native-login-design.md`(로그인)·계획 `docs/superpowers/plans/2026-09-16-ios-native-login.md`.
@@ -208,17 +229,24 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
       **Mac+Xcode로 실기기 콘솔 로그를 직접 봐야 원인이 잡힐 것 같다**(이전 세션에서 한 번
       확인됐던 기능인데 이번 재확인에서 막힘 — 이전 "완료" 기록을 신뢰하지 말 것).
 
-- [ ] 📱 **아이폰 위젯 1.1.0 — 2026-09-21 심사 제출(최종 빌드, `7ae11de` 까지 포함). 결과 대기.** 승인되면
-      App Store Connect 에서 **「출시」를 눌러야** 공개된다(1.0.1 때처럼 수동). 잠금 화면 이번주 말씀(누르면
+- [ ] 📱 **아이폰 위젯 1.1.0 — 2026-09-22 출시됐다**(App Store 조회로 확인 · 02:33 KST). 잠금 화면 이번주 말씀(누르면
       그 구절 암송) · 오늘의 묵상 · 오늘의 축복 기도문 + 홈 「크게」·교회 마크. 서버 액션 셋은 **운영 배포까지 끝**났고
       `tests/widget-parity.py` 가 앱 화면과 140/140 일치를 확인했다.
+      ✅ 같은 날 설명서 위젯 안내를 켰다(`WIDGET_GUIDE.ios = true` — 아이폰 앱에서만 보인다). 읽을 것 `docs/notes/manual-guide.md` 「위젯 안내」
+      🏷️ **남은 것: 다음 빌드(1.1.1)에 껍데기 판 표식이 들어간다**(`installAppInfoMarker` · ⚠️ Mac 컴파일 미확인).
+      `MARKETING_VERSION` 은 이미 1.1.1 로 올려 두었다(앱·위젯 × Debug·Release **네 곳**). TestFlight 로 받아
+      **설정 맨 아래 「📱 아이폰 앱 1.1.1 (빌드 N)」** 이 뜨는지 볼 것. 1.0.1·1.1.0 은 표식이 없어 둘 다 `version:""` 로 보인다.
+      읽을 것 `docs/notes/ios-app.md`
       ⚠️ 실기기를 보고 9/21에 바꾼 넷(작게 뺌 · 크게 더함 · 교회 마크 · 묵상 질문 뺌)과 그 이유는
       설계 `docs/superpowers/specs/2026-09-20-ios-widgets-design.md` ① 끝 절 — **작게를 다시 넣지 말 것.**
       ⚠️ 묵상·기도문 고르는 규칙은 **app.js 와 서버 두 곳**이다(`docs/notes/meditation.md`·`prayer-book.md`).
-      ⚠️ **아침 알림(`latestVerse()`)은 아직 UTC 자정 기준**이라 구절이 바뀌는 날 0~9시에는 지난 구절을 쓴다 —
-      위젯 쪽만 한국 날짜로 고쳤다(`weeklyVerseKst`). 알림도 고칠지는 정하지 않았다.
+      ⚠️ **「아침 알림이 UTC 자정 기준」은 틀린 말이었다(2026-09-23 정정).** `verses.date` 가 항상
+      KST 자정 순간으로 저장돼(관리자 폼이 `+09:00` 을 붙인다) `latestVerse()` 도 KST 자정에 넘어간다 —
+      2,232시간을 매시 대조해 불일치 0건. ⚠️ **`weeklyVerseKst` 로 갈아끼우지 말 것** — 그쪽은 날짜
+      없는 구절을 「오늘 것」으로 보아, 주일 아침 전체 발송이 아직 시작 안 한 구절을 뿌린다.
+      읽을 것 `docs/superpowers/specs/2026-09-23-evening-push-design.md` 맨 앞 절.
 - [ ] ⏰ **쉴만한 물가 — 2026-09-12(토) 개시했다.** 프런트·운영 DB·공개 게이트까지 끝.
-      **남은 것:** ① 실기기 확인(카드·어두운 모드·「아주 큼」 글씨) ② 2주 뒤 전환율(`supabase/psalm_metrics.sql`)
+      **남은 것:** ① 실기기 확인(카드·어두운 모드·「아주 큼」 글씨) ② 전환율(`supabase/psalm_metrics.sql` — 이제 실제로 있다). ⚠️ 기준일은 개시일이 아니라 **열람 기록 배포일 2026-09-23 + 2주 = 2026-10-07**(그전 열람은 기록 자체가 없다)
       ③ 본문이 다 들어온 뒤 다시 볼 것 셋(짧은 구절의 빈 자리·큰 글씨 넘침·단추 크기)
       ⚠️ **이미 된 것과 함정**(`supabase db query --linked` 는 운영이다 · 시드 SQL 만 돌리면 켜져 있던 구절이
       꺼진다 · 게시판 목록은 사진을 `photos` 로 준다)은 `docs/notes/psalm-still-waters.md` 에 있다.
@@ -227,12 +255,13 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
       기획 `docs/superpowers/specs/2026-09-06-ministry-application-design.md` · 확인 양식 `tools/ministry-form-gen.py`
       · 종이 신청서 `tools/ministry-apply-form-gen.py`
       ⚠️ 「② 언제」 칸 규칙(금요일은 평일이 아니다 · 시각은 주일만 · 주기는 한 사람이 서는 주기)과
-      **직분 목록이 세 곳**이라는 것, 사슬 일곱은 `docs/notes/ministry-2027.md`.
+      **직분 목록이 네 곳**(교회 어드민 `paper.ts` 포함)이라는 것, 사슬 일곱은 `docs/notes/ministry-2027.md`.
 
-- [ ] **축복 기도문 — 주제 그룹 검토 뒤 성도님께 열기**: ① `marketing/가정축복기도문_수정.xlsx` D열 「그룹」을 담당자가 손보면 ② `supabase/blessings.sql`·`blessings.json`을 다시 만들어 개발→운영 순으로 반영하고 ③ `renderSummary`의 「함께」 묶음에 `🙏 가정 축복 기도문` 한 줄을 더한다
-- [ ] 🤖 **안드로이드 위젯 — 2026-09-21 설계 확정, 로컬 제작·실기기(USB) 시험 중. Play 업로드는 9/27 프로덕션 승인 뒤.**
+- [ ] **축복 기도문 — 주제 그룹만 남았다**(성도님께는 **2026-09-03 에 이미 열렸다** · 커밋 `11a1bea`): ① `marketing/가정축복기도문_수정.xlsx` D열 「그룹」을 담당자가 손보면 ② `supabase/blessings.sql`·`blessings.json`을 다시 만들어 개발→운영 순으로 반영한다. ⚠️ 여기 적혀 있던 ③ 「첫 화면에 한 줄 더하기」는 **만든 날 이미 끝난 일**이었다(2026-09-24 정정) — 첫 화면 단추에 게이트가 없다. 즉 남은 것은 **여는 일이 아니라 본문 갈아 끼우기**다.
+- [ ] 🤖 **안드로이드 위젯 — 2026-09-21 시험판 실기기 확인 끝(갤럭시 S23 울트라). 남은 것: 비행기 모드 · 다음 날 아침 확인, 그리고 계획 Task 8(서명·판 번호·업로드) — 9/30 2차 반려라 교회 단체 계정으로 앱을 옮긴 뒤에 한다(아래 「플레이스토어 출시」).**
       설계 `docs/superpowers/specs/2026-09-21-android-widgets-design.md` — Bubblewrap 으로 TWA 를 소스째 만들어
       `android-app/` 에 두고 위젯 셋을 더한다(시험판 `…memorize.dev` 는 따로 깔려 테스터 시계를 안 건드린다).
+      ⏰ **위젯 판이 플레이스토어에 나간 날 `app.js` 의 `WIDGET_GUIDE.android = true` → bump → 푸시**(설명서 위젯 안내).
       ⚠️ 저장소가 공개이고 사이트가 저장소 전체를 배포한다 — **서명 키·비밀번호를 절대 커밋하지 말 것.**
       ⚠️ Capacitor 로 바꾸지 말 것 — 업데이트 순간 로그인이 풀리고 웹 푸시가 멈춘다(설계 「왜 A 인가」).
       아래는 9/20 에 적은 배경이다. 지금 안드로이드 앱은
@@ -245,14 +274,15 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
       → 서명 → Play 업로드. ⚠️ **미룬 이유:** 프로덕션 재신청이 9/27 이후이고 그때까지 비공개 테스트
       테스터 12명을 유지해야 해서, 새 버전을 올리면 그 시계를 건드릴 위험이 있다(아래 항목).
       아이폰 위젯 설계 `docs/superpowers/specs/2026-09-20-ios-widgets-design.md` 의 ①을 그대로 옮기면 된다.
-- [ ] **플레이스토어 출시 — 2026-09-13 프로덕션 신청 반려됐다.** 우려했던 대로("테스터가 12명 아래로 떨어지면 시계가 다시 시작된다") 실제로 그렇게 됐다 — 구글이 "검토일(오늘 오전 4:41)부터 12명 이상 테스터로 14일 더 비공개 테스트"를 요구한다. **2026-09-27 이후**에나 다시 신청할 수 있다. ⚠️ **이번엔 14일 내내 테스터 12명 아래로 떨어지지 않게 지켜볼 것** — 한 번 더 떨어지면 또 반려되고 시계가 또 리셋된다. 신청서에 쓸 「어떻게 테스트했고 어떤 의견을 받았는지」는 `store/closed-test.md` 의 질문으로 모은다
+- [ ] **플레이스토어 출시 — 2026-09-30 2차도 반려 → 교회 단체 계정 + 앱 이전으로 간다**(같은 날 D-U-N-S 690031840 발급). 1차(09-13)는 인원 이탈, 2차 반려 메일의 사유는 **① 테스터가 앱에 참여하지 않았다 ② 앱 업데이트로 의견을 받아 고치지 않았다** — 14일 내내 `versionCode 1` 이었다(TWA 라 고친 것이 전부 웹으로 나갔다). 단체 계정은 12명·14일 요건이 없다. 다음: `church.gocheok@gmail.com` 으로 Play Console 조직 계정($25 · 결제 프로필 이름·주소를 D&B 와 글자까지 같게) → 개인 계정에서 앱 이전 → 프로덕션 출시. ⚠️ **이전이 끝날 때까지 비공개 테스트·테스터 명단은 그대로 둔다.** 순서·불확실한 것 `docs/analysis/2026-09-30-play-production-rejected-org-account.md` · 경과 `store/closed-test.md` · 체크리스트 `store/README.md` 「단체 계정」 절
 - [ ] **업로드 키 재설정**(급하지 않다 — 옛 업로드 키가 공개됐지만 앱 서명 키는 구글이 갖고 있어 위조는 불가): `upload_certificate.pem` 은 만들어 두었다(`성경암송 - Google Play package - New` 폴더). 콘솔 → Play 스토어 보호 → 「Play 앱 서명 관리」에서 요청
 - [ ] **영어(NIV) 본문 두 곳 손보기** — 34개 전부 들어갔고 검수도 마쳤는데, `no=31`(마태 10:31)이 마침표 뒤 `you`(→ `You`), `no=30`이 `2JN 1:12`(→ 다른 구절과 같은 `2 John 1:12` 꼴). 어드민에서 그 둘만
 - [ ] 필사 신청 알림이 **조용히 실패해도 아무도 모른다**(낮은 우선순위): `pilsaApply`가 `pilsaNotifyAdmins`를 `try/catch`로 감싸 결과를 버리고, 담당자가 없으면(`no-admin`) `push_log`에도 안 남는다 — 이 자리를 `push_log`에 남기게 고칠 것(단, `monitor`가 실패 행을 어떻게 보는지 먼저 확인해 헛경보를 만들지 말 것)
 - [x] ~~카드 모드 쓰임 · 도전 전환율~~ **2026-09-02 둘 다 쟀다** — 숫자와 ⚠️ 비교할 때의 함정은
       `docs/notes/metrics.md`. (카드가 암송의 28.5%·도전의 39.9%, 참여자 32%가 쓴다 / 전환율 누적 31.3%)
 
-- [ ] **2026-09-09 이후** `challenge_funnel.sql` ④(새로 오신 분 코호트)를 볼 것 — 개편 뒤 이레가 지나야 뜻이 생긴다. 그때가 개편 효과를 가장 깨끗하게 보는 자리다
+- [x] ~~`challenge_funnel.sql` ④(새로 오신 분 코호트)~~ **2026-09-24 에 쟀고 닫았다 — 다시 재지 말 것.** 25.0% → 37.9% 로 올랐지만 **p=0.142** 로 유의하지 않고, ① 주별 전환율이 원래 16~45% 로 널뛰며(개편 **전**인 08-24 주가 45%) ② 개편 전 표본 절반이 이벤트 유입이고 ③ 80% 검정력에 한 쪽 200명이 필요한데 유입이 주 8명 미만이라 **기다려도 답이 안 난다.** 숫자·검정·근거는 `supabase/challenge_funnel.sql` ④ 머리에 적어 두었다.
+- [ ] ⚠️ **그 대신 드러난 것 — 가입은 되는데 첫 활동이 없다.** 주별 가입/첫활동: 08-25 `99/64` → 09-01 `20/13` → 09-08 `12/17` → 09-15 **`8/1`**. 활동자도 118→75. **이벤트가 9/30 에 끝난다** — 백로그가 「끝난 뒤 유입이 끊기지 않게」라고 적었는데 이미 끊겼다. 잴 것은 전환율이 아니라 **「가입 후 무활동」이 어디서 멈추는가**다
 
 ## 보안 · 새어 나가는 길 (2026-08-25)
 이 API는 **JWT가 없다**(`--no-verify-jwt`). 클라이언트가 준 `user_id`를 그대로 믿으므로 **남의 `user_id` 하나면 그 사람 행세가 된다**(게시판 글쓰기·진도 저장·순위 응원·필사 신청). 공개 키는 앱 코드 안에 있어 누구나 가진 것이나 같다. 그래서 `user_id`는 **어떤 응답에도, 어떤 표·뷰에도** 노출되면 안 된다.
@@ -260,6 +290,10 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
 - ⚠️ **표를 새로 만들면 `enable row level security`를 그 자리에서 켠다.** `event_entries`가 그걸 빠뜨려 `user_id` 47건이 공개 키로 읽혔다.
 - 2026-08-25에 막은 것: `v_ranking_all`(133행 · user_id·이름·교구·목장) · `event_entries`(47행 · user_id) · `v_verse_status`(34행 · 개인정보 없음). → `supabase/security_close_public_views.sql`
 - **점검하는 법:** 공개 키로 `GET {URL}/rest/v1/{이름}?select=*&limit=1`. 행이 오면 열려 있는 것이다. 나머지 표는 모두 RLS로 막혀 있었다.
+- ⚠️ **2026-09-28 부터 운영에 카카오 로그인이 켜졌다(교회 어드민).** 이제 `authenticated` = **카카오 계정만 있으면 누구나**다.
+  새 표·뷰·함수·storage 정책을 **`TO authenticated` 로 열지 말 것**, revoke 는 `anon`·`authenticated` **둘 다**.
+  같은 프로젝트의 다른 앱(digest.onlybible.kr · `memos` 등 다섯 표)은 그 앱 허가 명단 `legacy_app_users` 로 묶어 두었다.
+  바꾼 뒤엔 `c:\Projects\church-admin\supabase\sql\check-authenticated-exposure.sql` 을 운영에서 돌려 **0행**인지 본다.
 
 ## 여러 세션이 같은 저장소에서 동시에 일한다 (2026-09-10)
 세 세션(시편 액자·사역신청/관리자·이벤트 플랫폼)이 **같은 체크아웃**에서 동시에 일하다 사고가 났다.

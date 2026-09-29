@@ -8,12 +8,30 @@ function isNativeApp() {
   try { return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()); }
   catch (e) { return false; }
 }
+// 아이폰 앱 껍데기의 판 — AppDelegate.installAppInfoMarker 가 window.GOCHEOK_APP 을 심는다(1.1.0 다음 판부터).
+// 웹은 늘 최신인데 껍데기는 성도님마다 판이 달라서, 옛 판에만 App Store 업데이트를 안내할 때 쓴다.
+// 앱이 아니면 null · 앱인데 표식이 없으면 version:"" (= 1.1.0 이하, 표식이 들어가기 전 판).
+function nativeAppInfo() {
+  if (!isNativeApp()) return null;
+  const a = window.GOCHEOK_APP || {};
+  const num = (v) => String(v == null ? "" : v).replace(/[^0-9.]/g, "");   // 숫자와 점만 — 화면에 그대로 싣는다
+  return { platform: "ios", version: num(a.version), build: num(a.build) };
+}
 // 네이티브 앱에서는 요절 고정 배너(.test-ref-sticky)를 AppDelegate가 그리는 진짜 네이티브
 // 오버레이가 대신하므로, 웹 쪽은 (레이아웃/textContent는 남기고) 안 보이게만 한다.
 if (isNativeApp()) {
   document.addEventListener("DOMContentLoaded", () => document.body.classList.add("native-app-hide-ref"));
   if (document.body) document.body.classList.add("native-app-hide-ref");
 }
+
+// 저녁 알림(20시)이 실제로 나가기 시작한 날 true 로 바꾼다.
+//   ⚠️ 이것을 false 로 두는 동안에는 **저녁을 약속하는 문구를 성도님께 보이지 않는다.**
+//      칸·토글·액션은 미리 다 있지만 보내는 크론이 아직 없기 때문이다(0판은 준비, 3판이 켠다).
+//      켜지 않은 채 「저녁 8시에도 보내드려요」를 내보내면, 기다리시는데 안 오는 일이 생긴다.
+//   ⚠️ 켜는 날 할 일 — 이 값을 true 로 → python tools/bump.py → 푸시.
+//      같은 꼴의 본보기가 app.js 의 WIDGET_GUIDE 다.
+const EVENING_LIVE = false;
+window.EVENING_LIVE = EVENING_LIVE;
 
 // 알림 받을 시간(5·6·7·8시). 기본 7시. localStorage에 보관.
 function getPushHour() {
@@ -46,6 +64,36 @@ async function setPushHour(hour) {
   return { updated: false, hour };
 }
 window.setPushHour = setPushHour;
+
+// 저녁 알림(20시)을 받을지 — 기본 켜짐. localStorage 에 보관.
+// ⚠️ 기본이 「켜짐」이다. 값이 없거나 못 읽으면 true 로 본다 — 읽기 실패가
+//    성도님을 조용히 끄면 안 된다(사파리 프라이빗 모드 등).
+function getPushEvening() {
+  try { return localStorage.getItem("pushEvening") !== "0"; }
+  catch (e) { return true; }
+}
+window.getPushEvening = getPushEvening;
+
+// 저녁 알림 켜고 끄기 — 로컬 저장 + (로그인돼 있으면) 서버 반영.
+// ⚠️ 네이티브 앱도 웹도 **같은 액션**을 쓴다. 서버가 두 표를 함께 고치기 때문이다.
+//    setPushHour 는 웹푸시 구독(endpoint)이 있어야 해서 분기가 필요했지만,
+//    저녁은 사람 단위라 user_id 하나면 된다 — 그래서 여기엔 분기가 없다.
+//    (2026-09-16 에 setPushHour 의 네이티브 분기가 없어 조용히 무시된 사고가 있었다.
+//     이 함수가 그 함정을 피하는 방식이 「분기를 두는 것」이 아니라 「분기가 필요 없게 만든 것」이다.
+//     회귀 시험: tests/push-evening-native.py)
+async function setPushEvening(on) {
+  on = on !== false;
+  try { localStorage.setItem("pushEvening", on ? "1" : "0"); } catch (e) {}
+  const u = (typeof loadUser === "function") ? loadUser() : null;
+  if (u && u.user_id) {
+    try {
+      const r = await api.updatePushEvening(u.user_id, on);
+      if (r && r.ok) return { updated: true, on };
+    } catch (e) {}
+  }
+  return { updated: false, on };
+}
+window.setPushEvening = setPushEvening;
 
 function urlB64ToUint8Array(base64) {
   const pad = "=".repeat((4 - (base64.length % 4)) % 4);
@@ -103,7 +151,12 @@ async function enablePush() {
     }
     // 설정 직후 본인 기기로 '오늘의 묵상'을 첫 알림으로 발송(preview=true) — 무엇을 받을지 바로 체감
     api.testPush(sub.endpoint, hour, true).catch(() => {});
-    appAlert("🔔 알림이 설정되었습니다!\n매일 오전 " + hour + "시에 오늘의 묵상을 보내드려요.\n방금 오늘의 묵상을 이 기기로 보냈어요 — 잠시 후 확인해보세요.");
+    // 저녁 알림이 아직 안 나가는 동안(EVENING_LIVE=false)은 저녁 이야기를 빼고 예전 문구 그대로.
+    const eveOn = window.EVENING_LIVE && ((typeof getPushEvening === "function") ? getPushEvening() : true);
+    appAlert("🔔 알림이 설정되었습니다!\n매일 오전 " + hour + "시"
+      + (eveOn ? "와 저녁 8시" : "") + "에 말씀을 보내드려요."
+      + (eveOn ? "\n(저녁은 ⚙️ 설정에서 끄실 수 있어요)" : "")
+      + "\n방금 오늘의 묵상을 이 기기로 보냈어요 — 잠시 후 확인해보세요.");
     if (typeof updateAppStatus === "function") updateAppStatus();
     return true;
   } catch (e) {

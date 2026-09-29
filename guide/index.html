@@ -86,6 +86,19 @@ button{font-family:inherit;cursor:pointer}
   border:1.5px solid var(--border);background:#fff;
 }
 .sound.on{background:var(--gold);border-color:var(--gold)}
+/* 중간에 그만 보기 — 아이폰 앱처럼 뒤로 가기 단추가 없는 곳에서는 이게 없으면
+   아홉 걸음 끝까지 가야만 나올 수 있었다(2026-09-21). 주인공은 「다음」이라 작고 옅게. */
+.quit{
+  flex:0 0 auto;min-height:60px;padding:0 12px;border-radius:15px;
+  font-size:1rem;font-weight:700;color:#55617a;
+  border:1.5px solid var(--border);background:#fff;
+}
+@media (max-width:360px){
+  .pad-in{gap:6px}
+  .nav{font-size:1.02rem}
+  .sound{flex-basis:56px}
+  .quit{padding:0 9px;font-size:.92rem}
+}
 
 .done{text-align:center;padding:8px 0 0}
 .done a{
@@ -115,12 +128,17 @@ button{font-family:inherit;cursor:pointer}
 
 <div class="pad">
   <div class="pad-in">
+    <button class="quit" id="quit" aria-label="그만 보고 앱으로 돌아가기">✕ 닫기</button>
     <button class="nav" id="prev">◀ 이전</button>
     <button class="sound" id="snd" title="읽어주기 켜기/끄기" aria-label="읽어주기">🔊</button>
     <button class="nav main" id="next">다음 ▶</button>
   </div>
 </div>
 
+<!-- 열람 기록에 쓸 Supabase 주소·공개 키. 주소를 보고 운영/개발이 저절로 갈린다.
+     ⚠️ tools/bump.py 는 index.html 만 훑으므로 이 태그에는 캐시번호가 안 붙는다 —
+        js/config.js 를 고치는 날엔 이 페이지도 함께 봐야 한다. -->
+<script src="../js/config.js"></script>
 <script>
 // ============================================================
 // 따라 하기 — 실제 앱 화면(guide/shots/*.png)을 한 걸음씩 넘기며 보여 준다.
@@ -129,16 +147,40 @@ button{font-family:inherit;cursor:pointer}
 //     따로 녹음할 사람이 없어도 '말로 설명하는' 안내가 된다.
 //   · tap은 화면 그림 위에 찍는 동그라미. x·y는 그림 기준 백분율.
 // ============================================================
+
+// ---------- 열람 기록 ----------
+// 이 설명서가 실제로 쓰이는지 남긴다. ⚠️ 이 페이지는 로그인이 필요 없다 —
+// localStorage 에 user_id 가 없는 분(로비 QR·주보로 온 분)은 기록되지 않는다.
+// 그러니 이 숫자는 「앱에 로그인한 채 설명서를 누른 사람 수」다.
+// ⚠️ 무엇이 실패해도 설명서는 그대로 열려야 한다 — 전부 try 안에 둔다.
+(function () {
+  try {
+    var raw = localStorage.getItem("memorize-user");
+    if (!raw || !window.SUPA) return;
+    var uid = (JSON.parse(raw) || {}).user_id;
+    if (!uid) return;
+    fetch(window.SUPA.URL + "/functions/v1/api", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + window.SUPA.ANON,
+        "apikey": window.SUPA.ANON,
+      },
+      body: JSON.stringify({ action: "featureLog", user_id: uid, feature: "guide", item: 0 }),
+    }).catch(function () {});
+  } catch (e) {}
+})();
+
 var STEPS = [
   { img:"shots/install.png", t:"① 바탕화면에 앱 만들기",
     s:"한 번만 해 두면 다음부터 바로 열려요.",
-    say:"앱 첫 화면 위쪽 <b>📲</b> 를 누르면 이런 안내가 나와요. 안드로이드는 「설치」 창이 바로 뜨고, 아이폰은 화면 맨 아래 <b>공유 단추</b>를 눌러 「홈 화면에 추가」를 고르시면 됩니다.",
+    say:"앱의 <b>❓ 도움말</b>에서 ①번 <b>📲 지금 만들기</b>를 누르면 이런 안내가 나와요. 안드로이드는 「설치」 창이 바로 뜨기도 하고, 아이폰은 화면 맨 아래 <b>공유 단추</b>를 눌러 「홈 화면에 추가」를 고르시면 됩니다.",
     tip:"카카오톡 안에서 열면 되지 않아요. 먼저 「사파리로 열기」나 「다른 브라우저로 열기」를 누르세요." },
 
   { img:"shots/home.png", t:"② 첫 화면", tap:{x:50,y:37},
     s:"여기서 모든 것이 시작돼요.",
     say:"내 이름과 <b>오늘 몇 번</b> 했는지가 위에 보여요. 그 아래 <b>맨 큰 남색 단추</b>가 오늘 하실 일입니다. 누르시면 바로 그 화면으로 갑니다.",
-    tip:"이 단추는 그때그때 바뀌어요. 복습할 말씀이 있으면 「오늘 복습」, 없으면 「말씀 암송하기」가 나옵니다." },
+    tip:"이 단추는 그때그때 바뀌어요. 복습할 말씀이 있으면 「복습」, 없으면 「말씀 암송하기」가 나옵니다." },
 
   { img:"shots/list.png", t:"③ 말씀 목록", tap:{x:50,y:22},
     s:"외울 말씀을 고르는 곳이에요.",
@@ -151,24 +193,24 @@ var STEPS = [
 
   { img:"shots/stage3.png", t:"⑤ 3단계 · 전부 빈칸",
     s:"1단계 → 2단계 → 3단계로 올라가요.",
-    say:"3단계는 요절만 보고 전부 넣는 단계예요. 막히면 <b>💡 힌트</b>를 누르시면 한 글자씩 보여 줍니다.",
-    tip:"3단계를 마치면 「👑 마음에 두었나이다」를 누를 수 있어요." },
+    say:"3단계는 요절만 보고 전부 넣는 단계예요. 막히면 위쪽 <b>보기</b>를 누르시면 정답이 나와요. 자판이 번거로우시면 <b>👆 카드</b>를 눌러 낱말을 골라 채우셔도 돼요 — 암송·도전·복습에서 모두 쓸 수 있어요.",
+    tip:"완전히 외우셨으면 아래 「이 말씀을 내 마음에 두었나이다」에 체크하세요. 👑 금배지가 달려요." },
 
   { img:"shots/challenge.png", t:"⑥ 말씀 도전",
     s:"외운 말씀을 빠르게 점검해요.",
-    say:"첫 화면의 <b>🔥 말씀 도전</b>은 구절을 무작위로 내 줍니다. <b>🎤 암송 시작</b>을 누르면 소리 내어 외우셔도 돼요." },
+    say:"첫 화면의 <b>🔥 말씀 도전</b>은 구절을 무작위로 내 줍니다. 막히면 <b>💡 힌트</b>가 앞 글자부터 한 글자씩 보여 줘요. <b>🎤 암송</b>을 누르면 소리 내어 외우셔도 돼요." },
 
   { img:"shots/album.png", t:"⑦ 나의 말씀 앨범",
     s:"외운 말씀이 모이는 곳이에요.",
     say:"마음에 둔 말씀이 여기 모여요. 요절이나 말씀을 <b>가리고</b> 스스로 맞혀 볼 수 있고, <b>▶️ 전부 듣기</b>로 이어서 들을 수도 있습니다." },
 
-  { img:"shots/settings.png", t:"⑧ 글씨 크게 하기", tap:{x:50,y:36},
+  { img:"shots/settings.png", t:"⑧ 글씨 크게 하기", tap:{x:50,y:50},
     s:"잘 안 보이시면 키우세요.",
-    say:"첫 화면 오른쪽 위 <b>⚙️</b> 를 누르고 <b>글씨 크기</b>에서 「큼」이나 「아주 큼」을 고르세요. 읽어 주는 <b>속도</b>도 느리게 할 수 있어요." },
+    say:"첫 화면을 맨 아래까지 내려 <b>⚙️ 설정</b>을 누르고 <b>글씨 크기</b>에서 「크게」나 「아주 크게」를 고르세요. 읽어 주는 <b>속도</b>도 느리게 할 수 있어요." },
 
   { img:"shots/manual.png", t:"⑨ 언제든 다시 보기",
     s:"앱 안에도 설명서가 있어요.",
-    say:"첫 화면의 <b>❓</b> 를 누르면 이 설명서가 열려요. 궁금할 때마다 여기서 찾아보시면 됩니다.",
+    say:"첫 화면 맨 아래 <b>❓ 도움말</b>을 누르면 이 설명서가 열려요. 궁금할 때마다 여기서 찾아보시면 됩니다.",
     tip:"이 「따라 하기」 화면은 즐겨찾기 해 두시면 언제든 다시 보실 수 있어요." }
 ];
 
@@ -229,6 +271,11 @@ function draw(){
   say(st.say);
 }
 
+// 어느 걸음에서든 앱으로 돌아간다 — 끝의 「다 봤어요」와 같은 곳(../).
+document.getElementById("quit").addEventListener("click", function(){
+  try { window.speechSynthesis.cancel(); } catch(e){}
+  location.href = "../";
+});
 btnPrev.addEventListener("click", function(){ if (i > 0) { i--; draw(); } });
 btnNext.addEventListener("click", function(){
   if (i < STEPS.length - 1) { i++; draw(); }
