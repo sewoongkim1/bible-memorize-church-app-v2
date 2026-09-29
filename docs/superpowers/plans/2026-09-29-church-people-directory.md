@@ -2534,30 +2534,22 @@ git commit -m "feat(교인명부): 사역 화면 교적 표시 · 바꾼 기록�
 - Modify: church-admin `CLAUDE.md`, `.superpowers/sdd/progress.md` · v2 `CLAUDE.md`(표 한 줄 · 다음 작업)
 
 - [ ] **Step 1: localhost:8000 에서 친구가 확인**(개발 · 가짜 명부) — Task 9·10 의 확인 목록을 친구 폰·PC 로. 고칠 것이 나오면 고치고 **새 커밋**, 개발 함수 다시 배포, 개발 시험 다시.
-- [ ] **Step 2: 운영 SQL** — 먼저 운영인지 확인(`select count(*) from users` 가 **사백 넘음**):
-
-```bash
-supabase --workdir ~/.church-admin/supa-prod db query --linked "select count(*) from users"
-supabase --workdir ~/.church-admin/supa-prod db query --linked -f C:/Projects/church-admin/supabase/sql/003_church_people.sql
-supabase --workdir ~/.church-admin/supa-prod db query --linked -f C:/Projects/church-admin/supabase/sql/check-authenticated-exposure.sql
-```
-Expected: 003 마지막 표 `role directory 1` · `bucket 공개(0이어야) 0` / 노출 점검 **0행**
-
-- [ ] **Step 3: 운영 함수** — `git status` 깨끗 → `supabase functions deploy church-admin --no-verify-jwt --project-ref xnomlgydifiqiybervtf`
-  - 이 시점엔 명부가 비어 있어 사역 화면의 교적 표시는 **안 나온다**(`church: null`) — 옛 화면 그대로가 맞다.
-- [ ] **Step 4: 운영 키 파일 — 친구가 만든다.** Supabase 대시보드(운영) → Project Settings → API Keys → secret 키를 복사해 `~/.church-admin/prod.env` 에 두 줄:
-  `PROD_URL=https://xnomlgydifiqiybervtf.supabase.co` · `PROD_SERVICE_KEY=<복사한 키>` (저장소 밖 · **이 파일 내용을 대화·커밋에 적지 않는다**)
-- [ ] **Step 5: 진짜 명부를 운영에**
-
-```bash
-python tools/people/load_people.py --work "C:/Projects/교인명부_작업/2026-09-29" --target prod           # 살펴보기
-python tools/people/load_people.py --work "C:/Projects/교인명부_작업/2026-09-29" --target prod --apply   # 넣기
-```
-Expected: 살펴보기 `새로 8672 · 바뀜 0 · 빠짐 0 · 사진 올림 4645` → 넣기 `넣었다 — DB 8672명(파일 8672명)`
-  - 다시 노출 점검 → **0행**.
-- [ ] **Step 6: 화면 푸시** — church-admin `git push`(푸시 = 운영 화면). Actions 가 끝나면 **이번 판에만 있는 글자**로 확인한다:
+- [x] **Step 2: 운영 SQL — 2026-09-29 끝(친구 요청으로 명단부터 먼저).** 운영 확인(users 421) → 003 적용(`role directory 1` · `bucket 공개 0`) → 노출 점검 **0행**.
+  (worktree 에서 돌렸다: `-f C:/Projects/church-admin/.worktrees/people-directory/supabase/sql/003_church_people.sql`)
+- [x] **Step 4: 운영 키 파일 — 2026-09-29 끝.** CLI(`supabase projects api-keys`)로 받아 화면에 찍지 않고 `~/.church-admin/prod.env` 에 썼다.
+  ⚠️ CLI 는 **새 방식 secret 키(sb_secret_)를 가려서**(41자 중 26자 `•`) 내준다 — 그대로 쓰면 `UnicodeEncodeError(latin-1)`. 그래서 **옛 방식 `service_role`(JWT)** 을 넣었다. 새 키 길(`Api.hdr()` 의 sb_secret_ 분기)은 운영에서 한 번도 안 돌았다 — 새 키를 쓸 때 401/403 이면 그 분기를 볼 것.
+- [x] **Step 5: 진짜 명부를 운영에 — 2026-09-29 끝.** 살펴보기 `새로 8672 · 바뀜 0 · 빠짐 0 · 사진 올림 4645` → 넣기 `DB 8672명 · 올린 기록 #1` → 가구 5,387 · 사진 파일 4,645 · `admin_audit people.import` 1.
+  노출 점검 **0행** · 공개 키로 두 표 **401** · 사진은 공개 주소 / 공개 키 authenticated 경로 / 공개 키 서명 만들기 **모두 400** · 공개 키 칸 목록 **0개** · `storage.objects` 에 anon·public·authenticated 정책 **없음**.
+  (이 시점엔 함수·화면이 옛 판이라 명단은 표에만 있고 어디에도 안 보인다.)
+- [ ] **Step 3: main 에 합치기 → 운영 함수** — 푸시(Actions)는 **main** 에서만 돈다. worktree 가지에서 배포·푸시하지 않는다.
+  1. 원본 체크아웃 `C:\Projects\church-admin` 에서 `git status` 깨끗 · `git pull`(다른 세션이 main 을 올렸을 수 있다) → `git merge --no-ff people-directory`(충돌이 나면 멈추고 친구와 본다)
+  2. `python tools/preflight.py` 「모두 통과」 · 원본 체크아웃에서도 `git config core.hooksPath` 가 `.githooks` 인지(저장소 설정이라 이미 켜져 있다)
+  3. `git status` 깨끗 → `supabase functions deploy church-admin --no-verify-jwt --project-ref xnomlgydifiqiybervtf`
+  - 명단이 이미 있으므로 배포하는 순간 사역 신청 현황·종이 명단에 **교적 표시가 바로 뜬다**(옛 화면은 `church` 칸을 모른 척하니 깨지지는 않는다 — 화면 푸시(Step 6) 전까지는 안 보인다).
+- [ ] **Step 6: 화면 푸시** — 원본 체크아웃에서 **main** 을 `git push`(푸시 = 운영 화면). Actions 가 끝나면 **이번 판에만 있는 글자**로 확인한다:
   `curl -s "https://admin.onlybible.kr/js/menus/registry.js?nocache=$(date +%s)" | grep -c people-stats` → 1 이상
   (옛 판에도 있던 이름으로 보면 CDN 이 옛 파일을 줘도 통과해 「배포 완료」로 착각한다.)
+  - 합친 뒤 worktree 는 `git worktree remove .worktrees/people-directory`(진행 기록부 `.superpowers/sdd/progress.md` 는 먼저 원본 체크아웃의 기록부에 옮겨 붙인다).
 - [ ] **Step 7: 역할 주기 — 친구가 한다.** 총괄 관리자로 admin.onlybible.kr → 🔑 담당자·역할 → 교인명부를 볼 분에게 「교인명부」. 친구 폰으로: 교인 찾기·현황·자세히·내려받기 한 번씩 → 📜 「교인명부 기록」에 남았는지 · 사역 신청 현황에 교적 표시가 뜨는지.
 - [ ] **Step 8: 문서**
   - church-admin `CLAUDE.md` 에 절 하나 — 「교인명부(2026-09-29)」: 새 명단이 오면 `parse_people.py → fetch_photos.py → load_people.py(살펴보기) → --apply` · 작업 폴더·키 위치 · ⚠️ 개발엔 가짜만 · 5% 멈춤 · 사진 칸은 비공개(⑦) · 사역 응답에 교적 값 금지 · 열람 기록은 「교인명부 기록」 ·
