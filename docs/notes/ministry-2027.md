@@ -45,8 +45,8 @@
       `ministry-seed-sql.py`). 취합은 **칸 번호가 아니라 칸 이름으로** 찾는다 —
       번호를 박아 두면 칸이 늘 때 조용히 엉뚱한 값을 읽는다(오류도 안 난다).
       시드는 **부서가 하나도 안 적으면 DB 의 기존 값을 덮지 않는다**(개발에서 47건 보존 확인).
-      ⚠️ **직분 목록은 세 곳에 있다**(`app.js` MIN_POSITIONS · `index.ts` allowlist ·
-      DB CHECK). 2026-09-10에 앞의 둘에만 「사모」를 더해 **화면엔 뜨는데 신청이 500 으로
+      ⚠️ **직분 목록은 네 곳에 있다**(`app.js` MIN_POSITIONS · `index.ts` allowlist ·
+      DB CHECK · **교회 어드민 `c:\Projects\church-admin\supabase\functions\church-admin\paper.ts`** — 2026-09-29 종이 명단을 옮기며 넷째가 생겼다). 2026-09-10에 앞의 둘에만 「사모」를 더해 **화면엔 뜨는데 신청이 500 으로
       막혔다** — 그 500 은 성도님께 「연결이 고르지 않아…」로 보여 까닭조차 안 보인다
       (`supabase/ministry_position_samo.sql`). 허용 목록에 값을 더할 땐 그 칸에 CHECK 가
       있는지 먼저 볼 것: `select conrelid::regclass, conname, pg_get_constraintdef(oid)
@@ -265,3 +265,12 @@
   - ⚠️ **창을 두 번 띄운다**(성도님 요구) — 첫 창은 「무엇을 지우는지」(이름·사역·소속·지금 상태)를 보는 자리,
     둘째 창은 「정말인지」 답하는 자리. 첫 창에서 그만두면 아무 일도 일어나지 않는다.
   - ⚠️ 상태 값을 늘린 것이 **아니다** — DB CHECK·`MINISTRY_STATUS` 는 그대로다(마이그레이션 없음).
+
+## 교회 어드민으로 옮김 (2026-09-28~29)
+- 사역신청 관리 다섯 메뉴(신청 현황 · 사역팀 정보 · 종이 명단 올리기 · 임명현황 · 담당자)가 **교회 어드민(admin.onlybible.kr ·
+  저장소 `c:\Projects\church-admin`)** 에도 생겼다 — 카카오 로그인 + 사람마다 역할. 옛 동작 원문은 그 저장소 `docs/port/` 에 있다.
+- ⚠️ **옛 화면(`admin-stats.html?only=ministry`)과 `api` 의 담당자용 사역 액션은 얼려 두었다** — 갈아타는 날 걷는다. 그때까지 두 곳이
+  같은 표를 고친다(같은 규칙). 새 기능은 어드민 쪽에만.
+- 임명 알림은 **`api` 의 내부 전용 액션 `internalMinistryNotify` 한 곳**에서만 보낸다(같은 프로젝트의 서비스 키를 머리로 받을 때만 열림).
+  어드민이 임명확정 뒤 부른다 — 알림 코드를 두 벌로 만들지 않으려고.
+- ⚠️ 옛 `ministryPaper`(api)는 넣기 결과의 줄마다 `user_id` 를 돌려준다 — 어드민 쪽은 뺐다. 옛 액션은 갈아타는 날 통째로 걷는다.

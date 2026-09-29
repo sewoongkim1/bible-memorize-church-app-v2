@@ -159,7 +159,7 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
 
 ## 다음 작업 (이어서 할 것)
 > 여기에 다음에 진행할 과제를 적어두면, 다음 세션에서 이 문서를 읽고 바로 이어감.
-- [ ] 🏛️ **교회 어드민 — 1단계(뼈대·카카오 로그인·담당자 관리)·2단계(🎉 임명현황) 운영 개시(2026-09-28).** 다음은 3단계 신청 현황 옮기기(`ministryList`·상태 바꾸기·삭제·임명 알림 — 알림은 `api` 내부 액션을 부르는 설계).
+- [ ] 🏛️ **교회 어드민 — 사역신청 다섯 메뉴 모두 운영 개시(2026-09-29 · 신청 현황·사역팀 정보·종이 명단·임명현황·담당자).** 다음은 **갈아타기**: 사역 담당자 초대(카카오 로그인→승인) → 앱 설정 「🔒 관리 페이지 → 🤝 사역관리」 단추를 admin.onlybible.kr 로(브라우저로 열기) → 옛 사역 화면·`api` 담당자용 사역 액션·사역 암호 걷기. 임명 알림은 `api` `internalMinistryNotify` 한 곳.
       ⚠️ 옮기는 동안 `admin-stats.html` 의 사역 화면·`api` 의 담당자용 사역 액션 7개는 **얼린다**(기능 추가 금지).
       계획 `docs/superpowers/plans/2026-09-28-church-admin-stage1.md` · 설계 위 표의 문서 · 진행 기록 `c:\Projects\church-admin\.superpowers\sdd\progress.md`.
 - [x] **iOS 2단계(네이티브 기능 3종) — 위젯·네이티브 로그인 화면 실기기 확인 완료(2026-09-16).**
@@ -249,7 +249,7 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
       기획 `docs/superpowers/specs/2026-09-06-ministry-application-design.md` · 확인 양식 `tools/ministry-form-gen.py`
       · 종이 신청서 `tools/ministry-apply-form-gen.py`
       ⚠️ 「② 언제」 칸 규칙(금요일은 평일이 아니다 · 시각은 주일만 · 주기는 한 사람이 서는 주기)과
-      **직분 목록이 세 곳**이라는 것, 사슬 일곱은 `docs/notes/ministry-2027.md`.
+      **직분 목록이 네 곳**(교회 어드민 `paper.ts` 포함)이라는 것, 사슬 일곱은 `docs/notes/ministry-2027.md`.
 
 - [ ] **축복 기도문 — 주제 그룹만 남았다**(성도님께는 **2026-09-03 에 이미 열렸다** · 커밋 `11a1bea`): ① `marketing/가정축복기도문_수정.xlsx` D열 「그룹」을 담당자가 손보면 ② `supabase/blessings.sql`·`blessings.json`을 다시 만들어 개발→운영 순으로 반영한다. ⚠️ 여기 적혀 있던 ③ 「첫 화면에 한 줄 더하기」는 **만든 날 이미 끝난 일**이었다(2026-09-24 정정) — 첫 화면 단추에 게이트가 없다. 즉 남은 것은 **여는 일이 아니라 본문 갈아 끼우기**다.
 - [ ] 🤖 **안드로이드 위젯 — 2026-09-21 시험판 실기기 확인 끝(갤럭시 S23 울트라). 남은 것: 비행기 모드 · 다음 날 아침 확인, 그리고 프로덕션 승인 뒤 계획 Task 8(서명·판 번호·업로드) — 9/27 재신청했고 결과 대기 중이다.**
