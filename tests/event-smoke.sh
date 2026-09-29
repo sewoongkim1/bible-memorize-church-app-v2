@@ -101,6 +101,23 @@ chk "eventSetNote 거부" "$(jqn 'd.get("error") in ("unauthorized","no-password
 N2=$(call '{"action":"eventExcuse","id":1,"excused":true}')
 chk "eventExcuse 거부" "$(jqn 'd.get("error") in ("unauthorized","no-password-set")' "$N2")" "True"
 
+echo "5-1) 교회 어드민으로 옮긴 쓰기 셋은 비밀번호가 맞아도 막힌다(eventRoster·eventExcuse 는 남긴다)"
+# ⚠️ eventSave·eventSetNote·eventImport 는 교회 어드민(admin.onlybible.kr 「성경필사(암송)」)으로 옮겨 얼렸다.
+#    비밀번호 확인 **바로 뒤**에서 moved-to-church-admin 을 돌려준다 — 비밀번호 없는 호출은 위 5) 처럼 그대로 unauthorized.
+#    설계 docs/superpowers/specs/2026-09-29-church-admin-bible-events-design.md §4 · docs/notes/bible-events-admin.md
+# 얼리기 전에 돌려도 아무것도 쓰지 않는 입력만 던진다 — eventSave 는 모양이 틀린 id(bad-event-id) ·
+#   eventSetNote 는 id 0(bad-args) · eventImport 는 없는 회차(not-found — 줄을 지우기 전에 멈춘다).
+if [ -z "${ADMIN_PW:-}" ]; then
+  sk "eventSave·eventSetNote·eventImport 얼림" "ADMIN_PW 환경변수가 없습니다"
+else
+  F1=$(call "{\"action\":\"eventSave\",\"pw\":\"$ADMIN_PW\",\"event\":{\"id\":\"x\",\"title\":\"x\",\"opens_on\":\"2026-01-01\",\"closes_on\":\"2026-01-02\"}}")
+  chk "eventSave 얼림" "$(jqn 'd.get("error")' "$F1")" "moved-to-church-admin"
+  F2=$(call "{\"action\":\"eventSetNote\",\"pw\":\"$ADMIN_PW\",\"id\":0,\"note\":\"x\"}")
+  chk "eventSetNote 얼림" "$(jqn 'd.get("error")' "$F2")" "moved-to-church-admin"
+  F3=$(call "{\"action\":\"eventImport\",\"pw\":\"$ADMIN_PW\",\"event_id\":\"definitely-not-a-real-event\",\"rows\":[]}")
+  chk "eventImport 얼림" "$(jqn 'd.get("error")' "$F3")" "moved-to-church-admin"
+fi
+
 echo "6) 관리자 목록(비번이 있을 때만)"
 if [ -z "${ADMIN_PW:-}" ]; then
   sk "eventRoster" "ADMIN_PW 환경변수가 없습니다"

@@ -5345,7 +5345,13 @@ async function eventOpenList(b: any) {
     return x.id < y.id ? -1 : 1;
   });
 
-  return { ok: true, events: list, mine: mine.map(evtRow), positionHint: hint };
+  // ⚠️ 「📋 이미 내신 것」에는 **이 목록에 있는 회차의 줄만** 내려보낸다(2026-09-30 · 교회 어드민 개시).
+  //    담당자가 지난 회차(준비 중·보관·공개 종료일 지남)에 분을 더하고 계정을 이으면, 목록에 없는 회차라
+  //    화면(js/events.js evtSentHtml)이 제목을 못 찾아 회차 ID(「lent-2022 접수」)를 그대로 띄웠고,
+  //    「고를 회차가 하나면 바로 열기」(evtMine.length === 0)도 막혔다. 목록 밖 회차의 줄은 그 화면에 쓸 곳이 없다.
+  //    직분 힌트(evtPositionHint)는 위에서 모든 줄로 이미 뽑았다 — 서버 안에서만 쓴다.
+  const listed = new Set(list.map((x) => x.id));
+  return { ok: true, events: list, mine: mine.filter((r) => listed.has(r.event_id)).map(evtRow), positionHint: hint };
 }
 
 // ---------- eventSignup: 등록 / 고치기(덮어쓰기) ----------
@@ -5588,11 +5594,24 @@ async function eventRoster(b: any) {
   };
 }
 
+// ---------- 교회 어드민으로 옮긴 쓰기 액션 (얼림) ----------
+// ⚠️ 이벤트 명단을 고치는 곳은 교회 어드민(admin.onlybible.kr · 「성경필사(암송)」) **한 곳**이다.
+//    eventImport 는 돌 때마다 그 회차의 source='import' 줄을 **전부 지우고** 다시 넣는다 —
+//    살아 있으면 어드민에서 고친 것·더한 분·줄 id·이어 둔 계정이 한 번에 사라진다.
+//    화면 단추만 닫으면 관리자 비밀번호로 API 를 직접 부르는 길이 남아 **서버에서** 막는다. **되살리지 말 것.**
+//    자리: 비밀번호 확인 **바로 뒤** — 무엇도 읽거나 쓰기 전에. 비밀번호 없는 호출은 예전처럼 unauthorized 다
+//    (tests/event-smoke.sh 5) 기대값 그대로 · 얼림은 5-1 이 비밀번호로 본다).
+//    남긴 것: eventRoster(읽기) · eventExcuse(자격 인정 — 가을 말씀 동행용, 다음 단계에서 옮긴다) · 성도님 앱 액션 전부.
+//    설계 docs/superpowers/specs/2026-09-29-church-admin-bible-events-design.md §4 · docs/notes/bible-events-admin.md
+//    (함수 몸통은 옛 동작 기록으로 남겨 둔다 — 원문은 church-admin docs/port/event-roster-legacy.md)
+const EVT_MOVED = new Set(["eventImport", "eventSave", "eventSetNote"]);
+
 // ---------- eventSetNote: 담당자 메모 ----------
 // ⚠️ note 는 성도님 응답(evtRow·eventRosterPublic)에 절대 실리지 않는다 — 담당자만 본다.
 async function eventSetNote(b: any) {
   const err = adminError(b);
   if (err) return { ok: false, error: err };
+  if (EVT_MOVED.has("eventSetNote")) return { ok: false, error: "moved-to-church-admin" };
   const id = Number(b.id);
   if (!Number.isInteger(id) || id <= 0) return { ok: false, error: "bad-args" };
   const note = norm(b.note).slice(0, 500);
@@ -5636,6 +5655,7 @@ async function eventExcuse(b: any) {
 async function eventSave(b: any) {
   const err = adminError(b);
   if (err) return { ok: false, error: err };
+  if (EVT_MOVED.has("eventSave")) return { ok: false, error: "moved-to-church-admin" };
 
   const e = (b.event ?? {}) as any;
   const id = norm(e.id);
@@ -5811,6 +5831,7 @@ function evtImportPosition(v: unknown): string {
 async function eventImport(b: any) {
   const err = adminError(b);
   if (err) return { ok: false, error: err };
+  if (EVT_MOVED.has("eventImport")) return { ok: false, error: "moved-to-church-admin" };
 
   const eventId = norm(b.event_id);
   if (!EVT_ID_RE.test(eventId)) return { ok: false, error: "bad-event-id" };
