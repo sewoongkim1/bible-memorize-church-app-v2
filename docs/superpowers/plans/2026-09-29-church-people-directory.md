@@ -1384,7 +1384,7 @@ Run: `python tools/people/parse_people.py "C:/Projects/교인목록_2026_09_29.x
 Expected: `교인 8672명 · 대조한 낱말 210899 · 못 찾은 낱말 0` · `썼다: C:\Projects\교인명부_작업\2026-09-29`
 (2026-09-29 에 같은 규칙으로 쟀던 수다. 조금 다르면 괜찮지만 **못 찾은 낱말은 0 이어야** 한다.)
   - 가족 번호 확인(수만): `python -c "import json;p=json.load(open(r'C:/Projects/교인명부_작업/2026-09-29/people.json',encoding='utf-8'))['people'];print(sum(1 for x in p if x['household_id']), len({x['household_id'] for x in p if x['household_id']}))"`
-    → `8672 5388`(모두 세대주 번호가 있고 5,388가구)
+    → `8652 5387`(세대주 번호 `0`= 원본의 「연결 없음」 20명은 가족 없음으로 둔다 · 5,387가구)
 ⚠️ 결과의 **이름·번호를 화면에 찍지 않는다** — 수만 본다.
 
 - [ ] **Step 3: `tools/people/fetch_photos.py`**
@@ -2560,7 +2560,10 @@ Expected: 살펴보기 `새로 8672 · 바뀜 0 · 빠짐 0 · 사진 올림 464
   (옛 판에도 있던 이름으로 보면 CDN 이 옛 파일을 줘도 통과해 「배포 완료」로 착각한다.)
 - [ ] **Step 7: 역할 주기 — 친구가 한다.** 총괄 관리자로 admin.onlybible.kr → 🔑 담당자·역할 → 교인명부를 볼 분에게 「교인명부」. 친구 폰으로: 교인 찾기·현황·자세히·내려받기 한 번씩 → 📜 「교인명부 기록」에 남았는지 · 사역 신청 현황에 교적 표시가 뜨는지.
 - [ ] **Step 8: 문서**
-  - church-admin `CLAUDE.md` 에 절 하나 — 「교인명부(2026-09-29)」: 새 명단이 오면 `parse_people.py → fetch_photos.py → load_people.py(살펴보기) → --apply` · 작업 폴더·키 위치 · ⚠️ 개발엔 가짜만 · 5% 멈춤 · 사진 칸은 비공개(⑦) · 사역 응답에 교적 값 금지 · 열람 기록은 「교인명부 기록」.
+  - church-admin `CLAUDE.md` 에 절 하나 — 「교인명부(2026-09-29)」: 새 명단이 오면 `parse_people.py → fetch_photos.py → load_people.py(살펴보기) → --apply` · 작업 폴더·키 위치 · ⚠️ 개발엔 가짜만 · 5% 멈춤 · 사진 칸은 비공개(⑦) · 사역 응답에 교적 값 금지 · 열람 기록은 「교인명부 기록」 ·
+    ⚠️ 원본 대조는 「낱말이 결과 어딘가에 있나」만 본다(칸이 뒤바뀌어도 통과) — 살펴보기의 새로·바뀜·빠짐 수가 평소와 다르면 넣지 말고 멈춰 볼 것 ·
+    dimode 표 모양이 바뀌어 「기타사항」 뒤에 값 칸이 생기면 지번주소 자리로 들어갈 수 있다(2026-09-29 친구 결정: 규칙은 그대로, 주의만) ·
+    세대주 번호 `0` 은 원본의 「연결 없음」(가족 없음으로 둔다) · pre-commit 훅(`git config core.hooksPath .githooks`)이 명단 파일 커밋을 막는다.
   - `.superpowers/sdd/progress.md` 에 한 줄(무엇을 운영에 올렸나 · 운영 수 8,672 / 사진 4,645).
   - v2 `CLAUDE.md` 「어디에 무엇이 적혀 있나」 표에 한 줄: `| 교인명부(어드민 · dimode 교인목록·사진) | docs/superpowers/specs/2026-09-29-church-people-directory-design.md |` · 다음 작업에 「dimode 에 사진 주소가 로그인 없이 열린다고 알리기」.
   - 친구에게 묻기: `~/.church-admin/prod.env` 를 지울지(다음 명단 때 다시 만들지) · `C:\Projects\교인목록_2026_09_29_정리.xlsx`·`교인사진_2026_09_29` 를 지울지.

@@ -32,7 +32,7 @@
 | `birth` (text), `birth_date` (date, 날짜로 읽히는 것만), `lunar`, `age` | 생년월일 · 양음력 · 나이(명단 기준일의 나이) |
 | `spouse`, `spouse_position` | 배우자 · 배우자직분 |
 | `household_head`, `household_rel` | 신앙세대주 · 세대주관계 |
-| `household_id` (int) | **신앙세대주의 교인ID** — 가족 묶기(2026-09-29 친구 요청). 원본 세대주 칸의 `PersonMiniViewJs('번호')`. 관계가 「본인」인 4,334명 중 4,274명이 자기 교인ID 와 같아 같은 번호 체계임을 확인. 5,388가구 · 세대주가 명단에 없는 분 331명(FK 를 걸지 않는다) |
+| `household_id` (int) | **신앙세대주의 교인ID** — 가족 묶기(2026-09-29 친구 요청). 원본 세대주 칸의 `PersonMiniViewJs('번호')`. 관계가 「본인」인 4,334명 중 4,274명이 자기 교인ID 와 같아 같은 번호 체계임을 확인. 5,387가구 · 세대주 번호가 `0`(원본의 「연결 없음」)인 20명은 가족 없음 · 세대주가 명단에 없는 분 311명(FK 를 걸지 않는다) |
 | `kind1`, `kind2`, `kind3` | 교인구분 1~3 (교인 / 장년·청년·교회학교 / 출석교인·관리교인…) |
 | `registered` (text), `registered_date` (date), `reg_type` | 등록일 · 등록구분 |
 | `phone1`, `phone2` | 연락처1 · 연락처2 |
