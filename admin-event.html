@@ -9,6 +9,9 @@
   이벤트 플랫폼 관리자 화면 — 2026-09-10
     설계: docs/superpowers/specs/2026-09-10-event-platform-design.html
     계획: docs/superpowers/plans/2026-09-10-event-platform.md (4단계)
+    ⚠️ 교회 어드민으로 옮김(2026-09-30): 회차 만들기·설정·담당자 메모·명단 고치기는 admin.onlybible.kr 「성경필사(암송)」.
+       서버 eventSave·eventSetNote·eventImport 는 moved-to-church-admin(얼림). 이 화면에 남은 것은
+       명단 보기·인쇄·CSV·자격 인정(eventExcuse)뿐 — 설계 docs/superpowers/specs/2026-09-29-church-admin-bible-events-design.md §4
 
   ⚠️ admin-stats.html 이 아니라 새 파일로 지었다. 그 파일은 188KB 이고 여러 작업이
      함께 쓰고 있어, 여기에 또 얹으면 충돌 표면만 커진다.
@@ -90,6 +93,12 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;color:#6a7383}
 .ok{background:#eef6f1;border:1px solid #bcd9c8;color:#2f6b4f;border-radius:8px;
   padding:9px 11px;font-size:13.5px;margin:10px 0}
 .ok:empty,.note:empty{display:none}
+/* 교회 어드민으로 옮긴 자리 — 저장·메모 단추 대신 페이지 안 띠(팝업 아님) */
+.moved{background:#eef1f8;border:1.5px solid #1a3a6b;border-radius:10px;padding:11px 13px;
+  font-size:14px;color:#1a3a6b;line-height:1.7;margin:12px 0}
+.moved a{color:#1a3a6b;font-weight:800}
+fieldset.ro{border:0;padding:0;margin:0;min-width:0}
+fieldset.ro input,fieldset.ro select{background:#f7f8fb;color:#232730;opacity:1}
 
 /* 묶음 보기 — 소속으로 묶고 한 줄에 여러 명. 주보·공지에 그대로 옮겨 적기 좋다. */
 .gv-g{margin:0 0 13px;break-inside:avoid}
@@ -139,6 +148,13 @@ const logoutBtn = document.getElementById("logout");
 
 const EV_STATUS = ["draft", "open", "closed", "archived"];
 const EV_STATUS_KO = { draft:"준비 중", open:"열림", closed:"마감", archived:"보관" };
+// ⚠️ 회차 만들기·설정·담당자 메모·명단 고치기는 교회 어드민 한 곳에서 한다(2026-09-30 부터).
+//    서버 eventSave·eventSetNote·eventImport 는 moved-to-church-admin 을 돌려준다(얼림) — 여기에 저장 단추를
+//    되살려도 저장되지 않는다. 남은 쓰기는 자격 인정(eventExcuse)뿐(가을 말씀 동행 · 다음 단계에서 옮긴다).
+//    docs/notes/bible-events-admin.md
+const MOVED_HTML = `<div class="moved no-print">회차 만들기·설정과 담당자 메모는 <b>교회 어드민 → 성경필사(암송)</b>에서 합니다 —
+  <a href="https://admin.onlybible.kr/#/be-roster" target="_blank" rel="noopener">admin.onlybible.kr</a>
+  (카카오 로그인 · 「성경필사(암송)」 역할)</div>`;
 
 let evEvents = [];       // 회차 목록
 let evRows = [];         // ⚠️ 「지금 고른 회차」가 아니다 — load(pick) 을 인자 없이 부르면(첫 진입·
@@ -240,7 +256,7 @@ function render(){
 function evChipsHtml(){
   if(!evEvents.length){
     return `<div class="card"><h2>회차</h2>
-      <p class="sub">아직 만든 회차가 없습니다. 아래에서 새 회차를 만드세요.</p></div>`;
+      <p class="sub">아직 만든 회차가 없습니다. 회차는 교회 어드민에서 만듭니다.</p></div>`;
   }
   return `<div class="card"><h2>회차</h2>
     <p class="sub">숫자는 그 회차의 <b>전체</b> 신청 건수입니다(아래 필터와 무관).</p>
@@ -256,14 +272,15 @@ function evFormHtml(ev){
   //    빈 칸으로 그려지고 저장하는 순간 원래 값이 지워진다.
   const v = ev || { id:"", title:"", shortTitle:"", subtitle:"", season:"", kind:"signup",
                     opensOn:"", closesOn:"", status:"draft", sortOrder:0, listUntil:"" };
+  // ⚠️ 회차 만들기·설정은 교회 어드민으로 옮겼다 — 여기서는 보기만 한다(서버 eventSave 는 얼렸다).
+  if(!ev) return `<div class="card no-print"><h2>회차</h2>${MOVED_HTML}</div>`;
   return `<div class="card no-print">
-    <h2>${ev ? "회차 고치기" : "새 회차 만들기"}</h2>
+    <h2>회차 설정 <span style="font-weight:400;color:#8a93a3;font-size:13px">(보기만)</span></h2>
     <p class="sub">
       <b>준비 중</b>은 성도님께 안 보입니다 · <b>열림</b>은 기간 안에서만 등록됩니다 ·
       <b>마감</b>은 등록만 막히고 <b>조회는 살아 있습니다</b> · <b>보관</b>은 목록에서 사라집니다.
     </p>
-    <div class="ok" id="f-ok"></div><div class="err" id="f-err"></div>
-    <div class="form">
+    <fieldset class="ro" disabled><div class="form">
       <div><label for="f-id">회차 ID</label>
         <input id="f-id" value="${esc(v.id)}" placeholder="summer-2026" ${ev?"readonly":""} />
       </div>
@@ -285,11 +302,8 @@ function evFormHtml(ev){
         <input id="f-season" value="${esc(v.season||"")}" placeholder="2026-3Q" /></div>
       <div><label for="f-order">차례 <span style="font-weight:400;color:#8a93a3">(작을수록 위)</span></label>
         <input id="f-order" type="number" value="${Number(v.sortOrder)||0}" /></div>
-    </div>
-    <div class="bar">
-      <button class="btn p" id="f-save">${ev ? "고치기" : "만들기"}</button>
-      ${ev ? `<button class="btn" id="f-new">+ 새 회차</button>` : ""}
-    </div>
+    </div></fieldset>
+    ${MOVED_HTML}
     ${ev && !ev.listedNow ? `<div class="note" style="background:#fbeeec;border-color:#e6bdb6;color:#a8322a">
       <b>지금 성도님께 안 보입니다.</b> ${
         ev.status === "draft" ? "상태가 <b>준비 중</b>이라 그렇습니다 — <b>마감</b>이나 <b>열림</b>으로 바꾸면 보입니다."
@@ -391,7 +405,6 @@ function evListHtml(ev){
         <td><span class="badge ${r.source==="app"?"app":"imp"}">${r.source==="app"?"앱":"이관"}</span>${
           r.hasUser ? ` <span class="badge app">계정</span>` : ""}
           ${r.weeksDone == null ? "" : ` <button class="btn no-print" data-excuse="${r.id}" data-on="${r.excused?0:1}">${r.excused?"인정 취소":"인정"}</button>`}
-          <button class="btn no-print" data-note="${r.id}">메모</button>
         </td>
       </tr>`).join("")
     }</tbody></table></div>` : ""}
@@ -484,14 +497,7 @@ async function askExcuse(id, on){
   if(!d.ok){ alert("바꾸지 못했습니다 — " + admErr(d.error)); return; }
   await load(evPick);
 }
-async function askNote(id, cur){
-  const note = prompt("담당자 메모 (성도님께는 안 보입니다)", cur || "");
-  if(note == null) return;
-  const d = await callApi({ action:"eventSetNote", pw:getPw(), id, note });
-  if(!guard(d)) return;
-  if(!d.ok){ alert("저장하지 못했습니다 — " + admErr(d.error)); return; }
-  await load(evPick);
-}
+// 담당자 메모(askNote · eventSetNote)는 교회 어드민 줄 「고치기」로 옮겼다.
 
 // ---------- 배선 ----------
 function wire(){
@@ -501,11 +507,6 @@ function wire(){
     evPick = b.getAttribute("data-id"); evQ = ""; evType = ""; evGroup = "";
     load(evPick);
   });
-
-  const save = document.getElementById("f-save");
-  if(save) save.addEventListener("click", saveEvent);
-  const nw = document.getElementById("f-new");
-  if(nw) nw.addEventListener("click", () => { evPick = ""; evRows = []; render(); });
 
   const t = document.getElementById("q-type");
   if(t) t.addEventListener("change", () => { evType = t.value; render(); });
@@ -524,11 +525,6 @@ function wire(){
   if(cs) cs.addEventListener("click", downloadCsv);
   app.querySelectorAll("[data-excuse]").forEach(b => b.addEventListener("click", () =>
     askExcuse(Number(b.getAttribute("data-excuse")), b.getAttribute("data-on") === "1")));
-  app.querySelectorAll("[data-note]").forEach(b => b.addEventListener("click", () => {
-    const id = Number(b.getAttribute("data-note"));
-    const row = evRows.find(r => r.id === id);
-    askNote(id, row ? row.note : "");
-  }));
   const v = document.getElementById("q-view");
   if(v) v.addEventListener("click", () => {
     evView = evView === "table" ? "group" : "table";
@@ -545,47 +541,7 @@ function wire(){
   });
 }
 
-async function saveEvent(){
-  const err = document.getElementById("f-err"), ok = document.getElementById("f-ok");
-  err.textContent = ""; ok.textContent = "";
-  // ⚠️ 2026-09-10 이후 서버는 **보낸 칸만 바꾼다**(index.ts 의 `has("needs") ? … : cur.needs`).
-  //    그러니 needs·copy 를 **보내지 않는다** — 보내면 자격 규칙이 조용히 지워지고,
-  //    오류도 안 나며 아무에게도(또는 모두에게) 단추가 열린다.
-  const cur = evEvents.find(e => e.id === evPick) || {};
-  const ev = {
-    id: document.getElementById("f-id").value.trim(),
-    title: document.getElementById("f-title").value.trim(),
-    subtitle: document.getElementById("f-sub").value.trim(),
-    short_title: document.getElementById("f-short").value.trim(),
-    list_until: document.getElementById("f-until").value,
-    season: document.getElementById("f-season").value.trim(),
-    kind: cur.kind || "signup",
-    status: document.getElementById("f-status").value,
-    opens_on: document.getElementById("f-opens").value,
-    closes_on: document.getElementById("f-closes").value,
-    sort_order: Number(document.getElementById("f-order").value) || 0,
-  };
-  // 서버도 같은 것을 다시 검사한다 — 여기 검사는 성도님(담당자)께 먼저 말해 주기 위한 것.
-  if(!/^[a-z0-9][a-z0-9-]{1,40}$/.test(ev.id)){
-    err.textContent = "회차 ID 는 영문 소문자·숫자·붙임표만 씁니다 (예: summer-2026)"; return; }
-  if(!ev.title){ err.textContent = "이벤트 이름을 적어 주세요."; return; }
-  if(!ev.opens_on || !ev.closes_on){ err.textContent = "기간을 골라 주세요."; return; }
-  if(ev.closes_on < ev.opens_on){ err.textContent = "마감일이 시작일보다 앞섭니다."; return; }
-  // 명단 공개 종료일은 등록 마감일보다 앞설 수 없다 — 마감 전에 명단이 사라지면
-  // 앞뒤가 안 맞는다(등록은 받는데 명단은 안 보이는 상태).
-  if(ev.list_until && ev.list_until < ev.closes_on){
-    err.textContent = "명단 공개 종료일이 등록 마감일보다 앞섭니다."; return; }
-
-  const btn = document.getElementById("f-save");
-  const label = btn.textContent; btn.disabled = true; btn.textContent = "저장 중…";
-  const d = await callApi({ action:"eventSave", pw:getPw(), event:ev });
-  btn.disabled = false; btn.textContent = label;
-  if(!guard(d)) return;
-  if(!d.ok){ err.textContent = "저장하지 못했습니다 — " + (d.error||""); return; }
-  ok.textContent = "저장했습니다.";
-  await load(ev.id);
-  const o = document.getElementById("f-ok"); if(o) o.textContent = "저장했습니다.";
-}
+// 회차 저장(saveEvent · eventSave)은 교회 어드민 회차 설정으로 옮겼다 — 되살려도 서버가 moved-to-church-admin 을 돌려준다.
 
 logoutBtn.addEventListener("click", () => {
   sessionStorage.removeItem(PW_KEY); logoutBtn.hidden = true; renderLogin();

@@ -40,6 +40,7 @@
 | 액션·테이블·시크릿 목록 | `docs/notes/backend-api.md` |
 | 아이폰 앱(Swift)·「앱이면 …」 웹 코드·껍데기 판 표식 | `docs/notes/ios-app.md` |
 | 교회 어드민(admin.onlybible.kr · 별도 저장소 `c:\Projects\church-admin`) — 카카오 로그인·담당자 승인, 사역신청 관리를 옮겨 가는 중 | 설계 `docs/superpowers/specs/2026-09-28-church-admin-design.md` · 그 저장소 `CLAUDE.md` |
+| 이벤트 명단(사순절·썸머·소책자·가을 말씀 동행 — `events`·`event_signups`) — **2026-09-30 교회 어드민 「성경필사(암송)」으로 옮겼다** · `eventImport`·`eventSave`·`eventSetNote` 는 얼렸다(되살리지 말 것 · `api` 는 얼림이 든 판에서만 배포) | `docs/notes/bible-events-admin.md` · 설계 `docs/superpowers/specs/2026-09-29-church-admin-bible-events-design.md` |
 | 교인명부(어드민 · dimode 교인목록·사진 · 2026-09-29 운영) — 찾기·현황·가족·사역 교적 표시 | 설계 `docs/superpowers/specs/2026-09-29-church-people-directory-design.md` · 계획(끝에 「나중」 목록) · church-admin `CLAUDE.md` 「교인명부」 절 |
 
 ## 스택 · 도메인

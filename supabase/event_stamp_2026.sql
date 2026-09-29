@@ -1,12 +1,19 @@
 -- 가을 말씀 동행 — **이 회차 한 건**의 행과 규칙 (자료)
 -- ⚠️ 이 저장소는 공개(public)입니다 — 비밀번호·키를 절대 넣지 마세요.
 --
+-- ⚠️⚠️ 교회 어드민 개시(2026-09-30) 뒤에는 **이 파일을 다시 돌리지 말 것.**
+--    회차 설정(제목·기간·공개 종료일)의 원본은 이제 교회 어드민(admin.onlybible.kr → 성경필사(암송) → 📋 회차 설정)이다.
+--    아래 on conflict do update 가 어드민에서 고친 제목·기간·공개 종료일·needs·copy 를 **조용히 덮는다.**
+--    자격 규칙(needs)·문구(copy)를 꼭 고쳐야 하면 개발에서 먼저 — 그때도 어드민에서 고친 칸을 이 파일에 먼저 옮겨 적는다.
+--    (docs/notes/bible-events-admin.md)
+--
 -- 적용: 개발 먼저, 확인한 뒤 운영. 여러 번 돌려도 안전하다(on conflict do update).
 -- 구조(RPC·인덱스)는 supabase/event_streak.sql 에 있다 — 그것을 먼저 돌린다.
 -- 설계: docs/superpowers/specs/2026-09-23-autumn-streak-event-design.md
 --
 -- ⚠️ status 는 **draft** 로 넣는다. 개시는 2026-10-11 아침에 담당자가
---    admin-event.html 에서 draft → open 으로 한 번 바꾸는 것이다(사람이 손으로 한다).
+--    교회 어드민 → 성경필사(암송) → 📋 회차 설정에서 「준비 중 → 열림」으로 한 번 바꾸는 것이다(사람이 손으로 한다).
+--    admin-event.html 의 회차 저장은 2026-09-30 에 얼렸다(eventSave → moved-to-church-admin).
 -- ⚠️ 측정 창(needs.eligibility.start + weeks)과 신청 창(opens_on/closes_on)은 **다르다.**
 --    3주가 가장 빨리 성립하는 날이 10/27 이라, 그전에 신청을 열면 화면이 16일 동안
 --    「등록하세요」라고 거짓말한다.
