@@ -622,6 +622,26 @@ function refreshMinistryPeriod() {
     try { localStorage.setItem(MIN_PERIOD_KEY, JSON.stringify((d && d.value) || null)); } catch (e) {}
   }).catch(() => {});
 }
+// 시험 참여자(2026-09-30) — 교회 어드민 「🧪 시험 참여자」 명단에 오른 계정은 기간 밖에도 첫 화면에 🤝 사역신청이 보인다.
+//   계정마다 따로 담는다(한 기기에서 여러 분이 로그인한다). ⚠️ 모르면 숨긴다 — 캐시가 없으면 안 보인다.
+const MIN_TESTER_KEY = "ministry-tester::";
+function ministryTesterCached() {
+  const u = loadUser();
+  if (!u || !u.user_id) return false;
+  try { return localStorage.getItem(MIN_TESTER_KEY + u.user_id) === "1"; } catch (e) { return false; }
+}
+function refreshMinistryTester() {
+  const u = loadUser();
+  if (!u || !u.user_id || !window.api || !api.ministryTester) return;
+  const before = ministryTesterCached();
+  api.ministryTester(u.user_id).then((d) => {
+    if (!d || d.ok !== true) return;
+    const now = !!d.tester;
+    try { localStorage.setItem(MIN_TESTER_KEY + u.user_id, now ? "1" : "0"); } catch (e) {}
+    // ⚠️ 값이 바뀌면 그 자리에서 다시 그린다(refreshEventOpen 과 같은 까닭) — 명단에 든 날 앱을 두 번 켜야 보이면 안 된다
+    if (before !== now && document.querySelector(".todo-go")) renderSummary();
+  }).catch(() => {});
+}
 
 // ── 이벤트 플랫폼: 볼 수 있는 회차가 있을 때만 첫 화면에 뜬다 ──────────────
 //   ⚠️ 시편·사역신청은 app_config 를 게이트로 쓰는데, **이벤트는 회차 자료 자체가
@@ -685,6 +705,7 @@ function eventVisible() { return eventOpenCached(); }
 
 function ministryVisible() {
   if (location.search.indexOf("preview=ministry") >= 0) return true;   // 관리자 미리보기
+  if (ministryTesterCached()) return true;                              // 시험 참여자(교회 어드민 명단 · 2026-09-30)
   const p = ministryPeriodCached();
   if (!p || !p.open || !p.close) return false;
   const today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);  // KST
@@ -823,6 +844,7 @@ async function enterAfterLogin(opts) {
     return;
   }
   renderSummary(); // 로컬 진행 기록으로 곧바로 표시
+  refreshMinistryTester(); // 사역신청 시험 참여자(명단에 들면 첫 화면에 🤝 · 2026-09-30)
   loadHeartMessages(); // 축하 메시지(관리자 설정) 백그라운드 로드
   loadDailyMilestoneMessages(); // 10·20·30회 달성 응원 문구 백그라운드 로드
   maybeShowDailyMessage(); // 관리자 '오늘의 메시지'(공지·격려) 하루 1회
@@ -10615,12 +10637,14 @@ function minApiReady() { return !!(window.api && api.ministryCatalog && api.mini
 
 // ?preview=ministry 로 열면 기간 밖에도 시험해 볼 수 있다 — 서버가 관리자 비번을 보고 통과시킨다.
 // ⚠️ 비번은 sessionStorage 에만 둔다(관리자 화면과 같은 열쇠). 성도님 화면에는 이 길이 없다.
-// 관리자 미리보기 — **들어오는 길은 이 주소 하나뿐이다.**
+// 관리자 미리보기 — **들어오는 길은 이 주소와 시험 참여자 명단 둘뿐이다.**
 // ⚠️ 첫 화면에는 기간 밖에 아무것도 내놓지 않는다(성도님 결정 2026-09-10).
 //    한때 「12월 13일부터」 줄을 눌러 들어가게 했다가, 성도님 전체에게 보이는 자리라
 //    걷어냈다. 시험은 ?preview=ministry 로 한다.
+//    2026-09-30: 교회 어드민 「🧪 시험 참여자」 명단에 오른 계정도 같은 문으로 들어온다
+//    (그분 첫 화면에만 🤝 가 뜬다 · 서버도 명단을 보고 통과시킨다).
 function minPrev() {
-  return location.search.indexOf("preview=ministry") >= 0;
+  return location.search.indexOf("preview=ministry") >= 0 || ministryTesterCached();
 }
 // ⚠️ **비번을 묻지 않는다.** 서버가 preview 깃발만으로 통과시키므로(2026-09-09),
 //    물어 봤자 시험하시는 분들은 답을 모르고 그 자리에서 막힌다.
