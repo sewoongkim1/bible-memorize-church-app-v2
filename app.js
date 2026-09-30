@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20260930b";
+const APP_BUILD = "20260930c";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -11627,7 +11627,7 @@ function minDoneHtml(u) {
     //    좁은 화면용 글씨·여백을 따로 준다(성도님 지적, 실기기 확인).
     '<div class="min-acts' + (canEdit ? " min-acts-3" : "") + '">' +
       (canGo
-        ? '<button class="min-cta" id="min-go">신청 수정</button>'
+        ? '<button class="min-cta" id="min-go">추가/수정</button>'   // 더하기도 이 단추로 한다(canAdd) — 「신청 수정」→「추가/수정」(2026-09-30 친구 요청)
         : '<button class="min-ghost" id="min-go">🗂️ 사역 목록 보기</button>') +
       (canEdit
         ? '<button class="min-ghost min-cancel" id="min-cancel">신청 취소</button>'

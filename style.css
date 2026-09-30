@@ -5083,7 +5083,7 @@ body.pr-full-on { overflow: hidden; }
 /* 「🔄 새 버전이 나왔어요」 띠(#update-banner · position:fixed;bottom:0)가 단추를 덮는다 —
    띠가 있는 동안만 그 높이(약 59px)만큼 올려 준다. 닫으면 app.js 가 요소를 지워 저절로 돌아온다. */
 body:has(#update-banner) .min-acts { bottom: calc(10px + 68px + env(safe-area-inset-bottom, 0px)); }
-/* 「내 신청」 화면은 고칠 수 있을 때 단추가 셋(신청 수정·신청 취소·나가기)이라
+/* 「내 신청」 화면은 고칠 수 있을 때 단추가 셋(추가/수정·신청 취소·나가기)이라
    기본 여백·글씨로는 좁은 화면에서 두 줄로 접혔다(성도님 실기기 확인).
    패딩·글씨를 줄이고 줄바꿈을 막아 한 줄로 고정한다. */
 .min-acts-3 > button { padding-left: 4px; padding-right: 4px; font-size: .82rem;
