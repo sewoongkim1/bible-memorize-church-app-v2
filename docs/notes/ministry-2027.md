@@ -274,3 +274,18 @@
 - 임명 알림은 **`api` 의 내부 전용 액션 `internalMinistryNotify` 한 곳**에서만 보낸다(같은 프로젝트의 서비스 키를 머리로 받을 때만 열림).
   어드민이 임명확정 뒤 부른다 — 알림 코드를 두 벌로 만들지 않으려고.
 - ⚠️ 옛 `ministryPaper`(api)는 넣기 결과의 줄마다 `user_id` 를 돌려준다 — 어드민 쪽은 뺐다. 옛 액션은 갈아타는 날 통째로 걷는다.
+
+## 시험 참여자 (2026-09-30)
+친구 요청: 「첫 메뉴의 사역신청을 특정 사람들에게 열어 시험하려 한다」. 설계 `docs/superpowers/specs/2026-09-30-ministry-testers-design.md` · 계획 `docs/superpowers/plans/2026-09-30-ministry-testers.md`.
+- **명단은 교회 어드민 「🤝 사역신청 → 🧪 시험 참여자」**(역할 `ministry`)에서 이름으로 앱 계정을 찾아 한 분씩 더하고 뺀다(액션
+  `ministryTesters`·`ministryTesterFind`·`ministryTesterSave` · 바꾼 기록 `ministry.tester`). 앱에 한 번이라도 로그인한 분만 찾힌다.
+- 저장은 app_config **`ministryTesters`**(identity_key 배열 · `ministryAdmins` 와 같은 모양) — 새 표·SQL 없음.
+  ⚠️ `PUBLIC_CONFIG_KEYS` 에 넣지 말 것(이름이 든다). 공개 키로는 안 읽힌다(`getConfig` → 「허용되지 않은 키」).
+- 성경암송 `api` **`ministryTester {user_id}` → `{tester}`** 하나만 답한다. `ministryApply`·`ministryCancel` 의 기간 검사도 시험 참여자를 통과시킨다 —
+  **12/13 전에 `|| b.preview` 를 걷어도 시험 참여자는 그대로 된다.** 두 서버 모두 키가 아니라 **사람(user_id)으로** 맞댄다(소속이 바뀐 분).
+- 앱은 로그인 뒤(`enterAfterLogin`) `refreshMinistryTester()` → localStorage `ministry-tester::<user_id>`. **모르면 숨긴다.** 값이 바뀌면 첫 화면을 다시 그린다.
+  `ministryVisible()`·`minPrev()` 가 이 값을 본다 — 시험 참여자에게는 `?preview=ministry` 와 똑같이 동작한다.
+  명단에서 빼면 **다음에 앱을 열 때** 단추가 사라진다(열려 있는 화면은 그대로).
+- ⚠️ **시험으로 낸 신청은 진짜 「신청 현황」에 섞인다** — 12/13 전에 지운다(기존 계획과 같다 · 이제 명단으로 시험한 분을 가릴 수 있다).
+- `?preview=ministry` 는 그대로 누구나 쓸 수 있다(걷을지는 기존 계획대로 친구가 정한다).
+- 옛 관리자 화면(`admin-stats.html`)에는 **넣지 않았다** — 옛 사역 화면은 얼려 두었고 새 기능은 어드민 쪽에만(친구 결정).
