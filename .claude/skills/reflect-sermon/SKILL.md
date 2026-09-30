@@ -5,6 +5,11 @@ description: 유튜브 설교 영상 URL을 받아 말씀 아카이브(gocheok-s
 
 # 설교 URL 반영
 
+> **2026-09-30 부터 담당자는 관리자 화면(설교·찬양 관리 — `admin-stats.html?only=sermon`)으로 올린다.**
+> 이 스킬·절차는 친구 PC 방식(급할 때)이다. ⚠️ 담당자가 같은 설교를 올리는 중이면 동시에 돌리지 말 것(rebase 충돌).
+> **담당자가 올린 설교가 멈췄다는 제보면** `sermon_jobs` 표와 gocheok-sermons 「설교 올리기 (관리자 화면)」(`sermon-job.yml`) 실행 기록부터 본다 —
+> `docs/notes/sermon-staff-upload.md`.
+
 유튜브 설교 링크 하나를 받으면, 전체 절차는 **반드시**
 `c:\Projects\gocheok-sermons\docs\설교-url-반영-절차.md` 를 열어 그 순서대로 따른다.
 그 문서가 원본이고, 아래는 이 스킬이 매칭돼야 할 트리거와 절대 잊으면 안 되는
@@ -28,6 +33,9 @@ description: 유튜브 설교 영상 URL을 받아 말씀 아카이브(gocheok-s
    `bible-memorize-church-app-v2/.env`와 동일 값)를 만든 뒤 진행한다.
 
 ## 말씀 연상 그림까지 요청받았다면
+
+> **2026-09-30 부터 담당자는 관리자 화면 ③ 연상 그림**(Gemini)으로 만든다 — `docs/notes/verse-image-staff.md`.
+> 아래는 옛 파일 방식이다. DB 그림이 옛 파일보다 앞서므로, 담당자가 ③ 에서 만든 구절이면 옛 방식으로 덧대지 않는다.
 
 `img/verse/암송말씀_그림_만들기.md`(이 저장소 안)를 열어 그 순서(심상 문장 →
 Higgsfield 생성 → 사람 눈 검수 → `tools/verse-img.py` → `app.js` 등록 →

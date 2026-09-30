@@ -36,6 +36,8 @@
 | 기독교 고전 소책자(2026-09-14 완료 · 다시 뽑을 때만) | `docs/notes/classics-booklet.md` |
 | 성경 필사노트 가로형(`bible-note/` · 만든 HTML·원문은 커밋 금지) | `docs/notes/bible-note.md` |
 | 관리자 통계 '카드' 열 | `docs/notes/stats-admin.md` |
+| 설교·찬양 관리(담당자 — 설교 올리기 · 찬양 · 2026-09-30 운영) | `docs/notes/sermon-staff-upload.md` |
+| 연상 그림(담당자 ③ · Gemini · DB 그림이 옛 파일보다 앞섬) | `docs/notes/verse-image-staff.md` |
 | 측정(카드 쓰임·전환율·열람 기록) | `docs/notes/metrics.md` |
 | 액션·테이블·시크릿 목록 | `docs/notes/backend-api.md` |
 | 아이폰 앱(Swift)·「앱이면 …」 웹 코드·껍데기 판 표식 | `docs/notes/ios-app.md` |
@@ -96,7 +98,7 @@
 - `admin-stats.html` — 성경암송 통계·알림발송·주간리포트·게시판
 - `admin-praise.html` — 찬양 아카이브 관리(praise-config.js/praise-api.js)
   ⚠ 한글 이름은 **완성형(NFC)으로 통일**한다 — 맥에서 온 자모분리(NFD)가 섞여 찬양대가 콤보에 두 번 뜨고 48곡이 성도님 앱 필터·검색에서 빠졌다(`docs/analysis/2026-09-20-praise-choir-nfc-nfd-duplicate.md`)
-- `admin-sermon.html` — 말씀 아카이브 관리(sermon 함수)
+- `admin-sermon.html` → **설교·찬양 관리**(`admin-stats.html?only=sermon`) — 담당자 전용 암호(`CONTENT_STAFF_SECRET`) + 등록된 담당자(역할 `content`). 설교 올리기 두 단계 · 연상 그림 ③ · 찬양. ⚠️ 손대기 전에 `docs/notes/sermon-staff-upload.md` — 담당자 암호를 관리자 암호와 같게 넣으면 담당자가 관리자가 된다
 - `admin-ministry.html` — **사역신청 담당자** 전용(두 메뉴만 · 사역 암호 `MINISTRY_SECRET` + 등록 담당자 `ministryAdmins`). ⚠️ 손대기 전에 `docs/notes/ministry-2027.md` 끝 절 — 관리자 암호를 드리면 안 되는 이유, 확인은 액션마다
 - 확장: admin.html의 `TOOLS` 배열에 한 줄 추가
 
@@ -274,6 +276,9 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
       → 서명 → Play 업로드. ⚠️ **미룬 이유:** 프로덕션 재신청이 9/27 이후이고 그때까지 비공개 테스트
       테스터 12명을 유지해야 해서, 새 버전을 올리면 그 시계를 건드릴 위험이 있다(아래 항목).
       아이폰 위젯 설계 `docs/superpowers/specs/2026-09-20-ios-widgets-design.md` 의 ①을 그대로 옮기면 된다.
+- [ ] 🎙️ **설교·찬양 담당자 — 2026-09-30 운영 반영**(SQL·`api`·`praise`·화면 v3.499 · 텔레그램 시험 도착). 남은 것: 담당자 등록 →
+      **친구가 운영에서 한 편 끝까지** → 담당자 첫 실전 → 옛 길 치우기(`add-sermon.yml`·`addByUrl`·개발 `GH_DISPATCH_REF`) ·
+      연상 그림 첫 실전 · Google Cloud 예산 알림. 읽을 것 `docs/notes/sermon-staff-upload.md`·`verse-image-staff.md`
 - [ ] **플레이스토어 출시 — 2026-09-30 2차도 반려 → 교회 단체 계정 + 앱 이전으로 간다**(같은 날 D-U-N-S 690031840 발급). 1차(09-13)는 인원 이탈, 2차 반려 메일의 사유는 **① 테스터가 앱에 참여하지 않았다 ② 앱 업데이트로 의견을 받아 고치지 않았다** — 14일 내내 `versionCode 1` 이었다(TWA 라 고친 것이 전부 웹으로 나갔다). 단체 계정은 12명·14일 요건이 없다. **같은 날 교회 조직 계정(개발자 이름 「고척교회」 · 소유자 `church.gocheok@gmail.com`) 인증까지 모두 끝.** 다음: 개인 계정에서 앱 이전 신청(거래 ID 두 계정 모두) → 교회 계정에서 수락 → 내부 테스트로 위젯 판 확인 → 프로덕션. ⚠️ 교회 계정에서 「앱 만들기」로 새로 만들지 말 것(패키지는 이전으로 온다). ⚠️ **이전이 끝날 때까지 비공개 테스트·테스터 명단은 그대로 둔다.** 순서·불확실한 것 `docs/analysis/2026-09-30-play-production-rejected-org-account.md` · 경과 `store/closed-test.md` · 체크리스트 `store/README.md` 「단체 계정」 절
 - [ ] **업로드 키 재설정**(급하지 않다 — 옛 업로드 키가 공개됐지만 앱 서명 키는 구글이 갖고 있어 위조는 불가): `upload_certificate.pem` 은 만들어 두었다(`성경암송 - Google Play package - New` 폴더). 콘솔 → Play 스토어 보호 → 「Play 앱 서명 관리」에서 요청
 - [ ] **영어(NIV) 본문 두 곳 손보기** — 34개 전부 들어갔고 검수도 마쳤는데, `no=31`(마태 10:31)이 마침표 뒤 `you`(→ `You`), `no=30`이 `2JN 1:12`(→ 다른 구절과 같은 `2 John 1:12` 꼴). 어드민에서 그 둘만
