@@ -517,6 +517,7 @@ Deno.serve(async (req) => {
       // ---- 사역신청 ----
       case "ministryCatalog":  return json(await ministryCatalog(body));
       case "ministryMine":     return json(await ministryMine(body));
+      case "ministryTester":   return json(await ministryTester(body));   // 시험 참여자인가(2026-09-30)
       case "ministryApply":    return json(await ministryApply(body));
       case "ministryCancel":   return json(await ministryCancel(body));
       case "ministryList":     return json(await ministryList(body));
@@ -4162,6 +4163,23 @@ async function ministryCfg() {
   return { year, open, close, today, isOpen };
 }
 
+// 사역신청 시험 참여자(2026-09-30) — 교회 어드민 「🧪 시험 참여자」가 고치는 app_config `ministryTesters`(identity_key 배열)에
+// 오른 계정은 기간 밖에도 첫 화면에 🤝 사역신청이 보이고 신청·취소가 된다.
+// ⚠️ 키가 아니라 사람으로 맞댄다(소속이 바뀐 분 — 담당자 확인과 같은 규칙).
+// ⚠️ PUBLIC_CONFIG_KEYS 에 넣지 않는다 — 이름이 든 명단이다. 앱에는 「이 계정인가」 하나만 답한다.
+async function ministryIsTester(userId: string): Promise<boolean> {
+  if (!userId) return false;
+  const { data, error } = await db.from("app_config").select("value").eq("key", "ministryTesters").maybeSingle();
+  if (error) throw error;
+  const keys = Array.isArray(data?.value) ? (data!.value as any[]).map((x) => norm(String(x))).filter(Boolean) : [];
+  if (!keys.length) return false;
+  for (const id of (await ministryKeysToUsers(keys)).values()) if (id === userId) return true;
+  return false;
+}
+async function ministryTester(b: any) {
+  return { ok: true, tester: await ministryIsTester(String(b.user_id || "")) };
+}
+
 // 신청 한 건의 키는 (연도, user_id) 다. 이 앱은 로그인이 교구·목장·이름을
 // identity_key 로 정규화해 users 를 upsert 하므로 **한 사람 = 한 user_id** 이고,
 // 결국 「연도 + 성명 + 교구 + 목장」과 같은 뜻이 된다(2026-09-08 확인).
@@ -4309,7 +4327,8 @@ async function ministryApply(b: any) {
   //    있게 해 달라는 요청(2026-09-09)에 따라 **일부러** 열어 둔 것이다.
   //    ⇒ **신청 기간(12-13) 시작 전에 이 줄에서 || b.preview 를 빼고, 그때까지 들어온
   //       시험 행을 지울 것.** 안 그러면 진짜 신청에 시험 자료가 섞인다.
-  if (!cfg.isOpen && !b.preview && adminError(b)) {
+  //    ⇒ 시험 참여자(교회 어드민 명단 · 2026-09-30)는 서버가 확인하므로 || b.preview 를 걷어도 그대로 통과한다.
+  if (!cfg.isOpen && !b.preview && adminError(b) && !(await ministryIsTester(userId))) {
     return { ok: false, error: "신청 기간이 아닙니다 (" + cfg.open + " ~ " + cfg.close + ")" };
   }
 
@@ -4440,7 +4459,7 @@ async function ministryCancel(b: any) {
   if (!userId) return { ok: false, error: "user_id 필요" };
   const cfg = await ministryCfg();
   // (위 ministryApply 의 경고와 같다 — 기간 시작 전에 || b.preview 를 뺄 것)
-  if (!cfg.isOpen && !b.preview && adminError(b)) return { ok: false, error: "신청 기간이 지나 취소할 수 없습니다" };
+  if (!cfg.isOpen && !b.preview && adminError(b) && !(await ministryIsTester(userId))) return { ok: false, error: "신청 기간이 지나 취소할 수 없습니다" };
   const { data } = await db.from("ministry_orders")
     .select("id,status,phone,team,team_id").eq("year", cfg.year).eq("user_id", userId);
   const mine = (data ?? []) as any[];

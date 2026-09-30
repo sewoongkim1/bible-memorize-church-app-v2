@@ -106,6 +106,7 @@ const api = {
   //   ⚠️ choices 는 팀 id 배열(최대 3). 순위는 없다(2026-09-08 결정).
   ministryCatalog: () => supaCall("ministryCatalog", {}),
   ministryMine: (user_id) => supaCall("ministryMine", { user_id }),
+  ministryTester: (user_id) => supaCall("ministryTester", { user_id }),   // 시험 참여자인가(2026-09-30)
   ministryApply: (order) => supaCall("ministryApply", order),
   ministryCancel: (user_id, pw, phone, preview) => supaCall("ministryCancel", { user_id, pw, phone, preview }),
   ministryList: (pw) => supaCall("ministryList", { pw }),
