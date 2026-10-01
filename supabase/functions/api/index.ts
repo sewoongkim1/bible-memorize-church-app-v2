@@ -4697,6 +4697,8 @@ const MINISTRY_STATUS = ["신청완료", "접수완료", "임명확정", "취소
 // ⚠️ 「취소」도 잠긴다 — 관리자가 부서장 요청을 받아 내린 결정이라 성도가 되돌리지 못한다.
 const MINISTRY_LOCKED = ["접수완료", "임명확정", "미채택", "취소"];
 const isLocked = (st: string) => MINISTRY_LOCKED.indexOf(st) >= 0;
+// 결정 — 번호 확인(kept)·같은 이름·번호 묻기(dup-phone)는 이 줄들을 보지 않는다(교회 어드민은 결정 뒤에도 번호를 남긴다 · 2026-10)
+const MINISTRY_DECIDED = ["임명확정", "미채택", "취소"];
 // ⚠️ 「미채택」은 자리를 **비운다**. 잠기기는 해도(그 팀은 결과가 났다) 3개 상한에서는
 //    빼야 한다 — 안 그러면 떨어진 분이 다른 팀에 신청조차 못 하는 막다른 길이 된다.
 // ⚠️ 「미채택」과 「취소」는 자리를 **도로 내놓는다**. 안 그러면 떨어지거나 취소당한 분이
@@ -5041,8 +5043,9 @@ async function ministryApply(b: any) {
     return { ok: false, error: "휴대폰 번호를 확인해 주세요 (010-1234-5678)" };
   }
   // ⚠️ 이미 낸 건이 있으면 그때 넣은 4자리와 같아야 한다 — 비밀번호가 없는 앱의 최소 확인.
-  //    결정이 난 건은 4자리를 지워 두므로(아래 setStatus) 남아 있는 것만 본다.
-  const kept = mine.map((r) => norm(r.phone)).filter(Boolean)[0];
+  //    결정(임명확정·미채택·취소)이 난 건은 보지 않는다 — 옛 관리 화면은 결정 때 번호를 지우고, 교회 어드민(2026-10~)은 남겼다가
+  //    담당자 단추·결정 뒤 180일 작업이 지운다. 결정된 줄의 번호(종이 명단의 가족 번호 등)로 막지 않게(친구 결정 2026-10-02).
+  const kept = mine.filter((r) => MINISTRY_DECIDED.indexOf(r.status) < 0).map((r) => norm(r.phone)).filter(Boolean)[0];
   if (kept && kept !== phone) {
     return { ok: false, error: "휴대폰 번호가 처음 신청하실 때와 다릅니다" };
   }
@@ -5076,7 +5079,8 @@ async function ministryApply(b: any) {
   //    못 묻고 막다른 알림이 된다(리뷰에서 발견). `message` 로 보낸다.
   if (toAdd.length && !b.dupOk && name) {
     const { data: same, error: e0 } = await db.from("ministry_orders")
-      .select("id").eq("year", cfg.year).eq("phone", phone).eq("name", name).neq("user_id", userId).limit(1);
+      .select("id").eq("year", cfg.year).eq("phone", phone).eq("name", name).neq("user_id", userId)
+      .not("status", "in", '("임명확정","미채택","취소")').limit(1);   // 결정된 줄은 보지 않는다(MINISTRY_DECIDED · 2026-10)
     if (e0) throw e0;
     if ((same ?? []).length) {
       return { ok: false, confirm: "dup-phone",
@@ -5131,7 +5135,7 @@ async function ministryCancel(b: any) {
   if (!open.length) {
     return { ok: false, error: "담당자 접수가 끝나 취소할 수 없습니다" };
   }
-  const kept = mine.map((r) => norm(r.phone)).filter(Boolean)[0];
+  const kept = mine.filter((r) => MINISTRY_DECIDED.indexOf(r.status) < 0).map((r) => norm(r.phone)).filter(Boolean)[0];
   if (kept && kept !== pilsaPhone(b.phone)) {
     return { ok: false, error: "휴대폰 번호가 맞지 않습니다" };
   }
