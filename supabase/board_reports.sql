@@ -38,11 +38,10 @@
 --   ⚠️ 90 을 바꾸면 index.ts BOARD_REPORT_KEEP_DAYS · privacy/index.html · app.js 개인정보 두 곳도 함께.
 --      tests/board-report.test.cjs 가 「90일」 이 그 자리들에 다 있는지 본다.
 --
--- ■ 알고 있는 빈틈 — 기록 합치기(member_merge.sql)
---   member_merge 는 users 를 가리키는 **모르는 FK** 가 있으면 합치기를 멈춘다(merge-unsupported-records).
---   그래서 신고를 한 번이라도 한 계정을 「옮겨 가는 쪽」으로 합치려 하면 멈춘다 — 기록은 안 잃는다.
---   그런 일이 생기면: 그 계정의 신고를 먼저 지우거나(처리된 것이면 지워도 된다) member_merge.sql 에
---   board_reports(reporter_id) 옮기기를 더한다(같은 글을 둘 다 신고했으면 한 줄만 남길 것 — unique).
+-- ■ 기록 합치기(member_merge.sql) — 2026-10-01 같은 날 옮기기를 더했다(처음엔 신고한 계정에서 합치기가 멈췄다).
+--   줄 번호·처리 상태를 지킨 채 reporter_id 만 남는 번호로. 같은 글(답글)을 둘 다 신고했으면 한 줄(unique) —
+--   처리 전 줄이 옮겨 가는 쪽에만 있으면 그 줄, 아니면 남는 쪽 줄.
+--   ⚠️ 이 표를 다시 만들거나 칸을 바꾸면 member_merge.sql 을 **이 파일 뒤에** 다시 돌린다(쓰기 연결 트리거가 이 표에 붙는다).
 
 -- ① 표
 create table if not exists public.board_reports (

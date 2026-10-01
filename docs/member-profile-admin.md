@@ -18,7 +18,7 @@
 
 개발에서 먼저 확인한 뒤 운영에도 같은 순서로 적용한다.
 
-1. `supabase/member_profile.sql` 다음 `supabase/member_merge.sql` 실행 (`schema.sql`과 `app_config.sql`이 먼저 필요).
+1. `supabase/member_profile.sql` 다음 `supabase/member_merge.sql` 실행 (`schema.sql`과 `app_config.sql`이 먼저 필요). 사용자 연관 표를 만드는 SQL(2026-10-01 `users_consents.sql`·`board_blocks.sql`·`board_reports.sql`·`sermon_answer_reports.sql`)은 **그보다 먼저** — 표가 있어야 쓰기 연결 트리거가 붙는다. 개발에서는 이어서 `supabase/tests/member_merge_consents.dev.sql`(가상 성도로 합쳐 보고 전부 되돌린다 · 운영 금지)을 돌린다.
 2. `supabase/functions/api/index.ts`를 `api` Edge Function으로 배포.
 3. `admin-members.html`, `js/admin-members.js`, `admin.html`, `app.js`, `index.html` 프론트 변경 배포.
 4. 가상 성도로 이름·목장 변경 후 옛 정보/새 정보 양쪽의 로그인과 기록 유지 확인. 운영에서 가상 성도를 만들지 않는다.
@@ -43,10 +43,26 @@
 | 응원·게시글 공감·단순 이벤트 참여 | 동일인의 중복 반응/참여 한 건으로 정리. 자기 자신에게 한 응원 제외 |
 | 게시글·답글·필사 신청·구독 | 원본 행 보존, 사용자 번호 변경 |
 | 사역·상세 이벤트 신청 | 서로 다른 신청은 그대로 이전. 동일 사역팀/회차의 복수 신청은 내용·상태 보존을 위해 전체 병합 중단 |
+| 게시판 「🙈 가리기」(`board_blocks`, 2026-10-01) | 가린 쪽·가려진 쪽 칸을 모두 유지할 번호로. 두 계정 사이의 가리기(이전↔현재)는 옮기면 자기 자신을 가리게 되므로 버림. 같은 분을 양쪽이 다 가렸으면(또는 같은 분이 양쪽을 다 가렸으면) 현재 소속 쪽 한 줄 |
+| 게시판 신고·AI 답 알림(`board_reports`·`sermon_answer_reports`, 2026-10-01) | 줄 번호·까닭·처리 상태 보존, 신고한 분만 변경(관리자가 줄 번호로 처리한다). 같은 글(답글)·같은 질문을 양쪽이 다 신고했으면 한 줄 — 처리 전 줄이 이전 쪽에만 있으면 그 줄, 아니면 현재 소속 쪽 줄 |
+| 보호자 확인·게시판 이용 규칙 동의 날짜(`users.guardian_ok_at`·`board_rules_at`, 2026-10-01) | 보호자 확인은 현재 소속 쪽에 날짜가 있으면 그대로, 없으면 이전 쪽 날짜. 규칙 동의는 더 늦은 날짜(규칙이 바뀐 뒤의 동의를 잃지 않게). 이전 쪽 날짜는 `user_merges.source_profile`에도 남는다 |
 
 병합은 트랜잭션 하나로 처리하며 예외가 나면 전부 롤백한다. 새 테이블에 연결된 미지원 기록이 있으면 자동 삭제하지 않고 중단한다. 화면에는 분리 복구 기능이 없으므로 동일인 확인이 필수다. 운영 배포 자체로 실사용자 기록을 합치지는 않는다.
 
 새 클라이언트는 서버가 `merged_from`으로 확인해 준 경우에만 다른 사용자 번호의 로컬 기록을 이전한다. 기존 기기에서 저장하는 예전 번호는 서버에서 현재 번호로 해석한다. DB 쓰기 트리거가 병합과 쓰기를 직렬화해 이전 번호의 고아 기록이 생기는 것도 막는다. 새 사용자 연관 테이블을 추가한 뒤에는 `member_merge.sql`을 다시 적용해 쓰기 연결 트리거를 설치해야 한다.
+
+새 사용자 연관 테이블을 만들 때는 `member_merge.sql` 머리 「실행 순서」의 넷(옮기기 · FK·user_id 두 허용 목록 · `member_merge_counts` · 쓰기 연결 트리거)을 함께 더한다. 이 저장소의 `supabase/*.sql`에서 users를 가리키는 표를 합치기가 모르면 `tests/member-merge-coverage.test.cjs`가 배포 앞(`tools/preflight.py`)에서 멈춘다(2026-10-01 — 가리기·신고·AI 답 알림이 하루 동안 합치기를 막았다).
+
+### 알고 있는 멈춤 (2026-10-01 감사)
+
+아래 기록이 **이전 쪽(옮겨 가는 쪽)** 계정에 있으면 합치기는 `merge-unsupported-records`로 멈춘다(기록은 안 잃는다 · 현재 소속 쪽에 있는 것은 상관없다).
+
+| 표 | 누가 갖고 있나 | 언제부터 | 주인 |
+| --- | --- | --- | --- |
+| `ios_push_tokens`(users FK) | 아이폰 앱에서 알림을 켠 계정 | 2026-09-15 | 성경암송 아이폰 앱 — 옮기기는 `user_id` 변경 하나면 된다(`device_token`이 unique라 겹침 없음) |
+| `ministry_history_requests`(`user_id` 칸 · FK 없음 · 교회 어드민 `008_…sql`) | 「사역 이력 확인」에서 정정 신청을 낸 계정 | 운영에 그 표가 생기는 날(그 계획 Task 9 — 2026-10-01 현재 개발만) | 사역 이력 확인·정정 신청(교회 어드민 `history-check`) |
+
+생기면: 그 줄을 먼저 정리하고(알림 기기는 지워도 다음 실행 때 다시 등록된다) 다시 합치거나, `member_merge.sql`에 옮기기를 더한다. 교회 어드민 저장소의 표는 이 저장소의 검사가 못 보므로 여기 적어 둔다.
 
 ## 로컬 검증
 
@@ -60,3 +76,6 @@ node --test tests/member-profile.test.cjs tests/member-merge.test.cjs
 ```
 
 검증 범위: 이관 전후 기록·번호 유지, 이전/새 식별자 로그인, 중복·경합 방지 조건, 교회학교 이동, 반복 변경, 원복, 트랜잭션 실패 롤백, 공개 역할 접근 차단, 관리자 인증·입력 검증, 로컬 진도 이전, 검색·확인·저장·이력 화면 동작.
+2026-10-01부터 `member-merge.test.cjs`는 `users_consents.sql`·`board_blocks.sql`·`board_reports.sql`·`sermon_answer_reports.sql` **실제 파일**을 PGlite에 올려 가리기(옮기기·두 계정 사이 버림·겹침)·신고/AI 답 알림(줄 번호·처리 상태 보존·겹치면 열린 줄 우선)·동의 날짜·합친 뒤 옛 번호로 들어온 신고까지 합쳐 본다.
+
+꾸러미가 필요 없는 `tests/member-merge-coverage.test.cjs`(배포 앞 `tools/preflight.py`에 걸려 있다)는 `supabase/*.sql`에서 users를 가리키는 표를 찾아 합치기가 다 아는지만 글자로 본다. 개발 DB에서 실제로 합쳐 보는 것은 `supabase/tests/member_merge_consents.dev.sql`(BEGIN … ROLLBACK)이다.
