@@ -24,6 +24,7 @@
 | 가정 축복 기도문 | `docs/notes/prayer-book.md` |
 | 첫 화면·묶음·색·아래 고정 단추 | `docs/notes/home-screen.md` |
 | 게시판 글·답글·사진 | `docs/notes/board.md` |
+| 구글 출시 심사 전 고친 것(2026-10-01) — 어린 부서 **보호자 확인** · 게시판 **이용 규칙**·**🙈 가리기** · AI **답 알리기** · 방침의 유튜브 문구 | `docs/notes/store-review.md` · 결정 근거 `store/README.md` 「구글 출시 심사 전 결정」 |
 | 앨범 이어 듣기·TTS | `docs/notes/album-audio.md` |
 | 오늘의 찬양(하루 한 곡·앱 안 유튜브 재생) | `docs/notes/today-song.md` |
 | 순위·응원·「지금 N명」 | `docs/notes/ranking-cheer.md` |

@@ -26,4 +26,26 @@
 - **알림:** 신고가 들어오면 app_config `boardAdmins`(identity_key 배열 — `pilsaAdmins` 와 같은 방식, 등록은 `board_reports.sql` 맨 아래 주석)의 폰으로 Web Push. ⚠️ 쏟아지지 않게 **그 글의 첫 신고일 때만 · 10분에 한 번까지**(push_log `board-report` 로 본다) — 비번 없는 로그인이라 한 사람이 계정을 여럿 만들어 신고를 쏟을 수 있다. 본문에 글 내용도 신고한 분도 안 싣는다(잠금 화면에 뜬다). 알림이 실패해도 신고는 받는다(`try/catch`). `boardAdmins` 가 비면 알림 없이 관리자 화면에만 쌓인다. monitor 는 push_log 의 daily 행만 보므로 헛경보가 안 난다.
 - **표가 없을 때:** `boardReport`·`boardReports`·`boardReportResolve` 가 `not-ready` 로 답한다(500 아님) — 앱은 「지금은 신고를 받을 수 없어요」, 관리자는 「신고 표가 아직 없습니다」. 그래도 순서는 **표 먼저**(새 표에 새 액션만 얹는 경우 — CLAUDE.md 「배포 순서는 기능마다 다르다」).
 - ⚠️ **기록 합치기(member_merge.sql)의 빈틈:** 합치기는 users 를 가리키는 모르는 FK 가 있으면 멈춘다(`merge-unsupported-records`). 신고를 한 번이라도 한 계정을 「옮겨 가는 쪽」으로 합치려 하면 멈춘다(기록은 안 잃는다). 생기면 그 계정의 처리된 신고를 지우거나 member_merge 에 `board_reports(reporter_id)` 옮기기를 더한다(같은 글을 둘 다 신고했으면 한 줄만 — unique).
-- **차단(사용자 막기)은 없다.** 구글 정책 문구는 「신고 + 조치」다. 조치는 글 숨기기·완전삭제(기존)이고, 같은 분이 계속 문제면 운영진이 그분 글을 숨긴다. 차단 기능이 필요해지면 그때 따로 설계한다.
+- ~~**차단(사용자 막기)은 없다.**~~ → **2026-10-01 「🙈 가리기」를 넣었다**(아래 절). 구글 UGC 하위 규칙에 「사용자 차단」이 있고, 우리 앱은 아무 이름으로나 들어올 수 있어 「공개 UGC」로 읽힐 수 있어서다(store/README.md 4절 ③). 운영진 조치(숨기기·완전삭제)는 그대로다.
+- **신고 창 문구(2026-10-01):** 「운영진이 **이 글과 글쓴 분**을 함께 살펴요」 — 구글의 「콘텐츠·**사용자** 신고」를 신고 창 하나로 답한다(따로 「사용자 신고」 단추를 두지 않는다).
+
+## 📜 이용 규칙 · 🙈 가리기 (2026-10-01)
+
+> **언제 읽나:** 이용 규칙 문구·동의 창, 가리기 단추·「가린 분」 목록, `boardWriteGate`·`board_blocks` 를 손볼 때.
+> 표·칸 `supabase/users_consents.sql`(users.board_rules_at) · `supabase/board_blocks.sql` · 서버 `boardWriteGate`·`boardRulesAccept`·
+> `boardBlock`·`boardBlocks`·`boardUnblock`·boardList 거르기(index.ts 「구글 출시 심사 전」 블록) · 앱 `openBoardRules`·`blockBoardAuthor`·
+> `openBoardBlockedList` · 검사 `tests/store-review.test.cjs`·`tests/store-review-smoke.sh` · 전체 기록 `docs/notes/store-review.md`
+
+- **왜:** 구글 UGC 정책 — "Requires users accept the app's terms of use and/or user policy **before users can create or upload UGC**" ·
+  "Defines objectionable content and behaviors" · 공개 UGC 는 "report users and content, and **to block users**".
+- **이용 규칙:** 처음 글·답글을 쓰기 전에 한 번 — 하지 말 것 여섯 줄(`BOARD_RULES`) + 「위 규칙을 지키겠습니다」 체크 → 서버 `users.board_rules_at`.
+  ⚠️ **서버가 문을 지킨다**(`boardWriteGate` — boardPost·boardReply 둘 다). 관리자 글(비번)은 지나간다. **user_id 없는 글은 이제 안 받는다**(`no-user`).
+  ⚠️ 규칙을 바꾸면 `BOARD_RULES_SINCE`(index.ts)·`BOARD_RULES_VER`(app.js)를 **같은 날짜로** 올린다 — 모두에게 다시 묻는다(검사가 둘을 맞대 본다).
+  ⚠️ 앱이 「동의함」이라 기억하는데 서버가 `rules-needed` 를 주면(다른 기기·규칙 날짜 변경) 기억을 지우고 규칙 창을 다시 띄운 뒤 **한 번 더** 보낸다(`boardWriteWithRules`).
+  칸이 없는 DB(SQL 전)는 규칙 확인이 **통과**다 — 함수가 먼저 나가도 글쓰기가 멈추지 않게.
+- **가리기:** 남의 글·답글 meta 줄 「🙈 가리기」 → 앱 창(시스템 창 아님)으로 한 번 확인 → **내 화면에서만** 그분의 글·답글이 빠진다(상대는 모른다).
+  ⚠️ **앱은 글 번호만 보낸다 — 글쓴 분은 서버가 찾는다.** `blocked_id` 는 어떤 응답에도 안 나간다(이 API 는 JWT 가 없어 user_id 가 새면 그 사람 행세가 된다).
+  게시판 응답의 글마다 `blockable` 은 **참/거짓만**(글쓴 분을 아는 글 · 관리자 글 아님) — 옛 글(user_id 없음)·관리자 답글·공지에는 단추가 없다.
+  그분 글에 달린 **남의 답글도 글과 함께** 빠진다(글이 안 보이니 매달 곳이 없다). 관리자 화면(boardList pw)은 거르지 않는다.
+- **「🙈 가린 분 N명 · 다시 보기」:** 이름(가릴 때의 표시 이름 `blocked_name`)과 이 표의 줄 번호만 내려온다 → 「다시 보기」 = 그 줄을 지운다(`boardUnblock` — 내 줄만).
+- **알려진 빈틈:** 첫 화면 「새글 N」(`boardCheck`)은 가린 분 글도 센다 · 기록 합치기는 board_blocks 줄이 있는 계정(가렸거나 가려진)을 멈춘다(`board_blocks.sql` 머리).
