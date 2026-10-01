@@ -12,7 +12,7 @@
 |---|---|---|---|---|
 | 보호자 확인 | `needsGuardian` · 로그인 화면 `#guardian-row` · `renderGuardianCheck` · `enterAfterLogin` 첫 줄 · `syncProgress` 의 `guardian_ok` | `login` 의 `guardian_ok_at` 한 번 적기 · 같은 `needsGuardian` | `users_consents.sql`(users.guardian_ok_at) | `tests/store-review.test.cjs` |
 | 게시판 이용 규칙 | `BOARD_RULES`·`BOARD_RULES_VER` · `openBoardRules` · `ensureBoardRules` · `boardWriteWithRules` | `boardWriteGate`(boardPost·boardReply) · `boardRulesAccept` · `BOARD_RULES_SINCE` · boardList `rulesOk` | `users_consents.sql`(users.board_rules_at) | 같은 검사 · `tests/store-review-smoke.sh` |
-| 🙈 가리기 | `blockBoardAuthor` · `openBoardBlockedList` · `#bf-blocked` | `boardBlock`·`boardBlocks`·`boardUnblock` · boardList 거르기(`boardDropBlocked`) · `blockable` | `board_blocks.sql` | 같은 검사 · 스모크 |
+| 🙈 가리기 | `blockBoardAuthor` · `openBoardBlockedList` · `#bf-blocked` · 첫 화면 배지 `fillBoardBadge`(user_id 함께) | `boardBlock`·`boardBlocks`·`boardUnblock` · boardList 거르기(`boardDropBlocked`) · `blockable` · boardCheck 거르기(`boardCountVisible`) | `board_blocks.sql` | 같은 검사 · 스모크 |
 | 🚩 이 답 알리기 | `openAnswerReport` · `SERMON_REPORT_REASONS` | `sermonAnswerReport` · 관리자 `sermonAnswerReports`·`sermonAnswerReportResolve` · `sermonQuestionKey` | `sermon_answer_reports.sql` | 같은 검사 · 스모크 |
 | 관리자 화면 | — | — | — | `admin-stats.html` 「게시판 관리」의 「🚩 AI 답 알림」 |
 | 개인정보 | `renderPrivacyInfo` · `renderHelp` 🔒 · 로그인 화면 요약 | — | — | `privacy/index.html` 1~6항 · 세 곳이 같은지 검사 |
@@ -72,7 +72,8 @@ README 3절). 그런데 로그인 「교회학교」에 영아·유아·유치·
   ⚠️ **blocked_id 는 어떤 응답에도 안 나간다.** 「가린 분」 목록은 **이름(가릴 때의 표시 이름)과 이 표의 줄 번호**만.
 - `boardList` 가 보는 분의 가린 분을 빼고 보낸다 — 그분 글에 달린 **남의 답글도 글과 함께** 빠진다. 관리자 화면은 그대로 다 본다.
 - 「🙈 가린 분 N명 · 다시 보기」 — 목록에서 「다시 보기」 = 그 줄을 지운다.
-- 알려진 빈틈: 첫 화면 「새글 N」 배지(`boardCheck`)는 가린 분 글도 센다. 기록 합치기(member_merge)는 board_blocks 줄이 있는 계정을 멈춘다(SQL 머리).
+- 첫 화면 「새글 N」(`boardCheck`)도 가린 분의 글·답글을 뺀다 — 앱이 user_id 를 함께 보내고, 가린 분이 있을 때만 서버가 `boardCountVisible`(= boardList 와 같은 `boardDropBlocked`)로 센다. 응답은 숫자 하나(B · 2026-10-01).
+- 알려진 빈틈: 기록 합치기(member_merge)는 board_blocks 줄이 있는 계정을 멈춘다(SQL 머리). 공감 칩의 「누른 분」 이름·공감 수는 가린 분도 센다.
 
 ## ④ 🚩 이 답 알리기 — 「내게 주시는 말씀」
 
