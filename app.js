@@ -11810,7 +11810,11 @@ function mhAsk(u, row, mode) {
   document.body.appendChild(box);
   const ok = box.querySelector("[data-ok]");
   const errEl = box.querySelector("#mh-err");
-  const showErr = function (code) { errEl.textContent = mhErrText(code); errEl.hidden = false; };
+  const showErr = function (code) {
+    errEl.textContent = mhErrText(code); errEl.hidden = false;
+    // 부서 칸이 생기며 .mh-err 가 스크롤 아래로 밀려 안 보일 수 있다(아이폰 SE·안드로이드 큰 글씨 실측) — 보이는 곳으로 끌어온다
+    try { errEl.scrollIntoView({ block: "nearest" }); } catch (e) {}
+  };
   function close() {
     document.removeEventListener("keydown", esc);
     if (box.parentNode) box.parentNode.removeChild(box);

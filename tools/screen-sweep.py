@@ -153,6 +153,12 @@ STEPS = [
     ("42-ministry-history-ask", ["mhLoaded=true; mhData={ok:true,who:{type:'교구',gu:'믿음',mok:'99',name:'화면점검'},found:true,"
                                  "rows:[{id:1,year:2026,committee:'교육위원회',team:'유년부',role_title:'교사'}],requests:[]}; "
                                  "renderMinistryHistory(); mhAsk(loadUser(), mhData.rows[0], 'line');"]),
+    # 빠진 사역(2026-10-02 두 칸) — 연도를 안 채운 채 신청을 눌러 .mh-err 가 뜨는 모습을 본다
+    #   (스크롤 아래로 밀려 안 보이던 자리를 scrollIntoView 로 끌어온 수정과 맞춘 화면)
+    ("43-ministry-history-missing", ["mhLoaded=true; mhData={ok:true,who:{type:'교구',gu:'믿음',mok:'99',name:'화면점검'},found:true,"
+                                 "rows:[{id:1,year:2026,committee:'교육위원회',team:'유년부',role_title:'교사'}],requests:[]}; "
+                                 "renderMinistryHistory(); mhAsk(loadUser(), null, 'missing');",
+                                 clk("[data-ok]")]),
     ("P1-privacy-page", ["GOTO privacy/"]),
     ("P2-quiz-page", ["GOTO quiz/"]),
     ("P3-guide-page", ["GOTO guide/"]),
