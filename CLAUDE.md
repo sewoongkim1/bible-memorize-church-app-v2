@@ -165,6 +165,9 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
 
 ## 다음 작업 (이어서 할 것)
 > 여기에 다음에 진행할 과제를 적어두면, 다음 세션에서 이 문서를 읽고 바로 이어감.
+- [ ] 🗂️ **첫 화면 「사역현황」 · 사역 이력 확인 · 정정 신청 — 2026-10-01 구현·개발 반영 끝, 운영 전**(v2 커밋 미푸시 · church-admin 가지 `history-check` 미합침 · **`MH_LIVE` 가 운영 주소에선 꺼져 있어 첫 화면은 예전과 같다**).
+      남은 것: ① 친구가 `~/.church-admin/dev.env` 의 `DEV_SERVICE_KEY` 를 새 secret(`sb_secret_…`)으로 → 교회 어드민 `tests/history-check.dev.test.mjs` 8가지 ② 계획 Task 9 운영 반영(친구 허락 · b6 `ministry_history` 운영+맞춤 끝난 뒤) ③ 다음 조각: 교회 어드민 담당자 처리 메뉴(**12/13 전**).
+      읽을 것 `docs/notes/ministry-history-check.md` · 계획 `docs/superpowers/plans/2026-10-01-ministry-history-check.md`
 - [ ] 👥 **교인명부 — 2026-09-29 운영 개시**(명단 8,672명 · 사진 4,645 · 5,387가구 · church-admin main 1307c65). 남은 것:
       ① 친구가 교인명부 볼 분에게 역할 「교인명부」 주기(🔑 담당자·역할) ② dimode 업체에 **사진 주소가 로그인 없이 열린다**고 알리기(`…/Handler/DisplayImage.ashx?id=숫자`)
       ③ `~/.church-admin/prod.env`(운영 service_role 키) 지울지 친구가 정하기 ④ 다음 명단(12월 무렵) 전에 계획서 끝 「나중」 목록.
