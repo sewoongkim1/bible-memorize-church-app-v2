@@ -9,3 +9,21 @@
 - **게시판(응원·기도·공감):** ⚠️ `boardList`는 **응답에 `user_id`를 싣지 않는다**(2026-08-24 수정 — 그전엔 `select("*")` 결과를 `...row`로 통째로 펼쳐 모든 글·답글의 작성자 `user_id`가 새어 나갔다). 클라이언트가 필요한 건 「내 글인가」 하나뿐이라 **`isMine` 참/거짓만** 내려준다. 본인 글 판별은 `isMine` 또는 소속+이름 일치(옛 글). **새 액션을 만들 때도 같은 규칙** — 이 API는 JWT가 없어 남의 `user_id`가 새면 그 이름으로 글쓰기·진도 저장·순위 응원까지 가능해진다.
 
 - **게시판(응원·기도·공감):** 2026-08-15 「질문 나눔」에서 이름을 바꿨다 — 질문은 AI 「내게 주시는 말씀」이 받고, 게시판은 성도 간 격려 전용으로 성격을 옮겼다. boardList/Post/Reply, 관리자 moderate · 공감 이모지 👍🙏❤️😊🎉(`board_reactions`, boardReact/boardReactors) — 여러 개 누를 수 있고 칩을 누르면 누른 사람 이름
+
+## 🚩 신고 (2026-10-01)
+
+> **언제 읽나:** 신고 단추·신고 창·관리자 「🚩 신고 N」·`board_reports` 를 손볼 때.
+> 표 `supabase/board_reports.sql` · 서버 `boardReport`·`boardReports`·`boardReportResolve`(index.ts 「게시판 신고」 블록) ·
+> 앱 `openBoardReport`(app.js) · 관리자 `loadBoardReports`(admin-stats.html) · 검사 `tests/board-report.test.cjs`·`tests/board-report-smoke.sh`
+
+- **왜 만들었나:** 구글 플레이 「사용자 제작 콘텐츠(UGC)」 정책이 **앱 안에서 불쾌한 글을 신고하는 길**과 그것을 처리하는 운영을 요구한다. 아이폰은 「운영진이 게시판을 직접 살핀다」는 설명으로 심사를 통과했지만, 구글은 문구가 「앱 안 신고」다. 플레이스토어 앱은 이 웹을 그대로 띄우는 껍데기(TWA)라 **웹에 넣으면 앱에도 그대로 보인다**(새 빌드가 필요 없다).
+- **흐름:** 남의 글·답글 meta 줄 끝 「🚩 신고」 → 앱 고유의 창(`.am-overlay` — 시스템 `confirm`·`alert`·`prompt` 를 쓰지 않는다)에서 까닭 넷(부적절한 내용 · 광고·도배 · 개인정보 노출 · 기타) 중 하나 + 덧붙일 말(선택, 200자) → 「신고했어요 — 운영진이 확인할게요」 토스트, 단추는 「🚩 신고함」으로 잠긴다. 관리자 「게시판 관리」 맨 위 「🚩 신고 N」 — 글·답글별로 몇 분이·무슨 까닭으로·덧붙인 말·사진 → **숨기기**(기존 `boardModerate` hide 를 그대로 쓰고 신고를 닫는다 · 숨김해제는 아래 목록에서) / **처리 완료**(글은 두고 신고만 닫는다).
+- **단추가 안 붙는 곳:** 내 글(삭제 단추 자리 — `boardIsMine` 은 소속+이름 일치도 내 글로 본다) · 관리자 답글(`is_admin`) · 관리자 공지(`rich`). 서버도 본인 글이면 `own` 으로 막는다(user_id 가 있는 글만 — 옛 글은 화면이 막는다).
+- ⚠️ **신고한 분(`reporter_id`)은 어떤 응답에도 싣지 않는다 — 관리자 목록에도.** 서버는 고르지도 않는다(`select("id,post_id,reply_id,reason,note,created_at")`). 운영진에게 필요한 것은 「어느 글이 · 몇 분에게 · 무슨 까닭으로」이고, 누가 신고했는지가 새면 보복이 생긴다. 이 API 는 JWT 가 없어 user_id 가 새면 그 사람 행세가 된다(위 boardList 사고). 꼭 봐야 하면 SQL Editor 에서.
+- ⚠️ **까닭 목록은 세 곳이다** — `app.js BOARD_REPORT_REASONS`(칩) · `index.ts BOARD_REPORT_REASONS`(+ 관리자 화면 글씨 `BOARD_REPORT_LABELS`) · `board_reports.sql` CHECK. 한 곳만 고치면 화면은 열리는데 저장이 막힌다(DB CHECK 에 걸려 500). `tests/board-report.test.cjs` 가 셋(그리고 글씨)이 같은지 **preflight 에서** 맞대 보므로 하나만 고치면 배포가 멈춘다. DB 값은 영어 코드라 글씨를 바꿔도 CHECK 는 안 건드린다.
+- ⚠️ **한 분이 한 글(답글)을 한 번만** — unique 인덱스 `(reporter_id, post_id, coalesce(reply_id,0))`. 두 번째는 서버가 `{ ok:true, already:true }` 로 받고 앱은 **같은 인사**를 보인다. 「이미 신고하셨습니다」 오류로 보이면 어르신은 고장인 줄 아신다. 처리 완료된 글을 같은 분이 다시 신고해도 「이미」다(다른 분의 신고는 새로 열린다).
+- ⚠️ **보관 90일은 개인정보 안내가 약속한 숫자다.** 처리 전은 처리될 때까지, 처리 뒤(숨김·처리 완료)는 90일 뒤 지운다 — pg_cron `board-reports-purge`(매일 03:40 KST) + 관리자가 신고 목록을 열 때 서버가 한 번 더(cron 없는 DB 대비). 글이 지워지면(완전삭제) cascade 로, 신고한 분의 users 행이 지워지면 cascade 로 함께 지워진다. 숫자를 바꾸려면 `BOARD_REPORT_KEEP_DAYS` · SQL cron · `privacy/` 1·3·4·5항 · 앱 안 두 곳(`renderPrivacyInfo`·`renderHelp`)을 함께 — 검사가 「90일」 이 그 자리들에 다 있는지 본다.
+- **알림:** 신고가 들어오면 app_config `boardAdmins`(identity_key 배열 — `pilsaAdmins` 와 같은 방식, 등록은 `board_reports.sql` 맨 아래 주석)의 폰으로 Web Push. ⚠️ 쏟아지지 않게 **그 글의 첫 신고일 때만 · 10분에 한 번까지**(push_log `board-report` 로 본다) — 비번 없는 로그인이라 한 사람이 계정을 여럿 만들어 신고를 쏟을 수 있다. 본문에 글 내용도 신고한 분도 안 싣는다(잠금 화면에 뜬다). 알림이 실패해도 신고는 받는다(`try/catch`). `boardAdmins` 가 비면 알림 없이 관리자 화면에만 쌓인다. monitor 는 push_log 의 daily 행만 보므로 헛경보가 안 난다.
+- **표가 없을 때:** `boardReport`·`boardReports`·`boardReportResolve` 가 `not-ready` 로 답한다(500 아님) — 앱은 「지금은 신고를 받을 수 없어요」, 관리자는 「신고 표가 아직 없습니다」. 그래도 순서는 **표 먼저**(새 표에 새 액션만 얹는 경우 — CLAUDE.md 「배포 순서는 기능마다 다르다」).
+- ⚠️ **기록 합치기(member_merge.sql)의 빈틈:** 합치기는 users 를 가리키는 모르는 FK 가 있으면 멈춘다(`merge-unsupported-records`). 신고를 한 번이라도 한 계정을 「옮겨 가는 쪽」으로 합치려 하면 멈춘다(기록은 안 잃는다). 생기면 그 계정의 처리된 신고를 지우거나 member_merge 에 `board_reports(reporter_id)` 옮기기를 더한다(같은 글을 둘 다 신고했으면 한 줄만 — unique).
+- **차단(사용자 막기)은 없다.** 구글 정책 문구는 「신고 + 조치」다. 조치는 글 숨기기·완전삭제(기존)이고, 같은 분이 계속 문제면 운영진이 그분 글을 숨긴다. 차단 기능이 필요해지면 그때 따로 설계한다.
