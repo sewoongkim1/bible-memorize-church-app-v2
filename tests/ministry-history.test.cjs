@@ -110,3 +110,86 @@ test('줄에 직분을 보이지 않는다 · 고르기에 「팀·부서가 틀
   assert.deepEqual([...kinds], ['not_mine', 'other']);
   assert.equal(vm.runInContext('MH_KIND_TEXT.wrong_team', ctx), '팀·부서가 틀려요', '이미 낸 신청 표시 글은 남긴다');
 });
+
+// ── 플레이스토어 앱에서 「사역현황」 숨김(2026-10-02 · MINISTRY_HIDE_ON_PLAY) ──
+// 문(ministryVisible)과 그것이 부르는 것들을 떼어 가짜 localStorage·location·loadUser 위에서 돌린다.
+// ⚠️ 스위치의 지금 값(true/false)을 검사에 박지 않는다 — 심사가 통과해 false 로 바꾼 날에도 이 검사는 그대로 통과해야 한다.
+function pickFn(name) {
+  const at = source.indexOf('function ' + name + '(');
+  assert.ok(at >= 0, 'app.js 에서 ' + name + ' 을 못 찾았다 — 이 검사가 낡았다');
+  let i = source.indexOf('{', at), depth = 0;
+  for (; i < source.length; i++) {
+    if (source[i] === '{') depth++;
+    else if (source[i] === '}' && --depth === 0) break;
+  }
+  return source.slice(at, i + 1);
+}
+function pickConst(re, what) {
+  const m = re.exec(source);
+  assert.ok(m, 'app.js 에서 ' + what + ' 을 못 찾았다 — 이 검사가 낡았다');
+  return m[0];
+}
+function doorCtx({ hide, play = false, preview = false, tester = false, period = { open: '2000-01-01', close: '2999-12-31' } }) {
+  const store = {};
+  if (play) store['play-store-app'] = '1';
+  if (tester) store['ministry-tester::u1'] = '1';
+  if (period) store['ministry-period'] = JSON.stringify(period);
+  const c = vm.createContext({
+    localStorage: { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } },
+    location: { search: preview ? '?preview=ministry' : '' },
+    loadUser: () => ({ user_id: 'u1' }),
+  });
+  const sw = pickConst(/const MINISTRY_HIDE_ON_PLAY = (?:true|false);/, 'MINISTRY_HIDE_ON_PLAY').replace(/true|false/, String(hide));
+  vm.runInContext([
+    sw,
+    pickConst(/const PLAY_APP_KEY = "[^"]+";/, 'PLAY_APP_KEY'),
+    pickConst(/const MIN_PERIOD_KEY = "[^"]+";/, 'MIN_PERIOD_KEY'),
+    pickConst(/const MIN_TESTER_KEY = "[^"]+";/, 'MIN_TESTER_KEY'),
+    pickFn('isPlayStoreApp'), pickFn('ministryPeriodCached'), pickFn('ministryTesterCached'),
+    pickFn('ministryHiddenOnPlay'), pickFn('ministryVisible'),
+  ].join('\n'), c);
+  return c;
+}
+
+test('플레이스토어 앱 — 스위치가 켜져 있으면 신청 기간·시험 참여자여도 문이 닫힌다', () => {
+  const c = doorCtx({ hide: true, play: true });
+  assert.equal(c.ministryHiddenOnPlay(), true);
+  assert.equal(c.ministryVisible(), false, '신청 기간인데 플레이스토어 앱에 사역현황이 보인다');
+  assert.equal(doorCtx({ hide: true, play: true, tester: true, period: null }).ministryVisible(), false, '시험 참여자에게 보인다');
+});
+
+test('플레이스토어 앱이 아니면(웹·아이폰) 스위치가 켜져 있어도 그대로 보인다', () => {
+  const c = doorCtx({ hide: true, play: false });
+  assert.equal(c.ministryHiddenOnPlay(), false);
+  assert.equal(c.ministryVisible(), true);
+  assert.equal(doorCtx({ hide: true, tester: true, period: null }).ministryVisible(), true, '웹 시험 참여자에게 안 보인다');
+  assert.equal(doorCtx({ hide: true, period: null }).ministryVisible(), false, '기간 밖·시험 참여자 아님은 원래대로 닫혀야 한다');
+});
+
+test('스위치를 끄면(심사 통과한 날) 플레이스토어 앱에도 다시 보인다', () => {
+  const c = doorCtx({ hide: false, play: true });
+  assert.equal(c.ministryHiddenOnPlay(), false);
+  assert.equal(c.ministryVisible(), true);
+});
+
+test('관리자 미리보기(?preview=ministry)는 플레이스토어 앱에서도 열린다', () => {
+  assert.equal(doorCtx({ hide: true, play: true, preview: true, period: null }).ministryVisible(), true);
+});
+
+test('첫 화면의 사역 단추는 모두 문(ministryVisible) 뒤에 있다 — 새 단추가 문을 건너뛰면 플레이스토어 앱에 샌다', () => {
+  const ids = ['id="open-ministry"', 'id="open-ministry-history"'];
+  let n = 0;
+  for (const id of ids) {
+    for (let at = source.indexOf(id); at >= 0; at = source.indexOf(id, at + 1)) {
+      // 감싼 「${ … }」 를 거슬러 찾는다 — 그 안의 ${ministryYear()}·${newBadge(…)} 는 짝을 맞춰 건너뛴다
+      let open = -1;
+      for (let i = at - 1, depth = 0; i > 0; i--) {
+        if (source[i] === '}') depth++;
+        else if (source[i] === '{') { if (depth > 0) depth--; else { if (source[i - 1] === '$') open = i - 1; break; } }
+      }
+      assert.ok(source.startsWith('${ministryVisible() && ', open), id + ' 가 ministryVisible() 조건 밖에 있다(' + source.slice(open, open + 40) + ')');
+      n++;
+    }
+  }
+  assert.equal(n, 3, '사역 단추 수가 바뀌었다(사역현황 둘 + 「함께」 🤝 하나) — 이 검사를 함께 고칠 것');
+});

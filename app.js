@@ -711,6 +711,7 @@ function ministryYear() {
 }
 function ministryVisible() {
   if (location.search.indexOf("preview=ministry") >= 0) return true;   // 관리자 미리보기
+  if (ministryHiddenOnPlay()) return false;                             // 플레이스토어 앱 — 심사 통과 때까지(아래 MINISTRY_HIDE_ON_PLAY)
   if (ministryTesterCached()) return true;                              // 시험 참여자(교회 어드민 명단 · 2026-09-30)
   const p = ministryPeriodCached();
   if (!p || !p.open || !p.close) return false;
@@ -722,6 +723,15 @@ function ministryVisible() {
 //   ⚠️ main 은 여러 세션이 함께 푸시한다 — 이 스위치가 없으면 남의 푸시에 실려 운영 🧪 시험 참여자에게 누르면 오류가 나는 단추가 뜬다.
 //   개발·localhost(js/config.js 가 env "dev")에서는 늘 켜진다. 계획 Task 9(운영 반영)에서 `const MH_LIVE = true;` 로 바꾼다(EVENING_LIVE 와 같은 방식).
 const MH_LIVE = true;   // 2026-10-01 운영 반영(사역 이력 확인 · 정정 신청) — 운영 주소에서도 「사역현황」 묶음을 연다(문은 여전히 ministryVisible)
+
+// 플레이스토어 앱(TWA)에서는 「사역현황」 묶음을 통째로 숨긴다(2026-10-02 친구 요청 — 안드로이드 심사 통과 때까지).
+//   숨는 것: 묶음 제목 · 🤝 사역신청 · 🗂️ 사역 이력 확인(MH_LIVE 가 꺼졌을 때 「함께」에 서는 🤝 도). 시험 참여자도 숨는다.
+//   문(ministryVisible) 한 곳에서 막는다 — 두 화면은 첫 화면 단추로만 들어가고, 임명 알림도 첫 화면(/)을 연다.
+//   웹·아이폰 앱은 그대로다. 관리자 미리보기(?preview=ministry)는 문의 첫 줄이라 여기서도 열린다.
+//   ⚠️ 「플레이스토어 앱」은 isPlayStoreApp() — 기기에 적어 둔 표식이라 앱이 깔린 폰은 크롬 탭에서도 숨는다(TWA 와 저장소를 같이 쓴다).
+//   ⏰ 심사가 통과한 날 false 로 바꾸고 bump 한다.
+const MINISTRY_HIDE_ON_PLAY = true;
+function ministryHiddenOnPlay() { return MINISTRY_HIDE_ON_PLAY && isPlayStoreApp(); }
 
 let passagesCache = null;
 async function loadPassages() {
@@ -2752,7 +2762,7 @@ function renderSummary() {
     <button class="summary-help" id="open-album">📖 나의 말씀 앨범</button>
     <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
     ${/* 사역현황(2026-10-01 친구 요청) — 사역신청과 사역 이력 확인을 한 묶음으로.
-          둘 다 사역신청과 같은 문(ministryVisible — 미리보기·시험 참여자·신청 기간)이라 묶음 제목까지
+          둘 다 사역신청과 같은 문(ministryVisible — 미리보기·시험 참여자·신청 기간 · 플레이스토어 앱은 심사 동안 숨김)이라 묶음 제목까지
           한 조건으로 감싼다(둘 다 숨는 날 제목만 남지 않게). 🗂️ — 📜 는 「내 안에 거하는 말씀」이 쓴다.
           설계 docs/superpowers/specs/2026-10-01-ministry-history-check-design.md §2 */""}
     ${ministryVisible() && MH_LIVE ? `<div class="grp-title">사역현황</div>
@@ -8431,6 +8441,8 @@ let _widgetPreview = false;
 // 시험판(…memorize.dev)도 같은 앞머리라 함께 걸린다. TWA 는 크롬과 저장소를 같이 쓰므로
 // 크롬 탭에서 열어도 남는데, 그 폰에 앱이 깔려 있다는 뜻이라 위젯 안내가 맞다.
 // ⚠️ 이 줄이 나간 뒤 앱을 한 번도 안 연 분은 아직 모른다 — 모르면 안 보인다(없는 것을 안내하지 않는 쪽).
+// 「사역현황」 숨김(MINISTRY_HIDE_ON_PLAY · 2026-10-02)도 이것을 본다. loadVerses() 는 이 줄보다 아래에서 불리고
+// 서버를 기다린 뒤에야 첫 화면을 그리므로, 앱을 처음 여는 날도 이 줄이 먼저 돈다.
 const PLAY_APP_KEY = "play-store-app";
 try {
   if (/^android-app:\/\/kr\.onlybible\.gocheok\.memorize/.test(document.referrer || "")) localStorage.setItem(PLAY_APP_KEY, "1");
