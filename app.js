@@ -712,6 +712,11 @@ function ministryVisible() {
   return today >= p.open && today <= p.close;
 }
 
+// 사역 이력 확인(2026-10-01) — 운영 서버(교회 어드민 내부 갈래·정정 신청 표)가 올라가기 전까지 운영 주소에서는 새 묶음을 숨긴다.
+//   ⚠️ main 은 여러 세션이 함께 푸시한다 — 이 스위치가 없으면 남의 푸시에 실려 운영 🧪 시험 참여자에게 누르면 오류가 나는 단추가 뜬다.
+//   개발·localhost(js/config.js 가 env "dev")에서는 늘 켜진다. 계획 Task 9(운영 반영)에서 `const MH_LIVE = true;` 로 바꾼다(EVENING_LIVE 와 같은 방식).
+const MH_LIVE = !!(window.SUPA && window.SUPA.env !== "prod");
+
 let passagesCache = null;
 async function loadPassages() {
   if (passagesCache) return passagesCache;
@@ -2586,7 +2591,7 @@ function renderSummary() {
           둘 다 사역신청과 같은 문(ministryVisible — 미리보기·시험 참여자·신청 기간)이라 묶음 제목까지
           한 조건으로 감싼다(둘 다 숨는 날 제목만 남지 않게). 🗂️ — 📜 는 「내 안에 거하는 말씀」이 쓴다.
           설계 docs/superpowers/specs/2026-10-01-ministry-history-check-design.md §2 */""}
-    ${ministryVisible() ? `<div class="grp-title">사역현황</div>
+    ${ministryVisible() && MH_LIVE ? `<div class="grp-title">사역현황</div>
     <button class="summary-help" id="open-ministry">🤝 사역신청${newBadge("ministry")}</button>
     <button class="summary-help" id="open-ministry-history">🗂️ 사역 이력 확인</button>` : ""}
     <div class="grp-title">함께</div>
@@ -2615,6 +2620,8 @@ function renderSummary() {
          그림처럼 보여 「액자」 느낌이 되살아난다는 지적(2026-09-11)으로 다시 바꿨다.
          시편 23편이 "여호와는 나의 목자시니"로 시작하니, 장소(물가)보다 인도받아
          쉰다는 이 시편의 핵심에 더 가깝다. -->
+    ${/* MH_LIVE 가 꺼진 동안(운영 · 과제 9 전)은 🤝 를 원래 자리(「함께」)에 둔다 — 화면이 지금과 똑같게. 켜지면 위 「사역현황」 묶음으로 옮겨 간다. */""}
+    ${ministryVisible() && !MH_LIVE ? `<button class="summary-help" id="open-ministry">🤝 사역신청${newBadge("ministry")}</button>` : ""}
     ${passagesVisible() ? `<button class="summary-help" id="open-passages">📜 내 안에 거하는 말씀${newBadge("passages")}</button>` : ""}
     <!-- 「더 보기」 — 자주 누르지 않는 넷을 접어 둔다(연 상태는 기억한다).
          ⚠️ 순서와 모양은 성도님이 직접 정하셨다(2026-09-10): 필사 → 퀴즈 → 찬양 → 설교,
