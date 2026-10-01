@@ -33,7 +33,7 @@ ROOT = os.path.join(HERE, '..')
 OUT_DIR = os.path.join(ROOT, 'ministry')
 MARK = io.open(os.path.join(ROOT, 'marketing', 'logo-mark-data-uri.txt'), encoding='utf-8').read().strip()
 STEM = '2026_사역이력_공유_A4'
-PAGES = 5
+PAGES = 4   # 진행 상황 표를 켜면 5
 
 # (연도, 원본 최종본, 줄, 부서, 팀, 신규, 유지) — 통합 엑셀을 세어 확인(2026-10-01)
 YEARS = [
@@ -412,26 +412,14 @@ BODY = """
 
 </section>
 
-<section class="page">
-%(status_block)s<div class="block">
-  <h2 class="sec">확인 · 결정 부탁드립니다</h2>
-  <ol class="ask">
-    <li><b>「기쁨-1」 표기</b>2025년 이전 명단의 「기쁨-1」은 목장을 모를 때 적은 자리 표시로 보고 「교구 · 목장 모름」으로 읽었습니다
-      (연결된 분들이 지금 여러 교구에 흩어져 계십니다). 맞는지 확인 부탁드립니다.</li>
-    <li><b>확인 필요 %(open)d건</b>부서 · 교구의 도움을 받아 한 분씩 확인하려 합니다.</li>
-    <li><b>정정 신청을 처리할 분</b>앱으로 들어온 정정 신청을 누가 확인하고 반영할지(사역신청 담당자 · 부서별 담당) 정해 주세요.</li>
-    <li><b>직책(팀장 · 부팀장)</b>지금 명단에는 없습니다. 앞으로 함께 적을지 정해 주세요.</li>
-    <li><b>2010~2021년 명단</b>홈페이지 「사역배치」 게시판에 2010년부터 있습니다. 같은 방법으로 더합니다(오래된 해일수록 확인할 줄이 늘 수 있습니다).</li>
-  </ol>
-</div>
-
+%(status_section)s
 <div class="endline"><span class="slogan">오직 성경, 말씀이 답이다!</span><span class="church">고척교회</span></div>
-</section>
 """
 
 ctx = {'mark': MARK, 'total': fmt(TOTAL), 'linked': fmt(RESULT['linked']), 'open': RESULT['open'], 'pct': PCT,
        'years': year_rows(),
-       'status_block': (STATUS_BLOCK % {'status': status_rows()}) if SHOW_STATUS else ''}
+       # 진행 상황 표는 켜면 한 쪽을 따로 쓴다(확인 · 결정 부탁 절은 지웠다 — 친구 2026-10-01)
+       'status_section': ('<section class="page">' + (STATUS_BLOCK % {'status': status_rows()}) + '</section>') if SHOW_STATUS else ''}
 html = ('<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>사역 신청 · 이력 관리 시스템화</title>'
         # ⚠️ 구글 웹 글꼴을 쓰지 않는다 — 크롬이 Type3 로 박는다(이름 레코드가 빈 조각 글꼴). 이 PC 에 설치된 글꼴을 쓴다.
 
