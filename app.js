@@ -728,13 +728,19 @@ const MH_LIVE = true;   // 2026-10-01 운영 반영(사역 이력 확인 · 정�
 //   숨는 것: 묶음 제목 · 🤝 사역신청 · 🗂️ 사역 이력 확인(MH_LIVE 가 꺼졌을 때 「함께」에 서는 🤝 도). 시험 참여자도 숨는다.
 //   문(ministryVisible) 한 곳에서 막는다 — 두 화면은 첫 화면 단추로만 들어가고, 임명 알림도 첫 화면(/)을 연다.
 //   웹·아이폰 앱은 그대로다. 관리자 미리보기(?preview=ministry)는 문의 첫 줄이라 여기서도 열린다.
-//   ⚠️ 「플레이스토어 앱」은 isPlayStoreApp() 하나로는 모자란다 — 기기에 적어 둔 표식이고 TWA 는 크롬과 저장소를 같이 써서,
-//      앱이 깔린 폰은 **크롬 탭에서도** 표식이 보인다(앱을 지운 뒤에도 남는다). 그래서 크롬 탭(isBrowserTab)은 뺀다 —
-//      「웹은 그대로」라는 결정대로. TWA 는 display "standalone"(android-app/twa-manifest.json)으로 돌고, 크롬 탭은 "browser" 다.
-//   NEW 배지(newestNewFeat)도 숨는 동안 "ministry" 를 세지 않는다 — 안 보이는 단추가 하나뿐인 NEW 를 가져가지 않게.
-//   ⏰ 심사가 통과한 날 false 로 바꾸고 bump → 푸시(CLAUDE.md 「플레이스토어 출시」 · store/README.md · docs/notes/ministry-history-check.md).
+//   「플레이스토어 앱」은 둘 중 하나면 그렇다고 본다(둘 다 실기기 미확인 — docs/notes/ministry-history-check.md):
+//     ① openedByPlayApp() — 이번 실행(이 창)이 앱에서 열렸다는 표식(sessionStorage · 아래 PLAY_SESSION_KEY).
+//        TWA 가 사이트 확인에 실패해 맞춤 탭으로 열려도(android-app/twa-manifest.json fallbackType "customtabs" —
+//        그때는 display 가 "browser" 로 보인다) 잡는다. 보통 크롬 탭은 android-app:// referrer 를 받지 않아 이 표식이 안 생긴다.
+//     ② isPlayStoreApp() && !isBrowserTab() — 기기에 적어 둔 표식 + 앱 창 모양(TWA 는 display "standalone").
+//        기기 표식은 TWA 가 크롬과 저장소를 같이 써서 그 폰의 **크롬 탭에서도** 보이고 앱을 지운 뒤에도 남는다 —
+//        그래서 크롬 탭(isBrowserTab)은 뺀다(「웹은 그대로」라는 결정대로). ①을 못 받은 앱 창(referrer 없이 새로 열린 창 등)의 받침이다.
+//   NEW 배지(newestNewFeat)는 문(ministryVisible)이 닫혀 있으면 "ministry" 를 세지 않는다 — 안 보이는 단추가 하나뿐인 NEW 를 가져가지 않게.
+//   ⏰ 심사가 통과한 날 false 로 바꾸고 bump → 푸시(CLAUDE.md 「플레이스토어 출시」 아래 ⏰ 줄 · store/README.md · docs/notes/ministry-history-check.md).
 const MINISTRY_HIDE_ON_PLAY = true;
-function ministryHiddenOnPlay() { return MINISTRY_HIDE_ON_PLAY && isPlayStoreApp() && !isBrowserTab(); }
+function ministryHiddenOnPlay() {
+  return MINISTRY_HIDE_ON_PLAY && (openedByPlayApp() || (isPlayStoreApp() && !isBrowserTab()));
+}
 // 브라우저(크롬 등)의 보통 탭으로 열렸나 — matchMedia 가 없거나 던지면 「탭이 아니다」로 본다(숨기는 쪽 — 심사에는 그쪽이 안전하다).
 function isBrowserTab() {
   try { return !!(window.matchMedia && window.matchMedia("(display-mode: browser)").matches); } catch (e) { return false; }
@@ -1123,7 +1129,11 @@ function clearPersonalData() {
       }
     }
   } catch {}
+  // 이번 실행이 플레이스토어 앱이라는 표식(PLAY_SESSION_KEY)만은 다시 남긴다 — 사람이 아니라 창 이야기다(2026-10-02).
+  //   안 남기면 맞춤 탭으로 열린 앱에서 「내 정보 지우기」 뒤 다음 분이 들어온 첫 화면에 「사역현황」이 샌다(MINISTRY_HIDE_ON_PLAY).
+  const playSession = openedByPlayApp();
   try { sessionStorage.clear(); } catch {}
+  if (playSession) { try { sessionStorage.setItem(PLAY_SESSION_KEY, "1"); } catch {} }
 }
 
 // "사랑교구 3목장 김성도" / "초등부 김믿음"
@@ -1963,7 +1973,7 @@ function newestNewFeat() {
   let best = null;
   Object.keys(FEAT_SINCE).forEach((k) => {
     if (!featIsNew(k)) return;
-    if (k === "ministry" && ministryHiddenOnPlay()) return;   // 플레이스토어 앱에서 숨긴 동안 — 안 보이는 단추가 NEW 를 가져가지 않게
+    if (k === "ministry" && !ministryVisible()) return;   // 문이 닫혀 단추가 안 보이면(기간 밖 · 플레이스토어 앱 숨김) — 안 보이는 단추가 NEW 를 가져가지 않게
     if (!best || kstDayNumber(FEAT_SINCE[k]) > kstDayNumber(FEAT_SINCE[best])) best = k;
   });
   return best;
@@ -8429,7 +8439,7 @@ const MANUAL = [
 function manualInstalled() {
   try {
     if (typeof isNativeApp === "function" && isNativeApp()) return true;
-    if (isPlayStoreApp()) return true;   // 플레이스토어 앱이 깔린 폰 — 크롬 탭에서 열어도 설치는 이미 했다
+    if (isPlayStoreApp()) return true;   // 이 폰에서 플레이스토어 앱을 연 적이 있다 — 크롬 탭에서도 그렇다(표식은 앱을 지운 뒤에도 남을 수 있다 · 아래 PLAY_APP_KEY)
     return !!((window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
               window.navigator.standalone === true);
   } catch (e) { return false; }
@@ -8444,20 +8454,31 @@ function manualInstalled() {
 const WIDGET_GUIDE = { ios: true, android: false };
 let _widgetPreview = false;
 
-// 플레이스토어 앱(TWA)으로 열렸나 — TWA 는 앱을 열 때 referrer 를 android-app://<패키지> 로 준다.
-// 그 순간에만 알 수 있어 기기에 적어 둔다(clearPersonalData 는 안 지운다 — 사람이 아니라 기기 이야기다).
-// 시험판(…memorize.dev)도 같은 앞머리라 함께 걸린다. TWA 는 크롬과 저장소를 같이 쓰므로
-// 크롬 탭에서 열어도 남는데, 그 폰에 앱이 깔려 있다는 뜻이라 위젯 안내가 맞다.
-// ⚠️ 이 줄이 나간 뒤 앱을 한 번도 안 연 분은 아직 모른다 — 모르면 안 보인다(없는 것을 안내하지 않는 쪽).
-// 「사역현황」 숨김(MINISTRY_HIDE_ON_PLAY · 2026-10-02)도 이것을 본다. loadVerses() 는 이 줄보다 아래에서 불리고
-// 서버를 기다린 뒤에야 첫 화면을 그리므로, 앱을 처음 여는 날도 이 줄이 먼저 돈다.
-// ⚠️ 표식은 앱을 지워도 남는다(크롬 저장소에 있어서). 사역현황 숨김은 크롬 탭(isBrowserTab)을 빼고 보므로
-//    그 폰의 크롬 탭에서는 그대로 보인다 — 남은 표식이 거기서는 해가 되지 않는다.
+// 플레이스토어 앱(TWA)으로 열렸나 — TWA 는 앱을 열 때 referrer 를 android-app://<패키지> 로 준다(실기기 미확인 —
+// 맞춤 탭으로 열렸을 때도 같은 referrer 인지는 아직 못 봤다). 그 순간에만 알 수 있어 두 곳에 적어 둔다.
+//   · 기기 표식(localStorage PLAY_APP_KEY) — clearPersonalData 는 안 지운다(사람이 아니라 기기 이야기다).
+//   · 이번 실행 표식(sessionStorage PLAY_SESSION_KEY · 2026-10-02) — 이 창(탭)이 닫히면 사라진다. 보통 크롬 탭은 이 referrer 를
+//     받지 않으니 생기지 않는다. clearPersonalData 의 sessionStorage.clear() 뒤에도 다시 남긴다.
+// 시험판(…memorize.dev)도 같은 앞머리라 함께 걸린다.
+// ⚠️ 기기 표식은 「이 폰에서 앱을 연 적이 있다」일 뿐 「지금 깔려 있다」가 아니다 — TWA 는 크롬과 저장소를 같이 써서
+//    그 폰의 크롬 탭에서도 보이고, **앱을 지운 뒤에도 남는다**(크롬 저장소에 있어서).
+//    위젯 안내(widgetGuideOn)·설명서의 「홈 화면에 앱 만들기」 빼기(manualInstalled)는 이것을 그대로 쓴다 — 대개는 앱이 깔린
+//    폰이라 맞고, 앱을 지운 폰에 남아도 안내 한 장이 더 보이거나 빠질 뿐이라 받아들인다.
+//    「사역현황」 숨김(MINISTRY_HIDE_ON_PLAY)은 그래서 기기 표식을 크롬 탭(isBrowserTab)에서는 안 본다 — 그 폰의 크롬 탭에서는 그대로 보인다.
+// ⚠️ 이 줄이 나간 뒤 앱을 한 번도 안 연 분은 아직 모른다 — 위젯 안내는 모르면 안 보인다(없는 것을 안내하지 않는 쪽).
+// 「사역현황」 숨김도 두 표식을 본다. loadVerses() 는 이 줄보다 아래에서 불리고 서버를 기다린 뒤에야 첫 화면을 그리므로,
+// 앱을 처음 여는 날도 이 줄이 먼저 돈다.
 const PLAY_APP_KEY = "play-store-app";
+const PLAY_SESSION_KEY = "play-app-session";
 try {
-  if (/^android-app:\/\/kr\.onlybible\.gocheok\.memorize/.test(document.referrer || "")) localStorage.setItem(PLAY_APP_KEY, "1");
+  if (/^android-app:\/\/kr\.onlybible\.gocheok\.memorize/.test(document.referrer || "")) {
+    try { localStorage.setItem(PLAY_APP_KEY, "1"); } catch (e) {}
+    try { sessionStorage.setItem(PLAY_SESSION_KEY, "1"); } catch (e) {}   // 따로 감싼다 — 한쪽이 막혀도 다른 쪽은 남게
+  }
 } catch (e) {}
 function isPlayStoreApp() { try { return localStorage.getItem(PLAY_APP_KEY) === "1"; } catch (e) { return false; } }
+// 이번 실행(이 창)이 플레이스토어 앱에서 열렸나 — 못 읽으면 「아니다」(사역현황 숨김은 기기 표식 + 창 모양이 받친다).
+function openedByPlayApp() { try { return sessionStorage.getItem(PLAY_SESSION_KEY) === "1"; } catch (e) { return false; } }
 
 function widgetGuideOn(os) {
   if (_widgetPreview) return true;

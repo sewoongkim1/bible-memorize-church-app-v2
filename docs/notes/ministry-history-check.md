@@ -38,11 +38,19 @@
 
 ## 플레이스토어 앱에서 숨김(2026-10-02)
 
-- **무엇:** 플레이스토어 앱(TWA) 창에서는 첫 화면 「사역현황」 묶음을 통째로 숨긴다 — 묶음 제목 · 🤝 사역신청 · 🗂️ 사역 이력 확인(`MH_LIVE` 가 꺼졌을 때 「함께」에 서는 🤝 도). 시험 참여자도 숨는다. NEW 배지(`newestNewFeat`)도 숨는 동안 `ministry` 를 세지 않는다 — 안 보이는 단추가 하나뿐인 NEW 를 가져가지 않게.
+- **무엇:** 플레이스토어 앱(TWA) 창에서는 첫 화면 「사역현황」 묶음을 통째로 숨긴다 — 묶음 제목 · 🤝 사역신청 · 🗂️ 사역 이력 확인(`MH_LIVE` 가 꺼졌을 때 「함께」에 서는 🤝 도). 시험 참여자도 숨는다. NEW 배지(`newestNewFeat`)는 문(`ministryVisible()`)이 닫혀 있으면 `ministry` 를 세지 않는다 — 안 보이는 단추가 하나뿐인 NEW 를 가져가지 않게(플레이스토어 숨김뿐 아니라 **기간 밖**에도 — 그전에는 기간 밖에 숨은 🤝 가 NEW 를 가져갈 수 있었다).
 - **왜:** 친구 요청 — 안드로이드 심사가 통과할 때까지. 숨는 곳은 **플레이스토어 앱뿐**이다(웹·아이폰 앱은 그대로) · 묶음 **통째로**(친구 결정).
-- **어떻게 가리나:** `app.js` `ministryHiddenOnPlay()` = `MINISTRY_HIDE_ON_PLAY && isPlayStoreApp() && !isBrowserTab()` 를 문(`ministryVisible()`)이 관리자 미리보기 줄 **바로 다음**에 본다(`?preview=ministry` 는 앱에서도 열린다). 두 화면은 첫 화면 단추로만 들어가므로 문 한 곳이면 된다 — `tests/ministry-history.test.cjs` 가 사역 단추 셋이 모두 `ministryVisible() && …` 안에 있는지 본다.
-  - `isPlayStoreApp()` 은 기기에 적어 둔 표식(`play-store-app` — TWA 가 열 때 주는 referrer `android-app://kr.onlybible.gocheok.memorize…` 를 보고 적는다)이다.
-- ⚠️ **크롬 탭은 뺀다(`isBrowserTab()` = `matchMedia('(display-mode: browser)')`).** TWA 는 크롬과 저장소를 같이 써서, 앱이 깔린 폰은 보통 크롬 탭에서도 표식이 보이고 **앱을 지워도 남는다** — 표식만 보면 그 폰의 웹에서도 숨어 「웹은 그대로」와 어긋난다. TWA 는 display `standalone`(`android-app/twa-manifest.json`), 크롬 탭은 `browser` 다. `matchMedia` 가 없거나 던지면 「탭이 아니다」로 본다(숨기는 쪽 — 심사에는 그쪽이 안전하다).
-  - 남는 틈(실기기 미확인): 앱이 깔린 폰에서 홈 화면에 따로 올린 웹앱(standalone)도 숨는다 · TWA 가 사이트 확인에 실패해 커스텀 탭으로 열리면(`fallbackType: customtabs`) `browser` 로 보여 묶음이 보일 수 있다.
-- ⏰ **되돌리기:** 플레이스토어 심사가 통과한 날 `app.js` `const MINISTRY_HIDE_ON_PLAY = false;` → `python tools/bump.py` → 푸시. 검사는 스위치의 지금 값을 박지 않아 그대로 통과한다. 같은 알림이 `CLAUDE.md` 「플레이스토어 출시」 줄 · `store/README.md` 「단체 계정」 진행 상황에 있다.
+- **어떻게 가리나:** `app.js` `ministryHiddenOnPlay()` = `MINISTRY_HIDE_ON_PLAY && (openedByPlayApp() || (isPlayStoreApp() && !isBrowserTab()))` 를 문(`ministryVisible()`)이 관리자 미리보기 줄 **바로 다음**에 본다(`?preview=ministry` 는 앱에서도 열린다). 두 화면은 첫 화면 단추로만 들어가므로 문 한 곳이면 된다 — `tests/ministry-history.test.cjs` 가 사역 단추 셋이 모두 `ministryVisible() && …` 안에 있는지 본다.
+  - 표식 둘 다 TWA 가 열 때 주는 referrer `android-app://kr.onlybible.gocheok.memorize…` 를 보고 **같은 줄에서** 적는다(시험판 `….dev` 도 걸린다):
+    - **이번 실행 표식** `openedByPlayApp()` — sessionStorage `play-app-session`. 이 창(탭)이 닫히면 사라지고, 보통 크롬 탭은 이 referrer 를 받지 않아 생기지 않는다. 「🚪 내 정보 지우기」(`clearPersonalData` 의 `sessionStorage.clear()`) 뒤에도 이것만은 다시 남긴다 — 안 그러면 앱에서 지운 뒤 다음 분이 들어온 첫 화면에 샌다.
+    - **기기 표식** `isPlayStoreApp()` — localStorage `play-store-app`. 「이 폰에서 앱을 연 적이 있다」일 뿐이다(아래 ⚠️).
+- ⚠️ **기기 표식은 크롬 탭에서는 안 본다(`isBrowserTab()` = `matchMedia('(display-mode: browser)')`).** TWA 는 크롬과 저장소를 같이 써서, 앱이 깔린 폰은 보통 크롬 탭에서도 표식이 보이고 **앱을 지워도 남는다** — 표식만 보면 그 폰의 웹에서도 숨어 「웹은 그대로」와 어긋난다. `matchMedia` 가 없거나 던지면 「탭이 아니다」로 본다(숨기는 쪽 — 심사에는 그쪽이 안전하다).
+- ⚠️ **맞춤 탭 대비가 이번 실행 표식이다.** TWA 가 사이트 확인(`assetlinks.json`)에 실패하면 맞춤 탭으로 열린다(`android-app/twa-manifest.json` `fallbackType: "customtabs"`) — 그때는 창 모양이 `browser` 라 기기 표식 + 창 모양으로는 못 잡는다. 이번 실행 표식은 창 모양과 상관없이 숨긴다.
+- ⚠️ **실기기 미확인(2026-10-02)** — 아래 가정 셋은 코드·문서로만 세웠다. 프로덕션 심사 제출 **전에** 아래 「심사 전 확인」을 한다.
+  1. TWA 창은 `display-mode: standalone` 으로 잡힌다(`twa-manifest.json` `display: "standalone"`).
+  2. TWA 는 첫 화면을 열 때 `document.referrer` 를 `android-app://kr.onlybible.gocheok.memorize` 로 준다.
+  3. 맞춤 탭으로 떨어졌을 때도 같은 referrer 를 준다(못 주면 맞춤 탭에서는 기기 표식도 이번 실행 표식도 안 생겨 **묶음이 보인다**).
+  - 남는 틈: 앱이 깔린 폰에서 홈 화면에 따로 올린 웹앱(standalone)도 숨는다 · referrer 없이 새로 열린 앱 창(이번 실행 표식 없음)은 기기 표식 + standalone 으로만 잡힌다.
+- 🔎 **심사 전 확인(내부 테스트 판 · 실기기):** ① 플레이스토어 앱 첫 화면에 「사역현황」 묶음(🤝·🗂️)이 **없다** ② 같은 폰의 **보통 크롬 탭**에서 🧪 시험 참여자로 들어가면 **있다**. 다르면 PC 크롬 `chrome://inspect` 로 앱 창을 붙잡아 콘솔에서 `localStorage['play-store-app']` · `sessionStorage['play-app-session']` · `document.referrer` · `matchMedia('(display-mode: browser)').matches` 를 본다(앱 창이면 `sessionStorage` 쪽이 `"1"` 이거나, `localStorage` 쪽이 `"1"` 이고 `matchMedia(…browser)` 가 `false` 여야 숨는다). 같은 단계가 `store/README.md` 「단체 계정」 진행 상황에 있다.
+- ⏰ **되돌리기:** 플레이스토어 심사가 통과한 날 `app.js` `const MINISTRY_HIDE_ON_PLAY = false;` → `python tools/bump.py` → 푸시. 검사는 스위치의 지금 값을 박지 않아 그대로 통과한다. 같은 알림이 `CLAUDE.md` 「플레이스토어 출시」 바로 아래 ⏰ 줄 · `store/README.md` 「단체 계정」 진행 상황에 있다.
 - **일부러 그대로 둔 것:** 설정 「🔒 관리 페이지 → 🤝 사역관리 페이지」(`MANAGE_LINKS` — 담당자 입구이고 페이지가 스스로 암호를 받는다) · 앱 안 개인정보 안내의 사역 신청·「사역 이력 확인」 문구(모으는 것을 적은 글이라 숨기는 동안에도 사실이다).
