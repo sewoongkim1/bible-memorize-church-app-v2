@@ -63,7 +63,7 @@ def year_rows():
 
 # (항목, 상태 키, 비고)
 STATUS = [
-    ('2022~2026 명단 모으기', 'done', '홈페이지 게시 최종본 다섯 해 → 한 표 %s건' % fmt(TOTAL)),
+    ('2022~2026 명단 모으기', 'done', '다섯 해 %s건 · 홈페이지엔 2010년부터' % fmt(TOTAL)),
     ('교적 연결 규칙 · 검증', 'done', '%s건 연결 · %d건 확인 필요(9월 29일 교인명부 기준)' % (fmt(RESULT['linked']), RESULT['open'])),
     ('교적관리 프로그램 · 교인명부', 'live', '9월 29일 운영 시작 · 찾기 · 현황 · 가족'),
     ('사역신청 관리 메뉴', 'live', '신청 현황 · 사역팀 정보 · 종이 명단 · 임명현황 · 시험 참여자'),
@@ -195,7 +195,7 @@ tr.sum td { font-weight:800; border-top:0.4mm solid var(--navy); background:var(
                                       font-size:15.4pt; font-weight:900; color:var(--brass); }
 .cycle b { display:block; font-size:10.5pt; margin-bottom:0.5mm; }
 
-.ask { list-style:none; counter-reset:a; margin:0; padding:0; display:grid; gap:1.6mm; }
+.ask { list-style:none; counter-reset:a; margin:0; padding:0; display:grid; gap:1.2mm; }
 .ask li { counter-increment:a; position:relative; padding:1.6mm 3mm 1.6mm 10mm; background:var(--brass-tint); border-radius:1.6mm;
           font-size:10pt; line-height:1.55; word-break:keep-all; }
 .ask li::before { content:counter(a); position:absolute; left:2.6mm; top:2.2mm; width:5mm; height:5mm; border-radius:50%;
@@ -203,7 +203,7 @@ tr.sum td { font-weight:800; border-top:0.4mm solid var(--navy); background:var(
                   display:flex; align-items:center; justify-content:center; line-height:1; }
 .ask li b { display:block; font-size:10.5pt; }
 
-.endline { margin-top:6mm; padding-top:2.4mm; border-top:0.3mm solid var(--line); display:flex; justify-content:space-between;
+.endline { margin-top:3mm; padding-top:2mm; border-top:0.3mm solid var(--line); display:flex; justify-content:space-between;
            align-items:baseline; }
 .endline .slogan { font-family:'Malgun Gothic','맑은 고딕',sans-serif; font-size:11pt; font-weight:700; color:var(--navy); }
 .endline .church { font-size:9.5pt; font-weight:700; color:var(--brass); }
@@ -266,7 +266,8 @@ BODY = """
 <section class="page">
 <div class="block">
   <h2 class="sec"><span class="no">1</span>명단 모으기<span class="tag"><span class="st done">완료</span></span></h2>
-  <p>홈페이지에 올린 해마다의 <b>최종본</b>(차수가 가장 늦은 판)을 모았습니다. 해마다 파일 모양이 달라
+  <p>교회 홈페이지 「사역배치」 게시판에는 <b>2010년부터</b> 해마다의 사역신청 명단이 올라 있습니다.
+  이번에는 최근 <b>2022~2026년 다섯 해</b>의 <b>최종본</b>(차수가 가장 늦은 판)을 먼저 모았고, 2010~2021년도 같은 방법으로 더합니다. 해마다 파일 모양이 달라
   (제목 줄 · 칸 차례 · 메모 칸) 칸 이름으로 맞춰 읽고, 연도 · 부서 · 팀 · 이름 · 직분 · 목장 · 신규/유지를 한 표로 만들었습니다.</p>
   <table>
     <thead><tr><th class="c">연도</th><th class="c">최종본</th><th class="n">기록</th><th class="n">부서</th><th class="n">팀</th>
@@ -323,7 +324,7 @@ BODY = """
       <li>확인하고 <b>넣기</b>를 누르면 그때 들어가고, 교적 연결을 다시 계산합니다</li></ul></div>
     <div class="box"><h4>몇 번 올려도 안전하게</h4><ul>
       <li>같은 파일을 다시 올려도 이미 있는 줄은 건너뜁니다</li>
-      <li>2021년 이전 명단이 나오면 언제든 더할 수 있습니다</li>
+      <li>홈페이지에 있는 2010~2021년 명단도 같은 방법으로 더합니다</li>
       <li>뺀 줄은 지우지 않고 「빼 둠」으로 남겨, 다시 올려도 되살아나지 않습니다</li></ul></div>
   </div>
 </div>
@@ -415,7 +416,7 @@ BODY = """
     <li><b>확인 필요 %(open)d건</b>부서 · 교구의 도움을 받아 한 분씩 확인하려 합니다.</li>
     <li><b>정정 신청을 처리할 분</b>앱으로 들어온 정정 신청을 누가 확인하고 반영할지(사역신청 담당자 · 부서별 담당) 정해 주세요.</li>
     <li><b>직책(팀장 · 부팀장)</b>지금 명단에는 없습니다. 앞으로 함께 적을지 정해 주세요.</li>
-    <li><b>2021년 이전 명단</b>남아 있는 파일이 있으면 같은 방법으로 더할 수 있습니다.</li>
+    <li><b>2010~2021년 명단</b>홈페이지 「사역배치」 게시판에 2010년부터 있습니다. 같은 방법으로 더합니다(오래된 해일수록 확인할 줄이 늘 수 있습니다).</li>
   </ol>
 </div>
 
