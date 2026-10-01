@@ -101,3 +101,12 @@ test('직분은 정정하지 않는다 — 순수 묶음에 wrong_position·「�
   assert.ok(!block.includes('wrong_position'), 'wrong_position 이 남았다');
   assert.ok(!block.includes('직분이 틀려요'), '「직분이 틀려요」가 남았다');
 });
+
+test('줄에 직분을 보이지 않는다 · 고르기에 「팀·부서가 틀려요」가 없다(2026-10-01 친구 요청)', () => {
+  const out = fn('mhHistoryHtml')([row(5, 2026, '방송전산부', '방송실 운영', { position: '안수집사' })], []);
+  assert.ok(out.includes('방송전산부') && out.includes('방송실 운영'));
+  assert.ok(!out.includes('안수집사'), '줄에 직분이 보인다');
+  const kinds = vm.runInContext('MH_LINE_KINDS.map(function (x) { return x.k; })', ctx);
+  assert.deepEqual([...kinds], ['not_mine', 'other']);
+  assert.equal(vm.runInContext('MH_KIND_TEXT.wrong_team', ctx), '팀·부서가 틀려요', '이미 낸 신청 표시 글은 남긴다');
+});

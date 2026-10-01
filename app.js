@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261001d";
+const APP_BUILD = "20261001e";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -8602,7 +8602,7 @@ function renderHelp(onClose) {
         <section class="help-section">
           <h3>🔒 개인정보 안내</h3>
           <ul>
-            <li><b>수집 항목</b>: 구분(교구/교회학교)·소속·목장/학년·이름과 암송·도전·복습 기록이에요. <b>게시판에 남기신 글·답글·사진</b>은 모든 분께 보입니다. <b>알림을 켜실 때만</b> 그 기기로 알림을 보내기 위한 등록 정보(기기 식별용 임의 값)를 받습니다. <b>성경필사 노트를 신청할 때만 휴대폰 번호</b>를 받습니다(노트가 준비되면 연락드리기 위해 — 배부가 끝나면 지웁니다). <b>사역 신청을 할 때는 휴대폰 번호와 직분</b>을 받습니다(본인 확인·교적 대조·임명 뒤 연락 — 번호는 임명이 정해지면 지웁니다). <b>「사역 이력 확인」</b>은 로그인하신 교구·목장(교회학교는 부서)·이름으로 교인명부에서 같은 분을 찾아 지난 사역 임명 기록(연도·부서·팀·직책·직분)을 보여 드리고, <b>정정을 신청하실 때만</b> 고르신 것과 설명 글(빠진 사역이면 연도와 부서·팀 글)을 받습니다(담당자가 확인한 뒤 바로잡습니다). 담당자가 신청을 <b>접수하면</b> 그 사역 안내 화면에 <b>이름·직분·교구-목장</b>이 로그인하신 다른 성도님께도 보입니다(함께 섬길 분을 알고 신청하실 수 있도록). 주민등록번호·주소·결제정보는 <b>받지 않습니다</b>.</li>
+            <li><b>수집 항목</b>: 구분(교구/교회학교)·소속·목장/학년·이름과 암송·도전·복습 기록이에요. <b>게시판에 남기신 글·답글·사진</b>은 모든 분께 보입니다. <b>알림을 켜실 때만</b> 그 기기로 알림을 보내기 위한 등록 정보(기기 식별용 임의 값)를 받습니다. <b>성경필사 노트를 신청할 때만 휴대폰 번호</b>를 받습니다(노트가 준비되면 연락드리기 위해 — 배부가 끝나면 지웁니다). <b>사역 신청을 할 때는 휴대폰 번호와 직분</b>을 받습니다(본인 확인·교적 대조·임명 뒤 연락 — 번호는 임명이 정해지면 지웁니다). <b>「사역 이력 확인」</b>은 로그인하신 교구·목장(교회학교는 부서)·이름으로 교인명부에서 같은 분을 찾아 지난 사역 임명 기록(연도·부서·팀·직책)을 보여 드리고, <b>정정을 신청하실 때만</b> 고르신 것과 설명 글(빠진 사역이면 연도와 부서·팀 글)을 받습니다(담당자가 확인한 뒤 바로잡습니다). 담당자가 신청을 <b>접수하면</b> 그 사역 안내 화면에 <b>이름·직분·교구-목장</b>이 로그인하신 다른 성도님께도 보입니다(함께 섬길 분을 알고 신청하실 수 있도록). 주민등록번호·주소·결제정보는 <b>받지 않습니다</b>.</li>
             <li><b>그 밖에 남는 것</b>: <b>공감</b>·<b>순위 응원</b>을 누른 기록(누른 분의 소속·이름), <b>이벤트 신청</b>(이름·소속, 이벤트에 따라 직분·휴대폰 번호), 게시판 <b>이용 규칙</b>에 동의한 날과 <b>🙈 가리기</b>로 가린 분 목록(본인만 봐요), 어느 기능을 언제 여셨는지의 <b>열람 기록</b>, 앱을 여실 때 남는 <b>마지막 접속 시각</b>(운영진만 봐요), 「내게 주시는 말씀」 답을 🚩 알리실 때의 <b>AI 답 알림</b>(질문·답·까닭 — 운영진만 봐요, 처리 뒤 <b>90일</b>이면 지워요)이에요. 어린이 부서는 「<b>보호자(부모님)가 함께 확인했어요</b>」에 체크한 날을 남겨요(만 14세 미만은 보호자 동의가 필요해요). 🎤 소리 내어 암송하실 때 소리는 휴대폰·브라우저의 <b>음성 인식</b>(구글·애플)이 글자로 바꾸고, 저희 서버엔 소리가 오지 않아요.</li>
             <li><b>저장·용도</b>: 기록은 교회가 쓰는 클라우드 데이터베이스에 암호화 전송으로 저장되어 <b>본인 진도 관리·복습 예약·도전 순위</b>에 쓰이고, 교구·부서별 합계는 운영 보고 자료로 씁니다. 광고에 쓰거나 팔지 않습니다. 「내게 주시는 말씀」에 물어보신 <b>질문 글은 답을 만드는 AI로 전달</b>됩니다. <b>「오늘의 찬양」에서 ▶ 찬양 듣기를 누르시면</b> 그 순간에만 <b>구글(유튜브)</b>에 접속 기록(IP·기기 정보·본 영상 기록)이 남습니다 — 이름·소속·진도는 구글로 가지 않습니다. 「오늘의 찬양」은 <b>YouTube API 서비스</b>를 쓰므로, 쓰시면 <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener">YouTube 서비스 약관</a>에 동의하시는 것이 되고, 재생하는 동안 유튜브(구글)가 <b>광고를 보여 줄 수 있고</b> 쿠키 같은 방법으로 기기에 정보를 저장하거나 읽을 수 있습니다(<a href="https://policies.google.com/privacy" target="_blank" rel="noopener">구글 개인정보처리방침</a>).</li>
             <li><b>공개 범위</b>: 도전 순위와 게시판에는 <b>이름과 소속</b>만 표시됩니다(연락처 없음). 순위에는 참여한 분만 표시돼요.</li>
@@ -11514,10 +11514,10 @@ function minTitleHtml(title, subtitleHtml) {
 // 설계: docs/superpowers/specs/2026-10-01-ministry-history-check-design.md §4 · 2026-10-01
 // ⚠️ 여기서는 DOM·전역 상태를 건드리지 않는다(minEsc 만 빌려 쓴다 — 시험이 그 함수도 함께 떼어 온다).
 // ⚠️ kind·status 글자는 교회 어드민 history-check.ts·SQL 008 CHECK 와 같다(세 곳) — 보이는 말을 바꾸려면 MH_KIND_TEXT 만.
-// ⚠️ 직분은 정정하지 않는다 — 교적 기준(2026-10-01 친구 결정). 줄의 그해 직분은 그대로 보여 준다.
+// ⚠️ 직분은 정정하지 않는다 — 교적 기준(2026-10-01 친구 결정). 줄에도 직분을 보이지 않는다(2026-10-01 친구 요청 · 연도·부서·팀·직책만).
+// ⚠️ 「팀·부서가 틀려요」(wrong_team)는 고르기에서 뺐다(2026-10-01 친구 요청) — 이미 낸 신청 표시용으로 MH_KIND_TEXT·서버·SQL 008 CHECK 에는 남긴다.
 const MH_LINE_KINDS = [
   { k: "not_mine", t: "내 것이 아니에요" },
-  { k: "wrong_team", t: "팀·부서가 틀려요" },
   { k: "other", t: "그 밖에" },
 ];
 const MH_KIND_TEXT = {
@@ -11584,7 +11584,7 @@ function mhHistoryHtml(rows, requests) {
       year = r.year;
       out += '<div class="mh-year"><div class="mh-year-t">' + minEsc(r.year) + '</div>';
     }
-    const what = [r.committee, [r.team, r.role_title].filter(Boolean).join(" "), r.position]
+    const what = [r.committee, [r.team, r.role_title].filter(Boolean).join(" ")]
       .filter(function (x) { return x && String(x).trim(); }).map(minEsc).join(' <span class="mh-dot">·</span> ');
     out += '<div class="mh-row"><span class="mh-what">' + what + '</span>' +
       (open[r.id]
@@ -11738,7 +11738,7 @@ function mhAsk(u, row, mode) {
       '<span class="min-alert-sub">건강·가정 형편 같은 사적인 사정은 적지 말아 주세요 — 같은 이름·소속으로 들어오면 보일 수 있어요.</span>' +
       '<p class="mh-err" id="mh-err" hidden></p>' +
     '</div>' +
-    '<div class="min-d-foot min-d-foot-row"><button class="min-ghost" data-cancel>그만두기</button>' +
+    '<div class="min-d-foot min-d-foot-row"><button class="min-ghost" data-cancel>취소</button>' +
       '<button class="min-cta" data-ok' + (mode === "line" ? " disabled" : "") + '>신청</button></div></div>';
   document.body.appendChild(box);
   const ok = box.querySelector("[data-ok]");
