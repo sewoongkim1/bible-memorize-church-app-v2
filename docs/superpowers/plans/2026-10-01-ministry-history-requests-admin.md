@@ -609,7 +609,7 @@ git commit -m "feat(정정신청): 서버 액션 historyRequestList·historyRequ
 
 **Files:**
 - Create: `js/menus/ministry/requests-logic.js` · `js/menus/ministry/requests.js` · `tests/requests-logic.test.mjs`
-- Modify: `js/menus/registry.js` · `css/admin.css`(파일 끝) · `privacy.html`(8번 카드)
+- Modify: `js/menus/registry.js` · `css/admin.css`(파일 끝) · `privacy.html`(9번 카드)
 
 **Interfaces:**
 - Consumes: Task 3 액션 · `ui.js` `esc`·`toast`·`busy`·`errorText` · `modal.js` `openForm({title, html, okLabel, onOpen(box), isDirty(box), onSubmit(box)})`(onSubmit 이 `{ok:false, message}` 면 창 안 빨간 줄) · `picker.js` `pickOne({anchor, title, options:[{value,label}], value})` → 고른 값 또는 null.
@@ -889,7 +889,7 @@ export async function render(el, { call }) {
 .hr-ans{width:100%;box-sizing:border-box;font:inherit;padding:10px;border:1px solid var(--border);border-radius:10px;resize:vertical}
 .hr-verify{display:flex;gap:8px;align-items:center;margin-top:10px;font-weight:700}
 ```
-`privacy.html` 8번 카드의 「보관과 삭제:」 문장 **바로 앞**에 `담당자가 처리하면 상태·답·처리한 담당자·때가 남고, 「내 것이 아니에요」는 본인 확인을 했다는 표시가 바꾼 기록에 남아요.<br>` 를 넣는다(앞 문장과 `<br>` 로 줄이 나뉘게).
+`privacy.html` 9번 카드의 「보관과 삭제:」 문장 **바로 앞**에 `담당자가 처리하면 상태·답·처리한 담당자·때가 남고, 「내 것이 아니에요」는 본인 확인을 했다는 표시가 바꾼 기록에 남아요.<br>` 를 넣는다(앞 문장과 `<br>` 로 줄이 나뉘게).
 
 - [ ] **Step 5: 시험·preflight·`<select>` 검사**
 

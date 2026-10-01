@@ -50,7 +50,7 @@
   - 답 칸 아래 안내 고정: 「답은 같은 이름·소속으로 앱에 들어오는 사람에게도 보여요 — 다른 분 이름·사적인 사정은 적지 마세요.」
   - **「내 것이 아니에요」(`not_mine`)를 「반영」할 때만** 칸 「본인에게 확인했어요(전화·대면)」 — 체크해야 [반영]이 눌린다(서버도 `verified:true` 를 요구).
   - 「내 기록 찾아 주세요」는 대개 답에 「앱 설정 → 로그인 정보변경에서 목장을 ○○로 바꿔 주세요」를 적고 「반영」(안내 줄로 보여 준다).
-- 끝난 신청(반영·반영 안 함)도 **[다시 열기]**(→ 확인 중) — 같은 줄에 이미 열린 신청이 있으면 「이미 열린 신청이 있어요」.
+- 끝난 신청(반영·반영 안 함)도 **[확인 중]**을 눌러 다시 연다 — 같은 줄에 이미 열린 신청이 있으면 「이미 열린 신청이 있어요」.
 - 저장 중엔 `busy()` 로 단추를 잠근다. 다른 담당자가 먼저 바꿨으면 「다른 분이 먼저 바꿨어요 — 다시 불러올게요」 후 목록을 다시 부른다.
 - 창 위에 창을 띄우지 않는다(오류는 창 안 한 줄).
 
@@ -63,9 +63,10 @@
 - `historyRequestSet { id, status, answer, verified, expect }` → `{ ok, row }` 또는 `{ ok:false, error }`
   - `status` ∈ `확인 중`·`반영`·`반영 안 함` · `expect` = 마지막으로 본 `updated_at`(다르면 `conflict`).
   - 규칙(순수 함수 `requestSetCheck` — `history-check.ts`): 답 300자 · `반영 안 함`은 답 필수(`need-answer`) · `not_mine`+`반영`은 `verified===true`(`need-verified`) · 같은 상태로 바꾸기는 답만 바뀌어도 허용.
+  - 2026-10-01 친구 결정 두 가지: **이미 `반영`인 줄의 답만 고칠 때는 본인 확인을 다시 묻지 않는다**(`need-verified` 는 `not_mine` 을 `반영`으로 **처음** 바꿀 때만) · **상태·답이 지금 줄과 같으면 쓰지도 「바꾼 기록」에 남기지도 않는다**(`requestSetNoop` → `{ ok:true, same:true }`).
   - 쓰기: `status`·`answer`·`handled_by`(담당자)·`handled_at`(끝난 상태일 때 지금, `확인 중`이면 null)·`updated_at` 을 `expect` 조건부 update — 0행이면 `conflict`. 23505(다시 열기 · 같은 줄 열린 신청) → `already-open`.
   - 「바꾼 기록」 `history.request { id, kind, from, to, verified }` — 이름·교인ID·답 글은 싣지 않는다.
-- 오류 글자: `bad-id`·`bad-status`·`too-long`·`need-answer`·`need-verified`·`conflict`·`already-open`·`not-found`.
+- 오류 글자: `bad-id`·`bad-status`·`answer-too-long`·`need-answer`·`need-verified`·`conflict`·`already-open`·`not-found`.
 
 ## 5. b6 「📜 사역 이력」에 부탁할 것(그 세션 가지 `ministry-history` · `js/menus/ministry/history.js`)
 
@@ -81,7 +82,7 @@
 
 ## 7. 개인정보
 
-- 교회 어드민 `privacy.html` 8번에 한 줄: 「담당자가 처리하면 상태·답·처리한 담당자·때가 남고, 「내 것이 아니에요」는 본인 확인을 했다는 표시가 바꾼 기록에 남아요.」
+- 교회 어드민 `privacy.html` 9번에 한 줄: 「담당자가 처리하면 상태·답·처리한 담당자·때가 남고, 「내 것이 아니에요」는 본인 확인을 했다는 표시가 바꾼 기록에 남아요.」
 - 성경암송 `privacy/` 는 바뀌지 않는다(「직분이 틀려요」를 빼도 「고르신 것」 표현 그대로 맞다).
 
 ## 8. 내보내기

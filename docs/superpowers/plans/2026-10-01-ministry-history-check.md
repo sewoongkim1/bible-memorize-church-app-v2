@@ -18,7 +18,7 @@
 - **본인 찾기:** 교구 = 교구 + 목장 + 이름, 교회학교 = 부서 + 이름 — `sameAffiliation` 그대로. 같은 소속 후보가 **딱 한 분**일 때만 그분. 화면에는 「찾지 못했어요」 한 가지로만 말한다(여럿인지 알리지 않는다).
 - **화면이 보낸 이름·소속은 쓰지 않는다** — `api` 가 `user_id` 로 `users` 줄(`type,gu,mok,bu,grade,name`)을 꺼낸다.
 - **응답에 싣지 않는 칸:** `user_id`·`person_id`·교인ID·`match_basis`·`match_reason`·`link_how`·`mok`(그때 목장)·`src_note`·`handled_by`. 기록 줄 칸은 정확히 `committee,id,position,role_title,team,year`, 신청 칸은 정확히 `answer,created_at,detail,history_id,id,kind,status,team_text,year`(시험이 키 집합을 대조).
-- **신청 값(DB CHECK·교회 어드민·화면 세 곳 같은 글자):** `kind` = `not_mine`·`wrong_team`·`wrong_position`·`other`(줄 정정 — `history_id` 필수) · `missing`(연도 1950~2100 + 「부서·팀」 글 필수) · `find_me`(찾지 못했을 때만). `status` = `신청`·`확인 중`·`반영`·`반영 안 함`. 끝나지 않음 = `신청`·`확인 중`.
+- **신청 값(DB CHECK·교회 어드민·화면 세 곳 같은 글자):** `kind` = `not_mine`·`wrong_team`·`wrong_position`·`other`(줄 정정 — `history_id` 필수) · `missing`(연도 1950~2100 + 「부서·팀」 글 필수) · `find_me`(찾지 못했을 때만). `status` = `신청`·`확인 중`·`반영`·`반영 안 함`. 끝나지 않음 = `신청`·`확인 중`. (2026-10-01 이후 wrong_position 은 뺐다 — 직분은 교적 기준 · 계획 2026-10-01-ministry-history-requests-admin.md Task 1)
 - **글자 수:** 설명 200 · 부서·팀 100 · 담당자 답 300. 끝나지 않은 신청 한 계정 **20건**까지. 같은 기록 줄에 끝나지 않은 신청 하나 · `find_me` 끝나지 않은 것 하나(부분 unique 색인으로도 막는다).
 - **표:** `ministry_history_requests` — RLS 켜고 정책 없음 · `anon`·`authenticated` 둘 다 revoke(시퀀스도) · `TO authenticated` 로 열지 않는다(운영 카카오 로그인 켜짐). SQL 파일 번호 **008**(b6 가 005, 교인명부 세션이 006·007 을 잡아 두었다 — 만들 때 `ls supabase/sql` 과 다른 worktree 를 보고 겹치면 다음 빈 번호로).
 - **새 색·새 단추 색 금지**(`docs/notes/home-screen.md` ⑤). 단추 아이콘은 **🗂️**(📜 는 「내 안에 거하는 말씀」). 브라우저 `alert`·`confirm`·`prompt` 금지 — 창은 사역신청의 `.min-d-*` 모양.
@@ -40,7 +40,7 @@
 | (교회 어드민) `supabase/functions/church-admin/index.ts` | 고침 | import 두 줄 · 내부 갈래 `internalRoute` · `hcFindPerson`·`internalMyHistory`·`internalHistoryRequest` · `Deno.serve` 맨 앞 한 줄 |
 | (교회 어드민) `tests/history-check.test.mjs` | 만듦 | 순수 시험(찾기 규칙·신청 규칙·응답 모양·역할 표 밖) |
 | (교회 어드민) `tests/history-check.dev.test.mjs` | 만듦 | 개발 서버 시험(내부 갈래) |
-| (교회 어드민) `privacy.html` · `CLAUDE.md` | 고침 | 8번 절 · 한 줄 |
+| (교회 어드민) `privacy.html` · `CLAUDE.md` | 고침 | 9번 절 · 한 줄 |
 | `supabase/functions/api/index.ts` | 고침 | `ministryHistoryMine`·`ministryHistoryRequest` + 도우미 넷 · switch 두 줄 |
 | `js/api.js` | 고침 | 두 줄 |
 | `tests/ministry-history-smoke.sh` | 만듦 | 개발 `api` → 교회 어드민 끝까지 |
@@ -1587,7 +1587,7 @@ git show --stat HEAD
 
 **Files:**
 - Modify: `privacy/index.html`(1항 표 · 3항 · 4항) · `app.js`(앱 안 개인정보 화면 목록 · 도움말 「수집 항목」)
-- Modify(교회 어드민 worktree): `privacy.html`(7번 카드 다음에 8번) · `CLAUDE.md`
+- Modify(교회 어드민 worktree): `privacy.html`(7번 카드 다음에 9번) · `CLAUDE.md`
 - Create: `docs/notes/ministry-history-check.md`
 - Modify: `CLAUDE.md`(이 저장소 — 지도 표 한 줄)
 
@@ -1690,7 +1690,7 @@ git show --stat HEAD
 
 cd /c/Projects/church-admin/.worktrees/history-check
 git add privacy.html CLAUDE.md
-git commit -m "docs(사역이력확인): 개인정보 안내 8번 · 함정에 내부 갈래 한 줄" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+git commit -m "docs(사역이력확인): 개인정보 안내 9번 · 함정에 내부 갈래 한 줄" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -1718,7 +1718,7 @@ supabase --workdir ~/.church-admin/supa-prod db query --linked -f C:/Projects/ch
 ```
 Expected: 노출 점검 0행.
 
-⚠️ 이 가지에는 「📮 정정 신청」 메뉴(계획 `2026-10-01-ministry-history-requests-admin.md`)도 함께 들어 있다 — 함께 나간다. 합칠 때 b6 가지와 `registry.js`(메뉴 줄)·`index.ts`(import·switch)·`authz.ts` 가 겹친다 — 둘 다 남긴다.
+⚠️ 이 가지에는 「📮 정정 신청」 메뉴(계획 `2026-10-01-ministry-history-requests-admin.md`)도 함께 들어 있다 — 함께 나간다. 2026-10-01 `git merge-tree` 로 본 충돌: b6 `ministry-history` ↔ `css/admin.css`·`privacy.html`·`index.ts`(import·switch)·`tests/authz.test.mjs` · `person-history` ↔ `js/menus/system/audit.js`(LABEL·detailText)·`tests/server.dev.test.mjs`(PROBE)·`index.ts` · `autumn-excuse` ↔ `index.ts`. 풀 때: **모두 둘 다 남긴다** · `x-internal-key` 갈래는 토큰 검사 **앞에** 남는다 · `privacy.html` 은 b6 의 8번(사역 이력)과 우리 9번(정정 신청)을 둘 다 · `tests/authz.test.mjs` ministry 목록은 **정렬된 합집합** · `registry.js` 는 충돌 없이 합쳐지지만 `mn-requests` 줄을 `mn-history` 줄 **바로 아래**로 옮긴다. 합친 뒤 개발에 다시 배포하고 `node --experimental-strip-types --test --test-name-pattern="권한 표" tests/server.dev.test.mjs` · `node --experimental-strip-types --test tests/history-requests.dev.test.mjs` · `node --experimental-strip-types --test tests/authz.test.mjs tests/registry.test.mjs tests/audit.test.mjs` · `python tools/preflight.py` 를 돌린다.
 
 - [ ] **Step 3: 교회 어드민 — main 에 합치고 운영 함수 배포 → 푸시**
 
