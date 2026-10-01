@@ -45,6 +45,7 @@
 | 교회 어드민(admin.onlybible.kr · 별도 저장소 `c:\Projects\church-admin`) — 카카오 로그인·담당자 승인, 사역신청 관리를 옮겨 가는 중 | 설계 `docs/superpowers/specs/2026-09-28-church-admin-design.md` · 그 저장소 `CLAUDE.md` |
 | 이벤트 명단(사순절·썸머·소책자·가을 말씀 동행 — `events`·`event_signups`) — **2026-09-30 교회 어드민 「성경필사(암송)」으로 옮겼다** · `eventImport`·`eventSave`·`eventSetNote` 는 얼렸다(되살리지 말 것 · `api` 는 얼림이 든 판에서만 배포) | `docs/notes/bible-events-admin.md` · 설계 `docs/superpowers/specs/2026-09-29-church-admin-bible-events-design.md` |
 | 교인명부(어드민 · dimode 교인목록·사진 · 2026-09-29 운영) — 찾기·현황·가족·사역 교적 표시 | 설계 `docs/superpowers/specs/2026-09-29-church-people-directory-design.md` · 계획(끝에 「나중」 목록) · church-admin `CLAUDE.md` 「교인명부」 절 |
+| 교인명부 「자세히」 창 사역·성경필사 탭 · 잇기 표(`people_links`) · 사역신청 번호 180일(2026-10-01) | 설계 `docs/superpowers/specs/2026-10-01-person-history-tabs-design.md` · 계획 `docs/superpowers/plans/2026-10-01-person-history-tabs.md` · church-admin `CLAUDE.md` 「교인명부」 절 |
 | 사역 이력(교회 어드민 「📜 사역 이력」 · 지난 해 사역 임명 엑셀 → 교인ID · `ministry_history` · 2026-10-01) — 성경암송 `ministry_orders` 에 지난 해를 넣지 말 것 | `docs/notes/ministry-history.md` · 설계 `docs/superpowers/specs/2026-10-01-church-admin-ministry-history-design.md` |
 
 ## 스택 · 도메인
