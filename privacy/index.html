@@ -75,6 +75,12 @@ footer a{color:var(--navy)}
     <td>진도 저장, 복습 예약, 도전 순위</td>
   </tr>
   <tr>
+    <td>마지막 접속 시각</td>
+    <td>앱을 열어 서버와 기록을 맞출 때마다</td>
+    <td>같은 분의 계정이 둘로 갈렸을 때 운영진이 지금 쓰시는 계정을 알아보기 위해<br>
+      <b>운영진만 봅니다</b></td>
+  </tr>
+  <tr>
     <td><b>휴대폰 번호</b></td>
     <td><b>성경필사 노트를 신청할 때만</b></td>
     <td>노트가 준비되면 연락드리기 위해</td>
@@ -174,6 +180,7 @@ footer a{color:var(--navy)}
   <tr><th>서비스</th><th>맡은 일</th><th>전달되는 것</th></tr>
   <tr><td>Supabase</td><td>데이터 보관·서버</td><td>위 1항의 기록</td></tr>
   <tr><td>Anthropic (Claude)</td><td>「내게 주시는 말씀」 답 생성</td><td>입력한 질문 글</td></tr>
+  <tr><td>Voyage AI</td><td>「내게 주시는 말씀」 질문을 설교 검색용 숫자(임베딩)로 바꿈</td><td>입력한 질문 글</td></tr>
   <tr><td>Google / Apple 푸시</td><td>알림 전달</td><td>알림 등록 정보</td></tr>
   <tr>
     <td>Google(유튜브)<br>YouTube API 서비스</td>
@@ -186,6 +193,7 @@ footer a{color:var(--navy)}
     <td>말씀하신 소리(저희 서버를 거치지 않습니다)</td>
   </tr>
   <tr><td>Google Fonts</td><td>화면 글꼴</td><td>접속 IP(글꼴 파일을 받을 때)</td></tr>
+  <tr><td>Resend</td><td>운영진 주간 보고 메일 발송</td><td>그 주에 참여하신 분의 이름·소속·참여일·횟수<br>(운영진 메일로만 갑니다)</td></tr>
   <tr><td>GitHub Pages</td><td>화면(웹) 제공</td><td>없음</td></tr>
 </table>
 <p class="note">
@@ -248,7 +256,7 @@ footer a{color:var(--navy)}
     <b>순위 응원</b>(👏)을 보내시면 응원받은 분께 <b>보낸 분의 이름과 소속</b>이 보입니다.</li>
   <li><b>가린 분 목록</b>은 <b>본인만</b> 봅니다. 가려진 분께는 알리지 않습니다.</li>
   <li><b>AI 답 알림</b>(질문·답·까닭·덧붙인 말·알리신 분)은 <b>운영진만</b> 봅니다.</li>
-  <li><b>열람 기록</b>과 <b>보호자 확인</b>은 운영진만 봅니다.</li>
+  <li><b>열람 기록</b>과 <b>보호자 확인</b>, <b>마지막 접속 시각</b>은 운영진만 봅니다.</li>
 </ul>
 
 <h2 id="delete">5. 계정·데이터 삭제 요청</h2>

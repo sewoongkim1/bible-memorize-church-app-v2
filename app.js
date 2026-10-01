@@ -842,8 +842,11 @@ async function enterAfterLogin(opts) {
   // 보호자 확인(2026-10-01) — 어린 부서인데 아직 체크가 없으면 첫 화면·서버 동기화보다 먼저 묻는다.
   //   웹 로그인 폼은 거기서 이미 체크받으므로 여기 안 걸린다. 걸리는 것은 ① 아이폰 네이티브 로그인 화면
   //   (그 화면은 이 칸을 모른다 — ?firstLogin=1 이면 fresh) ② 이 기능 전부터 쓰시던 어린이(「다음에」 가능).
-  if (!(opts && opts.guardianAsked) && guardianPending(!!(opts && opts.fresh))) {
-    renderGuardianCheck(!!(opts && opts.fresh), () => enterAfterLogin({ ...(opts || {}), guardianAsked: true }));
+  //   「다음에」는 user_id 가 있는 분(②)에게만 — ①에서 확인 화면을 닫았다 다시 열면 fresh 가 사라지므로
+  //   fresh 만 보면 안 된다(guardianRequired · 2026-10-01 검토 F2).
+  const gdRequired = guardianRequired(loadUser(), !!(opts && opts.fresh));
+  if (!(opts && opts.guardianAsked) && guardianPending(gdRequired)) {
+    renderGuardianCheck(gdRequired, () => enterAfterLogin({ ...(opts || {}), guardianAsked: true }));
     return;
   }
   if (opts && opts.fresh && !blessingSeen()) {
@@ -916,6 +919,10 @@ function renderBlessing(next) {
 async function syncProgress() {
   const u = loadUser();
   if (!u) return false;
+  // 보호자 확인 전인 어린이 새 계정은 서버에 묻지 않는다 — login 은 모르는 이름이면 계정을 만든다.
+  //   enterAfterLogin 이 먼저 묻지만, 위젯·이벤트 주소처럼 그 길을 안 거친 화면의 「재확인」도 여기를 지난다.
+  //   이미 서버 계정이 이어진 분(user_id 있음)은 그대로 동기화한다(「다음에」를 고르신 분 — 잠그지 않는다).
+  if (needsGuardian(u) && !guardianOk(u) && guardianRequired(u, false)) return false;
 
   try {
     saveSyncStatus("checking", "서버 기록을 확인하고 있습니다.");
@@ -1627,6 +1634,14 @@ function needsGuardian(p) {
   const m = grade.match(/[0-9]+/);
   return !m || grades.indexOf(Number(m[0])) >= 0;
 }
+// 보호자 확인을 「다음에」 없이 꼭 받아야 하나 — 방금 로그인했거나(fresh), 이 기기에 서버 계정 번호(user_id)가 아직 없으면.
+//   user_id 가 없다 = 서버 계정이 없거나 이 기기에 이어진 적이 없다 → 잃을 진도가 없고, 체크하면 바로 들어가니 잠금도 아니다.
+//   ⚠️ fresh 만 보면 안 된다 — 아이폰 네이티브 로그인의 ?firstLogin=1 은 읽자마자 지워져서, 확인 화면에서 앱을 닫았다 열면
+//      fresh 가 거짓이 된다. 그러면 「다음에」가 보이고, 누르면 guardian_ok 없이 login(= 모르는 이름이면 계정을 만든다)까지
+//      갔다(2026-10-01 검토 F2). 저절로 새로고침(APP_BUILD 가 다를 때)도 같다.
+function guardianRequired(u, fresh) {
+  return !!fresh || !(u && u.user_id);
+}
 // ── 보호자 확인 — 순수 (여기까지) ──
 
 // 이 기기에 남기는 것 — 신원(교회학교: s|부서|학년|이름 · progressKey 와 같은 꼴)마다
@@ -1646,11 +1661,12 @@ function markGuardianOk(u) {
   if (!u || !needsGuardian(u)) return;
   try { localStorage.setItem(GUARDIAN_OK_KEY + "::" + guardianIdent(u), todayYmd()); } catch {}
 }
-// 지금 물어야 하나 — fresh(방금 로그인)면 「다음에」를 보지 않는다(새 계정은 체크 전에 쓰기 시작하지 않는다)
-function guardianPending(fresh) {
+// 지금 물어야 하나 — required(guardianRequired: 방금 로그인 · user_id 없음)면 「다음에」를 보지 않는다
+// (새 계정은 체크 전에 쓰기 시작하지 않는다)
+function guardianPending(required) {
   const u = loadUser();
   if (!u || !needsGuardian(u) || guardianOk(u)) return false;
-  if (!fresh) {
+  if (!required) {
     try { if (localStorage.getItem(GUARDIAN_LATER_KEY + "::" + guardianIdent(u)) === todayYmd()) return false; } catch {}
   }
   return true;
@@ -8038,6 +8054,7 @@ function renderPrivacyInfo(back) {
             <li>이름</li>
             <li>교구/목장 또는 교회학교 부서/학년</li>
             <li>암송 진행 기록, 복습 및 도전 참여 기록</li>
+            <li>앱을 여실 때 남는 <b>마지막 접속 시각</b> <small>(운영진만 봐요 · 같은 분의 계정이 둘로 갈렸을 때 알아보려고)</small></li>
             <li>게시판에 올리신 글·답글과 <b>사진</b> (모든 분에게 공개)</li>
             <li>다른 분의 글을 <b>🚩 신고</b>하실 때 — 어느 글인지·고르신 까닭·덧붙인 말과 신고하신 분<br>
               <small>운영진만 보고, 글쓴 분께는 누가 신고했는지 알리지 않아요</small></li>
@@ -8559,7 +8576,7 @@ function renderHelp(onClose) {
           <h3>🔒 개인정보 안내</h3>
           <ul>
             <li><b>수집 항목</b>: 구분(교구/교회학교)·소속·목장/학년·이름과 암송·도전·복습 기록이에요. <b>게시판에 남기신 글·답글·사진</b>은 모든 분께 보입니다. <b>알림을 켜실 때만</b> 그 기기로 알림을 보내기 위한 등록 정보(기기 식별용 임의 값)를 받습니다. <b>성경필사 노트를 신청할 때만 휴대폰 번호</b>를 받습니다(노트가 준비되면 연락드리기 위해 — 배부가 끝나면 지웁니다). <b>사역 신청을 할 때는 휴대폰 번호와 직분</b>을 받습니다(본인 확인·교적 대조·임명 뒤 연락 — 번호는 임명이 정해지면 지웁니다). 담당자가 신청을 <b>접수하면</b> 그 사역 안내 화면에 <b>이름·직분·교구-목장</b>이 로그인하신 다른 성도님께도 보입니다(함께 섬길 분을 알고 신청하실 수 있도록). 주민등록번호·주소·결제정보는 <b>받지 않습니다</b>.</li>
-            <li><b>그 밖에 남는 것</b>: <b>공감</b>·<b>순위 응원</b>을 누른 기록(누른 분의 소속·이름), <b>이벤트 신청</b>(이름·소속, 이벤트에 따라 직분·휴대폰 번호), 게시판 <b>이용 규칙</b>에 동의한 날과 <b>🙈 가리기</b>로 가린 분 목록(본인만 봐요), 어느 기능을 언제 여셨는지의 <b>열람 기록</b>, 「내게 주시는 말씀」 답을 🚩 알리실 때의 <b>AI 답 알림</b>(질문·답·까닭 — 운영진만 봐요, 처리 뒤 <b>90일</b>이면 지워요)이에요. 어린이 부서는 「<b>보호자(부모님)가 함께 확인했어요</b>」에 체크한 날을 남겨요(만 14세 미만은 보호자 동의가 필요해요). 🎤 소리 내어 암송하실 때 소리는 휴대폰·브라우저의 <b>음성 인식</b>(구글·애플)이 글자로 바꾸고, 저희 서버엔 소리가 오지 않아요.</li>
+            <li><b>그 밖에 남는 것</b>: <b>공감</b>·<b>순위 응원</b>을 누른 기록(누른 분의 소속·이름), <b>이벤트 신청</b>(이름·소속, 이벤트에 따라 직분·휴대폰 번호), 게시판 <b>이용 규칙</b>에 동의한 날과 <b>🙈 가리기</b>로 가린 분 목록(본인만 봐요), 어느 기능을 언제 여셨는지의 <b>열람 기록</b>, 앱을 여실 때 남는 <b>마지막 접속 시각</b>(운영진만 봐요), 「내게 주시는 말씀」 답을 🚩 알리실 때의 <b>AI 답 알림</b>(질문·답·까닭 — 운영진만 봐요, 처리 뒤 <b>90일</b>이면 지워요)이에요. 어린이 부서는 「<b>보호자(부모님)가 함께 확인했어요</b>」에 체크한 날을 남겨요(만 14세 미만은 보호자 동의가 필요해요). 🎤 소리 내어 암송하실 때 소리는 휴대폰·브라우저의 <b>음성 인식</b>(구글·애플)이 글자로 바꾸고, 저희 서버엔 소리가 오지 않아요.</li>
             <li><b>저장·용도</b>: 기록은 교회가 쓰는 클라우드 데이터베이스에 암호화 전송으로 저장되어 <b>본인 진도 관리·복습 예약·도전 순위</b>에 쓰이고, 교구·부서별 합계는 운영 보고 자료로 씁니다. 광고에 쓰거나 팔지 않습니다. 「내게 주시는 말씀」에 물어보신 <b>질문 글은 답을 만드는 AI로 전달</b>됩니다. <b>「오늘의 찬양」에서 ▶ 찬양 듣기를 누르시면</b> 그 순간에만 <b>구글(유튜브)</b>에 접속 기록(IP·기기 정보·본 영상 기록)이 남습니다 — 이름·소속·진도는 구글로 가지 않습니다. 「오늘의 찬양」은 <b>YouTube API 서비스</b>를 쓰므로, 쓰시면 <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener">YouTube 서비스 약관</a>에 동의하시는 것이 되고, 재생하는 동안 유튜브(구글)가 <b>광고를 보여 줄 수 있고</b> 쿠키 같은 방법으로 기기에 정보를 저장하거나 읽을 수 있습니다(<a href="https://policies.google.com/privacy" target="_blank" rel="noopener">구글 개인정보처리방침</a>).</li>
             <li><b>공개 범위</b>: 도전 순위와 게시판에는 <b>이름과 소속</b>만 표시됩니다(연락처 없음). 순위에는 참여한 분만 표시돼요.</li>
             <li><b>이벤트에 신청하시면</b> 이름과 소속이 그 이벤트 명단에서 다른 성도님께 보입니다. 명단은 이벤트가 끝나고 정해진 날까지만 보이고, 그 뒤에는 사라집니다.</li>

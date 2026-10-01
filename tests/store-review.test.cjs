@@ -51,7 +51,8 @@ const srv = vm.runInContext(tsSlice +
 // ── 앱(app.js) 순수 구간 셋 ──
 const appGuardian = vm.runInContext(
   cut(APP, '// ── 보호자 확인 — 순수 (여기부터) ──', '// ── 보호자 확인 — 순수 (여기까지) ──', 'app.js') +
-  '\n;({ GUARDIAN_BU, GUARDIAN_GRADE_BU, GUARDIAN_ADULT_WORDS, needsGuardian })', vm.createContext({}));
+  '\n;({ GUARDIAN_BU, GUARDIAN_GRADE_BU, GUARDIAN_ADULT_WORDS, needsGuardian,' +
+  ' guardianRequired: typeof guardianRequired === "function" ? guardianRequired : undefined })', vm.createContext({}));
 const appBoard = vm.runInContext(
   cut(APP, '// ── 게시판 규칙·가리기 — 순수 (여기부터) ──', '// ── 게시판 규칙·가리기 — 순수 (여기까지) ──', 'app.js') +
   '\n;({ BOARD_RULES_VER, BOARD_RULES, boardBlockErrorMsg })', vm.createContext({}));
@@ -134,6 +135,33 @@ test('보호자 확인 — 서버는 처음 한 번만 적고(이미 있으면 �
   assert.ok(login.includes('needsGuardian(user)'), 'login 이 서버 행(user)으로 부서를 판단하지 않는다');
   assert.ok(login.includes('.is("guardian_ok_at", null)'), '이미 있는 날짜를 덮어쓴다');
   assert.ok(!/return\s*\{\s*ok:\s*false[^}]*guardian/.test(login), 'login 이 보호자 체크 없다고 거절한다 — 옛 판 앱·아이폰 네이티브 로그인이 막힌다');
+});
+
+// 2026-10-01 검토 F2 — 아이폰 네이티브 로그인의 ?firstLogin=1 은 읽자마자 지워진다. 확인 화면에서 앱을 닫았다 열면
+// fresh 가 거짓이 되어 「다음에 할게요」가 보였고, 누르면 guardian_ok 없이 login(= 모르는 이름이면 계정 만들기)까지 갔다.
+const KID = { type: '교회학교', bu: '초등부', grade: '3학년', name: '김가짜' };
+test('보호자 확인 — user_id 없는 어린이 부서 사용자는 「다음에」를 못 본다(fresh 가 거짓이어도)', () => {
+  const req = appGuardian.guardianRequired;
+  assert.equal(typeof req, 'function', 'app.js 보호자 순수 구간에 guardianRequired 가 없다');
+  assert.equal(req(KID, false), true, 'user_id 가 없으면(서버 계정이 이 기기에 이어진 적 없음) 꼭 받아야 한다');
+  assert.equal(req({ ...KID, user_id: '' }, false), true, '빈 user_id 도 없는 것이다');
+  assert.equal(req({ ...KID, user_id: UID }, false), false, '이미 쓰시던 분(user_id 있음)은 「다음에」가 있다');
+  assert.equal(req({ ...KID, user_id: UID }, true), true, '방금 로그인(fresh)이면 늘 꼭 받는다');
+  assert.equal(req(null, false), true);
+
+  const enter = cut(APP, 'async function enterAfterLogin(', '// 첫 로그인 축복 인사', 'app.js');
+  const m = enter.match(/const (\w+) = guardianRequired\(loadUser\(\), !!\(opts && opts\.fresh\)\);/);
+  assert.ok(m, 'enterAfterLogin 이 guardianRequired(loadUser(), fresh) 로 「꼭 받아야 하나」를 정하지 않는다');
+  assert.ok(enter.includes('guardianPending(' + m[1] + ')'), 'guardianPending 에 같은 값을 넘기지 않는다');
+  assert.ok(enter.includes('renderGuardianCheck(' + m[1] + ','), 'renderGuardianCheck 에 같은 값을 넘기지 않는다 — 「다음에」가 보인다');
+  assert.ok(!/guardianPending\(!!\(opts && opts\.fresh\)\)/.test(enter), 'fresh 만 보고 묻는 옛 줄이 남아 있다');
+});
+
+test('보호자 확인 — 체크 전인 어린이 새 계정은 syncProgress 가 login(계정 만들기)을 부르지 않는다', () => {
+  const sync = cut(APP, 'async function syncProgress(', 'function applyServerUser(', 'app.js');
+  const g = sync.indexOf('if (needsGuardian(u) && !guardianOk(u) && guardianRequired(u, false)) return false;');
+  assert.ok(g >= 0, 'syncProgress 에 보호자 확인 전 새 계정을 멈추는 줄이 없다 — 위젯·이벤트 주소처럼 enterAfterLogin 을 안 거친 「재확인」이 계정을 만든다');
+  assert.ok(g < sync.indexOf('api.login('), '그 줄이 api.login 보다 뒤에 있다');
 });
 
 test('공용 기기 — 기록 지우기(clearPersonalData)가 보호자 확인·이용 규칙 기억도 지운다', () => {
@@ -349,6 +377,7 @@ const PRIVACY_ITEMS = {
   '가린 분 목록': ['가린 분'],
   'AI 답 알림': ['AI 답 알림'],
   '보호자 확인': ['보호자(부모님)가 함께 확인했어요'],
+  '마지막 접속 시각(users.last_seen_at — 2026-10-01 검토 F3)': ['마지막 접속 시각'],
   '유튜브 — API 서비스': ['YouTube API 서비스'],
   '유튜브 — 약관 동의 문장': ['YouTube 서비스 약관에 동의'],
   '유튜브 — 제3자 광고': ['광고를 보여 줄 수 있'],
@@ -374,6 +403,40 @@ test('개인정보 — 새로 모으는 것 · 유튜브 문구가 privacy/ 와 
     }
     for (const href of PRIVACY_LINKS) assert.ok(raw.includes('href="' + href + '"'), where + ' 에 링크 ' + href + ' 가 없다');
   }
+});
+
+// 2026-10-01 검토 F3 — 서버가 바깥으로 부르는 주소가 방침 2항 「아래 서비스가 기능 수행에 관여」 표에 다 있는가.
+// Voyage AI(질문 글 → 설교 검색용 숫자)와 Resend(주간 보고 메일 — 참여자 이름·소속)가 빠져 있었다.
+// 새 주소가 생기면 여기서 멈춘다: 성도님 정보가 가면 2항 표에 한 줄 + OUTBOUND_IN_POLICY,
+// 안 가면 OUTBOUND_NO_MEMBER_DATA 에 까닭과 함께. (웹 푸시 주소는 기기마다 달라 코드에 글자로 없다 — 표의 「Google / Apple 푸시」)
+const OUTBOUND_IN_POLICY = {
+  'api.anthropic.com': { name: 'Anthropic', sends: '질문 글' },
+  'api.voyageai.com': { name: 'Voyage AI', sends: '질문 글' },
+  'api.resend.com': { name: 'Resend', sends: '이름·소속' },
+  'api.push.apple.com': { name: 'Apple 푸시', sends: '알림 등록 정보' },
+};
+const OUTBOUND_NO_MEMBER_DATA = {
+  'gocheok.onlybible.kr': '우리 주소(알림에 싣는 링크 글자)',
+  'esm.sh': '서버 모듈을 받아 오는 곳(import)',
+  'www.youtube.com': '설교 영상 주소 글자(요청이 아니다)',
+  'generativelanguage.googleapis.com': '말씀 그림(담당자 전용 · contentError) — 구절과 담당자가 쓴 장면만',
+  'api.github.com': '설교 올리기 워크플로 깨우기(담당자 전용) — 작업 번호만',
+};
+const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+test('개인정보 2항 — 서버가 성도님 정보를 보내는 바깥 서비스가 표에 모두 있고, 무엇이 가는지도 적혀 있다', () => {
+  const p2raw = cut(PRIVACY, '<h2>2. 어디에 보관하나</h2>', '<h2>3. 얼마나 보관하나</h2>', 'privacy/index.html');
+  const rows = [...p2raw.matchAll(/<tr>[\s\S]*?<\/tr>/g)].map((x) => textOf(x[0]));
+  const hosts = new Set([...TS.matchAll(/https:\/\/([a-z0-9.-]+)/gi)].map((x) => x[1].toLowerCase()));
+  for (const h of hosts) {
+    if (own(OUTBOUND_NO_MEMBER_DATA, h)) continue;
+    assert.ok(own(OUTBOUND_IN_POLICY, h), 'index.ts 가 새 바깥 주소 ' + h + ' 를 부른다 — 성도님 정보가 가면 privacy/ 2항 표에 적고 ' +
+      'OUTBOUND_IN_POLICY 에, 안 가면 OUTBOUND_NO_MEMBER_DATA 에 까닭과 함께 더하라');
+    const { name, sends } = OUTBOUND_IN_POLICY[h];
+    const row = rows.find((r) => r.includes(name));
+    assert.ok(row, 'privacy/ 2항 표에 ' + name + '(' + h + ') 줄이 없다');
+    assert.ok(row.includes(sends), 'privacy/ 2항 ' + name + ' 줄에 전달되는 것(' + sends + ')이 없다: ' + row);
+  }
+  assert.ok(rows.find((r) => r.includes('Resend')).includes('운영진'), 'Resend 줄이 운영진에게만 가는 메일이라는 것을 안 적었다');
 });
 
 test('개인정보 5항 — 「지워지는 것」에 빠진 것이 없다', () => {
