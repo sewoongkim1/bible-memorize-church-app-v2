@@ -518,6 +518,8 @@ Deno.serve(async (req) => {
       case "ministryCatalog":  return json(await ministryCatalog(body));
       case "ministryMine":     return json(await ministryMine(body));
       case "ministryTester":   return json(await ministryTester(body));   // 시험 참여자인가(2026-09-30)
+      case "ministryHistoryMine":    return json(await ministryHistoryMine(body));      // 사역 이력 확인(2026-10-01)
+      case "ministryHistoryRequest": return json(await ministryHistoryRequest(body));   // 사역 이력 정정 신청(2026-10-01)
       case "ministryApply":    return json(await ministryApply(body));
       case "ministryCancel":   return json(await ministryCancel(body));
       case "ministryList":     return json(await ministryList(body));
@@ -4760,6 +4762,79 @@ async function ministryIsTester(userId: string): Promise<boolean> {
 }
 async function ministryTester(b: any) {
   return { ok: true, tester: await ministryIsTester(String(b.user_id || "")) };
+}
+
+// ---------- 사역 이력 확인 · 정정 신청(2026-10-01) ----------
+// 설계: docs/superpowers/specs/2026-10-01-ministry-history-check-design.md §5.3
+// 교인 찾기·표는 교회 어드민 한 곳(church-admin 내부 갈래 internalMyHistory·internalHistoryRequest) — 여기는 문 검사와 users 값만 맡는다.
+// ⚠️ 화면이 보낸 이름·소속은 쓰지 않는다 — user_id 로 users 줄을 꺼낸다.
+// ⚠️ b.preview 는 받지 않는다 — 서버가 확인할 수 없는 값이다(ministryApply 의 ⚠️⚠️). 미리보기 화면은 관리자 비번(pw)으로 통과한다.
+// ⚠️ 새 담당자용 사역 액션이 아니다(얼림 대상 아님) — 성도님 화면용 둘이다.
+const MH_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// 교회 어드민이 막은 까닭 — 그대로 화면에 넘긴다(그 밖의 실패는 upstream 으로 묶는다)
+const MH_PASS_ERRORS = ["bad-kind", "too-long", "no-row", "need-detail", "bad-year", "need-team",
+  "not-found", "already-found", "already-open", "not-yours", "too-many"];
+
+async function ministryHistoryOpen(b: any, userId: string): Promise<boolean> {
+  if ((await ministryCfg()).isOpen) return true;
+  if (!adminError(b)) return true;
+  return await ministryIsTester(userId);
+}
+
+async function ministryHistoryUser(b: any): Promise<{ userId: string; who: Record<string, string> } | { error: string }> {
+  const userId = String(b.user_id || "").trim();
+  if (!MH_UUID.test(userId)) return { error: "no-user" };
+  if (!(await ministryHistoryOpen(b, userId))) return { error: "closed" };
+  const { data, error } = await db.from("users").select("type,gu,mok,bu,grade,name").eq("id", userId).maybeSingle();
+  if (error) throw error;
+  if (!data) return { error: "no-user" };
+  return { userId, who: { type: data.type, gu: data.gu ?? "", mok: data.mok ?? "", bu: data.bu ?? "", grade: data.grade ?? "", name: data.name } };
+}
+
+// 교회 어드민 함수의 내부 갈래 — 8초에서 끊는다(교회 어드민이 멈춰도 성도님 화면이 오래 돌지 않게)
+async function churchAdminInternal(payload: Record<string, unknown>): Promise<any | null> {
+  try {
+    const res = await fetch(Deno.env.get("SUPABASE_URL") + "/functions/v1/church-admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-internal-key": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "" },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(8000),
+    });
+    return await res.json().catch(() => null);
+  } catch (e) {
+    console.error("churchAdminInternal", e);
+    return null;
+  }
+}
+
+// 교회 어드민 history-check.ts 의 HISTORY_OUT_KEYS·REQUEST_OUT_KEYS 와 같은 칸 — 저쪽 응답이 늘어도 앱으로는 이 칸만 나간다
+const mhRowOut = (r: any) => ({ id: r?.id, year: r?.year, committee: r?.committee, team: r?.team, role_title: r?.role_title, position: r?.position });
+const mhReqOut = (q: any) => ({ id: q?.id, history_id: q?.history_id ?? null, kind: q?.kind, detail: q?.detail, year: q?.year ?? null,
+  team_text: q?.team_text, status: q?.status, answer: q?.answer, created_at: q?.created_at });
+
+async function ministryHistoryMine(b: any) {
+  const u = await ministryHistoryUser(b);
+  if ("error" in u) return { ok: false, error: u.error };
+  const j = await churchAdminInternal({ action: "internalMyHistory", who: u.who, user_id: u.userId });
+  if (!j || j.ok !== true) {
+    console.error("ministryHistoryMine", j);
+    return { ok: false, error: "upstream" };
+  }
+  return { ok: true, who: u.who, found: !!j.found,
+    rows: Array.isArray(j.rows) ? j.rows.map(mhRowOut) : [], requests: Array.isArray(j.requests) ? j.requests.map(mhReqOut) : [] };
+}
+
+async function ministryHistoryRequest(b: any) {
+  const u = await ministryHistoryUser(b);
+  if ("error" in u) return { ok: false, error: u.error };
+  const j = await churchAdminInternal({
+    action: "internalHistoryRequest", who: u.who, user_id: u.userId,
+    history_id: b.history_id ?? null, kind: b.kind, detail: b.detail, year: b.year, team_text: b.team_text,
+  });
+  if (j && j.ok === true) return { ok: true };
+  if (j && MH_PASS_ERRORS.includes(j.error)) return { ok: false, error: j.error };
+  console.error("ministryHistoryRequest", j);
+  return { ok: false, error: "upstream" };
 }
 
 // 신청 한 건의 키는 (연도, user_id) 다. 이 앱은 로그인이 교구·목장·이름을

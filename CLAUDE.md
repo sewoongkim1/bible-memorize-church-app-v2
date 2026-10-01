@@ -34,6 +34,7 @@
 | 필사 노트 신청 | `docs/notes/pilsa-orders.md` |
 | 사역신청(2027) · 시험 참여자(기간 전 첫 화면 🤝 — 교회 어드민 「🧪 시험 참여자」) | `docs/notes/ministry-2027.md` |
 | 사역신청 **관리 화면**(단추·여백·구조 표준) | `docs/notes/ministry-admin-ui.md` |
+| 첫 화면 「사역현황」 · 사역 이력 확인 · 정정 신청(2026-10-01 · 문은 사역신청과 하나) | `docs/notes/ministry-history-check.md` |
 | 기독교 고전 소책자(2026-09-14 완료 · 다시 뽑을 때만) | `docs/notes/classics-booklet.md` |
 | 성경 필사노트 가로형(`bible-note/` · 만든 HTML·원문은 커밋 금지) | `docs/notes/bible-note.md` |
 | 관리자 통계 '카드' 열 | `docs/notes/stats-admin.md` |
@@ -45,6 +46,8 @@
 | 교회 어드민(admin.onlybible.kr · 별도 저장소 `c:\Projects\church-admin`) — 카카오 로그인·담당자 승인, 사역신청 관리를 옮겨 가는 중 | 설계 `docs/superpowers/specs/2026-09-28-church-admin-design.md` · 그 저장소 `CLAUDE.md` |
 | 이벤트 명단(사순절·썸머·소책자·가을 말씀 동행 — `events`·`event_signups`) — **2026-09-30 교회 어드민 「성경필사(암송)」으로 옮겼다** · `eventImport`·`eventSave`·`eventSetNote` 는 얼렸다(되살리지 말 것 · `api` 는 얼림이 든 판에서만 배포) | `docs/notes/bible-events-admin.md` · 설계 `docs/superpowers/specs/2026-09-29-church-admin-bible-events-design.md` |
 | 교인명부(어드민 · dimode 교인목록·사진 · 2026-09-29 운영) — 찾기·현황·가족·사역 교적 표시 | 설계 `docs/superpowers/specs/2026-09-29-church-people-directory-design.md` · 계획(끝에 「나중」 목록) · church-admin `CLAUDE.md` 「교인명부」 절 |
+| 교인명부 「자세히」 창 사역·성경필사 탭 · 잇기 표(`people_links`) · 사역신청 번호 180일(2026-10-01) | 설계 `docs/superpowers/specs/2026-10-01-person-history-tabs-design.md` · 계획 `docs/superpowers/plans/2026-10-01-person-history-tabs.md` · church-admin `CLAUDE.md` 「교인명부」 절 |
+| 사역 이력(교회 어드민 「📜 사역 이력」 · 지난 해 사역 임명 엑셀 → 교인ID · `ministry_history` · 2026-10-01) — 성경암송 `ministry_orders` 에 지난 해를 넣지 말 것 | `docs/notes/ministry-history.md` · 설계 `docs/superpowers/specs/2026-10-01-church-admin-ministry-history-design.md` |
 
 ## 스택 · 도메인
 - **Vanilla JS PWA**(프레임워크 없음) — `index.html` + `app.js`(대형 단일 파일) + `sw.js`
@@ -165,6 +168,9 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
 
 ## 다음 작업 (이어서 할 것)
 > 여기에 다음에 진행할 과제를 적어두면, 다음 세션에서 이 문서를 읽고 바로 이어감.
+- [ ] 🗂️ **첫 화면 「사역현황」 · 사역 이력 확인 · 정정 신청 — 2026-10-01 운영 개시**(v2 aad4625 · 판 20261001c · `MH_LIVE` 켬 · church-admin main d40cf75 · 운영 SQL 008 · 교회 어드민 「📮 정정 신청」). 문은 사역신청과 하나 — 지금은 🧪 시험 참여자만, 12/13~12/27 신청 기간에 모두.
+      남은 것: ① 시험 참여자 계정으로 실기기 확인(「사역현황」 → 🗂️ → 기록 · 정정 한 번 → 교회 어드민 「📮 정정 신청」에서 처리) ② e5 가 member_merge 에 정정 신청 표를 넣는 중(그 전엔 신청 낸 계정의 합치기가 멈춘다) ③ 덤: `~/.church-admin/dev.env` `DEV_SERVICE_KEY` 를 새 secret 으로 → `tests/history-check.dev.test.mjs` ④ 공유 체크아웃 로컬 main 이 origin 뒤(남의 `store/listing-ios-ko.txt` 수정 때문에 빨리 감기 못 함 — 그 파일 주인이 정리한 뒤 `git pull`).
+      읽을 것 `docs/notes/ministry-history-check.md` · 계획 `docs/superpowers/plans/2026-10-01-ministry-history-check.md` · `…-requests-admin.md`
 - [ ] 👥 **교인명부 — 2026-09-29 운영 개시**(명단 8,672명 · 사진 4,645 · 5,387가구 · church-admin main 1307c65). 남은 것:
       ① 친구가 교인명부 볼 분에게 역할 「교인명부」 주기(🔑 담당자·역할) ② dimode 업체에 **사진 주소가 로그인 없이 열린다**고 알리기(`…/Handler/DisplayImage.ashx?id=숫자`)
       ③ `~/.church-admin/prod.env`(운영 service_role 키) 지울지 친구가 정하기 ④ 다음 명단(12월 무렵) 전에 계획서 끝 「나중」 목록.
@@ -282,6 +288,7 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
       **친구가 운영에서 한 편 끝까지** → 담당자 첫 실전 → 옛 길 치우기(`add-sermon.yml`·`addByUrl`·개발 `GH_DISPATCH_REF`) ·
       연상 그림 첫 실전 · Google Cloud 예산 알림. 읽을 것 `docs/notes/sermon-staff-upload.md`·`verse-image-staff.md`
 - [ ] **플레이스토어 출시 — 2026-09-30 2차도 반려 → 교회 단체 계정 + 앱 이전으로 간다**(같은 날 D-U-N-S 690031840 발급). 1차(09-13)는 인원 이탈, 2차 반려 메일의 사유는 **① 테스터가 앱에 참여하지 않았다 ② 앱 업데이트로 의견을 받아 고치지 않았다** — 14일 내내 `versionCode 1` 이었다(TWA 라 고친 것이 전부 웹으로 나갔다). 단체 계정은 12명·14일 요건이 없다. **같은 날 교회 조직 계정(개발자 이름 「고척교회」 · 소유자 `church.gocheok@gmail.com`) 인증까지 모두 끝.** 다음: 개인 계정에서 앱 이전 신청(거래 ID 두 계정 모두) → 교회 계정에서 수락 → 내부 테스트로 위젯 판 확인 → 프로덕션. ⚠️ 교회 계정에서 「앱 만들기」로 새로 만들지 말 것(패키지는 이전으로 온다). ⚠️ **이전이 끝날 때까지 비공개 테스트·테스터 명단은 그대로 둔다.** **출시 심사 전에 앱·방침 쪽 바로잡기(보호자 확인·게시판 이용 규칙·가리기·AI 답 알리기·방침 유튜브 문구)는 2026-10-01 운영에 나갔다**(`20261001b`) — 이전 뒤 콘솔에서 할 일은 `store/README.md` 「구글 출시 심사 전 결정」 7절(광고 포함 **예** · 대상 **13세 이상** · 데이터 보안 표 · 심사자 안내 글). 순서·불확실한 것 `docs/analysis/2026-09-30-play-production-rejected-org-account.md` · 경과 `store/closed-test.md` · 체크리스트 `store/README.md` 「단체 계정」 절
+- [ ] ⏰ **플레이스토어 심사가 통과한 날 app.js `MINISTRY_HIDE_ON_PLAY = false` → bump → 푸시**(사역현황 묶음이 플레이스토어 앱에서 다시 보인다 · 2026-10-02 심사 동안 숨김 · 심사 제출 전에 내부 테스트 판에서 숨는지 확인 — `store/README.md` 「단체 계정」 🔎 · 읽을 것 `docs/notes/ministry-history-check.md` 「플레이스토어 앱에서 숨김」)
 - [ ] **업로드 키 재설정**(급하지 않다 — 옛 업로드 키가 공개됐지만 앱 서명 키는 구글이 갖고 있어 위조는 불가): `upload_certificate.pem` 은 만들어 두었다(`성경암송 - Google Play package - New` 폴더). 콘솔 → Play 스토어 보호 → 「Play 앱 서명 관리」에서 요청
 - [ ] **영어(NIV) 본문 두 곳 손보기** — 34개 전부 들어갔고 검수도 마쳤는데, `no=31`(마태 10:31)이 마침표 뒤 `you`(→ `You`), `no=30`이 `2JN 1:12`(→ 다른 구절과 같은 `2 John 1:12` 꼴). 어드민에서 그 둘만
 - [ ] 필사 신청 알림이 **조용히 실패해도 아무도 모른다**(낮은 우선순위): `pilsaApply`가 `pilsaNotifyAdmins`를 `try/catch`로 감싸 결과를 버리고, 담당자가 없으면(`no-admin`) `push_log`에도 안 남는다 — 이 자리를 `push_log`에 남기게 고칠 것(단, `monitor`가 실패 행을 어떻게 보는지 먼저 확인해 헛경보를 만들지 말 것)

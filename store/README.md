@@ -694,6 +694,16 @@ registration fee"로 검색) → 정책 위반 점검 → Play Console에서 이
       이전 뒤 확인 둘: 대시보드에 「프로덕션 액세스 신청」 단계가 **없는지** · 「앱 무결성」 SHA-256 이
       `.well-known/assetlinks.json` 첫 줄과 같은지. 순서와 불확실한 것은
       `docs/analysis/2026-09-30-play-production-rejected-org-account.md`.
+- [ ] 🔎 **프로덕션 심사 제출 전 — 내부 테스트 판(실기기)에서 「사역현황」이 숨는지 확인**(2026-10-02 · 숨김 판정이 실기기 미확인이다):
+      ① 플레이스토어 앱 첫 화면에 「사역현황」 묶음(🤝 사역신청 · 🗂️ 사역 이력 확인)이 **없다**
+      ② 같은 폰의 **보통 크롬 탭**에서 🧪 시험 참여자로 들어가면 **있다**(「웹은 그대로」).
+      다르면 PC 크롬 `chrome://inspect` 로 앱 창을 붙잡아 콘솔에서 `localStorage['play-store-app']` ·
+      `sessionStorage['play-app-session']` · `document.referrer` · `matchMedia('(display-mode: browser)').matches` 를 본다 —
+      앱 창이면 `sessionStorage` 쪽이 `"1"` 이거나, `localStorage` 쪽이 `"1"` 이고 `matchMedia` 가 `false` 여야 숨는다.
+      읽을 것 `docs/notes/ministry-history-check.md` 「플레이스토어 앱에서 숨김(2026-10-02)」
+- [ ] ⏰ **플레이스토어 심사가 통과한 날 app.js `MINISTRY_HIDE_ON_PLAY = false` → bump → 푸시**(사역현황 묶음이 플레이스토어 앱에서
+      다시 보인다) — 2026-10-02 심사 동안 플레이스토어 앱(TWA 창)에서만 숨겼다. 읽을 것 `docs/notes/ministry-history-check.md`
+      「플레이스토어 앱에서 숨김(2026-10-02)」
 
 ---
 

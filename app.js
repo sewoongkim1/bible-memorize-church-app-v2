@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261001b";
+const APP_BUILD = "20261002a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -703,13 +703,47 @@ function refreshEventOpen() {
 }
 function eventVisible() { return eventOpenCached(); }
 
+// 첫 화면 단추 이름의 해 「2027년 사역신청」(2026-10-01 친구 요청) — 서버 app_config.ministry.year 를 캐시에서 읽는다.
+//   없으면 2027(서버 ministryCfg 의 기본값과 같다). 해를 글자로 박지 않는다 — 다음 해 신청 때 설정만 바꾸면 따라간다.
+function ministryYear() {
+  const p = ministryPeriodCached();
+  return Number(p && p.year) || 2027;
+}
 function ministryVisible() {
   if (location.search.indexOf("preview=ministry") >= 0) return true;   // 관리자 미리보기
+  if (ministryHiddenOnPlay()) return false;                             // 플레이스토어 앱 — 심사 통과 때까지(아래 MINISTRY_HIDE_ON_PLAY)
   if (ministryTesterCached()) return true;                              // 시험 참여자(교회 어드민 명단 · 2026-09-30)
   const p = ministryPeriodCached();
   if (!p || !p.open || !p.close) return false;
   const today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);  // KST
   return today >= p.open && today <= p.close;
+}
+
+// 사역 이력 확인(2026-10-01) — 운영 서버(교회 어드민 내부 갈래·정정 신청 표)가 올라가기 전까지 운영 주소에서는 새 묶음을 숨긴다.
+//   ⚠️ main 은 여러 세션이 함께 푸시한다 — 이 스위치가 없으면 남의 푸시에 실려 운영 🧪 시험 참여자에게 누르면 오류가 나는 단추가 뜬다.
+//   개발·localhost(js/config.js 가 env "dev")에서는 늘 켜진다. 계획 Task 9(운영 반영)에서 `const MH_LIVE = true;` 로 바꾼다(EVENING_LIVE 와 같은 방식).
+const MH_LIVE = true;   // 2026-10-01 운영 반영(사역 이력 확인 · 정정 신청) — 운영 주소에서도 「사역현황」 묶음을 연다(문은 여전히 ministryVisible)
+
+// 플레이스토어 앱(TWA)에서는 「사역현황」 묶음을 통째로 숨긴다(2026-10-02 친구 요청 — 안드로이드 심사 통과 때까지).
+//   숨는 것: 묶음 제목 · 🤝 사역신청 · 🗂️ 사역 이력 확인(MH_LIVE 가 꺼졌을 때 「함께」에 서는 🤝 도). 시험 참여자도 숨는다.
+//   문(ministryVisible) 한 곳에서 막는다 — 두 화면은 첫 화면 단추로만 들어가고, 임명 알림도 첫 화면(/)을 연다.
+//   웹·아이폰 앱은 그대로다. 관리자 미리보기(?preview=ministry)는 문의 첫 줄이라 여기서도 열린다.
+//   「플레이스토어 앱」은 둘 중 하나면 그렇다고 본다(둘 다 실기기 미확인 — docs/notes/ministry-history-check.md):
+//     ① openedByPlayApp() — 이번 실행(이 창)이 앱에서 열렸다는 표식(sessionStorage · 아래 PLAY_SESSION_KEY).
+//        TWA 가 사이트 확인에 실패해 맞춤 탭으로 열려도(android-app/twa-manifest.json fallbackType "customtabs" —
+//        그때는 display 가 "browser" 로 보인다) 잡는다. 보통 크롬 탭은 android-app:// referrer 를 받지 않아 이 표식이 안 생긴다.
+//     ② isPlayStoreApp() && !isBrowserTab() — 기기에 적어 둔 표식 + 앱 창 모양(TWA 는 display "standalone").
+//        기기 표식은 TWA 가 크롬과 저장소를 같이 써서 그 폰의 **크롬 탭에서도** 보이고 앱을 지운 뒤에도 남는다 —
+//        그래서 크롬 탭(isBrowserTab)은 뺀다(「웹은 그대로」라는 결정대로). ①을 못 받은 앱 창(referrer 없이 새로 열린 창 등)의 받침이다.
+//   NEW 배지(newestNewFeat)는 문(ministryVisible)이 닫혀 있으면 "ministry" 를 세지 않는다 — 안 보이는 단추가 하나뿐인 NEW 를 가져가지 않게.
+//   ⏰ 심사가 통과한 날 false 로 바꾸고 bump → 푸시(CLAUDE.md 「플레이스토어 출시」 아래 ⏰ 줄 · store/README.md · docs/notes/ministry-history-check.md).
+const MINISTRY_HIDE_ON_PLAY = true;
+function ministryHiddenOnPlay() {
+  return MINISTRY_HIDE_ON_PLAY && (openedByPlayApp() || (isPlayStoreApp() && !isBrowserTab()));
+}
+// 브라우저(크롬 등)의 보통 탭으로 열렸나 — matchMedia 가 없거나 던지면 「탭이 아니다」로 본다(숨기는 쪽 — 심사에는 그쪽이 안전하다).
+function isBrowserTab() {
+  try { return !!(window.matchMedia && window.matchMedia("(display-mode: browser)").matches); } catch (e) { return false; }
 }
 
 let passagesCache = null;
@@ -1095,7 +1129,11 @@ function clearPersonalData() {
       }
     }
   } catch {}
+  // 이번 실행이 플레이스토어 앱이라는 표식(PLAY_SESSION_KEY)만은 다시 남긴다 — 사람이 아니라 창 이야기다(2026-10-02).
+  //   안 남기면 맞춤 탭으로 열린 앱에서 「내 정보 지우기」 뒤 다음 분이 들어온 첫 화면에 「사역현황」이 샌다(MINISTRY_HIDE_ON_PLAY).
+  const playSession = openedByPlayApp();
   try { sessionStorage.clear(); } catch {}
+  if (playSession) { try { sessionStorage.setItem(PLAY_SESSION_KEY, "1"); } catch {} }
 }
 
 // "사랑교구 3목장 김성도" / "초등부 김믿음"
@@ -1935,6 +1973,7 @@ function newestNewFeat() {
   let best = null;
   Object.keys(FEAT_SINCE).forEach((k) => {
     if (!featIsNew(k)) return;
+    if (k === "ministry" && !ministryVisible()) return;   // 문이 닫혀 단추가 안 보이면(기간 밖 · 플레이스토어 앱 숨김) — 안 보이는 단추가 NEW 를 가져가지 않게
     if (!best || kstDayNumber(FEAT_SINCE[k]) > kstDayNumber(FEAT_SINCE[best])) best = k;
   });
   return best;
@@ -2740,6 +2779,13 @@ function renderSummary() {
     <div class="grp-title">내 기록</div>
     <button class="summary-help" id="open-album">📖 나의 말씀 앨범</button>
     <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
+    ${/* 사역현황(2026-10-01 친구 요청) — 사역신청과 사역 이력 확인을 한 묶음으로.
+          둘 다 사역신청과 같은 문(ministryVisible — 미리보기·시험 참여자·신청 기간 · 플레이스토어 앱은 심사 동안 숨김)이라 묶음 제목까지
+          한 조건으로 감싼다(둘 다 숨는 날 제목만 남지 않게). 🗂️ — 📜 는 「내 안에 거하는 말씀」이 쓴다.
+          설계 docs/superpowers/specs/2026-10-01-ministry-history-check-design.md §2 */""}
+    ${ministryVisible() && MH_LIVE ? `<div class="grp-title">사역현황</div>
+    <button class="summary-help" id="open-ministry">🤝 ${ministryYear()}년 사역신청${newBadge("ministry")}</button>
+    <button class="summary-help" id="open-ministry-history">🗂️ 사역 이력 확인</button>` : ""}
     <div class="grp-title">함께</div>
     ${/* 이름은 관리자가 적는 값이라 날 HTML 로 그리지 않는다. boardEsc 를 빌려 쓴다 —
           escape 헬퍼를 하나 더 만들면 그만큼 갈라진다. 서버가 norm() 으로 줄바꿈을
@@ -2766,7 +2812,8 @@ function renderSummary() {
          그림처럼 보여 「액자」 느낌이 되살아난다는 지적(2026-09-11)으로 다시 바꿨다.
          시편 23편이 "여호와는 나의 목자시니"로 시작하니, 장소(물가)보다 인도받아
          쉰다는 이 시편의 핵심에 더 가깝다. -->
-    ${ministryVisible() ? `<button class="summary-help" id="open-ministry">🤝 사역신청${newBadge("ministry")}</button>` : ""}
+    ${/* MH_LIVE 가 꺼진 동안(운영 · 과제 9 전)은 🤝 를 원래 자리(「함께」)에 둔다 — 화면이 지금과 똑같게. 켜지면 위 「사역현황」 묶음으로 옮겨 간다. */""}
+    ${ministryVisible() && !MH_LIVE ? `<button class="summary-help" id="open-ministry">🤝 ${ministryYear()}년 사역신청${newBadge("ministry")}</button>` : ""}
     ${passagesVisible() ? `<button class="summary-help" id="open-passages">📜 내 안에 거하는 말씀${newBadge("passages")}</button>` : ""}
     <!-- 「더 보기」 — 자주 누르지 않는 넷을 접어 둔다(연 상태는 기억한다).
          ⚠️ 순서와 모양은 성도님이 직접 정하셨다(2026-09-10): 필사 → 퀴즈 → 찬양 → 설교,
@@ -2806,6 +2853,11 @@ function renderSummary() {
   if (minBtn) minBtn.addEventListener("click", () => {
     minLoaded = false;            // 들어올 때마다 서버에서 지금 상태를 받는다
     renderMinistry();
+  });
+  const mhBtn = document.getElementById("open-ministry-history");   // 사역신청과 같은 문 — 기간 밖에는 없다
+  if (mhBtn) mhBtn.addEventListener("click", () => {
+    mhLoaded = false;             // 들어올 때마다 서버에서 지금 상태를 받는다
+    renderMinistryHistory();
   });
   document.getElementById("open-pilsa").addEventListener("click", () => {
     pilsaLoaded = false;          // 들어올 때마다 서버에서 지금 상태를 받는다
@@ -8061,6 +8113,8 @@ function renderPrivacyInfo(back) {
             <li>성경필사 노트 신청 시 <b>휴대폰 번호</b> (배부가 끝나면 삭제)</li>
             <li>사역 신청 시 <b>휴대폰 번호</b> (임명이 정해지면 삭제)<b>와 직분</b><br>
               <small>접수되면 그 사역 안내에 이름·직분·교구-목장이 다른 성도님께도 보여요</small></li>
+            <li>「사역 이력 확인」에서 정정을 신청하실 때 <b>고르신 것과 설명 글</b>(빠진 사역이면 연도와 부서·팀 글)<br>
+              <small>로그인 교구·목장(교회학교는 부서)·이름으로 교인명부에서 찾은 사역 기록을 보여 드려요</small></li>
             <li>기기 식별용 임의 ID (알림을 켤 때만)</li>
             <li>「내게 주시는 말씀」에 적으신 <b>질문 글</b> (답을 찾는 AI에 전달 · 이름·교구·목장과 함께 사용 기록에 남아요)</li>
             <li>AI 답을 <b>🚩 알리실 때</b> — 질문·답·고르신 까닭·덧붙인 말과 알리신 분 <small>(운영진만 봐요 · <b>AI 답 알림</b>)</small></li>
@@ -8086,6 +8140,7 @@ function renderPrivacyInfo(back) {
             <li>개인 암송 진도 저장과 기기 간 진도 동기화</li>
             <li>교구/부서별 참여 통계 확인</li>
             <li>암송 프로그램 운영, 격려, 보고 자료 작성</li>
+            <li>사역 이력 확인·정정 처리</li>
           </ul>
         </section>
         <section class="help-section">
@@ -8384,7 +8439,7 @@ const MANUAL = [
 function manualInstalled() {
   try {
     if (typeof isNativeApp === "function" && isNativeApp()) return true;
-    if (isPlayStoreApp()) return true;   // 플레이스토어 앱이 깔린 폰 — 크롬 탭에서 열어도 설치는 이미 했다
+    if (isPlayStoreApp()) return true;   // 이 폰에서 플레이스토어 앱을 연 적이 있다 — 크롬 탭에서도 그렇다(표식은 앱을 지운 뒤에도 남을 수 있다 · 아래 PLAY_APP_KEY)
     return !!((window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
               window.navigator.standalone === true);
   } catch (e) { return false; }
@@ -8399,16 +8454,31 @@ function manualInstalled() {
 const WIDGET_GUIDE = { ios: true, android: false };
 let _widgetPreview = false;
 
-// 플레이스토어 앱(TWA)으로 열렸나 — TWA 는 앱을 열 때 referrer 를 android-app://<패키지> 로 준다.
-// 그 순간에만 알 수 있어 기기에 적어 둔다(clearPersonalData 는 안 지운다 — 사람이 아니라 기기 이야기다).
-// 시험판(…memorize.dev)도 같은 앞머리라 함께 걸린다. TWA 는 크롬과 저장소를 같이 쓰므로
-// 크롬 탭에서 열어도 남는데, 그 폰에 앱이 깔려 있다는 뜻이라 위젯 안내가 맞다.
-// ⚠️ 이 줄이 나간 뒤 앱을 한 번도 안 연 분은 아직 모른다 — 모르면 안 보인다(없는 것을 안내하지 않는 쪽).
+// 플레이스토어 앱(TWA)으로 열렸나 — TWA 는 앱을 열 때 referrer 를 android-app://<패키지> 로 준다(실기기 미확인 —
+// 맞춤 탭으로 열렸을 때도 같은 referrer 인지는 아직 못 봤다). 그 순간에만 알 수 있어 두 곳에 적어 둔다.
+//   · 기기 표식(localStorage PLAY_APP_KEY) — clearPersonalData 는 안 지운다(사람이 아니라 기기 이야기다).
+//   · 이번 실행 표식(sessionStorage PLAY_SESSION_KEY · 2026-10-02) — 이 창(탭)이 닫히면 사라진다. 보통 크롬 탭은 이 referrer 를
+//     받지 않으니 생기지 않는다. clearPersonalData 의 sessionStorage.clear() 뒤에도 다시 남긴다.
+// 시험판(…memorize.dev)도 같은 앞머리라 함께 걸린다.
+// ⚠️ 기기 표식은 「이 폰에서 앱을 연 적이 있다」일 뿐 「지금 깔려 있다」가 아니다 — TWA 는 크롬과 저장소를 같이 써서
+//    그 폰의 크롬 탭에서도 보이고, **앱을 지운 뒤에도 남는다**(크롬 저장소에 있어서).
+//    위젯 안내(widgetGuideOn)·설명서의 「홈 화면에 앱 만들기」 빼기(manualInstalled)는 이것을 그대로 쓴다 — 대개는 앱이 깔린
+//    폰이라 맞고, 앱을 지운 폰에 남아도 안내 한 장이 더 보이거나 빠질 뿐이라 받아들인다.
+//    「사역현황」 숨김(MINISTRY_HIDE_ON_PLAY)은 그래서 기기 표식을 크롬 탭(isBrowserTab)에서는 안 본다 — 그 폰의 크롬 탭에서는 그대로 보인다.
+// ⚠️ 이 줄이 나간 뒤 앱을 한 번도 안 연 분은 아직 모른다 — 위젯 안내는 모르면 안 보인다(없는 것을 안내하지 않는 쪽).
+// 「사역현황」 숨김도 두 표식을 본다. loadVerses() 는 이 줄보다 아래에서 불리고 서버를 기다린 뒤에야 첫 화면을 그리므로,
+// 앱을 처음 여는 날도 이 줄이 먼저 돈다.
 const PLAY_APP_KEY = "play-store-app";
+const PLAY_SESSION_KEY = "play-app-session";
 try {
-  if (/^android-app:\/\/kr\.onlybible\.gocheok\.memorize/.test(document.referrer || "")) localStorage.setItem(PLAY_APP_KEY, "1");
+  if (/^android-app:\/\/kr\.onlybible\.gocheok\.memorize/.test(document.referrer || "")) {
+    try { localStorage.setItem(PLAY_APP_KEY, "1"); } catch (e) {}
+    try { sessionStorage.setItem(PLAY_SESSION_KEY, "1"); } catch (e) {}   // 따로 감싼다 — 한쪽이 막혀도 다른 쪽은 남게
+  }
 } catch (e) {}
 function isPlayStoreApp() { try { return localStorage.getItem(PLAY_APP_KEY) === "1"; } catch (e) { return false; } }
+// 이번 실행(이 창)이 플레이스토어 앱에서 열렸나 — 못 읽으면 「아니다」(사역현황 숨김은 기기 표식 + 창 모양이 받친다).
+function openedByPlayApp() { try { return sessionStorage.getItem(PLAY_SESSION_KEY) === "1"; } catch (e) { return false; } }
 
 function widgetGuideOn(os) {
   if (_widgetPreview) return true;
@@ -8575,7 +8645,7 @@ function renderHelp(onClose) {
         <section class="help-section">
           <h3>🔒 개인정보 안내</h3>
           <ul>
-            <li><b>수집 항목</b>: 구분(교구/교회학교)·소속·목장/학년·이름과 암송·도전·복습 기록이에요. <b>게시판에 남기신 글·답글·사진</b>은 모든 분께 보입니다. <b>알림을 켜실 때만</b> 그 기기로 알림을 보내기 위한 등록 정보(기기 식별용 임의 값)를 받습니다. <b>성경필사 노트를 신청할 때만 휴대폰 번호</b>를 받습니다(노트가 준비되면 연락드리기 위해 — 배부가 끝나면 지웁니다). <b>사역 신청을 할 때는 휴대폰 번호와 직분</b>을 받습니다(본인 확인·교적 대조·임명 뒤 연락 — 번호는 임명이 정해지면 지웁니다). 담당자가 신청을 <b>접수하면</b> 그 사역 안내 화면에 <b>이름·직분·교구-목장</b>이 로그인하신 다른 성도님께도 보입니다(함께 섬길 분을 알고 신청하실 수 있도록). 주민등록번호·주소·결제정보는 <b>받지 않습니다</b>.</li>
+            <li><b>수집 항목</b>: 구분(교구/교회학교)·소속·목장/학년·이름과 암송·도전·복습 기록이에요. <b>게시판에 남기신 글·답글·사진</b>은 모든 분께 보입니다. <b>알림을 켜실 때만</b> 그 기기로 알림을 보내기 위한 등록 정보(기기 식별용 임의 값)를 받습니다. <b>성경필사 노트를 신청할 때만 휴대폰 번호</b>를 받습니다(노트가 준비되면 연락드리기 위해 — 배부가 끝나면 지웁니다). <b>사역 신청을 할 때는 휴대폰 번호와 직분</b>을 받습니다(본인 확인·교적 대조·임명 뒤 연락 — 번호는 임명이 정해지면 지웁니다). <b>「사역 이력 확인」</b>은 로그인하신 교구·목장(교회학교는 부서)·이름으로 교인명부에서 같은 분을 찾아 지난 사역 임명 기록(연도·부서·팀·직책)을 보여 드리고, <b>정정을 신청하실 때만</b> 고르신 것과 설명 글(빠진 사역이면 연도와 부서·팀 글)을 받습니다(담당자가 확인한 뒤 바로잡습니다). 담당자가 신청을 <b>접수하면</b> 그 사역 안내 화면에 <b>이름·직분·교구-목장</b>이 로그인하신 다른 성도님께도 보입니다(함께 섬길 분을 알고 신청하실 수 있도록). 주민등록번호·주소·결제정보는 <b>받지 않습니다</b>.</li>
             <li><b>그 밖에 남는 것</b>: <b>공감</b>·<b>순위 응원</b>을 누른 기록(누른 분의 소속·이름), <b>이벤트 신청</b>(이름·소속, 이벤트에 따라 직분·휴대폰 번호), 게시판 <b>이용 규칙</b>에 동의한 날과 <b>🙈 가리기</b>로 가린 분 목록(본인만 봐요), 어느 기능을 언제 여셨는지의 <b>열람 기록</b>, 앱을 여실 때 남는 <b>마지막 접속 시각</b>(운영진만 봐요), 「내게 주시는 말씀」 답을 🚩 알리실 때의 <b>AI 답 알림</b>(질문·답·까닭 — 운영진만 봐요, 처리 뒤 <b>90일</b>이면 지워요)이에요. 어린이 부서는 「<b>보호자(부모님)가 함께 확인했어요</b>」에 체크한 날을 남겨요(만 14세 미만은 보호자 동의가 필요해요). 🎤 소리 내어 암송하실 때 소리는 휴대폰·브라우저의 <b>음성 인식</b>(구글·애플)이 글자로 바꾸고, 저희 서버엔 소리가 오지 않아요.</li>
             <li><b>저장·용도</b>: 기록은 교회가 쓰는 클라우드 데이터베이스에 암호화 전송으로 저장되어 <b>본인 진도 관리·복습 예약·도전 순위</b>에 쓰이고, 교구·부서별 합계는 운영 보고 자료로 씁니다. 광고에 쓰거나 팔지 않습니다. 「내게 주시는 말씀」에 물어보신 <b>질문 글은 답을 만드는 AI로 전달</b>됩니다. <b>「오늘의 찬양」에서 ▶ 찬양 듣기를 누르시면</b> 그 순간에만 <b>구글(유튜브)</b>에 접속 기록(IP·기기 정보·본 영상 기록)이 남습니다 — 이름·소속·진도는 구글로 가지 않습니다. 「오늘의 찬양」은 <b>YouTube API 서비스</b>를 쓰므로, 쓰시면 <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener">YouTube 서비스 약관</a>에 동의하시는 것이 되고, 재생하는 동안 유튜브(구글)가 <b>광고를 보여 줄 수 있고</b> 쿠키 같은 방법으로 기기에 정보를 저장하거나 읽을 수 있습니다(<a href="https://policies.google.com/privacy" target="_blank" rel="noopener">구글 개인정보처리방침</a>).</li>
             <li><b>공개 범위</b>: 도전 순위와 게시판에는 <b>이름과 소속</b>만 표시됩니다(연락처 없음). 순위에는 참여한 분만 표시돼요.</li>
@@ -11481,6 +11551,282 @@ function renderMinistry(keepScroll) {
 function minTitleHtml(title, subtitleHtml) {
   return '<div class="min-intro"><h2 class="rank-title">' + title + '</h2>' +
     (subtitleHtml || "") + '</div>';
+}
+
+// ── 사역 이력 확인 · 순수 ── (tests/ministry-history.test.cjs 가 이 표식부터 「순수 끝」 표식까지 떼어 vm 에서 돌린다)
+// 설계: docs/superpowers/specs/2026-10-01-ministry-history-check-design.md §4 · 2026-10-01
+// ⚠️ 여기서는 DOM·전역 상태를 건드리지 않는다(minEsc 만 빌려 쓴다 — 시험이 그 함수도 함께 떼어 온다).
+// ⚠️ kind·status 글자는 교회 어드민 history-check.ts·SQL 008 CHECK 와 같다(세 곳) — 보이는 말을 바꾸려면 MH_KIND_TEXT 만.
+// ⚠️ 직분은 정정하지 않는다 — 교적 기준(2026-10-01 친구 결정). 줄에도 직분을 보이지 않는다(2026-10-01 친구 요청 · 연도·부서·팀·직책만).
+// ⚠️ 「팀·부서가 틀려요」(wrong_team)는 고르기에서 뺐다(2026-10-01 친구 요청) — 이미 낸 신청 표시용으로 MH_KIND_TEXT·서버·SQL 008 CHECK 에는 남긴다.
+const MH_LINE_KINDS = [
+  { k: "not_mine", t: "내 것이 아니에요" },
+  { k: "other", t: "그 밖에" },
+];
+const MH_KIND_TEXT = {
+  not_mine: "내 것이 아니에요", wrong_team: "팀·부서가 틀려요",
+  other: "그 밖에", missing: "빠진 사역", find_me: "내 기록 찾아 주세요",
+};
+const MH_OPEN = ["신청", "확인 중"];
+const MH_DETAIL_MAX = 200, MH_TEAM_MAX = 100, MH_OPEN_MAX = 20;
+const MH_ERR = {
+  closed: "아직 열리지 않았어요.",
+  "no-user": "로그인 정보를 찾지 못했어요. 첫 화면에서 다시 로그인해 주세요.",
+  "already-open": "이미 정정 신청을 내셨어요. 담당자가 확인하고 있어요.",
+  "too-many": "확인을 기다리는 신청이 20건이에요. 담당자가 확인한 뒤 다시 내 주세요.",
+  "need-detail": "어떤 점이 틀렸는지 한 줄로 적어 주세요.",
+  "need-team": "부서나 팀 이름을 적어 주세요.",
+  "bad-year": "연도를 숫자 네 자리로 적어 주세요(예: 2024).",
+  "too-long": "글이 너무 길어요. 조금 줄여 주세요.",
+  "not-yours": "이 기록은 지금 고칠 수 없어요. 화면을 다시 열어 주세요.",
+  "not-found": "기록을 찾지 못해 이 신청은 낼 수 없어요.",
+  "already-found": "기록을 이미 찾았어요. 줄마다 「정정」을 눌러 주세요.",
+};
+function mhErrText(code) { return MH_ERR[code] || "잠시 뒤 다시 해 주세요."; }
+
+// 머리줄 「기쁨-12 홍길동」 — 목장 99(모름)는 교구만, 교회학교는 부서·학년
+function mhWhoText(w) {
+  if (!w) return "";
+  const aff = w.type === "교회학교"
+    ? [w.bu, w.grade].filter(Boolean).join(" ")
+    : (w.mok && w.mok !== "99" ? w.gu + "-" + w.mok : (w.gu || ""));
+  return (aff ? aff + " " : "") + (w.name || "");
+}
+function mhSubHtml(w) { return '<p class="min-sub">' + minEsc(mhWhoText(w)) + ' 성도님의 사역 기록</p>'; }
+
+// 단계 줄 — 사역신청 minStepsHtml 과 같은 모양(.pl-steps). 「반영 안 함」은 반영과 나란한 끝이다(끝 칸만 바뀐다).
+function mhStepsHtml(st) {
+  const steps = st === "반영 안 함" ? ["신청", "확인 중", "반영 안 함"] : ["신청", "확인 중", "반영"];
+  const i = steps.indexOf(st);
+  return '<div class="pl-steps mh-steps">' + steps.map(function (t, k) {
+    return '<div class="pl-step ' + (k < i ? "done" : k === i ? "now" : "") + '"><i></i><span>' + minEsc(t) + '</span></div>';
+  }).join("") + '</div>';
+}
+
+function mhOpenIds(requests) {
+  const s = {};
+  (requests || []).forEach(function (r) { if (r.history_id != null && MH_OPEN.indexOf(r.status) >= 0) s[r.history_id] = true; });
+  return s;
+}
+function mhOpenCount(requests) {
+  return (requests || []).filter(function (r) { return MH_OPEN.indexOf(r.status) >= 0; }).length;
+}
+function mhHasOpenFind(requests) {
+  return (requests || []).some(function (r) { return r.kind === "find_me" && MH_OPEN.indexOf(r.status) >= 0; });
+}
+
+// 기록 줄 — 해마다 묶는다(서버가 연도 내림차순으로 준다). 줄 하나 = 부서 · 팀 직책 · 직분 + [정정]
+// ⚠️ 줄 열쇠는 기록 id 숫자뿐이다(교인ID·이름을 data-* 에 싣지 않는다).
+function mhHistoryHtml(rows, requests) {
+  if (!rows || !rows.length) return '<p class="mh-empty">아직 올라온 사역 기록이 없어요.</p>';
+  const open = mhOpenIds(requests);
+  let out = "", year = null;
+  rows.forEach(function (r) {
+    if (r.year !== year) {
+      if (year !== null) out += '</div>';
+      year = r.year;
+      out += '<div class="mh-year"><div class="mh-year-t">' + minEsc(r.year) + '</div>';
+    }
+    const what = [r.committee, [r.team, r.role_title].filter(Boolean).join(" ")]
+      .filter(function (x) { return x && String(x).trim(); }).map(minEsc).join(' <span class="mh-dot">·</span> ');
+    out += '<div class="mh-row"><span class="mh-what">' + what + '</span>' +
+      (open[r.id]
+        ? '<span class="min-st s-wait mh-tag">신청함</span>'
+        : '<button class="mh-fix" data-fix="' + Number(r.id) + '">정정</button>') + '</div>';
+  });
+  return out + '</div>';
+}
+
+// 기록 줄 이름 「2025 시온성가대」 — 빼 둔 줄이라 목록에 없으면 「지난 기록」
+function mhRowLabel(row) {
+  return row ? row.year + " " + ([row.team, row.committee].filter(Boolean)[0] || "") : "지난 기록";
+}
+
+// 내 정정 신청 — 최근 것이 위(서버 차례 그대로). 담당자가 적은 말이 있으면 아래 한 줄(반영 안 함의 사유 등)
+function mhRequestsHtml(requests, rows) {
+  if (!requests || !requests.length) return "";
+  const byId = {};
+  (rows || []).forEach(function (r) { byId[r.id] = r; });
+  return '<div class="min-sent mh-reqs"><div class="min-sent-t">📋 내 정정 신청 <b>' + requests.length + '</b>건</div>' +
+    requests.map(function (q) {
+      const head = q.kind === "missing" ? "빠진 사역(" + q.year + ") — " + q.team_text
+        : q.kind === "find_me" ? MH_KIND_TEXT.find_me
+        : mhRowLabel(q.history_id != null ? byId[q.history_id] : null) + " — " + (MH_KIND_TEXT[q.kind] || "");
+      return '<div class="mh-req"><div class="mh-req-h">' + minEsc(head) + '</div>' +
+        (q.detail ? '<div class="mh-req-d">' + minEsc(q.detail) + '</div>' : "") +
+        mhStepsHtml(q.status) +
+        (q.answer ? '<div class="mh-ans">💬 ' + minEsc(q.answer) + '</div>' : "") + '</div>';
+    }).join("") + '</div>';
+}
+
+// 제목 아래 본문 전부 — d = ministryHistoryMine 응답 { found, rows, requests }
+function mhBodyHtml(d) {
+  const exit = '<button class="min-ghost" id="mh-exit">나가기</button>';
+  if (!d.found) {
+    return '<div class="min-note mh-none">교적의 교구·목장·이름과 맞는 기록을 찾지 못했어요.<br>' +
+      '그사이 목장이 바뀌셨거나 같은 이름이 계시면 그럴 수 있어요. 아래를 누르시면 담당자가 찾아 드려요.</div>' +
+      (mhHasOpenFind(d.requests) ? "" : '<button class="min-cta" id="mh-find">내 기록 찾아 주세요</button>') +
+      mhRequestsHtml(d.requests, []) + exit;
+  }
+  return mhHistoryHtml(d.rows, d.requests) +
+    '<button class="min-ghost mh-add" id="mh-missing">＋ 빠진 사역 알리기</button>' +
+    mhRequestsHtml(d.requests, d.rows) + exit;
+}
+
+// 보내기 전 검사 — 교회 어드민 parseRequest 와 같은 규칙(정하는 것은 서버다 · 여기는 미리 알릴 뿐)
+function mhCheck(f) {
+  const detail = String(f.detail || "").trim();
+  if (detail.length > MH_DETAIL_MAX) return "too-long";
+  if (f.kind === "other" && !detail) return "need-detail";
+  if (f.kind === "missing") {
+    const y = Number(String(f.year || "").trim());
+    if (!Number.isInteger(y) || y < 1950 || y > 2100) return "bad-year";
+    const t = String(f.team_text || "").trim();
+    if (!t) return "need-team";
+    if (t.length > MH_TEAM_MAX) return "too-long";
+  }
+  return null;
+}
+// ── 사역 이력 확인 · 순수 끝 ──
+
+// ── 사역 이력 확인 · 화면 (2026-10-01) ──
+// ⚠️ 첫 화면 「사역현황」에서만 들어온다. 문은 서버가 다시 본다(closed → 「아직 열리지 않았어요」).
+// ⚠️ api.* 는 error 가 있으면 throw 한다 — 오류 글자는 e.message 다.
+let mhLoaded = false, mhData = null, mhErrCode = "";
+
+async function mhLoad(u) {
+  let data = null, err = "";
+  if (!window.api || !api.ministryHistoryMine) err = "old";   // 옛 js/api.js
+  else {
+    try { data = await api.ministryHistoryMine(u.user_id, minPw()); }
+    catch (e) { err = (e && e.message) || "net"; }
+  }
+  mhData = data; mhErrCode = err; mhLoaded = true;   // ⚠️ 한 번에 바꾼다 — 기다리는 동안 옛 화면의 [정정]이 null 을 만나지 않게
+}
+
+function renderMinistryHistory(keepScroll) {
+  const u = loadUser();
+  if (!u) { renderEntryScreen(); return; }
+  const appEl = document.getElementById("app");
+  const wireExit = function () { const b = document.getElementById("mh-exit"); if (b) b.onclick = renderSummary; };
+  if (!mhLoaded) {
+    // ⚠️ 여기에도 나가기를 둔다 — 통신이 멎으면 빠져나갈 길이 없어진다
+    appEl.innerHTML = '<div class="min-screen">' + minTitleHtml("사역 이력 확인") +
+      '<p class="msg" id="mh-loading">기록을 불러오는 중…</p><button class="min-ghost" id="mh-exit">나가기</button></div>';
+    window.scrollTo(0, 0);
+    wireExit();
+    // 그사이 나가셨으면 다시 그리지 않는다(첫 화면을 덮지 않게)
+    mhLoad(u).then(function () { if (document.getElementById("mh-loading")) renderMinistryHistory(); });
+    return;
+  }
+  if (!mhData) {
+    const msg = mhErrCode === "closed" ? mhErrText("closed")
+      : mhErrCode === "no-user" ? mhErrText("no-user")
+      : "기록을 불러오지 못했어요.<br>잠시 뒤 다시 열어 주세요.";
+    appEl.innerHTML = '<div class="min-screen">' + minTitleHtml("사역 이력 확인") +
+      '<p class="msg">' + msg + '</p><button class="min-ghost" id="mh-exit">나가기</button></div>';
+    window.scrollTo(0, 0);
+    wireExit();
+    return;
+  }
+  appEl.innerHTML = '<div class="min-screen mh-screen">' + minTitleHtml("사역 이력 확인", mhSubHtml(mhData.who)) +
+    mhBodyHtml(mhData) + '</div>';
+  window.scrollTo(0, keepScroll == null ? 0 : keepScroll);
+  wireExit();
+  wireMinistryHistory(u);
+}
+
+function wireMinistryHistory(u) {
+  const byId = {};
+  (mhData.rows || []).forEach(function (r) { byId[r.id] = r; });
+  document.querySelectorAll("#app [data-fix]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      const row = byId[Number(b.dataset.fix)];
+      if (row) mhAsk(u, row, "line");
+    });
+  });
+  const add = document.getElementById("mh-missing");
+  if (add) add.addEventListener("click", function () { mhAsk(u, null, "missing"); });
+  const find = document.getElementById("mh-find");
+  if (find) find.addEventListener("click", function () { mhAsk(u, null, "find_me"); });
+}
+
+// 정정 창 — 고르기(줄 정정) + 한 줄 설명(+ 빠진 사역은 연도·부서·팀). 사역신청 창(.min-d-*)과 같은 모양.
+// ⚠️ 브라우저 alert·prompt 를 쓰지 않는다. 오류는 창 안 한 줄(.mh-err)로 — 창 위에 창을 띄우지 않는다.
+function mhAsk(u, row, mode) {
+  if (!mhData) return;
+  if (mode !== "find_me" && mhOpenCount(mhData.requests) >= MH_OPEN_MAX) { minAlert(mhErrText("too-many")); return; }
+  const head = mode === "missing" ? "빠진 사역 알리기"
+    : mode === "find_me" ? "내 기록 찾아 주세요"
+    : minEsc(row.year + " · " + [row.committee, [row.team, row.role_title].filter(Boolean).join(" ")].filter(Boolean).join(" · "));
+  let kind = mode === "line" ? "" : mode;
+  const box = document.createElement("div");
+  box.className = "min-d-wrap";
+  box.innerHTML = '<div class="min-d-box" role="dialog" aria-modal="true">' +
+    '<div class="min-d-head"><div><div class="min-d-nm">' + head + '</div>' +
+      '<div class="min-d-com">' + (mode === "line" ? "무엇이 틀렸나요?" : "담당자가 확인한 뒤 바로잡아 드려요") + '</div></div></div>' +
+    '<div class="min-d-body">' +
+      (mode === "line" ? '<div class="mh-kinds">' + MH_LINE_KINDS.map(function (x) {
+        return '<button type="button" class="mh-kind" aria-pressed="false" data-kind="' + x.k + '">' + minEsc(x.t) + '</button>';
+      }).join("") + '</div>' : "") +
+      (mode === "missing"
+        ? '<label class="mh-l" for="mh-year">연도</label>' +
+          '<input class="min-alert-input mh-in" id="mh-year" inputmode="numeric" maxlength="4" placeholder="2024" autocomplete="off">' +
+          '<label class="mh-l" for="mh-team">부서 · 팀</label>' +
+          '<input class="min-alert-input mh-in" id="mh-team" maxlength="' + MH_TEAM_MAX + '" placeholder="찬양위원회 시온성가대" autocomplete="off">'
+        : "") +
+      '<label class="mh-l" for="mh-detail">한 줄 설명 <span class="mh-opt">' +
+        (mode === "line" ? "(「그 밖에」는 꼭 적어 주세요)" : "(적지 않으셔도 돼요)") + '</span></label>' +
+      '<textarea class="mh-ta" id="mh-detail" rows="3" maxlength="' + MH_DETAIL_MAX + '" placeholder="예: 그해에는 알토로 섬겼어요"></textarea>' +
+      '<span class="min-alert-sub">건강·가정 형편 같은 사적인 사정은 적지 말아 주세요 — 같은 이름·소속으로 들어오면 보일 수 있어요.</span>' +
+      '<p class="mh-err" id="mh-err" hidden></p>' +
+    '</div>' +
+    '<div class="min-d-foot min-d-foot-row"><button class="min-ghost" data-cancel>취소</button>' +
+      '<button class="min-cta" data-ok' + (mode === "line" ? " disabled" : "") + '>신청</button></div></div>';
+  document.body.appendChild(box);
+  const ok = box.querySelector("[data-ok]");
+  const errEl = box.querySelector("#mh-err");
+  const showErr = function (code) { errEl.textContent = mhErrText(code); errEl.hidden = false; };
+  function close() {
+    document.removeEventListener("keydown", esc);
+    if (box.parentNode) box.parentNode.removeChild(box);
+  }
+  const esc = function (e) { if (e.key === "Escape") { e.preventDefault(); close(); } };
+  document.addEventListener("keydown", esc);
+  box.addEventListener("click", function (e) { if (e.target === box) close(); });
+  box.querySelector("[data-cancel]").addEventListener("click", close);
+  box.querySelectorAll(".mh-kind").forEach(function (b) {
+    b.addEventListener("click", function () {
+      kind = b.dataset.kind;
+      box.querySelectorAll(".mh-kind").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+      ok.disabled = false;
+    });
+  });
+  ok.addEventListener("click", async function () {
+    const f = {
+      kind: kind, history_id: row ? row.id : null,
+      detail: box.querySelector("#mh-detail").value,
+      year: mode === "missing" ? box.querySelector("#mh-year").value : null,
+      team_text: mode === "missing" ? box.querySelector("#mh-team").value : "",
+    };
+    const bad = mhCheck(f);
+    if (bad) { showErr(bad); return; }
+    ok.disabled = true;
+    try {
+      await api.ministryHistoryRequest(u.user_id, f, minPw());
+    } catch (e) {
+      ok.disabled = false;
+      showErr(e && e.message);
+      return;
+    }
+    close();
+    const y = window.scrollY;
+    await mhLoad(u);
+    // 그사이 나가셨으면 다시 그리지 않는다(첫 화면을 덮지 않게 — 불러오는 중 갈래의 mh-loading 지킴이와 같은 까닭). 신청은 이미 들어갔다.
+    if (!document.querySelector("#app .mh-screen")) return;
+    renderMinistryHistory(y);
+    minAlert("정정 신청을 냈어요.\n담당자가 확인한 뒤 바로잡아 드려요.");
+  });
 }
 
 // 칩 한 줄. ⚠️ 새 색을 만들지 않는다 — 켜진 칩만 남색, 꺼진 칩은 흰 바탕.

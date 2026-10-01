@@ -70,7 +70,7 @@ else:
 #    node_modules 가 없어 배포가 통째로 멈춘다. 새 검사를 더할 때도 기준은 같다:
 #    node 내장(node:test·node:assert·node:fs·node:path·node:vm)만 쓰는가.
 PURE_TESTS = ["tests/ranking-scope.test.cjs", "tests/send-push-opts.test.cjs",
-              "tests/evening-push.test.cjs"]
+              "tests/evening-push.test.cjs", "tests/ministry-history.test.cjs"]
 
 # 게시판 신고(2026-10-01) — 까닭 목록 세 곳(앱·서버·SQL CHECK)과 보관 90일(개인정보 안내)이 서로 맞나.
 # (위 목록 줄을 고치지 않고 따로 더한다 — 다른 세션도 그 줄에 더하고 있어 합칠 때 부딪힌다)
