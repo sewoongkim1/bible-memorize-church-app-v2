@@ -13,7 +13,7 @@
 //
 // 무엇을 보나 — supabase/*.sql 에서 users 를 가리키는 표를 찾는다
 //   (`references users(id)` 칸 · 이름이 `…user_id` 인 칸 · `alter table … add column … user_id`):
-//   ① 그 표가 합치기 본체에 나오는가(옮기거나 다루는가)
+//   ① 그 표가 합치기 본체에 나오는가(옮기거나 다루는가) — 허용 목록 셋은 빼고 센다(목록에만 넣으면 옮긴 게 아니다)
 //   ② users FK 가 있으면 FK 허용 목록(또는 FK 제외 목록)에 있는가
 //   ③ `user_id` 칸이 있으면 user_id 허용 목록에 있는가
 //   ④ 아래 KNOWN_GAPS(알고 있는 빈틈)는 **정말 아직 빈틈인가** — 고쳤으면 목록에서 빼라고 알려 준다.
@@ -78,9 +78,38 @@ const listAfter = (marker, end) => {
 const fkExcluded = listAfter('c.conrelid not in', 'loop');
 const fkAllowed = listAfter('ref.tbl::text not in', 'then');
 const userIdAllowed = listAfter('c.table_name not in', 'loop');
-const mentioned = (t) => new RegExp("'" + t + "'|public\\." + t + '\\b').test(body);
+// ①은 허용 목록 **밖**에서 찾는다 — 목록 셋을 잘라 낸 본체(옮기는 자리)만 본다.
+//   목록에 이름만 넣고 옮기지 않으면 merge-unsupported-records 멈춤만 사라지고, users FK 가 on delete cascade 인 표
+//   (ios_push_tokens 등)의 원본 줄은 마지막 `delete from public.users where id=s.id` 에 **조용히 함께 지워진다.**
+//   (2026-10-01 검토: 목록까지 본체로 셌더니 두 목록에만 넣은 ios_push_tokens 를 ③이 「이제 다룬다」고 했고,
+//    그 말대로 KNOWN_GAPS 를 비우면 넷 다 통과했다.) 옮기는 목록(`table_name in (…)`)과 `public.X` 문은 자르지 않는다.
+const cut = (x, marker, end) => {
+  const a = x.indexOf(marker);
+  const b = a < 0 ? -1 : x.indexOf(end, a);
+  assert.ok(a >= 0 && b >= 0, 'member_merge.sql 에서 「' + marker + '」 목록을 못 잘라 냈다 — 이 검사가 낡았다');
+  return x.slice(0, a) + x.slice(b);
+};
+const moveBodyOf = (b) => cut(cut(cut(b, 'c.conrelid not in', 'loop'), 'ref.tbl::text not in', 'then'), 'c.table_name not in', 'loop');
+const mentionedIn = (src) => (t) => new RegExp("'" + t + "'|public\\." + t + '\\b').test(src);
+const mentioned = mentionedIn(moveBodyOf(body));
 
 const tables = userTables();
+
+test('허용 목록에만 적힌 표는 「옮긴다」로 세지 않는다 — 목록에만 넣으면 멈춤이 사라지고 줄은 cascade 로 지워진다', () => {
+  const t = 'zz_listed_only';
+  const injected = body
+    .replace(/(c\.conrelid not in\s*\()/, "$1'public." + t + "'::regclass,")
+    .replace(/(ref\.tbl::text not in\s*\()/, "$1'" + t + "',")
+    .replace(/(c\.table_name not in\s*\()/, "$1'" + t + "',");
+  assert.equal(injected.split(t).length - 1, 3, '세 목록에 이름을 넣지 못했다 — 이 검사가 낡았다');
+  assert.equal(mentionedIn(moveBodyOf(injected))(t), false,
+    '목록에만 있는 표를 「합치기 본체에 나온다」로 셌다 — ②가 빈틈을 놓치고 ③이 「다룬다」고 잘못 말한다');
+  // 옮기는 자리는 그대로 찾는다(잘라 낸 범위가 넓지 않나) — insert·delete 문 · 옮기는 목록(table_name in)
+  //   (2026-10-01 세 표는 ⑤가 따로 본다 — 여기는 그 전부터 옮기던 표만 써서 이 검사 자체만 시험한다)
+  for (const m of ['progress', 'rank_cheers', 'challenge_log', 'user_identity_aliases'])
+    assert.ok(mentioned(m), m + ' 는 합치기가 옮기는데 못 찾았다 — 잘라 낸 범위가 넓다');
+  assert.match(moveBodyOf(body), /table_name in \('challenge_log'/, '옮기는 목록(table_name in)까지 잘라 냈다 — 잘라 낸 범위가 넓다');
+});
 
 test('사용자를 가리키는 표를 찾는다(검사 자체가 낡지 않았나)', () => {
   for (const t of ['progress', 'challenge_log', 'board_posts', 'board_blocks', 'board_reports', 'sermon_answer_reports', 'rank_cheers'])
