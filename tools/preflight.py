@@ -72,6 +72,10 @@ else:
 PURE_TESTS = ["tests/ranking-scope.test.cjs", "tests/send-push-opts.test.cjs",
               "tests/evening-push.test.cjs"]
 
+# 게시판 신고(2026-10-01) — 까닭 목록 세 곳(앱·서버·SQL CHECK)과 보관 90일(개인정보 안내)이 서로 맞나.
+# (위 목록 줄을 고치지 않고 따로 더한다 — 다른 세션도 그 줄에 더하고 있어 합칠 때 부딪힌다)
+PURE_TESTS += ["tests/board-report.test.cjs"]
+
 print("\n[3] 순수 함수 검사 (node --test)")
 for t in PURE_TESTS:
     if not os.path.exists(os.path.join(ROOT, t)):
