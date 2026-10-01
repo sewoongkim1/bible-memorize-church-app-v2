@@ -61,7 +61,7 @@ create table if not exists ministry_history (
   match_reason text not null default '',    -- 못 맞춘 사유 = 화면·내려받기의 「비고」(person_id 가 없을 때)
   linked_by    uuid references admin_members(id) on delete set null,
   linked_at    timestamptz,
-  source       text not null default 'excel' check (source in ('excel','app')),
+  source       text not null default 'excel' check (source in ('excel','admin','app')),   -- admin = 화면에서 한 줄 더함
   source_file  text not null default '',
   import_id    bigint references ministry_history_imports(id) on delete set null,
   order_id     bigint,                      -- source='app' 일 때 원래 ministry_orders.id(§8)
@@ -81,7 +81,13 @@ alter table ministry_history_imports enable row level security;
 alter table ministry_history         enable row level security;
 revoke all on ministry_history, ministry_history_imports from anon, authenticated;
 revoke all on sequence ministry_history_id_seq, ministry_history_imports_id_seq from anon, authenticated;
+
+-- 다시 맞추기 결과를 한꺼번에 쓰는 함수 — auto 줄이고 그사이 고쳐지지 않은(updated_at 이 같은) 줄만 · service_role 만
+create or replace function public.ministry_history_apply(p jsonb) returns integer …;
+revoke all on function public.ministry_history_apply(jsonb) from public, anon, authenticated;
+grant execute on function public.ministry_history_apply(jsonb) to service_role;
 ```
+(전문은 계획서 Task 1 · 2026-10-01 구현 중 더함 — 4천 줄을 한 줄씩 고치면 함수 시간을 넘는다)
 
 - 역할은 새로 만들지 않는다(`ministry` · `directory` · `super` 그대로).
 - **link_how:** `auto` = 규칙이 정함(다시 맞추기가 바꾼다) · `manual` = 사람이 「이분」으로 이음 · `none` = 사람이 「이분 아님」으로 비움. **`manual`·`none` 은 자동 맞춤이 절대 덮지 않는다** — 사역 이력 메뉴에서든 자세히 창 「이분 것」에서든.
@@ -131,7 +137,8 @@ revoke all on sequence ministry_history_id_seq, ministry_history_imports_id_seq 
 2. **등록일** — 명부 등록일의 해가 명단 해보다 늦으면. 검증: 맞춘 3,072줄 중 0건.
 3. **아이** — 어른 줄(직분이 성도·집사 이상이거나 청년 줄)인데 명부가 아이면. 아이 = 출생 연도가 있으면 「그해 19세 미만」, 없으면 kind2 교회학교·학생(kind2 교회학교인 20세 이상 1,117명 — 낡은 값이라 나이를 먼저 본다).
    직분이 **빈** 교구 줄은 명부의 아이도 후보로 둔다 — 단 그해 14세 이상이고 가족 목장 글자가 줄의 목장과 같을 때만(부모와 함께 섬기는 고등부 도우미 · 검증 2줄). 근거 끝에 ` · 학생으로 봄` 을 붙인다.
-4. **직분 없는 청년** — 줄 직분이 집사 이상인데 명부가 kind2 청년(또는 아이)이고 명부 직분이 비었으면. 검증: 같은 소속 3,294줄 중 반례 0.
+4. **직분 없는 청년** — 줄 직분이 집사 이상인데 명부가 kind2 청년·교회학교·학생(낡은 kind2 도)이거나 그해 아이이고 명부 직분이 비었으면. 검증: 같은 소속 3,294줄 중 반례 0.
+   **직분 없는 젊은 분** — 줄 직분이 권사·안수집사·장로인데 명부 직분이 비었고 그해 40세 미만이면(임직은 거꾸로 가지 않고, 강한 맞춤의 권사는 48세·안수집사는 45세 아래가 없다 · 2026-10-01 구현 중 더함).
 5. **청년 나이** — 청년 줄인데 그해 45세 이상.
 6. **또래** — 「NN또래」 줄은 출생 연도 끝 두 자리 = NN(1~2월생은 NN+1 도) 인 분만. 검증: 21/21.
 ⚠️ 직분 계급이 **낮아졌다**는 것만으로는 빼지 않는다(명부 직분이 비거나 낡은 분이 많다 — 같은 목장 정답 10/488 이 걸린다).
@@ -155,6 +162,8 @@ revoke all on sequence ministry_history_id_seq, ministry_history_imports_id_seq 
 ### 4.5 오타(「교적에 없음」 줄만)
 같은 교구+목장(또는 같은 남성 목장)에 **이름이 한 글자만 다르고 글자 수가 같은** 어른 한 분이 있고, 그분이 **다른 해 같은 팀**에 붙어 있으며 그 해 그 팀엔 없으면 → `이름 한 글자 다름(오타로 봄)`. 검증 14줄(셋은 한 분의 2023년 표기 오타).
 
+- **같은 해 같은 줄 사람:** 오타로 붙은 줄과 해·이름·목장 글자·직분이 같은데 「교적에 없음」인 줄(팀 이름이 바뀌어 오타 규칙이 못 본 줄)은 같은 분으로 본다(검증 1줄 · 2026-10-01 구현 중 더함).
+
 ### 4.6 같은 해 겹침과 못 맞춘 사유
 - 같은 해에 소속이 **다른 교구**인 두 줄이 한 분으로 모이면 약한 쪽을 비운다(같으면 둘 다). **같은 교구에서 목장만 다르면 둘 다 그분으로 둔다**(검증: 지금까지 비운 10줄이 모두 같은 교구의 목장 글자 차이 — 해 중간 이동·오타).
 - 비고(match_reason) 문구 — 화면·내려받기 그대로:
@@ -162,7 +171,7 @@ revoke all on sequence ministry_history_id_seq, ministry_history_imports_id_seq 
 | 사유 | 문구 |
 |---|---|
 | 같은 이름 없음 | 교인명부에 같은 이름이 없음 |
-| 같은 소속 여럿 | 같은 목장에 같은 이름 N명 — 누군지 못 가림 |
+| 같은 소속 여럿 | 같은 목장에 같은 이름 N명 — 누군지 못 가림 (청년·학생·새가족 줄은 「같은 소속(청년)에 …」) |
 | 같은 교구 여럿 | 같은 교구에 같은 이름 N명(목장은 명부와 다름) — 누군지 못 가림 |
 | 소속 다른 여럿 | 교인명부에 같은 이름 N명, 적힌 소속과 같은 분이 없음 — 누군지 못 가림 |
 | 빼고 나니 없음(아이·청년뿐) | 교인명부의 같은 이름은 교회학교 학생·직분 없는 청년뿐 — 다른 분으로 봄 |
@@ -171,7 +180,8 @@ revoke all on sequence ministry_history_id_seq, ministry_history_imports_id_seq 
 | 사람이 비움 | 이분 아님(담당자 확인) |
 
 ### 4.7 기대값(대조 시험 §10 의 기준)
-파이썬 시험판 3,964 붙음 → 틀린 약 12줄 바로잡고 약 80줄 더 붙여 **약 4,030 붙음 / 약 60 못 맞춤**. 남는 줄의 대부분은 명부에 같은 이름이 없는 분(떠난 분·교인 아닌 봉사자)과 가릴 근거가 없는 동명이인이다.
+파이썬 시험판 3,964 붙음 → 틀린 약 12줄 바로잡고 약 80줄 더 붙여 **약 4,030 붙음 / 약 60 못 맞춤**.
+→ 2026-10-01 TypeScript 구현으로 진짜 데이터를 돌린 결과 **4,042 이어짐 / 51 못 맞춤 · 검증 지적 64줄 모두 기대대로**(2026-09-29 명부 · 가족은 세대주+주소로 근사). 남는 줄의 대부분은 명부에 같은 이름이 없는 분(떠난 분·교인 아닌 봉사자)과 가릴 근거가 없는 동명이인이다.
 틀렸다고 확인된 꼴: 권사→남자 1(+같은 분 2026 줄 3) · 권사→같은 교구의 젊은 집사(맞는 분은 은혜로 옮긴 권사) 3 · 집사→직분 없는 20대 청년 4 · 안수집사→직분 없는 36세 1 · 고등부 줄→10세 1.
 
 ## 5. 「사역 이력」 메뉴 — `js/menus/ministry/history.js`(+ `history-logic.js` 순수)
@@ -195,7 +205,7 @@ revoke all on sequence ministry_history_id_seq, ministry_history_imports_id_seq 
 | `historyRowAdd` / `historyRowSave` / `historyRowDelete` | ministry | 한 줄 · `history.add`·`history.edit`·`history.delete`(빼기 = deleted_at) |
 | `historyCandidates` | ministry | 줄 하나의 후보(가린 모양/full) · `people.lookup`(`from:"history"`) |
 | `historyLink` | ministry | 「이분」(pick+fp)·「이분 아님」·「자동으로 되돌리기」 · `history.link` |
-| `historyRematch` | ministry | §3.3 · `history.rematch` |
+| `historyRematch` | ministry | §3.3 · `history.rematch` · `{confirm:true}` 가 없으면 `needs-confirm`(시험 PROBE 가 아무것도 안 쓰게) |
 | `historyExport` | ministry | 내려받기 · `history.export` |
 
 모든 쓰기는 `updated_at` 을 고친다. 기록의 detail 에는 이름·교인ID 를 싣지 않는다(줄 id·해·수만) — `js/menus/system/audit.js`·`tests/audit.test.mjs` 에 새 action 이름을 더한다.
