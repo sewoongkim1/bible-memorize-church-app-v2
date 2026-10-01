@@ -81,6 +81,12 @@ PURE_TESTS += ["tests/board-report.test.cjs"]
 # (위 줄들을 고치지 않고 따로 더한다 — 다른 세션도 이 목록에 더하고 있어 합칠 때 부딪힌다)
 PURE_TESTS += ["tests/store-review.test.cjs"]
 
+# 기록 합치기(2026-10-01) — supabase/*.sql 에서 users 를 가리키는 표를 member_merge.sql 이 다 아는가.
+# 모르는 표가 생기면 그 기능을 한 번이라도 쓴 계정은 합치기가 조용히 멈춘다(가리기·신고·AI 답 알림이 그랬다).
+# 글자만 본다(꾸러미 없음). 실제로 합쳐 보는 것은 tests/member-merge.test.cjs(PGlite — 여기 못 넣는다).
+# (위 줄들을 고치지 않고 따로 더한다 — 다른 세션도 이 목록에 더하고 있어 합칠 때 부딪힌다)
+PURE_TESTS += ["tests/member-merge-coverage.test.cjs"]
+
 print("\n[3] 순수 함수 검사 (node --test)")
 for t in PURE_TESTS:
     if not os.path.exists(os.path.join(ROOT, t)):
