@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261001b";
+const APP_BUILD = "20261001c";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -715,7 +715,7 @@ function ministryVisible() {
 // 사역 이력 확인(2026-10-01) — 운영 서버(교회 어드민 내부 갈래·정정 신청 표)가 올라가기 전까지 운영 주소에서는 새 묶음을 숨긴다.
 //   ⚠️ main 은 여러 세션이 함께 푸시한다 — 이 스위치가 없으면 남의 푸시에 실려 운영 🧪 시험 참여자에게 누르면 오류가 나는 단추가 뜬다.
 //   개발·localhost(js/config.js 가 env "dev")에서는 늘 켜진다. 계획 Task 9(운영 반영)에서 `const MH_LIVE = true;` 로 바꾼다(EVENING_LIVE 와 같은 방식).
-const MH_LIVE = !!(window.SUPA && window.SUPA.env !== "prod");
+const MH_LIVE = true;   // 2026-10-01 운영 반영(사역 이력 확인 · 정정 신청) — 운영 주소에서도 「사역현황」 묶음을 연다(문은 여전히 ministryVisible)
 
 let passagesCache = null;
 async function loadPassages() {
