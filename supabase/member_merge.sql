@@ -18,6 +18,7 @@
 --      merge-unsupported-records 로 멈춘다(기록은 안 잃는다 — 2026-10-01 가리기·신고·AI 답 알림이 그랬고,
 --      감사해 보니 아이폰 알림 기기(2026-09-15)·정정 신청(2026-10-01)도 그랬다 — 둘째 판에서 넣었다).
 begin;
+set local lock_timeout = '5s';   -- 표 스물한 개에 트리거를 다시 다는 DDL 이 긴 질의 뒤에 줄 서서 앱 쓰기까지 멈춰 세우지 않게 5초만 기다린다(넘으면 이 파일 전체가 되돌려진다 — 그대로 다시 돌리면 된다)
 create table if not exists public.user_merges (
   source_user_id uuid primary key,
   target_user_id uuid not null references public.users(id),

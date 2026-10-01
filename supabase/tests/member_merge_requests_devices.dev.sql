@@ -6,6 +6,7 @@
 --      · 남는 쪽에 같은 줄(history_id)의 **열린** 신청이 있으면(find_me 는 열린 find_me 가 있으면) 원본의 열린 신청은 **지운다**
 --        (「반영 안 함」으로 닫지 않는다 — 성도님 화면에 거절로 보인다)
 --      · 나머지(닫힌 것 · 남는 쪽에 짝이 없는 열린 것 · missing)는 줄 번호·상태·updated_at·이름 사본 그대로 주인만 옮긴다
+--        (가상 신청의 날짜는 그제·어제로 넣는다 — 합치기가 updated_at=now() 로 고치면 잡히게. 지우는 find_me 는 「확인 중」)
 --      · 합친 뒤 옛 번호로 들어온 신청도 남는 쪽으로 · 남는 쪽에 같은 줄의 열린 신청이 있으면 23505(교회 어드민 already-open)
 --      · **표가 없으면 「건너뜀」**(개발에 교회 어드민 008 을 아직 안 돌렸으면) — 합치기도 그 표를 건너뛴다
 --   ② ios_push_tokens(아이폰 알림 기기) — 줄 번호·알림 시각 그대로 주인만 옮긴다. 합친 뒤 옛 기기가 같은 기기 번호로 다시
@@ -52,7 +53,12 @@ declare
   ts1 bigint; ts2 bigint; tt1 bigint; tok_s1 text; tok_s2 text; tok_t1 text; tok_s3 text;
   h0 bigint := 900000000 + (('x' || substr(tag,1,6))::bit(24)::int);   -- 가상 history_id(정정할 줄 번호 — FK 없음)
   pv jsonb; r jsonb; n int; got text; want text; as_service boolean := false;
-  stamp jsonb; res_mhr text := '건너뜀(표 없음)'; res_ios text := '건너뜀(표 없음)'; res_cheer text := '건너뜀(표 없음)';
+  prev_role text := current_user;   -- 합치기 뒤 돌아올 역할(reset role 은 CLI 의 로그인 역할 cli_login_* 로 떨어질 수 있다)
+  -- 정정 신청 날짜는 **어제·그제**로 넣는다 — 이 점검은 트랜잭션 하나라 now() 가 처음부터 끝까지 같다. 기본값(now())으로
+  --   넣으면 합치기가 updated_at=now() 로 고쳐도 값이 같아 못 잡는다.
+  old_c timestamptz := now() - interval '2 days';
+  old_u timestamptz := now() - interval '1 day';
+  res_mhr text := '건너뜀(표 없음)'; res_ios text := '건너뜀(표 없음)'; res_cheer text := '건너뜀(표 없음)';
 begin
   -- ── 0) 여기가 개발인가 · 준비물이 있나 ─────────────────────────────
   select count(*) into n from public.users;
@@ -109,19 +115,25 @@ begin
     insert into public.ios_push_tokens(user_id,device_token,hour) values(v_t,tok_t1,8) returning id into tt1;
   end if;
 
-  -- ── 3) 정정 신청 열 줄 — h0+1·h0+2 는 가상 「정정할 줄」 번호 ───────────────────────────
+  -- ── 3) 정정 신청 열 줄 — h0+1·h0+2 는 가상 「정정할 줄」 번호 · 날짜는 그제(created_at)·어제(updated_at) ───────────
+  --    지우는 둘 중 하나(find_me)는 「확인 중」이다 — 「열린」 글자가 하나라도 틀리면(예: '확인중') 지우지 못해 부분 unique 로 떨어진다.
   if has_mhr then
-    insert into public.ministry_history_requests(user_id,kind,history_id,status,who_name) values(v_s,'not_mine',h0+1,'신청','합치기점검 옛 이름')   returning id into drop_line;      -- ① 지움
-    insert into public.ministry_history_requests(user_id,kind,history_id,status)          values(v_t,'wrong_team',h0+1,'확인 중')                    returning id into keep_line_t;    --   (종류가 달라도 같은 줄)
-    insert into public.ministry_history_requests(user_id,kind,history_id,status,who_name) values(v_s,'other',h0+2,'확인 중','합치기점검 옛 이름')    returning id into moved_open;     -- ② 열린 채 옮김
-    insert into public.ministry_history_requests(user_id,kind,history_id,status)          values(v_t,'not_mine',h0+2,'반영 안 함')                   returning id into closed_t;
-    insert into public.ministry_history_requests(user_id,kind,history_id,status)          values(v_s,'not_mine',h0+1,'반영')                         returning id into moved_closed;   -- ② 닫힌 것은 옮김
-    insert into public.ministry_history_requests(user_id,kind,status)                     values(v_s,'find_me','신청')                               returning id into drop_find;      -- ① 지움
-    insert into public.ministry_history_requests(user_id,kind,status)                     values(v_t,'find_me','확인 중')                            returning id into keep_find_t;
-    insert into public.ministry_history_requests(user_id,kind,status)                     values(v_s,'find_me','반영 안 함')                         returning id into moved_find_closed; -- ② 옮김
-    insert into public.ministry_history_requests(user_id,kind,year,team_text,status)      values(v_s,'missing',2019,'합치기점검 가상 팀','신청')      returning id into moved_missing;  -- ② unique 없음
-    insert into public.ministry_history_requests(user_id,kind,year,team_text,status)      values(v_t,'missing',2019,'합치기점검 가상 팀','신청')      returning id into keep_missing_t;
-    select jsonb_object_agg(id::text, updated_at) into stamp from public.ministry_history_requests where user_id in (v_s, v_t);
+    insert into public.ministry_history_requests(user_id,kind,history_id,status,who_name,created_at,updated_at) values(v_s,'not_mine',h0+1,'신청','합치기점검 옛 이름',old_c,old_u)   returning id into drop_line;      -- ① 지움
+    insert into public.ministry_history_requests(user_id,kind,history_id,status,created_at,updated_at)          values(v_t,'wrong_team',h0+1,'확인 중',old_c,old_u)                    returning id into keep_line_t;    --   (종류가 달라도 같은 줄)
+    insert into public.ministry_history_requests(user_id,kind,history_id,status,who_name,created_at,updated_at) values(v_s,'other',h0+2,'확인 중','합치기점검 옛 이름',old_c,old_u)    returning id into moved_open;     -- ② 열린 채 옮김
+    insert into public.ministry_history_requests(user_id,kind,history_id,status,created_at,updated_at)          values(v_t,'not_mine',h0+2,'반영 안 함',old_c,old_u)                   returning id into closed_t;
+    insert into public.ministry_history_requests(user_id,kind,history_id,status,created_at,updated_at)          values(v_s,'not_mine',h0+1,'반영',old_c,old_u)                         returning id into moved_closed;   -- ② 닫힌 것은 옮김
+    insert into public.ministry_history_requests(user_id,kind,status,created_at,updated_at)                     values(v_s,'find_me','확인 중',old_c,old_u)                            returning id into drop_find;      -- ① 지움(「확인 중」)
+    insert into public.ministry_history_requests(user_id,kind,status,created_at,updated_at)                     values(v_t,'find_me','신청',old_c,old_u)                               returning id into keep_find_t;
+    insert into public.ministry_history_requests(user_id,kind,status,created_at,updated_at)                     values(v_s,'find_me','반영 안 함',old_c,old_u)                         returning id into moved_find_closed; -- ② 옮김
+    insert into public.ministry_history_requests(user_id,kind,year,team_text,status,created_at,updated_at)      values(v_s,'missing',2019,'합치기점검 가상 팀','신청',old_c,old_u)      returning id into moved_missing;  -- ② unique 없음
+    insert into public.ministry_history_requests(user_id,kind,year,team_text,status,created_at,updated_at)      values(v_t,'missing',2019,'합치기점검 가상 팀','신청',old_c,old_u)      returning id into keep_missing_t;
+    -- 넣은 날짜가 그대로 들어갔나(008 에 날짜를 고치는 트리거가 생기면 아래 「바뀌지 않았다」 검사가 헛돈다 — 그때는 이 점검을 고칠 것)
+    select count(*) into n from public.ministry_history_requests where user_id in (v_s, v_t)
+      and (created_at is distinct from old_c or updated_at is distinct from old_u);
+    if n <> 0 then
+      raise exception 'member_merge_requests_devices: 정정 신청 — 가상 신청을 그제·어제 날짜로 넣지 못했습니다(%줄 · 008 에 날짜 트리거가 생겼나요? 이 점검을 고칠 것)', n;
+    end if;
   end if;
 
   -- ── 4) 미리보기(api adminPreviewMemberMerge 와 같은 꼴) ───────────────────────
@@ -151,7 +163,7 @@ begin
   end;
   r := public.admin_merge_members(p_source_id => v_s, p_target_id => v_t, p_source_key => k_s,
                                   p_target_key => k_t, p_reason => '개발 점검 — 가상 성도 합치기(되돌림)');
-  if as_service then reset role; end if;
+  if as_service then execute format('set local role %I', prev_role); end if;   -- reset role 이 아니라 부르기 전 역할로
   if coalesce((r->>'ok')::boolean,false) is not true then
     raise exception 'member_merge_requests_devices: 합치기가 거절됐습니다 — % (고친 member_merge.sql 을 개발에 먼저 돌렸나요? 「merge-unsupported-records」면 옛 함수입니다)', r->>'error';
   end if;
@@ -195,16 +207,18 @@ begin
     select string_agg(id::text || ':' || status, ',' order by id) into got from public.ministry_history_requests where user_id=v_t;
     want := (select string_agg(x.id::text || ':' || x.st, ',' order by x.id) from (values
       (keep_line_t,'확인 중'),(moved_open,'확인 중'),(closed_t,'반영 안 함'),(moved_closed,'반영'),
-      (keep_find_t,'확인 중'),(moved_find_closed,'반영 안 함'),(moved_missing,'신청'),(keep_missing_t,'신청')) as x(id,st));
+      (keep_find_t,'신청'),(moved_find_closed,'반영 안 함'),(moved_missing,'신청'),(keep_missing_t,'신청')) as x(id,st));
     if got is distinct from want then
       raise exception 'member_merge_requests_devices: 정정 신청 — 남은 줄(번호:상태)이 다릅니다. 기대 % · 실제 %', want, got;
     end if;
     if not exists(select 1 from public.ministry_history_requests where id=moved_open and who_name='합치기점검 옛 이름') then
       raise exception 'member_merge_requests_devices: 정정 신청 — 신청 때 이름 사본(who_name)이 바뀌었습니다(그때의 기록이라 그대로 두어야 한다)';
     end if;
-    select count(*) into n from public.ministry_history_requests where user_id=v_t and updated_at is distinct from (stamp->>id::text)::timestamptz;
+    -- 날짜는 넣은 그제·어제 그대로여야 한다(합치기가 updated_at=now() 로 고치면 여기서 잡힌다)
+    select count(*) into n from public.ministry_history_requests where user_id=v_t
+      and (created_at is distinct from old_c or updated_at is distinct from old_u);
     if n <> 0 then
-      raise exception 'member_merge_requests_devices: 정정 신청 — 합치기가 updated_at 을 %줄 바꿨습니다(담당자 화면의 「그사이 바뀜」 검사가 걸린다)', n;
+      raise exception 'member_merge_requests_devices: 정정 신청 — 합치기가 created_at·updated_at 을 %줄 바꿨습니다(담당자 화면의 「그사이 바뀜」 검사가 걸린다)', n;
     end if;
     -- 합친 뒤 옛 번호로 들어온 신청 → 남는 쪽. 남는 쪽에 같은 줄의 열린 신청이 있으면 부분 unique 가 막는다(23505 → already-open)
     insert into public.ministry_history_requests(user_id,kind,history_id) values(v_s,'not_mine',h0+3);
@@ -218,9 +232,9 @@ begin
       null;   -- 기대대로 막혔다 — 교회 어드민 internalHistoryRequest 는 이것을 already-open 으로 답한다
     end;
     -- 둘째 쌍 — 남는 쪽에 짝이 없는 열린 find_me · 다른 줄의 열린 신청은 열린 채 옮긴다
-    insert into public.ministry_history_requests(user_id,kind,status) values(v_s2,'find_me','신청') returning id into open_find2;
-    insert into public.ministry_history_requests(user_id,kind,history_id,status) values(v_s2,'not_mine',h0+4,'신청') returning id into open_l4;
-    insert into public.ministry_history_requests(user_id,kind,history_id,status) values(v_t2,'not_mine',h0+5,'확인 중') returning id into open_l5_t;
+    insert into public.ministry_history_requests(user_id,kind,status,created_at,updated_at) values(v_s2,'find_me','신청',old_c,old_u) returning id into open_find2;
+    insert into public.ministry_history_requests(user_id,kind,history_id,status,created_at,updated_at) values(v_s2,'not_mine',h0+4,'신청',old_c,old_u) returning id into open_l4;
+    insert into public.ministry_history_requests(user_id,kind,history_id,status,created_at,updated_at) values(v_t2,'not_mine',h0+5,'확인 중',old_c,old_u) returning id into open_l5_t;
     r := public.admin_merge_members(p_source_id => v_s2, p_target_id => v_t2, p_source_key => k_s2,
                                     p_target_key => k_t2, p_reason => '개발 점검 — 가상 성도 합치기(되돌림)');
     if coalesce((r->>'ok')::boolean,false) is not true then
@@ -231,6 +245,11 @@ begin
       (open_find2,'신청'),(open_l4,'신청'),(open_l5_t,'확인 중')) as x(id,st));
     if got is distinct from want then
       raise exception 'member_merge_requests_devices: 정정 신청(둘째 쌍) — 짝 없는 열린 신청은 열린 채 옮겨야 한다. 기대 % · 실제 %', want, got;
+    end if;
+    select count(*) into n from public.ministry_history_requests where user_id=v_t2
+      and (created_at is distinct from old_c or updated_at is distinct from old_u);
+    if n <> 0 then
+      raise exception 'member_merge_requests_devices: 정정 신청(둘째 쌍) — 합치기가 created_at·updated_at 을 %줄 바꿨습니다', n;
     end if;
     res_mhr := '확인함';
   end if;

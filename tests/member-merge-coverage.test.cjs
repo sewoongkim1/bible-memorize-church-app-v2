@@ -186,6 +186,10 @@ test('2026-10-02 둘째 판 — 아이폰 알림 기기 · 정정 신청 · 합�
   assert.match(mhrBlock, /a\.history_id is not null and b\.history_id=a\.history_id/, '같은 줄(history_id) — mhr_open_line_uq');
   assert.match(mhrBlock, /a\.kind='find_me' and b\.kind='find_me'/, 'find_me — mhr_open_find_uq');
   assert.match(mhrBlock, /update public\.ministry_history_requests set user_id=t\.id where user_id=s\.id;/, '나머지는 user_id 만 옮긴다');
+  const delAt = mhrBlock.indexOf('delete from public.ministry_history_requests');
+  const updAt = mhrBlock.indexOf('update public.ministry_history_requests set user_id');
+  assert.ok(delAt >= 0 && updAt > delAt,
+    '겹치는 열린 신청을 **먼저** 지우고 그다음 옮긴다 — 거꾸로면 옮기는 순간 부분 unique(mhr_open_line_uq·mhr_open_find_uq)에 걸려 합치기가 23505 로 멈춘다');
   assert.doesNotMatch(mhrBlock, /status\s*=\s*'/, '정정 신청의 상태를 바꾸면 안 된다(「반영 안 함」은 성도님께 거절로 보인다)');
   assert.doesNotMatch(mhrBlock, /who_(type|group|sub|name)\s*=/, '신청 때 이름 사본(who_*)은 그때의 기록 — 고치지 않는다');
   // 아이폰 알림 기기 — 주인만 옮긴다(겹치면 남는 쪽 줄)

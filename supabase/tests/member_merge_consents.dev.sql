@@ -37,6 +37,7 @@ declare
   keep_t1 bigint; open_s bigint; moved_s bigint;        -- 게시판 신고
   keep_tq bigint; open_sq bigint; moved_q bigint;       -- AI 답 알림
   pv jsonb; r jsonb; n int; got text; as_service boolean := false;
+  prev_role text := current_user;   -- 합치기 뒤 돌아올 역할(reset role 은 CLI 의 로그인 역할 cli_login_* 로 떨어질 수 있다)
   g timestamptz; b timestamptz;
 begin
   -- ── 0) 여기가 개발인가 · 준비물이 있나 ─────────────────────────────
@@ -133,7 +134,7 @@ begin
   end;
   r := public.admin_merge_members(p_source_id => v_s, p_target_id => v_t, p_source_key => k_s,
                                   p_target_key => k_t, p_reason => '개발 점검 — 가상 성도 합치기(되돌림)');
-  if as_service then reset role; end if;
+  if as_service then execute format('set local role %I', prev_role); end if;   -- reset role 이 아니라 부르기 전 역할로
   if coalesce((r->>'ok')::boolean,false) is not true then
     raise exception 'member_merge_consents: 합치기가 거절됐습니다 — % (고친 member_merge.sql 을 개발에 먼저 돌렸나요?)', r->>'error';
   end if;

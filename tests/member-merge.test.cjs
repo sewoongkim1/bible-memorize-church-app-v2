@@ -222,8 +222,8 @@ test('merge carries iPhone push devices and ministry history requests; stale two
  const movedOpen=await req(s,'other',102,'확인 중','옛 이름');           // ② 대상의 102 는 닫힘 → 열린 채 옮김
  const closedT=await req(t,'not_mine',102,'반영 안 함');
  const movedClosed=await req(s,'not_mine',101,'반영');                    // ② 닫힌 것은 대상에 열린 101 이 있어도 옮김
- const dropFind=await req(s,'find_me',null,'신청');                        // ① 둘 다 열린 find_me → 원본 지움
- const keepFindT=await req(t,'find_me',null,'확인 중');
+ const dropFind=await req(s,'find_me',null,'확인 중');                     // ① 둘 다 열린 find_me → 원본 지움(「확인 중」도 열린 것 —
+ const keepFindT=await req(t,'find_me',null,'신청');                       //    '확인중'처럼 글자가 틀리면 못 지워 mhr_open_find_uq 로 떨어진다)
  const movedFindClosed=await req(s,'find_me',null,'반영 안 함');          // ② 닫힌 find_me → 옮김
  const movedMissing=await req(s,'missing',null,'신청');                    // ② missing 은 unique 가 없다 → 옮김
  const keepMissingT=await req(t,'missing',null,'신청');
@@ -244,7 +244,7 @@ test('merge carries iPhone push devices and ministry history requests; stale two
  const n=v=>Number(v),byId=new Map((await query('select id,status,who_name,updated_at from ministry_history_requests where user_id=$1',[t.id])).map(r=>[n(r.id),r]));
  assert.deepEqual([...byId.keys()].sort((a,b)=>a-b),[keepLineT,movedOpen,closedT,movedClosed,keepFindT,movedFindClosed,movedMissing,keepMissingT].map(n).sort((a,b)=>a-b));
  assert.equal((await query('select count(*)::int n from ministry_history_requests where id in($1,$2) or user_id=$3',[dropLine,dropFind,s.id]))[0].n,0);
- assert.deepEqual([movedOpen,movedClosed,movedFindClosed,movedMissing,keepLineT].map(i=>byId.get(n(i)).status),['확인 중','반영','반영 안 함','신청','확인 중']);
+ assert.deepEqual([movedOpen,movedClosed,movedFindClosed,movedMissing,keepLineT,keepFindT].map(i=>byId.get(n(i)).status),['확인 중','반영','반영 안 함','신청','확인 중','신청']);
  assert.equal(byId.get(n(movedOpen)).who_name,'옛 이름');
  for(const [id,r] of byId)assert.equal(r.updated_at.toISOString(),stamp.get(id),'합치기가 정정 신청의 updated_at 을 바꿨다(담당자 화면의 「그사이 바뀜」 검사가 걸린다)');
  // 합친 뒤 옛 번호로 — 기기를 다시 등록해도 한 줄(api 의 upsert 와 같은 꼴), 새 기기·새 신청은 남는 쪽으로
