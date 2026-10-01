@@ -2098,7 +2098,7 @@ function renderMenu(){
         <div class="ic">💬</div>
         <div class="rep-text">
           <div class="ti">게시판 관리</div>
-          <div class="de">응원·기도·공감 답글·숨김·삭제</div>
+          <div class="de">응원·기도·공감 🚩신고·답글·숨김·삭제</div>
         </div>
         <div class="rep-arrow">›</div>
       </div>
@@ -3375,11 +3375,38 @@ function renderBoardAdmin(){
       .ba-reply-row{display:flex;gap:6px;margin-top:10px}
       .ba-in{flex:1;padding:8px 10px;border:1.5px solid #dde3ee;border-radius:9px;font-size:13px;font-family:inherit}
       .ba-reply-btn{padding:0 14px;border:none;border-radius:9px;background:#1a3a6b;color:#fff;font-weight:700;font-size:13px;cursor:pointer}
-    
+      .rp-item{border:1.5px solid #f0c9c0;border-radius:12px;padding:12px 14px;margin-bottom:12px;background:#fffaf8}
+      .rp-item.done{opacity:.55}
+      .rp-ex{font-size:14px;line-height:1.6;word-break:break-word}
+      .rp-photos{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+      .rp-photos img{width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid #dde3ee}
+      .rp-rs{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+      .rp-r{font-size:12px;font-weight:700;color:#8a3b2e;background:#fbe9e5;border-radius:999px;padding:2px 9px}
+      .rp-notes{margin:8px 0 0;padding-left:18px;font-size:13px;color:#4a4a4a}
+      .rp-notes li{margin:2px 0}
+
 </style>
     <div class="rep-head">
       <button class="back-btn" id="back">← 메뉴</button>
       <h2>💬 게시판 관리</h2>
+    </div>
+    <div class="push-card" id="rp-card">
+      <h3 style="margin:0 0 6px;font-size:15px" id="rp-head">🚩 신고</h3>
+      <p class="push-hint" style="margin-top:0">
+        성도님이 앱에서 「🚩 신고」한 글·답글입니다(처리 전 것만). <b>누가 신고했는지는 보이지 않습니다.</b><br>
+        <b>숨기기</b> = 글을 숨기고 신고를 닫음(숨김해제는 아래 목록에서) · <b>처리 완료</b> = 글은 그대로 두고 신고만 닫음.<br>
+        닫은 신고는 90일 뒤 저절로 지워집니다(개인정보 안내에 그렇게 적었습니다).
+      </p>
+      <div id="rp-list"><p style="text-align:center;color:#888;padding:16px">불러오는 중...</p></div>
+    </div>
+    <div class="push-card" id="ar-card">
+      <h3 style="margin:0 0 6px;font-size:15px" id="ar-head">🚩 AI 답 알림</h3>
+      <p class="push-hint" style="margin-top:0">
+        성도님이 「내게 주시는 말씀」 답 아래 「🚩 이 답 알리기」로 알린 것입니다(처리 전 것만 · 질문별로 묶음). <b>누가 알렸는지는 보이지 않습니다.</b><br>
+        <b>처리 완료</b> = 답은 그대로 두고 알림만 닫음 · <b>답 지우기</b> = 저장된 답(캐시)을 지워, 같은 질문이 다시 오면 AI 가 새로 만들게 하고 알림을 닫음.<br>
+        「서버가 준 답」 표시가 없는 것은 캐시에 없어 앱이 보낸 글입니다. 닫은 알림은 90일 뒤 저절로 지워집니다(개인정보 안내에 그렇게 적었습니다).
+      </p>
+      <div id="ar-list"><p style="text-align:center;color:#888;padding:16px">불러오는 중...</p></div>
     </div>
     <div class="push-card">
       <p class="push-hint">숨김 글도 모두 표시됩니다. 여기서 다는 답글은 <b>관리자</b> 배지가 붙어요.</p>
@@ -3402,9 +3429,109 @@ function renderBoardAdmin(){
       <div id="bw-res" class="msg" style="display:none"></div>
     </div>`;
   document.getElementById("back").addEventListener("click", renderMenu);
-  document.getElementById("ba-refresh").addEventListener("click", loadBoardAdmin);
+  document.getElementById("ba-refresh").addEventListener("click", ()=>{ loadBoardReports(); loadAnswerReports(); loadBoardAdmin(); });
   document.getElementById("bw-send").addEventListener("click", sendBoardNotice);
+  loadBoardReports();
+  loadAnswerReports();
   loadBoardAdmin();
+}
+// 🚩 AI 답 알림(2026-10-01) — 「내게 주시는 말씀」 답 알리기. 서버가 알린 분을 아예 싣지 않는다(몇 분인지만).
+//   구글 「AI 생성 콘텐츠」 정책: 앱 안에서 AI 답을 개발자에게 알리는 길 + 운영진이 본다. 표 supabase/sermon_answer_reports.sql
+async function loadAnswerReports(){
+  const box=document.getElementById("ar-list"), head=document.getElementById("ar-head");
+  if(!box) return;
+  const d=await callApi({action:"sermonAnswerReports",pw:getPw()}).catch(()=>({ok:false,error:"network"}));
+  if(d.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }
+  if(d.error==="not-ready"){
+    head.textContent="🚩 AI 답 알림";
+    box.innerHTML=`<p style="text-align:center;color:#888;padding:12px">알림 표가 아직 없습니다 — supabase/sermon_answer_reports.sql 을 먼저 실행하세요.</p>`;
+    return;
+  }
+  if(!d.ok){ box.innerHTML=`<p style="text-align:center;color:#b94a3a;padding:12px">알림 목록을 불러오지 못했습니다: ${boardE(d.error||"?")}</p>`; return; }
+  const items=d.items||[], labels=d.labels||{};
+  head.textContent=`🚩 AI 답 알림 ${items.length}`;
+  if(!items.length){ box.innerHTML=`<p style="text-align:center;color:#888;padding:12px">처리할 알림이 없습니다. 🙏</p>`; return; }
+  box.innerHTML=items.map(it=>{
+    const reasons=Object.keys(it.reasons||{}).map(k=>`<span class="rp-r">${boardE(labels[k]||k)} ${Number(it.reasons[k])||0}</span>`).join("");
+    const notes=(it.notes||[]).map(n=>`<li>${boardE(n)}</li>`).join("");
+    const btn=(op,txt,cls)=>`<button data-id="${Number(it.id)}" data-op="${op}"${cls?` class="${cls}"`:""}>${txt}</button>`;
+    return `
+      <div class="rp-item">
+        <div class="ba-meta">🚩 <b>${Number(it.count)||0}분</b>이 알림 · 마지막 ${boardT(it.last_at)}${it.from_cache?' · <span style="color:#1a3a6b">서버가 준 답</span>':' · <span style="color:#8a6d1f">앱이 보낸 글</span>'}</div>
+        <div class="rp-ex"><b>질문</b> ${boardE(it.question)}</div>
+        <div class="rp-ex" style="margin-top:6px;white-space:pre-wrap"><b>답</b> ${boardE(it.answer)}</div>
+        <div class="rp-rs">${reasons}</div>
+        ${notes?`<ul class="rp-notes">${notes}</ul>`:""}
+        <div class="ba-actions">
+          ${btn("resolve","처리 완료")}
+          ${btn("uncache","답 지우기","ba-del")}
+        </div>
+      </div>`;
+  }).join("");
+  box.querySelectorAll(".ba-actions button").forEach(b=>b.addEventListener("click",()=>resolveAnswerReport(b)));
+}
+async function resolveAnswerReport(btn){
+  btn.disabled=true;
+  const d=await callApi({action:"sermonAnswerReportResolve",pw:getPw(),id:Number(btn.dataset.id),op:btn.dataset.op})
+    .catch(()=>({ok:false,error:"network"}));
+  if(d.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }
+  if(!d.ok){   // 시스템 창 대신 그 자리에 한 줄
+    btn.disabled=false;
+    btn.closest(".rp-item").insertAdjacentHTML("beforeend",`<div class="ba-meta" style="color:#b94a3a;margin-top:6px">처리하지 못했습니다: ${boardE(d.error||"오류")}</div>`);
+    return;
+  }
+  loadAnswerReports();
+}
+// 🚩 신고(2026-10-01) — 처리 전 신고를 글·답글별로. 서버가 신고한 분을 아예 싣지 않는다(몇 분인지만).
+async function loadBoardReports(){
+  const box=document.getElementById("rp-list"), head=document.getElementById("rp-head");
+  if(!box) return;
+  const d=await callApi({action:"boardReports",pw:getPw()}).catch(()=>({ok:false,error:"network"}));
+  if(d.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }
+  if(d.error==="not-ready"){
+    head.textContent="🚩 신고";
+    box.innerHTML=`<p style="text-align:center;color:#888;padding:12px">신고 표가 아직 없습니다 — supabase/board_reports.sql 을 먼저 실행하세요.</p>`;
+    return;
+  }
+  if(!d.ok){ box.innerHTML=`<p style="text-align:center;color:#b94a3a;padding:12px">신고 목록을 불러오지 못했습니다: ${boardE(d.error||"?")}</p>`; return; }
+  const items=d.items||[], labels=d.labels||{};
+  head.textContent=`🚩 신고 ${items.length}`;
+  if(!items.length){ box.innerHTML=`<p style="text-align:center;color:#888;padding:12px">처리할 신고가 없습니다. 🙏</p>`; return; }
+  box.innerHTML=items.map(it=>{
+    const what=it.kind==="reply"?"답글":"글";
+    const state=it.gone?"이미 지워짐":it.hidden?"숨김":it.deleted?"본인삭제":"";
+    const reasons=Object.keys(it.reasons||{}).map(k=>`<span class="rp-r">${boardE(labels[k]||k)} ${Number(it.reasons[k])||0}</span>`).join("");
+    const notes=(it.notes||[]).map(n=>`<li>${boardE(n)}</li>`).join("");
+    const photos=(it.photos||[]).filter(u=>/^https:\/\//.test(u))
+      .map(u=>`<a href="${htmlEsc(u)}" target="_blank" rel="noopener"><img src="${htmlEsc(u)}" alt="첨부 사진" loading="lazy"></a>`).join("");
+    const btn=(op,txt,cls)=>`<button data-kind="${it.kind}" data-id="${Number(it.id)}" data-op="${op}"${cls?` class="${cls}"`:""}>${txt}</button>`;
+    return `
+      <div class="rp-item${state?" done":""}">
+        <div class="ba-meta">🚩 <b>${Number(it.count)||0}분</b>이 신고 · ${what} #${Number(it.id)} · <b>${boardE(it.name)}</b> · 마지막 신고 ${boardT(it.last_at)}${state?` · <span style="color:#b94a3a">${state}</span>`:""}</div>
+        <div class="rp-ex">${it.excerpt?boardE(it.excerpt):'<i style="color:#888">(내용 없음)</i>'}</div>
+        ${photos?`<div class="rp-photos">${photos}</div>`:""}
+        <div class="rp-rs">${reasons}</div>
+        ${notes?`<ul class="rp-notes">${notes}</ul>`:""}
+        <div class="ba-actions">
+          ${(!it.hidden&&!it.gone)?btn("hide","숨기기","ba-del"):""}
+          ${btn("resolve","처리 완료")}
+        </div>
+      </div>`;
+  }).join("");
+  box.querySelectorAll(".ba-actions button").forEach(b=>b.addEventListener("click",()=>resolveBoardReport(b)));
+}
+async function resolveBoardReport(btn){
+  btn.disabled=true;
+  const d=await callApi({action:"boardReportResolve",pw:getPw(),kind:btn.dataset.kind,id:Number(btn.dataset.id),op:btn.dataset.op})
+    .catch(()=>({ok:false,error:"network"}));
+  if(d.error==="unauthorized"){ sessionStorage.removeItem(PW_KEY); renderLogin(); return; }
+  if(!d.ok){   // 시스템 창 대신 그 자리에 한 줄
+    btn.disabled=false;
+    btn.closest(".rp-item").insertAdjacentHTML("beforeend",`<div class="ba-meta" style="color:#b94a3a;margin-top:6px">처리하지 못했습니다: ${boardE(d.error||"오류")}</div>`);
+    return;
+  }
+  loadBoardReports();
+  if(btn.dataset.op==="hide") loadBoardAdmin();   // 아래 목록에도 「숨김」이 보이게
 }
 // 공지 올리기. rich(HTML)는 서버가 관리자 비번을 확인한 글에만 붙여 준다.
 async function sendBoardNotice(){

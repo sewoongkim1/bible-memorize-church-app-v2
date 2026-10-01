@@ -3310,6 +3310,108 @@ textarea.board-in-lg { min-height: 120px; }
 .board-reply-btn:hover { filter: brightness(1.1); }
 .board-reply-btn:disabled { opacity: 0.5; }
 
+/* 🚩 신고(2026-10-01) — 남의 글·답글 meta 줄 끝. 「삭제」와 같은 글자 단추라 눈에 덜 띄게 회색.
+   창은 앱의 확인 창(.am-overlay · .am-card)을 그대로 쓰고 안쪽만 더한다. 새 색을 만들지 않는다. */
+.board-report {
+  background: none; border: none; color: var(--gray); font-size: 12px;
+  cursor: pointer; padding: 4px 2px; text-decoration: underline; font-family: inherit;
+}
+.board-report:disabled { text-decoration: none; cursor: default; opacity: .75; }
+.rp-card { max-width: 380px; }
+.rp-reasons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 14px 0 10px; }
+/* 어르신 손가락 — 누를 칸은 48px 이상, 글씨는 확인 창 단추보다 한 단계 크게 */
+.rp-chip {
+  min-height: 48px; padding: 10px 8px; border-radius: 12px; cursor: pointer;
+  border: 1.5px solid var(--border); background: #fff; color: #333;
+  font-family: inherit; font-size: 15px; font-weight: 700; line-height: 1.3; word-break: keep-all;
+}
+/* 켬/끔은 색조가 아니라 밝기로 가른다(공감 칩과 같은 까닭) */
+.rp-chip.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+textarea.rp-note { min-height: 64px; font-size: 15px; }
+.rp-err { margin-top: 8px; color: #b94a3a; font-size: 14px; line-height: 1.5; text-align: center; word-break: keep-all; }
+html[data-fs="lg"] .rp-chip, html[data-fs="lg"] textarea.rp-note { font-size: 17px; }
+html[data-fs="xl"] .rp-chip, html[data-fs="xl"] textarea.rp-note { font-size: 19px; }
+html[data-fs="lg"] .board-report { font-size: 14px; }
+html[data-fs="xl"] .board-report { font-size: 16px; }
+.dark .board-report { color: #9fb0cc; }
+.dark .rp-chip { background: #2b352f; color: #cfd6d1; border-color: #3c463f; }
+.dark .rp-chip.on { background: #3d6b53; border-color: #3d6b53; color: #fff; }
+.dark .rp-err { color: #e69384; }
+.dark textarea.rp-note { background: #2b352f; border-color: #3c463f; color: #e6ecf7; }
+/* 신고 인사처럼 긴 토스트 — 공유 토스트는 한 줄 고정이라 360px 폰에서 넘친다 */
+.share-toast.wrap { white-space: normal; width: max-content; text-align: center; }
+
+/* 게시판 이용 규칙 · 🙈 가리기 · AI 답 알리기 · 보호자 확인(2026-10-01)
+   창은 확인 창·신고 창의 옷(.am-overlay · .am-card · .rp-*)을 그대로 쓰고 안쪽만 더한다. 새 색을 만들지 않는다.
+   어르신 손가락 — 누를 칸은 44px 이상, 글씨 크기 설정(data-fs)을 따라 커진다. */
+.board-rules-link {
+  margin-top: 6px; padding: 6px 12px; min-height: 36px; border: 1px solid #eadfbf; border-radius: 999px;
+  background: #fff; color: #8a6d1f; font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer;
+}
+.dark .board-rules-link { background: #2a2415; border-color: #4a4225; color: #cdbb88; }
+.bf-blocked {
+  display: block; width: 100%; margin: -4px 0 12px; padding: 8px; min-height: 40px;
+  border: 1.5px dashed var(--border); border-radius: 9px; background: transparent;
+  color: var(--gray); font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.dark .bf-blocked { border-color: #2b3a5a; color: #9fb0cc; }
+.br-card { max-width: 420px; max-height: calc(100vh - 48px); overflow-y: auto; }
+.br-lead { text-align: center; margin-bottom: 4px; }
+.br-rules { margin: 10px 0 12px; padding-left: 1.3em; font-size: 14.5px; line-height: 1.7; color: #333; word-break: keep-all; }
+.br-rules li { margin-bottom: 6px; }
+.br-agree { font-size: 15px; padding: 10px 0 2px; }
+.br-agree input, .gd-consent input, .guardian-consent input { width: 20px; height: 20px; }
+.br-done { text-align: center; font-weight: 700; color: var(--navy); margin-top: 4px; }
+.dark .br-rules { color: #d9dedb; }
+.dark .br-done { color: #cfe3d8; }
+.bb-list { margin: 12px 0 4px; max-height: 50vh; overflow-y: auto; }
+.bb-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+}
+.bb-name { font-weight: 700; font-size: 15px; word-break: keep-all; }
+.bb-undo {
+  flex: none; min-height: 44px; padding: 8px 14px; border-radius: 10px; cursor: pointer;
+  border: 1.5px solid var(--border); background: #fff; color: var(--navy);
+  font-family: inherit; font-size: 14px; font-weight: 700;
+}
+.bb-empty { text-align: center; color: var(--gray); padding: 10px 0; margin: 0; }
+.dark .bb-row { border-color: #3c463f; }
+.dark .bb-name { color: #e6ecf7; }
+.dark .bb-undo { background: #2b352f; color: #cfd6d1; border-color: #3c463f; }
+/* ⚠️ [hidden] 은 display 를 이기지 못한다 — 위에 display:block·flex 를 준 것은 숨김을 따로 적는다(화면 스모크에서 잡혔다) */
+.bf-blocked[hidden], .guardian-consent[hidden] { display: none; }
+.ar-reasons { grid-template-columns: 1fr; }
+.sc-flag {
+  display: block; margin: 10px auto 0; padding: 8px 14px; min-height: 44px;
+  border: none; background: none; color: var(--gray); cursor: pointer;
+  font-family: inherit; font-size: 13px; text-decoration: underline;
+}
+.sc-flag:disabled { text-decoration: none; cursor: default; opacity: .75; }
+.dark .sc-flag { color: #9fb0cc; }
+/* 보호자 확인 — 로그인 화면의 한 줄과, 웹 로그인 폼을 거치지 않은 분께 한 번 보이는 화면 */
+.guardian-consent { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); }
+.guardian-why { display: block; margin-top: 3px; font-weight: 500; color: #6a6a6a; font-size: .76rem; line-height: 1.5; }
+.dark .guardian-why { color: #aeb8c8; }
+.gd-body { color: #444; font-size: .98rem; line-height: 1.7; word-break: keep-all; margin: 0 0 6px; }
+.dark .gd-body { color: #c3ccd9; }
+.dark .gd-body b { color: #e6e9ef; }
+.gd-consent { justify-content: center; font-size: 1rem; margin: 12px 0 10px; }
+.gd-go { width: 100%; }
+.gd-later { width: 100%; margin-top: 10px; }
+html[data-fs="lg"] .br-rules { font-size: 16.5px; }
+html[data-fs="xl"] .br-rules { font-size: 18.5px; }
+html[data-fs="lg"] .br-agree, html[data-fs="lg"] .bb-name { font-size: 17px; }
+html[data-fs="xl"] .br-agree, html[data-fs="xl"] .bb-name { font-size: 19px; }
+html[data-fs="lg"] .bb-undo, html[data-fs="lg"] .board-rules-link,
+html[data-fs="lg"] .bf-blocked, html[data-fs="lg"] .sc-flag { font-size: 15px; }
+html[data-fs="xl"] .bb-undo, html[data-fs="xl"] .board-rules-link,
+html[data-fs="xl"] .bf-blocked, html[data-fs="xl"] .sc-flag { font-size: 17px; }
+html[data-fs="lg"] .gd-body, html[data-fs="lg"] .gd-consent { font-size: 1.1rem; }
+html[data-fs="xl"] .gd-body, html[data-fs="xl"] .gd-consent { font-size: 1.22rem; }
+html[data-fs="lg"] .guardian-why { font-size: .86rem; }
+html[data-fs="xl"] .guardian-why { font-size: .96rem; }
+
 /* =====================================================================
    암송 화면 상단 액션 바 정돈 (버튼이 문장·단계 표시 위로 올라간 뒤 여백/간격)
    ===================================================================== */
