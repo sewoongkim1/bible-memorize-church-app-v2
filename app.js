@@ -728,10 +728,17 @@ const MH_LIVE = true;   // 2026-10-01 운영 반영(사역 이력 확인 · 정�
 //   숨는 것: 묶음 제목 · 🤝 사역신청 · 🗂️ 사역 이력 확인(MH_LIVE 가 꺼졌을 때 「함께」에 서는 🤝 도). 시험 참여자도 숨는다.
 //   문(ministryVisible) 한 곳에서 막는다 — 두 화면은 첫 화면 단추로만 들어가고, 임명 알림도 첫 화면(/)을 연다.
 //   웹·아이폰 앱은 그대로다. 관리자 미리보기(?preview=ministry)는 문의 첫 줄이라 여기서도 열린다.
-//   ⚠️ 「플레이스토어 앱」은 isPlayStoreApp() — 기기에 적어 둔 표식이라 앱이 깔린 폰은 크롬 탭에서도 숨는다(TWA 와 저장소를 같이 쓴다).
-//   ⏰ 심사가 통과한 날 false 로 바꾸고 bump 한다.
+//   ⚠️ 「플레이스토어 앱」은 isPlayStoreApp() 하나로는 모자란다 — 기기에 적어 둔 표식이고 TWA 는 크롬과 저장소를 같이 써서,
+//      앱이 깔린 폰은 **크롬 탭에서도** 표식이 보인다(앱을 지운 뒤에도 남는다). 그래서 크롬 탭(isBrowserTab)은 뺀다 —
+//      「웹은 그대로」라는 결정대로. TWA 는 display "standalone"(android-app/twa-manifest.json)으로 돌고, 크롬 탭은 "browser" 다.
+//   NEW 배지(newestNewFeat)도 숨는 동안 "ministry" 를 세지 않는다 — 안 보이는 단추가 하나뿐인 NEW 를 가져가지 않게.
+//   ⏰ 심사가 통과한 날 false 로 바꾸고 bump → 푸시(CLAUDE.md 「플레이스토어 출시」 · store/README.md · docs/notes/ministry-history-check.md).
 const MINISTRY_HIDE_ON_PLAY = true;
-function ministryHiddenOnPlay() { return MINISTRY_HIDE_ON_PLAY && isPlayStoreApp(); }
+function ministryHiddenOnPlay() { return MINISTRY_HIDE_ON_PLAY && isPlayStoreApp() && !isBrowserTab(); }
+// 브라우저(크롬 등)의 보통 탭으로 열렸나 — matchMedia 가 없거나 던지면 「탭이 아니다」로 본다(숨기는 쪽 — 심사에는 그쪽이 안전하다).
+function isBrowserTab() {
+  try { return !!(window.matchMedia && window.matchMedia("(display-mode: browser)").matches); } catch (e) { return false; }
+}
 
 let passagesCache = null;
 async function loadPassages() {
@@ -1956,6 +1963,7 @@ function newestNewFeat() {
   let best = null;
   Object.keys(FEAT_SINCE).forEach((k) => {
     if (!featIsNew(k)) return;
+    if (k === "ministry" && ministryHiddenOnPlay()) return;   // 플레이스토어 앱에서 숨긴 동안 — 안 보이는 단추가 NEW 를 가져가지 않게
     if (!best || kstDayNumber(FEAT_SINCE[k]) > kstDayNumber(FEAT_SINCE[best])) best = k;
   });
   return best;
@@ -8443,6 +8451,8 @@ let _widgetPreview = false;
 // ⚠️ 이 줄이 나간 뒤 앱을 한 번도 안 연 분은 아직 모른다 — 모르면 안 보인다(없는 것을 안내하지 않는 쪽).
 // 「사역현황」 숨김(MINISTRY_HIDE_ON_PLAY · 2026-10-02)도 이것을 본다. loadVerses() 는 이 줄보다 아래에서 불리고
 // 서버를 기다린 뒤에야 첫 화면을 그리므로, 앱을 처음 여는 날도 이 줄이 먼저 돈다.
+// ⚠️ 표식은 앱을 지워도 남는다(크롬 저장소에 있어서). 사역현황 숨김은 크롬 탭(isBrowserTab)을 빼고 보므로
+//    그 폰의 크롬 탭에서는 그대로 보인다 — 남은 표식이 거기서는 해가 되지 않는다.
 const PLAY_APP_KEY = "play-store-app";
 try {
   if (/^android-app:\/\/kr\.onlybible\.gocheok\.memorize/.test(document.referrer || "")) localStorage.setItem(PLAY_APP_KEY, "1");

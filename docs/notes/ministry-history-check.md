@@ -35,3 +35,14 @@
 - **알림은 없다.** 처리해도 성도님께 푸시·메일이 가지 않는다 — 신청자는 정정 신청 화면에서 상태를 다시 봐야 안다.
 - **[그 줄 열기]는 새 탭으로 연다**(`target="_blank"`) — 같은 탭으로 가면 처리 창이 닫혀 적던 답이 사라진다. b6(사역 이력) 세션의 `?row`·`?q` 를 기다린다 — 아직 안 받으면 「📜 사역 이력」 첫 화면만 열린다(b6 에 부탁해 2026-10-01 ministry-history 가지 78b8760 에 들어감).
 - **직분은 정정하지 않는다** — 「직분이 틀려요」(`wrong_position`)는 앱 화면·교회 어드민 서버·SQL CHECK·시험 어디에도 없다(교적 기준 · 친구 결정). 줄마다 보이는 그해 명단의 직분은 그대로 보여 준다.
+
+## 플레이스토어 앱에서 숨김(2026-10-02)
+
+- **무엇:** 플레이스토어 앱(TWA) 창에서는 첫 화면 「사역현황」 묶음을 통째로 숨긴다 — 묶음 제목 · 🤝 사역신청 · 🗂️ 사역 이력 확인(`MH_LIVE` 가 꺼졌을 때 「함께」에 서는 🤝 도). 시험 참여자도 숨는다. NEW 배지(`newestNewFeat`)도 숨는 동안 `ministry` 를 세지 않는다 — 안 보이는 단추가 하나뿐인 NEW 를 가져가지 않게.
+- **왜:** 친구 요청 — 안드로이드 심사가 통과할 때까지. 숨는 곳은 **플레이스토어 앱뿐**이다(웹·아이폰 앱은 그대로) · 묶음 **통째로**(친구 결정).
+- **어떻게 가리나:** `app.js` `ministryHiddenOnPlay()` = `MINISTRY_HIDE_ON_PLAY && isPlayStoreApp() && !isBrowserTab()` 를 문(`ministryVisible()`)이 관리자 미리보기 줄 **바로 다음**에 본다(`?preview=ministry` 는 앱에서도 열린다). 두 화면은 첫 화면 단추로만 들어가므로 문 한 곳이면 된다 — `tests/ministry-history.test.cjs` 가 사역 단추 셋이 모두 `ministryVisible() && …` 안에 있는지 본다.
+  - `isPlayStoreApp()` 은 기기에 적어 둔 표식(`play-store-app` — TWA 가 열 때 주는 referrer `android-app://kr.onlybible.gocheok.memorize…` 를 보고 적는다)이다.
+- ⚠️ **크롬 탭은 뺀다(`isBrowserTab()` = `matchMedia('(display-mode: browser)')`).** TWA 는 크롬과 저장소를 같이 써서, 앱이 깔린 폰은 보통 크롬 탭에서도 표식이 보이고 **앱을 지워도 남는다** — 표식만 보면 그 폰의 웹에서도 숨어 「웹은 그대로」와 어긋난다. TWA 는 display `standalone`(`android-app/twa-manifest.json`), 크롬 탭은 `browser` 다. `matchMedia` 가 없거나 던지면 「탭이 아니다」로 본다(숨기는 쪽 — 심사에는 그쪽이 안전하다).
+  - 남는 틈(실기기 미확인): 앱이 깔린 폰에서 홈 화면에 따로 올린 웹앱(standalone)도 숨는다 · TWA 가 사이트 확인에 실패해 커스텀 탭으로 열리면(`fallbackType: customtabs`) `browser` 로 보여 묶음이 보일 수 있다.
+- ⏰ **되돌리기:** 플레이스토어 심사가 통과한 날 `app.js` `const MINISTRY_HIDE_ON_PLAY = false;` → `python tools/bump.py` → 푸시. 검사는 스위치의 지금 값을 박지 않아 그대로 통과한다. 같은 알림이 `CLAUDE.md` 「플레이스토어 출시」 줄 · `store/README.md` 「단체 계정」 진행 상황에 있다.
+- **일부러 그대로 둔 것:** 설정 「🔒 관리 페이지 → 🤝 사역관리 페이지」(`MANAGE_LINKS` — 담당자 입구이고 페이지가 스스로 암호를 받는다) · 앱 안 개인정보 안내의 사역 신청·「사역 이력 확인」 문구(모으는 것을 적은 글이라 숨기는 동안에도 사실이다).

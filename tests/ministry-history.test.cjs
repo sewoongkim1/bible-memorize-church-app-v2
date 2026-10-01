@@ -129,7 +129,20 @@ function pickConst(re, what) {
   assert.ok(m, 'app.js 에서 ' + what + ' 을 못 찾았다 — 이 검사가 낡았다');
   return m[0];
 }
-function doorCtx({ hide, play = false, preview = false, tester = false, period = { open: '2000-01-01', close: '2999-12-31' } }) {
+// display — 이 창이 어떤 모양으로 열렸나(matchMedia('(display-mode: …)') 가짜).
+//   'standalone' = 플레이스토어 앱(TWA · android-app/twa-manifest.json) · 'browser' = 크롬 보통 탭
+//   'throw' = matchMedia 가 던진다 · 'none' = matchMedia 가 없다
+function fakeWindow(display) {
+  if (display === 'none') return {};
+  return {
+    matchMedia: (q) => {
+      if (display === 'throw') throw new Error('matchMedia 고장');
+      const m = /\(display-mode:\s*([a-z-]+)\)/.exec(q);
+      return { matches: !!m && m[1] === display };
+    },
+  };
+}
+function doorCtx({ hide, play = false, display = 'standalone', preview = false, tester = false, period = { open: '2000-01-01', close: '2999-12-31' }, extra = [] }) {
   const store = {};
   if (play) store['play-store-app'] = '1';
   if (tester) store['ministry-tester::u1'] = '1';
@@ -138,6 +151,7 @@ function doorCtx({ hide, play = false, preview = false, tester = false, period =
     localStorage: { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } },
     location: { search: preview ? '?preview=ministry' : '' },
     loadUser: () => ({ user_id: 'u1' }),
+    window: fakeWindow(display),
   });
   const sw = pickConst(/const MINISTRY_HIDE_ON_PLAY = (?:true|false);/, 'MINISTRY_HIDE_ON_PLAY').replace(/true|false/, String(hide));
   vm.runInContext([
@@ -145,8 +159,9 @@ function doorCtx({ hide, play = false, preview = false, tester = false, period =
     pickConst(/const PLAY_APP_KEY = "[^"]+";/, 'PLAY_APP_KEY'),
     pickConst(/const MIN_PERIOD_KEY = "[^"]+";/, 'MIN_PERIOD_KEY'),
     pickConst(/const MIN_TESTER_KEY = "[^"]+";/, 'MIN_TESTER_KEY'),
-    pickFn('isPlayStoreApp'), pickFn('ministryPeriodCached'), pickFn('ministryTesterCached'),
+    pickFn('isPlayStoreApp'), pickFn('isBrowserTab'), pickFn('ministryPeriodCached'), pickFn('ministryTesterCached'),
     pickFn('ministryHiddenOnPlay'), pickFn('ministryVisible'),
+    ...extra,
   ].join('\n'), c);
   return c;
 }
@@ -174,6 +189,56 @@ test('스위치를 끄면(심사 통과한 날) 플레이스토어 앱에도 다
 
 test('관리자 미리보기(?preview=ministry)는 플레이스토어 앱에서도 열린다', () => {
   assert.equal(doorCtx({ hide: true, play: true, preview: true, period: null }).ministryVisible(), true);
+});
+
+test('플레이스토어 앱(표식 + standalone)은 숨는다 — 앱 창은 크롬 탭이 아니다', () => {
+  const c = doorCtx({ hide: true, play: true, display: 'standalone' });
+  assert.equal(c.isBrowserTab(), false);
+  assert.equal(c.ministryHiddenOnPlay(), true);
+  assert.equal(c.ministryVisible(), false, '플레이스토어 앱 창에 사역현황이 보인다');
+});
+
+test('앱이 깔린 폰의 크롬 탭(표식 + browser)은 그대로 보인다 — 「웹은 그대로」', () => {
+  const c = doorCtx({ hide: true, play: true, display: 'browser' });
+  assert.equal(c.isBrowserTab(), true);
+  assert.equal(c.ministryHiddenOnPlay(), false);
+  assert.equal(c.ministryVisible(), true, '크롬 탭인데 표식 때문에 사역현황이 숨었다');
+  assert.equal(doorCtx({ hide: true, play: true, display: 'browser', tester: true, period: null }).ministryVisible(), true, '크롬 탭 시험 참여자에게 안 보인다');
+});
+
+test('matchMedia 가 던지거나 없으면 크롬 탭이 아닌 것으로 본다 — 플레이스토어 앱은 숨는 쪽', () => {
+  for (const display of ['throw', 'none']) {
+    const c = doorCtx({ hide: true, play: true, display });
+    assert.equal(c.isBrowserTab(), false, display);
+    assert.equal(c.ministryHiddenOnPlay(), true, display);
+    assert.equal(c.ministryVisible(), false, display + ' — 플레이스토어 앱에 사역현황이 보인다');
+  }
+  assert.equal(doorCtx({ hide: true, play: false, display: 'throw' }).ministryVisible(), true, '표식이 없는 웹은 matchMedia 가 고장 나도 보인다');
+});
+
+// NEW 배지 — 하나뿐인 NEW 를 숨은 "ministry" 가 가져가면 안 된다.
+//   FEAT_SINCE 는 진짜 날짜 대신 「오늘 ministry · 어제 song」으로 바꿔 넣는다(오늘 날짜와 무관하게 돌게).
+function kstDate(ms) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
+}
+function featCtx(opts) {
+  pickConst(/const FEAT_SINCE = \{[\s\S]*?\n\};/, 'FEAT_SINCE');   // 이름이 바뀌면 낡았다고 알린다
+  const since = 'const FEAT_SINCE = ' + JSON.stringify({ ministry: kstDate(Date.now()), song: kstDate(Date.now() - 86400000) }) + ';';
+  return doorCtx({
+    ...opts,
+    extra: [
+      since,
+      pickConst(/const FEAT_NEW_DAYS = \d+;/, 'FEAT_NEW_DAYS'),
+      pickFn('kstDateParts'), pickFn('kstDayNumber'), pickFn('featSeen'), pickFn('featIsNew'), pickFn('newestNewFeat'),
+    ],
+  });
+}
+
+test('newestNewFeat — 플레이스토어 앱에서 숨은 동안 "ministry" 를 건너뛴다(다음으로 새것이 NEW)', () => {
+  assert.equal(featCtx({ hide: true, play: true, display: 'standalone' }).newestNewFeat(), 'song', '숨은 사역신청이 NEW 를 가져갔다');
+  assert.equal(featCtx({ hide: true, play: true, display: 'browser' }).newestNewFeat(), 'ministry', '크롬 탭은 원래대로');
+  assert.equal(featCtx({ hide: true, play: false }).newestNewFeat(), 'ministry', '웹은 원래대로');
+  assert.equal(featCtx({ hide: false, play: true }).newestNewFeat(), 'ministry', '스위치를 끄면 원래대로');
 });
 
 test('첫 화면의 사역 단추는 모두 문(ministryVisible) 뒤에 있다 — 새 단추가 문을 건너뛰면 플레이스토어 앱에 샌다', () => {

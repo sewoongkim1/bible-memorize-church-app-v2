@@ -694,6 +694,9 @@ registration fee"로 검색) → 정책 위반 점검 → Play Console에서 이
       이전 뒤 확인 둘: 대시보드에 「프로덕션 액세스 신청」 단계가 **없는지** · 「앱 무결성」 SHA-256 이
       `.well-known/assetlinks.json` 첫 줄과 같은지. 순서와 불확실한 것은
       `docs/analysis/2026-09-30-play-production-rejected-org-account.md`.
+- [ ] ⏰ **플레이스토어 심사가 통과한 날 app.js `MINISTRY_HIDE_ON_PLAY = false` → bump → 푸시**(사역현황 묶음이 플레이스토어 앱에서
+      다시 보인다) — 2026-10-02 심사 동안 플레이스토어 앱(TWA 창)에서만 숨겼다. 읽을 것 `docs/notes/ministry-history-check.md`
+      「플레이스토어 앱에서 숨김(2026-10-02)」
 
 ---
 
