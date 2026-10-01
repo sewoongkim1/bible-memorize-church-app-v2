@@ -2582,6 +2582,13 @@ function renderSummary() {
     <div class="grp-title">내 기록</div>
     <button class="summary-help" id="open-album">📖 나의 말씀 앨범</button>
     <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
+    ${/* 사역현황(2026-10-01 친구 요청) — 사역신청과 사역 이력 확인을 한 묶음으로.
+          둘 다 사역신청과 같은 문(ministryVisible — 미리보기·시험 참여자·신청 기간)이라 묶음 제목까지
+          한 조건으로 감싼다(둘 다 숨는 날 제목만 남지 않게). 🗂️ — 📜 는 「내 안에 거하는 말씀」이 쓴다.
+          설계 docs/superpowers/specs/2026-10-01-ministry-history-check-design.md §2 */""}
+    ${ministryVisible() ? `<div class="grp-title">사역현황</div>
+    <button class="summary-help" id="open-ministry">🤝 사역신청${newBadge("ministry")}</button>
+    <button class="summary-help" id="open-ministry-history">🗂️ 사역 이력 확인</button>` : ""}
     <div class="grp-title">함께</div>
     ${/* 이름은 관리자가 적는 값이라 날 HTML 로 그리지 않는다. boardEsc 를 빌려 쓴다 —
           escape 헬퍼를 하나 더 만들면 그만큼 갈라진다. 서버가 norm() 으로 줄바꿈을
@@ -2608,7 +2615,6 @@ function renderSummary() {
          그림처럼 보여 「액자」 느낌이 되살아난다는 지적(2026-09-11)으로 다시 바꿨다.
          시편 23편이 "여호와는 나의 목자시니"로 시작하니, 장소(물가)보다 인도받아
          쉰다는 이 시편의 핵심에 더 가깝다. -->
-    ${ministryVisible() ? `<button class="summary-help" id="open-ministry">🤝 사역신청${newBadge("ministry")}</button>` : ""}
     ${passagesVisible() ? `<button class="summary-help" id="open-passages">📜 내 안에 거하는 말씀${newBadge("passages")}</button>` : ""}
     <!-- 「더 보기」 — 자주 누르지 않는 넷을 접어 둔다(연 상태는 기억한다).
          ⚠️ 순서와 모양은 성도님이 직접 정하셨다(2026-09-10): 필사 → 퀴즈 → 찬양 → 설교,
@@ -2648,6 +2654,11 @@ function renderSummary() {
   if (minBtn) minBtn.addEventListener("click", () => {
     minLoaded = false;            // 들어올 때마다 서버에서 지금 상태를 받는다
     renderMinistry();
+  });
+  const mhBtn = document.getElementById("open-ministry-history");   // 사역신청과 같은 문 — 기간 밖에는 없다
+  if (mhBtn) mhBtn.addEventListener("click", () => {
+    mhLoaded = false;             // 들어올 때마다 서버에서 지금 상태를 받는다
+    renderMinistryHistory();
   });
   document.getElementById("open-pilsa").addEventListener("click", () => {
     pilsaLoaded = false;          // 들어올 때마다 서버에서 지금 상태를 받는다
@@ -11023,6 +11034,143 @@ function mhCheck(f) {
   return null;
 }
 // ── 사역 이력 확인 · 순수 끝 ──
+
+// ── 사역 이력 확인 · 화면 (2026-10-01) ──
+// ⚠️ 첫 화면 「사역현황」에서만 들어온다. 문은 서버가 다시 본다(closed → 「아직 열리지 않았어요」).
+// ⚠️ api.* 는 error 가 있으면 throw 한다 — 오류 글자는 e.message 다.
+let mhLoaded = false, mhData = null, mhErrCode = "";
+
+async function mhLoad(u) {
+  mhData = null; mhErrCode = "";
+  if (!window.api || !api.ministryHistoryMine) { mhErrCode = "old"; mhLoaded = true; return; }   // 옛 js/api.js
+  try {
+    mhData = await api.ministryHistoryMine(u.user_id, minPw());
+  } catch (e) {
+    mhErrCode = (e && e.message) || "net";
+  }
+  mhLoaded = true;
+}
+
+function renderMinistryHistory(keepScroll) {
+  const u = loadUser();
+  if (!u) { renderEntryScreen(); return; }
+  const appEl = document.getElementById("app");
+  const wireExit = function () { const b = document.getElementById("mh-exit"); if (b) b.onclick = renderSummary; };
+  if (!mhLoaded) {
+    // ⚠️ 여기에도 나가기를 둔다 — 통신이 멎으면 빠져나갈 길이 없어진다
+    appEl.innerHTML = '<div class="min-screen">' + minTitleHtml("사역 이력 확인") +
+      '<p class="msg" id="mh-loading">기록을 불러오는 중…</p><button class="min-ghost" id="mh-exit">나가기</button></div>';
+    window.scrollTo(0, 0);
+    wireExit();
+    // 그사이 나가셨으면 다시 그리지 않는다(첫 화면을 덮지 않게)
+    mhLoad(u).then(function () { if (document.getElementById("mh-loading")) renderMinistryHistory(); });
+    return;
+  }
+  if (!mhData) {
+    const msg = mhErrCode === "closed" ? mhErrText("closed")
+      : mhErrCode === "no-user" ? mhErrText("no-user")
+      : "기록을 불러오지 못했어요.<br>잠시 뒤 다시 열어 주세요.";
+    appEl.innerHTML = '<div class="min-screen">' + minTitleHtml("사역 이력 확인") +
+      '<p class="msg">' + msg + '</p><button class="min-ghost" id="mh-exit">나가기</button></div>';
+    window.scrollTo(0, 0);
+    wireExit();
+    return;
+  }
+  appEl.innerHTML = '<div class="min-screen mh-screen">' + minTitleHtml("사역 이력 확인", mhSubHtml(mhData.who)) +
+    mhBodyHtml(mhData) + '</div>';
+  window.scrollTo(0, keepScroll == null ? 0 : keepScroll);
+  wireExit();
+  wireMinistryHistory(u);
+}
+
+function wireMinistryHistory(u) {
+  const byId = {};
+  (mhData.rows || []).forEach(function (r) { byId[r.id] = r; });
+  document.querySelectorAll("#app [data-fix]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      const row = byId[Number(b.dataset.fix)];
+      if (row) mhAsk(u, row, "line");
+    });
+  });
+  const add = document.getElementById("mh-missing");
+  if (add) add.addEventListener("click", function () { mhAsk(u, null, "missing"); });
+  const find = document.getElementById("mh-find");
+  if (find) find.addEventListener("click", function () { mhAsk(u, null, "find_me"); });
+}
+
+// 정정 창 — 고르기(줄 정정) + 한 줄 설명(+ 빠진 사역은 연도·부서·팀). 사역신청 창(.min-d-*)과 같은 모양.
+// ⚠️ 브라우저 alert·prompt 를 쓰지 않는다. 오류는 창 안 한 줄(.mh-err)로 — 창 위에 창을 띄우지 않는다.
+function mhAsk(u, row, mode) {
+  if (mode !== "find_me" && mhOpenCount(mhData.requests) >= MH_OPEN_MAX) { minAlert(mhErrText("too-many")); return; }
+  const head = mode === "missing" ? "빠진 사역 알리기"
+    : mode === "find_me" ? "내 기록 찾아 주세요"
+    : minEsc(row.year + " · " + [row.committee, [row.team, row.role_title].filter(Boolean).join(" ")].filter(Boolean).join(" · "));
+  let kind = mode === "line" ? "" : mode;
+  const box = document.createElement("div");
+  box.className = "min-d-wrap";
+  box.innerHTML = '<div class="min-d-box" role="dialog" aria-modal="true">' +
+    '<div class="min-d-head"><div><div class="min-d-nm">' + head + '</div>' +
+      '<div class="min-d-com">' + (mode === "line" ? "무엇이 틀렸나요?" : "담당자가 확인한 뒤 바로잡아 드려요") + '</div></div></div>' +
+    '<div class="min-d-body">' +
+      (mode === "line" ? '<div class="mh-kinds">' + MH_LINE_KINDS.map(function (x) {
+        return '<button type="button" class="mh-kind" aria-pressed="false" data-kind="' + x.k + '">' + minEsc(x.t) + '</button>';
+      }).join("") + '</div>' : "") +
+      (mode === "missing"
+        ? '<label class="mh-l" for="mh-year">연도</label>' +
+          '<input class="min-alert-input mh-in" id="mh-year" inputmode="numeric" maxlength="4" placeholder="2024" autocomplete="off">' +
+          '<label class="mh-l" for="mh-team">부서 · 팀</label>' +
+          '<input class="min-alert-input mh-in" id="mh-team" maxlength="' + MH_TEAM_MAX + '" placeholder="찬양위원회 시온성가대" autocomplete="off">'
+        : "") +
+      '<label class="mh-l" for="mh-detail">한 줄 설명 <span class="mh-opt">' +
+        (mode === "line" ? "(「그 밖에」는 꼭 적어 주세요)" : "(적지 않으셔도 돼요)") + '</span></label>' +
+      '<textarea class="mh-ta" id="mh-detail" rows="3" maxlength="' + MH_DETAIL_MAX + '" placeholder="예: 그해에는 알토로 섬겼어요"></textarea>' +
+      '<p class="mh-err" id="mh-err" hidden></p>' +
+    '</div>' +
+    '<div class="min-d-foot min-d-foot-row"><button class="min-ghost" data-cancel>그만두기</button>' +
+      '<button class="min-cta" data-ok' + (mode === "line" ? " disabled" : "") + '>신청</button></div></div>';
+  document.body.appendChild(box);
+  const ok = box.querySelector("[data-ok]");
+  const errEl = box.querySelector("#mh-err");
+  const showErr = function (code) { errEl.textContent = mhErrText(code); errEl.hidden = false; };
+  function close() {
+    document.removeEventListener("keydown", esc);
+    if (box.parentNode) box.parentNode.removeChild(box);
+  }
+  const esc = function (e) { if (e.key === "Escape") { e.preventDefault(); close(); } };
+  document.addEventListener("keydown", esc);
+  box.addEventListener("click", function (e) { if (e.target === box) close(); });
+  box.querySelector("[data-cancel]").addEventListener("click", close);
+  box.querySelectorAll(".mh-kind").forEach(function (b) {
+    b.addEventListener("click", function () {
+      kind = b.dataset.kind;
+      box.querySelectorAll(".mh-kind").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+      ok.disabled = false;
+    });
+  });
+  ok.addEventListener("click", async function () {
+    const f = {
+      kind: kind, history_id: row ? row.id : null,
+      detail: box.querySelector("#mh-detail").value,
+      year: mode === "missing" ? box.querySelector("#mh-year").value : null,
+      team_text: mode === "missing" ? box.querySelector("#mh-team").value : "",
+    };
+    const bad = mhCheck(f);
+    if (bad) { showErr(bad); return; }
+    ok.disabled = true;
+    try {
+      await api.ministryHistoryRequest(u.user_id, f, minPw());
+    } catch (e) {
+      ok.disabled = false;
+      showErr(e && e.message);
+      return;
+    }
+    close();
+    const y = window.scrollY;
+    await mhLoad(u);
+    renderMinistryHistory(y);
+    minAlert("정정 신청을 냈어요.\n담당자가 확인한 뒤 바로잡아 드려요.");
+  });
+}
 
 // 칩 한 줄. ⚠️ 새 색을 만들지 않는다 — 켜진 칩만 남색, 꺼진 칩은 흰 바탕.
 // 남색 채움(지금 할 일)·금색(도전)은 건드리지 않는다.

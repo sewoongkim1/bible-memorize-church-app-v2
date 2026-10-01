@@ -4892,6 +4892,46 @@ body.pr-full-on { overflow: hidden; }
 .dark .min-sent-r { background: #232c3f; border-color: #3a4a68; }
 .dark .min-sent-n { color: #e8ecf5; }
 
+/* 사역 이력 확인(2026-10-01) — 해마다 묶은 기록 줄 + [정정]. 새 색을 만들지 않는다(연한 바탕·남색 선만).
+   ⚠️ 기록 줄은 「읽는 줄」이라 줄 전체를 단추로 만들지 않는다 — 누르는 것은 오른쪽 [정정] 하나. */
+.mh-year { background: var(--light); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; }
+.mh-year-t { font-size: .82rem; font-weight: 800; color: var(--navy); margin-bottom: 2px; }
+.mh-row { display: flex; align-items: center; gap: 10px; margin-top: 6px; padding: 9px 12px;
+  background: var(--white); border: 1.5px solid var(--border); border-radius: 10px; }
+.mh-what { flex: 1; min-width: 0; font-size: .92rem; font-weight: 700; color: #222; word-break: keep-all; }
+.mh-dot { color: var(--gray); font-weight: 500; }
+.mh-fix { flex: none; font: inherit; font-size: .82rem; font-weight: 700; padding: 6px 12px; cursor: pointer;
+  color: var(--navy); background: var(--white); border: 1.5px solid var(--navy); border-radius: 999px; }
+.mh-tag { flex: none; margin-top: 0; }
+.mh-empty { text-align: center; color: var(--gray); margin: 18px 0; }
+.mh-add { margin: 4px 0 14px; }
+.mh-none { margin-bottom: 12px; line-height: 1.65; }
+.mh-req { margin-top: 8px; padding: 10px 12px; background: var(--white);
+  border: 1.5px solid var(--border); border-radius: 10px; }
+.mh-req-h { font-size: .9rem; font-weight: 700; color: #222; margin-bottom: 4px; word-break: keep-all; }
+.mh-req-d { font-size: .84rem; color: var(--gray); margin-bottom: 8px; word-break: keep-all; }
+.mh-steps { margin: 6px 2px 2px; }
+.mh-ans { font-size: .84rem; color: #333; margin-top: 8px; word-break: keep-all; }
+.mh-kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 4px; }
+.mh-kind { font: inherit; font-size: .9rem; font-weight: 700; padding: 11px 8px; border-radius: 10px; cursor: pointer;
+  color: var(--navy); background: var(--white); border: 1.5px solid var(--border); word-break: keep-all; }
+.mh-kind[aria-pressed="true"] { color: #fff; background: var(--navy); border-color: var(--navy); }
+.mh-l { display: block; font-size: .8rem; font-weight: 800; color: var(--gray); margin: 12px 0 4px; }
+.mh-opt { font-weight: 500; }
+.mh-in { margin-top: 0; text-align: left; }
+.mh-ta { display: block; width: 100%; font: inherit; font-size: .95rem; padding: 10px; resize: vertical;
+  border: 1.5px solid var(--border); border-radius: 10px; background: var(--cream); color: #222; }
+.mh-err { color: #c0392b; font-size: .84rem; margin: 8px 0 0; }
+.dark .mh-year { background: #1e2637; }
+.dark .mh-year-t { color: #cfe0ff; }
+.dark .mh-row, .dark .mh-req { background: #232c3f; border-color: #3a4a68; }
+.dark .mh-what, .dark .mh-req-h { color: #e8ecf5; }
+.dark .mh-ans { color: #d8dee8; }
+.dark .mh-fix, .dark .mh-kind { background: #1b2233; color: #cfe0ff; border-color: #3a4a68; }
+.dark .mh-kind[aria-pressed="true"] { background: var(--navy); color: #fff; border-color: var(--navy); }
+.dark .mh-ta { background: #1b2233; border-color: #3a4a68; color: #e8ecf5; }
+.dark .mh-err { color: #ff8a7a; }
+
 /* 택1 안내를 넘겨 고른 것 — 막지 않고 보이게만 한다 */
 .min-over { background: #fbf1d8; color: #7a5f1e; }
 .min-over b { color: #7a5f1e; }

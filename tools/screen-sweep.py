@@ -138,6 +138,20 @@ STEPS = [
     #    안에서 떠 있는 .cheer-overlay를 지운다(그 사이 다른 코드가 끼어들 틈이 없다).
     ("39-song", ["document.querySelectorAll('.cheer-overlay').forEach(function(el){el.remove()}); "
                  "openSongModal({id:'y4I3e18fkI4',song:'변함없는 은혜',choir:'임마누엘찬양대',svc_date:'2026-03-22',duration:'3:40',thumbnail:''})"]),
+    # 사역 이력 확인(2026-10-01) — 문(시험 참여자·기간)이 닫힌 개발 계정이라 단추 대신 화면을 직접 그린다.
+    #   기록 있음 · 찾지 못함 · 정정 창. 자료는 지어낸 것(서버를 부르지 않는다 — mhLoaded=true 로 막는다).
+    ("40-ministry-history", ["mhLoaded=true; mhData={ok:true,who:{type:'교구',gu:'믿음',mok:'99',name:'화면점검'},found:true,"
+                             "rows:[{id:1,year:2026,committee:'교육위원회',team:'유년부',role_title:'교사',position:'집사'},"
+                             "{id:2,year:2026,committee:'찬양위원회',team:'시온성가대',role_title:'',position:'집사'},"
+                             "{id:3,year:2025,committee:'봉사위원회',team:'주차팀',role_title:'',position:'집사'}],"
+                             "requests:[{id:9,history_id:2,kind:'wrong_position',detail:'그해에는 권사였어요',year:null,team_text:'',status:'확인 중',answer:'',created_at:''},"
+                             "{id:8,history_id:null,kind:'missing',detail:'',year:2023,team_text:'찬양위원회 호산나찬양대',status:'반영 안 함',answer:'2023 명단 원본에 없어 부서에 여쭤보고 있어요',created_at:''}]}; "
+                             "renderMinistryHistory();"]),
+    ("41-ministry-history-none", ["mhLoaded=true; mhData={ok:true,who:{type:'교구',gu:'믿음',mok:'99',name:'화면점검'},found:false,rows:[],requests:[]}; "
+                                  "renderMinistryHistory();"]),
+    ("42-ministry-history-ask", ["mhLoaded=true; mhData={ok:true,who:{type:'교구',gu:'믿음',mok:'99',name:'화면점검'},found:true,"
+                                 "rows:[{id:1,year:2026,committee:'교육위원회',team:'유년부',role_title:'교사',position:'집사'}],requests:[]}; "
+                                 "renderMinistryHistory(); mhAsk(loadUser(), mhData.rows[0], 'line');"]),
     ("P1-privacy-page", ["GOTO privacy/"]),
     ("P2-quiz-page", ["GOTO quiz/"]),
     ("P3-guide-page", ["GOTO guide/"]),
