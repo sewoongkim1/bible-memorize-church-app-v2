@@ -118,7 +118,7 @@ b6 설계 §7 약속 그대로: `ministry_history` 에서 `person_id = $1 and de
 
 ## 8. 다른 세션과의 약속
 
-- **b6:** §2.2 읽기 · `peopleLink` kind `history` 는 b6 `history-match.ts` 의 `historyLinkPatch`/`historyUnlinkPatch` 를 쓴다 · **이력으로 넘길 때(b6 §8) 이 잇기 표(`people_links` kind `order`)의 `person_id`·`link_how` 를 그대로 옮긴다** · SQL 번호는 b6 005, 이쪽 006·007 · 「표가 열렸다」 알림을 받으면 사역 탭이 지난 해를 붙인다(그 전엔 올해 신청만).
+- **b6:** §2.2 읽기 · `peopleLink` kind `history` 는 b6 `history-match.ts`(순수)의 `historyLinkPatch`/`historyUnlinkPatch` 를 쓰고, 풀기 뒤 그 줄 다시 맞추기는 `history-db.ts` 의 `rematchHistoryRows(db, ids)`(auto 줄만 고치고 바꾼 수를 돌려줌)를 부른다 · **이력으로 넘길 때(b6 §8) 이 잇기 표(`people_links` kind `order`)의 `person_id`·`link_how` 를 그대로 옮긴다** · SQL 번호는 b6 005, 이쪽 006·007 · 「표가 열렸다」 알림을 받으면 사역 탭이 지난 해를 붙인다(그 전엔 올해 신청만).
 - **e5:** 성경필사 서버의 명단 읽기·올리기·더하기·고치기에 「그때그때 잇기」 한 줄(`linkSignups(rows, idx)`)이 들어간다 · 「…」 옮겨 적기는 규칙상 「맞음」이 되어 저절로 이어진다(따로 사람 잇기 없음).
 
 ## 9. 시험
