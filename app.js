@@ -4149,6 +4149,7 @@ function renderBoard() {
     ? `✍️ <b>${boardEsc(who)}</b> <span class="board-who-sub">성도님</span>`
     : `✍️ <b>익명</b>`;
   boardPhotos = [];   // 게시판을 새로 열면 고르던 사진은 비운다
+  boardRulesServer = undefined;   // 공용 기기에서 앞사람의 「동의함」이 남지 않게 — loadBoard 가 다시 채운다
   renderBoardPhotoTray();
   const fileEl = document.getElementById("bp-file");
   document.getElementById("bp-add-photo").addEventListener("click", () => fileEl.click());
