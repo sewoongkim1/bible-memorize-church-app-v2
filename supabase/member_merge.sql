@@ -1,5 +1,16 @@
 -- member_profile.sql 다음. 개발 검증 후 운영에 적용한다.
 -- 실제 병합은 관리자 미리보기/동일인 확인을 거친 RPC 호출에서만 수행한다.
+--
+-- ■ 실행 순서(개발 먼저 → 운영) — 여러 번 돌려도 안전하다(create or replace · 트리거는 지우고 다시 단다)
+--   1) schema.sql · app_config.sql · member_profile.sql (처음 한 번)
+--   2) 사용자 연관 표·칸을 만드는 SQL — users_consents.sql · board_blocks.sql · board_reports.sql ·
+--      sermon_answer_reports.sql (2026-10-01). ⚠️ 표가 **먼저** 있어야 아래 쓰기 연결 트리거가 그 표에 붙는다.
+--   3) 이 파일 전체
+--   4) **개발에서만** supabase/tests/member_merge_consents.dev.sql — 가상 성도로 가리기·신고·AI 답 알림·동의 날짜를
+--      합쳐 보고 전부 되돌린다(BEGIN … ROLLBACK). 「통과」 한 줄이 나오거나 오류 없이 끝나야 한다. 운영에서는 돌리지 않는다.
+--   ⚠️ 새 사용자 연관 표를 만들면 ① 합치기 본체의 옮기기 ② 두 허용 목록(FK·user_id) ③ member_merge_counts
+--      ④ 쓰기 연결 트리거 — 넷을 함께 더하고 이 파일을 다시 돌린다. 빠뜨리면 그 기록이 있는 계정은
+--      merge-unsupported-records 로 멈춘다(기록은 안 잃는다 — 2026-10-01 가리기·신고·AI 답 알림이 그랬다).
 begin;
 create table if not exists public.user_merges (
   source_user_id uuid primary key,
@@ -56,6 +67,18 @@ begin
     create trigger redirect_merged_member_write before insert or update on public.rank_cheers
       for each row execute function public.redirect_merged_member_write('from_user_id','target_user_id');
   end if;
+  -- 2026-10-01 — 사용자 칸 이름이 user_id 가 아닌 표(구글 출시 심사 전): 가리기 · 게시판 신고 · AI 답 알림
+  if to_regclass('public.board_blocks') is not null then
+    drop trigger if exists redirect_merged_member_write on public.board_blocks;
+    create trigger redirect_merged_member_write before insert or update on public.board_blocks
+      for each row execute function public.redirect_merged_member_write('blocker_id','blocked_id');
+  end if;
+  foreach t in array array['board_reports','sermon_answer_reports'] loop
+    if to_regclass('public.' || t) is not null then
+      execute format('drop trigger if exists redirect_merged_member_write on public.%I', t);
+      execute format('create trigger redirect_merged_member_write before insert or update on public.%I for each row execute function public.redirect_merged_member_write(''reporter_id'')', t);
+    end if;
+  end loop;
 end $$;
 
 create or replace function public.member_merge_counts(p_id uuid)
@@ -74,6 +97,19 @@ begin
       result := result || jsonb_build_object(t,n);
     end if;
   end loop;
+  -- 사용자 칸 이름이 다른 표(2026-10-01). 가리기는 가린 줄과 가려진 줄을 함께 센다(합치면 둘 다 옮긴다).
+  if to_regclass('public.board_blocks') is not null then
+    select count(*) into n from public.board_blocks where blocker_id=p_id or blocked_id=p_id;
+    result := result || jsonb_build_object('board_blocks',n);
+  end if;
+  if to_regclass('public.board_reports') is not null then
+    select count(*) into n from public.board_reports where reporter_id=p_id;
+    result := result || jsonb_build_object('board_reports',n);
+  end if;
+  if to_regclass('public.sermon_answer_reports') is not null then
+    select count(*) into n from public.sermon_answer_reports where reporter_id=p_id;
+    result := result || jsonb_build_object('sermon_answer_reports',n);
+  end if;
   return result;
 end;
 $$;
@@ -135,7 +171,8 @@ begin
       ('public.user_merges'::regclass,'public.user_identity_aliases'::regclass,'public.user_profile_changes'::regclass)
   loop
     if ref.tbl::text not in ('progress','challenge_log','reviews','passage_progress','blessing_log','feature_log',
-      'push_subscriptions','board_posts','board_replies','event_signups') then
+      'push_subscriptions','board_posts','board_replies','event_signups',
+      'board_blocks','board_reports','sermon_answer_reports') then
       execute format('select count(*) from %s where %I::text=$1',ref.tbl,ref.col) into n using s.id::text;
       if n>0 then return jsonb_build_object('ok',false,'error','merge-unsupported-records'); end if;
     end if;
@@ -146,7 +183,8 @@ begin
     where c.table_schema='public' and b.table_type='BASE TABLE' and c.column_name='user_id'
       and c.table_name not in ('progress','challenge_log','reviews','passage_progress','blessing_log','feature_log',
         'push_subscriptions','board_posts','board_replies','board_reactions','event_entries',
-        'daily_activity','pilsa_orders','ministry_orders','event_signups','user_identity_aliases','user_profile_changes')
+        'daily_activity','pilsa_orders','ministry_orders','event_signups','user_identity_aliases','user_profile_changes',
+        'board_blocks','board_reports','sermon_answer_reports')
   loop
     execute format('select count(*) from public.%I where %I::text=$1',ref.tbl,ref.col) into n using s.id::text;
     if n>0 then return jsonb_build_object('ok',false,'error','merge-unsupported-records'); end if;
@@ -208,6 +246,48 @@ begin
     delete from public.rank_cheers where target_user_id=s.id::text or from_user_id=s.id::text;
     delete from public.rank_cheers where target_user_id=t.id::text and from_user_id=t.id::text;
   end if;
+  -- 게시판 가리기(2026-10-01 board_blocks.sql) — 응원처럼 두 사람 사이의 줄이다. 가린 쪽·가려진 쪽 칸을 모두 남는 번호로.
+  -- 두 계정 사이의 줄(원본↔대상)은 옮기면 자기 자신을 가리게 되므로 버린다(CHECK board_blocks_not_self).
+  -- 같은 분을 두 계정이 다 가렸으면(또는 같은 분이 두 계정을 다 가렸으면) 남는 쪽 줄 하나만(unique board_blocks_once).
+  if to_regclass('public.board_blocks') is not null then
+    insert into public.board_blocks(blocker_id,blocked_id,blocked_name,created_at)
+      select case when blocker_id=s.id then t.id else blocker_id end,
+        case when blocked_id=s.id then t.id else blocked_id end,blocked_name,created_at
+      from public.board_blocks where (blocker_id=s.id or blocked_id=s.id)
+        and not (blocker_id in (s.id,t.id) and blocked_id in (s.id,t.id))
+      on conflict(blocker_id,blocked_id) do nothing;
+    delete from public.board_blocks where blocker_id=s.id or blocked_id=s.id;
+  end if;
+  -- 게시판 신고 · AI 답 알림(2026-10-01) — 줄 번호와 처리 상태를 지킨 채 신고한 분만 옮긴다(관리자가 줄 번호로 처리한다).
+  -- 같은 글(답글) · 같은 질문을 두 계정이 다 신고했으면 한 줄만 남긴다(unique — 한 분이 한 번만):
+  --   처리 전 줄이 원본에만 있으면 그 줄을 남기고(처리 전 신고가 관리자 목록에서 사라지면 안 된다), 아니면 남는 쪽 줄을 남긴다.
+  if to_regclass('public.board_reports') is not null then
+    delete from public.board_reports b using public.board_reports a
+      where a.reporter_id=s.id and b.reporter_id=t.id and b.post_id=a.post_id
+        and coalesce(b.reply_id,0)=coalesce(a.reply_id,0) and a.resolved_at is null and b.resolved_at is not null;
+    delete from public.board_reports a where a.reporter_id=s.id and exists(select 1 from public.board_reports b
+      where b.reporter_id=t.id and b.post_id=a.post_id and coalesce(b.reply_id,0)=coalesce(a.reply_id,0));
+    update public.board_reports set reporter_id=t.id where reporter_id=s.id;
+  end if;
+  if to_regclass('public.sermon_answer_reports') is not null then
+    delete from public.sermon_answer_reports b using public.sermon_answer_reports a
+      where a.reporter_id=s.id and b.reporter_id=t.id and md5(b.question)=md5(a.question)
+        and a.resolved_at is null and b.resolved_at is not null;
+    delete from public.sermon_answer_reports a where a.reporter_id=s.id and exists(select 1 from public.sermon_answer_reports b
+      where b.reporter_id=t.id and md5(b.question)=md5(a.question));
+    update public.sermon_answer_reports set reporter_id=t.id where reporter_id=s.id;
+  end if;
+  -- 보호자 확인 · 게시판 이용 규칙 동의 날짜(2026-10-01 users_consents.sql) — users 칸이라 남는 쪽 행에 받아 둔다.
+  --   보호자 확인은 「처음 한 번」 — 남는 쪽에 있으면 그대로, 없으면 원본 날짜(coalesce).
+  --   규칙 동의는 「마지막」 — 더 늦은 날짜(greatest 는 null 을 건너뛴다). 서버가 BOARD_RULES_SINCE 보다 이르면 다시 묻기
+  --   때문에, 남는 쪽의 옛 동의를 고집하면 원본에서 새 규칙에 동의한 분께 한 번 더 묻게 된다.
+  --   칸이 없는 DB(users_consents.sql 전)에서는 건너뛴다. user_merges.source_profile 에는 원본 날짜가 그대로 남는다.
+  --   (칸 확인은 pg_attribute 로 — information_schema 는 부르는 역할의 권한으로 걸러 보여 주어, 권한이 어긋나면 조용히 건너뛴다.)
+  if (select count(*) from pg_attribute where attrelid='public.users'::regclass
+      and attname in ('guardian_ok_at','board_rules_at') and attnum>0 and not attisdropped)=2 then
+    update public.users u set guardian_ok_at=coalesce(u.guardian_ok_at,s.guardian_ok_at),
+      board_rules_at=greatest(u.board_rules_at,s.board_rules_at) where u.id=t.id;
+  end if;
   -- 로그/게시물/신청/구독은 행을 삭제하거나 다시 생성하지 않고 소유자만 옮긴다.
   for ref in select table_name,data_type from information_schema.columns where table_schema='public'
     and column_name='user_id' and table_name in ('challenge_log','board_posts','board_replies',
@@ -231,6 +311,8 @@ begin
   update public.user_merges set target_user_id=t.id where target_user_id=s.id;
   insert into public.user_merges(source_user_id,target_user_id,source_profile,target_profile,reason)
     values(s.id,t.id,to_jsonb(s),to_jsonb(t),p_reason);
+  -- user_merges 에는 합치기 **전** 두 프로필을 남겼다. 이력과 돌려주는 user 는 받아 둔 동의 날짜가 든 지금 행으로.
+  select * into t from public.users where id=t.id;
   insert into public.user_profile_changes(user_id,before_profile,after_profile,reason)
     values(t.id,to_jsonb(s),to_jsonb(t),'기록 합치기: ' || p_reason);
   delete from public.users where id=s.id;

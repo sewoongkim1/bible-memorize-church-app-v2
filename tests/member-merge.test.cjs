@@ -36,6 +36,8 @@ before(async()=>{
  const daily=read('supabase/daily-activity.sql');
  await db.exec(daily.slice(daily.indexOf('create or replace function daily_activity_sync()'),daily.indexOf('-- 3)')));
  await db.exec(read('supabase/member_profile.sql'));
+ // 2026-10-01 구글 출시 심사 전 — 실제 파일 그대로(칸·unique·CHECK 가 운영과 같게). 합치기 SQL 보다 먼저 있어야 쓰기 연결 트리거가 붙는다.
+ for(const f of ['users_consents','board_blocks','board_reports','sermon_answer_reports'])await db.exec(read(`supabase/${f}.sql`));
  await db.exec(read('supabase/member_merge.sql'));
  await db.exec(read('supabase/member_merge.sql'));
  await db.exec('grant all on all tables in schema public to service_role;grant usage,select on all sequences in schema public to service_role');
@@ -92,6 +94,66 @@ test('merge preserves both histories, max per-language stage, latest review, uni
  const third=await login(profile('최종성도'));assert.equal((await merge(t,third)).ok,true);
  assert.equal((await login(profile('이전성도'))).id,third.id);
  assert.equal((await query('select target_user_id from user_merges where source_user_id=$1',[s.id]))[0].target_user_id,third.id);
+});
+
+test('merge carries board blocks, board reports, AI answer flags and consent dates (2026-10-01)',async()=>{
+ const s=await login(profile('가리기이전')),t=await login(profile('가리기현재')),x=await login(profile('가리기셋째')),y=await login(profile('가리기넷째'));
+ const block=async(a,b,name)=>(await query('insert into board_blocks(blocker_id,blocked_id,blocked_name) values($1,$2,$3) returning id',[a.id,b.id,name]))[0].id;
+ // 옮기기만(셋째) · 두 계정 사이(버림) · 옮기면 겹침(넷째 — 남는 쪽 줄)
+ await block(s,x,'s>x');await block(x,s,'x>s');await block(s,t,'s>t');await block(t,s,'t>s');
+ await block(s,y,'s>y');const keepTY=await block(t,y,'t>y');await block(y,s,'y>s');const keepYT=await block(y,t,'y>t');
+ const [p1,p2,p3]=(await query("insert into board_posts(user_id,name) values($1,'글1'),($1,'글2'),($1,'글3') returning id",[x.id])).map(r=>r.id);
+ const r1=(await query("insert into board_replies(user_id,name) values($1,'답1') returning id",[x.id]))[0].id;
+ const report=async(post,reply,u,reason,resolved)=>(await query(
+  'insert into board_reports(post_id,reply_id,reporter_id,reason,resolved_at,resolution) values($1,$2,$3,$4,$5,$6) returning id',
+  [post,reply,u.id,reason,resolved?'2026-09-30T00:00:00Z':null,resolved?'kept':null]))[0].id;
+ await report(p1,null,s,'spam',false);const keepT1=await report(p1,null,t,'other',false);        // 둘 다 열림 → 남는 쪽
+ const openS=await report(p1,r1,s,'privacy',false);await report(p1,r1,t,'spam',true);              // 원본만 열림 → 열린 줄
+ const movedS=await report(p2,null,s,'inappropriate',true);                                          // 원본만 → 그대로 옮김
+ const flag=async(u,q,reason)=>(await query("insert into sermon_answer_reports(reporter_id,question,answer,reason) values($1,$2,'답',$3) returning id",[u.id,q,reason]))[0].id;
+ await flag(s,'같은 질문','wrong');const keepTQ=await flag(t,'같은 질문','other');const movedQ=await flag(s,'다른 질문','offensive');
+ await query("update users set guardian_ok_at='2026-09-30T01:00:00Z',board_rules_at='2026-10-01T03:00:00Z' where id=$1",[s.id]);
+ const preview=(await query('select admin_preview_member_merge($1,$2,$3) r',[s.id,s.identity_key,t.identity_key]))[0].r;
+ assert.deepEqual([preview.source_counts.board_blocks,preview.target_counts.board_blocks],[6,4]);
+ assert.deepEqual([preview.source_counts.board_reports,preview.target_counts.board_reports],[3,2]);
+ assert.deepEqual([preview.source_counts.sermon_answer_reports,preview.target_counts.sermon_answer_reports],[2,1]);
+ await db.exec('set role service_role');
+ let result;try{result=await merge(s,t)}finally{await db.exec('reset role')}
+ assert.equal(result.ok,true,JSON.stringify(result));
+ assert.deepEqual([result.after_counts.board_blocks,result.after_counts.board_reports,result.after_counts.sermon_answer_reports],[4,3,2]);
+ // 가리기: 원본 번호는 어디에도 없고, 자기 자신을 가린 줄도 없고, 겹친 것은 남는 쪽 줄(번호 그대로)
+ assert.equal((await query('select count(*)::int n from board_blocks where blocker_id=$1 or blocked_id=$1',[s.id]))[0].n,0);
+ assert.equal((await query('select count(*)::int n from board_blocks where blocker_id=blocked_id'))[0].n,0);
+ const blocks=await query('select id,blocker_id,blocked_id,blocked_name from board_blocks where blocker_id=$1 or blocked_id=$1 order by blocked_name',[t.id]);
+ const who={[t.id]:'t',[x.id]:'x',[y.id]:'y'};
+ assert.deepEqual(blocks.map(b=>`${who[b.blocker_id]}>${who[b.blocked_id]}:${b.blocked_name}`).sort(),['t>x:s>x','t>y:t>y','x>t:x>s','y>t:y>t']);
+ assert.equal(blocks.find(b=>b.blocked_name==='t>y').id,keepTY);assert.equal(blocks.find(b=>b.blocked_name==='y>t').id,keepYT);
+ // 신고: 줄 번호·처리 상태는 그대로, 신고한 분만 남는 쪽으로. 같은 글(답글)은 한 줄 — 열린 줄이 우선, 둘 다 같으면 남는 쪽
+ assert.equal((await query('select count(*)::int n from board_reports where reporter_id=$1',[s.id]))[0].n,0);
+ const reports=await query('select id,post_id,reply_id,reason,resolved_at from board_reports where reporter_id=$1 order by id',[t.id]);
+ assert.deepEqual(reports.map(r=>r.id).sort((a,b)=>a-b),[keepT1,openS,movedS].sort((a,b)=>a-b));
+ assert.equal(reports.find(r=>r.id===openS).resolved_at,null);assert.ok(reports.find(r=>r.id===movedS).resolved_at);
+ assert.equal(reports.find(r=>r.id===keepT1).reason,'other');
+ // AI 답 알림: 같은 질문은 남는 쪽 한 줄, 다른 질문은 번호 그대로 옮김
+ assert.equal((await query('select count(*)::int n from sermon_answer_reports where reporter_id=$1',[s.id]))[0].n,0);
+ assert.deepEqual((await query('select id from sermon_answer_reports where reporter_id=$1 order by id',[t.id])).map(r=>r.id),[keepTQ,movedQ].sort((a,b)=>a-b));
+ // 동의 날짜: 남는 쪽이 비어 있었으니 원본 것을 받는다. 돌려주는 user 도 새 값
+ const tu=(await query('select guardian_ok_at,board_rules_at from users where id=$1',[t.id]))[0];
+ assert.equal(tu.guardian_ok_at.toISOString(),'2026-09-30T01:00:00.000Z');assert.equal(tu.board_rules_at.toISOString(),'2026-10-01T03:00:00.000Z');
+ assert.ok(result.user.guardian_ok_at&&result.user.board_rules_at);
+ assert.equal((await merge(s,t)).already_merged,true);
+ // 합친 뒤 옛 번호로 들어온 신고·알림도 남는 쪽으로(쓰기 연결 트리거)
+ await query("insert into board_reports(post_id,reporter_id,reason) values($1,$2,'spam')",[p3,s.id]);
+ await query("insert into sermon_answer_reports(reporter_id,question,answer,reason) values($1,'세 번째 질문','답','other')",[s.id]);
+ assert.equal((await query('select count(*)::int n from board_reports where post_id=$1 and reporter_id=$2',[p3,t.id]))[0].n,1);
+ assert.equal((await query("select count(*)::int n from sermon_answer_reports where question='세 번째 질문' and reporter_id=$1",[t.id]))[0].n,1);
+ // 양쪽 다 날짜가 있으면: 보호자 확인은 남는 쪽 그대로, 규칙 동의는 더 늦은 날짜
+ const s2=await login(profile('동의이전')),t2=await login(profile('동의현재'));
+ await query("update users set guardian_ok_at='2026-10-01T05:00:00Z',board_rules_at='2026-10-01T06:00:00Z' where id=$1",[s2.id]);
+ await query("update users set guardian_ok_at='2026-09-01T00:00:00Z',board_rules_at='2026-09-01T00:00:00Z' where id=$1",[t2.id]);
+ assert.equal((await merge(s2,t2)).ok,true);
+ const t2u=(await query('select guardian_ok_at,board_rules_at from users where id=$1',[t2.id]))[0];
+ assert.equal(t2u.guardian_ok_at.toISOString(),'2026-09-01T00:00:00.000Z');assert.equal(t2u.board_rules_at.toISOString(),'2026-10-01T06:00:00.000Z');
 });
 
 test('duplicate complex applications and unknown foreign keys block with no partial changes',async()=>{
