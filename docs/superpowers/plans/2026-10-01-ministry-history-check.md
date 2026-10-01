@@ -1702,6 +1702,8 @@ git commit -m "docs(사역이력확인): 개인정보 안내 8번 · 함정에 �
 **Interfaces:** 없음.
 
 - [ ] **Step 1: 앞 조건을 본다** — 하나라도 아니면 멈추고 친구에게 알린다.
+  - 교회 어드민 `tests/history-check.dev.test.mjs` 8가지가 개발에서 통과했다.
+  - b6 맞춤(person_id 잇기)이 운영에서 끝났다.
 
 ```bash
 supabase --workdir ~/.church-admin/supa-prod db query --linked "select (select count(*) from users) as users, to_regclass('public.ministry_history') as mh, to_regclass('public.ministry_history_requests') as mhr"
@@ -1737,6 +1739,8 @@ supabase functions deploy api --no-verify-jwt --project-ref xnomlgydifiqiybervtf
 운영 확인(읽기만 — 신청은 넣지 않는다): 운영 공개 키로 `{"action":"ministryHistoryMine","user_id":"00000000-0000-4000-8000-000000000000"}` → 기간 밖이면 `closed`(기간 중이면 `no-user`). `unknown action` 이 나오면 배포가 안 된 것이다.
 
 - [ ] **Step 5: 화면 — bump → preflight → 푸시 → 이번 판 표식 확인**
+
+`app.js` 의 `const MH_LIVE = …` 를 `const MH_LIVE = true;` 로 바꾸고(주석의 「Task 9 에서 바꾼다」는 「2026-MM-DD 운영 반영」으로) 함께 커밋한다.
 
 ```bash
 python tools/bump.py && python tools/preflight.py

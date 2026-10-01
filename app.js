@@ -7520,6 +7520,7 @@ function renderPrivacyInfo(back) {
             <li>개인 암송 진도 저장과 기기 간 진도 동기화</li>
             <li>교구/부서별 참여 통계 확인</li>
             <li>암송 프로그램 운영, 격려, 보고 자료 작성</li>
+            <li>사역 이력 확인·정정 처리</li>
           </ul>
         </section>
         <section class="help-section">
@@ -11050,14 +11051,13 @@ function mhCheck(f) {
 let mhLoaded = false, mhData = null, mhErrCode = "";
 
 async function mhLoad(u) {
-  mhData = null; mhErrCode = "";
-  if (!window.api || !api.ministryHistoryMine) { mhErrCode = "old"; mhLoaded = true; return; }   // 옛 js/api.js
-  try {
-    mhData = await api.ministryHistoryMine(u.user_id, minPw());
-  } catch (e) {
-    mhErrCode = (e && e.message) || "net";
+  let data = null, err = "";
+  if (!window.api || !api.ministryHistoryMine) err = "old";   // 옛 js/api.js
+  else {
+    try { data = await api.ministryHistoryMine(u.user_id, minPw()); }
+    catch (e) { err = (e && e.message) || "net"; }
   }
-  mhLoaded = true;
+  mhData = data; mhErrCode = err; mhLoaded = true;   // ⚠️ 한 번에 바꾼다 — 기다리는 동안 옛 화면의 [정정]이 null 을 만나지 않게
 }
 
 function renderMinistryHistory(keepScroll) {
@@ -11110,6 +11110,7 @@ function wireMinistryHistory(u) {
 // 정정 창 — 고르기(줄 정정) + 한 줄 설명(+ 빠진 사역은 연도·부서·팀). 사역신청 창(.min-d-*)과 같은 모양.
 // ⚠️ 브라우저 alert·prompt 를 쓰지 않는다. 오류는 창 안 한 줄(.mh-err)로 — 창 위에 창을 띄우지 않는다.
 function mhAsk(u, row, mode) {
+  if (!mhData) return;
   if (mode !== "find_me" && mhOpenCount(mhData.requests) >= MH_OPEN_MAX) { minAlert(mhErrText("too-many")); return; }
   const head = mode === "missing" ? "빠진 사역 알리기"
     : mode === "find_me" ? "내 기록 찾아 주세요"
@@ -11133,6 +11134,7 @@ function mhAsk(u, row, mode) {
       '<label class="mh-l" for="mh-detail">한 줄 설명 <span class="mh-opt">' +
         (mode === "line" ? "(「그 밖에」는 꼭 적어 주세요)" : "(적지 않으셔도 돼요)") + '</span></label>' +
       '<textarea class="mh-ta" id="mh-detail" rows="3" maxlength="' + MH_DETAIL_MAX + '" placeholder="예: 그해에는 알토로 섬겼어요"></textarea>' +
+      '<span class="min-alert-sub">건강·가정 형편 같은 사적인 사정은 적지 말아 주세요 — 같은 이름·소속으로 들어오면 보일 수 있어요.</span>' +
       '<p class="mh-err" id="mh-err" hidden></p>' +
     '</div>' +
     '<div class="min-d-foot min-d-foot-row"><button class="min-ghost" data-cancel>그만두기</button>' +

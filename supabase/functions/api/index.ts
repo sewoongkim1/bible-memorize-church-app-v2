@@ -4225,6 +4225,11 @@ async function churchAdminInternal(payload: Record<string, unknown>): Promise<an
   }
 }
 
+// 교회 어드민 history-check.ts 의 HISTORY_OUT_KEYS·REQUEST_OUT_KEYS 와 같은 칸 — 저쪽 응답이 늘어도 앱으로는 이 칸만 나간다
+const mhRowOut = (r: any) => ({ id: r?.id, year: r?.year, committee: r?.committee, team: r?.team, role_title: r?.role_title, position: r?.position });
+const mhReqOut = (q: any) => ({ id: q?.id, history_id: q?.history_id ?? null, kind: q?.kind, detail: q?.detail, year: q?.year ?? null,
+  team_text: q?.team_text, status: q?.status, answer: q?.answer, created_at: q?.created_at });
+
 async function ministryHistoryMine(b: any) {
   const u = await ministryHistoryUser(b);
   if ("error" in u) return { ok: false, error: u.error };
@@ -4234,7 +4239,7 @@ async function ministryHistoryMine(b: any) {
     return { ok: false, error: "upstream" };
   }
   return { ok: true, who: u.who, found: !!j.found,
-    rows: Array.isArray(j.rows) ? j.rows : [], requests: Array.isArray(j.requests) ? j.requests : [] };
+    rows: Array.isArray(j.rows) ? j.rows.map(mhRowOut) : [], requests: Array.isArray(j.requests) ? j.requests.map(mhReqOut) : [] };
 }
 
 async function ministryHistoryRequest(b: any) {
