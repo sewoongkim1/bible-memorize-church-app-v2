@@ -33,7 +33,7 @@
 앱 안에 그림과 큰 글씨로 된 사용 설명서가 있습니다.
 
 비밀번호는 없습니다. 교구·목장·이름만 넣으면 시작됩니다.
-기록은 이름과 소속으로만 관리되며, 본인 진도와 도전 순위에만 쓰입니다.
+무엇을 모으고 어디에 쓰는지는 개인정보 안내(gocheok.onlybible.kr/privacy/)에 모두 적어 두었습니다.
 
 
 [개인정보처리방침]
@@ -42,9 +42,38 @@ https://gocheok.onlybible.kr/privacy/
 
 
 [심사자용 로그인 안내 — 앱 콘텐츠 > 앱 액세스 권한]
-이 앱은 비밀번호가 없습니다.
-「교구」를 고르고 교구·목장을 아무 것이나 선택한 뒤 이름을 넣으면 바로 들어갑니다.
-예) 교구 → 사랑 → 1목장 → 홍길동
+(2026-10-01 고침 — 예전 예시의 목장 칸 「N목장」은 앱이 거부한다(숫자만 · MOK_RE). 동의 체크칸도 빠져 있었다.
+ 심사자는 한국어를 못 읽을 수 있으니 콘솔에는 아래 [영어] 글을 넣는다. 같은 글이 store/README.md 「구글 출시 심사 전 결정」 6절에 있다.)
+
+[한국어]
+이 앱은 비밀번호가 없습니다. 교구와 이름만 넣으면 누구나 들어갑니다.
+1. 처음 열면 나오는 안내 화면에서 「건너뛰기」를 누릅니다.
+2. 구분: 「교구」를 누릅니다.
+3. 교구: 아무것이나 하나(예: 새가족)를 누릅니다.
+4. 목장: 숫자 99 를 넣습니다(숫자만 됩니다 — 목장 이름을 쓰면 거부됩니다).
+5. 성명: 아무 이름(예: 심사자)을 넣습니다.
+6. 「위 개인정보 수집·이용 안내를 확인하고 동의합니다.」에 체크합니다.
+7. 「시작하기」 → 환영 화면의 「아멘, 시작하기」를 누릅니다.
+「교구」는 어른 성도 쪽입니다. 「교회학교」의 어린이 부서는 보호자 확인(「보호자(부모님)가 함께 확인했어요」)을 먼저 받습니다.
+계정·기록 삭제: ⚙️ 설정 → 「🔐 개인정보 안내 보기」 → 「🗑 계정·기록 삭제 요청 방법」, 또는 https://gocheok.onlybible.kr/privacy/#delete
+게시판(💬 응원·기도·공감): 처음 글을 쓸 때 이용 규칙에 동의합니다. 글마다 「🚩 신고」·「🙈 가리기」(이분 글을 내 화면에서 가리기)가 있습니다.
+「💬 내게 주시는 말씀」: 답 아래 「🚩 이 답 알리기」가 있습니다.
+
+[영어 — Play Console 에 붙여 넣을 글]
+This app has no password. Anyone can sign in with a church group and a name.
+1. On first launch, tap "건너뛰기" (Skip) on the intro slides.
+2. 구분 (Type): tap "교구".
+3. 교구 (Parish): tap any one, e.g. "새가족".
+4. 목장 (Group): type the number 99 (digits only; anything else is rejected).
+5. 성명 (Name): type any name, e.g. Reviewer.
+6. Tick the box "위 개인정보 수집·이용 안내를 확인하고 동의합니다." (privacy consent).
+7. Tap "시작하기" (Start). On the welcome screen, tap "아멘, 시작하기".
+"교구" is for adult members. "교회학교" (church school) children's departments first ask for a guardian's confirmation ("보호자(부모님)가 함께 확인했어요").
+Account and data deletion: ⚙️ Settings → "🔐 개인정보 안내 보기" → "🗑 계정·기록 삭제 요청 방법",
+or https://gocheok.onlybible.kr/privacy/#delete
+Board (💬 응원·기도·공감): the first post asks you to accept the board rules. Each post and reply has
+"🚩 신고" (report to the church staff) and "🙈 가리기" (hide this author's posts and replies, for me only).
+AI answers (💬 내게 주시는 말씀): "🚩 이 답 알리기" below each answer flags it to the church staff.
 
 
 [앱 카테고리]
