@@ -839,6 +839,13 @@ function getWeeklyVerseInfo() {
 // 앱 실행 때마다 호출되는 경로(routeAfterLoad)에서는 축복 화면을 띄우지 않는다
 // — 기존 성도님 전원에게 축복 카드가 뜨는 걸 막기 위함.
 async function enterAfterLogin(opts) {
+  // 보호자 확인(2026-10-01) — 어린 부서인데 아직 체크가 없으면 첫 화면·서버 동기화보다 먼저 묻는다.
+  //   웹 로그인 폼은 거기서 이미 체크받으므로 여기 안 걸린다. 걸리는 것은 ① 아이폰 네이티브 로그인 화면
+  //   (그 화면은 이 칸을 모른다 — ?firstLogin=1 이면 fresh) ② 이 기능 전부터 쓰시던 어린이(「다음에」 가능).
+  if (!(opts && opts.guardianAsked) && guardianPending(!!(opts && opts.fresh))) {
+    renderGuardianCheck(!!(opts && opts.fresh), () => enterAfterLogin({ ...(opts || {}), guardianAsked: true }));
+    return;
+  }
   if (opts && opts.fresh && !blessingSeen()) {
     renderBlessing(() => { markBlessingSeen(); enterAfterLogin(); });
     return;
@@ -915,10 +922,14 @@ async function syncProgress() {
     const data = await api.login({
       type: u.type, gu: u.gu, mok: u.mok, bu: u.bu, grade: u.grade, name: u.name,
       previous_user_id: u.user_id,
+      // 보호자 확인을 이 기기에서 받았으면 서버에 날짜를 남긴다(처음 한 번 — 이미 있으면 서버가 그대로 둔다)
+      ...(needsGuardian(u) && guardianOk(u) ? { guardian_ok: true } : {}),
     });
     // 동기화 중 공용 기기의 사용자가 바뀌었다면 이전 사람의 응답을 적용하지 않는다.
     if (JSON.stringify(loadUser()) !== JSON.stringify(u)) return false;
     const profileChanged = applyServerUser(u, data);
+    // 다른 기기에서 이미 보호자 확인을 받았으면 이 기기에서는 다시 묻지 않는다
+    if (data && data.user && data.user.guardian_ok_at) markGuardianOk(loadUser());
 
     // 한글·영어 진도를 각각 병합한다(서버가 언어별로 따로 보관)
     let changed = profileChanged;
@@ -1068,10 +1079,13 @@ function clearPersonalData() {
   //    **앞사람의 알약**이 보인다(이 화면 전환은 새로고침이 아니다).
   stampCache = null;
   // 가을 말씀 동행 진행 캐시 — user_id 별이라 목록에 못 적는다. 앞자리로 훑어 지운다.
+  // 보호자 확인(guardian-ok:: · guardian-later::)·게시판 이용 규칙(board-rules::)도 사람별이라 같은 식으로 지운다.
   try {
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const k = localStorage.key(i);
-      if (k && k.indexOf("event-stamp::") === 0) localStorage.removeItem(k);
+      if (k && (k.indexOf("event-stamp::") === 0 || k.indexOf("guardian-") === 0 || k.indexOf("board-rules::") === 0)) {
+        localStorage.removeItem(k);
+      }
     }
   } catch {}
   try { sessionStorage.clear(); } catch {}
@@ -1587,6 +1601,108 @@ function reviewLogMode(mode) {
 // — 서버에서 막으면 기존에 다른 표기로 가입한 분들이 로그인조차 못 하게 된다.
 const MOK_RE = /^(\d+|남성)$/;
 
+// ── 보호자 확인(2026-10-01) ─────────────────────────────────────
+// 구글 플레이 대상 연령을 「13세 이상」으로 고르고, 어린이는 **보호자와 함께** 쓰는 앱으로 정리했다
+// (store/README.md 「구글 출시 심사 전 결정」 3절 · docs/notes/store-review.md). 한국 개인정보 보호법도
+// 만 14세 미만은 법정대리인 동의가 필요하다 — 어린 부서로 들어오시면 「보호자(부모님)가 함께 확인했어요」를
+// 한 번 체크하고, 서버에 그 날짜를 남긴다(users.guardian_ok_at · login 의 guardian_ok).
+// ⚠️ 부서 목록은 **두 곳**(여기 · index.ts 의 같은 이름)이다 — tests/store-review.test.cjs 가 맞대 본다.
+// ⚠️ 이 체크가 법이 정한 확인 방법으로 충분한지는 **교회 담당자 확인 필요**(docs/notes/store-review.md).
+// ── 보호자 확인 — 순수 (여기부터) ──
+//   · 늘 묻는 부서: 영아·유아·유치·유년·초등(초6 = 만 11~12세) · 사랑부(나이로 가를 수 없는 부서라 묻는다)
+//   · 학년으로 가르는 부서: 중등부 1·2학년(중2 는 그해 생일 전까지 만 13세) — 학년에 숫자가 없으면 묻는다
+//   · 묻지 않는 부서: 중등부 3학년(3월 새 학년에 이미 만 14세) · 고등부 · 청년부 · 교구
+//   · 학년 칸에 교사·선생님 같은 말이 있으면 어른이다(그 부서 선생님이 부서로 들어오신 경우)
+const GUARDIAN_BU = ["영아부", "유아부", "유치부", "유년부", "초등부", "사랑부"];
+const GUARDIAN_GRADE_BU = { "중등부": [1, 2] };
+const GUARDIAN_ADULT_WORDS = ["교사", "선생", "부장", "전도사", "강도사", "목사", "간사", "총무"];
+function needsGuardian(p) {
+  if (!p || typeof p !== "object" || String(p.type || "").trim() !== "교회학교") return false;
+  const bu = String(p.bu == null ? "" : p.bu).trim();
+  const grade = String(p.grade == null ? "" : p.grade).trim();
+  if (GUARDIAN_ADULT_WORDS.some((w) => grade.includes(w))) return false;
+  if (GUARDIAN_BU.indexOf(bu) >= 0) return true;
+  const grades = Object.prototype.hasOwnProperty.call(GUARDIAN_GRADE_BU, bu) ? GUARDIAN_GRADE_BU[bu] : null;
+  if (!grades) return false;
+  const m = grade.match(/[0-9]+/);
+  return !m || grades.indexOf(Number(m[0])) >= 0;
+}
+// ── 보호자 확인 — 순수 (여기까지) ──
+
+// 이 기기에 남기는 것 — 신원(교회학교: s|부서|학년|이름 · progressKey 와 같은 꼴)마다
+//   guardian-ok::<신원>    = 체크한 날(YYYY-MM-DD). 서버 login 응답에 guardian_ok_at 이 있어도 채운다.
+//   guardian-later::<신원> = 「다음에 할게요」를 누른 날 — 그날은 다시 안 묻는다(이미 쓰시던 분만 · 새 계정은 못 미룬다)
+// ⚠️ clearPersonalData 가 앞자리(guardian-)로 훑어 지운다 — 공용 기기에서 앞사람의 체크가 남지 않게.
+const GUARDIAN_OK_KEY = "guardian-ok";
+const GUARDIAN_LATER_KEY = "guardian-later";
+function guardianIdent(u) {
+  return u ? `s|${u.bu || ""}|${u.grade || ""}|${u.name || ""}` : "";
+}
+function guardianOk(u) {
+  if (!u) return false;
+  try { return !!localStorage.getItem(GUARDIAN_OK_KEY + "::" + guardianIdent(u)); } catch { return false; }
+}
+function markGuardianOk(u) {
+  if (!u || !needsGuardian(u)) return;
+  try { localStorage.setItem(GUARDIAN_OK_KEY + "::" + guardianIdent(u), todayYmd()); } catch {}
+}
+// 지금 물어야 하나 — fresh(방금 로그인)면 「다음에」를 보지 않는다(새 계정은 체크 전에 쓰기 시작하지 않는다)
+function guardianPending(fresh) {
+  const u = loadUser();
+  if (!u || !needsGuardian(u) || guardianOk(u)) return false;
+  if (!fresh) {
+    try { if (localStorage.getItem(GUARDIAN_LATER_KEY + "::" + guardianIdent(u)) === todayYmd()) return false; } catch {}
+  }
+  return true;
+}
+
+// 보호자 확인 화면 — 웹 로그인 폼을 거치지 않은 분(아이폰 네이티브 로그인 화면 · 이미 쓰시던 어린이)께 한 번.
+//   required=true(방금 로그인): 체크해야만 들어간다 — 그 전에는 서버에 계정을 만들지 않는다(syncProgress 가 뒤에 돈다).
+//   required=false(이미 쓰시던 분): 「다음에 할게요」로 그날은 넘어간다 — 진도를 잃게 막지 않는다. 다음 날 다시 묻는다.
+function renderGuardianCheck(required, next) {
+  const u = loadUser();
+  const appEl = document.getElementById("app");
+  window.scrollTo(0, 0);
+  const who = u ? `${boardEsc(u.bu || "")}${u.grade ? " " + boardEsc(u.grade) : ""} · ${boardEsc(u.name || "")}` : "";
+  appEl.innerHTML = `
+    <div class="intro-screen gd-screen">
+      <div class="intro-card gd-card">
+        <div class="intro-icon" aria-hidden="true">👨‍👩‍👧</div>
+        ${who ? `<div class="bless-affil gd-affil">${who}</div>` : ""}
+        <h2 class="intro-title gd-title">보호자(부모님)와 함께<br>확인해 주세요</h2>
+        <p class="gd-body">
+          만 14세 미만 어린이의 이름·부서·학년과 암송 기록을 저장하려면
+          <b>보호자(부모님)의 동의</b>가 필요해요.<br>
+          보호자께서 <b>개인정보 수집·이용 안내</b>를 함께 읽어 보신 뒤 아래에 체크해 주세요.
+        </p>
+        <button class="privacy-more gd-more" id="gd-more" type="button">개인정보 안내 자세히 보기</button>
+        <label class="privacy-consent gd-consent">
+          <input type="checkbox" id="gd-check"/>
+          <span>보호자(부모님)가 함께 확인했어요.</span>
+        </label>
+        <div class="entry-error" id="gd-error" hidden></div>
+        <button class="intro-next gd-go" id="gd-go" type="button">확인했어요</button>
+        ${required ? "" : `<button class="intro-skip gd-later" id="gd-later" type="button">다음에 할게요</button>`}
+      </div>
+    </div>`;
+  document.getElementById("gd-more").addEventListener("click", () => renderPrivacyInfo(() => renderGuardianCheck(required, next)));
+  document.getElementById("gd-go").addEventListener("click", () => {
+    if (!document.getElementById("gd-check").checked) {
+      const e = document.getElementById("gd-error");
+      e.textContent = "보호자(부모님)와 함께 읽어 보신 뒤 「보호자(부모님)가 함께 확인했어요」에 체크해 주세요.";
+      e.hidden = false;
+      return;
+    }
+    markGuardianOk(loadUser());   // 서버 기록은 이어지는 syncProgress(login 의 guardian_ok)가 남긴다
+    next();
+  });
+  const later = document.getElementById("gd-later");
+  if (later) later.addEventListener("click", () => {
+    try { localStorage.setItem(GUARDIAN_LATER_KEY + "::" + guardianIdent(loadUser()), todayYmd()); } catch {}
+    next();
+  });
+}
+
 function renderEntryScreen() {
   const u = loadUser() || { type: "교구" };
   const appEl = document.getElementById("app");
@@ -1659,6 +1775,8 @@ function renderEntryScreen() {
           <p>
             성경말씀 암송 앱은 개인 암송 진도 저장과 교회 내 참여 통계를 위해
             이름, 소속, 암송 진행 기록, 복습 및 도전 참여 기록을 저장합니다.
+            게시판·알림·이벤트 등을 쓰실 때 더 모으는 것과 「오늘의 찬양」(유튜브) 안내는
+            「자세히 보기」에 있습니다.
             수집된 정보는 암송 프로그램 운영 목적으로만 사용되며,
             운영 종료 또는 삭제 요청 시 정리됩니다.
           </p>
@@ -1666,6 +1784,11 @@ function renderEntryScreen() {
           <label class="privacy-consent">
             <input type="checkbox" id="privacy-consent" ${hasPrivacyConsent() ? "checked" : ""}/>
             <span>위 개인정보 수집·이용 안내를 확인하고 동의합니다.</span>
+          </label>
+          <!-- 보호자 확인(2026-10-01) — 어린 부서(needsGuardian)를 고르면 나타난다. 체크해야 시작할 수 있다. -->
+          <label class="privacy-consent guardian-consent" id="guardian-row" hidden>
+            <input type="checkbox" id="guardian-consent" ${guardianOk(u) ? "checked" : ""}/>
+            <span>보호자(부모님)가 함께 확인했어요.<small class="guardian-why">만 14세 미만은 보호자(부모님)의 동의가 필요해요. 보호자께서 위 안내를 함께 읽어 주세요.</small></span>
           </label>
         </div>
 
@@ -1681,15 +1804,26 @@ function renderEntryScreen() {
   const guFields = document.getElementById("gu-fields");
   const schoolFields = document.getElementById("school-fields");
 
+  // 보호자 확인 줄 — 구분·부서·학년이 바뀔 때마다 다시 본다(중등부는 학년으로 가른다)
+  const guardianRow = document.getElementById("guardian-row");
+  function applyGuardian() {
+    const type = document.querySelector('input[name="type"]:checked').value;
+    const bu = document.querySelector('input[name="bu"]:checked')?.value || "";
+    const grade = document.getElementById("grade").value.trim();
+    guardianRow.hidden = !needsGuardian({ type, bu, grade });
+  }
   function applyType() {
     const type = document.querySelector('input[name="type"]:checked').value;
     const isGu = type === "교구";
     guFields.hidden = !isGu;
     schoolFields.hidden = isGu;
+    applyGuardian();
   }
   document.querySelectorAll('input[name="type"]').forEach((r) =>
     r.addEventListener("change", applyType)
   );
+  document.querySelectorAll('input[name="bu"]').forEach((r) => r.addEventListener("change", applyGuardian));
+  document.getElementById("grade").addEventListener("input", applyGuardian);
   applyType();
 
   document.getElementById("entry-submit").addEventListener("click", () => {
@@ -1724,12 +1858,17 @@ function renderEntryScreen() {
       if (!bu) return fail("부서를 선택해 주세요.");
       if (!grade) return fail("학년을 입력해 주세요.");
       user = { type, bu, grade, name };
+      // 보호자 확인 — 어린 부서는 체크해야 시작한다(새 계정은 체크 전에 서버에 만들지 않는다)
+      if (needsGuardian(user) && !document.getElementById("guardian-consent").checked) {
+        return fail("만 14세 미만은 보호자(부모님)의 동의가 필요해요. 보호자와 함께 안내를 읽고 「보호자(부모님)가 함께 확인했어요」에 체크해 주세요.");
+      }
     }
 
     const prev = loadUser();
     if (prev && prev.cid) user.cid = prev.cid; // 기존 기기 식별자 유지
     savePrivacyConsent();
     saveUser(user);
+    markGuardianOk(user);   // 어린 부서가 아니면 아무 일도 안 한다 · 서버 기록은 syncProgress(login)가 남긴다
     enterAfterLogin({ fresh: true }); // 첫 로그인이면 축복 인사 → 서버 동기화 후 요약 화면
   });
 }
@@ -3757,15 +3896,105 @@ async function scAsk() {
       ${qEcho}
       <div class="sc-answer">${scEmphasis(j.answer)}</div>
       ${srcHtml ? `<div class="sc-sources">${srcHtml}</div>` : ""}
-      <div class="sc-disc">※ 이 답변은 설교 아카이브를 검색한 AI 요약입니다. 정확한 내용은 원 설교를 확인하세요.</div>`;
+      <div class="sc-disc">※ 이 답변은 설교 아카이브를 검색한 AI 요약입니다. 정확한 내용은 원 설교를 확인하세요.</div>
+      ${myUserId() && j.answer ? `<button type="button" class="sc-flag" id="sc-flag">🚩 이 답 알리기</button>` : ""}`;
     out.scrollIntoView({ behavior: "smooth", block: "start" });
     document.querySelectorAll("#sc-out .sc-src").forEach((b) => { b.onclick = () => scOpenSermon(scSources[+b.dataset.i]); });
+    const flag = document.getElementById("sc-flag");
+    if (flag) flag.onclick = () => openAnswerReport(message, j.answer, flag);
   } catch (e) {
     out.innerHTML = `${qEcho}<div class="sc-empty">잠시 후 다시 시도해 주세요.</div>`;
   } finally {
     btn.disabled = false; btn.textContent = "질문";
   }
 }
+// ── 「내게 주시는 말씀」 AI 답 알리기(🚩 · 2026-10-01) ─────────────
+// 구글 플레이 「AI 생성 콘텐츠」 정책 — 앱을 떠나지 않고 불쾌하거나 틀린 AI 답을 개발자에게 알리는 길.
+// 질문·답·고른 까닭·덧붙인 말이 운영진에게 간다(관리자 「게시판 관리」의 「🚩 AI 답 알림」). 알린 분은 운영진 화면에도 안 보인다.
+// ⚠️ 까닭 목록은 세 곳(여기 · index.ts SERMON_REPORT_REASONS · supabase/sermon_answer_reports.sql CHECK)이다 —
+//    tests/store-review.test.cjs 가 셋이 같은지, 글씨가 서버와 같은지 배포 앞에서 본다.
+// ── AI 답 알리기 — 순수 (여기부터) ──
+const SERMON_REPORT_REASONS = [
+  ["wrong", "설교와 다르거나 틀려요"],
+  ["offensive", "불쾌하거나 부적절해요"],
+  ["other", "기타"],
+];
+const SERMON_REPORT_NOTE_MAX = 200;
+function sermonReportErrorMsg(code) {
+  switch (String(code || "")) {
+    case "no-user":    return "로그인하시면 알릴 수 있어요.";
+    case "bad-reason": return "알리는 까닭을 하나 골라 주세요.";
+    case "bad-args":   return "알릴 답을 찾지 못했어요. 다시 질문한 뒤 알려 주세요.";
+    case "not-ready":  return "지금은 알림을 받을 수 없어요. 잠시 뒤에 다시 해 주세요.";
+    default:           return "알림을 보내지 못했어요. 잠시 뒤에 다시 해 주세요.";
+  }
+}
+// ── AI 답 알리기 — 순수 (여기까지) ──
+
+function openAnswerReport(question, answer, btn) {
+  const uid = myUserId();
+  if (!uid) { appAlert(sermonReportErrorMsg("no-user")); return; }
+  const old = document.getElementById("ar-modal"); if (old) old.remove();
+  const wrap = document.createElement("div");
+  wrap.id = "ar-modal"; wrap.className = "am-overlay";
+  wrap.innerHTML = `
+    <div class="am-card rp-card" role="dialog" aria-modal="true" aria-labelledby="ar-title">
+      <div class="am-ico" aria-hidden="true">🚩</div>
+      <div class="am-title" id="ar-title">이 답을 운영진에게 알릴까요?</div>
+      <div class="am-msg">설교와 다르거나 불편한 답이면 알려 주세요. <b>질문과 답</b>이 운영진에게 전달되고, <b>운영진만</b> 봐요.</div>
+      <div class="rp-reasons ar-reasons" role="radiogroup" aria-label="알리는 까닭">
+        ${SERMON_REPORT_REASONS.map(([code, label]) =>
+          `<button type="button" class="rp-chip" role="radio" aria-checked="false" data-reason="${code}">${label}</button>`).join("")}
+      </div>
+      <textarea class="board-in rp-note" rows="2" maxlength="${SERMON_REPORT_NOTE_MAX}" placeholder="덧붙일 말 (적지 않아도 돼요)"></textarea>
+      <div class="rp-err" role="alert" hidden></div>
+      <div class="am-btns">
+        <button type="button" class="am-btn am-cancel">취소</button>
+        <button type="button" class="am-btn am-ok danger ar-send" disabled>알리기</button>
+      </div>
+    </div>`;
+  let reason = "";
+  let busy = false;
+  const send = wrap.querySelector(".ar-send");
+  const errEl = wrap.querySelector(".rp-err");
+  const onKey = (e) => { if (e.key === "Escape" && !busy) { e.preventDefault(); close(); } };
+  const close = () => {
+    document.removeEventListener("keydown", onKey, true);
+    wrap.classList.remove("show"); setTimeout(() => wrap.remove(), 160);
+  };
+  wrap.querySelectorAll(".rp-chip").forEach((chip) => chip.addEventListener("click", () => {
+    reason = chip.dataset.reason;
+    wrap.querySelectorAll(".rp-chip").forEach((c) => {
+      const on = c === chip;
+      c.classList.toggle("on", on);
+      c.setAttribute("aria-checked", on ? "true" : "false");
+    });
+    send.disabled = false;
+    errEl.hidden = true;
+  }));
+  wrap.addEventListener("click", (e) => { if (e.target === wrap && !busy) close(); });
+  wrap.querySelector(".am-cancel").addEventListener("click", () => { if (!busy) close(); });
+  send.addEventListener("click", async () => {
+    if (!reason || busy) return;
+    busy = true; send.disabled = true; send.textContent = "보내는 중…";
+    const note = wrap.querySelector(".rp-note").value.trim();
+    try {
+      await api.sermonAnswerReport(uid, question, answer, reason, note);   // 이미 알린 질문도 { ok, already } — 같은 인사
+    } catch (e) {
+      busy = false; send.disabled = false; send.textContent = "알리기";
+      errEl.textContent = sermonReportErrorMsg(e && e.message);
+      errEl.hidden = false;
+      return;
+    }
+    close();
+    btn.textContent = "🚩 알림 보냄"; btn.disabled = true;
+    boardToast("알려 주셔서 고마워요 — 운영진이 살펴볼게요");
+  });
+  document.addEventListener("keydown", onKey, true);
+  document.body.appendChild(wrap);
+  requestAnimationFrame(() => wrap.classList.add("show"));
+}
+
 function scOpenSermon(s) {
   if (!s) return;
   const m = document.createElement("div");
@@ -3896,7 +4125,7 @@ function renderBoard() {
           <button class="settings-back-btn" id="board-back">← 뒤로</button>
         </div>
         <p class="board-intro">암송하며 받은 은혜, 기도 부탁드릴 일, 서로에게 힘이 되는 이야기를 나눠 주세요. 모든 글과 답글은 공개됩니다. 🙌</p>
-        <p class="board-notice">🙏 <b>성경암송</b>과 관련된 이야기를 나눠 주세요. 주제와 관련 없는 글은 부득이 삭제될 수 있습니다.<br>⚠️ 전화번호 등 <b>민감한 개인정보</b>는 올리지 말아주세요.<br>📷 사진에 <b>다른 분이 나온다면</b> 그분께 먼저 여쭤봐 주세요.<br>🚩 불편한 글은 글 옆 <b>「신고」</b>로 알려 주세요. 운영진이 살펴봐요.</p>
+        <p class="board-notice">🙏 <b>성경암송</b>과 관련된 이야기를 나눠 주세요. 주제와 관련 없는 글은 부득이 삭제될 수 있습니다.<br>⚠️ 전화번호 등 <b>민감한 개인정보</b>는 올리지 말아주세요.<br>📷 사진에 <b>다른 분이 나온다면</b> 그분께 먼저 여쭤봐 주세요.<br>🚩 불편한 글은 글 옆 <b>「신고」</b>로 알려 주세요. 운영진이 살펴봐요.<br>🙈 보고 싶지 않은 분의 글은 <b>「가리기」</b>로 내 화면에서만 안 보이게 할 수 있어요.<br><button type="button" class="board-rules-link" id="board-rules-link">📜 게시판 이용 규칙 보기</button></p>
         <div class="board-form">
           <div class="board-who" id="bp-who"></div>
           <textarea id="bp-content" class="board-in board-in-lg" rows="5" maxlength="2000" placeholder="받은 은혜나 기도 부탁을 적어주세요"></textarea>
@@ -3910,6 +4139,7 @@ function renderBoard() {
           <button id="bf-all" class="bf-btn">전체 보기</button>
           <button id="bf-mine" class="bf-btn">내 글만 보기</button>
         </div>
+        <button type="button" class="bf-blocked" id="bf-blocked" hidden></button>
         <div id="board-list"><p style="text-align:center;color:#888;padding:16px 0">불러오는 중...</p></div>
       </div>
     </div>`;
@@ -3924,6 +4154,8 @@ function renderBoard() {
   document.getElementById("bp-add-photo").addEventListener("click", () => fileEl.click());
   fileEl.addEventListener("change", () => pickBoardPhotos(fileEl));
   document.getElementById("bp-submit").addEventListener("click", submitBoardPost);
+  document.getElementById("board-rules-link").addEventListener("click", () => openBoardRules(false));
+  document.getElementById("bf-blocked").addEventListener("click", openBoardBlockedList);
   const setFilter = (mine) => {
     boardMineOnly = mine;
     document.getElementById("bf-all").classList.toggle("on", !mine);
@@ -3939,6 +4171,9 @@ async function loadBoard() {
   let d;
   try { d = await api.boardList(myUserId()); }
   catch (e) { box.innerHTML = `<p class="msg err">게시판을 불러오지 못했습니다.</p>`; return; }
+  // 서버가 보는 분에게만 알려 준다 — 이용 규칙에 동의했나 · 가린 분이 몇인가(2026-10-01)
+  if (d && typeof d.rulesOk === "boolean") boardRulesServer = d.rulesOk;
+  boardShowBlockedButton(d && Number(d.blockedCount) || 0);
   let posts = (d && d.posts) || [];
   if (boardMineOnly) posts = posts.filter((p) => boardIsMine(p));
   if (!posts.length) {
@@ -3949,7 +4184,9 @@ async function loadBoard() {
     ? ` · <button class="board-del" data-kind="${kind}" data-id="${item.id}">삭제</button>` : "";
   // 🚩 신고 — 남의 글·답글에만. 내 글(삭제 단추 자리)·관리자 답글·관리자 공지(rich)에는 안 붙인다.
   const repBtn = (kind, item) => (boardIsMine(item) || item.is_admin || item.rich) ? ""
-    : ` · <button class="board-report" data-kind="${kind}" data-id="${item.id}" aria-label="이 ${kind === "reply" ? "답글" : "글"} 신고하기">🚩 신고</button>`;
+    : ` · <button class="board-report" data-kind="${kind}" data-id="${item.id}" aria-label="이 ${kind === "reply" ? "답글" : "글"} 신고하기">🚩 신고</button>` +
+      // 🙈 가리기 — 서버가 「글쓴 분을 아는 글」(blockable)에만 참을 준다(옛 글·관리자 글은 거짓). user_id 는 안 온다.
+      (item.blockable ? ` · <button class="board-report board-block" data-kind="${kind}" data-id="${item.id}" aria-label="이분 글 가리기">🙈 가리기</button>` : "");
   box.innerHTML = posts.map((p) => {
     const replies = (p.replies || []).map((r) => `
       <div class="board-reply${r.is_admin ? " admin" : ""}">
@@ -3973,7 +4210,8 @@ async function loadBoard() {
   box.querySelectorAll(".board-photo").forEach((im) => im.addEventListener("click", () => openPhotoViewer(im.dataset.full)));
   box.querySelectorAll(".board-reply-btn").forEach((btn) => btn.addEventListener("click", () => submitBoardReply(btn)));
   box.querySelectorAll(".board-del").forEach((btn) => btn.addEventListener("click", () => deleteMine(btn)));
-  box.querySelectorAll(".board-report").forEach((btn) => btn.addEventListener("click", () => openBoardReport(btn)));
+  box.querySelectorAll(".board-report:not(.board-block)").forEach((btn) => btn.addEventListener("click", () => openBoardReport(btn)));
+  box.querySelectorAll(".board-block").forEach((btn) => btn.addEventListener("click", () => blockBoardAuthor(btn)));
   box.querySelectorAll("[data-rxadd]").forEach((btn) => btn.addEventListener("click", (e) => {
     e.stopPropagation(); boardRxPicker(btn);
   }));
@@ -4101,6 +4339,8 @@ async function submitBoardPost() {
   const content = document.getElementById("bp-content").value.trim();
   const msg = document.getElementById("bp-msg");
   if (!content) { msg.className = "msg err"; msg.textContent = "내용을 입력해주세요."; return; }
+  if (!myUserId()) { msg.className = "msg err"; msg.textContent = boardBlockErrorMsg("no-user"); return; }
+  if (!(await ensureBoardRules())) return;   // 처음 한 번 — 게시판 이용 규칙 동의(2026-10-01)
   if (!(await appConfirm("이 내용으로 글을 올릴까요?\n작성한 글은 모든 분에게 공개됩니다.", { okText: "올리기" }))) return;
   const btn = document.getElementById("bp-submit"); btn.disabled = true; msg.className = "msg"; msg.textContent = "등록 중...";
   // 사진을 먼저 한 장씩 올린다. 폰 사정이 느릴 수 있어 몇 장째인지 보여 준다 —
@@ -4133,8 +4373,8 @@ async function submitBoardPost() {
     }
   }
   msg.textContent = "등록 중...";
-  try { await api.boardPost(boardWho(), content, myUserId(), names); }
-  catch (e) { btn.disabled = false; msg.className = "msg err"; msg.textContent = "등록 실패: " + (e && e.message ? e.message : e); return; }
+  try { await boardWriteWithRules(() => api.boardPost(boardWho(), content, myUserId(), names)); }
+  catch (e) { btn.disabled = false; msg.className = "msg err"; msg.textContent = boardWriteErrorMsg(e, "등록 실패: "); return; }
   boardPhotos = [];
   renderBoardPhotoTray();
   document.getElementById("bp-content").value = "";
@@ -4147,11 +4387,209 @@ async function submitBoardReply(btn) {
   const contentEl = post.querySelector(".br-content");
   const content = contentEl.value.trim();
   if (!content) { contentEl.focus(); return; }
+  if (!myUserId()) { appAlert(boardBlockErrorMsg("no-user")); return; }
+  if (!(await ensureBoardRules())) return;   // 처음 한 번 — 게시판 이용 규칙 동의(2026-10-01)
   if (!(await appConfirm("답글을 등록할까요?\n작성한 답글은 모든 분에게 공개됩니다.", { okText: "등록" }))) return;
   btn.disabled = true;
-  try { await api.boardReply(Number(btn.dataset.id), boardWho(), content, myUserId()); }
-  catch (e) { btn.disabled = false; appAlert("답글 등록 실패: " + (e && e.message ? e.message : e)); return; }
+  try { await boardWriteWithRules(() => api.boardReply(Number(btn.dataset.id), boardWho(), content, myUserId())); }
+  catch (e) { btn.disabled = false; appAlert(boardEsc(boardWriteErrorMsg(e, "답글 등록 실패: "))); return; }
   loadBoard();
+}
+
+// ── 게시판 이용 규칙 · 이분 글 가리기(2026-10-01) ─────────────────
+// 구글 플레이 「사용자 제작 콘텐츠」 정책 — ① 글을 쓰기 전에 이용 규칙(하지 말 것)에 동의 ② 사용자 차단.
+// 자세한 것은 docs/notes/board.md 「이용 규칙 · 가리기」 절.
+// ⚠️ 시스템 창(confirm·alert·prompt)을 쓰지 않는다 — 앱 고유의 창(.am-overlay)이다(🚩 신고 창과 같은 까닭).
+// ⚠️ 가리기는 **내 화면에서만**이다. 서버는 글 번호로 글쓴 분을 찾고, 가린 분의 user_id 를 어디에도 내보내지 않는다.
+// ── 게시판 규칙·가리기 — 순수 (여기부터) ──
+// 규칙을 바꾸면 이 날짜를 올린다 — index.ts BOARD_RULES_SINCE 와 같아야 한다(다르면 앱은 「동의함」이라 믿는데 서버가 막는다).
+const BOARD_RULES_VER = "2026-10-01";
+const BOARD_RULES = [
+  "「💬 응원·기도·공감」은 <b>성경암송</b>과 신앙 이야기, 서로를 위한 <b>격려와 기도 제목</b>을 나누는 곳이에요.",
+  "이런 글은 올리지 않아요 — <b>욕설·비방·다툼을 부르는 말</b>, <b>음란하거나 폭력적인 내용</b>, <b>광고·홍보·도배</b>, <b>정치·선거 운동</b>, <b>거짓 정보나 남을 속이는 글</b>.",
+  "<b>전화번호·주소 같은 개인정보</b>와 <b>허락받지 않은 다른 분의 사진</b>은 올리지 않아요.",
+  "규칙에 맞지 않는 글은 운영진(신앙운동팀)이 <b>숨기거나 지울 수 있고</b>, 되풀이되면 그분의 글을 모두 숨길 수 있어요.",
+  "불편한 글은 <b>「🚩 신고」</b>로 알려 주세요. 보고 싶지 않은 분의 글은 <b>「🙈 가리기」</b>로 내 화면에서만 안 보이게 할 수 있어요.",
+  "글·답글·사진은 <b>모든 성도님께 공개</b>돼요.",
+];
+// 서버가 돌려준 코드 → 성도님 말. 코드를 그대로 보여 드리지 않는다.
+function boardBlockErrorMsg(code) {
+  switch (String(code || "")) {
+    case "no-user":      return "로그인 정보를 확인하고 있어요. 잠시 뒤에 다시 눌러 주세요.";
+    case "own":          return "내가 쓴 글은 가릴 수 없어요.";
+    case "admin":        return "운영진 안내는 가릴 수 없어요.";
+    case "no-author":    return "오래된 글이라 가릴 수 없어요. 불편하시면 「🚩 신고」로 알려 주세요.";
+    case "not-found":    return "이미 지워졌거나 숨겨진 글이에요.";
+    case "rules-needed": return "게시판 이용 규칙에 먼저 동의해 주세요.";
+    case "not-ready":    return "지금은 이 기능을 쓸 수 없어요. 잠시 뒤에 다시 해 주세요.";
+    default:             return "잠시 뒤에 다시 해 주세요.";
+  }
+}
+// ── 게시판 규칙·가리기 — 순수 (여기까지) ──
+
+let boardRulesServer;   // 마지막 boardList 가 알려 준 값(true · false · undefined=모름)
+function boardRulesKey() { return "board-rules::" + (myUserId() || ""); }
+function boardRulesOkLocal() {
+  if (!myUserId()) return false;
+  try { return localStorage.getItem(boardRulesKey()) === BOARD_RULES_VER; } catch { return false; }
+}
+// 글·답글을 쓰기 전에 — 이미 동의했으면 곧장 참. 아니면 규칙 창을 띄워 동의를 받는다(취소하면 거짓).
+async function ensureBoardRules() {
+  if (boardRulesOkLocal() || boardRulesServer === true) return true;
+  return await openBoardRules(true);
+}
+// 서버가 「rules-needed」로 돌려보내면(기억이 낡았을 때) 기억을 지우고 한 번 더 받은 뒤 다시 보낸다
+async function boardWriteWithRules(send) {
+  try { return await send(); }
+  catch (e) {
+    if (String(e && e.message) !== "rules-needed") throw e;
+    try { localStorage.removeItem(boardRulesKey()); } catch {}
+    boardRulesServer = false;
+    if (!(await openBoardRules(true))) throw new Error("rules-cancel");
+    return await send();
+  }
+}
+function boardWriteErrorMsg(e, prefix) {
+  const code = String((e && e.message) || e || "");
+  if (code === "rules-cancel") return "게시판 이용 규칙에 동의하시면 글을 올릴 수 있어요.";
+  if (["no-user", "rules-needed", "not-ready"].indexOf(code) >= 0) return boardBlockErrorMsg(code);
+  return prefix + code;
+}
+
+// 규칙 창. needAccept=true 면 「위 규칙을 지키겠습니다」 체크 뒤 「동의하고 쓰기」 — 서버에 날짜를 남긴다.
+// needAccept=false(「📜 이용 규칙 보기」)면 읽기만 — 아직 동의 전이면 같은 창에서 동의할 수도 있다.
+function openBoardRules(needAccept) {
+  return new Promise((resolve) => {
+    const accepted = boardRulesOkLocal() || boardRulesServer === true;
+    const ask = needAccept || !accepted;
+    const old = document.getElementById("br-modal"); if (old) old.remove();
+    const wrap = document.createElement("div");
+    wrap.id = "br-modal"; wrap.className = "am-overlay";
+    wrap.innerHTML = `
+      <div class="am-card rp-card br-card" role="dialog" aria-modal="true" aria-labelledby="br-title">
+        <div class="am-ico" aria-hidden="true">📜</div>
+        <div class="am-title" id="br-title">게시판 이용 규칙</div>
+        ${needAccept ? `<div class="am-msg br-lead">처음 글을 쓰기 전에 한 번만 읽고 동의해 주세요.</div>` : ""}
+        <ol class="br-rules">${BOARD_RULES.map((r) => `<li>${r}</li>`).join("")}</ol>
+        ${ask ? `<label class="privacy-consent br-agree"><input type="checkbox" id="br-agree"/><span>위 규칙을 지키겠습니다.</span></label>` : `<div class="br-done">✅ 이미 동의하셨어요.</div>`}
+        <div class="rp-err" role="alert" hidden></div>
+        <div class="am-btns">
+          <button type="button" class="am-btn am-cancel">${ask ? "취소" : "닫기"}</button>
+          ${ask ? `<button type="button" class="am-btn am-ok br-ok" disabled>${needAccept ? "동의하고 쓰기" : "동의합니다"}</button>` : ""}
+        </div>
+      </div>`;
+    let busy = false;
+    const close = (v) => {
+      document.removeEventListener("keydown", onKey, true);
+      wrap.classList.remove("show"); setTimeout(() => wrap.remove(), 160);
+      resolve(v);
+    };
+    const onKey = (e) => { if (e.key === "Escape" && !busy) { e.preventDefault(); close(accepted && !needAccept); } };
+    wrap.addEventListener("click", (e) => { if (e.target === wrap && !busy) close(accepted && !needAccept); });
+    wrap.querySelector(".am-cancel").addEventListener("click", () => { if (!busy) close(accepted && !needAccept); });
+    const ok = wrap.querySelector(".br-ok");
+    const agree = wrap.querySelector("#br-agree");
+    if (agree && ok) agree.addEventListener("change", () => { ok.disabled = !agree.checked; });
+    if (ok) ok.addEventListener("click", async () => {
+      if (busy || !agree.checked) return;
+      const uid = myUserId();
+      const errEl = wrap.querySelector(".rp-err");
+      if (!uid) { errEl.textContent = boardBlockErrorMsg("no-user"); errEl.hidden = false; return; }
+      busy = true; ok.disabled = true; ok.textContent = "저장하는 중…";
+      try { await api.boardRulesAccept(uid); }
+      catch (e) {
+        busy = false; ok.disabled = false; ok.textContent = needAccept ? "동의하고 쓰기" : "동의합니다";
+        errEl.textContent = boardBlockErrorMsg(e && e.message); errEl.hidden = false;
+        return;
+      }
+      try { localStorage.setItem(boardRulesKey(), BOARD_RULES_VER); } catch {}
+      boardRulesServer = true;
+      busy = false;
+      close(true);
+    });
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(wrap);
+    requestAnimationFrame(() => wrap.classList.add("show"));
+  });
+}
+
+// 🙈 가리기 — 이 글(답글)을 쓴 분의 글을 내 화면에서만 안 보이게. 상대는 모른다.
+async function blockBoardAuthor(btn) {
+  const uid = myUserId();
+  if (!uid) { appAlert(boardBlockErrorMsg("no-user")); return; }
+  // 이름은 그 글의 meta 줄 굵은 글씨에서 읽는다(속성에 이름을 싣지 않는다 — 따옴표가 든 이름이 속성을 깨지 않게)
+  const nameEl = btn.closest(".board-meta") && btn.closest(".board-meta").querySelector("b");
+  const name = boardEsc((nameEl && nameEl.textContent) || "이분");
+  const yes = await appModal({
+    title: "🙈 이분 글 가리기",
+    msg: `<b>${name}</b> 님이 쓴 글과 답글을 <b>내 화면에서만</b> 가려요.\n상대방에게는 알리지 않아요.\n게시판의 <b>「🙈 가린 분」</b>에서 언제든 다시 볼 수 있어요.`,
+    okText: "가리기", cancelText: "취소",
+  });
+  if (!yes) return;
+  btn.disabled = true;
+  try { await api.boardBlock(btn.dataset.kind === "reply" ? "reply" : "post", Number(btn.dataset.id), uid); }
+  catch (e) { btn.disabled = false; appAlert(boardBlockErrorMsg(e && e.message)); return; }
+  boardToast("가렸어요 — 이분 글이 이제 내 화면에 안 보여요");
+  loadBoard();
+}
+
+function boardShowBlockedButton(n) {
+  const b = document.getElementById("bf-blocked");
+  if (!b) return;
+  b.hidden = !(n > 0);
+  b.textContent = `🙈 가린 분 ${n}명 · 다시 보기`;
+}
+
+// 내가 가린 분 목록 — 이름(가릴 때의 표시 이름)과 「다시 보기」만. 서버는 이 표의 줄 번호만 준다.
+async function openBoardBlockedList() {
+  const uid = myUserId();
+  if (!uid) { appAlert(boardBlockErrorMsg("no-user")); return; }
+  const old = document.getElementById("bb-modal"); if (old) old.remove();
+  const wrap = document.createElement("div");
+  wrap.id = "bb-modal"; wrap.className = "am-overlay";
+  wrap.innerHTML = `
+    <div class="am-card rp-card bb-card" role="dialog" aria-modal="true" aria-labelledby="bb-title">
+      <div class="am-ico" aria-hidden="true">🙈</div>
+      <div class="am-title" id="bb-title">내가 가린 분</div>
+      <div class="am-msg">이분들의 글은 <b>내 화면에서만</b> 안 보여요. 「다시 보기」를 누르면 다시 보여요.</div>
+      <div class="bb-list"><p class="bb-empty">불러오는 중…</p></div>
+      <div class="am-btns"><button type="button" class="am-btn am-ok bb-close">닫기</button></div>
+    </div>`;
+  let changed = false;
+  const close = () => {
+    document.removeEventListener("keydown", onKey, true);
+    wrap.classList.remove("show"); setTimeout(() => wrap.remove(), 160);
+    if (changed) loadBoard();
+  };
+  const onKey = (e) => { if (e.key === "Escape") { e.preventDefault(); close(); } };
+  wrap.addEventListener("click", (e) => { if (e.target === wrap) close(); });
+  wrap.querySelector(".bb-close").addEventListener("click", close);
+  document.addEventListener("keydown", onKey, true);
+  document.body.appendChild(wrap);
+  requestAnimationFrame(() => wrap.classList.add("show"));
+  const listEl = wrap.querySelector(".bb-list");
+  let list;
+  try { list = (await api.boardBlocks(uid)).list || []; }
+  catch (e) { listEl.innerHTML = `<p class="bb-empty">${boardEsc(boardBlockErrorMsg(e && e.message))}</p>`; return; }
+  const draw = () => {
+    if (!list.length) { listEl.innerHTML = `<p class="bb-empty">가린 분이 없어요.</p>`; return; }
+    listEl.innerHTML = list.map((r, i) => `
+      <div class="bb-row">
+        <span class="bb-name">${boardEsc(r.name)}</span>
+        <button type="button" class="bb-undo" data-i="${i}">다시 보기</button>
+      </div>`).join("");
+    listEl.querySelectorAll(".bb-undo").forEach((b) => b.addEventListener("click", async () => {
+      const r = list[Number(b.dataset.i)];
+      if (!r) return;
+      b.disabled = true; b.textContent = "…";
+      try { await api.boardUnblock(uid, r.id); }
+      catch (e) { b.disabled = false; b.textContent = "다시 보기"; return; }
+      changed = true;
+      list = list.filter((x) => x !== r);
+      draw();
+    }));
+  };
+  draw();
 }
 async function deleteMine(btn) {
   if (!(await appConfirm("이 글을 삭제할까요?", { okText: "삭제", danger: true }))) return;
@@ -4200,7 +4638,7 @@ function openBoardReport(btn) {
     <div class="am-card rp-card" role="dialog" aria-modal="true" aria-labelledby="rp-title">
       <div class="am-ico" aria-hidden="true">🚩</div>
       <div class="am-title" id="rp-title">이 ${what}을 신고할까요?</div>
-      <div class="am-msg">까닭을 하나 골라 주세요. 운영진만 보고, 글쓴 분께는 <b>누가 신고했는지 알리지 않아요.</b></div>
+      <div class="am-msg">까닭을 하나 골라 주세요. 운영진이 <b>이 글과 글쓴 분</b>을 함께 살펴요. 운영진만 보고, 글쓴 분께는 <b>누가 신고했는지 알리지 않아요.</b></div>
       <div class="rp-reasons" role="radiogroup" aria-label="신고하는 까닭">
         ${BOARD_REPORT_REASONS.map(([code, label]) =>
           `<button type="button" class="rp-chip" role="radio" aria-checked="false" data-reason="${code}">${label}</button>`).join("")}
@@ -7596,8 +8034,22 @@ function renderPrivacyInfo(back) {
             <li>사역 신청 시 <b>휴대폰 번호</b> (임명이 정해지면 삭제)<b>와 직분</b><br>
               <small>접수되면 그 사역 안내에 이름·직분·교구-목장이 다른 성도님께도 보여요</small></li>
             <li>기기 식별용 임의 ID (알림을 켤 때만)</li>
-            <li>「내게 주시는 말씀」에 적으신 <b>질문 글</b> (답을 찾는 AI에 전달)</li>
-            <li>「오늘의 찬양」 영상을 재생하면 <b>구글(유튜브)</b>에 접속 기록이 남습니다 (<b>▶ 찬양 듣기</b>를 누르실 때만)</li>
+            <li>「내게 주시는 말씀」에 적으신 <b>질문 글</b> (답을 찾는 AI에 전달 · 이름·교구·목장과 함께 사용 기록에 남아요)</li>
+            <li>AI 답을 <b>🚩 알리실 때</b> — 질문·답·고르신 까닭·덧붙인 말과 알리신 분 <small>(운영진만 봐요 · <b>AI 답 알림</b>)</small></li>
+            <li><b>공감</b>·<b>순위 응원</b>(👏)을 누르실 때 — 누른 분의 소속·이름</li>
+            <li><b>이벤트 신청</b> — 이름·소속, 이벤트에 따라 직분·휴대폰 번호·남기신 한 줄</li>
+            <li>게시판 <b>이용 규칙</b>에 동의한 날 · <b>🙈 가리기</b>로 가린 분 목록 <small>(가린 분 목록은 본인만 봐요)</small></li>
+            <li><b>열람 기록</b> — 어느 기능(쉴만한 물가·매일 묵상·말씀 앨범·설명서·오늘의 찬양 등)을 어느 날 몇 번 여셨는지</li>
+            <li>어린이 부서는 「<b>보호자(부모님)가 함께 확인했어요</b>」에 체크한 날 <small>(만 14세 미만 — 보호자 동의)</small></li>
+            <li>🎤 소리 내어 암송하실 때 소리는 휴대폰·브라우저의 <b>음성 인식</b>(구글·애플)이 글자로 바꿔요 — 저희 서버엔 소리가 오지 않아요</li>
+          </ul>
+        </section>
+        <section class="help-section">
+          <h3>「오늘의 찬양」과 유튜브</h3>
+          <ul>
+            <li>「오늘의 찬양」은 <b>YouTube API 서비스</b>로 앱 안에서 영상을 재생해요. <b>▶ 찬양 듣기</b>를 누르실 때만 구글(유튜브)에 연결돼요.</li>
+            <li>이 기능을 쓰시면 <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener">YouTube 서비스 약관</a>에 동의하시는 것이 돼요.</li>
+            <li>재생하는 동안 유튜브(구글)가 <b>광고를 보여 줄 수 있고</b>, 쿠키 같은 방법으로 기기에 정보를 저장하거나 읽을 수 있어요 — <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">구글 개인정보처리방침</a>을 따라요.</li>
           </ul>
         </section>
         <section class="help-section">
@@ -7612,12 +8064,14 @@ function renderPrivacyInfo(back) {
           <h3>보관 기간</h3>
           <p>암송 프로그램 운영 기간 동안 보관하며, 운영 종료 또는 삭제 요청 시 확인 후 정리합니다.</p>
           <p>게시판 <b>신고 기록</b>은 운영진이 처리할 때까지 두고, 처리가 끝나면 <b>90일 뒤 저절로 지웁니다.</b></p>
+          <p><b>AI 답 알림</b>도 처리가 끝나면 <b>90일 뒤</b> 저절로 지워요. 가린 분 목록은 「다시 보기」를 누르시면 바로 지워져요.</p>
         </section>
         <section class="help-section">
           <h3>관리 주체</h3>
           <p>고척교회 제자양육부 신앙운동팀</p>
         </section>
         <a class="help-go privacy-full" href="privacy/">📄 전체 안내 보기 (보관·삭제·문의)</a>
+        <a class="help-go privacy-full" href="privacy/#delete">🗑 계정·기록 삭제 요청 방법</a>
         <button class="help-go" id="privacy-back">확인했습니다</button>
       </div>
     </div>`;
@@ -7815,6 +8269,8 @@ const MANUAL = [
       "글을 남기거나 남의 글에 답글을 달 수 있어요. <b>사진</b>도 4장까지 올릴 수 있어요.",
       "<b>👍 🙏 ❤️</b>를 눌러 마음을 표시할 수도 있어요.",
       "불편한 글이 보이면 글 옆 <b>🚩 신고</b>를 누르세요. 운영진이 살펴봐요(누가 신고했는지는 알리지 않아요).",
+      "보고 싶지 않은 분의 글은 글 옆 <b>🙈 가리기</b>를 누르세요. <b>내 화면에서만</b> 안 보여요. 다시 보려면 <b>「🙈 가린 분」</b>에서 「다시 보기」.",
+      "처음 글을 쓰실 때 <b>게시판 이용 규칙</b>을 한 번 읽고 동의해 주세요.",
     ],
     tip: "기도 제목을 남기시면 함께 기도합니다. 글과 사진은 <b>모든 분께</b> 보여요.",
   },
@@ -7826,6 +8282,7 @@ const MANUAL = [
       "첫 화면 <b>💬 내게 주시는 말씀</b>을 누르세요.",
       "궁금한 것이나 마음에 걸리는 일을 적으세요.",
       "<b>AI가 목사님 설교에서 찾아</b> 답해 드립니다.",
+      "답이 설교와 다르거나 불편하면 답 아래 <b>🚩 이 답 알리기</b>를 누르세요. 운영진이 살펴봐요.",
     ],
     tip: "인터넷에서 아무 말이나 가져오는 것이 아니라, <b>목사님 설교</b> 안에서만 찾습니다.",
   },
@@ -8091,7 +8548,8 @@ function renderHelp(onClose) {
           <h3>🔒 개인정보 안내</h3>
           <ul>
             <li><b>수집 항목</b>: 구분(교구/교회학교)·소속·목장/학년·이름과 암송·도전·복습 기록이에요. <b>게시판에 남기신 글·답글·사진</b>은 모든 분께 보입니다. <b>알림을 켜실 때만</b> 그 기기로 알림을 보내기 위한 등록 정보(기기 식별용 임의 값)를 받습니다. <b>성경필사 노트를 신청할 때만 휴대폰 번호</b>를 받습니다(노트가 준비되면 연락드리기 위해 — 배부가 끝나면 지웁니다). <b>사역 신청을 할 때는 휴대폰 번호와 직분</b>을 받습니다(본인 확인·교적 대조·임명 뒤 연락 — 번호는 임명이 정해지면 지웁니다). 담당자가 신청을 <b>접수하면</b> 그 사역 안내 화면에 <b>이름·직분·교구-목장</b>이 로그인하신 다른 성도님께도 보입니다(함께 섬길 분을 알고 신청하실 수 있도록). 주민등록번호·주소·결제정보는 <b>받지 않습니다</b>.</li>
-            <li><b>저장·용도</b>: 기록은 교회가 쓰는 클라우드 데이터베이스에 암호화 전송으로 저장되어 <b>본인 진도 관리·복습 예약·도전 순위</b>에 쓰이고, 교구·부서별 합계는 운영 보고 자료로 씁니다. 광고에 쓰거나 팔지 않습니다. 「내게 주시는 말씀」에 물어보신 <b>질문 글은 답을 만드는 AI로 전달</b>됩니다. <b>「오늘의 찬양」에서 ▶ 찬양 듣기를 누르시면</b> 그 순간에만 <b>구글(유튜브)</b>에 접속 기록(IP·기기 정보·본 영상 기록)이 남습니다 — 이름·소속·진도는 구글로 가지 않습니다.</li>
+            <li><b>그 밖에 남는 것</b>: <b>공감</b>·<b>순위 응원</b>을 누른 기록(누른 분의 소속·이름), <b>이벤트 신청</b>(이름·소속, 이벤트에 따라 직분·휴대폰 번호), 게시판 <b>이용 규칙</b>에 동의한 날과 <b>🙈 가리기</b>로 가린 분 목록(본인만 봐요), 어느 기능을 언제 여셨는지의 <b>열람 기록</b>, 「내게 주시는 말씀」 답을 🚩 알리실 때의 <b>AI 답 알림</b>(질문·답·까닭 — 운영진만 봐요, 처리 뒤 <b>90일</b>이면 지워요)이에요. 어린이 부서는 「<b>보호자(부모님)가 함께 확인했어요</b>」에 체크한 날을 남겨요(만 14세 미만은 보호자 동의가 필요해요). 🎤 소리 내어 암송하실 때 소리는 휴대폰·브라우저의 <b>음성 인식</b>(구글·애플)이 글자로 바꾸고, 저희 서버엔 소리가 오지 않아요.</li>
+            <li><b>저장·용도</b>: 기록은 교회가 쓰는 클라우드 데이터베이스에 암호화 전송으로 저장되어 <b>본인 진도 관리·복습 예약·도전 순위</b>에 쓰이고, 교구·부서별 합계는 운영 보고 자료로 씁니다. 광고에 쓰거나 팔지 않습니다. 「내게 주시는 말씀」에 물어보신 <b>질문 글은 답을 만드는 AI로 전달</b>됩니다. <b>「오늘의 찬양」에서 ▶ 찬양 듣기를 누르시면</b> 그 순간에만 <b>구글(유튜브)</b>에 접속 기록(IP·기기 정보·본 영상 기록)이 남습니다 — 이름·소속·진도는 구글로 가지 않습니다. 「오늘의 찬양」은 <b>YouTube API 서비스</b>를 쓰므로, 쓰시면 <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener">YouTube 서비스 약관</a>에 동의하시는 것이 되고, 재생하는 동안 유튜브(구글)가 <b>광고를 보여 줄 수 있고</b> 쿠키 같은 방법으로 기기에 정보를 저장하거나 읽을 수 있습니다(<a href="https://policies.google.com/privacy" target="_blank" rel="noopener">구글 개인정보처리방침</a>).</li>
             <li><b>공개 범위</b>: 도전 순위와 게시판에는 <b>이름과 소속</b>만 표시됩니다(연락처 없음). 순위에는 참여한 분만 표시돼요.</li>
             <li><b>이벤트에 신청하시면</b> 이름과 소속이 그 이벤트 명단에서 다른 성도님께 보입니다. 명단은 이벤트가 끝나고 정해진 날까지만 보이고, 그 뒤에는 사라집니다.</li>
             <li><b>게시판 신고</b>: 다른 분의 글·답글을 <b>🚩 신고</b>하시면 어느 글인지·고르신 까닭·덧붙인 말과 <b>신고하신 분</b>이 기록되고, <b>운영진만</b> 봅니다(글쓴 분과 다른 성도님께는 누가 신고했는지 알리지 않아요). 운영진이 처리할 때까지 두고, 처리가 끝나면 <b>90일 뒤</b> 저절로 지웁니다.</li>
