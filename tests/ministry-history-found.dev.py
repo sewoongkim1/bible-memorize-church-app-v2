@@ -64,8 +64,10 @@ NAME = f"ca-test-hcf-{STAMP}-가"
 TWIN = f"ca-test-hcf-{STAMP}-나"
 IDS = [990000091, 990000092, 990000093, 990000094]
 
-HISTORY_KEYS = {"committee", "id", "position", "role_title", "team", "year"}
-REQUEST_KEYS = {"answer", "created_at", "detail", "history_id", "id", "kind", "status", "team_text", "year"}
+# 교회 어드민 history-check.ts HISTORY_OUT_KEYS·REQUEST_OUT_KEYS 와 같다(api mhRowOut·mhReqOut) —
+#   직분(position)은 줄에 없다 · committee_text 는 빠진 사역 「부서」 칸(2026-10-02 두 칸 · null 이면 옛 한 칸 신청)
+HISTORY_KEYS = {"committee", "id", "role_title", "team", "year"}
+REQUEST_KEYS = {"answer", "committee_text", "created_at", "detail", "history_id", "id", "kind", "status", "team_text", "year"}
 UUID_RE = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.I)
 
 passed = 0
@@ -216,18 +218,31 @@ try:
     ok("find_me(이미 찾음) → already-found", r5.get("error") == "already-found", r5)
     r6, _ = request(U1, kind="other", history_id=hist["b"], detail="")
     ok("other on b(빈 detail) → need-detail", r6.get("error") == "need-detail", r6)
+    # 옛 한 칸(committee_text 를 안 보냄 — 옛 캐시 앱) · 두 칸(2026-10-02 · 부서 committee_text + 팀 team_text)
     r7, raw_r7 = request(U1, kind="missing", year=2023, team_text="찬양위원회 시온성가대")
-    ok("missing 2023 → ok", r7 == {"ok": True}, raw_r7)
+    ok("missing 2023(한 칸) → ok", r7 == {"ok": True}, raw_r7)
+    r7b, raw_r7b = request(U1, kind="missing", year=2022, committee_text="찬양위원회", team_text="호산나찬양대")
+    ok("missing 2022(두 칸) → ok", r7b == {"ok": True}, raw_r7b)
+    r7c, _ = request(U1, kind="missing", year=2021, committee_text=" ", team_text="")
+    ok("missing 두 칸이 모두 비면 → need-team", r7c.get("error") == "need-team", r7c)
 
     # ---- 4. U1 Mine 다시 — 신청 현황 ----
     print("[4. U1 내 이력 다시 — 신청 현황]")
     j4, raw4 = mine(U1)
     kinds = [r.get("kind") for r in j4.get("requests", [])]
-    ok("request kinds == [missing, wrong_team]", kinds == ["missing", "wrong_team"], kinds)
+    ok("request kinds == [missing, missing, wrong_team]", kinds == ["missing", "missing", "wrong_team"], kinds)
     ok("모든 신청 칸이 정확히 REQUEST_OUT_KEYS",
        all(set(r.keys()) == REQUEST_KEYS for r in j4.get("requests", [])),
        [sorted(r.keys()) for r in j4.get("requests", [])])
     ok("모든 신청 status == 신청", all(r.get("status") == "신청" for r in j4.get("requests", [])), j4.get("requests"))
+    by_year = {r.get("year"): r for r in j4.get("requests", []) if r.get("kind") == "missing"}
+    two, one = by_year.get(2022, {}), by_year.get(2023, {})
+    ok("두 칸 신청(2022) — committee_text 찬양위원회 · team_text 호산나찬양대(나누거나 합치지 않음)",
+       two.get("committee_text") == "찬양위원회" and two.get("team_text") == "호산나찬양대", two)
+    ok("한 칸 신청(2023) — committee_text None · team_text 그대로",
+       "committee_text" in one and one.get("committee_text") is None and one.get("team_text") == "찬양위원회 시온성가대", one)
+    wt = next((r for r in j4.get("requests", []) if r.get("kind") == "wrong_team"), {})
+    ok("다른 종류(wrong_team) — committee_text None", "committee_text" in wt and wt.get("committee_text") is None, wt)
     ok("uuid 모양 문자열 없음", not UUID_RE.search(raw4), raw4)
 
     # ---- 5. U3 — 찾지 못한 분 ----

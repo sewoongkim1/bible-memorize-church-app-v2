@@ -11642,6 +11642,14 @@ function mhRowLabel(row) {
   return row ? row.year + " " + ([row.team, row.committee].filter(Boolean)[0] || "") : "지난 기록";
 }
 
+// 빠진 사역 신청의 부서·팀 글 — 교회 어드민 requests-logic.js requestTeamText(담당자 화면)와 같은 규칙(2026-10-02 두 칸).
+//   committee_text 가 글자면 두 칸 신청 → 「부서 · 팀」(빈 칸은 뺀다) · null 이거나 칸이 없으면(옛 한 칸 신청 · 옛 api) team_text 그대로.
+function mhMissingText(q) {
+  return q.committee_text != null
+    ? [q.committee_text, q.team_text].filter(Boolean).join(" · ")
+    : (q.team_text || "");
+}
+
 // 내 정정 신청 — 최근 것이 위(서버 차례 그대로). 담당자가 적은 말이 있으면 아래 한 줄(반영 안 함의 사유 등)
 function mhRequestsHtml(requests, rows) {
   if (!requests || !requests.length) return "";
@@ -11649,7 +11657,7 @@ function mhRequestsHtml(requests, rows) {
   (rows || []).forEach(function (r) { byId[r.id] = r; });
   return '<div class="min-sent mh-reqs"><div class="min-sent-t">📋 내 정정 신청 <b>' + requests.length + '</b>건</div>' +
     requests.map(function (q) {
-      const head = q.kind === "missing" ? "빠진 사역(" + q.year + ") — " + q.team_text
+      const head = q.kind === "missing" ? "빠진 사역(" + q.year + ") — " + mhMissingText(q)
         : q.kind === "find_me" ? MH_KIND_TEXT.find_me
         : mhRowLabel(q.history_id != null ? byId[q.history_id] : null) + " — " + (MH_KIND_TEXT[q.kind] || "");
       return '<div class="mh-req"><div class="mh-req-h">' + minEsc(head) + '</div>' +
@@ -11673,7 +11681,22 @@ function mhBodyHtml(d) {
     mhRequestsHtml(d.requests, d.rows) + exit;
 }
 
+// 정정 창 「빠진 사역」 칸 — 연도 · 부서 · 팀(2026-10-02 친구 요청 「네 두칸으로 해주세요」 · 그전에는 「부서 · 팀」 한 칸).
+//   부서는 committee_text, 팀은 team_text 로 보낸다(mhAsk). 둘 중 하나만 적어도 된다(mhCheck).
+function mhMissingFieldsHtml() {
+  return '<label class="mh-l" for="mh-year">연도</label>' +
+    '<input class="min-alert-input mh-in" id="mh-year" inputmode="numeric" maxlength="4" placeholder="2024" autocomplete="off">' +
+    '<label class="mh-l" for="mh-committee">부서</label>' +
+    '<input class="min-alert-input mh-in" id="mh-committee" maxlength="' + MH_TEAM_MAX + '" placeholder="찬양위원회" autocomplete="off">' +
+    '<label class="mh-l" for="mh-team">팀</label>' +
+    '<input class="min-alert-input mh-in" id="mh-team" maxlength="' + MH_TEAM_MAX + '" placeholder="시온성가대" autocomplete="off">';
+}
+
+// 서버 tidy 와 같다(NFC · 공백 덩어리는 한 칸 · 앞뒤 공백 뺌) — 두 칸 글자 수를 서버처럼 센다
+function mhTidy(s) { return String(s == null ? "" : s).normalize("NFC").replace(/\s+/g, " ").trim(); }
+
 // 보내기 전 검사 — 교회 어드민 parseRequest 와 같은 규칙(정하는 것은 서버다 · 여기는 미리 알릴 뿐)
+//   빠진 사역: committee_text 가 글자면 두 칸(부서나 팀 하나는 꼭 · 칸마다 100자) · 아니면 옛 한 칸(team_text 꼭)
 function mhCheck(f) {
   const detail = String(f.detail || "").trim();
   if (detail.length > MH_DETAIL_MAX) return "too-long";
@@ -11681,6 +11704,12 @@ function mhCheck(f) {
   if (f.kind === "missing") {
     const y = Number(String(f.year || "").trim());
     if (!Number.isInteger(y) || y < 1950 || y > 2100) return "bad-year";
+    if (typeof f.committee_text === "string") {
+      const c = mhTidy(f.committee_text), t = mhTidy(f.team_text);
+      if (!c && !t) return "need-team";
+      if (c.length > MH_TEAM_MAX || t.length > MH_TEAM_MAX) return "too-long";
+      return null;
+    }
     const t = String(f.team_text || "").trim();
     if (!t) return "need-team";
     if (t.length > MH_TEAM_MAX) return "too-long";
@@ -11751,7 +11780,7 @@ function wireMinistryHistory(u) {
   if (find) find.addEventListener("click", function () { mhAsk(u, null, "find_me"); });
 }
 
-// 정정 창 — 고르기(줄 정정) + 한 줄 설명(+ 빠진 사역은 연도·부서·팀). 사역신청 창(.min-d-*)과 같은 모양.
+// 정정 창 — 고르기(줄 정정) + 한 줄 설명(+ 빠진 사역은 연도·부서·팀 세 칸 — mhMissingFieldsHtml). 사역신청 창(.min-d-*)과 같은 모양.
 // ⚠️ 브라우저 alert·prompt 를 쓰지 않는다. 오류는 창 안 한 줄(.mh-err)로 — 창 위에 창을 띄우지 않는다.
 function mhAsk(u, row, mode) {
   if (!mhData) return;
@@ -11769,12 +11798,7 @@ function mhAsk(u, row, mode) {
       (mode === "line" ? '<div class="mh-kinds">' + MH_LINE_KINDS.map(function (x) {
         return '<button type="button" class="mh-kind" aria-pressed="false" data-kind="' + x.k + '">' + minEsc(x.t) + '</button>';
       }).join("") + '</div>' : "") +
-      (mode === "missing"
-        ? '<label class="mh-l" for="mh-year">연도</label>' +
-          '<input class="min-alert-input mh-in" id="mh-year" inputmode="numeric" maxlength="4" placeholder="2024" autocomplete="off">' +
-          '<label class="mh-l" for="mh-team">부서 · 팀</label>' +
-          '<input class="min-alert-input mh-in" id="mh-team" maxlength="' + MH_TEAM_MAX + '" placeholder="찬양위원회 시온성가대" autocomplete="off">'
-        : "") +
+      (mode === "missing" ? mhMissingFieldsHtml() : "") +
       '<label class="mh-l" for="mh-detail">한 줄 설명 <span class="mh-opt">' +
         (mode === "line" ? "(「그 밖에」는 꼭 적어 주세요)" : "(적지 않으셔도 돼요)") + '</span></label>' +
       '<textarea class="mh-ta" id="mh-detail" rows="3" maxlength="' + MH_DETAIL_MAX + '" placeholder="예: 그해에는 알토로 섬겼어요"></textarea>' +
@@ -11809,6 +11833,8 @@ function mhAsk(u, row, mode) {
       year: mode === "missing" ? box.querySelector("#mh-year").value : null,
       team_text: mode === "missing" ? box.querySelector("#mh-team").value : "",
     };
+    // 두 칸(2026-10-02) — 빠진 사역일 때만 부서를 싣는다(다른 종류는 칸 자체를 보내지 않는다 · api 는 글자일 때만 넘긴다)
+    if (mode === "missing") f.committee_text = box.querySelector("#mh-committee").value;
     const bad = mhCheck(f);
     if (bad) { showErr(bad); return; }
     ok.disabled = true;

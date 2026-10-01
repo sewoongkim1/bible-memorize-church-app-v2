@@ -4808,9 +4808,11 @@ async function churchAdminInternal(payload: Record<string, unknown>): Promise<an
 }
 
 // 교회 어드민 history-check.ts 의 HISTORY_OUT_KEYS·REQUEST_OUT_KEYS 와 같은 칸 — 저쪽 응답이 늘어도 앱으로는 이 칸만 나간다
-const mhRowOut = (r: any) => ({ id: r?.id, year: r?.year, committee: r?.committee, team: r?.team, role_title: r?.role_title, position: r?.position });
+//   직분(position)은 싣지 않는다 — 교회 어드민이 보내지 않는다(2026-10-01 친구 요청 · 2026-10-02 여기서도 뺌)
+//   committee_text — 빠진 사역 「부서」 칸(2026-10-02 두 칸 · 교회 어드민 SQL 009) · null 이면 옛 한 칸 신청(team_text 에 「부서·팀」 글)
+const mhRowOut = (r: any) => ({ id: r?.id, year: r?.year, committee: r?.committee, team: r?.team, role_title: r?.role_title });
 const mhReqOut = (q: any) => ({ id: q?.id, history_id: q?.history_id ?? null, kind: q?.kind, detail: q?.detail, year: q?.year ?? null,
-  team_text: q?.team_text, status: q?.status, answer: q?.answer, created_at: q?.created_at });
+  committee_text: q?.committee_text ?? null, team_text: q?.team_text, status: q?.status, answer: q?.answer, created_at: q?.created_at });
 
 async function ministryHistoryMine(b: any) {
   const u = await ministryHistoryUser(b);
@@ -4827,9 +4829,12 @@ async function ministryHistoryMine(b: any) {
 async function ministryHistoryRequest(b: any) {
   const u = await ministryHistoryUser(b);
   if ("error" in u) return { ok: false, error: u.error };
+  // committee_text(빠진 사역 「부서」 칸 · 2026-10-02)는 글자일 때만 넘긴다 — 없으면 교회 어드민 parseRequest 가 옛 한 칸으로 읽는다(옛 캐시 앱)
   const j = await churchAdminInternal({
     action: "internalHistoryRequest", who: u.who, user_id: u.userId,
-    history_id: b.history_id ?? null, kind: b.kind, detail: b.detail, year: b.year, team_text: b.team_text,
+    history_id: b.history_id ?? null, kind: b.kind, detail: b.detail, year: b.year,
+    ...(typeof b.committee_text === "string" ? { committee_text: b.committee_text } : {}),
+    team_text: b.team_text,
   });
   if (j && j.ok === true) return { ok: true };
   if (j && MH_PASS_ERRORS.includes(j.error)) return { ok: false, error: j.error };

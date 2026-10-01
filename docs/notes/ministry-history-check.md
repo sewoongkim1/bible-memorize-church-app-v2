@@ -11,6 +11,7 @@
 - **kind·status 글자는 세 곳**(SQL 008 CHECK · `history-check.ts` · `app.js` `MH_*`). 보이는 말만 바꾸려면 `MH_KIND_TEXT`.
 - **직분은 정정하지 않는다(교적 기준 · 2026-10-01 친구 결정).** 「직분이 틀려요」(wrong_position)를 세 곳 모두에서 뺐다 — 되살리지 말 것. 줄의 그해 직분 표시는 그대로.
 - **응답 칸은 `historyRowOut`·`requestOut` 이 정한다** — 교인ID·`user_id`·맞춤 근거·그때 목장을 싣지 않는다(`tests/history-check.dev.test.mjs` 가 키 집합과 숫자·uuid 누출을 본다).
+- **「빠진 사역」은 「부서」「팀」 두 칸이다(2026-10-02 친구 요청 「네 두칸으로 해주세요」 · 교회 어드민 SQL 009).** 부서 `#mh-committee` → `committee_text`, 팀 `#mh-team` → `team_text` · 둘 중 하나만 있어도 된다(`need-team` 은 둘 다 비었을 때) · 칸마다 100자. ⚠️ `committee_text` 가 **null 이면 옛 한 칸 신청**(`team_text` 에 「부서·팀」 글 — 옛 캐시 앱은 칸 자체를 안 보낸다)이라 `api` 는 글자일 때만 넘기고, 목록 머리는 `mhMissingText`(교회 어드민 `requests-logic.js` `requestTeamText` 와 같은 규칙)로 만든다. 줄 응답(`mhRowOut`)에서 직분 `position` 은 뺐다.
 - 앱 계정이 합쳐지면(`member-merge`) 옛 계정의 정정 신청은 새 계정 화면에 안 보인다(표가 `user_id` 로 묶는다 — 합치기 코드는 이 표를 모른다). 생기면 담당자가 처리하면 된다.
 - **담당자 처리 메뉴 「📮 정정 신청」 — 2026-10-01 개발 끝(가지 history-check) · 운영은 앞선 계획 Task 9 와 함께.** ⚠️ **12/13 신청 기간 전에 운영에 있어야 한다** — 기간이 열리면 성도님 모두에게 단추가 보인다.
 
