@@ -28,11 +28,9 @@
 --   · 「다시 보기」를 누르면 그 줄을 바로 지운다.
 --   · 가린 분이나 가려진 분의 기록 삭제 요청으로 users 행을 지우면 함께 지워진다(on delete cascade).
 --
--- ■ 알고 있는 빈틈 — 기록 합치기(member_merge.sql)
---   member_merge 는 users 를 가리키는 **모르는 FK** 가 있으면 합치기를 멈춘다(merge-unsupported-records — 기록은 안 잃는다).
---   이 표는 FK 가 둘(blocker_id·blocked_id)이라, **누군가를 가렸거나 누군가에게 가려진 계정**을 「옮겨 가는 쪽」으로
---   합치려 하면 멈춘다(board_reports 와 같은 빈틈). 생기면: 그 계정의 board_blocks 줄을 SQL Editor 에서 지우고
---   (가리기는 그분 화면의 편의일 뿐이라 지워도 다시 가리면 된다) 합치기를 다시 하거나, member_merge.sql 에 옮기기를 더한다.
+-- ■ 기록 합치기(member_merge.sql) — 2026-10-01 같은 날 옮기기를 더했다(처음엔 이 표가 있는 계정에서 합치기가 멈췄다).
+--   가린 쪽·가려진 쪽 칸을 모두 남는 번호로 · 두 계정 사이 줄은 버림(자기 자신을 가리게 된다) · 겹치면 남는 쪽 줄 하나.
+--   ⚠️ 이 표를 다시 만들거나 칸을 바꾸면 member_merge.sql 을 **이 파일 뒤에** 다시 돌린다(쓰기 연결 트리거가 이 표에 붙는다).
 
 -- ① 표
 create table if not exists public.board_blocks (

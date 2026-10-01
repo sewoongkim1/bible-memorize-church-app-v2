@@ -29,8 +29,9 @@
 --   · 알린 분의 기록 삭제 요청으로 users 행을 지우면 함께 지워진다(on delete cascade)
 --   ⚠️ 90 을 바꾸면 index.ts SERMON_REPORT_KEEP_DAYS · privacy/index.html · app.js 개인정보 두 곳도 함께.
 --
--- ■ 알고 있는 빈틈 — 기록 합치기(member_merge.sql): users 를 가리키는 FK 가 하나 더 생겨, 알림을 보낸 적 있는 계정을
---   「옮겨 가는 쪽」으로 합치려 하면 멈춘다(board_reports 와 같다 · 기록은 안 잃는다). 처리된 알림을 지우고 다시 한다.
+-- ■ 기록 합치기(member_merge.sql) — 2026-10-01 같은 날 옮기기를 더했다(처음엔 알림을 보낸 계정에서 합치기가 멈췄다).
+--   board_reports 와 같다: 줄 번호·처리 상태 그대로 reporter_id 만 옮기고, 같은 질문(md5)을 둘 다 알렸으면 한 줄 — 처리 전 줄 우선.
+--   ⚠️ 이 표를 다시 만들거나 칸을 바꾸면 member_merge.sql 을 **이 파일 뒤에** 다시 돌린다(쓰기 연결 트리거).
 
 -- ① 표
 create table if not exists public.sermon_answer_reports (

@@ -177,7 +177,15 @@ test('pending sync cannot replace the next person on a shared device', async () 
     applyServerUser: () => { applied = true; },
   });
   const source = read('app.js');
-  vm.runInContext(source.slice(source.indexOf('async function syncProgress()'), source.indexOf('// 관리자가 이름·소속을 바꿔도')), context);
+  // 2026-10-01 부터 syncProgress 가 보호자 확인(needsGuardian · guardianRequired)을 먼저 본다 — app.js 의 「보호자 확인 — 순수」
+  //   구간을 그대로 함께 올린다(tests/store-review.test.cjs 와 같은 표지). 교구 성도라 guardianOk 까지는 가지 않는다.
+  const between = (start, end) => {
+    const s = source.indexOf(start), e = s >= 0 ? source.indexOf(end, s + start.length) : -1;
+    assert.ok(s >= 0 && e > s, `app.js 에서 「${start}」 구간을 못 찾았다 — 이 검사가 낡았다`);
+    return source.slice(s, e);
+  };
+  vm.runInContext(between('// ── 보호자 확인 — 순수 (여기부터) ──', '// ── 보호자 확인 — 순수 (여기까지) ──') + '\n'
+    + between('async function syncProgress()', '// 관리자가 이름·소속을 바꿔도'), context);
   assert.equal(await context.syncProgress(), false);
   assert.equal(applied, false);
   assert.equal(current.user_id, 'second');

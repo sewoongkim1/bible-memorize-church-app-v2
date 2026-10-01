@@ -18,7 +18,7 @@
 
 개발에서 먼저 확인한 뒤 운영에도 같은 순서로 적용한다.
 
-1. `supabase/member_profile.sql` 다음 `supabase/member_merge.sql` 실행 (`schema.sql`과 `app_config.sql`이 먼저 필요).
+1. `supabase/member_profile.sql` 다음 `supabase/member_merge.sql` 실행 (`schema.sql`과 `app_config.sql`이 먼저 필요). 사용자 연관 표를 만드는 SQL(2026-10-01 `users_consents.sql`·`board_blocks.sql`·`board_reports.sql`·`sermon_answer_reports.sql` · `ios_push_tokens.sql`·`push_evening.sql` · 교회 어드민 `supabase/sql/008_ministry_history_requests.sql`)은 **그보다 먼저** — 표가 있어야 쓰기 연결 트리거가 붙는다(없는 표는 건너뛰므로, 나중에 만들면 `member_merge.sql`을 다시 돌린다). 개발에서는 이어서 `supabase/tests/member_merge_consents.dev.sql`과 `supabase/tests/member_merge_requests_devices.dev.sql`(가상 성도로 합쳐 보고 전부 되돌린다 · 운영 금지)을 돌린다.
 2. `supabase/functions/api/index.ts`를 `api` Edge Function으로 배포.
 3. `admin-members.html`, `js/admin-members.js`, `admin.html`, `app.js`, `index.html` 프론트 변경 배포.
 4. 가상 성도로 이름·목장 변경 후 옛 정보/새 정보 양쪽의 로그인과 기록 유지 확인. 운영에서 가상 성도를 만들지 않는다.
@@ -43,10 +43,34 @@
 | 응원·게시글 공감·단순 이벤트 참여 | 동일인의 중복 반응/참여 한 건으로 정리. 자기 자신에게 한 응원 제외 |
 | 게시글·답글·필사 신청·구독 | 원본 행 보존, 사용자 번호 변경 |
 | 사역·상세 이벤트 신청 | 서로 다른 신청은 그대로 이전. 동일 사역팀/회차의 복수 신청은 내용·상태 보존을 위해 전체 병합 중단 |
+| 게시판 「🙈 가리기」(`board_blocks`, 2026-10-01) | 가린 쪽·가려진 쪽 칸을 모두 유지할 번호로. 두 계정 사이의 가리기(이전↔현재)는 옮기면 자기 자신을 가리게 되므로 버림. 같은 분을 양쪽이 다 가렸으면(또는 같은 분이 양쪽을 다 가렸으면) 현재 소속 쪽 한 줄 |
+| 게시판 신고·AI 답 알림(`board_reports`·`sermon_answer_reports`, 2026-10-01) | 줄 번호·까닭·처리 상태 보존, 신고한 분만 변경(관리자가 줄 번호로 처리한다). 같은 글(답글)·같은 질문을 양쪽이 다 신고했으면 한 줄 — 처리 전 줄이 이전 쪽에만 있으면 그 줄, 아니면 현재 소속 쪽 줄 |
+| 보호자 확인·게시판 이용 규칙 동의 날짜(`users.guardian_ok_at`·`board_rules_at`, 2026-10-01) | 보호자 확인은 현재 소속 쪽에 날짜가 있으면 그대로, 없으면 이전 쪽 날짜. 규칙 동의는 더 늦은 날짜(규칙이 바뀐 뒤의 동의를 잃지 않게). 이전 쪽 날짜는 `user_merges.source_profile`에도 남는다 |
+| 아이폰 앱 알림 기기(`ios_push_tokens`, 2026-09-15 · 합치기는 2026-10-02부터) | 기기 줄 번호·알림 시각·저녁 알림 켬/끔은 기기 것 그대로, 사용자 번호만 변경(웹 알림 구독과 같은 대접). 기기 번호(`device_token`)는 표 전체에서 하나뿐이라 양쪽이 같은 기기를 가질 수 없다 — 그래도 겹치면 현재 소속 쪽 줄 하나. 합친 뒤 옛 기기가 다시 등록해도 한 줄이다 |
+| 사역 이력 정정 신청(`ministry_history_requests`, 교회 어드민 `008_…sql` · 2026-10-01 · 합치기는 2026-10-02부터) | 아래 「정정 신청 규칙」. 줄 번호·상태·`updated_at`·교인ID·신청 때 이름·소속 사본(`who_*`)은 그대로, 사용자 번호만 변경. 표가 없는 DB에서는 건너뛴다 |
+
+**정정 신청 규칙**(그 표의 주인 세션과 맞춘 것 · 2026-10-02). 「열린 신청」은 상태가 `신청`·`확인 중`인 것이다(교회 어드민 `REQ_OPEN` · 008의 부분 unique 둘과 같은 조건).
+
+1. 현재 소속 쪽에 **같은 줄**(`history_id`)의 열린 신청이 이미 있으면 — 「저를 찾아 주세요」(`find_me`)는 현재 소속 쪽에 열린 `find_me`가 있으면 — 이전 쪽의 그 **열린** 신청은 **지운다**. 「반영 안 함」으로 닫지 않는다(성도님 화면에 거절로 보인다). 같은 줄을 두 번 신청한 것이니 남는 쪽 하나로 담당자가 처리한다.
+2. 나머지 — 닫힌 신청(반영·반영 안 함), 현재 소속 쪽에 짝이 없는 열린 신청, 「빠진 사역」(`missing` · 여러 개 열려도 된다) — 는 상태를 **절대 바꾸지 않고** 옮긴다.
+
+합친 뒤 미리보기·결과의 기록 수로 지운 수를 알 수 있다: 이전 쪽 수 + 현재 소속 쪽 수 − 합친 뒤 수. (관리자 화면 `js/admin-members.js`는 정해 둔 열한 개 표의 숫자만 보여 주어, 이 두 표의 숫자는 아직 화면에 안 보인다 — 옮기기는 된다.)
 
 병합은 트랜잭션 하나로 처리하며 예외가 나면 전부 롤백한다. 새 테이블에 연결된 미지원 기록이 있으면 자동 삭제하지 않고 중단한다. 화면에는 분리 복구 기능이 없으므로 동일인 확인이 필수다. 운영 배포 자체로 실사용자 기록을 합치지는 않는다.
 
+⚠️ **드물게 「교착」(`40P01 deadlock detected`)으로 합치기가 실패할 수 있다**(2026-10-02 검토 M1 · 코드는 그대로). 합치는 바로 그 순간 이전 쪽 계정의 같은 줄을 앱의 평범한 저장(진도 저장 등)이 고치면, 두 트랜잭션이 서로의 잠금을 기다리다 DB가 한쪽을 끊는다. 합치기는 트랜잭션 하나라 **통째로 되돌려지고 아무것도 잃지 않는다** — 화면에 오류가 뜨면 「합치기」를 한 번 더 누르면 된다. `member_merge.sql`을 돌릴 때 `lock timeout`(55P03)으로 멈춘 것도 같다 — 파일 전체가 되돌려지니 그대로 다시 돌린다(트리거를 다는 동안 앱 쓰기가 줄 서지 않게 5초만 기다린다).
+
 새 클라이언트는 서버가 `merged_from`으로 확인해 준 경우에만 다른 사용자 번호의 로컬 기록을 이전한다. 기존 기기에서 저장하는 예전 번호는 서버에서 현재 번호로 해석한다. DB 쓰기 트리거가 병합과 쓰기를 직렬화해 이전 번호의 고아 기록이 생기는 것도 막는다. 새 사용자 연관 테이블을 추가한 뒤에는 `member_merge.sql`을 다시 적용해 쓰기 연결 트리거를 설치해야 한다.
+- 정정 신청 표에도 트리거를 단다(2026-10-02) — FK가 없어서, 합친 뒤 옛 번호로 들어온 신청은 오류 없이 사라진 계정 번호에 붙어 성도님 화면에서 안 보이게 된다. 트리거가 현재 번호로 옮기고, 현재 소속 쪽에 같은 줄의 열린 신청이 있으면 부분 unique가 막아 교회 어드민이 `already-open`으로 답한다. ⚠️ 교회 어드민이 이 표를 지웠다 다시 만들면 트리거도 사라지므로 `member_merge.sql`을 다시 돌린다.
+- 두 사람 사이의 줄(가리기 `board_blocks` · 응원 `rank_cheers`)이 **옮긴 결과** 자기 자신과의 줄이 되면 트리거가 그 줄을 버린다(오류 없이 0줄 · 2026-10-02 검토 F2). 합치는 바로 그 순간 옛 기기가 현재 소속 쪽 글을 가리면 전에는 `board_blocks_not_self` CHECK(23514)에 걸려 api가 500을 냈다. 이제 api는 `{ ok: true }`를 돌려주고 앱은 「가렸어요」를 띄우지만, 그 글은 본인 글이라 그대로 보인다(아무것도 안 가려진다). 평소에는 api 입구가 옛 번호를 현재 번호로 먼저 바꿔 「내가 쓴 글은 가릴 수 없어요」(`own`)로 막으므로, 이 길은 그 사이의 경합뿐이다. 처음부터 자기 자신인 줄은 여전히 CHECK가 막는다.
+
+새 사용자 연관 테이블을 만들 때는 `member_merge.sql` 머리 「실행 순서」의 넷(옮기기 · FK·user_id 두 허용 목록 · `member_merge_counts` · 쓰기 연결 트리거)을 함께 더한다. 이 저장소의 `supabase/*.sql`에서 users를 가리키는 표를 합치기가 모르면 `tests/member-merge-coverage.test.cjs`가 배포 앞(`tools/preflight.py`)에서 멈춘다(2026-10-01 — 가리기·신고·AI 답 알림이 하루 동안 합치기를 막았다).
+
+### 알고 있는 멈춤
+
+**지금은 없다**(2026-10-02 둘째 판). 2026-10-01 감사에서 찾은 둘 — 아이폰 알림 기기(`ios_push_tokens` · 2026-09-15부터 멈췄다)와 사역 이력 정정 신청(`ministry_history_requests` · 2026-10-01 운영부터) — 을 위 표대로 옮기게 했다. 운영에 둘째 판 `member_merge.sql`을 돌리기 **전까지는** 여전히 그 기록이 이전 쪽 계정에 있으면 `merge-unsupported-records`로 멈춘다(기록은 안 잃는다).
+
+새로 생기면: 그 줄을 먼저 정리하고 다시 합치거나, `member_merge.sql`에 옮기기를 더한다(머리 「실행 순서」의 넷). 이 저장소의 표는 `tests/member-merge-coverage.test.cjs`가 배포 앞에서 잡는다. 교회 어드민 저장소의 표는 그 검사가 파일을 못 읽으므로 검사 안 `EXTERNAL_USER_TABLES`에 손으로 한 줄 적는다(지금 `ministry_history_requests` 하나).
 
 ## 로컬 검증
 
@@ -60,3 +84,7 @@ node --test tests/member-profile.test.cjs tests/member-merge.test.cjs
 ```
 
 검증 범위: 이관 전후 기록·번호 유지, 이전/새 식별자 로그인, 중복·경합 방지 조건, 교회학교 이동, 반복 변경, 원복, 트랜잭션 실패 롤백, 공개 역할 접근 차단, 관리자 인증·입력 검증, 로컬 진도 이전, 검색·확인·저장·이력 화면 동작.
+2026-10-01부터 `member-merge.test.cjs`는 `users_consents.sql`·`board_blocks.sql`·`board_reports.sql`·`sermon_answer_reports.sql` **실제 파일**을 PGlite에 올려 가리기(옮기기·두 계정 사이 버림·겹침)·신고/AI 답 알림(줄 번호·처리 상태 보존·겹치면 열린 줄 우선)·동의 날짜·합친 뒤 옛 번호로 들어온 신고까지 합쳐 본다.
+2026-10-02부터는 `ios_push_tokens.sql`·`push_evening.sql` 실제 파일과 교회 어드민 008의 **사본**(검사 파일 안 `MHR_008`)도 올려 아이폰 알림 기기·정정 신청 규칙(같은 줄·find_me 겹침은 이전 쪽 열린 신청 지움, 나머지는 상태·`updated_at` 그대로)·합친 뒤 옛 번호로 온 기기·신청·가리기·응원(F2)·정정 신청 표가 없는 DB까지 본다. 교회 어드민 저장소가 곁에 있으면(`..\church-admin` · `..\..\church-admin` · 또는 `CHURCH_ADMIN_DIR`) 사본이 원본 008과 같은지도 맞대 본다(없으면 그 한 가지만 건너뛴다).
+
+꾸러미가 필요 없는 `tests/member-merge-coverage.test.cjs`(배포 앞 `tools/preflight.py`에 걸려 있다)는 `supabase/*.sql`에서 users를 가리키는 표(와 `EXTERNAL_USER_TABLES`에 적은 교회 어드민 표)를 찾아 합치기가 다 아는지만 글자로 본다. 개발 DB에서 실제로 합쳐 보는 것은 `supabase/tests/member_merge_consents.dev.sql`·`supabase/tests/member_merge_requests_devices.dev.sql`(둘 다 BEGIN … ROLLBACK)이다.
