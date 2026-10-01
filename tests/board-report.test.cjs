@@ -101,6 +101,26 @@ test('보관 90일 — 서버 · SQL cron · 개인정보 안내(privacy/ · 앱
   assert.ok(helpPriv.includes('게시판 신고') && helpPriv.includes(days + '일 뒤'), '도움말 「🔒 개인정보 안내」에 신고·보관 기간이 없다');
 });
 
+// 같은 방침 안에서 「글을 지우면」은 글쓴 분이 직접 지우는 것이다(4항 사진 · 5항 「내 글 지우기」).
+// 그런데 본인 삭제(boardDeleteMine)는 deleted 표시만 하고 신고를 건드리지 않는다 — cascade 는 관리자
+// 완전삭제(boardModerate delete)에서만 돈다. 그래서 3항이 「글이 지워지면 신고도 지워진다」고 뭉뚱그리면
+// 지켜지지 않는 약속이 된다. 본인 삭제가 신고를 지우게 하지도 말 것 — 글은 되살릴 수 있어서,
+// 욕설을 쓰고 신고받은 뒤 스스로 지워 처리 기록을 없애는 길이 생긴다.
+test('보관 — privacy/ 3항은 관리자 완전삭제와 본인 삭제를 나눠 말한다(본인 삭제는 신고를 안 지운다)', () => {
+  const p3 = cut(read('privacy/index.html'), '<h2>3. 얼마나 보관하나</h2>', '<h2>4. 누가 볼 수 있나</h2>', 'privacy/index.html');
+  assert.ok(!p3.includes('신고된 글이 지워지면'),
+    'privacy/ 3항이 「신고된 글이 지워지면 신고도 지워진다」고 한다 — 본인 삭제에는 맞지 않는다');
+  assert.ok(p3.includes('운영진이 신고된 글을 완전히 지우면'), 'privacy/ 3항에 「운영진 완전삭제면 함께 지워진다」가 없다');
+  assert.ok(p3.includes('직접 지운 글의 신고'), 'privacy/ 3항에 「글쓴 분이 직접 지운 글의 신고는 처리 뒤 90일」이 없다');
+  const ts = read('supabase/functions/api/index.ts');
+  const s = ts.indexOf('async function boardDeleteMine(');
+  assert.ok(s >= 0, 'index.ts 에서 boardDeleteMine 을 못 찾았다 — 이 검사가 낡았다');
+  const e = ts.indexOf('\nasync function ', s + 1);
+  const mine = ts.slice(s, e > s ? e : undefined);
+  assert.ok(!mine.includes('board_reports'),
+    'boardDeleteMine 이 신고를 건드린다 — 그렇게 바꿨다면 privacy/ 3항 문구와 이 검사의 까닭부터 다시 볼 것');
+});
+
 // ③ 서버 — 받은 값 확인
 test('boardReportInput — 신원이 없거나 모양이 틀리면 no-user', () => {
   assert.equal(srv.boardReportInput({}).error, 'no-user');
