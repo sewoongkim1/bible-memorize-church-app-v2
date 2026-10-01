@@ -550,6 +550,14 @@ Deno.serve(async (req) => {
       case "boardReport":        return json(await boardReport(body));          // 성도
       case "boardReports":       return json(await boardReports(body));         // 관리자 — 처리 전 신고(글·답글별로 묶음)
       case "boardReportResolve": return json(await boardReportResolve(body));   // 관리자 — 숨기기 · 처리 완료
+      // 구글 출시 심사 전(2026-10-01) — 이용 규칙 동의 · 이분 글 가리기 · AI 답 알리기. ⚠️ user_id(가린 분·알린 분)는 어떤 응답에도 안 싣는다
+      case "boardRulesAccept":   return json(await boardRulesAccept(body));     // 성도 — 게시판 이용 규칙 동의(한 번)
+      case "boardBlock":         return json(await boardBlock(body));           // 성도 — 이 글을 쓴 분의 글을 내 화면에서 가리기
+      case "boardBlocks":        return json(await boardBlocks(body));          // 성도 — 내가 가린 분(이름·줄 번호만)
+      case "boardUnblock":       return json(await boardUnblock(body));         // 성도 — 다시 보기
+      case "sermonAnswerReport": return json(await sermonAnswerReport(body));   // 성도 — 「내게 주시는 말씀」 답 알리기
+      case "sermonAnswerReports":       return json(await sermonAnswerReports(body));        // 관리자 — 처리 전 알림(질문별)
+      case "sermonAnswerReportResolve": return json(await sermonAnswerReportResolve(body));  // 관리자 — 처리 완료 · 답 지우기
       default:             return json({ error: `unknown action: ${body.action}` }, 400);
     }
   } catch (e) {
@@ -2093,7 +2101,9 @@ async function sermonChat(b: any) {
   } catch (_) { /* 로그 실패 무시 */ }
 
   // 캐시: 같은 질문(공백 정규화 후 동일)이면 저장된 답변을 그대로 반환(AI 재호출 없음).
-  const qkey = message.replace(/\s+/g, " ").slice(0, 500);
+  // ⚠️ 열쇠는 sermonQuestionKey 하나로 만든다 — AI 답 알리기(sermonAnswerReport)가 같은 열쇠로 캐시를 찾고,
+  //    관리자 「답 지우기」가 같은 열쇠로 지운다(2026-10-01). 예전 식(message.replace(/\s+/g," ").slice(0,500))과 같은 값이다.
+  const qkey = sermonQuestionKey(message);
   const { data: chatCached } = await db.from("sermon_ai_cache")
     .select("answer, sources").eq("kind", "chat").eq("cache_key", qkey).maybeSingle();
   if (chatCached) return { ok: true, answer: chatCached.answer, sources: chatCached.sources ?? [] };
@@ -2350,6 +2360,18 @@ async function login(b: any) {
     identity_key: key,
   } });
   if (error) throw error;
+
+  // 보호자 확인(2026-10-01) — 어린 부서(needsGuardian)이고 앱이 「보호자가 함께 확인했어요」 체크를 보냈으면
+  // 그 날짜를 **처음 한 번만** 남긴다. 서버 기록 행(users)으로 판단한다(별칭으로 들어와도 같은 사람).
+  // ⚠️ 체크가 없다고 로그인을 막지 않는다 — 옛 판 앱·아이폰 네이티브 로그인 화면은 이 칸을 모른다.
+  //    대신 웹이 다음에 열릴 때 한 번 묻는다(app.js enterAfterLogin). 칸이 없는 DB(SQL 전)면 조용히 건너뛴다.
+  if (b.guardian_ok === true && user && needsGuardian(user) && !user.guardian_ok_at) {
+    try {
+      const { data: g, error: ge } = await db.from("users").update({ guardian_ok_at: new Date().toISOString() })
+        .eq("id", user.id).is("guardian_ok_at", null).select("guardian_ok_at").maybeSingle();
+      if (!ge && g) user.guardian_ok_at = (g as any).guardian_ok_at;
+    } catch (_) { /* 기록 실패가 로그인을 막지 않는다 — 앱이 다음 로그인에 다시 보낸다 */ }
+  }
 
   // select("*") — hearted 컬럼이 아직 없어도(마이그레이션 전) 에러 없이 undefined로 읽혀
   // 로그인이 깨지지 않는다. 배포 순서에 의존하지 않기 위함.
@@ -3848,12 +3870,25 @@ async function boardList(b: any) {
     if (!isAdmin) rq = rq.eq("hidden", false);
     const r = await rq; replies = (r.data ?? []).filter((x: any) => isAdmin || !x.deleted);
   }
+  // 「이분 글 가리기」(2026-10-01) — 보는 분이 가린 분의 글·답글을 뺀다(관리자 화면은 그대로 다 본다).
+  // ⚠️ 가린 분의 user_id 는 이 함수 안에서만 쓴다 — 아래 withRx 가 user_id 를 떼고 내보낸다.
+  const viewer = isAdmin ? "" : storeUid(b.user_id);
+  let blockedIds: string[] = [];
+  let rulesOk: boolean | undefined;
+  if (viewer) {
+    try { blockedIds = await boardBlockedIds(viewer); } catch (_) { blockedIds = []; }   // 가리기 실패가 게시판을 막지 않는다
+    try { rulesOk = await boardRulesOk(viewer); } catch (_) { rulesOk = undefined; }
+    if (blockedIds.length) {
+      const kept = boardDropBlocked(posts ?? [], replies, blockedIds);
+      posts = kept.posts; replies = kept.replies;
+    }
+  }
   const byPost = new Map<number, any[]>();
   for (const r of replies) { if (!byPost.has(r.post_id)) byPost.set(r.post_id, []); byPost.get(r.post_id)!.push(r); }
 
   // 공감 이모지 — 글·답글의 것을 한 번에 긁어 집계한다
   const me = String(b.user_id || "");
-  const rx = await boardReactionMap(ids, replies.map((r: any) => r.id), me);
+  const rx = await boardReactionMap((posts ?? []).map((p: any) => p.id), replies.map((r: any) => r.id), me);
   // user_id는 응답에 싣지 않는다. 이 API는 JWT가 없어 남의 user_id가 새면 그 사람
   // 행세가 가능해진다(그 이름으로 글쓰기·진도 저장·순위 응원까지). 클라이언트가
   // 정말 필요한 것은 '내 글인가' 하나뿐이므로 그것만 참/거짓으로 내려준다.
@@ -3866,6 +3901,8 @@ async function boardList(b: any) {
       ...rest,
       ...(photos.length ? { photos } : {}),
       isMine: !!me && !!user_id && user_id === me,
+      // 「🙈 가리기」를 붙여도 되는 글인가(글쓴 분을 아는 글 · 관리자 글 아님) — 참/거짓만. 누구인지는 안 싣는다.
+      blockable: !!user_id && !row.is_admin && !row.rich,
       reactions: rx.count.get(kind + ":" + row.id) || {},
       myReacts: rx.mine.get(kind + ":" + row.id) || [],
     };
@@ -3873,6 +3910,8 @@ async function boardList(b: any) {
 
   return {
     ok: true, isAdmin,
+    // 보는 분에게만 — 이용 규칙에 동의했나(처음 글쓰기 전에 앱이 묻는다) · 가린 분이 몇인가(「가린 분 관리」 단추)
+    ...(viewer ? { rulesOk, blockedCount: blockedIds.length } : {}),
     posts: (posts ?? []).map((p: any) => ({
       ...withRx("post", p),
       replies: (byPost.get(p.id) || []).map((r: any) => withRx("reply", r)),
@@ -4008,10 +4047,24 @@ async function boardDropImages(ids: number[]) {
   } catch (_) { /* 사진 정리 실패가 글 삭제를 막지 않는다 */ }
 }
 
+// 게시판 이용 규칙 확인(2026-10-01) — 관리자 글이 아니면 「로그인한 분 · 규칙에 동의한 분」만 받는다.
+// 구글 UGC 정책: "Requires users accept the app's terms of use and/or user policy before users can create or upload UGC".
+// ⚠️ 앱(아이폰·안드로이드 껍데기도 같은 웹)은 `rules-needed` 를 받으면 규칙 창을 띄우고 동의 뒤 다시 보낸다.
+//    옛 판 앱은 「등록 실패: rules-needed」를 한 번 보고, 판이 바뀌면(APP_BUILD 재확인) 새 흐름을 탄다.
+// ⚠️ 이제 user_id 없는 글은 받지 않는다 — 가리기(board_blocks)도 글쓴 분을 알아야 된다.
+async function boardWriteGate(b: any): Promise<string | null> {
+  if (!adminError(b)) return null;                     // 관리자 공지·관리자 답글
+  const uid = storeUid(b.user_id);
+  if (!uid) return "no-user";
+  return (await boardRulesOk(uid)) ? null : "rules-needed";
+}
+
 async function boardPost(b: any) {
   const content = String(b.content || "").trim();
   if (!content) return { ok: false, error: "empty" };
   if (content.length > 2000) return { ok: false, error: "too-long" };
+  const gate = await boardWriteGate(b);
+  if (gate) return { ok: false, error: gate };
   const name = (String(b.name || "").trim().slice(0, 40)) || "익명";
   const row: any = { name, content };
   if (b.user_id) row.user_id = b.user_id;
@@ -4046,6 +4099,8 @@ async function boardReply(b: any) {
   const content = String(b.content || "").trim();
   if (!content) return { ok: false, error: "empty" };
   if (content.length > 2000) return { ok: false, error: "too-long" };
+  const gate = await boardWriteGate(b);
+  if (gate) return { ok: false, error: gate };
   const isAdmin = !adminError(b); // 관리자 답글이면 배지
   const name = isAdmin ? "관리자" : ((String(b.name || "").trim().slice(0, 40)) || "익명");
   const row: any = { post_id: Number(b.post_id), name, content, is_admin: isAdmin };
@@ -4304,6 +4359,279 @@ async function boardReportResolve(b: any) {
     throw error;
   }
   return { ok: true, resolved: (data ?? []).length, hidden: op === "hide" };
+}
+
+// ============================================================
+// 구글 출시 심사 전 고칠 것(2026-10-01) — store/README.md 「구글 출시 심사 전 결정」
+//   ① 보호자 확인 — 어린 부서 로그인은 「보호자(부모님)가 함께 확인했어요」를 한 번 체크하고 그 날짜를 남긴다
+//      (users.guardian_ok_at · supabase/users_consents.sql). 대상 부서는 needsGuardian() 이 정한다 — app.js 와 두 곳.
+//   ② 게시판 이용 규칙 — 처음 글·답글을 쓰기 전에 한 번 동의(users.board_rules_at). 관리자 글이 아니면 서버가 확인한다.
+//   ③ 이분 글 가리기 — 내 화면에서만(board_blocks · supabase/board_blocks.sql). 가린 분의 user_id 는 어떤 응답에도 안 싣는다.
+//   ④ 「내게 주시는 말씀」 AI 답 알리기(sermon_answer_reports · supabase/sermon_answer_reports.sql).
+//   설명: docs/notes/board.md 「이용 규칙 · 가리기」 · docs/notes/store-review.md
+// ⚠️ 허용 목록(부서 · AI 답 까닭)은 앱·서버(·SQL CHECK) 여러 곳이다 — tests/store-review.test.cjs 가 맞대 본다.
+// ============================================================
+// ── 스토어 심사 — 순수 함수 (여기부터) ──
+// ⚠️ 이 구간은 타입 표기 없이 쓴다 — tests/store-review.test.cjs 가 떼어 node:vm 으로 돌린다.
+const STORE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function storeUid(v) {
+  const s = String(v == null ? "" : v).trim().toLowerCase();
+  return STORE_UUID.test(s) ? s : "";
+}
+
+// ① 보호자 확인 — 만 14세 미만이 있을 수 있는 부서. ⚠️ app.js 의 같은 이름 목록과 **글자까지 같아야** 한다.
+//   · 늘 묻는 부서: 영아·유아·유치·유년·초등(초6 = 만 11~12세) · 사랑부(나이로 가를 수 없는 부서라 묻는다 — 교회 담당자 확인 필요)
+//   · 학년으로 가르는 부서: 중등부 1·2학년(중2 는 그해 생일 전까지 만 13세) — 학년에 숫자가 없으면 묻는다(보수 쪽)
+//   · 묻지 않는 부서: 중등부 3학년(새 학년 3월에 이미 만 14세) · 고등부 · 청년부
+//   · 학년 칸에 교사·선생님 같은 말이 있으면 어른이다(그 부서 선생님이 부서로 들어오신 경우)
+//   ⚠️ 정규식 대신 includes 를 쓴다 — 이 파일이 껍데기를 거쳐 고쳐질 때 역슬래시가 풀린 적이 있다.
+const GUARDIAN_BU = ["영아부", "유아부", "유치부", "유년부", "초등부", "사랑부"];
+const GUARDIAN_GRADE_BU = { "중등부": [1, 2] };
+const GUARDIAN_ADULT_WORDS = ["교사", "선생", "부장", "전도사", "강도사", "목사", "간사", "총무"];
+function needsGuardian(p) {
+  if (!p || typeof p !== "object" || String(p.type || "").trim() !== "교회학교") return false;
+  const bu = String(p.bu == null ? "" : p.bu).trim();
+  const grade = String(p.grade == null ? "" : p.grade).trim();
+  if (GUARDIAN_ADULT_WORDS.some((w) => grade.includes(w))) return false;
+  if (GUARDIAN_BU.indexOf(bu) >= 0) return true;
+  const grades = Object.prototype.hasOwnProperty.call(GUARDIAN_GRADE_BU, bu) ? GUARDIAN_GRADE_BU[bu] : null;
+  if (!grades) return false;
+  const m = grade.match(/[0-9]+/);
+  return !m || grades.indexOf(Number(m[0])) >= 0;
+}
+
+// ② 게시판 이용 규칙 — 이날 이후에 동의했어야 「동의함」. 규칙을 바꾸면 이 날짜를 올려 모두에게 다시 묻는다.
+//   ⚠️ app.js BOARD_RULES_VER 와 같아야 한다(앱이 「이미 동의함」을 기억하는 열쇠).
+const BOARD_RULES_SINCE = "2026-10-01";
+function boardRulesAccepted(at) {
+  if (!at) return false;
+  const t = Date.parse(String(at));
+  return Number.isFinite(t) && t >= Date.parse(BOARD_RULES_SINCE + "T00:00:00+09:00");
+}
+
+// ③ 가리기 — 가린 분이 쓴 글·답글을 뺀다(내 화면에서만). 그분 글에 달린 남의 답글도 글과 함께 빠진다.
+//   blocked 는 user_id 배열(소문자). 옛 글(user_id 없음)은 가릴 수 없어 그대로 둔다.
+function boardDropBlocked(posts, replies, blocked) {
+  const set = new Set((Array.isArray(blocked) ? blocked : []).map((x) => String(x).toLowerCase()));
+  const ps = Array.isArray(posts) ? posts : [];
+  const rs = Array.isArray(replies) ? replies : [];
+  if (!set.size) return { posts: ps, replies: rs };
+  const keep = (r) => !(r && r.user_id && set.has(String(r.user_id).toLowerCase()));
+  const kept = ps.filter(keep);
+  const ids = new Set(kept.map((p) => p.id));
+  return { posts: kept, replies: rs.filter((r) => keep(r) && ids.has(r.post_id)) };
+}
+
+// ④ AI 답 알리기 — 까닭 허용 목록은 세 곳(여기 · app.js · sermon_answer_reports.sql CHECK)
+const SERMON_REPORT_REASONS = ["wrong", "offensive", "other"];
+const SERMON_REPORT_LABELS = { wrong: "설교와 다르거나 틀려요", offensive: "불쾌하거나 부적절해요", other: "기타" };
+const SERMON_REPORT_NOTE_MAX = 200;       // SQL CHECK char_length(note) <= 200
+const SERMON_REPORT_ANSWER_MAX = 1200;    // SQL CHECK char_length(answer) between 1 and 1200
+const SERMON_REPORT_KEEP_DAYS = 90;       // 처리 뒤 이만큼 지나면 지운다(SQL cron · 개인정보 안내와 같아야 한다)
+// 질문 → 캐시 열쇠. ⚠️ sermonChat 의 캐시 열쇠와 **같은 함수**를 쓴다 — 다르면 알린 답을 캐시에서 못 찾고,
+//   관리자 「답 지우기」가 엉뚱한 줄을 지운다.
+function sermonQuestionKey(m) {
+  return String(m == null ? "" : m).trim().replace(/\s+/g, " ").slice(0, 500);
+}
+function sermonReportInput(b) {
+  const src = b && typeof b === "object" ? b : {};
+  const userId = storeUid(src.user_id);
+  if (!userId) return { error: "no-user" };
+  const reason = String(src.reason == null ? "" : src.reason);
+  if (SERMON_REPORT_REASONS.indexOf(reason) < 0) return { error: "bad-reason" };
+  const question = sermonQuestionKey(src.question);
+  if (!question) return { error: "bad-args" };
+  const answer = Array.from(String(src.answer == null ? "" : src.answer).trim())
+    .slice(0, SERMON_REPORT_ANSWER_MAX).join("").trim();
+  const note = Array.from(String(src.note == null ? "" : src.note).replace(/\s+/g, " ").trim())
+    .slice(0, SERMON_REPORT_NOTE_MAX).join("").trim();
+  return { userId, reason, question, answer, note: note || null };
+}
+// 처리 전 알림을 질문 하나당 한 묶음으로 — 많이 알려진 것, 최근 것이 앞.
+// ⚠️ 정해진 칸만 옮겨 담는다 — 들어온 줄에 reporter_id 가 섞여 있어도 밖으로 안 나간다.
+function sermonReportGroup(rows) {
+  const byQ = new Map();
+  for (const r of (Array.isArray(rows) ? rows : [])) {
+    const q = String(r.question || "");
+    let g = byQ.get(q);
+    if (!g) {
+      g = { id: Number(r.id), question: q, answer: String(r.answer || ""), from_cache: !!r.from_cache,
+            count: 0, reasons: {}, notes: [], first_at: r.created_at, last_at: r.created_at };
+      byQ.set(q, g);
+    }
+    g.count++;
+    g.reasons[r.reason] = (g.reasons[r.reason] || 0) + 1;
+    if (r.note) g.notes.push(String(r.note));
+    if (r.from_cache && !g.from_cache) { g.answer = String(r.answer || ""); g.from_cache = true; }   // 서버가 준 답을 앞세운다
+    if (r.created_at < g.first_at) g.first_at = r.created_at;
+    if (r.created_at > g.last_at) { g.last_at = r.created_at; g.id = Number(r.id); }
+  }
+  return Array.from(byQ.values()).sort((a, b) =>
+    (b.count - a.count) || (a.last_at < b.last_at ? 1 : a.last_at > b.last_at ? -1 : 0));
+}
+// ── 스토어 심사 — 순수 함수 (여기까지) ──
+
+// 칸·표가 아직 없는 DB(SQL 을 돌리기 전) — 500 대신 「아직 준비 안 됨」으로 넘긴다
+function storeSchemaMissing(e: any) {
+  const c = String(e?.code || ""), m = String(e?.message || "");
+  return c === "42703" || c === "42P01" || c === "PGRST204" || c === "PGRST205" ||
+    /does not exist|schema cache|Could not find/i.test(m);
+}
+
+// 게시판 이용 규칙에 동의했나. 칸이 아직 없으면(SQL 전) 막지 않는다 — 함수가 먼저 나가도 글쓰기가 멈추지 않게.
+async function boardRulesOk(uid: string): Promise<boolean> {
+  if (!uid) return false;
+  const { data, error } = await db.from("users").select("board_rules_at").eq("id", uid).maybeSingle();
+  if (error) { if (storeSchemaMissing(error)) return true; throw error; }
+  return boardRulesAccepted(data && (data as any).board_rules_at);
+}
+
+// 성도 — 게시판 이용 규칙 동의. 같은 분이 다시 눌러도 날짜만 새로 적힌다.
+async function boardRulesAccept(b: any) {
+  const uid = storeUid(b.user_id);
+  if (!uid) return { ok: false, error: "no-user" };
+  const { data, error } = await db.from("users").update({ board_rules_at: new Date().toISOString() })
+    .eq("id", uid).select("id");
+  if (error) { if (storeSchemaMissing(error)) return { ok: true, recorded: false }; throw error; }
+  if (!(data && data.length)) return { ok: false, error: "no-user" };
+  return { ok: true, recorded: true, since: BOARD_RULES_SINCE };
+}
+
+// 내가 가린 분들의 user_id — boardList 안에서만 쓰고 밖으로 내보내지 않는다. 표가 없으면 빈 목록.
+async function boardBlockedIds(uid: string): Promise<string[]> {
+  if (!uid) return [];
+  const { data, error } = await db.from("board_blocks").select("blocked_id").eq("blocker_id", uid).limit(1000);
+  if (error) { if (storeSchemaMissing(error)) return []; throw error; }
+  return ((data ?? []) as any[]).map((r) => String(r.blocked_id).toLowerCase());
+}
+
+// 성도 — 이 글(답글)을 쓴 분의 글을 내 화면에서 가린다. 화면은 글 번호만 보내고 글쓴 분은 서버가 찾는다.
+async function boardBlock(b: any) {
+  const uid = storeUid(b.user_id);
+  if (!uid) return { ok: false, error: "no-user" };
+  const kind = b.kind === "reply" ? "reply" : "post";
+  const id = boardReportPosInt(b.id);
+  if (!id) return { ok: false, error: "bad-args" };
+  const table = kind === "reply" ? "board_replies" : "board_posts";
+  // select("*") — 옛 DB(is_admin·rich·user_id 칸 이전)에서도 안전하게. 응답에는 아무 칸도 안 싣는다.
+  const { data: row, error: e1 } = await db.from(table).select("*").eq("id", id).maybeSingle();
+  if (e1) throw e1;
+  if (!row) return { ok: false, error: "not-found" };
+  if (row.is_admin || row.rich) return { ok: false, error: "admin" };   // 운영진 안내는 가리지 않는다
+  const author = String(row.user_id || "").toLowerCase();
+  if (!author) return { ok: false, error: "no-author" };                // 옛 글 — 글쓴 분을 알 수 없다
+  if (author === uid) return { ok: false, error: "own" };
+  const name = Array.from(norm(row.name)).slice(0, 60).join("") || null;
+  const { error } = await db.from("board_blocks").insert({ blocker_id: uid, blocked_id: author, blocked_name: name });
+  if (error) {
+    const code = String((error as any).code || ""), msg = String(error.message || "") + " " + String((error as any).details || "");
+    if (code === "23505" || /duplicate key/i.test(msg)) return { ok: true, already: true };
+    if (storeSchemaMissing(error)) return { ok: false, error: "not-ready" };
+    if (code === "23503") return { ok: false, error: /blocker/i.test(msg) ? "no-user" : "not-found" };
+    throw error;
+  }
+  return { ok: true };
+}
+
+// 성도 — 내가 가린 분 목록. ⚠️ 이름(가릴 때의 표시 이름)과 이 표의 줄 번호만 — blocked_id 는 고르지도 않는다.
+async function boardBlocks(b: any) {
+  const uid = storeUid(b.user_id);
+  if (!uid) return { ok: false, error: "no-user" };
+  const { data, error } = await db.from("board_blocks").select("id,blocked_name,created_at")
+    .eq("blocker_id", uid).order("created_at", { ascending: false }).limit(1000);
+  if (error) { if (storeSchemaMissing(error)) return { ok: false, error: "not-ready" }; throw error; }
+  return { ok: true, list: ((data ?? []) as any[]).map((r) => ({ id: Number(r.id), name: r.blocked_name || "이름 모름", created_at: r.created_at })) };
+}
+
+// 성도 — 다시 보기(가리기 풀기). 내 줄만 지울 수 있다.
+async function boardUnblock(b: any) {
+  const uid = storeUid(b.user_id);
+  if (!uid) return { ok: false, error: "no-user" };
+  const id = boardReportPosInt(b.block_id);
+  if (!id) return { ok: false, error: "bad-args" };
+  const { data, error } = await db.from("board_blocks").delete().eq("id", id).eq("blocker_id", uid).select("id");
+  if (error) { if (storeSchemaMissing(error)) return { ok: false, error: "not-ready" }; throw error; }
+  return { ok: true, removed: (data ?? []).length };
+}
+
+// 성도 — 「내게 주시는 말씀」 AI 답 알리기. 답은 서버 캐시에서 찾은 것을 먼저 쓴다(from_cache).
+async function sermonAnswerReport(b: any) {
+  const v: any = sermonReportInput(b);
+  if (v.error) return { ok: false, error: v.error };
+  let answer = v.answer, fromCache = false;
+  try {
+    const { data: c } = await db.from("sermon_ai_cache").select("answer")
+      .eq("kind", "chat").eq("cache_key", v.question).maybeSingle();
+    if (c && c.answer) {
+      answer = Array.from(String(c.answer)).slice(0, SERMON_REPORT_ANSWER_MAX).join("");
+      fromCache = true;
+    }
+  } catch (_) { /* 캐시를 못 읽어도 앱이 보낸 답으로 받는다 */ }
+  if (!answer) return { ok: false, error: "bad-args" };
+  const { error } = await db.from("sermon_answer_reports").insert({
+    reporter_id: v.userId, question: v.question, answer, from_cache: fromCache, reason: v.reason, note: v.note,
+  });
+  if (error) {
+    const code = String((error as any).code || ""), msg = String(error.message || "") + " " + String((error as any).details || "");
+    if (code === "23505" || /duplicate key/i.test(msg)) return { ok: true, already: true };
+    if (storeSchemaMissing(error)) return { ok: false, error: "not-ready" };
+    if (code === "23503") return { ok: false, error: "no-user" };
+    throw error;
+  }
+  try { await sermonAnswerReportNotify(); } catch (_) { /* 알림 실패가 알림 받기를 막지 않는다 */ }
+  return { ok: true };
+}
+
+// 담당자(app_config boardAdmins — 게시판 신고와 같은 분들)에게 Web Push. 10분에 한 번까지 · 본문에 질문·답·알린 분을 안 싣는다.
+async function sermonAnswerReportNotify() {
+  const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  const { data: recent } = await db.from("push_log").select("sent_at")
+    .eq("mode", "answer-report").gte("sent_at", since).limit(1);
+  if ((recent ?? []).length) return { sent: 0, error: "throttled" };
+  const list = await configAdminSubs("boardAdmins");
+  if (!list.length) return { sent: 0, error: "no-admin" };
+  const payload = JSON.stringify({
+    title: "[AI 답 알림]",
+    body: "「내게 주시는 말씀」 답 하나가 알려졌습니다 — 관리자 「게시판 관리」에서 확인해 주세요.",
+    url: "https://gocheok.onlybible.kr/admin.html",
+  });
+  return await pushToSubs(list, payload, "answer-report", "AI 답 알림");
+}
+
+// 관리자 — 처리 전 AI 답 알림(질문별 묶음). 알린 분은 싣지 않는다(몇 분인지만).
+async function sermonAnswerReports(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const cutoff = new Date(Date.now() - SERMON_REPORT_KEEP_DAYS * 86400000).toISOString();
+  const purge = await db.from("sermon_answer_reports").delete().lt("resolved_at", cutoff);
+  if (purge.error) { if (storeSchemaMissing(purge.error)) return { ok: false, error: "not-ready" }; throw purge.error; }
+  const { data, error } = await db.from("sermon_answer_reports")
+    .select("id,question,answer,from_cache,reason,note,created_at")      // ⚠️ reporter_id 는 고르지도 않는다
+    .is("resolved_at", null).order("created_at", { ascending: false }).limit(1000);
+  if (error) { if (storeSchemaMissing(error)) return { ok: false, error: "not-ready" }; throw error; }
+  return { ok: true, labels: SERMON_REPORT_LABELS, keepDays: SERMON_REPORT_KEEP_DAYS, items: sermonReportGroup(data ?? []) };
+}
+
+// 관리자 — 그 질문의 처리 전 알림을 닫는다. op: "resolve"(답은 그대로) | "uncache"(캐시된 답을 지워 다음 질문 때 새로 만든다)
+async function sermonAnswerReportResolve(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const id = boardReportPosInt(b.id);
+  const op = b.op === "uncache" ? "uncache" : b.op === "resolve" ? "resolve" : "";
+  if (!id || !op) return { ok: false, error: "bad-args" };
+  const { data: row, error: e1 } = await db.from("sermon_answer_reports").select("question").eq("id", id).maybeSingle();
+  if (e1) { if (storeSchemaMissing(e1)) return { ok: false, error: "not-ready" }; throw e1; }
+  if (!row) return { ok: false, error: "not-found" };
+  let uncached = 0;
+  if (op === "uncache") {
+    const { data: gone, error: e2 } = await db.from("sermon_ai_cache").delete()
+      .eq("kind", "chat").eq("cache_key", row.question).select("cache_key");
+    if (e2) throw e2;
+    uncached = (gone ?? []).length;
+  }
+  const { data, error } = await db.from("sermon_answer_reports").update({
+    resolved_at: new Date().toISOString(), resolution: op === "uncache" ? "uncached" : "kept",
+  }).is("resolved_at", null).eq("question", row.question).select("id");
+  if (error) throw error;
+  return { ok: true, resolved: (data ?? []).length, uncached };
 }
 
 // ---------- 사역신청(2027) ----------
