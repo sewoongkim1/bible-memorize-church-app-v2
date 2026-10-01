@@ -10888,6 +10888,142 @@ function minTitleHtml(title, subtitleHtml) {
     (subtitleHtml || "") + '</div>';
 }
 
+// ── 사역 이력 확인 · 순수 ── (tests/ministry-history.test.cjs 가 이 표식부터 「순수 끝」 표식까지 떼어 vm 에서 돌린다)
+// 설계: docs/superpowers/specs/2026-10-01-ministry-history-check-design.md §4 · 2026-10-01
+// ⚠️ 여기서는 DOM·전역 상태를 건드리지 않는다(minEsc 만 빌려 쓴다 — 시험이 그 함수도 함께 떼어 온다).
+// ⚠️ kind·status 글자는 교회 어드민 history-check.ts·SQL 008 CHECK 와 같다(세 곳) — 보이는 말을 바꾸려면 MH_KIND_TEXT 만.
+const MH_LINE_KINDS = [
+  { k: "not_mine", t: "내 것이 아니에요" },
+  { k: "wrong_team", t: "팀·부서가 틀려요" },
+  { k: "wrong_position", t: "직분이 틀려요" },
+  { k: "other", t: "그 밖에" },
+];
+const MH_KIND_TEXT = {
+  not_mine: "내 것이 아니에요", wrong_team: "팀·부서가 틀려요", wrong_position: "직분이 틀려요",
+  other: "그 밖에", missing: "빠진 사역", find_me: "내 기록 찾아 주세요",
+};
+const MH_OPEN = ["신청", "확인 중"];
+const MH_DETAIL_MAX = 200, MH_TEAM_MAX = 100, MH_OPEN_MAX = 20;
+const MH_ERR = {
+  closed: "아직 열리지 않았어요.",
+  "no-user": "로그인 정보를 찾지 못했어요. 첫 화면에서 다시 로그인해 주세요.",
+  "already-open": "이미 정정 신청을 내셨어요. 담당자가 확인하고 있어요.",
+  "too-many": "확인을 기다리는 신청이 20건이에요. 담당자가 확인한 뒤 다시 내 주세요.",
+  "need-detail": "어떤 점이 틀렸는지 한 줄로 적어 주세요.",
+  "need-team": "부서나 팀 이름을 적어 주세요.",
+  "bad-year": "연도를 숫자 네 자리로 적어 주세요(예: 2024).",
+  "too-long": "글이 너무 길어요. 조금 줄여 주세요.",
+  "not-yours": "이 기록은 지금 고칠 수 없어요. 화면을 다시 열어 주세요.",
+  "not-found": "기록을 찾지 못해 이 신청은 낼 수 없어요.",
+  "already-found": "기록을 이미 찾았어요. 줄마다 「정정」을 눌러 주세요.",
+};
+function mhErrText(code) { return MH_ERR[code] || "잠시 뒤 다시 해 주세요."; }
+
+// 머리줄 「기쁨-12 홍길동」 — 목장 99(모름)는 교구만, 교회학교는 부서·학년
+function mhWhoText(w) {
+  if (!w) return "";
+  const aff = w.type === "교회학교"
+    ? [w.bu, w.grade].filter(Boolean).join(" ")
+    : (w.mok && w.mok !== "99" ? w.gu + "-" + w.mok : (w.gu || ""));
+  return (aff ? aff + " " : "") + (w.name || "");
+}
+function mhSubHtml(w) { return '<p class="min-sub">' + minEsc(mhWhoText(w)) + ' 성도님의 사역 기록</p>'; }
+
+// 단계 줄 — 사역신청 minStepsHtml 과 같은 모양(.pl-steps). 「반영 안 함」은 반영과 나란한 끝이다(끝 칸만 바뀐다).
+function mhStepsHtml(st) {
+  const steps = st === "반영 안 함" ? ["신청", "확인 중", "반영 안 함"] : ["신청", "확인 중", "반영"];
+  const i = steps.indexOf(st);
+  return '<div class="pl-steps mh-steps">' + steps.map(function (t, k) {
+    return '<div class="pl-step ' + (k < i ? "done" : k === i ? "now" : "") + '"><i></i><span>' + minEsc(t) + '</span></div>';
+  }).join("") + '</div>';
+}
+
+function mhOpenIds(requests) {
+  const s = {};
+  (requests || []).forEach(function (r) { if (r.history_id != null && MH_OPEN.indexOf(r.status) >= 0) s[r.history_id] = true; });
+  return s;
+}
+function mhOpenCount(requests) {
+  return (requests || []).filter(function (r) { return MH_OPEN.indexOf(r.status) >= 0; }).length;
+}
+function mhHasOpenFind(requests) {
+  return (requests || []).some(function (r) { return r.kind === "find_me" && MH_OPEN.indexOf(r.status) >= 0; });
+}
+
+// 기록 줄 — 해마다 묶는다(서버가 연도 내림차순으로 준다). 줄 하나 = 부서 · 팀 직책 · 직분 + [정정]
+// ⚠️ 줄 열쇠는 기록 id 숫자뿐이다(교인ID·이름을 data-* 에 싣지 않는다).
+function mhHistoryHtml(rows, requests) {
+  if (!rows || !rows.length) return '<p class="mh-empty">아직 올라온 사역 기록이 없어요.</p>';
+  const open = mhOpenIds(requests);
+  let out = "", year = null;
+  rows.forEach(function (r) {
+    if (r.year !== year) {
+      if (year !== null) out += '</div>';
+      year = r.year;
+      out += '<div class="mh-year"><div class="mh-year-t">' + minEsc(r.year) + '</div>';
+    }
+    const what = [r.committee, [r.team, r.role_title].filter(Boolean).join(" "), r.position]
+      .filter(function (x) { return x && String(x).trim(); }).map(minEsc).join(' <span class="mh-dot">·</span> ');
+    out += '<div class="mh-row"><span class="mh-what">' + what + '</span>' +
+      (open[r.id]
+        ? '<span class="min-st s-wait mh-tag">신청함</span>'
+        : '<button class="mh-fix" data-fix="' + Number(r.id) + '">정정</button>') + '</div>';
+  });
+  return out + '</div>';
+}
+
+// 기록 줄 이름 「2025 시온성가대」 — 빼 둔 줄이라 목록에 없으면 「지난 기록」
+function mhRowLabel(row) {
+  return row ? row.year + " " + ([row.team, row.committee].filter(Boolean)[0] || "") : "지난 기록";
+}
+
+// 내 정정 신청 — 최근 것이 위(서버 차례 그대로). 담당자가 적은 말이 있으면 아래 한 줄(반영 안 함의 사유 등)
+function mhRequestsHtml(requests, rows) {
+  if (!requests || !requests.length) return "";
+  const byId = {};
+  (rows || []).forEach(function (r) { byId[r.id] = r; });
+  return '<div class="min-sent mh-reqs"><div class="min-sent-t">📋 내 정정 신청 <b>' + requests.length + '</b>건</div>' +
+    requests.map(function (q) {
+      const head = q.kind === "missing" ? "빠진 사역(" + q.year + ") — " + q.team_text
+        : q.kind === "find_me" ? MH_KIND_TEXT.find_me
+        : mhRowLabel(q.history_id != null ? byId[q.history_id] : null) + " — " + (MH_KIND_TEXT[q.kind] || "");
+      return '<div class="mh-req"><div class="mh-req-h">' + minEsc(head) + '</div>' +
+        (q.detail ? '<div class="mh-req-d">' + minEsc(q.detail) + '</div>' : "") +
+        mhStepsHtml(q.status) +
+        (q.answer ? '<div class="mh-ans">💬 ' + minEsc(q.answer) + '</div>' : "") + '</div>';
+    }).join("") + '</div>';
+}
+
+// 제목 아래 본문 전부 — d = ministryHistoryMine 응답 { found, rows, requests }
+function mhBodyHtml(d) {
+  const exit = '<button class="min-ghost" id="mh-exit">나가기</button>';
+  if (!d.found) {
+    return '<div class="min-note mh-none">교적의 교구·목장·이름과 맞는 기록을 찾지 못했어요.<br>' +
+      '그사이 목장이 바뀌셨거나 같은 이름이 계시면 그럴 수 있어요. 아래를 누르시면 담당자가 찾아 드려요.</div>' +
+      (mhHasOpenFind(d.requests) ? "" : '<button class="min-cta" id="mh-find">내 기록 찾아 주세요</button>') +
+      mhRequestsHtml(d.requests, []) + exit;
+  }
+  return mhHistoryHtml(d.rows, d.requests) +
+    '<button class="min-ghost mh-add" id="mh-missing">＋ 빠진 사역 알리기</button>' +
+    mhRequestsHtml(d.requests, d.rows) + exit;
+}
+
+// 보내기 전 검사 — 교회 어드민 parseRequest 와 같은 규칙(정하는 것은 서버다 · 여기는 미리 알릴 뿐)
+function mhCheck(f) {
+  const detail = String(f.detail || "").trim();
+  if (detail.length > MH_DETAIL_MAX) return "too-long";
+  if (f.kind === "other" && !detail) return "need-detail";
+  if (f.kind === "missing") {
+    const y = Number(String(f.year || "").trim());
+    if (!Number.isInteger(y) || y < 1950 || y > 2100) return "bad-year";
+    const t = String(f.team_text || "").trim();
+    if (!t) return "need-team";
+    if (t.length > MH_TEAM_MAX) return "too-long";
+  }
+  return null;
+}
+// ── 사역 이력 확인 · 순수 끝 ──
+
 // 칩 한 줄. ⚠️ 새 색을 만들지 않는다 — 켜진 칩만 남색, 꺼진 칩은 흰 바탕.
 // 남색 채움(지금 할 일)·금색(도전)은 건드리지 않는다.
 function minChipRow(label, axis, items) {
