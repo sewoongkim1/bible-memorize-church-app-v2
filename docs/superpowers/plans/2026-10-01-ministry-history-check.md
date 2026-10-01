@@ -1718,6 +1718,8 @@ supabase --workdir ~/.church-admin/supa-prod db query --linked -f C:/Projects/ch
 ```
 Expected: 노출 점검 0행.
 
+⚠️ 이 가지에는 「📮 정정 신청」 메뉴(계획 `2026-10-01-ministry-history-requests-admin.md`)도 함께 들어 있다 — 함께 나간다. 합칠 때 b6 가지와 `registry.js`(메뉴 줄)·`index.ts`(import·switch)·`authz.ts` 가 겹친다 — 둘 다 남긴다.
+
 - [ ] **Step 3: 교회 어드민 — main 에 합치고 운영 함수 배포 → 푸시**
 
 ```bash

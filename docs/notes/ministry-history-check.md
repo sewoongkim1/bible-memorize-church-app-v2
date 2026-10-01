@@ -22,3 +22,14 @@
 - **MH_LIVE 스위치** — 운영 서버(교회 어드민 내부 갈래·정정 신청 표)가 올라가기 전까지 운영 주소에서는 첫 화면 「사역현황」 묶음을 숨긴다(🤝 는 「함께」 원래 자리로). 개발·localhost(`window.SUPA.env === "dev"`)에서는 늘 켜진다. 계획 Task 9(운영 반영)에서 `const MH_LIVE = true;` 로 바꾼다.
 - 과제 9 합칠 때 autumn-excuse 가지와 `Deno.serve(` 앞·import 덩어리에서 충돌 — 풀 때 `x-internal-key` 갈래가 토큰 검사보다 **앞에** 남아야 한다.
 - 운영에서 문을 열기 전에 b6 의 맞춤(person_id 잇기)이 끝나 있어야 한다 — 안 그러면 「기록 0줄」이 보여 「빠진 사역」 신청이 쏟아진다.
+
+## 담당자 처리 메뉴 「📮 정정 신청」(2026-10-01)
+
+설계 `docs/superpowers/specs/2026-10-01-ministry-history-requests-admin-design.md` · 계획 `docs/superpowers/plans/2026-10-01-ministry-history-requests-admin.md`(교회 어드민 worktree `history-check`).
+
+- **액션 둘**(역할 `ministry`): `historyRequestList`·`historyRequestSet`. 카카오 토큰으로 담당자가 부른다 — 성경암송 쪽 `api` 는 관여하지 않는다.
+- **「반영 안 함」은 답(사유)을 꼭 적어야 저장된다**(`need-answer`). 끝내지 않은 처리는 없다.
+- **「내 것이 아니에요」(`not_mine`)를 「반영」으로 처리할 때만 본인 확인 체크(`verified===true`)가 필수다**(`need-verified`) — 확인 없이 남의 줄을 빼면 안 된다.
+- **알림은 없다.** 처리해도 성도님께 푸시·메일이 가지 않는다 — 신청자는 정정 신청 화면에서 상태를 다시 봐야 안다.
+- **[그 줄 열기]는 b6(사역 이력) 세션의 `?row`·`?q` 를 기다린다** — 아직 안 받으면 「📜 사역 이력」 첫 화면만 열린다(위 Step 1 의 부탁 참고).
+- **직분은 정정하지 않는다** — 「직분이 틀려요」(`wrong_position`)는 앱 화면·교회 어드민 서버·SQL CHECK·시험 어디에도 없다(교적 기준 · 친구 결정). 줄마다 보이는 그해 명단의 직분은 그대로 보여 준다.
