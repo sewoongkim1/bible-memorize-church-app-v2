@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261001c";
+const APP_BUILD = "20261001d";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -703,6 +703,12 @@ function refreshEventOpen() {
 }
 function eventVisible() { return eventOpenCached(); }
 
+// 첫 화면 단추 이름의 해 「2027년 사역신청」(2026-10-01 친구 요청) — 서버 app_config.ministry.year 를 캐시에서 읽는다.
+//   없으면 2027(서버 ministryCfg 의 기본값과 같다). 해를 글자로 박지 않는다 — 다음 해 신청 때 설정만 바꾸면 따라간다.
+function ministryYear() {
+  const p = ministryPeriodCached();
+  return Number(p && p.year) || 2027;
+}
 function ministryVisible() {
   if (location.search.indexOf("preview=ministry") >= 0) return true;   // 관리자 미리보기
   if (ministryTesterCached()) return true;                              // 시험 참여자(교회 어드민 명단 · 2026-09-30)
@@ -2750,7 +2756,7 @@ function renderSummary() {
           한 조건으로 감싼다(둘 다 숨는 날 제목만 남지 않게). 🗂️ — 📜 는 「내 안에 거하는 말씀」이 쓴다.
           설계 docs/superpowers/specs/2026-10-01-ministry-history-check-design.md §2 */""}
     ${ministryVisible() && MH_LIVE ? `<div class="grp-title">사역현황</div>
-    <button class="summary-help" id="open-ministry">🤝 사역신청${newBadge("ministry")}</button>
+    <button class="summary-help" id="open-ministry">🤝 ${ministryYear()}년 사역신청${newBadge("ministry")}</button>
     <button class="summary-help" id="open-ministry-history">🗂️ 사역 이력 확인</button>` : ""}
     <div class="grp-title">함께</div>
     ${/* 이름은 관리자가 적는 값이라 날 HTML 로 그리지 않는다. boardEsc 를 빌려 쓴다 —
@@ -2779,7 +2785,7 @@ function renderSummary() {
          시편 23편이 "여호와는 나의 목자시니"로 시작하니, 장소(물가)보다 인도받아
          쉰다는 이 시편의 핵심에 더 가깝다. -->
     ${/* MH_LIVE 가 꺼진 동안(운영 · 과제 9 전)은 🤝 를 원래 자리(「함께」)에 둔다 — 화면이 지금과 똑같게. 켜지면 위 「사역현황」 묶음으로 옮겨 간다. */""}
-    ${ministryVisible() && !MH_LIVE ? `<button class="summary-help" id="open-ministry">🤝 사역신청${newBadge("ministry")}</button>` : ""}
+    ${ministryVisible() && !MH_LIVE ? `<button class="summary-help" id="open-ministry">🤝 ${ministryYear()}년 사역신청${newBadge("ministry")}</button>` : ""}
     ${passagesVisible() ? `<button class="summary-help" id="open-passages">📜 내 안에 거하는 말씀${newBadge("passages")}</button>` : ""}
     <!-- 「더 보기」 — 자주 누르지 않는 넷을 접어 둔다(연 상태는 기억한다).
          ⚠️ 순서와 모양은 성도님이 직접 정하셨다(2026-09-10): 필사 → 퀴즈 → 찬양 → 설교,
