@@ -4,13 +4,19 @@
 -- ■ 실행 순서(개발 먼저 → 운영) — 여러 번 돌려도 안전하다(create or replace · 트리거는 지우고 다시 단다)
 --   1) schema.sql · app_config.sql · member_profile.sql (처음 한 번)
 --   2) 사용자 연관 표·칸을 만드는 SQL — users_consents.sql · board_blocks.sql · board_reports.sql ·
---      sermon_answer_reports.sql (2026-10-01). ⚠️ 표가 **먼저** 있어야 아래 쓰기 연결 트리거가 그 표에 붙는다.
+--      sermon_answer_reports.sql (2026-10-01) · ios_push_tokens.sql · push_evening.sql (2026-09-15·23) ·
+--      교회 어드민 저장소 supabase/sql/008_ministry_history_requests.sql (2026-10-01 · 정정 신청).
+--      ⚠️ 표가 **먼저** 있어야 아래 쓰기 연결 트리거가 그 표에 붙는다. 없는 표는 건너뛴다(to_regclass) —
+--      나중에 그 표를 만들면 이 파일을 **다시** 돌린다(교회 어드민이 008 표를 지웠다 다시 만들어도 마찬가지).
 --   3) 이 파일 전체
---   4) **개발에서만** supabase/tests/member_merge_consents.dev.sql — 가상 성도로 가리기·신고·AI 답 알림·동의 날짜를
---      합쳐 보고 전부 되돌린다(BEGIN … ROLLBACK). 「통과」 한 줄이 나오거나 오류 없이 끝나야 한다. 운영에서는 돌리지 않는다.
+--   4) **개발에서만** — 가상 성도로 합쳐 보고 전부 되돌린다(BEGIN … ROLLBACK). 운영에서는 돌리지 않는다.
+--      supabase/tests/member_merge_consents.dev.sql          (가리기·신고·AI 답 알림·동의 날짜)
+--      supabase/tests/member_merge_requests_devices.dev.sql  (정정 신청 · 아이폰 알림 기기 · 합친 뒤 옛 번호로 온 가리기)
+--      「통과」 줄이 나오거나 오류 없이 끝나야 한다.
 --   ⚠️ 새 사용자 연관 표를 만들면 ① 합치기 본체의 옮기기 ② 두 허용 목록(FK·user_id) ③ member_merge_counts
 --      ④ 쓰기 연결 트리거 — 넷을 함께 더하고 이 파일을 다시 돌린다. 빠뜨리면 그 기록이 있는 계정은
---      merge-unsupported-records 로 멈춘다(기록은 안 잃는다 — 2026-10-01 가리기·신고·AI 답 알림이 그랬다).
+--      merge-unsupported-records 로 멈춘다(기록은 안 잃는다 — 2026-10-01 가리기·신고·AI 답 알림이 그랬고,
+--      감사해 보니 아이폰 알림 기기(2026-09-15)·정정 신청(2026-10-01)도 그랬다 — 둘째 판에서 넣었다).
 begin;
 create table if not exists public.user_merges (
   source_user_id uuid primary key,
@@ -28,18 +34,27 @@ create index if not exists user_merges_target on public.user_merges(target_user_
 
 -- 예전 앱이 합치기 전 번호로 저장하더라도 대상 사용자에게 기록된다.
 -- 합치기와 저장이 겹치면 트랜잭션 잠금을 기다린 뒤 최신 연결을 확인한다.
+-- 두 사람 사이의 줄(칸 둘 — 가리기 board_blocks · 응원 rank_cheers)이 **옮긴 결과** 두 칸이 같은 사람이 되면 그 줄은 버린다
+--   (return null — 넣지도 고치지도 않는다 · 오류 없음). 합치기 본체도 두 계정 사이 줄을 버리고(가리기) 자기 응원을 지운다(응원).
+--   2026-10-01 검토 F2: 합치는 바로 그 순간 옛 기기가 「남는 쪽 글」을 가리면 api 는 (옛 번호, 남는 번호)를 넣고, 이 트리거가
+--   (남는, 남는)으로 바꿔 CHECK board_blocks_not_self(23514)에 걸려 HTTP 500 이 났다. 이제 0줄로 끝나고 api 는 { ok:true } 를 준다
+--   (api 입구가 옛 번호를 먼저 남는 번호로 바꾸므로, 평소에는 api 의 own 검사가 먼저 막는다 — 이 길은 그 사이의 경합뿐이다).
+--   옮기지 않은 줄(처음부터 같은 사람)은 그대로 두어 CHECK 가 계속 지킨다.
 create or replace function public.redirect_merged_member_write()
 returns trigger language plpgsql security invoker set search_path = public as $$
-declare col text; original text; resolved uuid; row_data jsonb := to_jsonb(new); saved_stage integer;
+declare col text; original text; resolved uuid; row_data jsonb := to_jsonb(new); saved_stage integer; moved boolean := false;
 begin
   perform pg_advisory_xact_lock(7240910, 1);
   foreach col in array tg_argv loop
     original := row_data->>col;
     if original ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then
       select target_user_id into resolved from public.user_merges where source_user_id = original::uuid;
-      if found then row_data := jsonb_set(row_data, array[col], to_jsonb(resolved::text)); end if;
+      if found then row_data := jsonb_set(row_data, array[col], to_jsonb(resolved::text)); moved := true; end if;
     end if;
   end loop;
+  if moved and tg_nargs = 2 and lower(row_data->>tg_argv[0]) = lower(row_data->>tg_argv[1]) then
+    return null;
+  end if;
   if tg_table_name='progress' then
     select stage into saved_stage from public.progress where user_id=(row_data->>'user_id')::uuid
       and verse_no=(row_data->>'verse_no')::int and lang=row_data->>'lang';
@@ -54,9 +69,15 @@ grant execute on function public.redirect_merged_member_write() to service_role;
 do $$
 declare t text;
 begin
+  -- 2026-10-02 둘째 판 — 아이폰 알림 기기(ios_push_tokens) · 정정 신청(ministry_history_requests · 교회 어드민 008).
+  --   정정 신청에도 다는 까닭: 「새 사용자 연관 표는 넷(옮기기·허용 목록·기록 수·트리거)을 함께」가 이 파일의 규칙이고,
+  --   이 표엔 FK 가 없어 합친 뒤 옛 번호로 들어온 신청은 **아무 오류 없이** 사라진 계정 번호에 붙어 성도님 화면에서 안 보인다.
+  --   트리거가 남는 번호로 옮긴다 — 남는 쪽에 같은 줄의 열린 신청이 이미 있으면 부분 unique 가 23505 로 막고,
+  --   교회 어드민 internalHistoryRequest 가 already-open 으로 답한다(500 아님).
   foreach t in array array['progress','challenge_log','reviews','passage_progress','blessing_log','feature_log',
     'board_posts','board_replies','board_reactions','event_entries','push_subscriptions',
-    'pilsa_orders','ministry_orders','event_signups','daily_activity'] loop
+    'pilsa_orders','ministry_orders','event_signups','daily_activity',
+    'ios_push_tokens','ministry_history_requests'] loop
     if to_regclass('public.' || t) is not null then
       execute format('drop trigger if exists redirect_merged_member_write on public.%I', t);
       execute format('create trigger redirect_merged_member_write before insert or update on public.%I for each row execute function public.redirect_merged_member_write(''user_id'')', t);
@@ -89,9 +110,11 @@ begin
   --    (adminPreviewMemberMerge)에 아예 안 보이고 합친 뒤 before/after 에도 흔적이 안 남는다 —
   --    옮기기는 제대로 되는데 담당자 눈에는 「그런 기록이 없었다」로 보인다.
   --    2026-09-23 에 blessing_log·daily_activity·feature_log 셋이 이렇게 빠져 있었다.
+  --    2026-10-02 둘째 판: ios_push_tokens(아이폰 알림 기기) · ministry_history_requests(정정 신청 — 원본 수 + 대상 수 −
+  --    합친 뒤 수 = 지운 열린 신청 수. 남는 쪽에 같은 줄의 열린 신청이 있던 것만 지운다).
   foreach t in array array['challenge_log','progress','reviews','passage_progress','board_posts',
     'board_replies','event_entries','pilsa_orders','ministry_orders','event_signups','push_subscriptions',
-    'blessing_log','daily_activity','feature_log'] loop
+    'blessing_log','daily_activity','feature_log','ios_push_tokens','ministry_history_requests'] loop
     if to_regclass('public.' || t) is not null then
       execute format('select count(*) from public.%I where user_id::text=$1',t) into n using p_id::text;
       result := result || jsonb_build_object(t,n);
@@ -172,7 +195,8 @@ begin
   loop
     if ref.tbl::text not in ('progress','challenge_log','reviews','passage_progress','blessing_log','feature_log',
       'push_subscriptions','board_posts','board_replies','event_signups',
-      'board_blocks','board_reports','sermon_answer_reports') then
+      'board_blocks','board_reports','sermon_answer_reports',
+      'ios_push_tokens','ministry_history_requests') then
       execute format('select count(*) from %s where %I::text=$1',ref.tbl,ref.col) into n using s.id::text;
       if n>0 then return jsonb_build_object('ok',false,'error','merge-unsupported-records'); end if;
     end if;
@@ -184,7 +208,8 @@ begin
       and c.table_name not in ('progress','challenge_log','reviews','passage_progress','blessing_log','feature_log',
         'push_subscriptions','board_posts','board_replies','board_reactions','event_entries',
         'daily_activity','pilsa_orders','ministry_orders','event_signups','user_identity_aliases','user_profile_changes',
-        'board_blocks','board_reports','sermon_answer_reports')
+        'board_blocks','board_reports','sermon_answer_reports',
+        'ios_push_tokens','ministry_history_requests')
   loop
     execute format('select count(*) from public.%I where %I::text=$1',ref.tbl,ref.col) into n using s.id::text;
     if n>0 then return jsonb_build_object('ok',false,'error','merge-unsupported-records'); end if;
@@ -276,6 +301,32 @@ begin
     delete from public.sermon_answer_reports a where a.reporter_id=s.id and exists(select 1 from public.sermon_answer_reports b
       where b.reporter_id=t.id and md5(b.question)=md5(a.question));
     update public.sermon_answer_reports set reporter_id=t.id where reporter_id=s.id;
+  end if;
+  -- 아이폰 알림 기기(ios_push_tokens · 2026-09-15) — 기기 줄을 그대로 두고 주인만 남는 번호로.
+  --   알림 시각(hour)·저녁(evening)은 기기 줄의 것 그대로(웹 알림 push_subscriptions 와 같은 대접).
+  --   device_token 은 표 전체에서 unique 라 두 계정이 같은 기기를 가질 수 없다 — 그래도 겹치면(unique 를 바꾼 DB)
+  --   남는 쪽 줄 하나만 둔다. ⚠️ 옮기지 않으면 맨 아래 users 삭제의 on delete cascade 가 이 줄을 **조용히** 지운다.
+  if to_regclass('public.ios_push_tokens') is not null then
+    delete from public.ios_push_tokens a where a.user_id=s.id and exists(select 1 from public.ios_push_tokens b
+      where b.user_id=t.id and b.device_token=a.device_token);
+    update public.ios_push_tokens set user_id=t.id where user_id=s.id;
+  end if;
+  -- 사역 이력 정정 신청(ministry_history_requests · 교회 어드민 008 · 2026-10-01) — 정한 규칙(그 표의 주인 세션 a8 과 맞춤):
+  --   ① 남는 쪽에 **같은 줄**(history_id)의 열린 신청이 이미 있으면 — find_me 는 남는 쪽에 열린 find_me 가 있으면 —
+  --      원본의 그 **열린** 신청은 지운다. 「반영 안 함」으로 닫지 않는다(성도님 화면에 거절로 보인다).
+  --   ② 나머지(닫힌 신청 · 남는 쪽에 짝이 없는 열린 신청 · missing)는 user_id 만 남는 번호로. 상태는 절대 안 바꾼다.
+  --      줄 번호·updated_at·교인ID(person_id)·신청 때 이름 사본(who_*)은 그대로 — 게시글 이름처럼 그때의 기록이다.
+  --   열린 = status in ('신청','확인 중') — 008 의 부분 unique 둘(mhr_open_line_uq (user_id,history_id) ·
+  --   mhr_open_find_uq (user_id) where kind='find_me')과 같은 조건이라 ①을 지우고 나면 ②가 unique 에 걸리지 않는다.
+  --   ⚠️ 교회 어드민 history-check.ts REQ_OPEN 과 같은 글자다 — 그쪽이 상태를 늘리면 여기도 고친다.
+  --   표가 없는 DB(개발·다른 DB · 008 전)에서는 건너뛴다.
+  if to_regclass('public.ministry_history_requests') is not null then
+    delete from public.ministry_history_requests a
+      where a.user_id=s.id and a.status in ('신청','확인 중')
+        and exists(select 1 from public.ministry_history_requests b
+          where b.user_id=t.id and b.status in ('신청','확인 중')
+            and ((a.history_id is not null and b.history_id=a.history_id) or (a.kind='find_me' and b.kind='find_me')));
+    update public.ministry_history_requests set user_id=t.id where user_id=s.id;
   end if;
   -- 보호자 확인 · 게시판 이용 규칙 동의 날짜(2026-10-01 users_consents.sql) — users 칸이라 남는 쪽 행에 받아 둔다.
   --   보호자 확인은 「처음 한 번」 — 남는 쪽에 있으면 그대로, 없으면 원본 날짜(coalesce).

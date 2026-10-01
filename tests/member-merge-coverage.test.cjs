@@ -21,8 +21,9 @@
 // 걸리면: member_merge.sql 에 그 표의 옮기기 · 두 허용 목록 · member_merge_counts · 쓰기 연결 트리거를 더하고
 //   tests/member-merge.test.cjs 에 실제로 합쳐 보는 경우를 더한다(member_merge.sql 머리 「실행 순서」).
 //   지금 옮길 수 없으면 KNOWN_GAPS 에 까닭과 함께 적는다 — 그 기능을 쓴 계정은 합치기가 멈춘다는 뜻이다.
-// ⚠️ 교회 어드민 저장소(c:\Projects\church-admin\supabase\sql)의 표는 여기서 못 본다 — 같은 DB 라 합치기는 그 표도
-//    본다(정정 신청 ministry_history_requests.user_id). docs/member-profile-admin.md 「알고 있는 멈춤」에 적어 둔다.
+// ⚠️ 교회 어드민 저장소(c:\Projects\church-admin\supabase\sql)의 표는 여기서 못 읽는다 — 같은 DB 라 합치기는 그 표도
+//    본다. 그래서 아래 EXTERNAL_USER_TABLES 에 손으로 적어 ①~③을 똑같이 건다(정정 신청 ministry_history_requests.user_id).
+//    교회 어드민이 users 를 가리키는 표를 새로 만들면 여기에 한 줄 더한다.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -32,12 +33,17 @@ const root = path.resolve(__dirname, '..');
 const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
 
 // 알고 있는 빈틈 — 합치기가 이 표의 원본 줄을 보면 멈춘다. 고치면 이 줄을 지운다(④가 알려 준다).
-const KNOWN_GAPS = {
-  ios_push_tokens: '아이폰 앱 알림(APNs) 기기 — 2026-09-15 부터. 알림을 켠 아이폰 계정을 「옮겨 가는 쪽」으로 합치면 멈춘다. '
-    + '고칠 때: user_id 를 남는 번호로(device_token 은 unique 라 겹침 없음) · 두 허용 목록 · counts · 트리거.',
+//   2026-10-02 둘째 판에서 ios_push_tokens(아이폰 알림 기기 · 2026-09-15 부터 멈추던 것)를 옮기게 해 비웠다.
+const KNOWN_GAPS = {};
+
+// 이 저장소 밖(교회 어드민 supabase/sql)에서 만드는 표 — 같은 DB 라 합치기가 본다. 칸 모양은 그 파일에서 옮겨 적는다.
+const EXTERNAL_USER_TABLES = {
+  ministry_history_requests: { where: 'church-admin 008_ministry_history_requests.sql', fk: [], userId: true },
 };
 
-const strip = (sql) => sql.split('\n').map((l) => l.replace(/--.*$/, '')).join('\n');
+// 줄 끝이 CRLF 여도(윈도 작업 트리 — git autocrlf) 주석을 뗀다. '\n' 으로만 나누면 줄 끝 \r 때문에 `.*$` 가 안 맞아
+//   윈도에서는 주석이 그대로 남고(주석 속 표 이름을 「옮긴다」로 셀 수 있다) 리눅스(Actions)에서만 떼어져 결과가 갈린다.
+const strip = (sql) => sql.split(/\r?\n/).map((l) => l.replace(/--.*$/, '')).join('\n');
 
 function userTables() {
   const found = {};   // 표 → { fk:Set, userId:boolean, where:Set }
@@ -62,6 +68,10 @@ function userTables() {
       const fk = /references\s+(?:public\.)?users\s*\(/i.test(m[3]);
       if (fk || /user_id$/i.test(m[2])) add(m[1], f, m[2].toLowerCase(), fk);
     }
+  }
+  for (const [t, e] of Object.entries(EXTERNAL_USER_TABLES)) {
+    for (const col of e.fk) add(t, e.where, col, true);
+    if (e.userId) add(t, e.where, 'user_id', false);
   }
   return found;
 }
@@ -155,6 +165,36 @@ test('2026-10-01 세 표 · 동의 날짜 — 옮기기 · 허용 목록 · 기�
   assert.match(body, /update public\.sermon_answer_reports set reporter_id=t\.id where reporter_id=s\.id/, 'AI 답 알림도 줄 번호를 지킨 채');
   assert.match(body, /guardian_ok_at=coalesce\(u\.guardian_ok_at,s\.guardian_ok_at\)/, '보호자 확인은 남는 쪽 우선');
   assert.match(body, /board_rules_at=greatest\(u\.board_rules_at,s\.board_rules_at\)/, '규칙 동의는 더 늦은 날짜');
+  // (권한 줄은 아래 둘째 판 검사와 함께 본다)
+});
+
+test('2026-10-02 둘째 판 — 아이폰 알림 기기 · 정정 신청 · 합친 뒤 옛 번호로 온 두 사람 사이 줄(F2)', () => {
+  for (const t of ['ios_push_tokens', 'ministry_history_requests']) {
+    assert.ok(mentioned(t), t + ' 를 합치기 본체가 옮겨야 한다(허용 목록에만 넣으면 cascade 로 지워지거나 고아가 된다)');
+    assert.ok(fkAllowed.has(t) && userIdAllowed.has(t), t + ' 가 두 허용 목록에 다 있어야 한다');
+    assert.match(body, new RegExp("if to_regclass\\('public\\." + t + "'\\) is not null then"), t + ' 옮기기는 표가 있을 때만(없는 DB 에서 건너뛴다)');
+    const counts = merge.slice(merge.indexOf('function public.member_merge_counts'), merge.indexOf('function public.admin_preview_member_merge'));
+    assert.match(counts, new RegExp("'" + t + "'"), t + ' 가 member_merge_counts 에 있어야 한다(미리보기·before/after)');
+    const trig = merge.slice(merge.indexOf('create or replace function public.redirect_merged_member_write'), merge.indexOf('create or replace function public.member_merge_counts'));
+    assert.match(trig, new RegExp("'" + t + "'[^;]*?\\] loop[\\s\\S]*?redirect_merged_member_write\\(''user_id''\\)"), t + ' 쓰기 연결 트리거(user_id)');
+  }
+  // 정정 신청 — 열린 = 교회 어드민 REQ_OPEN · 008 부분 unique 의 조건. 겹치는 **열린** 원본만 지우고, 나머지는 상태 그대로 옮긴다.
+  const mhr = body.slice(body.indexOf("if to_regclass('public.ministry_history_requests')"));
+  const mhrBlock = mhr.slice(0, mhr.indexOf('end if;'));
+  assert.match(mhrBlock, /delete from public\.ministry_history_requests a\s+where a\.user_id=s\.id and a\.status in \('신청','확인 중'\)/, '지우는 것은 원본의 열린 신청만');
+  assert.match(mhrBlock, /b\.user_id=t\.id and b\.status in \('신청','확인 중'\)/, '남는 쪽에도 열린 신청이 있을 때만');
+  assert.match(mhrBlock, /a\.history_id is not null and b\.history_id=a\.history_id/, '같은 줄(history_id) — mhr_open_line_uq');
+  assert.match(mhrBlock, /a\.kind='find_me' and b\.kind='find_me'/, 'find_me — mhr_open_find_uq');
+  assert.match(mhrBlock, /update public\.ministry_history_requests set user_id=t\.id where user_id=s\.id;/, '나머지는 user_id 만 옮긴다');
+  assert.doesNotMatch(mhrBlock, /status\s*=\s*'/, '정정 신청의 상태를 바꾸면 안 된다(「반영 안 함」은 성도님께 거절로 보인다)');
+  assert.doesNotMatch(mhrBlock, /who_(type|group|sub|name)\s*=/, '신청 때 이름 사본(who_*)은 그때의 기록 — 고치지 않는다');
+  // 아이폰 알림 기기 — 주인만 옮긴다(겹치면 남는 쪽 줄)
+  assert.match(body, /update public\.ios_push_tokens set user_id=t\.id where user_id=s\.id;/, '아이폰 알림 기기는 주인만 옮긴다');
+  // F2 — 옮긴 결과 두 칸이 같은 사람이 된 줄은 버린다(가리기 CHECK 23514 → 500 이던 것). 옮기지 않은 줄은 CHECK 가 그대로 지킨다.
+  const trigAt = merge.indexOf('create or replace function public.redirect_merged_member_write');
+  const trigFn = merge.slice(trigAt, merge.indexOf('$$;', trigAt));
+  assert.match(trigFn, /if found then [^;]*;\s*moved := true; end if;/, '옮겼는지(moved)를 적는다');
+  assert.match(trigFn, /if moved and tg_nargs = 2 and lower\(row_data->>tg_argv\[0\]\) = lower\(row_data->>tg_argv\[1\]\) then\s+return null;/, '옮긴 결과 자기 자신이 된 두 사람 사이 줄은 버린다');
   // 권한 줄은 그대로 — 공개 역할에 열지 않는다(운영 카카오 로그인: authenticated = 누구나)
   assert.doesNotMatch(merge, /to\s+(anon|authenticated)\b/i, 'member_merge.sql 이 anon·authenticated 에게 무엇을 열면 안 된다');
   for (const f of ['member_merge_counts(uuid)', 'admin_preview_member_merge(uuid,text,text)', 'admin_merge_members(uuid,uuid,text,text,text)'])
