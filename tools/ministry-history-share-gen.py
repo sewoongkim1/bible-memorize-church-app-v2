@@ -83,6 +83,18 @@ def status_rows():
                    % (what, STATE[k][1], STATE[k][0], note) for what, k, note in STATUS)
 
 
+# 「진행 상황」 표 — 숨김(친구 2026-10-01). 다시 보이려면 True. ⚠️ 켜면 마지막 쪽이 넘칠 수 있으니 쪽수를 다시 볼 것.
+SHOW_STATUS = False
+STATUS_BLOCK = '''<div class="block">
+  <h2 class="sec">진행 상황</h2>
+  <table>
+    <thead><tr><th style="width:36%%">항목</th><th class="c" style="width:17%%">상태</th><th>내용</th></tr></thead>
+    <tbody>%(status)s</tbody>
+  </table>
+</div>
+
+'''
+
 STYLE = """
 @page { size:A4; margin:14mm 15mm 14mm; }
 * { box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
@@ -400,15 +412,7 @@ BODY = """
 </section>
 
 <section class="page">
-<div class="block">
-  <h2 class="sec">진행 상황</h2>
-  <table>
-    <thead><tr><th style="width:36%%">항목</th><th class="c" style="width:17%%">상태</th><th>내용</th></tr></thead>
-    <tbody>%(status)s</tbody>
-  </table>
-</div>
-
-<div class="block">
+%(status_block)s<div class="block">
   <h2 class="sec">확인 · 결정 부탁드립니다</h2>
   <ol class="ask">
     <li><b>「기쁨-1」 표기</b>2025년 이전 명단의 「기쁨-1」은 목장을 모를 때 적은 자리 표시로 보고 「교구 · 목장 모름」으로 읽었습니다
@@ -425,7 +429,8 @@ BODY = """
 """
 
 ctx = {'mark': MARK, 'total': fmt(TOTAL), 'linked': fmt(RESULT['linked']), 'open': RESULT['open'], 'pct': PCT,
-       'years': year_rows(), 'status': status_rows()}
+       'years': year_rows(),
+       'status_block': (STATUS_BLOCK % {'status': status_rows()}) if SHOW_STATUS else ''}
 html = ('<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>사역 신청 · 이력 관리 시스템화</title>'
         # ⚠️ 구글 웹 글꼴을 쓰지 않는다 — 크롬이 Type3 로 박는다(이름 레코드가 빈 조각 글꼴). 이 PC 에 설치된 글꼴을 쓴다.
 
