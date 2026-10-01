@@ -57,12 +57,12 @@ test('mhRequestsHtml — 빠진 사역 · 찾아 주세요 · 줄 정정(빼 둔
   const r = fn('mhRequestsHtml');
   const out = r([
     req({ id: 3, kind: 'missing', year: 2023, team_text: '시온성가대', status: '반영', answer: '2023 시온성가대를 더했어요' }),
-    req({ id: 2, kind: 'wrong_position', history_id: 9, detail: '권사였어요', status: '반영 안 함', answer: '명단 원본이 집사예요' }),
+    req({ id: 2, kind: 'wrong_team', history_id: 9, detail: '호산나찬양대였어요', status: '반영 안 함', answer: '명단 원본이 집사예요' }),
     req({ id: 1, kind: 'not_mine', history_id: 99 }),
   ], [row(9, 2025, '찬양위원회', '시온성가대')]);
   assert.match(out, /내 정정 신청 <b>3<\/b>건/);
   assert.ok(out.includes('빠진 사역(2023) — 시온성가대'));
-  assert.ok(out.includes('2025 시온성가대 — 직분이 틀려요'));
+  assert.ok(out.includes('2025 시온성가대 — 팀·부서가 틀려요'));
   assert.ok(out.includes('지난 기록 — 내 것이 아니에요'));
   assert.ok(out.includes('명단 원본이 집사예요'));
   assert.equal(r([], []), '');
@@ -94,4 +94,10 @@ test('mhOpenCount·mhErrText — 끝나지 않은 것만 센다 · 모르는 오
   assert.equal(fn('mhOpenCount')([req({ status: '신청' }), req({ status: '확인 중' }), req({ status: '반영' })]), 2);
   assert.match(fn('mhErrText')('already-open'), /이미 정정 신청/);
   assert.equal(fn('mhErrText')('???'), '잠시 뒤 다시 해 주세요.');
+});
+
+test('직분은 정정하지 않는다 — 순수 묶음에 wrong_position·「직분이 틀려요」가 없다(교적 기준 · 2026-10-01)', () => {
+  const block = source.slice(start, end);
+  assert.ok(!block.includes('wrong_position'), 'wrong_position 이 남았다');
+  assert.ok(!block.includes('직분이 틀려요'), '「직분이 틀려요」가 남았다');
 });

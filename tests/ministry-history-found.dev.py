@@ -204,8 +204,8 @@ try:
 
     # ---- 3. U1 정정 신청 ----
     print("[3. U1 정정 신청 — 성공·already-open·not-yours·already-found·need-detail]")
-    r1, raw_r1 = request(U1, kind="wrong_position", history_id=hist["a"], detail="그해엔 권사였어요")
-    ok("wrong_position on a → ok", r1 == {"ok": True}, raw_r1)
+    r1, raw_r1 = request(U1, kind="wrong_team", history_id=hist["a"], detail="그해엔 호산나찬양대였어요")
+    ok("wrong_team on a → ok", r1 == {"ok": True}, raw_r1)
     r2, _ = request(U1, kind="not_mine", history_id=hist["a"])
     ok("not_mine on a(이미 열림) → already-open", r2.get("error") == "already-open", r2)
     r3, _ = request(U1, kind="not_mine", history_id=hist["d"])
@@ -223,7 +223,7 @@ try:
     print("[4. U1 내 이력 다시 — 신청 현황]")
     j4, raw4 = mine(U1)
     kinds = [r.get("kind") for r in j4.get("requests", [])]
-    ok("request kinds == [missing, wrong_position]", kinds == ["missing", "wrong_position"], kinds)
+    ok("request kinds == [missing, wrong_team]", kinds == ["missing", "wrong_team"], kinds)
     ok("모든 신청 칸이 정확히 REQUEST_OUT_KEYS",
        all(set(r.keys()) == REQUEST_KEYS for r in j4.get("requests", [])),
        [sorted(r.keys()) for r in j4.get("requests", [])])

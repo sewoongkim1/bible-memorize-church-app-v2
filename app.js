@@ -10913,14 +10913,14 @@ function minTitleHtml(title, subtitleHtml) {
 // 설계: docs/superpowers/specs/2026-10-01-ministry-history-check-design.md §4 · 2026-10-01
 // ⚠️ 여기서는 DOM·전역 상태를 건드리지 않는다(minEsc 만 빌려 쓴다 — 시험이 그 함수도 함께 떼어 온다).
 // ⚠️ kind·status 글자는 교회 어드민 history-check.ts·SQL 008 CHECK 와 같다(세 곳) — 보이는 말을 바꾸려면 MH_KIND_TEXT 만.
+// ⚠️ 직분은 정정하지 않는다 — 교적 기준(2026-10-01 친구 결정). 줄의 그해 직분은 그대로 보여 준다.
 const MH_LINE_KINDS = [
   { k: "not_mine", t: "내 것이 아니에요" },
   { k: "wrong_team", t: "팀·부서가 틀려요" },
-  { k: "wrong_position", t: "직분이 틀려요" },
   { k: "other", t: "그 밖에" },
 ];
 const MH_KIND_TEXT = {
-  not_mine: "내 것이 아니에요", wrong_team: "팀·부서가 틀려요", wrong_position: "직분이 틀려요",
+  not_mine: "내 것이 아니에요", wrong_team: "팀·부서가 틀려요",
   other: "그 밖에", missing: "빠진 사역", find_me: "내 기록 찾아 주세요",
 };
 const MH_OPEN = ["신청", "확인 중"];

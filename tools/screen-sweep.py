@@ -144,7 +144,7 @@ STEPS = [
                              "rows:[{id:1,year:2026,committee:'교육위원회',team:'유년부',role_title:'교사',position:'집사'},"
                              "{id:2,year:2026,committee:'찬양위원회',team:'시온성가대',role_title:'',position:'집사'},"
                              "{id:3,year:2025,committee:'봉사위원회',team:'주차팀',role_title:'',position:'집사'}],"
-                             "requests:[{id:9,history_id:2,kind:'wrong_position',detail:'그해에는 권사였어요',year:null,team_text:'',status:'확인 중',answer:'',created_at:''},"
+                             "requests:[{id:9,history_id:2,kind:'wrong_team',detail:'그해에는 호산나찬양대였어요',year:null,team_text:'',status:'확인 중',answer:'',created_at:''},"
                              "{id:8,history_id:null,kind:'missing',detail:'',year:2023,team_text:'찬양위원회 호산나찬양대',status:'반영 안 함',answer:'2023 명단 원본에 없어 부서에 여쭤보고 있어요',created_at:''}]}; "
                              "renderMinistryHistory();"]),
     ("41-ministry-history-none", ["mhLoaded=true; mhData={ok:true,who:{type:'교구',gu:'믿음',mok:'99',name:'화면점검'},found:false,rows:[],requests:[]}; "
