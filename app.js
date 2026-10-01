@@ -4557,6 +4557,7 @@ async function openBoardBlockedList() {
       <div class="am-title" id="bb-title">내가 가린 분</div>
       <div class="am-msg">이분들의 글은 <b>내 화면에서만</b> 안 보여요. 「다시 보기」를 누르면 다시 보여요.</div>
       <div class="bb-list"><p class="bb-empty">불러오는 중…</p></div>
+      <div class="rp-err" role="alert" hidden></div>
       <div class="am-btns"><button type="button" class="am-btn am-ok bb-close">닫기</button></div>
     </div>`;
   let changed = false;
@@ -4585,9 +4586,15 @@ async function openBoardBlockedList() {
     listEl.querySelectorAll(".bb-undo").forEach((b) => b.addEventListener("click", async () => {
       const r = list[Number(b.dataset.i)];
       if (!r) return;
+      const errEl = wrap.querySelector(".rp-err");
+      errEl.hidden = true;
       b.disabled = true; b.textContent = "…";
       try { await api.boardUnblock(uid, r.id); }
-      catch (e) { b.disabled = false; b.textContent = "다시 보기"; return; }
+      catch (e) {   // 말없이 되돌아가면 어르신은 눌리지 않은 줄 아신다 — 그 자리에 한 줄
+        b.disabled = false; b.textContent = "다시 보기";
+        errEl.textContent = boardBlockErrorMsg(e && e.message); errEl.hidden = false;
+        return;
+      }
       changed = true;
       list = list.filter((x) => x !== r);
       draw();
