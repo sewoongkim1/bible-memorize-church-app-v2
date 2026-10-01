@@ -163,6 +163,277 @@ TWA는 「이 앱이 정말 그 도메인의 것인지」를 확인한다. 통�
 
 ---
 
+## 구글 출시 심사 전 결정(2026-10-01)
+
+> **한 줄 결론.** ① 알림 등록 값은 **「기기 또는 기타 ID」로 신고**한다(위 「등록 절차 › 6」 표의 「수집 안 함」은 틀렸다).
+> ② 오늘의 찬양(유튜브) 때문에 **「광고 포함: 예」**로 하고, 찬양을 재생할 때 구글로 가는 것은 **「공유」**로 신고한다.
+> ③ 대상 연령은 **13–15 · 16–17 · 18세 이상**만 고른다(13세 미만은 고르지 않는다) — 대신 어린이 부서 로그인에
+> **보호자 확인**을 단다. ④ 그대로 내면 막힐 자리: **게시판 이용 규칙·글쓴이 가리기**, **AI 답 신고**,
+> **심사자 안내(「1목장」은 거부된다)**, **데이터 보안 표의 틀린 칸**, **방침에서 빠진 것**, **스토어 설명 한 줄**.
+>
+> **언제 쓰나:** 앱 이전(개인 → 교회 계정)이 끝난 뒤, **교회 계정** Play Console 「앱 콘텐츠」에서 7절 순서대로.
+> **근거:** 구글·유튜브 도움말 원문(맨 끝 [출처] — 2026-10-01 에 읽음). 콘솔의 칸 이름은 바뀔 수 있다 — 다르면 **뜻이 같은 칸**을 고른다.
+> ⚠️ 「구글 문서가 못 박은 것」과 「우리 판단」을 나눠 적었다. **(판단)** 이라고 쓴 곳은 구글 문서에 정답이 없는 자리다.
+
+### 1. 알림 등록 값 → 기기 또는 기타 ID · 수집함 · 공유 안 함 · 선택
+
+- **무엇을 저장하나:** `push_subscriptions` 의 `endpoint`·`p256dh`·`auth`(+ `user_id`·`hour`·`evening`) — `savePush`(index.ts) · `js/push.js`.
+  스토어 앱(TWA)은 크롬이 알림을 받으므로 `endpoint` 는 크롬이 만든 웹 푸시 주소(`https://fcm.googleapis.com/fcm/send/…`)이고,
+  끝부분이 **그 폰의 그 브라우저 하나를 가리키는 토큰**이다.
+- **구글의 정의:** 기기 또는 기타 ID = "Identifiers that relate to an individual device, browser or app. For example, an IMEI number,
+  MAC address, Widevine Device ID, **Firebase installation ID**, or advertising identifier." [1]
+  → **광고 ID 만 뜻하는 칸이 아니다.** 「등록 절차 › 6」 표의 근거(「알림 등록 값은 광고 식별자가 아니다」)는 이 칸을 비울 이유가 못 된다.
+- **우리 방침과도 맞춰야 한다:** `privacy/` 1항과 앱 안 화면이 이미 「알림 등록 정보(기기 식별용 임의 값)」·「기기 식별용 임의 ID」라고
+  적어 두었다. 양식만 「수집 안 함」이면 **우리 방침과 양식이 서로 어긋난다.**
+- **수집 — 예.** "Collection: Transmitting data from your app off a user's device." [1] (`savePush` 가 서버로 보낸다 · 일시 처리 아님)
+- **공유 — 아니요.** 발송을 맡은 구글 FCM(아이폰은 애플 APNs)은 우리 대신 전달만 한다 = 서비스 제공업체 예외
+  ("an entity that processes user data on behalf of the developer and based on the developer's instructions") [1].
+- **선택**(알림을 켠 분만). **목적:** 앱 기능(매일 말씀 알림) + **개발자 커뮤니케이션** — 관리자 화면 「알림발송」(`sendPush`)은 아무 제목·내용이나
+  보낼 수 있다("Used to send news or notifications about the app or the developer" [1]).
+- **광고 ID 선언 → 「아니요」.** 스토어 앱 매니페스트의 권한은 `INTERNET`·`POST_NOTIFICATIONS` 뿐이고 `AD_ID` 가 없다(`android-app/`).
+
+### 2. 오늘의 찬양(youtube-nocookie 임베드) → 「광고 포함: 예」 · 구글로 가는 것은 「공유」
+
+**2-1. 광고 — 「예」 (판단).** 「유튜브를 퍼오면 반드시 예」라고 적은 구글 문서는 못 찾았다. 그래도 「예」로 하는 까닭:
+- 플레이: "You must declare whether or not your app contains ads. This includes ads delivered through third-party ad SDKs (Software
+  Development Kit), display ads, native ads, and/or banner ads." [2] — 우리가 심지 않았어도 **우리 화면 안에서 남의 코드가 내보내는 광고**다.
+- 유튜브: "Embedded videos may show skippable or non-skippable in-stream ads." · "there's no way to directly turn off ads on embedded
+  videos only. You may turn off embedding altogether." [13]
+- 유튜브 약관 「수익 창출 권리」: "귀하는 서비스에 있는 귀하의 콘텐츠에서 수익을 창출할 권리를 YouTube에 부여합니다." [14]
+  → **교회 채널이 수익 창출을 켜지 않았어도** 광고가 붙을 수 있다.
+- `youtube-nocookie` 는 광고를 **없애지 않는다** — "If ads are served on a video shown in the Privacy Enhanced Mode of the embedded player,
+  those ads will likewise be non-personalized" [12]. 맞춤이 아닐 뿐 나온다.
+- 플레이 광고 정책도 "video content with integrated ads" 를 앱 안 수익화·광고의 한 예로 든다 [3].
+→ 「아니요」는 **우리가 막을 수 없는 화면을 두고 「광고 없음」을 약속하는 것**이다(`docs/notes/today-song.md`: 「우리가 색을 줄 수 없는 화면이라 못 막는다」).
+「예」의 값은 스토어의 「광고 포함」 표시 하나다. 스토어 설명·안내 어디에도 「광고 없음」이라고 쓰지 않는다(지금 `listing-ko.txt` 엔 없다 — 확인함).
+- **「아니요」를 사실로 만드는 길은 하나** — 스토어 앱에서만 찬양을 앱 밖(유튜브 앱)으로 여는 것. 그러면 2-2 의 「공유」 줄도 사라진다.
+  ⚠️ 그러나 2026-09-23 성도님 제보로 **되돌린 자리**다 — 고르기 전에 `today-song.md` 「개시한 날 하루에 두 번 뒤집혔다」를 다 읽을 것.
+  **이 결정에서는 고르지 않는다.**
+
+**2-2. 데이터 보안 — 「공유」로 신고한다 (판단, 보수 쪽).**
+- 정의: 공유 = "Transferring user data collected from your app to a third party" · 서드파티 라이브러리·SDK 로 모인 것도 신고 대상 ·
+  웹뷰도 "if your app is in control of the code/behavior delivered through that webview" [1]. 스토어 앱 화면은 통째로 우리 코드이고,
+  찬양 플레이어는 우리가 붙인 구글 코드다(`enablejsapi=1` · 누른 뒤 `iframe_api`).
+- **예외에 기대지 않는 이유:** ① 서비스 제공업체 — 아니다. 구글은 **자기 방침**으로 처리한다(우리 방침 2항도 「구글의 개인정보처리방침을 따릅니다」).
+  ② 사용자 시작 행위("where the user reasonably expects the data to be shared, or based on a prominent in-app disclosure and consent" [1]) —
+  「▶ 찬양 듣기」는 영상을 보겠다는 뜻이지 **기기 식별값이 광고 빈도 제한에 쓰이는 것**까지 예상한 것이라 보기 어렵고,
+  재생 창의 안내 두 줄은 9/23 에 뺐다(다시 넣지 말 것 — today-song.md).
+- **구글이 그 데이터로 하는 일**(구글 광고 전반의 비맞춤 광고 설명 — 유튜브 플레이어에 그대로 적용된다는 것은 추정):
+  "targeted using contextual information, including coarse (such as city-level ...) geo-targeting based on current location" ·
+  "they do still use cookies or mobile ad identifiers for frequency capping, aggregated ad reporting, and to combat fraud and abuse" [16]
+- **IP:** "where developers use IP addresses as a means to determine location, then that data type should be declared" · 대략적 위치는
+  "inferred, such as via IP address ... must be disclosed" [1]
+- **그래서 칸**(5절 표에 합쳤다): **기기 또는 기타 ID · 앱 상호작용 · 대략적인 위치**를 「공유」로. 셋 다 찬양을 **재생한 분만**이다
+  (파사드 — 누르지 않으면 구글로 아무 요청도 안 간다). 공유 목적 = 앱 기능 · 분석 · 광고 또는 마케팅 · 사기 방지·보안·규정 준수.
+- ⚠️ 이렇게 내면 스토어 「데이터 보안」에 「위치」·「광고 또는 마케팅」이 보인다. 이걸 줄이는 **정직한** 길은 2-1 끝의 「앱 밖 재생」 하나뿐이다.
+  **칸을 빼서 줄이지 않는다.**
+
+**2-3. 유튜브 약관이 방침에 요구하는 문구 — 지금 없다.** (플레이 반려 사유는 아니지만 같은 회사 약관이다. IFrame API 를 쓰므로 우리는
+「API Client」 — "a website or software application (including a mobile application) developed by you that accesses or uses the YouTube API Services" [15])
+- III.A.1 — 유튜브 이용약관 링크(https://www.youtube.com/t/terms) + "by using those API Clients, users are agreeing to be bound by the YouTube Terms of Service" 라는 문장
+- III.A.2 — 방침에 (b) YouTube API 서비스를 쓴다는 것 · (c) 구글 개인정보처리방침 링크 http://www.google.com/policies/privacy ·
+  (f) 제3자가 광고 등 콘텐츠를 내보낼 수 있다는 것 · (g) 제3자가 기기에 정보를 저장·읽을 수 있다는 것 [15]
+- 지금 `privacy/` 2항: 유튜브 행·설명은 있지만 **링크 둘 · 광고 문장 · 약관 동의 문장**이 없다 → 4절 ⑥.
+
+### 3. 대상 연령 → 13–15 · 16–17 · 18세 이상 (13세 미만은 고르지 않는다)
+
+**왜 13세 미만을 안 고르나**
+- 구글: "You should only select age groups that include both adults and children, if you truly have designed your app for all ages" ·
+  "...if you have designed your app for and ensured that your app is appropriate for users within each of the selected age group(s)." [4]
+  이 앱은 **어르신을 중심으로** 만들었고(스토어 설명 「어르신을 생각했습니다」), **실명이 보이는 공개 게시판 · AI 질문 · 광고가 나올 수 있는 유튜브 ·
+  이름이 걸린 순위**를 어린이에 맞게 다듬은 적이 없다. 「누구나 쓸 수 있다」와 「어린이용으로 만들었다」는 다르다.
+- 13세 미만을 고르면 가족 정책(Families)이 통째로 걸린다:
+  1. **광고** — "If your app displays ads to children or to users of unknown age, you must: Only use Google Play Families Self-Certified Ads SDKs" [5]
+     → 유튜브 플레이어는 그 목록이 아니다. 2-1 의 「광고 포함: 예」와 **곧바로 부딪친다.**
+  2. **API·SDK** — "Apps that target both children and older audiences must not implement APIs or SDKs that are not approved for use in
+     child-directed services unless they are used behind a neutral age screen." [5][6]
+  3. **유튜브 쪽** — "If your website or app is child directed, you must self-designate ... even if you embed YouTube videos with the
+     Privacy Enhanced Mode player" [12] + 개발자 정책 III.J(맞춤 광고 금지 등) [15]
+  4. **앱 기능** — "Your app must not merely provide a webview of a website ..." [5] → 우리는 웹을 감싼 TWA 라 **위젯이 있어도 지적받을 수 있는 자리**다.
+  5. **법** — "compliant with ... (COPPA), ... (GDPR), and any other applicable laws or regulations" [5] ·
+     "Any collection of personal and sensitive information from children, such as name or e-mail address, must be disclosed and should be
+     collected with parental consent if required." [4] → 한국은 **만 14세 미만 법정대리인 동의**.
+  6. **거짓 선택의 값** — "Misrepresentation of any information about your app in the Play Console, including in the Target Audience and
+     Content section, may result in removal or suspension of your app." · "Google Play reserves the right to conduct its own review ...
+     to determine whether the target audience that you disclose is accurate." [5]
+  (참고: AAID·IMEI 같은 금지 식별자 [6] 는 우리가 안 보낸다 — 이건 문제가 아니다.)
+
+**13+ 가 정직하려면 — 출시 전에 할 것**
+- 로그인 「교회학교」에 **영아·유아·유치·유년·초등부**가 있다 = 어린이가 쓰는 것을 **알고 있다.** 그래서 「어린이용 앱」이 아니라
+  **「보호자와 함께 쓰는 앱」**으로 정리한다 — 이 부서를 고르면 **「보호자가 함께 확인했어요」 단계(보호자 동의)**를 한 번 거친다.
+- 이건 심사와 별개로 **이미 비어 있는 법의 자리**다 — 개인정보 보호법(제22조의2 · 만 14세 미만 아동)은 법정대리인 **동의를 받으라**고 하는데,
+  방침 6항은 지금 「보호자의 동의를 받고 사용해 주세요」라는 **부탁**뿐이다. 중등부 1학년 일부도 만 14세 미만이다
+  (구글도 13–15 를 "may be considered to include children in some locales" 라고 적었다 [4]). 확인 방법(문자·전화 등)은 시행령이 정해 두었으니
+  **법 확인을 받고** 고른다.
+- 먼저 숫자를 본다 — 어린이 부서로 들어온 분이 몇인지(운영 SQL Editor · 읽기만):
+  ```sql
+  select bu, count(*) as 사람 from public.users where type = '교회학교' group by bu order by 2 desc;
+  ```
+- 「어린이에게 매력적일 수 있나」류 질문엔 사실대로 답한다 — 스토어 그림·문구에 어린이 요소가 없다. 구글은 "youthful animation or young
+  characters in the graphic assets" 가 있으면 반려할 수 있다고 적었다 [4] — 스토어 그림을 바꿀 때 이걸 지킨다.
+
+**나중에 13세 미만을 고르기로 하면 — 바뀌어야 할 것(전부 갖춘 뒤에만 고른다)**
+- (가) 어린이 부서로 들어온 분에겐 **찬양 플레이어를 숨긴다**(광고·SDK 규칙) — 또는 「앱 밖 재생」. 로그인의 「구분·부서」 고르기가 중립 연령 확인
+  ("a mechanism to verify a user's age in a way that doesn't encourage them to falsify their age" [4])이 될 수 있다 — 「어른이면 더 열린다」로 읽히지 않게.
+- (나) 유튜브에 **어린이 대상 자기 지정** + III.J [12][15]
+- (다) **보호자 동의** — 위와 같고, 법이 정한 확인 방법으로
+- (라) 게시판 — 어린이 실명·소속이 모두에게 보인다. 어린이 부서는 이름을 가리거나 글쓰기를 막는 것을 검토 + 신고·가리기(4절 ③)
+- (마) 「내게 주시는 말씀」 — 어린이에게 맞는 답인지 검토 + 답 신고(4절 ④)
+- (바) 방침 6항을 「어린이의 정보」 절로 키운다 — 무엇을 모으나 · 보호자 동의 방법 · 보호자 열람·삭제 · 유튜브(앱 안 화면 두 곳도 함께)
+- (사) 앱 액세스 메모에 네이티브 기능(위젯)을 적어 「웹뷰뿐」 지적에 대비
+- (아) 데이터 보안 양식에 가족 정책 준수를 약속하는 칸이 생긴다 — 위가 다 끝나야 「예」라고 쓸 수 있다
+
+### 4. 지금 README 대로 내면 막힐 자리 — 출시 전에 고칠 것
+
+**① 데이터 보안 표의 틀린 칸** — 「사진 수집 안 함」(2026-08-25 부터 게시판 사진을 받는다) · 「기기 ID 수집 안 함」(1절).
+빠진 것: 사용자 ID · 앱 상호작용(진도 · **열람 기록 `feature_log`**) · 기타 작업(공감 · 응원 · 이벤트 신청 · 신고) · 종교(소속 · 직분) · 학년.
+→ **5절 표로 바꾼다.** (구글: 앱 안 서드파티 코드도 개발자 책임이고, 신고 내용이 맞는지도 개발자 책임이다 [10])
+- 종교 줄은 **(판단)** — 정의가 "Information about a user's political or religious beliefs." [1] 인데, **고척교회 교구·목장·부서·직분**은 그 자체로
+  다니는 교회(종교)를 드러낸다. 빼면 사실보다 적게 신고하는 것이다. (한국 법으로도 사상·신념은 민감정보다 — 따로 동의가 필요한지 **법 확인 권장**, 심사와 별개)
+
+**② 심사자 안내가 그대로면 첫 화면에서 막힌다** — 위 「등록 절차 › 6. 앱 콘텐츠」와 `listing-ko.txt` 의 「예) 교구 → 사랑 → 1목장 → 홍길동」:
+**「1목장」은 거부된다**(목장 칸은 숫자 또는 「남성」만 — `MOK_RE`, 화면에 「목장은 숫자 또는 '남성'만 입력할 수 있어요」).
+**「개인정보 수집·이용 안내에 동의」 체크칸**도 안 적었다(안 누르면 「동의해 주세요」에서 멈춘다). 심사자는 한국어를 못 읽을 수 있다 — **영어로.**
+"If your entire app or parts of your app are restricted based on login credentials ... you must provide all required details to enable access to your app." [2]
+→ 이 절 6의 글을 쓰고, `listing-ko.txt` 의 같은 칸도 그 글로 바꾼다.
+
+**③ 게시판 — 사용자 제작 콘텐츠(UGC) 정책** [7]
+- 원문: "must implement robust, effective, and ongoing UGC moderation that: **Requires users accept the app's terms of use and/or user policy
+  before users can create or upload UGC** · **Defines objectionable content and behaviors** ... and prohibits them in the app's terms of use or
+  user policies · Conducts UGC moderation ..."
+- 하위 규칙 둘: "Apps featuring UGC that identify a specified set of users through means such as user verification or offline registration
+  (for example, apps exclusively used within a specific school or company, etc.) must provide in-app functionality to **report content and users**." ·
+  "Apps that provide access to publicly accessible UGC ... must implement in-app functionality to **report users and content, and to block users**."
+- 지금: **신고** — 2026-10-01 이 가지(`board-report`)에서 넣었다(위 「등록 절차 › 6. 앱 콘텐츠」의 UGC 줄 · `docs/notes/board.md` 「신고」 · 운영 배포 전이면 배포부터) ·
+  **이용 규칙 동의** — 없다(게시판 위 안내 글만 있다. 로그인 때의 체크는 **개인정보** 동의다) · **글쓴이 가리기(차단)** — 없다.
+- **(판단)** board.md 「신고」 절은 「차단은 정책 문구가 아니다」로 정했는데, 위 하위 규칙에는 차단이 있다. 우리 앱은 한 교회만 쓰지만
+  **아무 이름으로나 들어올 수 있어**(로그인은 통제가 아니다) 「공개 UGC」 쪽으로 읽힐 수 있다 — 둘 중 어느 갈래로 보든 막히지 않으려면
+  **「이 분 글 안 보기」(내 기기에서만 가리기)**를 더하는 것이 가장 싸다. 「사용자 신고」는 신고 창이 그 글의 **글쓴이**도 함께 알린다는 것을 문구로 보이면 된다.
+- 출시 전: 신고 배포 + **처음 글 쓸 때 이용 규칙(하지 말 것 목록) 동의 한 번** + **글쓴이 가리기**.
+
+**④ 「내게 주시는 말씀」(AI 답) — AI 생성 콘텐츠 정책** [8]: "Apps that generate content using AI must contain in-app user reporting or
+flagging features that allow users to report or flag offensive content to developers without needing to exit the app."
+정책 예시는 "chatbot is a central feature of the app" 인 앱이라 우리가 꼭 대상인지는 갈린다(판단) — **답 아래 「🚩 이 답 알리기」 하나**면 끝나는 일이라 넣는다.
+
+**⑤ 계정 삭제 — 거의 됐다.** 웹 주소 `https://gocheok.onlybible.kr/privacy/#delete`(앱 이름·만든 곳·단계·지워지는 것·남는 기간이 있다).
+앱 안 길도 있다(⚙️ 설정 → 「🔐 개인정보 안내 보기」 → 「📄 전체 안내 보기」) — 구글이 허용한 방식이다
+("you can choose to provide a link within your app that takes users to your app account deletion web resource" · 방법으로 "a customer service email or a form" [9]).
+고칠 것 둘: (가) 앱 안 링크를 `privacy/#delete` 로 바로 걸고 이름을 「계정·기록 삭제 요청」으로(권장) · (나) 방침 5항 「지워지는 것」에
+**사역 신청 · 이벤트 신청 · 열람 기록 · 공감 · AI 질문**이 빠져 있다 — 더한다. (「잠시 정지·비활성」은 삭제로 안 쳐 준다 [10] — 우리는 지운다.)
+
+**⑥ 방침에서 빠진 것** — 구글: 방침은 "comprehensively disclose how your app accesses, collects, uses, and shares user data" [10].
+⚠️ `privacy/` 와 **앱 안 화면 두 곳**(`renderPrivacyInfo` · 로그인 화면 안내)을 **함께** 고친다(CLAUDE.md 「개인정보」).
+- **열람 기록**(`feature_log` · 2026-09-23~ — 사람별로 어떤 기능을 언제 열었는지) — 1항 표에 없다
+- **공감 · 순위 응원 · 이벤트 신청** — 1항 표에 없다(이벤트는 4항에만)
+- **음성 암송** — 소리는 브라우저·기기의 음성 인식이 처리하고(구글·애플 서버로 갈 수 있다) 우리 서버엔 「음성으로 했다」만 온다.
+  양식에는 넣지 않는다(판단 — 우리 코드가 소리를 보내지 않는다). 방침엔 한 줄.
+- **유튜브 약관 문구**(2-3) — 링크 둘 · 「제3자가 광고를 내보낼 수 있다」 · 약관 동의 문장
+- (선택) **글꼴** — 앱을 열 때마다 구글 글꼴 서버로 접속 IP 가 간다. 위치 추정·광고에 안 쓰는 글꼴 전달이라 양식엔 안 넣는다(IP 는 쓰임대로 신고 [1]). 2항 표에 한 줄이면 더 정직하다.
+- ⚠️ 이 가지에서 신고 작업이 `privacy/index.html` 을 함께 고치고 있다(2026-10-01) — 그 커밋 뒤에, 겹치지 않게.
+- **순서:** 방침을 먼저 고쳐 배포 → 그다음 데이터 보안 양식 제출. 양식과 방침이 어긋난 채로 심사받지 않는다.
+
+**⑦ 스토어 설명 한 줄이 사실과 다르다** — `listing-ko.txt` 「기록은 이름과 소속으로만 관리되며, 본인 진도와 도전 순위에만 쓰입니다.」
+실제로는 게시판 · 이벤트 명단 · 사역 신청 · 교구별 합계 보고 · 열람 기록에도 쓴다. 메타데이터 정책: "misleading ... metadata, including but
+not limited to the app's description" [11]. → 바꿀 문장: 「무엇을 모으고 어디에 쓰는지는 개인정보 안내(gocheok.onlybible.kr/privacy/)에 모두 적어 두었습니다.」
+
+**⑧ 콘텐츠 등급(IARC)** — 위 「종교/전연령」은 설문에 없는 칸이다. **사용자끼리 글·사진을 주고받나 → 예**(게시판) · 위치 공유 · 디지털 구매 ·
+제한 없는 인터넷 → 아니요 · 폭력·성·약물·도박 → 없음. 질문 문구는 콘솔에서 확인. (전체이용가에 「사용자 상호작용」 표시가 붙을 것으로 본다 — 예상)
+
+**⑨ 이미 맞는 것(손대지 않는다):** `targetSdkVersion 36` · 광고 ID 「아니요」 · 전송 중 암호화 「예」(전부 HTTPS) · 방침 공개 URL(로그인 없이 열림) ·
+앱 판 `versionCode 2`(위젯 판 1.1.0).
+
+### 5. 데이터 보안 — 콘솔에 넣을 답 (위 「등록 절차 › 6. 앱 콘텐츠」의 표를 대신한다)
+
+머리 질문: 데이터 수집·공유 → **예** · 전송 중 암호화 → **예** · 삭제 요청 방법 → **예** ·
+계정 → 앱 안에서 만든다(비밀번호 없이 이름·소속 — 선택지 중 뜻이 가장 가까운 것, 대개 「기타」. 콘솔에서 확인) ·
+계정 삭제 URL → `https://gocheok.onlybible.kr/privacy/#delete` · 일시 처리 → 전부 아니요(저장한다).
+
+| 범주 → 유형 | 수집 | 공유 | 필수/선택 | 목적 | 무엇 |
+|---|---|---|---|---|---|
+| 개인 정보 → 이름 | 예 | 아니요 | 필수 | 앱 기능 · 계정 관리 | 로그인 이름 |
+| 개인 정보 → 사용자 ID | 예 | 아니요 | 필수 | 앱 기능 · 계정 관리 | 서버가 매기는 계정 번호(요청마다 실린다) |
+| 개인 정보 → 전화번호 | 예 | 아니요 | 선택 | 앱 기능 | 필사 노트 · 사역 신청한 분만 |
+| 개인 정보 → 정치적 또는 종교적 신념 | 예 | 아니요 | 필수 | 앱 기능 · 계정 관리 | 교구·목장/부서(다니는 교회) · 직분(사역 신청) — (판단) 4절 ① |
+| 개인 정보 → 기타 정보 | 예 | 아니요 | 선택 | 앱 기능 | 학년(교회학교) |
+| 사진 및 동영상 → 사진 | 예 | 아니요 | 선택 | 앱 기능 | 게시판 사진(찍은 장소 정보는 지워서 받는다) |
+| 앱 활동 → 앱 상호작용 | 예 | **예** — 구글(찬양 재생 때) | 필수 | 수집: 앱 기능 · 분석 / 공유: 앱 기능 · 분석 · 광고 또는 마케팅 · 사기 방지·보안·규정 준수 | 암송·도전·복습 기록 · 열람 기록 / 재생한 찬양 영상 |
+| 앱 활동 → 기타 사용자 생성 콘텐츠 | 예 | 아니요 | 선택 | 앱 기능 | 게시판 글·답글 · AI 질문(Anthropic 은 서비스 제공업체) · 신고에 덧붙인 말 |
+| 앱 활동 → 기타 작업 | 예 | 아니요 | 선택 | 앱 기능 | 공감 · 순위 응원 · 이벤트 신청 · 게시판 신고 |
+| 위치 → 대략적인 위치 | 예 | **예** — 구글(찬양 재생 때) | 선택 | 광고 또는 마케팅 · 사기 방지·보안·규정 준수 | 구글이 IP 로 도시 단위 위치를 추정(2-2). 우리는 위치를 쓰지 않는다 |
+| 기기 또는 기타 ID | 예 | **예** — 구글(찬양 재생 때) | 선택 | 수집: 앱 기능 · 개발자 커뮤니케이션 / 공유: 분석 · 광고 또는 마케팅 · 사기 방지·보안·규정 준수 | 알림 등록 값(1절) / 유튜브 플레이어의 쿠키·식별값 |
+| 그 밖 — 이메일 · 주소 · 연락처 · 정확한 위치 · 금융 · 건강 · 메시지 · 음성 · 파일 · 캘린더 · 웹 기록 · 설치된 앱 · 비정상 종료 기록 · 진단 | 아니요 | 아니요 | | | |
+
+⚠️ 공유 줄 셋(구글)은 **2-1 끝의 「앱 밖 재생」을 고르면 지운다** — 그때 「광고 포함」도 「아니요」로 함께 바꾼다.
+⚠️ 앱이 새로 무엇을 모으기 시작하면(새 표·새 칸) **이 표와 `privacy/` 를 같은 날** 고친다 — 이번처럼 사진·열람 기록이 표 밖에서 쌓인다.
+
+### 6. 앱 액세스(심사자 안내) — 그대로 붙여 넣을 글
+
+Play Console → 앱 콘텐츠 → **앱 액세스** → 「일부 또는 모든 기능이 제한됨」 → 안내 추가. 사용자 이름·비밀번호 칸이 있으면 「No password」.
+
+```
+This app has no password. Anyone can sign in with a church group and a name.
+1. On first launch, tap "건너뛰기" (Skip) on the intro slides.
+2. 구분 (Type): tap "교구".
+3. 교구 (Parish): tap any one, e.g. "새가족".
+4. 목장 (Group): type the number 99 (numbers only).
+5. 성명 (Name): type any name, e.g. Reviewer.
+6. Tick the box "위 개인정보 수집·이용 안내를 확인하고 동의합니다." (privacy consent).
+7. Tap "시작하기" (Start). On the welcome screen, tap "아멘, 시작하기".
+Account and data deletion: ⚙️ Settings → "🔐 개인정보 안내 보기" → "📄 전체 안내 보기",
+or https://gocheok.onlybible.kr/privacy/#delete
+Board posts can be reported with "🚩 신고" next to each post.
+```
+
+- ⚠️ 심사자가 만든 계정은 **운영 DB 의 진짜 계정**이다(순위·「지금 N명」에 보일 수 있다). 결과가 나오면 방침 5항과 같은 방법으로 지운다.
+- ⚠️ 마지막 줄(신고)은 신고가 **운영에 배포된 뒤에만** 넣는다. 위 4절 ③ 의 가리기·이용 규칙을 더하면 한 줄씩 늘린다.
+
+### 7. 체크리스트 — 이 순서대로
+
+**출시 전, 앱·방침 쪽(배포가 필요하다 — 메인 세션이 개발 DB → 운영 순으로):**
+- [ ] 게시판 신고 운영 배포(이 가지 · `supabase/board_reports.sql` 머리의 순서)
+- [ ] 게시판 이용 규칙 — 처음 글 쓸 때 한 번 동의(하지 말 것 목록) · 글쓴이 가리기(내 기기에서만) — 4절 ③
+- [ ] 「내게 주시는 말씀」 답 아래 「🚩 이 답 알리기」 — 4절 ④
+- [ ] 방침 `privacy/` + 앱 안 두 곳: 열람 기록 · 공감·응원·이벤트 · 음성 · 유튜브 약관 문구 · 5항 「지워지는 것」 — 4절 ⑤⑥
+- [ ] 어린이 부서 로그인의 보호자 확인 단계 — **법 확인 먼저** · 숫자부터(3절 SQL) — 3절
+- [ ] (권장) 앱 안 「계정·기록 삭제 요청」 바로가기(`privacy/#delete`) — 4절 ⑤
+- [ ] `listing-ko.txt` — 설명 한 줄(4절 ⑦) · 심사자 안내 칸(이 절 6의 글)
+
+**앱 이전이 끝난 뒤, 교회 계정 Play Console 「앱 콘텐츠」:**
+- [ ] 0. 이전 뒤에도 각 선언이 남아 있는지 먼저 본다(남아 있으면 아래대로 고친다)
+- [ ] 1. 개인정보처리방침 → `https://gocheok.onlybible.kr/privacy/`(방침 고친 판이 배포된 뒤)
+- [ ] 2. 앱 액세스 → 「일부 또는 모든 기능이 제한됨」 + 이 절 6의 글
+- [ ] 3. 광고 → **「예, 광고 포함」**(2-1)
+- [ ] 4. 콘텐츠 등급 → 설문 다시(4절 ⑧ — 사용자 상호작용 「예」)
+- [ ] 5. 타겟층 및 콘텐츠 → **13–15 · 16–17 · 18세 이상**만 · 어린이 매력 질문은 사실대로(3절)
+- [ ] 6. 데이터 보안 → 이 절 5의 표 그대로 · 삭제 URL `…/privacy/#delete`
+- [ ] 7. 광고 ID → 「아니요」(1절)
+- [ ] 8. 정부 앱 · 금융 기능 · 건강 · 뉴스 → 해당 없음
+- [ ] 9. 스토어 등록정보 → 고친 설명(4절 ⑦) · 스토어 그림은 지금 것(어린이 요소 없음)
+- [ ] 10. 제출 뒤 반려 메일이 오면 **사유 문장을 그대로** 이 절 아래에 붙여 둔다(closed-test.md 처럼)
+
+> 아이폰(App Store Connect)의 같은 ⚠️ 목록(아래 「4. App Privacy」 — 기기 ID · 유튜브 · 추적)도 **같은 근거**로 풀린다.
+> 다음 아이폰 판을 제출할 때 맞춘다(이 절은 구글만 정했다).
+
+**[출처]** (2026-10-01 읽음)
+1. 데이터 보안 섹션 정의 — https://support.google.com/googleplay/android-developer/answer/10787469
+2. 앱 심사 준비(광고 · 앱 액세스 · 타겟층) — https://support.google.com/googleplay/android-developer/answer/9859455
+3. 광고 정책 — https://support.google.com/googleplay/android-developer/answer/9857753
+4. 타겟층 및 콘텐츠 관리 — https://support.google.com/googleplay/android-developer/answer/9867159
+5. 가족 정책 — https://support.google.com/googleplay/android-developer/answer/9893335
+6. 가족 앱의 데이터 관행 — https://support.google.com/googleplay/android-developer/answer/11043825
+7. 사용자 제작 콘텐츠 — https://support.google.com/googleplay/android-developer/answer/9876937
+8. AI 생성 콘텐츠 — https://support.google.com/googleplay/android-developer/answer/13985936
+9. 계정 삭제 요건 — https://support.google.com/googleplay/android-developer/answer/13327111
+10. 사용자 데이터 정책 — https://support.google.com/googleplay/android-developer/answer/10144311
+11. 메타데이터 정책 — https://support.google.com/googleplay/android-developer/answer/9898842
+12. 유튜브 퍼가기 · 개인정보 보호 강화 모드 — https://support.google.com/youtube/answer/171780
+13. 퍼간 영상의 광고 — https://support.google.com/youtube/answer/132596
+14. 유튜브 서비스 약관(수익 창출 권리) — https://www.youtube.com/t/terms
+15. YouTube API 서비스 개발자 정책(III.A · III.J) — https://developers.google.com/youtube/terms/developer-policies
+16. 맞춤·비맞춤 광고(구글 애드 매니저) — https://support.google.com/admanager/answer/9005435
+
+---
+
 # App Store(iOS) 등록 준비물
 
 iOS 2단계(위젯·네이티브 로그인 화면·네이티브 푸시)를 실기기로 확인한 뒤(2026-09-16),
