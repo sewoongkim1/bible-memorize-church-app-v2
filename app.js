@@ -3896,7 +3896,7 @@ function renderBoard() {
           <button class="settings-back-btn" id="board-back">← 뒤로</button>
         </div>
         <p class="board-intro">암송하며 받은 은혜, 기도 부탁드릴 일, 서로에게 힘이 되는 이야기를 나눠 주세요. 모든 글과 답글은 공개됩니다. 🙌</p>
-        <p class="board-notice">🙏 <b>성경암송</b>과 관련된 이야기를 나눠 주세요. 주제와 관련 없는 글은 부득이 삭제될 수 있습니다.<br>⚠️ 전화번호 등 <b>민감한 개인정보</b>는 올리지 말아주세요.<br>📷 사진에 <b>다른 분이 나온다면</b> 그분께 먼저 여쭤봐 주세요.</p>
+        <p class="board-notice">🙏 <b>성경암송</b>과 관련된 이야기를 나눠 주세요. 주제와 관련 없는 글은 부득이 삭제될 수 있습니다.<br>⚠️ 전화번호 등 <b>민감한 개인정보</b>는 올리지 말아주세요.<br>📷 사진에 <b>다른 분이 나온다면</b> 그분께 먼저 여쭤봐 주세요.<br>🚩 불편한 글은 글 옆 <b>「신고」</b>로 알려 주세요. 운영진이 살펴봐요.</p>
         <div class="board-form">
           <div class="board-who" id="bp-who"></div>
           <textarea id="bp-content" class="board-in board-in-lg" rows="5" maxlength="2000" placeholder="받은 은혜나 기도 부탁을 적어주세요"></textarea>
@@ -3947,16 +3947,19 @@ async function loadBoard() {
   }
   const delBtn = (kind, item) => boardIsMine(item)
     ? ` · <button class="board-del" data-kind="${kind}" data-id="${item.id}">삭제</button>` : "";
+  // 🚩 신고 — 남의 글·답글에만. 내 글(삭제 단추 자리)·관리자 답글·관리자 공지(rich)에는 안 붙인다.
+  const repBtn = (kind, item) => (boardIsMine(item) || item.is_admin || item.rich) ? ""
+    : ` · <button class="board-report" data-kind="${kind}" data-id="${item.id}" aria-label="이 ${kind === "reply" ? "답글" : "글"} 신고하기">🚩 신고</button>`;
   box.innerHTML = posts.map((p) => {
     const replies = (p.replies || []).map((r) => `
       <div class="board-reply${r.is_admin ? " admin" : ""}">
-        <div class="board-meta">${r.is_admin ? '<span class="board-badge">관리자</span>' : `<b>${boardEsc(r.name)}</b>`} · ${boardTime(r.created_at)}${r.is_admin ? "" : delBtn("reply", r)}</div>
+        <div class="board-meta">${r.is_admin ? '<span class="board-badge">관리자</span>' : `<b>${boardEsc(r.name)}</b>`} · ${boardTime(r.created_at)}${r.is_admin ? "" : delBtn("reply", r) + repBtn("reply", r)}</div>
         <div class="board-text">${boardEsc(r.content)}</div>
         ${boardRxHtml("reply", r)}
       </div>`).join("");
     return `
       <div class="board-post" data-id="${p.id}">
-        <div class="board-meta"><b>${boardEsc(p.name)}</b> · ${boardTime(p.created_at)}${delBtn("post", p)}</div>
+        <div class="board-meta"><b>${boardEsc(p.name)}</b> · ${boardTime(p.created_at)}${delBtn("post", p)}${repBtn("post", p)}</div>
         <div class="board-text${p.rich ? " rich" : ""}">${p.rich ? boardRich(p.content) : boardEsc(p.content)}</div>
         ${boardPhotosHtml(p)}
         ${boardRxHtml("post", p)}
@@ -3970,6 +3973,7 @@ async function loadBoard() {
   box.querySelectorAll(".board-photo").forEach((im) => im.addEventListener("click", () => openPhotoViewer(im.dataset.full)));
   box.querySelectorAll(".board-reply-btn").forEach((btn) => btn.addEventListener("click", () => submitBoardReply(btn)));
   box.querySelectorAll(".board-del").forEach((btn) => btn.addEventListener("click", () => deleteMine(btn)));
+  box.querySelectorAll(".board-report").forEach((btn) => btn.addEventListener("click", () => openBoardReport(btn)));
   box.querySelectorAll("[data-rxadd]").forEach((btn) => btn.addEventListener("click", (e) => {
     e.stopPropagation(); boardRxPicker(btn);
   }));
@@ -4154,6 +4158,106 @@ async function deleteMine(btn) {
   try { await api.boardDeleteMine(btn.dataset.kind, Number(btn.dataset.id), myUserId(), boardWho()); }
   catch (e) { appAlert("삭제 실패: " + (e && e.message ? e.message : e)); return; }
   loadBoard();
+}
+
+// ── 게시판 신고(🚩 · 2026-10-01) ─────────────────────────────
+// 구글 플레이 「사용자 제작 콘텐츠」 정책 — 앱 안에서 불쾌한 글을 알리는 길. 자세한 것은 docs/notes/board.md 「신고」 절.
+// ⚠️ 시스템 창(confirm·alert·prompt)을 쓰지 않는다 — 앱 고유의 창(.am-overlay)이다. 웹뷰·TWA 에서 시스템 창은
+//    모양이 제각각이고 어르신은 「사이트에서 보낸 메시지」를 경고로 읽으신다.
+// ⚠️ 까닭 목록은 세 곳(여기 · index.ts BOARD_REPORT_REASONS · supabase/board_reports.sql CHECK)이다.
+//    tests/board-report.test.cjs 가 셋이 같은지, 글씨(라벨)가 서버와 같은지 배포 앞에서 본다.
+// ── 게시판 신고 — 순수 (여기부터) ──
+const BOARD_REPORT_REASONS = [
+  ["inappropriate", "부적절한 내용"],
+  ["spam", "광고·도배"],
+  ["privacy", "개인정보 노출"],
+  ["other", "기타"],
+];
+const BOARD_REPORT_NOTE_MAX = 200;
+// 서버가 돌려준 까닭 코드 → 성도님께 보일 말. 코드를 그대로 보여 드리지 않는다.
+function boardReportErrorMsg(code) {
+  switch (String(code || "")) {
+    case "no-user":    return "로그인하시면 신고할 수 있어요.";
+    case "own":        return "내가 쓴 글은 신고할 수 없어요.";
+    case "not-found":  return "이미 지워졌거나 숨겨진 글이에요.";
+    case "bad-reason": return "신고하는 까닭을 하나 골라 주세요.";
+    case "not-ready":  return "지금은 신고를 받을 수 없어요. 잠시 뒤에 다시 해 주세요.";
+    default:           return "신고를 보내지 못했어요. 잠시 뒤에 다시 해 주세요.";
+  }
+}
+// ── 게시판 신고 — 순수 (여기까지) ──
+
+function openBoardReport(btn) {
+  const u = loadUser();
+  if (!u || !u.user_id) { appAlert(boardReportErrorMsg("no-user")); return; }
+  const kind = btn.dataset.kind === "reply" ? "reply" : "post";
+  const id = Number(btn.dataset.id);
+  const what = kind === "reply" ? "답글" : "글";
+  const old = document.getElementById("rp-modal"); if (old) old.remove();
+  const wrap = document.createElement("div");
+  wrap.id = "rp-modal"; wrap.className = "am-overlay";
+  wrap.innerHTML = `
+    <div class="am-card rp-card" role="dialog" aria-modal="true" aria-labelledby="rp-title">
+      <div class="am-ico" aria-hidden="true">🚩</div>
+      <div class="am-title" id="rp-title">이 ${what}을 신고할까요?</div>
+      <div class="am-msg">까닭을 하나 골라 주세요. 운영진만 보고, 글쓴 분께는 <b>누가 신고했는지 알리지 않아요.</b></div>
+      <div class="rp-reasons" role="radiogroup" aria-label="신고하는 까닭">
+        ${BOARD_REPORT_REASONS.map(([code, label]) =>
+          `<button type="button" class="rp-chip" role="radio" aria-checked="false" data-reason="${code}">${label}</button>`).join("")}
+      </div>
+      <textarea class="board-in rp-note" rows="2" maxlength="${BOARD_REPORT_NOTE_MAX}" placeholder="덧붙일 말 (적지 않아도 돼요)"></textarea>
+      <div class="rp-err" role="alert" hidden></div>
+      <div class="am-btns">
+        <button type="button" class="am-btn am-cancel">취소</button>
+        <button type="button" class="am-btn am-ok danger rp-send" disabled>신고하기</button>
+      </div>
+    </div>`;
+  let reason = "";
+  let busy = false;
+  const send = wrap.querySelector(".rp-send");
+  const errEl = wrap.querySelector(".rp-err");
+  const onKey = (e) => { if (e.key === "Escape" && !busy) { e.preventDefault(); close(); } };
+  const close = () => {
+    document.removeEventListener("keydown", onKey, true);
+    wrap.classList.remove("show"); setTimeout(() => wrap.remove(), 160);
+  };
+  wrap.querySelectorAll(".rp-chip").forEach((chip) => chip.addEventListener("click", () => {
+    reason = chip.dataset.reason;
+    wrap.querySelectorAll(".rp-chip").forEach((c) => {
+      const on = c === chip;
+      c.classList.toggle("on", on);
+      c.setAttribute("aria-checked", on ? "true" : "false");
+    });
+    send.disabled = false;
+    errEl.hidden = true;
+  }));
+  wrap.addEventListener("click", (e) => { if (e.target === wrap && !busy) close(); });   // 바깥 탭 = 취소
+  wrap.querySelector(".am-cancel").addEventListener("click", () => { if (!busy) close(); });
+  send.addEventListener("click", async () => {
+    if (!reason || busy) return;
+    busy = true; send.disabled = true; send.textContent = "보내는 중…";
+    const note = wrap.querySelector(".rp-note").value.trim();
+    try {
+      await api.boardReport(kind, id, u.user_id, reason, note);   // 이미 신고한 글도 { ok, already } — 같은 인사
+    } catch (e) {
+      busy = false; send.disabled = false; send.textContent = "신고하기";
+      errEl.textContent = boardReportErrorMsg(e && e.message);
+      errEl.hidden = false;
+      return;
+    }
+    close();
+    btn.textContent = "🚩 신고함"; btn.disabled = true;
+    boardToast("신고했어요 — 운영진이 확인할게요");
+  });
+  document.addEventListener("keydown", onKey, true);
+  document.body.appendChild(wrap);
+  requestAnimationFrame(() => wrap.classList.add("show"));
+}
+// 공유 토스트를 빌려 쓰되, 글이 길면 줄을 바꾼다(공유 토스트는 한 줄 고정이라 좁은 폰에서 넘친다)
+function boardToast(msg) {
+  showShareToast(msg);
+  const t = document.getElementById("share-toast");
+  if (t) t.classList.add("wrap");
 }
 
 // 설정 화면 — 로그인 정보변경 · 알림 · 홈 화면 추가 · 공유 (요약에서 분리)

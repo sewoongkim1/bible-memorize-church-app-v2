@@ -3310,6 +3310,37 @@ textarea.board-in-lg { min-height: 120px; }
 .board-reply-btn:hover { filter: brightness(1.1); }
 .board-reply-btn:disabled { opacity: 0.5; }
 
+/* 🚩 신고(2026-10-01) — 남의 글·답글 meta 줄 끝. 「삭제」와 같은 글자 단추라 눈에 덜 띄게 회색.
+   창은 앱의 확인 창(.am-overlay · .am-card)을 그대로 쓰고 안쪽만 더한다. 새 색을 만들지 않는다. */
+.board-report {
+  background: none; border: none; color: var(--gray); font-size: 12px;
+  cursor: pointer; padding: 4px 2px; text-decoration: underline; font-family: inherit;
+}
+.board-report:disabled { text-decoration: none; cursor: default; opacity: .75; }
+.rp-card { max-width: 380px; }
+.rp-reasons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 14px 0 10px; }
+/* 어르신 손가락 — 누를 칸은 48px 이상, 글씨는 확인 창 단추보다 한 단계 크게 */
+.rp-chip {
+  min-height: 48px; padding: 10px 8px; border-radius: 12px; cursor: pointer;
+  border: 1.5px solid var(--border); background: #fff; color: #333;
+  font-family: inherit; font-size: 15px; font-weight: 700; line-height: 1.3; word-break: keep-all;
+}
+/* 켬/끔은 색조가 아니라 밝기로 가른다(공감 칩과 같은 까닭) */
+.rp-chip.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+textarea.rp-note { min-height: 64px; font-size: 15px; }
+.rp-err { margin-top: 8px; color: #b94a3a; font-size: 14px; line-height: 1.5; text-align: center; word-break: keep-all; }
+html[data-fs="lg"] .rp-chip, html[data-fs="lg"] textarea.rp-note { font-size: 17px; }
+html[data-fs="xl"] .rp-chip, html[data-fs="xl"] textarea.rp-note { font-size: 19px; }
+html[data-fs="lg"] .board-report { font-size: 14px; }
+html[data-fs="xl"] .board-report { font-size: 16px; }
+.dark .board-report { color: #9fb0cc; }
+.dark .rp-chip { background: #2b352f; color: #cfd6d1; border-color: #3c463f; }
+.dark .rp-chip.on { background: #3d6b53; border-color: #3d6b53; color: #fff; }
+.dark .rp-err { color: #e69384; }
+.dark textarea.rp-note { background: #2b352f; border-color: #3c463f; color: #e6ecf7; }
+/* 신고 인사처럼 긴 토스트 — 공유 토스트는 한 줄 고정이라 360px 폰에서 넘친다 */
+.share-toast.wrap { white-space: normal; width: max-content; text-align: center; }
+
 /* =====================================================================
    암송 화면 상단 액션 바 정돈 (버튼이 문장·단계 표시 위로 올라간 뒤 여백/간격)
    ===================================================================== */
