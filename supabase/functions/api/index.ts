@@ -546,7 +546,11 @@ Deno.serve(async (req) => {
       case "boardReply":    return json(await boardReply(body));
       case "boardDeleteMine": return json(await boardDeleteMine(body));
       case "boardModerate": return json(await boardModerate(body));
-      default:              return json({ error: `unknown action: ${body.action}` }, 400);
+      // ---- 게시판 신고(🚩 · 2026-10-01 · 구글 UGC) — 신고한 분은 어떤 응답에도 싣지 않는다 ----
+      case "boardReport":        return json(await boardReport(body));          // 성도
+      case "boardReports":       return json(await boardReports(body));         // 관리자 — 처리 전 신고(글·답글별로 묶음)
+      case "boardReportResolve": return json(await boardReportResolve(body));   // 관리자 — 숨기기 · 처리 완료
+      default:             return json({ error: `unknown action: ${body.action}` }, 400);
     }
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e) }, 500);
@@ -3793,9 +3797,11 @@ async function pushToSubs(list: any[], payload: string, mode: string, title: str
 // 받는 사람은 app_config의 `pilsaAdmins`(identity_key 배열)에 둔다 — 이 저장소는 공개라
 // 이름이나 user_id를 코드에 박으면 그대로 드러나고, 담당자가 바뀔 때마다 배포를 다시 해야 한다.
 // PUBLIC_CONFIG_KEYS에 넣지 않는다: 누가 받는지는 앱이 조회할 일이 없다.
-async function pilsaAdminSubs() {
+// 게시판 신고 알림(`boardAdmins` · 2026-10-01)도 같은 길을 쓴다 — 키만 다르다.
+async function pilsaAdminSubs() { return await configAdminSubs("pilsaAdmins"); }
+async function configAdminSubs(configKey: string) {
   try {
-    const { data } = await db.from("app_config").select("value").eq("key", "pilsaAdmins").maybeSingle();
+    const { data } = await db.from("app_config").select("value").eq("key", configKey).maybeSingle();
     const keys = Array.isArray(data?.value)
       ? (data!.value as any[]).map((x) => norm(String(x))).filter(Boolean) : [];
     if (!keys.length) return [];
@@ -4094,6 +4100,210 @@ async function boardModerate(b: any) {
     const { error } = await db.from(table).update({ hidden: b.op === "hide" }).eq("id", id); if (error) throw error;
   }
   return { ok: true };
+}
+
+// ============================================================
+// 게시판 신고(🚩) — 2026-10-01
+//   구글 플레이 「사용자 제작 콘텐츠(UGC)」 정책: 앱 안에서 불쾌한 글을 신고하는 길 + 운영진의 처리.
+//   표: supabase/board_reports.sql · 설명: docs/notes/board.md 「신고」 절
+// ⚠️ reporter_id(신고한 분)는 **어떤 응답에도 싣지 않는다 — 관리자 목록에도.** 고르지도 않는다.
+//    이 API 는 JWT 가 없어 user_id 가 새면 그 사람 행세가 되고, 누가 신고했는지가 새면 보복이 생긴다.
+// ⚠️ 까닭 허용 목록은 세 곳(여기 · app.js · SQL CHECK)이다 — tests/board-report.test.cjs 가 셋을 맞대 본다.
+// ⚠️ 보관 90일(BOARD_REPORT_KEEP_DAYS)은 개인정보 안내(privacy/ · 앱 안 두 곳)가 약속한 숫자다 — 같이 고칠 것.
+// ============================================================
+// ── 게시판 신고 — 순수 함수 (여기부터) ──
+// ⚠️ 이 구간은 타입 표기 없이 쓴다 — tests/board-report.test.cjs 가 떼어 node:vm 으로 돌린다.
+const BOARD_REPORT_REASONS = ["inappropriate", "spam", "privacy", "other"];
+const BOARD_REPORT_LABELS = {
+  inappropriate: "부적절한 내용", spam: "광고·도배", privacy: "개인정보 노출", other: "기타",
+};
+const BOARD_REPORT_NOTE_MAX = 200;      // SQL CHECK char_length(note) <= 200 와 같아야 한다
+const BOARD_REPORT_KEEP_DAYS = 90;      // 처리 뒤 이만큼 지나면 지운다(SQL cron 과 같아야 한다)
+const BOARD_REPORT_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function boardReportPosInt(v) {
+  const n = typeof v === "number" ? v : (typeof v === "string" && /^\d+$/.test(v.trim()) ? Number(v) : NaN);
+  return Number.isSafeInteger(n) && n > 0 ? n : 0;
+}
+
+// 받은 값 확인 — 실패면 { error }, 통과면 { userId, reason, kind, id, note }
+//   reply_id 가 있으면 답글 신고(post_id 는 서버가 그 답글에서 찾는다), 없으면 post_id 로 글 신고.
+//   덧붙인 말은 공백을 한 칸으로 접고 200자(글자 단위 — 이모지가 반으로 쪼개지지 않게)에서 자른다.
+function boardReportInput(b) {
+  const src = b && typeof b === "object" ? b : {};
+  const userId = String(src.user_id == null ? "" : src.user_id).trim().toLowerCase();
+  if (!BOARD_REPORT_UUID.test(userId)) return { error: "no-user" };
+  const reason = String(src.reason == null ? "" : src.reason);
+  if (BOARD_REPORT_REASONS.indexOf(reason) < 0) return { error: "bad-reason" };
+  const replyId = boardReportPosInt(src.reply_id);
+  const postId = boardReportPosInt(src.post_id);
+  if (!replyId && !postId) return { error: "bad-args" };
+  const note = Array.from(String(src.note == null ? "" : src.note).replace(/\s+/g, " ").trim())
+    .slice(0, BOARD_REPORT_NOTE_MAX).join("").trim();
+  return { userId, reason, kind: replyId ? "reply" : "post", id: replyId || postId, note: note || null };
+}
+
+// 처리 전 신고 줄들을 글·답글 하나당 한 묶음으로 — 많이 신고된 것, 최근 것이 앞.
+// ⚠️ 정해진 칸만 옮겨 담는다 — 들어온 줄에 reporter_id 가 섞여 있어도 밖으로 안 나간다.
+function boardReportGroup(rows) {
+  const byKey = new Map();
+  for (const r of (Array.isArray(rows) ? rows : [])) {
+    const kind = r.reply_id ? "reply" : "post";
+    const id = Number(r.reply_id || r.post_id);
+    const k = kind + ":" + id;
+    let g = byKey.get(k);
+    if (!g) {
+      g = { kind, id, post_id: Number(r.post_id), count: 0, reasons: {}, notes: [],
+            first_at: r.created_at, last_at: r.created_at };
+      byKey.set(k, g);
+    }
+    g.count++;
+    g.reasons[r.reason] = (g.reasons[r.reason] || 0) + 1;
+    if (r.note) g.notes.push(String(r.note));
+    if (r.created_at < g.first_at) g.first_at = r.created_at;
+    if (r.created_at > g.last_at) g.last_at = r.created_at;
+  }
+  return Array.from(byKey.values()).sort((a, b) =>
+    (b.count - a.count) || (a.last_at < b.last_at ? 1 : a.last_at > b.last_at ? -1 : 0));
+}
+
+// 관리자 목록에 보일 발췌 — 관리자 공지(rich)만 태그를 벗긴다(성도 글의 「<」는 글자 그대로다)
+function boardReportExcerpt(s, n, rich) {
+  let t = String(s == null ? "" : s);
+  if (rich) t = t.replace(/<[^>]*>/g, " ");
+  t = t.replace(/\s+/g, " ").trim();
+  const a = Array.from(t);
+  return a.length > n ? a.slice(0, n).join("") + "…" : t;
+}
+// ── 게시판 신고 — 순수 함수 (여기까지) ──
+
+// 표(board_reports.sql)를 아직 안 만든 DB — 500 대신 not-ready 로 답한다
+function boardReportsMissing(e: any) {
+  const c = String(e?.code || ""), m = String(e?.message || "");
+  return c === "42P01" || c === "PGRST205" || /does not exist|schema cache/i.test(m);
+}
+
+// 성도 — 남의 글·답글 신고. 같은 분이 같은 글을 또 누르면 「이미 신고함」으로 받는다(오류가 아니다).
+async function boardReport(b: any) {
+  const v: any = boardReportInput(b);
+  if (v.error) return { ok: false, error: v.error };
+  // 대상 확인 — 없거나 숨김·본인삭제면 not-found(화면에 안 보이는 글을 신고할 일은 없다).
+  // select("*") — 옛 DB(deleted·user_id 칸 이전)에서도 안전하게. 응답에는 아무 칸도 안 싣는다.
+  const table = v.kind === "reply" ? "board_replies" : "board_posts";
+  const { data: row, error: e1 } = await db.from(table).select("*").eq("id", v.id).maybeSingle();
+  if (e1) throw e1;
+  if (!row || row.hidden || row.deleted) return { ok: false, error: "not-found" };
+  if (row.user_id && String(row.user_id).toLowerCase() === v.userId) return { ok: false, error: "own" };
+  const postId = v.kind === "reply" ? Number(row.post_id) : v.id;
+  const replyId = v.kind === "reply" ? v.id : null;
+  const { error } = await db.from("board_reports").insert({
+    post_id: postId, reply_id: replyId, reporter_id: v.userId, reason: v.reason, note: v.note,
+  });
+  if (error) {
+    const code = String((error as any).code || ""), msg = String(error.message || "") + " " + String((error as any).details || "");
+    if (code === "23505" || /duplicate key/i.test(msg)) return { ok: true, already: true };   // 이미 신고함
+    if (boardReportsMissing(error)) return { ok: false, error: "not-ready" };
+    if (code === "23503") return { ok: false, error: /reporter/i.test(msg) ? "no-user" : "not-found" };
+    throw error;
+  }
+  // 운영진 알림 — 실패해도 신고는 이미 받았다(삼킨다)
+  try { await boardReportNotify(v.kind, postId, replyId); } catch (_) { /* 알림 실패가 신고를 막지 않는다 */ }
+  return { ok: true };
+}
+
+// 신고가 들어오면 담당자(app_config `boardAdmins` — pilsaAdmins 와 같은 방식)에게 Web Push.
+// ⚠️ 쏟아지지 않게: 그 글(답글)의 **첫 신고**일 때만, 그리고 **10분에 한 번**까지(push_log 로 본다).
+//    로그인이 곧 계정 만들기라(비번 없음) 한 사람이 여러 계정으로 신고를 쏟을 수 있다.
+// ⚠️ 알림 본문에 신고한 분도, 글 내용도 싣지 않는다 — 잠금 화면에 그대로 뜬다.
+// ⚠️ monitor 는 push_log 의 daily 행만 본다 — 여기서 실패 행이 남아도 헛경보가 안 난다.
+async function boardReportNotify(kind: string, postId: number, replyId: number | null) {
+  let q = db.from("board_reports").select("id", { count: "exact", head: true })
+    .eq("post_id", postId).is("resolved_at", null);
+  q = replyId ? q.eq("reply_id", replyId) : q.is("reply_id", null);
+  const { count } = await q;
+  if ((count ?? 0) > 1) return { sent: 0, error: "not-first" };
+  const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  const { data: recent } = await db.from("push_log").select("sent_at")
+    .eq("mode", "board-report").gte("sent_at", since).limit(1);
+  if ((recent ?? []).length) return { sent: 0, error: "throttled" };
+  const list = await configAdminSubs("boardAdmins");
+  if (!list.length) return { sent: 0, error: "no-admin" };
+  const payload = JSON.stringify({
+    title: "[게시판 신고]",
+    body: (kind === "reply" ? "답글" : "글") + " 하나가 신고되었습니다 — 관리자 「게시판 관리」에서 확인해 주세요.",
+    url: "https://gocheok.onlybible.kr/admin.html",
+  });
+  return await pushToSubs(list, payload, "board-report", "게시판 신고");
+}
+
+// 관리자 — 처리 전 신고를 글·답글별로 묶어서. 신고한 분은 싣지 않는다(몇 분인지만).
+async function boardReports(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  // 처리 뒤 90일이 지난 것을 먼저 지운다 — 개인정보 안내의 약속이다. cron(board_reports.sql ④)이
+  // 매일 하지만, cron 이 없는 DB 에서도 지켜지게 여기서 한 번 더.
+  const cutoff = new Date(Date.now() - BOARD_REPORT_KEEP_DAYS * 86400000).toISOString();
+  const purge = await db.from("board_reports").delete().lt("resolved_at", cutoff);
+  if (purge.error) {
+    if (boardReportsMissing(purge.error)) return { ok: false, error: "not-ready" };
+    throw purge.error;
+  }
+  const { data, error } = await db.from("board_reports")
+    .select("id,post_id,reply_id,reason,note,created_at")      // ⚠️ reporter_id 는 고르지도 않는다
+    .is("resolved_at", null).order("created_at", { ascending: false }).limit(1000);
+  if (error) {
+    if (boardReportsMissing(error)) return { ok: false, error: "not-ready" };
+    throw error;
+  }
+  const groups: any[] = boardReportGroup(data ?? []);
+  // 신고된 글·답글 — 발췌와 상태만. select("*") 는 옛 DB 를 위해서이고, 응답에는 고른 칸만 싣는다.
+  const fetchRows = async (table: string, ids: number[]) => {
+    const m = new Map<number, any>();
+    if (!ids.length) return m;
+    const { data: rows, error: e } = await db.from(table).select("*").in("id", ids);
+    if (e) throw e;
+    for (const r of (rows ?? []) as any[]) m.set(Number(r.id), r);
+    return m;
+  };
+  const posts = await fetchRows("board_posts", groups.filter((g) => g.kind === "post").map((g) => g.id));
+  const replies = await fetchRows("board_replies", groups.filter((g) => g.kind === "reply").map((g) => g.id));
+  const items = groups.map((g) => {
+    const row = g.kind === "reply" ? replies.get(g.id) : posts.get(g.id);
+    const photos = (row && Array.isArray(row.images) ? row.images : []).filter(isBoardImgName).map(boardImgUrl);
+    return {
+      ...g,
+      name: row ? (row.name || "익명") : "",
+      excerpt: row ? boardReportExcerpt(row.content, 160, !!row.rich) : "",
+      ...(photos.length ? { photos } : {}),
+      hidden: !!(row && row.hidden),
+      deleted: !!(row && row.deleted),
+      gone: !row,                     // 글이 이미 없다(보통은 cascade 로 신고도 함께 지워진다)
+    };
+  });
+  return { ok: true, labels: BOARD_REPORT_LABELS, keepDays: BOARD_REPORT_KEEP_DAYS, items };
+}
+
+// 관리자 — 한 글(답글)의 처리 전 신고를 닫는다. op: "hide"(그 글을 숨기고 닫음) | "resolve"(그대로 두고 닫음)
+// 숨기기는 boardModerate 를 그대로 쓴다 — 숨김을 두 벌로 만들지 않는다(숨김해제도 기존 목록에서 한다).
+async function boardReportResolve(b: any) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const kind = b.kind === "reply" ? "reply" : "post";
+  const id = boardReportPosInt(b.id);
+  const op = b.op === "hide" ? "hide" : b.op === "resolve" ? "resolve" : "";
+  if (!id || !op) return { ok: false, error: "bad-args" };
+  if (op === "hide") {
+    const r: any = await boardModerate({ pw: b.pw, kind, id, op: "hide" });
+    if (!r.ok) return r;
+  }
+  let q = db.from("board_reports").update({
+    resolved_at: new Date().toISOString(), resolved_by: "admin", resolution: op === "hide" ? "hidden" : "kept",
+  }).is("resolved_at", null);
+  q = kind === "reply" ? q.eq("reply_id", id) : q.eq("post_id", id).is("reply_id", null);
+  const { data, error } = await q.select("id");
+  if (error) {
+    if (boardReportsMissing(error)) return { ok: false, error: "not-ready" };
+    throw error;
+  }
+  return { ok: true, resolved: (data ?? []).length, hidden: op === "hide" };
 }
 
 // ---------- 사역신청(2027) ----------
