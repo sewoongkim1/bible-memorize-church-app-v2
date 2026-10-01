@@ -207,13 +207,17 @@ revoke all on sequence ministry_history_id_seq, ministry_history_imports_id_seq 
 - **「이분 것」 쓰기:** 그쪽 액션(역할 `directory` · 예: `peopleLink` kind `history`)이 이 표 줄 하나를 고친다. 고치는 모양은 이 세션이 `history-match.ts` 에 두는 **`historyLinkPatch(personId | null, memberId, nowIso)`** 하나로 만든다:
   `{ person_id, link_how: personId ? 'manual' : 'none', linked_by: memberId, linked_at: nowIso, match_basis: personId ? '사람이 이음' : '', match_reason: personId ? '' : '이분 아님(담당자 확인)', updated_at: nowIso }`. 기록은 `history.link`(`{id, by:"directory"}`).
   「잇기 풀기」(자동으로 되돌리기)는 `{ link_how:'auto', linked_by:null, linked_at:null }` 를 쓴 뒤 그 줄만 다시 맞춘다 — `historyUnlinkPatch()` 도 같은 파일에.
-- **넘길 때의 교인ID:** §8 — 그쪽 「잇기 표」의 값(사람이 이음 포함)을 그대로 옮긴다. 칸 이름은 그쪽 설계 승인 뒤 받는다.
+  줄 하나 다시 맞추기는 DB 를 읽어야 해서 순수 모듈과 따로 **`history-db.ts` 의 `rematchHistoryRows(db, ids: number[])`** 로 내보낸다(대상 줄의 이름으로 명부·다른 해 줄을 읽어 §4 를 돌리고 `auto` 줄만 고친다 · 바꾼 수를 돌려준다). 그쪽 `peopleLink`(kind `history`)는 이 셋을 import 한다.
+- **넘길 때의 교인ID:** §8 — 그쪽 「잇기 표」의 값(사람이 이음 포함)을 그대로 옮긴다.
+- 그쪽 설계: `docs/superpowers/specs/2026-10-01-person-history-tabs-design.md` · 사역 탭은 `ministry_history` 가 없으면(42P01) 올해 신청만 보인다.
 - **표가 열리는 날**(운영 SQL 005 적용) 이 세션이 그쪽에 메시지로 알린다. 그 전에 그쪽은 개발 DB 의 가짜 이력으로 만든다.
 
 ## 8. 이력으로 넘기기(나중 — 2027 임명 전에 만든다)
 
 - `historyFromOrders {year}` (역할 ministry · 살펴보기→넣기): `ministry_orders` 의 그 해 `status='임명확정'` 줄 → `source='app'`, `order_id = id`, `committee·team·name·position·who(→ mok)` 스냅샷. 하위 선택(`option` · 어와나 택1 등)은 `team` 뒤에 「팀 (선택)」으로 붙인다(직책이 아니다).
-- 교인ID: 교인명부 세션 잇기 표의 값이 있으면 그대로(`manual`·`none` 이면 link_how 도 그대로), 없으면 §4 로 자동.
+- 교인ID: 교인명부 세션 잇기 표 `people_links`(SQL 006 · PK `(kind,row_id)`)에서
+  `select person_id, link_how, linked_by, linked_at from people_links where kind='order' and row_id = <ministry_orders.id>` 를 그대로 옮긴다
+  (`manual`·`none` 이면 link_how 도 그대로 · 그쪽 `match_basis` 가 있으면 그것도). 줄이 없으면 §4 로 자동.
 - 이미 넘긴 `order_id` 는 건너뛴다(unique). 나중에 임명이 더 나면 다시 누르면 더해진다. 취소된 신청의 넘긴 줄은 「빼기」로.
 - `src_key` 는 `app|order_id` — 엑셀 열쇠와 섞이지 않는다.
 
