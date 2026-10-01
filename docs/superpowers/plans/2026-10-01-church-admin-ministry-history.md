@@ -20,7 +20,7 @@
 - `link_how` `manual`·`none` 줄은 자동 맞춤이 덮지 않는다. 다시 맞추기는 모든 해를 함께 계산한다.
 - 화면: 팝업 금지(`dialog`·`toast`·`openForm`·`picker.js` 만 · `<select>`·`type=date` 금지) · 엑셀은 `loadXlsx` 한 곳 · 파일 고르기에는 끌어다 놓기·붙여넣기를 함께.
 - 성경암송 앱 표(`ministry_orders`·`event_signups`)와 앱 코드는 손대지 않는다.
-- 커밋은 이 과제의 경로만 `git add <경로>` 로(worktree 는 제 index 를 가진다) · `--no-verify` 금지 · 커밋 끝 줄 `Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>`.
+- 커밋은 이 과제의 경로만 `git add <경로>` 로(worktree 는 제 index 를 가진다) · `--no-verify` 금지 · 커밋 끝 줄 `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 - 교인명부 세션(bible-memorize-church-app-v2-99)과의 약속(설계 §7): 칸 이름 · `historyLinkPatch` · `historyUnlinkPatch` · `rematchHistoryRows(db, ids)` 를 이 계획 그대로 둔다.
 
 ## 파일 지도
@@ -177,7 +177,7 @@ Expected: 005 의 마지막 SELECT 가 `anon·authenticated 표 권한(0이어�
 git add .gitignore supabase/sql/005_ministry_history.sql
 git commit -m "feat(사역이력): SQL 005 — ministry_history·imports 표 · RLS · ministry_history_apply(서버만) · Data/ 막기
 
-Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ### Task 2: 맞춤 규칙 순수 모듈 `history-match.ts`
@@ -899,7 +899,7 @@ Expected: `# pass 21` · `# fail 0`
 git add supabase/functions/church-admin/history-match.ts tests/history-match.test.mjs
 git commit -m "feat(사역이력): 맞춤 규칙 history-match.ts — 빼기 여섯·차례 다섯·다른 해 같은 팀·오타·같은 해 겹침 · 잇기 모양(교인명부 세션 약속)
 
-Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ### Task 3: 이 PC 대조 도구 — 진짜 데이터로 규칙 확인(커밋은 스크립트만)
@@ -1052,7 +1052,7 @@ git status --short          # Data/ 가 안 보여야 한다(.gitignore)
 git add tools/history/check_real.py tools/history/check_real.mjs
 git commit -m "feat(사역이력): 이 PC 대조 도구 — 진짜 명부·통합 엑셀로 맞춤 수와 검증 지적 64줄(수만 · 임시 폴더는 지운다)
 
-Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ### Task 4: 표 쪽 `history-db.ts` · 권한 · `index.ts` 연결
@@ -1549,7 +1549,7 @@ Expected: 모두 pass(`be-roster-logic` 은 index.ts 를 읽는 문서 시험 �
 git add supabase/functions/church-admin/history-db.ts tests/history-db.test.mjs supabase/functions/church-admin/authz.ts tests/authz.test.mjs supabase/functions/church-admin/index.ts
 git commit -m "feat(사역이력): history-db.ts — 목록·올리기(살펴보기·넣기)·한 줄·후보(지문)·잇기·다시 맞추기·내려받기 · 교인ID 는 교인명부·총괄에게만 · 액션 열 개
 
-Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ### Task 5: 화면 순수 함수 `history-logic.js`
@@ -1795,7 +1795,7 @@ Expected: pass 8 · fail 0
 git add js/menus/ministry/history-logic.js tests/ministry-history-logic.test.mjs
 git commit -m "feat(사역이력): 화면 순수 함수 — 엑셀 머리 찾기(원본 해마다·통합·내려받은 파일)·해 정하기·해마다 3,000줄씩·내려받기 모양
 
-Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ### Task 6: 「📜 사역 이력」 메뉴 · 모양 · 메뉴 등록 · 오류 문구 · 기록 이름
@@ -2308,7 +2308,7 @@ Expected: 모두 pass · preflight 네 단계 통과(문법 · 순수 시험 전
 git add js/menus/ministry/history.js js/menus/registry.js js/core/ui.js js/menus/system/audit.js css/admin.css tests/xlsx-loader.test.mjs tests/audit.test.mjs tests/ministry-history-logic.test.mjs
 git commit -m "feat(사역이력): 「📜 사역 이력」 메뉴 — 엑셀 올리기(끌어다 놓기·붙여넣기)·해/못 맞춤/근거 약함 거르기·줄 창(이분·이분 아님·되돌리기·고치기·빼기)·다시 맞추기·내려받기
 
-Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ### Task 7: 개발 서버 — 함수 올리기 · PROBE · 흐름 시험 · 씨앗 · 교인명부 세션에 알리기
@@ -2523,7 +2523,7 @@ Expected: `씨앗 N줄 · 교적 이어짐 M · 맞춤 쓴 줄 N`(N 은 백 남�
 git add tests/server.dev.test.mjs tests/seed-history-dev.mjs
 git commit -m "test(사역이력): 개발 서버 — PROBE 열 개 · 표 안 열림 · 올리기→맞춤→가리기→잇기(지문)→다시 맞추기→되돌리기→빼기→다시 올리기 · 개발 씨앗
 
-Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 - [ ] **Step 7: 교인명부 세션에 「개발 표가 열렸다」 알린다**
@@ -2533,7 +2533,7 @@ SendMessage to `bible-memorize-church-app-v2-99`: 개발 DB 에 SQL 005 와 씨�
 ### Task 8: 안내 8절 · 문서
 
 **Files:**
-- Modify: `privacy.html`(7절 카드 뒤 · `</main>` 앞) · `CLAUDE.md`(교회 어드민 · `## 비상 절차` 앞) · `.superpowers/sdd/progress.md`(끝)
+- Modify: `privacy.html`(7절 카드 뒤 · `</main>` 앞) · `CLAUDE.md`(교회 어드민 · `## 비상 절차` 앞) — 진행 기록부 `.superpowers/sdd/progress.md` 는 git 이 무시하는 파일이라 커밋하지 않는다(진행 관리자가 적는다)
 - Create(v2 저장소): `docs/notes/ministry-history.md` · Modify(v2): `CLAUDE.md` 지도 표 한 줄
 
 - [ ] **Step 1: `privacy.html` — 7절 카드(`</div>`) 뒤, `</main>` 앞**
@@ -2571,7 +2571,7 @@ SendMessage to `bible-memorize-church-app-v2-99`: 개발 DB 에 SQL 005 와 씨�
 - 나중: 「이력으로 넘기기」(2027 임명확정 → 이 표 · `order_id` · 교인ID 는 교인명부 세션의 `people_links` 에서) — 설계 §8.
 ```
 
-- [ ] **Step 2b: `.superpowers/sdd/progress.md` 끝에(이 과제의 기록부 · 과제마다 한 줄씩 더해 간다)**
+- [ ] **Step 2b: (진행 관리자 몫 · 구현자는 건너뛴다) 본 체크아웃 `C:\Projects\church-admin\.superpowers\sdd\progress.md` 끝에 — git 이 무시하는 파일이라 커밋하지 않는다**
 
 ```text
 === 사역 이력(2026-10-01) — worktree ministry-history ===
@@ -2615,15 +2615,15 @@ Run(교회 어드민): `node --experimental-strip-types --test tests/be-roster-u
 Expected: pass
 
 ```bash
-git add privacy.html CLAUDE.md .superpowers/sdd/progress.md
+git add privacy.html CLAUDE.md
 git commit -m "docs(사역이력): 개인정보 안내 8절 · CLAUDE.md 절 · 진행 기록
 
-Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 cd /c/Projects/bible-memorize-church-app-v2
 git add docs/notes/ministry-history.md && git diff --cached --stat     # 남의 것이 없는지
 git commit -m "docs(사역이력): docs/notes/ministry-history.md · CLAUDE.md 지도 한 줄
 
-Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>" -- docs/notes/ministry-history.md CLAUDE.md
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" -- docs/notes/ministry-history.md CLAUDE.md
 ```
 ⚠️ v2 `CLAUDE.md` 는 다른 세션도 고친다 — 이 한 줄만 담기(`git diff -- CLAUDE.md` 로 남의 헝크가 있으면 `git apply --cached` 로 내 헝크만).
 
