@@ -8,7 +8,7 @@
 // 무엇을 지키나
 //   ① 보호자 확인 부서 — app.js · index.ts 두 곳이 글자까지 같고 같은 답을 내는가, 개인정보 안내 6항이 같은 부서를 말하는가
 //   ② 게시판 이용 규칙 날짜 — app.js BOARD_RULES_VER = index.ts BOARD_RULES_SINCE (다르면 앱은 동의했다고 믿는데 서버가 막는다)
-//   ③ 가리기 — 가린 분의 글·답글이 빠지는가, 서버 응답에 가린 분의 user_id 가 안 나가는가
+//   ③ 가리기 — 가린 분의 글·답글이 빠지는가(게시판 · 첫 화면 「새글 N」), 서버 응답에 가린 분의 user_id 가 안 나가는가
 //   ④ AI 답 알리기 — 까닭 목록 세 곳(app · index.ts · SQL CHECK) · 길이 · 보관 90일 · 알린 분이 새지 않는가
 //   ⑤ 개인정보 — 새로 모으는 것과 유튜브 문구가 privacy/ 와 앱 안 두 곳(renderPrivacyInfo · renderHelp 🔒)에 **모두** 있는가
 //   ⑥ 새 표의 잠금(RLS · anon·authenticated revoke) · 스토어 문구의 사실 고침
@@ -45,7 +45,7 @@ assert.ok(!/:\s*(any|string|number|boolean|Record|Set|Promise)\b/.test(tsSlice),
   'index.ts 스토어 심사 순수 구간에 타입 표기가 들어왔다 — node:vm 이 못 돌린다. 표기를 빼거나 구간 밖으로 옮겨라');
 const srv = vm.runInContext(tsSlice +
   '\n;({ GUARDIAN_BU, GUARDIAN_GRADE_BU, GUARDIAN_ADULT_WORDS, needsGuardian, BOARD_RULES_SINCE, boardRulesAccepted,' +
-  ' boardDropBlocked, SERMON_REPORT_REASONS, SERMON_REPORT_LABELS, SERMON_REPORT_NOTE_MAX, SERMON_REPORT_ANSWER_MAX,' +
+  ' boardDropBlocked, boardCountVisible, SERMON_REPORT_REASONS, SERMON_REPORT_LABELS, SERMON_REPORT_NOTE_MAX, SERMON_REPORT_ANSWER_MAX,' +
   ' SERMON_REPORT_KEEP_DAYS, sermonQuestionKey, sermonReportInput, sermonReportGroup, storeUid })', vm.createContext({}));
 
 // ── 앱(app.js) 순수 구간 셋 ──
@@ -210,6 +210,40 @@ test('가리기 — 서버가 가린 분의 user_id 를 내보내지 않는다(�
   assert.ok(!/blockedIds\s*[,}]/.test(bl.slice(bl.indexOf('return {'))), 'boardList 응답에 가린 분 목록이 실린다');
   const blk = cut(TS, 'async function boardBlock(', 'async function boardBlocks(', 'index.ts');
   assert.ok(!/return \{[^}]*[\s,{:]author\b/.test(blk), 'boardBlock 응답에 글쓴 분(author)이 실린다');   // 「no-author」 코드는 괜찮다
+});
+
+test('boardCountVisible — 첫 화면 「새글 N」이 게시판 목록과 같은 규칙으로 센다(가린 분 · 그분 글의 답글 · 옛 글)', () => {
+  // 그 뒤 올라온 글 셋(가린 분 UID2 의 글 하나) · 새 답글이 달린 옛 글 둘(하나는 UID2 의 글) · 새 답글 넷
+  const recent = [{ id: 21, user_id: UID }, { id: 22, user_id: UID2 }, { id: 23 }];
+  const parents = [{ id: 5, user_id: UID2.toUpperCase() }, { id: 6, user_id: UID }];
+  const fresh = [
+    { id: 31, post_id: 21, user_id: UID },
+    { id: 32, post_id: 22, user_id: UID },         // 가린 분의 새 글에 단 남의 답글 — 글과 함께 빠진다
+    { id: 33, post_id: 5, user_id: UID },          // 가린 분의 옛 글에 단 남의 답글 — 빠진다
+    { id: 34, post_id: 6, user_id: UID2 },         // 가린 분이 남의 옛 글에 단 답글 — 빠진다
+  ];
+  assert.equal(srv.boardCountVisible(recent, parents, fresh, [UID2]), 3, '글 21·23 + 답글 31');
+  assert.equal(srv.boardCountVisible(recent, parents, fresh, []), 7, '가린 분이 없으면 예전 머릿수와 같다(글 3 + 답글 4)');
+  // boardList 의 거르기와 같은 답 — 옛 글(parents)은 세지 않는다
+  const kept = J(srv.boardDropBlocked(recent.concat(parents), fresh, [UID2]));
+  assert.equal(srv.boardCountVisible(recent, parents, fresh, [UID2]),
+    kept.posts.filter((p) => [21, 22, 23].includes(p.id)).length + kept.replies.length);
+  assert.equal(srv.boardCountVisible(null, undefined, null, [UID]), 0, '이상한 값에도 안 깨진다');
+});
+
+test('boardCheck — 보는 분의 가린 분을 빼고 세고, 응답은 숫자 하나뿐 · 앱이 user_id 를 보낸다', () => {
+  const chk = cut(TS, 'async function boardCheck(', '// ---------- 게시판 사진', 'index.ts');
+  assert.ok(chk.includes('storeUid(b && b.user_id)') && chk.includes('boardBlockedIds(viewer)'), 'boardCheck 가 보는 분의 가린 분을 안 본다');
+  assert.ok(chk.includes('boardCountVisible(recent, parents, replies, blocked)'), 'boardCheck 가 boardList 와 다른 규칙으로 센다');
+  const rets = chk.match(/return \{[^}]*\}/g) || [];
+  assert.ok(rets.length >= 2, 'boardCheck 의 return 을 못 찾았다 — 이 검사가 낡았다');
+  for (const ret of rets) {
+    assert.ok(/^return \{ ok: true, recent: /.test(ret), 'boardCheck 가 숫자 말고 더 싣는다: ' + ret);
+  }
+  const badge = cut(APP, 'async function fillBoardBadge(', '// 가을 말씀 동행', 'app.js');
+  assert.ok(/api\.boardCheck\(seen \|\| undefined, uid \|\| undefined\)/.test(badge), '첫 화면 배지가 user_id 를 안 보낸다');
+  assert.ok(badge.includes('c.uid === uid'), '배지 캐시가 사람마다가 아니다(공용 기기)');
+  assert.ok(/boardCheck: \(since, user_id\) => supaCall\("boardCheck", \{ since, user_id \}\)/.test(read('js/api.js')), 'js/api.js boardCheck 가 user_id 를 안 싣는다');
 });
 
 test('boardBlockErrorMsg — 서버 코드를 그대로 보여 드리지 않는다', () => {

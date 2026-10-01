@@ -1928,18 +1928,21 @@ function scRemoveBadge(btnId) { const b = document.getElementById(btnId); const 
 // 게시판 버튼 배지 — 최근 7일 내(마지막으로 본 이후) 새 글/답글 개수.
 // 게시판을 열면(board-seen 갱신) 사라지고, 그 뒤 새로 올라온 것만 다시 센다.
 // 홈 재진입마다 부르지 않게 10분 캐시(sessionStorage).
+// 「🙈 가리기」(2026-10-01) — 내 user_id 를 함께 보내 서버가 가린 분의 글·답글을 빼고 센다(게시판 목록과 같은 규칙).
+//   캐시도 사람마다 — 공용 기기에서 앞사람 숫자를 보이지 않게.
 async function fillBoardBadge() {
   const CK = "board-recent";
   const seen = (() => { try { return localStorage.getItem("board-seen") || ""; } catch { return ""; } })();
+  const uid = myUserId() || "";
   let n = null;
   try {
     const c = JSON.parse(sessionStorage.getItem(CK) || "null");
-    if (c && c.seen === seen && Date.now() - c.t < 10 * 60 * 1000) n = c.n;
+    if (c && c.seen === seen && c.uid === uid && Date.now() - c.t < 10 * 60 * 1000) n = c.n;
   } catch {}
   if (n == null) {
     try {
-      const d = await api.boardCheck(seen || undefined); n = (d && d.recent) || 0;
-      sessionStorage.setItem(CK, JSON.stringify({ t: Date.now(), n, seen }));
+      const d = await api.boardCheck(seen || undefined, uid || undefined); n = (d && d.recent) || 0;
+      sessionStorage.setItem(CK, JSON.stringify({ t: Date.now(), n, seen, uid }));
     } catch { return; }
   }
   const btn = document.getElementById("open-board");

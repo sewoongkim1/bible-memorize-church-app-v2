@@ -65,7 +65,8 @@ const api = {
     supaCall("rankCheer", { gubun, sosok, sebu, name, user_id, who, on }),
   // 나를 응원한 사람 이름만 — 남의 명단은 물어볼 수 없다(숫자만 보인다)
   rankCheerers: (user_id, from, to) => supaCall("rankCheerers", { user_id, from, to }),
-  boardCheck: (since) => supaCall("boardCheck", { since }),   // 최근 7일(또는 since 이후) 새 글/답글 개수 { ok, recent }
+  // 최근 7일(또는 since 이후) 새 글/답글 개수 { ok, recent } — user_id 를 주면 내가 가린 분의 글·답글은 빼고 센다
+  boardCheck: (since, user_id) => supaCall("boardCheck", { since, user_id }),
   boardPost: (name, content, user_id, images) => supaCall("boardPost", { name, content, user_id, images }),
   // 사진은 브라우저에서 줄인 뒤 한 장씩 보낸다(한 번에 보내면 요청이 너무 커지고,
   // 몇 장째 올라가는 중인지 알려 줄 수도 없다).

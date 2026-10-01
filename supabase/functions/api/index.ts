@@ -3987,11 +3987,44 @@ async function boardCheck(b: any) {
   const seen = b && b.since ? Date.parse(b.since) : NaN;
   if (!isNaN(seen) && seen > floor) floor = seen;
   const since = new Date(floor).toISOString();
+  // 「🙈 가리기」(2026-10-01) — 보는 분이 가린 분의 글·답글은 세지 않는다. 「새글 1」을 보고 열었는데
+  //   아무것도 없으면 어르신은 고장인 줄 아신다. 가린 분이 없거나(대부분) user_id 를 안 보낸 옛 앱이면
+  //   예전처럼 머릿수만 센다. ⚠️ 응답은 { ok, recent } 그대로 — 누구 글인지는 안 싣는다.
+  const viewer = storeUid(b && b.user_id);
+  if (viewer) {
+    let blocked: string[] = [];
+    try { blocked = await boardBlockedIds(viewer); } catch (_) { blocked = []; }
+    if (blocked.length) {
+      try { return { ok: true, recent: await boardRecentVisible(since, blocked) }; }
+      catch (_) { /* 거르기가 실패해도 배지는 뜬다 — 아래 머릿수로 */ }
+    }
+  }
   const p = await db.from("board_posts").select("id", { count: "exact", head: true })
     .eq("hidden", false).not("deleted", "is", true).gte("created_at", since);
   const r = await db.from("board_replies").select("id", { count: "exact", head: true })
     .eq("hidden", false).not("deleted", "is", true).gte("created_at", since);
   return { ok: true, recent: (p.count || 0) + (r.count || 0) };
+}
+// 가린 분이 있는 분의 「새글 N」 — 그 뒤 올라온 글·답글의 번호와 글쓴 분만 읽어 boardList 와 같은 규칙으로 센다.
+// (최근 7일 안이라 줄이 적다. 글쓴 분의 user_id 는 이 함수 안에서만 쓰고 숫자 하나만 돌려준다.)
+async function boardRecentVisible(since: string, blocked: string[]): Promise<number> {
+  const p = await db.from("board_posts").select("id,user_id")
+    .eq("hidden", false).not("deleted", "is", true).gte("created_at", since).limit(1000);
+  if (p.error) throw p.error;
+  const r = await db.from("board_replies").select("id,post_id,user_id")
+    .eq("hidden", false).not("deleted", "is", true).gte("created_at", since).limit(2000);
+  if (r.error) throw r.error;
+  const recent = (p.data ?? []) as any[];
+  const replies = (r.data ?? []) as any[];
+  const have = new Set(recent.map((x) => x.id));
+  const need = [...new Set(replies.map((x) => x.post_id))].filter((id) => !have.has(id));
+  let parents: any[] = [];
+  if (need.length) {
+    const q = await db.from("board_posts").select("id,user_id").in("id", need);
+    if (q.error) throw q.error;
+    parents = (q.data ?? []) as any[];
+  }
+  return boardCountVisible(recent, parents, replies, blocked);
 }
 
 // ---------- 게시판 사진 ----------
@@ -4420,6 +4453,17 @@ function boardDropBlocked(posts, replies, blocked) {
   const kept = ps.filter(keep);
   const ids = new Set(kept.map((p) => p.id));
   return { posts: kept, replies: rs.filter((r) => keep(r) && ids.has(r.post_id)) };
+}
+// ③-2 첫 화면 「새글 N」(boardCheck)도 같은 규칙으로 센다 — 가린 분이 있을 때만 이 길로 온다.
+//   recent  = 그 뒤 올라온 글({id, user_id}) — 센다
+//   parents = 새 답글이 달린 **옛** 글({id, user_id}) — 세지 않고, 가린 분의 글인지만 본다(그 글의 답글은 함께 빠진다)
+//   replies = 그 뒤 올라온 답글({id, post_id, user_id}) — 센다
+//   boardList 와 갈라지면 「새글 1」을 보고 열었는데 아무것도 없다(가린 분이 글을 올린 날마다).
+function boardCountVisible(recent, parents, replies, blocked) {
+  const rs = Array.isArray(recent) ? recent : [];
+  const kept = boardDropBlocked(rs.concat(Array.isArray(parents) ? parents : []), replies, blocked);
+  const fresh = new Set(rs.map((p) => p.id));
+  return kept.posts.filter((p) => fresh.has(p.id)).length + kept.replies.length;
 }
 
 // ④ AI 답 알리기 — 까닭 허용 목록은 세 곳(여기 · app.js · sermon_answer_reports.sql CHECK)
