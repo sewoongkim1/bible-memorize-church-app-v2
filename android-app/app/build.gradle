@@ -28,8 +28,15 @@ if (keystorePropsFile.exists()) {
     keystorePropsFile.withReader("UTF-8") { keystoreProps.load(it) }
 }
 
+// 패키지 이름(applicationId)과 코드 이름(namespace)은 따로 간다(2026-10-03).
+//   · applicationId `kr.onlybible.gocheok` — 교회 계정에서 새로 만든 스토어 앱. 옛 `kr.onlybible.gocheok.memorize` 는
+//     개인 계정에서 테스트만 하다 옮겨 온 앱이라 「14일 더」 요건이 따라왔다(분석 문서 8·9절) — 다시 쓰지 않는다(설치 이력이 있어 못 쓴다).
+//   · namespace `kr.onlybible.gocheok.memorize` — 자바 클래스·R 의 자리. 바꾸면 파일을 전부 옮겨야 해서 그대로 둔다.
+//   ⚠️ 클래스 이름을 applicationId 로 만들면 안 된다(아래 바로가기 targetClass) — 클래스는 namespace 에 있다.
+def codeNamespace = 'kr.onlybible.gocheok.memorize'
+
 def twaManifest = [
-    applicationId: 'kr.onlybible.gocheok.memorize',
+    applicationId: 'kr.onlybible.gocheok',
     hostName: 'gocheok.onlybible.kr', // The domain being opened in the TWA.
     launchUrl: '/', // The start path for the TWA. Must be relative to the domain.
     name: '성경암송', // The application name.
@@ -82,19 +89,19 @@ android {
             // ⚠️ 파일 공유 부품 이름도 갈라야 한다 — defaultConfig 가 twaManifest.applicationId(정식 패키지)로
             //    만들어서, 그대로 두면 플레이스토어 앱이 깔린 폰에 INSTALL_FAILED_CONFLICTING_PROVIDER 로
             //    설치가 막힌다(2026-09-21 친구 폰에서 실제로 막혔다).
-            resValue "string", "providerAuthority", "kr.onlybible.gocheok.memorize.dev.fileprovider"
+            resValue "string", "providerAuthority", "kr.onlybible.gocheok.dev.fileprovider"
             buildConfigField "String", "WIDGET_DATE", "\"${project.findProperty('widgetDate') ?: ''}\""
         }
     }
 
     compileSdkVersion 36
-    namespace "kr.onlybible.gocheok.memorize"
+    namespace codeNamespace
     defaultConfig {
-        applicationId "kr.onlybible.gocheok.memorize"
+        applicationId twaManifest.applicationId
         minSdkVersion 23
         targetSdkVersion 36
-        // 판 번호 — 지금 스토어에 있는 것은 PWABuilder 로 뽑은 versionCode 1 · 「1.0.0.0」(old-app/badging.txt).
-        // 위젯 판이 2 · 1.1.0(2026-09-30 · 아이폰 위젯 판 이름과 맞춤). 올릴 때마다 versionCode 를 하나씩 올린다.
+        // 판 번호 — 새 앱(kr.onlybible.gocheok)의 첫 판도 2 · 1.1.0 으로 둔다(옛 앱의 1 과 헷갈리지 않게 · 아이폰 위젯 판 이름과 맞춤).
+        // 올릴 때마다 versionCode 를 하나씩 올린다.
         versionCode 2
         versionName "1.1.0"
 
@@ -241,7 +248,7 @@ task generateShorcutsFile {
                     'intent'(
                             'android:action': 'android.intent.action.MAIN',
                             'android:targetPackage': twaManifest.applicationId,
-                            'android:targetClass': twaManifest.applicationId + '.LauncherActivity',
+                            'android:targetClass': codeNamespace + '.LauncherActivity',
                             'android:data': s.url)
                     'categories'('android:name': 'android.intent.category.LAUNCHER')
                 }

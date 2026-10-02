@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261002e";
+const APP_BUILD = "20261003a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -8459,7 +8459,8 @@ let _widgetPreview = false;
 //   · 기기 표식(localStorage PLAY_APP_KEY) — clearPersonalData 는 안 지운다(사람이 아니라 기기 이야기다).
 //   · 이번 실행 표식(sessionStorage PLAY_SESSION_KEY · 2026-10-02) — 이 창(탭)이 닫히면 사라진다. 보통 크롬 탭은 이 referrer 를
 //     받지 않으니 생기지 않는다. clearPersonalData 의 sessionStorage.clear() 뒤에도 다시 남긴다.
-// 시험판(…memorize.dev)도 같은 앞머리라 함께 걸린다.
+// 패키지 넷이 걸린다 — 새 스토어 앱 `kr.onlybible.gocheok`(2026-10-03 교회 계정에서 새로 만듦) · 옛 `kr.onlybible.gocheok.memorize`
+// (개인 계정에서 테스트만 하던 앱 · 테스터 폰에 남아 있다) · 둘의 시험판 `….dev`. 끝을 [/?#] 나 끝으로 막아 남의 앞머리는 안 걸린다.
 // ⚠️ 기기 표식은 「이 폰에서 앱을 연 적이 있다」일 뿐 「지금 깔려 있다」가 아니다 — TWA 는 크롬과 저장소를 같이 써서
 //    그 폰의 크롬 탭에서도 보이고, **앱을 지운 뒤에도 남는다**(크롬 저장소에 있어서).
 //    위젯 안내(widgetGuideOn)·설명서의 「홈 화면에 앱 만들기」 빼기(manualInstalled)는 이것을 그대로 쓴다 — 대개는 앱이 깔린
@@ -8471,7 +8472,7 @@ let _widgetPreview = false;
 const PLAY_APP_KEY = "play-store-app";
 const PLAY_SESSION_KEY = "play-app-session";
 try {
-  if (/^android-app:\/\/kr\.onlybible\.gocheok\.memorize/.test(document.referrer || "")) {
+  if (/^android-app:\/\/kr\.onlybible\.gocheok(?:\.memorize)?(?:\.dev)?(?:[\/?#]|$)/.test(document.referrer || "")) {
     try { localStorage.setItem(PLAY_APP_KEY, "1"); } catch (e) {}
     try { sessionStorage.setItem(PLAY_SESSION_KEY, "1"); } catch (e) {}   // 따로 감싼다 — 한쪽이 막혀도 다른 쪽은 남게
   }
