@@ -5192,6 +5192,11 @@ body.pr-full-on { overflow: hidden; }
 .min-tag.sent { color: #7a5f1e; background: #fbf1d8; border: 1px solid #ecd9a8;
   border-radius: 999px; padding: 0 7px; }
 .dark .min-tag.sent { color: #e2c98a; background: #33301f; border-color: #5c5330; }
+/* 임명직 — 작은 회색 글자(「지명」)일 땐 눈에 안 띄어 신청할 수 없는 줄 몰랐다(2026-10-02 친구).
+   내 신청의 「접수·임명」(남색 딱지)과 섞이지 않게 회색 딱지로 둔다. */
+.min-tag.appoint { color: #4b5563; background: #e5e7eb; border: 1px solid #cdd2da;
+  border-radius: 999px; padding: 0 7px; font-weight: 700; }
+.dark .min-tag.appoint { color: #cfd6e4; background: #2a3245; border-color: #3a4a68; }
 .min-lock-note { background: #eef1f8; color: var(--navy); word-break: keep-all; }
 
 /* 「내 신청」 줄마다 붙는 상태 딱지 */

@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261002d";
+const APP_BUILD = "20261002e";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -11975,9 +11975,10 @@ function minAccBuild() {
           '<button class="min-team"' +
           // ⚠️ 잠긴 줄도 누를 수 있게 둔다(2026-09-18 성도님) — disabled 면 눌러도 아무 일이 없어
           //    「왜 안 빠지지」가 된다. 누르면 minTogglePick 이 까닭을 알리고 체크는 그대로 남는다.
-          (t.appoint ? " disabled" : ' data-team="' + t.id + '"') + '>' +
+          //    임명직도 같다(2026-10-02 친구) — 누르면 「임명직입니다 · 부서에 여쭤 주세요」.
+          ' data-team="' + t.id + '">' +
           '<span class="min-info"><span class="min-nm">' + minEsc(t.team) +
-          (t.appoint ? '<span class="min-tag">지명</span>' : "") +
+          (t.appoint ? '<span class="min-tag appoint">임명직</span>' : "") +
           (lock ? '<span class="min-tag lock">' + minEsc(minStName(minLockStatus(t.id))) + '</span>'
             // ⚠️ 이미 낸 것과 방금 고른 것을 갈라 준다 — 둘 다 금색 체크뿐이면
             //    다시 들어온 성도님이 「낸 건가, 고르기만 한 건가」를 알 수 없다.
@@ -12285,8 +12286,19 @@ function minPromptPhone(msg, subMsg) {
   });
 }
 
+// 임명직을 눌렀을 때 — 신청이 아니라 부서가 임명하는 자리다(서버도 `appoint` 는 받지 않는다).
+// 「다른 사역을 고르라」는 넣지 않는다 — 그 자리를 원하시는 분께는 부서에 여쭙는 길이 맞다(2026-10-02 친구).
+function minAppointMsg(t) {
+  const lead = minPlain(t.leader);
+  return "「" + t.team + "」" + minEunNeun(t.team).slice(String(t.team).length) + " 임명직입니다.\n\n" +
+    "이 사역을 섬기고 싶으시면\n해당 부서(" + t.committee + ")에 여쭤 주세요." +
+    (lead ? "\n\n담당(문의): " + lead : "");
+}
+
 // 고르기·빼기 한 곳에서 — 목록에서도, 「자세히」 창에서도 같은 규칙을 따르게
 function minTogglePick(id) {
+  const ap = minTeam(id);
+  if (ap && ap.appoint) { minAlert(minAppointMsg(ap)); return false; }
   if (minLockedIds.indexOf(id) >= 0) {
     // 접수·임명된 줄을 눌러 빼려 하면 까닭을 알리고 체크는 그대로 둔다(2026-09-18 성도님)
     const st = minLockStatus(id);
@@ -12361,7 +12373,8 @@ function minDetailHtml(t) {
         (t.group ? ' · ' + minEsc(t.group) : "") + '</div></div>' +
       '<button class="min-d-x" data-dclose aria-label="닫기">✕</button></div>' +
     '<div class="min-d-body">' + rows +
-      (t.appoint ? '<p class="min-d-note">이 자리는 <b>지명</b>으로 정해집니다 — 신청 목록에는 담기지 않아요.</p>' : "") +
+      (t.appoint ? '<p class="min-d-note">이 사역은 <b>임명직</b>입니다 — 신청 목록에는 담기지 않아요. ' +
+        '섬기고 싶으시면 해당 부서(' + minEsc(t.committee) + ')에 여쭤 주세요.</p>' : "") +
       // ⚠️ 임명은 「못 고칩니다」로 시작할 소식이 아니다(2026-09-18 성도님) — 축하부터 말한다.
       (lockSt === "임명확정"
         ? '<p class="min-d-note min-d-appt">🎉 <b>이 사역에 임명되었습니다.</b>' +
