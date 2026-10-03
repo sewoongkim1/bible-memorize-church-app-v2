@@ -49,8 +49,16 @@ begin
    where id = 'autumn-2026'
      and (needs->'eligibility'->>'perDay' is distinct from v_per_day::text
           or copy->>'intro' is distinct from v_intro);
+
+  -- 부제(설계 §9 · 2026-10-03) — 「신청이 열려요」를 「선물 대상」으로. 부제는 교회 어드민에서 고칠 수 있는 칸이라
+  --   **옛 글자 그대로일 때만** 바꾼다(친구가 어드민에서 고쳐 두었으면 건드리지 않는다).
+  update public.events
+     set subtitle = '여섯 주 가운데 세 주를 채우시면 선물 대상이 돼요',
+         updated_at = now()
+   where id = 'autumn-2026'
+     and subtitle = '여섯 주 가운데 세 주를 채우시면 신청이 열려요';
 end $$;
 
--- 확인 — perDay 가 3(또는 바꾼 값)이고 intro 가 그 숫자를 담고 있는지
-select id, status, needs->'eligibility' as eligibility, copy->>'intro' as intro
+-- 확인 — perDay 가 3(또는 바꾼 값)이고 intro 가 그 숫자를 담고 있는지 · 부제
+select id, status, subtitle, needs->'eligibility' as eligibility, copy->>'intro' as intro
   from public.events where id = 'autumn-2026';
