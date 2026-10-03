@@ -134,7 +134,8 @@ const api = {
   eventStamps: (user_id, event_id) => supaCall("eventStamps", { user_id, event_id }),
   eventSignup: (payload) => supaCall("eventSignup", payload),
   eventDrop: (user_id, id) => supaCall("eventDrop", { user_id, id }),
-  eventRosterPublic: (event_id) => supaCall("eventRosterPublic", { event_id }),
+  // user_id 는 시험 회차(testOnly) 판정에만 쓴다(2026-10-03) — 응답에는 안 실린다.
+  eventRosterPublic: (event_id, user_id) => supaCall("eventRosterPublic", { event_id, user_id }),
   eventRoster: (pw, event_id) => supaCall("eventRoster", { pw, event_id }),
   eventSetNote: (pw, id, note) => supaCall("eventSetNote", { pw, id, note }),
   eventExcuse: (pw, id, excused, reason) => supaCall("eventExcuse", { pw, id, excused, reason }),

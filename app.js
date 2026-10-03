@@ -639,7 +639,13 @@ function refreshMinistryTester() {
     const now = !!d.tester;
     try { localStorage.setItem(MIN_TESTER_KEY + u.user_id, now ? "1" : "0"); } catch (e) {}
     // ⚠️ 값이 바뀌면 그 자리에서 다시 그린다(refreshEventOpen 과 같은 까닭) — 명단에 든 날 앱을 두 번 켜야 보이면 안 된다
-    if (before !== now && document.querySelector(".todo-go")) renderSummary();
+    if (before !== now) {
+      if (document.querySelector(".todo-go")) renderSummary();
+      // 시험 회차(testOnly)는 user_id 가 testOnly 일 때만 실리므로, 테스터 여부가
+      //   바뀐 그 자리에서 이벤트 목록도 다시 받아야 한다(2026-10-03) — 안 그러면
+      //   방금 명단에 든 분이 앱을 한 번 더 켜야 「[시험] …」 단추가 보인다.
+      refreshEventOpen();
+    }
   }).catch(() => {});
 }
 
@@ -670,11 +676,15 @@ function eventLabelCached() {
 }
 function refreshEventOpen() {
   if (!window.api || !api.eventOpenList) return;
-  // user_id 를 안 보낸다 — 여기서 필요한 것은 「볼 회차가 있는가」 하나뿐이다.
-  // 내 등록까지 받으면 첫 화면 진입에 쓸데없는 조회가 하나 더 붙는다.
+  // user_id 는 **시험 참여자일 때만** 보낸다(2026-10-03) — 시험 회차(needs.testOnly)는
+  //   서버가 user_id 를 받아야만 자격을 확인해 목록에 섞어 준다(index.ts eventOpenList).
+  //   그 밖의 모든 성도님은 지금처럼 user_id 없이 불러 매 부팅 조회를 늘리지 않는다
+  //   (내 등록까지 받으면 첫 화면 진입에 쓸데없는 조회가 하나 더 붙는다).
+  const u = loadUser();
+  const uid = (u && u.user_id && ministryTesterCached()) ? u.user_id : "";
   const before = eventOpenCached();
   const beforeLabel = eventLabelCached();
-  api.eventOpenList().then((d) => {
+  api.eventOpenList(uid).then((d) => {
     const list = (d && d.events) || [];
     const n = list.length;
     try { localStorage.setItem(EVENT_OPEN_KEY, n > 0 ? "1" : "0"); } catch (e) {}
@@ -690,9 +700,14 @@ function refreshEventOpen() {
       : (n > 1 ? "이벤트 " + n + "개" : "이벤트 신청·명단");
     try { localStorage.setItem(EVENT_LABEL_KEY, label); } catch (e) {}
     // 첫 화면 알약이 이걸 보고 eventStamps 를 **한 번만** 부른다(왕복을 둘로 늘리지 않으려고).
-    // ⚠️ 둘 이상이면 빈 값 — 누구의 진행인지 화면이 말할 수 없다(라벨도 「이벤트 2개」가 된다).
+    // ⚠️ 둘 이상이면(시험 회차 + 진짜 회차가 함께 보일 때) testOnly 가 아닌 쪽을 고른다
+    //    (js/events.js evtLoad 와 같은 규칙 · 2026-10-03) — 실제로는 진짜 자격 회차가
+    //    하나뿐이라는 전제다. 전부 testOnly면 첫 번째를 쓴다.
     const stampEvs = list.filter((e) => e.needs && e.needs.eligibility);
-    try { localStorage.setItem(EVENT_STAMP_ID_KEY, stampEvs.length === 1 ? stampEvs[0].id : ""); } catch (e) {}
+    const stampPick = stampEvs.length
+      ? (stampEvs.filter((e) => !e.testOnly)[0] || stampEvs[0])
+      : null;
+    try { localStorage.setItem(EVENT_STAMP_ID_KEY, stampPick ? stampPick.id : ""); } catch (e) {}
     // ⚠️ **값이 바뀌면 그 자리에서 다시 그린다.** 캐시만 고치고 두면 새로고침해야만
     //    반영된다 — 담당자가 회차를 내려도 성도님 화면에는 **눌러도 아무것도 없는
     //    단추**가 그대로 남는다(2026-09-10 실제로 그랬다: 친구가 「지금 뜨는데요」).
@@ -702,6 +717,18 @@ function refreshEventOpen() {
   }).catch(() => {});
 }
 function eventVisible() { return eventOpenCached(); }
+
+// 이 셋(EVENT_OPEN/LABEL/STAMP_ID)은 사람별이 아니라 **기기 공용**이다 — 그래서
+//   신원이 바뀔 때 새로고침 없이는 저절로 안 바뀐다. 「로그인 정보변경」으로 로그아웃
+//   없이 다른 분이 될 때 쓴다(clearPersonalData 는 같은 일을 자기 안에 직접 품고 있다 —
+//   그 함수는 몸체만 떼어 내 돌리는 순수 함수 검사가 있어, 거기서 이 helper 를 부르면
+//   검사가 helper 를 못 찾아 터진다 · tests/ministry-history.test.cjs 2026-10-03).
+function resetEventDeviceCache() {
+  [EVENT_OPEN_KEY, EVENT_LABEL_KEY, EVENT_STAMP_ID_KEY]
+    .forEach((k) => { try { localStorage.removeItem(k); } catch (e) {} });
+  // js/events.js 가 app.js 보다 먼저 실리므로 평소엔 있지만, 혹시 몰라 typeof 로 지킨다.
+  if (typeof evtResetState === "function") evtResetState();
+}
 
 // 첫 화면 단추 이름의 해 「2027년 사역신청」(2026-10-01 친구 요청) — 서버 app_config.ministry.year 를 캐시에서 읽는다.
 //   없으면 2027(서버 ministryCfg 의 기본값과 같다). 해를 글자로 박지 않는다 — 다음 해 신청 때 설정만 바꾸면 따라간다.
@@ -895,6 +922,10 @@ async function enterAfterLogin(opts) {
 
   // 서버(진도·복습) 동기화 후, 요약 화면이 아직 떠 있으면 갱신(복습 due 반영)
   await syncProgress();
+  // ⚠️ 갓 로그인한 시점(906줄)에는 user_id 가 아직 없어 refreshMinistryTester 가 조용히
+  //   아무 일도 안 했을 수 있다(그 함수 자신이 !u.user_id 면 거른다) — syncProgress 가
+  //   user_id 를 채운 지금 한 번 더 불러야 시험 참여자가 앱을 두 번 켜지 않는다(2026-10-03).
+  refreshMinistryTester();
   if (document.getElementById("go-list")) renderSummary();
 }
 
@@ -1114,16 +1145,24 @@ function clearPersonalData() {
     USER_KEY, PRIVACY_CONSENT_KEY, PROGRESS_KEY, PROGRESS_KEY + "-en", SYNC_STATUS_KEY, REVIEW_KEY,
     HEART_KEY, PASSAGE_KEY, DAILY_MILESTONE_KEY, BLESS_KEY, EVENT_ENTERED_KEY,
     "board-seen", "album-checked", RANK_SCOPE_KEY,
+    // 가을 말씀 동행(이벤트 플랫폼) — 기기 공용 키라 사람별이 아니지만, 안 지우면 다음
+    //   분의 첫 화면에 **앞사람 기준으로 열려 있던 「[시험] …」 단추**가 새로고침 전까지
+    //   남는다(시험 참여자 다음에 비테스터가 들어오는 경우 · 2026-10-03).
+    EVENT_OPEN_KEY, EVENT_LABEL_KEY, EVENT_STAMP_ID_KEY,
   ].forEach((k) => { try { localStorage.removeItem(k); } catch {} });
+  // js/events.js 전역(evtStamp·evtStampState·evtRoster·evtRosterFor·evtEvents·evtMine)도
+  //   같은 이유로 비운다 — 이 파일이 app.js 보다 먼저 실리므로(index.html) typeof 로 지킨다.
+  if (typeof evtResetState === "function") evtResetState();
   // ⚠️ 메모리에 있는 것도 비운다. localStorage 만 지우면, 다음 사람이 로그인했을 때
   //    applyStampPill 이 **동기로** 먼저 그려서 서버 응답이 오기 전 한 왕복 동안
   //    **앞사람의 알약**이 보인다(이 화면 전환은 새로고침이 아니다).
   stampCache = null;
   // ⚠️ 「오늘 N회」 띠도 같은 이유로 비운다 — 안 비우면 공용 기기에서 다음 분 로그인 때
-  //    첫 그림(서버 응답 전 한 왕복)에 **앞사람의 오늘 횟수·단계 배지**가 잠깐 보인다
-  //    (stampCache 와 같은 증상 · 리뷰 2026-10-03). todayCountCache·todayCountDay 는
-  //    이 함수보다 아래에서 let 으로 선언되지만, 이 함수는 버튼 클릭으로만 불려
-  //    스크립트가 다 실행된 뒤라 TDZ 에 걸리지 않는다.
+  //    loadTodayCount 가 **같은 날이면 Math.max(옛 캐시, 서버값)로 더 큰 쪽을 지키므로**,
+  //    한 왕복만이 아니라 **그날 내내** 앞사람의 오늘 횟수·단계 배지가 남는다
+  //    (stampCache 와 같은 증상이지만 사라지는 시점이 다르다 · 리뷰 2026-10-03).
+  //    todayCountCache·todayCountDay 는 이 함수보다 아래에서 let 으로 선언되지만, 이
+  //    함수는 버튼 클릭으로만 불려 스크립트가 다 실행된 뒤라 TDZ 에 걸리지 않는다.
   todayCountCache = null;
   todayCountDay = null;
   // 가을 말씀 동행 진행 캐시 — user_id 별이라 목록에 못 적는다. 앞자리로 훑어 지운다.
@@ -1927,6 +1966,15 @@ function renderEntryScreen() {
 
     const prev = loadUser();
     if (prev && prev.cid) user.cid = prev.cid; // 기존 기기 식별자 유지
+    // ⚠️ 「로그인 정보변경」으로 **다른 분**이 되는 경우(로그아웃을 거치지 않는다) —
+    //   새 user_id 는 아래 saveUser 직후가 아니라 enterAfterLogin → syncProgress 가 서버에
+    //   확인받은 뒤에야 생긴다. 그 전까지 renderSummary 가 **기기 공용**인 EVENT_OPEN_KEY
+    //   등을 그대로 읽으면, 앞 신원이 시험 참여자였을 때 새 신원(비테스터)의 첫 화면에
+    //   「[시험] …」 단추가 새로고침 전까지 샌다 — clearPersonalData 와 같은 증상이라
+    //   같은 helper 를 쓴다(2026-10-03). 신원이 그대로면(같은 분이 다시 제출) 건드리지 않는다.
+    const identityChanged = !!prev && ["type", "gu", "mok", "bu", "grade", "name"]
+      .some((k) => (prev[k] || "") !== (user[k] || ""));
+    if (identityChanged) resetEventDeviceCache();
     savePrivacyConsent();
     saveUser(user);
     markGuardianOk(user);   // 어린 부서가 아니면 아무 일도 안 한다 · 서버 기록은 syncProgress(login)가 남긴다

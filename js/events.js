@@ -34,6 +34,16 @@ var _evtPreview = false;  // ?preview=event 로 들어왔나(관리자)
 var evtStamp = null;            // eventStamps 응답 또는 null
 var evtStampState = "unknown";  // "unknown" | "ready"
 
+// 신원이 바뀔 때(로그아웃 · 「로그인 정보변경」) 이 파일의 전역을 비운다(2026-10-03).
+//   ⚠️ app.js clearPersonalData 가 typeof 로 빌려 쓴다 — 안 비우면 공용 기기에서 다음
+//   분(또는 같은 분의 새 신원) 화면에 **앞사람의 시험 회차 도장·명단**이 새로고침 전까지 남는다.
+//   evtForm·evtHint·evtState 는 화면을 열 때마다 evtLoad/evtDrawForm 이 다시 채우므로 안 건드린다.
+function evtResetState() {
+  evtStamp = null; evtStampState = "unknown";
+  evtRoster = null; evtRosterFor = "";
+  evtEvents = []; evtMine = [];
+}
+
 function evtEsc(v) {
   return String(v == null ? "" : v)
     .replace(/&/g, "&amp;").replace(/</g, "&lt;")
@@ -77,16 +87,21 @@ function evtLoad(u) {
     evtHint = (r && r.positionHint) || "";
     evtState = evtEvents.length ? "some" : "none";
 
-    // 자격 회차가 있으면 그 도장도 받아 둔다. ⚠️ 하나뿐일 때만 — 둘 이상이면
-    //    어느 것의 진행인지 화면이 말할 수 없다(첫 화면 라벨도 「이벤트 2개」가 된다).
+    // 자격 회차가 있으면 그 도장도 받아 둔다. ⚠️ 둘 이상이면(시험 회차 + 진짜 회차가
+    //    함께 보일 때) testOnly 가 아닌 쪽을 고른다(app.js refreshEventOpen 과 같은 규칙 ·
+    //    2026-10-03) — 실제로는 진짜 자격 회차가 하나뿐이라는 전제다. 전부 testOnly면
+    //    첫 번째를 쓴다.
     var withRule = evtEvents.filter(function (e) {
       return e.needs && e.needs.eligibility;
     });
-    if (!uid || withRule.length !== 1 || !api.eventStamps) {
+    var picked = withRule.length
+      ? (withRule.filter(function (e) { return !e.testOnly; })[0] || withRule[0])
+      : null;
+    if (!uid || !picked || !api.eventStamps) {
       evtStamp = null; evtStampState = "unknown";
       return;
     }
-    return api.eventStamps(uid, withRule[0].id).then(function (s) {
+    return api.eventStamps(uid, picked.id).then(function (s) {
       if (s && s.ok && s.rule) { evtStamp = s; evtStampState = "ready"; }
       else { evtStamp = null; evtStampState = "unknown"; }
     }).catch(function () { evtStamp = null; evtStampState = "unknown"; });
@@ -365,8 +380,8 @@ function renderEventForm(u, eventId) {
   // 명단을 먼저 받아 두고 한 번에 그린다 — 두 번 그리면 화면이 덜컹거린다.
   // (「처음 오신 분이 보는 화면」이라 기다림이 짧아야 한다.)
   var e0 = evtFind(eventId);
-  if (e0 && !e0.canSignup && evtRosterFor !== eventId) {
-    evtLoadRoster(eventId).then(function () { evtDrawForm(u, eventId); });
+  if (e0 && !e0.canSignup && evtRosterFor !== evtRosterKey(eventId, u && u.user_id)) {
+    evtLoadRoster(eventId, u && u.user_id).then(function () { evtDrawForm(u, eventId); });
     return;
   }
   evtDrawForm(u, eventId);
@@ -540,14 +555,20 @@ function evtDrawForm(u, eventId) {
 // ⚠️ 이 화면의 노림수는 「자기 것이 있는지 보려고 가입하게」다. 그래서 **로그인한
 //    분의 줄을 찾아 표시**한다 — 이관된 164명 중 101명은 앱 계정이 없어 「내 등록」이
 //    안 뜨는데, 명단에서 자기 이름이 짚어지면 그 자리에서 확인이 끝난다.
-var evtRoster = null;      // { event, total, groups } — 회차마다 한 번만 받는다
-var evtRosterFor = "";
+var evtRoster = null;      // { event, total, groups } — 회차 + uid 조합마다 한 번만 받는다
+var evtRosterFor = "";     // evtRosterKey(eventId, uid)
 
-function evtLoadRoster(eventId) {
-  if (evtRosterFor === eventId && evtRoster) return Promise.resolve();
+// ⚠️ uid 를 키에 넣는다(2026-10-03) — 시험 회차 명단은 시험 참여자에게만 내려오므로,
+//    uid 없이 eventId 만으로 캐시하면 공용 기기에서 사람이 바뀐 뒤에도 앞사람(테스터)이
+//    받은 명단이 다음 분(비테스터)에게 그대로 보일 수 있다.
+function evtRosterKey(eventId, uid) { return eventId + "::" + (uid || ""); }
+
+function evtLoadRoster(eventId, uid) {
+  var key = evtRosterKey(eventId, uid);
+  if (evtRosterFor === key && evtRoster) return Promise.resolve();
   if (!(window.api && api.eventRosterPublic)) return Promise.resolve();
-  return api.eventRosterPublic(eventId).then(function (r) {
-    evtRoster = r; evtRosterFor = eventId;
+  return api.eventRosterPublic(eventId, uid).then(function (r) {
+    evtRoster = r; evtRosterFor = key;
   }).catch(function (e) {
     evtRoster = null; evtRosterFor = "";
     if (window.console) console.warn("eventRosterPublic 실패:", e && e.message);
@@ -566,7 +587,7 @@ function evtIsMeLine(u, group, m) {
 }
 
 function evtRosterHtml(u, eventId) {
-  if (evtRosterFor !== eventId || !evtRoster) return "";
+  if (evtRosterFor !== evtRosterKey(eventId, u && u.user_id) || !evtRoster) return "";
   var found = evtRoster.groups.some(function (g) {
     return g.members.some(function (m) { return evtIsMeLine(u, g.name, m); });
   });
