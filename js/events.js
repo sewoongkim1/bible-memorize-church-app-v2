@@ -153,6 +153,12 @@ function evtMineOf(id) {
   return null;
 }
 
+// 「자동 대상」 회차인가(설계 §9 · 2026-10-03) — 서버 index.ts 의 evtAuto 와 같은 판정.
+//   신청이 없다: 필요한 주를 채우시면(또는 담당자가 인정해 넣으시면) 그것으로 선물 대상이다.
+//   그래서 신청 단추·「이렇게 등록됩니다」·공개 명단을 그리지 않는다(evtDrawForm).
+// ⚠️ 이 깃발이 없는 회차는 예전과 똑같이 그린다.
+function evtAuto(e) { return !!(e && e.needs && e.needs.auto === true); }
+
 // 남은 날 — 마감 당일은 「오늘 마감」. KST 로 잰다(서버와 같은 잣대).
 function evtDdayText(closesOn) {
   try {
@@ -250,10 +256,14 @@ function evtDrawList(u, focusId) {
 // ⚠️ 겹친 회차를 볼 때 「내가 뭘 냈더라」가 먼저 궁금하다. 카드 사이에서 찾아
 //    훑지 않게 맨 위에 모아 둔다.
 function evtSentHtml() {
-  if (!evtMine.length) return "";
+  // ⚠️ 자동 대상 회차의 줄은 뺀다(설계 §9 · 2026-10-03) — 성도님이 낸 것이 아니라 담당자가 인정해
+  //    넣은 줄이다. 「이미 내신 것 · 접수」로 보이면 「따로 신청하지 않으셔도 돼요」와 앞뒤가 안 맞는다
+  //    (대상이신 것은 그 회차 도장판이 말한다). 다른 회차의 줄은 예전 그대로다.
+  var sent = evtMine.filter(function (m) { return !evtAuto(evtFind(m.eventId)); });
+  if (!sent.length) return "";
   return '<div class="ev-sent"><div class="ev-sent-t">📋 이미 내신 것 <b>' +
-    evtMine.length + "건</b></div>" +
-    evtMine.map(function (m) {
+    sent.length + "건</b></div>" +
+    sent.map(function (m) {
       var e = evtFind(m.eventId);
       var nm = e ? (e.shown || e.title) : m.eventId;
       return '<div class="ev-sent-r"><span class="ev-sent-n">' + evtEsc(nm) +
@@ -291,9 +301,54 @@ function evtDayYmd(start, n) {
   return new Date(Date.parse(start + "T00:00:00Z") + n * 86400000).toISOString().slice(0, 10);
 }
 
+// ── 자동 대상 끝 문구 — 순수 함수 (여기부터) ──
+// 「자동 대상」 회차(설계 §9-2)의 도장판 맨 아래 한 문단을 고른다.
+//   tests/event-auto.test.cjs 가 이 두 표식 사이를 떼어 내 node:vm 에서 돌린다 — 그래서 전역
+//   (evtStamp·evtMineOf·todayYmd)을 읽지 않고 **인자로만** 받는다(evtKoNum 은 시험이 따로 떼어 간다).
+//   s: eventStamps 응답(eligible·allWeeks·canStillReach·weeksDone·need) · r: s.rule
+//   mine: 그 회차에 내 줄이 있나 — 담당자가 인정해 넣은 분이다(서버 eligible 은 주만 센다).
+//         이 값을 빠뜨리면 인정받은 분이 「이번엔 여기까지예요」를 본다.
+//   todayIdx: 측정 시작일부터 오늘까지 날 수(0 = 첫날) — r.weeks*7 이상이면 측정이 끝났다(11/29~).
+// ⚠️ 「신청」(「따로 신청하지 않으셔도」 말고)·「자격」·「달성」·「당첨」·「상」·「순위」·「1등」을 쓰지 않는다.
+// ⚠️ 굵은 0 을 박지 않는다 — 채운 주가 0 이면 그 줄을 빼고 말한다(나무라지 않는다).
+function evtAutoTail(s, r, mine, todayIdx) {
+  var wd = Number(s.weeksDone) || 0;
+  var ended = todayIdx >= r.weeks * 7;
+  var gift = "<b>선물 대상이에요 ✓</b> — 따로 신청하지 않으셔도 돼요.";
+  var thanks = evtKoNum(r.weeks) + " 주 동안 함께해 주셔서 고맙습니다.";
+  // 대상 — 서버가 센 주(eligible) **또는** 담당자가 인정해 넣은 줄(mine)
+  if (s.eligible || mine) {
+    if (s.allWeeks) {
+      return gift + "<br>" + evtKoNum(r.weeks) + " 주를 다 채우셨어요 ✨" +
+        (ended ? "<br>" + thanks : "");
+    }
+    // ⚠️ 채우신 주를 말한다(필요 주수가 아니다) — 다섯 주 채운 분께 「세 주 채우셨어요」는 틀린 말이다.
+    return gift + "<br>" + (wd ? evtKoNum(wd) + " 주를 채우셨어요. " : "") +
+      (ended ? thanks : "남은 주도 편한 만큼 함께해요.");
+  }
+  // 측정이 끝났고 대상이 아니다 — 첫 줄이 감사다(9/23 설계 §8 「마감 뒤 · 못 채우신 분」).
+  if (ended) {
+    return thanks + (wd ? "<br>채우신 " + evtKoNum(wd) + " 주는 그대로 남아 있어요." : "") +
+      "<br>다음 걸음에 또 함께해요.";
+  }
+  // 닿을 수 있다 — ⚠️ s.need 를 쓴다(중간에 처음 오신 분은 두 주다 · 「세 주」를 박지 않는다).
+  //   (s.need 가 없으면 — 옛 응답 — 회차 기본값 r.need 로. 「0 주가 되면」을 띄우지 않는다.)
+  if (s.canStillReach) {
+    return (wd ? "지금까지 " + evtKoNum(wd) + " 주를 채우셨어요.<br>" : "") +
+      evtKoNum(Number(s.need) || r.need) + " 주가 되면 선물 대상이 돼요.<br>" +
+      "남은 주에 " + r.perWeek + "일씩만 채우시면 돼요.";
+  }
+  // 남은 주로 못 닿는다 — 기준을 다시 말하지 않는다.
+  return wd
+    ? "이번엔 여기까지예요. 채우신 " + evtKoNum(wd) + " 주는 그대로 남아요 — 다음에 또 함께해요."
+    : "이번엔 여기까지예요 — 다음에 또 함께해요.";
+}
+// ── 자동 대상 끝 문구 — 순수 함수 (여기까지) ──
+
 // 도장판. ⚠️ evtDrawForm 의 `if (!canSignup)` **앞**에서 부른다 —
 //    그 분기는 폼 대신 명단만 그려서, 신청 창이 열리기 전에는 도장판이 아예 안 보인다.
-function evtStampHtml(u) {
+// e: 이 도장판의 회차 — 「자동 대상」(evtAuto)이면 끝 문구를 evtAutoTail 로 고른다(없으면 예전 문구).
+function evtStampHtml(u, e) {
   // ⚠️ weekDays 가 통째로 없으면 0 으로 그리면 안 된다 — 그건 「모른다」다.
   if (evtStampState !== "ready" || !evtStamp || !evtStamp.rule || !evtStamp.weekDays) {
     return '<div class="ev-note">기록을 맞추는 중이에요. 잠시 뒤 다시 열어 주세요.</div>';
@@ -358,7 +413,10 @@ function evtStampHtml(u) {
 
   // 이번 주 남은 만큼을 말로. ⚠️ 「2일 남음」처럼 남은 것을 세면 빚처럼 읽힌다.
   var tail;
-  if (s.eligible) {
+  if (evtAuto(e)) {
+    // 자동 대상 회차(설계 §9) — 「신청 단추가 열려요」 대신 「선물 대상」으로 말한다.
+    tail = evtAutoTail(s, r, !!(e && evtMineOf(e.id)), todayIdx);
+  } else if (s.eligible) {
     // ⚠️ 채우신 주를 말한다(필요 주수가 아니다) — 다섯 주 채운 분께 「세 주 채우셨어요」는 틀린 말이다.
     tail = s.allWeeks
       ? (evtKoNum(r.weeks) + " 주를 다 채우셨어요 ✨")
@@ -391,7 +449,21 @@ function evtStampHtml(u) {
     "인터넷이 연결된 상태에서 저장된 날만 셉니다.</div></div>";
 }
 
+// 자동 대상 회차의 측정 기간 — { start, end }(YYYY-MM-DD). 규칙이 온전하지 않으면 null(기간 칸을 비운다).
+//   needs.eligibility 는 서버가 손대지 않은 원래 값이라 여기서 모양을 다시 본다.
+function evtMeasureRange(e) {
+  var el = (e && e.needs && e.needs.eligibility) || null;
+  var st = el ? String(el.start || "") : "";
+  var wk = el ? Number(el.weeks) : 0;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(st) || !(wk >= 1)) return null;
+  return { start: st, end: evtDayYmd(st, wk * 7 - 1) };
+}
+
 function evtCardHtml(e) {
+  // 자동 대상 회차(설계 §9) — 신청이 없을 뿐 끝난 회차가 아니다. 흐리게(.closed) 하지 않고,
+  //   기간 칸은 신청 창(opensOn~closesOn) 대신 **측정 기간**을, 단추는 「도장판 보기」를 쓴다.
+  //   copy.doneBadge·mineBtn(「신청하셨어요」 류)은 쓰지 않는다 — 담당자가 인정해 넣은 줄도 「낸 것」이 아니다.
+  if (evtAuto(e)) return evtAutoCardHtml(e);
   var closed = !e.canSignup;
   var cls = "ev-card" + (e.mine ? " done" : "") + (closed ? " closed" : "");
   var dday = evtDdayText(e.closesOn);
@@ -416,12 +488,29 @@ function evtCardHtml(e) {
     "</div>";
 }
 
+// 자동 대상 회차의 목록 카드(설계 §9) — 위 evtCardHtml 과 같은 뼈대에서 신청 이야기만 뺐다.
+//   남은 날(D-day)도 안 단다 — 닫히는 날이 「신청 마감」으로 읽힌다.
+function evtAutoCardHtml(e) {
+  var mr = evtMeasureRange(e);
+  var hasRule = !!(e.needs && e.needs.eligibility);
+  return '<div class="ev-card">' +
+    (e.season ? '<div class="ev-season">' + evtEsc(e.season) + "</div>" : "") +
+    '<h3 class="ev-card-t">' + evtEsc(e.shown || e.title) + "</h3>" +
+    (e.subtitle ? '<p class="ev-card-s">' + evtEsc(e.subtitle) + "</p>" : "") +
+    (mr ? '<div class="ev-meta"><span class="ev-period">' + evtEsc(mr.start) +
+      " ~ " + evtEsc(mr.end) + "</span></div>" : "") +
+    '<button class="ev-go" id="ev-go-' + evtEsc(e.id) + '">' +
+    (hasRule ? "도장판 보기 →" : "보기 →") + "</button>" +
+    "</div>";
+}
+
 // ── 등록 폼 ──────────────────────────────────────────────────
 function renderEventForm(u, eventId) {
   // 명단을 먼저 받아 두고 한 번에 그린다 — 두 번 그리면 화면이 덜컹거린다.
   // (「처음 오신 분이 보는 화면」이라 기다림이 짧아야 한다.)
   var e0 = evtFind(eventId);
-  if (e0 && !e0.canSignup && evtRosterFor !== evtRosterKey(eventId, u && u.user_id)) {
+  // ⚠️ 자동 대상 회차(설계 §9)는 공개 명단이 없다 — 받으러 가지 않는다(서버도 빈 명단을 준다).
+  if (e0 && !e0.canSignup && !evtAuto(e0) && evtRosterFor !== evtRosterKey(eventId, u && u.user_id)) {
     evtLoadRoster(eventId, u && u.user_id).then(function () { evtDrawForm(u, eventId); });
     return;
   }
@@ -462,7 +551,23 @@ function evtDrawForm(u, eventId) {
 
   // ⚠️ 이 줄은 `if (!canSignup)` **앞**에 있어야 한다. 그 분기는 폼 대신 명단만
   //    그려서, 신청 창이 열리기 전(measuring)에는 도장판이 아예 안 보이게 된다.
-  if (e.needs && e.needs.eligibility) html += evtStampHtml(u);
+  if (e.needs && e.needs.eligibility) html += evtStampHtml(u, e);
+
+  // ── 자동 대상 회차(설계 §9): 머리·안내·도장판까지만 ──────────────────
+  // 신청이 없다 — 「…부터 신청을 받아요」·공개 명단·「이렇게 등록됩니다」·등록/취소 단추를 그리지 않는다.
+  // 대상이신지는 도장판 끝 문구(evtAutoTail)가 말한다. 홈·목록 단추만 잇는다.
+  if (evtAuto(e)) {
+    document.getElementById("app").innerHTML =
+      '<div class="ev-wrap">' + html + "</div>" +
+      '<button class="home-fab" id="ev-home" aria-label="첫 화면으로">' +
+      homeFabLabel(u, true) + "</button>";
+    window.scrollTo(0, 0);
+    document.getElementById("ev-home")
+      .addEventListener("click", function () { renderSummary(); });
+    document.getElementById("ev-back")
+      .addEventListener("click", function () { evtForm = null; renderEventList(null); });
+    return;
+  }
 
   // ── 마감된 회차: 폼 대신 「전체 명단」(안에서 내 것도 찾아 준다) ──────
   // 옛 사이트는 마감되면 조회까지 죽어 막다른 화면이 됐다. 여기서는 마감이
@@ -750,6 +855,9 @@ function evtErrText(err, e) {
   if (m === "closed-period") return "등록 기간이 지났어요.";
   if (m === "not-open") return "아직 열리지 않은 이벤트예요.";
   if (m === "not-found") return "이벤트를 찾을 수 없어요.";
+  // 자동 대상 회차(설계 §9) — 서버가 성도님 신청·취소를 받지 않는다. 이 화면엔 그 단추가 없어 드물게만
+  //   뜬다(목록을 받아 둔 뒤에 회차가 자동 대상으로 바뀌었는데 예전 폼에서 단추를 누른 경우).
+  if (m === "auto-event") return "따로 신청하지 않으셔도 돼요.";
   if (m === "no-user") return "로그인 정보를 확인할 수 없어요. 다시 로그인해 주세요.";
   if (m === "bad-args") return "요청이 올바르지 않아요. 다시 시도해 주세요.";
   if (m === "not-eligible") return "아직 신청이 열리지 않았어요.<br>몇 주가 더 필요한지는 도장판에 적혀 있어요.";

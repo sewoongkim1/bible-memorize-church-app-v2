@@ -91,6 +91,11 @@ PURE_TESTS += ["tests/member-merge-coverage.test.cjs"]
 # HAVING 없이 filter 로 거르는지, first_day 부분식에 p_per_day 가 안 섞였는지를 글자로 본다.
 PURE_TESTS += ["tests/event-perday.test.cjs"]
 
+# 가을 말씀 동행 — 신청 없이 「자동 대상」(needs.auto · 2026-10-03 · 설계 §9). 도장판 끝 문구 고르기(evtAutoTail)·
+# 화면·서버 evtAuto 가 같은지·서버 순서(시험 회차 비테스터 not-found 가 먼저)·개인정보 세 곳이 같은 문장인지.
+# (위 줄들을 고치지 않고 따로 더한다 — 다른 세션도 이 목록에 더하고 있어 합칠 때 부딪힌다)
+PURE_TESTS += ["tests/event-auto.test.cjs"]
+
 print("\n[3] 순수 함수 검사 (node --test)")
 for t in PURE_TESTS:
     if not os.path.exists(os.path.join(ROOT, t)):
