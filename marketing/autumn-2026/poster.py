@@ -71,13 +71,13 @@ def poster_a3():
      한 주에 3일이면 그 주가 채워집니다. <b style="color:#fff">매일 하지 않아도 괜찮아요.</b></p>
 
   <div class="prize" style="margin-top:12mm">
-    <div class="lb">여섯 주 가운데 세 주를 채우신 분</div>
-    <div class="bg">🎁 신청하신 분 모두 선물</div>
-    <div class="sm">신청 11월 3일(화) ~ 12월 5일(토)</div>
+    <div class="lb">여섯 주 가운데 세 주를 채워 참여하신 분</div>
+    <div class="bg">🎁 모두 소정의 선물</div>
+    <div class="sm">따로 신청하지 않으셔도 돼요</div>
   </div>
 
   <div class="steps" style="margin-top:12mm">
-    <div class="st"><b>1</b><p>QR을 찍고<br>교구·이름 입력</p></div>
+    <div class="st"><b>1</b><p>QR을 찍고<br>교구·목장·이름 입력</p></div>
     <div class="st"><b>2</b><p>하루 %(per_day)s번<br>말씀 암송</p></div>
     <div class="st"><b>3</b><p>첫 화면 🏅에서<br>도장 확인</p></div>
   </div>
@@ -110,16 +110,16 @@ def slide_169():
     <p class="sub" style="margin-top:22px">하루 %(per_day)s번 말씀을 암송하시면 한 칸.<br>한 주에 3일이면 그 주가 채워집니다.
        <b style="color:#fff">매일 하지 않아도 괜찮아요.</b></p>
     <div class="steps" style="margin-top:30px">
-      <div class="st"><b>1</b><p>QR을 찍고<br>교구·이름 입력</p></div>
+      <div class="st"><b>1</b><p>QR을 찍고<br>교구·목장·이름 입력</p></div>
       <div class="st"><b>2</b><p>하루 %(per_day)s번<br>말씀 암송</p></div>
       <div class="st"><b>3</b><p>첫 화면 🏅에서<br>도장 확인</p></div>
     </div>
   </div>
   <div style="flex:.85;display:flex;flex-direction:column;gap:26px">
     <div class="prize">
-      <div class="lb">여섯 주 가운데 세 주를 채우신 분</div>
-      <div class="bg">🎁 신청하신 분 모두 선물</div>
-      <div class="sm">신청 11월 3일(화) ~ 12월 5일(토)</div>
+      <div class="lb">여섯 주 가운데 세 주를 채워 참여하신 분</div>
+      <div class="bg">🎁 모두 소정의 선물</div>
+      <div class="sm">따로 신청하지 않으셔도 돼요</div>
     </div>
     <div class="qrbox"><img src="%(qr)s" style="margin:0 auto"><div class="u">gocheok.onlybible.kr</div></div>
     <div class="when" style="text-align:center">10월 18일(주일) <b>~</b> 11월 28일(토)</div>
