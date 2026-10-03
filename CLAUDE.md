@@ -44,7 +44,7 @@
 | 액션·테이블·시크릿 목록 | `docs/notes/backend-api.md` |
 | 아이폰 앱(Swift)·「앱이면 …」 웹 코드·껍데기 판 표식 | `docs/notes/ios-app.md` |
 | 교회 어드민(admin.onlybible.kr · 별도 저장소 `c:\Projects\church-admin`) — 카카오 로그인·담당자 승인, 사역신청 관리를 옮겨 가는 중 | 설계 `docs/superpowers/specs/2026-09-28-church-admin-design.md` · 그 저장소 `CLAUDE.md` |
-| 이벤트 명단(사순절·썸머·소책자·가을 말씀 동행 — `events`·`event_signups`) — **2026-09-30 교회 어드민 「성경필사(암송)」으로 옮겼다** · `eventImport`·`eventSave`·`eventSetNote` 는 얼렸다(되살리지 말 것 · `api` 는 얼림이 든 판에서만 배포) | `docs/notes/bible-events-admin.md` · 설계 `docs/superpowers/specs/2026-09-29-church-admin-bible-events-design.md` |
+| 이벤트 명단(사순절·썸머·소책자·가을 말씀암송 동행 — `events`·`event_signups`) — **2026-09-30 교회 어드민 「성경필사(암송)」으로 옮겼다** · `eventImport`·`eventSave`·`eventSetNote` 는 얼렸다(되살리지 말 것 · `api` 는 얼림이 든 판에서만 배포) | `docs/notes/bible-events-admin.md` · 설계 `docs/superpowers/specs/2026-09-29-church-admin-bible-events-design.md` |
 | 교인명부(어드민 · dimode 교인목록·사진 · 2026-09-29 운영) — 찾기·현황·가족·사역 교적 표시 | 설계 `docs/superpowers/specs/2026-09-29-church-people-directory-design.md` · 계획(끝에 「나중」 목록) · church-admin `CLAUDE.md` 「교인명부」 절 |
 | 교인명부 「자세히」 창 사역·성경필사 탭 · 잇기 표(`people_links`) · 사역신청 번호 180일(2026-10-01) | 설계 `docs/superpowers/specs/2026-10-01-person-history-tabs-design.md` · 계획 `docs/superpowers/plans/2026-10-01-person-history-tabs.md` · church-admin `CLAUDE.md` 「교인명부」 절 |
 | 사역 이력(교회 어드민 「📜 사역 이력」 · 지난 해 사역 임명 엑셀 → 교인ID · `ministry_history` · 2026-10-01) — 성경암송 `ministry_orders` 에 지난 해를 넣지 말 것 | `docs/notes/ministry-history.md` · 설계 `docs/superpowers/specs/2026-10-01-church-admin-ministry-history-design.md` |
@@ -168,6 +168,7 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
 
 ## 다음 작업 (이어서 할 것)
 > 여기에 다음에 진행할 과제를 적어두면, 다음 세션에서 이 문서를 읽고 바로 이어감.
+- [ ] 🍂 **가을 말씀암송 동행 — 10/18(일) 개시**(측정 10/18~11/28 · 신청 11/3~12/5 · 목록 12/20 · 공지 10/18 하루 · 11/3 알림). 친구: 어드민 이름·날짜(~10/7) · 주보 문구(10/14) · 10/18 아침 「준비 중 → 열림」. 읽을 것 specs/2026-10-03-autumn-event-launch-design.md · 계획 plans/2026-10-03-autumn-event-launch.md
 - [ ] 🗂️ **첫 화면 「사역현황」 · 사역 이력 확인 · 정정 신청 — 2026-10-01 운영 개시**(v2 aad4625 · 판 20261001c · `MH_LIVE` 켬 · church-admin main d40cf75 · 운영 SQL 008 · 교회 어드민 「📮 정정 신청」). 문은 사역신청과 하나 — 지금은 🧪 시험 참여자만, 12/13~12/27 신청 기간에 모두.
       남은 것: ① 시험 참여자 계정으로 실기기 확인(「사역현황」 → 🗂️ → 기록 · 정정 한 번 → 교회 어드민 「📮 정정 신청」에서 처리) ② ~~member_merge 에 정정 신청 표~~ 2026-10-02 운영 반영 끝(겹치는 열린 신청은 옛 줄 지움 · `docs/member-profile-admin.md`) ③ 덤: `~/.church-admin/dev.env` `DEV_SERVICE_KEY` 를 새 secret 으로 → `tests/history-check.dev.test.mjs` ④ 공유 체크아웃 로컬 main 이 origin 뒤(남의 `store/listing-ios-ko.txt` 수정 때문에 빨리 감기 못 함 — 그 파일 주인이 정리한 뒤 `git pull`).
       읽을 것 `docs/notes/ministry-history-check.md` · 계획 `docs/superpowers/plans/2026-10-01-ministry-history-check.md` · `…-requests-admin.md`

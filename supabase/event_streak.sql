@@ -86,4 +86,4 @@ grant  execute on function v2_event_weeks(date, int, int, text[]) to   service_r
 
 -- 5) 확인 ② — 배열 길이가 p_weeks 와 같은지, 0 이 제대로 들어가는지
 -- select user_id, weeks_done, week_days, array_length(week_days,1) as len, all_weeks, first_day
---   from v2_event_weeks('2026-10-11', 6, 3) limit 5;
+--   from v2_event_weeks('2026-10-18', 6, 3) limit 5;

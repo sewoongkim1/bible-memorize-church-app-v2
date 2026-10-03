@@ -21,7 +21,7 @@ end $$;
 
 do $$
 declare
-  v_start date := '2026-10-11';
+  v_start date := '2026-10-18';
   v_verse int;
   r record;
   w int; d int;
@@ -82,6 +82,6 @@ end $$;
 --   도장둘    weeks_done 2 · week_days {3,3,0,0,0,0} · all_weeks f
 --   늦게온이  weeks_done 2 · week_days {0,0,0,0,3,3} · first_day 2026-11-08
 -- select u.name, w.weeks_done, w.week_days, w.all_weeks, w.first_day
---   from v2_event_weeks('2026-10-11', 6, 3) w join users u on u.id::text = w.user_id
+--   from v2_event_weeks('2026-10-18', 6, 3) w join users u on u.id::text = w.user_id
 --  where u.name in ('도장여섯','도장셋','도장둘','늦게온이')
 --  order by u.name;
