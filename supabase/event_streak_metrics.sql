@@ -1,4 +1,4 @@
--- 가을 말씀 동행 — 기준선과 효과 측정
+-- 가을 말씀암송 동행 — 기준선과 효과 측정
 -- ⚠️ 이 저장소는 공개(public)입니다 — 비밀번호·키를 절대 넣지 마세요.
 --
 -- 쓰는 법: ② 의 `date '…'` 한 곳만 바꿔 가며 같은 질의를 돌린다.
@@ -15,7 +15,8 @@
 --    `select count(*) from users` 가 사백이 넘으면 운영, 스물 남짓이면 개발이다.
 --    운영을 읽으려면 스크래치 폴더를 따로 링크한다:
 --      supabase --workdir <스크래치> link --project-ref xnomlgydifiqiybervtf --yes
---      supabase --workdir <스크래치> db query --linked -f supabase/event_streak_metrics.sql
+--      supabase --workdir <스크래치> db query --linked -f <이 파일의 절대경로>
+--    (-f 의 경로는 workdir 기준으로 풀리니 상대경로로 주면 못 찾는다)
 
 -- ① 창 ─────────────────────────────────────────────────────────
 --   B 평시 6주   2026-07-05(주일) ~ 2026-08-15(토)   이벤트 전. **이것이 진짜 기준선이다.**
@@ -24,8 +25,13 @@
 --   D 본 회차    2026-10-18(주일) ~ 2026-11-28(토)   끝난 뒤에 돌린다
 
 -- ② 문턱별 인원 ────────────────────────────────────────────────
---    ⚠️ per_day 는 가을 회차 값(3)으로 둔다 — v2_event_weeks 와 같은 잣대를 쓴다.
-with p as (select date '2026-07-05' as s, 6 as weeks, 3 as per_week, 3 as per_day),
+--    ⚠️ per_day 는 숫자를 박지 않고 **autumn-2026 행에서 읽는다**(needs.eligibility.perDay · 없으면 1)
+--       — 10/14 까지 3 ↔ 5 가 바뀌어도 이 파일은 저절로 따라간다(검토 2026-10-03). v2_event_weeks 와 같은 잣대다.
+--    ⚠️ 결과에 per_day 를 함께 내보낸다 — 아래 결과란에 적을 때 그 값도 같이 적는다(견줄 때 같은 per_day 끼리).
+with p as (
+  select date '2026-07-05' as s, 6 as weeks, 3 as per_week,
+         coalesce((select (e.needs->'eligibility'->>'perDay')::int from events e where e.id = 'autumn-2026'), 1) as per_day
+),
 d as (
   -- 하루 한 줄로 모으되 그날 합을 n 에 남긴다(모드 구분 없이 sum).
   select da.user_id, da.day, ((da.day - p.s) / 7) as wk, sum(da.cnt) as n
@@ -38,7 +44,8 @@ d as (
 w as (select d.user_id, d.wk, count(*) filter (where d.n >= p.per_day) as days from d, p group by d.user_id, d.wk),
 -- ⚠️ 문턱은 ① 의 p.per_week 하나만 고치면 된다 — 여기에 숫자를 박지 않는다.
 q as (select w.user_id, count(*) filter (where w.days >= p.per_week) as okw from w, p group by 1)
-select count(*)                          as "활동한 분",
+select (select per_day from p)           as per_day,
+       count(*)                          as "활동한 분",
        count(*) filter (where okw >= 1)  as "1주 이상",
        count(*) filter (where okw >= 2)  as "2주 이상",
        count(*) filter (where okw >= 3)  as "3주 이상 ← 문턱",
@@ -66,7 +73,10 @@ select count(*)                          as "활동한 분",
 --   읽는 법: **평시에 문턱을 넘는 분은 12명**이다. 이벤트가 도는 동안 40명이 됐고
 --            활동자 자체가 66 → 185명으로 세 배가 됐다. 그러니 이번 회차의 기대치는
 --            12명이 아니라 그 사이 어딘가다. 끝난 뒤 D 창으로 견준다.
+--   ⚠️ 위 B·C(12명·40명)는 **per_day 1**(하루 한 번이라도)로 잰 숫자다. 지금 ② 는 per_day 를
+--            가을 회차 값(3 또는 5)으로 읽어 더 적게 나온다 — D 와 견줄 때는 B·C 를 같은 per_day 로
+--            다시 재서 쓴다(그 줄에 per_day 를 함께 적는다).
 --
--- (A 2026-08-30~10-10 완성본) 돌린 날:            결과:
--- (D 2026-10-18~11-28)        돌린 날:            결과:
+-- (A 2026-09-06~10-17 완성본) 돌린 날:            per_day:    결과:
+-- (D 2026-10-18~11-28)        돌린 날:            per_day:    결과:
 -- 공지 나간 날:
