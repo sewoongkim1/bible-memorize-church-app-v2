@@ -5899,7 +5899,8 @@ function evtRow(r: any) {
 }
 
 // ---------- 자격(도장판) ----------
-// ⚠️ mode 를 세지 않는다. 「그날 daily_activity 에 행이 있는가」로만 본다 —
+// ⚠️ mode 를 세지 않는다. 「그날 daily_activity 의 cnt 를 모드 구분 없이 더한 하루 합이
+//    perDay 이상인가」로만 본다(2026-10-03 부터 · perDay 없으면 1 = 옛 「행이 있는가」와 같은 뜻) —
 //    카드(learn-typing-card·typing-card)가 전체 반복의 65.2% 라, mode 를 열거하면
 //    카드로만 하시는 분은 매일 하셔도 도장이 하나도 안 찍힌다.
 
@@ -5977,6 +5978,9 @@ async function evtStampsFor(userId: string, rule: any, today: string) {
   // 날짜별 횟수 — 도장판이 「이 계정으로 채운 날」을 날짜로 보여 준다.
   // v2_mydays 를 그대로 쓴다(앱의 다른 숫자와 같은 잣대를 지키려고).
   const end = evtDayAdd(rule.start, rule.weeks * 7 - 1);
+  // ⚠️ 주별 칸(위 v2_event_weeks)과 날짜별 합·todayCount(아래 v2_mydays)는 **따로 두 번** 읽는다 —
+  //    그 사이에 활동이 들어오면 todayCount 는 문턱을 넘었는데 weekDays 는 아직이라 첫 화면 알약이
+  //    한 칸 적게 보일 수 있다(적게 세는 쪽 · 다음 그리기에 저절로 맞는다). 알고 둔 것이다(검토 2026-10-03).
   // ⚠️ 실패를 조용히 삼키지 않는다. {} 로 두면 「통신이 끊긴 날」과 「정말 안 한 날」이
   //    같아진다 — 이 기능이 지키려는 원칙(「모른다」와 「없다」를 뭉개지 않는다)을 어기는 자리다.
   // ⚠️ challenge_log 폴백(mydaysSlow)을 쓰지 않는다. 집계표를 우회하면 숫자가 조용히 갈린다.
@@ -6326,8 +6330,11 @@ async function eventRoster(b: any) {
     const byUser = new Map<string, any>();
     for (const w of ((all ?? []) as any[])) byUser.set(String(w.user_id), w);
 
-    const { data: srows } = await db.from("event_signups")
+    // ⚠️ 오류를 삼키지 않는다(같은 함수의 다른 조회처럼 throw) — 삼키면 rowUser 가 비어
+    //    신청하신 분이 전부 「아직 안 하신 분」으로 잡히고 자격 칸도 조용히 빠진다(검토 2026-10-03).
+    const { data: srows, error: srErr } = await db.from("event_signups")
       .select("id,user_id").eq("event_id", eventId).limit(2000);
+    if (srErr) throw srErr;
     const rowUser = new Map<number, string>();
     for (const sr of ((srows ?? []) as any[])) {
       if (sr.user_id) rowUser.set(sr.id, String(sr.user_id));
@@ -6349,8 +6356,10 @@ async function eventRoster(b: any) {
 
     // 자격은 되는데 아직 신청 안 하신 분 — 마감 전에 알려 드리려고.
     // ⚠️ 이름·소속만. user_id 를 싣지 않는다.
+    // ⚠️ 시험 회차(testOnly)면 만들지 않는다(2026-10-03) — 그 회차는 시험 참여자에게만 보이는데,
+    //    전 교인을 대상으로 세면 회차를 볼 수도 없는 분들이 「아직 안 하신 분」으로 잡힌다.
     const signedUp = new Set([...rowUser.values()]);
-    const cand = ((all ?? []) as any[]).filter((w) => {
+    const cand = evtTestOnly(pickedEv) ? [] : ((all ?? []) as any[]).filter((w) => {
       if (signedUp.has(String(w.user_id))) return false;
       const fd = w.first_day ? String(w.first_day).slice(0, 10) : null;
       return Number(w.weeks_done) >= evtNeedFor(pickedRule, fd);
@@ -6359,9 +6368,11 @@ async function eventRoster(b: any) {
     //    모르면 담당자가 「이게 전부」로 읽는다. 그래서 총수를 함께 내려 준다.
     missingTotal = cand.length;
     if (cand.length) {
-      const { data: us } = await db.from("users")
+      const { data: us, error: usErr } = await db.from("users")
         .select("id,type,gu,mok,bu,grade,name")
         .in("id", cand.map((w) => String(w.user_id)).slice(0, 300));
+      // ⚠️ 삼키지 않는다 — 삼키면 missingTotal 은 N 인데 missing 은 빈 목록이 된다(검토 2026-10-03).
+      if (usErr) throw usErr;
       missing = ((us ?? []) as any[]).map((u: any) => ({
         name: norm(u.name),
         whoType: u.type,

@@ -33,13 +33,17 @@ var _evtPreview = false;  // ?preview=event 로 들어왔나(관리자)
 //    「0주 채우셨어요」라고 말하면 사실이 아닌 말을 하는 것이다(evtState 와 같은 까닭).
 var evtStamp = null;            // eventStamps 응답 또는 null
 var evtStampState = "unknown";  // "unknown" | "ready"
+// evtStamp 를 받은 날(KST YYYY-MM-DD) — 도장판을 자정 넘겨 띄워 둔 채 다시 그리면 todayCount 는
+//   「어제 합」이다. 오늘이 아니면 오늘 합을 「모른다」(null)로 읽는다(app.js applyStampPill 의
+//   `s.day === todayYmd()` 규칙과 같다 · 검토 2026-10-03).
+var evtStampDay = null;
 
 // 신원이 바뀔 때(로그아웃 · 「로그인 정보변경」) 이 파일의 전역을 비운다(2026-10-03).
 //   ⚠️ app.js clearPersonalData 가 typeof 로 빌려 쓴다 — 안 비우면 공용 기기에서 다음
 //   분(또는 같은 분의 새 신원) 화면에 **앞사람의 시험 회차 도장·명단**이 새로고침 전까지 남는다.
 //   evtForm·evtHint·evtState 는 화면을 열 때마다 evtLoad/evtDrawForm 이 다시 채우므로 안 건드린다.
 function evtResetState() {
-  evtStamp = null; evtStampState = "unknown";
+  evtStamp = null; evtStampState = "unknown"; evtStampDay = null;
   evtRoster = null; evtRosterFor = "";
   evtEvents = []; evtMine = [];
 }
@@ -74,14 +78,25 @@ function evtApiReady() {
 // 그 파일 안에 있는 편이 자연스럽고, 두 벌을 두면 조용히 갈라진다.
 // (2026-09-10 여기에 같은 것을 한 벌 더 만들었다가 지웠다.)
 
+// 지금 로그인한 분이 uid 그대로인가 — 늦게 온 응답을 버릴지 가른다(app.js refreshEventOpen 과
+//   같은 가드 · 검토 2026-10-03). loadUser 는 app.js 에 있다(이 파일이 먼저 실리지만 부를 때는 있다).
+function evtSameUser(uid) {
+  var now = (typeof loadUser === "function" && loadUser()) || {};
+  return (now.user_id || "") === (uid || "");
+}
+
 // ── 불러오기 ─────────────────────────────────────────────────
+// ⚠️ 응답이 오기 전에 로그아웃·「로그인 정보변경」이 있으면(evtResetState 로 비운 뒤) 그 응답은
+//    **아무것도 쓰지 않고 버린다** — 안 버리면 앞사람의 회차·「이미 내신 것」·도장이 이 파일의
+//    전역에 되살아난다(공용 기기). 그때 resolve 값은 false(부른 쪽이 화면도 그리지 않게).
 function evtLoad(u) {
   if (!evtApiReady()) {
     evtState = "unknown";
-    return Promise.resolve();
+    return Promise.resolve(true);
   }
   var uid = (u && u.user_id) || "";
   return api.eventOpenList(uid).then(function (r) {
+    if (!evtSameUser(uid)) return false;
     evtEvents = (r && r.events) || [];
     evtMine = (r && r.mine) || [];
     evtHint = (r && r.positionHint) || "";
@@ -98,20 +113,30 @@ function evtLoad(u) {
       ? (withRule.filter(function (e) { return !e.testOnly; })[0] || withRule[0])
       : null;
     if (!uid || !picked || !api.eventStamps) {
-      evtStamp = null; evtStampState = "unknown";
-      return;
+      evtStamp = null; evtStampState = "unknown"; evtStampDay = null;
+      return true;
     }
+    // 받은 날은 **부를 때** 날짜로 적는다 — 자정 직전에 불러 직후에 받으면 「어제 것일 수 있다」 쪽(모른다)으로 기운다.
+    var callDay = todayYmd();
     return api.eventStamps(uid, picked.id).then(function (s) {
-      if (s && s.ok && s.rule) { evtStamp = s; evtStampState = "ready"; }
-      else { evtStamp = null; evtStampState = "unknown"; }
-    }).catch(function () { evtStamp = null; evtStampState = "unknown"; });
+      if (!evtSameUser(uid)) return false;   // 도장 응답도 같은 가드(목록 응답과 사이에 로그아웃했을 수 있다)
+      if (s && s.ok && s.rule) { evtStamp = s; evtStampState = "ready"; evtStampDay = callDay; }
+      else { evtStamp = null; evtStampState = "unknown"; evtStampDay = null; }
+      return true;
+    }).catch(function () {
+      if (!evtSameUser(uid)) return false;
+      evtStamp = null; evtStampState = "unknown"; evtStampDay = null;
+      return true;
+    });
   }).catch(function (e) {
+    if (!evtSameUser(uid)) return false;
     // 서버가 옛 판이라 액션이 없다 · 표가 없다 · 통신 실패 — 전부 「모른다」다.
     // 「없다」로 뭉개지 않는다.
     evtState = "unknown";
     evtEvents = []; evtMine = []; evtHint = "";
-    evtStamp = null; evtStampState = "unknown";
+    evtStamp = null; evtStampState = "unknown"; evtStampDay = null;
     if (window.console) console.warn("eventOpenList 실패:", e && e.message);
+    return true;
   });
 }
 
@@ -160,7 +185,9 @@ function renderEventList(focusId) {
   document.getElementById("ev-home")
     .addEventListener("click", function () { renderSummary(); });
 
-  evtLoad(u).then(function () {
+  evtLoad(u).then(function (fresh) {
+    // 응답을 버렸으면(그사이 로그아웃·다른 분) 앞사람 u 로 화면을 그리지 않는다(evtLoad 위 주석).
+    if (fresh === false) return;
     // 딥링크로 특정 회차를 지목했고 그것을 볼 수 있으면 바로 등록 화면으로
     if (focusId && evtFind(focusId)) { renderEventForm(u, focusId); return; }
     // 회차가 하나뿐이면 목록을 건너뛴다 — 고를 것이 없는데 고르라고 하지 않는다.
@@ -294,7 +321,11 @@ function evtStampHtml(u) {
   if (s.days && inWindow && (s.phase === "measuring" || s.phase === "signup")) {
     var wkStart = Math.floor(todayIdx / 7) * 7;
     var dayNames = ["일", "월", "화", "수", "목", "금", "토"];
-    var srvTodayVal = (s.todayCount != null ? s.todayCount : (s.days[todayYmd()] || 0));
+    // ⚠️ 받은 날(evtStampDay)이 오늘이 아니면 서버 오늘 합은 「어제 것」이다 — 「모른다」(null)로 둔다
+    //    (app.js applyStampPill 과 같은 규칙 · 검토 2026-10-03). 그때 오늘 칸은 stampToday 가
+    //    이 기기에서 오늘 센 수(todayCountCache)만으로 그린다 — 어제 합을 「오늘」로 보이지 않는다.
+    var srvTodayVal = (evtStampDay !== todayYmd()) ? null
+      : (s.todayCount != null ? s.todayCount : (s.days[todayYmd()] || 0));
     var dcells = "";
     for (var k = 0; k < 7; k++) {
       var dn = wkStart + k;
@@ -303,7 +334,7 @@ function evtStampHtml(u) {
       // ⚠️ 오늘은 stampToday(app.js)로 「지금 살아있는」 값을 쓴다 — 방금 활동을
       //    마쳤는데 서버 집계가 아직 안 따라왔을 때를 위해서다(typeof 로 빌려 쓴다).
       var n2 = isToday
-        ? (typeof stampToday === "function" ? stampToday(srvTodayVal) : srvTodayVal)
+        ? (typeof stampToday === "function" ? stampToday(srvTodayVal) : (srvTodayVal || 0))
         : (s.days[ymd] || 0);
       var full2 = n2 >= perDay;
       var part2 = !full2 && n2 > 0;
@@ -338,8 +369,11 @@ function evtStampHtml(u) {
   // ⚠️ perDay===1 이면 예전 문구 그대로 — 바뀐 것이 없는 회차에 새 문구를 들이밀지 않는다.
   var fine = perDay === 1
     ? "한 날에 여러 번 하셔도 그날 한 칸이에요."
+    // ⚠️ 「한 번」을 글자 그대로 「N회」로 적지 않는다(검토 2026-10-03) — 성도님이 읽는 말이다.
+    //    첫 화면의 오늘 횟수 띠는 0회면 숫자 없이 「오늘 첫 말씀을 시작해요」만 보이므로,
+    //    「하시고 나면 그 자리에 쌓인다」로 말한다(app.js applyTodayStrip).
     : ("하루에 " + perDay + "번 하시면 그날 한 칸이에요. " +
-       "한 번은 첫 화면 「오늘 N회」와 같은 수예요.");
+       "암송·도전·복습을 하나 마칠 때마다 한 번이고, 첫 화면에 「오늘 1회」처럼 쌓여요.");
 
   return '<div class="ev-stampbox">' +
     '<div class="ev-stamp-h">' + head + "</div>" +
@@ -647,7 +681,8 @@ function evtSubmit(u, eventId) {
   }).then(function () {
     evtForm = null;
     return evtLoad(u);
-  }).then(function () {
+  }).then(function (fresh) {
+    if (fresh === false) return;   // 그사이 로그아웃·다른 분 — 앞사람 화면을 다시 그리지 않는다
     var e2 = evtFind(eventId);
     if (e2 && e2.needs && e2.needs.eligibility) {
       // ⚠️ appAlert 한 줄로 끝내지 않는다 — 스냅샷을 성도님 말로 옮겨야
@@ -680,7 +715,8 @@ function evtAskDrop(u, eventId) {
     return api.eventDrop(u.user_id, mine.id).then(function () {
       evtForm = null;
       return evtLoad(u);
-    }).then(function () {
+    }).then(function (fresh) {
+      if (fresh === false) return;   // 그사이 로그아웃·다른 분 — 앞사람 화면을 다시 그리지 않는다
       appAlert("참여를 취소했어요.");
       evtDrawListFresh(u);
     }).catch(function (err) { appAlert(evtErrText(err, e)); });

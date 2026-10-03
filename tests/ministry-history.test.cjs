@@ -343,24 +343,19 @@ test('referrer 줄 — android-app://<패키지> 로 열리면 기기 표식과 
 
 test('clearPersonalData — sessionStorage 를 비워도 이번 실행 표식만은 다시 남긴다(앱에서 「내 정보 지우기」 뒤에도 숨게)', () => {
   const body = pickFn('clearPersonalData');
-  const keys = [...new Set(body.match(/\b[A-Z][A-Z0-9_]*_KEY\b/g) || [])].filter((k) => k !== 'PLAY_SESSION_KEY');
+  // MIN_TESTER_KEY 는 스텁 대신 **진짜 값**을 넣는다 — 아래에서 ministry-tester::<uid> 가 지워지는지 본다.
+  const keys = [...new Set(body.match(/\b[A-Z][A-Z0-9_]*_KEY\b/g) || [])]
+    .filter((k) => k !== 'PLAY_SESSION_KEY' && k !== 'MIN_TESTER_KEY');
   const run = (withFlag) => {
-    const local = { 'play-store-app': '1' };
+    const local = {
+      'play-store-app': '1',
+      // 시험 참여자 표식(사람별 · 키 이름에 user_id) — 로그아웃 때 지워야 한다(검토 2026-10-03)
+      'ministry-tester::11111111-1111-1111-1111-111111111111': '1',
+      'ministry-tester::22222222-2222-2222-2222-222222222222': '0',
+    };
     const sess = { 'board-recent': '{}', 'build-fix': 'x' };
     if (withFlag) sess['play-app-session'] = '1';
-    vm.runInContext([
-      ...keys.map((k) => 'var ' + k + ' = "stub-' + k + '";'),
-      // clearPersonalData 는 이제 이벤트 플랫폼 기기 공용 캐시 비우기를 resetEventDeviceCache()
-      //   하나에 맡긴다(2026-10-03 재검토 — 중복 제거) — 그 함수의 실제 동작(localStorage·
-      //   js/events.js 전역·stampCache·todayCountCache 비우기)은 이 검사의 관심사가 아니므로
-      //   no-op 스텁만 둔다. 호출됐는지 자체도 이 검사가 보는 것(PLAY_SESSION_KEY 복원)과
-      //   무관해 따로 확인하지 않는다.
-      'function resetEventDeviceCache() {}',
-      pickConst(/const PLAY_SESSION_KEY = "[^"]+";/, 'PLAY_SESSION_KEY'),
-      pickFn('openedByPlayApp'),
-      body,
-      'clearPersonalData();',
-    ].join('\n'), vm.createContext({
+    const ctx = vm.createContext({
       localStorage: {
         get length() { return Object.keys(local).length; },
         key: (i) => Object.keys(local)[i] ?? null,
@@ -372,12 +367,32 @@ test('clearPersonalData — sessionStorage 를 비워도 이번 실행 표식만
         setItem: (k, v) => { sess[k] = String(v); },
         clear: () => { for (const k of Object.keys(sess)) delete sess[k]; },
       },
-    }));
-    return { local, sess };
+    });
+    vm.runInContext([
+      ...keys.map((k) => 'var ' + k + ' = "stub-' + k + '";'),
+      pickConst(/const MIN_TESTER_KEY = "[^"]+";/, 'MIN_TESTER_KEY'),
+      // clearPersonalData 는 이벤트 플랫폼 기기 공용 캐시 비우기를 resetEventDeviceCache()
+      //   하나에 맡긴다(2026-10-03 재검토 — 중복 제거). 그 함수의 실제 동작(localStorage·
+      //   js/events.js 전역·stampCache·todayCountCache 비우기)은 여기서 돌리지 않고,
+      //   **한 번 불렸는지만** 센다(검토 2026-10-03 — 빠지면 공용 기기에 앞사람 시험 회차·오늘 수가 남는다).
+      'var resetCalls = 0;',
+      'function resetEventDeviceCache() { resetCalls++; }',
+      // 구절별 횟수 캐시(「총 N회」) — 앞사람 값이 들어 있는 채로 시작한다
+      'var verseCountCache = { "1": 3, "2": 5 };',
+      pickConst(/const PLAY_SESSION_KEY = "[^"]+";/, 'PLAY_SESSION_KEY'),
+      pickFn('openedByPlayApp'),
+      body,
+      'clearPersonalData();',
+    ].join('\n'), ctx);
+    return { local, sess, ctx };
   };
   const kept = run(true);
   assert.deepEqual(Object.keys(kept.sess), ['play-app-session'], '이번 실행 표식이 지워졌거나 다른 것이 남았다');
   assert.equal(kept.local['play-store-app'], '1', '기기 표식을 지웠다');
+  assert.equal(kept.ctx.resetCalls, 1, 'resetEventDeviceCache 를 정확히 한 번 부르지 않았다');
+  assert.deepEqual(Object.keys(kept.local).filter((k) => k.indexOf('ministry-tester::') === 0), [],
+    '시험 참여자 표식(ministry-tester::<uid>)이 남았다 — 공용 기기에 앞사람 user_id 가 키 이름으로 남는다');
+  assert.equal(kept.ctx.verseCountCache, null, '구절별 횟수 캐시(verseCountCache)를 비우지 않았다');
   assert.deepEqual(Object.keys(run(false).sess), [], '없던 이번 실행 표식이 생겼다');
 });
 

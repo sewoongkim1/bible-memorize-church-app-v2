@@ -743,8 +743,12 @@ function eventVisible() { return eventOpenCached(); }
 //   새 신원 화면에 보인다. 가을 말씀 동행이 todayCountCache 로 stampToday()(오늘 도장 칸)를
 //   계산하므로 이 누출이 곧 도장 오표시로 이어진다.
 // ⚠️ clearPersonalData 는 자기 몸체만 떼어 내 돌리는 순수 함수 검사가 있다
-//   (tests/ministry-history.test.cjs) — 그 검사의 vm 컨텍스트에 이 함수의 **no-op 스텁**을
-//   넣어 뒀다(실제 비우는 동작은 그 검사의 관심사가 아니다 · PLAY_SESSION_KEY 복원만 본다).
+//   (tests/ministry-history.test.cjs) — 그 검사의 vm 컨텍스트에 이 함수의 **호출 횟수를 세는
+//   스텁**을 넣어 뒀다(clearPersonalData 가 이것을 한 번 부르는지만 본다 · 검토 2026-10-03).
+// ⚠️ TDZ — stampCache·todayCountCache·todayCountDay 는 이 함수보다 **파일 뒤쪽에서 let 으로**
+//   선언된다. 그래서 이 함수는 **클릭 경로에서만**(로그아웃 · 「로그인 정보변경」 제출) 불러야 한다 —
+//   스크립트가 끝까지 실행된 뒤라 걸리지 않는다. 부팅 중(최상위 코드·그 let 줄보다 앞서 도는 곳)에서
+//   부르면 ReferenceError 로 첫 화면이 통째로 죽는다(재검토 2026-10-03 · 중복 합치며 빠졌던 경고를 되살림).
 function resetEventDeviceCache() {
   [EVENT_OPEN_KEY, EVENT_LABEL_KEY, EVENT_STAMP_ID_KEY]
     .forEach((k) => { try { localStorage.removeItem(k); } catch (e) {} });
@@ -1185,14 +1189,24 @@ function clearPersonalData() {
   //   (2026-10-03 재검토 — 「로그인 정보변경」(entry-submit)과 중복되던 코드를 합쳤다 ·
   //   이유는 그 함수 바로 위 주석에 있다). ⚠️ 이 함수(clearPersonalData)는 몸체만 떼어
   //   내 돌리는 순수 함수 검사가 있어(tests/ministry-history.test.cjs), 그 검사의 vm
-  //   컨텍스트에 resetEventDeviceCache 의 no-op 스텁을 넣어 뒀다.
+  //   컨텍스트에 resetEventDeviceCache 의 스텁(호출 횟수를 센다 — 한 번 불리는지 본다)을 넣어 뒀다.
   resetEventDeviceCache();
+  // 구절별 횟수(「총 N회」) 메모리 캐시 — 안 비우면 다음 분 첫 화면에 앞사람 총 횟수가 서버 응답이
+  //   올 때까지 한 왕복 보인다(검토 2026-10-03). let 이 이 함수보다 뒤에 있지만 클릭 경로라 TDZ 와 무관하다.
+  verseCountCache = null;
   // 가을 말씀 동행 진행 캐시 — user_id 별이라 목록에 못 적는다. 앞자리로 훑어 지운다.
   // 보호자 확인(guardian-ok:: · guardian-later::)·게시판 이용 규칙(board-rules::)도 사람별이라 같은 식으로 지운다.
+  // 시험 참여자 표식(ministry-tester::<user_id> · MIN_TESTER_KEY)도 지운다(검토 2026-10-03) — ① 키 이름에
+  //   앞사람 user_id 가 남는다(공용 기기) ② 남겨 두면 시험 참여자가 로그아웃 → 다시 실행 → 로그인했을 때
+  //   refreshMinistryTester 가 「전에도 참」이라 값이 안 바뀐 것으로 보고 refreshEventOpen 을 안 불러,
+  //   다음 실행까지 시험 회차 단추가 없다. 지우면 그 자리가 false → true 로 바뀌어 다시 부른다.
+  // ⚠️ 다른 사람별 키(memorize-passage:: · memorize-daily-milestone:: · memorize-dailymsg::)는 여기서 안 건드린다 —
+  //   다른 기능의 기록이라 그 기능을 맡은 쪽이 정할 일이다(2026-10-03 검토 「나중」).
   try {
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const k = localStorage.key(i);
-      if (k && (k.indexOf("event-stamp::") === 0 || k.indexOf("guardian-") === 0 || k.indexOf("board-rules::") === 0)) {
+      if (k && (k.indexOf("event-stamp::") === 0 || k.indexOf("guardian-") === 0 || k.indexOf("board-rules::") === 0 ||
+                k.indexOf(MIN_TESTER_KEY) === 0)) {
         localStorage.removeItem(k);
       }
     }
@@ -2164,7 +2178,12 @@ function fillStampPill(u) {
   if (!evId) return;                                 // 자격 회차가 없거나 둘 이상이다
   const cached = stampRead(u.user_id);
   if (cached && cached.eventId === evId) { stampCache = cached; applyStampPill(); }
+  const callUid = u.user_id;   // 응답 때 로그인한 사람이 그대로인지 보려고(아래)
   api.eventStamps(u.user_id, evId).then((s) => {
+    // ⚠️ 부른 뒤 로그인한 사람이 바뀌었으면(로그아웃·「로그인 정보변경」) 아무것도 쓰지 않고 버린다
+    //   (refreshEventOpen 과 같은 가드 · 검토 2026-10-03) — 안 버리면 방금 비운 stampCache 와
+    //   event-stamp::<앞사람 uid> 를 다시 써, 공용 기기에 앞사람 진행이 되살아난다.
+    if (((loadUser() || {}).user_id || "") !== callUid) return;
     if (!s || !s.ok || !s.rule) return;
     const today = todayYmd();
     stampCache = {
@@ -5373,8 +5392,13 @@ function loadTodayCount(u) {
   applyTodayStrip(); // 캐시 있으면 즉시(재방문 깜빡임 방지)
   if (!u || !u.user_id || !window.api || !api.mydays) return;
   const ymd = todayYmd();
+  const callUid = u.user_id;   // 응답 때 로그인한 사람이 그대로인지 보려고(아래)
   api.mydays(u.user_id, ymd, ymd)
     .then((d) => {
+      // ⚠️ 부른 뒤 로그인한 사람이 바뀌었으면(로그아웃·「로그인 정보변경」) 아무것도 쓰지 않고 버린다
+      //   (refreshEventOpen 과 같은 가드 · 검토 2026-10-03) — 안 버리면 방금 비운 todayCountCache 를
+      //   앞사람 값으로 다시 채우고, 같은 날이면 Math.max 때문에 다음 분 화면에 **그날 내내** 남는다.
+      if (((loadUser() || {}).user_id || "") !== callUid) return;
       const serverVal = (d && d.days && Number(d.days[ymd])) || 0;
       if (todayCountDay === ymd && todayCountCache != null) {
         // 같은 날: 방금 낙관적 +1을 경합하던 mydays가 옛 값으로 되돌리지 않게 큰 값 유지

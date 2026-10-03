@@ -4,6 +4,8 @@
 #   EVT_ENV=prod bash tests/event-smoke.sh                   운영
 # 관리자 액션까지 보려면(비번을 아는 사람만):
 #   ADMIN_PW=... bash tests/event-smoke.sh
+# 가을 회차 perDay 값까지 보려면(6-2 · 운영 자료 SQL 뒤):
+#   EXPECT_PER_DAY=3 bash tests/event-smoke.sh
 #
 # ⚠️ 쓰기(등록·저장)는 검사하지 않는다 — 성도님 DB에 쓰레기를 남기지 않으려고
 #    거부되어야 하는 요청만 던진다. 실제 등록은 브라우저에서 확인한다.
@@ -133,18 +135,37 @@ else
 fi
 
 echo "6-1) 시험 회차(autumn-2026-test) — 비테스터에게는 없는 회차와 같다(2026-10-03)"
-TESTER_UID="00000000-0000-0000-0000-000000000000"
-LT=$(call "{\"action\":\"eventOpenList\",\"user_id\":\"$TESTER_UID\"}")
+# 영(0) uuid 는 users 에 없는 계정이라 시험 참여자 명단에도 없다 — 곧 「비테스터」다.
+NONTESTER_UID="00000000-0000-0000-0000-000000000000"
+LT=$(call "{\"action\":\"eventOpenList\",\"user_id\":\"$NONTESTER_UID\"}")
+# ⚠️ ok 를 먼저 본다 — 오류 응답이면 events 가 없어 아래 「없다」가 빈 목록으로 그냥 통과한다.
+chk "ok" "$(jqn 'd.get("ok")' "$LT")" "True"
 chk "목록에 시험 회차가 없다" "$(jqn 'all(e["id"] != "autumn-2026-test" for e in d.get("events", []))' "$LT")" "True"
 
-ST=$(call "{\"action\":\"eventStamps\",\"user_id\":\"$TESTER_UID\",\"event_id\":\"autumn-2026-test\"}")
+ST=$(call "{\"action\":\"eventStamps\",\"user_id\":\"$NONTESTER_UID\",\"event_id\":\"autumn-2026-test\"}")
 chk "eventStamps not-found" "$(jqn 'd.get("error")' "$ST")" "not-found"
 
-SG=$(call "{\"action\":\"eventSignup\",\"user_id\":\"$TESTER_UID\",\"event_id\":\"autumn-2026-test\"}")
+SG=$(call "{\"action\":\"eventSignup\",\"user_id\":\"$NONTESTER_UID\",\"event_id\":\"autumn-2026-test\"}")
 chk "eventSignup not-found" "$(jqn 'd.get("error")' "$SG")" "not-found"
 
-RP=$(call "{\"action\":\"eventRosterPublic\",\"event_id\":\"autumn-2026-test\",\"user_id\":\"$TESTER_UID\"}")
+RP=$(call "{\"action\":\"eventRosterPublic\",\"event_id\":\"autumn-2026-test\",\"user_id\":\"$NONTESTER_UID\"}")
 chk "eventRosterPublic not-found" "$(jqn 'd.get("error")' "$RP")" "not-found"
+
+echo "6-2) 배포 확인 — eventStamps(autumn-2026) 가 perDay·todayCount 를 싣는가(읽기만)"
+# 운영 반영 단계마다 이 절로 「새 api 가 나갔는가」를 본다:
+#   ① 구조 SQL 뒤 ok · ② api 뒤 rule.perDay·todayCount 키 · ④ 자료 SQL 뒤 EXPECT_PER_DAY=3 으로 값까지.
+# 영 uuid 는 활동이 없는 계정이라 읽기만 한다(도장 계산은 v2_event_weeks·v2_mydays 조회뿐 — 아무것도 안 쓴다).
+# todayCount 는 값이 아니라 **키가 있는지**만 본다(통신이 끊긴 날은 null 이 맞다 — 「모른다」).
+PS=$(call "{\"action\":\"eventStamps\",\"user_id\":\"$NONTESTER_UID\",\"event_id\":\"autumn-2026\"}")
+chk "ok" "$(jqn 'd.get("ok")' "$PS")" "True"
+chk "rule.perDay 가 있다" "$(jqn 'isinstance((d.get("rule") or {}).get("perDay"), int)' "$PS")" "True"
+chk "todayCount 키가 있다" "$(jqn '"todayCount" in d' "$PS")" "True"
+chk "user_id 를 싣지 않는다" "$(jqn '"user_id" not in json.dumps(d)' "$PS")" "True"
+if [ -n "${EXPECT_PER_DAY:-}" ]; then
+  chk "rule.perDay == $EXPECT_PER_DAY" "$(jqn '(d.get("rule") or {}).get("perDay")' "$PS")" "$EXPECT_PER_DAY"
+else
+  sk "rule.perDay 값" "EXPECT_PER_DAY 환경변수가 없습니다(운영 자료 SQL 뒤에는 EXPECT_PER_DAY=3)"
+fi
 
 echo "7) 남의 경로가 멀쩡한가 (내 배포가 남의 코드도 함께 내보낸다)"
 for A in getVerses ranking boardList; do
