@@ -295,7 +295,9 @@ function evtStampHtml(u) {
       dcells += '<div class="ev-day' + (full2 ? " on" : "") + (part2 ? " part" : "") +
         (isToday ? " today" : "") + '">' +
         '<div class="ev-day-t">' + (isToday ? "오늘" : dayNames[new Date(ymd + "T00:00:00Z").getUTCDay()]) + '</div>' +
-        '<div class="ev-day-v">' + (full2 ? "✓" : (part2 ? (n2 + "/" + perDay) : "·")) +
+        // ⚠️ 빈 날(0)·미래 칸은 .ev-wk-v.zero 와 같은 조용한 모양(리뷰 2026-10-03) — 나무라지 않는다.
+        '<div class="ev-day-v' + (!full2 && !part2 ? " zero" : "") + '">' +
+        (full2 ? "✓" : (part2 ? (n2 + "/" + perDay) : "·")) +
         "</div></div>";
     }
     daysHtml = '<div class="ev-days">' + dcells + '</div>';
@@ -689,7 +691,9 @@ function evtErrText(err, e) {
   if (m === "not-eligible") return "아직 신청이 열리지 않았어요.<br>몇 주가 더 필요한지는 도장판에 적혀 있어요.";
   if (m === "not-yet") {
     var opensOn = e && e.opensOn;
-    return (opensOn ? evtDateKo(opensOn) : "곧") + "부터 신청을 받아요.";
+    // ⚠️ opensOn 이 없을 때 "곧" + "부터 신청을 받아요" 로 이어 붙이면 "곧부터 신청을
+    //    받아요"가 되어 어색하다(리뷰 2026-10-03) — 그 경우만 따로 문장을 쓴다.
+    return opensOn ? (evtDateKo(opensOn) + "부터 신청을 받아요.") : "곧 신청을 받아요.";
   }
   if (m === "no-rule") return "준비 중이에요. 잠시 뒤 다시 열어 주세요.";
   if (m === "bad-rule") return "지금은 신청을 받을 수 없어요. 잠시 뒤에 다시 해 주세요.";

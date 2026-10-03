@@ -1119,6 +1119,13 @@ function clearPersonalData() {
   //    applyStampPill 이 **동기로** 먼저 그려서 서버 응답이 오기 전 한 왕복 동안
   //    **앞사람의 알약**이 보인다(이 화면 전환은 새로고침이 아니다).
   stampCache = null;
+  // ⚠️ 「오늘 N회」 띠도 같은 이유로 비운다 — 안 비우면 공용 기기에서 다음 분 로그인 때
+  //    첫 그림(서버 응답 전 한 왕복)에 **앞사람의 오늘 횟수·단계 배지**가 잠깐 보인다
+  //    (stampCache 와 같은 증상 · 리뷰 2026-10-03). todayCountCache·todayCountDay 는
+  //    이 함수보다 아래에서 let 으로 선언되지만, 이 함수는 버튼 클릭으로만 불려
+  //    스크립트가 다 실행된 뒤라 TDZ 에 걸리지 않는다.
+  todayCountCache = null;
+  todayCountDay = null;
   // 가을 말씀 동행 진행 캐시 — user_id 별이라 목록에 못 적는다. 앞자리로 훑어 지운다.
   // 보호자 확인(guardian-ok:: · guardian-later::)·게시판 이용 규칙(board-rules::)도 사람별이라 같은 식으로 지운다.
   try {
@@ -2009,6 +2016,7 @@ async function fillBoardBadge() {
 //    clearPersonalData 목록에도 없다 — 공용 기기에서 남의 진행이 남는다.
 const STAMP_KEY = (uid) => `event-stamp::${uid}`;
 // { eventId, day, start, weeks, perWeek, perDay, srvWeekDays, srvToday, eligible }
+// ⚠️ srvToday 는 둘 다 모르면 null 일 수 있다(「모른다」· 리뷰 2026-10-03) — 0 으로 읽지 말 것.
 // ⚠️ srvWeekDays·srvToday 는 서버가 보낸 **그대로**다 — 여기서 +1 해 저장하지 않는다
 //    (2026-10-03 하루 N번부터). 화면에 보일 값은 applyStampPill 이 그때그때 계산한다.
 let stampCache = null;
@@ -2060,13 +2068,17 @@ function applyStampPill() {
   const i = stampWeekIndex(s);
   if (i < 0) return;                                 // 기간 밖이면 아무것도 안 붙인다
   const perDay = s.perDay || 1;
-  const srvToday = s.srvToday || 0;
+  // ⚠️ 밤을 넘기면(s.day !== 오늘) srvToday 는 「어제 것」이라 오늘 기준 +1 판단에 못 쓴다
+  //    — null 로 둔다(「모른다」를 0 으로 뭉개지 않는다). 다음 fillStampPill 이 오늘 값으로
+  //    다시 채울 때까지는 조용히 srvN 만 보여 준다(리뷰 2026-10-03, 공용 기기 자정 넘김 경계).
+  const srvToday = (s.day === todayYmd()) ? s.srvToday : null;
   const liveToday = stampToday(srvToday);
   // ⚠️ 서버 weekDays 는 로드 시점 스냅샷이라, 오늘 막 perDay 문턱을 넘겼는데 아직
   //    서버가 못 따라왔으면 그 자리에서 +1 로 보정해 보여 준다. **저장하지 않는다**
   //    — 다음에 다시 열면 서버 값으로 저절로 맞는다(되돌림이 저절로 맞게 · 2026-10-03).
+  //    srvToday 를 모르면(null) +1 을 건너뛴다 — 「모른다」를 「아직 안 넘었다」로 단정하지 않는다.
   const srvN = (s.srvWeekDays && s.srvWeekDays[i]) || 0;
-  const n = srvN + ((liveToday >= perDay && srvToday < perDay) ? 1 : 0);
+  const n = srvN + ((srvToday != null && liveToday >= perDay && srvToday < perDay) ? 1 : 0);
   let dots = "";
   for (let k = 0; k < s.perWeek; k++) dots += k < n ? "●" : "○";
   btn.insertAdjacentHTML("beforeend", `<span class="ev-pill">${dots}</span>`);
@@ -2089,7 +2101,9 @@ function fillStampPill(u) {
       eventId: evId, day: today, start: s.rule.start,
       weeks: s.rule.weeks, perWeek: s.rule.perWeek, perDay: s.rule.perDay || 1,
       srvWeekDays: (s.weekDays || []).slice(),
-      srvToday: (s.todayCount != null ? s.todayCount : (s.days && s.days[today])) || 0,
+      // ⚠️ 둘 다 없으면(통신 실패 등) 0 이 아니라 null — 「모른다」를 「0번 했다」로
+      //    뭉개지 않는다(리뷰 2026-10-03). applyStampPill 이 null 이면 +1 을 건너뛴다.
+      srvToday: s.todayCount ?? (s.days != null ? (s.days[today] ?? 0) : null),
       eligible: !!s.eligible,
     };
     stampWrite(u.user_id, stampCache);

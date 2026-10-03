@@ -5851,6 +5851,11 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .ev-stampbox { margin: 14px 0; padding: 14px; border: 1px solid #e3e6ee; border-radius: 12px; background: #fff; }
 .ev-stamp-h { font-weight: 700; margin-bottom: 10px; }
 .ev-wks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+/* 375px 아래는 「10/11~10/17」 같은 라벨이 3칸에 못 들어가 넘친다(리뷰 2026-10-03,
+   10/18 개시 전 꼭 고칠 것으로 지정됨 — perDay 와 무관하게 원래 있던 문제) — 2열로 접는다. */
+@media (max-width: 374px) {
+  .ev-wks { grid-template-columns: repeat(2, 1fr); }
+}
 .ev-wk { border: 1px solid #e3e6ee; border-radius: 10px; padding: 8px 6px; text-align: center; }
 .ev-wk.on { background: #fdf3d8; border-color: #c8a84b; color: #8a6a1e; }
 .ev-wk-t { font-size: 12px; opacity: .75; }
@@ -5867,12 +5872,18 @@ body:has(#update-banner) .ps-wrap.ps-home{
 /* 이번 주 7일 띠 — 하루 N번(perDay)부터. 색은 위 .ev-wk.on 과 같은 금색 계열만(새 색 금지).
    320px 폰에서 한 칸이 약 28px 이라(실측) 요일/값을 두 줄로 나눠야 들어간다(2026-10-03). */
 .ev-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 10px; }
-.ev-day { border: 1px solid #e3e6ee; border-radius: 8px; padding: 6px 2px; text-align: center; }
+/* ⚠️ grid 칸은 기본 min-width:auto 라 "9/10"처럼 띄어쓰기 없는 값은 줄바꿈을 못 해 칸을
+   억지로 넓힌다(리뷰 2026-10-03 측정) — perDay 3 인 지금은 "2/3"까지라 안 보이지만,
+   perDay 가 10 으로만 커져도 같은 식으로 넘친다. min-width:0 으로 미리 막아 둔다
+   (perDay 3 상태는 폭이 그대로임을 실측 확인 — 지금 보이는 모양은 안 바뀐다). */
+.ev-day { border: 1px solid #e3e6ee; border-radius: 8px; padding: 6px 2px; text-align: center; min-width: 0; }
 .ev-day.part { border-color: #c8a84b; }
 .ev-day.on { background: #fdf3d8; border-color: #c8a84b; color: #8a6a1e; }
 .ev-day.today { border-width: 2px; font-weight: 700; }
-.ev-day-t { font-size: 11px; opacity: .75; }
+.ev-day-t { font-size: 11px; opacity: .75; white-space: nowrap; } /* 「오늘」이 두 글자로 줄바꿈되지 않게(리뷰 2026-10-03) */
 .ev-day-v { font-size: 13px; font-weight: 700; margin-top: 2px; }
+/* 빈 날(·)·아직 안 된 미래 칸 — 위 .ev-wk-v.zero 와 같은 조용한 모양(새 색 없음 · 리뷰 2026-10-03) */
+.ev-day-v.zero { font-weight: 400; opacity: .35; }
 .dark .ev-day { border-color: #2b323d; }
 .dark .ev-day.part { border-color: #5a4e2a; }
 .dark .ev-day.on { background: #2a2417; border-color: #5a4e2a; color: #dcb669; }
