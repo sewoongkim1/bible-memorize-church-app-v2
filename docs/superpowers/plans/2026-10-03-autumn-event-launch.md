@@ -387,3 +387,169 @@ git commit -m "feat(이벤트): 가을 말씀암송 동행 포스터 A3 · 슬�
 - [ ] **Step 1:** 자격이 찬 계정으로 `?ev=autumn-2026` 신청 단추가 열려 있는지 본다(없으면 `eventStamps` 응답의 `phase`·`eligible`).
 - [ ] **Step 2:** `sendPush`(문구.md 5절).
 - [ ] **Step 3:** CLAUDE.md 가을 줄에 「11/3 알림 발송」 · 다음 할 일 「11/29 이후 최종 집계(교회 어드민 자격 인정·미신청 목록) · 12월 `event_streak_metrics.sql` D 창」.
+
+---
+
+## 추가 (2026-10-03 같은 날) — 「하루 3번」 규칙 + 시험 참여자 시험 (설계 §8)
+
+### 추가 Global Constraints
+- 「한 번」 = `daily_activity.cnt` 를 **모드 구분 없이 더한** 하루 합(= `v2_mydays` · 앱 「오늘 N회」). 하루 한 칸 = 합 ≥ `perDay`.
+- `needs.eligibility.perDay` 정수 1~50 · 없으면 1. **autumn-2026 = 3**(10/14 까지 5 로 바뀔 수 있음 — 숫자 한 곳 + 같은 SQL 의 문구).
+- `first_day` 는 「아무 활동이든 처음 한 날」 그대로. 문턱 미달인 날만 있는 사람도 **행이 나와야** 한다(HAVING 금지 · `count(*) filter` 로).
+- 시험 회차 `autumn-2026-test`: `status draft` · `needs.testOnly = true` · 제목·짧은 이름 「[시험] 가을 말씀암송 동행」 · `eligibility {start:"2026-09-27", weeks:6, perWeek:1, need:1, minNeed:1, perDay:3}` · `opens_on 2026-10-04` · `closes_on 2026-10-17` · `list_until 2026-10-17`.
+- `testOnly` 회차는 **status 와 무관하게** `ministryIsTester(user_id)` 인 계정에게만 목록·도장·신청·취소·명단에 나온다. 그 밖에는 **없는 회차와 똑같이**(`not-found` · 목록에서 빠짐). 테스터에게는 draft 를 open 처럼(날짜 창은 그대로) 다룬다. **`testOnly` 없는 draft(진짜 autumn-2026)는 테스터에게도 안 보인다.**
+- 테스터 판정은 testOnly 행이 있고 user_id 가 있을 때만, **실패하면 false**(일시 오류로 목록 전체가 죽으면 안 된다).
+- 배포 순서: **개발 SQL → 개발 api → (개발 확인) → 운영 SQL → 운영 api → 프런트 bump·push → 운영 자료 SQL(perDay·시험 회차)**. `v2_event_weeks` 는 옛 4-인자 서명을 **drop 하고** 5-인자 하나만 남긴다(두 개면 PostgREST 가 못 고른다) · 권한 두 줄을 같은 트랜잭션에서.
+- `needs.eligibility` 가 있는데 `evtRule` 이 null(모양이 틀림)이면 신청을 **막는다**(`bad-rule`) — 클라이언트 `answers` 를 그대로 저장하는 길로 떨어지지 않게.
+- SQL 파일을 `supabase --workdir <스크래치> db query --linked -f` 로 돌릴 때는 **절대경로**(상대경로는 workdir 기준이라 못 찾는다).
+
+### Task 9: `v2_event_weeks` 에 `p_per_day` (SQL) + 글자 검사 시험
+
+**Files:**
+- Modify: `supabase/event_streak.sql` (함수 · 권한 · 확인 질의 · 머리 주석)
+- Modify: `supabase/dev_seed_stamp.sql` (하루 perDay 줄 · 모드 섞기 · 사람 둘 더 · 기대값)
+- Modify: `supabase/event_streak_metrics.sql` (`p` 에 `per_day` · `d` 에 `sum(cnt)` · `count(*) filter`)
+- Create: `tests/event-perday.test.cjs` (node 내장만)
+- Modify: `tools/preflight.py` (PURE_TESTS 에 한 줄)
+
+**Interfaces:**
+- Produces: `public.v2_event_weeks(p_start date, p_weeks int, p_per_week int, p_users text[] default null, p_per_day int default 1) returns table(user_id text, weeks_done int, week_days int[], all_weeks boolean, first_day date)` — 위치 호출 `(start, weeks, perWeek)` 와 이름 호출 `{p_start,p_weeks,p_per_week,p_users}` 가 그대로 산다.
+
+- [ ] **Step 1: 시험을 먼저 쓴다** — `tests/event-perday.test.cjs`(node:test · node:assert · fs · path 만):
+  - `supabase/event_streak.sql` 에 `drop function if exists public.v2_event_weeks(date, int, int, text[])` 가 `create or replace function public.v2_event_weeks(` **앞에** 있다.
+  - `create ... function ...v2_event_weeks(` 는 **정확히 하나**이고 인자 목록 끝이 `p_per_day int default 1` 이다.
+  - `revoke all on function public.v2_event_weeks(date, int, int, text[], int) from public, anon, authenticated` 와 `grant execute on function public.v2_event_weeks(date, int, int, text[], int) to service_role` 가 있고(공백 수는 느슨하게), **4-인자 revoke/grant 가 남아 있지 않다.**
+  - 함수 본문에 `having` 이 없고 `filter (where n >= ` 가 있다 · `sum(da.cnt)` 가 있다 · `first_day` 를 만드는 `min(d.day)` 부분식에 `p_per_day` 가 없다.
+  - `supabase/functions/api/index.ts` 의 `rpc("v2_event_weeks"` 호출마다 같은 객체 안에 `p_per_day` 가 있다(호출 수 ≥ 2).
+  - `evtRule` 함수 본문이 `perDay` 를 읽는다.
+  Run: `node --test tests/event-perday.test.cjs` → Expected: FAIL(아직 안 고쳤다).
+- [ ] **Step 2: `event_streak.sql` 을 고친다** — 함수와 권한을 아래로(지금 주석은 살리고 「하루 합 ≥ p_per_day 면 한 칸 · 2026-10-03」 을 더한다):
+```sql
+begin;
+-- ⚠️ 옛 4-인자 서명을 지운다 — 남겨 두면 기본값 때문에 PostgREST 가 두 오버로드 사이에서 못 골라 도장판·신청이 500 이 난다.
+drop function if exists public.v2_event_weeks(date, int, int, text[]);
+create or replace function public.v2_event_weeks(
+  p_start    date,
+  p_weeks    int,
+  p_per_week int,
+  p_users    text[] default null,
+  p_per_day  int    default 1        -- 하루 합(cnt, 모드 구분 없이)이 이 수 이상이어야 한 칸 · 2026-10-03
+)
+returns table(user_id text, weeks_done int, week_days int[], all_weeks boolean, first_day date)
+language sql stable security definer set search_path = public as $$
+  with win as (
+    -- 하루 한 줄로 모으되 그날 합을 n 에 남긴다. ⚠️ HAVING 으로 거르지 않는다 —
+    --    문턱 미달인 날만 있는 분도 행·first_day 가 살아야 「처음 오신 분 완화」가 맞다.
+    select da.user_id as uid, da.day, ((da.day - p_start) / 7) as wk, sum(da.cnt)::int as n
+      from daily_activity da
+     where da.day >= p_start
+       and da.day <  p_start + (p_weeks * 7)
+       and (p_users is null or da.user_id = any(p_users))
+     group by da.user_id, da.day
+  ),
+  per_week as (
+    select uid, wk, (count(*) filter (where n >= greatest(coalesce(p_per_day, 1), 1)))::int as days
+      from win group by uid, wk
+  ),
+  agg as (
+    select uid,
+           count(*) filter (where days >= p_per_week)::int as wd
+      from per_week group by uid
+  )
+  select a.uid,
+         a.wd,
+         (select array_agg(coalesce(pw.days, 0) order by g.wk)
+            from generate_series(0, p_weeks - 1) as g(wk)
+            left join per_week pw on pw.uid = a.uid and pw.wk = g.wk),
+         (a.wd >= p_weeks),
+         (select min(d.day) from daily_activity d where d.user_id = a.uid)
+    from agg a;
+$$;
+revoke all     on function public.v2_event_weeks(date, int, int, text[], int) from public, anon, authenticated;
+grant  execute on function public.v2_event_weeks(date, int, int, text[], int) to   service_role;
+commit;
+```
+  확인 ① 질의를 「정확히 1행 · `pg_get_function_identity_arguments` = `p_start date, p_weeks integer, p_per_week integer, p_users text[], p_per_day integer` · proacl 에 `anon=`/`authenticated=`/`=X` 없음(proacl null 도 안 됨)」 으로 바꾼다. 확인 ② 예시에 `p_per_day => 3` 판을 하나 더.
+- [ ] **Step 3: `dev_seed_stamp.sql`** — 하루에 `perDay`(3) 줄을 **모드를 섞어**(예 `learn-typing`·`typing`·`review-typing`) 넣게 바꾸고, 사람 둘을 더한다: 「모자란날」(하루 2줄 → `p_per_day 3` 에서 칸 0 · 행은 나와야) · 「늦게온모자람」(첫 활동이 창 안 · 문턱 미달만 → 행과 first_day 가 있어야). 기대값 주석을 `p_per_day => 3` 기준과 `=> 1`(옛 값과 같음) 둘로 적는다. ⚠️ 「운영이면 멈춘다」 빗장은 그대로.
+- [ ] **Step 4: `event_streak_metrics.sql`** — `p` 에 `3 as per_day`, `d` 에 `sum(da.cnt) as n`, `w` 를 `count(*) filter (where n >= p.per_day)` 로(HAVING 금지 — 「활동한 분」 뜻이 바뀐다). 11줄 주석 「하루 합 cnt 가 per_day 이상이면 한 칸」. 결과란의 옛 숫자에 「(per_day 1)」을 붙인다.
+- [ ] **Step 5: `tools/preflight.py`** — PURE_TESTS 에 `"tests/event-perday.test.cjs"` 한 줄(다른 줄은 건드리지 않는다).
+- [ ] **Step 6:** `node --test tests/event-perday.test.cjs` → index.ts 항목 둘(p_per_day·evtRule)만 아직 FAIL(Task 10 에서 통과). 나머지 PASS.
+- [ ] **Step 7: 개발 DB 에 돌린다** — `supabase --workdir <sb-dev> db query --linked -f "C:/Projects/v2-mh-merge/supabase/event_streak.sql"` → 확인 ① 1행·권한 깨끗 → `dev_seed_stamp.sql` → `select * from v2_event_weeks('2026-10-18',6,3, null, 3)` 와 `(..., 1)` 이 기대값 주석과 같은지.
+- [ ] **Step 8: 커밋(로컬)** — 위 파일만 경로를 못 박아.
+
+### Task 10: api — `perDay` · 시험 회차(`testOnly`) · 개발 배포
+
+**Files:**
+- Modify: `supabase/functions/api/index.ts` (evtRule · evtStampsFor · eventStamps · eventOpenList · eventSignup · eventDrop · eventRoster · eventRosterPublic · 새 helper)
+- Modify: `tests/event-smoke.sh` (비테스터 차단 항목)
+
+**Interfaces:**
+- Consumes: Task 9 의 5-인자 RPC
+- Produces(응답): `eventStamps` → `rule.perDay` · `days`(날짜별 합 · 이미 있음) · `todayCount`(오늘 합 · 새 칸, `days` 가 null 이면 null). `eventOpenList` → 시험 참여자 요청(user_id 있음)에만 `autumn-2026-test` 가 `events[]` 에 실리고 각 회차에 `testOnly` 칸. 신청 새 오류 슬러그 `bad-rule`.
+
+- [ ] **Step 1: helper** (evtOpenNow 근처):
+```ts
+// 시험 회차(2026-10-03 · 설계 §8-2) — needs.testOnly 가 true 면 시험 참여자에게만.
+function evtTestOnly(ev: any): boolean { return !!(ev && ev.needs && ev.needs.testOnly === true); }
+// 시험 참여자인가 — 실패하면 false(닫는다). 일시 오류로 목록 전체가 죽으면 안 된다.
+async function evtIsTester(userId: string): Promise<boolean> {
+  if (!userId) return false;
+  try { return await ministryIsTester(userId); } catch (_) { return false; }
+}
+// 신청이 지금 열려 있나(사람별) — 시험 회차는 시험 참여자에게만, status 와 무관하게(draft 도) 날짜 창으로.
+function evtOpenFor(ev: any, today: string, isTester: boolean): boolean {
+  if (evtTestOnly(ev)) return isTester && today >= ev.opens_on && today <= ev.closes_on;
+  return evtOpenNow(ev, today);
+}
+// 목록에 보이나(사람별)
+function evtListableFor(ev: any, today: string, isTester: boolean): boolean {
+  if (evtTestOnly(ev)) return isTester && ["draft", "open", "closed"].includes(ev.status) && (!ev.list_until || today <= ev.list_until);
+  return evtListable(ev, today);
+}
+```
+  `evtListable` 첫 줄에 `if (evtTestOnly(ev)) return false;`(누가 status 를 open 으로 바꿔도 새지 않게).
+- [ ] **Step 2: `evtRule`** — `const perDay = Number(e.perDay ?? 1)` · 정수 검사 목록에 넣고 `1 <= perDay <= 50` · 반환 객체에 `perDay`.
+- [ ] **Step 3: `evtStampsFor`** — RPC 인자에 `p_per_day: rule.perDay` · 반환에 `todayCount: days ? (days[today] ?? 0) : null`.
+- [ ] **Step 4: `eventStamps`** — 회차를 읽은 뒤 `if (evtTestOnly(ev) && adminError(b) !== null && !(await evtIsTester(userId))) return { ok: false, error: "not-found" };`
+- [ ] **Step 5: `eventOpenList`** — 비관리자도 `draft` 를 select 하고(거름은 아래가 한다), `rows.some(evtTestOnly) && userId` 일 때만 `isTester = await evtIsTester(userId)`. 거름을 `isAdmin || evtListableFor(r, today, isTester)` 로, `canSignup`·`verb` 를 `evtOpenFor(r, today, isTester)` 로. 각 회차에 `testOnly: evtTestOnly(r)`. ⚠️ 비관리자에게 testOnly 아닌 draft 가 **절대** 안 실리는지(`evtListableFor` → `evtListable` 은 open·closed 만).
+- [ ] **Step 6: `eventSignup`** — 회차를 읽은 뒤: testOnly 면 `isTester = isAdmin || await evtIsTester(userId)`, false 면 `not-found`. 열림 판정을 `evtOpenFor(ev, today, isTester)` 로(testOnly+테스터면 `status !== "open"` → `not-open` 분기를 건너뛰고 날짜로 `not-yet`/`closed-period`). **`ev.needs?.eligibility` 가 있는데 `evtRule(ev)` 가 null 이면 `{ok:false, error:"bad-rule"}`.** 스냅샷 `answers.rule` 에 `perDay`·`minNeed` 를 더한다.
+- [ ] **Step 7: `eventDrop`** — 회차 select 에 `needs` 를 더하고, testOnly 면 테스터 판정 → `evtOpenFor` 로.
+- [ ] **Step 8: `eventRoster`** — events select 에 `needs` 를 더한다(최종 집계 블록이 처음 살아난다 — 그 블록의 RPC 에 `p_per_day: pickedRule.perDay`). 출력 events 에 `testOnly`.
+- [ ] **Step 9: `eventRosterPublic`** — `user_id` 를 받고 select 에 `needs`. 문을 `evtTestOnly(ev) ? (await evtIsTester(userId) && list_until 안 지남) : evtListable(ev, today)` 로. 응답에 user_id 를 싣지 않는다.
+- [ ] **Step 10: `tests/event-smoke.sh`** — 읽기 전용 항목 더하기: 비테스터 uuid(`00000000-0000-0000-0000-000000000000`)로 ① `eventOpenList` 에 `autumn-2026-test` 가 없다 ② `eventStamps`·`eventSignup`·`eventRosterPublic` 에 `autumn-2026-test` → `not-found`. 기존 「익명 목록에 draft 없음」은 그대로 통과해야 한다.
+- [ ] **Step 11:** `node --test tests/event-perday.test.cjs` 전부 PASS · `deno` 가 있으면 `deno check supabase/functions/api/index.ts`(없으면 건너뛰고 보고).
+- [ ] **Step 12: 개발 배포** — `git status --short` 로 남의 미커밋 코드가 없는지 → `supabase functions deploy api --no-verify-jwt --project-ref ktpwthwqzgcqcrmsafdo` → `bash tests/event-smoke.sh`(개발).
+- [ ] **Step 13: 커밋(로컬)**.
+
+### Task 11: 프런트 — 도장판 「n/perDay」 · 오늘 칸 · 시험 회차 보이기
+
+(프런트 지도가 끝나면 이 과제의 자리별 지시를 채운다 — 아래는 고정된 요구)
+- 날 칸: `days[day] >= perDay` 면 도장, `0 < n < perDay` 면 「n/perDay」, 오늘 칸은 「오늘 n/perDay」. `perDay` 는 `rule.perDay`(없으면 1) — 문구에 숫자를 박지 않는다.
+- `bumpStampToday`: 오늘 수를 하나 올리고 **perDay 에 막 닿을 때만** 이번 주 칸을 +1.
+- 시험 참여자: 로그인 상태에서 `refreshEventOpen` 이 user_id 를 실어 부른다(`ministryTesterCached()` 일 때만이어도 된다) · `api.eventRosterPublic` 에 user_id · 회차가 `testOnly` 면 이름 앞 「[시험]」 그대로(제목에 이미 있다).
+
+### Task 12: 회차 자료 — autumn-2026 `perDay 3` · 시험 회차 (개발 먼저)
+
+**Files:**
+- Create: `supabase/event_autumn_2026_perday.sql` — `do $$ declare v_per_day int := 3; ... $$` 하나로 `needs.eligibility.perDay` 와 `copy.intro` 를 **같은 숫자로** 바꾼다(가드: 행 있음 · draft · 신청 0건). intro:
+  `'하루에 ' || v_per_day || '번 말씀을 암송하시면 그날 한 칸이 채워져요.' || chr(10) || '한 주에 3일이면 그 주가 채워집니다 — 매일 하지 않아도 돼요.' || chr(10) || '여섯 주 가운데 세 주만 채우시면 신청 단추가 열려요.' || chr(10) || '신청하신 분께는 모두 드립니다.'`
+  머리에 「5 로 바꾸려면 v_per_day 한 곳만 고쳐 다시 돌린다 · **10/14 까지** · 개시 뒤에는 돌리지 않는다(가드가 막는다)」.
+- Create: `supabase/event_autumn_2026_test.sql` — 시험 회차 insert(추가 Global Constraints 값 그대로 · `on conflict (id) do update` · `status` 는 덮지 않는다) · copy.intro 첫 줄 「시험 회차예요 — 🧪 시험 참여자에게만 보여요.」 + 하루 3번 · 한 주에 1일 · 한 주만 채우시면 · 신청하신 분께 · 맨 아래 **주석으로** `-- 10/17 지우기: delete from public.events where id = 'autumn-2026-test';  -- 신청은 cascade 로 함께`.
+- Modify: `supabase/event_stamp_2026.sql` — 기록 값에 `'perDay', 3` 과 새 intro(돌리지 않는다).
+- [ ] 개발에 둘 다 돌리고(절대경로) 확인: autumn-2026 `perDay 3`·intro 새 문구 · autumn-2026-test 행. 개발 `app_config.ministryTesters` 에 개발 시험 계정 identity_key 가 있는지 보고, 없으면 **개발에만** 하나 넣는다(운영 명단은 친구가 교회 어드민에서).
+- [ ] 커밋(로컬).
+
+### Task 13: 공지 문구 · 포스터 — 「하루 3번」 + 고칠 곳 둘
+
+- `marketing/autumn-2026/문구.md`: 「하루 한 번 말씀을 암송하시면」 → 「하루 3번 말씀을 암송하시면」(모든 절) · 주보 「10월 18일(주일)부터 6주 동안」 → 「**10월 18일(주일)부터 11월 28일(토)까지** 6주 동안」, 끝의 「(~11월 28일)」 삭제 · 10/18 알림 「세 주를 채우신 분께 선물을 드려요.」 → 「세 주를 채우고 신청하신 분께 선물을 드려요.」 · 머리에 「3 은 10/14 까지 5 로 바뀔 수 있다 — 바뀌면 이 파일·포스터·`event_autumn_2026_perday.sql` 을 함께」.
+- `marketing/autumn-2026/poster.py`: 숫자는 파일 위 상수 `PER_DAY = 3` 하나에서 — sub 「하루 {PER_DAY}번 말씀을 암송하시면 한 칸.」 · 둘째 단계 「하루 {PER_DAY}번<br>말씀 암송」. `if __name__ == "__main__":` 가드(import 하면 다시 뽑지 않게). 다시 뽑아 PNG 를 눈으로.
+- [ ] 커밋(로컬).
+
+### Task 14: 운영 반영 · 시험 준비 끝 (컨트롤러)
+
+- [ ] 운영 SQL `event_streak.sql`(절대경로) → 확인 ① 1행·권한 → 운영 api 배포(⚠️ `git status` · 얼린 액션이 든 판인지) → `EVT_ENV=prod bash tests/event-smoke.sh`.
+- [ ] 프런트(Task 11) bump → push → `APP_BUILD` 확인.
+- [ ] 운영 자료 SQL 둘(`event_autumn_2026_perday.sql` · `event_autumn_2026_test.sql`).
+- [ ] **친구:** 교회 어드민 ⚙️ 시스템 → 🧪 시험 참여자에 시험할 분(친구 본인 포함) → 폰에서: 첫 화면 🏅 「[시험] 가을 말씀암송 동행」 · 도장판 1주 9/27~10/3 · 「오늘 n/3」 · 3번째에 도장 · 신청·취소.
+- [ ] 교회 어드민 가지 `autumn-excuse` 세션에 알림: 새 RPC 서명(`p_per_day` 끝 · 기본 1) · `eligRule` 에 `perDay`·`eligWeeks` 에 `p_per_day` · 원문 사본(`tests/fixtures/evt-legacy.ts`)을 새 v2 커밋으로 다시 뜨기 · **옛 체크아웃의 `event_streak.sql` 을 개발에 돌리지 말 것**(4-인자가 되살아나 모호성).
+- [ ] 문서: CLAUDE.md 가을 줄 · `docs/notes/bible-events-admin.md` 한 줄 · 메모.
