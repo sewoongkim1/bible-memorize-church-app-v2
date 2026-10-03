@@ -350,7 +350,12 @@ test('clearPersonalData — sessionStorage 를 비워도 이번 실행 표식만
     if (withFlag) sess['play-app-session'] = '1';
     vm.runInContext([
       ...keys.map((k) => 'var ' + k + ' = "stub-' + k + '";'),
-      'var stampCache = 1;',
+      // clearPersonalData 는 이제 이벤트 플랫폼 기기 공용 캐시 비우기를 resetEventDeviceCache()
+      //   하나에 맡긴다(2026-10-03 재검토 — 중복 제거) — 그 함수의 실제 동작(localStorage·
+      //   js/events.js 전역·stampCache·todayCountCache 비우기)은 이 검사의 관심사가 아니므로
+      //   no-op 스텁만 둔다. 호출됐는지 자체도 이 검사가 보는 것(PLAY_SESSION_KEY 복원)과
+      //   무관해 따로 확인하지 않는다.
+      'function resetEventDeviceCache() {}',
       pickConst(/const PLAY_SESSION_KEY = "[^"]+";/, 'PLAY_SESSION_KEY'),
       pickFn('openedByPlayApp'),
       body,
