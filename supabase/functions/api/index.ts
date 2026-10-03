@@ -5849,6 +5849,11 @@ function evtOpenNow(ev: any, today: string): boolean {
 
 // 시험 회차(2026-10-03 · 설계 §8-2) — needs.testOnly 가 true 면 시험 참여자에게만.
 function evtTestOnly(ev: any): boolean { return !!(ev && ev.needs && ev.needs.testOnly === true); }
+// 「자동 대상」 회차(2026-10-03 · 설계 §9) — needs.auto 가 true 면 신청 없이, 필요한 주를 채우신 분이
+//   곧 선물 대상이다. 신청을 받지 않고(evtOpenFor false · eventSignup/eventDrop 은 성도님 호출에 auto-event)
+//   공개 명단도 비운다(eventRosterPublic). 이름은 담당자만 본다(교회 어드민).
+// ⚠️ 이 깃발이 없는 회차는 **한 글자도 다르게 돌지 않는다.** 화면(js/events.js evtAuto)과 같은 판정이다.
+function evtAuto(ev: any): boolean { return !!(ev && ev.needs && ev.needs.auto === true); }
 // 시험 참여자인가 — 실패하면 false(닫는다). 일시 오류로 목록 전체가 죽으면 안 된다.
 async function evtIsTester(userId: string): Promise<boolean> {
   if (!userId) return false;
@@ -5856,6 +5861,9 @@ async function evtIsTester(userId: string): Promise<boolean> {
 }
 // 신청이 지금 열려 있나(사람별) — 시험 회차는 시험 참여자에게만, status 와 무관하게(draft 도) 날짜 창으로.
 function evtOpenFor(ev: any, today: string, isTester: boolean): boolean {
+  // 자동 대상 회차는 누구에게도 신청을 열지 않는다(시험 회차여도) — 목록의 canSignup false ·
+  //   verb 「조회」라 첫 화면 단추에 「등록」이 안 붙는다(app.js refreshEventOpen 은 고칠 것 없음).
+  if (evtAuto(ev)) return false;
   if (evtTestOnly(ev)) return isTester && today >= ev.opens_on && today <= ev.closes_on;
   return evtOpenNow(ev, today);
 }
@@ -6156,6 +6164,12 @@ async function eventSignup(b: any) {
     if (!isTester) return { ok: false, error: "not-found" };
   }
 
+  // 자동 대상 회차(설계 §9) — 성도님 신청은 받지 않는다(채우시면 그것으로 대상이다).
+  // ⚠️ 바로 위 시험 회차 비테스터의 not-found 가 먼저다 — 여기서 먼저 답하면 「있는 회차」가 샌다.
+  // ⚠️ 관리자 암호 갈래(isAdmin)는 예전처럼 지나간다 — 이 아래 evtOpenFor·not-eligible 검사도
+  //    관리자는 원래 건너뛰었다. 성도님 앱은 이 갈래를 부르지 않는다.
+  if (evtAuto(ev) && !isAdmin) return { ok: false, error: "auto-event" };
+
   if (!evtOpenFor(ev, today, isTester) && !isAdmin) {
     // 「아직 안 열렸다」·「아직 안 시작했다」·「마감했다」를 뭉개지 않는다.
     // ⚠️ 옛 코드는 status 가 open 이면 아직 시작 전이어도 「마감했어요」라고 답했다.
@@ -6253,6 +6267,14 @@ async function eventDrop(b: any) {
     .select("status,opens_on,closes_on,needs").eq("id", row.event_id).maybeSingle();
   // 시험 회차(2026-10-03)는 테스터면 draft 라도 날짜 창으로 취소를 받는다(evtOpenFor).
   const isTester = (ev && evtTestOnly(ev)) ? await evtIsTester(userId) : false;
+  // 자동 대상 회차(설계 §9) — 성도님 취소도 받지 않는다(신청이 없으니 취소도 없다 · 담당자가 인정해
+  //   넣은 줄을 성도님 쪽에서 지우지 못하게).
+  // ⚠️ 시험 회차의 비테스터는 여기를 건너뛰어 바로 아래 closed-period 를 그대로 받는다 — 회차가 없을 때와
+  //    같은 답이다(먼저 auto-event 를 주면 「있는 회차」가 샌다).
+  // ⚠️ 관리자 암호 갈래(adminError === null)는 예전처럼 지나간다.
+  if (ev && evtAuto(ev) && adminError(b) !== null && (!evtTestOnly(ev) || isTester)) {
+    return { ok: false, error: "auto-event" };
+  }
   if (!(ev && evtOpenFor(ev, evtToday(), isTester)) && adminError(b) !== null) {
     return { ok: false, error: "closed-period" };
   }
@@ -6567,6 +6589,18 @@ async function eventRosterPublic(b: any) {
     return { ok: false, error: "not-found" };
   }
 
+  const evOut = {
+    id: ev.id, title: ev.title, shown: evtShown(ev),
+    subtitle: ev.subtitle ?? "",
+    season: ev.season ?? "", status: ev.status,
+    opensOn: ev.opens_on, closesOn: ev.closes_on,
+    listUntil: ev.list_until ?? null,
+  };
+  // 자동 대상 회차(설계 §9) — 공개 명단이 **없다.** 평소 빈 명단과 같은 모양(이름 0줄)으로 돌려준다.
+  // ⚠️ event_signups 를 아예 읽지 않는다 — 담당자가 인정해 넣은 분의 이름·소속이 공개 키로 새지 않게.
+  // ⚠️ 시험 회차 비테스터의 not-found 는 바로 위에서 먼저 돌려준다.
+  if (evtAuto(ev)) return { ok: true, event: evOut, total: 0, groups: [] };
+
   const { data, error } = await db.from("event_signups")
     .select("who_type,group_name,sub_name,name,position")   // ← 다섯 칸만
     .eq("event_id", eventId).limit(5000);
@@ -6606,13 +6640,7 @@ async function eventRosterPublic(b: any) {
 
   return {
     ok: true,
-    event: {
-      id: ev.id, title: ev.title, shown: evtShown(ev),
-      subtitle: ev.subtitle ?? "",
-      season: ev.season ?? "", status: ev.status,
-      opensOn: ev.opens_on, closesOn: ev.closes_on,
-      listUntil: ev.list_until ?? null,
-    },
+    event: evOut,
     total: rows.length,
     groups,
   };
