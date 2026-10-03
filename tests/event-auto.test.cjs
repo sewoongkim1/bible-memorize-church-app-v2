@@ -182,14 +182,15 @@ test('⑨ 화면과 서버의 evtAuto 가 같은 판정 · 서버 순서(시험 
   // eventSignup — 시험 회차 비테스터 not-found → auto-event → 기간 검사 순서
   const su = codeOf(fnSource(TS, 'eventSignup', 'index.ts'));
   const iNF = su.indexOf('if (!isTester) return { ok: false, error: "not-found" };');
-  const iAuto = su.indexOf('if (evtAuto(ev) && !isAdmin) return { ok: false, error: "auto-event" };');
+  // 관리자 갈래도 막는다(2026-10-04) — 조건에 !isAdmin 이 다시 붙으면 공용 관리자 암호로 인정·확정 줄을 덮을 수 있다
+  const iAuto = su.indexOf('if (evtAuto(ev)) return { ok: false, error: "auto-event" };');
   const iOpen = su.indexOf('if (!evtOpenFor(ev, today, isTester) && !isAdmin)');
   assert.ok(iNF >= 0 && iAuto >= 0 && iOpen >= 0, 'eventSignup 의 세 검사 중 하나를 못 찾았다 — 이 검사가 낡았다');
   assert.ok(iNF < iAuto && iAuto < iOpen, 'eventSignup 순서가 틀렸다(not-found → auto-event → 기간)');
 
-  // eventDrop — 시험 회차 비테스터는 auto-event 를 받지 않는다(isTester 조건) · 관리자 갈래는 지나간다
+  // eventDrop — 시험 회차 비테스터는 auto-event 를 받지 않는다(isTester 조건) · 관리자 갈래도 막는다(2026-10-04)
   const dr = codeOf(fnSource(TS, 'eventDrop', 'index.ts'));
-  assert.ok(/if \(ev && evtAuto\(ev\) && adminError\(b\) !== null && \(!evtTestOnly\(ev\) \|\| isTester\)\)/.test(dr),
+  assert.ok(/if \(ev && evtAuto\(ev\) && \(adminError\(b\) === null \|\| !evtTestOnly\(ev\) \|\| isTester\)\)/.test(dr),
     'eventDrop 의 자동 대상 거절 조건이 바뀌었다 — 비테스터·관리자 갈래를 다시 볼 것');
   assert.ok(dr.indexOf('"auto-event"') < dr.indexOf('"closed-period"'), 'eventDrop 에서 auto-event 가 closed-period 보다 뒤에 있다');
 
@@ -220,7 +221,7 @@ test('⑩ 화면 — 자동 대상 회차는 명단을 받으러 가지 않고, 
 // ⏸ 안드로이드(플레이) 심사 중에는 개인정보 방침을 바꾸지 않는다(친구 2026-10-03) — 방침 문장을 되돌렸으므로 이 시험은 쉰다.
 //    심사 통과 뒤 · 10/18 전에 설계 §9-4 의 문장을 세 곳(privacy/ 4항 · renderPrivacyInfo · renderHelp 🔒)에 넣고 test.skip → test 로 되살린다.
 test.skip('⑪ 개인정보 — privacy/ 와 앱 안 두 곳이 같은 문장(신청 없이 세는 이벤트 · 끝나면 명단 공개) — 플레이 심사 뒤', () => {
-  const SENT = '신청 없이 암송 기록으로 세는 이벤트도 있습니다 — 측정 기간에는 이름·소속을 담당자만 보고, 행사가 끝나면 선물 대상 명단(이름·소속)을 게시판이나 앱 첫 화면에 올립니다(몇 주를 채웠는지·인정 사유는 올리지 않습니다).';
+  const SENT = '신청 없이 암송 기록으로 세는 이벤트도 있습니다 — 측정 기간에는 이름·소속을 담당자만 보고, 행사가 끝나면 선물 대상이 되신 분의 이름·소속을 그 이벤트 명단에 남기고(신청하지 않으셔도), 그 명단(이름·소속)을 게시판이나 앱 첫 화면에 올립니다(몇 주를 채웠는지·인정 사유는 올리지 않습니다).';
   const p4 = cut(PRIVACY, '<h2>4. 누가 볼 수 있나</h2>', '</ul>', 'privacy/index.html');
   const priv = cut(APP, 'function renderPrivacyInfo(', 'function renderHelp(', 'app.js');
   const help = APP.slice(APP.indexOf('function renderHelp('));

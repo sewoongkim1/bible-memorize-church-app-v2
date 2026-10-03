@@ -195,6 +195,13 @@ else
   # 로그인 없는 목록에 자동 대상 회차가 있으면 신청이 열려 있으면 안 된다(개시 뒤 운영에서 뜻이 있다)
   A5=$(call '{"action":"eventOpenList"}')
   chk "목록의 자동 대상 회차는 모두 canSignup false" "$(jqn 'all(not e["canSignup"] for e in d.get("events", []) if (e.get("needs") or {}).get("auto") is True)' "$A5")" "True"
+  # 관리자 암호 갈래도 막는다(2026-10-04) — 영 uuid 라 막히지 않은 옛 판에서도 users 에 없어 no-user 로 끝난다(쓰기 없음).
+  if [ -n "${ADMIN_PW:-}" ]; then
+    A6=$(call "{\"action\":\"eventSignup\",\"pw\":\"$ADMIN_PW\",\"user_id\":\"$NONTESTER_UID\",\"event_id\":\"autumn-2026\"}")
+    chk "관리자 갈래도 autumn-2026 eventSignup auto-event" "$(jqn 'd.get("error")' "$A6")" "auto-event"
+  else
+    sk "관리자 갈래 자동 대상 거절" "ADMIN_PW 환경변수가 없습니다"
+  fi
 
   if [ -z "${TESTER_UID:-}" ]; then
     sk "시험 회차(시험 참여자) - 목록·거절·빈 명단·도장" "TESTER_UID 환경변수가 없습니다"

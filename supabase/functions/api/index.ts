@@ -6166,9 +6166,10 @@ async function eventSignup(b: any) {
 
   // 자동 대상 회차(설계 §9) — 성도님 신청은 받지 않는다(채우시면 그것으로 대상이다).
   // ⚠️ 바로 위 시험 회차 비테스터의 not-found 가 먼저다 — 여기서 먼저 답하면 「있는 회차」가 샌다.
-  // ⚠️ 관리자 암호 갈래(isAdmin)는 예전처럼 지나간다 — 이 아래 evtOpenFor·not-eligible 검사도
-  //    관리자는 원래 건너뛰었다. 성도님 앱은 이 갈래를 부르지 않는다.
-  if (evtAuto(ev) && !isAdmin) return { ok: false, error: "auto-event" };
+  // ⚠️ 관리자 암호 갈래도 막는다(2026-10-04 · e5 검토) — 자동 대상 회차의 줄은 교회 어드민이 넣는다
+  //    (인정 'import' · 명단 확정 'auto'). 세 앱 공용 관리자 암호로 여기를 부르면 그 줄을 source 'app' 으로
+  //    덮어쓸 수 있었다. 이 v2 갈래를 쓰는 화면은 없다(교회 어드민은 서비스 키로 직접 쓴다).
+  if (evtAuto(ev)) return { ok: false, error: "auto-event" };
 
   if (!evtOpenFor(ev, today, isTester) && !isAdmin) {
     // 「아직 안 열렸다」·「아직 안 시작했다」·「마감했다」를 뭉개지 않는다.
@@ -6271,8 +6272,9 @@ async function eventDrop(b: any) {
   //   넣은 줄을 성도님 쪽에서 지우지 못하게).
   // ⚠️ 시험 회차의 비테스터는 여기를 건너뛰어 바로 아래 closed-period 를 그대로 받는다 — 회차가 없을 때와
   //    같은 답이다(먼저 auto-event 를 주면 「있는 회차」가 샌다).
-  // ⚠️ 관리자 암호 갈래(adminError === null)는 예전처럼 지나간다.
-  if (ev && evtAuto(ev) && adminError(b) !== null && (!evtTestOnly(ev) || isTester)) {
+  // ⚠️ 관리자 암호 갈래도 막는다(2026-10-04 · e5 검토) — 교회 어드민이 넣은 인정·확정 줄을 공용 관리자 암호로
+  //    지우지 못하게. 줄을 빼는 것은 교회 어드민(인정 거두고 빼기)에서만 한다.
+  if (ev && evtAuto(ev) && (adminError(b) === null || !evtTestOnly(ev) || isTester)) {
     return { ok: false, error: "auto-event" };
   }
   if (!(ev && evtOpenFor(ev, evtToday(), isTester)) && adminError(b) !== null) {
