@@ -8,7 +8,8 @@
 -- ⚠️ 창의 시작일은 **반드시 주일**이다. Postgres date_trunc('week') 는 월요일 시작이라
 --    쓰지 않는다 — 여기서는 floor((day - 시작일)/7) 로만 주를 가른다(서버와 같은 잣대).
 --    2026-09-23 에 이 파일 초안이 8/31·7/6(둘 다 월요일)로 적혀 있던 것을 잡았다.
--- ⚠️ mode 를 세지 않는다. 그날 daily_activity 에 행이 있으면 한 칸이다.
+-- ⚠️ mode 를 세지 않는다 — 모드 구분 없이 더한 **하루 합(cnt) 이 per_day 이상이면 한 칸**이다
+--    (2026-10-03 부터. 그전엔 「행이 있으면 한 칸」 이었다 — 아래 ②의 p.per_day 가 그 문턱이다).
 --
 -- ⚠️ **어느 DB 를 읽고 있는지 먼저 본다.** 저장소의 supabase/.temp 는 세션마다 바뀐다.
 --    `select count(*) from users` 가 사백이 넘으면 운영, 스물 남짓이면 개발이다.
@@ -23,14 +24,18 @@
 --   D 본 회차    2026-10-18(주일) ~ 2026-11-28(토)   끝난 뒤에 돌린다
 
 -- ② 문턱별 인원 ────────────────────────────────────────────────
-with p as (select date '2026-07-05' as s, 6 as weeks, 3 as per_week),
+--    ⚠️ per_day 는 가을 회차 값(3)으로 둔다 — v2_event_weeks 와 같은 잣대를 쓴다.
+with p as (select date '2026-07-05' as s, 6 as weeks, 3 as per_week, 3 as per_day),
 d as (
-  select da.user_id, da.day, ((da.day - p.s) / 7) as wk
+  -- 하루 한 줄로 모으되 그날 합을 n 에 남긴다(모드 구분 없이 sum).
+  select da.user_id, da.day, ((da.day - p.s) / 7) as wk, sum(da.cnt) as n
     from daily_activity da, p
    where da.day >= p.s and da.day < p.s + (p.weeks * 7)
    group by da.user_id, da.day, p.s
 ),
-w as (select user_id, wk, count(*) as days from d group by 1, 2),
+-- ⚠️ HAVING 으로 거르지 않는다 — filter 는 그 주의 날 수(days)만 줄이고, 문턱 미달인
+--    분도 「활동한 분」 쪽(아래 q)엔 그대로 남아야 한다.
+w as (select d.user_id, d.wk, count(*) filter (where d.n >= p.per_day) as days from d, p group by d.user_id, d.wk),
 -- ⚠️ 문턱은 ① 의 p.per_week 하나만 고치면 된다 — 여기에 숫자를 박지 않는다.
 q as (select w.user_id, count(*) filter (where w.days >= p.per_week) as okw from w, p group by 1)
 select count(*)                          as "활동한 분",
@@ -53,7 +58,7 @@ select count(*)                          as "활동한 분",
 -- ─────────────────────────────────────────────────────────────
 -- 결과란 — 돌린 날과 값을 여기에 적는다. 적지 않으면 다시 잴 때 견줄 것이 없다.
 --
--- 2026-09-23 · 운영(xnomlgydifiqiybervtf) · 공지 전
+-- 2026-09-23 · 운영(xnomlgydifiqiybervtf) · 공지 전 · (per_day 1 — 이 숫자를 잴 때는 문턱이 없었다)
 --   B 평시   2026-07-05~08-15   활동  66 · 1주 16 · 2주 13 · 3주 12 · 4주 10 · 6주 4
 --   C 중간   2026-08-09~09-19   활동 185 · 1주 83 · 2주 58 · 3주 40 · 4주 16 · 6주 6
 --   A 직전   2026-08-30~(9/23까지, 6주 미완)  활동 156 · 1주 74 · 2주 52 · 3주 35 · 4주 22

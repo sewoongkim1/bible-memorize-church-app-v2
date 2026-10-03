@@ -87,6 +87,10 @@ PURE_TESTS += ["tests/store-review.test.cjs"]
 # (위 줄들을 고치지 않고 따로 더한다 — 다른 세션도 이 목록에 더하고 있어 합칠 때 부딪힌다)
 PURE_TESTS += ["tests/member-merge-coverage.test.cjs"]
 
+# 가을 말씀 동행 — v2_event_weeks 의 p_per_day(하루 합 문턱)(2026-10-03). 4-인자 서명이 안 남고,
+# HAVING 없이 filter 로 거르는지, first_day 부분식에 p_per_day 가 안 섞였는지를 글자로 본다.
+PURE_TESTS += ["tests/event-perday.test.cjs"]
+
 print("\n[3] 순수 함수 검사 (node --test)")
 for t in PURE_TESTS:
     if not os.path.exists(os.path.join(ROOT, t)):
