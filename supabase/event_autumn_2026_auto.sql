@@ -39,10 +39,12 @@ begin
   if v_status <> 'draft' then
     raise exception 'autumn-2026 이 이미 %이다 — 연 뒤에는 신청 방식을 바꾸지 않는다', v_status;
   end if;
+  -- 신청 0건 가드는 **진짜 회차만** 본다(검토 2026-10-03) — 시험 회차는 10/4 00:00 부터 시험 참여자 신청이 열려,
+  --   한 건만 생겨도 진짜 회차까지 깃발을 못 받는다. 시험 회차의 신청 줄은 「이미 대상(need 1)」이라는 뜻일 뿐이다.
   select count(*) into v_signups from public.event_signups
-   where event_id in ('autumn-2026', 'autumn-2026-test');
+   where event_id = 'autumn-2026';
   if v_signups > 0 then
-    raise exception '두 회차에 신청이 %건 있다 — 자동 대상으로 바꾸면 그 줄이 그대로 「대상」이 된다. 먼저 보고 정한다', v_signups;
+    raise exception 'autumn-2026 에 신청이 %건 있다 — 자동 대상으로 바꾸면 그 줄이 그대로 「대상」이 된다. 먼저 보고 정한다', v_signups;
   end if;
 
   update public.events

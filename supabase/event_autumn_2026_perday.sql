@@ -60,5 +60,5 @@ begin
 end $$;
 
 -- 확인 — perDay 가 3(또는 바꾼 값)이고 intro 가 그 숫자를 담고 있는지 · 부제
-select id, status, subtitle, needs->'eligibility' as eligibility, copy->>'intro' as intro
+select id, status, subtitle, needs->'auto' as auto, needs->'eligibility' as eligibility, copy->>'intro' as intro
   from public.events where id = 'autumn-2026';
