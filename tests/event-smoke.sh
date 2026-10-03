@@ -7,6 +7,10 @@
 # 가을 회차 perDay 값까지 보려면(6-2 · 운영 자료 SQL 뒤):
 #   EVT_ENV=prod EXPECT_PER_DAY=3 bash tests/event-smoke.sh
 #   ⚠️ EVT_ENV=prod 를 빼면 개발을 본다 — 개발은 이미 3 이라 운영이 1 로 돌아가 있어도 통과한다.
+# 「자동 대상」(needs.auto) 거절·빈 명단까지 보려면(6-3 · 자료 SQL supabase/event_autumn_2026_auto.sql 뒤):
+#   EXPECT_AUTO=1 bash tests/event-smoke.sh
+#   시험 회차까지(시험 참여자 계정의 user_id — 저장소에 적지 않는다):
+#   EXPECT_AUTO=1 TESTER_UID=<시험 참여자 user_id> bash tests/event-smoke.sh
 #
 # ⚠️ 쓰기(등록·저장)는 검사하지 않는다 — 성도님 DB에 쓰레기를 남기지 않으려고
 #    거부되어야 하는 요청만 던진다. 실제 등록은 브라우저에서 확인한다.
@@ -91,7 +95,8 @@ echo "4-2) eventSignup - 클라이언트가 보낸 answers 는 저장되지 않�
 G=$(call '{"action":"eventSignup","user_id":"00000000-0000-0000-0000-000000000000","event_id":"autumn-2026","answers":{"weeks":[9,9,9,9,9,9]}}')
 chk "ok=false" "$(jqn 'd.get("ok")' "$G")" "False"
 chk "지어낸 weeks 가 응답에 없다" "$(jqn '"[9, 9, 9, 9, 9, 9]" not in json.dumps(d)' "$G")" "True"
-chk "거절 슬러그가 아는 것 중 하나" "$(jqn 'd.get("error") in ("not-found","not-eligible","not-yet","closed-period","not-open")' "$G")" "True"
+# auto-event 는 「자동 대상」 회차(2026-10-03 · 설계 §9)가 성도님 신청을 거절하는 슬러그다.
+chk "거절 슬러그가 아는 것 중 하나" "$(jqn 'd.get("error") in ("not-found","not-eligible","not-yet","closed-period","not-open","auto-event")' "$G")" "True"
 chk "user_id 를 싣지 않는다" "$(jqn '"user_id" not in json.dumps(d)' "$G")" "True"
 
 echo "5) 관리자 액션은 비번 없이 열리지 않는다"
@@ -166,6 +171,51 @@ if [ -n "${EXPECT_PER_DAY:-}" ]; then
   chk "rule.perDay == $EXPECT_PER_DAY" "$(jqn '(d.get("rule") or {}).get("perDay")' "$PS")" "$EXPECT_PER_DAY"
 else
   sk "rule.perDay 값" "EXPECT_PER_DAY 환경변수가 없습니다(운영 자료 SQL 뒤에는 EVT_ENV=prod EXPECT_PER_DAY=3)"
+fi
+
+echo "6-3) 자동 대상(needs.auto) - 신청도 공개 명단도 없다(2026-10-03 · 설계 §9 · 읽기·거절만)"
+# ⚠️ 쓰기는 하지 않는다 — 거절되어야 하는 요청과 읽기만 던진다.
+# 진짜 회차(autumn-2026)는 draft 라 성도님께 목록·명단이 안 보인다(not-found). 그래도 eventSignup 은
+#   「시험 회차 비테스터 not-found」 다음·기간 검사 **앞**에서 auto-event 로 거절하므로 성도님 갈래(비번 없음)로 볼 수 있다.
+#   명단(eventRosterPublic)의 빈 명단은 draft 라 성도님 갈래로 못 부른다 — 시험 회차(시험 참여자 계정)로 본다.
+# eventDrop 은 그 계정의 신청 줄이 있어야 auto-event 까지 닿는다(없으면 not-found 가 먼저) — 줄을 만들면 쓰기라 여기서는 안 본다.
+# 「등록」은 \uB4F1\uB85D 로 적는다(본문에 한글 금지 — 맨 위 주석).
+if [ -z "${EXPECT_AUTO:-}" ]; then
+  sk "자동 대상 거절·빈 명단" "EXPECT_AUTO 환경변수가 없습니다(자료 SQL 뒤에는 EXPECT_AUTO=1)"
+else
+  A1=$(call "{\"action\":\"eventSignup\",\"user_id\":\"$NONTESTER_UID\",\"event_id\":\"autumn-2026\"}")
+  chk "autumn-2026 eventSignup auto-event (draft 여도 성도님 갈래)" "$(jqn 'd.get("error")' "$A1")" "auto-event"
+  A2=$(call "{\"action\":\"eventRosterPublic\",\"event_id\":\"autumn-2026\",\"user_id\":\"$NONTESTER_UID\"}")
+  chk "autumn-2026 eventRosterPublic not-found (draft 라 그대로)" "$(jqn 'd.get("error")' "$A2")" "not-found"
+  # 비테스터에게 시험 회차는 여전히 없는 회차다 — auto-event 로 「있다」가 새지 않는다(6-1 과 같은 답)
+  A3=$(call "{\"action\":\"eventSignup\",\"user_id\":\"$NONTESTER_UID\",\"event_id\":\"autumn-2026-test\"}")
+  chk "비테스터 시험 회차 eventSignup 은 여전히 not-found" "$(jqn 'd.get("error")' "$A3")" "not-found"
+  A4=$(call "{\"action\":\"eventRosterPublic\",\"event_id\":\"autumn-2026-test\",\"user_id\":\"$NONTESTER_UID\"}")
+  chk "비테스터 시험 회차 eventRosterPublic 은 여전히 not-found" "$(jqn 'd.get("error")' "$A4")" "not-found"
+  # 로그인 없는 목록에 자동 대상 회차가 있으면 신청이 열려 있으면 안 된다(개시 뒤 운영에서 뜻이 있다)
+  A5=$(call '{"action":"eventOpenList"}')
+  chk "목록의 자동 대상 회차는 모두 canSignup false" "$(jqn 'all(not e["canSignup"] for e in d.get("events", []) if (e.get("needs") or {}).get("auto") is True)' "$A5")" "True"
+
+  if [ -z "${TESTER_UID:-}" ]; then
+    sk "시험 회차(시험 참여자) - 목록·거절·빈 명단·도장" "TESTER_UID 환경변수가 없습니다"
+  else
+    TL=$(call "{\"action\":\"eventOpenList\",\"user_id\":\"$TESTER_UID\"}")
+    chk "ok" "$(jqn 'd.get("ok")' "$TL")" "True"
+    chk "시험 회차가 목록에 있다" "$(jqn 'any(e["id"] == "autumn-2026-test" for e in d.get("events", []))' "$TL")" "True"
+    chk "시험 회차 needs.auto = true" "$(jqn '[e for e in d.get("events", []) if e["id"] == "autumn-2026-test"][0]["needs"].get("auto")' "$TL")" "True"
+    chk "시험 회차 canSignup false" "$(jqn '[e for e in d.get("events", []) if e["id"] == "autumn-2026-test"][0]["canSignup"]' "$TL")" "False"
+    chk "시험 회차 verb 가 등록이 아니다" "$(jqn '[e for e in d.get("events", []) if e["id"] == "autumn-2026-test"][0]["verb"] != "\uB4F1\uB85D"' "$TL")" "True"
+    chk "user_id 를 싣지 않는다" "$(jqn '"user_id" not in json.dumps(d)' "$TL")" "True"
+    TG=$(call "{\"action\":\"eventSignup\",\"user_id\":\"$TESTER_UID\",\"event_id\":\"autumn-2026-test\"}")
+    chk "시험 참여자 eventSignup auto-event" "$(jqn 'd.get("error")' "$TG")" "auto-event"
+    TR=$(call "{\"action\":\"eventRosterPublic\",\"event_id\":\"autumn-2026-test\",\"user_id\":\"$TESTER_UID\"}")
+    chk "시험 참여자 eventRosterPublic ok" "$(jqn 'd.get("ok")' "$TR")" "True"
+    chk "빈 명단 total 0" "$(jqn 'd.get("total")' "$TR")" "0"
+    chk "빈 명단 groups []" "$(jqn 'd.get("groups")' "$TR")" "[]"
+    chk "명단에 user_id 를 싣지 않는다" "$(jqn '"user_id" not in json.dumps(d)' "$TR")" "True"
+    TP=$(call "{\"action\":\"eventStamps\",\"user_id\":\"$TESTER_UID\",\"event_id\":\"autumn-2026-test\"}")
+    chk "eventStamps 는 그대로(ok · rule · eligible 키)" "$(jqn 'd.get("ok") is True and isinstance(d.get("rule"), dict) and "eligible" in d' "$TP")" "True"
+  fi
 fi
 
 echo "7) 남의 경로가 멀쩡한가 (내 배포가 남의 코드도 함께 내보낸다)"
