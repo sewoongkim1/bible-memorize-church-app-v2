@@ -2008,13 +2008,18 @@ async function fillBoardBadge() {
 // ⚠️ EVENT_LABEL_KEY·EVENT_OPEN_KEY 에 담지 않는다. 그 둘은 user_id 로 안 나뉘어 있고
 //    clearPersonalData 목록에도 없다 — 공용 기기에서 남의 진행이 남는다.
 const STAMP_KEY = (uid) => `event-stamp::${uid}`;
-let stampCache = null;   // { eventId, day, weekDays, perWeek, weeks, eligible }
+// { eventId, day, start, weeks, perWeek, perDay, srvWeekDays, srvToday, eligible }
+// ⚠️ srvWeekDays·srvToday 는 서버가 보낸 **그대로**다 — 여기서 +1 해 저장하지 않는다
+//    (2026-10-03 하루 N번부터). 화면에 보일 값은 applyStampPill 이 그때그때 계산한다.
+let stampCache = null;
 
 function stampRead(uid) {
   try {
     const v = JSON.parse(localStorage.getItem(STAMP_KEY(uid)) || "null");
-    // ⚠️ 날이 바뀌었거나 회차가 다르면 **그 자리에서 버린다** — 틀린 도장보다 없는 편이 낫다.
-    if (!v || v.day !== todayYmd()) return null;
+    // ⚠️ 날이 바뀌었거나 회차가 다르거나 옛 모양(perDay 없음)이면 **그 자리에서 버린다**
+    //    — 틀린 도장보다 없는 편이 낫다. 배포 직후 옛 캐시가 perDay=1 뜻으로 한 왕복
+    //    동안 잘못 그려지는 것도 이걸로 막는다.
+    if (!v || v.day !== todayYmd() || v.perDay == null) return null;
     return v;
   } catch { return null; }
 }
@@ -2032,15 +2037,36 @@ function stampWeekIndex(s) {
   return (isFinite(i) && i >= 0 && i < s.weeks) ? i : -1;
 }
 
+// 가을 말씀 동행 — 오늘 합의 「지금 살아있는」 값. 서버가 보낸 값(페이지를 연 시점의
+// 스냅샷)과, 그 뒤 이 기기에서 낙관적으로 올려 둔 todayCountCache 중 큰 쪽을 쓴다.
+// ⚠️ js/events.js 가 `typeof stampToday === "function"` 으로 빌려 쓴다(그 파일이
+//    app.js 보다 먼저 실리므로 — 두 벌 두면 첫 화면 알약과 도장판이 다른 말을 한다).
+function stampToday(srvToday) {
+  const live = (todayCountDay === todayYmd()) ? (todayCountCache || 0) : 0;
+  return Math.max(Number(srvToday) || 0, live);
+}
+
 function applyStampPill() {
   const btn = document.getElementById("open-event-list");
   if (!btn || !stampCache) return;
   const old = btn.querySelector(".ev-pill");
   if (old) old.remove();
   const s = stampCache;
+  // ⚠️ 회차가 바뀐 날(또는 공용 기기에서 다음 분) 옛 점이 안 남게, 그릴 회차가
+  //    지금 자격 회차와 같은지 그리기 **전에** 확인한다.
+  let evId = "";
+  try { evId = localStorage.getItem(EVENT_STAMP_ID_KEY) || ""; } catch {}
+  if (s.eventId !== evId) return;
   const i = stampWeekIndex(s);
   if (i < 0) return;                                 // 기간 밖이면 아무것도 안 붙인다
-  const n = (s.weekDays && s.weekDays[i]) || 0;
+  const perDay = s.perDay || 1;
+  const srvToday = s.srvToday || 0;
+  const liveToday = stampToday(srvToday);
+  // ⚠️ 서버 weekDays 는 로드 시점 스냅샷이라, 오늘 막 perDay 문턱을 넘겼는데 아직
+  //    서버가 못 따라왔으면 그 자리에서 +1 로 보정해 보여 준다. **저장하지 않는다**
+  //    — 다음에 다시 열면 서버 값으로 저절로 맞는다(되돌림이 저절로 맞게 · 2026-10-03).
+  const srvN = (s.srvWeekDays && s.srvWeekDays[i]) || 0;
+  const n = srvN + ((liveToday >= perDay && srvToday < perDay) ? 1 : 0);
   let dots = "";
   for (let k = 0; k < s.perWeek; k++) dots += k < n ? "●" : "○";
   btn.insertAdjacentHTML("beforeend", `<span class="ev-pill">${dots}</span>`);
@@ -2058,36 +2084,24 @@ function fillStampPill(u) {
   if (cached && cached.eventId === evId) { stampCache = cached; applyStampPill(); }
   api.eventStamps(u.user_id, evId).then((s) => {
     if (!s || !s.ok || !s.rule) return;
-    const prev = stampCache;
+    const today = todayYmd();
     stampCache = {
-      eventId: evId, day: todayYmd(), start: s.rule.start,
-      weeks: s.rule.weeks, perWeek: s.rule.perWeek,
-      weekDays: (s.weekDays || []).slice(), eligible: !!s.eligible,
+      eventId: evId, day: today, start: s.rule.start,
+      weeks: s.rule.weeks, perWeek: s.rule.perWeek, perDay: s.rule.perDay || 1,
+      srvWeekDays: (s.weekDays || []).slice(),
+      srvToday: (s.todayCount != null ? s.todayCount : (s.days && s.days[today])) || 0,
+      eligible: !!s.eligible,
     };
-    // ⚠️ 방금 낙관적으로 찍은 이번 주 칸을 **서버의 아직 안 반영된 값이 되돌리지 않게.**
-    //    저장은 fire-and-forget 이라, 암송을 마치고 곧장 홈에 오면 집계가 아직 안 따라왔을 수 있다.
-    //    하필 「방금 했는데」 하고 확인하는 순간이다. loadTodayCount 가 쓰는 방어와 같은 것이다.
-    const wi = stampWeekIndex(stampCache);
-    if (wi >= 0 && prev && prev.eventId === evId && prev.day === stampCache.day && prev.weekDays) {
-      stampCache.weekDays[wi] = Math.max(
-        Number(stampCache.weekDays[wi] || 0), Number(prev.weekDays[wi] || 0));
-    }
     stampWrite(u.user_id, stampCache);
     applyStampPill();                                // ⚠️ renderSummary 를 다시 부르지 않는다
   }).catch(() => {});
 }
 
-// 활동 직후 오늘 칸을 그 자리에서 뒤집는다 — 하필 「방금 했는데」 하고 확인하는 순간이다.
+// 활동 직후 알약을 다시 그린다 — 오늘 수는 bumpTodayCount 가 이미 올렸으니, 여기서는
+// **칸을 직접 뒤집지 않고** applyStampPill 의 같은 계산식으로 다시 셀 뿐이다(2026-10-03).
 // ⚠️ 자격(단추 열기)은 여기서 하지 않는다. 그것은 서버 응답을 받은 뒤에만.
 function bumpStampToday() {
   if (!stampCache || stampCache.day !== todayYmd()) return;
-  const i = Math.floor(
-    (Date.parse(todayYmd() + "T00:00:00Z") - Date.parse(stampCache.start + "T00:00:00Z"))
-    / 86400000 / 7);
-  if (i < 0 || i >= stampCache.weeks) return;
-  if (todayCountCache != null && todayCountCache > 1) return;   // 오늘 첫 번째일 때만
-  stampCache.weekDays = (stampCache.weekDays || []).slice();
-  stampCache.weekDays[i] = (stampCache.weekDays[i] || 0) + 1;
   applyStampPill();
 }
 
@@ -5261,13 +5275,14 @@ function bumpTodayCount() {
   if (todayCountCache == null || todayCountDay !== todayYmd()) return;
   todayCountCache += 1;
   applyTodayStrip(); // 홈 화면이면 즉시 반영, 아니면 다음 renderSummary에서 보임
-  bumpStampToday();   // 가을 말씀 동행 — 오늘 칸을 그 자리에서 뒤집는다
+  bumpStampToday();   // 가을 말씀 동행 — 알약을 이 새 todayCountCache 로 다시 계산
 }
 // 저장 실패 시 낙관적 +1 되돌리기(과다 계상 방지)
 function unbumpTodayCount() {
   if (todayCountCache == null || todayCountDay !== todayYmd()) return;
   todayCountCache = Math.max(0, todayCountCache - 1);
   applyTodayStrip();
+  applyStampPill();   // 가을 말씀 동행 — 되돌린 수로 알약도 다시 계산(2026-10-03)
 }
 
 function loadTodayCount(u) {
@@ -5286,6 +5301,7 @@ function loadTodayCount(u) {
         todayCountDay = ymd;
       }
       applyTodayStrip();
+      applyStampPill();   // 가을 말씀 동행 — 서버를 따라잡은 오늘 수로 알약도 다시(2026-10-03)
     })
     .catch(() => {});
 }

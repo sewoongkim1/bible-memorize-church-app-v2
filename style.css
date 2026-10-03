@@ -5637,6 +5637,8 @@ html[data-fs] .ps-fr-body .word-input{ font-size:inherit; }
 /* 폼 */
 .ev-note { background: #fdf8ec; border: 1px solid #ecdcb4; border-radius: 10px;
   padding: 12px 14px; font-size: 14.5px; line-height: 1.7; color: #5a4a22; margin-bottom: 14px; }
+/* intro 줄바꿈을 살린다 — SQL 의 chr(10) 이 공백으로 접히지 않게(2026-10-03) */
+.ev-intro { white-space: pre-line; }
 .ev-who { background: #f3f6fb; border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; }
 .ev-who-l { font-size: 12.5px; color: #7a8496; margin-bottom: 3px; }
 .ev-who-v { font-size: 16px; color: var(--navy); }
@@ -5861,6 +5863,19 @@ body:has(#update-banner) .ps-wrap.ps-home{
 
 /* 도장판 빈 주 — 조용히 둔다(굵은 0 이 넉 장이면 나무라는 것이 된다) */
 .ev-wk-v.zero { font-weight: 400; opacity: .35; }
+
+/* 이번 주 7일 띠 — 하루 N번(perDay)부터. 색은 위 .ev-wk.on 과 같은 금색 계열만(새 색 금지).
+   320px 폰에서 한 칸이 약 28px 이라(실측) 요일/값을 두 줄로 나눠야 들어간다(2026-10-03). */
+.ev-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 10px; }
+.ev-day { border: 1px solid #e3e6ee; border-radius: 8px; padding: 6px 2px; text-align: center; }
+.ev-day.part { border-color: #c8a84b; }
+.ev-day.on { background: #fdf3d8; border-color: #c8a84b; color: #8a6a1e; }
+.ev-day.today { border-width: 2px; font-weight: 700; }
+.ev-day-t { font-size: 11px; opacity: .75; }
+.ev-day-v { font-size: 13px; font-weight: 700; margin-top: 2px; }
+.dark .ev-day { border-color: #2b323d; }
+.dark .ev-day.part { border-color: #5a4e2a; }
+.dark .ev-day.on { background: #2a2417; border-color: #5a4e2a; color: #dcb669; }
 
 /* 이벤트 단추 안 진행 알약 — .board-new 와 같은 방식(async 로 꽂는다) */
 .summary-help .ev-pill { margin-left: 6px; padding: 1px 7px; border-radius: 999px;

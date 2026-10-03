@@ -236,6 +236,12 @@ function evtWeekLabel(start, i) {
   return (i + 1) + "주 " + f(a) + "~" + f(b);
 }
 
+// 시작일로부터 n 일 뒤의 날짜 키(YYYY-MM-DD) — evtWeekLabel 과 같은 UTC 계산.
+// 서버 eventStamps 의 days 키(v2_mydays 의 day)와 같은 모양이어야 한다.
+function evtDayYmd(start, n) {
+  return new Date(Date.parse(start + "T00:00:00Z") + n * 86400000).toISOString().slice(0, 10);
+}
+
 // 도장판. ⚠️ evtDrawForm 의 `if (!canSignup)` **앞**에서 부른다 —
 //    그 분기는 폼 대신 명단만 그려서, 신청 창이 열리기 전에는 도장판이 아예 안 보인다.
 function evtStampHtml(u) {
@@ -244,6 +250,7 @@ function evtStampHtml(u) {
     return '<div class="ev-note">기록을 맞추는 중이에요. 잠시 뒤 다시 열어 주세요.</div>';
   }
   var s = evtStamp, r = s.rule;
+  var perDay = r.perDay || 1;   // 없으면 1(옛 서버 · 2026-10-03 이전) — 「하루 한 번이라도」
   var head = evtEsc(u.name) + " 님의 도장판 · " +
     (s.weeksDone ? ("지금까지 " + evtKoNum(s.weeksDone) + " 주 채웠어요")
                  : "첫 주를 채우는 중이에요");
@@ -259,6 +266,39 @@ function evtStampHtml(u) {
       //    하루라도 하신 주는 그 숫자를 보여 드린다(그건 격려다).
       '<div class="ev-wk-v' + (n ? "" : " zero") + '">' +
       (full ? "✓" : (n ? n + "일" : "·")) + "</div></div>";
+  }
+
+  // 이번 주 7일 띠 — 하루 N번(perDay)부터 「그날 한 칸」의 속내를 보여 준다.
+  // ⚠️ s.days 가 null 이면(「모른다」) 그리지 않는다 — 통신이 끊긴 날을 「0번」으로
+  //    보이면 사실이 아닌 말이 된다. 측정 전(before)·이번 주가 창 밖이어도 안 그린다
+  //    (days/todayCount 는 [start, start+weeks*7-1] 구간만 안다 · index.ts eventStamps).
+  var daysHtml = "";
+  var todayIdx = Math.floor(
+    (Date.parse(todayYmd() + "T00:00:00Z") - Date.parse(r.start + "T00:00:00Z")) / 86400000);
+  var inWindow = todayIdx >= 0 && todayIdx < r.weeks * 7;
+  if (s.days && inWindow && (s.phase === "measuring" || s.phase === "signup")) {
+    var wkStart = Math.floor(todayIdx / 7) * 7;
+    var dayNames = ["일", "월", "화", "수", "목", "금", "토"];
+    var srvTodayVal = (s.todayCount != null ? s.todayCount : (s.days[todayYmd()] || 0));
+    var dcells = "";
+    for (var k = 0; k < 7; k++) {
+      var dn = wkStart + k;
+      var ymd = evtDayYmd(r.start, dn);
+      var isToday = (dn === todayIdx);
+      // ⚠️ 오늘은 stampToday(app.js)로 「지금 살아있는」 값을 쓴다 — 방금 활동을
+      //    마쳤는데 서버 집계가 아직 안 따라왔을 때를 위해서다(typeof 로 빌려 쓴다).
+      var n2 = isToday
+        ? (typeof stampToday === "function" ? stampToday(srvTodayVal) : srvTodayVal)
+        : (s.days[ymd] || 0);
+      var full2 = n2 >= perDay;
+      var part2 = !full2 && n2 > 0;
+      dcells += '<div class="ev-day' + (full2 ? " on" : "") + (part2 ? " part" : "") +
+        (isToday ? " today" : "") + '">' +
+        '<div class="ev-day-t">' + (isToday ? "오늘" : dayNames[new Date(ymd + "T00:00:00Z").getUTCDay()]) + '</div>' +
+        '<div class="ev-day-v">' + (full2 ? "✓" : (part2 ? (n2 + "/" + perDay) : "·")) +
+        "</div></div>";
+    }
+    daysHtml = '<div class="ev-days">' + dcells + '</div>';
   }
 
   // 이번 주 남은 만큼을 말로. ⚠️ 「2일 남음」처럼 남은 것을 세면 빚처럼 읽힌다.
@@ -278,11 +318,18 @@ function evtStampHtml(u) {
       " 주는 그대로 남아요 — 다음에 또 함께해요.";
   }
 
+  // ⚠️ perDay===1 이면 예전 문구 그대로 — 바뀐 것이 없는 회차에 새 문구를 들이밀지 않는다.
+  var fine = perDay === 1
+    ? "한 날에 여러 번 하셔도 그날 한 칸이에요."
+    : ("하루에 " + perDay + "번 하시면 그날 한 칸이에요. " +
+       "한 번은 첫 화면 「오늘 N회」와 같은 수예요.");
+
   return '<div class="ev-stampbox">' +
     '<div class="ev-stamp-h">' + head + "</div>" +
     '<div class="ev-wks">' + cells + "</div>" +
+    daysHtml +
     '<div class="ev-stamp-tail">' + tail + "</div>" +
-    '<div class="ev-stamp-fine">한 날에 여러 번 하셔도 그날 한 칸이에요.<br>' +
+    '<div class="ev-stamp-fine">' + fine + "<br>" +
     "인터넷이 연결된 상태에서 저장된 날만 셉니다.</div></div>";
 }
 
@@ -350,8 +397,10 @@ function evtDrawForm(u, eventId) {
     '<div class="ev-head"><h2 class="ev-title">' + evtEsc(e.shown || e.title) + "</h2>" +
     '<button class="ev-back" id="ev-back">← 목록</button></div>' +
     (e.subtitle ? '<p class="ev-lead">' + evtEsc(e.subtitle) + "</p>" : "") +
+    // ⚠️ ev-intro 가 줄바꿈을 살린다(white-space:pre-line) — SQL 의 chr(10) 이 그대로
+    //    공백으로 접히면 「하루 3번」 같은 줄이 한 문단에 묻힌다(2026-10-03).
     (e.copy && e.copy.intro
-      ? '<div class="ev-note">' + evtEsc(e.copy.intro) + "</div>" : "");
+      ? '<div class="ev-note ev-intro">' + evtEsc(e.copy.intro) + "</div>" : "");
 
   // ⚠️ 이 줄은 `if (!canSignup)` **앞**에 있어야 한다. 그 분기는 폼 대신 명단만
   //    그려서, 신청 창이 열리기 전(measuring)에는 도장판이 아예 안 보이게 된다.
@@ -591,13 +640,14 @@ function evtSubmit(u, eventId) {
     evtDrawListFresh(u);
   }).catch(function (err) {
     btn.disabled = false; btn.textContent = label;
-    appAlert(evtErrText(err));
+    appAlert(evtErrText(err, e));
   });
 }
 
 function evtAskDrop(u, eventId) {
   var mine = evtMineOf(eventId);
   if (!mine) return;
+  var e = evtFind(eventId);
   // ⚠️ appConfirm(msg, opts) 두 인자다 — 객체 하나로 부르면 메시지가 비어 뜬다.
   //    msg 는 innerHTML 로 들어가므로 <br>·<b> 가 통한다(app.js:1289 appModal).
   appConfirm("참여를 취소할까요?<br>다시 등록하실 수 있어요.", {
@@ -610,7 +660,7 @@ function evtAskDrop(u, eventId) {
     }).then(function () {
       appAlert("참여를 취소했어요.");
       evtDrawListFresh(u);
-    }).catch(function (err) { appAlert(evtErrText(err)); });
+    }).catch(function (err) { appAlert(evtErrText(err, e)); });
   });
 }
 
@@ -627,7 +677,9 @@ function evtDrawListFresh(u) {
 }
 
 // 서버 슬러그를 성도님 말로 바꾼다 — 「아직 안 열렸다」와 「마감했다」를 뭉개지 않는다.
-function evtErrText(err) {
+// e: evtFind 로 찾은 회차(있으면) — not-yet 에 그 회차의 진짜 opensOn 을 쓰려고
+// (박힌 「10월 27일」은 이미 틀린 날짜였다. 진짜 회차는 11/3, 시험 회차는 10/4 · 2026-10-03).
+function evtErrText(err, e) {
   var m = (err && err.message) || "";
   if (m === "closed-period") return "등록 기간이 지났어요.";
   if (m === "not-open") return "아직 열리지 않은 이벤트예요.";
@@ -635,7 +687,13 @@ function evtErrText(err) {
   if (m === "no-user") return "로그인 정보를 확인할 수 없어요. 다시 로그인해 주세요.";
   if (m === "bad-args") return "요청이 올바르지 않아요. 다시 시도해 주세요.";
   if (m === "not-eligible") return "아직 신청이 열리지 않았어요.<br>몇 주가 더 필요한지는 도장판에 적혀 있어요.";
-  if (m === "not-yet") return "10월 27일부터 신청을 받아요.";
+  if (m === "not-yet") {
+    var opensOn = e && e.opensOn;
+    return (opensOn ? evtDateKo(opensOn) : "곧") + "부터 신청을 받아요.";
+  }
   if (m === "no-rule") return "준비 중이에요. 잠시 뒤 다시 열어 주세요.";
+  if (m === "bad-rule") return "지금은 신청을 받을 수 없어요. 잠시 뒤에 다시 해 주세요.";
+  if (m === "bad-position") return "직분을 다시 골라 주세요.";
+  if (m === "bad-phone") return "휴대폰 번호를 다시 확인해 주세요.<br><b>010-1234-5678</b> 꼴로 적어 주세요.";
   return m || "잠시 뒤 다시 시도해 주세요.";
 }
