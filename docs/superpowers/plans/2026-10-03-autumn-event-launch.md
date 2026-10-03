@@ -521,12 +521,33 @@ function evtListableFor(ev: any, today: string, isTester: boolean): boolean {
 - [ ] **Step 12: 개발 배포** — `git status --short` 로 남의 미커밋 코드가 없는지 → `supabase functions deploy api --no-verify-jwt --project-ref ktpwthwqzgcqcrmsafdo` → `bash tests/event-smoke.sh`(개발).
 - [ ] **Step 13: 커밋(로컬)**.
 
-### Task 11: 프런트 — 도장판 「n/perDay」 · 오늘 칸 · 시험 회차 보이기
+### Task 11a: 프런트 — 「하루 N번」 도장판 · 첫 화면 알약
 
-(프런트 지도가 끝나면 이 과제의 자리별 지시를 채운다 — 아래는 고정된 요구)
-- 날 칸: `days[day] >= perDay` 면 도장, `0 < n < perDay` 면 「n/perDay」, 오늘 칸은 「오늘 n/perDay」. `perDay` 는 `rule.perDay`(없으면 1) — 문구에 숫자를 박지 않는다.
-- `bumpStampToday`: 오늘 수를 하나 올리고 **perDay 에 막 닿을 때만** 이번 주 칸을 +1.
-- 시험 참여자: 로그인 상태에서 `refreshEventOpen` 이 user_id 를 실어 부른다(`ministryTesterCached()` 일 때만이어도 된다) · `api.eventRosterPublic` 에 user_id · 회차가 `testOnly` 면 이름 앞 「[시험]」 그대로(제목에 이미 있다).
+**Files:** Modify `app.js`(stampRead·stampWrite·applyStampPill·fillStampPill·bumpStampToday·unbumpTodayCount·loadTodayCount 뒤) · `js/events.js`(evtStampHtml·evtDrawForm intro·evtErrText) · `style.css`(새 class · `.dark` 짝)
+**Interfaces:** Consumes Task 10 의 `eventStamps` 응답 `rule.perDay`(없으면 1) · `days`(날짜→하루 합 · null 이면 「모른다」) · `todayCount`.
+
+- **도장 계산 helper 하나를 `app.js` 에** 두고 `js/events.js` 가 `typeof` 로 빌려 쓴다(두 벌 금지 — events.js 가 먼저 실린다):
+  `stampToday(srvToday)` = `max(srvToday, todayCountDay === todayYmd() ? todayCountCache : 0)` · 이번 주 보이는 수 = `srvWeekDays[i] + ((liveToday >= perDay && srvToday < perDay) ? 1 : 0)`. **`weekDays` 를 고쳐 저장하지 않는다**(되돌림이 저절로 맞게).
+- `stampCache`(event-stamp::uid)에 `perDay`·`srvWeekDays`·`srvToday`(= `s.todayCount ?? s.days?.[today] ?? 0`)를 담는다. `stampRead` 는 `perDay` 가 없는 옛 모양을 **버린다**. `fillStampPill` 의 `Math.max` 합치기를 걷고 위 계산으로. 그리기 전에 `stampCache.eventId === localStorage EVENT_STAMP_ID_KEY` 를 확인.
+- `bumpStampToday` 는 칸을 뒤집지 않고 `applyStampPill()` 만 부른다(오늘 수는 `bumpTodayCount` 가 이미 올렸다). `unbumpTodayCount`·`loadTodayCount` 응답 뒤에도 `applyStampPill()`.
+- **첫 화면 알약은 지금처럼 점(●○)만**(글자 없음 — 320px 에서 잘린다 · 9/23 원칙).
+- **도장판(evtStampHtml):** `var perDay = r.perDay || 1`. 주 칸(.ev-wk)은 그대로(서버 `weekDays` 가 이미 문턱을 넘긴 날만 센다). 그 아래 **이번 주 7일 띠**(`.ev-days` 7열 · `.ev-day.on/.part/.today` · `.ev-day-t` 요일 · `.ev-day-v` 값): 날마다 `n = s.days[ymd]`(오늘은 `stampToday`) → `n >= perDay` ✓ · `0 < n < perDay` 「n/perDay」 · 0 「·」 · 오늘은 위 줄 「오늘」 아래 줄 값(320px 에서 두 줄). 날짜 키는 `evtWeekLabel` 과 같은 UTC 계산의 `evtDayYmd(start, n)`(`YYYY-MM-DD`). `s.days === null` 이면 띠를 그리지 않는다. 측정 전(phase before)·이번 주가 창 밖이면 띠를 그리지 않는다.
+- 285줄 문구: `perDay === 1` 이면 지금 문장 그대로, 아니면 「하루에 {perDay}번 하시면 그날 한 칸이에요. 한 번은 첫 화면 「오늘 N회」와 같은 수예요.」
+- intro 줄바꿈: `.ev-intro{white-space:pre-line}`(또는 `\n`→`<br>`) — SQL 의 `chr(10)` 이 살아야 한다.
+- `evtErrText(err, e)`: `not-yet` → `evtDateKo(e.opensOn)+"부터 신청을 받아요."`(박힌 「10월 27일」 삭제) · `bad-rule` → 「지금은 신청을 받을 수 없어요. 잠시 뒤에 다시 해 주세요.」 · `bad-position`·`bad-phone` → 성도님 말로. 부르는 곳(evtSubmit·evtAskDrop)에서 회차를 넘긴다.
+- CSS 는 지금 금색 계열(.ev-wk.on 과 같은 색)만 · 새 색 금지(docs/notes/home-screen.md) · `.dark` 짝.
+- 확인: `node --check app.js js/events.js` · localhost(개발 DB · 개발 시험 회차/개발 자료)에서 도장판·띠 · `python tools/screen-sweep.py` 로 이벤트 화면 320px. 커밋(로컬).
+
+### Task 11b: 프런트 — 시험 참여자에게만 시험 회차
+
+**Files:** Modify `app.js`(refreshEventOpen·refreshMinistryTester·enterAfterLogin·clearPersonalData) · `js/events.js`(evtLoad·evtLoadRoster·renderEventForm 명단 부르는 곳) · `js/api.js`(eventRosterPublic)
+
+- `refreshEventOpen`: **로그인 상태이고 `ministryTesterCached()` 일 때만** `api.eventOpenList(u.user_id)`, 아니면 지금처럼 user_id 없이(모든 성도님께 보내면 매 부팅 조회가 는다). 자격 회차가 둘 이상이면 **`testOnly` 가 아닌 쪽**을 고른다(같은 규칙을 `js/events.js` evtLoad 85줄 「하나뿐일 때만」에도).
+- `refreshMinistryTester`: 값이 바뀌면(`before !== now`) `refreshEventOpen()` 도 부른다. `enterAfterLogin` 의 `syncProgress` 뒤(user_id 가 생긴 뒤)에 `refreshMinistryTester()` 를 한 번 더.
+- `clearPersonalData`: `EVENT_OPEN_KEY`·`EVENT_LABEL_KEY`·`EVENT_STAMP_ID_KEY` 를 지우고 `todayCountCache = null; todayCountDay = null;` · `js/events.js` 전역(evtStamp·evtStampState·evtRoster·evtRosterFor·evtEvents·evtMine)을 비우는 함수가 있으면 부르고, 없으면 만들어 부른다(`typeof` 로).
+- `js/api.js`: `eventRosterPublic: (event_id, user_id) => supaCall("eventRosterPublic", { event_id, user_id })` · `evtLoadRoster(eventId, uid)` 로 넘기고, 명단 캐시 키에 uid 를 넣는다.
+- `markFeatSeen("stamp")` 는 그대로(시험 참여자가 10/18 NEW 를 못 볼 수 있는 것은 받아들인다).
+- 확인: `node --check` · localhost 에서 개발 시험 계정(개발 `ministryTesters` 에 든 계정)으로 「[시험] …」 단추가 첫 화면에 뜨고, 다른 개발 계정·로그아웃 뒤에는 사라지는지. 커밋(로컬).
 
 ### Task 12: 회차 자료 — autumn-2026 `perDay 3` · 시험 회차 (개발 먼저)
 
