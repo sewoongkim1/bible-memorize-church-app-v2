@@ -2,6 +2,10 @@
 """2026 가을 말씀암송 동행 — A3 포스터(게시판) / 16:9 슬라이드(예배 전 광고화면)"""
 import io, os
 
+# ⚠️ 5 로 바뀔 수 있다(10/14 까지) — 바꾸면 이 숫자 하나만 고치고 다시 뽑는다.
+# 함께 고칠 곳: marketing/autumn-2026/문구.md · supabase/event_autumn_2026_perday.sql(v_per_day)
+PER_DAY = 3
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 M = os.path.join(HERE, '..') + '/'
 QR = io.open(os.path.join(M, 'qr-data-uri.txt'), encoding='utf-8').read().strip()
@@ -60,7 +64,7 @@ def poster_a3():
 
   <div style="margin-top:16mm"><span class="kicker">성도 참여 이벤트</span></div>
   <h1 class="h1" style="margin-top:8mm">가을<br><em>말씀암송</em> 동행</h1>
-  <p class="sub" style="margin-top:8mm">하루 한 번 말씀을 암송하시면 한 칸.<br>
+  <p class="sub" style="margin-top:8mm">하루 %(per_day)s번 말씀을 암송하시면 한 칸.<br>
      한 주에 3일이면 그 주가 채워집니다. <b style="color:#fff">매일 하지 않아도 괜찮아요.</b></p>
 
   <div class="prize" style="margin-top:12mm">
@@ -71,7 +75,7 @@ def poster_a3():
 
   <div class="steps" style="margin-top:12mm">
     <div class="st"><b>1</b><p>QR을 찍고<br>교구·이름 입력</p></div>
-    <div class="st"><b>2</b><p>하루 한 번<br>말씀 암송</p></div>
+    <div class="st"><b>2</b><p>하루 %(per_day)s번<br>말씀 암송</p></div>
     <div class="st"><b>3</b><p>첫 화면 🏅에서<br>도장 확인</p></div>
   </div>
 
@@ -85,7 +89,7 @@ def poster_a3():
     </div>
   </div>
   <div class="foot" style="margin-top:10mm">문의 · 제자양육부 신앙운동팀</div>
-</div></div>""" % dict(logo=LOGO, qr=QR) + "</body></html>"
+</div></div>""" % dict(logo=LOGO, qr=QR, per_day=PER_DAY) + "</body></html>"
 
 
 def slide_169():
@@ -100,11 +104,11 @@ def slide_169():
     <div class="brand"><img src="%(logo)s"><span>고척교회 제자양육부 신앙운동팀</span></div>
     <div style="margin-top:30px"><span class="kicker">성도 참여 이벤트</span></div>
     <h1 class="h1" style="margin-top:22px">가을 <em>말씀암송</em> 동행</h1>
-    <p class="sub" style="margin-top:22px">하루 한 번 말씀을 암송하시면 한 칸.<br>한 주에 3일이면 그 주가 채워집니다.
+    <p class="sub" style="margin-top:22px">하루 %(per_day)s번 말씀을 암송하시면 한 칸.<br>한 주에 3일이면 그 주가 채워집니다.
        <b style="color:#fff">매일 하지 않아도 괜찮아요.</b></p>
     <div class="steps" style="margin-top:30px">
       <div class="st"><b>1</b><p>QR을 찍고<br>교구·이름 입력</p></div>
-      <div class="st"><b>2</b><p>하루 한 번<br>말씀 암송</p></div>
+      <div class="st"><b>2</b><p>하루 %(per_day)s번<br>말씀 암송</p></div>
       <div class="st"><b>3</b><p>첫 화면 🏅에서<br>도장 확인</p></div>
     </div>
   </div>
@@ -117,21 +121,22 @@ def slide_169():
     <div class="qrbox"><img src="%(qr)s" style="margin:0 auto"><div class="u">gocheok.onlybible.kr</div></div>
     <div class="when" style="text-align:center">10월 18일(주일) <b>~</b> 11월 28일(토)</div>
   </div>
-</div></div>""" % dict(logo=LOGO, qr=QR) + "</body></html>"
+</div></div>""" % dict(logo=LOGO, qr=QR, per_day=PER_DAY) + "</body></html>"
 
 
-from playwright.sync_api import sync_playwright
-OUT = os.path.dirname(os.path.abspath(__file__))
-pages = [('poster-a3', poster_a3(), dict(width='297mm', height='420mm'), (1123, 1587)),
-         ('slide-16x9', slide_169(), dict(width='1920px', height='1080px'), (1920, 1080))]
-with sync_playwright() as pw:
-    b = pw.chromium.launch(channel='chrome', headless=True)
-    for name, html, pdf_size, (w, h) in pages:
-        p = b.new_page(viewport={'width': w, 'height': h})
-        p.set_content(html, wait_until='networkidle')
-        p.wait_for_timeout(800)   # 글꼴
-        p.pdf(path=os.path.join(OUT, name + '.pdf'), print_background=True, **pdf_size)
-        p.screenshot(path=os.path.join(OUT, name + '.png'), full_page=False)
-        p.close()
-    b.close()
-print('ok')
+if __name__ == "__main__":
+    from playwright.sync_api import sync_playwright
+    OUT = os.path.dirname(os.path.abspath(__file__))
+    pages = [('poster-a3', poster_a3(), dict(width='297mm', height='420mm'), (1123, 1587)),
+             ('slide-16x9', slide_169(), dict(width='1920px', height='1080px'), (1920, 1080))]
+    with sync_playwright() as pw:
+        b = pw.chromium.launch(channel='chrome', headless=True)
+        for name, html, pdf_size, (w, h) in pages:
+            p = b.new_page(viewport={'width': w, 'height': h})
+            p.set_content(html, wait_until='networkidle')
+            p.wait_for_timeout(800)   # 글꼴
+            p.pdf(path=os.path.join(OUT, name + '.pdf'), print_background=True, **pdf_size)
+            p.screenshot(path=os.path.join(OUT, name + '.png'), full_page=False)
+            p.close()
+        b.close()
+    print('ok')
