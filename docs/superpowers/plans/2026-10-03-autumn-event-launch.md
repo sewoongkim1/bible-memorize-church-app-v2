@@ -590,4 +590,5 @@ function evtListableFor(ev: any, today: string, isTester: boolean): boolean {
   옛 체크아웃의 4-인자 `supabase/event_streak.sql` 을 다시 돌리면 함수가 **둘**이 되어 4-키 호출이 모호해진다(도장판·신청·명단 500) — **옛 파일을 돌리지 말 것.**
 - ⚠️ **`api` 는 파일 통째 배포** — origin/main 을 합치지 않은 옛 트리(공용 체크아웃·다른 worktree)에서 배포하면 perDay·시험 회차가
   **조용히** 사라진다(perDay 가 1 로 돌아간다). 배포 전 `git fetch && git merge --ff-only origin/main` · 배포 뒤 단계마다
-  `bash tests/event-smoke.sh` 6-2(① 구조 SQL 뒤 ok · ② api 뒤 `rule.perDay`·`todayCount` · ④ 자료 SQL 뒤 `EXPECT_PER_DAY=3`) · ④ 뒤 전체 스모크 한 번 더.
+  `EVT_ENV=prod bash tests/event-smoke.sh` 6-2(① 구조 SQL 뒤 ok · ② api 뒤 `rule.perDay`·`todayCount` · ④ 자료 SQL 뒤 `EVT_ENV=prod EXPECT_PER_DAY=3`) · ④ 뒤 전체 스모크 한 번 더.
+  ⚠️ **`EVT_ENV=prod` 를 빼면 개발을 본다** — 개발은 이미 perDay 3 이라, 운영이 1 로 돌아가 있어도 그대로 통과해 버린다.

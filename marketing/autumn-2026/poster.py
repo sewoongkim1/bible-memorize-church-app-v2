@@ -5,7 +5,8 @@ import io, os
 # ⚠️ 5 로 바뀔 수 있다(10/14 까지) — 바꾸면 이 숫자 하나만 고치고 다시 뽑는다.
 # 함께 고칠 곳(문구.md 머리와 같은 목록): marketing/autumn-2026/문구.md 다섯 절 모두 ·
 #   supabase/event_autumn_2026_perday.sql(v_per_day) · supabase/event_autumn_2026_test.sql(시험 회차 perDay·intro · 10/17 까지) ·
-#   supabase/event_stamp_2026.sql(기록만 · 돌리지 않는다). 저절로: event_streak_metrics.sql · 앱 화면.
+#   supabase/event_stamp_2026.sql(기록만 · 돌리지 않는다) · 확인 명령의 EXPECT_PER_DAY=3(notes·계획·event-smoke.sh).
+#   저절로: event_streak_metrics.sql · 앱 화면.
 PER_DAY = 3
 
 HERE = os.path.dirname(os.path.abspath(__file__))

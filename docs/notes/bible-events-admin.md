@@ -31,7 +31,7 @@
 - ⚠️ **`api` 는 파일 통째 배포다(가을 말씀암송 동행 「하루 3번」·시험 회차 · 2026-10-03).** origin/main 을 합치지 않은
   옛 작업 트리에서 `supabase functions deploy api` 를 하면 `perDay`·시험 회차(`testOnly`)가 **오류 없이 조용히** 사라진다 —
   `perDay` 가 1 로 돌아가 하루 한 번만 해도 칸이 차고, 시험 회차는 그냥 draft 가 되어 시험 참여자에게도 안 보인다. 배포 전에
-  `git fetch && git merge --ff-only origin/main` · 배포 뒤 `EXPECT_PER_DAY=3 bash tests/event-smoke.sh`(6-2 가 `rule.perDay` 를 본다).
+  `git fetch && git merge --ff-only origin/main` · 배포 뒤 `EVT_ENV=prod EXPECT_PER_DAY=3 bash tests/event-smoke.sh`(6-2 가 `rule.perDay` 를 본다 · **`EVT_ENV=prod` 를 빼면 개발을 본다** — 개발은 이미 3 이라 운영이 1 이어도 통과한다).
 - ⚠️ **가을 「하루 3번」을 되돌릴 때는 `api` 만 되돌린다.** `v2_event_weeks` 는 5-인자 하나로 바뀌었고(`p_per_day` 기본 1)
   옛 `api` 의 4-키 호출도 그대로 받는다. 옛 체크아웃의 4-인자 `supabase/event_streak.sql` 을 다시 돌리면 함수가 **둘**이 되어
   4-키 호출이 모호해지고(PostgREST 가 못 고른다) 도장판·신청·명단이 500 이 난다 — **옛 파일을 돌리지 말 것.**

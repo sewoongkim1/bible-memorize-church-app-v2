@@ -187,7 +187,14 @@ function renderEventList(focusId) {
 
   evtLoad(u).then(function (fresh) {
     // 응답을 버렸으면(그사이 로그아웃·다른 분) 앞사람 u 로 화면을 그리지 않는다(evtLoad 위 주석).
-    if (fresh === false) return;
+    // ⚠️ 단 처음 오신 분이 로그인이 끝나기 전(user_id 가 아직 없을 때) 🏅 을 눌렀고 그사이 user_id 가
+    //    생긴 경우도 여기로 온다 — 그대로 두면 「불러오는 중…」에 멈춘다. 그 화면이 아직 떠 있고
+    //    누가 로그인해 있으면 지금 분으로 한 번 다시 부른다(로그아웃이면 loadUser() 가 없고,
+    //    다른 화면으로 갔으면 .ev-loading 이 없어 다시 부르지 않는다 · 검토 2026-10-03).
+    if (fresh === false) {
+      if (loadUser() && document.querySelector(".ev-wrap .ev-loading")) renderEventList(focusId);
+      return;
+    }
     // 딥링크로 특정 회차를 지목했고 그것을 볼 수 있으면 바로 등록 화면으로
     if (focusId && evtFind(focusId)) { renderEventForm(u, focusId); return; }
     // 회차가 하나뿐이면 목록을 건너뛴다 — 고를 것이 없는데 고르라고 하지 않는다.

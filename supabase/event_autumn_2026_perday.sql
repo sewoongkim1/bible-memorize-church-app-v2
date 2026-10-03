@@ -9,6 +9,7 @@
 --      · 포스터 marketing/autumn-2026/poster.py 의 PER_DAY → 다시 뽑기(A3·16:9 PDF·PNG)
 --      · supabase/event_autumn_2026_test.sql 의 시험 회차 'perDay' 와 intro 「하루에 3번」(10/17 까지만 의미가 있다)
 --      · supabase/event_stamp_2026.sql 의 기록('perDay'·intro) — 기록만, 돌리지 않는다
+--      · 확인 명령의 EXPECT_PER_DAY=3(docs/notes/bible-events-admin.md · 계획 Task 14 · tests/event-smoke.sh 머리·안내)
 --    저절로 따라가는 것: supabase/event_streak_metrics.sql(autumn-2026 행의 perDay 를 읽는다) · 앱 화면(rule.perDay) ·
 --    확인은 EXPECT_PER_DAY=5 bash tests/event-smoke.sh.
 -- ⚠️ 개시(2026-10-18, status → open) 뒤에는 돌리지 않는다 — 가드가 draft 가 아니면 막는다.

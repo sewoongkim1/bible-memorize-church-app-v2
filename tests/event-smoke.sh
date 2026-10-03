@@ -5,7 +5,8 @@
 # 관리자 액션까지 보려면(비번을 아는 사람만):
 #   ADMIN_PW=... bash tests/event-smoke.sh
 # 가을 회차 perDay 값까지 보려면(6-2 · 운영 자료 SQL 뒤):
-#   EXPECT_PER_DAY=3 bash tests/event-smoke.sh
+#   EVT_ENV=prod EXPECT_PER_DAY=3 bash tests/event-smoke.sh
+#   ⚠️ EVT_ENV=prod 를 빼면 개발을 본다 — 개발은 이미 3 이라 운영이 1 로 돌아가 있어도 통과한다.
 #
 # ⚠️ 쓰기(등록·저장)는 검사하지 않는다 — 성도님 DB에 쓰레기를 남기지 않으려고
 #    거부되어야 하는 요청만 던진다. 실제 등록은 브라우저에서 확인한다.
@@ -164,7 +165,7 @@ chk "user_id 를 싣지 않는다" "$(jqn '"user_id" not in json.dumps(d)' "$PS"
 if [ -n "${EXPECT_PER_DAY:-}" ]; then
   chk "rule.perDay == $EXPECT_PER_DAY" "$(jqn '(d.get("rule") or {}).get("perDay")' "$PS")" "$EXPECT_PER_DAY"
 else
-  sk "rule.perDay 값" "EXPECT_PER_DAY 환경변수가 없습니다(운영 자료 SQL 뒤에는 EXPECT_PER_DAY=3)"
+  sk "rule.perDay 값" "EXPECT_PER_DAY 환경변수가 없습니다(운영 자료 SQL 뒤에는 EVT_ENV=prod EXPECT_PER_DAY=3)"
 fi
 
 echo "7) 남의 경로가 멀쩡한가 (내 배포가 남의 코드도 함께 내보낸다)"
