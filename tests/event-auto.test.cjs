@@ -217,8 +217,10 @@ test('⑩ 화면 — 자동 대상 회차는 명단을 받으러 가지 않고, 
   }
 });
 
-test('⑪ 개인정보 — privacy/ 와 앱 안 두 곳이 같은 문장(신청 없이 세는 이벤트 · 이름은 담당자만)', () => {
-  const SENT = '신청 없이 암송 기록으로 세는 이벤트도 있습니다 — 그때 이름·소속은 담당자만 보고, 다른 성도님께는 보이지 않습니다.';
+// ⏸ 안드로이드(플레이) 심사 중에는 개인정보 방침을 바꾸지 않는다(친구 2026-10-03) — 방침 문장을 되돌렸으므로 이 시험은 쉰다.
+//    심사 통과 뒤 · 10/18 전에 설계 §9-4 의 문장을 세 곳(privacy/ 4항 · renderPrivacyInfo · renderHelp 🔒)에 넣고 test.skip → test 로 되살린다.
+test.skip('⑪ 개인정보 — privacy/ 와 앱 안 두 곳이 같은 문장(신청 없이 세는 이벤트 · 끝나면 명단 공개) — 플레이 심사 뒤', () => {
+  const SENT = '신청 없이 암송 기록으로 세는 이벤트도 있습니다 — 측정 기간에는 이름·소속을 담당자만 보고, 행사가 끝나면 선물 대상 명단(이름·소속)을 게시판이나 앱 첫 화면에 올립니다(몇 주를 채웠는지·인정 사유는 올리지 않습니다).';
   const p4 = cut(PRIVACY, '<h2>4. 누가 볼 수 있나</h2>', '</ul>', 'privacy/index.html');
   const priv = cut(APP, 'function renderPrivacyInfo(', 'function renderHelp(', 'app.js');
   const help = APP.slice(APP.indexOf('function renderHelp('));
