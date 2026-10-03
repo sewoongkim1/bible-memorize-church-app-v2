@@ -132,6 +132,20 @@ else
   chk "missing 에도 user_id 가 없다" "$(jqn 'all("user_id" not in m for m in d.get("missing", []))' "$RA")" "True"
 fi
 
+echo "6-1) 시험 회차(autumn-2026-test) — 비테스터에게는 없는 회차와 같다(2026-10-03)"
+TESTER_UID="00000000-0000-0000-0000-000000000000"
+LT=$(call "{\"action\":\"eventOpenList\",\"user_id\":\"$TESTER_UID\"}")
+chk "목록에 시험 회차가 없다" "$(jqn 'all(e["id"] != "autumn-2026-test" for e in d.get("events", []))' "$LT")" "True"
+
+ST=$(call "{\"action\":\"eventStamps\",\"user_id\":\"$TESTER_UID\",\"event_id\":\"autumn-2026-test\"}")
+chk "eventStamps not-found" "$(jqn 'd.get("error")' "$ST")" "not-found"
+
+SG=$(call "{\"action\":\"eventSignup\",\"user_id\":\"$TESTER_UID\",\"event_id\":\"autumn-2026-test\"}")
+chk "eventSignup not-found" "$(jqn 'd.get("error")' "$SG")" "not-found"
+
+RP=$(call "{\"action\":\"eventRosterPublic\",\"event_id\":\"autumn-2026-test\",\"user_id\":\"$TESTER_UID\"}")
+chk "eventRosterPublic not-found" "$(jqn 'd.get("error")' "$RP")" "not-found"
+
 echo "7) 남의 경로가 멀쩡한가 (내 배포가 남의 코드도 함께 내보낸다)"
 for A in getVerses ranking boardList; do
   X=$(call "{\"action\":\"$A\"}")

@@ -5847,11 +5847,32 @@ function evtOpenNow(ev: any, today: string): boolean {
   return ev.status === "open" && today >= ev.opens_on && today <= ev.closes_on;
 }
 
+// 시험 회차(2026-10-03 · 설계 §8-2) — needs.testOnly 가 true 면 시험 참여자에게만.
+function evtTestOnly(ev: any): boolean { return !!(ev && ev.needs && ev.needs.testOnly === true); }
+// 시험 참여자인가 — 실패하면 false(닫는다). 일시 오류로 목록 전체가 죽으면 안 된다.
+async function evtIsTester(userId: string): Promise<boolean> {
+  if (!userId) return false;
+  try { return await ministryIsTester(userId); } catch (_) { return false; }
+}
+// 신청이 지금 열려 있나(사람별) — 시험 회차는 시험 참여자에게만, status 와 무관하게(draft 도) 날짜 창으로.
+function evtOpenFor(ev: any, today: string, isTester: boolean): boolean {
+  if (evtTestOnly(ev)) return isTester && today >= ev.opens_on && today <= ev.closes_on;
+  return evtOpenNow(ev, today);
+}
+// 목록에 보이나(사람별)
+function evtListableFor(ev: any, today: string, isTester: boolean): boolean {
+  if (evtTestOnly(ev)) return isTester && ["draft", "open", "closed"].includes(ev.status) && (!ev.list_until || today <= ev.list_until);
+  return evtListable(ev, today);
+}
+
 // 지금 성도님께 **보여 줄** 회차인가.
 // ⚠️ 「등록을 받는가」와 다른 물음이다. 마감된 뒤에도 명단은 계속 보이는 것이 기본이고
 //    (옛 썸머 사이트가 마감되면 조회까지 죽어 막다른 화면이 되던 자리),
 //    `list_until` 이 있으면 그날까지만 보인다. 비어 있으면 기한이 없다.
+// ⚠️ 시험 회차(testOnly)는 여기서 늘 false(2026-10-03) — 누가 status 를 open 으로 바꿔도
+//    일반 성도님께 새지 않게 하는 방어다. 시험 참여자 경로는 evtListableFor 를 따로 쓴다.
 function evtListable(ev: any, today: string): boolean {
+  if (evtTestOnly(ev)) return false;
   if (ev.status !== "open" && ev.status !== "closed") return false;
   const until = norm(ev.list_until);
   return !until || today <= until;
@@ -5893,14 +5914,16 @@ function evtRule(ev: any): any | null {
   const start = norm(e.start);
   const weeks = Number(e.weeks), perWeek = Number(e.perWeek), need = Number(e.need);
   const minNeed = Number(e.minNeed ?? 2);
+  const perDay = Number(e.perDay ?? 1);   // 하루 문턱(2026-10-03) — 없으면 1(「하루 한 번이라도」, 기존과 같은 뜻)
   if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) return null;
   // ⚠️ 정수를 강제한다. 3.5 같은 값이 들어오면 evtCanReach 의 for 경계가 어긋난다.
-  if (![weeks, perWeek, need, minNeed].every(Number.isInteger)) return null;
+  if (![weeks, perWeek, need, minNeed, perDay].every(Number.isInteger)) return null;
   if (!(weeks >= 1 && weeks <= 26)) return null;
   if (!(perWeek >= 1 && perWeek <= 7)) return null;
   if (!(need >= 1 && need <= weeks)) return null;
   if (!(minNeed >= 1 && minNeed <= need)) return null;
-  return { start, weeks, perWeek, need, minNeed };
+  if (!(perDay >= 1 && perDay <= 50)) return null;
+  return { start, weeks, perWeek, need, minNeed, perDay };
 }
 
 // 지금 어느 국면인가 — 화면이 날짜를 다시 재지 않게 서버가 정한다(verb 와 같은 까닭).
@@ -5942,7 +5965,7 @@ function evtCanReach(rule: any, weekDays: number[], need: number, today: string)
 async function evtStampsFor(userId: string, rule: any, today: string) {
   const { data, error } = await db.rpc("v2_event_weeks", {
     p_start: rule.start, p_weeks: rule.weeks,
-    p_per_week: rule.perWeek, p_users: [userId],
+    p_per_week: rule.perWeek, p_users: [userId], p_per_day: rule.perDay,
   });
   if (error) throw error;
   const row = ((data ?? []) as any[])[0] ?? null;
@@ -5973,6 +5996,8 @@ async function evtStampsFor(userId: string, rule: any, today: string) {
     eligible: weeksDone >= need,
     allWeeks: weeksDone >= rule.weeks,
     canStillReach: evtCanReach(rule, weekDays, need, today),
+    // 오늘 합 — days 가 null(통신 실패)이면 null(「모른다」와 「0」을 뭉개지 않는다 · 2026-10-03)
+    todayCount: days ? (days[today] ?? 0) : null,
   };
 }
 
@@ -6013,6 +6038,11 @@ async function eventStamps(b: any) {
     .select("*").eq("id", eventId).maybeSingle();
   if (error) throw error;
   if (!ev) return { ok: false, error: "not-found" };
+  // 시험 회차(2026-10-03) — 시험 참여자가 아니면 「없는 회차」와 같은 답(있다는 것조차 안 새게).
+  // 관리자 미리보기(바로 위 주석)는 예외로 둔다.
+  if (evtTestOnly(ev) && adminError(b) !== null && !(await evtIsTester(userId))) {
+    return { ok: false, error: "not-found" };
+  }
 
   const today = evtToday();
   const rule = evtRule(ev);
@@ -6027,14 +6057,20 @@ async function eventStamps(b: any) {
 async function eventOpenList(b: any) {
   const userId = String(b.user_id ?? "").trim();
   const today = evtToday();
-  // draft 는 관리자 비번이 맞을 때만 — b.preview 같은 깃발을 쓰지 않는다.
+  // draft 는 관리자 비번이 맞을 때만 보인다 — b.preview 같은 깃발을 쓰지 않는다.
   // (사역신청이 열어 둔 `|| b.preview` 는 서버가 확인할 수 없는 값이라 복사하지 않는다.)
+  // ⚠️ 시험 회차(testOnly)는 draft 인 채로 시험 참여자에게 보여야 해서(2026-10-03), draft 도
+  //    항상 받아 온다 — 노출 여부는 아래 evtListableFor 가 사람별로 가른다. testOnly 가 아닌
+  //    draft(진짜 autumn-2026)는 evtListableFor 안의 evtListable 이 그대로 막는다.
   const isAdmin = adminError(b) === null;
-  const statuses = isAdmin ? ["draft", "open", "closed"] : ["open", "closed"];
+  const statuses = ["draft", "open", "closed"];
 
   const { data, error } = await db.from("events").select("*").in("status", statuses);
   if (error) throw error;
   const rows = (data ?? []) as any[];
+  // 목록에 시험 회차가 섞여 있고 user_id 가 왔을 때만 테스터 판정을 묻는다 —
+  // 매 부팅마다 불리는 액션이라 쿼리를 아낀다(실패하면 evtIsTester 가 false 로 닫는다).
+  const isTester = (rows.some(evtTestOnly) && userId) ? await evtIsTester(userId) : false;
 
   let mine: any[] = [];
   let hint = "";
@@ -6050,7 +6086,7 @@ async function eventOpenList(b: any) {
   const list = rows
     // ⚠️ 명단 공개 종료일이 지난 회차는 목록에서 아예 뺀다 — 관리자는 예외.
     //    (그래야 첫 화면 단추도 함께 사라진다. 게이트가 이 목록의 길이를 본다.)
-    .filter((r) => isAdmin || evtListable(r, today))
+    .filter((r) => isAdmin || evtListableFor(r, today, isTester))
     .map((r) => ({
       id: r.id,
       title: r.title,
@@ -6065,12 +6101,13 @@ async function eventOpenList(b: any) {
       status: r.status,
       needs: r.needs ?? {},
       copy: r.copy ?? {},
-      canSignup: evtOpenNow(r, today),
+      canSignup: evtOpenFor(r, today, isTester),
       // 단추에 「등록」이라 쓸지 「조회」라 쓸지 — 서버가 정해서 내려준다.
       // 화면마다 따로 판단하면 갈라진다.
-      verb: evtOpenNow(r, today) ? "등록" : "조회",
+      verb: evtOpenFor(r, today, isTester) ? "등록" : "조회",
       mine: mineIds.has(r.id),
       sortOrder: r.sort_order ?? 0,
+      testOnly: evtTestOnly(r),   // 화면이 「[시험]」 표시에 쓴다(2026-10-03) — needs.testOnly 와 같은 값
     }));
 
   // 겹칠 때 무엇이 위로 오는지가 곧 「무엇을 먼저 하세요」다.
@@ -6107,10 +6144,20 @@ async function eventSignup(b: any) {
 
   const isAdmin = adminError(b) === null;
   const today = evtToday();
-  if (!evtOpenNow(ev, today) && !isAdmin) {
+
+  // 시험 회차(2026-10-03) — 시험 참여자가 아니면 「없는 회차」와 같은 답(있다는 것조차 안 새게).
+  let isTester = false;
+  if (evtTestOnly(ev)) {
+    isTester = isAdmin || await evtIsTester(userId);
+    if (!isTester) return { ok: false, error: "not-found" };
+  }
+
+  if (!evtOpenFor(ev, today, isTester) && !isAdmin) {
     // 「아직 안 열렸다」·「아직 안 시작했다」·「마감했다」를 뭉개지 않는다.
     // ⚠️ 옛 코드는 status 가 open 이면 아직 시작 전이어도 「마감했어요」라고 답했다.
-    if (ev.status !== "open") return { ok: false, error: "not-open" };
+    // ⚠️ testOnly+테스터는 status 가 draft 라도 날짜 창으로만 본다(evtOpenFor) —
+    //    여기서는 status 분기를 건너뛰고 바로 날짜로 not-yet/closed-period 를 가른다.
+    if (ev.status !== "open" && !evtTestOnly(ev)) return { ok: false, error: "not-open" };
     return { ok: false, error: today < norm(ev.opens_on) ? "not-yet" : "closed-period" };
   }
 
@@ -6139,6 +6186,9 @@ async function eventSignup(b: any) {
   // 자격 회차 — 서버가 다시 센다. **화면이 잠겨 있어도 이 액션은 열려 있다.**
   // ⚠️ b.answers 를 읽지 않는다. JWT 가 없어 누구나 weeks:[9,9,9,9,9,9] 를 보낼 수 있다.
   const rule = evtRule(ev);
+  // ⚠️ needs.eligibility 는 있는데 모양이 틀려 rule 이 null 이면 막는다(2026-10-03) —
+  //    안 막으면 바로 아래 else 가 클라이언트 b.answers 를 그대로 저장하는 길로 떨어진다.
+  if (needs.eligibility && !rule) return { ok: false, error: "bad-rule" };
   let answers: any;
   if (rule) {
     const st = await evtStampsFor(userId, rule, today);
@@ -6147,7 +6197,10 @@ async function eventSignup(b: any) {
       weeks: st.weekDays,
       weeksDone: st.weeksDone,
       need: st.need,
-      rule: { start: rule.start, weeks: rule.weeks, perWeek: rule.perWeek, need: rule.need },
+      rule: {
+        start: rule.start, weeks: rule.weeks, perWeek: rule.perWeek, need: rule.need,
+        minNeed: rule.minNeed, perDay: rule.perDay,   // 2026-10-03 — 나중에 문턱을 바꿔도 신청 당시 값을 알 수 있게
+      },
       computed_at: new Date().toISOString(),
     };
   } else {
@@ -6193,8 +6246,10 @@ async function eventDrop(b: any) {
   if (!row) return { ok: false, error: "not-found" };
 
   const { data: ev } = await db.from("events")
-    .select("status,opens_on,closes_on").eq("id", row.event_id).maybeSingle();
-  if (!(ev && evtOpenNow(ev, evtToday())) && adminError(b) !== null) {
+    .select("status,opens_on,closes_on,needs").eq("id", row.event_id).maybeSingle();
+  // 시험 회차(2026-10-03)는 테스터면 draft 라도 날짜 창으로 취소를 받는다(evtOpenFor).
+  const isTester = (ev && evtTestOnly(ev)) ? await evtIsTester(userId) : false;
+  if (!(ev && evtOpenFor(ev, evtToday(), isTester)) && adminError(b) !== null) {
     return { ok: false, error: "closed-period" };
   }
 
@@ -6213,7 +6268,7 @@ async function eventRoster(b: any) {
   //    돌려줘야 한다. 하나라도 빠지면 그 칸이 빈 채로 그려지고, 저장하는 순간
   //    원래 값이 지워진다(2026-09-10 subtitle·kind·sort_order 가 그럴 뻔했다).
   const { data: evs, error: e1 } = await db.from("events")
-    .select("id,title,short_title,subtitle,season,kind,status,opens_on,closes_on,list_until,sort_order")
+    .select("id,title,short_title,subtitle,season,kind,status,opens_on,closes_on,list_until,sort_order,needs")
     .order("closes_on", { ascending: false });
   if (e1) throw e1;
 
@@ -6263,7 +6318,7 @@ async function eventRoster(b: any) {
     //    그 한 번의 결과로 둘 다 만든다(200명 기준 401왕복 → 2왕복).
     const { data: all, error: allErr } = await db.rpc("v2_event_weeks", {
       p_start: pickedRule.start, p_weeks: pickedRule.weeks,
-      p_per_week: pickedRule.perWeek, p_users: null,
+      p_per_week: pickedRule.perWeek, p_users: null, p_per_day: pickedRule.perDay,
     });
     if (allErr) throw allErr;
     // ⚠️ 창 안에 활동이 없는 사람은 **행이 아예 없다**(0 행이 아니라 부재다).
@@ -6326,6 +6381,7 @@ async function eventRoster(b: any) {
       sortOrder: e.sort_order ?? 0, count: counts[e.id] ?? 0,
       // 지금 성도님께 보이는가 — 관리자가 「왜 안 보이지」를 화면에서 바로 알게.
       listedNow: evtListable(e, evtToday()),
+      testOnly: evtTestOnly(e),   // 「시험 참여자만」을 담당자 화면이 알 수 있게(2026-10-03)
     })),
     rows: rowsOut,
     missing,
@@ -6484,14 +6540,19 @@ function evtSubRank(v: unknown): [number, number, string] {
 async function eventRosterPublic(b: any) {
   const eventId = norm(b.event_id);
   if (!EVT_ID_RE.test(eventId)) return { ok: false, error: "bad-args" };
+  // 시험 회차 판정에만 쓴다(2026-10-03) — 응답 어디에도 싣지 않는다.
+  const userId = String(b.user_id ?? "").trim();
 
   const { data: ev, error: eerr } = await db.from("events")
-    .select("id,title,short_title,subtitle,season,status,opens_on,closes_on,list_until")
+    .select("id,title,short_title,subtitle,season,status,opens_on,closes_on,list_until,needs")
     .eq("id", eventId).maybeSingle();
   if (eerr) throw eerr;
+  const today = evtToday();
+  const isTester = (ev && evtTestOnly(ev)) ? await evtIsTester(userId) : false;
   // draft·archived 는 성도님께 안 보이고, 명단 공개 종료일이 지나도 안 보인다.
   // (관리자는 eventRoster 로 본다 — 그쪽은 이 제한을 받지 않는다.)
-  if (!ev || !evtListable(ev, evtToday())) {
+  // ⚠️ 시험 회차는 시험 참여자에게만(evtListableFor) — status 와 무관하게.
+  if (!ev || !evtListableFor(ev, today, isTester)) {
     return { ok: false, error: "not-found" };
   }
 
