@@ -27,7 +27,7 @@ begin
     '하루에 ' || v_per_day || '번 말씀을 암송하시면 그날 한 칸이 채워져요.' || chr(10) ||
     '한 주에 3일이면 그 주가 채워집니다 — 매일 하지 않아도 돼요.' || chr(10) ||
     '여섯 주 가운데 세 주만 채우시면 신청 단추가 열려요.' || chr(10) ||
-    '신청하신 분께는 모두 드립니다.';
+    '참여하신 분께는 모두 소정의 선물을 드려요.';  -- 친구 문장(2026-10-03)
 
   select status into v_status from public.events where id = 'autumn-2026';
   if v_status is null then
