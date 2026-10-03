@@ -240,6 +240,9 @@ Expected: `draft | 2026 가을 말씀암송 동행 | 가을 말씀암송 동행 
 
 - [ ] **Step 1: 파일을 쓴다(아래 그대로)**
 
+> ⚠️ 아래 본문의 「하루 한 번」(2절 단톡 · 3절 게시판) → **§8 에서 하루 3번으로 바뀜**(Task 13 · 2026-10-03).
+> 지금 문구의 원본은 `marketing/autumn-2026/문구.md` 다 — 여기서 베끼지 말 것(주보·4절·5절 문장도 그 뒤에 바뀌었다).
+
 ````markdown
 # 2026 가을 말씀암송 동행 — 공지 문구
 
@@ -314,9 +317,9 @@ git commit -m "docs(이벤트): 가을 말씀암송 동행 공지 문구 — 주
 본문(A3 · 슬라이드 공통 문구):
 - kicker `성도 참여 이벤트`
 - h1 `가을<br><em>말씀암송</em> 동행` (슬라이드: `가을 <em>말씀암송</em> 동행`)
-- sub `하루 한 번 말씀을 암송하시면 한 칸.<br>한 주에 3일이면 그 주가 채워집니다. <b style="color:#fff">매일 하지 않아도 괜찮아요.</b>`
+- sub(→ §8 에서 하루 3번으로 바뀜 · `poster.py` 의 `PER_DAY`) `하루 한 번 말씀을 암송하시면 한 칸.<br>한 주에 3일이면 그 주가 채워집니다. <b style="color:#fff">매일 하지 않아도 괜찮아요.</b>`
 - prize: lb `여섯 주 가운데 세 주를 채우신 분` · bg `🎁 신청하신 분 모두 선물` · sm `신청 11월 3일(화) ~ 12월 5일(토)`
-- steps: `QR을 찍고<br>교구·이름 입력` · `하루 한 번<br>말씀 암송` · `첫 화면 🏅에서<br>도장 확인`
+- steps(→ §8 에서 하루 3번으로 바뀜): `QR을 찍고<br>교구·이름 입력` · `하루 한 번<br>말씀 암송` · `첫 화면 🏅에서<br>도장 확인`
 - when `10월 18일(주일) <b>~</b> 11월 28일(토)`
 - QR 옆 작은 글 `휴대폰 카메라로 QR을 비추면<br>바로 열립니다. 중간에 오셔도 함께해요.`
 - foot `문의 · 제자양육부 신앙운동팀`
@@ -367,6 +370,15 @@ git commit -m "feat(이벤트): 가을 말씀암송 동행 포스터 A3 · 슬�
   - `select id,status,opens_on,closes_on,list_until from public.events where status in ('open','closed') order by closes_on` — `summer-2026` 등이 `list_until` 이 지나지 않은 채 남아 있으면 첫 화면이 「이벤트 2개」로 접힌다 → 친구와 정한다.
   - Task 3 Step 2 질의 그대로 — 값이 Global Constraints 와 같다.
   - 운영 API `eventOpenList` 를 관리자 암호(`adminPw` = `PROD_ADMIN_SECRET`, UTF-8 파일 body)로 불러 `autumn-2026` 이 draft 로·새 이름·새 날짜로 오는지. 암호 없이 부르면 **안 와야** 한다(성도님 화면은 아직 안 바뀐다).
+- [ ] **Step 3-1: 시험 회차 지우기(설계 §8-2 · 개발 먼저 → 운영)** — `event_signups` 는 cascade 로 함께 지워진다.
+  ```sql
+  delete from events where id = 'autumn-2026-test';
+  -- 확인 — 둘 다 0 이어야 한다
+  select count(*) from events where id = 'autumn-2026-test';
+  select count(*) from event_signups where event_id = 'autumn-2026-test';
+  ```
+  ⚠️ 위 Step 3 의 확인 질의는 `status in ('open','closed')` 만 걸러서 **draft 인 시험 회차는 거기 안 보인다** — 남았는지는 이 두 질의로만 안다.
+  (`supabase/event_autumn_2026_test.sql` 은 10/17 이 지나면 가드가 막아 다시 돌려도 되살아나지 않는다.)
 - [ ] **Step 4: 커밋** — `docs(이벤트): 가을 말씀암송 동행 기준선 A·B (10/17 · 공지 전)`
 
 ---
@@ -396,7 +408,7 @@ git commit -m "feat(이벤트): 가을 말씀암송 동행 포스터 A3 · 슬�
 - 「한 번」 = `daily_activity.cnt` 를 **모드 구분 없이 더한** 하루 합(= `v2_mydays` · 앱 「오늘 N회」). 하루 한 칸 = 합 ≥ `perDay`.
 - `needs.eligibility.perDay` 정수 1~50 · 없으면 1. **autumn-2026 = 3**(10/14 까지 5 로 바뀔 수 있음 — 숫자 한 곳 + 같은 SQL 의 문구).
 - `first_day` 는 「아무 활동이든 처음 한 날」 그대로. 문턱 미달인 날만 있는 사람도 **행이 나와야** 한다(HAVING 금지 · `count(*) filter` 로).
-- 시험 회차 `autumn-2026-test`: `status draft` · `needs.testOnly = true` · 제목·짧은 이름 「[시험] 가을 말씀암송 동행」 · `eligibility {start:"2026-09-27", weeks:6, perWeek:1, need:1, minNeed:1, perDay:3}` · `opens_on 2026-10-04` · `closes_on 2026-10-17` · `list_until 2026-10-17`.
+- 시험 회차 `autumn-2026-test`: `status draft` · `needs.testOnly = true` · 제목·짧은 이름 「[시험] 가을 말씀암송 동행」(→ 짧은 이름은 「[시험] 가을 동행」으로 줄임 · 첫 화면 알약 360px · 가지 마지막 검토 2026-10-03) · `eligibility {start:"2026-09-27", weeks:6, perWeek:1, need:1, minNeed:1, perDay:3}` · `opens_on 2026-10-04` · `closes_on 2026-10-17` · `list_until 2026-10-17`.
 - `testOnly` 회차는 **status 와 무관하게** `ministryIsTester(user_id)` 인 계정에게만 목록·도장·신청·취소·명단에 나온다. 그 밖에는 **없는 회차와 똑같이**(`not-found` · 목록에서 빠짐). 테스터에게는 draft 를 open 처럼(날짜 창은 그대로) 다룬다. **`testOnly` 없는 draft(진짜 autumn-2026)는 테스터에게도 안 보인다.**
 - 테스터 판정은 testOnly 행이 있고 user_id 가 있을 때만, **실패하면 false**(일시 오류로 목록 전체가 죽으면 안 된다).
 - 배포 순서: **개발 SQL → 개발 api → (개발 확인) → 운영 SQL → 운영 api → 프런트 bump·push → 운영 자료 SQL(perDay·시험 회차)**. `v2_event_weeks` 는 옛 4-인자 서명을 **drop 하고** 5-인자 하나만 남긴다(두 개면 PostgREST 가 못 고른다) · 권한 두 줄을 같은 트랜잭션에서.
@@ -528,11 +540,11 @@ function evtListableFor(ev: any, today: string, isTester: boolean): boolean {
 
 - **도장 계산 helper 하나를 `app.js` 에** 두고 `js/events.js` 가 `typeof` 로 빌려 쓴다(두 벌 금지 — events.js 가 먼저 실린다):
   `stampToday(srvToday)` = `max(srvToday, todayCountDay === todayYmd() ? todayCountCache : 0)` · 이번 주 보이는 수 = `srvWeekDays[i] + ((liveToday >= perDay && srvToday < perDay) ? 1 : 0)`. **`weekDays` 를 고쳐 저장하지 않는다**(되돌림이 저절로 맞게).
-- `stampCache`(event-stamp::uid)에 `perDay`·`srvWeekDays`·`srvToday`(= `s.todayCount ?? s.days?.[today] ?? 0`)를 담는다. `stampRead` 는 `perDay` 가 없는 옛 모양을 **버린다**. `fillStampPill` 의 `Math.max` 합치기를 걷고 위 계산으로. 그리기 전에 `stampCache.eventId === localStorage EVENT_STAMP_ID_KEY` 를 확인.
+- `stampCache`(event-stamp::uid)에 `perDay`·`srvWeekDays`·`srvToday`(= `s.todayCount ?? s.days?.[today] ?? 0`)를 담는다(→ 실제 코드는 둘 다 모르면 0 이 아니라 **null**(「모른다」) · `applyStampPill` 은 `srvToday` 가 null 이면 +1 을 건너뛴다 · 리뷰 2026-10-03). `stampRead` 는 `perDay` 가 없는 옛 모양을 **버린다**. `fillStampPill` 의 `Math.max` 합치기를 걷고 위 계산으로. 그리기 전에 `stampCache.eventId === localStorage EVENT_STAMP_ID_KEY` 를 확인.
 - `bumpStampToday` 는 칸을 뒤집지 않고 `applyStampPill()` 만 부른다(오늘 수는 `bumpTodayCount` 가 이미 올렸다). `unbumpTodayCount`·`loadTodayCount` 응답 뒤에도 `applyStampPill()`.
 - **첫 화면 알약은 지금처럼 점(●○)만**(글자 없음 — 320px 에서 잘린다 · 9/23 원칙).
 - **도장판(evtStampHtml):** `var perDay = r.perDay || 1`. 주 칸(.ev-wk)은 그대로(서버 `weekDays` 가 이미 문턱을 넘긴 날만 센다). 그 아래 **이번 주 7일 띠**(`.ev-days` 7열 · `.ev-day.on/.part/.today` · `.ev-day-t` 요일 · `.ev-day-v` 값): 날마다 `n = s.days[ymd]`(오늘은 `stampToday`) → `n >= perDay` ✓ · `0 < n < perDay` 「n/perDay」 · 0 「·」 · 오늘은 위 줄 「오늘」 아래 줄 값(320px 에서 두 줄). 날짜 키는 `evtWeekLabel` 과 같은 UTC 계산의 `evtDayYmd(start, n)`(`YYYY-MM-DD`). `s.days === null` 이면 띠를 그리지 않는다. 측정 전(phase before)·이번 주가 창 밖이면 띠를 그리지 않는다.
-- 285줄 문구: `perDay === 1` 이면 지금 문장 그대로, 아니면 「하루에 {perDay}번 하시면 그날 한 칸이에요. 한 번은 첫 화면 「오늘 N회」와 같은 수예요.」
+- 285줄 문구: `perDay === 1` 이면 지금 문장 그대로, 아니면 「하루에 {perDay}번 하시면 그날 한 칸이에요. 한 번은 첫 화면 「오늘 N회」와 같은 수예요.」(→ 가지 마지막 검토 2026-10-03: 「N」이 글자 그대로 보이고 0회면 첫 화면에 그 띠가 없어 「암송·도전·복습을 하나 마칠 때마다 한 번이고, 첫 화면에 「오늘 1회」처럼 쌓여요.」로 바꿈)
 - intro 줄바꿈: `.ev-intro{white-space:pre-line}`(또는 `\n`→`<br>`) — SQL 의 `chr(10)` 이 살아야 한다.
 - `evtErrText(err, e)`: `not-yet` → `evtDateKo(e.opensOn)+"부터 신청을 받아요."`(박힌 「10월 27일」 삭제) · `bad-rule` → 「지금은 신청을 받을 수 없어요. 잠시 뒤에 다시 해 주세요.」 · `bad-position`·`bad-phone` → 성도님 말로. 부르는 곳(evtSubmit·evtAskDrop)에서 회차를 넘긴다.
 - CSS 는 지금 금색 계열(.ev-wk.on 과 같은 색)만 · 새 색 금지(docs/notes/home-screen.md) · `.dark` 짝.
@@ -571,6 +583,11 @@ function evtListableFor(ev: any, today: string, isTester: boolean): boolean {
 - [ ] 운영 SQL `event_streak.sql`(절대경로) → 확인 ① 1행·권한 → 운영 api 배포(⚠️ `git status` · 얼린 액션이 든 판인지) → `EVT_ENV=prod bash tests/event-smoke.sh`.
 - [ ] 프런트(Task 11) bump → push → `APP_BUILD` 확인.
 - [ ] 운영 자료 SQL 둘(`event_autumn_2026_perday.sql` · `event_autumn_2026_test.sql`).
-- [ ] **친구:** 교회 어드민 ⚙️ 시스템 → 🧪 시험 참여자에 시험할 분(친구 본인 포함) → 폰에서: 첫 화면 🏅 「[시험] 가을 말씀암송 동행」 · 도장판 1주 9/27~10/3 · 「오늘 n/3」 · 3번째에 도장 · 신청·취소.
+- [ ] **친구:** 교회 어드민 ⚙️ 시스템 → 🧪 시험 참여자에 시험할 분(친구 본인 포함) → 폰에서: 첫 화면 🏅 「[시험] 가을 동행」(짧은 이름 · 회차가 여럿이면 「이벤트 N개」) · 도장판 1주 9/27~10/3 · 「오늘 n/3」 · 3번째에 도장 · 신청·취소.
 - [ ] 교회 어드민 가지 `autumn-excuse` 세션에 알림: 새 RPC 서명(`p_per_day` 끝 · 기본 1) · `eligRule` 에 `perDay`·`eligWeeks` 에 `p_per_day` · 원문 사본(`tests/fixtures/evt-legacy.ts`)을 새 v2 커밋으로 다시 뜨기 · **옛 체크아웃의 `event_streak.sql` 을 개발에 돌리지 말 것**(4-인자가 되살아나 모호성).
 - [ ] 문서: CLAUDE.md 가을 줄 · `docs/notes/bible-events-admin.md` 한 줄 · 메모.
+- ⚠️ **되돌리기는 `api` 만**(가지 마지막 검토 2026-10-03) — 5-인자 `v2_event_weeks` 는 옛 `api` 의 4-키 호출도 기본값으로 받는다.
+  옛 체크아웃의 4-인자 `supabase/event_streak.sql` 을 다시 돌리면 함수가 **둘**이 되어 4-키 호출이 모호해진다(도장판·신청·명단 500) — **옛 파일을 돌리지 말 것.**
+- ⚠️ **`api` 는 파일 통째 배포** — origin/main 을 합치지 않은 옛 트리(공용 체크아웃·다른 worktree)에서 배포하면 perDay·시험 회차가
+  **조용히** 사라진다(perDay 가 1 로 돌아간다). 배포 전 `git fetch && git merge --ff-only origin/main` · 배포 뒤 단계마다
+  `bash tests/event-smoke.sh` 6-2(① 구조 SQL 뒤 ok · ② api 뒤 `rule.perDay`·`todayCount` · ④ 자료 SQL 뒤 `EXPECT_PER_DAY=3`) · ④ 뒤 전체 스모크 한 번 더.

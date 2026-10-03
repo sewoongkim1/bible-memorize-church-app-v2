@@ -1,4 +1,4 @@
--- 가을 말씀 동행 — 주차 집계 (구조. 회차를 넘어 산다)
+-- 가을 말씀암송 동행 — 주차 집계 (구조. 회차를 넘어 산다)
 -- ⚠️ 이 저장소는 공개(public)입니다 — 비밀번호·키를 절대 넣지 마세요.
 --
 -- 적용: Supabase 대시보드 → SQL Editor, 또는 CLI 로:
@@ -12,7 +12,8 @@
 --
 -- 설계: docs/superpowers/specs/2026-09-23-autumn-streak-event-design.md §6.3
 --
--- ⚠️ mode 를 세지 않는다 — 「그날 행이 있는가」로만 본다.
+-- ⚠️ mode 를 세지 않는다 — 「그날 하루 합(cnt 를 모드 구분 없이 더한 값)이 p_per_day 이상인가」로만 본다
+--    (2026-10-03 부터 · p_per_day 기본 1 = 옛 「그날 행이 있는가」와 같은 뜻).
 --    challenge_log.mode CHECK 는 여덟 가지이고 learn-typing-card·typing-card 가
 --    전체 반복의 65.2% 다. mode 를 열거하면 카드로만 하시는 분은 매일 하셔도 도장이 안 찍힌다.
 --    (v2_mydays 가 이미 mode 를 안 가리고 sum 한다 — 같은 잣대다.)

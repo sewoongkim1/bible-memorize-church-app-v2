@@ -1,6 +1,6 @@
 # 성경필사(암송) 이벤트 명단 — 교회 어드민으로 옮김
 
-> **언제 읽나:** `events`·`event_signups`(사순절·썸머 써 바이블·소책자·가을 말씀 동행 명단)를 고치거나,
+> **언제 읽나:** `events`·`event_signups`(사순절·썸머 써 바이블·소책자·가을 말씀암송 동행 명단)를 고치거나,
 > `admin-event.html`·`api` 의 `event*` 관리 액션·`supabase/event_stamp_2026.sql` 을 손댈 때.
 > 상태: **운영 — 2026-09-30 개시** · 성경암송 쪽 쓰기 셋 얼림(`EVT_MOVED`)
 > 설계 `docs/superpowers/specs/2026-09-29-church-admin-bible-events-design.md` ·
@@ -16,7 +16,7 @@
 | 한 분 더하기 | 📋 「＋ 한 분 더하기」(교인명부로 찾아 채움) | 관리자 API `eventImport` 손 작업 · 직접 SQL |
 | 명단 여러 줄 넣기 | 📤 명단 올리기(더하기만 — 통째 바꾸기 없음) | `eventImport`(그 회차 import 줄을 지우고 다시) |
 | 사람별 이력·통계 | 👤 사람별 이력·통계 | 없음 |
-| 자격 인정·미신청 목록(가을 말씀 동행) | — | **그대로** `admin-event.html` · `eventExcuse`·`eventRoster`(다음 단계에서 옮긴다) |
+| 자격 인정·미신청 목록(가을 말씀암송 동행) | — | **그대로** `admin-event.html` · `eventExcuse`·`eventRoster`(다음 단계에서 옮긴다) |
 | 성도님 앱(신청·취소·명단·도장판) | — | **그대로** `eventOpenList`·`eventSignup`·`eventDrop`·`eventRosterPublic`·`eventStamps` |
 
 ## ⚠️ 함정
@@ -28,6 +28,13 @@
   화면 단추만 닫으면 관리자 비밀번호로 API 를 직접 부르는 길이 남는다. 그래서 **서버에서** 막았다. **되살리지 말 것.**
 - ⚠️ **`api` 를 배포하는 세션은 얼림이 든 판에서 배포할 것.** 옛 작업 트리(얼림 커밋 전)에서 `supabase functions deploy api` 를 하면 얼림이 조용히 풀린다.
   배포 뒤에는 내려받아 `EVT_MOVED.has(` 가 셋인지 본다.
+- ⚠️ **`api` 는 파일 통째 배포다(가을 말씀암송 동행 「하루 3번」·시험 회차 · 2026-10-03).** origin/main 을 합치지 않은
+  옛 작업 트리에서 `supabase functions deploy api` 를 하면 `perDay`·시험 회차(`testOnly`)가 **오류 없이 조용히** 사라진다 —
+  `perDay` 가 1 로 돌아가 하루 한 번만 해도 칸이 차고, 시험 회차는 그냥 draft 가 되어 시험 참여자에게도 안 보인다. 배포 전에
+  `git fetch && git merge --ff-only origin/main` · 배포 뒤 `EXPECT_PER_DAY=3 bash tests/event-smoke.sh`(6-2 가 `rule.perDay` 를 본다).
+- ⚠️ **가을 「하루 3번」을 되돌릴 때는 `api` 만 되돌린다.** `v2_event_weeks` 는 5-인자 하나로 바뀌었고(`p_per_day` 기본 1)
+  옛 `api` 의 4-키 호출도 그대로 받는다. 옛 체크아웃의 4-인자 `supabase/event_streak.sql` 을 다시 돌리면 함수가 **둘**이 되어
+  4-키 호출이 모호해지고(PostgREST 가 못 고른다) 도장판·신청·명단이 500 이 난다 — **옛 파일을 돌리지 말 것.**
 - **다른 쓰는 길도 닫았다:** `supabase/event_stamp_2026.sql` 은 `on conflict do update` 로 가을 회차의 제목·기간·공개 종료일·needs·copy 를 덮는다.
   그래서 어드민 개시 뒤에는 다시 돌리지 않는다(파일 머리에 적었다). 직접 SQL 로 `event_signups` 에 줄을 넣지 않는다.
   Claude 메모리의 「몇 분 더하기(eventRoster 백업 → eventImport)」 절차도 「교회 어드민 ＋ 한 분 더하기」로 고쳤다.
@@ -47,5 +54,5 @@
 
 ## 남은 것(다음 단계)
 
-- 가을 말씀 동행의 자격 인정(`eventExcuse`)·미신청 목록을 교회 어드민으로 옮긴다. 그다음 `admin.html` 「🎉 이벤트 관리」 타일을 새 주소로 바꾼다(설계 §4-4). 지금 타일 설명(「회차 만들기 · …」)은 얼린 뒤와 맞지 않는다.
+- 가을 말씀암송 동행의 자격 인정(`eventExcuse`)·미신청 목록을 교회 어드민으로 옮긴다. 그다음 `admin.html` 「🎉 이벤트 관리」 타일을 새 주소로 바꾼다(설계 §4-4). 지금 타일 설명(「회차 만들기 · …」)은 얼린 뒤와 맞지 않는다.
 - 회차 차례(`sort_order`)는 어드민 회차 설정에 없다. 새 회차는 0 이고, 바꾸려면 개발 먼저 SQL 로 한다.
