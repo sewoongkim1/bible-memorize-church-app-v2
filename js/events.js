@@ -426,7 +426,8 @@ function evtAutoTail(s, r, mine, todayIdx, srvToday, liveToday) {
         (ti < 0 ? "시작하는 날부터 하루 " + perDay + "번이면 한 칸이에요."
                 : "오늘 " + perDay + "번이면 첫 칸이에요.");
     return lines([first,
-      go.thisWeek ? "이번 주는 " + go.thisWeek + "일 더 하시면 채워져요." : "",
+      // 이번 주만 채우면 끝나는 경우(go.thisWeek === go.days)에는 같은 말을 두 번 하지 않는다(2026-10-04)
+      (go.thisWeek && go.thisWeek < go.days) ? "이번 주는 " + go.thisWeek + "일 더 하시면 채워져요." : "",
       "오늘도 말씀과 함께 힘내요 🙂"]);
   }
   // 남은 주로 못 닿는다 — 기준을 다시 말하지 않고, 「여기까지」·「떨어졌다」 결의 말도 하지 않는다.
