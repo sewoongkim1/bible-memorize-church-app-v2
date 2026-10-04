@@ -5861,6 +5861,10 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .ev-wk-t { font-size: 12px; opacity: .75; }
 .ev-wk-v { font-size: 20px; font-weight: 700; margin-top: 2px; }
 .ev-stamp-tail { margin-top: 12px; line-height: 1.6; }
+/* 자동 대상 회차(2026-10-04 「N일 함께하셨어요 · 앞으로 D일 더」) — 360px 에서 「지금까지 1 / 일」처럼
+   숫자와 「일」이 갈라졌다. 낱말 단위로만 접는다(js/events.js 가 자동 대상 상자에만 ev-auto 를 붙인다). */
+.ev-stampbox.ev-auto .ev-stamp-h,
+.ev-stampbox.ev-auto .ev-stamp-tail { word-break: keep-all; }
 .ev-stamp-fine { margin-top: 10px; font-size: 13px; opacity: .7; line-height: 1.5; }
 .dark .ev-stampbox { background: #151a21; border-color: #2b323d; }
 .dark .ev-wk { border-color: #2b323d; }

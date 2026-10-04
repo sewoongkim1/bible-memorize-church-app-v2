@@ -6,7 +6,8 @@
 --   다른 키(eligibility·testOnly 등)는 그대로 남는다. 이미 true 면 아무것도 안 바꾼다(여러 번 돌려도 같다).
 --   이 표시가 있으면 api 가 신청을 받지 않고(evtOpenFor false · eventSignup/eventDrop 은 성도님 호출에 auto-event)
 --   공개 명단을 비우며(eventRosterPublic), 앱 화면(js/events.js evtAuto)은 신청 단추·「이렇게 등록됩니다」·명단 대신
---   도장판 끝에 「선물 대상이에요 ✓」를 쓴다. 표시가 없는 회차는 예전과 똑같이 돈다.
+--   도장판에 「이벤트 기간에 N일 함께하셨어요 · 앞으로 D일 더」를 응원으로 쓴다(2026-10-04 바뀜 — 「선물 대상」이라
+--   하지 않는다 · evtAutoTail). 표시가 없는 회차는 예전과 똑같이 돈다.
 --
 -- ⚠️ 순서: **api → 프런트(bump·push) → 이 파일**(설계 §9-7).
 --    이 표시를 새 화면보다 먼저 넣으면 옛 js/events.js 를 쓰는 기기가 「11월 3일부터 신청을 받아요」나

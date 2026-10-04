@@ -154,7 +154,8 @@ function evtMineOf(id) {
 }
 
 // 「자동 대상」 회차인가(설계 §9 · 2026-10-03) — 서버 index.ts 의 evtAuto 와 같은 판정.
-//   신청이 없다: 필요한 주를 채우시면(또는 담당자가 인정해 넣으시면) 그것으로 선물 대상이다.
+//   신청이 없다: 필요한 주를 채우시면(또는 담당자가 인정해 넣으시면) 그것으로 대상이다.
+//   ⚠️ 성도님 화면에는 「선물 대상」이라 쓰지 않는다(친구 2026-10-04 — 선물이 목적으로 보인다 · evtAutoTail).
 //   그래서 신청 단추·「이렇게 등록됩니다」·공개 명단을 그리지 않는다(evtDrawForm).
 // ⚠️ 이 깃발이 없는 회차는 예전과 똑같이 그린다.
 function evtAuto(e) { return !!(e && e.needs && e.needs.auto === true); }
@@ -302,52 +303,141 @@ function evtDayYmd(start, n) {
 }
 
 // ── 자동 대상 끝 문구 — 순수 함수 (여기부터) ──
-// 「자동 대상」 회차(설계 §9-2)의 도장판 맨 아래 한 문단을 고른다.
+// 「자동 대상」 회차(설계 §9-2 · 2026-10-04 바뀜)의 도장판 머리·주 칸·맨 아래 한 문단을 고른다.
 //   tests/event-auto.test.cjs 가 이 두 표식 사이를 떼어 내 node:vm 에서 돌린다 — 그래서 전역
-//   (evtStamp·evtMineOf·todayYmd)을 읽지 않고 **인자로만** 받는다(evtKoNum 은 시험이 따로 떼어 간다).
-//   s: eventStamps 응답(eligible·allWeeks·canStillReach·weeksDone·need) · r: s.rule
+//   (evtStamp·evtMineOf·todayYmd·stampToday)을 읽지 않고 **인자로만** 받는다(evtKoNum 은 시험이 따로 떼어 간다).
+// 친구(2026-10-04 · 도장판을 보고): 「선물 대상」이라는 말은 빼 달라(선물이 목적으로 보인다) —
+//   「두 주를 채우셨어요」 대신 **이벤트 기간에 함께한 날**과 **앞으로 며칠 더**를 응원으로 말한다.
+// ⚠️ 머리·끝 문구에 쓰지 않는 말: 「선물」·「대상이에요」·「N 주를 채우셨어요」(주 수를 앞세우는 말)·「자격」·
+//    「달성」·「당첨」·「상」·「순위」·「1등」·「여기까지」·「신청」. (안내 copy.intro 의 「소정의 선물」은 친구가 정한 그대로.)
+// ⚠️ 굵은 0 을 박지 않는다 — 함께한 날이 0 이면 그 문장을 빼고 말한다(나무라지 않는다).
+// ⚠️ 날 수는 아라비아 숫자(「3일」 — 커질 수 있다), 주 수를 말할 때만 evtKoNum(「여섯 주」).
+
+// 화면에 보일 주별 날 수 — 서버 weekDays 에 「오늘 살아 있는 +1」을 얹는다(app.js applyStampPill 과 같은 규칙:
+//   srvToday 를 알고(null 아님), 오늘 합(liveToday = stampToday(srvToday))이 막 perDay 를 넘었는데 서버는 아직이면
+//   이번 주 +1). 측정 기간 밖이면 얹지 않는다.
+//   ⚠️ 서버 값을 고쳐 저장하지 않는다(새 배열) — 다시 받으면 서버 값으로 저절로 맞는다.
+//   ⚠️ 주 칸·머리·끝 문구가 **모두 이 배열 하나**를 본다 — 칸과 문구의 숫자가 어긋나면 안 된다.
+function evtAutoWeekDays(weekDays, r, todayIdx, srvToday, liveToday) {
+  var weeks = Number(r.weeks) || 0;
+  var perDay = Number(r.perDay) || 1;
+  var out = [];
+  for (var i = 0; i < weeks; i++) out.push(Number(weekDays && weekDays[i]) || 0);
+  if (isFinite(todayIdx) && todayIdx >= 0 && todayIdx < weeks * 7 && srvToday != null &&
+      (Number(liveToday) || 0) >= perDay && (Number(srvToday) || 0) < perDay) {
+    out[Math.floor(todayIdx / 7)] += 1;
+  }
+  return out;
+}
+
+// 함께한 날 — 도장이 찍힌 날(그날 합 ≥ perDay) 수를 측정 기간 전체로 더한다.
+function evtAutoDaysTogether(wd) {
+  var n = 0;
+  for (var i = 0; i < wd.length; i++) n += Number(wd[i]) || 0;
+  return n;
+}
+
+// 채운 주 수(한 주 perWeek 일 이상) — 같은 배열로 센다.
+function evtAutoWeeksDone(wd, r) {
+  var pw = Number(r.perWeek) || 1, done = 0;
+  for (var i = 0; i < wd.length; i++) if ((Number(wd[i]) || 0) >= pw) done++;
+  return done;
+}
+
+// 앞으로 며칠 — 기준(need 주 · 한 주 perWeek 일)에 닿는 **가장 적은** 날 수 D.
+//   wd: evtAutoWeekDays 결과 · need: 서버 s.need(이벤트 중 처음 오신 분은 2) · todayStamped: 오늘이 이미 한 칸인가
+//   돌려주는 것 { days, thisWeek }:
+//     days     — D. 0 = 이미 닿았다 · null = 남은 주(이번 주 포함 · 측정 끝까지)로 못 닿는다
+//     thisWeek — 이번 주를 채우려면 더 필요한 날(이번 주를 아직 채울 수 있을 때만 · 아니면 0)
+//   · 남은 필요 주 = need − 채운 주.
+//   · 이번 주가 아직 안 찼고 이번 주 남은 날(오늘 포함 · 오늘 이미 찍혔으면 오늘 빼고) 안에 모자란 날을 채울 수
+//     있으면 D = (perWeek − 이번 주 날 수) + perWeek × (남은 필요 주 − 1). 아니면 다음 주부터 D = perWeek × 남은 필요 주.
+//   · 측정 전(todayIdx < 0)이면 모든 주가 앞에 있다.
+function evtDaysToGo(wd, r, need, todayIdx, todayStamped) {
+  var weeks = Number(r.weeks) || 0;
+  var pw = Number(r.perWeek) || 1;
+  var left = (Number(need) || 0) - evtAutoWeeksDone(wd, r);   // 남은 필요 주
+  if (left <= 0) return { days: 0, thisWeek: 0 };
+  var ti = isFinite(todayIdx) ? todayIdx : -1;
+  if (ti >= weeks * 7) return { days: null, thisWeek: 0 };    // 측정이 끝났다
+  if (ti < 0) return { days: weeks >= left ? pw * left : null, thisWeek: 0 };
+  var cw = Math.floor(ti / 7);                                // 이번 주
+  var after = weeks - cw - 1;                                 // 다음 주부터 측정 끝까지 남은 주
+  var have = Number(wd[cw]) || 0;
+  if (have < pw) {
+    var avail = 7 - (ti % 7) - (todayStamped ? 1 : 0);         // 이번 주에 아직 찍을 수 있는 날
+    var miss = pw - have;
+    if (miss <= avail && after + 1 >= left) return { days: miss + pw * (left - 1), thisWeek: miss };
+  }
+  return { days: after >= left ? pw * left : null, thisWeek: 0 };
+}
+
+// 도장판 머리의 「{이름} 님의 도장판 · 」 뒤 — n: 함께한 날(evtAutoDaysTogether).
+function evtAutoHead(n) {
+  return n ? ("지금까지 " + n + "일 함께하셨어요") : "첫 칸을 기다리고 있어요";
+}
+
+// 도장판 맨 아래 한 문단.
+//   s: eventStamps 응답(weekDays·eligible·allWeeks·need) · r: s.rule
 //   mine: 그 회차에 내 줄이 있나 — 담당자가 인정해 넣은 분이다(서버 eligible 은 주만 센다).
-//         이 값을 빠뜨리면 인정받은 분이 「이번엔 여기까지예요」를 본다.
 //   todayIdx: 측정 시작일부터 오늘까지 날 수(0 = 첫날) — r.weeks*7 이상이면 측정이 끝났다(11/29~).
-// ⚠️ 「신청」(「따로 신청하지 않으셔도」 말고)·「자격」·「달성」·「당첨」·「상」·「순위」·「1등」을 쓰지 않는다.
-// ⚠️ 굵은 0 을 박지 않는다 — 채운 주가 0 이면 그 줄을 빼고 말한다(나무라지 않는다).
-function evtAutoTail(s, r, mine, todayIdx) {
-  var wd = Number(s.weeksDone) || 0;
-  var ended = todayIdx >= r.weeks * 7;
-  var gift = "<b>선물 대상이에요 ✓</b> — 따로 신청하지 않으셔도 돼요.";
-  var thanks = evtKoNum(r.weeks) + " 주 동안 함께해 주셔서 고맙습니다.";
-  // 대상 — 서버가 센 주(eligible) **또는** 담당자가 인정해 넣은 줄(mine)
-  if (s.eligible || mine) {
-    if (s.allWeeks) {
-      return gift + "<br>" + evtKoNum(r.weeks) + " 주를 다 채우셨어요 ✨" +
-        (ended ? "<br>" + thanks : "");
-    }
-    // ⚠️ 채우신 주를 말한다(필요 주수가 아니다) — 다섯 주 채운 분께 「세 주 채우셨어요」는 틀린 말이다.
-    return gift + "<br>" + (wd ? evtKoNum(wd) + " 주를 채우셨어요. " : "") +
-      (ended ? thanks : "남은 주도 편한 만큼 함께해요.");
+//   srvToday: 서버가 준 오늘 합(받은 날이 오늘이 아니거나 모르면 null) · liveToday: stampToday(srvToday)
+//     — evtStampHtml 이 주 칸에 넘기는 것과 **같은 값**을 넘긴다(evtAutoWeekDays 하나로 센다).
+function evtAutoTail(s, r, mine, todayIdx, srvToday, liveToday) {
+  var weeks = Number(r.weeks) || 0;
+  var pw = Number(r.perWeek) || 1;
+  var perDay = Number(r.perDay) || 1;
+  var ti = isFinite(todayIdx) ? todayIdx : -1;
+  var wd = evtAutoWeekDays(s.weekDays, r, ti, srvToday, liveToday);
+  var n = evtAutoDaysTogether(wd);
+  var done = evtAutoWeeksDone(wd, r);
+  // ⚠️ s.need 를 쓴다(중간에 처음 오신 분은 두 주다). 없으면(옛 응답) 회차 기본값 r.need.
+  var need = Number(s.need) || Number(r.need) || 1;
+  // 서버 eligible — 또는 오늘 막 채운 주(+1)로 닿은 분(서버가 따라오면 eligible 이 된다 · 「앞으로 0일」을 안 띄운다)
+  var reached = !!s.eligible || done >= need;
+  var every = !!s.allWeeks || (weeks > 0 && done >= weeks);
+  var stamped = ti >= 0 && ti < weeks * 7 &&
+    Math.max(Number(srvToday) || 0, Number(liveToday) || 0) >= perDay;
+  var said = n ? "이벤트 기간에 " + n + "일 함께하셨어요." : "";
+  var sparkle = every ? "✨ 매주 빠짐없이 함께하셨어요." : "";
+  var lines = function (a) { return a.filter(function (x) { return !!x; }).join("<br>"); };
+
+  // 측정이 끝났다(11/29~) — 감사로 맺는다. 「필요한 날을 모두 채우셨어요」는 정말 채우신 분만(인정 줄은 아니다).
+  if (ti >= weeks * 7) {
+    return lines([said, reached ? "필요한 날을 모두 채우셨어요 🙂" : "",
+      evtKoNum(weeks) + " 주 동안 함께해 주셔서 고맙습니다.", sparkle]);
   }
-  // 측정이 끝났고 대상이 아니다 — 첫 줄이 감사다(9/23 설계 §8 「마감 뒤 · 못 채우신 분」).
-  if (ended) {
-    return thanks + (wd ? "<br>채우신 " + evtKoNum(wd) + " 주는 그대로 남아 있어요." : "") +
-      "<br>다음 걸음에 또 함께해요.";
+  // 기준을 채우셨다
+  if (reached) {
+    return lines([said, "필요한 날을 모두 채우셨어요 🙂 남은 날도 편한 만큼 말씀과 함께해요.", sparkle]);
   }
-  // 닿을 수 있다 — ⚠️ s.need 를 쓴다(중간에 처음 오신 분은 두 주다 · 「세 주」를 박지 않는다).
-  //   (s.need 가 없으면 — 옛 응답 — 회차 기본값 r.need 로. 「0 주가 되면」을 띄우지 않는다.)
-  if (s.canStillReach) {
-    return (wd ? "지금까지 " + evtKoNum(wd) + " 주를 채우셨어요.<br>" : "") +
-      evtKoNum(Number(s.need) || r.need) + " 주가 되면 선물 대상이 돼요.<br>" +
-      "남은 주에 " + r.perWeek + "일씩만 채우시면 돼요.";
+  // 담당자가 넣은 줄만 있다 — 「필요한 날을 채우셨어요」라고 하지 않는다(사실이 아니다).
+  //   이 갈래를 빠뜨리면 인정받은 분이 「앞으로 며칠」이나 「한 걸음 한 걸음」을 본다.
+  if (mine) {
+    return lines([said, "함께해 주셔서 고마워요 — 남은 날도 편한 만큼 말씀과 함께해요."]);
   }
-  // 남은 주로 못 닿는다 — 기준을 다시 말하지 않는다.
-  return wd
-    ? "이번엔 여기까지예요. 채우신 " + evtKoNum(wd) + " 주는 그대로 남아요 — 다음에 또 함께해요."
-    : "이번엔 여기까지예요 — 다음에 또 함께해요.";
+  var go = evtDaysToGo(wd, r, need, ti, stamped);
+  // 닿을 수 있다 — 앞으로 며칠(+ 이번 주를 아직 채울 수 있으면 이번 주 몇 일)
+  if (go.days) {
+    var first = n
+      ? said + "<br><b>앞으로 " + go.days + "일 더</b> 함께하시면 돼요(한 주에 " + pw + "일씩)."
+      // 측정 전(ti < 0)에 「오늘 …번이면 첫 칸」은 사실이 아니다(오늘은 세지 않는다)
+      : "<b>앞으로 " + go.days + "일</b> 함께하시면 돼요(한 주에 " + pw + "일씩) — " +
+        (ti < 0 ? "시작하는 날부터 하루 " + perDay + "번이면 한 칸이에요."
+                : "오늘 " + perDay + "번이면 첫 칸이에요.");
+    return lines([first,
+      go.thisWeek ? "이번 주는 " + go.thisWeek + "일 더 하시면 채워져요." : "",
+      "오늘도 말씀과 함께 힘내요 🙂"]);
+  }
+  // 남은 주로 못 닿는다 — 기준을 다시 말하지 않고, 「여기까지」·「떨어졌다」 결의 말도 하지 않는다.
+  return lines([said, "한 걸음 한 걸음이 귀해요 — 남은 날도 말씀과 함께해요."]);
 }
 // ── 자동 대상 끝 문구 — 순수 함수 (여기까지) ──
 
 // 도장판. ⚠️ evtDrawForm 의 `if (!canSignup)` **앞**에서 부른다 —
 //    그 분기는 폼 대신 명단만 그려서, 신청 창이 열리기 전에는 도장판이 아예 안 보인다.
-// e: 이 도장판의 회차 — 「자동 대상」(evtAuto)이면 끝 문구를 evtAutoTail 로 고른다(없으면 예전 문구).
+// e: 이 도장판의 회차 — 「자동 대상」(evtAuto)이면 머리·주 칸·끝 문구를 evtAutoHead·evtAutoWeekDays·evtAutoTail 로
+//    고른다(2026-10-04 · 없으면 예전 문구·예전 칸 그대로).
 function evtStampHtml(u, e) {
   // ⚠️ weekDays 가 통째로 없으면 0 으로 그리면 안 된다 — 그건 「모른다」다.
   if (evtStampState !== "ready" || !evtStamp || !evtStamp.rule || !evtStamp.weekDays) {
@@ -355,13 +445,31 @@ function evtStampHtml(u, e) {
   }
   var s = evtStamp, r = s.rule;
   var perDay = r.perDay || 1;   // 없으면 1(옛 서버 · 2026-10-03 이전) — 「하루 한 번이라도」
+  var auto = evtAuto(e);
+  // 오늘이 측정 몇째 날인가(0 = 첫날) — 아래 7일 띠와 자동 대상 문구가 함께 쓴다.
+  var todayIdx = Math.floor(
+    (Date.parse(todayYmd() + "T00:00:00Z") - Date.parse(r.start + "T00:00:00Z")) / 86400000);
+  // ⚠️ 받은 날(evtStampDay)이 오늘이 아니면 서버 오늘 합은 「어제 것」이다 — 「모른다」(null)로 둔다
+  //    (app.js applyStampPill 과 같은 규칙 · 검토 2026-10-03). 그때 오늘 칸은 stampToday 가
+  //    이 기기에서 오늘 센 수(todayCountCache)만으로 그린다 — 어제 합을 「오늘」로 보이지 않는다.
+  //    s.days 까지 없으면(통신 실패) 그것도 「모른다」(null) — app.js fillStampPill 의 srvToday 와 같은 식.
+  var srvTodayVal = (evtStampDay !== todayYmd()) ? null
+    : (s.todayCount != null ? s.todayCount : (s.days ? (s.days[todayYmd()] || 0) : null));
+  // ⚠️ 오늘은 stampToday(app.js)로 「지금 살아있는」 값을 쓴다 — 방금 활동을
+  //    마쳤는데 서버 집계가 아직 안 따라왔을 때를 위해서다(typeof 로 빌려 쓴다).
+  var liveToday = typeof stampToday === "function" ? stampToday(srvTodayVal) : (srvTodayVal || 0);
+  // 자동 대상 회차(2026-10-04)는 주 칸·머리·끝 문구가 「오늘 살아 있는 +1」을 얹은 **같은 배열**을 본다
+  //   (evtAutoWeekDays · 첫 화면 알약과 같은 규칙) — 칸과 「N일 함께하셨어요」가 어긋나지 않게.
+  //   다른 회차는 예전 그대로 서버 weekDays 다.
+  var wdShown = auto ? evtAutoWeekDays(s.weekDays, r, todayIdx, srvTodayVal, liveToday) : s.weekDays;
   var head = evtEsc(u.name) + " 님의 도장판 · " +
-    (s.weeksDone ? ("지금까지 " + evtKoNum(s.weeksDone) + " 주 채웠어요")
-                 : "첫 주를 채우는 중이에요");
+    (auto ? evtAutoHead(evtAutoDaysTogether(wdShown))
+     : (s.weeksDone ? ("지금까지 " + evtKoNum(s.weeksDone) + " 주 채웠어요")
+                    : "첫 주를 채우는 중이에요"));
 
   var cells = "";
   for (var i = 0; i < r.weeks; i++) {
-    var n = (s.weekDays && s.weekDays[i]) || 0;
+    var n = (wdShown && wdShown[i]) || 0;
     var full = n >= r.perWeek;
     cells += '<div class="ev-wk' + (full ? " on" : "") + '">' +
       '<div class="ev-wk-t">' + evtEsc(evtWeekLabel(r.start, i)) + "</div>" +
@@ -377,27 +485,17 @@ function evtStampHtml(u, e) {
   //    보이면 사실이 아닌 말이 된다. 측정 전(before)·이번 주가 창 밖이어도 안 그린다
   //    (days/todayCount 는 [start, start+weeks*7-1] 구간만 안다 · index.ts eventStamps).
   var daysHtml = "";
-  var todayIdx = Math.floor(
-    (Date.parse(todayYmd() + "T00:00:00Z") - Date.parse(r.start + "T00:00:00Z")) / 86400000);
   var inWindow = todayIdx >= 0 && todayIdx < r.weeks * 7;
   if (s.days && inWindow && (s.phase === "measuring" || s.phase === "signup")) {
     var wkStart = Math.floor(todayIdx / 7) * 7;
     var dayNames = ["일", "월", "화", "수", "목", "금", "토"];
-    // ⚠️ 받은 날(evtStampDay)이 오늘이 아니면 서버 오늘 합은 「어제 것」이다 — 「모른다」(null)로 둔다
-    //    (app.js applyStampPill 과 같은 규칙 · 검토 2026-10-03). 그때 오늘 칸은 stampToday 가
-    //    이 기기에서 오늘 센 수(todayCountCache)만으로 그린다 — 어제 합을 「오늘」로 보이지 않는다.
-    var srvTodayVal = (evtStampDay !== todayYmd()) ? null
-      : (s.todayCount != null ? s.todayCount : (s.days[todayYmd()] || 0));
     var dcells = "";
     for (var k = 0; k < 7; k++) {
       var dn = wkStart + k;
       var ymd = evtDayYmd(r.start, dn);
       var isToday = (dn === todayIdx);
-      // ⚠️ 오늘은 stampToday(app.js)로 「지금 살아있는」 값을 쓴다 — 방금 활동을
-      //    마쳤는데 서버 집계가 아직 안 따라왔을 때를 위해서다(typeof 로 빌려 쓴다).
-      var n2 = isToday
-        ? (typeof stampToday === "function" ? stampToday(srvTodayVal) : (srvTodayVal || 0))
-        : (s.days[ymd] || 0);
+      // 오늘은 위 liveToday(stampToday) — 서버 집계가 아직 안 따라왔을 때를 위해서다.
+      var n2 = isToday ? liveToday : (s.days[ymd] || 0);
       var full2 = n2 >= perDay;
       var part2 = !full2 && n2 > 0;
       dcells += '<div class="ev-day' + (full2 ? " on" : "") + (part2 ? " part" : "") +
@@ -413,9 +511,11 @@ function evtStampHtml(u, e) {
 
   // 이번 주 남은 만큼을 말로. ⚠️ 「2일 남음」처럼 남은 것을 세면 빚처럼 읽힌다.
   var tail;
-  if (evtAuto(e)) {
-    // 자동 대상 회차(설계 §9) — 「신청 단추가 열려요」 대신 「선물 대상」으로 말한다.
-    tail = evtAutoTail(s, r, !!(e && evtMineOf(e.id)), todayIdx);
+  if (auto) {
+    // 자동 대상 회차(설계 §9 · 2026-10-04 바뀜) — 「신청 단추가 열려요」도 「선물 대상」도 아니고,
+    //   함께한 날·앞으로 며칠을 응원으로 말한다(「앞으로 며칠」은 친구가 응원으로 말해 달라 한 것이다 —
+    //   「며칠 남음」처럼 빚으로 세지 않고 「더 함께하시면 돼요」로 쓴다). 주 칸과 같은 srvTodayVal·liveToday 를 넘긴다.
+    tail = evtAutoTail(s, r, !!(e && evtMineOf(e.id)), todayIdx, srvTodayVal, liveToday);
   } else if (s.eligible) {
     // ⚠️ 채우신 주를 말한다(필요 주수가 아니다) — 다섯 주 채운 분께 「세 주 채우셨어요」는 틀린 말이다.
     tail = s.allWeeks
@@ -440,7 +540,9 @@ function evtStampHtml(u, e) {
     : ("하루에 " + perDay + "번 하시면 그날 한 칸이에요. " +
        "암송·도전·복습을 하나 마칠 때마다 한 번이고, 첫 화면에 「오늘 1회」처럼 쌓여요.");
 
-  return '<div class="ev-stampbox">' +
+  // ev-auto — 자동 대상 회차만 머리·끝 문구를 낱말 단위로 접는다(style.css · 「지금까지 1 / 일」처럼 숫자와
+  //   「일」이 갈라지지 않게 · 2026-10-04). 다른 회차의 상자는 예전 그대로다.
+  return '<div class="ev-stampbox' + (auto ? " ev-auto" : "") + '">' +
     '<div class="ev-stamp-h">' + head + "</div>" +
     '<div class="ev-wks">' + cells + "</div>" +
     daysHtml +
