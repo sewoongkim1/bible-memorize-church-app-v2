@@ -1,4 +1,6 @@
--- 가을 말씀암송 동행 — 「하루 3번이면 한 칸」(needs.eligibility.perDay)과 문구를 같은 숫자로
+-- 가을 말씀암송 동행 — 규칙(하루 3번 · 한 주 3일 · **일곱 주 가운데 다섯 주**)과 안내 문구를 같은 숫자로
+-- ⚠️ 2026-10-04 친구: 「한 주 더 늘리고 7주 중 5주로」 — 측정 10/18(일)~12/5(토) · weeks 7 · need 5 ·
+--    minNeed 5(늦게 오신 분도 같은 기준 — 셋째 주(11/1~11/7)까지 시작하셔야 다섯 주가 된다).
 -- ⚠️ 이 저장소는 공개(public)입니다 — 비밀번호·키를 절대 넣지 마세요.
 -- 설계: docs/superpowers/specs/2026-10-03-autumn-event-launch-design.md §8
 -- 계획: docs/superpowers/plans/2026-10-03-autumn-event-launch.md Task 12
@@ -19,6 +21,9 @@
 do $$
 declare
   v_per_day int := 3;
+  v_weeks   int := 7;   -- 2026-10-04 · 6 → 7 (측정 끝 12/5 토)
+  v_need    int := 5;   -- 2026-10-04 · 3 → 5
+  v_min     int := 5;   -- 늦게 오신 분도 같은 기준(친구) — api evtNeedFor 가 min(need, max(minNeed, …)) 라 5 면 늘 5
   v_intro   text;
   v_status  text;
   v_signups int;
@@ -26,9 +31,10 @@ begin
   v_intro :=
     '하루에 ' || v_per_day || '번 말씀을 암송하시면 그날 한 칸이 채워져요.' || chr(10) ||
     '한 주에 3일이면 그 주가 채워집니다 — 매일 하지 않아도 돼요.' || chr(10) ||
-    '여섯 주 가운데 세 주를 채워 참여하신 분께는 모두 소정의 선물을 드려요.' || chr(10) ||
-    '따로 신청하지 않으셔도 돼요. 10월 25일 이후 앱에서 처음 시작하신 분은 두 주면 돼요.';
-    -- ↑ 신청 없이 「자동 대상」(설계 §9 · 친구 2026-10-03) — 「신청」 단추·기간을 말하지 않는다. 늦게 오신 분 규칙은 api evtNeedFor
+    '일곱 주 가운데 다섯 주를 채워 참여하신 분께는 모두 소정의 선물을 드려요.' || chr(10) ||
+    '두 주는 쉬어도 괜찮아요. 따로 신청하지 않으셔도 돼요.';
+    -- ↑ 신청 없이 「자동 대상」(설계 §9 · 친구 2026-10-03) — 「신청」 단추·기간을 말하지 않는다.
+    --   7주 중 5주(설계 §10 · 2026-10-04) — 늦게 오신 분도 같은 기준이라 「두 주면 돼요」 줄은 뺐다.
 
   select status into v_status from public.events where id = 'autumn-2026';
   if v_status is null then
@@ -43,11 +49,18 @@ begin
   end if;
 
   update public.events
-     set needs = jsonb_set(needs, '{eligibility,perDay}', to_jsonb(v_per_day)),
+     set needs = jsonb_set(jsonb_set(jsonb_set(jsonb_set(needs,
+                   '{eligibility,perDay}',  to_jsonb(v_per_day)),
+                   '{eligibility,weeks}',   to_jsonb(v_weeks)),
+                   '{eligibility,need}',    to_jsonb(v_need)),
+                   '{eligibility,minNeed}', to_jsonb(v_min)),
          copy  = jsonb_set(copy, '{intro}', to_jsonb(v_intro)),
          updated_at = now()
    where id = 'autumn-2026'
      and (needs->'eligibility'->>'perDay' is distinct from v_per_day::text
+          or needs->'eligibility'->>'weeks'   is distinct from v_weeks::text
+          or needs->'eligibility'->>'need'    is distinct from v_need::text
+          or needs->'eligibility'->>'minNeed' is distinct from v_min::text
           or copy->>'intro' is distinct from v_intro);
 
   -- 부제(설계 §9-2 「바뀜 2026-10-04」) — 「선물 대상」이라는 말을 뺀다(친구: 선물이 목적으로 보인다).
@@ -56,10 +69,11 @@ begin
   --   부제는 교회 어드민에서 고칠 수 있는 칸이라 **옛 글자(둘 중 하나) 그대로일 때만** 바꾼다
   --   (친구가 어드민에서 고쳐 두었으면 건드리지 않는다).
   update public.events
-     set subtitle = '여섯 주 가운데 세 주, 말씀과 함께 걸어요',
+     set subtitle = '일곱 주 가운데 다섯 주, 말씀과 함께 걸어요',   -- 2026-10-04 · 7주 중 5주
          updated_at = now()
    where id = 'autumn-2026'
-     and subtitle in ('여섯 주 가운데 세 주를 채우시면 선물 대상이 돼요',
+     and subtitle in ('여섯 주 가운데 세 주, 말씀과 함께 걸어요',
+                      '여섯 주 가운데 세 주를 채우시면 선물 대상이 돼요',
                       '여섯 주 가운데 세 주를 채우시면 신청이 열려요');
 end $$;
 

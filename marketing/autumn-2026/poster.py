@@ -71,9 +71,9 @@ def poster_a3():
      한 주에 3일이면 그 주가 채워집니다. <b style="color:#fff">매일 하지 않아도 괜찮아요.</b></p>
 
   <div class="prize" style="margin-top:12mm">
-    <div class="lb">여섯 주 가운데 세 주를 채워 참여하신 분</div>
+    <div class="lb">일곱 주 가운데 다섯 주를 채워 참여하신 분</div>
     <div class="bg">🎁 모두 소정의 선물</div>
-    <div class="sm">따로 신청하지 않으셔도 돼요</div>
+    <div class="sm">두 주는 쉬어도 괜찮아요 · 따로 신청하지 않으셔도 돼요</div>
   </div>
 
   <div class="steps" style="margin-top:12mm">
@@ -87,7 +87,7 @@ def poster_a3():
   <div style="display:flex;align-items:center;gap:12mm">
     <div class="qrbox"><img src="%(qr)s"><div class="u">gocheok.onlybible.kr</div></div>
     <div>
-      <div class="when">10월 18일(주일) <b>~</b> 11월 28일(토)</div>
+      <div class="when">10월 18일(주일) <b>~</b> 12월 5일(토)</div>
       <div class="sub" style="margin-top:3mm;font-size:13pt">휴대폰 카메라로 QR을 비추면<br>바로 열립니다. 중간에 오셔도 함께해요.</div>
     </div>
   </div>
@@ -117,12 +117,12 @@ def slide_169():
   </div>
   <div style="flex:.85;display:flex;flex-direction:column;gap:26px">
     <div class="prize">
-      <div class="lb">여섯 주 가운데 세 주를 채워 참여하신 분</div>
+      <div class="lb">일곱 주 가운데 다섯 주를 채워 참여하신 분</div>
       <div class="bg">🎁 모두 소정의 선물</div>
-      <div class="sm">따로 신청하지 않으셔도 돼요</div>
+      <div class="sm">두 주는 쉬어도 괜찮아요 · 따로 신청하지 않으셔도 돼요</div>
     </div>
     <div class="qrbox"><img src="%(qr)s" style="margin:0 auto"><div class="u">gocheok.onlybible.kr</div></div>
-    <div class="when" style="text-align:center">10월 18일(주일) <b>~</b> 11월 28일(토)</div>
+    <div class="when" style="text-align:center">10월 18일(주일) <b>~</b> 12월 5일(토)</div>
   </div>
 </div></div>""" % dict(logo=LOGO, qr=QR, per_day=PER_DAY) + "</body></html>"
 
