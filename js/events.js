@@ -419,16 +419,27 @@ function evtAutoTail(s, r, mine, todayIdx, srvToday, liveToday) {
   var go = evtDaysToGo(wd, r, need, ti, stamped);
   // 닿을 수 있다 — 앞으로 며칠(+ 이번 주를 아직 채울 수 있으면 이번 주 몇 일)
   if (go.days) {
+    // 이번 주만 채우면 끝나는 경우(go.thisWeek === go.days) — 「앞으로 1일(한 주에 3일씩)」은 서로 어긋나 읽히고,
+    //   그 하루가 이번 주를 넘기면 다음 주 3일이 된다. 그래서 「이번 주에 N일」로 바로 말한다(2026-10-04 검토).
+    var onlyThisWeek = !!go.thisWeek && go.thisWeek === go.days;
+    var goText = onlyThisWeek
+      // 이번 주에 이미 한 날이 있을 때만 「더」(이번 주를 아직 시작 안 했으면 「이번 주에 3일 더」는 어색하다)
+      ? (n ? "<b>이번 주에 " + go.days + "일" + (go.thisWeek < pw ? " 더" : "") + "</b> 함께하시면 돼요."
+           : "<b>이번 주에 " + go.days + "일</b> 함께하시면 돼요")
+      : (n ? "<b>앞으로 " + go.days + "일 더</b> 함께하시면 돼요(한 주에 " + pw + "일씩)."
+           : "<b>앞으로 " + go.days + "일</b> 함께하시면 돼요(한 주에 " + pw + "일씩)");
     var first = n
-      ? said + "<br><b>앞으로 " + go.days + "일 더</b> 함께하시면 돼요(한 주에 " + pw + "일씩)."
+      ? said + "<br>" + goText
       // 측정 전(ti < 0)에 「오늘 …번이면 첫 칸」은 사실이 아니다(오늘은 세지 않는다)
-      : "<b>앞으로 " + go.days + "일</b> 함께하시면 돼요(한 주에 " + pw + "일씩) — " +
+      : goText + " — " +
         (ti < 0 ? "시작하는 날부터 하루 " + perDay + "번이면 한 칸이에요."
                 : "오늘 " + perDay + "번이면 첫 칸이에요.");
-    return lines([first,
-      // 이번 주만 채우면 끝나는 경우(go.thisWeek === go.days)에는 같은 말을 두 번 하지 않는다(2026-10-04)
-      (go.thisWeek && go.thisWeek < go.days) ? "이번 주는 " + go.thisWeek + "일 더 하시면 채워져요." : "",
-      "오늘도 말씀과 함께 힘내요 🙂"]);
+    // 이번 주 한 줄 — 이번 주에 아직 한 날도 없으면 「X일이면」(아무것도 안 했는데 「더」는 어색하다)
+    var weekText = (go.thisWeek && !onlyThisWeek)
+      ? (go.thisWeek >= pw ? "이번 주는 " + go.thisWeek + "일이면 채워져요."
+                           : "이번 주는 " + go.thisWeek + "일 더 하시면 채워져요.")
+      : "";
+    return lines([first, weekText, "오늘도 말씀과 함께 힘내요 🙂"]);
   }
   // 남은 주로 못 닿는다 — 기준을 다시 말하지 않고, 「여기까지」·「떨어졌다」 결의 말도 하지 않는다.
   return lines([said, "한 걸음 한 걸음이 귀해요 — 남은 날도 말씀과 함께해요."]);
