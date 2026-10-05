@@ -75,6 +75,7 @@
 - `description` · `teacher_label`(화면에 보일 강사 이름 — 계정과 별개) · `place` · `fee_note`(안내 글)
 - `capacity int null`(null = 제한 없음) · `mode`(`auto` 선착순 · `approve` 승인) · `waitlist bool`
 - `apply_from date` · `apply_to date` · `target text`(안내 글 · 예 「교회학교 교사」) · `prereq_tracks text[]`
+- `starts_on date` · `ends_on date`(2026-10-05 추가 · 둘 다 비어도 됨 · CHECK `starts_on <= ends_on`) — **교육 기간**(신청 기간과 별개). 목록·상세의 날짜와 교회 어드민 카드는 이 기간을 먼저 쓰고, 없으면 회차에서 읽는다. 성도님 취소 마감의 「첫 날」은 `coalesce(첫 회차 날, starts_on)` — 회차가 없어도 시작일 전날까지만 앱에서 취소된다.
 - `attend_pct int default 80` · `check_label text null`(담당자가 확인할 것 · 예 「과제」 — null 이면 출석률만)
 - `status`(`draft` 준비 · `open` 모집 · `closed` 모집 끝 · `running` 진행 · `done` 끝 · `archived`) · `created_by` · 시각들
 

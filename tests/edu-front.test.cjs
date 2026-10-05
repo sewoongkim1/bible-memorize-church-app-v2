@@ -59,3 +59,14 @@ test('eduEsc — boardEsc 없이도 다섯 글자를 막는다(빈 값은 빈 �
   assert.equal(ctx.eduEsc(undefined), '');
   assert.equal(ctx.eduEsc(12), '12');
 });
+
+test('eduPeriodLine — 교육 기간 한 줄(시작일이 없으면 빈 글)', () => {
+  assert.equal(ctx.eduPeriodLine({ startsOn: '2027-03-03', endsOn: '2027-05-19' }), '교육 기간 · 2027년 3월 3일(수) ~ 5월 19일(수)');
+  assert.equal(ctx.eduPeriodLine({ startsOn: '2027-11-03', endsOn: '2028-01-05' }), '교육 기간 · 2027년 11월 3일(수) ~ 2028년 1월 5일(수)');   // 해가 다르면 연도를 붙인다
+  assert.equal(ctx.eduPeriodLine({ startsOn: '2027-03-03', endsOn: '2027-03-03' }), '교육 기간 · 2027년 3월 3일(수)');
+  assert.equal(ctx.eduPeriodLine({ startsOn: '2027-03-03', endsOn: null }), '교육 기간 · 2027년 3월 3일(수)');
+  assert.equal(ctx.eduPeriodLine({ startsOn: null, endsOn: '2027-05-19' }), '');
+  assert.equal(ctx.eduPeriodLine({ startsOn: 'x' }), '');
+  assert.equal(ctx.eduPeriodLine({}), '');
+  assert.equal(ctx.eduPeriodLine(null), '');
+});

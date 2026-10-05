@@ -34,6 +34,16 @@ create table if not exists public.edu_courses (
   check (apply_from is null or apply_to is null or apply_from <= apply_to)
 );
 
+-- 교육 기간(2026-10-05 추가) — 신청 기간(apply_from/to)과 별개로 강좌가 열리는 첫 날·마지막 날. 비어 있어도 된다(회차에서 읽는다).
+--   취소 마감은 coalesce(첫 회차 날, starts_on) — 회차가 없어도 시작일이 있으면 그 전까지만 앱에서 취소된다.
+alter table public.edu_courses add column if not exists starts_on date;
+alter table public.edu_courses add column if not exists ends_on   date;
+do $$ begin
+  if not exists (select 1 from pg_constraint where conrelid = 'public.edu_courses'::regclass and conname = 'edu_courses_period_check') then
+    alter table public.edu_courses add constraint edu_courses_period_check check (starts_on is null or ends_on is null or starts_on <= ends_on);
+  end if;
+end $$;
+
 create table if not exists public.edu_sessions (
   id         bigint generated always as identity primary key,
   course_id  uuid not null references public.edu_courses(id) on delete cascade,
@@ -169,7 +179,7 @@ begin
   return w;
 end $$;
 
--- 취소 — 성도님은 첫 회차 전날까지(회차가 없으면 언제든). 담당자는 언제든.
+-- 취소 — 성도님은 첫 날 전날까지(첫 날 = 첫 회차 날, 회차가 없으면 교육 시작일, 둘 다 없으면 언제든). 담당자는 언제든.
 create or replace function public.edu_cancel(p_enrollment bigint, p_staff boolean default false)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare e public.edu_enrollments; cid uuid; first_day date; was_confirmed boolean; p bigint;
@@ -182,7 +192,8 @@ begin
   if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
   if e.status not in ('applied','confirmed','waitlisted') then return jsonb_build_object('ok',false,'error','not-active'); end if;
   if not p_staff then
-    select min(on_date) into first_day from public.edu_sessions where course_id = cid;
+    select coalesce(min(s.on_date), (select starts_on from public.edu_courses where id = cid)) into first_day
+      from public.edu_sessions s where s.course_id = cid;   -- 집계라 회차가 없어도 한 줄이 나온다
     if first_day is not null and edu_today() >= first_day then return jsonb_build_object('ok',false,'error','too-late'); end if;
   end if;
   was_confirmed := e.status = 'confirmed';

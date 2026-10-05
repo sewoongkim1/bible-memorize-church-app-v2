@@ -4905,8 +4905,9 @@ function eduCourseOut(c: any, ss: any[], cnt: { confirmed: number; waitlisted: n
     id: c.id, title: c.title, kind: c.kind, kindLabel: EDU_KIND_LABEL[c.kind] || c.kind, term: c.term || "",
     teacher: c.teacher_label || "", place: c.place || "", fee: c.fee_note || "", target: c.target || "",
     capacity: c.capacity ?? null, mode: c.mode, waitlist: !!c.waitlist, applyFrom: c.apply_from, applyTo: c.apply_to,
+    startsOn: c.starts_on ?? null, endsOn: c.ends_on ?? null,   // 교육 기간(교회 어드민이 정한다 · 없으면 null)
     status: c.status, phase: eduPhase(c, today), sessionsCount: ss.length,
-    firstDate: ss[0]?.on_date ?? null, lastDate: ss[ss.length - 1]?.on_date ?? null,
+    firstDate: c.starts_on ?? ss[0]?.on_date ?? null, lastDate: c.ends_on ?? ss[ss.length - 1]?.on_date ?? null,   // 교육 기간이 있으면 그것, 없으면 회차에서
     confirmed: cnt.confirmed, waitlisted: cnt.waitlisted,
   };
 }
@@ -4939,7 +4940,7 @@ async function eduWaitNo(courseId: string, waitAt: string | null, id: number): P
 async function eduMineOut(rows: any[], today: string) {
   const ids = [...new Set(rows.map((r) => r.course_id))];
   if (!ids.length) return [];
-  const { data: cs, error } = await db.from("edu_courses").select("id,title,term").in("id", ids);
+  const { data: cs, error } = await db.from("edu_courses").select("id,title,term,starts_on").in("id", ids);
   if (error) throw error;
   const cmap = new Map((cs ?? []).map((c: any) => [c.id, c]));
   const sess = await eduSessionsOf(ids);
@@ -4948,10 +4949,10 @@ async function eduMineOut(rows: any[], today: string) {
   const out = live.map((r, i) => {
     const c: any = cmap.get(r.course_id);
     const ss = sess[r.course_id] || [];
-    const first = ss[0]?.on_date ?? null;
+    const first = ss[0]?.on_date ?? c.starts_on ?? null;   // edu_cancel 의 coalesce(첫 회차 날, starts_on) 과 같다
     const next = ss.find((s: any) => s.on_date >= today) || null;
     const cancelUntil = first ? new Date(Date.parse(first + "T00:00:00Z") - 86400000).toISOString().slice(0, 10) : null;
-    // edu_cancel 규칙과 같다: 첫 회차 전날까지(회차가 아직 없으면 막지 않는다)
+    // edu_cancel 규칙과 같다: 첫 날(첫 회차, 없으면 교육 시작일) 전날까지(둘 다 없으면 막지 않는다)
     const canCancel = ["applied", "confirmed", "waitlisted"].includes(r.status) && (cancelUntil === null || today <= cancelUntil);
     return { id: r.id, courseId: r.course_id, title: c.title, term: c.term || "", status: r.status,
       statusLabel: EDU_ENROLL_LABEL[r.status] || r.status, waitNo: waits[i], cancelUntil, canCancel,
@@ -4964,7 +4965,7 @@ async function eduList(b: any) {
   const userId = eduUid(b.user_id);   // 틀린 user_id 는 「로그인 안 함」으로 본다 — 목록은 그대로 준다
   const today = eduKst();
   const { data, error } = await db.from("edu_courses")
-    .select("id,title,kind,term,teacher_label,place,fee_note,target,capacity,mode,waitlist,apply_from,apply_to,status")
+    .select("id,title,kind,term,teacher_label,place,fee_note,target,capacity,mode,waitlist,apply_from,apply_to,starts_on,ends_on,status")
     .in("status", EDU_LIST_STATUS).order("apply_from", { ascending: true, nullsFirst: false }).limit(200);
   if (error) throw error;
   const rows = (data ?? []) as any[];

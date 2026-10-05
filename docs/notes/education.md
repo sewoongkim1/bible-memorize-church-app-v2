@@ -8,6 +8,7 @@
 - **정원·대기·취소 마감 규칙은 SQL 한 곳(`supabase/edu.sql`).** `edu_apply`·`edu_cancel`·`edu_staff_set`·`edu_course_refill` 만 상태를 바꾼다 — 두 앱의 서버·화면에서 `status` 를 직접 쓰지 말 것. 모두 **강좌 줄을 먼저 잠그고**(for update) 그다음 신청 줄 — 새 함수도 이 순서를 지킬 것.
 - **「반려 유지」(친구 결정):** 반려된 분이 앱에서 다시 눌러도 반려 그대로(`{status:'declined', already:true}` → 「이 강좌는 담당자에게 말씀해 주세요」). 되살리는 것은 담당자만 — 신청 현황 「다시 받기」, 또는 대신 등록에서 `was-declined` → 확인 → `force`.
 - **정원을 늘리면 `edu_course_refill`** — 선착순 강좌에서 자리가 생기는 저장(정원 늘림·제한 없앰·승인→선착순)일 때만 대기자를 차례로 올린다. 제목만 고치는 저장에는 안 부른다(담당자가 일부러 대기에 둔 분을 올리지 않으려고). 그 호출이 실패하면 다시 저장해도 안 올라간다 — 신청 현황에서 손으로 확정.
+- **교육 기간 `starts_on`·`ends_on`(2026-10-05 · 신청 기간 `apply_from/to` 와 별개 · 비어도 됨).** 목록·상세 날짜(`firstDate`/`lastDate`)는 기간을 먼저, 없으면 회차에서. ⚠️ **취소 마감의 첫 날 = `coalesce(첫 회차 날, starts_on)`** — SQL `edu_cancel` 과 api `eduMineOut`(`cancelUntil`/`canCancel`) 두 곳이 같아야 한다. 시험 `supabase/tests/edu_period.dev.sql`.
 - **수는 `edu_course_counts(uuid[])` RPC 로만** — 신청 줄을 받아 세지 말 것(PostgREST 가 1,000줄에서 조용히 자른다). 명단·엑셀은 `allRows`/`fetchAllRows` 쪽 넘기기.
 - **응답에 `user_id`·`ident_key`·교인ID 를 싣지 않는다.** 대신 등록(명부)은 화면이 `{name, pick, check:{who_type, group, sub, church_mok, position}}` 를 보내고 서버가 **같은 찾기를 다시 돌려** 맞춘다(틀리면 `changed`). 명부 줄의 신원 키는 `person|<교인ID>`(서버 안에서만).
 - **같은 분 두 자리(알려진 구멍 · 공개 전에 막을 것):** 대신 등록한 줄(`user_id` 없음)과 그분이 나중에 앱으로 낸 줄이 따로 정원을 차지하고 반려도 비켜 간다 · 앱 「내 강좌」에 대신 등록 줄이 안 보인다. 1단계는 신청 현황에 **「같은 분일 수 있어요」** 표시만(살아 있는 줄 가운데 이름이 같고 앱/담당자가 섞인 묶음) → 담당자가 한 줄 취소. 근본(앱 계정과 잇기)은 계획 과제 11 Step 2-1.

@@ -12,6 +12,16 @@ function eduMdw(d) {   // 10월 9일(금) — 날짜만 있는 값(KST 달력날
   var m = eduMd(d); if (!m) return '';
   return m + '(' + '일월화수목금토'.charAt(new Date(String(d).slice(0, 10) + 'T00:00:00Z').getUTCDay()) + ')';
 }
+function eduYmdw(d) {   // 2027년 3월 3일(수) — 교육 기간 한 줄(연도가 있어야 해를 넘기는 기간이 헷갈리지 않는다)
+  var m = eduMdw(d); return m ? String(d).slice(0, 4).replace(/^0+/, '') + '년 ' + m : '';
+}
+function eduRangeEnd(a, b) {   // 같은 해면 연도를 줄인다: 5월 19일(수) · 해가 다르면 2028년 1월 5일(수)
+  return String(a).slice(0, 4) === String(b).slice(0, 4) ? eduMdw(b) : eduYmdw(b);
+}
+function eduPeriodLine(c) {   // 교육 기간 · 2027년 3월 3일(수) ~ 5월 19일(수) — 시작일이 없으면 빈 글(회차 일정만 보인다)
+  if (!c || !eduYmdw(c.startsOn)) return '';
+  return '교육 기간 · ' + eduYmdw(c.startsOn) + (c.endsOn && c.endsOn !== c.startsOn && eduRangeEnd(c.startsOn, c.endsOn) ? ' ~ ' + eduRangeEnd(c.startsOn, c.endsOn) : '');
+}
 function eduPhaseLabel(c) {
   if (c.phase === 'upcoming') return c.applyFrom ? eduMd(c.applyFrom) + '부터 신청' : '곧 신청을 받아요';
   if (c.phase === 'closed') return '모집 끝';
@@ -83,7 +93,7 @@ function eduDrawList(tab) {
     body = list.length ? list.map(function (c, i) {
       return '<div class="edu-card" data-i="' + i + '"><span class="edu-k">' + eduEsc(c.kindLabel) + '</span>' +
         '<b>' + eduEsc(c.title) + (c.term ? ' <small>(' + eduEsc(c.term) + ')</small>' : '') + '</b>' +
-        (c.firstDate ? '<span>' + eduEsc(eduMd(c.firstDate)) + (c.lastDate && c.lastDate !== c.firstDate ? ' ~ ' + eduEsc(eduMd(c.lastDate)) : '') + ' · ' + c.sessionsCount + '회</span>' : '') +
+        (c.firstDate ? '<span>' + eduEsc(eduMd(c.firstDate)) + (c.lastDate && c.lastDate !== c.firstDate ? ' ~ ' + eduEsc(eduMd(c.lastDate)) : '') + (c.sessionsCount ? ' · ' + c.sessionsCount + '회' : '') + '</span>' : '') +
         '<span>' + eduEsc(eduPhaseLabel(c)) + (c.mode === 'approve' ? ' · 담당자 확정' : '') + '</span></div>'; }).join('')
       : '<p class="edu-empty">' + (tab === 'soon' ? '곧 열릴 강좌가 없어요.' : '지금 모집 중인 강좌가 없어요.') + '</p>';
   }
@@ -114,6 +124,7 @@ function renderEduCourse(id) {
     var info = [c.teacher && '강사 · ' + c.teacher, c.place && '장소 · ' + c.place, c.target && '대상 · ' + c.target, c.fee && '교재비 · ' + c.fee,
       c.prereq && c.prereq.length && '먼저 들으실 과정 · ' + c.prereq.join(', ')].filter(Boolean)
       .map(function (t) { return '<span>' + eduEsc(t) + '</span>'; }).join('');
+    var pl = eduPeriodLine(c), period = pl ? '<p class="edu-desc">' + eduEsc(pl) + '</p>' : '';
     var rule = '출석 ' + c.attendPct + '% 이상' + (c.checkLabel ? ' + ' + c.checkLabel + ' 확인' : '');
     var act;
     if (m && ['applied', 'confirmed', 'waitlisted'].indexOf(m.status) >= 0) {
@@ -131,7 +142,7 @@ function renderEduCourse(id) {
     w.innerHTML = '<button class="edu-back" id="edu-back">← 교육</button><h2 class="edu-title">' + eduEsc(c.title) + '</h2>' +
       '<div class="edu-sub">' + eduEsc(c.kindLabel) + (c.term ? ' · ' + eduEsc(c.term) : '') + ' · ' + eduEsc(eduPhaseLabel(c)) + '</div>' +
       (c.description ? '<p class="edu-desc">' + eduEsc(c.description) + '</p>' : '') +
-      (info ? '<div class="edu-info">' + info + '</div>' : '') +
+      period + (info ? '<div class="edu-info">' + info + '</div>' : '') +
       (sess ? '<h3 class="edu-h">일정 ' + c.sessions.length + '회</h3><ul class="edu-sess">' + sess + '</ul>' : '') +
       '<h3 class="edu-h">수료 기준</h3><p class="edu-desc">' + eduEsc(rule) + '</p>' + act + '<p class="edu-msg" id="edu-msg" role="status"></p>';
     document.getElementById('edu-back').addEventListener('click', function () { renderEduList(eduState.tab); });
