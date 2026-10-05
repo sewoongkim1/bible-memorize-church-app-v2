@@ -1724,8 +1724,9 @@ function renderEduCourse(id) {
     var act;
     if (m && ['applied', 'confirmed', 'waitlisted'].indexOf(m.status) >= 0) {
       act = '<div class="edu-mine"><b>' + eduEsc(eduStatusLine(m)) + '</b>' +
-        (m.cancelUntil ? '<span>' + eduEsc(eduMd(m.cancelUntil)) + '까지 앱에서 취소할 수 있어요</span>' : '') +
-        '<button class="edu-btn ghost" id="edu-cancel">신청 취소</button></div>';
+        (m.canCancel ? '<span>' + eduEsc(eduMd(m.cancelUntil)) + '까지 앱에서 취소할 수 있어요</span>' +
+          '<button class="edu-btn ghost" id="edu-cancel">신청 취소</button>'
+          : '<span>시작한 뒤에는 담당자에게 말씀해 주세요</span>') + '</div>';   // 과제 7 검토 반영(2026-10-05) — 서버가 canCancel 을 준다
     } else if (c.phase === 'open') {
       act = '<button class="edu-btn" id="edu-apply">신청하기</button>';
     } else {
@@ -1784,7 +1785,7 @@ const EDU_PUB_KEY = "edu-open";
 function eduOpenCached() { try { return localStorage.getItem(EDU_PUB_KEY) === "1"; } catch (e) { return false; } }
 function refreshEduOpen() {
   if (!window.api || !api.getConfig) return;
-  api.getConfig("eduOpen").then((d) => { try { localStorage.setItem(EDU_PUB_KEY, d && d.value ? "1" : "0"); } catch (e) {} }).catch(() => {});
+  api.getConfig("eduOpen").then((d) => { try { localStorage.setItem(EDU_PUB_KEY, d && d.value === true ? "1" : "0"); } catch (e) {} }).catch(() => {});
 }
 function eduVisible() { return eduOpenCached() || ministryTesterCached(); }
 ```
