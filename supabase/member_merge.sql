@@ -5,7 +5,8 @@
 --   1) schema.sql · app_config.sql · member_profile.sql (처음 한 번)
 --   2) 사용자 연관 표·칸을 만드는 SQL — users_consents.sql · board_blocks.sql · board_reports.sql ·
 --      sermon_answer_reports.sql (2026-10-01) · ios_push_tokens.sql · push_evening.sql (2026-09-15·23) ·
---      교회 어드민 저장소 supabase/sql/008_ministry_history_requests.sql (2026-10-01 · 정정 신청).
+--      교회 어드민 저장소 supabase/sql/008_ministry_history_requests.sql (2026-10-01 · 정정 신청) ·
+--      edu.sql (2026-10-05 · 교육신청).
 --      ⚠️ 표가 **먼저** 있어야 아래 쓰기 연결 트리거가 그 표에 붙는다. 없는 표는 건너뛴다(to_regclass) —
 --      나중에 그 표를 만들면 이 파일을 **다시** 돌린다(교회 어드민이 008 표를 지웠다 다시 만들어도 마찬가지).
 --   3) 이 파일 전체
@@ -78,7 +79,7 @@ begin
   foreach t in array array['progress','challenge_log','reviews','passage_progress','blessing_log','feature_log',
     'board_posts','board_replies','board_reactions','event_entries','push_subscriptions',
     'pilsa_orders','ministry_orders','event_signups','daily_activity',
-    'ios_push_tokens','ministry_history_requests'] loop
+    'ios_push_tokens','ministry_history_requests','edu_enrollments'] loop
     if to_regclass('public.' || t) is not null then
       execute format('drop trigger if exists redirect_merged_member_write on public.%I', t);
       execute format('create trigger redirect_merged_member_write before insert or update on public.%I for each row execute function public.redirect_merged_member_write(''user_id'')', t);
@@ -115,7 +116,7 @@ begin
   --    합친 뒤 수 = 지운 열린 신청 수. 남는 쪽에 같은 줄의 열린 신청이 있던 것만 지운다).
   foreach t in array array['challenge_log','progress','reviews','passage_progress','board_posts',
     'board_replies','event_entries','pilsa_orders','ministry_orders','event_signups','push_subscriptions',
-    'blessing_log','daily_activity','feature_log','ios_push_tokens','ministry_history_requests'] loop
+    'blessing_log','daily_activity','feature_log','ios_push_tokens','ministry_history_requests','edu_enrollments'] loop
     if to_regclass('public.' || t) is not null then
       execute format('select count(*) from public.%I where user_id::text=$1',t) into n using p_id::text;
       result := result || jsonb_build_object(t,n);
@@ -188,6 +189,15 @@ begin
       return jsonb_build_object('ok',false,'error','merge-signup-conflict');
     end if;
   end if;
+  if to_regclass('public.edu_enrollments') is not null then
+    -- 두 계정이 같은 강좌에 **살아 있는** 신청(신청·확정·대기 · 그리고 반려 — 2026-10-05 친구 「반려 유지」: 반려는 담당자가 정한 기록이라
+    --   합치면서 지우거나 덮지 않는다)을 함께 가지면 멈춘다 — 담당자가 한쪽을 정리한 뒤 합친다.
+    if exists(select 1 from public.edu_enrollments a join public.edu_enrollments b on a.course_id=b.course_id
+      where a.user_id=s.id and b.user_id=t.id
+        and a.status in ('applied','confirmed','waitlisted','declined') and b.status in ('applied','confirmed','waitlisted','declined')) then
+      return jsonb_build_object('ok',false,'error','merge-edu-conflict');
+    end if;
+  end if;
   -- 새 기능이 추가되어도 모르는 FK를 cascade 삭제하지 않는다. auth.users 참조는 제외.
   for ref in select c.conrelid::regclass as tbl, a.attname as col
     from pg_constraint c join pg_attribute a on a.attrelid=c.conrelid and a.attnum=any(c.conkey)
@@ -197,7 +207,7 @@ begin
     if ref.tbl::text not in ('progress','challenge_log','reviews','passage_progress','blessing_log','feature_log',
       'push_subscriptions','board_posts','board_replies','event_signups',
       'board_blocks','board_reports','sermon_answer_reports',
-      'ios_push_tokens','ministry_history_requests') then
+      'ios_push_tokens','ministry_history_requests','edu_enrollments') then
       execute format('select count(*) from %s where %I::text=$1',ref.tbl,ref.col) into n using s.id::text;
       if n>0 then return jsonb_build_object('ok',false,'error','merge-unsupported-records'); end if;
     end if;
@@ -210,7 +220,7 @@ begin
         'push_subscriptions','board_posts','board_replies','board_reactions','event_entries',
         'daily_activity','pilsa_orders','ministry_orders','event_signups','user_identity_aliases','user_profile_changes',
         'board_blocks','board_reports','sermon_answer_reports',
-        'ios_push_tokens','ministry_history_requests')
+        'ios_push_tokens','ministry_history_requests','edu_enrollments')
   loop
     execute format('select count(*) from public.%I where %I::text=$1',ref.tbl,ref.col) into n using s.id::text;
     if n>0 then return jsonb_build_object('ok',false,'error','merge-unsupported-records'); end if;
@@ -340,10 +350,19 @@ begin
     update public.users u set guardian_ok_at=coalesce(u.guardian_ok_at,s.guardian_ok_at),
       board_rules_at=greatest(u.board_rules_at,s.board_rules_at) where u.id=t.id;
   end if;
+  -- 교육신청 — 같은 강좌에 두 줄이 남지 않게(unique(course_id,user_id)) 한쪽이 **취소** 줄이면 취소 줄을 지운다
+  --   (반려·살아 있는 줄이 함께인 경우는 위 충돌 검사가 이미 멈췄다). 원본이 취소면 원본 줄을, 남는 쪽이 취소면 남는 쪽 줄을,
+  --   둘 다 취소면 원본 줄만(남는 쪽 기록을 남긴다). 뒤 오류 반환에 지운 줄이 남지 않게 검사가 모두 끝난 여기서 지운다.
+  if to_regclass('public.edu_enrollments') is not null then
+    delete from public.edu_enrollments a using public.edu_enrollments b
+      where a.course_id=b.course_id and a.user_id=s.id and b.user_id=t.id and a.status = 'cancelled';
+    delete from public.edu_enrollments b using public.edu_enrollments a
+      where a.course_id=b.course_id and a.user_id=s.id and b.user_id=t.id and b.status = 'cancelled';
+  end if;
   -- 로그/게시물/신청/구독은 행을 삭제하거나 다시 생성하지 않고 소유자만 옮긴다.
   for ref in select table_name,data_type from information_schema.columns where table_schema='public'
     and column_name='user_id' and table_name in ('challenge_log','board_posts','board_replies',
-      'push_subscriptions','pilsa_orders','ministry_orders','event_signups','user_profile_changes','user_identity_aliases')
+      'push_subscriptions','pilsa_orders','ministry_orders','event_signups','user_profile_changes','user_identity_aliases','edu_enrollments')
   loop
     execute format('update public.%I set user_id=$1::%s where user_id=$2::%s',ref.table_name,ref.data_type,ref.data_type)
       using t.id::text,s.id::text;
