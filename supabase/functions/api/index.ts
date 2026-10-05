@@ -520,6 +520,12 @@ Deno.serve(async (req) => {
       case "ministryTester":   return json(await ministryTester(body));   // 시험 참여자인가(2026-09-30)
       case "ministryHistoryMine":    return json(await ministryHistoryMine(body));      // 사역 이력 확인(2026-10-01)
       case "ministryHistoryRequest": return json(await ministryHistoryRequest(body));   // 사역 이력 정정 신청(2026-10-01)
+      // ---- 교육신청(2026-10-05) ----
+      case "eduList":   return json(await eduList(body));
+      case "eduCourse": return json(await eduCourse(body));
+      case "eduApply":  return json(await eduApply(body));
+      case "eduCancel": return json(await eduCancel(body));
+      case "eduMine":   return json(await eduMine(body));
       case "ministryApply":    return json(await ministryApply(body));
       case "ministryCancel":   return json(await ministryCancel(body));
       case "ministryList":     return json(await ministryList(body));
@@ -2427,7 +2433,7 @@ async function login(b: any) {
 
 // ---------- app_config: 관리자가 배포 없이 편집하는 설정(키-값) ----------
 // 공개로 읽어도 되는 키만 화이트리스트로 허용(임의 키 노출 방지).
-const PUBLIC_CONFIG_KEYS = new Set(["heartMessages", "dailyMessage", "introSlides", "milestoneMessages", "passagesPublic", "psalmPublic", "songPublic", "event", "ministry"]);
+const PUBLIC_CONFIG_KEYS = new Set(["heartMessages", "dailyMessage", "introSlides", "milestoneMessages", "passagesPublic", "psalmPublic", "songPublic", "event", "ministry", "eduOpen"]);
 
 async function getConfig(b: any) {
   const key = String(b.key || "");
@@ -4842,6 +4848,171 @@ async function ministryHistoryRequest(b: any) {
   if (j && MH_PASS_ERRORS.includes(j.error)) return { ok: false, error: j.error };
   console.error("ministryHistoryRequest", j);
   return { ok: false, error: "upstream" };
+}
+
+// ---------- 교육신청(2026-10-05 · 설계 docs/superpowers/specs/2026-10-05-education-courses-design.md §8) ----------
+// ⚠️ 정원·대기·취소 마감은 SQL 함수(supabase/edu.sql) 한 곳 — 여기서 상태를 직접 쓰지 않는다.
+// ⚠️ 응답에 user_id·ident_key 를 싣지 않는다. 문(eduOpen 또는 시험 참여자)은 신청에서만 막는다 — 목록·자세히는 열린 강좌라 누구에게 보여도 된다.
+const EDU_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const EDU_LIST_STATUS = ["open", "closed", "running"];
+const EDU_KIND_LABEL: Record<string, string> = { regular: "정규 과정", lecture: "특강·세미나", training: "교사·사역자 교육" };
+const EDU_ENROLL_LABEL: Record<string, string> = { applied: "신청", confirmed: "확정", waitlisted: "대기", cancelled: "취소", declined: "반려" };
+const eduKst = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+
+async function eduGateOpen(userId: string): Promise<boolean> {
+  const { data } = await db.from("app_config").select("value").eq("key", "eduOpen").maybeSingle();
+  if (data?.value === true) return true;
+  try { return userId ? await ministryIsTester(userId) : false; } catch (_) { return false; }   // 실패하면 닫힘
+}
+
+function eduPhase(c: any, today: string): string {
+  if (c.status === "running") return "running";
+  if (c.status === "closed") return "closed";
+  if (c.apply_from && today < c.apply_from) return "upcoming";
+  if (c.apply_to && today > c.apply_to) return "closed";
+  return "open";
+}
+
+async function eduSessionsOf(ids: string[]) {
+  const by: Record<string, any[]> = {};
+  if (!ids.length) return by;
+  const { data, error } = await db.from("edu_sessions").select("course_id,no,on_date,start_time,end_time,topic,place").in("course_id", ids).order("no");
+  if (error) throw error;
+  for (const s of data ?? []) (by[(s as any).course_id] ||= []).push(s);
+  return by;
+}
+
+async function eduCountsOf(ids: string[]) {
+  // ⚠️ 센 값은 SQL 함수 edu_course_counts 에서 받는다 — 줄을 가져와 여기서 세면 PostgREST 가 1,000행에서 조용히 자른다.
+  const by: Record<string, { confirmed: number; waitlisted: number }> = {};
+  for (const id of ids) by[id] = { confirmed: 0, waitlisted: 0 };
+  if (!ids.length) return by;
+  const { data, error } = await db.rpc("edu_course_counts", { p_ids: ids });
+  if (error) throw error;
+  for (const r of (data ?? []) as any[]) if (by[r.course_id]) by[r.course_id] = { confirmed: r.confirmed ?? 0, waitlisted: r.waitlisted ?? 0 };
+  return by;
+}
+
+function eduCourseOut(c: any, ss: any[], cnt: { confirmed: number; waitlisted: number }, today: string) {
+  return {
+    id: c.id, title: c.title, kind: c.kind, kindLabel: EDU_KIND_LABEL[c.kind] || c.kind, term: c.term || "",
+    teacher: c.teacher_label || "", place: c.place || "", fee: c.fee_note || "", target: c.target || "",
+    capacity: c.capacity ?? null, mode: c.mode, waitlist: !!c.waitlist, applyFrom: c.apply_from, applyTo: c.apply_to,
+    status: c.status, phase: eduPhase(c, today), sessionsCount: ss.length,
+    firstDate: ss[0]?.on_date ?? null, lastDate: ss[ss.length - 1]?.on_date ?? null,
+    confirmed: cnt.confirmed, waitlisted: cnt.waitlisted,
+  };
+}
+
+async function eduMineRows(userId: string) {
+  if (!userId) return [];
+  const { data, error } = await db.from("edu_enrollments").select("id,course_id,status,waitlist_at").eq("user_id", userId)
+    .in("status", ["applied", "confirmed", "waitlisted", "declined"]).order("applied_at", { ascending: false }).limit(100);
+  if (error) throw error;
+  return (data ?? []) as any[];
+}
+
+async function eduWaitNo(courseId: string, waitAt: string | null, id: number): Promise<number> {
+  if (!waitAt) return 1;   // 대기 줄은 SQL 이 늘 waitlist_at 을 채운다 — 없으면 맨 앞으로 본다(.or() 가 null 에서 깨지지 않게)
+  const { count, error } = await db.from("edu_enrollments").select("id", { count: "exact", head: true })
+    .eq("course_id", courseId).eq("status", "waitlisted").or(`waitlist_at.lt.${waitAt},and(waitlist_at.eq.${waitAt},id.lt.${id})`);
+  if (error) throw error;
+  return (count ?? 0) + 1;
+}
+
+async function eduMineOut(rows: any[], today: string) {
+  const ids = [...new Set(rows.map((r) => r.course_id))];
+  if (!ids.length) return [];
+  const { data: cs, error } = await db.from("edu_courses").select("id,title,term").in("id", ids);
+  if (error) throw error;
+  const cmap = new Map((cs ?? []).map((c: any) => [c.id, c]));
+  const sess = await eduSessionsOf(ids);
+  const out = [];
+  for (const r of rows) {
+    const c: any = cmap.get(r.course_id);
+    if (!c) continue;
+    const ss = sess[r.course_id] || [];
+    const first = ss[0]?.on_date ?? null;
+    const next = ss.find((s: any) => s.on_date >= today) || null;
+    out.push({ id: r.id, courseId: r.course_id, title: c.title, term: c.term || "", status: r.status,
+      statusLabel: EDU_ENROLL_LABEL[r.status] || r.status,
+      waitNo: r.status === "waitlisted" ? await eduWaitNo(r.course_id, r.waitlist_at, r.id) : null,
+      cancelUntil: first ? new Date(Date.parse(first + "T00:00:00Z") - 86400000).toISOString().slice(0, 10) : null,
+      nextSession: next ? { no: next.no, date: next.on_date, start: next.start_time?.slice(0, 5) ?? null } : null });
+  }
+  return out;
+}
+
+async function eduList(b: any) {
+  const userId = String(b.user_id ?? "").trim();
+  const today = eduKst();
+  const { data, error } = await db.from("edu_courses")
+    .select("id,title,kind,term,teacher_label,place,fee_note,target,capacity,mode,waitlist,apply_from,apply_to,status")
+    .in("status", EDU_LIST_STATUS).order("apply_from", { ascending: true, nullsFirst: false }).limit(200);
+  if (error) throw error;
+  const rows = (data ?? []) as any[];
+  const ids = rows.map((r) => r.id);
+  const [sess, cnt] = await Promise.all([eduSessionsOf(ids), eduCountsOf(ids)]);
+  const mine = await eduMineOut(await eduMineRows(userId), today);
+  return { ok: true, open: await eduGateOpen(userId), courses: rows.map((c) => eduCourseOut(c, sess[c.id] || [], cnt[c.id], today)), mine };
+}
+
+async function eduCourse(b: any) {
+  const id = String(b.id ?? "").trim();
+  if (!EDU_UUID.test(id)) return { ok: false, error: "bad-args" };
+  const userId = String(b.user_id ?? "").trim();
+  const today = eduKst();
+  const { data: c, error } = await db.from("edu_courses").select("*").eq("id", id).in("status", EDU_LIST_STATUS).maybeSingle();
+  if (error) throw error;
+  if (!c) return { ok: false, error: "not-found" };
+  const [sess, cnt] = await Promise.all([eduSessionsOf([id]), eduCountsOf([id])]);
+  const ss = sess[id] || [];
+  const mineRows = (await eduMineRows(userId)).filter((r) => r.course_id === id);
+  const mine = (await eduMineOut(mineRows, today))[0] || null;
+  return { ok: true, course: { ...eduCourseOut(c, ss, cnt[id], today), description: c.description || "", prereq: c.prereq_tracks || [],
+    attendPct: c.attend_pct, checkLabel: c.check_label || null,
+    sessions: ss.map((s: any) => ({ no: s.no, date: s.on_date, start: s.start_time?.slice(0, 5) ?? null, end: s.end_time?.slice(0, 5) ?? null, topic: s.topic || "", place: s.place || "" })) },
+    mine };
+}
+
+async function eduApply(b: any) {
+  const userId = String(b.user_id ?? "").trim();
+  const id = String(b.id ?? "").trim();
+  if (!userId) return { ok: false, error: "no-user" };
+  if (!EDU_UUID.test(id)) return { ok: false, error: "bad-args" };
+  if (!(await eduGateOpen(userId))) return { ok: false, error: "not-open" };
+  const { data: u, error } = await db.from("users").select("type,gu,mok,bu,grade,name").eq("id", userId).maybeSingle();
+  if (error) throw error;
+  if (!u) return { ok: false, error: "no-user" };
+  const isGu = u.type === "교구";
+  const ident = { name: norm(u.name), who_type: u.type, group_name: isGu ? norm(u.gu) : norm(u.bu), sub_name: isGu ? norm(u.mok) : norm(u.grade), ident_key: identityKey(u) };
+  const { data: r, error: e2 } = await db.rpc("edu_apply", { p_course: id, p_user: userId, p_ident: ident, p_staff: false });
+  if (e2) throw e2;
+  if (!r?.ok) return r;
+  let waitNo: number | null = null;
+  if (r.status === "waitlisted") {
+    const { data: w } = await db.from("edu_enrollments").select("waitlist_at").eq("id", r.id).maybeSingle();
+    waitNo = await eduWaitNo(id, w?.waitlist_at ?? null, r.id);
+  }
+  return { ok: true, status: r.status, waitNo, already: !!r.already };
+}
+
+async function eduCancel(b: any) {
+  const userId = String(b.user_id ?? "").trim();
+  const eid = Number(b.enrollment_id);
+  if (!userId || !Number.isInteger(eid) || eid < 1) return { ok: false, error: "bad-args" };
+  const { data: row, error } = await db.from("edu_enrollments").select("id").eq("id", eid).eq("user_id", userId).maybeSingle();
+  if (error) throw error;
+  if (!row) return { ok: false, error: "not-found" };              // 남의 줄은 없는 줄과 같다
+  const { data: r, error: e2 } = await db.rpc("edu_cancel", { p_enrollment: eid, p_staff: false });
+  if (e2) throw e2;
+  return r?.ok ? { ok: true, promoted: r.promoted != null } : r;
+}
+
+async function eduMine(b: any) {
+  const userId = String(b.user_id ?? "").trim();
+  if (!userId) return { ok: false, error: "no-user" };
+  return { ok: true, mine: await eduMineOut(await eduMineRows(userId), eduKst()) };
 }
 
 // 신청 한 건의 키는 (연도, user_id) 다. 이 앱은 로그인이 교구·목장·이름을
