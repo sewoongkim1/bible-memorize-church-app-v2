@@ -171,7 +171,11 @@ function renderEduCourse(id, opt) {
     var gl = [['📅', '언제', eduWhenLine(c)], ['📍', '어디서', c.place], ['🙋', '대상', c.target],
       ['📚', '먼저 들으실 과정', c.prereq && c.prereq.length ? c.prereq.join(', ') : ''], ['👤', '강사', c.teacher], ['📘', '교재비', c.fee]]
       .filter(function (x) { return x[2]; })
-      .map(function (x) { return '<div class="edu-gl"><span class="edu-gl-i" aria-hidden="true">' + x[0] + '</span><span class="edu-gl-k">' + x[1] + '</span><span class="edu-gl-v">' + eduEsc(x[2]) + '</span></div>'; }).join('');
+      .map(function (x) {
+        var v = x[1] === '언제'   // 날짜 덩이가 중간에서 안 끊기게(「12월 / 13일」) — 줄은 덩이 사이(~ ·)에서만 바꾼다
+          ? x[2].split(' ~ ').map(function (a) { return a.split(' · ').map(function (b) { return '<span class="edu-nw">' + eduEsc(b) + '</span>'; }).join(' · '); }).join(' ~ ')
+          : eduEsc(x[2]);
+        return '<div class="edu-gl"><span class="edu-gl-i" aria-hidden="true">' + x[0] + '</span><span class="edu-gl-k">' + x[1] + '</span><span class="edu-gl-v">' + v + '</span></div>'; }).join('');
     var act;
     if (mv) {
       var lines = mv.lines.concat(m.status === 'confirmed' && c.place ? [c.place] : []);
@@ -207,7 +211,7 @@ function renderEduCourse(id, opt) {
     if (ap) ap.addEventListener('click', function () {
       // 확인 창 한 번(친구 2026-10-05) — 누구 이름으로 들어가는지 · 누르면 어떻게 되는지. appModal 의 msg 는 HTML 그대로라 모두 eduEsc.
       var l = userLines(u);
-      var msg = '<b>' + eduEsc(c.title) + '</b><div class="edu-who">' + eduEsc(l.l2) + (l.l1 ? ' · ' + eduEsc(l.l1) : '') + '</div>' + eduEsc(sv.ask.line);
+      var msg = '<div class="edu-ask"><b>' + eduEsc(c.title) + '</b><div class="edu-who">' + eduEsc(l.l2) + (l.l1 ? ' · ' + eduEsc(l.l1) : '') + '</div>' + eduEsc(sv.ask.line) + '</div>';
       appConfirm(msg, { title: sv.ask.title, okText: sv.ask.ok, cancelText: '돌아가기' }).then(function (yes) {
         if (!yes) return;
         ap.disabled = true;
