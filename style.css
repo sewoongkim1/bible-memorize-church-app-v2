@@ -5910,23 +5910,63 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .edu-empty { color: var(--gray); padding: 12px 0; line-height: 1.6; }
 .edu-sub { color: var(--gray); margin-bottom: 10px; font-size: 15px; }
 .edu-desc { white-space: pre-line; line-height: 1.6; font-size: 15px; }
-.edu-info { display: flex; flex-direction: column; gap: 2px; margin: 10px 0; font-size: 15px; }
 .edu-h { font-size: 16px; font-weight: 800; color: var(--navy); margin: 14px 0 4px; }
 .edu-sess { padding-left: 20px; line-height: 1.7; font-size: 15px; }
 .edu-btn { display: block; width: 100%; margin-top: 16px; padding: 13px; border-radius: 12px; border: 0; background: var(--navy); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer; }
 .edu-btn:disabled { opacity: .6; }
 .edu-btn.ghost { background: transparent; color: var(--navy); border: 1.5px solid var(--navy); }
-.edu-mine { margin-top: 16px; padding: 12px 14px; border-radius: 12px; background: var(--light); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px; font-size: 15px; }
-.edu-mine b { color: var(--navy); font-size: 16px; }
 .edu-back { border: 0; background: transparent; color: var(--navy); padding: 6px 0; margin-bottom: 6px; font-size: 15px; font-weight: 700; cursor: pointer; }
 .edu-msg { min-height: 1.2em; margin-top: 8px; color: var(--error); font-size: 15px; }
-.dark .edu-title, .dark .edu-h, .dark .edu-card b, .dark .edu-mine b, .dark .edu-back { color: #8fb3e6; }
+.dark .edu-title, .dark .edu-h, .dark .edu-card b, .dark .edu-back { color: #8fb3e6; }
 .dark .edu-tab { background: #151d2b; border-color: #33507d; color: #8fb3e6; }
 .dark .edu-tab.on { background: #2b4c80; color: #fff; border-color: #2b4c80; }
-.dark .edu-card, .dark .edu-mine { background: #151d2b; border-color: #33507d; }
+.dark .edu-card { background: #151d2b; border-color: #33507d; }
 .dark .edu-card span, .dark .edu-sub, .dark .edu-empty, .dark .edu-card b small { color: #b9c2d0; }
 .dark .edu-card .edu-k { background: #232a3a; color: #cdd9f2; }
-.dark .edu-desc, .dark .edu-info, .dark .edu-sess { color: #dbe2ee; }
+.dark .edu-desc, .dark .edu-sess { color: #dbe2ee; }
 .dark .edu-btn { background: #2b4c80; }
 .dark .edu-btn.ghost { background: transparent; color: #8fb3e6; border-color: #8fb3e6; }
-.edu-title, .edu-sub, .edu-desc, .edu-info, .edu-sess, .edu-card b, .edu-card span, .edu-mine { word-break: keep-all; overflow-wrap: anywhere; }
+/* 교육 자세히(2026-10-05 다시 짬 · 설계 docs/superpowers/specs/2026-10-05-edu-course-detail-redesign-design.md)
+   ⚠️ 새 색을 만들지 않는다 — 연한 남색은 .summary-help, 어두운 남색·초록은 .med-song-cta·.event-cta.done 과 같은 값 */
+.edu-chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 2px 0 6px; }
+.edu-chip { font-size: 13px; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: var(--light); color: var(--navy); }
+.edu-chip.on { background: rgba(44, 95, 45, .12); color: var(--green); }
+.edu-glance { background: var(--white); border: 1px solid var(--border); border-radius: 14px; padding: 2px 14px; margin: 12px 0; }
+.edu-gl { display: flex; gap: 8px; align-items: baseline; padding: 8px 0; font-size: 15px; line-height: 1.5; }
+.edu-gl + .edu-gl { border-top: 1px dashed var(--border); }
+.edu-gl-i { flex: 0 0 auto; }
+.edu-gl-k { flex: 0 0 auto; min-width: 3.4em; color: var(--gray); font-size: 14px; }
+.edu-gl-v { flex: 1; min-width: 0; font-weight: 600; }
+.edu-act { margin: 14px 0 4px; }
+.edu-seat, .edu-state { display: flex; flex-direction: column; gap: 2px; padding: 11px 14px; border-radius: 14px; }
+.edu-seat { background: #eef1f8; border: 1px solid var(--border); }
+.edu-seat.off { background: var(--light); }
+.edu-seat b, .edu-state b { font-size: 17px; color: var(--navy); }
+.edu-seat.off b, .edu-state.soft b { color: var(--gray); }
+.edu-seat span, .edu-state span { font-size: 14px; line-height: 1.55; }
+.edu-state { background: var(--white); border: 1.5px solid var(--navy); }
+.edu-state.ok { border-color: var(--green); }
+.edu-state.ok b { color: var(--green); }
+.edu-state.soft { background: var(--light); border-color: var(--border); }
+.edu-how { font-size: 14px; line-height: 1.6; margin: 8px 0 0; }
+.edu-act .edu-btn { margin-top: 10px; font-size: 17px; }
+.edu-act .edu-btn.ghost { font-size: 15px; padding: 10px; }
+.edu-note { font-size: 15px; color: var(--gray); margin: 0 0 8px; }
+.edu-more { border: 0; background: transparent; color: var(--navy); font-weight: 700; font-size: 15px; padding: 6px 0; cursor: pointer; font-family: inherit; }
+.am-msg .edu-who { margin: 8px 0; padding: 8px 10px; border-radius: 10px; background: var(--light); font-weight: 700; }
+.dark .edu-chip { background: #232a3a; color: #cdd9f2; }
+.dark .edu-chip.on { background: #17311f; color: #8fd6ab; }
+.dark .edu-glance { background: #151d2b; border-color: #33507d; }
+.dark .edu-gl + .edu-gl { border-top-color: #33507d; }
+.dark .edu-gl-k, .dark .edu-note { color: #b9c2d0; }
+.dark .edu-gl-v, .dark .edu-seat span, .dark .edu-state span, .dark .edu-how { color: #dbe2ee; }
+.dark .edu-seat { background: #232c3f; border-color: #3a4a68; }
+.dark .edu-seat b, .dark .edu-state b { color: #cdd9f2; }
+.dark .edu-seat.off, .dark .edu-state.soft { background: #1b2233; border-color: #33405a; }
+.dark .edu-seat.off b, .dark .edu-state.soft b { color: #b9c2d0; }
+.dark .edu-state { background: #151d2b; border-color: #8fb3e6; }
+.dark .edu-state.ok { border-color: #2f5a42; background: #17311f; }
+.dark .edu-state.ok b { color: #8fd6ab; }
+.dark .edu-more { color: #8fb3e6; }
+.dark .am-msg .edu-who { background: #232c3f; color: #dbe2ee; }
+.edu-title, .edu-sub, .edu-desc, .edu-sess, .edu-card b, .edu-card span, .edu-gl-v, .edu-seat, .edu-state, .edu-how, .edu-note, .am-msg .edu-who { word-break: keep-all; overflow-wrap: anywhere; }
