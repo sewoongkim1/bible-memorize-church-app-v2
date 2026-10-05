@@ -5954,6 +5954,9 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .edu-how { font-size: 14px; line-height: 1.6; margin: 8px 0 0; }
 .edu-act .edu-btn { margin-top: 10px; font-size: 17px; }
 .edu-act .edu-btn.ghost { font-size: 15px; padding: 10px; }
+/* 신청·대기 취소 — 남색 「신청하기」와 갈라 보이게 옅은 빨강(친구 2026-10-05 「구분이 안 돼요」 · .pilsa-go.danger 글씨·테두리와 같은 값) */
+.edu-act .edu-btn.ghost.danger { background: #fbeceb; color: var(--error); border-color: #e8b4ae; }
+.dark .edu-act .edu-btn.ghost.danger { background: #3a2428; color: #f0a49b; border-color: #6b4a46; }
 .edu-note { font-size: 15px; color: var(--gray); margin: 0 0 8px; }
 .edu-more { border: 0; background: transparent; color: var(--navy); font-weight: 700; font-size: 15px; padding: 6px 0; cursor: pointer; font-family: inherit; }
 .am-msg .edu-who { margin: 8px 0; padding: 8px 10px; border-radius: 10px; background: var(--light); font-weight: 700; }

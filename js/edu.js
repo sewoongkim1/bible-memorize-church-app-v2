@@ -181,7 +181,7 @@ function renderEduCourse(id, opt) {
       var lines = mv.lines.concat(m.status === 'confirmed' && c.place ? [c.place] : []);
       act = '<div class="edu-state ' + mv.tone + '"><b>' + eduEsc(mv.head) + '</b>' + lines.map(function (t) { return '<span>' + eduEsc(t) + '</span>'; }).join('') + '</div>' +
         (mv.cancelLine ? '<p class="edu-how">' + eduEsc(mv.cancelLine) + '</p>' : '') +
-        (mv.cancelBtn ? '<button class="edu-btn ghost" id="edu-cancel">' + eduEsc(mv.cancelBtn) + '</button>' : '');
+        (mv.cancelBtn ? '<button class="edu-btn ghost danger" id="edu-cancel">' + eduEsc(mv.cancelBtn) + '</button>' : '');
     } else {
       act = '<div class="edu-seat' + (sv.off ? ' off' : '') + '"><b>' + eduEsc(sv.head) + '</b>' + (sv.sub ? '<span>' + eduEsc(sv.sub) + '</span>' : '') + '</div>' +
         (sv.how ? '<p class="edu-how">' + eduEsc(sv.how) + '</p>' : '') +
