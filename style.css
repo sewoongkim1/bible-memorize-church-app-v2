@@ -5932,6 +5932,9 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .edu-chip { font-size: 13px; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: var(--light); color: var(--navy); }
 .edu-chip.on { background: rgba(44, 95, 45, .12); color: var(--green); }
 .edu-glance { background: var(--white); border: 1px solid var(--border); border-radius: 14px; padding: 2px 14px; margin: 12px 0; }
+.edu-about { background: var(--white); border: 1px solid var(--border); border-radius: 14px; padding: 10px 14px 12px; margin: 12px 0; }
+.edu-about-h { font-size: 14px; font-weight: 700; color: var(--gray); margin-bottom: 4px; }
+.edu-about .edu-desc { margin: 0; }
 .edu-gl { display: flex; gap: 8px; align-items: baseline; padding: 8px 0; font-size: 15px; line-height: 1.5; }
 .edu-gl + .edu-gl { border-top: 1px dashed var(--border); }
 .edu-gl-i { flex: 0 0 auto; }
@@ -5959,7 +5962,8 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .edu-act .edu-msg:empty { display: none; }   /* 빈 오류 줄이 칸과 「일정」 사이를 벌리지 않게 — 글이 들어가면 보인다 */
 .dark .edu-chip { background: #232a3a; color: #cdd9f2; }
 .dark .edu-chip.on { background: #17311f; color: #8fd6ab; }
-.dark .edu-glance { background: #151d2b; border-color: #33507d; }
+.dark .edu-glance, .dark .edu-about { background: #151d2b; border-color: #33507d; }
+.dark .edu-about-h { color: #b9c2d0; }
 .dark .edu-gl + .edu-gl { border-top-color: #33507d; }
 .dark .edu-gl-k, .dark .edu-note { color: #b9c2d0; }
 .dark .edu-gl-v, .dark .edu-seat span, .dark .edu-state span, .dark .edu-how { color: #dbe2ee; }
