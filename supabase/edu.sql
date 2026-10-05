@@ -7,6 +7,8 @@
 --   4단계(2026-10-05) — 앱 알림 기록 edu_notify_log · edu_notify_claim(같은 신청에 같은 알림 한 번) · edu_course_refill 이 올린 신청 번호(ids)도 돌려준다
 --                      계획 docs/superpowers/plans/2026-10-05-education-stage4.md A · 개강 전날 크론은 supabase/edu_remind_cron.sql(따로)
 --                    — 교육 통계 edu_stats(p_term)(2026-10-06 · 같은 계획 C · 교회 어드민 📊 교육 통계가 부른다 · 묶은 수만)
+--                    — 알림 검토 반영(2026-10-06): edu_notify_claim 이 잡힌 번호를 **bigint[] 하나**로 돌려준다(표로 돌려주면 PostgREST 가
+--                      1,000줄에서 잘라 그 뒤 분은 「보냄」으로만 남았다 · 옛 꼴이 있으면 지우고 다시 만든다) · edu_staff_set 이 바뀐 것 없을 때 already:true
 -- ⚠️ 이 저장소는 공개(public)입니다 — 비밀번호·키를 절대 넣지 마세요.
 -- 적용: 개발(ktpwthwqzgcqcrmsafdo) 먼저 → supabase/tests/edu_*.dev.sql(출석은 edu_attendance.dev.sql · 수료는 edu_certs.dev.sql) ·
 --       tests/edu-concurrency.dev.sh · tests/edu-cert-concurrency.dev.sh 확인 → 운영.
@@ -318,6 +320,8 @@ begin
 end $$;
 
 -- 담당자 상태 바꾸기 — confirmed·waitlisted·declined·applied. 확정은 정원을 본다(p_force 면 넘긴다 — 「정원을 넘깁니다」 확인 뒤).
+--   이미 그 상태면 아무것도 안 바꾸고 {ok, promoted:null, already:true}(검토 반영 2026-10-06 — 낡은 화면에서 「확정」을 다시 눌러도
+--   교회 어드민이 확정 알림을 부탁하지 않게 · 선착순 즉시 확정 줄은 알림 기록이 없어 api 가 「확정됐어요」를 보내 버렸다).
 create or replace function public.edu_staff_set(p_enrollment bigint, p_status text, p_force boolean default false)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare e public.edu_enrollments; c public.edu_courses; n int; p bigint;
@@ -331,7 +335,7 @@ begin
   if c.status in ('done','archived') then return jsonb_build_object('ok',false,'error','course-closed'); end if;
   select * into e from public.edu_enrollments where id = p_enrollment for update;
   if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
-  if e.status = p_status then return jsonb_build_object('ok',true,'promoted',null); end if;
+  if e.status = p_status then return jsonb_build_object('ok',true,'promoted',null,'already',true); end if;
   -- 살아 있는 수료(번호 있고 취소 아님) 줄은 확정 그대로(3단계 · edu_cancel 과 같다) · 수료를 취소한 줄은 바꿀 수 있다(번호는 남는다)
   if e.cert_no is not null and not e.cert_revoked then return jsonb_build_object('ok',false,'error','has-cert'); end if;
   if p_status = 'confirmed' and not p_force and c.capacity is not null then
@@ -627,14 +631,28 @@ end $$;
 -- 알림 줄 잡기 — p_ids 가운데 **지금 확정(confirmed)이고 앱 계정(user_id)이 있는** 신청만, 그 kind 의 줄이 아직 없으면 넣고 넣은 신청 번호를 돌려준다.
 --   한 문장(insert … on conflict do nothing returning)이라 동시에 두 번 불러도 한 번만 잡힌다 — api 는 **잡힌 번호에만** 보낸다(보내기 전에 잡는다 ·
 --   보내다 실패해도 다시 보내지 않는다 = 많아야 한 번). 상태는 바꾸지 않는다(정원·대기 규칙과 무관) · 강좌 줄을 잠그지 않는다.
---   p_kind 가 confirmed·first_day 가 아니면 표의 check 에 걸려 오류. 성경암송 api 만 부른다(service_role).
+--   p_kind 가 confirmed·first_day 가 아니면 표의 check 에 걸려 오류. 성경암송 api 만 부른다(service_role · 한 번에 500개씩).
+--   ⚠️ 돌려주는 것은 **bigint[] 하나**(잡은 번호 · 없으면 빈 배열)다 — 표(returns table)로 돌려주면 PostgREST 가 1,000줄에서 자르는데
+--      기록은 다 남아, 1,000번째 뒤 분은 「보냄」으로만 적히고 알림을 못 받았다(검토 반영 2026-10-06). 다시 표로 바꾸지 말 것.
+--   create or replace 로는 반환 꼴을 못 바꾼다 — 옛 꼴(표)이 남아 있으면 지우고 만든다(다시 돌릴 때는 이미 새 꼴이라 안 지운다 ·
+--   권한은 파일 끝 revoke/grant 가 다시 건다 · 같은 트랜잭션이라 그 사이에 부르는 쪽은 옛 함수를 본다).
+do $$
+declare f regprocedure := to_regprocedure('public.edu_notify_claim(text, bigint[])');
+begin
+  if f is not null and exists (select 1 from pg_proc where oid = f and (proretset or prorettype <> 'bigint[]'::regtype)) then
+    drop function public.edu_notify_claim(text, bigint[]);
+  end if;
+end $$;
 create or replace function public.edu_notify_claim(p_kind text, p_ids bigint[])
-returns table(enrollment_id bigint) language sql security definer set search_path = public as $$
-  insert into public.edu_notify_log as l (enrollment_id, kind)
-  select e.id, p_kind from public.edu_enrollments e
-  where e.id = any(coalesce(p_ids, array[]::bigint[])) and e.status = 'confirmed' and e.user_id is not null
-  on conflict (enrollment_id, kind) do nothing
-  returning l.enrollment_id
+returns bigint[] language sql security definer set search_path = public as $$
+  with ins as (
+    insert into public.edu_notify_log as l (enrollment_id, kind)
+    select e.id, p_kind from public.edu_enrollments e
+    where e.id = any(coalesce(p_ids, array[]::bigint[])) and e.status = 'confirmed' and e.user_id is not null
+    on conflict (enrollment_id, kind) do nothing
+    returning l.enrollment_id
+  )
+  select coalesce(array_agg(ins.enrollment_id order by ins.enrollment_id), '{}'::bigint[]) from ins
 $$;
 
 -- ---------- 교육 통계(4단계 C · 2026-10-06 · 계획 docs/superpowers/plans/2026-10-05-education-stage4.md C) ----------
@@ -739,7 +757,8 @@ commit;
 
 -- 확인 — 표 일곱·함수 열여섯이 있고, anon·authenticated 권한이 없는지 · 수료증 설정 한 줄 · 신청 줄의 수료 칸 다섯 · 지금 수료 수 ·
 --   칸 제약이 새 정의인지(검토 반영 — 살아 있는 수료는 확정 줄 · 수료·취소 가운데 꼭 하나: 1 이어야) ·
---   알림 기록 표(4단계)의 RLS 가 켜졌는지(1 이어야) · service_role 이 알림 줄 잡기를 부를 수 있는지(1 이어야) · 지금 알림 기록 수 ·
+--   알림 기록 표(4단계)의 RLS 가 켜졌는지(1 이어야) · service_role 이 알림 줄 잡기를 부를 수 있는지(1 이어야) ·
+--   알림 줄 잡기가 bigint[] 하나를 돌려주는지(검토 반영 2026-10-06 · 표가 아니다 · 1 이어야) · 지금 알림 기록 수 ·
 --   service_role 이 교육 통계를 부를 수 있는지(4단계 C · 1 이어야)
 select 'tables' as t, count(*) from pg_tables where schemaname='public' and tablename in ('edu_courses','edu_sessions','edu_enrollments','edu_attendance',
     'edu_cert_seq','edu_cert_settings','edu_notify_log')
@@ -760,6 +779,8 @@ union all select 'cert check (status · <>)', count(*) from pg_constraint
 union all select 'notify log rls', count(*) from pg_class where oid='public.edu_notify_log'::regclass and relrowsecurity
 union all select 'notify claim (service_role)', count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
   where n.nspname='public' and p.proname='edu_notify_claim' and has_function_privilege('service_role', p.oid, 'execute')
+union all select 'notify claim returns bigint[]', count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+  where n.nspname='public' and p.proname='edu_notify_claim' and not p.proretset and p.prorettype = 'bigint[]'::regtype
 union all select 'notify log rows', count(*) from public.edu_notify_log
 union all select 'stats (service_role)', count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
   where n.nspname='public' and p.proname='edu_stats' and has_function_privilege('service_role', p.oid, 'execute');

@@ -44,6 +44,8 @@ print(eval(sys.argv[1]))
 }
 pass=0; fail=0
 chk() { if [ "$2" = "$3" ]; then echo "  PASS $1 = $2"; pass=$((pass+1)); else echo "  FAIL $1 = $2 (expected $3)"; fail=$((fail+1)); fi; }
+# 응답 뒤에 도는 일(eduCancel 의 올라간 분 알림 · 2026-10-06 부터 응답을 기다리게 하지 않는다)을 기다려 본다 — 기대값이 될 때까지(15번 · 1초 간격)
+poll() { local v="" i; for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do v=$(sq "$1"); [ "$v" = "$2" ] && break; sleep 1; done; printf '%s' "$v"; }
 
 N=$(sq "select count(*) from users")
 if [ -z "$N" ] || [ "$N" -ge 200 ]; then echo "users=$N — 개발이 아닌 것 같다. 중단."; exit 2; fi
@@ -115,9 +117,10 @@ chk "U2 confirmed" "$(jqn '[m["status"] for m in d["mine"] if m["courseId"]=="'$
 M3=$(call "{\"action\":\"eduMine\",\"user_id\":\"$U3\"}")
 chk "U3 waitNo" "$(jqn '[m["waitNo"] for m in d["mine"] if m["courseId"]=="'$CID'"]' "$M3")" "[1]"
 # 4단계 — 올라간 U2 께 「자리가 나서 … 확정」 알림이 api 안에서 한 번(기록 한 줄 · push_log 한 줄 · U1 의 즉시 확정은 알림 없음)
-chk "U2 promoted -> confirmed notify log" "$(sq "select count(*)||':'||min(kind) from edu_notify_log where enrollment_id=(select id from edu_enrollments where course_id='$CID' and user_id='$U2')")" "1:confirmed"
+#   응답 뒤에 돈다(검토 반영 2026-10-06) — 기다려 본다. eduOpen 을 위에서 켰으니 시험 참여자가 아닌 U2 께도 간다(문은 api eduNotifySend).
+chk "U2 promoted -> confirmed notify log" "$(poll "select count(*)||':'||min(kind) from edu_notify_log where enrollment_id=(select id from edu_enrollments where course_id='$CID' and user_id='$U2')" "1:confirmed")" "1:confirmed"
 chk "U1 (instant confirm) no notify log" "$(sq "select count(*) from edu_notify_log where enrollment_id=$E1")" "0"
-chk "one edu-confirmed push_log row for this course" "$(sq "select count(*) from push_log where mode='edu-confirmed' and body like '%$TAG%'")" "1"
+chk "one edu-confirmed push_log row for this course" "$(poll "select count(*) from push_log where mode='edu-confirmed' and body like '%$TAG%'" "1")" "1"
 
 echo "6b) attendance — SQL edu_attendance_set -> eduMine attend · eduCourse myState (own row only)"
 S1=$(sq "select id from edu_sessions where course_id='$CID' and no=1")

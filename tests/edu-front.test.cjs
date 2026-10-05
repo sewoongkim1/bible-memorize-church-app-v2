@@ -578,6 +578,15 @@ test('eduPlain — 알림 글은 글자 그대로(HTML 이스케이프 없음) �
   assert.equal(Array.from(long).length, 40); assert.ok(long.endsWith('…'));
   assert.equal(Array.from(n.eduConfirmedText('가'.repeat(80), null, false)).length, 40 + ' 신청이 확정됐어요'.length, '제목은 40자에서 자른다');
 });
+test('eduClaimedIds — 잡힌 번호는 bigint[] 하나(숫자 배열)로 온다 · 옛 꼴(표 [{enrollment_id}])도 읽는다 · 틀린 값·배열 아님은 버린다(검토 반영)', () => {
+  const ids = (x) => Array.from(noteCtx.eduClaimedIds(x)).sort((a, b) => a - b);
+  assert.deepEqual(ids([3, 1, 2]), [1, 2, 3]);
+  assert.deepEqual(ids([{ enrollment_id: 7 }, { enrollment_id: '8' }]), [7, 8], '옛 꼴(표)');
+  assert.deepEqual(ids(['5', 5, 0, -1, 1.5, 'x', null, undefined, {}, 2 ** 60]), [5], '틀린 값은 버린다 · 같은 번호는 하나');
+  for (const x of [null, undefined, {}, '1,2', 3]) assert.deepEqual(ids(x), [], String(x));
+  const big = Array.from({ length: 1001 }, (_, i) => i + 1);
+  assert.equal(noteCtx.eduClaimedIds(big).size, 1001, '1,000개를 넘어도 다 읽는다');
+});
 
 test('보내는 길 — 내부 액션 둘은 서비스 키(sameSecret)부터 · 기기 먼저 → edu_notify_claim → 보냄 · 응답·기록에 user_id 없음 · 즉시 확정은 안 알림', () => {
   const fn = (name) => { const a0 = apiSrc.indexOf('async function ' + name + '('); assert.ok(a0 > 0, name); return apiSrc.slice(a0, apiSrc.indexOf('\n}\n', a0)); };
@@ -597,15 +606,35 @@ test('보내는 길 — 내부 액션 둘은 서비스 키(sameSecret)부터 · 
   assert.ok(r.includes('(ss[0]?.on_date ?? c.starts_on ?? null) !== day'), '첫 날 = coalesce(첫 회차, 시작일)');
   assert.ok(r.includes('eduNotifySend("first_day"'));
   const s = fn('eduNotifySend');
+  const iGate = s.indexOf('if (!(await eduOpenNow())) {'), iTesters = s.indexOf('const testers = await ministryTesterIds();');
+  const iLoop = s.indexOf('for (let i = 0; i < cand.length; i += EDU_CLAIM_CHUNK) {');
   const iDev = s.indexOf('eduDevicesOf('), iClaim = s.indexOf('db.rpc("edu_notify_claim"'), iPush = s.indexOf('eduPushDevices(');
-  assert.ok(iDev > 0 && iDev < iClaim && iClaim < iPush, '기기 → 잡기 → 보냄');
+  assert.ok(iGate > 0 && iGate < iTesters && iTesters < iLoop, '문(eduOpen → 시험 참여자 명단 한 번)은 덩이 고리 앞');
+  assert.ok(s.includes('cand = cand.filter((r) => testers.has(String(r.user_id)));'), '시험 참여자만 남긴다(걸러진 줄은 잡지 않는다)');
+  assert.ok(!s.includes('ministryIsTester('), '분마다 ministryIsTester 를 부르지 않는다');
+  assert.ok(iLoop < iDev && iDev < iClaim && iClaim < iPush, '덩이마다 기기 → 잡기 → 보냄');
+  assert.ok(s.includes('p_ids: part.map((r) => Number(r.id))') && s.includes('const claimed = eduClaimedIds(got);'), '덩이(part)만 잡고 · 배열 하나로 읽는다');
   assert.ok(s.includes('if (!claimed.has(Number(r.id))) continue;'), '잡힌 신청에만');
+  assert.ok(apiSrc.includes('const EDU_CLAIM_CHUNK = 500;'), '덩이 500');
+  const op = fn('eduOpenNow');
+  assert.ok(op.includes('.eq("key", "eduOpen")') && op.includes('if (error) throw error;') && op.includes('return data?.value === true;'), '문은 true 하나 · 오류는 던진다');
+  const ti = fn('ministryTesterIds');
+  assert.ok(ti.includes('.eq("key", "ministryTesters")') && ti.includes('ministryKeysToUsers(keys)'), '시험 참여자 명단 → 사람(한 번)');
+  assert.ok(fn('ministryIsTester').includes('(await ministryTesterIds()).has(userId)'), 'ministryIsTester 도 같은 길');
+  const dv = fn('eduDevicesOf');
+  assert.ok(dv.includes('fetchAllRows(() => db.from("push_subscriptions")') && dv.includes('fetchAllRows(() => db.from("ios_push_tokens")'), '기기도 1,000줄 넘게 이어 받는다');
+  assert.equal((dv.match(/\.order\("id"\)\)/g) || []).length, 2, '이어 받기는 id 차례로');
   const p = fn('eduPushDevices');
   assert.ok(p.includes('webPushList(web,') && p.includes('sendApns(t.device_token, title, body, o)'), '웹 푸시 + 아이폰');
   const logPart = p.slice(p.indexOf('const note'));
   assert.ok(p.includes('insert({ ...logBase, body, note })') && !/user_id|device_token|endpoint/.test(logPart), 'push_log 에 user_id·기기 없음');
   const c = fn('eduCancel');
-  assert.ok(/if \(r\.ok && r\.promoted != null\) \{\n\s*try \{ await eduNotifyConfirmed\(\[Number\(r\.promoted\)\], true\); \} catch/.test(c), '취소로 올라간 분 — 안에서 · 실패해도 취소는 그대로');
+  assert.ok(c.includes('if (r.ok && r.promoted != null) eduAfterResponse(eduNotifyConfirmed([Number(r.promoted)], true), "eduCancel notify");'),
+    '취소로 올라간 분 — 안에서 · 응답 뒤에(기다리지 않는다)');
+  assert.ok(!/await eduNotify/.test(c), '취소한 성도님은 알림 보내기를 기다리지 않는다');
+  const bg = apiSrc.slice(apiSrc.indexOf('function eduAfterResponse('), apiSrc.indexOf('\n}\n', apiSrc.indexOf('function eduAfterResponse(')));
+  assert.ok(bg.includes('p.catch(') && bg.includes('rt.waitUntil(job)') && bg.includes('typeof rt.waitUntil === "function"') && !bg.includes('await'),
+    'EdgeRuntime.waitUntil 이 있으면 맡기고 · 없으면 띄워 둔다 · 오류는 삼킨다');
   assert.ok(!fn('eduApply').includes('eduNotify'), '선착순 즉시 확정은 알리지 않는다(친구 결정)');
   // pushToSubs(필사·사역·신고)는 예전 그대로 — 웹 푸시만 · push_log 한 줄
   const ps = fn('pushToSubs');
@@ -618,8 +647,9 @@ test('앱 — 딥링크(routeAfterLoad · 로그인했을 때만 · 플레이 �
   const ra = app.slice(app.indexOf('function routeAfterLoad() {'), app.indexOf('\n}\n', app.indexOf('function routeAfterLoad() {')));
   const iMark = ra.indexOf('readPushMark();'), iEdu = ra.indexOf('eduTakeDeepLink()'), iVerse = ra.indexOf('getDeepLinkVerseNo()');
   assert.ok(iMark >= 0 && iMark < iEdu && iEdu < iVerse, 'from=push 를 먼저 읽고 · 구절 딥링크보다 앞');
-  assert.ok(ra.includes('if (_eduDeep && loadUser() && !ministryHiddenOnPlay()) { renderEduCourse(_eduDeep); return; }'), '로그인 안 했으면 평소 길');
-  assert.ok(/type === "from-push"[\s\S]{0,200}eduDeepLinkId\(e\.data\.url\)[\s\S]{0,120}loadUser\(\) && !ministryHiddenOnPlay\(\)/.test(app), '이미 열린 창');
+  assert.ok(ra.includes('if (_eduDeep && loadUser() && !ministryHiddenOnPlay() && eduVisible()) { renderEduCourse(_eduDeep); return; }'),
+    '로그인 안 했거나 🎓 가 안 보이는 분(eduVisible)은 평소 길');
+  assert.ok(/type === "from-push"[\s\S]{0,200}eduDeepLinkId\(e\.data\.url\)[\s\S]{0,120}loadUser\(\) && !ministryHiddenOnPlay\(\) && eduVisible\(\)/.test(app), '이미 열린 창도 같은 조건');
   assert.ok(sw.includes('c.postMessage({ type: "from-push", url: url })'), '서비스워커가 알림 주소를 싣는다');
   const t = src.slice(src.indexOf('function eduTakeDeepLink() {'), src.indexOf('\n}\n', src.indexOf('function eduTakeDeepLink() {')));
   assert.ok(t.includes("q.delete('edu')") && t.includes('history.replaceState(null') && t.includes('eduDeepLinkId(location.search)'));
@@ -636,20 +666,41 @@ test('SQL — edu_notify_log(기본 키 신청·kind · cascade · RLS · servic
     'grant execute on function public.edu_notify_claim(text, bigint[]) to service_role;']) assert.ok(sql.includes(line), line);
   const f = sql.slice(sql.indexOf('create or replace function public.edu_notify_claim('), sql.indexOf('$$;', sql.indexOf('create or replace function public.edu_notify_claim(')));
   assert.ok(f.includes("e.status = 'confirmed' and e.user_id is not null") && f.includes('on conflict (enrollment_id, kind) do nothing'));
+  assert.ok(f.includes('returns bigint[] language sql') && !/returns\s+(table|setof)/i.test(f), '잡은 번호는 bigint[] 하나(표면 PostgREST 가 1,000줄에서 자른다)');
+  assert.ok(f.includes("select coalesce(array_agg(ins.enrollment_id order by ins.enrollment_id), '{}'::bigint[]) from ins"), '없으면 빈 배열(NULL 아님)');
+  const iDrop = sql.indexOf("to_regprocedure('public.edu_notify_claim(text, bigint[])')"), iMake = sql.indexOf('create or replace function public.edu_notify_claim(');
+  const dropPart = sql.slice(iDrop, iMake);
+  assert.ok(iDrop > 0 && iDrop < iMake && dropPart.includes("(proretset or prorettype <> 'bigint[]'::regtype)") &&
+    dropPart.includes('drop function public.edu_notify_claim(text, bigint[]);'), '옛 꼴(표)이면 지우고 만든다(다시 돌려도 안전)');
+  const ss = sql.slice(sql.indexOf('create or replace function public.edu_staff_set('), sql.indexOf('end $$;', sql.indexOf('create or replace function public.edu_staff_set(')));
+  assert.ok(ss.includes("if e.status = p_status then return jsonb_build_object('ok',true,'promoted',null,'already',true); end if;"), '바뀐 것 없음 = already');
   const rf = sql.slice(sql.indexOf('create or replace function public.edu_course_refill('), sql.indexOf('end $$;', sql.indexOf('create or replace function public.edu_course_refill(')));
   assert.ok(rf.includes("ids := ids || jsonb_build_array(w);") && rf.includes("return jsonb_build_object('ok',true,'promoted',n,'ids',ids);"));
   assert.ok(!/to\s+authenticated/i.test(sql.replace(/--.*$/gm, '')), 'TO authenticated 로 열지 않는다');
 });
 
-test('크론 edu_remind_cron.sql — 매일 10:00 UTC(19:00 KST) · 지우고 다시 건다 · 키·주소는 자리표만(커밋 금지) · pg_cron·pg_net 없으면 알리기만', () => {
+test('크론 edu_remind_cron.sql — 매일 10:00 UTC(19:00 KST) · 지우고 다시 건다 · 키는 Vault(돌 때 이름으로 읽는다 · 파일·명령에 없음) · 주소는 자리표 · pg_cron·pg_net 없으면 알리기만', () => {
   const c = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'edu_remind_cron.sql'), 'utf8').replace(/\r\n/g, '\n');
-  assert.ok(c.includes("v_url text := 'YOUR_API_URL';") && c.includes("v_key text := 'YOUR_SERVICE_ROLE_KEY';"), '자리표');
+  const code = c.replace(/--.*$/gm, '');
+  assert.ok(c.includes("v_url text := 'YOUR_API_URL';"), '주소 자리표');
+  assert.ok(!/v_key|YOUR_SERVICE_ROLE_KEY/.test(code), '키 자리표·변수가 없다(키는 Vault)');
   assert.ok(!/sb_secret_|sb_publishable_|eyJ[A-Za-z0-9_-]{10,}/.test(c), '키가 들어 있다');
   const iUn = c.indexOf("perform cron.unschedule(jobid) from cron.job where jobname = 'edu-first-day-remind';");
   const iSch = c.indexOf("perform cron.schedule('edu-first-day-remind', '0 10 * * *',");
   assert.ok(iUn > 0 && iUn < iSch, '지우고 다시 건다');
   assert.ok(c.indexOf("extname = 'pg_cron'") < iUn && c.indexOf("extname = 'pg_net'") < iUn && c.indexOf('raise notice') < iUn, '확장이 없으면 알리기만');
-  assert.ok(c.indexOf("raise exception 'YOUR_API_URL") < iUn && c.indexOf("raise exception 'YOUR_SERVICE_ROLE_KEY") < iUn, '자리표 그대로면 멈춘다');
-  assert.ok(c.includes("'x-internal-key',%L") && c.includes("jsonb_build_object('action','internalEduRemind')"));
-  assert.ok(!/push_evening|EVENING_LIVE/.test(c.replace(/--.*$/gm, '')), '저녁 알림과 무관');
+  const iNoKey = c.indexOf("raise exception 'Vault 에 edu_remind_service_key");
+  assert.ok(c.indexOf('raise notice') < iNoKey, '개발(확장 없음)에서는 Vault 를 보기 전에 알리고 끝난다');
+  assert.ok(c.indexOf("raise exception 'YOUR_API_URL") < iUn, '주소 자리표 그대로면 멈춘다');
+  assert.ok(iNoKey > 0 && iNoKey < iUn && c.slice(c.lastIndexOf('if not exists', iNoKey), iNoKey).includes("from vault.decrypted_secrets where name = 'edu_remind_service_key'"),
+    'Vault 에 그 이름이 없으면 걸지 않고 멈춘다');
+  const cmd = c.slice(c.indexOf('format($cmd$'), c.indexOf('$cmd$, v_url))'));
+  assert.ok(cmd.includes("'x-internal-key',(select decrypted_secret from vault.decrypted_secrets where name = 'edu_remind_service_key'))"),
+    '명령은 돌 때마다 Vault 에서 이름으로 읽는다(키를 명령에 박지 않는다)');
+  assert.equal((cmd.match(/%L/g) || []).length, 1, '명령에 끼우는 값은 주소 하나뿐');
+  assert.ok(c.includes('$cmd$, v_url));') && cmd.includes("jsonb_build_object('action','internalEduRemind')"));
+  assert.ok(c.includes("select vault.create_secret('<") && c.includes("'edu_remind_service_key'") &&
+    c.includes("select vault.update_secret((select id from vault.secrets where name = 'edu_remind_service_key'), '<새 키>');"),
+    '처음 한 번(create_secret)·키 바꾸기(update_secret)를 적어 둔다');
+  assert.ok(!/push_evening|EVENING_LIVE/.test(code), '저녁 알림과 무관');
 });
