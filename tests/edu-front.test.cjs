@@ -291,3 +291,226 @@ test('eduVerify·eduCert — api 에 있고 eduVerify 는 꼴을 먼저 본 뒤 
   assert.ok(/cert_revoked === true/.test(c) && /no-cert/.test(c));
   assert.ok(/case "eduCert":/.test(apiSrc) && /case "eduVerify":/.test(apiSrc));
 });
+// ---------- 수료 화면(3단계 · 2026-10-05) — 내 강좌 수료 줄 · 자세히 「수료증 보기」 · 수료증 그림(캔버스 차례) · 진위 확인 페이지 ----------
+test('eduMineView — 수료한 분은 「🎓 수료했어요」·수료번호 · 취소 단추·안내 없음(canCancel 에 기대지 않는다) · cert 표시', () => {
+  assert.deepEqual(pick(ctx.eduMineView({ status: 'confirmed', completed: true, certNo: '고척-2026-0001', canCancel: false, nextSession: null })),
+    { tone: 'ok', head: '🎓 수료했어요', lines: ['수료번호 고척-2026-0001'], cancelLine: '', cancelBtn: null, cancelAsk: '', cert: true });
+  const on = ctx.eduMineView({ status: 'confirmed', completed: true, certNo: '고척-2026-0001', canCancel: true, cancelUntil: '2026-10-24' });
+  assert.equal(on.cancelBtn, null); assert.equal(on.cancelLine, '');
+  // 수료가 아니거나 번호가 없으면(취소된 수료는 서버가 completed false · certNo null 로 준다) 예전 그대로
+  const plain = pick(ctx.eduMineView({ status: 'confirmed', completed: false, certNo: null, canCancel: false, nextSession: null }));
+  assert.equal(plain.head, '✅ 확정됐어요'); assert.equal(plain.cert, undefined);
+  assert.equal(ctx.eduMineView({ status: 'confirmed', completed: true, certNo: null }).head, '✅ 확정됐어요');
+  assert.equal(ctx.eduMineView({ status: 'confirmed', completed: 'true', certNo: '고척-2026-0001' }).head, '✅ 확정됐어요', 'true 만');
+});
+
+test('eduCertLine·eduCertErrText·eduCertFileName', () => {
+  assert.equal(ctx.eduCertLine({ completed: true, certNo: '고척-2026-0001' }), '🎓 수료 · 고척-2026-0001');
+  for (const m of [{ completed: false, certNo: '고척-2026-0001' }, { completed: true, certNo: null }, null, {}]) assert.equal(ctx.eduCertLine(m), '', JSON.stringify(m));
+  assert.ok(ctx.eduCertErrText('no-cert').startsWith('수료증을 찾을 수 없어요'));
+  assert.equal(ctx.eduCertErrText('not-found'), ctx.eduCertErrText('no-cert'), '남의 줄·없는 줄도 같은 말');
+  assert.equal(ctx.eduCertErrText('no-user'), '로그인한 뒤에 볼 수 있어요.');
+  assert.equal(ctx.eduCertErrText('HTTP 500'), '지금 수료증을 불러올 수 없어요. 잠시 뒤 다시 열어 주세요.');
+  assert.equal(ctx.eduCertFileName('고척-2026-0001'), '수료증_고척-2026-0001.png');
+  assert.equal(ctx.eduCertFileName('a/b:c* d'), '수료증_abcd.png');
+  assert.equal(ctx.eduCertFileName(''), '수료증_고척.png');
+});
+
+// 자리 표의 지문 — 교회 어드민 tests/edu-certs-logic.test.mjs 에 **같은 값**이 박혀 있다(cert-template.js CERT_GEOM · 인쇄).
+//   자리를 일부러 고칠 때는 두 곳(이 저장소 js/edu.js EDU_CERT_GEOM · 교회 어드민 CERT_GEOM)을 같은 값·같은 차례로 고치고 두 지문을 함께 바꾼다.
+const CERT_GEOM_SHA256 = '957637f91b3f4464e1861611440b2ca3391dddc6ff6aefa543b8fa0e194c45e8';
+test('EDU_CERT_GEOM — 교회 어드민 인쇄(CERT_GEOM)와 같은 자리 표(지문) · A4 가로 그림 크기', () => {
+  const sha = require('node:crypto').createHash('sha256').update(JSON.stringify(ctx.EDU_CERT_GEOM)).digest('hex');
+  assert.equal(sha, CERT_GEOM_SHA256, '자리 표가 바뀌었다 — 교회 어드민 cert-template.js CERT_GEOM·두 시험 지문을 함께 고칠 것 (지금 ' + sha + ')');
+  assert.equal(ctx.EDU_CERT_W, 1754);
+  assert.ok(Math.abs(ctx.EDU_CERT_H / ctx.EDU_CERT_W - 210 / 297) < 0.001);
+});
+
+// 교회 어드민 cert-template.js(certTextEm·certLines·certInfoHeight·certBodySize)로 뽑은 값 — 두 곳이 같은 문안 크기에서 시작한다.
+//   한쪽 셈을 고치면 그쪽으로 다시 뽑아 이 표를 바꾼다(교회 어드민에서 node 로 같은 경우를 돌린다).
+const CERT_BODY = '위 사람은 고척교회가 주관한 「구원론 3차」 과정을 성실히 마쳤기에 이 증서를 드립니다.';
+const CERT_EST_CASES = [
+  [{ title: '구원론 3차', term: '2026 하반기', from: '2026-10-25', to: '2026-12-13', body: CERT_BODY }, [40.4, 2, 10.825, 2.2]],
+  [{ title: '제자훈련 1단계 — 말씀과 삶을 함께 나누는 열두 주 과정', term: '2027 상반기', from: '2027-03-03', to: '2027-05-19', body: CERT_BODY }, [40.4, 2, 13.725, 2.2]],
+  [{ title: '교사 연수', term: '', from: null, to: null, body: CERT_BODY + '\n' + CERT_BODY }, [81.6, 4, 7.225, 2.2]],
+  [{ title: '구원론 3차', term: '2026 하반기', from: '2026-10-25', to: '2026-12-13', body: '가'.repeat(120) }, [120, 5, 10.825, 1.6]],
+  [{ title: '구원론 3차', term: '2026 하반기', from: '2026-10-25', to: null, body: '가나다 '.repeat(50) }, [165, 6, 10.825, 1.3]],
+  [{ title: 'A Long English Course Title For Testing', term: '2026 Fall', from: '2026-10-25', to: '2026-12-13', body: '가'.repeat(300) }, [300, 11, 13.725, 1.15]],
+];
+test('수료증 어림 셈 — 교회 어드민과 같은 값(문안 크기 단계가 갈리지 않는다)', () => {
+  for (const [c, [em, lines, info, size]] of CERT_EST_CASES) {
+    assert.ok(Math.abs(ctx.eduCertTextEm(c.body) - em) < 1e-9, 'em ' + c.title);
+    assert.equal(ctx.eduCertLines(c.body, 2, 64), lines, 'lines ' + c.title);
+    assert.ok(Math.abs(ctx.eduCertInfoHeight(c) - info) < 1e-9, 'info ' + c.title);
+    assert.equal(ctx.eduCertBodySize(c), size, 'size ' + c.title);
+  }
+});
+
+test('eduCertYmd·eduCertPeriod·eduCertCourseText·eduSealSrc', () => {
+  assert.equal(ctx.eduCertYmd('2026-12-13'), '2026년 12월 13일');
+  for (const x of ['2026-02-30', '', null, '2026-1-3']) assert.equal(ctx.eduCertYmd(x), '', String(x));
+  assert.equal(ctx.eduCertPeriod('2026-10-25', '2026-12-13'), '2026년 10월 25일 ~ 2026년 12월 13일');
+  assert.equal(ctx.eduCertPeriod('2026-10-25', '2026-10-25'), '2026년 10월 25일');
+  assert.equal(ctx.eduCertPeriod('2026-10-25', null), '2026년 10월 25일 ~');
+  assert.equal(ctx.eduCertPeriod(null, '2026-12-13'), '~ 2026년 12월 13일');
+  assert.equal(ctx.eduCertPeriod(null, null), '');
+  assert.equal(ctx.eduCertCourseText('구원론 3차', '2026 하반기'), '구원론 3차 (2026 하반기)');
+  assert.equal(ctx.eduCertCourseText(' 교사 연수 ', null), '교사 연수');
+  assert.equal(ctx.eduSealSrc('data:image/png;base64,iVBORw0KGgo='), 'data:image/png;base64,iVBORw0KGgo=');
+  assert.equal(ctx.eduSealSrc('data:image/jpeg;base64,/9j/4A=='), 'data:image/jpeg;base64,/9j/4A==');
+  for (const bad of ['javascript:alert(1)', 'https://x.example/s.png', 'img/seal.png', 'data:image/svg+xml;base64,PHN2Zz4=', 'data:image/png;base64,a"b', null, 1]) {
+    assert.equal(ctx.eduSealSrc(bad), '', String(bad));
+  }
+});
+
+test('eduCertWrap — 띄어쓰기에서 끊고 · 폭보다 긴 낱말은 글자로 · \\n 은 새 줄 · 빈 글도 한 줄', () => {
+  const m = (s) => Array.from(s).length;   // 한 글자 = 1
+  assert.deepEqual(pick(ctx.eduCertWrap('가나 다라 마바사', 5, m)), ['가나 다라', '마바사']);
+  assert.deepEqual(pick(ctx.eduCertWrap('가나다라마바사아자', 4, m)), ['가나다라', '마바사아', '자']);
+  assert.deepEqual(pick(ctx.eduCertWrap('가나\n다라', 10, m)), ['가나', '다라']);
+  assert.deepEqual(pick(ctx.eduCertWrap('  가   나  ', 10, m)), ['가 나']);
+  assert.deepEqual(pick(ctx.eduCertWrap('', 10, m)), ['']);
+  assert.deepEqual(pick(ctx.eduCertWrap(null, 10, m)), ['']);
+  const sp = ctx.eduCertSpaced('수료증', 10, 800, 0.5, (s, size) => size);
+  assert.deepEqual(pick(sp.chars.map((c) => c.x)), [0, 15, 30]);
+  assert.equal(sp.width, 45, '끝 글자 뒤 벌림까지(화면 letter-spacing 과 같다)');
+});
+
+// 캔버스 차례 — 글 폭은 어림(eduCertTextEm × 크기)으로 재는 가짜 measure
+const fakeMeasure = (t, size) => ctx.eduCertTextEm(t) * size;
+const CERT_DATA = { name: '홍길동', title: '구원론 3차', term: '2026 하반기', from: '2026-10-25', to: '2026-12-13', certNo: '고척-2026-0001', issuedOn: '2026-12-13',
+  issuer: '고척교회 담임목사 홍길동', body: CERT_BODY, seal: 'data:image/png;base64,iVBORw0KGgo=' };
+const IMGS = { logo: { w: 477, h: 605 }, seal: { w: 365, h: 368 } };
+test('eduCertPlan — 칸이 모두 있고 그림 안 · 로고·「수료증」은 가운데 · 위에서 아래 차례 · 직인은 명의 끝에 30% 겹침', () => {
+  const p = ctx.eduCertPlan(CERT_DATA, fakeMeasure, IMGS), g = ctx.EDU_CERT_GEOM, u = p.W / 100;
+  assert.equal(p.W, 1754); assert.equal(p.H, 1240); assert.equal(p.bodySize, 2.2);
+  const texts = p.ops.filter((o) => o.k === 'text'), all = texts.map((o) => o.s).join('');
+  for (const t of ['제 고척-2026-0001 호', '구원론 3차 (2026 하반기)', '2026년 10월 25일 ~ 2026년 12월 13일']) assert.ok(texts.some((o) => o.s === t), t);
+  for (const t of ['수료증', '성명', '과정', '기간', '홍길동', '2026년12월13일', '고척교회담임목사홍길동']) assert.ok(all.replace(/ /g, '').includes(t), t);
+  assert.ok(texts.some((o) => o.align === 'center' && o.s.startsWith('위 사람은')), '문안은 가운데 맞춤');
+  assert.equal(p.ops.filter((o) => o.k === 'rect').length, 2, '겹테두리');
+  // 모두 그림 안
+  for (const o of p.ops) {
+    const w = o.k === 'text' ? fakeMeasure(o.s, o.size) : o.w;
+    const x0 = o.k === 'text' ? (o.align === 'center' ? o.x - w / 2 : o.align === 'right' ? o.x - w : o.x) : o.x;
+    assert.ok(x0 >= 0 && x0 + w <= p.W && o.y >= 0 && o.y <= p.H, JSON.stringify(o));
+  }
+  // 로고·제목 가운데
+  const logo = p.ops.find((o) => o.k === 'img' && o.key === 'logo');
+  assert.ok(Math.abs(logo.x + logo.w / 2 - p.W / 2) < 0.01 && Math.abs(logo.h - g.logoH * u) < 0.01);
+  const tc = texts.filter((o) => o.size === g.titleSize * u);
+  assert.equal(tc.length, 3);
+  assert.ok(Math.abs((tc[0].x + tc[2].x + fakeMeasure(tc[2].s, tc[2].size)) / 2 - p.W / 2) < 0.01, '「수료증」 가운데');
+  // 위에서 아래 차례 — 제목 < 성명 < 기간 < 문안 < 발급일 < 명의
+  const yOf = (pred) => texts.find(pred).y;
+  const yTitle = tc[0].y, yName = yOf((o) => o.s === '홍' && o.weight === 800 && o.size === g.nameSize * u), yPeriod = yOf((o) => o.s.startsWith('2026년 10월'));
+  const yBody = yOf((o) => o.s.startsWith('위 사람은')), yDate = yOf((o) => o.size === g.dateSize * u && o.s === '2'), yIss = yOf((o) => o.size === g.issSize * u);
+  assert.ok(yTitle < yName && yName < yPeriod && yPeriod < yBody && yBody < yDate && yDate < yIss, [yTitle, yName, yPeriod, yBody, yDate, yIss].join(' '));
+  assert.ok(yBody > g.mainTop * u && yBody < g.mainBottom * u);
+  // 직인 — 명의 글줄 끝(끝 글자 뒤 벌림 포함)에 직인 폭의 30% 가 겹친다 · 명의 줄 가운데에
+  const iss = texts.filter((o) => o.size === g.issSize * u), last = iss[iss.length - 1];
+  const end = last.x + fakeMeasure(last.s, last.size) + g.issTrack * last.size;
+  const seal = p.ops.find((o) => o.k === 'img' && o.key === 'seal');
+  assert.ok(Math.abs((end - seal.x) / seal.w - g.sealIn) < 1e-9, '30% 겹침');
+  assert.ok(Math.abs(seal.y + seal.h / 2 - last.y) < 1e-9 && Math.abs(seal.h - g.sealH * u) < 1e-9);
+  assert.ok(seal.y + seal.h < p.H - (g.frame + g.frameW + g.gap) * u, '직인이 안쪽 테두리 안');
+  // 명의 글줄(끝 벌림 포함)은 가운데
+  assert.ok(Math.abs((iss[0].x + end) / 2 - p.W / 2) < 0.01);
+});
+
+test('eduCertPlan — 직인·로고가 없으면 그 그림만 빠진다 · 기간이 없으면 기간 줄이 없다 · 이름·명의·문안은 글 그대로(꺾쇠도 글자로 그린다)', () => {
+  const p = ctx.eduCertPlan({ ...CERT_DATA, seal: null, from: null, to: null, body: '1 < 2 > 0 <b>', issuer: '<img src=x>' }, fakeMeasure, { logo: null, seal: null });
+  assert.equal(p.ops.filter((o) => o.k === 'img').length, 0);
+  const texts = p.ops.filter((o) => o.k === 'text');
+  assert.ok(!texts.some((o) => o.s === '간'), '기간 칸 이름 없음');
+  assert.ok(texts.some((o) => o.s === '1 < 2 > 0 <b>'), '문안 그대로');
+  assert.ok(texts.map((o) => o.s).join('').includes('<img'), '명의 그대로(글자로)');
+  assert.ok(!texts.some((o) => o.s.includes('&lt;')), '이스케이프하지 않는다(캔버스는 글자를 그린다)');
+  const none = ctx.eduCertPlan({}, fakeMeasure, null);
+  assert.equal(none.ops.filter((o) => o.k === 'rect').length, 2);
+  assert.ok(!none.ops.some((o) => o.k === 'text' && o.s.startsWith('제 ')), '번호가 없으면 「제 … 호」 없음');
+});
+
+test('eduCertPlan — 긴 문안은 한 단계씩 작게 · 문안 끝이 가운데 칸 안(발급일과 겹치지 않는다)', () => {
+  const g = ctx.EDU_CERT_GEOM;
+  for (const body of ['가'.repeat(120), '가나다 '.repeat(50), '가'.repeat(300), CERT_BODY + '\n' + CERT_BODY + '\n' + CERT_BODY]) {
+    const c = { ...CERT_DATA, body };
+    const p = ctx.eduCertPlan(c, fakeMeasure, IMGS), u = p.W / 100;
+    assert.ok(g.bodySizes.indexOf(p.bodySize) >= g.bodySizes.indexOf(ctx.eduCertBodySize(c)), '어림보다 크게 고르지 않는다');
+    const lines = p.ops.filter((o) => o.k === 'text' && o.align === 'center');   // 문안 줄만 가운데 맞춤
+    const bottom = lines[lines.length - 1].y + p.bodySize * u * g.bodyLH / 2;
+    assert.ok(bottom <= g.mainBottom * u + 0.01, body.slice(0, 8) + ' ' + bottom + ' > ' + g.mainBottom * u);
+  }
+});
+
+test('renderEduCert·eduCertDraw — 이름·명의·문안은 캔버스로만(innerHTML 에 넣지 않는다) · 직인은 eduSealSrc 를 거쳐 drawImage 로만 · 저장·공유 · 진위 확인 안내', () => {
+  const lf = src.replace(/\r\n/g, '\n');
+  const fnSrc = (name) => { const a0 = lf.indexOf('function ' + name + '('); assert.ok(a0 > 0, name); return lf.slice(a0, lf.indexOf('\n}\n', a0)); };
+  const r = fnSrc('renderEduCert'), d = fnSrc('eduCertDraw');
+  for (const k of ['cert.body', 'cert.issuer', 'cert.seal']) assert.ok(!r.includes(k), 'renderEduCert 가 ' + k + ' 를 쓰지 않는다');
+  assert.ok(/eduCertImage\(eduSealSrc\(cert\.seal\)\)/.test(d) && /drawImage/.test(d) && /fillText/.test(d));
+  assert.ok(!/innerHTML/.test(d), '그리기에는 innerHTML 이 없다');
+  assert.ok(/pic\.alt = /.test(r) && /pic\.src = url/.test(r), 'alt·src 는 속성으로');
+  assert.ok(r.includes('navigator.canShare({ files: [file] })') && r.includes('navigator.share({ files: [file]') && r.includes('eduCertDownload(url, name)'));
+  assert.ok(r.includes('안 되면 그림을 길게 눌러 저장해 주세요') && r.includes('수료번호로 진위를 확인할 수 있어요: gocheok.onlybible.kr/cert'));
+  assert.ok(r.includes('home-fab') && r.includes("renderEduCourse(courseId)"), '첫 화면 단추 · 뒤로(강좌)');
+  assert.ok(/document\.fonts\.load/.test(d) && /'img\/logo-gocheok\.png'/.test(d));
+  // 「수료증 보기」는 자세히의 내 칸(mv.cert)에서 · 내 강좌 카드는 eduCertLine
+  assert.ok(src.includes("(mv.cert ? '<button class=\"edu-btn\" id=\"edu-cert\">수료증 보기</button>' : '')"));
+  assert.ok(src.includes('renderEduCert(m.id, id)') && src.includes("eduEsc(eduCertLine(m))"));
+});
+
+test('api.js — eduCert(enrollment_id, user_id)·eduVerify(no)', () => {
+  const a = fs.readFileSync(path.join(__dirname, '..', 'js', 'api.js'), 'utf8');
+  assert.ok(a.includes('eduCert: (enrollment_id, user_id) => supaCall("eduCert", { enrollment_id, user_id })'));
+  assert.ok(a.includes('eduVerify: (no) => supaCall("eduVerify", { no })'));
+});
+
+// ---------- 진위 확인 페이지 cert/index.html(로그인 없이) ----------
+const certPage = fs.readFileSync(path.join(__dirname, '..', 'cert', 'index.html'), 'utf8').replace(/\r\n/g, '\n');
+const pageCtx = {}; vm.createContext(pageCtx);
+{
+  const a0 = certPage.indexOf('// ── 진위 확인 순수 함수 (여기부터) ──'), b0 = certPage.indexOf('// ── 진위 확인 순수 함수 (여기까지) ──');
+  assert.ok(a0 >= 0 && b0 > a0, '진위 확인 표식을 못 찾았다');
+  vm.runInContext(certPage.slice(a0, b0), pageCtx);
+}
+test('cert/ — 번호 꼴은 서버 eduCertNoValid 와 같다 · 넣은 글 다듬기(빈칸·여러 붙임표·「고척-」 빠뜨림)', () => {
+  for (const s of ['고척-2026-0001', '고척-2026-10000', '고척-2999-123456', '고척-2026-001', '고척-26-0001', ' 고척-2026-0001', 'X-2026-0001', '', '고척-2026-1234567']) {
+    assert.equal(pageCtx.CERT_NO_RE.test(s), certCtx.eduCertNoValid(s), s);
+  }
+  assert.equal(pageCtx.certNoNorm(' 고척 - 2026 - 0001 '), '고척-2026-0001');
+  assert.equal(pageCtx.certNoNorm('고척–2026—0001'), '고척-2026-0001');
+  assert.equal(pageCtx.certNoNorm('고척－2026－0001'), '고척-2026-0001');
+  assert.equal(pageCtx.certNoNorm('2026-0001'), '고척-2026-0001');
+  assert.equal(pageCtx.certNoNorm('고척-2026-0001'.normalize('NFD')), '고척-2026-0001');
+  assert.equal(pageCtx.certNoNorm(null), '');
+  assert.equal(pageCtx.certYmdKo('2026-12-13'), '2026년 12월 13일');
+});
+
+test('cert/ — 확인됨·취소됨·없음 세 결과 + 넣기 전·꼴·통신 오류 · 이름은 서버 것 그대로(다시 가리지 않는다)', () => {
+  const ok = pick(pageCtx.certVerifyView({ ok: true, valid: true, revoked: false, title: '구원론 3차', term: '2026 하반기', completedOn: '2026-12-13', name: '홍*동' }, '고척-2026-0001', ''));
+  assert.equal(ok.tone, 'ok'); assert.equal(ok.head, '✅ 확인된 수료증이에요');
+  assert.deepEqual(ok.rows, [['이름', '홍*동'], ['과정', '구원론 3차'], ['학기', '2026 하반기'], ['수료일', '2026년 12월 13일'], ['수료번호', '고척-2026-0001']]);
+  assert.equal(pick(pageCtx.certVerifyView({ ok: true, valid: true, name: '*', title: 't', term: '', completedOn: null }, 'n', '')).rows[0][1], '*', '한 글자 이름도 서버가 가린 그대로');
+  const rv = pick(pageCtx.certVerifyView({ ok: true, valid: false, revoked: true, title: '구원론 3차', term: '2026 하반기', completedOn: '2026-12-13', name: '홍*동' }, '고척-2026-0002', ''));
+  assert.equal(rv.tone, 'rv'); assert.equal(rv.head, '취소된 수료증이에요');
+  assert.ok(!rv.rows.some((x) => x[0] === '수료일'), '취소된 수료에는 수료일을 싣지 않는다');
+  const none = pick(pageCtx.certVerifyView({ ok: true, valid: false }, '고척-2026-0099', ''));
+  assert.equal(none.tone, 'none'); assert.equal(none.head, '찾을 수 없는 번호예요'); assert.deepEqual(none.rows, []);
+  assert.equal(pageCtx.certVerifyView(null, '', 'empty').head, '수료번호를 넣어 주세요');
+  assert.equal(pageCtx.certVerifyView(null, 'x', 'bad-no').head, '번호 꼴이 맞지 않아요');
+  assert.equal(pageCtx.certVerifyView(null, 'x', 'net').tone, 'err');
+  assert.equal(pageCtx.certVerifyView({ ok: false, error: 'x' }, 'x', '').tone, 'err');
+});
+
+test('cert/ — 로그인 없이 · ../js/config.js·../js/api.js 를 ?v= 없이 · supaCall("eduVerify") · 서버 글자는 textContent(innerHTML 없음) · ?no= 로 바로 확인', () => {
+  assert.ok(certPage.includes('<script src="../js/config.js"></script>') && certPage.includes('<script src="../js/api.js"></script>'));
+  assert.ok(!/(src|href)="[^"]*\?v=/.test(certPage), 'bump.py 가 모르는 캐시태그를 두지 않는다(preflight [2]·[2-1] 은 루트 index.html 만 본다)');
+  assert.ok(certPage.includes("supaCall('eduVerify', { no: no })"));
+  assert.ok(!/\.innerHTML|insertAdjacentHTML|document\.write/.test(certPage) && /\.textContent = /.test(certPage), '서버 글자는 textContent 로만');
+  assert.ok(!/loadUser|user_id/.test(certPage), '로그인·user_id 를 쓰지 않는다');
+  assert.ok(certPage.includes("new URLSearchParams(location.search).get('no')"));
+  assert.ok(certPage.includes('localStorage.getItem("theme") === "dark"') && certPage.includes('html.dark'), '앱과 같은 어두운 모드');
+  assert.ok(certPage.includes('../img/logo-gocheok.png'));
+  assert.ok(!/fonts\.googleapis/.test(certPage), '웹폰트를 부르지 않는다');
+});

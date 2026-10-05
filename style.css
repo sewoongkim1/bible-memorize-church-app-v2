@@ -6007,3 +6007,15 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .dark .edu-more { color: #8fb3e6; }
 .dark .am-msg .edu-who { background: #232c3f; color: #dbe2ee; }
 .edu-title, .edu-sub, .edu-desc, .edu-sess, .edu-card b, .edu-card span, .edu-gl-v, .edu-seat, .edu-state, .edu-how, .edu-note, .am-msg .edu-who { word-break: keep-all; overflow-wrap: anywhere; }
+/* 🎓 수료(3단계 · 2026-10-05) — 「내 강좌」 카드 수료 줄 · 수료증 그림 화면(js/edu.js renderEduCert) · 새 색을 만들지 않는다(초록 = .edu-att) */
+.edu-card .edu-cert-k { color: var(--green); font-weight: 700; }
+.edu-cert-img { margin: 4px 0 2px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: #fff; box-shadow: 0 4px 14px rgba(13, 27, 62, .12); }
+.edu-cert-img img { display: block; width: 100%; height: auto; -webkit-touch-callout: default; -webkit-user-select: auto; user-select: auto; }   /* 길게 눌러 저장이 되게 */
+#edu-cert-box > .edu-btn { margin-top: 14px; }
+#edu-cert-box .edu-how { text-align: center; }
+.edu-cert-msg { margin: 6px 0 0; text-align: center; }
+.edu-cert-msg:empty { display: none; }
+#edu-cert-box .edu-about b { font-variant-numeric: tabular-nums; }
+.dark .edu-card .edu-cert-k { color: #8fd6ab; }
+.dark .edu-cert-img { border-color: #33507d; box-shadow: none; }
+.dark #edu-cert-box .edu-desc b { color: #cdd9f2; }

@@ -139,6 +139,9 @@ const api = {
   eduApply: (id, user_id) => supaCall("eduApply", { id, user_id }),
   eduCancel: (enrollment_id, user_id) => supaCall("eduCancel", { enrollment_id, user_id }),
   eduMine: (user_id) => supaCall("eduMine", { user_id }),
+  // 수료(3단계 · 2026-10-05) — eduCert 는 내 줄·수료·안 취소일 때만 수료증 자료 · eduVerify 는 로그인 없이(cert/ 진위 확인 페이지 · 가린 이름만)
+  eduCert: (enrollment_id, user_id) => supaCall("eduCert", { enrollment_id, user_id }),
+  eduVerify: (no) => supaCall("eduVerify", { no }),
   eventDrop: (user_id, id) => supaCall("eventDrop", { user_id, id }),
   // user_id 는 시험 회차(testOnly) 판정에만 쓴다(2026-10-03) — 응답에는 안 실린다.
   eventRosterPublic: (event_id, user_id) => supaCall("eventRosterPublic", { event_id, user_id }),
