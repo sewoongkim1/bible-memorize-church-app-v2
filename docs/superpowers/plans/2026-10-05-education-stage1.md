@@ -436,20 +436,21 @@ Expected: FAIL — `edu_enrollments` 가 합치기 본체·FK 허용 목록·use
 (3) 충돌 검사 — `merge-signup-conflict` 블록(185~190줄 근처) 바로 뒤에:
 ```sql
   if to_regclass('public.edu_enrollments') is not null then
-    -- 두 계정이 같은 강좌에 **살아 있는** 신청(신청·확정·대기)을 함께 가지면 멈춘다 — 담당자가 한쪽을 취소한 뒤 합친다.
+    -- 두 계정이 같은 강좌에 **살아 있는** 신청(신청·확정·대기 · 그리고 반려 — 2026-10-05 친구 「반려 유지」: 반려는 담당자가 정한 기록이라
+    --   합치면서 지우거나 덮지 않는다)을 함께 가지면 멈춘다 — 담당자가 한쪽을 정리한 뒤 합친다.
     if exists(select 1 from public.edu_enrollments a join public.edu_enrollments b on a.course_id=b.course_id
       where a.user_id=s.id and b.user_id=t.id
-        and a.status in ('applied','confirmed','waitlisted') and b.status in ('applied','confirmed','waitlisted')) then
+        and a.status in ('applied','confirmed','waitlisted','declined') and b.status in ('applied','confirmed','waitlisted','declined')) then
       return jsonb_build_object('ok',false,'error','merge-edu-conflict');
     end if;
-    -- 같은 강좌에 두 줄이 남지 않게(unique(course_id,user_id)) — 한쪽이라도 죽은 줄(취소·반려)이면 **죽은 줄**을 지운다.
-    --   원본이 죽었으면 원본 줄을, 남는 쪽이 죽었으면 남는 쪽 줄을. 둘 다 죽었으면 원본 줄만(남는 쪽 기록을 남긴다).
+    -- 같은 강좌에 두 줄이 남지 않게(unique(course_id,user_id)) — 한쪽이 **취소** 줄이면 취소 줄을 지운다(반려는 위에서 멈췄다).
+    --   원본이 취소면 원본 줄을, 남는 쪽이 취소면 남는 쪽 줄을. 둘 다 취소면 원본 줄만(남는 쪽 기록을 남긴다).
     delete from public.edu_enrollments a using public.edu_enrollments b
       where a.course_id=b.course_id and a.user_id=s.id and b.user_id=t.id
-        and a.status not in ('applied','confirmed','waitlisted');
+        and a.status = 'cancelled';
     delete from public.edu_enrollments b using public.edu_enrollments a
       where a.course_id=b.course_id and a.user_id=s.id and b.user_id=t.id
-        and b.status not in ('applied','confirmed','waitlisted');
+        and b.status = 'cancelled';
   end if;
 ```
 (4) FK 허용 목록(198~200줄 근처 `if ref.tbl::text not in (…)`)과 user_id 허용 목록(209~213줄 근처 `and c.table_name not in (…)`) 끝에 각각 `'edu_enrollments'`.
@@ -1332,7 +1333,7 @@ git commit -m "feat(교육): 📝 신청 현황 — 승인·대기·반려·취�
 - Produces (액션 · 응답에 `user_id`·`ident_key` 없음):
   - `eduList({user_id?}) → {ok, open: boolean, courses: AppCourse[], mine: AppMine[]}` — 목록은 `status in ('open','closed','running')` 만(`draft`·`done`·`archived` 빼고) · 강좌마다 `{id,title,kind,kindLabel,term,teacher,place,fee,target,capacity,mode,waitlist,applyFrom,applyTo,status,sessionsCount,firstDate,lastDate,confirmed,waitlisted,phase}` (`phase`: `upcoming`(신청 전)·`open`·`closed`(신청 끝)·`running`)
   - `eduCourse({id, user_id?}) → {ok, course: AppCourse + {description, sessions:[{no,date,start,end,topic,place}], prereq, attendPct, checkLabel}, mine: AppMine|null}`
-  - `eduApply({id, user_id}) → {ok, status, waitNo?, already?} | {ok:false, error}` — 문(`eduOpen` 또는 시험 참여자)이 닫혔으면 `not-open`
+  - `eduApply({id, user_id}) → {ok, status, waitNo?, already?} | {ok:false, error}` — 문(`eduOpen` 또는 시험 참여자)이 닫혔으면 `not-open` · **반려된 분이 다시 누르면 `{ok:true, status:'declined', already:true}`**(SQL 이 줄을 그대로 둔다 — 친구 2026-10-05 「반려 유지」)
   - `eduCancel({enrollment_id, user_id}) → {ok, promoted?:boolean} | {ok:false, error}` — 내 줄일 때만
   - `eduMine({user_id}) → {ok, mine: AppMine[]}` — `AppMine = {id, courseId, title, term, status, statusLabel, waitNo, cancelUntil, nextSession}`
 
@@ -1600,6 +1601,7 @@ test('eduApplyMessage — 결과마다 한 줄', () => {
   assert.equal(ctx.eduApplyMessage({ ok: true, status: 'waitlisted', waitNo: 2 }), '대기 2번이에요 — 자리가 나면 확정돼요');
   assert.equal(ctx.eduApplyMessage({ ok: true, status: 'applied' }), '신청했어요 — 담당자가 확정하면 「내 강좌」에 보여요');
   assert.equal(ctx.eduApplyMessage({ ok: true, status: 'confirmed', already: true }), '이미 신청하셨어요');
+  assert.equal(ctx.eduApplyMessage({ ok: true, status: 'declined', already: true }), '이 강좌는 담당자에게 말씀해 주세요');
 });
 
 test('eduStatusLine', () => {
@@ -1634,6 +1636,7 @@ function eduPhaseLabel(c) {
   return '모집 중 · ' + c.confirmed + '/' + c.capacity;
 }
 function eduApplyMessage(r) {
+  if (r.status === 'declined') return '이 강좌는 담당자에게 말씀해 주세요';   // 반려 유지(친구 2026-10-05) — 다시 눌러도 반려 그대로
   if (r.already) return '이미 신청하셨어요';
   if (r.status === 'confirmed') return '확정됐어요';
   if (r.status === 'waitlisted') return '대기 ' + (r.waitNo || 1) + '번이에요 — 자리가 나면 확정돼요';

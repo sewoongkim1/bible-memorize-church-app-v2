@@ -448,14 +448,14 @@ test('⑬ 자료 SQL — 부제·시험 회차 안내에 「선물 대상」이 
   const perday = read('supabase/event_autumn_2026_perday.sql');
   const testSql = read('supabase/event_autumn_2026_test.sql');
   const record = read('supabase/event_stamp_2026.sql');
-  const NEW_SUB = '여섯 주 가운데 세 주, 말씀과 함께 걸어요';
+  const NEW_SUB = '일곱 주 가운데 다섯 주, 말씀과 함께 걸어요';   // 2026-10-04 7주 가운데 5주(설계 §10)
   const m = /set subtitle = '([^']*)'/.exec(perday);
   assert.ok(m, 'perday.sql 에서 부제 update 를 못 찾았다');
   assert.equal(m[1], NEW_SUB);
   assert.ok(!/\d/.test(m[1]), '부제에 숫자를 박았다 — 3↔5 목록에 걸린다: ' + m[1]);
-  // 가드 — 옛 글자 둘 중 하나일 때만(어드민에서 고친 값은 안 건드린다)
-  assert.ok(/and subtitle in \('여섯 주 가운데 세 주를 채우시면 선물 대상이 돼요',\s*'여섯 주 가운데 세 주를 채우시면 신청이 열려요'\)/.test(perday),
-    'perday.sql 부제 가드가 옛 글자 두 가지가 아니다');
+  // 가드 — 옛 글자 셋 중 하나일 때만(어드민에서 고친 값은 안 건드린다 · 2026-10-04 7주로 바꾸며 「여섯 주 가운데 세 주, …」가 옛 글자에 들어갔다)
+  assert.ok(/and subtitle in \('여섯 주 가운데 세 주, 말씀과 함께 걸어요',\s*'여섯 주 가운데 세 주를 채우시면 선물 대상이 돼요',\s*'여섯 주 가운데 세 주를 채우시면 신청이 열려요'\)/.test(perday),
+    'perday.sql 부제 가드가 옛 글자 세 가지가 아니다');
   // 시험 회차 안내 — 진짜 회차와 같은 결
   assert.ok(testSql.includes("'여섯 주 가운데 한 주를 채워 참여하신 분께는 모두 소정의 선물을 드려요 — 따로 신청하지 않으셔도 돼요.'"),
     '시험 회차 안내가 새 문장이 아니다');
