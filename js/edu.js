@@ -196,7 +196,8 @@ function renderEduCourse(id, opt) {
     var sess = ss.length ? '<h3 class="edu-h">일정 ' + ss.length + '회</h3><ul class="edu-sess" id="edu-sess">' + ss.slice(0, shown).map(sessLi).join('') + '</ul>' +
       (ss.length > shown ? '<button class="edu-more" id="edu-more">＋ ' + (ss.length - shown) + '회 더 보기</button>' : '') : '';
     var rule = '출석 ' + c.attendPct + '% 이상' + (c.checkLabel ? ' + ' + c.checkLabel + ' 확인' : '');
-    w.innerHTML = '<button class="edu-back" id="edu-back">← 교육</button>' + chips +
+    // 위 한 줄 — 왼쪽 칩 · 오른쪽 「← 교육」(암송·복습 화면 .test-top 과 같은 꼴 · 같은 .back-btn — 친구 2026-10-05)
+    w.innerHTML = '<div class="edu-top">' + chips + '<button class="back-btn" id="edu-back">← 교육</button></div>' +
       '<h2 class="edu-title">' + eduEsc(c.title) + '</h2>' + (c.term ? '<div class="edu-sub">' + eduEsc(c.term) + '</div>' : '') +
       (c.description ? '<div class="edu-about"><div class="edu-about-h">📝 강좌 소개</div><p class="edu-desc">' + eduEsc(c.description) + '</p></div>' : '') +   // 담당자가 쓴 글 — 한눈에 카드와 같은 카드로 갈라 보이게(친구 2026-10-05)
       (gl ? '<div class="edu-glance">' + gl + '</div>' : '') + act + sess +

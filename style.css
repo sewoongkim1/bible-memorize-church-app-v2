@@ -5915,9 +5915,10 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .edu-btn { display: block; width: 100%; margin-top: 16px; padding: 13px; border-radius: 12px; border: 0; background: var(--navy); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer; }
 .edu-btn:disabled { opacity: .6; }
 .edu-btn.ghost { background: transparent; color: var(--navy); border: 1.5px solid var(--navy); }
-.edu-back { border: 0; background: transparent; color: var(--navy); padding: 6px 0; margin-bottom: 6px; font-size: 15px; font-weight: 700; cursor: pointer; }
+.edu-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 8px; }
+.edu-top .edu-chips { margin: 0; min-width: 0; }
 .edu-msg { min-height: 1.2em; margin-top: 8px; color: var(--error); font-size: 15px; }
-.dark .edu-title, .dark .edu-h, .dark .edu-card b, .dark .edu-back { color: #8fb3e6; }
+.dark .edu-title, .dark .edu-h, .dark .edu-card b { color: #8fb3e6; }
 .dark .edu-tab { background: #151d2b; border-color: #33507d; color: #8fb3e6; }
 .dark .edu-tab.on { background: #2b4c80; color: #fff; border-color: #2b4c80; }
 .dark .edu-card { background: #151d2b; border-color: #33507d; }
