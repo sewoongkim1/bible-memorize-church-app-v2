@@ -1,24 +1,30 @@
 -- 교육신청 × 기록 합치기 — **개발에서만**(BEGIN … ROLLBACK). 결과에 「통과」 한 줄이 나오면 끝.
 -- ⚠️ 이 저장소는 공개입니다 — 아래 이름은 모두 가상입니다.
---   ① 서로 다른 강좌의 신청은 남는 번호로 옮겨진다
+--   ① 서로 다른 강좌의 신청은 남는 번호로 옮겨진다 (before_counts / after_counts 의 edu_enrollments 숫자도 본다)
 --   ② 같은 강좌에 둘 다 확정 → merge-edu-conflict (아무것도 바뀌지 않는다)
 --   ③ 같은 강좌에 한쪽 반려 · 한쪽 확정 → merge-edu-conflict (반려 유지 — 2026-10-05 친구 결정)
 --   ④ 같은 강좌에 원본 취소 · 남는 쪽 확정 → 원본 취소 줄만 지우고 합쳐진다
 --   ⑤ 같은 강좌에 원본 확정 · 남는 쪽 취소 → 남는 쪽 취소 줄을 지우고 원본 줄이 옮겨진다
+--   ⑥ 둘 다 취소 → 합쳐지고 남는 쪽 자기 줄 하나만 남는다
+--   ⑦ 남는 쪽 반려 · 원본 확정 → merge-edu-conflict (아무것도 바뀌지 않는다)
+--   ⑧ 신청(applied) · 대기(waitlisted) 짝 → merge-edu-conflict
+--   ⑨ 원본 취소(납부·메모) · 남는 쪽 확정 → 남는 줄이 납부·메모를 이어받는다
+--   ⑩ 원본 확정 · 남는 쪽 취소(납부·메모) → 옮겨진 줄이 납부·메모를 이어받는다
 -- 개발 연결 확인: users 가 200명이 넘으면 운영으로 보고 멈춘다.
 -- ⚠️ 한글이 든 SQL 은 명령줄에 붙이지 말고 -f 로만 돌린다.
 begin;
 do $check$
 declare
   tag text := left(md5(random()::text || clock_timestamp()::text), 8);
-  n int; r jsonb; c1 uuid; c2 uuid; c3 uuid;
+  n int; r jsonb; c1 uuid; c2 uuid; c3 uuid; c4 uuid; keep bigint; rw record;
   s1 uuid; t1 uuid; s2 uuid; t2 uuid; s3 uuid; t3 uuid; s4 uuid; t4 uuid; s5 uuid; t5 uuid;
+  s6 uuid; t6 uuid; s7 uuid; t7 uuid; s8 uuid; t8 uuid; s9 uuid; t9 uuid; s10 uuid; t10 uuid;
 begin
   select count(*) into n from public.users;
   if n > 200 then raise exception 'member_merge_edu: users 가 %명 — 운영으로 보여 멈춥니다.', n; end if;
   if to_regclass('public.edu_enrollments') is null then raise exception 'member_merge_edu: edu_enrollments 표가 없습니다 — edu.sql 을 먼저 돌리세요.'; end if;
 
-  -- 가상 성도 열 명(원본 s · 대상 t 다섯 쌍)
+  -- 가상 성도 스무 명(원본 s · 대상 t 열 쌍)
   insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상s1'||tag,'교구|교육합치기점검|0|||가상s1'||tag) returning id into s1;
   insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상t1'||tag,'교구|교육합치기점검|0|||가상t1'||tag) returning id into t1;
   insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상s2'||tag,'교구|교육합치기점검|0|||가상s2'||tag) returning id into s2;
@@ -29,10 +35,21 @@ begin
   insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상t4'||tag,'교구|교육합치기점검|0|||가상t4'||tag) returning id into t4;
   insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상s5'||tag,'교구|교육합치기점검|0|||가상s5'||tag) returning id into s5;
   insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상t5'||tag,'교구|교육합치기점검|0|||가상t5'||tag) returning id into t5;
+  insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상s6'||tag,'교구|교육합치기점검|0|||가상s6'||tag) returning id into s6;
+  insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상t6'||tag,'교구|교육합치기점검|0|||가상t6'||tag) returning id into t6;
+  insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상s7'||tag,'교구|교육합치기점검|0|||가상s7'||tag) returning id into s7;
+  insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상t7'||tag,'교구|교육합치기점검|0|||가상t7'||tag) returning id into t7;
+  insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상s8'||tag,'교구|교육합치기점검|0|||가상s8'||tag) returning id into s8;
+  insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상t8'||tag,'교구|교육합치기점검|0|||가상t8'||tag) returning id into t8;
+  insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상s9'||tag,'교구|교육합치기점검|0|||가상s9'||tag) returning id into s9;
+  insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상t9'||tag,'교구|교육합치기점검|0|||가상t9'||tag) returning id into t9;
+  insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상s10'||tag,'교구|교육합치기점검|0|||가상s10'||tag) returning id into s10;
+  insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상t10'||tag,'교구|교육합치기점검|0|||가상t10'||tag) returning id into t10;
 
   insert into public.edu_courses(title,kind,status) values ('합치기점검 강좌1','lecture','open') returning id into c1;
   insert into public.edu_courses(title,kind,status) values ('합치기점검 강좌2','lecture','open') returning id into c2;
   insert into public.edu_courses(title,kind,status) values ('합치기점검 강좌3','lecture','open') returning id into c3;
+  insert into public.edu_courses(title,kind,status) values ('합치기점검 강좌4','lecture','open') returning id into c4;
 
   -- ① 서로 다른 강좌 → 옮겨진다
   perform public.edu_apply(c1, s1, '{"name":"가상s1"}');
@@ -41,6 +58,11 @@ begin
   if coalesce((r->>'ok')::boolean,false) is not true then raise exception 'member_merge_edu ①: 합치기 거절 — %', r; end if;
   if (select count(*) from public.edu_enrollments where user_id = t1) <> 2 then raise exception 'member_merge_edu ①: 옮겨진 줄이 2가 아님'; end if;
   if exists(select 1 from public.edu_enrollments where user_id = s1) then raise exception 'member_merge_edu ①: 원본에 줄이 남음'; end if;
+  if (r->'after_counts'->>'edu_enrollments')::int is distinct from 2 then raise exception 'member_merge_edu ①: after_counts 가 2가 아님 — %', r->'after_counts'; end if;
+  if r->'before_counts' is not null and (
+       (r->'before_counts'->'source'->>'edu_enrollments')::int is distinct from 1
+    or (r->'before_counts'->'target'->>'edu_enrollments')::int is distinct from 1) then
+    raise exception 'member_merge_edu ①: before_counts 가 1/1 이 아님 — %', r->'before_counts'; end if;
 
   -- ② 같은 강좌 둘 다 확정 → 충돌
   perform public.edu_apply(c1, s2, '{"name":"가상s2"}');
@@ -78,6 +100,62 @@ begin
   if (select count(*) from public.edu_enrollments where course_id=c3 and user_id=t5) <> 1
      or (select status from public.edu_enrollments where course_id=c3 and user_id=t5) <> 'confirmed' then
     raise exception 'member_merge_edu ⑤: 원본 확정 줄 한 줄만 남아야 함'; end if;
+
+  -- ⑥ 둘 다 취소 → 합쳐지고 남는 쪽 자기 줄 하나만
+  perform public.edu_apply(c4, s6, '{"name":"가상s6"}');
+  perform public.edu_apply(c4, t6, '{"name":"가상t6"}');
+  update public.edu_enrollments set status='cancelled', cancelled_at=now() where course_id=c4 and user_id in (s6,t6);
+  select id into keep from public.edu_enrollments where course_id=c4 and user_id=t6;
+  r := public.admin_merge_members(s6, t6, '교구|교육합치기점검|0|||가상s6'||tag, '교구|교육합치기점검|0|||가상t6'||tag, '개발 점검 — 둘 다 취소(되돌림)');
+  if coalesce((r->>'ok')::boolean,false) is not true then raise exception 'member_merge_edu ⑥: 합치기 거절 — %', r; end if;
+  if (select count(*) from public.edu_enrollments where course_id=c4 and user_id=t6) <> 1
+     or not exists(select 1 from public.edu_enrollments where id=keep and user_id=t6)
+     or exists(select 1 from public.edu_enrollments where user_id=s6) then
+    raise exception 'member_merge_edu ⑥: 남는 쪽 자기 줄 하나만 남아야 함'; end if;
+
+  -- ⑦ 남는 쪽 반려 · 원본 확정 → 충돌(반려 유지, 반대 방향)
+  perform public.edu_apply(c4, s7, '{"name":"가상s7"}');
+  perform public.edu_apply(c4, t7, '{"name":"가상t7"}');
+  update public.edu_enrollments set status='declined' where course_id=c4 and user_id=t7;
+  r := public.admin_merge_members(s7, t7, '교구|교육합치기점검|0|||가상s7'||tag, '교구|교육합치기점검|0|||가상t7'||tag, '개발 점검 — 대상 반려 충돌(되돌림)');
+  if r->>'error' is distinct from 'merge-edu-conflict' then raise exception 'member_merge_edu ⑦: merge-edu-conflict 가 아님 — %', r; end if;
+  if (select status from public.edu_enrollments where course_id=c4 and user_id=t7) <> 'declined'
+     or (select status from public.edu_enrollments where course_id=c4 and user_id=s7) <> 'confirmed' then
+    raise exception 'member_merge_edu ⑦: 충돌인데 줄이 바뀜'; end if;
+
+  -- ⑧ 신청 · 대기 짝 → 충돌
+  perform public.edu_apply(c4, s8, '{"name":"가상s8"}');
+  perform public.edu_apply(c4, t8, '{"name":"가상t8"}');
+  update public.edu_enrollments set status='applied' where course_id=c4 and user_id=s8;
+  update public.edu_enrollments set status='waitlisted' where course_id=c4 and user_id=t8;
+  r := public.admin_merge_members(s8, t8, '교구|교육합치기점검|0|||가상s8'||tag, '교구|교육합치기점검|0|||가상t8'||tag, '개발 점검 — 신청·대기 충돌(되돌림)');
+  if r->>'error' is distinct from 'merge-edu-conflict' then raise exception 'member_merge_edu ⑧: merge-edu-conflict 가 아님 — %', r; end if;
+  if (select status from public.edu_enrollments where course_id=c4 and user_id=s8) <> 'applied'
+     or (select status from public.edu_enrollments where course_id=c4 and user_id=t8) <> 'waitlisted' then
+    raise exception 'member_merge_edu ⑧: 충돌인데 줄이 바뀜'; end if;
+
+  -- ⑨ 원본 취소(납부·메모) · 남는 쪽 확정(메모 있음) → 남는 줄이 이어받는다
+  perform public.edu_apply(c4, s9, '{"name":"가상s9"}');
+  perform public.edu_apply(c4, t9, '{"name":"가상t9"}');
+  update public.edu_enrollments set status='cancelled', cancelled_at=now(), fee_paid=true, staff_note='원본 납부 확인' where course_id=c4 and user_id=s9;
+  update public.edu_enrollments set staff_note='기존 메모' where course_id=c4 and user_id=t9;
+  r := public.admin_merge_members(s9, t9, '교구|교육합치기점검|0|||가상s9'||tag, '교구|교육합치기점검|0|||가상t9'||tag, '개발 점검 — 취소 납부 이어받기(되돌림)');
+  if coalesce((r->>'ok')::boolean,false) is not true then raise exception 'member_merge_edu ⑨: 합치기 거절 — %', r; end if;
+  select * into rw from public.edu_enrollments where course_id=c4 and user_id=t9;
+  if (select count(*) from public.edu_enrollments where course_id=c4 and user_id=t9) <> 1 or rw.status <> 'confirmed'
+     or rw.fee_paid is not true or rw.staff_note is distinct from '기존 메모 / 합친 계정의 취소 신청: 원본 납부 확인' then
+    raise exception 'member_merge_edu ⑨: 납부·메모를 이어받아야 함 — %', to_jsonb(rw); end if;
+
+  -- ⑩ 원본 확정 · 남는 쪽 취소(납부·메모) → 옮겨진 줄이 이어받는다
+  perform public.edu_apply(c4, s10, '{"name":"가상s10"}');
+  perform public.edu_apply(c4, t10, '{"name":"가상t10"}');
+  update public.edu_enrollments set status='cancelled', cancelled_at=now(), fee_paid=true, staff_note='대상 납부 확인' where course_id=c4 and user_id=t10;
+  r := public.admin_merge_members(s10, t10, '교구|교육합치기점검|0|||가상s10'||tag, '교구|교육합치기점검|0|||가상t10'||tag, '개발 점검 — 취소 납부 이어받기 둘째(되돌림)');
+  if coalesce((r->>'ok')::boolean,false) is not true then raise exception 'member_merge_edu ⑩: 합치기 거절 — %', r; end if;
+  select * into rw from public.edu_enrollments where course_id=c4 and user_id=t10;
+  if (select count(*) from public.edu_enrollments where course_id=c4 and user_id=t10) <> 1 or rw.status <> 'confirmed'
+     or rw.fee_paid is not true or rw.staff_note is distinct from '합친 계정의 취소 신청: 대상 납부 확인' then
+    raise exception 'member_merge_edu ⑩: 납부·메모를 이어받아야 함 — %', to_jsonb(rw); end if;
 end $check$;
 select '통과' as result;
 rollback;

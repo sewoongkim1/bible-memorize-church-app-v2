@@ -13,6 +13,7 @@
 --   4) **개발에서만** — 가상 성도로 합쳐 보고 전부 되돌린다(BEGIN … ROLLBACK). 운영에서는 돌리지 않는다.
 --      supabase/tests/member_merge_consents.dev.sql          (가리기·신고·AI 답 알림·동의 날짜)
 --      supabase/tests/member_merge_requests_devices.dev.sql  (정정 신청 · 아이폰 알림 기기 · 합친 뒤 옛 번호로 온 가리기)
+--      supabase/tests/member_merge_edu.dev.sql               (교육신청 · 같은 강좌 충돌 · 취소 줄 정리와 납부·메모 이어받기)
 --      「통과」 줄이 나오거나 오류 없이 끝나야 한다.
 --   ⚠️ 새 사용자 연관 표를 만들면 ① 합치기 본체의 옮기기 ② 두 허용 목록(FK·user_id) ③ member_merge_counts
 --      ④ 쓰기 연결 트리거 — 넷을 함께 더하고 이 파일을 다시 돌린다. 빠뜨리면 그 기록이 있는 계정은
@@ -353,11 +354,25 @@ begin
   -- 교육신청 — 같은 강좌에 두 줄이 남지 않게(unique(course_id,user_id)) 한쪽이 **취소** 줄이면 취소 줄을 지운다
   --   (반려·살아 있는 줄이 함께인 경우는 위 충돌 검사가 이미 멈췄다). 원본이 취소면 원본 줄을, 남는 쪽이 취소면 남는 쪽 줄을,
   --   둘 다 취소면 원본 줄만(남는 쪽 기록을 남긴다). 뒤 오류 반환에 지운 줄이 남지 않게 검사가 모두 끝난 여기서 지운다.
+  --   지우기 전에 취소 줄의 납부(fee_paid)·담당자 메모(staff_note)를 남는 줄에 얹는다(납부는 or · 메모는 덧붙임) — 정보가 같이 사라지지 않게.
   if to_regclass('public.edu_enrollments') is not null then
+    update public.edu_enrollments b set fee_paid = b.fee_paid or a.fee_paid,
+        staff_note = case when coalesce(a.staff_note,'')='' then b.staff_note
+          else concat_ws(' / ', nullif(b.staff_note,''), '합친 계정의 취소 신청: ' || a.staff_note) end
+      from public.edu_enrollments a
+      where a.course_id=b.course_id and a.user_id=s.id and b.user_id=t.id and a.status = 'cancelled';
     delete from public.edu_enrollments a using public.edu_enrollments b
       where a.course_id=b.course_id and a.user_id=s.id and b.user_id=t.id and a.status = 'cancelled';
+    update public.edu_enrollments a set fee_paid = a.fee_paid or b.fee_paid,
+        staff_note = case when coalesce(b.staff_note,'')='' then a.staff_note
+          else concat_ws(' / ', nullif(a.staff_note,''), '합친 계정의 취소 신청: ' || b.staff_note) end
+      from public.edu_enrollments b
+      where a.course_id=b.course_id and a.user_id=s.id and b.user_id=t.id and b.status = 'cancelled';
     delete from public.edu_enrollments b using public.edu_enrollments a
       where a.course_id=b.course_id and a.user_id=s.id and b.user_id=t.id and b.status = 'cancelled';
+    -- 주인 옮기기는 아래 일반 반복에만 맡기지 않는다 — FK 가 on delete cascade 라 그 반복이 이 표를 건너뛰면(권한 어긋남 등)
+    --   원본 사용자를 지울 때 신청이 **조용히** 함께 지워진다(ios_push_tokens 처럼 명시).
+    update public.edu_enrollments set user_id=t.id where user_id=s.id;
   end if;
   -- 로그/게시물/신청/구독은 행을 삭제하거나 다시 생성하지 않고 소유자만 옮긴다.
   for ref in select table_name,data_type from information_schema.columns where table_schema='public'
