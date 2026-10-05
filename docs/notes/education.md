@@ -35,3 +35,4 @@
 - 개발 끝까지: `tests/edu-e2e.dev.sh`(eduOpen 을 잠깐 켜고 trap 으로 되돌림 · 강좌를 만들고 지운다) · 스모크 `tests/edu-smoke.sh`(`EVT_ENV=prod` 는 읽기·거절만).
 - 앱 순수 함수 `tests/edu-front.test.cjs`(preflight 가 돌린다) · 교회 어드민 `tests/edu-*.test.mjs`(그쪽 preflight).
 - 두 앱 통시험(담당자 계정을 개발에 만들어 church-admin 액션까지)은 2026-10-05 한 번(22/0) — 스크립트는 커밋 안 함.
+- **4단계(2026-10-06)** — 앱 알림(확정·대기에서 확정 · 개강 전날 19시 · 한 신청에 한 번 `edu_notify_log` · **`eduOpen` 이 켜지기 전엔 🧪 시험 참여자에게만** — 그 전에 확정된 일반 성도님은 공개 뒤에도 확정 알림을 받지 않는다) · 교인명부 「🎓 교육」 탭(이름·소속이 한 분으로 맞는 앱 계정의 신청 + `person|교인ID` 대신 등록 · **매번 계산이라 「이분 아님」으로 고칠 수 없다** · 직접 입력(새가족) 줄은 안 보인다 · 교회학교는 학년을 보지 않는다 · 보관한 강좌는 뺀다) · 📊 교육 통계(총괄만 · `edu_stats` 한 값 · 보관 강좌 뺌). 개강 전날 알림 크론 `edu-first-day-remind` 는 키를 Vault(`edu_remind_service_key`)에서 읽는다.
