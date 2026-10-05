@@ -5896,3 +5896,36 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .summary-help .ev-pill { margin-left: 6px; padding: 1px 7px; border-radius: 999px;
   background: #c8a84b; color: #fff; font-size: 12px; font-weight: 700; vertical-align: middle; }
 .dark .summary-help .ev-pill { background: #5a4e2a; color: #f2e4c2; }
+
+/* 🎓 교육(2026-10-05) — 이벤트 화면(.ev-*)과 같은 결 · 새 색 없이 기존 토큰 */
+.edu-wrap { max-width: 560px; margin: 0 auto; padding: 16px 16px calc(96px + env(safe-area-inset-bottom, 0px)); }
+.edu-title { font-size: 20px; font-weight: 800; color: var(--navy); margin: 4px 0 10px; }
+.edu-tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+.edu-tab { border: 1px solid var(--border); background: var(--white); color: var(--navy); border-radius: 999px; padding: 8px 14px; font-size: 15px; font-weight: 700; cursor: pointer; }
+.edu-tab.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+.edu-card { display: flex; flex-direction: column; gap: 3px; border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; background: var(--white); cursor: pointer; }
+.edu-card b { font-size: 16px; color: var(--navy); } .edu-card b small { font-weight: 400; color: var(--gray); }
+.edu-card span { font-size: 14px; color: var(--gray); }
+.edu-card .edu-k { align-self: flex-start; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--light); color: var(--navy); }
+.edu-empty { color: var(--gray); padding: 12px 0; line-height: 1.6; }
+.edu-sub { color: var(--gray); margin-bottom: 10px; font-size: 15px; }
+.edu-desc { white-space: pre-line; line-height: 1.6; font-size: 15px; }
+.edu-info { display: flex; flex-direction: column; gap: 2px; margin: 10px 0; font-size: 15px; }
+.edu-h { font-size: 16px; font-weight: 800; color: var(--navy); margin: 14px 0 4px; }
+.edu-sess { padding-left: 20px; line-height: 1.7; font-size: 15px; }
+.edu-btn { display: block; width: 100%; margin-top: 16px; padding: 13px; border-radius: 12px; border: 0; background: var(--navy); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer; }
+.edu-btn:disabled { opacity: .6; }
+.edu-btn.ghost { background: transparent; color: var(--navy); border: 1.5px solid var(--navy); }
+.edu-mine { margin-top: 16px; padding: 12px 14px; border-radius: 12px; background: var(--light); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px; font-size: 15px; }
+.edu-mine b { color: var(--navy); font-size: 16px; }
+.edu-back { border: 0; background: transparent; color: var(--navy); padding: 6px 0; margin-bottom: 6px; font-size: 15px; font-weight: 700; cursor: pointer; }
+.edu-msg { min-height: 1.2em; margin-top: 8px; color: var(--error); font-size: 15px; }
+.dark .edu-title, .dark .edu-h, .dark .edu-card b, .dark .edu-mine b, .dark .edu-back { color: #8fb3e6; }
+.dark .edu-tab { background: #151d2b; border-color: #33507d; color: #8fb3e6; }
+.dark .edu-tab.on { background: #2b4c80; color: #fff; border-color: #2b4c80; }
+.dark .edu-card, .dark .edu-mine { background: #151d2b; border-color: #33507d; }
+.dark .edu-card span, .dark .edu-sub, .dark .edu-empty, .dark .edu-card b small { color: #b9c2d0; }
+.dark .edu-card .edu-k { background: #232a3a; color: #cdd9f2; }
+.dark .edu-desc, .dark .edu-info, .dark .edu-sess { color: #dbe2ee; }
+.dark .edu-btn { background: #2b4c80; }
+.dark .edu-btn.ghost { background: transparent; color: #8fb3e6; border-color: #8fb3e6; }

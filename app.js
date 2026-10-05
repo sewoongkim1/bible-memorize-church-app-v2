@@ -127,6 +127,7 @@ function routeAfterLoad() {
   _songPreview = getSongPreview();
   refreshPassagesPublic();
   refreshPsalmPublic();
+  refreshEduOpen();
   refreshSongPublic();
   refreshMinistryPeriod();
   refreshEventOpen();
@@ -345,6 +346,14 @@ function refreshPsalmPublic() {
   }).catch(() => {});
 }
 function psalmVisible() { return _psalmPreview || psalmPublicCached(); }
+// 🎓 교육(2026-10-05) — app_config('eduOpen') 이 true 이거나 🧪 시험 참여자일 때만 첫 화면 단추. 막는 것은 서버(eduApply not-open).
+const EDU_PUB_KEY = "edu-open";
+function eduOpenCached() { try { return localStorage.getItem(EDU_PUB_KEY) === "1"; } catch (e) { return false; } }
+function refreshEduOpen() {
+  if (!window.api || !api.getConfig) return;
+  api.getConfig("eduOpen").then((d) => { try { localStorage.setItem(EDU_PUB_KEY, d && d.value === true ? "1" : "0"); } catch (e) {} }).catch(() => {});
+}
+function eduVisible() { return eduOpenCached() || ministryTesterCached(); }
 
 // ── 오늘의 찬양: 하루 한 곡 ────────────────────────────────────────
 //   ⚠️ 「자료 자체가 게이트」가 성립하지 않는다 — songs 는 운영에 이미 1,700곡이 있어
@@ -2912,6 +2921,7 @@ function renderSummary() {
           ⚠️ 이름 뒤에 진행 문구를 이어 붙이지 않는다 — 이 단추는 nowrap+ellipsis 라
           잘리는 쪽이 「이름」이다. 진행은 아래 fillStampPill 이 알약으로 꽂는다. */""}
     ${eventVisible() ? `<button class="summary-help event-cta" id="open-event-list">🏅 ${boardEsc(eventLabelCached())}${newBadge("stamp")}</button>` : ""}
+    ${eduVisible() ? `<button class="summary-help" id="open-edu">🎓 교육 신청${newBadge("edu")}</button>` : ""}
     <button class="summary-help" id="open-board">💬 응원·기도·공감</button>
     ${/* 2026-09-25 순서 바꿈(친구 요청) — 가정 축복 기도문이 쉴만한 물가보다 위. */""}
     <button class="summary-help" id="open-prayer">🙏 가정 축복 기도문${newBadge("prayer")}</button>
@@ -3001,6 +3011,11 @@ function renderSummary() {
   //    또 불린다 — 이 자리가 유일한 진입점이다.
   document.getElementById("open-album").addEventListener("click", () => { logFeature("album", 0); renderAlbum(); });
   { const b = document.getElementById("open-passages"); if (b) b.addEventListener("click", () => { markFeatSeen("passages"); renderPassageList(); }); }
+  { const b = document.getElementById("open-edu"); if (b) b.addEventListener("click", () => {
+      markFeatSeen("edu");
+      if (typeof renderEduList === "function") renderEduList();
+      else appAlert("교육 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
+    }); }
   { const b = document.getElementById("open-psalm"); if (b) b.addEventListener("click", () => { markFeatSeen("psalm"); renderPsalmHome(); }); }
   // ⚠️ renderEventList 는 js/events.js 에 있다 — 그 파일이 안 실려도 첫 화면이 죽지
   //    않게 막고, 말없이 아무 일도 안 일어나는 대신 까닭을 알려 준다.

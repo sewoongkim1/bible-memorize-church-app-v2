@@ -133,6 +133,12 @@ const api = {
   eventOpenList: (user_id) => supaCall("eventOpenList", { user_id }),
   eventStamps: (user_id, event_id) => supaCall("eventStamps", { user_id, event_id }),
   eventSignup: (payload) => supaCall("eventSignup", payload),
+  // 🎓 교육(2026-10-05) — supaCall 은 응답에 error 가 있으면 Error(코드)로 throw 한다
+  eduList: (user_id) => supaCall("eduList", { user_id }),
+  eduCourse: (id, user_id) => supaCall("eduCourse", { id, user_id }),
+  eduApply: (id, user_id) => supaCall("eduApply", { id, user_id }),
+  eduCancel: (enrollment_id, user_id) => supaCall("eduCancel", { enrollment_id, user_id }),
+  eduMine: (user_id) => supaCall("eduMine", { user_id }),
   eventDrop: (user_id, id) => supaCall("eventDrop", { user_id, id }),
   // user_id 는 시험 회차(testOnly) 판정에만 쓴다(2026-10-03) — 응답에는 안 실린다.
   eventRosterPublic: (event_id, user_id) => supaCall("eventRosterPublic", { event_id, user_id }),

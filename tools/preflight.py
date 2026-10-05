@@ -96,6 +96,9 @@ PURE_TESTS += ["tests/event-perday.test.cjs"]
 # (위 줄들을 고치지 않고 따로 더한다 — 다른 세션도 이 목록에 더하고 있어 합칠 때 부딪힌다)
 PURE_TESTS += ["tests/event-auto.test.cjs"]
 
+# 교육신청(2026-10-05) — 화면 순수 함수(상태 줄·신청 결과 말·오류 말)
+PURE_TESTS += ["tests/edu-front.test.cjs"]
+
 print("\n[3] 순수 함수 검사 (node --test)")
 for t in PURE_TESTS:
     if not os.path.exists(os.path.join(ROOT, t)):
