@@ -5936,6 +5936,14 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .edu-about { background: var(--white); border: 1px solid var(--border); border-radius: 14px; padding: 10px 14px 12px; margin: 12px 0; }
 .edu-about-h { font-size: 14px; font-weight: 700; color: var(--gray); margin-bottom: 4px; }
 .edu-about .edu-desc { margin: 0; }
+/* 일정 카드(2026-10-05) — 회차마다 한 줄: 왼쪽 「N회」 · 오른쪽 날짜·시각(굵게) 아래 주제 · 줄 사이 점선(한눈에 카드와 같은 꼴) */
+.edu-ss { display: flex; gap: 10px; align-items: baseline; padding: 8px 0; font-size: 15px; line-height: 1.5; }
+.edu-ss + .edu-ss { border-top: 1px dashed var(--border); }
+.edu-ss-n { flex: 0 0 auto; min-width: 2.4em; color: var(--gray); font-size: 14px; font-weight: 700; }
+.edu-ss-b { flex: 1; min-width: 0; display: flex; flex-direction: column; word-break: keep-all; overflow-wrap: anywhere; }
+.edu-ss-b b { font-weight: 600; }
+.edu-ss-p { color: var(--gray); font-size: 14px; }
+.edu-sched .edu-more { margin-top: 2px; }
 .edu-gl { display: flex; gap: 8px; align-items: baseline; padding: 8px 0; font-size: 15px; line-height: 1.5; }
 .edu-gl + .edu-gl { border-top: 1px dashed var(--border); }
 .edu-gl-i { flex: 0 0 auto; }
@@ -5968,6 +5976,9 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .dark .edu-chip.on { background: #17311f; color: #8fd6ab; }
 .dark .edu-glance, .dark .edu-about { background: #151d2b; border-color: #33507d; }
 .dark .edu-about-h { color: #b9c2d0; }
+.dark .edu-ss + .edu-ss { border-top-color: #33507d; }
+.dark .edu-ss-n, .dark .edu-ss-p { color: #b9c2d0; }
+.dark .edu-ss-b { color: #dbe2ee; }
 .dark .edu-gl + .edu-gl { border-top-color: #33507d; }
 .dark .edu-gl-k, .dark .edu-note { color: #b9c2d0; }
 .dark .edu-gl-v, .dark .edu-seat span, .dark .edu-state span, .dark .edu-how { color: #dbe2ee; }
