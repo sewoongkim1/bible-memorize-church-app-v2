@@ -6,6 +6,7 @@
 --                      (검토 반영 2026-10-05: 수료 취소된 줄은 취소·반려 됨 · 칸 제약은 늘 지우고 다시 건다 · 이 파일 뒤 member_merge.sql 다시)
 --   4단계(2026-10-05) — 앱 알림 기록 edu_notify_log · edu_notify_claim(같은 신청에 같은 알림 한 번) · edu_course_refill 이 올린 신청 번호(ids)도 돌려준다
 --                      계획 docs/superpowers/plans/2026-10-05-education-stage4.md A · 개강 전날 크론은 supabase/edu_remind_cron.sql(따로)
+--                    — 교육 통계 edu_stats(p_term)(2026-10-06 · 같은 계획 C · 교회 어드민 📊 교육 통계가 부른다 · 묶은 수만)
 -- ⚠️ 이 저장소는 공개(public)입니다 — 비밀번호·키를 절대 넣지 마세요.
 -- 적용: 개발(ktpwthwqzgcqcrmsafdo) 먼저 → supabase/tests/edu_*.dev.sql(출석은 edu_attendance.dev.sql · 수료는 edu_certs.dev.sql) ·
 --       tests/edu-concurrency.dev.sh · tests/edu-cert-concurrency.dev.sh 확인 → 운영.
@@ -636,6 +637,81 @@ returns table(enrollment_id bigint) language sql security definer set search_pat
   returning l.enrollment_id
 $$;
 
+-- ---------- 교육 통계(4단계 C · 2026-10-06 · 계획 docs/superpowers/plans/2026-10-05-education-stage4.md C) ----------
+-- 학기(p_term)의 강좌마다·소속마다 수를 **이 함수 한 곳**이 묶는다 — 교회 어드민 eduStats(📊 교육 통계 · 교육 총괄만)가 rpc 로 한 번 부른다.
+--   ⚠️ 신청 줄을 받아 세지 않는다(PostgREST 1,000줄 함정) · 표(setof)가 아니라 jsonb 하나를 돌려준다 — 강좌가 쌓여도 줄 한도에 안 걸린다.
+--   ⚠️ 돌려주는 것은 묶은 수뿐 — 이름·user_id·ident_key·메모·교인ID 없음(강좌 id·제목·학기·상태와 신청 때 적힌 교구·부서 글만).
+--   p_term: null 또는 빈 글자 = 모든 학기 · 그 밖 = 학기 글자가 같은 강좌. 보관(archived) 강좌는 세지 않는다(시험 강좌를 보관으로 치운다 —
+--     지우는 길이 없다 · 노트 「지우는 길은 없다」).
+--   courses — 강좌마다(만든 때 늦은 것부터 · 📚 강좌 관리와 같은 차례):
+--     {id, title, term, status, applied, confirmed, waitlisted, cancelled, declined, completed, attend_n, attend_sum, attend_avg}
+--     · applied…declined = 지금 그 상태인 신청 줄 수 · completed = 지금 수료(수료 취소 아님 — completed 칸)인 줄 수(수료는 확정 줄에만 있다).
+--     · 출석률은 **확정된 분마다** 교회 어드민 edu-rules.ts eduAttendRate 와 같은 셈: (출석+지각)×100 ÷ (출석+지각+결석) 반올림(.5 는 올림) ·
+--       공결·체크 안 한 회차는 분모에 넣지 않는다 · 분모가 0 인 분(체크 전·공결뿐)은 평균에서 뺀다 · 확정이 아닌 줄(취소한 분 등)의 출석은 안 센다.
+--       attend_n = 센 분 수 · attend_sum = 그분들 출석률(정수)의 합 · attend_avg = sum÷n 반올림(센 분이 없으면 null) —
+--       합계 줄은 교회 어드민이 강좌들의 sum·n 을 더해 다시 나눈다(평균의 평균이 아니다).
+--   groups — 소속(who_type + group_name = 신청 때 적힌 교구 또는 교회학교 부서 · 목장·학년까지 내리지 않는다)마다 {who_type, group_name, confirmed, completed}
+--     · 확정된 줄만 센다 · 글자는 NFC·앞뒤 빈칸 없이 맞춰 묶는다(맥 자모분리 글자가 두 칸으로 갈리지 않게 — 2026-09-20 찬양대 NFC 사고).
+--   terms — 보관 아닌 강좌의 학기(빈 학기 빼고) · 그 학기 강좌를 가장 늦게 만든 때부터(📚 강좌 관리의 학기 고르기와 같은 차례).
+--   ⚠️ 출석률 규칙을 바꾸면 eduAttendRate(교회 어드민 edu-rules.ts · 성경암송 js/edu.js · api — 지문 시험)와 함께. 시험 supabase/tests/edu_stats.dev.sql.
+create or replace function public.edu_stats(p_term text default null)
+returns jsonb language sql stable security definer set search_path = public as $$
+  with c as (
+    select id, title, term, status, created_at from public.edu_courses
+    where status <> 'archived' and (coalesce(p_term, '') = '' or term = p_term)
+  ),
+  e as (
+    select x.id, x.course_id, x.status, x.completed, x.who_type, x.group_name
+    from public.edu_enrollments x join c on c.id = x.course_id
+  ),
+  k as (   -- 확정된 분마다 출석 칸 수(출석·지각 / 결석 — 공결은 어느 쪽에도 안 든다)
+    select e.id, e.course_id,
+           count(*) filter (where a.state in ('present','late')) as att,
+           count(*) filter (where a.state = 'absent') as ab
+    from e join public.edu_attendance a on a.enrollment_id = e.id
+    where e.status = 'confirmed'
+    group by e.id, e.course_id
+  ),
+  r as (   -- 강좌마다 출석률(분모가 있는 분만)의 수·합 — 한 분의 출석률은 eduAttendRate 처럼 ×100 을 먼저 하고 정확히 나눠 반올림
+    select course_id, count(*)::int as n, sum(round((att * 100)::numeric / (att + ab)))::int as s
+    from k where att + ab > 0
+    group by course_id
+  ),
+  cs as (
+    select c.id, c.title, c.term, c.status, c.created_at,
+           (count(e.id) filter (where e.status = 'applied'))::int    as applied,
+           (count(e.id) filter (where e.status = 'confirmed'))::int  as confirmed,
+           (count(e.id) filter (where e.status = 'waitlisted'))::int as waitlisted,
+           (count(e.id) filter (where e.status = 'cancelled'))::int  as cancelled,
+           (count(e.id) filter (where e.status = 'declined'))::int   as declined,
+           (count(e.id) filter (where e.completed))::int             as completed
+    from c left join e on e.course_id = c.id
+    group by c.id, c.title, c.term, c.status, c.created_at
+  ),
+  g as (
+    select btrim(normalize(e.who_type, NFC)) as who_type, btrim(normalize(e.group_name, NFC)) as group_name,
+           count(*)::int as confirmed, (count(*) filter (where e.completed))::int as completed
+    from e where e.status = 'confirmed'
+    group by 1, 2
+  ),
+  t as (
+    select term, max(created_at) as at from public.edu_courses
+    where status <> 'archived' and term <> ''
+    group by term
+  )
+  select jsonb_build_object(
+    'term', nullif(p_term, ''),
+    'courses', coalesce((select jsonb_agg(jsonb_build_object(
+        'id', cs.id, 'title', cs.title, 'term', cs.term, 'status', cs.status,
+        'applied', cs.applied, 'confirmed', cs.confirmed, 'waitlisted', cs.waitlisted, 'cancelled', cs.cancelled, 'declined', cs.declined,
+        'completed', cs.completed, 'attend_n', coalesce(r.n, 0), 'attend_sum', coalesce(r.s, 0),
+        'attend_avg', case when r.n > 0 then round(r.s::numeric / r.n)::int end)
+        order by cs.created_at desc, cs.id) from cs left join r on r.course_id = cs.id), '[]'::jsonb),
+    'groups', coalesce((select jsonb_agg(jsonb_build_object('who_type', g.who_type, 'group_name', g.group_name,
+        'confirmed', g.confirmed, 'completed', g.completed) order by g.who_type, g.group_name) from g), '[]'::jsonb),
+    'terms', coalesce((select jsonb_agg(t.term order by t.at desc, t.term) from t), '[]'::jsonb))
+$$;
+
 revoke all on function public.edu_course_counts(uuid[]) from public, anon, authenticated;
 revoke all on function public.edu_sessions_replace(uuid, jsonb) from public, anon, authenticated;
 revoke all on function public.edu_attendance_set(bigint, bigint, text, uuid) from public, anon, authenticated;
@@ -655,17 +731,21 @@ grant execute on function public.edu_revoke_cert(bigint, uuid) to service_role;
 -- 앱 알림(4단계)
 revoke all on function public.edu_notify_claim(text, bigint[]) from public, anon, authenticated;
 grant execute on function public.edu_notify_claim(text, bigint[]) to service_role;
+-- 교육 통계(4단계 C)
+revoke all on function public.edu_stats(text) from public, anon, authenticated;
+grant execute on function public.edu_stats(text) to service_role;
 
 commit;
 
--- 확인 — 표 일곱·함수 열다섯이 있고, anon·authenticated 권한이 없는지 · 수료증 설정 한 줄 · 신청 줄의 수료 칸 다섯 · 지금 수료 수 ·
+-- 확인 — 표 일곱·함수 열여섯이 있고, anon·authenticated 권한이 없는지 · 수료증 설정 한 줄 · 신청 줄의 수료 칸 다섯 · 지금 수료 수 ·
 --   칸 제약이 새 정의인지(검토 반영 — 살아 있는 수료는 확정 줄 · 수료·취소 가운데 꼭 하나: 1 이어야) ·
---   알림 기록 표(4단계)의 RLS 가 켜졌는지(1 이어야) · service_role 이 알림 줄 잡기를 부를 수 있는지(1 이어야) · 지금 알림 기록 수
+--   알림 기록 표(4단계)의 RLS 가 켜졌는지(1 이어야) · service_role 이 알림 줄 잡기를 부를 수 있는지(1 이어야) · 지금 알림 기록 수 ·
+--   service_role 이 교육 통계를 부를 수 있는지(4단계 C · 1 이어야)
 select 'tables' as t, count(*) from pg_tables where schemaname='public' and tablename in ('edu_courses','edu_sessions','edu_enrollments','edu_attendance',
     'edu_cert_seq','edu_cert_settings','edu_notify_log')
 union all select 'functions', count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
   where n.nspname='public' and p.proname in ('edu_today','edu_apply','edu_promote','edu_cancel','edu_staff_set','edu_course_counts','edu_sessions_replace','edu_course_refill',
-    'edu_attendance_set','edu_attendance_bulk','edu_cert_take','edu_check_set','edu_issue_certs','edu_revoke_cert','edu_notify_claim')
+    'edu_attendance_set','edu_attendance_bulk','edu_cert_take','edu_check_set','edu_issue_certs','edu_revoke_cert','edu_notify_claim','edu_stats')
 union all select 'anon/authenticated grants', count(*) from information_schema.role_table_grants
   where table_schema='public' and table_name like 'edu\_%' and grantee in ('anon','authenticated')
 union all select 'routine grants', count(*) from information_schema.role_routine_grants
@@ -680,4 +760,6 @@ union all select 'cert check (status · <>)', count(*) from pg_constraint
 union all select 'notify log rls', count(*) from pg_class where oid='public.edu_notify_log'::regclass and relrowsecurity
 union all select 'notify claim (service_role)', count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
   where n.nspname='public' and p.proname='edu_notify_claim' and has_function_privilege('service_role', p.oid, 'execute')
-union all select 'notify log rows', count(*) from public.edu_notify_log;
+union all select 'notify log rows', count(*) from public.edu_notify_log
+union all select 'stats (service_role)', count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+  where n.nspname='public' and p.proname='edu_stats' and has_function_privilege('service_role', p.oid, 'execute');
