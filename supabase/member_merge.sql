@@ -13,7 +13,7 @@
 --   4) **개발에서만** — 가상 성도로 합쳐 보고 전부 되돌린다(BEGIN … ROLLBACK). 운영에서는 돌리지 않는다.
 --      supabase/tests/member_merge_consents.dev.sql          (가리기·신고·AI 답 알림·동의 날짜)
 --      supabase/tests/member_merge_requests_devices.dev.sql  (정정 신청 · 아이폰 알림 기기 · 합친 뒤 옛 번호로 온 가리기)
---      supabase/tests/member_merge_edu.dev.sql               (교육신청 · 같은 강좌 충돌 · 취소 줄 정리와 납부·메모 이어받기)
+--      supabase/tests/member_merge_edu.dev.sql               (교육신청 · 같은 강좌 충돌 · 취소 줄 정리와 납부·메모 이어받기 · 출석 있는 취소 줄은 멈춤)
 --      「통과」 줄이 나오거나 오류 없이 끝나야 한다.
 --   ⚠️ 새 사용자 연관 표를 만들면 ① 합치기 본체의 옮기기 ② 두 허용 목록(FK·user_id) ③ member_merge_counts
 --      ④ 쓰기 연결 트리거 — 넷을 함께 더하고 이 파일을 다시 돌린다. 빠뜨리면 그 기록이 있는 계정은
@@ -197,6 +197,17 @@ begin
       where a.user_id=s.id and b.user_id=t.id
         and a.status in ('applied','confirmed','waitlisted','declined') and b.status in ('applied','confirmed','waitlisted','declined')) then
       return jsonb_build_object('ok',false,'error','merge-edu-conflict');
+    end if;
+    -- 출석부(2단계 · 2026-10-05): 아래에서 지울 **취소 겹침 줄**에 출석이 있으면 멈춘다 — edu_attendance 는 신청 줄을 cascade 로 따라가
+    --   조용히 사라진다(확정 뒤 출석하다 취소한 분). 지우는 줄은 아래 두 delete 와 같다: 원본이 취소면 원본 줄,
+    --   원본이 살아 있고 남는 쪽이 취소면 남는 쪽 줄. 담당자가 출석을 옮기거나 지운 뒤 합친다.
+    if to_regclass('public.edu_attendance') is not null then
+      if exists(select 1 from public.edu_enrollments a join public.edu_enrollments b on a.course_id=b.course_id
+        where a.user_id=s.id and b.user_id=t.id
+          and ((a.status = 'cancelled' and exists(select 1 from public.edu_attendance x where x.enrollment_id=a.id))
+            or (a.status <> 'cancelled' and b.status = 'cancelled' and exists(select 1 from public.edu_attendance x where x.enrollment_id=b.id)))) then
+        return jsonb_build_object('ok',false,'error','merge-edu-conflict');
+      end if;
     end if;
   end if;
   -- 새 기능이 추가되어도 모르는 FK를 cascade 삭제하지 않는다. auth.users 참조는 제외.

@@ -3,6 +3,7 @@
 #   bash tests/edu-e2e.dev.sh
 # 준비: supabase CLI 로그인. 작업 폴더(E2E_WORKDIR)가 없으면 임시로 만들어 개발에 link 한다.
 # 하는 일: eduOpen 을 켜고(끝나면 원래대로) 시험 강좌(정원 1)를 만들어 신청·대기·취소·반려 유지·마감을 돌린 뒤 강좌를 지운다.
+#          출석(2단계): SQL edu_attendance_set 으로 칸을 쓰고 eduMine 의 attend · eduCourse 회차의 myState(내 것만)를 본다.
 # ⚠️ 본문에 한글을 쓰지 않는다(curl 이 깨뜨린다) — id 만 보낸다. 키·비밀번호는 찍지 않는다.
 set -u
 REF=ktpwthwqzgcqcrmsafdo
@@ -45,8 +46,8 @@ echo "dev users=$N"
 
 OLD_STATE=""; OLD_VAL=""; CID=""
 cleanup() {
-  # 신청 줄은 on delete restrict 라 먼저 지운다(회차는 cascade)
-  [ -n "$CID" ] && sx "delete from edu_enrollments where course_id='$CID'; delete from edu_courses where id='$CID'"
+  # 출석 → 신청 줄(on delete restrict) → 강좌(회차는 cascade · 출석이 남아 있으면 회차가 restrict 로 막는다)
+  [ -n "$CID" ] && sx "delete from edu_attendance where enrollment_id in (select id from edu_enrollments where course_id='$CID'); delete from edu_enrollments where course_id='$CID'; delete from edu_courses where id='$CID'"
   if [ "$OLD_STATE" = "missing" ]; then sx "delete from app_config where key='eduOpen'"
   elif [ "$OLD_STATE" = "had" ]; then sx "update app_config set value='$OLD_VAL'::jsonb where key='eduOpen'"; fi
 }
@@ -103,6 +104,34 @@ chk "U2 confirmed" "$(jqn '[m["status"] for m in d["mine"] if m["courseId"]=="'$
 M3=$(call "{\"action\":\"eduMine\",\"user_id\":\"$U3\"}")
 chk "U3 waitNo" "$(jqn '[m["waitNo"] for m in d["mine"] if m["courseId"]=="'$CID'"]' "$M3")" "[1]"
 
+echo "6b) attendance — SQL edu_attendance_set -> eduMine attend · eduCourse myState (own row only)"
+S1=$(sq "select id from edu_sessions where course_id='$CID' and no=1")
+S2=$(sq "select id from edu_sessions where course_id='$CID' and no=2")
+E2=$(sq "select id from edu_enrollments where course_id='$CID' and user_id='$U2'")
+chk "set present" "$(sq "select edu_attendance_set($S1,$E2,'present',null)->>'state'")" "present"
+chk "set absent" "$(sq "select edu_attendance_set($S2,$E2,'absent',null)->>'state'")" "absent"
+chk "waitlisted -> not-confirmed" "$(sq "select edu_attendance_set($S1,$E3,'present',null)->>'error'")" "not-confirmed"
+M2=$(call "{\"action\":\"eduMine\",\"user_id\":\"$U2\"}")
+chk "eduMine attend" "$(jqn '[m["attend"] for m in d["mine"] if m["courseId"]=="'$CID'"]' "$M2")" "[{'present': 1, 'late': 0, 'absent': 1, 'excused': 0, 'marked': 2, 'pct': 50}]"
+R=$(call "{\"action\":\"eduCourse\",\"user_id\":\"$U2\",\"id\":\"$CID\"}")
+chk "eduCourse myState" "$(jqn '[s["myState"] for s in d["course"]["sessions"]]' "$R")" "['present', 'absent']"
+chk "eduCourse mine.attend.pct" "$(jqn 'd["mine"]["attend"]["pct"]' "$R")" "50"
+chk "no session id / marked_by in eduCourse" "$(jqn '"marked_by" in json.dumps(d) or any("id" in s for s in d["course"]["sessions"])' "$R")" "False"
+R3=$(call "{\"action\":\"eduCourse\",\"user_id\":\"$U3\",\"id\":\"$CID\"}")
+chk "other member: myState all None" "$(jqn '[s["myState"] for s in d["course"]["sessions"]]' "$R3")" "[None, None]"
+chk "other member: own attend zero" "$(jqn 'd["mine"]["attend"]' "$R3")" "{'present': 0, 'late': 0, 'absent': 0, 'excused': 0, 'marked': 0, 'pct': None}"
+R0=$(call "{\"action\":\"eduCourse\",\"id\":\"$CID\"}")
+chk "no user: myState all None" "$(jqn '[s["myState"] for s in d["course"]["sessions"]]' "$R0")" "[None, None]"
+chk "no ids in responses" "$(printf '%s%s%s' "$M2" "$R" "$R3" | grep -c -e "$U1" -e "$U2" -e "$U3" -e "ident_key" -e "marked_by")" "0"
+L3=$(call "{\"action\":\"eduList\",\"user_id\":\"$U3\"}")
+chk "eduList mine attend (zero)" "$(jqn '[m["attend"]["marked"] for m in d["mine"] if m["courseId"]=="'$CID'"]' "$L3")" "[0]"
+sx "select edu_attendance_set($S2,$E2,'excused',null)"
+M2=$(call "{\"action\":\"eduMine\",\"user_id\":\"$U2\"}")
+chk "excused leaves the denominator" "$(jqn '[(m["attend"]["marked"], m["attend"]["pct"]) for m in d["mine"] if m["courseId"]=="'$CID'"]' "$M2")" "[(2, 100)]"
+sx "select edu_attendance_set($S1,$E2,'late',null)"
+R=$(call "{\"action\":\"eduCourse\",\"user_id\":\"$U2\",\"id\":\"$CID\"}")
+chk "late counts as attended" "$(jqn '([s["myState"] for s in d["course"]["sessions"]], d["mine"]["attend"]["pct"])' "$R")" "(['late', 'excused'], 100)"
+
 echo "7) declined stays declined"
 sx "select edu_staff_set($E3,'declined')"
 chk "row declined" "$(sq "select status from edu_enrollments where id=$E3")" "declined"
@@ -138,7 +167,8 @@ chk "draft + declined row: ok" "$(jqn 'd.get("ok")' "$R")" "True"
 chk "draft: phase upcoming" "$(jqn 'd["course"]["phase"]' "$R")" "upcoming"
 
 echo "9) cleanup (trap)"
-sx "delete from edu_enrollments where course_id='$CID'; delete from edu_courses where id='$CID'"
+sx "delete from edu_attendance where enrollment_id in (select id from edu_enrollments where course_id='$CID'); delete from edu_enrollments where course_id='$CID'; delete from edu_courses where id='$CID'"
+chk "attendance gone" "$(sq "select count(*) from edu_attendance where session_id in ($S1,$S2)")" "0"
 chk "course gone" "$(sq "select count(*) from edu_courses where id='$CID'")" "0"
 chk "enrollments gone" "$(sq "select count(*) from edu_enrollments where course_id='$CID'")" "0"
 CID=""

@@ -4883,8 +4883,9 @@ async function eduSessionsOf(ids: string[]) {
   if (!ids.length) return by;
   // ⚠️ 강좌 200개 x 회차면 1,000행을 넘을 수 있다 — PostgREST 는 조용히 자르므로 fetchAllRows 로 이어 받는다.
   // 날짜 순(그다음 번호) — 첫 날·마지막 날·취소 마감·다음 회차가 edu_cancel 의 min(on_date) 과 같은 기준이어야 한다.
-  const rows = await fetchAllRows(() => db.from("edu_sessions").select("course_id,no,on_date,start_time,end_time,topic,place")
-    .in("course_id", ids).order("course_id").order("on_date").order("no"));
+  // id 는 내 출석 칸(myState)을 회차에 붙이는 데만 쓴다 — 응답에는 싣지 않는다
+  const rows = await fetchAllRows(() => db.from("edu_sessions").select("id,course_id,no,on_date,start_time,end_time,topic,place")
+    .in("course_id", ids).order("course_id").order("on_date").order("no").order("id"));
   for (const s of rows) (by[(s as any).course_id] ||= []).push(s);
   return by;
 }
@@ -4916,6 +4917,40 @@ function eduCourseOut(c: any, ss: any[], cnt: { confirmed: number; waitlisted: n
   };
 }
 
+// 출석률(2단계 · 2026-10-05 친구 결정) — 지각 = 출석 · 공결은 분모에서 뺀다 · 아직 체크 안 한 회차는 분모에 넣지 않는다(denom 0 이면 pct null).
+// ⚠️ 이 규칙은 두 곳에 산다 — 교회 어드민 supabase/functions/church-admin/edu-rules.ts(담당자 출석 현황·엑셀)와 이 앱 js/edu.js(성도님 화면).
+//    아래 함수 몸통은 그 둘과 **한 글자도 같다** — tests/edu-front.test.cjs 가 js/edu.js 의 것과 글자로 맞대 본다. 고칠 때는 세 곳을 함께.
+function eduAttendRate(c) {
+  var n = function (v) { var x = Number(v); return Number.isFinite(x) && x > 0 ? Math.floor(x) : 0; };
+  var o = c || {};
+  var attended = n(o.present) + n(o.late);
+  var denom = attended + n(o.absent);
+  return { attended: attended, denom: denom, pct: denom > 0 ? Math.round(attended * 100 / denom) : null };
+}
+
+// 내 신청 줄들의 출석 — 신청 번호 → (회차 id → 상태). ⚠️ 부르는 쪽이 **그 사람 줄 id 만** 넘긴다(eduMineRows 가 user_id 로 고른 줄).
+//   한 분이 강좌 여럿 × 회차면 1,000줄을 넘을 수 있어 쪽 넘기기. 체크한 담당자(marked_by)는 읽지 않는다.
+async function eduAttendOf(enrollIds: number[]) {
+  const by = new Map<number, Map<number, string>>();
+  if (!enrollIds.length) return by;
+  const rows = await fetchAllRows(() => db.from("edu_attendance").select("enrollment_id,session_id,state")
+    .in("enrollment_id", enrollIds).order("enrollment_id").order("session_id"));
+  for (const r of rows as any[]) {
+    const m = by.get(Number(r.enrollment_id)) || new Map<number, string>();
+    m.set(Number(r.session_id), String(r.state));
+    by.set(Number(r.enrollment_id), m);
+  }
+  return by;
+}
+
+// 내 출석 요약 — {present, late, absent, excused, marked, pct} · marked = 체크한 칸 수(네 칸 합) · pct 는 eduAttendRate(분모 0 이면 null)
+function eduAttendOut(m?: Map<number, string>) {
+  const k: Record<string, number> = { present: 0, late: 0, absent: 0, excused: 0 };
+  for (const st of m ? m.values() : []) if (st in k) k[st]++;
+  return { present: k.present, late: k.late, absent: k.absent, excused: k.excused,
+    marked: k.present + k.late + k.absent + k.excused, pct: eduAttendRate(k).pct };
+}
+
 async function eduMineRows(userId: string, courseId?: string) {
   if (!userId) return [];
   let q = db.from("edu_enrollments").select("id,course_id,status,waitlist_at").eq("user_id", userId);
@@ -4941,7 +4976,8 @@ async function eduWaitNo(courseId: string, waitAt: string | null, id: number): P
   return (count ?? 0) + 1;
 }
 
-async function eduMineOut(rows: any[], today: string) {
+// att — 미리 읽은 내 출석(eduAttendOf · eduCourse 가 회차별 myState 에도 쓰려고 넘긴다). 없으면 여기서 읽는다.
+async function eduMineOut(rows: any[], today: string, att?: Map<number, Map<number, string>>) {
   const ids = [...new Set(rows.map((r) => r.course_id))];
   if (!ids.length) return [];
   const { data: cs, error } = await db.from("edu_courses").select("id,title,term,starts_on").in("id", ids);
@@ -4950,6 +4986,7 @@ async function eduMineOut(rows: any[], today: string) {
   const sess = await eduSessionsOf(ids);
   const live = rows.filter((r) => cmap.has(r.course_id));
   const waits = await Promise.all(live.map((r) => r.status === "waitlisted" ? eduWaitNo(r.course_id, r.waitlist_at, r.id) : Promise.resolve(null)));
+  const attBy = att ?? await eduAttendOf(live.map((r) => Number(r.id)));
   const out = live.map((r, i) => {
     const c: any = cmap.get(r.course_id);
     const ss = sess[r.course_id] || [];
@@ -4960,7 +4997,8 @@ async function eduMineOut(rows: any[], today: string) {
     const canCancel = ["applied", "confirmed", "waitlisted"].includes(r.status) && (cancelUntil === null || today <= cancelUntil);
     return { id: r.id, courseId: r.course_id, title: c.title, term: c.term || "", status: r.status,
       statusLabel: EDU_ENROLL_LABEL[r.status] || r.status, waitNo: waits[i], cancelUntil, canCancel,
-      nextSession: next ? { no: next.no, date: next.on_date, start: next.start_time?.slice(0, 5) ?? null } : null };
+      nextSession: next ? { no: next.no, date: next.on_date, start: next.start_time?.slice(0, 5) ?? null } : null,
+      attend: eduAttendOut(attBy.get(Number(r.id))) };
   });
   return out;
 }
@@ -4996,10 +5034,14 @@ async function eduCourse(b: any) {
   }
   const [sess, cnt] = await Promise.all([eduSessionsOf([id]), eduCountsOf([id])]);
   const ss = sess[id] || [];
-  const mine = (await eduMineOut(await eduMineRows(userId, id), today))[0] || null;
+  const myRows = await eduMineRows(userId, id);
+  const att = await eduAttendOf(myRows.map((r: any) => Number(r.id)));   // 내 줄만(남의 출석은 읽지도 않는다)
+  const mine = (await eduMineOut(myRows, today, att))[0] || null;
+  const myCells = mine ? att.get(Number(mine.id)) : undefined;
   return { ok: true, course: { ...eduCourseOut(c, ss, cnt[id], today), description: c.description || "", prereq: c.prereq_tracks || [],
     attendPct: c.attend_pct, checkLabel: c.check_label || null,
-    sessions: ss.map((s: any) => ({ no: s.no, date: s.on_date, start: s.start_time?.slice(0, 5) ?? null, end: s.end_time?.slice(0, 5) ?? null, topic: s.topic || "", place: s.place || "" })) },
+    sessions: ss.map((s: any) => ({ no: s.no, date: s.on_date, start: s.start_time?.slice(0, 5) ?? null, end: s.end_time?.slice(0, 5) ?? null, topic: s.topic || "", place: s.place || "",
+      myState: myCells?.get(Number(s.id)) ?? null })) },
     mine };
 }
 

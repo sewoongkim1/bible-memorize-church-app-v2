@@ -90,6 +90,16 @@ function eduErrText(code) {
 // 화면 글자 이스케이프 — 제 것을 쓴다(boardEsc 가 없으면 날 글자가 나가던 것 · 최종 검토 2026-10-05)
 var EDU_ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 function eduEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (ch) { return EDU_ESC[ch]; }); }
+// 출석률(2단계 · 2026-10-05 친구 결정) — 지각 = 출석 · 공결은 분모에서 뺀다 · 아직 체크 안 한 회차는 분모에 넣지 않는다. denom 0 이면 pct null.
+//   ⚠️ 함수 몸통은 교회 어드민 supabase/functions/church-admin/edu-rules.ts 의 eduAttendRate 와 **한 글자도 같게** 둔다(두 앱이 같은 규칙).
+//      api(supabase/functions/api/index.ts)의 복사본과 같은지는 tests/edu-front.test.cjs 가 글자로 맞대 본다 · 시험 경우 목록도 두 저장소가 같다.
+function eduAttendRate(c) {
+  var n = function (v) { var x = Number(v); return Number.isFinite(x) && x > 0 ? Math.floor(x) : 0; };
+  var o = c || {};
+  var attended = n(o.present) + n(o.late);
+  var denom = attended + n(o.absent);
+  return { attended: attended, denom: denom, pct: denom > 0 ? Math.round(attended * 100 / denom) : null };
+}
 // ── 교육 순수 함수 (여기까지) ──
 
 var eduState = { list: null, mine: [], open: true, tab: 'open', screen: 0 };   // screen: 화면이 바뀔 때마다 올라가는 번호 — 늦게 온 응답이 다른 화면을 덮지 않게

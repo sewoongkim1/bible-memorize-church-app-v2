@@ -146,3 +146,41 @@ test('eduMineView ⑧~⑫ — 신청한 뒤', () => {
   assert.equal(ctx.eduMineView(null), null);
   assert.equal(ctx.eduMineView({ status: 'cancelled' }), null);
 });
+
+// ---------- 출석부(2단계 · 2026-10-05) ----------
+// 출석률 시험 경우 — 교회 어드민 tests/edu-rules.test.mjs 와 같은 목록(두 앱이 같은 결과 · 고치면 두 곳을 함께)
+const ATTEND_RATE_CASES = [
+  [{ present: 5, late: 1, absent: 1, excused: 1 }, { attended: 6, denom: 7, pct: 86 }],
+  [{ present: 0, late: 0, absent: 0, excused: 0 }, { attended: 0, denom: 0, pct: null }],
+  [{ excused: 3 }, { attended: 0, denom: 0, pct: null }],
+  [{ absent: 2 }, { attended: 0, denom: 2, pct: 0 }],
+  [{ present: 2, late: 1 }, { attended: 3, denom: 3, pct: 100 }],
+  [{ late: 4, absent: 1, excused: 2 }, { attended: 4, denom: 5, pct: 80 }],
+  [{ present: 1, absent: 7 }, { attended: 1, denom: 8, pct: 13 }],
+  [{ present: 29, absent: 171 }, { attended: 29, denom: 200, pct: 15 }],
+  [{ present: 2, absent: 1 }, { attended: 2, denom: 3, pct: 67 }],
+  [{ present: "3", late: null, absent: -1, excused: "x" }, { attended: 3, denom: 3, pct: 100 }],
+  [{ present: 2.7, absent: 1.2 }, { attended: 2, denom: 3, pct: 67 }],
+  [null, { attended: 0, denom: 0, pct: null }],
+  [undefined, { attended: 0, denom: 0, pct: null }],
+];
+
+test('eduAttendRate — 지각=출석 · 공결은 분모에서 뺌 · 체크 안 한 회차는 없음 · 분모 0 이면 pct null · 반올림은 ×100 먼저', () => {
+  for (const [input, want] of ATTEND_RATE_CASES) {
+    // vm 안에서 만든 객체는 다른 realm 이라 deepStrictEqual 의 프로토타입 비교가 어긋난다 — JSON 으로 옮겨 견준다
+    assert.deepEqual(JSON.parse(JSON.stringify(ctx.eduAttendRate(input))), want, JSON.stringify(input));
+  }
+});
+
+test('eduAttendRate — api(supabase/functions/api/index.ts)의 복사본이 js/edu.js 의 것과 한 글자도 같다(규칙이 갈리지 않게)', () => {
+  const pick = (text) => {
+    const t = text.replace(/\r\n/g, '\n');
+    const a = t.indexOf('function eduAttendRate(c) {');
+    const b = t.indexOf('\n}\n', a);
+    assert.ok(a >= 0 && b > a, '함수를 못 찾았다');
+    return t.slice(a, b + 2);
+  };
+  const api = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', 'api', 'index.ts'), 'utf8');
+  assert.equal(pick(api), pick(src));
+  assert.equal(api.split('function eduAttendRate(').length - 1, 1, 'api 에 둘 이상');
+});

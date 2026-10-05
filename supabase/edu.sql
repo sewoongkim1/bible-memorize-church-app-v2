@@ -1,6 +1,7 @@
 -- 교육신청 1단계 — 강좌·회차·신청 표와 정원·대기 규칙(2026-10-05 · 설계 docs/superpowers/specs/2026-10-05-education-courses-design.md §5·§6)
+--   2단계(2026-10-05) — 출석부 표 edu_attendance · edu_attendance_set·edu_attendance_bulk · 회차 지우기 has-attendance
 -- ⚠️ 이 저장소는 공개(public)입니다 — 비밀번호·키를 절대 넣지 마세요.
--- 적용: 개발(ktpwthwqzgcqcrmsafdo) 먼저 → supabase/tests/edu_apply.dev.sql · tests/edu-concurrency.dev.sh 확인 → 운영.
+-- 적용: 개발(ktpwthwqzgcqcrmsafdo) 먼저 → supabase/tests/edu_*.dev.sql(출석은 edu_attendance.dev.sql) · tests/edu-concurrency.dev.sh 확인 → 운영.
 -- 여러 번 돌려도 안전하다(if not exists · create or replace).
 -- ⚠️ 정원·대기·대기 올림·취소 마감은 **이 파일의 함수 한 곳**에서만 정한다 — 성경암송 api(성도님)와
 --    교회 어드민 함수(담당자)가 둘 다 이 함수를 부른다. 코드에서 상태를 직접 update 하지 말 것.
@@ -79,11 +80,28 @@ create unique index if not exists edu_enrollments_course_user on public.edu_enro
 create index if not exists edu_enrollments_course_status on public.edu_enrollments(course_id, status);
 drop index if exists public.edu_sessions_course;   -- unique(course_id,no) 가 이미 같은 색인이다
 
+-- 출석부(2단계 · 2026-10-05 · 계획 docs/superpowers/plans/2026-10-05-education-stage2-attendance.md) — 확정된 신청 한 줄 × 회차 한 칸.
+--   체크 안 한 칸은 줄이 없다(출석률 분모에 안 들어간다). 쓰는 것은 아래 edu_attendance_set·edu_attendance_bulk 만.
+--   신청 줄이 지워지면 출석도 함께(cascade · 사용자 삭제·합치기의 취소 겹침 줄) — 합치기는 출석이 있는 취소 줄을 지우지 않고 멈춘다(member_merge.sql).
+--   회차는 출석이 있으면 지울 수 없다(restrict · edu_sessions_replace 가 has-attendance 로 먼저 거절).
+--   marked_by = 교회 어드민 담당자 admin_members.id(그 표는 교회 어드민 저장소 것이라 FK 를 두지 않는다) — 응답에 싣지 않는다.
+--   user_id 칸이 없다 — 기록 합치기 대상이 아니다(신청 줄을 따라간다).
+create table if not exists public.edu_attendance (
+  enrollment_id bigint not null references public.edu_enrollments(id) on delete cascade,
+  session_id    bigint not null references public.edu_sessions(id) on delete restrict,
+  state         text   not null check (state in ('present','late','absent','excused')),
+  marked_by     uuid,
+  marked_at     timestamptz not null default now(),
+  primary key (enrollment_id, session_id)
+);
+create index if not exists edu_attendance_session on public.edu_attendance(session_id);   -- 회차마다 세기·명단(기본 키는 신청 줄 쪽)
+
 alter table public.edu_courses     enable row level security;
 alter table public.edu_sessions    enable row level security;
 alter table public.edu_enrollments enable row level security;
-revoke all on public.edu_courses, public.edu_sessions, public.edu_enrollments from public, anon, authenticated;
-grant all on public.edu_courses, public.edu_sessions, public.edu_enrollments to service_role;
+alter table public.edu_attendance  enable row level security;
+revoke all on public.edu_courses, public.edu_sessions, public.edu_enrollments, public.edu_attendance from public, anon, authenticated;
+grant all on public.edu_courses, public.edu_sessions, public.edu_enrollments, public.edu_attendance to service_role;
 revoke all on sequence public.edu_sessions_id_seq, public.edu_enrollments_id_seq from public, anon, authenticated;
 
 -- 오늘(한국)
@@ -279,14 +297,23 @@ $$;
 
 -- 회차 통째로 바꾸기 — 한 트랜잭션. 같은 번호(no)의 줄은 id 를 지킨다(2단계 출석이 edu_sessions.id 를 가리킨다).
 --   끝난·보관된 강좌는 못 바꾼다. 목록에 없는 번호만 지운다. p_rows 는 [{no,on_date,start_time,end_time,topic,place}…].
+--   ⚠️ 지울 회차에 출석이 하나라도 있으면 아무것도 안 바꾸고 has-attendance(nos = 그 회차 번호들) — 출석이 함께 사라지면 안 된다(2단계).
+--      날짜·시각·주제 고치기는 그대로 된다(같은 번호 = 같은 id).
 create or replace function public.edu_sessions_replace(p_course uuid, p_rows jsonb)
 returns jsonb language plpgsql security definer set search_path = public as $$
-declare c public.edu_courses; n int;
+declare c public.edu_courses; n int; held jsonb;
 begin
   select * into c from public.edu_courses where id = p_course for update;
   if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
   if c.status in ('done','archived') then return jsonb_build_object('ok',false,'error','course-closed'); end if;
   if p_rows is null or jsonb_typeof(p_rows) <> 'array' then return jsonb_build_object('ok',false,'error','bad-rows'); end if;
+  -- 아래 delete 와 같은 조건(목록에 없는 번호)으로 — 출석이 있는 회차를 지우려 하면 멈춘다
+  select jsonb_agg(distinct s.no order by s.no) into held
+    from public.edu_sessions s
+    where s.course_id = p_course
+      and s.no not in (select r.no from jsonb_to_recordset(p_rows) as r(no int))
+      and exists (select 1 from public.edu_attendance a where a.session_id = s.id);
+  if held is not null then return jsonb_build_object('ok',false,'error','has-attendance','nos',held); end if;
   delete from public.edu_sessions where course_id = p_course
     and no not in (select r.no from jsonb_to_recordset(p_rows) as r(no int));
   insert into public.edu_sessions(course_id, no, on_date, start_time, end_time, topic, place)
@@ -298,17 +325,77 @@ begin
   return jsonb_build_object('ok',true,'count',n);
 end $$;
 
+-- 출석 한 칸 쓰기·지우기(2단계) — 교회 어드민 eduAttendSet 이 부른다(강사·교육 담당·총괄 · 맡은 강좌 확인은 그쪽 서버).
+--   p_state: present·late·absent·excused · null 이면 그 칸을 지운다(「다시 누르면 지움」). p_by = 체크한 담당자 admin_members.id.
+--   차례: 회차의 강좌 줄 for update → 신청 줄 for update(다른 함수와 같다 · 교착 막기). 강좌를 잠근 뒤 회차를 다시 본다
+--   (edu_sessions_replace 도 강좌 줄을 잠그므로, 잠근 뒤에 회차가 있으면 이 트랜잭션 끝까지 지워지지 않는다).
+--   거절: bad-state · not-found(회차·신청) · course-closed(끝·보관) · wrong-course(회차와 신청의 강좌가 다름) · not-confirmed(확정 아님).
+create or replace function public.edu_attendance_set(p_session bigint, p_enrollment bigint, p_state text, p_by uuid default null)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare cid uuid; c public.edu_courses; e public.edu_enrollments; prev text;
+begin
+  if p_state is not null and p_state not in ('present','late','absent','excused') then return jsonb_build_object('ok',false,'error','bad-state'); end if;
+  select course_id into cid from public.edu_sessions where id = p_session;
+  if cid is null then return jsonb_build_object('ok',false,'error','not-found'); end if;
+  select * into c from public.edu_courses where id = cid for update;
+  if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
+  perform 1 from public.edu_sessions where id = p_session and course_id = cid;      -- 잠그기 전에 지워졌으면
+  if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
+  if c.status in ('done','archived') then return jsonb_build_object('ok',false,'error','course-closed'); end if;
+  select * into e from public.edu_enrollments where id = p_enrollment for update;
+  if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
+  if e.course_id <> cid then return jsonb_build_object('ok',false,'error','wrong-course'); end if;
+  if e.status <> 'confirmed' then return jsonb_build_object('ok',false,'error','not-confirmed'); end if;
+  if p_state is null then
+    delete from public.edu_attendance where enrollment_id = e.id and session_id = p_session returning state into prev;
+    return jsonb_build_object('ok',true,'state',null,'cleared',prev is not null);
+  end if;
+  insert into public.edu_attendance(enrollment_id, session_id, state, marked_by, marked_at)
+    values (e.id, p_session, p_state, p_by, now())
+  on conflict (enrollment_id, session_id) do update set state = excluded.state, marked_by = excluded.marked_by, marked_at = excluded.marked_at;
+  return jsonb_build_object('ok',true,'state',p_state);
+end $$;
+
+-- 「남은 분 모두 ○」(2단계) — 그 회차에서 **아직 체크 안 한** 확정자만 p_state 로. 이미 체크한 칸(지각·공결 등)은 덮지 않는다.
+--   차례: 강좌 줄 for update(상태를 바꾸는 함수는 모두 강좌 줄을 먼저 잠그므로 그동안 확정 명단이 바뀌지 않는다).
+--   돌려주는 count = 이번에 새로 체크한 수. 거절: bad-state(null 도) · not-found · course-closed.
+create or replace function public.edu_attendance_bulk(p_session bigint, p_state text, p_by uuid default null)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare cid uuid; c public.edu_courses; n int;
+begin
+  if p_state is null or p_state not in ('present','late','absent','excused') then return jsonb_build_object('ok',false,'error','bad-state'); end if;
+  select course_id into cid from public.edu_sessions where id = p_session;
+  if cid is null then return jsonb_build_object('ok',false,'error','not-found'); end if;
+  select * into c from public.edu_courses where id = cid for update;
+  if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
+  perform 1 from public.edu_sessions where id = p_session and course_id = cid;
+  if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
+  if c.status in ('done','archived') then return jsonb_build_object('ok',false,'error','course-closed'); end if;
+  insert into public.edu_attendance(enrollment_id, session_id, state, marked_by, marked_at)
+    select e.id, p_session, p_state, p_by, now() from public.edu_enrollments e
+    where e.course_id = cid and e.status = 'confirmed'
+      and not exists (select 1 from public.edu_attendance a where a.enrollment_id = e.id and a.session_id = p_session)
+  on conflict (enrollment_id, session_id) do nothing;
+  get diagnostics n = row_count;
+  return jsonb_build_object('ok',true,'count',n);
+end $$;
+
 revoke all on function public.edu_course_counts(uuid[]) from public, anon, authenticated;
 revoke all on function public.edu_sessions_replace(uuid, jsonb) from public, anon, authenticated;
+revoke all on function public.edu_attendance_set(bigint, bigint, text, uuid) from public, anon, authenticated;
+revoke all on function public.edu_attendance_bulk(bigint, text, uuid) from public, anon, authenticated;
 grant execute on function public.edu_course_counts(uuid[]) to service_role;
 grant execute on function public.edu_sessions_replace(uuid, jsonb) to service_role;
+grant execute on function public.edu_attendance_set(bigint, bigint, text, uuid) to service_role;
+grant execute on function public.edu_attendance_bulk(bigint, text, uuid) to service_role;
 
 commit;
 
--- 확인 — 표 셋·함수 여덟이 있고, anon·authenticated 권한이 없는지
-select 'tables' as t, count(*) from pg_tables where schemaname='public' and tablename in ('edu_courses','edu_sessions','edu_enrollments')
+-- 확인 — 표 넷·함수 열이 있고, anon·authenticated 권한이 없는지
+select 'tables' as t, count(*) from pg_tables where schemaname='public' and tablename in ('edu_courses','edu_sessions','edu_enrollments','edu_attendance')
 union all select 'functions', count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-  where n.nspname='public' and p.proname in ('edu_today','edu_apply','edu_promote','edu_cancel','edu_staff_set','edu_course_counts','edu_sessions_replace','edu_course_refill')
+  where n.nspname='public' and p.proname in ('edu_today','edu_apply','edu_promote','edu_cancel','edu_staff_set','edu_course_counts','edu_sessions_replace','edu_course_refill',
+    'edu_attendance_set','edu_attendance_bulk')
 union all select 'anon/authenticated grants', count(*) from information_schema.role_table_grants
   where table_schema='public' and table_name like 'edu\_%' and grantee in ('anon','authenticated')
 union all select 'routine grants', count(*) from information_schema.role_routine_grants
