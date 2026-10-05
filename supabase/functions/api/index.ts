@@ -526,6 +526,8 @@ Deno.serve(async (req) => {
       case "eduApply":  return json(await eduApply(body));
       case "eduCancel": return json(await eduCancel(body));
       case "eduMine":   return json(await eduMine(body));
+      case "eduCert":   return json(await eduCert(body));     // 내 수료증 자료(3단계) — 내 줄·수료·안 취소일 때만
+      case "eduVerify": return json(await eduVerify(body));   // 수료번호 진위 확인(로그인 없이 · 가린 이름만)
       case "ministryApply":    return json(await ministryApply(body));
       case "ministryCancel":   return json(await ministryCancel(body));
       case "ministryList":     return json(await ministryList(body));
@@ -4901,11 +4903,18 @@ async function eduCountsOf(ids: string[]) {
   return by;
 }
 
-function eduCourseOut(c: any, ss: any[], cnt: { confirmed: number; waitlisted: number }, today: string) {
-  // 교육 기간이 있으면 그것, 없으면 회차에서 — 시작일만 있고 마지막 회차가 그보다 앞이면 끝을 비운다(뒤집힌 기간을 안 보이게)
-  const eduFirst = c.starts_on ?? ss[0]?.on_date ?? null;
+// 교육 기간 — 교육 기간이 있으면 그것, 없으면 회차에서(ss 는 날짜 차례 · eduSessionsOf) — 시작일만 있고 마지막 회차가 그보다 앞이면
+//   끝을 비운다(뒤집힌 기간을 안 보이게). 목록·자세히(firstDate·lastDate)와 수료증(from·to)이 함께 쓴다 —
+//   교회 어드민 edu-rules.ts certPeriod(수료증 인쇄)와 같은 규칙.
+function eduPeriod(c: any, ss: any[]): { from: string | null; to: string | null } {
+  const from = c.starts_on ?? ss[0]?.on_date ?? null;
   const lastS = ss[ss.length - 1]?.on_date ?? null;
-  const eduLast = c.ends_on ?? (lastS && (!eduFirst || lastS >= eduFirst) ? lastS : null);
+  const to = c.ends_on ?? (lastS && (!from || lastS >= from) ? lastS : null);
+  return { from, to };
+}
+
+function eduCourseOut(c: any, ss: any[], cnt: { confirmed: number; waitlisted: number }, today: string) {
+  const { from: eduFirst, to: eduLast } = eduPeriod(c, ss);
   return {
     id: c.id, title: c.title, kind: c.kind, kindLabel: EDU_KIND_LABEL[c.kind] || c.kind, term: c.term || "",
     teacher: c.teacher_label || "", place: c.place || "", fee: c.fee_note || "", target: c.target || "",
@@ -4951,9 +4960,27 @@ function eduAttendOut(m?: Map<number, string>) {
     marked: k.present + k.late + k.absent + k.excused, pct: eduAttendRate(k).pct };
 }
 
+// 수료(3단계 · 2026-10-05) — 수료번호 꼴 · 이름 가리기(진위 확인) · 수료증 문안({과정} 채우기).
+// ⚠️ 아래 세 함수(maskName·eduCertNoValid·eduCertBody)는 **두 곳에 산다** — 교회 어드민 supabase/functions/church-admin/edu-rules.ts 와
+//    한 글자도 같다(그쪽 수료증 인쇄·이쪽 진위 확인·내 수료증이 같은 규칙). tests/edu-front.test.cjs 가 이 복사본의 지문(sha256)을
+//    교회 어드민 시험과 같은 값으로 잰다 — 고칠 때는 두 곳을 같은 글자로 고치고 두 시험의 지문을 함께 바꾼다.
+//    번호 꼴은 SQL edu_cert_take(「고척-YYYY-NNNN」 · 9999 다음은 자리가 는다) · 칸 제약 edu_enrollments_cert_check 와 같다.
+function maskName(name) {
+  var s = Array.from(String(name == null ? "" : name).normalize("NFC").trim());
+  if (s.length < 2) return s.join("");
+  if (s.length === 2) return s[0] + "*";
+  return s[0] + "*".repeat(s.length - 2) + s[s.length - 1];
+}
+function eduCertNoValid(s) {
+  return typeof s === "string" && /^고척-[0-9]{4}-[0-9]{4,6}$/.test(s);
+}
+function eduCertBody(body, title) {
+  return String(body == null ? "" : body).split("{과정}").join(String(title == null ? "" : title));
+}
+
 async function eduMineRows(userId: string, courseId?: string) {
   if (!userId) return [];
-  let q = db.from("edu_enrollments").select("id,course_id,status,waitlist_at").eq("user_id", userId);
+  let q = db.from("edu_enrollments").select("id,course_id,status,waitlist_at,completed,cert_no,cert_revoked").eq("user_id", userId);
   if (courseId) q = q.eq("course_id", courseId);
   const { data, error } = await q
     .in("status", ["applied", "confirmed", "waitlisted", "declined"]).order("applied_at", { ascending: false }).limit(100);
@@ -4995,10 +5022,13 @@ async function eduMineOut(rows: any[], today: string, att?: Map<number, Map<numb
     const cancelUntil = first ? new Date(Date.parse(first + "T00:00:00Z") - 86400000).toISOString().slice(0, 10) : null;
     // edu_cancel 규칙과 같다: 첫 날(첫 회차, 없으면 교육 시작일) 전날까지(둘 다 없으면 막지 않는다)
     const canCancel = ["applied", "confirmed", "waitlisted"].includes(r.status) && (cancelUntil === null || today <= cancelUntil);
+    // 수료(3단계) — completed 는 수료이고 취소되지 않았을 때만 true · certNo 도 그때만(취소된 번호는 내 화면에 싣지 않는다)
+    const done = r.completed === true && r.cert_revoked !== true && !!r.cert_no;
     return { id: r.id, courseId: r.course_id, title: c.title, term: c.term || "", status: r.status,
       statusLabel: EDU_ENROLL_LABEL[r.status] || r.status, waitNo: waits[i], cancelUntil, canCancel,
       nextSession: next ? { no: next.no, date: next.on_date, start: next.start_time?.slice(0, 5) ?? null } : null,
-      attend: eduAttendOut(attBy.get(Number(r.id))) };
+      attend: eduAttendOut(attBy.get(Number(r.id))),
+      completed: done, certNo: done ? String(r.cert_no) : null };
   });
   return out;
 }
@@ -5086,6 +5116,53 @@ async function eduMine(b: any) {
   const userId = eduUid(b.user_id);
   if (!userId) return { ok: false, error: "no-user" };
   return { ok: true, mine: await eduMineOut(await eduMineRows(userId), eduKst()) };
+}
+
+// 내 수료증 자료(3단계) — {enrollment_id, user_id} · **내 줄**이고 수료·취소 안 됨일 때만(남의 줄은 없는 줄과 같다 · not-found).
+//   이름은 신청 줄에 적힌 그대로(앱 이름을 나중에 바꿔도 증서는 그때 이름) · 기간은 eduPeriod(교육 기간, 없으면 첫·마지막 회차) ·
+//   발급일 = 수료한 날(한국) · 명의·문안({과정} 채움)·직인(data URL)은 수료증 설정 한 줄(edu_cert_settings — 교회 어드민 인쇄와 같은 칸).
+//   응답에 user_id·소속·신청 상태는 싣지 않는다. 거절: no-user · bad-args · not-found · no-cert(수료 아님·취소됨).
+async function eduCert(b: any) {
+  const userId = eduUid(b.user_id);
+  const eid = Number(b.enrollment_id);
+  if (!userId) return { ok: false, error: "no-user" };
+  if (!Number.isInteger(eid) || eid < 1) return { ok: false, error: "bad-args" };
+  const { data: e, error } = await db.from("edu_enrollments").select("id,course_id,name,completed,completed_at,cert_no,cert_revoked")
+    .eq("id", eid).eq("user_id", userId).maybeSingle();
+  if (error) throw error;
+  if (!e) return { ok: false, error: "not-found" };
+  if (e.completed !== true || e.cert_revoked === true || !e.cert_no || !e.completed_at) return { ok: false, error: "no-cert" };
+  const [cr, sess, sr] = await Promise.all([
+    db.from("edu_courses").select("id,title,term,starts_on,ends_on").eq("id", e.course_id).maybeSingle(),
+    eduSessionsOf([e.course_id]),
+    db.from("edu_cert_settings").select("issuer,body,seal").eq("id", 1).maybeSingle(),
+  ]);
+  if (cr.error) throw cr.error;
+  if (sr.error) throw sr.error;
+  const c: any = cr.data;
+  if (!c) return { ok: false, error: "not-found" };
+  const p = eduPeriod(c, sess[c.id] || []);
+  const st: any = sr.data || {};
+  return { ok: true, cert: { name: e.name, title: c.title, term: c.term || "", from: p.from, to: p.to, certNo: String(e.cert_no),
+    issuedOn: kstDay(e.completed_at), issuer: st.issuer || "", body: eduCertBody(st.body || "", c.title), seal: st.seal || null } };
+}
+
+// 수료번호 진위 확인(3단계) — {no} · 로그인 없이(user_id 를 보지 않는다). 꼴을 먼저 보고(bad-no) **정확히 같은 번호 하나만** 찾는다(목록·검색 없음).
+//   있으면 {ok, valid, revoked, title, term, completedOn, name: 가린 이름(홍*동)} · 없으면 {ok, valid:false}.
+//   valid = 수료이고 취소 아님 · revoked = 취소된 번호(번호는 남긴다 — 「취소됨」으로 보인다). user_id·소속·신청 번호는 싣지 않는다.
+async function eduVerify(b: any) {
+  const no = String(b.no ?? "").slice(0, 40).normalize("NFC").trim();
+  if (!eduCertNoValid(no)) return { ok: false, error: "bad-no" };
+  const { data: e, error } = await db.from("edu_enrollments").select("course_id,name,completed,completed_at,cert_revoked")
+    .eq("cert_no", no).maybeSingle();
+  if (error) throw error;
+  if (!e) return { ok: true, valid: false };
+  const { data: c, error: ec } = await db.from("edu_courses").select("title,term").eq("id", e.course_id).maybeSingle();
+  if (ec) throw ec;
+  if (!c) return { ok: true, valid: false };
+  const revoked = e.cert_revoked === true;
+  return { ok: true, valid: !revoked && e.completed === true, revoked, title: c.title, term: c.term || "",
+    completedOn: e.completed_at ? kstDay(e.completed_at) : null, name: maskName(e.name) };
 }
 
 // 신청 한 건의 키는 (연도, user_id) 다. 이 앱은 로그인이 교구·목장·이름을

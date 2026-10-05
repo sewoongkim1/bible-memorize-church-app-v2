@@ -1,7 +1,11 @@
 -- 교육신청 1단계 — 강좌·회차·신청 표와 정원·대기 규칙(2026-10-05 · 설계 docs/superpowers/specs/2026-10-05-education-courses-design.md §5·§6)
 --   2단계(2026-10-05) — 출석부 표 edu_attendance · edu_attendance_set·edu_attendance_bulk · 회차 지우기 has-attendance
+--   3단계(2026-10-05) — 수료(check_done·completed·completed_at·cert_no·cert_revoked) · 수료번호 edu_cert_seq · 수료증 설정 edu_cert_settings ·
+--                      edu_check_set·edu_issue_certs·edu_revoke_cert · 번호 있는 줄은 상태를 못 바꾼다(has-cert)
+--                      계획 docs/superpowers/plans/2026-10-05-education-stage3-certificates.md
 -- ⚠️ 이 저장소는 공개(public)입니다 — 비밀번호·키를 절대 넣지 마세요.
--- 적용: 개발(ktpwthwqzgcqcrmsafdo) 먼저 → supabase/tests/edu_*.dev.sql(출석은 edu_attendance.dev.sql) · tests/edu-concurrency.dev.sh 확인 → 운영.
+-- 적용: 개발(ktpwthwqzgcqcrmsafdo) 먼저 → supabase/tests/edu_*.dev.sql(출석은 edu_attendance.dev.sql · 수료는 edu_certs.dev.sql) ·
+--       tests/edu-concurrency.dev.sh · tests/edu-cert-concurrency.dev.sh 확인 → 운영.
 -- 여러 번 돌려도 안전하다(if not exists · create or replace).
 -- ⚠️ 정원·대기·대기 올림·취소 마감은 **이 파일의 함수 한 곳**에서만 정한다 — 성경암송 api(성도님)와
 --    교회 어드민 함수(담당자)가 둘 다 이 함수를 부른다. 코드에서 상태를 직접 update 하지 말 것.
@@ -108,12 +112,63 @@ create table if not exists public.edu_attendance (
 );
 create index if not exists edu_attendance_session on public.edu_attendance(session_id);   -- 회차마다 세기·명단(기본 키는 신청 줄 쪽)
 
+-- 수료(3단계 · 2026-10-05 · 계획 docs/superpowers/plans/2026-10-05-education-stage3-certificates.md) — 신청 한 줄에 수료까지.
+--   check_done   — 강좌의 확인 항목(check_label · 과제·면담 등) 담당자 체크(edu_check_set 만 쓴다)
+--   completed    — 수료(확정자만 · edu_issue_certs 만 켠다 · edu_revoke_cert 가 끈다)
+--   completed_at — 수료한 때(번호의 해 = 이 시각의 한국 해) · 취소해도 남긴다(되살리면 같은 번호·같은 날)
+--   cert_no      — 수료번호 「고척-YYYY-NNNN」(unique · 한 번 쓴 번호는 다시 쓰지 않는다 · 취소해도 남긴다 — 진위 확인에 「취소됨」)
+--   cert_revoked — 수료 취소(번호는 남김)
+--   ⚠️ 번호가 있는 줄은 늘 확정(confirmed)이다 — edu_cancel·edu_staff_set 이 has-cert 로 막는다(합치기의 「취소 줄 지우기」에 번호 줄이 끼지 않게).
+--   새 칸은 신청 줄에 붙어 있어 기록 합치기(member_merge.sql)가 줄째 옮긴다.
+alter table public.edu_enrollments add column if not exists check_done   boolean not null default false;
+alter table public.edu_enrollments add column if not exists completed    boolean not null default false;
+alter table public.edu_enrollments add column if not exists completed_at timestamptz;
+alter table public.edu_enrollments add column if not exists cert_no      text;
+alter table public.edu_enrollments add column if not exists cert_revoked boolean not null default false;
+do $$ begin
+  if not exists (select 1 from pg_constraint where conrelid = 'public.edu_enrollments'::regclass and conname = 'edu_enrollments_cert_no_key') then
+    alter table public.edu_enrollments add constraint edu_enrollments_cert_no_key unique (cert_no);   -- 진위 확인이 이 색인으로 찾는다
+  end if;
+  -- 칸끼리 어긋나지 않게: 번호 꼴 · 수료면 번호·수료일이 있고 취소 아님 · 취소면 번호가 있다
+  if not exists (select 1 from pg_constraint where conrelid = 'public.edu_enrollments'::regclass and conname = 'edu_enrollments_cert_check') then
+    alter table public.edu_enrollments add constraint edu_enrollments_cert_check check (
+      (cert_no is null or cert_no ~ '^고척-[0-9]{4}-[0-9]{4,6}$')
+      and (not completed or (cert_no is not null and completed_at is not null and not cert_revoked))
+      and (not cert_revoked or cert_no is not null));
+  end if;
+end $$;
+
+-- 수료번호 차례 — 해마다 한 줄(그 해 모든 강좌가 한 줄로 이어 받는다). last 는 늘기만 한다(취소해도 줄지 않는다).
+--   쓰는 것은 edu_cert_take(안쪽 함수) 하나 — 해 줄을 for update 로 잠가 동시 확정이 같은 번호를 받지 않는다.
+create table if not exists public.edu_cert_seq (
+  year int primary key check (year between 2000 and 2999),
+  last int not null default 0 check (last >= 0)
+);
+
+-- 수료증 설정 — 한 줄(id = 1). 교회 어드민 「수료증 설정」(교육 총괄만)이 고친다. 직인·서명은 이미지 data URL(PNG·JPEG · 300KB 이하)로
+--   이 칸에 둔다 — 스토리지를 쓰지 않는다(공개 버킷 정책 사고를 피하려고 · 내 수료증 응답·인쇄 자료에만 실어 보낸다).
+--   body 의 {과정} 은 강좌 제목으로 바뀐다(교회 어드민 eduCertBody · 성경암송 api 의 같은 글자 복사본).
+--   ⚠️ 기본 문안은 여기 한 곳(줄이 없으면 아래에서 만든다 · 다시 돌려도 고친 설정은 그대로).
+create table if not exists public.edu_cert_settings (
+  id         int primary key default 1 check (id = 1),
+  issuer     text not null default '고척교회' check (char_length(issuer) <= 60),
+  body       text not null default '위 사람은 고척교회가 주관한 「{과정}」 과정을 성실히 마쳤기에 이 증서를 드립니다.'
+             check (char_length(body) between 1 and 300),
+  seal       text check (seal is null or (octet_length(seal) <= 409700 and seal ~ '^data:image/(png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$')),
+  updated_at timestamptz not null default now()
+);
+insert into public.edu_cert_settings(id) values (1) on conflict (id) do nothing;
+
 alter table public.edu_courses     enable row level security;
 alter table public.edu_sessions    enable row level security;
 alter table public.edu_enrollments enable row level security;
 alter table public.edu_attendance  enable row level security;
+alter table public.edu_cert_seq      enable row level security;
+alter table public.edu_cert_settings enable row level security;
 revoke all on public.edu_courses, public.edu_sessions, public.edu_enrollments, public.edu_attendance from public, anon, authenticated;
 grant all on public.edu_courses, public.edu_sessions, public.edu_enrollments, public.edu_attendance to service_role;
+revoke all on public.edu_cert_seq, public.edu_cert_settings from public, anon, authenticated;
+grant all on public.edu_cert_seq, public.edu_cert_settings to service_role;
 revoke all on sequence public.edu_sessions_id_seq, public.edu_enrollments_id_seq from public, anon, authenticated;
 
 -- 오늘(한국)
@@ -226,6 +281,9 @@ begin
       from public.edu_sessions s where s.course_id = cid;   -- 집계라 회차가 없어도 한 줄이 나온다
     if first_day is not null and edu_today() >= first_day then return jsonb_build_object('ok',false,'error','too-late'); end if;
   end if;
+  -- 수료번호가 있는 줄(수료 · 수료 취소)은 취소하지 않는다(3단계) — 번호 줄은 늘 확정이어야 합치기가 그 줄을 「취소 줄」로 지우지 않는다.
+  --   성도님은 첫 날 전에만 취소하므로 위 too-late 가 먼저 걸린다(번호는 그 뒤에 생긴다).
+  if e.cert_no is not null then return jsonb_build_object('ok',false,'error','has-cert'); end if;
   was_confirmed := e.status = 'confirmed';
   update public.edu_enrollments set status = 'cancelled', cancelled_at = now(), updated_at = now() where id = e.id;
   if was_confirmed then p := edu_promote(cid); end if;
@@ -247,6 +305,7 @@ begin
   select * into e from public.edu_enrollments where id = p_enrollment for update;
   if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
   if e.status = p_status then return jsonb_build_object('ok',true,'promoted',null); end if;
+  if e.cert_no is not null then return jsonb_build_object('ok',false,'error','has-cert'); end if;   -- 수료번호 줄은 확정 그대로(3단계 · edu_cancel 과 같다)
   if p_status = 'confirmed' and not p_force and c.capacity is not null then
     select count(*) into n from public.edu_enrollments where course_id = c.id and status = 'confirmed';
     if n >= c.capacity then return jsonb_build_object('ok',false,'error','full'); end if;
@@ -420,6 +479,117 @@ begin
   return jsonb_build_object('ok',true,'count',n);
 end $$;
 
+-- ---------- 수료(3단계 · 2026-10-05) ----------
+-- ⚠️ 수료번호는 **이 파일의 edu_cert_take 한 곳**에서만 만든다(앱·교회 어드민 코드에서 번호를 짓지 말 것).
+-- ⚠️ 잠금 차례는 다른 함수와 같다: 강좌 줄 → 신청 줄 → (번호가 필요하면 맨 끝에) edu_cert_seq 의 해 줄.
+--    해 줄은 모든 강좌가 함께 쓰지만 늘 마지막에 잡으므로 서로 다른 강좌의 동시 확정이 교착되지 않고 한 줄로 선다.
+
+-- 수료번호 받기(안쪽에서만) — p_at(수료 시각)의 **한국 해** 줄을 잠그고 p_n 개를 차례로 → 번호 글자 배열(차례대로).
+--   해 줄이 없으면 먼저 만든다(insert … on conflict do nothing — 동시에 와도 한쪽은 상대가 끝나길 기다렸다 넘어간다) → for update.
+--   꼴 「고척-YYYY-NNNN」(9999 를 넘으면 자리를 늘린다 — lpad 는 넘치는 자리를 잘라 같은 번호를 만들기 때문).
+--   ⚠️ service_role 도 못 부른다(번호만 먹고 줄에 안 붙는 일이 없게) — edu_issue_certs 안에서만.
+create or replace function public.edu_cert_take(p_at timestamptz, p_n int)
+returns text[] language plpgsql security definer set search_path = public as $$
+declare y int; n0 int;
+begin
+  if p_at is null or p_n is null or p_n < 1 then return array[]::text[]; end if;
+  y := extract(year from (p_at at time zone 'Asia/Seoul'))::int;
+  insert into public.edu_cert_seq(year, last) values (y, 0) on conflict (year) do nothing;
+  select last into n0 from public.edu_cert_seq where year = y for update;
+  update public.edu_cert_seq set last = n0 + p_n where year = y;
+  return array(select '고척-' || y::text || '-' || case when n0 + i < 10000 then lpad((n0 + i)::text, 4, '0') else (n0 + i)::text end
+               from generate_series(1, p_n) as g(i) order by i);
+end $$;
+
+-- 확인 항목 체크(강좌의 check_label) — 확정된 줄만(not-confirmed) · 마친 강좌도 된다(수료 판정은 끝난 뒤에 하므로) · 보관 강좌는 course-archived.
+--   차례: 강좌 줄 for update → 신청 줄 for update. 교회 어드민 eduCheckSet 이 부른다(맡은 강좌 확인은 그쪽 서버).
+--   거절: bad-done(null) · not-found · course-archived · not-confirmed. 성공 {ok, done}.
+create or replace function public.edu_check_set(p_enrollment bigint, p_done boolean)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare cid uuid; c public.edu_courses; e public.edu_enrollments;
+begin
+  if p_done is null then return jsonb_build_object('ok',false,'error','bad-done'); end if;
+  select course_id into cid from public.edu_enrollments where id = p_enrollment;
+  if cid is null then return jsonb_build_object('ok',false,'error','not-found'); end if;
+  select * into c from public.edu_courses where id = cid for update;
+  if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
+  if c.status = 'archived' then return jsonb_build_object('ok',false,'error','course-archived'); end if;
+  select * into e from public.edu_enrollments where id = p_enrollment for update;
+  if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
+  if e.status <> 'confirmed' then return jsonb_build_object('ok',false,'error','not-confirmed'); end if;
+  if e.check_done is distinct from p_done then
+    update public.edu_enrollments set check_done = p_done, updated_at = now() where id = e.id;
+  end if;
+  return jsonb_build_object('ok',true,'done',p_done);
+end $$;
+
+-- 수료 확정 + 수료번호 — 교회 어드민 eduCertIssue 가 부른다(교육 총괄 · 그 강좌 교육 담당 · 맡은 강좌 확인은 그쪽 서버).
+--   p_ids 의 **배열 차례대로** 번호를 준다(교회 어드민이 이름 가나다 차례로 세워 보낸다 · 같은 id 가 둘이면 앞의 것만).
+--   한 줄이라도 틀리면 아무것도 안 쓴다: not-found(없는 줄) · wrong-course(다른 강좌 줄) · not-confirmed(확정 아님) — ids 에 그 줄 번호.
+--   줄마다(how):
+--     new      — 번호 없음 → completed · completed_at = now() · 새 번호(edu_cert_take · 해 = now() 의 한국 해)
+--     restored — 번호가 있는데 취소됐던 줄 → cert_revoked=false 로 되살림(번호·수료일 그대로)
+--     already  — 이미 수료(아무것도 안 바꿈)
+--   수료 기준(출석률·확인 체크)은 여기서 보지 않는다 — 화면이 후보를 고르고 **사람이 확정**한다(계획 · 기준 밖의 분도 담당자가 정할 수 있다).
+--   p_by — 확정한 담당자(admin_members.id). 표에는 남기지 않는다(누가 했는지는 교회 어드민 admin_audit 의 edu.cert.issue 가 남긴다).
+--   거절: bad-ids(빈 배열·null) · too-many(2000 넘음) · not-found(강좌) · course-archived. 성공 {ok, issued:[{id, certNo, how}]}(배열 차례).
+create or replace function public.edu_issue_certs(p_course uuid, p_ids bigint[], p_by uuid default null)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare c public.edu_courses; ids bigint[]; bad jsonb; k int; nos text[]; i int := 0; r record; out jsonb := '[]'::jsonb;
+begin
+  select array_agg(z.id order by z.ord) into ids
+    from (select t.id, min(t.ord) as ord from unnest(p_ids) with ordinality as t(id, ord) where t.id is not null group by t.id) z;
+  if ids is null then return jsonb_build_object('ok',false,'error','bad-ids'); end if;
+  if cardinality(ids) > 2000 then return jsonb_build_object('ok',false,'error','too-many'); end if;
+  select * into c from public.edu_courses where id = p_course for update;
+  if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
+  if c.status = 'archived' then return jsonb_build_object('ok',false,'error','course-archived'); end if;
+  perform 1 from public.edu_enrollments where id = any(ids) order by id for update;   -- 신청 줄(id 차례로 잠근다)
+  select jsonb_agg(x order by x) into bad from unnest(ids) as x where not exists (select 1 from public.edu_enrollments e where e.id = x);
+  if bad is not null then return jsonb_build_object('ok',false,'error','not-found','ids',bad); end if;
+  select jsonb_agg(e.id order by e.id) into bad from public.edu_enrollments e where e.id = any(ids) and e.course_id <> p_course;
+  if bad is not null then return jsonb_build_object('ok',false,'error','wrong-course','ids',bad); end if;
+  select jsonb_agg(e.id order by e.id) into bad from public.edu_enrollments e where e.id = any(ids) and e.status <> 'confirmed';
+  if bad is not null then return jsonb_build_object('ok',false,'error','not-confirmed','ids',bad); end if;
+
+  select count(*) into k from public.edu_enrollments where id = any(ids) and cert_no is null;
+  if k > 0 then nos := edu_cert_take(now(), k); end if;     -- 번호는 한 번에 덩이로(해 줄 잠금 한 번)
+  for r in select t.id, e.cert_no, e.completed, e.cert_revoked
+             from unnest(ids) with ordinality as t(id, ord) join public.edu_enrollments e on e.id = t.id order by t.ord loop
+    if r.cert_no is null then
+      i := i + 1;
+      update public.edu_enrollments set completed = true, completed_at = now(), cert_no = nos[i], cert_revoked = false, updated_at = now()
+        where id = r.id;
+      out := out || jsonb_build_array(jsonb_build_object('id', r.id, 'certNo', nos[i], 'how', 'new'));
+    elsif r.cert_revoked or not r.completed then
+      update public.edu_enrollments set completed = true, completed_at = coalesce(completed_at, now()), cert_revoked = false, updated_at = now()
+        where id = r.id;
+      out := out || jsonb_build_array(jsonb_build_object('id', r.id, 'certNo', r.cert_no, 'how', 'restored'));
+    else
+      out := out || jsonb_build_array(jsonb_build_object('id', r.id, 'certNo', r.cert_no, 'how', 'already'));
+    end if;
+  end loop;
+  return jsonb_build_object('ok',true,'issued',out);
+end $$;
+
+-- 수료 취소 — completed=false · cert_revoked=true. 번호·수료일은 남긴다(진위 확인에 「취소됨」 · 다시 확정하면 같은 번호로 되살아난다).
+--   차례: 강좌 줄 for update → 신청 줄 for update. 보관 강좌도 된다(edu_cancel 처럼 바로잡는 일).
+--   거절: not-found · not-completed(번호 없음). 이미 취소면 {ok, already:true, certNo}. 성공 {ok, certNo}. p_by 는 edu_issue_certs 와 같다(표에 안 남김).
+create or replace function public.edu_revoke_cert(p_enrollment bigint, p_by uuid default null)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare cid uuid; e public.edu_enrollments;
+begin
+  select course_id into cid from public.edu_enrollments where id = p_enrollment;
+  if cid is null then return jsonb_build_object('ok',false,'error','not-found'); end if;
+  perform 1 from public.edu_courses where id = cid for update;
+  select * into e from public.edu_enrollments where id = p_enrollment for update;
+  if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
+  if e.cert_no is null then return jsonb_build_object('ok',false,'error','not-completed'); end if;
+  if e.cert_revoked then return jsonb_build_object('ok',true,'already',true,'certNo',e.cert_no); end if;
+  update public.edu_enrollments set completed = false, cert_revoked = true, updated_at = now() where id = e.id;
+  return jsonb_build_object('ok',true,'certNo',e.cert_no);
+end $$;
+
 revoke all on function public.edu_course_counts(uuid[]) from public, anon, authenticated;
 revoke all on function public.edu_sessions_replace(uuid, jsonb) from public, anon, authenticated;
 revoke all on function public.edu_attendance_set(bigint, bigint, text, uuid) from public, anon, authenticated;
@@ -428,15 +598,28 @@ grant execute on function public.edu_course_counts(uuid[]) to service_role;
 grant execute on function public.edu_sessions_replace(uuid, jsonb) to service_role;
 grant execute on function public.edu_attendance_set(bigint, bigint, text, uuid) to service_role;
 grant execute on function public.edu_attendance_bulk(bigint, text, uuid) to service_role;
+-- 수료(3단계)
+revoke all on function public.edu_cert_take(timestamptz, int) from public, anon, authenticated, service_role;   -- 안쪽에서만(edu_promote 와 같다)
+revoke all on function public.edu_check_set(bigint, boolean) from public, anon, authenticated;
+revoke all on function public.edu_issue_certs(uuid, bigint[], uuid) from public, anon, authenticated;
+revoke all on function public.edu_revoke_cert(bigint, uuid) from public, anon, authenticated;
+grant execute on function public.edu_check_set(bigint, boolean) to service_role;
+grant execute on function public.edu_issue_certs(uuid, bigint[], uuid) to service_role;
+grant execute on function public.edu_revoke_cert(bigint, uuid) to service_role;
 
 commit;
 
--- 확인 — 표 넷·함수 열이 있고, anon·authenticated 권한이 없는지
-select 'tables' as t, count(*) from pg_tables where schemaname='public' and tablename in ('edu_courses','edu_sessions','edu_enrollments','edu_attendance')
+-- 확인 — 표 여섯·함수 열넷이 있고, anon·authenticated 권한이 없는지 · 수료증 설정 한 줄 · 신청 줄의 수료 칸 다섯 · 지금 수료 수
+select 'tables' as t, count(*) from pg_tables where schemaname='public' and tablename in ('edu_courses','edu_sessions','edu_enrollments','edu_attendance',
+    'edu_cert_seq','edu_cert_settings')
 union all select 'functions', count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
   where n.nspname='public' and p.proname in ('edu_today','edu_apply','edu_promote','edu_cancel','edu_staff_set','edu_course_counts','edu_sessions_replace','edu_course_refill',
-    'edu_attendance_set','edu_attendance_bulk')
+    'edu_attendance_set','edu_attendance_bulk','edu_cert_take','edu_check_set','edu_issue_certs','edu_revoke_cert')
 union all select 'anon/authenticated grants', count(*) from information_schema.role_table_grants
   where table_schema='public' and table_name like 'edu\_%' and grantee in ('anon','authenticated')
 union all select 'routine grants', count(*) from information_schema.role_routine_grants
-  where routine_schema='public' and routine_name like 'edu\_%' and grantee in ('anon','authenticated');
+  where routine_schema='public' and routine_name like 'edu\_%' and grantee in ('anon','authenticated')
+union all select 'cert settings rows', count(*) from public.edu_cert_settings
+union all select 'cert columns', count(*) from information_schema.columns
+  where table_schema='public' and table_name='edu_enrollments' and column_name in ('check_done','completed','completed_at','cert_no','cert_revoked')
+union all select 'completed now', count(*) from public.edu_enrollments where completed;

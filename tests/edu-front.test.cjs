@@ -228,3 +228,66 @@ test('eduStateMark — 출석 ✅ · 지각 🕘 · 결석 ❌ · 공결은 글�
   assert.deepEqual(pick(ctx.eduStateMark('excused')), { cls: 'excused', icon: '', label: '공결' });
   for (const x of [null, undefined, '', 'x', 'toString', 'constructor', '__proto__']) assert.equal(ctx.eduStateMark(x), null, String(x));
 });
+
+// ---------- 수료(3단계 · 2026-10-05) — api 의 maskName·eduCertNoValid·eduCertBody(진위 확인·내 수료증) ----------
+// 세 함수는 교회 어드민 supabase/functions/church-admin/edu-rules.ts 와 **한 글자도 같다** — 그쪽 tests/edu-rules.test.mjs 에 같은 지문이 박혀 있다.
+//   규칙을 일부러 바꿀 때는 두 곳(교회 어드민 edu-rules.ts · 이 저장소 api)을 같은 글자로 고치고 두 시험의 값을 함께 바꾼다.
+//   지문 = sha256(「function 이름(…) {」부터 첫 줄머리 「}」까지 · 줄끝 LF) — eduAttendRate 와 같은 셈.
+const CERT_FN_SHA256 = {
+  'function maskName(name) {': 'f75ac72b195255346b43f1e82b89a6ceaf7e35f6a0f73f9116be1cd8588dea78',
+  'function eduCertNoValid(s) {': 'add57082b525160f77794f21653de377ecaf2f775be270a0785b63b5d0be47e3',
+  'function eduCertBody(body, title) {': '9061e91bd5d14439e5fd96b52b4f88592623a47be29c248ad5f7146589e104d4',
+};
+const apiSrc = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', 'api', 'index.ts'), 'utf8').replace(/\r\n/g, '\n');
+const certCtx = {}; vm.createContext(certCtx);
+for (const head of Object.keys(CERT_FN_SHA256)) {
+  const a0 = apiSrc.indexOf(head), b0 = apiSrc.indexOf('\n}\n', a0);
+  if (a0 >= 0 && b0 > a0) vm.runInContext(apiSrc.slice(a0, b0 + 2), certCtx);
+}
+
+test('수료 규칙 세 함수 — api 복사본이 한 덩이씩 하나뿐 · 지문이 교회 어드민과 같다', () => {
+  for (const [head, sha] of Object.entries(CERT_FN_SHA256)) {
+    const a0 = apiSrc.indexOf(head), b0 = apiSrc.indexOf('\n}\n', a0);
+    assert.ok(a0 >= 0 && b0 > a0, '함수를 못 찾았다 ' + head);
+    assert.equal(apiSrc.split(head.split('(')[0] + '(').length - 1, 1, 'api 에 둘 이상 ' + head);
+    assert.equal(require('node:crypto').createHash('sha256').update(apiSrc.slice(a0, b0 + 2)).digest('hex'), sha,
+      head + ' 글자가 바뀌었다 — 교회 어드민 edu-rules.ts 와 두 시험의 지문을 함께 고칠 것');
+  }
+});
+
+test('maskName(진위 확인의 가린 이름) — 한 글자 그대로 · 두 글자 뒤를 * · 세 글자 넘으면 처음과 끝만 · NFC·앞뒤 빈칸', () => {
+  assert.equal(certCtx.maskName('홍길동'), '홍*동');
+  assert.equal(certCtx.maskName('이수'), '이*');
+  assert.equal(certCtx.maskName('남궁가나'), '남**나');
+  assert.equal(certCtx.maskName('김'), '김');
+  for (const x of ['', null, undefined, '   ']) assert.equal(certCtx.maskName(x), '', String(x));
+  assert.equal(certCtx.maskName('  홍길동 '), '홍*동');
+  assert.equal(certCtx.maskName('홍길동'.normalize('NFD')), '홍*동');
+  assert.equal(certCtx.maskName('\u{1F600}가'), '\u{1F600}*');
+});
+
+test('eduCertNoValid·eduCertBody — 번호 꼴(9999 다음 자리 늚) · 앞뒤 빈칸·자모분리는 아님 · {과정} 을 모두 채움 · $& 도 글자 그대로', () => {
+  for (const s of ['고척-2026-0001', '고척-2026-10000', '고척-2999-123456']) assert.equal(certCtx.eduCertNoValid(s), true, s);
+  for (const s of ['고척-2026-001', '고척-26-0001', ' 고척-2026-0001', '고척-2026-0001 ', 'X-2026-0001', '', null, 20260001,
+    '고척-2026-0001'.normalize('NFD')]) assert.equal(certCtx.eduCertNoValid(s), false, String(s));
+  assert.equal(certCtx.eduCertBody('위 사람은 「{과정}」 과정을 마쳤습니다.', '제자훈련'), '위 사람은 「제자훈련」 과정을 마쳤습니다.');
+  assert.equal(certCtx.eduCertBody('{과정} · {과정}', '$& 반'), '$& 반 · $& 반');
+  assert.equal(certCtx.eduCertBody(null, 'x'), '');
+});
+
+test('eduVerify·eduCert — api 에 있고 eduVerify 는 꼴을 먼저 본 뒤 정확히 같은 번호 하나만(목록·like 없음) · user_id 를 읽지 않는다', () => {
+  const fn = (name) => {
+    const a0 = apiSrc.indexOf('async function ' + name + '(');
+    assert.ok(a0 > 0, name);
+    return apiSrc.slice(a0, apiSrc.indexOf('\n}\n', a0));
+  };
+  const v = fn('eduVerify');
+  assert.ok(v.indexOf('eduCertNoValid(no)') > 0 && v.indexOf('eduCertNoValid(no)') < v.indexOf('.from('), '꼴을 먼저');
+  assert.ok(/\.eq\("cert_no", no\)\.maybeSingle\(\)/.test(v), '정확히 같은 번호 하나');
+  assert.ok(!/\.like\(|\.ilike\(|\.in\(|user_id|group_name|sub_name|who_type/.test(v), '검색·목록·user_id·소속');
+  assert.ok(/name: maskName\(e\.name\)/.test(v));
+  const c = fn('eduCert');
+  assert.ok(/\.eq\("id", eid\)\.eq\("user_id", userId\)/.test(c), '내 줄만');
+  assert.ok(/cert_revoked === true/.test(c) && /no-cert/.test(c));
+  assert.ok(/case "eduCert":/.test(apiSrc) && /case "eduVerify":/.test(apiSrc));
+});

@@ -4,6 +4,9 @@
 # 준비: supabase CLI 로그인. 작업 폴더(E2E_WORKDIR)가 없으면 임시로 만들어 개발에 link 한다.
 # 하는 일: eduOpen 을 켜고(끝나면 원래대로) 시험 강좌(정원 1)를 만들어 신청·대기·취소·반려 유지·마감을 돌린 뒤 강좌를 지운다.
 #          출석(2단계): SQL edu_attendance_set 으로 칸을 쓰고 eduMine 의 attend · eduCourse 회차의 myState(내 것만)를 본다.
+#          수료(3단계): SQL edu_issue_certs 로 번호를 주고 eduMine·eduList·eduCourse 의 certNo · eduCert(내 줄만) · eduVerify(가린 이름) ·
+#                      취소(edu_revoke_cert) 뒤 revoked · 되살림(같은 번호)을 본다. 그 해 번호 차례(edu_cert_seq)는 끝나면 시작 전 값으로 되돌린다.
+#                      번호의 「고척」은 본문에 JSON 이스케이프(GC — 백슬래시 u 넷)로 적는다(한글 글자를 curl 에 넘기지 않는다).
 # ⚠️ 본문에 한글을 쓰지 않는다(curl 이 깨뜨린다) — id 만 보낸다. 키·비밀번호는 찍지 않는다.
 set -u
 REF=ktpwthwqzgcqcrmsafdo
@@ -44,10 +47,14 @@ N=$(sq "select count(*) from users")
 if [ -z "$N" ] || [ "$N" -ge 200 ]; then echo "users=$N — 개발이 아닌 것 같다. 중단."; exit 2; fi
 echo "dev users=$N"
 
-OLD_STATE=""; OLD_VAL=""; CID=""
+OLD_STATE=""; OLD_VAL=""; CID=""; YEAR=""; SEQ_OLD=""
 cleanup() {
   # 출석 → 신청 줄(on delete restrict) → 강좌(회차는 cascade · 출석이 남아 있으면 회차가 restrict 로 막는다)
   [ -n "$CID" ] && sx "delete from edu_attendance where enrollment_id in (select id from edu_enrollments where course_id='$CID'); delete from edu_enrollments where course_id='$CID'; delete from edu_courses where id='$CID'"
+  # 수료번호 차례 — 개발에서만 시작 전 값으로(시험 번호 줄은 위에서 지웠다)
+  if [ -n "$SEQ_OLD" ]; then
+    if [ "$SEQ_OLD" = "none" ]; then sx "delete from edu_cert_seq where year=$YEAR"; else sx "update edu_cert_seq set last=$SEQ_OLD where year=$YEAR"; fi
+  fi
   if [ "$OLD_STATE" = "missing" ]; then sx "delete from app_config where key='eduOpen'"
   elif [ "$OLD_STATE" = "had" ]; then sx "update app_config set value='$OLD_VAL'::jsonb where key='eduOpen'"; fi
 }
@@ -132,6 +139,63 @@ sx "select edu_attendance_set($S1,$E2,'late',null)"
 R=$(call "{\"action\":\"eduCourse\",\"user_id\":\"$U2\",\"id\":\"$CID\"}")
 chk "late counts as attended" "$(jqn '([s["myState"] for s in d["course"]["sessions"]], d["mine"]["attend"]["pct"])' "$R")" "(['late', 'excused'], 100)"
 
+echo "6c) certificates — SQL edu_issue_certs -> eduMine/eduList/eduCourse certNo · eduCert (owner only) · eduVerify (masked name) · revoke · restore"
+YEAR=$(sq "select extract(year from now() at time zone 'Asia/Seoul')::int")
+SEQ_OLD=$(sq "select coalesce((select last::text from edu_cert_seq where year=$YEAR),'none')")
+[ -n "$YEAR" ] && [ -n "$SEQ_OLD" ] || { echo "번호 차례를 못 읽었다"; exit 2; }
+M3=$(call "{\"action\":\"eduMine\",\"user_id\":\"$U3\"}")
+chk "before: U3 completed/certNo" "$(jqn '[(m["completed"], m["certNo"]) for m in d["mine"] if m["courseId"]=="'$CID'"]' "$M3")" "[(False, None)]"
+chk "issue (new)" "$(sq "select edu_issue_certs('$CID', array[$E2]::bigint[], null)->'issued'->0->>'how'")" "new"
+NO=$(sq "select cert_no from edu_enrollments where id=$E2")
+NUM=$(sq "select split_part(cert_no,'-',2)||'-'||split_part(cert_no,'-',3) from edu_enrollments where id=$E2")   # 한글 없는 꼬리
+chk "number tail format" "$(printf '%s' "$NUM" | grep -c "^$YEAR-[0-9]\{4,\}$")" "1"
+GC="\\uace0\\ucc99"   # JSON 안의 「고척」(백슬래시 u 이스케이프 — 큰따옴표 안의 \\ 가 \ 하나가 된다)
+VNO="$GC-$NUM"
+M2=$(call "{\"action\":\"eduMine\",\"user_id\":\"$U2\"}")
+chk "eduMine completed" "$(jqn '[m["completed"] for m in d["mine"] if m["courseId"]=="'$CID'"]' "$M2")" "[True]"
+chk "eduMine certNo" "$(jqn '[m["certNo"] for m in d["mine"] if m["courseId"]=="'$CID'"][0]' "$M2")" "$NO"
+chk "eduList mine certNo" "$(jqn '[m["certNo"] for m in d["mine"] if m["courseId"]=="'$CID'"][0]' "$(call "{\"action\":\"eduList\",\"user_id\":\"$U2\"}")")" "$NO"
+R=$(call "{\"action\":\"eduCourse\",\"user_id\":\"$U2\",\"id\":\"$CID\"}")
+chk "eduCourse mine certNo" "$(jqn 'd["mine"]["certNo"]' "$R")" "$NO"
+C2=$(call "{\"action\":\"eduCert\",\"user_id\":\"$U2\",\"enrollment_id\":$E2}")
+chk "eduCert ok" "$(jqn 'd.get("ok")' "$C2")" "True"
+chk "eduCert keys" "$(jqn 'sorted(d["cert"].keys())' "$C2")" "['body', 'certNo', 'from', 'issuedOn', 'issuer', 'name', 'seal', 'term', 'title', 'to']"
+chk "eduCert certNo" "$(jqn 'd["cert"]["certNo"]' "$C2")" "$NO"
+chk "eduCert name = enrollment name" "$(jqn 'd["cert"]["name"]' "$C2")" "$(sq "select name from edu_enrollments where id=$E2")"
+chk "eduCert title" "$(jqn 'd["cert"]["title"]' "$C2")" "$TAG"
+chk "eduCert body filled" "$(jqn '"{" not in d["cert"]["body"] and "'$TAG'" in d["cert"]["body"]' "$C2")" "True"
+chk "eduCert issuedOn (KST)" "$(jqn 'd["cert"]["issuedOn"]' "$C2")" "$(sq "select (completed_at at time zone 'Asia/Seoul')::date::text from edu_enrollments where id=$E2")"
+chk "eduCert period = first/last session" "$(jqn 'd["cert"]["from"] + "~" + d["cert"]["to"]' "$C2")" "$(sq "select min(on_date)::text||'~'||max(on_date)::text from edu_sessions where course_id='$CID'")"
+chk "eduCert other member -> not-found" "$(jqn 'd.get("error")' "$(call "{\"action\":\"eduCert\",\"user_id\":\"$U3\",\"enrollment_id\":$E2}")")" "not-found"
+chk "eduCert own row without cert -> no-cert" "$(jqn 'd.get("error")' "$(call "{\"action\":\"eduCert\",\"user_id\":\"$U3\",\"enrollment_id\":$E3}")")" "no-cert"
+chk "eduCert no user -> no-user" "$(jqn 'd.get("error")' "$(call "{\"action\":\"eduCert\",\"enrollment_id\":$E2}")")" "no-user"
+NAME2=$(sq "select name from edu_enrollments where id=$E2")
+MASK=$(printf '%s' "$NAME2" | PYTHONIOENCODING=utf-8 python -c '
+import sys, unicodedata
+s = list(unicodedata.normalize("NFC", sys.stdin.buffer.read().decode("utf-8")).strip())
+print("".join(s) if len(s) < 2 else s[0] + "*" if len(s) == 2 else s[0] + "*" * (len(s) - 2) + s[-1])')
+V=$(call "{\"action\":\"eduVerify\",\"no\":\"$VNO\"}")
+chk "eduVerify valid" "$(jqn '(d.get("ok"), d.get("valid"), d.get("revoked"))' "$V")" "(True, True, False)"
+chk "eduVerify keys" "$(jqn 'sorted(d.keys())' "$V")" "['completedOn', 'name', 'ok', 'revoked', 'term', 'title', 'valid']"
+chk "eduVerify masked name" "$(jqn 'd["name"]' "$V")" "$MASK"
+chk "eduVerify title/term" "$(jqn 'd["title"] == "'$TAG'" and d["term"] == "'$TAG'"' "$V")" "True"
+chk "eduVerify completedOn" "$(jqn 'd["completedOn"]' "$V")" "$(sq "select (completed_at at time zone 'Asia/Seoul')::date::text from edu_enrollments where id=$E2")"
+chk "eduVerify bad format -> bad-no" "$(jqn 'd.get("error")' "$(call '{"action":"eduVerify","no":"2026-0001"}')")" "bad-no"
+chk "eduVerify unknown number -> valid False only" "$(jqn 'd' "$(call "{\"action\":\"eduVerify\",\"no\":\"$GC-1999-0001\"}")")" "{'ok': True, 'valid': False}"
+chk "no ids in cert responses" "$(printf '%s%s%s' "$C2" "$V" "$M2" | grep -c -e "$U1" -e "$U2" -e "$U3" -e "ident_key" -e "user_id" -e "group_name")" "0"
+chk "staff cancel of a cert row -> has-cert" "$(sq "select edu_cancel($E2, true)->>'error'")" "has-cert"
+chk "revoke" "$(sq "select edu_revoke_cert($E2, null)->>'ok'")" "true"
+V=$(call "{\"action\":\"eduVerify\",\"no\":\"$VNO\"}")
+chk "after revoke: eduVerify valid/revoked" "$(jqn '(d.get("valid"), d.get("revoked"))' "$V")" "(False, True)"
+chk "after revoke: eduVerify masked name" "$(jqn 'd["name"]' "$V")" "$MASK"
+chk "after revoke: eduCert -> no-cert" "$(jqn 'd.get("error")' "$(call "{\"action\":\"eduCert\",\"user_id\":\"$U2\",\"enrollment_id\":$E2}")")" "no-cert"
+M2=$(call "{\"action\":\"eduMine\",\"user_id\":\"$U2\"}")
+chk "after revoke: eduMine completed/certNo" "$(jqn '[(m["completed"], m["certNo"]) for m in d["mine"] if m["courseId"]=="'$CID'"]' "$M2")" "[(False, None)]"
+chk "restore keeps the number" "$(sq "select (r->'issued'->0->>'how')||' '||split_part(r->'issued'->0->>'certNo','-',2)||'-'||split_part(r->'issued'->0->>'certNo','-',3) from (select edu_issue_certs('$CID', array[$E2]::bigint[], null) as r) z")" "restored $NUM"
+chk "after restore: eduVerify valid" "$(jqn '(d.get("valid"), d.get("revoked"))' "$(call "{\"action\":\"eduVerify\",\"no\":\"$VNO\"}")")" "(True, False)"
+SEQ_BASE=$([ "$SEQ_OLD" = "none" ] && echo 0 || echo "$SEQ_OLD")
+chk "seq advanced by one only" "$(sq "select last - $SEQ_BASE from edu_cert_seq where year=$YEAR")" "1"
+
 echo "7) declined stays declined"
 sx "select edu_staff_set($E3,'declined')"
 chk "row declined" "$(sq "select status from edu_enrollments where id=$E3")" "declined"
@@ -155,6 +219,7 @@ R=$(call "{\"action\":\"eduCourse\",\"user_id\":\"$U2\",\"id\":\"$CID\"}")
 chk "done + row: ok" "$(jqn 'd.get("ok")' "$R")" "True"
 chk "done + row: phase closed (no apply button)" "$(jqn 'd["course"]["phase"]' "$R")" "closed"
 chk "done + row: mine" "$(jqn 'd["mine"]["status"]' "$R")" "confirmed"
+chk "done + row: mine certNo (completed)" "$(jqn 'd["mine"]["certNo"]' "$R")" "$NO"
 chk "done + no leak" "$(printf '%s' "$R" | grep -c -e "$U1" -e "$U2" -e "$U3" -e "ident_key")" "0"
 R=$(call "{\"action\":\"eduCourse\",\"user_id\":\"$U1\",\"id\":\"$CID\"}")
 chk "done + cancelled row: ok" "$(jqn 'd.get("ok")' "$R")" "True"
@@ -172,6 +237,9 @@ chk "attendance gone" "$(sq "select count(*) from edu_attendance where session_i
 chk "course gone" "$(sq "select count(*) from edu_courses where id='$CID'")" "0"
 chk "enrollments gone" "$(sq "select count(*) from edu_enrollments where course_id='$CID'")" "0"
 CID=""
+if [ "$SEQ_OLD" = "none" ]; then sx "delete from edu_cert_seq where year=$YEAR"; else sx "update edu_cert_seq set last=$SEQ_OLD where year=$YEAR"; fi
+chk "cert seq restored" "$(sq "select coalesce((select last::text from edu_cert_seq where year=$YEAR),'none')")" "$SEQ_OLD"
+SEQ_OLD=""
 echo
 echo "PASS $pass · FAIL $fail"
 [ "$fail" = "0" ]

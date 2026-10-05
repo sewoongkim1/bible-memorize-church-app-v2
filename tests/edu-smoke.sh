@@ -48,6 +48,14 @@ echo "4) eduCancel - 남의 줄은 없는 줄"
 chk "not-found" "$(jqn 'd.get("error")' "$(call "{\"action\":\"eduCancel\",\"user_id\":\"$NONUSER\",\"enrollment_id\":1}")")" "not-found"
 echo "5) eduMine - 신원 없으면 거절"
 chk "no-user" "$(jqn 'd.get("error")' "$(call '{"action":"eduMine"}')")" "no-user"
+echo "6) eduCert(3단계) - 신원·인자 · 남의 줄은 없는 줄"
+chk "no-user" "$(jqn 'd.get("error")' "$(call '{"action":"eduCert","enrollment_id":1}')")" "no-user"
+chk "bad-args" "$(jqn 'd.get("error")' "$(call "{\"action\":\"eduCert\",\"user_id\":\"$NONUSER\",\"enrollment_id\":\"x\"}")")" "bad-args"
+chk "not-found" "$(jqn 'd.get("error")' "$(call "{\"action\":\"eduCert\",\"user_id\":\"$NONUSER\",\"enrollment_id\":1}")")" "not-found"
+echo "7) eduVerify(3단계) - 꼴이 틀리면 bad-no · 없는 번호는 valid false 만"
+GC="\\uace0\\ucc99"   # JSON 안의 「고척」(백슬래시 u 이스케이프 — 한글 글자를 curl 에 넘기지 않는다)
+chk "bad-no" "$(jqn 'd.get("error")' "$(call '{"action":"eduVerify","no":"1999-0001"}')")" "bad-no"
+chk "unknown" "$(jqn 'd' "$(call "{\"action\":\"eduVerify\",\"no\":\"$GC-1999-0001\"}")")" "{'ok': True, 'valid': False}"
 
 echo
 echo "통과 $pass · 실패 $fail · 건너뜀 $skip"
