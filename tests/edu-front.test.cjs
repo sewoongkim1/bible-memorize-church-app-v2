@@ -34,3 +34,19 @@ test('eduErrText', () => {
   assert.equal(ctx.eduErrText('not-open'), '아직 신청을 받지 않아요.');
   assert.equal(ctx.eduErrText('x'), '잠시 뒤 다시 해 주세요.');
 });
+
+test('eduMd — 없거나 틀린 날짜는 빈 글', () => {
+  assert.equal(ctx.eduMd(null), '');
+  assert.equal(ctx.eduMd('x'), '');
+  assert.equal(ctx.eduMd('2027-01-03'), '1월 3일');
+});
+
+test('eduMdw — 요일(날짜만 있는 값은 밀리지 않는다)', () => {
+  assert.equal(ctx.eduMdw('2026-10-09'), '10월 9일(금)');
+  assert.equal(ctx.eduMdw('2027-01-03'), '1월 3일(일)');
+  assert.equal(ctx.eduMdw(null), '');
+});
+
+test('eduPhaseLabel — 정원 차고 대기 없음', () => {
+  assert.equal(ctx.eduPhaseLabel({ phase: 'open', capacity: 1, confirmed: 1, waitlisted: 0, waitlist: false }), '정원 참');
+});

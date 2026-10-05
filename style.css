@@ -5929,3 +5929,4 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .dark .edu-desc, .dark .edu-info, .dark .edu-sess { color: #dbe2ee; }
 .dark .edu-btn { background: #2b4c80; }
 .dark .edu-btn.ghost { background: transparent; color: #8fb3e6; border-color: #8fb3e6; }
+.edu-title, .edu-sub, .edu-desc, .edu-info, .edu-sess, .edu-card b, .edu-card span, .edu-mine { word-break: keep-all; overflow-wrap: anywhere; }

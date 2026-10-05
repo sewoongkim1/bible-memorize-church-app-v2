@@ -2921,6 +2921,7 @@ function renderSummary() {
           ⚠️ 이름 뒤에 진행 문구를 이어 붙이지 않는다 — 이 단추는 nowrap+ellipsis 라
           잘리는 쪽이 「이름」이다. 진행은 아래 fillStampPill 이 알약으로 꽂는다. */""}
     ${eventVisible() ? `<button class="summary-help event-cta" id="open-event-list">🏅 ${boardEsc(eventLabelCached())}${newBadge("stamp")}</button>` : ""}
+    ${/* newBadge("edu") — FEAT_SINCE.edu 는 개시일에 적는다(없으면 NEW 가 안 뜬다) */""}
     ${eduVisible() ? `<button class="summary-help" id="open-edu">🎓 교육 신청${newBadge("edu")}</button>` : ""}
     <button class="summary-help" id="open-board">💬 응원·기도·공감</button>
     ${/* 2026-09-25 순서 바꿈(친구 요청) — 가정 축복 기도문이 쉴만한 물가보다 위. */""}

@@ -3,7 +3,15 @@
 //   ⚠️ 문(eduVisible — app.js)은 첫 화면 단추를 숨기는 것뿐, 막는 것은 서버(eduApply 의 not-open)다.
 
 // ── 교육 순수 함수 (여기부터) ──
-function eduMd(d) { const t = new Date(d + 'T00:00:00Z'); return (t.getUTCMonth() + 1) + '월 ' + t.getUTCDate() + '일'; }
+function eduMd(d) {   // 날짜 없음·틀린 값은 빈 글(NaN월 NaN일 이 화면에 나가지 않게)
+  if (!d || !/^\d{4}-\d{2}-\d{2}/.test(String(d))) return '';
+  var t = new Date(String(d).slice(0, 10) + 'T00:00:00Z'); if (isNaN(t.getTime())) return '';
+  return (t.getUTCMonth() + 1) + '월 ' + t.getUTCDate() + '일';
+}
+function eduMdw(d) {   // 10월 9일(금) — 날짜만 있는 값(KST 달력날)이라 UTC 자정으로 읽어 요일이 밀리지 않는다
+  var m = eduMd(d); if (!m) return '';
+  return m + '(' + '일월화수목금토'.charAt(new Date(String(d).slice(0, 10) + 'T00:00:00Z').getUTCDay()) + ')';
+}
 function eduPhaseLabel(c) {
   if (c.phase === 'upcoming') return c.applyFrom ? eduMd(c.applyFrom) + '부터 신청' : '곧 신청을 받아요';
   if (c.phase === 'closed') return '모집 끝';
@@ -28,7 +36,7 @@ function eduErrText(code) {
 }
 // ── 교육 순수 함수 (여기까지) ──
 
-var eduState = { list: null, mine: [], open: true };
+var eduState = { list: null, mine: [], open: true, tab: 'open', screen: 0 };   // screen: 화면이 바뀔 때마다 올라가는 번호 — 늦게 온 응답이 다른 화면을 덮지 않게
 
 function eduEsc(s) { return (typeof boardEsc === 'function') ? boardEsc(String(s == null ? '' : s)) : String(s == null ? '' : s); }
 
@@ -41,10 +49,13 @@ function renderEduList(tab) {
     '<button class="home-fab" id="edu-home" aria-label="첫 화면으로">' + homeFabLabel(u, true) + '</button>';
   window.scrollTo(0, 0);
   document.getElementById('edu-home').addEventListener('click', function () { renderSummary(); });
+  var my = ++eduState.screen;
   api.eduList(u.user_id || '').then(function (r) {
+    if (my !== eduState.screen) return;
     eduState.list = r.courses || []; eduState.mine = r.mine || []; eduState.open = r.open !== false;   // 서버가 문(eduOpen·시험 참여자)을 알려 준다
     eduDrawList(tab || (eduState.mine.length ? 'mine' : 'open'));
   }).catch(function () {
+    if (my !== eduState.screen) return;
     var w = document.querySelector('.edu-wrap');
     if (w) w.innerHTML = '<p class="edu-empty">지금 불러올 수 없어요. 잠시 뒤 다시 열어 주세요.</p>';
   });
@@ -52,6 +63,7 @@ function renderEduList(tab) {
 
 function eduDrawList(tab) {
   var w = document.querySelector('.edu-wrap'); if (!w) return;
+  eduState.tab = tab;
   var open = eduState.list.filter(function (c) { return c.phase === 'open'; });
   var soon = eduState.list.filter(function (c) { return c.phase === 'upcoming'; });
   var tabs = [['open', '모집 중'], ['soon', '곧 열려요'], ['mine', '내 강좌']];
@@ -59,15 +71,15 @@ function eduDrawList(tab) {
     return '<button class="edu-tab' + (t[0] === tab ? ' on' : '') + '" data-tab="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>';
   var body;
   if (tab === 'mine') {
-    body = eduState.mine.length ? eduState.mine.map(function (m) {
-      return '<div class="edu-card" data-course="' + eduEsc(m.courseId) + '"><span class="edu-k">' + eduEsc(eduStatusLine(m)) + '</span>' +
+    body = eduState.mine.length ? eduState.mine.map(function (m, i) {
+      return '<div class="edu-card" data-i="' + i + '"><span class="edu-k">' + eduEsc(eduStatusLine(m)) + '</span>' +
         '<b>' + eduEsc(m.title) + '</b><span>' + eduEsc(m.term) + '</span>' +
-        (m.nextSession ? '<span>다음 시간 · ' + eduEsc(eduMd(m.nextSession.date)) + (m.nextSession.start ? ' ' + eduEsc(m.nextSession.start) : '') + '</span>' : '') +
+        (m.nextSession ? '<span>다음 시간 · ' + eduEsc(eduMdw(m.nextSession.date)) + (m.nextSession.start ? ' ' + eduEsc(m.nextSession.start) : '') + '</span>' : '') +
         '</div>'; }).join('') : '<p class="edu-empty">아직 신청한 강좌가 없어요.</p>';
   } else {
     var list = tab === 'soon' ? soon : open;
-    body = list.length ? list.map(function (c) {
-      return '<div class="edu-card" data-course="' + eduEsc(c.id) + '"><span class="edu-k">' + eduEsc(c.kindLabel) + '</span>' +
+    body = list.length ? list.map(function (c, i) {
+      return '<div class="edu-card" data-i="' + i + '"><span class="edu-k">' + eduEsc(c.kindLabel) + '</span>' +
         '<b>' + eduEsc(c.title) + (c.term ? ' <small>(' + eduEsc(c.term) + ')</small>' : '') + '</b>' +
         (c.firstDate ? '<span>' + eduEsc(eduMd(c.firstDate)) + (c.lastDate && c.lastDate !== c.firstDate ? ' ~ ' + eduEsc(eduMd(c.lastDate)) : '') + ' · ' + c.sessionsCount + '회</span>' : '') +
         '<span>' + eduEsc(eduPhaseLabel(c)) + (c.mode === 'approve' ? ' · 담당자 확정' : '') + '</span></div>'; }).join('')
@@ -76,7 +88,10 @@ function eduDrawList(tab) {
   var door = (!eduState.open && tab !== 'mine') ? '<p class="edu-empty">' + eduErrText('not-open') + '</p>' : '';
   w.innerHTML = head + door + '<div class="edu-list">' + body + '</div>';
   w.querySelectorAll('.edu-tab').forEach(function (b) { b.addEventListener('click', function () { eduDrawList(b.dataset.tab); }); });
-  w.querySelectorAll('.edu-card').forEach(function (c) { c.addEventListener('click', function () { renderEduCourse(c.dataset.course); }); });
+  var rows = tab === 'mine' ? eduState.mine : (tab === 'soon' ? soon : open);   // 강좌 번호는 화면 글자(data-*)에 싣지 않고 이 배열에서 꺼낸다
+  w.querySelectorAll('.edu-card').forEach(function (c) { c.addEventListener('click', function () {
+    var row = rows[Number(c.dataset.i)]; if (row) renderEduCourse(tab === 'mine' ? row.courseId : row.id);
+  }); });
 }
 
 function renderEduCourse(id) {
@@ -86,12 +101,14 @@ function renderEduCourse(id) {
     '<button class="home-fab" id="edu-home" aria-label="첫 화면으로">' + homeFabLabel(u, true) + '</button>';
   window.scrollTo(0, 0);
   document.getElementById('edu-home').addEventListener('click', function () { renderSummary(); });
+  var my = ++eduState.screen;
   api.eduCourse(id, u.user_id || '').then(function (r) {
+    if (my !== eduState.screen) return;
     var w = document.querySelector('.edu-wrap'); if (!w) return;
     if (!r || !r.ok) { w.innerHTML = '<p class="edu-empty">' + eduEsc(eduErrText(r && r.error)) + '</p>'; return; }
     var c = r.course, m = r.mine;
     var sess = (c.sessions || []).map(function (s) {
-      return '<li>' + s.no + ' · ' + eduEsc(eduMd(s.date)) + (s.start ? ' ' + eduEsc(s.start) : '') + (s.topic ? ' — ' + eduEsc(s.topic) : '') + '</li>'; }).join('');
+      return '<li>' + s.no + ' · ' + eduEsc(eduMdw(s.date)) + (s.start ? ' ' + eduEsc(s.start) : '') + (s.topic ? ' — ' + eduEsc(s.topic) : '') + '</li>'; }).join('');
     var info = [c.teacher && '강사 · ' + c.teacher, c.place && '장소 · ' + c.place, c.target && '대상 · ' + c.target, c.fee && '교재비 · ' + c.fee,
       c.prereq && c.prereq.length && '먼저 들으실 과정 · ' + c.prereq.join(', ')].filter(Boolean)
       .map(function (t) { return '<span>' + eduEsc(t) + '</span>'; }).join('');
@@ -99,7 +116,7 @@ function renderEduCourse(id) {
     var act;
     if (m && ['applied', 'confirmed', 'waitlisted'].indexOf(m.status) >= 0) {
       act = '<div class="edu-mine"><b>' + eduEsc(eduStatusLine(m)) + '</b>' +
-        (m.canCancel ? '<span>' + eduEsc(eduMd(m.cancelUntil)) + '까지 앱에서 취소할 수 있어요</span>' +
+        (m.canCancel ? '<span>' + (eduMd(m.cancelUntil) ? eduEsc(eduMd(m.cancelUntil)) + '까지' : '첫 시간 전까지') + ' 앱에서 취소할 수 있어요</span>' +
           '<button class="edu-btn ghost" id="edu-cancel">신청 취소</button>'
           : '<span>시작한 뒤에는 담당자에게 말씀해 주세요</span>') + '</div>';   // 과제 7 검토 반영(2026-10-05) — 서버가 canCancel 을 준다
     } else if (m && m.status === 'declined') {
@@ -115,7 +132,7 @@ function renderEduCourse(id) {
       (info ? '<div class="edu-info">' + info + '</div>' : '') +
       (sess ? '<h3 class="edu-h">일정 ' + c.sessions.length + '회</h3><ul class="edu-sess">' + sess + '</ul>' : '') +
       '<h3 class="edu-h">수료 기준</h3><p class="edu-desc">' + eduEsc(rule) + '</p>' + act + '<p class="edu-msg" id="edu-msg" role="status"></p>';
-    document.getElementById('edu-back').addEventListener('click', function () { renderEduList(); });
+    document.getElementById('edu-back').addEventListener('click', function () { renderEduList(eduState.tab); });
     // ⚠️ api(supaCall)는 응답에 error 가 있으면 throw 한다 — 오류 말은 .catch 의 err.message(서버 오류 코드)로 고른다.
     var say = function (t) { var x = document.getElementById('edu-msg'); if (x) x.textContent = t; };
     var ap = document.getElementById('edu-apply');
@@ -131,13 +148,15 @@ function renderEduCourse(id) {
       // appConfirm(msg, opts) 두 인자 · Promise<boolean>(js/events.js 937줄과 같은 꼴)
       appConfirm('신청을 취소할까요?', { okText: '신청 취소', cancelText: '돌아가기', danger: true }).then(function (yes) {
         if (!yes) return;
+        cn.disabled = true;
         return api.eduCancel(m.id, u.user_id || '').then(function (x) {
-          if (!x || x.ok === false) { say(eduErrText(x && x.error)); return; }
+          if (!x || x.ok === false) { say(eduErrText(x && x.error)); cn.disabled = false; return; }
           appAlert('취소했어요.'); renderEduCourse(id);
-        }).catch(function (err) { say(eduErrText(err && err.message)); });
+        }).catch(function (err) { say(eduErrText(err && err.message)); cn.disabled = false; });
       });
     });
   }).catch(function () {
+    if (my !== eduState.screen) return;
     var w = document.querySelector('.edu-wrap'); if (w) w.innerHTML = '<p class="edu-empty">' + eduErrText('') + '</p>';
   });
 }
