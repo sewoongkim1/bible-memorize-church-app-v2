@@ -227,6 +227,46 @@ grant execute on function public.edu_apply(uuid, uuid, jsonb, boolean) to servic
 grant execute on function public.edu_cancel(bigint, boolean) to service_role;
 grant execute on function public.edu_staff_set(bigint, text, boolean) to service_role;
 
+-- 강좌별 신청 수 — 쪽 넘기기 없이 한 번에(PostgREST 1,000줄 한도에 안 걸리게 · 교회 어드민이 rpc 로 부른다).
+--   p_ids 에 든 강좌는 신청이 없어도 0 줄로 돌려준다.
+create or replace function public.edu_course_counts(p_ids uuid[])
+returns table(course_id uuid, applied int, confirmed int, waitlisted int)
+language sql stable security definer set search_path = public as $$
+  select i.id,
+         (count(e.id) filter (where e.status = 'applied'))::int,
+         (count(e.id) filter (where e.status = 'confirmed'))::int,
+         (count(e.id) filter (where e.status = 'waitlisted'))::int
+  from unnest(coalesce(p_ids, array[]::uuid[])) as i(id)
+  left join public.edu_enrollments e on e.course_id = i.id and e.status in ('applied','confirmed','waitlisted')
+  group by i.id
+$$;
+
+-- 회차 통째로 바꾸기 — 한 트랜잭션. 같은 번호(no)의 줄은 id 를 지킨다(2단계 출석이 edu_sessions.id 를 가리킨다).
+--   끝난·보관된 강좌는 못 바꾼다. 목록에 없는 번호만 지운다. p_rows 는 [{no,on_date,start_time,end_time,topic,place}…].
+create or replace function public.edu_sessions_replace(p_course uuid, p_rows jsonb)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare c public.edu_courses; n int;
+begin
+  select * into c from public.edu_courses where id = p_course for update;
+  if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
+  if c.status in ('done','archived') then return jsonb_build_object('ok',false,'error','course-closed'); end if;
+  if p_rows is null or jsonb_typeof(p_rows) <> 'array' then return jsonb_build_object('ok',false,'error','bad-rows'); end if;
+  delete from public.edu_sessions where course_id = p_course
+    and no not in (select r.no from jsonb_to_recordset(p_rows) as r(no int));
+  insert into public.edu_sessions(course_id, no, on_date, start_time, end_time, topic, place)
+    select p_course, r.no, r.on_date, r.start_time, r.end_time, coalesce(r.topic,''), coalesce(r.place,'')
+    from jsonb_to_recordset(p_rows) as r(no int, on_date date, start_time time, end_time time, topic text, place text)
+  on conflict (course_id, no) do update set on_date = excluded.on_date, start_time = excluded.start_time,
+    end_time = excluded.end_time, topic = excluded.topic, place = excluded.place;
+  n := jsonb_array_length(p_rows);
+  return jsonb_build_object('ok',true,'count',n);
+end $$;
+
+revoke all on function public.edu_course_counts(uuid[]) from public, anon, authenticated;
+revoke all on function public.edu_sessions_replace(uuid, jsonb) from public, anon, authenticated;
+grant execute on function public.edu_course_counts(uuid[]) to service_role;
+grant execute on function public.edu_sessions_replace(uuid, jsonb) to service_role;
+
 commit;
 
 -- 확인 — 표 셋·함수 다섯이 있고, anon·authenticated 권한이 없는지
