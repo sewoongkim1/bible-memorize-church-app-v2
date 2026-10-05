@@ -6,6 +6,9 @@
 #     ③ 강좌 3 의 [가, 나] ④ 강좌 3 의 [나, 다](같은 강좌 · 한 분 겹침 — 강좌 줄을 다툰다)
 #   → 번호 13개가 겹치지 않고 빈틈없이 이어진다 · 강좌마다 덩이로 이어진다 · 「나」는 한 번만 새 번호(다른 쪽은 already) ·
 #     호출이 한 줄로 선다(edu_issue_certs 가 끝난 시각 사이가 HOLD 초 이상 — 잠금을 쥔 채 pg_sleep 으로 기다리게 했다).
+#   ⑤ (검토 반영 2026-10-05) 다른 강좌 id 를 섞어 보낸 확정은 그 줄을 잠그지 않고 곧바로 wrong-course —
+#     한 연결이 강좌 2 의 신청 줄을 HOLD2 초 동안 잠가 두고, 그사이 다른 연결이 강좌 1 확정에 그 줄 id 를 섞어 보낸다 →
+#     기다리지 않고(1초 안) wrong-course 여야 한다(옛 함수는 그 줄 잠금을 기다렸다).
 #   끝나면(실패해도) 시험 신청·강좌를 지우고 그 해 번호 차례(edu_cert_seq)를 시작 전 값으로 되돌린다(개발에서만 되돌린다 — 운영은 늘기만).
 # ⚠️ 명령줄 SQL 에 한글을 쓰지 않는다(이름·제목 모두 영문 · 번호의 한글은 결과로만 읽는다). 키는 찍지 않는다.
 set -euo pipefail
@@ -63,7 +66,8 @@ wait
 echo "네 호출 $(( $(date +%s) - T0 ))초"
 q "select course_id::text as c, id, cert_no, split_part(cert_no,'-',3)::int as n, completed from edu_enrollments where course_id in ('$C1','$C2','$C3') order by id" >"$TMP/db.txt"
 SEQ=$(val "select last from edu_cert_seq where year=$YEAR")
-PYTHONIOENCODING=utf-8 python - "$TMP" "$HOLD" "$OLD" "$SEQ" "$C1" "$C2" "$C3" "$B" <<'PYEOF'
+P1=0
+PYTHONIOENCODING=utf-8 python - "$TMP" "$HOLD" "$OLD" "$SEQ" "$C1" "$C2" "$C3" "$B" <<'PYEOF' || P1=1
 import json, sys, os
 from datetime import datetime
 tmp, hold, old, seq, c1, c2, c3, b = sys.argv[1:]
@@ -109,3 +113,47 @@ if fail:
     print("실패 — " + " / ".join(fail)); sys.exit(1)
 print("통과 — 번호 13개 겹침·빈틈 없음 · 강좌마다 덩이 · 겹친 분은 한 번만 · 한 줄로 섰다")
 PYEOF
+
+# ⑤ 다른 강좌 id 를 섞은 확정은 그 줄을 잠그지 않는다 — 강좌 2 의 첫 신청 줄(X)을 한 연결이 잠가 둔 사이 강좌 1 확정에 X 를 섞는다
+HOLD2=${HOLD2:-10}; LAG=${LAG:-4}
+X=${I2%%,*}; Y=${I1%%,*}
+run() {   # 이름, SQL — 연결 오류일 때만 다시
+  local f="$TMP/$1.txt" t
+  for t in 1 2 3 4 5 6 7 8; do
+    q "$2" >"$f" || true
+    if grep -qE 'ConnectTempRole|Failed to connect' "$f"; then sleep 1; continue; fi
+    return 0
+  done
+}
+run hold "with l as (select id from edu_enrollments where id=$X for update) select (select count(*) from l) as locked, statement_timestamp() as h_start, pg_sleep($HOLD2) as s, clock_timestamp() as h_end" &
+sleep "$LAG"
+run probe "select edu_issue_certs('$C1', array[$Y,$X]::bigint[], null) as r, statement_timestamp() as t_start, clock_timestamp() as t_got"
+wait
+P5=0
+PYTHONIOENCODING=utf-8 python - "$TMP" "$X" <<'PYEOF' || P5=1
+import json, sys, os
+from datetime import datetime
+tmp, x = sys.argv[1], int(sys.argv[2])
+def first(t):
+    d, _ = json.JSONDecoder().raw_decode(t[t.index("{"):])
+    return (d.get("rows") or [{}])[0]
+def ts(s):
+    s = s.replace(" ", "T")
+    if s.endswith("+00"): s += ":00"
+    return datetime.fromisoformat(s).timestamp()
+h = first(open(os.path.join(tmp, "hold.txt"), encoding="utf-8").read())
+p = first(open(os.path.join(tmp, "probe.txt"), encoding="utf-8").read())
+r = p["r"] if isinstance(p.get("r"), dict) else json.loads(p.get("r") or "{}")
+hs, he, ps, pg = ts(h["h_start"]), ts(h["h_end"]), ts(p["t_start"]), ts(p["t_got"])
+fail = []
+if h.get("locked") != 1: fail.append("잠그는 쪽이 줄을 못 잡았다 " + json.dumps(h, ensure_ascii=False))
+overlap = hs <= ps <= he - 0.5
+if not overlap: fail.append("겹치지 않았다(확정이 잠금 시간 밖에서 돌았다 — LAG·HOLD2 를 늘려 다시)")
+if r.get("error") != "wrong-course" or r.get("ids") != [x]: fail.append("wrong-course 가 아님 " + json.dumps(r, ensure_ascii=False))
+if pg - ps >= 1.0: fail.append("다른 강좌 줄 잠금을 %.2f초 기다렸다(그 줄을 잠그려 했다)" % (pg - ps))
+print("⑤ 잠긴 다른 강좌 줄을 섞은 확정: %s · 기다린 시간 %.2f초 · 잠금 시간 안에서 돌았나 %s" % (r.get("error"), pg - ps, overlap))
+if fail:
+    print("실패 — " + " / ".join(fail)); sys.exit(1)
+print("통과 — 다른 강좌 줄은 잠그지 않고 곧바로 wrong-course")
+PYEOF
+[ "$P1" = "0" ] && [ "$P5" = "0" ] || exit 1

@@ -1,8 +1,9 @@
 -- 교육신청 1단계 — 강좌·회차·신청 표와 정원·대기 규칙(2026-10-05 · 설계 docs/superpowers/specs/2026-10-05-education-courses-design.md §5·§6)
 --   2단계(2026-10-05) — 출석부 표 edu_attendance · edu_attendance_set·edu_attendance_bulk · 회차 지우기 has-attendance
 --   3단계(2026-10-05) — 수료(check_done·completed·completed_at·cert_no·cert_revoked) · 수료번호 edu_cert_seq · 수료증 설정 edu_cert_settings ·
---                      edu_check_set·edu_issue_certs·edu_revoke_cert · 번호 있는 줄은 상태를 못 바꾼다(has-cert)
+--                      edu_check_set·edu_issue_certs·edu_revoke_cert · 살아 있는 수료 줄(번호 있고 취소 아님)은 상태를 못 바꾼다(has-cert)
 --                      계획 docs/superpowers/plans/2026-10-05-education-stage3-certificates.md
+--                      (검토 반영 2026-10-05: 수료 취소된 줄은 취소·반려 됨 · 칸 제약은 늘 지우고 다시 건다 · 이 파일 뒤 member_merge.sql 다시)
 -- ⚠️ 이 저장소는 공개(public)입니다 — 비밀번호·키를 절대 넣지 마세요.
 -- 적용: 개발(ktpwthwqzgcqcrmsafdo) 먼저 → supabase/tests/edu_*.dev.sql(출석은 edu_attendance.dev.sql · 수료는 edu_certs.dev.sql) ·
 --       tests/edu-concurrency.dev.sh · tests/edu-cert-concurrency.dev.sh 확인 → 운영.
@@ -118,7 +119,9 @@ create index if not exists edu_attendance_session on public.edu_attendance(sessi
 --   completed_at — 수료한 때(번호의 해 = 이 시각의 한국 해) · 취소해도 남긴다(되살리면 같은 번호·같은 날)
 --   cert_no      — 수료번호 「고척-YYYY-NNNN」(unique · 한 번 쓴 번호는 다시 쓰지 않는다 · 취소해도 남긴다 — 진위 확인에 「취소됨」)
 --   cert_revoked — 수료 취소(번호는 남김)
---   ⚠️ 번호가 있는 줄은 늘 확정(confirmed)이다 — edu_cancel·edu_staff_set 이 has-cert 로 막는다(합치기의 「취소 줄 지우기」에 번호 줄이 끼지 않게).
+--   ⚠️ **살아 있는 수료**(번호 있고 취소 아님) 줄은 늘 확정(confirmed)이다 — edu_cancel·edu_staff_set 이 has-cert 로 막고 아래 칸 제약도 막는다.
+--      수료를 **취소한** 줄은 취소·반려·대기로 바꿀 수 있다(검토 반영 2026-10-05) — 번호는 그 줄에 남아 다시 쓰이지 않고 진위 확인에 「취소됨」.
+--      그래서 번호가 있는 **취소 줄**이 생길 수 있다 — 기록 합치기(member_merge.sql)는 그런 겹침 줄을 지우지 않고 merge-edu-conflict 로 멈춘다.
 --   새 칸은 신청 줄에 붙어 있어 기록 합치기(member_merge.sql)가 줄째 옮긴다.
 alter table public.edu_enrollments add column if not exists check_done   boolean not null default false;
 alter table public.edu_enrollments add column if not exists completed    boolean not null default false;
@@ -129,14 +132,18 @@ do $$ begin
   if not exists (select 1 from pg_constraint where conrelid = 'public.edu_enrollments'::regclass and conname = 'edu_enrollments_cert_no_key') then
     alter table public.edu_enrollments add constraint edu_enrollments_cert_no_key unique (cert_no);   -- 진위 확인이 이 색인으로 찾는다
   end if;
-  -- 칸끼리 어긋나지 않게: 번호 꼴 · 수료면 번호·수료일이 있고 취소 아님 · 취소면 번호가 있다
-  if not exists (select 1 from pg_constraint where conrelid = 'public.edu_enrollments'::regclass and conname = 'edu_enrollments_cert_check') then
-    alter table public.edu_enrollments add constraint edu_enrollments_cert_check check (
-      (cert_no is null or cert_no ~ '^고척-[0-9]{4}-[0-9]{4,6}$')
-      and (not completed or (cert_no is not null and completed_at is not null and not cert_revoked))
-      and (not cert_revoked or cert_no is not null));
-  end if;
 end $$;
+-- 칸끼리 어긋나지 않게(검토 반영 2026-10-05) — 정의를 고쳐도 다시 돌릴 때 새 정의가 걸리도록 **늘 지우고 다시 건다**(같은 트랜잭션 · 표가 작다):
+--   번호 꼴 · 수료면 번호 · 취소면 번호 · 번호가 있으면 수료·취소 가운데 꼭 하나(completed <> cert_revoked) · 번호가 있으면 수료일 ·
+--   번호가 있고 취소 아님(살아 있는 수료)이면 확정 줄.
+alter table public.edu_enrollments drop constraint if exists edu_enrollments_cert_check;
+alter table public.edu_enrollments add constraint edu_enrollments_cert_check check (
+  (cert_no is null or cert_no ~ '^고척-[0-9]{4}-[0-9]{4,6}$')
+  and (not completed or cert_no is not null)
+  and (not cert_revoked or cert_no is not null)
+  and (cert_no is null or (completed <> cert_revoked))
+  and (cert_no is null or completed_at is not null)
+  and (cert_no is null or status = 'confirmed' or cert_revoked));
 
 -- 수료번호 차례 — 해마다 한 줄(그 해 모든 강좌가 한 줄로 이어 받는다). last 는 늘기만 한다(취소해도 줄지 않는다).
 --   쓰는 것은 edu_cert_take(안쪽 함수) 하나 — 해 줄을 for update 로 잠가 동시 확정이 같은 번호를 받지 않는다.
@@ -281,9 +288,11 @@ begin
       from public.edu_sessions s where s.course_id = cid;   -- 집계라 회차가 없어도 한 줄이 나온다
     if first_day is not null and edu_today() >= first_day then return jsonb_build_object('ok',false,'error','too-late'); end if;
   end if;
-  -- 수료번호가 있는 줄(수료 · 수료 취소)은 취소하지 않는다(3단계) — 번호 줄은 늘 확정이어야 합치기가 그 줄을 「취소 줄」로 지우지 않는다.
-  --   성도님은 첫 날 전에만 취소하므로 위 too-late 가 먼저 걸린다(번호는 그 뒤에 생긴다).
-  if e.cert_no is not null then return jsonb_build_object('ok',false,'error','has-cert'); end if;
+  -- **살아 있는 수료**(번호 있고 취소 아님) 줄은 취소하지 않는다(3단계) — 먼저 수료를 취소해야 한다(edu_revoke_cert).
+  --   수료를 취소한 줄은 취소된다(검토 반영 2026-10-05) — 번호는 그 줄에 남고(다시 쓰지 않음 · 진위 확인 「취소됨」),
+  --   합치기는 번호가 있는 취소 겹침 줄을 지우지 않고 멈춘다(member_merge.sql). 칸 제약 edu_enrollments_cert_check 도 같은 규칙.
+  --   성도님은 첫 날 전에만 취소하므로 보통 위 too-late 가 먼저 걸린다(번호는 그 뒤에 생긴다).
+  if e.cert_no is not null and not e.cert_revoked then return jsonb_build_object('ok',false,'error','has-cert'); end if;
   was_confirmed := e.status = 'confirmed';
   update public.edu_enrollments set status = 'cancelled', cancelled_at = now(), updated_at = now() where id = e.id;
   if was_confirmed then p := edu_promote(cid); end if;
@@ -305,7 +314,8 @@ begin
   select * into e from public.edu_enrollments where id = p_enrollment for update;
   if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
   if e.status = p_status then return jsonb_build_object('ok',true,'promoted',null); end if;
-  if e.cert_no is not null then return jsonb_build_object('ok',false,'error','has-cert'); end if;   -- 수료번호 줄은 확정 그대로(3단계 · edu_cancel 과 같다)
+  -- 살아 있는 수료(번호 있고 취소 아님) 줄은 확정 그대로(3단계 · edu_cancel 과 같다) · 수료를 취소한 줄은 바꿀 수 있다(번호는 남는다)
+  if e.cert_no is not null and not e.cert_revoked then return jsonb_build_object('ok',false,'error','has-cert'); end if;
   if p_status = 'confirmed' and not p_force and c.capacity is not null then
     select count(*) into n from public.edu_enrollments where course_id = c.id and status = 'confirmed';
     if n >= c.capacity then return jsonb_build_object('ok',false,'error','full'); end if;
@@ -544,7 +554,9 @@ begin
   select * into c from public.edu_courses where id = p_course for update;
   if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
   if c.status = 'archived' then return jsonb_build_object('ok',false,'error','course-archived'); end if;
-  perform 1 from public.edu_enrollments where id = any(ids) order by id for update;   -- 신청 줄(id 차례로 잠근다)
+  -- 신청 줄(id 차례로 잠근다) — **이 강좌 줄만**(검토 반영 2026-10-05: 다른 강좌 id 가 섞여 와도 그 줄을 잠그지 않는다 —
+  --   그 강좌 줄을 먼저 잡지 않은 채 남의 신청 줄을 잠그면 잠금 차례(강좌 → 신청)가 깨진다. 아래 wrong-course 로 거절한다).
+  perform 1 from public.edu_enrollments where id = any(ids) and course_id = p_course order by id for update;
   select jsonb_agg(x order by x) into bad from unnest(ids) as x where not exists (select 1 from public.edu_enrollments e where e.id = x);
   if bad is not null then return jsonb_build_object('ok',false,'error','not-found','ids',bad); end if;
   select jsonb_agg(e.id order by e.id) into bad from public.edu_enrollments e where e.id = any(ids) and e.course_id <> p_course;
@@ -573,6 +585,7 @@ begin
 end $$;
 
 -- 수료 취소 — completed=false · cert_revoked=true. 번호·수료일은 남긴다(진위 확인에 「취소됨」 · 다시 확정하면 같은 번호로 되살아난다).
+--   취소한 뒤에는 담당자가 그 신청을 취소·반려할 수 있다(edu_cancel·edu_staff_set — 번호는 그 줄에 남고 다시 쓰이지 않는다).
 --   차례: 강좌 줄 for update → 신청 줄 for update. 보관 강좌도 된다(edu_cancel 처럼 바로잡는 일).
 --   거절: not-found · not-completed(번호 없음). 이미 취소면 {ok, already:true, certNo}. 성공 {ok, certNo}. p_by 는 edu_issue_certs 와 같다(표에 안 남김).
 create or replace function public.edu_revoke_cert(p_enrollment bigint, p_by uuid default null)
@@ -609,7 +622,8 @@ grant execute on function public.edu_revoke_cert(bigint, uuid) to service_role;
 
 commit;
 
--- 확인 — 표 여섯·함수 열넷이 있고, anon·authenticated 권한이 없는지 · 수료증 설정 한 줄 · 신청 줄의 수료 칸 다섯 · 지금 수료 수
+-- 확인 — 표 여섯·함수 열넷이 있고, anon·authenticated 권한이 없는지 · 수료증 설정 한 줄 · 신청 줄의 수료 칸 다섯 · 지금 수료 수 ·
+--   칸 제약이 새 정의인지(검토 반영 — 살아 있는 수료는 확정 줄 · 수료·취소 가운데 꼭 하나: 1 이어야)
 select 'tables' as t, count(*) from pg_tables where schemaname='public' and tablename in ('edu_courses','edu_sessions','edu_enrollments','edu_attendance',
     'edu_cert_seq','edu_cert_settings')
 union all select 'functions', count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
@@ -622,4 +636,7 @@ union all select 'routine grants', count(*) from information_schema.role_routine
 union all select 'cert settings rows', count(*) from public.edu_cert_settings
 union all select 'cert columns', count(*) from information_schema.columns
   where table_schema='public' and table_name='edu_enrollments' and column_name in ('check_done','completed','completed_at','cert_no','cert_revoked')
-union all select 'completed now', count(*) from public.edu_enrollments where completed;
+union all select 'completed now', count(*) from public.edu_enrollments where completed
+union all select 'cert check (status · <>)', count(*) from pg_constraint
+  where conrelid='public.edu_enrollments'::regclass and conname='edu_enrollments_cert_check'
+    and pg_get_constraintdef(oid) like '%status%' and pg_get_constraintdef(oid) like '%<>%';

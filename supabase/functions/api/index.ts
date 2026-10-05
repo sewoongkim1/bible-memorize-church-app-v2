@@ -4965,9 +4965,12 @@ function eduAttendOut(m?: Map<number, string>) {
 //    한 글자도 같다(그쪽 수료증 인쇄·이쪽 진위 확인·내 수료증이 같은 규칙). tests/edu-front.test.cjs 가 이 복사본의 지문(sha256)을
 //    교회 어드민 시험과 같은 값으로 잰다 — 고칠 때는 두 곳을 같은 글자로 고치고 두 시험의 지문을 함께 바꾼다.
 //    번호 꼴은 SQL edu_cert_take(「고척-YYYY-NNNN」 · 9999 다음은 자리가 는다) · 칸 제약 edu_enrollments_cert_check 와 같다.
+//    이름 가리기: 빈 이름은 빈 글 · **한 글자는 「*」**(검토 반영 2026-10-05 — 그대로 내보내면 진위 확인이 이름을 다 보여 준다) ·
+//    두 글자는 뒤를 * · 세 글자 넘으면 처음과 끝만(홍길동 → 홍*동 · 남궁가나 → 남**나).
 function maskName(name) {
   var s = Array.from(String(name == null ? "" : name).normalize("NFC").trim());
-  if (s.length < 2) return s.join("");
+  if (s.length === 0) return "";
+  if (s.length === 1) return "*";
   if (s.length === 2) return s[0] + "*";
   return s[0] + "*".repeat(s.length - 2) + s[s.length - 1];
 }
@@ -5020,10 +5023,12 @@ async function eduMineOut(rows: any[], today: string, att?: Map<number, Map<numb
     const first = ss[0]?.on_date ?? c.starts_on ?? null;   // edu_cancel 의 coalesce(첫 회차 날, starts_on) 과 같다
     const next = ss.find((s: any) => s.on_date >= today) || null;
     const cancelUntil = first ? new Date(Date.parse(first + "T00:00:00Z") - 86400000).toISOString().slice(0, 10) : null;
-    // edu_cancel 규칙과 같다: 첫 날(첫 회차, 없으면 교육 시작일) 전날까지(둘 다 없으면 막지 않는다)
-    const canCancel = ["applied", "confirmed", "waitlisted"].includes(r.status) && (cancelUntil === null || today <= cancelUntil);
+    // 살아 있는 수료(번호 있고 취소 아님) — edu_cancel 이 has-cert 로 막는 줄(검토 반영 2026-10-05)
+    const activeCert = !!r.cert_no && r.cert_revoked !== true;
+    // edu_cancel 규칙과 같다: 첫 날(첫 회차, 없으면 교육 시작일) 전날까지(둘 다 없으면 막지 않는다) · 살아 있는 수료 줄은 못 한다
+    const canCancel = ["applied", "confirmed", "waitlisted"].includes(r.status) && (cancelUntil === null || today <= cancelUntil) && !activeCert;
     // 수료(3단계) — completed 는 수료이고 취소되지 않았을 때만 true · certNo 도 그때만(취소된 번호는 내 화면에 싣지 않는다)
-    const done = r.completed === true && r.cert_revoked !== true && !!r.cert_no;
+    const done = r.completed === true && activeCert;
     return { id: r.id, courseId: r.course_id, title: c.title, term: c.term || "", status: r.status,
       statusLabel: EDU_ENROLL_LABEL[r.status] || r.status, waitNo: waits[i], cancelUntil, canCancel,
       nextSession: next ? { no: next.no, date: next.on_date, start: next.start_time?.slice(0, 5) ?? null } : null,

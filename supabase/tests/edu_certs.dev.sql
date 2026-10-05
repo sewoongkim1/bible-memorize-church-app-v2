@@ -11,9 +11,13 @@
 --   ⑤ 취소 → 번호·수료일 남김(진위 확인 「취소됨」) · 다시 확정하면 같은 번호로 되살림(restored · 차례 안 먹음) · 두 번 취소 already · 번호 없는 줄 not-completed
 --   ⑥ 확정자 아닌 줄 거절(not-confirmed) · 다른 강좌 wrong-course · 없는 줄 not-found · 빈 배열 bad-ids · 보관 강좌 course-archived — 모두 아무것도 안 씀
 --   ⑦ 확인 체크 — 확정자만 · 마친 강좌도 된다 · 보관 강좌 course-archived · null bad-done
---   ⑧ 번호 줄은 상태를 못 바꾼다 — edu_cancel(담당자)·edu_staff_set 이 has-cert(수료·수료 취소 둘 다)
---   ⑨ 칸 제약 — 번호 없이 수료 · 수료이면서 취소 · 틀린 꼴 · 같은 번호 둘 · 설정의 틀린 직인·긴 명의 → 막힌다
---   ⑩ 권한 — anon·authenticated 에 표·함수 권한 없음 · edu_cert_take 는 service_role 도 못 부른다 · 설정은 한 줄(기본 문안에 {과정})
+--   ⑧ 살아 있는 수료 줄(번호 있고 취소 아님)은 상태를 못 바꾼다 — edu_cancel(담당자·성도님)·edu_staff_set 이 has-cert
+--   ⑪ (검토 반영) 수료를 취소한 줄은 취소·반려가 된다 — 번호는 그 줄에 남고(「취소됨」) 새 확정은 그 번호를 절대 받지 않는다 ·
+--      취소된 줄은 다시 확정(not-confirmed) 안 됨 → 담당자가 확정으로 되돌리면 같은 번호로 restored
+--   ⑨ 칸 제약 — 번호 없이 수료 · 수료이면서 취소 · 번호가 있는데 수료도 취소도 아님 · 살아 있는 수료 줄을 직접 취소 상태로 ·
+--      번호가 있는데 수료일 없음 · 틀린 꼴 · 같은 번호 둘 · 설정의 틀린 직인·긴 명의 → 막힌다 · 수료 취소 줄의 상태 바꾸기는 된다
+--   ⑩ 권한 — anon·authenticated 에 표·함수 권한 없음 · edu_cert_take 는 service_role 도 못 부른다 · 설정은 한 줄(기본 문안에 {과정}) ·
+--      (검토 반영) edu_issue_certs 의 신청 줄 잠금은 이 강좌 줄만(다른 강좌 id 는 잠그지 않고 wrong-course — 진짜 겹침은 동시 시험 ⑤)
 begin;
 do $$
 declare
@@ -26,6 +30,7 @@ declare
   eb bigint[] := array[]::bigint[];     -- B 강좌 확정 둘
   ez bigint;                            -- 보관 강좌 확정 한 분
   no1 text; no3 text; at1 timestamptz;
+  no6 text; last0 int; e6st text;
 begin
   if (select count(*) from public.users) > 200 then raise exception '운영 같은 DB 입니다(users > 200) — 개발에서만 돌리세요'; end if;
   if to_regclass('public.edu_cert_seq') is null then raise exception 'edu_cert_seq 표가 없습니다 — edu.sql 을 먼저 돌리세요'; end if;
@@ -173,31 +178,65 @@ begin
   if r->>'error' is distinct from 'not-found' then raise exception '⑦ 없는 줄: %', r; end if;
   if exists (select 1 from public.edu_enrollments where id in (e[5], e[6], e[7], ez) and check_done) then raise exception '⑦ 거절했는데 썼다'; end if;
 
-  -- ⑧ 번호 줄은 상태를 못 바꾼다(수료 e[1] · 수료 취소 ez) — 번호 없는 확정 줄은 그대로 된다
+  -- ⑧ 살아 있는 수료 줄(e[1])은 상태를 못 바꾼다 — 담당자·성도님 취소 · 대기·반려 모두 has-cert · 같은 상태는 그대로 ok
   r := edu_cancel(e[1], true);
-  if r->>'error' is distinct from 'has-cert' then raise exception '⑧ 수료 줄 취소: %', r; end if;
+  if r->>'error' is distinct from 'has-cert' then raise exception '⑧ 수료 줄 취소(담당자): %', r; end if;
+  r := edu_cancel(e[1], false);                              -- 회차·시작일이 없는 강좌라 too-late 가 안 걸린다 → has-cert
+  if r->>'error' is distinct from 'has-cert' then raise exception '⑧ 수료 줄 취소(성도님): %', r; end if;
   r := edu_staff_set(e[1], 'waitlisted');
   if r->>'error' is distinct from 'has-cert' then raise exception '⑧ 수료 줄 대기로: %', r; end if;
   r := edu_staff_set(e[1], 'declined', true);
   if r->>'error' is distinct from 'has-cert' then raise exception '⑧ 수료 줄 반려: %', r; end if;
   r := edu_staff_set(e[1], 'confirmed');
   if r->>'ok' is distinct from 'true' then raise exception '⑧ 같은 상태는 그대로 ok: %', r; end if;
-  r := edu_revoke_cert(e[3]);
-  r := edu_cancel(e[3], true);
-  if r->>'error' is distinct from 'has-cert' then raise exception '⑧ 수료 취소 줄 취소: %', r; end if;
-  if (select count(*) from public.edu_enrollments where id in (e[1], e[3]) and status = 'confirmed') is distinct from 2::bigint then raise exception '⑧ 상태가 바뀜'; end if;
+  if (select (status, completed, cert_revoked, cert_no) from public.edu_enrollments where id = e[1])
+     is distinct from ('confirmed'::text, true, false, no1) then raise exception '⑧ 상태가 바뀜'; end if;
   insert into public.edu_enrollments(course_id, user_id, ident_key, name, status, source) values (ca, null, 'staff|새가족|||' || tag || 'n', tag || 'n', 'confirmed', 'staff') returning id into x;
   r := edu_cancel(x, true);
   if r->>'ok' is distinct from 'true' then raise exception '⑧ 번호 없는 줄은 취소된다: %', r; end if;
 
-  -- ⑨ 칸 제약
+  -- ⑪ (검토 반영) 수료를 취소한 줄(e[3])은 담당자가 취소할 수 있다 — 번호는 그 줄에 남고 새 확정은 그 번호를 받지 않는다
+  no3 := (select cert_no from public.edu_enrollments where id = e[3]);
+  last0 := (select last from public.edu_cert_seq where year = y);
+  r := edu_revoke_cert(e[3]);
+  if r is distinct from jsonb_build_object('ok', true, 'certNo', no3) then raise exception '⑪ 수료 취소: %', r; end if;
+  r := edu_cancel(e[3], true);
+  if r->>'ok' is distinct from 'true' then raise exception '⑪ 수료 취소 줄은 담당자가 취소할 수 있다: %', r; end if;
+  if (select (status, cert_no, cert_revoked, completed) from public.edu_enrollments where id = e[3])
+     is distinct from ('cancelled'::text, no3, true, false) then raise exception '⑪ 취소 뒤에도 번호가 그 줄에 남아야(「취소됨」)'; end if;
+  r := edu_issue_certs(ca, array[e[3]]);
+  if r->>'error' is distinct from 'not-confirmed' then raise exception '⑪ 취소된 줄은 확정 안 됨: %', r; end if;
+  -- 새 확정 한 분(e[6] — 대기에서 올라와 있지 않으면 확정으로 돌린 뒤) → 차례의 다음 번호 · 남겨 둔 no3 가 아니다
+  e6st := (select status from public.edu_enrollments where id = e[6]);
+  if e6st <> 'confirmed' then
+    r := edu_staff_set(e[6], 'confirmed', true);
+    if r->>'ok' is distinct from 'true' then raise exception '⑪ e6 확정: %', r; end if;
+  end if;
+  r := edu_issue_certs(ca, array[e[6]]);
+  no6 := r->'issued'->0->>'certNo';
+  if r->'issued'->0->>'how' is distinct from 'new' or no6 is not distinct from no3
+     or no6 is distinct from pre || lpad((last0 + 1)::text, 4, '0') then raise exception '⑪ 새 확정이 차례 다음 번호가 아님(남겨 둔 번호 %): %', no3, r; end if;
+  if (select count(*) from public.edu_enrollments where cert_no = no3) is distinct from 1::bigint then raise exception '⑪ 남겨 둔 번호의 줄이 하나가 아님'; end if;
+  -- 수료를 취소한 줄은 반려도 된다(끝나지 않은 강좌 — 끝·보관 강좌는 edu_staff_set 이 course-closed)
+  r := edu_revoke_cert(e[2]);
+  r := edu_staff_set(e[2], 'declined');
+  if r->>'ok' is distinct from 'true' then raise exception '⑪ 수료 취소 줄 반려: %', r; end if;
+  if (select (status, cert_revoked) from public.edu_enrollments where id = e[2]) is distinct from ('declined'::text, true) then raise exception '⑪ 반려 뒤 칸'; end if;
+  -- 되돌리기 — 담당자가 확정으로 돌리면 같은 번호로 restored(번호는 줄에 붙어 있다 · 차례 안 먹음)
+  r := edu_staff_set(e[3], 'confirmed', true);
+  if r->>'ok' is distinct from 'true' then raise exception '⑪ 취소 줄 다시 확정: %', r; end if;
+  r := edu_issue_certs(ca, array[e[3]]);
+  if r->'issued' is distinct from jsonb_build_array(jsonb_build_object('id', e[3], 'certNo', no3, 'how', 'restored')) then raise exception '⑪ 같은 번호로 되살림: %', r; end if;
+  if (select last from public.edu_cert_seq where year = y) is distinct from last0 + 1 then raise exception '⑪ 차례는 새 확정 하나만큼만 늘어야'; end if;
+
+  -- ⑨ 칸 제약(e[4] = 살아 있는 수료 · e[5] = 번호 없는 신청 · e[2] = 수료 취소·반려)
   begin
     update public.edu_enrollments set completed = true where id = e[5];
     raise exception '⑨ 번호 없이 수료가 됐다';
   exception when check_violation then null;
   end;
   begin
-    update public.edu_enrollments set cert_revoked = true where id = e[2];
+    update public.edu_enrollments set cert_revoked = true where id = e[4];
     raise exception '⑨ 수료이면서 취소가 됐다';
   exception when check_violation then null;
   end;
@@ -207,15 +246,32 @@ begin
   exception when check_violation then null;
   end;
   begin
-    update public.edu_enrollments set cert_no = 'X-2026-0001' where id = e[2];
+    update public.edu_enrollments set completed = false where id = e[4];
+    raise exception '⑨ 번호가 있는데 수료도 취소도 아닌 줄이 됐다';
+  exception when check_violation then null;
+  end;
+  begin
+    update public.edu_enrollments set status = 'cancelled' where id = e[4];
+    raise exception '⑨ 살아 있는 수료 줄이 직접 취소 상태가 됐다';
+  exception when check_violation then null;
+  end;
+  begin
+    update public.edu_enrollments set completed_at = null where id = e[4];
+    raise exception '⑨ 번호가 있는데 수료일이 비었다';
+  exception when check_violation then null;
+  end;
+  begin
+    update public.edu_enrollments set cert_no = 'X-2026-0001' where id = e[4];
     raise exception '⑨ 틀린 꼴이 들어갔다';
   exception when check_violation then null;
   end;
   begin
-    update public.edu_enrollments set cert_no = no1 where id = e[2];
+    update public.edu_enrollments set cert_no = no1 where id = e[4];
     raise exception '⑨ 같은 번호 둘';
   exception when unique_violation then null;
   end;
+  update public.edu_enrollments set status = 'cancelled' where id = e[2];   -- 수료 취소 줄은 상태를 바꿔도 칸 제약에 안 걸린다
+  if (select status from public.edu_enrollments where id = e[2]) is distinct from 'cancelled' then raise exception '⑨ 수료 취소 줄 상태 바꾸기'; end if;
   begin
     update public.edu_cert_settings set seal = 'data:image/svg+xml;base64,PHN2Zz4=' where id = 1;
     raise exception '⑨ SVG 직인이 들어갔다';
@@ -258,6 +314,13 @@ begin
   if pg_get_functiondef('public.edu_cert_take(timestamptz, int)'::regprocedure) !~ 'from public\.edu_cert_seq where year = y for update' then
     raise exception '⑩ edu_cert_take 가 해 줄을 잠그지 않는다';
   end if;
+  -- (검토 반영) 신청 줄 잠금은 이 강좌 줄만 — 다른 강좌 id 가 섞여 와도 그 줄을 잠그지 않는다(진짜 겹침은 동시 시험 ⑤)
+  if pg_get_functiondef('public.edu_issue_certs(uuid, bigint[], uuid)'::regprocedure) !~ 'where id = any\(ids\) and course_id = p_course order by id for update' then
+    raise exception '⑩ edu_issue_certs 가 다른 강좌 신청 줄까지 잠근다';
+  end if;
+  -- (검토 반영) 칸 제약이 새 정의다 — 살아 있는 수료는 확정 줄 · 번호가 있으면 수료·취소 가운데 꼭 하나
+  if (select pg_get_constraintdef(oid) from pg_constraint where conrelid = 'public.edu_enrollments'::regclass and conname = 'edu_enrollments_cert_check')
+     !~ 'status' then raise exception '⑩ 칸 제약이 옛 정의다(edu.sql 을 다시 돌릴 것)'; end if;
 end $$;
 select '통과' as result;
 rollback;

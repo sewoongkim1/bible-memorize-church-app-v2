@@ -16,6 +16,10 @@
 --   ⑭ 출석부: 원본 확정(출석 있음) · 남는 쪽 취소(출석 없음) → 합쳐지고 출석은 옮겨진 줄을 따라간다
 --   ⑮ 출석부: 같은 회차에 양쪽 상태가 다르다 → merge-edu-attendance (아무것도 안 바뀜) · 한쪽 칸을 지우면(확정이 아닌 줄도 null 은 된다) 합쳐진다
 --   ⑯ 출석부: 같은 회차에 양쪽 상태가 같다 → 합쳐지고 한 칸만 남는다 · 다른 회차 칸은 더해진다
+--   ⑰ 수료(3단계 · 검토 반영): 원본 = 수료 → 수료 취소 → 신청 취소(번호 남음) · 남는 쪽 확정 → merge-edu-conflict(번호 줄을 지우지 않는다) · 아무것도 안 바뀜
+--   ⑱ 수료: 원본 확정 · 남는 쪽 = 수료 취소 → 신청 취소(번호 남음) → merge-edu-conflict · 아무것도 안 바뀜
+--   ⑲ 수료: 둘 다 취소 · 남는 쪽에만 번호(수료 취소) → 합쳐진다(원본 취소 줄만 지움 · 남는 쪽 번호 줄 그대로)
+--   ⑳ 수료: 원본 = 살아 있는 수료(확정) · 남는 쪽 취소(번호 없음) → 합쳐지고 수료 줄이 남는 쪽으로 옮겨진다(번호·수료 그대로)
 -- 개발 연결 확인: users 가 200명이 넘으면 운영으로 보고 멈춘다.
 -- ⚠️ 한글이 든 SQL 은 명령줄에 붙이지 말고 -f 로만 돌린다.
 begin;
@@ -27,6 +31,7 @@ declare
   s6 uuid; t6 uuid; s7 uuid; t7 uuid; s8 uuid; t8 uuid; s9 uuid; t9 uuid; s10 uuid; t10 uuid; s11 uuid; t11 uuid;
   s12 uuid; t12 uuid; s13 uuid; t13 uuid; s14 uuid; t14 uuid; s15 uuid; t15 uuid; s16 uuid; t16 uuid;
   c5 uuid; ss1 bigint; ss2 bigint; ea bigint; eb bigint;
+  s17 uuid; t17 uuid; s18 uuid; t18 uuid; s19 uuid; t19 uuid; s20 uuid; t20 uuid; c6 uuid; cn text;
 begin
   select count(*) into n from public.users;
   if n > 200 then raise exception 'member_merge_edu: users 가 %명 — 운영으로 보여 멈춥니다.', n; end if;
@@ -277,6 +282,82 @@ begin
        or (select state from public.edu_attendance where enrollment_id=eb and session_id=ss2) is distinct from 'excused'
        or exists(select 1 from public.edu_enrollments where id=ea) then
       raise exception 'member_merge_edu ⑯: 같은 상태는 한 칸 · 다른 회차는 더해져야 함'; end if;
+  end if;
+  -- ⑰~⑳ 수료(3단계 · 검토 반영 2026-10-05) — edu.sql 3단계 칸(cert_no)이 있을 때만. 번호는 진짜 함수로 붙인다(edu_issue_certs·edu_revoke_cert·edu_cancel)
+  --   — 이 블록 안의 문장은 실행될 때만 칸을 찾으므로 3단계 전 DB 에서는 건너뛴다.
+  if exists(select 1 from pg_attribute where attrelid='public.edu_enrollments'::regclass and attname='cert_no' and attnum>0 and not attisdropped) then
+    insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상s17'||tag,'교구|교육합치기점검|0|||가상s17'||tag) returning id into s17;
+    insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상t17'||tag,'교구|교육합치기점검|0|||가상t17'||tag) returning id into t17;
+    insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상s18'||tag,'교구|교육합치기점검|0|||가상s18'||tag) returning id into s18;
+    insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상t18'||tag,'교구|교육합치기점검|0|||가상t18'||tag) returning id into t18;
+    insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상s19'||tag,'교구|교육합치기점검|0|||가상s19'||tag) returning id into s19;
+    insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상t19'||tag,'교구|교육합치기점검|0|||가상t19'||tag) returning id into t19;
+    insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상s20'||tag,'교구|교육합치기점검|0|||가상s20'||tag) returning id into s20;
+    insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상t20'||tag,'교구|교육합치기점검|0|||가상t20'||tag) returning id into t20;
+    insert into public.edu_courses(title,kind,status) values ('합치기점검 강좌6','lecture','open') returning id into c6;
+
+    -- ⑰ 원본: 수료 → 수료 취소 → 신청 취소(담당자 · 번호 남음) · 남는 쪽: 확정 → merge-edu-conflict · 아무것도 안 바뀜
+    perform public.edu_apply(c6, s17, '{"name":"가상s17"}');
+    perform public.edu_apply(c6, t17, '{"name":"가상t17"}');
+    select id into ea from public.edu_enrollments where course_id=c6 and user_id=s17;
+    r := public.edu_issue_certs(c6, array[ea]);
+    cn := r->'issued'->0->>'certNo';
+    if cn is null then raise exception 'member_merge_edu ⑰: 번호를 못 받음 — %', r; end if;
+    r := public.edu_revoke_cert(ea);
+    r := public.edu_cancel(ea, true);
+    if r->>'ok' is distinct from 'true' then raise exception 'member_merge_edu ⑰: 수료 취소 줄 취소 — %', r; end if;
+    r := public.admin_merge_members(s17, t17, '교구|교육합치기점검|0|||가상s17'||tag, '교구|교육합치기점검|0|||가상t17'||tag, '개발 점검 — 번호 있는 원본 취소 줄(되돌림)');
+    if r->>'error' is distinct from 'merge-edu-conflict' then raise exception 'member_merge_edu ⑰: merge-edu-conflict 가 아님 — %', r; end if;
+    if not exists(select 1 from public.edu_enrollments where id=ea and user_id=s17 and status='cancelled' and cert_no=cn and cert_revoked)
+       or not exists(select 1 from public.users where id=s17)
+       or (select count(*) from public.edu_enrollments where course_id=c6 and user_id=t17) <> 1 then
+      raise exception 'member_merge_edu ⑰: 멈췄는데 무언가 바뀜(번호 줄이 지워졌나)'; end if;
+
+    -- ⑱ 원본: 확정 · 남는 쪽: 수료 → 수료 취소 → 신청 취소(번호 남음) → merge-edu-conflict · 아무것도 안 바뀜
+    perform public.edu_apply(c6, s18, '{"name":"가상s18"}');
+    perform public.edu_apply(c6, t18, '{"name":"가상t18"}');
+    select id into eb from public.edu_enrollments where course_id=c6 and user_id=t18;
+    r := public.edu_issue_certs(c6, array[eb]);
+    cn := r->'issued'->0->>'certNo';
+    r := public.edu_revoke_cert(eb);
+    r := public.edu_cancel(eb, true);
+    if r->>'ok' is distinct from 'true' then raise exception 'member_merge_edu ⑱: 수료 취소 줄 취소 — %', r; end if;
+    r := public.admin_merge_members(s18, t18, '교구|교육합치기점검|0|||가상s18'||tag, '교구|교육합치기점검|0|||가상t18'||tag, '개발 점검 — 번호 있는 남는 쪽 취소 줄(되돌림)');
+    if r->>'error' is distinct from 'merge-edu-conflict' then raise exception 'member_merge_edu ⑱: merge-edu-conflict 가 아님 — %', r; end if;
+    if not exists(select 1 from public.edu_enrollments where id=eb and user_id=t18 and status='cancelled' and cert_no=cn and cert_revoked)
+       or not exists(select 1 from public.edu_enrollments where course_id=c6 and user_id=s18 and status='confirmed') then
+      raise exception 'member_merge_edu ⑱: 멈췄는데 무언가 바뀜'; end if;
+
+    -- ⑲ 둘 다 취소 · 남는 쪽에만 번호(수료 취소) → 합쳐진다 · 원본 취소 줄만 지우고 남는 쪽 번호 줄 그대로
+    perform public.edu_apply(c6, s19, '{"name":"가상s19"}');
+    perform public.edu_apply(c6, t19, '{"name":"가상t19"}');
+    select id into ea from public.edu_enrollments where course_id=c6 and user_id=s19;
+    select id into eb from public.edu_enrollments where course_id=c6 and user_id=t19;
+    r := public.edu_issue_certs(c6, array[eb]);
+    cn := r->'issued'->0->>'certNo';
+    r := public.edu_revoke_cert(eb);
+    r := public.edu_cancel(eb, true);
+    r := public.edu_cancel(ea, true);
+    r := public.admin_merge_members(s19, t19, '교구|교육합치기점검|0|||가상s19'||tag, '교구|교육합치기점검|0|||가상t19'||tag, '개발 점검 — 둘 다 취소 · 남는 쪽 번호(되돌림)');
+    if coalesce((r->>'ok')::boolean,false) is not true then raise exception 'member_merge_edu ⑲: 합치기 거절 — %', r; end if;
+    if exists(select 1 from public.edu_enrollments where id=ea)
+       or not exists(select 1 from public.edu_enrollments where id=eb and user_id=t19 and cert_no=cn and cert_revoked)
+       or (select count(*) from public.edu_enrollments where course_id=c6 and user_id=t19) <> 1 then
+      raise exception 'member_merge_edu ⑲: 원본 취소 줄만 지우고 번호 줄은 남아야 함'; end if;
+
+    -- ⑳ 원본: 살아 있는 수료(확정) · 남는 쪽: 취소(번호 없음) → 합쳐지고 수료 줄이 남는 쪽으로 옮겨진다(번호·수료 그대로)
+    perform public.edu_apply(c6, s20, '{"name":"가상s20"}');
+    perform public.edu_apply(c6, t20, '{"name":"가상t20"}');
+    select id into ea from public.edu_enrollments where course_id=c6 and user_id=s20;
+    select id into eb from public.edu_enrollments where course_id=c6 and user_id=t20;
+    r := public.edu_issue_certs(c6, array[ea]);
+    cn := r->'issued'->0->>'certNo';
+    r := public.edu_cancel(eb, true);
+    r := public.admin_merge_members(s20, t20, '교구|교육합치기점검|0|||가상s20'||tag, '교구|교육합치기점검|0|||가상t20'||tag, '개발 점검 — 살아 있는 수료 줄 옮기기(되돌림)');
+    if coalesce((r->>'ok')::boolean,false) is not true then raise exception 'member_merge_edu ⑳: 합치기 거절 — %', r; end if;
+    if exists(select 1 from public.edu_enrollments where id=eb)
+       or not exists(select 1 from public.edu_enrollments where id=ea and user_id=t20 and status='confirmed' and completed and not cert_revoked and cert_no=cn) then
+      raise exception 'member_merge_edu ⑳: 수료 줄이 번호 그대로 남는 쪽으로 옮겨져야 함'; end if;
   end if;
 end $check$;
 select '통과' as result;

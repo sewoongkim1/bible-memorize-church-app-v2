@@ -234,7 +234,7 @@ test('eduStateMark — 출석 ✅ · 지각 🕘 · 결석 ❌ · 공결은 글�
 //   규칙을 일부러 바꿀 때는 두 곳(교회 어드민 edu-rules.ts · 이 저장소 api)을 같은 글자로 고치고 두 시험의 값을 함께 바꾼다.
 //   지문 = sha256(「function 이름(…) {」부터 첫 줄머리 「}」까지 · 줄끝 LF) — eduAttendRate 와 같은 셈.
 const CERT_FN_SHA256 = {
-  'function maskName(name) {': 'f75ac72b195255346b43f1e82b89a6ceaf7e35f6a0f73f9116be1cd8588dea78',
+  'function maskName(name) {': '76968ab11c23a08576a2c0007892be7f38c766102ef04d92256ebce27361c8fd',
   'function eduCertNoValid(s) {': 'add57082b525160f77794f21653de377ecaf2f775be270a0785b63b5d0be47e3',
   'function eduCertBody(body, title) {': '9061e91bd5d14439e5fd96b52b4f88592623a47be29c248ad5f7146589e104d4',
 };
@@ -255,11 +255,12 @@ test('수료 규칙 세 함수 — api 복사본이 한 덩이씩 하나뿐 · �
   }
 });
 
-test('maskName(진위 확인의 가린 이름) — 한 글자 그대로 · 두 글자 뒤를 * · 세 글자 넘으면 처음과 끝만 · NFC·앞뒤 빈칸', () => {
+test('maskName(진위 확인의 가린 이름) — 한 글자는 * · 두 글자 뒤를 * · 세 글자 넘으면 처음과 끝만 · NFC·앞뒤 빈칸', () => {
   assert.equal(certCtx.maskName('홍길동'), '홍*동');
   assert.equal(certCtx.maskName('이수'), '이*');
   assert.equal(certCtx.maskName('남궁가나'), '남**나');
-  assert.equal(certCtx.maskName('김'), '김');
+  assert.equal(certCtx.maskName('김'), '*', '한 글자 이름을 그대로 내보내지 않는다(검토 반영)');
+  assert.equal(certCtx.maskName(' 김 '), '*');
   for (const x of ['', null, undefined, '   ']) assert.equal(certCtx.maskName(x), '', String(x));
   assert.equal(certCtx.maskName('  홍길동 '), '홍*동');
   assert.equal(certCtx.maskName('홍길동'.normalize('NFD')), '홍*동');
@@ -290,6 +291,10 @@ test('eduVerify·eduCert — api 에 있고 eduVerify 는 꼴을 먼저 본 뒤 
   assert.ok(/\.eq\("id", eid\)\.eq\("user_id", userId\)/.test(c), '내 줄만');
   assert.ok(/cert_revoked === true/.test(c) && /no-cert/.test(c));
   assert.ok(/case "eduCert":/.test(apiSrc) && /case "eduVerify":/.test(apiSrc));
+  // (검토 반영) 살아 있는 수료(번호 있고 취소 아님) 줄은 앱에서 취소 단추가 없다 — edu_cancel 의 has-cert 와 같은 셈
+  const m = fn('eduMineOut');
+  assert.ok(/const activeCert = !!r\.cert_no && r\.cert_revoked !== true;/.test(m), 'activeCert');
+  assert.ok(/const canCancel = [^\n]*&& !activeCert;/.test(m), 'canCancel 이 activeCert 를 본다');
 });
 // ---------- 수료 화면(3단계 · 2026-10-05) — 내 강좌 수료 줄 · 자세히 「수료증 보기」 · 수료증 그림(캔버스 차례) · 진위 확인 페이지 ----------
 test('eduMineView — 수료한 분은 「🎓 수료했어요」·수료번호 · 취소 단추·안내 없음(canCancel 에 기대지 않는다) · cert 표시', () => {

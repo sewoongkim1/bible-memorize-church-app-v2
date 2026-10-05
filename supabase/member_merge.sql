@@ -13,7 +13,8 @@
 --   4) **개발에서만** — 가상 성도로 합쳐 보고 전부 되돌린다(BEGIN … ROLLBACK). 운영에서는 돌리지 않는다.
 --      supabase/tests/member_merge_consents.dev.sql          (가리기·신고·AI 답 알림·동의 날짜)
 --      supabase/tests/member_merge_requests_devices.dev.sql  (정정 신청 · 아이폰 알림 기기 · 합친 뒤 옛 번호로 온 가리기)
---      supabase/tests/member_merge_edu.dev.sql               (교육신청 · 같은 강좌 충돌 · 취소 줄 정리와 납부·메모·출석 이어받기 · 출석 상태가 다르면 멈춤)
+--      supabase/tests/member_merge_edu.dev.sql               (교육신청 · 같은 강좌 충돌 · 취소 줄 정리와 납부·메모·출석 이어받기 · 출석 상태가 다르면 멈춤 ·
+--                                                             수료번호가 있는 취소 겹침 줄은 지우지 않고 멈춤 — 2026-10-05 3단계)
 --      「통과」 줄이 나오거나 오류 없이 끝나야 한다.
 --   ⚠️ 새 사용자 연관 표를 만들면 ① 합치기 본체의 옮기기 ② 두 허용 목록(FK·user_id) ③ member_merge_counts
 --      ④ 쓰기 연결 트리거 — 넷을 함께 더하고 이 파일을 다시 돌린다. 빠뜨리면 그 기록이 있는 계정은
@@ -196,6 +197,17 @@ begin
     if exists(select 1 from public.edu_enrollments a join public.edu_enrollments b on a.course_id=b.course_id
       where a.user_id=s.id and b.user_id=t.id
         and a.status in ('applied','confirmed','waitlisted','declined') and b.status in ('applied','confirmed','waitlisted','declined')) then
+      return jsonb_build_object('ok',false,'error','merge-edu-conflict');
+    end if;
+    -- 수료(3단계 · 검토 반영 2026-10-05): 아래에서 지울 **취소 겹침 줄**(원본이 취소면 원본 줄 · 원본이 살아 있고 남는 쪽이 취소면
+    --   남는 쪽 줄)에 수료번호가 있으면(수료를 취소한 뒤 신청도 취소한 줄) 지우지 않고 멈춘다 — 지우면 진위 확인의 「취소됨」 기록이 사라진다.
+    --   어느 줄을 남길지는 사람이 정한다(merge-edu-conflict). 살아 있는 수료 줄은 늘 확정이라 위 검사가 이미 멈춘다(edu.sql 칸 제약).
+    --   cert_no 칸은 edu.sql 3단계에서 생긴다 — 그 전 DB 에서도 합치기가 돌도록 to_jsonb(줄)->>'cert_no' 로 읽는다(칸이 없으면 null ·
+    --   a.cert_no 로 적으면 이 파일만 먼저 돌린 DB 에서 **모든** 합치기가 「칸 없음」 오류로 멈춘다).
+    if exists(select 1 from public.edu_enrollments a join public.edu_enrollments b on a.course_id=b.course_id
+      where a.user_id=s.id and b.user_id=t.id
+        and ((a.status='cancelled' and to_jsonb(a)->>'cert_no' is not null)
+          or (b.status='cancelled' and a.status<>'cancelled' and to_jsonb(b)->>'cert_no' is not null))) then
       return jsonb_build_object('ok',false,'error','merge-edu-conflict');
     end if;
     -- 출석부(2단계 · 2026-10-05 · 검토 반영): 아래에서 지울 **취소 겹침 줄**(원본이 취소면 원본 줄 · 원본이 살아 있고 남는 쪽이 취소면
@@ -383,8 +395,11 @@ begin
           else left(concat_ws(' / ', nullif(b.staff_note,''), '합치기 전 취소 신청: ' || a.staff_note), 500) end
       from public.edu_enrollments a
       where a.course_id=b.course_id and a.user_id=s.id and b.user_id=t.id and a.status = 'cancelled';
+    -- 수료번호가 있는 줄은 지우지 않는다(3단계 · 위 검사가 이미 merge-edu-conflict 로 멈췄다 — 혹시 남으면 아래 주인 옮기기가
+    --   unique(course_id,user_id) 로 멈춰 통째로 되돌린다 · 칸이 없는 DB 를 위해 to_jsonb 로 읽는다)
     delete from public.edu_enrollments a using public.edu_enrollments b
-      where a.course_id=b.course_id and a.user_id=s.id and b.user_id=t.id and a.status = 'cancelled';
+      where a.course_id=b.course_id and a.user_id=s.id and b.user_id=t.id and a.status = 'cancelled'
+        and to_jsonb(a)->>'cert_no' is null;
     if to_regclass('public.edu_attendance') is not null then
       insert into public.edu_attendance(enrollment_id, session_id, state, marked_by, marked_at)
         select a.id, x.session_id, x.state, x.marked_by, x.marked_at
@@ -399,7 +414,8 @@ begin
       from public.edu_enrollments b
       where a.course_id=b.course_id and a.user_id=s.id and b.user_id=t.id and b.status = 'cancelled';
     delete from public.edu_enrollments b using public.edu_enrollments a
-      where a.course_id=b.course_id and a.user_id=s.id and b.user_id=t.id and b.status = 'cancelled';
+      where a.course_id=b.course_id and a.user_id=s.id and b.user_id=t.id and b.status = 'cancelled'
+        and to_jsonb(b)->>'cert_no' is null;
     -- 주인 옮기기는 아래 일반 반복에만 맡기지 않는다 — FK 가 on delete cascade 라 그 반복이 이 표를 건너뛰면(권한 어긋남 등)
     --   원본 사용자를 지울 때 신청이 **조용히** 함께 지워진다(ios_push_tokens 처럼 명시).
     update public.edu_enrollments set user_id=t.id where user_id=s.id;

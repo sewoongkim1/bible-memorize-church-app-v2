@@ -145,7 +145,11 @@ SEQ_OLD=$(sq "select coalesce((select last::text from edu_cert_seq where year=$Y
 [ -n "$YEAR" ] && [ -n "$SEQ_OLD" ] || { echo "번호 차례를 못 읽었다"; exit 2; }
 M3=$(call "{\"action\":\"eduMine\",\"user_id\":\"$U3\"}")
 chk "before: U3 completed/certNo" "$(jqn '[(m["completed"], m["certNo"]) for m in d["mine"] if m["courseId"]=="'$CID'"]' "$M3")" "[(False, None)]"
+CC='[m["canCancel"] for m in d["mine"] if m["courseId"]=="'$CID'"]'
+chk "before issue: U2 canCancel (first session is days away)" "$(jqn "$CC" "$(call "{\"action\":\"eduMine\",\"user_id\":\"$U2\"}")")" "[True]"
 chk "issue (new)" "$(sq "select edu_issue_certs('$CID', array[$E2]::bigint[], null)->'issued'->0->>'how'")" "new"
+chk "after issue: canCancel false (active certificate)" "$(jqn "$CC" "$(call "{\"action\":\"eduMine\",\"user_id\":\"$U2\"}")")" "[False]"
+chk "member cancel of an active certificate -> has-cert" "$(jqn 'd.get("error")' "$(call "{\"action\":\"eduCancel\",\"user_id\":\"$U2\",\"enrollment_id\":$E2}")")" "has-cert"
 NO=$(sq "select cert_no from edu_enrollments where id=$E2")
 NUM=$(sq "select split_part(cert_no,'-',2)||'-'||split_part(cert_no,'-',3) from edu_enrollments where id=$E2")   # 한글 없는 꼬리
 chk "number tail format" "$(printf '%s' "$NUM" | grep -c "^$YEAR-[0-9]\{4,\}$")" "1"
@@ -173,7 +177,7 @@ NAME2=$(sq "select name from edu_enrollments where id=$E2")
 MASK=$(printf '%s' "$NAME2" | PYTHONIOENCODING=utf-8 python -c '
 import sys, unicodedata
 s = list(unicodedata.normalize("NFC", sys.stdin.buffer.read().decode("utf-8")).strip())
-print("".join(s) if len(s) < 2 else s[0] + "*" if len(s) == 2 else s[0] + "*" * (len(s) - 2) + s[-1])')
+print("" if not s else "*" if len(s) == 1 else s[0] + "*" if len(s) == 2 else s[0] + "*" * (len(s) - 2) + s[-1])')   # maskName 과 같은 셈(한 글자도 *)
 V=$(call "{\"action\":\"eduVerify\",\"no\":\"$VNO\"}")
 chk "eduVerify valid" "$(jqn '(d.get("ok"), d.get("valid"), d.get("revoked"))' "$V")" "(True, True, False)"
 chk "eduVerify keys" "$(jqn 'sorted(d.keys())' "$V")" "['completedOn', 'name', 'ok', 'revoked', 'term', 'title', 'valid']"
@@ -191,8 +195,10 @@ chk "after revoke: eduVerify masked name" "$(jqn 'd["name"]' "$V")" "$MASK"
 chk "after revoke: eduCert -> no-cert" "$(jqn 'd.get("error")' "$(call "{\"action\":\"eduCert\",\"user_id\":\"$U2\",\"enrollment_id\":$E2}")")" "no-cert"
 M2=$(call "{\"action\":\"eduMine\",\"user_id\":\"$U2\"}")
 chk "after revoke: eduMine completed/certNo" "$(jqn '[(m["completed"], m["certNo"]) for m in d["mine"] if m["courseId"]=="'$CID'"]' "$M2")" "[(False, None)]"
+chk "after revoke: canCancel back to true" "$(jqn "$CC" "$M2")" "[True]"
 chk "restore keeps the number" "$(sq "select (r->'issued'->0->>'how')||' '||split_part(r->'issued'->0->>'certNo','-',2)||'-'||split_part(r->'issued'->0->>'certNo','-',3) from (select edu_issue_certs('$CID', array[$E2]::bigint[], null) as r) z")" "restored $NUM"
 chk "after restore: eduVerify valid" "$(jqn '(d.get("valid"), d.get("revoked"))' "$(call "{\"action\":\"eduVerify\",\"no\":\"$VNO\"}")")" "(True, False)"
+chk "after restore: canCancel false again" "$(jqn "$CC" "$(call "{\"action\":\"eduMine\",\"user_id\":\"$U2\"}")")" "[False]"
 SEQ_BASE=$([ "$SEQ_OLD" = "none" ] && echo 0 || echo "$SEQ_OLD")
 chk "seq advanced by one only" "$(sq "select last - $SEQ_BASE from edu_cert_seq where year=$YEAR")" "1"
 
@@ -230,6 +236,16 @@ sx "update edu_courses set status='draft' where id='$CID'"
 R=$(call "{\"action\":\"eduCourse\",\"user_id\":\"$U3\",\"id\":\"$CID\"}")
 chk "draft + declined row: ok" "$(jqn 'd.get("ok")' "$R")" "True"
 chk "draft: phase upcoming" "$(jqn 'd["course"]["phase"]' "$R")" "upcoming"
+
+echo "8c) revoked certificate -> staff may cancel the enrollment · the number stays on the row (verify: revoked) and is never reused"
+chk "revoke again" "$(sq "select edu_revoke_cert($E2, null)->>'ok'")" "true"
+chk "staff cancel after revoke is allowed" "$(sq "select edu_cancel($E2, true)->>'ok'")" "true"
+chk "cancelled row keeps its number" "$(sq "select status||' '||cert_revoked::text||' '||split_part(cert_no,'-',2)||'-'||split_part(cert_no,'-',3) from edu_enrollments where id=$E2")" "cancelled true $NUM"
+V=$(call "{\"action\":\"eduVerify\",\"no\":\"$VNO\"}")
+chk "verify still answers: revoked" "$(jqn '(d.get("ok"), d.get("valid"), d.get("revoked"))' "$V")" "(True, False, True)"
+chk "verify masked name after cancel" "$(jqn 'd["name"]' "$V")" "$MASK"
+chk "eduCert after revoke+cancel -> no-cert" "$(jqn 'd.get("error")' "$(call "{\"action\":\"eduCert\",\"user_id\":\"$U2\",\"enrollment_id\":$E2}")")" "no-cert"
+chk "seq did not move (no reuse, no new number)" "$(sq "select last - $SEQ_BASE from edu_cert_seq where year=$YEAR")" "1"
 
 echo "9) cleanup (trap)"
 sx "delete from edu_attendance where enrollment_id in (select id from edu_enrollments where course_id='$CID'); delete from edu_enrollments where course_id='$CID'; delete from edu_courses where id='$CID'"
