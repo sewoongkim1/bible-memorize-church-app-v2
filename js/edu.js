@@ -22,6 +22,59 @@ function eduPeriodLine(c) {   // 교육 기간 · 2027년 3월 3일(수) ~ 5월 
   if (!c || !eduYmdw(c.startsOn)) return '';
   return '교육 기간 · ' + eduYmdw(c.startsOn) + (c.endsOn && c.endsOn !== c.startsOn && eduRangeEnd(c.startsOn, c.endsOn) ? ' ~ ' + eduRangeEnd(c.startsOn, c.endsOn) : '');
 }
+function eduWhenLine(c) {   // 📅 언제 — 서버가 고른 firstDate·lastDate(교육 기간이 있으면 그것 · 뒤집힌 기간은 끝이 비어 온다) + 회차 수. 화면은 다시 고르지 않는다
+  if (!c) return '';
+  var n = c.sessionsCount ? c.sessionsCount + '회' : '', a = eduYmdw(c.firstDate);
+  if (!a) return n;
+  var b = c.lastDate && c.lastDate !== c.firstDate ? eduRangeEnd(c.firstDate, c.lastDate) : '';
+  return a + (b ? ' ~ ' + b : '') + (n ? ' · ' + n : '');
+}
+function eduPhaseChip(phase) {   // 자세히 화면 머리 칩 — 숫자는 싣지 않는다(정원은 「자리·신청」 칸 한 곳에만)
+  return { open: '모집 중', upcoming: '곧 열려요', closed: '모집 끝', running: '진행 중' }[phase] || '';
+}
+// 「자리·신청」 칸 — 신청 전(설계 §4 ①~⑦ · 문 닫힘). 서버가 준 값을 고르기만 한다(남은 자리는 뺄셈뿐).
+function eduSeatView(c, gateOpen) {
+  var off = function (head, sub) { return { off: true, head: head, sub: sub || '', how: '', btn: null, ask: null }; };
+  var TALK = '함께하고 싶으시면 담당자에게 말씀해 주세요';
+  if (c.phase === 'upcoming') return off(eduMdw(c.applyFrom) ? eduMdw(c.applyFrom) + '부터 신청할 수 있어요' : '곧 신청을 받아요', '그때 다시 열어 주세요');
+  if (c.phase !== 'open') return off('신청을 마감했어요', TALK);
+  if (gateOpen === false) return off('아직 신청을 받지 않아요', '');
+  var until = eduMdw(c.applyTo) ? eduMdw(c.applyTo) + '까지 신청' : '';
+  var join = function (a) { return a.filter(Boolean).join(' · '); };
+  var NOW = '누르시면 바로 확정돼요. 첫 시간 전날까지 앱에서 취소할 수 있어요.';
+  var on = function (head, sub, how, btn, ask) { return { off: false, head: head, sub: sub, how: how, btn: btn, ask: ask }; };
+  var askNow = { title: '🎓 신청할까요?', line: '선착순이라 누르시면 바로 확정돼요.', ok: '신청하기' };
+  if (c.mode === 'approve') {   // edu_apply 는 approve 면 정원과 상관없이 applied — 「남은 자리」는 확정된 분만 세어 많아 보이므로 정원만
+    return on(c.capacity == null ? '인원 제한 없이 받아요' : '정원 ' + c.capacity + '명', join([until, '담당자 확정']),
+      '신청하시면 담당자가 확인한 뒤 확정해요.', '신청하기', { title: '🎓 신청할까요?', line: '담당자가 확인한 뒤 확정해요.', ok: '신청하기' });
+  }
+  if (c.capacity == null) return on('인원 제한 없이 받아요', until, NOW, '신청하기', askNow);
+  var left = c.capacity - (c.confirmed || 0);
+  if (left > 0) return on(left + '자리 남았어요', join([until, '선착순']), NOW, '신청하기', askNow);
+  if (c.waitlist) {
+    return on('정원이 찼어요', join([c.waitlisted ? '지금 대기 ' + c.waitlisted + '분' : '', until]),
+      '대기로 신청하시면 자리가 날 때 순서대로 확정돼요.', '대기 신청하기', { title: '🎓 대기로 신청할까요?', line: '자리가 나면 순서대로 확정돼요.', ok: '대기 신청하기' });
+  }
+  return off('정원이 찼어요', TALK);   // ⑤ — 눌러도 「정원이 찼어요」만 나올 단추는 두지 않는다
+}
+// 「자리·신청」 칸 — 신청 뒤(설계 §4 ⑧~⑫). 장소 줄은 그리는 쪽이 붙인다(강좌 값).
+function eduMineView(m) {
+  if (!m) return null;
+  if (m.status === 'declined') {   // 성도님 화면에 「반려」를 쓰지 않는다(친구 2026-10-05) — 「반려 유지」는 서버가 지킨다
+    return { tone: 'soft', head: '이번 신청은 확정되지 않았어요', lines: ['궁금하시면 담당자에게 말씀해 주세요.'], cancelLine: '', cancelBtn: null, cancelAsk: '' };
+  }
+  var V = { confirmed: ['ok', '✅ 확정됐어요', []],
+    applied: ['on', '📝 신청했어요', ['담당자가 확인하고 있어요. 확정되면 「내 강좌」에 「확정」으로 바뀌어요.']],
+    waitlisted: ['on', '⏳ 대기 ' + (m.waitNo || 1) + '번이에요', ['자리가 나면 순서대로 확정돼요.']] }[m.status];
+  if (!V) return null;
+  var lines = V[2].slice(), ns = m.nextSession;
+  if (m.status === 'confirmed' && ns && eduMdw(ns.date)) lines.push((ns.no === 1 ? '첫 시간' : '다음 시간') + ' · ' + eduMdw(ns.date) + (ns.start ? ' ' + ns.start : ''));
+  var wait = m.status === 'waitlisted';
+  return { tone: V[0], head: V[1], lines: lines,
+    cancelLine: m.canCancel ? (eduMdw(m.cancelUntil) ? eduMdw(m.cancelUntil) + '까지' : '첫 시간 전날까지') + ' 앱에서 취소할 수 있어요.' : '시작한 뒤에는 취소를 담당자에게 말씀해 주세요.',
+    cancelBtn: m.canCancel ? (wait ? '대기 취소' : '신청 취소') : null,
+    cancelAsk: wait ? '대기를 취소할까요?' : '신청을 취소할까요?' };
+}
 function eduPhaseLabel(c) {
   if (c.phase === 'upcoming') return c.applyFrom ? eduMd(c.applyFrom) + '부터 신청' : '곧 신청을 받아요';
   if (c.phase === 'closed') return '모집 끝';
