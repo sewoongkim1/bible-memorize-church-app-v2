@@ -4901,13 +4901,17 @@ async function eduCountsOf(ids: string[]) {
 }
 
 function eduCourseOut(c: any, ss: any[], cnt: { confirmed: number; waitlisted: number }, today: string) {
+  // 교육 기간이 있으면 그것, 없으면 회차에서 — 시작일만 있고 마지막 회차가 그보다 앞이면 끝을 비운다(뒤집힌 기간을 안 보이게)
+  const eduFirst = c.starts_on ?? ss[0]?.on_date ?? null;
+  const lastS = ss[ss.length - 1]?.on_date ?? null;
+  const eduLast = c.ends_on ?? (lastS && (!eduFirst || lastS >= eduFirst) ? lastS : null);
   return {
     id: c.id, title: c.title, kind: c.kind, kindLabel: EDU_KIND_LABEL[c.kind] || c.kind, term: c.term || "",
     teacher: c.teacher_label || "", place: c.place || "", fee: c.fee_note || "", target: c.target || "",
     capacity: c.capacity ?? null, mode: c.mode, waitlist: !!c.waitlist, applyFrom: c.apply_from, applyTo: c.apply_to,
     startsOn: c.starts_on ?? null, endsOn: c.ends_on ?? null,   // 교육 기간(교회 어드민이 정한다 · 없으면 null)
     status: c.status, phase: eduPhase(c, today), sessionsCount: ss.length,
-    firstDate: c.starts_on ?? ss[0]?.on_date ?? null, lastDate: c.ends_on ?? ss[ss.length - 1]?.on_date ?? null,   // 교육 기간이 있으면 그것, 없으면 회차에서
+    firstDate: eduFirst, lastDate: eduLast,
     confirmed: cnt.confirmed, waitlisted: cnt.waitlisted,
   };
 }
