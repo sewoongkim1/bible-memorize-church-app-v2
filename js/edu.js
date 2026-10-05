@@ -199,10 +199,13 @@ function renderEduCourse(id, opt) {
       (ss.length > shown ? '<button class="edu-more" id="edu-more">＋ ' + (ss.length - shown) + '회 더 보기</button>' : '') + '</div>' : '';
     var rule = '출석 ' + c.attendPct + '% 이상' + (c.checkLabel ? ' + ' + c.checkLabel + ' 확인' : '');
     // 위 한 줄 — 왼쪽 칩 · 오른쪽 「← 교육」(암송·복습 화면 .test-top 과 같은 꼴 · 같은 .back-btn — 친구 2026-10-05)
+    // 차례(친구 2026-10-05 「신청하기 버튼을 위로」): 제목 바로 아래 신청 칸(자리·신청 / 내 신청·취소) → 한눈에 → 강좌 소개 → 일정 → 수료 기준
+    //   설명이 길어도 화면을 열자마자 신청 칸이 보이게. 「신청하기」는 확인 창을 한 번 더 거친다.
     w.innerHTML = '<div class="edu-top">' + chips + '<button class="back-btn" id="edu-back">← 교육</button></div>' +
       '<h2 class="edu-title">' + eduEsc(c.title) + '</h2>' + (c.term ? '<div class="edu-sub">' + eduEsc(c.term) + '</div>' : '') +
+      act + (gl ? '<div class="edu-glance">' + gl + '</div>' : '') +
       (c.description ? '<div class="edu-about"><div class="edu-about-h">📝 강좌 소개</div><p class="edu-desc">' + eduEsc(c.description) + '</p></div>' : '') +   // 담당자가 쓴 글 — 한눈에 카드와 같은 카드로 갈라 보이게(친구 2026-10-05)
-      (gl ? '<div class="edu-glance">' + gl + '</div>' : '') + act + sess +
+      sess +
       '<div class="edu-about"><div class="edu-about-h">🎓 수료 기준</div><p class="edu-desc">' + eduEsc(rule) + '</p></div>';
     document.getElementById('edu-back').addEventListener('click', function () { renderEduList(eduState.tab); });
     var more = document.getElementById('edu-more');
