@@ -6,6 +6,8 @@
 --    교회 어드민 함수(담당자)가 둘 다 이 함수를 부른다. 코드에서 상태를 직접 update 하지 말 것.
 -- ⚠️ users 를 가리키는 표가 하나 늘었다 — supabase/member_merge.sql 이 edu_enrollments 를 안다(과제 2). 이 파일 뒤에 member_merge.sql 을 다시 돌린다.
 begin;
+-- 성도님이 쓰는 중에 표·함수 잠금을 오래 기다리지 않게(member_merge.sql 과 같다) — 5초 안에 못 잡으면 통째로 되돌리고 멈춘다.
+set local lock_timeout = '5s';
 
 create table if not exists public.edu_courses (
   id            uuid primary key default gen_random_uuid(),
@@ -199,6 +201,8 @@ begin
   select * into e from public.edu_enrollments where id = p_enrollment;
   if e.id is null then return jsonb_build_object('ok',false,'error','not-found'); end if;
   select * into c from public.edu_courses where id = e.course_id for update;
+  -- 끝난·보관된 강좌의 신청은 안 바꾼다(edu_apply 담당자 길·edu_sessions_replace 와 같다) — 취소(edu_cancel)는 그대로 된다
+  if c.status in ('done','archived') then return jsonb_build_object('ok',false,'error','course-closed'); end if;
   select * into e from public.edu_enrollments where id = p_enrollment for update;
   if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
   if e.status = p_status then return jsonb_build_object('ok',true,'promoted',null); end if;
@@ -217,15 +221,36 @@ begin
   return jsonb_build_object('ok',true,'promoted',p);
 end $$;
 
+-- 빈자리 채우기 — 담당자가 정원을 늘렸을 때(교회 어드민 eduCourseSave). 선착순 강좌만, 대기 첫 분부터 정원이 찰 때까지 올린다.
+--   이게 없으면 정원을 늘려도 대기하신 분은 그대로이고, 다음에 앱으로 신청한 분이 먼저 확정된다(새치기).
+--   ⚠️ edu_apply 가 「대기자가 있으면 확정 안 함」으로 바꾸지 않는다 — 담당자가 일부러 빈자리 옆에 대기로 내린 분이 있을 수 있다.
+--   승인 강좌·끝난·보관된 강좌는 아무것도 안 하고 promoted 0. 차례: 강좌 줄 for update → 신청 줄(edu_promote 안 · 다른 함수와 같다).
+create or replace function public.edu_course_refill(p_course uuid)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare c public.edu_courses; w bigint; n int := 0;
+begin
+  select * into c from public.edu_courses where id = p_course for update;
+  if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
+  if c.mode <> 'auto' or c.status in ('done','archived') then return jsonb_build_object('ok',true,'promoted',0); end if;
+  loop
+    w := edu_promote(p_course);          -- 정원이 찼거나(capacity null 이면 안 참) 대기자가 없으면 null
+    exit when w is null;
+    n := n + 1;
+  end loop;
+  return jsonb_build_object('ok',true,'promoted',n);
+end $$;
+
 revoke all on function public.edu_today() from public, anon, authenticated;
 revoke all on function public.edu_apply(uuid, uuid, jsonb, boolean) from public, anon, authenticated;
 revoke all on function public.edu_promote(uuid, bigint) from public, anon, authenticated, service_role;   -- 안쪽에서만 부른다(강좌 줄 잠근 채) · service_role 도 안 준다
 revoke all on function public.edu_cancel(bigint, boolean) from public, anon, authenticated;
 revoke all on function public.edu_staff_set(bigint, text, boolean) from public, anon, authenticated;
+revoke all on function public.edu_course_refill(uuid) from public, anon, authenticated;
 grant execute on function public.edu_today() to service_role;
 grant execute on function public.edu_apply(uuid, uuid, jsonb, boolean) to service_role;
 grant execute on function public.edu_cancel(bigint, boolean) to service_role;
 grant execute on function public.edu_staff_set(bigint, text, boolean) to service_role;
+grant execute on function public.edu_course_refill(uuid) to service_role;
 
 -- 강좌별 신청 수 — 쪽 넘기기 없이 한 번에(PostgREST 1,000줄 한도에 안 걸리게 · 교회 어드민이 rpc 로 부른다).
 --   p_ids 에 든 강좌는 신청이 없어도 0 줄로 돌려준다.
@@ -269,10 +294,10 @@ grant execute on function public.edu_sessions_replace(uuid, jsonb) to service_ro
 
 commit;
 
--- 확인 — 표 셋·함수 일곱이 있고, anon·authenticated 권한이 없는지
+-- 확인 — 표 셋·함수 여덟이 있고, anon·authenticated 권한이 없는지
 select 'tables' as t, count(*) from pg_tables where schemaname='public' and tablename in ('edu_courses','edu_sessions','edu_enrollments')
 union all select 'functions', count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-  where n.nspname='public' and p.proname in ('edu_today','edu_apply','edu_promote','edu_cancel','edu_staff_set','edu_course_counts','edu_sessions_replace')
+  where n.nspname='public' and p.proname in ('edu_today','edu_apply','edu_promote','edu_cancel','edu_staff_set','edu_course_counts','edu_sessions_replace','edu_course_refill')
 union all select 'anon/authenticated grants', count(*) from information_schema.role_table_grants
   where table_schema='public' and table_name like 'edu\_%' and grantee in ('anon','authenticated')
 union all select 'routine grants', count(*) from information_schema.role_routine_grants

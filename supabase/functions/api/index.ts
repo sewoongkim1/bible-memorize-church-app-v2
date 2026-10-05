@@ -4870,6 +4870,9 @@ async function eduGateOpen(userId: string): Promise<boolean> {
 function eduPhase(c: any, today: string): string {
   if (c.status === "running") return "running";
   if (c.status === "closed") return "closed";
+  // 목록에 안 나오는 강좌(내 강좌 카드로만 열린다 · eduCourse) — 「신청하기」가 뜨지 않게
+  if (c.status === "done" || c.status === "archived") return "closed";
+  if (c.status === "draft") return "upcoming";
   if (c.apply_from && today < c.apply_from) return "upcoming";
   if (c.apply_to && today > c.apply_to) return "closed";
   return "open";
@@ -4976,9 +4979,16 @@ async function eduCourse(b: any) {
   if (!MH_UUID.test(id)) return { ok: false, error: "bad-args" };
   const userId = eduUid(b.user_id);
   const today = eduKst();
-  const { data: c, error } = await db.from("edu_courses").select("*").eq("id", id).in("status", EDU_LIST_STATUS).maybeSingle();
+  const { data: c, error } = await db.from("edu_courses").select("*").eq("id", id).maybeSingle();
   if (error) throw error;
   if (!c) return { ok: false, error: "not-found" };
+  // 목록 밖 강좌(끝남·준비 중·보관)는 그 강좌에 신청 줄이 있는 분께만 — 「내 강좌」 카드를 누르면 열리게(최종 검토 2026-10-05)
+  if (!EDU_LIST_STATUS.includes(c.status)) {
+    if (!userId) return { ok: false, error: "not-found" };
+    const { data: had, error: eh } = await db.from("edu_enrollments").select("id").eq("course_id", id).eq("user_id", userId).limit(1);
+    if (eh) throw eh;
+    if (!(had ?? []).length) return { ok: false, error: "not-found" };
+  }
   const [sess, cnt] = await Promise.all([eduSessionsOf([id]), eduCountsOf([id])]);
   const ss = sess[id] || [];
   const mine = (await eduMineOut(await eduMineRows(userId, id), today))[0] || null;

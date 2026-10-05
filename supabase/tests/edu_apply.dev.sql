@@ -5,6 +5,7 @@ begin;
 do $$
 declare cid uuid; aid uuid; u uuid[] := array[]::uuid[]; r jsonb; i int; k text; e1 bigint; e2 bigint; e3 bigint; e4 bigint; e5 bigint;
 begin
+  if (select count(*) from public.users) > 200 then raise exception '운영 같은 DB 입니다(users > 200) — 개발에서만 돌리세요'; end if;
   -- 시험 계정 다섯(교구|교육시험|1|||시험N)
   for i in 1..5 loop
     k := '교구|교육시험|1|||시험' || i;
@@ -129,6 +130,12 @@ begin
   update public.edu_courses set status = 'archived' where id = cid;
   r := edu_apply(cid, u[5], '{"name":"시험5"}', true); if r->>'error' is distinct from 'not-open' then raise exception 'archived 담당자: %', r; end if;
   r := edu_apply(cid, u[5], '{"name":"시험5"}');       if r->>'error' is distinct from 'not-open' then raise exception 'archived 성도님: %', r; end if;
+
+  -- 끝난·보관된 강좌의 신청 상태는 담당자도 못 바꾼다(course-closed · force 여도) · 줄은 그대로 (지금 시험2 는 대기)
+  r := edu_staff_set(e2, 'confirmed', true);  if r->>'error' is distinct from 'course-closed' then raise exception 'archived 상태 바꾸기: %', r; end if;
+  update public.edu_courses set status = 'done' where id = cid;
+  r := edu_staff_set(e2, 'declined', false);  if r->>'error' is distinct from 'course-closed' then raise exception 'done 상태 바꾸기: %', r; end if;
+  if (select status from public.edu_enrollments where id = e2) is distinct from 'waitlisted' then raise exception '끝난 강좌인데 줄이 바뀜'; end if;
 end $$;
 select '통과' as result;
 rollback;

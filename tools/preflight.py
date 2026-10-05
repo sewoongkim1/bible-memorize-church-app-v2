@@ -64,6 +64,32 @@ else:
         else:
             ok('app.js 의 APP_BUILD 도 "%s" 로 같다' % tag)
 
+# ── 2-1) bump.py 가 index.html 의 코드 태그를 다 아는가 ─────────────
+# 2026-10-05: index.html 에 js/edu.js?v= 를 더하고 bump.py 의 TAGGED 에는 안 넣었다 — bump 가 그 태그만
+# 옛 날짜로 두고, 위 [2] 가 「서로 다르다」로 걸려 **모든 세션의 배포가 막힌다.** 그래서 목록 둘을 맞대 본다.
+# bump.py 는 `if __name__ == "__main__"` 뒤에서만 돌므로 불러오기만 해서는 파일을 안 고친다(꾸러미 없음).
+print("\n[2-1] bump.py 의 TAGGED 가 index.html 의 코드 태그와 같은가")
+try:
+    import importlib.util
+    sys.dont_write_bytecode = True                # tools/__pycache__ 를 남기지 않게
+    _spec = importlib.util.spec_from_file_location("_bump", os.path.join(ROOT, "tools", "bump.py"))
+    _bump = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(_bump)
+    bump_tagged = set(_bump.TAGGED)
+except Exception as e:
+    bump_tagged = None
+    bad("tools/bump.py 에서 TAGGED 를 못 읽었다 — %s" % e)
+if bump_tagged is not None:
+    missing = sorted(set(tags) - bump_tagged)     # index.html 에는 있는데 bump 가 모른다 → bump 뒤 이 태그만 옛것
+    stale = sorted(bump_tagged - set(tags))       # bump 는 아는데 index.html 에 없다 → bump 가 「찾지 못했습니다」로 멈춘다
+    if missing:
+        bad("index.html 이 ?v= 로 부르는데 tools/bump.py 의 TAGGED 에 없다: %s\n"
+            "        → bump.py 의 TAGGED 에 더할 것(안 그러면 bump 뒤 이 태그만 옛것으로 남아 배포가 막힌다)" % ", ".join(missing))
+    if stale:
+        bad("tools/bump.py 의 TAGGED 에 있는데 index.html 이 ?v= 로 부르지 않는다: %s\n"
+            "        → 파일을 뺐으면 TAGGED 에서도 뺄 것(안 그러면 bump.py 가 멈춘다)" % ", ".join(stale))
+    if not missing and not stale:
+        ok("index.html 코드 태그 %d개를 bump.py 가 모두 안다" % len(tags))
+
 # ── 3) 순수 함수 검사 (꾸러미 없이 도는 것만) ───────────────────────
 # ⚠️ 여기에는 **npm 꾸러미가 필요 없는** 검사만 적는다. tests/member-*.test.cjs 는
 #    PGlite·jsdom·typescript 가 있어야 해서 못 넣는다 — 넣으면 Actions 러너에

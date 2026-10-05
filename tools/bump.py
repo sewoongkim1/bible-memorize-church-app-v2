@@ -22,8 +22,9 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INDEX = os.path.join(ROOT, "index.html")
 APP = os.path.join(ROOT, "app.js")
 
+# ⚠️ index.html 에 js/*.js?v= 를 더하면 여기에도 더한다 — tools/preflight.py [2-1] 이 둘을 맞대 본다.
 TAGGED = ["app.js", "style.css", "js/config.js", "js/api.js", "js/push.js", "js/psalm.js",
-          "js/events.js"]
+          "js/events.js", "js/edu.js"]
 
 
 def next_tag(cur, today):

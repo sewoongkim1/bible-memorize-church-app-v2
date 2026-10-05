@@ -31,14 +31,16 @@ function eduStatusLine(m) { return m.status === 'waitlisted' ? '대기 ' + (m.wa
 function eduErrText(code) {
   var W = { 'full': '정원이 찼어요.', 'too-late': '시작한 뒤에는 앱에서 취소할 수 없어요. 담당자에게 말씀해 주세요.',
     'not-open': '아직 신청을 받지 않아요.', 'not-yet': '아직 신청 기간이 아니에요.', 'closed-period': '신청 기간이 지났어요.',
-    'not-found': '강좌를 찾을 수 없어요.', 'no-user': '로그인한 뒤에 신청할 수 있어요.' };
+    'not-found': '강좌를 찾을 수 없어요.', 'no-user': '로그인한 뒤에 신청할 수 있어요.',
+    'not-active': '이미 처리된 신청이에요.' };   // 담당자가 먼저 취소·반려했다(edu_cancel) — 화면을 지금 상태로 다시 그린다
   return W[code] || '잠시 뒤 다시 해 주세요.';
 }
+// 화면 글자 이스케이프 — 제 것을 쓴다(boardEsc 가 없으면 날 글자가 나가던 것 · 최종 검토 2026-10-05)
+var EDU_ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+function eduEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (ch) { return EDU_ESC[ch]; }); }
 // ── 교육 순수 함수 (여기까지) ──
 
 var eduState = { list: null, mine: [], open: true, tab: 'open', screen: 0 };   // screen: 화면이 바뀔 때마다 올라가는 번호 — 늦게 온 응답이 다른 화면을 덮지 않게
-
-function eduEsc(s) { return (typeof boardEsc === 'function') ? boardEsc(String(s == null ? '' : s)) : String(s == null ? '' : s); }
 
 function renderEduList(tab) {
   var u = loadUser();
@@ -149,10 +151,15 @@ function renderEduCourse(id) {
       appConfirm('신청을 취소할까요?', { okText: '신청 취소', cancelText: '돌아가기', danger: true }).then(function (yes) {
         if (!yes) return;
         cn.disabled = true;
+        // 담당자가 먼저 처리한 줄(not-active)이면 알리고 지금 상태로 다시 그린다 — 남은 「신청 취소」 단추를 또 누르지 않게
+        var failed = function (code) {
+          if (code === 'not-active') { appAlert(eduErrText(code)); renderEduCourse(id); return; }
+          say(eduErrText(code)); cn.disabled = false;
+        };
         return api.eduCancel(m.id, u.user_id || '').then(function (x) {
-          if (!x || x.ok === false) { say(eduErrText(x && x.error)); cn.disabled = false; return; }
+          if (!x || x.ok === false) { failed(x && x.error); return; }
           appAlert('취소했어요.'); renderEduCourse(id);
-        }).catch(function (err) { say(eduErrText(err && err.message)); cn.disabled = false; });
+        }).catch(function (err) { failed(err && err.message); });
       });
     });
   }).catch(function () {

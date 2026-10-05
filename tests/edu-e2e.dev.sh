@@ -119,6 +119,24 @@ chk "too-late" "$(jqn 'd.get("error")' "$(call "{\"action\":\"eduCancel\",\"user
 M2=$(call "{\"action\":\"eduMine\",\"user_id\":\"$U2\"}")
 chk "canCancel false" "$(jqn '[m["canCancel"] for m in d["mine"] if m["courseId"]=="'$CID'"]' "$M2")" "[False]"
 
+echo "8b) eduCourse — list-outside course (done/draft) only for someone with a row in it"
+U4=$(sq "select id from users where coalesce(name,'')<>'' order by created_at limit 1 offset 3")
+sx "update edu_courses set status='done' where id='$CID'"
+R=$(call "{\"action\":\"eduCourse\",\"user_id\":\"$U2\",\"id\":\"$CID\"}")
+chk "done + row: ok" "$(jqn 'd.get("ok")' "$R")" "True"
+chk "done + row: phase closed (no apply button)" "$(jqn 'd["course"]["phase"]' "$R")" "closed"
+chk "done + row: mine" "$(jqn 'd["mine"]["status"]' "$R")" "confirmed"
+chk "done + no leak" "$(printf '%s' "$R" | grep -c -e "$U1" -e "$U2" -e "$U3" -e "ident_key")" "0"
+R=$(call "{\"action\":\"eduCourse\",\"user_id\":\"$U1\",\"id\":\"$CID\"}")
+chk "done + cancelled row: ok" "$(jqn 'd.get("ok")' "$R")" "True"
+chk "done + cancelled row: mine None" "$(jqn 'd.get("mine")' "$R")" "None"
+chk "done + no user: not-found" "$(jqn 'd.get("error")' "$(call "{\"action\":\"eduCourse\",\"id\":\"$CID\"}")")" "not-found"
+[ -n "$U4" ] && chk "done + other user: not-found" "$(jqn 'd.get("error")' "$(call "{\"action\":\"eduCourse\",\"user_id\":\"$U4\",\"id\":\"$CID\"}")")" "not-found"
+sx "update edu_courses set status='draft' where id='$CID'"
+R=$(call "{\"action\":\"eduCourse\",\"user_id\":\"$U3\",\"id\":\"$CID\"}")
+chk "draft + declined row: ok" "$(jqn 'd.get("ok")' "$R")" "True"
+chk "draft: phase upcoming" "$(jqn 'd["course"]["phase"]' "$R")" "upcoming"
+
 echo "9) cleanup (trap)"
 sx "delete from edu_enrollments where course_id='$CID'; delete from edu_courses where id='$CID'"
 chk "course gone" "$(sq "select count(*) from edu_courses where id='$CID'")" "0"

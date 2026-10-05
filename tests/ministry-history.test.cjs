@@ -445,3 +445,24 @@ test('첫 화면의 사역 단추는 모두 문(ministryVisible) 뒤에 있다 �
   }
   assert.equal(n, 3, '사역 단추 수가 바뀌었다(사역현황 둘 + 「함께」 🤝 하나) — 이 검사를 함께 고칠 것');
 });
+
+// 🎓 교육 문(eduVisible · 2026-10-05) — 「사역현황」과 같은 스위치로 플레이스토어 앱에서 숨는다(시험 참여자도).
+//   ⚠️ 스위치의 지금 값을 박지 않는다(위 doorCtx 와 같다).
+const eduExtra = () => [pickConst(/const EDU_PUB_KEY = "[^"]+";/, 'EDU_PUB_KEY'), pickFn('eduOpenCached'), pickFn('eduVisible')];
+const eduCtx = (o, eduOpen) => {
+  const c = doorCtx({ period: null, ...o, extra: eduExtra() });
+  if (eduOpen) c.localStorage.setItem('edu-open', '1');
+  return c;
+};
+test('🎓 교육 — 플레이스토어 앱에서는 eduOpen 이 켜졌어도·시험 참여자여도 숨는다', () => {
+  assert.equal(eduCtx({ hide: true, play: true }, true).eduVisible(), false, '플레이스토어 앱에 🎓 교육이 보인다');
+  assert.equal(eduCtx({ hide: true, play: true, tester: true }).eduVisible(), false, '플레이스토어 앱 시험 참여자에게 🎓 교육이 보인다');
+  assert.equal(eduCtx({ hide: true, session: true, display: 'browser' }, true).eduVisible(), false, '맞춤 탭으로 열린 앱에 🎓 교육이 보인다');
+});
+test('🎓 교육 — 웹·아이폰은 그대로 · 스위치를 끄면 플레이스토어 앱에도 보인다 · 문이 닫혀 있으면 안 보인다', () => {
+  assert.equal(eduCtx({ hide: true }, true).eduVisible(), true, '웹에서 eduOpen 인데 안 보인다');
+  assert.equal(eduCtx({ hide: true, tester: true }).eduVisible(), true, '웹 시험 참여자에게 안 보인다');
+  assert.equal(eduCtx({ hide: true, play: true, display: 'browser' }, true).eduVisible(), true, '앱이 깔린 폰의 크롬 탭에서 숨었다');
+  assert.equal(eduCtx({ hide: false, play: true }, true).eduVisible(), true, '스위치를 껐는데 플레이스토어 앱에 안 보인다');
+  assert.equal(eduCtx({ hide: true }).eduVisible(), false, 'eduOpen 도 시험 참여자도 아닌데 보인다');
+});

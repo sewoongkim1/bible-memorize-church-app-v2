@@ -33,6 +33,7 @@ test('eduErrText', () => {
   assert.equal(ctx.eduErrText('too-late'), '시작한 뒤에는 앱에서 취소할 수 없어요. 담당자에게 말씀해 주세요.');
   assert.equal(ctx.eduErrText('not-open'), '아직 신청을 받지 않아요.');
   assert.equal(ctx.eduErrText('x'), '잠시 뒤 다시 해 주세요.');
+  assert.equal(ctx.eduErrText('not-active'), '이미 처리된 신청이에요.');   // 담당자가 먼저 취소·반려한 줄
 });
 
 test('eduMd — 없거나 틀린 날짜는 빈 글', () => {
@@ -49,4 +50,12 @@ test('eduMdw — 요일(날짜만 있는 값은 밀리지 않는다)', () => {
 
 test('eduPhaseLabel — 정원 차고 대기 없음', () => {
   assert.equal(ctx.eduPhaseLabel({ phase: 'open', capacity: 1, confirmed: 1, waitlisted: 0, waitlist: false }), '정원 참');
+});
+
+test('eduEsc — boardEsc 없이도 다섯 글자를 막는다(빈 값은 빈 글)', () => {
+  assert.equal(typeof ctx.boardEsc, 'undefined');   // 순수 묶음만 돌린다 — 남의 함수에 기대지 않는다
+  assert.equal(ctx.eduEsc(`<b class="x">A&B's</b>`), '&lt;b class=&quot;x&quot;&gt;A&amp;B&#39;s&lt;/b&gt;');
+  assert.equal(ctx.eduEsc(null), '');
+  assert.equal(ctx.eduEsc(undefined), '');
+  assert.equal(ctx.eduEsc(12), '12');
 });

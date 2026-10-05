@@ -353,7 +353,12 @@ function refreshEduOpen() {
   if (!window.api || !api.getConfig) return;
   api.getConfig("eduOpen").then((d) => { try { localStorage.setItem(EDU_PUB_KEY, d && d.value === true ? "1" : "0"); } catch (e) {} }).catch(() => {});
 }
-function eduVisible() { return eduOpenCached() || ministryTesterCached(); }
+// ⚠️ 플레이스토어 앱에서는 숨는다(시험 참여자도) — 심사 통과 때까지 새 기능을 안 보이고, 교육 개인정보 안내도 아직 안 넣었다(심사 뒤 과제 11).
+//    「사역현황」과 같은 스위치(MINISTRY_HIDE_ON_PLAY · ministryHiddenOnPlay)를 쓴다 — 심사 통과한 날 false 로 바꾸면 둘이 함께 열린다.
+function eduVisible() {
+  if (ministryHiddenOnPlay()) return false;
+  return eduOpenCached() || ministryTesterCached();
+}
 
 // ── 오늘의 찬양: 하루 한 곡 ────────────────────────────────────────
 //   ⚠️ 「자료 자체가 게이트」가 성립하지 않는다 — songs 는 운영에 이미 1,700곡이 있어
@@ -791,6 +796,7 @@ const MH_LIVE = true;   // 2026-10-01 운영 반영(사역 이력 확인 · 정�
 
 // 플레이스토어 앱(TWA)에서는 「사역현황」 묶음을 통째로 숨긴다(2026-10-02 친구 요청 — 안드로이드 심사 통과 때까지).
 //   숨는 것: 묶음 제목 · 🤝 사역신청 · 🗂️ 사역 이력 확인(MH_LIVE 가 꺼졌을 때 「함께」에 서는 🤝 도). 시험 참여자도 숨는다.
+//   🎓 교육(eduVisible · 2026-10-05)도 이 스위치를 본다 — false 로 바꾸면 교육도 함께 열린다(그 전에 교육 개인정보 안내 · 교육 계획 과제 11 이 들어갔는지 볼 것).
 //   문(ministryVisible) 한 곳에서 막는다 — 두 화면은 첫 화면 단추로만 들어가고, 임명 알림도 첫 화면(/)을 연다.
 //   웹·아이폰 앱은 그대로다. 관리자 미리보기(?preview=ministry)는 문의 첫 줄이라 여기서도 열린다.
 //   「플레이스토어 앱」은 둘 중 하나면 그렇다고 본다(둘 다 실기기 미확인 — docs/notes/ministry-history-check.md):
@@ -2074,6 +2080,7 @@ function newestNewFeat() {
   Object.keys(FEAT_SINCE).forEach((k) => {
     if (!featIsNew(k)) return;
     if (k === "ministry" && !ministryVisible()) return;   // 문이 닫혀 단추가 안 보이면(기간 밖 · 플레이스토어 앱 숨김) — 안 보이는 단추가 NEW 를 가져가지 않게
+    if (k === "edu" && !eduVisible()) return;             // 🎓 교육도 같다(FEAT_SINCE.edu 는 개시일에 적는다 · 플레이스토어 앱 숨김)
     if (!best || kstDayNumber(FEAT_SINCE[k]) > kstDayNumber(FEAT_SINCE[best])) best = k;
   });
   return best;
