@@ -354,18 +354,18 @@ begin
   -- 교육신청 — 같은 강좌에 두 줄이 남지 않게(unique(course_id,user_id)) 한쪽이 **취소** 줄이면 취소 줄을 지운다
   --   (반려·살아 있는 줄이 함께인 경우는 위 충돌 검사가 이미 멈췄다). 원본이 취소면 원본 줄을, 남는 쪽이 취소면 남는 쪽 줄을,
   --   둘 다 취소면 원본 줄만(남는 쪽 기록을 남긴다). 뒤 오류 반환에 지운 줄이 남지 않게 검사가 모두 끝난 여기서 지운다.
-  --   지우기 전에 취소 줄의 납부(fee_paid)·담당자 메모(staff_note)를 남는 줄에 얹는다(납부는 or · 메모는 덧붙임) — 정보가 같이 사라지지 않게.
+  --   지우기 전에 취소 줄의 납부(fee_paid)·담당자 메모(staff_note)를 남는 줄에 얹는다(납부는 or · 메모는 덧붙임 · edu_enrollments 의 staff_note 500자 제한 때문에 left(…,500)) — 정보가 같이 사라지지 않게.
   if to_regclass('public.edu_enrollments') is not null then
-    update public.edu_enrollments b set fee_paid = b.fee_paid or a.fee_paid,
+    update public.edu_enrollments b set fee_paid = b.fee_paid or a.fee_paid, updated_at = now(),
         staff_note = case when coalesce(a.staff_note,'')='' then b.staff_note
-          else concat_ws(' / ', nullif(b.staff_note,''), '합친 계정의 취소 신청: ' || a.staff_note) end
+          else left(concat_ws(' / ', nullif(b.staff_note,''), '합치기 전 취소 신청: ' || a.staff_note), 500) end
       from public.edu_enrollments a
       where a.course_id=b.course_id and a.user_id=s.id and b.user_id=t.id and a.status = 'cancelled';
     delete from public.edu_enrollments a using public.edu_enrollments b
       where a.course_id=b.course_id and a.user_id=s.id and b.user_id=t.id and a.status = 'cancelled';
-    update public.edu_enrollments a set fee_paid = a.fee_paid or b.fee_paid,
+    update public.edu_enrollments a set fee_paid = a.fee_paid or b.fee_paid, updated_at = now(),
         staff_note = case when coalesce(b.staff_note,'')='' then a.staff_note
-          else concat_ws(' / ', nullif(a.staff_note,''), '합친 계정의 취소 신청: ' || b.staff_note) end
+          else left(concat_ws(' / ', nullif(a.staff_note,''), '합치기 전 취소 신청: ' || b.staff_note), 500) end
       from public.edu_enrollments b
       where a.course_id=b.course_id and a.user_id=s.id and b.user_id=t.id and b.status = 'cancelled';
     delete from public.edu_enrollments b using public.edu_enrollments a

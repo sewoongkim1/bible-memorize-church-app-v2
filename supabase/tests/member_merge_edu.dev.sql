@@ -9,6 +9,7 @@
 --   ⑦ 남는 쪽 반려 · 원본 확정 → merge-edu-conflict (아무것도 바뀌지 않는다)
 --   ⑧ 신청(applied) · 대기(waitlisted) 짝 → merge-edu-conflict
 --   ⑨ 원본 취소(납부·메모) · 남는 쪽 확정 → 남는 줄이 납부·메모를 이어받는다
+--   ⑪ 메모 둘이 300자씩 → 500자 제한 안에서 합쳐지고 남는 줄의 메모가 앞에 남는다
 --   ⑩ 원본 확정 · 남는 쪽 취소(납부·메모) → 옮겨진 줄이 납부·메모를 이어받는다
 -- 개발 연결 확인: users 가 200명이 넘으면 운영으로 보고 멈춘다.
 -- ⚠️ 한글이 든 SQL 은 명령줄에 붙이지 말고 -f 로만 돌린다.
@@ -18,7 +19,7 @@ declare
   tag text := left(md5(random()::text || clock_timestamp()::text), 8);
   n int; r jsonb; c1 uuid; c2 uuid; c3 uuid; c4 uuid; keep bigint; rw record;
   s1 uuid; t1 uuid; s2 uuid; t2 uuid; s3 uuid; t3 uuid; s4 uuid; t4 uuid; s5 uuid; t5 uuid;
-  s6 uuid; t6 uuid; s7 uuid; t7 uuid; s8 uuid; t8 uuid; s9 uuid; t9 uuid; s10 uuid; t10 uuid;
+  s6 uuid; t6 uuid; s7 uuid; t7 uuid; s8 uuid; t8 uuid; s9 uuid; t9 uuid; s10 uuid; t10 uuid; s11 uuid; t11 uuid;
 begin
   select count(*) into n from public.users;
   if n > 200 then raise exception 'member_merge_edu: users 가 %명 — 운영으로 보여 멈춥니다.', n; end if;
@@ -46,6 +47,9 @@ begin
   insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상s10'||tag,'교구|교육합치기점검|0|||가상s10'||tag) returning id into s10;
   insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상t10'||tag,'교구|교육합치기점검|0|||가상t10'||tag) returning id into t10;
 
+  insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상s11'||tag,'교구|교육합치기점검|0|||가상s11'||tag) returning id into s11;
+  insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상t11'||tag,'교구|교육합치기점검|0|||가상t11'||tag) returning id into t11;
+
   insert into public.edu_courses(title,kind,status) values ('합치기점검 강좌1','lecture','open') returning id into c1;
   insert into public.edu_courses(title,kind,status) values ('합치기점검 강좌2','lecture','open') returning id into c2;
   insert into public.edu_courses(title,kind,status) values ('합치기점검 강좌3','lecture','open') returning id into c3;
@@ -59,9 +63,8 @@ begin
   if (select count(*) from public.edu_enrollments where user_id = t1) <> 2 then raise exception 'member_merge_edu ①: 옮겨진 줄이 2가 아님'; end if;
   if exists(select 1 from public.edu_enrollments where user_id = s1) then raise exception 'member_merge_edu ①: 원본에 줄이 남음'; end if;
   if (r->'after_counts'->>'edu_enrollments')::int is distinct from 2 then raise exception 'member_merge_edu ①: after_counts 가 2가 아님 — %', r->'after_counts'; end if;
-  if r->'before_counts' is not null and (
-       (r->'before_counts'->'source'->>'edu_enrollments')::int is distinct from 1
-    or (r->'before_counts'->'target'->>'edu_enrollments')::int is distinct from 1) then
+  if (r->'before_counts'->'source'->>'edu_enrollments')::int is distinct from 1
+     or (r->'before_counts'->'target'->>'edu_enrollments')::int is distinct from 1 then
     raise exception 'member_merge_edu ①: before_counts 가 1/1 이 아님 — %', r->'before_counts'; end if;
 
   -- ② 같은 강좌 둘 다 확정 → 충돌
@@ -143,7 +146,7 @@ begin
   if coalesce((r->>'ok')::boolean,false) is not true then raise exception 'member_merge_edu ⑨: 합치기 거절 — %', r; end if;
   select * into rw from public.edu_enrollments where course_id=c4 and user_id=t9;
   if (select count(*) from public.edu_enrollments where course_id=c4 and user_id=t9) <> 1 or rw.status <> 'confirmed'
-     or rw.fee_paid is not true or rw.staff_note is distinct from '기존 메모 / 합친 계정의 취소 신청: 원본 납부 확인' then
+     or rw.fee_paid is not true or rw.staff_note is distinct from '기존 메모 / 합치기 전 취소 신청: 원본 납부 확인' then
     raise exception 'member_merge_edu ⑨: 납부·메모를 이어받아야 함 — %', to_jsonb(rw); end if;
 
   -- ⑩ 원본 확정 · 남는 쪽 취소(납부·메모) → 옮겨진 줄이 이어받는다
@@ -154,8 +157,18 @@ begin
   if coalesce((r->>'ok')::boolean,false) is not true then raise exception 'member_merge_edu ⑩: 합치기 거절 — %', r; end if;
   select * into rw from public.edu_enrollments where course_id=c4 and user_id=t10;
   if (select count(*) from public.edu_enrollments where course_id=c4 and user_id=t10) <> 1 or rw.status <> 'confirmed'
-     or rw.fee_paid is not true or rw.staff_note is distinct from '합친 계정의 취소 신청: 대상 납부 확인' then
+     or rw.fee_paid is not true or rw.staff_note is distinct from '합치기 전 취소 신청: 대상 납부 확인' then
     raise exception 'member_merge_edu ⑩: 납부·메모를 이어받아야 함 — %', to_jsonb(rw); end if;
+  -- ⑪ 메모 300자 + 300자 → 500자 제한(check) 안에서 합쳐진다 · 남는 줄 메모가 앞
+  perform public.edu_apply(c4, s11, '{"name":"가상s11"}');
+  perform public.edu_apply(c4, t11, '{"name":"가상t11"}');
+  update public.edu_enrollments set status='cancelled', cancelled_at=now(), staff_note=repeat('가',300) where course_id=c4 and user_id=s11;
+  update public.edu_enrollments set staff_note=repeat('나',300) where course_id=c4 and user_id=t11;
+  r := public.admin_merge_members(s11, t11, '교구|교육합치기점검|0|||가상s11'||tag, '교구|교육합치기점검|0|||가상t11'||tag, '개발 점검 — 긴 메모(되돌림)');
+  if coalesce((r->>'ok')::boolean,false) is not true then raise exception 'member_merge_edu ⑪: 합치기 거절 — %', r; end if;
+  select * into rw from public.edu_enrollments where course_id=c4 and user_id=t11;
+  if char_length(rw.staff_note) > 500 or left(rw.staff_note,300) <> repeat('나',300) then
+    raise exception 'member_merge_edu ⑪: 메모가 500자 이내이고 남는 줄 메모가 앞이어야 함 — %', char_length(rw.staff_note); end if;
 end $check$;
 select '통과' as result;
 rollback;
