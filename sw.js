@@ -43,7 +43,8 @@ self.addEventListener("notificationclick", (e) => {
       for (const c of list) {
         if ("focus" in c) {
           // ⚠️ 이미 열린 창은 focus 만 하고 주소가 안 바뀐다 — 그래서 따로 알린다.
-          try { c.postMessage({ type: "from-push" }); } catch (_) {}
+          //    url 도 함께 — 교육 알림(?edu=<강좌 id> · 2026-10-05)은 앱이 이 주소로 그 강좌를 연다(app.js 「from-push」).
+          try { c.postMessage({ type: "from-push", url: url }); } catch (_) {}
           return c.focus();
         }
       }

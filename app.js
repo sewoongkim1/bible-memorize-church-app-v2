@@ -144,6 +144,10 @@ function routeAfterLoad() {
     if (loadUser()) renderEventList(_evDeep); else renderEntryScreen();
     return;
   }
+  // 🎓 교육 알림 딥링크(?edu=<강좌 id> · 4단계 2026-10-05) — 확정·개강 전날 알림을 누르면 그 강좌 자세히로.
+  //   로그인 안 했으면 평소 길(아래 · 로그인 화면) — 주소의 edu 만 지운다. 플레이 앱은 🎓 를 숨기므로(ministryHiddenOnPlay) 평소 길.
+  const _eduDeep = (typeof eduTakeDeepLink === "function") ? eduTakeDeepLink() : null;
+  if (_eduDeep && loadUser() && !ministryHiddenOnPlay()) { renderEduCourse(_eduDeep); return; }
   // 딥링크(?v=구절번호): 설교 아카이브 등 외부에서 특정 구절로 바로 진입
   const deepNo = getDeepLinkVerseNo();
   if (deepNo != null) {
@@ -293,9 +297,13 @@ function readPushMark() {
 }
 
 // 이미 열려 있는 창을 알림으로 되살린 경우 — 주소가 안 바뀌므로 서비스워커가 따로 알려 준다.
+//   교육 알림(4단계 · 2026-10-05)은 알림 주소(e.data.url)의 ?edu=<강좌 id> 로 그 강좌 자세히를 연다(routeAfterLoad 와 같은 조건 · 옛 서비스워커는 url 을 안 실어 그대로).
 try {
   navigator.serviceWorker.addEventListener("message", (e) => {
-    if (e.data && e.data.type === "from-push") logFeature("push", 0);
+    if (!(e.data && e.data.type === "from-push")) return;
+    logFeature("push", 0);
+    const eid = (typeof eduDeepLinkId === "function") ? eduDeepLinkId(e.data.url) : null;
+    if (eid && loadUser() && !ministryHiddenOnPlay() && typeof renderEduCourse === "function") renderEduCourse(eid);
   });
 } catch (e) {}
 

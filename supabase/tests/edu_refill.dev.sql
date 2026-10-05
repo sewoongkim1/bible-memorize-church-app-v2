@@ -34,33 +34,34 @@ begin
 
   -- 정원 그대로면 아무도 안 오른다
   r := edu_course_refill(cid);
-  if r is distinct from '{"ok":true,"promoted":0}'::jsonb then raise exception '정원 그대로: %', r; end if;
+  if r is distinct from '{"ok":true,"promoted":0,"ids":[]}'::jsonb then raise exception '정원 그대로: %', r; end if;
 
   -- 정원 1 → 3 · 대기 셋 → 두 분이 대기 순서대로(시험4·시험2) 오르고 시험3 은 대기 1번으로 남는다
   update public.edu_courses set capacity = 3 where id = cid;
   r := edu_course_refill(cid);
-  if r is distinct from '{"ok":true,"promoted":2}'::jsonb then raise exception '1→3: %', r; end if;
+  -- 올린 신청 번호(ids)도 올린 차례대로(4단계 — 교회 어드민이 그분들께 「자리가 나서 확정」 알림을 부탁한다)
+  if r is distinct from jsonb_build_object('ok', true, 'promoted', 2, 'ids', jsonb_build_array(e4, e2)) then raise exception '1→3: %', r; end if;
   if (select status from public.edu_enrollments where id = e4) is distinct from 'confirmed' then raise exception '대기 첫 분(시험4)이 안 오름'; end if;
   if (select status from public.edu_enrollments where id = e2) is distinct from 'confirmed' then raise exception '대기 둘째(시험2)가 안 오름'; end if;
   if (select status from public.edu_enrollments where id = e3) is distinct from 'waitlisted' then raise exception '셋째(시험3)가 정원을 넘어 오름'; end if;
   if (select count(*) from public.edu_enrollments where course_id = cid and status = 'confirmed') is distinct from 3::bigint then raise exception '확정 수가 정원과 다름'; end if;
   -- 다시 불러도 그대로(정원 참)
   r := edu_course_refill(cid);
-  if r is distinct from '{"ok":true,"promoted":0}'::jsonb then raise exception '두 번째 부름: %', r; end if;
+  if r is distinct from '{"ok":true,"promoted":0,"ids":[]}'::jsonb then raise exception '두 번째 부름: %', r; end if;
 
   -- 승인 강좌 — 정원을 늘려도 안 올린다
   update public.edu_courses set mode = 'approve', capacity = 10 where id = cid;
   r := edu_course_refill(cid);
-  if r is distinct from '{"ok":true,"promoted":0}'::jsonb then raise exception '승인 강좌: %', r; end if;
+  if r is distinct from '{"ok":true,"promoted":0,"ids":[]}'::jsonb then raise exception '승인 강좌: %', r; end if;
   if (select status from public.edu_enrollments where id = e3) is distinct from 'waitlisted' then raise exception '승인 강좌인데 오름'; end if;
 
   -- 끝난·보관된 강좌 — 아무것도 안 한다
   update public.edu_courses set mode = 'auto', status = 'done' where id = cid;
   r := edu_course_refill(cid);
-  if r is distinct from '{"ok":true,"promoted":0}'::jsonb then raise exception 'done: %', r; end if;
+  if r is distinct from '{"ok":true,"promoted":0,"ids":[]}'::jsonb then raise exception 'done: %', r; end if;
   update public.edu_courses set status = 'archived' where id = cid;
   r := edu_course_refill(cid);
-  if r is distinct from '{"ok":true,"promoted":0}'::jsonb then raise exception 'archived: %', r; end if;
+  if r is distinct from '{"ok":true,"promoted":0,"ids":[]}'::jsonb then raise exception 'archived: %', r; end if;
   if (select status from public.edu_enrollments where id = e3) is distinct from 'waitlisted' then raise exception '끝난 강좌인데 오름'; end if;
 
   -- 정원 제한 없음(null) — 대기하신 분 모두(시험3·시험5) 오른다
@@ -69,7 +70,7 @@ begin
   select id into e5 from public.edu_enrollments where course_id = cid and user_id = u[5];
   update public.edu_courses set capacity = null where id = cid;
   r := edu_course_refill(cid);
-  if r is distinct from '{"ok":true,"promoted":2}'::jsonb then raise exception '제한 없음: %', r; end if;
+  if r is distinct from jsonb_build_object('ok', true, 'promoted', 2, 'ids', jsonb_build_array(e3, e5)) then raise exception '제한 없음: %', r; end if;
   if (select count(*) from public.edu_enrollments where course_id = cid and status = 'waitlisted') is distinct from 0::bigint then raise exception '제한 없음인데 대기가 남음'; end if;
 
   -- 없는 강좌
@@ -86,7 +87,7 @@ begin
   set local role service_role;
   r := edu_course_refill(cid);
   reset role;
-  if r is distinct from '{"ok":true,"promoted":1}'::jsonb then raise exception 'service_role 로 부름: %', r; end if;
+  if r is distinct from jsonb_build_object('ok', true, 'promoted', 1, 'ids', jsonb_build_array(e5)) then raise exception 'service_role 로 부름: %', r; end if;
   if (select status from public.edu_enrollments where id = e5) is distinct from 'confirmed' then raise exception 'service_role 로 불렀는데 안 오름'; end if;
 end $$;
 select '통과' as result;

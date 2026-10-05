@@ -528,6 +528,8 @@ Deno.serve(async (req) => {
       case "eduMine":   return json(await eduMine(body));
       case "eduCert":   return json(await eduCert(body));     // 내 수료증 자료(3단계) — 내 줄·수료·안 취소일 때만
       case "eduVerify": return json(await eduVerify(body));   // 수료번호 진위 확인(로그인 없이 · 가린 이름만)
+      case "internalEduNotify": return json(await internalEduNotify(req, body));   // 교육 확정 알림(4단계) — church-admin 전용(x-internal-key)
+      case "internalEduRemind": return json(await internalEduRemind(req));         // 교육 개강 전날 알림(4단계) — pg_cron 전용(x-internal-key)
       case "ministryApply":    return json(await ministryApply(body));
       case "ministryCancel":   return json(await ministryCancel(body));
       case "ministryList":     return json(await ministryList(body));
@@ -3804,10 +3806,13 @@ async function pilsaNotify(row: any) {
   return await pushToSubs(list, payload, "pilsa", "필사 노트 준비완료");
 }
 
-// 구독 목록에 밀어 넣고 결과를 돌려준다. 만료된 구독(404·410)은 그 자리에서 지운다.
-async function pushToSubs(list: any[], payload: string, mode: string, title: string) {
+// 웹 푸시 한 벌 — 구독 목록에 밀어 넣고 센다. 만료된 구독(404·410)은 그 자리에서 지운다.
+//   pushToSubs(필사·사역·신고 알림)와 eduPushDevices(교육 알림 · 2026-10-05)가 함께 쓴다 — push_log 는 부른 쪽이 남긴다.
+//   codes = 실패한 응답 번호별 수(교육 알림 push_log.note 용 · 구독 주소·user_id 는 담지 않는다).
+async function webPushList(list: any[], payload: string) {
   let sent = 0, failed = 0;
   let last: string | null = null;
+  const codes: Record<string, number> = {};
   for (const s of list) {
     try {
       await webpush.sendNotification(
@@ -3817,9 +3822,16 @@ async function pushToSubs(list: any[], payload: string, mode: string, title: str
       failed++;
       const code = e && (e.statusCode || e.status);
       last = "[" + (code || "ERR") + "] " + (e?.body || e?.message || String(e)).toString().slice(0, 120);
+      codes[String(code || "ERR")] = (codes[String(code || "ERR")] || 0) + 1;
       if (code === 404 || code === 410) await db.from("push_subscriptions").delete().eq("id", s.id);
     }
   }
+  return { sent, failed, last, codes };
+}
+
+// 구독 목록에 밀어 넣고 결과를 돌려준다. 만료된 구독(404·410)은 그 자리에서 지운다.
+async function pushToSubs(list: any[], payload: string, mode: string, title: string) {
+  const { sent, failed, last } = await webPushList(list, payload);
   try {
     await db.from("push_log").insert({ mode, title, sent, failed, total: list.length, ok: sent > 0 });
   } catch (_) { /* 로그 실패는 발송 결과에 영향 없음 */ }
@@ -4981,6 +4993,54 @@ function eduCertBody(body, title) {
   return String(body == null ? "" : body).split("{과정}").join(String(title == null ? "" : title));
 }
 
+// ── 교육 알림 문구 — 순수 함수 (여기부터) ──
+// ⚠️ 이 구간은 **타입 표기 없이** 쓴다 — tests/edu-front.test.cjs 가 두 표식 사이만 떼어 node:vm 으로 돌린다(꾸러미 없이 · preflight 가 건다).
+//    (그래서 이 주석에도 표기를 예로 적지 않는다.) 문구는 계획 docs/superpowers/plans/2026-10-05-education-stage4.md A(친구 결정).
+// 알림 글은 기기가 글자 그대로 보인다(HTML 이 아니다) — 이스케이프 대신 줄바꿈·제어·방향 바꿈 글자를 빈칸으로 바꾸고 길이를 자른다
+//   (강좌 제목·장소는 담당자가 쓴 글). max 는 코드 포인트 수 · 넘치면 끝을 「…」로.
+function eduPlain(s, max) {
+  var t = String(s == null ? "" : s).normalize("NFC")
+    .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]/g, " ")
+    .replace(/\s+/g, " ").trim();
+  var a = Array.from(t);
+  return a.length > max ? a.slice(0, max - 1).join("") + "…" : t;
+}
+// 10월 25일(일) — 날짜만 있는 값(한국 달력날)이라 UTC 자정으로 읽어 요일이 밀리지 않는다(js/edu.js eduMdw 와 같은 셈) · 틀린 값은 빈 글
+function eduNoteDay(d) {
+  if (!d || !/^\d{4}-\d{2}-\d{2}/.test(String(d))) return "";
+  var t = new Date(String(d).slice(0, 10) + "T00:00:00Z");
+  if (isNaN(t.getTime())) return "";
+  return (t.getUTCMonth() + 1) + "월 " + t.getUTCDate() + "일(" + "일월화수목금토".charAt(t.getUTCDay()) + ")";
+}
+// "14:00:00" → "14:00" · 없거나 틀리면 빈 글
+function eduNoteTime(t) {
+  var m = /^(\d{2}):(\d{2})/.exec(String(t == null ? "" : t));
+  return m ? m[1] + ":" + m[2] : "";
+}
+// 확정 알림의 회차 — ss(날짜 차례 · eduSessionsOf) 가운데 오늘(한국) 이후 첫 회차 {date, start, first}.
+//   first = 강좌의 첫 회차인가(아니면 「다음 시간」 — 진행 중에 확정된 분) · 남은 회차가 없으면 null(글은 앞부분만).
+function eduNextSession(ss, today) {
+  var list = Array.isArray(ss) ? ss : [];
+  for (var i = 0; i < list.length; i++) {
+    var s = list[i] || {};
+    if (s.on_date && String(s.on_date) >= String(today || "")) return { date: String(s.on_date), start: eduNoteTime(s.start_time), first: i === 0 };
+  }
+  return null;
+}
+// 확정 — 「{과정} 신청이 확정됐어요 — 첫 시간 10월 25일(일) 14:00」 · 대기에서 올라왔으면 앞에 「자리가 나서 」 · 회차가 없으면 앞부분만
+function eduConfirmedText(title, next, promoted) {
+  var head = (promoted ? "자리가 나서 " : "") + eduPlain(title, 40) + " 신청이 확정됐어요";
+  var day = next ? eduNoteDay(next.date) : "";
+  if (!day) return head;
+  return head + " — " + (next.first ? "첫 시간 " : "다음 시간 ") + day + (next.start ? " " + next.start : "");
+}
+// 개강 전날 — 「내일 {과정} 첫 시간이에요 — 14:00 · 본당」 · 시각·장소 가운데 없는 것은 뺀다(둘 다 없으면 앞부분만)
+function eduFirstDayText(title, start, place) {
+  var tail = [eduNoteTime(start), eduPlain(place, 30)].filter(function (x) { return x; }).join(" · ");
+  return "내일 " + eduPlain(title, 40) + " 첫 시간이에요" + (tail ? " — " + tail : "");
+}
+// ── 교육 알림 문구 — 순수 함수 (여기까지) ──
+
 async function eduMineRows(userId: string, courseId?: string) {
   if (!userId) return [];
   let q = db.from("edu_enrollments").select("id,course_id,status,waitlist_at,completed,cert_no,cert_revoked").eq("user_id", userId);
@@ -5114,6 +5174,10 @@ async function eduCancel(b: any) {
   const { data: r, error: e2 } = await db.rpc("edu_cancel", { p_enrollment: eid, p_staff: false });
   if (e2) throw e2;
   if (!r) return { ok: false, error: "server" };
+  // 대기 첫 분이 올라갔으면 그분께 「자리가 나서 … 확정됐어요」(4단계 · 같은 알림 길 · 한 번만) — 알림이 실패해도 취소는 이미 끝났다
+  if (r.ok && r.promoted != null) {
+    try { await eduNotifyConfirmed([Number(r.promoted)], true); } catch (e) { console.error("eduCancel notify", e); }
+  }
   return r.ok ? { ok: true, promoted: r.promoted != null } : r;
 }
 
@@ -5168,6 +5232,170 @@ async function eduVerify(b: any) {
   const revoked = e.cert_revoked === true;
   return { ok: true, valid: !revoked && e.completed === true, revoked, title: c.title, term: c.term || "",
     completedOn: e.completed_at ? kstDay(e.completed_at) : null, name: maskName(e.name) };
+}
+
+// ---------- 교육 앱 알림(4단계 · 2026-10-05 · 계획 docs/superpowers/plans/2026-10-05-education-stage4.md A) ----------
+// 보내는 길은 eduNotifySend 하나 — 확정(internalEduNotify · eduCancel 안의 대기 올림)·개강 전날(internalEduRemind) 모두 이리로 온다.
+// ⚠️ 같은 신청에 같은 알림은 한 번 — SQL edu_notify_claim 이 **보내기 전에** 기록 줄(edu_notify_log)을 잡고(확정·앱 계정 확인도 그 한 문장),
+//    잡힌 신청에만 보낸다. 받는 기기가 없어도 잡힌 줄은 남는다(「보냄」 · 재시도 폭주를 막는다) · 보내다 실패해도 다시 안 보낸다(많아야 한 번).
+// ⚠️ 응답·push_log·알림 내용에 user_id 를 싣지 않는다. 알림 글은 글자 그대로(eduPlain — HTML 아님).
+// ⚠️ 기기는 두 갈래 — 웹 푸시(push_subscriptions · 플레이 앱 포함)와 아이폰(ios_push_tokens · APNs). sendPush 와 같다(웹만 보내면 아이폰 앱 분은 못 받는다).
+//    누르면 웹 푸시는 주소(?edu=강좌 id → js/edu.js eduTakeDeepLink)로 그 강좌 자세히가 열린다 · 아이폰 앱은 주소를 안 읽어 앱만 열린다(네이티브 몫).
+const EDU_NOTIFY_TITLE = "🎓 교육";
+const EDU_NOTIFY_MAX = 2000;   // 한 번에 받는 신청 번호 수(정원 상한과 같다)
+const eduCourseUrl = (id: string) => "https://gocheok.onlybible.kr/?edu=" + encodeURIComponent(id);
+
+// 그분들의 기기 — user_id → {web, ios}. .in() 주소 길이를 넘지 않게 나눠 묻는다. 기기 번호·주소는 보내는 데만 쓴다(응답·기록에 없음).
+async function eduDevicesOf(userIds: string[]) {
+  const by = new Map<string, { web: any[]; ios: any[] }>();
+  const get = (u: string) => by.get(u) || by.set(u, { web: [], ios: [] }).get(u)!;
+  for (let i = 0; i < userIds.length; i += 100) {
+    const part = userIds.slice(i, i + 100);
+    const [w, t] = await Promise.all([
+      db.from("push_subscriptions").select("id,endpoint,p256dh,auth,user_id").in("user_id", part),
+      db.from("ios_push_tokens").select("id,device_token,user_id").in("user_id", part),
+    ]);
+    if (w.error) throw w.error;
+    if (t.error) throw t.error;
+    for (const s of (w.data ?? []) as any[]) get(String(s.user_id)).web.push(s);
+    for (const s of (t.data ?? []) as any[]) get(String(s.user_id)).ios.push(s);
+  }
+  return by;
+}
+
+// 한 글을 웹 푸시·아이폰에 보내고 push_log 에 한 줄 — **기기가 0이어도 남긴다**(「잡았는데 받을 기기가 없었다」를 갈라 보려고 · 개발 시험의 증거).
+//   만료된 웹 구독(404·410)·죽은 아이폰 토큰(gone)은 그 자리에서 지운다(pushToSubs·sendPush 와 같다) · 실패 이유는 수만 note 에(기기 번호·user_id 없음).
+//   ⚠️ monitor 는 push_log 의 daily 줄만 본다 — mode edu-* 줄이 0건이어도 헛경보가 나지 않는다.
+async function eduPushDevices(web: any[], ios: any[], title: string, body: string, url: string, mode: string) {
+  const w = await webPushList(web, JSON.stringify({ title, body, url }));
+  let sent = w.sent, failed = w.failed;
+  const why: Record<string, number> = {};
+  for (const k of Object.keys(w.codes)) why["web " + k] = w.codes[k];
+  for (const t of ios) {
+    const o: { reason?: string } = {};
+    const r = await sendApns(t.device_token, title, body, o);
+    if (r === "ok") { sent++; continue; }
+    failed++;
+    if (r === "gone") await db.from("ios_push_tokens").delete().eq("id", t.id);
+    const k = "ios " + (o.reason || r);
+    why[k] = (why[k] || 0) + 1;
+  }
+  const total = web.length + ios.length;
+  try {
+    const note = Object.keys(why).map((k) => `${k} ${why[k]}건`).join(" · ").slice(0, 300) || null;
+    const logBase = { mode, title, sent, failed, total, ok: sent > 0 };
+    const { error } = await db.from("push_log").insert({ ...logBase, body, note });
+    if (error) await db.from("push_log").insert(logBase);   // body·note 칸이 없는 옛 표
+  } catch (_) { /* 로그 실패는 발송 결과에 영향 없음 */ }
+  return { sent, failed, total };
+}
+
+// 신청 줄들(같은 kind)에 알림 — rows: [{id, course_id, user_id}](부른 쪽이 고른 후보) · textOf(강좌 id) = 그 강좌 알림 글.
+//   ① 후보의 기기를 먼저 읽고(잡은 뒤에 읽다 실패하면 영영 안 간다) ② edu_notify_claim 으로 잡고 ③ 잡힌 신청의 기기에만 **강좌마다** 보내고 push_log 한 줄.
+//   돌려주는 것 = 잡은(= 보낸) 신청 수. 한 강좌가 실패해도 다른 강좌는 보낸다(잡힌 줄은 남는다 — 많아야 한 번).
+async function eduNotifySend(kind: "confirmed" | "first_day", rows: any[], textOf: (courseId: string) => string): Promise<number> {
+  const cand = rows.filter((r) => r && r.user_id && Number.isSafeInteger(Number(r.id)) && Number(r.id) > 0);
+  if (!cand.length) return 0;
+  const devs = await eduDevicesOf([...new Set(cand.map((r) => String(r.user_id)))]);
+  const { data: got, error } = await db.rpc("edu_notify_claim", { p_kind: kind, p_ids: cand.map((r) => Number(r.id)) });
+  if (error) throw error;
+  const claimed = new Set(((got ?? []) as any[]).map((x) => Number(x.enrollment_id)));
+  const byCourse = new Map<string, any[]>();
+  for (const r of cand) {
+    if (!claimed.has(Number(r.id))) continue;
+    const k = String(r.course_id);
+    (byCourse.get(k) || byCourse.set(k, []).get(k)!).push(r);
+  }
+  for (const [cid, list] of byCourse) {
+    const web: any[] = [], ios: any[] = [];
+    for (const r of list) {
+      const d = devs.get(String(r.user_id));
+      if (d) { web.push(...d.web); ios.push(...d.ios); }
+    }
+    try {
+      await eduPushDevices(web, ios, EDU_NOTIFY_TITLE, textOf(cid), eduCourseUrl(cid), kind === "confirmed" ? "edu-confirmed" : "edu-first-day");
+    } catch (e) { console.error("eduNotifySend", kind, e); }
+  }
+  return claimed.size;
+}
+
+// 확정 알림 — 신청 번호들(같은 promoted) → 잡아서 보낸 수. 글은 강좌 제목 + 오늘(한국) 이후 첫 회차(eduConfirmedText · 회차가 없으면 앞부분만).
+//   교회 어드민(eduEnrollSet·eduEnrollAdd·eduCourseSave)이 internalEduNotify 로, 성경암송 eduCancel(대기 첫 분이 올라감)이 안에서 바로 부른다.
+//   ⚠️ 성도님이 선착순에 신청하자마자 확정된 것은 부르지 않는다(화면이 바로 「확정됐어요」 — 친구 결정) — 그래서 eduApply 에는 없다.
+async function eduNotifyConfirmed(ids: number[], promoted: boolean): Promise<number> {
+  const rows: any[] = [];
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data, error } = await db.from("edu_enrollments").select("id,course_id,user_id")
+      .in("id", ids.slice(i, i + 200)).eq("status", "confirmed").not("user_id", "is", null);
+    if (error) throw error;
+    rows.push(...((data ?? []) as any[]));
+  }
+  if (!rows.length) return 0;
+  const cids = [...new Set(rows.map((r) => String(r.course_id)))];
+  const [cr, sess] = await Promise.all([db.from("edu_courses").select("id,title").in("id", cids), eduSessionsOf(cids)]);
+  if (cr.error) throw cr.error;
+  const title = new Map(((cr.data ?? []) as any[]).map((c) => [String(c.id), String(c.title ?? "")]));
+  const today = eduKst();
+  return await eduNotifySend("confirmed", rows,
+    (cid) => eduConfirmedText(title.get(cid) ?? "", eduNextSession(sess[cid] || [], today), promoted));
+}
+
+// 교회 어드민 전용 — {kind:'confirmed', enrollment_ids:[신청 번호…], promoted?:boolean} · 같은 프로젝트 서비스 키(x-internal-key)일 때만
+//   (internalMinistryNotify 와 같은 문 · sameSecret). 담당자 저장이 **끝난 뒤** 부른다(교회 어드민 edu-db.ts withNotify — 실패해도 저장은 그대로).
+//   응답 {ok, sent: 이번에 알린 신청 수, skipped: 나머지(확정 아님·앱 계정 없음·이미 알림)} — user_id 는 싣지 않는다.
+async function internalEduNotify(req: Request, b: any) {
+  if (!sameSecret(req.headers.get("x-internal-key") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "")) {
+    return { ok: false, error: "unauthorized" };
+  }
+  if (b.kind !== "confirmed") return { ok: false, error: "bad-kind" };
+  const raw = b.enrollment_ids;
+  if (!Array.isArray(raw) || raw.length > EDU_NOTIFY_MAX) return { ok: false, error: "bad-args" };
+  const ids = [...new Set(raw.map((x: unknown) => Number(x)))] as number[];
+  if (ids.some((n) => !Number.isSafeInteger(n) || n < 1)) return { ok: false, error: "bad-args" };
+  const sent = ids.length ? await eduNotifyConfirmed(ids, b.promoted === true) : 0;
+  return { ok: true, sent, skipped: ids.length - sent };
+}
+
+// 개강 전날 알림 — pg_cron(supabase/edu_remind_cron.sql · 매일 10:00 UTC = 19:00 KST)이 서비스 키(x-internal-key)로 부른다.
+//   내일(한국)이 첫 날인 강좌 — 첫 날 = coalesce(첫 회차 날, 교육 시작일)(edu_cancel·eduMineOut 과 같은 셈) · 초안·보관·마침(draft·archived·done)은 뺀다.
+//   그 강좌의 확정 + 앱 계정 신청 가운데 first_day 기록이 없는 분께(잡기는 edu_notify_claim · 하루에 두 번 불러도 한 번).
+//   글: 「내일 {과정} 첫 시간이에요 — 14:00 · 본당」(첫 날이 회차에서 왔으면 그 회차의 시각·장소 — 회차 장소가 비면 강좌 장소).
+//   후보는 「내일 회차가 있는 강좌」+「내일 시작하는 강좌」뿐이라 강좌가 쌓여도 가볍다. 응답 {ok, day, courses, sent, skipped} — user_id 없음.
+async function internalEduRemind(req: Request) {
+  if (!sameSecret(req.headers.get("x-internal-key") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "")) {
+    return { ok: false, error: "unauthorized" };
+  }
+  const day = new Date(Date.parse(eduKst() + "T00:00:00Z") + 86400000).toISOString().slice(0, 10);   // 내일(한국)
+  const [sr, sc] = await Promise.all([
+    fetchAllRows(() => db.from("edu_sessions").select("course_id").eq("on_date", day).order("id")),
+    fetchAllRows(() => db.from("edu_courses").select("id").eq("starts_on", day).order("id")),
+  ]);
+  const cand = [...new Set([...sr, ...sc].map((r: any) => String(r.course_id ?? r.id)))];
+  const due = new Map<string, string>();   // 강좌 id → 알림 글
+  for (let i = 0; i < cand.length; i += 100) {
+    const part = cand.slice(i, i + 100);
+    const [cr, sess] = await Promise.all([
+      db.from("edu_courses").select("id,title,place,starts_on,status").in("id", part).not("status", "in", "(draft,archived,done)"),
+      eduSessionsOf(part),
+    ]);
+    if (cr.error) throw cr.error;
+    for (const c of (cr.data ?? []) as any[]) {
+      const ss = sess[c.id] || [];
+      if ((ss[0]?.on_date ?? c.starts_on ?? null) !== day) continue;   // 첫 날이 내일이 아니다(더 앞선 회차가 있다)
+      const s0 = ss[0] ?? null;   // 첫 날이 회차에서 왔으면 그 회차 · 아니면(회차 없음) null
+      due.set(String(c.id), eduFirstDayText(c.title, s0?.start_time ?? "", (s0?.place || c.place) ?? ""));
+    }
+  }
+  if (!due.size) return { ok: true, day, courses: 0, sent: 0, skipped: 0 };
+  const ids = [...due.keys()];
+  const rows: any[] = [];
+  for (let i = 0; i < ids.length; i += 100) {
+    const part = ids.slice(i, i + 100);
+    rows.push(...await fetchAllRows(() => db.from("edu_enrollments").select("id,course_id,user_id")
+      .in("course_id", part).eq("status", "confirmed").not("user_id", "is", null).order("id")));
+  }
+  const sent = await eduNotifySend("first_day", rows, (cid) => due.get(cid) ?? "");
+  return { ok: true, day, courses: due.size, sent, skipped: rows.length - sent };
 }
 
 // 신청 한 건의 키는 (연도, user_id) 다. 이 앱은 로그인이 교구·목장·이름을

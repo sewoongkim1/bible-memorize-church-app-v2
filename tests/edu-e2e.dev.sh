@@ -7,6 +7,8 @@
 #          수료(3단계): SQL edu_issue_certs 로 번호를 주고 eduMine·eduList·eduCourse 의 certNo · eduCert(내 줄만) · eduVerify(가린 이름) ·
 #                      취소(edu_revoke_cert) 뒤 revoked · 되살림(같은 번호)을 본다. 그 해 번호 차례(edu_cert_seq)는 끝나면 시작 전 값으로 되돌린다.
 #                      번호의 「고척」은 본문에 JSON 이스케이프(GC — 백슬래시 u 넷)로 적는다(한글 글자를 curl 에 넘기지 않는다).
+#          알림(4단계): 6) 에서 대기 분이 올라가면 api 가 안에서 확정 알림을 한 번(edu_notify_log 한 줄 · push_log 한 줄) — 끝나면 그 push_log 줄도 지운다.
+#                      알림 자체의 시험은 tests/edu-notify.dev.sh.
 # ⚠️ 본문에 한글을 쓰지 않는다(curl 이 깨뜨린다) — id 만 보낸다. 키·비밀번호는 찍지 않는다.
 set -u
 REF=ktpwthwqzgcqcrmsafdo
@@ -47,10 +49,12 @@ N=$(sq "select count(*) from users")
 if [ -z "$N" ] || [ "$N" -ge 200 ]; then echo "users=$N — 개발이 아닌 것 같다. 중단."; exit 2; fi
 echo "dev users=$N"
 
-OLD_STATE=""; OLD_VAL=""; CID=""; YEAR=""; SEQ_OLD=""
+OLD_STATE=""; OLD_VAL=""; CID=""; YEAR=""; SEQ_OLD=""; TAG=""
 cleanup() {
-  # 출석 → 신청 줄(on delete restrict) → 강좌(회차는 cascade · 출석이 남아 있으면 회차가 restrict 로 막는다)
+  # 출석 → 신청 줄(on delete restrict · 알림 기록 edu_notify_log 는 cascade) → 강좌(회차는 cascade · 출석이 남아 있으면 회차가 restrict 로 막는다)
   [ -n "$CID" ] && sx "delete from edu_attendance where enrollment_id in (select id from edu_enrollments where course_id='$CID'); delete from edu_enrollments where course_id='$CID'; delete from edu_courses where id='$CID'"
+  # 6) 에서 대기 분이 올라가며 생긴 교육 알림 push_log 줄(4단계 · 개발 사용자는 기기가 없어 total 0 줄)
+  [ -n "$TAG" ] && sx "delete from push_log where mode in ('edu-confirmed','edu-first-day') and body like '%$TAG%'"
   # 수료번호 차례 — 개발에서만 시작 전 값으로(시험 번호 줄은 위에서 지웠다)
   if [ -n "$SEQ_OLD" ]; then
     if [ "$SEQ_OLD" = "none" ]; then sx "delete from edu_cert_seq where year=$YEAR"; else sx "update edu_cert_seq set last=$SEQ_OLD where year=$YEAR"; fi
@@ -110,6 +114,10 @@ M2=$(call "{\"action\":\"eduMine\",\"user_id\":\"$U2\"}")
 chk "U2 confirmed" "$(jqn '[m["status"] for m in d["mine"] if m["courseId"]=="'$CID'"]' "$M2")" "['confirmed']"
 M3=$(call "{\"action\":\"eduMine\",\"user_id\":\"$U3\"}")
 chk "U3 waitNo" "$(jqn '[m["waitNo"] for m in d["mine"] if m["courseId"]=="'$CID'"]' "$M3")" "[1]"
+# 4단계 — 올라간 U2 께 「자리가 나서 … 확정」 알림이 api 안에서 한 번(기록 한 줄 · push_log 한 줄 · U1 의 즉시 확정은 알림 없음)
+chk "U2 promoted -> confirmed notify log" "$(sq "select count(*)||':'||min(kind) from edu_notify_log where enrollment_id=(select id from edu_enrollments where course_id='$CID' and user_id='$U2')")" "1:confirmed"
+chk "U1 (instant confirm) no notify log" "$(sq "select count(*) from edu_notify_log where enrollment_id=$E1")" "0"
+chk "one edu-confirmed push_log row for this course" "$(sq "select count(*) from push_log where mode='edu-confirmed' and body like '%$TAG%'")" "1"
 
 echo "6b) attendance — SQL edu_attendance_set -> eduMine attend · eduCourse myState (own row only)"
 S1=$(sq "select id from edu_sessions where course_id='$CID' and no=1")
@@ -252,6 +260,8 @@ sx "delete from edu_attendance where enrollment_id in (select id from edu_enroll
 chk "attendance gone" "$(sq "select count(*) from edu_attendance where session_id in ($S1,$S2)")" "0"
 chk "course gone" "$(sq "select count(*) from edu_courses where id='$CID'")" "0"
 chk "enrollments gone" "$(sq "select count(*) from edu_enrollments where course_id='$CID'")" "0"
+sx "delete from push_log where mode in ('edu-confirmed','edu-first-day') and body like '%$TAG%'"
+chk "notify log / push_log rows gone" "$(sq "select (select count(*) from edu_notify_log where enrollment_id=$E2)||':'||(select count(*) from push_log where mode in ('edu-confirmed','edu-first-day') and body like '%$TAG%')")" "0:0"
 CID=""
 if [ "$SEQ_OLD" = "none" ]; then sx "delete from edu_cert_seq where year=$YEAR"; else sx "update edu_cert_seq set last=$SEQ_OLD where year=$YEAR"; fi
 chk "cert seq restored" "$(sq "select coalesce((select last::text from edu_cert_seq where year=$YEAR),'none')")" "$SEQ_OLD"

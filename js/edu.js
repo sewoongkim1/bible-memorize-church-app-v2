@@ -296,9 +296,37 @@ function eduCertPlan(c, measure, imgs) {
 }
 // 저장할 파일 이름 — 수료증_고척-2026-0001.png(파일 이름에 못 쓰는 글자·빈칸은 뺀다)
 function eduCertFileName(no) { return '수료증_' + (String(no || '').replace(/[\\/:*?"<>|\s]/g, '') || '고척') + '.png'; }
+// 알림 딥링크(4단계 · 2026-10-05) — 주소(전체 주소든 ?뒤든)의 edu=<강좌 id> 를 읽는다. uuid 꼴만 · 아니면 null.
+//   api 의 확정·개강 전날 알림이 「https://gocheok.onlybible.kr/?edu=<강좌 id>」로 보낸다(서비스워커가 &from=push 를 붙인다).
+var EDU_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function eduDeepLinkId(href) {
+  var s = String(href == null ? '' : href), q = s.indexOf('?');
+  if (q < 0) return null;
+  var parts = s.slice(q + 1).split('#')[0].split('&');
+  for (var i = 0; i < parts.length; i++) {
+    var eq = parts[i].indexOf('=');
+    if ((eq < 0 ? parts[i] : parts[i].slice(0, eq)) !== 'edu') continue;
+    var v = ''; try { v = decodeURIComponent(eq < 0 ? '' : parts[i].slice(eq + 1)); } catch (e) { return null; }
+    return EDU_UUID_RE.test(v.trim()) ? v.trim().toLowerCase() : null;
+  }
+  return null;
+}
 // ── 교육 순수 함수 (여기까지) ──
 
 var eduState = { list: null, mine: [], open: true, tab: 'open', screen: 0, certUrl: '' };   // screen: 화면이 바뀔 때마다 올라가는 번호 — 늦게 온 응답이 다른 화면을 덮지 않게
+
+// 알림을 눌러 들어온 길(?edu=<강좌 id> · 4단계) — 한 번 읽고 주소에서 edu 만 지운다(새로고침 때 또 열리지 않게 · 다른 파라미터는 둔다).
+//   여는 것은 app.js routeAfterLoad(로그인했을 때만 renderEduCourse · 아니면 평소 길) · 이미 열린 창은 서비스워커 「from-push」 메시지(app.js)가 연다.
+function eduTakeDeepLink() {
+  try {
+    if (!/[?&]edu=/.test(location.search)) return null;
+    var id = eduDeepLinkId(location.search);
+    var q = new URLSearchParams(location.search); q.delete('edu');
+    var rest = q.toString();
+    history.replaceState(null, '', location.pathname + (rest ? '?' + rest : ''));
+    return id;
+  } catch (e) { return null; }
+}
 
 function renderEduList(tab) {
   var u = loadUser();
