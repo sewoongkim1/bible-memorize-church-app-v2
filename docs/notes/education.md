@@ -22,6 +22,7 @@
 - ⚠️ **`tools/bump.py` 의 `TAGGED` 에 `js/edu.js`** — 빠지면 판을 올릴 때 태그가 엇갈려 preflight 가 막고 **모든 세션의 배포가 멈춘다.** preflight `[2-1]` 이 index.html 과 맞대 본다.
 - **지우는 길은 없다** — `edu_enrollments.course_id` 가 `on delete restrict`. 시험 강좌는 `archived` 로. 개발에서 지울 땐 신청 → 회차 → 강좌 순.
 - **열람 기록** `feature_log` 값 `edu`(서버 `FEATURES` 에 있다).
+- **출석부(2단계 · 2026-10-05 운영)** — 표 `edu_attendance`(신청 줄 따라감 · `user_id` 없음) · 쓰기는 `edu_attendance_set`·`_bulk` 만(확정자 · 같은 강좌 · 마친 강좌 `course-closed`) · 출석률 = (출석+지각) ÷ (출석+지각+결석) · 공결·체크 전은 빼고(친구 결정) · `eduAttendRate` 가 교회 어드민·`js/edu.js`·api 세 곳에 **글자 그대로** 있고 지문 시험이 묶는다. ⚠️ 회차는 **id 로** 맞춘다(`edu_sessions_replace` · 번호는 차례 · `unique(course_id,no)` deferrable — `ON CONFLICT (course_id,no)` 쓰지 말 것) · 출석 있는 회차 지우기는 `has-attendance`. 합치기는 취소 겹침 줄의 출석을 남는 줄로 옮기고, 같은 회차 상태가 다르면 `merge-edu-attendance`. 앱 「내 강좌」·자세히에 내 출석(`attend`·`myState` — 내 것만).
 
 ## 시험
 
