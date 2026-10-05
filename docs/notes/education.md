@@ -7,6 +7,7 @@
 
 - **강좌 자세히 화면(2026-10-05 다시 짬 · v3.520):** A안 「📝 강좌 소개」 카드(담당자가 쓴 설명) + 「한눈에 카드」 + 「자리·신청」 칸 상태 열두 가지 + 신청 전 확인 창(이름·소속). 무엇을 보일지는 순수 함수 `eduWhenLine`·`eduPhaseChip`·`eduSeatView`·`eduMineView`(시험 `tests/edu-front.test.cjs`)가 정하고 `renderEduCourse` 는 옮기기만 한다. ⚠️ **성도님 화면에 「반려」를 쓰지 않는다**(「이번 신청은 확정되지 않았어요」) · 정원이 찼는데 대기를 안 받으면 단추를 두지 않는다 · 신청·취소 뒤 알림 창 대신 그 칸으로 스크롤. 목록·「내 강좌」 카드의 `0/24`·`반려` 는 아직 옛 말 — 맞추는 것은 설계 §8 「나중」. 설계 `docs/superpowers/specs/2026-10-05-edu-course-detail-redesign-design.md` · 계획 `docs/superpowers/plans/2026-10-05-edu-course-detail-redesign.md`
 
+- **강좌별 담당자(2026-10-05 · 교회 어드민 SQL 011 · 운영 반영):** 역할 `education` = **교육 총괄**(모든 강좌 · 담당자 지정) · `educourse` = **교육 담당(맡은 강좌)**(📝 신청 현황만) — 담당 줄은 교회 어드민 표 `edu_course_staff`(여기 `edu.sql` 아님) · 「맡은 강좌만」은 그쪽 서버가 강좌마다 막는다(`not-assigned`). 교회 어드민 `CLAUDE.md` 「교육」.
 - **정원·대기·취소 마감 규칙은 SQL 한 곳(`supabase/edu.sql`).** `edu_apply`·`edu_cancel`·`edu_staff_set`·`edu_course_refill` 만 상태를 바꾼다 — 두 앱의 서버·화면에서 `status` 를 직접 쓰지 말 것. 모두 **강좌 줄을 먼저 잠그고**(for update) 그다음 신청 줄 — 새 함수도 이 순서를 지킬 것.
 - **「반려 유지」(친구 결정):** 반려된 분이 앱에서 다시 눌러도 반려 그대로(`{status:'declined', already:true}` → 「이 강좌는 담당자에게 말씀해 주세요」). 되살리는 것은 담당자만 — 신청 현황 「다시 받기」, 또는 대신 등록에서 `was-declined` → 확인 → `force`.
 - **정원을 늘리면 `edu_course_refill`** — 선착순 강좌에서 자리가 생기는 저장(정원 늘림·제한 없앰·승인→선착순)일 때만 대기자를 차례로 올린다. 제목만 고치는 저장에는 안 부른다(담당자가 일부러 대기에 둔 분을 올리지 않으려고). 그 호출이 실패하면 다시 저장해도 안 올라간다 — 신청 현황에서 손으로 확정.
