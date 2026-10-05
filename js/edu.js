@@ -100,6 +100,28 @@ function eduAttendRate(c) {
   var denom = attended + n(o.absent);
   return { attended: attended, denom: denom, pct: denom > 0 ? Math.round(attended * 100 / denom) : null };
 }
+// 내 출석 한 줄(2단계) — 「출석 6/7 · 86%」 · 셈은 위 eduAttendRate 하나(규칙을 여기서 다시 짜지 않는다 · 서버 pct 와 같은 값).
+//   a = 서버 attend {present, late, absent, excused, marked, pct}. 체크한 칸이 없으면(marked 0) 빈 글 — 줄을 그리지 않는다.
+//   공결만 있으면 분모가 0 이라 「공결 2회」.
+function eduAttendLine(a) {
+  if (!a || !(Number(a.marked) > 0)) return '';
+  var r = eduAttendRate(a);
+  if (r.denom > 0) return '출석 ' + r.attended + '/' + r.denom + ' · ' + r.pct + '%';
+  var ex = Math.floor(Number(a.excused));
+  return ex > 0 ? '공결 ' + ex + '회' : '';
+}
+// 「🗓️ 일정」 카드 위 한 줄 — 「내 출석 6/7 · 86% (수료 기준 80%)」 · 공결만이면 「내 출석 · 공결 2회 (수료 기준 80%)」
+function eduMyAttendLine(a, attendPct) {
+  var base = eduAttendLine(a); if (!base) return '';
+  var p = attendPct === null || attendPct === undefined || attendPct === '' ? NaN : Number(attendPct);
+  return '내 ' + (base.indexOf('공결') === 0 ? '출석 · ' + base : base) + (Number.isFinite(p) ? ' (수료 기준 ' + p + '%)' : '');
+}
+// 회차 줄 오른쪽 표시(내 칸 myState) — 출석 ✅ · 지각 🕘 · 결석 ❌ · 공결은 글자 칩 · 체크 전(null)은 표시 없음
+function eduStateMark(st) {
+  var M = { present: { cls: 'present', icon: '✅', label: '출석' }, late: { cls: 'late', icon: '🕘', label: '지각' },
+    absent: { cls: 'absent', icon: '❌', label: '결석' }, excused: { cls: 'excused', icon: '', label: '공결' } };
+  return Object.prototype.hasOwnProperty.call(M, st) ? M[st] : null;   // 'toString' 같은 이름이 함수를 꺼내지 않게
+}
 // ── 교육 순수 함수 (여기까지) ──
 
 var eduState = { list: null, mine: [], open: true, tab: 'open', screen: 0 };   // screen: 화면이 바뀔 때마다 올라가는 번호 — 늦게 온 응답이 다른 화면을 덮지 않게
@@ -139,6 +161,7 @@ function eduDrawList(tab) {
       return '<div class="edu-card" data-i="' + i + '"><span class="edu-k">' + eduEsc(eduStatusLine(m)) + '</span>' +
         '<b>' + eduEsc(m.title) + '</b><span>' + eduEsc(m.term) + '</span>' +
         (m.nextSession ? '<span>다음 시간 · ' + eduEsc(eduMdw(m.nextSession.date)) + (m.nextSession.start ? ' ' + eduEsc(m.nextSession.start) : '') + '</span>' : '') +
+        (eduAttendLine(m.attend) ? '<span class="edu-att">' + eduEsc(eduAttendLine(m.attend)) + '</span>' : '') +   // 출석(2단계) — 체크한 칸이 있을 때만
         '</div>'; }).join('') : '<p class="edu-empty">아직 신청한 강좌가 없어요.</p>';
   } else {
     var list = tab === 'soon' ? soon : open;
@@ -201,11 +224,17 @@ function renderEduCourse(id, opt) {
       '<p class="edu-msg" id="edu-msg" role="status"></p></div>';
     var ss = c.sessions || [], shown = ss.length <= 4 ? ss.length : 2;   // 4회까지는 다 · 5회부터는 2회 + 「더 보기」
     // 일정·수료 기준도 「📝 강좌 소개」와 같은 카드로(친구 2026-10-05 「일정도 박스로 구분」) — 회차마다 한 줄 · 줄 사이 점선
+    // 회차 줄 오른쪽에 내 출석 표시(2단계 · myState — 내 칸만 · 체크 전은 없음)
     var sessLi = function (s) {
+      var mk = eduStateMark(s.myState);
       return '<div class="edu-ss"><span class="edu-ss-n">' + s.no + '회</span><div class="edu-ss-b"><b>' + eduEsc(eduMdw(s.date)) + (s.start ? ' ' + eduEsc(s.start) : '') + '</b>' +
         (s.topic ? '<span>' + eduEsc(s.topic) + '</span>' : '') +
-        (s.place && s.place !== c.place ? '<span class="edu-ss-p">' + eduEsc(s.place) + '</span>' : '') + '</div></div>'; };
-    var sess = ss.length ? '<div class="edu-about edu-sched"><div class="edu-about-h">🗓️ 일정 ' + ss.length + '회</div><div id="edu-sess">' + ss.slice(0, shown).map(sessLi).join('') + '</div>' +
+        (s.place && s.place !== c.place ? '<span class="edu-ss-p">' + eduEsc(s.place) + '</span>' : '') + '</div>' +
+        (mk ? '<span class="edu-ss-m ' + mk.cls + '">' + (mk.icon ? '<span aria-hidden="true">' + mk.icon + '</span>' : '') + mk.label + '</span>' : '') + '</div>'; };
+    var myAtt = m ? eduMyAttendLine(m.attend, c.attendPct) : '';   // 「내 출석 6/7 · 86% (수료 기준 80%)」 — 체크한 칸이 있을 때만
+    var sess = ss.length ? '<div class="edu-about edu-sched"><div class="edu-about-h">🗓️ 일정 ' + ss.length + '회</div>' +
+      (myAtt ? '<div class="edu-myatt">' + eduEsc(myAtt) + '</div>' : '') +
+      '<div id="edu-sess">' + ss.slice(0, shown).map(sessLi).join('') + '</div>' +
       (ss.length > shown ? '<button class="edu-more" id="edu-more">＋ ' + (ss.length - shown) + '회 더 보기</button>' : '') + '</div>' : '';
     var rule = '출석 ' + c.attendPct + '% 이상' + (c.checkLabel ? ' + ' + c.checkLabel + ' 확인' : '');
     // 위 한 줄 — 왼쪽 칩 · 오른쪽 「← 교육」(암송·복습 화면 .test-top 과 같은 꼴 · 같은 .back-btn — 친구 2026-10-05)

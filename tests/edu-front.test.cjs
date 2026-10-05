@@ -191,3 +191,40 @@ test('eduAttendRate — api(supabase/functions/api/index.ts)의 복사본이 js/
   assert.equal(require('node:crypto').createHash('sha256').update(pick(src)).digest('hex'), EDU_ATTEND_RATE_SHA256,
     '출석률 함수 글자가 바뀌었다 — 교회 어드민 edu-rules.ts·api 복사본과 두 시험의 지문을 함께 고칠 것');
 });
+
+// ---------- 내 출석 표시(2단계 화면 · 2026-10-05) ----------
+test('eduAttendLine — 「출석 a/b · p%」 · 셈은 eduAttendRate(서버 pct 와 같은 값) · 체크 전이면 빈 글 · 공결만이면 「공결 N회」', () => {
+  assert.equal(ctx.eduAttendLine({ present: 5, late: 1, absent: 1, excused: 1, marked: 8, pct: 86 }), '출석 6/7 · 86%');
+  assert.equal(ctx.eduAttendLine({ present: 2, late: 0, absent: 1, excused: 0, marked: 3, pct: 67 }), '출석 2/3 · 67%');
+  assert.equal(ctx.eduAttendLine({ present: 0, late: 0, absent: 2, excused: 0, marked: 2, pct: 0 }), '출석 0/2 · 0%');
+  assert.equal(ctx.eduAttendLine({ present: 0, late: 0, absent: 0, excused: 2, marked: 2, pct: null }), '공결 2회');
+  assert.equal(ctx.eduAttendLine({ present: 0, late: 0, absent: 0, excused: 0, marked: 0, pct: null }), '');   // 아직 체크 안 함 — 줄 없음
+  assert.equal(ctx.eduAttendLine({ present: 3, marked: 0 }), '');   // marked 가 0 이면(서버 계약) 그리지 않는다
+  assert.equal(ctx.eduAttendLine(null), '');
+  assert.equal(ctx.eduAttendLine(undefined), '');
+  // 위 출석률 시험 경우마다 — 줄의 % 가 eduAttendRate 의 pct 와 같다(규칙을 두 번 짜지 않았다)
+  for (const [input, want] of ATTEND_RATE_CASES) {
+    if (!input || want.denom === 0) continue;
+    const a = { ...input, marked: 1 };
+    assert.equal(ctx.eduAttendLine(a), '출석 ' + want.attended + '/' + want.denom + ' · ' + want.pct + '%', JSON.stringify(input));
+  }
+});
+
+test('eduMyAttendLine — 「내 출석 6/7 · 86% (수료 기준 80%)」 · 기준이 없으면 괄호 없이 · 공결만 · 체크 전은 빈 글', () => {
+  const a = { present: 5, late: 1, absent: 1, excused: 1, marked: 8, pct: 86 };
+  assert.equal(ctx.eduMyAttendLine(a, 80), '내 출석 6/7 · 86% (수료 기준 80%)');
+  assert.equal(ctx.eduMyAttendLine(a, 0), '내 출석 6/7 · 86% (수료 기준 0%)');
+  assert.equal(ctx.eduMyAttendLine(a, null), '내 출석 6/7 · 86%');
+  assert.equal(ctx.eduMyAttendLine(a, undefined), '내 출석 6/7 · 86%');
+  assert.equal(ctx.eduMyAttendLine({ excused: 2, marked: 2 }, 80), '내 출석 · 공결 2회 (수료 기준 80%)');
+  assert.equal(ctx.eduMyAttendLine({ marked: 0 }, 80), '');
+  assert.equal(ctx.eduMyAttendLine(null, 80), '');
+});
+
+test('eduStateMark — 출석 ✅ · 지각 🕘 · 결석 ❌ · 공결은 글자만 · 체크 전·모르는 값은 null', () => {
+  assert.deepEqual(pick(ctx.eduStateMark('present')), { cls: 'present', icon: '✅', label: '출석' });
+  assert.deepEqual(pick(ctx.eduStateMark('late')), { cls: 'late', icon: '🕘', label: '지각' });
+  assert.deepEqual(pick(ctx.eduStateMark('absent')), { cls: 'absent', icon: '❌', label: '결석' });
+  assert.deepEqual(pick(ctx.eduStateMark('excused')), { cls: 'excused', icon: '', label: '공결' });
+  for (const x of [null, undefined, '', 'x', 'toString', 'constructor', '__proto__']) assert.equal(ctx.eduStateMark(x), null, String(x));
+});

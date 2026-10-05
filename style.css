@@ -5944,6 +5944,15 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .edu-ss-b b { font-weight: 600; }
 .edu-ss-p { color: var(--gray); font-size: 14px; }
 .edu-sched .edu-more { margin-top: 2px; }
+/* 내 출석(2단계 · 2026-10-05) — 일정 카드 위 한 줄 「내 출석 6/7 · 86% (수료 기준 80%)」 · 회차 줄 오른쪽 작은 칩(내 칸 myState) · 내 강좌 카드 줄
+   ⚠️ 새 색을 만들지 않는다 — 초록 .edu-chip.on · 금색 .summary-icon.icon-alarm · 빨강 .edu-btn.ghost.danger · 남색 .edu-seat 와 같은 값 */
+.edu-myatt { font-size: 15px; font-weight: 700; color: var(--navy); padding: 2px 0 8px; border-bottom: 1px dashed var(--border); }
+.edu-ss-m { flex: 0 0 auto; align-self: center; display: inline-flex; align-items: center; gap: 3px; padding: 1px 9px; border-radius: 999px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.edu-ss-m.present { background: rgba(44, 95, 45, .12); color: var(--green); }
+.edu-ss-m.late { background: #fff4dc; color: #8a6d1f; }
+.edu-ss-m.absent { background: #fbeceb; color: var(--error); }
+.edu-ss-m.excused { background: #eef1f8; color: var(--navy); }
+.edu-card .edu-att { color: var(--green); font-weight: 700; }
 .edu-gl { display: flex; gap: 8px; align-items: baseline; padding: 8px 0; font-size: 15px; line-height: 1.5; }
 .edu-gl + .edu-gl { border-top: 1px dashed var(--border); }
 .edu-gl-i { flex: 0 0 auto; }
@@ -5979,6 +5988,12 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .dark .edu-ss + .edu-ss { border-top-color: #33507d; }
 .dark .edu-ss-n, .dark .edu-ss-p { color: #b9c2d0; }
 .dark .edu-ss-b { color: #dbe2ee; }
+.dark .edu-myatt { color: #cdd9f2; border-bottom-color: #33507d; }
+.dark .edu-ss-m.present { background: #17311f; color: #8fd6ab; }
+.dark .edu-ss-m.late { background: #3a3320; color: #eccf87; }
+.dark .edu-ss-m.absent { background: #3a2428; color: #f0a49b; }
+.dark .edu-ss-m.excused { background: #232c3f; color: #cdd9f2; }
+.dark .edu-card .edu-att { color: #8fd6ab; }
 .dark .edu-gl + .edu-gl { border-top-color: #33507d; }
 .dark .edu-gl-k, .dark .edu-note { color: #b9c2d0; }
 .dark .edu-gl-v, .dark .edu-seat span, .dark .edu-state span, .dark .edu-how { color: #dbe2ee; }
