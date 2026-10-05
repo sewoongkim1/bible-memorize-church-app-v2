@@ -65,6 +65,7 @@ begin
   r := edu_staff_set(e1, 'confirmed', false); if r->>'error' is distinct from 'full' then raise exception '정원: %', r; end if;
   r := edu_staff_set(e1, 'confirmed', true);  if (r->>'ok')::boolean is not true then raise exception 'force: %', r; end if;
   r := edu_staff_set(-1, 'confirmed', false); if r->>'error' is distinct from 'not-found' then raise exception '없는 줄: %', r; end if;
+  r := edu_staff_set(e1, null, false);        if r->>'error' is distinct from 'bad-status' then raise exception 'null status: %', r; end if;
   r := edu_staff_set(e1, 'zzz', false);       if r->>'error' is distinct from 'bad-status' then raise exception 'bad-status: %', r; end if;
 
   -- 첫 회차 당일에는 성도님 취소 불가 · 담당자는 됨 (시험3 확정 취소)
@@ -96,6 +97,12 @@ begin
   if (select status from public.edu_enrollments where id = e2) is distinct from 'declined' then raise exception '반려 행이 바뀜'; end if;
   r := edu_apply(cid, u[2], '{"name":"시험2"}', true);
   if r->>'ok' is distinct from 'true' or r->>'status' is distinct from 'waitlisted' then raise exception '담당자는 되살림: %', r; end if;
+
+  -- 취소됐던 줄을 담당자가 대기로 되돌리면 옛 시각을 쓰지 않고 줄 맨 뒤(시험2 는 지금 대기 중)
+  update public.edu_enrollments set waitlist_at = now() - interval '1 minute' where id = e2;
+  update public.edu_enrollments set waitlist_at = now() - interval '1 day' where id = e4;   -- e4 는 위에서 취소됐다
+  r := edu_staff_set(e4, 'waitlisted', false); if r->>'ok' is distinct from 'true' then raise exception '취소→대기: %', r; end if;
+  if (select waitlist_at from public.edu_enrollments where id = e4) <= (select waitlist_at from public.edu_enrollments where id = e2) then raise exception '새치기: 되돌린 줄이 기존 대기자보다 앞'; end if;
 
   -- 모집 전·후·준비 중 · null p_staff 는 성도님 길
   update public.edu_courses set waitlist = true, capacity = null, status = 'draft' where id = cid;

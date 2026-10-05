@@ -195,7 +195,7 @@ returns jsonb language plpgsql security definer set search_path = public as $$
 declare e public.edu_enrollments; c public.edu_courses; n int; p bigint;
 begin
   p_force := coalesce(p_force, false);
-  if p_status not in ('confirmed','waitlisted','declined','applied') then return jsonb_build_object('ok',false,'error','bad-status'); end if;
+  if p_status is null or p_status not in ('confirmed','waitlisted','declined','applied') then return jsonb_build_object('ok',false,'error','bad-status'); end if;
   select * into e from public.edu_enrollments where id = p_enrollment;
   if e.id is null then return jsonb_build_object('ok',false,'error','not-found'); end if;
   select * into c from public.edu_courses where id = e.course_id for update;
@@ -209,7 +209,7 @@ begin
   update public.edu_enrollments set status = p_status, updated_at = now(),
     decided_at = case when p_status in ('confirmed','declined') then now() else decided_at end,
     waitlist_at = case when p_status = 'waitlisted'
-                       then case when e.status = 'confirmed' then now() else coalesce(waitlist_at, now()) end   -- 내려간 분은 줄 맨 뒤
+                       then now()   -- 어떤 상태에서든 대기로 들어오는 분은 줄 맨 뒤(취소·반려에서 되돌려도 새치기 금지)
                        else waitlist_at end,
     cancelled_at = null
   where id = e.id;
