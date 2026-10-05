@@ -1872,20 +1872,35 @@ git commit -m "feat(교육신청): 앱 🎓 교육 — 목록(모집 중·곧 �
 
 ### Task 10: 운영 반영 (컨트롤러 · 게이트는 닫힌 채)
 
-순서가 중요하다 — **표·함수가 먼저**(빈 표는 아무도 안 읽는다), 그다음 서버 둘, 그다음 화면. 게이트(`eduOpen`)는 닫힌 채라 🧪 시험 참여자만 본다.
+순서가 중요하다 — **표·함수가 먼저**(빈 표는 아무도 안 읽는다), 그다음 서버 둘(**함수가 화면보다 먼저**), 그다음 화면. 게이트(`eduOpen`)는 닫힌 채라 🧪 시험 참여자만 본다(플레이 앱은 `ministryHiddenOnPlay()` 로 그마저 숨김).
+⚠️ 2026-10-05 최종 검토로 고쳐 적었다 — 첫 판의 Step 2 「main 에 합치고 운영 함수 배포 … 화면 푸시」는 순서가 모호했다(교회 어드민 main 푸시 = 화면 운영).
 
-- [ ] **Step 1:** 운영 `supabase/edu.sql`(절대경로 · users 400 넘음 확인) → 확인 select(`tables 3 · functions 5 · grants 0`) → 운영 `supabase/member_merge.sql` 다시(표가 생긴 뒤라 트리거가 붙는다) → 운영 `check-authenticated-exposure.sql`(교회 어드민 저장소) 0행.
-- [ ] **Step 2:** 교회 어드민 운영 `010_education_role.sql` → 가지 `education-stage1` 을 main 에 합치고 운영 함수 배포(⚠️ 「운영 함수 올리기 전 download 대조」 — 남의 배포 판과 맞는지) → `server.dev` 와 같은 PROBE 를 운영에서는 돌리지 않는다 · 화면 푸시(Actions).
-- [ ] **Step 3:** 성경암송 운영 `api` — `git fetch && git rebase origin/main` · 운영 판 download 대조 → 배포 → `EVT_ENV=prod bash tests/edu-smoke.sh` · `EVT_ENV=prod EXPECT_PER_DAY=3 EXPECT_AUTO=1 bash tests/event-smoke.sh`(남의 경로).
-- [ ] **Step 4:** 성경암송 프런트 — `python tools/bump.py` → preflight → push → `APP_BUILD` 확인.
-- [ ] **Step 5:** 친구: 교회 어드민에서 교육 담당자에게 역할 「교육」 주기(⚙️ 시스템 → 🔑 담당자·역할) · 🧪 시험 참여자로 폰 확인.
-- [ ] **Step 6:** 문서 — CLAUDE.md 지도 표에 「교육신청 → docs/notes/education.md」 한 줄 · `docs/notes/education.md`(함정: SQL 함수 한 곳 · 합치기 · 게이트 · 1단계에서 안 하는 것) · 교회 어드민 CLAUDE.md 「교육」 절 · 메모.
+**먼저(조건)**
+- [ ] `git fetch` → `mh-merge`·`education-stage1` 을 새 `origin/main` 위로 다시 얹는다(각자 깨끗한 워크트리 · 공유 체크아웃 말고) → 두 preflight → 두 함수 개발 재배포 → 개발에서 `edu_apply.dev.sql`·`edu_counts_sessions.dev.sql`·`member_merge_edu.dev.sql`·`tests/edu-e2e.dev.sh` 다시(`member_merge.sql` 이 위에서 바뀌었을 수 있다).
+- [ ] `ministryTesters` 에 **App Store(iOS) 심사용 계정**이 없는지 — 프런트를 올리는 순간 시험 참여자에게 🎓 가 뜬다(플레이 앱은 `ministryHiddenOnPlay()` 로 숨지만 아이폰 앱은 안 숨는다).
+- [ ] 친구 허락.
+
+**순서**
+- [ ] **Step 1:** 성경암송 운영 SQL — 새 스크래치에 `xnomlgydifiqiybervtf` link · `users` 400 넘음 확인 → `supabase/edu.sql`(절대경로) → 확인 select(`tables 3 · functions 8 · table grants 0 · routine grants 0`).
+- [ ] **Step 2:** 운영 `supabase/member_merge.sql` 다시 — **다시 얹은 판(지금 main)의 것**으로(낡은 사본을 돌리면 남의 합치기 고침을 조용히 되돌린다) · 표가 생긴 뒤라 트리거가 `edu_enrollments` 에 붙는다 · 5초 잠금 시간에 걸리면 한 번 더.
+- [ ] **Step 3:** 교회 어드민 운영 `check-authenticated-exposure.sql` → 0행 · 운영 `010_education_role.sql`.
+- [ ] **Step 4:** 교회 어드민 함수 — 운영 `church-admin` download → 합치기 전 `origin/main` 과 대조 → 깨끗한 워크트리에서 `education-stage1` 을 main 에 합침(`git status` 깨끗) → **운영 함수 배포** → **그다음** main 푸시(Actions 가 화면을 올린다).
+- [ ] **Step 5:** 교회 어드민 super 로 📚·📝 가 빈 채로 뜨는지 → 이름이 분명한 시험 강좌(준비 중 · 선착순 · 정원 1)로 **정원 늘리기** 한 번(대기자 없으면 「저장했어요」만) → `archived`(지우는 길은 없다). `server.dev` PROBE 는 운영에서 안 돌린다. ⚠️ SQL(Step 1)이 함수보다 먼저여야 한다 — 함수가 `edu_course_refill` 을 부른다.
+- [ ] **Step 6:** 성경암송 운영 `api` — 운영 download 를 `origin/main` `index.ts` 와 대조(얼림이 든 판인지) → 다시 얹은 깨끗한 워크트리에서 배포 → `EVT_ENV=prod bash tests/edu-smoke.sh` · `EVT_ENV=prod EXPECT_PER_DAY=3 EXPECT_AUTO=1 bash tests/event-smoke.sh`(남의 경로).
+- [ ] **Step 7:** 성경암송 프런트 — Step 6 **바로 뒤** `python tools/bump.py` → `python tools/preflight.py` → `git push origin mh-merge:main` → 라이브 `APP_BUILD` = index.html 태그 · 라이브 `js/edu.js?v=<새 태그>` 에 이번 판에만 있는 것(`eduMdw`) · 다른 세션에 「다음 `api` 배포 전에 pull」 알림(낡은 체크아웃에서 배포하면 edu 액션이 조용히 사라진다).
+- [ ] **Step 8:** 친구 — 교육 담당자에게 역할 「교육」(⚙️ 시스템 → 🔑 담당자·역할) · 🧪 시험 참여자 폰으로 웹·iOS 에 🎓, 플레이 앱엔 안 뜸, 시험 참여자 아닌 분은 아무것도 없음. 실제로 해 보려면 이름이 분명한 강좌로 신청·취소 뒤 `archived`(지우는 길은 없다 — `on delete restrict` 라 신청 줄이 남는다).
+- [ ] **Step 9:** 문서 — CLAUDE.md 지도 표에 「교육신청 → docs/notes/education.md」 한 줄 · `docs/notes/education.md`(함정: SQL 함수 한 곳 · 합치기 · 게이트 · `bump.TAGGED` · 정원 늘리면 `edu_course_refill` · 1단계에서 안 하는 것) · 교회 어드민 CLAUDE.md 「교육」 절 · 메모.
+
+**하지 말 것** — `eduOpen` 켜기(과제 11) · 운영에서 `tests/*.dev.*` · 낡은 `member_merge.sql`.
+**다시 돌려도 되는 것** — `edu.sql`·`member_merge.sql`·`010` 모두 두 번 돌려도 깨지지 않는다(`if not exists`·`or replace`·`on conflict do nothing`). 위험은 낡은 사본뿐.
 
 ---
 
 ### Task 11: 공개 전 — 개인정보 안내 세 곳 (⏸ 플레이 심사가 끝난 뒤)
 
 - [ ] **Step 1:** 성경암송 `privacy/index.html`(모으는 것 표에 「교육 신청 — 강좌·신청 시각·상태 · 담당자가 적은 교재비 납부·메모」 · 누가 보나 4항에 「교육 담당자(교회 어드민)」 · 얼마나 두나) · 앱 `renderPrivacyInfo`·`renderHelp` 🔒 — **같은 커밋** · 「마지막 수정」 날짜. `tests/store-review.test.cjs` 의 「개인정보 세 곳」 검사가 통과해야 한다.
-- [ ] **Step 2:** 교회 어드민 `privacy.html` 에 교육 역할이 보는 것 한 줄(같은 날).
+- [ ] **Step 2:** 교회 어드민 `privacy.html` 에 교육 역할이 보는 것 한 줄(같은 날) — 교인명부를 이름으로 찾는 것(`people.lookup` `from: "education"`)도.
+- [ ] **Step 2-1:** 공개 전에 고칠 것(최종 검토 2026-10-05) — **같은 분 두 자리**: 담당자가 대신 등록한 줄(`user_id` 없음)과 그분이 나중에 앱으로 낸 줄이 둘로 정원을 차지하고 반려도 비켜 간다. 1단계는 담당자 화면에 「같은 분일 수 있어요」 표시만 했다 → 설계의 `eduEnrollLink`(「앱 계정과 잇기」) 또는 앱 신청 때 맞는 줄에 이어 붙이기. 앱 「내 강좌」에 대신 등록 줄이 안 보이는 것도 같은 뿌리.
+- [ ] **Step 2-2:** `FEAT_SINCE.edu` 를 공개 날로(첫 화면 NEW 배지).
 - [ ] **Step 3:** 친구가 2027 상반기 모집을 여는 날 `app_config.eduOpen = true`(운영 · 교회 어드민 또는 SQL 한 줄 — 친구 확인 뒤) → 모든 성도님 첫 화면에 「🎓 교육 신청」.
 ```
