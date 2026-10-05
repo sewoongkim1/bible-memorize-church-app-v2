@@ -269,10 +269,10 @@ grant execute on function public.edu_sessions_replace(uuid, jsonb) to service_ro
 
 commit;
 
--- 확인 — 표 셋·함수 다섯이 있고, anon·authenticated 권한이 없는지
+-- 확인 — 표 셋·함수 일곱이 있고, anon·authenticated 권한이 없는지
 select 'tables' as t, count(*) from pg_tables where schemaname='public' and tablename in ('edu_courses','edu_sessions','edu_enrollments')
 union all select 'functions', count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-  where n.nspname='public' and p.proname in ('edu_today','edu_apply','edu_promote','edu_cancel','edu_staff_set')
+  where n.nspname='public' and p.proname in ('edu_today','edu_apply','edu_promote','edu_cancel','edu_staff_set','edu_course_counts','edu_sessions_replace')
 union all select 'anon/authenticated grants', count(*) from information_schema.role_table_grants
   where table_schema='public' and table_name like 'edu\_%' and grantee in ('anon','authenticated')
 union all select 'routine grants', count(*) from information_schema.role_routine_grants
