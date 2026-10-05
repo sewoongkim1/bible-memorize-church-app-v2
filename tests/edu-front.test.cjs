@@ -172,7 +172,12 @@ test('eduAttendRate — 지각=출석 · 공결은 분모에서 뺌 · 체크 �
   }
 });
 
-test('eduAttendRate — api(supabase/functions/api/index.ts)의 복사본이 js/edu.js 의 것과 한 글자도 같다(규칙이 갈리지 않게)', () => {
+// 출석률 함수 글자의 지문 — 교회 어드민 tests/edu-rules.test.mjs 에 **같은 값**이 박혀 있다(어느 쪽이든 글자가 바뀌면 그쪽 시험이 떨어진다).
+//   규칙을 일부러 바꿀 때는 세 곳(교회 어드민 edu-rules.ts · 이 저장소 js/edu.js · api 복사본)을 같은 글자로 고치고 두 시험의 값을 함께 바꾼다.
+//   지문 = sha256(「function eduAttendRate(c) {」부터 첫 줄머리 「}」까지 · 줄끝 LF)
+const EDU_ATTEND_RATE_SHA256 = 'ff0225b92431708dc662d43e5ee9a5b41eb1b6dd3c8a32d0d93e40125b69b323';
+
+test('eduAttendRate — api(supabase/functions/api/index.ts)의 복사본이 js/edu.js 의 것과 한 글자도 같다(규칙이 갈리지 않게) · 지문이 교회 어드민과 같다', () => {
   const pick = (text) => {
     const t = text.replace(/\r\n/g, '\n');
     const a = t.indexOf('function eduAttendRate(c) {');
@@ -183,4 +188,6 @@ test('eduAttendRate — api(supabase/functions/api/index.ts)의 복사본이 js/
   const api = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', 'api', 'index.ts'), 'utf8');
   assert.equal(pick(api), pick(src));
   assert.equal(api.split('function eduAttendRate(').length - 1, 1, 'api 에 둘 이상');
+  assert.equal(require('node:crypto').createHash('sha256').update(pick(src)).digest('hex'), EDU_ATTEND_RATE_SHA256,
+    '출석률 함수 글자가 바뀌었다 — 교회 어드민 edu-rules.ts·api 복사본과 두 시험의 지문을 함께 고칠 것');
 });

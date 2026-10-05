@@ -54,8 +54,19 @@ create table if not exists public.edu_sessions (
   end_time   time,
   topic      text not null default '',
   place      text not null default '',
-  unique (course_id, no)
+  unique (course_id, no) deferrable initially immediate
 );
+-- 회차 번호(no)는 **보여 주는 차례**일 뿐이다 — 회차의 정체는 id(출석이 가리킨다 · 2단계 검토 2026-10-05).
+--   edu_sessions_replace 가 번호를 새로 매길 때 잠깐 겹치므로 unique(course_id,no) 를 미룰 수 있게(deferrable) 둔다.
+--   (no + 10000 같은 두 단계 번호는 check(no between 1 and 200) 에 걸린다.) 이미 만든 DB 는 아래에서 바꾼다(다시 돌려도 안전).
+--   ⚠️ deferrable 제약은 ON CONFLICT 의 기준이 될 수 없다 — (course_id, no) 로 on conflict 를 쓰지 말 것.
+do $$ begin
+  if exists (select 1 from pg_constraint where conrelid = 'public.edu_sessions'::regclass
+               and conname = 'edu_sessions_course_id_no_key' and not condeferrable) then
+    alter table public.edu_sessions drop constraint edu_sessions_course_id_no_key,
+      add constraint edu_sessions_course_id_no_key unique (course_id, no) deferrable initially immediate;
+  end if;
+end $$;
 
 create table if not exists public.edu_enrollments (
   id           bigint generated always as identity primary key,
@@ -82,7 +93,8 @@ drop index if exists public.edu_sessions_course;   -- unique(course_id,no) 가 �
 
 -- 출석부(2단계 · 2026-10-05 · 계획 docs/superpowers/plans/2026-10-05-education-stage2-attendance.md) — 확정된 신청 한 줄 × 회차 한 칸.
 --   체크 안 한 칸은 줄이 없다(출석률 분모에 안 들어간다). 쓰는 것은 아래 edu_attendance_set·edu_attendance_bulk 만.
---   신청 줄이 지워지면 출석도 함께(cascade · 사용자 삭제·합치기의 취소 겹침 줄) — 합치기는 출석이 있는 취소 줄을 지우지 않고 멈춘다(member_merge.sql).
+--   신청 줄이 지워지면 출석도 함께(cascade · 사용자 삭제) — 합치기는 취소 겹침 줄을 지우기 전에 그 출석을 남는 줄로 옮긴다(member_merge.sql ·
+--   같은 회차 상태가 서로 다르면 merge-edu-attendance 로 멈춘다).
 --   회차는 출석이 있으면 지울 수 없다(restrict · edu_sessions_replace 가 has-attendance 로 먼저 거절).
 --   marked_by = 교회 어드민 담당자 admin_members.id(그 표는 교회 어드민 저장소 것이라 FK 를 두지 않는다) — 응답에 싣지 않는다.
 --   user_id 칸이 없다 — 기록 합치기 대상이 아니다(신청 줄을 따라간다).
@@ -295,10 +307,14 @@ language sql stable security definer set search_path = public as $$
   group by i.id
 $$;
 
--- 회차 통째로 바꾸기 — 한 트랜잭션. 같은 번호(no)의 줄은 id 를 지킨다(2단계 출석이 edu_sessions.id 를 가리킨다).
---   끝난·보관된 강좌는 못 바꾼다. 목록에 없는 번호만 지운다. p_rows 는 [{no,on_date,start_time,end_time,topic,place}…].
---   ⚠️ 지울 회차에 출석이 하나라도 있으면 아무것도 안 바꾸고 has-attendance(nos = 그 회차 번호들) — 출석이 함께 사라지면 안 된다(2단계).
---      날짜·시각·주제 고치기는 그대로 된다(같은 번호 = 같은 id).
+-- 회차 통째로 바꾸기 — 한 트랜잭션 · **id 로 맞춘다**(2단계 검토 2026-10-05: 번호로 맞추면 가운데 회차를 지우고 번호를 당길 때
+--   출석이 다른 날짜로 밀리고 has-attendance 도 비켜 갔다).
+--   p_rows = [{id?, no, on_date, start_time, end_time, topic, place}…]
+--     · id 가 있는 줄(이 강좌의 회차) → 그 줄을 고친다(날짜·시각·주제·장소·번호) · 이 강좌 것이 아니거나 없는 id 면 bad-rows
+--     · 목록에 없는 기존 회차 → 지운다. 그 가운데 출석이 있는 회차가 있으면 아무것도 안 바꾸고 has-attendance(nos = 그 회차의 **지금** 번호)
+--     · id 가 없는 줄 → 새 회차
+--     · no 는 보여 주는 차례만 — 마음대로 다시 매겨도 된다(unique 를 이 함수 안에서 미뤘다가 끝에 본다)
+--   그 밖 거절: not-found · course-closed(끝·보관) · bad-rows(배열 아님 · 번호·날짜 없음 · 번호 1~200 밖 · 같은 번호·같은 id 둘)
 create or replace function public.edu_sessions_replace(p_course uuid, p_rows jsonb)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare c public.edu_courses; n int; held jsonb;
@@ -307,29 +323,53 @@ begin
   if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
   if c.status in ('done','archived') then return jsonb_build_object('ok',false,'error','course-closed'); end if;
   if p_rows is null or jsonb_typeof(p_rows) <> 'array' then return jsonb_build_object('ok',false,'error','bad-rows'); end if;
-  -- 아래 delete 와 같은 조건(목록에 없는 번호)으로 — 출석이 있는 회차를 지우려 하면 멈춘다
-  select jsonb_agg(distinct s.no order by s.no) into held
+  if exists (select 1 from jsonb_array_elements(p_rows) as e(v) where jsonb_typeof(e.v) <> 'object') then
+    return jsonb_build_object('ok',false,'error','bad-rows');
+  end if;
+  -- 줄 확인(검사가 모두 끝난 뒤에만 쓴다)
+  if exists (select 1 from jsonb_to_recordset(p_rows) as r(id bigint, no int, on_date date)
+             where r.no is null or r.on_date is null or r.no not between 1 and 200) then
+    return jsonb_build_object('ok',false,'error','bad-rows');
+  end if;
+  if (select count(r.no) - count(distinct r.no) from jsonb_to_recordset(p_rows) as r(no int)) > 0
+     or (select count(r.id) - count(distinct r.id) from jsonb_to_recordset(p_rows) as r(id bigint)) > 0 then
+    return jsonb_build_object('ok',false,'error','bad-rows');
+  end if;
+  if exists (select 1 from jsonb_to_recordset(p_rows) as r(id bigint)
+             where r.id is not null and not exists (select 1 from public.edu_sessions s where s.id = r.id and s.course_id = p_course)) then
+    return jsonb_build_object('ok',false,'error','bad-rows');      -- 다른 강좌의 회차 id · 없는 id
+  end if;
+  -- 지울 회차(목록에 id 가 없는 기존 회차) 가운데 출석이 있는 것 — 있으면 멈춘다
+  select jsonb_agg(s.no order by s.no) into held
     from public.edu_sessions s
     where s.course_id = p_course
-      and s.no not in (select r.no from jsonb_to_recordset(p_rows) as r(no int))
+      and not exists (select 1 from jsonb_to_recordset(p_rows) as r(id bigint) where r.id = s.id)
       and exists (select 1 from public.edu_attendance a where a.session_id = s.id);
   if held is not null then return jsonb_build_object('ok',false,'error','has-attendance','nos',held); end if;
-  delete from public.edu_sessions where course_id = p_course
-    and no not in (select r.no from jsonb_to_recordset(p_rows) as r(no int));
+
+  set constraints public.edu_sessions_course_id_no_key deferred;   -- 번호를 바꾸는 동안 잠깐 겹쳐도 된다(이 트랜잭션 안에서만)
+  delete from public.edu_sessions s where s.course_id = p_course
+    and not exists (select 1 from jsonb_to_recordset(p_rows) as r(id bigint) where r.id = s.id);
+  update public.edu_sessions s set no = r.no, on_date = r.on_date, start_time = r.start_time, end_time = r.end_time,
+      topic = coalesce(r.topic,''), place = coalesce(r.place,'')
+    from jsonb_to_recordset(p_rows) as r(id bigint, no int, on_date date, start_time time, end_time time, topic text, place text)
+    where r.id is not null and s.id = r.id and s.course_id = p_course;
   insert into public.edu_sessions(course_id, no, on_date, start_time, end_time, topic, place)
     select p_course, r.no, r.on_date, r.start_time, r.end_time, coalesce(r.topic,''), coalesce(r.place,'')
-    from jsonb_to_recordset(p_rows) as r(no int, on_date date, start_time time, end_time time, topic text, place text)
-  on conflict (course_id, no) do update set on_date = excluded.on_date, start_time = excluded.start_time,
-    end_time = excluded.end_time, topic = excluded.topic, place = excluded.place;
+    from jsonb_to_recordset(p_rows) as r(id bigint, no int, on_date date, start_time time, end_time time, topic text, place text)
+    where r.id is null;
+  set constraints public.edu_sessions_course_id_no_key immediate;  -- 여기서 번호 겹침을 본다(위에서 같은 번호를 막았으니 걸리지 않는다)
   n := jsonb_array_length(p_rows);
   return jsonb_build_object('ok',true,'count',n);
 end $$;
 
 -- 출석 한 칸 쓰기·지우기(2단계) — 교회 어드민 eduAttendSet 이 부른다(강사·교육 담당·총괄 · 맡은 강좌 확인은 그쪽 서버).
 --   p_state: present·late·absent·excused · null 이면 그 칸을 지운다(「다시 누르면 지움」). p_by = 체크한 담당자 admin_members.id.
+--   지우기(null)는 확정이 아닌 줄(취소·대기 등 · 같은 강좌)에도 된다 — 확정 뒤 출석하다 취소한 분의 칸을 담당자가 정리할 수 있게
+--   (기록 합치기의 merge-edu-attendance 를 푸는 길). 쓰기는 확정만.
 --   차례: 회차의 강좌 줄 for update → 신청 줄 for update(다른 함수와 같다 · 교착 막기). 강좌를 잠근 뒤 회차를 다시 본다
 --   (edu_sessions_replace 도 강좌 줄을 잠그므로, 잠근 뒤에 회차가 있으면 이 트랜잭션 끝까지 지워지지 않는다).
---   거절: bad-state · not-found(회차·신청) · course-closed(끝·보관) · wrong-course(회차와 신청의 강좌가 다름) · not-confirmed(확정 아님).
+--   거절: bad-state · not-found(회차·신청) · course-closed(끝·보관) · wrong-course(회차와 신청의 강좌가 다름) · not-confirmed(확정 아님 · 쓰기만).
 create or replace function public.edu_attendance_set(p_session bigint, p_enrollment bigint, p_state text, p_by uuid default null)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare cid uuid; c public.edu_courses; e public.edu_enrollments; prev text;
@@ -345,11 +385,11 @@ begin
   select * into e from public.edu_enrollments where id = p_enrollment for update;
   if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
   if e.course_id <> cid then return jsonb_build_object('ok',false,'error','wrong-course'); end if;
-  if e.status <> 'confirmed' then return jsonb_build_object('ok',false,'error','not-confirmed'); end if;
   if p_state is null then
     delete from public.edu_attendance where enrollment_id = e.id and session_id = p_session returning state into prev;
     return jsonb_build_object('ok',true,'state',null,'cleared',prev is not null);
   end if;
+  if e.status <> 'confirmed' then return jsonb_build_object('ok',false,'error','not-confirmed'); end if;
   insert into public.edu_attendance(enrollment_id, session_id, state, marked_by, marked_at)
     values (e.id, p_session, p_state, p_by, now())
   on conflict (enrollment_id, session_id) do update set state = excluded.state, marked_by = excluded.marked_by, marked_at = excluded.marked_at;

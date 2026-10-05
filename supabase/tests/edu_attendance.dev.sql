@@ -3,10 +3,11 @@
 -- 비교는 전부 `is distinct from` — 함수가 오류를 내서 값이 NULL 이어도 조용히 지나가지 않게.
 -- ⚠️ 이 저장소는 공개입니다 — 아래 이름은 모두 가상입니다. 한글이 든 SQL 은 명령줄에 붙이지 말고 -f 로만 돌린다.
 --   ① 같은 강좌 검사 — B 회차 × A 신청은 wrong-course(아무것도 안 씀)
---   ② 확정이 아닌 신청(신청·대기·취소·반려)은 not-confirmed
+--   ② 확정이 아닌 신청(신청·대기·취소·반려)은 쓰기 not-confirmed · 지우기(null)는 된다(검토 반영 — 합치기 merge-edu-attendance 를 푸는 길)
 --   ③ 쓰기·고치기(같은 칸 다시 쓰면 덮음 · 줄 하나) · marked_by 남음 · null 이면 지움(cleared) · 없는 칸 지우기도 ok
 --   ④ 한꺼번에 — 아직 체크 안 한 확정자만 · 이미 체크한 칸(지각·공결)은 안 덮음 · 확정 아닌 분은 안 들어감 · 다시 하면 0
---   ⑤ 회차 바꾸기 — 출석 있는 회차를 빼면 has-attendance(nos) · 아무것도 안 바뀜 · 날짜만 고치면 됨(id·출석 그대로) · 출석 없는 회차는 빠짐
+--   ⑤ 회차 바꾸기(id 로 맞춘다) — 출석 있는 회차를 빼면 has-attendance(nos) · 아무것도 안 바뀜 · 날짜만 고치면 됨(id·출석 그대로) · 출석 없는 회차는 빠짐
+--      (가운데 회차 지우기·번호 다시 매기기·다른 강좌 id 는 edu_sessions_renumber.dev.sql)
 --   ⑥ 끝난·보관 강좌 — set·bulk 모두 course-closed · 쓰기 없음
 --   ⑦ 틀린 값 — bad-state · 없는 회차·신청 not-found · bulk 의 null 상태는 bad-state
 --   ⑧ 회차 줄을 바로 지우려 해도 출석이 있으면 FK(restrict)가 막는다 · 신청 줄을 지우면 출석도 함께(cascade)
@@ -47,6 +48,8 @@ begin
   if r->>'error' is distinct from 'wrong-course' then raise exception '① B 회차 × A 신청: %', r; end if;
   r := edu_attendance_set(sa1, eb, 'present', who);
   if r->>'error' is distinct from 'wrong-course' then raise exception '① A 회차 × B 신청: %', r; end if;
+  r := edu_attendance_set(sb1, e[1], null, who);
+  if r->>'error' is distinct from 'wrong-course' then raise exception '① 지우기도 같은 강좌만: %', r; end if;
   if exists (select 1 from public.edu_attendance where enrollment_id in (e[1], eb)) then raise exception '① 다른 강좌인데 썼다'; end if;
 
   -- ② 확정이 아닌 신청
@@ -59,6 +62,17 @@ begin
   if r->>'error' is distinct from 'not-confirmed' then raise exception '② 반려: %', r; end if;
   update public.edu_enrollments set status = 'cancelled' where id = e[7];
   if exists (select 1 from public.edu_attendance where enrollment_id in (e[5], e[6], e[7])) then raise exception '② 확정 아닌데 썼다'; end if;
+  -- 확정일 때 체크한 칸 → 대기로 내려간 뒤: 쓰기는 not-confirmed · 지우기(null)는 된다
+  update public.edu_enrollments set status = 'confirmed' where id = e[6];
+  r := edu_attendance_set(sa1, e[6], 'present', who);
+  if r->>'state' is distinct from 'present' then raise exception '② 확정일 때 쓰기: %', r; end if;
+  update public.edu_enrollments set status = 'waitlisted' where id = e[6];
+  r := edu_attendance_set(sa1, e[6], 'late', who);
+  if r->>'error' is distinct from 'not-confirmed' then raise exception '② 내려간 뒤 쓰기: %', r; end if;
+  if (select state from public.edu_attendance where enrollment_id = e[6] and session_id = sa1) is distinct from 'present' then raise exception '② 거절했는데 바뀜'; end if;
+  r := edu_attendance_set(sa1, e[6], null, who);
+  if r is distinct from '{"ok":true,"state":null,"cleared":true}'::jsonb then raise exception '② 확정 아닌 줄 지우기: %', r; end if;
+  if exists (select 1 from public.edu_attendance where enrollment_id = e[6]) then raise exception '② 지웠는데 남음'; end if;
 
   -- ③ 쓰기·고치기·지우기
   r := edu_attendance_set(sa1, e[1], 'present', who);
@@ -90,13 +104,15 @@ begin
   if exists (select 1 from public.edu_attendance where session_id = sa2 and state = 'absent') then raise exception '④ 두 번째가 덮음'; end if;
   if exists (select 1 from public.edu_attendance where session_id = sb1) then raise exception '④ 다른 강좌 회차에 들어감'; end if;
 
-  -- ⑤ 회차 바꾸기 — 2번 회차(출석 있음)를 빼면 거절 · 아무것도 안 바뀜
-  r := edu_sessions_replace(ca, '[{"no":1,"on_date":"2027-03-03"},{"no":3,"on_date":"2027-03-17"}]'::jsonb);
+  -- ⑤ 회차 바꾸기 — 2번 회차(출석 있음)를 빼면 거절 · 아무것도 안 바뀜(3번을 2번으로 당겨 보내도)
+  r := edu_sessions_replace(ca, jsonb_build_array(jsonb_build_object('id', sa1, 'no', 1, 'on_date', '2027-03-03'),
+                                                  jsonb_build_object('id', sa3, 'no', 2, 'on_date', '2027-03-17')));
   if r->>'error' is distinct from 'has-attendance' or r->'nos' is distinct from '[2]'::jsonb then raise exception '⑤ 출석 있는 회차 빼기: %', r; end if;
   if (select count(*) from public.edu_sessions where course_id = ca) is distinct from 3::bigint then raise exception '⑤ 회차가 바뀜'; end if;
   if (select count(*) from public.edu_attendance where session_id = sa2) is distinct from 4::bigint then raise exception '⑤ 출석이 바뀜'; end if;
   -- 날짜·주제만 고치면 된다(같은 번호 = 같은 id · 출석 그대로) · 출석 없는 3번은 빠진다
-  r := edu_sessions_replace(ca, '[{"no":1,"on_date":"2027-03-04"},{"no":2,"on_date":"2027-03-11","topic":"바뀜"}]'::jsonb);
+  r := edu_sessions_replace(ca, jsonb_build_array(jsonb_build_object('id', sa1, 'no', 1, 'on_date', '2027-03-04'),
+                                                  jsonb_build_object('id', sa2, 'no', 2, 'on_date', '2027-03-11', 'topic', '바뀜')));
   if r is distinct from '{"ok":true,"count":2}'::jsonb then raise exception '⑤ 고치기: %', r; end if;
   if (select id from public.edu_sessions where course_id = ca and no = 2) is distinct from sa2 then raise exception '⑤ 2번 id 가 바뀜'; end if;
   if (select on_date from public.edu_sessions where id = sa2) is distinct from date '2027-03-11' then raise exception '⑤ 날짜가 안 바뀜'; end if;

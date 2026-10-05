@@ -40,8 +40,12 @@ begin
   select id into id2 from public.edu_sessions where course_id = c1 and no = 2;
   select id into id3 from public.edu_sessions where course_id = c1 and no = 3;
 
-  -- 1·2 는 고치고 3 은 빼고 4 를 더한다 → 1·2 의 id 는 그대로, 3 은 없어짐
-  r := edu_sessions_replace(c1, '[{"no":1,"on_date":"2027-04-01","topic":"바뀜"},{"no":2,"on_date":"2027-04-08","start_time":"20:00","end_time":"21:00"},{"no":4,"on_date":"2027-04-15"}]'::jsonb);
+  -- 1·2 는 고치고(id 를 실어 보낸다) 3 은 빼고 4 를 더한다 → 1·2 의 id 는 그대로, 3 은 없어짐
+  --   (2단계 검토 2026-10-05: 회차는 번호가 아니라 id 로 맞춘다 — id 없는 줄은 새 회차다. 가운데 지우기·번호 다시 매기기는 edu_sessions_renumber.dev.sql)
+  r := edu_sessions_replace(c1, jsonb_build_array(
+    jsonb_build_object('id', id1, 'no', 1, 'on_date', '2027-04-01', 'topic', '바뀜'),
+    jsonb_build_object('id', id2, 'no', 2, 'on_date', '2027-04-08', 'start_time', '20:00', 'end_time', '21:00'),
+    jsonb_build_object('no', 4, 'on_date', '2027-04-15')));
   if r is distinct from '{"ok":true,"count":3}'::jsonb then raise exception '고침: %', r; end if;
   if (select id from public.edu_sessions where course_id = c1 and no = 1) is distinct from id1 then raise exception '1 번 id 가 바뀜'; end if;
   if (select id from public.edu_sessions where course_id = c1 and no = 2) is distinct from id2 then raise exception '2 번 id 가 바뀜'; end if;

@@ -13,7 +13,7 @@
 --   4) **개발에서만** — 가상 성도로 합쳐 보고 전부 되돌린다(BEGIN … ROLLBACK). 운영에서는 돌리지 않는다.
 --      supabase/tests/member_merge_consents.dev.sql          (가리기·신고·AI 답 알림·동의 날짜)
 --      supabase/tests/member_merge_requests_devices.dev.sql  (정정 신청 · 아이폰 알림 기기 · 합친 뒤 옛 번호로 온 가리기)
---      supabase/tests/member_merge_edu.dev.sql               (교육신청 · 같은 강좌 충돌 · 취소 줄 정리와 납부·메모 이어받기 · 출석 있는 취소 줄은 멈춤)
+--      supabase/tests/member_merge_edu.dev.sql               (교육신청 · 같은 강좌 충돌 · 취소 줄 정리와 납부·메모·출석 이어받기 · 출석 상태가 다르면 멈춤)
 --      「통과」 줄이 나오거나 오류 없이 끝나야 한다.
 --   ⚠️ 새 사용자 연관 표를 만들면 ① 합치기 본체의 옮기기 ② 두 허용 목록(FK·user_id) ③ member_merge_counts
 --      ④ 쓰기 연결 트리거 — 넷을 함께 더하고 이 파일을 다시 돌린다. 빠뜨리면 그 기록이 있는 계정은
@@ -198,15 +198,17 @@ begin
         and a.status in ('applied','confirmed','waitlisted','declined') and b.status in ('applied','confirmed','waitlisted','declined')) then
       return jsonb_build_object('ok',false,'error','merge-edu-conflict');
     end if;
-    -- 출석부(2단계 · 2026-10-05): 아래에서 지울 **취소 겹침 줄**에 출석이 있으면 멈춘다 — edu_attendance 는 신청 줄을 cascade 로 따라가
-    --   조용히 사라진다(확정 뒤 출석하다 취소한 분). 지우는 줄은 아래 두 delete 와 같다: 원본이 취소면 원본 줄,
-    --   원본이 살아 있고 남는 쪽이 취소면 남는 쪽 줄. 담당자가 출석을 옮기거나 지운 뒤 합친다.
+    -- 출석부(2단계 · 2026-10-05 · 검토 반영): 아래에서 지울 **취소 겹침 줄**(원본이 취소면 원본 줄 · 원본이 살아 있고 남는 쪽이 취소면
+    --   남는 쪽 줄)의 출석은 지우기 전에 남는 줄로 옮긴다(edu_attendance 는 신청 줄을 cascade 로 따라가 조용히 사라지므로).
+    --   두 줄에 **같은 회차의 서로 다른 상태**가 있으면 어느 쪽이 맞는지 모르니 멈춘다(merge-edu-attendance) — 담당자가 한쪽 칸을
+    --   지운 뒤(edu_attendance_set 의 null 은 확정이 아닌 줄에도 된다) 다시 합친다. 같은 상태면 그대로 하나로 합친다.
+    --   (한쪽이 취소인 짝만 본다 — 둘 다 살아 있거나 반려면 위에서 이미 merge-edu-conflict.) 쓰기 전에 검사한다(뒤 오류 반환에 쓴 것이 남지 않게).
     if to_regclass('public.edu_attendance') is not null then
       if exists(select 1 from public.edu_enrollments a join public.edu_enrollments b on a.course_id=b.course_id
-        where a.user_id=s.id and b.user_id=t.id
-          and ((a.status = 'cancelled' and exists(select 1 from public.edu_attendance x where x.enrollment_id=a.id))
-            or (a.status <> 'cancelled' and b.status = 'cancelled' and exists(select 1 from public.edu_attendance x where x.enrollment_id=b.id)))) then
-        return jsonb_build_object('ok',false,'error','merge-edu-conflict');
+        join public.edu_attendance xa on xa.enrollment_id=a.id
+        join public.edu_attendance xb on xb.enrollment_id=b.id and xb.session_id=xa.session_id
+        where a.user_id=s.id and b.user_id=t.id and (a.status='cancelled' or b.status='cancelled') and xa.state <> xb.state) then
+        return jsonb_build_object('ok',false,'error','merge-edu-attendance');
       end if;
     end if;
   end if;
@@ -366,7 +368,16 @@ begin
   --   (반려·살아 있는 줄이 함께인 경우는 위 충돌 검사가 이미 멈췄다). 원본이 취소면 원본 줄을, 남는 쪽이 취소면 남는 쪽 줄을,
   --   둘 다 취소면 원본 줄만(남는 쪽 기록을 남긴다). 뒤 오류 반환에 지운 줄이 남지 않게 검사가 모두 끝난 여기서 지운다.
   --   지우기 전에 취소 줄의 납부(fee_paid)·담당자 메모(staff_note)를 남는 줄에 얹는다(납부는 or · 메모는 덧붙임 · edu_enrollments 의 staff_note 500자 제한 때문에 left(…,500)) — 정보가 같이 사라지지 않게.
+  --   출석(2단계)도 지우기 전에 남는 줄로 옮긴다 — 같은 회차가 이미 있으면 그대로(서로 다른 상태는 위 검사가 merge-edu-attendance 로 멈췄다).
   if to_regclass('public.edu_enrollments') is not null then
+    if to_regclass('public.edu_attendance') is not null then
+      insert into public.edu_attendance(enrollment_id, session_id, state, marked_by, marked_at)
+        select b.id, x.session_id, x.state, x.marked_by, x.marked_at
+        from public.edu_enrollments a join public.edu_enrollments b on a.course_id=b.course_id
+          join public.edu_attendance x on x.enrollment_id=a.id
+        where a.user_id=s.id and b.user_id=t.id and a.status = 'cancelled'
+      on conflict (enrollment_id, session_id) do nothing;
+    end if;
     update public.edu_enrollments b set fee_paid = b.fee_paid or a.fee_paid, updated_at = now(),
         staff_note = case when coalesce(a.staff_note,'')='' then b.staff_note
           else left(concat_ws(' / ', nullif(b.staff_note,''), '합치기 전 취소 신청: ' || a.staff_note), 500) end
@@ -374,6 +385,14 @@ begin
       where a.course_id=b.course_id and a.user_id=s.id and b.user_id=t.id and a.status = 'cancelled';
     delete from public.edu_enrollments a using public.edu_enrollments b
       where a.course_id=b.course_id and a.user_id=s.id and b.user_id=t.id and a.status = 'cancelled';
+    if to_regclass('public.edu_attendance') is not null then
+      insert into public.edu_attendance(enrollment_id, session_id, state, marked_by, marked_at)
+        select a.id, x.session_id, x.state, x.marked_by, x.marked_at
+        from public.edu_enrollments a join public.edu_enrollments b on a.course_id=b.course_id
+          join public.edu_attendance x on x.enrollment_id=b.id
+        where a.user_id=s.id and b.user_id=t.id and b.status = 'cancelled'
+      on conflict (enrollment_id, session_id) do nothing;
+    end if;
     update public.edu_enrollments a set fee_paid = a.fee_paid or b.fee_paid, updated_at = now(),
         staff_note = case when coalesce(b.staff_note,'')='' then a.staff_note
           else left(concat_ws(' / ', nullif(a.staff_note,''), '합치기 전 취소 신청: ' || b.staff_note), 500) end

@@ -11,9 +11,11 @@
 --   ⑨ 원본 취소(납부·메모) · 남는 쪽 확정 → 남는 줄이 납부·메모를 이어받는다
 --   ⑪ 메모 둘이 300자씩 → 500자 제한 안에서 합쳐지고 남는 줄의 메모가 앞에 남는다
 --   ⑩ 원본 확정 · 남는 쪽 취소(납부·메모) → 옮겨진 줄이 납부·메모를 이어받는다
---   ⑫ 출석부(2단계): 원본 취소 줄에 출석이 있고 남는 쪽 확정 → merge-edu-conflict (출석이 cascade 로 사라지지 않게 · 아무것도 안 바뀜)
---   ⑬ 출석부: 원본 확정 · 남는 쪽 취소 줄에 출석 → merge-edu-conflict
+--   ⑫ 출석부(2단계 · 검토 반영): 원본 취소 줄에 출석 · 남는 쪽 확정 → 합쳐지고 그 출석이 남는 줄로 옮겨진다(cascade 로 사라지지 않게)
+--   ⑬ 출석부: 원본 확정 · 남는 쪽 취소 줄에 출석 → 합쳐지고 그 출석이 원본 줄(이제 남는 쪽 것)로 옮겨진다
 --   ⑭ 출석부: 원본 확정(출석 있음) · 남는 쪽 취소(출석 없음) → 합쳐지고 출석은 옮겨진 줄을 따라간다
+--   ⑮ 출석부: 같은 회차에 양쪽 상태가 다르다 → merge-edu-attendance (아무것도 안 바뀜) · 한쪽 칸을 지우면(확정이 아닌 줄도 null 은 된다) 합쳐진다
+--   ⑯ 출석부: 같은 회차에 양쪽 상태가 같다 → 합쳐지고 한 칸만 남는다 · 다른 회차 칸은 더해진다
 -- 개발 연결 확인: users 가 200명이 넘으면 운영으로 보고 멈춘다.
 -- ⚠️ 한글이 든 SQL 은 명령줄에 붙이지 말고 -f 로만 돌린다.
 begin;
@@ -23,7 +25,8 @@ declare
   n int; r jsonb; c1 uuid; c2 uuid; c3 uuid; c4 uuid; keep bigint; rw record;
   s1 uuid; t1 uuid; s2 uuid; t2 uuid; s3 uuid; t3 uuid; s4 uuid; t4 uuid; s5 uuid; t5 uuid;
   s6 uuid; t6 uuid; s7 uuid; t7 uuid; s8 uuid; t8 uuid; s9 uuid; t9 uuid; s10 uuid; t10 uuid; s11 uuid; t11 uuid;
-  s12 uuid; t12 uuid; s13 uuid; t13 uuid; s14 uuid; t14 uuid; c5 uuid; ss1 bigint; ea bigint; eb bigint;
+  s12 uuid; t12 uuid; s13 uuid; t13 uuid; s14 uuid; t14 uuid; s15 uuid; t15 uuid; s16 uuid; t16 uuid;
+  c5 uuid; ss1 bigint; ss2 bigint; ea bigint; eb bigint;
 begin
   select count(*) into n from public.users;
   if n > 200 then raise exception 'member_merge_edu: users 가 %명 — 운영으로 보여 멈춥니다.', n; end if;
@@ -173,7 +176,7 @@ begin
   select * into rw from public.edu_enrollments where course_id=c4 and user_id=t11;
   if char_length(rw.staff_note) > 500 or left(rw.staff_note,300) <> repeat('나',300) then
     raise exception 'member_merge_edu ⑪: 메모가 500자 이내이고 남는 줄 메모가 앞이어야 함 — %', char_length(rw.staff_note); end if;
-  -- ⑫~⑭ 출석부(2단계) — 출석이 있는 취소 줄은 합치기가 지우지 않고 멈춘다(edu.sql 2단계 표가 있을 때만)
+  -- ⑫~⑯ 출석부(2단계) — 취소 겹침 줄의 출석은 지우기 전에 남는 줄로 옮긴다 · 같은 회차 상태가 다르면 merge-edu-attendance(edu.sql 2단계 표가 있을 때만)
   if to_regclass('public.edu_attendance') is not null then
     insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상s12'||tag,'교구|교육합치기점검|0|||가상s12'||tag) returning id into s12;
     insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상t12'||tag,'교구|교육합치기점검|0|||가상t12'||tag) returning id into t12;
@@ -181,35 +184,45 @@ begin
     insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상t13'||tag,'교구|교육합치기점검|0|||가상t13'||tag) returning id into t13;
     insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상s14'||tag,'교구|교육합치기점검|0|||가상s14'||tag) returning id into s14;
     insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상t14'||tag,'교구|교육합치기점검|0|||가상t14'||tag) returning id into t14;
+    insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상s15'||tag,'교구|교육합치기점검|0|||가상s15'||tag) returning id into s15;
+    insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상t15'||tag,'교구|교육합치기점검|0|||가상t15'||tag) returning id into t15;
+    insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상s16'||tag,'교구|교육합치기점검|0|||가상s16'||tag) returning id into s16;
+    insert into public.users(type,gu,mok,name,identity_key) values('교구','교육합치기점검','0','가상t16'||tag,'교구|교육합치기점검|0|||가상t16'||tag) returning id into t16;
     insert into public.edu_courses(title,kind,status) values ('합치기점검 강좌5','lecture','open') returning id into c5;
     insert into public.edu_sessions(course_id,no,on_date) values (c5,1,date '2027-03-03') returning id into ss1;
+    insert into public.edu_sessions(course_id,no,on_date) values (c5,2,date '2027-03-10') returning id into ss2;
 
-    -- ⑫ 원본: 확정 → 출석 → 취소 · 남는 쪽: 확정
+    -- ⑫ 원본: 확정 → 출석 → 취소 · 남는 쪽: 확정(출석 없음) → 합쳐지고 출석이 남는 줄로
     perform public.edu_apply(c5, s12, '{"name":"가상s12"}');
     perform public.edu_apply(c5, t12, '{"name":"가상t12"}');
     select id into ea from public.edu_enrollments where course_id=c5 and user_id=s12;
+    select id into eb from public.edu_enrollments where course_id=c5 and user_id=t12;
     r := public.edu_attendance_set(ss1, ea, 'present', null);
     if r->>'ok' is distinct from 'true' then raise exception 'member_merge_edu ⑫: 출석 쓰기 — %', r; end if;
     update public.edu_enrollments set status='cancelled', cancelled_at=now() where id=ea;
     r := public.admin_merge_members(s12, t12, '교구|교육합치기점검|0|||가상s12'||tag, '교구|교육합치기점검|0|||가상t12'||tag, '개발 점검 — 출석 있는 취소 줄(되돌림)');
-    if r->>'error' is distinct from 'merge-edu-conflict' then raise exception 'member_merge_edu ⑫: merge-edu-conflict 가 아님 — %', r; end if;
-    if not exists(select 1 from public.edu_enrollments where id=ea and user_id=s12)
-       or not exists(select 1 from public.edu_attendance where enrollment_id=ea and session_id=ss1) then
-      raise exception 'member_merge_edu ⑫: 멈췄는데 줄이나 출석이 바뀜'; end if;
+    if coalesce((r->>'ok')::boolean,false) is not true then raise exception 'member_merge_edu ⑫: 합치기 거절 — %', r; end if;
+    if exists(select 1 from public.edu_enrollments where id=ea)
+       or (select count(*) from public.edu_enrollments where course_id=c5 and user_id=t12) <> 1
+       or (select state from public.edu_attendance where enrollment_id=eb and session_id=ss1) is distinct from 'present' then
+      raise exception 'member_merge_edu ⑫: 출석이 남는 줄로 옮겨져야 함'; end if;
 
-    -- ⑬ 원본: 확정 · 남는 쪽: 확정 → 출석 → 취소
+    -- ⑬ 원본: 확정 · 남는 쪽: 확정 → 출석(지각) → 취소 → 합쳐지고 그 출석이 원본 줄(이제 t13 것)로
     perform public.edu_apply(c5, s13, '{"name":"가상s13"}');
     perform public.edu_apply(c5, t13, '{"name":"가상t13"}');
+    select id into ea from public.edu_enrollments where course_id=c5 and user_id=s13;
     select id into eb from public.edu_enrollments where course_id=c5 and user_id=t13;
     r := public.edu_attendance_set(ss1, eb, 'late', null);
     if r->>'ok' is distinct from 'true' then raise exception 'member_merge_edu ⑬: 출석 쓰기 — %', r; end if;
     update public.edu_enrollments set status='cancelled', cancelled_at=now() where id=eb;
     r := public.admin_merge_members(s13, t13, '교구|교육합치기점검|0|||가상s13'||tag, '교구|교육합치기점검|0|||가상t13'||tag, '개발 점검 — 남는 쪽 출석 있는 취소 줄(되돌림)');
-    if r->>'error' is distinct from 'merge-edu-conflict' then raise exception 'member_merge_edu ⑬: merge-edu-conflict 가 아님 — %', r; end if;
-    if not exists(select 1 from public.edu_attendance where enrollment_id=eb and session_id=ss1 and state='late') then
-      raise exception 'member_merge_edu ⑬: 멈췄는데 출석이 바뀜'; end if;
+    if coalesce((r->>'ok')::boolean,false) is not true then raise exception 'member_merge_edu ⑬: 합치기 거절 — %', r; end if;
+    if exists(select 1 from public.edu_enrollments where id=eb)
+       or not exists(select 1 from public.edu_enrollments where id=ea and user_id=t13 and status='confirmed')
+       or (select state from public.edu_attendance where enrollment_id=ea and session_id=ss1) is distinct from 'late' then
+      raise exception 'member_merge_edu ⑬: 출석이 원본 줄로 옮겨져야 함'; end if;
 
-    -- ⑭ 원본: 확정(출석 있음) · 남는 쪽: 취소(출석 없음) → 합쳐지고 출석은 원본 줄(이제 남는 쪽 것)을 따라간다
+    -- ⑭ 원본: 확정(출석 있음) · 남는 쪽: 취소(출석 없음) → 합쳐지고 출석은 원본 줄(이제 t14 것)을 따라간다
     perform public.edu_apply(c5, s14, '{"name":"가상s14"}');
     perform public.edu_apply(c5, t14, '{"name":"가상t14"}');
     select id into ea from public.edu_enrollments where course_id=c5 and user_id=s14;
@@ -222,6 +235,48 @@ begin
        or (select count(*) from public.edu_enrollments where course_id=c5 and user_id=t14) <> 1
        or not exists(select 1 from public.edu_attendance where enrollment_id=ea and session_id=ss1 and state='excused') then
       raise exception 'member_merge_edu ⑭: 출석 있는 줄이 남는 쪽으로 옮겨져야 함'; end if;
+
+    -- ⑮ 같은 회차에 서로 다른 상태 — 원본 취소 줄 1회 출석 · 남는 쪽 확정 줄 1회 결석 → merge-edu-attendance · 아무것도 안 바뀜
+    perform public.edu_apply(c5, s15, '{"name":"가상s15"}');
+    perform public.edu_apply(c5, t15, '{"name":"가상t15"}');
+    select id into ea from public.edu_enrollments where course_id=c5 and user_id=s15;
+    select id into eb from public.edu_enrollments where course_id=c5 and user_id=t15;
+    perform public.edu_attendance_set(ss1, ea, 'present', null);
+    perform public.edu_attendance_set(ss2, ea, 'late', null);
+    perform public.edu_attendance_set(ss1, eb, 'absent', null);
+    update public.edu_enrollments set status='cancelled', cancelled_at=now() where id=ea;
+    r := public.admin_merge_members(s15, t15, '교구|교육합치기점검|0|||가상s15'||tag, '교구|교육합치기점검|0|||가상t15'||tag, '개발 점검 — 출석 상태 다름(되돌림)');
+    if r->>'error' is distinct from 'merge-edu-attendance' then raise exception 'member_merge_edu ⑮: merge-edu-attendance 가 아님 — %', r; end if;
+    if not exists(select 1 from public.edu_enrollments where id=ea and user_id=s15 and status='cancelled')
+       or not exists(select 1 from public.users where id=s15)
+       or (select count(*) from public.edu_attendance where enrollment_id=ea) <> 2
+       or (select state from public.edu_attendance where enrollment_id=eb and session_id=ss1) is distinct from 'absent' then
+      raise exception 'member_merge_edu ⑮: 멈췄는데 무언가 바뀜'; end if;
+    -- 담당자가 취소 줄의 1회 칸을 지우면(확정이 아니어도 null 은 된다) 합쳐지고, 남은 2회 지각은 남는 줄로 옮겨진다
+    r := public.edu_attendance_set(ss1, ea, null, null);
+    if r is distinct from '{"ok":true,"state":null,"cleared":true}'::jsonb then raise exception 'member_merge_edu ⑮: 취소 줄 칸 지우기 — %', r; end if;
+    r := public.admin_merge_members(s15, t15, '교구|교육합치기점검|0|||가상s15'||tag, '교구|교육합치기점검|0|||가상t15'||tag, '개발 점검 — 고친 뒤 합치기(되돌림)');
+    if coalesce((r->>'ok')::boolean,false) is not true then raise exception 'member_merge_edu ⑮: 고친 뒤 합치기 거절 — %', r; end if;
+    if (select state from public.edu_attendance where enrollment_id=eb and session_id=ss1) is distinct from 'absent'
+       or (select state from public.edu_attendance where enrollment_id=eb and session_id=ss2) is distinct from 'late' then
+      raise exception 'member_merge_edu ⑮: 고친 뒤 출석이 남는 줄에 있어야 함'; end if;
+
+    -- ⑯ 같은 회차에 같은 상태 — 원본 취소 줄 1회 출석·2회 공결 · 남는 쪽 1회 출석 → 합쳐지고 1회는 한 칸 · 2회 공결은 더해진다
+    perform public.edu_apply(c5, s16, '{"name":"가상s16"}');
+    perform public.edu_apply(c5, t16, '{"name":"가상t16"}');
+    select id into ea from public.edu_enrollments where course_id=c5 and user_id=s16;
+    select id into eb from public.edu_enrollments where course_id=c5 and user_id=t16;
+    perform public.edu_attendance_set(ss1, ea, 'present', null);
+    perform public.edu_attendance_set(ss2, ea, 'excused', null);
+    perform public.edu_attendance_set(ss1, eb, 'present', null);
+    update public.edu_enrollments set status='cancelled', cancelled_at=now() where id=ea;
+    r := public.admin_merge_members(s16, t16, '교구|교육합치기점검|0|||가상s16'||tag, '교구|교육합치기점검|0|||가상t16'||tag, '개발 점검 — 출석 상태 같음(되돌림)');
+    if coalesce((r->>'ok')::boolean,false) is not true then raise exception 'member_merge_edu ⑯: 합치기 거절 — %', r; end if;
+    if (select count(*) from public.edu_attendance where enrollment_id=eb) <> 2
+       or (select state from public.edu_attendance where enrollment_id=eb and session_id=ss1) is distinct from 'present'
+       or (select state from public.edu_attendance where enrollment_id=eb and session_id=ss2) is distinct from 'excused'
+       or exists(select 1 from public.edu_enrollments where id=ea) then
+      raise exception 'member_merge_edu ⑯: 같은 상태는 한 칸 · 다른 회차는 더해져야 함'; end if;
   end if;
 end $check$;
 select '통과' as result;
