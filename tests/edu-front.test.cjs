@@ -487,6 +487,8 @@ test('cert/ — 번호 꼴은 서버 eduCertNoValid 와 같다 · 넣은 글 다
   assert.equal(pageCtx.certNoNorm('고척–2026—0001'), '고척-2026-0001');
   assert.equal(pageCtx.certNoNorm('고척－2026－0001'), '고척-2026-0001');
   assert.equal(pageCtx.certNoNorm('2026-0001'), '고척-2026-0001');
+  assert.equal(pageCtx.certNoNorm('제 고척-2026-0001 호'), '고척-2026-0001');
+  assert.equal(pageCtx.certNoNorm('제고척-2026-0001호'), '고척-2026-0001');
   assert.equal(pageCtx.certNoNorm('고척-2026-0001'.normalize('NFD')), '고척-2026-0001');
   assert.equal(pageCtx.certNoNorm(null), '');
   assert.equal(pageCtx.certYmdKo('2026-12-13'), '2026년 12월 13일');
