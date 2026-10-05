@@ -789,6 +789,7 @@ git commit -m "feat(교육): 역할 education · 순수 규칙(강좌 칸 검사
   - `eduSessions({course_id}) → {ok, sessions}`
   - `eduEnrollList({course_id}) → {ok, course, enrollments: EnrollOut[]}`
   - `eduEnrollSet({id, op:"confirm"|"waitlist"|"decline"|"cancel"|"reopen", force?}) → {ok, promoted}` (`edu_staff_set`·`edu_cancel(p_staff)` · 기록 `edu.enroll.set`)
+  - ⚠️ **과제 4 검토 반영(2026-10-05) — 실제 인터페이스는 아래가 아니라 이것이다:** `eduEnrollAdd({course_id, name, pick, check:{who_type,group,sub}, force?})`(명부 · 서버가 같은 찾기를 다시 돌려 확인 · 교인ID 안 나감) 또는 `({course_id, ident, force?})` → `{ok, id, status, already?, revived?}` · 오류 `changed`·`was-declined`. 명부 줄의 신원 키는 `person|<교인ID>`. 수는 rpc `edu_course_counts(uuid[])` · 회차는 rpc `edu_sessions_replace`(원자 · id 보존 · 끝난 강좌 `course-closed`) · 명단·엑셀은 `allRows` 쪽 넘기기. 아래 코드는 첫 판 기록이다.
   - `eduEnrollAdd({course_id, person_id?, ident?}) → {ok, id, status, already?}` — person_id 면 교인명부 줄 → 소속·이름 → 같은 신원의 앱 계정이 있으면 그 계정(조회만) · ident 면 직접 입력(새가족) · `edu_apply(…, p_staff=true)` · 기록 `edu.enroll.add`
   - `eduFeeSet({id, paid, note?}) → {ok}` (기록 `edu.enroll.fee`)
   - `eduExport({course_id}) → {ok, rows: string[][]}` (기록 `edu.export` {count})
@@ -1190,7 +1191,7 @@ Run: `node --test tests/edu-courses-logic.test.mjs` → PASS
 2. 강좌 카드 목록 — 카드 한 장: 제목 · `kindLabel` · `term` · `statusLabel` 딱지 · `sessionsSummary` · 「정원 {capacity 또는 '제한 없음'} · 확정 {counts.confirmed} · 대기 {counts.waitlisted} · 승인 기다림 {counts.applied}」 · 단추 「고치기」·「회차」·「복사」
 3. 「고치기」/「＋ 새 강좌」 → 창(dialog) 하나의 폼: 제목 · 종류(pickOne KIND_OPTIONS) · 학기 · 강사 · 장소 · 대상 · 교재비 안내 · 정원(빈칸 = 제한 없음) · 확정 방식(pickOne MODE_OPTIONS) · 대기 받기(켜기/끄기) · 신청 시작일·마감일(pickDate) · 수료 기준 출석률(기본 80) · 담당자 확인 항목(예 「과제」 · 빈칸이면 출석률만) · 설명(여러 줄) · 상태(pickOne STATUS_OPTIONS) → 「저장」은 `busy()` 로 잠그고 `eduCourseSave({course: formToCourse(values)})` → 오류는 `errorText` 로 그 자리에, 성공은 `toast("저장했어요")` 후 목록 다시
    - 상태를 「모집 중」으로 바꿀 때만 확인 창: 「저장하면 성경암송 앱(🎓 교육이 보이는 분)에 이 강좌가 바로 보여요.」
-4. 「회차」 → 창: 지금 회차 표(번호·날짜(pickDate)·시작(pickTime)·끝·주제) · 줄 더하기/빼기 · 「한 번에 만들기」(첫 날 pickDate · 몇 회 · 간격 「매주」=7 · 시작·끝 시각) → 표를 채움(`makeSessions` 와 같은 규칙을 화면에서 — 서버 저장은 `eduSessionsSave`) · 「저장」
+4. 「회차」 → 창: 지금 회차 표(번호·날짜(pickDate)·시작(pickTime)·끝·주제) · 줄 더하기/빼기 · 「한 번에 만들기」(첫 날 pickDate · 몇 회 · 간격 「매주」=7 · 시작·끝 시각) → 표를 채움(`makeSessions` 와 같은 규칙을 화면에서 — 서버 저장은 `eduSessionsSave`) · 「저장」 — 오류 `course-closed` 면 「끝난 강좌는 회차를 바꿀 수 없어요」, `bad-rows` 면 「회차 칸을 확인해 주세요」(과제 4 검토 반영 2026-10-05 · 회차는 한 번에 바뀌어 반쯤 저장되는 일이 없다)
 5. 「복사」 → 학기를 묻는 창(글자 칸 · 기본값 지금 학기) → `eduCourseCopy({id, term})` → 「복사했어요 — 준비 중으로 만들었어요. 신청 기간과 회차 날짜를 고쳐 주세요」
 
 - [ ] **Step 4: 메뉴 등록 `js/menus/registry.js`**
@@ -1255,6 +1256,7 @@ test("capacityLine", () => {
 test("errorWord", () => {
   assert.equal(errorWord("full"), "정원이 찼어요");
   assert.equal(errorWord("too-late"), "이미 시작한 강좌예요");
+  assert.equal(errorWord("changed"), "명부가 바뀌었어요. 다시 찾아 주세요");
   assert.equal(errorWord("x"), "저장하지 못했어요 (x)");
 });
 ```
@@ -1289,7 +1291,8 @@ export function capacityLine(c) {
 }
 
 const WORDS = { full: "정원이 찼어요", "too-late": "이미 시작한 강좌예요", "not-active": "이미 처리된 신청이에요",
-  "not-found": "찾을 수 없어요", "bad-ident": "이름을 확인해 주세요", "not-open": "모집 중이 아니에요" };
+  "not-found": "찾을 수 없어요", "bad-ident": "이름을 확인해 주세요", "not-open": "모집 중이 아니에요",
+  changed: "명부가 바뀌었어요. 다시 찾아 주세요", "was-declined": "반려했던 분이에요" };   // 과제 4 검토 반영(2026-10-05)
 export function errorWord(code) { return WORDS[code] || `저장하지 못했어요 (${code})`; }
 ```
 Run: `node --test tests/edu-enrollments-logic.test.mjs` → PASS
@@ -1301,7 +1304,7 @@ Run: `node --test tests/edu-enrollments-logic.test.mjs` → PASS
    - 「확정」이 `full` 로 오면 확인 창: 「정원(N명)이 찼어요. 그래도 확정할까요?」 → 「넘겨서 확정」이면 `eduEnrollSet({id, op:"confirm", force:true})`
    - 「취소」·「반려」는 확인 창 한 번(「○○○ 님의 신청을 취소할까요? 선착순 강좌면 대기 첫 분이 확정돼요.」)
    - 결과의 `promoted` 가 있으면 toast 「대기 첫 분이 확정됐어요」
-4. 「＋ 대신 등록」 창 — 탭 둘: 「교인명부에서 찾기」(이름 → `eduPeopleLookup` → 후보 카드 → 「등록」 → `eduEnrollAdd({course_id, person_id})`) · 「직접 입력(새가족 등)」(이름 · 구분 글(기본 「새가족」) · 소속 글 · 세부 글 → `eduEnrollAdd({course_id, ident})`). 결과가 `already` 면 「이미 명단에 있어요」.
+4. 「＋ 대신 등록」 창 — 탭 둘: 「교인명부에서 찾기」(이름 → `eduPeopleLookup({name})` → 후보 카드(받은 순서 그대로) → 「등록」 → `eduEnrollAdd({course_id, name, pick, check:{who_type, group, sub, church_mok, position}})` — `name` 은 찾을 때 넣은 그 글자, `pick` 은 후보 목록에서 그 카드의 차례(0부터), `check` 는 그 카드의 `who_type`·`group`·`sub`·`church_mok`·`position` 그대로(같은 이름 두 분을 가른다). ⚠️ 교인ID 는 화면에 오지 않는다(과제 4 검토 반영 2026-10-05 — 서버가 같은 찾기를 다시 돌려 확인한다)) · 「직접 입력(새가족 등)」(이름 · 구분 글(기본 「새가족」) · 소속 글 · 세부 글 → `eduEnrollAdd({course_id, ident})`). 결과가 `already` 면 「이미 명단에 있어요」. 오류 `was-declined` 면 `dialog` 로 「반려했던 분이에요. 다시 받을까요?」 → 「다시 받기」를 누르면 **같은 인자에 `force:true`** 를 더해 다시 부른다(「반려 유지」 — 담당자가 일부러 고를 때만 되살린다). 성공 응답에 `revived:true` 면 「다시 받았어요」, 아니면 「등록했어요」. 오류 `changed` 면 「명부가 바뀌었어요. 다시 찾아 주세요」 후 찾기 결과를 비운다.
    - 교인명부가 아직 없으면(`source:null`) 「교인명부가 없어 직접 입력으로 넣어 주세요」.
 
 - [ ] **Step 4: 메뉴 등록** — 강좌 관리 줄 바로 뒤:
