@@ -18,10 +18,6 @@ function eduYmdw(d) {   // 2027년 3월 3일(수) — 교육 기간 한 줄(연�
 function eduRangeEnd(a, b) {   // 같은 해면 연도를 줄인다: 5월 19일(수) · 해가 다르면 2028년 1월 5일(수)
   return String(a).slice(0, 4) === String(b).slice(0, 4) ? eduMdw(b) : eduYmdw(b);
 }
-function eduPeriodLine(c) {   // 교육 기간 · 2027년 3월 3일(수) ~ 5월 19일(수) — 시작일이 없으면 빈 글(회차 일정만 보인다)
-  if (!c || !eduYmdw(c.startsOn)) return '';
-  return '교육 기간 · ' + eduYmdw(c.startsOn) + (c.endsOn && c.endsOn !== c.startsOn && eduRangeEnd(c.startsOn, c.endsOn) ? ' ~ ' + eduRangeEnd(c.startsOn, c.endsOn) : '');
-}
 function eduWhenLine(c) {   // 📅 언제 — 서버가 고른 firstDate·lastDate(교육 기간이 있으면 그것 · 뒤집힌 기간은 끝이 비어 온다) + 회차 수. 화면은 다시 고르지 않는다
   if (!c) return '';
   var n = c.sessionsCount ? c.sessionsCount + '회' : '', a = eduYmdw(c.firstDate);
@@ -82,13 +78,6 @@ function eduPhaseLabel(c) {
   if (c.capacity == null) return '모집 중';
   if (c.confirmed >= c.capacity) return c.waitlist ? '모집 중 · 정원 참 · 대기 ' + (c.waitlisted || 0) : '정원 참';
   return '모집 중 · ' + c.confirmed + '/' + c.capacity;
-}
-function eduApplyMessage(r) {
-  if (r.status === 'declined') return '이 강좌는 담당자에게 말씀해 주세요';   // 반려 유지(친구 2026-10-05) — 다시 눌러도 반려 그대로
-  if (r.already) return '이미 신청하셨어요';
-  if (r.status === 'confirmed') return '확정됐어요';
-  if (r.status === 'waitlisted') return '대기 ' + (r.waitNo || 1) + '번이에요 — 자리가 나면 확정돼요';
-  return '신청했어요 — 담당자가 확정하면 「내 강좌」에 보여요';
 }
 function eduStatusLine(m) { return m.status === 'waitlisted' ? '대기 ' + (m.waitNo || 1) + '번' : m.statusLabel; }
 function eduErrText(code) {
@@ -159,7 +148,11 @@ function eduDrawList(tab) {
   }); });
 }
 
-function renderEduCourse(id) {
+// 강좌 자세히(설계 docs/superpowers/specs/2026-10-05-edu-course-detail-redesign-design.md — A안 한눈에 카드)
+//   opt.focus: 다시 그린 뒤 「자리·신청」 칸을 화면 가운데로(신청·취소 뒤 — 알림 창 대신 결과를 그 자리에서 보여 준다)
+//   opt.note: 그 칸 위 회색 한 줄(「취소했어요.」)
+function renderEduCourse(id, opt) {
+  opt = opt || {};
   var u = loadUser(); if (!u) { renderEntryScreen(); return; }
   var el = document.getElementById('app');
   el.innerHTML = '<div class="edu-wrap"><div class="ev-loading">불러오는 중…</div></div>' +
@@ -171,58 +164,78 @@ function renderEduCourse(id) {
     if (my !== eduState.screen) return;
     var w = document.querySelector('.edu-wrap'); if (!w) return;
     if (!r || !r.ok) { w.innerHTML = '<p class="edu-empty">' + eduEsc(eduErrText(r && r.error)) + '</p>'; return; }
-    var c = r.course, m = r.mine;
-    var sess = (c.sessions || []).map(function (s) {
-      return '<li>' + s.no + ' · ' + eduEsc(eduMdw(s.date)) + (s.start ? ' ' + eduEsc(s.start) : '') + (s.topic ? ' — ' + eduEsc(s.topic) : '') + '</li>'; }).join('');
-    var info = [c.teacher && '강사 · ' + c.teacher, c.place && '장소 · ' + c.place, c.target && '대상 · ' + c.target, c.fee && '교재비 · ' + c.fee,
-      c.prereq && c.prereq.length && '먼저 들으실 과정 · ' + c.prereq.join(', ')].filter(Boolean)
-      .map(function (t) { return '<span>' + eduEsc(t) + '</span>'; }).join('');
-    var pl = eduPeriodLine(c), period = pl ? '<p class="edu-desc">' + eduEsc(pl) + '</p>' : '';
-    var rule = '출석 ' + c.attendPct + '% 이상' + (c.checkLabel ? ' + ' + c.checkLabel + ' 확인' : '');
+    var c = r.course, m = r.mine, mv = eduMineView(m), sv = mv ? null : eduSeatView(c, eduState.open);
+    var chip = eduPhaseChip(c.phase);
+    var chips = '<div class="edu-chips"><span class="edu-chip">' + eduEsc(c.kindLabel) + '</span>' +
+      (chip ? '<span class="edu-chip' + (c.phase === 'open' ? ' on' : '') + '">' + eduEsc(chip) + '</span>' : '') + '</div>';
+    var gl = [['📅', '언제', eduWhenLine(c)], ['📍', '어디서', c.place], ['🙋', '대상', c.target],
+      ['📚', '먼저 들으실 과정', c.prereq && c.prereq.length ? c.prereq.join(', ') : ''], ['👤', '강사', c.teacher], ['📘', '교재비', c.fee]]
+      .filter(function (x) { return x[2]; })
+      .map(function (x) { return '<div class="edu-gl"><span class="edu-gl-i" aria-hidden="true">' + x[0] + '</span><span class="edu-gl-k">' + x[1] + '</span><span class="edu-gl-v">' + eduEsc(x[2]) + '</span></div>'; }).join('');
     var act;
-    if (m && ['applied', 'confirmed', 'waitlisted'].indexOf(m.status) >= 0) {
-      act = '<div class="edu-mine"><b>' + eduEsc(eduStatusLine(m)) + '</b>' +
-        (m.canCancel ? '<span>' + (eduMd(m.cancelUntil) ? eduEsc(eduMd(m.cancelUntil)) + '까지' : '첫 시간 전까지') + ' 앱에서 취소할 수 있어요</span>' +
-          '<button class="edu-btn ghost" id="edu-cancel">신청 취소</button>'
-          : '<span>시작한 뒤에는 담당자에게 말씀해 주세요</span>') + '</div>';   // 과제 7 검토 반영(2026-10-05) — 서버가 canCancel 을 준다
-    } else if (m && m.status === 'declined') {
-      act = '<div class="edu-mine"><b>' + eduEsc(eduStatusLine(m)) + '</b><span>이 강좌는 담당자에게 말씀해 주세요</span></div>';
-    } else if (c.phase === 'open') {
-      act = '<button class="edu-btn" id="edu-apply">신청하기</button>';
+    if (mv) {
+      var lines = mv.lines.concat(m.status === 'confirmed' && c.place ? [c.place] : []);
+      act = '<div class="edu-state ' + mv.tone + '"><b>' + eduEsc(mv.head) + '</b>' + lines.map(function (t) { return '<span>' + eduEsc(t) + '</span>'; }).join('') + '</div>' +
+        (mv.cancelLine ? '<p class="edu-how">' + eduEsc(mv.cancelLine) + '</p>' : '') +
+        (mv.cancelBtn ? '<button class="edu-btn ghost" id="edu-cancel">' + eduEsc(mv.cancelBtn) + '</button>' : '');
     } else {
-      act = '<p class="edu-empty">' + eduEsc(eduPhaseLabel(c)) + '</p>';
+      act = '<div class="edu-seat' + (sv.off ? ' off' : '') + '"><b>' + eduEsc(sv.head) + '</b>' + (sv.sub ? '<span>' + eduEsc(sv.sub) + '</span>' : '') + '</div>' +
+        (sv.how ? '<p class="edu-how">' + eduEsc(sv.how) + '</p>' : '') +
+        (sv.btn ? '<button class="edu-btn" id="edu-apply">' + eduEsc(sv.btn) + '</button>' : '');
     }
-    w.innerHTML = '<button class="edu-back" id="edu-back">← 교육</button><h2 class="edu-title">' + eduEsc(c.title) + '</h2>' +
-      '<div class="edu-sub">' + eduEsc(c.kindLabel) + (c.term ? ' · ' + eduEsc(c.term) : '') + ' · ' + eduEsc(eduPhaseLabel(c)) + '</div>' +
+    act = '<div class="edu-act" id="edu-act">' + (opt.note ? '<p class="edu-note">' + eduEsc(opt.note) + '</p>' : '') + act +
+      '<p class="edu-msg" id="edu-msg" role="status"></p></div>';
+    var ss = c.sessions || [], shown = ss.length <= 4 ? ss.length : 2;   // 4회까지는 다 · 5회부터는 2회 + 「더 보기」
+    var sessLi = function (s) {
+      return '<li>' + s.no + ' · ' + eduEsc(eduMdw(s.date)) + (s.start ? ' ' + eduEsc(s.start) : '') + (s.topic ? ' — ' + eduEsc(s.topic) : '') +
+        (s.place && s.place !== c.place ? ' · ' + eduEsc(s.place) : '') + '</li>'; };
+    var sess = ss.length ? '<h3 class="edu-h">일정 ' + ss.length + '회</h3><ul class="edu-sess" id="edu-sess">' + ss.slice(0, shown).map(sessLi).join('') + '</ul>' +
+      (ss.length > shown ? '<button class="edu-more" id="edu-more">＋ ' + (ss.length - shown) + '회 더 보기</button>' : '') : '';
+    var rule = '출석 ' + c.attendPct + '% 이상' + (c.checkLabel ? ' + ' + c.checkLabel + ' 확인' : '');
+    w.innerHTML = '<button class="edu-back" id="edu-back">← 교육</button>' + chips +
+      '<h2 class="edu-title">' + eduEsc(c.title) + '</h2>' + (c.term ? '<div class="edu-sub">' + eduEsc(c.term) + '</div>' : '') +
       (c.description ? '<p class="edu-desc">' + eduEsc(c.description) + '</p>' : '') +
-      period + (info ? '<div class="edu-info">' + info + '</div>' : '') +
-      (sess ? '<h3 class="edu-h">일정 ' + c.sessions.length + '회</h3><ul class="edu-sess">' + sess + '</ul>' : '') +
-      '<h3 class="edu-h">수료 기준</h3><p class="edu-desc">' + eduEsc(rule) + '</p>' + act + '<p class="edu-msg" id="edu-msg" role="status"></p>';
+      (gl ? '<div class="edu-glance">' + gl + '</div>' : '') + act + sess +
+      '<h3 class="edu-h">수료 기준</h3><p class="edu-desc">' + eduEsc(rule) + '</p>';
     document.getElementById('edu-back').addEventListener('click', function () { renderEduList(eduState.tab); });
+    var more = document.getElementById('edu-more');
+    if (more) more.addEventListener('click', function () { document.getElementById('edu-sess').innerHTML = ss.map(sessLi).join(''); more.remove(); });
+    if (opt.focus) { var box = document.getElementById('edu-act'); if (box && box.scrollIntoView) box.scrollIntoView({ block: 'center' }); }
     // ⚠️ api(supaCall)는 응답에 error 가 있으면 throw 한다 — 오류 말은 .catch 의 err.message(서버 오류 코드)로 고른다.
     var say = function (t) { var x = document.getElementById('edu-msg'); if (x) x.textContent = t; };
     var ap = document.getElementById('edu-apply');
     if (ap) ap.addEventListener('click', function () {
-      ap.disabled = true;
-      api.eduApply(id, u.user_id || '').then(function (x) {
-        if (!x || x.ok === false) { say(eduErrText(x && x.error)); ap.disabled = false; return; }   // 지금은 supaCall 이 throw 하지만, 풀어도 「신청했어요」가 안 뜨게
-        appAlert(eduApplyMessage(x)); renderEduCourse(id);
-      }).catch(function (err) { say(eduErrText(err && err.message)); ap.disabled = false; });
+      // 확인 창 한 번(친구 2026-10-05) — 누구 이름으로 들어가는지 · 누르면 어떻게 되는지. appModal 의 msg 는 HTML 그대로라 모두 eduEsc.
+      var l = userLines(u);
+      var msg = '<b>' + eduEsc(c.title) + '</b><div class="edu-who">' + eduEsc(l.l2) + (l.l1 ? ' · ' + eduEsc(l.l1) : '') + '</div>' + eduEsc(sv.ask.line);
+      appConfirm(msg, { title: sv.ask.title, okText: sv.ask.ok, cancelText: '돌아가기' }).then(function (yes) {
+        if (!yes) return;
+        ap.disabled = true;
+        // 서버가 거절한 것(자리·기간·문)은 알리고 지금 상태로 다시 그린다 — 같은 단추를 또 누르지 않게. 통신 실패는 단추를 다시 켠다.
+        var refused = function (code) {
+          if (code === 'not-open') eduState.open = false;
+          if (code === 'full' || code === 'closed-period' || code === 'not-yet' || code === 'not-open') { appAlert(eduErrText(code)); renderEduCourse(id, { focus: true }); return; }
+          say(eduErrText(code)); ap.disabled = false;
+        };
+        api.eduApply(id, u.user_id || '').then(function (x) {
+          if (!x || x.ok === false) { refused(x && x.error); return; }   // 지금은 supaCall 이 throw 하지만, 풀어도 성공처럼 안 보이게
+          renderEduCourse(id, { focus: true });   // 알림 창 없이 — 칸이 ⑧~⑩ 으로 바뀐 것을 그 자리에서 보여 준다
+        }).catch(function (err) { refused(err && err.message); });
+      });
     });
     var cn = document.getElementById('edu-cancel');
     if (cn) cn.addEventListener('click', function () {
-      // appConfirm(msg, opts) 두 인자 · Promise<boolean>(js/events.js 937줄과 같은 꼴)
-      appConfirm('신청을 취소할까요?', { okText: '신청 취소', cancelText: '돌아가기', danger: true }).then(function (yes) {
+      appConfirm(eduEsc(mv.cancelAsk), { okText: mv.cancelBtn, cancelText: '돌아가기', danger: true }).then(function (yes) {
         if (!yes) return;
         cn.disabled = true;
-        // 담당자가 먼저 처리한 줄(not-active)이면 알리고 지금 상태로 다시 그린다 — 남은 「신청 취소」 단추를 또 누르지 않게
+        // 담당자가 먼저 처리했거나(not-active) 그새 시작했으면(too-late) 알리고 지금 상태로 다시 그린다
         var failed = function (code) {
-          if (code === 'not-active') { appAlert(eduErrText(code)); renderEduCourse(id); return; }
+          if (code === 'not-active' || code === 'too-late') { appAlert(eduErrText(code)); renderEduCourse(id, { focus: true }); return; }
           say(eduErrText(code)); cn.disabled = false;
         };
         return api.eduCancel(m.id, u.user_id || '').then(function (x) {
           if (!x || x.ok === false) { failed(x && x.error); return; }
-          appAlert('취소했어요.'); renderEduCourse(id);
+          renderEduCourse(id, { focus: true, note: '취소했어요.' });
         }).catch(function (err) { failed(err && err.message); });
       });
     });

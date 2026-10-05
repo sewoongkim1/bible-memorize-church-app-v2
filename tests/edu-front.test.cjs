@@ -15,14 +15,6 @@ test('eduPhaseLabel', () => {
   assert.equal(ctx.eduPhaseLabel({ phase: 'running' }), '진행 중');
 });
 
-test('eduApplyMessage — 결과마다 한 줄', () => {
-  assert.equal(ctx.eduApplyMessage({ ok: true, status: 'confirmed' }), '확정됐어요');
-  assert.equal(ctx.eduApplyMessage({ ok: true, status: 'waitlisted', waitNo: 2 }), '대기 2번이에요 — 자리가 나면 확정돼요');
-  assert.equal(ctx.eduApplyMessage({ ok: true, status: 'applied' }), '신청했어요 — 담당자가 확정하면 「내 강좌」에 보여요');
-  assert.equal(ctx.eduApplyMessage({ ok: true, status: 'confirmed', already: true }), '이미 신청하셨어요');
-  assert.equal(ctx.eduApplyMessage({ ok: true, status: 'declined', already: true }), '이 강좌는 담당자에게 말씀해 주세요');
-});
-
 test('eduStatusLine', () => {
   assert.equal(ctx.eduStatusLine({ status: 'waitlisted', statusLabel: '대기', waitNo: 1 }), '대기 1번');
   assert.equal(ctx.eduStatusLine({ status: 'confirmed', statusLabel: '확정' }), '확정');
@@ -58,17 +50,6 @@ test('eduEsc — boardEsc 없이도 다섯 글자를 막는다(빈 값은 빈 �
   assert.equal(ctx.eduEsc(null), '');
   assert.equal(ctx.eduEsc(undefined), '');
   assert.equal(ctx.eduEsc(12), '12');
-});
-
-test('eduPeriodLine — 교육 기간 한 줄(시작일이 없으면 빈 글)', () => {
-  assert.equal(ctx.eduPeriodLine({ startsOn: '2027-03-03', endsOn: '2027-05-19' }), '교육 기간 · 2027년 3월 3일(수) ~ 5월 19일(수)');
-  assert.equal(ctx.eduPeriodLine({ startsOn: '2027-11-03', endsOn: '2028-01-05' }), '교육 기간 · 2027년 11월 3일(수) ~ 2028년 1월 5일(수)');   // 해가 다르면 연도를 붙인다
-  assert.equal(ctx.eduPeriodLine({ startsOn: '2027-03-03', endsOn: '2027-03-03' }), '교육 기간 · 2027년 3월 3일(수)');
-  assert.equal(ctx.eduPeriodLine({ startsOn: '2027-03-03', endsOn: null }), '교육 기간 · 2027년 3월 3일(수)');
-  assert.equal(ctx.eduPeriodLine({ startsOn: null, endsOn: '2027-05-19' }), '');
-  assert.equal(ctx.eduPeriodLine({ startsOn: 'x' }), '');
-  assert.equal(ctx.eduPeriodLine({}), '');
-  assert.equal(ctx.eduPeriodLine(null), '');
 });
 
 test('eduWhenLine — 서버가 고른 시작·끝 + 회차 수', () => {
