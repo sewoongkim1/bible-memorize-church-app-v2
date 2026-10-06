@@ -350,10 +350,11 @@ function dutyDrawBoard(u, today, opt) {
       (opt.note && opt.focusDate === d.date ? '<p class="duty-note" role="status">' + dutyEsc(opt.note) + '</p>' : '') +
       (d.slots || []).map(function (s, si) { return slotHtml(d, s, di, si); }).join('') + '</section>';
   }).join('');
-  // 맨 위 한 줄 — 이 계정이 앱에서 지원하지 못하는 까닭(받는 중 당번에서만) · 내 당번 카드로 왔는데 그 날짜가 아직 당번표에 안 보일 때
+  // 맨 위 한 줄 — 이 계정이 앱에서 지원하지 못하는 까닭(받는 중 당번에서만) · 내 당번 카드로 왔는데 그 날짜가 당번표에 안 보일 때
+  //   (보이는 기간 밖에 담당자가 더해 둔 날 · 끝 날짜 뒤의 날 — 「아직」이라고 하지 않는다: 끝 날짜 뒤면 앞으로도 안 보인다)
   var meNote = staffOnly ? '' : dutyMeNote(me);
   var miss = opt.focusDate && !opt.soft && dutyMdw(opt.focusDate) && !days.some(function (d) { return d.date === opt.focusDate; })
-    ? dutyMdw(opt.focusDate) + ' 당번은 아직 당번표에 보이지 않아요 — 「내 당번」에서 확인해 주세요.' : '';
+    ? dutyMdw(opt.focusDate) + ' 당번은 지금 당번표에 보이지 않는 날짜예요 — 「내 당번」에서 확인해 주세요.' : '';
   w.innerHTML = '<div class="duty-top"><span class="duty-kind">' + (staffOnly ? '담당자가 넣는 당번' : '지원 받는 중') + '</span>' +
       '<button class="back-btn" id="duty-back">← 봉사 당번</button></div>' +
     '<h2 class="duty-title">' + dutyEsc(b.title) + '</h2>' +

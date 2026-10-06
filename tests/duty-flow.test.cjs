@@ -232,3 +232,10 @@ test('일을 보내는 중 — 다른 단추는 막히고 · 20초가 넘도록 
   assert.deepEqual([w.ctx.dutyState.at, w.ctx.dutyState.busy, w.ctx.dutyState.boards.length, w.ctx.dutyState.mine.length, w.ctx.dutyState.days.length], ['', false, 0, 0, 0]);
   await w.answer(0, { ok: true }); assert.deepEqual(w.names(), ['dutyApply'], '비운 뒤 온 응답은 화면을 다시 받지 않는다');
 });
+
+test('내 당번 카드로 왔는데 그 날짜가 당번표에 없다(보이는 기간 밖 · 끝 날짜 뒤) — 맨 위에 한 줄 · 「아직」이라고 하지 않는다', async () => {
+  const w = world(); w.ctx.renderDutyBoard('b-1', { focusDate: '2026-12-25' }); await w.answer(0, boardRes());
+  assert.ok(w.html().includes('12월 25일(금) 당번은 지금 당번표에 보이지 않는 날짜예요') && !w.html().includes('아직 당번표'));
+  const ok = world(); ok.ctx.renderDutyBoard('b-1', { focusDate: '2026-10-18' }); await ok.answer(0, boardRes());
+  assert.equal(ok.html().includes('보이지 않는 날짜'), false, '그 날짜가 있으면 말하지 않는다');
+});
