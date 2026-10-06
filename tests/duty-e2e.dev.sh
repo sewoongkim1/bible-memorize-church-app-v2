@@ -5,7 +5,8 @@
 # 하는 일: dutyOpen 을 켜고(끝나면 원래대로) 시험 당번(자리 틀 셋 — 정원 1 · 그와 시각이 겹치는 틀 · 안 겹치는 틀)을 만들어
 #          목록·자세히·지원(두 번 = already · 정원 full · 겹침 overlap)·내 당번·취소(남의 줄 not-found)·되살림 ·
 #          확정 뒤(취소 locked · 「못 가게 됐어요」 · 잠긴 날 지원은 ack_locked) · 담당자가 뺀 뒤 재지원 거절 · 미리 잡는 수 ·
-#          문 닫힘(읽기도 닫힘) · 응답에 계정 번호·신원 키가 없는지를 본 뒤 당번을 지운다.
+#          문 닫힘(읽기도 닫힘) · 문이 열려도 없는 계정은 닫힘 · 어린이 부서·실을 수 없는 이름 거절(시험 계정 둘을 만들어 쓰고 지운다) ·
+#          보관한 당번은 없는 당번 · 응답에 계정 번호·신원 키·소속이 없는지를 본 뒤 당번을 지운다.
 # ⚠️ 본문에 한글을 쓰지 않는다(curl 이 깨뜨린다) — id 만 보낸다. 키·비밀번호는 찍지 않는다.
 set -u
 REF=ktpwthwqzgcqcrmsafdo
@@ -50,6 +51,8 @@ OLD_STATE=""; OLD_VAL=""; BID=""; TAG=""
 cleanup() {
   # 지원 → 알림 기록(cascade) → 자리 → 날짜 → 틀 → 당번
   [ -n "$BID" ] && sx "delete from duty_signups where slot_id in (select id from duty_slots where board_id='$BID'); delete from duty_slots where board_id='$BID'; delete from duty_days where board_id='$BID'; delete from duty_lines where board_id='$BID'; delete from duty_boards where id='$BID'"
+  # 이 시험이 만든 계정 둘(어린이 부서 · 실을 수 없는 이름) — 이름표(TAG)로만 지운다
+  [ -n "$TAG" ] && sx "delete from users where identity_key like '%|$TAG' or identity_key like '%|<$TAG>'"
   if [ "$OLD_STATE" = "missing" ]; then sx "delete from app_config where key='dutyOpen'"
   elif [ "$OLD_STATE" = "had" ]; then sx "update app_config set value='$OLD_VAL'::jsonb where key='dutyOpen'"; fi
 }
@@ -77,6 +80,12 @@ SA=$(slot a "$D3"); SB=$(slot b "$D3"); SC=$(slot c "$D3"); SA10=$(slot a "$D10"
 pickU() { sq "select id from users where type='교구' and name ~ '^[가-힣]{2,10}\$' order by created_at, id limit 1 offset $1"; }
 U1=$(pickU 0); U2=$(pickU 1); U3=$(pickU 2)
 [ -n "$U1" ] && [ -n "$U2" ] && [ -n "$U3" ] || { echo "사용자 셋을 못 골랐다"; exit 2; }
+# 어린이 부서 계정 · 당번표에 실을 수 없는 이름의 계정 — 개발에 없을 수 있어 만들어 쓰고 끝나면 지운다(cleanup · 신원 키 끝이 TAG)
+UK=$(sq "insert into users(type, bu, grade, name, identity_key) values ('교회학교','초등부','3','$TAG','교회학교|||초등부|3|$TAG') returning id")
+UB=$(sq "insert into users(type, gu, mok, name, identity_key) values ('교구','e2e','1','<$TAG>','교구|e2e|1|||<$TAG>') returning id")
+[ -n "$UK" ] && [ -n "$UB" ] || { echo "시험 계정을 못 만들었다"; exit 2; }
+G1=$(sq "select coalesce(gu,'') from users where id='$U1'"); M1=$(sq "select coalesce(mok,'') from users where id='$U1'")
+NONUSER="00000000-0000-0000-0000-000000000000"
 echo "board=$BID  day=$D3"
 
 echo "1) dutyList · dutyBoard"
@@ -87,6 +96,22 @@ B=$(call "{\"action\":\"dutyBoard\",\"user_id\":\"$U1\",\"id\":\"$BID\"}")
 chk "first day" "$(jqn 'd["days"][0]["date"]' "$B")" "$D3"
 chk "slots open" "$(jqn '[(s["service"], s["why"], s["n"]) for s in d["days"][0]["slots"]]' "$B")" "[('a', '', 0), ('b', '', 0), ('c', '', 0)]"
 chk "lockAt given, not locked" "$(jqn '(d["days"][0]["locked"], d["days"][0]["lockAt"] is not None)' "$B")" "(False, True)"
+chk "me can apply (list)" "$(jqn 'd.get("me")' "$L")" "{'why': ''}"
+chk "me can apply (board)" "$(jqn 'd.get("me")' "$B")" "{'why': ''}"
+# 문이 **열려 있어도** users 에 없는 계정은 닫힘이다(꼴만 맞는 UUID 로 당번표의 이름을 읽지 못한다)
+for a in '"action":"dutyList"' "\"action\":\"dutyBoard\",\"id\":\"$BID\"" '"action":"dutyMine"'; do
+  chk "gate open, unknown account = closed" "$(jqn 'd' "$(call "{$a,\"user_id\":\"$NONUSER\"}")")" "{'ok': True, 'open': False}"
+done
+chk "gate open, no account = closed" "$(jqn 'd' "$(call "{\"action\":\"dutyBoard\",\"id\":\"$BID\"}")")" "{'ok': True, 'open': False}"
+chk "gate open, unknown account apply = no-user" "$(jqn 'd.get("error")' "$(call "{\"action\":\"dutyApply\",\"user_id\":\"$NONUSER\",\"slot_id\":$SA}")")" "no-user"
+
+echo "1-1) 앱에서 지원하지 못하는 계정 — 어린이 부서(guardian) · 실을 수 없는 이름(bad-name): 읽기는 me.why 로 알리고 지원은 SQL 앞에서 막는다"
+chk "child: me.why" "$(jqn 'd["me"]' "$(call "{\"action\":\"dutyBoard\",\"user_id\":\"$UK\",\"id\":\"$BID\"}")")" "{'why': 'guardian'}"
+chk "child: apply = guardian" "$(jqn 'd.get("error")' "$(call "{\"action\":\"dutyApply\",\"user_id\":\"$UK\",\"slot_id\":$SC}")")" "guardian"
+chk "child: apply with ack = guardian" "$(jqn 'd.get("error")' "$(call "{\"action\":\"dutyApply\",\"user_id\":\"$UK\",\"slot_id\":$SC,\"ack_locked\":true}")")" "guardian"
+chk "bad name: me.why" "$(jqn 'd["me"]' "$(call "{\"action\":\"dutyList\",\"user_id\":\"$UB\"}")")" "{'why': 'bad-name'}"
+chk "bad name: apply = bad-name" "$(jqn 'd.get("error")' "$(call "{\"action\":\"dutyApply\",\"user_id\":\"$UB\",\"slot_id\":$SC}")")" "bad-name"
+chk "nothing written for either" "$(sq "select count(*) from duty_signups where user_id in ('$UK','$UB')")" "0"
 
 echo "2) dutyApply — 두 번은 already · 정원 full · 겹침 overlap(무엇과 겹쳤는지)"
 A=$(call "{\"action\":\"dutyApply\",\"user_id\":\"$U1\",\"slot_id\":$SA}")
@@ -109,6 +134,13 @@ M=$(call "{\"action\":\"dutyMine\",\"user_id\":\"$U1\"}")
 chk "mine rows" "$(jqn '[(m["service"], m["canCancel"], m["canAsk"], m["locked"]) for m in d["mine"] if m["boardId"]=="'$BID'"]' "$M")" "[('a', True, False, False), ('c', True, False, False)]"
 LEAK=$(printf '%s%s%s%s' "$L" "$B" "$B2" "$M" | grep -c -e "$U1" -e "$U2" -e "$U3" -e "ident_key" -e "user_id" -e "identity_key")
 chk "no ids / ident_key in responses" "$LEAK" "0"
+# 소속도 싣지 않는다(이름 글자만) — 칸 이름과, 지원한 분(U1)의 교구·목장 글자
+chk "no affiliation keys" "$(printf '%s%s%s%s' "$L" "$B" "$B2" "$M" | grep -c -e "group_name" -e "sub_name" -e "who_type" -e "applied_at" -e "staff_note")" "0"
+if [ "${#G1}" -ge 2 ]; then
+  chk "no affiliation text (gu of the applicant)" "$(printf '%s%s%s' "$B" "$B2" "$M" | PYTHONIOENCODING=utf-8 python -c 'import sys; print(sys.stdin.read().count(sys.argv[1]))' "$G1")" "0"
+else
+  echo "  - 지원한 분의 교구 글자가 짧아(${#G1}자) 글자 검사는 건너뜀(칸 이름 검사는 했다)"
+fi
 
 E1=$(sq "select id from duty_signups where slot_id=$SA and user_id='$U1'")
 EC=$(sq "select id from duty_signups where slot_id=$SC and user_id='$U1'")
@@ -163,6 +195,11 @@ chk "closed board readable" "$(jqn '(d.get("ok"), d["board"]["status"])' "$B3")"
 sx "update duty_boards set status='draft' where id='$BID'"
 chk "draft = not-found" "$(jqn 'd.get("error")' "$(call "{\"action\":\"dutyBoard\",\"user_id\":\"$U3\",\"id\":\"$BID\"}")")" "not-found"
 chk "draft not listed" "$(jqn '[b["id"] for b in d["boards"] if b["id"]=="'$BID'"]' "$(call "{\"action\":\"dutyList\",\"user_id\":\"$U3\"}")")" "[]"
+chk "draft slot apply = not-found" "$(jqn 'd.get("error")' "$(call "{\"action\":\"dutyApply\",\"user_id\":\"$U3\",\"slot_id\":$SA10}")")" "not-found"
+# 보관한 당번도 성도님께는 없는 당번이다(SQL 의 archived 를 그대로 내보내지 않는다 — 자리 번호로 「보관된 당번」을 가려내지 못한다)
+sx "update duty_boards set status='archived' where id='$BID'"
+chk "archived slot apply = not-found" "$(jqn 'd.get("error")' "$(call "{\"action\":\"dutyApply\",\"user_id\":\"$U3\",\"slot_id\":$SA10}")")" "not-found"
+chk "archived board = not-found" "$(jqn 'd.get("error")' "$(call "{\"action\":\"dutyBoard\",\"user_id\":\"$U3\",\"id\":\"$BID\"}")")" "not-found"
 sx "update duty_boards set status='open' where id='$BID'"
 
 echo "10) 문 닫힘 — 읽기도 닫힌다(당번·이름 없음) · 쓰기는 not-open (시험 참여자가 아닌 계정으로)"
@@ -174,7 +211,7 @@ if [ -n "$NT" ]; then
   chk "mine closed" "$(jqn 'd' "$(call "{\"action\":\"dutyMine\",\"user_id\":\"$NT\"}")")" "{'ok': True, 'open': False}"
   chk "apply not-open" "$(jqn 'd.get("error")' "$(call "{\"action\":\"dutyApply\",\"user_id\":\"$NT\",\"slot_id\":$SA10}")")" "not-open"
 else
-  echo "  - 시험 참여자가 아닌 계정을 못 골라 건너뜀"
+  chk "non-tester account available (문 닫힘을 볼 계정)" "none" "found"
 fi
 
 echo

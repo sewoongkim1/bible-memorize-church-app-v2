@@ -5468,9 +5468,11 @@ async function internalEduRemind(req: Request) {
 // ⚠️ **문은 읽기도 막는다**(교육과 다르다 — 당번표에는 선 분 이름이 나간다): dutyGate = users 에 그 줄이 **실제로 있고**(꼴만 보지 않는다)
 //    app_config dutyOpen 이 true 이거나 🧪 시험 참여자. 못 지나면 읽기는 {ok:true, open:false}(당번·이름·수 없음), 쓰기는 not-open.
 // ⚠️ 신원(이름·소속)은 화면이 보낸 값을 쓰지 않는다 — user_id 로 users 줄을 꺼내 만든다.
+// ⚠️ 읽기 응답의 me = { why } — **부른 계정 자신**이 앱에서 지원하지 못하는 까닭(guardian 어린이·청소년 부서 · bad-name 당번표에 실을 수 없는 이름 · '' 지원할 수 있다).
+//    화면이 그런 계정에 「지원하기」 단추를 두지 않게 하려는 것 — 막는 것은 여전히 dutyApply 다(같은 dutyMeWhy 한 곳).
 // ── 봉사 당번 — 순수 함수 (여기부터) ──
 // ⚠️ 이 구간은 타입 표기 없이 쓴다 — tests/duty-front.test.cjs 가 떼어 node:vm 으로 돌린다.
-// 당번표에 실을 만한 이름인가 — 당번표의 이름은 앱을 쓰는 누구에게나 보인다. 1~20자 · 꺾쇠·따옴표·역슬래시·제어·방향 바꿈·줄 가름 글자 없음 ·
+// 당번표에 실을 만한 이름인가 — 당번표의 이름은 앱을 쓰는 누구에게나 보인다. 1~20자 · 꺾쇠·따옴표·역슬래시·제어·방향 바꿈·줄 가름·보이지 않는 글자 없음 ·
 //   숫자가 네 자리 넘게 이어지지 않음(전화번호를 이름 칸에 적은 계정). 아니면 bad-name(정보변경에서 이름을 고친 뒤 지원).
 function dutyNameOk(name) {
   var s = String(name == null ? "" : name).trim();
@@ -5478,6 +5480,9 @@ function dutyNameOk(name) {
   for (var i = 0; i < s.length; i++) {
     var c = s.charCodeAt(i);
     if (c < 32 || (c >= 127 && c <= 159) || c === 0x061c || (c >= 0x200b && c <= 0x200f) || (c >= 0x2028 && c <= 0x202e) || (c >= 0x2066 && c <= 0x2069)) return false;
+    // 보이지 않는 글자 — 부드러운 붙임표 · 한글 채움 글자 넷(초성·중성·호환·반각) · 점자 빈칸 · 낱말 이음표~보이지 않는 연산자 · BOM.
+    //   이것만으로 된 이름(「공백 닉네임」)이 당번표 한 자리를 빈 이름으로 차지하지 않게(검토 반영 2026-10-06).
+    if (c === 0x00ad || c === 0x115f || c === 0x1160 || c === 0x3164 || c === 0xffa0 || c === 0x2800 || (c >= 0x2060 && c <= 0x2064) || c === 0xfeff) return false;
     if (c === 60 || c === 62 || c === 34 || c === 39 || c === 96 || c === 92) return false;   // 꺾쇠 둘 · 큰따옴표 · 작은따옴표 · 백틱 · 역슬래시(글자 대신 번호로 — 이 파일은 역슬래시가 풀린 적이 있다)
   }
   var run = 0;
@@ -5500,21 +5505,34 @@ function dutyWhyOf(v) {
   var s = String(v);
   return s === "cant" || s === "mistake" || s === "notme" ? { ok: true, why: s } : { ok: false, why: null };
 }
+// SQL 의 거절 코드 → 성도님 화면에 줄 코드. 보관한 당번(archived)은 없는 당번과 같다(not-found — duty_board_view·준비 중 당번과 같은 답 ·
+//   화면이 「찾을 수 없어요」로 말하고 다시 받는다). bad-ident 는 올 수 없는 값이다(신원은 서버가 만든다) — 오면 server.
+function dutyErrOut(code) {
+  var s = String(code == null ? "" : code);
+  if (s === "archived") return "not-found";
+  if (!s || s === "bad-ident") return "server";
+  return s;
+}
 // ── 봉사 당번 — 순수 함수 (여기까지) ──
 
-// 문 — users 줄(없으면 null)과 문이 열렸는가. 문 = dutyOpen 이 true 하나이거나 시험 참여자(실패하면 닫힘).
+// 문 — users 줄(없으면 null)과 문이 열렸는가. 문 = dutyOpen 이 true 하나이거나 시험 참여자(시험 참여자 명단을 못 읽으면 닫힘).
+//   users·dutyOpen 을 못 읽은 것은 닫힘이 아니다 — 던진다(닫힘이라고 답하면 문이 열린 뒤에도 화면이 「아직 열지 않았어요」라고 말한다).
 async function dutyGate(userId: string): Promise<{ user: any | null; open: boolean }> {
   if (!userId) return { user: null, open: false };
   const { data: u, error } = await db.from("users").select("id,identity_key,type,gu,mok,bu,grade,name").eq("id", userId).maybeSingle();
   if (error) throw error;
   if (!u) return { user: null, open: false };
-  const { data } = await db.from("app_config").select("value").eq("key", "dutyOpen").maybeSingle();
+  const { data, error: ce } = await db.from("app_config").select("value").eq("key", "dutyOpen").maybeSingle();
+  if (ce) throw ce;
   if (data?.value === true) return { user: u, open: true };
   let tester = false;
   try { tester = await ministryIsTester(userId); } catch (_) { tester = false; }
   return { user: u, open: tester };
 }
 const dutyId = (v: unknown): number => { const n = typeof v === "number" ? v : Number(String(v ?? "").trim() || NaN); return Number.isSafeInteger(n) && n > 0 ? n : 0; };
+// 이 계정이 앱에서 지원하지 못하는 까닭 — guardian(어린이·청소년 부서 — 이름과 있을 날짜·장소가 앱을 쓰는 누구에게나 보인다) ·
+//   bad-name(당번표에 실을 수 없는 이름) · ''(지원할 수 있다). dutyApply 가 이것으로 막고, 읽기 응답의 me.why 로도 싣는다(화면이 단추를 두지 않게).
+const dutyMeWhy = (u: any): string => (needsGuardian(u) ? "guardian" : !dutyNameOk(u?.name) ? "bad-name" : "");
 
 // 당번 목록 + 내 당번 — 문이 닫혔으면 {ok:true, open:false}(아무것도 싣지 않는다)
 async function dutyList(b: any) {
@@ -5523,7 +5541,8 @@ async function dutyList(b: any) {
   if (!g.open) return { ok: true, open: false };
   const { data: r, error } = await db.rpc("duty_list_view", { p_user: userId });
   if (error) throw error;
-  return { ok: true, open: true, today: r?.today ?? null, boards: Array.isArray(r?.boards) ? r.boards : [], mine: Array.isArray(r?.mine) ? r.mine : [] };
+  return { ok: true, open: true, today: r?.today ?? null, me: { why: dutyMeWhy(g.user) },
+    boards: Array.isArray(r?.boards) ? r.boards : [], mine: Array.isArray(r?.mine) ? r.mine : [] };
 }
 
 // 당번 하나의 날짜별 자리 — {id, user_id}. 받는 중·지원 멈춤 당번만(그 밖은 not-found).
@@ -5536,7 +5555,7 @@ async function dutyBoard(b: any) {
   const { data: r, error } = await db.rpc("duty_board_view", { p_board: id, p_user: userId });
   if (error) throw error;
   if (!r || r.ok !== true) return { ok: false, error: "not-found" };
-  return { ok: true, open: true, today: r.today ?? null, board: r.board, days: Array.isArray(r.days) ? r.days : [] };
+  return { ok: true, open: true, today: r.today ?? null, me: { why: dutyMeWhy(g.user) }, board: r.board, days: Array.isArray(r.days) ? r.days : [] };
 }
 
 // 내 당번 — 오늘 이후 · 살아 있는 줄 + 담당자가 뺀 줄(그날까지)
@@ -5562,8 +5581,8 @@ async function dutyApply(b: any) {
   if (!g.user) return { ok: false, error: "no-user" };
   if (!g.open) return { ok: false, error: "not-open" };
   const u = g.user;
-  if (needsGuardian(u)) return { ok: false, error: "guardian" };
-  if (!dutyNameOk(u.name)) return { ok: false, error: "bad-name" };
+  const why = dutyMeWhy(u);   // guardian · bad-name — SQL 을 부르기 **전에** 막는다(tests/duty-front.test.cjs 가 차례를 글자로 본다)
+  if (why) return { ok: false, error: why };
   const isGu = u.type === "교구";
   const ident = { name: norm(u.name), who_type: u.type, group_name: isGu ? norm(u.gu) : norm(u.bu), sub_name: isGu ? norm(u.mok) : norm(u.grade), ident_key: identityKey(u) };
   const { data: r, error } = await db.rpc("duty_apply", { p_slot: slot, p_user: userId, p_ident: ident, p_staff: false, p_force: false, p_ack_locked: b.ack_locked === true });
@@ -5572,7 +5591,7 @@ async function dutyApply(b: any) {
   if (r.ok !== true) {
     if (r.error === "overlap") return { ok: false, error: "overlap", with: dutyOverlapOut(r.with) };
     if (r.error === "too-many") return { ok: false, error: "too-many", max: Number(r.max) || 0 };
-    return { ok: false, error: String(r.error || "server") };
+    return { ok: false, error: dutyErrOut(r.error) };
   }
   return { ok: true, locked: r.locked === true, already: r.already === true };
 }
@@ -5588,7 +5607,7 @@ async function dutyCancel(b: any) {
   const { data: r, error } = await db.rpc("duty_cancel", { p_signup: sid, p_user: userId, p_staff: false });
   if (error) throw error;
   if (!r) return { ok: false, error: "server" };
-  return r.ok === true ? { ok: true } : { ok: false, error: String(r.error || "server") };
+  return r.ok === true ? { ok: true } : { ok: false, error: dutyErrOut(r.error) };
 }
 
 // 「못 가게 됐어요」 — {signup_id, user_id, why: cant|mistake|notme | null(거두기)}. 줄은 그대로 — 빼는 것은 담당자.
@@ -5603,7 +5622,7 @@ async function dutyAsk(b: any) {
   const { data: r, error } = await db.rpc("duty_ask", { p_signup: sid, p_user: userId, p_why: w.why });
   if (error) throw error;
   if (!r) return { ok: false, error: "server" };
-  return r.ok === true ? { ok: true, asked: r.asked === true } : { ok: false, error: String(r.error || "server") };
+  return r.ok === true ? { ok: true, asked: r.asked === true } : { ok: false, error: dutyErrOut(r.error) };
 }
 
 // 신청 한 건의 키는 (연도, user_id) 다. 이 앱은 로그인이 교구·목장·이름을

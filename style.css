@@ -6039,6 +6039,7 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .duty-card > span { font-size: 14px; color: var(--gray); line-height: 1.5; word-break: keep-all; overflow-wrap: anywhere; }
 .duty-card .duty-need.on { color: var(--green); font-weight: 700; }
 .duty-card .duty-chipline { color: #8a6d1f; font-weight: 700; }
+.duty-card .duty-contact { margin-top: 6px; }
 .duty-empty { color: var(--gray); padding: 12px 0; line-height: 1.6; }
 .duty-desc { white-space: pre-line; line-height: 1.6; font-size: 15px; margin: 0 0 10px; }
 .duty-glance { background: var(--white); border: 1px solid var(--border); border-radius: 14px; padding: 8px 14px; margin: 10px 0; font-size: 15px; line-height: 1.7; word-break: keep-all; overflow-wrap: anywhere; }
@@ -6104,6 +6105,7 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .dark .duty-my.ask { background: #2e2716; border-color: #7a6524; }
 .dark .duty-my.ask b { color: #f0d58a; }
 .dark .duty-my.soft b { color: #b9c2d0; }
+.dark .duty-my.soft { border-color: #33507d; }
 .dark .duty-tel { color: #8fb3e6; }
 .dark .duty-day.locked .duty-day-s { color: #8fb3e6; }
 .dark .duty-today { background: #2b4c80; }

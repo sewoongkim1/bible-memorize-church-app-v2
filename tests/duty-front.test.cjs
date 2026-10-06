@@ -1,9 +1,11 @@
 // 봉사 당번 화면·api 순수 함수 — js/duty.js 와 supabase/functions/api/index.ts 의 표식 사이를 떼어 node:vm 에서 돌린다(꾸러미 없음 · preflight 가 건다)
+//   화면 흐름(늦게 온 응답 · 다시 받기 실패 · 계정 번호 없음)은 tests/duty-flow.test.cjs 가 가짜 DOM 위에서 본다.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
+const read = (file) => fs.readFileSync(path.join(__dirname, '..', ...file), 'utf8');
 const cut = (file, from, to) => {
-  const src = fs.readFileSync(path.join(__dirname, '..', ...file), 'utf8');
+  const src = read(file);
   const a = src.indexOf(from), b = src.indexOf(to);
   assert.ok(a >= 0 && b > a, '표식을 못 찾았다: ' + file.join('/'));
   const ctx = {}; vm.createContext(ctx); vm.runInContext(src.slice(a, b), ctx);
@@ -23,6 +25,14 @@ test('날짜·시각 글 — 요일은 (일) · 잠기는 때는 서버가 준 �
   assert.equal(ctx.dutyLockText(''), ''); assert.equal(ctx.dutyLockText(null), '');
   assert.equal(ctx.dutySlotName({ service: '2부', task: '설거지' }), '2부 설거지'); assert.equal(ctx.dutySlotName({ service: '김장', task: '' }), '김장');
   assert.equal(ctx.dutyTimeText({ start: '11:30', end: '12:30' }), '11:30~12:30'); assert.equal(ctx.dutyTimeText({}), '');
+});
+
+test('언제까지 취소 — 「확정 전까지」가 참이고 전날 저녁은 「늦어도」다(담당자가 먼저 확정할 수 있다)', () => {
+  assert.equal(ctx.dutyUntilText('2026-10-17T10:00:00+00:00'), '확정 전까지 앱에서 취소할 수 있어요(늦어도 10월 17일(토) 저녁 7시에 확정돼요).');
+  assert.equal(ctx.dutyUntilText(null), '확정 전까지 앱에서 취소할 수 있어요.');
+  // 「○일 저녁 7시까지 취소할 수 있어요」라고 단정하는 문장은 어디에도 없다(순수 구간 전체를 글자로 본다)
+  const src = read(['js', 'duty.js']);
+  assert.equal(/까지 앱에서 취소할 수 있어요/.test(src.replace(/확정 전까지 앱에서 취소할 수 있어요/g, '')), false, '시각을 못 박아 「…까지 취소할 수 있어요」라고 말하는 줄이 남았다');
 });
 
 test('수 말 · 빈 자리 한 줄', () => {
@@ -56,56 +66,111 @@ test('dutySlotView — 지원할 수 있는 자리에만 단추', () => {
   assert.equal(ctx.dutySlotView(null, null).kind, 'open');   // 빈 값에도 죽지 않는다(그리는 쪽은 서버 줄만 넘긴다)
 });
 
-test('dutyMyView — 내 줄의 다섯 모습', () => {
+test('dutySlotView · dutyMeNote — 앱에서 지원하지 못하는 계정(어린이·청소년 부서 · 실을 수 없는 이름)에는 단추를 두지 않고 까닭을 한 줄로', () => {
+  for (const why of ['guardian', 'bad-name']) {
+    const v = pick(ctx.dutySlotView(DAY, SLOT, { why }));
+    assert.deepEqual([v.kind, v.line, v.btn], ['open', '한 분 더 필요해요', null], why);
+    assert.ok(ctx.dutyMeNote({ why }).length > 10 && ctx.dutyMeNote({ why }) === ctx.dutyErrText(why), why);
+  }
+  assert.equal(ctx.dutySlotView(DAY, SLOT, { why: '' }).btn.act, 'apply'); assert.equal(ctx.dutySlotView(DAY, SLOT, {}).btn.act, 'apply');
+  assert.equal(ctx.dutyMeNote({ why: '' }), ''); assert.equal(ctx.dutyMeNote(null), ''); assert.equal(ctx.dutyMeNote({ why: 'zzz' }), '', '모르는 까닭은 말하지 않는다');
+  // 내 줄은 그대로 보인다(담당자가 넣어 준 어린이 부서 계정의 줄 — 「못 가게 됐어요」는 쓸 수 있다)
+  assert.equal(ctx.dutySlotView(DAY, { ...SLOT, why: 'mine', mine: { ...MINE, staffAdded: true } }, { why: 'guardian' }).my.btn.act, 'ask');
+});
+
+test('dutyMyView — 내 줄의 모습', () => {
   const my = (d, m, s) => pick(ctx.dutySlotView(d, { ...SLOT, why: m && m.status === 'active' ? 'mine' : 'removed', mine: m, ...(s || {}) }).my);
   let v = my(DAY, MINE);
   assert.deepEqual([v.tone, v.head, v.btn], ['ok', '✅ 지원했어요', { act: 'cancel', label: '지원 취소' }]);
-  assert.ok(v.sub.includes('10월 17일(토) 저녁 7시까지 앱에서 취소할 수 있어요'));
+  assert.ok(v.sub.includes('확정 전까지 앱에서 취소할 수 있어요(늦어도 10월 17일(토) 저녁 7시에 확정돼요).'));
   v = my({ ...DAY, locked: true, lockAt: null }, MINE);
   assert.deepEqual([v.tone, v.head, v.btn], ['lock', '🔒 확정됐어요', { act: 'ask', label: '못 가게 됐어요' }]);
   v = my(DAY, { ...MINE, staffAdded: true });
   assert.deepEqual([v.tone, v.head, v.btn.act], ['ok', '✅ 담당자가 넣어 드렸어요', 'ask'], '담당자가 넣은 줄은 잠기기 전에도 취소 단추가 없다');
+  // 「못 가게 됐어요」 표시 — 담당자 휴대폰으로 가는 알림이 아니다(당번표의 표시) → 「알렸어요」라고 하지 않고 급하면 직접 연락하시게
   v = my({ ...DAY, locked: true }, { ...MINE, asked: true, why: 'cant' });
-  assert.deepEqual([v.tone, v.head, v.btn], ['ask', '📨 담당자께 알렸어요', { act: 'unask', label: '알림 거두기' }]);
-  assert.ok(v.sub.startsWith('사정이 생겨 못 가게 됐어요'));
+  assert.deepEqual([v.tone, v.head, v.btn], ['ask', '📨 담당자 당번표에 표시했어요', { act: 'unask', label: '표시 거두기' }]);
+  assert.ok(v.sub.startsWith('사정이 생겨 못 가게 됐어요') && v.sub.includes('급하시면 담당자께 직접 연락해 주세요'));
+  assert.equal(JSON.stringify(v).includes('알렸어요'), false);
   v = my({ ...DAY, locked: true }, { ...MINE, asked: true, why: null });
-  assert.ok(v.sub.startsWith('못 간다고 알렸어요'));
+  assert.ok(v.sub.startsWith('못 간다고 표시했어요'));
+  v = my(DAY, { ...MINE, asked: true, why: 'notme', staffAdded: true });
+  assert.equal(v.btn.act, 'unask', '담당자가 넣은 줄은 잠기기 전에도 표시만 거둔다(스스로 못 뺀다)');
+  v = my(DAY, { ...MINE, asked: true, why: 'cant' });
+  assert.deepEqual([v.tone, v.btn], ['ask', { act: 'cancel', label: '지원 취소' }], '표시한 뒤 담당자가 확정을 풀었다 — 바로 취소할 수 있다');
   v = my(DAY, { ...MINE, status: 'removed', byStaff: true });
   assert.deepEqual([v.tone, v.head, v.btn], ['soft', '담당자가 빼 드렸어요', null]);
   assert.equal(JSON.stringify(v).includes('removed'), false, '성도님 화면에 담당자 말을 쓰지 않는다');
-  v = my({ ...DAY, off: true }, MINE);
+});
+
+test('dutyMyView — 쉼: 그날이 쉬면 「이날은」 · 자리만 쉬면 「이 자리는」(같은 날 다른 당번까지 빠지시지 않게)', () => {
+  const my = (d, m, s) => pick(ctx.dutySlotView(d, { ...SLOT, why: 'mine', mine: m, ...(s || {}) }).my);
+  let v = my({ ...DAY, off: true }, MINE);
   assert.deepEqual([v.tone, v.head, v.btn], ['soft', '😴 이날은 쉬어요', { act: 'cancel', label: '지원 취소' }], '다시 열리면 살아나므로 미리 뺄 길은 남긴다');
   assert.equal(my({ ...DAY, off: true }, { ...MINE, staffAdded: true }).btn, null, '담당자가 넣은 줄은 쉬는 날에도 스스로 못 뺀다');
   v = my(DAY, MINE, { off: true });
-  assert.equal(v.head, '😴 이날은 쉬어요', '이 자리만 쉬어도');
+  assert.deepEqual([v.head, v.btn.act], ['😴 이 자리는 쉬어요', 'cancel']);
+  assert.ok(v.sub.startsWith('이 자리는 안 나오셔도 돼요') && !v.sub.includes('이날'));
   v = my({ ...DAY, off: true, locked: true }, { ...MINE, asked: true, why: 'cant' });
-  assert.deepEqual([v.head, v.btn], ['😴 이날은 쉬어요', null], '쉬는 날이 알림보다 앞선다(안 나오셔도 된다) · 잠긴 뒤에는 단추 없음');
+  assert.deepEqual([v.head, v.btn], ['😴 이날은 쉬어요', null], '쉬는 날이 표시보다 앞선다(안 나오셔도 된다) · 잠긴 뒤에는 단추 없음');
+  // 내 당번 카드 — 서버 duty_mine 의 off(그날이나 그 자리)·dayOff(그날) · 그날 메모(📌)는 그날이 쉴 때만 붙인다
+  const m = { id: 5, board: '식당 봉사', date: '2026-10-18', service: '2부', task: '배식', status: 'active', off: true, dayOff: false, note: '추수감사주일 — 손이 더 필요해요', locked: false };
+  let c = pick(ctx.dutyMineCard(m));
+  assert.deepEqual([c.my.head, c.note], ['😴 이 자리는 쉬어요', ''], '자리만 쉬는데 그날 메모를 붙이지 않는다');
+  c = pick(ctx.dutyMineCard({ ...m, dayOff: true, note: '여름 휴가' }));
+  assert.deepEqual([c.my.head, c.note], ['😴 이날은 쉬어요', '여름 휴가']);
+  c = pick(ctx.dutyMineCard({ ...m, dayOff: undefined }));
+  assert.equal(c.my.head, '😴 이 자리는 쉬어요', 'dayOff 를 모르면(옛 서버) 어느 경우에도 참인 말로');
 });
 
-test('dutyDayLine — 쉼 · 확정 · 언제까지 취소', () => {
-  assert.equal(ctx.dutyDayLine(DAY), '10월 17일(토) 저녁 7시까지 앱에서 취소할 수 있어요');
-  assert.equal(ctx.dutyDayLine({ ...DAY, note: '추수감사주일' }), '10월 17일(토) 저녁 7시까지 앱에서 취소할 수 있어요 · 추수감사주일');
+test('내 줄의 단추 = 서버 규칙(duty_mine 의 canCancel·canAsk)과 같은 뜻 — 조합마다 맞대 본다', () => {
+  // SQL: canCancel = active · 내가 지원한 줄(source <> staff) · 안 잠김 / canAsk = active · (담당자가 넣은 줄 또는 잠김)
+  const canCancel = (x) => x.status === 'active' && !x.staffAdded && !x.locked;
+  const canAsk = (x) => x.status === 'active' && (x.staffAdded || x.locked);
+  for (const status of ['active', 'removed']) for (const locked of [false, true]) for (const staffAdded of [false, true])
+    for (const off of [false, true]) for (const asked of [false, true]) {
+      const x = { status, locked, staffAdded, off, dayOff: off, asked, why: asked ? 'cant' : null, lockAt: null, byStaff: status !== 'active' };
+      const act = (ctx.dutyMyView(x).btn || {}).act || null, tag = JSON.stringify(x);
+      if (act === 'cancel') assert.equal(canCancel(x), true, '서버가 거절할 「지원 취소」 단추: ' + tag);
+      if (act === 'ask') assert.equal(canAsk(x), true, '서버가 거절할 「못 가게 됐어요」 단추: ' + tag);
+      if (act === 'unask') assert.equal(x.status === 'active' && asked, true, tag);
+      if (status !== 'active') assert.equal(act, null, '빠진 줄에는 단추가 없다: ' + tag);
+      // 쉬는 날·자리에는 알리기 단추를 두지 않는다(안 나오셔도 되는 날이다 — 의도) · 그 밖에는 할 수 있는 일이 단추로 있다
+      if (status === 'active' && off) assert.notEqual(act, 'ask', tag);
+      if (status === 'active' && !off && !asked) assert.equal(act, canCancel(x) ? 'cancel' : 'ask', tag);
+    }
+});
+
+test('dutyDayLine — 쉼 · 확정 · 언제 확정되나 · 담당자가 넣는 당번에는 지원·취소 말을 쓰지 않는다', () => {
+  assert.equal(ctx.dutyDayLine(DAY), '늦어도 10월 17일(토) 저녁 7시에 확정돼요 — 확정 뒤에는 앱에서 취소할 수 없어요');
+  assert.equal(ctx.dutyDayLine({ ...DAY, note: '추수감사주일' }), '늦어도 10월 17일(토) 저녁 7시에 확정돼요 — 확정 뒤에는 앱에서 취소할 수 없어요 · 추수감사주일');
   assert.equal(ctx.dutyDayLine({ ...DAY, locked: true, lockAt: null }), '🔒 확정된 날이에요 — 지금 지원하면 앱에서 취소할 수 없어요');
   assert.equal(ctx.dutyDayLine({ ...DAY, off: true, note: '여름 휴가' }), '😴 이날은 쉬어요 — 여름 휴가');
   assert.equal(ctx.dutyDayLine({ ...DAY, off: true }), '😴 이날은 쉬어요');
   assert.equal(ctx.dutyDayLine({ date: '2026-10-18', note: '메모만' }), '메모만');
   assert.equal(ctx.dutyDayLine(null), '');
+  // 담당자가 넣는 당번(지원 멈춤) — 앱에서 지원·취소하지 않는다
+  assert.equal(ctx.dutyDayLine(DAY, true), '');
+  assert.equal(ctx.dutyDayLine({ ...DAY, note: '추수감사주일' }, true), '추수감사주일');
+  assert.equal(ctx.dutyDayLine({ ...DAY, locked: true, lockAt: null, note: '추수감사주일' }, true), '🔒 확정된 날이에요 · 추수감사주일');
+  assert.equal(ctx.dutyDayLine({ ...DAY, off: true, note: '여름 휴가' }, true), '😴 이날은 쉬어요 — 여름 휴가');
+  for (const d of [DAY, { ...DAY, locked: true }]) assert.equal(/취소|지원/.test(ctx.dutyDayLine(d, true)), false);
 });
 
 test('dutyApplyAsk — 누구 이름으로 · 이름이 보인다 · 언제까지 취소 · 잠긴 날은 다른 창', () => {
   const b = { place: '지하 1층 식당' };
   let a = pick(ctx.dutyApplyAsk(b, DAY, SLOT, '가상하나 성도님 · 기쁨 3목장', false));
   assert.deepEqual([a.title, a.ok, a.strong, a.where, a.who], ['🙋 지원할까요?', '지원하기', '10월 18일(일) · 2부 설거지', '11:30~12:30 · 지하 1층 식당', '가상하나 성도님 · 기쁨 3목장']);
-  assert.deepEqual(a.lines, ['이 자리에 이름이 보여요.', '10월 17일(토) 저녁 7시까지 앱에서 취소할 수 있어요.']);
+  assert.deepEqual(a.lines, ['이 자리에 이름이 보여요.', '확정 전까지 앱에서 취소할 수 있어요(늦어도 10월 17일(토) 저녁 7시에 확정돼요).']);
   a = pick(ctx.dutyApplyAsk(b, { ...DAY, locked: true, lockAt: null }, SLOT, '가상하나 성도님', true));
   assert.deepEqual([a.title, a.ok], ['⚠️ 취소할 수 없는 날이에요', '취소 못 해도 지원하기']);
   assert.ok(a.lines[0].includes('앱에서 취소할 수 없어요') && a.lines.includes('이 자리에 이름이 보여요.'));
   a = pick(ctx.dutyApplyAsk({}, { date: '2026-10-18' }, { service: '김장', task: '' }, '', false));
-  assert.deepEqual([a.strong, a.where, a.lines[1]], ['10월 18일(일) · 김장', '', '확정되기 전까지 앱에서 취소할 수 있어요.']);
+  assert.deepEqual([a.strong, a.where, a.lines[1]], ['10월 18일(일) · 김장', '', '확정 전까지 앱에서 취소할 수 있어요.']);
 });
 
 test('dutyErrText — 서버 거절마다 성도님 말 · 겹침은 무엇과 겹쳤는지', () => {
-  for (const c of ['full', 'closed', 'off', 'past', 'started', 'not-yet', 'after-until', 'removed-by-staff', 'guardian', 'bad-name', 'locked', 'staff-row',
+  for (const c of ['full', 'closed', 'off', 'past', 'started', 'not-yet', 'after-until', 'removed-by-staff', 'guardian', 'bad-name', 'locked', 'locked-day', 'staff-row',
     'not-locked', 'not-active', 'changed', 'not-open', 'no-user', 'not-found']) {
     assert.ok(ctx.dutyErrText(c).length > 5 && ctx.dutyErrText(c) !== '잠시 뒤 다시 해 주세요.', c);
   }
@@ -116,18 +181,19 @@ test('dutyErrText — 서버 거절마다 성도님 말 · 겹침은 무엇과 �
   assert.equal(ctx.dutyErrText('too-many', { max: 3 }), '이 당번은 한 분이 세 자리까지 미리 잡아 둘 수 있어요. 서신 뒤에 다시 지원해 주세요.');
   assert.equal(ctx.dutyErrText('too-many', { max: 12 }), '이 당번은 한 분이 12자리까지 미리 잡아 둘 수 있어요. 서신 뒤에 다시 지원해 주세요.');
   assert.equal(ctx.dutyErrText('too-many', {}).includes('정해진 수'), true);
-  for (const c of ['full', 'closed', 'off', 'removed-by-staff', 'locked', 'staff-row', 'not-active', 'changed', 'not-found']) assert.equal(ctx.dutyNeedsReload(c), true, c);
+  for (const c of ['full', 'closed', 'off', 'removed-by-staff', 'locked', 'locked-day', 'staff-row', 'not-active', 'changed', 'not-found']) assert.equal(ctx.dutyNeedsReload(c), true, c);
   for (const c of ['overlap', 'too-many', 'guardian', 'bad-name', 'not-open', 'zzz']) assert.equal(ctx.dutyNeedsReload(c), false, c);
 });
 
 test('당번 카드 · 내 당번 카드', () => {
   assert.equal(ctx.dutyBoardLine({ status: 'open', need: [{ date: '2026-10-18', need: 1 }, { date: '2026-10-25', need: 3 }] }), '손이 필요한 날 · 10월 18일(일) 한 분 · 10월 25일(일) 세 분');
-  assert.equal(ctx.dutyBoardLine({ status: 'open', need: [] }), '가까운 날은 다 찼어요');
-  assert.equal(ctx.dutyBoardLine({ status: 'open', need: [{ date: 'x', need: 2 }, { date: '2026-10-18', need: 0 }] }), '가까운 날은 다 찼어요');
+  // need 가 비는 때 = 다 참 · 모두 쉼 · 보이는 날짜가 아직 없음 · 오늘 시작한 자리만 — 어느 쪽에도 참인 말만(「다 찼어요」라고 하지 않는다)
+  assert.equal(ctx.dutyBoardLine({ status: 'open', need: [] }), '지금은 지원할 수 있는 자리가 없어요');
+  assert.equal(ctx.dutyBoardLine({ status: 'open', need: [{ date: 'x', need: 2 }, { date: '2026-10-18', need: 0 }] }), '지금은 지원할 수 있는 자리가 없어요');
   assert.equal(ctx.dutyBoardLine({ status: 'closed', need: [{ date: '2026-10-18', need: 1 }] }), '담당자가 넣는 당번이에요 — 당번표를 볼 수 있어요');
   assert.equal(ctx.dutyBoardLine(null), '');
   const m = { id: 5, boardId: 'b1', board: '식당 봉사', place: '지하 1층 식당', date: '2026-10-18', service: '2부', task: '설거지', start: '11:30', end: '12:30',
-    status: 'active', byStaff: false, staffAdded: false, off: false, note: '', locked: false, lockAt: '2026-10-17T10:00:00+00:00', asked: false, why: null,
+    status: 'active', byStaff: false, staffAdded: false, off: false, dayOff: false, note: '', locked: false, lockAt: '2026-10-17T10:00:00+00:00', asked: false, why: null,
     movedFrom: null, overlap: false, canCancel: true, canAsk: false };
   let c = pick(ctx.dutyMineCard(m));
   assert.deepEqual([c.title, c.where, c.my.head, c.my.btn.act, c.chips, c.note], ['10월 18일(일) · 식당 봉사', '2부 설거지 · 11:30~12:30 · 지하 1층 식당', '✅ 지원했어요', 'cancel', [], '']);
@@ -135,12 +201,13 @@ test('당번 카드 · 내 당번 카드', () => {
   assert.deepEqual([c.my.head, c.chips.length], ['🔒 확정됐어요', 2]);
   c = pick(ctx.dutyMineCard({ ...m, status: 'removed', byStaff: true, movedFrom: 7, overlap: true }));
   assert.deepEqual([c.my.head, c.chips], ['담당자가 빼 드렸어요', []], '빠진 줄에는 옮김·겹침 표시를 달지 않는다');
-  c = pick(ctx.dutyMineCard({ ...m, off: true, note: '여름 휴가' }));
-  assert.deepEqual([c.my.head, c.note], ['😴 이날은 쉬어요', '여름 휴가']);
-  // 서버의 canCancel·canAsk 와 화면이 고른 단추가 같은 뜻이다(잠김·담당자가 넣음)
-  for (const [x, act] of [[{ locked: false, staffAdded: false }, 'cancel'], [{ locked: true, staffAdded: false }, 'ask'], [{ locked: false, staffAdded: true }, 'ask']]) {
-    assert.equal(ctx.dutyMineCard({ ...m, ...x }).my.btn.act, act, JSON.stringify(x));
+  // 문의처 — 스스로 뺄 수 없는 줄에만(「담당자께」라고 말하는 줄에는 닿을 길을 함께)
+  const mc = { ...m, contact: '가상담당 집사 010-0000-0000' };
+  assert.equal(ctx.dutyMineCard(mc).contact, '', '스스로 취소할 수 있는 줄에는 싣지 않는다');
+  for (const x of [{ locked: true }, { staffAdded: true }, { status: 'removed', byStaff: true }, { locked: true, asked: true, why: 'cant' }]) {
+    assert.equal(ctx.dutyMineCard({ ...mc, ...x }).contact, '가상담당 집사 010-0000-0000', JSON.stringify(x));
   }
+  assert.equal(ctx.dutyMineCard({ ...m, locked: true }).contact, '', '문의처를 안 적은 당번');
 });
 
 test('dutyContactHtml — 전화번호만 눌러서 걸리게 · 나머지는 이스케이프', () => {
@@ -156,13 +223,29 @@ test('못 가게 됐어요 까닭 — 화면 값이 서버(dutyWhyOf)가 받는 
   for (const c of codes) assert.deepEqual(pick(srv.dutyWhyOf(c)), { ok: true, why: c });
   assert.deepEqual(pick(srv.dutyWhyOf(null)), { ok: true, why: null }); assert.deepEqual(pick(srv.dutyWhyOf('')), { ok: true, why: null });
   assert.deepEqual(pick(srv.dutyWhyOf('x')), { ok: false, why: null }); assert.deepEqual(pick(srv.dutyWhyOf({})), { ok: false, why: null });
-  assert.equal(ctx.dutyWhyText('notme'), '제가 지원한 게 아니에요'); assert.equal(ctx.dutyWhyText('zzz'), '못 간다고 알렸어요');
+  assert.equal(ctx.dutyWhyText('notme'), '제가 지원한 게 아니에요'); assert.equal(ctx.dutyWhyText('zzz'), '못 간다고 표시했어요');
 });
 
 test('api dutyNameOk — 당번표에 실을 이름', () => {
-  for (const ok of ['가상하나', '가상 하나', 'Kim Mina', '가', '가'.repeat(20), '김123']) assert.equal(srv.dutyNameOk(ok), true, ok);
+  for (const ok of ['가상하나', '가상 하나', 'Kim Mina', '가', '가'.repeat(20), '김123', '김요한2']) assert.equal(srv.dutyNameOk(ok), true, ok);
   for (const bad of ['', '   ', null, undefined, '가'.repeat(21), '<b>가상</b>', '가상"하나', "가상'하나", '가상`하나', '가상' + String.fromCharCode(92) + '하나',
-    '가상\n하나', '가상' + String.fromCharCode(0x200b) + '하나', '가상' + String.fromCharCode(0x202e) + '하나', '가상' + String.fromCharCode(0x061c) + '하나', '가상' + String.fromCharCode(0x2028) + '하나', '01012345678', '가상1234', '가상 0000']) assert.equal(srv.dutyNameOk(bad), false, JSON.stringify(bad));
+    '가상\n하나', '가상' + String.fromCharCode(0x200b) + '하나', '가상' + String.fromCharCode(0x202e) + '하나', '가상' + String.fromCharCode(0x061c) + '하나',
+    '가상' + String.fromCharCode(0x2028) + '하나', '01012345678', '가상1234', '가상 0000']) assert.equal(srv.dutyNameOk(bad), false, JSON.stringify(bad));
+  // 보이지 않는 글자뿐인 이름·이름 사이에 숨긴 글자 — 당번표에 빈 이름이 한 자리를 차지하지 않게
+  for (const c of [0x00ad, 0x115f, 0x1160, 0x3164, 0xffa0, 0x2800, 0x2060, 0x2064]) {
+    assert.equal(srv.dutyNameOk(String.fromCharCode(c)), false, 'U+' + c.toString(16));
+    assert.equal(srv.dutyNameOk('가상' + String.fromCharCode(c) + '하나'), false, 'U+' + c.toString(16) + ' 사이');
+  }
+  assert.equal(srv.dutyNameOk('가상' + String.fromCharCode(0xfeff) + '하나'), false);
+});
+
+test('api dutyErrOut — 보관한 당번은 없는 당번 · SQL 이 성도님 길에서 주는 거절은 모두 화면에 제 말이 있다', () => {
+  assert.equal(srv.dutyErrOut('archived'), 'not-found');
+  assert.equal(srv.dutyErrOut('bad-ident'), 'server'); assert.equal(srv.dutyErrOut(null), 'server'); assert.equal(srv.dutyErrOut(''), 'server');
+  for (const c of ['not-found', 'archived', 'closed', 'off', 'past', 'started', 'not-yet', 'after-until', 'removed-by-staff', 'locked-day', 'full', 'not-active', 'changed',
+    'locked', 'staff-row', 'not-locked']) {
+    assert.notEqual(ctx.dutyErrText(srv.dutyErrOut(c)), '잠시 뒤 다시 해 주세요.', c);
+  }
 });
 
 test('api dutyOverlapOut — 준비 중인 당번과 겹치면 이름을 싣지 않는다', () => {
@@ -171,4 +254,40 @@ test('api dutyOverlapOut — 준비 중인 당번과 겹치면 이름을 싣지 
   assert.equal(srv.dutyOverlapOut({ board: '비밀 당번', service: '1부', task: '', start: '09:00', draft: true }), null);
   assert.equal(srv.dutyOverlapOut(null), null); assert.equal(srv.dutyOverlapOut('x'), null);
   assert.deepEqual(pick(srv.dutyOverlapOut({})), { board: '', service: '', task: '', start: '' });
+});
+
+// ── api 몸통을 글자로 본다(개발 DB 없이 preflight 에서) — 문·신원·거절 차례가 조용히 빠지지 않게 ──
+const API = read(['supabase', 'functions', 'api', 'index.ts']);
+const fn = (name) => {
+  const a = API.indexOf('async function ' + name + '(');
+  assert.ok(a >= 0, name + ' 를 못 찾았다');
+  const b = API.indexOf('\nasync function ', a + 10), c = API.indexOf('\n// ', API.indexOf('\n}\n', a));
+  return API.slice(a, Math.min(b < 0 ? API.length : b, c < 0 ? API.length : c));
+};
+
+test('api 글자 검사 — 여섯 액션 모두 문(dutyGate)이 SQL 보다 먼저 · 닫히면 읽기는 {ok, open:false} · 쓰기는 not-open', () => {
+  for (const [name, rpc] of [['dutyList', 'duty_list_view'], ['dutyBoard', 'duty_board_view'], ['dutyMine', 'duty_mine'], ['dutyApply', 'duty_apply'], ['dutyCancel', 'duty_cancel'], ['dutyAsk', 'duty_ask']]) {
+    const body = fn(name);
+    const g = body.indexOf('await dutyGate(userId)'), r = body.indexOf('db.rpc("' + rpc + '"');
+    assert.ok(g > 0 && r > g, name + ' — 문이 SQL 호출보다 앞에 있어야 한다');
+    assert.equal((body.match(/db\.rpc\(/g) || []).length, 1, name + ' — SQL 호출은 하나');
+    assert.equal(/db\.from\(/.test(body), false, name + ' — 표를 직접 읽거나 쓰지 않는다(규칙은 SQL 함수 한 곳)');
+  }
+  for (const name of ['dutyList', 'dutyBoard', 'dutyMine']) assert.ok(fn(name).includes('if (!g.open) return { ok: true, open: false };'), name);
+  for (const name of ['dutyApply', 'dutyCancel', 'dutyAsk']) assert.ok(fn(name).includes('if (!g.open) return { ok: false, error: "not-open" };'), name);
+});
+
+test('api 글자 검사 — 지원: 어린이·청소년 부서·실을 수 없는 이름은 SQL 을 부르기 전에 막는다 · 담당자 길로 새는 인자가 없다', () => {
+  const body = fn('dutyApply');
+  const why = body.indexOf('dutyMeWhy(u)'), stop = body.indexOf('if (why) return { ok: false, error: why };'), rpc = body.indexOf('db.rpc("duty_apply"');
+  assert.ok(why > 0 && stop > why && rpc > stop, 'dutyMeWhy → 거절 → duty_apply 차례');
+  assert.ok(body.includes('p_staff: false, p_force: false, p_ack_locked: b.ack_locked === true'), 'p_staff·p_force 는 늘 false · ack 는 === true 만');
+  assert.equal(/p_ident:\s*b\./.test(body) || /b\.name|b\.ident|b\.who_type/.test(body), false, '신원은 화면이 보낸 값을 쓰지 않는다');
+  const me = API.slice(API.indexOf('const dutyMeWhy ='), API.indexOf('\n', API.indexOf('const dutyMeWhy =')));
+  assert.ok(me.includes('needsGuardian(u) ? "guardian"') && me.includes('!dutyNameOk(u?.name) ? "bad-name"'), 'dutyMeWhy 는 두 규칙을 본다');
+  // 문은 users 줄이 실제로 있는지를 본다(꼴만 맞는 UUID 는 닫힘) · 판정에 쓰는 칸(type·bu·grade·name)을 읽는다
+  const gate = fn('dutyGate');
+  assert.ok(gate.includes('.select("id,identity_key,type,gu,mok,bu,grade,name").eq("id", userId).maybeSingle()'));
+  assert.ok(gate.indexOf('if (!u) return { user: null, open: false };') < gate.indexOf('"dutyOpen"'), '계정이 없으면 dutyOpen 을 보기 전에 닫힘');
+  assert.ok(gate.includes('if (ce) throw ce;'), '설정을 못 읽은 것을 닫힘으로 뭉개지 않는다');
 });

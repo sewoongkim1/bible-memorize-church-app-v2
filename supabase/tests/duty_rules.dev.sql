@@ -436,6 +436,17 @@ begin
   r := duty_apply(sb, u[3], '{"name":"당번시험3"}'); if r->>'error' is distinct from 'overlap' or (r->'with'->>'same_board')::boolean is not false then raise exception '다른 당번과 겹침: %', r; end if;
   r := duty_slot_set(sa, null, true, 1); if (r->>'off')::boolean is not true then raise exception '가 자리 쉼: %', r; end if;
   r := duty_apply(sb, u[3], '{"name":"당번시험3"}'); if (r->>'ok')::boolean is not true then raise exception '쉬는 자리는 겹침에서 빠진다: %', r; end if;
+  -- 내 당번 — 자리만 쉬면 off 는 참이고 dayOff 는 거짓 · 그날이 쉬면 둘 다 참(화면이 「이 자리는 쉬어요」와 「이날은 쉬어요」를 가른다)
+  if (select (m->>'off')::boolean and not (m->>'dayOff')::boolean from jsonb_array_elements(duty_mine(u[3])) m
+       where (m->>'id')::bigint = (select id from public.duty_signups where slot_id = sa and user_id = u[3])) is not true then
+    raise exception '내 당번 — 자리만 쉼(off · dayOff 아님): %', duty_mine(u[3]);
+  end if;
+  update public.duty_days set off = true where board_id = b3 and on_date = d16;
+  if (select (m->>'off')::boolean and (m->>'dayOff')::boolean from jsonb_array_elements(duty_mine(u[3])) m
+       where (m->>'id')::bigint = (select id from public.duty_signups where slot_id = sa and user_id = u[3])) is not true then
+    raise exception '내 당번 — 그날이 쉼(off · dayOff): %', duty_mine(u[3]);
+  end if;
+  update public.duty_days set off = false where board_id = b3 and on_date = d16;
   if (duty_roster(b4, d16, d16)->'days'->0->'slots'->0->'signups'->0->>'overlap')::boolean is not false then raise exception '쉬는 동안에는 겹침 표시 없음'; end if;
   r := duty_slot_set(sa, null, false); if (r->>'off')::boolean is not false then raise exception '가 자리 다시 열기: %', r; end if;
   if (duty_roster(b4, d16, d16)->'days'->0->'slots'->0->'signups'->0->>'overlap')::boolean is not true then raise exception '쉼을 풀어 생긴 겹침 — 명단 표시(나)'; end if;

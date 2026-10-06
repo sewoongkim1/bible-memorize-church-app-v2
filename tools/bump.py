@@ -49,16 +49,23 @@ def main():
     today = date.today().strftime("%Y%m%d")
     html = io.open(INDEX, encoding="utf-8").read()
 
-    new_tags = {}
+    # 태그는 **하나만** 셈한다 — 오늘 태그 가운데 가장 앞선 것의 다음 값을 모든 경로에 쓴다(2026-10-06).
+    #   경로마다 제 태그에서 따로 셈하면, 가지를 합치다 한 줄만 옛 태그로 남았을 때 bump 를 다시 돌려도 계속 갈려
+    #   preflight [2] 가 배포를 막는다(같은 날에는 손으로 맞추기 전까지 안 풀린다). 평소(모두 같은 태그)에는 전과 똑같이 돈다.
+    pats, cur = {}, []
     for path in TAGGED:
-        pat = re.compile(re.escape(path) + r"\?v=([A-Za-z0-9]+)")
-        m = pat.search(html)
+        pats[path] = re.compile(re.escape(path) + r"\?v=([A-Za-z0-9]+)")
+        m = pats[path].search(html)
         if not m:
             print("!! index.html에서 %s 태그를 찾지 못했습니다" % path)
             return 1
-        tag = next_tag(m.group(1), today)
+        cur.append(m.group(1))
+    todays = [t for t in cur if re.match(r"^%s[a-z]*$" % today, t)]
+    tag = next_tag(max(todays, key=lambda t: (len(t), t)) if todays else "", today)
+    new_tags = {}
+    for path in TAGGED:
         new_tags[path] = tag
-        html = pat.sub(path + "?v=" + tag, html)
+        html = pats[path].sub(path + "?v=" + tag, html)
 
     # 스플래시 판 번호 +0.001 (소수점 세 자리 유지)
     m = re.search(r'class="splash-ver">v(\d+)\.(\d+)<', html)

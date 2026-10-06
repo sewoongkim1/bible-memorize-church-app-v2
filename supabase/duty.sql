@@ -982,7 +982,8 @@ begin
 end $$;
 
 -- 성도님: 내 당번 — 오늘 이후(오늘 것은 그날 끝까지) · 받는 중·지원 멈춤 당번 · 살아 있는 줄 + 담당자가 뺀 줄(그날이 지날 때까지 「담당자가 빼 드렸어요」).
---   줄마다 {id, boardId, board, place, contact, date, service, task, start, end, status, byStaff(담당자가 뺌), staffAdded(담당자가 넣음), off, note,
+--   줄마다 {id, boardId, board, place, contact, date, service, task, start, end, status, byStaff(담당자가 뺌), staffAdded(담당자가 넣음),
+--          off(그날이나 그 자리가 쉼), dayOff(그날이 쉼 — 자리만 쉬면 false · 화면이 「이날은 쉬어요」와 「이 자리는 쉬어요」를 가른다), note(그날 메모),
 --          locked, lockAt, asked, why, movedFrom(담당자가 옮기기 전 자리), overlap(같은 날 시각이 겹치는 내 다른 당번이 있다), canCancel, canAsk}
 --   보이는 기간(open_days)과 무관하게 오늘 이후 내 줄을 모두 준다.
 create or replace function public.duty_mine(p_user uuid)
@@ -992,7 +993,7 @@ returns jsonb language sql stable security definer set search_path = public as $
       'date', s.on_date, 'service', l.service, 'task', l.task,
       'start', to_char(l.start_time, 'HH24:MI'), 'end', to_char(l.end_time, 'HH24:MI'),
       'status', e.status, 'byStaff', coalesce(e.end_reason = 'staff', false), 'staffAdded', e.source = 'staff',
-      'off', (d.off or s.off), 'note', d.note,
+      'off', (d.off or s.off), 'dayOff', d.off, 'note', d.note,
       'locked', duty_locked(d.confirmed_at, s.on_date),
       'lockAt', case when not duty_locked(d.confirmed_at, s.on_date) then duty_cutoff(s.on_date) end,
       'asked', e.ask_at is not null, 'why', e.ask_why, 'movedFrom', e.moved_from,

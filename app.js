@@ -380,6 +380,10 @@ function refreshDutyOpen() {
 }
 function dutyVisible() {
   if (ministryHiddenOnPlay()) return false;
+  // 서버 문(dutyGate)은 users 에 그 계정이 있어야 열린다 — 계정 번호를 받기 전(첫 로그인 직후 동기화 중 · 로그인 호출이 실패한 실행)에는
+  //   단추를 두지 않는다. 동기화가 끝나면 enterAfterLogin 이 첫 화면을 다시 그려 단추가 나타난다(검토 반영 2026-10-06).
+  const u = loadUser();
+  if (!u || !u.user_id) return false;
   return dutyOpenCached() || ministryTesterCached();
 }
 
@@ -1229,6 +1233,8 @@ function clearPersonalData() {
   //   내 돌리는 순수 함수 검사가 있어(tests/ministry-history.test.cjs), 그 검사의 vm
   //   컨텍스트에 resetEventDeviceCache 의 스텁(호출 횟수를 센다 — 한 번 불리는지 본다)을 넣어 뒀다.
   resetEventDeviceCache();
+  // 🙋 봉사 당번 — 앞사람의 당번·내 당번(메모리)을 비우고, 그분 요청에 늦게 온 응답이 버려지게 한다(js/duty.js · 그 파일이 안 실렸어도 죽지 않게 typeof 로 지킨다)
+  if (typeof dutyResetState === "function") dutyResetState();
   // 구절별 횟수(「총 N회」) 메모리 캐시 — 안 비우면 다음 분 첫 화면에 앞사람 총 횟수가 서버 응답이
   //   올 때까지 한 왕복 보인다(검토 2026-10-03). let 이 이 함수보다 뒤에 있지만 클릭 경로라 TDZ 와 무관하다.
   verseCountCache = null;
@@ -2048,7 +2054,7 @@ function renderEntryScreen() {
     //   같은 helper 를 쓴다(2026-10-03). 신원이 그대로면(같은 분이 다시 제출) 건드리지 않는다.
     const identityChanged = !!prev && ["type", "gu", "mok", "bu", "grade", "name"]
       .some((k) => (prev[k] || "") !== (user[k] || ""));
-    if (identityChanged) resetEventDeviceCache();
+    if (identityChanged) { resetEventDeviceCache(); if (typeof dutyResetState === "function") dutyResetState(); }
     savePrivacyConsent();
     saveUser(user);
     markGuardianOk(user);   // 어린 부서가 아니면 아무 일도 안 한다 · 서버 기록은 syncProgress(login)가 남긴다
