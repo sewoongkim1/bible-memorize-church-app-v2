@@ -56,4 +56,6 @@ end $$;
 --               where jobid = (select jobid from cron.job where jobname = 'edu-first-day-remind') order by start_time desc limit 5;
 -- 보낸 기록:  select sent_at, mode, sent, failed, total, ok from push_log where mode = 'edu-first-day' order by sent_at desc limit 10;
 --            (내일 첫 날인 강좌가 없으면 push_log 줄도 없다 — api 응답 {ok, day, courses:0, sent:0})
--- 해제:      select cron.unschedule('edu-first-day-remind');   (키도 치우려면 delete from vault.secrets where name = 'edu_remind_service_key';)
+-- 해제:      select cron.unschedule('edu-first-day-remind');
+--            ⚠️ 키(edu_remind_service_key)는 **봉사 당번 전날 알림(duty-remind · duty_remind_cron.sql)도 읽는다** — 두 작업을 모두 걷을 때만 지운다
+--               (delete from vault.secrets where name = 'edu_remind_service_key';). 하나만 걷고 지우면 남은 작업이 조용히 unauthorized 가 된다.

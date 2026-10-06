@@ -50,7 +50,7 @@
 | 사역 이력(교회 어드민 「📜 사역 이력」 · 지난 해 사역 임명 엑셀 → 교인ID · `ministry_history` · 2026-10-01) — 성경암송 `ministry_orders` 에 지난 해를 넣지 말 것 | `docs/notes/ministry-history.md` · 설계 `docs/superpowers/specs/2026-10-01-church-admin-ministry-history-design.md` |
 | 사역 통계(교회 어드민 「📊 사역 통계」 · 2026-10-06 · 부서 이음표 · 큰 분류 찬양·교회학교·그 밖) | `docs/notes/ministry-stats.md` · 설계 `docs/superpowers/specs/2026-10-06-ministry-stats-design.md` |
 | 교육신청(2026-10-05 · 1단계 운영 · 게이트 닫힘 — 🧪만) — 앱 🎓 교육 · 교회 어드민 📚 강좌 관리·📝 신청 현황 · 정원·대기는 `edu.sql` 한 곳 | `docs/notes/education.md` · 계획 `docs/superpowers/plans/2026-10-05-education-stage1.md`(과제 11 공개 전) |
-| 봉사 당번(2026-10-06 · 1·2단계 운영 — 표·SQL · 교회 어드민 🧰 당번 관리·📅 당번 명단 · **성도님 앱 🙋 봉사 당번**(`js/duty.js` · 문 닫힘 — 🧪 시험 참여자만)) — 정원·겹침·잠금·쉼은 `duty.sql` 한 곳 · `duty_signups` 에 직접 쓰지 말 것 · 문은 서버가 읽기도 막는다 · 성도님께 하는 말은 어느 경우에도 참인 말만 | `docs/notes/duty-roster.md` · 계획 `docs/superpowers/plans/2026-10-06-duty-roster.md` |
+| 봉사 당번(2026-10-06 · 1·2·3단계 운영 — 표·SQL · 교회 어드민 🧰 당번 관리·📅 당번 명단 · **성도님 앱 🙋 봉사 당번**(`js/duty.js` · 문 닫힘 — 🧪 시험 참여자만) · 앱 알림(끄는 스위치 `app_config.dutyNotifyOff`)) — 정원·겹침·잠금·쉼은 `duty.sql` 한 곳 · `duty_signups` 에 직접 쓰지 말 것 · 문은 서버가 읽기도 막는다 · 성도님께 하는 말은 어느 경우에도 참인 말만 | `docs/notes/duty-roster.md` · 계획 `docs/superpowers/plans/2026-10-06-duty-roster.md` |
 
 ## 스택 · 도메인
 - **Vanilla JS PWA**(프레임워크 없음) — `index.html` + `app.js`(대형 단일 파일) + `sw.js`

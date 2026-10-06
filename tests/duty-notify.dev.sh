@@ -13,6 +13,8 @@
 #   를 보고, 당번·자리·지원(알림 기록은 cascade)·이번에 생긴 push_log 줄을 지워 0줄로 되돌린다.
 #   dutyOpen 은 0) 에서 지우고(없음) 1) 부터 true 로 켠다 — **끝나면(실패해도 trap) 시작 전 값으로** 되돌린다.
 #   개발 사용자는 알림 기기가 없다 — duty_notify_log·push_log(total·sent 0)가 증거다(기기가 있으면 그 수를 센 값과 맞댄다).
+#   응답의 sent = 실제로 나간 분 · missed = 가지 않은 분(받는 기기 없음·모두 실패) — 「말한 분 수」는 둘의 합(TOLD)으로 본다.
+#   기기가 없는 분은 sent 0 · missed 1 이어야 한다(담당자 화면이 그분께 「보냈어요」라고 하지 않게 — 검토 반영 2026-10-07).
 # ⚠️ 서비스 키는 명령 안에서만 쓰고 찍지 않는다 — 교회 어드민 dev 시험과 같은 곳(~/.church-admin/dev.env DEV_SERVICE_KEY)을 먼저 보고,
 #    그 키가 api 의 SUPABASE_SERVICE_ROLE_KEY 와 다르면 CLI 의 개발 secret 키(api-keys --reveal)를 쓴다. 맞는지는 빈 요청으로 본다.
 # ⚠️ 본문에 한글을 쓰지 않는다(curl 이 깨뜨린다) — 한글 문구는 SQL chr(코드)·position 으로 맞댄다. 당번 이름은 TAG(영문·숫자).
@@ -80,6 +82,11 @@ OPEN_N=$(sq "select count(*) from app_config where key='dutyOpen'")
 [ -n "$PL0" ] && [ -n "$OPEN_N" ] || { echo "시작 값을 못 읽었다"; exit 2; }
 OPEN_VAL=""
 [ "$OPEN_N" != "0" ] && OPEN_VAL=$(sq "select value::text from app_config where key='dutyOpen'")
+# 원래 값을 못 읽었으면(CLI 가 한 번 삐끗) 쓰기 전에 멈춘다 — 모르는 값으로 되돌리면 켜 둔 문이 그대로 남는다(검토 반영 2026-10-07)
+case "$OPEN_N:$OPEN_VAL" in 0:|1:true|1:false|1:null) ;; *) echo "dutyOpen 원래 값을 못 읽었다($OPEN_N:$OPEN_VAL) — 아무것도 쓰지 않고 중단"; exit 2;; esac
+OFF_N=$(sq "select count(*) from app_config where key='dutyNotifyOff'")
+[ "$OFF_N" = "0" ] || { echo "개발 dutyNotifyOff 가 켜져 있다 — 알림이 꺼진 채라 시험할 수 없다. 중단."; exit 2; }
+RUN_VAL=$(sq "select coalesce((select value::text from app_config where key='dutyRemindRun'), '')")
 echo "dutyOpen 원래: $OPEN_N ${OPEN_VAL}"
 BID=""
 cleanup() {
@@ -88,6 +95,11 @@ cleanup() {
   sx "delete from push_log where id > $PL0 and mode like 'duty-%' and body like '%$TAG%'"
   if [ "$OPEN_N" = "0" ]; then sx "delete from app_config where key='dutyOpen'"
   else sx "insert into app_config(key,value) values('dutyOpen','$OPEN_VAL'::jsonb) on conflict (key) do update set value='$OPEN_VAL'::jsonb"; fi
+  sx "delete from app_config where key='dutyNotifyOff'"
+  if [ -z "$RUN_VAL" ]; then sx "delete from app_config where key='dutyRemindRun'"
+  else sx "update app_config set value='$RUN_VAL'::jsonb where key='dutyRemindRun'"; fi
+  # 되돌렸는지 다시 읽어 찍는다(정리가 실패해도 조용히 지나가지 않게)
+  echo "정리 뒤 — 시험 당번 $( [ -n "$BID" ] && sq "select count(*) from duty_boards where id='$BID'" || echo 0 ) · dutyOpen $(sq "select coalesce((select value::text from app_config where key='dutyOpen'), '(없음)')")(원래 ${OPEN_VAL:-(없음)}) · dutyNotifyOff $(sq "select count(*) from app_config where key='dutyNotifyOff'")"
 }
 trap cleanup EXIT
 
@@ -104,7 +116,10 @@ DEV() { sq "select (select count(*) from push_subscriptions where user_id='$1') 
 noleak() { printf '%s' "$1" | grep -c -e "$UT" -e "$UN" -e "$U1" -e "$U2" -e "user_id" -e "ident_key" -e "uid"; }
 ident() { echo "jsonb_build_object('name','$TAG-$1','who_type','x','ident_key','$TAG|$1')"; }
 NB() { echo "{\"action\":\"internalDutyNotify\",\"kind\":\"$1\",\"signup_ids\":[$2]}"; }
-RB='{"action":"internalDutyRemind"}'
+RB='{"action":"internalDutyRemind","anytime":true}'   # 시각을 알고 부른다(한국 19시 전의 부름은 too-early — 크론은 anytime 을 싣지 않는다)
+RB_CRON='{"action":"internalDutyRemind"}'
+TOLD='(d.get("sent") or 0) + (d.get("missed") or 0)'      # 말한 분 수(실제로 나간 분 + 가지 않은 분)
+KST_H=$(python -c 'import datetime; print((datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=9)).hour)')
 LOGN() { sq "select count(*) from duty_notify_log where signup_id in ($1) and kind='$2'"; }
 PLN() { sq "select count(*) from push_log where id > $PL0 and mode='duty-$1' and body like '%$TAG%'"; }
 
@@ -129,21 +144,22 @@ EN=$(app "$A3" "$UN" n); ET=$(app "$A3" "$UT" t)
 [ -n "$EN" ] && [ -n "$ET" ] || { echo "지원 줄 만들기 실패"; exit 2; }
 chk "confirm day (SQL) returns both ids" "$(sq "select jsonb_array_length(duty_day_set('$BID','$D3','confirm',null,null)->'ids')")" "2"
 R=$(icall "$SK" "$(NB confirmed "$EN")")
-chk "gate closed: non-tester -> sent 0" "$(jqn '(d.get("ok"), d.get("sent"))' "$R")" "(True, 0)"
+chk "gate closed: non-tester -> told 0" "$(jqn '(d.get("ok"), d.get("sent"), d.get("missed"))' "$R")" "(True, 0, 0)"
 chk "gate closed: non-tester not claimed" "$(LOGN "$EN" confirmed)" "0"
 chk "gate closed: no push_log row" "$(PLN confirmed)" "0"
 R=$(icall "$SK" "$(NB confirmed "$ET")")
-chk "gate closed: tester -> sent 1" "$(jqn '(d.get("ok"), d.get("sent"))' "$R")" "(True, 1)"
-chk "response keys" "$(jqn 'sorted(d.keys())' "$R")" "['ok', 'sent']"
+chk "gate closed: tester -> told 1" "$(jqn "(d.get(\"ok\"), $TOLD)" "$R")" "(True, 1)"
+if [ "$(DEV "$UT")" = "0" ]; then chk "tester has no device -> sent 0, missed 1 (never 'sent')" "$(jqn '(d.get("sent"), d.get("missed"))' "$R")" "(0, 1)"; fi
+chk "response keys" "$(jqn 'sorted(d.keys())' "$R")" "['missed', 'ok', 'sent']"
 chk "no ids in response" "$(noleak "$R")" "0"
 chk "gate closed: tester claimed" "$(LOGN "$ET" confirmed)" "1"
 chk "gate closed: one push_log row (tester's devices)" "$(sq "select count(*)||':'||(sum(total) = $(DEV "$UT"))::text from push_log where id > $PL0 and mode='duty-confirmed' and body like '%$TAG%'")" "1:true"
 chk "push_log title" "$(sq "select (title = chr(128587)||' '||chr(48393)||chr(49324)||' '||chr(45817)||chr(48264))::text from push_log where id > $PL0 and mode='duty-confirmed' and body like '%$TAG%'")" "true"
 R=$(icall "$SK" "$(NB confirmed "$EN,$ET")")
-chk "gate closed: both again -> 0" "$(jqn 'd.get("sent")' "$R")" "0"
+chk "gate closed: both again -> 0" "$(jqn "$TOLD" "$R")" "0"
 sx "insert into app_config(key,value) values('dutyOpen','true'::jsonb) on conflict (key) do update set value='true'::jsonb"
 R=$(icall "$SK" "$(NB confirmed "$EN,$ET")")
-chk "gate open: the filtered-out non-tester is sent now (tester already)" "$(jqn 'd.get("sent")' "$R")" "1"
+chk "gate open: the filtered-out non-tester is told now (tester already)" "$(jqn "$TOLD" "$R")" "1"
 chk "gate open: both claimed" "$(LOGN "$EN,$ET" confirmed)" "2"
 echo "   dutyOpen true from here"
 
@@ -166,28 +182,43 @@ EC=$(app "$B3" "$U2" u2); sx "update duty_days set confirmed_at = null where boa
 chk "self cancel (SQL)" "$(sq "select duty_cancel($EC, '$U2', false)->>'ok'")" "true"
 P=$(PLN confirmed)
 R=$(icall "$SK" "$(NB confirmed "$E0,$ES,$EC")")
-chk "today's row / no-account row / cancelled row -> 0" "$(jqn 'd.get("sent")' "$R")" "0"
+chk "today's row / no-account row / cancelled row -> 0" "$(jqn "$TOLD" "$R")" "0"
 chk "none claimed" "$(LOGN "$E0,$ES,$EC" confirmed)" "0"
 chk "no new push_log row" "$(PLN confirmed)" "$P"
 
 echo "3) 넣음 · 옮김 · 뺌 · 쉼 · 다시 엶 — 저장 한 번에 한 번(잡지 않는다)"
 EA=$(staff "$B3" "'$U1'" u1)
-R=$(icall "$SK" "$(NB added "$EA")"); chk "added -> 1" "$(jqn 'd.get("sent")' "$R")" "1"
+R=$(icall "$SK" "$(NB added "$EA")"); chk "added -> 1" "$(jqn "$TOLD" "$R")" "1"
 chk "added push_log row with the board name" "$(PLN added)" "1"
-chk "added again -> 1 again (not claimed)" "$(jqn 'd.get("sent")' "$(icall "$SK" "$(NB added "$EA")")")" "1"
+chk "added again -> 1 again (not claimed)" "$(jqn "$TOLD" "$(icall "$SK" "$(NB added "$EA")")")" "1"
 chk "no claim rows for added" "$(sq "select count(*) from duty_notify_log where signup_id=$EA")" "0"
 chk "move (SQL)" "$(sq "select duty_move($EA, $A3, true)->>'ok'")" "true"
-R=$(icall "$SK" "$(NB moved "$EA")"); chk "moved -> 1" "$(jqn 'd.get("sent")' "$R")" "1"
+R=$(icall "$SK" "$(NB moved "$EA")"); chk "moved -> 1" "$(jqn "$TOLD" "$R")" "1"
 chk "moved push_log body has both slots (na -> ga)" "$(sq "select (position('na 11:00' in body) > 0 and position('ga 09:00' in body) > 0)::text from push_log where id > $PL0 and mode='duty-moved' and body like '%$TAG%' order by id desc limit 1")" "true"
 chk "slot off (SQL)" "$(sq "select duty_slot_set($A3, null, true, (select count(*)::int from duty_signups where slot_id=$A3 and status='active'))->>'off'")" "true"
-R=$(icall "$SK" "$(NB off "$EN,$ET,$EA")"); chk "off -> 3 people" "$(jqn 'd.get("sent")' "$R")" "3"
+R=$(icall "$SK" "$(NB off "$EN,$ET,$EA")"); chk "off -> 3 people" "$(jqn "$TOLD" "$R")" "3"
 chk "off: same text -> one push_log row" "$(PLN off)" "1"
-chk "confirmed/added/moved to an off row -> 0" "$(jqn 'd.get("sent")' "$(icall "$SK" "$(NB added "$EA")")")" "0"
+chk "confirmed/added/moved to an off row -> 0" "$(jqn "$TOLD" "$(icall "$SK" "$(NB added "$EA")")")" "0"
 chk "slot on (SQL)" "$(sq "select duty_slot_set($A3, null, false)->>'off'")" "false"
-R=$(icall "$SK" "$(NB reopen "$EN,$ET,$EA")"); chk "reopen -> 3" "$(jqn 'd.get("sent")' "$R")" "3"
-chk "off to a not-off row -> 0" "$(jqn 'd.get("sent")' "$(icall "$SK" "$(NB off "$EA")")")" "0"
+R=$(icall "$SK" "$(NB reopen "$EN,$ET,$EA")"); chk "reopen -> 3" "$(jqn "$TOLD" "$R")" "3"
+chk "off to a not-off row -> 0" "$(jqn "$TOLD" "$(icall "$SK" "$(NB off "$EA")")")" "0"
 chk "staff removes (SQL)" "$(sq "select duty_cancel($EA, null, true)->>'ok'")" "true"
-R=$(icall "$SK" "$(NB removed "$EA,$EC")"); chk "removed -> 1 (self-cancelled row is not told)" "$(jqn 'd.get("sent")' "$R")" "1"
+R=$(icall "$SK" "$(NB removed "$EA,$EC")"); chk "removed -> 1 (self-cancelled row is not told)" "$(jqn "$TOLD" "$R")" "1"
+# 검토 반영(2026-10-07) — 겹친 줄(같은 자리 · 같은 이름)을 정리하며 앱 줄을 뺀 것은 알리지 않는다 · 확정이 풀린 날에는 「확정됐어요」를 보내지 않는다 · 끄는 스위치
+EDA=$(staff "$B3" "'$U1'" u1); EDS=$(sq "select duty_apply($B3, null, jsonb_build_object('name','$TAG-u1','who_type','x','ident_key','staff|$TAG|dup'), true, true)->>'id'")
+chk "duplicate rows prepared (account row + no-account row, same name)" "$( [ -n "$EDA" ] && [ -n "$EDS" ] && [ "$EDA" != "$EDS" ] && echo ok )" "ok"
+chk "remove the account row of a duplicate (SQL)" "$(sq "select duty_cancel($EDA, null, true)->>'ok'")" "true"
+P=$(PLN removed)
+chk "removed, but a same-name row still stands in that slot -> not told" "$(jqn "$TOLD" "$(icall "$SK" "$(NB removed "$EDA")")")" "0"
+chk "no push_log row for it" "$(PLN removed)" "$P"
+EU=$(staff "$A3" "'$U2'" u2)
+chk "confirm then unconfirm (SQL)" "$(sq "select (duty_day_set('$BID','$D3','confirm',null,null)->>'ok') || '/' || (duty_day_set('$BID','$D3','unconfirm',null,null)->>'ok')")" "true/true"
+chk "confirmed for a day that is no longer confirmed -> not told, not claimed" "$(jqn "$TOLD" "$(icall "$SK" "$(NB confirmed "$EU")")"):$(LOGN "$EU" confirmed)" "0:0"
+sx "insert into app_config(key,value) values('dutyNotifyOff','true'::jsonb) on conflict (key) do update set value='true'::jsonb"
+R=$(icall "$SK" "$(NB added "$EU")")
+chk "switch off (dutyNotifyOff): nothing told, off:true" "$(jqn '(d.get("ok"), d.get("sent"), d.get("missed"), d.get("off"))' "$R")" "(True, 0, 0, True)"
+sx "delete from app_config where key='dutyNotifyOff'"
+chk "switch on again -> told" "$(jqn "$TOLD" "$(icall "$SK" "$(NB added "$EU")")")" "1"
 chk "no ids in push_log" "$(sq "select count(*) from push_log where id > $PL0 and mode like 'duty-%' and (coalesce(body,'') like '%$UT%' or coalesce(body,'') like '%$UN%' or coalesce(body,'') like '%$U1%' or coalesce(note,'') like '%$U1%')")" "0"
 
 echo "4) internalDutyRemind — 내일 당번인 분께 한 번 · 한 분의 두 자리는 한 통 · 쉬는 자리는 빠짐"
@@ -195,13 +226,17 @@ FOREIGN=$(sq "select count(*) from duty_signups e join duty_slots s on s.id=e.sl
 if [ "$FOREIGN" != "0" ]; then echo "  내일 당번인 다른 당번의 줄이 $FOREIGN 개 있다 — 그분들께도 가므로 여기서 멈춘다"; fail=$((fail+1)); echo "PASS $pass · FAIL $fail"; exit 1; fi
 R1=$(app "$A1" "$UT" t); R2=$(app "$B1" "$UT" t); R3=$(staff "$A1" "'$U1'" u1); R4=$(staff "$B1" "null" s2)
 chk "no key -> unauthorized" "$(jqn 'd.get("error")' "$(icall "" "$RB")")" "unauthorized"
+if [ "$KST_H" -lt 19 ]; then chk "before 19:00 KST the cron body is refused (too-early, nothing claimed)" "$(jqn 'd.get("error")' "$(icall "$SK" "$RB_CRON")"):$(LOGN "$R1,$R2,$R3,$R4" remind)" "too-early:0"
+else echo "  (한국 19시가 지났다 — too-early 는 이 시각에 볼 수 없다 · 낮에 돌리면 본다)"; fi
+RUN0=$(sq "select coalesce((select value->>'at' from app_config where key='dutyRemindRun'), '')")
 R=$(icall "$SK" "$RB")
-chk "remind: day, 3 rows with accounts, 2 people" "$(jqn '(d.get("ok"), d.get("day"), d.get("rows"), d.get("sent"))' "$R")" "(True, '$D1', 3, 2)"
+chk "remind: day, 3 rows with accounts, 2 people" "$(jqn "(d.get(\"ok\"), d.get(\"day\"), d.get(\"rows\"), $TOLD)" "$R")" "(True, '$D1', 3, 2)"
+chk "remind leaves a trace (app_config dutyRemindRun: day, rows)" "$(sq "select (value->>'day') || ':' || (value->>'rows') || ':' || ((value->>'at') is distinct from '$RUN0')::text from app_config where key='dutyRemindRun'")" "$D1:3:true"
 chk "no ids in response" "$(noleak "$R")" "0"
 chk "remind rows claimed (account rows only)" "$(LOGN "$R1,$R2,$R3,$R4" remind)" "3"
 chk "two push_log rows (two different texts)" "$(PLN remind)" "2"
 chk "one person's two slots in one text" "$(sq "select count(*) from push_log where id > $PL0 and mode='duty-remind' and position('ga 09:00' in body) > 0 and position('na 11:00' in body) > 0 and body like '%$TAG%'")" "1"
-R=$(icall "$SK" "$RB"); chk "second call -> 0" "$(jqn '(d.get("rows"), d.get("sent"))' "$R")" "(3, 0)"
+R=$(icall "$SK" "$RB"); chk "second call -> 0" "$(jqn "(d.get(\"rows\"), $TOLD)" "$R")" "(3, 0)"
 
 echo "5) 잠긴 날의 앱 지원 — 그 계정에 곧바로(응답 뒤에 돈다)"
 chk "confirm D3 again (SQL)" "$(sq "select duty_day_set('$BID','$D3','confirm',null,null)->>'ok'")" "true"

@@ -472,6 +472,15 @@ test('api 알림 — dutyNoteKeep: 종류마다 받을 줄(지난 날·계정 �
   assert.equal(k('removed', { status: 'cancelled', reason: 'self' }), false, '본인 취소는 알리지 않는다');
   assert.equal(k('off'), false); assert.equal(k('off', { off: true }), true); assert.equal(k('off', { off: true, status: 'removed' }), false);
   assert.equal(k('zzz'), false);
+  // 검토 반영(2026-10-07) — 확정은 지금도 확정인 날만(옛 SQL 은 그 칸이 없다 — 그대로 지난다) · 전날은 고른 날짜의 줄만
+  assert.equal(k('confirmed', { confirmed: false }), false, '부탁과 보내기 사이에 확정이 풀렸다'); assert.equal(k('confirmed', { confirmed: true }), true);
+  assert.equal(srv.dutyNoteKeep('remind', NR(), '2026-10-18'), true); assert.equal(srv.dutyNoteKeep('remind', NR(), '2026-10-25'), false, '그사이 다른 날로 옮겨진 줄에 「내일」이라 하지 않는다');
+  // 오늘 이미 끝난 자리를 바로잡는 것(넣음·옮김·뺌·쉼·다시 엶)은 알리지 않는다 — 확정·전날·잠긴 날 지원은 제 규칙이 따로 있다
+  for (const kind of ['added', 'moved', 'reopen']) assert.equal(k(kind, { ended: true }), false, kind + ' 끝난 자리');
+  assert.equal(k('removed', { status: 'removed', reason: 'staff', ended: true }), false, '끝난 뒤의 「안 나오셔도 돼요」'); assert.equal(k('off', { off: true, ended: true }), false);
+  for (const kind of ['confirmed', 'remind', 'applied']) assert.equal(k(kind, { ended: true, locked: true }), true, kind);
+  // 겹친 줄(같은 자리 · 같은 이름)을 정리하며 앱 줄을 뺀 것 — 그분은 남은 줄로 서 있다
+  assert.equal(k('removed', { status: 'removed', reason: 'staff', dup: true }), false); assert.equal(k('removed', { status: 'removed', reason: 'staff', dup: false }), true);
   // 교회 어드민이 부탁하는 여섯(duty-db.ts withNotify 의 kind) · 잡는 종류는 SQL duty_notify_log 의 CHECK 와 같다
   assert.deepEqual(pick(srv.DUTY_NOTE_STAFF_KINDS).sort(), ['added', 'confirmed', 'moved', 'off', 'removed', 'reopen']);
   assert.deepEqual(pick(srv.DUTY_NOTE_CLAIM).sort(), ['confirmed', 'remind']);
@@ -497,6 +506,34 @@ test('api 알림 — dutyNoteText: 종류마다 한 통(한 분의 여러 자리
   assert.equal(t('off', [NR({ off: true, dayOff: true }), NR({ off: true, dayOff: true, date: '2026-10-25' })]), '10월 18일(일) 식당 봉사 / 10월 25일(일) 식당 봉사 당번은 쉬어요 — 안 나오셔도 돼요');
   assert.equal(t('reopen', [NR()]), '10월 18일(일) 식당 봉사 2부 설거지 11:30 당번을 다시 서요');
   assert.equal(t('zzz', [NR()]), ''); assert.equal(t('confirmed', []), '');
+  // 여러 주를 한 번에 쉬게 하거나 다시 열면 180자를 넘는다 — 뜻을 앞에 두고 목록을 「외 N일」로 줄인다(끝에서 잘려 「쉬어요」·「다시 서요」가 사라지던 것)
+  const weeks = (n, x) => Array.from({ length: n }, (_, i) => NR({ date: new Date(Date.UTC(2026, 9, 11 + 7 * i)).toISOString().slice(0, 10), ...(x || {}) }));
+  const shown = (s) => s.split(' / ').length, more = (s) => Number((/ 외 (\d+)[일건]/.exec(s) || [0, 0])[1]);
+  assert.ok(t('off', weeks(6, { off: true, dayOff: true })).endsWith(' 당번은 쉬어요 — 안 나오셔도 돼요'), '들어가면 문장 꼴 그대로');
+  const off12 = t('off', weeks(12, { off: true, dayOff: true }));
+  assert.ok(off12.startsWith('당번이 쉬어요(안 나오셔도 돼요) — 10월 11일(일) 식당 봉사 / 10월 18일(일) 식당 봉사 / ') && / 외 \d+일$/.test(off12) && Array.from(off12).length <= 180, off12);
+  assert.equal(shown(off12) + more(off12), 12, '실은 날 + 「외 N일」 = 모두');
+  const re8 = t('reopen', weeks(8));
+  assert.ok(re8.startsWith('당번을 다시 서요 — 10월 11일(일) 식당 봉사 2부 설거지 11:30 / ') && / 외 \d+일$/.test(re8) && Array.from(re8).length <= 180, re8);
+  assert.equal(shown(re8) + more(re8), 8);
+  for (const kind of ['confirmed', 'applied', 'added', 'removed']) {
+    const s = t(kind, weeks(9, { status: kind === 'removed' ? 'removed' : 'active', locked: true }));
+    assert.ok(Array.from(s).length <= 180 && / 외 \d+일$/.test(s) && /^(당번이 확정됐어요|확정된 날에 지원하셨어요|담당자가 당번에 넣어 드렸어요|담당자가 당번에서 빼 드렸어요)/.test(s), kind + ': ' + s);
+  }
+  const rem12 = t('remind', Array.from({ length: 12 }, (_, i) => NR({ boardId: 'b' + i, board: '당번' + i })));
+  assert.ok(rem12.startsWith('내일 10월 18일(일) 당번이에요 — 당번0 2부 설거지 11:30 · 지하 1층 식당 / ') && / 외 \d+건$/.test(rem12), '같은 날의 여러 당번은 「건」: ' + rem12);
+  // dutyNoteFit — 들어가는 만큼만 · 첫 조각은 넘쳐도 싣는다 · 남은 것이 앞에 실은 날짜와 같으면 「건」
+  const fit = (n, room) => srv.dutyNoteFit(Array.from({ length: n }, (_, i) => ({ text: 'ㄱ'.repeat(10), date: 'd' + i })), ' / ', room);
+  assert.equal(fit(3, 100), ['ㄱ'.repeat(10), 'ㄱ'.repeat(10), 'ㄱ'.repeat(10)].join(' / '));
+  assert.equal(fit(3, 20), 'ㄱ'.repeat(10) + ' 외 2일'); assert.equal(fit(3, 28), 'ㄱ'.repeat(10) + ' / ' + 'ㄱ'.repeat(10) + ' 외 1일'); assert.equal(fit(1, 5), 'ㄱ'.repeat(10));
+  assert.equal(srv.dutyNoteFit([{ text: 'A', date: 'd' }, { text: 'B', date: 'd' }, { text: 'C', date: 'e' }], ' / ', 6), 'A 외 2건');
+  assert.equal(srv.dutyNoteFit([], ' / ', 10), ''); assert.equal(srv.dutyNoteFit(null, ' / ', 10), '');
+  // dutyNoteGroups — 한 분씩 글을 만들어 같은 글끼리 한 묶음(push_log 한 줄) · 계정 없는 줄·글이 없는 종류는 없다
+  const grp = pick(srv.dutyNoteGroups('confirmed', [NR({ uid: 'u1' }), NR({ uid: 'u2' }), NR({ uid: 'u3', service: '1부' }), NR({ uid: null })]));
+  assert.deepEqual(grp.map((x) => x.uids), [['u1', 'u2'], ['u3']]); assert.equal(grp[0].text, t('confirmed', [NR()]));
+  assert.deepEqual(pick(srv.dutyNoteGroups('zzz', [NR()])), []); assert.deepEqual(pick(srv.dutyNoteGroups('added', null)), []);
+  const two = pick(srv.dutyNoteGroups('remind', [NR({ uid: 'u1' }), NR({ uid: 'u1', service: '1부', start: '09:00' })]));
+  assert.equal(two.length, 1, '한 분의 두 자리는 한 통'); assert.deepEqual(two[0].uids, ['u1']);
   // 담당자가 쓴 글의 줄바꿈·제어 글자는 알림에 그대로 가지 않는다 · 길면 180자에서 자른다 · 받는 분 번호(uid)는 글에 없다
   assert.equal(t('added', [NR({ board: '식당\n봉사', service: '2부' + String.fromCharCode(0x202e) })]).includes('\n'), false);
   assert.ok(Array.from(t('remind', Array.from({ length: 12 }, (_, i) => NR({ boardId: 'b' + i, board: '당번' + i })))).length <= 180);
@@ -519,13 +556,36 @@ test('api 글자 검사 — 알림: 내부 액션 둘은 서비스 키 문이 �
   }
   assert.ok(fn('internalDutyNotify').includes('if (DUTY_NOTE_STAFF_KINDS.indexOf(kind) < 0) return { ok: false, error: "bad-kind" };'), '교회 어드민은 여섯 종류만(remind·applied 는 못 부른다)');
   const send = fn('dutyNotifySend');
-  const keep = send.indexOf('dutyNoteKeep(kind, r)'), open = send.indexOf('await dutyOpenNow()'), dev = send.indexOf('await eduDevicesOf('), claim = send.indexOf('db.rpc("duty_notify_claim"'), push = send.indexOf('await eduPushDevices(');
-  assert.ok(keep > 0 && open > keep && dev > open && claim > dev && push > claim, '거르기 → 문 → 기기 읽기 → 잡기 → 보내기 차례(걸러진 줄은 잡지 않는다 · 잡은 뒤에 기기를 읽지 않는다)');
+  const off = send.indexOf('if (gate.off) return { sent: 0, missed: 0, off: true };'), rows = send.indexOf('db.rpc("duty_notify_rows"');
+  const keep = send.indexOf('dutyNoteKeep(kind, r, day)'), open = send.indexOf('if (!gate.open)'), dev = send.indexOf('await eduDevicesOf('), claim = send.indexOf('db.rpc("duty_notify_claim"'), push = send.indexOf('await eduPushDevices(');
+  assert.ok(off > 0 && rows > off, '꺼 두었으면(dutyNotifyOff) 재료도 읽지 않는다 — 아무것도 잡지 않는다');
+  assert.ok(keep > rows && open > keep && dev > open && claim > dev && push > claim, '거르기 → 문 → 기기 읽기 → 잡기 → 보내기 차례(걸러진 줄은 잡지 않는다 · 잡은 뒤에 기기를 읽지 않는다)');
   assert.ok(send.includes('testers.has(String(r.uid))'), '문이 닫힌 동안에는 시험 참여자에게만');
+  // 알린 분 수 — 받는 기기가 있어 실제로 나간 분(sent)과 가지 않은 분(missed)을 가른다(글을 만든 분 수를 그대로 돌려주면 담당자 화면이 기기 없는 분까지 「보냈어요」라고 한다)
+  assert.ok(send.includes('if (d && d.web.length + d.ios.length > 0) { has++; web.push(...d.web); ios.push(...d.ios); }'));
+  assert.ok(send.includes('if (ok > 0) { sent += has; missed += g.uids.length - has; }') && send.includes('else missed += g.uids.length;') && send.includes('return { sent, missed };'));
+  assert.ok(send.includes('for (const g of dutyNoteGroups(kind, rows))') && send.includes('const d = devs.get(uid);'), '그분 글은 그분 기기로(묶음의 uid 로 기기를 찾는다)');
+  // 잡다가 DB 오류 — 그때까지 잡힌 줄은 보낸 뒤 던진다(잡힌 채 안 가는 줄을 남기지 않는다)
+  assert.ok(send.includes('if (error) { claimErr = error; break; }') && send.lastIndexOf('if (claimErr) throw claimErr;') > push);
+  assert.ok(send.includes('rows = rows.filter((r) => got.has(Number(r.id)));'), '잡힌 줄에만 보낸다');
+  const gate = fn('dutyNotifyGate');
+  assert.ok(gate.includes('.in("key", ["dutyOpen", "dutyNotifyOff"])') && gate.includes('if (error) throw error;') && gate.includes('x.value === true'), '스위치는 true 하나일 때만 · DB 오류는 던진다');
+  assert.equal(/PUBLIC_CONFIG_KEYS = new Set\(\[[^\]]*(dutyNotifyOff|dutyRemindRun)/.test(API), false, '알림 스위치·흔적은 앱이 읽는 키가 아니다');
+  assert.ok(fn('internalDutyNotify').includes('return { ok: true, sent: n.sent, missed: n.missed, ...(n.off ? { off: true } : {}) };'));
+  // 전날 알림 — 한국 19시 전에는 돌지 않는다(크론은 anytime 을 싣지 않는다) · 고른 날짜를 거르기에 넘긴다 · 돌 때마다 흔적 · monitor 가 본다
+  const rem = fn('internalDutyRemind');
+  assert.ok(rem.includes('if (b?.anytime !== true && new Date(Date.now() + 9 * 3600 * 1000).getUTCHours() < 19) return { ok: false, error: "too-early" };'));
+  assert.ok(rem.indexOf('"too-early"') > 0 && rem.indexOf('"too-early"') < rem.indexOf('db.rpc("duty_remind_ids"'), '시각 확인이 읽기보다 먼저');
+  assert.ok(rem.includes('dutyNotifySend("remind", ids, day)') && rem.includes('key: "dutyRemindRun"'));
+  const cron = read(['supabase', 'duty_remind_cron.sql']);
+  assert.equal(cron.includes('anytime'), false, '크론은 anytime 을 싣지 않는다'); assert.ok(cron.includes("'0,20 10 * * *'"), '19:00 · 19:20 두 번');
+  assert.ok(read(['supabase', 'edu_remind_cron.sql']).includes('duty-remind'), '교육 크론 파일이 비밀을 당번 크론도 읽는다고 말한다');
+  const mon = fn('monitor');
+  assert.ok(mon.includes('.eq("key", "dutyRemindRun")') && mon.includes('if (ageH > 26) problems.push('), '흔적이 있을 때만 26시간을 본다');
   // 잠긴 날의 앱 지원 — 응답을 기다리게 하지 않고(eduAfterResponse) 이미 서 있던 줄은 알리지 않는다
   const apply = fn('dutyApply');
   assert.ok(apply.includes('r.locked === true && r.already !== true') && apply.includes('eduAfterResponse(dutyNotifySend("applied", [Number(r.id)]), "dutyApply notify")'));
   assert.equal((apply.match(/db\.rpc\(/g) || []).length, 1);
   // switch 에 두 줄
-  assert.ok(API.includes('case "internalDutyNotify": return json(await internalDutyNotify(req, body));') && API.includes('case "internalDutyRemind": return json(await internalDutyRemind(req));'));
+  assert.ok(API.includes('case "internalDutyNotify": return json(await internalDutyNotify(req, body));') && API.includes('case "internalDutyRemind": return json(await internalDutyRemind(req, body));'));
 });

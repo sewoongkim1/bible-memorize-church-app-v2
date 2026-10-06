@@ -23,7 +23,7 @@
 -- ⚠️ 「확정됨(잠김)」은 표에 쓰는 값이 아니라 그때그때 셈한다(duty_locked): 담당자가 확정했거나 지금이 그날 **전날 19:00(한국)**을 지났다.
 --    19시라는 숫자는 duty_cutoff 한 곳에만 둔다(크론·api·화면에 따로 적지 않는다 — 화면은 서버가 준 lockAt 을 보여 준다).
 -- ⚠️ 화면이 읽는 것은 jsonb 하나를 돌려주는 함수(duty_list_view · duty_board_view · duty_mine · duty_roster)다 — user_id·ident_key 를
---    싣지 않는다(시험이 낱말로 본다). 알림용 duty_notify_rows·duty_remind_rows 만 받는 분(uid)을 싣는다 — api 안에서만 쓰고 응답에 싣지 말 것.
+--    싣지 않는다(시험이 낱말로 본다). 알림용 duty_notify_rows 만 받는 분(uid)을 싣는다 — api 안에서만 쓰고 응답에 싣지 말 것.
 begin;
 -- 성도님이 쓰는 중에 표·함수 잠금을 오래 기다리지 않게(edu.sql · member_merge.sql 과 같다) — 5초 안에 못 잡으면 통째로 되돌리고 멈춘다.
 set local lock_timeout = '5s';
@@ -585,7 +585,9 @@ end $$;
 --                  화면을 열어 둔 사이 잠긴 경우도 서버가 잡는다).
 --   검사 차례(모두 끝난 뒤에만 쓴다): 신원 → 당번 상태(·본인은 남은 자리 closed) → 쉼 → (본인) 지난 날·이미 시작·보이는 기간 밖·끝 날짜 뒤 → 이미 내 줄(already) ·
 --     (본인) 담당자가 뺀 줄 → (본인) 잠긴 날 확인 → 정원 → 겹침 → (본인) 미리 잡아 둔 수.
---   성공 {ok, id, locked}(locked = 이 줄이 이미 잠긴 날에 들어갔다 — 본인은 못 지운다) · 이미 있으면 {ok, id, already:true, locked}.
+--   성공 {ok, id, locked, hadUser}(locked = 이 줄이 이미 잠긴 날에 들어갔다 — 본인은 못 지운다 · hadUser = 쓰고 난 그 줄에 앱 계정이 있다 —
+--     담당자 길에서 「이번 명부 찾기가 맞춘 계정」과 다를 수 있다: 계정이 이어진 줄을 계정을 못 맞춘 채 되살려도 줄의 계정은 그대로다) ·
+--     이미 있으면 {ok, id, already:true, locked, hadUser} · 끝났던 줄을 되살렸으면 revived:true.
 --   거절: bad-ident · not-found · archived · closed · off · past · started · not-yet · after-until · removed-by-staff · locked-day ·
 --         full{active, capacity[, with — 담당자 길에서 겹친 자리도 있을 때]} · overlap{with:{board, service, task, start, same_board, draft}} · too-many{max}
 --   ⚠️ overlap 의 with 는 그대로 화면에 싣지 말 것 — 담당자 길은 same_board 일 때만(맡지 않은 당번의 자리 이름을 싣지 않는다),
@@ -640,9 +642,9 @@ begin
        and not exists (select 1 from public.duty_signups y where y.slot_id = p_slot and y.user_id = p_user) then
       update public.duty_signups set user_id = p_user, updated_at = now() where id = e.id;
       -- linked = 이번에 계정을 이었다 — 「이미 서 계세요」지만 **쓴 것이 있다**. 부른 쪽(교회 어드민)이 바꾼 기록을 남기고 잠긴 날이면 그분께 알린다.
-      return jsonb_build_object('ok',true,'id',e.id,'already',true,'locked',v_locked,'linked',true);
+      return jsonb_build_object('ok',true,'id',e.id,'already',true,'locked',v_locked,'linked',true,'hadUser',true);
     end if;
-    return jsonb_build_object('ok',true,'id',e.id,'already',true,'locked',v_locked);
+    return jsonb_build_object('ok',true,'id',e.id,'already',true,'locked',v_locked,'hadUser',e.user_id is not null);
   end if;
   -- 담당자가 뺀 줄은 본인이 스스로 되살리지 못한다(확정 뒤 빈 자리는 지원 즉시 잠기므로 — 안 그러면 빼도 한 번 눌러 되돌아온다)
   if e.id is not null and not p_staff and e.end_reason = 'staff' then return jsonb_build_object('ok',false,'error','removed-by-staff'); end if;
@@ -685,13 +687,14 @@ begin
       ident_key = v_key, who_type = coalesce(p_ident->>'who_type', ''), group_name = coalesce(p_ident->>'group_name', ''),
       sub_name = coalesce(p_ident->>'sub_name', ''), name = v_name, applied_at = now(), updated_at = now()
     where id = e.id;
-    return jsonb_build_object('ok',true,'id',e.id,'locked',v_locked,'revived',true);
+    return jsonb_build_object('ok',true,'id',e.id,'locked',v_locked,'revived',true,
+      'hadUser',(select y.user_id is not null from public.duty_signups y where y.id = e.id));
   end if;
   insert into public.duty_signups(slot_id, user_id, ident_key, who_type, group_name, sub_name, name, status, source)
   values (p_slot, p_user, v_key, coalesce(p_ident->>'who_type', ''), coalesce(p_ident->>'group_name', ''),
           coalesce(p_ident->>'sub_name', ''), v_name, 'active', case when p_staff then 'staff' else 'app' end)
   returning * into e;
-  return jsonb_build_object('ok',true,'id',e.id,'locked',v_locked);
+  return jsonb_build_object('ok',true,'id',e.id,'locked',v_locked,'hadUser',e.user_id is not null);
 end $$;
 
 -- 취소(본인) · 빼기(담당자).
@@ -736,7 +739,7 @@ end $$;
 --   옮길 자리에 그분의 끝난 줄이 있으면 그 줄을 지우고 옮긴다(자리·사람에 한 줄). 살아 있는 줄이 있으면 already-there.
 --   정원·겹침은 p_force 로 넘긴다. 옮기면 「못 가게 됐어요」 표시와 전날 알림 기록을 지운다(새 자리로 다시 알린다).
 --   성공 {ok, from:{date, service, task, start}, to:{…}, hadUser, locked: 옮겨 간 날이 잠겼나}.
---   거절: not-found · wrong-board · changed · archived · off · already-there · full{active, capacity[, with]} · overlap{with}
+--   거절: not-found · wrong-board · to-past(앞날 줄 → 지난 날 자리) · changed · archived · off · already-there · full{active, capacity[, with]} · overlap{with}
 create or replace function public.duty_move(p_signup bigint, p_to_slot bigint, p_force boolean default false)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare
@@ -752,6 +755,9 @@ begin
   if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
   if s2.board_id <> s1.board_id then return jsonb_build_object('ok',false,'error','wrong-board'); end if;
   if s2.id = s1.id then return jsonb_build_object('ok',true,'already',true); end if;
+  -- 앞날(오늘 포함) 줄을 지난 날 자리로는 옮기지 않는다 — 그분의 앞날 당번이 사라지는데 알림은 지난 날을 거르므로 아무 말도 못 듣는다
+  --   (화면의 옮길 자리 고르기도 지난 날을 빼 준다 · 지난 기록을 바로잡으려면 빼고 그날 자리에 넣는다 — 검토 반영 2026-10-07)
+  if s2.on_date < duty_today() and s1.on_date >= duty_today() then return jsonb_build_object('ok',false,'error','to-past'); end if;
   perform pg_advisory_xact_lock(7240910, 1);                                                                       -- ⓪ 전역(지원 줄을 쓴다)
   perform duty_person_lock(e.user_id, e.ident_key);                                                                -- ① 사람
   perform 1 from public.duty_days where board_id = s1.board_id and on_date in (s1.on_date, s2.on_date) order by on_date for update;   -- ②
@@ -1201,8 +1207,11 @@ returns bigint[] language sql security definer set search_path = public as $$
 $$;
 
 -- 알림 글의 재료 — 지원 번호들의 {id, uid(받는 분 · api 안에서만 쓴다), status, reason, boardId, board, place, date, service, task, start, end,
---   off(그날이나 그 자리가 쉼), dayOff(그날이 쉼), locked, past(지난 날), pastCutoff(전날 저녁이 지났다 — 저절로 잠긴 날 · 이런 날을 담당자가 또 확정해도
---   「이제 취소할 수 없어요」를 보내지 않는다), movedFrom(담당자가 옮기기 전 자리 {date, service, task, start})}.
+--   off(그날이나 그 자리가 쉼), dayOff(그날이 쉼), locked, confirmed(지금 담당자가 확정해 둔 날 — 확정 알림은 보낼 때 이것을 다시 본다),
+--   past(지난 날), pastCutoff(전날 저녁이 지났다 — 저절로 잠긴 날 · 이런 날을 담당자가 또 확정해도 「이제 취소할 수 없어요」를 보내지 않는다),
+--   ended(오늘이고 그 자리의 끝 시각이 지났다 — 끝난 자리를 바로잡는 넣기·빼기·옮기기·쉼에는 알리지 않는다),
+--   dup(같은 자리에 같은 이름의 살아 있는 다른 줄이 있다 — 겹친 줄을 정리하며 앱 줄을 뺀 것이면 「빼 드렸어요」를 보내지 않는다: 그분은 남은 줄로 서 있다),
+--   movedFrom(담당자가 옮기기 전 자리 {date, service, task, start})}.
 --   앱 계정이 있는 줄만(끝난 줄도 준다 — 「빼 드렸어요」 알림). 준비·보관 당번의 줄은 주지 않는다(알림 없음).
 create or replace function public.duty_notify_rows(p_ids bigint[])
 returns jsonb language sql stable security definer set search_path = public as $$
@@ -1210,8 +1219,13 @@ returns jsonb language sql stable security definer set search_path = public as $
       'id', e.id, 'uid', e.user_id, 'status', e.status, 'reason', e.end_reason,
       'boardId', b.id, 'board', b.title, 'place', b.place, 'date', s.on_date,
       'service', l.service, 'task', l.task, 'start', to_char(l.start_time, 'HH24:MI'), 'end', to_char(l.end_time, 'HH24:MI'),
-      'off', (d.off or s.off), 'dayOff', d.off, 'locked', duty_locked(d.confirmed_at, s.on_date),
-      'past', s.on_date < duty_today(), 'pastCutoff', now() >= duty_cutoff(s.on_date), 'movedFrom', e.moved_from
+      'off', (d.off or s.off), 'dayOff', d.off, 'locked', duty_locked(d.confirmed_at, s.on_date), 'confirmed', d.confirmed_at is not null,
+      'past', s.on_date < duty_today(), 'pastCutoff', now() >= duty_cutoff(s.on_date),
+      'ended', (s.on_date = duty_today() and (now() at time zone 'Asia/Seoul')::time >= l.end_time),
+      'dup', (duty_name_out(e.name) <> '' and exists (select 1 from public.duty_signups x
+                where x.slot_id = e.slot_id and x.id <> e.id and x.status = 'active'
+                  and regexp_replace(duty_name_out(x.name), '\s', '', 'g') = regexp_replace(duty_name_out(e.name), '\s', '', 'g'))),
+      'movedFrom', e.moved_from
     ) order by e.user_id, s.on_date, l.start_time, e.id), '[]'::jsonb)
   from public.duty_signups e
   join public.duty_slots s on s.id = e.slot_id

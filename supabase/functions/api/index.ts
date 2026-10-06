@@ -538,7 +538,7 @@ Deno.serve(async (req) => {
       case "dutyMine":   return json(await dutyMine(body));
       case "dutyAsk":    return json(await dutyAsk(body));
       case "internalDutyNotify": return json(await internalDutyNotify(req, body));   // 당번 알림(3단계) — church-admin 전용(x-internal-key)
-      case "internalDutyRemind": return json(await internalDutyRemind(req));         // 당번 전날 알림(3단계) — pg_cron 전용(x-internal-key)
+      case "internalDutyRemind": return json(await internalDutyRemind(req, body));         // 당번 전날 알림(3단계) — pg_cron 전용(x-internal-key)
       case "ministryApply":    return json(await ministryApply(body));
       case "ministryCancel":   return json(await ministryCancel(body));
       case "ministryList":     return json(await ministryList(body));
@@ -1516,6 +1516,21 @@ async function monitor(b: any) {
     }
   } catch (_) { /* 표 미설치 → 점검 생략 */ }
 
+  // 봉사 당번 전날 알림(크론 duty-remind · 매일 19:00 KST) — 크론은 net.http_post 를 넣기만 하면 succeeded 라, api 가 실제로 받아 돌았는지는
+  //   internalDutyRemind 가 남기는 흔적(app_config dutyRemindRun)으로 본다. 키가 틀어지면(Vault 를 안 바꾼 키 교체 · 교육 크론을 걷으며 비밀을 지움)
+  //   전날 알림이 며칠째 조용히 안 간다(검토 반영 2026-10-07). ⚠️ 흔적이 **한 번이라도 생긴 뒤부터만** 본다 — 크론을 안 건 곳·아직 한 번도 안 돈 곳에서는 헛경보가 없다.
+  //   (크론을 걷을 때는 그 흔적 줄도 지운다 — duty_remind_cron.sql 「해제」)
+  let dutyRemind: { at: string; day: string; rows: number } | null = null;
+  try {
+    const { data: dr } = await db.from("app_config").select("value").eq("key", "dutyRemindRun").maybeSingle();
+    const v: any = dr?.value;
+    if (v && typeof v.at === "string" && !isNaN(Date.parse(v.at))) {
+      dutyRemind = { at: v.at, day: String(v.day ?? ""), rows: Number(v.rows) || 0 };
+      const ageH = (now.getTime() - Date.parse(v.at)) / 3600000;
+      if (ageH > 26) problems.push(`봉사 당번 전날 알림이 ${Math.floor(ageH)}시간째 돌지 않았습니다 — 크론(duty-remind)과 Vault 키(edu_remind_service_key)를 확인하세요`);
+    }
+  } catch (_) { /* 점검 생략 */ }
+
   return {
     ok: problems.length === 0,
     serverTimeKST: kstNow.toISOString().replace("T", " ").slice(0, 16) + " KST",
@@ -1527,6 +1542,7 @@ async function monitor(b: any) {
     activity,
     songPool,
     songToday,
+    dutyRemind,
     problems,
   };
 }
@@ -5557,22 +5573,50 @@ var DUTY_NOTE_STAFF_KINDS = ["confirmed", "added", "moved", "removed", "off", "r
 // 같은 알림을 한 번만 보내려고 줄을 잡는 종류(duty_notify_claim — SQL CHECK 와 같아야 한다). 나머지는 담당자의 저장 한 번에 한 번 부탁하므로 잡지 않는다.
 var DUTY_NOTE_CLAIM = ["confirmed", "remind"];
 // 이 줄(duty_notify_rows 의 한 줄)에 이 알림을 보낼 것인가 — 받는 분(uid)이 있고 · 지난 날이 아니고 · 종류마다:
-//   confirmed: 살아 있는 줄 · 쉬지 않음 · **전날 저녁이 지나지 않은 날**(이미 저절로 잠긴 날을 담당자가 또 확정해도 「이제 취소할 수 없어요」를 보내지 않는다 — 전날 알림이 갔다)
-//   remind: 살아 있는 줄 · 쉬지 않음(날짜는 부르는 쪽이 「내일」로 고른다 — 여기서는 지난 날만 뺀다)
+//   confirmed: 살아 있는 줄 · 쉬지 않음 · **전날 저녁이 지나지 않은 날**(이미 저절로 잠긴 날을 담당자가 또 확정해도 「이제 취소할 수 없어요」를 보내지 않는다 — 전날 알림이 갔다) ·
+//              **지금도 담당자가 확정해 둔 날**(재료는 부탁과 따로 읽는다 — 그사이 확정이 풀렸으면 「확정됐어요」를 보내지 않는다 · 옛 SQL 은 그 칸이 없어 그대로 지난다)
+//   remind: 살아 있는 줄 · 쉬지 않음 · day 를 주면 **그 날짜의 줄만**(부른 쪽이 고른 「내일」 — 그사이 다른 날로 옮겨진 줄에 「내일」이라 하지 않고, 그 줄의 전날 알림 기록도 잡지 않는다)
 //   applied: 살아 있는 줄 · 쉬지 않음 · 잠긴 날 / added·moved·reopen: 살아 있는 줄 · 쉬지 않음
-//   removed: 담당자가 뺀 줄(본인 취소는 알리지 않는다) / off: 살아 있는 줄 · 쉬는 날·자리
-function dutyNoteKeep(kind, r) {
+//   removed: 담당자가 뺀 줄(본인 취소는 알리지 않는다) · **같은 자리에 같은 이름의 살아 있는 줄이 남았으면(dup) 보내지 않는다** — 겹친 줄을 정리한 것이라
+//            그분은 남은 줄로 서 있다(「안 나오셔도 돼요」가 거짓이 된다) / off: 살아 있는 줄 · 쉬는 날·자리
+//   담당자가 바꾼 것(added·moved·removed·off·reopen)은 **오늘 이미 끝난 자리(ended)**에는 보내지 않는다 — 예배 뒤 명단을 바로잡을 때 「안 나오셔도 돼요」·「넣어 드렸어요」가
+//            일이 끝난 뒤에 갔다(다음 날 바로잡으면 past 라 원래 안 간다).
+function dutyNoteKeep(kind, r, day) {
   if (!r || !r.uid || r.past === true) return false;
   var live = r.status === "active";
-  if (kind === "removed") return r.status === "removed" && r.reason === "staff";
+  var fix = kind === "added" || kind === "moved" || kind === "removed" || kind === "off" || kind === "reopen";
+  if (fix && r.ended === true) return false;
+  if (kind === "removed") return r.status === "removed" && r.reason === "staff" && r.dup !== true;
   if (kind === "off") return live && r.off === true;
   if (!live || r.off === true) return false;
-  if (kind === "confirmed") return r.pastCutoff !== true;
+  if (kind === "confirmed") return r.pastCutoff !== true && r.confirmed !== false;
   if (kind === "applied") return r.locked === true;
-  return kind === "remind" || kind === "added" || kind === "moved" || kind === "reopen";
+  if (kind === "remind") return !day || String(r.date) === String(day);
+  return kind === "added" || kind === "moved" || kind === "reopen";
+}
+// 글 조각들을 room 자 안에 들어가는 만큼만 잇는다 — 다 못 실으면 끝에 「 외 N일」(남은 조각의 날짜가 앞에 실은 날짜·서로와 모두 다를 때) · 「 외 N건」.
+//   items = [{ text, date }] · 첫 조각은 넘쳐도 싣는다(부르는 쪽이 dutyPlain 으로 자른다).
+function dutyNoteFit(items, sep, room) {
+  var list = (items || []).filter(function (x) { return x && x.text; });
+  var len = function (s) { return Array.from(s).length; };
+  var rest = function (from) {
+    var seen = {}, fresh = true;
+    list.slice(0, from).forEach(function (x) { seen[String(x.date)] = 1; });
+    list.slice(from).forEach(function (x) { var k = String(x.date); if (seen[k]) fresh = false; seen[k] = 1; });
+    return " 외 " + (list.length - from) + (fresh ? "일" : "건");
+  };
+  var out = "", n = 0;
+  for (var i = 0; i < list.length; i++) {
+    var next = out + (i ? sep : "") + list[i].text;
+    if (i > 0 && len(next) + (i + 1 < list.length ? len(rest(i + 1)) : 0) > room) break;
+    out = next; n = i + 1;
+  }
+  return n < list.length ? out + rest(n) : out;
 }
 // 한 분께 가는 한 통의 글 — rows = 그분의 줄들(같은 종류 · dutyNoteKeep 을 지난 것 · 날짜·시각 차례). 줄이 없으면 빈 글.
-//   같은 날 같은 당번의 자리는 「2부 설거지 · 2부 배식」으로 묶고, 날짜·당번이 다르면 「 / 」로 잇는다. 전체는 180자에서 자른다.
+//   같은 날 같은 당번의 자리는 「2부 설거지 · 2부 배식」으로 묶고, 날짜·당번이 다르면 「 / 」로 잇는다. 전체는 180자 안.
+//   ⚠️ 평소에는 문장 꼴(「… 당번은 쉬어요 — 안 나오셔도 돼요」). 그 문장이 180자를 넘으면 **뜻을 앞에 둔 꼴**로 바꾸고 목록을 「외 N일」로 줄인다(say) —
+//      끝에서 자르기만 하면 여러 주를 한 번에 쉬게 하거나 다시 열 때 「쉬어요」·「다시 서요」가 잘려 날짜 목록만 갔다(쉰다는 말 뒤에 오면 뜻이 거꾸로 읽힌다 · 검토 반영 2026-10-07).
 function dutyNoteText(kind, rows) {
   var list = (rows || []).filter(function (r) { return r; });
   if (!list.length) return "";
@@ -5590,24 +5634,52 @@ function dutyNoteText(kind, rows) {
     if (kind === "off" && g.slots.every(function (r) { return r.dayOff === true; })) slots = [];
     return [noDay ? "" : dutyNoteDay(g.r.date), board, slots.join(" · ")].filter(function (x) { return x; }).join(" ");
   };
+  var MAX = 180, len = function (s) { return Array.from(s).length; };
+  var items = function (noDay, extra) { return groups.map(function (g) { return { text: part(g, noDay) + (extra ? extra(g) : ""), date: g.r.date }; }); };
   var parts = groups.map(function (g) { return part(g, false); }).join(" / ");
-  var text = "";
-  if (kind === "confirmed") text = parts + " 당번이 확정됐어요. 이제 앱에서는 취소할 수 없어요 — 못 오시면 담당자께 알려 주세요";
-  else if (kind === "remind") {
+  // natural = 문장 꼴 · 넘치면 head(뜻) + 들어가는 만큼의 목록(+ 「외 N일」)
+  var say = function (natural, head) {
+    if (len(natural) <= MAX) return dutyPlain(natural, MAX);
+    return dutyPlain(head + dutyNoteFit(items(false), " / ", MAX - len(head)), MAX);
+  };
+  if (kind === "confirmed") {
+    return say(parts + " 당번이 확정됐어요. 이제 앱에서는 취소할 수 없어요 — 못 오시면 담당자께 알려 주세요",
+      "당번이 확정됐어요(이제 앱에서는 취소할 수 없어요 — 못 오시면 담당자께 알려 주세요) — ");
+  }
+  if (kind === "remind") {
     var sameDay = groups.every(function (g) { return g.r.date === groups[0].r.date; });
     var place = function (g) { var p = dutyPlain(g.r.place, 30); return p ? " · " + p : ""; };
-    text = "내일 " + (sameDay ? dutyNoteDay(groups[0].r.date) + " " : "") + "당번이에요 — " +
-      groups.map(function (g) { return part(g, sameDay) + place(g); }).join(" / ");
-  } else if (kind === "applied") text = parts + "에 지원하셨어요 — 확정된 날이라 앱에서 취소할 수 없어요";
-  else if (kind === "added") text = "담당자가 " + parts + " 당번에 넣어 드렸어요";
-  else if (kind === "moved") {
+    var head = "내일 " + (sameDay ? dutyNoteDay(groups[0].r.date) + " " : "") + "당번이에요 — ";
+    return dutyPlain(head + dutyNoteFit(items(sameDay, place), " / ", MAX - len(head)), MAX);
+  }
+  if (kind === "applied") return say(parts + "에 지원하셨어요 — 확정된 날이라 앱에서 취소할 수 없어요", "확정된 날에 지원하셨어요(앱에서 취소할 수 없어요) — ");
+  if (kind === "added") return say("담당자가 " + parts + " 당번에 넣어 드렸어요", "담당자가 당번에 넣어 드렸어요 — ");
+  if (kind === "moved") {
     var from = list[0].movedFrom, was = from ? [dutyNoteDay(from.date), dutySlotLabel(from, true)].filter(function (x) { return x; }).join(" ") : "";
-    text = "담당자가 당번 자리를 옮겨 드렸어요 — " + (was ? was + " → " : "") + parts;
-  } else if (kind === "removed") text = "담당자가 " + parts + " 당번에서 빼 드렸어요 — 안 나오셔도 돼요";
-  else if (kind === "off") text = parts + " 당번은 쉬어요 — 안 나오셔도 돼요";
-  else if (kind === "reopen") text = parts + " 당번을 다시 서요";
-  else return "";
-  return dutyPlain(text, 180);
+    return dutyPlain("담당자가 당번 자리를 옮겨 드렸어요 — " + (was ? was + " → " : "") + parts, MAX);
+  }
+  if (kind === "removed") return say("담당자가 " + parts + " 당번에서 빼 드렸어요 — 안 나오셔도 돼요", "담당자가 당번에서 빼 드렸어요(안 나오셔도 돼요) — ");
+  if (kind === "off") return say(parts + " 당번은 쉬어요 — 안 나오셔도 돼요", "당번이 쉬어요(안 나오셔도 돼요) — ");
+  if (kind === "reopen") return say(parts + " 당번을 다시 서요", "당번을 다시 서요 — ");
+  return "";
+}
+// 한 분씩 글을 만들어 **같은 글끼리** 묶는다(push_log 한 줄 = 한 글) → [{ text, uids: [받는 분…] }] · 글이 안 만들어진 분은 빠진다. rows 는 받는 분(uid) 차례.
+function dutyNoteGroups(kind, rows) {
+  var byUser = {}, order = [];
+  (rows || []).forEach(function (r) {
+    if (!r || !r.uid) return;
+    var k = String(r.uid);
+    if (!byUser[k]) { byUser[k] = []; order.push(k); }
+    byUser[k].push(r);
+  });
+  var out = [], at = {};
+  order.forEach(function (uid) {
+    var text = dutyNoteText(kind, byUser[uid]);
+    if (!text) return;
+    if (at[text] === undefined) { at[text] = out.length; out.push({ text: text, uids: [] }); }
+    out[at[text]].uids.push(uid);
+  });
+  return out;
 }
 // 자리 한 칸의 이름 — 「2부 설거지」 · withTime 이면 「2부 설거지 11:30」
 function dutySlotLabel(r, withTime) {
@@ -5749,6 +5821,10 @@ async function dutyAsk(b: any) {
 //    (기록이 안 남아 문이 열린 뒤 다시 부르면 갈 수 있다).
 // ⚠️ 확정(confirmed)·전날(remind)은 같은 줄에 한 번 — SQL duty_notify_claim 이 **보내기 전에** 잡고 잡힌 줄에만 보낸다(받는 기기가 없어도 잡힌 줄은 남는다 ·
 //    보내다 실패해도 다시 안 보낸다 — 많아야 한 번). 그 밖(넣음·옮김·뺌·쉼·다시 엶·잠긴 날 지원)은 저장 한 번에 한 번 부탁하므로 잡지 않는다.
+// ⚠️ 돌려주는 수는 둘이다 — sent(받는 기기가 있어 실제로 나간 분) · missed(가지 않은 분: 받는 기기가 없다 · 보낸 것이 모두 실패). 담당자 화면이 「N분께 보냈어요」라고
+//    말하는 수라, 글을 만든 분 수를 그대로 주면 알림을 켜지 않은 분(대부분이다)까지 보냈다고 말하게 된다(검토 반영 2026-10-07).
+// ⚠️ 끄는 스위치 — app_config dutyNotifyOff 가 true 면 아무것도 읽지도 잡지도 보내지도 않는다({off:true}). 되돌릴 때 옛 묶음을 다시 올리지 않고 이 한 줄로 끈다
+//    (PUBLIC_CONFIG_KEYS 에 넣지 않는다 — 앱이 읽을 일이 없다). 켠 뒤 다시 부르면 간다(잡힌 것이 없다).
 // ⚠️ 기기는 두 갈래 — 웹 푸시(플레이 앱 포함)와 아이폰(APNs). 교육 알림과 같은 길(eduDevicesOf·eduPushDevices)을 쓴다 · push_log mode 는 duty-<종류>
 //    (monitor 는 daily 줄만 본다 — duty-* 가 0건이어도 헛경보가 나지 않는다).
 const DUTY_NOTIFY_TITLE = "🙋 봉사 당번";
@@ -5756,66 +5832,73 @@ const DUTY_NOTIFY_MAX = 2000;    // 한 번에 받는 지원 번호 수
 const DUTY_NOTIFY_CHUNK = 500;   // 읽고 잡는 한 덩이
 const DUTY_NOTIFY_URL = "https://gocheok.onlybible.kr/?duty=1";   // 누르면 당번 화면(js/duty.js dutyTakeDeepLink) — 아이폰 앱은 주소를 안 읽어 앱만 열린다
 
-// 봉사 당번 문이 열렸나 — 알림용이라 DB 오류는 던진다(삼켜서 「닫힘」으로 보면 아무에게도 안 가는 것이 조용히 묻힌다).
-async function dutyOpenNow(): Promise<boolean> {
-  const { data, error } = await db.from("app_config").select("value").eq("key", "dutyOpen").maybeSingle();
+// 봉사 당번 알림의 두 스위치 — open: 문(dutyOpen)이 열렸나 · off: 알림을 꺼 두었나(dutyNotifyOff). 알림용이라 DB 오류는 던진다
+//   (삼켜서 「닫힘」으로 보면 아무에게도 안 가는 것이 조용히 묻힌다).
+async function dutyNotifyGate(): Promise<{ open: boolean; off: boolean }> {
+  const { data, error } = await db.from("app_config").select("key,value").in("key", ["dutyOpen", "dutyNotifyOff"]);
   if (error) throw error;
-  return data?.value === true;
+  const on = (k: string) => (data || []).some((x: any) => x.key === k && x.value === true);
+  return { open: on("dutyOpen"), off: on("dutyNotifyOff") };
 }
 
-// 지원 번호들에 kind 알림 — 돌려주는 것 = 알린 분 수(한 분께 한 통 · 그분의 줄들을 한 글로).
-//   ① 재료(duty_notify_rows — 앱 계정이 있는 줄 · 받는 중·지원 멈춤 당번)를 읽어 종류에 맞는 줄만 남긴다(dutyNoteKeep — 지난 날·쉬는 날·전날 저녁이 지난 날의 확정 등)
+// 지원 번호들에 kind 알림 — 돌려주는 것 = { sent: 실제로 나간 분 수, missed: 가지 않은 분 수(받는 기기 없음·모두 실패), off: 꺼 둠 }(한 분께 한 통 · 그분의 줄들을 한 글로).
+//   ⓪ 꺼 두었으면(dutyNotifyOff) 아무것도 하지 않는다
+//   ① 재료(duty_notify_rows — 앱 계정이 있는 줄 · 받는 중·지원 멈춤 당번)를 읽어 종류에 맞는 줄만 남긴다(dutyNoteKeep — 지난 날·끝난 자리·쉬는 날·전날 저녁이 지난 날의 확정 등 ·
+//      day = 전날 알림이 고른 날짜)
 //   ② 문 — dutyOpen 이 아니면 시험 참여자 줄만 ③ 그분들의 기기를 먼저 읽고(잡은 뒤에 읽다 실패하면 영영 안 간다)
-//   ④ 확정·전날은 duty_notify_claim 으로 잡는다(잡힌 줄만) ⑤ 한 분씩 글을 만들어 같은 글끼리 묶어 보낸다(push_log 한 줄).
-async function dutyNotifySend(kind: string, ids: number[]): Promise<number> {
+//   ④ 확정·전날은 duty_notify_claim 으로 잡는다(잡힌 줄만) — 뒤 덩이에서 DB 오류가 나도 **그때까지 잡힌 줄은 보낸 뒤** 던진다(잡힌 채 안 가는 줄을 남기지 않는다 ·
+//      안 잡힌 줄은 다시 부르면 간다) ⑤ 한 분씩 글을 만들어 같은 글끼리 묶어 보낸다(dutyNoteGroups — push_log 한 줄 · 기기가 0 이어도 한 줄 남는다).
+async function dutyNotifySend(kind: string, ids: number[], day?: string): Promise<{ sent: number; missed: number; off?: boolean }> {
   const list = [...new Set(ids.filter((n) => Number.isSafeInteger(n) && n > 0))];
-  if (!list.length || DUTY_NOTE_KINDS.indexOf(kind) < 0) return 0;
+  if (!list.length || DUTY_NOTE_KINDS.indexOf(kind) < 0) return { sent: 0, missed: 0 };
+  const gate = await dutyNotifyGate();
+  if (gate.off) return { sent: 0, missed: 0, off: true };
   let rows: any[] = [];
   for (let i = 0; i < list.length; i += DUTY_NOTIFY_CHUNK) {
     const { data, error } = await db.rpc("duty_notify_rows", { p_ids: list.slice(i, i + DUTY_NOTIFY_CHUNK) });
     if (error) throw error;
     if (Array.isArray(data)) rows.push(...data);
   }
-  rows = rows.filter((r) => dutyNoteKeep(kind, r));
-  if (!rows.length) return 0;
-  if (!(await dutyOpenNow())) {
+  rows = rows.filter((r) => dutyNoteKeep(kind, r, day));
+  if (!rows.length) return { sent: 0, missed: 0 };
+  if (!gate.open) {
     const testers = await ministryTesterIds();
     rows = rows.filter((r) => testers.has(String(r.uid)));
-    if (!rows.length) return 0;
+    if (!rows.length) return { sent: 0, missed: 0 };
   }
   const devs = await eduDevicesOf([...new Set(rows.map((r) => String(r.uid)))]);
+  let claimErr: unknown = null;
   if (DUTY_NOTE_CLAIM.indexOf(kind) >= 0) {
     const got = new Set<number>();
     for (let i = 0; i < rows.length; i += DUTY_NOTIFY_CHUNK) {
       const { data, error } = await db.rpc("duty_notify_claim", { p_kind: kind, p_ids: rows.slice(i, i + DUTY_NOTIFY_CHUNK).map((r) => Number(r.id)) });
-      if (error) throw error;
+      if (error) { claimErr = error; break; }
       for (const n of dutyClaimedIds(data)) got.add(n);
     }
     rows = rows.filter((r) => got.has(Number(r.id)));
-    if (!rows.length) return 0;
   }
-  const byUser = new Map<string, any[]>();
-  for (const r of rows) { const k = String(r.uid); (byUser.get(k) || byUser.set(k, []).get(k)!).push(r); }
-  const byText = new Map<string, { web: any[]; ios: any[] }>();
-  let people = 0;
-  for (const [uid, mine] of byUser) {
-    const text = dutyNoteText(kind, mine);
-    if (!text) continue;
-    people++;
-    const d = devs.get(uid) || { web: [], ios: [] };
-    const g = byText.get(text) || byText.set(text, { web: [], ios: [] }).get(text)!;
-    g.web.push(...d.web); g.ios.push(...d.ios);
-  }
-  for (const [text, g] of byText) {
-    try { await eduPushDevices(g.web, g.ios, DUTY_NOTIFY_TITLE, text, DUTY_NOTIFY_URL, "duty-" + kind); }
+  let sent = 0, missed = 0;
+  for (const g of dutyNoteGroups(kind, rows)) {
+    const web: any[] = [], ios: any[] = [];
+    let has = 0;   // 이 글을 받을 분 가운데 받는 기기가 하나라도 있는 분
+    for (const uid of g.uids) {
+      const d = devs.get(uid);
+      if (d && d.web.length + d.ios.length > 0) { has++; web.push(...d.web); ios.push(...d.ios); }
+    }
+    let ok = 0;
+    try { ok = (await eduPushDevices(web, ios, DUTY_NOTIFY_TITLE, g.text, DUTY_NOTIFY_URL, "duty-" + kind)).sent; }
     catch (e) { console.error("dutyNotifySend", kind, e); }
+    if (ok > 0) { sent += has; missed += g.uids.length - has; }
+    else missed += g.uids.length;   // 받는 기기가 없거나 보낸 것이 모두 실패했다
   }
-  return people;
+  if (claimErr) throw claimErr;
+  return { sent, missed };
 }
 
 // 교회 어드민 전용 — {kind: confirmed|added|moved|removed|off|reopen, signup_ids: [지원 번호…]} · 같은 프로젝트 서비스 키(x-internal-key)일 때만
 //   (internalEduNotify 와 같은 문 · sameSecret). 담당자의 저장이 **끝난 뒤** 부른다(교회 어드민 duty-db.ts withNotify — 실패해도 저장은 그대로).
-//   응답 {ok, sent: 이번에 알린 분 수} — user_id 는 싣지 않는다. 문·한 번만·앱 계정·오늘 이후 자리 확인은 dutyNotifySend 가 한다.
+//   응답 {ok, sent: 실제로 나간 분 수, missed: 가지 않은 분 수(받는 기기 없음·모두 실패)[, off: 알림을 꺼 둠]} — user_id 는 싣지 않는다.
+//   문·한 번만·앱 계정·오늘 이후 자리 확인은 dutyNotifySend 가 한다.
 async function internalDutyNotify(req: Request, b: any) {
   if (!sameSecret(req.headers.get("x-internal-key") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "")) {
     return { ok: false, error: "unauthorized" };
@@ -5826,23 +5909,32 @@ async function internalDutyNotify(req: Request, b: any) {
   if (!Array.isArray(raw) || raw.length > DUTY_NOTIFY_MAX) return { ok: false, error: "bad-args" };
   const ids = [...new Set(raw.map((x: unknown) => Number(x)))] as number[];
   if (ids.some((n) => !Number.isSafeInteger(n) || n < 1)) return { ok: false, error: "bad-args" };
-  const sent = ids.length ? await dutyNotifySend(kind, ids) : 0;
-  return { ok: true, sent };
+  const n = ids.length ? await dutyNotifySend(kind, ids) : { sent: 0, missed: 0 };
+  return { ok: true, sent: n.sent, missed: n.missed, ...(n.off ? { off: true } : {}) };
 }
 
-// 전날 알림 — pg_cron(supabase/duty_remind_cron.sql · 매일 10:00 UTC = 19:00 KST)이 서비스 키(x-internal-key)로 부른다. 몸통을 읽지 않는다.
+// 전날 알림 — pg_cron(supabase/duty_remind_cron.sql · 매일 10:00·10:20 UTC = 19:00·19:20 KST)이 서비스 키(x-internal-key)로 부른다.
 //   내일(한국) 당번인 분께 한 번(duty_remind_ids — 살아 있는 줄 · 앱 계정 · 쉬는 날·자리 아님 · 받는 중·지원 멈춤 당번 → 잡기는 duty_notify_claim).
-//   한 분의 여러 자리는 한 통에. 응답 {ok, day, rows: 대상 줄 수, sent: 알린 분 수} — user_id 없음.
-async function internalDutyRemind(req: Request) {
+//   한 분의 여러 자리는 한 통에. 응답 {ok, day, rows: 대상 줄 수, sent: 실제로 나간 분 수, missed: 가지 않은 분 수} — user_id 없음.
+//   ⚠️ **한국 19시 전에는 돌지 않는다**(too-early) — 「내일」은 부른 순간의 한국 날짜 + 1 이라, 자정을 넘겨(놓친 것을 되살리려고) 부르면 모레 분들께 하루 일찍 가고
+//      그분들의 제 시각 알림이 잡힌 채 사라진다(검토 반영 2026-10-07). 시각을 알고 부르는 것(개발 시험 · 손으로 되살리기)만 몸통에 anytime:true 를 싣는다 — 크론은 싣지 않는다.
+//   ⚠️ 돌 때마다 흔적을 남긴다(app_config dutyRemindRun — {at, day, rows, sent, missed} · 받는 분 번호 없음). 크론은 net.http_post 를 넣기만 하면 succeeded 라
+//      키가 틀려 여기까지 못 온 것은 이 흔적이 멈춘 것으로만 안다 — monitor 가 26시간을 본다.
+async function internalDutyRemind(req: Request, b: any) {
   if (!sameSecret(req.headers.get("x-internal-key") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "")) {
     return { ok: false, error: "unauthorized" };
   }
+  if (b?.anytime !== true && new Date(Date.now() + 9 * 3600 * 1000).getUTCHours() < 19) return { ok: false, error: "too-early" };
   const day = new Date(Date.parse(eduKst() + "T00:00:00Z") + 86400000).toISOString().slice(0, 10);   // 내일(한국)
   const { data, error } = await db.rpc("duty_remind_ids", { p_date: day });
   if (error) throw error;
   const ids = [...dutyClaimedIds(data)];
-  const sent = ids.length ? await dutyNotifySend("remind", ids) : 0;
-  return { ok: true, day, rows: ids.length, sent };
+  const n = ids.length ? await dutyNotifySend("remind", ids, day) : { sent: 0, missed: 0 };
+  try {
+    const at = new Date().toISOString();
+    await db.from("app_config").upsert({ key: "dutyRemindRun", value: { at, day, rows: ids.length, sent: n.sent, missed: n.missed }, updated_at: at });
+  } catch (e) { console.error("dutyRemindRun", e); }
+  return { ok: true, day, rows: ids.length, sent: n.sent, missed: n.missed, ...(n.off ? { off: true } : {}) };
 }
 
 // 신청 한 건의 키는 (연도, user_id) 다. 이 앱은 로그인이 교구·목장·이름을

@@ -104,6 +104,7 @@ begin
   r := duty_slot_set(s1, 3); if (r->>'capacity')::int is distinct from 3 then raise exception '정원 3: %', r; end if;
   r := duty_apply(s1, u[1], '{"name":"당번시험1"}');
   if (r->>'revived')::boolean is not true or (r->>'id')::bigint is distinct from e1 then raise exception '다시 지원 = 되살림: %', r; end if;
+  if (r->>'hadUser')::boolean is not true then raise exception '되살린 줄에 앱 계정이 있다(hadUser): %', r; end if;
   if (select count(*) from public.duty_signups where slot_id = s1 and user_id = u[1]) is distinct from 1 then raise exception '자리·사람에 한 줄'; end if;
   if exists (select 1 from public.duty_notify_log where signup_id = e1) then raise exception '되살리면 예전 알림 기록을 지운다'; end if;
 
@@ -127,6 +128,7 @@ begin
   -- ── 계정 없는 줄(대신 넣기) ──
   r := duty_apply(s2, null, '{"name":"새가족","who_type":"새가족","ident_key":"staff|새가족||새가족"}', true);
   if (r->>'ok')::boolean is not true then raise exception '대신 넣기(계정 없음): %', r; end if; ek := (r->>'id')::bigint;
+  if (r->>'hadUser')::boolean is not false then raise exception '계정 없는 줄은 hadUser 가 아니다: %', r; end if;
   r := duty_apply(s2, null, '{"name":"새가족","ident_key":"staff|새가족||새가족"}', true);
   if (r->>'already')::boolean is not true then raise exception '대신 넣기 두 번: %', r; end if;
   r := duty_apply(s3, null, '{"name":"새가족","ident_key":"staff|새가족||새가족"}', true);
@@ -320,6 +322,42 @@ begin
   if (r->>'past')::boolean is not false or (r->>'dayOff')::boolean is not false then raise exception '알림 재료 — 앞날·안 쉬는 날: %', r; end if;
   if (duty_notify_rows(array[e5])->0->>'pastCutoff')::boolean is not true then raise exception '알림 재료 — 오늘 자리는 전날 저녁이 지났다: %', duty_notify_rows(array[e5]); end if;
   if not (e5 = any(duty_remind_ids(t0))) then raise exception '전날 알림 대상(오늘 날짜로 불러 봄)'; end if;
+  -- 검토 반영(2026-10-07) — 알림 재료의 새 칸(confirmed · ended · dup) · 확정을 풀어도 알림 기록은 그대로(같은 줄에 한 번) · 앞날 줄을 지난 날 자리로는 옮기지 않는다(to-past)
+  declare bx uuid; lx bigint; s_past bigint; s_next bigint; ex bigint; e_dup bigint; e_today bigint; rr jsonb;
+  begin
+    insert into public.duty_boards(title, status) values ('[시험] 알림 재료', 'open') returning id into bx;
+    rr := duty_line_save(bx, jsonb_build_object('service','가','task','','start','09:00','end','10:00','capacity',3)); lx := (rr->>'id')::bigint;
+    perform duty_date_add(bx, t0 - 1, array[lx]); perform duty_date_add(bx, t0 + 3, array[lx]); perform duty_date_add(bx, t0, array[lx]);
+    select id into s_past from public.duty_slots where line_id = lx and on_date = t0 - 1;
+    select id into s_next from public.duty_slots where line_id = lx and on_date = t0 + 3;
+    if lx is null or s_past is null or s_next is null then raise exception '알림 재료 시험 준비'; end if;
+    rr := duty_apply(s_next, u[7], '{"name":"당번시험7"}', true, true); ex := (rr->>'id')::bigint;
+    if (rr->>'ok')::boolean is not true or (rr->>'hadUser')::boolean is not true then raise exception '담당자가 계정으로 넣은 줄(hadUser): %', rr; end if;
+    rr := duty_move(ex, s_past, true); if rr->>'error' is distinct from 'to-past' then raise exception '앞날 줄 → 지난 날 자리(to-past): %', rr; end if;
+    if (select slot_id from public.duty_signups where id = ex) is distinct from s_next then raise exception 'to-past 거절은 아무것도 옮기지 않는다'; end if;
+    rr := duty_notify_rows(array[ex])->0;
+    if not (rr ? 'confirmed') or not (rr ? 'ended') or not (rr ? 'dup') then raise exception '알림 재료의 새 칸: %', rr; end if;
+    if (rr->>'confirmed')::boolean is not false or (rr->>'ended')::boolean is not false or (rr->>'dup')::boolean is not false then raise exception '알림 재료 — 확정 전 · 앞날 · 겹친 줄 없음: %', rr; end if;
+    rr := duty_day_set(bx, t0 + 3, 'confirm'); if (rr->>'ok')::boolean is not true then raise exception '확정: %', rr; end if;
+    if (duty_notify_rows(array[ex])->0->>'confirmed')::boolean is not true then raise exception '알림 재료 — 확정한 날'; end if;
+    perform duty_notify_claim('confirmed', array[ex]); perform duty_notify_claim('remind', array[ex]);
+    rr := duty_day_set(bx, t0 + 3, 'unconfirm'); if (rr->>'ok')::boolean is not true then raise exception '확정 풀기: %', rr; end if;
+    -- 확정을 풀어도 알림 기록은 그대로다 — 같은 줄에 같은 알림은 한 번(다시 확정해도 이미 받은 분께는 다시 가지 않는다 · 실패해 안 잡힌 분께만 간다)
+    if (select count(*) from public.duty_notify_log where signup_id = ex) is distinct from 2 then raise exception '확정을 풀어도 알림 기록(확정·전날)은 그대로'; end if;
+    if (duty_notify_rows(array[ex])->0->>'confirmed')::boolean is not false then raise exception '알림 재료 — 확정을 푼 날'; end if;
+    if cardinality(duty_notify_claim('confirmed', array[ex])) is distinct from 0 then raise exception '풀었다 다시 확정해도 이미 받은 줄은 다시 잡히지 않는다'; end if;
+    -- 같은 자리에 같은 이름(띄어쓰기는 무시)의 살아 있는 줄이 또 있다(계정 없는 줄) → dup · 그 줄을 빼면 아니다
+    rr := duty_apply(s_next, null, '{"name":"당번 시험7","ident_key":"staff|x|y|당번시험7"}', true, true); e_dup := (rr->>'id')::bigint;
+    if (rr->>'ok')::boolean is not true or e_dup is not distinct from ex then raise exception '겹친 줄 준비(앱 줄과 계정 없는 줄은 못 잇는다): %', rr; end if;
+    if (duty_notify_rows(array[ex])->0->>'dup')::boolean is not true then raise exception '알림 재료 — 같은 이름의 줄이 또 있다(dup)'; end if;
+    perform duty_cancel(e_dup, null, true);
+    if (duty_notify_rows(array[ex])->0->>'dup')::boolean is not false then raise exception '알림 재료 — 겹친 줄을 빼면 dup 이 아니다'; end if;
+    -- 오늘 자리: ended = 끝 시각(10:00 한국)이 지났나 — 지금 시각으로 견준다
+    rr := duty_apply((select id from public.duty_slots where line_id = lx and on_date = t0), u[7], '{"name":"당번시험7"}', true, true); e_today := (rr->>'id')::bigint;
+    if (duty_notify_rows(array[e_today])->0->>'ended')::boolean is distinct from ((now() at time zone 'Asia/Seoul')::time >= time '10:00') then
+      raise exception '알림 재료 — 오늘 끝난 자리(ended): %', duty_notify_rows(array[e_today]);
+    end if;
+  end;
 
   -- ── 자리 틀 고치기 · 빼기 ──
   r := duty_line_save(b, jsonb_build_object('id',l1,'service','1부 예배','task','설거지','start','09:00','end','10:00','capacity',2,'weekday',wd));
@@ -526,6 +564,7 @@ begin
   perform duty_cancel(er, null, true);
   r := duty_apply(sa, null, '{"name":"가상명부","ident_key":"person|7001"}', true);
   if (r->>'revived')::boolean is not true or (r->>'id')::bigint is distinct from er then raise exception '뺀 뒤 계정 없이 다시 넣으면 그 줄을 되살린다: %', r; end if;
+  if (r->>'hadUser')::boolean is not true then raise exception '계정을 못 맞춘 채 되살려도 그 줄의 계정은 그대로다 — hadUser(알림은 그 계정으로 간다): %', r; end if;
   if (select user_id from public.duty_signups where id = er) is distinct from u[6] then raise exception '되살려도 이어 둔 계정은 그대로'; end if;
   -- 옮기기·되살리기 — 옮길 자리에 같은 분(명부 키)의 살아 있는 줄이 있으면 already-there
   r := duty_slot_set(sc, null, false); if (r->>'off')::boolean is not false then raise exception '다 자리 다시 열기: %', r; end if;
