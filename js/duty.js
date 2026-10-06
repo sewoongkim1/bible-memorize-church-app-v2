@@ -137,6 +137,7 @@ var DUTY_UNSURE_FAIL = '화면을 새로 받지 못했어요 — 잠시 뒤 다�
 //   'off' 는 그날이 쉬든 자리만 쉬든 같은 코드로 온다 — 「쉬는 날이에요」라고만 하면 자리만 쉴 때 같은 날 다른 당번까지 빠지신다.
 //   'no-user'(서버에 계정 줄이 없다 — 기록을 합쳐 옛 계정이 사라진 기기)는 로그인돼 있는 분께 온다 — 「로그인한 뒤에」라고 하지 않는다(닫힘과 같은 말 · 목록으로 돌린다).
 //   겹침에 with 가 없으면 준비 중 당번에 담당자가 넣어 둔 줄이다 — 「내 당번」에는 보이지 않으므로(받는 중·지원 멈춤 당번만 싣는다) 그 말을 함께 한다.
+//     「아직 열리지 않은」이라고 하지 않는다 — 받는 중이던 당번을 준비로 되돌린 것일 수 있다(「지금 열려 있지 않은」).
 //   'guardian' 은 어린이 부서만이 아니다(사랑부 · 중등부 1·2학년 포함 — 중3·고등부는 지원한다) — 부서 이름을 넘겨짚지 않는다.
 function dutyErrText(code, x) {
   var o = x || {};
@@ -145,7 +146,7 @@ function dutyErrText(code, x) {
     if (w && (w.board || w.service)) {
       return '같은 날 겹치는 시간에 이미 ' + [w.board, [w.service, w.task].filter(Boolean).join(' ')].filter(Boolean).join(' ') + (w.start ? '(' + w.start + ')' : '') + ' 당번이 있어요.';
     }
-    return '같은 날 겹치는 시간에 이미 다른 당번이 있어요. 「내 당번」에 보이지 않으면 아직 앱에 열리지 않은 당번이에요 — 담당자께 말씀해 주세요.';
+    return '같은 날 겹치는 시간에 이미 다른 당번이 있어요. 「내 당번」에 보이지 않으면 지금 앱에 열려 있지 않은 당번이에요 — 담당자께 말씀해 주세요.';
   }
   if (code === 'too-many') return '이 당번은 한 분이 ' + (dutySeatWord(o.max) || '정해진 수') + '까지 미리 잡아 둘 수 있어요. 서신 뒤에 다시 지원해 주세요.';
   var W = { 'full': '방금 자리가 찼어요.', 'closed': '지금은 앱에서 지원을 받지 않는 자리예요. 담당자께 말씀해 주세요.', 'off': '쉬는 날이거나 쉬는 자리예요.',
@@ -210,29 +211,33 @@ function dutyCalUse(days) { return (days || []).length >= DUTY_CAL_MIN; }
 //     (한 자리에 셋을 넣었다고 다른 빈 자리가 찬 것처럼 보이지 않게 — 「3/3」인데 손이 필요한 날이 되지 않는다).
 //   need: 지금 지원을 받는 빈 자리 수. 뜻은 자리 한 칸의 판정(dutySlotView = 서버가 준 why)에서 나온다(규칙을 다시 짜지 않는다).
 //   내 줄이 있어도 담당자가 뺀 줄·쉬는 자리의 줄은 「내가 서는 날」로 치지 않는다.
+//   me = { why, staffOnly } — staffOnly = 담당자가 넣는 당번(지원 멈춤). 그 당번의 자리는 모두 「담당자가 넣는 자리」(why closed)이고 그 정원이 곧 필요 인원이다.
+//     받는 중 당번의 「담당자가 넣는 자리」는 남은 자리다(뺀 틀·요일을 바꾼 틀 — 새 지원을 받지 않는다): 서 있는 분은 세되 **빈 칸은 필요 인원으로 치지 않는다**
+//     (서버의 「손이 필요한 수」도 남은 자리를 뺀다 — 「4/6」인데 지원할 자리가 없는 날이 되지 않게).
 function dutyCalCell(day, me) {
-  var d = day || {}, n = 0, cap = 0, need = 0, mine = false;
+  var d = day || {}, n = 0, cap = 0, need = 0, mine = false, live = 0, staffOnly = !!(me && me.staffOnly);
   (d.slots || []).forEach(function (s) {
     if (!s || s.off === true) return;
     var v = dutySlotView(d, s, me), c = Math.max(0, Number(s.capacity) || 0), k = Math.max(0, Number(s.n) || 0);
-    cap += c; n += Math.min(k, c);
+    if (v.kind === 'closed' && !staffOnly) c = Math.min(k, c);
+    live++; cap += c; n += Math.min(k, c);
     if (v.kind === 'open') need += Math.max(0, c - k);
     if (v.kind === 'mine' && (!s.mine.status || s.mine.status === 'active')) mine = true;
   });
-  if (d.off === true || cap === 0) return { kind: 'off', n: 0, cap: 0, need: 0, mine: false, locked: d.locked === true };
+  if (d.off === true || live === 0) return { kind: 'off', n: 0, cap: 0, need: 0, mine: false, locked: d.locked === true };
   return { kind: mine ? 'mine' : need > 0 ? 'need' : 'none', n: n, cap: cap, need: need, mine: mine, locked: d.locked === true };
 }
-// 칸에 적는 글 — 「1/2」(채워진 인원/필요 인원) · 쉬는 날은 「쉼」
+// 칸에 적는 글 — 「1/2」(채워진 인원/필요 인원) · 쉬는 날은 「쉼」 · 셀 것이 없는 날(아무도 없는 남은 자리뿐)은 빈 글
 function dutyCalMark(cell) {
   var c = cell || {};
-  return c.kind === 'off' ? '쉼' : (Number(c.n) || 0) + '/' + (Number(c.cap) || 0);
+  return c.kind === 'off' ? '쉼' : !(Number(c.cap) > 0) ? '' : (Number(c.n) || 0) + '/' + (Number(c.cap) || 0);
 }
 // 그 칸을 읽어 주는 말(화면 낭독) — 「10월 18일(일) — 손이 필요한 날이에요 · 필요 2명 가운데 1명 채워졌어요」
 function dutyCalLabel(day, cell) {
   var c = cell || {}, when = dutyMdw(day && day.date);
   if (c.kind === 'off') return when + ' — 쉬어요';
   var what = c.kind === 'mine' ? '내 당번이 있어요' : c.kind === 'need' ? '손이 필요한 날이에요' : '지금 지원할 수 있는 자리가 없어요';
-  return when + ' — ' + what + ' · 필요 ' + (Number(c.cap) || 0) + '명 가운데 ' + (Number(c.n) || 0) + '명 채워졌어요' + (c.locked === true ? ' · 확정된 날' : '');
+  return when + ' — ' + what + (Number(c.cap) > 0 ? ' · 필요 ' + Number(c.cap) + '명 가운데 ' + (Number(c.n) || 0) + '명 채워졌어요' : '') + (c.locked === true ? ' · 확정된 날' : '');
 }
 // 날짜들이 걸친 달 — ['2026-10', '2026-11'] (이른 달부터 · 날짜가 없는 달은 건너뛴다)
 function dutyCalMonths(days) {
@@ -274,7 +279,7 @@ function dutyCalStep(days, sel, dir, me) {
   return dutyCalPick((days || []).filter(function (d) { return String((d && d.date) || '').slice(0, 7) === to; }), '', me);
 }
 // 달력 한 달(고른 날이 든 달) — 날짜가 있는 날만 누를 수 있다(단추). 칸: 날짜 아래 「채워진 인원/필요 인원」 · 손이 필요한 날은 초록 · 내 당번은 남색 ·
-//   쉬는 날은 「쉼」 · 고른 날은 겹테두리 · 오늘은 숫자 밑줄.
+//   쉬는 날은 「쉼」 · 고른 날은 겹테두리 · 오늘은 표시(자리가 있는 날은 숫자 위 금색 줄 · 없는 날은 숫자 밑줄 — 밑줄이 인원 글에 얹히지 않게).
 //   앞뒤 달 단추는 날짜가 있는 달로만(「◀ 10월」 · 「12월 ▶」 — 그쪽에 달이 없으면 단추도 없다) · 아래 풀이는 이 당번표에 실제로 있는 표시만.
 function dutyCalHtml(days, sel, today, me) {
   var list = days || [], ym = String(sel || '').slice(0, 7), months = dutyCalMonths(list), at = months.indexOf(ym), by = {}, seen = {};
@@ -290,7 +295,7 @@ function dutyCalHtml(days, sel, today, me) {
   var nav = function (dir, to) {
     if (!to) return '<span></span>';
     return '<button type="button" class="duty-cal-nav" data-cal="' + dir + '" aria-label="' + dutyEsc(dutyCalTitle(to)) + ' 보기">' +
-      dutyEsc(dir === 'prev' ? '◀ ' + dutyCalMonthWord(to) : dutyCalMonthWord(to) + ' ▶') + '</button>';
+      (dir === 'prev' ? '◀ <span class="m">' + dutyEsc(dutyCalMonthWord(to)) + '</span>' : '<span class="m">' + dutyEsc(dutyCalMonthWord(to)) + '</span> ▶') + '</button>';
   };
   var num = seen.need || seen.mine || seen.none ? '숫자는 채워진 인원 / 필요 인원이에요.' : '';
   var key = [seen.need ? '<span class="ki"><span class="k need" aria-hidden="true"></span>손이 필요한 날</span>' : '',
@@ -317,8 +322,11 @@ function dutyDeepLink(href) {
 // calSel: 달력에서 고른 날(당번을 새로 열면 비운다 — 화면 상태일 뿐 서버에 보내지 않는다) ·
 // tok: 보낸 일(지원·취소·표시)의 번호 — 20초가 넘어 늦게 온 답이 그 뒤에 보낸 다른 일의 막음을 풀지 않게 ·
 // gen: 세대(로그아웃·신원 바꿈 때 올린다 — 앞사람의 일에 온 답을 다음 분께 알리지 않는다) ·
+// first: 「내 당번」 카드로 새로 연 당번표가 첫 그리기에 고를 날짜 — 첫 읽기가 조용한 다시 받기에 밀려나도 뒤 읽기가 이어받는다(첫 그리기 뒤 비운다) ·
+// wasCal: 바로 앞 그리기가 달력이었나(달력 ↔ 날짜 카드로 모양이 바뀐 그리기에서는 방금 한 날로 굴린다) ·
+// reads: 읽기가 성공한 수(미뤄 둔 「화면을 못 받았다」는 말이 그사이 낡았는지 본다) ·
 // owe: 일은 됐는데 화면을 아직 새로 받지 못한 동안 품고 있는 말(다음 읽기가 성공하면 지우고 · 실패하면 그때 알린다 — 다시 받기가 다른 다시 받기에 밀려나도 사라지지 않게)
-var dutyState = { screen: 0, at: '', boards: [], mine: [], me: {}, cur: '', board: null, days: [], loadedAt: 0, busy: false, busyAt: 0, calSel: '', tok: 0, gen: 0, owe: '' };
+var dutyState = { screen: 0, at: '', boards: [], mine: [], me: {}, cur: '', board: null, days: [], loadedAt: 0, busy: false, busyAt: 0, calSel: '', first: '', wasCal: false, tok: 0, gen: 0, owe: '', reads: 0 };
 // 계정 번호(user_id)를 아직 못 받았을 때 — 첫 로그인 직후 서버 답을 기다리는 몇 초 · 로그인 호출이 실패한 실행.
 //   그대로 서버를 부르면 「문 닫힘」 답이 와 「아직 열지 않았어요」라고 **사실이 아닌 말**을 하게 된다(문은 계정이 있어야 열린다).
 var DUTY_NO_ID = '아직 서버와 연결되지 않았어요. 잠시 뒤 다시 열어 주세요.';
@@ -334,18 +342,39 @@ function dutyBusy() { return dutyState.busy && Date.now() - dutyState.busyAt < 2
 //   막음을 걸면(on) 그 일의 번호를 돌려준다 — 푸는 쪽은 제 번호일 때만 푼다(늦게 온 앞 일의 답이 지금 보내는 일의 막음을 풀지 않게).
 function dutyHold(on) { dutyState.busy = !!on; dutyState.busyAt = on ? Date.now() : 0; if (on) dutyState.tok++; return dutyState.tok; }
 // 당번 화면을 떠난다(첫 화면으로) — 화면 번호를 올려, 받는 중이던 응답이 뒤늦게 와도 버려지게 한다.
-function dutyLeave() { dutyState.screen++; dutyState.at = ''; dutyState.owe = ''; }
+function dutyLeave() { dutyState.screen++; dutyState.at = ''; dutyState.owe = ''; dutyState.first = ''; }
 // 알림 — 다른 창(확인 창·앞선 알림)이 떠 있으면 그 창을 지우지 않고 닫힌 뒤에 띄운다(appModal 은 떠 있는 창을 답 없이 지운다 — 늦게 온 거절이 읽던 확인 창을 없애지 않게).
 //   gen = 그 일을 보낸 때의 세대 — 그사이 로그아웃·신원 바꿈이 있었으면 버린다(앞사람의 당번 이름·시각을 다음 분께 보이지 않는다). html 은 부르는 쪽이 dutyEsc 한 글.
-function dutyTell(html, gen) {
-  if (gen != null && gen !== dutyState.gen) return;
-  if (document.getElementById('app-modal')) { setTimeout(function () { dutyTell(html, gen); }, 400); return; }
-  appAlert(html);
+//   「취소할 수 없는 날」 다시 묻기 창도 같은 길로 띄운다(dutyWhenClear) — 그 창이 떠 있던 알림을 지우지 않게.
+//   기다리는 것들은 한 줄(dutyWait)에 서서 **온 차례대로** 뜬다(뒤에 온 알림이 앞지르지 않게) — 하나가 창을 띄우면 다음 것은 그 창이 닫힌 뒤에.
+var dutyWait = [], dutyWaitOn = false;
+function dutyWhenClear(gen, fn) { dutyWait.push({ gen: gen, fn: fn }); dutyWaitRun(); }
+function dutyWaitRun() {
+  if (dutyWaitOn) return;
+  while (dutyWait.length) {
+    if (document.getElementById('app-modal')) { dutyWaitOn = true; setTimeout(function () { dutyWaitOn = false; dutyWaitRun(); }, 400); return; }
+    var it = dutyWait.shift();
+    if (it.gen == null || it.gen === dutyState.gen) it.fn();
+  }
+}
+function dutyTell(html, gen) { dutyWhenClear(gen, function () { appAlert(html); }); }
+// 보내는 동안 자리 단추를 모두 끈다(다른 날짜 카드의 단추도) — 눌러도 말없이 버려지는 단추를 두지 않는다. 달력에서 날짜를 바꿔 다시 그려도 꺼진 모습이다
+//   (그리는 쪽이 dutyBusy() 를 본다). 답이 오면 켜고, 20초가 넘도록 답이 없으면(dutyBusy 가 풀리는 때) 켠다.
+function dutyButtons(on) {
+  var w = document.querySelector('.duty-wrap'); if (!w || !w.querySelectorAll) return;
+  w.querySelectorAll('button[data-act]').forEach(function (b) { b.disabled = !on; });
+}
+// 일을 보내기 시작한다 → { tok, done } — done() 은 제 번호일 때만 막음을 풀고 단추를 켠다(늦게 온 앞 일의 답이 지금 보내는 일의 막음을 풀지 않게).
+function dutySendStart(btn) {
+  var tok = dutyHold(true); btn.disabled = true; dutyButtons(false);
+  var t = setTimeout(function () { if (dutyState.tok === tok && dutyState.busy && !dutyBusy()) dutyButtons(true); }, 20100);
+  if (t && t.unref) t.unref();   // 시험(node)에서 이 시계가 끝나기를 기다리지 않게
+  return { tok: tok, done: function () { if (dutyState.tok !== tok) return; dutyHold(false); dutyButtons(true); if (btn.isConnected) btn.disabled = false; } };
 }
 // 로그아웃·「로그인 정보변경」(app.js 가 부른다) — 앞사람의 당번·내 당번을 메모리에서 비우고, 그분 요청에 늦게 온 응답은 버려지게 화면 번호를 올린다.
 function dutyResetState() {
   dutyLeave(); dutyState.boards = []; dutyState.mine = []; dutyState.me = {}; dutyState.cur = ''; dutyState.board = null; dutyState.days = [];
-  dutyState.loadedAt = 0; dutyState.calSel = ''; dutyState.gen++; dutyState.tok++; dutyHold(false);
+  dutyState.loadedAt = 0; dutyState.calSel = ''; dutyState.wasCal = false; dutyState.gen++; dutyState.tok++; dutyHold(false);
 }
 
 // 알림을 눌러 들어온 길(?duty=1 · 3단계) — 한 번 읽고 주소에서 duty 만 지운다(새로고침 때 또 열리지 않게 · 다른 파라미터는 둔다).
@@ -373,7 +402,7 @@ function dutyFail(text) {
 }
 function dutyMyHtml(v, idx) {   // 내 줄 상자 — idx = 단추가 가리킬 차례 번호(속성 글)
   return '<div class="duty-my ' + v.tone + '"><b>' + dutyEsc(v.head) + '</b>' + (v.sub ? '<span>' + dutyEsc(v.sub) + '</span>' : '') + '</div>' +
-    (v.btn ? '<button class="duty-btn ghost' + (v.btn.act === 'cancel' ? ' danger' : '') + '" data-act="' + v.btn.act + '" ' + idx + '>' + dutyEsc(v.btn.label) + '</button>' : '');
+    (v.btn ? '<button class="duty-btn ghost' + (v.btn.act === 'cancel' ? ' danger' : '') + '" data-act="' + v.btn.act + '" ' + idx + (dutyBusy() ? ' disabled' : '') + '>' + dutyEsc(v.btn.label) + '</button>' : '');
 }
 // 일(지원·취소·표시)을 끝낸 뒤 다시 그리기 — scr = 그 일을 누른 때의 화면 번호 · failNote = 다시 받기가 실패하면 알릴 말(일은 됐다는 것).
 //   그사이 당번 화면을 떠났으면(첫 화면 등) 아무것도 하지 않는다 — 늦게 온 응답이 다른 화면을 덮어 당번 화면으로 도로 끌어오지 않게.
@@ -386,10 +415,13 @@ function dutyRedraw(scr, redraw, failNote) {
   else if (dutyState.at === 'board' && dutyState.cur) renderDutyBoard(dutyState.cur, { soft: true, failNote: failNote });
 }
 // 읽기가 실패했을 때 — 방금 한 일이 있었으면 그 일은 됐다고 알린다(화면이 옛 모습이라 안 된 줄 아신다). 품고 있던 말은 한 번만 쓴다.
+//   이 말은 「화면이 낡았다」는 뜻이다 — 떠 있는 창 뒤에서 기다리는 사이 새 화면을 받았으면(reads 가 올랐다) 버린다(새 화면 위에 「새로 받지 못했어요」가 뜨지 않게).
 function dutySoftFail(opt) {
   var t = (opt && opt.failNote) || dutyState.owe || '';
   dutyState.owe = '';
-  if (t) dutyTell(dutyEsc(t), dutyState.gen);
+  if (!t) return;
+  var at = dutyState.reads;
+  dutyWhenClear(dutyState.gen, function () { if (dutyState.reads === at) appAlert(dutyEsc(t)); });
 }
 
 // ── 당번 목록 + 내 당번 ──
@@ -404,7 +436,7 @@ function renderDutyList(opt) {
   if (!u.user_id || typeof api.dutyList !== 'function') { if (!opt.soft) dutyFail(u.user_id ? DUTY_OLD_API : DUTY_NO_ID); return; }   // 서버는 「문 닫힘」으로만 답하므로 부르지 않는다
   api.dutyList(u.user_id).then(function (r) {
     if (my !== dutyState.screen || !document.querySelector('.duty-wrap')) return;   // 받는 사이 다른 화면으로 갔다
-    dutyState.loadedAt = Date.now();
+    dutyState.loadedAt = Date.now(); dutyState.reads++;
     if (!r || r.open === false) { dutyState.boards = []; dutyState.mine = []; dutyFail(DUTY_CLOSED); dutySoftFail(opt); return; }
     dutyState.owe = '';   // 새 화면을 받았다 — 방금 한 일이 거기 보인다
     dutyState.boards = r.boards || []; dutyState.mine = r.mine || []; dutyState.me = r.me || {};
@@ -463,12 +495,13 @@ function renderDutyBoard(id, opt) {
   opt = opt || {};
   var u = loadUser(); if (!u) { renderEntryScreen(); return; }
   if (opt.soft && !document.querySelector('.duty-wrap')) return;   // soft = 당번 화면이 떠 있을 때만
-  if (!opt.soft) { dutyShell(u); dutyState.calSel = ''; }   // 새로 열면 달력의 고른 날을 비운다(다시 받기 soft 는 고른 날을 지킨다)
+  // 새로 열면 달력의 고른 날을 비우고, 「내 당번」 카드로 왔으면 그 날짜를 첫 그리기까지 품는다(다시 받기 soft 는 고른 날을 지킨다)
+  if (!opt.soft) { dutyShell(u); dutyState.calSel = ''; dutyState.first = opt.focusDate || ''; dutyState.wasCal = false; }
   var my = ++dutyState.screen; dutyState.at = 'board'; dutyState.cur = id;
   if (!u.user_id || typeof api.dutyBoard !== 'function') { if (!opt.soft) dutyFail(u.user_id ? DUTY_OLD_API : DUTY_NO_ID); return; }
   api.dutyBoard(id, u.user_id).then(function (r) {
     if (my !== dutyState.screen || !document.querySelector('.duty-wrap')) return;   // 받는 사이 다른 화면으로 갔다
-    dutyState.loadedAt = Date.now();
+    dutyState.loadedAt = Date.now(); dutyState.reads++;
     if (!r || r.open === false) { dutyFail(DUTY_CLOSED); dutySoftFail(opt); return; }
     dutyState.owe = '';   // 새 화면을 받았다
     dutyState.board = r.board || {}; dutyState.days = r.days || []; dutyState.me = r.me || {};
@@ -487,19 +520,27 @@ function renderDutyBoard(id, opt) {
 }
 
 // 달력에서 날짜를 고른 뒤 — 그날 카드가 화면 아래쪽에 걸려 잘 안 보이면 달력을 화면 맨 위로 올린다(카드가 바로 아래에 온다). 이미 보이면 화면을 움직이지 않는다.
-function dutyCalReveal(w) {
+//   작은 화면(달력을 맨 위에 붙이면 그 아래 200px 도 안 남는다 — 320×568 · 6주짜리 달)에서는 달력 대신 **그날 카드**를 맨 위로 올린다
+//   (달력이 화면을 다 차지해 카드가 🏠 단추 밑에 깔린다 — 달력은 위로 굴리면 다시 보인다). force = 이미 보여도 올린다(「내 당번」 카드로 들어올 때).
+function dutyCalReveal(w, force) {
   var cal = w.querySelector('.duty-cal'), card = w.querySelector('.duty-day');
   if (!cal || !card || !card.getBoundingClientRect || !cal.scrollIntoView) return;
-  if (card.getBoundingClientRect().top <= window.innerHeight * 0.6) return;
+  if (!force && card.getBoundingClientRect().top <= window.innerHeight * 0.6) return;
   var calm = !!window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  cal.scrollIntoView({ block: 'start', behavior: calm ? 'auto' : 'smooth' });
+  var tight = window.innerHeight - (Number(cal.getBoundingClientRect().height) || 0) < 200;
+  (tight ? card : cal).scrollIntoView({ block: 'start', behavior: calm || force ? 'auto' : 'smooth' });
 }
 
 //   opt.pick: 달력에서 날짜를 골랐다 · opt.nav: 앞뒤 달 단추(prev|next)를 눌렀다 — 둘 다 서버를 부르지 않고 가진 자료로 다시 그린 것
 function dutyDrawBoard(u, today, opt) {
   var w = document.querySelector('.duty-wrap'); if (!w) return;
-  var b = dutyState.board, days = dutyState.days, me = dutyState.me, y = window.scrollY;
+  var b = dutyState.board, days = dutyState.days, y = window.scrollY;
   var staffOnly = b.status === 'closed';
+  var me = { why: dutyState.me && dutyState.me.why, staffOnly: staffOnly };   // 달력 칸이 남은 자리(받는 중 당번)와 담당자가 넣는 당번의 자리를 가르게
+  // 「내 당번」 카드로 새로 연 당번표의 첫 그리기인가 — 첫 읽기가 조용한 다시 받기에 밀려났으면 이 그리기(soft)가 그 날짜를 이어받는다
+  var first = dutyState.first; dutyState.first = '';
+  var focus = opt.focusDate || first || '', arrive = !!first;
+  var hold = dutyBusy() ? ' disabled' : '';   // 보내는 동안 다시 그리면(달력에서 날짜를 바꿈) 자리 단추는 꺼진 모습
   var slotHtml = function (d, s, di, si) {
     var v = dutySlotView(d, s, me), names = (s.names || []).filter(Boolean);
     return '<div class="duty-slot' + (v.kind === 'mine' ? ' mine' : '') + (v.kind === 'off' ? ' off' : '') + '">' +
@@ -508,29 +549,30 @@ function dutyDrawBoard(u, today, opt) {
       '<div class="duty-names">' + (names.length ? names.map(dutyEsc).join(' · ') : '아직 아무도 없어요') + '</div>' +
       (v.my ? dutyMyHtml(v.my, 'data-d="' + di + '" data-s="' + si + '"')
         : '<div class="duty-line' + (v.kind === 'open' ? ' need' : '') + '">' + dutyEsc(v.line) + '</div>' +
-          (v.btn ? '<button class="duty-btn" data-act="apply" data-d="' + di + '" data-s="' + si + '">' + dutyEsc(v.btn.label) + '</button>' : '')) + '</div>';
+          (v.btn ? '<button class="duty-btn" data-act="apply" data-d="' + di + '" data-s="' + si + '"' + hold + '>' + dutyEsc(v.btn.label) + '</button>' : '')) + '</div>';
   };
   var dayOne = function (d, di) {
     var line = dutyDayLine(d, staffOnly);
     return '<section class="duty-day' + (d.off ? ' off' : '') + (d.locked ? ' locked' : '') + '" data-date="' + dutyEsc(d.date) + '">' +
       '<div class="duty-day-h"><b>' + dutyEsc(dutyMdw(d.date)) + '</b>' + (d.date === today ? '<span class="duty-today">오늘</span>' : '') + '</div>' +
       (line ? '<p class="duty-day-s">' + dutyEsc(line) + '</p>' : '') +
-      (opt.note && opt.focusDate === d.date ? '<p class="duty-note" role="status">' + dutyEsc(opt.note) + '</p>' : '') +
+      (opt.note && focus === d.date ? '<p class="duty-note" role="status">' + dutyEsc(opt.note) + '</p>' : '') +
       (d.slots || []).map(function (s, si) { return slotHtml(d, s, di, si); }).join('') + '</section>';
   };
   // 날짜가 많으면 달력 + 고른 날 하나만(차례 번호 di 는 days 의 자리 그대로 — 단추가 그 번호로 꺼낸다) · 적으면 날짜 카드를 모두.
   //   고른 날: 내 당번 카드로 온 날·방금 지원·취소한 날(focusDate)이 당번표에 있으면 그날 → 전에 고른 날 → 내가 서거나 손이 필요한 가장 이른 날
   var useCal = dutyCalUse(days), sel = '';
   if (useCal) {
-    var hasFocus = !!opt.focusDate && days.some(function (d) { return d.date === opt.focusDate; });
-    sel = dutyState.calSel = dutyCalPick(days, hasFocus ? opt.focusDate : dutyState.calSel, me);
+    var hasFocus = !!focus && days.some(function (d) { return d.date === focus; });
+    sel = dutyState.calSel = dutyCalPick(days, hasFocus ? focus : dutyState.calSel, me);
   }
+  var switched = dutyState.wasCal !== useCal; dutyState.wasCal = useCal;   // 달력 ↔ 날짜 카드로 모양이 바뀌었다(날짜 수가 4 를 넘나듦)
   var dayHtml = useCal ? dutyCalHtml(days, sel, today, me) + days.map(function (d, di) { return d.date === sel ? dayOne(d, di) : ''; }).join('') : days.map(dayOne).join('');
   // 맨 위 한 줄 — 이 계정이 앱에서 지원하지 못하는 까닭(받는 중 당번에서만) · 내 당번 카드로 왔는데 그 날짜가 당번표에 안 보일 때
   //   (보이는 기간 밖에 담당자가 더해 둔 날 · 끝 날짜 뒤의 날 — 「아직」이라고 하지 않는다: 끝 날짜 뒤면 앞으로도 안 보인다)
   var meNote = staffOnly ? '' : dutyMeNote(me);
-  var miss = opt.focusDate && !opt.soft && dutyMdw(opt.focusDate) && !days.some(function (d) { return d.date === opt.focusDate; })
-    ? dutyMdw(opt.focusDate) + ' 당번은 지금 당번표에 보이지 않는 날짜예요 — 「내 당번」에서 확인해 주세요.' : '';
+  var miss = arrive && dutyMdw(focus) && !days.some(function (d) { return d.date === focus; })
+    ? dutyMdw(focus) + ' 당번은 지금 당번표에 보이지 않는 날짜예요 — 「내 당번」에서 확인해 주세요.' : '';
   w.innerHTML = '<div class="duty-top"><span class="duty-kind">' + (staffOnly ? '담당자가 넣는 당번' : '지원 받는 중') + '</span>' +
       '<button class="back-btn" id="duty-back">← 봉사 당번</button></div>' +
     '<h2 class="duty-title">' + dutyEsc(b.title) + '</h2>' +
@@ -540,16 +582,21 @@ function dutyDrawBoard(u, today, opt) {
     (staffOnly ? '<p class="duty-note">이 당번은 담당자가 넣어요 — 앱에서는 당번표와 내 당번을 볼 수 있어요.</p>' : '') +
     (meNote ? '<p class="duty-note" role="note">' + dutyEsc(meNote) + '</p>' : '') +
     (miss ? '<p class="duty-note" role="status">' + dutyEsc(miss) + '</p>' : '') +
-    // 날짜가 비는 까닭은 여럿이다 — 자리 틀을 아직 안 넣음 · 담당자가 더한 날짜가 아직 보이는 기간 밖(가까워지면 저절로 보인다) · 끝 날짜가 지남.
-    //   「담당자가 날짜를 넣으면 보여요」라고만 하면 둘째에서 사실이 아니다(이미 넣었다) — 어느 쪽에도 참인 말을 쓴다(위의 「내 당번」 안내 줄과도 어긋나지 않게).
-    (days.length ? dayHtml : '<p class="duty-empty">지금은 당번표에 보이는 날짜가 없어요 — 날짜가 가까워지거나 담당자가 날짜를 넣으면 여기에 보여요.</p>');
+    // 다른 날을 보는 사이 끝난 일(달력) — 그날로 끌고 가지 않고 맨 위 한 줄로 알린다(어느 날·어느 자리인지 함께)
+    (opt.topNote ? '<p class="duty-note" role="status">' + dutyEsc(opt.topNote) + '</p>' : '') +
+    // 날짜가 비는 까닭은 여럿이다 — 자리 틀을 아직 안 넣음 · 담당자가 더한 날짜가 아직 보이는 기간 밖 · 끝 날짜가 지남(당겨짐). 화면은 어느 쪽인지 모른다.
+    //   「담당자가 날짜를 넣으면」(이미 넣었을 수 있다) · 「날짜가 가까워지면」(끝 날짜가 지났으면 오지 않는다)처럼 까닭을 넘겨짚지 않는다 — 보이는 날짜가 없다는 것과 물을 곳만 말한다.
+    (days.length ? dayHtml : '<p class="duty-empty">지금은 당번표에 보이는 날짜가 없어요 — 궁금하신 점은 담당자께 문의해 주세요.</p>');
   document.getElementById('duty-back').addEventListener('click', function () { renderDutyList({ stay: true }); });
-  if (opt.soft) window.scrollTo(0, y);   // 다시 받은 뒤에도 보던 자리 그대로
-  else if (opt.focusDate) {
-    // 내 당번 카드로 왔다 — 그 날짜를 화면에. 달력이면 달력을 맨 위로(고른 날의 자리가 바로 아래다 · 그 날짜가 당번표에 없으면 맨 위 안내 줄이 보이게 그대로 둔다)
-    var box = useCal && sel === opt.focusDate ? w.querySelector('.duty-cal') : null;
-    if (!useCal) w.querySelectorAll('.duty-day').forEach(function (x) { if (x.dataset.date === opt.focusDate) box = x; });
-    if (box && box.scrollIntoView) box.scrollIntoView({ block: 'start' });
+  var dayBox = function (date) { var x = null; w.querySelectorAll('.duty-day').forEach(function (e) { if (e.dataset.date === date) x = e; }); return x; };
+  if (arrive) {
+    // 내 당번 카드로 왔다 — 그 날짜를 화면에. 달력이면 달력(작은 화면은 그날 카드)을 맨 위로 · 그 날짜가 당번표에 없으면 맨 위 안내 줄이 보이게 그대로 둔다
+    if (useCal) { if (sel === focus) dutyCalReveal(w, true); }
+    else { var box = dayBox(focus); if (box && box.scrollIntoView) box.scrollIntoView({ block: 'start' }); }
+  } else if (opt.soft) {
+    window.scrollTo(0, y);   // 다시 받은 뒤에도 보던 자리 그대로
+    // …다만 달력 ↔ 날짜 카드로 모양이 바뀌었으면(날짜 수가 4 를 넘나듦) 방금 한 날의 카드가 밀려나 있다 — 그날로 굴린다
+    if (switched && opt.focusDate) { if (useCal) dutyCalReveal(w, true); else { var moved = dayBox(opt.focusDate); if (moved && moved.scrollIntoView) moved.scrollIntoView({ block: 'start' }); } }
   }
   // 달력에서 날짜·달을 골랐다 — 다시 그려 단추가 새것이라 초점을 돌려주고(앞뒤 달 단추 · 그쪽 달이 더 없어 단추가 사라졌으면 고른 날), 날짜를 골랐으면 그날 카드가 보이게 한다
   if (opt.pick || opt.nav) {
@@ -557,7 +604,12 @@ function dutyDrawBoard(u, today, opt) {
     if (f && f.focus) f.focus({ preventScroll: true });
     if (opt.pick) dutyCalReveal(w);
   }
-  var again = function (date, note, failNote) { renderDutyBoard(dutyState.cur, { soft: true, focusDate: date, note: note || '', failNote: failNote }); };
+  // 일을 끝낸 뒤 다시 받기 — 그 날짜로 돌아가 그 칸의 바뀐 모습을 보여 준다. 다만 답을 기다리는 사이 달력에서 **다른 날을 보고 있으면**
+  //   그날로 끌고 가지 않는다(보던 날의 단추를 누르려던 자리에 앞 일의 결과가 그려진다) — 보던 날에 머문 채 맨 위 한 줄(away = 「10월 18일(일) 2부 설거지 — 지원했어요.」)로 알린다.
+  var again = function (date, note, failNote, away) {
+    var elsewhere = dutyCalUse(dutyState.days) && !!dutyState.calSel && dutyState.calSel !== date;
+    renderDutyBoard(dutyState.cur, elsewhere ? { soft: true, topNote: away || '', failNote: failNote } : { soft: true, focusDate: date, note: note || '', failNote: failNote });
+  };
   w.onclick = function (ev) {
     // 달력 — 앞뒤 달 · 날짜 고르기. 서버를 다시 부르지 않고 가진 자료로 다시 그린다(화면 번호는 그대로 — 받는 중인 응답을 버리지 않는다).
     var nav = ev.target.closest('button[data-cal]');
@@ -576,7 +628,7 @@ function dutyDrawBoard(u, today, opt) {
     var btn = ev.target.closest('button[data-act]'); if (!btn) return;
     var d = days[Number(btn.dataset.d)], s = d && (d.slots || [])[Number(btn.dataset.s)]; if (!s) return;
     if (btn.dataset.act === 'apply') dutyApplyFlow(btn, u, b, d, s, again);
-    else if (s.mine) dutyMyAct(btn, btn.dataset.act, s.mine.id, { date: d.date, slot: s }, function (n, f) { again(d.date, n, f); });
+    else if (s.mine) dutyMyAct(btn, btn.dataset.act, s.mine.id, { date: d.date, slot: s }, function (n, f) { again(d.date, n, f, n ? dutyMdw(d.date) + ' ' + dutySlotName(s) + ' — ' + n : ''); });
   };
 }
 
@@ -592,11 +644,10 @@ function dutyApplyFlow(btn, u, board, day, slot, again) {
   if (dutyBusy()) return;
   var l = userLines(u), who = l.l2 + (l.l1 ? ' · ' + l.l1 : ''), scr = dutyState.screen, gen = dutyState.gen;
   var label = dutyMdw(day.date) + ' ' + dutySlotName(slot);   // 알림에 어느 자리인지 — 늦게 온 답이 다른 자리 일로 읽히지 않게
-  var redo = function (failNote) { dutyRedraw(scr, function () { again(day.date, '', failNote); }, failNote); };
+  var redo = function (failNote, away) { dutyRedraw(scr, function () { again(day.date, '', failNote, away); }, failNote); };
   var send = function (ack) {
-    var tok = dutyHold(true); btn.disabled = true;
-    var done = function () { if (dutyState.tok === tok) dutyHold(false); if (btn.isConnected) btn.disabled = false; };
-    api.dutyApply(slot.id, u.user_id || '', ack).then(function () { done(); if (gen === dutyState.gen) redo('지원은 됐어요.' + DUTY_RELOAD_TAIL); })   // 알림 창 없이 — 그 칸이 「✅ 지원했어요」로 바뀐다
+    var done = dutySendStart(btn).done;
+    api.dutyApply(slot.id, u.user_id || '', ack).then(function () { done(); if (gen === dutyState.gen) redo(label + ' — 지원은 됐어요.' + DUTY_RELOAD_TAIL, label + ' — 지원했어요.'); })   // 알림 창 없이 — 그 칸이 「✅ 지원했어요」로 바뀐다
       .catch(function (err) {
         done();
         if (gen !== dutyState.gen) return;   // 로그아웃·신원 바꿈 뒤에 온 답 — 앞사람의 일을 다음 분께 알리지 않는다
@@ -604,7 +655,9 @@ function dutyApplyFlow(btn, u, board, day, slot, again) {
         // 그사이 잠긴 날 — 아무것도 안 쓰였다. 아직 그 당번을 보고 있으면 「취소할 수 없는 날」 창을 띄우고,
         //   떠났으면 창은 띄우지 않되 **안 됐다는 것은 알린다**(확인 창에서 「지원하기」를 누르신 분이 지원한 줄 아신다).
         if (code === 'locked-day' && !ack) {
-          if (dutyState.at === 'board' && dutyState.cur === board.id && document.querySelector('.duty-wrap')) { ask(true); return; }
+          var here = function () { return dutyState.at === 'board' && dutyState.cur === board.id && !!document.querySelector('.duty-wrap'); };
+          // 창은 떠 있는 다른 창(앞선 알림)이 닫힌 뒤에 띄운다 — 그 창을 답 없이 지우지 않게. 닫힌 때에 이 당번을 떠났으면 창 대신 알린다.
+          if (here()) { dutyWhenClear(gen, function () { if (here()) ask(true); else { appAlert(dutyEsc(label + ' 지원이 안 됐어요 — ' + dutyErrText(code))); redo(''); } }); return; }
           dutyTell(dutyEsc(label + ' 지원이 안 됐어요 — ' + dutyErrText(code)), gen); redo(''); return;
         }
         if (code === 'not-open' || code === 'no-user') { dutyTell(dutyEsc(dutyErrText(code)), gen); if (document.querySelector('.duty-wrap')) renderDutyList({ stay: true }); return; }
@@ -645,8 +698,7 @@ function dutyMyAct(btn, act, signupId, at, after) {
   var u = loadUser(); if (!u) { renderEntryScreen(); return; }
   var label = dutyMdw(at.date) + ' ' + dutySlotName(at.slot), scr = dutyState.screen, gen = dutyState.gen;
   var run = function (call, okNote, failNote) {
-    var tok = dutyHold(true); btn.disabled = true;
-    var done = function () { if (dutyState.tok === tok) dutyHold(false); if (btn.isConnected) btn.disabled = false; };
+    var done = dutySendStart(btn).done;
     call().then(function () { done(); if (gen === dutyState.gen) dutyRedraw(scr, function () { after(okNote, failNote); }, failNote); }).catch(function (err) {
       done();
       if (gen !== dutyState.gen) return;   // 로그아웃·신원 바꿈 뒤에 온 답
@@ -659,15 +711,15 @@ function dutyMyAct(btn, act, signupId, at, after) {
   };
   if (act === 'cancel') {
     appConfirm(dutyEsc(label + ' 지원을 취소할까요?'), { okText: '지원 취소', cancelText: '돌아가기', danger: true }).then(function (yes) {
-      if (yes) run(function () { return api.dutyCancel(signupId, u.user_id || ''); }, '취소했어요.', '취소는 됐어요.' + DUTY_RELOAD_TAIL);
+      if (yes) run(function () { return api.dutyCancel(signupId, u.user_id || ''); }, '취소했어요.', label + ' — 취소는 됐어요.' + DUTY_RELOAD_TAIL);
     });
   } else if (act === 'ask') {
     dutyPickWhy().then(function (why) {
-      if (why) run(function () { return api.dutyAsk(signupId, u.user_id || '', why); }, '담당자 당번표에 표시했어요.', '담당자 당번표에 표시는 됐어요.' + DUTY_RELOAD_TAIL);
+      if (why) run(function () { return api.dutyAsk(signupId, u.user_id || '', why); }, '담당자 당번표에 표시했어요.', label + ' — 담당자 당번표에 표시는 됐어요.' + DUTY_RELOAD_TAIL);
     });
   } else if (act === 'unask') {
     appConfirm(dutyEsc('못 간다는 표시를 거둘까요? 그대로 서시는 것으로 돼요.'), { okText: '표시 거두기', cancelText: '돌아가기' }).then(function (yes) {
-      if (yes) run(function () { return api.dutyAsk(signupId, u.user_id || '', null); }, '표시를 거뒀어요.', '표시는 거뒀어요.' + DUTY_RELOAD_TAIL);
+      if (yes) run(function () { return api.dutyAsk(signupId, u.user_id || '', null); }, '표시를 거뒀어요.', label + ' — 표시는 거뒀어요.' + DUTY_RELOAD_TAIL);
     });
   }
 }

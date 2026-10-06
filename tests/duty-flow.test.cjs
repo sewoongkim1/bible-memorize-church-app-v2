@@ -10,18 +10,24 @@ const UID = '00000000-0000-4000-8000-000000000001';
 function world(over) {
   const o = over || {};
   const alerts = [], confirms = [], logs = [];
-  let wrap = null, now = 1760000000000, entry = 0, cardTop = 700, modal = false;
+  let wrap = null, now = 1760000000000, entry = 0, cardTop = 700, calHeight = 400, modal = false;
   const created = [];   // document.createElement 로 만든 것(까닭 고르기 창)
   const touched = [];   // 화면이 건드린 것(초점 · 굴리기) — 달력
   const mkEl = () => ({ addEventListener(t, f) { this['on_' + t] = f; }, dataset: {}, isConnected: true, disabled: false, classList: { add() {}, remove() {} }, remove() {} });
   let fab = mkEl(), back = mkEl();
-  const mkWrap = (h) => ({ _h: h, set innerHTML(v) { this._h = String(v); back = mkEl(); }, get innerHTML() { return this._h; }, querySelectorAll() { return []; }, onclick: null, onkeydown: null,
+  const mkWrap = (h) => ({ _h: h, set innerHTML(v) { this._h = String(v); back = mkEl(); }, get innerHTML() { return this._h; }, onclick: null, onkeydown: null,
+    querySelectorAll(sel) {   // 날짜 카드들(굴리기를 받아 적는다) — 그 밖은 빈 목록
+      if (sel !== '.duty-day') return [];
+      return [...this._h.matchAll(/<section class="duty-day[^"]*" data-date="([^"]+)"/g)].map((m) => ({ dataset: { date: m[1] },
+        scrollIntoView(o) { touched.push('scroll .duty-day[' + m[1] + '] ' + ((o && o.block) || '')); } }));
+    },
     querySelector(sel) {   // 달력이 찾는 것만 — 그 글자가 화면에 있으면 흉내 낸 요소를 준다
       const m = /^button\[data-cal="(prev|next)"\]$/.exec(sel);
       const has = m ? this._h.includes('data-cal="' + m[1] + '"') : sel === '.duty-cal' ? this._h.includes('class="duty-cal"') : sel === '.duty-day' ? this._h.includes('<section class="duty-day')
         : sel === '.duty-cal-c.on' ? /class="duty-cal-c has k-\w+ on/.test(this._h) : false;
       if (!has) return null;
-      return { focus() { touched.push('focus ' + sel); }, scrollIntoView(o) { touched.push('scroll ' + sel + ' ' + ((o && o.block) || '')); }, getBoundingClientRect: () => ({ top: cardTop }) };
+      return { focus() { touched.push('focus ' + sel); }, scrollIntoView(o) { touched.push('scroll ' + sel + ' ' + ((o && o.block) || '')); },
+        getBoundingClientRect: () => ({ top: cardTop, height: sel === '.duty-cal' ? calHeight : 300 }) };
     } });
   const app = {
     _h: '',
@@ -72,7 +78,7 @@ function world(over) {
   const tap = (dataset) => tapSel('button[data-act]', dataset);
   return { ctx, alerts, confirms, logs, pending, listeners, settle, tap,
     tapDate: (date) => tapSel('button[data-date]', { date }), tapCal: (dir) => tapSel('button[data-cal]', { cal: dir }),   // 달력의 날짜 · 앞뒤 달 단추
-    touched: () => touched.splice(0), setCardTop: (v) => { cardTop = v; },
+    touched: () => touched.splice(0), setCardTop: (v) => { cardTop = v; }, setCalHeight: (v) => { calHeight = v; },
     setModal: (v) => { modal = !!v; },   // 다른 창이 떠 있다
     pickWhy: (why) => created[created.length - 1].on_click({ target: { closest: (sel) => (sel === '[data-why]' ? { dataset: { why } } : null) } }),   // 「못 가게 됐어요」 까닭 고르기
     shown: () => (wrap ? 'DUTY[' + kind(wrap._h) + ']' : app._h.includes('HOME') ? 'HOME' : app._h.includes('ENTRY') ? 'ENTRY' : 'OTHER'),
@@ -147,7 +153,7 @@ test('다시 받기 실패 — 일은 됐는데 화면을 못 받았으면 그�
   let w = world(); await openBoard(w);
   w.tap({ act: 'apply', d: '0', s: '0' }); await w.settle(); await w.answer(0, { ok: true });
   await w.fail(0, 'Failed to fetch');
-  assert.equal(w.alerts.length, 1); assert.ok(w.alerts[0].startsWith('지원은 됐어요.') && w.alerts[0].includes('다시 열어 확인해 주세요'));
+  assert.equal(w.alerts.length, 1); assert.ok(w.alerts[0].startsWith('10월 18일(일) 2부 설거지 — 지원은 됐어요.') && w.alerts[0].includes('다시 열어 확인해 주세요'));
   assert.equal(w.shown(), 'DUTY[board]', '보던 화면은 그대로');
   // 다른 앱에 다녀온 뒤의 조용한 다시 받기 — 실패해도 알리지 않고 보던 화면 그대로
   w = world(); await openBoard(w);
@@ -285,7 +291,9 @@ test('내 당번 카드로 왔는데 그 날짜가 당번표에 없다(보이는
 test('날짜가 하나도 없는 당번(자리 틀을 아직 안 넣음 · 끝 날짜가 지남) — 까닭을 한 줄로 · 지원 단추는 없다', async () => {
   const w = world(); w.ctx.renderDutyBoard('b-1'); await w.answer(0, boardRes({ days: [] }));
   assert.equal(w.shown(), 'DUTY[board]');
-  assert.ok(w.html().includes('지금은 당번표에 보이는 날짜가 없어요 — 날짜가 가까워지거나 담당자가 날짜를 넣으면 여기에 보여요.') && !w.html().includes('data-act="apply"'));
+  assert.ok(w.html().includes('지금은 당번표에 보이는 날짜가 없어요 — 궁금하신 점은 담당자께 문의해 주세요.') && !w.html().includes('data-act="apply"'));
+  // 까닭을 넘겨짚지 않는다 — 「담당자가 날짜를 넣으면」(이미 넣었을 수 있다) · 「가까워지면」(끝 날짜가 지났으면 오지 않는다)
+  assert.equal(/담당자가 날짜를 넣으면|가까워지/.test(w.html()), false);
   // 담당자가 이미 더한 날짜가 보이는 기간 밖일 때도 참인 말이어야 한다 — 그 날짜에 내 줄이 있으면 「내 당번」 안내 줄과 함께 뜬다(서로 어긋나지 않게 · 검증 M-2)
   const m = world(); m.ctx.renderDutyBoard('b-1', { focusDate: '2026-12-05' }); await m.answer(0, boardRes({ days: [] }));
   assert.ok(m.html().includes('12월 5일(토) 당번은 지금 당번표에 보이지 않는 날짜예요') && m.html().includes('지금은 당번표에 보이는 날짜가 없어요'));
@@ -352,12 +360,93 @@ test('달력 — 지원한 뒤 다시 받아도 고른 날이 그대로 · 다�
   w.ctx.dutyResetState(); assert.equal(w.ctx.dutyState.calSel, '', '로그아웃은 고른 날도 비운다');
 });
 
-test('달력 — 지원을 보낸 뒤 다른 날짜를 눌러도 응답을 버리지 않는다(화면 번호 그대로) · 방금 지원한 날로 돌아와 결과를 보여 준다', async () => {
+const MINE_ON = (i) => CAL_DAYS.map((d, k) => (k === i ? { ...d, slots: [{ ...d.slots[0], n: 1, names: ['화면점검'], why: 'mine', mine: { id: 5, status: 'active', byStaff: false, staffAdded: false, asked: false, why: null } }] } : d));
+const OFF_BTN = /<button class="duty-btn[^"]*" data-act="[a-z]+"[^>]*disabled/;
+
+test('달력 — 답을 기다리는 사이 다른 날짜를 보면: 자리 단추는 꺼진 모습(눌러도 말없이 버려지는 단추가 없다) · 답이 와도 보던 날에 머물고 맨 위 한 줄로 알린다', async () => {
   const w = world(); await openBoard(w, calRes());
-  w.tap({ act: 'apply', d: '1', s: '0' }); await w.settle();
+  w.tap({ act: 'apply', d: '1', s: '0' }); await w.settle(); assert.deepEqual(w.names(), ['dutyApply']);   // 10월 18일 — 보냄(답은 아직)
   w.tapDate('2026-10-25'); assert.equal(selOf(w.html()), '2026-10-25');
-  await w.answer(0, { ok: true }); assert.deepEqual(w.names(), ['dutyBoard'], '다시 받는다');
-  await w.answer(0, calRes()); assert.equal(selOf(w.html()), '2026-10-18', '방금 지원한 날을 보여 준다');
+  assert.ok(OFF_BTN.test(w.html()), '보내는 동안 다시 그린 카드의 단추는 꺼진 모습이다');
+  await w.answer(0, { ok: true }); assert.deepEqual(w.names(), ['dutyBoard'], '다시 받는다(화면 번호 그대로 — 응답을 버리지 않는다)');
+  await w.answer(0, calRes({ days: MINE_ON(1) }));
+  assert.equal(selOf(w.html()), '2026-10-25', '보던 날에 머문다 — 앞 날짜로 끌고 가 그 자리에 앞 일의 결과를 그리지 않는다');
+  assert.ok(w.html().includes('10월 18일(일) 2부 설거지 — 지원했어요.'), '어느 날·어느 자리인지 맨 위 한 줄로');
+  assert.ok(/class="duty-cal-c has k-mine" data-date="2026-10-18"/.test(w.html()), '달력의 18일 칸은 내 당번으로 바뀐다');
+  assert.equal(OFF_BTN.test(w.html()), false, '답이 온 뒤에는 단추가 켜진다');
+  // 그날을 그대로 보고 있었으면 그 칸이 바뀐다(맨 위 줄 없음)
+  const s = world(); await openBoard(s, calRes());
+  s.tap({ act: 'apply', d: '1', s: '0' }); await s.settle(); await s.answer(0, { ok: true }); await s.answer(0, calRes({ days: MINE_ON(1) }));
+  assert.equal(selOf(s.html()), '2026-10-18'); assert.ok(s.html().includes('지원했어요') && !s.html().includes('— 지원했어요.'));
+  // 취소도 같다 — 다른 날을 보고 있으면 「10월 18일(일) 2부 설거지 — 취소했어요.」
+  const c = world(); await openBoard(c, calRes({ days: MINE_ON(1) })); assert.equal(selOf(c.html()), '2026-10-18');
+  c.tap({ act: 'cancel', d: '1', s: '0' }); await c.settle(); assert.deepEqual(c.names(), ['dutyCancel']);
+  c.tapCal('next'); c.tapCal('prev'); assert.equal(selOf(c.html()), '2026-10-18');   // 달을 넘겼다 돌아와 같은 날을 다시 그림
+  assert.ok(/data-act="cancel"[^>]*disabled/.test(c.html()), '내 줄의 단추(지원 취소)도 보내는 동안 꺼진 모습이다');
+  c.tapDate('2026-11-01'); assert.ok(OFF_BTN.test(c.html()));
+  await c.answer(0, { ok: true }); await c.answer(0, calRes());
+  assert.equal(selOf(c.html()), '2026-11-01'); assert.ok(c.html().includes('10월 18일(일) 2부 설거지 — 취소했어요.'));
+  // 거절이면 알림이 말한다(맨 위 줄 없음) — 보던 날은 그대로
+  const r = world(); await openBoard(r, calRes());
+  r.tap({ act: 'apply', d: '1', s: '0' }); await r.settle(); r.tapDate('2026-10-25');
+  await r.fail(0, 'full', { ok: false, error: 'full' }); await r.answer(0, calRes());
+  assert.equal(selOf(r.html()), '2026-10-25'); assert.ok(r.alerts[0].startsWith('10월 18일(일) 2부 설거지 — ')); assert.equal(r.html().includes('— 지원했어요.'), false);
+});
+
+test('달력 — 「내 당번」 카드로 연 당번표의 첫 읽기가 조용한 다시 받기에 밀려나도 그 날짜를 고르고 · 안내 줄·굴리기도 남는다', async () => {
+  // ① 목록에서 다른 줄을 취소(확인)하고 답이 오기 전에 11월 8일 카드를 누른다 → 취소의 답이 당번표를 soft 로 다시 받아 첫 읽기를 밀어낸다
+  let w = world(); w.ctx.renderDutyList(); await w.answer(0, listRes([BOARD], [{ ...MINE, id: 6, date: '2026-10-18' }, { ...MINE, date: '2026-11-08' }]));
+  w.tap({ act: 'cancel', m: '0' }); await w.settle(); assert.deepEqual(w.names(), ['dutyCancel']);
+  w.ctx.renderDutyBoard('b-1', { focusDate: '2026-11-08' });
+  await w.answer(0, { ok: true }); assert.deepEqual(w.names(), ['dutyBoard', 'dutyBoard']);
+  await w.answer(0, calRes()); await w.answer(0, calRes());        // 앞 읽기(focusDate 를 가진 것)는 버려지고 뒤 읽기가 그린다
+  assert.equal(selOf(w.html()), '2026-11-08', '누른 카드의 날짜');
+  assert.deepEqual(w.touched(), ['scroll .duty-cal start'], '달력을 화면에');
+  // ② 받는 사이 화면이 다시 보였을 때(visibilitychange)도 같다 · 당번표에 없는 날짜면 맨 위 안내 줄이 남는다
+  w = world(); w.ctx.renderDutyList(); await w.answer(0, listRes([BOARD], [{ ...MINE, date: '2026-11-08' }]));
+  w.tickTime(16000); w.ctx.renderDutyBoard('b-1', { focusDate: '2026-11-08' }); w.listeners.visibilitychange();
+  assert.deepEqual(w.names(), ['dutyBoard', 'dutyBoard']);
+  await w.answer(0, calRes()); await w.answer(0, calRes()); assert.equal(selOf(w.html()), '2026-11-08');
+  w = world(); w.ctx.renderDutyList(); await w.answer(0, listRes([BOARD], [{ ...MINE, date: '2027-03-07' }]));
+  w.tickTime(16000); w.ctx.renderDutyBoard('b-1', { focusDate: '2027-03-07' }); w.listeners.visibilitychange();
+  await w.answer(0, calRes()); await w.answer(0, calRes());
+  assert.ok(w.html().includes('3월 7일(일) 당번은 지금 당번표에 보이지 않는 날짜예요'));
+  // ③ 한 번 그린 뒤의 다시 받기는 그 날짜를 다시 끌어오지 않는다(달력에서 고른 날을 지킨다)
+  w = world(); w.ctx.renderDutyBoard('b-1', { focusDate: '2026-11-08' }); await w.answer(0, calRes());
+  w.tapDate('2026-11-01'); w.tickTime(16000); w.listeners.visibilitychange(); await w.answer(0, calRes());
+  assert.equal(selOf(w.html()), '2026-11-01');
+});
+
+test('달력 — 일을 끝낸 답에서 날짜가 줄어 날짜 카드 모양으로 바뀌면 방금 한 날의 카드로 굴린다 · 작은 화면에서는 달력 대신 그날 카드를 맨 위로', async () => {
+  const four = CAL_DAYS.slice(0, 4), w = world(); w.ctx.renderDutyBoard('b-1'); await w.answer(0, boardRes({ days: four }));
+  w.tapCal('next'); assert.equal(selOf(w.html()), '2026-11-01'); w.touched();
+  w.tap({ act: 'apply', d: '3', s: '0' }); await w.settle(); await w.answer(0, { ok: true });
+  const after = four.slice(1).map((d, i) => (i === 2 ? { ...d, slots: [{ ...d.slots[0], n: 1, names: ['화면점검'], why: 'mine', mine: { id: 5, status: 'active', byStaff: false, staffAdded: false, asked: false, why: null } }] } : d));
+  await w.answer(0, boardRes({ days: after }));                    // 첫 날이 빠져 셋 — 날짜 카드 셋으로 바뀐다
+  assert.equal(dayCount(w.html()), 3); assert.ok(w.html().includes('지원했어요'));
+  assert.deepEqual(w.touched(), ['scroll .duty-day[2026-11-01] start'], '방금 지원한 날짜 카드로');
+  // 모양이 그대로면(달력 → 달력 · 카드 → 카드) 보던 자리를 지킨다
+  const k = world(); await openBoard(k, calRes()); k.tap({ act: 'apply', d: '1', s: '0' }); await k.settle(); await k.answer(0, { ok: true }); await k.answer(0, calRes({ days: MINE_ON(1) }));
+  assert.deepEqual(k.touched(), []);
+  // 작은 화면(달력을 맨 위에 붙이면 그 아래 200px 도 안 남는다) — 날짜를 고르면 달력 대신 그날 카드를 맨 위로
+  const t = world(); await openBoard(t, calRes()); t.setCalHeight(700);
+  t.tapDate('2026-10-25'); assert.deepEqual(t.touched(), ['focus .duty-cal-c.on', 'scroll .duty-day start']);
+  t.setCalHeight(400); t.tapDate('2026-10-11'); assert.deepEqual(t.touched(), ['focus .duty-cal-c.on', 'scroll .duty-cal start']);
+});
+
+test('잠긴 날 — 다시 묻기 창은 떠 있던 알림이 닫힌 뒤에 띄운다(그 알림을 답 없이 지우지 않는다)', async () => {
+  const w = world(); await openBoard(w);
+  w.tap({ act: 'apply', d: '0', s: '0' }); await w.settle(); w.setModal(true);            // 다른 일의 알림이 떠 있다
+  await w.fail(0, 'locked-day', { ok: false, error: 'locked-day' });
+  assert.deepEqual(w.confirms, ['🙋 지원할까요?'], '떠 있는 창을 지우며 띄우지 않는다');
+  w.setModal(false); await new Promise((r) => setTimeout(r, 450)); await w.settle();
+  assert.deepEqual(w.confirms, ['🙋 지원할까요?', '⚠️ 취소할 수 없는 날이에요']); assert.deepEqual(w.alerts, []);
+  // 창이 닫힌 때에 이 당번을 떠났으면 창 대신 안 됐다고 알린다
+  const g = world(); await openBoard(g);
+  g.tap({ act: 'apply', d: '0', s: '0' }); await g.settle(); g.setModal(true);
+  await g.fail(0, 'locked-day', { ok: false, error: 'locked-day' }); g.goHome();
+  g.setModal(false); await new Promise((r) => setTimeout(r, 450)); await g.settle();
+  assert.deepEqual(g.confirms, ['🙋 지원할까요?']); assert.equal(g.alerts.length, 1); assert.ok(g.alerts[0].includes('지원이 안 됐어요'));
 });
 
 test('달력 — 내 당번 카드로 오면 그 날짜를 고르고 달력을 화면에 · 그 날짜가 당번표에 없으면 맨 위 안내 줄을 가리지 않는다', async () => {
@@ -407,7 +496,7 @@ test('일은 됐는데 — 뒤따른 다시 받기가 다른 다시 받기에 �
   assert.deepEqual(w.names(), ['dutyBoard', 'dutyBoard']);
   await w.fail(0, 'Failed to fetch'); assert.deepEqual(w.alerts, [], '밀려난 요청의 실패는 버려진다');
   await w.fail(0, 'Failed to fetch');
-  assert.equal(w.alerts.length, 1, '옛 화면에 「지원하기」가 그대로라 안 된 줄 아신다'); assert.ok(w.alerts[0].startsWith('지원은 됐어요.'));
+  assert.equal(w.alerts.length, 1, '옛 화면에 「지원하기」가 그대로라 안 된 줄 아신다'); assert.ok(w.alerts[0].startsWith('10월 18일(일) 2부 설거지 — 지원은 됐어요.'));
   // 밀어낸 쪽이 성공하면 말하지 않는다(새 화면에 보인다) · 그 뒤의 실패에도 다시 말하지 않는다
   w = world(); await openBoard(w);
   w.tap({ act: 'apply', d: '0', s: '0' }); await w.settle(); await w.answer(0, { ok: true });
@@ -419,7 +508,7 @@ test('일은 됐는데 — 뒤따른 다시 받기가 다른 다시 받기에 �
   w.tap({ act: 'apply', d: '0', s: '0' }); await w.settle(); w.goBack(); await w.answer(0, { ok: true });
   assert.deepEqual(w.names(), ['dutyList', 'dutyList']);
   await w.fail(0, 'Failed to fetch'); await w.fail(0, 'Failed to fetch');
-  assert.ok(w.html().includes('지금 불러올 수 없어요')); assert.equal(w.alerts.length, 1); assert.ok(w.alerts[0].startsWith('지원은 됐어요.'));
+  assert.ok(w.html().includes('지금 불러올 수 없어요')); assert.equal(w.alerts.length, 1); assert.ok(w.alerts[0].startsWith('10월 18일(일) 2부 설거지 — 지원은 됐어요.'));
   // 첫 화면으로 나가면 품고 있던 말을 버린다(다음에 당번을 열었을 때 엉뚱하게 뜨지 않게)
   w = world(); await openBoard(w);
   w.tap({ act: 'apply', d: '0', s: '0' }); await w.settle(); await w.answer(0, { ok: true }); w.goHome(); await w.fail(0, 'Failed to fetch');
@@ -463,4 +552,90 @@ test('다른 창이 떠 있는 동안에는 화면을 다시 받지 않는다(�
   const w = world(); await openBoard(w);
   w.tap({ act: 'apply', d: '0', s: '0' }); await w.settle(); await w.fail(0, 'no-user', { ok: false, error: 'no-user' });
   assert.ok(w.alerts[0].includes('지금은 봉사 당번을 쓸 수 없어요') && !w.alerts[0].includes('로그인')); assert.deepEqual(w.names(), ['dutyList']);
+});
+
+// ── 2026-10-07 독립 검토(흐름 갈래)에서 나온 시험 빈 곳 — 지원 쪽에서만 지켜지던 것을 내 줄(취소·표시) 쪽에도 ──
+const TWO_MINE = () => listRes([BOARD], [MINE, { ...MINE, id: 6, date: '2026-10-25' }]);
+
+test('내 줄(취소·표시)도 같다 — 늦게 온 답이 남의 막음을 풀지 않는다 · 거절은 자리 이름으로 알리고 다시 받는다 · 로그아웃 뒤에는 알리지 않는다 · 닫힘은 목록으로', async () => {
+  // 취소가 21초 넘게 답이 없다 → 다른 줄 취소를 보낸다 → 앞 일의 늦은 거절이 뒤 일의 막음을 풀지 않는다
+  let w = world(); w.ctx.renderDutyList(); await w.answer(0, TWO_MINE());
+  w.tap({ act: 'cancel', m: '0' }); await w.settle(); w.tickTime(21000);
+  w.tap({ act: 'cancel', m: '1' }); await w.settle(); assert.deepEqual(w.names(), ['dutyCancel', 'dutyCancel']);
+  await w.fail(0, 'locked', { ok: false, error: 'locked' });
+  assert.equal(w.ctx.dutyState.busy, true, '뒤에 보낸 취소의 막음은 그대로다');
+  assert.ok(w.alerts[0].startsWith('10월 18일(일) 2부 설거지 — ') && w.alerts[0].includes('확정된 날이라'), '어느 줄의 거절인지 말한다');
+  assert.deepEqual(w.names(), ['dutyCancel', 'dutyList'], '다시 받아야 하는 거절 — 목록을 다시 받는다');
+  // 취소를 보낸 뒤 로그아웃 — 성공이든 거절이든 알림·다시 받기·품은 말 없음
+  for (const end of ['ok', 'no']) {
+    w = world(); w.ctx.renderDutyList(); await w.answer(0, TWO_MINE());
+    w.tap({ act: 'cancel', m: '0' }); await w.settle(); w.ctx.dutyResetState();
+    if (end === 'ok') await w.answer(0, { ok: true }); else await w.fail(0, 'locked', { ok: false, error: 'locked' });
+    assert.deepEqual(w.alerts, [], end); assert.deepEqual(w.names(), [], end); assert.equal(w.ctx.dutyState.owe, '', end);
+  }
+  // 지원도: 로그아웃 뒤 다음 분이 당번을 연 채 앞사람의 OK 가 오면 다시 받지도 품지도 않는다
+  w = world(); await openBoard(w); w.tap({ act: 'apply', d: '0', s: '0' }); await w.settle(); w.ctx.dutyResetState();
+  w.ctx.renderDutyBoard('b-1'); await w.answer(1, boardRes()); await w.answer(0, { ok: true });
+  assert.deepEqual(w.names(), []); assert.equal(w.ctx.dutyState.owe, ''); assert.deepEqual(w.alerts, []);
+  // 닫힘(not-open) — 지원·취소 모두 알리고 목록으로
+  w = world(); await openBoard(w); w.tap({ act: 'apply', d: '0', s: '0' }); await w.settle(); await w.fail(0, 'not-open', { ok: false, error: 'not-open' });
+  assert.ok(w.alerts[0].includes('지금은 봉사 당번을 쓸 수 없어요')); assert.deepEqual(w.names(), ['dutyList']);
+  w = world(); w.ctx.renderDutyList(); await w.answer(0, TWO_MINE()); w.tap({ act: 'cancel', m: '0' }); await w.settle(); await w.fail(0, 'not-open', { ok: false, error: 'not-open' });
+  assert.ok(w.alerts[0].includes('지금은 봉사 당번을 쓸 수 없어요')); assert.deepEqual(w.names(), ['dutyList']);
+  // 취소의 알 수 없는 답 뒤 다시 받기도 실패 — 「화면을 새로 받지 못했어요」 한 번
+  w = world(); w.ctx.renderDutyList(); await w.answer(0, TWO_MINE()); w.tap({ act: 'cancel', m: '0' }); await w.settle();
+  await w.fail(0, 'Failed to fetch'); await w.fail(0, 'Failed to fetch');
+  assert.equal(w.alerts.length, 2); assert.ok(w.alerts[0].startsWith('10월 18일(일) 2부 설거지 — ') && w.alerts[1].includes('화면을 새로 받지 못했어요'));
+  // 취소는 됐는데 목록을 못 받았다 — 어느 줄의 일인지 함께(「지원은 됐어요」가 아니다)
+  w = world(); w.ctx.renderDutyList(); await w.answer(0, TWO_MINE()); w.tap({ act: 'cancel', m: '0' }); await w.settle();
+  await w.answer(0, { ok: true }); await w.fail(0, 'Failed to fetch');
+  assert.equal(w.alerts.length, 1); assert.ok(w.alerts[0].startsWith('10월 18일(일) 2부 설거지 — 취소는 됐어요.') && w.alerts[0].includes('다시 열어 확인해 주세요'));
+  // 표시 거두기는 까닭 없이(null) 보낸다 · 끝나면 「표시를 거뒀어요.」 · 못 받았으면 「표시는 거뒀어요」(「알렸어요」가 아니다)
+  const ASKED = () => listRes([BOARD], [{ ...MINE, locked: true, lockAt: null, asked: true, why: 'cant' }]);
+  w = world(); w.ctx.renderDutyList(); await w.answer(0, ASKED());
+  w.tap({ act: 'unask', m: '0' }); await w.settle(); assert.deepEqual(w.pending[0].args, [5, UID, null]);
+  await w.answer(0, { ok: true }); await w.answer(0, listRes([BOARD], [{ ...MINE, locked: true, lockAt: null }]));
+  assert.ok(w.html().includes('표시를 거뒀어요.'));
+  w = world(); w.ctx.renderDutyList(); await w.answer(0, ASKED()); w.tap({ act: 'unask', m: '0' }); await w.settle();
+  await w.answer(0, { ok: true }); await w.fail(0, 'Failed to fetch');
+  assert.ok(w.alerts[0].includes('— 표시는 거뒀어요.') && !w.alerts[0].includes('알렸어요'));
+});
+
+test('품은 말(일은 됐는데 화면을 못 받음) — 한 번만 알린다 · 닫힘 답에서도 알린다 · 뒤에 온 거절의 다시 받기가 덮어 지우지 않는다 · 새 화면을 받았으면 미뤄 둔 말은 버린다', async () => {
+  // 알린 뒤의 실패에는 또 알리지 않는다
+  let w = world(); await openBoard(w);
+  w.tap({ act: 'apply', d: '0', s: '0' }); await w.settle(); await w.answer(0, { ok: true }); await w.fail(0, 'Failed to fetch');
+  assert.equal(w.alerts.length, 1);
+  w.tickTime(16000); w.listeners.visibilitychange(); await w.fail(0, 'Failed to fetch'); assert.equal(w.alerts.length, 1, '같은 말을 실패마다 또 하지 않는다');
+  // 닫힘 답(문이 그사이 닫힘)에서도 그 일은 됐다고 알린다
+  w = world(); await openBoard(w);
+  w.tap({ act: 'apply', d: '0', s: '0' }); await w.settle(); await w.answer(0, { ok: true }); await w.answer(0, { ok: true, open: false });
+  assert.equal(w.alerts.length, 1); assert.ok(w.alerts[0].includes('지원은 됐어요.')); assert.ok(w.html().includes('지금은 봉사 당번을 볼 수 없어요'));
+  // 성공 A 의 다시 받기가 걸려 있는 사이 B 가 거절됐다 — B 의 다시 받기(말 없는 다시 받기)가 A 의 말을 덮어 지우지 않는다
+  const two = () => boardRes({ days: [{ ...DAY, slots: [SLOT, { ...SLOT, id: 12, service: '3부' }] }] });
+  w = world(); await openBoard(w, two());
+  w.tap({ act: 'apply', d: '0', s: '0' }); await w.settle(); await w.answer(0, { ok: true });      // A 됨 — 다시 받기가 걸려 있다
+  w.tap({ act: 'apply', d: '0', s: '1' }); await w.settle(); assert.deepEqual(w.names(), ['dutyBoard', 'dutyApply']);
+  await w.fail(1, 'full', { ok: false, error: 'full' });                                            // B 거절 → 다시 받기
+  await w.fail(0, 'Failed to fetch'); await w.fail(0, 'Failed to fetch');
+  assert.equal(w.alerts.length, 2); assert.ok(w.alerts[0].includes('3부 설거지 — 방금 자리가 찼어요.') && w.alerts[1].startsWith('10월 18일(일) 2부 설거지 — 지원은 됐어요.'));
+  // 미뤄 둔 말(다른 창이 떠 있어 기다림)은 뜨는 때에 다시 본다 — 그사이 새 화면을 받았으면 버린다
+  w = world(); await openBoard(w);
+  w.tap({ act: 'apply', d: '0', s: '0' }); await w.settle(); await w.answer(0, { ok: true }); w.setModal(true);
+  await w.fail(0, 'Failed to fetch'); assert.deepEqual(w.alerts, [], '떠 있는 창 뒤에서 기다린다');
+  w.ctx.renderDutyBoard('b-1', { soft: true }); await w.answer(0, APPLIED());                       // 그사이 새 화면을 받았다
+  w.setModal(false); await new Promise((r) => setTimeout(r, 450)); await w.settle();
+  assert.deepEqual(w.alerts, [], '새 화면 위에 「새로 받지 못했어요」를 띄우지 않는다'); assert.ok(w.html().includes('지원했어요'));
+  // 기다리는 알림들은 온 차례대로 뜬다
+  w = world(); await openBoard(w, two()); w.setModal(true);
+  w.ctx.dutyTell('하나'); w.ctx.dutyTell('둘'); assert.deepEqual(w.alerts, []);
+  w.setModal(false); await new Promise((r) => setTimeout(r, 450)); assert.deepEqual(w.alerts, ['하나', '둘']);
+});
+
+test('잠긴 날 — 다른 당번을 보고 있으면 「취소할 수 없는 날」 창 대신 안 됐다고 알린다', async () => {
+  const w = world(); await openBoard(w);
+  w.tap({ act: 'apply', d: '0', s: '0' }); await w.settle();
+  w.ctx.renderDutyBoard('b-2'); await w.answer(1, boardRes({ board: { id: 'b-2', title: '주차 봉사', status: 'open' } }));
+  await w.fail(0, 'locked-day', { ok: false, error: 'locked-day' });
+  assert.deepEqual(w.confirms, ['🙋 지원할까요?']); assert.equal(w.alerts.length, 1); assert.ok(w.alerts[0].includes('2부 설거지 지원이 안 됐어요'));
 });

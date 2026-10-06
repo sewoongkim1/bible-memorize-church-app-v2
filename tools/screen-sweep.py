@@ -154,8 +154,12 @@ _DUTY_CAL_DAYS = _DUTY_DAYS + [
     for i, d in enumerate(["2026-11-15", "2026-11-22", "2026-11-29", "2026-12-06", "2026-12-13", "2026-12-20", "2026-12-27", "2027-01-03", "2027-01-10"])]
 
 
+# 첫 화면에 뜨는 알림 창(오늘의 묵상·공지 — id daily-message)은 이 단계들만 따로 돌리면 사진을 가린다(전부 돌릴 때는 앞 단계가 닫는다) — 그 창만 지운다
+_DUTY_CLEAR = "var _dm=document.getElementById('daily-message'); if(_dm) _dm.remove(); "
+
+
 def _duty_board_js(days, sel=""):   # 당번 자세히를 지어낸 자료로 그린다 — sel = 달력에서 고른 날(빈 글이면 처음 규칙)
-    return ("dutyShell(loadUser()); dutyState.at='board'; dutyState.cur='b-1'; dutyState.board=" + json.dumps(_DUTY_BOARD, ensure_ascii=False)
+    return (_DUTY_CLEAR + "dutyShell(loadUser()); dutyState.at='board'; dutyState.cur='b-1'; dutyState.first=''; dutyState.board=" + json.dumps(_DUTY_BOARD, ensure_ascii=False)
             + "; dutyState.days=" + json.dumps(days, ensure_ascii=False) + "; dutyState.me={why:''}; dutyState.calSel=" + json.dumps(sel)
             + "; dutyDrawBoard(loadUser(), '2026-10-12', {});")
 
@@ -240,7 +244,7 @@ STEPS = [
     # 🙋 봉사 당번(2026-10-06) — 문(dutyOpen·시험 참여자)이 닫힌 개발 계정이라 단추 대신 화면을 직접 그린다
     #   (서버를 부르지 않는다 — 자료는 지어낸 것 · 모양은 api dutyList·dutyBoard = SQL duty_list_view·duty_board_view 와 같다).
     #   내 줄의 여섯 모습(지원함 · 확정 · 당번표에 표시(못 가게 됐어요) · 담당자가 뺌 · 쉬는 날 · 담당자가 넣음)과 자리의 모습(빈 자리 · 다 참 · 쉼 · 담당자가 넣는 자리)이 한 화면에.
-    ("44-duty-list", ["dutyShell(loadUser()); dutyState.at='list'; dutyState.boards=" + json.dumps(_DUTY_BOARDS, ensure_ascii=False)
+    ("44-duty-list", [_DUTY_CLEAR + "dutyShell(loadUser()); dutyState.at='list'; dutyState.boards=" + json.dumps(_DUTY_BOARDS, ensure_ascii=False)
                       + "; dutyState.mine=" + json.dumps(_DUTY_MINE, ensure_ascii=False) + "; dutyState.me={why:''}; dutyDrawList('취소했어요.');"]),
     #   날짜가 셋 이하면 날짜 카드를 모두(한두 번짜리 모집의 모습) · 넷 이상이면 달력 + 고른 날 하나(2026-10-06 — 칸에 채워진 인원/필요 인원):
     #   처음 고른 날 · 쉬는 날 · 담당자가 넣어 준 날 · 진짜 단추로 다음 달 둘(해를 넘김)과 날짜 하나.

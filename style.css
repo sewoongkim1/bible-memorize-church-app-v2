@@ -6085,20 +6085,27 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .duty-why .duty-why-b { flex: none; width: 100%; background: var(--white); color: var(--navy); border-color: var(--navy); }
 /* 달력(날짜가 넷 이상인 당번) — 날짜가 있는 날만 단추 · 날짜 아래 「채워진 인원/필요 인원」 · 손이 필요한 날은 초록 · 내 당번은 남색 · 쉬는 날 「쉼」 · 고른 날은 겹테두리 · 오늘은 숫자 밑줄 */
 .duty-cal { border: 1px solid var(--border); border-radius: 14px; background: var(--white); padding: 10px 6px 10px; margin: 12px 0; scroll-margin-top: calc(8px + var(--app-safe-top, env(safe-area-inset-top, 0px))); }
-.duty-cal-h { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; min-height: 44px; margin: 0 4px 6px; }
+.duty-cal-h { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 8px; min-height: 44px; margin: 0 4px 6px; }
 .duty-cal-h b { font-size: 17px; color: var(--navy); text-align: center; white-space: nowrap; }
 .duty-cal-nav { justify-self: start; min-height: 44px; padding: 0 12px; border-radius: 12px; border: 1.5px solid var(--navy); background: transparent; color: var(--navy); font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; white-space: nowrap; }
 .duty-cal-nav[data-cal="next"] { justify-self: end; }
+/* 좁은 폭(375 이하)에서는 앞뒤 달 단추 둘이 달 이름과 한 줄에 못 선다(320px 에서 다음 달 단추가 카드 밖 22px) — 달 이름을 숨기고 화살표만 둔다(이름은 aria-label 에 있다) */
+@media (max-width: 379px) { .duty-cal-nav { min-width: 44px; padding: 0 10px; } .duty-cal-nav .m { display: none; } }
 .duty-cal-w, .duty-cal-g { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; text-align: center; }
 .duty-cal-w span { font-size: 12px; color: var(--gray); padding: 2px 0 4px; }
 .duty-cal-c { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-height: 46px; margin: 0; padding: 0; border-radius: 12px; border: 2px solid transparent; background: transparent;
   color: var(--gray); font-size: 15px; line-height: 1.1; font-family: inherit; -webkit-tap-highlight-color: transparent; }
+/* 오늘 — 자리가 없는 날은 숫자 밑줄 · 자리가 있는 날은 숫자 위 금색 줄(밑줄이면 바로 아래 인원 글 「3/4」에 얹혀 분수 줄처럼 보인다) */
 .duty-cal-c.today > span { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.duty-cal-c.has.today > span { text-decoration: none; }
+.duty-cal-c.has.today::before { content: ""; width: 16px; height: 3px; border-radius: 2px; background: var(--gold); margin-bottom: 1px; }
 .duty-cal-c.has { cursor: pointer; font-weight: 800; color: var(--navy); background: var(--light); }
 .duty-cal-c i { font-style: normal; font-size: 12px; line-height: 1; min-height: 12px; font-weight: 700; letter-spacing: -.2px; white-space: nowrap; }
 .duty-cal-c.k-need { background: #e7f4ea; border-color: #a9d6b6; color: var(--green); }
 .duty-cal-c.k-mine { background: var(--navy); border-color: var(--navy); color: #fff; }
-.duty-cal-c.k-off { color: var(--gray); font-weight: 600; }
+.duty-cal-c.k-off { color: #565c67; font-weight: 600; }   /* --gray 는 이 바탕(--light)에서 4.25:1 — 4.5:1 을 넘게 조금 짙게 */
+/* 고대비(forced-colors) — 바탕색·그림자가 사라져 표시가 모두 없어진다: 자리가 있는 날에 테두리 · 고른 날은 굵은 테두리로 */
+@media (forced-colors: active) { .duty-cal-c.has { border: 1px solid ButtonText; } .duty-cal-c.has.on { outline: 3px solid Highlight; outline-offset: 1px; } .duty-cal-c.k-mine { border-width: 3px; } }
 .duty-cal-c.has.on { border-color: var(--navy); box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--navy); }
 .duty-cal-k { margin: 10px 6px 0; font-size: 13px; color: var(--gray); line-height: 1.7; word-break: keep-all; }
 .duty-cal-k .ki { white-space: nowrap; }

@@ -186,7 +186,8 @@ test('dutyErrText — 서버 거절마다 성도님 말 · 겹침은 무엇과 �
   assert.equal(/어린이|청소년/.test(ctx.dutyErrText('guardian')), false); assert.ok(ctx.dutyErrText('guardian').includes('앱에서 바로 지원할 수 없어요'));
   assert.equal(ctx.dutyErrText('overlap', { with: { board: '주차 봉사', service: '2부', task: '안내', start: '11:00' } }), '같은 날 겹치는 시간에 이미 주차 봉사 2부 안내(11:00) 당번이 있어요.');
   // 아직 공개 전인(준비 중) 당번과 겹치면 이름 없이 — 그 당번은 「내 당번」에도 없으므로 그렇다고 말한다(까닭을 찾을 화면이 없다)
-  const hidden = '같은 날 겹치는 시간에 이미 다른 당번이 있어요. 「내 당번」에 보이지 않으면 아직 앱에 열리지 않은 당번이에요 — 담당자께 말씀해 주세요.';
+  //   「아직 열리지 않은」이라고 하지 않는다 — 받는 중이던 당번을 준비로 되돌린 것일 수 있다
+  const hidden = '같은 날 겹치는 시간에 이미 다른 당번이 있어요. 「내 당번」에 보이지 않으면 지금 앱에 열려 있지 않은 당번이에요 — 담당자께 말씀해 주세요.';
   assert.equal(ctx.dutyErrText('overlap', { with: null }), hidden); assert.equal(ctx.dutyErrText('overlap'), hidden);
   assert.equal(ctx.dutyErrText('too-many', { max: 3 }), '이 당번은 한 분이 세 자리까지 미리 잡아 둘 수 있어요. 서신 뒤에 다시 지원해 주세요.');
   assert.equal(ctx.dutyErrText('too-many', { max: 12 }), '이 당번은 한 분이 12자리까지 미리 잡아 둘 수 있어요. 서신 뒤에 다시 지원해 주세요.');
@@ -266,7 +267,14 @@ test('달력 — 그날 한 칸: 채워진 인원/필요 인원 · 손이 필요
   // 다 찼다 · 시작했다 · 담당자가 넣는 자리 — 지원할 자리가 없다(숫자는 그대로 보인다)
   assert.deepEqual(cell({ slots: [S({ n: 2, why: 'full' })] }), { kind: 'none', n: 2, cap: 2, need: 0, mine: false, locked: false });
   assert.equal(cell({ slots: [S({ n: 1, why: 'started' })] }).kind, 'none');
-  assert.deepEqual(cell({ slots: [S({ n: 1, why: 'closed' })] }), { kind: 'none', n: 1, cap: 2, need: 0, mine: false, locked: false });
+  // 「담당자가 넣는 자리」 — 받는 중 당번이면 남은 자리다(뺀 틀·요일을 바꾼 틀 — 새 지원을 받지 않는다): 서 있는 분은 세되 빈 칸은 필요 인원이 아니다
+  //   (서버의 「손이 필요한 수」도 남은 자리를 뺀다). 담당자가 넣는 당번(me.staffOnly)이면 그 정원이 곧 필요 인원이다.
+  assert.deepEqual(cell({ slots: [S({ n: 1, why: 'closed' })] }), { kind: 'none', n: 1, cap: 1, need: 0, mine: false, locked: false });
+  assert.deepEqual(cell({ slots: [S({ n: 1, why: 'closed' })] }, { why: '', staffOnly: true }), { kind: 'none', n: 1, cap: 2, need: 0, mine: false, locked: false });
+  assert.deepEqual(cell({ slots: [S({ n: 2, why: 'full' }), S({ n: 0, why: 'closed' })] }), { kind: 'none', n: 2, cap: 2, need: 0, mine: false, locked: false }, '다 찬 날에 남은 빈 자리가 있어도 「2/2」(「2/4」가 아니다)');
+  assert.deepEqual(cell({ slots: [S({ n: 0, why: 'closed' })] }), { kind: 'none', n: 0, cap: 0, need: 0, mine: false, locked: false }, '아무도 없는 남은 자리뿐인 날 — 쉬는 날은 아니다');
+  assert.equal(ctx.dutyCalMark({ kind: 'none', n: 0, cap: 0 }), '', '셀 것이 없으면 숫자를 적지 않는다(「0/0」이 아니다)');
+  assert.equal(ctx.dutyCalLabel({ date: '2026-10-18' }, { kind: 'none', n: 0, cap: 0 }), '10월 18일(일) — 지금 지원할 수 있는 자리가 없어요');
   // 내가 서는 날 — 다른 자리가 비어 있어도 「내 당번」이 먼저
   assert.deepEqual(cell({ slots: [S({ n: 1, why: 'mine', mine: M() }), S({ n: 0 })] }), { kind: 'mine', n: 1, cap: 4, need: 2, mine: true, locked: false });
   // 담당자가 뺀 줄·쉬는 자리의 내 줄은 내가 서는 날이 아니다
@@ -324,13 +332,13 @@ test('달력 — 그리기: 날짜가 있는 날만 단추 · 칸에 채워진 �
   assert.ok(oct.includes('<span>18</span><i aria-hidden="true">1/2</i>') && oct.includes('<span>25</span><i aria-hidden="true">2/2</i>'));
   assert.ok(oct.includes('class="duty-cal-c has k-none" data-date="2026-10-25" aria-pressed="false"'));
   assert.ok(oct.includes('<span class="duty-cal-c today"><span>6</span></span>'), '오늘(당번 없는 날)도 표시');
-  assert.ok(oct.includes('<b>2026년 10월</b>') && oct.includes('data-cal="next" aria-label="2026년 11월 보기">11월 ▶</button>') && !oct.includes('data-cal="prev"'));
+  assert.ok(oct.includes('<b>2026년 10월</b>') && oct.includes('data-cal="next" aria-label="2026년 11월 보기"><span class="m">11월</span> ▶</button>') && !oct.includes('data-cal="prev"'));
   assert.ok(oct.includes('숫자는 채워진 인원 / 필요 인원이에요') && oct.includes('</span>손이 필요한 날') && oct.includes('</span>내 당번') && oct.includes('날짜를 누르면 그날의 자리가 아래에 보여요.'));
   const nov = ctx.dutyCalHtml(days, '2026-11-08', '2026-11-08', { why: '' });
   assert.ok(nov.includes('class="duty-cal-c has k-off" data-date="2026-11-01"') && nov.includes('<i aria-hidden="true">쉼</i>'));
   assert.ok(nov.includes('class="duty-cal-c has k-mine on today" data-date="2026-11-08"'));
   assert.ok(nov.includes('aria-label="11월 8일(일) — 내 당번이 있어요 · 필요 2명 가운데 1명 채워졌어요 · 확정된 날 · 오늘"'));
-  assert.ok(nov.includes('data-cal="prev" aria-label="2026년 10월 보기">◀ 10월</button>') && !nov.includes('data-cal="next"'));
+  assert.ok(nov.includes('data-cal="prev" aria-label="2026년 10월 보기">◀ <span class="m">10월</span></button>') && !nov.includes('data-cal="next"'));
   // 풀이는 이 당번표에 실제로 있는 표시만 — 손이 필요한 날도 내 당번도 없으면 그 말이 없고, 달이 하나면 앞뒤 달 단추가 없다
   const quiet = ctx.dutyCalHtml([{ date: '2026-10-18', off: false, slots: [S({ n: 2, why: 'full' })] }], '2026-10-18', '', { why: '' });
   assert.ok(quiet.includes('숫자는 채워진 인원 / 필요 인원이에요') && !quiet.includes('손이 필요한 날') && !quiet.includes('내 당번') && !quiet.includes('data-cal='));
