@@ -13,6 +13,15 @@ const APP_BUILD = "20261007c";
 // index.html이 부른 번호와 실제 실행되는 번호가 다르면 캐시를 갱신해 다시 받는다.
 (function ensureFreshBuild() {
   try {
+    // 처음 주소(알림 누름 표식 from=push 와 # 뒤는 뺀다) — 새로 받은 뒤 **이 주소로** 다시 연다. 알림·딥링크 주소(?duty=1 · ?edu= · ?v=)는 앱이 읽는 순간
+    //   주소에서 지우므로, 그 뒤에 온 location.reload() 는 갈 곳을 잃고 첫 화면으로 떨어졌다(배포 직후 몇 분 · 다시 받기가 첫 그리기보다 늦을 때 — 검토 반영 2026-10-07).
+    let first = "";
+    try {
+      const u0 = new URL(location.href);
+      if (u0.searchParams.get("from") === "push") u0.searchParams.delete("from");   // 알림 누름을 두 번 세지 않게
+      u0.hash = "";
+      first = u0.toString();
+    } catch (_) {}
     const el = document.querySelector('script[src*="app.js"]');
     const m = el && el.src.match(/[?&]v=([^&"']+)/);
     const want = m ? m[1] : null;
@@ -29,7 +38,10 @@ const APP_BUILD = "20261007c";
           ? caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); })
           : null;
       })
-      .then(function () { location.reload(); })
+      .then(function () {
+        // 주소가 그대로면 reload · 앱이 그사이 주소를 정리했으면 처음 주소로(같은 주소로 replace 하면 # 만 있는 주소에서 다시 받지 않는 브라우저가 있다)
+        if (first && first !== location.href.split("#")[0]) location.replace(first); else location.reload();
+      })
       .catch(function () {});
   } catch (_) {}
 })();
@@ -154,6 +166,9 @@ function routeAfterLoad() {
   //   로그인 안 했거나 🙋 가 안 보이는 분(dutyVisible — 문이 열리기 전에는 시험 참여자만 · 플레이 앱 숨김 · 서버도 그분들께는 안 보낸다)은 평소 길 — 주소의 duty 만 지운다.
   const _dutyDeep = (typeof dutyTakeDeepLink === "function") ? dutyTakeDeepLink() : false;
   if (_dutyDeep && loadUser() && dutyVisible() && typeof renderDutyList === "function") { renderDutyList({ stay: true }); return; }
+  //   알림으로 왔는데 이 기기의 문 캐시가 「닫힘」이다 — 서버는 이분께 보냈다(문이 열렸거나 시험 참여자). 캐시가 뒤처진 것일 수 있어(문을 연 뒤·명단에 오른 뒤
+  //   앱을 아직 안 연 기기) 평소 길로 가되, 문 확인이 끝나 🙋 가 보이게 되면 그때 연다(dutyOpenIfWanted · 검토 반영 2026-10-07).
+  if (_dutyDeep && loadUser()) dutyWantOpen();
   // 딥링크(?v=구절번호): 설교 아카이브 등 외부에서 특정 구절로 바로 진입
   const deepNo = getDeepLinkVerseNo();
   if (deepNo != null) {
@@ -312,6 +327,8 @@ try {
     if (eid && loadUser() && !ministryHiddenOnPlay() && eduVisible() && typeof renderEduCourse === "function") renderEduCourse(eid);
     // 🙋 봉사 당번 알림(?duty=1 · 3단계) — routeAfterLoad 와 같은 조건(dutyVisible)
     else if (typeof dutyDeepLink === "function" && dutyDeepLink(e.data.url) && loadUser() && dutyVisible() && typeof renderDutyList === "function") renderDutyList({ stay: true });
+    //   문 캐시가 「닫힘」인 열린 창 — 문을 다시 확인해 보이게 되면 연다(routeAfterLoad 와 같다)
+    else if (typeof dutyDeepLink === "function" && dutyDeepLink(e.data.url) && loadUser()) { dutyWantOpen(); refreshDutyOpen(); refreshMinistryTester(); }
   });
 } catch (e) {}
 
@@ -382,7 +399,18 @@ const DUTY_PUB_KEY = "duty-open";
 function dutyOpenCached() { try { return localStorage.getItem(DUTY_PUB_KEY) === "1"; } catch (e) { return false; } }
 function refreshDutyOpen() {
   if (!window.api || !api.getConfig) return;
-  api.getConfig("dutyOpen").then((d) => { try { localStorage.setItem(DUTY_PUB_KEY, d && d.value === true ? "1" : "0"); } catch (e) {} }).catch(() => {});
+  api.getConfig("dutyOpen").then((d) => { try { localStorage.setItem(DUTY_PUB_KEY, d && d.value === true ? "1" : "0"); } catch (e) {} dutyOpenIfWanted(); }).catch(() => {});
+}
+// 알림(?duty=1)으로 왔는데 문 캐시가 뒤처져 평소 길로 간 경우 — 문 확인(refreshDutyOpen · refreshMinistryTester)이 끝나 🙋 가 보이게 되면 당번 목록을 연다.
+//   한 번만 · 알림을 누른 지 10초 안 · **첫 화면이 떠 있고 다른 창이 없을 때만**(그사이 다른 화면으로 가셨으면 끌고 가지 않는다).
+var _dutyWantAt = 0;   // var — 이 줄보다 먼저 불려도(routeAfterLoad 는 파일 위쪽에서 불린다) 죽지 않게
+function dutyWantOpen() { _dutyWantAt = Date.now(); }
+function dutyOpenIfWanted() {
+  if (!_dutyWantAt) return;
+  if (Date.now() - _dutyWantAt > 10000) { _dutyWantAt = 0; return; }
+  if (!dutyVisible() || !document.getElementById("go-list") || document.getElementById("app-modal")) return;
+  _dutyWantAt = 0;
+  if (typeof renderDutyList === "function") renderDutyList({ stay: true });
 }
 function dutyVisible() {
   if (ministryHiddenOnPlay()) return false;
@@ -685,6 +713,7 @@ function refreshMinistryTester() {
     if (!d || d.ok !== true) return;
     const now = !!d.tester;
     try { localStorage.setItem(MIN_TESTER_KEY + u.user_id, now ? "1" : "0"); } catch (e) {}
+    dutyOpenIfWanted();   // 당번 알림으로 왔는데 시험 참여자 캐시가 뒤처져 있던 기기 — 이제 보이면 연다(아래 다시 그리기보다 먼저 · 열었으면 첫 화면 표식이 사라져 다시 그리지 않는다)
     // ⚠️ 값이 바뀌면 그 자리에서 다시 그린다(refreshEventOpen 과 같은 까닭) — 명단에 든 날 앱을 두 번 켜야 보이면 안 된다
     if (before !== now) {
       if (document.querySelector(".todo-go")) renderSummary();
@@ -1012,6 +1041,8 @@ async function enterAfterLogin(opts) {
   //   않게 한다(재검토 2026-10-03) — 이미 로그인돼 있던 보통 재방문은 user_id 가 그대로라
   //   다시 안 불러 조회를 아낀다.
   if (uidBeforeSync !== ((loadUser() || {}).user_id || "")) refreshMinistryTester();
+  // 이 기기의 웹 푸시 구독을 지금 계정으로 맞춘다(「로그인 정보변경」 뒤 — js/push.js syncPushOwner · 구독이 없으면 아무것도 안 한다 · 기다리지 않는다)
+  if (typeof syncPushOwner === "function") syncPushOwner();
   if (document.getElementById("go-list")) renderSummary();
 }
 

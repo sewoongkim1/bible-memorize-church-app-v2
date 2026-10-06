@@ -466,6 +466,7 @@ Deno.serve(async (req) => {
       case "updateIosPushHour": return json(await updateIosPushHour(body));
       case "updatePushEvening": return json(await updatePushEvening(body));
       case "removePush":    return json(await removePush(body));
+      case "removeIosPush": return json(await removeIosPush(body));
       case "removePushByUser": return json(await removePushByUser(body));
       case "testPush":      return json(await testPush(body));
       // 어드민 '자동 넣기'용 — 매일 아침 실제로 나가는 문구(오늘의 묵상 + 이번주 말씀)를 그대로 반환
@@ -1050,6 +1051,18 @@ async function dailyPushContent(): Promise<{ title: string; body: string } | nul
 async function removePush(b: any) {
   if (!b.endpoint) return { ok: false, error: "no-endpoint" };
   const { error } = await db.from("push_subscriptions").delete().eq("endpoint", b.endpoint);
+  if (error) throw error;
+  return { ok: true };
+}
+
+// ---------- removeIosPush: 아이폰 앱 「내 정보 지우기」 — 그 계정에 묶인 기기 토큰을 지운다(검토 반영 2026-10-07) ----------
+//   화면은 「이 기기의 알림도 함께 꺼집니다」라고 말하는데 웹 구독만 지우고 아이폰 토큰은 남겼다 — 다음 분이 로그인해 앱이 다시 앞에 올 때까지
+//   앞 계정의 알림(당번·교육은 그분의 날짜·자리다)이 그 아이폰에 떴다. 토큰은 앱 껍데기만 알아 화면이 기기를 가려 보낼 수 없다 → 그 계정의 토큰을 모두 지운다
+//   (그분의 다른 아이폰은 앱을 다시 열 때 껍데기가 다시 등록한다). 응답에 토큰·계정 번호를 싣지 않는다.
+async function removeIosPush(b: any) {
+  const userId = eduUid(b.user_id);
+  if (!userId) return { ok: false, error: "no-user" };
+  const { error } = await db.from("ios_push_tokens").delete().eq("user_id", userId);
   if (error) throw error;
   return { ok: true };
 }

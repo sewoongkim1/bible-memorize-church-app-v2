@@ -33,6 +33,35 @@ if (isNativeApp()) {
 const EVENING_LIVE = false;
 window.EVENING_LIVE = EVENING_LIVE;
 
+// 이 기기의 웹 푸시 구독을 **어느 계정으로 서버에 저장했나**(기기에 적어 둔다 — 계정 번호 하나). 구독 줄의 주인(push_subscriptions.user_id)은
+//   알림을 켤 때와 알림 시각을 바꿀 때만 쓰였다 — 「로그인 정보변경」으로 신원이 바뀌면(= 다른 계정) 구독은 앞 계정에 묶인 채라, 새 계정의 당번·교육 알림은
+//   올 기기가 없고(화면은 알림이 켜진 것으로 보인다) 앞 계정의 알림은 이 기기에 뜬다. 매일 알림은 모두 같은 글이라 드러나지 않았다 — 사람마다 글이 다른 알림은
+//   교육(2026-10-05)·봉사 당번(2026-10-07)부터다(검토 반영 2026-10-07).
+const PUSH_OWNER_KEY = "push-owner";
+function markPushOwner(userId) { try { if (userId) localStorage.setItem(PUSH_OWNER_KEY, String(userId)); else localStorage.removeItem(PUSH_OWNER_KEY); } catch (e) {} }
+// 동기화로 계정 번호가 정해진 뒤 부른다(app.js enterAfterLogin) — 이 기기에 구독이 **이미 있고** 그 주인이 지금 계정이 아니면(또는 모르면) 한 번 다시 저장한다
+//   (끝점 upsert 라 주인만 바뀐다 · 시각은 이 기기의 것 그대로). 구독이 없으면 아무것도 하지 않는다 — 권한을 묻지도 구독을 만들지도 않는다.
+//   아이폰 앱은 껍데기가 앞에 올 때마다 지금 계정으로 토큰을 다시 등록한다(여기 일이 아니다). → 다시 저장했으면 true
+async function syncPushOwner() {
+  if (isNativeApp()) return false;
+  try {
+    const u = (typeof loadUser === "function") ? loadUser() : null;
+    if (!u || !u.user_id || !("serviceWorker" in navigator)) return false;
+    if (localStorage.getItem(PUSH_OWNER_KEY) === String(u.user_id)) return false;   // 이미 이 계정으로 저장했다
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = reg && reg.pushManager ? await reg.pushManager.getSubscription() : null;
+    if (!sub) return false;
+    const r = await api.savePush(u.user_id, sub.toJSON(), getPushHour());
+    if (!r || r.ok !== true) return false;
+    // 저장하는 사이 이 기기의 사람이 바뀌었으면(공용 기기) 표식을 남기지 않는다 — 다음 동기화가 다시 맞춘다
+    const now = (typeof loadUser === "function") ? loadUser() : null;
+    if (!now || now.user_id !== u.user_id) return false;
+    markPushOwner(u.user_id);
+    return true;
+  } catch (e) { return false; }
+}
+window.syncPushOwner = syncPushOwner;
+
 // 알림 받을 시간(5·6·7·8시). 기본 7시. localStorage에 보관.
 function getPushHour() {
   try { const h = Number(localStorage.getItem("pushHour")); return [5, 6, 7, 8].includes(h) ? h : 7; }
@@ -59,7 +88,7 @@ async function setPushHour(hour) {
   try {
     const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
     const sub = reg && await reg.pushManager.getSubscription();
-    if (sub && u && u.user_id) { await api.savePush(u.user_id, sub.toJSON(), hour); return { updated: true, hour }; }
+    if (sub && u && u.user_id) { await api.savePush(u.user_id, sub.toJSON(), hour); markPushOwner(u.user_id); return { updated: true, hour }; }
   } catch (e) {}
   return { updated: false, hour };
 }
@@ -136,6 +165,7 @@ async function enablePush() {
     }
     const hour = getPushHour();
     await api.savePush(u.user_id, sub.toJSON(), hour);
+    markPushOwner(u.user_id);
     // 플레이스토어(TWA) 설치본은 안드로이드 시스템의 앱별 알림 권한이 곧 이 사이트의
     // 알림 권한이다 — 별도로 크롬이 기억하는 권한이 아니다. 그 권한이 실제로는
     // 꺼져 있으면 위 subscribe()는 잠깐 성공하지만 크롬이 곧바로 구독을 무효화한다
@@ -170,7 +200,17 @@ window.enablePush = enablePush;
 // silent=true — "내 정보 지우기"처럼 다른 안내가 이어질 때 알림창 없이 조용히 해제
 async function disablePush(silent) {
   if (isNativeApp()) {
-    if (!silent) appAlert("이 앱의 알림은 아이폰 설정 → 고척교회 성경암송 → 알림에서 꺼주세요.");
+    // 「내 정보 지우기」(silent) — 이 계정에 묶인 아이폰 기기 토큰을 서버에서 지운다. 안 지우면 다음 분이 로그인해 앱이 다시 앞에 올 때까지 앞 계정의 알림
+    //   (당번·교육은 그분의 날짜·자리다)이 이 아이폰에 뜬다 — 화면은 「이 기기의 알림도 함께 꺼집니다」라고 말한다(검토 반영 2026-10-07).
+    //   앱 껍데기는 로그인한 계정이 있을 때만 토큰을 다시 저장한다(AppDelegate attemptSavePushToken) — 지운 뒤에는 다음 분이 로그인할 때 그분 것으로 등록된다.
+    if (silent) {
+      try {
+        const u0 = (typeof loadUser === "function") ? loadUser() : null;
+        if (u0 && u0.user_id && api.removeIosPush) await api.removeIosPush(u0.user_id);
+      } catch (e) {}
+      return;
+    }
+    appAlert("이 앱의 알림은 아이폰 설정 → 고척교회 성경암송 → 알림에서 꺼주세요.");
     return;
   }
   try {
@@ -181,6 +221,7 @@ async function disablePush(silent) {
       if (sub) { endpoint = sub.endpoint; await sub.unsubscribe(); }
     }
     if (endpoint) await api.removePush(endpoint).catch(() => {});
+    markPushOwner("");
     if (!silent) appAlert("🔕 매일 암송 알림이 해제되었습니다.");
     if (typeof updateAppStatus === "function") updateAppStatus();
   } catch (e) {

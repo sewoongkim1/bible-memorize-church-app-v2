@@ -589,3 +589,125 @@ test('api 글자 검사 — 알림: 내부 액션 둘은 서비스 키 문이 �
   // switch 에 두 줄
   assert.ok(API.includes('case "internalDutyNotify": return json(await internalDutyNotify(req, body));') && API.includes('case "internalDutyRemind": return json(await internalDutyRemind(req, body));'));
 });
+
+// ── 앱 쪽 배선(검토 반영 2026-10-07) — app.js · sw.js · js/push.js 는 순수 구간이 아니라 글자로 보고, 떼어 낼 수 있는 조각은 가짜 환경에서 돌린다 ──
+const APP = read(['app.js']), SW = read(['sw.js']), PUSH = read(['js', 'push.js']), DUTY_JS = read(['js', 'duty.js']);
+const cutFn = (src, head) => { const a = src.indexOf(head); assert.ok(a >= 0, head + ' 를 못 찾았다'); const e = src.indexOf('\n}\n', a); assert.ok(e > a); return src.slice(a, e + 2); };
+
+test('알림 주소 배선 — api 가 보내는 주소 = 앱이 읽는 주소 · routeAfterLoad·열린 창은 🙋 가 보이는 분만 · dutyVisible 세 조건 · 주소에서 duty 만 지운다', () => {
+  const url = /const DUTY_NOTIFY_URL = "([^"]+)";/.exec(API)[1];
+  assert.equal(ctx.dutyDeepLink(url), true, 'api 의 알림 주소를 앱이 당번 알림으로 읽는다'); assert.equal(ctx.dutyDeepLink(url + '&from=push'), true);
+  assert.ok(APP.includes('if (_dutyDeep && loadUser() && dutyVisible() && typeof renderDutyList === "function") { renderDutyList({ stay: true }); return; }'), 'routeAfterLoad');
+  assert.ok(APP.includes('else if (typeof dutyDeepLink === "function" && dutyDeepLink(e.data.url) && loadUser() && dutyVisible() && typeof renderDutyList === "function") renderDutyList({ stay: true });'), '이미 열린 창(from-push)');
+  const vis = cutFn(APP, 'function dutyVisible() {');
+  assert.ok(vis.includes('if (ministryHiddenOnPlay()) return false;') && vis.includes('if (!u || !u.user_id) return false;') && vis.includes('return dutyOpenCached() || ministryTesterCached();'), '플레이 앱 숨김 · 계정 번호 · 문 또는 시험 참여자');
+  // dutyTakeDeepLink — 읽고 duty 만 지운다(다른 파라미터는 둔다) · 알림 주소가 아니면 주소를 건드리지 않는다
+  const take = (search) => {
+    const calls = [], c = { dutyDeepLink: ctx.dutyDeepLink, URLSearchParams, location: { search, pathname: '/' }, history: { replaceState: (a, b, u) => calls.push(u) } };
+    vm.createContext(c); vm.runInContext(cutFn(DUTY_JS, 'function dutyTakeDeepLink() {') + '\nvar out = dutyTakeDeepLink();', c);
+    return [c.out, calls];
+  };
+  assert.deepEqual(take('?duty=1'), [true, ['/']]); assert.deepEqual(take('?duty=1&v=38'), [true, ['/?v=38']]); assert.deepEqual(take('?from=push&duty=1'), [true, ['/?from=push']]);
+  assert.deepEqual(take('?v=38'), [false, []]); assert.deepEqual(take(''), [false, []]); assert.deepEqual(take('?duty=2'), [false, []]);
+});
+
+test('문 캐시가 뒤처진 기기의 알림 누름 — 평소 길로 간 뒤 문 확인이 끝나 🙋 가 보이면 그때 연다(한 번 · 10초 안 · 첫 화면이 떠 있고 다른 창이 없을 때만)', () => {
+  assert.ok(APP.includes('if (_dutyDeep && loadUser()) dutyWantOpen();'), 'routeAfterLoad — 보이지 않아 평소 길로 갈 때 품는다');
+  assert.ok(APP.includes('else if (typeof dutyDeepLink === "function" && dutyDeepLink(e.data.url) && loadUser()) { dutyWantOpen(); refreshDutyOpen(); refreshMinistryTester(); }'), '열린 창 — 품고 문을 다시 확인한다');
+  assert.ok(cutFn(APP, 'function refreshDutyOpen() {').includes('dutyOpenIfWanted();') && cutFn(APP, 'function refreshMinistryTester() {').includes('dutyOpenIfWanted();'), '두 문 확인의 답에서 본다');
+  const seg = APP.slice(APP.indexOf('var _dutyWantAt = 0;'), APP.indexOf('\n}\n', APP.indexOf('function dutyOpenIfWanted() {')) + 2);
+  const mk = (o) => {
+    let t = 1000, opened = 0;
+    const s = { visible: false, home: true, modal: false, ...(o || {}) };
+    const c = { Date: { now: () => t }, dutyVisible: () => s.visible, renderDutyList: () => { opened++; },
+      document: { getElementById: (id) => (id === 'go-list' ? (s.home ? {} : null) : id === 'app-modal' ? (s.modal ? {} : null) : null) } };
+    vm.createContext(c); vm.runInContext(seg, c);
+    return { c, s, tick: (ms) => { t += ms; }, opened: () => opened };
+  };
+  let w = mk({ visible: true }); w.c.dutyOpenIfWanted(); assert.equal(w.opened(), 0, '알림으로 온 것이 아니면 열지 않는다');
+  w = mk(); w.c.dutyWantOpen(); w.c.dutyOpenIfWanted(); assert.equal(w.opened(), 0, '아직 안 보인다');
+  w.s.visible = true; w.c.dutyOpenIfWanted(); assert.equal(w.opened(), 1, '보이게 되면 연다'); w.c.dutyOpenIfWanted(); assert.equal(w.opened(), 1, '한 번만');
+  w = mk({ visible: true, home: false }); w.c.dutyWantOpen(); w.c.dutyOpenIfWanted(); assert.equal(w.opened(), 0, '첫 화면을 떠났으면 끌고 가지 않는다');
+  w.s.home = true; w.c.dutyOpenIfWanted(); assert.equal(w.opened(), 1, '(10초 안에 첫 화면이면 연다)');
+  w = mk({ visible: true, modal: true }); w.c.dutyWantOpen(); w.c.dutyOpenIfWanted(); assert.equal(w.opened(), 0, '다른 창이 떠 있으면 열지 않는다');
+  w = mk(); w.c.dutyWantOpen(); w.tick(10001); w.s.visible = true; w.c.dutyOpenIfWanted(); assert.equal(w.opened(), 0, '10초가 지나면 버린다'); w.c.dutyOpenIfWanted(); assert.equal(w.opened(), 0);
+});
+
+test('서비스워커 — 알림을 누르면 앱 창에만 알리고 앞으로 올린다 · 앱 창이 없으면(다른 쪽만 떠 있어도) 그 주소를 새로 연다', async () => {
+  const runSw = (urls, data) => {
+    const L = {}, log = [];
+    const self_ = { addEventListener: (t, f) => { L[t] = f; }, skipWaiting() {}, registration: { scope: 'https://gocheok.onlybible.kr/', showNotification() {} },
+      clients: { claim() {}, openWindow: async (u) => { log.push('open ' + u); },
+        matchAll: async () => urls.map((u) => ({ url: u, focus: async () => { log.push('focus ' + u); }, postMessage: (m) => { log.push('msg ' + u + ' ← ' + m.type + ' ' + m.url); } })) } };
+    const c = { self: self_, URL, Promise }; vm.createContext(c); vm.runInContext(SW, c);
+    let p; L.notificationclick({ notification: { close() {}, data }, waitUntil: (x) => { p = x; } });
+    return p.then(() => log);
+  };
+  const D = { url: 'https://gocheok.onlybible.kr/?duty=1' }, R = 'https://gocheok.onlybible.kr/';
+  assert.deepEqual(await runSw([R + 'privacy/', R], D), ['msg ' + R + ' ← from-push ' + D.url, 'focus ' + R], '다른 쪽이 먼저 잡혀도 앱 창으로');
+  assert.deepEqual(await runSw([R + '?v=38'], D), ['msg ' + R + '?v=38 ← from-push ' + D.url, 'focus ' + R + '?v=38']);
+  assert.deepEqual(await runSw([R + 'index.html'], D), ['msg ' + R + 'index.html ← from-push ' + D.url, 'focus ' + R + 'index.html']);
+  for (const other of [[R + 'quiz/'], [R + 'guide/', R + 'admin.html'], []]) assert.deepEqual(await runSw(other, D), ['open ' + D.url + '&from=push'], JSON.stringify(other));
+  assert.deepEqual(await runSw([], {}), ['open ./?from=push'], '주소 없는 알림(매일 알림)은 앱 뿌리로');
+});
+
+test('웹 푸시 구독의 주인 — 동기화 뒤 지금 계정으로 맞춘다(구독이 있을 때만 · 한 번) · 아이폰 앱 「내 정보 지우기」는 그 계정의 기기 토큰을 지운다', async () => {
+  const run = async (o, fn) => {
+    const store = { ...(o.store || {}) }, calls = [], alerts = [];
+    let user = o.user;
+    const c = { console, Promise, Number, String, setTimeout, window: { ...(o.native ? { Capacitor: { isNativePlatform: () => true } } : {}) },
+      document: { addEventListener() {}, body: null },
+      localStorage: { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } },
+      navigator: { serviceWorker: { getRegistration: async () => (o.sub === undefined ? null : { pushManager: { getSubscription: async () => o.sub } }) } },
+      loadUser: () => user, appAlert: (m) => { alerts.push(m); },
+      api: { savePush: async (uid, sub, hour) => { calls.push(['savePush', uid, sub.endpoint, hour]); if (o.swapUser) user = o.swapUser; return o.saveRes || { ok: true, hour }; },
+        removePush: async (ep) => { calls.push(['removePush', ep]); return { ok: true }; }, removeIosPush: async (uid) => { calls.push(['removeIosPush', uid]); return { ok: true }; } } };
+    vm.createContext(c); vm.runInContext(PUSH, c);
+    const out = await fn(c);
+    return { out, store, calls, alerts };
+  };
+  const SUB = { endpoint: 'E1', toJSON: () => ({ endpoint: 'E1' }), unsubscribe: async () => true }, A = { name: '가', user_id: 'U-A' }, B = { name: '나', user_id: 'U-B' };
+  let r = await run({ user: B, sub: SUB, store: { 'push-owner': 'U-A', pushHour: '5' } }, (c) => c.syncPushOwner());
+  assert.deepEqual([r.out, r.calls, r.store['push-owner']], [true, [['savePush', 'U-B', 'E1', 5]], 'U-B'], '신원이 바뀐 기기 — 지금 계정으로 다시 저장(시각은 이 기기의 것)');
+  r = await run({ user: B, sub: SUB, store: { 'push-owner': 'U-B' } }, (c) => c.syncPushOwner());
+  assert.deepEqual([r.out, r.calls], [false, []], '이미 이 계정이면 부르지 않는다');
+  r = await run({ user: B, sub: SUB }, (c) => c.syncPushOwner());
+  assert.deepEqual([r.out, r.calls.length, r.store['push-owner']], [true, 1, 'U-B'], '표식이 없는 기기(이 판 전에 켠 구독)는 한 번 맞춘다');
+  r = await run({ user: B, sub: null }, (c) => c.syncPushOwner()); assert.deepEqual([r.out, r.calls], [false, []], '구독이 없으면 아무것도 하지 않는다(권한을 묻지도 않는다)');
+  r = await run({ user: B }, (c) => c.syncPushOwner()); assert.deepEqual([r.out, r.calls], [false, []], '서비스워커 등록이 없다');
+  r = await run({ user: { name: '나' }, sub: SUB }, (c) => c.syncPushOwner()); assert.deepEqual([r.out, r.calls], [false, []], '계정 번호를 받기 전');
+  r = await run({ user: B, sub: SUB, saveRes: { ok: false } }, (c) => c.syncPushOwner()); assert.deepEqual([r.out, r.store['push-owner']], [false, undefined], '저장이 안 됐으면 표식을 남기지 않는다');
+  r = await run({ user: B, sub: SUB, swapUser: A }, (c) => c.syncPushOwner()); assert.deepEqual([r.out, r.store['push-owner']], [false, undefined], '저장하는 사이 사람이 바뀌었으면 표식을 남기지 않는다');
+  r = await run({ user: B, sub: SUB, native: true }, (c) => c.syncPushOwner()); assert.deepEqual([r.out, r.calls], [false, []], '아이폰 앱은 껍데기가 맡는다');
+  // 알림을 끄면(구독 해제) 표식도 지운다 · 아이폰 앱의 조용한 끄기(내 정보 지우기)는 그 계정의 토큰을 서버에서 지운다 · 조용하지 않으면 안내만
+  r = await run({ user: B, sub: SUB, store: { 'push-owner': 'U-B' } }, (c) => c.disablePush(true));
+  assert.deepEqual([r.calls, r.store['push-owner'], r.alerts.length], [[['removePush', 'E1']], undefined, 0]);
+  r = await run({ user: B, native: true }, (c) => c.disablePush(true)); assert.deepEqual([r.calls, r.alerts.length], [[['removeIosPush', 'U-B']], 0]);
+  r = await run({ user: B, native: true }, (c) => c.disablePush(false)); assert.deepEqual([r.calls, r.alerts.length], [[], 1]);
+  r = await run({ user: null, native: true }, (c) => c.disablePush(true)); assert.deepEqual(r.calls, [], '로그인한 분이 없으면 부르지 않는다');
+  // 배선: 동기화 뒤에 부른다(app.js enterAfterLogin) · 화면 api · 서버 액션(계정 번호 꼴만 · 그 계정의 토큰만)
+  const enter = APP.slice(APP.indexOf('async function enterAfterLogin(opts) {'), APP.indexOf('\n}\n', APP.indexOf('async function enterAfterLogin(opts) {')));
+  assert.ok(enter.indexOf('if (typeof syncPushOwner === "function") syncPushOwner();') > enter.indexOf('await syncProgress();'), '계정 번호가 정해진 뒤에');
+  assert.ok(read(['js', 'api.js']).includes('removeIosPush: (user_id) => supaCall("removeIosPush", { user_id }),'));
+  const rm = fn('removeIosPush');
+  assert.ok(rm.includes('const userId = eduUid(b.user_id);') && rm.includes('if (!userId) return { ok: false, error: "no-user" };') && rm.includes('db.from("ios_push_tokens").delete().eq("user_id", userId)'));
+  assert.ok(API.includes('case "removeIosPush": return json(await removeIosPush(body));'));
+});
+
+test('배포 직후의 새로고침(ensureFreshBuild) — 알림·딥링크 주소를 잃지 않게 처음 주소로 다시 연다(from=push 는 빼고)', async () => {
+  const a = APP.indexOf('(function ensureFreshBuild() {'), seg = APP.slice(a, APP.indexOf('})();', a) + 5);
+  const fresh = async (href0, hrefLater, src) => {
+    const log = [], loc = { href: href0, reload() { log.push('reload'); }, replace(u) { log.push('replace ' + u); } };
+    const c = { APP_BUILD: 'OLD', URL, Promise, document: { querySelector: () => ({ src: src || 'https://x/app.js?v=NEW' }) }, sessionStorage: { getItem: () => null, setItem() {} },
+      fetch: async () => ({}), window: {}, location: loc };
+    vm.createContext(c); vm.runInContext(seg, c); loc.href = hrefLater;
+    await new Promise((r) => setTimeout(r, 20));
+    return log;
+  };
+  assert.deepEqual(await fresh('https://x/?duty=1&from=push', 'https://x/'), ['replace https://x/?duty=1'], '앱이 주소를 정리한 뒤에 와도 당번 알림 주소로');
+  assert.deepEqual(await fresh('https://x/?edu=abc#top', 'https://x/'), ['replace https://x/?edu=abc']);
+  assert.deepEqual(await fresh('https://x/?v=38', 'https://x/?v=38'), ['reload'], '주소가 그대로면 그냥 다시 받는다');
+  assert.deepEqual(await fresh('https://x/', 'https://x/'), ['reload']);
+  assert.deepEqual(await fresh('https://x/?from=push', 'https://x/'), ['reload'], '알림 표식뿐이었으면 그냥 다시 받는다(두 번 세지 않는다)');
+  assert.deepEqual(await fresh('https://x/?duty=1', 'https://x/', 'https://x/app.js?v=OLD'), [], '번호가 같으면 아무것도 하지 않는다');
+});

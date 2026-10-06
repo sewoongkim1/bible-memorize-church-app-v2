@@ -52,6 +52,7 @@ const api = {
   updateIosPushHour: (user_id, hour) => supaCall("updateIosPushHour", { user_id, hour }),  // 네이티브(iOS) 앱에서 알림 시간만 바꿀 때
   updatePushEvening: (user_id, on) => supaCall("updatePushEvening", { user_id, on }),  // 저녁 알림만 켜고 끄기(사람 단위)
   removePush: (endpoint) => supaCall("removePush", { endpoint }),
+  removeIosPush: (user_id) => supaCall("removeIosPush", { user_id }),  // 아이폰 앱 「내 정보 지우기」 — 그 계정의 기기 토큰을 지운다
   testPush: (endpoint, hour, preview) => supaCall("testPush", { endpoint, hour, preview }),
   testIosPush: (user_id) => supaCall("testPush", { user_id }),  // 네이티브(iOS) 앱 — 본인의 최근 등록 기기로
   boardList: (user_id) => supaCall("boardList", { user_id }),

@@ -31,6 +31,15 @@ self.addEventListener("push", (e) => {
   e.waitUntil(self.registration.showNotification(title, opts));
 });
 
+// 앱 창인가 — 이 서비스워커 범위의 뿌리(…/ · …/index.html). 같은 주소 아래 다른 쪽(quiz/ · guide/ · privacy/ · 관리자 화면)은 「from-push」 를 받는 코드가 없다 —
+//   그 창을 앞으로 올리기만 하면 알림이 열어야 할 화면(봉사 당번·교육)이 열리지 않는다(검토 반영 2026-10-07).
+function isAppWindow(c) {
+  try {
+    const p = new URL(c.url).pathname, root = new URL(self.registration.scope).pathname;
+    return p === root || p === root + "index.html";
+  } catch (_) { return false; }
+}
+
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();
   const url = (e.notification.data && e.notification.data.url) || "./";
@@ -41,14 +50,14 @@ self.addEventListener("notificationclick", (e) => {
   e.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
       for (const c of list) {
-        if ("focus" in c) {
+        if ("focus" in c && isAppWindow(c)) {
           // ⚠️ 이미 열린 창은 focus 만 하고 주소가 안 바뀐다 — 그래서 따로 알린다.
           //    url 도 함께 — 교육 알림(?edu=<강좌 id> · 2026-10-05)은 앱이 이 주소로 그 강좌를 연다(app.js 「from-push」).
           try { c.postMessage({ type: "from-push", url: url }); } catch (_) {}
           return c.focus();
         }
       }
-      return self.clients.openWindow(marked);
+      return self.clients.openWindow(marked);   // 앱 창이 없으면(다른 쪽만 떠 있어도) 새 창으로 그 주소를 연다
     })
   );
 });
