@@ -6,7 +6,8 @@
 --       교회 어드민 저장소 supabase/sql/015_duty_roles_staff.sql(역할 둘 · 담당 표)은 이 파일 **뒤**에(그 표가 duty_boards 를 가리킨다).
 -- 여러 번 돌려도 안전하다(if not exists · create or replace).
 -- ⚠️ 상태(지원 줄 · 쉼 · 확정 · 정원)는 **이 파일의 함수 한 곳**에서만 바꾼다 — 성경암송 api(성도님)와 교회 어드민 함수(담당자)가
---    둘 다 이 함수를 부른다. 코드에서 직접 update 하지 말 것(담당자 메모 staff_note 한 칸만 예외).
+--    둘 다 이 함수를 부른다. 코드에서 직접 update 하지 말 것 — 담당자 메모 한 칸(staff_note)도 duty_note_set 으로 쓴다
+--    (지원 줄에 직접 쓰면 쓰기 연결 트리거가 「줄 → 전역 잠금」 차례로 잠가 아래 차례와 뒤집힌다 — 검토 반영 2026-10-06).
 -- ⚠️ 잠금 차례는 모든 함수가 같다(교착 막기):
 --      ⓪ 전역 advisory 잠금 (7240910, 1) — **지원 줄을 쓰는 함수만**(지원·취소·옮기기·되살리기·못 가요). member_merge.sql 의 쓰기 연결 트리거가
 --         지원 줄을 쓸 때 어차피 쥐는 잠금이다 — 맨 먼저 잡아 기록 합치기(전역 잠금 → 지원 줄)와 같은 차례로 선다(검토 반영 2026-10-06).
@@ -16,6 +17,9 @@
 --      ③ 자리 줄 duty_slots … for update (둘이면 id 차례)
 --      ④ 지원 줄 duty_signups … for update
 --    날짜·자리만 고치는 함수(확정·쉼·정원·틀·날짜 더하기)는 ⓪ 을 잡지 않는다 — 지원 줄을 쓰지 않으므로 트리거가 돌지 않는다.
+--    자리를 **만드는** 일(duty_ensure_slots — 만들 자리가 있을 때만 · 틀 고치기·빼기 · 날짜 더하기 · 날짜 줄을 새로 만드는 쉬는 기간·날짜 메모)은 당번 advisory 잠금 (7240912, 당번)을
+--    맨 먼저 잡아 당번마다 한 줄로 선다 — 틀·날짜 줄의 for update 와 새 자리의 FK 검사(KEY SHARE)가 서로를 기다리는 교착을 막는다.
+--    여러 당번을 도는 읽기(duty_list_view · duty_board_counts)는 당번 id 차례로 돈다(이 잠금끼리 엇갈리지 않게).
 -- ⚠️ 「확정됨(잠김)」은 표에 쓰는 값이 아니라 그때그때 셈한다(duty_locked): 담당자가 확정했거나 지금이 그날 **전날 19:00(한국)**을 지났다.
 --    19시라는 숫자는 duty_cutoff 한 곳에만 둔다(크론·api·화면에 따로 적지 않는다 — 화면은 서버가 준 lockAt 을 보여 준다).
 -- ⚠️ 화면이 읽는 것은 jsonb 하나를 돌려주는 함수(duty_list_view · duty_board_view · duty_mine · duty_roster)다 — user_id·ident_key 를
@@ -177,9 +181,10 @@ create or replace function public.duty_locked(p_confirmed timestamptz, p_date da
   select p_confirmed is not null or now() >= public.duty_cutoff(p_date)
 $$;
 
--- 당번표에 싣는 이름 — 완성형(NFC) · 제어·방향 바꿈 글자 빼기 · 20자(로그인 때 적은 글이라 그대로 믿지 않는다).
+-- 당번표에 싣는 이름 — 완성형(NFC) · 제어·방향 바꿈·줄 가름 글자(U+061C · U+200B~200F · U+2028~202E · U+2066~2069) 빼기 · 20자
+--   (로그인 때 적은 글이라 그대로 믿지 않는다 · 교회 어드민 duty-rules.ts CTRL_RE 와 같은 글자들).
 create or replace function public.duty_name_out(p text) returns text language sql immutable set search_path = public as $$
-  select left(btrim(regexp_replace(normalize(coalesce(p, ''), NFC), '[[:cntrl:]\u200B-\u200F\u202A-\u202E\u2066-\u2069]', '', 'g')), 20)
+  select left(btrim(regexp_replace(normalize(coalesce(p, ''), NFC), '[[:cntrl:]\u061C\u200B-\u200F\u2028-\u202E\u2066-\u2069]', '', 'g')), 20)
 $$;
 
 -- 같은 분인가(겹침·이미 선 줄 찾기에 쓴다) — 셋 가운데 하나면 같은 분:
@@ -237,7 +242,7 @@ $$;
 -- ---------- 자리 만들기(저절로) ----------
 -- 요일이 있는 살아 있는 틀 × [오늘, min(오늘 + 보이는 기간, 끝 날짜)] 에 **없는 자리만** 만든다(날짜 줄도). 이미 있는 자리(정원을 고친 자리·쉬는 자리·
 --   지원이 달린 자리)는 건드리지 않는다. 읽는 함수들이 먼저 부르고, 틀을 고친 뒤에도 부른다 — 「자리 만들기」를 잊어 당번표가 비는 일이 없다.
---   보관한 당번은 만들지 않는다. 돌려주는 값 = 이번에 만든 자리 수. 동시에 두 번 불러도 on conflict do nothing 이라 한 벌만 생긴다.
+--   보관한 당번은 만들지 않는다. 돌려주는 값 = 이번에 만든 자리 수. 동시에 두 번 불러도 한 벌만 생긴다(당번 잠금 + on conflict do nothing).
 create or replace function public.duty_ensure_slots(p_board uuid) returns int
 language plpgsql security definer set search_path = public as $$
 declare b public.duty_boards; d0 date := duty_today(); d1 date; n int := 0;
@@ -247,6 +252,17 @@ begin
   d1 := d0 + b.open_days;
   if b.until_date is not null and b.until_date < d1 then d1 := b.until_date; end if;
   if d1 < d0 then return 0; end if;
+  -- 만들 자리가 없으면(거의 늘 그렇다 — 읽을 때마다 부른다) 잠금 없이 끝낸다
+  if not exists (
+    select 1 from public.duty_lines l
+    join generate_series(0, d1 - d0) as g(i) on extract(dow from (d0 + g.i))::int = l.weekday
+    where l.board_id = p_board and l.active and l.weekday is not null
+      and not exists (select 1 from public.duty_slots s where s.line_id = l.id and s.on_date = d0 + g.i)) then
+    return 0;
+  end if;
+  -- 당번 advisory 잠금 — 틀 고치기·빼기·날짜 더하기와 한 줄로 선다(머리말). 잠금을 얻은 뒤의 insert 는 그때의 틀을 다시 읽는다
+  --   (기다리는 사이 틀을 뺐거나 요일을 바꿨으면 그 자리는 만들지 않는다).
+  perform pg_advisory_xact_lock(7240912, hashtext(p_board::text));
   insert into public.duty_days(board_id, on_date)
     select distinct p_board, d0 + g.i
     from public.duty_lines l
@@ -298,6 +314,7 @@ begin
      or v_cap is null or v_cap not between 1 and 200 or (v_wd is not null and v_wd not between 0 and 6) or v_sort not between -999 and 999 then
     return jsonb_build_object('ok',false,'error','bad-line');
   end if;
+  perform pg_advisory_xact_lock(7240912, hashtext(p_board::text));        -- 자리 만들기(duty_ensure_slots)·다른 틀 고치기와 한 줄로(머리말)
   -- 당번 줄은 for no key update — 날짜 줄을 새로 넣는 읽기(duty_ensure_slots)의 FK 검사(KEY SHARE)와 부딪치지 않게(검토 반영 · 교착).
   select * into b from public.duty_boards where id = p_board for no key update;
   if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
@@ -318,9 +335,9 @@ begin
     if not found or not cur.active then return jsonb_build_object('ok',false,'error','not-found'); end if;
     if cur.weekday is not null and cur.weekday is distinct from v_wd then
       -- 옛 요일에 맞춰 저절로 생긴 앞날 자리만(날짜를 골라 더한 자리는 둔다) — 지원 줄이 하나도 없는 것은 지우고, 있는 것은 남긴 수로 알린다
-      delete from public.duty_slots s where s.line_id = v_id and s.on_date >= d0 and extract(dow from s.on_date)::int = cur.weekday
+      delete from public.duty_slots s where s.line_id = v_id and s.on_date >= d0 and extract(dow from s.on_date)::int = cur.weekday and not s.manual
         and not exists (select 1 from public.duty_signups e where e.slot_id = s.id);
-      select count(*) into kept from public.duty_slots s where s.line_id = v_id and s.on_date >= d0 and extract(dow from s.on_date)::int = cur.weekday;
+      select count(*) into kept from public.duty_slots s where s.line_id = v_id and s.on_date >= d0 and extract(dow from s.on_date)::int = cur.weekday and not s.manual;
     end if;
     update public.duty_lines set sort = v_sort, service = v_service, task = v_task, start_time = v_start, end_time = v_end,
         capacity = v_cap, weekday = v_wd, updated_at = now() where id = v_id;
@@ -342,6 +359,7 @@ declare cur public.duty_lines; b public.duty_boards; d0 date := duty_today(); ke
 begin
   select * into cur from public.duty_lines where id = p_line;
   if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
+  perform pg_advisory_xact_lock(7240912, hashtext(cur.board_id::text));   -- 자리 만들기와 한 줄로(머리말) — 빼는 사이 그 틀의 자리가 새로 생기지 않게
   select * into b from public.duty_boards where id = cur.board_id for no key update;
   if b.status = 'archived' then return jsonb_build_object('ok',false,'error','archived'); end if;
   perform 1 from public.duty_days where board_id = cur.board_id and on_date >= d0 order by on_date for update;
@@ -359,11 +377,12 @@ begin
 end $$;
 
 -- 날짜 더하기 — 그 날짜에 고른 틀의 자리를 만든다(요일과 무관 — 성탄절 · 특별 예배 · 한 번짜리 모집). 이미 있는 자리는 그대로(existed).
+--   이미 있는 자리가 **남은 자리**(요일을 바꾼 틀의 옛 요일 자리 — 성도님 지원을 안 받는다)면 「날짜를 골라 더한 자리」로 바꿔 다시 살린다(reopened).
 --   날짜는 오늘 − 31일 ~ 오늘 + 400일 · 끝 날짜(until_date)가 있으면 그날까지(after-until — 끝 날짜를 먼저 늦춘다).
 --   거절: not-found · archived · bad-date · after-until · bad-lines(이 당번의 살아 있는 틀이 아님 · 빈 목록)
 create or replace function public.duty_date_add(p_board uuid, p_date date, p_line_ids bigint[])
 returns jsonb language plpgsql security definer set search_path = public as $$
-declare b public.duty_boards; d0 date := duty_today(); ids bigint[]; made int := 0;
+declare b public.duty_boards; d0 date := duty_today(); ids bigint[]; made int := 0; pre int := 0; touched int := 0;
 begin
   select * into b from public.duty_boards where id = p_board;
   if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
@@ -375,20 +394,27 @@ begin
      or (select count(*) from public.duty_lines l where l.id = any(ids) and l.board_id = p_board and l.active) <> cardinality(ids) then
     return jsonb_build_object('ok',false,'error','bad-lines');
   end if;
+  perform pg_advisory_xact_lock(7240912, hashtext(p_board::text));        -- 자리 만들기·틀 고치기와 한 줄로(머리말)
   insert into public.duty_days(board_id, on_date) values (p_board, p_date) on conflict (board_id, on_date) do nothing;
   perform 1 from public.duty_days where board_id = p_board and on_date = p_date for update;
-  insert into public.duty_slots(board_id, on_date, line_id, capacity, manual)
+  select count(*)::int into pre from public.duty_slots x where x.line_id = any(ids) and x.on_date = p_date;
+  insert into public.duty_slots as t (board_id, on_date, line_id, capacity, manual)
     select p_board, p_date, l.id, l.capacity, true from public.duty_lines l where l.id = any(ids)
-  on conflict (line_id, on_date) do nothing;
-  get diagnostics made = row_count;
-  return jsonb_build_object('ok',true,'made',made,'existed',cardinality(ids) - made);
+  on conflict (line_id, on_date) do update set manual = true
+    where not t.manual
+      and exists (select 1 from public.duty_lines l2 where l2.id = t.line_id and l2.weekday is not null
+                    and extract(dow from t.on_date)::int <> l2.weekday);
+  get diagnostics touched = row_count;                                     -- 새로 만든 자리 + 다시 살린 남은 자리
+  made := cardinality(ids) - pre;
+  return jsonb_build_object('ok',true,'made',made,'existed',pre - (touched - made),'reopened',touched - made);
 end $$;
 
 -- ---------- 쉬는 날 · 확정 ----------
 -- 하루 또는 기간을 쉬는 날로 / 다시 열기 — **지원 줄은 건드리지 않는다**(쉬는 동안 찬 수·겹침·전날 알림에서 빠지고, 다시 열면 그대로 살아난다).
 --   p_expect = 화면이 확인 창에 보여 준 「상태가 바뀌는 날의 살아 있는 지원 수」. null 이면 **세기만** 한다({ok, dry:true, active, days} · 아무것도 안 씀).
 --   숫자를 주면 지금 수와 같을 때만 쓴다(그 사이 지원이 들어왔으면 {ok:false, error:'changed', active}).
---   기간은 오늘 이후 · 92일까지. 쉬는 날로 바꿀 때는 그 기간에서 **자리가 있거나 요일이 맞아 자리가 생길 날짜**의 날짜 줄을 미리 만든다
+--   기간은 오늘 이후 · 92일까지 · 오늘 + 400일 안(날짜 더하기·확정과 같은 끝 — 그 밖의 날짜 줄은 지울 길이 없다).
+--   쉬는 날로 바꿀 때는 그 기간에서 **자리가 있거나 요일이 맞아 자리가 생길 날짜**의 날짜 줄을 미리 만든다
 --   (보이는 기간 밖이라 자리가 아직 없는 여름 휴가도 미리 쉬는 날로 둘 수 있다).
 --   p_note(null 이면 메모는 그대로): 쉬는 날로 바꿀 때는 그 기간의 **쉬는 날 모두**(이번에 바뀐 날 + 이미 쉬던 날)에 적는다(「여름 휴가」).
 --     다시 열 때는 **이번에 다시 연 날에만** 적는다('' 로 쉬는 까닭을 지운다) — 그 기간의 다른 날에 적어 둔 메모는 건드리지 않는다.
@@ -397,7 +423,7 @@ create or replace function public.duty_days_off(p_board uuid, p_from date, p_to 
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare b public.duty_boards; d0 date := duty_today(); n int; changed int; ids jsonb;
 begin
-  if p_off is null or p_from is null or p_to is null or p_to < p_from or p_from < d0 or p_to - p_from > 92 then
+  if p_off is null or p_from is null or p_to is null or p_to < p_from or p_from < d0 or p_to - p_from > 92 or p_to > d0 + 400 then
     return jsonb_build_object('ok',false,'error','bad-range');
   end if;
   if p_note is not null and char_length(p_note) > 60 then return jsonb_build_object('ok',false,'error','too-long'); end if;
@@ -405,6 +431,7 @@ begin
   if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
   if b.status = 'archived' then return jsonb_build_object('ok',false,'error','archived'); end if;
   if p_off and p_expect is not null then
+    perform pg_advisory_xact_lock(7240912, hashtext(p_board::text));        -- 날짜 줄을 새로 만든다 — 자리 만들기·틀 고치기와 한 줄로(머리말)
     -- 자리가 있거나 요일이 맞아 자리가 생길 날짜만(그 밖의 날짜는 쉬게 할 것이 없다)
     insert into public.duty_days(board_id, on_date)
       select p_board, p_from + g.i from generate_series(0, p_to - p_from) as g(i)
@@ -448,7 +475,7 @@ end $$;
 --   confirm   — 오늘 이후만(past). 이미 잠긴 날(확정했거나 전날 저녁이 지남)이면 {ok, already:true}(아무것도 안 바꿈 — 알림을 부탁하지 않게).
 --               성공 {ok, ids: [알릴 지원 번호 — 그날 살아 있고 앱 계정이 있고 쉬는 자리가 아닌 줄], active: 그날 살아 있는 줄 수}. 쉬는 날은 ids 가 빈다.
 --   unconfirm — 확정한 날만 · **전날 저녁(마감)이 지나면 too-late**(풀어도 다시 잠긴 날이다 — 담당자가 직접 빼기·옮기기). 확정이 아니면 {ok, already:true}.
---   note      — 한 줄 메모(60자 · '' 로 지움) · 날짜는 오늘 − 31일 ~ 오늘 + 400일(bad-date)
+--   note      — 한 줄 메모(60자 · '' 로 지움) · 날짜 줄이 없는 날은 오늘 − 31일 ~ 오늘 + 400일만(bad-date) — 이미 있는 날짜 줄은 오래된 날이어도 고친다
 --   자리가 하나도 없는 날은 확정하지 않는다(no-slots — 나중에 생기는 자리가 처음부터 잠긴 채 태어나지 않게).
 --   풀기·빈 메모는 날짜 줄을 새로 만들지 않는다(줄이 없으면 바꿀 것도 없다 — {ok, already:true}).
 --   거절: not-found · archived · bad-op · bad-date · past · no-slots · too-late · too-long
@@ -462,11 +489,16 @@ begin
   if b.status = 'archived' then return jsonb_build_object('ok',false,'error','archived'); end if;
   if p_op = 'note' and char_length(coalesce(p_note, '')) > 60 then return jsonb_build_object('ok',false,'error','too-long'); end if;
   if p_op = 'confirm' and p_date < duty_today() then return jsonb_build_object('ok',false,'error','past'); end if;
-  if p_date < duty_today() - 31 or p_date > duty_today() + 400 then return jsonb_build_object('ok',false,'error','bad-date'); end if;
+  -- 날짜 범위는 **날짜 줄을 새로 만들 수 있는** 부름에만 본다 — 이미 있는 날짜 줄의 메모는 오래된 날이어도 고치고 지운다(검토 반영 2026-10-06)
+  if (p_date < duty_today() - 31 or p_date > duty_today() + 400)
+     and not exists (select 1 from public.duty_days x where x.board_id = p_board and x.on_date = p_date) then
+    return jsonb_build_object('ok',false,'error','bad-date');
+  end if;
   if p_op = 'confirm' and not exists (select 1 from public.duty_slots s where s.board_id = p_board and s.on_date = p_date) then
     return jsonb_build_object('ok',false,'error','no-slots');
   end if;
   if p_op = 'note' and coalesce(p_note, '') <> '' then
+    perform pg_advisory_xact_lock(7240912, hashtext(p_board::text));        -- 날짜 줄을 새로 만들 수 있다 — 자리 만들기·틀 고치기와 한 줄로(머리말)
     insert into public.duty_days(board_id, on_date) values (p_board, p_date) on conflict (board_id, on_date) do nothing;
   end if;
   select * into d from public.duty_days where board_id = p_board and on_date = p_date for update;
@@ -606,6 +638,8 @@ begin
     if p_staff and e.user_id is null and p_user is not null
        and not exists (select 1 from public.duty_signups y where y.slot_id = p_slot and y.user_id = p_user) then
       update public.duty_signups set user_id = p_user, updated_at = now() where id = e.id;
+      -- linked = 이번에 계정을 이었다 — 「이미 서 계세요」지만 **쓴 것이 있다**. 부른 쪽(교회 어드민)이 바꾼 기록을 남기고 잠긴 날이면 그분께 알린다.
+      return jsonb_build_object('ok',true,'id',e.id,'already',true,'locked',v_locked,'linked',true);
     end if;
     return jsonb_build_object('ok',true,'id',e.id,'already',true,'locked',v_locked);
   end if;
@@ -870,6 +904,25 @@ begin
   return jsonb_build_object('ok',true,'cleared',true);
 end $$;
 
+-- 담당자 메모(지원 줄의 staff_note — 담당자만 본다 · 앱 응답·엑셀에 싣지 않는다) — 500자 · '' 로 지움.
+--   지원 줄을 쓰므로 다른 함수와 같은 차례(⓪ 전역 → ④ 지원 줄)로 잠근다 — 표에 직접 update 하면 쓰기 연결 트리거가 「줄 → 전역」 차례로
+--   잠가, 같은 줄을 빼거나 옮기는 함수와 서로 기다린다(교착 · 검토 반영 2026-10-06). 거절: not-found · archived · too-long
+create or replace function public.duty_note_set(p_signup bigint, p_note text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare e public.duty_signups; s public.duty_slots; b public.duty_boards; v text := coalesce(p_note, '');
+begin
+  if char_length(v) > 500 then return jsonb_build_object('ok',false,'error','too-long'); end if;
+  select * into e from public.duty_signups where id = p_signup;
+  if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
+  select * into s from public.duty_slots where id = e.slot_id;
+  select * into b from public.duty_boards where id = s.board_id;
+  if b.status = 'archived' then return jsonb_build_object('ok',false,'error','archived'); end if;
+  perform pg_advisory_xact_lock(7240910, 1);                                                               -- ⓪ 전역(지원 줄을 쓴다)
+  update public.duty_signups set staff_note = v, updated_at = now() where id = p_signup;                    -- ④ 지원 줄
+  if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
+  return jsonb_build_object('ok',true);
+end $$;
+
 -- ---------- 읽기(jsonb 하나 · user_id·ident_key 를 싣지 않는다) ----------
 -- 성도님: 당번 하나의 날짜별 자리 — 오늘 ~ 오늘 + 보이는 기간(끝 날짜가 있으면 그날까지), 자리가 있는 날만. 받는 중·지원 멈춤 당번만(그 밖은 not-found).
 --   날짜마다 {date, off, note, locked, lockAt(아직 안 잠긴 날의 잠기는 때)} · 자리마다 {id, service, task, start, end, capacity, off, n,
@@ -961,7 +1014,7 @@ create or replace function public.duty_list_view(p_user uuid default null)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare r record; d0 date := duty_today(); v_now time := (now() at time zone 'Asia/Seoul')::time; v jsonb;
 begin
-  for r in select id from public.duty_boards where status in ('open','closed') loop
+  for r in select id from public.duty_boards where status in ('open','closed') order by id loop
     perform duty_ensure_slots(r.id);
   end loop;
   select coalesce(jsonb_agg(jsonb_build_object('id', b.id, 'title', b.title, 'place', b.place, 'status', b.status,
@@ -989,7 +1042,8 @@ end $$;
 -- 담당자: 주별 명단 — 당번 설정 · 자리 틀 · 날짜마다 자리와 선 분(이름·소속·넣은 곳·앱 계정 유무·메모·「못 가게 됐어요」)·빠진 분.
 --   p_from 기본 = 오늘 · p_to 기본 = 「오늘 + 보이는 기간」과 「마지막 날짜 줄」 가운데 늦은 날(오늘 + 400일까지) — 보이는 기간 밖에
 --   「날짜 더하기」·「쉬는 기간」으로 미리 만든 날도 담당자에게는 보인다(notYet = 앱에는 아직 안 보이는 날).
---   기간이 400일을 넘으면 **앞을 당긴다**(오류가 아니다 — 돌려준 from 이 실제로 읽은 첫 날). 끝이 앞보다 이르면 bad-range.
+--   끝을 안 주면 지난 날은 오늘 − 400일까지(앞날과 따로 자른다) · 끝을 주면(엑셀) 기간 400일까지 — 넘으면 **앞을 당긴다**
+--   (오류가 아니다 — 돌려준 from 이 실제로 읽은 첫 날). 끝이 앞보다 이르면 bad-range.
 --   날짜는 자리가 있거나 쉼·메모·확정이 적힌 날만. 자리마다 leftover(뺀 틀·요일을 바꾼 틀의 남은 자리 — 새 지원을 받지 않는다).
 --   지원 줄마다 overlap(같은 분이 같은 날 시각이 겹치는 다른 자리에 살아 있다 — 정원·겹침을 넘겨 넣었거나 쉼을 풀어 생긴 겹침).
 --   날짜마다 {date, off, note, confirmed(담당자 확정), locked, cutoff, past, afterUntil(끝 날짜 뒤 — 앱에 안 보이는 날),
@@ -1006,10 +1060,18 @@ begin
   if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
   perform duty_ensure_slots(p_board);
   f := coalesce(p_from, d0);
-  t := coalesce(p_to, least(d0 + 400, greatest(d0 + b.open_days,
-         coalesce((select max(x.on_date) from public.duty_days x where x.board_id = p_board), d0))));
-  if t < f then return jsonb_build_object('ok',false,'error','bad-range'); end if;
-  if t - f > 400 then f := t - 400; end if;
+  if p_to is null then
+    -- 끝을 안 주면(담당자 화면): 앞날은 오늘 + 400일까지, 지난 날은 오늘 − 400일까지 — **따로** 자른다.
+    --   합쳐서 400일로 자르면 먼 앞날에 날짜 줄 하나만 있어도 지난 날을 못 읽는다(어제 안 오신 분을 못 고친다 — 검토 반영 2026-10-06).
+    t := least(d0 + 400, greatest(d0 + b.open_days,
+           coalesce((select max(x.on_date) from public.duty_days x where x.board_id = p_board), d0)));
+    if f < d0 - 400 then f := d0 - 400; end if;
+    if t < f then return jsonb_build_object('ok',false,'error','bad-range'); end if;
+  else
+    t := p_to;
+    if t < f then return jsonb_build_object('ok',false,'error','bad-range'); end if;
+    if t - f > 400 then f := t - 400; end if;        -- 끝을 준 요청(엑셀)은 400일까지 — 넘으면 앞을 당긴다
+  end if;
   select coalesce(jsonb_agg(jsonb_build_object('id', l.id, 'sort', l.sort, 'service', l.service, 'task', l.task,
            'start', to_char(l.start_time, 'HH24:MI'), 'end', to_char(l.end_time, 'HH24:MI'),
            'capacity', l.capacity, 'weekday', l.weekday, 'active', l.active)
@@ -1065,7 +1127,8 @@ begin
   ) q;
   return jsonb_build_object('ok', true, 'today', d0, 'from', f, 'to', t,
     'board', jsonb_build_object('id', b.id, 'title', b.title, 'description', b.description, 'place', b.place, 'contact', b.contact_note,
-                                'openDays', b.open_days, 'untilDate', b.until_date, 'maxAhead', b.max_ahead, 'status', b.status),
+                                'openDays', b.open_days, 'untilDate', b.until_date, 'maxAhead', b.max_ahead, 'status', b.status,
+                                'updatedAt', b.updated_at),   -- 설정 창이 「그사이 다른 분이 고쳤다」를 알게(dutyBoardSave 의 base)
     'lines', v_lines, 'days', v_days);
 end $$;
 
@@ -1078,7 +1141,7 @@ returns jsonb language plpgsql security definer set search_path = public as $$
 declare r record; v jsonb;
 begin
   -- 수를 세기 전에 자리를 맞춘다 — 자리는 읽을 때 생기므로(duty_ensure_slots), 아무도 명단을 안 연 당번은 옛 기간의 자리만 세게 된다(검토 반영)
-  for r in select bb.id from public.duty_boards bb where bb.id = any(coalesce(p_ids, array[]::uuid[])) and bb.status <> 'archived' loop
+  for r in select bb.id from public.duty_boards bb where bb.id = any(coalesce(p_ids, array[]::uuid[])) and bb.status <> 'archived' order by bb.id loop
     perform duty_ensure_slots(r.id);
   end loop;
   select coalesce(jsonb_object_agg(i.id::text, jsonb_build_object(
@@ -1184,6 +1247,7 @@ revoke all on function public.duty_move(bigint, bigint, boolean) from public, an
 revoke all on function public.duty_restore(bigint, boolean) from public, anon, authenticated;
 revoke all on function public.duty_ask(bigint, uuid, text) from public, anon, authenticated;
 revoke all on function public.duty_ask_clear(bigint) from public, anon, authenticated;
+revoke all on function public.duty_note_set(bigint, text) from public, anon, authenticated;
 revoke all on function public.duty_board_view(uuid, uuid) from public, anon, authenticated;
 revoke all on function public.duty_mine(uuid) from public, anon, authenticated;
 revoke all on function public.duty_list_view(uuid) from public, anon, authenticated;
@@ -1215,6 +1279,7 @@ grant execute on function public.duty_move(bigint, bigint, boolean) to service_r
 grant execute on function public.duty_restore(bigint, boolean) to service_role;
 grant execute on function public.duty_ask(bigint, uuid, text) to service_role;
 grant execute on function public.duty_ask_clear(bigint) to service_role;
+grant execute on function public.duty_note_set(bigint, text) to service_role;
 grant execute on function public.duty_board_view(uuid, uuid) to service_role;
 grant execute on function public.duty_mine(uuid) to service_role;
 grant execute on function public.duty_list_view(uuid) to service_role;
@@ -1228,7 +1293,7 @@ grant execute on function public.duty_remind_ids(date) to service_role;
 commit;
 
 -- 확인(CLI 는 마지막 SELECT 하나만 보여 준다 — 한 문장으로 묶었다)
---   기대: tables 6 · functions 31 · rls on 6 · table grants 0 · routine grants 0 · anon can execute 0 · service_role can execute 31 · sequence grants 0
+--   기대: tables 6 · functions 32 · rls on 6 · table grants 0 · routine grants 0 · anon can execute 0 · service_role can execute 32 · sequence grants 0
 select 'tables' as t, count(*) from pg_tables where schemaname = 'public'
     and tablename in ('duty_boards','duty_lines','duty_days','duty_slots','duty_signups','duty_notify_log')
 union all select 'functions', count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace

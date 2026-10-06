@@ -234,6 +234,7 @@ begin
   perform duty_day_set(b, d16, 'note', null, '');
   r := duty_days_off(b, t0 - 1, t0 + 3, true); if r->>'error' is distinct from 'bad-range' then raise exception '지난 날 쉼: %', r; end if;
   r := duty_days_off(b, t0, t0 + 200, true);   if r->>'error' is distinct from 'bad-range' then raise exception '긴 기간: %', r; end if;
+  r := duty_days_off(b, t0 + 395, t0 + 401, true); if r->>'error' is distinct from 'bad-range' then raise exception '오늘+400일을 넘는 쉬는 기간(지울 길 없는 날짜 줄을 만들지 않는다): %', r; end if;
 
   -- ── 정원 ──
   r := duty_slot_set(s1, 1); if r->>'error' is distinct from 'below-count' or (r->>'active')::int is distinct from 3 then raise exception '찬 수 아래로: %', r; end if;
@@ -399,17 +400,29 @@ begin
   r := duty_day_set(b2, t0 + 3, 'note', null, '특별 예배'); if (r->>'ok')::boolean is not true or r ? 'already' then raise exception '메모 적기: %', r; end if;
   if (select note from public.duty_days where board_id = b2 and on_date = t0 + 3) is distinct from '특별 예배' then raise exception '메모가 날짜 줄을 만든다'; end if;
   r := duty_day_set(b2, t0 + 900, 'note', null, '먼 날'); if r->>'error' is distinct from 'bad-date' then raise exception '먼 날짜 메모: %', r; end if;
+  insert into public.duty_days(board_id, on_date, note) values (b2, t0 - 40, '옛 메모');
+  r := duty_day_set(b2, t0 - 40, 'note', null, '');
+  if (r->>'ok')::boolean is not true or (select note from public.duty_days where board_id = b2 and on_date = t0 - 40) is distinct from '' then raise exception '오래된 날이어도 이미 있는 날짜 줄의 메모는 지운다: %', r; end if;
+  r := duty_day_set(b2, t0 - 41, 'note', null, '새 메모'); if r->>'error' is distinct from 'bad-date' then raise exception '오래된 날에 날짜 줄을 새로 만들지는 않는다: %', r; end if;
 
   -- ── 명단: 보이는 기간 밖에 미리 만든 날도 담당자에게 보인다(notYet) ──
   insert into public.duty_boards(title, status, open_days) values ('[시험] 겹침 가', 'open', 14) returning id into b3;
   r := duty_line_save(b3, jsonb_build_object('service','가','task','','start','09:00','end','10:00','capacity',2)); la := (r->>'id')::bigint;
   r := duty_line_save(b3, jsonb_build_object('service','다','task','','start','13:00','end','14:00','capacity',1)); lc := (r->>'id')::bigint;
-  r := duty_date_add(b3, d16, array[la, lc]); if (r->>'made')::int is distinct from 2 then raise exception '기간 밖 날짜 더하기: %', r; end if;
+  r := duty_date_add(b3, d16, array[la, lc]); if (r->>'made')::int is distinct from 2 or (r->>'reopened')::int is distinct from 0 then raise exception '기간 밖 날짜 더하기: %', r; end if;
   if (select manual from public.duty_slots where line_id = la and on_date = d16) is not true then raise exception '날짜 더하기로 만든 자리는 manual'; end if;
   r := duty_roster(b3);
   if r->>'to' is distinct from d16::text or jsonb_array_length(r->'days') is distinct from 1 or (r->'days'->0->>'notYet')::boolean is not true then
     raise exception '보이는 기간(14일) 밖 +16 의 자리가 명단에 보인다: to % · %', r->>'to', left((r->'days')::text, 200); end if;
   if jsonb_array_length(duty_board_view(b3, u[1])->'days') is distinct from 0 then raise exception '앱에는 보이는 기간 밖 날이 안 보인다'; end if;
+  -- 먼 앞날(+395)에 날짜 줄이 있어도 지난 날을 그대로 읽는다 — 끝을 안 주면 앞날(오늘+400)과 지난 날(오늘−400)을 따로 자른다(검토 반영)
+  r := duty_date_add(b3, t0 + 395, array[la]); if (r->>'made')::int is distinct from 1 then raise exception '먼 날짜 더하기: %', r; end if;
+  r := duty_roster(b3, t0 - 14);
+  if r->>'from' is distinct from (t0 - 14)::text or r->>'to' is distinct from (t0 + 395)::text then raise exception '먼 앞날이 있어도 지난 14일을 읽는다: % ~ %', r->>'from', r->>'to'; end if;
+  r := duty_roster(b3, t0 - 900); if r->>'from' is distinct from (t0 - 400)::text then raise exception '지난 날은 400일까지: %', r->>'from'; end if;
+  if duty_roster(b3, t0 + 500)->>'error' is distinct from 'bad-range' then raise exception '앞이 끝보다 늦으면 bad-range'; end if;
+  if (duty_roster(b3)->'board'->>'updatedAt') is null then raise exception '명단의 당번에 updatedAt'; end if;
+  delete from public.duty_slots where line_id = la and on_date = t0 + 395; delete from public.duty_days where board_id = b3 and on_date = t0 + 395;
   update public.duty_boards set open_days = 56 where id = b3;
   select id into sa from public.duty_slots where line_id = la and on_date = d16;
   select id into sc from public.duty_slots where line_id = lc and on_date = d16;
@@ -476,11 +489,13 @@ begin
   r := duty_apply(sa, null, '{"name":"가상명부","who_type":"교구","ident_key":"person|7001"}', true);
   if (r->>'ok')::boolean is not true then raise exception '명부에서 넣기(계정 없음): %', r; end if; er := (r->>'id')::bigint;
   r := duty_apply(sa, u[6], '{"name":"가상명부","who_type":"교구","ident_key":"person|7001"}', true);
-  if (r->>'already')::boolean is not true or (r->>'id')::bigint is distinct from er then raise exception '같은 분을 이번에는 계정까지 찾아 넣음 = 이미 서 계세요: %', r; end if;
+  if (r->>'already')::boolean is not true or (r->>'id')::bigint is distinct from er or (r->>'linked')::boolean is not true then raise exception '같은 분을 이번에는 계정까지 찾아 넣음 = 이미 서 계세요 + 계정을 이었다(linked): %', r; end if;
+  r := duty_apply(sa, u[6], '{"name":"가상명부","who_type":"교구","ident_key":"person|7001"}', true);
+  if (r->>'already')::boolean is not true or r ? 'linked' then raise exception '이미 이은 줄을 다시 넣으면 쓴 것이 없다(linked 없음): %', r; end if;
   if (select user_id from public.duty_signups where id = er) is distinct from u[6] then raise exception '그 줄에 앱 계정을 잇는다'; end if;
   if (select count(*) from public.duty_signups where slot_id = sa and status = 'active' and (user_id = u[6] or ident_key = 'person|7001')) is distinct from 1 then raise exception '한 분은 한 줄'; end if;
   r := duty_apply(sa, null, '{"name":"가상명부","ident_key":"person|7001"}', true);
-  if (r->>'already')::boolean is not true or (r->>'id')::bigint is distinct from er then raise exception '계정 줄로 서 있는 분을 계정 없이 다시 넣어도 이미 서 계세요: %', r; end if;
+  if (r->>'already')::boolean is not true or (r->>'id')::bigint is distinct from er or r ? 'linked' then raise exception '계정 줄로 서 있는 분을 계정 없이 다시 넣어도 이미 서 계세요: %', r; end if;
   r := duty_apply(sb, null, '{"name":"가상명부","ident_key":"person|7001"}', true);
   if r->>'error' is distinct from 'overlap' or (r->'with'->>'same_board')::boolean is not false then raise exception '겹침도 명부 키로 본다: %', r; end if;
   r := duty_apply(sb, u[6], '{"name":"당번시험6"}'); if r->>'error' is distinct from 'overlap' then raise exception '이은 계정으로 본인이 겹치는 자리에 지원: %', r; end if;
@@ -500,6 +515,34 @@ begin
   -- 끝 날짜를 당기기 전에 묻는 수 — 그 날짜 뒤에(오늘 이후) 살아 있는 지원
   if duty_after_count(b3, t0 + 10) is distinct from 4 then raise exception '끝 날짜 뒤에 선 분 수(+16 에 넷): %', duty_after_count(b3, t0 + 10); end if;
   if duty_after_count(b3, d16) is distinct from 0 or duty_after_count(b3, null) is distinct from 0 then raise exception '그날까지면 0 · 날짜 없음 0'; end if;
+
+  -- ── 담당자 메모는 함수로(지원 줄을 쓰므로 전역 잠금 먼저) — 500자 · '' 로 지움 · 없는 줄 · 보관 당번 ──
+  r := duty_note_set(er, '전화로 받음'); if (r->>'ok')::boolean is not true or (select staff_note from public.duty_signups where id = er) is distinct from '전화로 받음' then raise exception '메모 쓰기: %', r; end if;
+  r := duty_note_set(er, ''); if (r->>'ok')::boolean is not true or (select staff_note from public.duty_signups where id = er) is distinct from '' then raise exception '메모 지우기: %', r; end if;
+  r := duty_note_set(er, null); if (r->>'ok')::boolean is not true then raise exception '메모 null = 지움: %', r; end if;
+  r := duty_note_set(er, repeat('가', 501)); if r->>'error' is distinct from 'too-long' then raise exception '긴 메모: %', r; end if;
+  r := duty_note_set(-1, 'x'); if r->>'error' is distinct from 'not-found' then raise exception '없는 줄 메모: %', r; end if;
+
+  -- ── 날짜를 골라 더한 자리(manual)는 요일을 바꿔도 지우지 않는다 · 남은 자리는 「날짜 더하기」로 다시 살린다(reopened) ──
+  r := duty_line_save(b4, jsonb_build_object('service','마','task','','start','18:00','end','19:00','capacity',1,'weekday',extract(dow from t0 + 3)::int)); lb := (r->>'id')::bigint;
+  if (r->>'made')::int < 7 then raise exception '마 틀 자리: %', r; end if;
+  r := duty_date_add(b4, t0 + 143, array[lb]); if (r->>'made')::int is distinct from 1 then raise exception '보이는 기간 밖 같은 요일에 날짜로 더하기: %', r; end if;
+  select id into sb from public.duty_slots where line_id = lb and on_date = t0 + 3;
+  r := duty_apply(sb, u[7], '{"name":"당번시험7"}'); if (r->>'ok')::boolean is not true then raise exception '마 자리 지원: %', r; end if;
+  r := duty_line_save(b4, jsonb_build_object('id',lb,'service','마','task','','start','18:00','end','19:00','capacity',1,'weekday',extract(dow from t0 + 4)::int));
+  if (r->>'kept')::int is distinct from 1 then raise exception '요일 바꾸기 — 지원 있는 옛 요일 자리 하나만 남긴 수로 센다(manual 은 세지 않는다): %', r; end if;
+  if not exists (select 1 from public.duty_slots where line_id = lb and on_date = t0 + 143 and manual) then raise exception '날짜를 골라 더한 자리는 요일을 바꿔도 지우지 않는다'; end if;
+  if exists (select 1 from public.duty_slots where line_id = lb and on_date = t0 + 10) then raise exception '옛 요일의 빈 자리(저절로 생긴 것)는 지운다'; end if;
+  r := duty_apply(sb, u[6], '{"name":"당번시험6"}'); if r->>'error' is distinct from 'closed' then raise exception '남은 자리 본인 지원 = closed: %', r; end if;
+  r := duty_date_add(b4, t0 + 3, array[lb]);
+  if (r->>'made')::int is distinct from 0 or (r->>'reopened')::int is distinct from 1 or (r->>'existed')::int is distinct from 0 then raise exception '남은 자리를 날짜 더하기로 다시 살린다: %', r; end if;
+  if (select manual from public.duty_slots where id = sb) is not true then raise exception '다시 살린 자리는 manual'; end if;
+  r := duty_apply(sb, u[6], '{"name":"당번시험6"}'); if r->>'error' is distinct from 'full' then raise exception '다시 살린 자리는 본인 지원을 받는다(정원 1 이 차 있어 full): %', r; end if;
+  r := duty_date_add(b4, t0 + 3, array[lb]);
+  if (r->>'made')::int is distinct from 0 or (r->>'reopened')::int is distinct from 0 or (r->>'existed')::int is distinct from 1 then raise exception '이미 살린 자리 다시 더하기 = 그대로: %', r; end if;
+  -- 요일이 맞는 자리(저절로 생긴 살아 있는 자리)에 날짜 더하기는 그대로(manual 로 바꾸지 않는다)
+  r := duty_date_add(b4, t0 + 4, array[lb]);
+  if (r->>'existed')::int is distinct from 1 or (r->>'reopened')::int is distinct from 0 or (select manual from public.duty_slots where line_id = lb and on_date = t0 + 4) is not false then raise exception '요일이 맞는 자리는 그대로: %', r; end if;
 end $$;
 rollback;
 select '통과 — duty_rules' as result;

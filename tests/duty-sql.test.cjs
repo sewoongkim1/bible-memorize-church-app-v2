@@ -74,6 +74,40 @@ test('담당자 길 인자는 null 이 새지 않게 다듬는다 · 본인 취�
   assert.match(apply.slice(0, apply.indexOf('end $$;')), /p_force := coalesce\(p_force, false\) and p_staff;/, '본인은 force 가 안 먹는다');
 });
 
+// 함수마다 몸통(다음 함수 머리 앞까지)
+const bodies = (() => {
+  const at = [...sql.matchAll(/create or replace function public\.(duty_[a-z_]+)\s*\(/g)].map((m) => [m[1], m.index]);
+  const end = sql.indexOf('revoke all on function');
+  return at.map(([name, i], k) => [name, sql.slice(i, k + 1 < at.length ? at[k + 1][1] : end)]);
+})();
+
+test('지원 줄을 쓰는 함수는 전역 잠금(7240910, 1)을 잡는다 — 표에 직접 쓰는 길을 두지 않는다', () => {
+  // 쓰기 연결 트리거(member_merge.sql)가 지원 줄을 쓸 때 이 잠금을 쥔다 — 함수가 먼저 잡지 않으면 「줄 → 전역」 차례가 되어 다른 함수와 교착한다
+  const writers = bodies.filter(([, b]) => /(insert into|update|delete from) public\.duty_signups\b/.test(b)).map(([n]) => n);
+  assert.ok(writers.includes('duty_apply') && writers.includes('duty_note_set'), '지원 줄을 쓰는 함수를 못 찾았다 — 이 검사가 낡았다: ' + writers.join(','));
+  for (const [name, b] of bodies) {
+    if (!writers.includes(name)) continue;
+    const lock = b.indexOf('pg_advisory_xact_lock(7240910, 1)');
+    const write = b.search(/(insert into|update|delete from) public\.duty_signups\b/);
+    const rowLock = b.search(/from public\.duty_signups[^;]*for update/);
+    assert.ok(lock >= 0, name + ' — 전역 잠금이 없다');
+    assert.ok(lock < write, name + ' — 전역 잠금이 쓰기보다 뒤다');
+    if (rowLock >= 0) assert.ok(lock < rowLock, name + ' — 전역 잠금이 지원 줄 잠금(for update)보다 뒤다');
+  }
+});
+
+test('날짜 줄·자리를 만드는 함수는 당번 잠금(7240912)을 먼저 잡는다 — 틀 고치기·빼기와 한 줄로', () => {
+  const makers = bodies.filter(([, b]) => /insert into public\.duty_(days|slots)\b/.test(b)).map(([n]) => n);
+  assert.deepEqual(makers.sort(), ['duty_date_add', 'duty_day_set', 'duty_days_off', 'duty_ensure_slots']);
+  for (const name of [...makers, 'duty_line_save', 'duty_line_remove']) {
+    const b = bodies.find(([n]) => n === name)[1];
+    const lock = b.indexOf('pg_advisory_xact_lock(7240912, hashtext(');
+    assert.ok(lock >= 0, name + ' — 당번 잠금이 없다');
+    const first = b.search(/(insert into public\.duty_(days|slots)\b|for (no key )?update)/);
+    assert.ok(first < 0 || lock < first, name + ' — 당번 잠금이 첫 쓰기·줄 잠금보다 뒤다');
+  }
+});
+
 test('파일 끝 확인 질의의 기대 수가 함수·표 수와 같다', () => {
   const m = raw.match(/기대: tables (\d+) · functions (\d+) · rls on (\d+)/);
   assert.ok(m, '확인 질의의 기대 주석을 못 찾았다');
