@@ -253,6 +253,17 @@ begin
   if (duty_board_counts(array[b])->(b::text)->>'active')::int < 5 then raise exception '앞날 살아 있는 지원 수: %', duty_board_counts(array[b]); end if;
   if not exists (select 1 from jsonb_array_elements(duty_roster(b)->'days') dd, jsonb_array_elements(dd->'slots') sl, jsonb_array_elements(sl->'signups') x
                  where x ? 'hasPush' and (x->>'hasPush')::boolean is false and x ? 'hasApp') then raise exception '명단의 hasApp·hasPush 칸'; end if;
+  -- pk — 같은 분의 줄은 같은 표식 · 다른 분은 다른 표식 · 부를 때마다 바뀐다(되짚을 수 없다) · 계정 번호의 해시가 그대로 실리지 않는다
+  r := duty_roster(b, t0, t0 + 20);
+  if (select count(distinct x->>'pk') from jsonb_array_elements(r->'days') dd, jsonb_array_elements(dd->'slots') sl, jsonb_array_elements(sl->'signups') x
+       where x->>'name' = '당번시험2') is distinct from 1 then raise exception 'pk — 같은 분은 한 표식'; end if;
+  if (select count(distinct x->>'pk') from jsonb_array_elements(r->'days') dd, jsonb_array_elements(dd->'slots') sl, jsonb_array_elements(sl->'signups') x
+       where x->>'name' in ('당번시험2','당번시험3')) is distinct from 2 then raise exception 'pk — 다른 분은 다른 표식'; end if;
+  if exists (select 1 from jsonb_array_elements(r->'days') dd, jsonb_array_elements(dd->'slots') sl, jsonb_array_elements(sl->'signups') x
+       where coalesce(length(x->>'pk'), 0) <> 10 or x->>'pk' = left(md5(u[2]::text), 10)) then raise exception 'pk 꼴'; end if;
+  if (select x->>'pk' from jsonb_array_elements(r->'days') dd, jsonb_array_elements(dd->'slots') sl, jsonb_array_elements(sl->'signups') x where x->>'name' = '당번시험2' limit 1)
+     = (select x->>'pk' from jsonb_array_elements(duty_roster(b, t0, t0 + 20)->'days') dd, jsonb_array_elements(dd->'slots') sl, jsonb_array_elements(sl->'signups') x where x->>'name' = '당번시험2' limit 1)
+    then raise exception 'pk 는 부를 때마다 바뀐다'; end if;
   r := duty_roster(b, t0 - 1, t0 + 20);
   if (r->>'ok')::boolean is not true or jsonb_array_length(r->'lines') is distinct from 6 or (r->'days'->0->>'past')::boolean is not true then raise exception '명단: %', left(r::text, 300); end if;
   if duty_roster(b, t0, t0 + 500)->>'error' is distinct from 'bad-range' then raise exception '명단 기간'; end if;

@@ -814,9 +814,11 @@ end $$;
 --   날짜마다 {date, off, note, confirmed(담당자 확정), locked, cutoff, past, need(빈 자리 수 — 쉬는 자리 빼고), asks(「못 가게 됐어요」 수)}.
 --   ⚠️ 응답에 user_id·ident_key·confirmed_by 를 싣지 않는다 — 앱 계정은 hasApp, 알림 받을 기기는 hasPush(웹 푸시·아이폰 줄이 있나 — 불리언)로만.
 --      아이폰은 「기기는 있으나 폰 설정에서 꺼 둔 것」을 가릴 수 없다.
+--      pk = 같은 분의 줄을 묶는 표식(부를 때마다 바뀌는 소금을 섞은 해시 — 계정·교인ID 를 되짚을 수 없다 · 이 응답 안에서만 뜻이 있다).
+--        화면이 「이름은 같은데 pk 가 다른 줄」에 「같은 분일 수 있어요」를 단다(앱 줄과 담당자 줄 · 옛 계정과 새 계정).
 create or replace function public.duty_roster(p_board uuid, p_from date default null, p_to date default null)
 returns jsonb language plpgsql security definer set search_path = public as $$
-declare b public.duty_boards; d0 date := duty_today(); f date; t date; v_lines jsonb; v_days jsonb;
+declare b public.duty_boards; d0 date := duty_today(); f date; t date; v_lines jsonb; v_days jsonb; v_salt text := gen_random_uuid()::text;
 begin
   select * into b from public.duty_boards where id = p_board;
   if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
@@ -850,6 +852,7 @@ begin
             'capacity', s.capacity, 'off', s.off,
             'signups', (select coalesce(jsonb_agg(jsonb_build_object(
                   'id', e.id, 'name', e.name, 'whoType', e.who_type, 'group', e.group_name, 'sub', e.sub_name,
+                  'pk', left(md5(coalesce(e.user_id::text, 'k:' || e.ident_key) || v_salt), 10),
                   'source', e.source, 'hasApp', e.user_id is not null,
                   'hasPush', e.user_id is not null and (exists (select 1 from public.push_subscriptions p where p.user_id = e.user_id)
                                                         or exists (select 1 from public.ios_push_tokens t2 where t2.user_id = e.user_id)),
