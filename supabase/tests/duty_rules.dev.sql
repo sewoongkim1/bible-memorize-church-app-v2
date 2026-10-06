@@ -314,6 +314,11 @@ begin
   if cardinality(duty_notify_claim('confirmed', array[e2, e3, ek])) is distinct from 2 then raise exception '알림 줄(계정 없는 줄은 안 잡는다)'; end if;
   if cardinality(duty_notify_claim('confirmed', array[e2, e3, ek])) is distinct from 0 then raise exception '같은 알림은 한 번'; end if;
   if jsonb_array_length(duty_notify_rows(array[e2, e3, ek])) is distinct from 2 or duty_notify_rows(array[e2])->0->>'uid' is distinct from u[1]::text then raise exception '알림 재료'; end if;
+  -- 알림 글·거르기에 쓰는 칸(3단계) — 지난 날·전날 저녁이 지났나·그날이 쉬나·옮기기 전 자리
+  r := duty_notify_rows(array[e2])->0;
+  if not (r ? 'past') or not (r ? 'pastCutoff') or not (r ? 'dayOff') or not (r ? 'movedFrom') then raise exception '알림 재료의 칸: %', r; end if;
+  if (r->>'past')::boolean is not false or (r->>'dayOff')::boolean is not false then raise exception '알림 재료 — 앞날·안 쉬는 날: %', r; end if;
+  if (duty_notify_rows(array[e5])->0->>'pastCutoff')::boolean is not true then raise exception '알림 재료 — 오늘 자리는 전날 저녁이 지났다: %', duty_notify_rows(array[e5]); end if;
   if not (e5 = any(duty_remind_ids(t0))) then raise exception '전날 알림 대상(오늘 날짜로 불러 봄)'; end if;
 
   -- ── 자리 틀 고치기 · 빼기 ──

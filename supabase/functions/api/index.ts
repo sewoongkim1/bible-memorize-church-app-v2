@@ -530,13 +530,15 @@ Deno.serve(async (req) => {
       case "eduVerify": return json(await eduVerify(body));   // 수료번호 진위 확인(로그인 없이 · 가린 이름만)
       case "internalEduNotify": return json(await internalEduNotify(req, body));   // 교육 확정 알림(4단계) — church-admin 전용(x-internal-key)
       case "internalEduRemind": return json(await internalEduRemind(req));         // 교육 개강 전날 알림(4단계) — pg_cron 전용(x-internal-key)
-      // ---- 봉사 당번(2026-10-06 · 2단계) — 문(dutyOpen 또는 시험 참여자)은 읽기도 막는다(당번표에 이름이 나간다) ----
+      // ---- 봉사 당번(2026-10-06 · 2단계 성도님 액션 · 3단계 알림) — 문(dutyOpen 또는 시험 참여자)은 읽기도 막는다(당번표에 이름이 나간다) ----
       case "dutyList":   return json(await dutyList(body));
       case "dutyBoard":  return json(await dutyBoard(body));
       case "dutyApply":  return json(await dutyApply(body));
       case "dutyCancel": return json(await dutyCancel(body));
       case "dutyMine":   return json(await dutyMine(body));
       case "dutyAsk":    return json(await dutyAsk(body));
+      case "internalDutyNotify": return json(await internalDutyNotify(req, body));   // 당번 알림(3단계) — church-admin 전용(x-internal-key)
+      case "internalDutyRemind": return json(await internalDutyRemind(req));         // 당번 전날 알림(3단계) — pg_cron 전용(x-internal-key)
       case "ministryApply":    return json(await ministryApply(body));
       case "ministryCancel":   return json(await ministryCancel(body));
       case "ministryList":     return json(await ministryList(body));
@@ -5522,6 +5524,105 @@ function dutyErrOut(code) {
   if (!s || s === "bad-ident") return "server";
   return s;
 }
+// ---- 알림 글(3단계 · 설계 §10) — 아래 dutyNotifySend 가 쓴다 ----
+// 알림 글은 기기가 글자 그대로 보인다(HTML 이 아니다) — 담당자가 쓴 글(당번 이름·예배·일·장소)의 줄바꿈·제어·방향 바꿈·보이지 않는 글자를 빈칸으로 바꾸고
+//   길이를 자른다(max = 코드 포인트 수 · 넘치면 끝을 「…」로). 글자 번호로 견준다(이 파일은 역슬래시가 풀린 적이 있다).
+function dutyPlain(s, max) {
+  var t = String(s == null ? "" : s).normalize("NFC"), out = "";
+  for (var i = 0; i < t.length; i++) {
+    var c = t.charCodeAt(i);
+    var bad = c < 32 || (c >= 127 && c <= 159) || c === 0x00ad || c === 0x061c || (c >= 0x200b && c <= 0x200f) || (c >= 0x2028 && c <= 0x202e) ||
+      (c >= 0x2060 && c <= 0x2069) || c === 0xfeff;
+    out += bad ? " " : t.charAt(i);
+  }
+  out = out.split(" ").filter(function (x) { return x; }).join(" ");
+  var a = Array.from(out);
+  return a.length > max ? a.slice(0, max - 1).join("") + "…" : out;
+}
+// 10월 18일(일) — 날짜만 있는 값(한국 달력날)이라 UTC 자정으로 읽어 요일이 밀리지 않는다 · 틀린 값은 빈 글
+function dutyNoteDay(d) {
+  var s = String(d == null ? "" : d).slice(0, 10), p = s.split("-");
+  if (p.length !== 3 || p[0].length !== 4 || p[1].length !== 2 || p[2].length !== 2) return "";
+  var t = new Date(s + "T00:00:00Z");
+  if (isNaN(t.getTime())) return "";
+  return (t.getUTCMonth() + 1) + "월 " + t.getUTCDate() + "일(" + "일월화수목금토".charAt(t.getUTCDay()) + ")";
+}
+// 자리 이름 — 「2부 설거지」(일 이름이 없으면 예배만)
+function dutyNoteSlot(r) {
+  return [dutyPlain(r && r.service, 20), dutyPlain(r && r.task, 20)].filter(function (x) { return x; }).join(" ");
+}
+// 알림 종류 — 교회 어드민이 부탁하는 여섯(confirmed·added·moved·removed·off·reopen) + api 안에서만 쓰는 둘(remind 전날 · applied 잠긴 날 앱 지원)
+var DUTY_NOTE_KINDS = ["confirmed", "added", "moved", "removed", "off", "reopen", "remind", "applied"];
+var DUTY_NOTE_STAFF_KINDS = ["confirmed", "added", "moved", "removed", "off", "reopen"];
+// 같은 알림을 한 번만 보내려고 줄을 잡는 종류(duty_notify_claim — SQL CHECK 와 같아야 한다). 나머지는 담당자의 저장 한 번에 한 번 부탁하므로 잡지 않는다.
+var DUTY_NOTE_CLAIM = ["confirmed", "remind"];
+// 이 줄(duty_notify_rows 의 한 줄)에 이 알림을 보낼 것인가 — 받는 분(uid)이 있고 · 지난 날이 아니고 · 종류마다:
+//   confirmed: 살아 있는 줄 · 쉬지 않음 · **전날 저녁이 지나지 않은 날**(이미 저절로 잠긴 날을 담당자가 또 확정해도 「이제 취소할 수 없어요」를 보내지 않는다 — 전날 알림이 갔다)
+//   remind: 살아 있는 줄 · 쉬지 않음(날짜는 부르는 쪽이 「내일」로 고른다 — 여기서는 지난 날만 뺀다)
+//   applied: 살아 있는 줄 · 쉬지 않음 · 잠긴 날 / added·moved·reopen: 살아 있는 줄 · 쉬지 않음
+//   removed: 담당자가 뺀 줄(본인 취소는 알리지 않는다) / off: 살아 있는 줄 · 쉬는 날·자리
+function dutyNoteKeep(kind, r) {
+  if (!r || !r.uid || r.past === true) return false;
+  var live = r.status === "active";
+  if (kind === "removed") return r.status === "removed" && r.reason === "staff";
+  if (kind === "off") return live && r.off === true;
+  if (!live || r.off === true) return false;
+  if (kind === "confirmed") return r.pastCutoff !== true;
+  if (kind === "applied") return r.locked === true;
+  return kind === "remind" || kind === "added" || kind === "moved" || kind === "reopen";
+}
+// 한 분께 가는 한 통의 글 — rows = 그분의 줄들(같은 종류 · dutyNoteKeep 을 지난 것 · 날짜·시각 차례). 줄이 없으면 빈 글.
+//   같은 날 같은 당번의 자리는 「2부 설거지 · 2부 배식」으로 묶고, 날짜·당번이 다르면 「 / 」로 잇는다. 전체는 180자에서 자른다.
+function dutyNoteText(kind, rows) {
+  var list = (rows || []).filter(function (r) { return r; });
+  if (!list.length) return "";
+  var groups = [], by = {};
+  list.forEach(function (r) {
+    var k = String(r.date) + "|" + String(r.boardId == null ? r.board : r.boardId);
+    if (!by[k]) { by[k] = { r: r, slots: [] }; groups.push(by[k]); }
+    by[k].slots.push(r);
+  });
+  var withTime = kind === "remind" || kind === "moved" || kind === "reopen";
+  var part = function (g, noDay) {
+    var board = dutyPlain(g.r.board, 30);
+    var slots = g.slots.map(function (r) { var n = dutySlotLabel(r, withTime); return n; }).filter(function (x) { return x; });
+    // 그날이 통째로 쉬는 알림은 자리 이름을 늘어놓지 않는다(「10월 18일(일) 식당 봉사」)
+    if (kind === "off" && g.slots.every(function (r) { return r.dayOff === true; })) slots = [];
+    return [noDay ? "" : dutyNoteDay(g.r.date), board, slots.join(" · ")].filter(function (x) { return x; }).join(" ");
+  };
+  var parts = groups.map(function (g) { return part(g, false); }).join(" / ");
+  var text = "";
+  if (kind === "confirmed") text = parts + " 당번이 확정됐어요. 이제 앱에서는 취소할 수 없어요 — 못 오시면 담당자께 알려 주세요";
+  else if (kind === "remind") {
+    var sameDay = groups.every(function (g) { return g.r.date === groups[0].r.date; });
+    var place = function (g) { var p = dutyPlain(g.r.place, 30); return p ? " · " + p : ""; };
+    text = "내일 " + (sameDay ? dutyNoteDay(groups[0].r.date) + " " : "") + "당번이에요 — " +
+      groups.map(function (g) { return part(g, sameDay) + place(g); }).join(" / ");
+  } else if (kind === "applied") text = parts + "에 지원하셨어요 — 확정된 날이라 앱에서 취소할 수 없어요";
+  else if (kind === "added") text = "담당자가 " + parts + " 당번에 넣어 드렸어요";
+  else if (kind === "moved") {
+    var from = list[0].movedFrom, was = from ? [dutyNoteDay(from.date), dutySlotLabel(from, true)].filter(function (x) { return x; }).join(" ") : "";
+    text = "담당자가 당번 자리를 옮겨 드렸어요 — " + (was ? was + " → " : "") + parts;
+  } else if (kind === "removed") text = "담당자가 " + parts + " 당번에서 빼 드렸어요 — 안 나오셔도 돼요";
+  else if (kind === "off") text = parts + " 당번은 쉬어요 — 안 나오셔도 돼요";
+  else if (kind === "reopen") text = parts + " 당번을 다시 서요";
+  else return "";
+  return dutyPlain(text, 180);
+}
+// 자리 한 칸의 이름 — 「2부 설거지」 · withTime 이면 「2부 설거지 11:30」
+function dutySlotLabel(r, withTime) {
+  var n = dutyNoteSlot(r), t = withTime && r && r.start ? String(r.start).slice(0, 5) : "";
+  return [n, t].filter(function (x) { return x; }).join(" ");
+}
+// duty_notify_claim 의 답(bigint[] 하나) → 잡힌 지원 번호(Set). 배열이 아니거나 틀린 값은 버린다.
+function dutyClaimedIds(got) {
+  var out = new Set();
+  (Array.isArray(got) ? got : []).forEach(function (x) {
+    var n = Number(x);
+    if (Number.isSafeInteger(n) && n > 0) out.add(n);
+  });
+  return out;
+}
 // ── 봉사 당번 — 순수 함수 (여기까지) ──
 
 // 문 — users 줄(없으면 null)과 문이 열렸는가. 문 = dutyOpen 이 true 하나이거나 시험 참여자(시험 참여자 명단을 못 읽으면 닫힘).
@@ -5602,6 +5703,11 @@ async function dutyApply(b: any) {
     if (r.error === "too-many") return { ok: false, error: "too-many", max: Number(r.max) || 0 };
     return { ok: false, error: dutyErrOut(r.error) };
   }
+  // 잠긴 날에 새로 들어간 지원은 그 계정의 기기로 곧바로 알린다(설계 §8 — 남의 이름·소속으로 들어와 넣은 지원은 본인이 앱에서 지울 수 없다 → 본인이 그날 안다).
+  //   응답을 기다리게 하지 않는다(eduAfterResponse) · 이미 서 있던 줄(already)은 알리지 않는다 · 문·기기·글은 dutyNotifySend 가 본다.
+  if (r.locked === true && r.already !== true && Number.isSafeInteger(Number(r.id)) && Number(r.id) > 0) {
+    eduAfterResponse(dutyNotifySend("applied", [Number(r.id)]), "dutyApply notify");
+  }
   return { ok: true, locked: r.locked === true, already: r.already === true };
 }
 
@@ -5632,6 +5738,111 @@ async function dutyAsk(b: any) {
   if (error) throw error;
   if (!r) return { ok: false, error: "server" };
   return r.ok === true ? { ok: true, asked: r.asked === true } : { ok: false, error: dutyErrOut(r.error) };
+}
+
+// ---------- 봉사 당번 앱 알림(3단계 · 2026-10-06 · 설계 §10) ----------
+// 보내는 길은 dutyNotifySend 하나 — 담당자의 저장(internalDutyNotify · 교회 어드민 duty-db.ts withNotify) · 전날 저녁(internalDutyRemind · pg_cron) ·
+//   잠긴 날의 앱 지원(dutyApply)이 모두 이리로 온다. 글은 순수 함수 dutyNoteText(위 순수 구간 · tests/duty-front.test.cjs).
+// ⚠️ 받는 분은 **성도님뿐**이다(그 지원 줄의 앱 계정 기기) — 담당자에게 가는 알림은 없다(「못 가게 됐어요」는 당번표의 표시다).
+// ⚠️ 응답·push_log·알림 내용에 user_id 를 싣지 않는다. 알림 글은 글자 그대로(dutyPlain — HTML 아님).
+// ⚠️ 문: dutyOpen 이 true 가 아니면 🧪 시험 참여자에게만 — 앱에서 🙋 가 시험 참여자에게만 보이는 것(app.js dutyVisible)과 같은 규칙. 걸러진 줄은 **잡지 않는다**
+//    (기록이 안 남아 문이 열린 뒤 다시 부르면 갈 수 있다).
+// ⚠️ 확정(confirmed)·전날(remind)은 같은 줄에 한 번 — SQL duty_notify_claim 이 **보내기 전에** 잡고 잡힌 줄에만 보낸다(받는 기기가 없어도 잡힌 줄은 남는다 ·
+//    보내다 실패해도 다시 안 보낸다 — 많아야 한 번). 그 밖(넣음·옮김·뺌·쉼·다시 엶·잠긴 날 지원)은 저장 한 번에 한 번 부탁하므로 잡지 않는다.
+// ⚠️ 기기는 두 갈래 — 웹 푸시(플레이 앱 포함)와 아이폰(APNs). 교육 알림과 같은 길(eduDevicesOf·eduPushDevices)을 쓴다 · push_log mode 는 duty-<종류>
+//    (monitor 는 daily 줄만 본다 — duty-* 가 0건이어도 헛경보가 나지 않는다).
+const DUTY_NOTIFY_TITLE = "🙋 봉사 당번";
+const DUTY_NOTIFY_MAX = 2000;    // 한 번에 받는 지원 번호 수
+const DUTY_NOTIFY_CHUNK = 500;   // 읽고 잡는 한 덩이
+const DUTY_NOTIFY_URL = "https://gocheok.onlybible.kr/?duty=1";   // 누르면 당번 화면(js/duty.js dutyTakeDeepLink) — 아이폰 앱은 주소를 안 읽어 앱만 열린다
+
+// 봉사 당번 문이 열렸나 — 알림용이라 DB 오류는 던진다(삼켜서 「닫힘」으로 보면 아무에게도 안 가는 것이 조용히 묻힌다).
+async function dutyOpenNow(): Promise<boolean> {
+  const { data, error } = await db.from("app_config").select("value").eq("key", "dutyOpen").maybeSingle();
+  if (error) throw error;
+  return data?.value === true;
+}
+
+// 지원 번호들에 kind 알림 — 돌려주는 것 = 알린 분 수(한 분께 한 통 · 그분의 줄들을 한 글로).
+//   ① 재료(duty_notify_rows — 앱 계정이 있는 줄 · 받는 중·지원 멈춤 당번)를 읽어 종류에 맞는 줄만 남긴다(dutyNoteKeep — 지난 날·쉬는 날·전날 저녁이 지난 날의 확정 등)
+//   ② 문 — dutyOpen 이 아니면 시험 참여자 줄만 ③ 그분들의 기기를 먼저 읽고(잡은 뒤에 읽다 실패하면 영영 안 간다)
+//   ④ 확정·전날은 duty_notify_claim 으로 잡는다(잡힌 줄만) ⑤ 한 분씩 글을 만들어 같은 글끼리 묶어 보낸다(push_log 한 줄).
+async function dutyNotifySend(kind: string, ids: number[]): Promise<number> {
+  const list = [...new Set(ids.filter((n) => Number.isSafeInteger(n) && n > 0))];
+  if (!list.length || DUTY_NOTE_KINDS.indexOf(kind) < 0) return 0;
+  let rows: any[] = [];
+  for (let i = 0; i < list.length; i += DUTY_NOTIFY_CHUNK) {
+    const { data, error } = await db.rpc("duty_notify_rows", { p_ids: list.slice(i, i + DUTY_NOTIFY_CHUNK) });
+    if (error) throw error;
+    if (Array.isArray(data)) rows.push(...data);
+  }
+  rows = rows.filter((r) => dutyNoteKeep(kind, r));
+  if (!rows.length) return 0;
+  if (!(await dutyOpenNow())) {
+    const testers = await ministryTesterIds();
+    rows = rows.filter((r) => testers.has(String(r.uid)));
+    if (!rows.length) return 0;
+  }
+  const devs = await eduDevicesOf([...new Set(rows.map((r) => String(r.uid)))]);
+  if (DUTY_NOTE_CLAIM.indexOf(kind) >= 0) {
+    const got = new Set<number>();
+    for (let i = 0; i < rows.length; i += DUTY_NOTIFY_CHUNK) {
+      const { data, error } = await db.rpc("duty_notify_claim", { p_kind: kind, p_ids: rows.slice(i, i + DUTY_NOTIFY_CHUNK).map((r) => Number(r.id)) });
+      if (error) throw error;
+      for (const n of dutyClaimedIds(data)) got.add(n);
+    }
+    rows = rows.filter((r) => got.has(Number(r.id)));
+    if (!rows.length) return 0;
+  }
+  const byUser = new Map<string, any[]>();
+  for (const r of rows) { const k = String(r.uid); (byUser.get(k) || byUser.set(k, []).get(k)!).push(r); }
+  const byText = new Map<string, { web: any[]; ios: any[] }>();
+  let people = 0;
+  for (const [uid, mine] of byUser) {
+    const text = dutyNoteText(kind, mine);
+    if (!text) continue;
+    people++;
+    const d = devs.get(uid) || { web: [], ios: [] };
+    const g = byText.get(text) || byText.set(text, { web: [], ios: [] }).get(text)!;
+    g.web.push(...d.web); g.ios.push(...d.ios);
+  }
+  for (const [text, g] of byText) {
+    try { await eduPushDevices(g.web, g.ios, DUTY_NOTIFY_TITLE, text, DUTY_NOTIFY_URL, "duty-" + kind); }
+    catch (e) { console.error("dutyNotifySend", kind, e); }
+  }
+  return people;
+}
+
+// 교회 어드민 전용 — {kind: confirmed|added|moved|removed|off|reopen, signup_ids: [지원 번호…]} · 같은 프로젝트 서비스 키(x-internal-key)일 때만
+//   (internalEduNotify 와 같은 문 · sameSecret). 담당자의 저장이 **끝난 뒤** 부른다(교회 어드민 duty-db.ts withNotify — 실패해도 저장은 그대로).
+//   응답 {ok, sent: 이번에 알린 분 수} — user_id 는 싣지 않는다. 문·한 번만·앱 계정·오늘 이후 자리 확인은 dutyNotifySend 가 한다.
+async function internalDutyNotify(req: Request, b: any) {
+  if (!sameSecret(req.headers.get("x-internal-key") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "")) {
+    return { ok: false, error: "unauthorized" };
+  }
+  const kind = String(b.kind ?? "");
+  if (DUTY_NOTE_STAFF_KINDS.indexOf(kind) < 0) return { ok: false, error: "bad-kind" };
+  const raw = b.signup_ids;
+  if (!Array.isArray(raw) || raw.length > DUTY_NOTIFY_MAX) return { ok: false, error: "bad-args" };
+  const ids = [...new Set(raw.map((x: unknown) => Number(x)))] as number[];
+  if (ids.some((n) => !Number.isSafeInteger(n) || n < 1)) return { ok: false, error: "bad-args" };
+  const sent = ids.length ? await dutyNotifySend(kind, ids) : 0;
+  return { ok: true, sent };
+}
+
+// 전날 알림 — pg_cron(supabase/duty_remind_cron.sql · 매일 10:00 UTC = 19:00 KST)이 서비스 키(x-internal-key)로 부른다. 몸통을 읽지 않는다.
+//   내일(한국) 당번인 분께 한 번(duty_remind_ids — 살아 있는 줄 · 앱 계정 · 쉬는 날·자리 아님 · 받는 중·지원 멈춤 당번 → 잡기는 duty_notify_claim).
+//   한 분의 여러 자리는 한 통에. 응답 {ok, day, rows: 대상 줄 수, sent: 알린 분 수} — user_id 없음.
+async function internalDutyRemind(req: Request) {
+  if (!sameSecret(req.headers.get("x-internal-key") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "")) {
+    return { ok: false, error: "unauthorized" };
+  }
+  const day = new Date(Date.parse(eduKst() + "T00:00:00Z") + 86400000).toISOString().slice(0, 10);   // 내일(한국)
+  const { data, error } = await db.rpc("duty_remind_ids", { p_date: day });
+  if (error) throw error;
+  const ids = [...dutyClaimedIds(data)];
+  const sent = ids.length ? await dutyNotifySend("remind", ids) : 0;
+  return { ok: true, day, rows: ids.length, sent };
 }
 
 // 신청 한 건의 키는 (연도, user_id) 다. 이 앱은 로그인이 교구·목장·이름을

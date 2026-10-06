@@ -150,6 +150,10 @@ function routeAfterLoad() {
   //   🎓 가 안 보이는 분(eduVisible — 교육이 열리기 전에는 시험 참여자만)도 평소 길(검토 반영 2026-10-06 · 서버도 그분들께는 안 보낸다).
   const _eduDeep = (typeof eduTakeDeepLink === "function") ? eduTakeDeepLink() : null;
   if (_eduDeep && loadUser() && !ministryHiddenOnPlay() && eduVisible()) { renderEduCourse(_eduDeep); return; }
+  // 🙋 봉사 당번 알림 딥링크(?duty=1 · 3단계 2026-10-06) — 확정·전날·담당자가 바꾼 알림을 누르면 당번 목록(내 당번이 맨 위)으로.
+  //   로그인 안 했거나 🙋 가 안 보이는 분(dutyVisible — 문이 열리기 전에는 시험 참여자만 · 플레이 앱 숨김 · 서버도 그분들께는 안 보낸다)은 평소 길 — 주소의 duty 만 지운다.
+  const _dutyDeep = (typeof dutyTakeDeepLink === "function") ? dutyTakeDeepLink() : false;
+  if (_dutyDeep && loadUser() && dutyVisible() && typeof renderDutyList === "function") { renderDutyList({ stay: true }); return; }
   // 딥링크(?v=구절번호): 설교 아카이브 등 외부에서 특정 구절로 바로 진입
   const deepNo = getDeepLinkVerseNo();
   if (deepNo != null) {
@@ -306,6 +310,8 @@ try {
     logFeature("push", 0);
     const eid = (typeof eduDeepLinkId === "function") ? eduDeepLinkId(e.data.url) : null;
     if (eid && loadUser() && !ministryHiddenOnPlay() && eduVisible() && typeof renderEduCourse === "function") renderEduCourse(eid);
+    // 🙋 봉사 당번 알림(?duty=1 · 3단계) — routeAfterLoad 와 같은 조건(dutyVisible)
+    else if (typeof dutyDeepLink === "function" && dutyDeepLink(e.data.url) && loadUser() && dutyVisible() && typeof renderDutyList === "function") renderDutyList({ stay: true });
   });
 } catch (e) {}
 

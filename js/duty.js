@@ -301,6 +301,15 @@ function dutyCalHtml(days, sel, today, me) {
     '<div class="duty-cal-g">' + cells + '</div>' +
     '<p class="duty-cal-k">' + [num, key, '날짜를 누르면 그날의 자리가 아래에 보여요.'].filter(Boolean).join('<br>') + '</p></div>';
 }
+// 알림을 눌러 들어온 주소인가(3단계) — 주소(전체 주소든 ? 뒤든)에 duty=1 이 있나.
+//   api 의 당번 알림이 「https://gocheok.onlybible.kr/?duty=1」로 보낸다(서비스워커가 &from=push 를 붙인다).
+function dutyDeepLink(href) {
+  var s = String(href == null ? '' : href), q = s.indexOf('?');
+  if (q < 0) return false;
+  var parts = s.slice(q + 1).split('#')[0].split('&');
+  for (var i = 0; i < parts.length; i++) if (parts[i] === 'duty=1') return true;
+  return false;
+}
 // ── 봉사 당번 순수 함수 (여기까지) ──
 
 // screen: 화면이 바뀔 때마다 올라가는 번호 — 늦게 온 응답이 다른 화면을 덮지 않게 · at: 지금 보는 화면(list|board|'' = 당번 화면을 떠남) ·
@@ -337,6 +346,18 @@ function dutyTell(html, gen) {
 function dutyResetState() {
   dutyLeave(); dutyState.boards = []; dutyState.mine = []; dutyState.me = {}; dutyState.cur = ''; dutyState.board = null; dutyState.days = [];
   dutyState.loadedAt = 0; dutyState.calSel = ''; dutyState.gen++; dutyState.tok++; dutyHold(false);
+}
+
+// 알림을 눌러 들어온 길(?duty=1 · 3단계) — 한 번 읽고 주소에서 duty 만 지운다(새로고침 때 또 열리지 않게 · 다른 파라미터는 둔다).
+//   여는 것은 app.js routeAfterLoad(로그인했고 🙋 가 보이는 분만 renderDutyList · 아니면 평소 길) · 이미 열린 창은 서비스워커 「from-push」 메시지(app.js)가 연다.
+function dutyTakeDeepLink() {
+  try {
+    if (!dutyDeepLink(location.search)) return false;
+    var q = new URLSearchParams(location.search); q.delete('duty');
+    var rest = q.toString();
+    history.replaceState(null, '', location.pathname + (rest ? '?' + rest : ''));
+    return true;
+  } catch (e) { return false; }
 }
 
 function dutyShell(u) {

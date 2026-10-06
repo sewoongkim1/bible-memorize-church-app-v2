@@ -1201,14 +1201,17 @@ returns bigint[] language sql security definer set search_path = public as $$
 $$;
 
 -- 알림 글의 재료 — 지원 번호들의 {id, uid(받는 분 · api 안에서만 쓴다), status, reason, boardId, board, place, date, service, task, start, end,
---   off, locked}. 앱 계정이 있는 줄만(끝난 줄도 준다 — 「빼 드렸어요」 알림). 준비·보관 당번의 줄은 주지 않는다(알림 없음).
+--   off(그날이나 그 자리가 쉼), dayOff(그날이 쉼), locked, past(지난 날), pastCutoff(전날 저녁이 지났다 — 저절로 잠긴 날 · 이런 날을 담당자가 또 확정해도
+--   「이제 취소할 수 없어요」를 보내지 않는다), movedFrom(담당자가 옮기기 전 자리 {date, service, task, start})}.
+--   앱 계정이 있는 줄만(끝난 줄도 준다 — 「빼 드렸어요」 알림). 준비·보관 당번의 줄은 주지 않는다(알림 없음).
 create or replace function public.duty_notify_rows(p_ids bigint[])
 returns jsonb language sql stable security definer set search_path = public as $$
   select coalesce(jsonb_agg(jsonb_build_object(
       'id', e.id, 'uid', e.user_id, 'status', e.status, 'reason', e.end_reason,
       'boardId', b.id, 'board', b.title, 'place', b.place, 'date', s.on_date,
       'service', l.service, 'task', l.task, 'start', to_char(l.start_time, 'HH24:MI'), 'end', to_char(l.end_time, 'HH24:MI'),
-      'off', (d.off or s.off), 'locked', duty_locked(d.confirmed_at, s.on_date)
+      'off', (d.off or s.off), 'dayOff', d.off, 'locked', duty_locked(d.confirmed_at, s.on_date),
+      'past', s.on_date < duty_today(), 'pastCutoff', now() >= duty_cutoff(s.on_date), 'movedFrom', e.moved_from
     ) order by e.user_id, s.on_date, l.start_time, e.id), '[]'::jsonb)
   from public.duty_signups e
   join public.duty_slots s on s.id = e.slot_id

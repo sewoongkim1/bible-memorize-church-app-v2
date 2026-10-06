@@ -415,3 +415,85 @@ test('api 글자 검사 — 지원: 어린이·청소년 부서·실을 수 없�
   assert.ok(nou > 0 && nou < gate.indexOf('"dutyOpen"'), '계정이 없으면 dutyOpen 을 보기 전에 닫힘(그 줄이 없어도 통과하지 않게 위치를 본다)');
   assert.ok(gate.includes('if (ce) throw ce;'), '설정을 못 읽은 것을 닫힘으로 뭉개지 않는다');
 });
+
+// ── 3단계(알림) — 알림 글·거르기(api 순수 구간) · 알림 주소(화면 순수 구간) · api 몸통 글자 검사 ──
+const NR = (x) => ({ id: 1, uid: 'u1', status: 'active', reason: null, boardId: 'b1', board: '식당 봉사', place: '지하 1층 식당', date: '2026-10-18',
+  service: '2부', task: '설거지', start: '11:30', end: '12:30', off: false, dayOff: false, locked: false, past: false, pastCutoff: false, movedFrom: null, ...(x || {}) });
+
+test('api 알림 — dutyPlain: 담당자가 쓴 글의 줄바꿈·제어·방향 바꿈 글자는 빈칸 · 길이', () => {
+  assert.equal(srv.dutyPlain('  식당\n봉사\t' + String.fromCharCode(0x202e) + '2부 ', 40), '식당 봉사 2부');
+  assert.equal(srv.dutyPlain('가'.repeat(50), 10), '가'.repeat(9) + '…');
+  assert.equal(srv.dutyPlain(null, 10), ''); assert.equal(srv.dutyNoteDay('2026-10-18'), '10월 18일(일)'); assert.equal(srv.dutyNoteDay('x'), '');
+});
+
+test('api 알림 — dutyNoteKeep: 종류마다 받을 줄(지난 날·계정 없는 줄은 어느 종류도 받지 않는다)', () => {
+  const k = (kind, x) => srv.dutyNoteKeep(kind, NR(x));
+  for (const kind of ['confirmed', 'remind', 'added', 'moved', 'reopen']) assert.equal(k(kind), true, kind);
+  for (const kind of pick(srv.DUTY_NOTE_KINDS)) {
+    assert.equal(k(kind, { uid: null }), false, kind + ' 계정 없는 줄');
+    assert.equal(k(kind, { past: true }), false, kind + ' 지난 날');
+  }
+  assert.equal(k('confirmed', { pastCutoff: true }), false, '전날 저녁이 지난 날(저절로 잠긴 날)은 확정 알림을 보내지 않는다 — 전날 알림이 갔다');
+  assert.equal(k('confirmed', { off: true }), false); assert.equal(k('remind', { off: true }), false, '쉬는 날·자리에는 전날 알림이 가지 않는다');
+  assert.equal(k('applied'), false, '잠기지 않은 날의 앱 지원은 알리지 않는다'); assert.equal(k('applied', { locked: true }), true);
+  assert.equal(k('removed'), false); assert.equal(k('removed', { status: 'removed', reason: 'staff' }), true);
+  assert.equal(k('removed', { status: 'cancelled', reason: 'self' }), false, '본인 취소는 알리지 않는다');
+  assert.equal(k('off'), false); assert.equal(k('off', { off: true }), true); assert.equal(k('off', { off: true, status: 'removed' }), false);
+  assert.equal(k('zzz'), false);
+  // 교회 어드민이 부탁하는 여섯(duty-db.ts withNotify 의 kind) · 잡는 종류는 SQL duty_notify_log 의 CHECK 와 같다
+  assert.deepEqual(pick(srv.DUTY_NOTE_STAFF_KINDS).sort(), ['added', 'confirmed', 'moved', 'off', 'removed', 'reopen']);
+  assert.deepEqual(pick(srv.DUTY_NOTE_CLAIM).sort(), ['confirmed', 'remind']);
+  const sql = read(['supabase', 'duty.sql']);
+  assert.ok(sql.includes("kind      text   not null check (kind in ('confirmed','remind'))"), 'duty_notify_log 의 kind CHECK 가 DUTY_NOTE_CLAIM 과 같아야 한다');
+});
+
+test('api 알림 — dutyNoteText: 종류마다 한 통(한 분의 여러 자리는 한 글로)', () => {
+  const t = (kind, rows) => srv.dutyNoteText(kind, rows);
+  assert.equal(t('confirmed', [NR()]), '10월 18일(일) 식당 봉사 2부 설거지 당번이 확정됐어요. 이제 앱에서는 취소할 수 없어요 — 못 오시면 담당자께 알려 주세요');
+  assert.equal(t('confirmed', [NR({ service: '1부', start: '09:00' }), NR()]), '10월 18일(일) 식당 봉사 1부 설거지 · 2부 설거지 당번이 확정됐어요. 이제 앱에서는 취소할 수 없어요 — 못 오시면 담당자께 알려 주세요');
+  assert.equal(t('remind', [NR()]), '내일 10월 18일(일) 당번이에요 — 식당 봉사 2부 설거지 11:30 · 지하 1층 식당');
+  assert.equal(t('remind', [NR(), NR({ boardId: 'b2', board: '주차 봉사', service: '1부', task: '안내', start: '08:30', place: '주차장' })]),
+    '내일 10월 18일(일) 당번이에요 — 식당 봉사 2부 설거지 11:30 · 지하 1층 식당 / 주차 봉사 1부 안내 08:30 · 주차장');
+  assert.equal(t('applied', [NR({ locked: true })]), '10월 18일(일) 식당 봉사 2부 설거지에 지원하셨어요 — 확정된 날이라 앱에서 취소할 수 없어요');
+  assert.equal(t('added', [NR()]), '담당자가 10월 18일(일) 식당 봉사 2부 설거지 당번에 넣어 드렸어요');
+  assert.equal(t('moved', [NR({ service: '1부', start: '09:00', movedFrom: { date: '2026-10-18', service: '2부', task: '설거지', start: '11:30' } })]),
+    '담당자가 당번 자리를 옮겨 드렸어요 — 10월 18일(일) 2부 설거지 11:30 → 10월 18일(일) 식당 봉사 1부 설거지 09:00');
+  assert.equal(t('moved', [NR()]), '담당자가 당번 자리를 옮겨 드렸어요 — 10월 18일(일) 식당 봉사 2부 설거지 11:30');
+  assert.equal(t('removed', [NR({ status: 'removed', reason: 'staff' })]), '담당자가 10월 18일(일) 식당 봉사 2부 설거지 당번에서 빼 드렸어요 — 안 나오셔도 돼요');
+  assert.equal(t('off', [NR({ off: true, dayOff: true })]), '10월 18일(일) 식당 봉사 당번은 쉬어요 — 안 나오셔도 돼요');
+  assert.equal(t('off', [NR({ off: true, dayOff: false })]), '10월 18일(일) 식당 봉사 2부 설거지 당번은 쉬어요 — 안 나오셔도 돼요', '자리만 쉬면 그 자리를 말한다(그날 다른 당번까지 빠지시지 않게)');
+  assert.equal(t('off', [NR({ off: true, dayOff: true }), NR({ off: true, dayOff: true, date: '2026-10-25' })]), '10월 18일(일) 식당 봉사 / 10월 25일(일) 식당 봉사 당번은 쉬어요 — 안 나오셔도 돼요');
+  assert.equal(t('reopen', [NR()]), '10월 18일(일) 식당 봉사 2부 설거지 11:30 당번을 다시 서요');
+  assert.equal(t('zzz', [NR()]), ''); assert.equal(t('confirmed', []), '');
+  // 담당자가 쓴 글의 줄바꿈·제어 글자는 알림에 그대로 가지 않는다 · 길면 180자에서 자른다 · 받는 분 번호(uid)는 글에 없다
+  assert.equal(t('added', [NR({ board: '식당\n봉사', service: '2부' + String.fromCharCode(0x202e) })]).includes('\n'), false);
+  assert.ok(Array.from(t('remind', Array.from({ length: 12 }, (_, i) => NR({ boardId: 'b' + i, board: '당번' + i })))).length <= 180);
+  for (const kind of pick(srv.DUTY_NOTE_KINDS)) assert.equal(t(kind, [NR({ uid: 'UID-XYZ', status: kind === 'removed' ? 'removed' : 'active', off: kind === 'off' })]).includes('UID-XYZ'), false, kind);
+  assert.deepEqual([...srv.dutyClaimedIds([3, '5', 0, -1, 'x', null])], [3, 5]); assert.deepEqual([...srv.dutyClaimedIds(null)], []);
+});
+
+test('알림 주소 — dutyDeepLink: ?duty=1 만 · 다른 파라미터가 섞여 있어도', () => {
+  assert.equal(ctx.dutyDeepLink('https://gocheok.onlybible.kr/?duty=1'), true);
+  assert.equal(ctx.dutyDeepLink('?duty=1&from=push'), true); assert.equal(ctx.dutyDeepLink('https://x/?from=push&duty=1#top'), true);
+  for (const bad of ['', null, 'https://gocheok.onlybible.kr/', '?duty=2', '?duty', '?xduty=1', '?edu=1', 'duty=1']) assert.equal(ctx.dutyDeepLink(bad), false, String(bad));
+});
+
+test('api 글자 검사 — 알림: 내부 액션 둘은 서비스 키 문이 맨 앞 · 응답에 받는 분 번호 없음 · 문·잡기 차례', () => {
+  for (const name of ['internalDutyNotify', 'internalDutyRemind']) {
+    const body = fn(name);
+    const gate = body.indexOf('if (!sameSecret(req.headers.get("x-internal-key") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""))');
+    assert.ok(gate > 0 && gate < body.indexOf('dutyNotifySend(') && body.indexOf('return { ok: false, error: "unauthorized" };') > gate, name + ' — 서비스 키 확인이 맨 앞');
+    assert.equal(/uid|user_id/.test(body.replace(/\/\/.*$/gm, '')), false, name + ' — 응답에 받는 분 번호를 싣지 않는다');
+  }
+  assert.ok(fn('internalDutyNotify').includes('if (DUTY_NOTE_STAFF_KINDS.indexOf(kind) < 0) return { ok: false, error: "bad-kind" };'), '교회 어드민은 여섯 종류만(remind·applied 는 못 부른다)');
+  const send = fn('dutyNotifySend');
+  const keep = send.indexOf('dutyNoteKeep(kind, r)'), open = send.indexOf('await dutyOpenNow()'), dev = send.indexOf('await eduDevicesOf('), claim = send.indexOf('db.rpc("duty_notify_claim"'), push = send.indexOf('await eduPushDevices(');
+  assert.ok(keep > 0 && open > keep && dev > open && claim > dev && push > claim, '거르기 → 문 → 기기 읽기 → 잡기 → 보내기 차례(걸러진 줄은 잡지 않는다 · 잡은 뒤에 기기를 읽지 않는다)');
+  assert.ok(send.includes('testers.has(String(r.uid))'), '문이 닫힌 동안에는 시험 참여자에게만');
+  // 잠긴 날의 앱 지원 — 응답을 기다리게 하지 않고(eduAfterResponse) 이미 서 있던 줄은 알리지 않는다
+  const apply = fn('dutyApply');
+  assert.ok(apply.includes('r.locked === true && r.already !== true') && apply.includes('eduAfterResponse(dutyNotifySend("applied", [Number(r.id)]), "dutyApply notify")'));
+  assert.equal((apply.match(/db\.rpc\(/g) || []).length, 1);
+  // switch 에 두 줄
+  assert.ok(API.includes('case "internalDutyNotify": return json(await internalDutyNotify(req, body));') && API.includes('case "internalDutyRemind": return json(await internalDutyRemind(req));'));
+});
