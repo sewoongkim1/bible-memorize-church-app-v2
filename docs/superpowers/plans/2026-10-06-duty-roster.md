@@ -53,14 +53,14 @@
 
 ## 2단계 — 성도님 앱
 
-- [ ] **2-1. `api` 성도님 액션** — `dutyGate` · `dutyList`·`dutyBoard`·`dutyApply`·`dutyCancel`·`dutyMine`·`dutyAsk` · `PUBLIC_CONFIG_KEYS`(`dutyOpen`) · `FEATURES`(`duty`) + `feature_log.sql` 머리 표 · `js/api.js`
+- [x] **2-1. `api` 성도님 액션** — `dutyGate` · `dutyList`·`dutyBoard`·`dutyApply`·`dutyCancel`·`dutyMine`·`dutyAsk` · `PUBLIC_CONFIG_KEYS`(`dutyOpen`) · `FEATURES`(`duty`) + `feature_log.sql` 머리 표 · `js/api.js`
   - `tests/duty-smoke.sh`(읽기·거절만 · 문 셋 · 응답에 `user_id` 없음) · `tests/duty-e2e.dev.sh`
-- [ ] **2-2. 앱 화면** — `js/duty.js`(순수 구간 + 화면) · `index.html` script · `tools/bump.py` `TAGGED` · `tests/duty-front.test.cjs` + `PURE_TESTS` · `app.js`(게이트 · 첫 화면 「교회」 묶음 단추 · 제목 조건 · NEW 건너뛰기 · 로그아웃 때 지울 것) · `style.css`(`.duty-*` + 어두운 모드)
+- [x] **2-2. 앱 화면** — `js/duty.js`(순수 구간 + 화면) · `index.html` script · `tools/bump.py` `TAGGED` · `tests/duty-front.test.cjs` + `PURE_TESTS` · `app.js`(게이트 · 첫 화면 「교회」 묶음 단추 · 제목 조건 · NEW 건너뛰기 · 로그아웃 때 지울 것) · `style.css`(`.duty-*` + 어두운 모드)
   - 끝: 순수 시험·preflight 통과 · 로컬에서 시험 참여자 계정으로 끝까지 · 비참여자는 단추 없음 · 390·360·어두운 모드
-- [ ] **2-3. 담당자 화면 보탬** — 「못 온다고 알림」 표시(1단계 명단이 이미 읽는다 — 눈 확인)
-- [ ] **2-4. 검토 → 고침**
-- [ ] **2-5. 운영 반영** — (SQL 바뀐 것) → `api`(내려받아 대조) → 스모크(내 것 + 이벤트·교육 경로) → bump → preflight → 푸시 → 라이브 `APP_BUILD`·새 표식 확인
-- [ ] **2-6. 문서**
+- [x] **2-3. 담당자 화면 보탬** — 「못 온다고 알림」 표시(1단계 명단이 이미 읽는다 — 눈 확인)
+- [x] **2-4. 검토 → 고침**
+- [x] **2-5. 운영 반영** — (SQL 바뀐 것) → `api`(내려받아 대조) → 스모크(내 것 + 이벤트·교육 경로) → bump → preflight → 푸시 → 라이브 `APP_BUILD`·새 표식 확인
+- [x] **2-6. 문서**
 
 ## 3단계 — 알림
 
@@ -86,4 +86,8 @@
 | 1-7 검토 | 두 번(아홉 갈래 → 고침 → 수정분만 일곱 갈래 → 고침) — 코드에 치명적·높음 없음 · 운영 절차 지적 넷(「무엇이 올라갔나」를 증명하는 확인)은 반영 차례에 넣었다 | 성경암송 1f0dc54 · 42ce157 / 교회 어드민 755fef8 · 2ab7e5d |
 | 1-8 운영 반영 | 끝(2026-10-06) — 차례·확인·되돌리기는 `docs/notes/duty-roster.md` 끝 절 | — |
 | 1-9 문서 | 끝 | 이 커밋 · 교회 어드민 `CLAUDE.md` 「봉사 당번」 절 |
-| 2단계 | 초안(api 성도님 액션 — 작업 트리 · 화면·시험은 세션 스크래치) | — |
+| 2-1 · 2-2 api 성도님 액션 · 앱 화면 | 끝(2026-10-06) — 로그아웃 때 지울 것 = `dutyResetState`(메모리뿐 · 사람별 저장 키는 없다 — `duty-open` 은 기기 공용 설정) | 성경암송 8e99713 |
+| 2-3 담당자 화면 보탬 | 끝 — 「못 온다」 표시는 1단계 명단이 이미 읽는다(코드 변경 없음) · 넣기 창 안내(`ADD_NOTE`)와 「시험 참여자에게 이름이 보여요」(`TESTERS_SEE_NAMES`)를 더했다 | 교회 어드민(2단계 커밋) |
+| 2-4 검토 | 두 번 — 일곱 갈래(api · 화면 · 앱 통합 · 빠진 것 + 갈래마다 확인): 치명적·높음(코드) 없음 · 확인된 것 17(늦게 온 응답 · 사실과 다른 문구 · 다시 받기 실패 · 지원 못 하는 계정의 단추 · 시험 빈 곳) 모두 반영 → 고친 것만 세 갈래 다시 | 성경암송 28e27b1 · b4d18ab · 97e97cd |
+| 2-5 운영 반영 | 끝(2026-10-06) — 차례·확인·되돌리기는 `docs/notes/duty-roster.md` 「2단계에서 밟은 길」 | — |
+| 2-6 문서 | 끝 | 이 커밋 · 교회 어드민 `CLAUDE.md` 「봉사 당번」 절 |

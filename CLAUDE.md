@@ -50,12 +50,13 @@
 | 사역 이력(교회 어드민 「📜 사역 이력」 · 지난 해 사역 임명 엑셀 → 교인ID · `ministry_history` · 2026-10-01) — 성경암송 `ministry_orders` 에 지난 해를 넣지 말 것 | `docs/notes/ministry-history.md` · 설계 `docs/superpowers/specs/2026-10-01-church-admin-ministry-history-design.md` |
 | 사역 통계(교회 어드민 「📊 사역 통계」 · 2026-10-06 · 부서 이음표 · 큰 분류 찬양·교회학교·그 밖) | `docs/notes/ministry-stats.md` · 설계 `docs/superpowers/specs/2026-10-06-ministry-stats-design.md` |
 | 교육신청(2026-10-05 · 1단계 운영 · 게이트 닫힘 — 🧪만) — 앱 🎓 교육 · 교회 어드민 📚 강좌 관리·📝 신청 현황 · 정원·대기는 `edu.sql` 한 곳 | `docs/notes/education.md` · 계획 `docs/superpowers/plans/2026-10-05-education-stage1.md`(과제 11 공개 전) |
-| 봉사 당번(2026-10-06 · 1단계 운영 — 표·SQL 과 교회 어드민 🧰 당번 관리·📅 당번 명단 · **성도님 앱 화면은 아직 없다**(2단계)) — 정원·겹침·잠금·쉼은 `duty.sql` 한 곳 · `duty_signups` 에 직접 쓰지 말 것 | `docs/notes/duty-roster.md` · 계획 `docs/superpowers/plans/2026-10-06-duty-roster.md` |
+| 봉사 당번(2026-10-06 · 1·2단계 운영 — 표·SQL · 교회 어드민 🧰 당번 관리·📅 당번 명단 · **성도님 앱 🙋 봉사 당번**(`js/duty.js` · 문 닫힘 — 🧪 시험 참여자만)) — 정원·겹침·잠금·쉼은 `duty.sql` 한 곳 · `duty_signups` 에 직접 쓰지 말 것 · 문은 서버가 읽기도 막는다 · 성도님께 하는 말은 어느 경우에도 참인 말만 | `docs/notes/duty-roster.md` · 계획 `docs/superpowers/plans/2026-10-06-duty-roster.md` |
 
 ## 스택 · 도메인
 - **Vanilla JS PWA**(프레임워크 없음) — `index.html` + `app.js`(대형 단일 파일) + `sw.js`
 - **GitHub Pages** 배포: repo `sewoongkim1/bible-memorize-church-app-v2`, 도메인 **gocheok.onlybible.kr**(CNAME), push→Actions 배포
 - 배포 규칙: **`python tools/bump.py` 한 번**이면 `?v=` 캐시태그(app.js·style.css·js/*.js) · 스플래시 `.splash-ver` +0.001 · app.js의 `APP_BUILD`가 함께 올라간다. 손으로 고치지 말 것 — 태그 하나를 빠뜨리면 옛 파일이 브라우저에 남는다.
+  - 태그는 **하나만** 셈한다(2026-10-06) — 가지를 합치다 `index.html` 이 부딪혀 한 줄만 옛 태그로 남아도 `bump.py` 를 한 번 돌리면 모두 같은 새 태그로 모인다(전에는 줄마다 따로 셈해, 같은 날에는 다시 돌려도 계속 갈려 preflight 가 배포를 막았다).
   - 판 번호는 항상 **소수점 3자리** (예 `v3.000 → v3.001`, 절대 `v3.0`/`v3.01`로 줄이지 않음). 2026-07-21 `v3.02`에서 `v3.000`으로 리셋해 3자리 체계 시작.
   - `?v=`는 브라우저 캐시만 무력화할 뿐, **파일 내용을 고르지 않는다**. 배포 직후 CDN이 옛 app.js를 내보내면 브라우저가 그 옛 내용을 새 주소 아래 캐시해 최대 10분간 옛 화면이 남는다. 그래서 app.js는 자신의 `APP_BUILD`와 index.html이 부른 `?v=`를 비교해, 다르면 `cache:"reload"`로 다시 받아 한 번만 새로고침한다(마지막 안전장치).
   - 서비스워커는 화면(HTML) 요청을 `no-store`로 넘긴다 — 옛 index.html이 남으면 그 안의 태그도 옛것이라 통째로 옛 화면이 되기 때문.
@@ -171,8 +172,9 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
 
 ## 다음 작업 (이어서 할 것)
 > 여기에 다음에 진행할 과제를 적어두면, 다음 세션에서 이 문서를 읽고 바로 이어감.
-- [ ] 🙋 **봉사 당번 — 2026-10-06 1단계 운영 반영**(표 6·SQL 함수 32 · 기록 합치기 · 교회 어드민 역할 둘·화면 둘). **성도님께는 아무것도 안 보인다**(앱 화면 없음 · 문 `dutyOpen` 없음).
-      남은 것: ① 친구가 역할 「당번 총괄」·「당번 담당」 주기 · 운영 화면 확인 ② 2단계(앱 화면·api 성도님 액션 — 올린 날 교회 어드민 `duty-logic.js` `APP_LIVE = true`) ③ 3단계 알림(`NOTIFY_LIVE = true`) ④ 4단계 공개(방침 · `dutyOpen` — 플레이 심사 뒤).
+- [ ] 🙋 **봉사 당번 — 2026-10-06 1·2단계 운영 반영**(표 6·SQL 함수 32 · 기록 합치기 · 교회 어드민 역할 둘·화면 둘 · **성도님 앱 화면 + `api` 성도님 액션 여섯**). **문 `dutyOpen` 이 없어 🧪 시험 참여자만 본다**(웹·아이폰 · 플레이 앱 숨김).
+      남은 것: ① 친구가 역할 「당번 총괄」·「당번 담당」 주기 · 운영 화면 확인 · 시험 참여자 폰으로 지원·취소 한 바퀴(⚠️ 4단계 전 운영에는 **시험 당번만** 「받는 중」·「지원 멈춤」으로 — 진짜 명단을 열어 두면 방침 전에 시험 참여자에게 이름이 보인다) ② 3단계 알림(올린 날 교회 어드민 `NOTIFY_LIVE = true`) ③ 4단계 공개(방침 · `FEAT_SINCE.duty` · `dutyOpen` — 플레이 심사 뒤).
+      ⚠️ `api` 를 배포하는 세션은 **main 을 pull 한 뒤** — 낡은 체크아웃이면 duty 액션이 조용히 빠진다(확인 `EVT_ENV=prod bash tests/duty-smoke.sh`).
       ⚠️ `supabase/member_merge.sql` 을 운영에 돌리는 세션은 **origin/main 판인지** 먼저 볼 것 — 옛 사본은 교육·봉사 당번을 모른다(그 기록이 있는 계정의 합치기가 조용히 멈춘다).
       읽을 것 `docs/notes/duty-roster.md`(잠금 차례 둘 · 운영 반영 차례 · 되돌리기)
 - [ ] 🎓 **교육신청 — 2026-10-05 1·2·3단계 운영 반영(신청·담당자·✅ 출석부·🎓 수료·수료증·진위 확인 `/cert` · 게이트 닫힘 · 🧪 시험 참여자만 웹·아이폰 · 플레이 앱 숨김).** 수료증 설정(명의·직인)은 운영 표에만(직인 파일은 저장소에 올리지 않는다). 남은 것: ① 친구가 교육 담당자에게 역할 「교육」 주기 · 시험 참여자 폰으로 확인 · 정원 늘리기 한 번(시험 강좌 → `archived`) ② **공개 전(과제 11 · 플레이 심사 뒤)** 개인정보 세 곳+교회 어드민 방침 · 같은 분 두 자리 잇기 · `FEAT_SINCE.edu` → `eduOpen` ③ 2단계 출석부(2027-01). ⚠️ `api` 를 배포하는 세션은 **main 을 pull 한 뒤** — 낡은 체크아웃이면 edu 액션이 조용히 빠진다. 읽을 것 `docs/notes/education.md`
