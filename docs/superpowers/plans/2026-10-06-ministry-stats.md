@@ -19,26 +19,29 @@
 
 ## 과제
 
-- [ ] **1. SQL 013** — `supabase/sql/013_ministry_stats.sql`
+- [x] **1. SQL 013** — `supabase/sql/013_ministry_stats.sql`
   - `mh_key(text)`(NFC · 띄어쓰기 없음) · 표 `ministry_dept_map`(부서 열쇠, 팀 열쇠 → 큰 분류 · 계열 · 중분류 · 표준 팀) · 표 `ministry_list_gaps`(scope, year_from, year_to) + 씨앗 넷
   - `ministry_stats_facts()` → `{years, map, seats, people, gaps, unmapped, source_date}` · service_role 만
   - 사람 종류: m(교인) · g(떠난 분 — 못 이은 까닭 앞머리 글자 넷 · `link_how='none'` · 이어졌지만 명부에 없는 교인ID) · u(아직 못 정함)
   - 끝에 확인 select(표 줄 수 · 권한 0 · 재료의 줄 수)
-- [ ] **2. 이음표 씨앗** — `tools/history/dept_lineage_draft.py --seed-sql <파일>` → `supabase/sql/013b_ministry_dept_map_seed.sql`
+- [x] **2. 이음표 씨앗** — `tools/history/dept_lineage_draft.py --seed-sql <파일>` → `supabase/sql/013b_ministry_dept_map_seed.sql`
   - 열쇠는 `mh_key` 와 같은 다듬기 · `on conflict … do update … where source = 'seed'` · 쌍 수 = 2차 엑셀의 쌍 수(띄어쓰기 없앤 열쇠 기준)
-- [ ] **3. 세는 규칙** — `supabase/functions/church-admin/ministry-stats.ts`(순수) + `tests/ministry-stats.test.mjs`
+- [x] **3. 세는 규칙** — `supabase/functions/church-admin/ministry-stats.ts`(순수) + `tests/ministry-stats.test.mjs`
   - `buildStats(facts)` → `{years, sourceDate, units, inner, meta}` · 단위 `all3`·`g:<큰 분류>`·`f:<계열>`
   - 줄마다: seats · people · multi · gap · prev · stay · back · first · firstEver · firstOther · left · moved · rest · gone · keep · demo(나이 평균·나이대 · 성별 · 직분 — 봉사자 30명 이상 · 1~4명 칸은 -1)
   - 시험: 계속·돌아옴·처음 둘·옮김·쉼·떠남 · 일부인 해 건너뛰기(큰 분류·계열·`*`·끝 없는 것) · 유지율 5명 규칙 · 30명 규칙 · 「5 미만」 · 미정 · 못 이은 까닭 글자가 TS 상수와 SQL 에 함께 있나
   - 진짜 자료 대조(이 PC): `tools/history/stats_check.py` — 통합 엑셀을 「이름 = 사람」 재료로 만들어 `buildStats` 와 파이썬 어림을 맞댄다(수만)
-- [ ] **4. 서버 액션** — `ministryStats`(역할 `ministry`) · `index.ts` case · `authz.ts` · `PROBE` · `tests/ministry-stats.dev.test.mjs`(응답에 사람 정보 없음)
-- [ ] **5. 화면** — `js/menus/ministry/stats.js` + `stats-logic.js` + `css/admin.css`(`.mst-*`) + `registry.js` + `tests/ministry-stats-logic.test.mjs`
+- [x] **4. 서버 액션** — `ministryStats`(역할 `ministry`) · `index.ts` case · `authz.ts` · `PROBE` · `tests/ministry-stats.dev.test.mjs`(응답에 사람 정보 없음)
+- [x] **5. 화면** — `js/menus/ministry/stats.js` + `stats-logic.js` + `css/admin.css`(`.mst-*`) + `registry.js` + `tests/ministry-stats-logic.test.mjs`
   - 미리보기 구성 그대로: 범위 단추 → 카드 넷 → 쌓은 막대 → 해마다 수 → 계열별/안쪽 나눔 → 나이·성별·직분 → 세는 법 → 엑셀
   - 폰(390px)·PC(1100px) 화면을 찍어 본다(가짜 `call` 에 진짜 모양의 묶음)
-- [ ] **6. 여는 순서** — SQL 013·013b 개발 → 함수 개발 → 로컬 화면 → SQL 운영 → 함수 운영(내려받아 대조) → 푸시 → 운영 확인(재료의 해별 줄 수 · 이음표에 없는 쌍 수)
-- [ ] **7. 문서** — church-admin `CLAUDE.md` · v2 `docs/notes/ministry-stats.md`(새) · v2 `CLAUDE.md` 지도 한 줄 · 작업 기록(`docs/analysis`)
+- [x] **6. 여는 순서** — SQL 013·013b 개발 → 함수 개발 → 로컬 화면 → SQL 운영 → 함수 운영(내려받아 대조) → 푸시 → 운영 확인(재료의 해별 줄 수 · 이음표에 없는 쌍 수)
+- [x] **7. 문서** — church-admin `CLAUDE.md` · v2 `docs/notes/ministry-stats.md`(새) · v2 `CLAUDE.md` 지도 한 줄 · 작업 기록(`docs/analysis`)
 
 ## 진행 기록
 
 | 과제 | 상태 | 커밋 |
 |---|---|---|
+| 1~5 SQL 013·013b · 이음표 씨앗 · 세는 규칙 · 서버 액션 · 화면 | 끝(개발 확인) | church-admin 5bd97f0 |
+| 6 여는 순서 | 끝 — SQL 운영 → 함수(내려받아 대조) → 푸시 | 5bd97f0 · 재료 17,848줄 · 이음표에 없는 쌍 0 |
+| 7 문서 | 끝 | church-admin CLAUDE.md · 이 저장소 docs/notes/ministry-stats.md |

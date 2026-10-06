@@ -48,6 +48,7 @@
 | 교인명부(어드민 · dimode 교인목록·사진 · 2026-09-29 운영) — 찾기·현황·가족·사역 교적 표시 | 설계 `docs/superpowers/specs/2026-09-29-church-people-directory-design.md` · 계획(끝에 「나중」 목록) · church-admin `CLAUDE.md` 「교인명부」 절 |
 | 교인명부 「자세히」 창 사역·성경필사 탭 · 잇기 표(`people_links`) · 사역신청 번호 180일(2026-10-01) | 설계 `docs/superpowers/specs/2026-10-01-person-history-tabs-design.md` · 계획 `docs/superpowers/plans/2026-10-01-person-history-tabs.md` · church-admin `CLAUDE.md` 「교인명부」 절 |
 | 사역 이력(교회 어드민 「📜 사역 이력」 · 지난 해 사역 임명 엑셀 → 교인ID · `ministry_history` · 2026-10-01) — 성경암송 `ministry_orders` 에 지난 해를 넣지 말 것 | `docs/notes/ministry-history.md` · 설계 `docs/superpowers/specs/2026-10-01-church-admin-ministry-history-design.md` |
+| 사역 통계(교회 어드민 「📊 사역 통계」 · 2026-10-06 · 부서 이음표 · 큰 분류 찬양·교회학교·그 밖) | `docs/notes/ministry-stats.md` · 설계 `docs/superpowers/specs/2026-10-06-ministry-stats-design.md` |
 | 교육신청(2026-10-05 · 1단계 운영 · 게이트 닫힘 — 🧪만) — 앱 🎓 교육 · 교회 어드민 📚 강좌 관리·📝 신청 현황 · 정원·대기는 `edu.sql` 한 곳 | `docs/notes/education.md` · 계획 `docs/superpowers/plans/2026-10-05-education-stage1.md`(과제 11 공개 전) |
 
 ## 스택 · 도메인
