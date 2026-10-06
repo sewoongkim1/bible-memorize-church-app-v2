@@ -173,12 +173,21 @@ test('dutyApplyAsk — 누구 이름으로 · 이름이 보인다 · 언제까�
 test('dutyErrText — 서버 거절마다 성도님 말 · 겹침은 무엇과 겹쳤는지', () => {
   for (const c of ['full', 'closed', 'off', 'past', 'started', 'not-yet', 'after-until', 'removed-by-staff', 'guardian', 'bad-name', 'locked', 'locked-day', 'staff-row',
     'not-locked', 'not-active', 'changed', 'not-open', 'no-user', 'not-found']) {
-    assert.ok(ctx.dutyErrText(c).length > 5 && ctx.dutyErrText(c) !== '잠시 뒤 다시 해 주세요.', c);
+    assert.ok(ctx.dutyErrText(c).length > 5 && ctx.dutyErrText(c) !== ctx.DUTY_UNSURE && ctx.dutyErrKnown(c) === true, c);
   }
-  assert.equal(ctx.dutyErrText('zzz'), '잠시 뒤 다시 해 주세요.'); assert.equal(ctx.dutyErrText('toString'), '잠시 뒤 다시 해 주세요.');
+  // 표에 없는 코드 = 됐는지 알 수 없는 답(통신 끊김 · 서버 오류 — 서버에는 이미 쓰였을 수 있다): 「다시 해 주세요」라고 하지 않고 확인하시게 한다
+  assert.equal(ctx.dutyErrText('zzz'), ctx.DUTY_UNSURE); assert.equal(ctx.dutyErrText('toString'), ctx.DUTY_UNSURE);
+  assert.ok(ctx.DUTY_UNSURE.includes('됐는지 확인하지 못했어요') && !/다시 해 주세요/.test(ctx.DUTY_UNSURE) && ctx.DUTY_UNSURE_FAIL.includes('다시 열어 확인해 주세요'));
+  for (const c of ['Failed to fetch', 'Load failed', 'HTTP 502', 'server', 'zzz', undefined, null]) assert.equal(ctx.dutyErrKnown(c), false, String(c));
+  for (const c of ['overlap', 'too-many']) assert.equal(ctx.dutyErrKnown(c), true, c);
+  // 자리만 쉬어도 같은 코드로 온다 · 사라진 계정은 로그인돼 있는 분이다 · 보호자 확인 부서는 어린이 부서만이 아니다(사랑부 · 중등부 1·2학년 — 중3·고등부는 지원한다)
+  assert.equal(ctx.dutyErrText('off'), '쉬는 날이거나 쉬는 자리예요.');
+  assert.equal(ctx.dutyErrText('no-user'), ctx.dutyErrText('not-open')); assert.equal(ctx.dutyErrText('no-user').includes('로그인'), false);
+  assert.equal(/어린이|청소년/.test(ctx.dutyErrText('guardian')), false); assert.ok(ctx.dutyErrText('guardian').includes('앱에서 바로 지원할 수 없어요'));
   assert.equal(ctx.dutyErrText('overlap', { with: { board: '주차 봉사', service: '2부', task: '안내', start: '11:00' } }), '같은 날 겹치는 시간에 이미 주차 봉사 2부 안내(11:00) 당번이 있어요.');
-  assert.equal(ctx.dutyErrText('overlap', { with: null }), '같은 날 겹치는 시간에 이미 다른 당번이 있어요.', '아직 공개 전인 당번과 겹치면 이름 없이');
-  assert.equal(ctx.dutyErrText('overlap'), '같은 날 겹치는 시간에 이미 다른 당번이 있어요.');
+  // 아직 공개 전인(준비 중) 당번과 겹치면 이름 없이 — 그 당번은 「내 당번」에도 없으므로 그렇다고 말한다(까닭을 찾을 화면이 없다)
+  const hidden = '같은 날 겹치는 시간에 이미 다른 당번이 있어요. 「내 당번」에 보이지 않으면 아직 앱에 열리지 않은 당번이에요 — 담당자께 말씀해 주세요.';
+  assert.equal(ctx.dutyErrText('overlap', { with: null }), hidden); assert.equal(ctx.dutyErrText('overlap'), hidden);
   assert.equal(ctx.dutyErrText('too-many', { max: 3 }), '이 당번은 한 분이 세 자리까지 미리 잡아 둘 수 있어요. 서신 뒤에 다시 지원해 주세요.');
   assert.equal(ctx.dutyErrText('too-many', { max: 12 }), '이 당번은 한 분이 12자리까지 미리 잡아 둘 수 있어요. 서신 뒤에 다시 지원해 주세요.');
   assert.equal(ctx.dutyErrText('too-many', {}).includes('정해진 수'), true);
@@ -351,7 +360,7 @@ test('api dutyErrOut — 보관한 당번은 없는 당번 · SQL 이 성도님 
   assert.equal(srv.dutyErrOut('bad-ident'), 'server'); assert.equal(srv.dutyErrOut(null), 'server'); assert.equal(srv.dutyErrOut(''), 'server');
   for (const c of ['not-found', 'archived', 'closed', 'off', 'past', 'started', 'not-yet', 'after-until', 'removed-by-staff', 'locked-day', 'full', 'not-active', 'changed',
     'locked', 'staff-row', 'not-locked']) {
-    assert.notEqual(ctx.dutyErrText(srv.dutyErrOut(c)), '잠시 뒤 다시 해 주세요.', c);
+    assert.equal(ctx.dutyErrKnown(srv.dutyErrOut(c)), true, c);
   }
 });
 

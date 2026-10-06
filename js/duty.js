@@ -5,6 +5,8 @@
 //   ⚠️ 자리·지원 번호는 화면 글자(data-*)에 싣지 않는다 — 차례 번호만 싣고 dutyState 의 배열에서 꺼낸다.
 //   ⚠️ 늦게 온 응답이 다른 화면을 덮지 않게 — 받는 쪽은 화면 번호(dutyState.screen)와 .duty-wrap 이 아직 있는지를 함께 본다.
 //      일을 끝낸 뒤 다시 그리기는 dutyRedraw 로만 · soft(화면을 비우지 않고 다시 받기)는 당번 화면이 떠 있을 때만 돈다(tests/duty-flow.test.cjs).
+//   ⚠️ 일(지원·취소·표시)의 답은 세 가지다 — 됐다 · 서버가 거절했다(표에 있는 코드) · **됐는지 알 수 없다**(통신이 끊김·서버 오류 — 요청이 안 나간 것과 답만 잃은 것을 가를 수 없다).
+//      알 수 없으면 「잠시 뒤 다시 해 주세요」가 아니라 「확인하지 못했어요」라고 말하고 화면을 다시 받는다(dutyErrKnown). 알림은 dutyTell 로만 — 떠 있는 창을 지우지 않고, 로그아웃 뒤에는 버린다.
 //   ⚠️ 날짜가 넷 이상인 당번은 **달력**으로 그린다(dutyCalUse) — 달력에서 날짜를 누르면 그날의 자리만 아래에 보인다. 날짜가 적으면(한두 번짜리 모집) 날짜 카드를 늘어놓는다.
 //      고른 날(dutyState.calSel)은 화면 상태일 뿐 — 서버에 보내지 않고, 판정(why·locked…)은 받은 것을 그대로 쓴다. 달력 칸의 뜻(dutyCalCell)도 dutySlotView 에서 나온다(규칙을 다시 짜지 않는다).
 //   ⚠️ 성도님께 하는 말은 어느 경우에도 참인 말만 — 「못 가게 됐어요」는 담당자 휴대폰으로 가는 알림이 아니라 당번표의 표시다(「알렸어요」라고 하지 않는다) ·
@@ -128,7 +130,14 @@ function dutyApplyAsk(board, day, slot, who, locked) {
   return { title: '🙋 지원할까요?', ok: '지원하기', strong: when, where: where, who: who || '',
     lines: ['이 자리에 이름이 보여요.', dutyUntilText(day && day.lockAt)] };
 }
+// 표에 없는 코드(통신이 끊김 · 서버 오류)는 **됐는지 알 수 없다** — 서버에는 이미 쓰였을 수 있다. 「다시 해 주세요」라고 하지 않고 확인하시게 한다(화면도 다시 받는다 — dutyErrKnown).
+var DUTY_UNSURE = '연결이 고르지 않아 됐는지 확인하지 못했어요. 당번표에서 확인해 주세요.';
+var DUTY_UNSURE_FAIL = '화면을 새로 받지 못했어요 — 잠시 뒤 다시 열어 확인해 주세요.';
 // 서버 거절 → 성도님께 보일 말. x = 거절에 딸려 온 값(overlap 의 with · too-many 의 max)
+//   'off' 는 그날이 쉬든 자리만 쉬든 같은 코드로 온다 — 「쉬는 날이에요」라고만 하면 자리만 쉴 때 같은 날 다른 당번까지 빠지신다.
+//   'no-user'(서버에 계정 줄이 없다 — 기록을 합쳐 옛 계정이 사라진 기기)는 로그인돼 있는 분께 온다 — 「로그인한 뒤에」라고 하지 않는다(닫힘과 같은 말 · 목록으로 돌린다).
+//   겹침에 with 가 없으면 준비 중 당번에 담당자가 넣어 둔 줄이다 — 「내 당번」에는 보이지 않으므로(받는 중·지원 멈춤 당번만 싣는다) 그 말을 함께 한다.
+//   'guardian' 은 어린이 부서만이 아니다(사랑부 · 중등부 1·2학년 포함 — 중3·고등부는 지원한다) — 부서 이름을 넘겨짚지 않는다.
 function dutyErrText(code, x) {
   var o = x || {};
   if (code === 'overlap') {
@@ -136,22 +145,24 @@ function dutyErrText(code, x) {
     if (w && (w.board || w.service)) {
       return '같은 날 겹치는 시간에 이미 ' + [w.board, [w.service, w.task].filter(Boolean).join(' ')].filter(Boolean).join(' ') + (w.start ? '(' + w.start + ')' : '') + ' 당번이 있어요.';
     }
-    return '같은 날 겹치는 시간에 이미 다른 당번이 있어요.';
+    return '같은 날 겹치는 시간에 이미 다른 당번이 있어요. 「내 당번」에 보이지 않으면 아직 앱에 열리지 않은 당번이에요 — 담당자께 말씀해 주세요.';
   }
   if (code === 'too-many') return '이 당번은 한 분이 ' + (dutySeatWord(o.max) || '정해진 수') + '까지 미리 잡아 둘 수 있어요. 서신 뒤에 다시 지원해 주세요.';
-  var W = { 'full': '방금 자리가 찼어요.', 'closed': '지금은 앱에서 지원을 받지 않는 자리예요. 담당자께 말씀해 주세요.', 'off': '쉬는 날이에요.',
+  var W = { 'full': '방금 자리가 찼어요.', 'closed': '지금은 앱에서 지원을 받지 않는 자리예요. 담당자께 말씀해 주세요.', 'off': '쉬는 날이거나 쉬는 자리예요.',
     'past': '지난 날짜예요.', 'started': '이미 시작한 자리예요.', 'not-yet': '아직 지원을 받지 않는 날짜예요.', 'after-until': '지원을 받지 않는 날짜예요.',
     'removed-by-staff': '담당자가 빼 드린 자리예요. 다시 서시려면 담당자께 말씀해 주세요.',
-    'guardian': '어린이·청소년 부서는 앱에서 지원하지 않아요. 부서 선생님이나 담당자께 말씀해 주세요.',
+    'guardian': '이 계정은 앱에서 바로 지원할 수 없어요(보호자 확인이 필요한 부서·학년이에요). 부서 선생님이나 담당자께 말씀해 주세요.',
     'bad-name': '당번표에 실을 수 없는 이름이에요. 설정의 「로그인 정보변경」에서 이름을 고친 뒤 지원해 주세요.',
     'locked': '확정된 날이라 앱에서 취소할 수 없어요. 「못 가게 됐어요」로 담당자께 알려 주세요.',
     'locked-day': '그사이 확정된 날이 됐어요. 다시 확인해 주세요.',
     'staff-row': '담당자가 넣어 드린 자리라 앱에서 취소할 수 없어요. 「못 가게 됐어요」로 알려 주세요.',
     'not-locked': '아직 확정 전이라 「지원 취소」로 바로 취소하실 수 있어요.',
     'not-active': '이미 처리된 지원이에요.', 'changed': '그사이 자리가 바뀌었어요. 다시 확인해 주세요.',
-    'not-open': '지금은 봉사 당번을 쓸 수 없어요. 잠시 뒤 다시 열어 주세요.', 'no-user': '로그인한 뒤에 지원할 수 있어요.', 'not-found': '찾을 수 없어요. 다시 열어 주세요.' };
-  return Object.prototype.hasOwnProperty.call(W, code) ? W[code] : '잠시 뒤 다시 해 주세요.';
+    'not-open': '지금은 봉사 당번을 쓸 수 없어요. 잠시 뒤 다시 열어 주세요.', 'no-user': '지금은 봉사 당번을 쓸 수 없어요. 잠시 뒤 다시 열어 주세요.', 'not-found': '찾을 수 없어요. 다시 열어 주세요.' };
+  return Object.prototype.hasOwnProperty.call(W, code) ? W[code] : DUTY_UNSURE;
 }
+// 서버가 거절로 준 코드인가(제 말이 있는 것) — 아니면 됐는지 알 수 없는 답이다
+function dutyErrKnown(code) { return dutyErrText(code) !== DUTY_UNSURE; }
 // 거절 뒤 화면을 다시 받아야 하는가 — 서버 상태가 내가 보던 것과 달라졌다는 뜻의 거절들
 function dutyNeedsReload(code) {
   return ['full', 'closed', 'off', 'past', 'started', 'not-yet', 'after-until', 'removed-by-staff', 'locked', 'locked-day', 'staff-row', 'not-locked', 'not-active', 'changed', 'not-found'].indexOf(code) >= 0;
@@ -294,8 +305,11 @@ function dutyCalHtml(days, sel, today, me) {
 
 // screen: 화면이 바뀔 때마다 올라가는 번호 — 늦게 온 응답이 다른 화면을 덮지 않게 · at: 지금 보는 화면(list|board|'' = 당번 화면을 떠남) ·
 // me: 이 계정이 앱에서 지원하지 못하는 까닭({why}) · loadedAt: 마지막으로 받은 때 · busy·busyAt: 일을 보내는 중 ·
-// calSel: 달력에서 고른 날(당번을 새로 열면 비운다 — 화면 상태일 뿐 서버에 보내지 않는다)
-var dutyState = { screen: 0, at: '', boards: [], mine: [], me: {}, cur: '', board: null, days: [], loadedAt: 0, busy: false, busyAt: 0, calSel: '' };
+// calSel: 달력에서 고른 날(당번을 새로 열면 비운다 — 화면 상태일 뿐 서버에 보내지 않는다) ·
+// tok: 보낸 일(지원·취소·표시)의 번호 — 20초가 넘어 늦게 온 답이 그 뒤에 보낸 다른 일의 막음을 풀지 않게 ·
+// gen: 세대(로그아웃·신원 바꿈 때 올린다 — 앞사람의 일에 온 답을 다음 분께 알리지 않는다) ·
+// owe: 일은 됐는데 화면을 아직 새로 받지 못한 동안 품고 있는 말(다음 읽기가 성공하면 지우고 · 실패하면 그때 알린다 — 다시 받기가 다른 다시 받기에 밀려나도 사라지지 않게)
+var dutyState = { screen: 0, at: '', boards: [], mine: [], me: {}, cur: '', board: null, days: [], loadedAt: 0, busy: false, busyAt: 0, calSel: '', tok: 0, gen: 0, owe: '' };
 // 계정 번호(user_id)를 아직 못 받았을 때 — 첫 로그인 직후 서버 답을 기다리는 몇 초 · 로그인 호출이 실패한 실행.
 //   그대로 서버를 부르면 「문 닫힘」 답이 와 「아직 열지 않았어요」라고 **사실이 아닌 말**을 하게 된다(문은 계정이 있어야 열린다).
 var DUTY_NO_ID = '아직 서버와 연결되지 않았어요. 잠시 뒤 다시 열어 주세요.';
@@ -308,13 +322,21 @@ var DUTY_CLOSED = '지금은 봉사 당번을 볼 수 없어요. 잠시 뒤 다�
 // 일을 보내는 중인가 — 20초가 넘도록 답이 없으면 놓아 준다(통신이 끊긴 요청 하나가 모든 단추를 말없이 막지 않게).
 //   그 뒤 같은 일을 다시 눌러도 서버가 한 번만 받는다(지원은 already · 취소는 not-active).
 function dutyBusy() { return dutyState.busy && Date.now() - dutyState.busyAt < 20000; }
-function dutyHold(on) { dutyState.busy = !!on; dutyState.busyAt = on ? Date.now() : 0; }
+//   막음을 걸면(on) 그 일의 번호를 돌려준다 — 푸는 쪽은 제 번호일 때만 푼다(늦게 온 앞 일의 답이 지금 보내는 일의 막음을 풀지 않게).
+function dutyHold(on) { dutyState.busy = !!on; dutyState.busyAt = on ? Date.now() : 0; if (on) dutyState.tok++; return dutyState.tok; }
 // 당번 화면을 떠난다(첫 화면으로) — 화면 번호를 올려, 받는 중이던 응답이 뒤늦게 와도 버려지게 한다.
-function dutyLeave() { dutyState.screen++; dutyState.at = ''; }
+function dutyLeave() { dutyState.screen++; dutyState.at = ''; dutyState.owe = ''; }
+// 알림 — 다른 창(확인 창·앞선 알림)이 떠 있으면 그 창을 지우지 않고 닫힌 뒤에 띄운다(appModal 은 떠 있는 창을 답 없이 지운다 — 늦게 온 거절이 읽던 확인 창을 없애지 않게).
+//   gen = 그 일을 보낸 때의 세대 — 그사이 로그아웃·신원 바꿈이 있었으면 버린다(앞사람의 당번 이름·시각을 다음 분께 보이지 않는다). html 은 부르는 쪽이 dutyEsc 한 글.
+function dutyTell(html, gen) {
+  if (gen != null && gen !== dutyState.gen) return;
+  if (document.getElementById('app-modal')) { setTimeout(function () { dutyTell(html, gen); }, 400); return; }
+  appAlert(html);
+}
 // 로그아웃·「로그인 정보변경」(app.js 가 부른다) — 앞사람의 당번·내 당번을 메모리에서 비우고, 그분 요청에 늦게 온 응답은 버려지게 화면 번호를 올린다.
 function dutyResetState() {
   dutyLeave(); dutyState.boards = []; dutyState.mine = []; dutyState.me = {}; dutyState.cur = ''; dutyState.board = null; dutyState.days = [];
-  dutyState.loadedAt = 0; dutyState.calSel = ''; dutyHold(false);
+  dutyState.loadedAt = 0; dutyState.calSel = ''; dutyState.gen++; dutyState.tok++; dutyHold(false);
 }
 
 function dutyShell(u) {
@@ -337,13 +359,16 @@ function dutyMyHtml(v, idx) {   // 내 줄 상자 — idx = 단추가 가리킬 
 //   당번 화면 안에서 옮겼으면(자세히 → 목록) 지금 보는 쪽을 다시 받는다(방금 한 일이 거기에도 보이게).
 function dutyRedraw(scr, redraw, failNote) {
   if (!document.querySelector('.duty-wrap')) return;
+  if (failNote) dutyState.owe = failNote;   // 이 다시 받기가 다른 다시 받기(화면이 다시 보일 때)에 밀려나도 이 말은 남는다
   if (dutyState.screen === scr) { redraw(); return; }
   if (dutyState.at === 'list') renderDutyList({ stay: true, soft: true, failNote: failNote });
   else if (dutyState.at === 'board' && dutyState.cur) renderDutyBoard(dutyState.cur, { soft: true, failNote: failNote });
 }
-// 다시 받기(soft)가 실패했을 때 — 보던 화면은 그대로 두고, 방금 한 일이 있었으면 그 일은 됐다고 알린다(화면이 옛 모습이라 안 된 줄 아신다).
+// 읽기가 실패했을 때 — 방금 한 일이 있었으면 그 일은 됐다고 알린다(화면이 옛 모습이라 안 된 줄 아신다). 품고 있던 말은 한 번만 쓴다.
 function dutySoftFail(opt) {
-  if (opt && opt.failNote) appAlert(dutyEsc(opt.failNote));
+  var t = (opt && opt.failNote) || dutyState.owe || '';
+  dutyState.owe = '';
+  if (t) dutyTell(dutyEsc(t), dutyState.gen);
 }
 
 // ── 당번 목록 + 내 당번 ──
@@ -359,7 +384,8 @@ function renderDutyList(opt) {
   api.dutyList(u.user_id).then(function (r) {
     if (my !== dutyState.screen || !document.querySelector('.duty-wrap')) return;   // 받는 사이 다른 화면으로 갔다
     dutyState.loadedAt = Date.now();
-    if (!r || r.open === false) { dutyState.boards = []; dutyState.mine = []; dutyFail(DUTY_CLOSED); return; }
+    if (!r || r.open === false) { dutyState.boards = []; dutyState.mine = []; dutyFail(DUTY_CLOSED); dutySoftFail(opt); return; }
+    dutyState.owe = '';   // 새 화면을 받았다 — 방금 한 일이 거기 보인다
     dutyState.boards = r.boards || []; dutyState.mine = r.mine || []; dutyState.me = r.me || {};
     // 당번이 하나뿐이고 내 당번이 없으면 목록을 건너뛴다(첫 화면에서 들어올 때만)
     if (!opt.stay && !opt.soft && dutyState.boards.length === 1 && !dutyState.mine.length) { renderDutyBoard(dutyState.boards[0].id); return; }
@@ -368,7 +394,7 @@ function renderDutyList(opt) {
     if (my !== dutyState.screen) return;
     // 다시 받기 실패 — 보던 화면을 그대로 둔다(「불러오는 중」만 떠 있었으면 그대로 두지 않고 알린다)
     if (opt.soft && !document.querySelector('.duty-wrap .ev-loading')) { dutySoftFail(opt); return; }
-    dutyFail(DUTY_LOAD_FAIL);
+    dutyFail(DUTY_LOAD_FAIL); dutySoftFail(opt);   // 「불러오는 중」만 떠 있었다 — 못 불러왔다고 알리고, 방금 한 일이 있었으면 그 일은 됐다고도 알린다
   });
 }
 
@@ -422,7 +448,8 @@ function renderDutyBoard(id, opt) {
   api.dutyBoard(id, u.user_id).then(function (r) {
     if (my !== dutyState.screen || !document.querySelector('.duty-wrap')) return;   // 받는 사이 다른 화면으로 갔다
     dutyState.loadedAt = Date.now();
-    if (!r || r.open === false) { dutyFail(DUTY_CLOSED); return; }
+    if (!r || r.open === false) { dutyFail(DUTY_CLOSED); dutySoftFail(opt); return; }
+    dutyState.owe = '';   // 새 화면을 받았다
     dutyState.board = r.board || {}; dutyState.days = r.days || []; dutyState.me = r.me || {};
     dutyDrawBoard(u, r.today || '', opt);
   }).catch(function (err) {
@@ -434,6 +461,7 @@ function renderDutyBoard(id, opt) {
     w.innerHTML = '<div class="duty-top"><span></span><button class="back-btn" id="duty-back">← 봉사 당번</button></div><p class="duty-empty">' +
       dutyEsc(gone ? '지금은 볼 수 없는 당번이에요.' : DUTY_LOAD_FAIL) + '</p>';
     var bk = document.getElementById('duty-back'); if (bk) bk.addEventListener('click', function () { renderDutyList({ stay: true }); });
+    dutySoftFail(opt);   // 방금 한 일이 있었으면 그 일은 됐다고 알린다(화면은 못 받았다)
   });
 }
 
@@ -491,7 +519,9 @@ function dutyDrawBoard(u, today, opt) {
     (staffOnly ? '<p class="duty-note">이 당번은 담당자가 넣어요 — 앱에서는 당번표와 내 당번을 볼 수 있어요.</p>' : '') +
     (meNote ? '<p class="duty-note" role="note">' + dutyEsc(meNote) + '</p>' : '') +
     (miss ? '<p class="duty-note" role="status">' + dutyEsc(miss) + '</p>' : '') +
-    (days.length ? dayHtml : '<p class="duty-empty">지금은 당번표에 날짜가 없어요 — 담당자가 날짜를 넣으면 여기에 보여요.</p>');   // 자리 틀을 아직 안 넣었거나 · 끝 날짜가 지났거나 — 어느 쪽에도 참인 말
+    // 날짜가 비는 까닭은 여럿이다 — 자리 틀을 아직 안 넣음 · 담당자가 더한 날짜가 아직 보이는 기간 밖(가까워지면 저절로 보인다) · 끝 날짜가 지남.
+    //   「담당자가 날짜를 넣으면 보여요」라고만 하면 둘째에서 사실이 아니다(이미 넣었다) — 어느 쪽에도 참인 말을 쓴다(위의 「내 당번」 안내 줄과도 어긋나지 않게).
+    (days.length ? dayHtml : '<p class="duty-empty">지금은 당번표에 보이는 날짜가 없어요 — 날짜가 가까워지거나 담당자가 날짜를 넣으면 여기에 보여요.</p>');
   document.getElementById('duty-back').addEventListener('click', function () { renderDutyList({ stay: true }); });
   if (opt.soft) window.scrollTo(0, y);   // 다시 받은 뒤에도 보던 자리 그대로
   else if (opt.focusDate) {
@@ -539,20 +569,27 @@ function dutyAskHtml(a) {
 var DUTY_RELOAD_TAIL = ' 다만 화면을 새로 받지 못했어요 — 잠시 뒤 다시 열어 확인해 주세요.';
 function dutyApplyFlow(btn, u, board, day, slot, again) {
   if (dutyBusy()) return;
-  var l = userLines(u), who = l.l2 + (l.l1 ? ' · ' + l.l1 : ''), scr = dutyState.screen;
+  var l = userLines(u), who = l.l2 + (l.l1 ? ' · ' + l.l1 : ''), scr = dutyState.screen, gen = dutyState.gen;
+  var label = dutyMdw(day.date) + ' ' + dutySlotName(slot);   // 알림에 어느 자리인지 — 늦게 온 답이 다른 자리 일로 읽히지 않게
   var redo = function (failNote) { dutyRedraw(scr, function () { again(day.date, '', failNote); }, failNote); };
   var send = function (ack) {
-    dutyHold(true); btn.disabled = true;
-    var done = function () { dutyHold(false); if (btn.isConnected) btn.disabled = false; };
-    api.dutyApply(slot.id, u.user_id || '', ack).then(function () { done(); redo('지원은 됐어요.' + DUTY_RELOAD_TAIL); })   // 알림 창 없이 — 그 칸이 「✅ 지원했어요」로 바뀐다
+    var tok = dutyHold(true); btn.disabled = true;
+    var done = function () { if (dutyState.tok === tok) dutyHold(false); if (btn.isConnected) btn.disabled = false; };
+    api.dutyApply(slot.id, u.user_id || '', ack).then(function () { done(); if (gen === dutyState.gen) redo('지원은 됐어요.' + DUTY_RELOAD_TAIL); })   // 알림 창 없이 — 그 칸이 「✅ 지원했어요」로 바뀐다
       .catch(function (err) {
         done();
+        if (gen !== dutyState.gen) return;   // 로그아웃·신원 바꿈 뒤에 온 답 — 앞사람의 일을 다음 분께 알리지 않는다
         var code = err && err.message, x = (err && err.data) || {};
-        // 그사이 잠긴 날 — 아무것도 안 쓰였다. 아직 그 화면이면 「취소할 수 없는 날」 창을 띄우고, 떠났으면 그만둔다(다른 화면에 창을 띄우지 않는다)
-        if (code === 'locked-day' && !ack) { if (dutyState.screen === scr && document.querySelector('.duty-wrap')) ask(true); return; }
-        appAlert(dutyEsc(dutyErrText(code, x)));
-        if (code === 'not-open') { if (document.querySelector('.duty-wrap')) renderDutyList({ stay: true }); return; }
-        if (dutyNeedsReload(code)) redo('');
+        // 그사이 잠긴 날 — 아무것도 안 쓰였다. 아직 그 당번을 보고 있으면 「취소할 수 없는 날」 창을 띄우고,
+        //   떠났으면 창은 띄우지 않되 **안 됐다는 것은 알린다**(확인 창에서 「지원하기」를 누르신 분이 지원한 줄 아신다).
+        if (code === 'locked-day' && !ack) {
+          if (dutyState.at === 'board' && dutyState.cur === board.id && document.querySelector('.duty-wrap')) { ask(true); return; }
+          dutyTell(dutyEsc(label + ' 지원이 안 됐어요 — ' + dutyErrText(code)), gen); redo(''); return;
+        }
+        if (code === 'not-open' || code === 'no-user') { dutyTell(dutyEsc(dutyErrText(code)), gen); if (document.querySelector('.duty-wrap')) renderDutyList({ stay: true }); return; }
+        dutyTell(dutyEsc(label + ' — ' + dutyErrText(code, x)), gen);
+        if (!dutyErrKnown(code)) redo(DUTY_UNSURE_FAIL);   // 됐는지 알 수 없다(통신 끊김) — 화면을 다시 받아 보여 준다
+        else if (dutyNeedsReload(code)) redo('');
       });
   };
   var ask = function (locked) {
@@ -585,16 +622,18 @@ function dutyPickWhy() {   // 까닭 셋 가운데 하나 — 고르면 그 값,
 function dutyMyAct(btn, act, signupId, at, after) {
   if (dutyBusy()) return;
   var u = loadUser(); if (!u) { renderEntryScreen(); return; }
-  var label = dutyMdw(at.date) + ' ' + dutySlotName(at.slot), scr = dutyState.screen;
+  var label = dutyMdw(at.date) + ' ' + dutySlotName(at.slot), scr = dutyState.screen, gen = dutyState.gen;
   var run = function (call, okNote, failNote) {
-    dutyHold(true); btn.disabled = true;
-    var done = function () { dutyHold(false); if (btn.isConnected) btn.disabled = false; };
-    call().then(function () { done(); dutyRedraw(scr, function () { after(okNote, failNote); }, failNote); }).catch(function (err) {
+    var tok = dutyHold(true); btn.disabled = true;
+    var done = function () { if (dutyState.tok === tok) dutyHold(false); if (btn.isConnected) btn.disabled = false; };
+    call().then(function () { done(); if (gen === dutyState.gen) dutyRedraw(scr, function () { after(okNote, failNote); }, failNote); }).catch(function (err) {
       done();
+      if (gen !== dutyState.gen) return;   // 로그아웃·신원 바꿈 뒤에 온 답
       var code = err && err.message;
-      appAlert(dutyEsc(dutyErrText(code)));
-      if (code === 'not-open') { if (document.querySelector('.duty-wrap')) renderDutyList({ stay: true }); return; }
-      if (dutyNeedsReload(code)) dutyRedraw(scr, function () { after('', ''); }, '');
+      if (code === 'not-open' || code === 'no-user') { dutyTell(dutyEsc(dutyErrText(code)), gen); if (document.querySelector('.duty-wrap')) renderDutyList({ stay: true }); return; }
+      dutyTell(dutyEsc(label + ' — ' + dutyErrText(code)), gen);
+      if (!dutyErrKnown(code)) dutyRedraw(scr, function () { after('', DUTY_UNSURE_FAIL); }, DUTY_UNSURE_FAIL);   // 됐는지 알 수 없다 — 다시 받아 보여 준다
+      else if (dutyNeedsReload(code)) dutyRedraw(scr, function () { after('', ''); }, '');
     });
   };
   if (act === 'cancel') {
