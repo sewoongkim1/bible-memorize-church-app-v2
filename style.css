@@ -6053,6 +6053,7 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .duty-day-h b { font-size: 17px; color: var(--navy); }
 .duty-today { font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--navy); color: #fff; }
 .duty-day-s { margin: 2px 0 0; font-size: 14px; color: var(--gray); line-height: 1.5; word-break: keep-all; overflow-wrap: anywhere; }
+.duty-day.off .duty-day-s { color: #5a6273; }   /* 쉬는 날 카드의 줄 — 바탕(--light) 위 --gray 는 4.25:1 · 달력의 쉬는 날 칸과 같은 값(잠긴 날의 남색은 아래 줄이 이긴다) */
 .duty-day.locked .duty-day-s { color: var(--navy); font-weight: 600; }
 .duty-slot { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); }
 .duty-slot-h { display: flex; align-items: baseline; gap: 8px; }
@@ -6103,7 +6104,7 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .duty-cal-c i { font-style: normal; font-size: 12px; line-height: 1; min-height: 12px; font-weight: 700; letter-spacing: -.2px; white-space: nowrap; }
 .duty-cal-c.k-need { background: #e7f4ea; border-color: #a9d6b6; color: var(--green); }
 .duty-cal-c.k-mine { background: var(--navy); border-color: var(--navy); color: #fff; }
-.duty-cal-c.k-off { color: #565c67; font-weight: 600; }   /* --gray 는 이 바탕(--light)에서 4.25:1 — 4.5:1 을 넘게 조금 짙게 */
+.duty-cal-c.k-off { color: #5a6273; font-weight: 600; }   /* --gray 는 이 바탕(--light)에서 4.25:1 — 순위 범위의 잠긴 단추·필사 「마감」 칩(.pilsa-state.s4)과 같은 값(5.38:1 · 새 색 아님) */
 /* 고대비(forced-colors) — 바탕색·그림자가 사라져 표시가 모두 없어진다: 자리가 있는 날에 테두리 · 고른 날은 굵은 테두리로 */
 @media (forced-colors: active) { .duty-cal-c.has { border: 1px solid ButtonText; } .duty-cal-c.has.on { outline: 3px solid Highlight; outline-offset: 1px; } .duty-cal-c.k-mine { border-width: 3px; } }
 .duty-cal-c.has.on { border-color: var(--navy); box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--navy); }
@@ -6138,6 +6139,7 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .dark .duty-my.soft b { color: #b9c2d0; }
 .dark .duty-my.soft { border-color: #33507d; }
 .dark .duty-tel { color: #8fb3e6; }
+.dark .duty-day.off .duty-day-s { color: #b9c2d0; }   /* 위 밝은 모드 줄이 어두운 모드의 글 색(.dark .duty-day-s)을 이기지 않게 */
 .dark .duty-day.locked .duty-day-s { color: #8fb3e6; }
 .dark .duty-today { background: #2b4c80; }
 .dark .duty-cal { background: #151d2b; border-color: #33507d; }

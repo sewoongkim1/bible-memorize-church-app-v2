@@ -10,7 +10,7 @@ const UID = '00000000-0000-4000-8000-000000000001';
 function world(over) {
   const o = over || {};
   const alerts = [], confirms = [], logs = [];
-  let wrap = null, now = 1760000000000, entry = 0, cardTop = 700, calHeight = 400, modal = false;
+  let wrap = null, now = 1760000000000, entry = 0, cardTop = 700, calHeight = 400, fabTop = 0, modal = false;
   const created = [];   // document.createElement 로 만든 것(까닭 고르기 창)
   const touched = [];   // 화면이 건드린 것(초점 · 굴리기) — 달력
   const mkEl = () => ({ addEventListener(t, f) { this['on_' + t] = f; }, dataset: {}, isConnected: true, disabled: false, classList: { add() {}, remove() {} }, remove() {} });
@@ -26,8 +26,13 @@ function world(over) {
       const has = m ? this._h.includes('data-cal="' + m[1] + '"') : sel === '.duty-cal' ? this._h.includes('class="duty-cal"') : sel === '.duty-day' ? this._h.includes('<section class="duty-day')
         : sel === '.duty-cal-c.on' ? /class="duty-cal-c has k-\w+ on/.test(this._h) : false;
       if (!has) return null;
+      // 가짜 화면의 자리: 달력은 그날 카드 바로 위(12px 띄우고) · 카드 높이 300 · 첫 단추가 든 자리의 끝 = 카드 위끝 + 180 · 내 줄이 든 자리의 끝 = + 260
+      const h = this._h, rect = (top, height) => ({ top, bottom: top + height, height }), slot = (height) => ({ getBoundingClientRect: () => rect(cardTop, height) });
       return { focus() { touched.push('focus ' + sel); }, scrollIntoView(o) { touched.push('scroll ' + sel + ' ' + ((o && o.block) || '')); },
-        getBoundingClientRect: () => ({ top: cardTop, height: sel === '.duty-cal' ? calHeight : 300 }) };
+        _gap: sel === '.duty-cal' ? '8px' : sel === '.duty-day' ? '12px' : '',   // CSS scroll-margin-top
+        getBoundingClientRect: () => (sel === '.duty-cal' ? rect(cardTop - 12 - calHeight, calHeight) : rect(cardTop, 300)),
+        querySelector: (s) => (sel !== '.duty-day' ? null : s === '.duty-slot.mine' ? (h.includes('class="duty-slot mine') ? slot(260) : null)
+          : s === 'button[data-act]' && h.includes('data-act="') ? { closest: () => slot(180) } : null) };
     } });
   const app = {
     _h: '',
@@ -41,7 +46,9 @@ function world(over) {
   const answers = (o.confirm || []).slice();   // appConfirm 의 답 차례(없으면 늘 「예」)
   const ctx = {
     console, Promise, Number, String, Object, Math, JSON, Array, isNaN, setTimeout, Date: FakeDate,
-    window: { scrollTo() {}, scrollY: 0, innerHeight: 800 },
+    // 굴리기 — 숫자 둘(맨 위로 · 보던 자리로)은 흘려보내고, 달력이 재서 굴리는 것({top, behavior})만 받아 적는다
+    window: { scrollTo(a) { if (a && typeof a === 'object') touched.push('roll ' + a.top + (a.behavior === 'smooth' ? ' smooth' : '')); }, scrollY: 0, innerHeight: 800,
+      getComputedStyle: (e) => ({ scrollMarginTop: (e && e._gap) || '' }) },
     document: {
       hidden: false,
       getElementById(id) {
@@ -50,6 +57,7 @@ function world(over) {
       },
       querySelector(sel) {
         if (sel === '.duty-wrap') return wrap;
+        if (sel === '.home-fab') return fabTop ? { getBoundingClientRect: () => ({ top: fabTop, bottom: fabTop + 76, height: 76 }) } : null;   // 🏠 단추(시험이 자리를 정한다 · 0 = 없음)
         if (sel === '.duty-wrap .ev-loading') return wrap && wrap._h.includes('ev-loading') ? {} : null;
         return null;
       },
@@ -78,7 +86,7 @@ function world(over) {
   const tap = (dataset) => tapSel('button[data-act]', dataset);
   return { ctx, alerts, confirms, logs, pending, listeners, settle, tap,
     tapDate: (date) => tapSel('button[data-date]', { date }), tapCal: (dir) => tapSel('button[data-cal]', { cal: dir }),   // 달력의 날짜 · 앞뒤 달 단추
-    touched: () => touched.splice(0), setCardTop: (v) => { cardTop = v; }, setCalHeight: (v) => { calHeight = v; },
+    touched: () => touched.splice(0), setCardTop: (v) => { cardTop = v; }, setCalHeight: (v) => { calHeight = v; }, setFab: (v) => { fabTop = v; },
     setModal: (v) => { modal = !!v; },   // 다른 창이 떠 있다
     pickWhy: (why) => created[created.length - 1].on_click({ target: { closest: (sel) => (sel === '[data-why]' ? { dataset: { why } } : null) } }),   // 「못 가게 됐어요」 까닭 고르기
     shown: () => (wrap ? 'DUTY[' + kind(wrap._h) + ']' : app._h.includes('HOME') ? 'HOME' : app._h.includes('ENTRY') ? 'ENTRY' : 'OTHER'),
@@ -322,11 +330,11 @@ test('달력 — 날짜를 누르면 서버를 다시 부르지 않고 그날의
   w.tapDate('2026-10-25');
   assert.deepEqual(w.names(), [], '서버를 부르지 않는다'); assert.equal(selOf(w.html()), '2026-10-25'); assert.equal(dayCount(w.html()), 1);
   assert.ok(w.html().includes('<b>10월 25일(일)</b>'));
-  assert.deepEqual(w.touched(), ['focus .duty-cal-c.on', 'scroll .duty-cal start'], '고른 칸에 초점 · 그날 카드가 화면 아래에 걸렸으면 달력을 위로');
-  // 그날 카드가 이미 보이면 화면을 움직이지 않는다
+  assert.deepEqual(w.touched(), ['focus .duty-cal-c.on', 'roll 280 smooth'], '고른 칸에 초점 · 첫 단추가 든 자리가 화면 아래에 걸렸으면 달력을 맨 위로(부드럽게)');
+  // 보여야 할 것이 이미 다 보이면 화면을 움직이지 않는다
   w.setCardTop(300); w.tapDate('2026-10-11'); assert.deepEqual(w.touched(), ['focus .duty-cal-c.on']); assert.equal(selOf(w.html()), '2026-10-11');
   // 이미 고른 날을 또 누르면 다시 그리지 않는다(그날 카드만 보이게) · 당번표에 없는 날짜는 무시한다
-  w.setCardTop(700); w.tapDate('2026-10-11'); assert.deepEqual(w.touched(), ['scroll .duty-cal start']);
+  w.setCardTop(700); w.tapDate('2026-10-11'); assert.deepEqual(w.touched(), ['roll 280 smooth']);   // 다 찬 날(단추 없음)은 카드 머리 쪽 240px 를 본다
   w.tapDate('2026-10-12'); assert.equal(selOf(w.html()), '2026-10-11'); assert.deepEqual(w.touched(), []);
   // 다음 달 — 초점은 누른 단추에 · 더 갈 달이 없어 단추가 사라졌으면 고른 날에
   w.tapCal('next'); assert.equal(selOf(w.html()), '2026-11-01'); assert.ok(w.html().includes('<b>2026년 11월</b>'));
@@ -401,7 +409,7 @@ test('달력 — 「내 당번」 카드로 연 당번표의 첫 읽기가 조�
   await w.answer(0, { ok: true }); assert.deepEqual(w.names(), ['dutyBoard', 'dutyBoard']);
   await w.answer(0, calRes()); await w.answer(0, calRes());        // 앞 읽기(focusDate 를 가진 것)는 버려지고 뒤 읽기가 그린다
   assert.equal(selOf(w.html()), '2026-11-08', '누른 카드의 날짜');
-  assert.deepEqual(w.touched(), ['scroll .duty-cal start'], '달력을 화면에');
+  assert.deepEqual(w.touched(), ['roll 280'], '달력을 화면에(들어올 때는 부드럽게가 아니라 바로)');
   // ② 받는 사이 화면이 다시 보였을 때(visibilitychange)도 같다 · 당번표에 없는 날짜면 맨 위 안내 줄이 남는다
   w = world(); w.ctx.renderDutyList(); await w.answer(0, listRes([BOARD], [{ ...MINE, date: '2026-11-08' }]));
   w.tickTime(16000); w.ctx.renderDutyBoard('b-1', { focusDate: '2026-11-08' }); w.listeners.visibilitychange();
@@ -417,7 +425,7 @@ test('달력 — 「내 당번」 카드로 연 당번표의 첫 읽기가 조�
   assert.equal(selOf(w.html()), '2026-11-01');
 });
 
-test('달력 — 일을 끝낸 답에서 날짜가 줄어 날짜 카드 모양으로 바뀌면 방금 한 날의 카드로 굴린다 · 작은 화면에서는 달력 대신 그날 카드를 맨 위로', async () => {
+test('달력 — 일을 끝낸 답에서 날짜가 줄어 날짜 카드 모양으로 바뀌면 방금 한 날의 카드로 굴린다 · 🏠 단추에 가리면 모자란 만큼만 더 올린다', async () => {
   const four = CAL_DAYS.slice(0, 4), w = world(); w.ctx.renderDutyBoard('b-1'); await w.answer(0, boardRes({ days: four }));
   w.tapCal('next'); assert.equal(selOf(w.html()), '2026-11-01'); w.touched();
   w.tap({ act: 'apply', d: '3', s: '0' }); await w.settle(); await w.answer(0, { ok: true });
@@ -428,10 +436,17 @@ test('달력 — 일을 끝낸 답에서 날짜가 줄어 날짜 카드 모양�
   // 모양이 그대로면(달력 → 달력 · 카드 → 카드) 보던 자리를 지킨다
   const k = world(); await openBoard(k, calRes()); k.tap({ act: 'apply', d: '1', s: '0' }); await k.settle(); await k.answer(0, { ok: true }); await k.answer(0, calRes({ days: MINE_ON(1) }));
   assert.deepEqual(k.touched(), []);
-  // 작은 화면(달력을 맨 위에 붙이면 그 아래 200px 도 안 남는다) — 날짜를 고르면 달력 대신 그날 카드를 맨 위로
-  const t = world(); await openBoard(t, calRes()); t.setCalHeight(700);
-  t.tapDate('2026-10-25'); assert.deepEqual(t.touched(), ['focus .duty-cal-c.on', 'scroll .duty-day start']);
-  t.setCalHeight(400); t.tapDate('2026-10-11'); assert.deepEqual(t.touched(), ['focus .duty-cal-c.on', 'scroll .duty-cal start']);
+  // 🏠 단추가 덮는 곳은 보이는 곳이 아니다 — 달력을 맨 위에 붙여도 첫 단추가 든 자리가 가리면 모자란 만큼만 더 올린다(달력을 통째로 밀어내지 않는다)
+  const t = world(); await openBoard(t, calRes()); t.setFab(568);
+  t.tapDate('2026-10-25'); assert.deepEqual(t.touched(), ['focus .duty-cal-c.on', 'roll 320 smooth'], '280(달력을 맨 위로) + 40(가린 만큼)');
+  // 달력이 길어(6주) 그날 카드가 🏠 단추보다 아래에서 시작해도 같은 자리에 온다(자리의 끝이 🏠 위끝에)
+  t.setCalHeight(700); t.tapDate('2026-10-18'); assert.deepEqual(t.touched(), ['focus .duty-cal-c.on', 'roll 320 smooth']);
+  // 보일 곳이 아주 좁으면 그날 카드를 맨 위(여백 12)에 — 그 이상은 올리지 않는다
+  t.setFab(60); t.tapDate('2026-10-25'); assert.deepEqual(t.touched(), ['focus .duty-cal-c.on', 'roll 688 smooth'], '700 − 12');
+  // 🏠 단추가 없으면(자리 0) 화면 아래끝까지가 보이는 곳
+  t.setFab(0); t.setCalHeight(400); t.tapDate('2026-10-18'); assert.deepEqual(t.touched(), ['focus .duty-cal-c.on', 'roll 280 smooth']);
+  // 단추가 없는 날(다 찬 날)은 카드 머리 쪽 240px 만 본다 — 카드가 길어도(300) 달력을 그만큼 더 밀어내지 않는다
+  t.setFab(568); t.tapDate('2026-10-11'); assert.deepEqual(t.touched(), ['focus .duty-cal-c.on', 'roll 372 smooth'], '280 + 92(700 + 240 − 568 − 280)');
 });
 
 test('잠긴 날 — 다시 묻기 창은 떠 있던 알림이 닫힌 뒤에 띄운다(그 알림을 답 없이 지우지 않는다)', async () => {
@@ -449,10 +464,21 @@ test('잠긴 날 — 다시 묻기 창은 떠 있던 알림이 닫힌 뒤에 띄
   assert.deepEqual(g.confirms, ['🙋 지원할까요?']); assert.equal(g.alerts.length, 1); assert.ok(g.alerts[0].includes('지원이 안 됐어요'));
 });
 
+test('달력 — 「내 당번」 카드로 오면 내 줄이 든 자리가 🏠 단추 위로 보이게 굴린다(첫 단추가 아니라 내 줄 기준)', async () => {
+  const w = world(); w.setFab(600);
+  w.ctx.renderDutyBoard('b-1', { focusDate: '2026-10-18' }); await w.answer(0, calRes({ days: MINE_ON(1) }));
+  assert.equal(selOf(w.html()), '2026-10-18'); assert.ok(w.html().includes('class="duty-slot mine'));
+  assert.deepEqual(w.touched(), ['roll 368'], '280(달력을 맨 위로) + 88(내 줄 자리의 끝 968 이 🏠 600 위로 오게) · 들어올 때는 바로');
+  // 내 줄이 없는 날이면 첫 단추가 든 자리 기준(끝 888)
+  const v = world(); v.setFab(600);
+  v.ctx.renderDutyBoard('b-1', { focusDate: '2026-10-25' }); await v.answer(0, calRes());
+  assert.deepEqual(v.touched(), ['roll 288']);
+});
+
 test('달력 — 내 당번 카드로 오면 그 날짜를 고르고 달력을 화면에 · 그 날짜가 당번표에 없으면 맨 위 안내 줄을 가리지 않는다', async () => {
   let w = world(); w.ctx.renderDutyBoard('b-1', { focusDate: '2026-11-08' }); await w.answer(0, calRes());
   assert.equal(selOf(w.html()), '2026-11-08'); assert.ok(w.html().includes('<b>2026년 11월</b>'));
-  assert.deepEqual(w.touched(), ['scroll .duty-cal start']);
+  assert.deepEqual(w.touched(), ['roll 280']);
   w = world(); w.ctx.renderDutyBoard('b-1', { focusDate: '2027-03-07' }); await w.answer(0, calRes());
   assert.ok(w.html().includes('3월 7일(일) 당번은 지금 당번표에 보이지 않는 날짜예요')); assert.equal(selOf(w.html()), '2026-10-18');
   assert.deepEqual(w.touched(), [], '달력으로 굴리지 않는다(안내 줄이 보이게)');

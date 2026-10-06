@@ -346,6 +346,30 @@ test('달력 — 그리기: 날짜가 있는 날만 단추 · 칸에 채워진 �
   assert.equal(rest.includes('숫자는'), false, '쉬는 날뿐이면 숫자 풀이도 없다'); assert.ok(rest.includes('날짜를 누르면'));
 });
 
+test('달력 굴리기(dutyRevealBy) — 달력을 맨 위에 · 그래도 보여야 할 것이 🏠 단추에 가리면 모자란 만큼만 더 · 이미 보이면 그대로', () => {
+  const by = (g, force) => ctx.dutyRevealBy({ calGap: 8, cardGap: 12, ...g }, force);
+  // 390×844(맨 위에서 날짜를 고름): 달력 230 · 그날 카드 655 · 첫 단추가 든 자리의 끝 831 · 🏠 768 → 달력을 맨 위로(222). 그러면 카드 433 · 끝 609 라 더 올릴 것이 없다
+  assert.equal(by({ calTop: 230, cardTop: 655, aimBottom: 831, floor: 768 }), 222);
+  // 390×664(아이폰 사파리 · 주소창이 있을 때): 🏠 588 → 609 − 588 = 21 만큼 더(달력 윗부분 21px 가 밀려난다 · 날짜 줄은 그대로 보인다)
+  assert.equal(by({ calTop: 230, cardTop: 655, aimBottom: 831, floor: 588 }), 243);
+  // 320×568 · 6주짜리 달: 달력을 붙이면 그날 카드 위끝(504)부터 🏠(492) 밑이다 — 모자란 만큼(504 + 190 − 492 = 202) 더
+  assert.equal(by({ calTop: 200, cardTop: 696, aimBottom: 886, floor: 492 }), 192 + 202);
+  // 보여야 할 것이 화면보다 길면 그날 카드를 맨 위(여백 12)에 둔다 — 그 이상은 올리지 않는다(카드 머리가 화면 밖으로 나가지 않게)
+  assert.equal(by({ calTop: 230, cardTop: 655, aimBottom: 1455, floor: 588 }), 222 + 421);
+  // 이미 다 보이면 움직이지 않는다 · force(「내 당번」 카드로 들어옴)는 그래도 달력을 맨 위로(위로 굴리는 것도 된다)
+  assert.equal(by({ calTop: -125, cardTop: 300, aimBottom: 476, floor: 768 }), null);
+  assert.equal(by({ calTop: -125, cardTop: 300, aimBottom: 476, floor: 768 }, true), -133);
+  assert.equal(by({ calTop: -125, cardTop: 300, aimBottom: 476, floor: 588 }, true), -112, 'force 여도 가리면 모자란 만큼 더(-133 + 21)');
+  // 끝이 🏠 위끝과 딱 맞으면 보이는 것 · 1px 이라도 가리면 굴린다 · 그날 카드 위끝이 화면 위로 나가 있으면 보이는 것이 아니다
+  assert.equal(by({ calTop: 8, cardTop: 433, aimBottom: 588, floor: 588 }), null);
+  assert.equal(by({ calTop: 8, cardTop: 433, aimBottom: 589, floor: 588 }), 1);
+  assert.equal(by({ calTop: -500, cardTop: -75, aimBottom: 101, floor: 768 }), -508, '달력을 맨 위로 되돌린다');
+  // 보여야 할 것의 끝이 카드 위끝보다 위일 수는 없다(틀린 값) — 그때는 카드 위끝까지는 보이게 · 값이 비어도 던지지 않는다
+  assert.equal(by({ calTop: 230, cardTop: 655, aimBottom: 0, floor: 768 }), null);
+  assert.equal(by({ calTop: 230, cardTop: 655, aimBottom: 0, floor: 300 }, true), 222 + 133, '카드 위끝(433)이 🏠(300) 위로 오게');
+  assert.equal(typeof by({}, true), 'number'); assert.equal(typeof ctx.dutyRevealBy({}, true), 'number');
+});
+
 test('api dutyNameOk — 당번표에 실을 이름', () => {
   for (const ok of ['가상하나', '가상 하나', 'Kim Mina', '가', '가'.repeat(20), '김123', '김요한2']) assert.equal(srv.dutyNameOk(ok), true, ok);
   for (const bad of ['', '   ', null, undefined, '가'.repeat(21), '<b>가상</b>', '가상"하나', "가상'하나", '가상`하나', '가상' + String.fromCharCode(92) + '하나',

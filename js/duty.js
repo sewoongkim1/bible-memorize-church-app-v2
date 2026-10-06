@@ -315,6 +315,20 @@ function dutyDeepLink(href) {
   for (var i = 0; i < parts.length; i++) if (parts[i] === 'duty=1') return true;
   return false;
 }
+// 달력에서 날짜를 고른 뒤(또는 「내 당번」 카드로 들어온 뒤) 화면을 얼마나 굴릴까 → 굴릴 거리(px · 아래로 +) · 움직일 까닭이 없으면 null.
+//   g(모두 지금 화면 기준 px): calTop·cardTop = 달력·그날 카드의 위끝 · aimBottom = 그날 카드에서 보여야 할 것(내 줄 → 첫 단추가 든 자리)의 아래끝 ·
+//     floor = 🏠 단추 위끝(그 아래는 가려진다) · calGap·cardGap = 맨 위에 붙일 때 두는 여백(CSS scroll-margin-top — 안전 영역 포함)
+//   원칙: 달력을 맨 위에 붙인다. 그래도 보여야 할 것이 🏠 단추에 가리면 **모자란 만큼만** 더 올린다(달력 윗부분이 밀려난다) — 그날 카드가 맨 위를 넘지는 않게.
+//     달력만 맨 위에 붙이면 높이 640~740px 화면(아이폰 사파리 664 · 흔한 안드로이드)에서 날짜를 고를 때마다 「지원하기」가 🏠 단추 밑에 깔렸다(2026-10-07 에 진짜 브라우저로 잰 것).
+//   force 가 아니면, 보여야 할 것이 이미 다 보일 때 움직이지 않는다.
+function dutyRevealBy(g, force) {
+  var n = function (v) { return Number(v) || 0; };
+  var calTop = n(g.calTop), cardTop = n(g.cardTop), aim = Math.max(cardTop, n(g.aimBottom)), floor = n(g.floor), calGap = n(g.calGap), cardGap = n(g.cardGap);
+  if (!force && cardTop >= 0 && aim <= floor) return null;
+  var cardAt = calGap + (cardTop - calTop);   // 달력을 맨 위에 붙였을 때 그날 카드의 위끝
+  var more = Math.max(0, Math.min(cardAt + (aim - cardTop) - floor, cardAt - cardGap));   // 더 올릴 거리 — 카드가 맨 위(cardGap)를 넘지 않게
+  return Math.round(calTop - calGap + more);
+}
 // ── 봉사 당번 순수 함수 (여기까지) ──
 
 // screen: 화면이 바뀔 때마다 올라가는 번호 — 늦게 온 응답이 다른 화면을 덮지 않게 · at: 지금 보는 화면(list|board|'' = 당번 화면을 떠남) ·
@@ -519,16 +533,24 @@ function renderDutyBoard(id, opt) {
   });
 }
 
-// 달력에서 날짜를 고른 뒤 — 그날 카드가 화면 아래쪽에 걸려 잘 안 보이면 달력을 화면 맨 위로 올린다(카드가 바로 아래에 온다). 이미 보이면 화면을 움직이지 않는다.
-//   작은 화면(달력을 맨 위에 붙이면 그 아래 200px 도 안 남는다 — 320×568 · 6주짜리 달)에서는 달력 대신 **그날 카드**를 맨 위로 올린다
-//   (달력이 화면을 다 차지해 카드가 🏠 단추 밑에 깔린다 — 달력은 위로 굴리면 다시 보인다). force = 이미 보여도 올린다(「내 당번」 카드로 들어올 때).
+// 달력에서 날짜를 고른 뒤 · 「내 당번」 카드로 들어온 뒤 — 그날 카드에서 **해야 할 것**(내 줄이 있으면 그 자리 · 없으면 첫 단추가 든 자리)이
+//   🏠 단추 위로 보이게 화면을 굴린다. 얼마나 굴릴지는 dutyRevealBy(순수)가 정한다 — 달력을 맨 위에 붙이고, 그래도 가리면 모자란 만큼만 더.
+//   이미 다 보이면 움직이지 않는다(force = 그래도 달력을 맨 위로 — 「내 당번」 카드로 들어올 때 · 모양이 바뀐 그리기).
+//   단추가 없는 날(쉬는 날 · 다 찬 날 · 담당자가 넣는 당번)은 카드 머리 쪽 240px 를 본다(카드가 길어도 달력을 통째로 밀어내지 않게).
 function dutyCalReveal(w, force) {
   var cal = w.querySelector('.duty-cal'), card = w.querySelector('.duty-day');
-  if (!cal || !card || !card.getBoundingClientRect || !cal.scrollIntoView) return;
-  if (!force && card.getBoundingClientRect().top <= window.innerHeight * 0.6) return;
-  var calm = !!window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var tight = window.innerHeight - (Number(cal.getBoundingClientRect().height) || 0) < 200;
-  (tight ? card : cal).scrollIntoView({ block: 'start', behavior: calm || force ? 'auto' : 'smooth' });
+  if (!cal || !card || !cal.getBoundingClientRect || !card.getBoundingClientRect) return;
+  var box = function (e) { return e && e.getBoundingClientRect ? e.getBoundingClientRect() : null; };
+  var gap = function (e) { var s = window.getComputedStyle ? window.getComputedStyle(e) : null; return (s && parseFloat(s.scrollMarginTop)) || 0; };
+  var k = box(cal), c = box(card), vh = Number(window.innerHeight) || 0;
+  var fab = box(document.querySelector('.home-fab')), floor = fab && fab.top > 0 && fab.top < vh ? fab.top : vh;   // 🏠 단추가 덮는 곳은 보이는 곳이 아니다
+  var btn = card.querySelector ? card.querySelector('button[data-act]') : null;
+  var slot = box((card.querySelector && card.querySelector('.duty-slot.mine')) || (btn && btn.closest ? btn.closest('.duty-slot') : null));
+  var aim = Math.min(slot ? slot.bottom + 8 : c.top + 240, c.bottom);
+  var by = dutyRevealBy({ calTop: k.top, cardTop: c.top, aimBottom: aim, floor: floor, calGap: gap(cal), cardGap: gap(card) }, force);
+  if (!by) return;
+  var calm = !!window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches, to = (Number(window.scrollY) || 0) + by;
+  try { window.scrollTo({ top: to, behavior: calm || force ? 'auto' : 'smooth' }); } catch (e) { window.scrollTo(0, to); }   // 옛 브라우저는 숫자 둘만 받는다
 }
 
 //   opt.pick: 달력에서 날짜를 골랐다 · opt.nav: 앞뒤 달 단추(prev|next)를 눌렀다 — 둘 다 서버를 부르지 않고 가진 자료로 다시 그린 것
@@ -590,7 +612,7 @@ function dutyDrawBoard(u, today, opt) {
   document.getElementById('duty-back').addEventListener('click', function () { renderDutyList({ stay: true }); });
   var dayBox = function (date) { var x = null; w.querySelectorAll('.duty-day').forEach(function (e) { if (e.dataset.date === date) x = e; }); return x; };
   if (arrive) {
-    // 내 당번 카드로 왔다 — 그 날짜를 화면에. 달력이면 달력(작은 화면은 그날 카드)을 맨 위로 · 그 날짜가 당번표에 없으면 맨 위 안내 줄이 보이게 그대로 둔다
+    // 내 당번 카드로 왔다 — 그 날짜를 화면에. 달력이면 달력을 맨 위로(내 줄이 🏠 단추에 가리면 모자란 만큼 더) · 그 날짜가 당번표에 없으면 맨 위 안내 줄이 보이게 그대로 둔다
     if (useCal) { if (sel === focus) dutyCalReveal(w, true); }
     else { var box = dayBox(focus); if (box && box.scrollIntoView) box.scrollIntoView({ block: 'start' }); }
   } else if (opt.soft) {

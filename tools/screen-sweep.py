@@ -156,6 +156,11 @@ _DUTY_CAL_DAYS = _DUTY_DAYS + [
 
 # 첫 화면에 뜨는 알림 창(오늘의 묵상·공지 — id daily-message)은 이 단계들만 따로 돌리면 사진을 가린다(전부 돌릴 때는 앞 단계가 닫는다) — 그 창만 지운다
 _DUTY_CLEAR = "var _dm=document.getElementById('daily-message'); if(_dm) _dm.remove(); "
+# 달력에서 날짜를 고른 뒤 그날 카드의 첫 단추가 🏠 단추 위로 보이는가 — 「달력을 맨 위로」만 하던 때 높이 640~740 화면에서 단추가 🏠 단추 밑에 깔렸다(2026-10-07).
+#   다른 검사(가로 넘침·안전 영역)는 이것을 못 본다 — 깔리면 단계 실패로 남긴다(작은 화면 조건 app-se · web-320-xl 에서 걸린다).
+_DUTY_SEEN = ("var f=document.querySelector('.home-fab'), b=document.querySelector('.duty-day button[data-act]'); if(!f||!b) throw new Error('NOBTN .duty-day button[data-act]');"
+              " var ft=f.getBoundingClientRect().top, r=b.getBoundingClientRect();"
+              " if(r.bottom>ft||r.top<0) throw new Error('지원 단추가 🏠 단추 밑(또는 화면 밖): 단추 '+Math.round(r.top)+'~'+Math.round(r.bottom)+' · 🏠 위끝 '+Math.round(ft));")
 
 
 def _duty_board_js(days, sel=""):   # 당번 자세히를 지어낸 자료로 그린다 — sel = 달력에서 고른 날(빈 글이면 처음 규칙)
@@ -247,13 +252,13 @@ STEPS = [
     ("44-duty-list", [_DUTY_CLEAR + "dutyShell(loadUser()); dutyState.at='list'; dutyState.boards=" + json.dumps(_DUTY_BOARDS, ensure_ascii=False)
                       + "; dutyState.mine=" + json.dumps(_DUTY_MINE, ensure_ascii=False) + "; dutyState.me={why:''}; dutyDrawList('취소했어요.');"]),
     #   날짜가 셋 이하면 날짜 카드를 모두(한두 번짜리 모집의 모습) · 넷 이상이면 달력 + 고른 날 하나(2026-10-06 — 칸에 채워진 인원/필요 인원):
-    #   처음 고른 날 · 쉬는 날 · 담당자가 넣어 준 날 · 진짜 단추로 다음 달 둘(해를 넘김)과 날짜 하나.
+    #   처음 고른 날 · 쉬는 날 · 담당자가 넣어 준 날 · 진짜 단추로 다음 달 둘(해를 넘김)과 날짜 하나 — 고른 뒤 그날의 첫 단추가 🏠 단추 위로 보이는지도 본다(_DUTY_SEEN).
     ("45-duty-board", [_duty_board_js(_DUTY_DAYS[:3])]),
     ("46-duty-cal", [_duty_board_js(_DUTY_CAL_DAYS)]),
     ("47-duty-cal-off", [_duty_board_js(_DUTY_CAL_DAYS, "2026-11-01")]),
     ("48-duty-cal-staff", [_duty_board_js(_DUTY_CAL_DAYS, "2026-11-08")]),
     ("49-duty-cal-newyear", [_duty_board_js(_DUTY_CAL_DAYS, "2026-11-08"), clk('.duty-cal-nav[data-cal="next"]'), clk('.duty-cal-nav[data-cal="next"]'),
-                             clk('.duty-cal-c[data-date="2027-01-10"]')]),
+                             clk('.duty-cal-c[data-date="2027-01-10"]'), _DUTY_SEEN]),
     ("P1-privacy-page", ["GOTO privacy/"]),
     ("P2-quiz-page", ["GOTO quiz/"]),
     ("P3-guide-page", ["GOTO guide/"]),
