@@ -48,6 +48,10 @@ create table if not exists public.edu_courses (
 -- 교육 기간(2026-10-05 추가) — 신청 기간(apply_from/to)과 별개로 강좌가 열리는 첫 날·마지막 날. 비어 있어도 된다(회차에서 읽는다).
 --   취소 마감은 coalesce(첫 회차 날, starts_on) — 회차가 없어도 시작일이 있으면 그 전까지만 앱에서 취소된다.
 alter table public.edu_courses add column if not exists starts_on date;
+-- 문의 한 줄(2026-10-06 · 친구 요청) — 담당자가 자유롭게(보통 이름 + 직분 + 전화번호 · 60자) · 앱 자세히 화면에 그대로 보인다. church-admin sql/014 와 같은 줄
+alter table public.edu_courses add column if not exists contact_note text not null default '';
+alter table public.edu_courses drop constraint if exists edu_courses_contact_len;
+alter table public.edu_courses add constraint edu_courses_contact_len check (char_length(contact_note) <= 60);
 alter table public.edu_courses add column if not exists ends_on   date;
 do $$ begin
   if not exists (select 1 from pg_constraint where conrelid = 'public.edu_courses'::regclass and conname = 'edu_courses_period_check') then

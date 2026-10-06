@@ -406,7 +406,8 @@ function renderEduCourse(id, opt) {
     var chips = '<div class="edu-chips"><span class="edu-chip">' + eduEsc(c.kindLabel) + '</span>' +
       (chip ? '<span class="edu-chip' + (c.phase === 'open' ? ' on' : '') + '">' + eduEsc(chip) + '</span>' : '') + '</div>';
     var gl = [['📅', '언제', eduWhenLine(c)], ['📍', '어디서', c.place], ['🙋', '대상', c.target],
-      ['📚', '먼저 들으실 과정', c.prereq && c.prereq.length ? c.prereq.join(', ') : ''], ['👤', '강사', c.teacher], ['📘', '교재비', c.fee]]
+      ['📚', '먼저 들으실 과정', c.prereq && c.prereq.length ? c.prereq.join(', ') : ''], ['👤', '강사', c.teacher], ['📘', '교재비', c.fee],
+      ['📞', '문의', c.contact]]   // 담당자가 적은 문의처 한 줄(모집 전·진행 중에도 보인다 · 친구 2026-10-06)
       .filter(function (x) { return x[2]; })
       .map(function (x) {
         var v = x[1] === '언제'   // 날짜 덩이가 중간에서 안 끊기게(「12월 / 13일」) — 줄은 덩이 사이(~ ·)에서만 바꾼다

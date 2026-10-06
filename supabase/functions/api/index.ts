@@ -5149,6 +5149,7 @@ async function eduCourse(b: any) {
   const mine = (await eduMineOut(myRows, today, att))[0] || null;
   const myCells = mine ? att.get(Number(mine.id)) : undefined;
   return { ok: true, course: { ...eduCourseOut(c, ss, cnt[id], today), description: c.description || "", prereq: c.prereq_tracks || [],
+    contact: c.contact_note || "",   // 문의 한 줄(담당자가 적은 그대로 · 자세히에만 — 목록에는 싣지 않는다)
     attendPct: c.attend_pct, checkLabel: c.check_label || null,
     sessions: ss.map((s: any) => ({ no: s.no, date: s.on_date, start: s.start_time?.slice(0, 5) ?? null, end: s.end_time?.slice(0, 5) ?? null, topic: s.topic || "", place: s.place || "",
       myState: myCells?.get(Number(s.id)) ?? null })) },
