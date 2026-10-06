@@ -3,8 +3,8 @@
 식당 설거지처럼 **「날짜 × 예배(조) × 일 × 정원」 자리에 성도님이 지원**하고 담당자가 관리하는 틀. 김장 같은 한 번짜리 모집도 같은 틀로 받는다.
 설계 `docs/superpowers/specs/2026-10-06-duty-roster-design.md` · 계획 `docs/superpowers/plans/2026-10-06-duty-roster.md`.
 
-> **지금 어디까지(2026-10-06):** **1·2단계 운영 반영** — 표·SQL 함수 · 교회 어드민 담당자 화면(🧰 당번 관리 · 📅 당번 명단) · **성도님 앱 화면과 `api` 성도님 액션 여섯**(2단계).
-> 알림(3단계)·공개(4단계)는 아직이다. **문 `dutyOpen` 이 없어 성도님께는 보이지 않는다** — 🧪 시험 참여자만 첫 화면 「교회」 묶음의 🙋 봉사 당번을 본다(웹·아이폰 · 플레이스토어 앱은 심사 동안 숨김).
+> **지금 어디까지(2026-10-07):** **1·2·3단계 운영 반영** — 표·SQL 함수 · 교회 어드민 담당자 화면(🧰 당번 관리 · 📅 당번 명단) · 성도님 앱 화면(날짜가 많으면 달력)과 `api` 성도님 액션 여섯(2단계) · **앱 알림**(3단계 — 확정 · 전날 저녁 · 담당자가 바꾼 것 · 잠긴 날 지원).
+> 공개(4단계)는 아직이다. **문 `dutyOpen` 이 없어 성도님께는 보이지 않는다** — 🧪 시험 참여자만 첫 화면 「교회」 묶음의 🙋 봉사 당번을 본다(웹·아이폰 · 플레이스토어 앱은 심사 동안 숨김).
 > ⚠️ **4단계(방침 글) 전에는 운영에 시험 당번만 「받는 중」·「지원 멈춤」으로** — 진짜 명단을 열어 두면 방침에 적기 전에 시험 참여자에게 이름이 보인다(설계 §11 · 담당자 화면도 그렇게 말한다 — `TESTERS_SEE_NAMES`). 진짜 명단은 「준비 중」 당번에.
 
 ## 어디에 무엇이 있나
@@ -103,7 +103,40 @@
   같은 시험이 api 몸통도 글자로 본다(여섯 액션 모두 문이 SQL 보다 먼저 · 지원은 `dutyMeWhy` → 거절 → `duty_apply` 차례 · `p_staff`·`p_force` 는 `false`).
 - 화면 전수 점검(`tools/screen-sweep.py`)의 44~49 는 문이 닫힌 개발 계정이라 **지어낸 자료로 직접 그린다**(서버를 부르지 않는다 · 자료 모양은 `duty_list_view`·`duty_board_view`·`duty_mine` 과 같게 둘 것).
   45 는 날짜 셋(날짜 카드 모양) · 46~49 는 달력(처음 고른 날 · 쉬는 날 · 담당자가 넣어 준 날 · **진짜 단추로** 다음 달 둘(해를 넘김)과 날짜 하나).
-- 교회 어드민 화면의 「앱에 화면이 있다」 스위치 `APP_LIVE` 는 2단계를 운영에 올린 날 `true` 로 바꿨다. `NOTIFY_LIVE`(3단계)는 아직 `false`.
+- 교회 어드민 화면의 「앱에 화면이 있다」 스위치 `APP_LIVE` 는 2단계를 운영에 올린 날 `true` 로 바꿨다. `NOTIFY_LIVE` 는 3단계를 운영에 올린 2026-10-07 에 `true` 로 바꿨다(문이 닫힌 동안에는 알림도 시험 참여자에게만 간다 — 담당자 화면이 그렇게 말한다).
+
+## 알림 (3단계 · 2026-10-07 운영)
+
+**보내는 길은 `api` 의 `dutyNotifySend` 한 곳**(설계 §10) — 받는 분은 **성도님뿐**이다(그 지원 줄의 앱 계정 기기 · 담당자에게 가는 알림은 없다 — 「못 가게 됐어요」는 당번표의 표시다).
+
+| 언제 | 누가 부르나 | 종류(`push_log.mode` = `duty-<종류>`) |
+|---|---|---|
+| 담당자가 날짜를 확정 | 교회 어드민 저장 뒤 `internalDutyNotify` | `confirmed`(같은 줄에 한 번 · 전날 저녁이 지난 날은 보내지 않는다 — 전날 알림이 갔다) |
+| 전날 19:00(한국) | pg_cron `duty-remind` → `internalDutyRemind` | `remind`(내일 당번 · 같은 줄에 한 번 · 한 분의 여러 자리는 한 통) |
+| 담당자가 넣음(잠긴 날) · 옮김 · 뺌 | 교회 어드민 저장 뒤 | `added` · `moved` · `removed` |
+| 쉬는 날로 / 다시 열기 | 교회 어드민 저장 뒤 | `off` · `reopen` |
+| 잠긴 날에 앱 지원이 들어옴 | `dutyApply` 가 응답 뒤에(`eduAfterResponse`) | `applied` |
+
+- **차례는 거르기 → 문 → 기기 읽기 → 잡기 → 보내기**(`tests/duty-front.test.cjs` 가 글자로 본다). 재료는 `duty_notify_rows`(앱 계정이 있는 줄 · 받는 중·지원 멈춤 당번 — 준비·보관 당번의 줄은 없다) → `dutyNoteKeep`(지난 날·쉬는 날·종류에 안 맞는 줄을 뺀다).
+  ⚠️ **문**: `dutyOpen` 이 true 가 아니면 🧪 시험 참여자 줄만 — 앱에서 🙋 가 보이는 분과 같은 규칙. **걸러진 줄은 잡지 않는다**(기록이 안 남아 문을 연 뒤 다시 부르면 간다).
+  ⚠️ **한 번만**: 확정·전날은 `duty_notify_claim` 이 **보내기 전에** 잡는다(잡힌 줄에만 보낸다 · 보내다 실패해도 다시 안 보낸다 — 많아야 한 번). 그 밖은 저장 한 번에 한 번 부탁하므로 잡지 않는다. 종류 목록은 SQL `duty_notify_log` 의 CHECK 와 같아야 한다(`DUTY_NOTE_CLAIM`).
+- **글은 순수 함수 `dutyNoteText`**(api 순수 구간 · 시험이 종류마다 글자로 본다) — 한 분의 여러 자리는 한 글로 · 담당자가 쓴 글(당번 이름·예배·일·장소)의 줄바꿈·제어·방향 바꿈 글자는 빈칸(`dutyPlain`) · 180자.
+  자리만 쉬면 그 자리를 말한다(「10월 18일(일) 식당 봉사 2부 설거지 당번은 쉬어요」 — 그날 다른 당번까지 빠지시지 않게). 응답·`push_log`·알림 글에 `user_id` 를 싣지 않는다.
+- **내부 액션 둘은 서비스 키(`x-internal-key`)가 맨 앞** — `internalDutyNotify`(교회 어드민 전용 · 종류 여섯만 — `remind`·`applied` 는 밖에서 못 부른다 · `{ok, sent}`) · `internalDutyRemind`(pg_cron 전용 · 몸통을 읽지 않는다 · `{ok, day, rows, sent}`).
+- **크론** `supabase/duty_remind_cron.sql` — 작업 이름 `duty-remind` · 매일 10:00 UTC · 키는 Vault(교육과 **같은 비밀 이름** `edu_remind_service_key` — 같은 api 의 같은 문이라 키가 하나면 된다) · 주소는 자리표(`YOUR_API_URL` — 그 프로젝트 주소로 바꾼 **사본**으로 돌린다 · 저장소 파일에 박지 않는다).
+  개발 DB 엔 pg_cron 이 없다 — `tests/duty-notify.dev.sh` 가 서비스 키로 손으로 부른다. 잠금은 크론이 아니라 시각으로 셈한다(크론이 안 돌아도 잠긴다 — 알림만 안 간다).
+- **알림 주소 `?duty=1`** — 누르면 당번 목록(내 당번이 맨 위). `app.js` `routeAfterLoad` 가 교육 줄 뒤에서 본다: 로그인했고 🙋 가 보이는 분(`dutyVisible`)만 연다 · 아니면 평소 길 · 주소에서 `duty` 는 늘 지운다(`dutyTakeDeepLink`). 이미 열린 창은 서비스워커 「from-push」 메시지. 아이폰 앱은 주소를 안 읽어 앱만 열린다 — 그래서 글에 날짜·자리·시각·장소를 싣는다.
+- 교회 어드민: 저장·기록 **뒤에** 부탁만 한다(`index.ts` `notifyDuty` → `duty-db.ts` `withNotify` — 지원 번호만 보낸다 · 실패해도 저장은 성공 · 응답 `notified`·`notifyError`). 앱 계정이 없는 줄뿐이면 부탁하지 않는다(응답에 그 칸이 없다).
+
+### 3단계에서 밟은 길 (SQL → `api` → 교회 어드민 → 화면 → 크론)
+
+1. `duty.sql` 다시(`duty_notify_rows` 에 `dayOff`·`past`·`pastCutoff`·`movedFrom` — create or replace · 옛 api 는 그 칸을 읽지 않는다) → 확인 질의.
+2. 운영 `api` 를 빈 폴더에 내려받아 **origin/main 과 같은지** → `--workdir <그 가지 폴더>` 로 배포(커밋된 그대로) → 다시 내려받아 차이 0 → 스모크 넷이 올리기 전과 같은 수(봉사 당번 14 · 교육 13 · 이벤트 · 공통 읽기 14) + 내부 액션 둘이 키 없이 `unauthorized`.
+3. 교회 어드민 함수(`notifyDuty`) — 같은 방법(내려받아 대조 → 배포 → 다시 대조) → 화면 푸시(`NOTIFY_LIVE = true`). ⚠️ **`api` 가 먼저**다 — 함수가 먼저면 저장마다 「앱 알림은 보내지 못했어요」가 뜬다(저장은 된다).
+4. `python tools/bump.py` → 푸시(알림 주소).
+5. **크론은 맨 마지막** — 사본(주소를 바꾼 것)으로 걸고, `cron.job` 에서 `schedule`·`active`·명령이 Vault 를 읽는지(키가 명령에 없어야 한다)를 본다.
+   내일 당번인 줄이 0 인 것을 읽기로 확인한 뒤(`duty_remind_ids(내일)`) 크론과 같은 길(`net.http_post` + Vault 의 키)로 한 번 불러 `net._http_response` 에서 `{ok:true, rows:0, sent:0}` 을 본다 — 키·주소·문이 맞다는 증거(아무에게도 가지 않는다).
+되돌리기: 크론 `select cron.unschedule('duty-remind')` → 교회 어드민 `NOTIFY_LIVE = false` + `dutyNotify` 를 뺀 판 → `api` 는 2 에서 내려받아 둔 옛 판(내부 액션이 없어도 화면은 돈다 — 알림만 안 간다) → SQL 은 둔다.
 
 ## ⚠️ 함정
 
@@ -138,6 +171,7 @@
 | 화면·api 순수 함수 + api 글자 검사(preflight) | `tests/duty-front.test.cjs` |
 | 화면 흐름(preflight · 가짜 DOM — 늦게 온 응답 · 다시 받기 실패 · 계정 번호 없음 · 잠긴 날 확인 · 달력의 날짜 고르기·앞뒤 달·고른 날 지키기 · 알 수 없는 답 · 밀려난 다시 받기 · 로그아웃 뒤에 온 답) | `tests/duty-flow.test.cjs` |
 | 성도님 api 읽기 전용 스모크 | `bash tests/duty-smoke.sh`(개발) · `EVT_ENV=prod bash tests/duty-smoke.sh`(운영) — 계정 없이·없는 계정은 닫힘 · 거절 꼴 |
+| 알림 끝까지(개발 전용 · 쓰기 · 57가지 — 문 · 한 번만 · 종류마다 · 전날 · 잠긴 날 지원) | `E2E_WORKDIR=<개발 link 폴더> bash tests/duty-notify.dev.sh` — 개발 `ministryTesters` 에 앱 계정 한 분이 있어야 한다 · `dutyOpen` 을 켰다가 원래대로 |
 | 성도님 api 끝까지(개발 전용 · 쓰기 · 68가지) | `E2E_WORKDIR=<개발 link 폴더> bash tests/duty-e2e.dev.sh` — 시험 당번과 시험 계정 둘(어린이 부서 · 실을 수 없는 이름)을 만들고 지운다 · `dutyOpen` 을 켰다가 원래대로 |
 | 화면 눈 확인 | `python tools/screen-sweep.py --steps 44-duty-list,45-duty-board,46-duty-cal,47-duty-cal-off,48-duty-cal-staff,49-duty-cal-newyear`(지어낸 자료) |
 
