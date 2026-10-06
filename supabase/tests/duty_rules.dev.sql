@@ -77,6 +77,20 @@ begin
   r := duty_apply(s5, u[1], '{"name":"당번시험1"}'); if (r->>'ok')::boolean is not true then raise exception '맞닿은 자리(10:00~11:00): %', r; end if;
   r := duty_apply(s3, u[1], '{"name":"당번시험1"}', true, true); if (r->>'ok')::boolean is not true then raise exception '담당자 겹침 넘기기: %', r; end if;
   r := duty_cancel((r->>'id')::bigint, null, true); if (r->>'ok')::boolean is not true then raise exception '겹친 줄 빼기: %', r; end if;
+  -- 정원과 겹침이 함께 걸리면: 담당자 길의 full 거절에는 겹친 자리(with)도 실린다(확인 한 번에 둘 다 알린다) · 겹침이 없으면 with 없음 · 본인 길의 full 에는 싣지 않는다
+  r := duty_apply(s3, u[3], '{"name":"당번시험3"}', true); if (r->>'ok')::boolean is not true then raise exception '배식 자리(정원 1) 채우기: %', r; end if;
+  n := (r->>'id')::int;
+  r := duty_apply(s3, u[1], '{"name":"당번시험1"}', true, false);
+  if r->>'error' is distinct from 'full' or r->'with'->>'task' is distinct from '설거지' or (r->>'capacity')::int is distinct from 1 then raise exception '담당자 full 에 겹친 자리도: %', r; end if;
+  r := duty_apply(s3, u[2], '{"name":"당번시험2"}', true, false);
+  if r->>'error' is distinct from 'full' or r ? 'with' then raise exception '겹침이 없으면 with 없음: %', r; end if;
+  r := duty_apply(s2, u[5], '{"name":"당번시험5"}'); if (r->>'ok')::boolean is not true then raise exception '2부 지원(겹침 준비): %', r; end if;
+  i := (r->>'id')::int;
+  r := duty_apply(s3, u[5], '{"name":"당번시험5"}');
+  if r->>'error' is distinct from 'full' or r ? 'with' then raise exception '본인 길의 full 에는 with 없음: %', r; end if;
+  r := duty_move(i, s3); if r->>'error' is distinct from 'full' or r ? 'with' then raise exception '옮기기 full(겹침 없음 — 자기 줄은 겹침으로 안 센다): %', r; end if;
+  r := duty_cancel(i, u[5], false); if (r->>'ok')::boolean is not true then raise exception '겹침 준비 줄 취소: %', r; end if;
+  r := duty_cancel(n, null, true);  if (r->>'ok')::boolean is not true then raise exception '배식 자리 비우기: %', r; end if;
 
   -- ── 취소 · 되살림 · 남의 줄 ──
   r := duty_cancel(e2, u[1], false); if r->>'error' is distinct from 'not-found' then raise exception '남의 줄 취소: %', r; end if;
@@ -132,6 +146,12 @@ begin
   r := duty_ask(e4, u[1], 'cant');  if r->>'error' is distinct from 'not-found' then raise exception '남의 줄 못 가요: %', r; end if;
   r := duty_ask(e4, u[4], 'cant');  if (r->>'asked')::boolean is not true then raise exception '못 가요: %', r; end if;
   if (duty_roster(b, d2, d2)->'days'->0->>'asks')::int is distinct from 1 then raise exception '명단의 못 가요 수'; end if;
+  r := duty_ask_clear(e4); if (r->>'cleared')::boolean is not true then raise exception '담당자가 표시 거두기: %', r; end if;
+  r := duty_ask_clear(e4); if (r->>'ok')::boolean is not true or (r->>'cleared')::boolean is not false then raise exception '표시 없는 줄 거두기: %', r; end if;
+  if (duty_roster(b, d2, d2)->'days'->0->>'asks')::int is distinct from 0 then raise exception '거둔 뒤 못 가요 수 0'; end if;
+  if (select status from public.duty_signups where id = e4) is distinct from 'active' then raise exception '표시를 거둬도 줄은 그대로'; end if;
+  r := duty_ask_clear(-1); if r->>'error' is distinct from 'not-found' then raise exception '없는 줄 표시 거두기: %', r; end if;
+  r := duty_ask(e4, u[4], 'cant');  if (r->>'asked')::boolean is not true then raise exception '다시 못 가요: %', r; end if;
   r := duty_ask(e4, u[4], null);    if (r->>'asked')::boolean is not false then raise exception '못 가요 거두기: %', r; end if;
   r := duty_day_set(b, d2, 'unconfirm'); if (r->>'ok')::boolean is not true or r ? 'already' then raise exception '확정 풀기: %', r; end if;
   r := duty_day_set(b, d2, 'unconfirm'); if (r->>'already')::boolean is not true then raise exception '풀기 두 번: %', r; end if;
@@ -316,6 +336,24 @@ begin
   insert into public.duty_boards(title, status, until_date) values ('[시험] 끝 날짜', 'open', t0 + 10) returning id into b2;
   r := duty_line_save(b2, jsonb_build_object('service','1부','task','','start','09:00','end','10:00','capacity',1,'weekday',wd));
   if (r->>'made')::int is distinct from 2 then raise exception '끝 날짜까지만(+2 · +9): %', r; end if;
+  -- 끝 날짜를 당기면: 그 뒤 자리는 앱에 안 보이고 지원도 안 받는다(자리·줄은 지우지 않는다) · 그 뒤에 선 분은 내 당번·명단에 그대로 · 다시 늦추면 살아난다
+  sx := (select id from public.duty_slots where board_id = b2 and on_date = d9);
+  r := duty_apply(sx, u[6], '{"name":"당번시험6"}'); if (r->>'ok')::boolean is not true then raise exception '끝 날짜 앞 지원: %', r; end if;
+  update public.duty_boards set until_date = t0 + 5 where id = b2;
+  if jsonb_array_length(duty_board_view(b2, u[5])->'days') is distinct from 1 then raise exception '끝 날짜 뒤 날은 앱에 안 보인다: %', duty_board_view(b2, u[5])->'days'; end if;
+  r := duty_apply(sx, u[5], '{"name":"당번시험5"}'); if r->>'error' is distinct from 'after-until' then raise exception '끝 날짜 뒤 지원: %', r; end if;
+  r := duty_apply(sx, u[5], '{"name":"당번시험5"}', true, true); if (r->>'ok')::boolean is not true then raise exception '끝 날짜 뒤 · 담당자 넣기: %', r; end if;
+  if (duty_board_counts(array[b2])->(b2::text)->>'after')::int is distinct from 2 then raise exception '끝 날짜 뒤에 선 분 수: %', duty_board_counts(array[b2]); end if;
+  if (duty_board_counts(array[b2])->(b2::text)->>'slots')::int is distinct from 1 then raise exception '자리 수는 끝 날짜까지만: %', duty_board_counts(array[b2]); end if;
+  if not exists (select 1 from jsonb_array_elements(duty_mine(u[6])) m where m->>'boardId' = b2::text and m->>'date' = d9::text) then raise exception '끝 날짜 뒤 내 줄은 내 당번에 그대로'; end if;
+  if (select (dd->>'afterUntil')::boolean from jsonb_array_elements(duty_roster(b2)->'days') dd where dd->>'date' = d9::text) is not true then raise exception '명단의 끝 날짜 뒤 표시'; end if;
+  if (select (dd->>'afterUntil')::boolean from jsonb_array_elements(duty_roster(b2)->'days') dd where dd->>'date' = d2::text) is not false then raise exception '끝 날짜 앞 날은 표시 없음'; end if;
+  r := duty_date_add(b2, t0 + 7, array[(select id from public.duty_lines where board_id = b2 limit 1)]);
+  if r->>'error' is distinct from 'after-until' then raise exception '끝 날짜 뒤 날짜 더하기: %', r; end if;
+  if jsonb_array_length((select x->'need' from jsonb_array_elements(duty_list_view(u[5])->'boards') x where x->>'id' = b2::text)) is distinct from 1 then raise exception '목록의 필요한 날도 끝 날짜까지만'; end if;
+  update public.duty_boards set until_date = t0 + 10 where id = b2;
+  if jsonb_array_length(duty_board_view(b2, u[5])->'days') is distinct from 2 then raise exception '끝 날짜를 늦추면 그대로 살아난다'; end if;
+  if (duty_board_counts(array[b2])->(b2::text)->>'after')::int is distinct from 0 then raise exception '늦춘 뒤 after 0'; end if;
 end $$;
 rollback;
 select '통과 — duty_rules' as result;

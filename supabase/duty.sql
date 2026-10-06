@@ -24,7 +24,10 @@ set local lock_timeout = '5s';
 -- ---------- 표 ----------
 -- 당번 — status: draft 준비(앱에 안 보임 · 담당자 일은 됨) · open 받는 중 · closed 지원 멈춤(앱에 명단·내 당번은 보임 · 새 지원만 막음 —
 --   담당자가 넣는 당번도 이 상태) · archived 보관(안 보임 · 쓰기 거절 — 지우는 길은 없다 · 시험 당번은 보관으로).
---   open_days = 오늘부터 며칠 앞 자리까지 앱에 보이나(그만큼 자리가 저절로 만들어진다 — duty_ensure_slots) · until_date = 이 날 뒤로는 만들지 않는다(null = 계속)
+--   open_days = 오늘부터 며칠 앞 자리까지 앱에 보이나(그만큼 자리가 저절로 만들어진다 — duty_ensure_slots)
+--   until_date = 끝 날짜(null = 계속) — 이 날 뒤로는 자리를 만들지 않고, **이미 있는 자리도 앱에 보이지 않으며 지원을 받지 않는다**
+--     (자리·지원 줄을 지우지는 않는다 — 끝 날짜를 다시 늦추면 그대로 살아난다 · 그 뒤에 이미 선 분은 내 당번·주별 명단에 그대로 보인다 —
+--      담당자가 옮기거나 뺀다 · duty_board_counts 의 after 가 그 수).
 --   max_ahead = 한 분이 이 당번에 미리 잡아 둘 수 있는 앞날 자리 수(null = 제한 없음) · contact_note = 문의처 한 줄(교육 강좌 「문의」와 같은 규칙 — 알려도 되는 번호만)
 create table if not exists public.duty_boards (
   id           uuid primary key default gen_random_uuid(),
@@ -298,7 +301,8 @@ begin
 end $$;
 
 -- 날짜 더하기 — 그 날짜에 고른 틀의 자리를 만든다(요일과 무관 — 성탄절 · 특별 예배 · 한 번짜리 모집). 이미 있는 자리는 그대로(existed).
---   날짜는 오늘 − 31일 ~ 오늘 + 400일. 거절: not-found · archived · bad-date · bad-lines(이 당번의 살아 있는 틀이 아님 · 빈 목록)
+--   날짜는 오늘 − 31일 ~ 오늘 + 400일 · 끝 날짜(until_date)가 있으면 그날까지(after-until — 끝 날짜를 먼저 늦춘다).
+--   거절: not-found · archived · bad-date · after-until · bad-lines(이 당번의 살아 있는 틀이 아님 · 빈 목록)
 create or replace function public.duty_date_add(p_board uuid, p_date date, p_line_ids bigint[])
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare b public.duty_boards; d0 date := duty_today(); ids bigint[]; made int := 0;
@@ -307,6 +311,7 @@ begin
   if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
   if b.status = 'archived' then return jsonb_build_object('ok',false,'error','archived'); end if;
   if p_date is null or p_date < d0 - 31 or p_date > d0 + 400 then return jsonb_build_object('ok',false,'error','bad-date'); end if;
+  if b.until_date is not null and p_date > b.until_date then return jsonb_build_object('ok',false,'error','after-until'); end if;
   select array_agg(distinct x) into ids from unnest(coalesce(p_line_ids, array[]::bigint[])) as x where x is not null;
   if ids is null or cardinality(ids) > 50
      or (select count(*) from public.duty_lines l where l.id = any(ids) and l.board_id = p_board and l.active) <> cardinality(ids) then
@@ -476,11 +481,11 @@ end $$;
 --   p_force      — 담당자만: 정원·겹침을 알려 준 뒤 확인 한 번으로 넘긴다.
 --   p_ack_locked — 성도님만: 잠긴 날에는 「취소할 수 없어요」를 알고 누른 것일 때만 넣는다(아니면 아무것도 안 쓰고 locked-day —
 --                  화면을 열어 둔 사이 잠긴 경우도 서버가 잡는다).
---   검사 차례(모두 끝난 뒤에만 쓴다): 신원 → 당번 상태 → 쉼 → (본인) 지난 날·이미 시작·보이는 기간 밖 → 이미 내 줄(already) ·
+--   검사 차례(모두 끝난 뒤에만 쓴다): 신원 → 당번 상태 → 쉼 → (본인) 지난 날·이미 시작·보이는 기간 밖·끝 날짜 뒤 → 이미 내 줄(already) ·
 --     (본인) 담당자가 뺀 줄 → (본인) 잠긴 날 확인 → 정원 → 겹침 → (본인) 미리 잡아 둔 수.
 --   성공 {ok, id, locked}(locked = 이 줄이 이미 잠긴 날에 들어갔다 — 본인은 못 지운다) · 이미 있으면 {ok, id, already:true, locked}.
---   거절: bad-ident · not-found · archived · closed · off · past · started · not-yet · removed-by-staff · locked-day ·
---         full{active, capacity} · overlap{with:{board, service, task, start, same_board, draft}} · too-many{max}
+--   거절: bad-ident · not-found · archived · closed · off · past · started · not-yet · after-until · removed-by-staff · locked-day ·
+--         full{active, capacity[, with — 담당자 길에서 겹친 자리도 있을 때]} · overlap{with:{board, service, task, start, same_board, draft}} · too-many{max}
 --   ⚠️ overlap 의 with 는 그대로 화면에 싣지 말 것 — 담당자 길은 same_board 일 때만(맡지 않은 당번의 자리 이름을 싣지 않는다),
 --      본인 길은 draft(준비 중 당번)가 아닐 때만 이름을 싣는다. 가르는 것은 부르는 쪽(교회 어드민 duty-db.ts · 성경암송 api).
 create or replace function public.duty_apply(p_slot bigint, p_user uuid, p_ident jsonb,
@@ -517,6 +522,7 @@ begin
     if s.on_date < v_today then return jsonb_build_object('ok',false,'error','past'); end if;
     if s.on_date = v_today and (now() at time zone 'Asia/Seoul')::time >= l.start_time then return jsonb_build_object('ok',false,'error','started'); end if;
     if s.on_date > v_today + b.open_days then return jsonb_build_object('ok',false,'error','not-yet'); end if;
+    if b.until_date is not null and s.on_date > b.until_date then return jsonb_build_object('ok',false,'error','after-until'); end if;
   end if;
   v_locked := duty_locked(d.confirmed_at, s.on_date);
   -- 이미 이 자리에 같은 분의 줄 — 앱 계정이면 계정으로, 계정 없는 줄이면 신원 키로                                     ④ 지원 줄
@@ -532,8 +538,8 @@ begin
   if e.id is not null and not p_staff and e.end_reason = 'staff' then return jsonb_build_object('ok',false,'error','removed-by-staff'); end if;
   if v_locked and not p_staff and not p_ack_locked then return jsonb_build_object('ok',false,'error','locked-day'); end if;
   select count(*)::int into n from public.duty_signups x where x.slot_id = p_slot and x.status = 'active';
-  if n >= s.capacity and not p_force then return jsonb_build_object('ok',false,'error','full','active',n,'capacity',s.capacity); end if;
   -- 겹침 — 같은 분이 같은 날 시각이 겹치는(시작 포함·끝 제외 — 맞닿은 자리는 안 겹친다) 다른 자리에 살아 있다. 쉬는 자리·쉬는 날·보관 당번은 뺀다.
+  --   정원보다 **먼저 셈해 둔다** — 담당자 길의 full 거절에 겹친 자리(with)도 함께 실어, 확인 한 번(p_force)으로 둘 다 알고 넘기게 한다.
   select jsonb_build_object('board', b2.title, 'service', l2.service, 'task', l2.task, 'start', to_char(l2.start_time, 'HH24:MI'),
                             'same_board', s2.board_id = s.board_id, 'draft', b2.status = 'draft')
     into v_other
@@ -547,6 +553,10 @@ begin
       and not s2.off and not d2.off and b2.status <> 'archived'
       and l2.start_time < l.end_time and l.start_time < l2.end_time
     order by l2.start_time, s2.id limit 1;
+  if n >= s.capacity and not p_force then
+    return jsonb_build_object('ok',false,'error','full','active',n,'capacity',s.capacity)
+        || case when p_staff and v_other is not null then jsonb_build_object('with', v_other) else '{}'::jsonb end;
+  end if;
   if v_other is not null and not p_force then return jsonb_build_object('ok',false,'error','overlap','with',v_other); end if;
   if not p_staff and b.max_ahead is not null then
     select count(*)::int into n from public.duty_signups x join public.duty_slots s2 on s2.id = x.slot_id
@@ -611,7 +621,7 @@ end $$;
 --   옮길 자리에 그분의 끝난 줄이 있으면 그 줄을 지우고 옮긴다(자리·사람에 한 줄). 살아 있는 줄이 있으면 already-there.
 --   정원·겹침은 p_force 로 넘긴다. 옮기면 「못 가게 됐어요」 표시와 전날 알림 기록을 지운다(새 자리로 다시 알린다).
 --   성공 {ok, from:{date, service, task, start}, to:{…}, hadUser, locked: 옮겨 간 날이 잠겼나}.
---   거절: not-found · wrong-board · changed · archived · off · already-there · full{active, capacity} · overlap{with}
+--   거절: not-found · wrong-board · changed · archived · off · already-there · full{active, capacity[, with]} · overlap{with}
 create or replace function public.duty_move(p_signup bigint, p_to_slot bigint, p_force boolean default false)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare
@@ -646,7 +656,6 @@ begin
   end if;
   if x.id is not null and x.status = 'active' then return jsonb_build_object('ok',false,'error','already-there'); end if;
   select count(*)::int into n from public.duty_signups y where y.slot_id = p_to_slot and y.status = 'active';
-  if n >= s2.capacity and not p_force then return jsonb_build_object('ok',false,'error','full','active',n,'capacity',s2.capacity); end if;
   select jsonb_build_object('board', b3.title, 'service', l3.service, 'task', l3.task, 'start', to_char(l3.start_time, 'HH24:MI'),
                             'same_board', s3.board_id = s2.board_id, 'draft', b3.status = 'draft')
     into v_other
@@ -660,6 +669,10 @@ begin
       and not s3.off and not d3.off and b3.status <> 'archived'
       and l3.start_time < l2.end_time and l2.start_time < l3.end_time
     order by l3.start_time, s3.id limit 1;
+  if n >= s2.capacity and not p_force then        -- 정원 거절에 겹친 자리(with)도 함께(확인 한 번에 둘 다)
+    return jsonb_build_object('ok',false,'error','full','active',n,'capacity',s2.capacity)
+        || case when v_other is not null then jsonb_build_object('with', v_other) else '{}'::jsonb end;
+  end if;
   if v_other is not null and not p_force then return jsonb_build_object('ok',false,'error','overlap','with',v_other); end if;
   if x.id is not null then delete from public.duty_signups where id = x.id; end if;      -- 옮길 자리에 있던 그분의 끝난 줄
   delete from public.duty_notify_log where signup_id = e.id and kind = 'remind';
@@ -697,8 +710,27 @@ begin
   return jsonb_build_object('ok',true,'asked',true);
 end $$;
 
+-- 담당자: 「못 가게 됐어요」 표시를 거둔다(통화해 보니 오시기로 한 경우 — 줄은 그대로 · 빼기·옮기기는 표시를 저절로 지운다).
+--   표시가 없던 줄이면 {ok, cleared:false}(아무것도 안 쓴다). 거절: not-found · archived · not-active
+create or replace function public.duty_ask_clear(p_signup bigint)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare e public.duty_signups; s public.duty_slots; b public.duty_boards;
+begin
+  select * into e from public.duty_signups where id = p_signup;
+  if not found then return jsonb_build_object('ok',false,'error','not-found'); end if;
+  select * into s from public.duty_slots where id = e.slot_id;
+  select * into b from public.duty_boards where id = s.board_id;
+  if b.status = 'archived' then return jsonb_build_object('ok',false,'error','archived'); end if;
+  perform 1 from public.duty_days where board_id = s.board_id and on_date = s.on_date for update;        -- ② 날짜 줄
+  select * into e from public.duty_signups where id = p_signup for update;                                 -- ④ 지원 줄
+  if not found or e.status <> 'active' then return jsonb_build_object('ok',false,'error','not-active'); end if;
+  if e.ask_at is null then return jsonb_build_object('ok',true,'cleared',false); end if;
+  update public.duty_signups set ask_at = null, ask_why = null, updated_at = now() where id = e.id;
+  return jsonb_build_object('ok',true,'cleared',true);
+end $$;
+
 -- ---------- 읽기(jsonb 하나 · user_id·ident_key 를 싣지 않는다) ----------
--- 성도님: 당번 하나의 날짜별 자리 — 오늘 ~ 오늘 + 보이는 기간, 자리가 있는 날만. 받는 중·지원 멈춤 당번만(그 밖은 not-found).
+-- 성도님: 당번 하나의 날짜별 자리 — 오늘 ~ 오늘 + 보이는 기간(끝 날짜가 있으면 그날까지), 자리가 있는 날만. 받는 중·지원 멈춤 당번만(그 밖은 not-found).
 --   날짜마다 {date, off, note, locked, lockAt(아직 안 잠긴 날의 잠기는 때)} · 자리마다 {id, service, task, start, end, capacity, off, n,
 --   names: [이름 글자(가나다) — duty_name_out], mine: {id, status, byStaff, asked, why} | null, why: 지원 못 하는 까닭 | ''}.
 --   why: mine(내가 서 있음) · removed(담당자가 뺌) · closed(지원 멈춤) · off · started(오늘인데 시작 시각이 지남) · full · ''(지원할 수 있다)
@@ -744,6 +776,7 @@ begin
     ) as day
     from public.duty_days d
     where d.board_id = p_board and d.on_date between d0 and d0 + b.open_days
+      and (b.until_date is null or d.on_date <= b.until_date)
       and exists (select 1 from public.duty_slots s where s.board_id = d.board_id and s.on_date = d.on_date)
   ) q;
   return jsonb_build_object('ok', true, 'today', d0,
@@ -800,6 +833,7 @@ begin
         join public.duty_days  d on d.board_id = s.board_id and d.on_date = s.on_date
         join public.duty_lines l on l.id = s.line_id
         where b.status = 'open' and s.board_id = b.id and s.on_date between d0 and d0 + b.open_days
+          and (b.until_date is null or s.on_date <= b.until_date)
           and not s.off and not d.off and not (s.on_date = d0 and v_now >= l.start_time)
         group by s.on_date
         having sum(greatest(s.capacity - (select count(*) from public.duty_signups e where e.slot_id = s.id and e.status = 'active'), 0)) > 0
@@ -811,7 +845,8 @@ end $$;
 
 -- 담당자: 주별 명단 — 당번 설정 · 자리 틀 · 날짜마다 자리와 선 분(이름·소속·넣은 곳·앱 계정 유무·메모·「못 가게 됐어요」)·빠진 분.
 --   p_from·p_to 기본 = 오늘 ~ 오늘 + 보이는 기간(400일까지). 날짜는 자리가 있거나 쉼·메모·확정이 적힌 날만.
---   날짜마다 {date, off, note, confirmed(담당자 확정), locked, cutoff, past, need(빈 자리 수 — 쉬는 자리 빼고), asks(「못 가게 됐어요」 수)}.
+--   날짜마다 {date, off, note, confirmed(담당자 확정), locked, cutoff, past, afterUntil(끝 날짜 뒤 — 앱에 안 보이는 날),
+--            need(빈 자리 수 — 쉬는 자리 빼고), asks(「못 가게 됐어요」 수)}.
 --   ⚠️ 응답에 user_id·ident_key·confirmed_by 를 싣지 않는다 — 앱 계정은 hasApp, 알림 받을 기기는 hasPush(웹 푸시·아이폰 줄이 있나 — 불리언)로만.
 --      아이폰은 「기기는 있으나 폰 설정에서 꺼 둔 것」을 가릴 수 없다.
 --      pk = 같은 분의 줄을 묶는 표식(부를 때마다 바뀌는 소금을 섞은 해시 — 계정·교인ID 를 되짚을 수 없다 · 이 응답 안에서만 뜻이 있다).
@@ -841,6 +876,7 @@ begin
       'locked', duty_locked(d.confirmed_at, d.on_date),
       'cutoff', duty_cutoff(d.on_date),
       'past', d.on_date < d0,
+      'afterUntil', b.until_date is not null and d.on_date > b.until_date,
       'need', (select coalesce(sum(greatest(s.capacity - (select count(*) from public.duty_signups e where e.slot_id = s.id and e.status = 'active'), 0)), 0)::int
                  from public.duty_slots s where s.board_id = d.board_id and s.on_date = d.on_date and not s.off),
       'asks', (select count(*)::int from public.duty_signups e join public.duty_slots s on s.id = e.slot_id
@@ -882,22 +918,29 @@ begin
 end $$;
 
 -- 담당자: 당번마다 요약 수 — 살아 있는 틀 수 · 앞날 자리 수 · 앞날 빈 자리 수 · 「못 가게 됐어요」 수 · 앞날 살아 있는 지원 수(당번 관리·명단의 당번 고르기 ·
---   준비·보관으로 돌릴 때 「앞날에 N분이 서 있어요」 확인).
+--   준비·보관으로 돌릴 때 「앞날에 N분이 서 있어요」 확인) · after = 끝 날짜 뒤에 살아 있는 지원 수(끝 날짜를 당긴 저장이 「그 뒤에 N분」을 알린다).
+--   자리 수·빈 자리 수는 끝 날짜까지만 센다(그 뒤 자리는 앱에 안 보인다).
 --   p_ids 에 든 당번은 자리가 없어도 0 줄로 돌려준다(jsonb 하나 — 줄 한도에 안 걸린다).
 create or replace function public.duty_board_counts(p_ids uuid[])
 returns jsonb language sql stable security definer set search_path = public as $$
   select coalesce(jsonb_object_agg(i.id::text, jsonb_build_object(
       'lines', (select count(*)::int from public.duty_lines l where l.board_id = i.id and l.active),
-      'slots', (select count(*)::int from public.duty_slots s where s.board_id = i.id and s.on_date >= duty_today()),
+      'slots', (select count(*)::int from public.duty_slots s where s.board_id = i.id and s.on_date >= duty_today()
+                  and (b.until_date is null or s.on_date <= b.until_date)),
       'need',  (select coalesce(sum(greatest(s.capacity - (select count(*) from public.duty_signups e where e.slot_id = s.id and e.status = 'active'), 0)), 0)::int
                   from public.duty_slots s join public.duty_days d on d.board_id = s.board_id and d.on_date = s.on_date
-                  where s.board_id = i.id and s.on_date >= duty_today() and not s.off and not d.off),
+                  where s.board_id = i.id and s.on_date >= duty_today() and not s.off and not d.off
+                    and (b.until_date is null or s.on_date <= b.until_date)),
       'asks',  (select count(*)::int from public.duty_signups e join public.duty_slots s on s.id = e.slot_id
                   where s.board_id = i.id and s.on_date >= duty_today() and e.status = 'active' and e.ask_at is not null),
       'active', (select count(*)::int from public.duty_signups e join public.duty_slots s on s.id = e.slot_id
-                  where s.board_id = i.id and s.on_date >= duty_today() and e.status = 'active')
+                  where s.board_id = i.id and s.on_date >= duty_today() and e.status = 'active'),
+      'after', (select count(*)::int from public.duty_signups e join public.duty_slots s on s.id = e.slot_id
+                  where b.until_date is not null and s.board_id = i.id and s.on_date >= duty_today() and s.on_date > b.until_date
+                    and e.status = 'active')
     )), '{}'::jsonb)
   from unnest(coalesce(p_ids, array[]::uuid[])) as i(id)
+  left join public.duty_boards b on b.id = i.id
 $$;
 
 -- ---------- 앱 알림(성경암송 api 만 부른다) ----------
@@ -968,6 +1011,7 @@ revoke all on function public.duty_apply(bigint, uuid, jsonb, boolean, boolean, 
 revoke all on function public.duty_cancel(bigint, uuid, boolean) from public, anon, authenticated;
 revoke all on function public.duty_move(bigint, bigint, boolean) from public, anon, authenticated;
 revoke all on function public.duty_ask(bigint, uuid, text) from public, anon, authenticated;
+revoke all on function public.duty_ask_clear(bigint) from public, anon, authenticated;
 revoke all on function public.duty_board_view(uuid, uuid) from public, anon, authenticated;
 revoke all on function public.duty_mine(uuid) from public, anon, authenticated;
 revoke all on function public.duty_list_view(uuid) from public, anon, authenticated;
@@ -993,6 +1037,7 @@ grant execute on function public.duty_apply(bigint, uuid, jsonb, boolean, boolea
 grant execute on function public.duty_cancel(bigint, uuid, boolean) to service_role;
 grant execute on function public.duty_move(bigint, bigint, boolean) to service_role;
 grant execute on function public.duty_ask(bigint, uuid, text) to service_role;
+grant execute on function public.duty_ask_clear(bigint) to service_role;
 grant execute on function public.duty_board_view(uuid, uuid) to service_role;
 grant execute on function public.duty_mine(uuid) to service_role;
 grant execute on function public.duty_list_view(uuid) to service_role;
@@ -1005,13 +1050,14 @@ grant execute on function public.duty_remind_ids(date) to service_role;
 commit;
 
 -- 확인(CLI 는 마지막 SELECT 하나만 보여 준다 — 한 문장으로 묶었다)
---   기대: tables 6 · functions 25 · rls on 6 · table grants 0 · routine grants 0 · anon can execute 0 · service_role can execute 25 · sequence grants 0
+--   기대: tables 6 · functions 26 · rls on 6 · table grants 0 · routine grants 0 · anon can execute 0 · service_role can execute 26 · sequence grants 0
 select 'tables' as t, count(*) from pg_tables where schemaname = 'public'
     and tablename in ('duty_boards','duty_lines','duty_days','duty_slots','duty_signups','duty_notify_log')
 union all select 'functions', count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'public' and p.proname like 'duty\_%'
 union all select 'rls on', count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
-  where n.nspname = 'public' and c.relname like 'duty\_%' and c.relkind = 'r' and c.relrowsecurity
+  where n.nspname = 'public' and c.relkind = 'r' and c.relrowsecurity
+    and c.relname in ('duty_boards','duty_lines','duty_days','duty_slots','duty_signups','duty_notify_log')   -- 이 파일의 표 여섯(교회 어드민 duty_board_staff 는 그쪽 015 가 본다)
 union all select 'table grants (anon·authenticated·PUBLIC)', count(*) from information_schema.role_table_grants
   where table_schema = 'public' and table_name like 'duty\_%' and grantee in ('anon','authenticated','PUBLIC')
 union all select 'routine grants (anon·authenticated·PUBLIC)', count(*) from information_schema.role_routine_grants
