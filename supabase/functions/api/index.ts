@@ -530,6 +530,13 @@ Deno.serve(async (req) => {
       case "eduVerify": return json(await eduVerify(body));   // 수료번호 진위 확인(로그인 없이 · 가린 이름만)
       case "internalEduNotify": return json(await internalEduNotify(req, body));   // 교육 확정 알림(4단계) — church-admin 전용(x-internal-key)
       case "internalEduRemind": return json(await internalEduRemind(req));         // 교육 개강 전날 알림(4단계) — pg_cron 전용(x-internal-key)
+      // ---- 봉사 당번(2026-10-06 · 2단계) — 문(dutyOpen 또는 시험 참여자)은 읽기도 막는다(당번표에 이름이 나간다) ----
+      case "dutyList":   return json(await dutyList(body));
+      case "dutyBoard":  return json(await dutyBoard(body));
+      case "dutyApply":  return json(await dutyApply(body));
+      case "dutyCancel": return json(await dutyCancel(body));
+      case "dutyMine":   return json(await dutyMine(body));
+      case "dutyAsk":    return json(await dutyAsk(body));
       case "ministryApply":    return json(await ministryApply(body));
       case "ministryCancel":   return json(await ministryCancel(body));
       case "ministryList":     return json(await ministryList(body));
@@ -1708,6 +1715,7 @@ const FEATURES = new Set([
   "ranking-scope",    // 순위 범위 칩 — item: 1=우리 교구 · 0=전체
   "event",            // 이벤트 화면을 엶 — ⚠️ 개시일부터 켠다. 나중에 켜면 그 구간이 영구히 빈다
   "edu",              // 🎓 교육 화면(목록)을 엶 — item = 0 고정 (2026-10-05)
+  "duty",             // 🙋 봉사 당번 화면(목록)을 엶 — item = 0 고정 (2026-10-06)
 ]);
 
 async function featureLog(b: any) {
@@ -2438,7 +2446,7 @@ async function login(b: any) {
 
 // ---------- app_config: 관리자가 배포 없이 편집하는 설정(키-값) ----------
 // 공개로 읽어도 되는 키만 화이트리스트로 허용(임의 키 노출 방지).
-const PUBLIC_CONFIG_KEYS = new Set(["heartMessages", "dailyMessage", "introSlides", "milestoneMessages", "passagesPublic", "psalmPublic", "songPublic", "event", "ministry", "eduOpen"]);
+const PUBLIC_CONFIG_KEYS = new Set(["heartMessages", "dailyMessage", "introSlides", "milestoneMessages", "passagesPublic", "psalmPublic", "songPublic", "event", "ministry", "eduOpen", "dutyOpen"]);
 
 async function getConfig(b: any) {
   const key = String(b.key || "");
@@ -5451,6 +5459,151 @@ async function internalEduRemind(req: Request) {
   }
   const sent = await eduNotifySend("first_day", rows, (cid) => due.get(cid) ?? "");
   return { ok: true, day, courses: due.size, sent, skipped: rows.length - sent };
+}
+
+// ---------- 봉사 당번(2026-10-06 · 설계 docs/superpowers/specs/2026-10-06-duty-roster-design.md §5·§7·§9) ----------
+// ⚠️ 정원·겹침·잠금·쉼·끝 날짜는 SQL 함수(supabase/duty.sql) 한 곳 — 여기서 상태를 직접 쓰지 않는다.
+// ⚠️ 응답에 user_id·ident_key 를 싣지 않는다 — 읽기는 SQL 이 만든 jsonb(duty_list_view·duty_board_view·duty_mine)를 그대로 돌려준다
+//    (그 함수들이 이름 글자만 싣는다 · supabase/tests/duty_rules.dev.sql 이 낱말로 본다).
+// ⚠️ **문은 읽기도 막는다**(교육과 다르다 — 당번표에는 선 분 이름이 나간다): dutyGate = users 에 그 줄이 **실제로 있고**(꼴만 보지 않는다)
+//    app_config dutyOpen 이 true 이거나 🧪 시험 참여자. 못 지나면 읽기는 {ok:true, open:false}(당번·이름·수 없음), 쓰기는 not-open.
+// ⚠️ 신원(이름·소속)은 화면이 보낸 값을 쓰지 않는다 — user_id 로 users 줄을 꺼내 만든다.
+// ── 봉사 당번 — 순수 함수 (여기부터) ──
+// ⚠️ 이 구간은 타입 표기 없이 쓴다 — tests/duty-front.test.cjs 가 떼어 node:vm 으로 돌린다.
+// 당번표에 실을 만한 이름인가 — 당번표의 이름은 앱을 쓰는 누구에게나 보인다. 1~20자 · 꺾쇠·따옴표·역슬래시·제어·방향 바꿈·줄 가름 글자 없음 ·
+//   숫자가 네 자리 넘게 이어지지 않음(전화번호를 이름 칸에 적은 계정). 아니면 bad-name(정보변경에서 이름을 고친 뒤 지원).
+function dutyNameOk(name) {
+  var s = String(name == null ? "" : name).trim();
+  if (!s || s.length > 20) return false;
+  for (var i = 0; i < s.length; i++) {
+    var c = s.charCodeAt(i);
+    if (c < 32 || (c >= 127 && c <= 159) || c === 0x061c || (c >= 0x200b && c <= 0x200f) || (c >= 0x2028 && c <= 0x202e) || (c >= 0x2066 && c <= 0x2069)) return false;
+    if (c === 60 || c === 62 || c === 34 || c === 39 || c === 96 || c === 92) return false;   // 꺾쇠 둘 · 큰따옴표 · 작은따옴표 · 백틱 · 역슬래시(글자 대신 번호로 — 이 파일은 역슬래시가 풀린 적이 있다)
+  }
+  var run = 0;
+  for (var j = 0; j < s.length; j++) {
+    var d = s.charCodeAt(j);
+    run = d >= 48 && d <= 57 ? run + 1 : 0;
+    if (run >= 4) return false;
+  }
+  return true;
+}
+// 겹침 거절(duty_apply 의 overlap.with)을 성도님 화면에 실을 만큼만 — 준비 중인 당번(draft)이면 이름을 싣지 않는다(아직 공개 전인 당번).
+function dutyOverlapOut(w) {
+  if (!w || typeof w !== "object" || w.draft === true) return null;
+  return { board: String(w.board == null ? "" : w.board), service: String(w.service == null ? "" : w.service),
+    task: String(w.task == null ? "" : w.task), start: String(w.start == null ? "" : w.start) };
+}
+// 「못 가게 됐어요」 까닭 — cant(사정이 생겼어요) · mistake(잘못 눌렀어요) · notme(제가 한 게 아니에요) · null/빈 글자 = 표시 거두기
+function dutyWhyOf(v) {
+  if (v === null || v === undefined || v === "") return { ok: true, why: null };
+  var s = String(v);
+  return s === "cant" || s === "mistake" || s === "notme" ? { ok: true, why: s } : { ok: false, why: null };
+}
+// ── 봉사 당번 — 순수 함수 (여기까지) ──
+
+// 문 — users 줄(없으면 null)과 문이 열렸는가. 문 = dutyOpen 이 true 하나이거나 시험 참여자(실패하면 닫힘).
+async function dutyGate(userId: string): Promise<{ user: any | null; open: boolean }> {
+  if (!userId) return { user: null, open: false };
+  const { data: u, error } = await db.from("users").select("id,identity_key,type,gu,mok,bu,grade,name").eq("id", userId).maybeSingle();
+  if (error) throw error;
+  if (!u) return { user: null, open: false };
+  const { data } = await db.from("app_config").select("value").eq("key", "dutyOpen").maybeSingle();
+  if (data?.value === true) return { user: u, open: true };
+  let tester = false;
+  try { tester = await ministryIsTester(userId); } catch (_) { tester = false; }
+  return { user: u, open: tester };
+}
+const dutyId = (v: unknown): number => { const n = typeof v === "number" ? v : Number(String(v ?? "").trim() || NaN); return Number.isSafeInteger(n) && n > 0 ? n : 0; };
+
+// 당번 목록 + 내 당번 — 문이 닫혔으면 {ok:true, open:false}(아무것도 싣지 않는다)
+async function dutyList(b: any) {
+  const userId = eduUid(b.user_id);
+  const g = await dutyGate(userId);
+  if (!g.open) return { ok: true, open: false };
+  const { data: r, error } = await db.rpc("duty_list_view", { p_user: userId });
+  if (error) throw error;
+  return { ok: true, open: true, today: r?.today ?? null, boards: Array.isArray(r?.boards) ? r.boards : [], mine: Array.isArray(r?.mine) ? r.mine : [] };
+}
+
+// 당번 하나의 날짜별 자리 — {id, user_id}. 받는 중·지원 멈춤 당번만(그 밖은 not-found).
+async function dutyBoard(b: any) {
+  const userId = eduUid(b.user_id);
+  const id = String(b.id ?? "").trim();
+  if (!MH_UUID.test(id)) return { ok: false, error: "bad-args" };
+  const g = await dutyGate(userId);
+  if (!g.open) return { ok: true, open: false };
+  const { data: r, error } = await db.rpc("duty_board_view", { p_board: id, p_user: userId });
+  if (error) throw error;
+  if (!r || r.ok !== true) return { ok: false, error: "not-found" };
+  return { ok: true, open: true, today: r.today ?? null, board: r.board, days: Array.isArray(r.days) ? r.days : [] };
+}
+
+// 내 당번 — 오늘 이후 · 살아 있는 줄 + 담당자가 뺀 줄(그날까지)
+async function dutyMine(b: any) {
+  const userId = eduUid(b.user_id);
+  const g = await dutyGate(userId);
+  if (!g.open) return { ok: true, open: false };
+  const { data: r, error } = await db.rpc("duty_mine", { p_user: userId });
+  if (error) throw error;
+  return { ok: true, open: true, mine: Array.isArray(r) ? r : [] };
+}
+
+// 지원 — {slot_id, user_id, ack_locked?}. 잠긴 날(확정됐거나 전날 저녁이 지남)은 「취소할 수 없어요」를 알고 누른 것(ack_locked:true)일 때만 들어간다
+//   (아니면 locked-day — 아무것도 안 쓴다 · 화면이 확인 창을 띄운 뒤 다시 보낸다).
+//   거절: no-user · bad-args · not-open · guardian(어린이·청소년 부서 — 앱에서는 지원하지 않는다) · bad-name ·
+//         not-found · closed · off · past · started · not-yet · after-until · removed-by-staff · locked-day · full · overlap{with} · too-many{max}
+async function dutyApply(b: any) {
+  const userId = eduUid(b.user_id);
+  const slot = dutyId(b.slot_id);
+  if (!userId) return { ok: false, error: "no-user" };
+  if (!slot) return { ok: false, error: "bad-args" };
+  const g = await dutyGate(userId);
+  if (!g.user) return { ok: false, error: "no-user" };
+  if (!g.open) return { ok: false, error: "not-open" };
+  const u = g.user;
+  if (needsGuardian(u)) return { ok: false, error: "guardian" };
+  if (!dutyNameOk(u.name)) return { ok: false, error: "bad-name" };
+  const isGu = u.type === "교구";
+  const ident = { name: norm(u.name), who_type: u.type, group_name: isGu ? norm(u.gu) : norm(u.bu), sub_name: isGu ? norm(u.mok) : norm(u.grade), ident_key: identityKey(u) };
+  const { data: r, error } = await db.rpc("duty_apply", { p_slot: slot, p_user: userId, p_ident: ident, p_staff: false, p_force: false, p_ack_locked: b.ack_locked === true });
+  if (error) throw error;
+  if (!r) return { ok: false, error: "server" };
+  if (r.ok !== true) {
+    if (r.error === "overlap") return { ok: false, error: "overlap", with: dutyOverlapOut(r.with) };
+    if (r.error === "too-many") return { ok: false, error: "too-many", max: Number(r.max) || 0 };
+    return { ok: false, error: String(r.error || "server") };
+  }
+  return { ok: true, locked: r.locked === true, already: r.already === true };
+}
+
+// 취소 — {signup_id, user_id}. 내 줄인지는 SQL 이 본다(남의 줄은 없는 줄과 같다 · not-found).
+//   거절: not-open · not-found · not-active · changed · past · locked(잠긴 날 — 담당자께) · staff-row(담당자가 넣은 줄 — 「못 가게 됐어요」로)
+async function dutyCancel(b: any) {
+  const userId = eduUid(b.user_id);
+  const sid = dutyId(b.signup_id);
+  if (!userId || !sid) return { ok: false, error: "bad-args" };
+  const g = await dutyGate(userId);
+  if (!g.open) return { ok: false, error: "not-open" };
+  const { data: r, error } = await db.rpc("duty_cancel", { p_signup: sid, p_user: userId, p_staff: false });
+  if (error) throw error;
+  if (!r) return { ok: false, error: "server" };
+  return r.ok === true ? { ok: true } : { ok: false, error: String(r.error || "server") };
+}
+
+// 「못 가게 됐어요」 — {signup_id, user_id, why: cant|mistake|notme | null(거두기)}. 줄은 그대로 — 빼는 것은 담당자.
+//   거절: not-open · bad-args · not-found · not-active · changed · past · not-locked(잠기지 않은 내 지원 줄 — 그냥 취소하면 된다)
+async function dutyAsk(b: any) {
+  const userId = eduUid(b.user_id);
+  const sid = dutyId(b.signup_id);
+  const w = dutyWhyOf(b.why);
+  if (!userId || !sid || !w.ok) return { ok: false, error: "bad-args" };
+  const g = await dutyGate(userId);
+  if (!g.open) return { ok: false, error: "not-open" };
+  const { data: r, error } = await db.rpc("duty_ask", { p_signup: sid, p_user: userId, p_why: w.why });
+  if (error) throw error;
+  if (!r) return { ok: false, error: "server" };
+  return r.ok === true ? { ok: true, asked: r.asked === true } : { ok: false, error: String(r.error || "server") };
 }
 
 // 신청 한 건의 키는 (연도, user_id) 다. 이 앱은 로그인이 교구·목장·이름을

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-화면 전수 점검 — localhost(= 개발 DB)에서 주요 화면 39개를 **진짜 단추로** 열어 가며 잰다.
+화면 전수 점검 — localhost(= 개발 DB)에서 주요 화면 48개(2026-10-06)를 **진짜 단추로** 열어 가며 잰다.
 (2026-09-20 처음 만듦. 그날 이 도구로 쉴만한 물가 완료 화면·홈 화면 웹앱 여백 문제를 잡았다.)
 
 재는 것(화면마다):
@@ -82,6 +82,66 @@ HOME = ("try{ if(document.querySelector('.pr-full')) prayFullClose(); }catch(e){
         "renderSummary(); window.scrollTo(0,0);")
 
 
+# ── 봉사 당번 화면(44·45)에 넣는 지어낸 자료 — 이름·당번은 모두 가짜 ──
+def _duty_m(i, date, service, task, start, end, **x):
+    m = dict(id=i, boardId="b-1", board="식당 봉사", place="지하 1층 식당", contact="", date=date, service=service, task=task, start=start, end=end,
+             status="active", byStaff=False, staffAdded=False, off=False, note="", locked=False, lockAt=date + "T10:00:00+00:00", asked=False, why=None,
+             movedFrom=None, overlap=False, canCancel=True, canAsk=False)
+    m.update(x)
+    return m
+
+
+def _duty_s(i, service, task, start, end, cap, names, **x):
+    s = dict(id=i, service=service, task=task, start=start, end=end, capacity=cap, off=False, n=len(names), names=names, mine=None,
+             why="full" if len(names) >= cap else "")
+    s.update(x)
+    return s
+
+
+def _duty_mine(i, **x):
+    m = dict(id=i, status="active", byStaff=False, staffAdded=False, asked=False, why=None)
+    m.update(x)
+    return m
+
+
+_DUTY_BOARDS = [
+    dict(id="b-1", title="식당 봉사", place="지하 1층 식당", status="open", need=[dict(date="2026-10-18", need=1), dict(date="2026-11-08", need=5)]),
+    dict(id="b-2", title="주차 봉사", place="교회 주차장", status="closed", need=[]),
+    dict(id="b-3", title="김장 봉사", place="교육관 마당", status="open", need=[]),
+]
+_DUTY_MINE = [
+    _duty_m(511, "2026-10-18", "1부", "설거지", "09:00", "10:00"),
+    _duty_m(521, "2026-10-25", "1부", "설거지", "09:00", "10:00", locked=True, lockAt=None, movedFrom=7, overlap=True),
+    _duty_m(522, "2026-10-25", "2부", "설거지", "11:30", "12:30", locked=True, lockAt=None, asked=True, why="cant"),
+    _duty_m(523, "2026-10-25", "2부", "배식", "11:30", "12:30", status="removed", byStaff=True, locked=True, lockAt=None),
+    _duty_m(531, "2026-11-01", "1부", "설거지", "09:00", "10:00", off=True, note="교회 행사"),
+    _duty_m(541, "2026-11-08", "1부", "설거지", "09:00", "10:00", staffAdded=True),
+]
+_DUTY_BOARD = dict(id="b-1", title="식당 봉사", description="예배 뒤 식당에서 함께 설거지해요.\n앞치마는 식당에 있어요.", place="지하 1층 식당",
+                   contact="가상담당 집사 010-0000-0000", status="open", maxAhead=None)
+_DUTY_DAYS = [
+    dict(date="2026-10-12", off=False, note="", locked=True, lockAt=None, slots=[
+        _duty_s(1, "1부", "설거지", "09:00", "10:00", 2, ["가상둘", "가상셋"], why="started"),
+        _duty_s(2, "2부", "설거지", "11:30", "12:30", 2, ["가상넷"])]),
+    dict(date="2026-10-18", off=False, note="추수감사주일 — 평소보다 손이 더 필요해요", locked=False, lockAt="2026-10-17T10:00:00+00:00", slots=[
+        _duty_s(11, "1부", "설거지", "09:00", "10:00", 2, ["가상둘", "화면점검"], why="mine", mine=_duty_mine(511)),
+        _duty_s(12, "2부", "설거지", "11:30", "12:30", 2, ["가상다섯"]),
+        _duty_s(13, "2부", "배식", "11:30", "12:30", 1, ["가상여섯"])]),
+    dict(date="2026-10-25", off=False, note="", locked=True, lockAt=None, slots=[
+        _duty_s(21, "1부", "설거지", "09:00", "10:00", 2, ["화면점검", "가상일곱"], why="mine", mine=_duty_mine(521)),
+        _duty_s(22, "2부", "설거지", "11:30", "12:30", 2, ["화면점검"], why="mine", mine=_duty_mine(522, asked=True, why="cant")),
+        _duty_s(23, "2부", "배식", "11:30", "12:30", 1, [], why="removed", mine=_duty_mine(523, status="removed", byStaff=True))]),
+    dict(date="2026-11-01", off=True, note="교회 행사", locked=False, lockAt="2026-10-31T10:00:00+00:00", slots=[
+        _duty_s(31, "1부", "설거지", "09:00", "10:00", 2, ["화면점검"], why="mine", mine=_duty_mine(531)),
+        _duty_s(32, "2부", "설거지", "11:30", "12:30", 2, [], why="off")]),
+    dict(date="2026-11-08", off=False, note="", locked=False, lockAt="2026-11-07T10:00:00+00:00", slots=[
+        _duty_s(41, "1부", "설거지", "09:00", "10:00", 2, ["화면점검"], why="mine", mine=_duty_mine(541, staffAdded=True)),
+        _duty_s(42, "2부", "설거지", "11:30", "12:30", 2, []),
+        _duty_s(43, "3부", "설거지", "14:00", "15:00", 2, ["가상여덟"], why="closed"),
+        _duty_s(44, "2부", "배식", "11:30", "12:30", 1, [], off=True, why="off")]),
+]
+
+
 def clk(sel):
     return ("var el=document.querySelector(%s); if(!el) throw new Error('NOBTN '+%s); el.click();"
             % (json.dumps(sel), json.dumps(sel)))
@@ -159,6 +219,13 @@ STEPS = [
                                  "rows:[{id:1,year:2026,committee:'교육위원회',team:'유년부',role_title:'교사'}],requests:[]}; "
                                  "renderMinistryHistory(); mhAsk(loadUser(), null, 'missing');",
                                  clk("[data-ok]")]),
+    # 🙋 봉사 당번(2026-10-06) — 문(dutyOpen·시험 참여자)이 닫힌 개발 계정이라 단추 대신 화면을 직접 그린다
+    #   (서버를 부르지 않는다 — 자료는 지어낸 것 · 모양은 api dutyList·dutyBoard = SQL duty_list_view·duty_board_view 와 같다).
+    #   내 줄의 여섯 모습(지원함 · 확정 · 담당자께 알림 · 담당자가 뺌 · 쉬는 날 · 담당자가 넣음)과 자리의 모습(빈 자리 · 다 참 · 쉼 · 담당자가 넣는 자리)이 한 화면에.
+    ("44-duty-list", ["dutyShell(loadUser()); dutyState.at='list'; dutyState.boards=" + json.dumps(_DUTY_BOARDS, ensure_ascii=False)
+                      + "; dutyState.mine=" + json.dumps(_DUTY_MINE, ensure_ascii=False) + "; dutyDrawList('취소했어요.');"]),
+    ("45-duty-board", ["dutyShell(loadUser()); dutyState.at='board'; dutyState.cur='b-1'; dutyState.board=" + json.dumps(_DUTY_BOARD, ensure_ascii=False)
+                       + "; dutyState.days=" + json.dumps(_DUTY_DAYS, ensure_ascii=False) + "; dutyDrawBoard(loadUser(), '2026-10-12', {});"]),
     ("P1-privacy-page", ["GOTO privacy/"]),
     ("P2-quiz-page", ["GOTO quiz/"]),
     ("P3-guide-page", ["GOTO guide/"]),

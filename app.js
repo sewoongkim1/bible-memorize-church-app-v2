@@ -128,6 +128,7 @@ function routeAfterLoad() {
   refreshPassagesPublic();
   refreshPsalmPublic();
   refreshEduOpen();
+  refreshDutyOpen();
   refreshSongPublic();
   refreshMinistryPeriod();
   refreshEventOpen();
@@ -367,6 +368,19 @@ function refreshEduOpen() {
 function eduVisible() {
   if (ministryHiddenOnPlay()) return false;
   return eduOpenCached() || ministryTesterCached();
+}
+// 🙋 봉사 당번(2026-10-06) — app_config('dutyOpen') 이 true 이거나 🧪 시험 참여자일 때만 첫 화면 단추(모르면 숨긴다 — 캐시가 없으면 안 보인다).
+//   ⚠️ 여기는 단추를 숨길 뿐이다 — 막는 것은 서버(api dutyGate: 읽기도 막는다 · 당번표에 선 분 이름이 나가므로).
+//   플레이스토어 앱에서는 교육·사역과 같은 스위치로 숨긴다(심사 통과 때까지 · 개인정보 안내도 아직 안 넣었다 — 4단계).
+const DUTY_PUB_KEY = "duty-open";
+function dutyOpenCached() { try { return localStorage.getItem(DUTY_PUB_KEY) === "1"; } catch (e) { return false; } }
+function refreshDutyOpen() {
+  if (!window.api || !api.getConfig) return;
+  api.getConfig("dutyOpen").then((d) => { try { localStorage.setItem(DUTY_PUB_KEY, d && d.value === true ? "1" : "0"); } catch (e) {} }).catch(() => {});
+}
+function dutyVisible() {
+  if (ministryHiddenOnPlay()) return false;
+  return dutyOpenCached() || ministryTesterCached();
 }
 
 // ── 오늘의 찬양: 하루 한 곡 ────────────────────────────────────────
@@ -2090,6 +2104,7 @@ function newestNewFeat() {
     if (!featIsNew(k)) return;
     if (k === "ministry" && !ministryVisible()) return;   // 문이 닫혀 단추가 안 보이면(기간 밖 · 플레이스토어 앱 숨김) — 안 보이는 단추가 NEW 를 가져가지 않게
     if (k === "edu" && !eduVisible()) return;             // 🎓 교육도 같다(FEAT_SINCE.edu 는 개시일에 적는다 · 플레이스토어 앱 숨김)
+    if (k === "duty" && !dutyVisible()) return;           // 🙋 봉사 당번도 같다(FEAT_SINCE.duty 는 개시일에 적는다)
     if (!best || kstDayNumber(FEAT_SINCE[k]) > kstDayNumber(FEAT_SINCE[best])) best = k;
   });
   return best;
@@ -2927,11 +2942,13 @@ function renderSummary() {
           설계 docs/superpowers/specs/2026-10-01-ministry-history-check-design.md §2 */""}
     ${/* 2026-10-05 친구 요청 — 묶음 이름 「사역현황」 → 「교회」, 🎓 교육 신청을 사역 이력 확인 아래로(「함께」에서 옮김).
           문은 단추마다 따로다(사역 둘 = ministryVisible · 교육 = eduVisible) — 제목은 하나라도 보이면 뜬다. */""}
-    ${(ministryVisible() && MH_LIVE) || eduVisible() ? `<div class="grp-title">교회</div>` : ""}
+    ${(ministryVisible() && MH_LIVE) || eduVisible() || dutyVisible() ? `<div class="grp-title">교회</div>` : ""}
     ${ministryVisible() && MH_LIVE ? `<button class="summary-help" id="open-ministry">🤝 ${ministryYear()}년 사역신청${newBadge("ministry")}</button>
     <button class="summary-help" id="open-ministry-history">🗂️ 사역 이력 확인</button>` : ""}
     ${/* newBadge("edu") — FEAT_SINCE.edu 는 개시일에 적는다(없으면 NEW 가 안 뜬다) */""}
     ${eduVisible() ? `<button class="summary-help" id="open-edu">🎓 교육 신청${newBadge("edu")}</button>` : ""}
+    ${/* 🙋 봉사 당번(2026-10-06) — 문은 dutyVisible(dutyOpen 또는 시험 참여자). FEAT_SINCE.duty 는 개시일에 적는다(없으면 NEW 가 안 뜬다) */""}
+    ${dutyVisible() ? `<button class="summary-help" id="open-duty">🙋 봉사 당번${newBadge("duty")}</button>` : ""}
     <div class="grp-title">함께</div>
     ${/* 이름은 관리자가 적는 값이라 날 HTML 로 그리지 않는다. boardEsc 를 빌려 쓴다 —
           escape 헬퍼를 하나 더 만들면 그만큼 갈라진다. 서버가 norm() 으로 줄바꿈을
@@ -3034,6 +3051,11 @@ function renderSummary() {
       markFeatSeen("edu");
       if (typeof renderEduList === "function") renderEduList();
       else appAlert("교육 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
+    }); }
+  { const b = document.getElementById("open-duty"); if (b) b.addEventListener("click", () => {
+      markFeatSeen("duty");
+      if (typeof renderDutyList === "function") renderDutyList();
+      else appAlert("봉사 당번 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
     }); }
   { const b = document.getElementById("open-psalm"); if (b) b.addEventListener("click", () => { markFeatSeen("psalm"); renderPsalmHome(); }); }
   // ⚠️ renderEventList 는 js/events.js 에 있다 — 그 파일이 안 실려도 첫 화면이 죽지

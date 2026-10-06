@@ -40,6 +40,7 @@
 --                                    js/events.js 의 renderEventList 가 화면을 그리는 자리에서 한 번
 --                                    (회차가 여럿이어도 회차 번호는 안 담는다 — 목록 화면 단위로 센다)
 --     edu                         = 0 고정 — 🎓 교육 화면(목록)을 연 것(js/edu.js 의 renderEduList · 2026-10-05).
+--     duty                        = 0 고정 — 🙋 봉사 당번 화면(목록)을 연 것(js/duty.js 의 renderDutyList · 2026-10-06).
 --                                    CHECK 제약은 없다(위 ⚠️) — 허용 목록은 index.ts FEATURES 한 곳.
 --     ranking-scope               = 숫자가 아니라 **깃발**이다 — 1=우리 교구 · 0=전체
 --                                    (app.js 의 logFeature("ranking-scope", v==="mine"?1:0))

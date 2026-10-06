@@ -14,7 +14,7 @@ async function supaCall(action, payload = {}) {
   });
   let data = {};
   try { data = await res.json(); } catch (_) {}
-  if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+  if (!res.ok || data.error) { const e = new Error(data.error || `HTTP ${res.status}`); e.data = data; throw e; }   // e.data = 거절에 딸린 값(봉사 당번의 with·max)
   return data;
 }
 
@@ -142,6 +142,13 @@ const api = {
   // 수료(3단계 · 2026-10-05) — eduCert 는 내 줄·수료·안 취소일 때만 수료증 자료 · eduVerify 는 로그인 없이(cert/ 진위 확인 페이지 · 가린 이름만)
   eduCert: (enrollment_id, user_id) => supaCall("eduCert", { enrollment_id, user_id }),
   eduVerify: (no) => supaCall("eduVerify", { no }),
+  // 🙋 봉사 당번(2026-10-06) — 문이 닫혔으면 읽기는 {ok:true, open:false}, 쓰기는 not-open. 정원·겹침·잠금은 서버(SQL)가 정한다.
+  dutyList: (user_id) => supaCall("dutyList", { user_id }),
+  dutyBoard: (id, user_id) => supaCall("dutyBoard", { id, user_id }),
+  dutyApply: (slot_id, user_id, ack_locked) => supaCall("dutyApply", { slot_id, user_id, ack_locked: ack_locked === true }),
+  dutyCancel: (signup_id, user_id) => supaCall("dutyCancel", { signup_id, user_id }),
+  dutyMine: (user_id) => supaCall("dutyMine", { user_id }),
+  dutyAsk: (signup_id, user_id, why) => supaCall("dutyAsk", { signup_id, user_id, why: why || null }),
   eventDrop: (user_id, id) => supaCall("eventDrop", { user_id, id }),
   // user_id 는 시험 회차(testOnly) 판정에만 쓴다(2026-10-03) — 응답에는 안 실린다.
   eventRosterPublic: (event_id, user_id) => supaCall("eventRosterPublic", { event_id, user_id }),

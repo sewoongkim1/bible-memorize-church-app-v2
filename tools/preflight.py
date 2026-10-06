@@ -128,6 +128,8 @@ PURE_TESTS += ["tests/edu-front.test.cjs"]
 # 봉사 당번(2026-10-06) — duty.sql 의 함수마다 권한 줄이 있는가 · 공개 역할에 여는 줄·뷰가 없는가 · 기록 합치기가 duty_signups 를 아는가(글자만)
 # (위 줄들을 고치지 않고 따로 더한다 — 다른 세션도 이 목록에 더하고 있어 합칠 때 부딪힌다)
 PURE_TESTS += ["tests/duty-sql.test.cjs"]
+# 봉사 당번 2단계 — 화면 순수 함수(자리 한 칸·내 줄·확인 창·오류 말) · api 순수 구간(이름 검사·겹침 답·못 가요 까닭)
+PURE_TESTS += ["tests/duty-front.test.cjs"]
 
 print("\n[3] 순수 함수 검사 (node --test)")
 for t in PURE_TESTS:
