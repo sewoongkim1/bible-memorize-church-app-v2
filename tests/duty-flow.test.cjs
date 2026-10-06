@@ -193,7 +193,7 @@ test('계정 번호(user_id)를 아직 못 받았으면 서버를 부르지 않�
   // 로그인하지 않았으면 로그인 화면으로
   const n = world({ user: null }); n.ctx.renderDutyList(); assert.equal(n.entries(), 1); assert.equal(n.shown(), 'ENTRY');
   // 문이 닫혔다는 답(계정이 있을 때)에는 그 말을 한다
-  const c = world(); c.ctx.renderDutyList(); await c.answer(0, { ok: true, open: false }); assert.ok(c.html().includes('아직 봉사 당번을 열지 않았어요'));
+  const c = world(); c.ctx.renderDutyList(); await c.answer(0, { ok: true, open: false }); assert.ok(c.html().includes('지금은 봉사 당번을 볼 수 없어요') && !c.html().includes('열지 않았어요'));
   // 배포 직후 옛 js/api.js(당번 함수가 없다) — 「불러오는 중」에 갇히지 않는다
   const old = world({ api: {} }); old.ctx.renderDutyList(); assert.ok(old.html().includes('새 화면을 받는 중이에요'));
 });

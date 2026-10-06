@@ -147,7 +147,7 @@ function dutyErrText(code, x) {
     'staff-row': '담당자가 넣어 드린 자리라 앱에서 취소할 수 없어요. 「못 가게 됐어요」로 알려 주세요.',
     'not-locked': '아직 확정 전이라 「지원 취소」로 바로 취소하실 수 있어요.',
     'not-active': '이미 처리된 지원이에요.', 'changed': '그사이 자리가 바뀌었어요. 다시 확인해 주세요.',
-    'not-open': '아직 봉사 당번을 열지 않았어요.', 'no-user': '로그인한 뒤에 지원할 수 있어요.', 'not-found': '찾을 수 없어요. 다시 열어 주세요.' };
+    'not-open': '지금은 봉사 당번을 쓸 수 없어요. 잠시 뒤 다시 열어 주세요.', 'no-user': '로그인한 뒤에 지원할 수 있어요.', 'not-found': '찾을 수 없어요. 다시 열어 주세요.' };
   return Object.prototype.hasOwnProperty.call(W, code) ? W[code] : '잠시 뒤 다시 해 주세요.';
 }
 // 거절 뒤 화면을 다시 받아야 하는가 — 서버 상태가 내가 보던 것과 달라졌다는 뜻의 거절들
@@ -196,6 +196,9 @@ var DUTY_NO_ID = '아직 서버와 연결되지 않았어요. 잠시 뒤 다시 
 // 배포 직후 CDN 이 옛 js/api.js 를 주는 몇 분 — 「불러오는 중」에 갇히지 않게
 var DUTY_OLD_API = '새 화면을 받는 중이에요. 잠시 뒤 다시 열어 주세요.';
 var DUTY_LOAD_FAIL = '지금 불러올 수 없어요. 잠시 뒤 다시 열어 주세요.';
+// 읽기가 「닫힘」으로 왔을 때 — 단추가 보인 분(문이 열렸거나 시험 참여자)께 닫힘 답이 오는 것은 문이 그사이 닫혔거나 **이 기기의 계정이 서버에 없을 때**
+//   (기록을 합쳐 옛 계정이 사라진 기기 — 다음 로그인 동기화에서 새 계정을 받는다)다. 「아직 열지 않았어요」는 뒤쪽에서 사실이 아니므로 둘 다에 참인 말을 쓴다.
+var DUTY_CLOSED = '지금은 봉사 당번을 볼 수 없어요. 잠시 뒤 다시 열어 주세요.';
 // 일을 보내는 중인가 — 20초가 넘도록 답이 없으면 놓아 준다(통신이 끊긴 요청 하나가 모든 단추를 말없이 막지 않게).
 //   그 뒤 같은 일을 다시 눌러도 서버가 한 번만 받는다(지원은 already · 취소는 not-active).
 function dutyBusy() { return dutyState.busy && Date.now() - dutyState.busyAt < 20000; }
@@ -250,7 +253,7 @@ function renderDutyList(opt) {
   api.dutyList(u.user_id).then(function (r) {
     if (my !== dutyState.screen || !document.querySelector('.duty-wrap')) return;   // 받는 사이 다른 화면으로 갔다
     dutyState.loadedAt = Date.now();
-    if (!r || r.open === false) { dutyState.boards = []; dutyState.mine = []; dutyFail(dutyErrText('not-open')); return; }
+    if (!r || r.open === false) { dutyState.boards = []; dutyState.mine = []; dutyFail(DUTY_CLOSED); return; }
     dutyState.boards = r.boards || []; dutyState.mine = r.mine || []; dutyState.me = r.me || {};
     // 당번이 하나뿐이고 내 당번이 없으면 목록을 건너뛴다(첫 화면에서 들어올 때만)
     if (!opt.stay && !opt.soft && dutyState.boards.length === 1 && !dutyState.mine.length) { renderDutyBoard(dutyState.boards[0].id); return; }
@@ -313,7 +316,7 @@ function renderDutyBoard(id, opt) {
   api.dutyBoard(id, u.user_id).then(function (r) {
     if (my !== dutyState.screen || !document.querySelector('.duty-wrap')) return;   // 받는 사이 다른 화면으로 갔다
     dutyState.loadedAt = Date.now();
-    if (!r || r.open === false) { dutyFail(dutyErrText('not-open')); return; }
+    if (!r || r.open === false) { dutyFail(DUTY_CLOSED); return; }
     dutyState.board = r.board || {}; dutyState.days = r.days || []; dutyState.me = r.me || {};
     dutyDrawBoard(u, r.today || '', opt);
   }).catch(function (err) {

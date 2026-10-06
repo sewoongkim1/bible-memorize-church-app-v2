@@ -3,7 +3,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
-const read = (file) => fs.readFileSync(path.join(__dirname, '..', ...file), 'utf8');
+// ⚠️ 줄 끝을 LF 로 맞춰 읽는다 — 윈도우 작업 폴더(core.autocrlf)는 CRLF 라, 그대로 읽으면 아래 글자 검사가 함수 끝을 못 찾는다(재검증 2026-10-06)
+const read = (file) => fs.readFileSync(path.join(__dirname, '..', ...file), 'utf8').replace(/\r\n/g, '\n');
 const cut = (file, from, to) => {
   const src = read(file);
   const a = src.indexOf(from), b = src.indexOf(to);
@@ -237,6 +238,10 @@ test('api dutyNameOk — 당번표에 실을 이름', () => {
     assert.equal(srv.dutyNameOk('가상' + String.fromCharCode(c) + '하나'), false, 'U+' + c.toString(16) + ' 사이');
   }
   assert.equal(srv.dutyNameOk('가상' + String.fromCharCode(0xfeff) + '하나'), false);
+  // 막는 목록을 늘리는 대신 「보이는 글자·숫자가 하나는 있어야」 — 목록에 없는 보이지 않는 글자(변형 선택자·몽골 모음 분리자 등)만으로 된 이름도 거절
+  for (const c of [0x034f, 0x180e, 0x206a, 0xfe0f, 0xfff9, 0x17b4]) assert.equal(srv.dutyNameOk(String.fromCharCode(c)), false, 'U+' + c.toString(16));
+  for (const ok of ['ㄱ', 'José', '山田', 'たろう', 'A', '7']) assert.equal(srv.dutyNameOk(ok), true, ok);
+  assert.equal(srv.dutyNameOk('..'), false, '글자·숫자가 하나도 없는 이름');
 });
 
 test('api dutyErrOut — 보관한 당번은 없는 당번 · SQL 이 성도님 길에서 주는 거절은 모두 화면에 제 말이 있다', () => {
@@ -261,8 +266,11 @@ const API = read(['supabase', 'functions', 'api', 'index.ts']);
 const fn = (name) => {
   const a = API.indexOf('async function ' + name + '(');
   assert.ok(a >= 0, name + ' 를 못 찾았다');
-  const b = API.indexOf('\nasync function ', a + 10), c = API.indexOf('\n// ', API.indexOf('\n}\n', a));
-  return API.slice(a, Math.min(b < 0 ? API.length : b, c < 0 ? API.length : c));
+  const e = API.indexOf('\n}\n', a);
+  assert.ok(e > a, name + ' 의 끝을 못 찾았다');
+  const b = API.indexOf('\nasync function ', a + 10), c = API.indexOf('\n// ', e);
+  // 주석만 있는 줄은 뺀다 — 주석 처리한 줄이 「있는 줄」로 세어지지 않게
+  return API.slice(a, Math.min(b < 0 ? API.length : b, c < 0 ? API.length : c)).replace(/^\s*\/\/.*$/gm, '');
 };
 
 test('api 글자 검사 — 여섯 액션 모두 문(dutyGate)이 SQL 보다 먼저 · 닫히면 읽기는 {ok, open:false} · 쓰기는 not-open', () => {
@@ -273,8 +281,12 @@ test('api 글자 검사 — 여섯 액션 모두 문(dutyGate)이 SQL 보다 먼
     assert.equal((body.match(/db\.rpc\(/g) || []).length, 1, name + ' — SQL 호출은 하나');
     assert.equal(/db\.from\(/.test(body), false, name + ' — 표를 직접 읽거나 쓰지 않는다(규칙은 SQL 함수 한 곳)');
   }
-  for (const name of ['dutyList', 'dutyBoard', 'dutyMine']) assert.ok(fn(name).includes('if (!g.open) return { ok: true, open: false };'), name);
-  for (const name of ['dutyApply', 'dutyCancel', 'dutyAsk']) assert.ok(fn(name).includes('if (!g.open) return { ok: false, error: "not-open" };'), name);
+  // 닫힘 답은 문과 SQL 사이에 있어야 한다(있기만 한 것이 아니라 차례로)
+  const between = (name, line, rpc) => { const s = fn(name), g = s.indexOf('await dutyGate(userId)'), x = s.indexOf(line), r = s.indexOf('db.rpc("' + rpc + '"'); return g > 0 && x > g && r > x; };
+  for (const [name, rpc] of [['dutyList', 'duty_list_view'], ['dutyBoard', 'duty_board_view'], ['dutyMine', 'duty_mine']]) assert.ok(between(name, 'if (!g.open) return { ok: true, open: false };', rpc), name);
+  for (const [name, rpc] of [['dutyApply', 'duty_apply'], ['dutyCancel', 'duty_cancel'], ['dutyAsk', 'duty_ask']]) assert.ok(between(name, 'if (!g.open) return { ok: false, error: "not-open" };', rpc), name);
+  // 갈래(switch)에 여섯 줄이 살아 있다
+  for (const name of ['dutyList', 'dutyBoard', 'dutyMine', 'dutyApply', 'dutyCancel', 'dutyAsk']) assert.ok(new RegExp('\\n\\s*case "' + name + '":\\s+return json\\(await ' + name + '\\(body\\)\\);').test(API), name + ' 갈래');
 });
 
 test('api 글자 검사 — 지원: 어린이·청소년 부서·실을 수 없는 이름은 SQL 을 부르기 전에 막는다 · 담당자 길로 새는 인자가 없다', () => {
@@ -288,6 +300,7 @@ test('api 글자 검사 — 지원: 어린이·청소년 부서·실을 수 없�
   // 문은 users 줄이 실제로 있는지를 본다(꼴만 맞는 UUID 는 닫힘) · 판정에 쓰는 칸(type·bu·grade·name)을 읽는다
   const gate = fn('dutyGate');
   assert.ok(gate.includes('.select("id,identity_key,type,gu,mok,bu,grade,name").eq("id", userId).maybeSingle()'));
-  assert.ok(gate.indexOf('if (!u) return { user: null, open: false };') < gate.indexOf('"dutyOpen"'), '계정이 없으면 dutyOpen 을 보기 전에 닫힘');
+  const nou = gate.indexOf('if (!u) return { user: null, open: false };');
+  assert.ok(nou > 0 && nou < gate.indexOf('"dutyOpen"'), '계정이 없으면 dutyOpen 을 보기 전에 닫힘(그 줄이 없어도 통과하지 않게 위치를 본다)');
   assert.ok(gate.includes('if (ce) throw ce;'), '설정을 못 읽은 것을 닫힘으로 뭉개지 않는다');
 });

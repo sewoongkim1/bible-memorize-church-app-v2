@@ -5485,6 +5485,15 @@ function dutyNameOk(name) {
     if (c === 0x00ad || c === 0x115f || c === 0x1160 || c === 0x3164 || c === 0xffa0 || c === 0x2800 || (c >= 0x2060 && c <= 0x2064) || c === 0xfeff) return false;
     if (c === 60 || c === 62 || c === 34 || c === 39 || c === 96 || c === 92) return false;   // 꺾쇠 둘 · 큰따옴표 · 작은따옴표 · 백틱 · 역슬래시(글자 대신 번호로 — 이 파일은 역슬래시가 풀린 적이 있다)
   }
+  // 보이는 글자·숫자가 하나는 있어야 한다 — 막는 목록에 없는 보이지 않는 글자만으로 된 이름이 빈 이름으로 한 자리를 차지하지 않게(재검증 2026-10-06).
+  //   한글 음절·자모(채움 글자 빼고)·호환 자모 · 영문·숫자 · 라틴 확장 · 가나 · 한자
+  var seen = false;
+  for (var k = 0; k < s.length && !seen; k++) {
+    var v = s.charCodeAt(k);
+    seen = (v >= 0xac00 && v <= 0xd7a3) || (v >= 0x1100 && v <= 0x11ff && v !== 0x115f && v !== 0x1160) || (v >= 0x3131 && v <= 0x318e && v !== 0x3164) ||
+      (v >= 48 && v <= 57) || (v >= 65 && v <= 90) || (v >= 97 && v <= 122) || (v >= 0x00c0 && v <= 0x024f) || (v >= 0x3040 && v <= 0x30ff) || (v >= 0x4e00 && v <= 0x9fff);
+  }
+  if (!seen) return false;
   var run = 0;
   for (var j = 0; j < s.length; j++) {
     var d = s.charCodeAt(j);
