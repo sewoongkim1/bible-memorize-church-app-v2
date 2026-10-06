@@ -15,8 +15,9 @@ function world(over) {
   const touched = [];   // 화면이 건드린 것(초점 · 굴리기) — 달력
   const mkEl = () => ({ addEventListener(t, f) { this['on_' + t] = f; }, dataset: {}, isConnected: true, disabled: false, classList: { add() {}, remove() {} }, remove() {} });
   let fab = mkEl(), back = mkEl();
-  const mkWrap = (h) => ({ _h: h, set innerHTML(v) { this._h = String(v); back = mkEl(); }, get innerHTML() { return this._h; }, onclick: null, onkeydown: null,
-    querySelectorAll(sel) {   // 날짜 카드들(굴리기를 받아 적는다) — 그 밖은 빈 목록
+  const mkWrap = (h) => ({ _h: h, _acts: null, set innerHTML(v) { this._h = String(v); this._acts = null; back = mkEl(); }, get innerHTML() { return this._h; }, onclick: null, onkeydown: null,
+    querySelectorAll(sel) {   // 날짜 카드들(굴리기를 받아 적는다) · 자리 단추들(꺼짐·켜짐을 지닌다 — 다시 그릴 때까지 같은 것) — 그 밖은 빈 목록
+      if (sel === 'button[data-act]') return this._acts || (this._acts = [...this._h.matchAll(/<button[^>]*data-act="[^"]*"[^>]*>/g)].map((m) => ({ disabled: /\sdisabled>$/.test(m[0]) })));
       if (sel !== '.duty-day') return [];
       return [...this._h.matchAll(/<section class="duty-day[^"]*" data-date="([^"]+)"/g)].map((m) => ({ dataset: { date: m[1] },
         scrollIntoView(o) { touched.push('scroll .duty-day[' + m[1] + '] ' + ((o && o.block) || '')); } }));
@@ -44,8 +45,10 @@ function world(over) {
   const call = (name) => (...args) => new Promise((ok, no) => pending.push({ name, args, ok, no }));
   class FakeDate extends Date { static now() { return now; } }
   const answers = (o.confirm || []).slice();   // appConfirm 의 답 차례(없으면 늘 「예」)
+  const longs = [];   // 20초짜리 시계(일을 보낸 뒤 꺼 둔 단추를 다시 켜는 것) — 진짜로 기다리지 않고 시험이 돌린다(fireLong)
+  const fakeTimeout = (f, ms) => (ms >= 20000 ? (longs.push(f), { unref() {} }) : setTimeout(f, ms));
   const ctx = {
-    console, Promise, Number, String, Object, Math, JSON, Array, isNaN, setTimeout, Date: FakeDate,
+    console, Promise, Number, String, Object, Math, JSON, Array, isNaN, setTimeout: fakeTimeout, Date: FakeDate,
     // 굴리기 — 숫자 둘(맨 위로 · 보던 자리로)은 흘려보내고, 달력이 재서 굴리는 것({top, behavior})만 받아 적는다
     window: { scrollTo(a) { if (a && typeof a === 'object') touched.push('roll ' + a.top + (a.behavior === 'smooth' ? ' smooth' : '')); }, scrollY: 0, innerHeight: 800,
       getComputedStyle: (e) => ({ scrollMarginTop: (e && e._gap) || '' }) },
@@ -88,6 +91,8 @@ function world(over) {
     tapDate: (date) => tapSel('button[data-date]', { date }), tapCal: (dir) => tapSel('button[data-cal]', { cal: dir }),   // 달력의 날짜 · 앞뒤 달 단추
     touched: () => touched.splice(0), setCardTop: (v) => { cardTop = v; }, setCalHeight: (v) => { calHeight = v; }, setFab: (v) => { fabTop = v; },
     setModal: (v) => { modal = !!v; },   // 다른 창이 떠 있다
+    acts: () => (wrap ? wrap.querySelectorAll('button[data-act]') : []),   // 화면의 자리 단추들(꺼짐·켜짐)
+    fireLong: () => { longs.slice().forEach((f) => f()); },   // 20초짜리 시계를 돌린다(시각은 tickTime 으로 따로 옮긴다)
     pickWhy: (why) => created[created.length - 1].on_click({ target: { closest: (sel) => (sel === '[data-why]' ? { dataset: { why } } : null) } }),   // 「못 가게 됐어요」 까닭 고르기
     shown: () => (wrap ? 'DUTY[' + kind(wrap._h) + ']' : app._h.includes('HOME') ? 'HOME' : app._h.includes('ENTRY') ? 'ENTRY' : 'OTHER'),
     html: () => (wrap ? wrap._h : ''), goHome: () => fab.on_click(), goBack: () => back.on_click(),
@@ -287,6 +292,22 @@ test('일을 보내는 중 — 다른 단추는 막히고 · 20초가 넘도록 
   w.ctx.dutyResetState();
   assert.deepEqual([w.ctx.dutyState.at, w.ctx.dutyState.busy, w.ctx.dutyState.boards.length, w.ctx.dutyState.mine.length, w.ctx.dutyState.days.length], ['', false, 0, 0, 0]);
   await w.answer(0, { ok: true }); assert.deepEqual(w.names(), ['dutyApply'], '비운 뒤 온 응답은 화면을 다시 받지 않는다');
+});
+
+test('20초가 넘도록 답이 없으면 — 꺼 두었던 자리 단추도 다시 켠다(막음만 풀리고 눌렀던 단추는 꺼진 채 남아, 눌러도 아무 일이 없었다)', async () => {
+  const w = world(); await openBoard(w);
+  assert.ok(w.acts().length === 1 && !w.acts()[0].disabled);
+  w.tap({ act: 'apply', d: '0', s: '0' }); await w.settle(); assert.deepEqual(w.names(), ['dutyApply']);
+  assert.ok(w.acts().every((b) => b.disabled), '보내는 동안 화면의 자리 단추는 꺼진다');
+  w.tickTime(19000); w.fireLong(); assert.ok(w.acts().every((b) => b.disabled), '20초가 되기 전에는 켜지 않는다');
+  w.tickTime(2000); w.fireLong(); assert.ok(w.acts().every((b) => !b.disabled), '20초가 지나면 다시 켠다');
+  // 풀린 뒤 다시 보냈으면 — 그 일의 막음이 살아 있는 동안에는 옛 시계가 켜지 않는다
+  w.tap({ act: 'apply', d: '0', s: '0' }); await w.settle(); assert.deepEqual(w.names(), ['dutyApply', 'dutyApply']);
+  w.fireLong(); assert.ok(w.acts().every((b) => b.disabled), '방금 보낸 일의 단추를 옛 시계가 켜지 않는다');
+  // 다시 받지 않는 거절(겹침)이 오면 그 자리에서 켠다 — 화면을 다시 그리지 않으므로 답을 받은 쪽이 켜야 한다
+  await w.fail(1, 'overlap', { ok: false, error: 'overlap' });
+  assert.equal(w.alerts.length, 1); assert.deepEqual(w.names(), ['dutyApply'], '화면을 다시 받지 않는다');
+  assert.ok(w.acts().every((b) => !b.disabled), '거절을 받으면 단추를 다시 켠다');
 });
 
 test('내 당번 카드로 왔는데 그 날짜가 당번표에 없다(보이는 기간 밖 · 끝 날짜 뒤) — 맨 위에 한 줄 · 「아직」이라고 하지 않는다', async () => {
