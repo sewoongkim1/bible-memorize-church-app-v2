@@ -132,6 +132,9 @@ PURE_TESTS += ["tests/duty-sql.test.cjs"]
 PURE_TESTS += ["tests/duty-front.test.cjs"]
 # 봉사 당번 화면 흐름 — js/duty.js 전체를 가짜 DOM·가짜 api 위에서(늦게 온 응답이 다른 화면을 덮지 않는가 · 다시 받기 실패 · 계정 번호 없음 · 잠긴 날 확인)
 PURE_TESTS += ["tests/duty-flow.test.cjs"]
+# 봉사 당번 알림 — 보내는 길을 끝까지(api 의 보내기 함수들을 글자 그대로 떼어 가짜 DB·가짜 푸시 위에서 · 꾸러미 없음). 개발 계정에는 받는 기기가 없어
+#   「같은 글 묶음 안의 죽은 기기」·「옛 SQL 을 만난 새 api」를 개발 서버로는 못 본다(node 22.13 미만이면 스스로 건너뛴다 · 2026-10-07).
+PURE_TESTS += ["tests/duty-send.test.cjs"]
 
 print("\n[3] 순수 함수 검사 (node --test)")
 for t in PURE_TESTS:

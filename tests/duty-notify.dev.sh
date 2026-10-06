@@ -87,11 +87,15 @@ case "$OPEN_N:$OPEN_VAL" in 0:|1:true|1:false|1:null) ;; *) echo "dutyOpen 원�
 OFF_N=$(sq "select count(*) from app_config where key='dutyNotifyOff'")
 [ "$OFF_N" = "0" ] || { echo "개발 dutyNotifyOff 가 켜져 있다 — 알림이 꺼진 채라 시험할 수 없다. 중단."; exit 2; }
 RUN_VAL=$(sq "select coalesce((select value::text from app_config where key='dutyRemindRun'), '')")
+# 흔적의 원래 값도 꼴을 본다(없음 또는 {…}) — 못 읽은 값으로 되돌려 쓰지 않게(고침 검토 반영 2026-10-07)
+case "$RUN_VAL" in ""|\{*\}) ;; *) echo "dutyRemindRun 원래 값을 못 읽었다 — 아무것도 쓰지 않고 중단"; exit 2;; esac
 echo "dutyOpen 원래: $OPEN_N ${OPEN_VAL}"
 BID=""
 cleanup() {
   # 지원(알림 기록은 cascade) → 자리 → 날짜 → 틀 → 당번 · 이번에 생긴 당번 알림 push_log 줄(글에 TAG 가 있는 것만)
-  [ -n "$BID" ] && sx "delete from duty_signups where slot_id in (select id from duty_slots where board_id='$BID'); delete from duty_slots where board_id='$BID'; delete from duty_days where board_id='$BID'; delete from duty_lines where board_id='$BID'; delete from duty_boards where id='$BID'"
+  #   당번은 이름(TAG)으로 찾는다 — 만들기의 답을 못 읽어 BID 가 비어 있어도 남지 않게(고침 검토 반영 2026-10-07)
+  local MINE="select id from duty_boards where title='$TAG'"
+  sx "delete from duty_signups where slot_id in (select id from duty_slots where board_id in ($MINE)); delete from duty_slots where board_id in ($MINE); delete from duty_days where board_id in ($MINE); delete from duty_lines where board_id in ($MINE); delete from duty_boards where title='$TAG'"
   sx "delete from push_log where id > $PL0 and mode like 'duty-%' and body like '%$TAG%'"
   if [ "$OPEN_N" = "0" ]; then sx "delete from app_config where key='dutyOpen'"
   else sx "insert into app_config(key,value) values('dutyOpen','$OPEN_VAL'::jsonb) on conflict (key) do update set value='$OPEN_VAL'::jsonb"; fi
@@ -99,7 +103,7 @@ cleanup() {
   if [ -z "$RUN_VAL" ]; then sx "delete from app_config where key='dutyRemindRun'"
   else sx "update app_config set value='$RUN_VAL'::jsonb where key='dutyRemindRun'"; fi
   # 되돌렸는지 다시 읽어 찍는다(정리가 실패해도 조용히 지나가지 않게)
-  echo "정리 뒤 — 시험 당번 $( [ -n "$BID" ] && sq "select count(*) from duty_boards where id='$BID'" || echo 0 ) · dutyOpen $(sq "select coalesce((select value::text from app_config where key='dutyOpen'), '(없음)')")(원래 ${OPEN_VAL:-(없음)}) · dutyNotifyOff $(sq "select count(*) from app_config where key='dutyNotifyOff'")"
+  echo "정리 뒤 — 시험 당번 $(sq "select count(*) from duty_boards where title='$TAG'") · dutyOpen $(sq "select coalesce((select value::text from app_config where key='dutyOpen'), '(없음)')")(원래 ${OPEN_VAL:-(없음)}) · dutyNotifyOff $(sq "select count(*) from app_config where key='dutyNotifyOff'")"
 }
 trap cleanup EXIT
 
@@ -114,6 +118,10 @@ U2=$(sq "select id from users where $OKU and id not in ($TESTERS) order by creat
 [ -n "$UN" ] && [ -n "$U1" ] && [ -n "$U2" ] || { echo "시험 참여자 아닌 사용자 셋을 못 골랐다"; exit 2; }
 DEV() { sq "select (select count(*) from push_subscriptions where user_id='$1') + (select count(*) from ios_push_tokens where user_id='$1')"; }   # 그분 기기 수
 noleak() { printf '%s' "$1" | grep -c -e "$UT" -e "$UN" -e "$U1" -e "$U2" -e "user_id" -e "ident_key" -e "uid"; }
+# 고른 계정에 진짜 기기가 있으면 시험 글 알림이 그 기기로 간다(알림 주소는 운영 주소다 — 누르면 운영 앱이 열린다) → 멈춘다.
+#   일부러 기기로 받아 보려면 ALLOW_DEVICES=1(고침 검토 반영 2026-10-07 · 아직 아무것도 쓰기 전이다)
+DEVS=0; for X in "$UT" "$UN" "$U1" "$U2"; do V=$(DEV "$X"); DEVS=$((DEVS + ${V:-0})); done
+if [ "$DEVS" != "0" ] && [ -z "${ALLOW_DEVICES:-}" ]; then echo "고른 개발 계정에 받는 기기가 $DEVS 대 있다 — 시험 글 알림이 그 기기로 간다. 중단(ALLOW_DEVICES=1 로 넘길 수 있다)."; exit 2; fi
 ident() { echo "jsonb_build_object('name','$TAG-$1','who_type','x','ident_key','$TAG|$1')"; }
 NB() { echo "{\"action\":\"internalDutyNotify\",\"kind\":\"$1\",\"signup_ids\":[$2]}"; }
 RB='{"action":"internalDutyRemind","anytime":true}'   # 시각을 알고 부른다(한국 19시 전의 부름은 too-early — 크론은 anytime 을 싣지 않는다)
@@ -215,8 +223,14 @@ EU=$(staff "$A3" "'$U2'" u2)
 chk "confirm then unconfirm (SQL)" "$(sq "select (duty_day_set('$BID','$D3','confirm',null,null)->>'ok') || '/' || (duty_day_set('$BID','$D3','unconfirm',null,null)->>'ok')")" "true/true"
 chk "confirmed for a day that is no longer confirmed -> not told, not claimed" "$(jqn "$TOLD" "$(icall "$SK" "$(NB confirmed "$EU")")"):$(LOGN "$EU" confirmed)" "0:0"
 sx "insert into app_config(key,value) values('dutyNotifyOff','true'::jsonb) on conflict (key) do update set value='true'::jsonb"
+P_ADD=$(PLN added)
 R=$(icall "$SK" "$(NB added "$EU")")
 chk "switch off (dutyNotifyOff): nothing told, off:true" "$(jqn '(d.get("ok"), d.get("sent"), d.get("missed"), d.get("off"))' "$R")" "(True, 0, 0, True)"
+# 고침 검토 반영(2026-10-07) — 꺼 둔 동안에도 「보낼 알림이 있었나」(held)는 돌려준다: 알림이 갈 일이 없던 저장에까지 담당자 화면이 「따로 알려 주세요」 창을 띄우지 않게
+chk "switch off: held = people who would have been told" "$(jqn 'd.get("held")' "$R")" "1"
+chk "switch off: a no-account row -> held 0 (nobody to tell)" "$(jqn '(d.get("off"), d.get("held"))' "$(icall "$SK" "$(NB added "$ES")")")" "(True, 0)"
+chk "switch off: response keys" "$(jqn 'sorted(d.keys())' "$R")" "['held', 'missed', 'off', 'ok', 'sent']"
+chk "switch off: nothing sent" "$(PLN added)" "$P_ADD"
 sx "delete from app_config where key='dutyNotifyOff'"
 chk "switch on again -> told" "$(jqn "$TOLD" "$(icall "$SK" "$(NB added "$EU")")")" "1"
 chk "no ids in push_log" "$(sq "select count(*) from push_log where id > $PL0 and mode like 'duty-%' and (coalesce(body,'') like '%$UT%' or coalesce(body,'') like '%$UN%' or coalesce(body,'') like '%$U1%' or coalesce(note,'') like '%$U1%')")" "0"
@@ -228,15 +242,30 @@ R1=$(app "$A1" "$UT" t); R2=$(app "$B1" "$UT" t); R3=$(staff "$A1" "'$U1'" u1); 
 chk "no key -> unauthorized" "$(jqn 'd.get("error")' "$(icall "" "$RB")")" "unauthorized"
 if [ "$KST_H" -lt 19 ]; then chk "before 19:00 KST the cron body is refused (too-early, nothing claimed)" "$(jqn 'd.get("error")' "$(icall "$SK" "$RB_CRON")"):$(LOGN "$R1,$R2,$R3,$R4" remind)" "too-early:0"
 else echo "  (한국 19시가 지났다 — too-early 는 이 시각에 볼 수 없다 · 낮에 돌리면 본다)"; fi
+# 고침 검토 반영(2026-10-07) — 흔적은 같은 날의 부름을 더한다(runs) · 꺼 둔 부름은 off·held 를 남기고 아무것도 잡지 않는다. 원래 흔적은 정리에서 되돌린다.
+sx "delete from app_config where key='dutyRemindRun'"
+sx "insert into app_config(key,value) values('dutyNotifyOff','true'::jsonb) on conflict (key) do update set value='true'::jsonb"
+R=$(icall "$SK" "$RB")
+chk "remind while switched off: nothing told, nothing claimed, off:true" "$(jqn '(d.get("ok"), d.get("rows"), d.get("sent"), d.get("missed"), d.get("off"))' "$R"):$(LOGN "$R1,$R2,$R3,$R4" remind)" "(True, 3, 0, 0, True):0"
+chk "trace of the switched-off run: off, held 2 people, runs 1" "$(sq "select (value->>'off') || ':' || (value->>'held') || ':' || (value->>'runs') from app_config where key='dutyRemindRun'")" "true:2:1"
+sx "delete from app_config where key='dutyNotifyOff'"
 RUN0=$(sq "select coalesce((select value->>'at' from app_config where key='dutyRemindRun'), '')")
+sleep 1
 R=$(icall "$SK" "$RB")
 chk "remind: day, 3 rows with accounts, 2 people" "$(jqn "(d.get(\"ok\"), d.get(\"day\"), d.get(\"rows\"), $TOLD)" "$R")" "(True, '$D1', 3, 2)"
-chk "remind leaves a trace (app_config dutyRemindRun: day, rows)" "$(sq "select (value->>'day') || ':' || (value->>'rows') || ':' || ((value->>'at') is distinct from '$RUN0')::text from app_config where key='dutyRemindRun'")" "$D1:3:true"
+chk "remind leaves a trace (day, rows, a new timestamp-shaped at, runs 2, no off)" "$(sq "select (value->>'day') || ':' || (value->>'rows') || ':' || ((value->>'at') is distinct from '$RUN0')::text || ':' || ((value->>'at') ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T')::text || ':' || (value->>'runs') || ':' || (value ? 'off')::text from app_config where key='dutyRemindRun'")" "$D1:3:true:true:2:false"
 chk "no ids in response" "$(noleak "$R")" "0"
 chk "remind rows claimed (account rows only)" "$(LOGN "$R1,$R2,$R3,$R4" remind)" "3"
 chk "two push_log rows (two different texts)" "$(PLN remind)" "2"
 chk "one person's two slots in one text" "$(sq "select count(*) from push_log where id > $PL0 and mode='duty-remind' and position('ga 09:00' in body) > 0 and position('na 11:00' in body) > 0 and body like '%$TAG%'")" "1"
 R=$(icall "$SK" "$RB"); chk "second call -> 0" "$(jqn "(d.get(\"rows\"), $TOLD)" "$R")" "(3, 0)"
+chk "trace adds up over the same day (runs 3 · the people told by the earlier run are kept)" "$(sq "select (value->>'runs') || ':' || ((value->>'sent')::int + (value->>'missed')::int)::text from app_config where key='dutyRemindRun'")" "3:2"
+# 고침 검토 반영 — 전날 알림 잡기는 날짜도 본다(SQL p_date): 그사이 다른 날로 옮겨진 줄은 옛 날짜로 잡히지 않는다
+EMV=$(staff "$A1" "'$U2'" u2)      # 내일 자리의 줄 → 사흘 뒤 자리(B3 — 그분의 취소한 줄이 있던 자리 · 옮기며 그 줄은 지워진다)로 옮긴다
+chk "move tomorrow's row to another day (SQL)" "$(sq "select duty_move($EMV, $B3, true)->>'ok'")" "true"
+chk "moved away after the ids were read: not claimed with the old date" "$(sq "select cardinality(duty_notify_claim('remind', array[$EMV]::bigint[], '$D1'::date))")" "0"
+chk "claimed with its new date" "$(sq "select cardinality(duty_notify_claim('remind', array[$EMV]::bigint[], '$D3'::date))")" "1"
+chk "the moved row remembers the slot it left was still ahead (moved_from.live)" "$(sq "select (moved_from->>'live') from duty_signups where id=$EMV")" "true"
 
 echo "5) 잠긴 날의 앱 지원 — 그 계정에 곧바로(응답 뒤에 돈다)"
 chk "confirm D3 again (SQL)" "$(sq "select duty_day_set('$BID','$D3','confirm',null,null)->>'ok'")" "true"

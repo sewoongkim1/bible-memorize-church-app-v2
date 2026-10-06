@@ -3,6 +3,8 @@
 -- 비교는 전부 `is distinct from` — 함수가 오류를 내서 값이 NULL 이어도 조용히 지나가지 않게.
 -- 날짜: 오늘 자리는 **늘 잠긴 날**(마감 = 어제 19시) · 모레(+2) 자리는 담당자가 확정해야만 잠긴다(마감 = 내일 19시) — 그래서 내일(+1)은 쓰지 않는다
 --   (저녁 7시 앞뒤로 결과가 갈린다). 한국 시각 23:58~24:00 에 돌리면 「이미 시작」 시험 하나가 어긋날 수 있다.
+--   「끝난 자리」(ended·live)는 시각을 못 박은 틀 둘(00:00~00:01 = 늘 끝난 자리 · 23:58~23:59 = 늘 안 끝난 자리)로 참·거짓을 매번 본다 —
+--   한국 00:00~00:01 · 23:58~24:00 에 돌리면 그 시험들이 어긋난다.
 begin;
 do $$
 declare
@@ -324,6 +326,8 @@ begin
   if not (e5 = any(duty_remind_ids(t0))) then raise exception '전날 알림 대상(오늘 날짜로 불러 봄)'; end if;
   -- 검토 반영(2026-10-07) — 알림 재료의 새 칸(confirmed · ended · dup) · 확정을 풀어도 알림 기록은 그대로(같은 줄에 한 번) · 앞날 줄을 지난 날 자리로는 옮기지 않는다(to-past)
   declare bx uuid; lx bigint; s_past bigint; s_next bigint; ex bigint; e_dup bigint; e_today bigint; rr jsonb;
+    le bigint; ln bigint; v uuid[] := array[]::uuid[]; s_e0 bigint; s_n0 bigint; s_ey bigint; s_ny bigint; s_n2y bigint; s_n3 bigint; s_n4 bigint; s_n5 bigint;
+    ea bigint; eb bigint; ec bigint; ed bigint; ef bigint; eg bigint; eh bigint; ei bigint; ej bigint;
   begin
     insert into public.duty_boards(title, status) values ('[시험] 알림 재료', 'open') returning id into bx;
     rr := duty_line_save(bx, jsonb_build_object('service','가','task','','start','09:00','end','10:00','capacity',3)); lx := (rr->>'id')::bigint;
@@ -357,6 +361,80 @@ begin
     if (duty_notify_rows(array[e_today])->0->>'ended')::boolean is distinct from ((now() at time zone 'Asia/Seoul')::time >= time '10:00') then
       raise exception '알림 재료 — 오늘 끝난 자리(ended): %', duty_notify_rows(array[e_today]);
     end if;
+
+    -- 고침 검토 반영(2026-10-07) — 시각을 못 박은 틀 둘로 「끝난 자리」의 참·거짓을 매번 본다 · to-past 의 경계 · 옮기기 전 자리의 live · hadUser 갈래 · 잡기의 날짜
+    for i in 1..3 loop
+      insert into public.users(identity_key, type, gu, mok, name) values ('교구|당번시험|9|||고침시험' || i, '교구', '당번시험', '9', '고침시험' || i) returning id into aid;
+      v := v || aid;
+    end loop;
+    rr := duty_line_save(bx, jsonb_build_object('service','새벽','task','','start','00:00','end','00:01','capacity',9)); le := (rr->>'id')::bigint;
+    rr := duty_line_save(bx, jsonb_build_object('service','밤','task','','start','23:58','end','23:59','capacity',9)); ln := (rr->>'id')::bigint;
+    if le is null or ln is null then raise exception '고침 검토 시험 준비(틀): %', rr; end if;
+    perform duty_date_add(bx, t0 - 2, array[ln]); perform duty_date_add(bx, t0 - 1, array[le, ln]); perform duty_date_add(bx, t0, array[le, ln]);
+    perform duty_date_add(bx, t0 + 3, array[ln]); perform duty_date_add(bx, t0 + 4, array[ln]); perform duty_date_add(bx, t0 + 5, array[ln]);
+    select id into s_e0  from public.duty_slots where line_id = le and on_date = t0;
+    select id into s_n0  from public.duty_slots where line_id = ln and on_date = t0;
+    select id into s_ey  from public.duty_slots where line_id = le and on_date = t0 - 1;
+    select id into s_ny  from public.duty_slots where line_id = ln and on_date = t0 - 1;
+    select id into s_n2y from public.duty_slots where line_id = ln and on_date = t0 - 2;
+    select id into s_n3  from public.duty_slots where line_id = ln and on_date = t0 + 3;
+    select id into s_n4  from public.duty_slots where line_id = ln and on_date = t0 + 4;
+    select id into s_n5  from public.duty_slots where line_id = ln and on_date = t0 + 5;
+    if s_e0 is null or s_n0 is null or s_ey is null or s_ny is null or s_n2y is null or s_n3 is null or s_n4 is null or s_n5 is null then raise exception '고침 검토 시험 준비(자리)'; end if;
+    -- ended: 오늘의 「새벽」 자리는 끝났고 「밤」 자리는 아직이다
+    rr := duty_apply(s_e0, v[1], '{"name":"고침시험1"}', true, true); ea := (rr->>'id')::bigint;
+    rr := duty_apply(s_n0, v[2], '{"name":"고침시험2"}', true, true); eb := (rr->>'id')::bigint;
+    if ea is null or eb is null then raise exception '오늘 자리에 넣기: %', rr; end if;
+    if (duty_notify_rows(array[ea])->0->>'ended')::boolean is not true then raise exception '끝난 자리(00:00~00:01)의 ended = true: %', duty_notify_rows(array[ea]); end if;
+    if (duty_notify_rows(array[eb])->0->>'ended')::boolean is not false then raise exception '안 끝난 자리(23:58~23:59)의 ended = false: %', duty_notify_rows(array[eb]); end if;
+    if (duty_notify_rows(array[ea])->0->>'past')::boolean is not false then raise exception '오늘 자리는 지난 날이 아니다'; end if;
+    -- to-past 의 경계: 오늘 줄 → 어제 자리 = 거절 · 어제 줄 → 그제 자리 = 된다(지난 기록끼리) · 지난 날 줄의 live = false
+    rr := duty_move(eb, s_ny, true); if rr->>'error' is distinct from 'to-past' then raise exception '오늘 줄 → 어제 자리(to-past): %', rr; end if;
+    rr := duty_apply(s_ny, v[3], '{"name":"고침시험3"}', true, true); ec := (rr->>'id')::bigint;
+    rr := duty_move(ec, s_n2y, true); if (rr->>'ok')::boolean is not true then raise exception '어제 줄 → 그제 자리는 된다(지난 기록 바로잡기): %', rr; end if;
+    if (select (moved_from->>'live')::boolean from public.duty_signups where id = ec) is not false then raise exception '지난 날 줄을 옮기면 live = false'; end if;
+    -- 옮기기 전 자리의 live: 앞날 줄 → 오늘 끝난 자리 = true(그분의 앞날 당번이 사라진다 — 알림이 간다) · 재료의 ended 는 옮겨 간 자리(끝남)
+    rr := duty_apply(s_n3, v[3], '{"name":"고침시험3"}', true, true); ed := (rr->>'id')::bigint;
+    rr := duty_move(ed, s_e0, true); if (rr->>'ok')::boolean is not true then raise exception '앞날 줄 → 오늘 끝난 자리는 된다: %', rr; end if;
+    rr := duty_notify_rows(array[ed])->0;
+    if (rr->>'ended')::boolean is not true or (rr->'movedFrom'->>'live')::boolean is not true or (rr->'movedFrom'->>'date')::date is distinct from t0 + 3 then
+      raise exception '앞날 줄 → 오늘 끝난 자리: ended · movedFrom.live = true: %', rr; end if;
+    -- 오늘 끝난 자리의 줄 → 오늘 안 끝난 자리 = false(끝난 자리를 떠났다) · 오늘 안 끝난 자리의 줄 → 오늘 끝난 자리 = true(남은 당번이 사라진다)
+    rr := duty_move(ea, s_n0, true);
+    if (rr->>'ok')::boolean is not true or (select (moved_from->>'live')::boolean from public.duty_signups where id = ea) is not false then raise exception '끝난 자리를 떠난 줄의 live = false: %', rr; end if;
+    rr := duty_move(eb, s_e0, true);
+    if (rr->>'ok')::boolean is not true or (select (moved_from->>'live')::boolean from public.duty_signups where id = eb) is not true then raise exception '안 끝난 자리를 떠난 줄의 live = true: %', rr; end if;
+    -- hadUser 갈래: 계정 없는 새 줄·이미 선 줄·되살림 = false · 되살리며 계정을 이음 = true · 서 있는 계정 없는 줄에 계정을 이음(linked) = true
+    rr := duty_apply(s_n4, null, '{"name":"고침시험가","ident_key":"staff|x|y|고침시험가"}', true, true); eg := (rr->>'id')::bigint;
+    if (rr->>'ok')::boolean is not true or (rr->>'hadUser')::boolean is not false then raise exception '계정 없는 새 줄(hadUser false): %', rr; end if;
+    rr := duty_apply(s_n4, null, '{"name":"고침시험가","ident_key":"staff|x|y|고침시험가"}', true, true);
+    if (rr->>'already')::boolean is not true or (rr->>'hadUser')::boolean is not false then raise exception '이미 선 계정 없는 줄(hadUser false): %', rr; end if;
+    perform duty_cancel(eg, null, true);
+    rr := duty_apply(s_n4, null, '{"name":"고침시험가","ident_key":"staff|x|y|고침시험가"}', true, true);
+    if (rr->>'revived')::boolean is not true or (rr->>'id')::bigint is distinct from eg or (rr->>'hadUser')::boolean is not false then raise exception '계정 없는 줄을 되살림(hadUser false): %', rr; end if;
+    rr := duty_apply(s_n5, null, '{"name":"고침시험나","ident_key":"person|T-FIX-1"}', true, true); eh := (rr->>'id')::bigint;
+    perform duty_cancel(eh, null, true);
+    rr := duty_apply(s_n5, v[1], '{"name":"고침시험나","ident_key":"person|T-FIX-1"}', true, true);
+    if (rr->>'revived')::boolean is not true or (rr->>'id')::bigint is distinct from eh or (rr->>'hadUser')::boolean is not true then raise exception '되살리며 계정을 이음(hadUser true): %', rr; end if;
+    if (select user_id from public.duty_signups where id = eh) is distinct from v[1] then raise exception '되살린 줄에 계정이 이어졌다'; end if;
+    rr := duty_apply(s_n5, v[1], '{"name":"고침시험나","ident_key":"person|T-FIX-1"}', true, true);
+    if (rr->>'already')::boolean is not true or (rr->>'hadUser')::boolean is not true or (rr ? 'linked') then raise exception '이미 선 계정 줄(hadUser true · linked 아님): %', rr; end if;
+    rr := duty_apply(s_n4, null, '{"name":"고침시험다","ident_key":"person|T-FIX-2"}', true, true); ei := (rr->>'id')::bigint;
+    rr := duty_apply(s_n4, v[2], '{"name":"고침시험다","ident_key":"person|T-FIX-2"}', true, true);
+    if (rr->>'already')::boolean is not true or (rr->>'linked')::boolean is not true or (rr->>'hadUser')::boolean is not true or (rr->>'id')::bigint is distinct from ei then
+      raise exception '서 있는 계정 없는 줄에 계정을 이음(linked · hadUser true): %', rr; end if;
+    -- 잡기의 날짜(전날 알림): 날짜가 다르면 안 잡는다 · 옮긴 뒤 옛 날짜로는 안 잡힌다(새 날짜로는 잡힌다) · 날짜를 안 주면 보지 않는다(확정) · 함수는 한 꼴뿐
+    rr := duty_apply(s_n3, v[2], '{"name":"고침시험2"}', true, true); ej := (rr->>'id')::bigint;
+    if ej is null then raise exception '잡기 시험 준비: %', rr; end if;
+    if cardinality(duty_notify_claim('remind', array[ej], t0 + 4)) is distinct from 0 then raise exception '날짜가 다른 줄은 잡지 않는다'; end if;
+    if exists (select 1 from public.duty_notify_log where signup_id = ej) then raise exception '안 잡은 줄에 기록이 남지 않는다'; end if;
+    rr := duty_move(ej, s_n5, true); if (rr->>'ok')::boolean is not true then raise exception '옮기기(잡기 시험): %', rr; end if;
+    if cardinality(duty_notify_claim('remind', array[ej], t0 + 3)) is distinct from 0 then raise exception '옮긴 뒤 옛 날짜로는 잡히지 않는다'; end if;
+    if cardinality(duty_notify_claim('remind', array[ej], t0 + 5)) is distinct from 1 then raise exception '새 날짜로는 잡힌다'; end if;
+    if cardinality(duty_notify_claim('remind', array[ej], t0 + 5)) is distinct from 0 then raise exception '같은 알림은 한 번(날짜를 줘도)'; end if;
+    if cardinality(duty_notify_claim('confirmed', array[ej])) is distinct from 1 then raise exception '날짜를 안 주면 보지 않는다(확정)'; end if;
+    if (select count(*) from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace where ns.nspname = 'public' and p.proname = 'duty_notify_claim') is distinct from 1 then
+      raise exception '잡기 함수는 한 꼴뿐이어야 한다(옛 꼴이 남으면 이름으로 부를 때 못 고른다)'; end if;
   end;
 
   -- ── 자리 틀 고치기 · 빼기 ──

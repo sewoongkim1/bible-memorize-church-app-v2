@@ -152,7 +152,7 @@
 | `duty_move(signup, to_slot, force)` | **같은 줄의 자리만 바꾼다**(빼고 넣기가 아니다) · 같은 당번 안에서만 |
 | `duty_ask(signup, user, why)` | 잠긴 내 줄에 「못 가게 됐어요」 표시·거두기 |
 | `duty_notify_claim(kind, ids)` → `bigint[]` | 알림 줄 잡기 |
-| `duty_list_view(user)` · `duty_board_view(board, user)` · `duty_mine(user)` · `duty_roster(board, from, to)` · `duty_remind_rows(date)` | 화면·알림이 읽는 jsonb |
+| `duty_list_view(user)` · `duty_board_view(board, user)` · `duty_mine(user)` · `duty_roster(board, from, to)` · `duty_notify_rows(ids)` | 화면·알림이 읽는 jsonb(전날 알림의 대상은 `duty_remind_ids(date)` — 번호만) |
 
 ## 5. 규칙
 
@@ -250,7 +250,7 @@ api 가 SQL 앞에서 보는 것: 문(§7) · users 줄이 있는가 · 어린�
 
 **성경암송 `api`(성도님 · 응답에 `user_id` 금지 · 문은 모두 서버에서)**
 `dutyList` · `dutyBoard` · `dutyApply`(`ack_locked`) · `dutyCancel` · `dutyMine` · `dutyAsk`
-내부(`x-internal-key`): `internalDutyNotify`(교회 어드민 → 확정 · 담당자가 바꾼 것 · 쉬는 날) · `internalDutyRemind`(크론 → 전날 알림 · 몸통을 읽지 않는다)
+내부(`x-internal-key`): `internalDutyNotify`(교회 어드민 → 확정 · 담당자가 바꾼 것 · 쉬는 날) · `internalDutyRemind`(크론 → 전날 알림 · 한국 19시 전에는 `too-early` — 개발 시험만 몸통에 `anytime:true`)
 
 **교회 어드민 `church-admin`**
 
@@ -266,18 +266,18 @@ api 가 SQL 앞에서 보는 것: 문(§7) · users 줄이 있는가 · 어린�
 
 ## 10. 알림
 
-보내는 길은 api 한 곳(`dutyNotifySend`) — 문(§7) · 한 번만(`duty_notify_claim`) · 기기(웹 푸시 + 아이폰) · `push_log` 한 줄. 교회 어드민은 **저장·기록이 끝난 뒤** 부탁만 한다(실패해도 저장은 성공 — 응답에 `notified`·`notifyError`).
+보내는 길은 api 한 곳(`dutyNotifySend`) — 문(§7) · 한 번만(`duty_notify_claim`) · 기기(웹 푸시 + 아이폰) · `push_log` 한 줄. 교회 어드민은 **저장·기록이 끝난 뒤** 부탁만 한다(실패해도 저장은 성공 — 응답에 `notified`(실제로 나간 분)·`missed`(가지 않은 분)·`notifyError`(`notify-failed`·`notify-off`) — 지금의 규칙은 `docs/notes/duty-roster.md` 「알림」 절이 맞다).
 
 | 언제 | 누구에게 | 글 |
 |---|---|---|
 | 담당자가 날짜를 확정 | 그날 살아 있는 분 | 「10월 18일(일) 식당 봉사 2부 설거지 당번이 확정됐어요. 이제 앱에서는 취소할 수 없어요 — 못 오시면 담당자께 알려 주세요」 |
 | 전날 19:00 | 내일 당번인 분(한 분의 여러 자리는 한 통에) | 「내일 10월 18일(일) 당번이에요 — 식당 봉사 2부 설거지 11:30 · 식당」 |
 | 잠긴 날에 앱 지원이 들어옴 | 그 계정 | 「10월 18일(일) 식당 봉사 2부 설거지에 지원하셨어요 — 확정된 날이라 앱에서 취소할 수 없어요」 |
-| 담당자가 넣음(잠긴 날) · 옮김 · 뺌 | 그분(오늘 이후 자리만) | 「담당자가 … 당번에 넣어 드렸어요」 · 「… 당번이 2부 → 1부(09:00)로 바뀌었어요」 · 「… 당번에서 빼 드렸어요 — 안 나오셔도 돼요」 |
+| 담당자가 넣음(잠긴 날 · 되살린 줄은 잠기지 않은 날에도) · 옮김 · 뺌 | 그분(오늘 이후 자리만) | 「담당자가 … 당번에 넣어 드렸어요」 · 「… 당번이 2부 → 1부(09:00)로 바뀌었어요」 · 「… 당번에서 빼 드렸어요 — 안 나오셔도 돼요」 |
 | 쉬는 날로 / 다시 열기 | 그날 살아 있는 분 | 「10월 18일(일) 식당 봉사 당번은 쉬어요 — 안 나오셔도 돼요」 · 「… 당번을 다시 서요」 |
 
 - 전날 저녁 저절로 잠긴 날은 확정 알림을 따로 보내지 않는다(전날 알림 한 통).
-- 크론은 **전날 알림만** 맡는다(잠금은 §5-1 이 셈한다) — `duty-remind` 매일 10:00 UTC · 키는 Vault(교육과 같은 비밀 이름을 읽는다) · 개발 DB 엔 pg_cron 이 없어 손으로 불러 시험.
+- 크론은 **전날 알림만** 맡는다(잠금은 §5-1 이 셈한다) — `duty-remind` 매일 10:00·10:20 UTC(19:00·19:20 한국 — 둘째는 첫 부름의 일시 오류를 덮는다) · 키는 Vault(교육과 같은 비밀 이름을 읽는다) · 개발 DB 엔 pg_cron 이 없어 손으로 불러 시험.
 - 아이폰 앱은 알림을 눌러도 화면이 열리지 않는다 — 글만 보고 갈 수 있게 날짜·자리·시각·장소를 싣는다.
 - 주별 명단의 「앱 없음」 = 그 줄에 앱 계정이 없다(알림이 안 간다 — 담당자가 따로 챙긴다).
 

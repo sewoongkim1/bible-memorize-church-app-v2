@@ -142,3 +142,23 @@ test('기록 합치기가 duty_signups 를 안다(네 자리 + 옮기기)', () =
   const upd = body.indexOf('update public.duty_signups set user_id=t.id');
   assert.ok(del >= 0 && upd > del, '같은 자리의 겹친 줄을 **먼저** 정리하고 옮긴다 — 거꾸로면 unique(slot_id, user_id) 에 걸려 합치기가 멈춘다');
 });
+
+test('고침 검토 반영(2026-10-07) — 옮기기 전 자리의 live · 전날 알림 잡기의 날짜(옛 꼴은 지우고 만든다 · 권한 줄은 새 꼴) · 알림 재료의 칸 · hadUser 네 갈래', () => {
+  const body = (name) => { const a = sql.indexOf('create or replace function public.' + name + '('); assert.ok(a >= 0, name); return sql.slice(a, sql.indexOf('$$;', a)); };
+  const mv = body('duty_move');
+  assert.ok(mv.includes("'live', (s1.on_date > duty_today() or (s1.on_date = duty_today() and (now() at time zone 'Asia/Seoul')::time < l1.end_time))"), 'moved_from.live — 떠나는 자리가 아직 안 끝났나(앞날 · 오늘 끝 시각 전)');
+  assert.ok(mv.includes("if s2.on_date < duty_today() and s1.on_date >= duty_today() then return jsonb_build_object('ok',false,'error','to-past'); end if;"), 'to-past — 앞날(오늘 포함) 줄 → 지난 날 자리만');
+  const iDrop = sql.indexOf('drop function if exists public.duty_notify_claim(text, bigint[]);'), iMake = sql.indexOf('create or replace function public.duty_notify_claim(p_kind text, p_ids bigint[], p_date date default null)');
+  assert.ok(iDrop > 0 && iMake > iDrop, '옛 꼴(인자 둘)을 지우고 만든다');
+  const cl = body('duty_notify_claim');
+  assert.ok(cl.includes('and not s.off and not d.off and (p_date is null or s.on_date = p_date)') && cl.includes('on conflict (signup_id, kind) do nothing') && cl.includes("e.status = 'active' and e.user_id is not null"));
+  assert.ok(sql.includes('revoke all on function public.duty_notify_claim(text, bigint[], date) from public, anon, authenticated;') && sql.includes('grant execute on function public.duty_notify_claim(text, bigint[], date) to service_role;'));
+  assert.equal(/duty_notify_claim\(text, bigint\[\]\) (from|to) /.test(sql), false, '옛 꼴의 권한 줄이 남지 않았다');
+  const rows = body('duty_notify_rows');
+  for (const k of ["'confirmed', d.confirmed_at is not null", "'ended', (s.on_date = duty_today() and (now() at time zone 'Asia/Seoul')::time >= l.end_time)",
+    "x.slot_id = e.slot_id and x.id <> e.id and x.status = 'active'", "'movedFrom', e.moved_from", "b.status in ('open','closed')"]) assert.ok(rows.includes(k), k);
+  const ap = body('duty_apply');
+  assert.equal((ap.match(/'hadUser'/g) || []).length, 4, 'duty_apply 의 성공 갈래 넷(이음 · 이미 · 되살림 · 새 줄)마다 hadUser');
+  assert.ok(ap.includes("'linked',true,'hadUser',true") && ap.includes("'already',true,'locked',v_locked,'hadUser',e.user_id is not null")
+    && ap.includes("'hadUser',(select y.user_id is not null from public.duty_signups y where y.id = e.id)"), '되살림은 쓰고 난 줄을 다시 읽는다(되살리며 계정을 잇는 경우)');
+});

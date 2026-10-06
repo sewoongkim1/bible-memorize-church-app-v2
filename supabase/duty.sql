@@ -111,7 +111,9 @@ create index if not exists duty_slots_date on public.duty_slots(on_date);       
 --     담당자가 뺀 줄(staff)은 본인이 그 자리에 스스로 다시 지원하지 못한다(duty_apply removed-by-staff) — 담당자는 다시 넣을 수 있다.
 --   ask_at·ask_why = 잠긴 뒤 「못 가게 됐어요」(cant) · 「잘못 눌렀어요」(mistake) · 「제가 한 게 아니에요」(notme) — 줄은 그대로, 빼는 것은 담당자
 --   staff_note = 담당자만 보는 메모(앱 응답·엑셀에 싣지 않는다)
---   moved_at·moved_from = 담당자가 옮긴 때와 옮기기 전 자리({date, service, task, start}) — 내 당번에 「담당자가 2부 → 1부로 바꿨어요」로 그날까지 보인다
+--   moved_at·moved_from = 담당자가 옮긴 때와 옮기기 전 자리({date, service, task, start, live}) — 내 당번에 「담당자가 2부 → 1부로 바꿨어요」로 그날까지 보인다
+--     live = 옮기는 순간 그 옛 자리가 **아직 안 끝났었나**(앞날 · 오늘이지만 끝 시각 전). 알림이 본다 — 오늘 이미 끝난 자리로 옮겨도 그분의 남은 당번이
+--     사라지는 것이면 「옮겨 드렸어요」를 보낸다(끝난 자리끼리·지난 날 줄의 바로잡기는 false 라 조용하다 · 고침 검토 반영 2026-10-07).
 --   source = 'staff'(담당자가 넣은 줄)는 본인이 앱에서 스스로 빼지 못한다(duty_cancel staff-row) — 담당자가 정한 것은 담당자가 바꾼다. 「못 가게 됐어요」로 알린다.
 create table if not exists public.duty_signups (
   id         bigint generated always as identity primary key,
@@ -757,6 +759,8 @@ begin
   if s2.id = s1.id then return jsonb_build_object('ok',true,'already',true); end if;
   -- 앞날(오늘 포함) 줄을 지난 날 자리로는 옮기지 않는다 — 그분의 앞날 당번이 사라지는데 알림은 지난 날을 거르므로 아무 말도 못 듣는다
   --   (화면의 옮길 자리 고르기도 지난 날을 빼 준다 · 지난 기록을 바로잡으려면 빼고 그날 자리에 넣는다 — 검토 반영 2026-10-07)
+  --   ⚠️ **오늘 이미 끝난 자리**로 옮기는 것은 받는다(「다음 주 대신 오늘 서 주셨다」를 적는 손길) — 그때도 앞날 당번은 사라지므로, 떠나는 자리가
+  --      아직 안 끝났으면 알림이 간다(아래 moved_from.live → api dutyNoteKeep · 고침 검토 반영 2026-10-07).
   if s2.on_date < duty_today() and s1.on_date >= duty_today() then return jsonb_build_object('ok',false,'error','to-past'); end if;
   perform pg_advisory_xact_lock(7240910, 1);                                                                       -- ⓪ 전역(지원 줄을 쓴다)
   perform duty_person_lock(e.user_id, e.ident_key);                                                                -- ① 사람
@@ -802,7 +806,8 @@ begin
   -- 전날 알림 기록은 늘 지운다(새 자리로 다시 알린다) · 날짜가 바뀌면 확정 알림 기록도 지운다(새 날짜를 확정할 때 그분께도 가게)
   delete from public.duty_notify_log where signup_id = e.id and (kind = 'remind' or s1.on_date <> s2.on_date);
   update public.duty_signups set slot_id = p_to_slot, ask_at = null, ask_why = null, moved_at = now(),
-      moved_from = jsonb_build_object('date', s1.on_date, 'service', l1.service, 'task', l1.task, 'start', to_char(l1.start_time, 'HH24:MI')),
+      moved_from = jsonb_build_object('date', s1.on_date, 'service', l1.service, 'task', l1.task, 'start', to_char(l1.start_time, 'HH24:MI'),
+        'live', (s1.on_date > duty_today() or (s1.on_date = duty_today() and (now() at time zone 'Asia/Seoul')::time < l1.end_time))),
       updated_at = now() where id = e.id;
   return jsonb_build_object('ok',true,
     'from', jsonb_build_object('date', s1.on_date, 'service', l1.service, 'task', l1.task, 'start', to_char(l1.start_time, 'HH24:MI')),
@@ -1190,7 +1195,12 @@ $$;
 -- 알림 줄 잡기 — p_ids 가운데 **지금 살아 있고 앱 계정이 있고 쉬는 날·쉬는 자리가 아닌** 지원만, 그 kind 의 줄이 아직 없으면 넣고 넣은 번호를 돌려준다.
 --   한 문장이라 동시에 두 번 불러도 한 번만 잡힌다 — api 는 **잡힌 번호에만** 보낸다(보내기 전에 잡는다).
 --   ⚠️ 돌려주는 것은 bigint[] 하나다(표로 돌려주면 PostgREST 가 1,000줄에서 자른다 — 교육 edu_notify_claim 과 같다).
-create or replace function public.duty_notify_claim(p_kind text, p_ids bigint[])
+--   p_date 를 주면 **그 날짜 자리의 줄만** 잡는다(전날 알림 — api 가 고른 「내일」). 재료를 읽은 뒤·잡기 전에 다른 날로 옮겨진 줄을 옛 날짜로 잡으면
+--   「내일」이 틀린 날짜로 가고, 새 날짜의 전날 알림은 이미 잡힌 줄이라 영영 안 간다(고침 검토 반영 2026-10-07). 안 주면 날짜를 보지 않는다(확정).
+--   ⚠️ 인자를 하나 더했다 — 옛 꼴(text, bigint[])이 함께 남으면 이름으로 부를 때 둘 가운데 못 고른다 → 지우고 만든다(같은 트랜잭션 · 권한은 파일 끝이
+--      다시 건다 · 다시 돌려도 안전). 옛 api(인자 둘)는 이 꼴을 그대로 부른다(p_date 기본값) · 새 api 는 옛 꼴뿐인 DB 에서 인자 둘로 물러선다.
+drop function if exists public.duty_notify_claim(text, bigint[]);
+create or replace function public.duty_notify_claim(p_kind text, p_ids bigint[], p_date date default null)
 returns bigint[] language sql security definer set search_path = public as $$
   with ins as (
     insert into public.duty_notify_log as g (signup_id, kind)
@@ -1199,7 +1209,7 @@ returns bigint[] language sql security definer set search_path = public as $$
       join public.duty_slots s on s.id = e.slot_id
       join public.duty_days  d on d.board_id = s.board_id and d.on_date = s.on_date
      where e.id = any(coalesce(p_ids, array[]::bigint[])) and e.status = 'active' and e.user_id is not null
-       and not s.off and not d.off
+       and not s.off and not d.off and (p_date is null or s.on_date = p_date)
     on conflict (signup_id, kind) do nothing
     returning g.signup_id
   )
@@ -1211,7 +1221,7 @@ $$;
 --   past(지난 날), pastCutoff(전날 저녁이 지났다 — 저절로 잠긴 날 · 이런 날을 담당자가 또 확정해도 「이제 취소할 수 없어요」를 보내지 않는다),
 --   ended(오늘이고 그 자리의 끝 시각이 지났다 — 끝난 자리를 바로잡는 넣기·빼기·옮기기·쉼에는 알리지 않는다),
 --   dup(같은 자리에 같은 이름의 살아 있는 다른 줄이 있다 — 겹친 줄을 정리하며 앱 줄을 뺀 것이면 「빼 드렸어요」를 보내지 않는다: 그분은 남은 줄로 서 있다),
---   movedFrom(담당자가 옮기기 전 자리 {date, service, task, start})}.
+--   movedFrom(담당자가 옮기기 전 자리 {date, service, task, start, live: 옮기는 순간 그 자리가 아직 안 끝났었나})}.
 --   앱 계정이 있는 줄만(끝난 줄도 준다 — 「빼 드렸어요」 알림). 준비·보관 당번의 줄은 주지 않는다(알림 없음).
 create or replace function public.duty_notify_rows(p_ids bigint[])
 returns jsonb language sql stable security definer set search_path = public as $$
@@ -1277,7 +1287,7 @@ revoke all on function public.duty_list_view(uuid) from public, anon, authentica
 revoke all on function public.duty_roster(uuid, date, date) from public, anon, authenticated;
 revoke all on function public.duty_board_counts(uuid[]) from public, anon, authenticated;
 revoke all on function public.duty_after_count(uuid, date) from public, anon, authenticated;
-revoke all on function public.duty_notify_claim(text, bigint[]) from public, anon, authenticated;
+revoke all on function public.duty_notify_claim(text, bigint[], date) from public, anon, authenticated;
 revoke all on function public.duty_notify_rows(bigint[]) from public, anon, authenticated;
 revoke all on function public.duty_remind_ids(date) from public, anon, authenticated;
 grant execute on function public.duty_today() to service_role;
@@ -1309,7 +1319,7 @@ grant execute on function public.duty_list_view(uuid) to service_role;
 grant execute on function public.duty_roster(uuid, date, date) to service_role;
 grant execute on function public.duty_board_counts(uuid[]) to service_role;
 grant execute on function public.duty_after_count(uuid, date) to service_role;
-grant execute on function public.duty_notify_claim(text, bigint[]) to service_role;
+grant execute on function public.duty_notify_claim(text, bigint[], date) to service_role;
 grant execute on function public.duty_notify_rows(bigint[]) to service_role;
 grant execute on function public.duty_remind_ids(date) to service_role;
 

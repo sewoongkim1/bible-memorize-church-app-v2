@@ -53,6 +53,9 @@ end $$;
 --               where jobid = (select jobid from cron.job where jobname = 'duty-remind') order by start_time desc limit 5;
 -- 보낸 기록:  select sent_at, mode, sent, failed, total, ok from push_log where mode = 'duty-remind' order by sent_at desc limit 10;
 --            (내일 당번인 분이 없으면 push_log 줄도 없다 — api 응답 {ok, day, rows:0, sent:0, missed:0})
--- 돌았나:    select value from app_config where key = 'dutyRemindRun';   -- api 가 돌 때마다 남기는 흔적 {at, day, rows, sent, missed}
+-- 돌았나:    select value from app_config where key = 'dutyRemindRun';   -- api 가 돌 때마다 남기는 흔적 {at, day, rows, sent, missed, runs[, off, held]}
+--            (같은 날의 부름을 더한다 — runs = 그 날 돈 횟수 · at = 마지막으로 돈 때 · off = 마지막 부름이 꺼 둔 채였다(app_config dutyNotifyOff) · held = 그때 가지 못한 분 수)
+--            ⚠️ 흔적이 아직 없는 곳은 monitor 가 못 본다 — 처음 걸거나 다시 건 날은 같은 길(net.http_post + Vault 의 키)로 한 번 불러 net._http_response 의 응답을 본다
+--               (docs/notes/duty-roster.md 「3단계에서 밟은 길」 5 · 주소·액션 이름이 틀린 사본으로 걸면 이 확인만이 잡는다 — 이 파일은 주소의 꼴만 본다).
 --            (크론은 net.http_post 를 넣기만 하면 succeeded 다 — 키가 틀려 api 가 unauthorized 를 준 것은 이 흔적이 멈춘 것으로 안다 · monitor 가 26시간을 본다)
 -- 해제:      select cron.unschedule('duty-remind');   delete from app_config where key = 'dutyRemindRun';   -- 흔적도 지운다(안 지우면 monitor 가 「돌지 않았다」고 알린다)

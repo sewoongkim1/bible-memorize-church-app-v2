@@ -18,7 +18,7 @@ const APP_BUILD = "20261007d";
     let first = "";
     try {
       const u0 = new URL(location.href);
-      if (u0.searchParams.get("from") === "push") u0.searchParams.delete("from");   // 알림 누름을 두 번 세지 않게
+      if (u0.searchParams.get("from") === "push") u0.searchParams.delete("from");   // 앱이 이미 읽어 센 표식을 다시 싣지 않게(아직 안 읽었으면 아래에서 그대로 reload)
       u0.hash = "";
       first = u0.toString();
     } catch (_) {}
@@ -39,8 +39,12 @@ const APP_BUILD = "20261007d";
           : null;
       })
       .then(function () {
-        // 주소가 그대로면 reload · 앱이 그사이 주소를 정리했으면 처음 주소로(같은 주소로 replace 하면 # 만 있는 주소에서 다시 받지 않는 브라우저가 있다)
-        if (first && first !== location.href.split("#")[0]) location.replace(first); else location.reload();
+        // ① 앱이 알림 표식(from=push)을 **아직 안 읽었으면**(주소에 남아 있다) 그대로 다시 받는다 — 새로 뜬 실행이 한 번 센다. 표식 없는 처음 주소로 갈아 끼우면
+        //    그 알림 누름이 한 번도 안 세어진다(다시 받기가 첫 그리기보다 먼저 끝나는 것이 배포 직후의 보통 차례다 — 고침 검토 반영 2026-10-07).
+        // ② 주소가 그대로면 reload · 앱이 그사이 주소를 정리했으면(읽고 지웠다) 처음 주소로(같은 주소로 replace 하면 # 만 있는 주소에서 다시 받지 않는 브라우저가 있다)
+        var unread = false;
+        try { unread = new URL(location.href).searchParams.get("from") === "push"; } catch (_) {}
+        if (!unread && first && first !== location.href.split("#")[0]) location.replace(first); else location.reload();
       })
       .catch(function () {});
   } catch (_) {}
@@ -5131,17 +5135,32 @@ function renderSettings() {
 async function clearMeOnThisDevice() {
   const u = loadUser();
   const who = u ? userLabel(u) : "이 기기";
+  // 아이폰 앱만 — 알림은 계정에 묶인 기기 토큰을 서버에서 지워야 꺼진다(js/push.js disablePush). 토큰은 앱 껍데기만 알아 이 기기 것만 골라 지울 수 없다 →
+  //   같은 이름으로 쓰는 다른 아이폰도 그 폰에서 앱을 다시 열 때까지 알림이 멈춘다. 그 말을 여기서 한다(고침 검토 반영 2026-10-07 · 웹·안드로이드 문장은 그대로).
+  const native = typeof isNativeApp === "function" && isNativeApp();
   const ok = await appConfirm(
     `<b>${who}</b> 님의 정보를 이 기기에서 지웁니다.<br><br>` +
       `암송 기록은 <b>서버에 그대로 남아</b> 있어서, 나중에 같은 이름으로 다시 들어오시면 진도가 그대로 이어집니다.<br><br>` +
-      `이 기기의 알림도 함께 꺼집니다.`,
+      `이 기기의 알림도 함께 꺼집니다.` +
+      (native ? `<br>(같은 이름으로 쓰시는 다른 아이폰의 알림도, 그 폰에서 앱을 다시 여실 때까지 꺼져요.)` : ""),
     { title: "🚪 내 정보 지우기", okText: "지우기", danger: true }
   );
   if (!ok) return;
-  if (typeof disablePush === "function") await disablePush(true); // 다음 사람에게 내 알림이 가지 않도록
+  // 다음 사람에게 내 알림이 가지 않도록. 아이폰 앱은 서버가 지워 줘야 꺼진다 — 못 지웠으면(false · 통신) 「꺼집니다」가 거짓이 되므로 **지우기 전에** 말하고 고르게 한다
+  //   (정보를 지운 뒤에는 계정 번호가 없어 다시 부를 수 없다 · 막기만 하면 통신이 안 되는 공용 기기에서 정보를 지울 수 없다).
+  let pushOff = true;
+  if (typeof disablePush === "function") pushOff = (await disablePush(true)) !== false;
+  if (!pushOff) {
+    const go = await appConfirm(
+      `알림을 끄지 못했어요(통신이 고르지 않아요).<br><br>이대로 지우면 <b>${who}</b> 님의 알림이 이 아이폰에 계속 올 수 있어요.<br>` +
+        `「취소」를 누르고 잠시 뒤 다시 해 보시거나, 그대로 지우신 뒤 아이폰 설정 → 고척교회 성경암송 → 알림에서 꺼 주세요.`,
+      { title: "🔔 알림을 끄지 못했어요", okText: "그래도 지우기", danger: true });
+    if (!go) return;
+  }
   clearPersonalData();
   stopSpeaking();
-  await appAlert("이 기기에서 정보를 지웠습니다.<br>다음 분이 새로 시작하실 수 있어요.");
+  await appAlert("이 기기에서 정보를 지웠습니다.<br>다음 분이 새로 시작하실 수 있어요." +
+    (pushOff ? "" : "<br><br>알림은 끄지 못했어요 — 아이폰 설정 → 고척교회 성경암송 → 알림에서 꺼 주세요."));
   renderEntryScreen();
 }
 

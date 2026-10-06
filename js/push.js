@@ -202,13 +202,18 @@ async function disablePush(silent) {
   if (isNativeApp()) {
     // 「내 정보 지우기」(silent) — 이 계정에 묶인 아이폰 기기 토큰을 서버에서 지운다. 안 지우면 다음 분이 로그인해 앱이 다시 앞에 올 때까지 앞 계정의 알림
     //   (당번·교육은 그분의 날짜·자리다)이 이 아이폰에 뜬다 — 화면은 「이 기기의 알림도 함께 꺼집니다」라고 말한다(검토 반영 2026-10-07).
-    //   앱 껍데기는 로그인한 계정이 있을 때만 토큰을 다시 저장한다(AppDelegate attemptSavePushToken) — 지운 뒤에는 다음 분이 로그인할 때 그분 것으로 등록된다.
+    //   앱 껍데기는 로그인한 계정이 있을 때만, **앱이 앞에 올 때** 토큰을 다시 저장한다(AppDelegate attemptSavePushToken) — 지운 뒤에는 다음 분이 로그인하고
+    //   앱이 한 번 뒤로 갔다 앞에 올 때 그분 것으로 등록된다(로그인만으로는 껍데기가 깨지 않는다). 그 계정의 토큰을 모두 지우므로(토큰은 껍데기만 안다)
+    //   같은 이름으로 쓰는 다른 아이폰도 그 폰에서 앱을 다시 열 때까지 알림이 멈춘다 — 확인 창(app.js clearMeOnThisDevice)이 그렇게 말한다.
+    //   돌려주는 것 = 이 기기의 알림이 꺼졌나: 지울 줄이 없으면(계정 번호를 받기 전) 참 · 서버가 지웠으면 참 · **못 지웠으면 거짓**(한 번 더 해 본 뒤) —
+    //   삼키면 「이 기기의 알림도 함께 꺼집니다」가 거짓으로 남는다(아이폰은 서버 줄을 지우는 것이 유일한 길이다 · 고침 검토 반영 2026-10-07).
     if (silent) {
-      try {
-        const u0 = (typeof loadUser === "function") ? loadUser() : null;
-        if (u0 && u0.user_id && api.removeIosPush) await api.removeIosPush(u0.user_id);
-      } catch (e) {}
-      return;
+      const u0 = (typeof loadUser === "function") ? loadUser() : null;
+      if (!u0 || !u0.user_id || !api.removeIosPush) return true;
+      for (let i = 0; i < 2; i++) {
+        try { const r = await api.removeIosPush(u0.user_id); if (r && r.ok === true) return true; } catch (e) {}
+      }
+      return false;
     }
     appAlert("이 앱의 알림은 아이폰 설정 → 고척교회 성경암송 → 알림에서 꺼주세요.");
     return;
