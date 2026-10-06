@@ -76,15 +76,16 @@ function eduMineView(m) {
     cancelBtn: m.canCancel ? (wait ? '대기 취소' : '신청 취소') : null,
     cancelAsk: wait ? '대기를 취소할까요?' : '신청을 취소할까요?' };
 }
-function eduPhaseLabel(c) {
-  if (c.phase === 'upcoming') return c.applyFrom ? eduMd(c.applyFrom) + '부터 신청' : '곧 신청을 받아요';
-  if (c.phase === 'closed') return '모집 끝';
-  if (c.phase === 'running') return '진행 중';
-  if (c.capacity == null) return '모집 중';
-  if (c.confirmed >= c.capacity) return c.waitlist ? '모집 중 · 정원 참 · 대기 ' + (c.waitlisted || 0) : '정원 참';
-  return '모집 중 · ' + c.confirmed + '/' + c.capacity;
+function eduCardLine(c) {   // 목록 카드 마지막 줄 — 자세히 화면 「자리·신청」 칸과 같은 말(「0/24」 대신 「24자리 남았어요」). 누를 것 없는 상태는 굵은 줄만
+  var v = eduSeatView(c, true);
+  return v.head + (!v.off && v.sub ? ' · ' + v.sub : '');
 }
-function eduStatusLine(m) { return m.status === 'waitlisted' ? '대기 ' + (m.waitNo || 1) + '번' : m.statusLabel; }
+function eduStatusLine(m) {   // 「내 강좌」 카드 칩 — 성도님 화면에 「반려」를 쓰지 않는다(자세히 화면 ⑫ 와 같은 말)
+  if (m.status === 'waitlisted') return '대기 ' + (m.waitNo || 1) + '번';
+  if (m.status === 'declined') return '확정되지 않음';
+  if (m.status === 'applied') return '확인 중';
+  return m.statusLabel;
+}
 function eduErrText(code) {
   var W = { 'full': '정원이 찼어요.', 'too-late': '시작한 뒤에는 앱에서 취소할 수 없어요. 담당자에게 말씀해 주세요.',
     'not-open': '아직 신청을 받지 않아요.', 'not-yet': '아직 신청 기간이 아니에요.', 'closed-period': '신청 기간이 지났어요.',
@@ -372,7 +373,7 @@ function eduDrawList(tab) {
       return '<div class="edu-card" data-i="' + i + '"><span class="edu-k">' + eduEsc(c.kindLabel) + '</span>' +
         '<b>' + eduEsc(c.title) + (c.term ? ' <small>(' + eduEsc(c.term) + ')</small>' : '') + '</b>' +
         (c.firstDate ? '<span>' + eduEsc(eduMd(c.firstDate)) + (c.lastDate && c.lastDate !== c.firstDate ? ' ~ ' + eduEsc(eduMd(c.lastDate)) : '') + (c.sessionsCount ? ' · ' + c.sessionsCount + '회' : '') + '</span>' : '') +
-        '<span>' + eduEsc(eduPhaseLabel(c)) + (c.mode === 'approve' ? ' · 담당자 확정' : '') + '</span></div>'; }).join('')
+        '<span>' + eduEsc(eduCardLine(c)) + '</span></div>'; }).join('')
       : '<p class="edu-empty">' + (tab === 'soon' ? '곧 열릴 강좌가 없어요.' : '지금 모집 중인 강좌가 없어요.') + '</p>';
   }
   var door = (!eduState.open && tab !== 'mine') ? '<p class="edu-empty">' + eduErrText('not-open') + '</p>' : '';

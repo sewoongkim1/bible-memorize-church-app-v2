@@ -7,19 +7,6 @@ const a = src.indexOf('// ── 교육 순수 함수 (여기부터) ──'), b
 assert.ok(a >= 0 && b > a, '표식을 못 찾았다');
 const ctx = {}; vm.createContext(ctx); vm.runInContext(src.slice(a, b), ctx);
 
-test('eduPhaseLabel', () => {
-  assert.equal(ctx.eduPhaseLabel({ phase: 'upcoming', applyFrom: '2027-01-03' }), '1월 3일부터 신청');
-  assert.equal(ctx.eduPhaseLabel({ phase: 'open', capacity: 20, confirmed: 14, waitlisted: 0, mode: 'auto' }), '모집 중 · 14/20');
-  assert.equal(ctx.eduPhaseLabel({ phase: 'open', capacity: 20, confirmed: 20, waitlisted: 3, mode: 'auto', waitlist: true }), '모집 중 · 정원 참 · 대기 3');
-  assert.equal(ctx.eduPhaseLabel({ phase: 'closed' }), '모집 끝');
-  assert.equal(ctx.eduPhaseLabel({ phase: 'running' }), '진행 중');
-});
-
-test('eduStatusLine', () => {
-  assert.equal(ctx.eduStatusLine({ status: 'waitlisted', statusLabel: '대기', waitNo: 1 }), '대기 1번');
-  assert.equal(ctx.eduStatusLine({ status: 'confirmed', statusLabel: '확정' }), '확정');
-});
-
 test('eduErrText', () => {
   assert.equal(ctx.eduErrText('full'), '정원이 찼어요.');
   assert.equal(ctx.eduErrText('too-late'), '시작한 뒤에는 앱에서 취소할 수 없어요. 담당자에게 말씀해 주세요.');
@@ -38,10 +25,6 @@ test('eduMdw — 요일(날짜만 있는 값은 밀리지 않는다)', () => {
   assert.equal(ctx.eduMdw('2026-10-09'), '10월 9일(금)');
   assert.equal(ctx.eduMdw('2027-01-03'), '1월 3일(일)');
   assert.equal(ctx.eduMdw(null), '');
-});
-
-test('eduPhaseLabel — 정원 차고 대기 없음', () => {
-  assert.equal(ctx.eduPhaseLabel({ phase: 'open', capacity: 1, confirmed: 1, waitlisted: 0, waitlist: false }), '정원 참');
 });
 
 test('eduEsc — boardEsc 없이도 다섯 글자를 막는다(빈 값은 빈 글)', () => {
@@ -703,4 +686,21 @@ test('크론 edu_remind_cron.sql — 매일 10:00 UTC(19:00 KST) · 지우고 �
     c.includes("select vault.update_secret((select id from vault.secrets where name = 'edu_remind_service_key'), '<새 키>');"),
     '처음 한 번(create_secret)·키 바꾸기(update_secret)를 적어 둔다');
   assert.ok(!/push_evening|EVENING_LIVE/.test(code), '저녁 알림과 무관');
+});
+
+test('eduCardLine — 목록 카드도 자세히 화면과 같은 말', () => {
+  const O = { phase: 'open', mode: 'auto', capacity: 24, confirmed: 0, waitlisted: 0, waitlist: false, applyTo: '2026-10-18' };
+  assert.equal(ctx.eduCardLine(O), '24자리 남았어요 · 10월 18일(일)까지 신청 · 선착순');
+  assert.equal(ctx.eduCardLine({ ...O, mode: 'approve' }), '정원 24명 · 10월 18일(일)까지 신청 · 담당자 확정');
+  assert.equal(ctx.eduCardLine({ ...O, confirmed: 24, waitlist: true, waitlisted: 3 }), '정원이 찼어요 · 지금 대기 3분 · 10월 18일(일)까지 신청');
+  assert.equal(ctx.eduCardLine({ ...O, confirmed: 24 }), '정원이 찼어요');
+  assert.equal(ctx.eduCardLine({ phase: 'upcoming', applyFrom: '2026-10-11' }), '10월 11일(일)부터 신청할 수 있어요');
+  assert.equal(ctx.eduCardLine({ ...O, capacity: null, applyTo: null }), '인원 제한 없이 받아요');
+});
+
+test('eduStatusLine — 내 강좌 칩(「반려」를 쓰지 않는다)', () => {
+  assert.equal(ctx.eduStatusLine({ status: 'waitlisted', statusLabel: '대기', waitNo: 1 }), '대기 1번');
+  assert.equal(ctx.eduStatusLine({ status: 'confirmed', statusLabel: '확정' }), '확정');
+  assert.equal(ctx.eduStatusLine({ status: 'applied', statusLabel: '신청' }), '확인 중');
+  assert.equal(ctx.eduStatusLine({ status: 'declined', statusLabel: '반려' }), '확정되지 않음');
 });
