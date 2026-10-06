@@ -106,6 +106,9 @@ test('날짜 줄·자리를 만드는 함수는 당번 잠금(7240912)을 먼저
     const first = b.search(/(insert into public\.duty_(days|slots)\b|for (no key )?update)/);
     assert.ok(first < 0 || lock < first, name + ' — 당번 잠금이 첫 쓰기·줄 잠금보다 뒤다');
   }
+  // 날짜 더하기는 「이 당번의 살아 있는 틀인가」도 잠금 **뒤에** 본다 — 틀 빼기를 기다린 뒤 낡은 답으로 자리를 만들지 않게(두 번째 검토의 검증에서 잡힘)
+  const add = bodies.find(([n]) => n === 'duty_date_add')[1];
+  assert.ok(add.indexOf('pg_advisory_xact_lock(7240912') < add.indexOf('l.board_id = p_board and l.active'), 'duty_date_add — 틀 확인이 당번 잠금보다 앞이다');
 });
 
 test('파일 끝 확인 질의의 기대 수가 함수·표 수와 같다', () => {

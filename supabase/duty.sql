@@ -389,12 +389,13 @@ begin
   if b.status = 'archived' then return jsonb_build_object('ok',false,'error','archived'); end if;
   if p_date is null or p_date < d0 - 31 or p_date > d0 + 400 then return jsonb_build_object('ok',false,'error','bad-date'); end if;
   if b.until_date is not null and p_date > b.until_date then return jsonb_build_object('ok',false,'error','after-until'); end if;
+  -- 당번 잠금을 **틀 확인보다 먼저** 잡는다 — 틀 빼기를 기다린 뒤에 낡은 답(살아 있는 틀)으로 자리를 만들지 않게(검토 반영 2026-10-06)
+  perform pg_advisory_xact_lock(7240912, hashtext(p_board::text));        -- 자리 만들기·틀 고치기와 한 줄로(머리말)
   select array_agg(distinct x) into ids from unnest(coalesce(p_line_ids, array[]::bigint[])) as x where x is not null;
   if ids is null or cardinality(ids) > 50
      or (select count(*) from public.duty_lines l where l.id = any(ids) and l.board_id = p_board and l.active) <> cardinality(ids) then
     return jsonb_build_object('ok',false,'error','bad-lines');
   end if;
-  perform pg_advisory_xact_lock(7240912, hashtext(p_board::text));        -- 자리 만들기·틀 고치기와 한 줄로(머리말)
   insert into public.duty_days(board_id, on_date) values (p_board, p_date) on conflict (board_id, on_date) do nothing;
   perform 1 from public.duty_days where board_id = p_board and on_date = p_date for update;
   select count(*)::int into pre from public.duty_slots x where x.line_id = any(ids) and x.on_date = p_date;
