@@ -1137,6 +1137,8 @@ end $$;
 -- 담당자: 당번마다 요약 수 — 살아 있는 틀 수 · 앞날 자리 수 · 앞날 빈 자리 수 · 「못 가게 됐어요」 수 · 앞날 살아 있는 지원 수(당번 관리·명단의 당번 고르기 ·
 --   준비·보관으로 돌릴 때 「앞날에 N분이 서 있어요」 확인) · after = 끝 날짜 뒤에 살아 있는 지원 수(끝 날짜를 당긴 저장이 「그 뒤에 N분」을 알린다).
 --   자리 수·빈 자리 수는 끝 날짜까지만 센다(그 뒤 자리는 앱에 안 보인다).
+--   shown = 성도님 앱 당번표가 보여 주는 기간(오늘 ~ 오늘+보이는 기간 · 끝 날짜까지 — duty_board_view 와 같은 범위)의 자리 수. 0 이면 앱에 날짜가 하나도 안 보인다.
+--     slots 는 보이는 기간으로 자르지 않는다(「날짜 더하기」로 먼 날에 만든 자리도 센다) — 담당자 화면의 「앱에 날짜가 안 보여요」는 shown 을 본다(검증 2026-10-06).
 --   p_ids 에 든 당번은 자리가 없어도 0 줄로 돌려준다(jsonb 하나 — 줄 한도에 안 걸린다).
 create or replace function public.duty_board_counts(p_ids uuid[])
 returns jsonb language plpgsql security definer set search_path = public as $$
@@ -1149,6 +1151,8 @@ begin
   select coalesce(jsonb_object_agg(i.id::text, jsonb_build_object(
       'lines', (select count(*)::int from public.duty_lines l where l.board_id = i.id and l.active),
       'slots', (select count(*)::int from public.duty_slots s where s.board_id = i.id and s.on_date >= duty_today()
+                  and (b.until_date is null or s.on_date <= b.until_date)),
+      'shown', (select count(*)::int from public.duty_slots s where s.board_id = i.id and s.on_date between duty_today() and duty_today() + b.open_days
                   and (b.until_date is null or s.on_date <= b.until_date)),
       'need',  (select coalesce(sum(greatest(s.capacity - (select count(*) from public.duty_signups e where e.slot_id = s.id and e.status = 'active'), 0)), 0)::int
                   from public.duty_slots s join public.duty_days d on d.board_id = s.board_id and d.on_date = s.on_date

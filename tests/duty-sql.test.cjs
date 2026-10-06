@@ -111,6 +111,15 @@ test('날짜 줄·자리를 만드는 함수는 당번 잠금(7240912)을 먼저
   assert.ok(add.indexOf('pg_advisory_xact_lock(7240912') < add.indexOf('l.board_id = p_board and l.active'), 'duty_date_add — 틀 확인이 당번 잠금보다 앞이다');
 });
 
+test('담당자 요약 수의 shown 은 앱 당번표(duty_board_view)와 같은 범위를 센다 — 오늘 ~ 오늘+보이는 기간 · 끝 날짜까지', () => {
+  const a = sql.indexOf('create or replace function public.duty_board_counts');
+  const body = sql.slice(a, sql.indexOf('end $$', a));
+  assert.ok(/'shown',\s*\(select count\(\*\)::int from public\.duty_slots s where s\.board_id = i\.id and s\.on_date between duty_today\(\) and duty_today\(\) \+ b\.open_days\s+and \(b\.until_date is null or s\.on_date <= b\.until_date\)\)/.test(body),
+    'shown 의 범위가 달라졌다 — 앱 당번표의 날짜 범위와 같아야 담당자 화면의 「앱에 날짜가 안 보여요」가 참이다');
+  const view = sql.slice(sql.indexOf('create or replace function public.duty_board_view'));
+  assert.ok(/d\.on_date between d0 and d0 \+ b\.open_days\s+and \(b\.until_date is null or d\.on_date <= b\.until_date\)/.test(view), '앱 당번표의 날짜 범위(이 시험이 견주는 쪽)가 달라졌다 — shown 도 함께 고칠 것');
+});
+
 test('파일 끝 확인 질의의 기대 수가 함수·표 수와 같다', () => {
   const m = raw.match(/기대: tables (\d+) · functions (\d+) · rls on (\d+)/);
   assert.ok(m, '확인 질의의 기대 주석을 못 찾았다');

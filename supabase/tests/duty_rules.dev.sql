@@ -391,6 +391,14 @@ begin
   update public.duty_boards set until_date = t0 + 10 where id = b2;
   if jsonb_array_length(duty_board_view(b2, u[5])->'days') is distinct from 2 then raise exception '끝 날짜를 늦추면 그대로 살아난다'; end if;
   if (duty_board_counts(array[b2])->(b2::text)->>'after')::int is distinct from 0 then raise exception '늦춘 뒤 after 0'; end if;
+  -- shown = 앱 당번표가 보여 주는 기간의 자리 수(duty_board_view 와 같은 범위) — 보이는 기간을 줄이면 slots 는 그대로이고 shown 만 준다
+  if (duty_board_counts(array[b2])->(b2::text)->>'shown')::int is distinct from 2 then raise exception '보이는 자리 수(둘 다 보이는 기간 안): %', duty_board_counts(array[b2]); end if;
+  update public.duty_boards set open_days = 7 where id = b2;
+  if (duty_board_counts(array[b2])->(b2::text)->>'slots')::int is distinct from 2 or (duty_board_counts(array[b2])->(b2::text)->>'shown')::int is distinct from 1
+    then raise exception '보이는 기간을 줄이면 slots 2 · shown 1: %', duty_board_counts(array[b2]); end if;
+  if jsonb_array_length(duty_board_view(b2, u[5])->'days') is distinct from 1 then raise exception 'shown 은 앱이 보여 주는 날과 같은 범위다: %', duty_board_view(b2, u[5])->'days'; end if;
+  update public.duty_boards set open_days = 56 where id = b2;
+  if (duty_board_counts(array[b2])->(b2::text)->>'shown')::int is distinct from 2 then raise exception '보이는 기간을 되돌리면 shown 2'; end if;
 
   -- ── 확정·메모: 자리 없는 날은 확정하지 않는다 · 풀기·빈 메모는 날짜 줄을 만들지 않는다 ──
   r := duty_day_set(b2, t0 + 3, 'confirm'); if r->>'error' is distinct from 'no-slots' then raise exception '자리 없는 날 확정: %', r; end if;
