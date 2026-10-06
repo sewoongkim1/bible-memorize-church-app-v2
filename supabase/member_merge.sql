@@ -6,7 +6,7 @@
 --   2) 사용자 연관 표·칸을 만드는 SQL — users_consents.sql · board_blocks.sql · board_reports.sql ·
 --      sermon_answer_reports.sql (2026-10-01) · ios_push_tokens.sql · push_evening.sql (2026-09-15·23) ·
 --      교회 어드민 저장소 supabase/sql/008_ministry_history_requests.sql (2026-10-01 · 정정 신청) ·
---      edu.sql (2026-10-05 · 교육신청).
+--      edu.sql (2026-10-05 · 교육신청) · duty.sql (2026-10-06 · 봉사 당번).
 --      ⚠️ 표가 **먼저** 있어야 아래 쓰기 연결 트리거가 그 표에 붙는다. 없는 표는 건너뛴다(to_regclass) —
 --      나중에 그 표를 만들면 이 파일을 **다시** 돌린다(교회 어드민이 008 표를 지웠다 다시 만들어도 마찬가지).
 --   3) 이 파일 전체
@@ -15,6 +15,7 @@
 --      supabase/tests/member_merge_requests_devices.dev.sql  (정정 신청 · 아이폰 알림 기기 · 합친 뒤 옛 번호로 온 가리기)
 --      supabase/tests/member_merge_edu.dev.sql               (교육신청 · 같은 강좌 충돌 · 취소 줄 정리와 납부·메모·출석 이어받기 · 출석 상태가 다르면 멈춤 ·
 --                                                             수료번호가 있는 취소 겹침 줄은 지우지 않고 멈춤 — 2026-10-05 3단계)
+--      supabase/tests/member_merge_duty.dev.sql              (봉사 당번 · 같은 자리의 두 줄은 한 줄로 · 앞날의 겹치는 자리는 멈춤 — 2026-10-06)
 --      「통과」 줄이 나오거나 오류 없이 끝나야 한다.
 --   ⚠️ 새 사용자 연관 표를 만들면 ① 합치기 본체의 옮기기 ② 두 허용 목록(FK·user_id) ③ member_merge_counts
 --      ④ 쓰기 연결 트리거 — 넷을 함께 더하고 이 파일을 다시 돌린다. 빠뜨리면 그 기록이 있는 계정은
@@ -81,7 +82,7 @@ begin
   foreach t in array array['progress','challenge_log','reviews','passage_progress','blessing_log','feature_log',
     'board_posts','board_replies','board_reactions','event_entries','push_subscriptions',
     'pilsa_orders','ministry_orders','event_signups','daily_activity',
-    'ios_push_tokens','ministry_history_requests','edu_enrollments'] loop
+    'ios_push_tokens','ministry_history_requests','edu_enrollments','duty_signups'] loop
     if to_regclass('public.' || t) is not null then
       execute format('drop trigger if exists redirect_merged_member_write on public.%I', t);
       execute format('create trigger redirect_merged_member_write before insert or update on public.%I for each row execute function public.redirect_merged_member_write(''user_id'')', t);
@@ -118,7 +119,7 @@ begin
   --    합친 뒤 수 = 지운 열린 신청 수. 남는 쪽에 같은 줄의 열린 신청이 있던 것만 지운다).
   foreach t in array array['challenge_log','progress','reviews','passage_progress','board_posts',
     'board_replies','event_entries','pilsa_orders','ministry_orders','event_signups','push_subscriptions',
-    'blessing_log','daily_activity','feature_log','ios_push_tokens','ministry_history_requests','edu_enrollments'] loop
+    'blessing_log','daily_activity','feature_log','ios_push_tokens','ministry_history_requests','edu_enrollments','duty_signups'] loop
     if to_regclass('public.' || t) is not null then
       execute format('select count(*) from public.%I where user_id::text=$1',t) into n using p_id::text;
       result := result || jsonb_build_object(t,n);
@@ -224,6 +225,20 @@ begin
       end if;
     end if;
   end if;
+  -- 봉사 당번(duty_signups · 2026-10-06) — 두 계정이 **앞날의 같은 날 시각이 겹치는 서로 다른 자리**에 둘 다 살아 있으면 멈춘다
+  --   (합치면 한 분이 겹친 두 자리에 서게 된다 — 담당자가 한쪽을 뺀 뒤 다시 합친다). 쉬는 날·쉬는 자리의 줄도 본다(다시 열면 살아나므로).
+  --   같은 자리의 두 줄은 멈추지 않고 아래에서 한 줄로 정리한다(자리·사람에 한 줄 — unique(slot_id, user_id)).
+  if to_regclass('public.duty_signups') is not null then
+    if exists(select 1 from public.duty_signups a
+        join public.duty_slots sa on sa.id=a.slot_id join public.duty_lines la on la.id=sa.line_id
+        join public.duty_signups b on b.user_id=t.id and b.status='active'
+        join public.duty_slots sb on sb.id=b.slot_id join public.duty_lines lb on lb.id=sb.line_id
+      where a.user_id=s.id and a.status='active' and sa.id<>sb.id and sa.on_date=sb.on_date
+        and sa.on_date >= (now() at time zone 'Asia/Seoul')::date
+        and la.start_time < lb.end_time and lb.start_time < la.end_time) then
+      return jsonb_build_object('ok',false,'error','merge-duty-conflict');
+    end if;
+  end if;
   -- 새 기능이 추가되어도 모르는 FK를 cascade 삭제하지 않는다. auth.users 참조는 제외.
   for ref in select c.conrelid::regclass as tbl, a.attname as col
     from pg_constraint c join pg_attribute a on a.attrelid=c.conrelid and a.attnum=any(c.conkey)
@@ -233,7 +248,7 @@ begin
     if ref.tbl::text not in ('progress','challenge_log','reviews','passage_progress','blessing_log','feature_log',
       'push_subscriptions','board_posts','board_replies','event_signups',
       'board_blocks','board_reports','sermon_answer_reports',
-      'ios_push_tokens','ministry_history_requests','edu_enrollments') then
+      'ios_push_tokens','ministry_history_requests','edu_enrollments','duty_signups') then
       execute format('select count(*) from %s where %I::text=$1',ref.tbl,ref.col) into n using s.id::text;
       if n>0 then return jsonb_build_object('ok',false,'error','merge-unsupported-records'); end if;
     end if;
@@ -246,7 +261,7 @@ begin
         'push_subscriptions','board_posts','board_replies','board_reactions','event_entries',
         'daily_activity','pilsa_orders','ministry_orders','event_signups','user_identity_aliases','user_profile_changes',
         'board_blocks','board_reports','sermon_answer_reports',
-        'ios_push_tokens','ministry_history_requests','edu_enrollments')
+        'ios_push_tokens','ministry_history_requests','edu_enrollments','duty_signups')
   loop
     execute format('select count(*) from public.%I where %I::text=$1',ref.tbl,ref.col) into n using s.id::text;
     if n>0 then return jsonb_build_object('ok',false,'error','merge-unsupported-records'); end if;
@@ -420,10 +435,31 @@ begin
     --   원본 사용자를 지울 때 신청이 **조용히** 함께 지워진다(ios_push_tokens 처럼 명시).
     update public.edu_enrollments set user_id=t.id where user_id=s.id;
   end if;
+  -- 봉사 당번(duty_signups · 2026-10-06) — **자리·사람에 한 줄**(unique(slot_id, user_id))이라 두 계정이 같은 자리에 줄을 가지면 한 줄만 남긴다:
+  --   남는 쪽 줄이 살아 있거나 둘 다 끝난 줄이면 원본 줄을 지우고, 원본만 살아 있으면 남는 쪽의 끝난 줄을 지운 뒤 원본 줄을 옮긴다.
+  --   지우는 줄의 담당자 메모는 남는 줄에 얹는다(500자 · 교육과 같다). 알림 기록(duty_notify_log)은 지원 줄을 따라간다(cascade).
+  --   앞날의 겹치는 서로 다른 자리에 둘 다 살아 있는 경우는 위 검사가 이미 merge-duty-conflict 로 멈췄다.
+  --   주인 옮기기는 아래 일반 반복에만 맡기지 않는다 — FK 가 on delete cascade 라 건너뛰면 원본 사용자를 지울 때 줄이 **조용히** 함께 지워진다.
+  if to_regclass('public.duty_signups') is not null then
+    update public.duty_signups b set updated_at = now(),
+        staff_note = left(concat_ws(' / ', nullif(b.staff_note,''), '합치기 전 줄: ' || a.staff_note), 500)
+      from public.duty_signups a
+      where a.slot_id=b.slot_id and a.user_id=s.id and b.user_id=t.id and coalesce(a.staff_note,'')<>''
+        and (b.status='active' or a.status<>'active');
+    delete from public.duty_signups a using public.duty_signups b
+      where a.slot_id=b.slot_id and a.user_id=s.id and b.user_id=t.id and (b.status='active' or a.status<>'active');
+    update public.duty_signups a set updated_at = now(),
+        staff_note = left(concat_ws(' / ', nullif(a.staff_note,''), '합치기 전 줄: ' || b.staff_note), 500)
+      from public.duty_signups b
+      where a.slot_id=b.slot_id and a.user_id=s.id and b.user_id=t.id and coalesce(b.staff_note,'')<>'';
+    delete from public.duty_signups b using public.duty_signups a
+      where a.slot_id=b.slot_id and a.user_id=s.id and b.user_id=t.id;
+    update public.duty_signups set user_id=t.id where user_id=s.id;
+  end if;
   -- 로그/게시물/신청/구독은 행을 삭제하거나 다시 생성하지 않고 소유자만 옮긴다.
   for ref in select table_name,data_type from information_schema.columns where table_schema='public'
     and column_name='user_id' and table_name in ('challenge_log','board_posts','board_replies',
-      'push_subscriptions','pilsa_orders','ministry_orders','event_signups','user_profile_changes','user_identity_aliases','edu_enrollments')
+      'push_subscriptions','pilsa_orders','ministry_orders','event_signups','user_profile_changes','user_identity_aliases','edu_enrollments','duty_signups')
   loop
     execute format('update public.%I set user_id=$1::%s where user_id=$2::%s',ref.table_name,ref.data_type,ref.data_type)
       using t.id::text,s.id::text;
