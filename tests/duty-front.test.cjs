@@ -227,6 +227,108 @@ test('못 가게 됐어요 까닭 — 화면 값이 서버(dutyWhyOf)가 받는 
   assert.equal(ctx.dutyWhyText('notme'), '제가 지원한 게 아니에요'); assert.equal(ctx.dutyWhyText('zzz'), '못 간다고 표시했어요');
 });
 
+test('달력 — 날짜가 넷 이상이면 달력 · 그보다 적으면 날짜 카드', () => {
+  const days = (n) => Array.from({ length: n }, (_, i) => ({ date: '2026-10-' + String(11 + i).padStart(2, '0') }));
+  assert.equal(ctx.DUTY_CAL_MIN, 4);
+  assert.deepEqual([0, 1, 3, 4, 20].map((n) => ctx.dutyCalUse(days(n))), [false, false, false, true, true]);
+  assert.equal(ctx.dutyCalUse(null), false);
+});
+
+test('달력 — 한 달의 칸: 일요일부터 · 앞 빈칸 · 윤년 · 틀린 값은 빈 목록 · 달 이름', () => {
+  const oct = pick(ctx.dutyCalMonth('2026-10'));          // 2026-10-01 은 목요일
+  assert.equal(oct.length, 4 + 31);
+  assert.deepEqual(oct.slice(0, 5), [{ date: '', n: 0 }, { date: '', n: 0 }, { date: '', n: 0 }, { date: '', n: 0 }, { date: '2026-10-01', n: 1 }]);
+  assert.deepEqual(oct[oct.length - 1], { date: '2026-10-31', n: 31 });
+  assert.equal(oct.findIndex((c) => c.date === '2026-10-18') % 7, 0, '10월 18일은 일요일 — 첫 칸');
+  assert.equal(pick(ctx.dutyCalMonth('2026-11'))[0].date, '2026-11-01', '11월 1일은 일요일 — 빈칸 없음');
+  assert.equal(pick(ctx.dutyCalMonth('2028-02')).filter((c) => c.date).length, 29); assert.equal(pick(ctx.dutyCalMonth('2027-02')).filter((c) => c.date).length, 28);
+  assert.deepEqual(pick(ctx.dutyCalMonth('2026-13')), []); assert.deepEqual(pick(ctx.dutyCalMonth('x')), []); assert.deepEqual(pick(ctx.dutyCalMonth(null)), []);
+  assert.equal(ctx.dutyCalTitle('2026-10'), '2026년 10월'); assert.equal(ctx.dutyCalTitle('2027-01'), '2027년 1월'); assert.equal(ctx.dutyCalTitle(''), '');
+  assert.equal(ctx.dutyCalMonthWord('2027-01'), '1월'); assert.equal(ctx.dutyCalMonthWord('x'), '');
+  assert.deepEqual(pick(ctx.dutyCalMonths([{ date: '2026-11-01' }, { date: '2026-10-18' }, { date: '2026-10-25' }, { date: '2027-01-03' }, { date: 'x' }, null])), ['2026-10', '2026-11', '2027-01']);
+});
+
+test('달력 — 그날 한 칸: 채워진 인원/필요 인원 · 손이 필요한 날 · 내 당번 · 쉬는 날', () => {
+  const S = (x) => ({ id: 1, service: '2부', task: '설거지', start: '11:30', end: '12:30', capacity: 2, off: false, n: 0, names: [], mine: null, why: '', ...x });
+  const M = (x) => ({ id: 5, status: 'active', byStaff: false, staffAdded: false, asked: false, why: null, ...x });
+  const cell = (day, me) => pick(ctx.dutyCalCell({ date: '2026-10-18', off: false, locked: false, slots: [], ...day }, me || { why: '' }));
+  // 빈 자리가 있다 — 손이 필요한 날 · 숫자는 자리를 모두 더한다
+  assert.deepEqual(cell({ slots: [S({ n: 1 }), S({ capacity: 1, n: 0 })] }), { kind: 'need', n: 1, cap: 3, need: 2, mine: false, locked: false });
+  // 다 찼다 · 시작했다 · 담당자가 넣는 자리 — 지원할 자리가 없다(숫자는 그대로 보인다)
+  assert.deepEqual(cell({ slots: [S({ n: 2, why: 'full' })] }), { kind: 'none', n: 2, cap: 2, need: 0, mine: false, locked: false });
+  assert.equal(cell({ slots: [S({ n: 1, why: 'started' })] }).kind, 'none');
+  assert.deepEqual(cell({ slots: [S({ n: 1, why: 'closed' })] }), { kind: 'none', n: 1, cap: 2, need: 0, mine: false, locked: false });
+  // 내가 서는 날 — 다른 자리가 비어 있어도 「내 당번」이 먼저
+  assert.deepEqual(cell({ slots: [S({ n: 1, why: 'mine', mine: M() }), S({ n: 0 })] }), { kind: 'mine', n: 1, cap: 4, need: 2, mine: true, locked: false });
+  // 담당자가 뺀 줄·쉬는 자리의 내 줄은 내가 서는 날이 아니다
+  assert.equal(cell({ slots: [S({ n: 2, why: 'removed', mine: M({ status: 'removed', byStaff: true }) })] }).kind, 'none');
+  assert.equal(cell({ slots: [S({ n: 1, off: true, why: 'mine', mine: M() }), S({ n: 0 })] }).kind, 'need');
+  // 쉬는 자리는 세지 않는다 · 그날이 쉬거나 자리가 모두 쉬면 쉬는 날
+  assert.deepEqual(cell({ slots: [S({ n: 1 }), S({ off: true, why: 'off', n: 1 })] }), { kind: 'need', n: 1, cap: 2, need: 1, mine: false, locked: false });
+  assert.deepEqual(cell({ off: true, slots: [S({ n: 1, why: 'mine', mine: M() })] }), { kind: 'off', n: 0, cap: 0, need: 0, mine: false, locked: false });
+  assert.equal(cell({ slots: [S({ off: true, why: 'off' })] }).kind, 'off');
+  // 담당자가 정원을 넘겨 넣은 자리는 정원까지만 — 「3/3」인데 손이 필요한 날이 되지 않는다
+  assert.deepEqual(cell({ slots: [S({ n: 3, why: 'full' }), S({ capacity: 1, n: 0 })] }), { kind: 'need', n: 2, cap: 3, need: 1, mine: false, locked: false });
+  // 앱에서 지원하지 못하는 계정에게도 손이 필요한 날은 손이 필요한 날이다(단추만 없다)
+  assert.equal(cell({ slots: [S({ n: 1 })] }, { why: 'guardian' }).kind, 'need');
+  assert.equal(cell({ locked: true, slots: [S({ n: 1 })] }).locked, true);
+  assert.equal(ctx.dutyCalCell(null, null).kind, 'off');
+  // 칸에 적는 글 · 읽어 주는 말
+  assert.equal(ctx.dutyCalMark({ kind: 'need', n: 1, cap: 3 }), '1/3'); assert.equal(ctx.dutyCalMark({ kind: 'none', n: 2, cap: 2 }), '2/2');
+  assert.equal(ctx.dutyCalMark({ kind: 'mine', n: 0, cap: 12 }), '0/12'); assert.equal(ctx.dutyCalMark({ kind: 'off' }), '쉼');
+  const D = { date: '2026-10-18' };
+  assert.equal(ctx.dutyCalLabel(D, { kind: 'need', n: 1, cap: 3, need: 2 }), '10월 18일(일) — 손이 필요한 날이에요 · 필요 3명 가운데 1명 채워졌어요');
+  assert.equal(ctx.dutyCalLabel(D, { kind: 'mine', n: 2, cap: 2, need: 0, locked: true }), '10월 18일(일) — 내 당번이 있어요 · 필요 2명 가운데 2명 채워졌어요 · 확정된 날');
+  assert.equal(ctx.dutyCalLabel(D, { kind: 'none', n: 2, cap: 2 }), '10월 18일(일) — 지금 지원할 수 있는 자리가 없어요 · 필요 2명 가운데 2명 채워졌어요');
+  assert.equal(ctx.dutyCalLabel(D, { kind: 'off', locked: true }), '10월 18일(일) — 쉬어요');
+});
+
+test('달력 — 처음 고를 날 · 앞뒤 달(날짜가 있는 달로만 · 해를 넘는다)', () => {
+  const S = (x) => ({ capacity: 2, off: false, n: 0, mine: null, why: '', ...x });
+  const full = (date) => ({ date, off: false, slots: [S({ n: 2, why: 'full' })] }), open = (date) => ({ date, off: false, slots: [S({ n: 1 })] });
+  const mine = (date) => ({ date, off: false, slots: [S({ n: 1, why: 'mine', mine: { id: 1, status: 'active' } })] });
+  const days = [full('2026-10-11'), full('2026-10-18'), open('2026-10-25'), { date: '2026-11-01', off: true, slots: [S()] }, mine('2026-11-08'), full('2026-12-06'), open('2027-01-03')];
+  const me = { why: '' };
+  assert.equal(ctx.dutyCalPick(days, '', me), '2026-10-25', '손이 필요하거나 내가 서는 가장 이른 날');
+  assert.equal(ctx.dutyCalPick(days, '2026-10-18', me), '2026-10-18', '바라는 날이 있으면 그날');
+  assert.equal(ctx.dutyCalPick(days, '2026-09-01', me), '2026-10-25', '바라는 날이 당번표에 없으면 처음 규칙으로');
+  assert.equal(ctx.dutyCalPick([full('2026-10-11'), full('2026-10-18')], '', me), '2026-10-11', '모두 찼으면 첫 날');
+  assert.equal(ctx.dutyCalPick([], '', me), ''); assert.equal(ctx.dutyCalPick(null, 'x', me), '');
+  // 앞뒤 달 — 그 달에서 고를 날(내가 서거나 손이 필요한 가장 이른 날 → 없으면 그 달 첫 날)
+  assert.equal(ctx.dutyCalStep(days, '2026-10-25', 'next', me), '2026-11-08', '11월 — 쉬는 1일이 아니라 내가 서는 8일');
+  assert.equal(ctx.dutyCalStep(days, '2026-11-08', 'next', me), '2026-12-06', '12월 — 다 찬 날 하나뿐이면 그날');
+  assert.equal(ctx.dutyCalStep(days, '2026-12-06', 'next', me), '2027-01-03', '해를 넘어간다');
+  assert.equal(ctx.dutyCalStep(days, '2027-01-03', 'next', me), '', '더 없으면 빈 글');
+  assert.equal(ctx.dutyCalStep(days, '2026-10-25', 'prev', me), ''); assert.equal(ctx.dutyCalStep(days, '2026-11-08', 'prev', me), '2026-10-25');
+  assert.equal(ctx.dutyCalStep(days, '2026-09-30', 'next', me), '', '고른 날의 달이 당번표에 없으면 움직이지 않는다');
+  assert.equal(ctx.dutyCalStep([open('2026-10-25'), open('2026-12-06')], '2026-10-25', 'next', me), '2026-12-06', '날짜가 없는 달(11월)은 건너뛴다');
+});
+
+test('달력 — 그리기: 날짜가 있는 날만 단추 · 칸에 채워진 인원/필요 인원 · 고른 날 · 오늘 · 앞뒤 달 단추 · 풀이는 있는 표시만', () => {
+  const S = (x) => ({ capacity: 2, off: false, n: 0, mine: null, why: '', ...x });
+  const days = [{ date: '2026-10-18', off: false, slots: [S({ n: 1 })] }, { date: '2026-10-25', off: false, slots: [S({ n: 2, why: 'full' })] },
+    { date: '2026-11-01', off: true, slots: [S()] }, { date: '2026-11-08', off: false, locked: true, slots: [S({ n: 1, why: 'mine', mine: { id: 1, status: 'active' } })] }];
+  const oct = ctx.dutyCalHtml(days, '2026-10-18', '2026-10-06', { why: '' });
+  assert.equal((oct.match(/<button type="button" class="duty-cal-c has/g) || []).length, 2, '10월에 날짜 둘');
+  assert.ok(oct.includes('class="duty-cal-c has k-need on" data-date="2026-10-18" aria-pressed="true"'));
+  assert.ok(oct.includes('aria-label="10월 18일(일) — 손이 필요한 날이에요 · 필요 2명 가운데 1명 채워졌어요"'));
+  assert.ok(oct.includes('<span>18</span><i aria-hidden="true">1/2</i>') && oct.includes('<span>25</span><i aria-hidden="true">2/2</i>'));
+  assert.ok(oct.includes('class="duty-cal-c has k-none" data-date="2026-10-25" aria-pressed="false"'));
+  assert.ok(oct.includes('<span class="duty-cal-c today"><span>6</span></span>'), '오늘(당번 없는 날)도 표시');
+  assert.ok(oct.includes('<b>2026년 10월</b>') && oct.includes('data-cal="next" aria-label="2026년 11월 보기">11월 ▶</button>') && !oct.includes('data-cal="prev"'));
+  assert.ok(oct.includes('숫자는 채워진 인원 / 필요 인원이에요') && oct.includes('</span>손이 필요한 날') && oct.includes('</span>내 당번') && oct.includes('날짜를 누르면 그날의 자리가 아래에 보여요.'));
+  const nov = ctx.dutyCalHtml(days, '2026-11-08', '2026-11-08', { why: '' });
+  assert.ok(nov.includes('class="duty-cal-c has k-off" data-date="2026-11-01"') && nov.includes('<i aria-hidden="true">쉼</i>'));
+  assert.ok(nov.includes('class="duty-cal-c has k-mine on today" data-date="2026-11-08"'));
+  assert.ok(nov.includes('aria-label="11월 8일(일) — 내 당번이 있어요 · 필요 2명 가운데 1명 채워졌어요 · 확정된 날 · 오늘"'));
+  assert.ok(nov.includes('data-cal="prev" aria-label="2026년 10월 보기">◀ 10월</button>') && !nov.includes('data-cal="next"'));
+  // 풀이는 이 당번표에 실제로 있는 표시만 — 손이 필요한 날도 내 당번도 없으면 그 말이 없고, 달이 하나면 앞뒤 달 단추가 없다
+  const quiet = ctx.dutyCalHtml([{ date: '2026-10-18', off: false, slots: [S({ n: 2, why: 'full' })] }], '2026-10-18', '', { why: '' });
+  assert.ok(quiet.includes('숫자는 채워진 인원 / 필요 인원이에요') && !quiet.includes('손이 필요한 날') && !quiet.includes('내 당번') && !quiet.includes('data-cal='));
+  const rest = ctx.dutyCalHtml([{ date: '2026-10-18', off: true, slots: [S()] }], '2026-10-18', '', { why: '' });
+  assert.equal(rest.includes('숫자는'), false, '쉬는 날뿐이면 숫자 풀이도 없다'); assert.ok(rest.includes('날짜를 누르면'));
+});
+
 test('api dutyNameOk — 당번표에 실을 이름', () => {
   for (const ok of ['가상하나', '가상 하나', 'Kim Mina', '가', '가'.repeat(20), '김123', '김요한2']) assert.equal(srv.dutyNameOk(ok), true, ok);
   for (const bad of ['', '   ', null, undefined, '가'.repeat(21), '<b>가상</b>', '가상"하나', "가상'하나", '가상`하나', '가상' + String.fromCharCode(92) + '하나',

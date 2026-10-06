@@ -6046,7 +6046,8 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .duty-tel { color: var(--navy); font-weight: 700; text-decoration: underline; }
 .duty-note { font-size: 15px; color: var(--gray); margin: 6px 0 8px; line-height: 1.55; }
 /* 날짜 한 덩이 — 머리(날짜 · 오늘) · 한 줄(확정·취소 마감·쉼) · 자리들 */
-.duty-day { border: 1px solid var(--border); border-radius: 14px; background: var(--white); padding: 12px 14px; margin: 12px 0; scroll-margin-top: 12px; }
+/* scroll-margin-top — 「내 당번」 카드로 들어와 화면을 굴려 맨 위에 붙일 때 홈 화면 웹앱(상태바 밑부터 그린다)의 상태바에 가리지 않게(.ref-input 과 같은 방식) */
+.duty-day { border: 1px solid var(--border); border-radius: 14px; background: var(--white); padding: 12px 14px; margin: 12px 0; scroll-margin-top: calc(12px + var(--app-safe-top, env(safe-area-inset-top, 0px))); }
 .duty-day.off { background: var(--light); }
 .duty-day-h { display: flex; align-items: center; gap: 8px; }
 .duty-day-h b { font-size: 17px; color: var(--navy); }
@@ -6082,6 +6083,29 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .am-msg .duty-who { margin: 8px 0; padding: 8px 10px; border-radius: 10px; background: var(--light); font-weight: 700; }
 .duty-why { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 0; }
 .duty-why .duty-why-b { flex: none; width: 100%; background: var(--white); color: var(--navy); border-color: var(--navy); }
+/* 달력(날짜가 넷 이상인 당번) — 날짜가 있는 날만 단추 · 날짜 아래 「채워진 인원/필요 인원」 · 손이 필요한 날은 초록 · 내 당번은 남색 · 쉬는 날 「쉼」 · 고른 날은 겹테두리 · 오늘은 숫자 밑줄 */
+.duty-cal { border: 1px solid var(--border); border-radius: 14px; background: var(--white); padding: 10px 6px 10px; margin: 12px 0; scroll-margin-top: calc(8px + var(--app-safe-top, env(safe-area-inset-top, 0px))); }
+.duty-cal-h { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; min-height: 44px; margin: 0 4px 6px; }
+.duty-cal-h b { font-size: 17px; color: var(--navy); text-align: center; white-space: nowrap; }
+.duty-cal-nav { justify-self: start; min-height: 44px; padding: 0 12px; border-radius: 12px; border: 1.5px solid var(--navy); background: transparent; color: var(--navy); font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; white-space: nowrap; }
+.duty-cal-nav[data-cal="next"] { justify-self: end; }
+.duty-cal-w, .duty-cal-g { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; text-align: center; }
+.duty-cal-w span { font-size: 12px; color: var(--gray); padding: 2px 0 4px; }
+.duty-cal-c { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-height: 46px; margin: 0; padding: 0; border-radius: 12px; border: 2px solid transparent; background: transparent;
+  color: var(--gray); font-size: 15px; line-height: 1.1; font-family: inherit; -webkit-tap-highlight-color: transparent; }
+.duty-cal-c.today > span { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.duty-cal-c.has { cursor: pointer; font-weight: 800; color: var(--navy); background: var(--light); }
+.duty-cal-c i { font-style: normal; font-size: 12px; line-height: 1; min-height: 12px; font-weight: 700; letter-spacing: -.2px; white-space: nowrap; }
+.duty-cal-c.k-need { background: #e7f4ea; border-color: #a9d6b6; color: var(--green); }
+.duty-cal-c.k-mine { background: var(--navy); border-color: var(--navy); color: #fff; }
+.duty-cal-c.k-off { color: var(--gray); font-weight: 600; }
+.duty-cal-c.has.on { border-color: var(--navy); box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--navy); }
+.duty-cal-k { margin: 10px 6px 0; font-size: 13px; color: var(--gray); line-height: 1.7; word-break: keep-all; }
+.duty-cal-k .ki { white-space: nowrap; }
+.duty-cal-k .k { display: inline-block; width: 12px; height: 12px; border-radius: 4px; margin-right: 4px; vertical-align: -1px; box-sizing: border-box; }
+.duty-cal-k .k.need { background: #e7f4ea; border: 1.5px solid #a9d6b6; }
+.duty-cal-k .k.mine { background: var(--navy); }
+@media (max-width: 359px) { .duty-cal-c i { font-size: 11px; letter-spacing: -.4px; } }
 .dark .am-msg .duty-ask b { color: #8fb3e6; }
 .dark .am-msg .duty-who { background: #232c3f; color: #dbe2ee; }
 .dark .duty-why .duty-why-b { background: #151d2b; color: #8fb3e6; border-color: #8fb3e6; }
@@ -6109,3 +6133,15 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .dark .duty-tel { color: #8fb3e6; }
 .dark .duty-day.locked .duty-day-s { color: #8fb3e6; }
 .dark .duty-today { background: #2b4c80; }
+.dark .duty-cal { background: #151d2b; border-color: #33507d; }
+.dark .duty-cal-h b { color: #8fb3e6; }
+.dark .duty-cal-nav { color: #8fb3e6; border-color: #8fb3e6; }
+.dark .duty-cal-w span, .dark .duty-cal-k { color: #b9c2d0; }
+.dark .duty-cal-c { color: #8a94a6; }
+.dark .duty-cal-c.has { color: #cdd9f2; background: #232c3f; }
+.dark .duty-cal-c.k-need { background: #1d3327; border-color: #3f7a55; color: #8fd6ab; }
+.dark .duty-cal-c.k-mine { background: #2b4c80; border-color: #2b4c80; color: #fff; }
+.dark .duty-cal-c.k-off { color: #9aa6b8; }
+.dark .duty-cal-c.has.on { border-color: #8fb3e6; box-shadow: 0 0 0 2px #151d2b, 0 0 0 4px #8fb3e6; }
+.dark .duty-cal-k .k.need { background: #1d3327; border-color: #3f7a55; }
+.dark .duty-cal-k .k.mine { background: #2b4c80; }

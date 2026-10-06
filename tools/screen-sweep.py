@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-화면 전수 점검 — localhost(= 개발 DB)에서 주요 화면 48개(2026-10-06)를 **진짜 단추로** 열어 가며 잰다.
+화면 전수 점검 — localhost(= 개발 DB)에서 주요 화면 52개(2026-10-06)를 **진짜 단추로** 열어 가며 잰다.
 (2026-09-20 처음 만듦. 그날 이 도구로 쉴만한 물가 완료 화면·홈 화면 웹앱 여백 문제를 잡았다.)
 
 재는 것(화면마다):
@@ -37,7 +37,7 @@
         --seed 는 Math.random 을 고정한다(카드 순서·도전 구절이 매번 바뀌어 지문이 달라지므로).
 결과: <out>/results.json · 사진(web-390, web-320-xl, web-390-lg-dark) · 끝에 요약이 찍힌다.
 """
-import argparse, json, os, subprocess, sys, time
+import argparse, datetime, json, os, subprocess, sys, time
 from playwright.sync_api import sync_playwright
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -142,6 +142,24 @@ _DUTY_DAYS = [
 ]
 
 
+def _duty_eve(d):   # 전날 저녁 7시(한국) — 잠기는 때
+    return (datetime.date.fromisoformat(d) - datetime.timedelta(days=1)).isoformat() + "T10:00:00+00:00"
+
+
+# 달력(날짜가 넷 이상) — 위 다섯 날 + 주일마다 2027-01-10 까지(해를 넘는 앞뒤 달 단추까지)
+_DUTY_CAL_DAYS = _DUTY_DAYS + [
+    dict(date=d, off=False, note="", locked=False, lockAt=_duty_eve(d), slots=[
+        _duty_s(900 + i * 2, "1부", "설거지", "09:00", "10:00", 2, ["가상둘"] if i % 3 else ["가상둘", "가상셋"]),
+        _duty_s(901 + i * 2, "2부", "설거지", "11:30", "12:30", 2, [])])
+    for i, d in enumerate(["2026-11-15", "2026-11-22", "2026-11-29", "2026-12-06", "2026-12-13", "2026-12-20", "2026-12-27", "2027-01-03", "2027-01-10"])]
+
+
+def _duty_board_js(days, sel=""):   # 당번 자세히를 지어낸 자료로 그린다 — sel = 달력에서 고른 날(빈 글이면 처음 규칙)
+    return ("dutyShell(loadUser()); dutyState.at='board'; dutyState.cur='b-1'; dutyState.board=" + json.dumps(_DUTY_BOARD, ensure_ascii=False)
+            + "; dutyState.days=" + json.dumps(days, ensure_ascii=False) + "; dutyState.me={why:''}; dutyState.calSel=" + json.dumps(sel)
+            + "; dutyDrawBoard(loadUser(), '2026-10-12', {});")
+
+
 def clk(sel):
     return ("var el=document.querySelector(%s); if(!el) throw new Error('NOBTN '+%s); el.click();"
             % (json.dumps(sel), json.dumps(sel)))
@@ -224,8 +242,14 @@ STEPS = [
     #   내 줄의 여섯 모습(지원함 · 확정 · 당번표에 표시(못 가게 됐어요) · 담당자가 뺌 · 쉬는 날 · 담당자가 넣음)과 자리의 모습(빈 자리 · 다 참 · 쉼 · 담당자가 넣는 자리)이 한 화면에.
     ("44-duty-list", ["dutyShell(loadUser()); dutyState.at='list'; dutyState.boards=" + json.dumps(_DUTY_BOARDS, ensure_ascii=False)
                       + "; dutyState.mine=" + json.dumps(_DUTY_MINE, ensure_ascii=False) + "; dutyState.me={why:''}; dutyDrawList('취소했어요.');"]),
-    ("45-duty-board", ["dutyShell(loadUser()); dutyState.at='board'; dutyState.cur='b-1'; dutyState.board=" + json.dumps(_DUTY_BOARD, ensure_ascii=False)
-                       + "; dutyState.days=" + json.dumps(_DUTY_DAYS, ensure_ascii=False) + "; dutyState.me={why:''}; dutyDrawBoard(loadUser(), '2026-10-12', {});"]),
+    #   날짜가 셋 이하면 날짜 카드를 모두(한두 번짜리 모집의 모습) · 넷 이상이면 달력 + 고른 날 하나(2026-10-06 — 칸에 채워진 인원/필요 인원):
+    #   처음 고른 날 · 쉬는 날 · 담당자가 넣어 준 날 · 진짜 단추로 다음 달 둘(해를 넘김)과 날짜 하나.
+    ("45-duty-board", [_duty_board_js(_DUTY_DAYS[:3])]),
+    ("46-duty-cal", [_duty_board_js(_DUTY_CAL_DAYS)]),
+    ("47-duty-cal-off", [_duty_board_js(_DUTY_CAL_DAYS, "2026-11-01")]),
+    ("48-duty-cal-staff", [_duty_board_js(_DUTY_CAL_DAYS, "2026-11-08")]),
+    ("49-duty-cal-newyear", [_duty_board_js(_DUTY_CAL_DAYS, "2026-11-08"), clk('.duty-cal-nav[data-cal="next"]'), clk('.duty-cal-nav[data-cal="next"]'),
+                             clk('.duty-cal-c[data-date="2027-01-10"]')]),
     ("P1-privacy-page", ["GOTO privacy/"]),
     ("P2-quiz-page", ["GOTO quiz/"]),
     ("P3-guide-page", ["GOTO guide/"]),

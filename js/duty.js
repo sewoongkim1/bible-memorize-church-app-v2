@@ -5,6 +5,8 @@
 //   ⚠️ 자리·지원 번호는 화면 글자(data-*)에 싣지 않는다 — 차례 번호만 싣고 dutyState 의 배열에서 꺼낸다.
 //   ⚠️ 늦게 온 응답이 다른 화면을 덮지 않게 — 받는 쪽은 화면 번호(dutyState.screen)와 .duty-wrap 이 아직 있는지를 함께 본다.
 //      일을 끝낸 뒤 다시 그리기는 dutyRedraw 로만 · soft(화면을 비우지 않고 다시 받기)는 당번 화면이 떠 있을 때만 돈다(tests/duty-flow.test.cjs).
+//   ⚠️ 날짜가 넷 이상인 당번은 **달력**으로 그린다(dutyCalUse) — 달력에서 날짜를 누르면 그날의 자리만 아래에 보인다. 날짜가 적으면(한두 번짜리 모집) 날짜 카드를 늘어놓는다.
+//      고른 날(dutyState.calSel)은 화면 상태일 뿐 — 서버에 보내지 않고, 판정(why·locked…)은 받은 것을 그대로 쓴다. 달력 칸의 뜻(dutyCalCell)도 dutySlotView 에서 나온다(규칙을 다시 짜지 않는다).
 //   ⚠️ 성도님께 하는 말은 어느 경우에도 참인 말만 — 「못 가게 됐어요」는 담당자 휴대폰으로 가는 알림이 아니라 당번표의 표시다(「알렸어요」라고 하지 않는다) ·
 //      취소는 「확정 전까지」다(전날 저녁은 「늦어도」 — 담당자가 먼저 확정할 수 있다).
 
@@ -185,11 +187,115 @@ function dutyContactHtml(t) {
   if (!m) return dutyEsc(s);
   return dutyEsc(s.slice(0, m.index)) + '<a class="duty-tel" href="tel:' + m[0].replace(/\D/g, '') + '">' + dutyEsc(m[0]) + '</a>' + dutyEsc(s.slice(m.index + m[0].length));
 }
+// ── 달력(2026-10-06 친구 요청 — 보이는 기간이 1년이면 날짜 카드가 52장이 된다) ──
+// 날짜가 이 수 이상이면 달력으로 그린다. 매주 도는 당번은 보이는 기간이 4주만 돼도 4~5개라 늘 달력이고(2주면 2~3개라 늘 목록 — 주마다 뒤바뀌지 않는다),
+//   한두 번짜리 모집(김장 등)은 날짜 카드를 그대로 보여 준다.
+var DUTY_CAL_MIN = 4;
+function dutyCalUse(days) { return (days || []).length >= DUTY_CAL_MIN; }
+// 달력의 그날 한 칸 → { kind, n, cap, need, mine, locked }
+//   kind: off(쉬는 날 — 그날이 쉬거나 자리가 모두 쉰다) | mine(내가 서는 날) | need(지원할 수 있는 빈 자리가 있다) |
+//         none(날짜는 있지만 지금 지원할 자리가 없다 — 다 참·시작함·담당자가 넣는 자리)
+//   n / cap: 채워진 인원 / 필요 인원(칸에 「1/2」로 적는다 — 친구 요청 2026-10-06). 쉬는 자리는 세지 않고, 담당자가 정원을 넘겨 넣은 자리는 정원까지만 센다
+//     (한 자리에 셋을 넣었다고 다른 빈 자리가 찬 것처럼 보이지 않게 — 「3/3」인데 손이 필요한 날이 되지 않는다).
+//   need: 지금 지원을 받는 빈 자리 수. 뜻은 자리 한 칸의 판정(dutySlotView = 서버가 준 why)에서 나온다(규칙을 다시 짜지 않는다).
+//   내 줄이 있어도 담당자가 뺀 줄·쉬는 자리의 줄은 「내가 서는 날」로 치지 않는다.
+function dutyCalCell(day, me) {
+  var d = day || {}, n = 0, cap = 0, need = 0, mine = false;
+  (d.slots || []).forEach(function (s) {
+    if (!s || s.off === true) return;
+    var v = dutySlotView(d, s, me), c = Math.max(0, Number(s.capacity) || 0), k = Math.max(0, Number(s.n) || 0);
+    cap += c; n += Math.min(k, c);
+    if (v.kind === 'open') need += Math.max(0, c - k);
+    if (v.kind === 'mine' && (!s.mine.status || s.mine.status === 'active')) mine = true;
+  });
+  if (d.off === true || cap === 0) return { kind: 'off', n: 0, cap: 0, need: 0, mine: false, locked: d.locked === true };
+  return { kind: mine ? 'mine' : need > 0 ? 'need' : 'none', n: n, cap: cap, need: need, mine: mine, locked: d.locked === true };
+}
+// 칸에 적는 글 — 「1/2」(채워진 인원/필요 인원) · 쉬는 날은 「쉼」
+function dutyCalMark(cell) {
+  var c = cell || {};
+  return c.kind === 'off' ? '쉼' : (Number(c.n) || 0) + '/' + (Number(c.cap) || 0);
+}
+// 그 칸을 읽어 주는 말(화면 낭독) — 「10월 18일(일) — 손이 필요한 날이에요 · 필요 2명 가운데 1명 채워졌어요」
+function dutyCalLabel(day, cell) {
+  var c = cell || {}, when = dutyMdw(day && day.date);
+  if (c.kind === 'off') return when + ' — 쉬어요';
+  var what = c.kind === 'mine' ? '내 당번이 있어요' : c.kind === 'need' ? '손이 필요한 날이에요' : '지금 지원할 수 있는 자리가 없어요';
+  return when + ' — ' + what + ' · 필요 ' + (Number(c.cap) || 0) + '명 가운데 ' + (Number(c.n) || 0) + '명 채워졌어요' + (c.locked === true ? ' · 확정된 날' : '');
+}
+// 날짜들이 걸친 달 — ['2026-10', '2026-11'] (이른 달부터 · 날짜가 없는 달은 건너뛴다)
+function dutyCalMonths(days) {
+  var out = [];
+  (days || []).forEach(function (d) { var ym = String((d && d.date) || '').slice(0, 7); if (/^\d{4}-\d{2}$/.test(ym) && out.indexOf(ym) < 0) out.push(ym); });
+  return out.sort();
+}
+function dutyCalTitle(ym) {   // 2026년 10월
+  var s = String(ym || '');
+  return /^\d{4}-\d{2}$/.test(s) ? Number(s.slice(0, 4)) + '년 ' + Number(s.slice(5, 7)) + '월' : '';
+}
+function dutyCalMonthWord(ym) {   // 10월 — 앞뒤 달 단추에
+  var s = String(ym || '');
+  return /^\d{4}-\d{2}$/.test(s) ? Number(s.slice(5, 7)) + '월' : '';
+}
+// 그 달의 칸들(일요일부터) — 앞 빈칸은 { date: '', n: 0 } · 날짜 칸은 { date: 'YYYY-MM-DD', n: 날 }
+function dutyCalMonth(ym) {
+  var s = String(ym || ''); if (!/^\d{4}-\d{2}$/.test(s)) return [];
+  var y = Number(s.slice(0, 4)), m = Number(s.slice(5, 7)); if (!(m >= 1 && m <= 12)) return [];
+  var pad = new Date(Date.UTC(y, m - 1, 1)).getUTCDay(), last = new Date(Date.UTC(y, m, 0)).getUTCDate(), out = [];
+  for (var i = 0; i < pad; i++) out.push({ date: '', n: 0 });
+  for (var k = 1; k <= last; k++) out.push({ date: s + '-' + (k < 10 ? '0' + k : k), n: k });
+  return out;
+}
+// 고를 날 — 바라는 날(want — 내 당번 카드로 온 날 · 방금 지원·취소한 날 · 전에 고른 날)이 당번표에 있으면 그날,
+//   아니면 내가 서거나 손이 필요한 가장 이른 날, 그것도 없으면 첫 날. 날짜가 없으면 ''.
+function dutyCalPick(days, want, me) {
+  var list = days || [], i;
+  if (!list.length) return '';
+  for (i = 0; i < list.length; i++) if (want && list[i].date === want) return list[i].date;
+  for (i = 0; i < list.length; i++) { var k = dutyCalCell(list[i], me).kind; if (k === 'mine' || k === 'need') return list[i].date; }
+  return list[0].date;
+}
+// 앞뒤 달로 — 고른 날(sel)의 달에서 날짜가 있는 앞(prev)·다음(next) 달로 가 그 달에서 고를 날을 준다. 그쪽에 달이 없으면 ''.
+function dutyCalStep(days, sel, dir, me) {
+  var months = dutyCalMonths(days), at = months.indexOf(String(sel || '').slice(0, 7));
+  var to = at < 0 ? '' : months[at + (dir === 'next' ? 1 : -1)];
+  if (!to) return '';
+  return dutyCalPick((days || []).filter(function (d) { return String((d && d.date) || '').slice(0, 7) === to; }), '', me);
+}
+// 달력 한 달(고른 날이 든 달) — 날짜가 있는 날만 누를 수 있다(단추). 칸: 날짜 아래 「채워진 인원/필요 인원」 · 손이 필요한 날은 초록 · 내 당번은 남색 ·
+//   쉬는 날은 「쉼」 · 고른 날은 겹테두리 · 오늘은 숫자 밑줄.
+//   앞뒤 달 단추는 날짜가 있는 달로만(「◀ 10월」 · 「12월 ▶」 — 그쪽에 달이 없으면 단추도 없다) · 아래 풀이는 이 당번표에 실제로 있는 표시만.
+function dutyCalHtml(days, sel, today, me) {
+  var list = days || [], ym = String(sel || '').slice(0, 7), months = dutyCalMonths(list), at = months.indexOf(ym), by = {}, seen = {};
+  list.forEach(function (d) { if (!d) return; var x = dutyCalCell(d, me); by[d.date] = { day: d, cell: x }; seen[x.kind] = true; });
+  var cells = dutyCalMonth(ym).map(function (c) {
+    if (!c.date) return '<span class="duty-cal-c"></span>';
+    var it = by[c.date], tcls = c.date === today ? ' today' : '';
+    if (!it) return '<span class="duty-cal-c' + tcls + '"><span>' + c.n + '</span></span>';
+    var on = c.date === sel;
+    return '<button type="button" class="duty-cal-c has k-' + it.cell.kind + (on ? ' on' : '') + tcls + '" data-date="' + dutyEsc(c.date) + '" aria-pressed="' + on +
+      '" aria-label="' + dutyEsc(dutyCalLabel(it.day, it.cell) + (c.date === today ? ' · 오늘' : '')) + '"><span>' + c.n + '</span><i aria-hidden="true">' + dutyEsc(dutyCalMark(it.cell)) + '</i></button>';
+  }).join('');
+  var nav = function (dir, to) {
+    if (!to) return '<span></span>';
+    return '<button type="button" class="duty-cal-nav" data-cal="' + dir + '" aria-label="' + dutyEsc(dutyCalTitle(to)) + ' 보기">' +
+      dutyEsc(dir === 'prev' ? '◀ ' + dutyCalMonthWord(to) : dutyCalMonthWord(to) + ' ▶') + '</button>';
+  };
+  var num = seen.need || seen.mine || seen.none ? '숫자는 채워진 인원 / 필요 인원이에요.' : '';
+  var key = [seen.need ? '<span class="ki"><span class="k need" aria-hidden="true"></span>손이 필요한 날</span>' : '',
+    seen.mine ? '<span class="ki"><span class="k mine" aria-hidden="true"></span>내 당번</span>' : ''].filter(Boolean).join(' · ');
+  return '<div class="duty-cal" role="group" aria-label="날짜 고르기">' +
+    '<div class="duty-cal-h">' + nav('prev', at > 0 ? months[at - 1] : '') + '<b>' + dutyEsc(dutyCalTitle(ym)) + '</b>' + nav('next', at >= 0 ? months[at + 1] : '') + '</div>' +
+    '<div class="duty-cal-w" aria-hidden="true"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>' +
+    '<div class="duty-cal-g">' + cells + '</div>' +
+    '<p class="duty-cal-k">' + [num, key, '날짜를 누르면 그날의 자리가 아래에 보여요.'].filter(Boolean).join('<br>') + '</p></div>';
+}
 // ── 봉사 당번 순수 함수 (여기까지) ──
 
 // screen: 화면이 바뀔 때마다 올라가는 번호 — 늦게 온 응답이 다른 화면을 덮지 않게 · at: 지금 보는 화면(list|board|'' = 당번 화면을 떠남) ·
-// me: 이 계정이 앱에서 지원하지 못하는 까닭({why}) · loadedAt: 마지막으로 받은 때 · busy·busyAt: 일을 보내는 중
-var dutyState = { screen: 0, at: '', boards: [], mine: [], me: {}, cur: '', board: null, days: [], loadedAt: 0, busy: false, busyAt: 0 };
+// me: 이 계정이 앱에서 지원하지 못하는 까닭({why}) · loadedAt: 마지막으로 받은 때 · busy·busyAt: 일을 보내는 중 ·
+// calSel: 달력에서 고른 날(당번을 새로 열면 비운다 — 화면 상태일 뿐 서버에 보내지 않는다)
+var dutyState = { screen: 0, at: '', boards: [], mine: [], me: {}, cur: '', board: null, days: [], loadedAt: 0, busy: false, busyAt: 0, calSel: '' };
 // 계정 번호(user_id)를 아직 못 받았을 때 — 첫 로그인 직후 서버 답을 기다리는 몇 초 · 로그인 호출이 실패한 실행.
 //   그대로 서버를 부르면 「문 닫힘」 답이 와 「아직 열지 않았어요」라고 **사실이 아닌 말**을 하게 된다(문은 계정이 있어야 열린다).
 var DUTY_NO_ID = '아직 서버와 연결되지 않았어요. 잠시 뒤 다시 열어 주세요.';
@@ -208,7 +314,7 @@ function dutyLeave() { dutyState.screen++; dutyState.at = ''; }
 // 로그아웃·「로그인 정보변경」(app.js 가 부른다) — 앞사람의 당번·내 당번을 메모리에서 비우고, 그분 요청에 늦게 온 응답은 버려지게 화면 번호를 올린다.
 function dutyResetState() {
   dutyLeave(); dutyState.boards = []; dutyState.mine = []; dutyState.me = {}; dutyState.cur = ''; dutyState.board = null; dutyState.days = [];
-  dutyState.loadedAt = 0; dutyHold(false);
+  dutyState.loadedAt = 0; dutyState.calSel = ''; dutyHold(false);
 }
 
 function dutyShell(u) {
@@ -303,14 +409,14 @@ function dutyDrawList(note) {
   };
 }
 
-// ── 당번 자세히 — 날짜마다 자리 ──
-//   opt.focusDate: 그 날짜를 화면 가운데로 · opt.note: 그 날짜 머리 아래 한 줄(「취소했어요.」) · opt.soft: 화면을 비우지 않고 받은 뒤 바꾼다(자리 지킴) ·
+// ── 당번 자세히 — 날짜마다 자리(날짜가 넷 이상이면 달력 + 고른 날 하나) ──
+//   opt.focusDate: 그 날짜를 화면에(달력이면 그날을 고른다) · opt.note: 그 날짜 머리 아래 한 줄(「취소했어요.」) · opt.soft: 화면을 비우지 않고 받은 뒤 바꾼다(자리 지킴) ·
 //   opt.failNote: soft 다시 받기가 실패하면 알릴 말
 function renderDutyBoard(id, opt) {
   opt = opt || {};
   var u = loadUser(); if (!u) { renderEntryScreen(); return; }
   if (opt.soft && !document.querySelector('.duty-wrap')) return;   // soft = 당번 화면이 떠 있을 때만
-  if (!opt.soft) dutyShell(u);
+  if (!opt.soft) { dutyShell(u); dutyState.calSel = ''; }   // 새로 열면 달력의 고른 날을 비운다(다시 받기 soft 는 고른 날을 지킨다)
   var my = ++dutyState.screen; dutyState.at = 'board'; dutyState.cur = id;
   if (!u.user_id || typeof api.dutyBoard !== 'function') { if (!opt.soft) dutyFail(u.user_id ? DUTY_OLD_API : DUTY_NO_ID); return; }
   api.dutyBoard(id, u.user_id).then(function (r) {
@@ -331,6 +437,16 @@ function renderDutyBoard(id, opt) {
   });
 }
 
+// 달력에서 날짜를 고른 뒤 — 그날 카드가 화면 아래쪽에 걸려 잘 안 보이면 달력을 화면 맨 위로 올린다(카드가 바로 아래에 온다). 이미 보이면 화면을 움직이지 않는다.
+function dutyCalReveal(w) {
+  var cal = w.querySelector('.duty-cal'), card = w.querySelector('.duty-day');
+  if (!cal || !card || !card.getBoundingClientRect || !cal.scrollIntoView) return;
+  if (card.getBoundingClientRect().top <= window.innerHeight * 0.6) return;
+  var calm = !!window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  cal.scrollIntoView({ block: 'start', behavior: calm ? 'auto' : 'smooth' });
+}
+
+//   opt.pick: 달력에서 날짜를 골랐다 · opt.nav: 앞뒤 달 단추(prev|next)를 눌렀다 — 둘 다 서버를 부르지 않고 가진 자료로 다시 그린 것
 function dutyDrawBoard(u, today, opt) {
   var w = document.querySelector('.duty-wrap'); if (!w) return;
   var b = dutyState.board, days = dutyState.days, me = dutyState.me, y = window.scrollY;
@@ -345,14 +461,22 @@ function dutyDrawBoard(u, today, opt) {
         : '<div class="duty-line' + (v.kind === 'open' ? ' need' : '') + '">' + dutyEsc(v.line) + '</div>' +
           (v.btn ? '<button class="duty-btn" data-act="apply" data-d="' + di + '" data-s="' + si + '">' + dutyEsc(v.btn.label) + '</button>' : '')) + '</div>';
   };
-  var dayHtml = days.map(function (d, di) {
+  var dayOne = function (d, di) {
     var line = dutyDayLine(d, staffOnly);
     return '<section class="duty-day' + (d.off ? ' off' : '') + (d.locked ? ' locked' : '') + '" data-date="' + dutyEsc(d.date) + '">' +
       '<div class="duty-day-h"><b>' + dutyEsc(dutyMdw(d.date)) + '</b>' + (d.date === today ? '<span class="duty-today">오늘</span>' : '') + '</div>' +
       (line ? '<p class="duty-day-s">' + dutyEsc(line) + '</p>' : '') +
       (opt.note && opt.focusDate === d.date ? '<p class="duty-note" role="status">' + dutyEsc(opt.note) + '</p>' : '') +
       (d.slots || []).map(function (s, si) { return slotHtml(d, s, di, si); }).join('') + '</section>';
-  }).join('');
+  };
+  // 날짜가 많으면 달력 + 고른 날 하나만(차례 번호 di 는 days 의 자리 그대로 — 단추가 그 번호로 꺼낸다) · 적으면 날짜 카드를 모두.
+  //   고른 날: 내 당번 카드로 온 날·방금 지원·취소한 날(focusDate)이 당번표에 있으면 그날 → 전에 고른 날 → 내가 서거나 손이 필요한 가장 이른 날
+  var useCal = dutyCalUse(days), sel = '';
+  if (useCal) {
+    var hasFocus = !!opt.focusDate && days.some(function (d) { return d.date === opt.focusDate; });
+    sel = dutyState.calSel = dutyCalPick(days, hasFocus ? opt.focusDate : dutyState.calSel, me);
+  }
+  var dayHtml = useCal ? dutyCalHtml(days, sel, today, me) + days.map(function (d, di) { return d.date === sel ? dayOne(d, di) : ''; }).join('') : days.map(dayOne).join('');
   // 맨 위 한 줄 — 이 계정이 앱에서 지원하지 못하는 까닭(받는 중 당번에서만) · 내 당번 카드로 왔는데 그 날짜가 당번표에 안 보일 때
   //   (보이는 기간 밖에 담당자가 더해 둔 날 · 끝 날짜 뒤의 날 — 「아직」이라고 하지 않는다: 끝 날짜 뒤면 앞으로도 안 보인다)
   var meNote = staffOnly ? '' : dutyMeNote(me);
@@ -371,12 +495,33 @@ function dutyDrawBoard(u, today, opt) {
   document.getElementById('duty-back').addEventListener('click', function () { renderDutyList({ stay: true }); });
   if (opt.soft) window.scrollTo(0, y);   // 다시 받은 뒤에도 보던 자리 그대로
   else if (opt.focusDate) {
-    var box = null;
-    w.querySelectorAll('.duty-day').forEach(function (x) { if (x.dataset.date === opt.focusDate) box = x; });
+    // 내 당번 카드로 왔다 — 그 날짜를 화면에. 달력이면 달력을 맨 위로(고른 날의 자리가 바로 아래다 · 그 날짜가 당번표에 없으면 맨 위 안내 줄이 보이게 그대로 둔다)
+    var box = useCal && sel === opt.focusDate ? w.querySelector('.duty-cal') : null;
+    if (!useCal) w.querySelectorAll('.duty-day').forEach(function (x) { if (x.dataset.date === opt.focusDate) box = x; });
     if (box && box.scrollIntoView) box.scrollIntoView({ block: 'start' });
+  }
+  // 달력에서 날짜·달을 골랐다 — 다시 그려 단추가 새것이라 초점을 돌려주고(앞뒤 달 단추 · 그쪽 달이 더 없어 단추가 사라졌으면 고른 날), 날짜를 골랐으면 그날 카드가 보이게 한다
+  if (opt.pick || opt.nav) {
+    var f = (opt.nav && w.querySelector('button[data-cal="' + opt.nav + '"]')) || w.querySelector('.duty-cal-c.on');
+    if (f && f.focus) f.focus({ preventScroll: true });
+    if (opt.pick) dutyCalReveal(w);
   }
   var again = function (date, note, failNote) { renderDutyBoard(dutyState.cur, { soft: true, focusDate: date, note: note || '', failNote: failNote }); };
   w.onclick = function (ev) {
+    // 달력 — 앞뒤 달 · 날짜 고르기. 서버를 다시 부르지 않고 가진 자료로 다시 그린다(화면 번호는 그대로 — 받는 중인 응답을 버리지 않는다).
+    var nav = ev.target.closest('button[data-cal]');
+    if (nav) {
+      var to = dutyCalStep(days, dutyState.calSel, nav.dataset.cal, me);
+      if (to) { dutyState.calSel = to; dutyDrawBoard(u, today, { soft: true, nav: nav.dataset.cal }); }
+      return;
+    }
+    var cell = ev.target.closest('button[data-date]');
+    if (cell) {
+      var picked = cell.dataset.date;
+      if (picked === dutyState.calSel) { dutyCalReveal(w); return; }   // 이미 고른 날 — 그날 카드만 보이게
+      if (days.some(function (d) { return d.date === picked; })) { dutyState.calSel = picked; dutyDrawBoard(u, today, { soft: true, pick: true }); }
+      return;
+    }
     var btn = ev.target.closest('button[data-act]'); if (!btn) return;
     var d = days[Number(btn.dataset.d)], s = d && (d.slots || [])[Number(btn.dataset.s)]; if (!s) return;
     if (btn.dataset.act === 'apply') dutyApplyFlow(btn, u, b, d, s, again);

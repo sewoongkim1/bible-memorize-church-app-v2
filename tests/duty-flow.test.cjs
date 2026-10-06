@@ -10,10 +10,18 @@ const UID = '00000000-0000-4000-8000-000000000001';
 function world(over) {
   const o = over || {};
   const alerts = [], confirms = [], logs = [];
-  let wrap = null, now = 1760000000000, entry = 0;
+  let wrap = null, now = 1760000000000, entry = 0, cardTop = 700;
+  const touched = [];   // 화면이 건드린 것(초점 · 굴리기) — 달력
   const mkEl = () => ({ addEventListener(t, f) { this['on_' + t] = f; }, dataset: {}, isConnected: true, disabled: false, classList: { add() {}, remove() {} }, remove() {} });
   let fab = mkEl(), back = mkEl();
-  const mkWrap = (h) => ({ _h: h, set innerHTML(v) { this._h = String(v); back = mkEl(); }, get innerHTML() { return this._h; }, querySelectorAll() { return []; }, onclick: null, onkeydown: null });
+  const mkWrap = (h) => ({ _h: h, set innerHTML(v) { this._h = String(v); back = mkEl(); }, get innerHTML() { return this._h; }, querySelectorAll() { return []; }, onclick: null, onkeydown: null,
+    querySelector(sel) {   // 달력이 찾는 것만 — 그 글자가 화면에 있으면 흉내 낸 요소를 준다
+      const m = /^button\[data-cal="(prev|next)"\]$/.exec(sel);
+      const has = m ? this._h.includes('data-cal="' + m[1] + '"') : sel === '.duty-cal' ? this._h.includes('class="duty-cal"') : sel === '.duty-day' ? this._h.includes('<section class="duty-day')
+        : sel === '.duty-cal-c.on' ? /class="duty-cal-c has k-\w+ on/.test(this._h) : false;
+      if (!has) return null;
+      return { focus() { touched.push('focus ' + sel); }, scrollIntoView(o) { touched.push('scroll ' + sel + ' ' + ((o && o.block) || '')); }, getBoundingClientRect: () => ({ top: cardTop }) };
+    } });
   const app = {
     _h: '',
     set innerHTML(v) { this._h = String(v); if (this._h.includes('class="duty-wrap"')) { wrap = mkWrap(this._h); fab = mkEl(); } else { wrap = null; } },
@@ -26,7 +34,7 @@ function world(over) {
   const answers = (o.confirm || []).slice();   // appConfirm 의 답 차례(없으면 늘 「예」)
   const ctx = {
     console, Promise, Number, String, Object, Math, JSON, Array, isNaN, setTimeout, Date: FakeDate,
-    window: { scrollTo() {}, scrollY: 0 },
+    window: { scrollTo() {}, scrollY: 0, innerHeight: 800 },
     document: {
       hidden: false,
       getElementById(id) { return id === 'app' ? app : id === 'duty-home' ? fab : id === 'duty-back' ? back : null; },
@@ -52,12 +60,15 @@ function world(over) {
   vm.createContext(ctx); vm.runInContext(SRC, ctx, { filename: 'duty.js' });
   const settle = async () => { for (let i = 0; i < 6; i++) await new Promise((r) => setImmediate(r)); };
   const kind = (h) => (h.includes('불러오는 중') ? 'loading' : h.includes('duty-day') || h.includes('당번표에 날짜가 없어요') ? 'board' : h.includes('duty-sec') ? 'list' : 'other');
-  const tap = (dataset) => {
+  const tapSel = (want, dataset) => {
     const btn = { dataset, disabled: false, isConnected: true };
-    wrap.onclick({ target: { closest: (sel) => (sel === 'button[data-act]' ? btn : null) } });
+    wrap.onclick({ target: { closest: (sel) => (sel === want ? btn : null) } });
     return btn;
   };
+  const tap = (dataset) => tapSel('button[data-act]', dataset);
   return { ctx, alerts, confirms, logs, pending, listeners, settle, tap,
+    tapDate: (date) => tapSel('button[data-date]', { date }), tapCal: (dir) => tapSel('button[data-cal]', { cal: dir }),   // 달력의 날짜 · 앞뒤 달 단추
+    touched: () => touched.splice(0), setCardTop: (v) => { cardTop = v; },
     shown: () => (wrap ? 'DUTY[' + kind(wrap._h) + ']' : app._h.includes('HOME') ? 'HOME' : app._h.includes('ENTRY') ? 'ENTRY' : 'OTHER'),
     html: () => (wrap ? wrap._h : ''), goHome: () => fab.on_click(), goBack: () => back.on_click(),
     answer: async (i, v) => { pending.splice(i, 1)[0].ok(v); await settle(); },
@@ -244,4 +255,81 @@ test('날짜가 하나도 없는 당번(자리 틀을 아직 안 넣음 · 끝 �
   const w = world(); w.ctx.renderDutyBoard('b-1'); await w.answer(0, boardRes({ days: [] }));
   assert.equal(w.shown(), 'DUTY[board]');
   assert.ok(w.html().includes('지금은 당번표에 날짜가 없어요 — 담당자가 날짜를 넣으면 여기에 보여요.') && !w.html().includes('data-act="apply"'));
+});
+
+// ── 달력(날짜가 넷 이상인 당번) — 2026-10-06 친구 요청: 보이는 기간이 1년이면 날짜 카드가 52장이 된다 ──
+const CAL_DAYS = ['2026-10-11', '2026-10-18', '2026-10-25', '2026-11-01', '2026-11-08', '2026-12-06']
+  .map((date, i) => ({ ...DAY, date, lockAt: null, slots: [{ ...SLOT, id: 100 + i, n: i === 0 ? 2 : 0, why: i === 0 ? 'full' : '' }] }));
+const calRes = (x) => boardRes({ days: CAL_DAYS, ...(x || {}) });
+const dayCount = (h) => (h.match(/<section class="duty-day/g) || []).length;
+const selOf = (h) => (/class="duty-cal-c has k-\w+ on[^"]*" data-date="([^"]+)"/.exec(h) || [])[1] || '';
+
+test('달력 — 날짜가 넷 이상이면 달력 + 고른 날 하나 · 셋 이하면 날짜 카드 모두(달력 없음)', async () => {
+  let w = world(); await openBoard(w, boardRes({ days: CAL_DAYS.slice(0, 3) }));
+  assert.equal(dayCount(w.html()), 3); assert.equal(w.html().includes('duty-cal'), false);
+  w = world(); await openBoard(w, calRes());
+  assert.equal(dayCount(w.html()), 1, '고른 날 하나만'); assert.ok(w.html().includes('class="duty-cal"'));
+  assert.equal(selOf(w.html()), '2026-10-18', '다 찬 11일이 아니라 손이 필요한 가장 이른 날');
+  assert.ok(w.html().includes('<b>2026년 10월</b>') && w.html().includes('<i aria-hidden="true">2/2</i>') && w.html().includes('<i aria-hidden="true">0/2</i>'), '칸에 채워진 인원/필요 인원');
+  assert.equal(w.shown(), 'DUTY[board]'); assert.deepEqual(w.touched(), [], '그냥 열 때는 화면을 굴리지 않는다');
+});
+
+test('달력 — 날짜를 누르면 서버를 다시 부르지 않고 그날의 자리로 바꾼다 · 앞뒤 달은 날짜가 있는 달로', async () => {
+  const w = world(); await openBoard(w, calRes());
+  w.tapDate('2026-10-25');
+  assert.deepEqual(w.names(), [], '서버를 부르지 않는다'); assert.equal(selOf(w.html()), '2026-10-25'); assert.equal(dayCount(w.html()), 1);
+  assert.ok(w.html().includes('<b>10월 25일(일)</b>'));
+  assert.deepEqual(w.touched(), ['focus .duty-cal-c.on', 'scroll .duty-cal start'], '고른 칸에 초점 · 그날 카드가 화면 아래에 걸렸으면 달력을 위로');
+  // 그날 카드가 이미 보이면 화면을 움직이지 않는다
+  w.setCardTop(300); w.tapDate('2026-10-11'); assert.deepEqual(w.touched(), ['focus .duty-cal-c.on']); assert.equal(selOf(w.html()), '2026-10-11');
+  // 이미 고른 날을 또 누르면 다시 그리지 않는다(그날 카드만 보이게) · 당번표에 없는 날짜는 무시한다
+  w.setCardTop(700); w.tapDate('2026-10-11'); assert.deepEqual(w.touched(), ['scroll .duty-cal start']);
+  w.tapDate('2026-10-12'); assert.equal(selOf(w.html()), '2026-10-11'); assert.deepEqual(w.touched(), []);
+  // 다음 달 — 초점은 누른 단추에 · 더 갈 달이 없어 단추가 사라졌으면 고른 날에
+  w.tapCal('next'); assert.equal(selOf(w.html()), '2026-11-01'); assert.ok(w.html().includes('<b>2026년 11월</b>'));
+  assert.deepEqual(w.touched(), ['focus button[data-cal="next"]']);
+  w.tapCal('next'); assert.equal(selOf(w.html()), '2026-12-06'); assert.deepEqual(w.touched(), ['focus .duty-cal-c.on']);
+  w.tapCal('next'); assert.equal(selOf(w.html()), '2026-12-06', '더 없으면 그대로'); assert.deepEqual(w.touched(), []);
+  w.tapCal('prev'); assert.equal(selOf(w.html()), '2026-11-01'); assert.deepEqual(w.names(), []);
+});
+
+test('달력 — 지원한 뒤 다시 받아도 고른 날이 그대로 · 다른 앱에 다녀와도 그대로 · 고른 날이 사라졌거나 새로 열면 처음 규칙으로', async () => {
+  const w = world(); await openBoard(w, calRes());
+  w.tapDate('2026-11-08');
+  const di = CAL_DAYS.findIndex((d) => d.date === '2026-11-08');
+  assert.ok(w.html().includes('data-act="apply" data-d="' + di + '" data-s="0"'), '단추의 차례 번호는 days 의 자리 그대로');
+  w.tap({ act: 'apply', d: String(di), s: '0' }); await w.settle();
+  assert.deepEqual(w.names(), ['dutyApply']); assert.equal(w.pending[0].args[0], 100 + di, '고른 날의 자리로 보낸다');
+  await w.answer(0, { ok: true }); assert.deepEqual(w.names(), ['dutyBoard']);
+  const after = CAL_DAYS.map((d, i) => (i === di ? { ...d, slots: [{ ...d.slots[0], n: 1, names: ['화면점검'], why: 'mine', mine: { id: 5, status: 'active', byStaff: false, staffAdded: false, asked: false, why: null } }] } : d));
+  await w.answer(0, calRes({ days: after }));
+  assert.equal(selOf(w.html()), '2026-11-08'); assert.ok(w.html().includes('지원했어요') && w.html().includes('k-mine on') && w.html().includes('<i aria-hidden="true">1/2</i>'));
+  // 다른 날을 골라 둔 채 다른 앱에 다녀왔다 — 다시 받아도 고른 날 그대로
+  w.tapDate('2026-11-01'); w.tickTime(16000); w.listeners.visibilitychange(); await w.answer(0, calRes({ days: after }));
+  assert.equal(selOf(w.html()), '2026-11-01');
+  // 고른 날이 당번표에서 사라졌으면(담당자가 날짜를 뺌) 처음 규칙으로
+  w.tickTime(16000); w.listeners.visibilitychange(); await w.answer(0, calRes({ days: after.filter((d) => d.date !== '2026-11-01') }));
+  assert.equal(selOf(w.html()), '2026-10-18');
+  // 목록에 갔다가 새로 열면 고른 날을 잊는다
+  w.tapDate('2026-12-06'); w.goBack(); await w.answer(0, listRes([BOARD, { ...BOARD, id: 'b-2' }]));
+  w.ctx.renderDutyBoard('b-1'); await w.answer(0, calRes({ days: after }));
+  assert.equal(selOf(w.html()), '2026-10-18', '새로 열면 처음 규칙(내가 서거나 손이 필요한 가장 이른 날)');
+  w.ctx.dutyResetState(); assert.equal(w.ctx.dutyState.calSel, '', '로그아웃은 고른 날도 비운다');
+});
+
+test('달력 — 지원을 보낸 뒤 다른 날짜를 눌러도 응답을 버리지 않는다(화면 번호 그대로) · 방금 지원한 날로 돌아와 결과를 보여 준다', async () => {
+  const w = world(); await openBoard(w, calRes());
+  w.tap({ act: 'apply', d: '1', s: '0' }); await w.settle();
+  w.tapDate('2026-10-25'); assert.equal(selOf(w.html()), '2026-10-25');
+  await w.answer(0, { ok: true }); assert.deepEqual(w.names(), ['dutyBoard'], '다시 받는다');
+  await w.answer(0, calRes()); assert.equal(selOf(w.html()), '2026-10-18', '방금 지원한 날을 보여 준다');
+});
+
+test('달력 — 내 당번 카드로 오면 그 날짜를 고르고 달력을 화면에 · 그 날짜가 당번표에 없으면 맨 위 안내 줄을 가리지 않는다', async () => {
+  let w = world(); w.ctx.renderDutyBoard('b-1', { focusDate: '2026-11-08' }); await w.answer(0, calRes());
+  assert.equal(selOf(w.html()), '2026-11-08'); assert.ok(w.html().includes('<b>2026년 11월</b>'));
+  assert.deepEqual(w.touched(), ['scroll .duty-cal start']);
+  w = world(); w.ctx.renderDutyBoard('b-1', { focusDate: '2027-03-07' }); await w.answer(0, calRes());
+  assert.ok(w.html().includes('3월 7일(일) 당번은 지금 당번표에 보이지 않는 날짜예요')); assert.equal(selOf(w.html()), '2026-10-18');
+  assert.deepEqual(w.touched(), [], '달력으로 굴리지 않는다(안내 줄이 보이게)');
 });
