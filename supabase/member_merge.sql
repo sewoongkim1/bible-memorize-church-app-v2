@@ -446,6 +446,10 @@ begin
       from public.duty_signups a
       where a.slot_id=b.slot_id and a.user_id=s.id and b.user_id=t.id and coalesce(a.staff_note,'')<>''
         and (b.status='active' or a.status<>'active');
+    -- 둘 다 끝난 줄인데 원본 줄이 「담당자가 뺌」이면 그 사실을 남는 줄로 옮긴다(안 그러면 본인 취소 줄만 남아 스스로 되살릴 수 있게 된다 — 검토 반영 2026-10-06)
+    update public.duty_signups b set status = 'removed', end_reason = 'staff', updated_at = now()
+      from public.duty_signups a
+      where a.slot_id=b.slot_id and a.user_id=s.id and b.user_id=t.id and b.status<>'active' and a.end_reason='staff';
     delete from public.duty_signups a using public.duty_signups b
       where a.slot_id=b.slot_id and a.user_id=s.id and b.user_id=t.id and (b.status='active' or a.status<>'active');
     update public.duty_signups a set updated_at = now(),

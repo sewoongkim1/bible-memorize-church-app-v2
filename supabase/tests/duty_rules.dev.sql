@@ -6,7 +6,8 @@
 begin;
 do $$
 declare
-  b uuid; b2 uuid; aid uuid; u uuid[] := array[]::uuid[]; r jsonb; i int; k text;
+  b uuid; b2 uuid; b3 uuid; b4 uuid; aid uuid; u uuid[] := array[]::uuid[]; r jsonb; i int; k text;
+  la bigint; lb bigint; lc bigint; sa bigint; sb bigint; sc bigint; er bigint;
   t0 date := duty_today(); d2 date := duty_today() + 2; d9 date := duty_today() + 9; d16 date := duty_today() + 16;
   wd int := extract(dow from (duty_today() + 2))::int;
   l1 bigint; l2 bigint; l3 bigint; l5 bigint; l6 bigint; l7 bigint; lb2 bigint;
@@ -303,8 +304,10 @@ begin
     then raise exception 'pk 는 부를 때마다 바뀐다'; end if;
   r := duty_roster(b, t0 - 1, t0 + 20);
   if (r->>'ok')::boolean is not true or jsonb_array_length(r->'lines') is distinct from 6 or (r->'days'->0->>'past')::boolean is not true then raise exception '명단: %', left(r::text, 300); end if;
-  if duty_roster(b, t0, t0 + 500)->>'error' is distinct from 'bad-range' then raise exception '명단 기간'; end if;
-  if duty_name_out(E'  홍길동\t‮' || repeat('가', 30)) is distinct from '홍길동' || repeat('가', 17) then raise exception '이름 다듬기: %', duty_name_out(E'  홍길동\t‮' || repeat('가', 30)); end if;
+  r := duty_roster(b, t0, t0 + 500);
+  if (r->>'ok')::boolean is not true or r->>'from' is distinct from (t0 + 100)::text or r->>'to' is distinct from (t0 + 500)::text then raise exception '명단 기간 — 400일을 넘으면 앞을 당긴다: % ~ %', r->>'from', r->>'to'; end if;
+  if duty_roster(b, t0 + 5, t0)->>'error' is distinct from 'bad-range' then raise exception '명단 기간 — 끝이 앞보다 이르면 bad-range'; end if;
+  if duty_name_out(E'  홍길동\t\u202E' || repeat('가', 30)) is distinct from '홍길동' || repeat('가', 17) then raise exception '이름 다듬기: %', duty_name_out(E'  홍길동\t\u202E' || repeat('가', 30)); end if;
 
   -- ── 알림 줄 잡기 · 재료 ──
   if cardinality(duty_notify_claim('confirmed', array[e2, e3, ek])) is distinct from 2 then raise exception '알림 줄(계정 없는 줄은 안 잡는다)'; end if;
@@ -320,9 +323,25 @@ begin
   if (r->>'updated')::int is distinct from 8 then raise exception '앞날 자리 정원도(8): %', r; end if;
   r := duty_line_save(b, jsonb_build_object('id',l5,'service','사이','task','','start','10:00','end','11:00','capacity',1,'weekday',(wd + 1) % 7));
   if (r->>'kept')::int is distinct from 1 or (r->>'made')::int < 7 then raise exception '요일 바꾸기(지원 있는 자리 1 남김): %', r; end if;
+  -- 남은 자리(요일을 바꿔 옛 요일에 남은 자리)는 본인의 새 지원을 받지 않는다 — 명단에는 보이고 담당자는 넣는다 · 요일을 되돌리면 다시 받는다
+  r := duty_apply(s5, u[4], '{"name":"당번시험4"}'); if r->>'error' is distinct from 'closed' then raise exception '남은 자리(요일 바꿈) 본인 지원: %', r; end if;
+  if (select sl->>'why' from jsonb_array_elements(duty_board_view(b, u[4])->'days') dd, jsonb_array_elements(dd->'slots') sl where (sl->>'id')::bigint = s5) is distinct from 'closed' then raise exception '앱 보기의 남은 자리 = closed'; end if;
+  if (select (sl->>'leftover')::boolean from jsonb_array_elements(duty_roster(b, d2, d2)->'days'->0->'slots') sl where (sl->>'id')::bigint = s5) is not true then raise exception '명단의 남은 자리 표시'; end if;
+  if (select (sl->>'leftover')::boolean from jsonb_array_elements(duty_roster(b, d2, d2)->'days'->0->'slots') sl where (sl->>'id')::bigint = s2) is not false then raise exception '살아 있는 자리는 남은 자리가 아니다'; end if;
+  r := duty_apply(s5, u[4], '{"name":"당번시험4"}', true, true); if (r->>'ok')::boolean is not true then raise exception '남은 자리 · 담당자 넣기: %', r; end if;
+  r := duty_cancel((r->>'id')::bigint, null, true); if (r->>'ok')::boolean is not true then raise exception '남은 자리 · 담당자 빼기: %', r; end if;
+  r := duty_line_save(b, jsonb_build_object('id',l5,'service','사이','task','','start','10:00','end','11:00','capacity',1,'weekday',wd));
+  if (r->>'ok')::boolean is not true then raise exception '요일 되돌리기: %', r; end if;
+  r := duty_apply(s5, u[6], '{"name":"당번시험6"}'); if r->>'error' is distinct from 'full' then raise exception '요일을 되돌리면 다시 살아 있는 자리(정원 1 이 차 있어 full): %', r; end if;
   r := duty_line_save(b, jsonb_build_object('service','임시','task','','start','15:00','end','16:00','capacity',1,'weekday',wd));
   r := duty_line_remove((r->>'id')::bigint); if (r->>'deleted')::boolean is not true then raise exception '지원 줄이 없는 틀 빼기 = 지움: %', r; end if;
   r := duty_line_remove(l3); if (r->>'deleted')::boolean is not false or (r->>'kept')::int is distinct from 1 then raise exception '뺀 줄이라도 지원 줄이 있던 자리는 남긴다: %', r; end if;
+  -- 뺀 틀의 남은 자리 — 빈 자리가 있어도 본인 지원은 closed · 「사람이 더 필요한 날」에서도 빠진다 · 담당자는 넣을 수 있다
+  r := duty_apply(s3, u[6], '{"name":"당번시험6"}'); if r->>'error' is distinct from 'closed' then raise exception '뺀 틀의 남은 자리 본인 지원: %', r; end if;
+  n := (duty_roster(b, d2, d2)->'days'->0->>'need')::int;
+  r := duty_apply(s3, u[6], '{"name":"당번시험6"}', true); if (r->>'ok')::boolean is not true then raise exception '뺀 틀의 남은 자리 · 담당자 넣기: %', r; end if;
+  if (duty_roster(b, d2, d2)->'days'->0->>'need')::int is distinct from n then raise exception '남은 자리는 빈 자리 수에 안 든다(넣어도 그대로)'; end if;
+  r := duty_cancel((r->>'id')::bigint, null, true); if (r->>'ok')::boolean is not true then raise exception '뺀 틀의 남은 자리 · 담당자 빼기: %', r; end if;
   r := duty_line_remove(l1); if (r->>'deleted')::boolean is not false or (r->>'kept')::int < 1 then raise exception '지원 있는 틀 빼기 = 남김: %', r; end if;
   if (select active from public.duty_lines where id = l1) is not false then raise exception '뺀 틀은 active=false'; end if;
   n := (select count(*) from public.duty_slots where line_id = l1);
@@ -371,6 +390,116 @@ begin
   update public.duty_boards set until_date = t0 + 10 where id = b2;
   if jsonb_array_length(duty_board_view(b2, u[5])->'days') is distinct from 2 then raise exception '끝 날짜를 늦추면 그대로 살아난다'; end if;
   if (duty_board_counts(array[b2])->(b2::text)->>'after')::int is distinct from 0 then raise exception '늦춘 뒤 after 0'; end if;
+
+  -- ── 확정·메모: 자리 없는 날은 확정하지 않는다 · 풀기·빈 메모는 날짜 줄을 만들지 않는다 ──
+  r := duty_day_set(b2, t0 + 3, 'confirm'); if r->>'error' is distinct from 'no-slots' then raise exception '자리 없는 날 확정: %', r; end if;
+  r := duty_day_set(b2, t0 + 3, 'unconfirm'); if (r->>'already')::boolean is not true then raise exception '날짜 줄 없는 날 풀기: %', r; end if;
+  r := duty_day_set(b2, t0 + 3, 'note', null, ''); if (r->>'already')::boolean is not true then raise exception '날짜 줄 없는 날 빈 메모: %', r; end if;
+  if exists (select 1 from public.duty_days where board_id = b2 and on_date = t0 + 3) then raise exception '풀기·빈 메모가 날짜 줄을 만들었다'; end if;
+  r := duty_day_set(b2, t0 + 3, 'note', null, '특별 예배'); if (r->>'ok')::boolean is not true or r ? 'already' then raise exception '메모 적기: %', r; end if;
+  if (select note from public.duty_days where board_id = b2 and on_date = t0 + 3) is distinct from '특별 예배' then raise exception '메모가 날짜 줄을 만든다'; end if;
+  r := duty_day_set(b2, t0 + 900, 'note', null, '먼 날'); if r->>'error' is distinct from 'bad-date' then raise exception '먼 날짜 메모: %', r; end if;
+
+  -- ── 명단: 보이는 기간 밖에 미리 만든 날도 담당자에게 보인다(notYet) ──
+  insert into public.duty_boards(title, status, open_days) values ('[시험] 겹침 가', 'open', 14) returning id into b3;
+  r := duty_line_save(b3, jsonb_build_object('service','가','task','','start','09:00','end','10:00','capacity',2)); la := (r->>'id')::bigint;
+  r := duty_line_save(b3, jsonb_build_object('service','다','task','','start','13:00','end','14:00','capacity',1)); lc := (r->>'id')::bigint;
+  r := duty_date_add(b3, d16, array[la, lc]); if (r->>'made')::int is distinct from 2 then raise exception '기간 밖 날짜 더하기: %', r; end if;
+  if (select manual from public.duty_slots where line_id = la and on_date = d16) is not true then raise exception '날짜 더하기로 만든 자리는 manual'; end if;
+  r := duty_roster(b3);
+  if r->>'to' is distinct from d16::text or jsonb_array_length(r->'days') is distinct from 1 or (r->'days'->0->>'notYet')::boolean is not true then
+    raise exception '보이는 기간(14일) 밖 +16 의 자리가 명단에 보인다: to % · %', r->>'to', left((r->'days')::text, 200); end if;
+  if jsonb_array_length(duty_board_view(b3, u[1])->'days') is distinct from 0 then raise exception '앱에는 보이는 기간 밖 날이 안 보인다'; end if;
+  update public.duty_boards set open_days = 56 where id = b3;
+  select id into sa from public.duty_slots where line_id = la and on_date = d16;
+  select id into sc from public.duty_slots where line_id = lc and on_date = d16;
+
+  -- ── 나중에 생긴 겹침(쉼을 풀어서)은 명단·내 당번에 표시로 보인다 ──
+  insert into public.duty_boards(title, status) values ('[시험] 겹침 나', 'open') returning id into b4;
+  r := duty_line_save(b4, jsonb_build_object('service','나','task','','start','09:30','end','10:30','capacity',2)); lb := (r->>'id')::bigint;
+  perform duty_date_add(b4, d16, array[lb]);
+  select id into sb from public.duty_slots where line_id = lb and on_date = d16;
+  r := duty_apply(sa, u[3], '{"name":"당번시험3"}'); if (r->>'ok')::boolean is not true then raise exception '겹침 준비(가): %', r; end if;
+  r := duty_apply(sb, u[3], '{"name":"당번시험3"}'); if r->>'error' is distinct from 'overlap' or (r->'with'->>'same_board')::boolean is not false then raise exception '다른 당번과 겹침: %', r; end if;
+  r := duty_slot_set(sa, null, true, 1); if (r->>'off')::boolean is not true then raise exception '가 자리 쉼: %', r; end if;
+  r := duty_apply(sb, u[3], '{"name":"당번시험3"}'); if (r->>'ok')::boolean is not true then raise exception '쉬는 자리는 겹침에서 빠진다: %', r; end if;
+  if (duty_roster(b4, d16, d16)->'days'->0->'slots'->0->'signups'->0->>'overlap')::boolean is not false then raise exception '쉬는 동안에는 겹침 표시 없음'; end if;
+  r := duty_slot_set(sa, null, false); if (r->>'off')::boolean is not false then raise exception '가 자리 다시 열기: %', r; end if;
+  if (duty_roster(b4, d16, d16)->'days'->0->'slots'->0->'signups'->0->>'overlap')::boolean is not true then raise exception '쉼을 풀어 생긴 겹침 — 명단 표시(나)'; end if;
+  if (select (x->>'overlap')::boolean from jsonb_array_elements(duty_roster(b3, d16, d16)->'days'->0->'slots') sl, jsonb_array_elements(sl->'signups') x where x->>'name' = '당번시험3') is not true then raise exception '쉼을 풀어 생긴 겹침 — 명단 표시(가)'; end if;
+  if (select count(*) from jsonb_array_elements(duty_mine(u[3])) m where m->>'date' = d16::text and (m->>'overlap')::boolean) is distinct from 2 then raise exception '내 당번의 겹침 표시 둘: %', duty_mine(u[3]); end if;
+  if exists (select 1 from jsonb_array_elements(duty_mine(u[6])) m where (m->>'overlap')::boolean) then raise exception '겹치지 않는 분은 표시 없음'; end if;
+
+  -- ── 되살리기: 빠진 줄을 그 줄 그대로(넣은 곳은 그대로 · 정원·겹침은 담당자 넘기기) ──
+  r := duty_apply(sc, u[4], '{"name":"당번시험4"}'); if (r->>'ok')::boolean is not true then raise exception '되살리기 준비: %', r; end if; er := (r->>'id')::bigint;
+  perform duty_notify_claim('confirmed', array[er]);
+  r := duty_cancel(er, null, true); if (r->>'ok')::boolean is not true then raise exception '담당자가 뺌: %', r; end if;
+  r := duty_apply(sc, u[4], '{"name":"당번시험4"}'); if r->>'error' is distinct from 'removed-by-staff' then raise exception '뺀 분의 본인 재지원: %', r; end if;
+  r := duty_restore(er);
+  if (r->>'ok')::boolean is not true or (r->>'id')::bigint is distinct from er or (r->>'hadUser')::boolean is not true or r->>'date' is distinct from d16::text then raise exception '되살리기: %', r; end if;
+  if (select status || '/' || source || '/' || coalesce(end_reason, '-') from public.duty_signups where id = er) is distinct from 'active/app/-' then raise exception '되살린 줄 — 살아 있고 넣은 곳은 그대로(app)'; end if;
+  if exists (select 1 from public.duty_notify_log where signup_id = er) then raise exception '되살리면 예전 알림 기록을 지운다'; end if;
+  r := duty_restore(er); if (r->>'already')::boolean is not true then raise exception '이미 살아 있는 줄 되살리기: %', r; end if;
+  r := duty_cancel(er, u[4], false); if (r->>'ok')::boolean is not true then raise exception '되살린 뒤 본인 취소(앱으로 지원했던 줄): %', r; end if;
+  r := duty_apply(sc, u[7], '{"name":"당번시험7"}'); if (r->>'ok')::boolean is not true then raise exception '빈 자리에 다른 분: %', r; end if;
+  r := duty_restore(er); if r->>'error' is distinct from 'full' or (r->>'capacity')::int is distinct from 1 then raise exception '찬 자리로 되살리기: %', r; end if;
+  r := duty_restore(er, true); if (r->>'ok')::boolean is not true then raise exception '정원을 넘겨 되살리기(본인 취소한 줄도): %', r; end if;
+  r := duty_cancel(er, null, true);
+  r := duty_slot_set(sc, null, true, 1); if (r->>'off')::boolean is not true then raise exception '다 자리 쉼: %', r; end if;
+  r := duty_restore(er); if r->>'error' is distinct from 'off' then raise exception '쉬는 자리로 되살리기: %', r; end if;
+  r := duty_restore(-1); if r->>'error' is distinct from 'not-found' then raise exception '없는 줄 되살리기: %', r; end if;
+  -- 겹치는 자리가 있으면 되살리기도 overlap(넘기기 전) — u[3] 을 가 자리에서 뺐다가, 나 자리에 서 있는 채로 되살린다
+  er := (select id from public.duty_signups where slot_id = sa and user_id = u[3]);
+  r := duty_cancel(er, null, true);
+  r := duty_restore(er); if r->>'error' is distinct from 'overlap' or (r->'with'->>'same_board')::boolean is not false then raise exception '겹치는 자리로 되살리기: %', r; end if;
+
+  -- ── 날짜를 옮기면 확정 알림 기록도 지운다(새 날짜를 확정할 때 그분께도 가게) · 같은 날 안에서 옮기면 남긴다 ──
+  er := (select id from public.duty_signups where slot_id = sb and user_id = u[3]);
+  perform duty_notify_claim('confirmed', array[er]);
+  r := duty_line_save(b4, jsonb_build_object('service','라','task','','start','15:00','end','16:00','capacity',2)); lc := (r->>'id')::bigint;
+  perform duty_date_add(b4, d16, array[lc]); perform duty_date_add(b4, d9, array[lc]);
+  r := duty_move(er, (select id from public.duty_slots where line_id = lc and on_date = d16)); if (r->>'ok')::boolean is not true then raise exception '같은 날 옮기기: %', r; end if;
+  if not exists (select 1 from public.duty_notify_log where signup_id = er and kind = 'confirmed') then raise exception '같은 날 안에서 옮기면 확정 알림 기록은 남는다'; end if;
+  r := duty_move(er, (select id from public.duty_slots where line_id = lc and on_date = d9)); if (r->>'ok')::boolean is not true then raise exception '다른 날로 옮기기: %', r; end if;
+  if exists (select 1 from public.duty_notify_log where signup_id = er) then raise exception '다른 날로 옮기면 알림 기록을 모두 지운다'; end if;
+
+  -- ── 자리 틀은 한 당번에 40개까지 ──
+  for i in 1..38 loop
+    r := duty_line_save(b3, jsonb_build_object('service','틀' || i,'task','','start','06:00','end','06:30','capacity',1));
+    if (r->>'ok')::boolean is not true then raise exception '틀 % 넣기: %', i, r; end if;
+  end loop;
+  r := duty_line_save(b3, jsonb_build_object('service','틀41','task','','start','06:00','end','06:30','capacity',1));
+  if r->>'error' is distinct from 'too-many-lines' then raise exception '틀 41개째: %', r; end if;
+  r := duty_line_save(b3, jsonb_build_object('id',la,'service','가','task','','start','09:00','end','10:00','capacity',3)); if (r->>'ok')::boolean is not true then raise exception '40개여도 고치기는 된다: %', r; end if;
+
+  -- ── 같은 교인의 「계정 없는 줄」과 「계정 줄」 — 명부 키(person|교인ID)가 같으면 같은 분(이미 선 줄 · 겹침 · 되살림 · 옮기기) ──
+  r := duty_apply(sa, null, '{"name":"가상명부","who_type":"교구","ident_key":"person|7001"}', true);
+  if (r->>'ok')::boolean is not true then raise exception '명부에서 넣기(계정 없음): %', r; end if; er := (r->>'id')::bigint;
+  r := duty_apply(sa, u[6], '{"name":"가상명부","who_type":"교구","ident_key":"person|7001"}', true);
+  if (r->>'already')::boolean is not true or (r->>'id')::bigint is distinct from er then raise exception '같은 분을 이번에는 계정까지 찾아 넣음 = 이미 서 계세요: %', r; end if;
+  if (select user_id from public.duty_signups where id = er) is distinct from u[6] then raise exception '그 줄에 앱 계정을 잇는다'; end if;
+  if (select count(*) from public.duty_signups where slot_id = sa and status = 'active' and (user_id = u[6] or ident_key = 'person|7001')) is distinct from 1 then raise exception '한 분은 한 줄'; end if;
+  r := duty_apply(sa, null, '{"name":"가상명부","ident_key":"person|7001"}', true);
+  if (r->>'already')::boolean is not true or (r->>'id')::bigint is distinct from er then raise exception '계정 줄로 서 있는 분을 계정 없이 다시 넣어도 이미 서 계세요: %', r; end if;
+  r := duty_apply(sb, null, '{"name":"가상명부","ident_key":"person|7001"}', true);
+  if r->>'error' is distinct from 'overlap' or (r->'with'->>'same_board')::boolean is not false then raise exception '겹침도 명부 키로 본다: %', r; end if;
+  r := duty_apply(sb, u[6], '{"name":"당번시험6"}'); if r->>'error' is distinct from 'overlap' then raise exception '이은 계정으로 본인이 겹치는 자리에 지원: %', r; end if;
+  perform duty_cancel(er, null, true);
+  r := duty_apply(sa, null, '{"name":"가상명부","ident_key":"person|7001"}', true);
+  if (r->>'revived')::boolean is not true or (r->>'id')::bigint is distinct from er then raise exception '뺀 뒤 계정 없이 다시 넣으면 그 줄을 되살린다: %', r; end if;
+  if (select user_id from public.duty_signups where id = er) is distinct from u[6] then raise exception '되살려도 이어 둔 계정은 그대로'; end if;
+  -- 옮기기·되살리기 — 옮길 자리에 같은 분(명부 키)의 살아 있는 줄이 있으면 already-there
+  r := duty_slot_set(sc, null, false); if (r->>'off')::boolean is not false then raise exception '다 자리 다시 열기: %', r; end if;
+  r := duty_apply(sc, u[5], '{"name":"가상둘","ident_key":"person|7002"}', true, true); if (r->>'ok')::boolean is not true then raise exception '다 자리에 계정 줄(명부 키): %', r; end if;
+  r := duty_apply(sa, null, '{"name":"가상둘","ident_key":"person|7002"}', true); if (r->>'ok')::boolean is not true or r ? 'already' then raise exception '같은 분 · 안 겹치는 다른 자리: %', r; end if;
+  n := (r->>'id')::int;
+  r := duty_move(n, sc, true); if r->>'error' is distinct from 'already-there' then raise exception '옮길 자리에 같은 분(명부 키)이 이미: %', r; end if;
+  perform duty_cancel(n, null, true);
+  r := duty_apply(sa, u[5], '{"name":"가상둘","ident_key":"person|7002"}', true);
+  if (r->>'revived')::boolean is not true or (r->>'id')::int is distinct from n or (select user_id from public.duty_signups where id = n) is distinct from u[5] then raise exception '계정 없는 끝난 줄을 계정으로 되살리며 잇는다: %', r; end if;
+  -- 끝 날짜를 당기기 전에 묻는 수 — 그 날짜 뒤에(오늘 이후) 살아 있는 지원
+  if duty_after_count(b3, t0 + 10) is distinct from 4 then raise exception '끝 날짜 뒤에 선 분 수(+16 에 넷): %', duty_after_count(b3, t0 + 10); end if;
+  if duty_after_count(b3, d16) is distinct from 0 or duty_after_count(b3, null) is distinct from 0 then raise exception '그날까지면 0 · 날짜 없음 0'; end if;
 end $$;
 rollback;
 select '통과 — duty_rules' as result;

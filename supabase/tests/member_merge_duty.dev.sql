@@ -7,6 +7,7 @@
 --   ④ 같은 자리에 둘 다 끝난 줄 → 합쳐지고 남는 쪽 줄 하나만
 --   ⑤ 앞날의 같은 날 시각이 겹치는 서로 다른 자리에 둘 다 살아 있음 → merge-duty-conflict(아무것도 안 바뀐다) · 한쪽을 빼면 합쳐진다
 --   ⑥ 지난 날짜의 겹침은 막지 않는다
+--   ⑦ 같은 자리에 둘 다 끝난 줄 · 원본이 「담당자가 뺌」 → 남는 줄도 「담당자가 뺌」(합친 계정이 스스로 되살리지 못한다 — 검토 반영 2026-10-06)
 -- 개발 연결 확인: users 가 200명이 넘으면 운영으로 보고 멈춘다.
 -- ⚠️ 한글이 든 SQL 은 명령줄에 붙이지 말고 -f 로만 돌린다.
 begin;
@@ -25,8 +26,8 @@ begin
     raise exception '⓪ duty_signups 에 쓰기 연결 트리거가 없습니다 — duty.sql 뒤에 member_merge.sql 을 다시 돌리세요.';
   end if;
 
-  -- 가상 성도 여섯 쌍(원본 s · 대상 t)
-  for i in 1..6 loop
+  -- 가상 성도 일곱 쌍(원본 s · 대상 t)
+  for i in 1..7 loop
     ks := ks || ('교구|당번합치기점검|0|||가상s' || i || tag); kt := kt || ('교구|당번합치기점검|0|||가상t' || i || tag);
     insert into public.users(type,gu,mok,name,identity_key) values('교구','당번합치기점검','0','가상s'||i||tag, ks[i]) returning id into aid; s := s || aid;
     insert into public.users(type,gu,mok,name,identity_key) values('교구','당번합치기점검','0','가상t'||i||tag, kt[i]) returning id into aid; t := t || aid;
@@ -100,6 +101,17 @@ begin
   r := public.admin_merge_members(s[6], t[6], ks[6], kt[6], '개발 점검 — 지난 날 겹침(되돌림)');
   if (r->>'ok')::boolean is not true then raise exception '⑥: %', r; end if;
   if (select count(*) from public.duty_signups where user_id = t[6] and status = 'active') is distinct from 2 then raise exception '⑥ 두 줄'; end if;
+
+  -- ⑦ 둘 다 끝난 줄 — 원본은 담당자가 뺌 · 남는 쪽은 본인 취소 → 남는 줄이 「담당자가 뺌」으로 남는다
+  r := duty_apply(sa, s[7], jsonb_build_object('name','가상s7'||tag)); perform duty_cancel((r->>'id')::bigint, null, true);
+  r := duty_apply(sa, t[7], jsonb_build_object('name','가상t7'||tag)); perform duty_cancel((r->>'id')::bigint, t[7], false);
+  keep := (r->>'id')::bigint;
+  r := public.admin_merge_members(s[7], t[7], ks[7], kt[7], '개발 점검 — 담당자가 뺀 줄(되돌림)');
+  if (r->>'ok')::boolean is not true then raise exception '⑦: %', r; end if;
+  if (select id || '/' || status || '/' || end_reason from public.duty_signups where slot_id = sa and user_id = t[7]) is distinct from keep || '/removed/staff' then
+    raise exception '⑦ 남는 줄이 담당자가 뺌으로: %', (select status || '/' || end_reason from public.duty_signups where slot_id = sa and user_id = t[7]); end if;
+  r := duty_apply(sa, t[7], jsonb_build_object('name','가상t7'||tag));
+  if r->>'error' is distinct from 'removed-by-staff' then raise exception '⑦ 합친 계정이 스스로 되살릴 수 없다: %', r; end if;
 end $check$;
 rollback;
 select '통과 — member_merge_duty' as result;
