@@ -332,7 +332,8 @@ end $$;
 --   숫자를 주면 지금 수와 같을 때만 쓴다(그 사이 지원이 들어왔으면 {ok:false, error:'changed', active}).
 --   기간은 오늘 이후 · 92일까지. 쉬는 날로 바꿀 때는 그 기간에서 **자리가 있거나 요일이 맞아 자리가 생길 날짜**의 날짜 줄을 미리 만든다
 --   (보이는 기간 밖이라 자리가 아직 없는 여름 휴가도 미리 쉬는 날로 둘 수 있다).
---   p_note 를 주면 그 날짜들의 한 줄 메모도 바꾼다(null 이면 그대로 · 다시 열 때 '' 를 주면 지운다).
+--   p_note(null 이면 메모는 그대로): 쉬는 날로 바꿀 때는 그 기간의 **쉬는 날 모두**(이번에 바뀐 날 + 이미 쉬던 날)에 적는다(「여름 휴가」).
+--     다시 열 때는 **이번에 다시 연 날에만** 적는다('' 로 쉬는 까닭을 지운다) — 그 기간의 다른 날에 적어 둔 메모는 건드리지 않는다.
 --   돌려주는 것 {ok, days: 바뀐 날짜 수, active, ids: [알릴 지원 번호 — 앱 계정이 있는 살아 있는 줄]}.
 create or replace function public.duty_days_off(p_board uuid, p_from date, p_to date, p_off boolean, p_note text default null, p_expect int default null)
 returns jsonb language plpgsql security definer set search_path = public as $$
@@ -374,12 +375,13 @@ begin
     return jsonb_build_object('ok',true,'dry',true,'active',n,'days',changed);
   end if;
   if p_expect <> n then return jsonb_build_object('ok',false,'error','changed','active',n); end if;
-  update public.duty_days set off = p_off, updated_at = now()
+  update public.duty_days set off = p_off, updated_at = now(),
+      note = case when p_note is not null and not p_off then p_note else note end
     where board_id = p_board and on_date between p_from and p_to and off is distinct from p_off;
   get diagnostics changed = row_count;
-  if p_note is not null then
+  if p_note is not null and p_off then
     update public.duty_days set note = p_note, updated_at = now()
-      where board_id = p_board and on_date between p_from and p_to and off = p_off and note is distinct from p_note;
+      where board_id = p_board and on_date between p_from and p_to and off and note is distinct from p_note;
   end if;
   return jsonb_build_object('ok',true,'days',changed,'active',n,'ids',ids);
 end $$;

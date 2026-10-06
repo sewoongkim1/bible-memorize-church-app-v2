@@ -214,6 +214,23 @@ begin
   if (r->>'days')::int is distinct from 3 or (r->>'active')::int is distinct from 0 then raise exception '기간 쉼 세기(요일이 맞는 3일): %', r; end if;
   r := duty_days_off(b, t0 + 60, t0 + 80, true, '여름 휴가', 0); if (r->>'days')::int is distinct from 3 then raise exception '기간 쉼: %', r; end if;
   if (select count(*) from public.duty_days where board_id = b and on_date between t0 + 60 and t0 + 80 and off and note = '여름 휴가') is distinct from 3 then raise exception '기간 쉼 줄 3'; end if;
+  -- 메모: 다시 열 때 '' 는 **이번에 다시 연 날에만**(그 기간의 다른 날 메모는 그대로) · 쉬는 날로 바꿀 때는 이미 쉬던 날에도 적는다
+  perform duty_day_set(b, d16, 'note', null, '추수감사주일');
+  r := duty_days_off(b, d9, d16, true, '수련회', 1);
+  if (r->>'ok')::boolean is not true or (r->>'days')::int is distinct from 2 then raise exception '두 주 쉼: %', r; end if;
+  if (select count(*) from public.duty_days where board_id = b and on_date in (d9, d16) and off and note = '수련회') is distinct from 2 then raise exception '쉬는 날 메모 2'; end if;
+  r := duty_days_off(b, d16, d16, false, null, 0); if (r->>'days')::int is distinct from 1 then raise exception '한 날 다시 열기(메모 그대로): %', r; end if;
+  if (select note from public.duty_days where board_id = b and on_date = d16) is distinct from '수련회' then raise exception 'p_note null 이면 메모 그대로'; end if;
+  perform duty_day_set(b, d16, 'note', null, '추수감사주일');
+  r := duty_days_off(b, d9, d16, false, '', 1);
+  if (r->>'ok')::boolean is not true or (r->>'days')::int is distinct from 1 then raise exception '기간 다시 열기(쉬던 날은 +9 하나): %', r; end if;
+  if (select note from public.duty_days where board_id = b and on_date = d9) is distinct from '' then raise exception '다시 연 날의 메모는 지운다'; end if;
+  if (select note from public.duty_days where board_id = b and on_date = d16) is distinct from '추수감사주일' then raise exception '이번에 열지 않은 날의 메모는 그대로'; end if;
+  r := duty_days_off(b, d9, d9, true, null, 1); if (r->>'days')::int is distinct from 1 then raise exception '+9 다시 쉼: %', r; end if;
+  r := duty_days_off(b, d9, d16, true, '수련회', 0);
+  if (r->>'days')::int is distinct from 1 or (select note from public.duty_days where board_id = b and on_date = d9) is distinct from '수련회' then raise exception '이미 쉬던 날에도 메모를 적는다: %', r; end if;
+  r := duty_days_off(b, d9, d16, false, '', 1); if (r->>'days')::int is distinct from 2 then raise exception '둘 다 다시 열기: %', r; end if;
+  perform duty_day_set(b, d16, 'note', null, '');
   r := duty_days_off(b, t0 - 1, t0 + 3, true); if r->>'error' is distinct from 'bad-range' then raise exception '지난 날 쉼: %', r; end if;
   r := duty_days_off(b, t0, t0 + 200, true);   if r->>'error' is distinct from 'bad-range' then raise exception '긴 기간: %', r; end if;
 
