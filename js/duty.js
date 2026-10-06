@@ -367,7 +367,7 @@ function dutyDrawBoard(u, today, opt) {
     (staffOnly ? '<p class="duty-note">이 당번은 담당자가 넣어요 — 앱에서는 당번표와 내 당번을 볼 수 있어요.</p>' : '') +
     (meNote ? '<p class="duty-note" role="note">' + dutyEsc(meNote) + '</p>' : '') +
     (miss ? '<p class="duty-note" role="status">' + dutyEsc(miss) + '</p>' : '') +
-    (days.length ? dayHtml : '<p class="duty-empty">지금 보이는 날짜가 없어요.</p>');
+    (days.length ? dayHtml : '<p class="duty-empty">지금은 당번표에 날짜가 없어요 — 담당자가 날짜를 넣으면 여기에 보여요.</p>');   // 자리 틀을 아직 안 넣었거나 · 끝 날짜가 지났거나 — 어느 쪽에도 참인 말
   document.getElementById('duty-back').addEventListener('click', function () { renderDutyList({ stay: true }); });
   if (opt.soft) window.scrollTo(0, y);   // 다시 받은 뒤에도 보던 자리 그대로
   else if (opt.focusDate) {

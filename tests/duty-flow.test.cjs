@@ -51,7 +51,7 @@ function world(over) {
   };
   vm.createContext(ctx); vm.runInContext(SRC, ctx, { filename: 'duty.js' });
   const settle = async () => { for (let i = 0; i < 6; i++) await new Promise((r) => setImmediate(r)); };
-  const kind = (h) => (h.includes('불러오는 중') ? 'loading' : h.includes('duty-day') || h.includes('지금 보이는 날짜') ? 'board' : h.includes('duty-sec') ? 'list' : 'other');
+  const kind = (h) => (h.includes('불러오는 중') ? 'loading' : h.includes('duty-day') || h.includes('당번표에 날짜가 없어요') ? 'board' : h.includes('duty-sec') ? 'list' : 'other');
   const tap = (dataset) => {
     const btn = { dataset, disabled: false, isConnected: true };
     wrap.onclick({ target: { closest: (sel) => (sel === 'button[data-act]' ? btn : null) } });
@@ -238,4 +238,10 @@ test('내 당번 카드로 왔는데 그 날짜가 당번표에 없다(보이는
   assert.ok(w.html().includes('12월 25일(금) 당번은 지금 당번표에 보이지 않는 날짜예요') && !w.html().includes('아직 당번표'));
   const ok = world(); ok.ctx.renderDutyBoard('b-1', { focusDate: '2026-10-18' }); await ok.answer(0, boardRes());
   assert.equal(ok.html().includes('보이지 않는 날짜'), false, '그 날짜가 있으면 말하지 않는다');
+});
+
+test('날짜가 하나도 없는 당번(자리 틀을 아직 안 넣음 · 끝 날짜가 지남) — 까닭을 한 줄로 · 지원 단추는 없다', async () => {
+  const w = world(); w.ctx.renderDutyBoard('b-1'); await w.answer(0, boardRes({ days: [] }));
+  assert.equal(w.shown(), 'DUTY[board]');
+  assert.ok(w.html().includes('지금은 당번표에 날짜가 없어요 — 담당자가 날짜를 넣으면 여기에 보여요.') && !w.html().includes('data-act="apply"'));
 });
