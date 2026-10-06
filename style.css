@@ -6019,3 +6019,12 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .dark .edu-card .edu-cert-k { color: #8fd6ab; }
 .dark .edu-cert-img { border-color: #33507d; box-shadow: none; }
 .dark #edu-cert-box .edu-desc b { color: #cdd9f2; }
+
+/* 🎓 교육 목록 카드 다듬기(2026-10-06) — 문의 줄 · 눌러서 걸리는 번호 · 카드 결. 새 색을 만들지 않는다(기존 토큰만) */
+.edu-card { gap: 5px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(13, 27, 62, .06); }
+.edu-card b { line-height: 1.35; }
+.edu-card .edu-ct { display: flex; align-items: baseline; gap: 6px; margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 13px; }
+.edu-card .edu-ct i { font-style: normal; }
+.edu-card .edu-tel { color: var(--navy); font-weight: 700; text-decoration: underline; }
+.dark .edu-card .edu-ct { border-top-color: #33507d; }
+.dark .edu-card .edu-tel { color: #8fb3e6; }

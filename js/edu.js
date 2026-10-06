@@ -80,6 +80,13 @@ function eduCardLine(c) {   // 목록 카드 마지막 줄 — 자세히 화면 
   var v = eduSeatView(c, true);
   return v.head + (!v.off && v.sub ? ' · ' + v.sub : '');
 }
+function eduContactLine(t) {   // 문의 한 줄 — 번호가 있으면 눌러서 바로 걸린다(카드 전체는 자세히로 가므로 눌림은 .edu-tel 이 막는다)
+  if (!t) return '';
+  var m = String(t).match(/0\d{1,2}[-\s]?\d{3,4}[-\s]?\d{4}/), body;
+  if (m) body = eduEsc(t.slice(0, m.index)) + '<a class="edu-tel" href="tel:' + m[0].replace(/\D/g, '') + '">' + eduEsc(m[0]) + '</a>' + eduEsc(t.slice(m.index + m[0].length));
+  else body = eduEsc(t);
+  return '<span class="edu-ct"><i aria-hidden="true">📞</i>' + body + '</span>';
+}
 function eduStatusLine(m) {   // 「내 강좌」 카드 칩 — 성도님 화면에 「반려」를 쓰지 않는다(자세히 화면 ⑫ 와 같은 말)
   if (m.status === 'waitlisted') return '대기 ' + (m.waitNo || 1) + '번';
   if (m.status === 'declined') return '확정되지 않음';
@@ -364,6 +371,7 @@ function eduDrawList(tab) {
       return '<div class="edu-card" data-i="' + i + '"><span class="edu-k">' + eduEsc(eduStatusLine(m)) + '</span>' +
         '<b>' + eduEsc(m.title) + '</b><span>' + eduEsc(m.term) + '</span>' +
         (m.nextSession ? '<span>다음 시간 · ' + eduEsc(eduMdw(m.nextSession.date)) + (m.nextSession.start ? ' ' + eduEsc(m.nextSession.start) : '') + '</span>' : '') +
+        eduContactLine(m.contact) +
         (eduAttendLine(m.attend) ? '<span class="edu-att">' + eduEsc(eduAttendLine(m.attend)) + '</span>' : '') +   // 출석(2단계) — 체크한 칸이 있을 때만
         (eduCertLine(m) ? '<span class="edu-cert-k">' + eduEsc(eduCertLine(m)) + '</span>' : '') +   // 수료(3단계) — 「🎓 수료 · 고척-2026-0001」
         '</div>'; }).join('') : '<p class="edu-empty">아직 신청한 강좌가 없어요.</p>';
@@ -373,13 +381,14 @@ function eduDrawList(tab) {
       return '<div class="edu-card" data-i="' + i + '"><span class="edu-k">' + eduEsc(c.kindLabel) + '</span>' +
         '<b>' + eduEsc(c.title) + (c.term ? ' <small>(' + eduEsc(c.term) + ')</small>' : '') + '</b>' +
         (c.firstDate ? '<span>' + eduEsc(eduMd(c.firstDate)) + (c.lastDate && c.lastDate !== c.firstDate ? ' ~ ' + eduEsc(eduMd(c.lastDate)) : '') + (c.sessionsCount ? ' · ' + c.sessionsCount + '회' : '') + '</span>' : '') +
-        '<span>' + eduEsc(eduCardLine(c)) + '</span></div>'; }).join('')
+        '<span>' + eduEsc(eduCardLine(c)) + '</span>' + eduContactLine(c.contact) + '</div>'; }).join('')
       : '<p class="edu-empty">' + (tab === 'soon' ? '곧 열릴 강좌가 없어요.' : '지금 모집 중인 강좌가 없어요.') + '</p>';
   }
   var door = (!eduState.open && tab !== 'mine') ? '<p class="edu-empty">' + eduErrText('not-open') + '</p>' : '';
   w.innerHTML = head + door + '<div class="edu-list">' + body + '</div>';
   w.querySelectorAll('.edu-tab').forEach(function (b) { b.addEventListener('click', function () { eduDrawList(b.dataset.tab); }); });
   var rows = tab === 'mine' ? eduState.mine : (tab === 'soon' ? soon : open);   // 강좌 번호는 화면 글자(data-*)에 싣지 않고 이 배열에서 꺼낸다
+  w.querySelectorAll('.edu-tel').forEach(function (a) { a.addEventListener('click', function (e) { e.stopPropagation(); }); });
   w.querySelectorAll('.edu-card').forEach(function (c) { c.addEventListener('click', function () {
     var row = rows[Number(c.dataset.i)]; if (row) renderEduCourse(tab === 'mine' ? row.courseId : row.id);
   }); });

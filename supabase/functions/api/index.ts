@@ -4933,7 +4933,7 @@ function eduCourseOut(c: any, ss: any[], cnt: { confirmed: number; waitlisted: n
   const { from: eduFirst, to: eduLast } = eduPeriod(c, ss);
   return {
     id: c.id, title: c.title, kind: c.kind, kindLabel: EDU_KIND_LABEL[c.kind] || c.kind, term: c.term || "",
-    teacher: c.teacher_label || "", place: c.place || "", fee: c.fee_note || "", target: c.target || "",
+    teacher: c.teacher_label || "", place: c.place || "", fee: c.fee_note || "", contact: c.contact_note || "", target: c.target || "",
     capacity: c.capacity ?? null, mode: c.mode, waitlist: !!c.waitlist, applyFrom: c.apply_from, applyTo: c.apply_to,
     startsOn: c.starts_on ?? null, endsOn: c.ends_on ?? null,   // 교육 기간(교회 어드민이 정한다 · 없으면 null)
     status: c.status, phase: eduPhase(c, today), sessionsCount: ss.length,
@@ -5085,7 +5085,7 @@ async function eduWaitNo(courseId: string, waitAt: string | null, id: number): P
 async function eduMineOut(rows: any[], today: string, att?: Map<number, Map<number, string>>) {
   const ids = [...new Set(rows.map((r) => r.course_id))];
   if (!ids.length) return [];
-  const { data: cs, error } = await db.from("edu_courses").select("id,title,term,starts_on").in("id", ids);
+  const { data: cs, error } = await db.from("edu_courses").select("id,title,term,starts_on,contact_note").in("id", ids);
   if (error) throw error;
   const cmap = new Map((cs ?? []).map((c: any) => [c.id, c]));
   const sess = await eduSessionsOf(ids);
@@ -5104,7 +5104,7 @@ async function eduMineOut(rows: any[], today: string, att?: Map<number, Map<numb
     const canCancel = ["applied", "confirmed", "waitlisted"].includes(r.status) && (cancelUntil === null || today <= cancelUntil) && !activeCert;
     // 수료(3단계) — completed 는 수료이고 취소되지 않았을 때만 true · certNo 도 그때만(취소된 번호는 내 화면에 싣지 않는다)
     const done = r.completed === true && activeCert;
-    return { id: r.id, courseId: r.course_id, title: c.title, term: c.term || "", status: r.status,
+    return { id: r.id, courseId: r.course_id, title: c.title, term: c.term || "", contact: c.contact_note || "", status: r.status,
       statusLabel: EDU_ENROLL_LABEL[r.status] || r.status, waitNo: waits[i], cancelUntil, canCancel,
       nextSession: next ? { no: next.no, date: next.on_date, start: next.start_time?.slice(0, 5) ?? null } : null,
       attend: eduAttendOut(attBy.get(Number(r.id))),
@@ -5117,7 +5117,7 @@ async function eduList(b: any) {
   const userId = eduUid(b.user_id);   // 틀린 user_id 는 「로그인 안 함」으로 본다 — 목록은 그대로 준다
   const today = eduKst();
   const { data, error } = await db.from("edu_courses")
-    .select("id,title,kind,term,teacher_label,place,fee_note,target,capacity,mode,waitlist,apply_from,apply_to,starts_on,ends_on,status")
+    .select("id,title,kind,term,teacher_label,place,fee_note,contact_note,target,capacity,mode,waitlist,apply_from,apply_to,starts_on,ends_on,status")
     .in("status", EDU_LIST_STATUS).order("apply_from", { ascending: true, nullsFirst: false }).limit(200);
   if (error) throw error;
   const rows = (data ?? []) as any[];
@@ -5149,7 +5149,7 @@ async function eduCourse(b: any) {
   const mine = (await eduMineOut(myRows, today, att))[0] || null;
   const myCells = mine ? att.get(Number(mine.id)) : undefined;
   return { ok: true, course: { ...eduCourseOut(c, ss, cnt[id], today), description: c.description || "", prereq: c.prereq_tracks || [],
-    contact: c.contact_note || "",   // 문의 한 줄(담당자가 적은 그대로 · 자세히에만 — 목록에는 싣지 않는다)
+    contact: c.contact_note || "",   // 문의 한 줄(담당자가 적은 그대로 · 목록 카드·내 강좌에도 같은 값이 간다)
     attendPct: c.attend_pct, checkLabel: c.check_label || null,
     sessions: ss.map((s: any) => ({ no: s.no, date: s.on_date, start: s.start_time?.slice(0, 5) ?? null, end: s.end_time?.slice(0, 5) ?? null, topic: s.topic || "", place: s.place || "",
       myState: myCells?.get(Number(s.id)) ?? null })) },
