@@ -2988,14 +2988,15 @@ function renderSummary() {
           한 조건으로 감싼다(둘 다 숨는 날 제목만 남지 않게). 🗂️ — 📜 는 「내 안에 거하는 말씀」이 쓴다.
           설계 docs/superpowers/specs/2026-10-01-ministry-history-check-design.md §2 */""}
     ${/* 2026-10-05 친구 요청 — 묶음 이름 「사역현황」 → 「교회」, 🎓 교육 신청을 사역 이력 확인 아래로(「함께」에서 옮김).
-          문은 단추마다 따로다(사역 둘 = ministryVisible · 교육 = eduVisible) — 제목은 하나라도 보이면 뜬다. */""}
-    ${(ministryVisible() && MH_LIVE) || eduVisible() || dutyVisible() ? `<div class="grp-title">교회</div>` : ""}
+          문은 단추마다 따로다(사역 둘 = ministryVisible · 교육 = eduVisible) — 제목은 하나라도 보이면 뜬다.
+          2026-10-07 친구 요청 — 「교회」 → 「교회 생활」 · 「봉사 당번」 → 「봉사 당번 신청」(당번 화면 제목도 같은 이름). */""}
+    ${(ministryVisible() && MH_LIVE) || eduVisible() || dutyVisible() ? `<div class="grp-title">교회 생활</div>` : ""}
     ${ministryVisible() && MH_LIVE ? `<button class="summary-help" id="open-ministry">🤝 ${ministryYear()}년 사역신청${newBadge("ministry")}</button>
     <button class="summary-help" id="open-ministry-history">🗂️ 사역 이력 확인</button>` : ""}
     ${/* newBadge("edu") — FEAT_SINCE.edu 는 개시일에 적는다(없으면 NEW 가 안 뜬다) */""}
     ${eduVisible() ? `<button class="summary-help" id="open-edu">🎓 교육 신청${newBadge("edu")}</button>` : ""}
     ${/* 🙋 봉사 당번(2026-10-06) — 문은 dutyVisible(dutyOpen 또는 시험 참여자). FEAT_SINCE.duty 는 개시일에 적는다(없으면 NEW 가 안 뜬다) */""}
-    ${dutyVisible() ? `<button class="summary-help" id="open-duty">🙋 봉사 당번${newBadge("duty")}</button>` : ""}
+    ${dutyVisible() ? `<button class="summary-help" id="open-duty">🙋 봉사 당번 신청${newBadge("duty")}</button>` : ""}
     <div class="grp-title">함께</div>
     ${/* 이름은 관리자가 적는 값이라 날 HTML 로 그리지 않는다. boardEsc 를 빌려 쓴다 —
           escape 헬퍼를 하나 더 만들면 그만큼 갈라진다. 서버가 norm() 으로 줄바꿈을

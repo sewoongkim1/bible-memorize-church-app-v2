@@ -412,7 +412,7 @@ function dutyShell(u) {
 }
 function dutyFail(text) {
   var w = document.querySelector('.duty-wrap');
-  if (w) w.innerHTML = '<h2 class="duty-title">🙋 봉사 당번</h2><p class="duty-empty">' + dutyEsc(text) + '</p>';
+  if (w) w.innerHTML = '<h2 class="duty-title">🙋 봉사 당번 신청</h2><p class="duty-empty">' + dutyEsc(text) + '</p>';
 }
 function dutyMyHtml(v, idx) {   // 내 줄 상자 — idx = 단추가 가리킬 차례 번호(속성 글)
   return '<div class="duty-my ' + v.tone + '"><b>' + dutyEsc(v.head) + '</b>' + (v.sub ? '<span>' + dutyEsc(v.sub) + '</span>' : '') + '</div>' +
@@ -480,7 +480,7 @@ function dutyDrawList(note) {
     return '<div class="duty-card" data-b="' + i + '" role="button" tabindex="0"><b>' + dutyEsc(b.title) + '</b>' + (b.place ? '<span>📍 ' + dutyEsc(b.place) + '</span>' : '') +
       '<span class="duty-need' + (b.status === 'open' && (b.need || []).length ? ' on' : '') + '">' + dutyEsc(dutyBoardLine(b)) + '</span></div>';
   }).join('') : '<p class="duty-empty">지금 열린 당번이 없어요.</p>';
-  w.innerHTML = '<h2 class="duty-title">🙋 봉사 당번</h2>' + (note ? '<p class="duty-note" role="status">' + dutyEsc(note) + '</p>' : '') +
+  w.innerHTML = '<h2 class="duty-title">🙋 봉사 당번 신청</h2>' + (note ? '<p class="duty-note" role="status">' + dutyEsc(note) + '</p>' : '') +
     mineHtml + '<div class="duty-sec">당번</div>' + boardHtml;
   w.onclick = function (ev) {
     var btn = ev.target.closest('button[data-act]');
