@@ -346,6 +346,96 @@ test('달력 — 그리기: 날짜가 있는 날만 단추 · 칸에 채워진 �
   assert.equal(rest.includes('숫자는'), false, '쉬는 날뿐이면 숫자 풀이도 없다'); assert.ok(rest.includes('날짜를 누르면'));
 });
 
+test('공휴일 표 — 꼴 · 해마다 있어야 하는 날 · 대체공휴일을 규칙으로 다시 셈한 것과 같다(친구 요청 2026-10-07 — 달력의 빨간 날짜)', () => {
+  const H = pick(ctx.DUTY_HOLIDAYS), keys = Object.keys(H), until = ctx.DUTY_HOL_UNTIL;
+  const utc = (s) => new Date(s + 'T00:00:00Z'), dow = (s) => utc(s).getUTCDay(), next = (s) => new Date(utc(s).getTime() + 86400000).toISOString().slice(0, 10);
+  // 꼴: 실제 날짜 · 날짜 차례 · 표 끝(DUTY_HOL_UNTIL) 안 · 이름은 정해 둔 낱말만(선거일·임시공휴일이 생기면 그 이름으로 — 「…선거」·「임시공휴일」)
+  //   노동절·제헌절은 2026년 5월부터 공휴일이다(공휴일에 관한 법률 제2조 개정 — 옛 지식으로 만든 표에는 빠진다).
+  const NAMES = ['신정', '설날', '삼일절', '노동절', '어린이날', '부처님오신날', '현충일', '제헌절', '광복절', '추석', '개천절', '한글날', '성탄절', '대체공휴일', '임시공휴일'];
+  assert.ok(keys.length >= 4 && /^\d{4}-\d{2}-\d{2}$/.test(until) && utc(until).toISOString().slice(0, 10) === until, 'DUTY_HOL_UNTIL');
+  keys.forEach((k, i) => {
+    assert.ok(/^\d{4}-\d{2}-\d{2}$/.test(k) && !isNaN(utc(k).getTime()) && utc(k).toISOString().slice(0, 10) === k, k + ' — 실제 날짜가 아니다');
+    assert.ok(k <= until, k + ' — 표 끝(DUTY_HOL_UNTIL) 뒤의 날짜');
+    if (i) assert.ok(keys[i - 1] < k, k + ' — 날짜 차례가 아니다');
+    assert.ok(NAMES.includes(H[k]) || /선거$/.test(H[k]), k + ' — 모르는 이름: ' + H[k]);
+  });
+  // 표가 통째로 덮는 해(1월 1일이 있고, 그 해의 끝까지 덮는다)마다: 양력 공휴일 열(그날이 추석 연휴와 겹치면 추석으로 적혀 있다 — 2028-10-03) ·
+  //   설날·추석은 이어진 사흘 · 부처님오신날은 많아야 하루(어린이날과 겹치는 해가 있다)
+  const FIXED = { '01-01': '신정', '03-01': '삼일절', '05-01': '노동절', '05-05': '어린이날', '06-06': '현충일', '07-17': '제헌절', '08-15': '광복절', '10-03': '개천절', '10-09': '한글날', '12-25': '성탄절' };
+  const lunar = (name) => name === '설날' || name === '추석';
+  const first = Number(keys[0].slice(0, 4)), last = Number(until.slice(0, 4)), full = [];
+  for (let y = first; y <= last; y++) if (H[y + '-01-01'] && (y < last || until.slice(5) === '12-31')) full.push(y);
+  assert.ok(full.length >= 1, '통째로 덮는 해가 하나는 있어야 한다(없으면 이 검사가 아무것도 보지 않는다)');
+  assert.ok(until.slice(5) === '12-31', '표 끝은 그 해의 마지막 날이어야 한다(해를 반만 덮으면 「없는 날」과 「아직 안 적은 날」을 가를 수 없다)');
+  for (const y of full) {
+    for (const md of Object.keys(FIXED)) assert.ok(H[y + '-' + md] === FIXED[md] || lunar(H[y + '-' + md]), y + '-' + md + ' ' + FIXED[md] + ' — 표에는 ' + H[y + '-' + md]);
+    for (const name of ['설날', '추석']) {
+      const ds = keys.filter((k) => k.startsWith(y + '-') && H[k] === name);
+      assert.equal(ds.length, 3, y + '년 ' + name + ' — 사흘이어야 한다'); assert.ok(next(ds[0]) === ds[1] && next(ds[1]) === ds[2], y + '년 ' + name + ' — 이어진 사흘이어야 한다');
+    }
+    assert.ok(keys.filter((k) => k.startsWith(y + '-') && H[k] === '부처님오신날').length <= 1, y + '년 부처님오신날');
+  }
+  // 대체공휴일 — 「관공서의 공휴일에 관한 규정」 제3조(대통령령 제36290호 · 2026-04-30)를 여기서 다시 셈해 표와 맞댄다(표를 손으로 적다 하루를 빠뜨리거나 더 넣는 것을 잡는다):
+  //   ① 국경일(삼일절·제헌절·광복절·개천절·한글날)·부처님오신날·노동절·어린이날·성탄절이 토요일·일요일과 겹치면 ② 설날·추석 연휴의 하루가 일요일과 겹치면
+  //   ③ 연휴의 하루가 다른 공휴일과 겹치면 → 그 공휴일(연휴) 다음의 첫 비공휴일(토·일·공휴일·이미 잡힌 대체공휴일이 아닌 날). 신정·현충일·선거일은 대체공휴일이 없다.
+  const base = keys.filter((k) => H[k] !== '대체공휴일'), want = new Set();
+  const free = (d) => { let x = next(d); while (dow(x) === 0 || dow(x) === 6 || base.includes(x) || want.has(x)) x = next(x); return x; };
+  const WEEKEND = ['삼일절', '제헌절', '광복절', '개천절', '한글날', '부처님오신날', '노동절', '어린이날', '성탄절'];
+  const blockEnd = (k) => { let e = k; while (H[next(e)] === H[k]) e = next(e); return e; };
+  for (const k of base) {
+    if (lunar(H[k])) { if (dow(k) === 0 || WEEKEND.includes(FIXED[k.slice(5)])) want.add(free(blockEnd(k))); }
+    else if (WEEKEND.includes(H[k]) && (dow(k) === 0 || dow(k) === 6)) want.add(free(k));
+  }
+  assert.deepEqual(keys.filter((k) => H[k] === '대체공휴일'), [...want].filter((d) => d <= until).sort(), '대체공휴일이 규칙으로 셈한 것과 다르다(빠졌거나 더 들었다)');
+  // ⚠️ 표는 두 저장소에 있다 — 교회 어드민 tests/duty-cal.test.mjs 의 지문과 **같은 값**이어야 한다. 표를 고치면 두 표와 두 지문을 함께 고친다.
+  const print = require('crypto').createHash('sha256').update(keys.map((k) => k + '=' + H[k]).join('\n')).digest('hex').slice(0, 12);
+  assert.equal(print, '187ca2cf84fc', '공휴일 표가 바뀌었다 — 교회 어드민 js/menus/duty/holidays.js 도 같은 표로 고치고, 두 저장소 시험의 지문을 같은 값으로 바꾼다');
+  // 이름 찾기 — 표에 있는 날짜만 · 날짜로 시작하는 글 · 틀린 값·객체의 물려받은 이름은 빈 글
+  assert.equal(ctx.dutyHoliday('2026-10-09'), '한글날'); assert.equal(ctx.dutyHoliday('2026-10-05'), '대체공휴일'); assert.equal(ctx.dutyHoliday('2026-10-06'), '');
+  assert.equal(ctx.dutyHoliday('2026-10-09T00:00:00+09:00'), '한글날', '날짜로 시작하는 글');
+  for (const bad of ['', null, undefined, '2026-10-9', 'toString', '__proto__', 'constructor', 20261009]) assert.equal(ctx.dutyHoliday(bad), '', String(bad));
+  assert.equal(ctx.dutyHoliday(next(until)), '', '표 끝 뒤의 날짜는 공휴일이라고도 아니라고도 하지 않는다(빈 글 — 빨갛게 안 보일 뿐)');
+});
+
+test('달력 — 공휴일은 날짜 숫자만 빨갛게(hol): 당번이 없는 날도 · 칸의 뜻(초록·남색)은 그대로 · 그 달에 있으면 풀이에 이름 · 그날 카드에도 이름', () => {
+  const S = (x) => ({ capacity: 2, off: false, n: 0, mine: null, why: '', ...x });
+  const days = [{ date: '2026-10-09', off: false, slots: [S({ n: 1 })] }, { date: '2026-10-11', off: false, slots: [S({ n: 1, why: 'mine', mine: { id: 1, status: 'active' } })] },
+    { date: '2026-11-08', off: false, slots: [S()] }, { date: '2026-12-25', off: false, slots: [S({ n: 1, why: 'mine', mine: { id: 2, status: 'active' } })] }];
+  const oct = ctx.dutyCalHtml(days, '2026-10-09', '2026-10-05', { why: '' });
+  assert.ok(oct.includes('class="duty-cal-c has k-need on hol" data-date="2026-10-09"'), '당번이 있는 공휴일 — 칸의 뜻(k-need)은 그대로이고 hol 이 붙는다');
+  assert.ok(oct.includes('aria-label="10월 9일(금) — 손이 필요한 날이에요 · 필요 2명 가운데 1명 채워졌어요 · 공휴일(한글날)"'), '낭독에도 공휴일');
+  assert.ok(oct.includes('<span class="duty-cal-c hol" title="개천절"><span>3</span></span>'), '당번이 없는 공휴일도 빨갛게');
+  assert.ok(oct.includes('<span class="duty-cal-c today hol" title="대체공휴일"><span>5</span></span>'), '오늘이면서 공휴일');
+  assert.ok(oct.includes('class="duty-cal-c has k-mine" data-date="2026-10-11"'), '공휴일이 아닌 날(주일)은 그대로 — 일요일은 따로 칠하지 않는다');
+  assert.ok(oct.includes('<span class="duty-cal-c"><span>4</span></span>') && oct.includes('<span class="duty-cal-c"><span>10</span></span>'), '일요일·토요일은 그대로');
+  assert.equal((oct.match(/ hol"/g) || []).length, 3, '10월의 빨간 날짜는 셋(3·5·9일)');
+  assert.ok(oct.includes('<span class="hd">빨간 날짜</span>는 공휴일이에요(<span class="ki">3일 개천절</span> · <span class="ki">5일 대체공휴일</span> · <span class="ki">9일 한글날</span>).<br>날짜를 누르면 그날의 자리가 아래에 보여요.'),
+    '풀이에 이름(색만으로 말하지 않는다 · 한 조각씩 줄이 갈리지 않게)');
+  const nov = ctx.dutyCalHtml(days, '2026-11-08', '', { why: '' });
+  assert.equal(nov.includes('빨간 날짜'), false, '공휴일이 없는 달에는 그 말이 없다'); assert.equal(/ hol"/.test(nov), false);
+  const dec = ctx.dutyCalHtml(days, '2026-12-25', '2026-12-25', { why: '' });
+  assert.ok(dec.includes('class="duty-cal-c has k-mine on today hol" data-date="2026-12-25"') && dec.includes('· 공휴일(성탄절) · 오늘"'), '내 당번(남색 칸) · 오늘 · 공휴일이 함께');
+  assert.ok(dec.includes('공휴일이에요(<span class="ki">25일 성탄절</span>).'));
+  // 풀이 한 줄 — 이어진 같은 이름은 범위로 · 없는 달·틀린 값은 빈 글
+  assert.equal(ctx.dutyHolLine('2026-10'), '3일 개천절 · 5일 대체공휴일 · 9일 한글날'); assert.equal(ctx.dutyHolLine('2027-02'), '6~8일 설날 · 9일 대체공휴일');
+  assert.equal(ctx.dutyHolLine('2027-09'), '14~16일 추석'); assert.equal(ctx.dutyHolLine('2026-11'), '');
+  // 2026년 5월부터 공휴일이 된 두 날 — 2027년에는 둘 다 토요일이라 월요일이 대체공휴일이다
+  assert.equal(ctx.dutyHolLine('2027-05'), '1일 노동절 · 3일 대체공휴일 · 5일 어린이날 · 13일 부처님오신날'); assert.equal(ctx.dutyHolLine('2027-07'), '17일 제헌절 · 19일 대체공휴일');
+  // 설날은 한국 음력이다 — 2027·2028년은 중국 춘절보다 하루 늦다(2027-02-07 · 2028-01-27). 2028-10-03 은 추석이면서 개천절(이름은 추석) · 선거일도 공휴일이다
+  assert.equal(ctx.dutyHolLine('2028-01'), '1일 신정 · 26~28일 설날'); assert.equal(ctx.dutyHolLine('2028-10'), '2~4일 추석 · 5일 대체공휴일 · 9일 한글날'); assert.equal(ctx.dutyHolLine('2028-04'), '12일 국회의원 선거');
+  assert.equal(ctx.dutyHoliday('2027-06-07'), '', '현충일은 대체공휴일이 없다'); assert.equal(ctx.dutyHoliday('2028-01-03'), '', '신정도 없다');
+  assert.deepEqual(pick(ctx.dutyHolItems('2026-10')), ['3일 개천절', '5일 대체공휴일', '9일 한글날']); assert.deepEqual(pick(ctx.dutyHolItems('2026-11')), []); assert.equal(ctx.dutyHolLine('x'), ''); assert.equal(ctx.dutyHolLine(null), '');
+  // 그날 카드의 이름 — 달력이 없는 당번(날짜가 적다)에서는 이것이 유일한 표시다
+  assert.equal(ctx.dutyHolChip('2026-12-25'), '<span class="duty-hol">성탄절</span>'); assert.equal(ctx.dutyHolChip('2026-12-24'), ''); assert.equal(ctx.dutyHolChip(null), '');
+  assert.ok(read(['js', 'duty.js']).includes("'<div class=\"duty-day-h\"><b>' + dutyEsc(dutyMdw(d.date)) + '</b>' + dutyHolChip(d.date) + (d.date === today ?"), '그날 카드가 그 이름을 붙인다');
+  // 색 — 새 값을 만들지 않는다: 밝은 바탕은 --error(내 달력의 일요일과 같은 값) · 남색 칸과 어두운 모드는 이미 쓰는 #ffaaa2
+  const css = read(['style.css']);
+  for (const rule of ['.duty-cal-c.hol > span { color: var(--error); }', '.duty-cal-c.k-mine.hol > span { color: #ffaaa2; }', '.duty-cal-k .hd { color: var(--error); font-weight: 700; }',
+    '.dark .duty-cal-c.hol > span, .dark .duty-hol, .dark .duty-cal-k .hd { color: #ffaaa2; }']) assert.ok(css.includes(rule), rule);
+  assert.ok(css.includes('.dark .sync-status.error .sync-title{ color:#ffaaa2; }') && css.includes('.mc-day.sun{ color:var(--error) !important; }'), '두 값 모두 다른 화면이 이미 쓰는 값이다');
+  assert.equal(/\.duty-(cal|hol|day)[^{}]*\{[^}]*#(?:c0392b|e74c3c|ff0000|f00\b)/i.test(css), false, '당번 달력에 빨강을 글자 값으로 새로 적지 않는다(--error 를 쓴다)');
+});
+
 test('달력 굴리기(dutyRevealBy) — 달력을 맨 위에 · 그래도 보여야 할 것이 🏠 단추에 가리면 모자란 만큼만 더 · 이미 보이면 그대로', () => {
   const by = (g, force) => ctx.dutyRevealBy({ calGap: 8, cardGap: 12, ...g }, force);
   // 390×844(맨 위에서 날짜를 고름): 달력 230 · 그날 카드 655 · 첫 단추가 든 자리의 끝 831 · 🏠 768 → 달력을 맨 위로(222). 그러면 카드 433 · 끝 609 라 더 올릴 것이 없다

@@ -6052,6 +6052,7 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .duty-day-h { display: flex; align-items: center; gap: 8px; }
 .duty-day-h b { font-size: 17px; color: var(--navy); }
 .duty-today { font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--navy); color: #fff; }
+.duty-hol { font-size: 13px; font-weight: 700; color: var(--error); white-space: nowrap; }   /* 그날 카드의 공휴일 이름 — 색은 아래 달력 칸과 같다 */
 .duty-day-s { margin: 2px 0 0; font-size: 14px; color: var(--gray); line-height: 1.5; word-break: keep-all; overflow-wrap: anywhere; }
 .duty-day.off .duty-day-s { color: #5a6273; }   /* 쉬는 날 카드의 줄 — 바탕(--light) 위 --gray 는 4.25:1 · 달력의 쉬는 날 칸과 같은 값(잠긴 날의 남색은 아래 줄이 이긴다) */
 .duty-day.locked .duty-day-s { color: var(--navy); font-weight: 600; }
@@ -6105,6 +6106,11 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .duty-cal-c.k-need { background: #e7f4ea; border-color: #a9d6b6; color: var(--green); }
 .duty-cal-c.k-mine { background: var(--navy); border-color: var(--navy); color: #fff; }
 .duty-cal-c.k-off { color: #5a6273; font-weight: 600; }   /* --gray 는 이 바탕(--light)에서 4.25:1 — 순위 범위의 잠긴 단추·필사 「마감」 칩(.pilsa-state.s4)과 같은 값(5.38:1 · 새 색 아님) */
+/* 공휴일(2026-10-07) — **날짜 숫자만** 빨갛게: 칸의 바탕과 인원 글은 뜻 색(초록·남색) 그대로 둔다. 새 색이 아니다 — --error 는 내 달력의 일요일(.mc-day.sun)과 같은 값이고
+   (흰 바탕 5.44:1 · --light 4.78:1 · 초록 칸 4.80:1), 남색 칸(내 당번)·어두운 모드는 어두운 바탕의 오류 글 색(.dark .sync-status.error .sync-title 의 #ffaaa2 — 남색 6.19:1 · 어두운 남색 4.71:1). */
+.duty-cal-c.hol > span { color: var(--error); }
+.duty-cal-c.k-mine.hol > span { color: #ffaaa2; }
+.duty-cal-k .hd { color: var(--error); font-weight: 700; }
 /* 고대비(forced-colors) — 바탕색·그림자가 사라져 표시가 모두 없어진다: 자리가 있는 날에 테두리 · 고른 날은 굵은 테두리로 */
 @media (forced-colors: active) { .duty-cal-c.has { border: 1px solid ButtonText; } .duty-cal-c.has.on { outline: 3px solid Highlight; outline-offset: 1px; } .duty-cal-c.k-mine { border-width: 3px; } }
 .duty-cal-c.has.on { border-color: var(--navy); box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--navy); }
@@ -6154,3 +6160,4 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .dark .duty-cal-c.has.on { border-color: #8fb3e6; box-shadow: 0 0 0 2px #151d2b, 0 0 0 4px #8fb3e6; }
 .dark .duty-cal-k .k.need { background: #1d3327; border-color: #3f7a55; }
 .dark .duty-cal-k .k.mine { background: #2b4c80; }
+.dark .duty-cal-c.hol > span, .dark .duty-hol, .dark .duty-cal-k .hd { color: #ffaaa2; }   /* --error 는 어두운 바탕에서 안 읽힌다(2.6:1 안팎) */
