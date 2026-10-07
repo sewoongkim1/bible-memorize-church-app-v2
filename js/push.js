@@ -209,7 +209,14 @@ async function disablePush(silent) {
     //   삼키면 「이 기기의 알림도 함께 꺼집니다」가 거짓으로 남는다(아이폰은 서버 줄을 지우는 것이 유일한 길이다 · 고침 검토 반영 2026-10-07).
     if (silent) {
       const u0 = (typeof loadUser === "function") ? loadUser() : null;
-      if (!u0 || !u0.user_id || !api.removeIosPush) return true;
+      if (!u0 || !u0.user_id) return true;
+      // js/api.js 가 실리지 않은 실행(통신이 고르지 않아 스크립트 하나가 빠졌다 — 앱은 그 상태로도 뜬다)에서는 api 가 선언조차 없다. 맨이름으로 읽다 던지면
+      //   「지우기」를 눌러도 아무것도 지워지지 않고 아무 말도 없다(회귀 확인 반영 2026-10-07). 못 지운 것으로 답한다 — 거짓 → 「알림을 끄지 못했어요 — 그래도 지우기」 창.
+      //   api 는 있는데 그 길만 없는 옛 api.js 는 예전처럼 참(지울 길이 없던 판이다).
+      let hasApi = false, canRemove = false;
+      try { hasApi = typeof api !== "undefined" && !!api; canRemove = hasApi && typeof api.removeIosPush === "function"; } catch (e) {}
+      if (!hasApi) return false;
+      if (!canRemove) return true;
       for (let i = 0; i < 2; i++) {
         try { const r = await api.removeIosPush(u0.user_id); if (r && r.ok === true) return true; } catch (e) {}
       }

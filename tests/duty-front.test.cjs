@@ -674,7 +674,12 @@ test('api 글자 검사 — 알림: 내부 액션 둘은 서비스 키 문이 �
   assert.ok(off > 0 && offEnd > off && go > offEnd, '꺼 둔 갈래가 먼저 끝난다');
   const offBody = send.slice(off, offEnd);
   assert.equal(/duty_notify_claim|eduPushDevices|eduDevicesOf/.test(offBody), false, '꺼 둔 동안에는 잡지도 보내지도 기기를 읽지도 않는다');
-  assert.ok(offBody.includes('try { held = new Set((await dutyNotifyPick(kind, list, day, gate.open)).map((r) => String(r.uid))).size; }') && offBody.includes('catch (e)'));
+  assert.ok(offBody.includes('try { held = new Set((await dutyNotifyUnclaimed(kind, await dutyNotifyPick(kind, list, day, gate.open))).map((r) => String(r.uid))).size; }') && offBody.includes('catch (e)'));
+  // 회귀 확인 반영(2026-10-07) — 확정·전날은 이미 잡힌(받은) 줄을 held 에서 뺀다: 잡기와 같은 겹침 키(signup_id, kind)로 **읽기만** 한다 · 잡지 않는 종류는 그대로
+  const unc = fn('dutyNotifyUnclaimed');
+  assert.ok(unc.includes('if (!rows.length || DUTY_NOTE_CLAIM.indexOf(kind) < 0) return rows;') && unc.includes('db.from("duty_notify_log").select("signup_id").eq("kind", kind).in("signup_id",') && unc.includes('if (error) throw error;'));
+  assert.equal(/\.rpc\(|\.insert\(|\.upsert\(|\.delete\(|\.update\(/.test(unc), false, '읽기만 한다(잡지 않는다)');
+  assert.equal(send.split('dutyNotifyUnclaimed(').length, 2, '꺼 둔 갈래에서만 쓴다(켜 둔 갈래는 잡기가 거른다)');
   assert.ok(dev > go && claim > dev && push > claim, '고르기 → 기기 읽기 → 잡기 → 보내기 차례(걸러진 줄은 잡지 않는다 · 잡은 뒤에 기기를 읽지 않는다)');
   // 알린 분 수 — 받는 분마다 센다(dutyNoteTally · 값 시험은 아래) · 기기 줄은 보내는 쪽이 받아들여진 것을 따로 돌려준다
   assert.ok(send.includes('if (d) { web.push(...d.web); ios.push(...d.ios); }'));
@@ -980,6 +985,8 @@ test('아이폰 앱 「내 정보 지우기」 — 토큰을 못 지웠으면 �
     const c = { console, Promise, Number, String, setTimeout, window: o.native ? { Capacitor: { isNativePlatform: () => true } } : {}, document: { addEventListener() {}, body: null },
       localStorage: { getItem: () => null, setItem() {}, removeItem() {} }, navigator: {}, loadUser: () => o.user, appAlert: () => {},
       api: { removeIosPush: async (uid) => { calls.push(uid); const r = (o.answers || [])[n++]; if (r === 'throw') throw new Error('net'); return r === undefined ? { ok: true } : r; } } };
+    if (o.noApi) delete c.api;                       // 선언조차 없다(맨이름으로 읽으면 ReferenceError)
+    if (o.oldApi) c.api = { removePush: async () => ({ ok: true }) };
     vm.createContext(c); vm.runInContext(PUSH, c);
     return { c, calls };
   };
@@ -990,6 +997,11 @@ test('아이폰 앱 「내 정보 지우기」 — 토큰을 못 지웠으면 �
   q = pushCtx({ native: true, user: U, answers: [{ ok: false, error: 'no-user' }, { ok: false }] }); assert.equal(await q.c.disablePush(true), false, '서버가 거절해도 거짓');
   q = pushCtx({ native: true, user: { name: '가' } }); assert.equal(await q.c.disablePush(true), true, '계정 번호를 받기 전 — 지울 줄이 없다'); assert.deepEqual(q.calls, []);
   q = pushCtx({ native: true, user: null }); assert.equal(await q.c.disablePush(true), true); assert.deepEqual(q.calls, []);
+  // 회귀 확인 반영(2026-10-07) — js/api.js 가 실리지 않은 실행(api 가 선언조차 없다): 던지지 않고 거짓(→ 「알림을 끄지 못했어요 — 그래도 지우기」 창 · 정보는 지울 수 있다)
+  //   계정 번호가 없으면 그 전에 참(지울 줄이 없다) · api 는 있는데 그 길만 없는 옛 api.js 는 예전처럼 참
+  q = pushCtx({ native: true, user: U, noApi: true }); assert.equal(await q.c.disablePush(true), false, 'api.js 가 안 실렸다 — 못 지운 것(던지지 않는다)');
+  q = pushCtx({ native: true, user: { name: '가' }, noApi: true }); assert.equal(await q.c.disablePush(true), true, 'api 가 없어도 계정 번호가 없으면 지울 줄이 없다');
+  q = pushCtx({ native: true, user: U, oldApi: true }); assert.equal(await q.c.disablePush(true), true, '옛 api.js(그 길이 없다) — 예전처럼 참'); assert.deepEqual(q.calls, []);
   // app.js clearMeOnThisDevice — 진짜 함수를 가짜 창·가짜 끄기로
   const clearSeg = cutFn(APP, 'async function clearMeOnThisDevice() {');
   const runClear = async (o) => {

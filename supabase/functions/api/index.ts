@@ -5743,7 +5743,8 @@ function dutyNoFn(err) {
 }
 // 전날 알림이 돈 흔적(app_config dutyRemindRun) — 부를 때마다 고쳐 쓴다. 크론이 하루 두 번(19:00·19:20) 돌므로 **같은 day 의 앞선 흔적에 더한다**:
 //   덮어쓰면 둘째 부름(이미 다 잡혀 0·0)이 첫 부름의 결과를 지워, 다음 날 읽는 사람이 잘 간 밤을 「0분」으로 읽는다(고침 검토 반영 2026-10-07).
-//   {at: 마지막으로 돈 때(monitor 의 26시간은 이것을 본다), day, rows, sent, missed, runs: 그 day 에 돈 횟수[, off: 마지막 부름이 꺼 둔 채였다, held: 그때 가지 못한 분 수]}
+//   {at: 마지막으로 돈 때(monitor 의 26시간은 이것을 본다), day, rows, sent, missed, runs: 그 day 에 돈 횟수[, off: 마지막 부름이 꺼 둔 채였다,
+//    held: 그때 가지 못한 분 수 — 그 부름 전에 이미 받은 분(잡힌 줄)은 세지 않는다]}
 function dutyRemindTrace(prev, now) {
   var num = function (v) { var n = Number(v); return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0; };
   var same = !!prev && typeof prev === "object" && !!now.day && String(prev.day) === String(now.day);
@@ -5900,7 +5901,7 @@ async function dutyAsk(b: any) {
 //    글을 만든 분 수를 그대로 주면 알림을 켜지 않은 분(대부분이다)까지 보냈다고 말하게 된다(검토 반영 2026-10-07).
 //    걸러진 줄(지난 날·끝난 자리·문이 닫힌 동안의 시험 참여자 아닌 분 …)은 어느 수에도 들지 않는다 — 알림 대상이 아니다.
 // ⚠️ 끄는 스위치 — app_config dutyNotifyOff 가 true 면 아무것도 **잡지도 보내지도** 않는다({off:true}). 되돌릴 때 옛 묶음을 다시 올리지 않고 이 한 줄로 끈다
-//    (PUBLIC_CONFIG_KEYS 에 넣지 않는다 — 앱이 읽을 일이 없다). 꺼 둔 동안에도 「보낼 알림이 있었나」(held — 거르기·문을 지난 분 수)는 읽어 돌려준다:
+//    (PUBLIC_CONFIG_KEYS 에 넣지 않는다 — 앱이 읽을 일이 없다). 꺼 둔 동안에도 「보낼 알림이 있었나」(held — 거르기·문을 지나고, 확정·전날은 아직 잡히지 않은 분 수)는 읽어 돌려준다:
 //    담당자 화면이 알림이 갈 일이 없던 저장(지난 날 바로잡기 · 준비 중 당번 · 앱 계정 없는 줄)에까지 「따로 알려 주세요」 창을 띄우지 않게.
 //    ⚠️ **켠 뒤 저절로 다시 가는 것은 없다** — 잡힌 줄이 없을 뿐이다. 확정은 담당자의 「확정 풀기 → 다시 확정」, 전날 알림은 **그날 24시 전에** 같은 길로 한 번
 //       (19시 뒤라 anytime 없이 — 자정을 넘기면 too-early 이고, anytime 을 실으면 모레 분들께 간다), 그 밖(넣음·옮김·뺌·쉼)은 다시 보낼 길이 없다
@@ -5935,9 +5936,25 @@ async function dutyNotifyPick(kind: string, list: number[], day: string | undefi
   return rows.filter((r) => testers.has(String(r.uid)));
 }
 
-// 지원 번호들에 kind 알림 — 돌려주는 것 = { sent: 실제로 나간 분 수, missed: 가지 않은 분 수(받는 기기 없음·자기 기기가 모두 실패), off: 꺼 둠, held: 꺼 둔 동안 보낼 분 수 }
+// 고른 줄 가운데 그 종류로 **아직 잡히지 않은** 줄만(읽기만 — 잡지 않는다). 꺼 둔 동안의 held 를 세는 데만 쓴다:
+//   확정·전날은 같은 줄에 한 번이라, 이미 잡힌(=이미 받은) 줄은 꺼 두지 않았어도 다시 가지 않는다 — 그 줄까지 세면 19:00 에 잘 간 밤에 스위치를 끈 뒤의 19:20 부름이
+//   monitor 의 「N분께 가지 않음」이 되고, 이미 확정 알림을 받은 날의 다시 확정에 「따로 알려 주세요」 창이 뜬다(회귀 확인 반영 2026-10-07).
+//   잡지 않는 종류(넣음·옮김·뺌·쉼·다시 엶·잠긴 날 지원)는 그대로 돌려준다. 겹침 키는 잡기(duty_notify_claim)와 같다 — (signup_id, kind).
+async function dutyNotifyUnclaimed(kind: string, rows: any[]): Promise<any[]> {
+  if (!rows.length || DUTY_NOTE_CLAIM.indexOf(kind) < 0) return rows;
+  const had = new Set<number>();
+  for (let i = 0; i < rows.length; i += 200) {
+    const { data, error } = await db.from("duty_notify_log").select("signup_id").eq("kind", kind).in("signup_id", rows.slice(i, i + 200).map((r) => Number(r.id)));
+    if (error) throw error;
+    for (const x of (Array.isArray(data) ? data : [])) had.add(Number(x.signup_id));
+  }
+  return rows.filter((r) => !had.has(Number(r.id)));
+}
+
+// 지원 번호들에 kind 알림 — 돌려주는 것 = { sent: 실제로 나간 분 수, missed: 가지 않은 분 수(받는 기기 없음·자기 기기가 모두 실패), off: 꺼 둠, held: 꺼 두지 않았으면 보냈을 분 수 }
 //   (한 분께 한 통 · 그분의 줄들을 한 글로).
-//   ⓪ 꺼 두었으면(dutyNotifyOff) 잡지도 보내지도 않는다 — 고르기만 해서 held 를 돌려준다(읽다 실패하면 held 없이 — 화면은 모르는 것으로 본다)
+//   ⓪ 꺼 두었으면(dutyNotifyOff) 잡지도 보내지도 않는다 — 고르기만 해서 held 를 돌려준다(확정·전날은 이미 잡힌 줄을 뺀다 — dutyNotifyUnclaimed ·
+//      읽다 실패하면 held 없이 — 화면은 모르는 것으로 본다)
 //   ① 알릴 줄을 고른다(dutyNotifyPick — 거르기 → 문) ② 그분들의 기기를 먼저 읽고(잡은 뒤에 읽다 실패하면 영영 안 간다)
 //   ③ 확정·전날은 duty_notify_claim 으로 잡는다(잡힌 줄만) — 전날 알림은 고른 날짜도 함께(p_date · 그사이 옮겨진 줄을 옛 날짜로 잡지 않는다 · 옛 SQL 이면 인자 둘로).
 //      뒤 덩이에서 DB 오류가 나도 **그때까지 잡힌 줄은 보낸 뒤** 던진다(잡힌 채 안 가는 줄을 남기지 않는다 · 안 잡힌 줄은 다시 부르면 간다)
@@ -5948,7 +5965,7 @@ async function dutyNotifySend(kind: string, ids: number[], day?: string): Promis
   const gate = await dutyNotifyGate();
   if (gate.off) {
     let held: number | undefined;
-    try { held = new Set((await dutyNotifyPick(kind, list, day, gate.open)).map((r) => String(r.uid))).size; }
+    try { held = new Set((await dutyNotifyUnclaimed(kind, await dutyNotifyPick(kind, list, day, gate.open))).map((r) => String(r.uid))).size; }
     catch (e) { console.error("dutyNotifySend held", kind, e); }
     return { sent: 0, missed: 0, off: true, ...(held === undefined ? {} : { held }) };
   }

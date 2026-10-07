@@ -146,7 +146,13 @@ for t in PURE_TESTS:
     out = r.stdout.decode("utf-8", "replace")
     if r.returncode == 0:
         m = re.search(r"^# pass (\d+)", out, re.M)
-        ok("%s — %s가지 통과" % (t, m.group(1) if m else "?"))
+        sk = re.search(r"^# skipped (\d+)", out, re.M)
+        if m and m.group(1) == "0" and sk and int(sk.group(1)) > 0:
+            # 하나도 돌지 않았다(예: 이 node 로는 못 도는 시험) — 떨어뜨리지는 않되 「통과」로 읽히지 않게 적는다(회귀 확인 반영 2026-10-07)
+            why = re.search(r"# SKIP (.+)$", out, re.M)
+            print("  \033[33m건너뜀\033[0m  %s — %s가지를 돌리지 못했다(통과 0)%s" % (t, sk.group(1), " · " + why.group(1).strip()[:120] if why else ""))
+        else:
+            ok("%s — %s가지 통과" % (t, m.group(1) if m else "?"))
     else:
         hits = [ln for ln in out.splitlines()
                 if ln.startswith("not ok") or "AssertionError" in ln or "Error:" in ln]

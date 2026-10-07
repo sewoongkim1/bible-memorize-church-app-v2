@@ -3,20 +3,24 @@
 //   ⚠️ 개발 계정에는 받는 기기가 없다 — 「같은 글 묶음 안에서 한 분의 기기만 죽은 경우」·「옛 SQL 을 만난 새 api」·「잡기 직전에 끼어든 옮기기」는
 //      개발 서버 시험(tests/duty-notify.dev.sh)으로 볼 수 없어 여기서 본다(고침 검토 반영 2026-10-07).
 //   타입을 걷는 것은 node 의 module.stripTypeScriptTypes(22.13+) — 없는 판이면 건너뛴다(그 판에서는 글자·값 시험 tests/duty-front.test.cjs 만 돈다).
+//   ⚠️ 건너뛰는 것은 **node 탓일 때만**이다 — 떼어 낼 것(순수 구간 표식 · 상수 · 함수 이름)을 못 찾으면 어느 판에서나 이 파일이 그대로 떨어진다
+//      (전에는 그것까지 「타입을 못 걷는 node」로 보고 다섯 시험을 조용히 건너뛰었다 — 종료 0 · preflight 「0가지 통과」 · 회귀 확인 반영 2026-10-07).
+//      걷다 실패한 때(그 함수는 있는데 못 걷는 문법 — enum·namespace 등)는 건너뛰되 까닭을 그대로 적는다: 배포 문을 node 의 실험 기능의 결과에 묶지 않는다.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', 'api', 'index.ts'), 'utf8').replace(/\r\n/g, '\n');
 const fnOf = (name) => { const a = SRC.indexOf('async function ' + name + '('); assert.ok(a >= 0, name + ' 를 못 찾았다'); return SRC.slice(a, SRC.indexOf('\n}\n', a) + 2); };
+// 떼어 내기 — node 와 무관하다(try 밖: 못 찾으면 어느 판에서나 떨어진다)
+const between = (a, b, what) => { const i = SRC.indexOf(a), j = i < 0 ? -1 : SRC.indexOf(b, i); assert.ok(i >= 0 && j > i, what + ' 를 못 찾았다'); return [i, j]; };
+const NAMES = ['webPushList', 'eduPushDevices', 'dutyNotifyGate', 'dutyNotifyPick', 'dutyNotifyUnclaimed', 'dutyNotifySend', 'internalDutyNotify', 'internalDutyRemind'];
+const [P0, P1] = between('// ── 봉사 당번 — 순수 함수 (여기부터) ──', '// ── 봉사 당번 — 순수 함수 (여기까지) ──', '순수 구간 표식');
+const [C0, C1] = between('const DUTY_NOTIFY_TITLE =', 'const DUTY_NOTIFY_URL =', '알림 상수');
+const PARTS = [SRC.slice(P0, P1), SRC.slice(C0, SRC.indexOf('\n', C1) + 1), ...NAMES.map(fnOf)];
 let CODE = null, WHY = '';
-try {
-  const { stripTypeScriptTypes } = require('node:module');
-  if (typeof stripTypeScriptTypes !== 'function') throw new Error('이 node 에는 stripTypeScriptTypes 가 없다');
-  const pure = SRC.slice(SRC.indexOf('// ── 봉사 당번 — 순수 함수 (여기부터) ──'), SRC.indexOf('// ── 봉사 당번 — 순수 함수 (여기까지) ──'));
-  const consts = SRC.slice(SRC.indexOf('const DUTY_NOTIFY_TITLE ='), SRC.indexOf('\n', SRC.indexOf('const DUTY_NOTIFY_URL =')) + 1);
-  const names = ['webPushList', 'eduPushDevices', 'dutyNotifyGate', 'dutyNotifyPick', 'dutyNotifySend', 'internalDutyNotify', 'internalDutyRemind'];
-  CODE = stripTypeScriptTypes([pure, consts, ...names.map(fnOf)].join('\n'));
-} catch (e) { WHY = String((e && e.message) || e).split('\n')[0]; }
+const { stripTypeScriptTypes } = require('node:module');
+if (typeof stripTypeScriptTypes !== 'function') WHY = '이 node 에는 타입을 걷는 함수(module.stripTypeScriptTypes · 22.13+)가 없다';
+else { try { CODE = stripTypeScriptTypes(PARTS.join('\n')); } catch (e) { WHY = '타입을 걷다 실패했다(걷지 못하는 문법이 들었나) — ' + String((e && e.message) || e).split('\n')[0]; } }
 
 // 가짜 세상 — app_config · 지원 줄(duty_notify_rows 의 꼴) · 잡힌 기록 · push_log · 기기. SQL 함수 셋은 뜻만 흉내 낸다(잡기 = 살아 있음·계정·쉼 아님·[날짜]).
 function world(o) {
@@ -32,6 +36,11 @@ function world(o) {
         return Promise.resolve(single ? { data: data[0] ? { value: data[0].value } : null, error: null } : { data, error: null });
       }
       if (name === 'push_log') { w.pushLog.push(q.val); return Promise.resolve({ error: null }); }
+      if (name === 'duty_notify_log') {   // 읽기만 — 잡힌 기록(w.claimed 의 「종류:번호」)에서 그 종류·그 번호들을 준다
+        if (w.logFail) return Promise.resolve({ data: null, error: w.logFail });
+        const kind = (q.f.kind || [])[0];
+        return Promise.resolve({ data: (q.f.signup_id || []).filter((id) => w.claimed.has(kind + ':' + id)).map((id) => ({ signup_id: id })), error: null });
+      }
       if (q.op === 'delete') { w.gone.push(name + ':' + q.f.id[0]); return Promise.resolve({ error: null }); }
       return Promise.resolve({ data: [], error: null });
     };
@@ -77,7 +86,7 @@ const web = (id, ep) => ({ id, endpoint: ep, p256dh: 'p', auth: 'a', user_id: 'x
 const J = (v) => JSON.parse(JSON.stringify(v));
 const eq = (got, want, msg) => assert.deepEqual(J(got), want, msg);
 const REQ = { headers: { get: () => 'k' } };
-const run = (name, fn) => test(name, { skip: CODE ? false : '타입을 걷지 못해 건너뛴다 — ' + WHY }, fn);
+const run = (name, fn) => test(name, { skip: CODE ? false : '건너뛴다 — ' + WHY }, fn);
 
 run('보낸 분 수 — 받는 분마다 센다: 같은 글 묶음 안에서 한 분의 기기만 죽어도 그분은 「가지 않은 분」이다', async () => {
   let { w, ctx } = world({ cfg: { dutyOpen: true }, rows: [R(1, 'A'), R(2, 'B')], devs: new Map([['A', { web: [web(1, 'ok-a')], ios: [] }], ['B', { web: [web(2, 'dead-b')], ios: [] }]]) });
@@ -112,6 +121,29 @@ run('끄는 스위치 — 잡지도 보내지도 않는다 · held = 꺼 두지 
   eq(await ctx.dutyNotifySend('confirmed', [1, 2]), { sent: 0, missed: 0, off: true, held: 1 }, '문이 닫힌 동안의 held 는 시험 참여자만');
   ({ w, ctx } = world({ cfg: { dutyNotifyOff: 'true' }, rows: [R(1, 'A')], devs: new Map([['A', { web: [web(1, 'ok-a')], ios: [] }]]), testers: ['A'] }));
   eq(await ctx.dutyNotifySend('confirmed', [1]), { sent: 1, missed: 0 }, '글자 "true" 는 꺼진 것이 아니다');
+});
+
+run('끄는 스위치의 held — 이미 잡힌(받은) 줄은 세지 않는다: 19:00 에 잘 간 밤에 끄면 19:20 은 0 · 잡지 않는 종류는 그대로 · 잡힌 기록을 읽다 실패하면 held 없이', async () => {
+  const devs = () => new Map([['A', { web: [web(1, 'ok-a')], ios: [] }], ['B', { web: [web(2, 'ok-b')], ios: [] }], ['C', { web: [web(3, 'ok-c')], ios: [] }]]);
+  let { w, ctx } = world({ cfg: { dutyOpen: true }, rows: [R(1, 'A', { date: '2026-10-11' }), R(2, 'B', { date: '2026-10-11' }), R(3, 'C', { date: '2026-10-11' })], devs: devs() });
+  eq(await ctx.internalDutyRemind(REQ, { anytime: true }), { ok: true, day: '2026-10-11', rows: 3, sent: 3, missed: 0 }, '19:00 — 세 분께 갔다');
+  w.cfg.dutyNotifyOff = true;
+  eq(await ctx.internalDutyRemind(REQ, { anytime: true }), { ok: true, day: '2026-10-11', rows: 3, sent: 0, missed: 0, off: true }, '19:20 — 꺼 둔 채');
+  const tr = { ...w.cfg.dutyRemindRun }; delete tr.at;
+  eq(tr, { day: '2026-10-11', rows: 3, sent: 3, missed: 0, runs: 2, off: true, held: 0 }, '받은 세 분은 「가지 않은 분」이 아니다');
+  eq(ctx.dutyRemindProblems(w.cfg.dutyRemindRun, Date.now(), true).map((s) => s.includes('가지 않음')), [false], 'monitor 는 꺼져 있다고만 말한다(수를 말하지 않는다)');
+  // 확정 — 이미 받은 두 줄 + 그 뒤에 들어온 한 줄
+  ({ w, ctx } = world({ cfg: { dutyOpen: true }, rows: [R(1, 'A'), R(2, 'B'), R(3, 'C')], devs: devs() }));
+  eq(await ctx.dutyNotifySend('confirmed', [1, 2]), { sent: 2, missed: 0 });
+  w.cfg.dutyNotifyOff = true;
+  eq(await ctx.dutyNotifySend('confirmed', [1, 2]), { sent: 0, missed: 0, off: true, held: 0 }, '이미 받은 날의 다시 확정 — 알릴 분이 없다(켜 둔 때의 0·0 과 같다)');
+  eq(await ctx.dutyNotifySend('confirmed', [1, 2, 3]), { sent: 0, missed: 0, off: true, held: 1 }, '새로 들어온 한 분만');
+  eq(await ctx.dutyNotifySend('added', [1, 2, 3]), { sent: 0, missed: 0, off: true, held: 3 }, '잡지 않는 종류는 그대로(확정 기록과 상관없다)');
+  eq(await ctx.dutyNotifySend('remind', [1, 2, 3], '2026-10-25'), { sent: 0, missed: 0, off: true, held: 3 }, '겹침 키는 (번호, 종류) — 확정으로 잡힌 줄도 전날 알림은 아직이다');
+  eq([[...w.claimed].sort(), w.rpc.filter((x) => x[0] === 'duty_notify_claim').length, w.sentTo.length], [['confirmed:1', 'confirmed:2'], 1, 2], '꺼 둔 동안 잡힌 것·보낸 것은 늘지 않는다');
+  w.logFail = { code: 'XX000', message: 'log' };
+  eq([await ctx.dutyNotifySend('confirmed', [1, 2, 3]), w.errs.length], [{ sent: 0, missed: 0, off: true }, 1], '잡힌 기록을 읽다 실패하면 held 없이(모르면 알리는 쪽 — 화면은 창을 띄운다)');
+  eq(await ctx.dutyNotifySend('added', [1, 2, 3]), { sent: 0, missed: 0, off: true, held: 3 }, '잡지 않는 종류는 그 표를 읽지 않는다');
 });
 
 run('전날 알림 — 잡는 문장에 날짜를 싣는다(그사이 옮겨진 줄은 잡히지 않는다) · 옛 SQL 이면 인자 둘로 물러선다(그 오류일 때만)', async () => {

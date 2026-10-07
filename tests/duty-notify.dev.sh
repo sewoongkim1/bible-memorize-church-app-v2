@@ -231,6 +231,12 @@ chk "switch off: held = people who would have been told" "$(jqn 'd.get("held")' 
 chk "switch off: a no-account row -> held 0 (nobody to tell)" "$(jqn '(d.get("off"), d.get("held"))' "$(icall "$SK" "$(NB added "$ES")")")" "(True, 0)"
 chk "switch off: response keys" "$(jqn 'sorted(d.keys())' "$R")" "['held', 'missed', 'off', 'ok', 'sent']"
 chk "switch off: nothing sent" "$(PLN added)" "$P_ADD"
+# 회귀 확인 반영(2026-10-07) — 확정·전날의 held 는 이미 받은(잡힌) 줄을 세지 않는다: 이미 확정 알림을 받은 날의 「확정 풀기 → 다시 확정」에 「따로 알려 주세요」 창이 뜨지 않게
+chk "confirm the day again (SQL)" "$(sq "select duty_day_set('$BID','$D3','confirm',null,null)->>'ok'")" "true"
+chk "switch off: rows already told 'confirmed' -> held 0" "$(jqn '(d.get("off"), d.get("held"))' "$(icall "$SK" "$(NB confirmed "$EN,$ET")")")" "(True, 0)"
+chk "switch off: plus one row not told yet -> held 1" "$(jqn '(d.get("off"), d.get("held"))' "$(icall "$SK" "$(NB confirmed "$EN,$ET,$EU")")")" "(True, 1)"
+chk "switch off: reading held claims nothing" "$(LOGN "$EU" confirmed)" "0"
+chk "unconfirm again (SQL)" "$(sq "select duty_day_set('$BID','$D3','unconfirm',null,null)->>'ok'")" "true"
 sx "delete from app_config where key='dutyNotifyOff'"
 chk "switch on again -> told" "$(jqn "$TOLD" "$(icall "$SK" "$(NB added "$EU")")")" "1"
 chk "no ids in push_log" "$(sq "select count(*) from push_log where id > $PL0 and mode like 'duty-%' and (coalesce(body,'') like '%$UT%' or coalesce(body,'') like '%$UN%' or coalesce(body,'') like '%$U1%' or coalesce(note,'') like '%$U1%')")" "0"
@@ -260,6 +266,12 @@ chk "two push_log rows (two different texts)" "$(PLN remind)" "2"
 chk "one person's two slots in one text" "$(sq "select count(*) from push_log where id > $PL0 and mode='duty-remind' and position('ga 09:00' in body) > 0 and position('na 11:00' in body) > 0 and body like '%$TAG%'")" "1"
 R=$(icall "$SK" "$RB"); chk "second call -> 0" "$(jqn "(d.get(\"rows\"), $TOLD)" "$R")" "(3, 0)"
 chk "trace adds up over the same day (runs 3 · the people told by the earlier run are kept)" "$(sq "select (value->>'runs') || ':' || ((value->>'sent')::int + (value->>'missed')::int)::text from app_config where key='dutyRemindRun'")" "3:2"
+# 회귀 확인 반영(2026-10-07) — 이미 간 저녁에 스위치를 끄고 다시 부르면: 받은 분은 「가지 않은 분」(held)이 아니다(다음 아침 monitor 가 「N분께 가지 않음」이라 하지 않는다)
+sx "insert into app_config(key,value) values('dutyNotifyOff','true'::jsonb) on conflict (key) do update set value='true'::jsonb"
+R=$(icall "$SK" "$RB")
+chk "remind switched off after it already went: off, nothing told" "$(jqn '(d.get("rows"), d.get("sent"), d.get("missed"), d.get("off"))' "$R")" "(3, 0, 0, True)"
+chk "trace: people already told are not 'held' (held 0, earlier result kept, runs 4)" "$(sq "select (value->>'off') || ':' || (value->>'held') || ':' || ((value->>'sent')::int + (value->>'missed')::int)::text || ':' || (value->>'runs') from app_config where key='dutyRemindRun'")" "true:0:2:4"
+sx "delete from app_config where key='dutyNotifyOff'"
 # 고침 검토 반영 — 전날 알림 잡기는 날짜도 본다(SQL p_date): 그사이 다른 날로 옮겨진 줄은 옛 날짜로 잡히지 않는다
 EMV=$(staff "$A1" "'$U2'" u2)      # 내일 자리의 줄 → 사흘 뒤 자리(B3 — 그분의 취소한 줄이 있던 자리 · 옮기며 그 줄은 지워진다)로 옮긴다
 chk "move tomorrow's row to another day (SQL)" "$(sq "select duty_move($EMV, $B3, true)->>'ok'")" "true"
