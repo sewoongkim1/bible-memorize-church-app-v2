@@ -393,10 +393,10 @@ test('공휴일 표 — 꼴 · 해마다 있어야 하는 날 · 대체공휴일
   }
   assert.deepEqual(keys.filter((k) => H[k] === '대체공휴일'), [...want].filter((d) => d <= until).sort(), '대체공휴일이 규칙으로 셈한 것과 다르다(빠졌거나 더 들었다)');
   // ⚠️ 표는 두 저장소에 있다 — 교회 어드민 tests/duty-cal.test.mjs 의 지문과 **같은 값**이어야 한다. 표를 고치면 두 표와 두 지문을 함께 고친다.
-  //   지문은 범위(DUTY_HOL_FROM~DUTY_HOL_UNTIL)도 싣는다 — 달력의 풀이가 그 범위를 말하므로(「…까지만 빨갛게 보여요」) 범위만 달라도 두 달력이 다른 말을 한다.
+  //   지문은 범위(DUTY_HOL_FROM~DUTY_HOL_UNTIL)도 싣는다 — 달력의 풀이가 그 범위를 말하므로(「…다른 공휴일은 2028년 12월까지만 표시돼요」) 범위만 달라도 두 달력이 다른 말을 한다.
   const print = require('crypto').createHash('sha256').update([from + '~' + until].concat(keys.map((k) => k + '=' + H[k])).join('\n')).digest('hex').slice(0, 12);
   assert.equal(print, '9c07bd766842', '공휴일 표(또는 그 범위)가 바뀌었다 — 교회 어드민 js/menus/duty/holidays.js 의 HOLIDAYS·HOL_FROM·HOL_UNTIL 도 같게 고치고, 두 저장소 시험의 지문을 같은 값으로 바꾼다');
-  // 표가 덮지 않는 달 — 빨간 날짜가 없는 것이 「공휴일이 없다」는 뜻이 아니다(달력의 풀이가 그렇게 말한다). 「앞으로 1년」 당번은 표 끝의 한 해 전부터 그 뒤의 달을 보여 준다
+  // 표가 덮지 않는 달 — 평일이 빨갛지 않은 것이 「공휴일이 없다」는 뜻이 아니다(달력의 풀이가 그렇게 말한다 · 일요일은 표와 상관없이 어느 달이나 빨갛다). 「앞으로 1년」 당번은 표 끝의 한 해 전부터 그 뒤의 달을 보여 준다
   assert.equal(ctx.dutyHolOutside(from.slice(0, 7)), ''); assert.equal(ctx.dutyHolOutside(until.slice(0, 7)), ''); assert.equal(ctx.dutyHolOutside('2027-06'), '');
   assert.equal(ctx.dutyHolOutside(next(until).slice(0, 7)), 'after'); assert.equal(ctx.dutyHolOutside('2026-09'), 'before'); assert.equal(ctx.dutyHolOutside('2031-03'), 'after');
   for (const bad of ['', null, undefined, 'x', '2029', '2029-1', '2029-01-01', 202901]) assert.equal(ctx.dutyHolOutside(bad), '', String(bad));
@@ -425,7 +425,7 @@ test('달력 — 공휴일은 날짜 숫자만 빨갛게(hol): 당번이 없는 
   assert.equal((oct.match(/ sun"/g) || []).length, 4, '10월의 일요일은 넷(4·11·18·25일) — 그날이 공휴일이면 hol 이 뒤에 붙는다(이 달에는 없다)');
   assert.ok(oct.includes('<div class="duty-cal-w" aria-hidden="true"><span class="sun">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>'), '요일 줄의 「일」도 빨갛다');
   assert.equal(oct.includes('title="') && /class="duty-cal-c sun" title=/.test(oct), false, '일요일에는 이름(title)이 없다 — 이름은 공휴일에만');
-  assert.equal((oct.match(/ hol"/g) || []).length, 3, '10월의 빨간 날짜는 셋(3·5·9일)');
+  assert.equal((oct.match(/ hol"/g) || []).length, 3, '10월의 공휴일 표식은 셋(3·5·9일 — 빨간 날짜는 일요일 넷을 더해 일곱이다)');
   assert.ok(oct.includes('<span class="hd">빨간 날짜</span>는 일요일과 공휴일이에요(<span class="ki">3일 개천절</span> · <span class="ki">5일 대체공휴일</span> · <span class="ki">9일 한글날</span>).<br>날짜를 누르면 그날의 자리가 아래에 보여요.'),
     '풀이에 이름(색만으로 말하지 않는다 · 한 조각씩 줄이 갈리지 않게)');
   const nov = ctx.dutyCalHtml(days, '2026-11-08', '', { why: '' });
@@ -443,6 +443,18 @@ test('달력 — 공휴일은 날짜 숫자만 빨갛게(hol): 당번이 없는 
     const d = new Date(Date.UTC(2026, 9, 1) + i * 86400000).toISOString().slice(0, 10), col = pick(ctx.dutyCalMonth(d.slice(0, 7))).findIndex((c) => c.date === d) % 7;
     assert.equal(ctx.dutyIsSunday(d), col === 0, d); n += ctx.dutyIsSunday(d) ? 1 : 0;
     if (i === 799) assert.equal(n, 114, '800일 가운데 일요일 114번');
+  }
+  // 다른 시간대의 기기에서도 같은 답인가(올리기 전 확인 반영 2026-10-07) — 이 시험이 도는 PC(한국)와 배포 전 검사(UTC)에서는 getDay 와 getUTCDay 가 같은 값이라,
+  //   요일을 기기 시각으로 읽게 바꿔도 여기까지는 모두 통과한다(미주의 폰에서만 월요일이 빨개진다). 순수 구간을 통째로 UTC 서쪽·날짜선 양쪽 시간대의 자식 node 에서 다시 돌려
+  //   일요일 판정 · 요일 글자(dutyMdw) · 달력의 열(dutyCalMonth)을 함께 본다. ⚠️ 손으로 볼 때 Git Bash 의 `TZ=… node` 는 node 에 닿지 않는다 — 자식의 env 로 준다.
+  const duty = read(['js', 'duty.js']), pure = duty.slice(duty.indexOf('// ── 봉사 당번 순수 함수 (여기부터) ──'), duty.indexOf('// ── 봉사 당번 순수 함수 (여기까지) ──'));
+  const DS = ['2026-10-10', '2026-10-11', '2026-10-12', '2027-01-03', '2027-01-04', '2028-12-31', '2029-01-01'];
+  const child = "const vm = require('node:vm'), c = {}; vm.createContext(c); vm.runInContext(require('node:fs').readFileSync(0, 'utf8'), c); const D = " + JSON.stringify(DS) +
+    "; process.stdout.write(JSON.stringify({ sun: D.map(c.dutyIsSunday), label: D.map(c.dutyMdw), col: D.map(function (d) { return c.dutyCalMonth(d.slice(0, 7)).findIndex(function (x) { return x.date === d; }) % 7; }) }));";
+  for (const tz of ['America/Los_Angeles', 'Pacific/Pago_Pago', 'Pacific/Kiritimati']) {
+    const r = require('node:child_process').spawnSync(process.execPath, ['-e', child], { input: pure, env: { ...process.env, TZ: tz }, encoding: 'utf8' });
+    assert.equal(r.status, 0, tz + ' — ' + r.stderr);
+    assert.deepEqual(JSON.parse(r.stdout), { sun: [false, true, false, true, false, true, false], label: ['10월 10일(토)', '10월 11일(일)', '10월 12일(월)', '1월 3일(일)', '1월 4일(월)', '12월 31일(일)', '1월 1일(월)'], col: [6, 0, 1, 0, 1, 0, 1] }, tz);
   }
   assert.ok(dec.includes('공휴일이에요(<span class="ki">25일 성탄절</span>).'));
   // 풀이 한 줄 — 이어진 같은 이름은 범위로 · 없는 달·틀린 값은 빈 글
@@ -470,7 +482,7 @@ test('달력 — 공휴일은 날짜 숫자만 빨갛게(hol): 당번이 없는 
 
 test('달력 · 그날 카드(독립 검토 반영 2026-10-07) — 표 밖의 달은 풀이가 그렇게 말한다 · 큰 수는 줄을 바꾼다 · 좁은 폰에서 머리가 꺾이지 않는다', () => {
   const S = (x) => ({ capacity: 2, off: false, n: 0, mine: null, why: '', ...x });
-  // 「앞으로 1년」 당번은 표 끝(2028-12-31)의 한 해 전부터 그 뒤의 달을 보여 준다 — 그 달에 빨간 날짜가 없는 것은 「공휴일이 없다」가 아니다
+  // 「앞으로 1년」 당번은 표 끝(2028-12-31)의 한 해 전부터 그 뒤의 달을 보여 준다 — 그 달의 평일이 빨갛지 않은 것은 「공휴일이 없다」가 아니다(일요일은 그 달에도 빨갛다)
   const far = [{ date: '2028-12-24', off: false, slots: [S({ n: 1 })] }, { date: '2028-12-31', off: false, slots: [S()] }, { date: '2029-01-07', off: false, slots: [S()] }, { date: '2029-01-14', off: false, slots: [S()] }];
   const jan = ctx.dutyCalHtml(far, '2029-01-07', '2028-12-20', { why: '' });
   assert.ok(jan.includes('<br>이 달은 일요일만 빨갛게 보여요(다른 공휴일은 2028년 12월까지만 표시돼요).<br>날짜를 누르면 그날의 자리가 아래에 보여요.</p>'), '표 끝 뒤의 달');
@@ -488,6 +500,16 @@ test('달력 · 그날 카드(독립 검토 반영 2026-10-07) — 표 밖의 �
   assert.equal(ctx.dutyCalMark({ kind: 'need', n: 100, cap: 120 }), '100/120', '칸의 글 자체는 그대로다(줄 바꿀 자리는 그릴 때만 넣는다)');
   const css = read(['style.css']);
   assert.equal(/\.duty-cal-c i \{[^}]*nowrap/.test(css), false, '인원 글에 nowrap 을 걸지 않는다(못 들면 줄을 바꾼다 — 넘쳐 이웃 칸에 묻히지 않게)');
+  // 올리기 전 확인 반영 — 줄을 바꾸는 문턱은 **칸 폭**이다: 인원 글이 칸의 투명 테두리(2px) 자리까지 쓴다(좌우 여백 −2px). 없으면 문턱이 안쪽 폭(칸 − 4px)이 되어
+  //   폭 329px 이하에서 「10/12」처럼 칸에 드는 두 자리/두 자리 수까지 두 줄이 된다(앞 판에서는 한 줄이던 글). 테두리 굵기와 여백은 같은 값이어야 한다
+  const cellRule = css.match(/\.duty-cal-c \{[^}]*\}/)[0], markRule = css.match(/\.duty-cal-c i \{[^}]*\}/)[0];
+  const bw = Number((cellRule.match(/border: (\d+)px solid transparent/) || [])[1]), mg = (markRule.match(/margin: 0 -(\d+)px;/) || [])[1];
+  assert.ok(bw > 0 && Number(mg) === bw, `인원 글의 좌우 여백(−${mg}px)이 칸의 테두리(${bw}px)와 같다`);
+  // 물려받는 nowrap 도 걸지 않는다 — 크롬은 nowrap 아래에서도 <wbr> 에서 줄을 바꾸지만 사파리·파이어폭스는 바꾸지 않아 「100/120」이 다시 칸을 넘친다(올리기 전 확인이 세 엔진으로 잰 것)
+  const inherits = /\.duty-cal(-g|-c)?(?![-\w])[^{}]*\{[^}]*nowrap/, bare = css.replace(/\/\*[\s\S]*?\*\//g, '');   // 주석은 걷어 내고 본다(주석 속의 이름에서 다음 규칙까지 이어 읽지 않게)
+  assert.equal(inherits.test(bare), false, '달력 상자·격자·칸에 nowrap 을 걸지 않는다(인원 글이 물려받는다)');
+  for (const bad of ['.duty-cal-c { white-space: nowrap; }', '.duty-cal-c.has { cursor: pointer; white-space: nowrap; }', '.duty-cal-w, .duty-cal-g { white-space: nowrap; }', '.duty-cal { white-space: nowrap; }']) assert.ok(inherits.test(bad), bad);
+  for (const fine of ['.duty-cal-h b { white-space: nowrap; }', '.duty-cal-nav { white-space: nowrap; }', '.duty-cal-k .ki { white-space: nowrap; }']) assert.equal(inherits.test(fine), false, fine);
   assert.equal(/\.duty-cal-c[^{}]*\{[^}]*overflow:\s*hidden/.test(css), false, '칸을 잘라 내지 않는다(잘린 수는 틀린 수로 읽힌다)');
   // 그날 카드의 머리 — 폭 320px 에서 「오늘」이면서 이름이 긴 공휴일인 날: 한 줄에 못 들면 조각째 다음 줄로(날짜가 두 줄로 갈리거나 「오늘」이 세로로 꺾이지 않게)
   assert.ok(css.includes('.duty-day-h { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }'), '머리는 조각째 넘긴다');
@@ -1084,8 +1106,14 @@ test('아이폰 앱 「내 정보 지우기」 — 토큰을 못 지웠으면 �
   assert.deepEqual(names(L), [ASK, 'disablePush', FAIL], '못 껐으면 지우기 전에 묻는다 — 취소하면 아무것도 지우지 않는다');
   assert.ok(L[2][1].includes('알림을 끄지 못했어요') && L[2][1].includes('계속 올 수 있어요') && L[2][2].okText === '그래도 지우기');
   // 독립 검토 반영(2026-10-07) — 이 창은 「지금 통신이 안 된다」와 「앱을 켤 때 api.js 가 안 실렸다」 둘에 함께 쓴다. 뒤의 경우에는 다시 눌러도 통신을 시도조차 하지 않으므로
-  //   「잠시 뒤 다시」만 권하면 헛돈다 — 둘 다에 참인 꼴(「그래도 안 되면 앱을 완전히 닫았다 다시 열어 주세요」)
-  assert.ok(L[2][1].includes('잠시 뒤 다시 해 보시거나(그래도 안 되면 앱을 완전히 닫았다 다시 열어 주세요)') && L[2][1].includes('아이폰 설정 → 고척교회 성경암송 → 알림'), '못 껐을 때의 권고');
+  //   「잠시 뒤 다시」만 권하면 헛돈다 — 「앱을 완전히 닫았다 다시 열어 주세요」도 적는다.
+  //   올리기 전 확인 반영: 그 구절은 **통신이 되는데도 계속 뜰 때**의 처방으로만 · 두 길(잠시 뒤 다시 · 그대로 지우고 설정에서 끄기) **뒤에** 적는다 — 통신이 끊긴 채 앱을 닫으면
+  //   아이폰 앱은 다시 뜨지 않아 「그래도 지우기」 길까지 잃는다(조건 없이 「그래도 안 되면 앱을 닫았다 열어 주세요」라고 적었었다).
+  const tip = L[2][1], iRetry = tip.indexOf('「취소」를 누르고 잠시 뒤 다시 해 보시거나, 그대로 지우신 뒤 아이폰 설정 → 고척교회 성경암송 → 알림에서 꺼 주세요.');
+  const iClose = tip.indexOf('(통신이 되는데도 이 창이 계속 뜨면 앱을 완전히 닫았다 다시 열어 주세요.)');
+  assert.ok(iRetry > 0 && iClose > iRetry, '못 껐을 때의 권고 — 두 길이 먼저 · 앱을 닫았다 열기는 조건을 달아 그 뒤에');
+  assert.equal(tip.includes('그래도 안 되면 앱을'), false, '조건 없는 「앱을 닫았다 열어 주세요」를 되살리지 않는다');
+  assert.equal((tip.match(/앱을 완전히 닫았다/g) || []).length, 1);
   L = await runClear({ native: true, off: false, confirms: [true, true] });
   assert.deepEqual(names(L), [ASK, 'disablePush', FAIL, 'clear', 'alert', 'entry']);
   assert.ok(L[4][1].includes('알림은 끄지 못했어요') && L[4][1].includes('아이폰 설정'), '끝낸 말도 사실대로');

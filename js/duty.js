@@ -350,6 +350,7 @@ function dutyCalStep(days, sel, dir, me) {
 //   공휴일(hol)과 일요일(sun)은 **날짜 숫자만** 빨갛게(당번이 없는 날도 · 칸의 바탕과 인원 글은 뜻 색 그대로) · 요일 줄의 「일」도 빨갛다 ·
 //   그 달에 공휴일이 있으면 풀이에 이름을 적는다(색만으로 말하지 않는다 — 일요일은 요일 줄과 낭독의 「(일)」이 말한다).
 //   인원 글은 「/」 뒤에서 줄을 바꿀 수 있다(<wbr>) — 칸에 한 줄로 못 들 때만 두 줄이 된다(「100/120」 · 좁은 폰): 넘친 글자가 이웃 칸에 묻혀 「00/12」로 읽히지 않게.
+//   (문턱은 칸 폭이다 — style.css 가 인원 글에 좌우 여백 −2px 을 준다. 그것이 없으면 칸의 안쪽 폭이 문턱이 되어 좁은 폰에서 「10/12」도 두 줄이 된다.)
 function dutyCalHtml(days, sel, today, me) {
   var list = days || [], ym = String(sel || '').slice(0, 7), months = dutyCalMonths(list), at = months.indexOf(ym), by = {}, seen = {};
   list.forEach(function (d) { if (!d) return; var x = dutyCalCell(d, me); by[d.date] = { day: d, cell: x }; seen[x.kind] = true; });
