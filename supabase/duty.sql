@@ -32,10 +32,13 @@ set local lock_timeout = '5s';
 -- 당번 — status: draft 준비(앱에 안 보임 · 담당자 일은 됨) · open 받는 중 · closed 지원 멈춤(앱에 명단·내 당번은 보임 · 새 지원만 막음 —
 --   담당자가 넣는 당번도 이 상태) · archived 보관(당번표·내 당번에 안 보임 · 쓰기 거절 — 지우는 길은 없다).
 --   ⚠️ 보관한 당번도 **앱에 보이던 동안 끝난 자리**는 선 분의 「지난 봉사」(duty_past)에 남는다 — 그래서 시험 당번·잘못 만든 당번은
---      보관하기 **전에** 지난 날의 줄을 빼거나(담당자 빼기 · 보관 뒤에는 못 뺀다), 보관 대신 준비 중으로 둔다(준비 중은 세지 않는다).
+--      보관하기 **전에** 지난 날의 줄을 빼거나(담당자 빼기 · 보관 뒤에는 못 뺀다), 보관 대신 준비 중으로 둔다(성도님 앱은 준비 중을 세지 않는다).
+--      (담당자의 👥 봉사자 duty_people 은 준비 중·보관한 당번도 센다 — 거기서도 빠지게 하려면 줄을 빼야 한다.)
 --   hidden_at = 앱에 보이다가(받는 중·지원 멈춤) 숨긴(준비 중·보관) 때 — 트리거 duty_board_hidden_stamp 가 적는다(코드에서 쓰지 말 것 · 써도 트리거가 되돌린다).
 --     보이는 동안에는 null(다시 열면 지운다) · 숨긴 채 준비 중 ↔ 보관을 오가도 처음 숨긴 때를 지킨다 · 한 번도 보인 적 없는 당번은 null.
 --     duty_past 가 보관한 당번에서 「이때까지 끝난 자리」만 센다(앞날에 선 분이 있는 채 접은 당번의 그 뒤 날짜가 지난 봉사로 세지 않게 — 독립 확인 반영 2026-10-07).
+--   archived_at = 보관한 때 — 같은 트리거가 적는다(보관으로 바꾼 때 지금 · 보관한 채의 저장은 그대로 · 보관을 풀면 비운다). 담당자의 「👥 봉사자」(duty_people)가
+--     한 번도 앱에 안 보인 채 보관한 당번(담당자가 준비 중으로 쓰던 명단)에서 「그때까지 끝난 자리」를 센다.
 --   open_days = 오늘부터 며칠 앞 자리까지 앱에 보이나(그만큼 자리가 저절로 만들어진다 — duty_ensure_slots)
 --   until_date = 끝 날짜(null = 계속) — 이 날 뒤로는 자리를 만들지 않고, **이미 있는 자리도 앱에 보이지 않으며 지원을 받지 않는다**
 --     (자리·지원 줄을 지우지는 않는다 — 끝 날짜를 다시 늦추면 그대로 살아난다 · 그 뒤에 이미 선 분은 내 당번·주별 명단에 그대로 보인다 —
@@ -53,12 +56,16 @@ create table if not exists public.duty_boards (
   status       text not null default 'draft' check (status in ('draft','open','closed','archived')),
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now(),
-  hidden_at    timestamptz
+  hidden_at    timestamptz,
+  archived_at  timestamptz
 );
 alter table public.duty_boards add column if not exists hidden_at timestamptz;
+alter table public.duty_boards add column if not exists archived_at timestamptz;
 -- 이 칸이 생기기 전에 보관해 둔 당번 — 보관한 당번은 저장을 받지 않으므로 updated_at 이 곧 보관한 때다. 준비 중 당번은 비워 둔다(언제 숨겼는지 알 수 없다 —
 --   그대로 보관하면 세지 않는다 · 다시 열면 모두 센다). 다시 돌려도 안전: 트리거가 생긴 뒤에는 이 문장이 hidden_at 을 바꾸지 못한다(숨긴 채의 저장은 옛 값을 지킨다).
 update public.duty_boards set hidden_at = updated_at where status = 'archived' and hidden_at is null;
+-- 같은 까닭으로 보관한 때도 — 보관한 당번은 저장을 받지 않으므로 updated_at 이 곧 보관한 때다(다시 돌려도 안전: 트리거가 생긴 뒤에는 보관한 채의 저장이 옛 값을 지킨다).
+update public.duty_boards set archived_at = updated_at where status = 'archived' and archived_at is null;
 
 -- 자리 틀 — 「주일 · 2부 · 설거지 · 11:30~12:30 · 2명」. 자리(duty_slots)는 이 줄을 가리키고 이름·시각을 여기서 읽는다(고치면 그 틀의 모든 자리에 보인다).
 --   weekday: 0=주일 … 6=토(extract(dow) 와 같다 · isodow 아님) · null = 날짜를 골라 넣는 줄(한 번짜리 모집 · 특별 예배)
@@ -179,6 +186,7 @@ revoke all on sequence public.duty_lines_id_seq, public.duty_slots_id_seq, publi
 
 -- 당번을 앱에서 숨긴 때(duty_boards.hidden_at)를 적는 트리거 — 당번 줄을 쓰는 곳(교회 어드민 dutyBoardSave 는 표에 바로 쓴다)이 무엇이든 여기 한 곳에서 맞춘다.
 --   새 당번 · 보이는 상태(받는 중·지원 멈춤)로의 저장: null / 보이다가 숨김(준비 중·보관): 지금 / 숨긴 채의 저장(준비 중 ↔ 보관 · 다른 칸 고치기): 옛 값 그대로.
+--   보관한 때(archived_at)도 여기서: 보관이 아닌 상태 = null / 보관으로 바꾼 때(새로 만든 보관 당번 포함) = 지금 / 보관한 채의 저장 = 옛 값 그대로.
 --   ⚠️ 보관을 풀었다가 다시 보관하면 그 사이(보관해 둔 동안) 지나간 날짜의 줄이 「지난 봉사」에 돌아온다 — 보이는 동안에는 담당자가 지난 날 명단을 바로잡을 수 있으므로
 --      (친구 결정 「당번표에 이름이 남아 있던 날」) 다시 숨기기 전에 그 줄을 빼면 된다.
 create or replace function public.duty_board_hidden_stamp() returns trigger language plpgsql security definer set search_path = public as $$
@@ -186,6 +194,10 @@ begin
   if tg_op = 'INSERT' or new.status in ('open','closed') then new.hidden_at := null;
   elsif old.status in ('open','closed') then new.hidden_at := now();
   else new.hidden_at := old.hidden_at;
+  end if;
+  if new.status <> 'archived' then new.archived_at := null;
+  elsif tg_op = 'INSERT' or old.status is distinct from 'archived' then new.archived_at := now();
+  else new.archived_at := old.archived_at;
   end if;
   return new;
 end $$;
@@ -1261,6 +1273,114 @@ returns int language sql stable security definer set search_path = public as $$
   where s.board_id = p_board and e.status = 'active' and s.on_date >= public.duty_today() and p_date is not null and s.on_date > p_date
 $$;
 
+-- 담당자: 👥 봉사자 — 사람별 봉사 이력(2026-10-07 친구 요청 「담당자 쪽에는 이분의 봉사 이력을 사람별로 모아 보는 화면」 · 교회 어드민 「👥 봉사자」 ·
+--   설계 docs/superpowers/specs/2026-10-07-duty-people-design.md).
+--   p_boards = 부르는 분이 볼 수 있는 당번(교회 어드민 duty-db.ts 가 정한다 — 당번 총괄 = 모든 당번 · 당번 담당 = 맡은 당번 · 화면이 하나로 좁히기도 한다).
+--     **이 밖의 당번은 읽지도 잇지도 않는다** — 사람을 잇는 것도 이 당번들 안의 줄만으로 한다(맡지 않은 당번의 줄이 두 기록을 이어 주지 않게).
+--   p_year = 「그해 N번」의 해(null·틀린 값이면 올해 — 한국 달력) · p_signup = 한 분의 이력(그분 줄 하나의 번호) — null 이면 사람 목록.
+--     p_signup 의 줄이 p_boards 에 없으면 {ok:false, error:'not-found'}.
+--   한 사람 = 같은 앱 계정 · 같은 명부 키(person|교인ID) · 계정 없는 같은 신원 키(직접 적은 분). 한 줄이 계정과 명부 키를 함께 가지면 둘을 잇는다
+--     (duty_same_person 과 같은 뜻 — 앱으로 스스로 지원한 줄과 명부에서 넣은 줄은 둘을 함께 가진 줄이 있어야 잇는다: 로그인이 본인 확인이 아니라서다).
+--     기록 합치기로 정리된 줄(end_reason merge)은 읽지 않는다(남은 계정의 줄이 같은 봉사다).
+--   줄의 종류(kind) — 묻는 것은 둘뿐이다: **자리가 끝났나**(끝 시각 ≤ 지금) · **보관하기 전이었나**.
+--     upcoming(앞으로) = 아직 안 끝난 자리 · 살아 있는 줄 · 보관하지 않은 당번 — 쉬는 날·쉬는 자리의 줄도 목록에는 있고(off) 수에는 넣지 않는다.
+--     served(섰던 날) = 끝난 자리 · 살아 있는 줄 · 쉬는 날·쉬는 자리가 아님 · 보관한 당번이면 **보관하기 전에 끝난 자리**(끝 시각 ≤ 보관한 때 archived_at · 없으면 updated_at).
+--       오늘 자리도 끝나면 곧 섰던 날이다(주일 오후에 보면 그날 선 분이 세어져 있다). 준비 중 당번은 받는 중과 같이 본다 — 「준비 중」은 앱에 보이느냐일 뿐,
+--       담당자에게는 살아 있는 명단이다(앱에 보이다가 준비 중으로 내린 당번도). 그래서 「앞으로」였던 줄이 저절로 「빠진 기록」이 되는 길은 없다 — 빼거나 쉬거나 보관할 때뿐.
+--       ⚠️ 성도님 앱의 「지난 봉사」(duty_past)와 다른 곳(일부러 · 늘 여기 수 ≥ 앱의 수): 준비 중 당번을 센다 · 보관한 당번은 앱에서 내린 때가 아니라 보관한 때까지 센다 ·
+--          오늘 끝난 자리를 내일이 아니라 끝나자마자 센다 · 명부에서 넣은 줄(앱 계정이 안 이어진 줄)도 센다 — 교회 어드민 화면이 그렇게 말한다.
+--       (독립 검토 반영 2026-10-07: 처음 판은 오늘의 줄을 날짜로 갈라 자정까지 「앞으로」에 두었고, 내린 준비 중 당번은 내린 때까지만 셌다 — 주일 오후의 수에서 그날 봉사가 빠지고,
+--        내린 당번의 앞날 줄이 「앞으로」로 보이다가 날이 지나면 말없이 「빠진 기록」이 됐다.)
+--     missed(빠진 기록) = 그 밖 — why: self(본인 취소) · staff(담당자가 뺌) · off-day(쉬는 날) · off-slot(쉬는 자리) · archived(보관한 뒤의 자리 — 보관한 당번의 안 끝난 자리 포함).
+--   수는 **자리마다 한 번**(같은 분의 줄 둘이 한 자리에 있으면 — 잇지 못한 계정 줄과 명부 줄 — 한 번만 센다 · 같은 날 두 자리면 두 번).
+--   목록 {ok, today, year, people: [{id, name, whoType, group, sub, hasApp, directory, served, inYear, upcoming, last, next}]} — 많이 선 분부터.
+--     id = 그분의 가장 최근 줄의 번호(이력을 열 때 p_signup 으로 되돌려 보낸다) · 이름·소속은 그 줄의 것 · directory = 명부에서 넣은 줄이 있다 · last·next = 날짜.
+--   이력 {ok, today, year, person: {name, whoType, group, sub, hasApp, directory}, served, inYear, upcoming, total, rows: [가까운 날부터 400줄까지 —
+--     {id, date, board, boardStatus, service, task, start, end, kind, why, off, asked, askWhy, moved, source}]}.
+--   ⚠️ user_id·ident_key·교인ID·담당자 메모를 싣지 않는다 — 사람을 가리키는 것은 지원 번호(명단에 이미 보이는 번호)뿐이다.
+create or replace function public.duty_people(p_boards uuid[], p_year int default null, p_signup bigint default null)
+returns jsonb language sql stable security definer set search_path = public as $$
+  with recursive
+  cfg as (
+    select duty_today() as d0,
+           case when p_year between 2000 and 2100 then p_year else extract(year from duty_today())::int end as yr
+  ),
+  ln as (
+    select e.id, e.slot_id, e.user_id, e.ident_key, e.name, e.who_type, e.group_name, e.sub_name, e.status, e.source,
+           e.ask_at, e.ask_why, e.moved_at, s.on_date, s.off as slot_off, d.off as day_off, b.title, b.status as board_status,
+           l.service, l.task, l.start_time, l.end_time,
+           ((s.on_date + l.end_time) at time zone 'Asia/Seoul') as ends_at,
+           case when b.status = 'archived' then coalesce(b.archived_at, b.updated_at) else 'infinity'::timestamptz end as live_until,
+           case when e.user_id is not null then 'u:' || e.user_id::text
+                when e.ident_key like 'person|%' then 'p:' || e.ident_key
+                else 'k:' || e.ident_key end as node
+    from public.duty_signups e
+    join public.duty_slots s on s.id = e.slot_id
+    join public.duty_lines l on l.id = s.line_id
+    join public.duty_days  d on d.board_id = s.board_id and d.on_date = s.on_date
+    join public.duty_boards b on b.id = s.board_id
+    where s.board_id = any(coalesce(p_boards, array[]::uuid[])) and e.end_reason is distinct from 'merge'
+  ),
+  ed as (   -- 계정과 명부 키를 함께 가진 줄이 둘을 잇는다(두 방향)
+    select distinct x.a, x.b
+    from ln cross join lateral (values ('u:' || ln.user_id::text, 'p:' || ln.ident_key), ('p:' || ln.ident_key, 'u:' || ln.user_id::text)) as x(a, b)
+    where ln.user_id is not null and ln.ident_key like 'person|%'
+  ),
+  reach(node, r) as (
+    select distinct ln.node, ln.node from ln
+    union
+    select reach.node, ed.b from reach join ed on ed.a = reach.r
+  ),
+  root as (select reach.node, min(reach.r) as r from reach group by reach.node),
+  li as (
+    select ln.*, root.r, cfg.yr,
+      case when ln.status = 'active' and ln.ends_at > now() and ln.board_status <> 'archived' then 'upcoming'
+           when ln.status = 'active' and not ln.day_off and not ln.slot_off and ln.ends_at <= least(now(), ln.live_until) then 'served'
+           else 'missed' end as kind
+    from ln join root on root.node = ln.node cross join cfg
+  ),
+  pe as (
+    select li.r,
+      count(distinct li.slot_id) filter (where li.kind = 'served') as served,
+      count(distinct li.slot_id) filter (where li.kind = 'served' and extract(year from li.on_date)::int = li.yr) as in_year,
+      count(distinct li.slot_id) filter (where li.kind = 'upcoming' and not li.day_off and not li.slot_off) as upcoming,
+      max(li.on_date) filter (where li.kind = 'served') as last,
+      min(li.on_date) filter (where li.kind = 'upcoming' and not li.day_off and not li.slot_off) as next,
+      bool_or(li.user_id is not null) as has_app,
+      bool_or(li.ident_key like 'person|%') as directory,
+      count(*) as total,
+      (array_agg(li.id order by li.on_date desc, li.start_time desc, li.id desc))[1] as rep
+    from li group by li.r
+  ),
+  me as (select (select li.r from li where li.id = p_signup) as r)
+  select case when p_signup is null then (
+    select jsonb_build_object('ok', true, 'today', (select d0 from cfg), 'year', (select yr from cfg),
+      'people', coalesce(jsonb_agg(jsonb_build_object('id', pe.rep, 'name', x.name, 'whoType', x.who_type, 'group', x.group_name, 'sub', x.sub_name,
+          'hasApp', pe.has_app, 'directory', pe.directory, 'served', pe.served, 'inYear', pe.in_year, 'upcoming', pe.upcoming,
+          'last', pe.last, 'next', pe.next)
+        order by pe.served desc, pe.in_year desc, pe.last desc nulls last, x.name, pe.rep), '[]'::jsonb))
+    from pe join li x on x.id = pe.rep)
+  else (
+    select case when me.r is null then jsonb_build_object('ok', false, 'error', 'not-found') else
+      jsonb_build_object('ok', true, 'today', (select d0 from cfg), 'year', (select yr from cfg),
+        'person', jsonb_build_object('name', x.name, 'whoType', x.who_type, 'group', x.group_name, 'sub', x.sub_name,
+                                     'hasApp', pe.has_app, 'directory', pe.directory),
+        'served', pe.served, 'inYear', pe.in_year, 'upcoming', pe.upcoming, 'total', pe.total,
+        'rows', coalesce((
+          select jsonb_agg(jsonb_build_object('id', q.id, 'date', q.on_date, 'board', q.title, 'boardStatus', q.board_status,
+                   'service', q.service, 'task', q.task, 'start', to_char(q.start_time, 'HH24:MI'), 'end', to_char(q.end_time, 'HH24:MI'),
+                   'kind', q.kind,
+                   'why', case when q.kind <> 'missed' then null
+                               when q.status = 'cancelled' then 'self' when q.status = 'removed' then 'staff'
+                               when q.day_off then 'off-day' when q.slot_off then 'off-slot' else 'archived' end,
+                   'off', q.day_off or q.slot_off, 'asked', q.status = 'active' and q.ask_at is not null, 'askWhy', case when q.status = 'active' then q.ask_why end,
+                   'moved', q.moved_at is not null, 'source', q.source)
+                 order by q.on_date desc, q.start_time desc, q.id desc)
+          from (select * from li where li.r = me.r order by li.on_date desc, li.start_time desc, li.id desc limit 400) q), '[]'::jsonb)) end
+    from me left join pe on pe.r = me.r left join li x on x.id = pe.rep)
+  end
+$$;
+
 -- ---------- 앱 알림(성경암송 api 만 부른다) ----------
 -- 알림 줄 잡기 — p_ids 가운데 **지금 살아 있고 앱 계정이 있고 쉬는 날·쉬는 자리가 아닌** 지원만, 그 kind 의 줄이 아직 없으면 넣고 넣은 번호를 돌려준다.
 --   한 문장이라 동시에 두 번 불러도 한 번만 잡힌다 — api 는 **잡힌 번호에만** 보낸다(보내기 전에 잡는다).
@@ -1359,6 +1479,7 @@ revoke all on function public.duty_list_view(uuid) from public, anon, authentica
 revoke all on function public.duty_roster(uuid, date, date) from public, anon, authenticated;
 revoke all on function public.duty_board_counts(uuid[]) from public, anon, authenticated;
 revoke all on function public.duty_after_count(uuid, date) from public, anon, authenticated;
+revoke all on function public.duty_people(uuid[], int, bigint) from public, anon, authenticated;
 revoke all on function public.duty_notify_claim(text, bigint[], date) from public, anon, authenticated;
 revoke all on function public.duty_notify_rows(bigint[]) from public, anon, authenticated;
 revoke all on function public.duty_remind_ids(date) from public, anon, authenticated;
@@ -1393,6 +1514,7 @@ grant execute on function public.duty_list_view(uuid) to service_role;
 grant execute on function public.duty_roster(uuid, date, date) to service_role;
 grant execute on function public.duty_board_counts(uuid[]) to service_role;
 grant execute on function public.duty_after_count(uuid, date) to service_role;
+grant execute on function public.duty_people(uuid[], int, bigint) to service_role;
 grant execute on function public.duty_notify_claim(text, bigint[], date) to service_role;
 grant execute on function public.duty_notify_rows(bigint[]) to service_role;
 grant execute on function public.duty_remind_ids(date) to service_role;
@@ -1400,7 +1522,7 @@ grant execute on function public.duty_remind_ids(date) to service_role;
 commit;
 
 -- 확인(CLI 는 마지막 SELECT 하나만 보여 준다 — 한 문장으로 묶었다)
---   기대: tables 6 · functions 34 · rls on 6 · table grants 0 · routine grants 0 · anon can execute 0 · service_role can execute 34 · sequence grants 0
+--   기대: tables 6 · functions 35 · rls on 6 · table grants 0 · routine grants 0 · anon can execute 0 · service_role can execute 35 · sequence grants 0
 select 'tables' as t, count(*) from pg_tables where schemaname = 'public'
     and tablename in ('duty_boards','duty_lines','duty_days','duty_slots','duty_signups','duty_notify_log')
 union all select 'functions', count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace

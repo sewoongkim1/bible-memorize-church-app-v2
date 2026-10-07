@@ -17,6 +17,9 @@ declare
   e1 bigint; e2 bigint; e3 bigint; e4 bigint; e5 bigint; ek bigint; es bigint; n int; txt text;
   b5 uuid; b6 uuid; b7 uuid; lp1 bigint; lp2 bigint; lp6 bigint; lp7 bigint; ps bigint; p jsonb; yr int;
   b8 uuid; b9 uuid; b10 uuid; lp8 bigint; lp9 bigint; lp10 bigint; lq1 bigint; lq2 bigint; dprev date; noon9 timestamptz;
+  pba uuid; pbb uuid; pbc uuid; pbd uuid; pbe uuid; pla bigint; plb bigint; plc bigint; pld bigint; ple bigint; sa1 bigint;
+  ea1 bigint; ea4 bigint; eb1 bigint; eb2 bigint; eq bigint; epr bigint; em bigint; yrc int; want int; arch timestamptz;
+  pbf uuid; pbg uuid; pbh uuid; plf bigint; plg bigint; plh bigint; pli bigint; plj bigint; sf1 bigint; es1 bigint; es2 bigint; eq2 bigint; eg bigint; eh bigint;
 begin
   if (select count(*) from public.users) > 200 then raise exception '운영 같은 DB 입니다(users > 200) — 개발에서만 돌리세요'; end if;
   for i in 1..7 loop
@@ -867,6 +870,249 @@ begin
   if (r->>'ok')::boolean is not true or (r->>'days')::int is distinct from 0 then raise exception '이미 연 날을 다시 열면 바뀐 날 0: %', r; end if;
   r := duty_days_off(b7, t0 - 5, t0 - 5, false);
   if r->>'error' is distinct from 'archived' then raise exception '보관한 당번의 날은 다시 열 수 없다: %', r; end if;
+  -- ── 👥 봉사자(duty_people · 2026-10-07) — 담당자의 사람별 봉사 이력 ──
+  --   새 계정 셋(u[10]~u[12]) · 새 당번 다섯: A 받는 중 · B 준비 중(한 번도 안 보임 — 담당자가 쓰는 명단) · C 준비 중 → 보관(한 번도 안 보임) ·
+  --   D 받는 중 → 보관 · E 받는 중 → 준비 중(아흐레 전 정오에 앱에서 내림 — 담당자 셈에서는 그 뒤의 자리도 살아 있다 · 독립 검토 반영).
+  --   P = u[10] 의 계정 줄 + 명부 키 person|9001 줄(계정과 명부 키를 함께 가진 줄 a5 가 둘을 잇는다) · Q = 직접 적은 분(staff|…) · R = 담당자가 뺀 줄뿐인 u[11].
+  for i in 10..12 loop
+    k := '교구|당번시험|1|||당번시험' || i;
+    insert into public.users(identity_key, type, gu, mok, name) values (k, '교구', '당번시험', '1', '당번시험' || i) returning id into aid;
+    u := u || aid;
+  end loop;
+  insert into public.duty_boards(title, status) values ('[시험] 봉사자 A', 'open') returning id into pba;
+  insert into public.duty_boards(title, status) values ('[시험] 봉사자 B', 'draft') returning id into pbb;
+  insert into public.duty_boards(title, status) values ('[시험] 봉사자 C', 'draft') returning id into pbc;
+  insert into public.duty_boards(title, status) values ('[시험] 봉사자 D', 'open') returning id into pbd;
+  insert into public.duty_boards(title, status) values ('[시험] 봉사자 E', 'open') returning id into pbe;
+  insert into public.duty_lines(board_id, service, task, start_time, end_time, capacity) values (pba, '2부', '설거지', '11:30', '12:30', 9) returning id into pla;
+  insert into public.duty_lines(board_id, service, task, start_time, end_time, capacity) values (pbb, '주차', '', '09:00', '10:00', 9) returning id into plb;
+  insert into public.duty_lines(board_id, service, task, start_time, end_time, capacity) values (pbc, '김장', '', '09:00', '12:00', 9) returning id into plc;
+  insert into public.duty_lines(board_id, service, task, start_time, end_time, capacity) values (pbd, '안내', '', '07:00', '08:00', 9) returning id into pld;
+  insert into public.duty_lines(board_id, service, task, start_time, end_time, capacity) values (pbe, '정리', '', '09:00', '12:00', 9) returning id into ple;
+  insert into public.duty_days(board_id, on_date) values (pba, t0 - 1), (pba, t0 - 2), (pba, t0 - 7), (pba, t0 - 8), (pba, t0 - 400), (pba, t0 + 5);
+  insert into public.duty_days(board_id, on_date, off) values (pba, t0 + 6, true);
+  insert into public.duty_days(board_id, on_date) values (pbb, t0 - 3), (pbb, t0 - 2), (pbc, t0 - 4), (pbc, t0 - 1), (pbc, t0 + 3), (pbd, t0 - 6), (pbd, t0 + 2), (pbe, t0 - 12), (pbe, t0 - 5), (pbe, t0 + 4);
+  -- A: 어제(계정 줄 + 같은 자리의 명부 줄 — 한 자리라 한 번) · 이틀 전 본인 취소 · 이레 전 기록 합치기로 정리된 줄(읽지 않는다) · 여드레 전 계정+명부 키 줄(잇는 줄) ·
+  --    400일 전 명부 줄(지난 해) · 닷새 뒤(앞으로) · 엿새 뒤 쉬는 날(앞으로 목록에만) / Q: 어제 같은 자리 / R: 어제 담당자가 뺌
+  insert into public.duty_slots(board_id, on_date, line_id, capacity, manual) values (pba, t0 - 1, pla, 9, true) returning id into sa1;
+  insert into public.duty_signups(slot_id, user_id, ident_key, name, status) values (sa1, u[10], '교구|당번시험|1|||당번시험10', '당번시험10', 'active') returning id into ea1;
+  insert into public.duty_signups(slot_id, user_id, ident_key, name, status, source) values (sa1, null, 'person|9001', '당번시험10', 'active', 'staff');
+  insert into public.duty_signups(slot_id, user_id, ident_key, name, status, source) values (sa1, null, 'staff|가상|1', '직접가상', 'active', 'staff') returning id into eq;
+  insert into public.duty_signups(slot_id, user_id, ident_key, name, status, end_reason, ended_at) values (sa1, u[11], '교구|당번시험|1|||당번시험11', '당번시험11', 'removed', 'staff', now()) returning id into epr;
+  with x as (insert into public.duty_slots(board_id, on_date, line_id, capacity, manual) values (pba, t0 - 2, pla, 9, true) returning id)
+    insert into public.duty_signups(slot_id, user_id, ident_key, name, status, end_reason, ended_at) select x.id, u[10], '교구|당번시험|1|||당번시험10', '당번시험10', 'cancelled', 'self', now() from x;
+  with x as (insert into public.duty_slots(board_id, on_date, line_id, capacity, manual) values (pba, t0 - 7, pla, 9, true) returning id)
+    insert into public.duty_signups(slot_id, user_id, ident_key, name, status, end_reason, ended_at) select x.id, u[10], '교구|당번시험|1|||당번시험10', '당번시험10', 'removed', 'merge', now() from x returning id into em;
+  with x as (insert into public.duty_slots(board_id, on_date, line_id, capacity, manual) values (pba, t0 - 8, pla, 9, true) returning id)
+    insert into public.duty_signups(slot_id, user_id, ident_key, name, status, source) select x.id, u[10], 'person|9001', '당번시험10', 'active', 'staff' from x;
+  with x as (insert into public.duty_slots(board_id, on_date, line_id, capacity, manual) values (pba, t0 - 400, pla, 9, true) returning id)
+    insert into public.duty_signups(slot_id, user_id, ident_key, name, status, source) select x.id, null, 'person|9001', '당번시험10', 'active', 'staff' from x;
+  with x as (insert into public.duty_slots(board_id, on_date, line_id, capacity, manual) values (pba, t0 + 5, pla, 9, true) returning id)
+    insert into public.duty_signups(slot_id, user_id, ident_key, name, status) select x.id, u[10], '교구|당번시험|1|||당번시험10', '당번시험10', 'active' from x;
+  with x as (insert into public.duty_slots(board_id, on_date, line_id, capacity, manual) values (pba, t0 + 6, pla, 9, true) returning id)
+    insert into public.duty_signups(slot_id, user_id, ident_key, name, status, ask_at, ask_why) select x.id, u[10], '교구|당번시험|1|||당번시험10', '당번시험10', 'active', now(), 'cant' from x returning id into ea4;
+  -- B(준비 중 · 한 번도 안 보임): 사흘 전 계정 줄 · 이틀 전 명부 줄(이 둘을 잇는 줄은 A 에 있다)
+  with x as (insert into public.duty_slots(board_id, on_date, line_id, capacity, manual) values (pbb, t0 - 3, plb, 9, true) returning id)
+    insert into public.duty_signups(slot_id, user_id, ident_key, name, status) select x.id, u[10], '교구|당번시험|1|||당번시험10', '당번시험10', 'active' from x returning id into eb1;
+  with x as (insert into public.duty_slots(board_id, on_date, line_id, capacity, manual) values (pbb, t0 - 2, plb, 9, true) returning id)
+    insert into public.duty_signups(slot_id, user_id, ident_key, name, status, source) select x.id, null, 'person|9001', '당번시험10', 'active', 'staff' from x returning id into eb2;
+  -- C(준비 중 → 보관 · 사흘 전에 보관한 것으로 맞춘다): 나흘 전(보관하기 전에 끝남 — 섰던 날) · 어제(보관한 뒤에 끝남 — 빠진 기록) · 사흘 뒤(보관한 당번의 앞날 — 빠진 기록)
+  with x as (insert into public.duty_slots(board_id, on_date, line_id, capacity, manual) values (pbc, t0 - 1, plc, 9, true) returning id)
+    insert into public.duty_signups(slot_id, user_id, ident_key, name, status) select x.id, u[10], '교구|당번시험|1|||당번시험10', '당번시험10', 'active' from x;
+  with x as (insert into public.duty_slots(board_id, on_date, line_id, capacity, manual) values (pbc, t0 - 4, plc, 9, true) returning id)
+    insert into public.duty_signups(slot_id, user_id, ident_key, name, status) select x.id, u[10], '교구|당번시험|1|||당번시험10', '당번시험10', 'active' from x;
+  with x as (insert into public.duty_slots(board_id, on_date, line_id, capacity, manual) values (pbc, t0 + 3, plc, 9, true) returning id)
+    insert into public.duty_signups(slot_id, user_id, ident_key, name, status) select x.id, u[10], '교구|당번시험|1|||당번시험10', '당번시험10', 'active' from x;
+  -- D(받는 중 → 보관): 엿새 전(섰던 날) · 이틀 뒤(빠진 기록)
+  with x as (insert into public.duty_slots(board_id, on_date, line_id, capacity, manual) values (pbd, t0 - 6, pld, 9, true) returning id)
+    insert into public.duty_signups(slot_id, user_id, ident_key, name, status) select x.id, u[10], '교구|당번시험|1|||당번시험10', '당번시험10', 'active' from x;
+  with x as (insert into public.duty_slots(board_id, on_date, line_id, capacity, manual) values (pbd, t0 + 2, pld, 9, true) returning id)
+    insert into public.duty_signups(slot_id, user_id, ident_key, name, status) select x.id, u[10], '교구|당번시험|1|||당번시험10', '당번시험10', 'active' from x;
+  -- E(받는 중 → 준비 중 · 아흐레 전 정오에 앱에서 내림): 열이틀 전 · 닷새 전(내린 뒤 — 그래도 섰던 날: 준비 중은 담당자에게 살아 있는 명단) · 나흘 뒤(앞으로 — 날이 지나면 섰던 날)
+  with x as (insert into public.duty_slots(board_id, on_date, line_id, capacity, manual) values (pbe, t0 + 4, ple, 9, true) returning id)
+    insert into public.duty_signups(slot_id, user_id, ident_key, name, status) select x.id, u[10], '교구|당번시험|1|||당번시험10', '당번시험10', 'active' from x;
+  with x as (insert into public.duty_slots(board_id, on_date, line_id, capacity, manual) values (pbe, t0 - 12, ple, 9, true) returning id)
+    insert into public.duty_signups(slot_id, user_id, ident_key, name, status) select x.id, u[10], '교구|당번시험|1|||당번시험10', '당번시험10', 'active' from x;
+  with x as (insert into public.duty_slots(board_id, on_date, line_id, capacity, manual) values (pbe, t0 - 5, ple, 9, true) returning id)
+    insert into public.duty_signups(slot_id, user_id, ident_key, name, status) select x.id, u[10], '교구|당번시험|1|||당번시험10', '당번시험10', 'active' from x;
+  -- 상태 바꾸기 — 보관한 때·숨긴 때는 트리거가 적는다
+  update public.duty_boards set status = 'archived' where id = pbc;
+  if (select (hidden_at is null and archived_at = now())::text from public.duty_boards where id = pbc) is distinct from 'true' then raise exception '준비 중 → 보관: 숨긴 때 없음 · 보관한 때 = 지금'; end if;
+  update public.duty_boards set status = 'archived' where id = pbd;
+  if (select (hidden_at = now() and archived_at = now())::text from public.duty_boards where id = pbd) is distinct from 'true' then raise exception '받는 중 → 보관: 숨긴 때 · 보관한 때 = 지금'; end if;
+  update public.duty_boards set status = 'draft' where id = pbe;
+  alter table public.duty_boards disable trigger duty_boards_hidden_stamp;
+  update public.duty_boards set hidden_at = noon9 where id = pbe;   -- 아흐레 전 정오(위 「숨긴 때」 절의 값)
+  alter table public.duty_boards enable trigger duty_boards_hidden_stamp;
+  if (select archived_at from public.duty_boards where id = pbe) is not null then raise exception '준비 중 당번의 보관한 때는 비어 있다'; end if;
+  -- 보관한 때 — 보관한 채의 저장은 그대로 · 풀면 비운다 · 처음부터 보관으로 만든 당번은 지금
+  alter table public.duty_boards disable trigger duty_boards_hidden_stamp;
+  update public.duty_boards set archived_at = now() - interval '3 days', hidden_at = now() - interval '10 days' where id = pbc;   -- 숨긴 때는 열흘 전(담당자 셈은 이것을 보지 않는다)
+  alter table public.duty_boards enable trigger duty_boards_hidden_stamp;
+  arch := now() - interval '3 days';
+  update public.duty_boards set title = '[시험] 봉사자 C2', archived_at = null where id = pbc;
+  if (select archived_at from public.duty_boards where id = pbc) is distinct from arch then raise exception '보관한 채의 저장은 보관한 때를 지킨다'; end if;
+  --   (C 는 열흘 전에 앱에서 내리고 사흘 전에 보관한 것이 된다 — 나흘 전 자리는 보관하기 전에 끝났으니 섰던 날 · 어제 자리는 보관한 뒤라 빠진 기록 · 사흘 뒤 자리도 빠진 기록)
+  insert into public.duty_boards(title, status) values ('[시험] 처음부터 보관', 'archived') returning id into b;
+  if (select archived_at from public.duty_boards where id = b) is distinct from now() then raise exception '처음부터 보관으로 만든 당번: 보관한 때 = 지금'; end if;
+  update public.duty_boards set status = 'closed' where id = b;
+  if (select archived_at from public.duty_boards where id = b) is not null then raise exception '보관을 풀면 보관한 때를 비운다'; end if;
+  -- 사람 목록 — 다섯 당번 모두
+  yrc := extract(year from t0)::int;
+  p := duty_people(array[pba, pbb, pbc, pbd, pbe]);
+  if (p->>'ok')::boolean is not true or (p->>'year')::int is distinct from yrc or p->>'today' is distinct from t0::text or jsonb_array_length(p->'people') is distinct from 3 then
+    raise exception '봉사자 목록 — 셋(P · Q · R): %', p; end if;
+  -- P: 섰던 날 = A 어제(두 줄이 한 자리 — 한 번) · A 여드레 전 · A 400일 전 · B 사흘 전 · B 이틀 전 · C 나흘 전 · D 엿새 전 · E 열이틀 전 · E 닷새 전 = 9 ·
+  --    앞으로 = E 나흘 뒤 · A 닷새 뒤(엿새 뒤는 쉬는 날) = 2 · 다음 = 나흘 뒤(준비 중으로 내린 당번의 앞날 줄도 앞으로다)
+  want := (select count(*) from unnest(array[t0 - 1, t0 - 8, t0 - 400, t0 - 3, t0 - 2, t0 - 4, t0 - 6, t0 - 12, t0 - 5]) dd where extract(year from dd)::int = yrc);
+  if p->'people'->0->>'name' is distinct from '당번시험10' or (p->'people'->0->>'served')::int is distinct from 9 or (p->'people'->0->>'inYear')::int is distinct from want
+     or (p->'people'->0->>'upcoming')::int is distinct from 2 or p->'people'->0->>'last' is distinct from (t0 - 1)::text or p->'people'->0->>'next' is distinct from (t0 + 4)::text
+     or (p->'people'->0->>'hasApp')::boolean is not true or (p->'people'->0->>'directory')::boolean is not true
+     or (p->'people'->0->>'id')::bigint is distinct from ea4 then
+    raise exception '봉사자 — P(계정 + 명부 키를 이어 한 분 · 섰던 날 9 · 그해 % · 앞으로 2 · 대표 줄 = 가장 최근 줄): %', want, p->'people'->0; end if;
+  if p->'people'->1->>'name' is distinct from '직접가상' or (p->'people'->1->>'served')::int is distinct from 1 or (p->'people'->1->>'hasApp')::boolean is not false
+     or (p->'people'->1->>'directory')::boolean is not false or (p->'people'->1->>'id')::bigint is distinct from eq then
+    raise exception '봉사자 — Q(직접 적은 분 · 계정·명부 없음): %', p->'people'->1; end if;
+  if p->'people'->2->>'name' is distinct from '당번시험11' or (p->'people'->2->>'served')::int is distinct from 0 or (p->'people'->2->>'upcoming')::int is distinct from 0
+     or p->'people'->2->'last' is distinct from 'null'::jsonb or (p->'people'->2->>'hasApp')::boolean is not true then
+    raise exception '봉사자 — R(담당자가 뺀 줄뿐 · 0번이어도 목록에 있다 · 맨 뒤): %', p->'people'->2; end if;
+  -- 그해를 고르면 그해의 수 · 틀린 해는 올해
+  if (duty_people(array[pba, pbb, pbc, pbd, pbe], extract(year from t0 - 400)::int)->'people'->0->>'inYear')::int
+       is distinct from (select count(*) from unnest(array[t0 - 1, t0 - 8, t0 - 400, t0 - 3, t0 - 2, t0 - 4, t0 - 6, t0 - 12, t0 - 5]) dd where extract(year from dd)::int = extract(year from t0 - 400)::int) then
+    raise exception '봉사자 — 지난 해를 고르면 그해의 수'; end if;
+  if (duty_people(array[pba], 1999)->>'year')::int is distinct from yrc or (duty_people(array[pba], 2101)->>'year')::int is distinct from yrc then raise exception '봉사자 — 틀린 해는 올해'; end if;
+  -- 당번 범위 — A 만: P 의 A 줄만(어제 · 여드레 전 · 400일 전 = 3 · 앞으로 1) · B 만: 계정 줄과 명부 줄을 잇는 줄(A 의 여드레 전)이 범위 밖이라 두 분으로 갈린다
+  p := duty_people(array[pba]);
+  if jsonb_array_length(p->'people') is distinct from 3 or (p->'people'->0->>'served')::int is distinct from 3 or (p->'people'->0->>'upcoming')::int is distinct from 1 then
+    raise exception '봉사자 — A 만: %', p; end if;
+  p := duty_people(array[pbb]);
+  if jsonb_array_length(p->'people') is distinct from 2 or (select count(*) from jsonb_array_elements(p->'people') x where (x->>'served')::int = 1) is distinct from 2
+     or (select count(*) from jsonb_array_elements(p->'people') x where (x->>'hasApp')::boolean and not (x->>'directory')::boolean) is distinct from 1
+     or (select count(*) from jsonb_array_elements(p->'people') x where (x->>'directory')::boolean and not (x->>'hasApp')::boolean) is distinct from 1 then
+    raise exception '봉사자 — B 만(잇는 줄이 범위 밖 — 맡지 않은 당번의 줄이 두 기록을 잇지 않는다): %', p; end if;
+  if duty_people(array[]::uuid[]) - 'today' - 'year' is distinct from '{"ok":true,"people":[]}'::jsonb or duty_people(null) - 'today' - 'year' is distinct from '{"ok":true,"people":[]}'::jsonb then
+    raise exception '봉사자 — 당번이 없으면 빈 목록'; end if;
+  -- 이력 — P(A 어제의 계정 줄로 연다): 섰던 날 10줄(어제 두 줄) · 앞으로 3줄(쉬는 날 하나) · 빠진 기록 4줄(본인 취소 · C 어제 · D 이틀 뒤 · C 사흘 뒤) · 합치기 줄 없음
+  p := duty_people(array[pba, pbb, pbc, pbd, pbe], null, ea1);
+  if (p->>'ok')::boolean is not true or (p->>'served')::int is distinct from 9 or (p->>'upcoming')::int is distinct from 2 or (p->>'total')::int is distinct from 17
+     or jsonb_array_length(p->'rows') is distinct from 17 or p->'person'->>'name' is distinct from '당번시험10' then
+    raise exception '이력 — P: %', p; end if;
+  if (select count(*) from jsonb_array_elements(p->'rows') x where x->>'kind' = 'served') is distinct from 10
+     or (select count(*) from jsonb_array_elements(p->'rows') x where x->>'kind' = 'upcoming') is distinct from 3
+     or (select count(*) from jsonb_array_elements(p->'rows') x where x->>'kind' = 'missed') is distinct from 4
+     or exists (select 1 from jsonb_array_elements(p->'rows') x where (x->>'id')::bigint = em) then
+    raise exception '이력 — 종류의 수(섰던 날 10 · 앞으로 3 · 빠진 기록 4 · 합치기 줄 없음): %', p->'rows'; end if;
+  if (select array_agg(x->>'why' order by x->>'date') from jsonb_array_elements(p->'rows') x where x->>'kind' = 'missed')
+       is distinct from array['self', 'archived', 'archived', 'archived'] then
+    raise exception '이력 — 빠진 기록의 까닭(A 이틀 전 = 본인 취소 · C 어제 = 보관한 뒤에 끝난 자리 · D 이틀 뒤 · C 사흘 뒤 = 보관한 당번의 앞날): %', p->'rows'; end if;
+  if (select x->>'off' from jsonb_array_elements(p->'rows') x where (x->>'id')::bigint = ea4) is distinct from 'true'
+     or (select x->>'asked' from jsonb_array_elements(p->'rows') x where (x->>'id')::bigint = ea4) is distinct from 'true'
+     or (select x->>'askWhy' from jsonb_array_elements(p->'rows') x where (x->>'id')::bigint = ea4) is distinct from 'cant'
+     or (select x->>'kind' from jsonb_array_elements(p->'rows') x where (x->>'id')::bigint = ea4) is distinct from 'upcoming' then
+    raise exception '이력 — 엿새 뒤 쉬는 날의 줄: 앞으로 · 쉼 표시 · 「못 가게 됐어요」'; end if;
+  if p->'rows'->0->>'date' is distinct from (t0 + 6)::text or p->'rows'->16->>'date' is distinct from (t0 - 400)::text then raise exception '이력 — 가까운 날부터: %', p->'rows'; end if;
+  if (select x->>'boardStatus' from jsonb_array_elements(p->'rows') x where (x->>'id')::bigint = eb1) is distinct from 'draft'
+     or (select x->>'source' from jsonb_array_elements(p->'rows') x where (x->>'id')::bigint = eb2) is distinct from 'staff' then raise exception '이력 — 당번 상태 · 넣은 곳'; end if;
+  -- 같은 분이면 어느 줄로 열어도 같은 이력(명부 줄 B 이틀 전으로 열기) · 범위 밖의 줄로 열면 not-found · 다른 분(Q)은 그분 것만
+  if duty_people(array[pba, pbb, pbc, pbd, pbe], null, eb2) - 'today' is distinct from p - 'today' then raise exception '이력 — 같은 분의 다른 줄로 열어도 같다'; end if;
+  if duty_people(array[pba], null, eb1) is distinct from '{"ok":false,"error":"not-found"}'::jsonb then raise exception '이력 — 범위 밖의 줄: not-found'; end if;
+  if duty_people(array[pba, pbb], null, 987654321) is distinct from '{"ok":false,"error":"not-found"}'::jsonb then raise exception '이력 — 없는 줄: not-found'; end if;
+  p := duty_people(array[pba, pbb, pbc, pbd, pbe], null, eq);
+  if jsonb_array_length(p->'rows') is distinct from 1 or (p->>'served')::int is distinct from 1 or (p->'person'->>'hasApp')::boolean is not false then raise exception '이력 — Q 는 그분 것만: %', p; end if;
+  p := duty_people(array[pba, pbb, pbc, pbd, pbe], null, epr);
+  if (p->'rows'->0->>'why') is distinct from 'staff' or (p->>'served')::int is distinct from 0 then raise exception '이력 — R(담당자가 뺌): %', p; end if;
+  -- B 만의 범위에서 B 의 계정 줄로 열면 그 한 줄뿐(잇는 줄이 범위 밖)
+  if jsonb_array_length(duty_people(array[pbb], null, eb1)->'rows') is distinct from 1 then raise exception '이력 — 범위 안의 줄만으로 잇는다'; end if;
+  -- 신원 칸이 답에 없다(계정 번호 · 명부 키 · 직접 적은 분의 키 · 성도님 신원 키)
+  txt := duty_people(array[pba, pbb, pbc, pbd, pbe])::text || duty_people(array[pba, pbb, pbc, pbd, pbe], null, ea1)::text || duty_people(array[pba, pbb, pbc, pbd, pbe], null, eq)::text;
+  if txt like '%' || u[10]::text || '%' or txt like '%' || u[11]::text || '%' or txt like '%person|%' or txt like '%staff|%' or txt like '%교구|%' or txt like '%user%' or txt like '%ident%' then
+    raise exception '봉사자 — 신원 칸이 샜다: %', left(txt, 400); end if;
+  -- ── 👥 봉사자 — 변이 시험이 찾은 빈틈(2026-10-07) ──
+  --   F 받는 중: S = u[12] — 계정 줄 둘이 명부 키 둘(person|9101 · person|9102)과 이어지고 person|9102 의 계정 없는 줄이 하나 더 있다
+  --     (잇기는 두 방향 — 9102 쪽에서도 9101 에 닿아야 한 분이다) ·
+  --     쉬는 날의 지난 줄(off-day) · 쉬는 자리의 지난 줄(off-slot) · 이틀 뒤 쉬는 날의 줄(앞으로 목록에만) · 사흘 뒤 자리(앞으로 1 · 다음 날짜 = 사흘 뒤 — 쉬는 날을 건너뛴다) /
+  --     Q2 = 직접 적은 분(staff|가상|2)의 두 날(계정 없는 같은 키 = 한 분)
+  insert into public.duty_boards(title, status) values ('[시험] 봉사자 F', 'open') returning id into pbf;
+  insert into public.duty_lines(board_id, service, task, start_time, end_time, capacity) values (pbf, '청소', '', '13:00', '14:00', 9) returning id into plf;
+  insert into public.duty_days(board_id, on_date) values (pbf, t0 - 9), (pbf, t0 - 10), (pbf, t0 - 11), (pbf, t0 - 14);
+  insert into public.duty_days(board_id, on_date, off) values (pbf, t0 - 13, true), (pbf, t0 + 2, true);
+  insert into public.duty_days(board_id, on_date) values (pbf, t0 + 3);
+  with x as (insert into public.duty_slots(board_id, on_date, line_id, capacity, manual) values (pbf, t0 + 2, plf, 9, true) returning id)
+    insert into public.duty_signups(slot_id, user_id, ident_key, name, status) select x.id, u[12], '교구|당번시험|1|||당번시험12', '당번시험12', 'active' from x;
+  with x as (insert into public.duty_slots(board_id, on_date, line_id, capacity, manual) values (pbf, t0 + 3, plf, 9, true) returning id)
+    insert into public.duty_signups(slot_id, user_id, ident_key, name, status) select x.id, u[12], '교구|당번시험|1|||당번시험12', '당번시험12', 'active' from x returning id into es2;
+  with x as (insert into public.duty_slots(board_id, on_date, line_id, capacity, manual) values (pbf, t0 - 9, plf, 9, true) returning id)
+    insert into public.duty_signups(slot_id, user_id, ident_key, name, status, source) select x.id, u[12], 'person|9101', '당번시험12', 'active', 'staff' from x returning id into es1;
+  with x as (insert into public.duty_slots(board_id, on_date, line_id, capacity, manual) values (pbf, t0 - 10, plf, 9, true) returning id)
+    insert into public.duty_signups(slot_id, user_id, ident_key, name, status, source) select x.id, u[12], 'person|9102', '당번시험12', 'active', 'staff' from x;
+  insert into public.duty_slots(board_id, on_date, line_id, capacity, manual) values (pbf, t0 - 11, plf, 9, true) returning id into sf1;
+  insert into public.duty_signups(slot_id, user_id, ident_key, name, status, source) values (sf1, null, 'person|9102', '당번시험12', 'active', 'staff');
+  insert into public.duty_signups(slot_id, user_id, ident_key, name, status, source) values (sf1, null, 'staff|가상|2', '직접가상2', 'active', 'staff') returning id into eq2;
+  insert into public.duty_signups(slot_id, user_id, ident_key, name, status, source)
+    select s.id, null, 'staff|가상|2', '직접가상2', 'active', 'staff' from public.duty_slots s where s.board_id = pbf and s.on_date = t0 - 10;
+  with x as (insert into public.duty_slots(board_id, on_date, line_id, capacity, manual) values (pbf, t0 - 13, plf, 9, true) returning id)
+    insert into public.duty_signups(slot_id, user_id, ident_key, name, status) select x.id, u[12], '교구|당번시험|1|||당번시험12', '당번시험12', 'active' from x;
+  with x as (insert into public.duty_slots(board_id, on_date, line_id, capacity, manual, off) values (pbf, t0 - 14, plf, 9, true, true) returning id)
+    insert into public.duty_signups(slot_id, user_id, ident_key, name, status) select x.id, u[12], '교구|당번시험|1|||당번시험12', '당번시험12', 'active' from x;
+  p := duty_people(array[pbf]);
+  if jsonb_array_length(p->'people') is distinct from 2 or p->'people'->0->>'name' is distinct from '당번시험12' or (p->'people'->0->>'served')::int is distinct from 3
+     or (p->'people'->0->>'upcoming')::int is distinct from 1 or p->'people'->0->>'next' is distinct from (t0 + 3)::text or p->'people'->0->>'last' is distinct from (t0 - 9)::text
+     or (p->'people'->0->>'directory')::boolean is not true or (p->'people'->0->>'id')::bigint is distinct from es2 then
+    raise exception '봉사자 — S(명부 키 둘을 한 계정이 잇는다 · 두 방향으로 · 쉬는 날·쉬는 자리는 세지 않는다 · 다음 날짜는 쉬는 날을 건너뛴 사흘 뒤): %', p; end if;
+  if p->'people'->1->>'name' is distinct from '직접가상2' or (p->'people'->1->>'served')::int is distinct from 2 or (p->'people'->1->>'hasApp')::boolean is not false then
+    raise exception '봉사자 — Q2(계정 없는 같은 신원 키의 두 날 = 한 분): %', p->'people'->1; end if;
+  p := duty_people(array[pbf], null, es1);
+  if jsonb_array_length(p->'rows') is distinct from 7 or (p->>'served')::int is distinct from 3 or (p->>'upcoming')::int is distinct from 1
+     or (select array_agg((x->>'date') || ':' || (x->>'off') order by x->>'date') from jsonb_array_elements(p->'rows') x where x->>'kind' = 'upcoming')
+          is distinct from array[(t0 + 2)::text || ':true', (t0 + 3)::text || ':false']
+     or (select array_agg((x->>'why') || ':' || (x->>'off') order by x->>'date') from jsonb_array_elements(p->'rows') x where x->>'kind' = 'missed')
+          is distinct from array['off-slot:true', 'off-day:true'] then
+    raise exception '이력 — S(빠진 기록의 까닭 — 열나흘 전 쉬는 자리 · 열사흘 전 쉬는 날): %', p; end if;
+  if duty_people(array[pbf], null, (select e.id from public.duty_signups e where e.slot_id = sf1 and e.user_id is null and e.ident_key = 'person|9102')) - 'today'
+       is distinct from p - 'today' then raise exception '이력 — S 의 계정 없는 명부 줄(9102)로 열어도 같은 이력'; end if;
+  p := duty_people(array[pbf], null, eq2);
+  if jsonb_array_length(p->'rows') is distinct from 2 or (p->>'served')::int is distinct from 2 then raise exception '이력 — Q2 는 두 날: %', p; end if;
+  --   오늘의 자리 — 묻는 것은 「끝났나」다. G 받는 중 → 오늘 보관: 오늘 00:00~00:01 자리(보관하기 전에 끝남 — 섰던 날) · 오늘 23:58~23:59 자리(안 끝남 — 빠진 기록 archived).
+  --     H 받는 중: 같은 두 자리 — 끝난 자리는 곧 섰던 날(자정을 기다리지 않는다) · 안 끝난 자리는 앞으로.
+  --     그 밖의 시각(00:02 앞 · 23:57 뒤)에는 「끝난 자리 / 안 끝난 자리」를 오늘에 만들 수 없어 건너뛴다.
+  if (now() at time zone 'Asia/Seoul')::time between '00:02' and '23:57' then
+    insert into public.duty_boards(title, status) values ('[시험] 봉사자 G', 'open') returning id into pbg;
+    insert into public.duty_lines(board_id, service, task, start_time, end_time, capacity) values (pbg, '새벽', '', '00:00', '00:01', 9) returning id into plg;
+    insert into public.duty_lines(board_id, service, task, start_time, end_time, capacity) values (pbg, '밤', '', '23:58', '23:59', 9) returning id into plh;
+    insert into public.duty_days(board_id, on_date) values (pbg, t0);
+    with x as (insert into public.duty_slots(board_id, on_date, line_id, capacity, manual) values (pbg, t0, plg, 9, true) returning id)
+      insert into public.duty_signups(slot_id, user_id, ident_key, name, status) select x.id, u[12], '교구|당번시험|1|||당번시험12', '당번시험12', 'active' from x;
+    with x as (insert into public.duty_slots(board_id, on_date, line_id, capacity, manual) values (pbg, t0, plh, 9, true) returning id)
+      insert into public.duty_signups(slot_id, user_id, ident_key, name, status) select x.id, u[12], '교구|당번시험|1|||당번시험12', '당번시험12', 'active' from x returning id into eg;
+    update public.duty_boards set status = 'archived' where id = pbg;
+    p := duty_people(array[pbg]);
+    if jsonb_array_length(p->'people') is distinct from 1 or (p->'people'->0->>'served')::int is distinct from 1 or p->'people'->0->>'last' is distinct from t0::text
+       or (p->'people'->0->>'upcoming')::int is distinct from 0 then
+      raise exception '봉사자 — 오늘 보관한 당번: 보관하기 전에 끝난 오늘 자리는 섰던 날(그날 저녁에 보관해도 빠진 기록이 아니다): %', p; end if;
+    p := duty_people(array[pbg], null, eg);
+    if (select array_agg(x->>'kind' || ':' || coalesce(x->>'why', '') order by x->>'start') from jsonb_array_elements(p->'rows') x) is distinct from array['served:', 'missed:archived'] then
+      raise exception '이력 — 오늘 보관한 당번(끝난 자리 = 섰던 날 · 안 끝난 자리 = 보관한 뒤): %', p->'rows'; end if;
+    insert into public.duty_boards(title, status) values ('[시험] 봉사자 H', 'open') returning id into pbh;
+    insert into public.duty_lines(board_id, service, task, start_time, end_time, capacity) values (pbh, '새벽', '', '00:00', '00:01', 9) returning id into pli;
+    insert into public.duty_lines(board_id, service, task, start_time, end_time, capacity) values (pbh, '밤', '', '23:58', '23:59', 9) returning id into plj;
+    insert into public.duty_days(board_id, on_date) values (pbh, t0);
+    with x as (insert into public.duty_slots(board_id, on_date, line_id, capacity, manual) values (pbh, t0, pli, 9, true) returning id)
+      insert into public.duty_signups(slot_id, user_id, ident_key, name, status) select x.id, u[12], '교구|당번시험|1|||당번시험12', '당번시험12', 'active' from x;
+    with x as (insert into public.duty_slots(board_id, on_date, line_id, capacity, manual) values (pbh, t0, plj, 9, true) returning id)
+      insert into public.duty_signups(slot_id, user_id, ident_key, name, status) select x.id, u[12], '교구|당번시험|1|||당번시험12', '당번시험12', 'active' from x returning id into eh;
+    p := duty_people(array[pbh]);
+    if (p->'people'->0->>'served')::int is distinct from 1 or (p->'people'->0->>'upcoming')::int is distinct from 1 or p->'people'->0->>'last' is distinct from t0::text
+       or p->'people'->0->>'next' is distinct from t0::text then
+      raise exception '봉사자 — 받는 중 당번의 오늘: 끝난 자리는 곧 섰던 날 · 안 끝난 자리는 앞으로(자정을 기다리지 않는다): %', p; end if;
+    p := duty_people(array[pbh], null, eh);
+    if (select array_agg(x->>'kind' order by x->>'start') from jsonb_array_elements(p->'rows') x) is distinct from array['served', 'upcoming'] then
+      raise exception '이력 — 받는 중 당번의 오늘(끝난 자리 = 섰던 날 · 안 끝난 자리 = 앞으로): %', p->'rows'; end if;
+  else
+    raise notice '오늘의 자리(G·H) — 지금 시각(%)에는 끝난 자리와 안 끝난 자리를 오늘에 함께 만들 수 없어 건너뜀', (now() at time zone 'Asia/Seoul')::time;
+  end if;
+  txt := duty_people(array[pbf])::text || duty_people(array[pbf], null, es1)::text || duty_people(array[pbf], null, eq2)::text;
+  if txt like '%' || u[12]::text || '%' or txt like '%person|%' or txt like '%staff|%' or txt like '%교구|%' or txt like '%user%' or txt like '%ident%' then
+    raise exception '봉사자 F — 신원 칸이 샜다: %', left(txt, 400); end if;
 end $$;
 rollback;
 select '통과 — duty_rules' as result;

@@ -175,7 +175,7 @@ test('지난 봉사(duty_past · 2026-10-07) — 읽기만 하는 함수다(표�
 
 test('숨긴 때(hidden_at · 독립 확인 반영 2026-10-07) — 트리거 한 곳이 적는다 · 옛 보관 당번을 채우는 문장은 트리거보다 앞 · 지난 봉사는 보관한 당번에서 그때까지 끝난 자리만', () => {
   // 칸 — 새 DB(create table)와 이미 있는 DB(alter) 둘 다
-  assert.match(sql, /updated_at\s+timestamptz not null default now\(\),\s+hidden_at\s+timestamptz\s*\);/, 'create table 에 hidden_at');
+  assert.match(sql, /updated_at\s+timestamptz not null default now\(\),\s+hidden_at\s+timestamptz,\s+archived_at\s+timestamptz\s*\);/, 'create table 에 hidden_at · archived_at');
   assert.ok(sql.includes('alter table public.duty_boards add column if not exists hidden_at timestamptz;'), '이미 있는 표에는 alter 로');
   // 트리거 함수 — 새 줄·보이는 상태 = null · 보이다가 숨김 = 지금 · 숨긴 채 = 옛 값(손으로도 못 바꾼다)
   const a = sql.indexOf('create or replace function public.duty_board_hidden_stamp()'), e = sql.indexOf('end $$;', a);
@@ -209,4 +209,56 @@ test('쉬는 날(독립 확인 반영 2026-10-07) — 거는 것은 오늘 이�
   assert.ok(body.includes('or (p_off and p_from < d0) or (not p_off and p_from < d0 - 400) then'), '거는 것은 오늘 이후 · 다시 열기는 오늘 − 400일까지');
   assert.doesNotMatch(body, /or p_from < d0 or/, '옛 줄(다시 열기도 오늘 이후만)이 남지 않았다');
   assert.ok(body.indexOf("if b.status = 'archived' then return jsonb_build_object('ok',false,'error','archived'); end if;") > 0, '보관한 당번');
+});
+
+test('보관한 때(archived_at · 👥 봉사자 2026-10-07) — 같은 트리거가 적는다 · 이미 보관한 당번은 updated_at 으로 채운다(트리거보다 앞)', () => {
+  assert.ok(sql.includes('alter table public.duty_boards add column if not exists archived_at timestamptz;'), '이미 있는 표에는 alter 로');
+  const a = sql.indexOf('create or replace function public.duty_board_hidden_stamp()'), e = sql.indexOf('end $$;', a);
+  const body = sql.slice(a, e);
+  assert.ok(body.includes("if new.status <> 'archived' then new.archived_at := null;"), '보관이 아니면 비운다');
+  assert.ok(body.includes("elsif tg_op = 'INSERT' or old.status is distinct from 'archived' then new.archived_at := now();"), '보관으로 바꾼 때(새로 만든 보관 당번 포함) = 지금');
+  assert.ok(body.includes('else new.archived_at := old.archived_at;'), '보관한 채의 저장은 옛 값');
+  assert.ok(body.indexOf('new.archived_at') > body.indexOf('new.hidden_at'), '숨긴 때 다음에');
+  const fill = "update public.duty_boards set archived_at = updated_at where status = 'archived' and archived_at is null;";
+  assert.ok(sql.includes(fill) && sql.indexOf(fill) < a, '채우는 문장은 트리거 함수보다 앞');
+  assert.equal([...sql.matchAll(/archived_at\s*(:=|=)(?!=)/g)].length, 4, 'archived_at 을 적는 곳: 채우기 1 + 트리거의 세 갈래');
+});
+
+test('👥 봉사자(duty_people · 2026-10-07) — 읽기만 · 부른 쪽이 준 당번 안에서만 · 신원 칸을 싣지 않는다 · 섰던 날의 규칙 · 자리마다 한 번', () => {
+  const a = sql.indexOf('create or replace function public.duty_people('), e = sql.indexOf('$$;', a);
+  assert.ok(a > 0 && e > a, 'duty_people');
+  const body = sql.slice(a, e);
+  assert.match(body, /^create or replace function public\.duty_people\(p_boards uuid\[\], p_year int default null, p_signup bigint default null\)\s+returns jsonb language sql stable security definer set search_path = public as \$\$/);
+  assert.doesNotMatch(body, /\b(insert|update|delete)\b/i, '읽기만');
+  assert.doesNotMatch(body, /advisory|for update/i, '잠금 없음');
+  // 당번 범위 — 부른 쪽이 준 당번(p_boards) 안의 줄만 읽고, 사람을 잇는 것도 그 줄만으로(ed·reach 는 ln 에서만 나온다)
+  assert.ok(body.includes("where s.board_id = any(coalesce(p_boards, array[]::uuid[])) and e.end_reason is distinct from 'merge'"), 'p_boards · 합치기로 정리된 줄 빼기');
+  assert.equal((body.match(/from public\.duty_signups/g) || []).length, 1, '지원 줄을 읽는 곳은 한 곳(범위를 거른 ln)');
+  assert.ok(body.includes("where ln.user_id is not null and ln.ident_key like 'person|%'"), '계정과 명부 키를 함께 가진 줄이 잇는다');
+  assert.ok(/reach\(node, r\) as \(\s+select distinct ln\.node, ln\.node from ln\s+union\s+select reach\.node, ed\.b from reach join ed on ed\.a = reach\.r\s+\)/.test(body), '잇기(같은 사람 묶음)');
+  // 섰던 날 — 당번이 살아 있던 동안 끝난 자리
+  // (독립 검토 반영) 묻는 것은 둘 — 자리가 끝났나(끝 시각 ≤ 지금) · 보관하기 전이었나. 준비 중 당번은 살아 있는 명단(숨긴 때 hidden_at 을 보지 않는다 — 그것은 성도님 앱의 규칙)
+  for (const k of ["case when b.status = 'archived' then coalesce(b.archived_at, b.updated_at) else 'infinity'::timestamptz end as live_until",
+    "((s.on_date + l.end_time) at time zone 'Asia/Seoul') as ends_at",
+    "case when ln.status = 'active' and ln.ends_at > now() and ln.board_status <> 'archived' then 'upcoming'",
+    "when ln.status = 'active' and not ln.day_off and not ln.slot_off and ln.ends_at <= least(now(), ln.live_until) then 'served'"]) assert.ok(body.includes(k), k);
+  // 수는 자리마다 한 번 · 앞으로의 수에 쉬는 날·쉬는 자리는 넣지 않는다 · 그해 = p_year(틀리면 올해)
+  assert.ok(body.includes("count(distinct li.slot_id) filter (where li.kind = 'served') as served"));
+  assert.ok(body.includes("count(distinct li.slot_id) filter (where li.kind = 'upcoming' and not li.day_off and not li.slot_off) as upcoming"));
+  assert.ok(body.includes("case when p_year between 2000 and 2100 then p_year else extract(year from duty_today())::int end as yr"));
+  // 답의 칸 — 사람 목록 · 이력 · 줄. 신원 칸(user_id·ident_key·교인ID)·담당자 메모는 없다
+  const keys = [...body.matchAll(/'([a-zA-Z]+)', /g)].map((m) => m[1]);
+  for (const k of ['ok', 'today', 'year', 'people', 'id', 'name', 'whoType', 'group', 'sub', 'hasApp', 'directory', 'served', 'inYear', 'upcoming', 'last', 'next',
+    'person', 'total', 'rows', 'date', 'board', 'boardStatus', 'service', 'task', 'start', 'end', 'kind', 'why', 'off', 'asked', 'askWhy', 'moved', 'source', 'error']) assert.ok(keys.includes(k), k);
+  assert.deepEqual(keys.filter((k) => /user|ident|key|note|person_id|uid/i.test(k)), [], '신원 칸이 답에 없다');
+  const outs = body.slice(body.indexOf('select case when p_signup is null then ('));
+  assert.equal(/\b(user_id|ident_key|staff_note|r\.node)\b/.test(outs.replace(/bool_or\(li\.user_id is not null\)|li\.ident_key like 'person\|%'/g, '')), false, '답을 짓는 곳은 신원 칸을 읽지 않는다');
+  assert.ok(body.includes("when me.r is null then jsonb_build_object('ok', false, 'error', 'not-found')"), '범위 밖 줄 = not-found');
+  assert.equal(/hidden_at/.test(body.replace(/^\s*--.*$/gm, '')), false, '담당자 셈은 숨긴 때를 보지 않는다(보관한 때만)');
+  assert.ok(body.includes("when q.day_off then 'off-day' when q.slot_off then 'off-slot' else 'archived' end"), '빠진 기록의 까닭 — 남는 것은 보관한 뒤의 자리');
+  assert.ok(body.includes('limit 400'), '이력은 400줄까지');
+  assert.ok(sql.includes('revoke all on function public.duty_people(uuid[], int, bigint) from public, anon, authenticated;') && sql.includes('grant execute on function public.duty_people(uuid[], int, bigint) to service_role;'));
+  // 성도님 앱의 규칙(duty_past)은 바뀌지 않았다 — 준비 중을 세지 않고 보관은 숨긴 때까지
+  const past = sql.slice(sql.indexOf('create or replace function public.duty_past('), sql.indexOf('$$;', sql.indexOf('create or replace function public.duty_past(')));
+  assert.ok(past.includes("and (b.status in ('open','closed')") && !past.includes('archived_at'), 'duty_past 는 그대로');
 });
