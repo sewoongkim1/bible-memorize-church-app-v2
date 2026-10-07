@@ -342,7 +342,7 @@ test('달력 — 날짜가 넷 이상이면 달력 + 고른 날 하나 · 셋 �
   w = world(); await openBoard(w, calRes());
   assert.equal(dayCount(w.html()), 1, '고른 날 하나만'); assert.ok(w.html().includes('class="duty-cal"'));
   assert.equal(selOf(w.html()), '2026-10-18', '다 찬 11일이 아니라 손이 필요한 가장 이른 날');
-  assert.ok(w.html().includes('<b>2026년 10월</b>') && w.html().includes('<i aria-hidden="true">2/2</i>') && w.html().includes('<i aria-hidden="true">0/2</i>'), '칸에 채워진 인원/필요 인원');
+  assert.ok(w.html().includes('<b>2026년 10월</b>') && w.html().includes('<i aria-hidden="true">2/<wbr>2</i>') && w.html().includes('<i aria-hidden="true">0/<wbr>2</i>'), '칸에 채워진 인원/필요 인원');
   assert.equal(w.shown(), 'DUTY[board]'); assert.deepEqual(w.touched(), [], '그냥 열 때는 화면을 굴리지 않는다');
 });
 
@@ -375,7 +375,7 @@ test('달력 — 지원한 뒤 다시 받아도 고른 날이 그대로 · 다�
   await w.answer(0, { ok: true }); assert.deepEqual(w.names(), ['dutyBoard']);
   const after = CAL_DAYS.map((d, i) => (i === di ? { ...d, slots: [{ ...d.slots[0], n: 1, names: ['화면점검'], why: 'mine', mine: { id: 5, status: 'active', byStaff: false, staffAdded: false, asked: false, why: null } }] } : d));
   await w.answer(0, calRes({ days: after }));
-  assert.equal(selOf(w.html()), '2026-11-08'); assert.ok(w.html().includes('지원했어요') && w.html().includes('k-mine on') && w.html().includes('<i aria-hidden="true">1/2</i>'));
+  assert.equal(selOf(w.html()), '2026-11-08'); assert.ok(w.html().includes('지원했어요') && w.html().includes('k-mine on') && w.html().includes('<i aria-hidden="true">1/<wbr>2</i>'));
   // 다른 날을 골라 둔 채 다른 앱에 다녀왔다 — 다시 받아도 고른 날 그대로
   w.tapDate('2026-11-01'); w.tickTime(16000); w.listeners.visibilitychange(); await w.answer(0, calRes({ days: after }));
   assert.equal(selOf(w.html()), '2026-11-01');

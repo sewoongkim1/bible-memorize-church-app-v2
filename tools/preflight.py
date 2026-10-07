@@ -145,11 +145,15 @@ for t in PURE_TESTS:
                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     out = r.stdout.decode("utf-8", "replace")
     if r.returncode == 0:
-        m = re.search(r"^# pass (\d+)", out, re.M)
-        sk = re.search(r"^# skipped (\d+)", out, re.M)
+        # node --test 의 끝 셈은 판마다 꼴이 다르다 — 22 까지는 TAP(「# pass 6」 · 건너뛴 줄 「# SKIP 까닭」), 23 부터는 spec(「ℹ pass 6」 · 건너뛴 줄 「﹣ 이름 (0.4ms) # 까닭」).
+        #   두 꼴을 다 읽는다 — TAP 만 읽으면 23 이상에서는 모두 건너뛴 시험이 「?가지 통과」로 찍힌다(독립 검토 반영 2026-10-07). 색 글자(FORCE_COLOR)는 먼저 걷어 낸다.
+        #   ℹ = U+2139 · ﹣ = U+FE63 — 닮은 글자와 섞이지 않게 이스케이프로 적는다.
+        plain = re.sub(r"\x1b\[[0-9;]*m", "", out)
+        m = re.search(r"^(?:# |\u2139 )pass (\d+)", plain, re.M)
+        sk = re.search(r"^(?:# |\u2139 )skipped (\d+)", plain, re.M)
         if m and m.group(1) == "0" and sk and int(sk.group(1)) > 0:
             # 하나도 돌지 않았다(예: 이 node 로는 못 도는 시험) — 떨어뜨리지는 않되 「통과」로 읽히지 않게 적는다(회귀 확인 반영 2026-10-07)
-            why = re.search(r"# SKIP (.+)$", out, re.M)
+            why = re.search(r"# SKIP (.+)$", plain, re.M) or re.search(r"^\s*\uFE63 .+? # (.+)$", plain, re.M)
             print("  \033[33m건너뜀\033[0m  %s — %s가지를 돌리지 못했다(통과 0)%s" % (t, sk.group(1), " · " + why.group(1).strip()[:120] if why else ""))
         else:
             ok("%s — %s가지 통과" % (t, m.group(1) if m else "?"))

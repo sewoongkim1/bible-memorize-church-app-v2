@@ -207,10 +207,15 @@ function dutyContactHtml(t) {
 //      근거(관보의 월력요항 · 「관공서의 공휴일에 관한 규정」)와 다음 해를 더하는 순서는 docs/notes/duty-roster.md 「공휴일」.
 //   ⚠️ 이 표는 **두 곳**에 있다 — 여기(성도님 달력)와 교회 어드민 js/menus/duty/holidays.js(담당자 달력). 한쪽만 고치면 서로 다른 달력을 본다 —
 //      두 저장소의 시험이 같은 지문(표의 sha256 앞 12자)을 본다(tests/duty-front.test.cjs · 교회 어드민 tests/duty-cal.test.mjs).
-//   ⚠️ 표는 DUTY_HOL_UNTIL 까지만 맞다 — 그 뒤 날짜는 빨갛게 보이지 않을 뿐이다(틀린 말은 하지 않는다). 그 해가 가기 전에 다음 해를 더한다.
+//   ⚠️ 표는 DUTY_HOL_FROM ~ DUTY_HOL_UNTIL 만 덮는다 — 그 밖의 달은 빨간 날짜가 없고, 달력의 풀이가 「이 달의 공휴일은 아직 표시되지 않아요(…까지만 빨갛게 보여요)」라고 말한다
+//      (dutyHolOutside·dutyHolOutsideText — 빨간 날짜가 없는 것이 「공휴일이 없다」로 읽히지 않게 · 독립 검토 반영 2026-10-07).
+//      ⏰ 다음 해 줄은 **한 해 넘게 앞서** 더한다 — 「앞으로 1년」 당번의 달력은 표 끝의 한 해 전부터 그 뒤의 달을 보여 준다(2028년 1월에 2029년 1월이 보인다).
+//      천문연 「달력자료」가 나오면 넣고, 다음 해 6월 말 관보의 월력요항과 대조한다.
 //      2028년 줄은 공식 월력요항(2027년 6월 말 무렵) 전에 법령과 천문연 자료로 적었다 — 나오면 한 번 대조한다. 2028-10-03 은 추석이면서 개천절이다(이름은 추석).
-//      임시공휴일은 정부가 그때그때 정한다 — 정해지면 한 줄 더한다. tests/duty-front.test.cjs 가 표의 꼴과 대체공휴일 규칙을 다시 셈해 본다.
-var DUTY_HOL_UNTIL = '2028-12-31';
+//      임시공휴일은 정부가 그때그때 정한다 — 정해지면 한 줄 더한다. tests/duty-front.test.cjs 가 표의 꼴과 대체공휴일 규칙을 다시 셈해 본다
+//      (못 보는 것: 음력 날짜 자체 · 선거일 — 근거 자료에서 옮기고 눈으로 맞댄다).
+var DUTY_HOL_FROM = '2026-10-01';    // 표가 덮는 첫 날(달의 1일) — 봉사 당번을 연 달
+var DUTY_HOL_UNTIL = '2028-12-31';   // 표가 덮는 마지막 날(그 해의 12월 31일)
 var DUTY_HOLIDAYS = {
   '2026-10-03': '개천절', '2026-10-05': '대체공휴일', '2026-10-09': '한글날', '2026-12-25': '성탄절',
   '2027-01-01': '신정', '2027-02-06': '설날', '2027-02-07': '설날', '2027-02-08': '설날', '2027-02-09': '대체공휴일', '2027-03-01': '삼일절', '2027-05-01': '노동절', '2027-05-03': '대체공휴일', '2027-05-05': '어린이날', '2027-05-13': '부처님오신날', '2027-06-06': '현충일', '2027-07-17': '제헌절', '2027-07-19': '대체공휴일', '2027-08-15': '광복절', '2027-08-16': '대체공휴일', '2027-09-14': '추석', '2027-09-15': '추석', '2027-09-16': '추석', '2027-10-03': '개천절', '2027-10-04': '대체공휴일', '2027-10-09': '한글날', '2027-10-11': '대체공휴일', '2027-12-25': '성탄절', '2027-12-27': '대체공휴일',
@@ -233,6 +238,18 @@ function dutyHolItems(ym) {
   return out.map(function (x) { return (x.from === x.to ? x.from + '일' : x.from + '~' + x.to + '일') + ' ' + x.name; });
 }
 function dutyHolLine(ym) { return dutyHolItems(ym).join(' · '); }   // 한 줄 글로(시험·낭독용)
+// 그 달(ym = 'YYYY-MM')이 표가 덮는 기간 밖인가 → 'before'(표가 시작하기 전) · 'after'(표 끝 뒤) · ''(안 — 또는 달이 아닌 값)
+function dutyHolOutside(ym) {
+  var s = String(ym == null ? '' : ym);
+  if (!/^\d{4}-\d{2}$/.test(s)) return '';
+  return s < DUTY_HOL_FROM.slice(0, 7) ? 'before' : s > DUTY_HOL_UNTIL.slice(0, 7) ? 'after' : '';
+}
+// 표 밖의 달에 달력 풀이가 하는 말(교회 어드민 달력과 같은 글 — js/menus/duty/holidays.js holOutsideText)
+function dutyHolOutsideText(side) {
+  var word = function (ds) { return dutyCalTitle(ds.slice(0, 7)); };   // 「2028년 12월」 — 달력 제목과 같은 꼴
+  return side === 'after' ? '이 달의 공휴일은 아직 표시되지 않아요(' + word(DUTY_HOL_UNTIL) + '까지만 빨갛게 보여요).'
+    : side === 'before' ? '이 달의 공휴일은 표시되지 않아요(' + word(DUTY_HOL_FROM) + '부터 빨갛게 보여요).' : '';
+}
 // 그날 카드의 날짜 옆에 붙이는 이름 — 「한글날」(공휴일이 아니면 빈 글) · 달력이 없는 당번(날짜가 적다)에서는 이것이 유일한 표시다
 function dutyHolChip(date) {
   var name = dutyHoliday(date);
@@ -253,6 +270,8 @@ function dutyCalUse(days) { return (days || []).length >= DUTY_CAL_MIN; }
 //   me = { why, staffOnly } — staffOnly = 담당자가 넣는 당번(지원 멈춤). 그 당번의 자리는 모두 「담당자가 넣는 자리」(why closed)이고 그 정원이 곧 필요 인원이다.
 //     받는 중 당번의 「담당자가 넣는 자리」는 남은 자리다(뺀 틀·요일을 바꾼 틀 — 새 지원을 받지 않는다): 서 있는 분은 세되 **빈 칸은 필요 인원으로 치지 않는다**
 //     (서버의 「손이 필요한 수」도 남은 자리를 뺀다 — 「4/6」인데 지원할 자리가 없는 날이 되지 않게).
+//     ⚠️ 다만 **보는 분 자신의 줄이 있는** 남은 자리(서 있거나 담당자가 뺀 줄)는 줄이지 못한다 — 판정이 'mine' 이라 남은 자리인지 알 수 없어 정원을 모두 센다
+//     (정원 2 인 남은 자리에 혼자 선 분의 앱은 「1/2」 · 다른 분의 앱과 교회 어드민 달력은 「1/1」 — 독립 검토 반영 2026-10-07 · 수까지 맞추려면 서버가 자리마다 남은 자리인지 실어야 한다).
 function dutyCalCell(day, me) {
   var d = day || {}, n = 0, cap = 0, need = 0, mine = false, live = 0, staffOnly = !!(me && me.staffOnly);
   (d.slots || []).forEach(function (s) {
@@ -321,6 +340,7 @@ function dutyCalStep(days, sel, dir, me) {
 //   쉬는 날은 「쉼」 · 고른 날은 겹테두리 · 오늘은 표시(자리가 있는 날은 숫자 위 금색 줄 · 없는 날은 숫자 밑줄 — 밑줄이 인원 글에 얹히지 않게).
 //   앞뒤 달 단추는 날짜가 있는 달로만(「◀ 10월」 · 「12월 ▶」 — 그쪽에 달이 없으면 단추도 없다) · 아래 풀이는 이 당번표에 실제로 있는 표시만.
 //   공휴일은 **날짜 숫자만** 빨갛게(hol — 당번이 없는 날도 · 칸의 바탕과 인원 글은 뜻 색 그대로) · 그 달에 공휴일이 있으면 풀이에 이름을 적는다(색만으로 말하지 않는다).
+//   인원 글은 「/」 뒤에서 줄을 바꿀 수 있다(<wbr>) — 칸에 한 줄로 못 들 때만 두 줄이 된다(「100/120」 · 좁은 폰): 넘친 글자가 이웃 칸에 묻혀 「00/12」로 읽히지 않게.
 function dutyCalHtml(days, sel, today, me) {
   var list = days || [], ym = String(sel || '').slice(0, 7), months = dutyCalMonths(list), at = months.indexOf(ym), by = {}, seen = {};
   list.forEach(function (d) { if (!d) return; var x = dutyCalCell(d, me); by[d.date] = { day: d, cell: x }; seen[x.kind] = true; });
@@ -330,7 +350,7 @@ function dutyCalHtml(days, sel, today, me) {
     if (!it) return '<span class="duty-cal-c' + tcls + '"' + (hol ? ' title="' + dutyEsc(hol) + '"' : '') + '><span>' + c.n + '</span></span>';
     var on = c.date === sel;
     return '<button type="button" class="duty-cal-c has k-' + it.cell.kind + (on ? ' on' : '') + tcls + '" data-date="' + dutyEsc(c.date) + '" aria-pressed="' + on +
-      '" aria-label="' + dutyEsc(dutyCalLabel(it.day, it.cell) + (hol ? ' · 공휴일(' + hol + ')' : '') + (c.date === today ? ' · 오늘' : '')) + '"><span>' + c.n + '</span><i aria-hidden="true">' + dutyEsc(dutyCalMark(it.cell)) + '</i></button>';
+      '" aria-label="' + dutyEsc(dutyCalLabel(it.day, it.cell) + (hol ? ' · 공휴일(' + hol + ')' : '') + (c.date === today ? ' · 오늘' : '')) + '"><span>' + c.n + '</span><i aria-hidden="true">' + dutyEsc(dutyCalMark(it.cell)).replace('/', '/<wbr>') + '</i></button>';
   }).join('');
   var nav = function (dir, to) {
     if (!to) return '<span></span>';
@@ -341,7 +361,7 @@ function dutyCalHtml(days, sel, today, me) {
   var key = [seen.need ? '<span class="ki"><span class="k need" aria-hidden="true"></span>손이 필요한 날</span>' : '',
     seen.mine ? '<span class="ki"><span class="k mine" aria-hidden="true"></span>내 당번</span>' : ''].filter(Boolean).join(' · ');
   var hols = dutyHolItems(ym).map(function (x) { return '<span class="ki">' + dutyEsc(x) + '</span>'; }).join(' · ');   // 한 조각씩 줄이 갈리지 않게(.ki)
-  var red = hols ? '<span class="hd">빨간 날짜</span>는 공휴일이에요(' + hols + ').' : '';
+  var red = hols ? '<span class="hd">빨간 날짜</span>는 공휴일이에요(' + hols + ').' : dutyEsc(dutyHolOutsideText(dutyHolOutside(ym)));   // 표 밖의 달 — 없다고 하지 않고 「표시되지 않아요」
   return '<div class="duty-cal" role="group" aria-label="날짜 고르기">' +
     '<div class="duty-cal-h">' + nav('prev', at > 0 ? months[at - 1] : '') + '<b>' + dutyEsc(dutyCalTitle(ym)) + '</b>' + nav('next', at >= 0 ? months[at + 1] : '') + '</div>' +
     '<div class="duty-cal-w" aria-hidden="true"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>' +

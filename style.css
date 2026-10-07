@@ -6049,9 +6049,11 @@ body:has(#update-banner) .ps-wrap.ps-home{
 /* scroll-margin-top — 「내 당번」 카드로 들어와 화면을 굴려 맨 위에 붙일 때 홈 화면 웹앱(상태바 밑부터 그린다)의 상태바에 가리지 않게(.ref-input 과 같은 방식) */
 .duty-day { border: 1px solid var(--border); border-radius: 14px; background: var(--white); padding: 12px 14px; margin: 12px 0; scroll-margin-top: calc(12px + var(--app-safe-top, env(safe-area-inset-top, 0px))); }
 .duty-day.off { background: var(--light); }
-.duty-day-h { display: flex; align-items: center; gap: 8px; }
-.duty-day-h b { font-size: 17px; color: var(--navy); }
-.duty-today { font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--navy); color: #fff; }
+/* 머리는 한 줄에 못 들면 조각째 다음 줄로 넘긴다(flex-wrap) — 폭 320px 에서 「오늘」이면서 이름이 긴 공휴일인 날(대체공휴일·부처님오신날·국회의원 선거)은 날짜가 두 줄로 갈리고
+   「오늘」 칩이 「오/늘」 세로로 꺾였다(독립 검토 반영 2026-10-07). 날짜·칩은 저마다 한 줄(nowrap) */
+.duty-day-h { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.duty-day-h b { font-size: 17px; color: var(--navy); white-space: nowrap; }
+.duty-today { flex: none; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--navy); color: #fff; white-space: nowrap; }
 .duty-hol { font-size: 13px; font-weight: 700; color: var(--error); white-space: nowrap; }   /* 그날 카드의 공휴일 이름 — 색은 아래 달력 칸과 같다 */
 .duty-day-s { margin: 2px 0 0; font-size: 14px; color: var(--gray); line-height: 1.5; word-break: keep-all; overflow-wrap: anywhere; }
 .duty-day.off .duty-day-s { color: #5a6273; }   /* 쉬는 날 카드의 줄 — 바탕(--light) 위 --gray 는 4.25:1 · 달력의 쉬는 날 칸과 같은 값(잠긴 날의 남색은 아래 줄이 이긴다) */
@@ -6102,7 +6104,9 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .duty-cal-c.has.today > span { text-decoration: none; }
 .duty-cal-c.has.today::before { content: ""; width: 16px; height: 3px; border-radius: 2px; background: var(--gold); margin-bottom: 1px; }
 .duty-cal-c.has { cursor: pointer; font-weight: 800; color: var(--navy); background: var(--light); }
-.duty-cal-c i { font-style: normal; font-size: 12px; line-height: 1; min-height: 12px; font-weight: 700; letter-spacing: -.2px; white-space: nowrap; }
+/* 인원 글 — 한 줄에 못 들면 「/」 뒤에서 줄을 바꾼다(js/duty.js 가 그 자리에 <wbr> 을 둔다 · nowrap 을 걸지 않는다): 「100/120」은 좁은 폰의 칸을 넘쳐 이웃 칸에 묻히고
+   내 당번(남색) 칸에서는 앞뒤 숫자가 사라져 보인다(독립 검토 반영 2026-10-07 — 교회 어드민 달력과 같은 규칙). 잘라 내지 않는다(잘린 수는 틀린 수로 읽힌다) */
+.duty-cal-c i { font-style: normal; font-size: 12px; line-height: 1; min-height: 12px; font-weight: 700; letter-spacing: -.2px; text-align: center; }
 .duty-cal-c.k-need { background: #e7f4ea; border-color: #a9d6b6; color: var(--green); }
 .duty-cal-c.k-mine { background: var(--navy); border-color: var(--navy); color: #fff; }
 .duty-cal-c.k-off { color: #5a6273; font-weight: 600; }   /* --gray 는 이 바탕(--light)에서 4.25:1 — 순위 범위의 잠긴 단추·필사 「마감」 칩(.pilsa-state.s4)과 같은 값(5.38:1 · 새 색 아님) */
