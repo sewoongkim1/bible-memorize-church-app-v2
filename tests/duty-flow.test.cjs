@@ -75,12 +75,13 @@ function world(over) {
     appAlert(m) { alerts.push(m); return Promise.resolve(true); },
     appConfirm(m, opt) { confirms.push((opt && opt.title) || m); return Promise.resolve(answers.length ? answers.shift() : true); },
     api: o.api === undefined
-      ? { dutyList: call('dutyList'), dutyBoard: call('dutyBoard'), dutyApply: call('dutyApply'), dutyCancel: call('dutyCancel'), dutyAsk: call('dutyAsk') }
+      ? { dutyList: call('dutyList'), dutyBoard: call('dutyBoard'), dutyApply: call('dutyApply'), dutyCancel: call('dutyCancel'), dutyAsk: call('dutyAsk'),
+          ...(o.noPast ? {} : { dutyPast: call('dutyPast') }) }   // noPast = 옛 js/api.js(지난 봉사 길이 없다)
       : o.api,
   };
   vm.createContext(ctx); vm.runInContext(SRC, ctx, { filename: 'duty.js' });
   const settle = async () => { for (let i = 0; i < 6; i++) await new Promise((r) => setImmediate(r)); };
-  const kind = (h) => (h.includes('불러오는 중') ? 'loading' : h.includes('duty-day') || h.includes('당번표에 보이는 날짜가 없어요') ? 'board' : h.includes('duty-sec') ? 'list' : 'other');
+  const kind = (h) => (h.includes('불러오는 중') ? 'loading' : h.includes('<h2 class="duty-title">지난 봉사</h2>') ? 'past' : h.includes('duty-day') || h.includes('당번표에 보이는 날짜가 없어요') ? 'board' : h.includes('duty-sec') ? 'list' : 'other');
   const tapSel = (want, dataset) => {
     const btn = { dataset, disabled: false, isConnected: true };
     wrap.onclick({ target: { closest: (sel) => (sel === want ? btn : null) } });
@@ -89,6 +90,7 @@ function world(over) {
   const tap = (dataset) => tapSel('button[data-act]', dataset);
   return { ctx, alerts, confirms, logs, pending, listeners, settle, tap,
     tapDate: (date) => tapSel('button[data-date]', { date }), tapCal: (dir) => tapSel('button[data-cal]', { cal: dir }),   // 달력의 날짜 · 앞뒤 달 단추
+    tapPast: () => tapSel('button[data-past]', { past: '1' }),   // 지난 봉사 모두 보기 · 지난 봉사 N번 ›
     touched: () => touched.splice(0), setCardTop: (v) => { cardTop = v; }, setCalHeight: (v) => { calHeight = v; }, setFab: (v) => { fabTop = v; },
     setModal: (v) => { modal = !!v; },   // 다른 창이 떠 있다
     acts: () => (wrap ? wrap.querySelectorAll('button[data-act]') : []),   // 화면의 자리 단추들(꺼짐·켜짐)
@@ -103,7 +105,7 @@ function world(over) {
 const BOARD = { id: 'b-1', title: '식당 봉사', place: '식당', status: 'open', need: [] };
 const SLOT = { id: 11, service: '2부', task: '설거지', start: '11:30', end: '12:30', capacity: 2, off: false, n: 0, names: [], mine: null, why: '' };
 const DAY = { date: '2026-10-18', off: false, note: '', locked: false, lockAt: '2026-10-17T10:00:00+00:00', slots: [SLOT] };
-const listRes = (boards, mine) => ({ ok: true, open: true, today: '2026-10-06', me: { why: '' }, boards: boards || [BOARD], mine: mine || [] });
+const listRes = (boards, mine, past) => ({ ok: true, open: true, today: '2026-10-06', me: { why: '' }, boards: boards || [BOARD], mine: mine || [], ...(past ? { past } : {}) });
 const boardRes = (x) => ({ ok: true, open: true, today: '2026-10-06', me: { why: '' }, board: { id: 'b-1', title: '식당 봉사', status: 'open' }, days: [DAY], ...(x || {}) });
 const MINE = { id: 5, boardId: 'b-1', board: '식당 봉사', place: '식당', contact: '', date: '2026-10-18', service: '2부', task: '설거지', start: '11:30', end: '12:30',
   status: 'active', byStaff: false, staffAdded: false, off: false, dayOff: false, note: '', locked: false, lockAt: '2026-10-17T10:00:00+00:00', asked: false, why: null, movedFrom: null, overlap: false };
@@ -685,4 +687,117 @@ test('잠긴 날 — 다른 당번을 보고 있으면 「취소할 수 없는 �
   w.ctx.renderDutyBoard('b-2'); await w.answer(1, boardRes({ board: { id: 'b-2', title: '주차 봉사', status: 'open' } }));
   await w.fail(0, 'locked-day', { ok: false, error: 'locked-day' });
   assert.deepEqual(w.confirms, ['🙋 지원할까요?']); assert.equal(w.alerts.length, 1); assert.ok(w.alerts[0].includes('2부 설거지 지원이 안 됐어요'));
+});
+
+// ── 지난 봉사(2026-10-07 친구 요청) — 목록의 묶음 · 당번표의 한 줄 · 「지난 봉사」 화면 ──
+const PAST3 = { total: 5, year: 3, rows: [
+  { date: '2026-10-04', board: '식당 봉사', service: '2부', task: '설거지', start: '11:30', end: '12:30' },
+  { date: '2026-09-27', board: '식당 봉사', service: '2부', task: '설거지', start: '11:30', end: '12:30' },
+  { date: '2026-09-20', board: '식당 봉사', service: '3부', task: '배식', start: '13:00', end: '14:00' }] };
+const pastRes = (x) => ({ ok: true, open: true, today: '2026-10-06', past: { total: 5, year: 3, rows: [...PAST3.rows,
+  { date: '2026-09-13', board: '식당 봉사', service: '2부', task: '설거지', start: '11:30', end: '12:30' },
+  { date: '2025-12-28', board: '지난 김장', service: '김장', task: '', start: '09:00', end: '12:00' }] }, ...(x || {}) });
+
+test('지난 봉사 — 목록의 묶음(내 당번 아래 · 당번 위) · 「모두 보기」 → 「지난 봉사」 화면 → 「← 봉사 당번」으로 목록', async () => {
+  const w = world();
+  w.ctx.renderDutyList(); await w.answer(0, listRes([BOARD], [MINE], PAST3));
+  assert.equal(w.shown(), 'DUTY[list]');
+  let h = w.html();
+  const iMine = h.indexOf('<div class="duty-sec">내 당번</div>'), iPast = h.indexOf('<div class="duty-sec">지난 봉사</div>'), iBoards = h.indexOf('<div class="duty-sec">당번</div>');
+  assert.ok(iMine > 0 && iPast > iMine && iBoards > iPast, '내 당번 → 지난 봉사 → 당번 차례');
+  assert.ok(h.includes('<b>올해 3번 · 지금까지 5번</b>') && h.includes('함께해 주셔서 고맙습니다') && h.includes('<li><b>10월 4일(일)</b><span>식당 봉사 · 2부 설거지</span></li>'));
+  assert.ok(h.includes('data-past="1">지난 봉사 모두 보기</button>'));
+  w.tapPast();
+  assert.equal(w.shown(), 'DUTY[loading]'); assert.deepEqual(w.names(), ['dutyPast']);
+  assert.equal(w.pending[0].args[0], UID, '내 계정 번호로만 묻는다'); assert.equal(w.pending[0].args.length, 1);
+  await w.answer(0, pastRes());
+  assert.equal(w.shown(), 'DUTY[past]');
+  h = w.html();
+  assert.ok(h.includes('<h2 class="duty-title">지난 봉사</h2>') && h.includes('<div class="duty-sec">2026년</div>') && h.includes('<div class="duty-sec">2025년</div>'));
+  assert.ok(h.includes('<li><b>12월 28일(일)</b><span>지난 김장 · 김장 · 09:00~12:00</span></li>') && h.includes('당번표에 남아 있는 기록이에요'));
+  assert.equal(h.includes('data-act'), false, '「지난 봉사」 화면에는 일을 보내는 단추가 없다(읽기만)');
+  assert.equal(w.ctx.dutyState.at, 'past');
+  w.goBack();
+  assert.deepEqual(w.names(), ['dutyList']); await w.answer(0, listRes([BOARD], [MINE], PAST3));
+  assert.equal(w.shown(), 'DUTY[list]', '돌아오면 목록(당번이 하나여도 건너뛰지 않는다)');
+});
+
+test('지난 봉사 — 당번이 하나뿐이라 목록을 건너뛴 분: 당번표의 「지난 봉사 N번 ›」 한 줄로 들어간다 · 없는 분께는 묶음도 줄도 없다', async () => {
+  let w = world();
+  w.ctx.renderDutyList(); await w.answer(0, listRes([BOARD], [], PAST3));
+  assert.deepEqual(w.names(), ['dutyBoard'], '지난 봉사만 있는 분도 당번표로 곧바로');
+  await w.answer(0, boardRes()); assert.equal(w.shown(), 'DUTY[board]');
+  assert.ok(w.html().includes('<button type="button" class="duty-pastlink" data-past="1"><span>지난 봉사 5번</span>'), '당번표 위의 한 줄');
+  assert.ok(w.html().indexOf('duty-pastlink') < w.html().indexOf('<section class="duty-day'), '날짜들 위에');
+  w.tapPast(); assert.deepEqual(w.names(), ['dutyPast']); await w.answer(0, pastRes()); assert.equal(w.shown(), 'DUTY[past]');
+  // 지난 봉사가 없는 분 · 옛 서버(past 가 없는 답)
+  for (const past of [{ total: 0, year: 0, rows: [] }, undefined]) {
+    w = world(); w.ctx.renderDutyList(); await w.answer(0, listRes([BOARD, { ...BOARD, id: 'b-2' }], [MINE], past));
+    assert.equal(w.shown(), 'DUTY[list]'); assert.equal(w.html().includes('지난 봉사'), false, '묶음이 없다');
+    w.ctx.renderDutyBoard('b-1'); await w.answer(0, boardRes());
+    assert.equal(w.html().includes('duty-pastlink'), false, '당번표에도 줄이 없다');
+  }
+  // 당번표에서 일을 보내는 동안에도 그 줄은 꺼지지 않는다(자리 단추만 꺼진다)
+  w = world(); w.ctx.renderDutyList(); await w.answer(0, listRes([BOARD], [], PAST3)); await w.answer(0, boardRes());
+  w.tap({ act: 'apply', d: '0', s: '0' }); await w.settle();
+  assert.ok(w.acts().length >= 1 && w.acts().every((b) => b.disabled), '자리 단추는 꺼졌다');
+  assert.equal(/<button[^>]*data-past[^>]*disabled/.test(w.html()), false);
+});
+
+test('지난 봉사 — 못 받았을 때: 옛 api.js · 계정 번호 없음 · 문 닫힘 · 통신 실패 · 늦게 온 답 — 사실인 말과 돌아갈 길', async () => {
+  // 옛 js/api.js(배포 직후 CDN) — dutyPast 가 없다: 서버를 부르지 않고 그렇다고 말한다
+  let w = world({ noPast: true });
+  w.ctx.renderDutyList(); await w.answer(0, listRes([BOARD], [MINE], PAST3));
+  w.tapPast();
+  assert.deepEqual(w.names(), []); assert.equal(w.shown(), 'DUTY[past]');
+  assert.ok(w.html().includes('새 화면을 받는 중이에요. 잠시 뒤 다시 열어 주세요.') && w.html().includes('id="duty-back"'));
+  w.goBack(); assert.deepEqual(w.names(), ['dutyList'], '돌아갈 길이 있다');
+  // 계정 번호를 아직 못 받았다
+  w = world({ user: { name: '화면점검', type: '교구', gu: '믿음', mok: '99' } });
+  w.ctx.renderDutyPast();
+  assert.deepEqual(w.names(), []); assert.ok(w.html().includes('아직 서버와 연결되지 않았어요'));
+  // 문이 그사이 닫혔다 · 통신 실패
+  w = world(); w.ctx.renderDutyPast(); await w.answer(0, { ok: true, open: false });
+  assert.ok(w.html().includes('지금은 봉사 당번을 볼 수 없어요') && w.html().includes('id="duty-back"')); assert.equal(w.html().includes('duty-past-l'), false);
+  w = world(); w.ctx.renderDutyPast(); await w.fail(0, 'Failed to fetch');
+  assert.ok(w.html().includes('지금 불러올 수 없어요') && w.html().includes('id="duty-back"')); assert.deepEqual(w.alerts, [], '창을 띄우지 않는다(화면에 적는다)');
+  // 받는 사이 첫 화면으로 나갔다 — 늦게 온 답이 당번 화면을 도로 띄우지 않는다(성공·실패 모두)
+  w = world(); w.ctx.renderDutyPast(); w.goHome(); await w.answer(0, pastRes()); assert.equal(w.shown(), 'HOME');
+  w = world(); w.ctx.renderDutyPast(); w.goHome(); await w.fail(0, 'Failed to fetch'); assert.equal(w.shown(), 'HOME');
+  // 받는 사이 **다른 당번 화면**으로 옮겼다(당번 화면이 떠 있다) — 늦게 온 지난 봉사의 답·실패가 그 화면을 덮지 않는다
+  for (const late of ['answer', 'fail']) {
+    w = world(); w.ctx.renderDutyPast(); assert.deepEqual(w.names(), ['dutyPast']);
+    w.ctx.renderDutyList({ stay: true }); assert.deepEqual(w.names(), ['dutyPast', 'dutyList']);
+    const reads = w.ctx.dutyState.reads;
+    if (late === 'answer') await w.answer(0, pastRes()); else await w.fail(0, 'Failed to fetch');
+    assert.equal(w.shown(), 'DUTY[loading]', late + ' — 목록을 받는 중인 화면 그대로'); assert.equal(w.html().includes('지난 봉사'), false);
+    assert.equal(w.ctx.dutyState.reads, reads, '버린 답은 「받았다」로 세지 않는다');
+    await w.answer(0, listRes([BOARD, { ...BOARD, id: 'b-2' }], [MINE]));
+    assert.equal(w.shown(), 'DUTY[list]', late + ' — 목록이 그대로 그려진다');
+  }
+  // 로그인하지 않은 채
+  w = world({ user: null }); w.ctx.renderDutyPast(); assert.equal(w.entries(), 1);
+});
+
+test('지난 봉사 — 화면이 다시 보여도 다시 받지 않는다 · 다른 일의 늦은 답이 이 화면을 덮지 않는다 · 로그아웃하면 앞사람의 지난 봉사를 비운다', async () => {
+  let w = world();
+  w.ctx.renderDutyPast(); await w.answer(0, pastRes());
+  w.tickTime(60000); w.listeners.visibilitychange();
+  assert.deepEqual(w.names(), [], '지난 기록은 다시 받지 않는다'); assert.equal(w.shown(), 'DUTY[past]');
+  // 당번표에서 지원을 보낸 뒤 곧바로 「지난 봉사」로 — 늦게 온 답이 이 화면을 당번표로 바꾸지 않는다
+  w = world(); w.ctx.renderDutyList(); await w.answer(0, listRes([BOARD], [], PAST3)); await w.answer(0, boardRes());
+  w.tap({ act: 'apply', d: '0', s: '0' }); await w.settle();
+  w.tapPast(); assert.deepEqual(w.names(), ['dutyApply', 'dutyPast']);
+  await w.answer(0, { ok: true });
+  assert.deepEqual(w.names(), ['dutyPast'], '당번표를 다시 받지 않는다'); assert.equal(w.ctx.dutyState.busy, false);
+  await w.answer(0, pastRes()); assert.equal(w.shown(), 'DUTY[past]');
+  // 로그아웃·신원 바꿈
+  w = world(); w.ctx.renderDutyList(); await w.answer(0, listRes([BOARD], [MINE], PAST3));
+  assert.equal(w.ctx.dutyState.past.total, 5); assert.equal(w.ctx.dutyState.today, '2026-10-06');
+  w.ctx.dutyResetState();
+  assert.equal(w.ctx.dutyState.past, null); assert.equal(w.ctx.dutyState.today, '');
+  // 문이 닫힌 답을 받으면 가지고 있던 지난 봉사도 비운다(다음 분께 보이지 않게)
+  w = world(); w.ctx.renderDutyList(); await w.answer(0, listRes([BOARD], [MINE], PAST3));
+  w.ctx.renderDutyList({ stay: true }); await w.answer(0, { ok: true, open: false });
+  assert.equal(w.ctx.dutyState.past, null);
 });

@@ -538,6 +538,7 @@ Deno.serve(async (req) => {
       case "dutyApply":  return json(await dutyApply(body));
       case "dutyCancel": return json(await dutyCancel(body));
       case "dutyMine":   return json(await dutyMine(body));
+      case "dutyPast":   return json(await dutyPast(body));
       case "dutyAsk":    return json(await dutyAsk(body));
       case "internalDutyNotify": return json(await internalDutyNotify(req, body));   // 당번 알림(3단계) — church-admin 전용(x-internal-key)
       case "internalDutyRemind": return json(await internalDutyRemind(req, body));         // 당번 전날 알림(3단계) — pg_cron 전용(x-internal-key)
@@ -5527,6 +5528,7 @@ async function internalEduRemind(req: Request) {
 // ---------- 봉사 당번(2026-10-06 · 설계 docs/superpowers/specs/2026-10-06-duty-roster-design.md §5·§7·§9) ----------
 // ⚠️ 정원·겹침·잠금·쉼·끝 날짜는 SQL 함수(supabase/duty.sql) 한 곳 — 여기서 상태를 직접 쓰지 않는다.
 // ⚠️ 응답에 user_id·ident_key 를 싣지 않는다 — 읽기는 SQL 이 만든 jsonb(duty_list_view·duty_board_view·duty_mine)를 그대로 돌려준다
+//    (지난 봉사 duty_past 만은 아는 칸만 골라 옮긴다 — dutyPastOut).
 //    (그 함수들이 이름 글자만 싣는다 · supabase/tests/duty_rules.dev.sql 이 낱말로 본다).
 // ⚠️ **문은 읽기도 막는다**(교육과 다르다 — 당번표에는 선 분 이름이 나간다): dutyGate = users 에 그 줄이 **실제로 있고**(꼴만 보지 않는다)
 //    app_config dutyOpen 이 true 이거나 🧪 시험 참여자. 못 지나면 읽기는 {ok:true, open:false}(당번·이름·수 없음), 쓰기는 not-open.
@@ -5795,6 +5797,23 @@ function dutyRemindProblems(v, nowMs, off) {
   }
   return out;
 }
+// 지난 봉사(SQL duty_past 의 jsonb) → 응답에 실을 꼴 — { total, year, rows: [{date, board, service, task, start, end}] }.
+//   수는 0 이상의 정수 · 줄은 **아는 여섯 칸의 글자만** 옮긴다(SQL 이 뒷날 칸을 더해도 이름·계정 번호가 응답으로 새지 않게 — 그대로 돌려주지 않는다) ·
+//   날짜 꼴이 아닌 줄은 버린다 · 200줄까지. 못 읽은 값(옛 SQL — past 가 없다)은 0·빈 목록.
+function dutyPastOut(r) {
+  var o = r && typeof r === "object" ? r : {};
+  var num = function (v) { var n = Math.floor(Number(v)); return isFinite(n) && n > 0 ? n : 0; };
+  var str = function (v, max) { return typeof v === "string" ? v.slice(0, max) : ""; };
+  var rows = [];
+  var src = Array.isArray(o.rows) ? o.rows : [];
+  for (var i = 0; i < src.length && rows.length < 200; i++) {
+    var x = src[i];
+    if (!x || typeof x.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(x.date)) continue;
+    rows.push({ date: x.date, board: str(x.board, 40), service: str(x.service, 12), task: str(x.task, 20), start: str(x.start, 5), end: str(x.end, 5) });
+  }
+  var total = Math.max(num(o.total), rows.length);
+  return { total: total, year: Math.min(num(o.year), total), rows: rows };
+}
 // ── 봉사 당번 — 순수 함수 (여기까지) ──
 
 // 문 — users 줄(없으면 null)과 문이 열렸는가. 문 = dutyOpen 이 true 하나이거나 시험 참여자(시험 참여자 명단을 못 읽으면 닫힘).
@@ -5816,7 +5835,7 @@ const dutyId = (v: unknown): number => { const n = typeof v === "number" ? v : N
 //   bad-name(당번표에 실을 수 없는 이름) · ''(지원할 수 있다). dutyApply 가 이것으로 막고, 읽기 응답의 me.why 로도 싣는다(화면이 단추를 두지 않게).
 const dutyMeWhy = (u: any): string => (needsGuardian(u) ? "guardian" : !dutyNameOk(u?.name) ? "bad-name" : "");
 
-// 당번 목록 + 내 당번 — 문이 닫혔으면 {ok:true, open:false}(아무것도 싣지 않는다)
+// 당번 목록 + 내 당번 + 지난 봉사(past — 두 수와 가까운 세 줄) — 문이 닫혔으면 {ok:true, open:false}(아무것도 싣지 않는다)
 async function dutyList(b: any) {
   const userId = eduUid(b.user_id);
   const g = await dutyGate(userId);
@@ -5824,7 +5843,7 @@ async function dutyList(b: any) {
   const { data: r, error } = await db.rpc("duty_list_view", { p_user: userId });
   if (error) throw error;
   return { ok: true, open: true, today: r?.today ?? null, me: { why: dutyMeWhy(g.user) },
-    boards: Array.isArray(r?.boards) ? r.boards : [], mine: Array.isArray(r?.mine) ? r.mine : [] };
+    boards: Array.isArray(r?.boards) ? r.boards : [], mine: Array.isArray(r?.mine) ? r.mine : [], past: dutyPastOut(r?.past) };
 }
 
 // 당번 하나의 날짜별 자리 — {id, user_id}. 받는 중·지원 멈춤 당번만(그 밖은 not-found).
@@ -5848,6 +5867,17 @@ async function dutyMine(b: any) {
   const { data: r, error } = await db.rpc("duty_mine", { p_user: userId });
   if (error) throw error;
   return { ok: true, open: true, mine: Array.isArray(r) ? r : [] };
+}
+
+// 지난 봉사(2026-10-07) — 날짜가 지난 내 줄 가운데 당번표에 남아 있는 것(가까운 날부터 60줄 · 두 수) · {user_id}. 문이 닫혔으면 {ok:true, open:false}.
+//   내 것만 준다(다른 분의 이름·수 없음) — 세는 기준은 SQL duty_past 한 곳.
+async function dutyPast(b: any) {
+  const userId = eduUid(b.user_id);
+  const g = await dutyGate(userId);
+  if (!g.open) return { ok: true, open: false };
+  const { data: r, error } = await db.rpc("duty_past", { p_user: userId, p_limit: 60 });
+  if (error) throw error;
+  return { ok: true, open: true, today: typeof r?.today === "string" ? r.today : null, past: dutyPastOut(r) };
 }
 
 // 지원 — {slot_id, user_id, ack_locked?}. 잠긴 날(확정됐거나 전날 저녁이 지남)은 「취소할 수 없어요」를 알고 누른 것(ack_locked:true)일 때만 들어간다

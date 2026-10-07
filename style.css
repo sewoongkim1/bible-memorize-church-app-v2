@@ -6041,6 +6041,17 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .duty-card .duty-chipline { color: #8a6d1f; font-weight: 700; }
 .duty-card .duty-contact { margin-top: 6px; }
 .duty-empty { color: var(--gray); padding: 12px 0; line-height: 1.6; }
+/* 지난 봉사(2026-10-07 친구 요청 「이력을 볼 수 있어야 또 봉사한다」) — 목록 화면의 한 묶음 · 당번표의 한 줄 · 「지난 봉사」 화면. 새 색 없음(카드·글의 색 그대로).
+   묶음의 카드는 눌러서 가는 카드가 아니다(손가락 모양을 두지 않는다) · 줄은 날짜(굵게) + 무엇을(당번 · 자리) — 좁은 폰에서는 날짜가 줄어들지 않고 뒤쪽이 줄을 바꾼다 */
+.duty-card.past { cursor: default; }
+.duty-card.past .duty-btn { min-height: 44px; }
+.duty-past-l { list-style: none; margin: 6px 0 2px; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.duty-past-l li { display: flex; gap: 10px; font-size: 14px; line-height: 1.5; }
+.duty-past-l li b { flex: none; font-size: 14px; font-weight: 700; color: var(--navy); white-space: nowrap; }
+.duty-past-l li span { color: var(--gray); word-break: keep-all; overflow-wrap: anywhere; }
+.duty-past-l.all { margin: 0 0 6px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--white); gap: 6px; }
+.duty-pastlink { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 44px; margin: 10px 0; padding: 8px 14px; border: 1px solid var(--border); border-radius: 12px;
+  background: var(--white); color: var(--navy); font-size: 15px; font-weight: 700; font-family: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .duty-desc { white-space: pre-line; line-height: 1.6; font-size: 15px; margin: 0 0 10px; }
 .duty-glance { background: var(--white); border: 1px solid var(--border); border-radius: 14px; padding: 8px 14px; margin: 10px 0; font-size: 15px; line-height: 1.7; word-break: keep-all; overflow-wrap: anywhere; }
 .duty-tel { color: var(--navy); font-weight: 700; text-decoration: underline; }
@@ -6134,6 +6145,9 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .dark .duty-why .duty-why-b { background: #151d2b; color: #8fb3e6; border-color: #8fb3e6; }
 .dark .duty-title, .dark .duty-card b, .dark .duty-day-h b { color: #8fb3e6; }
 .dark .duty-card, .dark .duty-glance, .dark .duty-day { background: #151d2b; border-color: #33507d; }
+.dark .duty-past-l li b, .dark .duty-pastlink { color: #8fb3e6; }
+.dark .duty-past-l li span { color: #b9c2d0; }
+.dark .duty-past-l.all, .dark .duty-pastlink { background: #151d2b; border-color: #33507d; }
 .dark .duty-day.off, .dark .duty-my.soft { background: #1b2230; }
 .dark .duty-card > span, .dark .duty-empty, .dark .duty-note, .dark .duty-day-s, .dark .duty-line, .dark .duty-slot-h span, .dark .duty-sec { color: #b9c2d0; }
 .dark .duty-desc, .dark .duty-names, .dark .duty-my span, .dark .duty-glance { color: #dbe2ee; }

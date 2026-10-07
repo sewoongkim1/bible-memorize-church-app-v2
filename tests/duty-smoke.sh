@@ -41,6 +41,10 @@ chk "bad-args" "$(jqn 'd.get("error")' "$(call "{\"action\":\"dutyBoard\",\"user
 chk "closed" "$(jqn 'd' "$(call "{\"action\":\"dutyBoard\",\"user_id\":\"$NONUSER\",\"id\":\"$NONUSER\"}")")" "{'ok': True, 'open': False}"
 echo "3) dutyMine - 없는 계정이면 닫힘"
 chk "closed" "$(jqn 'd' "$(call "{\"action\":\"dutyMine\",\"user_id\":\"$NONUSER\"}")")" "{'ok': True, 'open': False}"
+echo "3-1) dutyPast(지난 봉사) - 계정 없이 · 없는 계정이면 닫힘(지난 줄·수 없음)"
+for body in '{"action":"dutyPast"}' "{\"action\":\"dutyPast\",\"user_id\":\"$NONUSER\"}" '{"action":"dutyPast","user_id":"x"}'; do
+  chk "closed" "$(jqn 'd' "$(call "$body")")" "{'ok': True, 'open': False}"
+done
 echo "4) dutyApply - 신원·인자 · 없는 계정"
 chk "no-user" "$(jqn 'd.get("error")' "$(call '{"action":"dutyApply","slot_id":1}')")" "no-user"
 chk "bad-args" "$(jqn 'd.get("error")' "$(call "{\"action\":\"dutyApply\",\"user_id\":\"$NONUSER\",\"slot_id\":\"x\"}")")" "bad-args"

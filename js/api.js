@@ -149,6 +149,7 @@ const api = {
   dutyApply: (slot_id, user_id, ack_locked) => supaCall("dutyApply", { slot_id, user_id, ack_locked: ack_locked === true }),
   dutyCancel: (signup_id, user_id) => supaCall("dutyCancel", { signup_id, user_id }),
   dutyMine: (user_id) => supaCall("dutyMine", { user_id }),
+  dutyPast: (user_id) => supaCall("dutyPast", { user_id }),
   dutyAsk: (signup_id, user_id, why) => supaCall("dutyAsk", { signup_id, user_id, why: why || null }),
   eventDrop: (user_id, id) => supaCall("eventDrop", { user_id, id }),
   // user_id 는 시험 회차(testOnly) 판정에만 쓴다(2026-10-03) — 응답에는 안 실린다.

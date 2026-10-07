@@ -162,3 +162,13 @@ test('고침 검토 반영(2026-10-07) — 옮기기 전 자리의 live · 전�
   assert.ok(ap.includes("'linked',true,'hadUser',true") && ap.includes("'already',true,'locked',v_locked,'hadUser',e.user_id is not null")
     && ap.includes("'hadUser',(select y.user_id is not null from public.duty_signups y where y.id = e.id)"), '되살림은 쓰고 난 줄을 다시 읽는다(되살리며 계정을 잇는 경우)');
 });
+
+test('지난 봉사(duty_past · 2026-10-07) — 읽기만 하는 함수다(표에 쓰지 않는다) · 잠금을 잡지 않는다 · 목록보다 먼저 만들어진다', () => {
+  const a = sql.indexOf('create or replace function public.duty_past('), e = sql.indexOf('$$;', a);
+  assert.ok(a > 0 && e > a);
+  const body = sql.slice(a, e);
+  assert.match(body, /returns jsonb language sql stable security definer set search_path = public/);
+  assert.doesNotMatch(body, /\b(insert|update|delete)\b/i, '읽기만');
+  assert.doesNotMatch(body, /advisory|for update/i, '잠금 없음');
+  assert.ok(a < sql.indexOf('create or replace function public.duty_list_view('), 'duty_list_view 가 부르므로 그보다 앞에');
+});

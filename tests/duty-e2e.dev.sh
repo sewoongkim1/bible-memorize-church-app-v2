@@ -6,7 +6,8 @@
 #          목록·자세히·지원(두 번 = already · 정원 full · 겹침 overlap)·내 당번·취소(남의 줄 not-found)·되살림 ·
 #          확정 뒤(취소 locked · 「못 가게 됐어요」 · 잠긴 날 지원은 ack_locked) · 담당자가 뺀 뒤 재지원 거절 · 미리 잡는 수 ·
 #          문 닫힘(읽기도 닫힘) · 문이 열려도 없는 계정은 닫힘 · 어린이 부서·실을 수 없는 이름 거절(시험 계정 둘을 만들어 쓰고 지운다) ·
-#          보관한 당번은 없는 당번 · 응답에 계정 번호·신원 키·소속이 없는지를 본 뒤 당번을 지운다.
+#          보관한 당번은 없는 당번 · 응답에 계정 번호·신원 키·소속이 없는지 ·
+#          지난 봉사(dutyPast — 이레 전 날짜에 담당자 길로 넣어 둔 줄: 내 것만 · 담당자가 빼면 빠진다 · 준비 중은 세지 않고 보관은 센다)를 본 뒤 당번을 지운다.
 # ⚠️ 본문에 한글을 쓰지 않는다(curl 이 깨뜨린다) — id 만 보낸다. 키·비밀번호는 찍지 않는다.
 set -u
 REF=ktpwthwqzgcqcrmsafdo
@@ -202,6 +203,38 @@ chk "archived slot apply = not-found" "$(jqn 'd.get("error")' "$(call "{\"action
 chk "archived board = not-found" "$(jqn 'd.get("error")' "$(call "{\"action\":\"dutyBoard\",\"user_id\":\"$U3\",\"id\":\"$BID\"}")")" "not-found"
 sx "update duty_boards set status='open' where id='$BID'"
 
+echo "9-1) 지난 봉사(dutyPast) — 날짜가 지난 내 줄 가운데 당번표에 남아 있는 것만 · 내 것만 · 목록(dutyList)의 past"
+# 이레 전 날짜에 자리를 더하고(날짜 더하기는 31일 앞까지) 담당자 길로 U1 을 넣는다(지난 날에는 본인 지원이 안 된다) — 이 시험 당번에만
+DP=$(sq "select (duty_today()-7)::text")
+LC=$(sq "select id from duty_lines where board_id='$BID' and service='c'")
+chk "past date added" "$(sq "select (duty_date_add('$BID', '$DP', array[$LC]::bigint[])->>'ok')")" "true"
+SP=$(sq "select id from duty_slots where board_id='$BID' and on_date='$DP' and line_id=$LC")
+P0=$(call "{\"action\":\"dutyPast\",\"user_id\":\"$U1\"}")
+N0=$(jqn 'd["past"]["total"]' "$P0")   # 이 계정에 전부터 있던 지난 봉사(개발 자료) — 이 시험이 더한 만큼만 본다
+chk "past open, shape" "$(jqn '(d.get("ok"), d.get("open"), sorted(d.keys()), sorted(d["past"].keys()))' "$P0")" "(True, True, ['ok', 'open', 'past', 'today'], ['rows', 'total', 'year'])"
+chk "staff add on past day" "$(sq "select (duty_apply($SP, '$U1', '{\"name\":\"e2e\"}'::jsonb, true, true, false)->>'ok')")" "true"
+P1=$(call "{\"action\":\"dutyPast\",\"user_id\":\"$U1\"}")
+chk "past +1" "$(jqn 'd["past"]["total"] - '"$N0" "$P1")" "1"
+chk "past row = that day, six keys" "$(jqn '[(r["date"], r["board"], r["service"], r["start"], sorted(r.keys())) for r in d["past"]["rows"] if r["board"]=="'$TAG'"]' "$P1")" "[('$DP', '$TAG', 'c', '11:00', ['board', 'date', 'end', 'service', 'start', 'task'])]"
+chk "past today = server today" "$(jqn 'd.get("today")' "$P1")" "$(sq "select duty_today()::text")"
+chk "past has no account/ident/name" "$(jqn 'any(k in json.dumps(d) for k in ["'$U1'", "user_id", "ident", "e2e\"", "group", "who"])' "$P1")" "False"
+chk "list carries past (<= 3 rows)" "$(jqn '(d["past"]["total"] - '"$N0"', len(d["past"]["rows"]) <= 3)' "$(call "{\"action\":\"dutyList\",\"user_id\":\"$U1\"}")")" "(1, True)"
+chk "not in mine (past)" "$(jqn '[m["date"] for m in d["mine"] if m["date"] < "'$(sq "select duty_today()::text")'"]' "$(call "{\"action\":\"dutyMine\",\"user_id\":\"$U1\"}")")" "[]"
+chk "other account: not there" "$(jqn '[r for r in d["past"]["rows"] if r["board"]=="'$TAG'"]' "$(call "{\"action\":\"dutyPast\",\"user_id\":\"$U2\"}")")" "[]"
+# 준비 중 당번의 줄은 세지 않는다 · 보관한 당번의 줄은 센다(끝난 모집의 기록) · 지원 멈춤도 센다
+sx "update duty_boards set status='draft' where id='$BID'"
+chk "draft: not counted" "$(jqn 'd["past"]["total"] - '"$N0" "$(call "{\"action\":\"dutyPast\",\"user_id\":\"$U1\"}")")" "0"
+sx "update duty_boards set status='archived' where id='$BID'"
+chk "archived: counted" "$(jqn 'd["past"]["total"] - '"$N0" "$(call "{\"action\":\"dutyPast\",\"user_id\":\"$U1\"}")")" "1"
+sx "update duty_boards set status='closed' where id='$BID'"
+chk "closed: counted" "$(jqn 'd["past"]["total"] - '"$N0" "$(call "{\"action\":\"dutyPast\",\"user_id\":\"$U1\"}")")" "1"
+sx "update duty_boards set status='open' where id='$BID'"
+# 담당자가 지난 날의 줄을 빼면(안 오신 분 바로잡기) 지난 봉사에서도 빠진다
+EP=$(sq "select id from duty_signups where slot_id=$SP and user_id='$U1'")
+chk "staff remove on past day" "$(sq "select (duty_cancel($EP, null, true)->>'ok')")" "true"
+chk "removed: gone from past" "$(jqn 'd["past"]["total"] - '"$N0" "$(call "{\"action\":\"dutyPast\",\"user_id\":\"$U1\"}")")" "0"
+chk "past: no account = closed" "$(jqn 'd' "$(call '{"action":"dutyPast"}')")" "{'ok': True, 'open': False}"
+
 echo "10) 문 닫힘 — 읽기도 닫힌다(당번·이름 없음) · 쓰기는 not-open (시험 참여자가 아닌 계정으로)"
 sx "update app_config set value='false'::jsonb where key='dutyOpen'"
 NT=$(sq "select id from users u where type='교구' and name ~ '^[가-힣]{2,10}\$' and not exists (select 1 from app_config c, jsonb_array_elements_text(case when jsonb_typeof(c.value)='array' then c.value else '[]'::jsonb end) k where c.key='ministryTesters' and k = u.identity_key) order by created_at, id limit 1")
@@ -209,6 +242,7 @@ if [ -n "$NT" ]; then
   chk "list closed" "$(jqn 'd' "$(call "{\"action\":\"dutyList\",\"user_id\":\"$NT\"}")")" "{'ok': True, 'open': False}"
   chk "board closed" "$(jqn 'd' "$(call "{\"action\":\"dutyBoard\",\"user_id\":\"$NT\",\"id\":\"$BID\"}")")" "{'ok': True, 'open': False}"
   chk "mine closed" "$(jqn 'd' "$(call "{\"action\":\"dutyMine\",\"user_id\":\"$NT\"}")")" "{'ok': True, 'open': False}"
+  chk "past closed" "$(jqn 'd' "$(call "{\"action\":\"dutyPast\",\"user_id\":\"$NT\"}")")" "{'ok': True, 'open': False}"
   chk "apply not-open" "$(jqn 'd.get("error")' "$(call "{\"action\":\"dutyApply\",\"user_id\":\"$NT\",\"slot_id\":$SA10}")")" "not-open"
 else
   chk "non-tester account available (문 닫힘을 볼 계정)" "none" "found"

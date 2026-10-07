@@ -22,7 +22,7 @@
 --    여러 당번을 도는 읽기(duty_list_view · duty_board_counts)는 당번 id 차례로 돈다(이 잠금끼리 엇갈리지 않게).
 -- ⚠️ 「확정됨(잠김)」은 표에 쓰는 값이 아니라 그때그때 셈한다(duty_locked): 담당자가 확정했거나 지금이 그날 **전날 19:00(한국)**을 지났다.
 --    19시라는 숫자는 duty_cutoff 한 곳에만 둔다(크론·api·화면에 따로 적지 않는다 — 화면은 서버가 준 lockAt 을 보여 준다).
--- ⚠️ 화면이 읽는 것은 jsonb 하나를 돌려주는 함수(duty_list_view · duty_board_view · duty_mine · duty_roster)다 — user_id·ident_key 를
+-- ⚠️ 화면이 읽는 것은 jsonb 하나를 돌려주는 함수(duty_list_view · duty_board_view · duty_mine · duty_past · duty_roster)다 — user_id·ident_key 를
 --    싣지 않는다(시험이 낱말로 본다). 알림용 duty_notify_rows 만 받는 분(uid)을 싣는다 — api 안에서만 쓰고 응답에 싣지 말 것.
 begin;
 -- 성도님이 쓰는 중에 표·함수 잠금을 오래 기다리지 않게(edu.sql · member_merge.sql 과 같다) — 5초 안에 못 잡으면 통째로 되돌리고 멈춘다.
@@ -1022,7 +1022,39 @@ returns jsonb language sql stable security definer set search_path = public as $
     and (e.status = 'active' or (e.status = 'removed' and e.end_reason = 'staff'))
 $$;
 
--- 성도님: 당번 목록 + 내 당번. 당번마다 {id, title, place, status, need: [{date, need}] — 사람이 더 필요한 가까운 날 셋(받는 중 당번만)}.
+-- 성도님: 지난 봉사(2026-10-07 친구 요청 「이력을 볼 수 있어야 또 봉사한다」 · 설계 docs/superpowers/specs/2026-10-07-duty-past-design.md) —
+--   날짜가 지난 내 줄 가운데 **당번표에 남아 있는 것**. 한 자리가 한 번이다(같은 날 두 자리에 섰으면 두 번).
+--   세는 기준(친구 결정 「당번표에 이름이 남아 있던 날」 — 앱에는 출석 확인이 없다):
+--     날짜가 오늘보다 앞(오늘 것은 duty_mine 에 그날 끝까지 있다 — 두 곳에 함께 나오지 않는다) · 살아 있는 줄(스스로 취소·담당자가 뺌·기록 합치기로 정리된 줄은 세지 않는다 —
+--     안 오신 분은 담당자가 지난 날 명단에서 빼면 여기서도 빠진다) · 그날과 그 자리가 쉬지 않았다 · 준비 중이 아닌 당번(보관한 당번의 기록도 남는다).
+--   {today: 오늘(한국 달력 — 화면이 올해가 아닌 줄에 해를 적는다), total: 모두 몇 번, year: 올해 몇 번, rows: 가까운 날부터 p_limit 줄(0~200) [{date, board, service, task, start, end}]}
+--   ⚠️ 내 것만 싣는다(다른 분의 이름·수 없음) · user_id·줄 번호·소속·메모를 싣지 않는다(누를 것이 없는 읽기다).
+create or replace function public.duty_past(p_user uuid, p_limit int default 60)
+returns jsonb language sql stable security definer set search_path = public as $$
+  with mine as (
+    select e.id, s.on_date, b.title, l.service, l.task, l.start_time, l.end_time
+    from public.duty_signups e
+    join public.duty_slots s on s.id = e.slot_id
+    join public.duty_lines l on l.id = s.line_id
+    join public.duty_days  d on d.board_id = s.board_id and d.on_date = s.on_date
+    join public.duty_boards b on b.id = s.board_id
+    where p_user is not null and e.user_id = p_user and e.status = 'active'
+      and s.on_date < duty_today() and not d.off and not s.off
+      and b.status in ('open','closed','archived')
+  )
+  select jsonb_build_object(
+    'today', duty_today(),
+    'total', (select count(*) from mine)::int,
+    'year',  (select count(*) from mine m where extract(year from m.on_date) = extract(year from duty_today()))::int,
+    'rows',  coalesce((
+      select jsonb_agg(jsonb_build_object('date', q.on_date, 'board', q.title, 'service', q.service, 'task', q.task,
+               'start', to_char(q.start_time, 'HH24:MI'), 'end', to_char(q.end_time, 'HH24:MI'))
+             order by q.on_date desc, q.start_time desc, q.id desc)
+      from (select * from mine m order by m.on_date desc, m.start_time desc, m.id desc
+            limit greatest(0, least(coalesce(p_limit, 60), 200))) q), '[]'::jsonb))
+$$;
+
+-- 성도님: 당번 목록 + 내 당번 + 지난 봉사(past — 두 수와 가까운 세 줄 · duty_past). 당번마다 {id, title, place, status, need: [{date, need}] — 사람이 더 필요한 가까운 날 셋(받는 중 당번만)}.
 create or replace function public.duty_list_view(p_user uuid default null)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare r record; d0 date := duty_today(); v_now time := (now() at time zone 'Asia/Seoul')::time; v jsonb;
@@ -1049,7 +1081,7 @@ begin
         order by s.on_date limit 3) t
     ) q on true
     where b.status in ('open','closed');
-  return jsonb_build_object('ok', true, 'today', d0, 'boards', v, 'mine', duty_mine(p_user));
+  return jsonb_build_object('ok', true, 'today', d0, 'boards', v, 'mine', duty_mine(p_user), 'past', duty_past(p_user, 3));
 end $$;
 
 -- 담당자: 주별 명단 — 당번 설정 · 자리 틀 · 날짜마다 자리와 선 분(이름·소속·넣은 곳·앱 계정 유무·메모·「못 가게 됐어요」)·빠진 분.
@@ -1283,6 +1315,7 @@ revoke all on function public.duty_ask_clear(bigint) from public, anon, authenti
 revoke all on function public.duty_note_set(bigint, text) from public, anon, authenticated;
 revoke all on function public.duty_board_view(uuid, uuid) from public, anon, authenticated;
 revoke all on function public.duty_mine(uuid) from public, anon, authenticated;
+revoke all on function public.duty_past(uuid, int) from public, anon, authenticated;
 revoke all on function public.duty_list_view(uuid) from public, anon, authenticated;
 revoke all on function public.duty_roster(uuid, date, date) from public, anon, authenticated;
 revoke all on function public.duty_board_counts(uuid[]) from public, anon, authenticated;
@@ -1315,6 +1348,7 @@ grant execute on function public.duty_ask_clear(bigint) to service_role;
 grant execute on function public.duty_note_set(bigint, text) to service_role;
 grant execute on function public.duty_board_view(uuid, uuid) to service_role;
 grant execute on function public.duty_mine(uuid) to service_role;
+grant execute on function public.duty_past(uuid, int) to service_role;
 grant execute on function public.duty_list_view(uuid) to service_role;
 grant execute on function public.duty_roster(uuid, date, date) to service_role;
 grant execute on function public.duty_board_counts(uuid[]) to service_role;
@@ -1326,7 +1360,7 @@ grant execute on function public.duty_remind_ids(date) to service_role;
 commit;
 
 -- 확인(CLI 는 마지막 SELECT 하나만 보여 준다 — 한 문장으로 묶었다)
---   기대: tables 6 · functions 32 · rls on 6 · table grants 0 · routine grants 0 · anon can execute 0 · service_role can execute 32 · sequence grants 0
+--   기대: tables 6 · functions 33 · rls on 6 · table grants 0 · routine grants 0 · anon can execute 0 · service_role can execute 33 · sequence grants 0
 select 'tables' as t, count(*) from pg_tables where schemaname = 'public'
     and tablename in ('duty_boards','duty_lines','duty_days','duty_slots','duty_signups','duty_notify_log')
 union all select 'functions', count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace

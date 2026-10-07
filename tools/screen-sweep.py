@@ -117,6 +117,16 @@ _DUTY_MINE = [
     _duty_m(531, "2026-11-01", "1부", "설거지", "09:00", "10:00", off=True, dayOff=True, note="교회 행사"),
     _duty_m(541, "2026-11-08", "1부", "설거지", "09:00", "10:00", staffAdded=True),
 ]
+# 지난 봉사(2026-10-07) — 올해 것과 지난 해 것 · 긴 당번 이름 · 일이 없는 자리(모양은 api dutyPast = SQL duty_past 와 같다)
+def _duty_p(date, board="식당 봉사", service="2부", task="설거지", start="11:30", end="12:30"):
+    return dict(date=date, board=board, service=service, task=task, start=start, end=end)
+
+
+_DUTY_PAST = dict(total=9, year=6, rows=[
+    _duty_p("2026-10-04"), _duty_p("2026-09-27"), _duty_p("2026-09-20", service="3부", task="배식", start="13:00", end="14:00"), _duty_p("2026-09-13"), _duty_p("2026-08-30"),
+    _duty_p("2026-06-07", board="교회 대청소와 주차 안내 봉사", service="주차", task="안내와 정리", start="08:00", end="12:00"),
+    _duty_p("2025-12-28"), _duty_p("2025-11-22", board="김장 봉사", service="김장", task="", start="09:00", end="12:00"), _duty_p("2025-03-02")])
+_DUTY_PAST_JS = "dutyState.past=dutyPastOf(" + json.dumps(_DUTY_PAST, ensure_ascii=False) + "); dutyState.today='2026-10-12'; "
 _DUTY_BOARD = dict(id="b-1", title="식당 봉사", description="예배 뒤 식당에서 함께 설거지해요.\n앞치마는 식당에 있어요.", place="지하 1층 식당",
                    contact="가상담당 집사 010-0000-0000", status="open", maxAhead=None)
 _DUTY_DAYS = [
@@ -164,7 +174,7 @@ _DUTY_SEEN = ("var f=document.querySelector('.home-fab'), b=document.querySelect
 
 
 def _duty_board_js(days, sel=""):   # 당번 자세히를 지어낸 자료로 그린다 — sel = 달력에서 고른 날(빈 글이면 처음 규칙)
-    return (_DUTY_CLEAR + "dutyShell(loadUser()); dutyState.at='board'; dutyState.cur='b-1'; dutyState.first=''; dutyState.board=" + json.dumps(_DUTY_BOARD, ensure_ascii=False)
+    return (_DUTY_CLEAR + _DUTY_PAST_JS + "dutyShell(loadUser()); dutyState.at='board'; dutyState.cur='b-1'; dutyState.first=''; dutyState.board=" + json.dumps(_DUTY_BOARD, ensure_ascii=False)
             + "; dutyState.days=" + json.dumps(days, ensure_ascii=False) + "; dutyState.me={why:''}; dutyState.calSel=" + json.dumps(sel)
             + "; dutyDrawBoard(loadUser(), '2026-10-12', {});")
 
@@ -249,7 +259,8 @@ STEPS = [
     # 🙋 봉사 당번(2026-10-06) — 문(dutyOpen·시험 참여자)이 닫힌 개발 계정이라 단추 대신 화면을 직접 그린다
     #   (서버를 부르지 않는다 — 자료는 지어낸 것 · 모양은 api dutyList·dutyBoard = SQL duty_list_view·duty_board_view 와 같다).
     #   내 줄의 여섯 모습(지원함 · 확정 · 당번표에 표시(못 가게 됐어요) · 담당자가 뺌 · 쉬는 날 · 담당자가 넣음)과 자리의 모습(빈 자리 · 다 참 · 쉼 · 담당자가 넣는 자리)이 한 화면에.
-    ("44-duty-list", [_DUTY_CLEAR + "dutyShell(loadUser()); dutyState.at='list'; dutyState.boards=" + json.dumps(_DUTY_BOARDS, ensure_ascii=False)
+    #   지난 봉사(2026-10-07): 목록에는 「내 당번」 아래의 묶음(가까운 세 줄 · 「모두 보기」) · 당번표에는 달력 위의 한 줄 · 50 은 「지난 봉사」 화면(해마다 묶은 목록).
+    ("44-duty-list", [_DUTY_CLEAR + _DUTY_PAST_JS + "dutyShell(loadUser()); dutyState.at='list'; dutyState.boards=" + json.dumps(_DUTY_BOARDS, ensure_ascii=False)
                       + "; dutyState.mine=" + json.dumps(_DUTY_MINE, ensure_ascii=False) + "; dutyState.me={why:''}; dutyDrawList('취소했어요.');"]),
     #   날짜가 셋 이하면 날짜 카드를 모두(한두 번짜리 모집의 모습) · 넷 이상이면 달력 + 고른 날 하나(2026-10-06 — 칸에 채워진 인원/필요 인원):
     #   처음 고른 날 · 쉬는 날 · 담당자가 넣어 준 날 · 진짜 단추로 다음 달 둘(해를 넘김)과 날짜 하나 — 고른 뒤 그날의 첫 단추가 🏠 단추 위로 보이는지도 본다(_DUTY_SEEN).
@@ -259,6 +270,7 @@ STEPS = [
     ("48-duty-cal-staff", [_duty_board_js(_DUTY_CAL_DAYS, "2026-11-08")]),
     ("49-duty-cal-newyear", [_duty_board_js(_DUTY_CAL_DAYS, "2026-11-08"), clk('.duty-cal-nav[data-cal="next"]'), clk('.duty-cal-nav[data-cal="next"]'),
                              clk('.duty-cal-c[data-date="2027-01-10"]'), _DUTY_SEEN]),
+    ("50-duty-past", [_DUTY_CLEAR + "dutyShell(loadUser()); dutyState.at='past'; dutyDrawPast(dutyPastBodyHtml(" + json.dumps(_DUTY_PAST, ensure_ascii=False) + ", '2026-10-12'));"]),
     ("P1-privacy-page", ["GOTO privacy/"]),
     ("P2-quiz-page", ["GOTO quiz/"]),
     ("P3-guide-page", ["GOTO guide/"]),
