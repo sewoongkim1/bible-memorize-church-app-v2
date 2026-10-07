@@ -483,6 +483,7 @@ Deno.serve(async (req) => {
       case "getWeeklyVerse":     return json(await getWeeklyVerseForWidget(body));   // 위젯 — 앱과 같은 한국 날짜 기준
       case "getTodayMeditation": return json(await getTodayMeditation(body));        // 위젯 — 오늘의 묵상
       case "getTodayBlessing":   return json(await getTodayBlessing(body));          // 위젯 — 오늘의 축복 기도문
+      case "getTodayPsalm":      return json(await getTodayPsalm(body));             // 위젯 — 쉴만한 물가 오늘 편(2026-10-07)
       case "getTodaySong":       return json(await getTodaySong(body));            // 오늘의 찬양 — 하루 한 곡
       case "logSongClick":       return json(await logSongClick(body));            // 오늘의 찬양 단추를 누른 횟수
       // ---- 장애 모니터링 ----
@@ -964,6 +965,30 @@ async function getTodayBlessing(b: any) {
   // tpl — 이름 토큰을 채우지 않은 원문(2026-09-26). 앱의 매일 묵상 「🙏 기도」 팝업이 로그인 이름으로
   //   prayFill 한다. 위젯은 이 칸을 읽지 않는다(prayer 가 그대로 「우리 가족」).
   return { ok: true, date: ymd, no: x.no, title: x.title, ref: x.ref, prayer: blessFill(x.prayer, BLESS_WIDGET_NAME), tpl: x.prayer };
+}
+
+// ---- 쉴만한 물가 오늘 편 (위젯 · 2026-10-07 「돌려 보기」 위젯의 넷째 장) ----
+//   앱의 쉴만한 물가 첫 화면이 여는 것과 같은 편 = 오늘까지 열린 것 가운데 마지막(getPsalmVerses 의 끝 줄).
+//   ⚠️ **date 입력을 받지 않는다.** 잠금이 「안 열린 편을 내려보내지 않는 것」이라(docs/notes/psalm-still-waters.md),
+//      날짜를 받으면 인증 없는 호출 한 줄로 앞날의 편을 미리 읽는다. 늘 서버의 오늘(한국)로만 센다.
+//   ⚠️ 공개 게이트(app_config psalmPublic)가 꺼져 있거나 아직 시작 전이면 { ok:true, ready:false } —
+//      위젯은 이 장을 건너뛴다(오류가 아니다). 표·칸이 없는 DB 도 같은 답.
+async function getTodayPsalm(_b: any) {
+  const date = kstDay(new Date().toISOString());
+  const off = { ok: true, ready: false, date };
+  try {
+    const { data: g } = await db.from("app_config").select("value").eq("key", "psalmPublic").maybeSingle();
+    if (!(g && g.value)) return off;
+    const open = psalmOpenCount(await psalmConfig());
+    if (open <= 0) return off;
+    const { data, error } = await db.from("verses")
+      .select("no,day_no,ref_full,ref,text")
+      .eq("is_active", true).eq("track", "psalm")
+      .lte("day_no", open).order("day_no", { ascending: false }).limit(1);
+    const v = (data ?? [])[0];
+    if (error || !v || !v.text) return off;
+    return { ok: true, ready: true, date, dayNo: v.day_no, no: v.no, ref: v.ref_full || v.ref || "", text: v.text };
+  } catch { return off; }
 }
 
 // ---------- 오늘의 찬양 (2026-09-23) ----------

@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261007i";
+const APP_BUILD = "20261007j";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -179,11 +179,14 @@ function routeAfterLoad() {
     const v = verses.find((x) => x.no === deepNo);
     if (v) { startTest(v); return; } // 로그인 없이도 암송 화면 진입(완료 시 로그인 유도)
   }
-  // 아이폰 위젯에서 눌러 들어온 길(?w=meditation|prayer).
+  // 아이폰 위젯에서 눌러 들어온 길(?w=meditation|prayer|psalm).
   // 로그인 전이면 평소대로 로그인 화면으로 떨어뜨린다(위젯은 공개 정보만 보여 주므로 여기서 막아도 잃는 게 없다).
   const widgetTo = getWidgetTarget();
   if (widgetTo && loadUser()) {
     if (widgetTo === "prayer") { renderPrayerBook(); return; }
+    // 쉴만한 물가(2026-10-07 · 아이폰 「돌려 보기」 위젯의 넷째 장) — 첫 화면 단추와 같은 게이트.
+    // 게이트가 꺼져 있으면 아래로 흘러 평소 첫 화면이 열린다(위젯도 그때는 이 장을 싣지 않는다).
+    if (widgetTo === "psalm" && psalmVisible() && typeof renderPsalmHome === "function") { renderPsalmHome(); return; }
     if (widgetTo === "meditation") {
       // 하루 1회 자동 묵상(maybeShowDailyMessage → maybeShowWeeklyMeditation)과 겹치지 않게 막고,
       // 「매일 묵상」 단추와 똑같이 연다(요일 탭 있음). ?preview=daily 와 같은 방식이다.
@@ -269,7 +272,7 @@ function routeAfterLoad() {
 function getWidgetTarget() {
   try {
     const w = new URLSearchParams(location.search).get("w");
-    if (w === "meditation" || w === "prayer") {
+    if (w === "meditation" || w === "prayer" || w === "psalm") {
       history.replaceState(null, "", location.pathname);
       return w;
     }

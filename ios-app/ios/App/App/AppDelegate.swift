@@ -400,7 +400,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
     }
 
-    // 위젯을 누르면 gocheokmemorize://verse?no=31 · ://meditation · ://prayer 로 앱이 열린다.
+    // 위젯을 누르면 gocheokmemorize://verse?no=31 · ://meditation · ://prayer · ://psalm 로 앱이 열린다.
     // 웹 주소로 바꿔 웹뷰에 실어 준다 — /?v=31(구절 암송) · /?w=meditation · /?w=prayer
     // (받는 쪽은 app.js 의 routeAfterLoad · getDeepLinkVerseNo · getWidgetTarget).
     // ⚠️ 스킴 이름은 위젯 쪽 WidgetShared.swift 의 widgetScheme, Info.plist 의 CFBundleURLSchemes 와 같아야 한다.
@@ -420,6 +420,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             target = base + "?w=meditation"
         case "prayer":
             target = base + "?w=prayer"
+        case "psalm":
+            // 쉴만한 물가(2026-10-07 · 「돌려 보기」 위젯의 넷째 장) — 받는 쪽 app.js routeAfterLoad
+            target = base + "?w=psalm"
         default:
             target = nil            // ://home 등 — 앱만 열고 보던 화면 그대로 둔다
         }
