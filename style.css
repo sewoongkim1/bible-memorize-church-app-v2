@@ -6115,6 +6115,9 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .duty-cal-c.hol > span { color: var(--error); }
 .duty-cal-c.k-mine.hol > span { color: #ffaaa2; }
 .duty-cal-k .hd { color: var(--error); font-weight: 700; }
+/* 일요일(2026-10-07 친구 결정 「네 빨갛게」) — 공휴일과 **같은 색·같은 규칙**: 날짜 숫자와 요일 줄의 「일」만 빨갛고 칸의 바탕·인원 글은 뜻 색 그대로다(대비도 위 공휴일과 같은 값) */
+.duty-cal-c.sun > span, .duty-cal-w .sun { color: var(--error); }
+.duty-cal-c.k-mine.sun > span { color: #ffaaa2; }
 /* 고대비(forced-colors) — 바탕색·그림자가 사라져 표시가 모두 없어진다: 자리가 있는 날에 테두리 · 고른 날은 굵은 테두리로 */
 @media (forced-colors: active) { .duty-cal-c.has { border: 1px solid ButtonText; } .duty-cal-c.has.on { outline: 3px solid Highlight; outline-offset: 1px; } .duty-cal-c.k-mine { border-width: 3px; } }
 .duty-cal-c.has.on { border-color: var(--navy); box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--navy); }
@@ -6165,3 +6168,4 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .dark .duty-cal-k .k.need { background: #1d3327; border-color: #3f7a55; }
 .dark .duty-cal-k .k.mine { background: #2b4c80; }
 .dark .duty-cal-c.hol > span, .dark .duty-hol, .dark .duty-cal-k .hd { color: #ffaaa2; }   /* --error 는 어두운 바탕에서 안 읽힌다(2.6:1 안팎) */
+.dark .duty-cal-c.sun > span, .dark .duty-cal-w .sun { color: #ffaaa2; }   /* 일요일도 같은 값 */

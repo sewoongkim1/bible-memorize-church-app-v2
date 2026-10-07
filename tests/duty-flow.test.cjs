@@ -401,7 +401,7 @@ test('달력 — 답을 기다리는 사이 다른 날짜를 보면: 자리 단�
   await w.answer(0, calRes({ days: MINE_ON(1) }));
   assert.equal(selOf(w.html()), '2026-10-25', '보던 날에 머문다 — 앞 날짜로 끌고 가 그 자리에 앞 일의 결과를 그리지 않는다');
   assert.ok(w.html().includes('10월 18일(일) 2부 설거지 — 지원했어요.'), '어느 날·어느 자리인지 맨 위 한 줄로');
-  assert.ok(/class="duty-cal-c has k-mine" data-date="2026-10-18"/.test(w.html()), '달력의 18일 칸은 내 당번으로 바뀐다');
+  assert.ok(/class="duty-cal-c has k-mine sun" data-date="2026-10-18"/.test(w.html()), '달력의 18일 칸은 내 당번으로 바뀐다');
   assert.equal(OFF_BTN.test(w.html()), false, '답이 온 뒤에는 단추가 켜진다');
   // 그날을 그대로 보고 있었으면 그 칸이 바뀐다(맨 위 줄 없음)
   const s = world(); await openBoard(s, calRes());

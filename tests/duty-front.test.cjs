@@ -327,16 +327,16 @@ test('달력 — 그리기: 날짜가 있는 날만 단추 · 칸에 채워진 �
     { date: '2026-11-01', off: true, slots: [S()] }, { date: '2026-11-08', off: false, locked: true, slots: [S({ n: 1, why: 'mine', mine: { id: 1, status: 'active' } })] }];
   const oct = ctx.dutyCalHtml(days, '2026-10-18', '2026-10-06', { why: '' });
   assert.equal((oct.match(/<button type="button" class="duty-cal-c has/g) || []).length, 2, '10월에 날짜 둘');
-  assert.ok(oct.includes('class="duty-cal-c has k-need on" data-date="2026-10-18" aria-pressed="true"'));
+  assert.ok(oct.includes('class="duty-cal-c has k-need on sun" data-date="2026-10-18" aria-pressed="true"'));
   assert.ok(oct.includes('aria-label="10월 18일(일) — 손이 필요한 날이에요 · 필요 2명 가운데 1명 채워졌어요"'));
   assert.ok(oct.includes('<span>18</span><i aria-hidden="true">1/<wbr>2</i>') && oct.includes('<span>25</span><i aria-hidden="true">2/<wbr>2</i>'), '인원 글은 「/」 뒤에서 줄을 바꿀 수 있다(<wbr> — 칸에 한 줄로 못 들 때만 두 줄)');
-  assert.ok(oct.includes('class="duty-cal-c has k-none" data-date="2026-10-25" aria-pressed="false"'));
+  assert.ok(oct.includes('class="duty-cal-c has k-none sun" data-date="2026-10-25" aria-pressed="false"'));
   assert.ok(oct.includes('<span class="duty-cal-c today"><span>6</span></span>'), '오늘(당번 없는 날)도 표시');
   assert.ok(oct.includes('<b>2026년 10월</b>') && oct.includes('data-cal="next" aria-label="2026년 11월 보기"><span class="m">11월</span> ▶</button>') && !oct.includes('data-cal="prev"'));
   assert.ok(oct.includes('숫자는 채워진 인원 / 필요 인원이에요') && oct.includes('</span>손이 필요한 날') && oct.includes('</span>내 당번') && oct.includes('날짜를 누르면 그날의 자리가 아래에 보여요.'));
   const nov = ctx.dutyCalHtml(days, '2026-11-08', '2026-11-08', { why: '' });
-  assert.ok(nov.includes('class="duty-cal-c has k-off" data-date="2026-11-01"') && nov.includes('<i aria-hidden="true">쉼</i>'));
-  assert.ok(nov.includes('class="duty-cal-c has k-mine on today" data-date="2026-11-08"'));
+  assert.ok(nov.includes('class="duty-cal-c has k-off sun" data-date="2026-11-01"') && nov.includes('<i aria-hidden="true">쉼</i>'));
+  assert.ok(nov.includes('class="duty-cal-c has k-mine on today sun" data-date="2026-11-08"'));
   assert.ok(nov.includes('aria-label="11월 8일(일) — 내 당번이 있어요 · 필요 2명 가운데 1명 채워졌어요 · 확정된 날 · 오늘"'));
   assert.ok(nov.includes('data-cal="prev" aria-label="2026년 10월 보기">◀ <span class="m">10월</span></button>') && !nov.includes('data-cal="next"'));
   // 풀이는 이 당번표에 실제로 있는 표시만 — 손이 필요한 날도 내 당번도 없으면 그 말이 없고, 달이 하나면 앞뒤 달 단추가 없다
@@ -400,8 +400,8 @@ test('공휴일 표 — 꼴 · 해마다 있어야 하는 날 · 대체공휴일
   assert.equal(ctx.dutyHolOutside(from.slice(0, 7)), ''); assert.equal(ctx.dutyHolOutside(until.slice(0, 7)), ''); assert.equal(ctx.dutyHolOutside('2027-06'), '');
   assert.equal(ctx.dutyHolOutside(next(until).slice(0, 7)), 'after'); assert.equal(ctx.dutyHolOutside('2026-09'), 'before'); assert.equal(ctx.dutyHolOutside('2031-03'), 'after');
   for (const bad of ['', null, undefined, 'x', '2029', '2029-1', '2029-01-01', 202901]) assert.equal(ctx.dutyHolOutside(bad), '', String(bad));
-  assert.equal(ctx.dutyHolOutsideText('after'), '이 달의 공휴일은 아직 표시되지 않아요(2028년 12월까지만 빨갛게 보여요).');
-  assert.equal(ctx.dutyHolOutsideText('before'), '이 달의 공휴일은 표시되지 않아요(2026년 10월부터 빨갛게 보여요).');
+  assert.equal(ctx.dutyHolOutsideText('after'), '이 달은 일요일만 빨갛게 보여요(다른 공휴일은 2028년 12월까지만 표시돼요).');
+  assert.equal(ctx.dutyHolOutsideText('before'), '이 달은 일요일만 빨갛게 보여요(다른 공휴일은 2026년 10월부터 표시돼요).');
   assert.equal(ctx.dutyHolOutsideText(''), ''); assert.equal(ctx.dutyHolOutsideText(undefined), '');
   // 이름 찾기 — 표에 있는 날짜만 · 날짜로 시작하는 글 · 틀린 값·객체의 물려받은 이름은 빈 글
   assert.equal(ctx.dutyHoliday('2026-10-09'), '한글날'); assert.equal(ctx.dutyHoliday('2026-10-05'), '대체공휴일'); assert.equal(ctx.dutyHoliday('2026-10-06'), '');
@@ -419,15 +419,31 @@ test('달력 — 공휴일은 날짜 숫자만 빨갛게(hol): 당번이 없는 
   assert.ok(oct.includes('aria-label="10월 9일(금) — 손이 필요한 날이에요 · 필요 2명 가운데 1명 채워졌어요 · 공휴일(한글날)"'), '낭독에도 공휴일');
   assert.ok(oct.includes('<span class="duty-cal-c hol" title="개천절"><span>3</span></span>'), '당번이 없는 공휴일도 빨갛게');
   assert.ok(oct.includes('<span class="duty-cal-c today hol" title="대체공휴일"><span>5</span></span>'), '오늘이면서 공휴일');
-  assert.ok(oct.includes('class="duty-cal-c has k-mine" data-date="2026-10-11"'), '공휴일이 아닌 날(주일)은 그대로 — 일요일은 따로 칠하지 않는다');
-  assert.ok(oct.includes('<span class="duty-cal-c"><span>4</span></span>') && oct.includes('<span class="duty-cal-c"><span>10</span></span>'), '일요일·토요일은 그대로');
+  // 일요일도 빨갛다(친구 결정 2026-10-07 「네 빨갛게」) — 공휴일 표식(hol · 이름)과는 따로인 표식(sun): 날짜 숫자만 빨갛고 칸의 뜻(k-mine)은 그대로다
+  assert.ok(oct.includes('class="duty-cal-c has k-mine sun" data-date="2026-10-11"'), '공휴일이 아닌 주일 — hol 은 없고 sun 이 붙는다');
+  assert.ok(oct.includes('<span class="duty-cal-c sun"><span>4</span></span>') && oct.includes('<span class="duty-cal-c"><span>10</span></span>'), '당번이 없는 일요일도 sun · 토요일은 그대로');
+  assert.equal((oct.match(/ sun"/g) || []).length, 4, '10월의 일요일은 넷(4·11·18·25일) — 그날이 공휴일이면 hol 이 뒤에 붙는다(이 달에는 없다)');
+  assert.ok(oct.includes('<div class="duty-cal-w" aria-hidden="true"><span class="sun">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>'), '요일 줄의 「일」도 빨갛다');
+  assert.equal(oct.includes('title="') && /class="duty-cal-c sun" title=/.test(oct), false, '일요일에는 이름(title)이 없다 — 이름은 공휴일에만');
   assert.equal((oct.match(/ hol"/g) || []).length, 3, '10월의 빨간 날짜는 셋(3·5·9일)');
-  assert.ok(oct.includes('<span class="hd">빨간 날짜</span>는 공휴일이에요(<span class="ki">3일 개천절</span> · <span class="ki">5일 대체공휴일</span> · <span class="ki">9일 한글날</span>).<br>날짜를 누르면 그날의 자리가 아래에 보여요.'),
+  assert.ok(oct.includes('<span class="hd">빨간 날짜</span>는 일요일과 공휴일이에요(<span class="ki">3일 개천절</span> · <span class="ki">5일 대체공휴일</span> · <span class="ki">9일 한글날</span>).<br>날짜를 누르면 그날의 자리가 아래에 보여요.'),
     '풀이에 이름(색만으로 말하지 않는다 · 한 조각씩 줄이 갈리지 않게)');
   const nov = ctx.dutyCalHtml(days, '2026-11-08', '', { why: '' });
-  assert.equal(nov.includes('빨간 날짜'), false, '공휴일이 없는 달에는 그 말이 없다'); assert.equal(/ hol"/.test(nov), false);
+  assert.equal(nov.includes('빨간 날짜'), false, '공휴일이 없는 달에는 그 말이 없다(일요일은 요일 줄의 빨간 「일」이 말한다)'); assert.equal(/ hol"/.test(nov), false);
+  assert.ok(nov.includes('class="duty-cal-c has k-need on sun" data-date="2026-11-08"') && nov.includes('<span class="duty-cal-c sun"><span>1</span></span>'), '공휴일이 없는 달에도 일요일은 빨갛다');
   const dec = ctx.dutyCalHtml(days, '2026-12-25', '2026-12-25', { why: '' });
-  assert.ok(dec.includes('class="duty-cal-c has k-mine on today hol" data-date="2026-12-25"') && dec.includes('· 공휴일(성탄절) · 오늘"'), '내 당번(남색 칸) · 오늘 · 공휴일이 함께');
+  assert.ok(dec.includes('class="duty-cal-c has k-mine on today hol" data-date="2026-12-25"') && dec.includes('· 공휴일(성탄절) · 오늘"'), '내 당번(남색 칸) · 오늘 · 공휴일이 함께(금요일 — sun 은 없다)');
+  // 일요일이면서 공휴일인 날(2027-02-07 설날 · 2027-06-06 현충일) — sun 과 hol 이 함께(hol 이 뒤 · 이름은 그대로)
+  const feb = ctx.dutyCalHtml([{ date: '2027-02-07', off: true, slots: [S()] }, { date: '2027-02-14', off: false, slots: [S()] }], '2027-02-14', '', { why: '' });
+  assert.ok(feb.includes('class="duty-cal-c has k-off sun hol" data-date="2027-02-07"') && feb.includes('· 공휴일(설날)"') && feb.includes('<span class="duty-cal-c hol" title="설날"><span>6</span></span>'), '주일인 설날 · 토요일인 설날');
+  // 일요일인가 — 날짜만 있는 값이라 UTC 로 읽는다(기기의 시간대에 밀리지 않는다) · 틀린 값은 거짓
+  for (const d of ['2026-10-04', '2026-10-11', '2027-02-07', '2028-12-31', '2029-01-07', '2024-02-25', '2026-10-11T00:00:00+09:00']) assert.equal(ctx.dutyIsSunday(d), true, d);
+  for (const d of ['2026-10-03', '2026-10-05', '2026-10-10', '2026-12-25', '', null, undefined, 'x', '2026-10-1', '2026-13-01', '2026-02-30', '2026-02-29', 20261011]) assert.equal(ctx.dutyIsSunday(d), false, String(d));   // 2026-02-29 는 없는 날 — 넘겨 읽으면 3월 1일(일요일)이 된다
+  for (let i = 0, n = 0; i < 800; i++) {   // 두 해 남짓을 하루씩 — 이레마다 꼭 한 번 · 달력 칸의 첫 열과 같다
+    const d = new Date(Date.UTC(2026, 9, 1) + i * 86400000).toISOString().slice(0, 10), col = pick(ctx.dutyCalMonth(d.slice(0, 7))).findIndex((c) => c.date === d) % 7;
+    assert.equal(ctx.dutyIsSunday(d), col === 0, d); n += ctx.dutyIsSunday(d) ? 1 : 0;
+    if (i === 799) assert.equal(n, 114, '800일 가운데 일요일 114번');
+  }
   assert.ok(dec.includes('공휴일이에요(<span class="ki">25일 성탄절</span>).'));
   // 풀이 한 줄 — 이어진 같은 이름은 범위로 · 없는 달·틀린 값은 빈 글
   assert.equal(ctx.dutyHolLine('2026-10'), '3일 개천절 · 5일 대체공휴일 · 9일 한글날'); assert.equal(ctx.dutyHolLine('2027-02'), '6~8일 설날 · 9일 대체공휴일');
@@ -444,7 +460,10 @@ test('달력 — 공휴일은 날짜 숫자만 빨갛게(hol): 당번이 없는 
   // 색 — 새 값을 만들지 않는다: 밝은 바탕은 --error(내 달력의 일요일과 같은 값) · 남색 칸과 어두운 모드는 이미 쓰는 #ffaaa2
   const css = read(['style.css']);
   for (const rule of ['.duty-cal-c.hol > span { color: var(--error); }', '.duty-cal-c.k-mine.hol > span { color: #ffaaa2; }', '.duty-cal-k .hd { color: var(--error); font-weight: 700; }',
-    '.dark .duty-cal-c.hol > span, .dark .duty-hol, .dark .duty-cal-k .hd { color: #ffaaa2; }']) assert.ok(css.includes(rule), rule);
+    '.dark .duty-cal-c.hol > span, .dark .duty-hol, .dark .duty-cal-k .hd { color: #ffaaa2; }',
+    // 일요일은 공휴일과 같은 값(밝은 바탕 --error · 내 당번 칸과 어두운 모드 #ffaaa2) — 요일 줄의 「일」도
+    '.duty-cal-c.sun > span, .duty-cal-w .sun { color: var(--error); }', '.duty-cal-c.k-mine.sun > span { color: #ffaaa2; }', '.dark .duty-cal-c.sun > span, .dark .duty-cal-w .sun { color: #ffaaa2; }']) assert.ok(css.includes(rule), rule);
+  assert.ok(css.indexOf('.duty-cal-c.sun > span, .duty-cal-w .sun {') > css.indexOf('.duty-cal-c.k-off {') && css.indexOf('.duty-cal-c.sun > span, .duty-cal-w .sun {') > css.indexOf('.duty-cal-w span {'), '일요일 색이 칸의 뜻 색·요일 줄의 기본 색 뒤에 온다');
   assert.ok(css.includes('.dark .sync-status.error .sync-title{ color:#ffaaa2; }') && css.includes('.mc-day.sun{ color:var(--error) !important; }'), '두 값 모두 다른 화면이 이미 쓰는 값이다');
   assert.equal(/\.duty-(cal|hol|day)[^{}]*\{[^}]*#(?:c0392b|e74c3c|ff0000|f00\b)/i.test(css), false, '당번 달력에 빨강을 글자 값으로 새로 적지 않는다(--error 를 쓴다)');
 });
@@ -454,14 +473,15 @@ test('달력 · 그날 카드(독립 검토 반영 2026-10-07) — 표 밖의 �
   // 「앞으로 1년」 당번은 표 끝(2028-12-31)의 한 해 전부터 그 뒤의 달을 보여 준다 — 그 달에 빨간 날짜가 없는 것은 「공휴일이 없다」가 아니다
   const far = [{ date: '2028-12-24', off: false, slots: [S({ n: 1 })] }, { date: '2028-12-31', off: false, slots: [S()] }, { date: '2029-01-07', off: false, slots: [S()] }, { date: '2029-01-14', off: false, slots: [S()] }];
   const jan = ctx.dutyCalHtml(far, '2029-01-07', '2028-12-20', { why: '' });
-  assert.ok(jan.includes('<br>이 달의 공휴일은 아직 표시되지 않아요(2028년 12월까지만 빨갛게 보여요).<br>날짜를 누르면 그날의 자리가 아래에 보여요.</p>'), '표 끝 뒤의 달');
-  assert.equal(/ hol"/.test(jan) || jan.includes('빨간 날짜'), false, '빨간 날짜는 없다(1월 1일도)');
+  assert.ok(jan.includes('<br>이 달은 일요일만 빨갛게 보여요(다른 공휴일은 2028년 12월까지만 표시돼요).<br>날짜를 누르면 그날의 자리가 아래에 보여요.</p>'), '표 끝 뒤의 달');
+  assert.equal(/ hol"/.test(jan) || jan.includes('빨간 날짜'), false, '공휴일 표식은 없다(1월 1일도)');
+  assert.ok(jan.includes('class="duty-cal-c has k-need on sun" data-date="2029-01-07"') && (jan.match(/ sun"/g) || []).length === 4, '표 밖의 달에도 일요일은 빨갛다(7·14·21·28일 — 표가 아니라 요일로 본다)');
   const dec = ctx.dutyCalHtml(far, '2028-12-24', '2028-12-20', { why: '' });
-  assert.ok(dec.includes('공휴일이에요(<span class="ki">25일 성탄절</span>).') && !dec.includes('표시되지 않아요'), '표 안의 마지막 달은 그대로');
+  assert.ok(dec.includes('는 일요일과 공휴일이에요(<span class="ki">25일 성탄절</span>).') && !dec.includes('일요일만'), '표 안의 마지막 달은 그대로');
   const before = ctx.dutyCalHtml([{ date: '2026-09-27', off: false, slots: [S()] }], '2026-09-27', '', { why: '' });
-  assert.ok(before.includes('이 달의 공휴일은 표시되지 않아요(2026년 10월부터 빨갛게 보여요).'), '표가 시작하기 전의 달');
+  assert.ok(before.includes('이 달은 일요일만 빨갛게 보여요(다른 공휴일은 2026년 10월부터 표시돼요).'), '표가 시작하기 전의 달');
   const nov = ctx.dutyCalHtml([{ date: '2026-11-08', off: false, slots: [S()] }], '2026-11-08', '', { why: '' });
-  assert.equal(nov.includes('표시되지 않아요'), false, '표 안의 달에 공휴일이 없으면 아무 말도 하지 않는다');
+  assert.equal(nov.includes('일요일만') || nov.includes('표시돼요'), false, '표 안의 달에 공휴일이 없으면 아무 말도 하지 않는다');
   // 큰 수 — 「100/120」은 좁은 폰의 칸을 넘친다: 「/」 뒤에서 줄을 바꿀 수 있게(<wbr>) · 낭독의 수는 그대로 · 쉬는 날(「쉼」)에는 넣을 자리가 없다
   const big = ctx.dutyCalHtml([{ date: '2026-11-08', off: false, slots: [S({ capacity: 120, n: 100 })] }, { date: '2026-11-15', off: true, slots: [S()] }], '2026-11-08', '', { why: '' });
   assert.ok(big.includes('<span>8</span><i aria-hidden="true">100/<wbr>120</i>') && big.includes('필요 120명 가운데 100명 채워졌어요') && big.includes('<i aria-hidden="true">쉼</i>'));
