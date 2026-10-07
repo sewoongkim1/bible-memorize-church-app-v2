@@ -5797,9 +5797,11 @@ function dutyRemindProblems(v, nowMs, off) {
   }
   return out;
 }
-// 지난 봉사(SQL duty_past 의 jsonb) → 응답에 실을 꼴 — { total, year, rows: [{date, board, service, task, start, end}] }.
-//   수는 0 이상의 정수 · 줄은 **아는 여섯 칸의 글자만** 옮긴다(SQL 이 뒷날 칸을 더해도 이름·계정 번호가 응답으로 새지 않게 — 그대로 돌려주지 않는다) ·
+// 지난 봉사(SQL duty_past 의 jsonb) → 응답에 실을 꼴 — { total, year, rows: [{date, board, service, task, start, end, contact}] }.
+//   수는 0 이상의 정수 · 줄은 **아는 일곱 칸의 글자만** 옮긴다(SQL 이 뒷날 칸을 더해도 이름·계정 번호가 응답으로 새지 않게 — 그대로 돌려주지 않는다) ·
 //   날짜 꼴이 아닌 줄은 버린다 · 200줄까지. 못 읽은 값(옛 SQL — past 가 없다)은 0·빈 목록.
+//   contact = 그 당번의 문의처 한 줄(당번표·내 당번에 이미 보이는 글 — 화면이 「다르게 적혀 있으면 담당자께」 아래에 보여 준다 · 옛 SQL 은 그 칸이 없어 빈 글).
+//     한도 120 은 표의 한도(60자)를 흉내 낸 수가 아니라 넉넉한 안전 한도다(이모지는 UTF-16 두 칸 — 표를 지난 글이 여기서 잘리지 않게).
 function dutyPastOut(r) {
   var o = r && typeof r === "object" ? r : {};
   var num = function (v) { var n = Math.floor(Number(v)); return isFinite(n) && n > 0 ? n : 0; };
@@ -5809,7 +5811,7 @@ function dutyPastOut(r) {
   for (var i = 0; i < src.length && rows.length < 200; i++) {
     var x = src[i];
     if (!x || typeof x.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(x.date)) continue;
-    rows.push({ date: x.date, board: str(x.board, 40), service: str(x.service, 12), task: str(x.task, 20), start: str(x.start, 5), end: str(x.end, 5) });
+    rows.push({ date: x.date, board: str(x.board, 40), service: str(x.service, 12), task: str(x.task, 20), start: str(x.start, 5), end: str(x.end, 5), contact: str(x.contact, 120) });
   }
   var total = Math.max(num(o.total), rows.length);
   return { total: total, year: Math.min(num(o.year), total), rows: rows };
@@ -5847,6 +5849,8 @@ async function dutyList(b: any) {
 }
 
 // 당번 하나의 날짜별 자리 — {id, user_id}. 받는 중·지원 멈춤 당번만(그 밖은 not-found).
+//   past = 지난 봉사의 두 수(줄 없이 · SQL 이 줄 때만 싣는다 — 옛 SQL 이면 칸 자체가 없다: 0 으로 실으면 화면의 「지난 봉사 N번」 한 줄이 사라진다).
+//     당번표만 다시 받는 길(화면이 다시 보일 때)에서 그 한 줄이 낡지 않게(독립 확인 반영 2026-10-07).
 async function dutyBoard(b: any) {
   const userId = eduUid(b.user_id);
   const id = String(b.id ?? "").trim();
@@ -5856,7 +5860,8 @@ async function dutyBoard(b: any) {
   const { data: r, error } = await db.rpc("duty_board_view", { p_board: id, p_user: userId });
   if (error) throw error;
   if (!r || r.ok !== true) return { ok: false, error: "not-found" };
-  return { ok: true, open: true, today: r.today ?? null, me: { why: dutyMeWhy(g.user) }, board: r.board, days: Array.isArray(r.days) ? r.days : [] };
+  return { ok: true, open: true, today: r.today ?? null, me: { why: dutyMeWhy(g.user) }, board: r.board, days: Array.isArray(r.days) ? r.days : [],
+    ...(r.past && typeof r.past === "object" ? { past: dutyPastOut(r.past) } : {}) };
 }
 
 // 내 당번 — 오늘 이후 · 살아 있는 줄 + 담당자가 뺀 줄(그날까지)

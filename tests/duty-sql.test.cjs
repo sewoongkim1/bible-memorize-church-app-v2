@@ -172,3 +172,41 @@ test('지난 봉사(duty_past · 2026-10-07) — 읽기만 하는 함수다(표�
   assert.doesNotMatch(body, /advisory|for update/i, '잠금 없음');
   assert.ok(a < sql.indexOf('create or replace function public.duty_list_view('), 'duty_list_view 가 부르므로 그보다 앞에');
 });
+
+test('숨긴 때(hidden_at · 독립 확인 반영 2026-10-07) — 트리거 한 곳이 적는다 · 옛 보관 당번을 채우는 문장은 트리거보다 앞 · 지난 봉사는 보관한 당번에서 그때까지 끝난 자리만', () => {
+  // 칸 — 새 DB(create table)와 이미 있는 DB(alter) 둘 다
+  assert.match(sql, /updated_at\s+timestamptz not null default now\(\),\s+hidden_at\s+timestamptz\s*\);/, 'create table 에 hidden_at');
+  assert.ok(sql.includes('alter table public.duty_boards add column if not exists hidden_at timestamptz;'), '이미 있는 표에는 alter 로');
+  // 트리거 함수 — 새 줄·보이는 상태 = null · 보이다가 숨김 = 지금 · 숨긴 채 = 옛 값(손으로도 못 바꾼다)
+  const a = sql.indexOf('create or replace function public.duty_board_hidden_stamp()'), e = sql.indexOf('end $$;', a);
+  assert.ok(a > 0 && e > a, 'duty_board_hidden_stamp');
+  const body = sql.slice(a, e);
+  assert.match(body, /returns trigger language plpgsql security definer set search_path = public/);
+  assert.ok(body.includes("if tg_op = 'INSERT' or new.status in ('open','closed') then new.hidden_at := null;"), '새 당번 · 보이는 상태');
+  assert.ok(body.includes("elsif old.status in ('open','closed') then new.hidden_at := now();"), '보이다가 숨김');
+  assert.ok(body.includes('else new.hidden_at := old.hidden_at;'), '숨긴 채의 저장은 처음 숨긴 때를 지킨다');
+  assert.doesNotMatch(body, /\b(insert into|update public|delete from)\b/i, '트리거는 그 줄만 고친다(다른 표를 쓰지 않는다)');
+  const iTrig = sql.indexOf('create trigger duty_boards_hidden_stamp before insert or update on public.duty_boards');
+  assert.ok(iTrig > e && sql.indexOf('drop trigger if exists duty_boards_hidden_stamp on public.duty_boards;') < iTrig && sql.indexOf('drop trigger if exists duty_boards_hidden_stamp on public.duty_boards;') > 0, '다시 돌려도 되게 지우고 만든다');
+  assert.ok(sql.slice(iTrig, sql.indexOf(';', iTrig)).includes('for each row execute function public.duty_board_hidden_stamp()'));
+  assert.doesNotMatch(sql.slice(iTrig, sql.indexOf(';', iTrig)), /update of/, '어느 칸을 고치든 돈다(상태만 볼 때 놓치는 저장이 없게 — 숨긴 채 hidden_at 을 손으로 바꾸는 것도 되돌린다)');
+  // 옛 보관 당번 채우기 — 트리거가 생기기 **전에** 돈다(뒤에 돌면 「숨긴 채의 저장」이라 옛 값(null)으로 되돌려진다) · 보관만(준비 중은 언제 숨겼는지 모른다)
+  const fill = "update public.duty_boards set hidden_at = updated_at where status = 'archived' and hidden_at is null;";
+  assert.ok(sql.includes(fill) && sql.indexOf(fill) < a, '채우는 문장은 트리거 함수보다 앞');
+  assert.equal(sql.split('hidden_at').length - 1 >= 8, true);
+  // hidden_at 을 쓰는 곳은 그 채우기와 트리거뿐 — 다른 함수가 손대지 않는다
+  const writes = [...sql.matchAll(/hidden_at\s*(:=|=)(?!=)/g)].length;
+  assert.equal(writes, 4, 'hidden_at 을 적는 곳: 채우기 1 + 트리거의 세 갈래');
+  // 세는 규칙은 duty_past 한 곳(duty-front 시험이 글자로 본다) — 여기서는 다른 읽기가 보관한 당번의 줄을 「서 있는 것」으로 치지 않는지만 본다
+  const mine = sql.slice(sql.indexOf('create or replace function public.duty_mine(p_user uuid)'));
+  assert.ok(mine.slice(0, mine.indexOf('$$;')).includes("b.status in ('open','closed')"), '내 당번은 보이는 당번만');
+});
+
+test('쉬는 날(독립 확인 반영 2026-10-07) — 거는 것은 오늘 이후만 · 다시 열기는 지난 날도(오늘 − 400일까지) · 보관한 당번은 둘 다 거절', () => {
+  const a = sql.indexOf('create or replace function public.duty_days_off('), e = sql.indexOf('end $$;', a);
+  const body = sql.slice(a, e);
+  assert.ok(body.includes("if p_off is null or p_from is null or p_to is null or p_to < p_from or p_to - p_from > 92 or p_to > d0 + 400"), '기간 92일 · 오늘 + 400일 안');
+  assert.ok(body.includes('or (p_off and p_from < d0) or (not p_off and p_from < d0 - 400) then'), '거는 것은 오늘 이후 · 다시 열기는 오늘 − 400일까지');
+  assert.doesNotMatch(body, /or p_from < d0 or/, '옛 줄(다시 열기도 오늘 이후만)이 남지 않았다');
+  assert.ok(body.indexOf("if b.status = 'archived' then return jsonb_build_object('ok',false,'error','archived'); end if;") > 0, '보관한 당번');
+});

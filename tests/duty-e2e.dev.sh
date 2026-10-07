@@ -65,7 +65,7 @@ echo "dutyOpen 원래: $OLD_STATE ${OLD_VAL}"
 sx "insert into app_config(key,value) values('dutyOpen','true'::jsonb) on conflict (key) do update set value='true'::jsonb"
 
 TAG=e2e$RANDOM$RANDOM
-BID=$(sq "insert into duty_boards(title,place,status,open_days) values ('$TAG','$TAG-place','open',56) returning id")
+BID=$(sq "insert into duty_boards(title,place,contact_note,status,open_days) values ('$TAG','$TAG-place','$TAG-ask 010-0000-0000','open',56) returning id")
 [ -n "$BID" ] || { echo "당번 만들기 실패"; exit 2; }
 # 자리 틀 셋 — 사흘 뒤 요일: A(09:00~10:00 정원 1) · B(09:30~10:30 — A 와 겹친다) · C(11:00~12:00 — 안 겹친다)
 DOW=$(sq "select extract(dow from duty_today()+3)::int")
@@ -215,18 +215,29 @@ chk "past open, shape" "$(jqn '(d.get("ok"), d.get("open"), sorted(d.keys()), so
 chk "staff add on past day" "$(sq "select (duty_apply($SP, '$U1', '{\"name\":\"e2e\"}'::jsonb, true, true, false)->>'ok')")" "true"
 P1=$(call "{\"action\":\"dutyPast\",\"user_id\":\"$U1\"}")
 chk "past +1" "$(jqn 'd["past"]["total"] - '"$N0" "$P1")" "1"
-chk "past row = that day, six keys" "$(jqn '[(r["date"], r["board"], r["service"], r["start"], sorted(r.keys())) for r in d["past"]["rows"] if r["board"]=="'$TAG'"]' "$P1")" "[('$DP', '$TAG', 'c', '11:00', ['board', 'date', 'end', 'service', 'start', 'task'])]"
+chk "past row = that day, seven keys" "$(jqn '[(r["date"], r["board"], r["service"], r["start"], sorted(r.keys())) for r in d["past"]["rows"] if r["board"]=="'$TAG'"]' "$P1")" "[('$DP', '$TAG', 'c', '11:00', ['board', 'contact', 'date', 'end', 'service', 'start', 'task'])]"
+# 줄의 문의(contact) = 그 당번의 문의처 글 그대로(당번표에 이미 보이는 글 — 「지난 봉사」 화면이 「담당자께 말씀해 주세요」 아래에 보여 준다)
+chk "past row contact = board contact" "$(jqn '[r["contact"] for r in d["past"]["rows"] if r["board"]=="'$TAG'"]' "$P1")" "$(sq "select '[''' || contact_note || ''']' from duty_boards where id='$BID'")"
+# 당번표(dutyBoard)도 지난 봉사의 두 수를 함께 싣는다(줄 없이) — 당번표만 다시 받는 화면의 「지난 봉사 N번」이 낡지 않게
+BP=$(call "{\"action\":\"dutyBoard\",\"user_id\":\"$U1\",\"id\":\"$BID\"}")
+chk "board carries past (counts only)" "$(jqn '(d["past"]["total"] - '"$N0"', d["past"]["rows"], sorted(d["past"].keys()))' "$BP")" "(1, [], ['rows', 'total', 'year'])"
+chk "board past = list past" "$(jqn 'd["past"]["total"]' "$BP")" "$(jqn 'd["past"]["total"]' "$P1")"
 chk "past today = server today" "$(jqn 'd.get("today")' "$P1")" "$(sq "select duty_today()::text")"
 chk "past has no account/ident/name" "$(jqn 'any(k in json.dumps(d) for k in ["'$U1'", "user_id", "ident", "e2e\"", "group", "who"])' "$P1")" "False"
 chk "list carries past (<= 3 rows)" "$(jqn '(d["past"]["total"] - '"$N0"', len(d["past"]["rows"]) <= 3)' "$(call "{\"action\":\"dutyList\",\"user_id\":\"$U1\"}")")" "(1, True)"
 chk "not in mine (past)" "$(jqn '[m["date"] for m in d["mine"] if m["date"] < "'$(sq "select duty_today()::text")'"]' "$(call "{\"action\":\"dutyMine\",\"user_id\":\"$U1\"}")")" "[]"
 chk "other account: not there" "$(jqn '[r for r in d["past"]["rows"] if r["board"]=="'$TAG'"]' "$(call "{\"action\":\"dutyPast\",\"user_id\":\"$U2\"}")")" "[]"
-# 준비 중 당번의 줄은 세지 않는다 · 보관한 당번의 줄은 센다(끝난 모집의 기록) · 지원 멈춤도 센다
+# 준비 중 당번의 줄은 세지 않는다 · 보관한 당번은 **앱에 보이던 동안 끝난 자리**를 센다(끝난 모집의 기록 — 숨긴 때 hidden_at 은 트리거가 적는다) · 지원 멈춤도 센다
+#   (숨긴 뒤 날짜의 줄을 세지 않는 것은 시간을 돌려야 볼 수 있다 — supabase/tests/duty_rules.dev.sql 이 본다)
 sx "update duty_boards set status='draft' where id='$BID'"
+chk "hidden_at stamped when hidden" "$(sq "select (hidden_at is not null and hidden_at > now() - interval '5 minutes')::text from duty_boards where id='$BID'")" "true"
+HA=$(sq "select hidden_at::text from duty_boards where id='$BID'")
 chk "draft: not counted" "$(jqn 'd["past"]["total"] - '"$N0" "$(call "{\"action\":\"dutyPast\",\"user_id\":\"$U1\"}")")" "0"
 sx "update duty_boards set status='archived' where id='$BID'"
+chk "hidden_at kept (draft -> archived)" "$(sq "select hidden_at::text from duty_boards where id='$BID'")" "$HA"
 chk "archived: counted" "$(jqn 'd["past"]["total"] - '"$N0" "$(call "{\"action\":\"dutyPast\",\"user_id\":\"$U1\"}")")" "1"
 sx "update duty_boards set status='closed' where id='$BID'"
+chk "hidden_at cleared when shown again" "$(sq "select (hidden_at is null)::text from duty_boards where id='$BID'")" "true"
 chk "closed: counted" "$(jqn 'd["past"]["total"] - '"$N0" "$(call "{\"action\":\"dutyPast\",\"user_id\":\"$U1\"}")")" "1"
 sx "update duty_boards set status='open' where id='$BID'"
 # 담당자가 지난 날의 줄을 빼면(안 오신 분 바로잡기) 지난 봉사에서도 빠진다

@@ -744,6 +744,47 @@ test('지난 봉사 — 당번이 하나뿐이라 목록을 건너뛴 분: 당�
   assert.equal(/<button[^>]*data-past[^>]*disabled/.test(w.html()), false);
 });
 
+test('지난 봉사 — 당번표만 다시 받아도 「지난 봉사 N번」 한 줄이 맞다(날이 바뀌었거나 담당자가 바로잡은 뒤 · 독립 확인 반영) · 옛 서버면 가진 수 그대로 · 「지난 봉사」 화면의 문의', async () => {
+  // 주일 낮: 목록(지난 봉사 5번) → 당번표. 앱을 띄운 채 날이 바뀐다 → 화면이 다시 보이면 당번표만 다시 받는다 — 새 서버는 그 답에 두 수를 함께 준다
+  let w = world();
+  w.ctx.renderDutyList(); await w.answer(0, listRes([BOARD], [], PAST3));
+  await w.answer(0, boardRes({ past: { total: 5, year: 3, rows: [] } }));
+  assert.ok(w.html().includes('<span>지난 봉사 5번</span>'), '처음 — 목록이 준 수');
+  assert.equal(w.ctx.dutyState.past.rows.length, 3, '수가 그대로면 목록이 준 줄을 지킨다');
+  w.tickTime(16000); w.listeners.visibilitychange(); assert.deepEqual(w.names(), ['dutyBoard'], '당번표만 다시 받는다(지난 봉사를 따로 묻지 않는다)');
+  await w.answer(0, boardRes({ today: '2026-10-07', past: { total: 6, year: 4, rows: [] } }));
+  assert.equal(w.shown(), 'DUTY[board]');
+  assert.ok(w.html().includes('<span>지난 봉사 6번</span>') && !w.html().includes('지난 봉사 5번'), '날이 바뀌어 하나 늘었다 — 한 줄도 6번');
+  assert.deepEqual([w.ctx.dutyState.past.total, w.ctx.dutyState.past.year, w.ctx.dutyState.past.rows.length, w.ctx.dutyState.today], [6, 4, 0, '2026-10-07'], '낡은 줄은 버린다 · 오늘도 새 값');
+  // 담당자가 지난 줄을 모두 뺐다 — 한 줄이 사라진다
+  w.tickTime(16000); w.listeners.visibilitychange(); await w.answer(0, boardRes({ today: '2026-10-07', past: { total: 0, year: 0, rows: [] } }));
+  assert.equal(w.html().includes('duty-pastlink'), false, '0 이면 한 줄이 없다');
+  // 지난 봉사가 없던 분 — 날이 바뀌어 어제 것이 지난 봉사가 되면 한 줄이 생긴다
+  w = world(); w.ctx.renderDutyList(); await w.answer(0, listRes([BOARD], [], { total: 0, year: 0, rows: [] })); await w.answer(0, boardRes({ past: { total: 0, year: 0, rows: [] } }));
+  assert.equal(w.html().includes('duty-pastlink'), false);
+  w.tickTime(16000); w.listeners.visibilitychange(); await w.answer(0, boardRes({ today: '2026-10-07', past: { total: 1, year: 1, rows: [] } }));
+  assert.ok(w.html().includes('<span>지난 봉사 1번</span>'));
+  // 옛 서버(당번표가 past 를 주지 않는다) — 목록이 준 수를 그대로 둔다(0 으로 덮어 한 줄이 사라지지 않는다) · 틀린 값(글자)도 그대로
+  for (const bad of [undefined, 'x']) {
+    w = world(); w.ctx.renderDutyList(); await w.answer(0, listRes([BOARD], [], PAST3)); await w.answer(0, boardRes(bad === undefined ? {} : { past: bad }));
+    w.tickTime(16000); w.listeners.visibilitychange(); await w.answer(0, boardRes(bad === undefined ? { today: '2026-10-07' } : { today: '2026-10-07', past: bad }));
+    assert.ok(w.html().includes('<span>지난 봉사 5번</span>'), '옛 서버: ' + String(bad));
+    assert.equal(w.ctx.dutyState.today, '2026-10-06', '두 수를 못 받았으면 오늘도 목록이 준 값 그대로');
+  }
+  // 「지난 봉사」 화면 — 그 당번의 문의가 적혀 있으면 「담당자께 말씀해 주세요」 아래에(번호는 눌러서 걸린다) · 세 번 이하인 분도 「모두 보기」로 닿는다
+  w = world();
+  const two = { total: 2, year: 2, rows: PAST3.rows.slice(0, 2) };
+  w.ctx.renderDutyList(); await w.answer(0, listRes([BOARD], [MINE], two));
+  assert.ok(w.html().includes('data-past="1">지난 봉사 모두 보기</button>'), '두 번뿐이어도 단추가 있다');
+  w.tapPast(); await w.answer(0, { ok: true, open: true, today: '2026-10-06', past: { total: 2, year: 2, rows: [
+    { ...PAST3.rows[0], contact: '가상담당 집사 010-0000-0000' }, { ...PAST3.rows[1], board: '지난 김장', contact: '교회 사무실' }] } });
+  assert.equal(w.shown(), 'DUTY[past]');
+  const h = w.html();
+  assert.ok(h.includes('다르게 적혀 있으면 담당자께 말씀해 주세요.</p><ul class="duty-past-l all ask" aria-label="당번 문의">'), '기록이라는 글 바로 아래');
+  assert.ok(h.includes('<li><b>식당 봉사</b><span><span aria-hidden="true">📞</span> 가상담당 집사 <a class="duty-tel" href="tel:01000000000">010-0000-0000</a></span></li>') && h.includes('<li><b>지난 김장</b><span><span aria-hidden="true">📞</span> 교회 사무실</span></li>'));
+  assert.equal(h.includes('data-act'), false, '여전히 읽기만 하는 화면이다');
+});
+
 test('지난 봉사 — 못 받았을 때: 옛 api.js · 계정 번호 없음 · 문 닫힘 · 통신 실패 · 늦게 온 답 — 사실인 말과 돌아갈 길', async () => {
   // 옛 js/api.js(배포 직후 CDN) — dutyPast 가 없다: 서버를 부르지 않고 그렇다고 말한다
   let w = world({ noPast: true });

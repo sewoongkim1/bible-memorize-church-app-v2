@@ -1157,7 +1157,7 @@ test('지난 봉사(화면 순수) — 요약 한 줄 · 줄의 날짜(올해가
   assert.deepEqual(PJ(ctx.dutyPastYears(undefined)), []);
 });
 
-test('지난 봉사(화면 조각) — 목록의 묶음(세 줄까지 · 더 있으면 「모두 보기」) · 당번표의 한 줄 · 「지난 봉사」 화면 · 글자는 모두 이스케이프', () => {
+test('지난 봉사(화면 조각) — 목록의 묶음(세 줄까지 · 「모두 보기」는 늘) · 당번표의 한 줄 · 「지난 봉사」 화면(문의까지) · 글자는 모두 이스케이프', () => {
   const rows = [PR('2026-10-04'), PR('2026-09-27'), PR('2026-09-20', { task: '배식' }), PR('2026-09-13')];
   assert.equal(ctx.dutyPastListHtml(undefined, '2026-10-07'), '', '못 받았으면 그리지 않는다');
   assert.equal(ctx.dutyPastListHtml({ total: 0, year: 0, rows: [] }, '2026-10-07'), '', '한 번도 없으면 묶음이 없다');
@@ -1165,13 +1165,18 @@ test('지난 봉사(화면 조각) — 목록의 묶음(세 줄까지 · 더 있
   assert.ok(h.startsWith('<div class="duty-sec">지난 봉사</div><div class="duty-card past"><b>올해 5번 · 지금까지 12번</b><span>함께해 주셔서 고맙습니다</span>'), h);
   assert.equal((h.match(/<li>/g) || []).length, 3);
   assert.ok(h.includes('<li><b>10월 4일(일)</b><span>식당봉사 · 2부 설거지</span></li>') && h.includes('<span>식당봉사 · 2부 배식</span>'));
-  assert.ok(h.includes('<button type="button" class="duty-btn ghost" data-past="1">지난 봉사 모두 보기</button>'), '더 있으면 단추');
+  assert.ok(h.endsWith('</ul><button type="button" class="duty-btn ghost" data-past="1">지난 봉사 모두 보기</button></div>'), '단추는 줄 아래에');
   assert.equal(h.includes('data-act'), false, '일을 보내는 단추가 아니다(data-act 를 달면 보내는 동안 꺼지고 자리 단추의 갈래에 들어간다)');
   h = ctx.dutyPastListHtml({ total: 4, year: 4, rows }, '2026-10-07');
   assert.equal((h.match(/<li>/g) || []).length, 3, '목록 화면은 세 줄까지만');
   assert.ok(h.includes('data-past="1"'), '넷째가 있으니 단추가 있다');
-  h = ctx.dutyPastListHtml({ total: 2, year: 2, rows: rows.slice(0, 2) }, '2026-10-07');
-  assert.equal(h.includes('data-past'), false, '보여 준 것이 전부면 단추가 없다');
+  // 보여 준 것이 전부여도(세 번 이하) 단추가 있다 — 그 화면에만 「기록이에요 — 다르게 적혀 있으면…」과 그 당번의 문의가 있다(독립 확인 반영: 한두 번 서신 분이 바로잡을 길을 못 봤다)
+  for (const n of [1, 2, 3]) {
+    h = ctx.dutyPastListHtml({ total: n, year: n, rows: rows.slice(0, n) }, '2026-10-07');
+    assert.equal((h.match(/data-past="1"/g) || []).length, 1, n + '번 — 단추 하나'); assert.equal((h.match(/<li>/g) || []).length, n);
+  }
+  h = ctx.dutyPastListHtml({ total: 5, year: 5, rows: [] }, '2026-10-07');
+  assert.ok(!h.includes('<ul') && h.includes('data-past="1"'), '줄을 못 받았어도(수만) 묶음과 단추는 있다');
   h = ctx.dutyPastListHtml({ total: 1, year: 1, rows: [PR('2026-10-04', { board: '<b>x</b>', service: '"2부"' })] }, '2026-10-07');
   assert.ok(h.includes('&lt;b&gt;x&lt;/b&gt; · &quot;2부&quot; 설거지') && !h.includes('<b>x</b>'), '당번·자리 이름은 이스케이프');
   // 당번표의 한 줄
@@ -1188,6 +1193,28 @@ test('지난 봉사(화면 조각) — 목록의 묶음(세 줄까지 · 더 있
   assert.ok(h.endsWith('<p class="duty-note">당번표에 남아 있는 기록이에요 — 다르게 적혀 있으면 담당자께 말씀해 주세요.</p>'));
   h = ctx.dutyPastBodyHtml({ total: 2, year: 2, rows: [PR('2026-10-04'), PR('2026-09-27')] }, '2026-10-07');
   assert.equal(h.includes('까지 보여요'), false, '모두 받았으면 말하지 않는다');
+  assert.equal(h.includes('duty-past-l all ask') || h.includes('📞'), false, '문의가 적힌 당번이 없으면 문의 목록이 없다(옛 서버는 그 칸을 주지 않는다)');
+  // 문의 — 「담당자께 말씀해 주세요」 아래에 그 당번의 문의처(당번마다 한 번 · 번호는 눌러서 걸린다 · 글자는 이스케이프). 보관한 당번은 당번표가 열리지 않아 여기가 유일한 길이다
+  const withAsk = [PR('2026-10-04', { contact: '김가상 010-1234-5678' }), PR('2026-09-27', { contact: '김가상 010-1234-5678' }), PR('2026-09-20', { board: '<김장>', contact: ' 사무실 ' }),
+    PR('2026-09-13', { board: '주차', contact: '' }), PR('2026-09-06', { board: '주차' }), PR('2026-08-30', { contact: '박가상' }), PR('2026-08-23', { board: '주차', contact: '박가상' })];
+  assert.deepEqual(PJ(ctx.dutyPastAsks(withAsk)), [{ board: '식당봉사', contact: '김가상 010-1234-5678' }, { board: '<김장>', contact: '사무실' }, { board: '식당봉사', contact: '박가상' }, { board: '주차', contact: '박가상' }],
+    '당번·문의가 같은 것은 한 번 · 빈 문의는 건너뛴다 · 같은 당번이어도 문의가 바뀌었으면 따로 · 문의가 같아도 당번이 다르면 따로(받은 차례)');
+  for (const bad of [undefined, null, [], [null, 'x', 5, {}, { board: 'b', contact: null }, { board: 'b', contact: '   ' }]]) assert.deepEqual(PJ(ctx.dutyPastAsks(bad)), [], JSON.stringify(bad));
+  assert.deepEqual(PJ(ctx.dutyPastAsks([{ date: '2026-10-04', contact: 5 }])), [{ board: '', contact: '5' }], '글자가 아닌 값도 글자로(이스케이프는 그릴 때)');
+  h = ctx.dutyPastBodyHtml({ total: 3, year: 3, rows: withAsk.slice(0, 3) }, '2026-10-07');
+  assert.ok(h.endsWith('<p class="duty-note">당번표에 남아 있는 기록이에요 — 다르게 적혀 있으면 담당자께 말씀해 주세요.</p>' +
+    '<ul class="duty-past-l all ask" aria-label="당번 문의"><li><b>식당봉사</b><span><span aria-hidden="true">📞</span> 김가상 <a class="duty-tel" href="tel:01012345678">010-1234-5678</a></span></li>' +
+    '<li><b>&lt;김장&gt;</b><span><span aria-hidden="true">📞</span> 사무실</span></li></ul>'), h);
+  assert.equal(ctx.dutyPastListHtml({ total: 3, year: 3, rows: withAsk.slice(0, 3) }, '2026-10-07').includes('📞'), false, '목록 화면의 묶음에는 문의를 싣지 않는다(「모두 보기」 화면에만)');
+  // 당번표가 준 두 수(줄 없이)로 고치기 — 수가 그대로면 가진 줄을 지키고 · 달라졌으면 낡은 줄을 버리고 · 옛 서버(칸 없음)면 가진 것 그대로
+  const prev = { total: 5, year: 2, rows: [PR('2026-10-04')] };
+  assert.deepEqual(PJ(ctx.dutyPastCounts(prev, { total: 5, year: 2, rows: [] })), prev, '수가 그대로');
+  assert.deepEqual(PJ(ctx.dutyPastCounts(prev, { total: 6, year: 3, rows: [] })), { total: 6, year: 3, rows: [] }, '날이 바뀌어 하나 늘었다 — 낡은 줄을 새 수 옆에 두지 않는다');
+  assert.deepEqual(PJ(ctx.dutyPastCounts(prev, { total: 0, year: 0 })), { total: 0, year: 0, rows: [] }, '0 이 오면 0(담당자가 모두 뺐다 — 한 줄이 사라진다)');
+  assert.deepEqual(PJ(ctx.dutyPastCounts(prev, undefined)), prev, '옛 서버 — 가진 것 그대로(0 으로 덮지 않는다)');
+  assert.equal(ctx.dutyPastCounts(null, undefined), null); assert.equal(ctx.dutyPastCounts(undefined, 'x'), null);
+  assert.deepEqual(PJ(ctx.dutyPastCounts(null, { total: 2.9, year: 9 })), { total: 2, year: 2, rows: [] }, '처음 받은 수 · 틀린 값은 다듬는다');
+  assert.equal(ctx.dutyPastLinkHtml(ctx.dutyPastCounts(prev, { total: 6, year: 3 })), '<button type="button" class="duty-pastlink" data-past="1"><span>지난 봉사 6번</span><span aria-hidden="true">›</span></button>');
   // 말 — 출석을 확인한 것처럼 말하지 않는다(앱에는 출석 확인이 없다 · 안 오신 분을 담당자가 아직 안 뺐을 수 있다)
   const duty = read(['js', 'duty.js']), seg = duty.slice(duty.indexOf('// ── 지난 봉사(2026-10-07'), duty.indexOf('// ── 봉사 당번 순수 함수 (여기까지) ──'));
   assert.ok(seg.length > 500);
@@ -1195,21 +1222,26 @@ test('지난 봉사(화면 조각) — 목록의 묶음(세 줄까지 · 더 있
   assert.equal(ctx.DUTY_PAST_FOOT.includes('당번표에 남아 있는 기록'), true);
 });
 
-test('지난 봉사(api 순수) — 아는 여섯 칸의 글자만 옮긴다(이름·계정 번호·줄 번호가 실려 와도 버린다) · 수는 0 이상의 정수 · 200줄까지', () => {
+test('지난 봉사(api 순수) — 아는 일곱 칸의 글자만 옮긴다(이름·계정 번호·줄 번호가 실려 와도 버린다) · 수는 0 이상의 정수 · 200줄까지', () => {
   for (const bad of [undefined, null, 'x', 7, [], {}]) assert.deepEqual(PJ(srv.dutyPastOut(bad)), { total: 0, year: 0, rows: [] }, JSON.stringify(bad));
   const got = PJ(srv.dutyPastOut({ today: '2026-10-07', total: 3, year: 2, secret: 'x', rows: [
-    { date: '2026-10-04', board: '식당봉사', service: '2부', task: '설거지', start: '11:30', end: '12:30', id: 77, user_id: 'U-1', name: '가상', ident_key: 'person|1', staff_note: '메모' },
+    { date: '2026-10-04', board: '식당봉사', service: '2부', task: '설거지', start: '11:30', end: '12:30', contact: '담당 010-1234-5678', id: 77, user_id: 'U-1', name: '가상', ident_key: 'person|1', staff_note: '메모' },
     { date: '10/4', board: 'x' }, null, 'x', { board: '날짜 없음' }, { date: 20261004 } ] }));
-  assert.deepEqual(got, { total: 3, year: 2, rows: [{ date: '2026-10-04', board: '식당봉사', service: '2부', task: '설거지', start: '11:30', end: '12:30' }] });
+  assert.deepEqual(got, { total: 3, year: 2, rows: [{ date: '2026-10-04', board: '식당봉사', service: '2부', task: '설거지', start: '11:30', end: '12:30', contact: '담당 010-1234-5678' }] });
   assert.equal(JSON.stringify(got).includes('U-1') || JSON.stringify(got).includes('가상') || JSON.stringify(got).includes('메모') || JSON.stringify(got).includes('today'), false);
   assert.deepEqual(PJ(srv.dutyPastOut({ total: -1, year: 'x', rows: [{ date: '2026-10-04', board: 5, service: null, task: {}, start: [], end: undefined }] })),
-    { total: 1, year: 0, rows: [{ date: '2026-10-04', board: '', service: '', task: '', start: '', end: '' }] }, '글자가 아닌 칸은 빈 글 · 수가 줄보다 작으면 줄 수로');
+    { total: 1, year: 0, rows: [{ date: '2026-10-04', board: '', service: '', task: '', start: '', end: '', contact: '' }] }, '글자가 아닌 칸은 빈 글(옛 SQL 은 문의 칸이 없다 — 빈 글) · 수가 줄보다 작으면 줄 수로');
+  assert.equal(srv.dutyPastOut({ total: 1, year: 1, rows: [{ date: '2026-10-04', contact: { a: 1 } }] }).rows[0].contact, '', '문의가 글자가 아니면 빈 글');
   assert.equal(srv.dutyPastOut({ total: 2, year: 9, rows: [] }).year, 2, '올해 수는 모두를 넘지 않는다');
   assert.equal(srv.dutyPastOut({ total: 9.7, year: 2.2, rows: [] }).total, 9);
-  const many = Array.from({ length: 350 }, () => ({ date: '2026-10-04', board: 'b'.repeat(99), service: 's'.repeat(99), task: 't'.repeat(99), start: '11:30:00', end: '12:30:00' }));
+  const many = Array.from({ length: 350 }, () => ({ date: '2026-10-04', board: 'b'.repeat(99), service: 's'.repeat(99), task: 't'.repeat(99), start: '11:30:00', end: '12:30:00', contact: 'c'.repeat(999) }));
   const cut = srv.dutyPastOut({ total: 350, year: 350, rows: many });
   assert.equal(cut.rows.length, 200); assert.equal(cut.total, 350);
   assert.deepEqual([cut.rows[0].board.length, cut.rows[0].service.length, cut.rows[0].task.length, cut.rows[0].start, cut.rows[0].end], [40, 12, 20, '11:30', '12:30'], '글자 길이는 표의 한도까지');
+  assert.equal(cut.rows[0].contact.length, 120, '문의는 넉넉한 안전 한도(표의 60자 — 이모지는 UTF-16 두 칸이라 120)');
+  const emoji = '📞'.repeat(60);   // 표의 한도(60자)를 꼭 채운 이모지 문의 — 잘리지 않고 짝 없는 대리쌍도 남지 않는다
+  assert.equal(srv.dutyPastOut({ total: 1, year: 1, rows: [{ date: '2026-10-04', contact: emoji }] }).rows[0].contact, emoji);
+  assert.deepEqual(Object.keys(srv.dutyPastOut({ total: 1, year: 1, rows: [{ date: '2026-10-04' }] }).rows[0]), ['date', 'board', 'service', 'task', 'start', 'end', 'contact'], '줄의 칸은 일곱뿐');
 });
 
 test('지난 봉사(api·SQL 글자 검사) — 문이 SQL 보다 먼저 · 닫히면 {ok, open:false} · 내 것만 · 목록이 past 를 함께 싣는다', () => {
@@ -1223,21 +1255,35 @@ test('지난 봉사(api·SQL 글자 검사) — 문이 SQL 보다 먼저 · 닫�
   assert.equal(/\bname\b|b\.limit|b\.p_limit/.test(body), false, '화면이 보낸 값으로 한도·신원을 바꾸지 않는다');
   assert.ok(/\n\s*case "dutyPast":\s+return json\(await dutyPast\(body\)\);/.test(API), '갈래');
   assert.ok(fn('dutyList').includes('past: dutyPastOut(r?.past)'), '목록 응답에 past');
+  // 당번표 응답 — SQL 이 past 를 줄 때만 싣는다(옛 SQL 이면 칸 자체가 없다: 0 으로 실으면 화면의 「지난 봉사 N번」 한 줄이 사라진다) · 아는 칸만 옮긴다
+  assert.ok(fn('dutyBoard').includes('...(r.past && typeof r.past === "object" ? { past: dutyPastOut(r.past) } : {})'), '당번표 응답의 past');
+  assert.equal(/past:\s*r\.past\b/.test(fn('dutyBoard')), false, 'SQL 이 준 것을 그대로 싣지 않는다');
   assert.ok(read(['js', 'api.js']).includes('dutyPast: (user_id) => supaCall("dutyPast", { user_id }),'), 'js/api.js');
   // SQL — 세는 기준(친구 결정: 당번표에 이름이 남아 있던 날)과 싣는 칸
   const sqlRaw = read(['supabase', 'duty.sql']).split(/\r?\n/).map((l) => l.replace(/--.*$/, '')).join('\n');
   const a = sqlRaw.indexOf('create or replace function public.duty_past(p_user uuid, p_limit int default 60)'), e = sqlRaw.indexOf('$$;', a);
   assert.ok(a > 0 && e > a, 'duty_past');
   const past = sqlRaw.slice(a, e);
-  for (const rule of ["e.user_id = p_user and e.status = 'active'", 's.on_date < duty_today()', 'not d.off and not s.off', "b.status in ('open','closed','archived')", 'p_user is not null']) assert.ok(past.includes(rule), rule);
+  for (const rule of ["e.user_id = p_user and e.status = 'active'", 's.on_date < duty_today()', 'not d.off and not s.off', 'p_user is not null',
+    // 앱에 보이는 당번(받는 중·지원 멈춤)은 모두 · 보관한 당번은 앱에 보이던 동안 끝난 자리만(hidden_at — 독립 확인 반영: 앞날에 선 분이 있는 채 접은 당번의 그 뒤 날짜는 세지 않는다)
+    "and (b.status in ('open','closed')", "or (b.status = 'archived' and b.hidden_at is not null", "and ((s.on_date + l.end_time) at time zone 'Asia/Seoul') <= b.hidden_at))"]) assert.ok(past.includes(rule), rule);
+  assert.equal(past.includes("'closed','archived'") || /status\s*<>\s*'draft'/.test(past), false, '보관한 당번을 통째로 세지 않는다 · 준비 중은 세지 않는다');
   assert.ok(past.includes("limit greatest(0, least(coalesce(p_limit, 60), 200))"), '한도 0~200');
+  // 두 수는 한도와 상관없이 모두에서 센다 · 올해 = 한국 달력의 올해(최근 365일·UTC 의 해가 아니다) · 가까운 날부터 고르고(안쪽 차례) 그 차례로 싣는다(바깥 차례) — 개발 규칙 시험이 값으로도 본다
+  assert.ok(past.includes("'total', (select count(*) from mine)::int,"), '모두 몇 번');
+  assert.ok(past.includes("'year',  (select count(*) from mine m where extract(year from m.on_date) = extract(year from duty_today()))::int,"), '올해 몇 번');
+  assert.ok(past.includes('from (select * from mine m order by m.on_date desc, m.start_time desc, m.id desc') && past.includes('order by q.on_date desc, q.start_time desc, q.id desc)'), '고르는 차례와 싣는 차례');
   const made = past.indexOf('select jsonb_build_object(');   // 답을 짓는 곳부터(그 앞의 고르는 줄에는 당번 상태 글자가 있다)
   assert.ok(made > 0);
   const keys = [...past.slice(made).matchAll(/'([a-z_]+)',/g)].map((m) => m[1]);
-  assert.deepEqual(keys, ['today', 'total', 'year', 'rows', 'date', 'board', 'service', 'task', 'start', 'end'], '답의 칸 — 이름·계정 번호·줄 번호·소속·메모가 없다');
+  assert.deepEqual(keys, ['today', 'total', 'year', 'rows', 'date', 'board', 'service', 'task', 'start', 'end', 'contact'], '답의 칸 — 이름·계정 번호·줄 번호·소속·메모가 없다(문의 = 당번표에 이미 공개된 글)');
+  assert.ok(past.includes("'contact', q.contact_note)") && past.includes('select e.id, s.on_date, b.title, b.contact_note, l.service'), '문의는 그 당번의 contact_note');
   assert.equal((past.match(/jsonb_build_object\(/g) || []).length, 2, '답을 짓는 곳은 둘뿐(겉 · 줄)');
   assert.equal(/\bname\b|user_id\s*,|ident_key|staff_note|group_name|who_type/.test(past.replace('e.user_id = p_user', '')), false, 'duty_past 가 신원 칸을 읽지 않는다');
   assert.ok(sqlRaw.includes("'mine', duty_mine(p_user), 'past', duty_past(p_user, 3));"), 'duty_list_view 가 past(가까운 세 줄)를 함께 싣는다');
+  const view = sqlRaw.slice(sqlRaw.indexOf('create or replace function public.duty_board_view('), sqlRaw.indexOf('end $$;', sqlRaw.indexOf('create or replace function public.duty_board_view(')));
+  assert.ok(/'days', v_days,\s+'past', duty_past\(p_user, 0\)\);/.test(view), 'duty_board_view 가 past(두 수 · 줄 없이)를 함께 싣는다');
+  assert.match(view.slice(0, view.indexOf(' as $$')), /language plpgsql/, 'duty_past 가 이 함수보다 아래에 있다 — plpgsql 이라 부를 때 찾는다(sql 함수로 바꾸면 만들 때 없다고 멈춘다)');
   // 내 당번과 겹치지 않는다 — 내 당번은 오늘부터, 지난 봉사는 오늘보다 앞
   const mine = sqlRaw.slice(sqlRaw.indexOf('create or replace function public.duty_mine(p_user uuid)'), sqlRaw.indexOf('$$;', sqlRaw.indexOf('create or replace function public.duty_mine(p_user uuid)')));
   assert.ok(mine.includes('s.on_date >= duty_today()'), '내 당번은 오늘부터');
@@ -1251,7 +1297,12 @@ test('지난 봉사(css) — 새 색 없음 · 누르는 한 줄은 44px 이상 
   assert.deepEqual(block.match(/#[0-9a-fA-F]{3,8}\b/g) || [], [], '밝은 모드 규칙에 글자 값으로 적은 색이 없다(토큰만)');
   assert.ok(block.includes('.duty-card.past { cursor: default; }'));
   assert.ok(/\.duty-pastlink \{[^}]*min-height: 44px;/.test(block), '누르는 크기');
-  assert.ok(/\.duty-past-l li b \{[^}]*white-space: nowrap;/.test(block) && /\.duty-past-l li span \{[^}]*overflow-wrap: anywhere;/.test(block), '날짜는 한 줄 · 뒤쪽이 줄을 바꾼다');
+  assert.ok(/\.duty-past-l li b \{[^}]*white-space: nowrap;/.test(block) && /\.duty-past-l li > span \{[^}]*overflow-wrap: anywhere;/.test(block), '날짜는 한 줄 · 뒤쪽이 줄을 바꾼다');
+  // 뒤쪽에 남는 폭이 좁으면 날짜 아랫줄로 내려간다(해가 붙은 날짜는 136px — 폭 320px 이하에서 뒤쪽 글이 2~5자씩 세로로 섰다 · 독립 확인 반영)
+  assert.ok(/\.duty-past-l li \{[^}]*display: flex;[^}]*flex-wrap: wrap;[^}]*gap: 0 10px;/.test(block), '줄은 넘치면 아래로(세로 틈 0 · 가로 틈 10px)');
+  assert.ok(/\.duty-past-l li > span \{[^}]*flex: 1 1 8em;[^}]*min-width: 0;/.test(block), '뒤쪽 글은 8em 이 안 남으면 아랫줄');
+  // 문의 목록 — 당번 이름이 길 수 있다(40자): 이름은 줄을 바꾸고 문의는 그 아래(세로로 놓으면 flex-basis 가 높이가 되므로 none 으로 되돌린다)
+  assert.ok(/\.duty-past-l\.ask li \{[^}]*flex-direction: column;/.test(block) && /\.duty-past-l\.ask li b \{[^}]*white-space: normal;/.test(block) && /\.duty-past-l\.ask li > span \{[^}]*flex: none;/.test(block), '문의 목록');
   const dark = css.split('\n').filter((l) => l.startsWith('.dark ') && (l.includes('.duty-past-l') || l.includes('.duty-pastlink'))).join('\n');
   const used = [...new Set(dark.match(/#[0-9a-fA-F]{6}\b/g) || [])].sort();
   assert.deepEqual(used, ['#151d2b', '#33507d', '#8fb3e6', '#b9c2d0'], '어두운 모드는 당번 화면이 이미 쓰는 네 값만');

@@ -440,7 +440,26 @@ function dutyPastYears(rows) {
   });
   return out;
 }
-// 목록 화면의 묶음 — 요약 + 감사 한 줄 + 가까운 세 줄 + (더 있으면) 「모두 보기」 단추. 지난 봉사가 없으면 ''(묶음 자체를 그리지 않는다).
+// 당번표가 준 두 수(줄 없이 — dutyBoard 의 past)로 지난 봉사를 고친다 → 새 값. 수가 그대로면 가진 줄을 지키고, 달라졌으면 줄을 버린다(낡은 줄을 새 수 옆에 두지 않는다 —
+//   줄은 목록·「지난 봉사」 화면이 그릴 때마다 새로 받는다). got 이 없으면(옛 서버 — 당번표가 past 를 주지 않는다) 가진 것 그대로.
+function dutyPastCounts(prev, got) {
+  if (!got || typeof got !== 'object') return prev || null;
+  var a = dutyPastOf({ total: got.total, year: got.year }), b = prev ? dutyPastOf(prev) : null;
+  return { total: a.total, year: a.year, rows: b && b.total === a.total ? b.rows : [] };
+}
+// 「지난 봉사」 화면 맨 아래의 문의 — 보이는 줄들의 당번마다 한 번(문의가 적힌 당번만 · 받은 차례 = 가까운 날의 당번부터) → [{ board, contact }]
+//   「다르게 적혀 있으면 담당자께」라고 말하는 자리에 닿을 길을 함께 둔다(보관한 당번은 당번표가 열리지 않아 여기가 유일한 길이다).
+function dutyPastAsks(rows) {
+  var seen = {}, out = [];
+  (rows || []).forEach(function (x) {
+    var c = String(x && x.contact != null ? x.contact : '').trim(), b = String(x && x.board != null ? x.board : '').trim();
+    if (!c || seen[b + '\n' + c]) return;
+    seen[b + '\n' + c] = 1; out.push({ board: b, contact: c });
+  });
+  return out;
+}
+// 목록 화면의 묶음 — 요약 + 감사 한 줄 + 가까운 세 줄 + 「모두 보기」 단추(늘 — 세 번 이하여도: 그 화면에 「기록이에요 — 다르게 적혀 있으면…」과 문의가 있다).
+//   지난 봉사가 없으면 ''(묶음 자체를 그리지 않는다).
 //   단추는 data-past 로 가른다(data-act 가 아니다 — 일을 보내는 동안 꺼지는 단추가 아니고, 자리 단추의 누름 갈래에 들어가지 않게).
 function dutyPastListHtml(p, today) {
   var v = dutyPastOf(p), head = dutyPastHead(v);
@@ -448,17 +467,20 @@ function dutyPastListHtml(p, today) {
   var rows = v.rows.slice(0, 3).map(function (x) { var r = dutyPastRow(x, today); return '<li><b>' + dutyEsc(r.when) + '</b><span>' + dutyEsc(r.what) + '</span></li>'; }).join('');
   return '<div class="duty-sec">지난 봉사</div><div class="duty-card past"><b>' + dutyEsc(head) + '</b><span>' + dutyEsc(DUTY_PAST_THANKS) + '</span>' +
     (rows ? '<ul class="duty-past-l">' + rows + '</ul>' : '') +
-    (v.total > Math.min(3, v.rows.length) ? '<button type="button" class="duty-btn ghost" data-past="1">지난 봉사 모두 보기</button>' : '') + '</div>';
+    '<button type="button" class="duty-btn ghost" data-past="1">지난 봉사 모두 보기</button></div>';
 }
 // 당번표(달력) 화면의 한 줄 — 「지난 봉사 5번 ›」. 당번이 하나뿐이면 목록을 건너뛰고 곧바로 당번표로 들어오므로 여기에도 둔다. 없으면 ''.
 function dutyPastLinkHtml(p) {
   var v = dutyPastOf(p);
   return v.total ? '<button type="button" class="duty-pastlink" data-past="1"><span>지난 봉사 ' + v.total + '번</span><span aria-hidden="true">›</span></button>' : '';
 }
-// 「지난 봉사」 화면의 몸 — 요약 · 해마다 묶은 목록 · (받은 줄이 모두가 아니면) 「가까운 N번까지 보여요」 · 기록이라는 한 줄. 한 번도 없으면 빈 말.
+// 「지난 봉사」 화면의 몸 — 요약 · 해마다 묶은 목록 · (받은 줄이 모두가 아니면) 「가까운 N번까지 보여요」 · 기록이라는 한 줄 · 그 당번들의 문의(적혀 있을 때). 한 번도 없으면 빈 말.
 function dutyPastBodyHtml(p, today) {
   var v = dutyPastOf(p), head = dutyPastHead(v);
   if (!head) return '<p class="duty-empty">아직 지난 봉사가 없어요.</p>';
+  var asks = dutyPastAsks(v.rows).map(function (a) {
+    return '<li><b>' + dutyEsc(a.board) + '</b><span><span aria-hidden="true">📞</span> ' + dutyContactHtml(a.contact) + '</span></li>';
+  }).join('');
   var years = dutyPastYears(v.rows).map(function (g) {
     return '<div class="duty-sec">' + dutyEsc(Number(g.year) + '년') + '</div><ul class="duty-past-l all">' + g.rows.map(function (x) {
       var o = x || {}, time = dutyTimeText(o);
@@ -467,7 +489,8 @@ function dutyPastBodyHtml(p, today) {
   }).join('');
   return '<div class="duty-card past"><b>' + dutyEsc(head) + '</b><span>' + dutyEsc(DUTY_PAST_THANKS) + '</span></div>' + years +
     (v.total > v.rows.length ? '<p class="duty-note">가까운 ' + v.rows.length + '번까지 보여요.</p>' : '') +
-    '<p class="duty-note">' + dutyEsc(DUTY_PAST_FOOT) + '</p>';
+    '<p class="duty-note">' + dutyEsc(DUTY_PAST_FOOT) + '</p>' +
+    (asks ? '<ul class="duty-past-l all ask" aria-label="당번 문의">' + asks + '</ul>' : '');
 }
 // ── 봉사 당번 순수 함수 (여기까지) ──
 
@@ -662,6 +685,11 @@ function renderDutyBoard(id, opt) {
     if (!r || r.open === false) { dutyFail(DUTY_CLOSED); dutySoftFail(opt); return; }
     dutyState.owe = '';   // 새 화면을 받았다
     dutyState.board = r.board || {}; dutyState.days = r.days || []; dutyState.me = r.me || {};
+    // 당번표가 지난 봉사의 두 수를 함께 준다(새 서버) — 「지난 봉사 N번 ›」 한 줄이 당번표만 다시 받는 길(화면이 다시 보일 때: 날이 바뀌었거나 담당자가 지난 줄을
+    //   바로잡은 뒤)에서도 맞게. 옛 서버는 그 칸이 없다 — 목록이 받아 둔 값을 그대로 둔다(0 으로 덮으면 한 줄이 사라진다).
+    var pastGot = r.past && typeof r.past === 'object' ? r.past : null;
+    dutyState.past = dutyPastCounts(dutyState.past, pastGot);
+    if (pastGot && r.today) dutyState.today = r.today;
     dutyDrawBoard(u, r.today || '', opt);
   }).catch(function (err) {
     if (my !== dutyState.screen) return;

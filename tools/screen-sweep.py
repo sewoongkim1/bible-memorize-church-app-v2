@@ -118,8 +118,12 @@ _DUTY_MINE = [
     _duty_m(541, "2026-11-08", "1부", "설거지", "09:00", "10:00", staffAdded=True),
 ]
 # 지난 봉사(2026-10-07) — 올해 것과 지난 해 것 · 긴 당번 이름 · 일이 없는 자리(모양은 api dutyPast = SQL duty_past 와 같다)
+#   contact = 그 당번의 문의처(「지난 봉사」 화면 맨 아래에 당번마다 한 번 — 번호가 있는 것 · 긴 것 · 없는 것)
+_DUTY_ASK = {"식당 봉사": "가상담당 집사 010-0000-0000", "교회 대청소와 주차 안내 봉사": "시설관리부 가상담당 권사 02-000-0000 (평일 낮)"}
+
+
 def _duty_p(date, board="식당 봉사", service="2부", task="설거지", start="11:30", end="12:30"):
-    return dict(date=date, board=board, service=service, task=task, start=start, end=end)
+    return dict(date=date, board=board, service=service, task=task, start=start, end=end, contact=_DUTY_ASK.get(board, ""))
 
 
 _DUTY_PAST = dict(total=9, year=6, rows=[

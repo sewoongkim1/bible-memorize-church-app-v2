@@ -30,7 +30,12 @@ set local lock_timeout = '5s';
 
 -- ---------- 표 ----------
 -- 당번 — status: draft 준비(앱에 안 보임 · 담당자 일은 됨) · open 받는 중 · closed 지원 멈춤(앱에 명단·내 당번은 보임 · 새 지원만 막음 —
---   담당자가 넣는 당번도 이 상태) · archived 보관(안 보임 · 쓰기 거절 — 지우는 길은 없다 · 시험 당번은 보관으로).
+--   담당자가 넣는 당번도 이 상태) · archived 보관(당번표·내 당번에 안 보임 · 쓰기 거절 — 지우는 길은 없다).
+--   ⚠️ 보관한 당번도 **앱에 보이던 동안 끝난 자리**는 선 분의 「지난 봉사」(duty_past)에 남는다 — 그래서 시험 당번·잘못 만든 당번은
+--      보관하기 **전에** 지난 날의 줄을 빼거나(담당자 빼기 · 보관 뒤에는 못 뺀다), 보관 대신 준비 중으로 둔다(준비 중은 세지 않는다).
+--   hidden_at = 앱에 보이다가(받는 중·지원 멈춤) 숨긴(준비 중·보관) 때 — 트리거 duty_board_hidden_stamp 가 적는다(코드에서 쓰지 말 것 · 써도 트리거가 되돌린다).
+--     보이는 동안에는 null(다시 열면 지운다) · 숨긴 채 준비 중 ↔ 보관을 오가도 처음 숨긴 때를 지킨다 · 한 번도 보인 적 없는 당번은 null.
+--     duty_past 가 보관한 당번에서 「이때까지 끝난 자리」만 센다(앞날에 선 분이 있는 채 접은 당번의 그 뒤 날짜가 지난 봉사로 세지 않게 — 독립 확인 반영 2026-10-07).
 --   open_days = 오늘부터 며칠 앞 자리까지 앱에 보이나(그만큼 자리가 저절로 만들어진다 — duty_ensure_slots)
 --   until_date = 끝 날짜(null = 계속) — 이 날 뒤로는 자리를 만들지 않고, **이미 있는 자리도 앱에 보이지 않으며 지원을 받지 않는다**
 --     (자리·지원 줄을 지우지는 않는다 — 끝 날짜를 다시 늦추면 그대로 살아난다 · 그 뒤에 이미 선 분은 내 당번·주별 명단에 그대로 보인다 —
@@ -47,8 +52,13 @@ create table if not exists public.duty_boards (
   max_ahead    int  check (max_ahead is null or max_ahead between 1 and 200),
   status       text not null default 'draft' check (status in ('draft','open','closed','archived')),
   created_at   timestamptz not null default now(),
-  updated_at   timestamptz not null default now()
+  updated_at   timestamptz not null default now(),
+  hidden_at    timestamptz
 );
+alter table public.duty_boards add column if not exists hidden_at timestamptz;
+-- 이 칸이 생기기 전에 보관해 둔 당번 — 보관한 당번은 저장을 받지 않으므로 updated_at 이 곧 보관한 때다. 준비 중 당번은 비워 둔다(언제 숨겼는지 알 수 없다 —
+--   그대로 보관하면 세지 않는다 · 다시 열면 모두 센다). 다시 돌려도 안전: 트리거가 생긴 뒤에는 이 문장이 hidden_at 을 바꾸지 못한다(숨긴 채의 저장은 옛 값을 지킨다).
+update public.duty_boards set hidden_at = updated_at where status = 'archived' and hidden_at is null;
 
 -- 자리 틀 — 「주일 · 2부 · 설거지 · 11:30~12:30 · 2명」. 자리(duty_slots)는 이 줄을 가리키고 이름·시각을 여기서 읽는다(고치면 그 틀의 모든 자리에 보인다).
 --   weekday: 0=주일 … 6=토(extract(dow) 와 같다 · isodow 아님) · null = 날짜를 골라 넣는 줄(한 번짜리 모집 · 특별 예배)
@@ -166,6 +176,22 @@ alter table public.duty_notify_log enable row level security;
 revoke all on public.duty_boards, public.duty_lines, public.duty_days, public.duty_slots, public.duty_signups, public.duty_notify_log from public, anon, authenticated;
 grant all on public.duty_boards, public.duty_lines, public.duty_days, public.duty_slots, public.duty_signups, public.duty_notify_log to service_role;
 revoke all on sequence public.duty_lines_id_seq, public.duty_slots_id_seq, public.duty_signups_id_seq from public, anon, authenticated;
+
+-- 당번을 앱에서 숨긴 때(duty_boards.hidden_at)를 적는 트리거 — 당번 줄을 쓰는 곳(교회 어드민 dutyBoardSave 는 표에 바로 쓴다)이 무엇이든 여기 한 곳에서 맞춘다.
+--   새 당번 · 보이는 상태(받는 중·지원 멈춤)로의 저장: null / 보이다가 숨김(준비 중·보관): 지금 / 숨긴 채의 저장(준비 중 ↔ 보관 · 다른 칸 고치기): 옛 값 그대로.
+--   ⚠️ 보관을 풀었다가 다시 보관하면 그 사이(보관해 둔 동안) 지나간 날짜의 줄이 「지난 봉사」에 돌아온다 — 보이는 동안에는 담당자가 지난 날 명단을 바로잡을 수 있으므로
+--      (친구 결정 「당번표에 이름이 남아 있던 날」) 다시 숨기기 전에 그 줄을 빼면 된다.
+create or replace function public.duty_board_hidden_stamp() returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if tg_op = 'INSERT' or new.status in ('open','closed') then new.hidden_at := null;
+  elsif old.status in ('open','closed') then new.hidden_at := now();
+  else new.hidden_at := old.hidden_at;
+  end if;
+  return new;
+end $$;
+drop trigger if exists duty_boards_hidden_stamp on public.duty_boards;
+create trigger duty_boards_hidden_stamp before insert or update on public.duty_boards
+  for each row execute function public.duty_board_hidden_stamp();
 
 -- ---------- 작은 도우미 ----------
 -- 오늘(한국)
@@ -416,7 +442,9 @@ end $$;
 -- 하루 또는 기간을 쉬는 날로 / 다시 열기 — **지원 줄은 건드리지 않는다**(쉬는 동안 찬 수·겹침·전날 알림에서 빠지고, 다시 열면 그대로 살아난다).
 --   p_expect = 화면이 확인 창에 보여 준 「상태가 바뀌는 날의 살아 있는 지원 수」. null 이면 **세기만** 한다({ok, dry:true, active, days} · 아무것도 안 씀).
 --   숫자를 주면 지금 수와 같을 때만 쓴다(그 사이 지원이 들어왔으면 {ok:false, error:'changed', active}).
---   기간은 오늘 이후 · 92일까지 · 오늘 + 400일 안(날짜 더하기·확정과 같은 끝 — 그 밖의 날짜 줄은 지울 길이 없다).
+--   기간은 92일까지 · 오늘 + 400일 안(날짜 더하기·확정과 같은 끝 — 그 밖의 날짜 줄은 지울 길이 없다). **쉬는 날로 거는 것은 오늘 이후만** ·
+--   **다시 열기는 지난 날도**(오늘 − 400일까지 — 명단이 읽는 범위): 쉬는 날의 줄은 「지난 봉사」(duty_past)에서 빠지므로, 잘못 걸었거나 계획이 바뀌어 실제로 섬긴 날을
+--   지난 뒤에도 바로잡을 수 있어야 한다(전에는 그날이 지나면 풀 길이 없었다 — 독립 확인 반영 2026-10-07). 지난 날을 다시 열어도 알림은 가지 않는다(api 가 지난 줄을 거른다).
 --   쉬는 날로 바꿀 때는 그 기간에서 **자리가 있거나 요일이 맞아 자리가 생길 날짜**의 날짜 줄을 미리 만든다
 --   (보이는 기간 밖이라 자리가 아직 없는 여름 휴가도 미리 쉬는 날로 둘 수 있다).
 --   p_note(null 이면 메모는 그대로): 쉬는 날로 바꿀 때는 그 기간의 **쉬는 날 모두**(이번에 바뀐 날 + 이미 쉬던 날)에 적는다(「여름 휴가」).
@@ -426,7 +454,8 @@ create or replace function public.duty_days_off(p_board uuid, p_from date, p_to 
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare b public.duty_boards; d0 date := duty_today(); n int; changed int; ids jsonb;
 begin
-  if p_off is null or p_from is null or p_to is null or p_to < p_from or p_from < d0 or p_to - p_from > 92 or p_to > d0 + 400 then
+  if p_off is null or p_from is null or p_to is null or p_to < p_from or p_to - p_from > 92 or p_to > d0 + 400
+     or (p_off and p_from < d0) or (not p_off and p_from < d0 - 400) then
     return jsonb_build_object('ok',false,'error','bad-range');
   end if;
   if p_note is not null and char_length(p_note) > 60 then return jsonb_build_object('ok',false,'error','too-long'); end if;
@@ -989,7 +1018,10 @@ begin
   return jsonb_build_object('ok', true, 'today', d0,
     'board', jsonb_build_object('id', b.id, 'title', b.title, 'description', b.description, 'place', b.place,
                                 'contact', b.contact_note, 'status', b.status, 'maxAhead', b.max_ahead),
-    'days', v_days);
+    'days', v_days,
+    -- 지난 봉사의 두 수(줄 없이 — duty_past 는 이 파일 아래에 있다 · plpgsql 이라 부를 때 찾는다): 당번표의 「지난 봉사 N번」 한 줄이
+    --   당번표만 다시 받는 길(화면이 다시 보일 때 — 날이 바뀌었거나 담당자가 지난 줄을 바로잡은 뒤)에서도 맞게(독립 확인 반영 2026-10-07)
+    'past', duty_past(p_user, 0));
 end $$;
 
 -- 성도님: 내 당번 — 오늘 이후(오늘 것은 그날 끝까지) · 받는 중·지원 멈춤 당번 · 살아 있는 줄 + 담당자가 뺀 줄(그날이 지날 때까지 「담당자가 빼 드렸어요」).
@@ -1026,13 +1058,17 @@ $$;
 --   날짜가 지난 내 줄 가운데 **당번표에 남아 있는 것**. 한 자리가 한 번이다(같은 날 두 자리에 섰으면 두 번).
 --   세는 기준(친구 결정 「당번표에 이름이 남아 있던 날」 — 앱에는 출석 확인이 없다):
 --     날짜가 오늘보다 앞(오늘 것은 duty_mine 에 그날 끝까지 있다 — 두 곳에 함께 나오지 않는다) · 살아 있는 줄(스스로 취소·담당자가 뺌·기록 합치기로 정리된 줄은 세지 않는다 —
---     안 오신 분은 담당자가 지난 날 명단에서 빼면 여기서도 빠진다) · 그날과 그 자리가 쉬지 않았다 · 준비 중이 아닌 당번(보관한 당번의 기록도 남는다).
---   {today: 오늘(한국 달력 — 화면이 올해가 아닌 줄에 해를 적는다), total: 모두 몇 번, year: 올해 몇 번, rows: 가까운 날부터 p_limit 줄(0~200) [{date, board, service, task, start, end}]}
+--     안 오신 분은 담당자가 지난 날 명단에서 빼면 여기서도 빠진다) · 그날과 그 자리가 쉬지 않았다 · **앱에 보이는 당번**(받는 중·지원 멈춤)의 줄 모두 +
+--     **보관한 당번은 앱에 보이던 동안 끝난 자리만**(자리의 끝 시각 <= hidden_at — 끝난 한 번짜리 모집의 기록은 남고, 앞날에 선 분이 있는 채 접은 당번의 그 뒤 날짜는 세지 않는다:
+--     보관한 당번의 줄은 내 당번·전날 알림에서 빠지고 담당자도 못 빼므로, 그 날짜들을 세면 서지 않은 날이 고칠 길 없이 이력에 들어온다 — 독립 확인 반영 2026-10-07).
+--     준비 중 당번 · 한 번도 앱에 보인 적 없이 보관한 당번(hidden_at 이 비었다)은 세지 않는다.
+--   {today: 오늘(한국 달력 — 화면이 올해가 아닌 줄에 해를 적는다), total: 모두 몇 번, year: 올해 몇 번, rows: 가까운 날부터 p_limit 줄(0~200) [{date, board, service, task, start, end, contact}]}
+--   contact = 그 당번의 문의처 한 줄(당번표·내 당번에 이미 보이는 글 — 「다르게 적혀 있으면 담당자께」라고 말하는 화면에 닿을 길을 함께 둔다 · 보관한 당번은 여기서만 보인다).
 --   ⚠️ 내 것만 싣는다(다른 분의 이름·수 없음) · user_id·줄 번호·소속·메모를 싣지 않는다(누를 것이 없는 읽기다).
 create or replace function public.duty_past(p_user uuid, p_limit int default 60)
 returns jsonb language sql stable security definer set search_path = public as $$
   with mine as (
-    select e.id, s.on_date, b.title, l.service, l.task, l.start_time, l.end_time
+    select e.id, s.on_date, b.title, b.contact_note, l.service, l.task, l.start_time, l.end_time
     from public.duty_signups e
     join public.duty_slots s on s.id = e.slot_id
     join public.duty_lines l on l.id = s.line_id
@@ -1040,7 +1076,9 @@ returns jsonb language sql stable security definer set search_path = public as $
     join public.duty_boards b on b.id = s.board_id
     where p_user is not null and e.user_id = p_user and e.status = 'active'
       and s.on_date < duty_today() and not d.off and not s.off
-      and b.status in ('open','closed','archived')
+      and (b.status in ('open','closed')
+           or (b.status = 'archived' and b.hidden_at is not null
+               and ((s.on_date + l.end_time) at time zone 'Asia/Seoul') <= b.hidden_at))
   )
   select jsonb_build_object(
     'today', duty_today(),
@@ -1048,7 +1086,7 @@ returns jsonb language sql stable security definer set search_path = public as $
     'year',  (select count(*) from mine m where extract(year from m.on_date) = extract(year from duty_today()))::int,
     'rows',  coalesce((
       select jsonb_agg(jsonb_build_object('date', q.on_date, 'board', q.title, 'service', q.service, 'task', q.task,
-               'start', to_char(q.start_time, 'HH24:MI'), 'end', to_char(q.end_time, 'HH24:MI'))
+               'start', to_char(q.start_time, 'HH24:MI'), 'end', to_char(q.end_time, 'HH24:MI'), 'contact', q.contact_note)
              order by q.on_date desc, q.start_time desc, q.id desc)
       from (select * from mine m order by m.on_date desc, m.start_time desc, m.id desc
             limit greatest(0, least(coalesce(p_limit, 60), 200))) q), '[]'::jsonb))
@@ -1290,6 +1328,7 @@ returns bigint[] language sql stable security definer set search_path = public a
 $$;
 
 -- ---------- 권한 — 모든 함수: 공개 역할에서 빼고 service_role 만(파일 끝 확인 질의가 0 을 본다) ----------
+revoke all on function public.duty_board_hidden_stamp() from public, anon, authenticated;
 revoke all on function public.duty_today() from public, anon, authenticated;
 revoke all on function public.duty_cutoff(date) from public, anon, authenticated;
 revoke all on function public.duty_locked(timestamptz, date) from public, anon, authenticated;
@@ -1323,6 +1362,7 @@ revoke all on function public.duty_after_count(uuid, date) from public, anon, au
 revoke all on function public.duty_notify_claim(text, bigint[], date) from public, anon, authenticated;
 revoke all on function public.duty_notify_rows(bigint[]) from public, anon, authenticated;
 revoke all on function public.duty_remind_ids(date) from public, anon, authenticated;
+grant execute on function public.duty_board_hidden_stamp() to service_role;
 grant execute on function public.duty_today() to service_role;
 grant execute on function public.duty_cutoff(date) to service_role;
 grant execute on function public.duty_locked(timestamptz, date) to service_role;
@@ -1360,7 +1400,7 @@ grant execute on function public.duty_remind_ids(date) to service_role;
 commit;
 
 -- 확인(CLI 는 마지막 SELECT 하나만 보여 준다 — 한 문장으로 묶었다)
---   기대: tables 6 · functions 33 · rls on 6 · table grants 0 · routine grants 0 · anon can execute 0 · service_role can execute 33 · sequence grants 0
+--   기대: tables 6 · functions 34 · rls on 6 · table grants 0 · routine grants 0 · anon can execute 0 · service_role can execute 34 · sequence grants 0
 select 'tables' as t, count(*) from pg_tables where schemaname = 'public'
     and tablename in ('duty_boards','duty_lines','duty_days','duty_slots','duty_signups','duty_notify_log')
 union all select 'functions', count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
