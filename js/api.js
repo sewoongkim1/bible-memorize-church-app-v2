@@ -3,6 +3,10 @@
 //   모든 데이터 요청은 이 함수를 통해 Edge Function 'api' 로 전달된다.
 // ============================================================
 async function supaCall(action, payload = {}) {
+  // 교회 생활 확인 번호(2026-10-08) — 확인을 마친 기기 토큰을 모든 요청에 자동으로 싣는다(서버 lifeError 가 본다).
+  //   payload 에 이미 device 가 있으면 그대로 둔다. 없거나 못 읽으면 안 싣는다(자물쇠가 꺼져 있으면 서버가 무시).
+  let device = "";
+  try { device = localStorage.getItem("life-device") || ""; } catch (_) {}
   const res = await fetch(`${window.SUPA.URL}/functions/v1/api`, {
     method: "POST",
     headers: {
@@ -10,7 +14,7 @@ async function supaCall(action, payload = {}) {
       "Authorization": `Bearer ${window.SUPA.ANON}`,
       "apikey": window.SUPA.ANON,
     },
-    body: JSON.stringify({ action, ...payload }),
+    body: JSON.stringify({ action, ...(device ? { device } : {}), ...payload }),
   });
   let data = {};
   try { data = await res.json(); } catch (_) {}
@@ -80,6 +84,11 @@ const api = {
   // 구글 출시 심사 전(2026-10-01) — 이용 규칙 동의 · 이분 글 가리기(내 화면에서만) · AI 답 알리기
   //   ⚠️ 가리기는 글·답글 번호만 보낸다 — 글쓴 분은 서버가 찾고, 응답에 그분의 user_id 는 실리지 않는다.
   boardRulesAccept: (user_id) => supaCall("boardRulesAccept", { user_id }),
+  // 교회 생활 확인 번호(2026-10-08) — 정하기·맞히기 성공 시 응답 device 를 앱이 localStorage 에 저장한다.
+  lifeGate: (user_id) => supaCall("lifeGate", { user_id }),
+  lifePinSet: (user_id, pin) => supaCall("lifePinSet", { user_id, pin }),
+  lifePinCheck: (user_id, pin) => supaCall("lifePinCheck", { user_id, pin }),
+  lifeResetRequest: (user_id) => supaCall("lifeResetRequest", { user_id }),
   boardBlock: (kind, id, user_id) => supaCall("boardBlock", { kind, id, user_id }),
   boardBlocks: (user_id) => supaCall("boardBlocks", { user_id }),           // { ok, list:[{ id, name, created_at }] }
   boardUnblock: (user_id, block_id) => supaCall("boardUnblock", { user_id, block_id }),
