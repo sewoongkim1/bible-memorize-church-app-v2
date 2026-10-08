@@ -4756,6 +4756,7 @@ function boardWriteErrorMsg(e, prefix) {
 // 규칙 창. needAccept=true 면 「위 규칙을 지키겠습니다」 체크 뒤 「동의하고 쓰기」 — 서버에 날짜를 남긴다.
 // needAccept=false(「📜 이용 규칙 보기」)면 읽기만 — 아직 동의 전이면 같은 창에서 동의할 수도 있다.
 // ── 교회 생활 확인 번호 (2026-10-08 · 설계 docs/superpowers/specs/2026-10-08-church-life-pin-design.md) ──
+let lifeGateOn = false;   // 확인 번호 문이 이 분에게 켜져 있나(off 가 아니면 참) — 사역신청 번호 칸을 가린다(Plan 5)
 function lifeDevice() { try { return localStorage.getItem("life-device") || ""; } catch (_) { return ""; } }
 function saveLifeDevice(token) { try { if (token) localStorage.setItem("life-device", token); } catch (_) {} }
 
@@ -4766,6 +4767,7 @@ async function lifeEnter(next) {
   let g;
   try { g = await api.lifeGate(uid); } catch (_) { next(); return; }  // 못 물으면 막지 않는다(서버 lifeError 가 최후 방어)
   const state = g && g.state;
+  lifeGateOn = state !== "off";                 // 사역신청 번호 칸 가드가 본다(Plan 5)
   if (state === "off" || state === "ok") { next(); return; }
   if (state === "locked") { await openLifeLocked(uid); return; }      // 오늘 잠김 — 풀기 요청만
   const user = (typeof loadUser === "function") ? loadUser() : null;
@@ -4866,6 +4868,44 @@ function openLifePin(mode, user) {
     document.addEventListener("keydown", onKey, true);
     document.body.appendChild(wrap);
     requestAnimationFrame(() => { wrap.classList.add("show"); try { p1.focus({ preventScroll: true }); } catch (_) {} });
+  });
+}
+
+// 교적과 안 맞은 분이 사역신청 저장 때 연락처를 한 번 남기는 창(Plan 5). 저장하면 true, 닫으면 false.
+function openLifeContact(user) {
+  return new Promise((resolve) => {
+    const old = document.getElementById("lp-modal"); if (old) old.remove();
+    const wrap = document.createElement("div"); wrap.id = "lp-modal"; wrap.className = "am-overlay";
+    wrap.innerHTML = `
+      <div class="am-card" role="dialog" aria-modal="true" aria-labelledby="lp-title">
+        <div class="am-ico" aria-hidden="true">📞</div>
+        <div class="am-title" id="lp-title">연락처를 남겨 주세요</div>
+        <div class="am-msg">교적에 등록된 번호와 맞지 않아요.<br><span class="lp-sub">담당자가 임명·연락에 씁니다. 늦어도 180일이 지나면 저절로 지워요.</span></div>
+        <input class="lp-pin" id="lp-contact" type="tel" inputmode="numeric" maxlength="13" placeholder="010-1234-5678" autocomplete="off" aria-label="휴대폰 번호" />
+        <div class="lp-err" role="alert" hidden></div>
+        <div class="am-btns">
+          <button type="button" class="am-btn am-cancel">그만두기</button>
+          <button type="button" class="am-btn am-ok" id="lp-contact-ok">남기기</button>
+        </div>
+      </div>`;
+    const errEl = wrap.querySelector(".lp-err");
+    const input = wrap.querySelector("#lp-contact");
+    const close = (v) => { wrap.classList.remove("show"); setTimeout(() => wrap.remove(), 160); resolve(v); };
+    input.addEventListener("input", function () { this.value = pilsaPhoneFmt(this.value); });
+    wrap.addEventListener("click", (e) => { if (e.target === wrap) close(false); });
+    wrap.querySelector(".am-cancel").addEventListener("click", () => close(false));
+    wrap.querySelector("#lp-contact-ok").addEventListener("click", async () => {
+      const ph = pilsaPhoneFmt(input.value);
+      if (!pilsaPhoneOk(ph)) { errEl.textContent = "010-1234-5678 꼴로 넣어 주세요."; errEl.hidden = false; input.focus(); return; }
+      try {
+        const r = await api.lifeContactSave(myUserId(), ph);
+        if (r && r.ok) { close(true); return; }
+        errEl.textContent = (r && r.error === "pin-needed") ? "본인 확인이 필요해요. 다시 들어와 주세요." : "지금은 남기지 못했어요.";
+        errEl.hidden = false;
+      } catch (_) { errEl.textContent = "연결이 고르지 않아요. 잠시 뒤 다시 눌러 주세요."; errEl.hidden = false; }
+    });
+    document.body.appendChild(wrap);
+    requestAnimationFrame(() => { wrap.classList.add("show"); try { input.focus({ preventScroll: true }); } catch (_) {} });
   });
 }
 
@@ -12818,12 +12858,17 @@ function minConfirmHtml() {
             (x === minPosVal ? " selected" : "") + '>' + minEsc(x) + '</option>';
         }).join("") +
       '</select></div>' +
-    '<div class="min-p4"><label for="min-phone">휴대폰</label>' +
-      '<input id="min-phone" type="tel" inputmode="numeric" maxlength="13" placeholder="010-1234-5678"' +
-      ' value="' + minEsc(pilsaPhoneFmt(minPhoneVal)) + '" autocomplete="off"></div>' +
-    '<div class="min-note">' + (minMine ? '처음 신청하실 때 넣은 번호와 같아야 고쳐집니다. ' : '') +
-      '직분과 휴대폰 번호는 <b>본인 확인·교적 대조와 임명 뒤 연락</b>에 씁니다. ' +
-      '번호는 임명·취소가 정해진 뒤 지울 수 있고, <b>늦어도 180일</b>이 지나면 저절로 지웁니다.</div>' +
+    (lifeGateOn ? '' :
+      '<div class="min-p4"><label for="min-phone">휴대폰</label>' +
+        '<input id="min-phone" type="tel" inputmode="numeric" maxlength="13" placeholder="010-1234-5678"' +
+        ' value="' + minEsc(pilsaPhoneFmt(minPhoneVal)) + '" autocomplete="off"></div>') +
+    '<div class="min-note">' +
+      (lifeGateOn
+        ? '직분은 <b>임명</b>에 씁니다. 연락처는 <b>교적</b>에서 확인하며, 교적과 다를 때만 한 번 여쭤봐요.'
+        : ((minMine ? '처음 신청하실 때 넣은 번호와 같아야 고쳐집니다. ' : '') +
+           '직분과 휴대폰 번호는 <b>본인 확인·교적 대조와 임명 뒤 연락</b>에 씁니다. ' +
+           '번호는 임명·취소가 정해진 뒤 지울 수 있고, <b>늦어도 180일</b>이 지나면 저절로 지웁니다.')) +
+      '</div>' +
     '<button class="min-cta" id="min-submit">제출하기<span class="min-cta-s">신청 후 임명을 받아야 시작할 수 있어요</span></button>' +
     '<button class="min-ghost" id="min-back">사역신청 화면으로</button>';
 }
@@ -12865,7 +12910,7 @@ function wireMinConfirm(u) {
       return;
     }
     minPhoneVal = phel ? pilsaPhoneFmt(phel.value) : "";
-    if (!pilsaPhoneOk(minPhoneVal)) {
+    if (!lifeGateOn && !pilsaPhoneOk(minPhoneVal)) {   // 확인 번호 켜진 분은 번호 칸이 없다(Plan 5)
       minAlert("휴대폰 번호를 010-1234-5678 꼴로 넣어 주세요.");
       if (phel) phel.focus();
       return;
@@ -12880,6 +12925,14 @@ function wireMinConfirm(u) {
         phone: minPhoneVal, position: minPosVal, pw: minPw(), preview: minPrev(),
       };
       let r = await api.ministryApply(order);
+      // 교적과 안 맞은 분: 연락처를 한 번 받고 다시 보낸다(확인 번호 문이 켜진 경우만 온다)
+      let contactTries = 0;
+      while (r && r.confirm === "contact-needed" && contactTries < 1) {
+        contactTries++;
+        const ok = await openLifeContact(u);
+        if (!ok) { renderMinistry(); return; }
+        r = await api.ministryApply(order);
+      }
       // 같은 번호로 다른 소속의 신청이 있으면 서버가 한 번 묻는다(다른 교구·목장으로 로그인해 낸 경우)
       // ⚠️ 문구는 r.message — error 에 담으면 supaCall 이 던져 이 자리에 오지 못한다
       if (r && r.confirm === "dup-phone") {
