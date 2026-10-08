@@ -163,12 +163,39 @@ function json(obj: unknown, status = 200) {
   });
 }
 
+// 관리자 문에 「총괄 본인」 확인 (2026-10-08 · 설계 docs/superpowers/specs/2026-10-08-admin-gate-super-check-design.md)
+// 암호 하나로 열리던 것을 「암호 + 그 브라우저에 로그인된 사람이 교회 어드민 활성 총괄」로 좁힌다(임시 자물쇠).
+const SUPER_OK = Symbol("superOk");   // 들머리가 붙인다 · JSON 으로 못 만든다 → 위조 불가
+const ADMIN_PW_ONLY = new Set([        // 사람 없는 기계 호출(크론·MCP·설교) — 암호만으로 통과
+  "sendPush", "weeklyVersePush", "weeklyReport", "monitor", "eveningPush",
+  "findMember", "memberParticipation", "sermonJobGet", "sermonJobUpdate", "embedSermons", "importV1",
+]);
+// b.staff(로그인된 사람)가 교회 어드민 활성 총괄(super)과 같은 사람인가 — 같은 프로젝트 표라 직접 읽는다.
+// ⚠️ admin_role_grants → admin_members FK 가 둘(member_id·granted_by)이라 임베드가 모호하다 → 두 질의.
+// ⚠️ 목장 표기는 양방향(ministryStaffCandidates)·NFC 안 함(성경암송 가입과 같게).
+async function staffIsSuper(b: any): Promise<boolean> {
+  const st = b?.staff && typeof b.staff === "object" && !Array.isArray(b.staff) ? b.staff : null;
+  if (!st || !norm(st.name)) return false;
+  const g = await db.from("admin_role_grants").select("member_id").eq("role_id", "super");
+  if (g.error || !g.data || !g.data.length) return false;
+  const ids = (g.data as any[]).map((r) => r.member_id);
+  const m = await db.from("admin_members").select("type,gu,mok,bu,grade,name").eq("status", "active").in("id", ids);
+  if (m.error || !m.data) return false;
+  const want = new Set(ministryStaffCandidates(st));
+  for (const row of m.data as any[]) {
+    if (ministryStaffCandidates(row).some((k) => want.has(k))) return true;
+  }
+  return false;
+}
+
 // 관리자 비밀 확인 → null이면 통과, 아니면 에러코드
 function adminError(b: any): string | null {
   const secret = Deno.env.get("ADMIN_SECRET");
   if (!secret) return "no-password-set";
   if ((b.pw ?? "") !== secret) return "unauthorized";
-  return null;
+  // 암호는 맞다. 기계 예외 액션이거나, 들머리가 확인한 총괄이면 통과. 아니면 틀린 암호와 **같은 답**(정보 안 흘림).
+  if (ADMIN_PW_ONLY.has(b.action)) return null;
+  return (b as any)[SUPER_OK] === true ? null : "unauthorized";
 }
 
 // 사역신청 담당자 확인 → null이면 통과 (2026-09-17)
@@ -374,6 +401,11 @@ Deno.serve(async (req) => {
           if (data) body[field] = data.target_user_id;
         }
       }
+    }
+    // 관리자 암호가 맞고 예외 액션이 아니면, 이 staff 가 총괄인지 한 번 확인해 본문에 붙인다(adminError 가 본다).
+    //   ⚠️ body.pw 가 빈 값일 때 ADMIN_SECRET 미설정과 겹치지 않게 `&& body.pw`.
+    if ((body.pw ?? "") === (Deno.env.get("ADMIN_SECRET") ?? "") && body.pw && !ADMIN_PW_ONLY.has(body.action)) {
+      try { (body as any)[SUPER_OK] = await staffIsSuper(body); } catch (_) { (body as any)[SUPER_OK] = false; }
     }
     switch (body.action) {
       case "authCheck": {   // 관리자 비번 검증(허브 로그인용)
