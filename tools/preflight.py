@@ -165,6 +165,39 @@ for t in PURE_TESTS:
             detail = "        " + out.strip()[:400]
         bad("%s — 검사가 떨어졌다\n%s\n        → node --test %s 로 자세히 볼 것" % (t, detail, t))
 
+# ── 4) 화면이 부르는 파일이 사이트로 나가나 ─────────────────────────
+# 사이트에는 tools/site.py 의 목록만 나간다(2026-10-08). 화면이 목록 밖의 파일을 부르면
+# localhost 에서는 열리고 운영에서만 404 가 난다 — 여기서 미리 잡는다.
+# ⚠️ src·href 에 그대로 적힌 주소와 manifest 의 src 만 본다. 코드가 조립하는 주소("img/verse/" + 번호)는 못 본다.
+print("\n[4] 화면이 부르는 파일이 사이트 목록 안에 있나 (tools/site.py)")
+import importlib.util as _ilu   # 이름이 표준 모듈 site 와 같아서 경로로 부른다
+_sp = _ilu.spec_from_file_location("site_list", os.path.join(ROOT, "tools", "site.py"))
+_site_mod = _ilu.module_from_spec(_sp); _sp.loader.exec_module(_site_mod)
+_site = set(_site_mod.site_files())
+_missing = []
+_pages = [f for f in sorted(_site) if f.endswith(".html")] + ["manifest.json"]
+for pg in _pages:
+    src = re.sub(r"<!--.*?-->", " ", read(pg), flags=re.S)
+    pat = r'"src"\s*:\s*"([^"]+)"' if pg.endswith(".json") else r'(?:src|href)\s*=\s*"([^"]+)"'
+    for u in set(re.findall(pat, src)):
+        if re.match(r"(?:[a-z][a-z0-9+.-]*:|//|#)", u, re.I) or "${" in u or "'" in u or "+" in u or "{{" in u:
+            continue
+        u = u.split("#")[0].split("?")[0]
+        if not u or not u.strip("."):   # 빈 주소 · 글자로 적은 "..."
+            continue
+        t = os.path.normpath(os.path.join(os.path.dirname(pg), u)).replace("\\", "/") if not u.startswith("/") else u.lstrip("/")
+        if t in (".", ""):
+            t = "index.html"
+        elif u.endswith("/") or os.path.isdir(os.path.join(ROOT, t)):
+            t = t.rstrip("/") + "/index.html"
+        if t not in _site:
+            _missing.append("%s → %s" % (pg, u))
+if _missing:
+    bad("화면이 부르는데 사이트로 안 나가는 파일 %d개 — tools/site.py 의 목록(SITE_DIRS·ROOT_EXT)에 넣거나 화면 폴더로 옮길 것\n%s"
+        % (len(_missing), "\n".join("        " + m for m in _missing[:20])))
+else:
+    ok("화면 %d개의 src·href 가 모두 사이트 목록(%d개) 안" % (len(_pages), len(_site)))
+
 # ── 결과 ────────────────────────────────────────────────────────────
 print()
 if fail:

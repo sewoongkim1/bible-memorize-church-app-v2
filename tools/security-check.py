@@ -51,7 +51,11 @@ PUBLIC_READS = ["ranking", "guRanking", "getVerses", "getConfig", "verseCounts",
 
 # 사이트에서 열리면 안 되는 주소(200 이면 위험)
 MUST_404 = ["/.env", "/.env.dev", "/.env.local", "/.git/config", "/.git/HEAD", "/migrate/v1dump.json",
-            "/board.json", "/supabase/.temp/project-ref", "/signing-key-info.txt", "/android-app/signing-key-info.txt"]
+            "/board.json", "/supabase/.temp/project-ref", "/signing-key-info.txt", "/android-app/signing-key-info.txt",
+            # 2026-10-08 부터 화면 파일만 나간다(tools/site.py) — 아래가 열리면 배포 범위가 도로 넓어진 것이다
+            "/CLAUDE.md", "/README.md", "/docs/backlog.md", "/supabase/schema.sql", "/supabase/functions/api/index.ts",
+            "/tools/preflight.py", "/tests/smoke-readonly.sh", "/booklet/generate.py", "/android-app/twa-manifest.json",
+            "/ios-app/package.json", "/%EC%9E%90%EB%A3%8C/store/README.md"]
 
 SECRET_PATTERNS = [
     ("Supabase secret 키", r"sb_secret_[A-Za-z0-9_-]{20,}"),
