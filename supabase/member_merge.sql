@@ -85,7 +85,8 @@ begin
   foreach t in array array['progress','challenge_log','reviews','passage_progress','blessing_log','feature_log',
     'board_posts','board_replies','board_reactions','event_entries','push_subscriptions',
     'pilsa_orders','ministry_orders','event_signups','daily_activity',
-    'ios_push_tokens','ministry_history_requests','edu_enrollments','duty_signups'] loop
+    'ios_push_tokens','ministry_history_requests','edu_enrollments','duty_signups',
+    'life_devices','life_pins','life_reset_requests'] loop
     if to_regclass('public.' || t) is not null then
       execute format('drop trigger if exists redirect_merged_member_write on public.%I', t);
       execute format('create trigger redirect_merged_member_write before insert or update on public.%I for each row execute function public.redirect_merged_member_write(''user_id'')', t);
@@ -122,7 +123,8 @@ begin
   --    합친 뒤 수 = 지운 열린 신청 수. 남는 쪽에 같은 줄의 열린 신청이 있던 것만 지운다).
   foreach t in array array['challenge_log','progress','reviews','passage_progress','board_posts',
     'board_replies','event_entries','pilsa_orders','ministry_orders','event_signups','push_subscriptions',
-    'blessing_log','daily_activity','feature_log','ios_push_tokens','ministry_history_requests','edu_enrollments','duty_signups'] loop
+    'blessing_log','daily_activity','feature_log','ios_push_tokens','ministry_history_requests','edu_enrollments','duty_signups',
+    'life_pins','life_devices','life_reset_requests'] loop
     if to_regclass('public.' || t) is not null then
       execute format('select count(*) from public.%I where user_id::text=$1',t) into n using p_id::text;
       result := result || jsonb_build_object(t,n);
@@ -264,7 +266,8 @@ begin
         'push_subscriptions','board_posts','board_replies','board_reactions','event_entries',
         'daily_activity','pilsa_orders','ministry_orders','event_signups','user_identity_aliases','user_profile_changes',
         'board_blocks','board_reports','sermon_answer_reports',
-        'ios_push_tokens','ministry_history_requests','edu_enrollments','duty_signups')
+        'ios_push_tokens','ministry_history_requests','edu_enrollments','duty_signups',
+        'life_pins','life_devices','life_reset_requests')
   loop
     execute format('select count(*) from public.%I where %I::text=$1',ref.tbl,ref.col) into n using s.id::text;
     if n>0 then return jsonb_build_object('ok',false,'error','merge-unsupported-records'); end if;
@@ -471,6 +474,17 @@ begin
     execute format('update public.%I set user_id=$1::%s where user_id=$2::%s',ref.table_name,ref.data_type,ref.data_type)
       using t.id::text,s.id::text;
   end loop;
+  -- 확인 번호(2026-10-08): 기기는 둘 다 지워 다시 맞히게 한다 · 번호는 남는 쪽이 있으면 그것, 없으면 옮긴다 · 풀기 요청은 옮긴다.
+  if to_regclass('public.life_devices') is not null then
+    delete from public.life_devices where user_id in (s.id, t.id);
+  end if;
+  if to_regclass('public.life_pins') is not null then
+    delete from public.life_pins where user_id=s.id and exists (select 1 from public.life_pins where user_id=t.id);
+    update public.life_pins set user_id=t.id where user_id=s.id;
+  end if;
+  if to_regclass('public.life_reset_requests') is not null then
+    update public.life_reset_requests set user_id=t.id where user_id=s.id;
+  end if;
   -- challenge_log의 기존 트리거는 UPDATE를 집계하지 않는다. 두 사람의 집계를 로그로 재생성.
   if to_regclass('public.daily_activity') is not null then
     delete from public.daily_activity where user_id in(s.id::text,t.id::text);
