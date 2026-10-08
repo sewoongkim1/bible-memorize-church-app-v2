@@ -437,6 +437,7 @@ Deno.serve(async (req) => {
       case "lifePinSet":    return json(await lifePinSet(body));
       case "lifePinCheck":  return json(await lifePinCheck(body));
       case "lifeResetRequest": return json(await lifeResetRequest(body));
+      case "lifeContactSave":  return json(await lifeContactSave(body));
       case "saveProgress":  return json(await saveProgress(body));
       case "saveHeart":     return json(await saveHeart(body));
       case "getConfig":     return json(await getConfig(body));
@@ -2656,6 +2657,58 @@ async function lifeMatchPerson(uid: string) {
       : { person_how: "no", matched_at: new Date().toISOString() };
     await db.from("life_pins").update(patch).eq("user_id", uid);
   } catch (_) { /* 맞대기 실패가 번호 정하기를 막지 않는다 */ }
+}
+
+const LIFE_CONTACT_DAYS = 180;   // 교적과 안 맞은 분의 연락처 보관(친구 결정 §11-4 · 바꾸려면 여기 하나)
+
+// 이 사용자에게 확인 번호 문이 켜져 있나 — 켜졌으면 사역신청이 번호 대신 교적 맞대기로 간다.
+// ⚠️ lifeError 와 같은 「켜짐」 조건이되 기기 확인은 보지 않는다(ministryApply 는 이미 lifeError 를 지나왔다).
+async function lifeActive(b: any): Promise<boolean> {
+  try {
+    if (!adminError(b)) return false;                 // 관리자 비번(담당자 암호 포함)은 옛 흐름
+    const sw = await lifeSwitch();
+    if (!sw) return false;
+    const uid = storeUid(b.user_id);
+    if (!uid) return false;
+    if (sw === "test" && !(await ministryIsTester(uid))) return false;
+    return !!(Deno.env.get("LIFE_PIN_SECRET") ?? "");
+  } catch (_) { return false; }
+}
+
+// 교적과 이어졌나 — person_id 가 있고 사람/자동이 정한 줄(auto·staff)이면 이어진 것. no 는 「명부를 읽었는데 안 맞음」.
+async function lifePersonLinked(uid: string): Promise<{ linked: boolean; how: string }> {
+  try {
+    const { data } = await db.from("life_pins").select("person_id,person_how").eq("user_id", uid).maybeSingle();
+    const how = (data as any)?.person_how ?? "";
+    const linked = !!(data as any)?.person_id && (how === "auto" || how === "staff");
+    return { linked, how };
+  } catch (_) { return { linked: false, how: "" }; }
+}
+
+async function lifeContactPhone(uid: string): Promise<string> {
+  try {
+    const { data } = await db.from("life_contacts").select("phone").eq("user_id", uid).maybeSingle();
+    return norm((data as any)?.phone) || "";
+  } catch (_) { return ""; }
+}
+
+// lifeContactSave — 교적과 안 맞은 분이 신청 저장 때 남기는 연락처. 기기 확인된 분만(또는 관리자). 180일 지난 줄은 치운다.
+async function lifeContactSave(b: any) {
+  const uid = storeUid(b.user_id);
+  if (!uid) return { ok: false, error: "로그인한 뒤에 할 수 있어요" };
+  const phone = pilsaPhone(b.phone);
+  if (!PILSA_PHONE_RE.test(phone)) return { ok: false, error: "휴대폰 번호를 확인해 주세요 (010-1234-5678)" };
+  const secret = Deno.env.get("LIFE_PIN_SECRET") ?? "";
+  // 관리자 비번이 아니면 이 기기가 확인됐는지 본다(교회 생활 쓰기이므로)
+  if (adminError(b) && !(secret && await lifeDeviceOk(secret, uid, b.device))) {
+    return { ok: false, error: "pin-needed" };
+  }
+  const now = new Date().toISOString();
+  const { error } = await db.from("life_contacts").upsert({ user_id: uid, phone, updated_at: now }, { onConflict: "user_id" });
+  if (error) throw error;
+  const cut = new Date(Date.now() - LIFE_CONTACT_DAYS * 86400000).toISOString();
+  await db.from("life_contacts").delete().lt("updated_at", cut);
+  return { ok: true };
 }
 
 // 「내 이름으로 하는 일」의 문 — 확인을 마친 기기만. 관리자 비번은 지나간다(adminError).
