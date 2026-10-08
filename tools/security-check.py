@@ -76,7 +76,13 @@ RISKY_NAME = re.compile(r"(^|/)\.env($|\.)|\.(keystore|jks|p8|p12|pfx|pem)$|sign
 DOC_EXT = re.compile(r"\.(xlsx|xls|csv|docx|hwp|hwpx)$", re.I)
 PHONE = r"01[016-9][-. ]?[0-9]{3,4}[-. ]?[0-9]{4}"
 PHONE_LIMIT = 5      # 한 파일에 서로 다른 휴대폰 번호가 이만큼이면 명단일 수 있다
-GUARDS = re.compile(r"\b(adminError|staffRoleError|ministryAdminError|contentError|churchAdminInternal|sameSecret)\(")
+GUARDS = re.compile(r"\b(adminError|staffRoleError|ministryAdminError|contentError|sameSecret)\(")
+# 진짜 관리자 문 — 확인 결과를 받아 **바로 거절**하는 꼴만(갈래·복합조건·도우미 뒤는 아니다).
+#   const e = adminError(b); if (e) return …  /  if (adminError(b)) return …  (await 포함)
+# ⚠️ churchAdminInternal 은 문이 아니다 — 교회 어드민으로 **나가는** 호출이다(성도님 액션이 쓴다). GUARDS 에서 뺐다.
+HARD_GATE = re.compile(
+    r"(?:const|let|var)\s+\w+\s*=\s*(?:await\s+)?(?:adminError|staffRoleError|ministryAdminError|contentError)\([^;]*\)\s*;\s*if\s*\(\s*\w+\s*\)\s*return"
+    r"|if\s*\(\s*(?:await\s+)?(?:adminError|staffRoleError|ministryAdminError|contentError)\([^)]*\)\s*\)\s*return")
 
 
 def git(repo, *a, ok=(0,)):
@@ -220,20 +226,18 @@ def api_surface(src):
             if fn in funcs:
                 text += funcs[fn]
         g = sorted(set(GUARDS.findall(text)))
-        # 「관리자면 숨긴 글도 본다」처럼 확인을 **거절에 쓰지 않고 갈래에만** 쓰는 액션은 공개다
-        # (boardList·eventOpenList — 2026-10-08 틀린 암호 시험에서 「통과」로 잘못 걸렸다)
-        soft = len(re.findall(r"!\s*(?:await\s+)?(?:adminError|staffRoleError|ministryAdminError|contentError)\(|"
-                              r"\b(?:adminError|staffRoleError|ministryAdminError|contentError)\([^)]*\)\s*===\s*null", text))
-        if any(x in g for x in ("churchAdminInternal", "sameSecret")):
+        # 2026-10-08 고침 — 「확인 함수가 있으면 관리자 전용」이 아니다. 확인을 **거절(early return)** 에 쓴
+        #   것만 관리자 문이다. 갈래(!adminError · === null)·복합조건(`&& adminError(b) &&`)·도우미(boardWriteGate)
+        #   뒤에 숨은 것은 암호 없이 지나간다 — 그런 것은 user_id/공개로 센다(「관리자면 더 봄」을 덧붙여 표시).
+        #   (워크플로 SWEEP 가 ministryApply 등 16개를 「관리자 전용」으로 잘못 세고 있었다고 알려 줬다.)
+        hard = bool(HARD_GATE.search(text))
+        if "sameSecret" in g:                     # 인바운드 x-internal-key 검사 — 진짜 내부 전용
             cat = "내부"
-        elif g and soft >= len(GUARDS.findall(text)):
-            cat = "공개(관리자면 더 봄)"
-        elif g:
+        elif g and hard:
             cat = "관리자·담당자"
-        elif re.search(r"\buser_id\b|identity_key", text):
-            cat = "user_id"
         else:
-            cat = "공개"
+            base = "user_id" if re.search(r"\buser_id\b|identity_key|\bb\.me\b", text) else "공개"
+            cat = base + ("(관리자면 더 봄)" if g else "")
         out[c.group(1)] = (cat, ",".join(g))
     return out
 
