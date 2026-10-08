@@ -89,6 +89,8 @@ const api = {
   lifePinSet: (user_id, pin) => supaCall("lifePinSet", { user_id, pin }),
   lifePinCheck: (user_id, pin) => supaCall("lifePinCheck", { user_id, pin }),
   lifeResetRequest: (user_id) => supaCall("lifeResetRequest", { user_id }),
+  // 사역신청에서 교적과 안 맞은 분이 남기는 연락처(2026-10-08 Plan 5) — supaCall 이 기기 토큰을 저절로 붙인다
+  lifeContactSave: (user_id, phone) => supaCall("lifeContactSave", { user_id, phone }),
   boardBlock: (kind, id, user_id) => supaCall("boardBlock", { kind, id, user_id }),
   boardBlocks: (user_id) => supaCall("boardBlocks", { user_id }),           // { ok, list:[{ id, name, created_at }] }
   boardUnblock: (user_id, block_id) => supaCall("boardUnblock", { user_id, block_id }),
