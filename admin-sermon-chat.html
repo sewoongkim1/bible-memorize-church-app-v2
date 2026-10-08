@@ -107,10 +107,16 @@ const TOPICS = [
   { t:"기타", qs:["일터에서 어떻게 신앙생활을 해야 하나요?","일상에서 하나님을 어떻게 섬길 수 있나요?","가정에서 어떻게 신앙적으로 살아야 하나요?","예수님의 제자로 산다는 것은 무엇인가요?","십자가는 우리에게 어떤 의미인가요?"] },
 ];
 
+// 관리자 문(2026-10-08): 이 브라우저에 로그인된 사람(앱 계정)을 함께 — 서버가 총괄 본인인지 본다.
+function admStaff(){
+  try{ const u=JSON.parse(localStorage.getItem("memorize-user")||"null"); if(!u||!u.name) return null;
+    return u.type==="교회학교" ? {type:"교회학교",bu:u.bu||"",grade:u.grade||"",name:u.name} : {type:"교구",gu:u.gu||"",mok:u.mok||"",name:u.name}; }
+  catch(_){ return null; }
+}
 async function call(action, body={}) {
   // 관리자면 pw, 성도면 user_id를 함께 실어 보낸다(백엔드가 알맞게 인가).
   const auth = {};
-  if (pw) auth.pw = pw;
+  if (pw) { auth.pw = pw; auth.staff = admStaff(); }
   if (member && member.id) auth.user_id = member.id;
   const r = await fetch(FN, { method:"POST", headers:{ "Content-Type":"application/json", apikey:KEY, Authorization:"Bearer "+KEY },
     body: JSON.stringify({ action, ...auth, ...body }) });

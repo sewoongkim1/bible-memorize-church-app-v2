@@ -26,7 +26,13 @@
     "merge-unsupported-records": "새 기능의 기록이 연결되어 있어 확인이 필요합니다. 아무 기록도 합치지 않았습니다.",
   };
   const errorText = e => messages[e.message] || "요청을 완료하지 못했습니다. 연결 상태를 확인하고 다시 시도해 주세요. 저장 중이었다면 다시 검색하여 변경 여부를 먼저 확인해 주세요.";
-  const call = (action, body = {}) => supaCall(action, { ...body, pw });
+  // 관리자 문(2026-10-08): 이 브라우저에 로그인된 사람(앱 계정)을 함께 보낸다 — 서버가 총괄 본인인지 본다.
+  const admStaff = () => {
+    try { const u = JSON.parse(localStorage.getItem("memorize-user") || "null"); if (!u || !u.name) return null;
+      return u.type === "교회학교" ? { type: "교회학교", bu: u.bu || "", grade: u.grade || "", name: u.name } : { type: "교구", gu: u.gu || "", mok: u.mok || "", name: u.name }; }
+    catch (_) { return null; }
+  };
+  const call = (action, body = {}) => supaCall(action, { ...body, pw, staff: admStaff() });
   function status(id, text, kind = "") { $(id).textContent = text; $(id).className = `status ${kind}`; }
   function resetMerge() {
     mergePreview = null; $("merge-panel").hidden = true;

@@ -174,7 +174,14 @@ function esc(v){
   return String(v==null?"":v).replace(/[&<>"']/g,
     m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
 }
+// 관리자 문(2026-10-08): 이 브라우저에 로그인된 사람(앱 계정)을 함께 보낸다 — 서버가 총괄 본인인지 본다.
+function admStaff(){
+  try{ const u=JSON.parse(localStorage.getItem("memorize-user")||"null"); if(!u||!u.name) return null;
+    return u.type==="교회학교" ? {type:"교회학교",bu:u.bu||"",grade:u.grade||"",name:u.name} : {type:"교구",gu:u.gu||"",mok:u.mok||"",name:u.name}; }
+  catch(_){ return null; }
+}
 async function callApi(payload){
+  if(payload && payload.pw && !payload.staff){ const s=admStaff(); if(s) payload.staff=s; }
   const res = await fetch(API, { method:"POST",
     headers:{ "Content-Type":"application/json", "apikey":ANON, "Authorization":"Bearer "+ANON },
     body: JSON.stringify(payload) });

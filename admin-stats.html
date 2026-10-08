@@ -970,6 +970,8 @@ const ANON = window.SUPA.ANON;
 const SERMON_FN = window.SUPA_PROD.URL + "/functions/v1/sermon";
 const SERMON_ANON = window.SUPA_PROD.ANON;
 async function callApi(payload){
+  // 관리자 문(2026-10-08): 암호를 보낼 때 이 브라우저에 로그인된 사람(앱 계정)을 함께 보낸다 — 서버가 총괄 본인인지 본다.
+  if(payload && payload.pw && !payload.staff){ const u=minAppUser(); const s=u&&minStaffOf(u); if(s) payload.staff=s; }
   const res = await fetch(API, {
     method:"POST",
     headers:{ "Content-Type":"application/json", "apikey":ANON, "Authorization":"Bearer "+ANON },

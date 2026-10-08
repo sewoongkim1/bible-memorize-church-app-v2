@@ -72,7 +72,7 @@
   // 관리 도구 목록 — 앞으로 여기에 한 줄씩 추가하면 됩니다
   const TOOLS = [
     { ic:"👤", title:"성도 정보 관리", desc:"이름 · 소속 변경 · 변경 이력 (기존 기록 유지)", href:"admin-members.html" },
-    { ic:"📖", title:"성경암송 관리", desc:"통계 · 알림발송 · 주간리포트 · 게시판", href:"admin-stats.html?v=20261008f" },
+    { ic:"📖", title:"성경암송 관리", desc:"통계 · 알림발송 · 주간리포트 · 게시판", href:"admin-stats.html?v=20261008g" },
     { ic:"🎉", title:"이벤트 관리", desc:"회차 만들기 · 신청 명단 · 인쇄", href:"admin-event.html" },
     { ic:"🎵", title:"찬양 아카이브 관리", desc:"곡 등록 · 콤보순서 · 조회수 · 사용현황", href:"admin-praise.html" },
     { ic:"⛪", title:"설교·찬양 관리", desc:"설교 올리기(두 단계) · 설교 목록 · 매일 묵상 · 담당자 — 담당자도 이 주소로", href:"admin-sermon.html" },
@@ -97,11 +97,17 @@
     $("logout").classList.remove("hidden");
   }
 
+  // 관리자 문(2026-10-08): 이 브라우저에 로그인된 사람(앱 계정)을 함께 보낸다 — 서버가 총괄 본인인지 본다.
+  function admStaff(){
+    try{ const u=JSON.parse(localStorage.getItem("memorize-user")||"null"); if(!u||!u.name) return null;
+      return u.type==="교회학교" ? {type:"교회학교",bu:u.bu||"",grade:u.grade||"",name:u.name} : {type:"교구",gu:u.gu||"",mok:u.mok||"",name:u.name}; }
+    catch(_){ return null; }
+  }
   async function verify(pw){
     try{
       const r = await fetch(API, { method:"POST",
         headers:{ "Content-Type":"application/json", "apikey":ANON, "Authorization":"Bearer "+ANON },
-        body: JSON.stringify({ action:"authCheck", pw }) });
+        body: JSON.stringify({ action:"authCheck", pw, staff: admStaff() }) });
       const j = await r.json().catch(()=>({}));
       return r.ok && j.ok === true;
     }catch(_){ return false; }
@@ -116,7 +122,7 @@
       $("err").textContent = "";
       showTools();
     } else {
-      $("err").textContent = "비밀번호가 올바르지 않습니다.";
+      $("err").textContent = admStaff() ? "비밀번호가 맞지 않거나, 지금 로그인된 분이 총괄 관리자가 아닙니다." : "이 기기에서 성경암송 앱에 먼저 로그인해 주세요(총괄 관리자 본인 확인).";
     }
   }
 
