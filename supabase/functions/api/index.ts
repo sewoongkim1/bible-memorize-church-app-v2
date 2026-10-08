@@ -2473,7 +2473,7 @@ async function adminUpdateMember(b: any) {
 // ⚠️ 세지 못하면(표가 없다 · 오류) **막지 않는다.** 로그인이 멈추는 것보다 제한이 하루 쉬는 쪽으로 틀린다.
 // ⚠️ 접속 주소는 그대로 두지 않는다 — 날짜를 섞어 바꾼 값(HMAC)만 login_seen 에 적고 이틀 뒤 지운다.
 //    날짜가 섞여 있어 어제와 오늘의 같은 주소를 이을 수 없다. 관리자 비번이 든 요청(시험 스크립트)은 세지 않는다.
-const ADMIN_CONFIG_KEYS = new Set(["loginLimit"]);   // 관리자만 읽고 쓰는 설정(공개 목록 PUBLIC_CONFIG_KEYS 에 넣지 않는다 — 교회 주소가 든다)
+const ADMIN_CONFIG_KEYS = new Set(["loginLimit", "lifePin"]);   // 관리자만 읽고 쓰는 설정(공개 목록 PUBLIC_CONFIG_KEYS 에 넣지 않는다 — 교회 주소가 든다)
 const LOGIN_LIMIT_MSG = "이 인터넷에서 오늘 로그인한 분이 많아요. 잠시 뒤에 다시 하시거나, 와이파이를 끄고 다시 해 주세요.";
 // 순수 — 설정값을 읽는다. 모양이 틀리면 꺼진 것으로 본다.
 function loginLimitConf(v: any): { perDay: number; allow: string[] } {
@@ -2493,6 +2493,30 @@ async function hmacHex(secret: string, msg: string): Promise<string> {
   const sig = new Uint8Array(await crypto.subtle.sign("HMAC", k, new TextEncoder().encode(msg)));
   return Array.from(sig).map((x) => x.toString(16).padStart(2, "0")).join("");
 }
+
+// ── 교회 생활 확인 번호 — 순수/해시 (2026-10-08 · 설계 docs/superpowers/specs/2026-10-08-church-life-pin-design.md) ──
+// ⚠️ 아래 세 순수 함수(lifePinValid·lifeFailsToday·lifeGateState)는 tests/life-pin.test.cjs 와 **글자까지 같게** 둔다.
+const LIFE_DEVICE_DAYS = 180, LIFE_PIN_FAILS_PER_DAY = 5, LIFE_MAX_DEVICES = 10;
+const lifePinValid = (pin: unknown): pin is string => typeof pin === "string" && /^[0-9]{4}$/.test(pin);
+const lifeFailsToday = (fails: number, failDay: string | null, today: string) => failDay === today ? (Number(fails) || 0) : 0;
+function lifeGateState(s: { switchOn: string | false; isTester?: boolean; locked?: boolean; hasPin?: boolean; deviceOk?: boolean }): string {
+  if (!s.switchOn) return "off";
+  if (s.switchOn === "test" && !s.isTester) return "off";
+  if (s.locked) return "locked";
+  if (!s.hasPin) return "new";
+  return s.deviceOk ? "ok" : "ask";
+}
+// 번호·토큰 자체는 두지 않는다 — 비밀값(LIFE_PIN_SECRET)을 섞은 해시만. 비밀값이 없으면 막지 않는 쪽으로(lifeError).
+async function lifePinHash(secret: string, userId: string, pin: string) { return await hmacHex(secret, "life-pin|" + userId + "|" + pin); }
+async function lifeDeviceHash(secret: string, token: string) { return await hmacHex(secret, "life-dev|" + token); }
+// 스위치 — app_config.lifePin = "on" | "test" | (없음/그밖=off). 관리자만 읽는다(ADMIN_CONFIG_KEYS).
+const lifeSwitch = async (): Promise<string | false> => {
+  try {
+    const { data } = await db.from("app_config").select("value").eq("key", "lifePin").maybeSingle();
+    const v = (data?.value ?? "").toString();
+    return v === "on" || v === "test" ? v : false;
+  } catch { return false; }
+};
 async function loginLimitError(b: any, req: Request | undefined, identity: string): Promise<string | null> {
   try {
     if (!adminError(b)) return null;
