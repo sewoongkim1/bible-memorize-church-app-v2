@@ -9863,6 +9863,10 @@ function pilsaPhoneFmt(v) {
 function pilsaPhoneOk(v) {
   return /^01[016-9]-?\d{3,4}-?\d{4}$/.test(String(v || "").trim());
 }
+// 서버가 「내 신청」 번호를 010-****-5678 로 가려서 줄 수 있다(Plan 5). 가려진 값은 이미 꼴이 맞으니
+// 그대로 보여 주고, 아니면 평소대로 꼴을 맞춘다. 가려진 값을 pilsaPhoneFmt 에 넣으면 숫자만 남아 깨진다.
+function pilsaPhoneMasked(v) { return String(v || "").includes("*"); }
+function pilsaPhoneView(v) { return pilsaPhoneMasked(v) ? String(v) : pilsaPhoneFmt(v); }
 
 function pilsaNewForm() { return { size: "", type1: "", type2: "", phone: "", qtys: {}, memo: "" }; }
 
@@ -9969,7 +9973,8 @@ function pilsaTrySubmit(u) {
   if (!pilsaForm.type2) miss.push("성경 번역본");
   if (!pilsaTotal(pilsaForm)) miss.push("성경 (부수를 1부 이상)");
   if (miss.length) { appAlert("다음을 골라 주세요.<br><b>" + miss.join(" · ") + "</b>"); return; }
-  const ph = (pilsaForm.phone || "").trim();
+  // 가려진 번호(수정 시 서버가 준 010-****-5678)는 못 고치니 빈 것으로 보고 다시 받는다(Plan 5)
+  const ph = pilsaPhoneMasked(pilsaForm.phone) ? "" : (pilsaForm.phone || "").trim();
   if (!ph) {
     appAlert("휴대폰 번호를 적어 주세요.").then(function () {
       const el = document.getElementById("pl-phone");
@@ -10045,7 +10050,7 @@ function pilsaSummaryHtml(u, f) {
       '<div class="pc-row"><span>노트 크기</span><b>' + boardEsc(f.size) + '</b></div>' +
       '<div class="pc-row"><span>필사 유형</span><b>' + boardEsc(f.type1) + '</b></div>' +
       '<div class="pc-row"><span>번역본</span><b>' + boardEsc(f.type2) + '</b></div>' +
-      '<div class="pc-row"><span>휴대폰</span><b>' + boardEsc(pilsaPhoneFmt(f.phone) || "-") + '</b></div>' +
+      '<div class="pc-row"><span>휴대폰</span><b>' + boardEsc(pilsaPhoneView(f.phone) || "-") + '</b></div>' +
       (f.at ? '<div class="pc-row"><span>신청일</span><b>' + boardEsc(f.at) + '</b></div>' : '') +
     '</div>' +
     '<div class="pl-sec">성경 선택</div>' +
@@ -10156,9 +10161,11 @@ function pilsaFormHtml(u) {
     '<div class="pl-sum2">' + pilsaSumInner(f) + '</div>' +
 
     '<div class="pl-sec">휴대폰 번호 <span class="req">필수</span></div>' +
+    // 가려진 번호(010-****-5678)는 고칠 수 없으니 칸을 비워 다시 받는다 — 본인도 옛 번호를 보지 않는다(Plan 5).
     '<input type="tel" id="pl-phone" class="pl-memo-in pl-phone" inputmode="numeric" ' +
-      'maxlength="13" placeholder="010-1234-5678" value="' + boardEsc(pilsaPhoneFmt(f.phone)) + '">' +
-    '<div class="pl-hint">노트가 준비되면 이 번호로 알려드립니다</div>' +
+      'maxlength="13" placeholder="010-1234-5678" value="' + boardEsc(pilsaPhoneMasked(f.phone) ? "" : pilsaPhoneFmt(f.phone)) + '">' +
+    '<div class="pl-hint">노트가 준비되면 이 번호로 알려드립니다' +
+      (pilsaPhoneMasked(f.phone) ? ' <b>(번호를 다시 넣어 주세요)</b>' : '') + '</div>' +
     '<div class="pl-sec">요청사항 <span class="opt">선택</span></div>' +
     '<textarea id="pl-memo" class="pl-memo-in" rows="3" maxlength="300" ' +
       'placeholder="수량 조정, 그 밖에 요청하실 내용을 적어 주세요.">' + boardEsc(f.memo) + '</textarea>';
