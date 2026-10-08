@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 """교회 생활 확인 번호 — 개발 스모크 (Plan 1 Task 6)
 
-    EVT_ENV=dev  (기본)  ·  ADMIN_SECRET 를 환경에 둬야 한다(saveConfig 로 스위치를 켜고 끈다)
+    EVT_ENV=dev  (기본)  ·  ADMIN_SECRET + SMOKE_SUPER 를 환경에 둬야 한다(관리자 문이 켜진 뒤로 saveConfig 는 「암호+총괄」)
+      · SMOKE_SUPER = 개발 super 관리자 JSON({"type","gu","mok","name"}) · .env.dev 에 단일인용으로(커밋 안 됨)
     set -a; . ./.env.dev; set +a; python tests/life-pin-smoke.py
 
 ⚠️ 개발만. app_config.lifePin 을 on/test 로 바꿨다가 **off 로 되돌린다**(운영엔 돌리지 말 것).
@@ -49,8 +50,17 @@ def api(action, **kw):
             return {"http": e.code}
 
 
+# 관리자 문(2026-10-08)이 켜진 뒤로 saveConfig 는 「암호 + 총괄 본인」이라야 통과한다.
+# 개발 super 관리자를 .env.dev 의 SMOKE_SUPER(JSON)로 둔다 — 공개 저장소에 이름을 박지 않으려고.
+SUPER = None
+try:
+    SUPER = json.loads(os.environ.get("SMOKE_SUPER", "") or "null")
+except Exception:
+    SUPER = None
+
+
 def switch(v):
-    api("saveConfig", pw=PW, key="lifePin", value=v)
+    return api("saveConfig", pw=PW, key="lifePin", value=v, staff=SUPER)
 
 
 ok = bad = 0
@@ -69,7 +79,10 @@ def login(name):
 
 
 try:
-    switch("on")
+    if not SUPER:
+        print("⚠ SMOKE_SUPER 가 .env.dev 에 없다 — 관리자 문 때문에 스위치가 안 켜진다. 개발 super 를 JSON 으로 넣어 주세요."); sys.exit(1)
+    sw0 = switch("on")
+    check("⓪ 스위치 on(관리자 문·총괄 통과)", sw0.get("ok") is True, sw0)
     uid = login("정하기" + tag)
     check("시험 계정", bool(uid), uid)
 
@@ -103,6 +116,22 @@ try:
           api("lifeResetRequest", user_id=uid2).get("ok") and api("lifeResetRequest", user_id=uid2).get("already"))
     check("⑭ 응답에 pin_hash·token_hash·user_id 안 샘",
           not any(k in json.dumps(api("lifeGate", user_id=uid2, device=dev)) for k in ("pin_hash", "token_hash", "user_id")))
+
+    # ── Plan 5 — 연락처 · 번호 가리기 (스위치 on · uid2 는 확인된 기기 dev) ──
+    check("⑰ 연락처: 기기 없음 → pin-needed",
+          api("lifeContactSave", user_id=uid2, phone="010-1234-5678").get("error") == "pin-needed")
+    check("⑱ 연락처: 기기 있음 → ok",
+          api("lifeContactSave", user_id=uid2, device=dev, phone="010-1234-5678").get("ok") is True)
+    # 사역: 확인된 기기면 lifeError 통과 — pin-needed·번호형식 오류가 아니다(기간 닫혀 '기간 아님'이 나와도 됨)
+    ma = api("ministryApply", user_id=uid2, device=dev, choices=[1], position="성도")
+    check("⑲ 사역(확인된 기기): 번호 없이도 pin-needed·번호오류 아님",
+          ma.get("error") not in ("pin-needed", "휴대폰 번호를 확인해 주세요 (010-1234-5678)"), ma)
+    # 필사 「내 신청」 번호 가리기
+    api("pilsaApply", user_id=uid2, device=dev, name="가림" + tag,
+        size="A4", type1="개역개정", type2="개역개정", qtys={"신약": 1}, phone="010-9876-5432")
+    pm = api("pilsaMine", user_id=uid2, device=dev)
+    check("⑳ 필사 내 신청 번호 가림 010-****-5432",
+          (pm.get("order") or {}).get("phone") == "010-****-5432", pm)
 
     # 스위치 test + 비시험 계정 → 자물쇠 꺼짐(안 막음)
     switch("test")
