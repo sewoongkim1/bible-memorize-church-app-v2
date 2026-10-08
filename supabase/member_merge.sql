@@ -86,7 +86,7 @@ begin
     'board_posts','board_replies','board_reactions','event_entries','push_subscriptions',
     'pilsa_orders','ministry_orders','event_signups','daily_activity',
     'ios_push_tokens','ministry_history_requests','edu_enrollments','duty_signups',
-    'life_devices','life_pins','life_reset_requests'] loop
+    'life_devices','life_pins','life_reset_requests','life_contacts'] loop
     if to_regclass('public.' || t) is not null then
       execute format('drop trigger if exists redirect_merged_member_write on public.%I', t);
       execute format('create trigger redirect_merged_member_write before insert or update on public.%I for each row execute function public.redirect_merged_member_write(''user_id'')', t);
@@ -124,7 +124,7 @@ begin
   foreach t in array array['challenge_log','progress','reviews','passage_progress','board_posts',
     'board_replies','event_entries','pilsa_orders','ministry_orders','event_signups','push_subscriptions',
     'blessing_log','daily_activity','feature_log','ios_push_tokens','ministry_history_requests','edu_enrollments','duty_signups',
-    'life_pins','life_devices','life_reset_requests'] loop
+    'life_pins','life_devices','life_reset_requests','life_contacts'] loop
     if to_regclass('public.' || t) is not null then
       execute format('select count(*) from public.%I where user_id::text=$1',t) into n using p_id::text;
       result := result || jsonb_build_object(t,n);
@@ -267,7 +267,7 @@ begin
         'daily_activity','pilsa_orders','ministry_orders','event_signups','user_identity_aliases','user_profile_changes',
         'board_blocks','board_reports','sermon_answer_reports',
         'ios_push_tokens','ministry_history_requests','edu_enrollments','duty_signups',
-        'life_pins','life_devices','life_reset_requests')
+        'life_pins','life_devices','life_reset_requests','life_contacts')
   loop
     execute format('select count(*) from public.%I where %I::text=$1',ref.tbl,ref.col) into n using s.id::text;
     if n>0 then return jsonb_build_object('ok',false,'error','merge-unsupported-records'); end if;
@@ -484,6 +484,14 @@ begin
   end if;
   if to_regclass('public.life_reset_requests') is not null then
     update public.life_reset_requests set user_id=t.id where user_id=s.id;
+  end if;
+  -- 연락처(2026-10-08 Plan 5): 새것(updated_at 최신)을 남긴다.
+  if to_regclass('public.life_contacts') is not null then
+    delete from public.life_contacts c where c.user_id=s.id
+      and exists (select 1 from public.life_contacts d where d.user_id=t.id and d.updated_at >= c.updated_at);
+    delete from public.life_contacts where user_id=t.id
+      and exists (select 1 from public.life_contacts d where d.user_id=s.id);
+    update public.life_contacts set user_id=t.id where user_id=s.id;
   end if;
   -- challenge_log의 기존 트리거는 UPDATE를 집계하지 않는다. 두 사람의 집계를 로그로 재생성.
   if to_regclass('public.daily_activity') is not null then
