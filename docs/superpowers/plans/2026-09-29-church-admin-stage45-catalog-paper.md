@@ -89,7 +89,7 @@
 
 ### Task 6: 종이 명단 화면 — `js/menus/ministry/paper.js` · 양식 파일
 
-**Files:** Create `js/menus/ministry/paper.js`, `files/사역명단_올리기_양식.xlsx`(성경암송 `ministry/2027_사역명단_올리기_양식.xlsx` 를 복사); Modify `registry.js`, `css/admin.css`, `audit.js`, `.github/workflows/deploy.yml`(cp 목록에 `files`)
+**Files:** Create `js/menus/ministry/paper.js`, `files/사역명단_올리기_양식.xlsx`(성경암송 `files/2027_사역명단_올리기_양식.xlsx` 를 복사); Modify `registry.js`, `css/admin.css`, `audit.js`, `.github/workflows/deploy.yml`(cp 목록에 `files`)
 
 - [ ] **Step 1:** 원문 2절·3절을 읽고 옮긴다(대응표는 Task 3 과 같다). 붙여넣기는 **자리(순서)** 로 읽고 첫 줄이 머리글이면 버린다 · 엑셀은 SheetJS 를 그때 불러오고 막히면 「복사해 붙여넣어 주세요」 · 「명단」 시트 먼저 · 파일은 칸을 **채우기만** · 「명단 넣기」 단추는 살펴본 뒤 넣을 것이 있을 때만, 글을 고치면 다시 숨김 · 넣기 전 확인 창에 **상태별 건수** · **넣기는 지금 칸의 글을 다시 읽어 보낸다**(원문 체크리스트 31 의 어긋남을 없애려고 — 확인 창의 숫자도 그 글로 다시 센 것) · 결과 기호 넷(＝ ✅ ◻️ ⚠️) · 양식 내려받기는 `files/사역명단_올리기_양식.xlsx` 링크.
 - [ ] **Step 2:** 메뉴 한 줄 — `catalog` 줄 **다음**에: `{ id: "paper", group: "사역신청", icon: "📋", label: "종이 명단 올리기", desc: "엑셀·붙여넣기로 한꺼번에 · 알림은 가지 않아요", role: "ministry", load: () => import("./ministry/paper.js") },`

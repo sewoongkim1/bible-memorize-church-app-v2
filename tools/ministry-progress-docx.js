@@ -1,5 +1,5 @@
 // 2027 사역신청 — 「진행 공유 · 기획(안) · 사역 어드민 들어가는 방법」 Word 문서
-//   node tools/ministry-progress-docx.js   →  ministry/2027_사역신청_진행공유_기획안.docx
+//   node tools/ministry-progress-docx.js   →  자료/ministry/2027_사역신청_진행공유_기획안.docx
 //
 // ⚠️ **그림 여섯 장이 먼저 있어야 한다**(DIR 아래). 만드는 법:
 //   ① p1_shots.png · p2_shots.png — 묶음 PDF 1·2쪽에서 잘라낸다(pymupdf, dpi 220):
@@ -15,7 +15,7 @@ const {
 } = require('docx');
 
 const DIR = 'C:/Users/sewki/AppData/Local/Temp/claude/c--Projects-bible-memorize-church-app-v2/00d2bd19-8943-4271-9ad2-8e9f9b3a2a43/scratchpad/word/';
-const OUT = 'C:/Projects/bible-memorize-church-app-v2/ministry/2027_사역신청_진행공유_기획안.docx';
+const OUT = 'C:/Projects/bible-memorize-church-app-v2/자료/ministry/2027_사역신청_진행공유_기획안.docx';
 
 const NAVY = '1A3A6B', GOLD = '8A6A1E', GRAY = '5B6472', LINE = 'DDE3EE';
 const FONT = '맑은 고딕';

@@ -15,7 +15,7 @@
 
 -- ============================================================
 -- 1) 사역팀 목록 — 성도가 고르는 대상
---    자료는 ministry/ministry_catalog_2027.json(부서 확인 확정본)에서 온다.
+--    자료는 자료/ministry/ministry_catalog_2027.json(부서 확인 확정본)에서 온다.
 --    INSERT 문은 tools/ministry-seed-sql.py 가 만들어 준다(손으로 적지 않는다).
 -- ============================================================
 create table if not exists public.ministry_catalog (

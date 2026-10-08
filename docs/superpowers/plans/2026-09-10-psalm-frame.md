@@ -1632,7 +1632,7 @@ git commit -m "feat(시편 액자): app.js 세 자리 — 진입로·복습 큐�
 
 **Interfaces:**
 - Consumes: localhost에 뜬 앱 · 개발 DB 씨앗 구절
-- Produces: 구절별 실측 줄수 표 (콘솔 + `psalm/측정결과.txt`). 다섯 줄을 넘는 구절이 있으면 **종료코드 1**
+- Produces: 구절별 실측 줄수 표 (콘솔 + `자료/psalm/측정결과.txt`). 다섯 줄을 넘는 구절이 있으면 **종료코드 1**
 
 > ⚠️ **`app.js`에는 `?go=` 실행 자리가 없다**(2026-09-10 확인). 그 장치는
 > `tools/capture-guide-shots.py`가 **임시 index.html에 씨앗 스크립트를 끼워** 만드는 것이다.
@@ -1670,7 +1670,7 @@ if hasattr(sys.stdout, "reconfigure"):
 
 CHROME = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 ROOT = os.path.join(os.path.dirname(__file__), "..")
-OUT = os.path.join(ROOT, "psalm", "측정결과.txt")
+OUT = os.path.join(ROOT, "자료", "psalm", "측정결과.txt")
 PORT = 8731
 TMP = "_psalm_measure.html"
 
@@ -1832,11 +1832,11 @@ update public.app_config
 - [ ] **Step 7: 커밋**
 
 ```bash
-git add tools/psalm-measure.py psalm/측정결과.txt
+git add tools/psalm-measure.py 자료/psalm/측정결과.txt
 git commit -m "test(시편 액자): 액자 줄수 실측 도구
 
 눈으로 본 것을 숫자로 못 박는다. 3단계·390px 에서 다섯 줄 이하인지 재고
-결과를 psalm/측정결과.txt 에 남긴다. 넘치면 종료코드 1.
+결과를 자료/psalm/측정결과.txt 에 남긴다. 넘치면 종료코드 1.
 
 capture-guide-shots.py 와 같은 방식 — index.html 에 씨앗을 끼운 임시 파일을
 띄우고 ?go= 로 부른다(app.js 에는 ?go= 실행 자리가 없다).

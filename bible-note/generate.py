@@ -156,7 +156,7 @@ def ensure_out_path_safe(out_path):
     커밋에 걸리지 않는 자리에만 쓸 수 있게, 쓰기 전에 미리 막는다.
 
     - 저장소 밖(바탕화면·USB 등)이면 그대로 허용한다.
-    - 저장소 안인데 git 이 무시하지 않는 자리(예: marketing/, .gitignore 패턴 밖의 다른
+    - 저장소 안인데 git 이 무시하지 않는 자리(예: 자료/marketing/, .gitignore 패턴 밖의 다른
       폴더)면 SystemExit 로 멈춘다 — bible-note/ 아래나 저장소 밖을 쓰라고 알려 준다.
     - 이 폴더가 저장소가 아니면 검사 없이 허용한다.
     - git 이 PATH 에 없으면 무시되는 자리인지 물을 수 없다 — 출력 폴더에서 위로 올라가며 .git 이

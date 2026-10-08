@@ -193,7 +193,7 @@ rows = sorted(json.load(io.open(os.path.join(ROOT, 'blessings.json'), encoding='
               key=lambda r: r['no'])
 
 LOGO = ''
-_lg = os.path.join(ROOT, 'marketing', 'logo-mark-data-uri.txt')
+_lg = os.path.join(ROOT, '자료', 'marketing', 'logo-mark-data-uri.txt')
 if os.path.exists(_lg):
     LOGO = io.open(_lg, encoding='utf-8').read().strip()
 

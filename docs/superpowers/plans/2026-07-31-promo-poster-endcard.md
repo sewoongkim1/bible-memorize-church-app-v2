@@ -12,7 +12,7 @@
 
 - 색상 토큰(앱 style.css의 `:root`와 동일하게 유지): 네이비 `#1a3a6b`, 네이비 다크 `#0d1b3e`, 골드 `#c8a84b`, 크림 `#fdf8f0`
 - 폰트: 헤딩은 세리프(`"Batang","Nanum Myeongjo",serif` — 별도 웹폰트 삽입 없이 시스템 폰트로 유사하게 재현), 본문은 `"Apple SD Gothic Neo","Malgun Gothic",sans-serif`
-- 모든 산출물은 `marketing/` 디렉터리에 저장한다(신규 디렉터리)
+- 모든 산출물은 `자료/marketing/` 디렉터리에 저장한다(신규 디렉터리)
 - 렌더링은 Windows 경로 문제를 피하기 위해 반드시 `file:///$(cygpath -m <path>)` 형태의 URL을 사용한다(POSIX `/tmp/...` 경로를 그대로 file:// 에 넣으면 Chrome이 못 찾음 — 이미 확인된 함정)
 - 헤드리스 Chrome은 항상 `--user-data-dir="C:\Temp\chrome-shot-profile"`로 전용 프로필을 지정한다(평소 쓰던 Chrome이 이미 열려 있으면 기본 프로필이 잠겨 있어 헤드리스 실행이 실패할 수 있음)
 - QR코드는 `https://gocheok.onlybible.kr` 하나로 통일
@@ -23,11 +23,11 @@
 ### Task 1: 공용 자산 준비 (QR코드 + 교회 로고)
 
 **Files:**
-- Create: `marketing/qr-data-uri.txt` (QR코드 base64 data URI 문자열)
-- Create: `marketing/logo-data-uri.txt` (교회 로고 base64 data URI 문자열)
+- Create: `자료/marketing/qr-data-uri.txt` (QR코드 base64 data URI 문자열)
+- Create: `자료/marketing/logo-data-uri.txt` (교회 로고 base64 data URI 문자열)
 
 **Interfaces:**
-- Produces: `marketing/qr-data-uri.txt`, `marketing/logo-data-uri.txt`의 내용 — 둘 다 `data:image/png;base64,<...>` 형태의 문자열. Task 2·3·4가 각 HTML의 `<img src="...">`에 그대로 붙여넣는다.
+- Produces: `자료/marketing/qr-data-uri.txt`, `자료/marketing/logo-data-uri.txt`의 내용 — 둘 다 `data:image/png;base64,<...>` 형태의 문자열. Task 2·3·4가 각 HTML의 `<img src="...">`에 그대로 붙여넣는다.
 
 - [ ] **Step 1: marketing 디렉터리 생성**
 
@@ -37,7 +37,7 @@ Run: `mkdir -p marketing`
 
 Run:
 ```bash
-curl -s -o marketing/qr-code.png "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https://gocheok.onlybible.kr"
+curl -s -o 자료/marketing/qr-code.png "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https://gocheok.onlybible.kr"
 ```
 
 - [ ] **Step 3: 교회 로고 PNG 다운로드**
@@ -46,32 +46,32 @@ curl -s -o marketing/qr-code.png "https://api.qrserver.com/v1/create-qr-code/?si
 
 Run:
 ```bash
-curl -s -o marketing/church-logo.png "https://summer.onlybible.kr/logo3.png"
+curl -s -o img/church-logo.png "https://summer.onlybible.kr/logo3.png"
 ```
 
 - [ ] **Step 4: 두 다운로드 확인**
 
-Run: `file marketing/qr-code.png marketing/church-logo.png`
+Run: `file 자료/marketing/qr-code.png img/church-logo.png`
 Expected: 각각 `PNG image data, 300 x 300, ...`와 `PNG image data, 477 x 605, ...` 형태 출력(비정상적으로 작은 크기면 curl 실패이니 재시도)
 
 - [ ] **Step 5: 둘 다 base64 data URI로 변환해 텍스트 파일로 저장**
 
 Run:
 ```bash
-echo -n "data:image/png;base64,$(base64 -w0 marketing/qr-code.png)" > marketing/qr-data-uri.txt
-echo -n "data:image/png;base64,$(base64 -w0 marketing/church-logo.png)" > marketing/logo-data-uri.txt
-wc -c marketing/qr-data-uri.txt marketing/logo-data-uri.txt
+echo -n "data:image/png;base64,$(base64 -w0 자료/marketing/qr-code.png)" > 자료/marketing/qr-data-uri.txt
+echo -n "data:image/png;base64,$(base64 -w0 img/church-logo.png)" > 자료/marketing/logo-data-uri.txt
+wc -c 자료/marketing/qr-data-uri.txt 자료/marketing/logo-data-uri.txt
 ```
 Expected: 둘 다 수백~수만 바이트 크기(0이면 실패)
 
 - [ ] **Step 6: Read 도구로 원본 이미지 둘 다 육안 확인**
 
-`Read` 도구로 `marketing/qr-code.png`(정상적인 QR 패턴)와 `marketing/church-logo.png`(파랑-주황 그라데이션의 불꽃/십자가 로고 + "고척교회" 텍스트)를 각각 열어 확인한다.
+`Read` 도구로 `자료/marketing/qr-code.png`(정상적인 QR 패턴)와 `img/church-logo.png`(파랑-주황 그라데이션의 불꽃/십자가 로고 + "고척교회" 텍스트)를 각각 열어 확인한다.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add marketing/qr-code.png marketing/qr-data-uri.txt marketing/church-logo.png marketing/logo-data-uri.txt
+git add 자료/marketing/qr-code.png 자료/marketing/qr-data-uri.txt img/church-logo.png 자료/marketing/logo-data-uri.txt
 git commit -m "chore(홍보 소재): QR코드·교회 로고 공용 자산 준비"
 ```
 
@@ -80,20 +80,20 @@ git commit -m "chore(홍보 소재): QR코드·교회 로고 공용 자산 준�
 ### Task 2: 세로 포스터 (게시판·인쇄용, A4 비율)
 
 **Files:**
-- Create: `marketing/poster-vertical.html`
-- Create: `marketing/poster-vertical.png` (렌더 결과물, 2480×3508px = A4 @ 300dpi)
+- Create: `자료/marketing/poster-vertical.html`
+- Create: `자료/marketing/poster-vertical.png` (렌더 결과물, 2480×3508px = A4 @ 300dpi)
 
 **Interfaces:**
-- Consumes: `marketing/qr-data-uri.txt`의 data URI 문자열(Task 1)
-- Produces: `marketing/poster-vertical.png` — 인쇄 가능한 최종 포스터 이미지
+- Consumes: `자료/marketing/qr-data-uri.txt`의 data URI 문자열(Task 1)
+- Produces: `자료/marketing/poster-vertical.png` — 인쇄 가능한 최종 포스터 이미지
 
 - [ ] **Step 1: QR data URI 값 읽어두기**
 
-Run: `cat marketing/qr-data-uri.txt`
+Run: `cat 자료/marketing/qr-data-uri.txt`
 
 이 값을 다음 단계의 `QR_DATA_URI_HERE` 자리에 그대로 붙여넣는다(따옴표 안, `data:image/png;base64,...` 전체).
 
-- [ ] **Step 2: `marketing/poster-vertical.html` 작성**
+- [ ] **Step 2: `자료/marketing/poster-vertical.html` 작성**
 
 ```html
 <!DOCTYPE html>
@@ -204,20 +204,20 @@ Run:
 ```bash
 "/c/Program Files/Google/Chrome/Application/chrome.exe" --headless --disable-gpu \
   --user-data-dir="C:\Temp\chrome-shot-profile" \
-  --screenshot="C:\Projects\bible-memorize-church-app-v2\marketing\poster-vertical.png" \
+  --screenshot="C:\Projects\bible-memorize-church-app-v2\자료\marketing\poster-vertical.png" \
   --window-size=2480,3508 \
-  "file:///$(cygpath -m marketing/poster-vertical.html)"
+  "file:///$(cygpath -m 자료/marketing/poster-vertical.html)"
 ```
 Expected: `N bytes written to file ...poster-vertical.png` 출력, 종료 코드 0
 
 - [ ] **Step 4: 파일 생성 확인**
 
-Run: `file marketing/poster-vertical.png`
+Run: `file 자료/marketing/poster-vertical.png`
 Expected: `PNG image data, 2480 x 3508, ...`
 
 - [ ] **Step 5: Read 도구로 육안 검증**
 
-`Read` 도구로 `marketing/poster-vertical.png`를 연다. 아래를 확인한다:
+`Read` 도구로 `자료/marketing/poster-vertical.png`를 연다. 아래를 확인한다:
 - 헤드라인·태그라인·폰목업·초대문구·통계 배지·CTA·QR·URL이 전부 잘리지 않고 보이는지
 - 폰목업 안 텍스트가 겹치거나 박스 밖으로 넘치지 않는지
 - 상단과 하단 여백이 비대칭적으로 붕괴돼 있지 않은지
@@ -227,7 +227,7 @@ Expected: `PNG image data, 2480 x 3508, ...`
 - [ ] **Step 6: Commit**
 
 ```bash
-git add marketing/poster-vertical.html marketing/poster-vertical.png
+git add 자료/marketing/poster-vertical.html 자료/marketing/poster-vertical.png
 git commit -m "feat(홍보 소재): 세로 포스터(게시판·인쇄용) 제작"
 ```
 
@@ -236,14 +236,14 @@ git commit -m "feat(홍보 소재): 세로 포스터(게시판·인쇄용) 제�
 ### Task 3: 가로 포스터 (주일 광고 화면용, 16:9)
 
 **Files:**
-- Create: `marketing/poster-horizontal.html`
-- Create: `marketing/poster-horizontal.png` (1920×1080px)
+- Create: `자료/marketing/poster-horizontal.html`
+- Create: `자료/marketing/poster-horizontal.png` (1920×1080px)
 
 **Interfaces:**
-- Consumes: `marketing/qr-data-uri.txt`의 data URI 문자열(Task 1)
-- Produces: `marketing/poster-horizontal.png`
+- Consumes: `자료/marketing/qr-data-uri.txt`의 data URI 문자열(Task 1)
+- Produces: `자료/marketing/poster-horizontal.png`
 
-- [ ] **Step 1: `marketing/poster-horizontal.html` 작성**
+- [ ] **Step 1: `자료/marketing/poster-horizontal.html` 작성**
 
 ```html
 <!DOCTYPE html>
@@ -327,24 +327,24 @@ Run:
 ```bash
 "/c/Program Files/Google/Chrome/Application/chrome.exe" --headless --disable-gpu \
   --user-data-dir="C:\Temp\chrome-shot-profile" \
-  --screenshot="C:\Projects\bible-memorize-church-app-v2\marketing\poster-horizontal.png" \
+  --screenshot="C:\Projects\bible-memorize-church-app-v2\자료\marketing\poster-horizontal.png" \
   --window-size=1920,1080 \
-  "file:///$(cygpath -m marketing/poster-horizontal.html)"
+  "file:///$(cygpath -m 자료/marketing/poster-horizontal.html)"
 ```
 
 - [ ] **Step 3: 파일 생성 확인**
 
-Run: `file marketing/poster-horizontal.png`
+Run: `file 자료/marketing/poster-horizontal.png`
 Expected: `PNG image data, 1920 x 1080, ...`
 
 - [ ] **Step 4: Read 도구로 육안 검증**
 
-`Read`로 `marketing/poster-horizontal.png`를 열어, 좌측 텍스트 블록과 우측 폰목업이 겹치지 않는지, 하단 CTA·QR·URL 한 줄이 잘리지 않는지 확인한다. 문제가 있으면 `.left`/`.right`의 `flex` 비율이나 각 폰트 크기를 조정 후 Step 2부터 재실행한다.
+`Read`로 `자료/marketing/poster-horizontal.png`를 열어, 좌측 텍스트 블록과 우측 폰목업이 겹치지 않는지, 하단 CTA·QR·URL 한 줄이 잘리지 않는지 확인한다. 문제가 있으면 `.left`/`.right`의 `flex` 비율이나 각 폰트 크기를 조정 후 Step 2부터 재실행한다.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add marketing/poster-horizontal.html marketing/poster-horizontal.png
+git add 자료/marketing/poster-horizontal.html 자료/marketing/poster-horizontal.png
 git commit -m "feat(홍보 소재): 가로 포스터(주일 광고 화면용) 제작"
 ```
 
@@ -353,14 +353,14 @@ git commit -m "feat(홍보 소재): 가로 포스터(주일 광고 화면용) �
 ### Task 4: 영상 엔드카드 (세로 9:16)
 
 **Files:**
-- Create: `marketing/video-endcard.html`
-- Create: `marketing/video-endcard.png` (1080×1920px — 스펙 문서의 세로 영상 포맷과 동일 비율)
+- Create: `자료/marketing/video-endcard.html`
+- Create: `자료/marketing/video-endcard.png` (1080×1920px — 스펙 문서의 세로 영상 포맷과 동일 비율)
 
 **Interfaces:**
-- Consumes: `marketing/qr-data-uri.txt`, `marketing/logo-data-uri.txt`의 data URI 문자열(Task 1)
-- Produces: `marketing/video-endcard.png` — 영상 9번 장면(60–68초)에 8초간 고정해 쓸 정적 이미지
+- Consumes: `자료/marketing/qr-data-uri.txt`, `자료/marketing/logo-data-uri.txt`의 data URI 문자열(Task 1)
+- Produces: `자료/marketing/video-endcard.png` — 영상 9번 장면(60–68초)에 8초간 고정해 쓸 정적 이미지
 
-- [ ] **Step 1: `marketing/video-endcard.html` 작성**
+- [ ] **Step 1: `자료/marketing/video-endcard.html` 작성**
 
 로고 안에 이미 "고척교회" 글자(남색)가 포함돼 있어, 남색 배경에 그대로 얹으면 글자가 안 보인다. 로고를 QR코드와 같은 흰색 카드 안에 넣어 대비를 확보한다.
 
@@ -408,7 +408,7 @@ git commit -m "feat(홍보 소재): 가로 포스터(주일 광고 화면용) �
 </html>
 ```
 
-`LOGO_DATA_URI_HERE`를 `marketing/logo-data-uri.txt`의 값으로, `QR_DATA_URI_HERE`를 `marketing/qr-data-uri.txt`의 값으로 치환한다.
+`LOGO_DATA_URI_HERE`를 `자료/marketing/logo-data-uri.txt`의 값으로, `QR_DATA_URI_HERE`를 `자료/marketing/qr-data-uri.txt`의 값으로 치환한다.
 
 - [ ] **Step 2: 헤드리스 Chrome으로 PNG 렌더링**
 
@@ -416,24 +416,24 @@ Run:
 ```bash
 "/c/Program Files/Google/Chrome/Application/chrome.exe" --headless --disable-gpu \
   --user-data-dir="C:\Temp\chrome-shot-profile" \
-  --screenshot="C:\Projects\bible-memorize-church-app-v2\marketing\video-endcard.png" \
+  --screenshot="C:\Projects\bible-memorize-church-app-v2\자료\marketing\video-endcard.png" \
   --window-size=1080,1920 \
-  "file:///$(cygpath -m marketing/video-endcard.html)"
+  "file:///$(cygpath -m 자료/marketing/video-endcard.html)"
 ```
 
 - [ ] **Step 3: 파일 생성 확인**
 
-Run: `file marketing/video-endcard.png`
+Run: `file 자료/marketing/video-endcard.png`
 Expected: `PNG image data, 1080 x 1920, ...`
 
 - [ ] **Step 4: Read 도구로 육안 검증**
 
-`Read`로 `marketing/video-endcard.png`를 열어, 세로 중앙 정렬이 자연스러운지, 글자·QR·URL이 화면 안에 다 들어오는지 확인한다. 문제 있으면 `gap` 값을 조정 후 재렌더링한다.
+`Read`로 `자료/marketing/video-endcard.png`를 열어, 세로 중앙 정렬이 자연스러운지, 글자·QR·URL이 화면 안에 다 들어오는지 확인한다. 문제 있으면 `gap` 값을 조정 후 재렌더링한다.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add marketing/video-endcard.html marketing/video-endcard.png
+git add 자료/marketing/video-endcard.html 자료/marketing/video-endcard.png
 git commit -m "feat(홍보 소재): 영상 엔드카드 제작"
 ```
 
@@ -456,9 +456,9 @@ git commit -m "feat(홍보 소재): 영상 엔드카드 제작"
 
 | 파일 | 용도 | 크기 |
 |---|---|---|
-| `marketing/poster-vertical.png` | 게시판·인쇄용 세로 포스터 | 2480×3508 (A4 @300dpi) |
-| `marketing/poster-horizontal.png` | 주일 광고 화면용 가로 포스터 | 1920×1080 |
-| `marketing/video-endcard.png` | 홍보 영상 9번 장면(엔드카드) | 1080×1920 |
+| `자료/marketing/poster-vertical.png` | 게시판·인쇄용 세로 포스터 | 2480×3508 (A4 @300dpi) |
+| `자료/marketing/poster-horizontal.png` | 주일 광고 화면용 가로 포스터 | 1920×1080 |
+| `자료/marketing/video-endcard.png` | 홍보 영상 9번 장면(엔드카드) | 1080×1920 |
 
 나머지(Higgsfield AI 장면 5개, 실제 앱 화면 캡처 4개, 혼합 장면 1개, 영상 편집)는 위 "영상 스토리보드"·"준비물" 섹션 가이드대로 직접 진행.
 ```

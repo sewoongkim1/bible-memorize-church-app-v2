@@ -2,7 +2,7 @@
 """이벤트 오프라인 포스터 — A3 세로(게시판) / 16:9 가로(예배 전 광고화면)"""
 import io, os
 
-M = 'c:/Projects/bible-memorize-church-app-v2/marketing/'
+M = 'c:/Projects/bible-memorize-church-app-v2/자료/marketing/'
 QR = io.open(M + 'qr-data-uri.txt', encoding='utf-8').read().strip()
 LOGO = io.open(M + 'logo-data-uri.txt', encoding='utf-8').read().strip()
 

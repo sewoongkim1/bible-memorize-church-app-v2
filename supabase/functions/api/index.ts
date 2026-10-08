@@ -4487,7 +4487,7 @@ async function boardReportResolve(b: any) {
 }
 
 // ============================================================
-// 구글 출시 심사 전 고칠 것(2026-10-01) — store/README.md 「구글 출시 심사 전 결정」
+// 구글 출시 심사 전 고칠 것(2026-10-01) — 자료/store/README.md 「구글 출시 심사 전 결정」
 //   ① 보호자 확인 — 어린 부서 로그인은 「보호자(부모님)가 함께 확인했어요」를 한 번 체크하고 그 날짜를 남긴다
 //      (users.guardian_ok_at · supabase/users_consents.sql). 대상 부서는 needsGuardian() 이 정한다 — app.js 와 두 곳.
 //   ② 게시판 이용 규칙 — 처음 글·답글을 쓰기 전에 한 번 동의(users.board_rules_at). 관리자 글이 아니면 서버가 확인한다.

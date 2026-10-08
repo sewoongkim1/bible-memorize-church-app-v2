@@ -1,12 +1,12 @@
 // v1 시트 dump(JSON) → Supabase 이관 실행기
-// 사용법: node migrate/import.mjs <ADMIN_SECRET> [dump파일=migrate/v1dump.json]
-// 준비: v1 …/exec?action=dump&pw=<ADMIN_PW> 의 응답을 migrate/v1dump.json 으로 저장
+// 사용법: node 자료/migrate/import.mjs <ADMIN_SECRET> [dump파일=자료/migrate/v1dump.json]
+// 준비: v1 …/exec?action=dump&pw=<ADMIN_PW> 의 응답을 자료/migrate/v1dump.json 으로 저장
 import fs from "node:fs";
 
 const SECRET = process.argv[2];
-const FILE = process.argv[3] || "migrate/v1dump.json";
+const FILE = process.argv[3] || "자료/migrate/v1dump.json";
 if (!SECRET) {
-  console.error("사용법: node migrate/import.mjs <ADMIN_SECRET> [dump.json]");
+  console.error("사용법: node 자료/migrate/import.mjs <ADMIN_SECRET> [dump.json]");
   process.exit(1);
 }
 const API = "https://xnomlgydifiqiybervtf.supabase.co/functions/v1/api";

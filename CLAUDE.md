@@ -24,7 +24,7 @@
 | 가정 축복 기도문 | `docs/notes/prayer-book.md` |
 | 첫 화면·묶음·색·아래 고정 단추 | `docs/notes/home-screen.md` |
 | 게시판 글·답글·사진 | `docs/notes/board.md` |
-| 구글 출시 심사 전 고친 것(2026-10-01) — 어린 부서 **보호자 확인** · 게시판 **이용 규칙**·**🙈 가리기** · AI **답 알리기** · 방침의 유튜브 문구 | `docs/notes/store-review.md` · 결정 근거 `store/README.md` 「구글 출시 심사 전 결정」 |
+| 구글 출시 심사 전 고친 것(2026-10-01) — 어린 부서 **보호자 확인** · 게시판 **이용 규칙**·**🙈 가리기** · AI **답 알리기** · 방침의 유튜브 문구 | `docs/notes/store-review.md` · 결정 근거 `자료/store/README.md` 「구글 출시 심사 전 결정」 |
 | 앨범 이어 듣기·TTS | `docs/notes/album-audio.md` |
 | 오늘의 찬양(하루 한 곡·앱 안 유튜브 재생) | `docs/notes/today-song.md` |
 | 순위·응원·「지금 N명」 | `docs/notes/ranking-cheer.md` |
@@ -52,6 +52,12 @@
 | 사역 통계(교회 어드민 「📊 사역 통계」 · 2026-10-06 · 부서 이음표 · 큰 분류 찬양·교회학교·그 밖) | `docs/notes/ministry-stats.md` · 설계 `docs/superpowers/specs/2026-10-06-ministry-stats-design.md` |
 | 교육신청(2026-10-05 · 1단계 운영 · 게이트 닫힘 — 🧪만) — 앱 🎓 교육 · 교회 어드민 📚 강좌 관리·📝 신청 현황 · 정원·대기는 `edu.sql` 한 곳 | `docs/notes/education.md` · 계획 `docs/superpowers/plans/2026-10-05-education-stage1.md`(과제 11 공개 전) |
 | 봉사 당번(2026-10-06 · 1·2·3단계 운영 — 표·SQL · 교회 어드민 🧰 당번 관리·📅 당번 명단·👥 봉사자(담당자의 사람별 이력 — 성도님 앱 「지난 봉사」와 일부러 다르게 센다) · **성도님 앱 🙋 봉사 당번**(`js/duty.js` · 문 닫힘 — 🧪 시험 참여자만) · 앱 알림(끄는 스위치 `app_config.dutyNotifyOff`)) — 정원·겹침·잠금·쉼은 `duty.sql` 한 곳 · `duty_signups` 에 직접 쓰지 말 것 · 문은 서버가 읽기도 막는다 · 성도님께 하는 말은 어느 경우에도 참인 말만 | `docs/notes/duty-roster.md` · 계획 `docs/superpowers/plans/2026-10-06-duty-roster.md` |
+
+## 폴더 — 참고·산출물은 `자료/` (2026-10-08)
+화면이 안 쓰는 참고·산출물은 모두 `자료/` 아래다 — `marketing`·`ministry`·`store`·`psalm`·`migrate`(GitHub) + `education`·`newfamily`·`AppForm`·`Picture`·`당회보고`(로컬). **`자료/` 는 사이트로 안 나간다**(`deploy.yml` 이 배포 전에 지운다).
+- ⚠️ **화면이 부르는 파일을 `자료/` 에 두지 말 것** — localhost 에서는 열리고 운영에서만 404 가 난다. 화면용은 `img/`(그림 · `img/screenshots/` 는 manifest)·`files/`(내려받는 파일)에.
+- ⚠️ 새 참고 폴더를 루트에 만들지 말고 `자료/` 아래에. 개인정보가 든 것은 `.gitignore` 에 **`자료/…` 경로로** 막는다(사이트에서 빠져도 GitHub 저장소는 공개다).
+- `booklet/`·`bible-note/` 는 생성기 코드가 들어 있어 루트에 그대로 두었다.
 
 ## 스택 · 도메인
 - **Vanilla JS PWA**(프레임워크 없음) — `index.html` + `app.js`(대형 단일 파일) + `sw.js`
@@ -185,7 +191,7 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
 - [ ] 🎓 **교육신청 — 2026-10-05 1·2·3단계 운영 반영(신청·담당자·✅ 출석부·🎓 수료·수료증·진위 확인 `/cert` · 게이트 닫힘 · 🧪 시험 참여자만 웹·아이폰 · 플레이 앱 숨김).** 수료증 설정(명의·직인)은 운영 표에만(직인 파일은 저장소에 올리지 않는다). 남은 것: ① 친구가 교육 담당자에게 역할 「교육」 주기 · 시험 참여자 폰으로 확인 · 정원 늘리기 한 번(시험 강좌 → `archived`) ② **공개 전(과제 11 · 플레이 심사 뒤)** 개인정보 세 곳+교회 어드민 방침 · 같은 분 두 자리 잇기 · `FEAT_SINCE.edu` → `eduOpen` ③ 2단계 출석부(2027-01). ⚠️ `api` 를 배포하는 세션은 **main 을 pull 한 뒤** — 낡은 체크아웃이면 edu 액션이 조용히 빠진다. 읽을 것 `docs/notes/education.md`
 - [ ] 🍂 **가을 말씀암송 동행 — 10/18(일) 개시**(**2026-10-04 바뀜: 측정 10/18~12/5 · 7주 가운데 5주 · 하루 3번 · 한 주 3일 · 늦게 오신 분도 같은 기준(11/5(목)까지 시작)** · 설계 §10 · 목록 12/20 · 공지 10/18 하루 · 11/3 알림 없음). 도장판은 「선물 대상」 없이 「지금까지 N일 함께 · 앞으로 D일 더」(§9-2 바뀜). **「하루 3번」(perDay 3)·🧪 시험 참여자 시험 회차 `autumn-2026-test` 는 2026-10-03 운영 반영 끝**(SQL·api·v3.514 `20261003c`·스모크 46/0). **같은 날 친구 결정으로 신청 없이 「자동 대상」(`needs.auto` · 공개 명단 없음 · 11/3 알림 없음 · 판 `20261003d` · 스모크 51/0)** — 끝나면 선물 대상 명단을 게시판·첫 화면에 올린다(방식 미정 · 그때 eventRosterPublic auto 갈래). ⏸ **개인정보 방침·공지는 안드로이드 심사 뒤**(설계 §9-4 문장 · `tests/event-auto.test.cjs` ⑪ skip). 친구: 🧪 시험 참여자 넣고 폰 확인 · 어드민 이름·날짜(~10/7) · **3↔5 결정과 주보 문구(10/14)** · 10/17 시험 회차 지우기+기준선(계획 Task 6) · 10/18 아침 「준비 중 → 열림」. ⚠️ `api` 는 origin/main 을 합친 트리에서만 배포(옛 트리면 perDay 가 조용히 1 로) · 확인은 `EVT_ENV=prod EXPECT_PER_DAY=3 bash tests/event-smoke.sh` · 되돌릴 땐 api 만(옛 4-인자 `event_streak.sql` 금지). 읽을 것 specs/2026-10-03-autumn-event-launch-design.md §8 · 계획 plans/2026-10-03-autumn-event-launch.md · `docs/notes/bible-events-admin.md`
 - [ ] 🗂️ **첫 화면 「사역현황」 · 사역 이력 확인 · 정정 신청 — 2026-10-01 운영 개시**(v2 aad4625 · 판 20261001c · `MH_LIVE` 켬 · church-admin main d40cf75 · 운영 SQL 008 · 교회 어드민 「📮 정정 신청」). 문은 사역신청과 하나 — 지금은 🧪 시험 참여자만, 12/13~12/27 신청 기간에 모두.
-      남은 것: ① 시험 참여자 계정으로 실기기 확인(「사역현황」 → 🗂️ → 기록 · 정정 한 번 → 교회 어드민 「📮 정정 신청」에서 처리) ② ~~member_merge 에 정정 신청 표~~ 2026-10-02 운영 반영 끝(겹치는 열린 신청은 옛 줄 지움 · `docs/member-profile-admin.md`) ③ 덤: `~/.church-admin/dev.env` `DEV_SERVICE_KEY` 를 새 secret 으로 → `tests/history-check.dev.test.mjs` ④ 공유 체크아웃 로컬 main 이 origin 뒤(남의 `store/listing-ios-ko.txt` 수정 때문에 빨리 감기 못 함 — 그 파일 주인이 정리한 뒤 `git pull`).
+      남은 것: ① 시험 참여자 계정으로 실기기 확인(「사역현황」 → 🗂️ → 기록 · 정정 한 번 → 교회 어드민 「📮 정정 신청」에서 처리) ② ~~member_merge 에 정정 신청 표~~ 2026-10-02 운영 반영 끝(겹치는 열린 신청은 옛 줄 지움 · `docs/member-profile-admin.md`) ③ 덤: `~/.church-admin/dev.env` `DEV_SERVICE_KEY` 를 새 secret 으로 → `tests/history-check.dev.test.mjs` ④ 공유 체크아웃 로컬 main 이 origin 뒤(남의 `자료/store/listing-ios-ko.txt` 수정 때문에 빨리 감기 못 함 — 그 파일 주인이 정리한 뒤 `git pull`).
       읽을 것 `docs/notes/ministry-history-check.md` · 계획 `docs/superpowers/plans/2026-10-01-ministry-history-check.md` · `…-requests-admin.md`
 - [ ] 👥 **교인명부 — 2026-09-29 운영 개시**(명단 8,672명 · 사진 4,645 · 5,387가구 · church-admin main 1307c65). 남은 것:
       ① 친구가 교인명부 볼 분에게 역할 「교인명부」 주기(🔑 담당자·역할) ② dimode 업체에 **사진 주소가 로그인 없이 열린다**고 알리기(`…/Handler/DisplayImage.ashx?id=숫자`)
@@ -204,10 +210,10 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
       요청이 로그인 전에 뜨던 순서 문제 · `bounces=false`의 부작용으로 가로 스크롤이 안
       돌아오던 문제(KVO로 원천 차단).
       **3단계(App Store 정식 심사 제출) — 2026-09-16 실제로 제출 완료.** 준비물:
-      `store/listing-ios-ko.txt`(설명·키워드·App Review 로그인 안내, 네이티브 기능 명시) ·
-      `store/screenshots-ios/real-*.png`(실기기/시뮬레이터로 직접 찍은 진짜 화면 10장,
+      `자료/store/listing-ios-ko.txt`(설명·키워드·App Review 로그인 안내, 네이티브 기능 명시) ·
+      `자료/store/screenshots-ios/real-*.png`(실기기/시뮬레이터로 직접 찍은 진짜 화면 10장,
       1242×2688 — 처음엔 웹을 흉내 낸 1290×2796으로 만들었다가 업로드가 거부돼 정정함.
-      이름·진도 숫자가 찍힌 자리는 흐림 처리함) · `store/README.md`의 "App Store(iOS) 등록
+      이름·진도 숫자가 찍힌 자리는 흐림 처리함) · `자료/store/README.md`의 "App Store(iOS) 등록
       준비물" 절(App Privacy 세부정보 매핑·연령 등급·수출 규정 전부 포함, 실제 제출 문답까지 반영).
       아이패드는 실기기 미확인이라 지원 범위에서 뺐다(`TARGETED_DEVICE_FAMILY`를 아이폰 전용 1로) —
       이 설정이 반영된 새 빌드로 제출했다. 푸시는 마케팅 문구·심사 메모에서 일부러 안
@@ -283,7 +289,7 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
       ⚠️ 「② 언제」 칸 규칙(금요일은 평일이 아니다 · 시각은 주일만 · 주기는 한 사람이 서는 주기)과
       **직분 목록이 네 곳**(교회 어드민 `paper.ts` 포함)이라는 것, 사슬 일곱은 `docs/notes/ministry-2027.md`.
 
-- [ ] **축복 기도문 — 주제 그룹만 남았다**(성도님께는 **2026-09-03 에 이미 열렸다** · 커밋 `11a1bea`): ① `marketing/가정축복기도문_수정.xlsx` D열 「그룹」을 담당자가 손보면 ② `supabase/blessings.sql`·`blessings.json`을 다시 만들어 개발→운영 순으로 반영한다. ⚠️ 여기 적혀 있던 ③ 「첫 화면에 한 줄 더하기」는 **만든 날 이미 끝난 일**이었다(2026-09-24 정정) — 첫 화면 단추에 게이트가 없다. 즉 남은 것은 **여는 일이 아니라 본문 갈아 끼우기**다.
+- [ ] **축복 기도문 — 주제 그룹만 남았다**(성도님께는 **2026-09-03 에 이미 열렸다** · 커밋 `11a1bea`): ① `자료/marketing/가정축복기도문_수정.xlsx` D열 「그룹」을 담당자가 손보면 ② `supabase/blessings.sql`·`blessings.json`을 다시 만들어 개발→운영 순으로 반영한다. ⚠️ 여기 적혀 있던 ③ 「첫 화면에 한 줄 더하기」는 **만든 날 이미 끝난 일**이었다(2026-09-24 정정) — 첫 화면 단추에 게이트가 없다. 즉 남은 것은 **여는 일이 아니라 본문 갈아 끼우기**다.
 - [ ] 🤖 **안드로이드 위젯 — 2026-09-21 시험판 실기기 확인 끝(갤럭시 S23 울트라). 남은 것: 비행기 모드 · 다음 날 아침 확인, 그리고 계획 Task 8(서명·판 번호·업로드) — 2026-10-03 실기기 확인 끝 · **새 앱 `kr.onlybible.gocheok` 의 첫 판(2 · 1.1.0)으로 나간다**(아래 「플레이스토어 출시」).**
       설계 `docs/superpowers/specs/2026-09-21-android-widgets-design.md` — Bubblewrap 으로 TWA 를 소스째 만들어
       `android-app/` 에 두고 위젯 셋을 더한다(시험판 `…memorize.dev` 는 따로 깔려 테스터 시계를 안 건드린다).
@@ -303,8 +309,8 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
 - [ ] 🎙️ **설교·찬양 담당자 — 2026-09-30 운영 반영**(SQL·`api`·`praise`·화면 v3.499 · 텔레그램 시험 도착). 남은 것: 담당자 등록 →
       **친구가 운영에서 한 편 끝까지** → 담당자 첫 실전 → 옛 길 치우기(`add-sermon.yml`·`addByUrl`·개발 `GH_DISPATCH_REF`) ·
       연상 그림 첫 실전 · Google Cloud 예산 알림. 읽을 것 `docs/notes/sermon-staff-upload.md`·`verse-image-staff.md`
-- [ ] **플레이스토어 출시 — 2026-10-03 새 앱 `kr.onlybible.gocheok` 프로덕션 심사 제출(검토 중 · 관리형 게시 꺼짐 = 통과하면 바로 나감)**. 교회 계정에서 새로 만든 앱이라 「12명·14일」 없음(옛 `…memorize` 는 이전해 와도 요건이 따라왔다). 옛 앱은 **「출시 안됨」**(지우지 않음 · 테스터 25명 폰에만 남음 · 그 폰들에선 계속 돈다 — ⚠️ `assetlinks.json` 의 옛 패키지 줄과 `app.js` referrer 의 `memorize` 를 **지우지 말 것**: 지우면 옛 앱 위에 주소창이 뜬다). 서명 = 업로드 키 「- New」 `3A:17` · 구글 앱 서명 키 `5F:62`(둘 다 `assetlinks.json`). 내부 테스트로 실기기 확인 끝(주소창 없음 · 로그인 그대로 · 사역현황 숨김 · **알림이 새 앱 이름으로 옴** · **위젯 누르면 그 구절 · 주소창 없음**). ⏰ **통과해 나간 날:** `MINISTRY_HIDE_ON_PLAY = false` · `WIDGET_GUIDE.android = true` → bump → 푸시 · 테스터·성도님께 새 앱 안내(옛 앱 지우고 새로 받기 · 알림 한 번 다시 켜기) · 옛 앱 삭제 여부 · 해외 나라. 앱 콘텐츠 답·함정 `docs/analysis/2026-09-30-play-production-rejected-org-account.md` **9-5** · 데이터 보안 CSV `store/data-safety-play-2026-10-03.csv`
-- [ ] ⏰ **플레이스토어 심사가 통과한 날 app.js `MINISTRY_HIDE_ON_PLAY = false` → bump → 푸시**(+ 교회 어드민 `duty-logic.js` 의 `PLAY_HIDDEN = false` — 봉사 당번 담당자 화면의 「플레이스토어 앱에서는 안 보여요」 안내)(사역현황 묶음이 플레이스토어 앱에서 다시 보인다 · 2026-10-02 심사 동안 숨김 · 심사 제출 전에 내부 테스트 판에서 숨는지 확인 — `store/README.md` 「단체 계정」 🔎 · 읽을 것 `docs/notes/ministry-history-check.md` 「플레이스토어 앱에서 숨김」)
+- [ ] **플레이스토어 출시 — 2026-10-03 새 앱 `kr.onlybible.gocheok` 프로덕션 심사 제출(검토 중 · 관리형 게시 꺼짐 = 통과하면 바로 나감)**. 교회 계정에서 새로 만든 앱이라 「12명·14일」 없음(옛 `…memorize` 는 이전해 와도 요건이 따라왔다). 옛 앱은 **「출시 안됨」**(지우지 않음 · 테스터 25명 폰에만 남음 · 그 폰들에선 계속 돈다 — ⚠️ `assetlinks.json` 의 옛 패키지 줄과 `app.js` referrer 의 `memorize` 를 **지우지 말 것**: 지우면 옛 앱 위에 주소창이 뜬다). 서명 = 업로드 키 「- New」 `3A:17` · 구글 앱 서명 키 `5F:62`(둘 다 `assetlinks.json`). 내부 테스트로 실기기 확인 끝(주소창 없음 · 로그인 그대로 · 사역현황 숨김 · **알림이 새 앱 이름으로 옴** · **위젯 누르면 그 구절 · 주소창 없음**). ⏰ **통과해 나간 날:** `MINISTRY_HIDE_ON_PLAY = false` · `WIDGET_GUIDE.android = true` → bump → 푸시 · 테스터·성도님께 새 앱 안내(옛 앱 지우고 새로 받기 · 알림 한 번 다시 켜기) · 옛 앱 삭제 여부 · 해외 나라. 앱 콘텐츠 답·함정 `docs/analysis/2026-09-30-play-production-rejected-org-account.md` **9-5** · 데이터 보안 CSV `자료/store/data-safety-play-2026-10-03.csv`
+- [ ] ⏰ **플레이스토어 심사가 통과한 날 app.js `MINISTRY_HIDE_ON_PLAY = false` → bump → 푸시**(+ 교회 어드민 `duty-logic.js` 의 `PLAY_HIDDEN = false` — 봉사 당번 담당자 화면의 「플레이스토어 앱에서는 안 보여요」 안내)(사역현황 묶음이 플레이스토어 앱에서 다시 보인다 · 2026-10-02 심사 동안 숨김 · 심사 제출 전에 내부 테스트 판에서 숨는지 확인 — `자료/store/README.md` 「단체 계정」 🔎 · 읽을 것 `docs/notes/ministry-history-check.md` 「플레이스토어 앱에서 숨김」)
 - [ ] **업로드 키 재설정**(급하지 않다 — 옛 업로드 키가 공개됐지만 앱 서명 키는 구글이 갖고 있어 위조는 불가): `upload_certificate.pem` 은 만들어 두었다(`성경암송 - Google Play package - New` 폴더). 콘솔 → Play 스토어 보호 → 「Play 앱 서명 관리」에서 요청
 - [ ] **영어(NIV) 본문 두 곳 손보기** — 34개 전부 들어갔고 검수도 마쳤는데, `no=31`(마태 10:31)이 마침표 뒤 `you`(→ `You`), `no=30`이 `2JN 1:12`(→ 다른 구절과 같은 `2 John 1:12` 꼴). 어드민에서 그 둘만
 - [ ] 필사 신청 알림이 **조용히 실패해도 아무도 모른다**(낮은 우선순위): `pilsaApply`가 `pilsaNotifyAdmins`를 `try/catch`로 감싸 결과를 버리고, 담당자가 없으면(`no-admin`) `push_log`에도 안 남는다 — 이 자리를 `push_log`에 남기게 고칠 것(단, `monitor`가 실패 행을 어떻게 보는지 먼저 확인해 헛경보를 만들지 말 것)

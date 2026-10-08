@@ -29,7 +29,7 @@ import io, json, os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, '..')
-OUT_DIR = os.path.join(ROOT, 'ministry')
+OUT_DIR = os.path.join(ROOT, '자료', 'ministry')
 FINAL = os.path.join(OUT_DIR, 'ministry_catalog_2027.json')
 DRAFT = os.path.join(OUT_DIR, 'ministry_catalog_2027_draft.json')
 CATALOG = FINAL if os.path.exists(FINAL) else DRAFT
@@ -57,7 +57,7 @@ def b(v):
 
 lines = [
     "-- 사역팀 목록 시드 (%d) — tools/ministry-seed-sql.py 가 만든다. 손으로 고치지 말 것." % YEAR,
-    "-- 자료: ministry/%s" % os.path.basename(CATALOG),
+    "-- 자료: 자료/ministry/%s" % os.path.basename(CATALOG),
     "-- ⚠️ 개발 DB 에 먼저 실행한 뒤 운영에 올린다.",
     "",
     "begin;",

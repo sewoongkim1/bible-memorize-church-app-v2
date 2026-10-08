@@ -2,7 +2,7 @@
 """
 시편 말씀 액자 — 구절 길이 측정 · DB 시드 생성기
 
-담당자가 채워 주신 psalm/시편말씀액자_구절입력_180.xlsx 를 읽어
+담당자가 채워 주신 자료/psalm/시편말씀액자_구절입력_180.xlsx 를 읽어
 ① 액자 다섯 줄에 들어가는지 재고 ② 흔한 실수를 잡아내고 ③ DB 시드 SQL을 만든다.
 
 ⚠️ **잣대는 3단계(전체 빈칸) 기준이다.**
@@ -45,7 +45,7 @@ if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
-DEF_XLSX = os.path.join(ROOT, "psalm", "시편말씀액자_구절입력_180.xlsx")
+DEF_XLSX = os.path.join(ROOT, "자료", "psalm", "시편말씀액자_구절입력_180.xlsx")
 OUT_SQL = os.path.join(ROOT, "supabase", "psalm_frames.sql")
 
 SHEET = "구절 입력"

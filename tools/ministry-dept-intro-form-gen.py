@@ -28,7 +28,7 @@
   팀 칸 수(TEAMS)·줄 높이(LINE_MM·ROOMY_LINE_MM)는 상수 — 1장을 넘으면 줄이고 다시 돌린다.
   PDF 쪽수는 pymupdf 로 재서 콘솔에 찍는다.
 
-출력 (ministry/ 폴더) — 각각 .html(원본) + .pdf(인쇄용, 크롬 없으면 건너뜀)
+출력 (자료/ministry/ 폴더) — 각각 .html(원본) + .pdf(인쇄용, 크롬 없으면 건너뜀)
   2027_부서소개서_A4
   2027_사역팀소개서_A4
 """
@@ -36,8 +36,8 @@ import io, os, subprocess
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, '..')
-OUT_DIR = os.path.join(ROOT, 'ministry')
-MARK = io.open(os.path.join(ROOT, 'marketing', 'logo-mark-data-uri.txt'), encoding='utf-8').read().strip()
+OUT_DIR = os.path.join(ROOT, '자료', 'ministry')
+MARK = io.open(os.path.join(ROOT, '자료', 'marketing', 'logo-mark-data-uri.txt'), encoding='utf-8').read().strip()
 
 # 사역신청서(ministry-apply-form-gen.py)와 같은 톤
 NAVY = '#123059'

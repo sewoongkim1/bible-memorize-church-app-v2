@@ -37,7 +37,7 @@ if hasattr(sys.stderr, "reconfigure"):
 
 CHROME = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 ROOT = os.path.join(os.path.dirname(__file__), "..")
-OUT = os.path.join(ROOT, "psalm", "측정결과.txt")
+OUT = os.path.join(ROOT, "자료", "psalm", "측정결과.txt")
 PORT = 8731
 TMP = "_psalm_measure.html"
 

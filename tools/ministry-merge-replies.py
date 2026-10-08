@@ -2,11 +2,11 @@
 """부서 회신 취합 — 채워져 돌아온 확인 양식을 모아 사역 목록 확정본을 만든다.
 
 ■ 흐름
-    ministry/부서확인/            보낼 파일(빈 양식, 15개)
-    ministry/부서확인/회신/       ← 부서가 채워 보낸 파일을 여기에 모은다
+    자료/ministry/부서확인/            보낼 파일(빈 양식, 15개)
+    자료/ministry/부서확인/회신/       ← 부서가 채워 보낸 파일을 여기에 모은다
         python tools/ministry-merge-replies.py
-    ministry/ministry_catalog_2027.json      확정본(초안을 덮지 않는다)
-    ministry/부서확인/_취합결과.md            무엇이 어떻게 바뀌었는지 사람이 읽는 표
+    자료/ministry/ministry_catalog_2027.json      확정본(초안을 덮지 않는다)
+    자료/ministry/부서확인/_취합결과.md            무엇이 어떻게 바뀌었는지 사람이 읽는 표
 
 ■ 왜 도구로 하나
   94행 × (이름·요일·시각·주기·하는 일·인원) 을 손으로 옮기면 반드시 어딘가 틀린다.
@@ -52,7 +52,7 @@ from openpyxl import load_workbook
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..")
-OUT_DIR = os.path.join(ROOT, "ministry")
+OUT_DIR = os.path.join(ROOT, "자료", "ministry")
 REPLY_DIR = os.path.join(OUT_DIR, "부서확인", "회신")
 DRAFT_JSON = os.path.join(OUT_DIR, "ministry_catalog_2027_draft.json")
 FINAL_JSON = os.path.join(OUT_DIR, "ministry_catalog_2027.json")

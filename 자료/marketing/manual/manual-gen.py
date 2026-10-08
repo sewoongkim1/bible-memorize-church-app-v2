@@ -24,7 +24,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 M = os.path.join(HERE, '..')
 QR = io.open(os.path.join(M, 'qr-data-uri.txt'), encoding='utf-8').read().strip()
 # 마크만 — 로고의 '고척교회' 글자는 14~20mm에서 뭉개진다(잉크가 번지는 종이면 더).
-# logo-mark-data-uri.txt 는 logo-data-uri.txt 에서 글자를 잘라낸 것(marketing/ 공용).
+# logo-mark-data-uri.txt 는 logo-data-uri.txt 에서 글자를 잘라낸 것(자료/marketing/ 공용).
 MARK = io.open(os.path.join(M, 'logo-mark-data-uri.txt'), encoding='utf-8').read().strip()
 
 NAVY = '#123059'

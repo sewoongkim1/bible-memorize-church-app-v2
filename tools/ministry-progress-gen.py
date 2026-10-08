@@ -7,7 +7,7 @@
   받는 분은 기획(안)과 같다 — 목사님·부서장님.
 
 ■ 화면 캡처
-  ministry/화면/0.jpg ~ 5.jpg (1080×2316, 폰 캡처). 위아래 상태 표시줄은 잘라 내고
+  자료/ministry/화면/0.jpg ~ 5.jpg (1080×2316, 폰 캡처). 위아래 상태 표시줄은 잘라 내고
   보여 줄 자리만 CROPS 로 자른다. ⚠️ ⑥ 신청 확인 화면은 **소속·이름 줄 아래(직분부터)** 자른다
   — 찍은 분의 실제 이름이 찍혀 있다. 캡처를 다시 찍으면 CROPS 의 y 를 다시 볼 것.
 
@@ -24,16 +24,16 @@
   캡처 폭·자르는 높이(CROP_H)는 상수. 1장을 넘으면 CROP_H 를 줄이고 다시 돌린다.
   PDF 쪽수는 pymupdf 로 재서 찍는다.
 
-출력: ministry/2027_사역신청_진행공유_A4.html · .pdf
+출력: 자료/ministry/2027_사역신청_진행공유_A4.html · .pdf
 """
 import base64, io, os, subprocess
 from PIL import Image, ImageDraw, ImageFilter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, '..')
-OUT_DIR = os.path.join(ROOT, 'ministry')
+OUT_DIR = os.path.join(ROOT, '자료', 'ministry')
 SHOT_DIR = os.path.join(OUT_DIR, '화면')
-MARK = io.open(os.path.join(ROOT, 'marketing', 'logo-mark-data-uri.txt'), encoding='utf-8').read().strip()
+MARK = io.open(os.path.join(ROOT, '자료', 'marketing', 'logo-mark-data-uri.txt'), encoding='utf-8').read().strip()
 STEM = '2027_사역신청_진행공유_A4'
 
 CROP_H = 1290      # 원본(1080 폭)에서 자르는 높이 — 1400 이면 셋째 줄이 2쪽으로 넘친다

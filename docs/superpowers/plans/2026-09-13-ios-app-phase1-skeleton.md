@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Bundle ID(앱 식별자)는 안드로이드 패키지 ID와 맞춘다: `kr.onlybible.gocheok.memorize` (한 번 정하면 못 바꾼다 — `store/README.md` 규칙과 동일)
+- Bundle ID(앱 식별자)는 안드로이드 패키지 ID와 맞춘다: `kr.onlybible.gocheok.memorize` (한 번 정하면 못 바꾼다 — `자료/store/README.md` 규칙과 동일)
 - `capacitor.config.json`의 `server.url`은 항상 `https://gocheok.onlybible.kr` (운영 사이트를 그대로 불러온다 — 로컬 웹 파일을 번들에 넣지 않는다)
 - 이 저장소의 기존 웹 배포(`index.html`·`app.js`·GitHub Pages)는 이 계획에서 손대지 않는다
 - `ios-app/` 밖의 파일은 건드리지 않는다(단, 이 계획 완료 보고를 남길 `CLAUDE.md` 한 줄은 예외)
@@ -188,7 +188,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 - [ ] **Step 2: App Store Connect에 앱 등록**
   1. 승인 후 https://appstoreconnect.apple.com → "나의 앱" → "+" → "신규 앱"
   2. Bundle ID: `kr.onlybible.gocheok.memorize` (Apple Developer 콘솔의 "Identifiers"에서 먼저 이 값으로 등록해야 App Store Connect에서 선택할 수 있습니다)
-  3. 이름: "고척교회 성경암송" (한글 심사 가이드는 `store/README.md` 참고)
+  3. 이름: "고척교회 성경암송" (한글 심사 가이드는 `자료/store/README.md` 참고)
 
 - [ ] **Step 3: App Store Connect API 키 발급**
   1. App Store Connect → "사용자 및 액세스" → "통합" → "App Store Connect API" → "+"

@@ -24,14 +24,14 @@
 ■ 지면 — 실측
   다섯 쪽(쪽마다 break-before). 한 절이 넘치면 쪽수가 늘어난다 — pymupdf 로 쪽수·서체(Type0)를 재서 찍는다.
 
-출력: ministry/2026_사역이력_공유_A4.html · .pdf
+출력: 자료/ministry/2026_사역이력_공유_A4.html · .pdf
 """
 import io, os, subprocess
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, '..')
-OUT_DIR = os.path.join(ROOT, 'ministry')
-MARK = io.open(os.path.join(ROOT, 'marketing', 'logo-mark-data-uri.txt'), encoding='utf-8').read().strip()
+OUT_DIR = os.path.join(ROOT, '자료', 'ministry')
+MARK = io.open(os.path.join(ROOT, '자료', 'marketing', 'logo-mark-data-uri.txt'), encoding='utf-8').read().strip()
 STEM = '2026_사역이력_공유_A4'
 PAGES = 4   # 진행 상황 표를 켜면 5
 

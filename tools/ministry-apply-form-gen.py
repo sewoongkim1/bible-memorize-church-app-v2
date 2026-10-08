@@ -14,7 +14,7 @@
   실물**이고, 두 원본(신청서·조직표)의 이름 불일치를 정리한 최신 목록을 반영한다.
 
 ■ 데이터 출처 — 손으로 옮겨 적지 않는다
-  ministry/ministry_catalog_2027_draft.json 을 그대로 읽는다. 부서 확인 양식
+  자료/ministry/ministry_catalog_2027_draft.json 을 그대로 읽는다. 부서 확인 양식
   (tools/ministry-form-gen.py)이 최종본으로 갱신되면 이 파일도 다시 돌리기만 하면
   된다 — 팀 이름을 두 군데서 따로 관리하면 반드시 어긋난다.
   ⚠️ **초안 상태다.** 담당자 확인 전이라 일부 팀명은 바뀔 수 있다(부록 표의
@@ -28,7 +28,7 @@
   빼 두었다 — 페이지 수가 2장을 벗어나면 FONT_PT 나 COLS 를 조정하고 다시 돌린다.
   PDF 페이지 수는 pymupdf(fitz)로 실측해 콘솔에 찍는다(스크린샷 대신 숫자로 확인).
 
-출력 (ministry/ 폴더)
+출력 (자료/ministry/ 폴더)
   2027_사역신청서_A4.html   원본
   2027_사역신청서_A4.pdf    인쇄용(크롬 --print-to-pdf, 없으면 건너뜀)
 """
@@ -36,16 +36,16 @@ import io, os, json, subprocess
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, '..')
-OUT_DIR = os.path.join(ROOT, 'ministry')
+OUT_DIR = os.path.join(ROOT, '자료', 'ministry')
 CATALOG = os.path.join(OUT_DIR, 'ministry_catalog_2027_draft.json')
 
 # ⚠️ 부서 확인이 끝나면 확정본(ministry_catalog_2027.json)이 생긴다 —
 #    있으면 그것을, 없으면 초안을 읽는다(tools/ministry-merge-replies.py 가 만든다).
 _FINAL = os.path.join(OUT_DIR, 'ministry_catalog_2027.json')
 CATALOG = _FINAL if os.path.exists(_FINAL) else CATALOG
-MARK = io.open(os.path.join(ROOT, 'marketing', 'logo-mark-data-uri.txt'), encoding='utf-8').read().strip()
+MARK = io.open(os.path.join(ROOT, '자료', 'marketing', 'logo-mark-data-uri.txt'), encoding='utf-8').read().strip()
 
-# 사용설명서_A4.pdf 와 같은 톤(marketing/manual/manual-gen.py) — 이 교회 인쇄물의
+# 사용설명서_A4.pdf 와 같은 톤(자료/marketing/manual/manual-gen.py) — 이 교회 인쇄물의
 # 실제 정체성이다. 새로 지어내지 않는다.
 NAVY = '#123059'
 GOLD = '#765700'

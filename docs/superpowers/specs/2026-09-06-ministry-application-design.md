@@ -230,7 +230,7 @@
 
 ## 09-1. 다른 교회 사례 참고 (2026-09-07)
 
-성도님이 다른 교회의 사역신청서·소개 자료 5건을 제공해 검토했다(AppForm/ —
+성도님이 다른 교회의 사역신청서·소개 자료 5건을 제공해 검토했다(자료/AppForm/ —
 개인정보 없는 양식류만, 이 저장소에는 올리지 않았다). 시간 정보를 어떻게
 다루는지가 교회마다 달라, 우리 교회에 맞는 것만 골랐다.
 
@@ -337,8 +337,8 @@ H열을 더했다(2026-09-07) — 몰라도 비워 두면 된다.
 
 - `tools/ministry-form-gen.py` — 종이 원본 둘을 대조해 만든 사역팀 초안 98개를
   각 부서가 확인·수정할 수 있는 엑셀 양식으로 뽑는다.
-- `ministry/2027_사역신청_부서확인양식.xlsx` — 그 결과물(부서 확인용 종이).
-- `ministry/ministry_catalog_2027_draft.json` — 같은 내용의 초안 JSON
+- `자료/ministry/2027_사역신청_부서확인양식.xlsx` — 그 결과물(부서 확인용 종이).
+- `자료/ministry/ministry_catalog_2027_draft.json` — 같은 내용의 초안 JSON
   (`committee`·`group`·`team`·`kind`(apply/appoint)·`option_note`·`conflict_note`).
 
 ⚠️ **여기서 확정된 표기명이 앱의 `ministry_catalog` 최종 시드가 된다** — 05장이

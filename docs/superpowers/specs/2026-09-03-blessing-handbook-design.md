@@ -164,7 +164,7 @@ blessings.json  →  booklet/generate_blessing.py  →  blessing.html  →  브�
 
 ## 6. 자료
 
-`marketing/가정축복기도문_수정.xlsx` → `blessings.json` (앱과 같은 자료).
+`자료/marketing/가정축복기도문_수정.xlsx` → `blessings.json` (앱과 같은 자료).
 
 104편 모두 개역개정과 대조를 마쳤다. 2026-09-03에 고친 것:
 52·53번 기도문이 서로 바뀌어 있던 것 · 76번의 「(셀라)」 · 85번의 깨진 문장 ·

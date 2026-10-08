@@ -35,8 +35,8 @@
 | Modify `admin-event.html:364` · `js/events.js` 주석 | 날짜 문구 |
 | Modify `supabase/event_stamp_2026.sql` | 값만 새로 적기(돌리지 않음 · 머리 경고) |
 | Modify `supabase/event_streak_metrics.sql` · `supabase/dev_seed_stamp.sql` · `supabase/event_streak.sql` | 창·시작일 |
-| Create `marketing/autumn-2026/문구.md` | 주보 · 단톡 · 게시판 · 알림 둘 |
-| Create `marketing/autumn-2026/poster.py` → `poster-a3.pdf`·`poster-a3.png`·`slide-16x9.pdf`·`slide-16x9.png` | 포스터·슬라이드 |
+| Create `자료/marketing/autumn-2026/문구.md` | 주보 · 단톡 · 게시판 · 알림 둘 |
+| Create `자료/marketing/autumn-2026/poster.py` → `poster-a3.pdf`·`poster-a3.png`·`slide-16x9.pdf`·`slide-16x9.png` | 포스터·슬라이드 |
 | Modify `CLAUDE.md` · `docs/backlog.md` · `docs/notes/bible-events-admin.md` | 날짜·이름·할 일 |
 
 ---
@@ -233,7 +233,7 @@ Expected: `draft | 2026 가을 말씀암송 동행 | 가을 말씀암송 동행 
 ### Task 4: 공지 문구 묶음
 
 **Files:**
-- Create: `marketing/autumn-2026/문구.md`
+- Create: `자료/marketing/autumn-2026/문구.md`
 
 **Interfaces:**
 - Produces: Task 5(포스터)·Task 7(게시판·알림)이 이 파일의 글을 그대로 쓴다
@@ -241,14 +241,14 @@ Expected: `draft | 2026 가을 말씀암송 동행 | 가을 말씀암송 동행 
 - [ ] **Step 1: 파일을 쓴다(아래 그대로)**
 
 > ⚠️ 아래 본문의 「하루 한 번」(2절 단톡 · 3절 게시판) → **§8 에서 하루 3번으로 바뀜**(Task 13 · 2026-10-03).
-> 지금 문구의 원본은 `marketing/autumn-2026/문구.md` 다 — 여기서 베끼지 말 것(주보·4절·5절 문장도 그 뒤에 바뀌었다).
+> 지금 문구의 원본은 `자료/marketing/autumn-2026/문구.md` 다 — 여기서 베끼지 말 것(주보·4절·5절 문장도 그 뒤에 바뀌었다).
 
 ````markdown
 # 2026 가을 말씀암송 동행 — 공지 문구
 
 > 넘길 날: 주보 10/14(수) 담당 목사님께 · 나머지 10/18(주일) 아침. 「상」·「순위」는 쓰지 않는다.
 
-## 1. 주보 광고 (오른쪽 「오직 성경, 말씀이 답이다!」 칸 · 표 + QR `marketing/qr-code.png`)
+## 1. 주보 광고 (오른쪽 「오직 성경, 말씀이 답이다!」 칸 · 표 + QR `자료/marketing/qr-code.png`)
 ```
 「가을 말씀암송 동행」
 10월 18일(주일)부터 6주 동안, 한 주에 3일 말씀을 암송하시면 그 주가 채워집니다.
@@ -297,7 +297,7 @@ QR을 찍고 교구·이름을 넣으면 바로 시작됩니다. 사용법은 1�
 - [ ] **Step 3: 커밋**
 
 ```bash
-cd /c/Projects/v2-mh-merge && git add "marketing/autumn-2026/문구.md"
+cd /c/Projects/v2-mh-merge && git add "자료/marketing/autumn-2026/문구.md"
 git commit -m "docs(이벤트): 가을 말씀암송 동행 공지 문구 — 주보·단톡·게시판·알림 둘" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" && git push origin mh-merge:main
 ```
 
@@ -306,13 +306,13 @@ git commit -m "docs(이벤트): 가을 말씀암송 동행 공지 문구 — 주
 ### Task 5: 포스터 A3 · 슬라이드 16:9
 
 **Files:**
-- Create: `marketing/autumn-2026/poster.py`
-- Create(생성물): `marketing/autumn-2026/poster-a3.pdf` · `poster-a3.png` · `slide-16x9.pdf` · `slide-16x9.png`
+- Create: `자료/marketing/autumn-2026/poster.py`
+- Create(생성물): `자료/marketing/autumn-2026/poster-a3.pdf` · `poster-a3.png` · `slide-16x9.pdf` · `slide-16x9.png`
 
 **Interfaces:**
-- Consumes: `marketing/qr-data-uri.txt` · `marketing/logo-data-uri.txt` · `marketing/event-poster.py` 의 `HEAD`(CSS)를 그대로 쓴다
+- Consumes: `자료/marketing/qr-data-uri.txt` · `자료/marketing/logo-data-uri.txt` · `자료/marketing/event-poster.py` 의 `HEAD`(CSS)를 그대로 쓴다
 
-- [ ] **Step 1: `poster.py` 를 쓴다** — `event-poster.py` 의 `HEAD` 문자열·`poster_a3()`·`slide_169()` 틀을 그대로 복사하고, 본문만 아래로 바꾼다. 경로는 `M = 'C:/Projects/bible-memorize-church-app-v2/marketing/'` 대신 이 파일 기준(`os.path.dirname(__file__) + '/../'`)으로 읽는다. 끝에 Playwright 로 PDF·PNG 를 뽑는다.
+- [ ] **Step 1: `poster.py` 를 쓴다** — `event-poster.py` 의 `HEAD` 문자열·`poster_a3()`·`slide_169()` 틀을 그대로 복사하고, 본문만 아래로 바꾼다. 경로는 `M = 'C:/Projects/bible-memorize-church-app-v2/자료/marketing/'` 대신 이 파일 기준(`os.path.dirname(__file__) + '/../'`)으로 읽는다. 끝에 Playwright 로 PDF·PNG 를 뽑는다.
 
 본문(A3 · 슬라이드 공통 문구):
 - kicker `성도 참여 이벤트`
@@ -353,7 +353,7 @@ Expected: `ok` · PDF 둘 · PNG 둘.
 - [ ] **Step 4: 커밋**
 
 ```bash
-cd /c/Projects/v2-mh-merge && git add marketing/autumn-2026/poster.py marketing/autumn-2026/poster-a3.pdf marketing/autumn-2026/poster-a3.png marketing/autumn-2026/slide-16x9.pdf marketing/autumn-2026/slide-16x9.png
+cd /c/Projects/v2-mh-merge && git add 자료/marketing/autumn-2026/poster.py 자료/marketing/autumn-2026/poster-a3.pdf 자료/marketing/autumn-2026/poster-a3.png 자료/marketing/autumn-2026/slide-16x9.pdf 자료/marketing/autumn-2026/slide-16x9.png
 git commit -m "feat(이벤트): 가을 말씀암송 동행 포스터 A3 · 슬라이드 16:9" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" && git push origin mh-merge:main
 ```
 
@@ -574,8 +574,8 @@ function evtListableFor(ev: any, today: string, isTester: boolean): boolean {
 
 ### Task 13: 공지 문구 · 포스터 — 「하루 3번」 + 고칠 곳 둘
 
-- `marketing/autumn-2026/문구.md`: 「하루 한 번 말씀을 암송하시면」 → 「하루 3번 말씀을 암송하시면」(모든 절) · 주보 「10월 18일(주일)부터 6주 동안」 → 「**10월 18일(주일)부터 11월 28일(토)까지** 6주 동안」, 끝의 「(~11월 28일)」 삭제 · 10/18 알림 「세 주를 채우신 분께 선물을 드려요.」 → 「세 주를 채우고 신청하신 분께 선물을 드려요.」 · 머리에 「3 은 10/14 까지 5 로 바뀔 수 있다 — 바뀌면 이 파일·포스터·`event_autumn_2026_perday.sql` 을 함께」.
-- `marketing/autumn-2026/poster.py`: 숫자는 파일 위 상수 `PER_DAY = 3` 하나에서 — sub 「하루 {PER_DAY}번 말씀을 암송하시면 한 칸.」 · 둘째 단계 「하루 {PER_DAY}번<br>말씀 암송」. `if __name__ == "__main__":` 가드(import 하면 다시 뽑지 않게). 다시 뽑아 PNG 를 눈으로.
+- `자료/marketing/autumn-2026/문구.md`: 「하루 한 번 말씀을 암송하시면」 → 「하루 3번 말씀을 암송하시면」(모든 절) · 주보 「10월 18일(주일)부터 6주 동안」 → 「**10월 18일(주일)부터 11월 28일(토)까지** 6주 동안」, 끝의 「(~11월 28일)」 삭제 · 10/18 알림 「세 주를 채우신 분께 선물을 드려요.」 → 「세 주를 채우고 신청하신 분께 선물을 드려요.」 · 머리에 「3 은 10/14 까지 5 로 바뀔 수 있다 — 바뀌면 이 파일·포스터·`event_autumn_2026_perday.sql` 을 함께」.
+- `자료/marketing/autumn-2026/poster.py`: 숫자는 파일 위 상수 `PER_DAY = 3` 하나에서 — sub 「하루 {PER_DAY}번 말씀을 암송하시면 한 칸.」 · 둘째 단계 「하루 {PER_DAY}번<br>말씀 암송」. `if __name__ == "__main__":` 가드(import 하면 다시 뽑지 않게). 다시 뽑아 PNG 를 눈으로.
 - [ ] 커밋(로컬).
 
 ### Task 14: 운영 반영 · 시험 준비 끝 (컨트롤러)

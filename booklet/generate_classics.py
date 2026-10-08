@@ -212,7 +212,7 @@ def _uri(path):
     return io.open(path, encoding='utf-8').read().strip() if os.path.exists(path) else ''
 
 
-LOGO = _uri(os.path.join('..', 'marketing', 'logo-data-uri.txt'))   # 세로 — 되돌아갈 자리
+LOGO = _uri(os.path.join('..', '자료', 'marketing', 'logo-data-uri.txt'))   # 세로 — 되돌아갈 자리
 LOGO_H = _uri('ci-h-data-uri.txt') or LOGO                          # 가로 — 앞·뒷표지 둘 다
 
 # ── 자료 ────────────────────────────────────────────────────────────────

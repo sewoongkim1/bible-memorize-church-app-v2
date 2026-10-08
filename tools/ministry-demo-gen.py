@@ -16,20 +16,20 @@
   목록을 HTML 안에 통째로 박아 넣는다(이 생성기가 하는 일).
 
 ■ 데이터
-  ministry/ministry_catalog_2027_draft.json 하나만 읽는다. 팀 이름이 바뀌면
+  자료/ministry/ministry_catalog_2027_draft.json 하나만 읽는다. 팀 이름이 바뀌면
   이 생성기를 다시 돌리면 된다.
   ⚠️ 시간 예시(SCHEDULE_EXAMPLES)는 표 형식 시안 생성기와 같은 값을 쓴다 —
   부서 확인 전이라 실제 시간이 아니고, 화면에도 「예시」라고 적어 둔다.
   실제로 확인된 값(찬양부 schedule_note)은 예시로 덮지 않는다.
 
 사용법: python tools/ministry-demo-gen.py
-출력:   ministry/2027_사역신청_데모.html
+출력:   자료/ministry/2027_사역신청_데모.html
 """
 import io, json, os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, '..')
-OUT_DIR = os.path.join(ROOT, 'ministry')
+OUT_DIR = os.path.join(ROOT, '자료', 'ministry')
 CATALOG = os.path.join(OUT_DIR, 'ministry_catalog_2027_draft.json')
 
 # ⚠️ 부서 확인이 끝나면 확정본(ministry_catalog_2027.json)이 생긴다 —

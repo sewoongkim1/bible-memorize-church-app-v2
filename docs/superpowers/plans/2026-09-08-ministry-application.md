@@ -42,7 +42,7 @@
 
 | 할 일 | 도구 | 산출물 |
 |---|---|---|
-| 부서에 확인 요청 | `ministry/부서확인/` 15개 파일 + `부서_확인요청_안내문.md` | — |
+| 부서에 확인 요청 | `자료/ministry/부서확인/` 15개 파일 + `부서_확인요청_안내문.md` | — |
 | 회신 취합 | `python tools/ministry-merge-replies.py` | `ministry_catalog_2027.json` + `_취합결과.md` |
 | 종이 신청서·데모 갱신 | 생성기 3개 재실행 | 확정본을 자동으로 읽는다 |
 
@@ -110,7 +110,7 @@ ministry_orders
 
 ## 2. 성도 화면
 
-`index.html` + `app.js`. **데모(`ministry/2027_사역신청_데모.html`)가 이미
+`index.html` + `app.js`. **데모(`자료/ministry/2027_사역신청_데모.html`)가 이미
 흐름과 부품을 확정해 두었다** — 그대로 옮기면 된다.
 
 | 화면 | 내용 | 재사용 |

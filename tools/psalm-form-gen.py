@@ -21,7 +21,7 @@
    AI가 채우지 않는다 — 그럴듯하게 틀린 성경이 올라가면 되돌릴 방법이 없다.
 
 사용법: python tools/psalm-form-gen.py
-출력:   psalm/시편말씀액자_구절입력_180.xlsx
+출력:   자료/psalm/시편말씀액자_구절입력_180.xlsx
 """
 import datetime as dt
 import os
@@ -36,7 +36,7 @@ from openpyxl.worksheet.datavalidation import DataValidation
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
-OUT_DIR = os.path.join(os.path.dirname(__file__), "..", "psalm")
+OUT_DIR = os.path.join(os.path.dirname(__file__), "..", "자료", "psalm")
 OUT_XLSX = os.path.join(OUT_DIR, "시편말씀액자_구절입력_180.xlsx")
 
 START_DATE = dt.date(2026, 9, 21)   # 1일차 (월) — app_config('psalm')의 start 와 같은 값

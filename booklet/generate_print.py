@@ -27,7 +27,7 @@ import qrcode
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-SC = 'c:/Projects/bible-memorize-church-app-v2/marketing/'
+SC = 'c:/Projects/bible-memorize-church-app-v2/자료/marketing/'
 LOGO = io.open(SC + 'logo-data-uri.txt', encoding='utf-8').read().strip()
 
 ss = json.load(io.open('sermons.json', encoding='utf-8'))

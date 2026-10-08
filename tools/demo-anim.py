@@ -38,7 +38,7 @@ CAP = os.path.join(ROOT, "tools", "capture-guide-shots.py")
 
 VERSE = int(sys.argv[1]) if len(sys.argv) > 1 else 21      # 살전 5:16-18 (낱말 7개)
 STAGE = int(sys.argv[2]) if len(sys.argv) > 2 else 2       # 2단계 = 빈칸 65%
-OUT = sys.argv[3] if len(sys.argv) > 3 else os.path.join(ROOT, "marketing", "demo", "card-mode.webp")
+OUT = sys.argv[3] if len(sys.argv) > 3 else os.path.join(ROOT, "자료", "marketing", "demo", "card-mode.webp")
 MAX_FRAMES = 14
 
 # «+» 와 «<» 가 없어야 한다(위 ① 참고). forEach·some 으로만 돈다.

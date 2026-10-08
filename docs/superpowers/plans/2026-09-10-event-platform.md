@@ -26,7 +26,7 @@
 - **CHECK 제약은 언제나 `drop constraint if exists` → `add constraint` 쌍으로.** 여러 번 돌려도 안전해야 한다.
 - **표를 개발·운영 양쪽에 먼저 만들고 나서 코드를 커밋한다.** Edge Function은 파일 하나를 통째로 배포하므로, 내가 커밋한 코드는 **다음에 누가 배포하든** 운영으로 나간다(2026-09-10 `getVerses` 장애).
 - **공용 경로를 건드리지 않는다.** `getVerses`·`login`·`ranking`·파일 최상단·`PUBLIC_CONFIG_KEYS`·`app_config` 전부 손대지 않는다.
-- **`git add -A` 금지.** `booklet/`·`psalm/`에 다른 작업물이 커밋 대기로 상주한다. `app.js`·`style.css`·`index.html`처럼 여럿이 함께 쓰는 파일은 **내 헝크만** 담는다(`git add -p`).
+- **`git add -A` 금지.** `booklet/`·`자료/psalm/`에 다른 작업물이 커밋 대기로 상주한다. `app.js`·`style.css`·`index.html`처럼 여럿이 함께 쓰는 파일은 **내 헝크만** 담는다(`git add -p`).
 - **`python tools/bump.py`는 배포할 때만 돌린다.** 이 계획에는 bump 단계가 없다(운영 배포는 8단계, 별도 계획).
 - **노출은 「닫힌 쪽으로 실패」한다.** 상태는 불리언이 아니라 `unknown` / `none` / `some` **세 값**이고, 숨기는 것은 같아도 **할 말이 다르다** — 「지금 불러올 수 없어요」와 「지금 열린 이벤트가 없어요」를 섞지 않는다.
 - **직분 목록은 사역신청의 것을 그대로 쓴다:** `MIN_POSITIONS = ["성도","집사","권사","안수집사","장로","전도사","목사","학생"]` (index.ts:3586). 따로 만들면 갈라진다.
@@ -1498,7 +1498,7 @@ git add js/events.js
 git add -p app.js style.css index.html tools/bump.py
 git status --short
 ```
-Expected: 위 다섯 파일만 스테이징돼 있고 `booklet/`·`psalm/`·`admin.html`은 담기지 않았다.
+Expected: 위 다섯 파일만 스테이징돼 있고 `booklet/`·`자료/psalm/`·`admin.html`은 담기지 않았다.
 
 ```bash
 git commit -m "feat(이벤트 플랫폼): 앱 화면 둘 — 목록·등록 폼

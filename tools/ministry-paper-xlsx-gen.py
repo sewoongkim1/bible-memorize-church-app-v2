@@ -12,7 +12,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.worksheet.datavalidation import DataValidation
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT = os.path.join(ROOT, 'ministry', '2027_사역명단_올리기_양식.xlsx')
+OUT = os.path.join(ROOT, 'files', '2027_사역명단_올리기_양식.xlsx')
 
 COLS = [
     ('교구', 10, '화평', '앱 로그인과 똑같이 (믿음·소망·사랑·섬김·은혜·화평·기쁨·새가족)'),

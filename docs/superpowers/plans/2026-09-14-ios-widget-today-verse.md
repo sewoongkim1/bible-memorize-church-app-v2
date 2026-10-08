@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Bundle ID(위젯): `kr.onlybible.gocheok.memorize.todayverse` — 앱 Bundle ID `kr.onlybible.gocheok.memorize`(고정값, `store/README.md` 규칙과 동일) 밑의 하위 식별자
+- Bundle ID(위젯): `kr.onlybible.gocheok.memorize.todayverse` — 앱 Bundle ID `kr.onlybible.gocheok.memorize`(고정값, `자료/store/README.md` 규칙과 동일) 밑의 하위 식별자
 - 서버 코드(`supabase/functions/api/index.ts`)는 **개발 프로젝트(`ktpwthwqzgcqcrmsafdo`) 먼저 배포·확인 → 운영(`xnomlgydifiqiybervtf`)** 순서 (CLAUDE.md 백엔드 체크리스트)
 - 이 위젯은 **로그인 없이 보이는 공개 정보만** 다룬다 — `user_id`나 개인정보는 절대 포함하지 않는다(CLAUDE.md 보안 규칙과 동일한 이유: 공개 anon key로 누구나 호출 가능)
 - `ios-app/` 밖의 파일은 건드리지 않는다(단, `supabase/functions/api/index.ts`와 이 계획 완료 기록을 남길 `CLAUDE.md` 한 줄은 예외)

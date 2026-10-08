@@ -461,11 +461,11 @@ test('새 표 — RLS 를 켜고 anon·authenticated 를 둘 다(표·시퀀스)
 });
 
 test('스토어 문구 — 사실이 아닌 한 줄과 거부되는 「1목장」이 없다', () => {
-  for (const f of ['store/listing-ko.txt', 'store/listing-ios-ko.txt']) {
+  for (const f of ['자료/store/listing-ko.txt', '자료/store/listing-ios-ko.txt']) {
     const t = read(f);
     assert.ok(!t.includes('본인 진도와 도전 순위에만 쓰입니다'), f + ' 에 사실이 아닌 문장이 남아 있다');
     assert.ok(!/\d+목장/.test(t), f + ' 의 심사자 안내에 「N목장」이 있다 — 목장 칸은 숫자만 받는다(MOK_RE)');
   }
-  const ko = read('store/listing-ko.txt');
+  const ko = read('자료/store/listing-ko.txt');
   assert.ok(ko.includes('위 개인정보 수집·이용 안내를 확인하고 동의합니다'), 'listing-ko.txt 심사자 안내에 동의 체크칸이 없다');
 });

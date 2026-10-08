@@ -6,14 +6,14 @@ v1(Google Sheets) 데이터를 Supabase로 옮긴다. **v1 운영에는 영향 �
 1. **v1 Apps Script 재배포** — `bible-memorize-church-app/Code.gs`에 `dump` 액션이 추가돼 있다.
    전체 코드를 Apps Script 편집기에 붙여넣고 **새 버전으로 배포**한다.
 2. **덤프 내보내기** — 브라우저에서 아래 주소를 열고(=관리자 비밀번호 ADMIN_PW),
-   응답 JSON 전체를 `migrate/v1dump.json` 으로 저장한다.
+   응답 JSON 전체를 `자료/migrate/v1dump.json` 으로 저장한다.
    ```
    <v1 /exec URL>?action=dump&pw=<ADMIN_PW>
    ```
 3. **가져오기 실행** (Supabase의 ADMIN_SECRET 필요):
    ```powershell
    cd C:\Projects\bible-memorize-church-app-v2
-   node migrate/import.mjs <ADMIN_SECRET>
+   node 자료/migrate/import.mjs <ADMIN_SECRET>
    ```
    → `사용자 N · 진도 N · 활동로그 N` 출력되면 완료.
 

@@ -37,19 +37,19 @@
   "scope": "/",
   "screenshots": [
     {
-      "src": "store/screenshots/home.png",
+      "src": "img/screenshots/home.png",
       "sizes": "1052x1880",
       "type": "image/png",
       "form_factor": "narrow"
     },
     {
-      "src": "store/screenshots/stage3.png",
+      "src": "img/screenshots/stage3.png",
       "sizes": "1052x1880",
       "type": "image/png",
       "form_factor": "narrow"
     },
     {
-      "src": "store/screenshots/album.png",
+      "src": "img/screenshots/album.png",
       "sizes": "1052x1880",
       "type": "image/png",
       "form_factor": "narrow"

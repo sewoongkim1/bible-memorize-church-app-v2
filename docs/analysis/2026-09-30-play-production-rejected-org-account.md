@@ -10,7 +10,7 @@
 > ②는 **테스트 14일 동안 앱 판이 한 번도 안 바뀐 것**(`versionCode 1` 그대로)이다. 우리 앱은 웹을 감싼 껍데기(TWA)라 고친 것이 전부 웹으로 나가서
 > 구글 눈에는 「업데이트 없음」이다 — 3차를 해도 같은 자리에서 또 걸릴 수 있다.
 > 마침 **D-U-N-S 번호가 나왔으므로(2026-09-30) 교회 명의 단체 계정을 만들고 앱을 그리로 옮긴다.** 12명·14일 요건은 개인 계정에만 있다.
-> 작성 2026-09-30 · 대상 저장소: bible-memorize-church-app-v2(`store/`)
+> 작성 2026-09-30 · 대상 저장소: bible-memorize-church-app-v2(`자료/store/`)
 
 ## 1. 배경 — 왜 이걸 봤나
 
@@ -42,7 +42,7 @@
 
 ## 2. 전제와 범위
 
-- **본 것:** 2차 반려 메일(위) · 친구가 보낸 Play Console 통계(설치한 사용자 수, 9/2~9/23) · `store/closed-test.md` · `store/README.md` 단체 계정 절 ·
+- **본 것:** 2차 반려 메일(위) · 친구가 보낸 Play Console 통계(설치한 사용자 수, 9/2~9/23) · `자료/store/closed-test.md` · `자료/store/README.md` 단체 계정 절 ·
   `android-app/` 의 판 번호 · 구글 공식 도움말 넷(아래 출처) · 반려 사례를 모은 글 셋.
 - **안 본 것:** Play Console 안의 테스터 참여 지표(하루 몇 명이 스토어 앱을 열었나). 그래서 **「왜 참여가 없다고 봤나」(3-3)는 여전히 추정**이다.
 - **환경:** 구글 개인 개발자 계정(2023-11-13 이후 가입 → 12명·14일 요건 대상). 앱 패키지 `kr.onlybible.gocheok.memorize`.
@@ -54,7 +54,7 @@
 통계 그래프(설치한 사용자 수, 일별): 9/11 까지 10~14명 → **9/12 에 22명으로 뛰고 9/13~9/23 내내 21~27명**.
 요건 12명의 두 배 가까이를 유지했다. 1차 반려(인원 이탈)와는 다른 이유로 떨어진 것이다.
 
-⚠ 그래프의 「설치한 사용자」와 요건의 「참여를 선택한 테스터」는 다른 값이다(`store/closed-test.md` 에 적혀 있다). 다만 설치 21명이면 옵트인이 12명 아래일 가능성은 낮다.
+⚠ 그래프의 「설치한 사용자」와 요건의 「참여를 선택한 테스터」는 다른 값이다(`자료/store/closed-test.md` 에 적혀 있다). 다만 설치 21명이면 옵트인이 12명 아래일 가능성은 낮다.
 
 ### 3-2. 사유 ② — 앱 판이 한 번도 안 바뀌었다 (반려 메일로 확인)
 
@@ -91,7 +91,7 @@ android-app/twa-manifest.json:24  "appVersionCode": 1
 | 걸리는 시간 | 최소 14일 + 심사 약 7일 = 3주 이상 | 단체 인증 며칠 + 앱 이전 2영업일 + 출시 심사 |
 | 비용 | 없음 | 등록비 $25(1회) |
 | 또 반려될 위험 | 있다 — 원인(3-2)이 TWA 구조라 그대로 남는다 | 낮다 — 대신 D&B 이름·주소를 결제 프로필과 **글자 하나까지** 맞춰야 한다 |
-| 이미 정한 방향 | — | **2026-09-15 에 「새 단체 계정 + 앱 이전」으로 결정해 둠**(`store/README.md` 「구글 쪽 결정」) |
+| 이미 정한 방향 | — | **2026-09-15 에 「새 단체 계정 + 앱 이전」으로 결정해 둠**(`자료/store/README.md` 「구글 쪽 결정」) |
 
 ## 4. 결론
 
@@ -152,7 +152,7 @@ android-app/twa-manifest.json:24  "appVersionCode": 1
 7. Testers Community, *Google Play Developer Account: Cost, Types, and Setup* — https://www.testerscommunity.com/blog/google-play-developer-account-guide (단체 계정은 12명·14일 면제 · 비공식)
 8. Google Play Console팀 반려 메일(2026-09-30) — 사유 둘(1절에 원문)
 9. D&B 발급 메일(2026-09-30) — D-U-N-S 690031840 · 법적 이름 DAEHANYESUGYO JANGNOHOE GOCHEOK GYOHOE
-10. 저장소: `store/closed-test.md`(1·2차 경과) · `store/README.md` 「단체(교회 명의) 계정」 절 · `android-app/app/build.gradle:88` · `.well-known/assetlinks.json`
+10. 저장소: `자료/store/closed-test.md`(1·2차 경과) · `자료/store/README.md` 「단체(교회 명의) 계정」 절 · `android-app/app/build.gradle:88` · `.well-known/assetlinks.json`
 8. ontest.app, *Personal vs Organization Google Play Account* — https://ontest.app/blog/personal-vs-organization-google-play-account-12-testers (단체 계정 면제 · 옮긴 앱은 진행이 그대로 넘어가지 않는다 · 비공식)
 9. DEV Community, *Does the 12-Tester Rule Apply to You?* — https://dev.to/tizoc_araujo_3cd9fb67191f/google-play-personal-account-vs-organization-account-does-the-12-tester-rule-apply-to-you-242n (옮긴 앱은 요건이 남을 수 있다는 제품 전문가 보고를 인용 · 비공식 · 원문 미확인)
 
@@ -227,12 +227,12 @@ android-app/twa-manifest.json:24  "appVersionCode": 1
    · 옛 개인 계정의 목록은 안 넘어왔다. 옵트인 링크는 그대로 둔다(이미 참여한 12명이 빠지지 않게)
 ② 12명 이상을 심사 결과가 올 때까지 유지
    · 한 분이라도 빠졌다가 다시 들어오면 그분의 14일은 이어지지 않는다(공식 FAQ: 연속 14일 · 출처 1) — 여유로 20명 이상
-   · 구글이 보는 것은 신청 시점이 아니라 검토 시점의 인원이다(store/closed-test.md 9/27 정정)
+   · 구글이 보는 것은 신청 시점이 아니라 검토 시점의 인원이다(자료/store/closed-test.md 9/27 정정)
 ③ 판을 여러 번 올린다  ← 사유 ② 「앱 업데이트로 의견을 받아 고치지 않았다」
    · 안드로이드 위젯 판(versionCode 2 · 위젯 계획 Task 8)을 이 기간에 비공개 트랙에 올리고, 일주일쯤 뒤 한 번 더(versionCode 3)
    · 출시 노트에 무엇을 고쳤는지 적는다 · 업로드 키를 다시 정할지(공개됐던 옛 업로드 키) 먼저 정한다
 ④ 참여 증거  ← 사유 ① 「테스터가 앱에 참여하지 않았다」
-   · 테스터에게 「스토어에서 받은 앱으로」 열어 쓰게 안내(웹·크롬 탭이 아니라) · 받은 의견은 store/closed-test.md 에
+   · 테스터에게 「스토어에서 받은 앱으로」 열어 쓰게 안내(웹·크롬 탭이 아니라) · 받은 의견은 자료/store/closed-test.md 에
    · 그 의견으로 고친 것을 ③ 의 출시 노트와 신청서 답에 쓴다
 ⑤ 콘솔 일수 14 확인(10/14 무렵) → 프로덕션 신청 → 심사(약 7일) 동안도 테스터 유지
 ```
@@ -282,7 +282,7 @@ android-app/twa-manifest.json:24  "appVersionCode": 1
 ```
 ① 새 앱 내부 테스트 2(1.1.0) 게시 → 구글 앱 서명 키 5F:62 를 assetlinks 에(2692498) → 친구 폰 Play 설치: 주소창 없음 · 로그인 그대로 · 사역현황 숨김
 ② 앱 설정: 로그인 세부정보(영어 474자 · 「관리 페이지」는 담당자용이라고 밝힘 · 전체 액세스 체크) · 콘텐츠 등급(다른 모든 앱 · 전체이용가 L/E · 사용자 상호작용)
-   · 타겟층 13–15·16–17·18+ · 데이터 보안(CSV 가져오기 — store/data-safety-play-2026-10-03.csv) · 광고 예 · 광고 ID 아니요 · 정부 앱 아니요 · 금융·건강 없음
+   · 타겟층 13–15·16–17·18+ · 데이터 보안(CSV 가져오기 — 자료/store/data-safety-play-2026-10-03.csv) · 광고 예 · 광고 ID 아니요 · 정부 앱 아니요 · 금융·건강 없음
    · 카테고리 교육 · 연락처 church.gocheok@gmail.com · 웹사이트 gocheok.onlybible.kr · 앱 이름 「성경말씀 암송 (고척교회)」 · 설명(listing-ko.txt + 위젯 단락)
 ③ 옛 앱: 승인돼 「게시 준비됨」에 있던 1.1.0 → 변경사항 삭제 → 버전 삭제(제출 활동 「취소됨」) → 관리형 게시 끔 → 고급 설정 「출시 안됨」(바로 적용 · 앱 목록 「출시 안됨」)
 ④ 새 앱 게시 개요 → 「검토를 위해 변경사항 제출」(프로덕션 2(1.1.0) · 대한민국 · 등록정보 · 앱 콘텐츠 · 스토어 설정) — 「검토 중」

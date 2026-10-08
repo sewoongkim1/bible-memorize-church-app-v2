@@ -4,7 +4,7 @@
 금색 구분 · 크림 박스 · 빨강 강조 · 하단 로고)을 공통 뼈대로 쓴다."""
 import io
 
-M = 'c:/Projects/bible-memorize-church-app-v2/marketing/'
+M = 'c:/Projects/bible-memorize-church-app-v2/자료/marketing/'
 QR = io.open(M + 'qr-data-uri.txt', encoding='utf-8').read().strip()
 LOGO = io.open(M + 'logo-data-uri.txt', encoding='utf-8').read().strip()
 

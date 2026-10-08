@@ -2,7 +2,7 @@
 """교회 주보 '오른쪽 세로 칼럼' 삽입용 「말씀암송이 답이다!」 광고 — 좁고 컴팩트하게(본문 4줄 분량)."""
 import io
 
-M = 'c:/Projects/bible-memorize-church-app-v2/marketing/'
+M = 'c:/Projects/bible-memorize-church-app-v2/자료/marketing/'
 LOGO = io.open(M + 'logo-data-uri.txt', encoding='utf-8').read().strip()
 QR = io.open(M + 'qr-data-uri.txt', encoding='utf-8').read().strip()
 

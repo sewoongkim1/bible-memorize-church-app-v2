@@ -35,16 +35,16 @@
    「정해진 날 없음」으로, 시각이 비면 「때마다 다름」으로 **보이기는 한다.**
    미기입을 제외로 짜면 회신율이 곧 실종률이 된다.
 
-⚠️ 다른 교회 사역신청서 다섯 곳을 참고했다(2026-09-07, AppForm/ - 개인정보 없는
+⚠️ 다른 교회 사역신청서 다섯 곳을 참고했다(2026-09-07, 자료/AppForm/ - 개인정보 없는
    양식류만). 이삭교회·주님의교회는 팀마다 시간을 적고, 「더THE사역」은 필요 인원
    (정원)도 함께 적는다 - **시간·정원을 함께 걷는 것이 흔한 관행**이라는 근거가
    됐다. 정원은 참고용으로만 더한다(1차년도는 인원을 세지 않는다 -
    design doc 04장과 같은 선).
 
 사용법: python tools/ministry-form-gen.py
-출력:   ministry/2027_사역신청_부서확인양식.xlsx
-        ministry/부서확인/2027_사역신청_확인_<부서>.xlsx  (부서별 분리본)
-        ministry/ministry_catalog_2027_draft.json
+출력:   자료/ministry/2027_사역신청_부서확인양식.xlsx
+        자료/ministry/부서확인/2027_사역신청_확인_<부서>.xlsx  (부서별 분리본)
+        자료/ministry/ministry_catalog_2027_draft.json
 """
 
 import json
@@ -55,7 +55,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
-OUT_DIR = os.path.join(os.path.dirname(__file__), "..", "ministry")
+OUT_DIR = os.path.join(os.path.dirname(__file__), "..", "자료", "ministry")
 OUT_XLSX = os.path.join(OUT_DIR, "2027_사역신청_부서확인양식.xlsx")
 OUT_JSON = os.path.join(OUT_DIR, "ministry_catalog_2027_draft.json")
 SPLIT_DIR = os.path.join(OUT_DIR, "부서확인")  # 위원회별 분리본(부서장께 하나씩 보낸다)

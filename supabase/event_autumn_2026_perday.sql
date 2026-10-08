@@ -6,9 +6,9 @@
 -- 계획: docs/superpowers/plans/2026-10-03-autumn-event-launch.md Task 12
 --
 -- ⚠️ 5 로 바꾸려면 아래 v_per_day 한 곳만 고쳐 다시 돌린다 — **10/14 까지만**(인쇄물 때문에
---    그 뒤로는 실제 마감). 바꾸면 아래도 **모두** 함께 고친다(marketing/autumn-2026/문구.md 머리와 같은 목록):
---      · marketing/autumn-2026/문구.md 다섯 절 모두(§1 주보 · §2 단톡 · §3 게시판 · §4 10/18 알림 · §5 11/3 알림)
---      · 포스터 marketing/autumn-2026/poster.py 의 PER_DAY → 다시 뽑기(A3·16:9 PDF·PNG)
+--    그 뒤로는 실제 마감). 바꾸면 아래도 **모두** 함께 고친다(자료/marketing/autumn-2026/문구.md 머리와 같은 목록):
+--      · 자료/marketing/autumn-2026/문구.md 다섯 절 모두(§1 주보 · §2 단톡 · §3 게시판 · §4 10/18 알림 · §5 11/3 알림)
+--      · 포스터 자료/marketing/autumn-2026/poster.py 의 PER_DAY → 다시 뽑기(A3·16:9 PDF·PNG)
 --      · supabase/event_autumn_2026_test.sql 의 시험 회차 'perDay' 와 intro 「하루에 3번」(10/17 까지만 의미가 있다)
 --      · supabase/event_stamp_2026.sql 의 기록('perDay'·intro) — 기록만, 돌리지 않는다
 --      · 확인 명령의 EXPECT_PER_DAY=3(docs/notes/bible-events-admin.md · 계획 Task 14 · tests/event-smoke.sh 머리·안내)

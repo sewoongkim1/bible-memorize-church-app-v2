@@ -371,7 +371,7 @@ select (select count(*) from seen)                                as 액자를_�
 
 `supabase functions deploy` 는 git 이 아니라 **작업 트리를 올린다** — 남의 커밋 안 된 코드도
 함께 나간다. 2026-09-23 현재 이 저장소에는 다른 세션의 변경이 남아 있다
-(`admin.html`·`store/listing-ios-ko.txt`·`docs/analysis/` 등).
+(`admin.html`·`자료/store/listing-ios-ko.txt`·`docs/analysis/` 등).
 
 ### ⚠️ 커밋은 경로를 못 박는다
 

@@ -4,7 +4,7 @@
 """
 import io
 
-M = 'c:/Projects/bible-memorize-church-app-v2/marketing/'
+M = 'c:/Projects/bible-memorize-church-app-v2/자료/marketing/'
 LOGO = io.open(M + 'logo-data-uri.txt', encoding='utf-8').read().strip()
 QR = io.open(M + 'qr-data-uri.txt', encoding='utf-8').read().strip()
 

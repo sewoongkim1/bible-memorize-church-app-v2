@@ -13,7 +13,7 @@ import io, os, json, subprocess, sys, time
 from playwright.sync_api import sync_playwright
 
 ROOT = r"C:\Projects\bible-memorize-church-app-v2"
-OUT = os.environ.get("SHOT_OUT") or os.path.join(ROOT, "store", "screenshots-ios")
+OUT = os.environ.get("SHOT_OUT") or os.path.join(ROOT, "자료", "store", "screenshots-ios")
 PORT = 8743
 # 6.7인치(iPhone 14/15/16 Pro Max급) — App Store Connect 필수 세트 중 하나.
 W, H = 1290, 2796

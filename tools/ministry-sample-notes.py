@@ -16,7 +16,7 @@ import io, json, os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..")
-OUT_DIR = os.path.join(ROOT, "ministry")
+OUT_DIR = os.path.join(ROOT, "자료", "ministry")
 FINAL = os.path.join(OUT_DIR, "ministry_catalog_2027.json")
 DRAFT = os.path.join(OUT_DIR, "ministry_catalog_2027_draft.json")
 CATALOG = FINAL if os.path.exists(FINAL) else DRAFT

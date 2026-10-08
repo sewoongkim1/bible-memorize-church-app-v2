@@ -60,8 +60,8 @@
 
 | 무엇 | 만드는 것 | 둘 곳 | 넘길 날 |
 |---|---|---|---|
-| 주보 광고 | 지난번 「말씀암송이 답이다!」 자리(주보 오른쪽 비전 칼럼)에 들어갈 표 문구 + QR(`marketing/qr-code.png`) | `marketing/autumn-2026/` | **10/14(수)** 담당 목사님께 |
-| 포스터 A3 · 슬라이드 16:9 | 지난번 포스터와 같은 결(교회 로고·QR·남색) — PDF + 미리보기 PNG | `marketing/autumn-2026/` | 10/15 인쇄 |
+| 주보 광고 | 지난번 「말씀암송이 답이다!」 자리(주보 오른쪽 비전 칼럼)에 들어갈 표 문구 + QR(`자료/marketing/qr-code.png`) | `자료/marketing/autumn-2026/` | **10/14(수)** 담당 목사님께 |
+| 포스터 A3 · 슬라이드 16:9 | 지난번 포스터와 같은 결(교회 로고·QR·남색) — PDF + 미리보기 PNG | `자료/marketing/autumn-2026/` | 10/15 인쇄 |
 | 목장 단톡 안내문 | 붙여 넣는 카톡 문구(5~8줄 · 앱 주소 · 시작일) | 같은 폴더 `.txt` | 10/18 아침 |
 | 앱 게시판 글 | 안내 글 하나(공지) | 관리자 「게시판」으로 올린다 | 10/18 개시 직후 |
 | 전체 알림 | 한 줄 | 관리자 「알림발송」 | 10/18 개시 직후 · **11/3 신청 열림** 한 번 더 |
@@ -214,5 +214,5 @@
 
 - 규칙·구조: `docs/superpowers/specs/2026-09-23-autumn-streak-event-design.md`(§3 규칙 · §9 기준선 · §13 배포 순서 · §14 남은 결정)
 - 회차 행: `supabase/event_stamp_2026.sql` · 교회 어드민 고칠 수 있는 칸 `church-admin/supabase/functions/church-admin/events-rules.ts`(`EV_EDIT_KEYS` · `checkEvent`)
-- 지난 공지물: `marketing/event-posters/` · 메모 `pilsa-event-2026`(주보 문구 모양)
+- 지난 공지물: `자료/marketing/event-posters/` · 메모 `pilsa-event-2026`(주보 문구 모양)
 - 교회 어드민 이전: `docs/notes/bible-events-admin.md`

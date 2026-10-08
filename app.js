@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261007l";
+const APP_BUILD = "20261008a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -876,7 +876,7 @@ const MH_LIVE = true;   // 2026-10-01 운영 반영(사역 이력 확인 · 정�
 //        기기 표식은 TWA 가 크롬과 저장소를 같이 써서 그 폰의 **크롬 탭에서도** 보이고 앱을 지운 뒤에도 남는다 —
 //        그래서 크롬 탭(isBrowserTab)은 뺀다(「웹은 그대로」라는 결정대로). ①을 못 받은 앱 창(referrer 없이 새로 열린 창 등)의 받침이다.
 //   NEW 배지(newestNewFeat)는 문(ministryVisible)이 닫혀 있으면 "ministry" 를 세지 않는다 — 안 보이는 단추가 하나뿐인 NEW 를 가져가지 않게.
-//   ⏰ 심사가 통과한 날 false 로 바꾸고 bump → 푸시(CLAUDE.md 「플레이스토어 출시」 아래 ⏰ 줄 · store/README.md · docs/notes/ministry-history-check.md).
+//   ⏰ 심사가 통과한 날 false 로 바꾸고 bump → 푸시(CLAUDE.md 「플레이스토어 출시」 아래 ⏰ 줄 · 자료/store/README.md · docs/notes/ministry-history-check.md).
 const MINISTRY_HIDE_ON_PLAY = true;
 function ministryHiddenOnPlay() {
   return MINISTRY_HIDE_ON_PLAY && (openedByPlayApp() || (isPlayStoreApp() && !isBrowserTab()));
@@ -1818,7 +1818,7 @@ const MOK_RE = /^(\d+|남성)$/;
 
 // ── 보호자 확인(2026-10-01) ─────────────────────────────────────
 // 구글 플레이 대상 연령을 「13세 이상」으로 고르고, 어린이는 **보호자와 함께** 쓰는 앱으로 정리했다
-// (store/README.md 「구글 출시 심사 전 결정」 3절 · docs/notes/store-review.md). 한국 개인정보 보호법도
+// (자료/store/README.md 「구글 출시 심사 전 결정」 3절 · docs/notes/store-review.md). 한국 개인정보 보호법도
 // 만 14세 미만은 법정대리인 동의가 필요하다 — 어린 부서로 들어오시면 「보호자(부모님)가 함께 확인했어요」를
 // 한 번 체크하고, 서버에 그 날짜를 남긴다(users.guardian_ok_at · login 의 guardian_ok).
 // ⚠️ 부서 목록은 **두 곳**(여기 · index.ts 의 같은 이름)이다 — tests/store-review.test.cjs 가 맞대 본다.

@@ -802,7 +802,7 @@ alter table public.event_signups <b>enable row level security</b>;
     <li><strong>배포한 뒤 남의 것을 한 번 찔러 본다</strong> — <code>getVerses</code>·<code>ranking</code>. 내 것만 확인하면 내가 함께 내보낸 남의 코드가 깨진 것을 못 본다.</li>
     <li><strong>배포 전에 <code>git pull</code>로 최신을 받는다.</strong> <code>7742db4</code>가 <code>getVerses</code>의 안전 폴백이고 <strong>그 앞 판을 배포하면 위 장애가 그대로 재현된다.</strong></li>
     <li><strong>배포 전에 「이 코드가 요구하는 칸이 운영에 다 있는지」를 <em>실제로 질의해</em> 본다.</strong> <code>git log</code>로는 부족하다 — 남이 커밋한 코드는 로그에 보이지만 <em>그 코드가 무슨 칸을 필요로 하는지는 로그에 안 적혀 있다.</em> 오늘 <code>psalm_frames.sql</code> 건이 정확히 그 자리였다. 커밋 목록을 읽는 대신 DB에 물어본다.</li>
-    <li><strong><code>git add -A</code>를 쓰지 않는다.</strong> <code>booklet/</code>·<code>psalm/</code>에 다른 작업물이 커밋 대기로 상주한다. <code>app.js</code>·<code>style.css</code>처럼 <em>여럿이 함께 쓰는 파일</em>은 파일 통째로 담지 않고 <strong>내 헝크만</strong> 담는다(<code>git add -p</code> 또는 <code>git apply --cached</code>) — 시편 작업이 이미 그렇게 하고 있다.</li>
+    <li><strong><code>git add -A</code>를 쓰지 않는다.</strong> <code>booklet/</code>·<code>자료/psalm/</code>에 다른 작업물이 커밋 대기로 상주한다. <code>app.js</code>·<code>style.css</code>처럼 <em>여럿이 함께 쓰는 파일</em>은 파일 통째로 담지 않고 <strong>내 헝크만</strong> 담는다(<code>git add -p</code> 또는 <code>git apply --cached</code>) — 시편 작업이 이미 그렇게 하고 있다.</li>
     <li><strong><code>python tools/bump.py</code>는 배포할 때만 돌린다.</strong> 누가 돌려도 <code>index.html</code>·<code>app.js</code>의 판 번호가 <em>한꺼번에</em> 올라가므로, 세 작업이 각자 돌리면 매번 충돌한다.</li>
   </ol>
 

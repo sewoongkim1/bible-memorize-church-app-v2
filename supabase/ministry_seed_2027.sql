@@ -1,5 +1,5 @@
 -- 사역팀 목록 시드 (2027) — tools/ministry-seed-sql.py 가 만든다. 손으로 고치지 말 것.
--- 자료: ministry/ministry_catalog_2027_draft.json
+-- 자료: 자료/ministry/ministry_catalog_2027_draft.json
 -- ⚠️ 개발 DB 에 먼저 실행한 뒤 운영에 올린다.
 
 begin;

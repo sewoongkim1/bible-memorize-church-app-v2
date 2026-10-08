@@ -22,7 +22,7 @@
 1. 찬양 앱에 이미 완성된 플레이어가 있다(`praise-songs/app.js:416~581` — IFrame API·화면 깨우기·
    **잠금화면 컨트롤**·자동 다음곡·셔플). 앱 안에 만든 것은 **그 절반짜리 두 번째 플레이어**다.
 2. 임베드는 개인정보 방침·스토어 신고 정정을 강제한다 → **2026-09-23 에 실제로 고쳤다**
-   (`privacy/index.html` 2·6항 · `renderPrivacyInfo` · `renderHelp` · `store/README.md` 는 담당자 확인 목록).
+   (`privacy/index.html` 2·6항 · `renderPrivacyInfo` · `renderHelp` · `자료/store/README.md` 는 담당자 확인 목록).
    **2026-10-01 더 고쳤다(친구 결정 — 「광고 포함: 예」 · 앱 안 재생은 그대로):** YouTube API Services 개발자 정책 III.A 가 요구하는
    다섯 가지(API 서비스를 쓴다 · YouTube 서비스 약관 링크와 「쓰시면 동의」 문장 · 구글 개인정보처리방침 링크 · 제3자 광고 ·
    기기에 정보 저장·읽기)를 `privacy/` 2항 `#youtube` 상자와 앱 안 두 곳에 넣었다. 세 곳이 같은지는 `tests/store-review.test.cjs` 가 본다.

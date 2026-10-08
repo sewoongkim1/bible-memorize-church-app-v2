@@ -39,9 +39,9 @@ def test_ensure_out_path_safe_allows_nested_out_dir():
 
 
 def test_ensure_out_path_safe_blocks_other_repo_folder_not_ignored():
-    # marketing/ 은 .gitignore 로 안 막힌다 — 저장소 안이므로 쓰기 전에 멈춰야 한다.
+    # 자료/marketing/ 은 .gitignore 로 안 막힌다 — 저장소 안이므로 쓰기 전에 멈춰야 한다.
     with pytest.raises(SystemExit):
-        ensure_out_path_safe(os.path.join(ROOT, 'marketing', '유다서.html'))
+        ensure_out_path_safe(os.path.join(ROOT, '자료', 'marketing', '유다서.html'))
 
 
 def test_ensure_out_path_safe_allows_outside_repo_regardless_of_ignore():
@@ -53,7 +53,7 @@ def test_ensure_out_path_safe_allows_when_no_repo(monkeypatch):
     # git 이 없거나 이 폴더가 저장소가 아니면(예: bible-note/ 만 복사해 쓰는 경우)
     # 검사 없이 허용한다 — 저장소 안이라면 막혔을 자리를 넣어 확인한다.
     monkeypatch.setattr(generate, '_git_repo_root', lambda: None)
-    ensure_out_path_safe(os.path.join(ROOT, 'marketing', '유다서.html'))
+    ensure_out_path_safe(os.path.join(ROOT, '자료', 'marketing', '유다서.html'))
 
 
 # ── ④ 저장 경로 안전 — 서체 자리까지 본다(2026-09-22 최종 검토 r2 Minor) ──────
@@ -68,7 +68,7 @@ def test_ensure_out_path_safe_checks_font_dir_when_outside_bible_note(monkeypatc
         return True  # 실제로 멈추지는 않게 하고, 어떤 자리를 봤는지만 기록한다
 
     monkeypatch.setattr(generate, '_is_git_ignored', fake_ignored)
-    ensure_out_path_safe(os.path.join(ROOT, 'marketing', '유다서.html'))
+    ensure_out_path_safe(os.path.join(ROOT, '자료', 'marketing', '유다서.html'))
     assert any('fonts' in os.path.normcase(p).replace('\\', '/') for p in checked)
 
 
@@ -101,7 +101,7 @@ def test_ensure_out_path_safe_checks_every_font_in_all_font_urls(monkeypatch):
         return True
 
     monkeypatch.setattr(generate, '_is_git_ignored', fake_ignored)
-    ensure_out_path_safe(os.path.join(ROOT, 'marketing', '유다서.html'))
+    ensure_out_path_safe(os.path.join(ROOT, '자료', 'marketing', '유다서.html'))
     names = {os.path.basename(p) for p in checked}
     for font_path in all_font_urls():
         assert os.path.basename(font_path) in names
@@ -498,5 +498,5 @@ def test_ensure_out_path_safe_checks_footer_font(monkeypatch):
         return True
 
     monkeypatch.setattr(generate, '_is_git_ignored', fake_ignored)
-    ensure_out_path_safe(os.path.join(ROOT, 'marketing', '유다서.html'))
+    ensure_out_path_safe(os.path.join(ROOT, '자료', 'marketing', '유다서.html'))
     assert 'Footer-400.woff' in {os.path.basename(p) for p in checked}

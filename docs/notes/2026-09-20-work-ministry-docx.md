@@ -9,7 +9,7 @@
 > 「사역관리 진행현황 4page 있죠, 1,2 page word 파일로 만들어 주실수 있나요?」
 > 이어서 「사역 어드민 들어가는 방법 word로 화면 캡처해서 추기해줘」
 
-여기서 말하는 4쪽 묶음은 `ministry/2027_사역신청_진행공유_묶음.pdf` 이고, 쪽 구성은 이렇다.
+여기서 말하는 4쪽 묶음은 `자료/ministry/2027_사역신청_진행공유_묶음.pdf` 이고, 쪽 구성은 이렇다.
 
 ```
 1쪽  2027 사역신청 진행 공유      ← Word 로 옮김
@@ -42,7 +42,7 @@
 
 | 파일 | 무엇을 |
 |---|---|
-| `ministry/2027_사역신청_진행공유_기획안.docx` | **새로 만든 결과물**(9쪽 · 923KB · 그림 6장) |
+| `자료/ministry/2027_사역신청_진행공유_기획안.docx` | **새로 만든 결과물**(9쪽 · 923KB · 그림 6장) |
 | `tools/ministry-progress-docx.js` | 그 Word 를 만드는 스크립트(Node + npm `docx`) |
 | `tools/ministry-admin-shots.py` | 어드민 들어가는 길 화면 넉 장을 찍는 스크립트(Playwright) |
 
@@ -104,7 +104,7 @@ pages=9  words=771
 
 ## 9. 출처
 
-- 원본 묶음: `ministry/2027_사역신청_진행공유_묶음.pdf`(4쪽)
-- 결과물: `ministry/2027_사역신청_진행공유_기획안.docx`
+- 원본 묶음: `자료/ministry/2027_사역신청_진행공유_묶음.pdf`(4쪽)
+- 결과물: `자료/ministry/2027_사역신청_진행공유_기획안.docx`
 - 만드는 법: `tools/ministry-progress-docx.js` · `tools/ministry-admin-shots.py`
 - 관리 화면 규칙: `docs/notes/ministry-admin-ui.md` · 사역신청 전반: `docs/notes/ministry-2027.md`

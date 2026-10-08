@@ -3,7 +3,7 @@
    사용자가 PPT에서 잡은 문구·순서를 그대로 두고 조판만 다듬는다."""
 import io
 
-M = 'c:/Projects/bible-memorize-church-app-v2/marketing/'
+M = 'c:/Projects/bible-memorize-church-app-v2/자료/marketing/'
 QR = io.open(M + 'qr-data-uri.txt', encoding='utf-8').read().strip()
 LOGO = io.open(M + 'logo-data-uri.txt', encoding='utf-8').read().strip()
 

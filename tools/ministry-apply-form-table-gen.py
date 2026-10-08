@@ -33,14 +33,14 @@
   아낀다). 같은 구분이 연속된 행은 rowspan 으로 합쳐 구분 칸을 반복하지 않는다.
 
 사용법: python tools/ministry-apply-form-table-gen.py
-출력:   ministry/2027_사역신청서_표형식.html
-        ministry/2027_사역신청서_표형식.pdf (크롬 있으면)
+출력:   자료/ministry/2027_사역신청서_표형식.html
+        자료/ministry/2027_사역신청서_표형식.pdf (크롬 있으면)
 """
 import io, os, json, subprocess
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, '..')
-OUT_DIR = os.path.join(ROOT, 'ministry')
+OUT_DIR = os.path.join(ROOT, '자료', 'ministry')
 CATALOG = os.path.join(OUT_DIR, 'ministry_catalog_2027_draft.json')
 
 # ⚠️ 부서 확인이 끝나면 확정본(ministry_catalog_2027.json)이 생긴다 —

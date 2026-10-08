@@ -9,7 +9,7 @@
       maskable 규격은 '가운데 지름 80% 원 안'에 중요한 것이 다 들어와야 한다.
   그래서 두 벌을 만든다.
     icon-maskable-512/192.png  마크를 62%로 줄여 안전영역 안에. manifest가 쓴다
-    store/icon-512-play.png    스토어 등록용. 불투명, 마크 76%
+    자료/store/icon-512-play.png    스토어 등록용. 불투명, 마크 76%
 
 ■ 그래픽 이미지(feature graphic)
   1024x500. 스토어 목록 맨 위에 걸리는 띠. 글자를 많이 넣으면 작은 화면에서
@@ -26,7 +26,7 @@ import io, os, subprocess, sys
 from PIL import Image, ImageDraw
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT = os.path.join(ROOT, "store")
+OUT = os.path.join(ROOT, "자료", "store")
 CREAM = (253, 248, 240, 255)     # 앱의 크림빛 — 마크의 파랑·주황이 가장 잘 산다
 NAVY = (26, 58, 107, 255)
 
@@ -127,7 +127,7 @@ def main():
     p = icon(192, 0.62, CREAM, os.path.join(ROOT, "icon-maskable-192.png"))
     made.append(("icon-maskable-192.png", "안전영역 밖 픽셀 %d개" % safe_zone_check(p)))
     icon(512, 0.76, CREAM, os.path.join(OUT, "icon-512-play.png"))
-    made.append(("store/icon-512-play.png", "불투명 · 스토어 등록용"))
+    made.append(("자료/store/icon-512-play.png", "불투명 · 스토어 등록용"))
     # iOS는 apple-touch-icon의 투명한 곳을 검정으로 채운다 — 반드시 불투명으로 준다.
     # 그전엔 투명한 favicon.png를 쓰고 있어 아이폰 홈 아이콘이 검은 바탕으로 나왔다.
     icon(180, 0.76, CREAM, os.path.join(ROOT, "apple-touch-icon.png"))
@@ -135,7 +135,7 @@ def main():
 
     # ── 그래픽 이미지 ───────────────────────────────────────
     compose_feature(os.path.join(OUT, "feature-1024x500.png"))
-    made.append(("store/feature-1024x500.png", "1024x500"))
+    made.append(("자료/store/feature-1024x500.png", "1024x500"))
 
     for n, note in made:
         f = os.path.join(ROOT, n.replace("/", os.sep))

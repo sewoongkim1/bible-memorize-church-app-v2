@@ -8,7 +8,7 @@
 
 **Tech Stack:** 지금과 같음 — 성경암송: Vanilla JS(`app.js`·`style.css`)·Deno Edge Function `api`·`node --test`(.cjs, 꾸러미 없음). 교회 어드민: Deno Edge Function `church-admin`(`npm:@supabase/supabase-js@2.117.2`)·`node --experimental-strip-types --test`·Postgres.
 
-**설계:** `docs/superpowers/specs/2026-10-01-ministry-history-check-design.md`(친구 승인 2026-10-01) — **요구의 원본.** 배경: `ministry/2026_사역이력_공유_A4.html` ⑤.
+**설계:** `docs/superpowers/specs/2026-10-01-ministry-history-check-design.md`(친구 승인 2026-10-01) — **요구의 원본.** 배경: `자료/ministry/2026_사역이력_공유_A4.html` ⑤.
 
 **코드 자리:** Task 1~4 는 교회 어드민 worktree `c:\Projects\church-admin\.worktrees\history-check`(가지 `history-check`) 기준 경로. Task 5~8 은 이 저장소(`c:\Projects\bible-memorize-church-app-v2`, `main`) 기준 경로.
 

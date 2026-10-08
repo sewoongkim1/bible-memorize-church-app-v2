@@ -129,8 +129,8 @@
 
 | 파일 | 용도 | 크기 |
 |---|---|---|
-| `marketing/poster-vertical.png` | 게시판·인쇄용 세로 포스터 | 2480×3508 (A4 @300dpi) |
-| `marketing/poster-horizontal.png` | 주일 광고 화면용 가로 포스터 | 1920×1080 |
-| `marketing/video-endcard.png` | 홍보 영상 9번 장면(엔드카드) | 1080×1920 |
+| `자료/marketing/poster-vertical.png` | 게시판·인쇄용 세로 포스터 | 2480×3508 (A4 @300dpi) |
+| `자료/marketing/poster-horizontal.png` | 주일 광고 화면용 가로 포스터 | 1920×1080 |
+| `자료/marketing/video-endcard.png` | 홍보 영상 9번 장면(엔드카드) | 1080×1920 |
 
 나머지(Higgsfield AI 장면 5개, 실제 앱 화면 캡처 4개, 혼합 장면 1개, 영상 편집)는 위 "영상 스토리보드"·"준비물" 섹션 가이드대로 직접 진행.
