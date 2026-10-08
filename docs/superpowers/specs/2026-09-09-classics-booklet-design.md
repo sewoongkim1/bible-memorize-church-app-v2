@@ -210,7 +210,7 @@ id1(가족)·id4(전체 이름)가 비어 있어(id6 `BinggraeII-Bold`만 있었
 모으다가 `@font-face` 선언까지 함께 바꿔, 서체가 **등록조차 안 된 채 조용히 본문 서체로**
 바뀌었다. 선언에는 실제 이름을, 쓰는 자리에만 변수를.
 
-⚠️ **웹폰트는 파일로 받아 `booklet/fonts/`에 둔다.** 크롬 헤드리스가 PDF를 구울 때
+⚠️ **웹폰트는 파일로 받아 `자료/booklet/fonts/`에 둔다.** 크롬 헤드리스가 PDF를 구울 때
 네트워크가 끊겨 있으면 서체 없이 인쇄된다 — 그런데 그 사실이 **화면에 아무 표시 없이**
 지나간다. 받아 두면 그럴 일이 없다.
 
@@ -218,9 +218,9 @@ id1(가족)·id4(전체 이름)가 비어 있어(id6 `BinggraeII-Bold`만 있었
 
 | 파일 | 무엇 |
 |---|---|
-| `booklet/classics.json` | 원고 20편 + 목차 메타(날짜·담당자·저자). **담당자가 고치는 곳** |
-| `booklet/generate_classics.py` | HTML → 크롬 → A5 PDF → 중철 배치 A4 PDF |
-| `booklet/fonts/NotoSerifKR-*.woff` | 본문 400 · 제목 700 (커밋하지 않는다 — 자동으로 받는다) |
+| `자료/booklet/classics.json` | 원고 20편 + 목차 메타(날짜·담당자·저자). **담당자가 고치는 곳** |
+| `자료/booklet/generate_classics.py` | HTML → 크롬 → A5 PDF → 중철 배치 A4 PDF |
+| `자료/booklet/fonts/NotoSerifKR-*.woff` | 본문 400 · 제목 700 (커밋하지 않는다 — 자동으로 받는다) |
 
 **`generate_blessing.py`를 고치지 않고 새 파일로 둔다** — 844줄이고 성격이 다르다
 (그쪽은 한 사람 이름을 넣어 104편을 굽는 개인 핸드북, 이쪽은 20편 공용 소책자).

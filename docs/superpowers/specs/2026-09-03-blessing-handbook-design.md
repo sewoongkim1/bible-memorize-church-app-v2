@@ -145,10 +145,10 @@ A5 한 쪽에 **104편 중 36편**만 들어가(말씀 10pt·묵상노트 빼도
 
 ## 5. 만드는 법 — 있는 것을 쓴다
 
-`booklet/`에 **A5 필사노트 파이프라인이 이미 있다.** 새로 만들지 않는다.
+`자료/booklet/`에 **A5 필사노트 파이프라인이 이미 있다.** 새로 만들지 않는다.
 
 ```
-blessings.json  →  booklet/generate_blessing.py  →  blessing.html  →  브라우저 인쇄 → PDF
+blessings.json  →  자료/booklet/generate_blessing.py  →  blessing.html  →  브라우저 인쇄 → PDF
                           (기존 generate.py 를 본뜬다)
 ```
 
@@ -248,7 +248,7 @@ blessings.json  →  booklet/generate_blessing.py  →  blessing.html  →  브�
 ## 다음 단계
 
 1. 위 세 가지를 정한다
-2. `booklet/generate_blessing.py` 를 만든다 — 한 편 한 쪽 + 표지·차례·맺음말
+2. `자료/booklet/generate_blessing.py` 를 만든다 — 한 편 한 쪽 + 표지·차례·맺음말
 3. **시험 인쇄 한 권**(A5) 을 뽑아 손에 쥐어 본다 — 글씨 크기·묵상노트 자리는
    화면이 아니라 종이에서 정해진다
 4. 주제 그룹 확정 → 차례 완성

@@ -28,7 +28,7 @@
 | `challenge_log.mode` | **새로 만들지 않는다.** `learn-typing`·`learn-typing-card` 그대로 |
 | DB 순서 | **개발 `ktpwthwqzgcqcrmsafdo` 먼저 → 운영 `xnomlgydifiqiybervtf`** |
 | 배포 | `python tools/bump.py` **한 번**. 캐시태그·판번호·APP_BUILD를 손으로 고치지 않는다 |
-| 커밋 | **고친 파일만 스테이징.** `git add -A` 금지 — `booklet/`에 커밋 대기 작업이 상주한다 |
+| 커밋 | **고친 파일만 스테이징.** `git add -A` 금지 — `자료/booklet/`에 커밋 대기 작업이 상주한다 |
 
 **절대 하지 않는 것**
 - `em`으로 빈칸 폭을 고정 — 글씨 크기 설정(xl)과 곱해져 한 칸이 202px이 된다

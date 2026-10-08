@@ -45,7 +45,7 @@
 import json, io, re, html, os, sys
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
-ROOT = os.path.dirname(os.getcwd())
+ROOT = os.path.dirname(os.path.dirname(os.getcwd()))   # 저장소 뿌리(이 폴더는 자료/booklet/)
 
 NAME = sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith('-') else '홍길동'
 # 꼬리말 가운데 — 아론의 축도 맺음 절(민 6:26). 표지는 24절로 연다.

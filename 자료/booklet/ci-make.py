@@ -14,7 +14,7 @@
    테두리에 흰 실오라기가 남는다 — 238 로 넉넉히 잡고, 색이 도는 화소는 건드리지 않는다
    (밝기만 보면 로고의 옅은 하늘색까지 지워진다).
 
-원본 JPG 는 성도님이 `booklet/` 에 넣어 주신 것이다(가로조합 5종 · 상하 5종 · 세로 2종 + .ai).
+원본 JPG 는 성도님이 `자료/booklet/` 에 넣어 주신 것이다(가로조합 5종 · 상하 5종 · 세로 2종 + .ai).
 """
 import io, os, sys, base64
 
@@ -32,7 +32,7 @@ TH = 238          # 이보다 밝고 색이 없으면 바탕으로 본다
 CHROMA = 12       # R·G·B 차이가 이보다 크면 색이 있는 것 — 지우지 않는다
 
 if not os.path.exists(SRC):
-    raise SystemExit('!! %s 가 없습니다. booklet/ 의 CI 파일 이름을 확인하세요.' % SRC)
+    raise SystemExit('!! %s 가 없습니다. 자료/booklet/ 의 CI 파일 이름을 확인하세요.' % SRC)
 
 im = Image.open(SRC).convert('RGBA')
 w, h = im.size

@@ -8,7 +8,7 @@ A4 가로(297×210mm) · 왼쪽 원문 / 오른쪽 필사줄 구조의 HTML 파�
 
 **Architecture:** 파싱(`parse.py`) → 1차 렌더링(원문만, `render.py`) → 헤드리스 크롬으로
 절마다 실제 줄 수 실측(`generate.py`) → 페이지 배분(`paginate.py`) → 2차 렌더링(원문+필사줄,
-`render.py`) → 검증(`verify.py`). 「기독교 고전 소책자」(`booklet/generate_classics.py`)가
+`render.py`) → 검증(`verify.py`). 「기독교 고전 소책자」(`자료/booklet/generate_classics.py`)가
 쓴 것과 같은 2단계 그리기 패턴이다.
 
 **Tech Stack:** Python 3(표준 라이브러리 + pytest), 헤드리스 Chrome(이 PC에 설치됨),
@@ -17,7 +17,7 @@ Noto Serif KR(SIL OFL, 최초 실행 시 자동 다운로드), pymupdf(검증의
 ## Global Constraints
 
 - 설계 문서: `docs/superpowers/specs/2026-09-22-bible-landscape-note-design.md` — 모든 태스크가 이 문서의 결정을 따른다.
-- 새 폴더는 `bible-note/`. 기존 `booklet/`(기독교 고전 소책자 전용)과 섞지 않는다.
+- 새 폴더는 `bible-note/`. 기존 `자료/booklet/`(기독교 고전 소책자 전용)과 섞지 않는다.
 - 페이지: 297×210mm, 여백 13mm, 헤더 12mm, 푸터 8mm → **가용 본문 높이 164mm**.
 - 줄 높이: **9.5mm** 고정 → **페이지당 17줄**(161.5mm 사용, 여유 2.5mm).
 - 좌우 폭(가용폭 271mm 기준): 원문 열 **50%**(135.5mm) : 필사 열 **50%**(135.5mm).

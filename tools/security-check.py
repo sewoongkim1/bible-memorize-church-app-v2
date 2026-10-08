@@ -58,7 +58,7 @@ MUST_404 = ["/.env", "/.env.dev", "/.env.local", "/.git/config", "/.git/HEAD", "
             "/board.json", "/supabase/.temp/project-ref", "/signing-key-info.txt", "/android-app/signing-key-info.txt",
             # 2026-10-08 부터 화면 파일만 나간다(tools/site.py) — 아래가 열리면 배포 범위가 도로 넓어진 것이다
             "/CLAUDE.md", "/README.md", "/docs/backlog.md", "/supabase/schema.sql", "/supabase/functions/api/index.ts",
-            "/tools/preflight.py", "/tests/smoke-readonly.sh", "/booklet/generate.py", "/android-app/twa-manifest.json",
+            "/tools/preflight.py", "/tests/smoke-readonly.sh", "/booklet/generate.py", "/%EC%9E%90%EB%A3%8C/booklet/generate.py", "/android-app/twa-manifest.json",
             "/ios-app/package.json", "/%EC%9E%90%EB%A3%8C/store/README.md"]
 
 SECRET_PATTERNS = [
@@ -428,7 +428,7 @@ def check_front(rep, repos, base):
     for r in repos:
         per = {}
         for f, _, _ in r.grep(r"innerHTML|insertAdjacentHTML|outerHTML\s*=|document\.write\(|\beval\(|new Function\(", "*.js", "*.html"):
-            if not f.startswith(("tests/", "tools/", "docs/", "guide/", "booklet/", "자료/", "bible-note/")):
+            if not f.startswith(("tests/", "tools/", "docs/", "guide/", "자료/", "bible-note/")):
                 per[f] = per.get(f, 0) + 1
         for f, c in per.items():
             k = r.name + ":" + f
@@ -439,7 +439,7 @@ def check_front(rep, repos, base):
                 rep.add("F", "sink|%s|new" % k, "검토", "`%s` — 새 파일 · HTML 을 끼워 넣는 자리 %d곳" % (k, c))
         for f, _, s in r.grep(r"<script[^>]+src=[\"']https?://[^/\"']+", "*.html", only=True):
             host = re.search(r"https?://([^/\"']+)", s).group(1)
-            if not f.startswith(("docs/", "guide/", "booklet/", "자료/", "tools/", "tests/")):
+            if not f.startswith(("docs/", "guide/", "자료/", "tools/", "tests/")):
                 rep.add("F", "ext|%s|%s|%s" % (r.name, f, host), "검토", "%s `%s` — 바깥 스크립트 `%s`" % (r.name, f, host))
     rep.notes["F"] = "HTML 을 끼워 넣는 자리 %d곳(파일 %d개)" % (sum(counts.values()), len(counts))
     return counts
