@@ -4073,7 +4073,7 @@ async function pilsaMine(b: any) {
     .order("created_at", { ascending: false }).limit(1);
   if (error) throw error;
   const r = (data ?? [])[0];
-  return { ok: true, order: r ? pilsaRow(r) : null };
+  return { ok: true, order: r ? { ...pilsaRow(r), phone: maskPhone(r.phone) } : null };
 }
 
 // 신청·수정 — 가장 최근 건이 '신청완료'면 그 건을 고치고, 아니면 새 건으로 넣는다.
@@ -4116,14 +4116,14 @@ async function pilsaApply(b: any) {
       .eq("id", last.id).select("*").single();
     if (error) throw error;
     try { await pilsaNotifyAdmins(data, true); } catch (_) { /* 알림 실패가 신청을 막지 않는다 */ }
-    return { ok: true, order: pilsaRow(data) };
+    return { ok: true, order: { ...pilsaRow(data), phone: maskPhone(data.phone) } };
   }
 
   const { data, error } = await db.from("pilsa_orders")
     .insert(fields).select("*").single();
   if (error) throw error;
   try { await pilsaNotifyAdmins(data, false); } catch (_) { /* 알림 실패가 신청을 막지 않는다 */ }
-  return { ok: true, order: pilsaRow(data) };
+  return { ok: true, order: { ...pilsaRow(data), phone: maskPhone(data.phone) } };
 }
 
 // 취소 — '신청완료'인 내 신청만 지운다
