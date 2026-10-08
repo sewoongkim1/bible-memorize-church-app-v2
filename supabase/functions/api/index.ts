@@ -404,6 +404,7 @@ Deno.serve(async (req) => {
       case "lifeGate":      return json(await lifeGate(body));
       case "lifePinSet":    return json(await lifePinSet(body));
       case "lifePinCheck":  return json(await lifePinCheck(body));
+      case "lifeResetRequest": return json(await lifeResetRequest(body));
       case "saveProgress":  return json(await saveProgress(body));
       case "saveHeart":     return json(await saveHeart(body));
       case "getConfig":     return json(await getConfig(body));
@@ -2592,6 +2593,18 @@ async function lifePinCheck(b: any) {
   const left = LIFE_PIN_FAILS_PER_DAY - failsToday - 1;
   await db.from("life_pins").update({ fails: failsToday + 1, fail_day: today }).eq("user_id", uid);
   return { ok: false, error: left > 0 ? "wrong" : "locked", left: Math.max(0, left) };
+}
+
+// lifeResetRequest — 번호를 잊었거나 남이 먼저 정한 경우. 하루 한 번만(도배 방지). 처리는 교회 어드민(Plan 3).
+async function lifeResetRequest(b: any) {
+  const uid = storeUid(b.user_id);
+  if (!uid) return { ok: false, error: "로그인한 뒤에 할 수 있어요" };
+  const dup = await db.from("life_reset_requests").select("id").eq("user_id", uid).eq("status", "open")
+    .gte("created_at", kstDayStartIso()).limit(1);
+  if (!dup.error && dup.data && dup.data.length) return { ok: true, already: true };
+  const { error } = await db.from("life_reset_requests").insert({ user_id: uid });
+  if (error) throw error;
+  return { ok: true };
 }
 async function loginLimitError(b: any, req: Request | undefined, identity: string): Promise<string | null> {
   try {
