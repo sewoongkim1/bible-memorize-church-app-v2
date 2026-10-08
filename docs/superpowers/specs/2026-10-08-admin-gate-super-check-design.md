@@ -45,12 +45,33 @@
 ## 5. 도구
 `tools/security-check.py` GUARDS(79줄)에 새 문 함수 이름을 더한다(안 그러면 그 액션을 공개·user_id 로 분류). ⚠️ 2026-10-08 에 분류를 「거절(early-return)에 쓴 것만 관리자 문」으로 고쳤으니, 새 문도 그 꼴(`const e = …; if (e) return`)로 써야 「관리자·담당자」로 잡힌다.
 
-## 6. 아직 못 한 것 (주간 한도 · 7pm KST 이후)
-워크플로 `admin-gate-callers` 에서 **세 갈래가 못 돌았다**:
-- **find:scripts** — 크론 SQL·모니터·MCP·tests·tools 가 pw 로 부르는 액션을 하나하나(인자·「크론이 부르는 모양으로 좁히는 규칙」까지).
-- **find:semantics** — adminError 100곳의 모양(갈래·복합조건·본문 재조립), 기계 액션의 좁히기 규칙, 글자로 찾는 시험.
-- **find:other-repos** — gocheok-sermons·praise-songs 의 파이프라인과 Claude 스킬·메모가 성경암송 api 를 pw 로 부르는가(설교 반영·찬양 관리). **이게 「예외 목록」을 확정한다.**
-→ 재개: `Workflow({scriptPath: '…\\admin-gate-callers-wf_98bf6917-563.js', resumeFromRunId: 'wf_98bf6917-563'})` (끝난 셋은 캐시로 즉시 돌아온다).
+## 6. 호출자 조사 완료 (2026-10-08 · 6/6) — 암호만으로 지나갈 「기계 예외 목록」 확정
+
+관리자 문에 「총괄 staff」를 더하면 **사람이 없는 호출자**는 unauthorized 가 된다. 아래를 **pw-only 예외**로 둔다(그 액션에 한해 암호만으로 통과). 이게 전부다.
+
+| 호출자 | 액션 | 좁히는 규칙 |
+|---|---|---|
+| 크론 `push_cron*.sql`(하루 4회) | sendPush | `latest===true && hour∈{5,6,7,8} && title=고정표어` · body·only·userBodies 무시 |
+| 크론 `weekly_report.sql` · 모니터 | weeklyReport | `{action,pw,send}` · 수신자 env 고정 · ⚠️ 응답에 명단 → 좁혀 둘 것 |
+| 크론 `weekly_verse_push_cron.sql` | weeklyVersePush | `{action,pw}` · only·title·body 무시(서버 본문만) |
+| 모니터 `monitor.yml` | monitor · sendPush(diag) | `{action,pw}` |
+| MCP `supabase/functions/mcp` · `gocheok-mcp` | findMember · memberParticipation | ⚠️ findMember 응답에서 **id 제거** · 또는 x-internal-key 로 옮기기 검토 |
+| 설교 파이프라인 `gocheok-sermons/scripts` · `gs-sermon-staff` | sermonJobGet · sermonJobUpdate · embedSermons | 사람 못 싣는 머신 — 예외 |
+| 1회성 `자료/migrate/import.mjs` | importV1 | v1→v2 이관(재실행 거의 없음 · 또는 staff 한 칸) |
+
+- ✅ **이미 목표 방식(본보기):** `edu_remind_cron`·`duty_remind_cron` 는 x-internal-key(Vault) 로 부른다 — 위 크론·MCP·설교를 **장기적으로 여기로 옮기면** pw-only 예외가 사라진다. 지금은 예외 목록으로 두고, 옮기기는 관리 기능 교회 어드민 이전(backlog 4-5)과 함께.
+- ✅ **영향 없음(확인됨):** 찬양 `praise`(자체 시크릿 · staffVerify 는 이미 staff 전송) · 말씀 `sermon`(adminError 분리) · 교회 어드민 internal*(x-internal-key 경로) · praise/sermon 자기 저장소 관리 스크립트(대상이 성경암송 api 아님).
+
+### 사람 화면 — 한 줄씩 고칠 곳(§3 과 같다, 조사로 확정)
+admin-stats.html(callApi) · admin.html(verify 직접) · admin-event.html(callApi) · js/admin-members.js(call) · admin-sermon-chat.html(call). **praise-api.js 는 이미 staff 전송 → 고칠 것 없음.** 끊기면 조용히 틀어지는 것: boardList(숨긴 글 빠진 목록) · boardPost/Reply(no-user).
+
+### adminError 의미(semantics 조사)
+- 단순 거절(early-return)만 「관리자 전용」 — 갈래·복합조건·도우미 뒤는 pw 없이 지나간다(tools/security-check.py 가 2026-10-08 이렇게 고침).
+- 기계 액션의 응답 유출: weeklyReport·findMember 가 이름·id 를 내보낸다 → 예외로 두되 응답을 좁힌다.
+- ⚠️ `tools/security-check.py` 의 B절 분류기에 새 게이트 함수명을 알려야 오분류 안 함.
+
+### 구현 순서(확정)
+① 서버: adminError 를 「pw 맞음 + 총괄 staff(또는 위 예외 액션)」로. 예외 액션 목록을 상수로. ② 화면 5곳 한 줄 + 신원 함수. ③ 개발 배포·스모크(틀린 staff → 막힘 · 크론 꼴 → 통과 · 화면 → 통과). ④ 운영(크론·모니터·MCP·설교가 안 끊기는지 **배포 직후** 확인 — 아침 알림 전에).
 
 ## 7. 큰 한계 (바꾼 뒤에도)
 이 자물쇠는 **본인 확인이 아니다.** b.staff 도 교회 어드민의 여섯 칸도 본인이 적은 이름·소속이다. 암호를 알고 총괄이 누구인지 아는 사람은 지나간다. 진짜 본인 확인은 관리 기능을 교회 어드민(카카오 로그인 + 역할)으로 다 옮겨야 된다(backlog 4-5) — 또는 「교회 어드민에 카카오로 로그인한 총괄만 성경암송 관리 화면에 들어가는 짧게 사는 서명 표」(토큰 갈래 · 내부 통로에서 발급하면 안 됨 — 열쇠가 서비스 키라서).
