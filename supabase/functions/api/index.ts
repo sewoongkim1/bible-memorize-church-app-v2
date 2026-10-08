@@ -6750,15 +6750,34 @@ async function ministryApply(b: any) {
     return { ok: false, error: appointed.team + " 은(는) 지명으로 정해지는 자리라 신청할 수 없습니다" };
   }
 
-  const phone = pilsaPhone(b.phone);
-  if (!PILSA_PHONE_RE.test(phone)) {
-    return { ok: false, error: "휴대폰 번호를 확인해 주세요 (010-1234-5678)" };
+  // 확인 번호 문이 이 분에게 켜졌으면(Plan 5) 번호를 받지 않는다 — 교적과 이어졌는지로 가른다.
+  //   이어짐 → 번호 없이 저장(담당자는 교적에서 번호를 본다).
+  //   안 이어짐(명부를 읽었는데 없음=no) → 연락처가 없으면 contact-needed 로 한 번 묻는다.
+  //   못 읽음(null · person_how 빈칸) → 묻지 않고 저장한다(명부가 잠깐 안 읽혔을 뿐).
+  // 스위치가 꺼진 평소에는 지금까지대로 번호를 그대로 받는다.
+  let phone = "";
+  if (await lifeActive(b)) {
+    let link = await lifePersonLinked(userId);
+    if (!link.linked) { await lifeMatchPerson(userId); link = await lifePersonLinked(userId); }
+    if (!link.linked && link.how === "no") {
+      phone = await lifeContactPhone(userId);
+      if (!phone) {
+        return { ok: false, confirm: "contact-needed",
+          message: "교적에 등록된 번호와 맞지 않아요.\n담당자가 임명·연락을 위해 쓸 수 있게 연락처를 한 번만 남겨 주세요." };
+      }
+    }
+  } else {
+    phone = pilsaPhone(b.phone);
+    if (!PILSA_PHONE_RE.test(phone)) {
+      return { ok: false, error: "휴대폰 번호를 확인해 주세요 (010-1234-5678)" };
+    }
   }
   // ⚠️ 이미 낸 건이 있으면 그때 넣은 4자리와 같아야 한다 — 비밀번호가 없는 앱의 최소 확인.
   //    결정(임명확정·미채택·취소)이 난 건은 보지 않는다 — 옛 관리 화면은 결정 때 번호를 지우고, 교회 어드민(2026-10~)은 남겼다가
   //    담당자 단추·결정 뒤 180일 작업이 지운다. 결정된 줄의 번호(종이 명단의 가족 번호 등)로 막지 않게(친구 결정 2026-10-02).
+  //    (확인 번호 문이 켜진 분은 phone 이 빈칸일 수 있다 — 그럴 땐 이 검사를 건너뛴다.)
   const kept = mine.filter((r) => MINISTRY_DECIDED.indexOf(r.status) < 0).map((r) => norm(r.phone)).filter(Boolean)[0];
-  if (kept && kept !== phone) {
+  if (phone && kept && kept !== phone) {
     return { ok: false, error: "휴대폰 번호가 처음 신청하실 때와 다릅니다" };
   }
   const position = norm(b.position);
@@ -6789,7 +6808,7 @@ async function ministryApply(b: any) {
   // ⚠️ 막지 않고 묻는다. 상대 소속은 알려 주지 않는다.
   // ⚠️ 문구를 `error` 에 넣지 않는다 — 앱의 supaCall 은 error 가 있으면 던져 버려 「그래도 신청」을
   //    못 묻고 막다른 알림이 된다(리뷰에서 발견). `message` 로 보낸다.
-  if (toAdd.length && !b.dupOk && name) {
+  if (toAdd.length && !b.dupOk && name && phone) {
     const { data: same, error: e0 } = await db.from("ministry_orders")
       .select("id").eq("year", cfg.year).eq("phone", phone).eq("name", name).neq("user_id", userId)
       .not("status", "in", '("임명확정","미채택","취소")').limit(1);   // 결정된 줄은 보지 않는다(MINISTRY_DECIDED · 2026-10)
@@ -6848,8 +6867,10 @@ async function ministryCancel(b: any) {
   if (!open.length) {
     return { ok: false, error: "담당자 접수가 끝나 취소할 수 없습니다" };
   }
+  // 확인 번호 문이 켜진 분은 번호를 받지 않으니(Plan 5) 번호 검사를 건너뛴다 — 본인 확인은 확인 번호가 한다.
+  const active = await lifeActive(b);
   const kept = mine.filter((r) => MINISTRY_DECIDED.indexOf(r.status) < 0).map((r) => norm(r.phone)).filter(Boolean)[0];
-  if (kept && kept !== pilsaPhone(b.phone)) {
+  if (!active && kept && kept !== pilsaPhone(b.phone)) {
     return { ok: false, error: "휴대폰 번호가 맞지 않습니다" };
   }
   // ⚠️ 잠긴 건은 남는다 — 「취소」는 아직 접수 안 된 것만 무르는 일이다
