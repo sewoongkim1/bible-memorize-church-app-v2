@@ -2603,7 +2603,9 @@ async function lifePinSet(b: any) {
   if (await lifePinRow(uid)) return { ok: false, error: "already-set" };   // 이미 있으면 맞히기로(앱이 처리)
   const { error } = await db.from("life_pins").insert({ user_id: uid, pin_hash: await lifePinHash(secret, uid, b.pin) });
   if (error) { if (/duplicate key/i.test(String(error.message))) return { ok: false, error: "already-set" }; throw error; }
-  return { ok: true, device: await lifeIssueDevice(secret, uid) };
+  const device = await lifeIssueDevice(secret, uid);
+  await lifeMatchPerson(uid);   // 정한 직후 교적과 맞대 둔다(실패해도 조용히)
+  return { ok: true, device };
 }
 
 // lifePinCheck — 맞으면 이 기기를 기억한다 · 틀리면 남은 횟수 · 다섯 번째에 그날 잠근다
@@ -2637,6 +2639,23 @@ async function lifeResetRequest(b: any) {
   const { error } = await db.from("life_reset_requests").insert({ user_id: uid });
   if (error) throw error;
   return { ok: true };
+}
+
+// 교적 맞대기(2026-10-08 · Plan 4) — 아직 안 이어진 계정이면 교회 어드민에 맞대 보고, 한 분으로 좁혀지면 교인ID 를 적어 둔다.
+//   who 는 앱이 보낸 값이 아니라 users 에서 읽는다. 실패해도 조용히(번호 정하기를 막지 않는다). 사람이 정한 줄(staff)은 안 건드린다.
+async function lifeMatchPerson(uid: string) {
+  try {
+    const { data } = await db.from("life_pins").select("person_id,person_how").eq("user_id", uid).maybeSingle();
+    if (!data || (data as any).person_id || (data as any).person_how === "staff") return;
+    const { data: u } = await db.from("users").select("type,gu,mok,bu,grade,name").eq("id", uid).maybeSingle();
+    if (!u) return;
+    const j = await churchAdminInternal({ action: "internalPinMatch", user_id: uid, who: u });
+    if (!j || j.ok !== true) return;
+    const patch = j.matched === "one"
+      ? { person_id: j.person_id, person_how: "auto", matched_at: new Date().toISOString() }
+      : { person_how: "no", matched_at: new Date().toISOString() };
+    await db.from("life_pins").update(patch).eq("user_id", uid);
+  } catch (_) { /* 맞대기 실패가 번호 정하기를 막지 않는다 */ }
 }
 
 // 「내 이름으로 하는 일」의 문 — 확인을 마친 기기만. 관리자 비번은 지나간다(adminError).

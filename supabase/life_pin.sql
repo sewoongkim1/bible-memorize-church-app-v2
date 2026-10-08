@@ -36,6 +36,13 @@ create table if not exists public.life_reset_requests (
 create index if not exists life_reset_open on public.life_reset_requests (status) where status = 'open';
 create index if not exists life_reset_user on public.life_reset_requests (user_id);
 
+-- 교적 맞대기(2026-10-08 · Plan 4) — 이름+4자리가 교인명부 한 분과 맞으면 그 교인ID 를 이어 둔다.
+--   person_how: auto(맞대 이음) · staff(담당자가 정함 — 자동이 안 덮는다) · no(못 맞춤). 응답엔 person_id 안 싣는다.
+alter table public.life_pins add column if not exists person_id  int;
+alter table public.life_pins add column if not exists person_how text not null default '';
+alter table public.life_pins add column if not exists matched_at timestamptz;
+create index if not exists life_pins_person on public.life_pins (person_id) where person_id is not null;
+
 alter table public.life_pins           enable row level security;
 alter table public.life_devices        enable row level security;
 alter table public.life_reset_requests enable row level security;
