@@ -3120,6 +3120,14 @@ function rangeHasToday(b: any): boolean {
 // 로그를 통째로 끌어오지 않는다 — 2026-08-15 기준 로그 11,047행 vs (사용자,일자) 449행.
 async function ranking(b: any) {
   const me = String(b.me || "");
+  // 앱(me 있는 요청)만 조인다 — 순위 명단 수집에 마찰을 더한다(2026-10-09 친구):
+  //   ① 오늘 한 번이라도 활동한 분만 순위를 본다.
+  //   ② 전체기간 누적은 주지 않는다 — 기간을 반드시 좁혀야 한다(from·to 둘 다 있어야 함).
+  // ⚠️ 관리자 도전현황(admin-stats)은 me 없이 from/to 로 불러 이 문을 지나간다 — 그대로 둔다.
+  if (me) {
+    if (!b.from || !b.to) return { ok: true, list: [], blocked: "range", canCheer: false, liveMinutes: LIVE_MINUTES };
+    if (!(await hasTodayActivity(me))) return { ok: true, list: [], blocked: "activity", canCheer: false, liveMinutes: LIVE_MINUTES };
+  }
   try {
     const { data, error } = await db.rpc("v2_ranking", {
       p_from: b.from || "", p_to: b.to || "",

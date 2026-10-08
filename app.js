@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261009d";
+const APP_BUILD = "20261009e";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -8742,7 +8742,7 @@ const MANUAL = [
     art: '<div class="mn-rank"><span>1위  화평-20 김○○</span><span class="mn-chip">👏 3</span></div>',
     steps: [
       "첫 화면 <b>🏆 도전 순위 보기</b>를 누르세요.",
-      "<b>오늘 · 전일~당일 · 이번주 · 전체</b>를 눌러 기간을 바꿔 볼 수 있어요.",
+      "<b>오늘 · 전일~당일 · 이번주</b>를 눌러 기간을 바꿔 볼 수 있어요.",
       "<b>우리 교구</b>를 누르면 같은 교구(교회학교는 같은 부서) 분들만 모아 1위부터 다시 보여드려요.",
       "다른 분 줄의 <b>👏</b>를 누르면 응원이 전해져요. 다시 누르면 취소돼요.",
       "응원은 <b>하루에 한 분당 한 번</b>이에요.",
@@ -10937,7 +10937,9 @@ function renderRanking(range) {
   const r = range || rankRangeFor("yday");
   const u = loadUser();
   const appEl = document.getElementById("app");
-  const tabs = [["today", "오늘"], ["yday", "전일~당일"], ["week", "이번주"], ["all", "전체"]];
+  // 기간 「전체」(전체기간 누적)는 뺐다 — 개인 순위 명단 수집 마찰(2026-10-09 친구). 서버도 무제한 범위를 거부한다.
+  // (교구별 순위는 집계라 개인 명단이 아니어서 「전체」를 그대로 둔다.)
+  const tabs = [["today", "오늘"], ["yday", "전일~당일"], ["week", "이번주"]];
   appEl.innerHTML = `
     <div class="rank-screen">
       ${rankModeBar("rank")}
@@ -11010,6 +11012,15 @@ async function loadRankingBody(r) {
   const body = document.getElementById("rank-body");
   const data = await callRanking(r.from, r.to).catch(() => ({ ok: false }));
   if (!data || !data.ok) { body.innerHTML = `<p class="rank-msg err">순위를 불러오지 못했습니다.</p>`; return; }
+  // 서버가 막은 경우(2026-10-09) — 오늘 활동이 없거나, 기간을 안 정한 전체기간 조회
+  if (data.blocked === "activity") {
+    body.innerHTML = `<p class="rank-msg">오늘 말씀을 한 번이라도 외우거나 도전하면<br>순위를 볼 수 있어요. 🔥</p>`;
+    return;
+  }
+  if (data.blocked === "range") {
+    body.innerHTML = `<p class="rank-msg">조회할 기간(시작일·끝일)을 정해 주세요.</p>`;
+    return;
+  }
   drawRankingBody(r, data);
 }
 
