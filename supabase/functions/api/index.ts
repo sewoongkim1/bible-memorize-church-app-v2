@@ -401,6 +401,9 @@ Deno.serve(async (req) => {
         if (limited) return json({ ok: false, error: limited });
         return json(await login(body));
       }
+      case "lifeGate":      return json(await lifeGate(body));
+      case "lifePinSet":    return json(await lifePinSet(body));
+      case "lifePinCheck":  return json(await lifePinCheck(body));
       case "saveProgress":  return json(await saveProgress(body));
       case "saveHeart":     return json(await saveHeart(body));
       case "getConfig":     return json(await getConfig(body));
@@ -2517,6 +2520,79 @@ const lifeSwitch = async (): Promise<string | false> => {
     return v === "on" || v === "test" ? v : false;
   } catch { return false; }
 };
+
+// 확인을 마친 기기 하나 만든다 — 임의 토큰(앱 localStorage) · 서버엔 해시만. 오래된/넘치는 기기는 치운다.
+async function lifeIssueDevice(secret: string, userId: string): Promise<string> {
+  const token = Array.from(crypto.getRandomValues(new Uint8Array(32))).map((x) => x.toString(16).padStart(2, "0")).join("");
+  await db.from("life_devices").insert({ user_id: userId, token_hash: await lifeDeviceHash(secret, token) });
+  const cut = new Date(Date.now() - LIFE_DEVICE_DAYS * 86400000).toISOString();
+  await db.from("life_devices").delete().eq("user_id", userId).lt("seen_at", cut);
+  const { data } = await db.from("life_devices").select("id,created_at").eq("user_id", userId).order("created_at", { ascending: false });
+  const extra = (data ?? []).slice(LIFE_MAX_DEVICES).map((r: any) => r.id);
+  if (extra.length) await db.from("life_devices").delete().in("id", extra);
+  return token;
+}
+async function lifePinRow(userId: string) {
+  const { data } = await db.from("life_pins").select("pin_hash,fails,fail_day").eq("user_id", userId).maybeSingle();
+  return data as { pin_hash: string; fails: number; fail_day: string | null } | null;
+}
+async function lifeDeviceOk(secret: string, userId: string, device: unknown): Promise<boolean> {
+  const tok = typeof device === "string" && /^[0-9a-f]{64}$/.test(device) ? device : "";
+  if (!tok) return false;
+  const h = await lifeDeviceHash(secret, tok);
+  const { data } = await db.from("life_devices").select("id").eq("user_id", userId).eq("token_hash", h).maybeSingle();
+  if (data) { await db.from("life_devices").update({ seen_at: new Date().toISOString() }).eq("id", (data as any).id); return true; }
+  return false;
+}
+
+// lifeGate — 교회 생활 입구가 묻는다: 정해야 하나(new) / 맞혀야 하나(ask) / 그냥(ok) / 잠김(locked) / 꺼짐(off)
+async function lifeGate(b: any) {
+  const uid = storeUid(b.user_id);
+  const sw = await lifeSwitch();
+  if (!uid) return { ok: true, state: sw ? "new" : "off" };     // 로그인 전이면 화면이 먼저 로그인시킨다
+  const secret = Deno.env.get("LIFE_PIN_SECRET") ?? "";
+  if (!secret) return { ok: true, state: "off" };               // 비밀값 없으면 자물쇠 끔(막지 않는다)
+  const isTester = sw === "test" ? await ministryIsTester(uid) : true;
+  const row = await lifePinRow(uid);
+  const today = kstDay(new Date().toISOString());
+  const locked = !!row && lifeFailsToday(row.fails, row.fail_day, today) >= LIFE_PIN_FAILS_PER_DAY;
+  const deviceOk = !!row && await lifeDeviceOk(secret, uid, b.device);
+  return { ok: true, state: lifeGateState({ switchOn: sw, isTester, locked, hasPin: !!row, deviceOk }) };
+}
+
+// lifePinSet — 번호가 **없을 때만** 정한다(두 번 넣어 확인하는 것은 앱이 한다). 성공 시 이 기기를 기억한다.
+async function lifePinSet(b: any) {
+  const uid = storeUid(b.user_id);
+  if (!uid) return { ok: false, error: "로그인한 뒤에 정할 수 있어요" };
+  if (!lifePinValid(b.pin)) return { ok: false, error: "숫자 4자리를 넣어 주세요" };
+  const secret = Deno.env.get("LIFE_PIN_SECRET") ?? "";
+  if (!secret) return { ok: false, error: "준비 중이에요. 잠시 뒤 다시 해 주세요" };
+  if (await lifePinRow(uid)) return { ok: false, error: "already-set" };   // 이미 있으면 맞히기로(앱이 처리)
+  const { error } = await db.from("life_pins").insert({ user_id: uid, pin_hash: await lifePinHash(secret, uid, b.pin) });
+  if (error) { if (/duplicate key/i.test(String(error.message))) return { ok: false, error: "already-set" }; throw error; }
+  return { ok: true, device: await lifeIssueDevice(secret, uid) };
+}
+
+// lifePinCheck — 맞으면 이 기기를 기억한다 · 틀리면 남은 횟수 · 다섯 번째에 그날 잠근다
+async function lifePinCheck(b: any) {
+  const uid = storeUid(b.user_id);
+  if (!uid) return { ok: false, error: "로그인한 뒤에 할 수 있어요" };
+  if (!lifePinValid(b.pin)) return { ok: false, error: "숫자 4자리를 넣어 주세요" };
+  const secret = Deno.env.get("LIFE_PIN_SECRET") ?? "";
+  if (!secret) return { ok: false, error: "준비 중이에요. 잠시 뒤 다시 해 주세요" };
+  const row = await lifePinRow(uid);
+  if (!row) return { ok: false, error: "no-pin" };            // 번호가 없다 → 앱이 정하기로
+  const today = kstDay(new Date().toISOString());
+  const failsToday = lifeFailsToday(row.fails, row.fail_day, today);
+  if (failsToday >= LIFE_PIN_FAILS_PER_DAY) return { ok: false, error: "locked" };
+  if ((await lifePinHash(secret, uid, b.pin)) === row.pin_hash) {
+    await db.from("life_pins").update({ fails: 0, fail_day: null }).eq("user_id", uid);
+    return { ok: true, device: await lifeIssueDevice(secret, uid) };
+  }
+  const left = LIFE_PIN_FAILS_PER_DAY - failsToday - 1;
+  await db.from("life_pins").update({ fails: failsToday + 1, fail_day: today }).eq("user_id", uid);
+  return { ok: false, error: left > 0 ? "wrong" : "locked", left: Math.max(0, left) };
+}
 async function loginLimitError(b: any, req: Request | undefined, identity: string): Promise<string | null> {
   try {
     if (!adminError(b)) return null;
