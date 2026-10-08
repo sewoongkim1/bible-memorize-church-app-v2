@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261008b";
+const APP_BUILD = "20261008c";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2994,7 +2994,7 @@ function renderSummary() {
           문은 단추마다 따로다(사역 둘 = ministryVisible · 교육 = eduVisible) — 제목은 하나라도 보이면 뜬다.
           2026-10-07 친구 요청 — 「교회」 → 「교회 생활」 · 「봉사 당번」 → 「봉사 당번 신청」(당번 화면 제목도 같은 이름). */""}
     ${(ministryVisible() && MH_LIVE) || eduVisible() || dutyVisible() ? `<div class="grp-title">교회 생활</div>` : ""}
-    ${ministryVisible() && MH_LIVE ? `<button class="summary-help" id="open-ministry">🤝 ${ministryYear()}년 사역신청${newBadge("ministry")}</button>
+    ${ministryVisible() && MH_LIVE ? `<button class="summary-help" id="open-ministry">🤝 ${ministryYear()}년 사역 신청${newBadge("ministry")}</button>
     <button class="summary-help" id="open-ministry-history">🗂️ 사역 이력 확인</button>` : ""}
     ${/* newBadge("edu") — FEAT_SINCE.edu 는 개시일에 적는다(없으면 NEW 가 안 뜬다) */""}
     ${eduVisible() ? `<button class="summary-help" id="open-edu">🎓 교육 신청${newBadge("edu")}</button>` : ""}
@@ -3027,7 +3027,7 @@ function renderSummary() {
          시편 23편이 "여호와는 나의 목자시니"로 시작하니, 장소(물가)보다 인도받아
          쉰다는 이 시편의 핵심에 더 가깝다. -->
     ${/* MH_LIVE 가 꺼진 동안(운영 · 과제 9 전)은 🤝 를 원래 자리(「함께」)에 둔다 — 화면이 지금과 똑같게. 켜지면 위 「사역현황」 묶음으로 옮겨 간다. */""}
-    ${ministryVisible() && !MH_LIVE ? `<button class="summary-help" id="open-ministry">🤝 ${ministryYear()}년 사역신청${newBadge("ministry")}</button>` : ""}
+    ${ministryVisible() && !MH_LIVE ? `<button class="summary-help" id="open-ministry">🤝 ${ministryYear()}년 사역 신청${newBadge("ministry")}</button>` : ""}
     ${passagesVisible() ? `<button class="summary-help" id="open-passages">📜 내 안에 거하는 말씀${newBadge("passages")}</button>` : ""}
     <!-- 「더 보기」 — 자주 누르지 않는 넷을 접어 둔다(연 상태는 기억한다).
          ⚠️ 순서와 모양은 성도님이 직접 정하셨다(2026-09-10): 필사 → 퀴즈 → 찬양 → 설교,
