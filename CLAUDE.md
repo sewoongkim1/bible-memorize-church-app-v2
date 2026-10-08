@@ -57,7 +57,7 @@
 화면이 안 쓰는 참고·산출물은 모두 `자료/` 아래다 — `marketing`·`ministry`·`store`·`psalm`·`migrate`·`booklet`(GitHub) + `education`·`newfamily`·`AppForm`·`Picture`·`당회보고`(로컬). **`자료/` 는 사이트로 안 나간다.**
 - ⚠️ **화면이 부르는 파일을 `자료/` 에 두지 말 것** — localhost 에서는 열리고 운영에서만 404 가 난다. 화면용은 `img/`(그림 · `img/screenshots/` 는 manifest)·`files/`(내려받는 파일)에.
 - ⚠️ 새 참고 폴더를 루트에 만들지 말고 `자료/` 아래에. 개인정보가 든 것은 `.gitignore` 에 **`자료/…` 경로로** 막는다(사이트에서 빠져도 GitHub 저장소는 공개다).
-- `booklet`(소책자 생성기·산출물)도 2026-10-08 에 `자료/booklet/` 로 옮겼다 — 생성기가 저장소 뿌리를 두 단계 위로 찾는다(`generate_blessing.py` 의 `ROOT`). `bible-note/` 는 루트에 그대로다.
+- `booklet`(소책자 생성기·산출물)도 2026-10-08 에 `자료/booklet/` 로 옮겼다 — 생성기가 저장소 뿌리를 두 단계 위로 찾는다(`generate_blessing.py` 의 `ROOT`). `bible-note/` 는 루트에 그대로다. **`자료/booklet/` 은 코드·설정(py·bat·md·json)만 올린다** — PDF·그림·만든 HTML(149개 · 31MB)은 `.gitignore` 로 빼서 이 PC 에만 있다(원본 CI 그림 포함 — 잃으면 옛 커밋에서 꺼내야 한다).
 - ⚠️ **사이트에는 화면이 쓰는 파일만 나간다(2026-10-08 · 808개 → 190개).** 목록은 `tools/site.py` 한 곳 — 루트의 화면 파일(html·js·css·json·그림·ics) + `js`·`img`·`music`·`files`·`guide`·`privacy`·`quiz`·`cert`·`.well-known`. `CLAUDE.md`·`docs/`·`supabase/`·`tools/`·`tests/`·`자료/booklet/`·`bible-note/`·`android-app/`·`ios-app/` 는 주소로 안 열린다(GitHub 저장소는 여전히 공개). **새 화면 폴더를 만들면 `SITE_DIRS` 에 더할 것** — `preflight` [4] 가 src·href 는 잡지만 코드가 조립하는 주소는 못 본다. `python tools/site.py` 로 무엇이 나가는지 세어 볼 수 있다.
 
 ## 스택 · 도메인
