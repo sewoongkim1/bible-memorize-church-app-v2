@@ -9,8 +9,8 @@
 
 ⚠️ 읽기만 한다. 쓰는 요청·관리자 암호·service_role 키를 쓰지 않는다 — 공개 키로 누구나 할 수 있는 것만 한다.
 ⚠️ 받은 행의 **내용은 찍지 않는다**(칸 이름과 개수만). 결과에 성도님 정보가 남으면 안 된다.
-⚠️ 결과와 「본 것」 목록(baseline)은 **저장소 밖**에 쓴다. 이 저장소는 공개이고 사이트가 저장소 전체를
-   배포한다 — 「여기가 열려 있다」를 적은 파일이 그대로 주소로 열린다.
+⚠️ 결과와 「본 것」 목록(baseline)은 **저장소 밖**에 쓴다. 이 저장소는 공개다 — 사이트에는
+   화면 파일만 나가지만(2026-10-08 · tools/site.py) GitHub 에서는 누구나 「여기가 열려 있다」를 읽는다.
    기본 자리 C:\\Projects\\보안점검 (환경변수 SECURITY_CHECK_DIR 로 바꾼다).
 ⚠️ 작업 폴더가 아니라 `origin/main` 을 읽는다. 공유 체크아웃은 수백 커밋 뒤처져 있기 일쑤라
    작업 폴더를 읽으면 옛 코드를 점검하게 된다(2026-10-08 에 164개 액션을 134개로 셌다).
@@ -341,7 +341,7 @@ def check_repo(rep, repos, history):
             if RISKY_NAME.search(f) and not f.endswith(".env.example"):
                 rep.add("C", "name|%s|%s" % (r.name, f), "검토", "%s `%s` — 키·비밀 파일로 보이는 이름" % (r.name, f))
             elif DOC_EXT.search(f):
-                rep.add("C", "doc|%s|%s" % (r.name, f), "검토", "%s `%s` — 표·문서 파일(명단·내부 문서일 수 있다 · 사이트에서 그대로 열린다)" % (r.name, f))
+                rep.add("C", "doc|%s|%s" % (r.name, f), "검토", "%s `%s` — 표·문서 파일(명단·내부 문서일 수 있다 · GitHub 에서 누구나 받는다)" % (r.name, f))
         phones = {}
         for f, _, s in r.grep(PHONE, only=True):
             phones.setdefault(f, set()).add(re.sub(r"\D", "", s))
