@@ -56,6 +56,8 @@ python tools/security-check.py --accept     # 지금 나온 것을 「본 것」
 - `needs.phone: false` — 「번호를 받는다」는 깃발이다. 참·거짓 값은 넘긴다.
 - `.replace(/-----BEGIN PRIVATE KEY-----/, "")` — 머리글을 떼어 내는 코드다. 다음 줄에 base64 몸통이 있을 때만 키로 본다.
 - `foreach t in array[...] loop execute format('alter table public.%I enable row level security', t)` — 반복문으로 켠 RLS.
+- `const isAdmin = !adminError(b)` — 거절이 아니라 「관리자면 숨긴 글도 본다」는 갈래다. 이런 액션은 「공개(관리자면 더 봄)」로 따로 센다
+  (`boardList`·`eventOpenList` 가 틀린 암호 시험에서 「통과」로 걸렸었다 — 볼 것은 **관리자 갈래에서만 나가야 할 것이 공개 갈래로 새는가**다).
 - 이력 검사에 `service_role` 낱말을 넣으면 `grant … to service_role` 이 든 커밋이 전부 걸린다.
 
 ## 손으로 보는 것 (기계가 못 본다)

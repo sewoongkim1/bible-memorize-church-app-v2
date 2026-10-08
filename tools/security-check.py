@@ -220,8 +220,14 @@ def api_surface(src):
             if fn in funcs:
                 text += funcs[fn]
         g = sorted(set(GUARDS.findall(text)))
+        # 「관리자면 숨긴 글도 본다」처럼 확인을 **거절에 쓰지 않고 갈래에만** 쓰는 액션은 공개다
+        # (boardList·eventOpenList — 2026-10-08 틀린 암호 시험에서 「통과」로 잘못 걸렸다)
+        soft = len(re.findall(r"!\s*(?:await\s+)?(?:adminError|staffRoleError|ministryAdminError|contentError)\(|"
+                              r"\b(?:adminError|staffRoleError|ministryAdminError|contentError)\([^)]*\)\s*===\s*null", text))
         if any(x in g for x in ("churchAdminInternal", "sameSecret")):
             cat = "내부"
+        elif g and soft >= len(GUARDS.findall(text)):
+            cat = "공개(관리자면 더 봄)"
         elif g:
             cat = "관리자·담당자"
         elif re.search(r"\buser_id\b|identity_key", text):
