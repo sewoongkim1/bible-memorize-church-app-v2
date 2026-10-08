@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261009c";
+const APP_BUILD = "20261009d";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -4880,7 +4880,7 @@ function openLifeContact(user) {
       <div class="am-card" role="dialog" aria-modal="true" aria-labelledby="lp-title">
         <div class="am-ico" aria-hidden="true">📞</div>
         <div class="am-title" id="lp-title">연락처를 남겨 주세요</div>
-        <div class="am-msg">교적에 등록된 번호와 맞지 않아요.<br><span class="lp-sub">담당자가 임명·연락에 씁니다.</span></div>
+        <div class="am-msg"><b>담당자가 임명·연락에 씁니다.</b></div>
         <input class="lp-pin" id="lp-contact" type="tel" inputmode="numeric" maxlength="13" placeholder="010-1234-5678" autocomplete="off" aria-label="휴대폰 번호" />
         <div class="lp-err" role="alert" hidden></div>
         <div class="am-btns">
@@ -12871,7 +12871,7 @@ function minConfirmHtml() {
         ' value="' + minEsc(pilsaPhoneFmt(minPhoneVal)) + '" autocomplete="off"></div>') +
     '<div class="min-note">' +
       (lifeGateOn
-        ? '직분은 <b>임명</b>에 씁니다. 연락처는 <b>교적</b>에서 확인하며, 교적과 다를 때만 한 번 여쭤봐요.'
+        ? '직분은 <b>임명</b>에 씁니다. 연락처는 따로 받지 않고, 필요할 때만 한 번 여쭤봐요.'
         : ((minMine ? '처음 신청하실 때 넣은 번호와 같아야 고쳐집니다. ' : '') +
            '직분과 휴대폰 번호는 <b>본인 확인·교적 대조와 임명 뒤 연락</b>에 씁니다. ' +
            '번호는 임명·취소가 정해진 뒤 지울 수 있고, <b>늦어도 180일</b>이 지나면 저절로 지웁니다.')) +

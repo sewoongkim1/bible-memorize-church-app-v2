@@ -6763,7 +6763,7 @@ async function ministryApply(b: any) {
       phone = await lifeContactPhone(userId);
       if (!phone) {
         return { ok: false, confirm: "contact-needed",
-          message: "교적에 등록된 번호와 맞지 않아요.\n담당자가 임명·연락을 위해 쓸 수 있게 연락처를 한 번만 남겨 주세요." };
+          message: "담당자가 임명·연락을 위해 쓸 수 있게 연락처를 한 번만 남겨 주세요." };
       }
     }
   } else {
