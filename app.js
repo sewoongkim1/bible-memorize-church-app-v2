@@ -4754,6 +4754,120 @@ function boardWriteErrorMsg(e, prefix) {
 
 // 규칙 창. needAccept=true 면 「위 규칙을 지키겠습니다」 체크 뒤 「동의하고 쓰기」 — 서버에 날짜를 남긴다.
 // needAccept=false(「📜 이용 규칙 보기」)면 읽기만 — 아직 동의 전이면 같은 창에서 동의할 수도 있다.
+// ── 교회 생활 확인 번호 (2026-10-08 · 설계 docs/superpowers/specs/2026-10-08-church-life-pin-design.md) ──
+function lifeDevice() { try { return localStorage.getItem("life-device") || ""; } catch (_) { return ""; } }
+function saveLifeDevice(token) { try { if (token) localStorage.setItem("life-device", token); } catch (_) {} }
+
+// 교회 생활 단추를 감싼다 — 서버에 물어 정하기/맞히기/잠김 창을 띄우고, 통과하면 next() 로 간다.
+async function lifeEnter(next) {
+  const uid = myUserId();
+  if (!uid) { next(); return; }                 // 로그인 전이면(실제론 첫 화면이 이미 로그인됨) 그냥
+  let g;
+  try { g = await api.lifeGate(uid); } catch (_) { next(); return; }  // 못 물으면 막지 않는다(서버 lifeError 가 최후 방어)
+  const state = g && g.state;
+  if (state === "off" || state === "ok") { next(); return; }
+  if (state === "locked") { await openLifeLocked(uid); return; }      // 오늘 잠김 — 풀기 요청만
+  const user = (typeof loadUser === "function") ? loadUser() : null;
+  const okNow = await openLifePin(state === "new" ? "set" : "check", user);
+  if (okNow) next();
+}
+
+// 잠김 창 — 오늘은 더 못 한다 · 담당자에게 풀어 달라고
+function openLifeLocked(uid) {
+  return new Promise((resolve) => {
+    const old = document.getElementById("lp-modal"); if (old) old.remove();
+    const wrap = document.createElement("div"); wrap.id = "lp-modal"; wrap.className = "am-overlay";
+    wrap.innerHTML = `
+      <div class="am-card" role="dialog" aria-modal="true" aria-labelledby="lp-title">
+        <div class="am-ico" aria-hidden="true">🔒</div>
+        <div class="am-title" id="lp-title">오늘은 여기까지예요</div>
+        <div class="am-msg">확인 번호를 여러 번 잘못 넣으셨어요. 내일 다시 하시거나, 담당자에게 풀어 달라고 해 주세요.</div>
+        <div class="lp-err" role="alert" hidden></div>
+        <div class="am-btns">
+          <button type="button" class="am-btn am-cancel">닫기</button>
+          <button type="button" class="am-btn am-ok" id="lp-reset">담당자에게 풀어 달라고 하기</button>
+        </div>
+      </div>`;
+    const close = () => { wrap.classList.remove("show"); setTimeout(() => wrap.remove(), 160); resolve(); };
+    wrap.addEventListener("click", (e) => { if (e.target === wrap) close(); });
+    wrap.querySelector(".am-cancel").addEventListener("click", close);
+    wrap.querySelector("#lp-reset").addEventListener("click", async () => {
+      const errEl = wrap.querySelector(".lp-err");
+      try { await api.lifeResetRequest(uid); errEl.textContent = "담당자에게 알렸어요. 처리되면 다시 정하실 수 있어요."; errEl.hidden = false; }
+      catch (_) { errEl.textContent = "지금은 알리지 못했어요. 잠시 뒤 다시 눌러 주세요."; errEl.hidden = false; }
+    });
+    document.body.appendChild(wrap);
+    requestAnimationFrame(() => wrap.classList.add("show"));
+  });
+}
+
+// 정하기/맞히기 창 — openBoardRules 와 같은 틀. 성공하면 기기 토큰을 저장하고 true.
+function openLifePin(mode, user) {
+  const guardian = typeof needsGuardian === "function" && user && needsGuardian(user);
+  const lead = guardian ? "본인 또는 보호자 휴대폰 번호 뒷자리 4자리를 넣어 주세요." : "휴대폰 번호 뒷자리 4자리를 넣어 주세요.";
+  const title = mode === "set" ? "확인 번호를 정해 주세요" : "확인 번호를 넣어 주세요";
+  return new Promise((resolve) => {
+    const old = document.getElementById("lp-modal"); if (old) old.remove();
+    const wrap = document.createElement("div"); wrap.id = "lp-modal"; wrap.className = "am-overlay";
+    wrap.innerHTML = `
+      <div class="am-card" role="dialog" aria-modal="true" aria-labelledby="lp-title">
+        <div class="am-ico" aria-hidden="true">🔑</div>
+        <div class="am-title" id="lp-title">${title}</div>
+        <div class="am-msg">${lead}<br><span class="lp-sub">교회 생활 메뉴에 들어갈 때 본인 확인에 써요. 다른 폰에서 처음 들어올 때 한 번 물어요.</span></div>
+        <input class="lp-pin" id="lp-pin1" inputmode="numeric" maxlength="4" autocomplete="off" aria-label="확인 번호 4자리" />
+        ${mode === "set" ? `<input class="lp-pin" id="lp-pin2" inputmode="numeric" maxlength="4" autocomplete="off" aria-label="확인 번호 다시" placeholder="한 번 더" />` : ""}
+        <div class="lp-err" role="alert" hidden></div>
+        <div class="am-btns">
+          <button type="button" class="am-btn am-cancel">취소</button>
+          <button type="button" class="am-btn am-ok lp-ok" disabled>${mode === "set" ? "정하기" : "확인"}</button>
+        </div>
+        ${mode === "check" ? `<button type="button" class="lp-forgot" id="lp-forgot">번호를 잊으셨나요?</button>` : ""}
+      </div>`;
+    const uid = myUserId();
+    const p1 = wrap.querySelector("#lp-pin1"), p2 = wrap.querySelector("#lp-pin2");
+    const ok = wrap.querySelector(".lp-ok"), errEl = wrap.querySelector(".lp-err");
+    let busy = false;
+    const onlyNum = (el) => { el.value = (el.value || "").replace(/[^0-9]/g, "").slice(0, 4); };
+    const refresh = () => { ok.disabled = !(p1.value.length === 4 && (mode !== "set" || p2.value.length === 4)); };
+    p1.addEventListener("input", () => { onlyNum(p1); refresh(); });
+    if (p2) p2.addEventListener("input", () => { onlyNum(p2); refresh(); });
+    const close = (v) => { document.removeEventListener("keydown", onKey, true); wrap.classList.remove("show"); setTimeout(() => wrap.remove(), 160); resolve(v); };
+    const onKey = (e) => { if (e.key === "Escape" && !busy) { e.preventDefault(); close(false); } };
+    wrap.addEventListener("click", (e) => { if (e.target === wrap && !busy) close(false); });
+    wrap.querySelector(".am-cancel").addEventListener("click", () => { if (!busy) close(false); });
+    const forgot = wrap.querySelector("#lp-forgot");
+    if (forgot) forgot.addEventListener("click", async () => {
+      try { await api.lifeResetRequest(uid); errEl.textContent = "담당자에게 알렸어요. 처리되면 다시 정하실 수 있어요."; errEl.hidden = false; }
+      catch (_) { errEl.textContent = "지금은 알리지 못했어요. 잠시 뒤 다시 눌러 주세요."; errEl.hidden = false; }
+    });
+    ok.addEventListener("click", async () => {
+      if (busy || ok.disabled) return;
+      errEl.hidden = true;
+      if (mode === "set" && p1.value !== p2.value) { errEl.textContent = "두 번 넣은 번호가 달라요. 다시 넣어 주세요."; errEl.hidden = false; return; }
+      busy = true; ok.disabled = true; const label = ok.textContent; ok.textContent = "확인 중…";
+      try {
+        const r = mode === "set" ? await api.lifePinSet(uid, p1.value) : await api.lifePinCheck(uid, p1.value);
+        saveLifeDevice(r.device);
+        busy = false; close(true);
+      } catch (e) {
+        busy = false; ok.disabled = false; ok.textContent = label;
+        const code = String((e && e.message) || "");
+        if (code === "already-set") { close(false); const again = await openLifePin("check", user); resolve(again); return; }
+        if (code === "no-pin") { close(false); const again = await openLifePin("set", user); resolve(again); return; }
+        errEl.textContent =
+          code === "wrong" ? `번호가 맞지 않아요. ${(e.data && e.data.left) || 0}번 더 넣을 수 있어요.` :
+          code === "locked" ? "오늘은 여러 번 틀려 잠겼어요. 내일 다시 하시거나 담당자에게 풀어 달라고 해 주세요." :
+          /^[0-9]/.test(p1.value) ? "숫자 4자리를 넣어 주세요." : (code || "다시 해 주세요.");
+        errEl.hidden = false;
+        if (code === "locked") { ok.disabled = true; }
+      }
+    });
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(wrap);
+    requestAnimationFrame(() => { wrap.classList.add("show"); try { p1.focus({ preventScroll: true }); } catch (_) {} });
+  });
+}
+
 function openBoardRules(needAccept) {
   return new Promise((resolve) => {
     const accepted = boardRulesOkLocal() || boardRulesServer === true;

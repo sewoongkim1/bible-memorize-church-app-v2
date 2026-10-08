@@ -2325,6 +2325,16 @@ body.native-app-hide-ref .word-input { scroll-margin-top: 90px; }
 .am-btn.am-ok { background: var(--navy); color: #fff; border-color: var(--navy); }
 .am-btn.am-ok.danger { background: #d64545; border-color: #d64545; }
 .am-btn:active { filter: brightness(.94); }
+/* 교회 생활 확인 번호 입력 (2026-10-08) */
+.lp-pin { display: block; width: 8ch; margin: 10px auto 0; padding: 12px 10px; font-size: 1.9rem; letter-spacing: .5em;
+  text-align: center; border: 2px solid var(--border); border-radius: 12px; background: #fff; color: inherit; }
+.lp-pin:focus { outline: none; border-color: var(--navy); }
+.lp-sub { display: block; margin-top: 6px; font-size: .82rem; color: #6b7483; line-height: 1.5; }
+.lp-err { margin: 10px 4px 0; color: #c0392b; font-size: .9rem; }
+.lp-forgot { display: block; margin: 12px auto 0; background: none; border: none; color: var(--navy);
+  font-size: .9rem; text-decoration: underline; cursor: pointer; font-family: inherit; }
+.dark .lp-pin { background: #2a332e; border-color: #3a4356; }
+.dark .lp-sub { color: #aeb7b2; }
 .dark .am-card { background: #222b26; }
 .dark .am-title { color: #cfe3d8; }
 .dark .am-msg { color: #d9dedb; }
