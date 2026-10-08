@@ -3751,7 +3751,7 @@ async function weeklyReport(b: any) {
   }), { newUsers: 0, learners: 0, learnTyping: 0, learnVoice: 0, learnTotal: 0 });
   const challengeTotal = challenge.reduce((sum: number, r: any) => sum + (r.count || 0), 0);
   // 누적 참여자(전체 기간 동안 암송한 총 인원, 중복 제거)
-  const cumRes: any = await stats({ pw: b.pw, from: "", to: "" });
+  const cumRes: any = await stats({ pw: b.pw, [SUPER_OK]: true, from: "", to: "" });   // weeklyReport 는 믿는 기계 호출 → 내부 stats 에 총괄 표를 넘긴다
   const cumParticipants = cumRes.ok ? (cumRes.list || []).reduce((sm: number, x: any) => sm + (x.participants || 0), 0) : 0;
 
   const sortedParticipants = participantsList.slice().sort((a: any, b: any) => b.total - a.total);
@@ -3812,7 +3812,7 @@ async function weeklyReport(b: any) {
   const daily = dayBuckets.map((x) => ({ date: x.date, count: x.set.size }));
   // 주차별 신규 유입(첫 암송이 그 주에 속하는 인원) — stats RPC 재사용
   const weekNew = await Promise.all(weekBuckets.map(async (wk) => {
-    const r: any = await stats({ pw: b.pw, from: wk.from, to: wk.to }); // pw 넘겨야 권한 통과
+    const r: any = await stats({ pw: b.pw, [SUPER_OK]: true, from: wk.from, to: wk.to }); // 믿는 기계 호출 — 총괄 표를 넘긴다(pw+권한)
     return r.ok ? (r.list || []).reduce((sum: number, x: any) => sum + (x.newCount || 0), 0) : 0;
   }));
   const weekly = weekBuckets.map((x, i) => ({ from: x.from, to: x.to, count: x.set.size, newCount: weekNew[i] }));
