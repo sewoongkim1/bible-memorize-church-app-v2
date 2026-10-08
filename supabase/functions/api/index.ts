@@ -2606,6 +2606,27 @@ async function lifeResetRequest(b: any) {
   if (error) throw error;
   return { ok: true };
 }
+
+// 「내 이름으로 하는 일」의 문 — 확인을 마친 기기만. 관리자 비번은 지나간다(adminError).
+// ⚠️ 스위치 off 거나(또는 test 인데 시험 참여자 아님) 비밀값이 없으면 **막지 않는다**(null).
+// ⚠️ 세다가 오류가 나도 막지 않는다 — 신청·기록이 멈추는 것보다 자물쇠가 쉬는 쪽.
+async function lifeError(b: any): Promise<string | null> {
+  try {
+    if (!adminError(b)) return null;                       // 관리자 비번(담당자 암호 포함 — 담당자 화면·크론 영향 없음)
+    const sw = await lifeSwitch();
+    if (!sw) return null;
+    const uid = storeUid(b.user_id);
+    if (!uid) return null;                                 // user_id 없는 요청은 각 액션이 알아서 막는다
+    if (sw === "test" && !(await ministryIsTester(uid))) return null;
+    const secret = Deno.env.get("LIFE_PIN_SECRET") ?? "";
+    if (!secret) return null;
+    const row = await lifePinRow(uid);
+    if (!row) return "pin-needed";                         // 번호를 아직 안 정함 → 앱이 정하기 창
+    const today = kstDay(new Date().toISOString());
+    if (lifeFailsToday(row.fails, row.fail_day, today) >= LIFE_PIN_FAILS_PER_DAY) return "pin-locked";
+    return (await lifeDeviceOk(secret, uid, b.device)) ? null : "pin-needed";  // 이 기기가 확인 안 됨 → 맞히기 창
+  } catch (_) { return null; }
+}
 async function loginLimitError(b: any, req: Request | undefined, identity: string): Promise<string | null> {
   try {
     if (!adminError(b)) return null;
@@ -3931,6 +3952,7 @@ function pilsaRow(r: any) {
 
 // 내 신청(가장 최근 한 건)
 async function pilsaMine(b: any) {
+  const le = await lifeError(b); if (le) return { ok: false, error: le };
   const userId = String(b.user_id || "");
   if (!userId) return { ok: true, order: null };
   const { data, error } = await db.from("pilsa_orders")
@@ -3943,6 +3965,7 @@ async function pilsaMine(b: any) {
 
 // 신청·수정 — 가장 최근 건이 '신청완료'면 그 건을 고치고, 아니면 새 건으로 넣는다.
 async function pilsaApply(b: any) {
+  const le = await lifeError(b); if (le) return { ok: false, error: le };
   const userId = String(b.user_id || "");
   if (!userId) return { ok: false, error: "user_id 필요" };
   const phone = pilsaPhone(b.phone);
@@ -3992,6 +4015,7 @@ async function pilsaApply(b: any) {
 
 // 취소 — '신청완료'인 내 신청만 지운다
 async function pilsaCancel(b: any) {
+  const le = await lifeError(b); if (le) return { ok: false, error: le };
   const userId = String(b.user_id || "");
   const id = Number(b.id) || 0;
   if (!userId || !id) return { ok: false, error: "user_id/id 필요" };
@@ -5206,6 +5230,7 @@ const mhReqOut = (q: any) => ({ id: q?.id, history_id: q?.history_id ?? null, ki
   committee_text: q?.committee_text ?? null, team_text: q?.team_text, status: q?.status, answer: q?.answer, created_at: q?.created_at });
 
 async function ministryHistoryMine(b: any) {
+  const le = await lifeError(b); if (le) return { ok: false, error: le };
   const u = await ministryHistoryUser(b);
   if ("error" in u) return { ok: false, error: u.error };
   const j = await churchAdminInternal({ action: "internalMyHistory", who: u.who, user_id: u.userId });
@@ -5218,6 +5243,7 @@ async function ministryHistoryMine(b: any) {
 }
 
 async function ministryHistoryRequest(b: any) {
+  const le = await lifeError(b); if (le) return { ok: false, error: le };
   const u = await ministryHistoryUser(b);
   if ("error" in u) return { ok: false, error: u.error };
   // committee_text(빠진 사역 「부서」 칸 · 2026-10-02)는 글자일 때만 넘긴다 — 없으면 교회 어드민 parseRequest 가 옛 한 칸으로 읽는다(옛 캐시 앱)
@@ -5521,6 +5547,7 @@ async function eduCourse(b: any) {
 }
 
 async function eduApply(b: any) {
+  const le = await lifeError(b); if (le) return { ok: false, error: le };
   const userId = eduUid(b.user_id);
   const id = String(b.id ?? "").trim();
   if (!userId) return { ok: false, error: "no-user" };
@@ -5545,6 +5572,7 @@ async function eduApply(b: any) {
 }
 
 async function eduCancel(b: any) {
+  const le = await lifeError(b); if (le) return { ok: false, error: le };
   const userId = eduUid(b.user_id);
   const eid = Number(b.enrollment_id);
   if (!userId || !Number.isInteger(eid) || eid < 1) return { ok: false, error: "bad-args" };
@@ -5561,6 +5589,7 @@ async function eduCancel(b: any) {
 }
 
 async function eduMine(b: any) {
+  const le = await lifeError(b); if (le) return { ok: false, error: le };
   const userId = eduUid(b.user_id);
   if (!userId) return { ok: false, error: "no-user" };
   return { ok: true, mine: await eduMineOut(await eduMineRows(userId), eduKst()) };
@@ -5571,6 +5600,7 @@ async function eduMine(b: any) {
 //   발급일 = 수료한 날(한국) · 명의·문안({과정} 채움)·직인(data URL)은 수료증 설정 한 줄(edu_cert_settings — 교회 어드민 인쇄와 같은 칸).
 //   응답에 user_id·소속·신청 상태는 싣지 않는다. 거절: no-user · bad-args · not-found · no-cert(수료 아님·취소됨).
 async function eduCert(b: any) {
+  const le = await lifeError(b); if (le) return { ok: false, error: le };
   const userId = eduUid(b.user_id);
   const eid = Number(b.enrollment_id);
   if (!userId) return { ok: false, error: "no-user" };
@@ -6161,6 +6191,7 @@ async function dutyBoard(b: any) {
 
 // 내 당번 — 오늘 이후 · 살아 있는 줄 + 담당자가 뺀 줄(그날까지)
 async function dutyMine(b: any) {
+  const le = await lifeError(b); if (le) return { ok: false, error: le };
   const userId = eduUid(b.user_id);
   const g = await dutyGate(userId);
   if (!g.open) return { ok: true, open: false };
@@ -6172,6 +6203,7 @@ async function dutyMine(b: any) {
 // 지난 봉사(2026-10-07) — 날짜가 지난 내 줄 가운데 당번표에 남아 있는 것(가까운 날부터 60줄 · 두 수) · {user_id}. 문이 닫혔으면 {ok:true, open:false}.
 //   내 것만 준다(다른 분의 이름·수 없음) — 세는 기준은 SQL duty_past 한 곳.
 async function dutyPast(b: any) {
+  const le = await lifeError(b); if (le) return { ok: false, error: le };
   const userId = eduUid(b.user_id);
   const g = await dutyGate(userId);
   if (!g.open) return { ok: true, open: false };
@@ -6185,6 +6217,7 @@ async function dutyPast(b: any) {
 //   거절: no-user · bad-args · not-open · guardian(어린이·청소년 부서 — 앱에서는 지원하지 않는다) · bad-name ·
 //         not-found · closed · off · past · started · not-yet · after-until · removed-by-staff · locked-day · full · overlap{with} · too-many{max}
 async function dutyApply(b: any) {
+  const le = await lifeError(b); if (le) return { ok: false, error: le };
   const userId = eduUid(b.user_id);
   const slot = dutyId(b.slot_id);
   if (!userId) return { ok: false, error: "no-user" };
@@ -6216,6 +6249,7 @@ async function dutyApply(b: any) {
 // 취소 — {signup_id, user_id}. 내 줄인지는 SQL 이 본다(남의 줄은 없는 줄과 같다 · not-found).
 //   거절: not-open · not-found · not-active · changed · past · locked(잠긴 날 — 담당자께) · staff-row(담당자가 넣은 줄 — 「못 가게 됐어요」로)
 async function dutyCancel(b: any) {
+  const le = await lifeError(b); if (le) return { ok: false, error: le };
   const userId = eduUid(b.user_id);
   const sid = dutyId(b.signup_id);
   if (!userId || !sid) return { ok: false, error: "bad-args" };
@@ -6230,6 +6264,7 @@ async function dutyCancel(b: any) {
 // 「못 가게 됐어요」 — {signup_id, user_id, why: cant|mistake|notme | null(거두기)}. 줄은 그대로 — 빼는 것은 담당자.
 //   거절: not-open · bad-args · not-found · not-active · changed · past · not-locked(잠기지 않은 내 지원 줄 — 그냥 취소하면 된다)
 async function dutyAsk(b: any) {
+  const le = await lifeError(b); if (le) return { ok: false, error: le };
   const userId = eduUid(b.user_id);
   const sid = dutyId(b.signup_id);
   const w = dutyWhyOf(b.why);
@@ -6531,6 +6566,7 @@ async function ministryCatalog(b: any) {
 
 // 내 신청 — 없으면 null
 async function ministryMine(b: any) {
+  const le = await lifeError(b); if (le) return { ok: false, error: le };
   const userId = String(b.user_id || "");
   const cfg = await ministryCfg();
   const period = { open: cfg.open, close: cfg.close, isOpen: cfg.isOpen };
@@ -6545,6 +6581,7 @@ async function ministryMine(b: any) {
 
 // 신청·수정 — 같은 해 신청이 있으면 그 건을 고친다
 async function ministryApply(b: any) {
+  const le = await lifeError(b); if (le) return { ok: false, error: le };
   const userId = String(b.user_id || "");
   if (!userId) return { ok: false, error: "user_id 필요" };
   const cfg = await ministryCfg();
@@ -6683,6 +6720,7 @@ async function ministryApply(b: any) {
 }
 
 async function ministryCancel(b: any) {
+  const le = await lifeError(b); if (le) return { ok: false, error: le };
   const userId = String(b.user_id || "");
   if (!userId) return { ok: false, error: "user_id 필요" };
   const cfg = await ministryCfg();
