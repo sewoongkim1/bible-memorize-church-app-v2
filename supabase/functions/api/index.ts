@@ -2155,8 +2155,14 @@ async function debugSermonSearch(b: any) {
 
 // ---------- sermonChat: 설교 아카이브 검색 + 근거 기반 답변 (관리자) ----------
 // body: { pw, message }
+// ⚠️ 하루 횟수(2026-10-08 보안 점검) — 문은 「users 에 있는 user_id」 하나인데 계정은 login 이 누구에게나 만들어 준다.
+//    제한이 없으면 글자만 바꿔 가며 AI 를 끝없이 부를 수 있다(호출마다 임베딩 + 모델). 같은 질문은 캐시가 받아 수에 안 든다.
+//    넘으면 오류가 아니라 **답으로** 말한다 — 앱은 오류를 모두 「잠시 후 다시 시도해 주세요」로 보여 까닭을 못 전한다.
+const SERMON_CHAT_MAX_CHARS = 500;      // sermonQuestionKey 가 자르는 길이와 같다
+const SERMON_CHAT_PER_DAY = 20;         // 한 분이 하루에(한국 날짜)
+const SERMON_CHAT_ALL_PER_DAY = 300;    // 모두 합쳐 하루에 — 계정을 여럿 만들어 돌려도 여기서 멈춘다
 async function sermonChat(b: any) {
-  const message = (b.message ?? "").toString().trim();
+  const message = (b.message ?? "").toString().trim().slice(0, SERMON_CHAT_MAX_CHARS);
   if (!message) return { ok: false, error: "message-required" };
   const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
   if (!apiKey) return { ok: false, error: "ANTHROPIC_API_KEY 시크릿 미설정" };
@@ -2187,6 +2193,27 @@ async function sermonChat(b: any) {
   const { data: chatCached } = await db.from("sermon_ai_cache")
     .select("answer, sources").eq("kind", "chat").eq("cache_key", qkey).maybeSingle();
   if (chatCached) return { ok: true, answer: chatCached.answer, sources: chatCached.sources ?? [] };
+
+  // 새 답을 만들기 전에 오늘 몇 번째인지 본다(위에서 남긴 이번 줄도 들어 있다). 세지 못하면 막지 않는다.
+  if (!isAdmin) {
+    try {
+      const since = kstDayStartIso();
+      let mine = db.from("sermon_chat_log").select("id", { count: "exact", head: true }).gte("created_at", since);
+      mine = logName == null ? mine.is("name", null) : mine.eq("name", logName);
+      mine = logGu == null ? mine.is("gu", null) : mine.eq("gu", logGu);
+      mine = logMok == null ? mine.is("mok", null) : mine.eq("mok", logMok);
+      const [m, all] = await Promise.all([mine,
+        db.from("sermon_chat_log").select("id", { count: "exact", head: true }).gte("created_at", since)]);
+      if (!m.error && (m.count ?? 0) > SERMON_CHAT_PER_DAY) {
+        return { ok: true, limited: true, sources: [],
+          answer: "오늘은 질문을 많이 하셨어요. 내일 다시 물어봐 주세요. (전에 하신 질문은 그대로 다시 보실 수 있어요)" };
+      }
+      if (!all.error && (all.count ?? 0) > SERMON_CHAT_ALL_PER_DAY) {
+        return { ok: true, limited: true, sources: [],
+          answer: "오늘은 질문이 많아 잠시 쉬어 가요. 내일 다시 물어봐 주세요." };
+      }
+    } catch (_) { /* 세기 실패가 질문을 막지 않는다 */ }
+  }
 
   // 1) 질문 임베딩 → 벡터 검색
   const [qvec] = await embedVoyage([message], "query");
@@ -4133,10 +4160,58 @@ const boardImgUrl = (p: string) => db.storage.from("board").getPublicUrl(p).data
 const isBoardImgName = (p: unknown) =>
   typeof p === "string" && /^[0-9a-f-]{36}\.(jpg|png|webp)$/.test(p);
 
+// ⚠️ 문(2026-10-08 보안 점검) — 전에는 아무 확인 없이 받았다: 공개 키만 있으면 누구나 공개 칸에 사진을 끝없이 올릴 수 있었고,
+//    글에 안 붙인 사진도 주소로 열렸다. 이제 ① 로그인한 분(users 에 있는 user_id)만 ② 하루 BOARD_UPLOADS_PER_DAY 장까지
+//    ③ 하루가 지나도 글에 안 붙은 사진은 치운다(boardSweepUploads).
+// ⚠️ **이용 규칙은 여기서 보지 않는다** — 앱은 사진을 먼저 올리고 글을 보낼 때 규칙 창을 띄운다(boardWriteWithRules).
+//    여기서 rules-needed 를 주면 규칙 창이 뜨기도 전에 「사진을 올리지 못했어요」로 끝난다. 규칙은 글쓰기 문이 본다.
+// ⚠️ 오류는 **읽을 수 있는 글**로 준다 — 앱이 「사진을 올리지 못했어요: 」 뒤에 그대로 붙여 보여 준다.
+const BOARD_UPLOADS_PER_DAY = 20;     // 글 다섯 개 분량
+const BOARD_POSTS_PER_DAY = 20;
+const BOARD_REPLIES_PER_DAY = 60;
+// 한국 날짜의 오늘 0시(UTC ISO) — 「하루에 몇 번」을 세는 기준
+const kstDayStartIso = () => {
+  const k = new Date(Date.now() + 9 * 3600 * 1000);
+  k.setUTCHours(0, 0, 0, 0);
+  return new Date(k.getTime() - 9 * 3600 * 1000).toISOString();
+};
+
+// 하루 지난 주인 없는 사진 치우기 — 올릴 때마다 조금씩(열 장). 표가 없으면(SQL 전) 아무것도 안 한다.
+// ⚠️ **지우기 전에 글을 다시 찾아본다.** 어느 글이든 그 이름을 갖고 있으면 지우지 않고 kept 로 적는다 —
+//    찾아보지 못했으면(오류) 그 자리에서 멈춘다. 붙어 있는 사진을 지우는 것보다 안 지우는 쪽으로 틀린다.
+async function boardSweepUploads() {
+  const before = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  const { data, error } = await db.from("board_uploads").select("path")
+    .eq("kept", false).lt("created_at", before).order("created_at", { ascending: true }).limit(10);
+  if (error || !data || !data.length) return;
+  for (const r of data as any[]) {
+    const path = r.path;
+    if (!isBoardImgName(path)) continue;
+    const used = await db.from("board_posts").select("id").contains("images", JSON.stringify([path])).limit(1);
+    if (used.error) return;
+    if (used.data && used.data.length) { await db.from("board_uploads").update({ kept: true }).eq("path", path); continue; }
+    const rm = await db.storage.from("board").remove([path]);
+    if (!rm.error) await db.from("board_uploads").delete().eq("path", path);
+  }
+}
+
 async function boardUpload(b: any) {
   const mime = String(b.mime || "");
   const ext = BOARD_MIME[mime];
   if (!ext) return { ok: false, error: "사진은 JPG·PNG·WEBP만 올릴 수 있어요" };
+  const upAdmin = !adminError(b);
+  const upUid = storeUid(b.user_id);
+  if (!upAdmin) {
+    // user_id 없이 오는 것은 옛 판 앱이다(2026-10-08 전에는 안 보냈다) — 다시 열면 새 판이 된다
+    if (!upUid) return { ok: false, error: "앱을 닫았다가 다시 연 뒤 올려 주세요" };
+    const { data: u, error: ue } = await db.from("users").select("id").eq("id", upUid).maybeSingle();
+    if (ue) throw ue;
+    if (!u) return { ok: false, error: "로그인한 뒤에 올릴 수 있어요" };
+    const c = await db.from("board_uploads").select("path", { count: "exact", head: true })
+      .eq("uploader", upUid).gte("created_at", kstDayStartIso());
+    if (c.error) { if (!storeSchemaMissing(c.error)) throw c.error; }
+    else if ((c.count ?? 0) >= BOARD_UPLOADS_PER_DAY) return { ok: false, error: "오늘은 사진을 많이 올리셨어요. 내일 다시 올려 주세요" };
+  }
   const raw = String(b.data || "");
   const base64 = raw.includes(",") ? raw.slice(raw.indexOf(",") + 1) : raw;
   let bytes: Uint8Array;
@@ -4151,6 +4226,11 @@ async function boardUpload(b: any) {
   const { error } = await db.storage.from("board")
     .upload(path, bytes, { contentType: mime, upsert: false });
   if (error) return { ok: false, error: "사진을 올리지 못했어요" };
+  // 올린 기록 — 하루 장수를 세고, 글에 안 붙은 사진을 치우는 데 쓴다. 기록 실패가 올리기를 막지 않는다.
+  try {
+    await db.from("board_uploads").insert({ path, uploader: upAdmin ? null : upUid });
+    await boardSweepUploads();
+  } catch (_) { /* 표가 아직 없거나 치우기 실패 — 사진은 이미 올라갔다 */ }
   return { ok: true, path };
 }
 
@@ -4184,13 +4264,44 @@ async function boardWriteGate(b: any): Promise<string | null> {
   return (await boardRulesOk(uid)) ? null : "rules-needed";
 }
 
+// 글쓴 분의 표시 이름 — ⚠️ app.js boardWho() 와 **같은 규칙**이어야 한다(옛 글의 「내 글」 판정이 이름 일치를 본다).
+function boardWhoOf(u: any): string {
+  if (!u || !u.name) return "";
+  const affil = u.type === "교구"
+    ? `${u.gu || ""}-${u.mok || ""}`
+    : `${u.bu || ""}${u.grade ? " " + u.grade : ""}`;
+  return `${affil} ${u.name}`.trim().replace(/^-\s*/, "");
+}
+// ⚠️ 이름은 앱이 보낸 값을 믿지 않고 users 에서 만든다(2026-10-08 보안 점검 — eventSignup 과 같다).
+//    전에는 name 을 그대로 받아 다른 성도님 이름이나 「관리자」·「담임목사」라는 글자로 글을 쓸 수 있었다.
+//    관리자 글(비번)만 보낸 이름을 쓴다. 하루 횟수도 여기서 본다 — 넘으면 **읽을 수 있는 글**로 거절한다
+//    (앱이 「등록 실패: 」 뒤에 그대로 붙인다).
+async function boardWriter(b: any, table: "board_posts" | "board_replies", max: number): Promise<{ name: string } | { error: string }> {
+  const uid = storeUid(b.user_id);
+  if (!uid) return { error: "no-user" };
+  const { data: u, error } = await db.from("users").select("type,gu,mok,bu,grade,name").eq("id", uid).maybeSingle();
+  if (error) throw error;
+  const name = boardWhoOf(u).slice(0, 40);
+  if (!name) return { error: "no-user" };
+  const c = await db.from(table).select("id", { count: "exact", head: true }).eq("user_id", uid).gte("created_at", kstDayStartIso());
+  if (!c.error && (c.count ?? 0) >= max) {
+    return { error: table === "board_posts" ? "오늘은 글을 많이 올리셨어요. 내일 다시 올려 주세요" : "오늘은 답글을 많이 쓰셨어요. 내일 다시 써 주세요" };
+  }
+  return { name };
+}
+
 async function boardPost(b: any) {
   const content = String(b.content || "").trim();
   if (!content) return { ok: false, error: "empty" };
   if (content.length > 2000) return { ok: false, error: "too-long" };
   const gate = await boardWriteGate(b);
   if (gate) return { ok: false, error: gate };
-  const name = (String(b.name || "").trim().slice(0, 40)) || "익명";
+  let name = (String(b.name || "").trim().slice(0, 40)) || "익명";
+  if (adminError(b)) {
+    const w: any = await boardWriter(b, "board_posts", BOARD_POSTS_PER_DAY);
+    if (w.error) return { ok: false, error: w.error };
+    name = w.name;
+  }
   const row: any = { name, content };
   if (b.user_id) row.user_id = b.user_id;
   // 올려 둔 사진의 '이름'만 받는다. 주소를 통째로 받으면 남의 주소도 붙일 수 있다.
@@ -4227,7 +4338,12 @@ async function boardReply(b: any) {
   const gate = await boardWriteGate(b);
   if (gate) return { ok: false, error: gate };
   const isAdmin = !adminError(b); // 관리자 답글이면 배지
-  const name = isAdmin ? "관리자" : ((String(b.name || "").trim().slice(0, 40)) || "익명");
+  let name = "관리자";
+  if (!isAdmin) {
+    const w: any = await boardWriter(b, "board_replies", BOARD_REPLIES_PER_DAY);
+    if (w.error) return { ok: false, error: w.error };
+    name = w.name;
+  }
   const row: any = { post_id: Number(b.post_id), name, content, is_admin: isAdmin };
   if (b.user_id) row.user_id = b.user_id;
   let { error } = await db.from("board_replies").insert(row);
@@ -6254,15 +6370,12 @@ async function ministryApply(b: any) {
   if (!userId) return { ok: false, error: "user_id 필요" };
   const cfg = await ministryCfg();
   // ⚠️ 기간 검사는 서버가 한다. 화면이 막는 것은 편의일 뿐이다.
-  // ⚠️ 예외 둘: 관리자 비번이 맞거나, ?preview=ministry 로 연 화면(b.preview)이면
-  //    기간 밖에도 통과한다.
-  // ⚠️⚠️ **preview 는 서버가 확인할 수 없는 값이다** — 이 액션 이름과 이 깃발만 알면
-  //    누구나 기간 밖에 신청을 넣을 수 있다는 뜻이다. 담당자 아닌 분들도 시험해 볼 수
-  //    있게 해 달라는 요청(2026-09-09)에 따라 **일부러** 열어 둔 것이다.
-  //    ⇒ **신청 기간(12-13) 시작 전에 이 줄에서 || b.preview 를 빼고, 그때까지 들어온
-  //       시험 행을 지울 것.** 안 그러면 진짜 신청에 시험 자료가 섞인다.
-  //    ⇒ 시험 참여자(교회 어드민 명단 · 2026-09-30)는 서버가 확인하므로 || b.preview 를 걷어도 그대로 통과한다.
-  if (!cfg.isOpen && !b.preview && adminError(b) && !(await ministryIsTester(userId))) {
+  // ⚠️ 기간 밖에 통과하는 것은 둘뿐이다: 관리자 비번이 맞거나, 시험 참여자(교회 어드민 🧪 명단)이거나.
+  // ⚠️ **b.preview 는 보지 않는다(2026-10-08 걷음).** 서버가 확인할 수 없는 값이라 이 깃발만 알면 누구나
+  //    기간 밖에 신청을 넣을 수 있었다(2026-09-09 에 시험용으로 일부러 열어 둔 것 — 이제 시험은 명단으로 한다).
+  //    앱은 아직 preview 를 함께 보내지만 여기서는 버린다. 되살리지 말 것.
+  // ⚠️ 신청 기간(12-13) 전에 그때까지 들어온 시험 행을 지울 것 — 안 그러면 진짜 신청에 시험 자료가 섞인다.
+  if (!cfg.isOpen && adminError(b) && !(await ministryIsTester(userId))) {
     return { ok: false, error: "신청 기간이 아닙니다 (" + cfg.open + " ~ " + cfg.close + ")" };
   }
 
@@ -6394,8 +6507,8 @@ async function ministryCancel(b: any) {
   const userId = String(b.user_id || "");
   if (!userId) return { ok: false, error: "user_id 필요" };
   const cfg = await ministryCfg();
-  // (위 ministryApply 의 경고와 같다 — 기간 시작 전에 || b.preview 를 뺄 것)
-  if (!cfg.isOpen && !b.preview && adminError(b) && !(await ministryIsTester(userId))) return { ok: false, error: "신청 기간이 지나 취소할 수 없습니다" };
+  // (위 ministryApply 와 같은 문 — b.preview 는 보지 않는다 · 2026-10-08)
+  if (!cfg.isOpen && adminError(b) && !(await ministryIsTester(userId))) return { ok: false, error: "신청 기간이 지나 취소할 수 없습니다" };
   const { data } = await db.from("ministry_orders")
     .select("id,status,phone,team,team_id").eq("year", cfg.year).eq("user_id", userId);
   const mine = (data ?? []) as any[];

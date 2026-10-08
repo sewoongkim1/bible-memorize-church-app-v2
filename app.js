@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261008a";
+const APP_BUILD = "20261008b";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -4648,13 +4648,13 @@ async function submitBoardPost() {
     try {
       let d;
       try {
-        d = await api.boardUpload(boardPhotos[i].mime, boardPhotos[i].dataUrl);
+        d = await api.boardUpload(boardPhotos[i].mime, boardPhotos[i].dataUrl, myUserId());
       } catch (e1) {
         // 폰 통신은 한 번씩 끊긴다("Failed to fetch"). 한 번은 조용히 다시 해본다.
         if (!/fetch|network|Load failed/i.test(String(e1 && e1.message))) throw e1;
         msg.textContent = `사진 올리는 중… (${i + 1}/${boardPhotos.length}) 다시 시도`;
         await new Promise((r) => setTimeout(r, 1200));
-        d = await api.boardUpload(boardPhotos[i].mime, boardPhotos[i].dataUrl);
+        d = await api.boardUpload(boardPhotos[i].mime, boardPhotos[i].dataUrl, myUserId());
       }
       if (d && d.ok && d.path) names.push(d.path);
       else throw new Error((d && d.error) || "사진 오류");

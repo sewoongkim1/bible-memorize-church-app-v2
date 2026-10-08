@@ -71,7 +71,7 @@ const api = {
   boardPost: (name, content, user_id, images) => supaCall("boardPost", { name, content, user_id, images }),
   // 사진은 브라우저에서 줄인 뒤 한 장씩 보낸다(한 번에 보내면 요청이 너무 커지고,
   // 몇 장째 올라가는 중인지 알려 줄 수도 없다).
-  boardUpload: (mime, data) => supaCall("boardUpload", { mime, data }),
+  boardUpload: (mime, data, user_id) => supaCall("boardUpload", { mime, data, user_id }),   // user_id — 서버가 로그인한 분만 받는다(2026-10-08)
   boardReply: (post_id, name, content, user_id) => supaCall("boardReply", { post_id, name, content, user_id }),
   boardDeleteMine: (kind, id, user_id, who) => supaCall("boardDeleteMine", { kind, id, user_id, who }),
   // 🚩 신고(2026-10-01) — kind 가 "reply" 면 답글, 아니면 글. 이미 신고한 글이면 { ok, already:true }
