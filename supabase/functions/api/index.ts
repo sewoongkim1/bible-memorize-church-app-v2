@@ -395,7 +395,12 @@ Deno.serve(async (req) => {
         const e = await contentError(body);
         return json(e ? { ok: false, error: e } : { ok: true }, e ? 403 : 200);
       }
-      case "login":         return json(await login(body));
+      case "login": {
+        // 로그인 횟수 제한 — 접속 주소가 필요해 여기서 본다(login 은 body 만 받는다 · 꺼져 있으면 아무것도 안 한다)
+        const limited = await loginLimitError(body, req, identityKey(body));
+        if (limited) return json({ ok: false, error: limited });
+        return json(await login(body));
+      }
       case "saveProgress":  return json(await saveProgress(body));
       case "saveHeart":     return json(await saveHeart(body));
       case "getConfig":     return json(await getConfig(body));
@@ -2455,6 +2460,66 @@ async function adminUpdateMember(b: any) {
 }
 
 // ---------- login ----------
+// ---------- 로그인 횟수 제한 (2026-10-08 보안 점검) ----------
+// login 은 이름·소속만 받아 user_id 를 돌려주고, 그 이름·소속은 순위·게시판에 그대로 보인다.
+// 제한이 없으면 순위 명단을 통째로 넣어 모든 분의 user_id 를 한 번에 긁어 갈 수 있다.
+// → **한 접속 주소에서 하루(한국 날짜)에 로그인할 수 있는 「서로 다른 계정」 수**를 묶는다.
+// ⚠️ **부른 횟수가 아니라 서로 다른 계정 수다.** 앱은 열 때마다 login 으로 기록을 맞춘다(syncProgress) —
+//    횟수로 세면 하루에 앱을 여섯 번 여신 분이 막힌다. 이미 센 계정은 몇 번을 불러도 지나간다.
+// ⚠️ **꺼진 채로 나간다.** app_config `loginLimit` = { "perDay": 5, "allow": ["교회 와이파이 주소"] } 가 있어야 돈다.
+//    perDay 가 없거나 0 이면 아무것도 세지 않는다. 켜기 전에 볼 것 둘(docs/notes/security-check.md 「로그인 횟수 제한」):
+//    ① 교회 와이파이 — 주일에 수십 분이 한 주소로 들어온다. allow 에 넣지 않고 켜면 여섯 번째 분부터 막힌다.
+//    ② 개인정보 안내 — 접속 주소를 (바꾼 값으로 · 이틀) 다루게 된다. 안내에 그 말이 들어간 뒤에 켠다.
+// ⚠️ 세지 못하면(표가 없다 · 오류) **막지 않는다.** 로그인이 멈추는 것보다 제한이 하루 쉬는 쪽으로 틀린다.
+// ⚠️ 접속 주소는 그대로 두지 않는다 — 날짜를 섞어 바꾼 값(HMAC)만 login_seen 에 적고 이틀 뒤 지운다.
+//    날짜가 섞여 있어 어제와 오늘의 같은 주소를 이을 수 없다. 관리자 비번이 든 요청(시험 스크립트)은 세지 않는다.
+const ADMIN_CONFIG_KEYS = new Set(["loginLimit"]);   // 관리자만 읽고 쓰는 설정(공개 목록 PUBLIC_CONFIG_KEYS 에 넣지 않는다 — 교회 주소가 든다)
+const LOGIN_LIMIT_MSG = "이 인터넷에서 오늘 로그인한 분이 많아요. 잠시 뒤에 다시 하시거나, 와이파이를 끄고 다시 해 주세요.";
+// 순수 — 설정값을 읽는다. 모양이 틀리면 꺼진 것으로 본다.
+function loginLimitConf(v: any): { perDay: number; allow: string[] } {
+  const n = Math.floor(Number(v && typeof v === "object" ? v.perDay : 0));
+  const allow = v && typeof v === "object" && Array.isArray(v.allow)
+    ? v.allow.map((x: any) => String(x || "").trim().toLowerCase()).filter(Boolean) : [];
+  return { perDay: Number.isFinite(n) && n > 0 ? n : 0, allow };
+}
+// 순수 — 접속 주소. IPv6 은 기기가 뒤 절반을 수시로 바꾸므로 앞 /64 로 묶는다(안 그러면 한 기기가 주소를 바꿔 가며 지나간다).
+function loginAddr(forwarded: string | null): { raw: string; addr: string } {
+  const raw = String(forwarded || "").split(",")[0].trim().toLowerCase();
+  if (!raw) return { raw: "", addr: "" };
+  return { raw, addr: raw.includes(":") ? raw.split(":").slice(0, 4).join(":") + "::/64" : raw };
+}
+async function hmacHex(secret: string, msg: string): Promise<string> {
+  const k = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const sig = new Uint8Array(await crypto.subtle.sign("HMAC", k, new TextEncoder().encode(msg)));
+  return Array.from(sig).map((x) => x.toString(16).padStart(2, "0")).join("");
+}
+async function loginLimitError(b: any, req: Request | undefined, identity: string): Promise<string | null> {
+  try {
+    if (!adminError(b)) return null;
+    const { data, error } = await db.from("app_config").select("value").eq("key", "loginLimit").maybeSingle();
+    if (error) return null;
+    const conf = loginLimitConf(data?.value);
+    if (!conf.perDay) return null;
+    const { raw, addr } = loginAddr(req ? req.headers.get("x-forwarded-for") : null);
+    if (!addr || conf.allow.includes(raw) || conf.allow.includes(addr)) return null;
+    const day = kstDay(new Date().toISOString());
+    const secret = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const addrHash = (await hmacHex(secret, "login-addr|" + day + "|" + addr)).slice(0, 32);
+    const identHash = (await hmacHex(secret, "login-ident|" + day + "|" + identity)).slice(0, 32);
+    const seen = await db.from("login_seen").select("ident_hash").eq("addr_hash", addrHash).eq("day", day).limit(conf.perDay + 1);
+    if (seen.error) return null;
+    const list = ((seen.data ?? []) as any[]).map((r) => r.ident_hash);
+    if (list.includes(identHash)) return null;
+    if (list.length >= conf.perDay) return LOGIN_LIMIT_MSG;
+    await db.from("login_seen").insert({ addr_hash: addrHash, day, ident_hash: identHash });
+    if (Math.random() < 0.05) {
+      const old = kstDay(new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString());
+      await db.from("login_seen").delete().lt("day", old);
+    }
+    return null;
+  } catch (_) { return null; }
+}
+
 async function login(b: any) {
   const key = identityKey(b);
   const { data: user, error } = await db.rpc("member_login", { p_profile: {
@@ -2536,7 +2601,8 @@ const PUBLIC_CONFIG_KEYS = new Set(["heartMessages", "dailyMessage", "introSlide
 
 async function getConfig(b: any) {
   const key = String(b.key || "");
-  if (!PUBLIC_CONFIG_KEYS.has(key)) return { ok: false, error: "허용되지 않은 키" };
+  // 관리자 전용 설정은 비번이 맞을 때만 읽힌다(틀리면 「없는 키」와 같은 답 — 있다는 것도 안 알린다)
+  if (ADMIN_CONFIG_KEYS.has(key) ? !!adminError(b) : !PUBLIC_CONFIG_KEYS.has(key)) return { ok: false, error: "허용되지 않은 키" };
   // 테이블 미생성(마이그레이션 전)이어도 앱이 안 깨지게 조용히 null 반환
   try {
     const { data, error } = await db.from("app_config").select("value").eq("key", key).maybeSingle();
@@ -2548,7 +2614,7 @@ async function getConfig(b: any) {
 async function saveConfig(b: any) {
   const err = adminError(b); if (err) return { ok: false, error: err };
   const key = String(b.key || "");
-  if (!PUBLIC_CONFIG_KEYS.has(key)) return { ok: false, error: "허용되지 않은 키" };
+  if (!PUBLIC_CONFIG_KEYS.has(key) && !ADMIN_CONFIG_KEYS.has(key)) return { ok: false, error: "허용되지 않은 키" };
   const { error } = await db.from("app_config").upsert({
     key, value: b.value ?? null, updated_at: new Date().toISOString(),
   }, { onConflict: "key" });
