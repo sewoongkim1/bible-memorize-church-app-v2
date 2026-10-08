@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261009b";
+const APP_BUILD = "20261009c";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -4880,7 +4880,7 @@ function openLifeContact(user) {
       <div class="am-card" role="dialog" aria-modal="true" aria-labelledby="lp-title">
         <div class="am-ico" aria-hidden="true">📞</div>
         <div class="am-title" id="lp-title">연락처를 남겨 주세요</div>
-        <div class="am-msg">교적에 등록된 번호와 맞지 않아요.<br><span class="lp-sub">담당자가 임명·연락에 씁니다. 늦어도 180일이 지나면 저절로 지워요.</span></div>
+        <div class="am-msg">교적에 등록된 번호와 맞지 않아요.<br><span class="lp-sub">담당자가 임명·연락에 씁니다.</span></div>
         <input class="lp-pin" id="lp-contact" type="tel" inputmode="numeric" maxlength="13" placeholder="010-1234-5678" autocomplete="off" aria-label="휴대폰 번호" />
         <div class="lp-err" role="alert" hidden></div>
         <div class="am-btns">
