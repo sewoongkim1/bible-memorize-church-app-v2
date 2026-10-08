@@ -513,6 +513,12 @@ def main():
                 sum(1 for x in mine if x[2] == "위험"), sum(1 for x in mine if x[2] == "검토")))
     print("\n결과: %s" % out_path)
 
+    if counts is not None and "counts" not in base and not a.ci:
+        # 처음 돌린 날의 수를 기준으로 삼는다 — F 는 「지난번보다 늘었나」만 보므로 기준이 없으면 영영 조용하다
+        base["counts"] = counts
+        with open(base_path, "w", encoding="utf-8") as f:
+            json.dump(base, f, ensure_ascii=False, indent=1, sort_keys=True)
+
     if a.ci:
         # 「본 것」 목록이 없는 자리(Actions)에서 돈다 — 「검토」는 전부 새것으로 보이므로 「위험」만 가린다.
         # ⚠️ 무엇이 열렸는지는 여기 찍지 않는다(공개 저장소의 Actions 기록은 누구나 읽는다). 수만 찍고 내용은 텔레그램으로.
