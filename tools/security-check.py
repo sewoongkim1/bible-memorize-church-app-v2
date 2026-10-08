@@ -21,11 +21,15 @@
 import argparse
 import base64
 import datetime
+import difflib
+import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import urllib.error
 import urllib.request
 
@@ -435,9 +439,67 @@ def check_front(rep, repos, base):
     return counts
 
 
+# ── G. 운영에 올라간 함수가 저장소와 같은가 ───────────────────────────────────
+#   B·E 는 저장소의 코드를 읽는다 — 운영에 다른 것이 올라가 있으면 점검한 것과 도는 것이 다르다.
+#   (낡은 체크아웃에서 배포하면 액션이 조용히 빠진다 — CLAUDE.md 에 여러 번 적힌 사고)
+#   supabase CLI 로 함수 소스를 임시 폴더에 내려받아 대조한다. 읽기만 · 작업 폴더를 건드리지 않는다.
+def norm_src(t):
+    return [l.rstrip() for l in t.replace("\r\n", "\n").strip().split("\n")]
+
+
+def check_deployed(rep, repos, env, ci):
+    cli = shutil.which("supabase")
+    if ci or not cli:
+        rep.notes["G"] = "건너뜀 — %s" % ("Actions 에는 Supabase 로그인이 없다(달마다 손으로 돌릴 때 본다)" if ci else "supabase CLI 가 없다")
+        return
+    ref = ENVS[env][0].split("//")[1].split(".")[0]
+    same = diff = miss = 0
+    for r in repos:
+        slugs = sorted(set(f.split("/")[2] for f in r.files() if f.startswith("supabase/functions/") and f.count("/") >= 3 and not f.split("/")[2].startswith("_")))
+        for slug in slugs:
+            tmp = tempfile.mkdtemp(prefix="sec-fn-")
+            try:
+                p = subprocess.run([cli, "--workdir", tmp, "functions", "download", slug, "--project-ref", ref], capture_output=True, timeout=180)
+                base = os.path.join(tmp, "supabase", "functions", slug)
+                if p.returncode != 0 or not os.path.isdir(base):
+                    miss += 1
+                    rep.add("G", "nofn|%s|%s" % (env, slug), "검토", "함수 `%s` — 내려받지 못했다(운영에 없거나 로그인이 풀렸다)" % slug)
+                    continue
+                live = {}
+                for d, _, fs in os.walk(base):
+                    for f in fs:
+                        full = os.path.join(d, f)
+                        live[os.path.relpath(full, base).replace("\\", "/")] = open(full, encoding="utf-8", errors="replace").read()
+                pre = "supabase/functions/%s/" % slug
+                mine = {f[len(pre):]: f for f in r.files() if f.startswith(pre) and f.endswith((".ts", ".js", ".json"))}
+                for name in sorted(set(live) | set(mine)):
+                    if name not in live:
+                        # 함수가 import 하지 않는 파일(시험 등)은 꾸러미에 안 들어간다 — 알리지 않는다
+                        continue
+                    if name not in mine:
+                        diff += 1
+                        rep.add("G", "extra|%s|%s/%s" % (env, slug, name), "검토", "함수 `%s` — 운영에는 `%s` 가 있는데 저장소 %s 에는 없다" % (slug, name, r.ref))
+                        continue
+                    a, b = norm_src(live[name]), norm_src(r.show(mine[name]))
+                    if a == b:
+                        same += 1
+                        continue
+                    diff += 1
+                    sm = difflib.SequenceMatcher(None, a, b, autojunk=False)
+                    gone = sum(i2 - i1 for t, i1, i2, _, _ in sm.get_opcodes() if t in ("replace", "delete"))
+                    new = sum(j2 - j1 for t, _, _, j1, j2 in sm.get_opcodes() if t in ("replace", "insert"))
+                    h = hashlib.sha1("\n".join(a).encode("utf-8")).hexdigest()[:8]
+                    rep.add("G", "diff|%s|%s/%s|%s" % (env, slug, name, h), "검토",
+                            "함수 `%s/%s` — 운영에 올라간 것이 저장소 %s 와 다르다(운영에만 %d줄 · 저장소에만 %d줄) — 아직 안 올린 커밋인지, 낡은 판이 올라간 것인지 볼 것" % (slug, name, r.ref, gone, new))
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+    rep.notes["G"] = "%s · 같은 파일 %d · 다른 파일 %d%s" % (env, same, diff, " · 못 받은 함수 %d" % miss if miss else "")
+
+
 # ── 결과 ──────────────────────────────────────────────────────────────────────
 TITLES = {"A": "A. DB 를 공개 키로 직접 읽을 수 있나", "B": "B. 누가 무엇을 부를 수 있나(액션)", "C": "C. 공개 저장소에 들어간 것",
-          "D": "D. 사이트에서 열리면 안 되는 주소", "E": "E. SQL 파일의 RLS·뷰·권한", "F": "F. 화면(HTML 끼워 넣기·바깥 스크립트)"}
+          "D": "D. 사이트에서 열리면 안 되는 주소", "E": "E. SQL 파일의 RLS·뷰·권한", "F": "F. 화면(HTML 끼워 넣기·바깥 스크립트)",
+          "G": "G. 운영에 올라간 함수가 저장소와 같은가"}
 
 
 def main():
@@ -448,7 +510,7 @@ def main():
     ap.add_argument("--history", action="store_true", help="git 이력까지 본다(느리다)")
     ap.add_argument("--probe-guards", action="store_true", help="틀린 암호로 관리자 액션을 불러 본다(개발에서만)")
     ap.add_argument("--accept", action="store_true", help="지금 나온 것을 모두 「본 것」으로 적는다")
-    ap.add_argument("--only", default="ABCDEF", help="돌릴 절(예 ACD)")
+    ap.add_argument("--only", default="ABCDEFG", help="돌릴 절(예 ACD)")
     ap.add_argument("--ci", action="store_true",
                     help="GitHub Actions 용 — 「위험」만 실패로 치고, 내용은 기록에 찍지 않고 텔레그램으로만 보낸다(Actions 기록은 공개다)")
     a = ap.parse_args()
@@ -475,6 +537,7 @@ def main():
     if "D" in a.only: check_live(rep)
     if "E" in a.only: check_sql(rep, sqls)
     if "F" in a.only: counts = check_front(rep, repos, base)
+    if "G" in a.only: check_deployed(rep, repos, a.env, a.ci)
 
     today = datetime.date.today().isoformat()
     new = [(s, k, lv, t) for s, k, lv, t in rep.items if lv != "정보" and k not in seen]
@@ -488,7 +551,7 @@ def main():
          "- **새로 나온 것 %d건**(위험 %d · 검토 %d) · 이미 본 것 %d건 · 사라진 것 %d건" % (
              len(new), sum(1 for x in new if x[2] == "위험"), sum(1 for x in new if x[2] == "검토"), len(known), len(gone)),
          "- ⚠️ 이 파일은 저장소에 넣지 않는다(공개 저장소 · 사이트가 통째로 배포한다).", ""]
-    for sec in "ABCDEF":
+    for sec in "ABCDEFG":
         if sec not in a.only:
             continue
         L += ["## " + TITLES[sec], "", "요약: " + rep.notes.get(sec, "-"), ""]
@@ -509,7 +572,7 @@ def main():
     with open(out_path, "w", encoding="utf-8") as f:
         f.write("\n".join(L))
 
-    for sec in "ABCDEF":
+    for sec in "ABCDEFG":
         if sec in a.only:
             mine = [x for x in new if x[0] == sec]
             print("%s  %s\n     %s\n     새로 나온 것: 위험 %d · 검토 %d" % (
