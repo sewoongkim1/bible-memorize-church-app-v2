@@ -3973,6 +3973,15 @@ function pilsaPhone(v: unknown): string {
   return String(v ?? "").trim();
 }
 
+// 성도 본인에게 보여 주는 「내 신청」의 번호는 가운데를 가린다(2026-10-08 Plan 5 · tests/life-pin.test.cjs 와 글자까지 같게).
+// ⚠️ 담당자 명단(pilsaList)·종이 명단에는 쓰지 않는다 — 노트·연락에 전체 번호가 필요하다.
+function maskPhone(v: unknown): string {
+  const d = String(v == null ? "" : v).replace(/[^0-9]/g, "");
+  if (d.length === 11) return d.slice(0, 3) + "-****-" + d.slice(7);
+  if (d.length === 10) return d.slice(0, 3) + "-***-" + d.slice(6);
+  return "";
+}
+
 // 고른 부수 — 신청 상한(5부)은 이 값을 본다
 function pilsaTotalOf(qtys: any): number {
   let n = 0;

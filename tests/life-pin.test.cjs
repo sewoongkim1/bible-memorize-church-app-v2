@@ -13,6 +13,13 @@ function lifeGateState(s) {
   if (!s.hasPin) return 'new';
   return s.deviceOk ? 'ok' : 'ask';
 }
+// index.ts 의 maskPhone 과 글자까지 같게 둔다(2026-10-08 Plan 5)
+function maskPhone(v) {
+  const d = String(v == null ? '' : v).replace(/[^0-9]/g, '');
+  if (d.length === 11) return d.slice(0, 3) + '-****-' + d.slice(7);
+  if (d.length === 10) return d.slice(0, 3) + '-***-' + d.slice(6);
+  return '';
+}
 
 test('4자리만 받는다', () => {
   for (const ok of ['0000', '1234', '9999']) assert.equal(lifePinValid(ok), true);
@@ -33,4 +40,13 @@ test('문 상태 다섯', () => {
   assert.equal(lifeGateState({ switchOn: 'on', hasPin: true, deviceOk: false }), 'ask');
   assert.equal(lifeGateState({ switchOn: 'on', hasPin: true, deviceOk: true }), 'ok');
   assert.equal(lifeGateState({ switchOn: 'on', hasPin: true, locked: true }), 'locked');
+});
+
+test('maskPhone — 가운데를 가린다', () => {
+  assert.equal(maskPhone('010-1234-5678'), '010-****-5678');
+  assert.equal(maskPhone('01012345678'), '010-****-5678');
+  assert.equal(maskPhone('0212345678'), '021-***-5678');   // 10자리
+  assert.equal(maskPhone(''), '');
+  assert.equal(maskPhone(null), '');
+  assert.equal(maskPhone('abc'), '');
 });
