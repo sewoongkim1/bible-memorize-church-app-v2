@@ -136,3 +136,14 @@ bible-note/.pytest_cache/
 
 # tools/site.py 가 배포용으로 모으는 폴더(손으로 돌렸을 때 남는다)
 /_site/
+
+# ─── 아직 저장소에 올리지 않기로 한 자료(2026-10-08 · 파일은 PC 에 그대로 둔다) ───
+# 교회에 드린 기획서·제안서 — 위 「내부 문서」와 같은 까닭(공개 저장소에 넣지 않는다)
+자료/education/
+자료/newfamily/
+자료/marketing/autumn-2026/기획서/
+# 사역관리 시험 사용 안내(PDF·HTML·화면 그림) — tools/ministry-tester-guide-*.py 로 다시 만든다
+자료/ministry/2027_사역관리_시험가이드_*
+# ⚠️ 아이폰 실기기 캡처 — 첫 화면에 이름·소속이 그대로 찍혀 있다. 스토어에 낸 것은 store/screenshots-ios/ 의 흐림 처리본이다.
+자료/store/screenshots-ios2/
+자료/store/screenshots-ios2-adjusted/
