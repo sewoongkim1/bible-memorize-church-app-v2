@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261008c";
+const APP_BUILD = "20261008d";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -3065,17 +3065,14 @@ function renderSummary() {
   document.getElementById("open-prayer").addEventListener("click", () => renderPrayerBook());
   const minBtn = document.getElementById("open-ministry");   // 기간 밖에는 아예 없다
   if (minBtn) minBtn.addEventListener("click", () => {
-    minLoaded = false;            // 들어올 때마다 서버에서 지금 상태를 받는다
-    renderMinistry();
+    lifeEnter(() => { minLoaded = false; renderMinistry(); });   // 확인 번호 문 · 들어올 때마다 서버에서 지금 상태
   });
   const mhBtn = document.getElementById("open-ministry-history");   // 사역신청과 같은 문 — 기간 밖에는 없다
   if (mhBtn) mhBtn.addEventListener("click", () => {
-    mhLoaded = false;             // 들어올 때마다 서버에서 지금 상태를 받는다
-    renderMinistryHistory();
+    lifeEnter(() => { mhLoaded = false; renderMinistryHistory(); });   // 확인 번호 문
   });
   document.getElementById("open-pilsa").addEventListener("click", () => {
-    pilsaLoaded = false;          // 들어올 때마다 서버에서 지금 상태를 받는다
-    renderPilsaApply();
+    lifeEnter(() => { pilsaLoaded = false; renderPilsaApply(); });   // 확인 번호 문
   });
   { const b = document.getElementById("open-song");   // 2026-09-23부터 첫 화면엔 없다(위 주석)
     if (b) b.addEventListener("click", () => { markFeatSeen("song"); openSongToday(songCacheToday()); }); }
@@ -3100,13 +3097,17 @@ function renderSummary() {
   { const b = document.getElementById("open-passages"); if (b) b.addEventListener("click", () => { markFeatSeen("passages"); renderPassageList(); }); }
   { const b = document.getElementById("open-edu"); if (b) b.addEventListener("click", () => {
       markFeatSeen("edu");
-      if (typeof renderEduList === "function") renderEduList();
-      else appAlert("교육 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
+      lifeEnter(() => {   // 확인 번호 문
+        if (typeof renderEduList === "function") renderEduList();
+        else appAlert("교육 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
+      });
     }); }
   { const b = document.getElementById("open-duty"); if (b) b.addEventListener("click", () => {
       markFeatSeen("duty");
-      if (typeof renderDutyList === "function") renderDutyList();
-      else appAlert("봉사 당번 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
+      lifeEnter(() => {   // 확인 번호 문
+        if (typeof renderDutyList === "function") renderDutyList();
+        else appAlert("봉사 당번 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
+      });
     }); }
   { const b = document.getElementById("open-psalm"); if (b) b.addEventListener("click", () => { markFeatSeen("psalm"); renderPsalmHome(); }); }
   // ⚠️ renderEventList 는 js/events.js 에 있다 — 그 파일이 안 실려도 첫 화면이 죽지
