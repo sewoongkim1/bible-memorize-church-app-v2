@@ -1,0 +1,87 @@
+# 보안 점검 — 무엇을, 얼마나 자주, 어떻게 (2026-10-08)
+
+성경암송(이 저장소)과 교회 어드민(`c:\Projects\church-admin`)을 **한 번에** 본다.
+같은 Supabase 프로젝트를 쓰고, 한쪽에서 연 구멍이 다른 쪽 자료를 내보내기 때문이다.
+
+범위 밖: dimode(교인 사진 서버 — 우리가 손댈 수 없다) · 형제 앱(찬양·말씀·digest)의 코드.
+다만 **DB 권한**은 같은 프로젝트라 그 앱들의 표도 함께 걸린다.
+
+## 세 가지 주기
+
+| 주기 | 누가 | 무엇 | 어떻게 |
+|---|---|---|---|
+| **매주** 월 07:40 | GitHub Actions | 「위험」만 — 공개 키로 행이 오는 표 · 응답에 실린 `user_id` · 저장소의 키 · 열리면 안 되는 주소 | `.github/workflows/security-check.yml` · 나오면 텔레그램 경보 |
+| **매달** 첫 주 | 친구 + Claude | 「검토」까지 — 새 액션 · 새 표 · 새 문서 파일 · HTML 끼워 넣기 자리 | `python tools/security-check.py` → 결과 파일을 보고 하나씩 판정 → `--accept` |
+| **분기** · 큰 기능을 연 뒤 | Claude(코드 읽기) | 기계가 못 보는 것 — 아래 「손으로 보는 것」 | 이 문서의 목록을 차례로 |
+
+## 돌리는 법
+
+```bash
+python tools/security-check.py              # 운영 DB(공개 키 · 읽기만) + 두 저장소의 origin/main
+python tools/security-check.py --history    # git 이력까지(달에 한 번이면 된다)
+python tools/security-check.py --env dev --probe-guards   # 틀린 암호로 관리자 액션 86개를 불러 본다(개발에서만)
+python tools/security-check.py --accept     # 지금 나온 것을 「본 것」으로 — **하나씩 판정한 뒤에만**
+```
+
+- 결과는 `C:\Projects\보안점검\결과\날짜-prod.md`, 「본 것」 목록은 `C:\Projects\보안점검\baseline.json`.
+- ⚠️ **둘 다 저장소에 넣지 않는다.** 이 저장소는 공개이고 사이트가 저장소 전체를 배포한다 — 「여기가 열려 있다」를
+  적은 파일이 `gocheok.onlybible.kr/…` 로 그대로 열린다. 같은 까닭으로 Actions 기록에도 내용을 찍지 않는다(`--ci`).
+- ⚠️ **작업 폴더가 아니라 `origin/main` 을 읽는다.** 공유 체크아웃은 수백 커밋 뒤처져 있기 일쑤다
+  (2026-10-08 — 252커밋 뒤의 폴더를 읽고 액션 164개를 134개로 셌다).
+- 끝 코드: 새로 나온 「위험」·「검토」가 있으면 1. `--ci` 는 「위험」만 본다.
+
+## 기계가 보는 여섯 절
+
+| 절 | 보는 것 | 등급 |
+|---|---|---|
+| A | SQL·코드에서 모은 표·뷰 이름마다 공개 키로 `?select=*&limit=1` · storage 칸의 파일 목록 | 행이 오면 검토, 민감한 칸이 있으면 **위험** |
+| B | `api` 의 액션마다 암호 확인이 있나(관리자·담당자 / 내부 / user_id / 공개) · 교회 어드민 `ACTION_ROLES` · 공개 읽기 액션 응답에 `user_id`·`phone` 이 실려 나오나 | 암호 없는 액션은 검토, 응답에 실리면 **위험** |
+| C | 추적 파일의 키 모양(Supabase secret·service_role JWT·PEM·GitHub·Anthropic·Google·텔레그램·Resend) · 키 파일 이름 · 표·문서 파일 · 휴대폰 번호 5개 이상 · (`--history`) 이력 | 키는 **위험**, 나머지 검토 |
+| D | 두 사이트에서 `/.env` · `/.git/config` · `/migrate/v1dump.json` 같은 주소가 열리나 | 열리면 **위험** |
+| E | SQL 파일 기준 — RLS 를 안 켠 표 · `security_invoker`/revoke 없는 뷰 · `to authenticated` · revoke 없는 SECURITY DEFINER | 검토 |
+| F | `innerHTML` 류가 지난번보다 늘어난 파일 · 바깥 스크립트 | 검토 |
+
+- **A 의 「빈 응답」은 「막혔다」가 아니다.** RLS 로 걸러진 것과 「열려 있는데 표가 비어 있는 것」을 공개 키로는
+  못 가린다. 진짜 상태는 교회 어드민의 `supabase/sql/check-authenticated-exposure.sql`(운영에서 **0행**)이 본다.
+- **B 의 분류는 「함수 몸통에 확인 함수 이름이 있나」다.** 확인이 맨 앞에 있는지, 확인 전에 무슨 일을 하는지는
+  못 본다. 그래서 `--probe-guards`(틀린 암호로 실제로 불러 본다)가 따로 있고, **개발에서만** 돈다.
+- **E 는 파일을 읽는 것이지 DB 를 보는 것이 아니다.** SQL Editor 에 손으로 넣고 파일로 안 남긴 것은 안 보인다.
+
+### 헛걸렸던 것(고쳐 둠 — 같은 모양이 또 나오면 여기부터)
+- `needs.phone: false` — 「번호를 받는다」는 깃발이다. 참·거짓 값은 넘긴다.
+- `.replace(/-----BEGIN PRIVATE KEY-----/, "")` — 머리글을 떼어 내는 코드다. 다음 줄에 base64 몸통이 있을 때만 키로 본다.
+- `foreach t in array[...] loop execute format('alter table public.%I enable row level security', t)` — 반복문으로 켠 RLS.
+- 이력 검사에 `service_role` 낱말을 넣으면 `grant … to service_role` 이 든 커밋이 전부 걸린다.
+
+## 손으로 보는 것 (기계가 못 본다)
+
+매달 결과의 B 절이 **이 목록의 재료**다 — 새 액션이 뜨면 그 액션만 아래 질문에 넣어 보면 된다.
+
+1. **`user_id` 를 받는 액션(2026-10-08 에 51개)** — 남의 `user_id` 를 넣으면 그분 기록을 읽거나 바꿀 수 있나.
+   이 API 는 JWT 가 없어 `user_id` 가 곧 신원이다. 그래서 진짜 질문은 「`user_id` 가 어디서 새나」다 —
+   응답 · 뷰 · 로그 · 알림 글 · 내려받기 파일.
+2. **암호 없이 부르는 액션(20개)** — 돈이 드는 것(`passageHelp`·`passageHelpAll`·`sermonChat` — AI 호출),
+   쓰는 것(`boardUpload`·`removePush`·`sermonAnswerReport`), 횟수 제한이 있나.
+3. **`login`** — 이름·소속만 알면 그분 계정으로 들어가 `user_id` 를 받는다. 모르는 이름이면 계정을 만든다.
+   → 대량으로 만들기 · 남의 기록 받기. 읽을 것 메모 「로그인은 통제가 아니다」.
+4. **암호 셋**(`ADMIN_SECRET`·`MINISTRY_SECRET`·`CONTENT_STAFF_SECRET`) — 틀린 횟수 제한 · 비교가 일정 시간인가 ·
+   담당자 암호가 관리자 암호와 같게 들어가 있지 않나 · `sessionStorage` 에 남는 것 · 세 앱이 함께 쓰는 관리자 암호를 바꾼 날.
+5. **교회 어드민 역할** — `ACTION_ROLES` 는 문 하나다. 그 안에서 「맡은 것만」(`not-assigned`·`chief-only`)을
+   액션마다 다시 보는가 · 승인 전·정지된 계정이 `me`·`register` 로 무엇을 얻나 · 총괄 전용이 화면에서만 숨겨지지 않았나.
+6. **XSS** — F 절이 늘었다고 한 파일에서, 새 `innerHTML` 에 성도님이 쓴 글(이름·게시판·메모·사역 한마디)이
+   `esc()` 없이 들어가나. **관리자 화면이 먼저다** — 거기서 터지면 `sessionStorage` 의 관리자 암호가 나간다.
+7. **사진 올리기** — 파일 종류·크기를 서버가 보나 · EXIF GPS · 칸이 공개인데 주소를 짐작할 수 있나.
+8. **Actions·시크릿** — 저장소 시크릿이 Environment 밖에 남았나 · 협업자 권한 · 새 워크플로가 시크릿을 `echo` 하나.
+9. **내부 액션 7개**(`internal…`) — `x-internal-key` 를 일정 시간 비교로 보나 · 크론 키가 Vault 에 있나.
+10. **얼린 액션** — `eventImport`·`eventSave`·`eventSetNote` 와 담당자용 사역 액션이 정말 거절하나(개발에서 불러 본다).
+11. **AI 로 가는 글** — 질문 글이 어디까지 가나 · 프롬프트에 성도님 이름이 들어가나 · 방침(`privacy/`)과 맞나.
+12. **앱 껍데기** — 아이폰 오버레이가 넣는 JS · `assetlinks.json` · 위젯이 부르는 액션 · 서명 키가 저장소 밖에 있나.
+13. **`mcp` 함수** — 누가 부를 수 있고 무엇을 읽나(교인 찾기 도구가 붙어 있다).
+
+## 판정하는 법
+
+- 결과 파일의 `- [ ]` 를 하나씩 본다. **괜찮다고 본 것만** `--accept` 로 넘긴다 —
+  `--accept` 는 지금 나온 것을 **전부** 넘기므로, 안 본 것이 남았으면 `baseline.json` 에서 그 줄을 지운다.
+- 「본 것」으로 넘긴 뒤에도 **분류가 바뀌면 다시 뜬다**(예: 관리자 액션이 공개로 바뀜).
+- 고쳐야 하는 것은 넘기지 않는다. 고친 뒤 다시 돌려 사라졌는지 본다(결과의 「사라진 것」).
+- 「위험」이 운영에서 나오면 **먼저 닫고**(revoke·RLS — 개발 → 운영) 그다음 원인을 본다.

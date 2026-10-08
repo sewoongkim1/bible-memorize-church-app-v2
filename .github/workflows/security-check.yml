@@ -1,0 +1,34 @@
+name: 보안 점검 (매주 월요일 아침 · 위험이 나오면 텔레그램 경보)
+
+# tools/security-check.py 를 --ci 로 돌린다. 읽기만 한다(공개 키 · 관리자 암호를 쓰지 않는다).
+# ⚠️ 이 저장소는 공개라 Actions 기록도 누구나 읽는다 — 「무엇이 열려 있다」는 기록에 찍지 않고
+#    수만 찍는다. 내용은 텔레그램으로만 간다. 단계에 echo 로 결과 파일을 찍는 줄을 더하지 말 것.
+# 「검토」(사람이 봐야 하는 것)는 여기서 가리지 않는다 — 「본 것」 목록이 저장소 밖에 있기 때문이다.
+#    그쪽은 달에 한 번 손으로 돌린다. 읽을 것 docs/notes/security-check.md
+
+on:
+  schedule:
+    - cron: '40 22 * * 0'   # 일요일 22:40 UTC = 월요일 07:40 KST
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    # 텔레그램 시크릿이 이 환경 안에 있다(main 가지에서 도는 실행만 읽는다 — monitor.yml 과 같다)
+    environment: production
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: sewoongkim1/church-admin
+          path: _church-admin
+      - name: 보안 점검(읽기만) — 위험이 있으면 실패 + 텔레그램
+        env:
+          CHURCH_ADMIN_DIR: ${{ github.workspace }}/_church-admin
+          SECURITY_CHECK_DIR: ${{ runner.temp }}/security-check
+          TG_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python3 tools/security-check.py --env prod --ref HEAD --no-fetch --ci
