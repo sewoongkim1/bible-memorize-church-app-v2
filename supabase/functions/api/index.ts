@@ -178,6 +178,9 @@ const INTERNAL_ADMIN_OK = new Set([
   "getConfig", "saveConfig", "eventEntrants", "getPassages", "savePassage", "deletePassage",
   "pilsaList", "pilsaSetStatus",
   "sermonChatLog", "embedSermons", "clearChatCache", "clearSummaryCache",
+  // 알림 조회·시스템 상태(2026-10-09 묶음4) — 읽기만 옮긴다. ⚠️ 전체 발송(sendPush)·리포트 메일(weeklyReport)은
+  //   바깥으로 나가는 중대한 일이라 **넣지 않는다**(성경암송 admin-stats 에 남겨 둔다 · 크론은 그대로).
+  "pushStats", "pushSubscribers", "pushHistory", "pushPreview", "monitor",
 ]);
 const ADMIN_PW_ONLY = new Set([        // 사람 없는 기계 호출(크론·MCP·설교) — 암호만으로 통과
   "sendPush", "weeklyVersePush", "weeklyReport", "monitor", "eveningPush",
