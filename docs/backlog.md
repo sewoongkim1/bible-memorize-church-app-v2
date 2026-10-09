@@ -153,7 +153,7 @@
 |---|---|---|
 | `admin-event.html` | 이벤트 명단 | ✅ 옮김(2026-09-30 · 교회 어드민 「성경필사(암송)」) — 화면만 걷으면 된다 |
 | `admin-ministry.html` · `admin-stats.html` 의 사역 화면 | 사역신청 관리 | ✅ 옮김(2026-09-29 · 다섯 메뉴) — **갈아타기**가 남았다(담당자 초대 → 옛 화면·사역 암호 걷기) |
-| `admin-members.html` | 성도 정보 변경 · 변경 이력 · 기록 합치기 | 옮길 것 — 개인정보가 가장 무겁다 |
+| `admin-members.html` | 성도 정보 변경 · 변경 이력 · 기록 합치기 | ✅ 옮김(2026-10-09 · 교회 어드민 「👤 성도 계정」 · 역할 `members`+합치기 super · api 5액션 얼림·화면/타일 제거) — 설계 specs/2026-10-09-church-admin-member-accounts-design.md |
 | `admin-stats.html` | 통계 · 참여자 · 알림 발송·기록 · 주간 리포트 · 게시판 관리(숨기기·신고·AI 답 알림) · 설정 | 옮길 것 — 가장 크다(묶음으로 나눠서) |
 | `admin-sermon.html`(`admin-stats.html?only=sermon`) | 설교 올리기 · 설교 목록 · 매일 묵상 · 연상 그림 · 담당자 | 옮길 것 — 담당자가 매주 쓰는 길이라 가장 조심 |
 | `admin-praise.html` | 찬양 아카이브(곡 등록·콤보·조회수) | 옮길 것 — 뒤는 찬양 함수(`praise`)다. 그 함수의 암호 확인도 함께 |
