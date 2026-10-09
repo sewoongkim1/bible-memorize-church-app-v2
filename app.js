@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261009g";
+const APP_BUILD = "20261009h";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1032,6 +1032,7 @@ async function enterAfterLogin(opts) {
   refreshMinistryTester(); // 사역신청 시험 참여자(명단에 들면 첫 화면에 🤝 · 2026-09-30)
   loadHeartMessages(); // 축하 메시지(관리자 설정) 백그라운드 로드
   loadDailyMilestoneMessages(); // 10·20·30회 달성 응원 문구 백그라운드 로드
+  maybeShowOldPlayAppNotice(); // 옛 테스트 앱(…memorize)으로 오신 분께 새 앱으로 옮기시라고(2026-10-09 · 그 실행에 한 번)
   maybeShowDailyMessage(); // 관리자 '오늘의 메시지'(공지·격려) 하루 1회
 
   // 서버(진도·복습) 동기화 후, 요약 화면이 아직 떠 있으면 갱신(복습 due 반영)
@@ -1302,8 +1303,10 @@ function clearPersonalData() {
   // 이번 실행이 플레이스토어 앱이라는 표식(PLAY_SESSION_KEY)만은 다시 남긴다 — 사람이 아니라 창 이야기다(2026-10-02).
   //   안 남기면 맞춤 탭으로 열린 앱에서 「내 정보 지우기」 뒤 다음 분이 들어온 첫 화면에 「사역현황」이 샌다(MINISTRY_HIDE_ON_PLAY).
   const playSession = openedByPlayApp();
+  let playPkg = null; try { playPkg = sessionStorage.getItem(PLAY_PKG_KEY); } catch {}
   try { sessionStorage.clear(); } catch {}
   if (playSession) { try { sessionStorage.setItem(PLAY_SESSION_KEY, "1"); } catch {} }
+  if (playPkg) { try { sessionStorage.setItem(PLAY_PKG_KEY, playPkg); } catch {} }
 }
 
 // "사랑교구 3목장 김성도" / "초등부 김믿음"
@@ -8006,6 +8009,45 @@ function pickActiveDailyMessage(value) {
   return active.reduce((a, b) => (Number(b.id) > Number(a.id) ? b : a));
 }
 
+// 옛 테스트 앱 → 새 앱 안내(2026-10-09 · 플레이 새 앱 kr.onlybible.gocheok 출시).
+//   옛 앱 `kr.onlybible.gocheok.memorize` 는 「출시 안 됨」이라 새로 받을 수 없고 테스터 폰에만 남아 있다(지우지 않는 한 계속 돈다).
+//   ⚠️ 말은 어느 경우에도 참인 것만 — 기록은 서버에 있어 같은 소속·이름으로 들어오면 이어진다 · 알림은 앱마다 따로 잡힌다.
+//   「새 앱 받기」는 플레이스토어 앱을 바로 연다(intent · 안 되면 웹 주소로).
+const OLD_APP_NOTICE_KEY = "old-app-notice";
+const NEW_APP_STORE_INTENT = "intent://details?id=kr.onlybible.gocheok#Intent;scheme=market;package=com.android.vending;" +
+  "S.browser_fallback_url=" + encodeURIComponent("https://play.google.com/store/apps/details?id=kr.onlybible.gocheok") + ";end";
+function maybeShowOldPlayAppNotice() {
+  if (!openedByOldPlayApp()) return;
+  try { if (sessionStorage.getItem(OLD_APP_NOTICE_KEY) === "1") return; sessionStorage.setItem(OLD_APP_NOTICE_KEY, "1"); } catch (e) {}
+  const open = () => {
+    if (document.querySelector(".cheer-overlay")) { setTimeout(open, 300); return; }
+    const wrap = document.createElement("div");
+    wrap.id = "old-app-modal";
+    wrap.className = "cheer-overlay";
+    wrap.innerHTML = `
+      <div class="cheer-card dmsg-card notice" role="dialog" aria-modal="true">
+        <div class="cheer-ref dmsg-badge">📱 새 앱 안내</div>
+        <div class="dmsg-title">새 앱으로 옮겨 주세요</div>
+        <div class="cheer-msg dmsg-body">지금 쓰시는 앱은 시험하던 옛 앱이에요.<br>플레이스토어에 정식 앱 <b>「성경말씀 암송 (고척교회)」</b>이 나왔어요.<br><br>
+          ① 아래 「새 앱 받기」로 설치해 주세요.<br>
+          ② 새 앱에서 같은 소속·이름으로 들어오시면 기록이 그대로 이어져요.<br>
+          ③ 설정에서 「🔔 매일 암송 알림 받기」를 한 번 다시 눌러 주세요(알림은 앱마다 따로 켜야 해요).<br>
+          ④ 새 앱이 잘 열리면 이 옛 앱은 지우셔도 돼요.</div>
+        <div class="song-modal-actions">
+          <button class="summary-help" id="old-app-later">나중에</button>
+          <a class="cheer-ok" id="old-app-get" href="${NEW_APP_STORE_INTENT}" style="text-decoration:none;display:inline-block;text-align:center">새 앱 받기</a>
+        </div>
+      </div>`;
+    document.body.appendChild(wrap);
+    requestAnimationFrame(() => wrap.classList.add("show"));
+    const close = () => { wrap.classList.remove("show"); setTimeout(() => wrap.remove(), 250); };
+    const done = wireModalConfirm(document.getElementById("old-app-later"), close);
+    document.getElementById("old-app-get").addEventListener("click", () => { setTimeout(done, 300); });
+    wrap.addEventListener("click", (e) => { if (e.target === wrap) done(); });
+  };
+  open();
+}
+
 function maybeShowDailyMessage() {
   if (_skipAutoDaily || !window.api || !api.getConfig) return;
   api.getConfig("dailyMessage").then((d) => {
@@ -8877,20 +8919,32 @@ let _widgetPreview = false;
 // 앱을 처음 여는 날도 이 줄이 먼저 돈다.
 const PLAY_APP_KEY = "play-store-app";
 const PLAY_SESSION_KEY = "play-app-session";
+// 어느 앱인지(2026-10-09 · 새 앱 출시) — 옛 테스트 앱 `…memorize` 에는 위젯이 없고, 그 앱으로 오신 분께는 새 앱으로 옮기시라고 알린다.
+//   · PLAY_PKG_KEY(sessionStorage) — 이번 실행이 "old"(…memorize · 그 시험판) / "new"(kr.onlybible.gocheok · 그 시험판)
+//   · PLAY_NEW_KEY(localStorage) — 이 폰에서 **새 앱**을 연 적이 있다(위젯 안내는 이것을 본다 — 옛 앱만 연 폰에는 위젯이 없다)
+const PLAY_PKG_KEY = "play-app-pkg";
+const PLAY_NEW_KEY = "play-store-app-new";
 try {
-  if (/^android-app:\/\/kr\.onlybible\.gocheok(?:\.memorize)?(?:\.dev)?(?:[\/?#]|$)/.test(document.referrer || "")) {
+  const m = /^android-app:\/\/(kr\.onlybible\.gocheok(?:\.memorize)?(?:\.dev)?)(?:[\/?#]|$)/.exec(document.referrer || "");
+  if (m) {
+    const old = m[1].indexOf(".memorize") >= 0;
     try { localStorage.setItem(PLAY_APP_KEY, "1"); } catch (e) {}
     try { sessionStorage.setItem(PLAY_SESSION_KEY, "1"); } catch (e) {}   // 따로 감싼다 — 한쪽이 막혀도 다른 쪽은 남게
+    try { sessionStorage.setItem(PLAY_PKG_KEY, old ? "old" : "new"); } catch (e) {}
+    if (!old) { try { localStorage.setItem(PLAY_NEW_KEY, "1"); } catch (e) {} }
   }
 } catch (e) {}
 function isPlayStoreApp() { try { return localStorage.getItem(PLAY_APP_KEY) === "1"; } catch (e) { return false; } }
 // 이번 실행(이 창)이 플레이스토어 앱에서 열렸나 — 못 읽으면 「아니다」(사역현황 숨김은 기기 표식 + 창 모양이 받친다).
 function openedByPlayApp() { try { return sessionStorage.getItem(PLAY_SESSION_KEY) === "1"; } catch (e) { return false; } }
+function openedByOldPlayApp() { try { return sessionStorage.getItem(PLAY_PKG_KEY) === "old"; } catch (e) { return false; } }
+function isPlayNewApp() { try { return localStorage.getItem(PLAY_NEW_KEY) === "1"; } catch (e) { return false; } }
 
 function widgetGuideOn(os) {
   if (_widgetPreview) return true;
   if (!WIDGET_GUIDE[os]) return false;
-  return os === "ios" ? (typeof isNativeApp === "function" && isNativeApp()) : isPlayStoreApp();
+  // 안드로이드는 **새 앱**을 연 적이 있는 폰만 — 옛 테스트 앱(versionCode 1)에는 위젯이 없다(2026-10-09). 옛 앱으로 연 이번 실행도 뺀다.
+  return os === "ios" ? (typeof isNativeApp === "function" && isNativeApp()) : (isPlayNewApp() && !openedByOldPlayApp());
 }
 
 // 이 기기에서 보일 항목만 — 목차 번호·「n / 전체」·이전/다음이 모두 이 목록을 따른다.
