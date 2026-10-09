@@ -2417,84 +2417,16 @@ async function sermonChatLog(b: any) {
 }
 
 // ---------- 관리자 사용자 정보 변경 ----------
-async function adminPreviewMemberMerge(b: any) {
-  const err = adminError(b); if (err) return { ok: false, error: err };
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(b.user_id || "") ||
-      typeof b.expected_key !== "string" || !b.expected_key || !b.profile)
-    return { ok: false, error: "invalid-member" };
-  const p = b.profile, type = norm(p.type);
-  const profile = { type, name: norm(p.name),
-    gu: type === "교구" ? norm(p.gu) : null, mok: type === "교구" ? norm(p.mok) : null,
-    bu: type === "교회학교" ? norm(p.bu) : null, grade: type === "교회학교" ? norm(p.grade) : null };
-  const { data, error } = await db.rpc("admin_preview_member_merge", {
-    p_source_id: b.user_id, p_source_key: b.expected_key, p_target_key: identityKey(profile),
-  });
-  if (error) throw error;
-  return data;
-}
-
-async function adminMergeMembers(b: any) {
-  const err = adminError(b); if (err) return { ok: false, error: err };
-  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (b.confirm_same_person !== true || !uuid.test(b.source_id || "") || !uuid.test(b.target_id || "") ||
-      b.source_id === b.target_id || typeof b.source_key !== "string" || typeof b.target_key !== "string" ||
-      !norm(b.reason) || norm(b.reason).length > 300)
-    return { ok: false, error: "invalid-merge" };
-  const { data, error } = await db.rpc("admin_merge_members", {
-    p_source_id: b.source_id, p_target_id: b.target_id, p_source_key: b.source_key,
-    p_target_key: b.target_key, p_reason: norm(b.reason),
-  });
-  if (error?.code === "23505") return { ok: false, error: "merge-record-conflict" };
-  if (error) throw error;
-  return data;
-}
-
-async function adminFindMembers(b: any) {
-  const err = adminError(b); if (err) return { ok: false, error: err };
-  const q = norm(b.query);
-  if (!q || q.length > 80) return { ok: false, error: "invalid-search" };
-  const pattern = q.replace(/[\\%_]/g, "\\$&");
-  const { data, error } = await db.from("users")
-    .select("id,type,gu,mok,bu,grade,name,identity_key,created_at,last_seen_at")
-    .ilike("name", `%${pattern}%`).order("name").order("id").limit(51);
-  if (error) throw error;
-  return { ok: true, users: (data ?? []).slice(0, 50), more: (data ?? []).length > 50 };
-}
-
-async function adminMemberHistory(b: any) {
-  const err = adminError(b); if (err) return { ok: false, error: err };
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(b.user_id || ""))
-    return { ok: false, error: "invalid-member" };
-  const { data, error } = await db.from("user_profile_changes")
-    .select("id,before_profile,after_profile,reason,created_at")
-    .eq("user_id", b.user_id).order("id", { ascending: false }).limit(20);
-  if (error) throw error;
-  return { ok: true, history: data ?? [] };
-}
-
-async function adminUpdateMember(b: any) {
-  const err = adminError(b); if (err) return { ok: false, error: err };
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(b.user_id || "") ||
-      typeof b.expected_key !== "string" || !b.expected_key)
-    return { ok: false, error: "invalid-member" };
-  const p = b.profile || {};
-  const type = norm(p.type), name = norm(p.name), reason = norm(b.reason);
-  const profile = { type, name,
-    gu: type === "교구" ? norm(p.gu) : null, mok: type === "교구" ? norm(p.mok) : null,
-    bu: type === "교회학교" ? norm(p.bu) : null, grade: type === "교회학교" ? norm(p.grade) : null };
-  if (!["교구", "교회학교"].includes(type) || !name || name.length > 80 ||
-      Object.values(profile).some(v => v && (v.length > 80 || /[|<>"\x00-\x1f]/.test(v))) ||
-      (type === "교구" && (!profile.gu || !/^(\d+|남성)$/.test(profile.mok || ""))) ||
-      (type === "교회학교" && (!profile.bu || !profile.grade)) || !reason || reason.length > 300)
-    return { ok: false, error: "invalid-profile" };
-  const { data, error } = await db.rpc("admin_update_member_profile", {
-    p_user_id: b.user_id, p_expected_key: b.expected_key,
-    p_profile: { ...profile, identity_key: identityKey(profile) }, p_reason: reason,
-  });
-  if (error?.code === "23505") return { ok: false, error: "identity-conflict" };
-  if (error) throw error;
-  return data;
-}
+// ⚠️ 성도 정보 관리(찾기·변경·이력·합치기)는 교회 어드민(admin.onlybible.kr 「👤 성도 계정」)으로 옮겼다(2026-10-09).
+//    이 다섯 액션은 **얼렸다** — 교회 어드민이 같은 DB·RPC 를 쓴다. 되살리지 말 것(앱 화면 admin-members 도 걷었다).
+//    ⚠️ RPC(admin_update_member_profile·admin_preview_member_merge·admin_merge_members)와 member_merge.sql·member_profile.sql 은
+//       교회 어드민이 부르므로 **그대로 둔다.** findMember·memberParticipation(MCP 전용)은 걷지 않는다.
+const MOVED_MEMBER = { ok: false, error: "moved-to-church-admin" };
+function adminPreviewMemberMerge(_b: any) { return MOVED_MEMBER; }
+function adminMergeMembers(_b: any) { return MOVED_MEMBER; }
+function adminFindMembers(_b: any) { return MOVED_MEMBER; }
+function adminMemberHistory(_b: any) { return MOVED_MEMBER; }
+function adminUpdateMember(_b: any) { return MOVED_MEMBER; }
 
 // ---------- login ----------
 // ---------- 로그인 횟수 제한 (2026-10-08 보안 점검) ----------
