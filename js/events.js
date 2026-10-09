@@ -479,6 +479,9 @@ function evtStampHtml(u, e) {
      : (s.weeksDone ? ("지금까지 " + evtKoNum(s.weeksDone) + " 주 채웠어요")
                     : "첫 주를 채우는 중이에요"));
 
+  // 채운 칸 표시 — 자동 대상(가을 말씀암송 동행)은 🍂 단풍잎으로(친구 2026-10-09). 지금 auto 회차는 가을뿐이다.
+  //   ⚠️ 채운 칸에만 — 빈 칸은 조용한 「·」, 부분은 「n일」/「n/perDay」 그대로(나무라지 않는다). 다른 회차는 ✓.
+  var okMark = auto ? "🍂" : "✓";
   var cells = "";
   for (var i = 0; i < r.weeks; i++) {
     var n = (wdShown && wdShown[i]) || 0;
@@ -489,7 +492,7 @@ function evtStampHtml(u, e) {
       //    굵은 0 이 넉 장이면 그게 나무라는 것이다. 채운 칸은 축하하고 빈 칸은 조용히 둔다.
       //    하루라도 하신 주는 그 숫자를 보여 드린다(그건 격려다).
       '<div class="ev-wk-v' + (n ? "" : " zero") + '">' +
-      (full ? "✓" : (n ? n + "일" : "·")) + "</div></div>";
+      (full ? okMark : (n ? n + "일" : "·")) + "</div></div>";
   }
 
   // 이번 주 7일 띠 — 하루 N번(perDay)부터 「그날 한 칸」의 속내를 보여 준다.
@@ -515,7 +518,7 @@ function evtStampHtml(u, e) {
         '<div class="ev-day-t">' + (isToday ? "오늘" : dayNames[new Date(ymd + "T00:00:00Z").getUTCDay()]) + '</div>' +
         // ⚠️ 빈 날(0)·미래 칸은 .ev-wk-v.zero 와 같은 조용한 모양(리뷰 2026-10-03) — 나무라지 않는다.
         '<div class="ev-day-v' + (!full2 && !part2 ? " zero" : "") + '">' +
-        (full2 ? "✓" : (part2 ? (n2 + "/" + perDay) : "·")) +
+        (full2 ? okMark : (part2 ? (n2 + "/" + perDay) : "·")) +
         "</div></div>";
     }
     daysHtml = '<div class="ev-days">' + dcells + '</div>';
