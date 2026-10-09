@@ -181,6 +181,10 @@ const INTERNAL_ADMIN_OK = new Set([
   // 알림 조회·시스템 상태(2026-10-09 묶음4) — 읽기만 옮긴다. ⚠️ 전체 발송(sendPush)·리포트 메일(weeklyReport)은
   //   바깥으로 나가는 중대한 일이라 **넣지 않는다**(성경암송 admin-stats 에 남겨 둔다 · 크론은 그대로).
   "pushStats", "pushSubscribers", "pushHistory", "pushPreview", "monitor",
+  // 설교·찬양(2026-10-09 묶음5 · 담당자 역할 content) — 화면만 옮긴다. 워크플로 콜백(sermonJobGet/Update)은 기계용이라 넣지 않는다.
+  //   ⚠️ sermonJobCreate 는 GitHub 워크플로를, verseImgGenerate 는 Gemini(비용)를 깨운다 — 비용 한도·불변식은 성경암송 api 에 그대로(안 건드림).
+  "sermonStaffList", "sermonJobCreate", "sermonJobs", "sermonJobRetry", "sermonStaffSave", "staffVerseSave", "sermonDelete",
+  "verseImgList", "verseImgScenes", "verseImgGenerate", "verseImgAlt", "verseImgSave", "verseImgHide",
 ]);
 const ADMIN_PW_ONLY = new Set([        // 사람 없는 기계 호출(크론·MCP·설교) — 암호만으로 통과
   "sendPush", "weeklyVersePush", "weeklyReport", "monitor", "eveningPush",
