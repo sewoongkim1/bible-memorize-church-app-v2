@@ -183,7 +183,7 @@ const INTERNAL_ADMIN_OK = new Set([
   "pushStats", "pushSubscribers", "pushHistory", "pushPreview", "monitor",
   // 설교·찬양(2026-10-09 묶음5 · 담당자 역할 content) — 화면만 옮긴다. 워크플로 콜백(sermonJobGet/Update)은 기계용이라 넣지 않는다.
   //   ⚠️ sermonJobCreate 는 GitHub 워크플로를, verseImgGenerate 는 Gemini(비용)를 깨운다 — 비용 한도·불변식은 성경암송 api 에 그대로(안 건드림).
-  "sermonStaffList", "sermonJobCreate", "sermonJobs", "sermonJobRetry", "sermonStaffSave", "staffVerseSave", "sermonDelete", "verseNextNo",
+  "sermonStaffList", "sermonJobCreate", "sermonJobs", "sermonJobRetry", "sermonStaffSave", "staffVerseSave", "sermonDelete", "verseNextNo", "verseMeta", "generateNiv",
   "verseImgList", "verseImgScenes", "verseImgGenerate", "verseImgAlt", "verseImgSave", "verseImgHide",
 ]);
 const ADMIN_PW_ONLY = new Set([        // 사람 없는 기계 호출(크론·MCP·설교) — 암호만으로 통과
@@ -503,6 +503,7 @@ Deno.serve(async (req) => {
       case "sermonDelete":    return json(await sermonDelete(body));
       case "staffVerseSave":  return json(await staffVerseSave(body));
       case "verseNextNo":     return json(await verseNextNo(body));
+      case "verseMeta":       return json(await verseMeta(body));
       // ---- 말씀 연상 그림 — 설교·찬양 담당자(2026-09-21) ----
       case "verseImgList":     return json(await verseImgList(body));
       case "verseImgScenes":   return json(await verseImgScenes(body));
@@ -8718,6 +8719,24 @@ async function verseNextNo(b: any) {
   return { ok: true, next: Math.max(1, Number(max) + 1) };
 }
 
+// 구절의 설교 메타(제목·예배일·구분·설교자)를 돌려준다 — 일요일 ②(유튜브+자막)가 토요일 ①에서 넣은 값을 불러와 자동 채움에 쓴다.
+//   없는 번호면 exists:false(암송 말씀 없이 올라가는 설교 — ②에서 직접 넣는다). mem_category 칸 없는 옛 DB 도 폴백.
+async function verseMeta(b: any) {
+  const err = await contentError(b); if (err) return { ok: false, error: err };
+  const no = Number(b.no);
+  if (!Number.isInteger(no) || no < 1 || no >= 1000) return { ok: false, error: "bad-no" };
+  let r = await db.from("verses").select("no,sermon_title,pastor,date,mem_category,ref_short,text").eq("no", no).maybeSingle();
+  if (r.error && (r.error.code === "42703" || /mem_category/i.test(String(r.error.message ?? "")))) {
+    r = await db.from("verses").select("no,sermon_title,pastor,date,ref_short,text").eq("no", no).maybeSingle();
+  }
+  if (r.error) throw r.error;
+  const v: any = r.data;
+  return { ok: true, exists: !!v, verse: v ? {
+    title: v.sermon_title || "", preacher: v.pastor || "", date: String(v.date || "").slice(0, 10),
+    category: v.mem_category || "", refShort: v.ref_short || "", text: v.text || "",
+  } : null };
+}
+
 async function staffVerseSave(b: any) {
   const err = await contentError(b); if (err) return { ok: false, error: err };
   const v = b.verse || {};
@@ -8743,8 +8762,12 @@ async function staffVerseSave(b: any) {
     date: vdate, ref_short: refShort, ref_full: refFull || null, ref: refFull || refShort, text,
     hint: norm(v.hintText).normalize("NFC").slice(0, 300) || null, pastor: norm(v.pastor).normalize("NFC").slice(0, 60) || null,
     sermon_title: norm(v.sermonTitle).normalize("NFC").slice(0, 200) || null, sermon_url: url || null,
+    mem_category: norm(v.memCategory).normalize("NFC").slice(0, 40) || null,   // 설교 구분(토요일 ①에서 함께 · ②가 불러온다)
     is_active: v.is_active !== false,
   };
+  // 영문(NIV) — 담당자가 넣거나 AI 로 만든 것. ⚠️ **있을 때만** 저장한다(빈 값으로 기존 영문을 지우지 않게 · 수정 흐름).
+  if (norm(v.textEn)) row.text_en = norm(v.textEn).normalize("NFC").slice(0, 2000);
+  if (norm(v.refEn)) row.ref_en = norm(v.refEn).normalize("NFC").slice(0, 120);
   // 있는 줄을 track 과 함께 읽는다 — 주간 구절이 아닌 줄(시편 등)은 이 화면에서 덮어쓰지 않는다.
   // ⚠️ track 칸이 아직 없는 DB 에서도 살아남게(getVerses 와 같은 까닭) — 그 칸이 없다는 오류면 번호만 다시 읽는다.
   let r1: { data: any; error: any } = await db.from("verses").select("no,track").eq("no", no).maybeSingle();
