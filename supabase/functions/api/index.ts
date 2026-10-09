@@ -166,6 +166,19 @@ function json(obj: unknown, status = 200) {
 // 관리자 문에 「총괄 본인」 확인 (2026-10-08 · 설계 docs/superpowers/specs/2026-10-08-admin-gate-super-check-design.md)
 // 암호 하나로 열리던 것을 「암호 + 그 브라우저에 로그인된 사람이 교회 어드민 활성 총괄」로 좁힌다(임시 자물쇠).
 const SUPER_OK = Symbol("superOk");   // 들머리가 붙인다 · JSON 으로 못 만든다 → 위조 불가
+// 교회 어드민이 내부 키(service_role)로 부르는 관리 액션 — 들머리가 붙인다 · 위조 불가(2026-10-09 성경암송 관리 이전).
+//   adminError 가 맨 앞에서 본다(암호 없이 통과). church-admin 의 역할(canCall)이 진짜 게이트다.
+const INTERNAL_OK = Symbol("internalOk");
+// 내부 키로 부를 수 있는 관리 액션(사람만 쓰는 SUPER 묶음) — 크론·알림(ADMIN_PW_ONLY)·사역·설교는 넣지 않는다.
+//   내부 키 = service_role 는 이미 DB 전권이라 추가 노출은 없지만, 화이트리스트로 명확히 제한한다.
+const INTERNAL_ADMIN_OK = new Set([
+  "stats", "participants", "verses", "blessingUsage", "ranking",
+  "boardList", "boardModerate", "boardReply", "boardPost",
+  "boardReports", "boardReportResolve", "sermonAnswerReports", "sermonAnswerReportResolve",
+  "getConfig", "saveConfig", "eventEntrants", "getPassages", "savePassage", "deletePassage",
+  "pilsaList", "pilsaSetStatus",
+  "sermonChatLog", "embedSermons", "clearChatCache", "clearSummaryCache",
+]);
 const ADMIN_PW_ONLY = new Set([        // 사람 없는 기계 호출(크론·MCP·설교) — 암호만으로 통과
   "sendPush", "weeklyVersePush", "weeklyReport", "monitor", "eveningPush",
   "findMember", "memberParticipation", "sermonJobGet", "sermonJobUpdate", "embedSermons", "importV1",
@@ -190,6 +203,7 @@ async function staffIsSuper(b: any): Promise<boolean> {
 
 // 관리자 비밀 확인 → null이면 통과, 아니면 에러코드
 function adminError(b: any): string | null {
+  if ((b as any)[INTERNAL_OK] === true) return null;   // 내부 키(service_role)로 온 화이트리스트 관리 액션 — church-admin 역할이 게이트
   const secret = Deno.env.get("ADMIN_SECRET");
   if (!secret) return "no-password-set";
   if ((b.pw ?? "") !== secret) return "unauthorized";
@@ -406,6 +420,12 @@ Deno.serve(async (req) => {
     //   ⚠️ body.pw 가 빈 값일 때 ADMIN_SECRET 미설정과 겹치지 않게 `&& body.pw`.
     if ((body.pw ?? "") === (Deno.env.get("ADMIN_SECRET") ?? "") && body.pw && !ADMIN_PW_ONLY.has(body.action)) {
       try { (body as any)[SUPER_OK] = await staffIsSuper(body); } catch (_) { (body as any)[SUPER_OK] = false; }
+    }
+    // 교회 어드민이 내부 키(service_role)로 부르는 관리 액션 — 화이트리스트일 때만 암호 없이 통과(2026-10-09).
+    //   ⚠️ 이 분기는 암호·총괄·크론 경로를 바꾸지 않는다. 내부 키가 유효하고 액션이 화이트리스트일 때 adminError 를 통과시킬 뿐이다.
+    if (INTERNAL_ADMIN_OK.has(body.action) &&
+        sameSecret(req.headers.get("x-internal-key") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "")) {
+      (body as any)[INTERNAL_OK] = true;
     }
     switch (body.action) {
       case "authCheck": {   // 관리자 비번 검증(허브 로그인용)
