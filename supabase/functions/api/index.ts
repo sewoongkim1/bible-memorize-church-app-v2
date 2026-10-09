@@ -8620,13 +8620,15 @@ async function sermonJobCreate(b: any) {
   const transcript = String(j.transcript || "").normalize("NFC").replace(/\s+/g, " ").trim();
   if (transcript.length < 1000) return { ok: false, error: "short-transcript" };
   if (transcript.length > 200000) return { ok: false, error: "long-transcript" };
+  // 설교 구절(scripture · 암송 구절과 다름) — 담당자가 넣으면 워크플로가 그대로 쓴다(없으면 AI 가 자막에서 뽑는다).
+  const scripture = norm(j.scripture).normalize("NFC").slice(0, 200) || null;
   // 이미 있으면 받지 않는다 — 두 번 돌리면 AI 비용만 든다
   const { data: ex, error: e1 } = await db.from("sermons").select("id").eq("id", video_id).maybeSingle();
   if (e1) throw e1;
   if (ex) return { ok: false, error: "exists" };
   await sermonJobsSweep();
   const { data: row, error: e2 } = await db.from("sermon_jobs")
-    .insert({ video_id, title, svc_date, category, preacher, transcript, created_by: staffLabel(b) })
+    .insert({ video_id, title, svc_date, category, preacher, transcript, scripture, created_by: staffLabel(b) })
     .select(JOB_COLS).single();
   if (e2) {
     if ((e2 as any).code === "23505") return { ok: false, error: "busy" };   // sermon_jobs_one_active
