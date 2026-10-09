@@ -8504,7 +8504,7 @@ async function eventImport(b: any) {
 //   sermonJobUpdate 로 단계를 적는다. 유튜브에는 가지 않는다(GitHub 서버에서 자막이 막힌다).
 // ============================================================
 // ⚠️ 같은 목록이 화면(admin-stats.html SERMON_CATS)에도 있다 — 함께 고칠 것
-const SERMON_CATS = ["주일설교", "금요성령집회", "새벽기도회", "송구영신예배", "특별집회", "청년예배"];
+const SERMON_CATS = ["주일설교", "월삭예배", "금요성령집회", "새벽기도회", "송구영신예배", "특별집회", "청년예배"];
 const JOB_STATUS = ["queued", "running", "done", "failed"];
 const JOB_STEPS = ["dispatch", "prep", "notes", "tts", "link", "versehelp", "save", "embed", "publish", "verify"];
 const JOB_COLS = "id,video_id,title,svc_date,category,preacher,status,step,error,run_url,attempt,created_by,created_at,updated_at";
