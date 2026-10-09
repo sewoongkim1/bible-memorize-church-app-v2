@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261009h";
+const APP_BUILD = "20261009i";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2964,6 +2964,7 @@ function renderSummary() {
     <div id="event-slot"></div>
     <!-- 홈 화면 정리: 알림 켜기 배너·신기능 홍보 카드 숨김(코드는 유지, 필요 시 되살리면 됨) -->
     <div id="push-nudge" hidden></div>
+    <div id="store-nudge" hidden></div>
     <button class="todo-go ${TODO.cls}" id="${TODO.id}">
       <span class="todo-ic">${TODO.ic}</span>
       <span class="todo-body"><span class="todo-tx">${TODO.tx}</span><span class="todo-sub">${TODO.sub}</span></span>
@@ -3063,6 +3064,7 @@ function renderSummary() {
   loadTodayCount(u); // 첫 화면 '오늘 N회' 띠 채우기
   fillStampPill(u);  // 가을 말씀 동행 — 이벤트 단추 안 진행 알약(●●○)
   renderEventButton();  // 이미 로드된 설정이 있으면 즉시 표시
+  renderStoreNudge();   // 웹으로 오신 분께 스토어 앱 안내 한 줄(2026-10-09)
   loadEventState();     // 서버에서 설정·응모여부 갱신 후 다시 표시
   document.getElementById("open-board").addEventListener("click", renderBoard);
   document.getElementById("open-prayer").addEventListener("click", () => renderPrayerBook());
@@ -8008,6 +8010,65 @@ function pickActiveDailyMessage(value) {
   if (!active.length) return null;
   return active.reduce((a, b) => (Number(b.id) > Number(a.id) ? b : a));
 }
+
+// 웹으로 오신 분께 스토어 앱 안내 한 줄(2026-10-09 · 친구 요청 — 안드로이드는 플레이스토어, 아이폰은 App Store).
+//   첫 화면 「오늘 할 일」 위 한 줄 카드(창으로 띄우지 않는다 — 어르신께 창은 이미 오늘의 메시지·묵상으로 많다).
+//   ⚠️ 안 뜨는 곳: 앱 안(플레이 앱 · 아이폰 앱) · 새 플레이 앱을 연 적이 있는 폰 · 크롬이 「관련 앱이 깔려 있다」고 답한 폰 ·
+//      아이폰 사파리 탭(애플 「스마트 앱 배너」가 맨 위에 대신 뜬다 — index.html 의 apple-itunes-app) · 컴퓨터.
+//   「✕」는 30일 동안 안 보이게 한다(웹으로 계속 쓰셔도 괜찮다 — 성도님이 고르신다).
+//   말은 참인 것만: 기록은 서버에 있어 같은 소속·이름이면 이어진다.
+const STORE_NUDGE_SNOOZE_KEY = "store-nudge-snooze";
+const IOS_APP_STORE_URL = "https://apps.apple.com/app/id6811724527";
+let storeAppInstalled = false;   // 크롬 getInstalledRelatedApps 가 알려 주면 true(안드로이드만 · manifest related_applications)
+function storeNudgeKind() {
+  try {
+    const ua = navigator.userAgent || "";
+    if (typeof isNativeApp === "function" && isNativeApp()) return null;
+    if (/Android/i.test(ua)) {
+      if (openedByPlayApp() || isPlayNewApp() || storeAppInstalled) return null;
+      if (isPlayStoreApp() && !isBrowserTab()) return null;   // 앱 창(옛 앱 포함 — 옛 앱 분께는 따로 창이 뜬다)
+      return "play";
+    }
+    if (/iPhone|iPad|iPod/i.test(ua)) {
+      const standalone = window.navigator.standalone === true ||
+        !!(window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+      const otherBrowser = /CriOS|FxiOS|EdgiOS|KAKAOTALK|NAVER|Instagram|FBAN|FBAV|Line\//i.test(ua);
+      if (!standalone && !otherBrowser) return null;   // 사파리 탭 — 애플 띠가 맡는다
+      return "ios";
+    }
+  } catch (e) {}
+  return null;
+}
+function storeNudgeSnoozed() {
+  try { const t = Number(localStorage.getItem(STORE_NUDGE_SNOOZE_KEY) || 0); return t && Date.now() < t; } catch (e) { return false; }
+}
+function renderStoreNudge() {
+  const el = document.getElementById("store-nudge");
+  if (!el) return;
+  const kind = storeNudgeKind();
+  if (!kind || storeNudgeSnoozed()) { el.hidden = true; el.innerHTML = ""; return; }
+  const href = kind === "play" ? NEW_APP_STORE_INTENT : IOS_APP_STORE_URL;
+  const where = kind === "play" ? "플레이스토어" : "App Store";
+  el.innerHTML = `<div class="store-nudge">
+      <span class="sn-ic">📱</span>
+      <span class="sn-tx"><b>${where}에 앱이 나왔어요</b><span class="sn-sub">위젯도 쓸 수 있고, 기록은 그대로 이어져요</span></span>
+      <a class="sn-go" id="store-nudge-go" href="${href}" ${kind === "ios" ? 'target="_blank" rel="noopener"' : ""}>앱 받기</a>
+      <button class="sn-x" id="store-nudge-x" aria-label="30일 동안 안 보기">✕</button>
+    </div>`;
+  el.hidden = false;
+  document.getElementById("store-nudge-x").addEventListener("click", () => {
+    try { localStorage.setItem(STORE_NUDGE_SNOOZE_KEY, String(Date.now() + 30 * 86400000)); } catch (e) {}
+    el.hidden = true; el.innerHTML = "";
+  });
+}
+// 크롬(안드로이드)이 「이 사이트의 관련 앱이 깔려 있다」고 알려 주면 카드를 거둔다 — 한 번만 묻는다.
+try {
+  if (navigator.getInstalledRelatedApps) {
+    navigator.getInstalledRelatedApps().then((apps) => {
+      if (apps && apps.some((a) => a && a.id === "kr.onlybible.gocheok")) { storeAppInstalled = true; renderStoreNudge(); }
+    }).catch(() => {});
+  }
+} catch (e) {}
 
 // 옛 테스트 앱 → 새 앱 안내(2026-10-09 · 플레이 새 앱 kr.onlybible.gocheok 출시).
 //   옛 앱 `kr.onlybible.gocheok.memorize` 는 「출시 안 됨」이라 새로 받을 수 없고 테스터 폰에만 남아 있다(지우지 않는 한 계속 돈다).

@@ -6203,3 +6203,15 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .dark .duty-cal-k .k.mine { background: #2b4c80; }
 .dark .duty-cal-c.hol > span, .dark .duty-hol, .dark .duty-cal-k .hd { color: #ffaaa2; }   /* --error 는 어두운 바탕에서 안 읽힌다(2.6:1 안팎) */
 .dark .duty-cal-c.sun > span, .dark .duty-cal-w .sun { color: #ffaaa2; }   /* 일요일도 같은 값 */
+
+/* 웹으로 오신 분께 스토어 앱 안내 한 줄(2026-10-09 · renderStoreNudge) — 앱 밖으로 나가는 것이라 흰 바탕 회색선(색 위계 넷째 단계) */
+.store-nudge { display:flex; align-items:center; gap:10px; margin:10px 0 4px; padding:10px 12px; text-align:left;
+  background:#fff; border:1px solid var(--border); border-radius:14px; }
+.store-nudge .sn-ic { font-size:22px; line-height:1; }
+.store-nudge .sn-tx { flex:1; display:flex; flex-direction:column; gap:2px; font-size:15px; color:var(--navy); word-break:keep-all; }
+.store-nudge .sn-sub { font-size:13px; color:var(--gray); }
+.store-nudge .sn-go { flex:none; padding:9px 14px; border-radius:10px; background:var(--navy); color:#fff; font-weight:700; font-size:15px; text-decoration:none; }
+.store-nudge .sn-x { flex:none; width:36px; height:36px; border:0; background:transparent; color:var(--gray); font-size:18px; cursor:pointer; }
+.dark .store-nudge { background:#151d2b; border-color:#2f3d55; }
+.dark .store-nudge .sn-tx { color:#cdd9f2; }
+.dark .store-nudge .sn-sub, .dark .store-nudge .sn-x { color:#9aa6ba; }

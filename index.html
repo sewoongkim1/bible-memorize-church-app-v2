@@ -21,6 +21,8 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#1a3a6b" />
+  <!-- 아이폰 사파리에서 맨 위에 App Store 앱 띠(애플이 띄운다 · 깔려 있으면 「열기」 · 아이폰 앱 안에서는 안 뜬다 · 2026-10-09) -->
+  <meta name="apple-itunes-app" content="app-id=6811724527" />
   <!-- 이 앱은 자체 밝게/어둡게 토글이 있는데(⚙️ 설정), 시스템 다크 모드를 그대로
        따라가지 않고 .dark 클래스로 손수 정한다 — style.css에 @media(prefers-color-scheme)
        대응이 아예 없다. 그래서 "light dark"(시스템 다크에 맞춰 알아서 어둡게도
@@ -61,7 +63,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Lora:wght@400;600;700&family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
   <noscript><link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Lora:wght@400;600;700&family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet" /></noscript>
-  <link rel="stylesheet" href="style.css?v=20261009h" />
+  <link rel="stylesheet" href="style.css?v=20261009i" />
 </head>
 <body>
   <!-- 앱 시작 스플래시 화면 -->
@@ -70,7 +72,7 @@
       <img id="splash-logo" src="img/logo-gocheok.png" alt="고척교회" />
       <div class="splash-title">오직 성경, 말씀이 답이다!</div>
       <div class="splash-sub">주의 말씀은 내 발에 등이요<br>내 길에 빛이니이다</div>
-      <div class="splash-ver">v3.562</div>
+      <div class="splash-ver">v3.563</div>
       <img class="splash-denom" src="logo3.png?v=20260702y" alt="대한예수교장로회총회" onerror="this.style.display='none'" />
     </div>
   </div>
@@ -103,13 +105,13 @@
     <p style="text-align:center;padding:40px">불러오는 중...</p>
   </main>
 
-  <script src="js/config.js?v=20261009h"></script>
-  <script src="js/api.js?v=20261009h"></script>
-  <script src="js/push.js?v=20261009h"></script>
-  <script src="js/psalm.js?v=20261009h"></script>
-  <script src="js/events.js?v=20261009h"></script>
-  <script src="js/edu.js?v=20261009h"></script>
-  <script src="js/duty.js?v=20261009h"></script>
-  <script src="app.js?v=20261009h"></script>
+  <script src="js/config.js?v=20261009i"></script>
+  <script src="js/api.js?v=20261009i"></script>
+  <script src="js/push.js?v=20261009i"></script>
+  <script src="js/psalm.js?v=20261009i"></script>
+  <script src="js/events.js?v=20261009i"></script>
+  <script src="js/edu.js?v=20261009i"></script>
+  <script src="js/duty.js?v=20261009i"></script>
+  <script src="app.js?v=20261009i"></script>
 </body>
 </html>
