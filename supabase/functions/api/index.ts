@@ -183,7 +183,7 @@ const INTERNAL_ADMIN_OK = new Set([
   "pushStats", "pushSubscribers", "pushHistory", "pushPreview", "monitor",
   // 설교·찬양(2026-10-09 묶음5 · 담당자 역할 content) — 화면만 옮긴다. 워크플로 콜백(sermonJobGet/Update)은 기계용이라 넣지 않는다.
   //   ⚠️ sermonJobCreate 는 GitHub 워크플로를, verseImgGenerate 는 Gemini(비용)를 깨운다 — 비용 한도·불변식은 성경암송 api 에 그대로(안 건드림).
-  "sermonStaffList", "sermonJobCreate", "sermonJobs", "sermonJobRetry", "sermonStaffSave", "staffVerseSave", "sermonDelete",
+  "sermonStaffList", "sermonJobCreate", "sermonJobs", "sermonJobRetry", "sermonStaffSave", "staffVerseSave", "sermonDelete", "verseNextNo",
   "verseImgList", "verseImgScenes", "verseImgGenerate", "verseImgAlt", "verseImgSave", "verseImgHide",
 ]);
 const ADMIN_PW_ONLY = new Set([        // 사람 없는 기계 호출(크론·MCP·설교) — 암호만으로 통과
@@ -502,6 +502,7 @@ Deno.serve(async (req) => {
       case "sermonStaffSave": return json(await sermonStaffSave(body));
       case "sermonDelete":    return json(await sermonDelete(body));
       case "staffVerseSave":  return json(await staffVerseSave(body));
+      case "verseNextNo":     return json(await verseNextNo(body));
       // ---- 말씀 연상 그림 — 설교·찬양 담당자(2026-09-21) ----
       case "verseImgList":     return json(await verseImgList(body));
       case "verseImgScenes":   return json(await verseImgScenes(body));
@@ -8704,6 +8705,19 @@ async function sermonDelete(b: any) {
 
 // ① 설교/말씀 등록의 담당자 저장 — 한글 칸만. ⚠️ text_en·ref_en 은 건드리지 않는다
 //    (관리자 saveVerse 는 행을 통째로 upsert 해서, 빈 칸을 보내면 영어 본문이 지워진다).
+// 다음 주간 구절 번호 — 지금까지 가장 큰 번호(1~999 · weekly) + 1. 설교 올리기 화면이 자동 채움에 쓴다(담당자가 고칠 수 있다).
+//   ⚠️ 1000+(시편 등)은 세지 않는다. track 칸이 없는 옛 DB 도 살게 폴백한다.
+async function verseNextNo(b: any) {
+  const err = await contentError(b); if (err) return { ok: false, error: err };
+  let r = await db.from("verses").select("no").eq("track", "weekly").lt("no", 1000).order("no", { ascending: false }).limit(1);
+  if (r.error && (r.error.code === "42703" || /track/i.test(String(r.error.message ?? "")))) {
+    r = await db.from("verses").select("no").lt("no", 1000).order("no", { ascending: false }).limit(1);
+  }
+  if (r.error) throw r.error;
+  const max = (r.data ?? [])[0]?.no ?? 0;
+  return { ok: true, next: Math.max(1, Number(max) + 1) };
+}
+
 async function staffVerseSave(b: any) {
   const err = await contentError(b); if (err) return { ok: false, error: err };
   const v = b.verse || {};
