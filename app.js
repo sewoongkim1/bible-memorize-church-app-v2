@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261009f";
+const APP_BUILD = "20261009g";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -877,7 +877,7 @@ const MH_LIVE = true;   // 2026-10-01 운영 반영(사역 이력 확인 · 정�
 //        그래서 크롬 탭(isBrowserTab)은 뺀다(「웹은 그대로」라는 결정대로). ①을 못 받은 앱 창(referrer 없이 새로 열린 창 등)의 받침이다.
 //   NEW 배지(newestNewFeat)는 문(ministryVisible)이 닫혀 있으면 "ministry" 를 세지 않는다 — 안 보이는 단추가 하나뿐인 NEW 를 가져가지 않게.
 //   ⏰ 심사가 통과한 날 false 로 바꾸고 bump → 푸시(CLAUDE.md 「플레이스토어 출시」 아래 ⏰ 줄 · 자료/store/README.md · docs/notes/ministry-history-check.md).
-const MINISTRY_HIDE_ON_PLAY = true;
+const MINISTRY_HIDE_ON_PLAY = false;   // 2026-10-09 플레이 새 앱(kr.onlybible.gocheok) 출시 — 숨김 끝
 function ministryHiddenOnPlay() {
   return MINISTRY_HIDE_ON_PLAY && (openedByPlayApp() || (isPlayStoreApp() && !isBrowserTab()));
 }
@@ -8857,7 +8857,7 @@ function manualInstalled() {
 //                자동 업데이트 전인 1.0.1 폰에도 보이지만, 친구가 정한 대로 출시일에 켠다.
 //      android : 플레이스토어에 위젯 판이 나간 날 true (9/27 프로덕션 승인 뒤 · 계획 Task 8)
 //    출시 전에 문구를 보려면 ?preview=widget (두 폰 것이 둘 다 뜬다).
-const WIDGET_GUIDE = { ios: true, android: false };
+const WIDGET_GUIDE = { ios: true, android: true };   // 2026-10-09 안드로이드 위젯 판(1.1.0) 플레이스토어 출시
 let _widgetPreview = false;
 
 // 플레이스토어 앱(TWA)으로 열렸나 — TWA 는 앱을 열 때 referrer 를 android-app://<패키지> 로 준다(실기기 미확인 —
