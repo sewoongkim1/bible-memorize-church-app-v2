@@ -8683,11 +8683,14 @@ async function sermonStaffSave(b: any) {
   if (!SERMON_CATS.includes(category) && category !== cur.category) return { ok: false, error: "bad-category" };
   const date = String(s.date || "");
   if (date && !isYmd(date)) return { ok: false, error: "bad-date" };
-  // ⚠️ 다섯 칸만 바꾼다 — 옛 saveSermon 은 통째 upsert 라 빠진 칸이 null 이 됐다
-  const { error } = await db.from("sermons").update({
+  // ⚠️ 다섯 칸(+설교 구절)만 바꾼다 — 옛 saveSermon 은 통째 upsert 라 빠진 칸이 null 이 됐다
+  const patch: any = {
     title, svc_date: date || null, category, preacher: norm(s.preacher).normalize("NFC").slice(0, 60) || null,
     hidden: !!s.hidden, updated_at: new Date().toISOString(),
-  }).eq("id", id);
+  };
+  // 설교 구절(scripture · 암송 구절과 다름) — 보낸 경우에만 바꾼다(AI 가 넣은 값을 빈 저장으로 지우지 않게).
+  if (s.scripture !== undefined) patch.scripture = norm(s.scripture).normalize("NFC").slice(0, 200) || null;
+  const { error } = await db.from("sermons").update(patch).eq("id", id);
   if (error) throw error;
   return { ok: true };
 }
