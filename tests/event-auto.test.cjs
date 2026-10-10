@@ -239,9 +239,9 @@ test('⑦ 측정이 끝난 뒤 · 측정 전 — 감사로 맺고, 「오늘 …
   assert.equal(tail(st({ weekDays: wk(1), canStillReach: false }), ENDED, { mine: true }),
     '이벤트 기간에 1일 함께하셨어요. 여섯 주 동안 함께해 주셔서 고맙습니다.');
   assert.equal(tail(st({ canStillReach: false }), ENDED), '여섯 주 동안 함께해 주셔서 고맙습니다.');
-  // 측정 전 — 오늘은 세지 않으므로 「오늘 3번이면 첫 칸」 대신 「시작하는 날부터」
+  // 측정 전 — 「앞으로 N일」을 빼고 「시작하는 날부터…」만(친구 2026-10-10 · 아직 시작 전이라 오해를 준다)
   assert.equal(tail(st(), -5),
-    '앞으로 9일 함께하시면 돼요(한 주에 3일씩) — 시작하는 날부터 하루 3번이면 한 칸이에요. 오늘도 말씀과 함께 힘내요 🙂');
+    '시작하는 날부터 하루 3번이면 한 칸이에요. 오늘도 말씀과 함께 힘내요 🙂');
   // 날짜 계산이 틀어져도(NaN) NaN 을 안 띄운다
   assertClean(evtAutoTail(st({ weekDays: undefined, need: undefined }), R, false, NaN, null, 0), 'NaN');
 });
@@ -449,14 +449,14 @@ test('⑬ 자료 SQL — 부제·시험 회차 안내에 「선물 대상」이 
   const perday = read('supabase/event_autumn_2026_perday.sql');
   const testSql = read('supabase/event_autumn_2026_test.sql');
   const record = read('supabase/event_stamp_2026.sql');
-  const NEW_SUB = '여덟 주 가운데 다섯 주, 말씀과 함께 걸어요';   // 2026-10-10 8주 가운데 5주(10/11 시작)
+  const NEW_SUB = '올해 받은 말씀을 기억하고, 말씀 앞에 머무는 시간';   // 2026-10-10 친구(포스터 문구)
   const m = /set subtitle = '([^']*)'/.exec(perday);
   assert.ok(m, 'perday.sql 에서 부제 update 를 못 찾았다');
   assert.equal(m[1], NEW_SUB);
   assert.ok(!/\d/.test(m[1]), '부제에 숫자를 박았다 — 3↔5 목록에 걸린다: ' + m[1]);
   // 가드 — 옛 글자 셋 중 하나일 때만(어드민에서 고친 값은 안 건드린다 · 2026-10-04 7주로 바꾸며 「여섯 주 가운데 세 주, …」가 옛 글자에 들어갔다)
-  assert.ok(/and subtitle in \('일곱 주 가운데 다섯 주, 말씀과 함께 걸어요',\s*'여섯 주 가운데 세 주, 말씀과 함께 걸어요',\s*'여섯 주 가운데 세 주를 채우시면 선물 대상이 돼요',\s*'여섯 주 가운데 세 주를 채우시면 신청이 열려요'\)/.test(perday),
-    'perday.sql 부제 가드가 옛 글자 네 가지가 아니다');
+  assert.ok(/and subtitle in \('여덟 주 가운데 다섯 주, 말씀과 함께 걸어요',\s*'일곱 주 가운데 다섯 주, 말씀과 함께 걸어요',\s*'여섯 주 가운데 세 주, 말씀과 함께 걸어요',\s*'여섯 주 가운데 세 주를 채우시면 선물 대상이 돼요',\s*'여섯 주 가운데 세 주를 채우시면 신청이 열려요'\)/.test(perday),
+    'perday.sql 부제 가드가 옛 글자 다섯 가지가 아니다');
   // 시험 회차 안내 — 진짜 회차와 같은 결
   assert.ok(testSql.includes("'여섯 주 가운데 한 주를 채워 참여하신 분께는 모두 소정의 선물을 드려요 — 따로 신청하지 않으셔도 돼요.'"),
     '시험 회차 안내가 새 문장이 아니다');

@@ -430,10 +430,11 @@ function evtAutoTail(s, r, mine, todayIdx, srvToday, liveToday) {
            : "<b>앞으로 " + go.days + "일</b> 함께하시면 돼요(한 주에 " + pw + "일씩)");
     var first = n
       ? said + "<br>" + goText
-      // 측정 전(ti < 0)에 「오늘 …번이면 첫 칸」은 사실이 아니다(오늘은 세지 않는다)
-      : goText + " — " +
-        (ti < 0 ? "시작하는 날부터 하루 " + perDay + "번이면 한 칸이에요."
-                : "오늘 " + perDay + "번이면 첫 칸이에요.");
+      // 측정 전(ti < 0)은 「앞으로 N일」을 빼고 「시작하는 날부터…」만 둔다(친구 2026-10-10 — 아직 시작 전이라
+      //   「앞으로 15일」이 오해를 준다). 측정 중(ti >= 0)은 「앞으로 N일 더」 응원을 그대로 둔다(§9-2 친구).
+      : (ti < 0
+          ? "시작하는 날부터 하루 " + perDay + "번이면 한 칸이에요."
+          : goText + " — 오늘 " + perDay + "번이면 첫 칸이에요.");
     // 이번 주 한 줄 — 이번 주에 아직 한 날도 없으면 「X일이면」(아무것도 안 했는데 「더」는 어색하다)
     var weekText = (go.thisWeek && !onlyThisWeek)
       ? (go.thisWeek >= pw ? "이번 주는 " + go.thisWeek + "일이면 채워져요."
@@ -546,23 +547,15 @@ function evtStampHtml(u, e) {
       " 주는 그대로 남아요 — 다음에 또 함께해요.";
   }
 
-  // ⚠️ perDay===1 이면 예전 문구 그대로 — 바뀐 것이 없는 회차에 새 문구를 들이밀지 않는다.
-  var fine = perDay === 1
-    ? "한 날에 여러 번 하셔도 그날 한 칸이에요."
-    // ⚠️ 「한 번」을 글자 그대로 「N회」로 적지 않는다(검토 2026-10-03) — 성도님이 읽는 말이다.
-    //    첫 화면의 오늘 횟수 띠는 0회면 숫자 없이 「오늘 첫 말씀을 시작해요」만 보이므로,
-    //    「하시고 나면 그 자리에 쌓인다」로 말한다(app.js applyTodayStrip).
-    : ("하루에 " + perDay + "번 하시면 그날 한 칸이에요. " +
-       "암송·도전·복습을 하나 마칠 때마다 한 번이고, 첫 화면에 「오늘 1회」처럼 쌓여요.");
-
+  // 아래 안내 줄(ev-stamp-fine 「하루에 N번 하시면…」·「…저장된 날만 셉니다」)은 뺐다(친구 2026-10-10) —
+  //   intro 박스·머리·끝 문구가 이미 같은 말을 한다.
   // ev-auto — 자동 대상 회차만 머리·끝 문구를 낱말 단위로 접는다(style.css · 「지금까지 1 / 일」처럼 숫자와
   //   「일」이 갈라지지 않게 · 2026-10-04). 다른 회차의 상자는 예전 그대로다.
   return '<div class="ev-stampbox' + (auto ? " ev-auto" : "") + '">' +
     '<div class="ev-stamp-h">' + head + "</div>" +
     '<div class="ev-wks">' + cells + "</div>" +
     daysHtml +
-    '<div class="ev-stamp-tail">' + tail + "</div>" +
-    '<div class="ev-stamp-fine">' + fine + "</div></div>";
+    '<div class="ev-stamp-tail">' + tail + "</div></div>";
 }
 
 // 자동 대상 회차의 측정 기간 — { start, end }(YYYY-MM-DD). 규칙이 온전하지 않으면 null(기간 칸을 비운다).
