@@ -1,4 +1,5 @@
--- 가을 말씀암송 동행 — 측정 시작일을 2026-10-11 → 2026-10-18 로 (한 주 미룸 · 2026-10-03 친구 결정)
+-- 가을 말씀암송 동행 — 측정 시작일 2026-10-11 (2026-10-10 친구 결정: 이번 주부터 8주 · 첫 주는 공지 전 버퍼)
+--   (2026-10-03 에 10/11 → 10/18 로 미뤘던 것을 10/11 로 되돌리고 weeks 를 8 로 — perday.sql)
 -- ⚠️ 이 저장소는 공개(public)입니다 — 비밀번호·키를 절대 넣지 마세요.
 -- 설계: docs/superpowers/specs/2026-10-03-autumn-event-launch-design.md §2
 --
@@ -24,10 +25,10 @@ begin
   end if;
 
   update public.events
-     set needs = jsonb_set(needs, '{eligibility,start}', '"2026-10-18"'::jsonb),
+     set needs = jsonb_set(needs, '{eligibility,start}', '"2026-10-11"'::jsonb),
          updated_at = now()
    where id = 'autumn-2026'
-     and needs->'eligibility'->>'start' is distinct from '2026-10-18';
+     and needs->'eligibility'->>'start' is distinct from '2026-10-11';
 end $$;
 
 -- 확인 — start 가 10-18 이고 신청 시작(opens_on)이 그보다 뒤인지
