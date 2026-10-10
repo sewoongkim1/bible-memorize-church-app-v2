@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261010a";
+const APP_BUILD = "20261010b";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -814,6 +814,49 @@ function refreshEventOpen() {
   }).catch(() => {});
 }
 function eventVisible() { return eventOpenCached(); }
+
+// ── 가을 말씀암송 동행 — 개시 1회 안내 팝업(2026-10-10 · 친구) ──────────────
+// 열린 자격(도장) 회차가 autumn-2026 이고, 아직 이 안내를 못 보신 분께 **첫 화면에서 한 번만**
+//   무엇인지 알린다. 🏅 단추·NEW 배지와는 별도(처음 여는 분을 위한 한 번의 안내 창).
+// ⚠️ 성도님께 하는 말은 어느 경우에도 참인 말만 — 하루 3번·한 주 3일·8주 중 5주·측정 10/11~12/5.
+// ⚠️ 전체 푸시 알림은 아니다(친구: 「알림은 나중에」) — 앱을 여신 분께만 보인다.
+function autumnPopupSeen() { try { return localStorage.getItem("autumn-2026-popup") === "1"; } catch (e) { return false; } }
+function markAutumnPopupSeen() { try { localStorage.setItem("autumn-2026-popup", "1"); } catch (e) {} }
+function maybeAutumnPopup() {
+  if (autumnPopupSeen()) return;
+  if (!eventVisible()) return;                              // 열린 회차가 없으면 안 띄운다
+  let evId = ""; try { evId = localStorage.getItem(EVENT_STAMP_ID_KEY) || ""; } catch (e) {}
+  if (evId !== "autumn-2026") return;                       // 이 회차일 때만(다른 회차엔 안 뜬다)
+  if (document.querySelector(".cheer-overlay")) return;     // 다른 팝업이 떠 있으면 다음 기회에
+  markAutumnPopupSeen();                                    // 한 번만 — 뜨는 순간 표시(닫든 보든)
+  const name = eventLabelCached() || "가을 말씀암송 동행";
+  const wrap = document.createElement("div");
+  wrap.className = "cheer-overlay";
+  wrap.innerHTML = `
+    <div class="cheer-card dmsg-card" role="dialog" aria-modal="true">
+      <div class="cheer-ref dmsg-badge">🍂 ${boardEsc(name)}</div>
+      <div class="autumn-pop-body">
+        <p>올해 받은 말씀을 기억하고, 말씀 앞에 머무는 시간이에요.</p>
+        <p><b>하루 3번</b> 말씀을 암송하면 그날 한 칸, <b>한 주에 3일</b>이면 그 주가 채워져요.
+           <b>8주 가운데 5주</b>를 채워 함께하신 분께는 모두 <b>소정의 선물</b>을 드려요(세 주는 쉬어도 괜찮아요).</p>
+        <p class="autumn-pop-when">10월 11일(주일)부터 12월 5일(토)까지 · 따로 신청하지 않으셔도 돼요</p>
+      </div>
+      <div class="song-modal-actions">
+        <button class="summary-help" id="autumn-pop-later">나중에</button>
+        <button class="cheer-ok" id="autumn-pop-go">지금 보기</button>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap);
+  requestAnimationFrame(() => wrap.classList.add("show"));
+  const close = () => { wrap.classList.remove("show"); setTimeout(() => { try { wrap.remove(); } catch (e) {} }, 250); };
+  document.getElementById("autumn-pop-later").addEventListener("click", close);
+  document.getElementById("autumn-pop-go").addEventListener("click", () => {
+    close();
+    markFeatSeen("stamp");
+    if (typeof renderEventList === "function") renderEventList(null);
+  });
+  wrap.addEventListener("click", (e) => { if (e.target === wrap) close(); });
+}
 
 // EVENT_OPEN/LABEL/STAMP_ID 는 사람별이 아니라 **기기 공용**이다 — 그래서 신원이 바뀔 때
 //   새로고침 없이는 저절로 안 바뀐다. clearPersonalData(로그아웃)와 「로그인 정보변경」
@@ -2133,7 +2176,7 @@ const FEAT_SINCE = {
   // ⚠️ 「event」키를 다시 쓰면 안 된다 — 9월에 썸머 명단을 눌러 본 분은
   //    feat-seen-event 가 이미 1 이라(featIsNew 첫 줄) 영영 안 뜬다.
   //    ⚠️ 개시일을 옮기면 supabase/event_stamp_2026.sql 과 함께 옮긴다.
-  stamp: "2026-10-18",        // 가을 말씀암송 동행 — 도장 시작일과 같은 날부터 NEW(2026-10-03 한 주 미룸)
+  stamp: "2026-10-11",        // 가을 말씀암송 동행 — 도장 시작일(측정 start)과 같은 날부터 NEW(2026-10-10 친구: 10/11 개시·8주)
   psalm: "2026-09-12",        // 쉴만한 물가(옛 이름 시편 말씀 액자) — 1일차와 같은 날부터 NEW
   song: "2026-09-23",         // 오늘의 찬양 — 게이트(songPublic)를 켠 날
   prayer: "2026-09-03",
@@ -3147,6 +3190,7 @@ function renderSummary() {
       if (bell && !sub) bell.classList.add("pulse");
     } catch (e) {}
   })();
+  maybeAutumnPopup();   // 가을 말씀암송 동행 개시 1회 안내(열린 회차가 autumn-2026 이면 한 번만)
 }
 
 // 「더 보기」 — 필사·퀴즈·아카이브 둘. 이건 연 상태를 기억한다.

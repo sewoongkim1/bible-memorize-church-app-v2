@@ -442,6 +442,12 @@ h1 {
 .cheer-card.bless .bless-ref { font-size: .85rem; color: #8d7531; margin: -4px 0 10px; font-weight: 700; }
 .cheer-card.bless .bless-body { white-space: pre-line; line-height: 1.8; text-align: left; }
 .dark .cheer-card.bless .bless-ref { color: #d9c27a; }
+/* 가을 말씀암송 동행 개시 1회 안내 팝업(2026-10-10) — 읽히게 왼쪽 정렬·줄간격 */
+.autumn-pop-body { text-align: left; line-height: 1.65; color: var(--ink, #222); margin: 2px 0 4px; }
+.autumn-pop-body p { margin: 0 0 10px; font-size: .98rem; }
+.autumn-pop-when { font-size: .88rem; color: var(--gray); }
+.dark .autumn-pop-body { color: #e6e1d2; }
+.dark .autumn-pop-when { color: #b7ae97; }
 .song-modal-actions { display: flex; gap: 8px; margin-top: 10px; }
 .song-modal-actions .summary-help,
 .song-modal-actions .cheer-ok { flex: 1; width: auto; margin-bottom: 0; }
