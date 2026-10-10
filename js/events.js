@@ -562,8 +562,7 @@ function evtStampHtml(u, e) {
     '<div class="ev-wks">' + cells + "</div>" +
     daysHtml +
     '<div class="ev-stamp-tail">' + tail + "</div>" +
-    '<div class="ev-stamp-fine">' + fine + "<br>" +
-    "인터넷이 연결된 상태에서 저장된 날만 셉니다.</div></div>";
+    '<div class="ev-stamp-fine">' + fine + "</div></div>";
 }
 
 // 자동 대상 회차의 측정 기간 — { start, end }(YYYY-MM-DD). 규칙이 온전하지 않으면 null(기간 칸을 비운다).
