@@ -372,9 +372,12 @@ function evtDaysToGo(wd, r, need, todayIdx, todayStamped) {
   return { days: after >= left ? pw * left : null, thisWeek: 0 };
 }
 
-// 도장판 머리의 「{이름} 님의 도장판 · 」 뒤 — n: 함께한 날(evtAutoDaysTogether).
-function evtAutoHead(n) {
-  return n ? ("지금까지 " + n + "일 함께하셨어요") : "첫 칸을 기다리고 있어요";
+// 도장판 머리의 「{이름} 님의 도장판 · 」 뒤 — n: 함께한 날(evtAutoDaysTogether) · weeksDone: 채운 주(evtAutoWeeksDone).
+//   참여 일수에 더해 채운 주수도 함께 보여 준다(친구 2026-10-10). ⚠️ 0일에는 「0일」을 박지 않는다
+//   (이 화면은 나무라지 않는다 · 시험 assertClean) — 셀 것이 생기면(1일~) 그때 수를 보여 준다.
+function evtAutoHead(n, weeksDone) {
+  if (!n) return "첫 칸을 기다리고 있어요";
+  return "지금까지 " + n + "일 함께하셨어요" + (weeksDone ? " · " + weeksDone + "주 채움" : "");
 }
 
 // 도장판 맨 아래 한 문단.
@@ -476,7 +479,7 @@ function evtStampHtml(u, e) {
   //   다른 회차는 예전 그대로 서버 weekDays 다.
   var wdShown = auto ? evtAutoWeekDays(s.weekDays, r, todayIdx, srvTodayVal, liveToday) : s.weekDays;
   var head = evtEsc(u.name) + " 님의 도장판 · " +
-    (auto ? evtAutoHead(evtAutoDaysTogether(wdShown))
+    (auto ? evtAutoHead(evtAutoDaysTogether(wdShown), evtAutoWeeksDone(wdShown, r))
      : (s.weeksDone ? ("지금까지 " + evtKoNum(s.weeksDone) + " 주 채웠어요")
                     : "첫 주를 채우는 중이에요"));
 

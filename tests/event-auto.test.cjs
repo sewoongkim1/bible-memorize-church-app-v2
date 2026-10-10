@@ -403,7 +403,7 @@ test('⑫ 도장판 통째로 — 자동 대상은 주 칸·머리·끝 문구�
   assert.deepEqual(a.cells.map((c) => c.on), [true, false, true, false, false, false]);
   assert.ok(a.todayOn, '7일 띠의 오늘 칸이 채워지지 않았다');
   assert.equal(a.boxCls, 'ev-stampbox ev-auto', '자동 대상 상자에 ev-auto(낱말 단위로 접기)가 없다');
-  assert.equal(a.head, '김성도 님의 도장판 · 지금까지 7일 함께하셨어요');
+  assert.equal(a.head, '김성도 님의 도장판 · 지금까지 7일 함께하셨어요 · 2주 채움');
   assert.equal(a.tail,
     '이벤트 기간에 7일 함께하셨어요. 앞으로 3일 더 함께하시면 돼요(한 주에 3일씩). 오늘도 말씀과 함께 힘내요 🙂');
   // 칸의 수 = 머리의 수 = 끝 문구의 수(같은 배열 하나)
@@ -415,14 +415,14 @@ test('⑫ 도장판 통째로 — 자동 대상은 주 칸·머리·끝 문구�
   // B. 오늘 아직 2번(문턱 전) — +1 없이 6일 · 이번 주 1일 더(오늘 포함 사흘 남음)
   const b = draw(AUTO, { live: 2 });
   assert.deepEqual(b.cells.map((c) => c.v), ['🍂', '1일', '2일', '·', '·', '·']);
-  assert.equal(b.head, '김성도 님의 도장판 · 지금까지 6일 함께하셨어요');
+  assert.equal(b.head, '김성도 님의 도장판 · 지금까지 6일 함께하셨어요 · 1주 채움');
   assert.equal(b.tail,
     '이벤트 기간에 6일 함께하셨어요. 앞으로 4일 더 함께하시면 돼요(한 주에 3일씩). 이번 주는 1일 더 하시면 채워져요. 오늘도 말씀과 함께 힘내요 🙂');
 
   // C. 어제 받은 도장(자정 넘김) — 서버 오늘 합을 「모른다」 → 첫 화면 알약처럼 +1 을 건너뛴다(칸·머리·문구 모두 6일)
   const c = draw(AUTO, { day: '2026-11-04' });
   assert.deepEqual(c.cells.map((x) => x.v), ['🍂', '1일', '2일', '·', '·', '·']);
-  assert.equal(c.head, '김성도 님의 도장판 · 지금까지 6일 함께하셨어요');
+  assert.equal(c.head, '김성도 님의 도장판 · 지금까지 6일 함께하셨어요 · 1주 채움');
   assert.ok(c.tail.startsWith('이벤트 기간에 6일 함께하셨어요.'), c.tail);
 
   // D. 담당자가 넣은 줄(mine) — 칸은 같고 끝 문구만 고마움
