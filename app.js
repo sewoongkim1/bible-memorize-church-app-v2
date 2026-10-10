@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261010e";
+const APP_BUILD = "20261010f";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -3031,6 +3031,11 @@ function renderSummary() {
          ⚠️ 단추마다 있던 제 색(보라·초록·청록·금…)을 뗐다. 색은 「누구인가」가 아니라
             「무엇인가」를 말해야 한다 — 아래 CSS의 네 단계만 남긴다. -->
     <div class="grp-title">내 기록</div>
+    ${/* 🏅 가을 말씀암송 동행 — 「내 기록」 바로 아래로(친구 2026-10-10). 전엔 「함께」 맨 위에 있었다.
+          ⚠️ event-cta 금색은 style.css:2046-2053 에 이미 있다(새 CSS 안 만든다). 이름은 관리자가 적는
+          값이라 boardEsc 로 그린다. 이름 뒤에 진행 문구를 붙이지 않는다 — nowrap+ellipsis 라 이름이
+          잘린다. 진행은 fillStampPill 이 알약으로 꽂는다(id=open-event-list 로 찾으므로 자리는 안 탄다). */""}
+    ${eventVisible() ? `<button class="summary-help event-cta" id="open-event-list">🏅 ${boardEsc(eventLabelCached())}${newBadge("stamp")}</button>` : ""}
     <button class="summary-help" id="open-album">📖 나의 말씀 앨범</button>
     <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
     ${/* 사역현황(2026-10-01 친구 요청) — 사역신청과 사역 이력 확인을 한 묶음으로.
@@ -3048,14 +3053,6 @@ function renderSummary() {
     ${/* 🙋 봉사 당번(2026-10-06) — 문은 dutyVisible(dutyOpen 또는 시험 참여자). FEAT_SINCE.duty 는 개시일에 적는다(없으면 NEW 가 안 뜬다) */""}
     ${dutyVisible() ? `<button class="summary-help" id="open-duty">🙋 봉사 당번 신청${newBadge("duty")}</button>` : ""}
     <div class="grp-title">함께</div>
-    ${/* 이름은 관리자가 적는 값이라 날 HTML 로 그리지 않는다. boardEsc 를 빌려 쓴다 —
-          escape 헬퍼를 하나 더 만들면 그만큼 갈라진다. 서버가 norm() 으로 줄바꿈을
-          이미 공백으로 접으므로 boardEsc 의 \n→<br> 는 걸릴 일이 없다. */""}
-    ${/* ⚠️ 새 CSS 를 쓰지 않는다 — .summary-help.event-cta 금색이 style.css:2046-2053 에
-          이미 있고 쓰는 곳이 0건이었다. class 를 한 단어 늘리는 것이 전부다.
-          ⚠️ 이름 뒤에 진행 문구를 이어 붙이지 않는다 — 이 단추는 nowrap+ellipsis 라
-          잘리는 쪽이 「이름」이다. 진행은 아래 fillStampPill 이 알약으로 꽂는다. */""}
-    ${eventVisible() ? `<button class="summary-help event-cta" id="open-event-list">🏅 ${boardEsc(eventLabelCached())}${newBadge("stamp")}</button>` : ""}
     <button class="summary-help" id="open-board">💬 응원·기도·공감</button>
     ${/* 2026-09-25 순서 바꿈(친구 요청) — 가정 축복 기도문이 쉴만한 물가보다 위. */""}
     <button class="summary-help" id="open-prayer">🙏 가정 축복 기도문${newBadge("prayer")}</button>
