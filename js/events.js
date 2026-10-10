@@ -669,8 +669,10 @@ function evtDrawForm(u, eventId) {
   // 신청이 없다 — 「…부터 신청을 받아요」·공개 명단·「이렇게 등록됩니다」·등록/취소 단추를 그리지 않는다.
   // 대상이신지는 도장판 끝 문구(evtAutoTail)가 말한다. 홈·목록 단추만 잇는다.
   if (evtAuto(e)) {
+    // 📢 목장에 알리기 — 도장판 아래. app.js 의 shareEvent(Web Share + 복사 폴백)를 쓴다(typeof 로 지킨다).
+    var shareBtn = '<button class="ev-share-btn" id="ev-share">📢 목장에 알리기</button>';
     document.getElementById("app").innerHTML =
-      '<div class="ev-wrap">' + html + "</div>" +
+      '<div class="ev-wrap">' + html + shareBtn + "</div>" +
       '<button class="home-fab" id="ev-home" aria-label="첫 화면으로">' +
       homeFabLabel(u, true) + "</button>";
     window.scrollTo(0, 0);
@@ -678,6 +680,9 @@ function evtDrawForm(u, eventId) {
       .addEventListener("click", function () { renderSummary(); });
     document.getElementById("ev-back")
       .addEventListener("click", function () { evtForm = null; renderEventList(null); });
+    { var sb = document.getElementById("ev-share");
+      if (sb) sb.addEventListener("click", function () {
+        if (typeof shareEvent === "function") shareEvent(); }); }
     return;
   }
 

@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261010f";
+const APP_BUILD = "20261010g";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -3035,7 +3035,8 @@ function renderSummary() {
           ⚠️ event-cta 금색은 style.css:2046-2053 에 이미 있다(새 CSS 안 만든다). 이름은 관리자가 적는
           값이라 boardEsc 로 그린다. 이름 뒤에 진행 문구를 붙이지 않는다 — nowrap+ellipsis 라 이름이
           잘린다. 진행은 fillStampPill 이 알약으로 꽂는다(id=open-event-list 로 찾으므로 자리는 안 탄다). */""}
-    ${eventVisible() ? `<button class="summary-help event-cta" id="open-event-list">🏅 ${boardEsc(eventLabelCached())}${newBadge("stamp")}</button>` : ""}
+    ${eventVisible() ? `<button class="summary-help event-cta" id="open-event-list">🏅 ${boardEsc(eventLabelCached())}${newBadge("stamp")}</button>
+    <button class="summary-share" id="share-event-home">📢 목장에 알리기</button>` : ""}
     <button class="summary-help" id="open-album">📖 나의 말씀 앨범</button>
     <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
     ${/* 사역현황(2026-10-01 친구 요청) — 사역신청과 사역 이력 확인을 한 묶음으로.
@@ -3163,6 +3164,7 @@ function renderSummary() {
       if (typeof renderEventList === "function") renderEventList(null);
       else appAlert("이벤트 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
     }); }
+  { const b = document.getElementById("share-event-home"); if (b) b.addEventListener("click", shareEvent); }
   document.getElementById("open-ranking").addEventListener("click", () => renderRanking());
   // 퀴즈는 quiz/ 아래 따로 있는 화면이다(로그인 없이 열리고 app.js를 쓰지 않는다).
   //   같은 주소 안이라 설치된 앱에서 눌러도 앱 밖으로 나가지 않는다.
@@ -7876,6 +7878,18 @@ function renderCompleteNav(verse, celebrate) {
 // ------------------------------------------------------------
 const SHARE_HOME = "https://gocheok.onlybible.kr/";
 const SHARE_TITLE = "[고척교회]  오직 성경, 말씀이 답이다!";
+
+// 📢 목장에 알리기 — 가을 말씀암송 동행을 목장 단톡방에 바로 보내는 공유(2026-10-10 친구).
+//   shareLink(아래 · Web Share API + 복사 폴백)를 그대로 쓴다. 문구는 미리 써 둔 안내 + 링크.
+// ⚠️ url 에 ?from=autumn 을 붙인다 — 카카오톡은 주소마다 카드(OG)를 캐시해 둬서, 전에 공유된
+//    gocheok.onlybible.kr/ 는 옛 카드가 뜰 수 있다. 쿼리만 달라도 카톡이 새 카드(가을 포스터)를 새로 읽어 온다
+//    (앱은 모르는 ?from 을 무시한다). 이벤트가 끝나면 OG 를 되돌린다(index.html · og-cover.png).
+const EVENT_SHARE_TEXT =
+  "🍂 가을 말씀암송 동행 (10/11~12/5)\n" +
+  "하루 3번·한 주 3일 암송하면 도장이 채워져요. 8주 중 5주 함께하시면 소정의 선물! 신청 안 해도 돼요.\n" +
+  "앱 첫 화면 🏅 단추에서 시작 → 꾸준히 함께해요 🙏\n" +
+  "📱 앱 설치: 플레이스토어·앱스토어 \"고척교회 암송\" 검색";
+function shareEvent() { shareLink(EVENT_SHARE_TEXT, SHARE_HOME + "?from=autumn"); }
 
 // 구절 딥링크 — 받는 사람이 로그인 없이 그 구절 암송 화면으로 바로 들어간다.
 function verseShareUrl(no) {

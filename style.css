@@ -1879,6 +1879,28 @@ body.native-app-hide-ref .word-input { scroll-margin-top: 90px; }
 }
 .summary-help:hover { background: var(--navy); color: #fff; }
 
+/* 📢 목장에 알리기 — 가을 이벤트 공유(2026-10-10). 금색 🏅 바로 아래의 보조 단추라 작고 은은하게. */
+.summary-share {
+  width: 100%; padding: 9px 12px; font-size: .9rem; font-weight: 600; font-family: inherit;
+  color: var(--navy); background: #fff; border: 1.5px dashed var(--gold); border-radius: 12px;
+  cursor: pointer; margin: -2px 0 10px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: background .15s;
+}
+.summary-share:hover { background: #fdf3d8; }
+.dark .summary-share { background: #20242e; color: #cdd9f2; border-color: #5a4e2a; }
+.dark .summary-share:hover { background: #2a2417; }
+/* 도장판 화면 아래 공유 단추 — 그 화면의 핵심 행동이라 금색 CTA 로 또렷하게. */
+.ev-share-btn {
+  display: block; width: 100%; margin: 14px 0 4px; padding: 12px;
+  font-size: 1rem; font-weight: 700; font-family: inherit; cursor: pointer;
+  color: #8a6a1e; background: #fdf3d8; border: 1.5px solid var(--gold); border-radius: 12px;
+  transition: background .15s, color .15s;
+}
+.ev-share-btn:hover { background: var(--gold); color: #fff; }
+.dark .ev-share-btn { background: #2a2417; color: #dcb669; border-color: #5a4e2a; }
+.dark .ev-share-btn:hover { background: #5a4e2a; color: #fff; }
+
 
 /* 고척교회 찬양 아카이브 버튼 — 은은한 금색 톤(주변 버튼과 조화) */
 .summary-help.praise-cta { background: #f7efda; color: #8a6a1e; border-color: #d9b96a; }
