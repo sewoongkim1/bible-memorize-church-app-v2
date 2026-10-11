@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261011a";
+const APP_BUILD = "20261012a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2300,7 +2300,8 @@ function applyStampPill() {
   const srvN = (s.srvWeekDays && s.srvWeekDays[i]) || 0;
   const n = srvN + ((srvToday != null && liveToday >= perDay && srvToday < perDay) ? 1 : 0);
   let dots = "";
-  for (let k = 0; k < s.perWeek; k++) dots += k < n ? "●" : "○";
+  // 채운 날은 신호등 초록 점(친구 2026-10-12) — 빈 날은 그대로 ○
+  for (let k = 0; k < s.perWeek; k++) dots += k < n ? '<i class="ev-dot-on">●</i>' : "○";
   btn.insertAdjacentHTML("beforeend", `<span class="ev-pill">${dots}</span>`);
 }
 
