@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261010g";
+const APP_BUILD = "20261011a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2925,25 +2925,16 @@ function renderSummary() {
   //    **성도님이 매번 고르셔야 한다.** 첫 화면에 누를 것이 24개나 되는 마당에
   //    그 판단까지 떠넘기면 「오늘 뭘 하면 되나요」에 답이 없다.
   //    상태를 보고 하나만 크게 내놓고, 나머지는 그 아래 작게 둔다.
-  // 순서: 복습(잊기 전이 먼저) → 안 외운 게 남았으면 암송 → 다 외웠으면 도전.
+  // ⚠️ 2026-10-11 친구 결정 — **두 단추를 늘 같은 자리에**: 큰 「📖 말씀 암송하기」 + 그 아래 「🔥 말씀 도전」.
+  //    전에는 큰 단추가 상황 따라 복습 → 암송 → 도전으로 바뀌고 나머지가 아래로 자리를 옮겨 다녔는데,
+  //    어르신들이 「단추 자리가 바뀌어 헷갈리고 복잡하다」고 하셨다. 그래서 **🔁 복습 단추는 없앴다**
+  //    (최근 7일 복습하신 분 23명 / 활동 81명 · 9/23 이후 복습 800회 — 알고 뺐다).
+  //    복습 예약(ensureReviewScheduled)은 그대로 쌓인다 — 되살리려면 이 자리에 go-review 를 다시 더하면 된다
+  //    (복습 화면 renderReview·startReview 는 남겨 두었다 · docs/notes/home-screen.md).
   const notDone = counts[0] + counts[1] + counts[2];   // 아직 3단계를 못 마친 구절
-  const TODO = dueCount > 0
-    // ⚠️ 「오늘 복습」이 아니라 「복습」이다 — 3구절은 상한이 아니라 묶음이라 다 하면
-    //    또 나온다. 「오늘」이라 하면 하루에도 여러 번 보게 되어 거짓이 된다.
-    ? { id: "go-review", cls: "review-cta", ic: "🔁",
-        tx: `복습 ${dueCount}구절`, sub: "잊기 전에 다시 한 번" }
-    : notDone > 0
-    ? { id: "go-list", cls: "", ic: "📖",
-        tx: "말씀 암송하기", sub: `아직 ${notDone}구절 남았어요` }
-    : { id: "go-challenge", cls: "challenge-cta", ic: "🔥",
-        tx: "말씀 도전", sub: `외운 ${done}구절로 도전해 보세요` };
-  // 큰 단추로 올라간 것은 아래에서 뺀다 — 같은 것이 두 번 있으면 고르는 짐이 그대로다.
-  const SUB = [];
-  if (TODO.id !== "go-review" && dueCount > 0)
-    SUB.push({ id: "go-review", cls: "review-cta", ic: "🔁", tx: `복습 ${dueCount}구절` });
-  if (TODO.id !== "go-list") SUB.push({ id: "go-list", cls: "", ic: "📖", tx: "암송하기" });
-  if (TODO.id !== "go-challenge")
-    SUB.push({ id: "go-challenge", cls: "challenge-cta", ic: "🔥", tx: "말씀 도전" });
+  const TODO = { id: "go-list", cls: "", ic: "📖", tx: "말씀 암송하기",
+    sub: notDone > 0 ? `아직 ${notDone}구절 남았어요` : `${done}구절 모두 마치셨어요 🎉` };
+  const SUB = [{ id: "go-challenge", cls: "challenge-cta", ic: "🔥", tx: "말씀 도전" }];
 
   const pct = total ? Math.round((done / total) * 100) : 0;
   // 진행 막대 문구 — 「35구절 중 35구절 마침」은 「구절」이 두 번 나와 겹쳐 읽혔고,
@@ -3131,7 +3122,7 @@ function renderSummary() {
   { const b = document.getElementById("weekly-share");   // WEEKLY_SHARE 가 false 면 없다
     if (b && weeklyVerse) b.addEventListener("click", () => shareWeeklyVerse(weeklyVerse)); }
   fillWeeklySummaryBtn(weeklyVerse); // 요약이 있으면 '설교보기' 옆에 요약보기 버튼 추가
-  if (dueCount > 0) document.getElementById("go-review").addEventListener("click", startReview);
+  // 🔁 복습 단추는 2026-10-11 첫 화면에서 뺐다(위 TODO 주석) — 되살리면 여기도 함께.
   document.getElementById("go-challenge").addEventListener("click", startChallenge);
   document.getElementById("open-meditation").addEventListener("click", () => { markFeatSeen("meditation"); scRemoveBadge("open-meditation"); maybeShowWeeklyMeditation(true, true); });
   document.getElementById("open-sermon-chat").addEventListener("click", () => { markFeatSeen("sermon"); renderSermonChat(); });
@@ -6243,7 +6234,6 @@ const FIRST_DONE_HTML = `
   <div class="first-done">
     <div class="fd-title">🎉 첫 말씀을 마음에 새기셨어요!</div>
     <div class="fd-line">📖 <b>말씀 앨범</b>에 담겼어요</div>
-    <div class="fd-line">🔁 잊지 않도록 <b>복습이 예약</b>됐어요</div>
   </div>`;
 
 // 단계를 마쳤을 때 뜨는 메시지 박스.
@@ -8839,7 +8829,7 @@ const MANUAL = [
     lead: "자판이 어려우시면 낱말을 눌러서 채워요.",
     art: '<div class="mn-row"><span class="mn-chip">내</span><span class="mn-chip">말씀은</span><span class="mn-chip">발에</span><span class="mn-chip">주의</span></div>',
     steps: [
-      "<b>암송·도전·복습</b> 어느 화면에서나 위쪽 <b>👆 카드</b>를 누르세요.",
+      "<b>암송·도전</b> 어느 화면에서나 위쪽 <b>👆 카드</b>를 누르세요.",
       "아래에 말씀의 <b>낱말 카드</b>가 섞여서 나와요.",
       "빈칸 <b>순서대로</b> 맞는 카드를 누르면 채워져요.",
       "틀린 카드는 흔들리기만 하고 넘어가지 않아요.",
@@ -8872,17 +8862,15 @@ const MANUAL = [
     tip: "처음에 폰이 <b>마이크를 써도 되냐</b>고 물어봐요. <b>「허용」</b>을 누르세요.",
   },
   {
-    icon: "🔥", title: "말씀 도전 · 복습",
+    icon: "🔥", title: "말씀 도전",
     lead: "외운 말씀을 잊지 않게 다시 꺼내 봐요.",
-    art: '<div class="mn-row"><span class="mn-btn mn-btn-on">🔥 말씀 도전</span><span class="mn-btn">🔁 복습</span></div>',
+    art: '<div class="mn-row"><span class="mn-btn mn-btn-on">🔥 말씀 도전</span></div>',
     steps: [
       "첫 화면 <b>🔥 말씀 도전</b>을 누르면 말씀 하나가 <b>무작위로</b> 나와요. 전부 빈칸이에요.",
       "막히면 <b>💡 힌트</b>를 누르세요. 앞 글자부터 한 글자씩 보여 줍니다.",
       "다른 말씀으로 하고 싶으시면 <b>🔀 다른말씀</b>을 누르세요.",
-      "3단계까지 마친 말씀은 <b>3일 · 1주 · 2주 · 한 달 · 두 달</b> 간격으로 첫 화면에 <b>🔁 복습</b>으로 다시 나와요.",
-      "복습은 한 번에 <b>3구절씩</b> 나와요. 더 하고 싶으시면 마친 뒤 <b>더 하기</b>를 누르세요.",
     ],
-    tip: "암송·도전·복습을 한 횟수가 모두 <b>🏆 도전 순위</b>에 올라가요. 첫 화면 맨 아래 <b>📕 구절</b>을 켜 두면 도전 때 <b>구절(예: 시 119:105)</b>도 함께 써요.",
+    tip: "암송·도전을 한 횟수가 모두 <b>🏆 도전 순위</b>에 올라가요. 첫 화면 맨 아래 <b>📕 구절</b>을 켜 두면 도전 때 <b>구절(예: 시 119:105)</b>도 함께 써요.",
   },
   {
     icon: "👑", title: "마음에 둠 · 나의 말씀 앨범",
@@ -8906,7 +8894,7 @@ const MANUAL = [
       "다른 분 줄의 <b>👏</b>를 누르면 응원이 전해져요. 다시 누르면 취소돼요.",
       "응원은 <b>하루에 한 분당 한 번</b>이에요.",
     ],
-    tip: "<b>오늘 말씀을 한 번이라도 암송</b>(암송·도전·복습)하셔야 응원을 보낼 수 있어요. 받는 분도 오늘 암송하신 분이어야 해요.",
+    tip: "<b>오늘 말씀을 한 번이라도 암송</b>(암송·도전)하셔야 응원을 보낼 수 있어요. 받는 분도 오늘 암송하신 분이어야 해요.",
   },
   {
     icon: "💬", title: "응원·기도·공감 게시판",
@@ -9192,12 +9180,12 @@ function renderHelp(onClose) {
             <li><b>3단계</b> 전체 암송 — 출처만 보고 전체 입력</li>
           </ul>
           <p>맞으면 초록색으로 잠기고 다음 칸으로 이동해요. 틀리면 잠깐 빨갛게 표시된 뒤 다시 입력할 수 있어요. 모든 칸을 맞히면 다음 단계로 넘어가요. 막히면 위쪽 <b>보기</b>로 정답을 볼 수 있어요.</p>
-          <p>자판이 번거로우시면 <b>👆 카드</b>를 누르세요. 낱말 카드를 순서대로 눌러 채워요. <b>암송·도전·복습</b>에서 모두 쓸 수 있어요. 늘 카드로 하시려면 <b>⚙️ 설정 → 암송 입력 방법</b>(첫 화면 맨 아래 <b>⌨️ 쓰기</b> 단추와 같아요)에서 바꿔 두세요.</p>
+          <p>자판이 번거로우시면 <b>👆 카드</b>를 누르세요. 낱말 카드를 순서대로 눌러 채워요. <b>암송·도전</b>에서 모두 쓸 수 있어요. 늘 카드로 하시려면 <b>⚙️ 설정 → 암송 입력 방법</b>(첫 화면 맨 아래 <b>⌨️ 쓰기</b> 단추와 같아요)에서 바꿔 두세요.</p>
         </section>
 
         <section class="help-section">
-          <h3>🔥 말씀 도전 · 🔁 복습</h3>
-          <p><b>말씀 도전</b>은 말씀 하나를 무작위로 골라 전부 빈칸으로 내 줘요. 막히면 <b>💡 힌트</b>가 앞 글자부터 한 글자씩 보여 줘요. 3단계까지 마친 말씀은 <b>3일 · 1주 · 2주 · 한 달 · 두 달</b> 간격으로 첫 화면에 <b>복습</b>으로 다시 나와요. 한 번에 3구절씩 나와요. 더 하고 싶으시면 마친 뒤 <b>더 하기</b>를 누르세요. 암송·도전·복습 횟수는 모두 <b>도전 순위</b>에 더해져요.</p>
+          <h3>🔥 말씀 도전</h3>
+          <p><b>말씀 도전</b>은 말씀 하나를 무작위로 골라 전부 빈칸으로 내 줘요. 막히면 <b>💡 힌트</b>가 앞 글자부터 한 글자씩 보여 줘요. 암송·도전 횟수는 모두 <b>도전 순위</b>에 더해져요.</p>
         </section>
 
         <section class="help-section">
