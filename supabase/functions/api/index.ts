@@ -8737,7 +8737,9 @@ async function verseMeta(b: any) {
   if (r.error) throw r.error;
   const v: any = r.data;
   return { ok: true, exists: !!v, verse: v ? {
-    title: v.sermon_title || "", preacher: v.pastor || "", date: String(v.date || "").slice(0, 10),
+    // ⚠️ 한국 날짜로 — date 는 한국 자정(UTC 전날 15:00)으로 저장되므로 앞 10자를 자르면 하루 앞(토요일)이 된다(2026-10-11).
+    title: v.sermon_title || "", preacher: v.pastor || "",
+    date: v.date && !isNaN(Date.parse(String(v.date))) ? new Date(Date.parse(String(v.date)) + 9 * 3600000).toISOString().slice(0, 10) : "",
     category: v.mem_category || "", refShort: v.ref_short || "", text: v.text || "",
   } : null };
 }
