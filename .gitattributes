@@ -1,0 +1,3 @@
+
+# 훅은 sh 가 읽는다 — 윈도 줄 끝(CRLF)이면 「exit 0」 로 깨진다(2026-10-12)
+.githooks/* text eol=lf
