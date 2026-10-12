@@ -51,6 +51,8 @@ jobs:
           WEEKLY_TEST: ${{ github.event.inputs.weekly_test }}
           REPORT_FROM: ${{ github.event.inputs.report_from }}
           REPORT_TO: ${{ github.event.inputs.report_to }}
+          CA_SITE: https://admin.onlybible.kr/
+          CA_FN: https://xnomlgydifiqiybervtf.supabase.co/functions/v1/church-admin
         run: |
           set -uo pipefail
 
@@ -100,10 +102,12 @@ jobs:
           fi
 
           # 1) monitor 엔드포인트 호출 (백엔드/DB/발송/데이터 종합 점검)
+          #    src "gha" = 이 부름이 GitHub 에서 왔다 — api 가 흔적(app_config monitorRun)을 남기고, Supabase 크론 monitor-watch 가
+          #    그 흔적이 36시간을 넘으면 메일로 알린다(GitHub 이 60일 무커밋으로 이 워크플로를 꺼도 알 수 있게 · docs/notes/monitor-guard.md).
           resp=$(curl -s -m 30 -w $'\n%{http_code}' -X POST "$API_URL" \
             -H "Content-Type: application/json" \
             -H "apikey: $ANON" -H "Authorization: Bearer $ANON" \
-            -d "{\"action\":\"monitor\",\"pw\":\"$ADMIN_SECRET\"}")
+            -d "{\"action\":\"monitor\",\"pw\":\"$ADMIN_SECRET\",\"src\":\"gha\"}")
           code=$(printf '%s' "$resp" | tail -n1)
           json=$(printf '%s' "$resp" | sed '$d')
 
@@ -117,6 +121,30 @@ jobs:
               probs=$(printf '%s' "$json" | jq -r '.problems[]? | "• " + .')
               alert="🔴 장애 감지"$'\n'"$probs"
             fi
+          fi
+
+          # 2-1) 교회 어드민(admin.onlybible.kr · 함수 church-admin) — 공개로 볼 수 있는 것만(키 없음 · 쓰는 요청 없음 · docs/notes/monitor-guard.md)
+          #   · 화면: 200 이어야
+          #   · 함수: 토큰 없이 부르면 함수 자신이 {"ok":false,"error":"unauthenticated"} + 401 을 준다 — 이것이 「살아 있다」.
+          #     부팅 실패·삭제·게이트웨이 오류는 다른 꼴(5xx · 404 · 다른 본문)로 온다.
+          #   한 번 빗나가면 20초 뒤 한 번 더 본다(순간 오류로 헛경보를 내지 않게).
+          ca_check() {
+            local site fresp fcode fjson out=""
+            site=$(curl -s -m 20 -o /dev/null -w '%{http_code}' "$CA_SITE" || true)
+            [ "$site" = "200" ] || out="${out}• 화면 admin.onlybible.kr 응답 ${site:-없음}"$'\n'
+            fresp=$(curl -s -m 20 -w $'\n%{http_code}' -X POST "$CA_FN" -H "Content-Type: application/json" -d '{"action":"me"}' || true)
+            fcode=$(printf '%s' "$fresp" | tail -n1)
+            fjson=$(printf '%s' "$fresp" | sed '$d')
+            if [ "$fcode" != "401" ] || ! printf '%s' "$fjson" | grep -q '"error":"unauthenticated"'; then
+              out="${out}• 함수 church-admin 응답이 이상합니다 (HTTP ${fcode:-없음} · $(printf '%s' "$fjson" | tr -d '\n' | head -c 120))"$'\n'
+            fi
+            printf '%s' "$out"
+          }
+          ca=$(ca_check)
+          if [ -n "$ca" ]; then sleep 20; ca=$(ca_check); fi
+          if [ -n "$ca" ]; then
+            ca_block="🔴 교회 어드민"$'\n'"$ca"
+            if [ -n "$alert" ]; then alert="$alert"$'\n\n'"$ca_block"; else alert="$ca_block"; fi
           fi
 
           # 3) 문제 있으면 텔레그램 발송, 없으면 정상 종료
@@ -133,4 +161,4 @@ jobs:
             exit 1
           fi
 
-          echo "✅ 정상: $json"
+          echo "✅ 정상(교회 어드민 화면·함수 포함): $json"

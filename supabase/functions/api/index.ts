@@ -543,6 +543,7 @@ Deno.serve(async (req) => {
       case "logSongClick":       return json(await logSongClick(body));            // 오늘의 찬양 단추를 누른 횟수
       // ---- 장애 모니터링 ----
       case "monitor":       return json(await monitor(body));
+      case "internalMonitorWatch": return json(await internalMonitorWatch(req, body));   // 감시의 감시(GitHub 60일 멈춤 대비) — pg_cron monitor-watch 전용(x-internal-key)
       // ---- 주간 리포트 메일 ----
       case "weeklyReport":  return json(await weeklyReport(body));
       // ---- 말씀 이벤트 ----
@@ -1418,11 +1419,136 @@ async function eveningPush(b: any) {
            sent: (r as any).sent ?? 0, failed: (r as any).failed ?? 0, total: (r as any).total ?? 0 };
 }
 
+// ---------- 감시의 감시 — GitHub 60일 멈춤 대비(2026-10-12 · docs/notes/monitor-guard.md) ----------
+// GitHub 은 공개 저장소에 60일 동안 커밋이 없으면 예약 워크플로(monitor.yml·security-check.yml)를 저절로 끈다.
+//   그러면 경보를 보내는 쪽이 꺼지므로 텔레그램이 **소리 없이** 멈춘다. 그래서 GitHub 밖(Supabase pg_cron)에서 본다:
+//   ① monitor 가 GitHub 에서 불릴 때(src "gha")마다 흔적 app_config monitorRun {at} 을 남기고
+//   ② 크론 monitor-watch(매일 12:00 KST · supabase/monitor_watch_cron.sql)가 internalMonitorWatch 를 불러 그 흔적이 36시간을 넘었으면
+//      Resend 메일(주간 리포트와 같은 받는 분 REPORT_RECIPIENTS)로 알린다 · 그 자신도 흔적 monitorWatchRun 을 남긴다
+//   ③ 거꾸로 monitor 는 monitorWatchRun 이 36시간을 넘었으면 problems 에 한 줄 — 둘이 서로를 본다(어느 한쪽이 멈추면 다른 쪽이 말한다).
+//   두 흔적 모두 **한 번이라도 생긴 뒤부터만** 본다 — 아직 안 건 곳(개발 · 크론을 걸기 전의 운영)에서 헛경보가 없다.
+// ── 감시의 감시 — 순수 함수 (여기부터) ──
+var MONITOR_STALE_H = 36;
+var MONITOR_REPO = "sewoongkim1/bible-memorize-church-app-v2";
+var MONITOR_WATCHED = [".github/workflows/monitor.yml", ".github/workflows/security-check.yml"];
+// 흔적 {at} → 지난 시간(시간 · 소수) · 흔적이 없거나 at 이 날짜로 안 읽히면 null(「모른다」 — 「멈췄다」가 아니다)
+function monitorAgeH(v, nowMs) {
+  var at = v && typeof v === "object" && typeof v.at === "string" ? Date.parse(v.at) : NaN;
+  if (isNaN(at)) return null;
+  return Math.max(0, (Number(nowMs) - at) / 3600000);
+}
+// monitor 가 보는 지킴이 — 흔적 monitorWatchRun 이 36시간 넘게 멈췄으면 한 줄([] = 조용)
+function monitorWatchProblems(v, nowMs) {
+  var h = monitorAgeH(v, nowMs);
+  if (h === null || h <= MONITOR_STALE_H) return [];
+  return ["GitHub 멈춤 지킴이(Supabase 크론 monitor-watch)가 " + Math.floor(h) + "시간째 돌지 않았습니다 — cron.job 의 monitor-watch 와 Vault 키(edu_remind_service_key)를 확인하세요"];
+}
+// GitHub 워크플로 목록(공개 API 응답) → 우리가 보는 두 줄 [{path, state}] · 못 읽은 것은 빠진다
+function monitorWfStates(j) {
+  var list = j && Array.isArray(j.workflows) ? j.workflows : [];
+  var out = [];
+  for (var i = 0; i < MONITOR_WATCHED.length; i++) {
+    for (var k = 0; k < list.length; k++) {
+      var w = list[k];
+      if (w && w.path === MONITOR_WATCHED[i]) { out.push({ path: MONITOR_WATCHED[i], state: String(w.state || "").slice(0, 40) }); break; }
+    }
+  }
+  return out;
+}
+// 멈춤 메일(받는 분은 담당자 — 성도님께 가는 글이 아니다) → {subject, text, html}
+function monitorStaleMail(ageH, lastAt, states) {
+  var t = Date.parse(lastAt);
+  var kst = isNaN(t) ? "알 수 없음" : new Date(t + 9 * 3600000).toISOString().slice(5, 16).replace("T", " ") + " KST";
+  var h = Math.floor(Number(ageH) || 0);
+  var st = Array.isArray(states) ? states : [];
+  var inact = st.some(function (s) { return s && s.state === "disabled_inactivity"; });
+  var L = [];
+  L.push("성경암송 매일 점검(GitHub Actions 「장애 모니터」)이 마지막으로 돈 때: " + kst + " (" + h + "시간 전)");
+  L.push("36시간이 넘도록 소식이 없어 Supabase 쪽 지킴이가 대신 알립니다. 멈춰 있는 동안에는 텔레그램 경보도 오지 않습니다.");
+  L.push("");
+  if (st.length) {
+    L.push("GitHub 워크플로 상태:");
+    for (var i = 0; i < st.length; i++) L.push("  · " + st[i].path.replace(".github/workflows/", "") + " — " + (st[i].state || "?"));
+    if (inact) L.push("→ disabled_inactivity = GitHub 이 저장소에 60일 동안 커밋이 없어 예약 실행을 껐습니다.");
+  } else {
+    L.push("(GitHub 에서 워크플로 상태를 읽지 못했습니다)");
+  }
+  L.push("");
+  L.push("되살리는 법");
+  L.push("  1) GitHub 저장소 " + MONITOR_REPO + " → Actions → 「장애 모니터」·「보안 점검」 → Enable workflow");
+  L.push("     (또는 gh workflow enable monitor.yml -R " + MONITOR_REPO + " · security-check.yml 도 같이)");
+  L.push("  2) 「장애 모니터」 → Run workflow 로 한 번 돌립니다 — 흔적이 새로 남아 이 메일이 그칩니다.");
+  L.push("  상태가 active 인데도 멈췄다면: Actions 의 실행 기록 · 시크릿 ADMIN_SECRET(틀리거나 비면 점검이 흔적을 못 남깁니다).");
+  L.push("");
+  L.push("이 메일은 멈춰 있는 동안 하루 한 번(낮 12시) 옵니다. 자세한 것은 docs/notes/monitor-guard.md");
+  var text = L.join("\n");
+  var esc = function (s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); };
+  var html = "<pre style=\"font-family:inherit;white-space:pre-wrap;font-size:14px;line-height:1.6\">" + esc(text) + "</pre>";
+  return { subject: "[성경암송 감시] GitHub 매일 점검이 " + h + "시간째 멈췄습니다", text: text, html: html };
+}
+// ── 감시의 감시 — 순수 함수 (여기까지) ──
+
+// 흔적 한 줄을 app_config 에 — 실패해도 던지지 않는다(흔적 때문에 점검이 죽으면 본말이 뒤집힌다).
+//   supabase-js 는 던지지 않는다 — 돌려받은 오류를 본다.
+async function monitorTrace(key: string, value: any) {
+  try {
+    const { error } = await db.from("app_config").upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: "key" });
+    if (error) console.error(key, error.message || error);
+  } catch (e) { console.error(key, e); }
+}
+
+// GitHub 의 워크플로 상태 — 공개 저장소라 키 없이 읽힌다(시간당 60번 한도 · 하루 한 번만 부른다). 못 읽으면 [].
+async function monitorGhStates(): Promise<{ path: string; state: string }[]> {
+  try {
+    const r = await fetch(`https://api.github.com/repos/${MONITOR_REPO}/actions/workflows`, {
+      headers: { Accept: "application/vnd.github+json", "User-Agent": "gocheok-monitor-watch" },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!r.ok) return [];
+    return monitorWfStates(await r.json());
+  } catch (_) { return []; }
+}
+
+// 크론 monitor-watch 가 하루 한 번 부른다(x-internal-key = 이 프로젝트 api 의 SUPABASE_SERVICE_ROLE_KEY · Vault edu_remind_service_key).
+//   응답 {ok, state: ok|stale|unknown, ageH, mailed, workflows} — unknown = 흔적이 아직 없다(알리지 않는다).
+//   dry:true 면 메일을 보내지 않는다(시험용 — mailed "dry"). 흔적 monitorWatchRun 은 dry 여도 남긴다(크론의 길이 열려 있다는 증거).
+async function internalMonitorWatch(req: Request, b: any) {
+  if (!sameSecret(req.headers.get("x-internal-key") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "")) {
+    return { ok: false, error: "unauthorized" };
+  }
+  const nowMs = Date.now();
+  const { data, error } = await db.from("app_config").select("value").eq("key", "monitorRun").maybeSingle();
+  if (error) throw error;
+  const ageH = monitorAgeH(data?.value, nowMs);
+  const state = ageH === null ? "unknown" : ageH > MONITOR_STALE_H ? "stale" : "ok";
+  let mailed: string | null = null;
+  let workflows: { path: string; state: string }[] = [];
+  if (state === "stale") {
+    workflows = await monitorGhStates();
+    const m = monitorStaleMail(ageH, (data as any).value.at, workflows);
+    if (b?.dry === true) mailed = "dry";
+    else {
+      const r: any = await sendEmailResend(m.subject, m.html, m.text);
+      mailed = r.ok ? "sent" : String(r.error || "failed");
+    }
+  }
+  await monitorTrace("monitorWatchRun", {
+    at: new Date(nowMs).toISOString(), state,
+    ...(ageH === null ? {} : { ageH: Math.floor(ageH) }), ...(mailed ? { mailed } : {}),
+  });
+  return { ok: true, state, ageH: ageH === null ? null : Math.floor(ageH), mailed, workflows };
+}
+
 // ---------- monitor: 백엔드/발송/데이터 상태 종합 점검 (ADMIN_SECRET 보호) ----------
 // GitHub Action(매일 7:05)과 관리자 대시보드가 호출. 문제 있으면 problems 배열로 반환.
 async function monitor(b: any) {
   const err = adminError(b); if (err) return { ok: false, error: err };
   const problems: string[] = [];
+
+  // GitHub 60일 멈춤 대비 — GitHub Actions 가 부른 때(src "gha")만 흔적 monitorRun 을 남긴다(위 「감시의 감시」).
+  //   관리자 화면·교회 어드민도 monitor 를 부르므로 그 부름까지 세면 GitHub 이 멈춘 것을 가린다.
+  //   점검보다 먼저 남긴다 — 아래 점검이 던져(500) 끝나도 「GitHub 은 돌았다」는 맞다(그 500 은 GitHub 이 텔레그램으로 알린다).
+  if (b.src === "gha") await monitorTrace("monitorRun", { at: new Date().toISOString() });
 
   // KST 기준 오늘 0시(UTC 환산)
   const now = new Date();
@@ -1539,6 +1665,15 @@ async function monitor(b: any) {
     if (off) dutyRemind = { ...(dutyRemind || {}), off: true };
   } catch (_) { /* 점검 생략 */ }
 
+  // 감시의 감시 — Supabase 지킴이(크론 monitor-watch)가 돌고 있나. 흔적 monitorWatchRun 이 생긴 뒤부터만 36시간을 본다(monitorWatchProblems).
+  let monitorWatch: any = null;
+  try {
+    const { data: mw } = await db.from("app_config").select("value").eq("key", "monitorWatchRun").maybeSingle();
+    for (const p of monitorWatchProblems(mw?.value, now.getTime())) problems.push(p);
+    const v: any = mw?.value;
+    if (v && typeof v.at === "string") monitorWatch = { at: v.at, state: String(v.state ?? ""), ...(v.mailed ? { mailed: String(v.mailed) } : {}) };
+  } catch (_) { /* 점검 생략 */ }
+
   return {
     ok: problems.length === 0,
     serverTimeKST: kstNow.toISOString().replace("T", " ").slice(0, 16) + " KST",
@@ -1551,6 +1686,7 @@ async function monitor(b: any) {
     songPool,
     songToday,
     dutyRemind,
+    monitorWatch,
     problems,
   };
 }

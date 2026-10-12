@@ -144,6 +144,8 @@ PURE_TESTS += ["tests/api-split.test.cjs"]
 # 화면 오류 모으기(2026-10-12 · 문 errorLogOn 닫힌 채) — 앱이 보내는 몸이 일곱 칸뿐이고 개인 값(이름·소속·계정 번호·전화·주소의 ? 뒤·UA 원문·기기 토큰)이 안 실리나 ·
 #   문이 닫히거나 모르면 안 보내나 · 앱과 서버의 거름 규칙이 같은 글자인가 · 표 잠금(docs/notes/client-errors.md)
 PURE_TESTS += ["tests/client-errors.test.cjs"]
+# 감시의 감시(GitHub 60일 멈춤 대비 · 2026-10-12) — 흔적의 나이·멈춤 메일 · monitor·internalMonitorWatch·크론 SQL·monitor.yml 배선(교회 어드민 점검 포함)
+PURE_TESTS += ["tests/monitor-guard.test.cjs"]
 
 print("\n[3] 순수 함수 검사 (node --test)")
 for t in PURE_TESTS:
