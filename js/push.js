@@ -133,18 +133,133 @@ function urlB64ToUint8Array(base64) {
   return arr;
 }
 
+// ── 🔔 알림이 안 켜질 때 길잡이(2026-10-13 친구 — 「알림 권한이 허용되지 않았습니다」 한 줄만 뜨고 끝났다 · 「사용자가 쉽게 설정할 수 있게」) ──
+//   기기·창마다 켜는 곳이 다르다 — 지금 이 화면이 어디서 열렸는지(pushEnv) 보고 그 길만 차근차근 보여 준다.
+//   설정에서 켜고 이 화면으로 돌아오면(화면이 다시 보일 때) 권한을 다시 보고, 허용이면 저절로 알림을 마저 켠다(armPushRetry).
+//   ⚠️ 길 이름은 폰·판마다 조금 다르다 — 그래서 「또는」을 함께 적고, 막히면 다른 길(크롬 · 스토어 앱)을 하나 더 적는다.
+//   앱 이름: 플레이스토어 앱 = 「성경암송」(android-app build.gradle launcherName) · 아이폰 앱 = 「고척교회 성경암송」(Info.plist) · 홈 화면 앱 = 「성경암송」(manifest.json).
+function pushEnv() {
+  const ua = navigator.userAgent || "";
+  if (isNativeApp()) return "ios-app";
+  if (/KAKAOTALK|NAVER|Instagram|FBAN|FBAV|Line\//i.test(ua)) return /KAKAOTALK/i.test(ua) ? "kakao" : "inapp";
+  const standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true;
+  const ios = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  if (ios) return standalone ? "ios-home" : "ios-browser";
+  if (/Android/i.test(ua)) {
+    const play = (typeof openedByPlayApp === "function" && openedByPlayApp())
+      || (typeof isPlayStoreApp === "function" && isPlayStoreApp() && !(typeof isBrowserTab === "function" && isBrowserTab()));
+    if (play || standalone) return "android-app";
+    return /SamsungBrowser/i.test(ua) ? "samsung" : "android";
+  }
+  return "pc";
+}
+const BACK_AUTO = "이 화면으로 돌아오시면 <b>알림이 저절로 켜져요</b>.";
+const PUSH_HELP = {
+  "android-app": { lead: "폰 설정에서 <b>성경암송</b> 앱의 알림을 켜 주세요.",
+    steps: ["바탕화면의 <b>성경암송</b> 앱 아이콘을 <b>꾹</b> 누르세요.", "<b>ⓘ</b>(앱 정보)를 누르세요.", "<b>알림</b>을 눌러 <b>「알림 허용」</b>을 켜세요.", BACK_AUTO],
+    tip: "아이콘에서 안 되면: 폰 <b>설정 → 애플리케이션(앱) → 성경암송 → 알림</b>." },
+  "android": { lead: "크롬에서 이 사이트의 알림을 허용해 주세요.",
+    steps: ["화면 맨 위 주소창 <b>맨 왼쪽 아이콘</b>(🔒 또는 ⚙)을 누르세요.", "<b>권한</b>(또는 <b>사이트 설정</b>)에서 <b>알림</b>을 누르세요.", "<b>허용</b>으로 바꾸세요.", BACK_AUTO],
+    tip: "안 보이면: 크롬 오른쪽 위 <b>⋮ → 설정 → 사이트 설정 → 알림</b>에서 <b>gocheok.onlybible.kr</b> 을 허용. 플레이스토어 <b>성경암송</b> 앱으로 받으시면 더 쉬워요." },
+  "samsung": { lead: "삼성 인터넷에서 이 사이트의 알림을 허용해 주세요.",
+    steps: ["아래 <b>≡</b>(메뉴) → <b>설정</b>을 누르세요.", "<b>사이트 및 다운로드</b>에서 <b>사이트 권한</b>(또는 <b>알림</b>)을 누르세요.", "<b>gocheok.onlybible.kr</b> 을 <b>허용</b>으로 바꾸세요.", BACK_AUTO],
+    tip: "메뉴 이름은 폰·판마다 조금 달라요. 어려우시면 플레이스토어에서 <b>성경암송</b> 앱을 받으시면 알림 켜기가 쉬워요." },
+  "ios-home": { lead: "아이폰 설정에서 <b>성경암송</b>의 알림을 켜 주세요.",
+    steps: ["아이폰 <b>설정</b> 앱을 여세요.", "<b>알림</b>을 누르세요.", "목록에서 <b>성경암송</b>을 찾아 <b>「알림 허용」</b>을 켜세요.", BACK_AUTO],
+    tip: "알림은 아이폰 iOS 16.4 이상에서 받을 수 있어요." },
+  "ios-app": { lead: "이 앱은 켜실 때 알림을 자동으로 설정해 드려요.",
+    steps: ["알림이 안 오면 아이폰 <b>설정</b> 앱을 여세요.", "<b>고척교회 성경암송</b>을 누르세요(또는 <b>설정 → 알림</b>에서 찾기).", "<b>알림 → 「알림 허용」</b>을 켜세요."],
+    tip: "" },
+  "ios-browser": { lead: "아이폰은 <b>사파리 창에서는</b> 알림을 받을 수 없어요. 아래 둘 중 하나로 받으세요.",
+    steps: ["<b>앱스토어</b>에서 <b>고척교회 암송</b>을 받으세요 — 앱을 켜면 알림이 저절로 설정돼요.", "또는 사파리 <b>공유(⬆️) → 홈 화면에 추가</b>로 앱을 만들고, 그 앱에서 🔔 <b>알림</b>을 누르세요(iOS 16.4 이상). <button type=\"button\" class=\"ph-link\" id=\"ph-install\">홈 화면에 추가하는 법 보기</button>"],
+    tip: "" },
+  "kakao": { lead: "카카오톡 안에서 연 화면에서는 알림을 켤 수 없어요.",
+    steps: ["아래 <b>「크롬·사파리로 열기」</b>를 누르세요.", "열린 화면에서 다시 🔔 <b>알림</b>을 누르세요."],
+    tip: "" },
+  "inapp": { lead: "이 앱(네이버·인스타그램 등) 안에서 연 화면에서는 알림을 켤 수 없어요.",
+    steps: ["오른쪽 위(또는 아래) <b>⋮</b> 나 <b>…</b> 를 누르세요.", "<b>다른 브라우저로 열기</b>(크롬·사파리)를 고르세요.", "열린 화면에서 다시 🔔 <b>알림</b>을 누르세요."],
+    tip: "" },
+  "pc": { lead: "이 브라우저에서 사이트 알림을 허용해 주세요.",
+    steps: ["주소창 왼쪽 <b>자물쇠(🔒)</b> 또는 <b>⚙</b> 를 누르세요.", "<b>알림</b>을 <b>허용</b>으로 바꾸세요.", BACK_AUTO],
+    tip: "" },
+};
+// 길잡이 창 — 무엇을 누르면 되는지 번호로. 끝 단추는 그 길에 맞게(다시 켜기 · 앱스토어 · 홈 화면 추가 · 크롬으로 열기)
+async function showPushHelp(env, why) {
+  env = env || pushEnv();
+  const h = PUSH_HELP[env] || PUSH_HELP.pc;
+  const head = why === "vanished"
+    ? "알림이 곧바로 꺼졌어요 — 폰에서 이 앱의 알림이 꺼져 있는 것 같아요.<br>"
+    : why === "denied" ? "지금 이 기기에서 알림이 <b>막혀</b> 있어요.<br>" : "";
+  const msg = `<div class="ph-wrap">${head ? `<p class="ph-why">${head}</p>` : ""}<p class="ph-lead">${h.lead}</p>`
+    + `<ol class="ph-steps">${h.steps.map((x) => `<li>${x}</li>`).join("")}</ol>`
+    + (h.tip ? `<p class="ph-tip">💡 ${h.tip}</p>` : "") + `</div>`;
+  const retry = ["android-app", "android", "samsung", "ios-home", "pc"].indexOf(env) >= 0;
+  if (retry) armPushRetry();
+  if (env === "ios-browser") {
+    // 「홈 화면에 추가하는 법」은 창 안 글 단추로 — 닫기(바깥 누름 포함)와 섞이면 안 된다
+    const pr = appModal({ title: "🔔 알림 켜는 방법", msg, okText: "앱스토어에서 받기", cancelText: "닫기" });
+    const link = document.getElementById("ph-install");
+    if (link) link.addEventListener("click", () => {
+      const m = document.getElementById("app-modal");
+      if (m) m.remove();
+      if (typeof renderInstallGuide === "function") renderInstallGuide();
+    });
+    if (await pr) { try { location.href = (typeof IOS_APP_STORE_URL !== "undefined") ? IOS_APP_STORE_URL : "https://apps.apple.com/app/id6811724527"; } catch (e) {} }
+    return;
+  }
+  if (env === "kakao") {
+    const go = await appModal({ title: "🔔 알림 켜는 방법", msg, okText: "크롬·사파리로 열기", cancelText: "닫기" });
+    if (go) location.href = "kakaotalk://web/openExternal?url=" + encodeURIComponent(location.origin + "/");
+    return;
+  }
+  const again = await appModal({ title: "🔔 알림 켜는 방법", msg, okText: retry ? "다시 켜기" : "확인", cancelText: retry ? "닫기" : null });
+  if (again && retry) {
+    disarmPushRetry();
+    const perm = (window.Notification && Notification.permission) || "default";
+    if (perm === "denied") showPushHelp(env, "denied");   // 아직 막혀 있다 — 같은 길을 다시
+    else enablePush();
+  }
+}
+// 설정 앱에 다녀와 이 화면이 다시 보이면 권한을 다시 본다 — 허용이면 길잡이 창을 닫고 알림을 마저 켠다(한 번만)
+let _pushRetry = null;
+function armPushRetry() {
+  disarmPushRetry();
+  const check = () => {
+    if (document.visibilityState && document.visibilityState !== "visible") return;
+    const perm = (window.Notification && Notification.permission) || "default";
+    if (perm !== "granted") return;
+    disarmPushRetry();
+    const m = document.getElementById("app-modal");
+    if (m) m.remove();
+    enablePush();
+  };
+  _pushRetry = check;
+  document.addEventListener("visibilitychange", check);
+  window.addEventListener("focus", check);
+}
+function disarmPushRetry() {
+  if (!_pushRetry) return;
+  document.removeEventListener("visibilitychange", _pushRetry);
+  window.removeEventListener("focus", _pushRetry);
+  _pushRetry = null;
+}
+window.showPushHelp = showPushHelp;
+
 // 알림 켜기. 성공 시 true.
-async function enablePush() {
+async function enablePush(again) {
   // 네이티브(iOS) 앱은 로그인 직후 AppDelegate가 스스로 알림 권한을 묻고 기기 토큰을
   // 등록한다 — 이 버튼은 애초에 안 보이지만(renderSettings), 혹시 눌렸다면 그 사실을
   // 안내한다. "이 브라우저는 지원 안 함" 문구는 웹뷰 안에서는 맥락 없이 혼란만 준다
   // (2026-09-16, 성도님 제보 — 실제로 이 메시지를 보고 오해가 있었다).
   if (isNativeApp()) {
-    appAlert("이 앱은 켜실 때 알림을 자동으로 설정해 드려요.\n혹시 알림이 안 온다면, 아이폰 설정 → 고척교회 성경암송 → 알림에서 켜져 있는지 확인해 주세요.");
+    showPushHelp("ios-app");
     return false;
   }
-  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-    appAlert("이 브라우저에서는 알림을 지원하지 않습니다.\n(아이폰은 '홈 화면에 추가'한 뒤 사용하세요)");
+  // 아이폰 사파리 창 · 카톡 같은 앱 안 창은 알림을 받을 수 없다 — 기능이 보이는 척해도 갈 길(앱스토어 · 홈 화면 · 다른 브라우저)을 먼저
+  const env = pushEnv();
+  if (env === "ios-browser" || env === "kakao" || env === "inapp") { showPushHelp(env); return false; }
+  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !window.Notification) {
+    showPushHelp();   // 이 창에서는 알림이 안 된다 — 아이폰 사파리 · 카톡 안 등은 갈 길을, 그 밖은 이 브라우저 길을
     return false;
   }
   const u = (typeof loadUser === "function") ? loadUser() : null;
@@ -152,10 +267,25 @@ async function enablePush() {
     appAlert("먼저 로그인(기록 동기화) 후 다시 시도해 주세요.");
     return false;
   }
+  // 이미 막혀 있으면 물어봐도 창이 안 뜬다(브라우저가 곧바로 거절) — 켜는 길을 바로 보여 준다
+  if (Notification.permission === "denied") { showPushHelp(null, "denied"); return false; }
+  // 처음 묻기 전 한 장 — 다음 창에서 「허용」을 눌러야 한다는 것을 먼저 말씀드린다(「차단」을 잘못 누르시면 되돌리기가 어렵다)
+  if (Notification.permission === "default" && again !== true) {
+    const go = await appModal({ title: "🔔 매일 말씀 알림",
+      msg: `매일 오전 <b>${getPushHour()}시</b>에 이번 주 말씀을 보내 드려요.<br>곧 뜨는 창에서 <b>「허용」</b>을 눌러 주세요.`,
+      okText: "알림 켜기", cancelText: "나중에" });
+    if (!go) return false;
+  }
   try {
     const reg = await navigator.serviceWorker.register("sw.js");
     const perm = await Notification.requestPermission();
-    if (perm !== "granted") { appAlert("알림 권한이 허용되지 않았습니다."); return false; }
+    if (perm === "denied") { showPushHelp(null, "denied"); return false; }
+    if (perm !== "granted") {   // 창을 그냥 닫으셨다 — 한 번 더 물을 수 있다
+      const retry = await appModal({ title: "🔔 알림이 아직 꺼져 있어요",
+        msg: "알림을 받으시려면 뜨는 창에서 <b>「허용」</b>을 눌러 주세요.", okText: again === true ? "켜는 방법 보기" : "다시 묻기", cancelText: "나중에" });
+      if (retry) { if (again === true) showPushHelp(); else return enablePush(true); }
+      return false;
+    }
     let sub = await reg.pushManager.getSubscription();
     if (!sub) {
       sub = await reg.pushManager.subscribe({
@@ -175,7 +305,7 @@ async function enablePush() {
     await new Promise((r) => setTimeout(r, 700));
     const stillSub = await reg.pushManager.getSubscription();
     if (!stillSub) {
-      appAlert("알림 구독이 곧바로 사라졌어요.\n안드로이드 설정에서 이 앱(성경암송)의 시스템 알림 권한이 꺼져 있는 것 같아요.\n\n폰 설정 → 앱 → 성경암송 → 알림에서 켜신 뒤 다시 시도해 주세요.");
+      showPushHelp("android-app", "vanished");   // 플레이스토어 앱의 시스템 알림 권한이 꺼져 있다(2026-08-29 사고) — 앱 알림 켜는 길
       if (typeof updateAppStatus === "function") updateAppStatus();
       return false;
     }

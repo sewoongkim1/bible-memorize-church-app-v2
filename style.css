@@ -6265,3 +6265,14 @@ html[data-fs="xl"] .home-b .summary-card > .summary-help.event-cta .ev-pill { ma
 .dark .home-a .ha-tool > button.summary-icon:not(.icon-alarm):hover { background: rgba(255, 255, 255, .05); }
 .dark .home-a .ha-tool-ic,
 .dark .home-a .ha-tool .icon-cap-label { color: #f1eee7; }
+/* 🔔 알림 켜는 방법(2026-10-13 · js/push.js showPushHelp) — 길잡이 창 안 번호 목록. 창 글은 가운데지만 차례는 왼쪽 맞춤이 읽기 쉽다 */
+.am-msg .ph-wrap { text-align: left; white-space: normal; }
+.am-msg .ph-why { margin: 0 0 8px; color: #b3261e; font-weight: 700; }
+.am-msg .ph-lead { margin: 0 0 10px; font-weight: 700; }
+.am-msg .ph-steps { margin: 0 0 8px; padding-left: 1.4em; }
+.am-msg .ph-steps li { margin: 0 0 7px; line-height: 1.55; }
+.am-msg .ph-tip { margin: 8px 0 0; padding: 9px 11px; border-radius: 10px; background: #f4efe6; font-size: .92em; line-height: 1.55; }
+.dark .am-msg .ph-why { color: #f0a3a3; }
+.dark .am-msg .ph-tip { background: #232c3f; }
+.am-msg .ph-link { display: inline-block; margin: 6px 0 0; padding: 6px 10px; border: 1.5px solid var(--navy); border-radius: 9px; background: #fff; color: var(--navy); font: inherit; font-size: .92em; font-weight: 700; cursor: pointer; }
+.dark .am-msg .ph-link { background: #232c3f; color: #cdd9f2; border-color: #3a4a68; }
