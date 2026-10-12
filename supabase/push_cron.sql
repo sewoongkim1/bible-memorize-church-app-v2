@@ -1,30 +1,40 @@
+-- ⚠️⚠️ 옛 방식(2026-10-12 까지) — 운영 · 개발 어디에서도 다시 돌리지 말 것. 기록으로만 남긴다.
+--   이 작업들은 이제 supabase/push_report_cron.sql 이 Vault 의 내부 키로 건다(명령에 관리자 암호가 없다 · 작업 번호 · 기록 그대로).
+--   아래 옛 내용을 되살려 돌리면 같은 이름의 작업 명령이 덮인다 — 진짜 암호를 넣었으면 평문 암호가 cron.job · 실행 기록 · 백업에 되살아나고,
+--   자리표 그대로면 api 가 unauthorized 를 준다(크론 기록은 그래도 succeeded).
+--   그래서 아래 실행 문장은 모두 주석으로 바꿨고, 맨 앞 한 줄이 일부러 멈춘다(어느 실행기로 돌려도 아무것도 걸리지 않는다).
+--   ⚠️ 2026-07-04 에 끝난 옛 작업(daily-memorize-push · 07:00 · 시각 거르기 없음)이다. 되살리면 다섯째 아침 작업이 생겨
+--      모든 구독자에게 07:00 에 한 통이 더 간다. 운영 실행 기록에 남은 주인 없는 jobid 4 · 6 이 이 파일의 흔적이다.
+do $$ begin raise exception '옛 방식 — supabase/push_report_cron.sql 을 쓰세요(아무것도 바꾸지 않았습니다)'; end $$;
+--
+-- ↓ 옛 내용(기록 — 실행 문장은 「-- 」 를 붙여 막았다)
 -- 매일 정해진 시각에 전체 구독자에게 암송 알림 발송 (pg_cron + pg_net)
 -- 준비: 대시보드 > Database > Extensions 에서 pg_cron, pg_net 활성화 후 실행.
 -- 시각: 아래는 매일 07:00 KST(=22:00 UTC). 다른 시각은 cron 식(UTC 기준)만 바꾸세요.
 -- ⚠️ 이 저장소는 공개(public)입니다 — 'pw' 값을 실제 ADMIN_SECRET으로 바꿔서 실행하고,
 --    바꾼 값을 절대 커밋하지 마세요(이 파일은 예시 그대로 유지).
 
-select cron.schedule(
-  'daily-memorize-push',
-  '0 22 * * *',   -- UTC 22:00 = KST 07:00
-  $$
-  select net.http_post(
-    url := 'https://xnomlgydifiqiybervtf.supabase.co/functions/v1/api',
-    headers := jsonb_build_object(
-      'Content-Type','application/json',
-      'apikey','sb_publishable_oLtieT_jw7Gjb8etEsy0jw_thBaDjl-',
-      'Authorization','Bearer sb_publishable_oLtieT_jw7Gjb8etEsy0jw_thBaDjl-'
-    ),
-    body := jsonb_build_object(
-      'action','sendPush',
-      'pw','YOUR_ADMIN_SECRET',
-      'latest', true,                          -- 본문 = 이번 주 최신 말씀(자동)
-      'title','오직 성경, 말씀이 답이다!',       -- 제목 고정
-      'url','https://gocheok.onlybible.kr/'
-    )
-  );
-  $$
-);
+-- select cron.schedule(
+--   'daily-memorize-push',
+--   '0 22 * * *',   -- UTC 22:00 = KST 07:00
+--   $$
+--   select net.http_post(
+--     url := 'https://xnomlgydifiqiybervtf.supabase.co/functions/v1/api',
+--     headers := jsonb_build_object(
+--       'Content-Type','application/json',
+--       'apikey','sb_publishable_oLtieT_jw7Gjb8etEsy0jw_thBaDjl-',
+--       'Authorization','Bearer sb_publishable_oLtieT_jw7Gjb8etEsy0jw_thBaDjl-'
+--     ),
+--     body := jsonb_build_object(
+--       'action','sendPush',
+--       'pw','YOUR_ADMIN_SECRET',
+--       'latest', true,                          -- 본문 = 이번 주 최신 말씀(자동)
+--       'title','오직 성경, 말씀이 답이다!',       -- 제목 고정
+--       'url','https://gocheok.onlybible.kr/'
+--     )
+--   );
+--   $$
+-- );
 
 -- 확인:  select * from cron.job;
 -- 해제:  select cron.unschedule('daily-memorize-push');

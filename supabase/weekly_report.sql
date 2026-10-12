@@ -1,3 +1,13 @@
+-- ⚠️⚠️ 옛 방식(2026-10-12 까지) — 운영 · 개발 어디에서도 다시 돌리지 말 것. 기록으로만 남긴다.
+--   이 작업들은 이제 supabase/push_report_cron.sql 이 Vault 의 내부 키로 건다(명령에 관리자 암호가 없다 · 작업 번호 · 기록 그대로).
+--   아래 옛 내용을 되살려 돌리면 같은 이름의 작업 명령이 덮인다 — 진짜 암호를 넣었으면 평문 암호가 cron.job · 실행 기록 · 백업에 되살아나고,
+--   자리표 그대로면 api 가 unauthorized 를 준다(크론 기록은 그래도 succeeded).
+--   그래서 아래 실행 문장은 모두 주석으로 바꿨고, 맨 앞 한 줄이 일부러 멈춘다(어느 실행기로 돌려도 아무것도 걸리지 않는다).
+--   ⚠️ 되살리면 weekly-report-email(작업 7)의 명령이 덮인다 — api 가 거절해도 크론 기록은 succeeded 라 monitor 가 못 잡는다.
+--      Resend 시크릿 안내(RESEND_API_KEY · REPORT_RECIPIENTS · REPORT_FROM)와 「UTC 요일로 적을 것」은 push_report_cron.sql 머리로 옮겼다.
+do $$ begin raise exception '옛 방식 — supabase/push_report_cron.sql 을 쓰세요(아무것도 바꾸지 않았습니다)'; end $$;
+--
+-- ↓ 옛 내용(기록 — 실행 문장은 「-- 」 를 붙여 막았다)
 -- 주간 리포트 이메일 자동 발송 (pg_cron + pg_net)
 -- 준비: Database > Extensions 에서 pg_cron, pg_net 활성화.
 -- 시크릿(대시보드 > Edge Functions > Secrets, 또는 supabase secrets set):
@@ -12,25 +22,25 @@
 -- ⚠️ 이 저장소는 공개(public)입니다 — 'pw' 값을 실제 ADMIN_SECRET으로 바꿔서 실행하고,
 --    바꾼 값을 절대 커밋하지 마세요(이 파일은 예시 그대로 유지).
 
-select cron.schedule(
-  'weekly-report-email',
-  '0 23 * * 4',   -- 목 23:00 UTC = 금 08:00 KST
-  $$
-  select net.http_post(
-    url := 'https://xnomlgydifiqiybervtf.supabase.co/functions/v1/api',
-    headers := jsonb_build_object(
-      'Content-Type','application/json',
-      'apikey','sb_publishable_oLtieT_jw7Gjb8etEsy0jw_thBaDjl-',
-      'Authorization','Bearer sb_publishable_oLtieT_jw7Gjb8etEsy0jw_thBaDjl-'
-    ),
-    body := jsonb_build_object(
-      'action','weeklyReport',
-      'pw','YOUR_ADMIN_SECRET',
-      'send', true            -- 실제 이메일 발송
-    )
-  );
-  $$
-);
+-- select cron.schedule(
+--   'weekly-report-email',
+--   '0 23 * * 4',   -- 목 23:00 UTC = 금 08:00 KST
+--   $$
+--   select net.http_post(
+--     url := 'https://xnomlgydifiqiybervtf.supabase.co/functions/v1/api',
+--     headers := jsonb_build_object(
+--       'Content-Type','application/json',
+--       'apikey','sb_publishable_oLtieT_jw7Gjb8etEsy0jw_thBaDjl-',
+--       'Authorization','Bearer sb_publishable_oLtieT_jw7Gjb8etEsy0jw_thBaDjl-'
+--     ),
+--     body := jsonb_build_object(
+--       'action','weeklyReport',
+--       'pw','YOUR_ADMIN_SECRET',
+--       'send', true            -- 실제 이메일 발송
+--     )
+--   );
+--   $$
+-- );
 
 -- 확인:  select jobname, schedule, active from cron.job;
 -- 해제:  select cron.unschedule('weekly-report-email');
