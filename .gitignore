@@ -147,6 +147,8 @@ bible-note/.pytest_cache/
 # ⚠️ 아이폰 실기기 캡처 — 첫 화면에 이름·소속이 그대로 찍혀 있다. 스토어에 낸 것은 store/screenshots-ios/ 의 흐림 처리본이다.
 자료/store/screenshots-ios2/
 자료/store/screenshots-ios2-adjusted/
+# 디자인 개편 「전」 사진(screen-sweep 결과 26MB · 2026-10-12) — 이 PC 에만. 다시 찍는 법은 docs/notes/design-refresh.md
+자료/design/2026-10-12-before/
 
 # ─── 자료/booklet — 코드·설정만 올린다(2026-10-08) ───────────────────────────
 # PDF·그림·만든 HTML 은 저장소에 두지 않는다(31MB · 생성기로 다시 만들거나 PC 에 보관).

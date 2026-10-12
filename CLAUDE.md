@@ -58,6 +58,7 @@
 | 봉사 당번(2026-10-06 운영 · 문 닫힘 — 🧪만) — `duty_signups` 에 직접 쓰지 말 것 | `docs/notes/duty-roster.md` |
 | 관리 기능을 교회 어드민으로 옮기기(2026-10-08 결정) | `docs/notes/admin-migration.md` · `docs/backlog.md` 4-5 |
 | 안드로이드 앱(TWA)·위젯·플레이스토어(새 앱 `kr.onlybible.gocheok`) | `docs/notes/android-app.md` |
+| 디자인 개편(2026-10-12 시작 · 시안 A·B·C 의견 수렴 중 — 고르기 전엔 입히지 말 것) · 「전」 사진 `자료/design/` | `docs/notes/design-refresh.md` |
 
 ## 폴더 — 참고·산출물은 `자료/` (2026-10-08)
 화면이 안 쓰는 참고·산출물은 모두 `자료/` 아래다 — `marketing`·`ministry`·`store`·`psalm`·`migrate`·`booklet`(GitHub) + `education`·`newfamily`·`AppForm`·`Picture`·`당회보고`(로컬). **`자료/` 는 사이트로 안 나간다.**
@@ -169,6 +170,7 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
 > 항목마다 한두 줄만 둔다 — 상세·⚠️ 함정·지난 기록은 링크한 문서 끝 「CLAUDE.md 에서 옮김」 절에 있다(2026-10-12). 끝난 항목은 그 문서로 옮기고 여기서 뺀다.
 > ⚠️ **`api`·`supabase/member_merge.sql` 을 운영에 낼 때는 origin/main 을 합친 트리에서만.** 낡은 체크아웃이면 봉사 당번·교육·가을 동행 액션이 조용히 빠진다(확인 스모크는 각 문서에).
 
+- [ ] 🎨 **디자인 개편 — 시안 A·B·C 의견 수렴 중(친구 · 2026-10-12).** 첫 화면·말씀 목록·암송·도전·앨범 다섯 줄. 고르면 4단계(부품 표) → 5단계(색 이름 붙이기 · 겉모습 그대로). 시안과 별개로 고칠 것 둘(목록 긴 구절 🔊 밀림 · 어두운 모드 첫 화면 이름 안 보임)은 친구 결정 대기. 읽을 것 `docs/notes/design-refresh.md`
 - [ ] 🏛️ **관리 기능을 모두 교회 어드민으로 · 앱에서는 관리 기능을 뺀다**(2026-10-08 친구 결정 · 추후). 옮긴 것: 이벤트 명단 · 사역신청 다섯 메뉴(갈아타기만 남음) · 성도 계정. ⚠️ 그때까지 관리자 화면에 새 기능 금지. 읽을 것 `docs/notes/admin-migration.md` · `docs/backlog.md` 4-5
 - [ ] 🔐 **보안 점검 뒤 남은 것(2026-10-08)** — 로그인 횟수 제한 켜기(⏸ 플레이 심사·방침 뒤) · 교회 생활 확인 번호(스위치 off · 켜기 전에 church-admin Plan 4 운영 반영) · `user_id` 액션 51개 · 검토 113건. 읽을 것 `docs/notes/security-check.md` 끝
 - [ ] 🙋 **봉사 당번 — 1·2·3단계 운영(2026-10-07) · 문 닫힘(🧪만).** 다음: 역할 주기·시험 한 바퀴 → 4단계 공개(플레이 심사 뒤 · 그 앞에 시험 당번 줄을 「빼기」). ⏰ 공휴일 표는 2028-12 까지 — 2027-06 말 대조 · 2029년 줄은 2027년 안에(표는 두 저장소에 같은 것). 읽을 것 `docs/notes/duty-roster.md` 끝
