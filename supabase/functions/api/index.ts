@@ -1280,26 +1280,22 @@ function pickMessage(userBodies, uid, title, body) {
 //    돌린다(꾸러미 없이 — tools/preflight.py 가 배포 앞 그물에 건다).
 //    주석에도 표기를 예로 적지 않는다 — 가드 정규식이 주석까지 본다.
 //
-// ⚠️ 문구 규칙 둘. 둘 다 이유가 있다.
-//   ① **「만」을 쓰지 않는다.** 첫 화면이 일부러 피한 표현이다 — 3구절은 상한이 아니라 묶음이고,
-//      다 하면 앱이 곧장 「3구절 더 하기」를 내민다. 「3구절만」은 그 결정을 되돌린다.
+// ⚠️ 문구 규칙 셋. 모두 이유가 있다.
+//   ① **「만」을 쓰지 않는다.** 첫 화면이 일부러 피한 표현이다.
 //   ② **부정 전제를 쓰지 않는다**(「오늘 아직 못 하셨죠」 따위). 저녁 8시에 보내는데
 //      22시에 늘 하시는 분이 적지 않다 — 그분들께는 사실이 아닌 말이 된다.
-function eveningMessage(dueCount, verseLine) {
-  var n = Number(dueCount);
-  if (!(n >= 1)) {
-    // 밀린 복습이 없는 분 — 이번 주 말씀을 한 줄 드린다.
-    return {
-      title: "📖 오늘의 말씀",
-      body: verseLine || "오늘도 말씀 한 구절 마음에 새겨 보세요 🙌",
-    };
+//   ③ **「복습」으로 부르지 않는다(2026-10-12).** 2026-10-11 첫 화면에서 🔁 복습 단추를 뺐다
+//      (첫 화면은 「📖 말씀 암송하기」·「🔥 말씀 도전」 두 단추 고정 · docs/notes/home-screen.md 끝).
+//      알림을 눌러 들어가도 복습할 길이 없으니, 밀린 복습이 있는 분도 **이번 주 말씀 암송**으로 부른다.
+//      복습 단추를 되살리는 날 이 갈래도 함께 되살릴 것(git 기록 — 「🔁 복습이 기다려요」).
+function eveningMessage(verseLine) {
+  if (!verseLine) {
+    // 이번 주 말씀을 못 읽은 날 — 구절 없이도 참인 말
+    return { title: "📖 오늘의 말씀", body: "오늘도 말씀 한 구절 마음에 새겨 보세요 🙌" };
   }
-  // 한 번에 하는 묶음이 3구절이라, 그보다 많이 밀렸어도 3으로 말한다 —
-  // 적체 숫자(평균 13.7)를 보이면 벽처럼 느껴진다.
-  var k = n < 3 ? n : 3;
   return {
-    title: "🔁 복습이 기다려요",
-    body: "외운 말씀 " + k + "구절 다시 만나 보실래요?",
+    title: "📖 이번 주 암송 말씀",
+    body: verseLine + "\n\n이 말씀을 암송하며 하루를 마무리해 보실래요? 🙌",
   };
 }
 // ── 저녁 알림 문구 — 순수 함수 (여기까지) ──
@@ -1443,56 +1439,32 @@ async function eveningPush(b: any) {
   for (const r of ((acted ?? []) as any[])) people.delete(String(r.user_id));
   const only = Array.from(people);
 
-  // 3) 밀린 복습 — **대상만**, **주간 구절만**.
-  //    ⚠️ verses 조인을 PostgREST 로 못 하므로, 살아 있는 주간 구절 번호를 먼저 읽어 JS 로 거른다.
-  //    ⚠️ 1000행 벽 — 주간 35구절 × 구독자 35명 = 최대 1,225행이라 이론상 넘는다.
-  //       넘으면 뒤쪽 성도님이 조용히 「복습 0」 갈래로 떨어져 틀린 문구를 받는다. fetchAllRows 를 쓴다.
-  const dueBy: Record<string, number> = {};
-  if (only.length) {
-    const { data: vs } = await db.from("verses").select("no")
-      .eq("is_active", true).eq("track", "weekly");
-    const weekly = new Set(((vs ?? []) as any[]).map((v) => Number(v.no)));
-    const rows = await fetchAllRows(() => db.from("reviews")
-      .select("user_id,verse_no").in("user_id", only).lte("due_at", today));
-    for (const r of rows) {
-      if (!weekly.has(Number(r.verse_no))) continue;
-      const u = String(r.user_id);
-      dueBy[u] = (dueBy[u] || 0) + 1;
-    }
-  }
-
-  // 4) 사람마다 문구
+  // 3) 문구 — 모두 같은 「이번 주 암송 말씀」이다(2026-10-12 · 복습 갈래를 걷었다 — 위 eveningMessage ③).
+  //    그래서 밀린 복습(reviews)을 더는 세지 않는다. 사람마다 다른 문구(userBodies)도 쓰지 않는다.
   const v = await latestVerse();
   const verseLine = v ? (v.ref ? `${v.text} (${v.ref})` : v.text) : "";
-  const userBodies: Record<string, { title: string; body: string }> = {};
-  let review = 0, verse = 0;
-  for (const u of only) {
-    const n = dueBy[u] || 0;
-    userBodies[u] = eveningMessage(n, verseLine);
-    if (n >= 1) review++; else verse++;
-  }
+  const msg = eveningMessage(verseLine);
 
-  // 4-b) dryRun — **아무에게도 안 보내고** 누구에게 무슨 갈래가 갈지만 돌려준다.
+  // 4-b) dryRun — **아무에게도 안 보내고** 몇 분께 무슨 문구가 갈지만 돌려준다.
   //   ⚠️ 이것이 없으면 이 액션의 **첫 실행이 곧 성도님 수십 분께 실제 발송**이다.
   //      한 번도 안 돌려 본 코드로 그러면 안 된다. 크론을 걸기 전에(3판) 반드시 한 번
-  //      dryRun 으로 대상 수와 갈래를 눈으로 보고, 그 숫자가 SQL 로 센 것과 맞는지 견준다.
+  //      dryRun 으로 대상 수와 문구를 눈으로 보고, 그 숫자가 SQL 로 센 것과 맞는지 견준다.
   //   ⚠️ 그래도 user_id 는 안 돌려준다 — 수와 본보기 문구만. 발송도 로그도 남기지 않는다.
   if (b.dryRun) {
-    return { ok: true, dryRun: true, targets: only.length, review, verse,
-             sampleReview: eveningMessage(1, verseLine), sampleVerse: eveningMessage(0, verseLine) };
+    return { ok: true, dryRun: true, targets: only.length, sample: msg };
   }
 
   // 5) 보낸다 — 발송은 sendPush 가 한다(웹푸시·APNs 두 루프).
   //    ⚠️ latest 를 안 넘긴다. mode 로 push_log 에서 아침 행과 갈라진다.
   //    url 의 pe=1 은 저녁 클릭을 아침과 가르는 표식이다(app.js readPushMark).
   const r = await sendPush({
-    pw: b.pw, only, userBodies,
-    title: "📖 오늘의 말씀", body: verseLine || "오늘도 말씀 한 구절 마음에 새겨 보세요 🙌",
+    pw: b.pw, only,
+    title: msg.title, body: msg.body,
     mode: "evening", url: "https://gocheok.onlybible.kr/?from=push&pe=1",
   });
 
   // ⚠️ 응답에 user_id 를 싣지 않는다 — 수를 센 것만.
-  return { ok: true, targets: only.length, review, verse,
+  return { ok: true, targets: only.length,
            sent: (r as any).sent ?? 0, failed: (r as any).failed ?? 0, total: (r as any).total ?? 0 };
 }
 
