@@ -52,22 +52,7 @@ N=$(sq "select count(*) from users")
 if [ -z "$N" ] || [ "$N" -ge 200 ]; then echo "users=$N — 개발이 아닌 것 같다. 중단."; exit 2; fi
 echo "dev users=$N"
 
-# 서비스 키(찍지 않는다) — internalMonitorWatch 가 ok:true 를 주면 맞는 키
-probe() { icall "$1" '{"action":"internalMonitorWatch","dry":true}' | grep -c '"ok":true'; }
-SK=""
-if [ -f "$HOME/.church-admin/dev.env" ]; then SK=$(set -a; . "$HOME/.church-admin/dev.env" >/dev/null 2>&1; printf '%s' "${DEV_SERVICE_KEY:-}"); fi
-if [ -z "$SK" ] || [ "$(probe "$SK")" != "1" ]; then
-  SK=$(supabase projects api-keys --project-ref "$REF" --reveal -o json 2>/dev/null | PYTHONIOENCODING=utf-8 python -c '
-import json, sys
-d = json.load(sys.stdin)
-print(next((k.get("api_key") or "" for k in d if k.get("type") == "secret"), ""))')
-fi
-if [ -z "$SK" ] || [ "$(probe "$SK")" != "1" ]; then echo "서비스 키를 못 찾았거나 api 에 internalMonitorWatch 가 없다 — 중단(키는 찍지 않는다)"; exit 2; fi
-PW=$(set -a; . "$ROOT/.env.dev" >/dev/null 2>&1; printf '%s' "${ADMIN_SECRET:-}")
-[ -z "$PW" ] && PW=$(set -a; . "$ROOT/../../bible-memorize-church-app-v2/.env.dev" >/dev/null 2>&1; printf '%s' "${ADMIN_SECRET:-}")
-[ -n "$PW" ] || { echo ".env.dev 의 ADMIN_SECRET 이 없다 — 중단"; exit 2; }
-
-# 시작 전 값(없으면 빈 글) — 끝나면 되돌린다
+# 시작 전 값(없으면 빈 글) — 끝나면 되돌린다. 키 확인(probe)도 흔적을 남기므로 그보다 먼저 읽는다
 R0=$(sq "select coalesce((select value::text from app_config where key='monitorRun'),'')")
 W0=$(sq "select coalesce((select value::text from app_config where key='monitorWatchRun'),'')")
 restore() {
@@ -79,6 +64,24 @@ restore() {
   echo "  (흔적 둘을 시작 전 값으로 되돌렸다)"
 }
 trap restore EXIT
+
+# 서비스 키(찍지 않는다) — internalMonitorWatch 가 ok:true 를 주면 맞는 키
+probe() { icall "$1" '{"action":"internalMonitorWatch","dry":true}' | grep -c '"ok":true'; }
+SK=""
+if [ -f "$HOME/.church-admin/dev.env" ]; then SK=$(set -a; . "$HOME/.church-admin/dev.env" >/dev/null 2>&1; printf '%s' "${DEV_SERVICE_KEY:-}"); fi
+if [ -z "$SK" ] || [ "$(probe "$SK")" != "1" ]; then
+  SK=$(supabase projects api-keys --project-ref "$REF" --reveal -o json 2>/dev/null | PYTHONIOENCODING=utf-8 python -c '
+import json, sys
+d = json.load(sys.stdin)
+print(next((k.get("api_key") or "" for k in d if k.get("type") == "secret"), ""))')
+fi
+if [ -z "$SK" ] || [ "$(probe "$SK")" != "1" ]; then echo "서비스 키를 못 찾았거나 api 에 internalMonitorWatch 가 없다 — 중단(키는 찍지 않는다)"; exit 2; fi
+# ⚠️ 셸에 이미 ADMIN_SECRET 이 있을 수 있다 — 파일에서만 읽는다(unset 뒤 source · 없는 파일은 건너뛴다)
+envpw() { [ -f "$1" ] || return 0; (unset ADMIN_SECRET; set -a; . "$1" >/dev/null 2>&1; printf '%s' "${ADMIN_SECRET:-}"); }
+PW=$(envpw "$ROOT/.env.dev")
+[ -z "$PW" ] && PW=$(envpw "$ROOT/../../bible-memorize-church-app-v2/.env.dev")   # worktree(C:/Projects/v2-wt/…)면 공유 체크아웃의 것
+[ -n "$PW" ] || { echo ".env.dev 의 ADMIN_SECRET 이 없다 — 중단"; exit 2; }
+
 setrun() { sx "insert into app_config(key,value,updated_at) values ('$1', jsonb_build_object('at', to_char((now() - interval '$2 hours') at time zone 'utc','YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')), now()) on conflict (key) do update set value=excluded.value, updated_at=now()"; }
 
 echo "1) 문"
@@ -103,15 +106,15 @@ chk "GitHub 워크플로 상태를 읽었다(monitor.yml)" "$(jqn 'any(w["path"]
 echo "     (지금 GitHub 상태: $(jqn '", ".join(w["path"].split("/")[-1]+"="+w["state"] for w in d.get("workflows",[]))' "$r"))"
 chk "지킴이 흔적 state" "$(sq "select value->>'state' from app_config where key='monitorWatchRun'")" "stale"
 chk "지킴이 흔적 mailed" "$(sq "select value->>'mailed' from app_config where key='monitorWatchRun'")" "dry"
-chk "지킴이 흔적이 방금(2분 안)" "$(sq "select (now() - (value->>'at')::timestamptz) < interval '2 minutes' from app_config where key='monitorWatchRun'")" "true"
+chk "지킴이 흔적이 방금(2분 안)" "$(sq "select (now() - (value->>'at')::timestamptz) < interval '2 minutes' from app_config where key='monitorWatchRun'")" "True"
 
 echo "3) monitor 의 흔적"
 setrun monitorRun 50
 pcall "{\"action\":\"monitor\",\"pw\":\"$PW\"}" >/dev/null
-chk "src 없이(관리자 화면) → 그대로 50시간 전" "$(sq "select (now() - (value->>'at')::timestamptz) > interval '49 hours' from app_config where key='monitorRun'")" "true"
+chk "src 없이(관리자 화면) → 그대로 50시간 전" "$(sq "select (now() - (value->>'at')::timestamptz) > interval '49 hours' from app_config where key='monitorRun'")" "True"
 r=$(pcall "{\"action\":\"monitor\",\"pw\":\"$PW\",\"src\":\"gha\"}")
 chk "src gha → monitor 응답 db" "$(jqn 'd.get("db")' "$r")" "up"
-chk "src gha → 흔적이 방금(2분 안)" "$(sq "select (now() - (value->>'at')::timestamptz) < interval '2 minutes' from app_config where key='monitorRun'")" "true"
+chk "src gha → 흔적이 방금(2분 안)" "$(sq "select (now() - (value->>'at')::timestamptz) < interval '2 minutes' from app_config where key='monitorRun'")" "True"
 chk "틀린 암호 + src gha → unauthorized" "$(jqn 'd.get("error")' "$(pcall '{"action":"monitor","pw":"wrong","src":"gha"}')")" "unauthorized"
 
 echo "4) monitor 가 지킴이를 본다"
