@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261012t";
+const APP_BUILD = "20261012u";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -3344,8 +3344,9 @@ function renderSummary() {
     ${ministryVisible() || eduVisible() || dutyVisible() ? `<div class="grp-title">교회 생활</div>` : ""}
     ${ministryVisible() ? `<button class="summary-help" id="open-ministry">🤝 ${ministryYear()}년 사역 신청${newBadge("ministry")}</button>
     <button class="summary-help" id="open-ministry-history">🗂️ 사역 이력 확인</button>` : ""}
-    ${/* newBadge("edu") — FEAT_SINCE.edu 는 개시일에 적는다(없으면 NEW 가 안 뜬다) */""}
-    ${eduVisible() ? `<button class="summary-help" id="open-edu">🎓 교육 신청${newBadge("edu")}</button>` : ""}
+    ${/* newBadge("edu") — FEAT_SINCE.edu 는 개시일에 적는다(없으면 NEW 가 안 뜬다)
+          2026-10-12 친구 — 이름 「교육 신청」 → 「교육·강좌 신청」(이 이름은 이 단추 한 곳뿐 · 교육 화면 제목은 「🎓 교육」) */""}
+    ${eduVisible() ? `<button class="summary-help" id="open-edu">🎓 교육·강좌 신청${newBadge("edu")}</button>` : ""}
     ${/* 🙋 봉사 당번(2026-10-06) — 문은 dutyVisible(dutyOpen 또는 시험 참여자). FEAT_SINCE.duty 는 개시일에 적는다(없으면 NEW 가 안 뜬다) */""}
     ${dutyVisible() ? `<button class="summary-help" id="open-duty">🙋 봉사 당번 신청${newBadge("duty")}</button>` : ""}
     <div class="grp-title">함께</div>
