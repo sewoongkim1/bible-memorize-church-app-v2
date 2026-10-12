@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261012j";
+const APP_BUILD = "20261012k";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1980,6 +1980,15 @@ const VL_FILTERS = [
   { k: "none", label: "안 함" },        // 1단계도 아직
 ];
 function vlKind(stage, hearted) { return hearted ? "heart" : stage >= 3 ? "done" : stage > 0 ? "doing" : "none"; }
+// 담당자 힌트 꼴로 본문에서 힌트를 만든다 — 첫 낱말은 그대로, 다음 두 낱말은 글자 수만큼 O(「주의 OOO O」).
+//   운영 힌트 39개 가운데 33개가 이 규칙과 글자 하나까지 같았다(나머지는 쉼표를 한 글자로 센 것 · ㅇ 을 쓴 것 등).
+//   담당자가 힌트를 비워 둔 구절 · 영어 모드(힌트는 한국어)에 쓴다.
+function vlAutoHint(text) {
+  const words = String(text || "").trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return "";
+  const mask = (w) => "O".repeat(Array.from(w.replace(/[.,!?·:;"'()…“”‘’]/g, "")).length || 1);
+  return [words[0]].concat(words.slice(1, 3).map(mask)).join(" ");
+}
 const VL_EMPTY = {
   doing: "지금 진행 중인 말씀이 없어요.",
   done: "아직 마친 말씀이 없어요.<br>한 말씀씩 천천히 외워 보세요.",
@@ -5498,9 +5507,11 @@ function renderVerseList() {
     const ref = verseRefFull(v);
     // 마음에 둔 구절은 본문 대신 첫 낱말 힌트(담당자가 넣은 「주의 OOO O」) — 어느 칸에서나(2026-10-12 친구).
     //   다 외운 말씀이니 목록에서 떠올려 보게 한다. 힌트가 비었거나 영어 모드면(힌트는 한국어다)
-    //   앨범 「첫 글자만」과 같은 firstCharHint 로 본문에서 만든다.
+    //   담당자 꼴 그대로 본문에서 만든다(vlAutoHint).
+    //   ⚠️ 처음엔 앨범 「첫 글자만」(firstCharHint)으로 만들었더니 본문 전체가 「지○○ 그 행○ 일○ …」로 길게 나와
+    //      다른 구절과 꼴이 달랐다(친구 제보 — 힌트가 빈 39·41번).
     const text = verseText(v) || "";
-    const body = isHeart ? (isEnMode(v) || !v.hintText ? firstCharHint(text) : v.hintText) : text;
+    const body = isHeart ? ((!isEnMode(v) && String(v.hintText || "").trim()) || vlAutoHint(text)) : text;
 
     const card = document.createElement("div");
     card.className = `verse-card vl-card ${status.cls}${isWeekly ? " weekly-verse" : ""}${isHeart ? " hearted-verse" : ""}`;
