@@ -10,14 +10,17 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
+// 2026-10-12: 사역신청·사역 이력 확인 화면은 js/ministry.js 로 떼어 냈다(필요할 때 받는다 · docs/notes/lazy-load.md) —
+//   순수 묶음·minEsc 는 그 파일(minSource)에서, 첫 화면의 문(ministryVisible 등)·clearPersonalData·FEAT_SINCE 는 app.js(source)에서 자른다.
 const source = fs.readFileSync(path.join(path.resolve(__dirname, '..'), 'app.js'), 'utf8');
+const minSource = fs.readFileSync(path.join(path.resolve(__dirname, '..'), 'js', 'ministry.js'), 'utf8');
 const START = '// ── 사역 이력 확인 · 순수 ──', END = '// ── 사역 이력 확인 · 순수 끝 ──';
-const start = source.indexOf(START), end = source.indexOf(END);
-assert.ok(start >= 0 && end > start, 'app.js 에서 사역 이력 확인 순수 묶음 표식을 못 찾았다 — 이 검사가 낡았다');
-const esc = /function minEsc\(t\) \{[\s\S]*?\n\}/.exec(source);
-assert.ok(esc, 'app.js 에서 minEsc 를 못 찾았다 — 이 검사가 낡았다');
+const start = minSource.indexOf(START), end = minSource.indexOf(END);
+assert.ok(start >= 0 && end > start, 'js/ministry.js 에서 사역 이력 확인 순수 묶음 표식을 못 찾았다 — 이 검사가 낡았다');
+const esc = /function minEsc\(t\) \{[\s\S]*?\n\}/.exec(minSource);
+assert.ok(esc, 'js/ministry.js 에서 minEsc 를 못 찾았다 — 이 검사가 낡았다');
 const ctx = vm.createContext({});
-vm.runInContext(esc[0] + '\n' + source.slice(start, end), ctx);
+vm.runInContext(esc[0] + '\n' + minSource.slice(start, end), ctx);
 const fn = (n) => { assert.equal(typeof ctx[n], 'function', n + ' 을 못 떼어 냈다'); return ctx[n]; };
 
 // 줄 칸은 api mhRowOut 과 같다(직분 position 은 2026-10-02 부터 오지 않는다 — 교회 어드민이 안 보낸다)
@@ -152,7 +155,7 @@ test('정정 창 「빠진 사역」 — 연도·부서·팀 세 칸(부서 · �
   assert.ok(html.indexOf('id="mh-year"') < html.indexOf('id="mh-committee"') && html.indexOf('id="mh-committee"') < html.indexOf('id="mh-team"'), '칸 차례가 연도 · 부서 · 팀이 아니다');
   assert.ok(!html.includes('부서 · 팀'), '옛 한 칸 이름표가 남았다');
   // 창(mhAsk)은 이 칸들을 쓰고, 빠진 사역일 때 두 칸을 함께 보낸다
-  const ask = pickFn('mhAsk');
+  const ask = pickFn('mhAsk', minSource, 'js/ministry.js');
   assert.ok(ask.includes('mhMissingFieldsHtml()'), '정정 창이 mhMissingFieldsHtml 을 쓰지 않는다');
   assert.ok(/committee_text\s*=\s*box\.querySelector\("#mh-committee"\)\.value/.test(ask), '정정 창이 부서 칸을 committee_text 로 보내지 않는다');
   assert.ok(ask.includes('box.querySelector("#mh-team").value'), '정정 창이 팀 칸을 보내지 않는다');
@@ -165,7 +168,7 @@ test('mhOpenCount·mhErrText — 끝나지 않은 것만 센다 · 모르는 오
 });
 
 test('직분은 정정하지 않는다 — 순수 묶음에 wrong_position·「직분이 틀려요」가 없다(교적 기준 · 2026-10-01)', () => {
-  const block = source.slice(start, end);
+  const block = minSource.slice(start, end);
   assert.ok(!block.includes('wrong_position'), 'wrong_position 이 남았다');
   assert.ok(!block.includes('직분이 틀려요'), '「직분이 틀려요」가 남았다');
 });
@@ -182,15 +185,15 @@ test('줄에 직분을 보이지 않는다 · 고르기에 「팀·부서가 틀
 // ── 「교회 생활」 문 — 플레이스토어 앱도 웹·아이폰과 같다(2026-10-12 스위치 걷음) ──
 // 2026-10-02~10-09 에는 플레이 앱에서 숨겼다(MINISTRY_HIDE_ON_PLAY · ministryHiddenOnPlay) — 10-09 끄고 10-12 걷었다.
 // 문(ministryVisible)과 그것이 부르는 것들을 떼어 가짜 localStorage·sessionStorage·location·loadUser·window.matchMedia 위에서 돌린다.
-function pickFn(name) {
-  const at = source.indexOf('function ' + name + '(');
-  assert.ok(at >= 0, 'app.js 에서 ' + name + ' 을 못 찾았다 — 이 검사가 낡았다');
-  let i = source.indexOf('{', at), depth = 0;
-  for (; i < source.length; i++) {
-    if (source[i] === '{') depth++;
-    else if (source[i] === '}' && --depth === 0) break;
+function pickFn(name, src = source, file = 'app.js') {   // 화면 함수(mhAsk 등)는 js/ministry.js 에서
+  const at = src.indexOf('function ' + name + '(');
+  assert.ok(at >= 0, file + ' 에서 ' + name + ' 을 못 찾았다 — 이 검사가 낡았다');
+  let i = src.indexOf('{', at), depth = 0;
+  for (; i < src.length; i++) {
+    if (src[i] === '{') depth++;
+    else if (src[i] === '}' && --depth === 0) break;
   }
-  return source.slice(at, i + 1);
+  return src.slice(at, i + 1);
 }
 function pickConst(re, what) {
   const m = re.exec(source);

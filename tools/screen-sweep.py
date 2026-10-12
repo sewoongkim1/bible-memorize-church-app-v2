@@ -170,6 +170,9 @@ _DUTY_CAL_DAYS = _DUTY_DAYS + [
 
 # 첫 화면에 뜨는 알림 창(오늘의 묵상·공지 — id daily-message)은 이 단계들만 따로 돌리면 사진을 가린다(전부 돌릴 때는 앞 단계가 닫는다) — 그 창만 지운다
 #   js/duty.js 는 2026-10-12 부터 첫 실행에 안 실린다(필요할 때 받는다 — docs/notes/lazy-load.md) — 화면을 직접 그리기 전에 먼저 받는다(옛 판 --site 에는 loadLazyJs 가 없어 건너뛴다).
+# 🤝 사역신청·🗂️ 사역 이력 확인도 2026-10-12 부터 필요할 때 받는다(js/ministry.js) — 화면을 직접 그리거나(40~43) 단추가 없어 renderMinistry 를 부르기(30) 전에 먼저 받는다.
+#   옛 판 --site(LAZY_JS 에 ministry 가 없다 · app.js 에 화면이 있다)에서는 건너뛴다.
+_MIN_LOAD = "if (typeof LAZY_JS === 'object' && LAZY_JS.ministry) await loadLazyJs('ministry'); "
 _DUTY_CLEAR = ("if (typeof loadLazyJs === 'function') await loadLazyJs('duty'); "
                "var _dm=document.getElementById('daily-message'); if(_dm) _dm.remove(); ")
 # 달력에서 날짜를 고른 뒤 그날 카드의 첫 단추가 🏠 단추 위로 보이는가 — 「달력을 맨 위로」만 하던 때 높이 640~740 화면에서 단추가 🏠 단추 밑에 깔렸다(2026-10-07).
@@ -221,7 +224,7 @@ STEPS = [
     ("27-psalm-blank3", ["NOHOME", "renderPsalmBlank(psalmToday(),3)"]),
     ("28-psalm-done", ["NOHOME", "renderPsalmDone(psalmToday(),false)"]),
     ("29-events", ["var b=document.querySelector('#open-event-list'); if(b) b.click(); else renderEventList(null);"]),
-    ("30-ministry", ["var b=document.querySelector('#open-ministry'); if(b) b.click(); else renderMinistry();"]),
+    ("30-ministry", [_MIN_LOAD + "var b=document.querySelector('#open-ministry'); if(b) b.click(); else renderMinistry();"]),
     ("31-passages", [clk("#open-passages")]),
     ("32-entry", ["renderEntryScreen()"]),
     ("33-intro", ["renderIntro(function(){})"]),
@@ -244,21 +247,21 @@ STEPS = [
     # 사역 이력 확인(2026-10-01) — 문(시험 참여자·기간)이 닫힌 개발 계정이라 단추 대신 화면을 직접 그린다.
     #   기록 있음 · 찾지 못함 · 정정 창. 자료는 지어낸 것(서버를 부르지 않는다 — mhLoaded=true 로 막는다).
     #   모양은 api mhRowOut·mhReqOut 과 같다 — 줄에 직분(position) 없음 · 빠진 사역은 두 칸(committee_text 부서 + team_text 팀 · 2026-10-02)
-    ("40-ministry-history", ["mhLoaded=true; mhData={ok:true,who:{type:'교구',gu:'믿음',mok:'99',name:'화면점검'},found:true,"
+    ("40-ministry-history", [_MIN_LOAD + "mhLoaded=true; mhData={ok:true,who:{type:'교구',gu:'믿음',mok:'99',name:'화면점검'},found:true,"
                              "rows:[{id:1,year:2026,committee:'교육위원회',team:'유년부',role_title:'교사'},"
                              "{id:2,year:2026,committee:'찬양위원회',team:'시온성가대',role_title:''},"
                              "{id:3,year:2025,committee:'봉사위원회',team:'주차팀',role_title:''}],"
                              "requests:[{id:9,history_id:2,kind:'wrong_team',detail:'그해에는 호산나찬양대였어요',year:null,committee_text:null,team_text:'',status:'확인 중',answer:'',created_at:''},"
                              "{id:8,history_id:null,kind:'missing',detail:'',year:2023,committee_text:'찬양위원회',team_text:'호산나찬양대',status:'반영 안 함',answer:'2023 명단 원본에 없어 부서에 여쭤보고 있어요',created_at:''}]}; "
                              "renderMinistryHistory();"]),
-    ("41-ministry-history-none", ["mhLoaded=true; mhData={ok:true,who:{type:'교구',gu:'믿음',mok:'99',name:'화면점검'},found:false,rows:[],requests:[]}; "
+    ("41-ministry-history-none", [_MIN_LOAD + "mhLoaded=true; mhData={ok:true,who:{type:'교구',gu:'믿음',mok:'99',name:'화면점검'},found:false,rows:[],requests:[]}; "
                                   "renderMinistryHistory();"]),
-    ("42-ministry-history-ask", ["mhLoaded=true; mhData={ok:true,who:{type:'교구',gu:'믿음',mok:'99',name:'화면점검'},found:true,"
+    ("42-ministry-history-ask", [_MIN_LOAD + "mhLoaded=true; mhData={ok:true,who:{type:'교구',gu:'믿음',mok:'99',name:'화면점검'},found:true,"
                                  "rows:[{id:1,year:2026,committee:'교육위원회',team:'유년부',role_title:'교사'}],requests:[]}; "
                                  "renderMinistryHistory(); mhAsk(loadUser(), mhData.rows[0], 'line');"]),
     # 빠진 사역(2026-10-02 두 칸) — 연도를 안 채운 채 신청을 눌러 .mh-err 가 뜨는 모습을 본다
     #   (스크롤 아래로 밀려 안 보이던 자리를 scrollIntoView 로 끌어온 수정과 맞춘 화면)
-    ("43-ministry-history-missing", ["mhLoaded=true; mhData={ok:true,who:{type:'교구',gu:'믿음',mok:'99',name:'화면점검'},found:true,"
+    ("43-ministry-history-missing", [_MIN_LOAD + "mhLoaded=true; mhData={ok:true,who:{type:'교구',gu:'믿음',mok:'99',name:'화면점검'},found:true,"
                                  "rows:[{id:1,year:2026,committee:'교육위원회',team:'유년부',role_title:'교사'}],requests:[]}; "
                                  "renderMinistryHistory(); mhAsk(loadUser(), null, 'missing');",
                                  clk("[data-ok]")]),

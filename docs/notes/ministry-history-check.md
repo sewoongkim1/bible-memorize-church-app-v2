@@ -2,6 +2,7 @@
 
 > **언제 읽나:** 첫 화면 「사역현황」 묶음 · `renderMinistryHistory` · `api` `ministryHistory*` · 교회 어드민 `internalMyHistory`·`internalHistoryRequest`·`ministry_history_requests` 를 손볼 때
 > 설계 `docs/superpowers/specs/2026-10-01-ministry-history-check-design.md` · 계획 `docs/superpowers/plans/2026-10-01-ministry-history-check.md`
+> 📁 **2026-10-12 부터 화면 코드(`renderMinistryHistory`·`MH_*`·순수 묶음)는 `js/ministry.js`**(사역신청과 한 파일 · 필요할 때 받는다 · `docs/notes/lazy-load.md`). 문 `ministryVisible()` 은 `app.js` 에 그대로다 — 아래 「`app.js` `MH_*`」는 그 파일로 읽을 것. `tests/ministry-history.test.cjs` 는 두 파일을 함께 읽는다.
 
 - **문은 사역신청과 하나다(`ministryVisible()` · 서버는 기간·시험 참여자·관리자 비번).** 기간(12/13~12/27)이 끝나면 「사역 이력 확인」도 숨는다 — 친구 결정 「같이 오픈」. 늘 열고 싶어지면 게이트를 그때 나눈다.
 - ⚠️ **`b.preview` 는 받지 않는다** — 서버가 확인할 수 없다. 미리보기 화면은 관리자 비번(`minPw()`)으로만 통과한다.

@@ -3,6 +3,7 @@
 > CLAUDE.md 에서 옮겨 온 상세 기록이다(2026-09-12, 두 겹으로 나눔 — 내용은 한 글자도 안 고쳤다).
 > **언제 읽나:** 사역 신청 기능·부서 확인 양식·종이 신청서를 손볼 때
 > ⚠️ 여기 ⚠️ 표시는 대부분 **실제로 한 번씩 사고를 겪고** 남긴 것이다.
+> 📁 **2026-10-12 부터 성도님 화면 코드(사역신청 · 사역 이력 확인)는 `js/ministry.js`**(필요할 때 받는다 · `docs/notes/lazy-load.md`). 아래에 「app.js」라 적힌 화면 코드(`MIN_LABEL`·`minStName` 등)는 그 파일에 있다 — 문 `ministryVisible`·기간·시험 참여자 캐시·직분 목록 `MIN_POSITIONS`(`js/events.js` 가 빌려 쓴다)·`pilsaPhoneFmt`·`pilsaPhoneOk` 만 `app.js` 에 남았다.
 
 - [ ] **사역신청(2027) — 담당자 데이터 확정 대기(개발 착수 전)**: 종이 「사역신청서」를
       로그인 앱으로 옮기는 기획안이 `docs/superpowers/specs/2026-09-06-ministry-application-design.md`에

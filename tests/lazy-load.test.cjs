@@ -1,4 +1,4 @@
-// 필요할 때 받는 화면 코드(2026-10-12) — 🎓 js/edu.js · 🙋 js/duty.js · 🙏 js/prayer.js · ✍️ js/pilsa.js 를 첫 실행에 받지 않는다(docs/notes/lazy-load.md · 꾸러미 없음 · preflight 가 건다)
+// 필요할 때 받는 화면 코드(2026-10-12) — 🎓 js/edu.js · 🙋 js/duty.js · 🙏 js/prayer.js · ✍️ js/pilsa.js · 🤝🗂️ js/ministry.js 를 첫 실행에 받지 않는다(docs/notes/lazy-load.md · 꾸러미 없음 · preflight 가 건다)
 //   app.js 의 로더 구간(표식 「필요할 때 받는 화면 코드」 ~ 「말씀 데이터」)을 떼어 가짜 document 위에서 돌린다.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
@@ -31,7 +31,7 @@ function mk(opt) {
 
 test('index.html 은 교육·당번 화면 코드를 처음부터 부르지 않는다 · 첫 화면이 쓰는 psalm·events 는 그대로', () => {
   assert.ok(SEG.length > 200, '로더 구간을 못 찾았다');
-  for (const f of ['edu', 'duty', 'prayer', 'pilsa']) assert.ok(!INDEX.includes('src="js/' + f + '.js'), f);
+  for (const f of ['edu', 'duty', 'prayer', 'pilsa', 'ministry']) assert.ok(!INDEX.includes('src="js/' + f + '.js'), f);
   for (const f of ['js/config.js', 'js/api.js', 'js/push.js', 'js/psalm.js', 'js/events.js', 'app.js']) assert.ok(INDEX.includes('src="' + f + '?v='), f);
 });
 
@@ -109,7 +109,11 @@ test('app.js 가 부르는 교육·당번 전역은 아는 것뿐(모두 typeof 
 });
 
 // ── 🙏 기도문 화면 · ✍️ 필사 신청(2026-10-12 · app.js 에서 떼어 냈다) ──────────────
-const MODS = { prayer: { file: 'js/prayer.js', fn: 'renderPrayerBook', open: 'openPrayerBook' }, pilsa: { file: 'js/pilsa.js', fn: 'renderPilsaApply', open: 'openPilsaApply' } };
+// 🤝 사역신청 · 🗂️ 사역 이력 확인(2026-10-12 2단계) — 두 화면이 한 파일(js/ministry.js · LAZY_JS 이름 ministry)이라 줄이 둘이다.
+const MODS = {
+  prayer: { file: 'js/prayer.js', fn: 'renderPrayerBook', open: 'openPrayerBook' }, pilsa: { file: 'js/pilsa.js', fn: 'renderPilsaApply', open: 'openPilsaApply' },
+  ministry: { file: 'js/ministry.js', fn: 'renderMinistry', open: 'openMinistry' }, mh: { file: 'js/ministry.js', fn: 'renderMinistryHistory', open: 'openMinistryHistory' },
+};
 const declOf = (t) => (t.match(/^(?:async )?function [A-Za-z0-9_$]+|^(?:var|let|const|class) [A-Za-z0-9_$]+/gm) || []).map((x) => x.split(' ').pop());
 const codeOnly = (t) => t.split('\n').map((l) => l.replace(/(^|\s)\/\/.*$/, '')).join('\n');
 const wordRe = (n) => new RegExp('(?<![A-Za-z0-9_$."\'])' + n.replace(/\$/g, '\\$') + '(?![A-Za-z0-9_$:"\'])');   // 속성 이름(.x · x:)·글자("x" — api.js 의 액션 이름)는 빼고
@@ -123,10 +127,25 @@ test('openPrayerBook·openPilsaApply — 받은 뒤 그 화면 · 실려 있으�
   r.ctx.openPrayerBook(3); assert.equal(got, 3, '실려 있으면 동기로 · 인자(편 번호)를 그대로');
   r = mk(); let n = 0; r.win.renderPilsaApply = () => { n++; assert.equal(r.ctx.pilsaLoaded, false, '들어올 때마다 서버에서 지금 상태'); };
   r.ctx.pilsaLoaded = true; r.ctx.openPilsaApply(); assert.equal(n, 1); assert.equal(r.added.length, 0);
-  for (const k of ['prayer', 'pilsa']) {
+  for (const k of Object.keys(MODS)) {
     r = mk({ ok: () => false }); r.ctx[MODS[k].open](); await tick();
     assert.equal(r.alerts.length, 1, k + ' 실패 알림'); assert.match(r.alerts[0], /못 불러왔어요/);
   }
+});
+
+test('openMinistry·openMinistryHistory — 한 파일(js/ministry.js)을 받아 그 화면 · 들어올 때마다 서버에서 지금 상태(minLoaded·mhLoaded = false)', async () => {
+  const tick = () => new Promise((ok) => setTimeout(ok, 5));
+  let r = mk(); r.ctx.openMinistry(); await tick();
+  assert.deepEqual(r.added.map((s) => s.src), ['js/ministry.js?v=TAG1']);
+  r = mk(); r.ctx.openMinistryHistory(); await tick();
+  assert.deepEqual(r.added.map((s) => s.src), ['js/ministry.js?v=TAG1'], '사역 이력 확인도 같은 파일');
+  r = mk(); const seen = [];
+  r.win.renderMinistry = () => seen.push(['min', r.ctx.minLoaded]);
+  r.win.renderMinistryHistory = () => seen.push(['mh', r.ctx.mhLoaded]);
+  r.ctx.minLoaded = true; r.ctx.mhLoaded = true;
+  r.ctx.openMinistry(); r.ctx.openMinistryHistory();
+  assert.deepEqual(seen, [['min', false], ['mh', false]], '실려 있으면 동기로 · 들어올 때마다 다시 받게');
+  assert.equal(r.added.length, 0);
 });
 
 test('기도문·필사 — 들어오는 길은 모두 open… 을 거친다(단추 · 묵상 창 · 위젯 · ?preview=)', () => {
@@ -143,12 +162,16 @@ test('기도문·필사 — 들어오는 길은 모두 open… 을 거친다(단
   assert.ok(APP.includes('addEventListener("click", () => openPrayerBook());'), '첫 화면 단추');
   assert.ok(APP.includes('if (loadUser()) openPrayerBook(); else renderEntryScreen();') && APP.includes('if (loadUser()) openPilsaApply(); else renderEntryScreen();'), '?preview=');
   assert.ok(APP.includes('loadLazyJs("pilsa").catch(() => {}); lifeEnter(() => openPilsaApply());'), '필사 단추 — 확인 번호 문을 묻는 동안 받는다');
+  assert.ok(APP.includes('loadLazyJs("ministry").catch(() => {}); lifeEnter(() => openMinistry());'), '🤝 단추 — 확인 번호 문을 묻는 동안 받는다');
+  assert.ok(APP.includes('loadLazyJs("ministry").catch(() => {}); lifeEnter(() => openMinistryHistory());'), '🗂️ 단추 — 확인 번호 문을 묻는 동안 받는다');
+  assert.ok(!/lazyJsSoon\("ministry"\)/.test(APP), '사역 화면은 미리 받지 않는다(신청 기간엔 모두에게 보인다 — 미리 받으면 첫 화면 바이트가 안 준다)');
 });
 
 // ⚠️ 떼어 낸 파일의 전역을 app.js·처음부터 실리는 js 가 새로 부르기 시작하면 걸린다 — 첫 화면(동기)이면 파일이 아직 없다.
 //    반대로 첫 화면·묵상 창·위젯 대조 시험(tests/widget-parity.py)·다른 js 가 동기로 쓰는 것을 그 파일로 옮기면 걸린다.
 test('기도문·필사 — 떼어 낸 파일의 전역은 app.js 가 typeof 로만 · 처음부터 실리는 js 는 안 부른다 · 남겨야 할 것은 app.js 에', () => {
-  const ALLOWED = { renderPrayerBook: 'renderPrayerBook', renderPilsaApply: 'renderPilsaApply', pilsaLoaded: 'renderPilsaApply' };   // 이름 → 그 줄이 지켜야 할 typeof
+  const ALLOWED = { renderPrayerBook: 'renderPrayerBook', renderPilsaApply: 'renderPilsaApply', pilsaLoaded: 'renderPilsaApply',
+    renderMinistry: 'renderMinistry', minLoaded: 'renderMinistry', renderMinistryHistory: 'renderMinistryHistory', mhLoaded: 'renderMinistryHistory' };   // 이름 → 그 줄이 지켜야 할 typeof
   const EAGER = ['js/config.js', 'js/api.js', 'js/push.js', 'js/psalm.js', 'js/events.js'];
   for (const k of Object.keys(MODS)) {
     const names = declOf(read(MODS[k].file));
@@ -166,11 +189,14 @@ test('기도문·필사 — 떼어 낸 파일의 전역은 app.js 가 typeof 로
   // tests/widget-parity.py 가 운영 사이트에서 부른다 · 묵상 창 「🙏 기도」 · js/psalm.js 의 PRAY_ORN · 사역신청·js/events.js 의 번호 꼴 · 여러 화면의 logFeature
   for (const nm of ['loadPrayers', 'prayToday', 'prayFill', 'prayFillHtml', 'fetchTodayBlessing', 'openBlessingModal', 'PRAY_ORN', 'logFeature', 'pilsaPhoneFmt', 'pilsaPhoneOk', 'openPrayerBook', 'openPilsaApply'])
     assert.ok(appDecl.has(nm), nm + ' 은 app.js 에 남아야 한다');
+  // 사역 — 첫 화면의 문·단추 이름의 해·시험 참여자 캐시(동기) · js/events.js 가 typeof 로 빌려 쓰는 직분 목록(없으면 제 사본으로 조용히 갈라진다)
+  for (const nm of ['ministryVisible', 'ministryYear', 'ministryPeriodCached', 'refreshMinistryPeriod', 'ministryTesterCached', 'refreshMinistryTester', 'MIN_POSITIONS', 'openMinistry', 'openMinistryHistory'])
+    assert.ok(appDecl.has(nm), nm + ' 은 app.js 에 남아야 한다');
 });
 
 test('지연 파일 넷 — 서로·처음부터 실리는 js 와 이름이 겹치지 않는다(겹치면 받는 순간 SyntaxError · 함수끼리면 조용히 덮는다)', () => {
   const owner = new Map();
-  for (const f of ['app.js', 'js/config.js', 'js/api.js', 'js/push.js', 'js/psalm.js', 'js/events.js', 'js/edu.js', 'js/duty.js', 'js/prayer.js', 'js/pilsa.js'])
+  for (const f of ['app.js', 'js/config.js', 'js/api.js', 'js/push.js', 'js/psalm.js', 'js/events.js', 'js/edu.js', 'js/duty.js', 'js/prayer.js', 'js/pilsa.js', 'js/ministry.js'])
     for (const nm of new Set(declOf(read(...f.split('/'))))) {
       if (owner.has(nm)) assert.fail(nm + ' — ' + owner.get(nm) + ' 와 ' + f + ' 에 둘 다 있다');
       owner.set(nm, f);
