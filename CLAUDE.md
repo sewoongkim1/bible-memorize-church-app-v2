@@ -130,6 +130,8 @@ localhost·미리보기·브랜치·github.io는 전부 개발이다. 개발일 
 **문법(`node --check`)과 캐시태그(`?v=` 끼리 · `APP_BUILD` 와)**를 보고, 하나라도 걸리면 **배포 단계가 아예 안 돈다**(1.8초 — 순수 함수 검사가 붙어 늘었다).
 푸시 전에 손으로도 돌릴 수 있다. 검사를 더 세우려면 그 파일에 더한다 — **준비물이 필요한 검사는 넣지 말 것**
 (`tests/*.cjs` 는 npm 꾸러미가 있어야 해서 못 넣었다).
+**푸시 전에도 저절로 돈다(2026-10-12)** — `.githooks/pre-push` 가 main 으로 가는 푸시마다 preflight 를 돌려, 걸리면 푸시를 멈춘다(깨진 판이 main 에 올라 **모든 세션의 배포가 막히는 것**을 그 앞에서 막는다). 체크아웃마다 한 번 `git config core.hooksPath .githooks` (이 PC 의 공유 체크아웃은 켜 둠).
+**위 1~4 차례는 스킬 `release` 로** — bump → preflight → 경로 지정 커밋 → 푸시 → Actions 대기 → 이번 판 표식 확인(`.claude/skills/release/SKILL.md`).
 
 ### 백엔드(Edge Function)를 고쳤을 때 — **개발 먼저**
 ```bash
