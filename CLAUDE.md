@@ -43,6 +43,7 @@
 | 측정(카드 쓰임·전환율·열람 기록) | `docs/notes/metrics.md` |
 | 액션·테이블·시크릿 목록 | `docs/notes/backend-api.md` |
 | 보안 점검(매주 자동 · 매달 손으로 — `tools/security-check.py` · 결과는 **저장소 밖** `C:\Projects\보안점검`) | `docs/notes/security-check.md` |
+| 백업(`tools/backup-db.py --prod` · 운영 DB + Storage 유일본 → 7-Zip AES-256 · **저장소 밖** `C:\Projects\백업` · 자동 백업은 7일·통째 복원·Storage 없음) | `docs/notes/backup.md` |
 | 아이폰 앱(Swift)·「앱이면 …」 웹 코드·껍데기 판 표식 | `docs/notes/ios-app.md` |
 | 교회 어드민(admin.onlybible.kr · 별도 저장소 `c:\Projects\church-admin`) — 카카오 로그인·담당자 승인, 사역신청 관리를 옮겨 가는 중 | 설계 `docs/superpowers/specs/2026-09-28-church-admin-design.md` · 그 저장소 `CLAUDE.md` |
 | 이벤트 명단(사순절·썸머·소책자·가을 동행) — 교회 어드민 「성경필사(암송)」으로 옮겼다 · `eventImport`·`eventSave`·`eventSetNote` 는 얼림 | `docs/notes/bible-events-admin.md` |
@@ -72,7 +73,7 @@
 
 ## 백엔드 (Supabase 통합 프로젝트 `xnomlgydifiqiybervtf`)
 성경암송·찬양·말씀 3앱이 공유하는 프로젝트. 이 앱은 Edge Function **`api`** 사용.
-- 배포: `supabase functions deploy api --no-verify-jwt --project-ref xnomlgydifiqiybervtf`
+- 배포: `python tools/deploy-fn.py api --prod`(속은 `supabase functions deploy api --no-verify-jwt --project-ref xnomlgydifiqiybervtf` — 직접 부르지 말 것 · 아래 「백엔드를 고쳤을 때」)
 - **액션·테이블·시크릿 목록은 `docs/notes/backend-api.md`** — 원본은 `supabase/functions/api/index.ts` 의 `switch` 와 `supabase/schema.sql` 이다. 적어 둔 목록은 금세 낡으니 **다르면 코드가 맞다.**
 - ⚠️ **순위·`mydays` 는 `challenge_log` 가 아니라 집계표 `daily_activity` 를 읽는다**(`daily-activity.sql` · 2,903ms → 516ms). 로그에 넣고 지우는 것은 트리거가 맞춰 주지만, **집계를 안 거치는 질의를 새로 짜면 숫자가 조용히 갈린다.** `monitor` 가 매일 `v2_activity_drift()` 로 대조한다.
 
@@ -132,10 +133,11 @@ localhost·미리보기·브랜치·github.io는 전부 개발이다. 개발일 
 
 ### 백엔드(Edge Function)를 고쳤을 때 — **개발 먼저**
 ```bash
-supabase functions deploy api --no-verify-jwt --project-ref ktpwthwqzgcqcrmsafdo   # 1) 개발
+python tools/deploy-fn.py api --dev [--allow-ahead]   # 1) 개발
 # localhost에서 확인한 뒤
-supabase functions deploy api --no-verify-jwt --project-ref xnomlgydifiqiybervtf   # 2) 운영
+python tools/deploy-fn.py api --prod                  # 2) 운영 — origin/main 과 같은 판만 올라간다
 ```
+⚠️ **`supabase functions deploy` 를 직접 부르지 말고 배포 가드로(2026-10-12).** 작업 트리를 통째로 올리므로 남의 커밋 안 된 코드가 실려 나가거나, 낡은 체크아웃이면 남의 액션이 조용히 빠진다 — 가드가 둘 다 막고 빠지는 액션 이름을 찍는다. 읽을 것 `docs/notes/backend-api.md` 「배포 가드」
 
 ### SQL(마이그레이션)을 만들었을 때 — **개발 먼저** ⚠️
 지금까지는 운영 SQL Editor에 바로 붙여 넣었다. **이제 개발에서 먼저 돌린다.**
