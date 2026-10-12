@@ -65,3 +65,19 @@ AI 프롬프트를 못 쓰는 담당자가 매주 설교를 올리도록, 친구
 개발 DB(`ktpwthwqzgcqcrmsafdo`)에 `dev-sermons-tables.sql` → `sermon_jobs.sql` · 개발 비밀값 `CONTENT_STAFF_SECRET`·`GH_DISPATCH_TOKEN`·
 `GH_DISPATCH_REF`(가지) · gocheok-sermons 비밀값 `DEV_SERMON_ADMIN`·`TELEGRAM_*` → localhost 에서 담당자로 ① → ② → 가지의 워크플로가 돈다.
 권한 스모크 `tests/sermon-staff-smoke.py`(개발 전용 · 암호는 환경 변수로만).
+
+---
+
+## CLAUDE.md 에서 옮김 2026-10-12
+
+> CLAUDE.md 에서 옮겨 온 원문이다(2026-10-12, 다시 두 겹으로 나눔 — 내용은 한 글자도 안 고쳤다). 들여쓰기·체크 상자·「~~취소선~~」도 그대로다. 지금 상태는 CLAUDE.md 「다음 작업」의 한 줄을 볼 것.
+
+### 「관리자」 절
+
+- `admin-sermon.html` → **설교·찬양 관리**(`admin-stats.html?only=sermon`) — 담당자 전용 암호(`CONTENT_STAFF_SECRET`) + 등록된 담당자(역할 `content`). 설교 올리기 두 단계 · 연상 그림 ③ · 찬양. ⚠️ 손대기 전에 `docs/notes/sermon-staff-upload.md` — 담당자 암호를 관리자 암호와 같게 넣으면 담당자가 관리자가 된다
+
+### 「다음 작업」
+
+- [ ] 🎙️ **설교·찬양 담당자 — 2026-09-30 운영 반영**(SQL·`api`·`praise`·화면 v3.499 · 텔레그램 시험 도착). 남은 것: 담당자 등록 →
+      **친구가 운영에서 한 편 끝까지** → 담당자 첫 실전 → 옛 길 치우기(`add-sermon.yml`·`addByUrl`·개발 `GH_DISPATCH_REF`) ·
+      연상 그림 첫 실전 · Google Cloud 예산 알림. 읽을 것 `docs/notes/sermon-staff-upload.md`·`verse-image-staff.md`

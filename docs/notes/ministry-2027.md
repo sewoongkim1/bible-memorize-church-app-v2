@@ -306,3 +306,24 @@
 `preview` 는 서버가 확인할 수 없는 값이라 이 깃발만 알면 누구나 기간 밖에 신청을 넣을 수 있었다. 앱은 아직 값을 함께 보내지만 서버가 버린다.
 `?preview=ministry` 로 화면은 여전히 열리지만(관리자 미리보기) 비번이 없고 명단에도 없으면 저장에서 「신청 기간이 아닙니다」로 막힌다.
 ⚠️ 위에 적힌 「`?preview=ministry` 는 그대로 누구나 쓸 수 있다」·「12/13 전에 걷는다」는 이 날로 끝난 이야기다. 남은 것은 12/13 전 시험 행 지우기뿐.
+
+---
+
+## CLAUDE.md 에서 옮김 2026-10-12
+
+> CLAUDE.md 에서 옮겨 온 원문이다(2026-10-12, 다시 두 겹으로 나눔 — 내용은 한 글자도 안 고쳤다). 들여쓰기·체크 상자·「~~취소선~~」도 그대로다. 지금 상태는 CLAUDE.md 「다음 작업」의 한 줄을 볼 것.
+
+### 「관리자」 절
+
+- `admin-ministry.html` — **사역신청 담당자** 전용(두 메뉴만 · 사역 암호 `MINISTRY_SECRET` + 등록 담당자 `ministryAdmins`). ⚠️ 손대기 전에 `docs/notes/ministry-2027.md` 끝 절 — 관리자 암호를 드리면 안 되는 이유, 확인은 액션마다
+
+### 「다음 작업」
+
+- [ ] 🏛️ **교회 어드민 — 사역신청 다섯 메뉴 모두 운영 개시(2026-09-29 · 신청 현황·사역팀 정보·종이 명단·임명현황·담당자).** 다음은 **갈아타기**: 사역 담당자 초대(카카오 로그인→승인) → 앱 설정 「🔒 관리 페이지 → 🤝 사역관리」 단추를 admin.onlybible.kr 로(브라우저로 열기) → 옛 사역 화면·`api` 담당자용 사역 액션·사역 암호 걷기. 임명 알림은 `api` `internalMinistryNotify` 한 곳.
+      ⚠️ 옮기는 동안 `admin-stats.html` 의 사역 화면·`api` 의 담당자용 사역 액션 7개는 **얼린다**(기능 추가 금지).
+      계획 `docs/superpowers/plans/2026-09-28-church-admin-stage1.md` · 설계 위 표의 문서 · 진행 기록 `c:\Projects\church-admin\.superpowers\sdd\progress.md`.
+- [ ] **사역신청(2027) — 담당자 데이터 확정 대기(개발 착수 전).** 앱이 열리기 전까지는 올해도 종이로 받는다.
+      기획 `docs/superpowers/specs/2026-09-06-ministry-application-design.md` · 확인 양식 `tools/ministry-form-gen.py`
+      · 종이 신청서 `tools/ministry-apply-form-gen.py`
+      ⚠️ 「② 언제」 칸 규칙(금요일은 평일이 아니다 · 시각은 주일만 · 주기는 한 사람이 서는 주기)과
+      **직분 목록이 네 곳**(교회 어드민 `paper.ts` 포함)이라는 것, 사슬 일곱은 `docs/notes/ministry-2027.md`.

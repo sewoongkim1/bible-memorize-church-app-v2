@@ -58,3 +58,15 @@
 - 🔎 **심사 전 확인(내부 테스트 판 · 실기기):** ① 플레이스토어 앱 첫 화면에 「사역현황」 묶음(🤝·🗂️)이 **없다** ② 같은 폰의 **보통 크롬 탭**에서 🧪 시험 참여자로 들어가면 **있다**. 다르면 PC 크롬 `chrome://inspect` 로 앱 창을 붙잡아 콘솔에서 `localStorage['play-store-app']` · `sessionStorage['play-app-session']` · `document.referrer` · `matchMedia('(display-mode: browser)').matches` 를 본다(앱 창이면 `sessionStorage` 쪽이 `"1"` 이거나, `localStorage` 쪽이 `"1"` 이고 `matchMedia(…browser)` 가 `false` 여야 숨는다). 같은 단계가 `자료/store/README.md` 「단체 계정」 진행 상황에 있다.
 - ⏰ **되돌리기:** 플레이스토어 심사가 통과한 날 `app.js` `const MINISTRY_HIDE_ON_PLAY = false;` → `python tools/bump.py` → 푸시. 검사는 스위치의 지금 값을 박지 않아 그대로 통과한다. 같은 알림이 `CLAUDE.md` 「플레이스토어 출시」 바로 아래 ⏰ 줄 · `자료/store/README.md` 「단체 계정」 진행 상황에 있다.
 - **일부러 그대로 둔 것:** 설정 「🔒 관리 페이지 → 🤝 사역관리 페이지」(`MANAGE_LINKS` — 담당자 입구이고 페이지가 스스로 암호를 받는다 · **2026-10-02 친구 결정: 심사 동안에도 숨기지 않는다**) · 앱 안 개인정보 안내의 사역 신청·「사역 이력 확인」 문구(모으는 것을 적은 글이라 숨기는 동안에도 사실이다).
+
+---
+
+## CLAUDE.md 에서 옮김 2026-10-12
+
+> CLAUDE.md 에서 옮겨 온 원문이다(2026-10-12, 다시 두 겹으로 나눔 — 내용은 한 글자도 안 고쳤다). 들여쓰기·체크 상자·「~~취소선~~」도 그대로다. 지금 상태는 CLAUDE.md 「다음 작업」의 한 줄을 볼 것.
+
+### 「다음 작업」
+
+- [ ] 🗂️ **첫 화면 「사역현황」 · 사역 이력 확인 · 정정 신청 — 2026-10-01 운영 개시**(v2 aad4625 · 판 20261001c · `MH_LIVE` 켬 · church-admin main d40cf75 · 운영 SQL 008 · 교회 어드민 「📮 정정 신청」). 문은 사역신청과 하나 — 지금은 🧪 시험 참여자만, 12/13~12/27 신청 기간에 모두.
+      남은 것: ① 시험 참여자 계정으로 실기기 확인(「사역현황」 → 🗂️ → 기록 · 정정 한 번 → 교회 어드민 「📮 정정 신청」에서 처리) ② ~~member_merge 에 정정 신청 표~~ 2026-10-02 운영 반영 끝(겹치는 열린 신청은 옛 줄 지움 · `docs/member-profile-admin.md`) ③ 덤: `~/.church-admin/dev.env` `DEV_SERVICE_KEY` 를 새 secret 으로 → `tests/history-check.dev.test.mjs` ④ 공유 체크아웃 로컬 main 이 origin 뒤(남의 `자료/store/listing-ios-ko.txt` 수정 때문에 빨리 감기 못 함 — 그 파일 주인이 정리한 뒤 `git pull`).
+      읽을 것 `docs/notes/ministry-history-check.md` · 계획 `docs/superpowers/plans/2026-10-01-ministry-history-check.md` · `…-requests-admin.md`
