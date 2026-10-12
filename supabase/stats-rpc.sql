@@ -1,4 +1,6 @@
 -- 성경암송 v2 — 관리자 통계 성능 튜닝(집계를 DB로 내림)
+-- ⚠️ 다시 돌리지 말 것(2026-10-12 운영 대조) — v2_stats·v2_participants 는 stats-rpc-card.sql 의 판이,
+--    v2_verse_stats 는 migrate_challenge_log_nullable.sql 의 판이 운영에 올라가 있다. 이 파일을 돌리면 옛 본문으로 되돌아간다.
 -- 실행: Supabase Dashboard(xnomlgydifiqiybervtf) → SQL Editor 에 붙여넣고 RUN
 --
 -- [2026-07-17] 집계 기준 통일: learn-* (암송)만 세던 것 → 암송·도전·복습 전부.

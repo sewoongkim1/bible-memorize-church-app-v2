@@ -46,6 +46,8 @@
 | 백업(`tools/backup-db.py --prod` · 운영 DB + Storage 유일본 → 7-Zip AES-256 · **저장소 밖** `C:\Projects\백업` · 자동 백업은 7일·통째 복원·Storage 없음 · **매주 금 12:00 작업 스케줄러 `gocheok-weekly-backup`**) | `docs/notes/backup.md` |
 | **반영 현황 한 장**(`python tools/status.py [--dev]` — 운영 화면 판·api 파일·문(스위치)·Actions 를 origin/main 과 견준다 · 「다름」이면 종료코드 1) | `tools/status.py` 머리 |
 | **SQL 적용 기록**(SQL 을 넣은 뒤 `python tools/sql-applied.py record <파일> --dev\|--prod` · `status` — 운영 표 `schema_applied`) | `docs/notes/sql-applied.md` |
+| **감시의 감시**(2026-10-12 운영 — GitHub 60일 멈춤 대비: Supabase 크론 `monitor-watch` 12:00 KST → 멈추면 메일 · 흔적 `app_config` `monitorRun`/`monitorWatchRun` 이 서로를 본다) · 매일 점검에 교회 어드민 화면·함수 | `docs/notes/monitor-guard.md` |
+| **화면 오류 모으기**(2026-10-12 운영 · **문 `errorLogOn` 닫힘** — 켜기 전에 개인정보 방침 세 자리를 먼저 · 표 `client_errors` 90일) | `docs/notes/client-errors.md` |
 | 아이폰 앱(Swift)·「앱이면 …」 웹 코드·껍데기 판 표식 | `docs/notes/ios-app.md` |
 | 교회 어드민(admin.onlybible.kr · 별도 저장소 `c:\Projects\church-admin`) — 카카오 로그인·담당자 승인, 사역신청 관리를 옮겨 가는 중 | 설계 `docs/superpowers/specs/2026-09-28-church-admin-design.md` · 그 저장소 `CLAUDE.md` |
 | 이벤트 명단(사순절·썸머·소책자·가을 동행) — 교회 어드민 「성경필사(암송)」으로 옮겼다 · `eventImport`·`eventSave`·`eventSetNote` 는 얼림 | `docs/notes/bible-events-admin.md` |
