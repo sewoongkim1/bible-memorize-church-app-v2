@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261013l";
+const APP_BUILD = "20261013m";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -8963,15 +8963,28 @@ const MANUAL = [
     icon: "🧩", title: "바탕화면에 말씀 두기 (위젯)",
     lead: "앱을 열지 않아도 말씀이 바탕화면에 보여요.",
     when: () => widgetGuideOn("android"),
-    art: '<div class="mn-row"><span class="mn-chip">이번주 말씀</span><span class="mn-chip">오늘의 묵상</span><span class="mn-chip">오늘의 축복 기도문</span></div>',
-    steps: [
-      "바탕화면의 빈 곳을 <b>꾹 누르세요</b>.",
-      "아래에 나오는 <b>「위젯」</b>을 누르세요.",
-      "목록에서 <b>「성경암송」</b>을 찾아 누르세요.",
-      "<b>이번주 말씀 · 오늘의 묵상 · 오늘의 축복 기도문</b> 가운데 하나를 고르고 <b>「추가」</b>를 누르세요. 꾹 눌러 끌어다 놓으셔도 돼요.",
-      "놓은 위젯을 꾹 누르면 테두리가 생겨요. <b>모서리를 끌어 키우면</b> 글씨도 커져요.",
-    ],
-    tip: "위젯을 누르면 <b>그 말씀 암송</b> · <b>매일 묵상</b> · <b>기도문</b> 화면이 바로 열려요. 기도문 위젯은 <b>「우리 가족」</b>으로 읽어요.",
+    // 넷째 위젯 「말씀 · 묵상 · 기도 돌려 보기」(versionCode 5 · android-app RotateWidget) — 웹은 안드로이드 앱 판을 몰라
+    //   플레이스토어에 나간 날 ANDROID_ROTATE_GUIDE 를 켠다(아이폰은 판 표식 iosAppAtLeast). 그래서 art·steps·tip 을 그때그때 만든다.
+    get art() {
+      return '<div class="mn-row"><span class="mn-chip">이번주 말씀</span><span class="mn-chip">오늘의 묵상</span><span class="mn-chip">오늘의 축복 기도문</span>'
+        + (androidRotateGuideOn() ? '<span class="mn-chip">돌려 보기</span>' : "") + '</div>';
+    },
+    get steps() {
+      return [
+        "바탕화면의 빈 곳을 <b>꾹 누르세요</b>.",
+        "아래에 나오는 <b>「위젯」</b>을 누르세요.",
+        "목록에서 <b>「성경암송」</b>을 찾아 누르세요.",
+        androidRotateGuideOn()
+          ? "<b>이번주 말씀 · 오늘의 묵상 · 오늘의 축복 기도문</b>, 그리고 <b>「말씀 · 묵상 · 기도 돌려 보기」</b> 가운데 하나를 고르고 <b>「추가」</b>를 누르세요. 꾹 눌러 끌어다 놓으셔도 돼요. <b>돌려 보기</b>는 이번주 말씀 · 오늘의 묵상 · 축복 기도문 · 쉴만한 물가가 <b>30분마다 저절로</b> 바뀌어요."
+          : "<b>이번주 말씀 · 오늘의 묵상 · 오늘의 축복 기도문</b> 가운데 하나를 고르고 <b>「추가」</b>를 누르세요. 꾹 눌러 끌어다 놓으셔도 돼요.",
+        "놓은 위젯을 꾹 누르면 테두리가 생겨요. <b>모서리를 끌어 키우면</b> 글씨도 커져요.",
+      ];
+    },
+    // 켠 뒤에도 아직 업데이트 전인 폰이 있다(웹은 판을 모른다) — 목록에 없을 때 할 일을 적어 둔다.
+    get tip() {
+      return "위젯을 누르면 <b>그 말씀 암송</b> · <b>매일 묵상</b> · <b>기도문</b> 화면이 바로 열려요. 기도문 위젯은 <b>「우리 가족」</b>으로 읽어요."
+        + (androidRotateGuideOn() ? " 목록에 <b>돌려 보기</b>가 없으면 <b>Play 스토어</b>에서 앱을 <b>업데이트</b>해 주세요." : "");
+    },
   },
   {
     icon: "🙋", title: "처음 시작하기",
@@ -9200,6 +9213,10 @@ function manualInstalled() {
 //      android : 플레이스토어에 위젯 판이 나간 날 true (9/27 프로덕션 승인 뒤 · 계획 Task 8)
 //    출시 전에 문구를 보려면 ?preview=widget (두 폰 것이 둘 다 뜬다).
 const WIDGET_GUIDE = { ios: true, android: true };   // 2026-10-09 안드로이드 위젯 판(1.1.0) 플레이스토어 출시
+// 안드로이드 넷째 위젯 「말씀 · 묵상 · 기도 돌려 보기」를 설명서에 말할지 — versionCode 5 가 플레이스토어 **프로덕션에 나간 날** true.
+//   그 전에 켜면 없는 위젯을 안내한다(내부 테스트만으로는 켜지 않는다). ?preview=widget 은 미리 보인다.
+const ANDROID_ROTATE_GUIDE = false;   // false = 아직 플레이스토어에 없음(versionCode 5 · 2026-10-13 만듦)
+function androidRotateGuideOn() { return _widgetPreview || ANDROID_ROTATE_GUIDE; }
 let _widgetPreview = false;
 
 // 플레이스토어 앱(TWA)으로 열렸나 — TWA 는 앱을 열 때 referrer 를 android-app://<패키지> 로 준다(실기기 미확인 —

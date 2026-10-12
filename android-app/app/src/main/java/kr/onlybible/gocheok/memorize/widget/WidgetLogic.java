@@ -1,5 +1,8 @@
 package kr.onlybible.gocheok.memorize.widget;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -17,6 +20,7 @@ public final class WidgetLogic {
     public static final String SITE = "https://gocheok.onlybible.kr";
     public static final String MEDITATION_URL = SITE + "/?w=meditation";
     public static final String PRAYER_URL = SITE + "/?w=prayer";
+    public static final String PSALM_URL = SITE + "/?w=psalm";
 
     private static final long MINUTE = 60_000L;
     private static final long HOUR = 60 * MINUTE;
@@ -87,6 +91,109 @@ public final class WidgetLogic {
             if (no instanceof Number) return SITE + "/?v=" + ((Number) no).intValue();
         }
         return SITE + "/";
+    }
+
+    // ── 돌려 보기 위젯(2026-10-13 · 아이폰 TodayVerseWidgetBundle.swift 의 RotateWidget 과 같은 규칙) ──
+    //   이번주 말씀 → 오늘의 묵상 → 축복 기도문 → 쉴만한 물가가 30분마다 바뀐다. 쓸 수 없는 것은 그 장만 빠진다.
+
+    /** 한 장이 떠 있는 시간(친구 결정 2026-10-07 · 아이폰 rotateSeconds). 너무 짧으면 읽다가 바뀐다. */
+    public static final long ROTATE_MS = 30 * MINUTE;
+
+    /** 몇째 장인가 = 시각을 30분으로 나눈 몫 % 장 수 — 다시 받아도 같은 시각에는 같은 장(첫 장으로 되돌아가지 않는다). */
+    public static int rotateIndex(long nowMillis, int count) {
+        if (count <= 0) return 0;
+        return (int) ((nowMillis / ROTATE_MS) % count);
+    }
+
+    /** 다음 장이 바뀌는 때(다음 30분 경계). 딱 경계면 그다음. */
+    public static long nextRotateAt(long nowMillis) {
+        return (nowMillis / ROTATE_MS + 1) * ROTATE_MS;
+    }
+
+    /** 다음에 깨울 때 — 다음 장 바뀜과 (앞날의) 다시 받기 중 이른 때. */
+    public static long rotateAlarmAt(long nowMillis, long nextFetchMillis) {
+        long slide = nextRotateAt(nowMillis);
+        return (nextFetchMillis > nowMillis && nextFetchMillis < slide) ? nextFetchMillis : slide;
+    }
+
+    /** 지금 새로 받을까 — 처음이거나 때가 됐거나, 남은 시간이 6시간 반을 넘으면(폰 시계를 뒤로 돌렸다) 받는다. */
+    public static boolean rotateShouldFetch(long nowMillis, long nextFetchMillis) {
+        return nextFetchMillis <= 0 || nowMillis >= nextFetchMillis || nextFetchMillis - nowMillis > 6 * HOUR + ROTATE_MS;
+    }
+
+    /** 받은 응답을 적어 둘 만한가 — 위젯마다의 규칙과 같다. 쉴만한 물가는 「아직 열리지 않음」(ready:false)도 지금의 진짜 상태다. */
+    public static boolean rotateValid(String key, JSONObject j) {
+        switch (key) {
+            case "verse": return verseValid(j);
+            case "meditation": return meditationValid(j);
+            case "blessing": return blessingValid(j);
+            case "psalm": return j != null && j.optBoolean("ok");
+            default: return false;
+        }
+    }
+
+    /** 돌려 보기의 한 장. */
+    public static final class Slide {
+        public final String kind;     // verse · meditation · blessing · psalm
+        public final String header;   // 머리줄(마크 옆)
+        public final String title;    // 제목(없으면 "")
+        public final String body;
+        public final String footer;   // 출처(없으면 "")
+        public final String url;      // 누르면 열 화면
+
+        Slide(String kind, String header, String title, String body, String footer, String url) {
+            this.kind = kind;
+            this.header = header;
+            this.title = title;
+            this.body = body;
+            this.footer = footer;
+            this.url = url;
+        }
+    }
+
+    private static String trimmed(JSONObject j, String key) {
+        return str(j, key).trim();
+    }
+
+    /** 받아 둔 것 → 장 목록(아이폰 rotateSlides). 하나가 비어도 나머지는 돈다. */
+    public static List<Slide> rotateSlides(JSONObject verse, JSONObject meditation, JSONObject blessing, JSONObject psalm) {
+        List<Slide> out = new ArrayList<>();
+
+        String verseText = trimmed(verse, "text");
+        if (!verseText.isEmpty()) {
+            out.add(new Slide("verse", "이번주 말씀", "", verseText, trimmed(verse, "ref"), verseUrl(verse)));
+        }
+
+        // 묵상 — 본문이 비고 질문만 오는 날에는 질문을 본문 자리에(MeditationWidget 과 같다)
+        String message = trimmed(meditation, "message");
+        String body = message.isEmpty() ? trimmed(meditation, "question") : message;
+        if (!body.isEmpty()) {
+            out.add(new Slide("meditation", meditationTitle(trimmed(meditation, "dayLabel")),
+                    trimmed(meditation, "heading"), body, "", MEDITATION_URL));
+        }
+
+        String prayer = trimmed(blessing, "prayer");
+        if (!prayer.isEmpty()) {
+            out.add(new Slide("blessing", "축복 기도문", trimmed(blessing, "title"), prayer,
+                    trimmed(blessing, "ref"), PRAYER_URL));
+        }
+
+        // 쉴만한 물가 — ready 가 아니면(게이트 꺼짐·시작 전) 이 장은 없다
+        String psalmText = trimmed(psalm, "text");
+        if (psalm != null && psalm.optBoolean("ready") && !psalmText.isEmpty()) {
+            out.add(new Slide("psalm", "쉴만한 물가", "", psalmText, trimmed(psalm, "ref"), PSALM_URL));
+        }
+        return out;
+    }
+
+    /** 장마다 다른 색 한 줄(아이폰 rotateTint 의 시스템 색 — 파랑·초록·주황·청록). 밝을 때·어두울 때 바탕 둘 다에서 보인다. */
+    public static int rotateTint(String kind) {
+        switch (kind) {
+            case "meditation": return 0xFF34C759;
+            case "blessing": return 0xFFFF9500;
+            case "psalm": return 0xFF30B0C7;
+            default: return 0xFF007AFF;
+        }
     }
 
     /** 서버에 보내는 본문 — 액션 이름과 (시험판에서만) 날짜. ⚠️ user_id·개인정보는 절대 넣지 않는다. */

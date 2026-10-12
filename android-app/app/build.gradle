@@ -108,7 +108,9 @@ android {
         targetSdkVersion 36
         // 판 번호 — 새 앱(kr.onlybible.gocheok)의 첫 판도 2 · 1.1.0 으로 둔다(옛 앱의 1 과 헷갈리지 않게 · 아이폰 위젯 판 이름과 맞춤).
         // 올릴 때마다 versionCode 를 하나씩 올린다.
-        versionCode 4   // 3 은 2026-10-13 업로드가 minSdk 로 막혔다 — 이미 쓴 번호일 수 있어 건너뛴다
+        // 3 은 2026-10-13 업로드가 minSdk 로 막혔다(이미 쓴 번호일 수 있어 건너뜀) · 4(아래 띠 크림)는 내부 테스트에만 두고
+        //   5 = 아래 띠 크림 + 「말씀 · 묵상 · 기도 돌려 보기」 위젯(2026-10-13)으로 프로덕션에 낸다.
+        versionCode 5
         versionName "1.1.1"
 
         // The name for the application

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 돌려 보기 위젯의 왼쪽 세로줄 — 흰색으로 그려 두고 장마다 색을 입힌다(RotateWidget · setColorFilter). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#FFFFFFFF" />
+    <corners android:radius="2dp" />
+</shape>

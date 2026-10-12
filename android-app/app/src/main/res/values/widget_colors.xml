@@ -6,4 +6,6 @@
     <color name="widget_bg">#BFFFFFFF</color>
     <color name="widget_text">#141414</color>
     <color name="widget_secondary">#78787F</color>
+    <!-- 돌려 보기 위젯의 지금이 아닌 장 점 — 보조 글씨색 30%(아이폰 Color.secondary.opacity(0.3)) -->
+    <color name="widget_dot_off">#4D78787F</color>
 </resources>

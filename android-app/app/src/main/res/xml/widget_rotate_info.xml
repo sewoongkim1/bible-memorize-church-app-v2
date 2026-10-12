@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 말씀 · 묵상 · 기도 돌려 보기 — 4×2 로 놓이고 그보다 작게는 못 줄인다(오늘의 묵상 위젯과 같다).
+     장은 30분마다 RotateWidget 이 스스로 알람으로 바꾼다. updatePeriodMillis(3시간)는 알람이 사라졌을 때(폰을 다시 켬 등)의 받침이다. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_rotate_desc"
+    android:initialLayout="@layout/widget_rotate"
+    android:minHeight="110dp"
+    android:minResizeHeight="110dp"
+    android:minResizeWidth="250dp"
+    android:minWidth="250dp"
+    android:previewLayout="@layout/widget_rotate"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellHeight="2"
+    android:targetCellWidth="4"
+    android:updatePeriodMillis="10800000"
+    android:widgetCategory="home_screen" />

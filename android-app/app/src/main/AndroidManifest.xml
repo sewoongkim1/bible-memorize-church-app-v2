@@ -234,5 +234,17 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_blessing_info" />
         </receiver>
+        <!-- 말씀 · 묵상 · 기도 돌려 보기(2026-10-13 · versionCode 5) — ⚠️ 클래스 이름을 바꾸지 말 것(놓아 둔 위젯이 이 이름으로 이어진다) -->
+        <receiver
+            android:name="kr.onlybible.gocheok.memorize.widget.RotateWidget"
+            android:exported="false"
+            android:label="@string/widget_rotate_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_rotate_info" />
+        </receiver>
     </application>
 </manifest>

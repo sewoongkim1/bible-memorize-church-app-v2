@@ -19,4 +19,9 @@
     <string name="widget_blessing_sample_title">아론의 축복</string>
     <string name="widget_blessing_sample_ref">민수기 6:24-26</string>
     <string name="widget_blessing_sample">하나님, 우리 가족에게 복을 주시고 우리 가족을 지키시며, 여호와의 얼굴을 우리 가족에게 비추사 은혜를 베풀어 주옵소서.</string>
+
+    <!-- 돌려 보기(2026-10-13) — 아이폰 RotateWidget 의 configurationDisplayName · description · rotateEmpty 와 같은 문구 -->
+    <string name="widget_rotate_name">말씀 · 묵상 · 기도 돌려 보기</string>
+    <string name="widget_rotate_desc">이번주 말씀 · 오늘의 묵상 · 축복 기도문 · 쉴만한 물가가 30분마다 저절로 바뀝니다. 누르면 보이던 것의 화면으로 갑니다.</string>
+    <string name="widget_rotate_empty_header">말씀 · 묵상 · 기도</string>
 </resources>

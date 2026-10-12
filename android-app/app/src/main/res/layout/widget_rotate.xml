@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 말씀 · 묵상 · 기도 돌려 보기(2026-10-13 · 아이폰 RotateWidgetView 와 같은 모양) —
+     머리줄(마크 + 「이번주 말씀」 … · 오른쪽 위 날짜·시각) / 장마다 색이 다른 세로줄 + 제목·본문 / 바닥줄(출처 · 몇째 장인지 점).
+     한 모양으로 4×2 와 늘린 크기를 다 받는다 — 본문은 칸에 맞춰 글씨가 줄고 는다(가장 긴 기도문 247자).
+     ⚠️ RemoteViews 는 맨 View 를 못 그린다(런처가 「허락 안 된 클래스」로 위젯을 통째로 못 띄운다) —
+        세로줄·점은 ImageView 로 두고 색은 코드에서 setColorFilter 로 입힌다. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:orientation="vertical"
+    android:padding="14dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+        <ImageView
+            android:layout_width="wrap_content"
+            android:layout_height="16dp"
+            android:adjustViewBounds="true"
+            android:importantForAccessibility="no"
+            android:src="@drawable/church_mark" />
+        <TextView
+            android:id="@+id/widget_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/widget_verse_name"
+            android:textColor="@color/widget_secondary"
+            android:textSize="11sp" />
+        <!-- 「10.13(화) 17:08」 — 런처가 분마다 스스로 넘긴다(폰의 시간대 · 요일은 폰 말로). 12시간제 폰도 아이폰처럼 24시간으로. -->
+        <TextClock
+            android:id="@+id/widget_clock"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:fontFeatureSettings="tnum"
+            android:format12Hour="MM.dd(E) HH:mm"
+            android:format24Hour="MM.dd(E) HH:mm"
+            android:maxLines="1"
+            android:textColor="@color/widget_secondary"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="6dp"
+        android:layout_weight="1"
+        android:orientation="horizontal">
+        <ImageView
+            android:id="@+id/widget_bar"
+            android:layout_width="4dp"
+            android:layout_height="match_parent"
+            android:importantForAccessibility="no"
+            android:scaleType="fitXY"
+            android:src="@drawable/widget_rotate_bar" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_marginStart="10dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+            <TextView
+                android:id="@+id/widget_heading"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="3dp"
+                android:ellipsize="end"
+                android:fontFamily="serif"
+                android:maxLines="1"
+                android:textColor="@color/widget_text"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+            <TextView
+                android:id="@+id/widget_body"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:autoSizeMaxTextSize="24sp"
+                android:autoSizeMinTextSize="9sp"
+                android:autoSizeStepGranularity="1sp"
+                android:autoSizeTextType="uniform"
+                android:fontFamily="serif"
+                android:gravity="top|start"
+                android:lineSpacingExtra="3dp"
+                android:text="@string/widget_verse_sample"
+                android:textColor="@color/widget_text"
+                android:textSize="13sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+        <TextView
+            android:id="@+id/widget_ref"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/widget_verse_sample_ref"
+            android:textColor="@color/widget_secondary"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+        <ImageView
+            android:id="@+id/widget_dot0"
+            android:layout_width="5dp"
+            android:layout_height="5dp"
+            android:layout_marginStart="4dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/widget_rotate_dot_off" />
+        <ImageView
+            android:id="@+id/widget_dot1"
+            android:layout_width="5dp"
+            android:layout_height="5dp"
+            android:layout_marginStart="4dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/widget_rotate_dot_off" />
+        <ImageView
+            android:id="@+id/widget_dot2"
+            android:layout_width="5dp"
+            android:layout_height="5dp"
+            android:layout_marginStart="4dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/widget_rotate_dot_off" />
+        <ImageView
+            android:id="@+id/widget_dot3"
+            android:layout_width="5dp"
+            android:layout_height="5dp"
+            android:layout_marginStart="4dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/widget_rotate_dot_off" />
+    </LinearLayout>
+</LinearLayout>

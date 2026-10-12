@@ -157,6 +157,8 @@ PURE_TESTS += ["tests/navi.test.cjs"]
 PURE_TESTS += ["tests/home-groups.test.cjs"]
 # 📱 안드로이드 플레이 앱 위 띠(상태바) 색 맞추기(2026-10-13) — 색 읽기·겹치기 순수 함수 · 문(플레이 앱에서만 · STATUSBAR_FOLLOW_OPEN) · theme-color 를 만지는 곳은 한 곳
 PURE_TESTS += ["tests/statusbar-follow.test.cjs"]
+# 🧩 돌려 보기 위젯(아이폰 1.1.1 · 안드로이드 versionCode 5 · 2026-10-13) — 두 폰 이름·설명·머리글·30분이 같은가 · 설명서 안드로이드 장은 스위치(ANDROID_ROTATE_GUIDE) 안에서만 말한다
+PURE_TESTS += ["tests/widget-rotate.test.cjs"]
 
 print("\n[3] 순수 함수 검사 (node --test)")
 for t in PURE_TESTS:

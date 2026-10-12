@@ -21,4 +21,11 @@ public class WidgetApiLiveTest {
         JSONObject j = WidgetApi.call("getTodayBlessing");
         assertTrue("오늘의 기도문을 못 받았다: " + j, WidgetLogic.blessingValid(j));
     }
+
+    // 돌려 보기 넷째 장(2026-10-13) — 열려 있으면 ready:true 와 본문, 닫혀 있어도 ok:true(그 장만 빠진다)
+    @Test public void todayPsalm() {
+        JSONObject j = WidgetApi.call("getTodayPsalm");
+        assertTrue("쉴만한 물가 응답을 못 받았다: " + j, WidgetLogic.rotateValid("psalm", j));
+        assertTrue("ready 인데 본문이 없다: " + j, !j.optBoolean("ready") || !WidgetLogic.str(j, "text").isEmpty());
+    }
 }

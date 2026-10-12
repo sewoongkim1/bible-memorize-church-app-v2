@@ -43,3 +43,15 @@
 
 **남은 것:** 친구 실기기 확인 끝(2026-10-13 — v3.604 · 첫 화면 맨 위 남색 · 내리면 크림 · 암송 화면 크림 · adb 화면 찍기) → `STATUSBAR_FOLLOW_OPEN = true`(검토 뒤) · **B 아래 띠 크림 — 1.1.1(versionCode 4 · minSdk 24) 빌드 끝**(⚠️ 처음 만든 versionCode 3 · minSdk 23 판은 Play Console 이 「Play 자동 보호를 사용하려면 최소 SDK 버전이 24 이상」으로 막았다 — 2026-10-13 · 3 은 쓴 번호일 수 있어 4 로 건너뛰었다 · 24 = 안드로이드 7.0)(커밋 「안드로이드 1.1.1」 · `twaManifest.navigationColor(Dark)`·`navigationDividerColor(Dark)` = #FDF8F0 · `bundleProdRelease` · 업로드 키 3A:17 서명 · 위젯 단위 시험 통과 · 위젯 코드는 1.1.0 그대로). 올릴 파일은 저장소 밖 `C:\Projects\성경암송-1.1.1-아래띠크림\성경암송-1.1.1-versionCode4.aab` — **Play Console 업로드는 친구**(내부 테스트 → 프로덕션 · 스킬 store-release). 크롬 153~155 는 이 색을 무시하므로 156 이상에서만 보인다. 앱 어두운 모드(설정에서 켠 분)는 크림 띠 위로 어두운 화면이 된다(껍데기 색은 휴대폰 어두운 모드만 안다) · 크롬 TWA edge-to-edge 가 오면 다시 보기.
 ⚠️ 시험판(`.dev`)은 assetlinks 에 없어 「탭 모드」(주소창)로 열려 theme-color·몰입이 안 먹는다 — 띠 시험에는 adb 크롬 명령줄 우회(`--disable-digital-asset-link-verification-for-url`)나 내부 테스트 트랙을 쓴다.
+
+## 돌려 보기 위젯(2026-10-13 · versionCode 5 · 친구 「스크롤하는 위젯이 안보여요」 — 아이폰 1.1.1 에만 있었다)
+
+**무엇:** 「말씀 · 묵상 · 기도 돌려 보기」 — 이번주 말씀 → 오늘의 묵상 → 축복 기도문 → 쉴만한 물가가 **30분마다 저절로** 바뀐다 · 오른쪽 위 날짜·시각(「10.13(화) 17:08」) · 장마다 색 세로줄(파랑·초록·주황·청록) · 바닥 출처와 몇째 장인지 점 · 누르면 보이던 장의 화면(`/?v=번호` · `/?w=meditation` · `/?w=prayer` · `/?w=psalm`). 아이폰 `TodayVerseWidgetBundle.swift` 의 RotateWidget 과 **같은 규칙**이다(장 고르기 · 빠지는 장 · 30분 · 받는 때).
+- 코드: `widget/RotateWidget.java`(받기·그리기·알람 — 다른 셋의 `BaseWidgetProvider` 와 따로: 넷을 함께 받고, 받는 때와 장이 바뀌는 때가 다르다) · 순수 규칙은 `WidgetLogic`(`rotateIndex`·`nextRotateAt`·`rotateAlarmAt`·`rotateShouldFetch`·`rotateValid`·`rotateSlides`·`rotateTint` — `WidgetLogicTest` 가 굳힌다) · 모양 `res/layout/widget_rotate.xml` · `res/xml/widget_rotate_info.xml`(4×2 · 늘리면 글씨가 커진다) · 매니페스트 receiver.
+- 몇째 장 = 시각 ÷ 30분의 몫 % 장 수 — 다시 받아도 같은 시각에는 같은 장. 받는 때 = 다음 한국 자정과 6시간 뒤 중 이른 때(하나라도 못 받으면 30분 뒤) · 받은 것은 종류마다 `rotate-verse`… 로 따로 적어 둔다(다른 위젯 셋의 것과 따로).
+- 쉴만한 물가는 서버가 `ready:false`(게이트 꺼짐·시작 전)면 그 장만 빠지고 셋으로 돈다. 시각 글자는 런처가 스스로 넘긴다(`TextClock`).
+- ⚠️ **장이 바뀌는 때는 몇 분 늦을 수 있다** — 정확한 알람은 권한(`SCHEDULE_EXACT_ALARM`)이 들어 안 쓴다. `setWindow`(안드로이드 12 부터 폭이 10분보다 좁아지지 않는다 — 그냥 `set` 은 30분 알람을 20분 넘게 미룰 수 있다). 폰이 잠들어 있으면 깰 때 그린다.
+- ⚠️ RemoteViews 는 맨 `View` 를 못 그린다 — 세로줄·점은 `ImageView` + `setColorFilter`. 런처는 같은 모양이면 옛 화면에 덧칠하므로(reapply) 색·보임은 **장마다 늘 다시** 정한다.
+- ⚠️ 클래스 이름 `RotateWidget` 을 바꾸지 말 것 — 놓아 둔 위젯이 그 이름으로 이어진다.
+- 설명서(웹): 안드로이드 위젯 장은 `ANDROID_ROTATE_GUIDE`(app.js)가 true 일 때만 돌려 보기를 말한다 — **versionCode 5 가 프로덕션에 나간 날 켠다**(웹은 안드로이드 앱 판을 모른다 · 아이폰은 판 표식 `iosAppAtLeast`). 시험 `tests/widget-rotate.test.cjs`(preflight — 두 폰 이름·설명·머리글·30분이 같은가 · 스위치 밖에서 말하지 않는가).
+- 판: **versionCode 4(아래 띠 크림)는 프로덕션에 올리지 않는다** — 내부 테스트에 둔 채 5(아래 띠 크림 + 돌려 보기)로 대신한다(2026-10-13 친구 「만들어서 이번 판에 함께」).

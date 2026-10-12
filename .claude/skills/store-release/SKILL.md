@@ -67,6 +67,7 @@ cd android-app
 ## 나간 날 — 켤 스위치
 심사 동안 숨기거나 기다리던 것은 **상수 하나**로 묶여 있다. 스토어 공개 주소가 열리는 것을 확인한 뒤:
 - `app.js` `WIDGET_GUIDE.ios`/`.android` — 설명서 위젯 안내(위젯 판이 나간 날 · 둘 다 2026-10-09 까지 true)
+- `app.js` `ANDROID_ROTATE_GUIDE` — 설명서 안드로이드 위젯 장이 넷째 「말씀 · 묵상 · 기도 돌려 보기」를 말한다(**versionCode 5 프로덕션이 나간 날** · 내부 테스트만으로는 켜지 않는다). 아이폰은 판 표식(`iosAppAtLeast("1.1.1")`)이라 스위치가 없다.
 - `app.js` `MINISTRY_HIDE_ON_PLAY` · 교회 어드민 `PLAY_HIDDEN`(`js/menus/duty/duty-logic.js`) — 플레이 앱에서만 숨기던 것(2026-10-09 false)
 - 새로 숨긴 것이 있으면 같은 꼴로 상수를 두고 이 목록에 더한다 — 스킬 `gated-feature`
 → 값 바꿈 → `python tools/bump.py` → 스킬 `release`. 교회 어드민은 그 저장소에서 따로.
