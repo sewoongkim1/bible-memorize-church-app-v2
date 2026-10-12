@@ -5,13 +5,19 @@
 #
 # 사용법:
 #   ADMIN_SECRET='실제비번' bash tests/smoke-readonly.sh
-# (ADMIN_SECRET을 안 주면 관리자 액션 5개는 자동으로 건너뜁니다)
+#   ADMIN_SECRET='실제비번' ADMIN_STAFF='{"type":"교구","gu":"…","mok":"…","name":"…"}' bash tests/smoke-readonly.sh
+# (ADMIN_SECRET을 안 주면 관리자 액션은 자동으로 건너뜁니다)
+# ⚠️ 2026-10-08 부터 관리자 액션 대부분은 「암호 + 총괄 확인」이다(adminError 의 SUPER_OK — 교회 어드민 총괄과 같은 분이어야).
+#    암호만 보내면 unauthorized 가 맞다 — ADMIN_STAFF(총괄 한 분의 소속·이름 JSON)가 없으면 그 셋(1·8·10)은 건너뛰고,
+#    대신 「암호만이면 거부」(1b)를 본다. monitor·pushPreview 는 암호만 보는 액션이라 그대로다.
+#    (2026-10-13 전에는 이 셋이 늘 ✗ 로 떠 배포 뒤 확인 때 헛걸음을 했다.)
 
 set -u
 BASE="https://xnomlgydifiqiybervtf.supabase.co/functions/v1/api"
 SERMON_BASE="https://xnomlgydifiqiybervtf.supabase.co/functions/v1/sermon"
 ANON_KEY="sb_publishable_oLtieT_jw7Gjb8etEsy0jw_thBaDjl-"
 PW="${ADMIN_SECRET:-}"
+STAFF="${ADMIN_STAFF:-}"
 
 pass=0 fail=0 skip=0
 
@@ -51,10 +57,17 @@ check "14. 순위 응원 명단"                     "$(call "$BASE" '{"action":
 
 # --- 관리자 비번 필요한 것들 ---
 if [ -n "$PW" ]; then
-  check "1. 관리자 인증 - 정상 비번" "$(call "$BASE" "{\"action\":\"authCheck\",\"pw\":\"$PW\"}")" '"ok":true'
+  check "1b. 관리자 인증 - 암호만(총괄 확인 없이 거부)" "$(call "$BASE" "{\"action\":\"authCheck\",\"pw\":\"$PW\"}")" '"error":"unauthorized"'
+  if [ -n "$STAFF" ]; then
+    check "1. 관리자 인증 - 암호 + 총괄" "$(call "$BASE" "{\"action\":\"authCheck\",\"pw\":\"$PW\",\"staff\":$STAFF}")" '"ok":true'
+    check "8. 참여 통계"              "$(call "$BASE" "{\"action\":\"stats\",\"pw\":\"$PW\",\"staff\":$STAFF,\"from\":\"2020-01-01\",\"to\":\"2026-12-31\"}")" '"ok":true'
+    check "10. 푸시 구독 통계"         "$(call "$BASE" "{\"action\":\"pushStats\",\"pw\":\"$PW\",\"staff\":$STAFF}")" '"ok":true'
+  else
+    for t in "1. 관리자 인증 - 암호 + 총괄" "8. 참여 통계" "10. 푸시 구독 통계"; do
+      echo "  – $t (ADMIN_STAFF 없어서 건너뜀 — 암호 + 총괄 확인이 필요)"; skip=$((skip+1))
+    done
+  fi
   check "7. 헬스체크(monitor)"      "$(call "$BASE" "{\"action\":\"monitor\",\"pw\":\"$PW\"}")" '"ok":true'
-  check "8. 참여 통계"              "$(call "$BASE" "{\"action\":\"stats\",\"pw\":\"$PW\",\"from\":\"2020-01-01\",\"to\":\"2026-12-31\"}")" '"ok":true'
-  check "10. 푸시 구독 통계"         "$(call "$BASE" "{\"action\":\"pushStats\",\"pw\":\"$PW\"}")" '"ok":true'
   check "11. 오늘 푸시 문구 미리보기" "$(call "$BASE" "{\"action\":\"pushPreview\",\"pw\":\"$PW\"}")" '"ok":true'
 else
   skip_test "1. 관리자 인증 - 정상 비번"
