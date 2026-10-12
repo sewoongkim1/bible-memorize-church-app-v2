@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261012s";
+const APP_BUILD = "20261012t";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -3328,9 +3328,10 @@ function renderSummary() {
     ${/* 🏅 가을 말씀암송 동행 — 「내 기록」 바로 아래로(친구 2026-10-10). 전엔 「함께」 맨 위에 있었다.
           ⚠️ event-cta 금색은 style.css:2046-2053 에 이미 있다(새 CSS 안 만든다). 이름은 관리자가 적는
           값이라 boardEsc 로 그린다. 이름 뒤에 진행 문구를 붙이지 않는다 — nowrap+ellipsis 라 이름이
-          잘린다. 진행은 fillStampPill 이 알약으로 꽂는다(id=open-event-list 로 찾으므로 자리는 안 탄다). */""}
-    ${eventVisible() ? `<button class="summary-help event-cta" id="open-event-list">🏅 ${boardEsc(eventLabelCached())}${newBadge("stamp")}</button>
-    <button class="summary-share" id="share-event-home">📢 목장에 알리기</button>` : ""}
+          잘린다. 진행은 fillStampPill 이 알약으로 꽂는다(id=open-event-list 로 찾으므로 자리는 안 탄다).
+          2026-10-12 친구 — 바로 아래 있던 「📢 목장에 알리기」(id=share-event-home · 10/10 넣음)는 첫 화면에서 뺐다.
+          같은 단추가 가을 동행 화면 도장판 아래에 있다(js/events.js #ev-share · shareEvent 는 그대로 쓴다). */""}
+    ${eventVisible() ? `<button class="summary-help event-cta" id="open-event-list">🏅 ${boardEsc(eventLabelCached())}${newBadge("stamp")}</button>` : ""}
     <button class="summary-help" id="open-album">📖 나의 말씀 앨범</button>
     <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
     ${/* 사역현황(2026-10-01 친구 요청) — 사역신청과 사역 이력 확인을 한 묶음으로.
@@ -3460,7 +3461,6 @@ function renderSummary() {
       if (typeof renderEventList === "function") renderEventList(null);
       else appAlert("이벤트 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
     }); }
-  { const b = document.getElementById("share-event-home"); if (b) b.addEventListener("click", shareEvent); }
   document.getElementById("open-ranking").addEventListener("click", () => renderRanking());
   // 퀴즈는 quiz/ 아래 따로 있는 화면이다(로그인 없이 열리고 app.js를 쓰지 않는다).
   //   같은 주소 안이라 설치된 앱에서 눌러도 앱 밖으로 나가지 않는다.
