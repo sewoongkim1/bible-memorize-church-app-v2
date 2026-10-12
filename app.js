@@ -194,6 +194,7 @@ var LAZY_JS = {
   prayer: { src: "js/prayer.js", fn: "renderPrayerBook" },   // 🙏 가정 축복 기도문 화면(2026-10-12 · 첫 화면 단추는 모두에게 보이니 미리 받지 않고 누를 때)
   pilsa: { src: "js/pilsa.js", fn: "renderPilsaApply" },     // ✍️ 성경필사 노트 신청(2026-10-12 · 「더 보기」 안 · 확인 번호 문을 묻는 동안 받는다)
   ministry: { src: "js/ministry.js", fn: "renderMinistry" },  // 🤝 사역신청 · 🗂️ 사역 이력 확인(2026-10-12 · 한 파일 · 신청 기간엔 모두에게 보이니 미리 받지 않고 확인 번호 문을 묻는 동안)
+  navi: { src: "js/navi.js", fn: "renderNaviHome" },          // 📚 네비게이토 성경암송(2026-10-13 · 문 naviVisible 은 이 파일에 · 열면 모두에게 보이니 미리 받지 않고 누를 때)
 };
 var _lazyJsP = {};
 function lazyJsTag() {
@@ -273,6 +274,14 @@ function openMinistryHistory() {
   withLazyJs("ministry", () => {
     if (typeof renderMinistryHistory === "function") { mhLoaded = false; renderMinistryHistory(); }
     else appAlert("사역 이력 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
+  });
+}
+// 📚 네비게이토 성경암송(2026-10-13) — 들어오는 길은 첫 화면 「암송 과정」 단추 하나다(알림·딥링크·위젯 없음).
+//   그 파일 안의 화면끼리(묶음 → 구절 → 3단계)는 그 파일이 스스로 오간다.
+function openNavi() {
+  withLazyJs("navi", () => {
+    if (typeof renderNaviHome === "function") renderNaviHome();
+    else appAlert("네비게이토 성경암송 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
   });
 }
 
@@ -367,11 +376,13 @@ function routeAfterLoad() {
   //    from 파라미터만 지우고 v·lang 등 나머지는 그대로 두므로 먼저 불러도 안전하다.
   readPushMark();
   readHomePreviewParam();   // ?home=old · ?home=b · ?home=off(· 롤백 뒤 ?home=a) — 이 기기에만(HOME_LAYOUT 위 주석)
+  _naviPreview = getNaviPreview();   // ?navi=1 — 아래 passages·psalm 미리보기가 주소의 ? 뒤를 통째로 지우므로 그보다 먼저
   _passagesPreview = getPassagesPreview();
   _psalmPreview = getPsalmPreview();
   _songPreview = getSongPreview();
   refreshPassagesPublic();
   refreshPsalmPublic();
+  refreshNaviOpen();
   refreshEduOpen();
   refreshDutyOpen();
   refreshSongPublic();
@@ -621,6 +632,28 @@ function refreshPsalmPublic() {
   }).catch(() => {});
 }
 function psalmVisible() { return _psalmPreview || psalmPublicCached(); }
+// 📚 네비게이토 성경암송(2026-10-13 · docs/notes/navigators.md) — app_config('naviPublic') 이 true 이거나 🧪 시험 참여자 · 미리보기(?navi=1)일 때만
+//   첫 화면 「암송 과정」 단추. ⚠️ 문은 이것 하나다 — 카드 줄(verses track='navi')은 켠 채로 넣었다(구절은 공개된 성경 본문이라 서버가
+//   막을 것이 없다 · 주간을 읽는 곳은 모두 track='weekly' 로 거른다). 그래서 이 판정을 「열림」 쪽으로 넓히면 그대로 성도님께 열린다.
+//   「모름」(캐시 없음 · 받기 실패)은 숨긴다. 켠 날 성도님은 앱을 한 번 닫았다 열어야 보인다(psalm·edu 와 같다).
+//   여는 날 할 일(설명서 한 장 · FEAT_SINCE.navi · 열람 기록 FEATURES)은 docs/notes/navigators.md 「여는 날」.
+let _naviPreview = false;
+function getNaviPreview() {   // ?navi=1 — 그 칸만 지운다(다른 칸 ?v= 등은 그대로 · readHomePreviewParam 과 같은 꼴)
+  try {
+    const url = new URL(location.href);
+    if (url.searchParams.get("navi") !== "1") return false;
+    url.searchParams.delete("navi");
+    history.replaceState(null, "", url.pathname + url.search + url.hash);
+    return true;
+  } catch (e) { return false; }
+}
+const NAVI_PUB_KEY = "navi-public";
+function naviOpenCached() { try { return localStorage.getItem(NAVI_PUB_KEY) === "1"; } catch (e) { return false; } }
+function refreshNaviOpen() {   // 값은 === true 로만(문자열 "false" 는 참이라 켜진다 — 스킬 gated-feature ②)
+  if (!window.api || !api.getConfig) return;
+  api.getConfig("naviPublic").then((d) => { try { localStorage.setItem(NAVI_PUB_KEY, d && d.value === true ? "1" : "0"); } catch (e) {} }).catch(() => {});
+}
+function naviVisible() { return _naviPreview || naviOpenCached() || ministryTesterCached(); }
 // 🎓 교육(2026-10-05) — app_config('eduOpen') 이 true 이거나 🧪 시험 참여자일 때만 첫 화면 단추. 막는 것은 서버(eduApply not-open).
 const EDU_PUB_KEY = "edu-open";
 function eduOpenCached() { try { return localStorage.getItem(EDU_PUB_KEY) === "1"; } catch (e) { return false; } }
@@ -774,6 +807,7 @@ const HA_ICON = {
   music: "M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM20 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z",
   tv: "M3 6h18v12H3zM10 9.5v5l4-2.5z",
   bookmark: "M6 3h12v18l-6-4-6 4z",
+  book: "M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2zM22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z",   // 펼친 책 — 📚 네비게이토(암송 과정)
   keyboard: "M3 6h18v12H3zM7 10h.01M11 10h.01M15 10h.01M7 14h10",
   cards: "M9 3h10a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM5 7v12a2 2 0 0 0 2 2h9",
   help: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17h.01",
@@ -782,13 +816,14 @@ const HA_ICON = {
 };
 const HA_GROUPS = [
   { title: "말씀 묵상", ids: ["open-sermon-chat", "open-meditation"] },
+  { title: "암송 과정", ids: ["open-navi"] },   // 📚 네비게이토(2026-10-13 · 문이 닫히면 단추가 없어 제목째 안 생긴다)
   { title: "내 기록", ids: ["open-event-list", "open-album", "open-ranking"] },
   { title: "교회 생활", ids: ["open-ministry", "open-ministry-history", "open-edu", "open-duty"] },
   { title: "함께", ids: ["open-board", "open-prayer", "open-psalm", "open-passages", "open-pilsa", "open-quiz"] },
   { title: "교회 사이트", note: "앱 밖으로 나가요", ext: true, ids: ["open-praise", "open-sermon-archive"] },
 ];
 const HA_ROW_ICON = {
-  "open-sermon-chat": "message", "open-meditation": "leaf", "open-event-list": "medal", "open-album": "album", "open-ranking": "trophy",
+  "open-sermon-chat": "message", "open-meditation": "leaf", "open-navi": "book", "open-event-list": "medal", "open-album": "album", "open-ranking": "trophy",
   "open-ministry": "users", "open-ministry-history": "folder", "open-edu": "cap", "open-duty": "calendar",
   "open-board": "heart", "open-prayer": "house", "open-psalm": "drop", "open-passages": "scroll", "open-pilsa": "pen", "open-quiz": "target",
   "open-praise": "music", "open-sermon-archive": "tv",
@@ -2261,8 +2296,10 @@ function afterDaysStr(days) { const d = new Date(); d.setDate(d.getDate() + days
 // ⚠️ 쉴만한 물가(시편)는 복습에 넣지 않는다(성도님 결정 2026-09-13) — 열리는 날짜가
 //    매일 달라져 복습 예정과 어긋나기 쉽다(no=1005가 실제로 그랬다: 예약은 됐는데
 //    복습을 열 때는 그 편을 찾을 수 없어 단추를 눌러도 아무 일도 안 일어났다).
+//    네비게이토(2001~ · 2026-10-13)도 넣지 않는다 — 판정은 js/psalm.js 의 isNonWeeklyNo(주간이 아님 · 서버와 같은 값).
+//    ⚠️ isPsalmNo(물가 화면으로 보냄 · 1001~1999)로 되돌리지 말 것 — 네비게이토 예약이 조용히 쌓인다.
 function ensureReviewScheduled(no) {
-  if (isPsalmNo(no)) return;
+  if (isNonWeeklyNo(no)) return;
   const r = loadReview();
   if (!r[no]) { r[no] = { level: 0, next: afterDaysStr(REVIEW_INTERVALS[0]) }; saveReviewData(r); }
 }
@@ -2278,7 +2315,7 @@ function dueReviewNos() {
   //    것은 스스로 안 없어진다).
   let purged = false;
   for (const key of Object.keys(r)) {
-    if (isPsalmNo(key)) { delete r[key]; purged = true; }
+    if (isNonWeeklyNo(key)) { delete r[key]; purged = true; }   // 물가·네비게이토 — 위 ensureReviewScheduled 와 같은 판정
   }
   if (purged) saveReviewData(r);
   return Object.keys(r).filter((no) => r[no] && r[no].next <= t).map(Number)
@@ -2677,6 +2714,7 @@ function newestNewFeat() {
     if (k === "ministry" && !ministryVisible()) return;   // 문이 닫혀 단추가 안 보이면(기간 밖 · 플레이스토어 앱 숨김) — 안 보이는 단추가 NEW 를 가져가지 않게
     if (k === "edu" && !eduVisible()) return;             // 🎓 교육도 같다(FEAT_SINCE.edu 는 개시일에 적는다 · 플레이스토어 앱 숨김)
     if (k === "duty" && !dutyVisible()) return;           // 🙋 봉사 당번도 같다(FEAT_SINCE.duty 는 개시일에 적는다)
+    if (k === "navi" && !naviVisible()) return;           // 📚 네비게이토도 같다(FEAT_SINCE.navi 는 여는 날 적는다 · k 를 먼저 — tests/ministry-history 의 featCtx 에 naviVisible 이 없다)
     if (!best || kstDayNumber(FEAT_SINCE[k]) > kstDayNumber(FEAT_SINCE[best])) best = k;
   });
   return best;
@@ -3502,6 +3540,11 @@ function renderSummary() {
       <button class="summary-go sermon-act act-btn" id="open-sermon-chat"><span class="act-ic">💬</span><span class="act-tx">내게 주시는<br>말씀</span>${newBadge("sermon")}</button>
       <button class="summary-go med-act act-btn" id="open-meditation"><span class="act-ic">🌿</span><span class="act-tx">매일<br>묵상</span>${newBadge("meditation")}</button>
     </div>
+    ${/* 📚 암송 과정(2026-10-13 · docs/notes/navigators.md) — 「말씀 묵상」 바로 아래 새 묶음. 지금은 네비게이토 성경암송 한 줄.
+          문은 naviVisible(app_config naviPublic · 🧪 시험 참여자 · ?navi=1) — 닫힌 동안은 제목째 없다. 화면 코드는 누를 때 받는다(openNavi).
+          A안은 HA_GROUPS 의 「암송 과정」이 이 단추를 옮겨 담는다(제목은 그쪽 것이 보인다). */""}
+    ${naviVisible() ? `<div class="grp-title">암송 과정</div>
+    <button class="summary-help" id="open-navi">📚 네비게이토 성경암송${newBadge("navi")}</button>` : ""}
     <!-- 성격별로 묶는다 (2026-09-02) — 전에는 일곱 줄이 같은 모양·다른 색으로 나열돼
          무엇이 무엇인지 색으로도 자리로도 알 수 없었다.
          ⚠️ 단추마다 있던 제 색(보라·초록·청록·금…)을 뗐다. 색은 「누구인가」가 아니라
@@ -3636,6 +3679,9 @@ function renderSummary() {
     });
     if (b) lazyJsSoon("duty"); }   // 단추가 보이면 미리 받아 둔다(한가할 때)
   { const b = document.getElementById("open-psalm"); if (b) b.addEventListener("click", () => { markFeatSeen("psalm"); renderPsalmHome(); }); }
+  // 📚 네비게이토 — 연 자리에서 한 번 센다(묶음 목록으로 되돌아올 때마다 세지 않게 · album 과 같다). 서버 FEATURES 에 navi 를 더하는 날부터 쌓인다.
+  //   미리 받지 않는다(열면 모두에게 보이는 단추 — 미리 받으면 첫 화면 바이트가 안 준다 · 기도문·사역과 같다).
+  { const b = document.getElementById("open-navi"); if (b) b.addEventListener("click", () => { markFeatSeen("navi"); logFeature("navi", 0); openNavi(); }); }
   // ⚠️ renderEventList 는 js/events.js 에 있다 — 그 파일이 안 실려도 첫 화면이 죽지
   //    않게 막고, 말없이 아무 일도 안 일어나는 대신 까닭을 알려 준다.
   { const b = document.getElementById("open-event-list");

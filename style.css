@@ -6278,3 +6278,48 @@ html[data-fs="xl"] .home-b .summary-card > .summary-help.event-cta .ev-pill { ma
 .dark .am-msg .ph-tip { background: #232c3f; }
 .am-msg .ph-link { display: inline-block; margin: 6px 0 0; padding: 6px 10px; border: 1.5px solid var(--navy); border-radius: 9px; background: #fff; color: var(--navy); font: inherit; font-size: .92em; font-weight: 700; cursor: pointer; }
 .dark .am-msg .ph-link { background: #232c3f; color: #cdd9f2; border-color: #3a4a68; }
+
+/* =====================================================================
+   📚 네비게이토 성경암송(2026-10-13 · js/navi.js · docs/notes/navigators.md)
+   카드·상태 칩·🔊·재생 줄은 말씀 목록 것(.verse-card · .vl-* · .vl-play)을 그대로 쓰고, 여기는 머리·묶음 줄·주제 제목만.
+   3단계 화면은 주간 암송 화면(.test-screen) 그대로 — .nv-tag(묶음 · 주제) 한 줄만 더한다.
+   ⚠️ 글자색을 --navy 로 쓰면 .dark 짝을 둔다(어두운 모드에서 안 바뀌는 토큰 — CLAUDE.md 「프론트를 고쳤을 때」).
+   ===================================================================== */
+.nv-screen { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }   /* 아래 고정 「첫 화면으로」(.home-fab)에 마지막 카드가 안 가리게 */
+.nv-head { margin: 4px 2px 14px; }
+.nv-head-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; row-gap: 8px; }
+.nv-title { margin: 0; font-size: 1.22rem; font-weight: 800; line-height: 1.35; color: var(--navy); word-break: keep-all; }
+.nv-lead { margin: 6px 0 0; font-size: .95rem; line-height: 1.6; color: #5b6270; word-break: keep-all; }
+.nv-chapters { display: flex; flex-direction: column; gap: 8px; }
+/* 묶음 한 줄 — 말씀 목록 카드(.verse-card)의 옷을 입은 단추 */
+button.verse-card.nv-ch {
+  width: 100%; min-height: 60px; padding: 12px 14px 12px 16px;
+  font: inherit; text-align: left; color: inherit;
+}
+.nv-ch-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1 1 auto; }
+.nv-ch-name { font-size: 1.04rem; font-weight: 800; line-height: 1.35; color: var(--navy); word-break: keep-all; }
+.nv-ch-sub { font-size: .84rem; font-weight: 700; color: #8a6d1f; }
+.nv-chev { flex: none; width: 20px; height: 20px; margin-left: auto; color: #8a93a3; }
+/* 주제 — 두 구절씩(확신·생활 지침은 한 구절씩) 묶는 작은 제목 */
+.nv-topic { margin: 0 0 14px; }
+/* ⚠️ 말씀 목록의 .verse-grid 는 아래 고정 단추 자리로 96px(재생 중 200px)을 비운다(1838·3648줄) — 주제 칸마다 붙으면 칸 사이가 휑해진다.
+   칸 안에서는 빼고 화면 맨 아래(.nv-screen)에서 한 번만 비운다. */
+.nv-topic .verse-grid, body.ab-playing .nv-topic .verse-grid { padding-bottom: 0; }
+body.ab-playing .nv-screen { padding-bottom: calc(200px + env(safe-area-inset-bottom, 0px)); }   /* 재생 줄(.ab-play-bar)이 마지막 카드를 가리지 않게 */
+.nv-topic-t { margin: 0 2px 7px; font-size: .9rem; font-weight: 800; line-height: 1.4; color: #5f6f86; word-break: keep-all; }
+.nv-retry-row { display: flex; justify-content: center; margin-top: -10px; }
+/* 3단계 화면 — 단계 줄 아래 「A. 새로운 삶 · 중심되신 그리스도」 */
+.nv-tag { margin: -6px 0 12px; font-size: .84rem; font-weight: 700; line-height: 1.45; color: #5f6f86; word-break: keep-all; }
+html[data-fs="lg"] .nv-title { font-size: 1.36rem; }
+html[data-fs="xl"] .nv-title { font-size: 1.5rem; }
+html[data-fs="lg"] .nv-lead, html[data-fs="lg"] .nv-tag, html[data-fs="lg"] .nv-topic-t { font-size: 1.02rem; }
+html[data-fs="xl"] .nv-lead, html[data-fs="xl"] .nv-tag, html[data-fs="xl"] .nv-topic-t { font-size: 1.12rem; }
+html[data-fs="lg"] .nv-ch-name { font-size: 1.16rem; }
+html[data-fs="xl"] .nv-ch-name { font-size: 1.28rem; }
+html[data-fs="lg"] .nv-ch-sub { font-size: .95rem; }
+html[data-fs="xl"] .nv-ch-sub { font-size: 1.04rem; }
+.dark .nv-title, .dark .nv-ch-name { color: #cdd9f2; }
+.dark .nv-lead { color: #aeb8c8; }
+.dark .nv-ch-sub { color: #e9cd7e; }
+.dark .nv-chev { color: #8a93a3; }
+.dark .nv-topic-t, .dark .nv-tag { color: #93a3ba; }

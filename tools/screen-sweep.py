@@ -79,6 +79,7 @@ HOME = ("try{ if(document.querySelector('.pr-full')) prayFullClose(); }catch(e){
         "try{ stopSpeaking(); }catch(e){}"
         "document.querySelectorAll('.modal-backdrop,.sd-modal,.daily-msg-overlay').forEach(function(m){m.remove()});"
         "try{ _psalmPreview=true; _passagesPreview=true; _songPreview=true; localStorage.setItem('event-open','1'); }catch(e){}"
+        "try{ _naviPreview=true; }catch(e){}"   # 📚 네비게이토(2026-10-13 · 문 닫힘 — ?navi=1 과 같은 미리보기 · 옛 판에는 이름이 없어 try)
         "renderSummary(); window.scrollTo(0,0);")
 
 
@@ -173,6 +174,10 @@ _DUTY_CAL_DAYS = _DUTY_DAYS + [
 # 🤝 사역신청·🗂️ 사역 이력 확인도 2026-10-12 부터 필요할 때 받는다(js/ministry.js) — 화면을 직접 그리거나(40~43) 단추가 없어 renderMinistry 를 부르기(30) 전에 먼저 받는다.
 #   옛 판 --site(LAZY_JS 에 ministry 가 없다 · app.js 에 화면이 있다)에서는 건너뛴다.
 _MIN_LOAD = "if (typeof LAZY_JS === 'object' && LAZY_JS.ministry) await loadLazyJs('ministry'); "
+# 📚 네비게이토(2026-10-13)도 필요할 때 받는다(js/navi.js) — 화면을 직접 그리는 단계(52~54)는 먼저 받고 카드를 받아 둔다(nvLoad).
+#   옛 판 --site(LAZY_JS 에 navi 가 없다)에서는 받지 않고, 아래 단계의 typeof 가 그리기를 건너뛴다.
+_NAVI_LOAD = "if (typeof LAZY_JS === 'object' && LAZY_JS.navi) { await loadLazyJs('navi'); await nvLoad(); } "
+_NAVI_PICK = "var _nv=(typeof nvByChapter==='function')?nvByChapter(nvVerses,%s):[]; if(!_nv.length) throw new Error('NOBTN 네비게이토 카드(개발 DB 에 supabase/navi_verses.sql)'); "
 _DUTY_CLEAR = ("if (typeof loadLazyJs === 'function') await loadLazyJs('duty'); "
                "var _dm=document.getElementById('daily-message'); if(_dm) _dm.remove(); ")
 # 달력에서 날짜를 고른 뒤 그날 카드의 첫 단추가 🏠 단추 위로 보이는가 — 「달력을 맨 위로」만 하던 때 높이 640~740 화면에서 단추가 🏠 단추 밑에 깔렸다(2026-10-07).
@@ -280,6 +285,11 @@ STEPS = [
     ("49-duty-cal-newyear", [_duty_board_js(_DUTY_CAL_DAYS, "2026-11-08"), clk('.duty-cal-nav[data-cal="next"]'), clk('.duty-cal-nav[data-cal="next"]'),
                              clk('.duty-cal-c[data-date="2027-01-10"]'), _DUTY_SEEN]),
     ("50-duty-past", [_DUTY_CLEAR + "dutyShell(loadUser()); dutyState.at='past'; dutyDrawPast(dutyPastBodyHtml(" + json.dumps(_DUTY_PAST, ensure_ascii=False) + ", '2026-10-12'));"]),
+    # 📚 네비게이토(2026-10-13) — 첫 화면 단추 → 묶음 목록 · A 묶음(주제 칸·카드·이 묶음 듣기) · 1단계(빈칸 넷) · 3단계(가장 긴 축 C-12 시 119:9, 11)
+    ("51-navi-home", [clk("#open-navi")]),
+    ("52-navi-chapter", [_NAVI_LOAD + "if (typeof renderNaviChapter === 'function') renderNaviChapter('A');"]),
+    ("53-navi-stage1", [_NAVI_LOAD + (_NAVI_PICK % "'A'") + "renderNaviTest(_nv[1], 1);"]),
+    ("54-navi-stage3", [_NAVI_LOAD + (_NAVI_PICK % "'C'") + "renderNaviTest(_nv[_nv.length-1], 3);"]),
     ("P1-privacy-page", ["GOTO privacy/"]),
     ("P2-quiz-page", ["GOTO quiz/"]),
     ("P3-guide-page", ["GOTO guide/"]),

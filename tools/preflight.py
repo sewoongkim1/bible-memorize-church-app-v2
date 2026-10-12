@@ -149,6 +149,9 @@ PURE_TESTS += ["tests/monitor-guard.test.cjs"]
 # 크론 여섯을 Vault 내부 키로(2026-10-12) — 크론 SQL 의 꼴 · 옛 넷 멈춤 · api 의 크론 문(INTERNAL_CRON_OK · cronOnly) · weeklyReport 안쪽 표 · 알림 주소
 # (위 줄들을 고치지 않고 따로 더한다 — 다른 세션도 이 목록에 더하고 있어 합칠 때 부딪힌다)
 PURE_TESTS += ["tests/push-report-cron.test.cjs"]
+# 📚 네비게이토 성경암송(2026-10-13) — 번호대(물가 1001~1999 · 복습에서 뺌은 1000 초과 · 앱·서버 같은 값) · getVerses navi 갈래 ·
+#   시드 SQL 꼴(73줄 · 다시 돌려도 is_active 안 덮음) · 화면 순수 함수(세 값 · 주제 칸 · 「다음」 · 쓰면 안 되는 말 — docs/notes/navigators.md)
+PURE_TESTS += ["tests/navi.test.cjs"]
 
 print("\n[3] 순수 함수 검사 (node --test)")
 for t in PURE_TESTS:

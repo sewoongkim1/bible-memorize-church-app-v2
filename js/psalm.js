@@ -7,7 +7,18 @@
 // ⚠️ 화면에 들어올 때만 받는다 — 첫 화면에서 미리 받으면 글꼴 765KB 사건과 같은 길이다.
 // ============================================================
 
-const PSALM_NO_BASE = 1000;   // 시편 구절 번호 = 1000 + day_no. 이 번호가 곧 「시편이다」
+// ── 구절 번호대 — 순수 (여기부터) ──
+//   tests/navi.test.cjs 가 이 구간만 잘라 node:vm 에서 돌린다.
+//   1~999 주간 암송 · 1001~1999 쉴만한 물가(1000 + day_no) · 2001~ 네비게이토(2026-10-13 · js/navi.js · supabase/navi_verses.sql)
+//   서버(supabase/functions/api/index.ts)와 **같은 이름·같은 값**이라야 한쪽만 바뀔 때 눈에 띈다.
+//   ⚠️ 판정이 둘이다 — 「물가 화면으로 보낸다」(isPsalmNo)와 「복습에 넣지 않는다」(isNonWeeklyNo). 2026-10-13 전에는
+//      isPsalmNo(1000 초과) 하나가 둘을 다 했다 — 그대로 두면 네비게이토 구절이 앨범·복습에서 물가 화면으로 간다.
+const PSALM_NO_BASE = 1000;   // 시편 구절 번호 = 1000 + day_no
+const NAVI_NO_BASE = 2000;    // 네비게이토 구절 번호 = 2001~(묶음마다 띄운다 · 확신 2001~ · 지침 2011~ · A 2021~ … E 2101~)
+function isPsalmNo(no) { const n = Number(no); return n > PSALM_NO_BASE && n < NAVI_NO_BASE; }
+// 주간 암송이 아닌 구절 — 복습에 넣지 않는다(쉴만한 물가 2026-09-13 성도님 결정 · 네비게이토 2026-10-13 설계 §3)
+function isNonWeeklyNo(no) { return Number(no) > PSALM_NO_BASE; }
+// ── 구절 번호대 — 순수 (여기까지) ──
 
 let psalmVerses = [];         // 열린 구절만 (서버가 안 열린 것은 안 내려보낸다)
 let psalmOpen = 0;            // 오늘까지 열린 편수
@@ -24,7 +35,6 @@ let psalmLoaded = false;
 let psalmLoadedDay = "";      // 캐시가 속한 KST 날짜(YYYY-MM-DD) — 자정 넘김 판별용
                                // (todayYmd 는 app.js 것을 그대로 쓴다 — 새로 만들지 않는다)
 
-function isPsalmNo(no) { return Number(no) > PSALM_NO_BASE; }
 function psalmByNo(no) { return psalmVerses.find((v) => v.no === Number(no)) || null; }
 
 async function loadPsalmVerses(force) {

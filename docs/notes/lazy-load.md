@@ -1,6 +1,6 @@
 # 필요할 때 받는 화면 코드(지연 로딩 · 2026-10-12)
 
-> **언제 읽나:** `index.html` 의 `<script>` 를 더하거나 빼거나, `js/edu.js`·`js/duty.js`·`js/prayer.js`·`js/pilsa.js`·`js/ministry.js` 의 전역을 `app.js` 에서 새로 부를 때, 새 기능 모듈을 지연으로 둘 때, `app.js` 에서 화면을 더 떼어 낼 때
+> **언제 읽나:** `index.html` 의 `<script>` 를 더하거나 빼거나, `js/edu.js`·`js/duty.js`·`js/prayer.js`·`js/pilsa.js`·`js/ministry.js`·`js/navi.js` 의 전역을 `app.js` 에서 새로 부를 때, 새 기능 모듈을 지연으로 둘 때, `app.js` 에서 화면을 더 떼어 낼 때
 
 **한 것:** 🎓 교육(`js/edu.js` · 48KB)·🙋 봉사 당번(`js/duty.js` · 92KB)은 문이 닫혀 🧪 시험 참여자만 쓴다 — `index.html` 에서 뺐고 `app.js` 의 `loadLazyJs(name)` 가 필요할 때 받는다.
 첫 화면에서 요청 둘 · 140KB(gzip 44KB)를 안 받는다(`app.js` 는 +5KB · gzip +1.5KB).
@@ -8,6 +8,7 @@
 기도문은 첫 화면 단추가 모두에게 보여 **미리 받지 않고 누를 때** 받는다(미리 받으면 바이트가 안 준다) · 위젯 `?w=prayer` 는 `lazyJsForUrl` 이 말씀과 함께 받는다 · 필사는 확인 번호 문을 묻는 동안 받는다.
 `app.js` 에 남긴 것(옮기면 안 된다 — 시험이 본다): `loadPrayers`·`prayToday`·`prayFill`(`tests/widget-parity.py` 가 운영 사이트에서 부른다) · 묵상 창 「🙏 기도」(`fetchTodayBlessing`·`openBlessingModal`·`prayFillHtml`) · `PRAY_ORN`(`js/psalm.js`) · `logFeature` · `pilsaPhoneFmt`·`pilsaPhoneOk`(사역신청·`js/events.js`).
 **2단계(2026-10-12 · 가지 `perf/app-split-2`):** 🤝 사역신청·🗂️ 사역 이력 확인(`js/ministry.js` · 86KB · 두 화면이 한 파일)을 떼어 냈다 — `app.js` 706KB → 621KB(gzip 218KB → 193KB · LF 기준 · `js/ministry.js` 는 87KB · gzip 27KB). 들어오는 길은 `openMinistry()`·`openMinistryHistory()`(첫 화면 단추 둘뿐 · 알림·`?go=` 진입은 없다 · `?preview=ministry` 는 문만 연다) — 확인 번호 문을 묻는 동안 받고, 신청 기간엔 모두에게 보이니 **미리 받지 않는다**. `app.js` 에 남긴 것: 문 `ministryVisible`·`ministryYear`·기간·시험 참여자 캐시(첫 화면 · `tests/ministry-history.test.cjs` 의 문 시험) · **`MIN_POSITIONS`**(`js/events.js` 가 처음부터 `typeof` 로 빌려 쓴다 — 옮기면 제 사본으로 조용히 갈라진다) · `pilsaPhoneFmt`·`pilsaPhoneOk`. `tests/ministry-history.test.cjs` 는 순수 묶음·`minEsc`·`mhAsk` 를 `js/ministry.js` 에서, 문·`clearPersonalData` 는 `app.js` 에서 자른다. `tools/screen-sweep.py` 의 30·40~43 은 먼저 `loadLazyJs('ministry')`(`_MIN_LOAD`).
+**📚 네비게이토(2026-10-13 · 새 기능을 처음부터 지연으로):** `js/navi.js`(`LAZY_JS.navi` · fn `renderNaviHome`) — 들어오는 길은 `openNavi()` 하나(첫 화면 「암송 과정」 단추 · 알림·딥링크 없음) · 미리 받지 않는다(열면 모두에게 보이는 단추). `app.js` 에 남긴 것: 문 `naviVisible`·`naviOpenCached`·`refreshNaviOpen`·`getNaviPreview` · 번호 판정 `isNonWeeklyNo` 는 처음부터 실리는 `js/psalm.js`(진도 저장이 동기로 부른다). 맨 위 이름은 `nv`/`NV_` 머리 · `tools/screen-sweep.py` 52~54 는 먼저 `loadLazyJs('navi')`(`_NAVI_LOAD`) · `docs/notes/navigators.md`.
 `js/psalm.js`·`js/events.js` 는 **그대로 처음부터** 받는다 — 첫 화면·진도 저장(`isPsalmNo`)·🏅 알약(`evtLoad`·`getEvtDeepLink`)이 동기로 부른다.
 
 **받는 때(셋):**

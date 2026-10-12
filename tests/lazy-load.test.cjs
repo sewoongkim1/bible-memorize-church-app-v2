@@ -1,4 +1,4 @@
-// 필요할 때 받는 화면 코드(2026-10-12) — 🎓 js/edu.js · 🙋 js/duty.js · 🙏 js/prayer.js · ✍️ js/pilsa.js · 🤝🗂️ js/ministry.js 를 첫 실행에 받지 않는다(docs/notes/lazy-load.md · 꾸러미 없음 · preflight 가 건다)
+// 필요할 때 받는 화면 코드(2026-10-12) — 🎓 js/edu.js · 🙋 js/duty.js · 🙏 js/prayer.js · ✍️ js/pilsa.js · 🤝🗂️ js/ministry.js · 📚 js/navi.js(2026-10-13) 를 첫 실행에 받지 않는다(docs/notes/lazy-load.md · 꾸러미 없음 · preflight 가 건다)
 //   app.js 의 로더 구간(표식 「필요할 때 받는 화면 코드」 ~ 「말씀 데이터」)을 떼어 가짜 document 위에서 돌린다.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
@@ -31,7 +31,7 @@ function mk(opt) {
 
 test('index.html 은 교육·당번 화면 코드를 처음부터 부르지 않는다 · 첫 화면이 쓰는 psalm·events 는 그대로', () => {
   assert.ok(SEG.length > 200, '로더 구간을 못 찾았다');
-  for (const f of ['edu', 'duty', 'prayer', 'pilsa', 'ministry']) assert.ok(!INDEX.includes('src="js/' + f + '.js'), f);
+  for (const f of ['edu', 'duty', 'prayer', 'pilsa', 'ministry', 'navi']) assert.ok(!INDEX.includes('src="js/' + f + '.js'), f);
   for (const f of ['js/config.js', 'js/api.js', 'js/push.js', 'js/psalm.js', 'js/events.js', 'app.js']) assert.ok(INDEX.includes('src="' + f + '?v='), f);
 });
 
@@ -113,6 +113,7 @@ test('app.js 가 부르는 교육·당번 전역은 아는 것뿐(모두 typeof 
 const MODS = {
   prayer: { file: 'js/prayer.js', fn: 'renderPrayerBook', open: 'openPrayerBook' }, pilsa: { file: 'js/pilsa.js', fn: 'renderPilsaApply', open: 'openPilsaApply' },
   ministry: { file: 'js/ministry.js', fn: 'renderMinistry', open: 'openMinistry' }, mh: { file: 'js/ministry.js', fn: 'renderMinistryHistory', open: 'openMinistryHistory' },
+  navi: { file: 'js/navi.js', fn: 'renderNaviHome', open: 'openNavi' },   // 📚 네비게이토(2026-10-13 · 첫 화면 단추 하나)
 };
 const declOf = (t) => (t.match(/^(?:async )?function [A-Za-z0-9_$]+|^(?:var|let|const|class) [A-Za-z0-9_$]+/gm) || []).map((x) => x.split(' ').pop());
 const codeOnly = (t) => t.split('\n').map((l) => l.replace(/(^|\s)\/\/.*$/, '')).join('\n');
@@ -171,7 +172,8 @@ test('기도문·필사 — 들어오는 길은 모두 open… 을 거친다(단
 //    반대로 첫 화면·묵상 창·위젯 대조 시험(tests/widget-parity.py)·다른 js 가 동기로 쓰는 것을 그 파일로 옮기면 걸린다.
 test('기도문·필사 — 떼어 낸 파일의 전역은 app.js 가 typeof 로만 · 처음부터 실리는 js 는 안 부른다 · 남겨야 할 것은 app.js 에', () => {
   const ALLOWED = { renderPrayerBook: 'renderPrayerBook', renderPilsaApply: 'renderPilsaApply', pilsaLoaded: 'renderPilsaApply',
-    renderMinistry: 'renderMinistry', minLoaded: 'renderMinistry', renderMinistryHistory: 'renderMinistryHistory', mhLoaded: 'renderMinistryHistory' };   // 이름 → 그 줄이 지켜야 할 typeof
+    renderMinistry: 'renderMinistry', minLoaded: 'renderMinistry', renderMinistryHistory: 'renderMinistryHistory', mhLoaded: 'renderMinistryHistory',
+    renderNaviHome: 'renderNaviHome' };   // 이름 → 그 줄이 지켜야 할 typeof
   const EAGER = ['js/config.js', 'js/api.js', 'js/push.js', 'js/psalm.js', 'js/events.js'];
   for (const k of Object.keys(MODS)) {
     const names = declOf(read(MODS[k].file));
@@ -192,11 +194,14 @@ test('기도문·필사 — 떼어 낸 파일의 전역은 app.js 가 typeof 로
   // 사역 — 첫 화면의 문·단추 이름의 해·시험 참여자 캐시(동기) · js/events.js 가 typeof 로 빌려 쓰는 직분 목록(없으면 제 사본으로 조용히 갈라진다)
   for (const nm of ['ministryVisible', 'ministryYear', 'ministryPeriodCached', 'refreshMinistryPeriod', 'ministryTesterCached', 'refreshMinistryTester', 'MIN_POSITIONS', 'openMinistry', 'openMinistryHistory'])
     assert.ok(appDecl.has(nm), nm + ' 은 app.js 에 남아야 한다');
+  // 📚 네비게이토 — 첫 화면의 문(동기 · 캐시)과 들어오는 길은 app.js 에 · 번호 판정(isNonWeeklyNo — 진도 저장이 동기로 부른다)은 처음부터 실리는 js/psalm.js 에
+  for (const nm of ['naviVisible', 'naviOpenCached', 'refreshNaviOpen', 'getNaviPreview', 'openNavi']) assert.ok(appDecl.has(nm), nm + ' 은 app.js 에 남아야 한다');
+  assert.ok(new Set(declOf(read('js', 'psalm.js'))).has('isNonWeeklyNo'), 'isNonWeeklyNo 는 js/psalm.js 에(처음부터 실린다)');
 });
 
 test('지연 파일 넷 — 서로·처음부터 실리는 js 와 이름이 겹치지 않는다(겹치면 받는 순간 SyntaxError · 함수끼리면 조용히 덮는다)', () => {
   const owner = new Map();
-  for (const f of ['app.js', 'js/config.js', 'js/api.js', 'js/push.js', 'js/psalm.js', 'js/events.js', 'js/edu.js', 'js/duty.js', 'js/prayer.js', 'js/pilsa.js', 'js/ministry.js'])
+  for (const f of ['app.js', 'js/config.js', 'js/api.js', 'js/push.js', 'js/psalm.js', 'js/events.js', 'js/edu.js', 'js/duty.js', 'js/prayer.js', 'js/pilsa.js', 'js/ministry.js', 'js/navi.js'])
     for (const nm of new Set(declOf(read(...f.split('/'))))) {
       if (owner.has(nm)) assert.fail(nm + ' — ' + owner.get(nm) + ' 와 ' + f + ' 에 둘 다 있다');
       owner.set(nm, f);
