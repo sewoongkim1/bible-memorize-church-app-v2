@@ -10,6 +10,7 @@ import webpush from "npm:web-push@3.6.7";
 // 영역 파일(2026-10-12 파일 나누기 · docs/notes/backend-api.md 「파일 나누기」) — case 는 이 파일의 switch 에 그대로 둔다(배포 가드가 index.ts 의 case 를 센다).
 import { getPsalmVerses, getTodayPsalm } from "./psalm.ts";
 import { getBlessings, blessingLog, getTodayBlessing, blessingUsage } from "./blessing.ts";
+import { clientError } from "./client-errors.ts";   // 화면 오류 모으기(2026-10-12 · 문 errorLogOn · docs/notes/client-errors.md)
 
 const VAPID_PUBLIC = Deno.env.get("VAPID_PUBLIC");
 const VAPID_PRIVATE = Deno.env.get("VAPID_PRIVATE");
@@ -451,6 +452,7 @@ Deno.serve(async (req) => {
       case "saveHeart":     return json(await saveHeart(body));
       case "getConfig":     return json(await getConfig(body));
       case "saveConfig":    return json(await saveConfig(body));
+      case "clientError":   return json(await clientError(body));   // 화면 오류 한 건(문 errorLogOn 이 닫혀 있으면 받지 않는다)
       case "challenge":     return json(await challenge(body));
       case "advanceReview": return json(await advanceReview(body));
       case "ranking":       return json(await ranking(body));
@@ -2604,7 +2606,7 @@ async function login(b: any) {
 
 // ---------- app_config: 관리자가 배포 없이 편집하는 설정(키-값) ----------
 // 공개로 읽어도 되는 키만 화이트리스트로 허용(임의 키 노출 방지).
-const PUBLIC_CONFIG_KEYS = new Set(["heartMessages", "dailyMessage", "introSlides", "milestoneMessages", "passagesPublic", "psalmPublic", "songPublic", "event", "ministry", "eduOpen", "dutyOpen"]);
+const PUBLIC_CONFIG_KEYS = new Set(["heartMessages", "dailyMessage", "introSlides", "milestoneMessages", "passagesPublic", "psalmPublic", "songPublic", "event", "ministry", "eduOpen", "dutyOpen", "errorLogOn"]);
 
 async function getConfig(b: any) {
   const key = String(b.key || "");

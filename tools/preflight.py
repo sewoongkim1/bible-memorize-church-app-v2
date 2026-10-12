@@ -141,6 +141,9 @@ PURE_TESTS += ["tests/lazy-load.test.cjs"]
 # api 파일 나누기(2026-10-12) — index.ts 가 영역 파일에서 들여오는 이름이 export 돼 있나 · 두 번 선언·고리·공용 중복이 없나 ·
 #   떼어 낸 영역의 순수 규칙(쉴만한 물가 열린 편수). deno 가 없어도 「이름 하나 어긋나 첫 요청에서 함수가 죽는」 것을 막는다.
 PURE_TESTS += ["tests/api-split.test.cjs"]
+# 화면 오류 모으기(2026-10-12 · 문 errorLogOn 닫힌 채) — 앱이 보내는 몸이 일곱 칸뿐이고 개인 값(이름·소속·계정 번호·전화·주소의 ? 뒤·UA 원문·기기 토큰)이 안 실리나 ·
+#   문이 닫히거나 모르면 안 보내나 · 앱과 서버의 거름 규칙이 같은 글자인가 · 표 잠금(docs/notes/client-errors.md)
+PURE_TESTS += ["tests/client-errors.test.cjs"]
 
 print("\n[3] 순수 함수 검사 (node --test)")
 for t in PURE_TESTS:

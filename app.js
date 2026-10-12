@@ -50,6 +50,138 @@ const APP_BUILD = "20261012d";
   } catch (_) {}
 })();
 
+// ── 화면 오류 모으기 (여기부터) ── 2026-10-12 · 문 닫힌 채 · docs/notes/client-errors.md
+//   성도님 기기에서 난 JS 오류(error · unhandledrejection)를 api clientError 로 보낸다 → 표 client_errors(supabase/client_errors.sql).
+//   ⚠️ 문: app_config errorLogOn 이 true 하나일 때만(CERR_OPEN_KEY 캐시 — 못 받았으면 닫힘). 서버도 같은 문으로 다시 막는다.
+//   ⚠️ 보내는 것은 여섯 칸뿐이다 — 판 · 껍데기(web/play/ios) · 화면(오류가 난 render 함수 이름) · 오류 첫 줄 200자(번호·주소의 ? 뒤·전자우편·긴 숫자를 지움) ·
+//      파일:줄(우리 파일만) · 브라우저 계열. user_id·이름·소속·전체 스택·주소의 ? 뒤·UA 원문·기기 토큰은 싣지 않는다
+//      (supaCall 을 안 쓰는 까닭 — 그것은 기기 토큰을 붙인다). 칸을 더하려면 개인정보 안내(privacy/ · renderPrivacyInfo · renderHelp)부터 —
+//      tests/client-errors.test.cjs 가 보내는 칸 이름과 개인 값이 안 실리는지를 글자로 본다.
+//   ⚠️ 이 덩어리가 오류를 내면 안 된다 — 전부 try/catch · 보내기 실패는 조용히 · 한 기기에서 같은 오류는 하루 한 번 · 한 번 열 때 다섯 건까지.
+//   파일 맨 위에 두는 까닭: app.js 가 위에서부터 도는 동안 난 오류도 받으려고(아래쪽 함수는 typeof 로만 부른다).
+var CERR_OPEN_KEY = "errlog-open", CERR_SENT_KEY = "errlog-sent", CERR_MAX_PER_LOAD = 5;
+var _cerrN = 0, _cerrBusy = false, _cerrSeen = {};
+function cerrOpenCached() { try { return localStorage.getItem(CERR_OPEN_KEY) === "1"; } catch (e) { return false; } }
+function refreshErrLogOpen() {
+  try {
+    if (!window.api || !api.getConfig) return;
+    api.getConfig("errorLogOn").then(function (d) { try { localStorage.setItem(CERR_OPEN_KEY, d && d.value === true ? "1" : "0"); } catch (e) {} }).catch(function () {});
+  } catch (e) {}
+}
+// 서버 supabase/functions/api/client-errors.ts 의 cerrScrub 과 **같은 글자**여야 한다(두 번째 그물) — 시험이 맞대 본다.
+function cerrScrub(v) {
+  var s = typeof v === "string" ? v : v == null ? "" : String(v);
+  s = s.split(/\r?\n/)[0] || "";
+  s = s.replace(/[\u0000-\u001f\u007f]/g, " ");
+  s = s.replace(/\b[a-z][a-z0-9+.-]*:\/\/[^\s'"<>()]+/gi, function (u) { return u.split(/[?#]/)[0]; });
+  s = s.replace(/[?#][^\s'"<>()]*=[^\s'"<>()]*/g, "");
+  s = s.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "<id>");
+  s = s.replace(/[^\s@'"<>()]+@[^\s@'"<>()]+\.[a-z]{2,}/gi, "<email>");
+  s = s.replace(/\d[\d\s-]{3,}\d/g, "<n>");
+  s = s.replace(/\s+/g, " ").trim();
+  return s.slice(0, 200);
+}
+// 통신이 끊긴 것 · 남의 스크립트(교차 출처 — 내용이 비어 온다) · 브라우저 경고는 화면 고장이 아니다 — 안 보낸다.
+var CERR_SKIP = /^(?:\(promise\) )?(?:Uncaught )?(?:TypeError: )?(?:Failed to fetch|Load failed|NetworkError when attempting to fetch resource\.?|cancell?ed|The network connection was lost\.?|Script error\.?|AbortError\b.*|.*ResizeObserver loop.*)$/i;
+// 주소 → 「우리 파일 경로:줄:칸」(? 뒤를 뗀다) · 남의 주소(확장 프로그램·다른 사이트)는 "other" · 모르면 "".
+function cerrSrc(url, line, col) {
+  try {
+    if (!url) return "";
+    var u = new URL(String(url), location.href);
+    if (u.origin !== location.origin) return "other";
+    var p = u.pathname.replace(/^\/+/, "") || "index.html";
+    return (p + (line ? ":" + line + (col ? ":" + col : "") : "")).slice(0, 80);
+  } catch (e) { return ""; }
+}
+// 스택 → 첫 자리(파일:줄:칸)와 그 안에서 처음 만나는 render 함수 이름(= 화면). 스택 자체는 보내지 않는다.
+function cerrFromStack(stack) {
+  var out = { src: "", screen: "" };
+  try {
+    var s = String(stack || "");
+    var m = /((?:https?|file):\/\/[^\s()]+?):(\d+):(\d+)/.exec(s);
+    if (m) out.src = cerrSrc(m[1], m[2], m[3]);
+    var r = /\b(render[A-Z][A-Za-z]{0,33})\b/.exec(s);
+    if (r) out.screen = r[1];
+  } catch (e) {}
+  return out;
+}
+// 브라우저 계열만(「android-samsung」 꼴) — UA 원문은 보내지 않는다.
+function cerrBrowser() {
+  try {
+    var ua = String((navigator && navigator.userAgent) || "");
+    var os = /Android/i.test(ua) ? "android" : /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ? "ios"
+      : /Windows/i.test(ua) ? "windows" : /Mac OS X/i.test(ua) ? "mac" : "other";
+    var fam = /SamsungBrowser/i.test(ua) ? "samsung" : /KAKAOTALK/i.test(ua) ? "kakaotalk" : /NAVER/.test(ua) ? "naver" : /Edg(?:e|A|iOS)?\//.test(ua) ? "edge"
+      : /Firefox|FxiOS/.test(ua) ? "firefox" : /CriOS|Chrome\//.test(ua) ? "chrome" : /Safari/.test(ua) ? "safari" : "other";
+    return os + "-" + fam;
+  } catch (e) { return "other-other"; }
+}
+// 껍데기 — 이미 있는 판정을 쓴다(isNativeApp: js/push.js · openedByPlayApp: 이 파일 아래쪽 — 아직 안 읽혔으면 web).
+function cerrShell() {
+  try { if (typeof isNativeApp === "function" && isNativeApp()) return "ios"; } catch (e) {}
+  try { if (typeof openedByPlayApp === "function" && openedByPlayApp()) return "play"; } catch (e) {}
+  return "web";
+}
+// 한국 날짜(YYYY-MM-DD) — 「하루 한 번」을 세는 데만 쓴다(표의 날짜는 서버가 제 시계로 적는다).
+function cerrDay() { try { return new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10); } catch (e) { return ""; } }
+// 이 기기에서 오늘 이미 보낸 오류인가 — 아니면 적어 두고 false. 저장소를 못 쓰면 이번 실행 안에서만 센다.
+function cerrAlreadySent(sig) {
+  if (_cerrSeen[sig]) return true;
+  _cerrSeen[sig] = 1;
+  try {
+    var day = cerrDay(), o = null;
+    try { o = JSON.parse(localStorage.getItem(CERR_SENT_KEY) || "null"); } catch (e) { o = null; }
+    if (!o || o.d !== day || !Array.isArray(o.s)) o = { d: day, s: [] };
+    if (o.s.indexOf(sig) >= 0) return true;
+    o.s.push(sig);
+    if (o.s.length > 30) o.s = o.s.slice(-30);
+    localStorage.setItem(CERR_SENT_KEY, JSON.stringify(o));
+  } catch (e) {}
+  return false;
+}
+// 한 건 보내기 — 받는 것은 { msg, src, screen } 셋뿐이다(나머지 셋은 여기서 붙인다).
+function cerrReport(e) {
+  if (_cerrBusy) return;
+  _cerrBusy = true;
+  try {
+    if (!cerrOpenCached() || _cerrN >= CERR_MAX_PER_LOAD) return;
+    var msg = cerrScrub(e && e.msg);
+    if (!msg || msg === "(promise)" || CERR_SKIP.test(msg)) return;
+    var src = String((e && e.src) || "").slice(0, 80);
+    if (src === "other") return;   // 남의 스크립트(확장 프로그램 등)가 낸 오류 — 우리 화면 고장이 아니다
+    var screen = /^[A-Za-z]{1,40}$/.test((e && e.screen) || "") ? e.screen : "";
+    var body = { action: "clientError", build: APP_BUILD, shell: cerrShell(), screen: screen, msg: msg, src: src, browser: cerrBrowser() };
+    if (cerrAlreadySent([body.build, body.screen, body.msg, body.src].join("|"))) return;
+    _cerrN++;
+    var S = window.SUPA;
+    if (!S || !S.URL || !S.ANON || typeof fetch !== "function") return;
+    fetch(S.URL + "/functions/v1/api", {
+      method: "POST", keepalive: true,
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + S.ANON, "apikey": S.ANON },
+      body: JSON.stringify(body),
+    }).catch(function () {});
+  } catch (x) {
+  } finally { _cerrBusy = false; }
+}
+try {
+  window.addEventListener("error", function (ev) {
+    try {
+      if (!ev || !ev.message) return;   // 그림·스크립트를 못 받은 자원 오류는 message 가 없다(지연 받기 실패는 화면이 따로 알린다)
+      var st = cerrFromStack(ev.error && ev.error.stack);
+      cerrReport({ msg: ev.message, src: cerrSrc(ev.filename, ev.lineno, ev.colno) || st.src, screen: st.screen });
+    } catch (x) {}
+  });
+  window.addEventListener("unhandledrejection", function (ev) {
+    try {
+      var r = ev && ev.reason, st = cerrFromStack(r && r.stack);
+      var m = r && typeof r === "object" ? (r.name && r.message ? r.name + ": " + r.message : r.message || "") : r;
+      cerrReport({ msg: "(promise) " + cerrScrub(m), src: st.src, screen: st.screen });
+    } catch (x) {}
+  });
+  setTimeout(refreshErrLogOpen, 4000);   // 첫 그리기를 방해하지 않게 늦게 — 받은 값은 그다음 오류(또는 다음 실행)부터 쓴다
+} catch (x) {}
+// ── 화면 오류 모으기 (여기까지) ──
+
 // ── 필요할 때 받는 화면 코드(2026-10-12 · 첫 실행을 가볍게) ──────────────
 //   🎓 교육(js/edu.js · 47KB)·🙋 봉사 당번(js/duty.js · 90KB)은 문이 닫혀 🧪 시험 참여자만 쓴다 — index.html 이 처음부터
 //   받지 않고, ① 첫 화면에 그 단추가 보이면 한가할 때(lazyJsSoon) ② 단추를 누르면 ③ 알림 주소(?edu= · ?duty=1)로 들어오면 받는다.
