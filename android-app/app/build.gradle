@@ -102,11 +102,13 @@ android {
     namespace codeNamespace
     defaultConfig {
         applicationId twaManifest.applicationId
-        minSdkVersion 23
+        // 24 = 안드로이드 7.0(2026-10-13 · Play Console 「Play 자동 보호를 사용하려면 최소 SDK 버전이 24 이상」 — 23(안드로이드 6.0)이면 업로드가 막혔다).
+        //   요즘 크롬은 그보다 훨씬 최신 안드로이드에서만 돌아서 실제로 빠지는 분은 거의 없다.
+        minSdkVersion 24
         targetSdkVersion 36
         // 판 번호 — 새 앱(kr.onlybible.gocheok)의 첫 판도 2 · 1.1.0 으로 둔다(옛 앱의 1 과 헷갈리지 않게 · 아이폰 위젯 판 이름과 맞춤).
         // 올릴 때마다 versionCode 를 하나씩 올린다.
-        versionCode 3
+        versionCode 4   // 3 은 2026-10-13 업로드가 minSdk 로 막혔다 — 이미 쓴 번호일 수 있어 건너뛴다
         versionName "1.1.1"
 
         // The name for the application
