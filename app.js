@@ -635,8 +635,8 @@ function psalmVisible() { return _psalmPreview || psalmPublicCached(); }
 // 📚 네비게이토 성경암송(2026-10-13 · docs/notes/navigators.md) — app_config('naviPublic') 이 true 이거나 🧪 시험 참여자 · 미리보기(?navi=1)일 때만
 //   첫 화면 「암송 과정」 단추. ⚠️ 문은 이것 하나다 — 카드 줄(verses track='navi')은 켠 채로 넣었다(구절은 공개된 성경 본문이라 서버가
 //   막을 것이 없다 · 주간을 읽는 곳은 모두 track='weekly' 로 거른다). 그래서 이 판정을 「열림」 쪽으로 넓히면 그대로 성도님께 열린다.
-//   「모름」(캐시 없음 · 받기 실패)은 숨긴다. 켠 날 성도님은 앱을 한 번 닫았다 열어야 보인다(psalm·edu 와 같다).
-//   여는 날 할 일(설명서 한 장 · FEAT_SINCE.navi · 열람 기록 FEATURES)은 docs/notes/navigators.md 「여는 날」.
+//   「모름」(캐시 없음 · 받기 실패)은 숨긴다. 2026-10-13 열었다(친구) — 값이 바뀌면 refreshNaviOpen 이 첫 화면을 그 자리에서 다시 그려,
+//   연 날 앱을 한 번 더 켜지 않아도 보인다(psalm·edu 는 다음 실행부터). 여는 날 한 일은 docs/notes/navigators.md 「여는 날」.
 let _naviPreview = false;
 function getNaviPreview() {   // ?navi=1 — 그 칸만 지운다(다른 칸 ?v= 등은 그대로 · readHomePreviewParam 과 같은 꼴)
   try {
@@ -651,7 +651,13 @@ const NAVI_PUB_KEY = "navi-public";
 function naviOpenCached() { try { return localStorage.getItem(NAVI_PUB_KEY) === "1"; } catch (e) { return false; } }
 function refreshNaviOpen() {   // 값은 === true 로만(문자열 "false" 는 참이라 켜진다 — 스킬 gated-feature ②)
   if (!window.api || !api.getConfig) return;
-  api.getConfig("naviPublic").then((d) => { try { localStorage.setItem(NAVI_PUB_KEY, d && d.value === true ? "1" : "0"); } catch (e) {} }).catch(() => {});
+  const before = naviOpenCached();
+  api.getConfig("naviPublic").then((d) => {
+    const now = !!(d && d.value === true);
+    try { localStorage.setItem(NAVI_PUB_KEY, now ? "1" : "0"); } catch (e) {}
+    // 값이 바뀌었고 첫 화면에 있으면 그 자리에서 다시 그린다(refreshMinistryTester 와 같은 까닭 — 연 날 앱을 두 번 켜야 보이면 안 된다)
+    if (before !== now && document.querySelector(".todo-go")) renderSummary();
+  }).catch(() => {});   // 못 받으면 캐시를 그대로 둔다(통신이 잠깐 끊긴 것을 「닫힘」으로 바꾸지 않는다)
 }
 function naviVisible() { return _naviPreview || naviOpenCached() || ministryTesterCached(); }
 // 🎓 교육(2026-10-05) — app_config('eduOpen') 이 true 이거나 🧪 시험 참여자일 때만 첫 화면 단추. 막는 것은 서버(eduApply not-open).
@@ -782,7 +788,8 @@ function applyHomeB() {
 // 🧪 첫 화면 A안 미리보기(2026-10-12 친구 — 디자인 개편 시안 A · 「이번 주 말씀」 아래만 · 지금 앱 색).
 //   ?home=a 로 연 기기에서만(?home=off 나 「원래 화면으로」로 되돌림 · ?home=b 는 B안). 성도님 화면에서는 부르지 않는다.
 //   이번 주 말씀 아래 단추들을 시안 A 처럼 「묶음 제목 + 흰 카드 안 줄 목록(선 아이콘 · 이름 · ›)」으로 **옮겨 담는다** —
-//   「말씀 묵상」(내게 주시는 말씀 · 매일 묵상) · 내 기록 · 교회 생활 · 함께(+ 필사 · 퀴즈) · 교회 사이트(앱 밖으로 나가요 · 아카이브 둘).
+//   「말씀 묵상」(내게 주시는 말씀 · 매일 묵상) · 내 기록 · 교회 생활 · 암송 과정(물가 · 내 안에 거하는 말씀 · 네비게이토 · 퀴즈 — 2026-10-13) ·
+//   함께(+ 필사) · 교회 사이트(앱 밖으로 나가요 · 아카이브 둘).
 //   「더 보기」는 풀린다. 맨 아래 아이콘 줄은 시안 A 의 도구 칸으로(구절 · 쓰기 · 도움말 / 알림 · 설정).
 //   단추 자신(id·연결)은 그대로라 모두 지금과 똑같이 동작한다. 나중에 붙는 것(새글 · 진행 알약 · NEW)은 CSS order 로 자리를 잡는다.
 //   아이콘 길은 시안 A(scratchpad design/project/Main.dc.html ICONS)에서 그대로 가져왔고, 시안에 없던 넷(교육·당번·물가·말씀)은 같은 결로 더했다.
@@ -816,10 +823,12 @@ const HA_ICON = {
 };
 const HA_GROUPS = [
   { title: "말씀 묵상", ids: ["open-sermon-chat", "open-meditation"] },
-  { title: "암송 과정", ids: ["open-navi"] },   // 📚 네비게이토(2026-10-13 · 문이 닫히면 단추가 없어 제목째 안 생긴다)
   { title: "내 기록", ids: ["open-event-list", "open-album", "open-ranking"] },
   { title: "교회 생활", ids: ["open-ministry", "open-ministry-history", "open-edu", "open-duty"] },
-  { title: "함께", ids: ["open-board", "open-prayer", "open-psalm", "open-passages", "open-pilsa", "open-quiz"] },
+  // 📚 암송 과정 — 「함께」 바로 위 · 외우는 것 넷을 이 차례로(친구 2026-10-13 · 쉴만한 물가·내 안에 거하는 말씀·퀴즈는 「함께」에서 옮김).
+  //   단추마다 문이 따로라(psalmVisible · passagesVisible · naviVisible) 닫힌 단추는 줄째 빠진다 · 설명서의 자리 말(MANUAL)도 이 묶음을 가리킨다.
+  { title: "암송 과정", ids: ["open-psalm", "open-passages", "open-navi", "open-quiz"] },
+  { title: "함께", ids: ["open-board", "open-prayer", "open-pilsa"] },
   { title: "교회 사이트", note: "앱 밖으로 나가요", ext: true, ids: ["open-praise", "open-sermon-archive"] },
 ];
 const HA_ROW_ICON = {
@@ -2689,6 +2698,7 @@ const FEAT_SINCE = {
   // ⚠️ 「event」키를 다시 쓰면 안 된다 — 9월에 썸머 명단을 눌러 본 분은
   //    feat-seen-event 가 이미 1 이라(featIsNew 첫 줄) 영영 안 뜬다.
   //    ⚠️ 개시일을 옮기면 supabase/event_stamp_2026.sql 과 함께 옮긴다.
+  navi: "2026-10-13",         // 📚 네비게이토 성경암송 — 문(naviPublic)을 연 날(친구 2026-10-13). 가장 최근이라 이 단추가 NEW 를 가져간다
   stamp: "2026-10-11",        // 가을 말씀암송 동행 — 도장 시작일(측정 start)과 같은 날부터 NEW(2026-10-10 친구: 10/11 개시·8주)
   psalm: "2026-09-12",        // 쉴만한 물가(옛 이름 시편 말씀 액자) — 1일차와 같은 날부터 NEW
   song: "2026-09-23",         // 오늘의 찬양 — 게이트(songPublic)를 켠 날
@@ -3540,11 +3550,6 @@ function renderSummary() {
       <button class="summary-go sermon-act act-btn" id="open-sermon-chat"><span class="act-ic">💬</span><span class="act-tx">내게 주시는<br>말씀</span>${newBadge("sermon")}</button>
       <button class="summary-go med-act act-btn" id="open-meditation"><span class="act-ic">🌿</span><span class="act-tx">매일<br>묵상</span>${newBadge("meditation")}</button>
     </div>
-    ${/* 📚 암송 과정(2026-10-13 · docs/notes/navigators.md) — 「말씀 묵상」 바로 아래 새 묶음. 지금은 네비게이토 성경암송 한 줄.
-          문은 naviVisible(app_config naviPublic · 🧪 시험 참여자 · ?navi=1) — 닫힌 동안은 제목째 없다. 화면 코드는 누를 때 받는다(openNavi).
-          A안은 HA_GROUPS 의 「암송 과정」이 이 단추를 옮겨 담는다(제목은 그쪽 것이 보인다). */""}
-    ${naviVisible() ? `<div class="grp-title">암송 과정</div>
-    <button class="summary-help" id="open-navi">📚 네비게이토 성경암송${newBadge("navi")}</button>` : ""}
     <!-- 성격별로 묶는다 (2026-09-02) — 전에는 일곱 줄이 같은 모양·다른 색으로 나열돼
          무엇이 무엇인지 색으로도 자리로도 알 수 없었다.
          ⚠️ 단추마다 있던 제 색(보라·초록·청록·금…)을 뗐다. 색은 「누구인가」가 아니라
@@ -3574,6 +3579,12 @@ function renderSummary() {
     ${eduVisible() ? `<button class="summary-help" id="open-edu">🎓 교육·강좌 신청${newBadge("edu")}</button>` : ""}
     ${/* 🙋 봉사 당번(2026-10-06) — 문은 dutyVisible(dutyOpen 또는 시험 참여자). FEAT_SINCE.duty 는 개시일에 적는다(없으면 NEW 가 안 뜬다) */""}
     ${dutyVisible() ? `<button class="summary-help" id="open-duty">🙋 봉사 당번 신청${newBadge("duty")}</button>` : ""}
+    ${/* 📚 암송 과정(2026-10-13 · docs/notes/navigators.md) — 「함께」 바로 위(친구 2026-10-13). 이 옛 첫 화면(롤백용 · HOME_LAYOUT="old")에는
+          네비게이토 한 줄만 둔다 — 쉴만한 물가·내 안에 거하는 말씀·퀴즈는 옛 자리 그대로(옛 화면을 바꾸지 않는다).
+          지금 첫 화면(A안)은 HA_GROUPS 의 「암송 과정」이 넷을 옮겨 담는다(제목은 그쪽 것이 보인다 · 설명서 쉴만한 물가 줄도 HOME_LAYOUT 으로 갈라 쓴다).
+          문은 naviVisible(app_config naviPublic · 🧪 시험 참여자 · ?navi=1) — 닫힌 동안은 제목째 없다. 화면 코드는 누를 때 받는다(openNavi). */""}
+    ${naviVisible() ? `<div class="grp-title">암송 과정</div>
+    <button class="summary-help" id="open-navi">📚 네비게이토 성경암송${newBadge("navi")}</button>` : ""}
     <div class="grp-title">함께</div>
     <button class="summary-help" id="open-board">💬 응원·기도·공감</button>
     ${/* 2026-09-25 순서 바꿈(친구 요청) — 가정 축복 기도문이 쉴만한 물가보다 위. */""}
@@ -9003,12 +9014,29 @@ const MANUAL = [
     when: () => psalmVisible(),   // 첫 화면 단추와 같은 게이트 — 단추가 없는데 안내만 있으면 안 된다
     art: '<div class="mn-row"><span class="mn-btn mn-btn-on">🐑 쉴만한 물가</span></div>',
     steps: [
-      "첫 화면 <b>「함께」</b>에서 <b>🐑 쉴만한 물가</b>를 누르세요.",
+      HOME_LAYOUT === "a"   // 2026-10-13 A안에서는 「암송 과정」 묶음으로 옮겼다(친구) — 옛 첫 화면은 「함께」 그대로
+        ? "첫 화면 <b>「암송 과정」</b>에서 <b>🐑 쉴만한 물가</b>를 누르세요."
+        : "첫 화면 <b>「함께」</b>에서 <b>🐑 쉴만한 물가</b>를 누르세요.",
       "오늘 열린 말씀이 <b>액자</b>로 보여요. 천천히 읽으며 머물러 보세요.",
       "<b>◀ 이전</b>을 누르면 지난 날의 말씀도 다시 볼 수 있어요.",
       "손으로 따라 써 보고 싶으시면 가운데 <b>암송</b>을 누르세요.",
     ],
     tip: "<b>매일 새 말씀이 하나씩</b> 열립니다. <b>🌿 매일 묵상</b> 창 아래 <b>🐑 쉴만한 물가</b>를 눌러도 오늘 말씀으로 바로 가요.",
+  },
+  // 📚 네비게이토 성경암송(2026-10-13 열림 · docs/notes/navigators.md). 단추는 두 첫 화면(A안 · 옛 첫 화면) 모두 「암송 과정」 묶음에 있다.
+  //   ⚠️ 「앨범에 담겨요」·「복습」을 쓰지 않는다 — 네비게이토는 둘 다 아니다. 순위에 세지는 것은 사실이다(순위가 암송 learn-* 를 함께 센다 · daily-activity.sql).
+  {
+    icon: "📚", title: "네비게이토 성경암송",
+    lead: "주제별로 묶은 암송 말씀을 묶음마다 외워요.",
+    when: () => naviVisible(),   // 첫 화면 단추와 같은 문 — 단추가 없는데 안내만 있으면 안 된다
+    art: '<div class="mn-row"><span class="mn-btn mn-btn-on">📚 네비게이토 성경암송</span></div>',
+    steps: [
+      "첫 화면 <b>「암송 과정」</b>에서 <b>📚 네비게이토 성경암송</b>을 누르세요.",
+      "외우고 싶은 <b>묶음</b>을 고르세요. 어느 묶음부터 시작하셔도 돼요.",
+      "구절을 누르면 <b>📖 말씀 암송</b>과 같은 세 단계로 외워요. <b>👆 카드</b>로 채워도 돼요.",
+      "다 외우시면 <b>다음 말씀 ▶</b>으로 그 묶음의 다음 구절로 가요.",
+    ],
+    tip: "외운 기록은 <b>📖 말씀 암송</b>과 똑같이 남아 <b>도전 순위</b>에도 함께 세져요. 묶음 목록에서 <b>몇 구절 마쳤는지</b> 볼 수 있어요.",
   },
   {
     icon: "🙏", title: "가정 축복 기도문",
