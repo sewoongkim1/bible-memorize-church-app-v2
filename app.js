@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261012m";
+const APP_BUILD = "20261012n";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -366,6 +366,7 @@ function routeAfterLoad() {
   //    (?v=1&from=push 처럼 딥링크와 겹치는 경우가 실제로 그랬다). readPushMark 는
   //    from 파라미터만 지우고 v·lang 등 나머지는 그대로 두므로 먼저 불러도 안전하다.
   readPushMark();
+  readHomePreviewParam();   // 🧪 ?home=b · ?home=a — 첫 화면 B안 미리보기(이 기기에만)
   _passagesPreview = getPassagesPreview();
   _psalmPreview = getPsalmPreview();
   _songPreview = getSongPreview();
@@ -682,6 +683,51 @@ function refreshSongPublic() {
   }).catch(() => {});
 }
 function songVisible() { return _songPreview || songPublicCached(); }
+
+// 🧪 첫 화면 B안 미리보기(2026-10-12 친구 — 디자인 개편 시안 B · docs/notes/design-refresh.md).
+//   gocheok.onlybible.kr/?home=b 로 연 기기에서만 B안 첫 화면이 보인다(?home=a 나 화면의 「원래 화면으로」로 되돌림).
+//   문 = 이 기기의 localStorage 표식 하나 — 주소를 모르는 성도님은 지금 첫 화면 그대로다. 서버·기록과는 상관없다(배치만 바꾼다).
+//   배치는 CSS(.home-b — style.css 끝 덩이)가 바꾸고, 단추·id·연결 코드는 지금 첫 화면 그대로라 모든 단추가 똑같이 동작한다.
+//   ⚠️ 다른 미리보기(getPsalmPreview 등)는 주소의 ? 뒤를 통째로 지운다 — 이것은 home 하나만 지운다(다른 표식을 안 건드리게).
+const HOME_B_KEY = "home-b-preview";
+function readHomePreviewParam() {
+  try {
+    const url = new URL(location.href);
+    const h = url.searchParams.get("home");
+    if (h !== "b" && h !== "a") return;
+    if (h === "b") localStorage.setItem(HOME_B_KEY, "1"); else localStorage.removeItem(HOME_B_KEY);
+    url.searchParams.delete("home");
+    history.replaceState(null, "", url.pathname + url.search + url.hash);
+  } catch (e) {}
+}
+function homeBPreview() { try { return localStorage.getItem(HOME_B_KEY) === "1"; } catch (e) { return false; } }
+// B안 — 묶음 단추 맨 앞 그림 글자(이모지)를 떼어 타일 위쪽에 크게 놓고, 맨 위에 미리보기 표시 줄을 단다.
+//   단추 자신(id·연결)은 그대로 두고 안의 글만 나눈다. 성도님 화면(B 아님)에서는 부르지 않는다.
+function applyHomeB() {
+  const card = document.querySelector(".summary-screen.home-b .summary-card");
+  if (!card) return;
+  card.querySelectorAll(":scope > .summary-help, :scope > .summary-share, #more-box > .summary-help").forEach((b) => {
+    if (b.querySelector(".hb-ic")) return;
+    const t = b.firstChild;
+    if (!t || t.nodeType !== 3) return;
+    const m = t.data.match(/^\s*(\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic})*️?)\s*/u);
+    if (!m) return;
+    t.data = t.data.slice(m[0].length);
+    const ic = document.createElement("span");
+    ic.className = "hb-ic";
+    ic.setAttribute("aria-hidden", "true");
+    ic.textContent = m[1];
+    b.insertBefore(ic, t);
+  });
+  const bar = document.createElement("div");
+  bar.className = "hb-bar";
+  bar.innerHTML = `<span>🧪 첫 화면 B안 미리보기 · 이 기기에서만</span><button type="button" id="hb-off">원래 화면으로</button>`;
+  card.appendChild(bar);   // 자리는 CSS order 가 정한다(인사 바로 아래)
+  bar.querySelector("#hb-off").addEventListener("click", () => {
+    try { localStorage.removeItem(HOME_B_KEY); } catch (e) {}
+    renderSummary();
+  });
+}
 
 // 오늘치 캐시 — 하루 한 곡이고 모두가 같은 곡이라 어긋날 일이 없다.
 //   ⚠️ 열쇠는 **한국 날짜**다. UTC 로 두면 밤에 캐시가 하루 일찍 만료된다.
@@ -3232,7 +3278,7 @@ function renderSummary() {
 
   const appEl = document.getElementById("app");
   appEl.innerHTML = `
-<div class="summary-screen">
+<div class="summary-screen${homeBPreview() ? " home-b" : ""}">
   <div class="summary-card">
     <div class="summary-headrow">
       <div class="summary-hello"><span class="summary-affil">${u.type === "교구" ? `${u.gu}-${u.mok}` : `${u.bu}${u.grade ? " " + u.grade : ""}`}</span> <span class="summary-user">${u.name}</span> <span class="summary-honor">성도님</span><br>주님의 이름으로 환영합니다 🙌</div>
@@ -3439,6 +3485,7 @@ function renderSummary() {
       if (bell && !sub) bell.classList.add("pulse");
     } catch (e) {}
   })();
+  if (homeBPreview()) applyHomeB();   // 🧪 첫 화면 B안 미리보기(?home=b 로 연 기기만)
   maybeAutumnPopup();   // 가을 말씀암송 동행 개시 1회 안내(열린 회차가 autumn-2026 이면 한 번만)
 }
 
