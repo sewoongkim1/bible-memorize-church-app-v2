@@ -53,9 +53,14 @@ const APP_BUILD = "20261012c";
 // ── 필요할 때 받는 화면 코드(2026-10-12 · 첫 실행을 가볍게) ──────────────
 //   🎓 교육(js/edu.js · 47KB)·🙋 봉사 당번(js/duty.js · 90KB)은 문이 닫혀 🧪 시험 참여자만 쓴다 — index.html 이 처음부터
 //   받지 않고, ① 첫 화면에 그 단추가 보이면 한가할 때(lazyJsSoon) ② 단추를 누르면 ③ 알림 주소(?edu= · ?duty=1)로 들어오면 받는다.
+//   🙏 기도문 화면(js/prayer.js · 35KB)·✍️ 필사 신청(js/pilsa.js · 31KB)은 app.js 에서 떼어 냈다(2026-10-12) — 단추를 누를 때(openPrayerBook·openPilsaApply)·위젯 ?w=prayer 로 받는다.
 //   ⚠️ 새로 지연으로 둘 모듈을 더하기 전에 docs/notes/lazy-load.md — 첫 화면이 동기로 부르는 것(문 판단·딥링크 읽기)이 그 파일에 있으면 안 된다.
 //   판 태그는 새로 만들지 않는다 — index.html 이 app.js 를 부른 ?v= 를 그대로 붙인다(bump.py 가 모든 태그를 같은 값으로 올린다 · 없으면 APP_BUILD).
-var LAZY_JS = { edu: { src: "js/edu.js", fn: "renderEduList" }, duty: { src: "js/duty.js", fn: "renderDutyList" } };
+var LAZY_JS = {
+  edu: { src: "js/edu.js", fn: "renderEduList" }, duty: { src: "js/duty.js", fn: "renderDutyList" },
+  prayer: { src: "js/prayer.js", fn: "renderPrayerBook" },   // 🙏 가정 축복 기도문 화면(2026-10-12 · 첫 화면 단추는 모두에게 보이니 미리 받지 않고 누를 때)
+  pilsa: { src: "js/pilsa.js", fn: "renderPilsaApply" },     // ✍️ 성경필사 노트 신청(2026-10-12 · 「더 보기」 안 · 확인 번호 문을 묻는 동안 받는다)
+};
 var _lazyJsP = {};
 function lazyJsTag() {
   try {
@@ -100,6 +105,7 @@ function lazyJsForUrl(href) {
   const qs = q < 0 ? "" : s.slice(q).split("#")[0], need = [];
   if (/[?&]edu=/.test(qs)) need.push("edu");
   if (/[?&]duty=1(?:&|$)/.test(qs)) need.push("duty");
+  if (/[?&]w=prayer(?:&|$)/.test(qs)) need.push("prayer");   // 위젯(?w=prayer) — getWidgetTarget 과 같은 값
   if (!need.length) return null;
   return Promise.race([
     Promise.all(need.map((n) => loadLazyJs(n).catch(() => {}))),
@@ -108,6 +114,20 @@ function lazyJsForUrl(href) {
 }
 var _lazyDeepP = null;
 try { _lazyDeepP = lazyJsForUrl(location.search); } catch (_) {}
+// 들어오는 길이 여럿인 화면 — 길마다 같은 말을 쓰지 않게 한 곳에(함수 이름 renderPrayerBook·renderPilsaApply 는 그 파일에 그대로 있다).
+//   받기에 실패하면(통신) 말없이 아무 일도 안 일어나는 대신 까닭을 알린다(교육·당번 단추와 같은 말).
+function openPrayerBook(idx) {
+  withLazyJs("prayer", () => {
+    if (typeof renderPrayerBook === "function") renderPrayerBook(idx);
+    else appAlert("기도문 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
+  });
+}
+function openPilsaApply() {
+  withLazyJs("pilsa", () => {   // pilsaLoaded 는 js/pilsa.js 의 것 — 함수가 있을 때만 만진다(들어올 때마다 서버에서 지금 상태)
+    if (typeof renderPilsaApply === "function") { pilsaLoaded = false; renderPilsaApply(); }
+    else appAlert("필사 노트 신청 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
+  });
+}
 
 // 말씀 데이터: 정적 verses.json 1순위, 실패 시 시트 API 폴백
 const DATA_URL = "verses.json";
@@ -244,7 +264,7 @@ function routeAfterLoad() {
   // 로그인 전이면 평소대로 로그인 화면으로 떨어뜨린다(위젯은 공개 정보만 보여 주므로 여기서 막아도 잃는 게 없다).
   const widgetTo = getWidgetTarget();
   if (widgetTo && loadUser()) {
-    if (widgetTo === "prayer") { renderPrayerBook(); return; }
+    if (widgetTo === "prayer") { openPrayerBook(); return; }   // 화면 코드는 js/prayer.js(지연) — 위젯 주소면 말씀과 함께 미리 받아 둔다(lazyJsForUrl)
     // 쉴만한 물가(2026-10-07 · 아이폰 「돌려 보기」 위젯의 넷째 장) — 첫 화면 단추와 같은 게이트.
     // 게이트가 꺼져 있으면 아래로 흘러 평소 첫 화면이 열린다(위젯도 그때는 이 장을 싣지 않는다).
     if (widgetTo === "psalm" && psalmVisible() && typeof renderPsalmHome === "function") { renderPsalmHome(); return; }
@@ -286,7 +306,7 @@ function routeAfterLoad() {
   //      CLAUDE.md 와 백로그도 같이 낡아 「첫 화면에 한 줄 더하기」가 남은 일로 적혀 있었다.
   //   이 ?preview=prayer 는 그래서 지금은 **로그인 없이 바로 보려는 용도**로만 남는다.
   if (preview === "prayer") {
-    if (loadUser()) renderPrayerBook(); else renderEntryScreen();
+    if (loadUser()) openPrayerBook(); else renderEntryScreen();
     return;
   }
   if (preview === "widget") {         // 위젯 안내 — 출시 전에 설명서 문구를 미리 본다(WIDGET_GUIDE 와 무관, 두 폰 것 모두)
@@ -295,7 +315,7 @@ function routeAfterLoad() {
     return;
   }
   if (preview === "pilsa") {          // 성경필사 노트 신청 — 성도 화면 그대로 바로 진입
-    if (loadUser()) renderPilsaApply(); else renderEntryScreen();
+    if (loadUser()) openPilsaApply(); else renderEntryScreen();
     return;
   }
   if (preview === "event") {          // 이벤트 플랫폼 — 성도 화면 그대로 바로 진입
@@ -3141,7 +3161,7 @@ function renderSummary() {
   renderStoreNudge();   // 웹으로 오신 분께 스토어 앱 안내 한 줄(2026-10-09)
   loadEventState();     // 서버에서 설정·응모여부 갱신 후 다시 표시
   document.getElementById("open-board").addEventListener("click", renderBoard);
-  document.getElementById("open-prayer").addEventListener("click", () => renderPrayerBook());
+  document.getElementById("open-prayer").addEventListener("click", () => openPrayerBook());   // 화면 코드는 누를 때 받는다(js/prayer.js)
   const minBtn = document.getElementById("open-ministry");   // 기간 밖에는 아예 없다
   if (minBtn) minBtn.addEventListener("click", () => {
     lifeEnter(() => { minLoaded = false; renderMinistry(); });   // 확인 번호 문 · 들어올 때마다 서버에서 지금 상태
@@ -3151,7 +3171,7 @@ function renderSummary() {
     lifeEnter(() => { mhLoaded = false; renderMinistryHistory(); });   // 확인 번호 문
   });
   document.getElementById("open-pilsa").addEventListener("click", () => {
-    lifeEnter(() => { pilsaLoaded = false; renderPilsaApply(); });   // 확인 번호 문
+    loadLazyJs("pilsa").catch(() => {}); lifeEnter(() => openPilsaApply());   // 확인 번호 문을 묻는 동안 화면 코드(js/pilsa.js)를 함께 받는다
   });
   { const b = document.getElementById("open-song");   // 2026-09-23부터 첫 화면엔 없다(위 주석)
     if (b) b.addEventListener("click", () => { markFeatSeen("song"); openSongToday(songCacheToday()); }); }
@@ -3261,63 +3281,8 @@ function setupMoreToggle() {
 //   자료는 blessings.json — 83KB라 **화면에 들어올 때만** 받는다(글꼴 765KB 사건과 같은 이유).
 // ============================================================
 let prayCache = null;
-let prayName = null;      // 누구 이름으로 읽을지(기본은 로그인한 분)
-let prayIdx = null;       // 지금 보고 있는 편(0-based)
-let prayOpenVerse = false; // 말씀을 펴 뒀나 — 이전/다음에도 이어진다
-let prayGroup = null;      // 어느 주제 목록에서 들어왔나 — 돌아갈 길을 남긴다
-let prayAutoPlay = false;  // 연속듣기 모드 — TTS 끝나면 다음 편으로 자동 이동
-let prayRepeat  = false;  // 반복듣기 모드 — TTS 끝나면 같은 편 다시 재생
-// 연속듣기·배경음악 체크박스 — **처음엔 켜져 있다**(2026-09-25 친구 요청).
-// ⚠️ 체크박스는 「지금 재생 중인가」(prayAutoPlay·prayBgAudio.paused)가 아니라 **고른 설정**을 비춘다.
-//    전에는 재생 상태를 그대로 비춰, 기본을 켜 둬도 멈춤·이전·다음 한 번에 체크가 풀렸다.
-// ⚠️ 끄신 것은 기억한다 — 켜 둔 설정을 새 기능이 조건부로 무시하지 않는다(v3.181→182 되돌림 교훈).
-// ⚠️ 배경음악은 브라우저가 누르기 전 자동 재생을 막는다 — 「켜짐」은 들려주기를 누를 때 함께 시작한다는 뜻이다.
-// 「▶ 이 주제 전체 듣기」로 시작했으면 그 주제의 편 번호들(0-based)을 순서대로 담는다.
-// 연속듣기가 104편 전체 대신 이 줄만 따라가고, 끝나면 멈춘다. 멈춤·이전·다음·첫 화면에서 비운다.
-let prayQueue = null;
-const PRAY_AUTO_KEY = "pray-auto";
-const PRAY_BGM_KEY = "pray-bgm";
-function prayPref(key) {
-  try { return localStorage.getItem(key) !== "0"; } catch { return true; }
-}
-function setPrayPref(key, on) {
-  try { localStorage.setItem(key, on ? "1" : "0"); } catch {}
-}
-// 배경음악 파일 목록 — music/ 폴더에 파일을 추가하면 이 배열에도 넣는다. 순서대로 재생 후 처음으로 돌아간다.
-const PRAY_BGM_LIST = [
-  "music/catholicrelax-small-boat-into-silence-471285.mp3",
-  "music/catholicrelax-quiet-boat-to-silence-471287.mp3",
-];
-let prayBgAudio = null;   // 배경음악 <audio> 요소 — 화면 이탈 시 정지
-let prayBgTrack = 0;      // 현재 재생 중인 곡 인덱스
-
-function stopPrayBgMusic() {
-  if (prayBgAudio) { prayBgAudio.pause(); prayBgAudio.currentTime = 0; }
-}
-function playBgTrack(idx) {
-  prayBgTrack = ((idx % PRAY_BGM_LIST.length) + PRAY_BGM_LIST.length) % PRAY_BGM_LIST.length;
-  prayBgAudio.src = PRAY_BGM_LIST[prayBgTrack];
-  prayBgAudio.play().catch(() => {});
-}
-const BGM_VOL_KEY = "bgm-vol";
-function getBgmVol() {
-  const v = parseFloat(localStorage.getItem(BGM_VOL_KEY));
-  return v >= 0.0 && v <= 1.0 ? v : 0.4;
-}
-function setBgmVol(v) {
-  try { localStorage.setItem(BGM_VOL_KEY, String(v)); } catch (e) {}
-}
-function togglePrayBgMusic(on) {
-  if (!prayBgAudio) {
-    prayBgAudio = new Audio();
-    prayBgAudio.volume = getBgmVol();
-    prayBgAudio.addEventListener("ended", () => {
-      playBgTrack(prayBgTrack + 1);
-    });
-  }
-  if (on) { playBgTrack(prayBgTrack); }
-  else    { prayBgAudio.pause(); }
-}
+// ⚠️ 기도문 **화면**(renderPrayerBook·drawPrayer·크게 보기·주제 목록·배경음악·연속듣기)은 js/prayer.js 로 옮겼다 — 필요할 때 받는다(2026-10-12 · docs/notes/lazy-load.md).
+//    여기 남은 것은 화면 밖에서도 쓰는 것뿐: loadPrayers·prayToday·prayFill(tests/widget-parity.py 가 운영 사이트에서 부른다) · 묵상 창 「🙏 기도」(fetchTodayBlessing·openBlessingModal) · PRAY_ORN(js/psalm.js) · logFeature(여러 화면).
 
 async function loadPrayers() {
   if (prayCache) return prayCache;
@@ -3384,7 +3349,7 @@ function prayToday(n) {
 // 매일 묵상 창의 「🙏 오늘의 기도」 줄 — 아이폰 위젯과 같은 서버 액션(getTodayBlessing)을 쓴다.
 //   ⚠️ blessings 전체(83KB)를 받지 않는다 — 기도문 화면에 들어갈 때만 받는 자료다. 여기선 제목만 있으면 된다.
 //   ⚠️ 반드시 null 로 삼킨다 — 묵상 창이 이 리젝션에 통째로 사라진다(fetchTodaySong 과 같은 계약).
-//   ⚠️ 누르면 renderPrayerBook() 이 prayToday 로 같은 편을 연다 — 서버와 앱의 「오늘 한 편」은
+//   ⚠️ 누르면 renderPrayerBook()(js/prayer.js) 이 prayToday 로 같은 편을 연다 — 서버와 앱의 「오늘 한 편」은
 //      tests/widget-parity.py 가 대조한다. date 를 todayYmd() 로 넘겨 두 쪽이 같은 날을 보게 한다.
 let blessToday = null;   // { ymd, b } — 창이 하루에 몇 번 떠도 서버는 한 번만
 function fetchTodayBlessing() {
@@ -3430,29 +3395,11 @@ function openBlessingModal(b) {
     const done = wireModalConfirm(document.getElementById("bless-close"), close);
     document.getElementById("bless-more").addEventListener("click", () => {
       done();
-      setTimeout(() => renderPrayerBook(), 260);
+      setTimeout(() => openPrayerBook(), 260);
     });
     wrap.addEventListener("click", (e) => { if (e.target === wrap) done(); });
   };
   open();
-}
-
-function renderPrayerBook(idx) {
-  prayFullClose();          // 다른 화면에서 돌아올 때 덮개가 남아 있지 않게
-  const u = loadUser();
-  if (!prayName) prayName = (u && u.name) || "우리 가정";
-  const app = document.getElementById("app");
-  app.innerHTML = `<div class="pr-wrap"><div class="pr-loading">불러오는 중…</div></div>
-    <button class="home-fab" id="pr-home" aria-label="첫 화면으로">${homeFabLabel(u, true)}</button>`;
-  window.scrollTo(0, 0);
-  document.getElementById("pr-home").addEventListener("click", () => { prayAutoPlay = false; prayQueue = null; stopSpeaking(); stopPrayBgMusic(); renderSummary(); });
-  loadPrayers().then((list) => {
-    if (idx == null) idx = prayToday(list.length);
-    prayIdx = ((idx % list.length) + list.length) % list.length;
-    drawPrayer(list, prayIdx);
-  }).catch(() => {
-    document.querySelector(".pr-loading").textContent = "기도문을 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.";
-  });
 }
 
 // ---------- 열람 기록 ----------
@@ -3475,330 +3422,6 @@ function logFeature(feature, item) {
   } catch (e) {}
 }
 
-let prayLogged = null;   // 방금 기록한 편 — 이름 바꾸기 등으로 다시 그릴 때 두 번 세지 않게
-
-function drawPrayer(list, i) {
-  const b = list[i];
-  // 누가 얼마나 보시는지 남긴다(서버가 하루·편 단위로 묶는다).
-  // ⚠️ 실패해도 조용히 넘긴다 — 기록 때문에 기도문이 안 열리면 본말이 뒤집힌다.
-  if (prayLogged !== b.no) {
-    prayLogged = b.no;
-    const u = loadUser();
-    if (u && u.user_id) { try { api.blessingLog({ user_id: u.user_id, no: b.no }).catch(() => {}); } catch (e) {} }
-  }
-  const chunks = prayChunks(b.prayer);
-  const prayer = chunks.map((sent, k) =>
-    `<div class="pr-s${k === chunks.length - 1 ? " pr-amen" : ""}">${prayFillHtml(sent, prayName)}</div>`).join("");
-  const groups = [];
-  list.forEach((x) => { const g = groups.find((y) => y.g === x.group); g ? g.n++ : groups.push({ g: x.group, n: 1 }); });
-  const todayNo = prayToday(list.length);
-  const isToday = i === todayNo;
-  // ⚠️ 기도문이 먼저다. 말씀은 「필요하면 펴서」 — 이 화면은 읽고 축복하는 자리이지
-  //    말씀을 공부하는 자리가 아니다. 편 상태는 이전/다음에도 이어진다(prayOpenVerse).
-  document.querySelector(".pr-wrap").innerHTML = `
-    <div class="pr-card">
-      ${prayGroup ? `<button class="pr-gback pr-gback-in" id="pr-tolist">← ${prayEsc(prayGroup)} 목록</button>` : ""}
-      <div class="pr-kicker">${isToday ? "오늘의 가정 축복 기도문" : "가정 축복 기도문"} <span class="pr-count">${i + 1} / ${list.length}</span></div>
-      <div class="pr-title">${prayEsc(b.title)}</div>
-      <div class="pr-ref">${prayEsc(b.ref)}</div>
-      <div class="pr-prayer">${prayer}</div>
-      <button class="pr-verse-tog" id="pr-vtog" aria-expanded="${prayOpenVerse}">${prayOpenVerse ? "▴ 말씀 접기" : "▾ 말씀 펴 보기"}</button>
-      <div class="pr-verse" id="pr-verse" ${prayOpenVerse ? "" : "hidden"}>${prayEsc(b.verse)}</div>
-      <div class="pr-acts">
-        <button class="pr-big" id="pr-big" title="크게 보기">⛶</button>
-        <button class="pr-speak" id="pr-speak">🔊 들려주기</button>
-        <button class="pr-cfg" id="pr-cfg" title="듣기 설정">⚙️</button>
-      </div>
-      <div class="pr-tts-cfg" id="pr-tts-cfg" hidden>
-        <div class="pr-cfg-row">
-          <span class="pr-cfg-lbl">속도</span>
-          <input type="range" class="pr-cfg-range" id="pr-rate" min="0.4" max="1.5" step="0.1" value="${getSpeakRate()}">
-          <span class="pr-cfg-val" id="pr-rate-lbl">${rateLabel(getSpeakRate())}</span>
-        </div>
-        <div class="pr-cfg-row">
-          <span class="pr-cfg-lbl">볼륨</span>
-          <input type="range" class="pr-cfg-range" id="pr-vol" min="0.1" max="1.0" step="0.1" value="${getSpeakVol()}">
-          <span class="pr-cfg-val" id="pr-vol-lbl">${volLabel(getSpeakVol())}</span>
-        </div>
-        <div class="pr-cfg-row">
-          <span class="pr-cfg-lbl">음악</span>
-          <input type="range" class="pr-cfg-range" id="pr-bgm-vol" min="0.0" max="1.0" step="0.1" value="${getBgmVol()}">
-          <span class="pr-cfg-val" id="pr-bgm-vol-lbl">${volLabel(getBgmVol())}</span>
-        </div>
-        <div class="pr-cfg-info">속도·볼륨을 바꾸면 재생이 멈춥니다. 들려주기를 다시 눌러 시작하세요.</div>
-      </div>
-      <div class="pr-opts">
-        <label class="pr-opt-label"><input type="checkbox" id="pr-auto-chk"${!prayRepeat && prayPref(PRAY_AUTO_KEY) ? " checked" : ""}> 연속듣기</label>
-        <label class="pr-opt-label"><input type="checkbox" id="pr-repeat-chk"${prayRepeat ? " checked" : ""}> 반복듣기</label>
-        <label class="pr-opt-label"><input type="checkbox" id="pr-bgm-chk"${prayPref(PRAY_BGM_KEY) ? " checked" : ""}> 🎵배경음악</label>
-      </div>
-      <div class="pr-nav">
-        <button class="pr-arrow" id="pr-prev">← 이전</button>
-        <button class="pr-name" id="pr-name">🙍 ${prayEsc(prayName)}</button>
-        <button class="pr-arrow" id="pr-next">다음 →</button>
-      </div>
-    </div>
-    <div class="grp-title">주제로 찾기</div>
-    <div class="pr-acc" id="pr-acc">
-      ${groups.map((g) => {
-        const items = list.map((x, xi) => ({ x, xi })).filter((o) => o.x.group === g.g);
-        return `
-        <div class="pr-acc-item">
-          <button class="pr-acc-head" aria-expanded="false">
-            <span>${prayEsc(g.g)} <b>${g.n}</b></span>
-            <span class="pr-acc-caret">▾</span>
-          </button>
-          <div class="pr-acc-body">
-            <button class="summary-help pr-group-play" data-g="${prayEsc(g.g)}" data-q="${items.map((o) => o.xi).join(",")}">▶ 이 주제 전체 듣기 <span class="pr-item-ref">${items.length}편</span></button>
-            ${items.map((o) => `<button class="summary-help pr-item${o.xi === todayNo ? " on" : ""}" data-i="${o.xi}" data-g="${prayEsc(g.g)}">${prayEsc(o.x.title)}
-               <span class="pr-item-ref">${o.xi === todayNo ? "오늘 · " : ""}${prayEsc(prayRefShort(o.x.ref))}</span></button>`).join("")}
-          </div>
-        </div>`;
-      }).join("")}
-    </div>`;
-  // ⚠️ 이전/다음은 주제 안이 아니라 104편 전체를 돈다 — 그러면 「목록으로」가 거짓말이 되므로 내린다
-  document.getElementById("pr-prev").addEventListener("click", () => { prayAutoPlay = false; prayQueue = null; prayRepeat = false; stopSpeaking(); prayGroup = null; drawPrayer(list, (i - 1 + list.length) % list.length); window.scrollTo(0,0); });
-  document.getElementById("pr-next").addEventListener("click", () => { prayAutoPlay = false; prayQueue = null; prayRepeat = false; stopSpeaking(); prayGroup = null; drawPrayer(list, (i + 1) % list.length); window.scrollTo(0,0); });
-  document.getElementById("pr-name").addEventListener("click", () => askPrayName(list, i));
-  const toList = document.getElementById("pr-tolist");
-  if (toList) toList.addEventListener("click", () => { prayAutoPlay = false; prayQueue = null; stopSpeaking(); renderPrayerGroup(list, prayGroup); });
-  document.getElementById("pr-big").addEventListener("click", () => { stopSpeaking(); prayFullOpen(list, i); });
-  document.getElementById("pr-cfg").addEventListener("click", () => {
-    const panel = document.getElementById("pr-tts-cfg");
-    const btn = document.getElementById("pr-cfg");
-    panel.hidden = !panel.hidden;
-    btn.classList.toggle("open", !panel.hidden);
-  });
-  const stopIfPlaying = () => {
-    if (window.speechSynthesis && window.speechSynthesis.speaking) {
-      prayAutoPlay = false;
-      prayRepeat = false;
-      prayQueue = null;
-      stopSpeaking();
-      const sp = document.getElementById("pr-speak");
-      if (sp) sp.textContent = "🔊 들려주기";
-      // 연속듣기 체크는 「고른 설정」이라 멈춘다고 풀지 않는다(위 PRAY_AUTO_KEY 주석)
-      const chkR = document.getElementById("pr-repeat-chk");
-      if (chkR) chkR.checked = false;
-    }
-  };
-  document.getElementById("pr-rate").addEventListener("input", (e) => {
-    document.getElementById("pr-rate-lbl").textContent = rateLabel(parseFloat(e.target.value));
-  });
-  document.getElementById("pr-rate").addEventListener("change", (e) => {
-    setSpeakRate(parseFloat(e.target.value));
-    stopIfPlaying();
-  });
-  document.getElementById("pr-vol").addEventListener("input", (e) => {
-    document.getElementById("pr-vol-lbl").textContent = volLabel(parseFloat(e.target.value));
-  });
-  document.getElementById("pr-vol").addEventListener("change", (e) => {
-    setSpeakVol(parseFloat(e.target.value));
-    stopIfPlaying();
-  });
-  document.getElementById("pr-bgm-vol").addEventListener("input", (e) => {
-    const v = parseFloat(e.target.value);
-    document.getElementById("pr-bgm-vol-lbl").textContent = volLabel(v);
-    if (prayBgAudio) prayBgAudio.volume = v;  // 실시간 반영 — 재시작 불필요
-  });
-  document.getElementById("pr-bgm-vol").addEventListener("change", (e) => {
-    setBgmVol(parseFloat(e.target.value));
-  });
-  // 주제 아코디언 — 화면을 옮기지 않고 그 자리에서 펴고 접는다. 한 번에 하나만 열린다.
-  document.querySelectorAll(".pr-acc-head").forEach((head) => {
-    head.addEventListener("click", () => {
-      const item = head.closest(".pr-acc-item");
-      const willOpen = !item.classList.contains("open");
-      document.querySelectorAll(".pr-acc-item.open").forEach((other) => {
-        if (other !== item) prAccSet(other, false);
-      });
-      prAccSet(item, willOpen);
-    });
-  });
-  document.querySelectorAll(".pr-acc-item .pr-item").forEach((el) =>
-    el.addEventListener("click", () => {
-      prayAutoPlay = false; prayQueue = null;
-      stopSpeaking();
-      prayGroup = el.dataset.g;   // 「← <주제> 목록」이 여기로 돌아올 수 있게
-      drawPrayer(list, Number(el.dataset.i));
-      window.scrollTo(0, 0);
-    }));
-  // 주제 전체 듣기 — 첫 편을 그리고 **이 탭 안에서 바로** 들려주기를 누른다.
-  // ⚠️ setTimeout 으로 미루면 사용자 동작과 끊겨 아이폰이 낭독·배경음악을 막는다.
-  document.querySelectorAll(".pr-group-play").forEach((el) =>
-    el.addEventListener("click", () => {
-      const q = el.dataset.q.split(",").map(Number).filter((n) => n >= 0 && n < list.length);
-      if (!q.length) return;
-      stopSpeaking();
-      prayRepeat = false;
-      prayGroup = el.dataset.g;
-      drawPrayer(list, q[0]);
-      prayQueue = q;            // drawPrayer 뒤에 넣는다 — 그리기가 비우는 일은 없지만 순서를 분명히
-      window.scrollTo(0, 0);
-      const btn = document.getElementById("pr-speak");
-      if (btn) btn.click();
-    }));
-  const tog = document.getElementById("pr-vtog"), vs = document.getElementById("pr-verse");
-  tog.addEventListener("click", () => {
-    prayOpenVerse = !prayOpenVerse;
-    vs.hidden = !prayOpenVerse;
-    tog.textContent = prayOpenVerse ? "▴ 말씀 접기" : "▾ 말씀 펴 보기";
-    tog.setAttribute("aria-expanded", String(prayOpenVerse));
-  });
-  // 🔊 — **보이는 것을 읽는다**(말씀을 접어 뒀으면 읽지 않는다). 앨범 「전부 듣기」가
-  //      화면에 보이는 순서 그대로 읽는 것과 같은 규칙이다. 사이 마침표가 쉼을 만든다.
-  const sp = document.getElementById("pr-speak");
-  const buildSaid = (bx) => [bx.title, prayOpenVerse ? bx.verse : "",
-    prayChunks(bx.prayer).map((x) => prayFill(x, prayName)).join(" ")].filter(Boolean).join(". ");
-  // 연속듣기·반복듣기: TTS 끝나면 다음 편 또는 같은 편 자동 재생
-  const playFrom = (idx) => {
-    speakText(buildSaid(list[idx]), () => {
-      const s = document.getElementById("pr-speak");
-      if (prayRepeat) {
-        // 같은 편 반복
-        setTimeout(() => {
-          if (!prayRepeat) return;
-          const ns = document.getElementById("pr-speak");
-          if (ns) ns.textContent = "⏹ 그만듣기";
-          playFrom(idx);
-        }, 2000);
-        return;
-      }
-      if (!prayAutoPlay) { prayQueue = null; if (s) s.textContent = "🔊 들려주기"; return; }
-      // 주제 전체 듣기면 그 주제 줄만 따라가고 마지막 편에서 멈춘다. 아니면 104편을 한 바퀴.
-      let nextIdx;
-      if (prayQueue) {
-        const k = prayQueue.indexOf(idx);
-        nextIdx = k >= 0 && k < prayQueue.length - 1 ? prayQueue[k + 1] : -1;
-        if (nextIdx < 0) { prayAutoPlay = false; prayQueue = null; if (s) s.textContent = "🔊 들려주기"; return; }
-      } else {
-        nextIdx = (idx + 1) % list.length;
-        if (nextIdx === 0) { prayAutoPlay = false; if (s) s.textContent = "🔊 들려주기"; return; }
-      }
-      drawPrayer(list, nextIdx);
-      window.scrollTo(0, 0);
-      setTimeout(() => {
-        if (!prayAutoPlay) return;
-        const ns = document.getElementById("pr-speak");
-        if (ns) ns.textContent = "⏹ 그만듣기";
-        playFrom(nextIdx);
-      }, 2000);
-    }, 1, "ko-KR");
-  };
-  sp.addEventListener("click", () => {
-    if (window.speechSynthesis && window.speechSynthesis.speaking) {
-      prayAutoPlay = false;
-      prayRepeat = false;
-      prayQueue = null;
-      stopSpeaking();
-      sp.textContent = "🔊 들려주기";
-      return;
-    }
-    const chkAuto = document.getElementById("pr-auto-chk");
-    const chkRep  = document.getElementById("pr-repeat-chk");
-    // 주제 전체 듣기는 연속듣기 체크와 상관없이 이어서 읽는다(그걸 하려고 누른 단추다)
-    prayAutoPlay = !!prayQueue || !!(chkAuto && chkAuto.checked);
-    prayRepeat   = !prayQueue && !!(chkRep  && chkRep.checked);
-    // 배경음악이 켜져 있으면 이 탭(사용자 동작) 안에서 함께 시작한다 — 탭 밖에서는 브라우저가 막는다
-    const chkBgm = document.getElementById("pr-bgm-chk");
-    if (chkBgm && chkBgm.checked && (!prayBgAudio || prayBgAudio.paused)) togglePrayBgMusic(true);
-    sp.textContent = "⏹ 그만듣기";
-    playFrom(i);
-  });
-  document.getElementById("pr-auto-chk").addEventListener("change", (e) => {
-    prayAutoPlay = e.target.checked;
-    setPrayPref(PRAY_AUTO_KEY, e.target.checked);  // 직접 누른 것만 기억한다(반복듣기가 끈 것은 안 남긴다)
-    if (e.target.checked) { prayRepeat = false; document.getElementById("pr-repeat-chk").checked = false; }
-  });
-  document.getElementById("pr-repeat-chk").addEventListener("change", (e) => {
-    prayRepeat = e.target.checked;
-    if (e.target.checked) { prayAutoPlay = false; document.getElementById("pr-auto-chk").checked = false; }
-  });
-  document.getElementById("pr-bgm-chk").addEventListener("change", (e) => {
-    setPrayPref(PRAY_BGM_KEY, e.target.checked);
-    togglePrayBgMusic(e.target.checked);
-  });
-}
-
-// 주제 아코디언 한 칸을 펴거나 접는다.
-//   ⚠️ max-height 를 큰 고정값(2000px 등)으로 트랜지션하면 실제 내용 높이에 먼저
-//      도달해 버려 "확 펼쳐졌다 뚝 멈추는" 느낌이 난다 — scrollHeight 를 실측해
-//      정확한 값을 준다(닫을 때도 먼저 그 값이어야 0으로 되짚어 갈 수 있다).
-//   ⚠️ 다 펼친 뒤에는 max-height 를 **풀어 준다(none)**. 잰 높이를 그대로 두면, 그 뒤 글씨가
-//      커지거나(웹폰트 교체·글씨 크기 설정) 줄이 바뀌어 내용이 길어질 때 단추들이 좁은 상자 안에
-//      눌려 납작해지고 글자가 반쯤 잘렸다(2026-09-25 실기기 제보 — 「지혜와 형통」 다섯 칸).
-//      접을 때는 none 에서는 트랜지션이 안 되므로 지금 높이로 되돌려 놓고 한 번 그린 뒤 0 으로 간다.
-function prAccSet(item, open) {
-  const body = item.querySelector(".pr-acc-body");
-  const head = item.querySelector(".pr-acc-head");
-  item.classList.toggle("open", open);
-  head.setAttribute("aria-expanded", String(open));
-  if (open) {
-    body.style.maxHeight = body.scrollHeight + "px";
-    const done = (e) => {
-      if (e.target !== body) return;
-      body.removeEventListener("transitionend", done);
-      if (item.classList.contains("open")) body.style.maxHeight = "none";
-    };
-    body.addEventListener("transitionend", done);
-  } else {
-    body.style.maxHeight = body.scrollHeight + "px";
-    void body.offsetHeight; // 지금 높이를 한 번 그려야 0 까지 트랜지션이 걸린다
-    body.style.maxHeight = "0px";
-  }
-}
-
-// ── 크게 보기(전체 화면) ──────────────────────────────────────
-//   가정 예배에서 온 식구가 함께 보는 자리. 글씨를 화면에 꽉 차게 키운다.
-//   ⚠️ **전체화면 API(requestFullscreen)를 쓰지 않는다.** 2026-09-03 에 넣었다가 뺐다 —
-//      안드로이드 크롬은 전체화면에 들어간 **그 방향으로 화면을 고정**해 버려서,
-//      가로로 들어가면 세로로 되돌릴 수가 없었다. 덮개(position:fixed inset:0)만으로
-//      화면은 이미 다 덮이고, 그 대가는 주소창이 남는 것뿐이다 — 방향이 갇히는 것보다 싸다.
-//      아이폰 사파리는 애초에 video 말고는 전체화면을 주지도 않았다.
-//   ⚠️ 화면 방향은 강제로 못 돌린다(iOS 는 screen.orientation.lock 자체가 없다).
-let prayFullEsc = null;
-let prayFullPop = null;
-let prayRot = false;   // 크게 보기를 90° 돌려 볼까 — 폰이 세로로 잠겨 있어도 가로로 읽게
-// 출처를 짧게 — 「창세기 26:2-4」 → 「창 26:2-4」. 제목 옆에 붙일 자리가 좁다.
-// ⚠️ 못 알아본 책 이름은 **그대로 둔다**(자르지 않는다) — 틀린 약자보다 긴 본명이 낫다.
-const PRAY_BOOK = {
-  창세기: "창", 출애굽기: "출", 레위기: "레", 민수기: "민", 신명기: "신",
-  여호수아: "수", 사사기: "삿", 룻기: "룻", 사무엘상: "삼상", 사무엘하: "삼하",
-  열왕기상: "왕상", 열왕기하: "왕하", 역대상: "대상", 역대하: "대하",
-  에스라: "스", 느헤미야: "느", 에스더: "에", 욥기: "욥", 시편: "시",
-  잠언: "잠", 전도서: "전", 아가: "아", 이사야: "사", 예레미야: "렘",
-};
-function prayRefShort(ref) {
-  const m = String(ref || "").match(/^([가-힣]+)\s*(.*)$/);
-  if (!m) return ref || "";
-  const short = PRAY_BOOK[m[1]];
-  return short ? short + " " + m[2] : ref;
-}
-
-// 액자 — 말씀카드(액자용)의 양식을 그대로 옮겼다: 이중 테두리 + 수채화 잎가지 + ❖ 장식.
-// 소재는 `img/frame/leaf1~6.webp`(`tools/frame-art.py`가 말씀카드 원본에서 줄여 만든다).
-// ⚠️ **여는 순간에만 받는다** — 한 번 열 때 잎가지 한 장(27~46KB)뿐이다. 미리 받아 두면
-//    글꼴 765KB 사건과 같은 길이가 된다(기도문 화면은 이미 blessings 83KB를 받는다).
-// ⚠️ 장식이므로 낭독기가 건너뛰게 `aria-hidden` · `alt=""`. 뜻을 나르는 그림이 아니다.
-// ⚠️ 잎가지 자리(`pos`)와 크기(`w`)도 함께 가른다 — 여섯이 다 같은 자리면
-//    「액자 하나에 풀만 바꾼 것」으로 보인다. b=아래 두 귀퉁이 · d=엇갈리게(왼쪽 위·오른쪽 아래).
-const PRAY_FRAMES = [
-  { c: "gold", art: 6, pos: "b", w: 25 },   // 금색 · 밀이삭    (말씀카드 스바냐 면과 같은 짝)
-  { c: "navy", art: 4, pos: "b", w: 24 },   // 군청 · 흰꽃      (말씀카드 나훔 면과 같은 짝)
-  { c: "gold", art: 1, pos: "d", w: 30 },   // 금색 · 유칼립투스
-  { c: "navy", art: 3, pos: "b", w: 33 },   // 군청 · 유칼립투스와 올리브잎
-  { c: "gold", art: 5, pos: "d", w: 36 },   // 금색 · 올리브가지
-  { c: "navy", art: 2, pos: "b", w: 35 },   // 군청 · 유칼립투스와 열매
-];
-let prayFrameLast = -1;
-function prayPickFrame() {
-  let k = Math.floor(Math.random() * PRAY_FRAMES.length);
-  if (k >= PRAY_FRAMES.length) k = PRAY_FRAMES.length - 1;      // Math.random()이 1을 줄 때
-  // 바로 앞과 같은 액자는 피한다 — 두 번 잇달아 같으면 「하나뿐인가」로 보인다
-  if (k === prayFrameLast) k = (k + 1) % PRAY_FRAMES.length;
-  prayFrameLast = k;
-  return PRAY_FRAMES[k];
-}
 // ❖ — 말씀카드의 장식과 같은 모양. 글꼴에 있는 글자(U+2756)는 기기마다 없거나
 //     이모지로 나와서 그림으로 그린다(말씀카드도 같은 이유로 SVG다).
 const PRAY_ORN =
@@ -3806,176 +3429,6 @@ const PRAY_ORN =
   '<path d="M12 1.6 14.7 6.6 12 11.6 9.3 6.6Z"/><path d="M12 12.4 14.7 17.4 12 22.4 9.3 17.4Z"/>' +
   '<path d="M1.6 12 6.6 9.3 11.6 12 6.6 14.7Z"/><path d="M12.4 12 17.4 9.3 22.4 12 17.4 14.7Z"/>' +
   "</g></svg>";
-
-function prayFullOpen(list, i) {
-  const b = list[i];
-  const fr = prayPickFrame();
-  // ⚠️ `?v=`를 붙인다(말씀 연상 그림과 같은 규칙) — 안 붙이면 소재를 고쳐도 옛 그림이 남는다
-  const leaf = "img/frame/leaf" + fr.art + ".webp?v=" + APP_BUILD;
-  const wrap = document.createElement("div");
-  // ⚠️ 액자 색은 **덮개**에 붙인다 — 테두리 색(`--fr`)을 ❖ 장식도 같이 써야 하는데,
-  //    CSS 변수는 형제에게 안 내려가고 자손에게만 내려간다.
-  wrap.className = "pr-full pr-fr-" + fr.c;
-  wrap.innerHTML = `
-    <div class="pr-frame pr-pos-${fr.pos}" data-lw="${fr.w}" aria-hidden="true">
-      <img class="pr-fr-leaf l" src="${leaf}" alt="">
-      <img class="pr-fr-leaf r" src="${leaf}" alt="">
-      <div class="pr-fr-box"></div>
-    </div>
-    <button class="pr-f-x" aria-label="닫기">✕</button>
-    <button class="pr-f-rot" aria-label="가로로 돌려 보기">⟳</button>
-    <div class="pr-f-in">
-      <div class="pr-f-title">${prayEsc(b.title)} <span class="pr-f-ref">${prayEsc(prayRefShort(b.ref))}</span></div>
-      <div class="pr-f-orn" aria-hidden="true"><i></i>${PRAY_ORN}<i></i></div>
-      <div class="pr-f-body">${prayChunks(b.prayer).map((sent, k, arr) =>
-        `<div class="pr-s${k === arr.length - 1 ? " pr-amen" : ""}">${prayFillHtml(sent, prayName)}</div>`).join("")}</div>
-    </div>`;
-  document.body.appendChild(wrap);
-  document.body.classList.add("pr-full-on");
-  // 잎가지를 못 받으면 조용히 감춘다 — 깨진 그림 표시가 뜨면 액자가 없느니만 못하다
-  wrap.querySelectorAll(".pr-fr-leaf").forEach((im) => { im.onerror = () => { im.style.display = "none"; }; });
-  wrap.classList.toggle("pr-rot", prayRot);      // 지난번에 돌려 뒀으면 그대로
-  // 옛 판(2026-09-03 이전)으로 전체화면에 들어가 갇힌 분이 있을 수 있다 — 열 때 풀어 준다.
-  // ⚠️ 안드로이드 크롬은 전체화면에 들어간 그 방향으로 화면을 고정한다.
-  try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); } catch (e) {}
-  // 안드로이드 「뒤로 가기」로도 닫히게 — 없으면 덮개가 남은 채 앱을 빠져나간다
-  try { history.pushState({ prFull: 1 }, ""); } catch (e) {}
-  prayFullPop = () => prayFullClose(false, true);
-  window.addEventListener("popstate", prayFullPop);
-  keepScreenAwake(true);                      // 함께 읽는 동안 화면이 꺼지면 안 된다
-  prayFitText(wrap);
-  // ⚠️ 글꼴이 늦게 온다. 이 앱은 한글 웹폰트를 media="print" 로 미뤄 받으므로(첫 화면이
-  //    765KB 를 기다리지 않게), 방금 잰 것은 **기기 기본 글꼴** 폭이다. 웹폰트로 바뀌면
-  //    글자가 넓어져 좌우로 삐져나간다 — 준비되면 한 번 더 잰다.
-  try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => prayFullResize()); } catch (e) {}
-  const close = () => prayFullClose();
-  wrap.querySelector(".pr-f-x").addEventListener("click", close);
-  // ⟳ — 기기를 돌리는 게 아니라 **글자를 돌려 그린다**. 폰이 세로로 잠겨 있어도(자동 회전
-  //     꺼짐·앱 껍데기의 세로 고정) 폰만 옆으로 들면 가로로 읽을 수 있다.
-  wrap.querySelector(".pr-f-rot").addEventListener("click", () => {
-    prayRot = !prayRot;
-    wrap.classList.toggle("pr-rot", prayRot);
-    prayFitText(wrap);
-  });
-  prayFullEsc = (e) => { if (e.key === "Escape") close(); };
-  document.addEventListener("keydown", prayFullEsc);
-  window.addEventListener("resize", prayFullResize);
-}
-function prayFullResize() {
-  const w = document.querySelector(".pr-full");
-  if (w) prayFitText(w);
-}
-function prayFullClose(keepAwake, fromPop) {
-  const w = document.querySelector(".pr-full");
-  if (w) w.remove();
-  document.body.classList.remove("pr-full-on");
-  window.removeEventListener("resize", prayFullResize);
-  if (prayFullPop) { window.removeEventListener("popstate", prayFullPop); prayFullPop = null; }
-  // 뒤로 가기로 닫힌 것이 아니면, 열 때 쌓아 둔 기록을 되돌린다(안 그러면 뒤로 가기가 한 번 헛돈다)
-  if (!fromPop && w) { try { if (history.state && history.state.prFull) history.back(); } catch (e) {} }
-  if (prayFullEsc) { document.removeEventListener("keydown", prayFullEsc); prayFullEsc = null; }
-  // 우리는 이제 전체화면에 들어가지 않지만, 옛 판으로 들어갔다가 갇힌 분이 닫으면 풀리도록 남긴다
-  try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); } catch (e) {}
-  if (!keepAwake) keepScreenAwake(false);
-}
-// 글씨를 화면에 꽉 차게 — 넘치지 않는 가장 큰 크기를 이분법으로 찾는다.
-//   ⚠️ 바깥의 scrollHeight 로 재지 않는다. 가운데 정렬(justify-content:center)이면
-//      **위로 넘친 만큼은 scrollHeight 에 안 잡혀** 넘쳤는지 모른 채 지나간다
-//      (말씀 카드에서 출처가 테두리 밖으로 나갔던 것과 같은 함정).
-//      안쪽 덩이의 실제 높이를 재서 견준다.
-// 화면 가장자리의 안전 여백(상태바·노치·홈 막대, px) — env() 는 CSS 에서만 읽히므로
-// 보이지 않는 상자에 여백으로 걸어 잰다. 사파리·안드로이드에서는 대개 0 이다.
-function safeAreaInsets() {
-  const p = document.createElement("div");
-  p.style.cssText = "position:fixed;top:0;left:0;visibility:hidden;pointer-events:none;" +
-    "padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) " +
-    "env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)";
-  document.body.appendChild(p);
-  const cs = getComputedStyle(p);
-  const r = { t: parseFloat(cs.paddingTop) || 0, r: parseFloat(cs.paddingRight) || 0,
-              b: parseFloat(cs.paddingBottom) || 0, l: parseFloat(cs.paddingLeft) || 0 };
-  p.remove();
-  return r;
-}
-function prayFitText(wrap) {
-  const box = wrap.querySelector(".pr-f-in");
-  const cs = getComputedStyle(wrap);
-  const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
-  const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
-  const rot = wrap.classList.contains("pr-rot");
-  // 액자도 글과 함께 돈다 — 돌려 볼 때 잎가지가 위·아래에서 자라 나오면 액자로 안 보인다.
-  // ⚠️ 100vw/100vh 로 쓰지 않는다(주소창 때문에 실제 덮개 크기와 어긋난다) — 덮개를 직접 잰다.
-  const frame = wrap.querySelector(".pr-frame");
-  if (frame) {
-    // ⚠️ 덮개는 물리 화면 끝까지라, 돌려 볼 때 덮개 크기를 그대로 쓰면 액자 테두리가
-    //    상태바·홈 막대 밑으로 들어간다(아이폰 앱) — 안전 여백을 빼서 넣는다.
-    const sa = rot ? safeAreaInsets() : null;
-    frame.style.width = rot ? (wrap.clientHeight - sa.t - sa.b) + "px" : "";
-    frame.style.height = rot ? (wrap.clientWidth - sa.l - sa.r) + "px" : "";
-    // ⚠️ 잎가지 폭은 **화면의 짧은 쪽**을 따라간다. `%`로 두면 액자의 가로를 따르는데,
-    //    돌려 보기에서는 그 가로가 화면 세로(긴 쪽)라 잎가지가 두 배로 부풀어
-    //    화면 폭의 3분의 2를 덮었다(2026-09-04 실측). 여기서 픽셀로 정한다.
-    const side = Math.min(frame.offsetWidth, frame.offsetHeight);
-    frame.style.setProperty("--lw", Math.round(side * (Number(frame.dataset.lw) || 30) / 100) + "px");
-  }
-  // 90° 돌리면 **글이 흐르는 폭은 화면 높이**가 되고, 채울 높이는 화면 폭이 된다
-  const availW = (rot ? wrap.clientHeight - padY : wrap.clientWidth - padX);
-  const availH = (rot ? wrap.clientWidth - padX : wrap.clientHeight - padY);
-  box.style.width = rot ? availW + "px" : "";
-  let lo = 13, hi = 108, best = 13;   // 천장: 짧은 편이 72px 에서 걸려 더 못 크고 있었다
-  for (let k = 0; k < 12; k++) {
-    const mid = (lo + hi) / 2;
-    box.style.fontSize = mid + "px";
-    // ⚠️ offsetHeight 로 잰다 — getBoundingClientRect 는 **돌린 뒤의 겉넓이**를 주므로
-    //    회전 모드에서 가로·세로가 뒤바뀐 값이 나온다. offsetHeight 는 돌리기 전 배치 높이다.
-    const fit = box.offsetHeight <= availH && box.scrollWidth <= box.clientWidth + 1;
-    if (fit) { best = mid; lo = mid; } else hi = mid;
-  }
-  // ⚠️ 여기서 찾는 것은 「넘치지 않는 **가장 큰** 크기」다. 그래서 이 화면은 스크롤이 없다
-  //    (.pr-full 은 overflow:hidden 이라 넘칠 수도 없다). 줄간격만 줄이면 그 자리를 글씨가
-  //    도로 차지해 오히려 커지므로, 여기서 크기를 줄이려면 찾은 값에 비율을 곱해야 한다.
-  box.style.fontSize = (Math.floor(best * 10) / 10) + "px";
-}
-
-// 주제 하나의 목록
-function renderPrayerGroup(list, g) {
-  const items = list.map((b, i) => ({ b, i })).filter((x) => x.b.group === g);
-  const today = prayToday(list.length);
-  prayGroup = g;                       // 여기서 들어간 기도문에는 「목록으로」를 띄운다
-  document.querySelector(".pr-wrap").innerHTML = `
-    <div class="pr-ghead">
-      <span class="pr-gname">${prayEsc(g)} <b>${items.length}</b></span>
-      <button class="pr-gback" id="pr-back">← 뒤로</button>
-    </div>
-    ${items.map((x) => `<button class="summary-help pr-item${x.i === today ? " on" : ""}" data-i="${x.i}">${prayEsc(x.b.title)}
-       <span class="pr-item-ref">${x.i === today ? "오늘 · " : ""}${prayEsc(prayRefShort(x.b.ref))}</span></button>`).join("")}`;
-  window.scrollTo(0, 0);
-  document.querySelectorAll(".pr-item").forEach((el) =>
-    el.addEventListener("click", () => drawPrayer(list, Number(el.dataset.i))));
-  document.getElementById("pr-back").addEventListener("click", () => { prayGroup = null; drawPrayer(list, prayIdx); });
-}
-
-// 누구 이름으로 읽을지 — 가족 이름으로도 읽을 수 있게.
-// ⚠️ 창을 띄우지 않고 그 자리에 입력 줄을 편다. 어르신께는 창이 하나 덜 뜨는 편이 낫다.
-function askPrayName(list, i) {
-  const btn = document.getElementById("pr-name");
-  if (!btn || document.getElementById("pr-name-row")) return;
-  const row = document.createElement("div");
-  row.className = "pr-name-row"; row.id = "pr-name-row";
-  row.innerHTML = `<input id="pr-name-in" type="text" maxlength="12" value="${prayName}"
-                     aria-label="누구를 위해 읽을지" autocomplete="off">
-                   <button class="pr-name-ok" id="pr-name-ok">확인</button>`;
-  btn.parentNode.insertAdjacentElement("afterend", row);
-  const inp = document.getElementById("pr-name-in");
-  inp.focus(); inp.select();
-  const ok = () => {
-    const n = inp.value.trim();
-    if (n) { prayName = n; }
-    drawPrayer(list, i);
-  };
-  document.getElementById("pr-name-ok").addEventListener("click", ok);
-  inp.addEventListener("keydown", (e) => { if (e.key === "Enter") ok(); });
-}
 
 // 첫화면 상단 '알림 켜기' 배너 — 미구독자에게만. 켜면 사라지고, ✕로 14일간 접어둘 수 있다.
 const PUSH_NUDGE_SNOOZE = "push-nudge-snooze";
@@ -9934,130 +9387,8 @@ async function callRanking(from, to) {
   return api.ranking(from, to, true, myUserId()); // 암송(학습) 기록도 포함해 순위 집계
 }
 
-// ------------------------------------------------------------
-// 성경필사 노트 신청
-//   원본(summer-bible 신청 폼)의 구성을 그대로 옮기되,
-//   개인 정보(교구·목장·이름)는 암송 앱 로그인 정보로 대신한다(직분은 받지 않음).
-//
-//   고르는 것 : 필사 유형(오른쪽/아래쪽) · 번역본(개역개정/쉬운성경/NIV)
-//               성경 단위별 부수(구약 21 + 신약 10 = 31단위) · 요청 사항
-//   상한     : 총 5부. 기간 제한 없음.
-//   상태 흐름 : 신청완료 → 준비중 → 준비완료 → 배부완료
-//               성도가 고칠 수 있는 것은 '신청완료' 단계뿐이다.
-//
-//   ※ 지금은 화면만 — 서버 연동(submitPilsa/askCancelPilsa)은 다음 단계.
-// ------------------------------------------------------------
-const PILSA_TOTAL_MAX = 5;                 // 한 분당 총 부수 상한
-const PILSA_PRICE = 3000;                  // 권당 가격(원)
-function pilsaWon(n) { return (n * PILSA_PRICE).toLocaleString("ko-KR") + "원"; }
-const PILSA_SIZE = [
-  ["A4", "큰 것"],
-  ["A5", "작은 것"],
-];
-// 지금 신청을 받지 않는 크기 — 값은 버튼에 그대로 적는 이유다.
-// 다시 받으려면 이 줄에서 빼면 된다(다른 곳은 손댈 것이 없다).
-// ⚠️ 목록에서 지우지는 않는다 — 이미 A5로 신청하신 분의 내용을 불러올 때
-//    그 크기를 그대로 보여 주어야 하고, 2권 계산(pilsaMult)도 살아 있어야 한다.
-const PILSA_SIZE_OFF = { "A5": "지금은 신청받지 않아요" };
-function pilsaSizeOff(size) { return PILSA_SIZE_OFF[size] || ""; }
-const PILSA_TYPE1 = [
-  ["아래쪽 필사형", "본문 아래 필사 공간"],
-  ["오른쪽 필사형", "본문 오른쪽에 필사 공간"],
-];
-// A5는 지면이 좁아 오른쪽 필사형을 만들 수 없다
-const PILSA_TYPE1_BLOCKED = { "A5": ["오른쪽 필사형"] };
-const PILSA_TYPE2 = ["개역개정", "쉬운성경", "NIV", "한영(개역개정/NIV)", "영한(NIV/개역개정)"];
-
-function pilsaBlocked(size, t1) {
-  const list = PILSA_TYPE1_BLOCKED[size] || [];
-  return list.indexOf(t1) >= 0;
-}
-
-// 한 쪽에 두 언어를 나란히 넣으려면 지면이 넓어야 한다 —
-// A4 + 오른쪽 필사형에서만 만들 수 있다.
-const PILSA_DUAL = ["한영(개역개정/NIV)", "영한(NIV/개역개정)"];
-function pilsaDualOff(f) { return f.size === "A5" || f.type1 === "아래쪽 필사형"; }
-function pilsaT2Blocked(f, t2) {
-  return PILSA_DUAL.indexOf(t2) >= 0 && pilsaDualOff(f);
-}
-
-// 묶음(sub)은 함께 제작되는 한 권이다 — 원본 목록 그대로
-const PILSA_UNITS = {
-  ot: [
-    { id: "ot01", g: "모세오경", label: "창세기" },
-    { id: "ot02", g: "모세오경", label: "출애굽기" },
-    { id: "ot03", g: "모세오경", label: "레위기" },
-    { id: "ot04", g: "모세오경", label: "민수기" },
-    { id: "ot05", g: "모세오경", label: "신명기" },
-    { id: "ot06", g: "역사서", label: "여호수아" },
-    { id: "ot07", g: "역사서", label: "사사기", sub: "룻기" },
-    { id: "ot08", g: "역사서", label: "사무엘상" },
-    { id: "ot09", g: "역사서", label: "사무엘하" },
-    { id: "ot10", g: "역사서", label: "열왕기상" },
-    { id: "ot11", g: "역사서", label: "열왕기하" },
-    { id: "ot12", g: "역사서", label: "역대상" },
-    { id: "ot13", g: "역사서", label: "역대하" },
-    { id: "ot14", g: "역사서", label: "에스라", sub: "느헤미야 · 에스더" },
-    { id: "ot15", g: "시가서", label: "욥기" },
-    { id: "ot16", g: "시가서", label: "시편" },
-    { id: "ot17", g: "시가서", label: "잠언", sub: "전도서 · 아가" },
-    { id: "ot18", g: "대선지서", label: "이사야" },
-    { id: "ot19", g: "대선지서", label: "예레미야", sub: "예레미야애가" },
-    { id: "ot20", g: "대선지서", label: "에스겔", sub: "다니엘" },
-    { id: "ot21", g: "소선지서", label: "호세아", sub: "요엘 · 아모스 · 오바댜 · 요나 · 미가 · 나훔 · 하박국 · 스바냐 · 학개 · 스가랴 · 말라기" },
-  ],
-  nt: [
-    { id: "nt01", g: "복음서", label: "마태복음" },
-    { id: "nt02", g: "복음서", label: "마가복음" },
-    { id: "nt03", g: "복음서", label: "누가복음" },
-    { id: "nt04", g: "복음서", label: "요한복음" },
-    { id: "nt05", g: "역사서", label: "사도행전" },
-    { id: "nt06", g: "바울서신", label: "로마서" },
-    { id: "nt07", g: "바울서신", label: "고린도전서", sub: "고린도후서" },
-    { id: "nt08", g: "바울서신", label: "갈라디아서", sub: "에베소서 · 빌립보서 · 골로새서 · 데살로니가전서 · 데살로니가후서 · 디모데전서 · 디모데후서 · 디도서 · 빌레몬서" },
-    { id: "nt09", g: "일반서신", label: "히브리서", sub: "야고보서 · 베드로전서 · 베드로후서 · 요한일서 · 요한이서 · 요한삼서 · 유다서" },
-    { id: "nt10", g: "예언서", label: "요한계시록" },
-  ],
-};
-const PILSA_ALL = PILSA_UNITS.ot.concat(PILSA_UNITS.nt);
-
-const PILSA_STEPS = ["신청완료", "준비중", "준비완료", "배부완료"];
-const PILSA_INFO = {
-  "신청완료": { cls: "s1", ic: "📝", msg: "신청이 접수되었습니다. 준비에 <b>1주일 정도</b> 소요되며 <b>주일</b>에 전달해 드려요.<br>준비가 시작되기 전까지는 신청 내용을 고치거나 취소하실 수 있어요." },
-  "준비중":   { cls: "s2", ic: "📦", msg: "노트를 준비하고 있습니다. 준비가 끝나면 돌아오는 <b>주일</b>에 전달해 드려요.<br>이 단계부터는 내용을 바꿀 수 없어요." },
-  "준비완료": { cls: "s3", ic: "✅", msg: "노트가 준비되었습니다. 휴대폰으로도 알려드렸어요.<br>주일에 4층 새가족실에서 찾아가세요.<br>비용은 그때 내시면 됩니다." },
-  "배부완료": { cls: "s4", ic: "🎁", msg: "노트를 받아 가셨습니다. 매일 한 구절씩 손으로 새겨 보세요." },
-};
-
-let pilsaForm = null;      // 작성 중인 신청 { type1, type2, qtys, memo }
-let pilsaMine = null;      // 접수된 내 신청 { ...form, status, at }
-let pilsaTab = "ot";       // 구약/신약 탭
-let pilsaEditing = false;  // 접수된 신청을 고치는 중
-let pilsaLoaded = false;   // 서버에서 내 신청을 불러왔는지
-
-
-// 브라우저가 옛 js/api.js를 물고 있으면 필사 액션이 아예 없다 —
-// "함수가 없습니다" 대신 새로고침을 안내한다.
-function pilsaApiReady() { return !!(window.api && api.pilsaApply && api.pilsaMine); }
-
-// 내 신청 한 건을 서버에서 가져온다(화면 진입 때 한 번)
-async function pilsaLoadMine(u) {
-  if (!pilsaApiReady()) { pilsaLoaded = true; return; }
-  try {
-    const r = await api.pilsaMine(u.user_id);
-    pilsaMine = r.order || null;
-    if (pilsaMine) pilsaForm = pilsaFormFrom(pilsaMine);
-  } catch (_) {
-    pilsaMine = null;          // 못 가져오면 새 신청 화면으로 — 저장할 때 다시 확인한다
-  }
-  pilsaLoaded = true;
-}
-
-// 접수된 신청 → 고치기 좋은 양식으로
-function pilsaFormFrom(m) {
-  return { size: m.size, type1: m.type1, type2: m.type2, phone: m.phone || "",
-           qtys: Object.assign({}, m.qtys), memo: m.memo || "" };
-}
+// 성경필사 노트 신청 화면은 js/pilsa.js 로 옮겼다 — 필요할 때 받는다(2026-10-12 · docs/notes/lazy-load.md).
+//   ⚠️ 아래 번호 꼴 둘은 사역신청(app.js)·js/events.js 도 쓰므로 여기 남긴다.
 
 // 숫자만 남겨 010-1234-5678 꼴로 — 어르신이 하이픈을 신경 쓰지 않아도 되게
 function pilsaPhoneFmt(v) {
@@ -10068,477 +9399,6 @@ function pilsaPhoneFmt(v) {
 }
 function pilsaPhoneOk(v) {
   return /^01[016-9]-?\d{3,4}-?\d{4}$/.test(String(v || "").trim());
-}
-// 서버가 「내 신청」 번호를 010-****-5678 로 가려서 줄 수 있다(Plan 5). 가려진 값은 이미 꼴이 맞으니
-// 그대로 보여 주고, 아니면 평소대로 꼴을 맞춘다. 가려진 값을 pilsaPhoneFmt 에 넣으면 숫자만 남아 깨진다.
-function pilsaPhoneMasked(v) { return String(v || "").includes("*"); }
-function pilsaPhoneView(v) { return pilsaPhoneMasked(v) ? String(v) : pilsaPhoneFmt(v); }
-
-function pilsaNewForm() { return { size: "", type1: "", type2: "", phone: "", qtys: {}, memo: "" }; }
-
-// A5는 지면이 좁고 한영·영한은 두 언어를 같이 실어, 한 부가 두 권으로 나온다.
-// (A5에서는 한영·영한을 못 고르므로 두 조건이 겹치는 일은 없다 — 배수는 최대 2)
-function pilsaMult(f) {
-  return (f.size === "A5" || PILSA_DUAL.indexOf(f.type2) >= 0) ? 2 : 1;
-}
-function pilsaMultWhy(f) {
-  if (f.size === "A5") return "A5(작은 것)";
-  if (PILSA_DUAL.indexOf(f.type2) >= 0) return "한영·영한";
-  return "";
-}
-// 고른 부수 — 신청 상한(5부)은 이 값을 본다
-function pilsaPicks(f) {
-  return PILSA_ALL.reduce(function (a, u) { return a + (Number(f.qtys[u.id]) || 0); }, 0);
-}
-// 실제 만들어지는 권수 — 금액은 이 값을 본다
-function pilsaTotal(f) {
-  return pilsaPicks(f) * pilsaMult(f);
-}
-function pilsaPicked(f) {
-  return PILSA_ALL.filter(function (u) { return (Number(f.qtys[u.id]) || 0) > 0; });
-}
-function pilsaUnitName(u) { return u.label + (u.sub ? " 외" : ""); }
-
-// "화평 20목장" / "초등부 3학년" — 이름을 뺀 소속만(명단에 그대로 쓴다)
-function pilsaAffil(u) {
-  if (!u) return "";
-  return u.type === "교구"
-    ? [u.gu, u.mok ? u.mok + "목장" : ""].filter(Boolean).join(" ")
-    : [u.bu, u.grade].filter(Boolean).join(" ");
-}
-// "화평 20목장 · 김세웅" / "초등부 3학년 · 김믿음"
-function pilsaWho(u) {
-  if (!u) return "";
-  return [pilsaAffil(u), u.name].filter(Boolean).join(" · ");
-}
-
-function pilsaStepsHtml(cur) {
-  const i = PILSA_STEPS.indexOf(cur);
-  return '<div class="pl-steps">' + PILSA_STEPS.map(function (s, k) {
-    return '<div class="pl-step ' + (k < i ? "done" : k === i ? "now" : "") +
-           '"><i></i><span>' + s + '</span></div>';
-  }).join("") + '</div>';
-}
-
-// ── 화면 맨 아래 동작 버튼 ────────────────────────────────────
-// 취소는 접수된 신청이 있고 아직 '신청완료' 단계일 때만 나온다.
-function pilsaActionsHtml(showForm) {
-  const st = pilsaMine && pilsaMine.status;
-  const editable = st === "신청완료";     // 이때만 성도가 고치거나 취소할 수 있다
-  const finished = st === "배부완료";     // 받아 가셨으면 다시 신청할 수 있다
-  const btns = [];
-  if (showForm) {
-    btns.push('<button class="pl-act go" id="pl-submit">' + (pilsaMine ? "수정 신청" : "신청") + '</button>');
-  } else if (editable) {
-    btns.push('<button class="pl-act go" id="pl-edit">수정하기</button>');
-  } else if (finished) {
-    btns.push('<button class="pl-act go" id="pl-new">새로 신청</button>');
-  }
-  if (editable) btns.push('<button class="pl-act danger" id="pl-cancel">취소</button>');
-  btns.push('<button class="pl-act ghost" id="pl-exit">뒤로</button>');
-  // 성경 31단위를 훑다 보면 화면이 길어진다 — 버튼은 늘 화면 아래에 못 박는다(.pl-acts.sticky)
-  // ⚠️ 고칠 수 있을 때는 단추가 셋(수정하기·취소·뒤로)이라 좁은 폰에서 글자가 두 줄로 접힌다
-  //    — 사역신청의 min-acts-3 과 같은 처리를 붙인다.
-  return '<div class="pl-acts sticky' + (btns.length >= 3 ? " pl-acts-3" : "") + '">' +
-    btns.join("") + '</div>';
-}
-
-function wirePilsaActions(u) {
-  const ex = document.getElementById("pl-exit");
-  if (ex) ex.addEventListener("click", function () {
-    pilsaEditing = false;
-    pilsaLoaded = false;        // 다시 들어오면 그동안 바뀐 상태를 새로 받는다
-    renderSummary();
-  });
-  const sb = document.getElementById("pl-submit");
-  if (sb) sb.addEventListener("click", function () { pilsaTrySubmit(u); });
-  const ed = document.getElementById("pl-edit");
-  if (ed) ed.addEventListener("click", function () {
-    pilsaForm = pilsaFormFrom(pilsaMine);
-    pilsaEditing = true;
-    renderPilsaApply();
-  });
-  const nw = document.getElementById("pl-new");
-  if (nw) nw.addEventListener("click", function () {
-    pilsaMine = null;                 // 지난 신청은 끝났다 — 빈 양식으로 새로 시작
-    pilsaForm = pilsaNewForm();
-    pilsaEditing = false;
-    pilsaTab = "ot";
-    renderPilsaApply();
-  });
-  const cc = document.getElementById("pl-cancel");
-  if (cc) cc.addEventListener("click", function () { askCancelPilsa(u); });
-}
-
-function pilsaTrySubmit(u) {
-  const t = document.getElementById("pl-memo");
-  if (t) pilsaForm.memo = t.value;
-  const miss = [];
-  if (!pilsaForm.size) miss.push("노트 크기");
-  if (!pilsaForm.type1) miss.push("필사 유형");
-  if (!pilsaForm.type2) miss.push("성경 번역본");
-  if (!pilsaTotal(pilsaForm)) miss.push("성경 (부수를 1부 이상)");
-  if (miss.length) { appAlert("다음을 골라 주세요.<br><b>" + miss.join(" · ") + "</b>"); return; }
-  // 가려진 번호(수정 시 서버가 준 010-****-5678)는 못 고치니 빈 것으로 보고 다시 받는다(Plan 5)
-  const ph = pilsaPhoneMasked(pilsaForm.phone) ? "" : (pilsaForm.phone || "").trim();
-  if (!ph) {
-    appAlert("휴대폰 번호를 적어 주세요.").then(function () {
-      const el = document.getElementById("pl-phone");
-      if (el) { el.classList.add("err"); el.focus(); }
-    });
-    return;
-  }
-  if (!pilsaPhoneOk(ph)) {
-    appAlert("휴대폰 번호를 다시 확인해 주세요.<br><b>010-1234-5678</b> 꼴로 적어 주세요.").then(function () {
-      const el = document.getElementById("pl-phone");
-      if (el) { el.classList.add("err"); el.focus(); }
-    });
-    return;
-  }
-  renderPilsaConfirm(u);
-}
-
-// ── 신청 화면 ────────────────────────────────────────────────
-function renderPilsaApply(keepScroll) {
-  const u = loadUser();
-  if (!u) { renderEntryScreen(); return; }
-  // 서버에서 내 신청을 아직 못 가져왔으면 먼저 가져온다
-  if (!pilsaLoaded) {
-    document.getElementById("app").innerHTML =
-      '<div class="pilsa-screen"><h2 class="rank-title">✍️ 성경필사 노트 신청</h2>' +
-      '<p class="msg">신청 내용을 불러오는 중…</p></div>';
-    window.scrollTo(0, 0);
-    pilsaLoadMine(u).then(function () { renderPilsaApply(); });
-    return;
-  }
-  if (!pilsaForm) pilsaForm = pilsaNewForm();
-  const appEl = document.getElementById("app");
-  const showForm = !pilsaMine || pilsaEditing;
-
-  appEl.innerHTML =
-    '<div class="pilsa-screen">' +
-      '<h2 class="rank-title">✍️ 성경필사 노트 신청</h2>' +
-      '<p class="pilsa-sub">준비가 끝나면 <b>휴대폰</b>으로 알려드립니다<br>' +
-        '<b>4층 새가족실</b>에서 찾아가세요</p>' +
-      (showForm ? pilsaFormHtml(u) : pilsaMineHtml(u)) +
-      pilsaActionsHtml(showForm) +
-    '</div>';
-
-  window.scrollTo(0, keepScroll == null ? 0 : keepScroll);
-  wirePilsaActions(u);
-  if (showForm) wirePilsaForm(u);
-}
-
-function pilsaMineHtml(u) {
-  const m = pilsaMine;
-  const info = PILSA_INFO[m.status] || PILSA_INFO["신청완료"];
-  return '<div class="pilsa-state ' + info.cls + '">' +
-      '<div class="ps-top"><span class="ps-ic">' + info.ic + '</span>' +
-      '<span class="ps-name">' + m.status + '</span></div>' +
-      '<div class="ps-msg">' + info.msg + '</div></div>' +
-    pilsaStepsHtml(m.status) +
-    pilsaSummaryHtml(u, m) +
-    (m.status === "신청완료" ? '' :
-     m.status === "배부완료"
-      ? '<div class="pl-help done">필사 노트가 더 필요하시면 <b>새로 신청</b>하실 수 있어요.</div>'
-      : '<div class="pl-help lock">준비가 시작되어 변경할 수 없습니다.<br>' +
-        '꼭 바꾸셔야 하면 <b>신앙운동팀</b>에 말씀해 주세요.</div>');
-}
-
-// 신청 내용 요약 — 확인 화면과 접수 뒤 화면이 함께 쓴다
-function pilsaSummaryHtml(u, f) {
-  const rows = pilsaPicked(f).map(function (x) {
-    return '<div class="pc-row"><span>' + boardEsc(pilsaUnitName(x)) + '</span>' +
-           '<b>' + f.qtys[x.id] + '부</b></div>';
-  }).join("");
-  return '<div class="pilsa-confirm">' +
-      '<div class="pc-row"><span>신청자</span><b>' + boardEsc(pilsaWho(u)) + '</b></div>' +
-      '<div class="pc-row"><span>노트 크기</span><b>' + boardEsc(f.size) + '</b></div>' +
-      '<div class="pc-row"><span>필사 유형</span><b>' + boardEsc(f.type1) + '</b></div>' +
-      '<div class="pc-row"><span>번역본</span><b>' + boardEsc(f.type2) + '</b></div>' +
-      '<div class="pc-row"><span>휴대폰</span><b>' + boardEsc(pilsaPhoneView(f.phone) || "-") + '</b></div>' +
-      (f.at ? '<div class="pc-row"><span>신청일</span><b>' + boardEsc(f.at) + '</b></div>' : '') +
-    '</div>' +
-    '<div class="pl-sec">성경 선택</div>' +
-    '<div class="pilsa-confirm">' + rows +
-      (pilsaMult(f) > 1
-        ? '<div class="pc-row"><span>신청부수</span><b>' + pilsaPicks(f) + '부 × 2</b></div>'
-        : '') +
-      '<div class="pc-row total"><span>총 제작 권수</span><b>' + pilsaTotal(f) + '권</b></div>' +
-    '</div>' +
-    '<div class="pl-price">' +
-      '<div class="pp-row"><span>예상 금액 <i>(권당 ' + PILSA_PRICE.toLocaleString("ko-KR") + '원)</i></span>' +
-      '<b>' + pilsaWon(pilsaTotal(f)) + '</b></div>' +
-      '<div class="pp-note">' +
-      (pilsaMult(f) > 1
-        ? '<b>' + pilsaMultWhy(f) + '</b>은 한 부가 <b>2권</b>이라 2배로 계산했습니다.<br>'
-        : '') +
-      '말씀 길이에 따라 한 단위가 여러 권으로 나올 수 있어, 실제 권수와 금액은 달라질 수 있습니다.<br>' +
-      '<b>비용은 노트를 찾으실 때 내시면 됩니다.</b></div>' +
-    '</div>' +
-    (f.memo ? '<div class="pl-memo"><b>💬 요청사항</b><br>' + boardEsc(f.memo) + '</div>' : '');
-}
-
-// 고른 성경 요약 — ＋/− 때 이 부분만 갈아 끼운다
-function pilsaSumInner(f) {
-  const picked = pilsaPicked(f);
-  if (!picked.length) return '<span class="none">아직 고르신 성경이 없습니다.</span>';
-  const n = pilsaTotal(f);
-  const mult = pilsaMult(f);
-  return '<b>✅ ' + picked.length + '종 · ' +
-    (mult > 1 ? '신청 ' + pilsaPicks(f) + '부 → ' : '') +
-    '총 ' + n + '권 · ' + pilsaWon(n) + '</b><br><span>' +
-    picked.map(function (x) { return boardEsc(pilsaUnitName(x)) + " " + f.qtys[x.id] + "부"; }).join(" · ") +
-    '</span>';
-}
-
-function pilsaFormHtml(u) {
-  const f = pilsaForm;
-  const left = PILSA_TOTAL_MAX - pilsaPicks(f);
-  const mult = pilsaMult(f);
-
-  const sz = PILSA_SIZE.map(function (t) {
-    const why = pilsaSizeOff(t[0]);
-    return '<button class="pl-type' + (f.size === t[0] ? " on" : "") + '" data-size="' + t[0] + '"' +
-      (why ? " disabled" : "") + '><b>' + t[0] + '</b><i>' +
-      (why ? why : t[1]) + '</i></button>';
-  }).join("");
-  const t1 = PILSA_TYPE1.map(function (t) {
-    const off = pilsaBlocked(f.size, t[0]);
-    return '<button class="pl-type' + (f.type1 === t[0] ? " on" : "") + '" data-t1="' + t[0] + '"' +
-      (off ? " disabled" : "") + '><b>' + t[0] + '</b><i>' +
-      (off ? "A5에는 만들지 않아요" : t[1]) + '</i></button>';
-  }).join("");
-  const t2 = PILSA_TYPE2.map(function (t) {
-    const off = pilsaT2Blocked(f, t);
-    return '<button data-t2="' + t + '" class="' + (f.type2 === t ? "on" : "") + '"' +
-      (off ? " disabled" : "") + '>' + t + '</button>';
-  }).join("");
-
-  let rows = "", lastG = null;
-  PILSA_UNITS[pilsaTab].forEach(function (x) {
-    if (x.g !== lastG) { rows += '<div class="pl-genre">' + x.g + '</div>'; lastG = x.g; }
-    const q = Number(f.qtys[x.id]) || 0;
-    rows +=
-      '<div class="pl-unit">' +
-        '<div class="pl-un"><b>' + boardEsc(x.label) + '</b>' +
-          (x.sub ? '<i>+ ' + boardEsc(x.sub) + '</i>' : '') + '</div>' +
-        '<div class="pl-ctl">' +
-          '<button class="pl-mn" data-minus="' + x.id + '"' + (q ? "" : " disabled") + '>−</button>' +
-          '<span class="pl-num' + (q ? " has" : "") + '">' + q + '</span>' +
-          '<button class="pl-pl' + (left > 0 ? "" : " off") + '" data-plus="' + x.id + '">＋</button>' +
-        '</div>' +
-      '</div>';
-  });
-
-  return '<div class="pl-sec">필사 옵션</div>' +
-    '<div class="pilsa-box">' +
-      '<div class="pl-label">노트 크기</div>' +
-      '<div class="pl-types" id="pl-size">' + sz + '</div>' +
-      '<div class="pl-label" style="margin-top:14px">필사 유형</div>' +
-      '<div class="pl-types" id="pl-t1">' + t1 + '</div>' +
-      (f.size === "A5" ? '<div class="pl-note">A5는 <b>아래쪽 필사형</b>으로만 제작됩니다</div>' : '') +
-      '<div class="pl-label" style="margin-top:14px">성경 번역본</div>' +
-      '<div class="rank-filter pl-chips" id="pl-t2">' + t2 + '</div>' +
-      (pilsaDualOff(f)
-        ? '<div class="pl-note">한영·영한은 <b>A4 + 오른쪽 필사형</b>에서만 만들 수 있어요</div>'
-        : '') +
-    '</div>' +
-
-    '<div class="pl-sec">성경 선택 및 부수</div>' +
-    '<div class="pl-notice">신청 단위별로 부수를 골라 주세요. 묶음 항목은 함께 제작되는 한 권입니다.<br>' +
-      // A5는 지금 못 고른다 — 이미 A5로 신청하신 분에게만 그대로 알려 준다
-      (f.size === "A5"
-        ? '<b>A5(작은 것)</b>와 <b>한영·영한</b>은 한 부가 <b>2권</b>으로 나와 권수와 금액이 2배가 됩니다.<br>'
-        : '<b>한영·영한</b>은 한 부가 <b>2권</b>으로 나와 권수와 금액이 2배가 됩니다.<br>') +
-      '말씀이 길면 <b>한 단위가 여러 권</b>으로 나올 수 있어 권수는 늘거나 줄 수 있습니다.<br>' +
-      '<b>권당 3,000원</b> · ' +
-      '<b>한 분당 총 ' + PILSA_TOTAL_MAX + '부까지</b> 신청하실 수 있어요' +
-      '<span class="pl-left">' + (left > 0 ? " (앞으로 " + left + "부)" : " — 상한에 닿았습니다") + '</span></div>' +
-    (mult > 1
-      ? '<div class="pl-note x2">지금 고르신 <b>' + pilsaMultWhy(f) + '</b>은 한 부가 <b>2권</b>입니다 — ' +
-        '아래에서 고르신 부수의 <b>2배</b>로 만들어지고, 금액도 2배로 계산됩니다.</div>'
-      : '') +
-    '<div class="rank-filter pl-tab" id="pl-tab">' +
-      '<button data-tab="ot" class="' + (pilsaTab === "ot" ? "on" : "") + '">구약</button>' +
-      '<button data-tab="nt" class="' + (pilsaTab === "nt" ? "on" : "") + '">신약</button>' +
-    '</div>' +
-    '<div class="pl-units">' + rows + '</div>' +
-    '<div class="pl-sum2">' + pilsaSumInner(f) + '</div>' +
-
-    '<div class="pl-sec">휴대폰 번호 <span class="req">필수</span></div>' +
-    // 가려진 번호(010-****-5678)는 고칠 수 없으니 칸을 비워 다시 받는다 — 본인도 옛 번호를 보지 않는다(Plan 5).
-    '<input type="tel" id="pl-phone" class="pl-memo-in pl-phone" inputmode="numeric" ' +
-      'maxlength="13" placeholder="010-1234-5678" value="' + boardEsc(pilsaPhoneMasked(f.phone) ? "" : pilsaPhoneFmt(f.phone)) + '">' +
-    '<div class="pl-hint">노트가 준비되면 이 번호로 알려드립니다' +
-      (pilsaPhoneMasked(f.phone) ? ' <b>(번호를 다시 넣어 주세요)</b>' : '') + '</div>' +
-    '<div class="pl-sec">요청사항 <span class="opt">선택</span></div>' +
-    '<textarea id="pl-memo" class="pl-memo-in" rows="3" maxlength="300" ' +
-      'placeholder="수량 조정, 그 밖에 요청하실 내용을 적어 주세요.">' + boardEsc(f.memo) + '</textarea>';
-}
-
-// ＋/− 는 화면을 다시 그리지 않는다 — 다시 그리면 보고 있던 자리를 잃는다.
-// 숫자·잠금·요약·남은 부수만 제자리에서 갱신한다.
-function pilsaRefreshCounts() {
-  const f = pilsaForm;
-  const left = PILSA_TOTAL_MAX - pilsaPicks(f);
-  document.querySelectorAll(".pl-unit").forEach(function (row) {
-    const plus = row.querySelector("[data-plus]");
-    const minus = row.querySelector("[data-minus]");
-    const num = row.querySelector(".pl-num");
-    if (!plus || !num) return;
-    const q = Number(f.qtys[plus.dataset.plus]) || 0;
-    num.textContent = q;
-    num.classList.toggle("has", q > 0);
-    plus.classList.toggle("off", left <= 0);   // 잠그지 않는다 — 눌러 보면 이유를 알려 준다
-    if (minus) minus.disabled = q <= 0;
-  });
-  const lf = document.querySelector(".pl-left");
-  if (lf) lf.textContent = left > 0 ? " (앞으로 " + left + "부)" : " — 상한에 닿았습니다";
-  const sum = document.querySelector(".pl-sum2");
-  if (sum) sum.innerHTML = pilsaSumInner(f);
-}
-
-function wirePilsaForm(u) {
-  const appEl = document.getElementById("app");
-  const keepMemo = function () {
-    const t = document.getElementById("pl-memo");
-    if (t) pilsaForm.memo = t.value;
-    const ph = document.getElementById("pl-phone");
-    if (ph) pilsaForm.phone = ph.value;
-  };
-  appEl.querySelectorAll("[data-size]").forEach(function (b) {
-    b.addEventListener("click", function () {
-      keepMemo();
-      pilsaForm.size = b.dataset.size;
-      if (pilsaBlocked(pilsaForm.size, pilsaForm.type1)) pilsaForm.type1 = "";
-      if (pilsaT2Blocked(pilsaForm, pilsaForm.type2)) pilsaForm.type2 = "";
-      renderPilsaApply(window.scrollY);
-    });
-  });
-  appEl.querySelectorAll("[data-t1]").forEach(function (b) {
-    b.addEventListener("click", function () {
-      keepMemo();
-      pilsaForm.type1 = b.dataset.t1;
-      if (pilsaT2Blocked(pilsaForm, pilsaForm.type2)) pilsaForm.type2 = "";
-      renderPilsaApply(window.scrollY);
-    });
-  });
-  appEl.querySelectorAll("[data-t2]").forEach(function (b) {
-    b.addEventListener("click", function () {
-      keepMemo(); pilsaForm.type2 = b.dataset.t2; renderPilsaApply(window.scrollY);
-    });
-  });
-  document.getElementById("pl-tab").querySelectorAll("button").forEach(function (b) {
-    b.addEventListener("click", function () {
-      keepMemo(); pilsaTab = b.dataset.tab; renderPilsaApply(window.scrollY);
-    });
-  });
-  appEl.querySelectorAll("[data-plus]").forEach(function (b) {
-    b.addEventListener("click", function () {
-      if (pilsaPicks(pilsaForm) >= PILSA_TOTAL_MAX) {
-        appAlert("한 분당 <b>총 " + PILSA_TOTAL_MAX + "부까지</b> 신청하실 수 있습니다.<br><br>" +
-          "다른 성경을 고르시려면 먼저 <b>−</b>로 부수를 줄여 주세요.<br>" +
-          "더 필요하시면 <b>신앙운동팀</b>에 말씀해 주세요.", "🙏 신청 부수 안내");
-        return;
-      }
-      const id = b.dataset.plus;
-      pilsaForm.qtys[id] = (Number(pilsaForm.qtys[id]) || 0) + 1;
-      pilsaRefreshCounts();
-    });
-  });
-  appEl.querySelectorAll("[data-minus]").forEach(function (b) {
-    b.addEventListener("click", function () {
-      const id = b.dataset.minus;
-      pilsaForm.qtys[id] = Math.max(0, (Number(pilsaForm.qtys[id]) || 0) - 1);
-      pilsaRefreshCounts();
-    });
-  });
-  const memo = document.getElementById("pl-memo");
-  if (memo) memo.addEventListener("input", function () { pilsaForm.memo = memo.value; });
-  const phone = document.getElementById("pl-phone");
-  if (phone) phone.addEventListener("input", function () {
-    phone.value = pilsaPhoneFmt(phone.value);      // 010-1234-5678 꼴로 자동 정리
-    pilsaForm.phone = phone.value;
-  });
-}
-
-// ── 확인 화면 ────────────────────────────────────────────────
-function renderPilsaConfirm(u) {
-  const appEl = document.getElementById("app");
-  appEl.innerHTML =
-    '<div class="pilsa-screen">' +
-      '<h2 class="rank-title">📋 신청 내용 확인</h2>' +
-      '<p class="pilsa-sub">아래 내용이 맞으면 ' + (pilsaMine ? "수정 신청" : "신청") + '을 눌러 주세요<br>' +
-        '<span class="nb"><b>1주일 정도</b> 소요되며 <b>주일</b>에 전달해 드립니다</span></p>' +
-      pilsaSummaryHtml(u, pilsaForm) +
-      // 확인하지 않고 화면을 떠나는 일이 없게, 버튼을 아래에 붙여 둔다
-      '<div class="pl-acts sticky">' +
-        '<button class="pl-act go" id="pl-ok">' + (pilsaMine ? "수정 신청" : "신청") + '</button>' +
-        '<button class="pl-act ghost" id="pl-again">뒤로</button>' +
-      '</div>' +
-    '</div>';
-  window.scrollTo(0, 0);
-  document.getElementById("pl-again").addEventListener("click", function () { renderPilsaApply(); });
-  document.getElementById("pl-ok").addEventListener("click", function () { submitPilsa(u); });
-}
-
-async function askCancelPilsa(u) {
-  const ok = await appConfirm(
-    "신청하신 <b>필사 노트 " + pilsaTotal(pilsaMine) + "권</b>을 취소할까요?<br><br>언제든 다시 신청하실 수 있어요.",
-    // 두 버튼이 모두 '취소'로 보이면 어느 쪽이 무엇인지 알 수 없다
-    { title: "🗑 신청 취소", okText: "신청 취소", cancelText: "돌아가기", danger: true });
-  if (!ok) return;
-  if (pilsaMine && pilsaMine.id) {
-    try {
-      await api.pilsaCancel(u.user_id, pilsaMine.id);
-    } catch (e) {
-      await appAlert("취소하지 못했습니다.<br>" + boardEsc(e && e.message ? e.message : e));
-      return;
-    }
-  }
-  pilsaMine = null;
-  pilsaEditing = false;
-  pilsaForm = pilsaNewForm();
-  await appAlert("신청이 취소되었습니다.");
-  renderPilsaApply();
-}
-
-// 신청이든 수정이든 성도가 알아야 할 내용은 같다 — 한곳에서 만든다
-function pilsaDoneMsg(n) {
-  return "필사 노트 <b>" + n + "권</b>을 신청했습니다.<br><br>" +
-    "준비에 <b>1주일 정도</b> 소요되며 <b>주일</b>에 전달해 드립니다.<br>" +
-    "준비가 끝나면 휴대폰으로 알려드릴게요.";
-}
-
-async function submitPilsa(u) {
-  const edit = !!pilsaMine;                 // 저장하면 pilsaMine이 바뀌니 먼저 잡아 둔다
-  const label = edit ? "수정 신청" : "신청";
-  const btn = document.getElementById("pl-ok");
-  if (btn) { btn.disabled = true; btn.textContent = "처리 중…"; }
-  if (!pilsaApiReady()) {
-    if (btn) { btn.disabled = false; btn.textContent = label; }
-    await appAlert("앱이 옛 버전이라 신청을 보낼 수 없습니다.<br>새로고침한 뒤 다시 신청해 주세요.");
-    return;
-  }
-  try {
-    const r = await api.pilsaApply({
-      user_id: u.user_id,
-      name: u.name,
-      who: pilsaAffil(u),
-      phone: pilsaForm.phone,
-      size: pilsaForm.size, type1: pilsaForm.type1, type2: pilsaForm.type2,
-      qtys: pilsaForm.qtys, memo: pilsaForm.memo,
-    });
-    pilsaMine = r.order;
-    pilsaForm = pilsaFormFrom(pilsaMine);
-    pilsaEditing = false;
-    await appAlert(pilsaDoneMsg(pilsaMine.total), edit ? "✅ 수정 완료" : "✅ 신청 완료");
-    renderPilsaApply();
-  } catch (e) {
-    if (btn) { btn.disabled = false; btn.textContent = label; }
-    await appAlert("신청을 저장하지 못했습니다.<br>" + boardEsc(e && e.message ? e.message : e));
-  }
 }
 
 // ------------------------------------------------------------

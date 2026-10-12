@@ -2,6 +2,7 @@
 
 > CLAUDE.md 에서 옮겨 온 상세 기록이다(2026-09-12, 두 겹으로 나눔 — 내용은 한 글자도 안 고쳤다).
 > **언제 읽나:** 기도문 화면(`renderPrayerBook`)·「크게 보기」 액자·`blessings` 자료를 손볼 때
+> 📁 **2026-10-12 부터 화면 코드는 `js/prayer.js`**(필요할 때 받는다 · `docs/notes/lazy-load.md`). 아래에 「app.js」라 적힌 화면 코드(`drawPrayer`·`--lw`·`safeAreaInsets` 등)는 그 파일에 있다 — 묵상 창 「🙏 기도」·`loadPrayers`·`prayToday`·`prayFill`·`PRAY_ORN` 은 `app.js` 에 남았다.
 > ⚠️ 여기 ⚠️ 표시는 대부분 **실제로 한 번씩 사고를 겪고** 남긴 것이다. 요약해 옮기지 말고 그대로 둘 것.
 
 - **가정 축복 기도문(2026-09-03, v3.273):** 104편을 **「오늘 한 편 + 주제로 찾기」 한 화면**에 담았다(`renderPrayerBook`). 자료는 `blessings` 표 → `getBlessings`.
