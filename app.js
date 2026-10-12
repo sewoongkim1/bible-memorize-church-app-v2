@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261013a";
+const APP_BUILD = "20261013b";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -842,10 +842,18 @@ function applyHomeA() {
     rows.forEach((b) => { haRow(b, !!g.ext); box.appendChild(b); });
     wrap.appendChild(sec);
   });
-  anchor.parentNode.insertBefore(wrap, anchor);
+  // 바탕색 띠(.ha-zone) — 묶음 · (옛 이벤트 카드 자리) · 도구 칸을 한 띠에 담는다. 흰 카드가 흰 바탕에 묻혔다(친구 2026-10-13).
+  //   카드 끝까지 닿게 CSS 가 바깥 여백을 음수로 당긴다 — 그래서 이 띠가 카드의 맨 마지막(보이는) 자식이어야 한다.
+  const zone = document.createElement("div");
+  zone.className = "ha-zone";
+  anchor.parentNode.insertBefore(zone, anchor);
+  zone.appendChild(wrap);
+  const evBottom = card.querySelector(":scope > #event-slot-bottom");   // renderEventButton 은 id 로 찾는다 — 옮겨도 그대로 채워진다
+  if (evBottom) zone.appendChild(evBottom);
   // 맨 아래 도구 칸 — 아이콘은 단추 밖(형제)에 둔다: 구절·쓰기 단추는 누를 때 제 글자(📕·⌨️)를 다시 쓰기 때문
   const tools = card.querySelector(":scope > .summary-icons-bottom");
   if (tools) {
+    zone.appendChild(tools);
     tools.classList.add("ha-tools");
     tools.querySelectorAll(".icon-cap").forEach((cap) => {
       const b = cap.querySelector("button");

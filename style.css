@@ -6181,7 +6181,13 @@ html[data-fs="xl"] .home-b .summary-card > .summary-help.event-cta .ev-pill { ma
 .home-a #more-toggle,
 .home-a #more-box,
 .home-a #more-box[hidden] { display: none; }
-.home-a .ha-groups { display: flex; flex-direction: column; gap: 18px; margin: 6px 0 4px; text-align: left; }
+/* 바탕색 띠 — 이번 주 말씀 아래 전부(묶음 · 도구 칸)를 옅은 크림 띠에 얹어 흰 카드 줄이 떠 보이게(친구 2026-10-13 「배경색과 버튼색이 구분이 안 된다」).
+   카드 안쪽 여백(16px 18px)을 음수 여백으로 당겨 카드 가장자리 · 바닥까지 닿게 한다 — 모서리는 카드(16px − 테두리 1px)와 같게. */
+.home-a .ha-zone {
+  margin: 12px -18px -16px; padding: 18px 18px 20px;
+  background: #f4efe6; border-top: 1px solid #e9e2d5; border-radius: 0 0 15px 15px;
+}
+.home-a .ha-groups { display: flex; flex-direction: column; gap: 18px; margin: 0; text-align: left; }
 .home-a .ha-group-title {
   display: flex; align-items: baseline; gap: 8px; margin: 0 0 8px; padding: 0 4px;
   font-size: .92rem; font-weight: 800; color: #4a5468;
@@ -6219,7 +6225,7 @@ html[data-fs="xl"] .home-b .summary-card > .summary-help.event-cta .ev-pill { ma
 .home-a .ha-row .act-ic,
 .home-a .ha-row .ext-mark { display: none; }
 /* 맨 아래 도구 칸 — 첫 줄 셋(구절 · 쓰기 · 도움말 = 시안 A) · 둘째 줄 둘(알림 · 설정) — 6칸 격자로 빈 칸 없이 */
-.home-a .summary-card > .summary-icons.ha-tools {
+.home-a .ha-zone > .summary-icons.ha-tools {
   display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px;
   margin-top: 16px; padding-top: 0; border-top: 0;
 }
@@ -6247,14 +6253,15 @@ html[data-fs="xl"] .home-b .summary-card > .summary-help.event-cta .ev-pill { ma
 /* 어두운 모드 — 시안 A 의 어두운 판과 같은 값 */
 .dark .home-a .ha-group-title { color: #b9c0cd; }
 .dark .home-a .ha-note { color: #8a93a3; }
-.dark .home-a .ha-card { background: #1a202b; border-color: #2c3442; }
-.dark .home-a .ha-card > button.ha-row { background: transparent; color: #f1eee7; border-top-color: #2c3442; }
-.dark .home-a .ha-card > button.ha-row:hover { background: #222a37; color: #f1eee7; }
+.dark .home-a .ha-zone { background: #131925; border-top-color: #2c3442; }
+.dark .home-a .ha-card { background: #212938; border-color: #313a4a; }
+.dark .home-a .ha-card > button.ha-row { background: transparent; color: #f1eee7; border-top-color: #313a4a; }
+.dark .home-a .ha-card > button.ha-row:hover { background: #283142; color: #f1eee7; }
 .dark .home-a .ha-ic { background: #22304a; color: #9dbbea; }
 .dark .home-a .ha-ic.gold { background: #3a3018; color: #e9cd7e; }
 .dark .home-a .ha-ic.plain { background: #262c37; color: #b9c0cd; }
 .dark .home-a .ha-trail { color: #8a93a3; }
-.dark .home-a .ha-tool { background: #1a202b; border-color: #2c3442; }
+.dark .home-a .ha-tool { background: #212938; border-color: #313a4a; }
 .dark .home-a .ha-tool > button.summary-icon:not(.icon-alarm):hover { background: rgba(255, 255, 255, .05); }
 .dark .home-a .ha-tool-ic,
 .dark .home-a .ha-tool .icon-cap-label { color: #f1eee7; }
