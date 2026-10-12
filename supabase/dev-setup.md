@@ -110,10 +110,11 @@ cron_last_run_rpc.sql
 > 대가로 개발의 `monitor`는 「주간 리포트 메일 실행 기록을 찾을 수 없습니다」를
 > 항상 말한다. 개발에는 정말로 cron이 없으니 맞는 말이다(호출은 try로 감싸 있어 멈추지는 않는다).
 
-### 한 번 쓰고 끝난 데이터 수정
+### 한 번 쓰고 끝난 데이터 수정 — `archive/` 에 모아 두었다(2026-10-12)
 ```
-insert_sermon_juan.sql · update_sermon_shalom.sql
-cleanup_test_user_logs.sql · pilsa_phone_cleanup.sql
+archive/insert_sermon_juan.sql · archive/update_sermon_shalom.sql
+archive/cleanup_test_user_logs.sql · archive/pilsa_phone_cleanup.sql
+archive/add_member_sinjongsuk.sql
 ```
 
 ### 사람을 등록하는 것
