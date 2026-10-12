@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261013b";
+const APP_BUILD = "20261013c";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -764,6 +764,7 @@ const HA_ICON = {
   tv: "M3 6h18v12H3zM10 9.5v5l4-2.5z",
   bookmark: "M6 3h12v18l-6-4-6 4z",
   keyboard: "M3 6h18v12H3zM7 10h.01M11 10h.01M15 10h.01M7 14h10",
+  cards: "M9 3h10a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM5 7v12a2 2 0 0 0 2 2h9",
   help: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17h.01",
   bell: "M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21a2 2 0 0 0 4 0",
   gear: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3.1 15H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 4.1V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.7 1.7 0 0 0 20.9 10H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z",
@@ -862,6 +863,15 @@ function applyHomeA() {
       cap.classList.add("ha-tool");
       if (b.id === "open-alarm" || b.id === "open-settings") cap.classList.add("ha-tool-wide");
       cap.insertAdjacentHTML("afterbegin", haSvg(name, "ha-tool-ic"));
+      // 쓰기 ↔ 카드 — 단추가 누를 때 제 글자(⌨️ · 👆)를 바꾸면 아이콘도 따라 바꾼다(친구 2026-10-13 「카드 아이콘이 안 바뀐다」)
+      if (b.id === "toggle-card-input") {
+        const sync = () => {
+          const ic = cap.querySelector(".ha-tool-ic");
+          if (ic) ic.outerHTML = haSvg(b.textContent.indexOf("👆") >= 0 ? "cards" : "keyboard", "ha-tool-ic");
+        };
+        sync();
+        new MutationObserver(sync).observe(b, { childList: true, characterData: true, subtree: true });
+      }
     });
   }
   const bar = document.createElement("div");
