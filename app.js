@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261012f";
+const APP_BUILD = "20261012g";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -3150,8 +3150,14 @@ function renderSummary() {
   //    복습 예약(ensureReviewScheduled)은 그대로 쌓인다 — 되살리려면 이 자리에 go-review 를 다시 더하면 된다
   //    (복습 화면 renderReview·startReview 는 남겨 두었다 · docs/notes/home-screen.md).
   const notDone = counts[0] + counts[1] + counts[2];   // 아직 3단계를 못 마친 구절
-  const TODO = { id: "go-list", cls: "", ic: "📖", tx: "말씀 암송하기",
-    sub: notDone > 0 ? `아직 ${notDone}구절 남았어요` : `${done}구절 모두 마치셨어요 🎉` };
+  // ⚠️ 2026-10-12 친구 결정 — 「아직 N구절 남았어요」를 뺐다. 새로 오신 분은 첫 화면에서
+  //    「아직 41구절 남았어요」부터 보셨고, 구절이 매주 하나씩 늘어 내년엔 90을 넘는다 —
+  //    시작도 전에 짐이 된다는 말씀이 이미 있었다. 남은 수를 세는 대신 아무 말도 하지 않는다.
+  //    다 마치신 분께 드리는 축하 줄은 그대로 둔다(짐이 아니라 기쁨이다).
+  // 2026-10-12 친구 — 단추 이름도 「말씀 암송하기」 → 「말씀 암송」(아래 「말씀 도전」과 짝을 맞춘다).
+  //    이 이름을 부르는 곳(설명서 MANUAL 「말씀 암송」 장 · guide/index.html ② 첫 화면)도 함께 바꿨다.
+  const TODO = { id: "go-list", cls: "", ic: "📖", tx: "말씀 암송",
+    sub: notDone > 0 ? "" : `${done}구절 모두 마치셨어요 🎉` };
   const SUB = [{ id: "go-challenge", cls: "challenge-cta", ic: "🔥", tx: "말씀 도전" }];
 
   const pct = total ? Math.round((done / total) * 100) : 0;
@@ -3219,7 +3225,7 @@ function renderSummary() {
     <div id="store-nudge" hidden></div>
     <button class="todo-go ${TODO.cls}" id="${TODO.id}">
       <span class="todo-ic">${TODO.ic}</span>
-      <span class="todo-body"><span class="todo-tx">${TODO.tx}</span><span class="todo-sub">${TODO.sub}</span></span>
+      <span class="todo-body"><span class="todo-tx">${TODO.tx}</span>${TODO.sub ? `<span class="todo-sub">${TODO.sub}</span>` : ""}</span>
     </button>
     <div class="summary-actions sub-actions${SUB.length === 1 ? " one" : ""}">
       ${SUB.map((s) => `<button class="summary-go act-btn ${s.cls}" id="${s.id}"><span class="act-ic">${s.ic}</span><span class="act-tx">${s.tx}</span></button>`).join("")}
@@ -8464,11 +8470,11 @@ const MANUAL = [
     tip: "비밀번호는 없어요. 이름만 맞으면 됩니다.",
   },
   {
-    icon: "✍️", title: "말씀 암송하기",
+    icon: "✍️", title: "말씀 암송",
     lead: "빈칸을 채우며 세 번에 나누어 외워요.",
     art: '<div class="mn-verse">주의 말씀은 내 <span class="mn-blank">◻︎◻︎</span>에 <span class="mn-blank">◻︎</span>이요</div>',
     steps: [
-      "첫 화면 <b>📖 암송하기</b>를 누르고 외울 구절을 고르세요.",
+      "첫 화면 <b>📖 말씀 암송</b>을 누르고 외울 구절을 고르세요.",
       "<b>1단계</b> — 빈칸이 조금 (넷 중 하나쯤)",
       "<b>2단계</b> — 빈칸이 많이 (셋 중 둘쯤)",
       "<b>3단계</b> — 전부 빈칸",

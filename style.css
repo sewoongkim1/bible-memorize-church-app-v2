@@ -1606,6 +1606,10 @@ body.native-app-hide-ref .word-input { scroll-margin-top: 90px; }
 .todo-go:active { transform: translateY(0); box-shadow: 0 2px 8px rgba(13,27,62,.22); }
 .todo-go .todo-ic { font-size: 1.9rem; line-height: 1; flex: none; }
 .todo-go .todo-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+/* ⚠️ 아래 줄(.todo-sub)이 없어도 단추 높이는 두 줄일 때와 같게 — 2026-10-12 「아직 N구절 남았어요」를 빼면서.
+   줄이 빠져 단추가 12px 줄면 그 아래 「말씀 도전」이 위로 올라간다. 단추가 늘 같은 자리여야 한다는 것이
+   2026-10-11 결정이다(어르신 「자리가 바뀌어 헷갈린다」). 두 줄 높이 = 위 줄 + 틈 + 아래 줄(아래 두 규칙과 같은 값). */
+.todo-go .todo-body { min-height: calc(1.16rem * 1.2 + 3px + .86rem * 1.25); justify-content: center; }
 .todo-go .todo-tx { font-size: 1.16rem; font-weight: 800; line-height: 1.2; }
 .todo-go .todo-sub { font-size: .86rem; font-weight: 600; opacity: .82; line-height: 1.25; }
 /* 도전이 오늘 할 일이면 금색 — 색은 「무엇인가」를 말한다(도전·성취=금색) */
