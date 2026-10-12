@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261012p";
+const APP_BUILD = "20261012q";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -3234,8 +3234,11 @@ function renderSummary() {
   // 2026-10-12 친구 — 단추 이름도 「말씀 암송하기」 → 「말씀 암송」(아래 「말씀 도전」과 짝을 맞춘다).
   //    이 이름을 부르는 곳(설명서 MANUAL 「말씀 암송」 장 · guide/index.html ② 첫 화면)도 함께 바꿨다.
   const TODO = { id: "go-list", cls: "", ic: "📖", tx: "말씀 암송",
-    sub: notDone > 0 ? "" : `${done}구절 모두 마치셨어요 🎉` };
+    sub: notDone > 0 ? "" : `${done}구절 모두 마치셨어요\u00a0🎉` };   // 🎉 만 다음 줄로 떨어지지 않게(붙는 빈칸)
   const SUB = [{ id: "go-challenge", cls: "challenge-cta", ic: "🔥", tx: "말씀 도전" }];
+  // 2026-10-12 친구 — 두 단추 오른쪽 끝에 「›」(누르면 다음 화면으로 간다는 표시 · 디자인 시안의 두 단추).
+  //    글자(>·›) 대신 SVG — 기기 글꼴마다 꺾쇠의 굵기·높이가 달라 두 단추에서 어긋난다. 읽어 주기에서는 뺀다(aria-hidden).
+  const GO_CHEV = `<svg class="go-chev" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 5.5 15.5 12 9 18.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
   // 진행 줄 문구 — 「35구절 중 35구절 마침」은 「구절」이 두 번 나와 겹쳐 읽혔고,
   // 다 마치신 분께는 같은 숫자가 두 번 나와 더 이상했다(2026-09-02).
@@ -3305,9 +3308,10 @@ function renderSummary() {
     <button class="todo-go ${TODO.cls}" id="${TODO.id}">
       <span class="todo-ic">${TODO.ic}</span>
       <span class="todo-body"><span class="todo-tx">${TODO.tx}</span>${TODO.sub ? `<span class="todo-sub">${TODO.sub}</span>` : ""}</span>
+      ${GO_CHEV}
     </button>
     <div class="summary-actions sub-actions${SUB.length === 1 ? " one" : ""}">
-      ${SUB.map((s) => `<button class="summary-go act-btn ${s.cls}" id="${s.id}"><span class="act-ic">${s.ic}</span><span class="act-tx">${s.tx}</span></button>`).join("")}
+      ${SUB.map((s) => `<button class="summary-go act-btn ${s.cls}" id="${s.id}"><span class="act-ic">${s.ic}</span><span class="act-tx">${s.tx}</span>${GO_CHEV}</button>`).join("")}
     </div>
     ${weeklyHtml}
     <!-- 이 두 칸은 **목사님 설교에서 나온 것**이다 (2026-09-02).

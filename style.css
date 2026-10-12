@@ -4200,6 +4200,12 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
 }
 .summary-actions.sub-actions.one .act-ic { font-size: 1.9rem; flex: none; }
 .summary-actions.sub-actions.one .act-tx { font-size: 1.16rem; line-height: 1.2; }
+/* 「›」 두 단추 오른쪽 끝(2026-10-12 친구 · 시안) — 같은 크기 · 같은 오른쪽 여백(18px)이라 위아래로 맞는다.
+   색은 단추 글자색을 따른다(남색 단추 = 흰색 · 금색 단추 = 짙은 남색 · stroke="currentColor"). */
+.todo-go .go-chev,
+.summary-actions .summary-go .go-chev { flex: none; width: 22px; height: 22px; margin-left: auto; }
+/* 꺾쇠가 자리를 차지해 좁은 폰(320)에서 다 마치신 분의 줄이 「마치셨 / 어요」로 낱말 가운데서 꺾였다 — 띄어쓰기에서만 꺾는다 */
+.todo-go .todo-sub { word-break: keep-all; }
 
 /* ── 사용자 정보 한 상자 (2026-09-02) ─────────────────────────────
    「오늘 몇 회」와 「전체 진행」은 둘 다 내 상태다 — 상자 둘로 나눠 두면
