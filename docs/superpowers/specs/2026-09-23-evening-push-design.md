@@ -302,21 +302,28 @@ app.js `readPushMark()` 의 머리 주석이 「item 은 0 이다 … 어느 구
 
 ## 3판 — 크론
 
-`supabase/push_evening_cron.sql` (새 파일) — 꼴·비번 취급은 `push_cron_hourly.sql` 을 그대로 베낀다.
+> (2026-10-12 고침) 옛 틀(`push_cron_hourly.sql` 을 베낀 관리자 암호 · 공개 키 머리)은 쓰지 않는다 — 아침 알림 · 주일 말씀 · 주간 리포트 크론이
+> Vault 내부 키로 옮겨 갔고(`supabase/push_report_cron.sql` · api `INTERNAL_CRON_OK`·`cronOnly`), 옛 크론 SQL 넷은 기록으로만 남았다(실행 문장 주석).
+> 3판을 걸기 **전에** 할 것 둘:
+> - api 의 `INTERNAL_CRON_OK` 에 `eveningPush` 를, `cronOnly` 에 그 갈래(`{action, dryRun?}`)를 더한다.
+> - `eveningPush` 의 안쪽 `sendPush({ pw: b.pw, … })` 는 `action` · 표가 없어 지금 암호 길에서도 `unauthorized` 다 — 먼저 고친다(표를 넘기거나 `{ ...b }` 로 펼친다).
+
+`supabase/push_evening_cron.sql` (새 파일) — 꼴은 `push_report_cron.sql` 을 따른다: 돌 때 Vault(`edu_remind_service_key`)에서 키를 읽어 `x-internal-key` 에 싣는다 ·
+명령에 끼우는 값은 주소 하나(`%L`) · 공개 키 머리(apikey · Authorization) 없음 · 이미 있는 작업을 바꾸는 `alter_job` 이 아니라 새 작업이므로 `v_create` 갈래로 건다.
 
 ```sql
-select cron.schedule('evening-push', '0 11 * * *', $$   -- KST 20:00
-  select net.http_post(
-    url := 'https://xnomlgydifiqiybervtf.supabase.co/functions/v1/api',
+-- 꼴만 보인다 — 실제로는 push_report_cron.sql 처럼 do 블록 안에서 주소 꼴 · Vault 이름 · 확인을 거친 뒤 건다
+select cron.schedule('evening-push', '0 11 * * *',   -- KST 20:00
+  format($cmd$select net.http_post(
+    url := %L,
     headers := jsonb_build_object('Content-Type','application/json',
-      'apikey','sb_publishable_…', 'Authorization','Bearer sb_publishable_…'),
-    body := jsonb_build_object('action','eveningPush','pw','YOUR_ADMIN_SECRET')
-  ); $$);
+      'x-internal-key',(select decrypted_secret from vault.decrypted_secrets where name = 'edu_remind_service_key')),
+    body := jsonb_build_object('action','eveningPush')
+  )$cmd$, '<그 프로젝트의 api 주소>'));
 -- 되돌리기:  select cron.unschedule('evening-push');
 ```
 
-⚠️ **저장소가 공개다** — `pw` 는 `YOUR_ADMIN_SECRET` 자리표시자로 커밋하고, 실제 값으로 바꾼 것을
-   **절대 커밋하지 않는다**(세 크론 파일이 모두 같은 관례다).
+⚠️ **저장소가 공개다** — 키 · 암호를 이 틀(이나 그 사본)에 적지 않는다. 키는 Vault 에만 두고 명령은 돌 때 이름으로 읽는다.
 
 ⚠️ **개발에는 걸지 않는다.** 개발에는 pg_cron 을 일부러 안 켜 두었고(`supabase/dev-setup.md:106`),
    크론 파일들은 **url 에 운영 ref 를 하드코딩**한다 — 개발에 거는 순간 성도님이 저녁 알림을 두 번 받는다.

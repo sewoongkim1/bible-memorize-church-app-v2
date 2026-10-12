@@ -81,6 +81,7 @@
 - 배포: `python tools/deploy-fn.py api --prod`(속은 `supabase functions deploy api --no-verify-jwt --project-ref xnomlgydifiqiybervtf` — 직접 부르지 말 것 · 아래 「백엔드를 고쳤을 때」)
 - **액션·테이블·시크릿 목록은 `docs/notes/backend-api.md`** — 원본은 `supabase/functions/api/index.ts` 의 `switch` 와 `supabase/schema.sql` 이다. 적어 둔 목록은 금세 낡으니 **다르면 코드가 맞다.**
 - ⚠️ **순위·`mydays` 는 `challenge_log` 가 아니라 집계표 `daily_activity` 를 읽는다**(`daily-activity.sql` · 2,903ms → 516ms). 로그에 넣고 지우는 것은 트리거가 맞춰 주지만, **집계를 안 거치는 질의를 새로 짜면 숫자가 조용히 갈린다.** `monitor` 가 매일 `v2_activity_drift()` 로 대조한다.
+- ⚠️ **크론 여섯(아침 알림 넷 · 주일 말씀 · 주간 리포트)은 2026-10-12 부터 단계로 Vault 내부 키로 옮긴다**(`supabase/push_report_cron.sql` · api `INTERNAL_CRON_OK` · `cronOnly` — 내부 키 길은 본문을 크론의 꼴로 다시 만든다). **옛 크론 SQL 넷은 되살리지 말 것**(관리자 암호가 크론 명령에 다시 들어간다). 읽을 것 `docs/notes/backend-api.md`
 
 ## 주요 기능
 - **로그인(식별자 방식, 비번 없음):** 교구→교구·목장·이름 / 교회학교→부서·학년·이름. `users.identity_key`로 식별, 서버 기록 동기화
@@ -173,6 +174,7 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
 
 - [ ] 🎨 **디자인 개편 — 시안 A·B·C 의견 수렴 중(친구 · 2026-10-12).** 첫 화면·말씀 목록·암송·도전·앨범 다섯 줄. 고르면 4단계(부품 표) → 5단계(색 이름 붙이기 · 겉모습 그대로). 시안과 별개로 고칠 것 둘(목록 긴 구절 🔊 밀림 · 어두운 모드 첫 화면 이름 안 보임)은 친구 결정 대기. 읽을 것 `docs/notes/design-refresh.md`
 - [ ] 🏛️ **관리 기능을 모두 교회 어드민으로 · 앱에서는 관리 기능을 뺀다**(2026-10-08 친구 결정 · 추후). 옮긴 것: 이벤트 명단 · 사역신청 다섯 메뉴(갈아타기만 남음) · 성도 계정. ⚠️ 그때까지 관리자 화면에 새 기능 금지. 읽을 것 `docs/notes/admin-migration.md` · `docs/backlog.md` 4-5
+- [ ] 🔑 **크론 여섯 관리자 암호 걷기** — daily-push-5(10/12 밤) → 6 · 7 · 8 · 리포트(10/13 낮) → 주일 말씀(10/18 08:05 뒤) → 10/25 확인 → 실행 기록 가리기 → `ADMIN_SECRET` 교체(친구). 차례 · 확인 질의는 `supabase/push_report_cron.sql` 머리. 따로 고칠 것: 신고 숨기기(`boardReportResolve` 의 안쪽 `boardModerate`) · 저녁 알림(`eveningPush` 의 안쪽 `sendPush`)의 안쪽 부름
 - [ ] 🔐 **보안 점검 뒤 남은 것(2026-10-08)** — 로그인 횟수 제한 켜기(⏸ 플레이 심사·방침 뒤) · 교회 생활 확인 번호(스위치 off · 켜기 전에 church-admin Plan 4 운영 반영) · `user_id` 액션 51개 · 검토 113건. 읽을 것 `docs/notes/security-check.md` 끝
 - [ ] 🙋 **봉사 당번 — 1·2·3단계 운영(2026-10-07) · 문 닫힘(🧪만).** 다음: 역할 주기·시험 한 바퀴 → 4단계 공개(플레이 심사 뒤 · 그 앞에 시험 당번 줄을 「빼기」). ⏰ 공휴일 표는 2028-12 까지 — 2027-06 말 대조 · 2029년 줄은 2027년 안에(표는 두 저장소에 같은 것). 읽을 것 `docs/notes/duty-roster.md` 끝
 - [ ] 🎓 **교육신청 — 1·2·3단계 운영(2026-10-05) · 문 닫힘(🧪만).** 다음: 역할 「교육」 주기 · 공개(과제 11 · 플레이 심사 뒤) · 2단계 출석부(2027-01). 읽을 것 `docs/notes/education.md` 끝

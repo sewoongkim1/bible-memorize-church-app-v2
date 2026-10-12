@@ -39,6 +39,8 @@ Docker 도 필요 없다 — CLI 의 `--dry-run` 스크립트를 이 PC 의 pg_d
    `admin_members` 에 순환 외래키 경고가 찍히는데, 위 `session_replication_role = replica` 가 그 때문이다.
 4. Storage: `supabase storage cp -r storage/<버킷> ss:///<버킷> --experimental --linked`(새 프로젝트에 link 한 폴더에서).
 5. 크론: `cron-jobs.json` 의 `command` 를 보고 다시 건다(Vault 의 값은 새 프로젝트에서 다시 넣어야 한다 — 백업의 Vault 는 그 프로젝트의 키로만 풀린다).
+   ⚠️ 2026-10-12 이전 백업의 `cron-jobs.json` 에는 관리자 암호가 평문으로 있다(아침 알림 넷 · 주일 말씀 · 주간 리포트 작업의 명령) — 7z 안이어도 그 파일을 비밀로 다룬다 · 그 명령을 그대로 다시 걸지 않는다.
+   이 여섯은 Vault 키(`edu_remind_service_key`)를 먼저 넣고 `supabase/push_report_cron.sql` 사본을 `v_create := true` · `v_apply := true` 로 돌려 건다.
 6. `manifest.txt` 의 행 수와 견준다.
 
 ## 함정(만들며 겪은 것)

@@ -80,6 +80,24 @@ python tools/security-check.py --accept     # 지금 나온 것을 「본 것」
 7. **사진 올리기** — 파일 종류·크기를 서버가 보나 · EXIF GPS · 칸이 공개인데 주소를 짐작할 수 있나.
 8. **Actions·시크릿** — 저장소 시크릿이 Environment 밖에 남았나 · 협업자 권한 · 새 워크플로가 시크릿을 `echo` 하나.
 9. **내부 액션 7개**(`internal…`) — `x-internal-key` 를 일정 시간 비교로 보나 · 크론 키가 Vault 에 있나.
+   (2026-10-12 더함 — 아침 알림 넷 · 주일 말씀 · 주간 리포트 크론을 Vault 내부 키로 옮기며)
+   (a) **크론 명령에 암호 · 키가 없나**: `select count(*) from cron.job where command ~ '''pw'''` → 0 ·
+       같은 꼴로 키 모양 `command ~ 'sb_(publishable|secret)_|eyJ[A-Za-z0-9_-]{10,}\.'` → 0(여섯을 다 옮긴 10/18 뒤부터 · 명령 원문은 찍지 않는다).
+   (b) **들머리 내부 키 문 둘**(`INTERNAL_ADMIN_OK` · `INTERNAL_CRON_OK`)이 그 이름의 액션만 여는가 · `cronOnly` 규칙(시각 5~8 · 표어 · 주소 고정 ·
+       diag 는 user_id 와만 · extra 없음)이 그대로인가 — 글자는 `tests/push-report-cron.test.cjs` 가 본다.
+   (c) **서비스 키를 바꿀 때**: Vault `edu_remind_service_key` 를 같은 날 바꾼다(읽는 작업 아홉 — 아침 알림 넷 · 주일 말씀 · 주간 리포트 · 교육 · 당번 · 감시) ·
+       다른 앱의 `daily_digest_service_role_key` 는 같은 값인지 모른다 — 그 앱 주인과 · 바꾼 직후 `push_report_cron.sql` ① 손 부름 + monitor-watch dry 를 한 번 돌린다.
+   (d) **남용 흔적**: 지난 35일 `push_log` 에서 mode `daily` 인데 KST 05~08시 정각 5분 안이 아닌 줄, mode `weekly-verse` 인데 주일 08시 정각 5분 안이 아닌 줄(값은 시각 · mode · total 만):
+       ```sql
+       select to_char(sent_at at time zone 'Asia/Seoul', 'MM-DD Dy HH24:MI:SS') as kst, mode, total from push_log
+        where sent_at > now() - interval '35 days'
+          and ((mode = 'daily' and not (extract(hour from sent_at at time zone 'Asia/Seoul') between 5 and 8
+                                        and extract(minute from sent_at at time zone 'Asia/Seoul') < 5))
+            or (mode = 'weekly-verse' and not (extract(dow from sent_at at time zone 'Asia/Seoul') = 0
+                                        and extract(hour from sent_at at time zone 'Asia/Seoul') = 8
+                                        and extract(minute from sent_at at time zone 'Asia/Seoul') < 5)))
+        order by sent_at;
+       ```
 10. **얼린 액션** — `eventImport`·`eventSave`·`eventSetNote` 와 담당자용 사역 액션이 정말 거절하나(개발에서 불러 본다).
 11. **AI 로 가는 글** — 질문 글이 어디까지 가나 · 프롬프트에 성도님 이름이 들어가나 · 방침(`privacy/`)과 맞나.
 12. **앱 껍데기** — 아이폰 오버레이가 넣는 JS · `assetlinks.json` · 위젯이 부르는 액션 · 서명 키가 저장소 밖에 있나.

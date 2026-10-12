@@ -51,15 +51,16 @@
 
 | 호출자 | 액션 | 좁히는 규칙 |
 |---|---|---|
-| 크론 `push_cron*.sql`(하루 4회) | sendPush | `latest===true && hour∈{5,6,7,8} && title=고정표어` · body·only·userBodies 무시 |
-| 크론 `weekly_report.sql` · 모니터 | weeklyReport | `{action,pw,send}` · 수신자 env 고정 · ⚠️ 응답에 명단 → 좁혀 둘 것 |
-| 크론 `weekly_verse_push_cron.sql` | weeklyVersePush | `{action,pw}` · only·title·body 무시(서버 본문만) |
+| 크론 `push_cron*.sql`(하루 4회) | sendPush | `latest===true && hour∈{5,6,7,8} && title=고정표어` · body·only·userBodies 무시 · **2026-10-12 내부 키(Vault)로 옮김**(`supabase/push_report_cron.sql` · 좁히는 규칙은 내부 키 길에 `cronOnly` 로 적용 · 암호 길 좁히기는 후속 — url · only · userBodies · monitor.yml diag 의 모두에게) |
+| 크론 `weekly_report.sql` · 모니터 | weeklyReport | `{action,pw,send}` · 수신자 env 고정 · ⚠️ 응답에 명단 → 좁혀 둘 것 · **2026-10-12 내부 키(Vault)로 옮김**(`supabase/push_report_cron.sql` · 좁히는 규칙은 내부 키 길에 `cronOnly` 로 적용 · 암호 길 좁히기는 후속 — url · only · userBodies · monitor.yml diag 의 모두에게) |
+| 크론 `weekly_verse_push_cron.sql` | weeklyVersePush | `{action,pw}` · only·title·body 무시(서버 본문만) · **2026-10-12 내부 키(Vault)로 옮김**(`supabase/push_report_cron.sql` · 좁히는 규칙은 내부 키 길에 `cronOnly` 로 적용 · 암호 길 좁히기는 후속 — url · only · userBodies · monitor.yml diag 의 모두에게) |
 | 모니터 `monitor.yml` | monitor · sendPush(diag) | `{action,pw}` |
 | MCP `supabase/functions/mcp` · `gocheok-mcp` | findMember · memberParticipation | ⚠️ findMember 응답에서 **id 제거** · 또는 x-internal-key 로 옮기기 검토 |
 | 설교 파이프라인 `gocheok-sermons/scripts` · `gs-sermon-staff` | sermonJobGet · sermonJobUpdate · embedSermons | 사람 못 싣는 머신 — 예외 |
 | 1회성 `자료/migrate/import.mjs` | importV1 | v1→v2 이관(재실행 거의 없음 · 또는 staff 한 칸) |
 
 - ✅ **이미 목표 방식(본보기):** `edu_remind_cron`·`duty_remind_cron` 는 x-internal-key(Vault) 로 부른다 — 위 크론·MCP·설교를 **장기적으로 여기로 옮기면** pw-only 예외가 사라진다. 지금은 예외 목록으로 두고, 옮기기는 관리 기능 교회 어드민 이전(backlog 4-5)과 함께.
+  - (2026-10-12) **크론 셋 옮김** — 아침 알림 넷 · 주일 말씀 · 주간 리포트(단계 · `supabase/push_report_cron.sql` · api `INTERNAL_CRON_OK`·`cronOnly`). 같은 셋의 암호 길(`ADMIN_PW_ONLY`)은 그대로 둔다(admin-stats 손 발송 · monitor.yml · 크론 되돌리기). 남은 것: 모니터 · MCP · 설교.
 - ✅ **영향 없음(확인됨):** 찬양 `praise`(자체 시크릿 · staffVerify 는 이미 staff 전송) · 말씀 `sermon`(adminError 분리) · 교회 어드민 internal*(x-internal-key 경로) · praise/sermon 자기 저장소 관리 스크립트(대상이 성경암송 api 아님).
 
 ### 사람 화면 — 한 줄씩 고칠 곳(§3 과 같다, 조사로 확정)

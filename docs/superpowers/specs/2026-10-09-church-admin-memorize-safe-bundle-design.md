@@ -28,6 +28,7 @@
 
 - 성경암송 api: 위조 불가 심볼 **`INTERNAL_OK`** 를 둔다. dispatcher 진입에서 `sameSecret(x-internal-key, SERVICE_ROLE_KEY)` 이고 액션이 **화이트리스트 `INTERNAL_ADMIN_OK`** 에 있으면 `body[INTERNAL_OK]=true`. `adminError` 는 **맨 앞에서** `b[INTERNAL_OK]===true` 면 `null`(통과) — pw 검사보다 먼저.
   - 화이트리스트 = 이 묶음의 액션만(위 표). `sendPush`·`weeklyReport` 등은 **넣지 않는다**(내부 키로도 안 열림).
+    - (2026-10-12) 크론 셋(`sendPush`·`weeklyVersePush`·`weeklyReport`)은 `INTERNAL_CRON_OK` 로 내부 키에 열었다 — 본문은 `cronOnly` 가 크론의 꼴로 다시 만든다 · 교회 어드민 프록시(`INTERNAL_ADMIN_OK`)에는 여전히 없다(`supabase/push_report_cron.sql`).
   - ⚠️ 내부 키 = service_role 는 이미 DB 전권이라 추가 노출은 없다. 화이트리스트는 명확성·방어심층.
   - `INTERNAL_OK` 는 Symbol 이라 JSON 으로 위조 불가(`SUPER_OK` 와 같은 방식).
 - church-admin: 기존 `appApiInternal(body,label)`(이미 x-internal-key 를 붙인다)로 각 액션을 부르는 **얇은 프록시 핸들러** + 화면 모듈. 역할은 `canCall` 이 건다.
