@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261012k";
+const APP_BUILD = "20261012l";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5511,7 +5511,10 @@ function renderVerseList() {
     //   ⚠️ 처음엔 앨범 「첫 글자만」(firstCharHint)으로 만들었더니 본문 전체가 「지○○ 그 행○ 일○ …」로 길게 나와
     //      다른 구절과 꼴이 달랐다(친구 제보 — 힌트가 빈 39·41번).
     const text = verseText(v) || "";
-    const body = isHeart ? ((!isEnMode(v) && String(v.hintText || "").trim()) || vlAutoHint(text)) : text;
+    // 가림 글자는 큰 O 하나로 맞춘다 — 담당자 힌트 가운데 「주께서 ㅇㅇㅇ ㅇㅇㅇ」(28)·「무슨 ㅇㅇ ㅇㅇㅇ」(29)처럼
+    //   한글 「ㅇ」을 쓴 것이 섞여 있었다(2026-10-12 친구). DB 글은 그대로 두고 보일 때만 바꾼다 — 앞으로 「ㅇ」·「o」·「○」로 넣어도 같다.
+    const adminHint = String(v.hintText || "").trim().replace(/[ㅇo○〇◯]/g, "O");
+    const body = isHeart ? ((!isEnMode(v) && adminHint) || vlAutoHint(text)) : text;
 
     const card = document.createElement("div");
     card.className = `verse-card vl-card ${status.cls}${isWeekly ? " weekly-verse" : ""}${isHeart ? " hearted-verse" : ""}`;
