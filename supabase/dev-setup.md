@@ -96,7 +96,7 @@ security_close_public_views.sql   익명 키로 새던 뷰·표를 닫는다
 ```
 push_report_cron.sql
 ```
-아침 알림 넷 · 주일 말씀 · 주간 리포트 작업의 명령(2026-10-12 부터 Vault 내부 키). 개발에서 돌려도 **notice 만** 나오고 아무것도 바뀌지 않는다(pg_cron 이 없다) —
+아침 알림 넷 · 주일 말씀 · 주간 리포트 작업의 명령(2026-10-12 부터 Vault 내부 키). 개발에서 돌려도 아무 글 없이(rows [] · exit 0 — CLI 는 notice 를 안 보여 준다) 끝나고 아무것도 바뀌지 않는다(pg_cron 이 없다) —
 개발에서 같은 길은 api 를 서비스 키로 손으로 부르는 `tests/push-report-cron.dev.sh` 가 본다.
 ```
 push_cron.sql · push_cron_hourly.sql · weekly_verse_push_cron.sql · weekly_report.sql

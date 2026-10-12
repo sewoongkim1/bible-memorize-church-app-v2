@@ -22,7 +22,9 @@
 -- ⚠️ 단계로 옮긴다(v_only) — 처음엔 받는 분이 없는 daily-push-5 하나만 → 다음 날 05:00 실행을 확인한 뒤 나머지.
 --   주일 말씀(weekly-verse-push)은 monitor 가 보지 않으므로 맨 나중에, 확인할 사람을 정해 두고 옮긴다.
 -- ⚠️ 늘 두 번 돌린다 — v_apply 가 false(이 파일 그대로)면 모든 확인과 바꾸기까지 해 본 뒤 일부러 멈춰 통째로 무른다:
---   「점검만 — 대상 N 개(…) 모두 통과…」 오류가 나오면 통과다. 그다음 사본에서 v_apply 를 true 로 바꿔 한 번 더 돌린다(그때는 아무 글도 안 나오는 것이 성공).
+--   「점검만 — 대상 N 개(…) 모두 통과…」 오류가 나오면 통과다. 그다음 사본에서 v_apply 를 true 로(v_only 에 대상을 적어서) 바꿔 한 번 더 돌린다.
+--   ⚠️ CLI(--file)는 notice 를 보여 주지 않는다 — 적용 성공과 「pg_cron 이 없어 아무것도 안 함」(개발 폴더)이 똑같이 rows [] 로 끝난다.
+--      그래서 적용 뒤에는 꼭 아래 ② 질의를 돌려 옮긴 작업이 has_pw false · reads_vault true 인지 본다(개발 폴더면 cron.job 이 없어 시끄럽게 실패한다).
 -- ⚠️ 지우고 다시 걸지(unschedule → schedule) 않는다 — 작업 번호가 바뀌면 monitor 의 cron_last_run('weekly-report-email')이 지난 기록을 잃어
 --   다음 금요일까지 날마다 「주간 리포트 메일 실행 기록을 찾을 수 없습니다」를 보내고, 아래 되돌리기 ㉡ 도 못 쓴다. cron.alter_job 으로 명령만 바꾼다.
 -- ⚠️ 이 저장소는 공개(public)입니다 — 키 · 암호를 이 파일(이나 그 사본)에 적지 않는다.
@@ -48,7 +50,7 @@ do $$
 declare
   v_url    text    := 'YOUR_API_URL';
   v_apply  boolean := false;   -- false = 점검만(모든 확인과 바꾸기를 해 본 뒤 일부러 멈춰 무른다) · 사본에서 true 로 바꿔 다시 돌릴 때만 바뀐다
-  v_only   text[]  := null;    -- null = 여섯 모두 · 단계로 옮길 때 사본에서 array['daily-push-5'] 처럼 좁힌다
+  v_only   text[]  := null;    -- null = 여섯 모두(점검만일 때만 · 적용은 대상을 꼭 적는다) · 단계로 옮길 때 사본에서 array['daily-push-5'] 처럼 좁힌다
   v_create boolean := false;   -- 새 프로젝트로 되살릴 때만 사본에서 true(없는 작업을 새로 건다)
   v_all    constant text[] := array['daily-push-5','daily-push-6','daily-push-7','daily-push-8','weekly-verse-push','weekly-report-email'];
   v_tpl    constant text := $cmd$select net.http_post(
@@ -78,6 +80,10 @@ begin
   end if;
   if v_only is not null and (cardinality(v_only) = 0 or not (v_only <@ v_all)) then
     raise exception 'v_only 에는 이 파일의 작업 이름만 적습니다(%) — 아무것도 바꾸지 않았습니다', array_to_string(v_all, ' · ');
+  end if;
+  -- 적용은 대상을 꼭 적어서(2026-10-12 검토) — v_only 를 빠뜨리고 v_apply 만 켜면 단계로 미룬 작업까지 한꺼번에 옮겨진다.
+  if v_apply and v_only is null then
+    raise exception '적용(v_apply)은 v_only 에 대상을 적어서만 합니다(여섯 모두면 여섯 이름을 다 적는다) — 아무것도 바꾸지 않았습니다';
   end if;
   v_want := array(select distinct x from unnest(coalesce(v_only, v_all)) as x);
   if not exists (select 1 from pg_extension where extname = 'supabase_vault') then
@@ -224,7 +230,7 @@ end $$;
 --          d.command !~ '''pw''' as new_cmd, position('vault.decrypted_secrets' in d.command) > 0 as reads_vault
 --     from cron.job_run_details d
 --    where d.jobid = (select jobid from cron.job where jobname = 'daily-push-5') and d.start_time > now() - interval '1 day'
---    order by d.start_time desc limit 3;
+--    order by d.runid desc limit 3;
 --   api 가 받아 줬나(push_log 에는 시각 칸이 없어 보낸 때로 가른다):
 --   select to_char(sent_at at time zone 'Asia/Seoul', 'MM-DD HH24:MI:SS') as kst, mode, sent, failed, total, ok
 --     from push_log where sent_at >= (date_trunc('day', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul') order by sent_at;
@@ -251,7 +257,7 @@ end $$;
 --     for r in select j.jobid, h.command from cron.job j
 --                join lateral (select d.command from cron.job_run_details d
 --                               where d.jobid = j.jobid and d.command ~ '''pw''' and d.command !~ 'REDACTED'
---                               order by d.start_time desc limit 1) h on true
+--                               order by d.runid desc limit 1) h on true
 --               where j.jobname = any(v_names) loop
 --       perform cron.alter_job(job_id := r.jobid, command := r.command);
 --       n := n + 1;
