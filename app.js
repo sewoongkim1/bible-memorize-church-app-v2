@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261012r";
+const APP_BUILD = "20261012s";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -3229,8 +3229,9 @@ function renderSummary() {
   // ⚠️ 2026-10-12 친구 결정 — 「아직 N구절 남았어요」를 뺐다. 새로 오신 분은 첫 화면에서
   //    「아직 41구절 남았어요」부터 보셨고, 구절이 매주 하나씩 늘어 내년엔 90을 넘는다 —
   //    시작도 전에 짐이 된다는 말씀이 이미 있었다. 남은 수를 세는 대신 아무 말도 하지 않는다.
-  //    같은 날 다 마치신 분의 「N구절 모두 마치셨어요 🎉」도 뺐다(친구) — 바로 위 진행 줄이 「N구절 모두 마쳤어요 🎉」로
-  //    같은 말을 해 한 화면에 두 번 나왔다. 축하는 진행 줄이 맡는다. 단추 높이는 그대로다(style.css .todo-body min-height).
+  //    같은 날 다 마치신 분의 「N구절 모두 마치셨어요 🎉」도 뺐다(친구) — 위 상자의 진행 줄과 같은 말이 두 번 나왔다.
+  //    → 그리고 거꾸로 **진행 줄을 위 상자에서 빼 이 단추 안 둘째 줄로 옮겼다**(친구 — 「단추를 크게 하려면 위 글을 넣고 위에선 없애고」).
+  //    둘째 줄은 아래 sbLine(이제 시작이에요 · N구절 마쳤어요 · N구절 모두 마쳤어요) — **꼭 한 줄**(fitTodoSub).
   // 2026-10-12 친구 — 단추 이름도 「말씀 암송하기」 → 「말씀 암송」(아래 「말씀 도전」과 짝을 맞춘다).
   //    이 이름을 부르는 곳(설명서 MANUAL 「말씀 암송」 장 · guide/index.html ② 첫 화면)도 함께 바꿨다.
   const TODO = { id: "go-list", cls: "", ic: "📖", tx: "말씀 암송", sub: "" };
@@ -3253,6 +3254,7 @@ function renderSummary() {
     : done === 0
     ? `이제 시작이에요`
     : `<b>${done}</b>구절 마쳤어요 👏`;
+  TODO.sub = sbLine;   // 2026-10-12 친구 — 위 상자가 아니라 「말씀 암송」 단추 안 둘째 줄에(꼭 한 줄 · fitTodoSub)
   const weeklyInfo = getWeeklyVerseInfo();
   const weeklyVerse = weeklyInfo && weeklyInfo.verse;
   const weeklyStage = weeklyVerse ? getPassedStage(weeklyVerse.no) : 0;
@@ -3291,13 +3293,8 @@ function renderSummary() {
          이제 정보 둘 → 이벤트 카드 → 오늘 할 일 순이다. -->
     <div class="user-info" id="user-info">
       <div class="today-strip" id="today-strip"><span class="today-txt">오늘의 말씀 활동을 불러오는 중…</span></div>
-      <div class="ui-div"></div>
-      <!-- 진행 막대 — 다 마치신 분일수록 네 칸이 「암송 0 · 진행중 0 · 미시도 0」이
-           되어 아무것도 안 한 것처럼 보였다(마음에 둠은 완료의 부분집합이라 완료에서
-           빼기 때문). 한 줄로만 말한다. -->
-      <div class="stat-bar">
-        <span class="sb-line">${sbLine}</span>
-      </div>
+      <!-- 진행 줄(sbLine · 마친 구절 수)은 2026-10-12 「📖 말씀 암송」 단추 안 둘째 줄로 옮겼다(친구) —
+           같은 말이 상자와 단추에 두 번 나왔고, 마친 수는 「암송」 단추에 붙어 있을 때 뜻이 산다. -->
     </div>
     <!-- 이벤트는 「오늘 할 일」 바로 위 — 누르는 것들 바로 앞자리다 -->
     <div id="event-slot"></div>
@@ -3379,7 +3376,7 @@ function renderSummary() {
     <button class="grp-more" id="more-toggle" aria-expanded="false" aria-controls="more-box">더 보기 <span class="gm-caret">▾</span></button>
     <div id="more-box" hidden>
       <button class="summary-help" id="open-pilsa">✍️ 성경필사 노트 신청</button>
-      <button class="summary-help" id="open-quiz">🎯 성경암송 퀴즈</button>
+      <button class="summary-help" id="open-quiz">🎯 성경말씀 암송 퀴즈</button>
       <button class="summary-help" id="open-praise">🎵 고척교회 찬양 아카이브 <span class="ext-mark">↗</span></button>
       <button class="summary-help" id="open-sermon-archive">📺 고척교회 설교 아카이브 <span class="ext-mark">↗</span></button>
     </div>
@@ -3489,8 +3486,26 @@ function renderSummary() {
     } catch (e) {}
   })();
   if (homeBPreview()) applyHomeB();   // 🧪 첫 화면 B안 미리보기(?home=b 로 연 기기만)
+  fitTodoSub();   // 「말씀 암송」 둘째 줄을 꼭 한 줄로
+  try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitTodoSub); } catch (e) {}
   maybeAutumnPopup();   // 가을 말씀암송 동행 개시 1회 안내(열린 회차가 autumn-2026 이면 한 번만)
 }
+
+// 「📖 말씀 암송」 둘째 줄(마친 구절 수)은 **꼭 한 줄**(친구 2026-10-12) — 꺾지도 자르지도 않는다.
+//   좁은 폰(320px · 어르신들이 「화면 크게」를 켜면 폭이 그만큼 좁아진다)이나 글자 크게 설정에서 넘치면
+//   글씨를 0.5px 씩 줄여 맞춘다(10px 까지). 글꼴이 늦게 내려오거나(fonts.ready) 화면 폭이 바뀌면 다시 잰다.
+function fitTodoSub() {
+  const el = document.querySelector("#go-list .todo-sub");
+  if (!el) return;
+  el.style.fontSize = "";
+  let fs = parseFloat(getComputedStyle(el).fontSize) || 14;
+  for (let i = 0; i < 24 && el.scrollWidth > el.clientWidth + 0.5 && fs > 10; i++) {
+    fs -= 0.5;
+    el.style.fontSize = fs + "px";
+  }
+}
+let _fitTodoSubT = 0;
+window.addEventListener("resize", () => { clearTimeout(_fitTodoSubT); _fitTodoSubT = setTimeout(fitTodoSub, 120); });
 
 // 「더 보기」 — 필사·퀴즈·아카이브 둘. 이건 연 상태를 기억한다.
 // 자주 쓰시는 분이 매번 다시 펴야 하면 접어 둔 뜻이 없다.
@@ -9016,7 +9031,7 @@ function renderHelp(onClose) {
 
         <section class="help-section">
           <h3>🏷️ 내 기록 & 진행 표시</h3>
-          <p>첫 화면 위쪽에 <b>마친 구절 수</b>가 보여요. 말씀 목록 카드에는 <b>아직 안 함 · 1단계 마침 · 2단계 마침 · 다 마침</b>(+ 암송 횟수)이 보여요. 목록 위 <b>전체 · 진행 · 마침 · 마음에 둠 · 안 함</b>을 누르면 그것만 모아 볼 수 있어요. 마음에 둔 말씀은 본문 대신 <b>첫 낱말 힌트</b>로 보여요 — 떠올려 보세요. 3단계를 마친 말씀은 <b>📖 나의 말씀 앨범</b>에 모여요.</p>
+          <p>첫 화면 <b>📖 말씀 암송</b> 단추 안에 <b>마친 구절 수</b>가 보여요. 말씀 목록 카드에는 <b>아직 안 함 · 1단계 마침 · 2단계 마침 · 다 마침</b>(+ 암송 횟수)이 보여요. 목록 위 <b>전체 · 진행 · 마침 · 마음에 둠 · 안 함</b>을 누르면 그것만 모아 볼 수 있어요. 마음에 둔 말씀은 본문 대신 <b>첫 낱말 힌트</b>로 보여요 — 떠올려 보세요. 3단계를 마친 말씀은 <b>📖 나의 말씀 앨범</b>에 모여요.</p>
         </section>
 
         <section class="help-section">
