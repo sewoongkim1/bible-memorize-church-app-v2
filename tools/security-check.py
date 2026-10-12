@@ -251,8 +251,18 @@ def admin_surface(src):
     return out
 
 
+def api_source(v2):
+    """api 함수 폴더의 .ts 를 이어 붙인다 — index.ts 먼저(switch 가 거기 있다).
+    2026-10-12 파일 나누기(docs/notes/backend-api.md) 뒤로 처리 함수가 영역 파일(psalm.ts·blessing.ts …)에 있다 —
+    index.ts 만 읽으면 그 함수 안의 관리자 문을 못 보고 「공개」로 센다(blessingUsage 가 그랬다)."""
+    d = "supabase/functions/api/"
+    rest = sorted(f for f in v2.files()
+                  if f.startswith(d) and f.endswith(".ts") and "/" not in f[len(d):] and f != d + "index.ts")
+    return "\n".join([v2.show(d + "index.ts")] + [v2.show(f) for f in rest])
+
+
 def check_surface(rep, v2, adm, env, probe):
-    api = api_surface(v2.show("supabase/functions/api/index.ts"))
+    api = api_surface(api_source(v2))
     count = {}
     for a, (cat, why) in sorted(api.items()):
         count[cat] = count.get(cat, 0) + 1
