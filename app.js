@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261012i";
+const APP_BUILD = "20261012j";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1968,17 +1968,23 @@ const STATUS_LABEL = {
   3: { cls: "status-done", text: "다 마침" },
 };
 // 말씀 목록 보기 거르기(2026-10-12 · 디자인 시안 B) — 같은 세션 안에서는 화면을 다시 그려도 고른 것이 남는다.
+// 2026-10-12 친구 — 칸은 외우는 걸음을 따라 「진행 → 마침 → 마음에 둠」 사다리로. **한 구절은 한 칸에만** 든다
+//   (예전 첫 화면 네 칸 「마음에 둠 · 암송 · 진행중 · 미시도」와 같은 나눔 — 마음에 둔 구절은 「마침」에서 뺀다).
+//   칸 이름은 짧게 — 큰 글씨·좁은 폰에서 「아직 안 / 함」으로 꺾였다(카드 칩은 「아직 안 함」 · 「1단계 마침」 그대로).
 let verseListFilter = "all";
 const VL_FILTERS = [
   { k: "all", label: "전체" },
-  { k: "doing", label: "하는 중" },     // 1·2단계를 마침
-  { k: "done", label: "다 마침" },      // 3단계까지 마침
-  { k: "none", label: "안 함" },        // 칸 이름은 짧게 — 큰 글씨·좁은 폰에서 「아직 안 / 함」으로 꺾였다(카드 칩은 「아직 안 함」)
+  { k: "doing", label: "진행" },        // 1·2단계를 마침
+  { k: "done", label: "마침" },         // 3단계까지 마침 · 아직 마음에 두지 않음
+  { k: "heart", label: "마음에 둠", short: "마음둠" },   // 「이 말씀을 내 마음에 두었나이다」를 체크함 · 좁은 폰·큰 글씨에선 「마음둠」(style.css .vt-short)
+  { k: "none", label: "안 함" },        // 1단계도 아직
 ];
-function vlKind(stage) { return stage >= 3 ? "done" : stage > 0 ? "doing" : "none"; }
+function vlKind(stage, hearted) { return hearted ? "heart" : stage >= 3 ? "done" : stage > 0 ? "doing" : "none"; }
 const VL_EMPTY = {
-  doing: "지금 하는 중인 말씀이 없어요.",
-  done: "아직 다 마친 말씀이 없어요.<br>한 말씀씩 천천히 외워 보세요.",
+  doing: "지금 진행 중인 말씀이 없어요.",
+  done: "아직 마친 말씀이 없어요.<br>한 말씀씩 천천히 외워 보세요.",
+  doneAllHeart: "마친 말씀은 모두 「마음에 둠」에 있어요 👑",
+  heart: "아직 마음에 둔 말씀이 없어요.<br>3단계 화면의 「이 말씀을 내 마음에 두었나이다」를<br>체크하면 여기에 모여요.",
   none: "모든 말씀을 시작하셨어요 👏",
 };
 
@@ -5445,11 +5451,11 @@ function renderVerseList() {
   const playItems = verseItemsFor(playOrder);
   const playDur = albumDurText(playItems);
 
-  // 보기 거르기 — 전체 · 하는 중 · 다 마침 · 아직 안 함(2026-10-12 · 시안 B).
+  // 보기 거르기 — 전체 · 진행 · 마침 · 마음에 둠 · 안 함(2026-10-12 · 시안 B · VL_FILTERS).
   //   ⚠️ 칸에 수를 달지 않는다 — 첫 화면에서 전체 수를 뺀 것(같은 날 친구 ②안)과 같은 까닭이다.
-  //      「아직 안 함 39」는 새로 오신 분께 다시 「아직 한참」으로 읽힌다.
+  //      「안 함 39」는 새로 오신 분께 다시 「아직 한참」으로 읽힌다.
   const tabsHtml = `<div class="vl-tabs" role="tablist" aria-label="말씀 목록 보기">${VL_FILTERS.map((f) =>
-    `<button type="button" role="tab" class="vl-tab${verseListFilter === f.k ? " on" : ""}" data-f="${f.k}" aria-selected="${verseListFilter === f.k}">${f.label}</button>`).join("")}</div>`;
+    `<button type="button" role="tab" class="vl-tab${verseListFilter === f.k ? " on" : ""}" data-f="${f.k}" aria-selected="${verseListFilter === f.k}">${f.short ? `<span class="vt-long">${f.label}</span><span class="vt-short">${f.short}</span>` : f.label}</button>`).join("")}</div>`;
 
   appEl.innerHTML = `
     ${verses.length ? `<div class="rank-filter album-play vl-play">
@@ -5477,8 +5483,12 @@ function renderVerseList() {
   const heartMap = loadHearted();
 
   const shown = [...verses].reverse()
-    .filter((v) => verseListFilter === "all" || vlKind(getPassedStage(v.no)) === verseListFilter);
-  if (!shown.length && verses.length) listEl.innerHTML = `<p class="vl-empty">${VL_EMPTY[verseListFilter] || ""}</p>`;
+    .filter((v) => verseListFilter === "all" || vlKind(getPassedStage(v.no), !!heartMap[v.no]) === verseListFilter);
+  if (!shown.length && verses.length) {
+    // 「마침」이 빈 까닭이 「아직 없음」인지 「모두 마음에 둠으로 옮겨 감」인지 가른다 — 둘을 한 말로 뭉개면 거짓이 된다.
+    const key = verseListFilter === "done" && verses.some((v) => heartMap[v.no] && getPassedStage(v.no) >= 3) ? "doneAllHeart" : verseListFilter;
+    listEl.innerHTML = `<p class="vl-empty">${VL_EMPTY[key] || ""}</p>`;
+  }
 
   shown.forEach((v) => {
     const passed = getPassedStage(v.no);
@@ -5486,13 +5496,18 @@ function renderVerseList() {
     const isWeekly = v.no === weeklyNo;
     const isHeart = !!heartMap[v.no];
     const ref = verseRefFull(v);
+    // 마음에 둔 구절은 본문 대신 첫 낱말 힌트(담당자가 넣은 「주의 OOO O」) — 어느 칸에서나(2026-10-12 친구).
+    //   다 외운 말씀이니 목록에서 떠올려 보게 한다. 힌트가 비었거나 영어 모드면(힌트는 한국어다)
+    //   앨범 「첫 글자만」과 같은 firstCharHint 로 본문에서 만든다.
+    const text = verseText(v) || "";
+    const body = isHeart ? (isEnMode(v) || !v.hintText ? firstCharHint(text) : v.hintText) : text;
 
     const card = document.createElement("div");
     card.className = `verse-card vl-card ${status.cls}${isWeekly ? " weekly-verse" : ""}${isHeart ? " hearted-verse" : ""}`;
     card.dataset.no = v.no;   // 재생 중인 카드를 짚기 위해
     // 시안 B(2026-10-12 친구 결정) — 구절 이름을 풀어 쓰고(「살전 5:16-18」 → 「데살로니가전서 5장 16-18절」)
     //   본문을 두 줄까지 보인다. 새로 오신 분이 「어떤 말씀인지」 바로 알게.
-    //   ⚠️ 그래서 담당자가 넣는 「힌트」(주의 OOO O)는 이제 목록에 안 나온다 — 친구가 고른 것이다(본문 전체).
+    //   담당자가 넣는 「힌트」(주의 OOO O)는 마음에 둔 구절에만 본문 대신 나온다(위 body).
     //   ⚠️ 전에는 한 줄에 번호·이름(nowrap)·힌트·상태·🔊 를 늘어놓아 좁은 폰·큰 글씨·긴 이름에서 🔊 와 상태가
     //      카드 밖으로 밀려났다. 이제 이름·본문이 줄을 바꾸고 상태는 아래 줄이라 넘치지 않는다.
     //   클래스 이름 .verse-card · .verse-ref · .verse-status[data-no] 는 그대로 — applyVerseCounts(「· N회」)와
@@ -5504,7 +5519,7 @@ function renderVerseList() {
           <span class="vl-no">${v.no}</span>
           <span class="verse-ref">${ref}</span>
         </div>
-        <div class="vl-text">${verseText(v) || ""}</div>
+        <div class="vl-text${isHeart ? " vl-hint" : ""}">${body}</div>
         <div class="vl-state">
           <span class="verse-status ${status.cls}" data-no="${v.no}" data-base="${status.text}">${status.text}</span>
           ${isHeart ? `<span class="heart-ribbon">👑 마음에 둠</span>` : ""}
@@ -8904,7 +8919,7 @@ function renderHelp(onClose) {
 
         <section class="help-section">
           <h3>🏷️ 내 기록 & 진행 표시</h3>
-          <p>첫 화면 위쪽에 <b>마친 구절 수</b>가 보여요. 말씀 목록 카드에는 <b>아직 안 함 · 1단계 마침 · 2단계 마침 · 다 마침</b>(+ 암송 횟수)이 보여요. 목록 위 <b>전체 · 하는 중 · 다 마침 · 안 함</b>을 누르면 그것만 모아 볼 수 있어요. 3단계를 마친 말씀은 <b>📖 나의 말씀 앨범</b>에 모여요.</p>
+          <p>첫 화면 위쪽에 <b>마친 구절 수</b>가 보여요. 말씀 목록 카드에는 <b>아직 안 함 · 1단계 마침 · 2단계 마침 · 다 마침</b>(+ 암송 횟수)이 보여요. 목록 위 <b>전체 · 진행 · 마침 · 마음에 둠 · 안 함</b>을 누르면 그것만 모아 볼 수 있어요. 마음에 둔 말씀은 본문 대신 <b>첫 낱말 힌트</b>로 보여요 — 떠올려 보세요. 3단계를 마친 말씀은 <b>📖 나의 말씀 앨범</b>에 모여요.</p>
         </section>
 
         <section class="help-section">
