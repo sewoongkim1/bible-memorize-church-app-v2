@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261012l";
+const APP_BUILD = "20261012m";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5432,6 +5432,9 @@ function applyVerseCounts() {
   if (!verseCountCache) return;
   document.querySelectorAll("#verse-list .verse-status[data-no]").forEach((el) => {
     const base = el.dataset.base || el.textContent;
+    // ⚠️ 「아직 안 함」 칩에는 횟수를 붙이지 않는다(2026-10-12 검토) — 횟수는 도전 등 모든 기록을 세는데,
+    //    칩은 3단계 암송 진도만 본다. 「아직 안 함 · 5회」는 「안 했는데 다섯 번」으로 스스로 어긋났다.
+    if (el.classList.contains("status-none")) { el.textContent = base; return; }
     const n = verseCountCache[el.dataset.no] || 0;
     el.textContent = n > 0 ? `${base} · ${n}회` : base;
   });
@@ -5454,12 +5457,6 @@ function loadVerseCounts(u) {
 function renderVerseList() {
   const u = loadUser();
   const appEl = document.getElementById("app");
-  // 화면에 보이는 순서(최신 구절부터)가 곧 재생 순서다 — 앨범과 같은 규칙.
-  // 여기서는 3분요약을 넣지 않는다. 말씀 목록은 '말씀을 훑는' 화면이기 때문.
-  const playOrder = [...verses].reverse();
-  const playItems = verseItemsFor(playOrder);
-  const playDur = albumDurText(playItems);
-
   // 보기 거르기 — 전체 · 진행 · 마침 · 마음에 둠 · 안 함(2026-10-12 · 시안 B · VL_FILTERS).
   //   ⚠️ 칸에 수를 달지 않는다 — 첫 화면에서 전체 수를 뺀 것(같은 날 친구 ②안)과 같은 까닭이다.
   //      「안 함 39」는 새로 오신 분께 다시 「아직 한참」으로 읽힌다.
@@ -5467,24 +5464,45 @@ function renderVerseList() {
     `<button type="button" role="tab" class="vl-tab${verseListFilter === f.k ? " on" : ""}" data-f="${f.k}" aria-selected="${verseListFilter === f.k}">${f.short ? `<span class="vt-long">${f.label}</span><span class="vt-short">${f.short}</span>` : f.label}</button>`).join("")}</div>`;
 
   appEl.innerHTML = `
-    ${verses.length ? `<div class="rank-filter album-play vl-play">
-      <button id="vl-play-go" class="ab-go">▶️ 전체 듣기${playDur ? ` <span class="ab-dur">${playDur}</span>` : ""}</button>
+    ${verses.length ? `<div class="rank-filter album-play vl-play" id="vl-play">
+      <button id="vl-play-go" class="ab-go"></button>
     </div>` : ""}
     ${verses.length ? tabsHtml : ""}
     <div id="verse-list" class="verse-grid"></div>
     <button class="home-fab" id="to-summary" aria-label="첫 화면으로">${homeFabLabel(u, true)}</button>
   `;
 
-  const listEl = document.getElementById("verse-list");
-  window.scrollTo(0, 0); // 이전 화면의 스크롤 위치가 남지 않도록
+  window.scrollTo(0, 0); // 이전 화면의 스크롤 위치가 남지 않도록 — 화면에 처음 들어올 때만(칸을 바꿀 땐 안 튄다)
   document.getElementById("to-summary").addEventListener("click", () => { albumPlayStop(); renderSummary(); });
+  // 화면에 보이는 순서(최신 구절부터)가 곧 재생 순서다 — 앨범과 같은 규칙(「보이는 것 = 듣는 것」).
+  //   칸을 고르면 그 칸의 말씀만 이어 듣는다(drawVerseCards 가 _vlShown 을 채우고 단추 이름을 「이 칸 듣기」로).
+  //   ⚠️ 2026-10-12 검토 — 처음엔 칸과 상관없이 41구절을 다 읽어, 거른 칸에서는 화면에 없는 구절을 읽는 동안
+  //      짚어 주는 카드도 따라 내려가는 것도 없었다.
+  //   여기서는 3분요약을 넣지 않는다. 말씀 목록은 '말씀을 훑는' 화면이기 때문.
   const vlGo = document.getElementById("vl-play-go");
-  if (vlGo) vlGo.addEventListener("click", () => albumPlayStart(verseItemsFor(playOrder)));
+  if (vlGo) vlGo.addEventListener("click", () => albumPlayStart(verseItemsFor(_vlShown)));
   appEl.querySelectorAll(".vl-tab").forEach((b) => b.addEventListener("click", () => {
     if (verseListFilter === b.dataset.f) return;
     verseListFilter = b.dataset.f;
-    renderVerseList();
+    appEl.querySelectorAll(".vl-tab").forEach((t) => {
+      const on = t === b;
+      t.classList.toggle("on", on);
+      t.setAttribute("aria-selected", String(on));
+    });
+    // ⚠️ 화면 전체를 다시 그리지 않는다(2026-10-12 검토) — 그랬더니 맨 위로 튀고, 누른 칸의 초점이 빠지고,
+    //    칸마다 서버에 횟수(verseCounts)를 다시 물었다. 카드만 다시 그린다.
+    drawVerseCards();
   }));
+  drawVerseCards();
+  loadVerseCounts(u);   // 서버에서 최신 횟수 갱신(화면에 들어올 때 한 번)
+}
+
+// 지금 목록에 보이는 구절(최신부터) — 「▶️ 듣기」가 이 차례 그대로 읽는다.
+let _vlShown = [];
+function drawVerseCards() {
+  const listEl = document.getElementById("verse-list");
+  if (!listEl) return;
+  listEl.innerHTML = "";
   const weeklyInfo = getWeeklyVerseInfo();
   const weeklyNo = weeklyInfo && weeklyInfo.verse ? weeklyInfo.verse.no : null;
   const weeklyBadge = weeklyInfo ? weeklyInfo.label : "이번 주";
@@ -5493,6 +5511,15 @@ function renderVerseList() {
 
   const shown = [...verses].reverse()
     .filter((v) => verseListFilter === "all" || vlKind(getPassedStage(v.no), !!heartMap[v.no]) === verseListFilter);
+  _vlShown = shown;
+  // 듣기 단추 — 「전체」면 「전체 듣기」, 칸을 고르면 「이 칸 듣기」(그 칸 말씀만 · 시간도 그만큼). 들을 말씀이 없으면 숨긴다.
+  const playRow = document.getElementById("vl-play");
+  const playGo = document.getElementById("vl-play-go");
+  if (playRow && playGo) {
+    playRow.hidden = !shown.length;
+    const dur = albumDurText(verseItemsFor(shown));
+    playGo.innerHTML = `▶️ ${verseListFilter === "all" ? "전체 듣기" : "이 칸 듣기"}${dur ? ` <span class="ab-dur">${dur}</span>` : ""}`;
+  }
   if (!shown.length && verses.length) {
     // 「마침」이 빈 까닭이 「아직 없음」인지 「모두 마음에 둠으로 옮겨 감」인지 가른다 — 둘을 한 말로 뭉개면 거짓이 된다.
     const key = verseListFilter === "done" && verses.some((v) => heartMap[v.no] && getPassedStage(v.no) >= 3) ? "doneAllHeart" : verseListFilter;
@@ -5505,6 +5532,9 @@ function renderVerseList() {
     const isWeekly = v.no === weeklyNo;
     const isHeart = !!heartMap[v.no];
     const ref = verseRefFull(v);
+    // 절 범위(「16-18절」)의 하이픈에서 줄이 꺾이지 않게 — 크롬은 하이픈 뒤를 줄바꿈 자리로 써서
+    //   「데살로니가전서 5장 16-」 / 「18절」로 나뉘었다(「16절」로 잘못 읽힘 · 2026-10-12 검토). 하이픈 뒤에 WORD JOINER.
+    const refShow = ref.replace(/(\d)-(\d)/g, "$1-\u2060$2");
     // 마음에 둔 구절은 본문 대신 첫 낱말 힌트(담당자가 넣은 「주의 OOO O」) — 어느 칸에서나(2026-10-12 친구).
     //   다 외운 말씀이니 목록에서 떠올려 보게 한다. 힌트가 비었거나 영어 모드면(힌트는 한국어다)
     //   담당자 꼴 그대로 본문에서 만든다(vlAutoHint).
@@ -5524,15 +5554,13 @@ function renderVerseList() {
     //   담당자가 넣는 「힌트」(주의 OOO O)는 마음에 둔 구절에만 본문 대신 나온다(위 body).
     //   ⚠️ 전에는 한 줄에 번호·이름(nowrap)·힌트·상태·🔊 를 늘어놓아 좁은 폰·큰 글씨·긴 이름에서 🔊 와 상태가
     //      카드 밖으로 밀려났다. 이제 이름·본문이 줄을 바꾸고 상태는 아래 줄이라 넘치지 않는다.
+    //   ⚠️ 번호·이름 줄은 글처럼 흐른다(.vl-top 은 블록 · 띄어쓰기 없이 붙여 그린다) — flex 로 두면 이름이 길 때
+    //      번호만 윗줄에 혼자 남았다(2026-10-12 검토).
     //   클래스 이름 .verse-card · .verse-ref · .verse-status[data-no] 는 그대로 — applyVerseCounts(「· N회」)와
     //   albumPlayFocus(재생 중 .playing)가 이 이름으로 찾는다.
     card.innerHTML = `
       <div class="vl-main">
-        <div class="vl-top">
-          ${isWeekly ? `<span class="weekly-list-badge vl-week">${weeklyBadge}</span>` : ""}
-          <span class="vl-no">${v.no}</span>
-          <span class="verse-ref">${ref}</span>
-        </div>
+        <div class="vl-top">${isWeekly ? `<span class="weekly-list-badge vl-week">${weeklyBadge}</span>` : ""}<span class="vl-no">${v.no}</span><span class="verse-ref">${refShow}</span></div>
         <div class="vl-text${isHeart ? " vl-hint" : ""}">${body}</div>
         <div class="vl-state">
           <span class="verse-status ${status.cls}" data-no="${v.no}" data-base="${status.text}">${status.text}</span>
@@ -5559,8 +5587,13 @@ function renderVerseList() {
     listEl.appendChild(card);
   });
 
-  applyVerseCounts();   // 캐시가 있으면 즉시 반영(재방문 시 깜빡임 없음)
-  loadVerseCounts(u);   // 서버에서 최신 횟수 갱신
+  applyVerseCounts();   // 캐시가 있으면 즉시 반영(재방문 · 칸 바꿈 때 깜빡임 없음)
+  // 듣는 중에 칸을 바꿨으면 읽고 있는 카드 표시를 되살린다(스크롤은 하지 않는다 — 보던 자리를 지킨다).
+  if (albumPlayer) {
+    const it = albumPlayer.items[albumPlayer.i];
+    const c = it && listEl.querySelector('.verse-card[data-no="' + it.no + '"]');
+    if (c) c.classList.add("playing");
+  }
 }
 
 // 📜 핵심 암송 — 본문 목록

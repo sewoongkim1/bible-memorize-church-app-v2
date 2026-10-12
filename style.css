@@ -193,28 +193,11 @@ h1 {
 .verse-card.hearted-verse { margin-top: 12px; }
 .verse-grid > .verse-card:first-child { margin-top: 0; }
 
-.verse-no {
-  font-family: "Nanum Myeongjo", serif;
-  color: var(--gold);
-  font-size: 15px;
-  font-weight: 800;
-  min-width: 30px;
-  text-align: center;
-}
 .verse-ref {
   font-weight: 700;
   font-size: 15px;
   color: var(--navy);
   white-space: nowrap;
-}
-.verse-hint {
-  flex: 1;
-  min-width: 0; /* flex 항목이 줄어들며 ellipsis 되도록(한 줄 유지) */
-  color: var(--gray);
-  font-size: 13px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* 진행 상태 배지 */
@@ -2810,7 +2793,7 @@ html.dark{ color-scheme: dark; }
 .dark .answer-panel, .dark .rank-row, .dark .kpi,
 .dark .my-rank, .dark .mc-cell, .dark .voice-result, .dark .test-sentence,
 .dark .word-fixed{ color:#e6e9ef; }
-.dark .verse-hint, .dark .cd-sub, .dark .help-section p, .dark .help-section li,
+.dark .cd-sub, .dark .help-section p, .dark .help-section li,
 .dark .challenge-hint-line, .dark .rank-msg, .dark .mc-summary{ color:#aeb8c8; }
 .dark .help-section b{ color:#cdd9f2; }
 
@@ -2953,10 +2936,6 @@ html[data-fs="xl"] .test-ref { font-size: 21px; }
 /* --- 말씀 목록 카드 (출처·힌트·번호) --- */
 html[data-fs="lg"] .verse-ref  { font-size: 18px; }
 html[data-fs="xl"] .verse-ref  { font-size: 21px; }
-html[data-fs="lg"] .verse-hint { font-size: 15px; }
-html[data-fs="xl"] .verse-hint { font-size: 18px; }
-html[data-fs="lg"] .verse-no   { font-size: 17px; }
-html[data-fs="xl"] .verse-no   { font-size: 20px; }
 
 /* --- 주요 버튼: 글씨·높이 함께 확대 (큰 버튼) --- */
 html[data-fs="lg"] .answer-btn,
@@ -5917,8 +5896,11 @@ html[data-fs="xl"] .vl-tab { font-size: 19px; }
 .verse-card.vl-card.weekly-verse,
 .verse-card.vl-card.hearted-verse { padding-top: 14px; margin-top: 0; }
 .vl-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.vl-top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
-.vl-no { font-size: 13px; font-weight: 700; color: var(--gray); }
+/* 번호 · 이름 줄은 글처럼 흐른다 — flex 로 두면 이름이 길 때 이름이 통째로 다음 줄로 가고 번호만 윗줄에
+   혼자 남았다(2026-10-12 검토 · 한 목록 안에 붙은 카드와 떨어진 카드가 섞였다). */
+.vl-top { display: block; min-width: 0; line-height: 1.35; }
+.vl-top .vl-week { margin-right: 6px; vertical-align: 2px; }
+.vl-no { margin-right: 6px; font-size: 13px; font-weight: 700; color: var(--gray); }
 .vl-card .verse-ref {
   font-size: 16px; line-height: 1.35; min-width: 0;
   white-space: normal; word-break: keep-all; overflow-wrap: anywhere;
@@ -5931,6 +5913,20 @@ html[data-fs="xl"] .vl-tab { font-size: 19px; }
 .vl-state { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
 .vl-card .verse-status { margin-left: 0; font-size: 12px; white-space: normal; }
 .vl-card .card-listen { align-self: center; }
+/* 듣는 중 가운데로 올릴 때(albumPlayFocus · block:center) 카드 아래쪽이 「첫 화면으로」 단추·재생 바에 깔렸다
+   (320px · 큰 글씨 · 2026-10-12 검토). 아래 여백만큼 상자를 넓혀 잡게 해 카드를 그만큼 위로 올린다. */
+.verse-card.vl-card { scroll-margin-top: 16px; scroll-margin-bottom: 120px; }
+/* 들을 말씀이 없는 칸이면 듣기 줄을 숨긴다 — .rank-filter 의 display 가 [hidden] 을 이기므로 따로 적는다 */
+#vl-play[hidden] { display: none; }
+/* 「이번주 말씀」 · 「👑 마음에 둠」 배지도 큰 글씨를 따른다 — 10px 그대로라 아주 크게에서 카드에서 가장 작은 글이었다 */
+.vl-card .weekly-list-badge, .vl-card .heart-ribbon { font-size: 11px; }
+html[data-fs="lg"] .vl-card .weekly-list-badge, html[data-fs="lg"] .vl-card .heart-ribbon { font-size: 13px; }
+html[data-fs="xl"] .vl-card .weekly-list-badge, html[data-fs="xl"] .vl-card .heart-ribbon { font-size: 15px; }
+/* 「아직 안 함」 칩 글씨 — #6b7280 on #f3f0ea 가 4.25:1 로 기준(4.5)에 못 미쳤다. 첫 화면 「이번주 말씀」 칩도 같다 */
+.verse-status.status-none, .weekly-state.status-none { color: #5b6270; }
+.dark .verse-status.status-none, .dark .weekly-state.status-none { color: var(--gray); }
+/* 어두운 모드 「1단계 마침」 칩 — 밝은 알약(#e7ecf5)이라 남색 「2단계 마침」보다 더 튀어 단계가 거꾸로 보였다 */
+.dark .verse-status.status-s1, .dark .weekly-state.status-s1 { background: #2e3950; color: #cdd9f2; }
 .vl-empty { text-align: center; color: var(--gray); font-size: 15px; line-height: 1.7; padding: 28px 8px; }
 .dark .vl-text { color: #e6e9ef; }
 /* 마음에 둔 구절의 첫 낱말 힌트(「주의 OOO O」) — 가린 칸(O)이 붙어 보이지 않게 조금 띄운다 */
@@ -5947,3 +5943,130 @@ html[data-fs="xl"] .vl-empty { font-size: 19px; }
    첫 화면 「이번주 말씀」 칩(.weekly-state)도 같은 규칙이다. */
 .dark .verse-status.status-s2,
 .dark .weekly-state.status-s2 { color: #fff; }
+
+/* ── 어두운 모드 — 안 보이던 글씨들(2026-10-12 · 전 화면 대비 조사 · tmp/audit-dark) ─────────────────────
+   까닭: .dark{} 토큰 묶음은 --cream/--white/--light/--border/--gray 만 바꾸고 --navy · --navy-dark · --gold · --green ·
+   --error 는 그대로다. 그래서 ① var(--navy) · #333 같은 진한 글씨가 어두운 바탕에 묻히고 ② var(--white) 를 「흰 글씨」로 쓴
+   곳은 .dark 에서 --white 가 카드색(#1b2233)이 되어 남색 바탕 위 글씨가 사라진다.
+   값은 지금 .dark 규칙 관례 — 남색 글씨 #cdd9f2 · 본문 #e6e9ef · 흐린 글씨 #aeb8c8 · 금색 #e8d9a3 · 초록 #8fd6ab · 빨강 #f0a49b ·
+   파랑 #8fb3e6 · 설명서/설치 안내는 그 화면 .dark 규칙의 #dce6f7(본문) · #cfe0ff(제목).
+   ⚠️ --navy 를 .dark 에서 통째로 바꾸지 않는다 — 단추 · 배지 바탕(채운 남색 + 흰 글씨)에도 쓰여 그쪽이 깨진다. */
+/* 암송 화면 「🔊 듣기」 단추 — 남색 바탕에 var(--white) 글씨 */
+.dark #listen-answer-btn,
+.dark #listen-answer-btn:hover { color: #fff; }
+/* 금색 배지(🔥 도전 · 🎉 이벤트) — .dark .test-stage 의 밝은 글씨가 금색 바탕에 올라앉았다.
+   ⚠️ 어려운 도전(.hard-badge)은 반대 옷(남색 바탕 · 금색 글씨)이라 뺀다 — 빼지 않으면 남색 위 남색이 된다 */
+.dark .test-stage.challenge-badge:not(.hard-badge),
+.dark .test-stage.event-badge { color: var(--navy-dark); }
+/* 로그인 화면 */
+.dark .entry-main-title,
+.dark .entry-label { color: #cdd9f2; }
+.dark .entry-sub-title { color: #a8c4f0; }
+/* 개인정보 안내 · 도움말 소제목 */
+.dark .help-section h3 { color: #cdd9f2; }
+/* 도전 · 복습 완료 「오늘 N회 완료」 */
+.dark .cd-count { color: #e6e9ef; }
+/* 오늘의 메시지 — 격려(기본) 창 제목. 공지 · 묵상 · 홍보 창은 제 .dark 규칙(특이도 더 높음)이 그대로 이긴다 */
+.dark .dmsg-title { color: #e8d9a3; }
+/* 나의 말씀 암송 참여(달력) */
+.dark .myrec-nav #mr-label { color: #cdd9f2; }
+.dark .mc-cell .mc-day { color: #e6e9ef; }
+.dark .mc-day.sat { color: #8fb3e6 !important; }
+.dark .mc-day.sun { color: #f0a49b !important; }
+.dark .mc-week-head span.sat { color: #8fb3e6; }
+.dark .mc-week-head span.sun { color: #f0a49b; }
+.dark .mc-summary b.done,
+.dark .mc-cell .mc-cnt { color: #8fd6ab; }
+.dark .mc-summary b.miss,
+.dark .mc-cell .mc-cnt.miss { color: #f0a49b; }
+/* 가정 축복 기도문 */
+.dark .pr-title { color: #cfe0ff; }
+.dark .pr-opt-label { color: #cdd9f2; }
+.dark .pr-kicker,
+.dark .pr-acc-head b,
+.dark .pr-gname b { color: #e8d9a3; }
+/* 성경필사 노트 신청 · 사역 이력 확인 단계 */
+.dark .pl-sec { color: #e8d9a3; }
+.dark .pl-types button i { color: #aeb8c8; }   /* 켜진 칸 — 꺼진 칸(.45)은 일부러 흐린 것 */
+.dark .pilsa-sub { color: #aeb8c8; }
+.dark .pl-step.done span { color: #aeb8c8; }
+/* 내게 주시는 말씀 — 「💡 이렇게 이용하세요」 상자가 밝은 채 남았다(설명서 .mn-tip 의 .dark 옷과 같게) */
+.dark .sc-hint { background: #2a2416; border-color: #5a4a20; color: #e8dcb8; }
+.dark .sc-hint b.h,
+.dark .sc-hint p::before { color: #e8d9a3; }
+/* 내게 주시는 말씀 — AI 답 상자(.sc-answer) · 설교 창(.sc-modal)이 흰 바탕 그대로라, 이어받은 밝은 글씨(#e6e9ef)와
+   굵은 글씨(#9dc0f0)가 흰 바탕 위에서 사라졌다(답 본문 1.22:1). 상자를 어둡게 한다 */
+.dark .sc-answer { background: #232c3f; border-color: #3a4a68; }
+.dark .sc-modal { background: #1b2233; color: #e6e9ef; }
+.dark .sc-modal-rows .v { color: #e6e9ef; }
+.dark .sc-modal-summary { color: #cdd3dd; }
+/* 사용 설명서(17쪽 본문이 어두운 카드에 묻혔다) */
+.dark .mn-steps li { color: #dce6f7; }
+.dark .mn-steps li b { color: #cfe0ff; }
+.dark .mn-lead,
+.dark .mn-lead2 { color: #b9c2d0; }
+.dark .mn-sub,
+.dark .mn-count { color: #aeb8c8; }
+.dark .mn-phone .mn-cap { color: #cfe0ff; }
+.dark .mn-chip { background: #232c3f; color: #cdd9f2; }
+/* 홈 화면에 앱 만들기 안내 */
+.dark .iw-steps li b { color: #cfe0ff; }
+.dark .iw-lead,
+.dark .iw-note { color: #b9c2d0; }
+.dark .iw-close { color: #aeb8c8; }
+.dark .iw-point { color: #f0a49b; }
+/* 음성 암송 결과(🎤 — 맞은 말 초록 · 틀린 말 빨강 · 점수) */
+.dark .voice-pct.pass,
+.dark .voice-words .v-ok { color: #8fd6ab; }
+.dark .voice-pct.fail,
+.dark .voice-words .v-no { color: #f0a49b; }
+/* 끝난 이벤트 카드의 회차(카드를 .72 로 흐리게 한 것은 그대로) */
+.dark .ev-season { color: #e8d9a3; }
+/* 입력칸 자리표시 — 브라우저 기본(#757575)이 어두운 칸에서 흐리다.
+   ⚠️ 모든 input 에 걸지 않는다 — 「내게 주시는 말씀」 질문 칸(.sc-ask input)은 어두운 모드에서도 흰 바탕이라
+   거기에 #9aa6b8 을 쓰면 오히려 흐려진다. .dark 에서 바탕을 어둡게 바꾼 칸만 고른다 */
+.dark .word-input::placeholder,
+.dark .entry-input::placeholder,
+.dark .board-in::placeholder,
+.dark textarea.rp-note::placeholder,
+.dark .pl-memo-in::placeholder,
+.dark .pr-name-row input::placeholder,
+.dark .min-p4 input::placeholder,
+.dark .mh-ta::placeholder,
+.dark .min-alert-input::placeholder,
+.dark .ev-input::placeholder { color: var(--gray); }
+/* 설정 — 알림 안내 줄 · 게시판 빈 목록. app.js 의 인라인 style="color:…" 이라 !important 가 있어야 이긴다
+   (근본은 app.js 템플릿에서 인라인 색을 class 로 바꾸는 것 — 그때 이 줄들은 !important 없이) */
+.dark #push-live-status { color: #e8d9a3 !important; }
+.dark #pushhour-msg,
+.dark #pushevening-msg { color: #8fd6ab !important; }
+.dark #board-list > p[style*="#888"] { color: #aeb8c8 !important; }
+
+/* ── 밝은 모드 — 밝은 바탕 위 금색 · 연회색 글씨가 2:1 안팎이라 거의 안 보였다(2026-10-12 · 같은 조사) ──────────
+   금색 글씨만 짙은 금색(#8a6d1f)으로. ⚠️ html:not(.dark) 로 묶는다 — 어두운 모드에는 그 화면의 .dark 규칙이 있거나,
+   없으면 밝은 금색이 오히려 잘 보인다(짙은 금색을 어두운 바탕에 두면 거꾸로 묻힌다). 일부러 흐린 꺼진 칸은 건드리지 않는다 */
+html:not(.dark) .sc-topic-label,
+html:not(.dark) .answer-title,
+html:not(.dark) .sc-hint b.h,
+html:not(.dark) .sc-hint p::before,
+html:not(.dark) .min-verse .min-ref,
+html:not(.dark) .rank-row.top .rk-cnt,
+html:not(.dark) .cd-count b,
+html:not(.dark) .pl-genre { color: #8a6d1f; }
+html:not(.dark) .pl-num,
+html:not(.dark) .pl-step span,
+html:not(.dark) .mn-arrow { color: #6b7280; }
+html:not(.dark) .pl-sec .opt,
+html:not(.dark) .pl-sum2 .none,
+html:not(.dark) .pl-hint { color: #5a6273; }
+
+/* ── 큰 글씨에서 잘리던 단추 글(2026-10-12 · 전 화면 넘침 조사 · tmp/audit-overflow) ──────────────────────────
+   암송 · 도전 · 복습 위 단추 줄은 넷이 같은 폭(flex:1 1 0 · min-width:0)이라 글이 길면 잘렸다 — 도전 「🔀 다른말씀」은
+   390px 에 「크게」만 켜도 16% 가 안 보였다. 글 길이만큼은 자리를 잡게 한다: 다 들어가면 지금과 똑같이 한 줄이고,
+   모자라면 다음 줄로 간다(.test-card .btn-row 는 이미 flex-wrap:wrap · scrollPastBtnRow 는 줄 아래 끝을 그때그때 잰다). */
+.test-card .btn-row .answer-btn,
+.test-card .btn-row .voice-btn,
+.test-card .btn-row .voice-stop { min-width: max-content; }
+/* 영어(NIV) 빈칸 — 폭을 JS 가 글자 수로 박아(width:(글자수+2)ch) 「circumstances」 같은 긴 낱말이 320px · 큰 글씨에서
+   카드와 화면 밖으로 나갔다. 줄 폭을 넘지 않게 한다(한국어 빈칸은 원래 줄보다 좁아 달라지지 않는다) */
+.word-input { max-width: 100%; }
