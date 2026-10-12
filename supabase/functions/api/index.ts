@@ -9,6 +9,7 @@ import { db, kstDay, SUPER_OK, INTERNAL_OK, ADMIN_PW_ONLY, adminError, WIDGET_YM
 import webpush from "npm:web-push@3.6.7";
 // 영역 파일(2026-10-12 파일 나누기 · docs/notes/backend-api.md 「파일 나누기」) — case 는 이 파일의 switch 에 그대로 둔다(배포 가드가 index.ts 의 case 를 센다).
 import { getPsalmVerses, getTodayPsalm } from "./psalm.ts";
+import { getNaviVerses } from "./navi.ts";   // 📚 네비게이토 성경암송(2026-10-13 · getVerses track:"navi" · docs/notes/navigators.md)
 import { getBlessings, blessingLog, getTodayBlessing, blessingUsage } from "./blessing.ts";
 import { clientError } from "./client-errors.ts";   // 화면 오류 모으기(2026-10-12 · 문 errorLogOn · docs/notes/client-errors.md)
 
@@ -136,15 +137,16 @@ const cors = {
 // db(서비스 키 클라이언트)·kstDay 는 _shared.ts 에 있다 — 영역 파일(psalm.ts …)이 같은 것을 쓴다.
 
 const REVIEW_DAYS = [3, 7, 14, 30, 60]; // 복습(Leitner) 간격(일)
-// 시편 구절 번호 = 1000 + day_no. 앱(js/psalm.js 의 PSALM_NO_BASE)과 **같은 이름·같은 값**이라야
-// 한쪽만 바뀔 때 눈에 띈다. 쓸 곳이 늘면 isPsalmNo() 를 같이 쓴다.
+// 구절 번호대 — 1~999 주간 암송 · 1001~1999 쉴만한 물가(1000 + day_no) · 2001~ 네비게이토(2026-10-13 · navi.ts).
+//   앱(js/psalm.js 의 PSALM_NO_BASE·isNonWeeklyNo)과 **같은 이름·같은 값**이라야 한쪽만 바뀔 때 눈에 띈다.
+//   서버에는 「주간이 아님」 판정 하나만 있다 — 물가 화면으로 보내는 판정(isPsalmNo · 1001~1999)은 앱에만 있다(2026-10-13 에 서버에서 걷음).
 const PSALM_NO_BASE = 1000;
-// ⚠ 쉴만한 물가(시편)는 **복습에 넣지 않는다**(성도님 결정 2026-09-13). 앱은
-//   dueReviewNos() 에서 걸러 내지만 **서버가 안 걸러 예약을 계속 만들었다** —
+// ⚠ 주간 암송이 아닌 구절(쉴만한 물가 · 네비게이토)은 **복습에 넣지 않는다**(물가 성도님 결정 2026-09-13 ·
+//   네비게이토 설계 2026-10-13 §3). 앱은 dueReviewNos() 에서 걸러 내지만 **서버가 안 걸러 예약을 계속 만들었다** —
 //   화면엔 안 보이니 아무도 모른 채 reviews 에 41행(13명)이 쌓였고,
 //   review_metrics.sql ③④(복습대상·밀린건수)가 그만큼 부풀어 나왔다(2026-09-23).
 //   지우기만 하면 로그인 한 번에 되살아난다 — 아래 두 자리를 함께 막는다.
-function isPsalmNo(no: any) { return Number(no) > PSALM_NO_BASE; }
+function isNonWeeklyNo(no: any) { return Number(no) > PSALM_NO_BASE; }
 // 같은 구절이라도 한글과 영어는 서로 다른 암송 — 진도를 따로 센다
 const progLang = (v: unknown) => (String(v ?? "") === "en" ? "en" : "ko");
 const KST = "+09:00";
@@ -1755,10 +1757,12 @@ async function monitor(b: any) {
 // ---------- getVerses: 앱 표시용 말씀 목록 ----------
 //   인자 없음 / track:"weekly"  → 주간 암송 35구절 (지금까지와 똑같다)
 //   track:"psalm"               → 시편 말씀 액자 · 「오늘까지 열린 것만」
+//   track:"navi"                → 네비게이토 성경암송 · 켜진 카드 전부(2026-10-13 · navi.ts)
 // ⚠️ 기본을 weekly 로 두는 것이 중요하다 — 폰에 남아 있는 옛 앱은 track 을 안 보내는데,
 //    그때 180편이 딸려 가면 첫 화면 진행 막대가 「전체 215」로 깨진다.
 async function getVerses(b: any = {}) {
   if (b && b.track === "psalm") return await getPsalmVerses();
+  if (b && b.track === "navi") return await getNaviVerses();
   // 말씀 연상 그림(DB · 2026-09-21) — 말씀 조회와 동시에 시작해 기다리는 시간을 줄인다.
   //   ⚠️ 표가 아직 없는 DB 에서도 살아남아야 한다(아래 track 과 같은 까닭).
   //   그림 조회가 실패하면 그림 없이 돌려준다(말씀 목록은 성도님 앱의 본진이다).
@@ -2760,7 +2764,7 @@ async function login(b: any) {
   const due = new Date(); due.setDate(due.getDate() + REVIEW_DAYS[0]);
   // 한글·영어 두 행이 모두 3단계일 수 있어, 구절 하나로 추린 뒤 예약한다
   const need = [...new Set((prog ?? [])
-    .filter((p: any) => p.stage === 3 && !revSet.has(p.verse_no) && !isPsalmNo(p.verse_no))
+    .filter((p: any) => p.stage === 3 && !revSet.has(p.verse_no) && !isNonWeeklyNo(p.verse_no))
     .map((p: any) => p.verse_no))];
   const toAdd = need.map((no) => ({ user_id: user.id, verse_no: no, box: 1, due_at: ymd(due) }));
   if (toAdd.length) {
@@ -2801,7 +2805,7 @@ async function login(b: any) {
 
 // ---------- app_config: 관리자가 배포 없이 편집하는 설정(키-값) ----------
 // 공개로 읽어도 되는 키만 화이트리스트로 허용(임의 키 노출 방지).
-const PUBLIC_CONFIG_KEYS = new Set(["heartMessages", "dailyMessage", "introSlides", "milestoneMessages", "passagesPublic", "psalmPublic", "songPublic", "event", "ministry", "eduOpen", "dutyOpen", "errorLogOn"]);
+const PUBLIC_CONFIG_KEYS = new Set(["heartMessages", "dailyMessage", "introSlides", "milestoneMessages", "passagesPublic", "psalmPublic", "songPublic", "event", "ministry", "eduOpen", "dutyOpen", "errorLogOn", "naviPublic"]);
 
 async function getConfig(b: any) {
   const key = String(b.key || "");
@@ -2871,7 +2875,7 @@ async function saveProgress(b: any) {
   }
   if (logError) throw logError;
 
-  if (Number(b.stage) === 3 && !isPsalmNo(b.verse_no)) {
+  if (Number(b.stage) === 3 && !isNonWeeklyNo(b.verse_no)) {
     // 복습은 언어를 가리지 않는다 — 어느 쪽으로 마쳤든 그 구절 하나로 예약
     const due = new Date(); due.setDate(due.getDate() + REVIEW_DAYS[0]);
     await db.from("reviews").upsert({

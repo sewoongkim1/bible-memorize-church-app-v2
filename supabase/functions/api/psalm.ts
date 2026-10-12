@@ -3,7 +3,7 @@
 //   2026-10-12 index.ts 에서 떼어 냈다(동작 같음 · docs/notes/backend-api.md 「파일 나누기」).
 //   액션은 index.ts 의 switch 가 부른다 — getVerses(track:"psalm") → getPsalmVerses · getTodayPsalm(위젯).
 //   ⚠️ 손대기 전에 docs/notes/psalm-still-waters.md — 번호(no) 재배정 금지 · 잠금은 「안 열린 것을 안 내려보내는 것」 · 게이트.
-//   ⚠️ 복습에서 시편을 빼는 PSALM_NO_BASE·isPsalmNo 는 index.ts 에 있다(로그인·진도 저장이 쓴다).
+//   ⚠️ 복습에서 시편을 빼는 PSALM_NO_BASE·isNonWeeklyNo 는 index.ts 에 있다(로그인·진도 저장이 쓴다 · 네비게이토도 함께 뺀다).
 // ============================================================
 import { db, kstDay } from "./_shared.ts";
 

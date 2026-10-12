@@ -13,8 +13,8 @@
 --    전환율(②)을 뜻있게 보는 시점은 **feature_log 를 심어 배포한 날 + 2주**다.
 --    (CLAUDE.md 의 「2주 뒤」도 이 기준으로 다시 읽는다.)
 --
--- ⚠️ 시편 구절 번호 = 1000 + day_no (js/psalm.js 의 PSALM_NO_BASE = 1000).
---    verses.track = 'psalm' 인 행들이다.
+-- ⚠️ 시편 구절 번호 = 1000 + day_no (js/psalm.js 의 PSALM_NO_BASE = 1000) — **1001~1999**.
+--    verses.track = 'psalm' 인 행들이다. 2001~ 은 네비게이토(2026-10-13)라 「1000 넘으면 시편」으로 세면 섞인다.
 
 -- ① 닿는 범위 — 액자를 몇 명이 보나
 select count(distinct user_id) as 액자를_본_사람,
@@ -40,7 +40,7 @@ from public.feature_log where feature = 'psalm';
 --       은 전부 거짓이라 memo 가 통째로 빈다 — 틀린 값이 아니라 「아직 비교할 대상이 없다」는
 --       뜻이다. 이때 전환율_퍼센트 도 0 이 아니라 분모(액자를_본_사람) 가 0 이라 null 로 뜬다.
 with seen as (select distinct user_id from public.feature_log where feature = 'psalm'),
-     memo as (select distinct user_id from public.challenge_log where verse_no > 1000
+     memo as (select distinct user_id from public.challenge_log where verse_no between 1001 and 1999
                and created_at >= (select min(day) from public.feature_log where feature = 'psalm'))
 select (select count(*) from seen)                                as 액자를_본_사람,
        (select count(*) from memo)                                as 암송까지_간_사람,
