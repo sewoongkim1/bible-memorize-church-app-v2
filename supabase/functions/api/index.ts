@@ -5,10 +5,11 @@
 //   배포: supabase functions deploy api --no-verify-jwt
 //   (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY 자동 주입 / ADMIN_SECRET 은 시크릿 설정)
 // ============================================================
-import { db, kstDay } from "./_shared.ts";
+import { db, kstDay, SUPER_OK, INTERNAL_OK, ADMIN_PW_ONLY, adminError, WIDGET_YMD_RE, widgetYmd, ymdDayNumber, fetchAllRows } from "./_shared.ts";
 import webpush from "npm:web-push@3.6.7";
 // 영역 파일(2026-10-12 파일 나누기 · docs/notes/backend-api.md 「파일 나누기」) — case 는 이 파일의 switch 에 그대로 둔다(배포 가드가 index.ts 의 case 를 센다).
 import { getPsalmVerses, getTodayPsalm } from "./psalm.ts";
+import { getBlessings, blessingLog, getTodayBlessing, blessingUsage } from "./blessing.ts";
 
 const VAPID_PUBLIC = Deno.env.get("VAPID_PUBLIC");
 const VAPID_PRIVATE = Deno.env.get("VAPID_PRIVATE");
@@ -161,10 +162,7 @@ function json(obj: unknown, status = 200) {
 
 // 관리자 문에 「총괄 본인」 확인 (2026-10-08 · 설계 docs/superpowers/specs/2026-10-08-admin-gate-super-check-design.md)
 // 암호 하나로 열리던 것을 「암호 + 그 브라우저에 로그인된 사람이 교회 어드민 활성 총괄」로 좁힌다(임시 자물쇠).
-const SUPER_OK = Symbol("superOk");   // 들머리가 붙인다 · JSON 으로 못 만든다 → 위조 불가
-// 교회 어드민이 내부 키(service_role)로 부르는 관리 액션 — 들머리가 붙인다 · 위조 불가(2026-10-09 성경암송 관리 이전).
-//   adminError 가 맨 앞에서 본다(암호 없이 통과). church-admin 의 역할(canCall)이 진짜 게이트다.
-const INTERNAL_OK = Symbol("internalOk");
+// SUPER_OK·INTERNAL_OK(들머리가 붙이는 표) → _shared.ts (2026-10-12 파일 나누기 2단계 · adminError 와 함께)
 // 내부 키로 부를 수 있는 관리 액션(사람만 쓰는 SUPER 묶음) — 크론·알림(ADMIN_PW_ONLY)·사역·설교는 넣지 않는다.
 //   내부 키 = service_role 는 이미 DB 전권이라 추가 노출은 없지만, 화이트리스트로 명확히 제한한다.
 const INTERNAL_ADMIN_OK = new Set([
@@ -182,10 +180,7 @@ const INTERNAL_ADMIN_OK = new Set([
   "sermonStaffList", "sermonJobCreate", "sermonJobs", "sermonJobRetry", "sermonStaffSave", "staffVerseSave", "sermonDelete", "verseNextNo", "verseMeta", "generateNiv",
   "verseImgList", "verseImgScenes", "verseImgGenerate", "verseImgAlt", "verseImgSave", "verseImgHide",
 ]);
-const ADMIN_PW_ONLY = new Set([        // 사람 없는 기계 호출(크론·MCP·설교) — 암호만으로 통과
-  "sendPush", "weeklyVersePush", "weeklyReport", "monitor", "eveningPush",
-  "findMember", "memberParticipation", "sermonJobGet", "sermonJobUpdate", "embedSermons", "importV1",
-]);
+// ADMIN_PW_ONLY(암호만으로 통과하는 기계 호출) → _shared.ts (adminError 와 함께)
 // b.staff(로그인된 사람)가 교회 어드민 활성 총괄(super)과 같은 사람인가 — 같은 프로젝트 표라 직접 읽는다.
 // ⚠️ admin_role_grants → admin_members FK 가 둘(member_id·granted_by)이라 임베드가 모호하다 → 두 질의.
 // ⚠️ 목장 표기는 양방향(ministryStaffCandidates)·NFC 안 함(성경암송 가입과 같게).
@@ -204,16 +199,7 @@ async function staffIsSuper(b: any): Promise<boolean> {
   return false;
 }
 
-// 관리자 비밀 확인 → null이면 통과, 아니면 에러코드
-function adminError(b: any): string | null {
-  if ((b as any)[INTERNAL_OK] === true) return null;   // 내부 키(service_role)로 온 화이트리스트 관리 액션 — church-admin 역할이 게이트
-  const secret = Deno.env.get("ADMIN_SECRET");
-  if (!secret) return "no-password-set";
-  if ((b.pw ?? "") !== secret) return "unauthorized";
-  // 암호는 맞다. 기계 예외 액션이거나, 들머리가 확인한 총괄이면 통과. 아니면 틀린 암호와 **같은 답**(정보 안 흘림).
-  if (ADMIN_PW_ONLY.has(b.action)) return null;
-  return (b as any)[SUPER_OK] === true ? null : "unauthorized";
-}
+// adminError(관리자 비밀 확인) → _shared.ts (2026-10-12 파일 나누기 2단계)
 
 // 사역신청 담당자 확인 → null이면 통과 (2026-09-17)
 // 사역 담당자는 관리자 메뉴 전체를 볼 필요가 없다. 그런데 관리자 비번을 드리면 화면에서 메뉴를
@@ -859,16 +845,7 @@ async function latestVerse(): Promise<{ no: number | null; ref: string; text: st
 //    (+findSermonForVerse · sermonCycleStarted · sermonHasMeditationContent · buildWeeklyMeditations · halfText)
 //    · 기도문 = loadPrayers · prayToday · prayJong · prayFill.
 //    확인: python tests/widget-parity.py — 운영 사이트의 웹 함수와 날짜별로 한 글자까지 견준다.
-// 선택 입력 date("YYYY-MM-DD") — 그날 기준으로 계산한다(시험용 · 공개 정보뿐이라 열어 둔다).
-const WIDGET_YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
-function widgetYmd(b: any): string {
-  const d = String(b?.date || "");
-  return WIDGET_YMD_RE.test(d) ? d : kstDay(new Date().toISOString());
-}
-function ymdDayNumber(ymd: string): number {
-  const [y, m, d] = ymd.split("-").map(Number);
-  return Math.floor(Date.UTC(y, m - 1, d) / 86400000);
-}
+// 선택 입력 date("YYYY-MM-DD") 를 읽는 WIDGET_YMD_RE·widgetYmd·ymdDayNumber → _shared.ts (2026-10-12 · 축복 기도문 위젯도 쓴다)
 
 type WidgetVerse = { no: number | null; ref: string; text: string };
 
@@ -1004,36 +981,7 @@ async function getTodayMeditation(b: any) {
   };
 }
 
-// ---- 오늘의 축복 기도문 ----
-// 위젯은 로그인 이름을 모른다 — {이름} 자리에 「우리 가족」(2026-09-20 친구 결정).
-const BLESS_WIDGET_NAME = "우리 가족";
-function blessJong(name: string): number {                   // 앱 prayJong
-  const c = name.charCodeAt(name.length - 1);
-  return (c >= 0xac00 && c <= 0xd7a3) ? (c - 0xac00) % 28 : 0;
-}
-function blessFill(t: unknown, name: string): string {       // 앱 prayFill — ⚠️ ㄹ 받침(8)이면 「로」
-  const j = blessJong(name);
-  return String(t || "")
-    .replace(/\{이름\}/g, name)
-    .replace(/\{이\}/g, j ? "이" : "가")
-    .replace(/\{을\}/g, j ? "을" : "를")
-    .replace(/\{은\}/g, j ? "은" : "는")
-    .replace(/\{과\}/g, j ? "과" : "와")
-    .replace(/\{으로\}/g, (j === 0 || j === 8) ? "로" : "으로");
-}
-async function getTodayBlessing(b: any) {
-  const ymd = widgetYmd(b);
-  const { blessings } = await getBlessings();                // 앱 loadPrayers 와 같은 목록·차례
-  const n = blessings.length;
-  if (!n) return { ok: true, date: ymd, no: null, title: "", ref: "", prayer: "" };
-  // 앱 prayToday 는 new Date("YYYY-MM-DDT00:00:00") 을 **폰의 지역 시간**으로 읽는다 —
-  // 한국 시간 폰에서는 (그날 UTC 날수 − 1) 이 된다. 성도님 폰은 한국 시간이므로 그 값에 맞춘다.
-  const i = (((ymdDayNumber(ymd) - 1) % n) + n) % n;
-  const x = blessings[i];
-  // tpl — 이름 토큰을 채우지 않은 원문(2026-09-26). 앱의 매일 묵상 「🙏 기도」 팝업이 로그인 이름으로
-  //   prayFill 한다. 위젯은 이 칸을 읽지 않는다(prayer 가 그대로 「우리 가족」).
-  return { ok: true, date: ymd, no: x.no, title: x.title, ref: x.ref, prayer: blessFill(x.prayer, BLESS_WIDGET_NAME), tpl: x.prayer };
-}
+// ---- 오늘의 축복 기도문(getTodayBlessing) → blessing.ts (2026-10-12 파일 나누기 2단계) ----
 
 // ---- 쉴만한 물가 오늘 편(getTodayPsalm) → psalm.ts (2026-10-12 파일 나누기) ----
 
@@ -1695,27 +1643,7 @@ async function seedVerses(b: any) {
 }
 
 // ---------- 긴 본문 암송("핵심 암송") ----------
-// 가정 축복 기도문을 누가 얼마나 보시는지 — 한 편을 열 때 한 번 부른다.
-// ⚠️ 한 사람이 하루에 한 편을 여러 번 봐도 **한 행**이다(cnt 만 는다).
-//    열 때마다 한 행씩 쌓으면 금세 커진다 — daily_activity 에서 배운 것을 처음부터 쓴다.
-// ⚠️ 실패해도 조용히 넘긴다. 기록 때문에 기도문이 안 열리면 본말이 뒤집힌다.
-// ⚠️ 표(blessing_log.sql)를 아직 안 만든 판에서도 앱은 그대로 돌아야 한다.
-async function blessingLog(b: any) {
-  const no = Number(b.no);
-  if (!b.user_id || !Number.isFinite(no) || no < 1 || no > 999) return { ok: true, skipped: true };
-  try {
-    const { error } = await db.rpc("v2_blessing_log", { uid: b.user_id, n: no });
-    if (error) {
-      const m = String(error.message || "");
-      const why = /does not exist|schema cache|function/i.test(m) ? "no-table"
-                : /foreign key|violates/i.test(m) ? "no-user" : "db";
-      return { ok: true, skipped: why };
-    }
-  } catch (_e) {
-    return { ok: true, skipped: "error" };
-  }
-  return { ok: true };
-}
+// ---- 가정 축복 기도문 열람 기록(blessingLog) → blessing.ts (2026-10-12 파일 나누기 2단계) ----
 
 // ---------- 열람 기록(featureLog) ----------
 // 못 재던 기능들이 「몇 명에게 닿는지」를 남긴다 — blessing_log 를 일반화한 것이다.
@@ -1760,21 +1688,7 @@ async function featureLog(b: any) {
   return { ok: true };
 }
 
-// 가정 축복 기도문 104편 — 읽기 전용. 누구나 같은 자료라 개인 것이 섞이지 않는다.
-// ⚠️ prayer 는 이름 토큰({이름}{이}…)이 든 채로 내보낸다. 채우는 것은 앱(prayFill)이다 —
-//    서버가 채우면 사람마다 응답이 달라져 캐시가 통째로 무용지물이 된다.
-// ⚠️ "group" 은 예약어라 따옴표가 필요하다.
-async function getBlessings() {
-  const { data, error } = await db.from("blessings")
-    .select('no,title,seq,"group",ref,verse,prayer')
-    .eq("is_active", true).order("sort_order").order("no");
-  if (error) throw error;
-  const blessings = (data ?? []).map((b: any) => ({
-    no: b.no, title: b.title || "", seq: b.seq ?? null, group: b.group || "",
-    ref: b.ref || "", verse: b.verse || "", prayer: b.prayer || "",
-  }));
-  return { ok: true, blessings };
-}
+// ---- 가정 축복 기도문 목록(getBlessings) → blessing.ts (2026-10-12 파일 나누기 2단계) ----
 
 async function getPassages() {
   const { data, error } = await db.from("passages")
@@ -2831,21 +2745,7 @@ async function advanceReview(b: any) {
   return { ok: true, box };
 }
 
-// PostgREST는 한 번에 최대 1000행만 반환한다. 집계는 전체 행을 세야 정확하므로
-// 1000행씩 이어 받는다. 이걸 안 쓰면 로그가 1000행을 넘는 순간 조용히 잘린 값이 나온다.
-// build()는 호출할 때마다 새 쿼리를 만들어야 한다(쿼리 빌더는 재사용 불가).
-const PAGE_SIZE = 1000;
-async function fetchAllRows(build: () => any): Promise<any[]> {
-  const out: any[] = [];
-  for (let off = 0; ; off += PAGE_SIZE) {
-    const { data, error } = await build().range(off, off + PAGE_SIZE - 1);
-    if (error) throw error;
-    const rows = (data ?? []) as any[];
-    out.push(...rows);
-    if (rows.length < PAGE_SIZE) break;
-  }
-  return out;
-}
+// fetchAllRows(1000행씩 이어 받기) → _shared.ts (2026-10-12 파일 나누기 2단계)
 
 // 기간 필터 적용(challenge_log)
 function rangeFilter(q: any, b: any) {
@@ -3316,64 +3216,7 @@ async function verseStatsSlow(b: any) {
   return { ok: true, list };
 }
 
-// ---------- blessingUsage: 가정 축복 기도문 사용현황 ----------
-//   blessing_log(user_id,day,no,cnt) 는 「한 사람이 하루에 한 편을 여러 번 봐도 한 행」이라
-//   challenge_log 보다 훨씬 작다 — RPC 없이 fetchAllRows + JS 집계로 충분하다.
-//   ⚠️ 표(blessing_log.sql)를 아직 안 돌린 판(예: 성도님께 열기 전 개발 DB)에서도
-//      죽지 않고 빈 결과를 낸다 — 관리자가 "기록 없음"으로 보게, 오류로 보지 않게.
-async function blessingUsage(b: any) {
-  const err = adminError(b); if (err) return { ok: false, error: err };
-  const EMPTY = { ok: true, summary: { people: 0, total: 0, days: 0 }, byPrayer: [], byUser: [] };
-  let rows: any[];
-  try {
-    rows = await fetchAllRows(() => {
-      let q = db.from("blessing_log").select("user_id, day, no, cnt, users(type,gu,mok,bu,grade,name)");
-      if (b.from) q = q.gte("day", b.from);
-      if (b.to)   q = q.lte("day", b.to);
-      return q;
-    });
-  } catch (e) {
-    if (/does not exist|schema cache/i.test(String((e as any)?.message || ""))) return EMPTY;
-    throw e;
-  }
-  if (!rows.length) return EMPTY;
-
-  const { data: bl } = await db.from("blessings").select('no,title,"group"');
-  const bMap = new Map<number, any>();
-  (bl ?? []).forEach((r: any) => bMap.set(r.no, r));
-
-  const people = new Set<string>(), days = new Set<string>();
-  let total = 0;
-  const byPrayerMap = new Map<number, { no: number; title: string; group: string; people: Set<string>; count: number }>();
-  const byUserMap = new Map<string, { gubun: string; sosok: string; sebu: string; name: string; days: Set<string>; prayers: Set<number>; count: number; last: string }>();
-
-  for (const row of rows) {
-    people.add(row.user_id); days.add(row.day); total += row.cnt;
-
-    const meta = bMap.get(row.no) ?? {};
-    const pe = byPrayerMap.get(row.no) ?? { no: row.no, title: meta.title || "", group: meta.group || "", people: new Set<string>(), count: 0 };
-    pe.people.add(row.user_id); pe.count += row.cnt;
-    byPrayerMap.set(row.no, pe);
-
-    const u = row.users ?? {};
-    const ue = byUserMap.get(row.user_id) ?? {
-      gubun: u.type || "", sosok: u.gu || u.bu || "", sebu: u.mok || u.grade || "",
-      name: u.name || "", days: new Set<string>(), prayers: new Set<number>(), count: 0, last: row.day,
-    };
-    ue.days.add(row.day); ue.prayers.add(row.no); ue.count += row.cnt;
-    if (row.day > ue.last) ue.last = row.day;
-    byUserMap.set(row.user_id, ue);
-  }
-
-  const byPrayer = [...byPrayerMap.values()]
-    .map((p) => ({ no: p.no, title: p.title, group: p.group, people: p.people.size, count: p.count }))
-    .sort((a, c) => c.people - a.people || c.count - a.count);
-  const byUser = [...byUserMap.values()]
-    .map((u) => ({ gubun: u.gubun, sosok: u.sosok, sebu: u.sebu, name: u.name, days: u.days.size, prayers: u.prayers.size, count: u.count, last: u.last }))
-    .sort((a, c) => c.count - a.count);
-
-  return { ok: true, summary: { people: people.size, total, days: days.size }, byPrayer, byUser };
-}
+// ---------- blessingUsage(가정 축복 기도문 사용현황) → blessing.ts (2026-10-12 파일 나누기 2단계) ----------
 
 // ---------- weeklyReport: 주간 리포트 자동 발송용 요약 + CSV ----------
 const DAY_MS = 24 * 60 * 60 * 1000;
