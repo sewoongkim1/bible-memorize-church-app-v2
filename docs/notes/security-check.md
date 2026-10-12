@@ -135,6 +135,13 @@ python tools/security-check.py --accept     # 지금 나온 것을 「본 것」
 
 ---
 
+## 관리자 문 — 안쪽 부름 전수와 남은 빈틈 (2026-10-13)
+
+관리 함수가 다른 관리 함수를 새 객체로 불러 문의 표(`SUPER_OK`·`INTERNAL_OK`)가 끊기던 자리를 두 저장소(성경암송 `api` · 교회 어드민 함수)에서 전수로 훑었다(에이전트 셋이 서로 다른 방식 + 검증). 깨진 곳은 신고 「숨기기」·저녁 알림 둘뿐이었고 둘 다 고쳤다(79657c5 · `docs/notes/backend-api.md` 머리). 교회 어드민 프록시의 46 액션은 api `INTERNAL_ADMIN_OK` 와 정확히 같다. 같은 종류는 아니지만 남은 것:
+- **찬양 함수(`c:\Projects\praise-songs` `supabase/functions/praise`)는 관리자 암호 하나로 관리자다**(`isAdmin = () => b.secret === ADMIN_SECRET || internalOk` — 직접 확인). 10/08 「암호 + 총괄」은 `api` 에만 걸렸다. 막는 길: 같은 총괄 확인을 붙이거나, 관리 이전(교회 어드민 내부 키) 뒤 암호 길을 걷는다. 그때까지는 `ADMIN_SECRET` 교체(크론 옮기기 끝 · 10/25 뒤)가 위험을 줄인다.
+- (에이전트 관찰 · 직접 확인 전) 교회 어드민 `memorizeadmin` 역할은 `saveConfig` 로 문 값(`dutyOpen`·`eduOpen`·`ministry`·`errorLogOn`·`naviPublic`)과 `loginLimit`·`lifePin` 을 바꿀 수 있다 — 그 역할을 누구에게 주는지에 걸린 일.
+- (에이전트 관찰 · 직접 확인 전) 내부 키 길에서 `staffLabel` 이 「관리자」를 돌려 `sermon_jobs`·`verse_image_gens` 의 `created_by` 에 실제 담당자 이름이 안 남는다(교회 어드민 `admin_audit` 에는 남는다).
+
 ## CLAUDE.md 에서 옮김 2026-10-12
 
 > CLAUDE.md 에서 옮겨 온 원문이다(2026-10-12, 다시 두 겹으로 나눔 — 내용은 한 글자도 안 고쳤다). 들여쓰기·체크 상자·「~~취소선~~」도 그대로다. 지금 상태는 CLAUDE.md 「다음 작업」의 한 줄을 볼 것.
