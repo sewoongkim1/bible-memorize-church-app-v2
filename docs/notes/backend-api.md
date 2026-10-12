@@ -28,3 +28,22 @@ ADMIN_SECRET(관리자 비번, 3앱 공통), MINISTRY_SECRET(사역신청 담당
 
 ## 집계표 (`daily-activity.sql`, 2026-08-15)
 `daily_activity(day,user_id,mode,cnt)` — `challenge_log`에 INSERT·DELETE 트리거로 동기화(앱이 아니라 DB가 지킨다). `ranking`·`guRanking`·`mydays`가 로그 대신 이 표를 읽는다(`v2_ranking`·`v2_gu_ranking`·`v2_mydays`, 실패 시 `*Slow`로 폴백). **전체 기간 2,903ms → 516ms.** 로그 11,052행 = 집계 579행이고, 로그는 총 횟수만큼 늘지만 집계표는 참여자×활동일수만큼만 는다. `monitor`가 `v2_activity_drift()`로 매일 로그 행수 vs 집계 합계를 대조해 어긋나면 경보 — 틀어지면 백필(3번 블록)을 다시 실행하면 된다. 구절별 통계(`verseStats`·`verseCounts`)는 verse_no가 필요해 로그에 남는다.
+
+## 배포 가드(2026-10-12)
+Edge Function(`api`·`mcp`)은 **`tools/deploy-fn.py` 로만** 올린다. 판단 함수 시험은 `python tests/deploy-fn-guard.py`.
+```bash
+python tools/deploy-fn.py api --dev                  # 1) 개발 — main 과 같은 판
+python tools/deploy-fn.py api --dev --allow-ahead    #    개발 — main 에 아직 없는 내 가지를 시험할 때
+python tools/deploy-fn.py api --prod                 # 2) localhost 확인 뒤 운영 — origin/main 과 같아야만
+python tools/deploy-fn.py api --prod --dry-run       #    검사만, 배포 명령은 찍기만
+```
+`git fetch origin` 뒤 올라갈 경로(`supabase/functions/<이름>/` + 그 함수가 상대 import 로 끌어오는 `_shared` 류)를 보고, 하나라도 걸리면 **배포하지 않고 종료코드 1**:
+- **커밋 안 된 변경·추적 안 된 파일** — 개발·운영 모두 막는다(내 것이면 가지에 커밋한 뒤 다시).
+- **origin/main 보다 뒤처짐**(main 이 그 경로에 넣은 커밋이 HEAD 에 없다) — 개발에서도, `--allow-ahead` 로도 못 푼다. `git merge origin/main` 으로 푼다.
+- **origin/main 과 내용이 다름**(앞섬) — 운영은 막음 · 개발은 `--allow-ahead` 를 줄 때만 경고로 지나간다.
+- (`api`) **`case "…"` 액션 집합**을 origin/main 과 견줘 빠지는 것·더해지는 것의 이름을 찍는다. 빠지는 것이 있으면 막는다(개발 + `--allow-ahead` + 뒤처지지 않음일 때만 「일부러 지운 것인지」 경고).
+- 통과하면 `supabase functions deploy <이름> --no-verify-jwt --project-ref <ref>` 를 저장소 뿌리에서 부른다. 운영은 직전에 ref 와 「운영」을 크게 찍는다(입력 확인은 없다 — `--prod` 플래그가 곧 확인이다). 끝에 배포 뒤 확인(스모크 셋 — 운영은 `EVT_ENV=prod` · 이벤트는 `EXPECT_PER_DAY=3`)을 찍는다.
+
+**왜:** `supabase functions deploy` 는 git 이 아니라 **작업 트리의 파일을 통째로** 올린다. 여러 세션이 같은 체크아웃에서 일하므로 (1) 남의 커밋 안 된 코드가 내 배포에 실려 나가고 (2) 낡은 체크아웃에서 배포하면 남이 main 에 넣은 액션(봉사 당번·교육 등)이 운영에서 **오류 없이 사라진다** — 가을 이벤트 `perDay` 가 조용히 1 로 돌아간 일도 그것이었다.
+
+⚠️ **우회하지 말 것.** 걸렸다고 `supabase functions deploy` 를 손으로 치면 위 사고를 그대로 밟는다 — 걸린 까닭(커밋·`git merge origin/main`·PR 머지)을 고치고 다시 돌린다. 급히 되돌릴 때도 되돌리는 커밋을 main 에 넣은 뒤 이것으로 올린다.
