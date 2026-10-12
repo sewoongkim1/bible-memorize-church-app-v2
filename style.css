@@ -1589,6 +1589,7 @@ body.native-app-hide-ref .word-input { scroll-margin-top: 90px; }
 .todo-go .todo-ic { font-size: 1.9rem; line-height: 1; flex: none; }
 .todo-go .todo-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 /* ⚠️ 아래 줄(.todo-sub)이 없어도 단추 높이는 두 줄일 때와 같게 — 2026-10-12 「아직 N구절 남았어요」를 빼면서.
+   (같은 날 다 마치신 분의 축하 줄도 뺐다 — 이제 아래 줄은 늘 없다. 이 높이(76px)가 「말씀 도전」(60px)과의 차이 = 「먼저 이것」이다.)
    줄이 빠져 단추가 12px 줄면 그 아래 「말씀 도전」이 위로 올라간다. 단추가 늘 같은 자리여야 한다는 것이
    2026-10-11 결정이다(어르신 「자리가 바뀌어 헷갈린다」). 두 줄 높이 = 위 줄 + 틈 + 아래 줄(아래 두 규칙과 같은 값). */
 .todo-go .todo-body { min-height: calc(1.16rem * 1.2 + 3px + .86rem * 1.25); justify-content: center; }
@@ -4204,8 +4205,6 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
    색은 단추 글자색을 따른다(남색 단추 = 흰색 · 금색 단추 = 짙은 남색 · stroke="currentColor"). */
 .todo-go .go-chev,
 .summary-actions .summary-go .go-chev { flex: none; width: 22px; height: 22px; margin-left: auto; }
-/* 꺾쇠가 자리를 차지해 좁은 폰(320)에서 다 마치신 분의 줄이 「마치셨 / 어요」로 낱말 가운데서 꺾였다 — 띄어쓰기에서만 꺾는다 */
-.todo-go .todo-sub { word-break: keep-all; }
 
 /* ── 사용자 정보 한 상자 (2026-09-02) ─────────────────────────────
    「오늘 몇 회」와 「전체 진행」은 둘 다 내 상태다 — 상자 둘로 나눠 두면
