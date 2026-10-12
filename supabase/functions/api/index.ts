@@ -1469,11 +1469,14 @@ async function eveningPush(b: any) {
   // 5) 보낸다 — 발송은 sendPush 가 한다(웹푸시·APNs 두 루프).
   //    ⚠️ latest 를 안 넘긴다. mode 로 push_log 에서 아침 행과 갈라진다.
   //    url 의 pe=1 은 저녁 클릭을 아침과 가르는 표식이다(app.js readPushMark).
+  //    ⚠️ 문의 표를 넘긴다 — eveningPush 는 암호만 보는 기계 액션이라 SUPER_OK 가 없고, 새 객체에는 action 도 없어
+  //       안쪽 adminError 가 unauthorized 를 주고 아래 응답은 sent 0 · total 0 으로 **조용히** 끝났다(2026-10-13 · 켜기 전에 고침).
   const r = await sendPush({
-    pw: b.pw, only,
+    pw: b.pw, only, [SUPER_OK]: true, [INTERNAL_OK]: (b as any)[INTERNAL_OK] === true,
     title: msg.title, body: msg.body,
     mode: "evening", url: "https://gocheok.onlybible.kr/?from=push&pe=1",
   });
+  if ((r as any).ok === false) return { ok: false, error: (r as any).error || "send-failed", targets: only.length };
 
   // ⚠️ 응답에 user_id 를 싣지 않는다 — 수를 센 것만.
   return { ok: true, targets: only.length,
@@ -4813,7 +4816,9 @@ async function boardReportResolve(b: any) {
   const op = b.op === "hide" ? "hide" : b.op === "resolve" ? "resolve" : "";
   if (!id || !op) return { ok: false, error: "bad-args" };
   if (op === "hide") {
-    const r: any = await boardModerate({ pw: b.pw, kind, id, op: "hide" });
+    // ⚠️ 새 객체로 부르면 문의 표(SUPER_OK · INTERNAL_OK)가 끊겨 안쪽 adminError 가 unauthorized 를 준다 — 위에서 문을 통과했으니 표를 넘긴다
+    //    (2026-10-13 개발에서 재현: 암호+총괄 · 내부 키 두 길 모두 「숨기고 닫기」가 실패하고 신고가 열린 채 남았다 · 2026-10-08 총괄 확인을 더한 뒤부터).
+    const r: any = await boardModerate({ pw: b.pw, kind, id, op: "hide", [SUPER_OK]: true, [INTERNAL_OK]: (b as any)[INTERNAL_OK] === true });
     if (!r.ok) return r;
   }
   let q = db.from("board_reports").update({
