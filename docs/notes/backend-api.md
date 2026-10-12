@@ -47,3 +47,28 @@ python tools/deploy-fn.py api --prod --dry-run       #    검사만, 배포 명�
 **왜:** `supabase functions deploy` 는 git 이 아니라 **작업 트리의 파일을 통째로** 올린다. 여러 세션이 같은 체크아웃에서 일하므로 (1) 남의 커밋 안 된 코드가 내 배포에 실려 나가고 (2) 낡은 체크아웃에서 배포하면 남이 main 에 넣은 액션(봉사 당번·교육 등)이 운영에서 **오류 없이 사라진다** — 가을 이벤트 `perDay` 가 조용히 1 로 돌아간 일도 그것이었다.
 
 ⚠️ **우회하지 말 것.** 걸렸다고 `supabase functions deploy` 를 손으로 치면 위 사고를 그대로 밟는다 — 걸린 까닭(커밋·`git merge origin/main`·PR 머지)을 고치고 다시 돌린다. 급히 되돌릴 때도 되돌리는 커밋을 main 에 넣은 뒤 이것으로 올린다.
+
+## 파일 나누기(2026-10-12 · 1단계)
+`supabase/functions/api/index.ts` 한 파일(9,183줄 · `switch` 171갈래)을 영역별 파일로 나누기 시작했다. 본보기는 교회 어드민 `church-admin/supabase/functions/church-admin/`(`index.ts` + `*-db.ts`·`*-rules.ts`).
+
+**원칙**
+- **동작은 한 치도 안 바꾼다** — 옮기는 커밋에는 옮기는 것만. 고칠 것이 보이면 다른 커밋으로.
+- **`case` 는 `index.ts` 의 `switch` 에 그대로 둔다.** 영역 파일은 처리 함수만 `export` 하고 `index.ts` 가 들여온다. `tools/deploy-fn.py` 가 `index.ts` 의 `case "…"` 를 세어 origin/main 과 견주기 때문이다(나눈 뒤에도 171 이어야 한다).
+- **공용은 `supabase/functions/api/_shared.ts` 한 곳.** 영역 파일이 `index.ts` 의 도우미가 필요하면 그 도우미를 `_shared.ts` 로 **옮기고** `index.ts` 도 거기서 들여온다 — 두 파일에 같은 것을 두지 않는다 · 영역 파일이 `index.ts` 를 들여오지 않는다(들머리와 고리가 생긴다). 지금 든 것: `db`(서비스 키 클라이언트) · `kstDay`.
+- **순수 규칙은 표식 사이에 타입 표기 없이** 두고 `tests/` 가 그 구간만 잘라 `node:vm` 에서 돌린다(기존 `board-report`·`store-review` 방식 — 꾸러미·deno 없이 preflight 에서 돈다).
+- `tests/api-split.test.cjs`(preflight [3]) 가 본다 — `index.ts` 가 들여오는 이름이 그 파일에 `export` 돼 있나 · 들여온 이름을 다시 선언하지 않나 · `_shared.ts` 의 것을 따로 두지 않나 · 떼어 낸 영역의 순수 규칙. ⚠️ 이 PC 에 `deno` 가 없어 `deno check` 를 못 돌린다 — 이름 하나가 어긋나면 배포는 되고 **첫 요청에서** 함수가 통째로 죽는다. 그래서 이 시험이 있다.
+- 배포 가드는 따로 손댈 것이 없다 — 올라갈 경로가 함수 폴더 통째이고, 상대 import 도 센다. 개발에서 `python tools/deploy-fn.py api --dev --allow-ahead` 로 올린 뒤 옮긴 영역의 스모크를 그 자리에서 돌린다.
+- ⚠️ **`index.ts` 를 글자로 읽는 시험이 많다**(2026-10-12 셈 — `board-report`·`store-review`·`event-auto`·`event-perday`·`evening-push`·`send-push-opts`·`duty-front`·`duty-send`·`edu-front`·`member-merge`·`member-profile` — `index.ts` 에서 표식·함수 이름으로 잘라 낸다 · `grep -l "functions/api/index.ts\|'api', 'index.ts'" tests/*` 로 다시 셀 것). 그 영역을 옮길 때는 **시험이 읽는 파일 경로도 함께** 바꾼다 — 안 바꾸면 「표식을 못 찾았다」로 preflight 가 배포를 막는다.
+
+**옮긴 영역**
+| 차례 | 영역 | 파일 | 옮긴 것 | 날짜 |
+|---|---|---|---|---|
+| 1 | 쉴만한 물가(시편 액자) | `psalm.ts` | `getPsalmVerses`(getVerses `track:"psalm"`) · `getTodayPsalm`(위젯) · `psalmConfig`·`psalmOpenCount` · 순수 `PSALM_DEFAULT`·`psalmCfgOf`·`psalmOpenOn` | 2026-10-12 |
+
+`PSALM_NO_BASE`·`isPsalmNo`(복습에서 시편 빼기)는 로그인·진도 저장이 써서 `index.ts` 에 남겼다. `index.ts` 9,183줄 → 9,105줄.
+
+**다음 후보 차례**(얽힘이 적은 차례 — 2026-10-12 셈. 밖에서 쓰는 것 / 밖이 쓰는 것)
+1. **가정 축복 기도문** — `getBlessings`·`blessingLog`·`getTodayBlessing`(위젯)·`blessFill`·`blessingUsage`(네 군데 흩어짐 · 125줄). 먼저 `fetchAllRows`·`widgetYmd`·`ymdDayNumber`·`ymd`·`adminError` 를 `_shared.ts` 로.
+2. **연상 그림**(`verseImg*`·`vimg*` · 348줄) — `contentError`·`staffLabel`·`json`·`norm` 을 `_shared.ts` 로 · `getVerses` 가 `vimgPublicMap` 을 부른다. 다음으로 **설교 담당자**(`sermonJob*`·`staffVerseSave` 등 · 337줄)와 함께 옮기면 `staffLabel` 이 한 파일 안에 든다.
+3. **말씀 이벤트**(`evt*`·`event*` · 979줄) — 밖에서 아무도 안 부르지만 `ministryIsTester`·`pilsaPhone`·`PILSA_PHONE_RE`·`MIN_POSITIONS` 를 쓰고 `tests/event-auto.test.cjs` 가 `index.ts` 를 글자로 읽는다. ⚠️ 얼린 액션(`eventImport`·`eventSave`·`eventSetNote`)이 든 판 그대로.
+- 뒤로 미룬 것: **게시판**(신고·가리기·스토어 심사 구간과 얽힘 — `storeUid` 를 로그인 확인 번호 일곱 곳이, `needsGuardian` 을 로그인·봉사 당번이 쓴다 · 시험 둘이 `index.ts` 를 잘게 자른다) · **순위·응원**(`fetchAllRows`·`rangeFilter` 를 통계·교육 등 열 곳이 쓴다 — 먼저 `_shared.ts` 로) · **알림·저녁 알림**(push·evening·APNs — 저녁 문구 작업이 끝난 뒤).

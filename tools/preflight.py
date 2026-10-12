@@ -138,6 +138,9 @@ PURE_TESTS += ["tests/duty-send.test.cjs"]
 # 필요할 때 받는 화면 코드(2026-10-12) — 교육·당번 js 를 첫 실행에 안 받는다 · 로더(한 번만 · 실패하면 다시 · ?v= 는 app.js 의 것) · 알림 주소 · 배선 ·
 #   app.js 가 두 파일의 전역을 새로 부르기 시작하면 걸린다(첫 화면이 동기로 부르면 파일이 아직 없다 — docs/notes/lazy-load.md)
 PURE_TESTS += ["tests/lazy-load.test.cjs"]
+# api 파일 나누기(2026-10-12) — index.ts 가 영역 파일에서 들여오는 이름이 export 돼 있나 · 두 번 선언·고리·공용 중복이 없나 ·
+#   떼어 낸 영역의 순수 규칙(쉴만한 물가 열린 편수). deno 가 없어도 「이름 하나 어긋나 첫 요청에서 함수가 죽는」 것을 막는다.
+PURE_TESTS += ["tests/api-split.test.cjs"]
 
 print("\n[3] 순수 함수 검사 (node --test)")
 for t in PURE_TESTS:
