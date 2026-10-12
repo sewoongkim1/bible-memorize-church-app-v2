@@ -18,7 +18,7 @@ jobs:
   check:
     # 텔레그램 시크릿이 이 환경 안에 있다(main 가지에서 도는 실행만 읽는다 — monitor.yml 과 같다)
     environment: production
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # 2026-10-19 ubuntu-latest 가 26 으로 바뀜 — 올릴 때를 우리가 고른다
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4

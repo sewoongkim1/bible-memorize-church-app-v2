@@ -36,7 +36,7 @@ jobs:
     # — 다른 가지에 워크플로를 올려도 ADMIN_SECRET·TELEGRAM_*에 손이 닿지 않는다.
     #    (저장소 시크릿은 어느 가지에서든 읽힌다 — 협업자가 생긴 뒤에 닫은 구멍, 2026-08-28)
     environment: production
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # 2026-10-19 ubuntu-latest 가 26 으로 바뀜 — 올릴 때를 우리가 고른다
     steps:
       - name: 백엔드 상태 점검 + 문제 시 텔레그램 경보
         env:
