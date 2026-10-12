@@ -58,7 +58,7 @@
 | 봉사 당번(2026-10-06 운영 · 문 닫힘 — 🧪만) — `duty_signups` 에 직접 쓰지 말 것 | `docs/notes/duty-roster.md` |
 | 관리 기능을 교회 어드민으로 옮기기(2026-10-08 결정) | `docs/notes/admin-migration.md` · `docs/backlog.md` 4-5 |
 | 안드로이드 앱(TWA)·위젯·플레이스토어(새 앱 `kr.onlybible.gocheok`) | `docs/notes/android-app.md` |
-| 디자인 개편(2026-10-12 시작 · 시안 A·B·C 의견 수렴 중 — 고르기 전엔 입히지 말 것) · 「전」 사진 `자료/design/` · **먼저 넣은 것**(10-12 운영): 첫 화면 남은 수·전체 수·% 빼기 · 말씀 목록 시안 B 구조(본문 두 줄 · 거르기 칸 「진행·마침·마음에 둠·안 함」 · 힌트는 마음에 둔 구절에만) · 상태 이름 「아직 안 함 · 1단계 마침 · 다 마침」 · 🧪 첫 화면 B안 미리보기 `?home=b`(그 기기만 · 단추·id 그대로 CSS 배치만) | `docs/notes/design-refresh.md` |
+| 디자인 개편(2026-10-12 시작 · 시안 A·B·C 의견 수렴 중 — 고르기 전엔 입히지 말 것) · 「전」 사진 `자료/design/` · **먼저 넣은 것**(10-12 운영): 첫 화면 남은 수·전체 수·% 빼기 · 말씀 목록 시안 B 구조(본문 두 줄 · 거르기 칸 「진행·마침·마음에 둠·안 함」 · 힌트는 마음에 둔 구절에만) · 상태 이름 「아직 안 함 · 1단계 마침 · 다 마침」 · 🧪 첫 화면 미리보기 B안 `?home=b`(CSS 배치만) · A안 `?home=a`(이번 주 말씀 아래만 · 줄 목록) · 끄기 `?home=off` — 그 기기만 · 단추·id 그대로 | `docs/notes/design-refresh.md` |
 
 ## 폴더 — 참고·산출물은 `자료/` (2026-10-08)
 화면이 안 쓰는 참고·산출물은 모두 `자료/` 아래다 — `marketing`·`ministry`·`store`·`psalm`·`migrate`·`booklet`(GitHub) + `education`·`newfamily`·`AppForm`·`Picture`·`당회보고`(로컬). **`자료/` 는 사이트로 안 나간다.**

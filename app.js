@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261012u";
+const APP_BUILD = "20261013a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -366,7 +366,7 @@ function routeAfterLoad() {
   //    (?v=1&from=push 처럼 딥링크와 겹치는 경우가 실제로 그랬다). readPushMark 는
   //    from 파라미터만 지우고 v·lang 등 나머지는 그대로 두므로 먼저 불러도 안전하다.
   readPushMark();
-  readHomePreviewParam();   // 🧪 ?home=b · ?home=a — 첫 화면 B안 미리보기(이 기기에만)
+  readHomePreviewParam();   // 🧪 ?home=a · ?home=b · ?home=off — 첫 화면 A안 · B안 미리보기(이 기기에만)
   _passagesPreview = getPassagesPreview();
   _psalmPreview = getPsalmPreview();
   _songPreview = getSongPreview();
@@ -685,22 +685,28 @@ function refreshSongPublic() {
 function songVisible() { return _songPreview || songPublicCached(); }
 
 // 🧪 첫 화면 B안 미리보기(2026-10-12 친구 — 디자인 개편 시안 B · docs/notes/design-refresh.md).
-//   gocheok.onlybible.kr/?home=b 로 연 기기에서만 B안 첫 화면이 보인다(?home=a 나 화면의 「원래 화면으로」로 되돌림).
+//   gocheok.onlybible.kr/?home=b 로 연 기기에서만 B안 첫 화면이 보인다(?home=off 나 화면의 「원래 화면으로」로 되돌림).
+//   (같은 날 시안 A 미리보기 ?home=a 도 생겼다 — 아래 applyHomeA. 전에는 ?home=a 가 「끄기」였다.)
 //   문 = 이 기기의 localStorage 표식 하나 — 주소를 모르는 성도님은 지금 첫 화면 그대로다. 서버·기록과는 상관없다(배치만 바꾼다).
 //   배치는 CSS(.home-b — style.css 끝 덩이)가 바꾸고, 단추·id·연결 코드는 지금 첫 화면 그대로라 모든 단추가 똑같이 동작한다.
 //   ⚠️ 다른 미리보기(getPsalmPreview 등)는 주소의 ? 뒤를 통째로 지운다 — 이것은 home 하나만 지운다(다른 표식을 안 건드리게).
 const HOME_B_KEY = "home-b-preview";
+const HOME_A_KEY = "home-a-preview";
 function readHomePreviewParam() {
   try {
     const url = new URL(location.href);
     const h = url.searchParams.get("home");
-    if (h !== "b" && h !== "a") return;
-    if (h === "b") localStorage.setItem(HOME_B_KEY, "1"); else localStorage.removeItem(HOME_B_KEY);
+    if (h !== "a" && h !== "b" && h !== "off" && h !== "0") return;
+    localStorage.removeItem(HOME_A_KEY);   // 둘 중 하나만 — 미리보기 표식은 늘 많아야 하나
+    localStorage.removeItem(HOME_B_KEY);
+    if (h === "a") localStorage.setItem(HOME_A_KEY, "1");
+    if (h === "b") localStorage.setItem(HOME_B_KEY, "1");
     url.searchParams.delete("home");
     history.replaceState(null, "", url.pathname + url.search + url.hash);
   } catch (e) {}
 }
 function homeBPreview() { try { return localStorage.getItem(HOME_B_KEY) === "1"; } catch (e) { return false; } }
+function homeAPreview() { try { return localStorage.getItem(HOME_A_KEY) === "1"; } catch (e) { return false; } }
 // B안 — 묶음 단추 맨 앞 그림 글자(이모지)를 떼어 타일 위쪽에 크게 놓고, 맨 위에 미리보기 표시 줄을 단다.
 //   단추 자신(id·연결)은 그대로 두고 안의 글만 나눈다. 성도님 화면(B 아님)에서는 부르지 않는다.
 function applyHomeB() {
@@ -725,6 +731,138 @@ function applyHomeB() {
   card.appendChild(bar);   // 자리는 CSS order 가 정한다(인사 바로 아래)
   bar.querySelector("#hb-off").addEventListener("click", () => {
     try { localStorage.removeItem(HOME_B_KEY); } catch (e) {}
+    renderSummary();
+  });
+}
+
+// 🧪 첫 화면 A안 미리보기(2026-10-12 친구 — 디자인 개편 시안 A · 「이번 주 말씀」 아래만 · 지금 앱 색).
+//   ?home=a 로 연 기기에서만(?home=off 나 「원래 화면으로」로 되돌림 · ?home=b 는 B안). 성도님 화면에서는 부르지 않는다.
+//   이번 주 말씀 아래 단추들을 시안 A 처럼 「묶음 제목 + 흰 카드 안 줄 목록(선 아이콘 · 이름 · ›)」으로 **옮겨 담는다** —
+//   「말씀 묵상」(내게 주시는 말씀 · 매일 묵상) · 내 기록 · 교회 생활 · 함께(+ 필사 · 퀴즈) · 교회 사이트(앱 밖으로 나가요 · 아카이브 둘).
+//   「더 보기」는 풀린다. 맨 아래 아이콘 줄은 시안 A 의 도구 칸으로(구절 · 쓰기 · 도움말 / 알림 · 설정).
+//   단추 자신(id·연결)은 그대로라 모두 지금과 똑같이 동작한다. 나중에 붙는 것(새글 · 진행 알약 · NEW)은 CSS order 로 자리를 잡는다.
+//   아이콘 길은 시안 A(scratchpad design/project/Main.dc.html ICONS)에서 그대로 가져왔고, 시안에 없던 넷(교육·당번·물가·말씀)은 같은 결로 더했다.
+const HA_ICON = {
+  chev: "M9 6l6 6-6 6",
+  ext: "M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5",
+  message: "M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z",
+  leaf: "M11 20A7 7 0 0 1 4 13c0-6 5-9 16-10-1 11-4 16-9 17zM4 21c3-6 7-9 11-11",
+  medal: "M12 22a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM8 11 5 2h4l3 6M16 11l3-9h-4l-3 6",
+  album: "M4 5h16v14H4zM4 15l5-5 4 4 3-3 4 4M15 9h.01",
+  trophy: "M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4",
+  users: "M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 20v-2a4 4 0 0 0-3-3.9M16 2.1a4 4 0 0 1 0 7.8",
+  folder: "M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z",
+  cap: "M2 9l10-5 10 5-10 5zM6 11v5c3 2.5 9 2.5 12 0v-5M22 9v6",
+  calendar: "M3 5h18v16H3zM8 3v4M16 3v4M3 10h18M9 15.5l2 2 4-4",
+  heart: "M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10z",
+  house: "M3 11 12 4l9 7M5 10v10h14V10M10 20v-6h4v6",
+  drop: "M12 3c3 4 6 7.5 6 11a6 6 0 0 1-12 0c0-3.5 3-7 6-11z",
+  scroll: "M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5zM8 7h8M8 11h6",
+  pen: "M4 20h4L19 9l-4-4L4 16zM14 6l4 4",
+  target: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 12h.01",
+  music: "M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM20 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z",
+  tv: "M3 6h18v12H3zM10 9.5v5l4-2.5z",
+  bookmark: "M6 3h12v18l-6-4-6 4z",
+  keyboard: "M3 6h18v12H3zM7 10h.01M11 10h.01M15 10h.01M7 14h10",
+  help: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17h.01",
+  bell: "M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21a2 2 0 0 0 4 0",
+  gear: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3.1 15H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 4.1V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.7 1.7 0 0 0 20.9 10H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z",
+};
+const HA_GROUPS = [
+  { title: "말씀 묵상", ids: ["open-sermon-chat", "open-meditation"] },
+  { title: "내 기록", ids: ["open-event-list", "open-album", "open-ranking"] },
+  { title: "교회 생활", ids: ["open-ministry", "open-ministry-history", "open-edu", "open-duty"] },
+  { title: "함께", ids: ["open-board", "open-prayer", "open-psalm", "open-passages", "open-pilsa", "open-quiz"] },
+  { title: "교회 사이트", note: "앱 밖으로 나가요", ext: true, ids: ["open-praise", "open-sermon-archive"] },
+];
+const HA_ROW_ICON = {
+  "open-sermon-chat": "message", "open-meditation": "leaf", "open-event-list": "medal", "open-album": "album", "open-ranking": "trophy",
+  "open-ministry": "users", "open-ministry-history": "folder", "open-edu": "cap", "open-duty": "calendar",
+  "open-board": "heart", "open-prayer": "house", "open-psalm": "drop", "open-passages": "scroll", "open-pilsa": "pen", "open-quiz": "target",
+  "open-praise": "music", "open-sermon-archive": "tv",
+};
+const HA_TOOL_ICON = { "toggle-ref-first": "bookmark", "toggle-card-input": "keyboard", "open-help-summary": "help", "open-alarm": "bell", "open-settings": "gear" };
+function haSvg(name, cls) {
+  return `<svg${cls ? ` class="${cls}"` : ""} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="${HA_ICON[name] || HA_ICON.chev}"/></svg>`;
+}
+// 단추 한 줄을 시안 A 줄로 — 맨 앞 그림 글자를 떼고 [아이콘 칸][이름 + 배지][›(앱 밖이면 ↗ 상자)].
+//   배지(NEW · 새글 · 진행 알약)는 .ha-sub 에 모은다 — 이름 옆에 자리가 있으면 오른쪽 끝, 없으면 이름 아래 줄.
+//   (처음엔 배지를 이름과 나란히 두어 320px 「가을 말씀암송 동행」이 한 글자씩 꺾였다 — 2026-10-13 확인)
+//   새글·진행 알약은 나중에 단추 끝에 붙으므로(applyStampPill · 새글 수) 지켜보다가 .ha-sub 로 옮긴다.
+const HA_BADGE = ".new-badge, .board-new, .ev-pill";
+function haRow(b, ext) {
+  if (b.classList.contains("ha-row")) return;
+  b.classList.add("ha-row");
+  let lab = b.querySelector(".act-tx");   // 「말씀 묵상」 둘(.summary-go) — 「내게 주시는<br>말씀」을 한 줄로
+  if (lab) {
+    lab.querySelectorAll("br").forEach((br) => br.replaceWith(" "));
+    lab.classList.add("ha-label");
+  } else {
+    const t = b.firstChild;
+    lab = document.createElement("span");
+    lab.className = "ha-label";
+    if (t && t.nodeType === 3) {
+      const m = t.data.match(/^\s*(\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*\uFE0F?)\s*/u);
+      if (m) t.data = t.data.slice(m[0].length);
+      b.insertBefore(lab, t);
+      lab.appendChild(t);
+    } else {
+      b.insertBefore(lab, b.firstChild);
+    }
+  }
+  const main = document.createElement("span");
+  main.className = "ha-main";
+  const sub = document.createElement("span");
+  sub.className = "ha-sub";
+  b.insertBefore(main, lab);
+  main.appendChild(lab);
+  main.appendChild(sub);
+  const isBadge = (nd) => nd.nodeType === 1 && nd.matches(HA_BADGE);
+  Array.from(b.children).forEach((x) => { if (isBadge(x)) sub.appendChild(x); });
+  new MutationObserver((ms) => ms.forEach((m) => m.addedNodes.forEach((nd) => { if (isBadge(nd)) sub.appendChild(nd); })))
+    .observe(b, { childList: true });
+  const tone = b.id === "open-event-list" ? " gold" : ext ? " plain" : "";
+  b.insertAdjacentHTML("afterbegin", `<span class="ha-ic${tone}" aria-hidden="true">${haSvg(HA_ROW_ICON[b.id], "")}</span>`);
+  b.insertAdjacentHTML("beforeend", haSvg(ext ? "ext" : "chev", "ha-trail"));
+}
+function applyHomeA() {
+  const card = document.querySelector(".summary-screen.home-a .summary-card");
+  if (!card || card.querySelector(".ha-groups")) return;
+  const anchor = card.querySelector(":scope > .feat-actions");   // 이번 주 말씀 바로 아래 자리
+  if (!anchor) return;
+  const wrap = document.createElement("div");
+  wrap.className = "ha-groups";
+  HA_GROUPS.forEach((g) => {
+    const rows = g.ids.map((id) => document.getElementById(id)).filter(Boolean);
+    if (!rows.length) return;   // 문이 닫힌 묶음(교회 생활 등)은 제목째 없다
+    const sec = document.createElement("section");
+    sec.className = "ha-group";
+    sec.innerHTML = `<div class="ha-group-title"><span>${g.title}</span>${g.note ? `<span class="ha-note">${g.note}</span>` : ""}</div><div class="ha-card"></div>`;
+    const box = sec.querySelector(".ha-card");
+    rows.forEach((b) => { haRow(b, !!g.ext); box.appendChild(b); });
+    wrap.appendChild(sec);
+  });
+  anchor.parentNode.insertBefore(wrap, anchor);
+  // 맨 아래 도구 칸 — 아이콘은 단추 밖(형제)에 둔다: 구절·쓰기 단추는 누를 때 제 글자(📕·⌨️)를 다시 쓰기 때문
+  const tools = card.querySelector(":scope > .summary-icons-bottom");
+  if (tools) {
+    tools.classList.add("ha-tools");
+    tools.querySelectorAll(".icon-cap").forEach((cap) => {
+      const b = cap.querySelector("button");
+      const name = b && HA_TOOL_ICON[b.id];
+      if (!name || cap.querySelector(".ha-tool-ic")) return;
+      cap.classList.add("ha-tool");
+      if (b.id === "open-alarm" || b.id === "open-settings") cap.classList.add("ha-tool-wide");
+      cap.insertAdjacentHTML("afterbegin", haSvg(name, "ha-tool-ic"));
+    });
+  }
+  const bar = document.createElement("div");
+  bar.className = "hb-bar ha-bar";
+  bar.innerHTML = `<span>🧪 첫 화면 A안 미리보기 · 이 기기에서만</span><button type="button" id="ha-off">원래 화면으로</button>`;
+  const head = card.querySelector(":scope > .summary-headrow");
+  card.insertBefore(bar, head ? head.nextSibling : card.firstChild);
+  bar.querySelector("#ha-off").addEventListener("click", () => {
+    try { localStorage.removeItem(HOME_A_KEY); } catch (e) {}
     renderSummary();
   });
 }
@@ -3282,7 +3420,7 @@ function renderSummary() {
 
   const appEl = document.getElementById("app");
   appEl.innerHTML = `
-<div class="summary-screen${homeBPreview() ? " home-b" : ""}">
+<div class="summary-screen${homeBPreview() ? " home-b" : homeAPreview() ? " home-a" : ""}">
   <div class="summary-card">
     <div class="summary-headrow">
       <div class="summary-hello"><span class="summary-affil">${u.type === "교구" ? `${u.gu}-${u.mok}` : `${u.bu}${u.grade ? " " + u.grade : ""}`}</span> <span class="summary-user">${u.name}</span> <span class="summary-honor">성도님</span><br>주님의 이름으로 환영합니다 🙌</div>
@@ -3487,6 +3625,7 @@ function renderSummary() {
     } catch (e) {}
   })();
   if (homeBPreview()) applyHomeB();   // 🧪 첫 화면 B안 미리보기(?home=b 로 연 기기만)
+  else if (homeAPreview()) applyHomeA();   // 🧪 첫 화면 A안 미리보기(?home=a 로 연 기기만 · 이번 주 말씀 아래만)
   fitTodoSub();   // 「말씀 암송」 둘째 줄을 꼭 한 줄로
   try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitTodoSub); } catch (e) {}
   maybeAutumnPopup();   // 가을 말씀암송 동행 개시 1회 안내(열린 회차가 autumn-2026 이면 한 번만)
