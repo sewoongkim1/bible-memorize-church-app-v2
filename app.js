@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261012h";
+const APP_BUILD = "20261012i";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1959,11 +1959,27 @@ function mergeServerHearted(list) {
   try { localStorage.setItem(heartKey(), JSON.stringify(h)); } catch {}
 }
 
+// 2026-10-12 친구 — 「미시도 · 1단계 완료 · 2단계 완료 · 완료」 → 쉬운 말로(새로 오신 분께 「미시도」는 낯선 말이다).
+//   말씀 목록 카드와 첫 화면 「이번주 말씀」 카드가 함께 쓴다. 도움말(renderHelp 「내 기록 & 진행 표시」)도 같은 말로.
 const STATUS_LABEL = {
-  0: { cls: "status-none", text: "미시도" },
-  1: { cls: "status-s1", text: "1단계 완료" },
-  2: { cls: "status-s2", text: "2단계 완료" },
-  3: { cls: "status-done", text: "완료" },
+  0: { cls: "status-none", text: "아직 안 함" },
+  1: { cls: "status-s1", text: "1단계 마침" },
+  2: { cls: "status-s2", text: "2단계 마침" },
+  3: { cls: "status-done", text: "다 마침" },
+};
+// 말씀 목록 보기 거르기(2026-10-12 · 디자인 시안 B) — 같은 세션 안에서는 화면을 다시 그려도 고른 것이 남는다.
+let verseListFilter = "all";
+const VL_FILTERS = [
+  { k: "all", label: "전체" },
+  { k: "doing", label: "하는 중" },     // 1·2단계를 마침
+  { k: "done", label: "다 마침" },      // 3단계까지 마침
+  { k: "none", label: "안 함" },        // 칸 이름은 짧게 — 큰 글씨·좁은 폰에서 「아직 안 / 함」으로 꺾였다(카드 칩은 「아직 안 함」)
+];
+function vlKind(stage) { return stage >= 3 ? "done" : stage > 0 ? "doing" : "none"; }
+const VL_EMPTY = {
+  doing: "지금 하는 중인 말씀이 없어요.",
+  done: "아직 다 마친 말씀이 없어요.<br>한 말씀씩 천천히 외워 보세요.",
+  none: "모든 말씀을 시작하셨어요 👏",
 };
 
 // ------------------------------------------------------------
@@ -5429,10 +5445,17 @@ function renderVerseList() {
   const playItems = verseItemsFor(playOrder);
   const playDur = albumDurText(playItems);
 
+  // 보기 거르기 — 전체 · 하는 중 · 다 마침 · 아직 안 함(2026-10-12 · 시안 B).
+  //   ⚠️ 칸에 수를 달지 않는다 — 첫 화면에서 전체 수를 뺀 것(같은 날 친구 ②안)과 같은 까닭이다.
+  //      「아직 안 함 39」는 새로 오신 분께 다시 「아직 한참」으로 읽힌다.
+  const tabsHtml = `<div class="vl-tabs" role="tablist" aria-label="말씀 목록 보기">${VL_FILTERS.map((f) =>
+    `<button type="button" role="tab" class="vl-tab${verseListFilter === f.k ? " on" : ""}" data-f="${f.k}" aria-selected="${verseListFilter === f.k}">${f.label}</button>`).join("")}</div>`;
+
   appEl.innerHTML = `
     ${verses.length ? `<div class="rank-filter album-play vl-play">
       <button id="vl-play-go" class="ab-go">▶️ 전체 듣기${playDur ? ` <span class="ab-dur">${playDur}</span>` : ""}</button>
     </div>` : ""}
+    ${verses.length ? tabsHtml : ""}
     <div id="verse-list" class="verse-grid"></div>
     <button class="home-fab" id="to-summary" aria-label="첫 화면으로">${homeFabLabel(u, true)}</button>
   `;
@@ -5442,32 +5465,52 @@ function renderVerseList() {
   document.getElementById("to-summary").addEventListener("click", () => { albumPlayStop(); renderSummary(); });
   const vlGo = document.getElementById("vl-play-go");
   if (vlGo) vlGo.addEventListener("click", () => albumPlayStart(verseItemsFor(playOrder)));
+  appEl.querySelectorAll(".vl-tab").forEach((b) => b.addEventListener("click", () => {
+    if (verseListFilter === b.dataset.f) return;
+    verseListFilter = b.dataset.f;
+    renderVerseList();
+  }));
   const weeklyInfo = getWeeklyVerseInfo();
   const weeklyNo = weeklyInfo && weeklyInfo.verse ? weeklyInfo.verse.no : null;
   const weeklyBadge = weeklyInfo ? weeklyInfo.label : "이번 주";
 
   const heartMap = loadHearted();
 
-  [...verses].reverse().forEach((v) => {
+  const shown = [...verses].reverse()
+    .filter((v) => verseListFilter === "all" || vlKind(getPassedStage(v.no)) === verseListFilter);
+  if (!shown.length && verses.length) listEl.innerHTML = `<p class="vl-empty">${VL_EMPTY[verseListFilter] || ""}</p>`;
+
+  shown.forEach((v) => {
     const passed = getPassedStage(v.no);
     const status = STATUS_LABEL[passed];
     const isWeekly = v.no === weeklyNo;
     const isHeart = !!heartMap[v.no];
+    const ref = verseRefFull(v);
 
     const card = document.createElement("div");
-    card.className = `verse-card ${status.cls}${isWeekly ? " weekly-verse" : ""}${isHeart ? " hearted-verse" : ""}`;
+    card.className = `verse-card vl-card ${status.cls}${isWeekly ? " weekly-verse" : ""}${isHeart ? " hearted-verse" : ""}`;
     card.dataset.no = v.no;   // 재생 중인 카드를 짚기 위해
-    // 주간·금배지는 좌상단에 나란히(절대배치) — 한 줄 폭에 영향 없어 🔊 아이콘이 밀리지 않는다.
+    // 시안 B(2026-10-12 친구 결정) — 구절 이름을 풀어 쓰고(「살전 5:16-18」 → 「데살로니가전서 5장 16-18절」)
+    //   본문을 두 줄까지 보인다. 새로 오신 분이 「어떤 말씀인지」 바로 알게.
+    //   ⚠️ 그래서 담당자가 넣는 「힌트」(주의 OOO O)는 이제 목록에 안 나온다 — 친구가 고른 것이다(본문 전체).
+    //   ⚠️ 전에는 한 줄에 번호·이름(nowrap)·힌트·상태·🔊 를 늘어놓아 좁은 폰·큰 글씨·긴 이름에서 🔊 와 상태가
+    //      카드 밖으로 밀려났다. 이제 이름·본문이 줄을 바꾸고 상태는 아래 줄이라 넘치지 않는다.
+    //   클래스 이름 .verse-card · .verse-ref · .verse-status[data-no] 는 그대로 — applyVerseCounts(「· N회」)와
+    //   albumPlayFocus(재생 중 .playing)가 이 이름으로 찾는다.
     card.innerHTML = `
-      ${isWeekly || isHeart ? `<div class="card-badges">
-        ${isWeekly ? `<div class="weekly-list-badge">${weeklyBadge}</div>` : ""}
-        ${isHeart ? `<div class="heart-ribbon">👑 마음에 둠</div>` : ""}
-      </div>` : ""}
-      <div class="verse-no">${String(v.no).padStart(2, "0")}</div>
-      <div class="verse-ref">${v.refShort}</div>
-      <div class="verse-hint">${v.hintText || ""}</div>
-      <div class="verse-status ${status.cls}" data-no="${v.no}" data-base="${status.text}">${status.text}</div>
-      <button class="card-listen" aria-label="${v.refShort} 듣기" title="듣기">🔊</button>
+      <div class="vl-main">
+        <div class="vl-top">
+          ${isWeekly ? `<span class="weekly-list-badge vl-week">${weeklyBadge}</span>` : ""}
+          <span class="vl-no">${v.no}</span>
+          <span class="verse-ref">${ref}</span>
+        </div>
+        <div class="vl-text">${verseText(v) || ""}</div>
+        <div class="vl-state">
+          <span class="verse-status ${status.cls}" data-no="${v.no}" data-base="${status.text}">${status.text}</span>
+          ${isHeart ? `<span class="heart-ribbon">👑 마음에 둠</span>` : ""}
+        </div>
+      </div>
+      <button class="card-listen" aria-label="${ref} 듣기" title="듣기">🔊</button>
     `;
     card.addEventListener("click", () => { albumPlayStop(); startTest(v); });
     // 듣기 버튼: 카드 클릭(테스트 시작)으로 번지지 않게 막고 본문을 읽어준다.
@@ -8861,7 +8904,7 @@ function renderHelp(onClose) {
 
         <section class="help-section">
           <h3>🏷️ 내 기록 & 진행 표시</h3>
-          <p>첫 화면 위쪽에 <b>마친 구절 수</b>가 보여요. 말씀 목록의 카드 배지는 <b>미시도 · 1단계 완료 · 2단계 완료 · 완료</b>(+ 암송 횟수)를 나타내요. 3단계를 마친 말씀은 <b>📖 나의 말씀 앨범</b>에 모여요.</p>
+          <p>첫 화면 위쪽에 <b>마친 구절 수</b>가 보여요. 말씀 목록 카드에는 <b>아직 안 함 · 1단계 마침 · 2단계 마침 · 다 마침</b>(+ 암송 횟수)이 보여요. 목록 위 <b>전체 · 하는 중 · 다 마침 · 안 함</b>을 누르면 그것만 모아 볼 수 있어요. 3단계를 마친 말씀은 <b>📖 나의 말씀 앨범</b>에 모여요.</p>
         </section>
 
         <section class="help-section">
