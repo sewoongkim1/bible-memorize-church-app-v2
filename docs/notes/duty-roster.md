@@ -17,7 +17,7 @@
 | 담당자 서버 액션 23개(👥 봉사자 셋 포함) | 교회 어드민 `supabase/functions/church-admin/duty-db.ts` · `duty-rules.ts` |
 | 담당자 화면 🧰 당번 관리 · 📅 당번 명단 · 👥 봉사자 | 교회 어드민 `js/menus/duty/` |
 | 성도님 액션 일곱(읽기 넷 — 목록·당번표·내 당번·**지난 봉사** · 쓰기 셋) · 문(`dutyGate`) | 이 저장소 `supabase/functions/api/index.ts` 「봉사 당번」 절 · `js/api.js` |
-| 성도님 화면 | 이 저장소 `js/duty.js`(순수 구간 + 화면) · `app.js`(문 `dutyVisible` · 첫 화면 「교회」 묶음 단추 · 로그아웃 때 `dutyResetState`) · `style.css`(`.duty-*`) |
+| 성도님 화면 | 이 저장소 `js/duty.js`(순수 구간 + 화면 · **2026-10-12 부터 필요할 때 받는다** — `index.html` 에 없다 · `docs/notes/lazy-load.md`) · `app.js`(문 `dutyVisible` · 첫 화면 「교회」 묶음 단추 · 로그아웃 때 `dutyResetState` · 로더 `loadLazyJs`) · `style.css`(`.duty-*`) |
 
 ## 뼈대
 

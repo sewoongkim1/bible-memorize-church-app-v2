@@ -135,6 +135,9 @@ PURE_TESTS += ["tests/duty-flow.test.cjs"]
 # 봉사 당번 알림 — 보내는 길을 끝까지(api 의 보내기 함수들을 글자 그대로 떼어 가짜 DB·가짜 푸시 위에서 · 꾸러미 없음). 개발 계정에는 받는 기기가 없어
 #   「같은 글 묶음 안의 죽은 기기」·「옛 SQL 을 만난 새 api」를 개발 서버로는 못 본다(node 22.13 미만이면 스스로 건너뛴다 · 2026-10-07).
 PURE_TESTS += ["tests/duty-send.test.cjs"]
+# 필요할 때 받는 화면 코드(2026-10-12) — 교육·당번 js 를 첫 실행에 안 받는다 · 로더(한 번만 · 실패하면 다시 · ?v= 는 app.js 의 것) · 알림 주소 · 배선 ·
+#   app.js 가 두 파일의 전역을 새로 부르기 시작하면 걸린다(첫 화면이 동기로 부르면 파일이 아직 없다 — docs/notes/lazy-load.md)
+PURE_TESTS += ["tests/lazy-load.test.cjs"]
 
 print("\n[3] 순수 함수 검사 (node --test)")
 for t in PURE_TESTS:

@@ -50,6 +50,65 @@ const APP_BUILD = "20261012a";
   } catch (_) {}
 })();
 
+// ── 필요할 때 받는 화면 코드(2026-10-12 · 첫 실행을 가볍게) ──────────────
+//   🎓 교육(js/edu.js · 47KB)·🙋 봉사 당번(js/duty.js · 90KB)은 문이 닫혀 🧪 시험 참여자만 쓴다 — index.html 이 처음부터
+//   받지 않고, ① 첫 화면에 그 단추가 보이면 한가할 때(lazyJsSoon) ② 단추를 누르면 ③ 알림 주소(?edu= · ?duty=1)로 들어오면 받는다.
+//   ⚠️ 새로 지연으로 둘 모듈을 더하기 전에 docs/notes/lazy-load.md — 첫 화면이 동기로 부르는 것(문 판단·딥링크 읽기)이 그 파일에 있으면 안 된다.
+//   판 태그는 새로 만들지 않는다 — index.html 이 app.js 를 부른 ?v= 를 그대로 붙인다(bump.py 가 모든 태그를 같은 값으로 올린다 · 없으면 APP_BUILD).
+var LAZY_JS = { edu: { src: "js/edu.js", fn: "renderEduList" }, duty: { src: "js/duty.js", fn: "renderDutyList" } };
+var _lazyJsP = {};
+function lazyJsTag() {
+  try {
+    const el = document.querySelector('script[src*="app.js"]');
+    const m = el && el.src.match(/[?&]v=([^&"']+)/);
+    if (m) return m[1];
+  } catch (_) {}
+  return APP_BUILD;
+}
+// 받아서 실행이 끝나면 풀린다 · 같은 파일을 두 번 받지 않는다 · 실패하면 잊어서 다음에 다시 받는다(부르는 쪽은 typeof 로 함수가 생겼는지 본다).
+function loadLazyJs(name) {
+  const m = LAZY_JS[name];
+  if (!m) return Promise.reject(new Error("lazy-js " + name));
+  if (typeof window[m.fn] === "function") return Promise.resolve();   // 이미 실려 있다(옛 판 화면·시험 도구)
+  if (_lazyJsP[name]) return _lazyJsP[name];
+  _lazyJsP[name] = new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = m.src + "?v=" + lazyJsTag();
+    s.onload = () => resolve();
+    s.onerror = () => { delete _lazyJsP[name]; try { s.remove(); } catch (_) {} reject(new Error("lazy-js " + name)); };
+    document.head.appendChild(s);
+  });
+  return _lazyJsP[name];
+}
+// 받은 뒤(실패해도) fn — 이미 실려 있으면 기다리지 않고 그 자리에서 부른다(받아 둔 뒤의 단추 누름은 전과 똑같다).
+function withLazyJs(name, fn) {
+  const m = LAZY_JS[name];
+  if (m && typeof window[m.fn] === "function") { fn(); return; }
+  loadLazyJs(name).catch(() => {}).then(fn);
+}
+// 단추가 보였을 때 미리 받아 둔다(누를 때 기다림이 없게) — 첫 그리기를 방해하지 않게 한가할 때.
+function lazyJsSoon(name) {
+  const go = () => { loadLazyJs(name).catch(() => {}); };
+  try { if (window.requestIdleCallback) { requestIdleCallback(go, { timeout: 3000 }); return; } } catch (_) {}
+  setTimeout(go, 1200);
+}
+// 알림 주소로 들어온 실행 — 첫 화면을 그리기 전에(routeAfterLoad 가 eduTakeDeepLink·dutyTakeDeepLink 를 동기로 부른다) 받아 둔다.
+//   말씀 받기(getVerses)와 함께 받으므로 보통은 더 기다리지 않는다. 10초가 넘으면 기다리지 않는다(그때는 파일이 안 실렸을 때와 같이 평소 길).
+//   읽는 규칙은 eduTakeDeepLink(/[?&]edu=/)·dutyDeepLink(「duty=1」 한 칸)와 같다.
+function lazyJsForUrl(href) {
+  const s = String(href == null ? "" : href), q = s.indexOf("?");
+  const qs = q < 0 ? "" : s.slice(q).split("#")[0], need = [];
+  if (/[?&]edu=/.test(qs)) need.push("edu");
+  if (/[?&]duty=1(?:&|$)/.test(qs)) need.push("duty");
+  if (!need.length) return null;
+  return Promise.race([
+    Promise.all(need.map((n) => loadLazyJs(n).catch(() => {}))),
+    new Promise((r) => setTimeout(r, 10000)),
+  ]);
+}
+var _lazyDeepP = null;
+try { _lazyDeepP = lazyJsForUrl(location.search); } catch (_) {}
+
 // 말씀 데이터: 정적 verses.json 1순위, 실패 시 시트 API 폴백
 const DATA_URL = "verses.json";
 const API_URL = "https://script.google.com/macros/s/AKfycbzO4GDAy0hJBbZ-L3hVuZQI4cqnjiZdy2afUujnxmmAr8NAh1lJURhrfT37PaFanPR4PA/exec";
@@ -100,6 +159,7 @@ async function loadVerses() {
       await introP;
       if (d && d.ok && d.verses && d.verses.length) {
         verses = d.verses;
+        if (_lazyDeepP) await _lazyDeepP;   // 알림 주소(?edu= · ?duty=1)로 왔으면 그 화면 코드가 실린 뒤에(위 「필요할 때 받는 화면 코드」)
         dismissSplash();
         routeAfterLoad();
         return;
@@ -117,6 +177,7 @@ async function loadVerses() {
       if (!data.verses || !data.verses.length) throw new Error("데이터 없음");
 
       verses = data.verses;
+      if (_lazyDeepP) await _lazyDeepP;
       dismissSplash();
       routeAfterLoad();
       return;
@@ -330,14 +391,20 @@ try {
   navigator.serviceWorker.addEventListener("message", (e) => {
     if (!(e.data && e.data.type === "from-push")) return;
     logFeature("push", 0);
-    const eid = (typeof eduDeepLinkId === "function") ? eduDeepLinkId(e.data.url) : null;
-    if (eid && loadUser() && !ministryHiddenOnPlay() && eduVisible() && typeof renderEduCourse === "function") renderEduCourse(eid);
-    // 🙋 봉사 당번 알림(?duty=1 · 3단계) — routeAfterLoad 와 같은 조건(dutyVisible)
-    else if (typeof dutyDeepLink === "function" && dutyDeepLink(e.data.url) && loadUser() && dutyVisible() && typeof renderDutyList === "function") renderDutyList({ stay: true });
-    //   문 캐시가 「닫힘」인 열린 창 — 문을 다시 확인해 보이게 되면 연다(routeAfterLoad 와 같다)
-    else if (typeof dutyDeepLink === "function" && dutyDeepLink(e.data.url) && loadUser()) { dutyWantOpen(); refreshDutyOpen(); refreshMinistryTester(); }
+    // 교육·당번 알림이면 그 화면 코드(지연으로 받는다)가 실린 뒤에 아래를 돈다 — 아니면 그 자리에서
+    const lazyP = lazyJsForUrl(e.data.url);
+    if (lazyP) lazyP.then(() => fromPushOpen(e)); else fromPushOpen(e);
   });
 } catch (e) {}
+// 알림 주소대로 화면을 연다(위 message 가 부른다) — 조건은 routeAfterLoad 와 같다.
+function fromPushOpen(e) {
+  const eid = (typeof eduDeepLinkId === "function") ? eduDeepLinkId(e.data.url) : null;
+  if (eid && loadUser() && !ministryHiddenOnPlay() && eduVisible() && typeof renderEduCourse === "function") renderEduCourse(eid);
+  // 🙋 봉사 당번 알림(?duty=1 · 3단계) — routeAfterLoad 와 같은 조건(dutyVisible)
+  else if (typeof dutyDeepLink === "function" && dutyDeepLink(e.data.url) && loadUser() && dutyVisible() && typeof renderDutyList === "function") renderDutyList({ stay: true });
+  //   문 캐시가 「닫힘」인 열린 창 — 문을 다시 확인해 보이게 되면 연다(routeAfterLoad 와 같다)
+  else if (typeof dutyDeepLink === "function" && dutyDeepLink(e.data.url) && loadUser()) { dutyWantOpen(); refreshDutyOpen(); refreshMinistryTester(); }
+}
 
 // 📜 내 안에 거하는 말씀(긴 본문 암송, 구 '핵심 암송') — 사용자 노출 게이트 & 데이터 로더 & 진행 기록
 let _passagesPreview = false; // ?passages=1 이면 공개 플래그와 무관하게 노출(어드민 미리보기)
@@ -3135,18 +3202,22 @@ function renderSummary() {
   { const b = document.getElementById("open-passages"); if (b) b.addEventListener("click", () => { markFeatSeen("passages"); renderPassageList(); }); }
   { const b = document.getElementById("open-edu"); if (b) b.addEventListener("click", () => {
       markFeatSeen("edu");
-      lifeEnter(() => {   // 확인 번호 문
+      loadLazyJs("edu").catch(() => {});   // 아직 못 받았으면 확인 번호 문을 묻는 동안 함께 받는다
+      lifeEnter(() => withLazyJs("edu", () => {   // 확인 번호 문 → 화면 코드(지연 · 보통은 이미 받아 두었다)
         if (typeof renderEduList === "function") renderEduList();
         else appAlert("교육 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
-      });
-    }); }
+      }));
+    });
+    if (b) lazyJsSoon("edu"); }   // 단추가 보이면 미리 받아 둔다(한가할 때)
   { const b = document.getElementById("open-duty"); if (b) b.addEventListener("click", () => {
       markFeatSeen("duty");
-      lifeEnter(() => {   // 확인 번호 문
+      loadLazyJs("duty").catch(() => {});   // 아직 못 받았으면 확인 번호 문을 묻는 동안 함께 받는다
+      lifeEnter(() => withLazyJs("duty", () => {   // 확인 번호 문 → 화면 코드(지연 · 보통은 이미 받아 두었다)
         if (typeof renderDutyList === "function") renderDutyList();
         else appAlert("봉사 당번 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
-      });
-    }); }
+      }));
+    });
+    if (b) lazyJsSoon("duty"); }   // 단추가 보이면 미리 받아 둔다(한가할 때)
   { const b = document.getElementById("open-psalm"); if (b) b.addEventListener("click", () => { markFeatSeen("psalm"); renderPsalmHome(); }); }
   // ⚠️ renderEventList 는 js/events.js 에 있다 — 그 파일이 안 실려도 첫 화면이 죽지
   //    않게 막고, 말없이 아무 일도 안 일어나는 대신 까닭을 알려 준다.

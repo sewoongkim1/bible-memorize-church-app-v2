@@ -632,7 +632,9 @@ test('앱 — 딥링크(routeAfterLoad · 로그인했을 때만 · 플레이 �
   assert.ok(iMark >= 0 && iMark < iEdu && iEdu < iVerse, 'from=push 를 먼저 읽고 · 구절 딥링크보다 앞');
   assert.ok(ra.includes('if (_eduDeep && loadUser() && !ministryHiddenOnPlay() && eduVisible()) { renderEduCourse(_eduDeep); return; }'),
     '로그인 안 했거나 🎓 가 안 보이는 분(eduVisible)은 평소 길');
-  assert.ok(/type === "from-push"[\s\S]{0,200}eduDeepLinkId\(e\.data\.url\)[\s\S]{0,120}loadUser\(\) && !ministryHiddenOnPlay\(\) && eduVisible\(\)/.test(app), '이미 열린 창도 같은 조건');
+  // 이미 열린 창 — js/edu.js 는 지연으로 받으므로(2026-10-12 · docs/notes/lazy-load.md) 메시지는 받은 뒤에 fromPushOpen 을 부른다
+  assert.ok(/type === "from-push"[\s\S]{0,200}lazyJsForUrl\(e\.data\.url\)[\s\S]{0,80}lazyP\.then\(\(\) => fromPushOpen\(e\)\); else fromPushOpen\(e\);/.test(app), '이미 열린 창 — 화면 코드를 받은 뒤에');
+  assert.ok(/function fromPushOpen\(e\) \{[\s\S]{0,120}eduDeepLinkId\(e\.data\.url\)[\s\S]{0,120}loadUser\(\) && !ministryHiddenOnPlay\(\) && eduVisible\(\)/.test(app), '이미 열린 창도 같은 조건');
   assert.ok(sw.includes('c.postMessage({ type: "from-push", url: url })'), '서비스워커가 알림 주소를 싣는다');
   const t = src.slice(src.indexOf('function eduTakeDeepLink() {'), src.indexOf('\n}\n', src.indexOf('function eduTakeDeepLink() {')));
   assert.ok(t.includes("q.delete('edu')") && t.includes('history.replaceState(null') && t.includes('eduDeepLinkId(location.search)'));

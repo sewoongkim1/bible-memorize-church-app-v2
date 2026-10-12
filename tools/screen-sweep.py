@@ -169,7 +169,9 @@ _DUTY_CAL_DAYS = _DUTY_DAYS + [
 
 
 # 첫 화면에 뜨는 알림 창(오늘의 묵상·공지 — id daily-message)은 이 단계들만 따로 돌리면 사진을 가린다(전부 돌릴 때는 앞 단계가 닫는다) — 그 창만 지운다
-_DUTY_CLEAR = "var _dm=document.getElementById('daily-message'); if(_dm) _dm.remove(); "
+#   js/duty.js 는 2026-10-12 부터 첫 실행에 안 실린다(필요할 때 받는다 — docs/notes/lazy-load.md) — 화면을 직접 그리기 전에 먼저 받는다(옛 판 --site 에는 loadLazyJs 가 없어 건너뛴다).
+_DUTY_CLEAR = ("if (typeof loadLazyJs === 'function') await loadLazyJs('duty'); "
+               "var _dm=document.getElementById('daily-message'); if(_dm) _dm.remove(); ")
 # 달력에서 날짜를 고른 뒤 그날 카드의 첫 단추가 🏠 단추 위로 보이는가 — 「달력을 맨 위로」만 하던 때 높이 640~740 화면에서 단추가 🏠 단추 밑에 깔렸다(2026-10-07).
 #   다른 검사(가로 넘침·안전 영역)는 이것을 못 본다 — 깔리면 단계 실패로 남긴다(작은 화면 조건 app-se · web-320-xl 에서 걸린다).
 _DUTY_SEEN = ("var f=document.querySelector('.home-fab'), b=document.querySelector('.duty-day button[data-act]'); if(!f||!b) throw new Error('NOBTN .duty-day button[data-act]');"

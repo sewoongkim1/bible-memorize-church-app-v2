@@ -23,8 +23,10 @@ INDEX = os.path.join(ROOT, "index.html")
 APP = os.path.join(ROOT, "app.js")
 
 # ⚠️ index.html 에 js/*.js?v= 를 더하면 여기에도 더한다 — tools/preflight.py [2-1] 이 둘을 맞대 본다.
+#   js/edu.js·js/duty.js 는 2026-10-12 부터 app.js 가 필요할 때 받는다(loadLazyJs) — index.html 에 없으니 여기에도 없다.
+#   그 주소의 ?v= 는 index.html 이 app.js 를 부른 태그를 그대로 쓰므로 따로 올릴 것이 없다(docs/notes/lazy-load.md).
 TAGGED = ["app.js", "style.css", "js/config.js", "js/api.js", "js/push.js", "js/psalm.js",
-          "js/events.js", "js/edu.js", "js/duty.js"]
+          "js/events.js"]
 
 
 def next_tag(cur, today):
