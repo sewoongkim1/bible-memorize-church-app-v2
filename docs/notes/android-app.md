@@ -41,5 +41,5 @@
 - 문: `STATUSBAR_FOLLOW_OPEN = false` 면 🧪 시험 참여자만 · true 면 플레이 앱 모두. 시험 `tests/statusbar-follow.test.cjs`(preflight).
 - ⚠️ theme-color 를 바꾸는 곳은 `syncStatusBar` 한 곳뿐이다(시험이 센다) — 다른 곳에서 바꾸면 위 띠가 서로 다툰다.
 
-**남은 것:** 친구 실기기 확인 → `STATUSBAR_FOLLOW_OPEN = true` · **B 아래 띠 크림**(껍데기 `twaManifest.navigationColor(Dark)`·`navigationDividerColor(Dark)` → #FDF8F0 · versionCode 3 · 플레이 업데이트 — 크롬 156 이상에서만 보인다 · 시스템 어두운 모드와 앱 어두운 모드는 따로 논다: 껍데기 `_DARK` 는 시스템을 따른다) 결정 · 크롬 TWA edge-to-edge 가 오면 다시 보기.
+**남은 것:** 친구 실기기 확인 끝(2026-10-13 — v3.604 · 첫 화면 맨 위 남색 · 내리면 크림 · 암송 화면 크림 · adb 화면 찍기) → `STATUSBAR_FOLLOW_OPEN = true`(검토 뒤) · **B 아래 띠 크림 — 1.1.1(versionCode 3) 빌드 끝**(커밋 「안드로이드 1.1.1」 · `twaManifest.navigationColor(Dark)`·`navigationDividerColor(Dark)` = #FDF8F0 · `bundleProdRelease` · 업로드 키 3A:17 서명 · 위젯 단위 시험 통과 · 위젯 코드는 1.1.0 그대로). 올릴 파일은 저장소 밖 `C:\Projects\성경암송-1.1.1-아래띠크림\성경암송-1.1.1-versionCode3.aab` — **Play Console 업로드는 친구**(내부 테스트 → 프로덕션 · 스킬 store-release). 크롬 153~155 는 이 색을 무시하므로 156 이상에서만 보인다. 앱 어두운 모드(설정에서 켠 분)는 크림 띠 위로 어두운 화면이 된다(껍데기 색은 휴대폰 어두운 모드만 안다) · 크롬 TWA edge-to-edge 가 오면 다시 보기.
 ⚠️ 시험판(`.dev`)은 assetlinks 에 없어 「탭 모드」(주소창)로 열려 theme-color·몰입이 안 먹는다 — 띠 시험에는 adb 크롬 명령줄 우회(`--disable-digital-asset-link-verification-for-url`)나 내부 테스트 트랙을 쓴다.

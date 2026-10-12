@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261013k";
+const APP_BUILD = "20261013l";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5204,6 +5204,16 @@ function nativeAppVersionHtml() {
   const build = a.build ? ` (빌드 ${a.build})` : "";      // nativeAppInfo 가 숫자·점만 남겨 준다
   return `<div class="btn-sub" style="text-align:center;margin-top:12px;">📱 아이폰 앱 ${a.version}${build}</div>`;
 }
+// 아이폰 앱 판이 v 이상인가 — 판 표식(window.GOCHEOK_APP · 1.1.1 부터)이 없으면 모른다 → false(없는 기능을 안내하지 않는 쪽).
+//   설명서 위젯 장이 1.1.1 의 넷째 위젯(「말씀 · 묵상 · 기도 돌려 보기」)을 말할지 정할 때 쓴다(2026-10-13 아이폰 1.1.1 출시).
+function iosAppAtLeast(v) {
+  const a = (typeof nativeAppInfo === "function") ? nativeAppInfo() : null;
+  if (!a || !a.version) return false;
+  const p = (s) => String(s).split(".").map((n) => parseInt(n, 10) || 0);
+  const x = p(a.version), y = p(v);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d > 0; }
+  return true;
+}
 
 function renderSettings() {
   // 실시간 구독 상태 진단(아래 startPushLiveStatus)이 화면을 나가도 계속 도는 걸
@@ -8928,14 +8938,23 @@ const MANUAL = [
     icon: "🧩", title: "바탕화면에 말씀 두기 (위젯)",
     lead: "앱을 열지 않아도 말씀이 바탕화면에 보여요.",
     when: () => widgetGuideOn("ios"),
-    art: '<div class="mn-row"><span class="mn-chip">이번주 말씀</span><span class="mn-chip">오늘의 묵상</span><span class="mn-chip">오늘의 축복 기도문</span></div>',
-    steps: [
-      "바탕화면의 빈 곳을 <b>꾹 누르세요</b>. 그림들이 흔들려요.",
-      "왼쪽 위 <b>「+」</b>(또는 <b>「편집」 → 「위젯 추가」</b>)를 누르세요.",
-      "목록에서 <b>「고척교회 성경암송」</b>을 찾아 누르세요.",
-      "옆으로 넘겨 <b>이번주 말씀 · 오늘의 묵상 · 오늘의 축복 기도문</b> 가운데 고르고 <b>「위젯 추가」</b>를 누르세요.",
-      "<b>잠금 화면</b>에는 이번주 말씀을 둘 수 있어요. 잠금 화면을 꾹 누르고 <b>「사용자화」</b> → 시계 아래 칸에서 <b>「고척교회 성경암송」</b>을 고르세요.",
-    ],
+    // 1.1.1(2026-10-13 출시)부터 넷째 위젯 「말씀 · 묵상 · 기도 돌려 보기」(ios-app TodayVerseWidgetBundle.swift configurationDisplayName) —
+    //   판 표식으로 1.1.1 이상인 폰에만 말한다(1.1.0 이하는 표식이 없어 모른다 — 없는 위젯을 안내하지 않는다). 그래서 art·steps 를 그때그때 만든다.
+    get art() {
+      return '<div class="mn-row"><span class="mn-chip">이번주 말씀</span><span class="mn-chip">오늘의 묵상</span><span class="mn-chip">오늘의 축복 기도문</span>'
+        + (iosAppAtLeast("1.1.1") ? '<span class="mn-chip">돌려 보기</span>' : "") + '</div>';
+    },
+    get steps() {
+      return [
+        "바탕화면의 빈 곳을 <b>꾹 누르세요</b>. 그림들이 흔들려요.",
+        "왼쪽 위 <b>「+」</b>(또는 <b>「편집」 → 「위젯 추가」</b>)를 누르세요.",
+        "목록에서 <b>「고척교회 성경암송」</b>을 찾아 누르세요.",
+        iosAppAtLeast("1.1.1")
+          ? "옆으로 넘겨 <b>이번주 말씀 · 오늘의 묵상 · 오늘의 축복 기도문</b>, 그리고 <b>「말씀 · 묵상 · 기도 돌려 보기」</b> 가운데 고르고 <b>「위젯 추가」</b>를 누르세요. <b>돌려 보기</b>는 이번주 말씀 · 오늘의 묵상 · 축복 기도문 · 쉴만한 물가가 <b>30분마다 저절로</b> 바뀌어요."
+          : "옆으로 넘겨 <b>이번주 말씀 · 오늘의 묵상 · 오늘의 축복 기도문</b> 가운데 고르고 <b>「위젯 추가」</b>를 누르세요.",
+        "<b>잠금 화면</b>에는 이번주 말씀을 둘 수 있어요. 잠금 화면을 꾹 누르고 <b>「사용자화」</b> → 시계 아래 칸에서 <b>「고척교회 성경암송」</b>을 고르세요.",
+      ];
+    },
     // ⚠️ 웹은 앱 판 번호를 몰라 1.0.1(이번주 말씀 하나 · 잠금 화면 없음) 폰에도 이 장이 보인다 —
     //    그분이 안내대로 해도 안 나오므로 알아보는 표시(「이번주 말씀만 보인다」)와 할 일을 적어 둔다.
     tip: "위젯을 누르면 <b>그 말씀 암송</b> · <b>매일 묵상</b> · <b>기도문</b> 화면이 바로 열려요. 기도문 위젯은 <b>「우리 가족」</b>으로 읽어요. 목록에 <b>이번주 말씀만</b> 보이거나 잠금 화면에 앱이 안 나오면 <b>App Store</b>에서 앱을 <b>업데이트</b>해 주세요.",
