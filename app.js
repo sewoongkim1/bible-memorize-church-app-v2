@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261013j";
+const APP_BUILD = "20261013k";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -7168,17 +7168,23 @@ function syncStatusBar() {
 }
 function syncStatusBarSoon() { if (!_sbRaf) _sbRaf = requestAnimationFrame(syncStatusBar); }
 (function watchStatusBarColor() {
-  try {
-    if (!openedByPlayApp()) return;   // 플레이 앱이 아닌 실행은 듣지도 않는다(문은 syncStatusBar 가 매번 다시 본다)
-    window.addEventListener("scroll", syncStatusBarSoon, { passive: true });
-    window.addEventListener("resize", syncStatusBarSoon);
-    const mo = new MutationObserver(syncStatusBarSoon);
-    const appEl = document.getElementById("app");
-    if (appEl) mo.observe(appEl, { childList: true });                                    // 화면이 바뀜
-    mo.observe(document.body, { childList: true });                                       // 창(어둠막)이 뜨고 닫힘
-    mo.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });   // 앱 어두운 모드
-    setTimeout(syncStatusBarSoon, 400);
-  } catch (e) {}
+  // ⚠️ 「이번 실행이 플레이 앱」 표식(PLAY_SESSION_KEY)은 이 파일 **아래쪽**(referrer 읽기)에서 적힌다 — 여기서 바로 보면 새로 켠 첫 실행은
+  //    아직 몰라 감시가 아예 안 걸린다(2026-10-13 친구 폰에서 그랬다 · 크롬은 theme-color 바꿈을 바로 받는 것까지 확인함).
+  //    그래서 파일이 다 돈 뒤(setTimeout 0)에 본다.
+  setTimeout(() => {
+    try {
+      if (!openedByPlayApp()) return;   // 플레이 앱이 아닌 실행은 듣지도 않는다(문은 syncStatusBar 가 매번 다시 본다)
+      window.addEventListener("scroll", syncStatusBarSoon, { passive: true });
+      window.addEventListener("resize", syncStatusBarSoon);
+      const mo = new MutationObserver(syncStatusBarSoon);
+      const appEl = document.getElementById("app");
+      if (appEl) mo.observe(appEl, { childList: true });                                    // 화면이 바뀜
+      mo.observe(document.body, { childList: true });                                       // 창(어둠막)이 뜨고 닫힘
+      mo.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });   // 앱 어두운 모드
+      syncStatusBarSoon();
+      setTimeout(syncStatusBarSoon, 400);
+    } catch (e) {}
+  }, 0);
 })();
 
 // 영어 관용 비교용 정규화 — 대소문자·문장부호·스마트따옴표 차이는 정답으로 인정
