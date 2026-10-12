@@ -13,6 +13,9 @@
 --   · 키를 바꾸면(로테이션) — Vault 의 값만 바꾼다(작업은 다시 걸 필요 없다 · 다음 실행부터 새 키를 읽는다):
 --       select vault.update_secret((select id from vault.secrets where name = 'edu_remind_service_key'), '<새 키>');
 --   · 이름이 Vault 에 없으면 이 파일은 아무것도 걸지 않고 멈춘다(raise exception · 다시 돌려도 안전).
+--   · ⚠️ 이 이름을 읽는 작업은 **아홉**이다(2026-10-12 부터): 이 파일의 edu-first-day-remind · 봉사 당번 전날 알림 duty-remind(duty_remind_cron.sql) ·
+--     감시 monitor-watch(monitor_watch_cron.sql) · push_report_cron.sql 의 여섯(아침 알림 넷 daily-push-5~8 · 주일 말씀 weekly-verse-push · 주간 리포트 weekly-report-email).
+--     값을 바꾸면 아홉이 함께 새 키를 읽고, 틀린 값이면 아홉이 함께 조용히 unauthorized 가 된다(아침 알림 포함 · 크론 기록은 그래도 succeeded).
 -- 주소(YOUR_API_URL)는 자리표다 — 돌릴 때 그 프로젝트의 api 주소로 바꾼 사본으로 돌린다(키가 아니라 비밀은 아니다 · 박아 두지 않는 것은
 --   개발에 돌렸다가 운영 api 를 부르는 일이 없게). 운영 https://xnomlgydifiqiybervtf.supabase.co/functions/v1/api — 꼴이 아니면 멈춘다.
 -- 다시 돌려도 안전 — 같은 이름의 작업을 먼저 지우고(unschedule) 다시 건다(schedule).
@@ -57,5 +60,6 @@ end $$;
 -- 보낸 기록:  select sent_at, mode, sent, failed, total, ok from push_log where mode = 'edu-first-day' order by sent_at desc limit 10;
 --            (내일 첫 날인 강좌가 없으면 push_log 줄도 없다 — api 응답 {ok, day, courses:0, sent:0})
 -- 해제:      select cron.unschedule('edu-first-day-remind');
---            ⚠️ 키(edu_remind_service_key)는 **봉사 당번 전날 알림(duty-remind · duty_remind_cron.sql)도 읽는다** — 두 작업을 모두 걷을 때만 지운다
---               (delete from vault.secrets where name = 'edu_remind_service_key';). 하나만 걷고 지우면 남은 작업이 조용히 unauthorized 가 된다.
+--            ⚠️ 키(edu_remind_service_key)는 **작업 아홉이 읽는다** — 이 작업 · 봉사 당번 전날 알림(duty-remind · duty_remind_cron.sql) · 감시(monitor-watch) ·
+--               push_report_cron.sql 의 여섯(아침 알림 넷 · 주일 말씀 · 주간 리포트). 아홉 작업(push_report_cron.sql 의 여섯 포함)을 모두 걷을 때만 지운다
+--               (delete from vault.secrets where name = 'edu_remind_service_key';). 하나라도 남기고 지우면 남은 작업이 조용히 unauthorized 가 된다(아침 알림 포함).

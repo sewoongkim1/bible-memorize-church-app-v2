@@ -8,7 +8,9 @@
 --
 -- ⚠️ 이 저장소는 공개(public)입니다 — 키를 이 파일(이나 그 사본)에 적지 않는다.
 -- 키는 Vault 에 둔다 — 교육·당번 전날 알림(edu_remind_cron.sql · duty_remind_cron.sql)과 **같은 비밀 이름**(edu_remind_service_key):
---   셋 다 같은 api 의 같은 문(x-internal-key = 그 프로젝트 api 가 보는 SUPABASE_SERVICE_ROLE_KEY)을 지나므로 키가 하나면 된다(로테이션도 한 번).
+--   모두 같은 api 의 같은 문(x-internal-key = 그 프로젝트 api 가 보는 SUPABASE_SERVICE_ROLE_KEY)을 지나므로 키가 하나면 된다(로테이션도 한 번).
+--   ⚠️ 이 이름을 읽는 작업은 **아홉**이다(2026-10-12 부터): monitor-watch · edu-first-day-remind · duty-remind · push_report_cron.sql 의 여섯
+--      (아침 알림 넷 daily-push-5~8 · 주일 말씀 weekly-verse-push · 주간 리포트 weekly-report-email) — 지우거나 틀린 값으로 바꾸면 아홉이 함께 조용히 멈춘다(지우는 조건은 edu_remind_cron.sql 「해제」).
 --   그 이름이 Vault 에 없으면 이 파일은 아무것도 걸지 않고 멈춘다(raise exception · 다시 돌려도 안전).
 -- 주소(YOUR_API_URL)는 자리표다 — 돌릴 때 그 프로젝트의 api 주소로 바꾼 사본으로 돌린다(키가 아니라 비밀은 아니다 · 박아 두지 않는 것은
 --   개발에 돌렸다가 운영 api 를 부르는 일이 없게). 운영 https://xnomlgydifiqiybervtf.supabase.co/functions/v1/api — 꼴이 아니면 멈춘다.

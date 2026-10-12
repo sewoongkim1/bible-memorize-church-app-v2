@@ -164,7 +164,7 @@ function json(obj: unknown, status = 200) {
 // 관리자 문에 「총괄 본인」 확인 (2026-10-08 · 설계 docs/superpowers/specs/2026-10-08-admin-gate-super-check-design.md)
 // 암호 하나로 열리던 것을 「암호 + 그 브라우저에 로그인된 사람이 교회 어드민 활성 총괄」로 좁힌다(임시 자물쇠).
 // SUPER_OK·INTERNAL_OK(들머리가 붙이는 표) → _shared.ts (2026-10-12 파일 나누기 2단계 · adminError 와 함께)
-// 내부 키로 부를 수 있는 관리 액션(사람만 쓰는 SUPER 묶음) — 크론·알림(ADMIN_PW_ONLY)·사역·설교는 넣지 않는다.
+// 내부 키로 부를 수 있는 관리 액션(교회 어드민이 화면 대신 부르는 · 사람만 쓰는 SUPER 묶음) — 크론이 부르는 셋은 아래 INTERNAL_CRON_OK(따로) · 사역은 넣지 않는다.
 //   내부 키 = service_role 는 이미 DB 전권이라 추가 노출은 없지만, 화이트리스트로 명확히 제한한다.
 const INTERNAL_ADMIN_OK = new Set([
   "stats", "participants", "verses", "blessingUsage", "ranking",
@@ -174,13 +174,61 @@ const INTERNAL_ADMIN_OK = new Set([
   "pilsaList", "pilsaSetStatus",
   "sermonChatLog", "embedSermons", "clearChatCache", "clearSummaryCache",
   // 알림 조회·시스템 상태(2026-10-09 묶음4) — 읽기만 옮긴다. ⚠️ 전체 발송(sendPush)·리포트 메일(weeklyReport)은
-  //   바깥으로 나가는 중대한 일이라 **넣지 않는다**(성경암송 admin-stats 에 남겨 둔다 · 크론은 그대로).
+  //   바깥으로 나가는 중대한 일이라 **넣지 않는다**(성경암송 admin-stats 에 남겨 둔다 · 크론은 INTERNAL_CRON_OK 로 따로 — 2026-10-12).
   "pushStats", "pushSubscribers", "pushHistory", "pushPreview", "monitor",
   // 설교·찬양(2026-10-09 묶음5 · 담당자 역할 content) — 화면만 옮긴다. 워크플로 콜백(sermonJobGet/Update)은 기계용이라 넣지 않는다.
   //   ⚠️ sermonJobCreate 는 GitHub 워크플로를, verseImgGenerate 는 Gemini(비용)를 깨운다 — 비용 한도·불변식은 성경암송 api 에 그대로(안 건드림).
   "sermonStaffList", "sermonJobCreate", "sermonJobs", "sermonJobRetry", "sermonStaffSave", "staffVerseSave", "sermonDelete", "verseNextNo", "verseMeta", "generateNiv",
   "verseImgList", "verseImgScenes", "verseImgGenerate", "verseImgAlt", "verseImgSave", "verseImgHide",
 ]);
+// 크론(pg_cron)이 Vault 의 내부 키로 부르는 기계 액션(2026-10-12 · supabase/push_report_cron.sql) — 크론 명령에서 관리자 암호를 걷었다.
+//   INTERNAL_ADMIN_OK(교회 어드민이 화면 대신 부르는 묶음)와 뜻이 달라 따로 둔다 — 교회 어드민의 case 목록·ACTION_ROLES 에는 넣지 않는다
+//   (2026-10-09 결정 그대로: 전체 발송·리포트 메일은 교회 어드민으로 옮기지 않는다).
+//   ⚠️ 같은 서비스 키라 api 는 크론과 다른 호출자(교회 어드민 프록시 등)를 가르지 못한다 — 그래서 들머리가 본문을 크론의 꼴로 다시 만든다
+//      (아래 cronOnly). 이 길로 할 수 있는 일 = 「크론이 하는 일을 한 번 더(서버가 정한 같은 글·주소·받는 곳으로)」뿐이다.
+//   ⚠️ 암호 길(ADMIN_PW_ONLY · _shared.ts)은 그대로 — admin-stats 손 발송·monitor.yml(weekly_test·diag_send)·크론 되돌리기가 쓴다(걷기는 관리 이전 마지막 묶음).
+//   ⚠️ 이 셋 안에서 다른 관리 함수를 **새 객체로** 부르면 표가 끊긴다 — {...b} 로 펼치거나 [INTERNAL_OK] 를 함께 넘길 것(weeklyReport 의 stats 두 부름).
+//   ⚠️ 사람 발송(admin-stats 의 알림 보내기·리포트 보내기)을 교회 어드민으로 옮기는 날에는 크론과 교회 어드민이 같은 키로 같은 액션을 부르게 된다 —
+//      그때 크론 전용 비밀(Vault 새 이름)로 가른다(cronOnly 가 사람 발송까지 크론 꼴로 좁혀 버린다).
+const INTERNAL_CRON_OK = new Set(["sendPush", "weeklyVersePush", "weeklyReport"]);
+// ── 크론 길 본문 — 순수 함수 (여기부터) ──
+// ⚠️ 이 구간은 **타입 표기 없이** 쓴다 — tests/push-report-cron.test.cjs 가 두 표식 사이만 잘라 node:vm 으로 돌린다
+//    (주석에도 표기를 예로 적지 않는다 — 가드 정규식이 주석까지 본다 · 역슬래시도 쓰지 않는다).
+// 크론 셋의 본문을 크론의 꼴로 다시 만든다 — 돌려주는 것 = 서버가 정한 새 본문 · null = 크론의 꼴이 아니다(들머리가 bad-args 로 돌려보낸다).
+//   글(title·body·userBodies)·주소(url)·받는 곳(only·extra)은 **받지 않는다** — 서버가 정한다.
+//   손 부름(부작용 없이 문만 보기)은 diag + user_id(없는 계정) — diag 는 user_id 가 있을 때만(기록 없이 여럿에게 보내는 길을 막는다).
+//   ⚠️ 아침 알림 시각(크론 작업)을 늘리면 CRON_PUSH_HOURS 도 함께 — 아니면 그 작업이 조용히 bad-args 다(크론 기록은 succeeded).
+var CRON_PUSH_TITLE = "오직 성경, 말씀이 답이다!";
+var CRON_PUSH_URL = "https://gocheok.onlybible.kr/";
+var CRON_PUSH_HOURS = [5, 6, 7, 8];
+var CRON_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var CRON_YMD_RE = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
+function cronOnly(b) {
+  if (!b || typeof b !== "object" || Array.isArray(b)) return null;
+  var uid = b.user_id, diag = b.diag, hour = b.hour;
+  if (uid !== undefined && (typeof uid !== "string" || !CRON_UUID_RE.test(uid))) return null;
+  if (diag !== undefined && (diag !== true || uid === undefined)) return null;
+  if (hour !== undefined && (typeof hour !== "number" || !Number.isInteger(hour))) return null;
+  var who = Object.assign({}, uid !== undefined ? { user_id: uid } : {}, diag === true ? { diag: true } : {});
+  if (b.action === "sendPush") {
+    // 시각이 없으면 sendPush 는 모두에게 보낸다 — 크론의 넷 가운데 하나여야 한다(손 부름 diag 는 아무 시각이나)
+    if (hour === undefined || (diag !== true && CRON_PUSH_HOURS.indexOf(hour) < 0)) return null;
+    return Object.assign({ action: "sendPush", latest: true, title: CRON_PUSH_TITLE, url: CRON_PUSH_URL, hour: hour }, who);
+  }
+  if (b.action === "weeklyVersePush") {
+    return Object.assign({ action: "weeklyVersePush" }, hour !== undefined ? { hour: hour } : {}, who);   // 글·주소는 weeklyVersePush 가 정한다
+  }
+  if (b.action === "weeklyReport") {
+    if (uid !== undefined || diag !== undefined || hour !== undefined) return null;
+    if (b.send !== undefined && b.send !== true) return null;
+    if (b.from !== undefined && (typeof b.from !== "string" || !CRON_YMD_RE.test(b.from))) return null;
+    if (b.to !== undefined && (typeof b.to !== "string" || !CRON_YMD_RE.test(b.to))) return null;
+    return Object.assign({ action: "weeklyReport" }, b.send === true ? { send: true } : {},
+      b.from !== undefined ? { from: b.from } : {}, b.to !== undefined ? { to: b.to } : {});   // 받는 곳(extra)은 받지 않는다 — REPORT_RECIPIENTS 만
+  }
+  return null;
+}
+// ── 크론 길 본문 — 순수 함수 (여기까지) ──
 // ADMIN_PW_ONLY(암호만으로 통과하는 기계 호출) → _shared.ts (adminError 와 함께)
 // b.staff(로그인된 사람)가 교회 어드민 활성 총괄(super)과 같은 사람인가 — 같은 프로젝트 표라 직접 읽는다.
 // ⚠️ admin_role_grants → admin_members FK 가 둘(member_id·granted_by)이라 임베드가 모호하다 → 두 질의.
@@ -415,6 +463,16 @@ Deno.serve(async (req) => {
     //   ⚠️ 이 분기는 암호·총괄·크론 경로를 바꾸지 않는다. 내부 키가 유효하고 액션이 화이트리스트일 때 adminError 를 통과시킬 뿐이다.
     if (INTERNAL_ADMIN_OK.has(body.action) &&
         sameSecret(req.headers.get("x-internal-key") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "")) {
+      (body as any)[INTERNAL_OK] = true;
+    }
+    // 크론(pg_cron · Vault 의 내부 키)이 부르는 기계 액션 셋 — 본문을 크론의 꼴로 다시 만들고 암호 없이 통과(2026-10-12 · 위 INTERNAL_CRON_OK · cronOnly).
+    //   ⚠️ 내부 키를 실은 부름은 이 갈래로만 간다 — 크론의 꼴이 아니면 bad-args(암호가 있어도 · 사람 발송은 머리 없이 암호 길로 온다).
+    if (INTERNAL_CRON_OK.has(body.action) &&
+        sameSecret(req.headers.get("x-internal-key") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "")) {
+      const nb = cronOnly(body);
+      if (!nb) return json({ ok: false, error: "bad-args" });
+      for (const k of Object.keys(body)) delete (body as any)[k];
+      Object.assign(body, nb);
       (body as any)[INTERNAL_OK] = true;
     }
     switch (body.action) {
@@ -1264,7 +1322,8 @@ async function sendPush(b: any) {
   // ⚠️ 기존 호출자(아침 크론 넷·주일 발송·관리자 수동·monitor diag)는 둘 다 안 넘긴다.
   //    그때는 onlySet 이 null 이라 아무도 안 걸러지고, 문구도 지금과 똑같다.
   const onlySet = buildOnlySet(b.only);
-  const pushUrl = b.url || "https://gocheok.onlybible.kr/";
+  // 누르면 열리는 주소 — 이 앱 안만(2026-10-12 · sw.js 는 출처를 보지 않고 연다). 다른 곳이면 첫 화면.
+  const pushUrl = (typeof b.url === "string" && b.url.startsWith("https://gocheok.onlybible.kr/")) ? b.url : "https://gocheok.onlybible.kr/";
 
   // hour 지정 시 그 시간을 고른 구독자에게만(시간대별 cron), user_id 지정 시 그 성도 기기에만(개별 테스트 발송), 둘 다 없으면 전체(관리자 수동 발송)
   let subQ = db.from("push_subscriptions").select("id,endpoint,p256dh,auth,user_id");
@@ -3667,7 +3726,8 @@ async function weeklyReport(b: any) {
   }), { newUsers: 0, learners: 0, learnTyping: 0, learnVoice: 0, learnTotal: 0 });
   const challengeTotal = challenge.reduce((sum: number, r: any) => sum + (r.count || 0), 0);
   // 누적 참여자(전체 기간 동안 암송한 총 인원, 중복 제거)
-  const cumRes: any = await stats({ pw: b.pw, [SUPER_OK]: true, from: "", to: "" });   // weeklyReport 는 믿는 기계 호출 → 내부 stats 에 총괄 표를 넘긴다
+  // 믿는 기계 호출 → 안쪽 stats 에 표를 넘긴다(암호 길은 SUPER_OK · 크론의 내부 키 길은 INTERNAL_OK — 빠뜨리면 막혀도 숫자가 조용히 0 이 된다)
+  const cumRes: any = await stats({ pw: b.pw, [SUPER_OK]: true, [INTERNAL_OK]: (b as any)[INTERNAL_OK] === true, from: "", to: "" });
   const cumParticipants = cumRes.ok ? (cumRes.list || []).reduce((sm: number, x: any) => sm + (x.participants || 0), 0) : 0;
 
   const sortedParticipants = participantsList.slice().sort((a: any, b: any) => b.total - a.total);
@@ -3728,7 +3788,7 @@ async function weeklyReport(b: any) {
   const daily = dayBuckets.map((x) => ({ date: x.date, count: x.set.size }));
   // 주차별 신규 유입(첫 암송이 그 주에 속하는 인원) — stats RPC 재사용
   const weekNew = await Promise.all(weekBuckets.map(async (wk) => {
-    const r: any = await stats({ pw: b.pw, [SUPER_OK]: true, from: wk.from, to: wk.to }); // 믿는 기계 호출 — 총괄 표를 넘긴다(pw+권한)
+    const r: any = await stats({ pw: b.pw, [SUPER_OK]: true, [INTERNAL_OK]: (b as any)[INTERNAL_OK] === true, from: wk.from, to: wk.to }); // 믿는 기계 호출 — 표를 넘긴다(위와 같다)
     return r.ok ? (r.list || []).reduce((sum: number, x: any) => sum + (x.newCount || 0), 0) : 0;
   }));
   const weekly = weekBuckets.map((x, i) => ({ from: x.from, to: x.to, count: x.set.size, newCount: weekNew[i] }));
@@ -3739,7 +3799,8 @@ async function weeklyReport(b: any) {
 
   // send=true → 실제 발송(cron·관리자). 아니면 미리보기 데이터 반환.
   if (b.send) {
-    const sent = await sendEmailResend(subject, html, text, b.extra);
+    // 내부 키 길(크론)은 받는 곳을 더하지 않는다 — REPORT_RECIPIENTS 만(cronOnly 도 extra 를 걷는다 · 두 겹)
+    const sent = await sendEmailResend(subject, html, text, (b as any)[INTERNAL_OK] === true ? undefined : b.extra);
     return { ok: sent.ok, sent, range, subject };
   }
   return { ok: true, report, html, text, csv: buildWeeklyCsv(report), subject };

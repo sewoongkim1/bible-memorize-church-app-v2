@@ -146,6 +146,9 @@ PURE_TESTS += ["tests/api-split.test.cjs"]
 PURE_TESTS += ["tests/client-errors.test.cjs"]
 # 감시의 감시(GitHub 60일 멈춤 대비 · 2026-10-12) — 흔적의 나이·멈춤 메일 · monitor·internalMonitorWatch·크론 SQL·monitor.yml 배선(교회 어드민 점검 포함)
 PURE_TESTS += ["tests/monitor-guard.test.cjs"]
+# 크론 여섯을 Vault 내부 키로(2026-10-12) — 크론 SQL 의 꼴 · 옛 넷 멈춤 · api 의 크론 문(INTERNAL_CRON_OK · cronOnly) · weeklyReport 안쪽 표 · 알림 주소
+# (위 줄들을 고치지 않고 따로 더한다 — 다른 세션도 이 목록에 더하고 있어 합칠 때 부딪힌다)
+PURE_TESTS += ["tests/push-report-cron.test.cjs"]
 
 print("\n[3] 순수 함수 검사 (node --test)")
 for t in PURE_TESTS:

@@ -21,10 +21,13 @@ export const kstDay = (iso: string) =>
 // 관리자 문에 「총괄 본인」 확인 (2026-10-08 · 설계 docs/superpowers/specs/2026-10-08-admin-gate-super-check-design.md)
 //   SUPER_OK·INTERNAL_OK 는 **들머리(index.ts 의 Deno.serve)** 가 본문에 붙인다 — 붙이는 자리·INTERNAL_ADMIN_OK·staffIsSuper 는 index.ts 에 있다.
 export const SUPER_OK = Symbol("superOk");   // 들머리가 붙인다 · JSON 으로 못 만든다 → 위조 불가
-// 교회 어드민이 내부 키(service_role)로 부르는 관리 액션 — 들머리가 붙인다 · 위조 불가(2026-10-09 성경암송 관리 이전).
-//   adminError 가 맨 앞에서 본다(암호 없이 통과). church-admin 의 역할(canCall)이 진짜 게이트다.
+// 내부 키(service_role)로 온 관리 액션 — 들머리가 붙인다 · 위조 불가. adminError 가 맨 앞에서 본다(암호 없이 통과).
+//   붙이는 목록은 둘(index.ts): 교회 어드민 프록시 INTERNAL_ADMIN_OK(2026-10-09 · 게이트는 church-admin 의 canCall) ·
+//   크론 INTERNAL_CRON_OK(2026-10-12 · 게이트는 서비스 키 + 본문을 크론의 꼴로 다시 만드는 cronOnly).
 export const INTERNAL_OK = Symbol("internalOk");
-export const ADMIN_PW_ONLY = new Set([        // 사람 없는 기계 호출(크론·MCP·설교) — 암호만으로 통과
+// 사람 없는 기계 호출(MCP·설교·monitor.yml) — 암호만으로 통과. 크론 셋(sendPush·weeklyVersePush·weeklyReport)은 2026-10-12 부터
+//   내부 키로 부르지만 이 목록에서 빼지 않는다 — admin-stats 손 발송·monitor.yml(weekly_test·diag_send)·크론 되돌리기가 암호로 부른다(걷기는 관리 이전 마지막 묶음).
+export const ADMIN_PW_ONLY = new Set([
   "sendPush", "weeklyVersePush", "weeklyReport", "monitor", "eveningPush",
   "findMember", "memberParticipation", "sermonJobGet", "sermonJobUpdate", "embedSermons", "importV1",
 ]);
