@@ -6266,7 +6266,9 @@ html[data-fs="xl"] .home-b .summary-card > .summary-help.event-cta .ev-pill { ma
 .dark .home-a .ha-tool-ic,
 .dark .home-a .ha-tool .icon-cap-label { color: #f1eee7; }
 /* 🔔 알림 켜는 방법(2026-10-13 · js/push.js showPushHelp) — 길잡이 창 안 번호 목록. 창 글은 가운데지만 차례는 왼쪽 맞춤이 읽기 쉽다 */
-.am-msg .ph-wrap { text-align: left; white-space: normal; }
+/* 창(.am-overlay)은 스크롤이 없다 — 작은 폰·큰 글씨에서 단추가 잘리지 않게 길잡이 본문만 안에서 스크롤(240px = 창의 아이콘·제목·단추·여백) */
+.am-msg .ph-wrap { text-align: left; white-space: normal; overflow-y: auto;
+  max-height: min(60vh, calc(100vh - 240px)); max-height: min(60dvh, calc(100dvh - 240px)); }
 .am-msg .ph-why { margin: 0 0 8px; color: #b3261e; font-weight: 700; }
 .am-msg .ph-lead { margin: 0 0 10px; font-weight: 700; }
 .am-msg .ph-steps { margin: 0 0 8px; padding-left: 1.4em; }

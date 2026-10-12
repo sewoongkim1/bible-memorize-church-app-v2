@@ -155,9 +155,14 @@ function pushEnv() {
 }
 const BACK_AUTO = "이 화면으로 돌아오시면 <b>알림이 저절로 켜져요</b>.";
 const PUSH_HELP = {
+  // 플레이 앱(TWA) 안의 화면은 크롬이 그린다. 크롬은 앱의 알림 권한을 크롬이 뜬 뒤 한 번만 묻고 크롬이 꺼질 때까지 그 답을 쓴다
+  // (InstalledWebappRegistrar 의 mCache) — 설정에서 켜고 돌아와도 「막힘」 그대로라 BACK_AUTO 는 거짓이다(2026-10-13 친구 폰). 그래서 휴대폰 다시 켜기를.
+  // 같은 사이트 앱이 둘(옛 시험판 …memorize + 새 앱 · 크롬으로 설치한 것 + 플레이 앱)이면 크롬이 연 쪽이 아닌 앱에 물을 수 있다(NotificationPermissionUpdater 주석) — 하나만 남기는 팁.
+  // 「알림 허용」이 켜져 있어도 그 아래 항목(크롬이 넘기는 「일반」)이 꺼져 있으면 막힘으로 답한다(androidbrowserhelper NotificationUtils).
   "android-app": { lead: "폰 설정에서 <b>성경암송</b> 앱의 알림을 켜 주세요.",
-    steps: ["바탕화면의 <b>성경암송</b> 앱 아이콘을 <b>꾹</b> 누르세요.", "<b>ⓘ</b>(앱 정보)를 누르세요.", "<b>알림</b>을 눌러 <b>「알림 허용」</b>을 켜세요.", BACK_AUTO],
-    tip: "아이콘에서 안 되면: 폰 <b>설정 → 애플리케이션(앱) → 성경암송 → 알림</b>." },
+    steps: ["바탕화면의 <b>성경암송</b> 앱 아이콘을 <b>꾹</b> 누르세요.", "<b>ⓘ</b>(앱 정보)를 누르세요.", "<b>알림</b>을 눌러 <b>「알림 허용」</b>을 켜세요(아래 <b>일반</b> 항목이 있으면 그것도).",
+      "<b>휴대폰을 껐다 켠 뒤</b> 성경암송을 열고 🔔 <b>알림</b>을 다시 눌러 주세요 — 그래야 바뀐 설정이 확실히 들어와요."],
+    tip: "아이콘에서 안 되면: 폰 <b>설정 → 애플리케이션(앱) → 성경암송 → 알림</b>. <b>성경암송</b>이 두 개 보이면 하나만 남기고 지워 주세요(둘이면 설정이 엇갈릴 수 있어요)." },
   "android": { lead: "크롬에서 이 사이트의 알림을 허용해 주세요.",
     steps: ["화면 맨 위 주소창 <b>맨 왼쪽 아이콘</b>(🔒 또는 ⚙)을 누르세요.", "<b>권한</b>(또는 <b>사이트 설정</b>)에서 <b>알림</b>을 누르세요.", "<b>허용</b>으로 바꾸세요.", BACK_AUTO],
     tip: "안 보이면: 크롬 오른쪽 위 <b>⋮ → 설정 → 사이트 설정 → 알림</b>에서 <b>gocheok.onlybible.kr</b> 을 허용. 플레이스토어 <b>성경암송</b> 앱으로 받으시면 더 쉬워요." },
@@ -193,7 +198,8 @@ async function showPushHelp(env, why) {
   const msg = `<div class="ph-wrap">${head ? `<p class="ph-why">${head}</p>` : ""}<p class="ph-lead">${h.lead}</p>`
     + `<ol class="ph-steps">${h.steps.map((x) => `<li>${x}</li>`).join("")}</ol>`
     + (h.tip ? `<p class="ph-tip">💡 ${h.tip}</p>` : "") + `</div>`;
-  const retry = ["android-app", "android", "samsung", "ios-home", "pc"].indexOf(env) >= 0;
+  // 플레이 앱이 막혀 있으면 돌아와도 · 다시 눌러도 그대로다(크롬이 쥐고 있는 답 — 휴대폰을 다시 켜야 바뀐다) — 「다시 켜기」를 걸지 않는다
+  const retry = ["android-app", "android", "samsung", "ios-home", "pc"].indexOf(env) >= 0 && !(env === "android-app" && why === "denied");
   if (retry) armPushRetry();
   if (env === "ios-browser") {
     // 「홈 화면에 추가하는 법」은 창 안 글 단추로 — 닫기(바깥 누름 포함)와 섞이면 안 된다
