@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261012g";
+const APP_BUILD = "20261012h";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -3160,16 +3160,20 @@ function renderSummary() {
     sub: notDone > 0 ? "" : `${done}구절 모두 마치셨어요 🎉` };
   const SUB = [{ id: "go-challenge", cls: "challenge-cta", ic: "🔥", tx: "말씀 도전" }];
 
-  const pct = total ? Math.round((done / total) * 100) : 0;
-  // 진행 막대 문구 — 「35구절 중 35구절 마침」은 「구절」이 두 번 나와 겹쳐 읽혔고,
+  // 진행 줄 문구 — 「35구절 중 35구절 마침」은 「구절」이 두 번 나와 겹쳐 읽혔고,
   // 다 마치신 분께는 같은 숫자가 두 번 나와 더 이상했다(2026-09-02).
   // 단위는 한 번만 쓰고, 세 처지에 각각 다른 말을 한다 —
   // 아직 시작 전 / 가는 중 / 다 마침. 다 마치신 분께는 세는 대신 축하한다.
+  // ⚠️ 2026-10-12 친구 결정 — **전체 수 · % · 막대를 뺐다. 마친 수만 센다.**
+  //    「전체 41구절 · 0%」, 「2구절 마쳤어요 / 전체 41 · 5%」처럼 전체를 보이면 새로 오신 분께
+  //    「아직 한참 남았다」가 먼저 읽혔고, 구절이 매주 늘어 그 수는 해마다 커진다(내년엔 90을 넘는다).
+  //    「한 구절 늘었다」는 기쁨만 남긴다. 전체 중 어디쯤인지는 말씀 목록·앨범에서 보인다.
+  //    (같은 날 큰 단추 아래 「아직 N구절 남았어요」도 뺐다 — 위 TODO.)
   const sbLine = done >= total && total > 0
     ? `<b>${total}</b>구절 모두 마쳤어요 🎉`
     : done === 0
-    ? `전체 <b>${total}</b>구절 · 이제 시작이에요`
-    : `<b>${done}</b>구절 마쳤어요 <span class="sb-of">/ 전체 ${total}</span>`;
+    ? `이제 시작이에요`
+    : `<b>${done}</b>구절 마쳤어요 👏`;
   const weeklyInfo = getWeeklyVerseInfo();
   const weeklyVerse = weeklyInfo && weeklyInfo.verse;
   const weeklyStage = weeklyVerse ? getPassedStage(weeklyVerse.no) : 0;
@@ -3214,8 +3218,6 @@ function renderSummary() {
            빼기 때문). 한 줄로만 말한다. -->
       <div class="stat-bar">
         <span class="sb-line">${sbLine}</span>
-        <span class="sb-pct">${pct}%</span>
-        <span class="sb-track"><i style="width:${pct}%"></i></span>
       </div>
     </div>
     <!-- 이벤트는 「오늘 할 일」 바로 위 — 누르는 것들 바로 앞자리다 -->
@@ -8859,7 +8861,7 @@ function renderHelp(onClose) {
 
         <section class="help-section">
           <h3>🏷️ 내 기록 & 진행 표시</h3>
-          <p>첫 화면 위쪽 막대에 <b>마친 구절 수와 %</b>가 보여요. 말씀 목록의 카드 배지는 <b>미시도 · 1단계 완료 · 2단계 완료 · 완료</b>(+ 암송 횟수)를 나타내요. 3단계를 마친 말씀은 <b>📖 나의 말씀 앨범</b>에 모여요.</p>
+          <p>첫 화면 위쪽에 <b>마친 구절 수</b>가 보여요. 말씀 목록의 카드 배지는 <b>미시도 · 1단계 완료 · 2단계 완료 · 완료</b>(+ 암송 횟수)를 나타내요. 3단계를 마친 말씀은 <b>📖 나의 말씀 앨범</b>에 모여요.</p>
         </section>
 
         <section class="help-section">

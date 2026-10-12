@@ -1403,7 +1403,7 @@ body.native-app-hide-ref .word-input { scroll-margin-top: 90px; }
    네 칸을 늘 펼쳐 두면 다 마치신 분일수록 0이 셋이라 초라해 보인다.
    한 줄로 먼저 말하고, 자세한 넷은 눌렀을 때만. */
 .stat-bar {
-  display: grid; grid-template-columns: 1fr auto; gap: 2px 8px;
+  display: grid; grid-template-columns: 1fr; gap: 2px 8px;
   width: 100%; margin: 0 0 12px; padding: 10px 12px;
   /* 오늘 띠와 같은 「읽는 것」 옷 — 테두리 없음 · 모서리 8px.
      둘이 나란히 서는 자리라 옷이 다르면 하나는 누를 수 있어 보인다. */
@@ -1423,22 +1423,20 @@ body.native-app-hide-ref .word-input { scroll-margin-top: 90px; }
   .stat-bar { padding: 10px 10px; }
   .stat-bar .sb-line { font-size: .86rem; }
   .stat-bar .sb-line b { font-size: 1rem; }
-  .stat-bar .sb-pct { font-size: .86rem; }
 }
 .stat-bar .sb-line b { color: var(--navy); font-size: 1.06rem; font-weight: 800; }
-/* 「/ 전체 35」 — 곁들이는 말이라 한 단계 흐리게. 앞의 숫자가 주인공이다. */
-.stat-bar .sb-of { opacity: .62; font-size: .92em; }
-.stat-bar .sb-pct { font-size: .92rem; font-weight: 800; color: var(--navy); white-space: nowrap; }
-.stat-bar .sb-track {
-  grid-column: 1 / -1; height: 7px; margin-top: 4px;
-  background: #e6e9ef; border-radius: 4px; overflow: hidden;
-}
-.stat-bar .sb-track i {
-  display: block; height: 100%; border-radius: 4px;
-  background: linear-gradient(90deg, var(--navy), #3a5d9e);
-}
 .dark .stat-bar { background: #1b2436; }
-.dark .stat-bar .sb-track { background: #2f3d55; }
+/* --navy 는 .dark 에서 안 바뀐다 — 마친 수(숫자)가 어두운 바탕에 묻혀 안 보였다(2026-10-12) */
+.dark .stat-bar .sb-line b { color: #cdd9f2; }
+/* 첫 화면 인사의 소속·이름·「성도님」도 같은 까닭으로 안 보였다(2026-10-12 · 위 .summary-hello 자식 규칙이
+   color:var(--navy) 를 직접 가져서, 부모만 밝히는 「.dark .summary-hello」 가 닿지 않는다). */
+.dark .summary-hello .summary-affil,
+.dark .summary-hello .summary-user,
+.dark .summary-hello .summary-honor { color: #cdd9f2; }
+/* 줄 높이를 고정 — 「이제 시작이에요」(숫자 없음)와 「2구절 마쳤어요」(굵은 숫자)의 높이가 5px 달라,
+   첫 구절을 마치는 순간 아래 단추들이 5px 내려갔다(2026-10-12). 숫자는 줄 높이를 늘리지 않게 한다. */
+.stat-bar .sb-line { line-height: 1.6; }
+.stat-bar .sb-line b { line-height: 1; }
 
 .weekly-card {
   border: 1.5px solid var(--gold);
@@ -4241,8 +4239,6 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
 
 .user-info .ui-div { height: 1px; background: rgba(26,58,107,.10); margin: 0 0 10px; }
 .user-info .stat-bar { margin: 0; padding: 0; background: none; border-radius: 0; }
-/* 막대 트랙 — 반투명이라 어떤 바탕에서도 구멍처럼 파여 보이지 않는다 */
-.user-info .stat-bar .sb-track { background: rgba(26,58,107,.13); }
 
 .dark .user-info { background: #1b2436; }
 .dark .user-info .today-strip { background: #2b2717; }
@@ -4250,7 +4246,6 @@ body.ab-playing .verse-grid { padding-bottom: 200px; }
 .dark .user-info .today-strip.t4,
 .dark .user-info .today-strip.t5 { background: #332d15; }
 .dark .user-info .ui-div { background: rgba(255,255,255,.13); }
-.dark .user-info .stat-bar .sb-track { background: rgba(255,255,255,.15); }
 
 /* ── 가정 축복 기도문 (2026-09-03) ───────────────────────────────
    「오늘 한 편 + 주제로 찾기」 한 화면. 쓰기·채점이 없어 단추가 적다.
