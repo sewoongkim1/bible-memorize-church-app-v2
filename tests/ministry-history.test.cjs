@@ -179,9 +179,9 @@ test('줄에 직분을 보이지 않는다 · 고르기에 「팀·부서가 틀
   assert.equal(vm.runInContext('MH_KIND_TEXT.wrong_team', ctx), '팀·부서가 틀려요', '이미 낸 신청 표시 글은 남긴다');
 });
 
-// ── 플레이스토어 앱에서 「사역현황」 숨김(2026-10-02 · MINISTRY_HIDE_ON_PLAY) ──
+// ── 「교회 생활」 문 — 플레이스토어 앱도 웹·아이폰과 같다(2026-10-12 스위치 걷음) ──
+// 2026-10-02~10-09 에는 플레이 앱에서 숨겼다(MINISTRY_HIDE_ON_PLAY · ministryHiddenOnPlay) — 10-09 끄고 10-12 걷었다.
 // 문(ministryVisible)과 그것이 부르는 것들을 떼어 가짜 localStorage·sessionStorage·location·loadUser·window.matchMedia 위에서 돌린다.
-// ⚠️ 스위치의 지금 값(true/false)을 검사에 박지 않는다 — 심사가 통과해 false 로 바꾼 날에도 이 검사는 그대로 통과해야 한다.
 function pickFn(name) {
   const at = source.indexOf('function ' + name + '(');
   assert.ok(at >= 0, 'app.js 에서 ' + name + ' 을 못 찾았다 — 이 검사가 낡았다');
@@ -211,7 +211,7 @@ function fakeWindow(display) {
   };
 }
 // session — 이번 실행 표식(sessionStorage play-app-session): true = 있다 · false = 없다 · 'throw' = sessionStorage 가 던진다
-function doorCtx({ hide, play = false, session = false, display = 'standalone', preview = false, tester = false, period = { open: '2000-01-01', close: '2999-12-31' }, extra = [] }) {
+function doorCtx({ play = false, session = false, display = 'standalone', preview = false, tester = false, period = { open: '2000-01-01', close: '2999-12-31' }, extra = [] }) {
   const store = {}, sess = {};
   if (play) store['play-store-app'] = '1';
   if (session === true) sess['play-app-session'] = '1';
@@ -226,91 +226,53 @@ function doorCtx({ hide, play = false, session = false, display = 'standalone', 
     loadUser: () => ({ user_id: 'u1' }),
     window: fakeWindow(display),
   });
-  const sw = pickConst(/const MINISTRY_HIDE_ON_PLAY = (?:true|false);/, 'MINISTRY_HIDE_ON_PLAY').replace(/true|false/, String(hide));
   vm.runInContext([
-    sw,
     pickConst(/const PLAY_APP_KEY = "[^"]+";/, 'PLAY_APP_KEY'),
     pickConst(/const PLAY_SESSION_KEY = "[^"]+";/, 'PLAY_SESSION_KEY'),
     pickConst(/const MIN_PERIOD_KEY = "[^"]+";/, 'MIN_PERIOD_KEY'),
     pickConst(/const MIN_TESTER_KEY = "[^"]+";/, 'MIN_TESTER_KEY'),
     pickFn('isPlayStoreApp'), pickFn('openedByPlayApp'), pickFn('isBrowserTab'), pickFn('ministryPeriodCached'), pickFn('ministryTesterCached'),
-    pickFn('ministryHiddenOnPlay'), pickFn('ministryVisible'),
+    pickFn('ministryVisible'),
     ...extra,
   ].join('\n'), c);
   return c;
 }
+// 창 모양 넷 — 웹(표식 없음) · 플레이 앱 창(표식 + standalone) · 앱이 깔린 폰의 크롬 탭(표식 + browser) · 맞춤 탭으로 열린 앱(이번 실행 표식 + browser)
+//   · sessionStorage 가 막힌 앱 창 · matchMedia 가 없거나 던지는 앱 창
+const WINDOWS = [
+  ['웹', {}],
+  ['플레이 앱 창', { play: true, session: true, display: 'standalone' }],
+  ['표식만 남은 앱 창', { play: true, display: 'standalone' }],
+  ['앱이 깔린 폰의 크롬 탭', { play: true, display: 'browser' }],
+  ['맞춤 탭으로 열린 앱', { session: true, display: 'browser' }],
+  ['sessionStorage 막힌 앱 창', { play: true, session: 'throw', display: 'standalone' }],
+  ['matchMedia 가 던지는 앱 창', { play: true, display: 'throw' }],
+  ['matchMedia 가 없는 앱 창', { play: true, display: 'none' }],
+];
 
-test('플레이스토어 앱 — 스위치가 켜져 있으면 신청 기간·시험 참여자여도 문이 닫힌다', () => {
-  const c = doorCtx({ hide: true, play: true });
-  assert.equal(c.ministryHiddenOnPlay(), true);
-  assert.equal(c.ministryVisible(), false, '신청 기간인데 플레이스토어 앱에 사역현황이 보인다');
-  assert.equal(doorCtx({ hide: true, play: true, tester: true, period: null }).ministryVisible(), false, '시험 참여자에게 보인다');
-});
-
-test('플레이스토어 앱이 아니면(웹·아이폰) 스위치가 켜져 있어도 그대로 보인다', () => {
-  const c = doorCtx({ hide: true, play: false });
-  assert.equal(c.ministryHiddenOnPlay(), false);
-  assert.equal(c.ministryVisible(), true);
-  assert.equal(doorCtx({ hide: true, tester: true, period: null }).ministryVisible(), true, '웹 시험 참여자에게 안 보인다');
-  assert.equal(doorCtx({ hide: true, period: null }).ministryVisible(), false, '기간 밖·시험 참여자 아님은 원래대로 닫혀야 한다');
-});
-
-test('스위치를 끄면(심사 통과한 날) 플레이스토어 앱에도 다시 보인다', () => {
-  const c = doorCtx({ hide: false, play: true });
-  assert.equal(c.ministryHiddenOnPlay(), false);
-  assert.equal(c.ministryVisible(), true);
-});
-
-test('관리자 미리보기(?preview=ministry)는 플레이스토어 앱에서도 열린다', () => {
-  assert.equal(doorCtx({ hide: true, play: true, preview: true, period: null }).ministryVisible(), true);
-});
-
-test('플레이스토어 앱(표식 + standalone)은 숨는다 — 앱 창은 크롬 탭이 아니다', () => {
-  const c = doorCtx({ hide: true, play: true, display: 'standalone' });
-  assert.equal(c.isBrowserTab(), false);
-  assert.equal(c.ministryHiddenOnPlay(), true);
-  assert.equal(c.ministryVisible(), false, '플레이스토어 앱 창에 사역현황이 보인다');
-});
-
-test('앱이 깔린 폰의 크롬 탭(표식 + browser)은 그대로 보인다 — 「웹은 그대로」', () => {
-  const c = doorCtx({ hide: true, play: true, display: 'browser' });
-  assert.equal(c.isBrowserTab(), true);
-  assert.equal(c.ministryHiddenOnPlay(), false);
-  assert.equal(c.ministryVisible(), true, '크롬 탭인데 표식 때문에 사역현황이 숨었다');
-  assert.equal(doorCtx({ hide: true, play: true, display: 'browser', tester: true, period: null }).ministryVisible(), true, '크롬 탭 시험 참여자에게 안 보인다');
-});
-
-test('matchMedia 가 던지거나 없으면 크롬 탭이 아닌 것으로 본다 — 플레이스토어 앱은 숨는 쪽', () => {
-  for (const display of ['throw', 'none']) {
-    const c = doorCtx({ hide: true, play: true, display });
-    assert.equal(c.isBrowserTab(), false, display);
-    assert.equal(c.ministryHiddenOnPlay(), true, display);
-    assert.equal(c.ministryVisible(), false, display + ' — 플레이스토어 앱에 사역현황이 보인다');
+test('플레이스토어 앱도 웹·아이폰과 같은 문 — 기간 안 · 시험 참여자 · 기간 밖 · 관리자 미리보기', () => {
+  for (const [name, w] of WINDOWS) {
+    assert.equal(doorCtx({ ...w }).ministryVisible(), true, name + ' — 신청 기간인데 안 보인다');
+    assert.equal(doorCtx({ ...w, tester: true, period: null }).ministryVisible(), true, name + ' — 시험 참여자에게 안 보인다');
+    assert.equal(doorCtx({ ...w, period: null }).ministryVisible(), false, name + ' — 기간 정보가 없는데 보인다');
+    assert.equal(doorCtx({ ...w, period: { open: '2000-01-01', close: '2000-01-02' } }).ministryVisible(), false, name + ' — 기간이 지났는데 보인다');
+    assert.equal(doorCtx({ ...w, preview: true, period: null }).ministryVisible(), true, name + ' — 관리자 미리보기가 안 열린다');
   }
-  assert.equal(doorCtx({ hide: true, play: false, display: 'throw' }).ministryVisible(), true, '표식이 없는 웹은 matchMedia 가 고장 나도 보인다');
 });
 
-// 이번 실행 표식(sessionStorage play-app-session · 2026-10-02) — TWA 가 맞춤 탭으로 열리면(fallbackType "customtabs")
-//   창 모양이 "browser" 라 기기 표식 + 창 모양만으로는 못 잡는다.
-test('이번 실행 표식 + 크롬 탭 모양(맞춤 탭으로 열린 앱)은 숨는다', () => {
-  const c = doorCtx({ hide: true, session: true, display: 'browser' });
-  assert.equal(c.isBrowserTab(), true);
-  assert.equal(c.openedByPlayApp(), true);
-  assert.equal(c.ministryHiddenOnPlay(), true);
-  assert.equal(c.ministryVisible(), false, '맞춤 탭으로 열린 앱에 사역현황이 보인다');
-  assert.equal(doorCtx({ hide: true, play: true, session: true, display: 'browser', tester: true, period: null }).ministryVisible(), false, '맞춤 탭 시험 참여자에게 보인다');
-  assert.equal(doorCtx({ hide: true, session: true, display: 'standalone' }).ministryVisible(), false, '기기 표식을 못 적은 앱 창에 보인다');
-  assert.equal(doorCtx({ hide: false, session: true, display: 'browser' }).ministryVisible(), true, '스위치를 끄면 다시 보여야 한다');
+test('걷은 스위치가 되살아나지 않았다 — MH_LIVE · MINISTRY_HIDE_ON_PLAY · ministryHiddenOnPlay(2026-10-12)', () => {
+  // 주석에는 이름이 남아 있다(왜 걷었는지) — 코드 줄만 본다
+  const code = source.split('\n').filter((l) => !/^\s*(\/\/|\*)/.test(l)).join('\n');
+  for (const name of ['MH_LIVE', 'MINISTRY_HIDE_ON_PLAY', 'ministryHiddenOnPlay']) {
+    assert.ok(!new RegExp('\\b' + name + '\\b').test(code), name + ' 이 코드에 남아 있다 — 다시 세웠다면 이 검사를 함께 고칠 것');
+  }
 });
 
-test('이번 실행 표식이 없으면 기기 표식이 남아 있어도 크롬 탭에서는 보인다 — 「웹은 그대로」', () => {
-  const c = doorCtx({ hide: true, play: true, session: false, display: 'browser' });
-  assert.equal(c.openedByPlayApp(), false);
-  assert.equal(c.ministryHiddenOnPlay(), false);
-  assert.equal(c.ministryVisible(), true, '앱이 깔렸던 폰의 크롬 탭에서 사역현황이 숨었다');
-  // sessionStorage 가 던지면 「이번 실행 표식 없음」 — 기기 표식 + 창 모양으로 본다
-  assert.equal(doorCtx({ hide: true, play: true, session: 'throw', display: 'browser' }).ministryVisible(), true, 'sessionStorage 가 막힌 크롬 탭에서 숨었다');
-  assert.equal(doorCtx({ hide: true, play: true, session: 'throw', display: 'standalone' }).ministryVisible(), false, 'sessionStorage 가 막힌 앱 창에 보인다');
+test('isBrowserTab — 크롬 보통 탭만 참 · matchMedia 가 던지거나 없으면 거짓(스토어 앱 안내 storeNudgeKind 가 쓴다)', () => {
+  assert.equal(doorCtx({ display: 'browser' }).isBrowserTab(), true);
+  for (const display of ['standalone', 'throw', 'none']) assert.equal(doorCtx({ display }).isBrowserTab(), false, display);
+  assert.equal(doorCtx({ session: true, display: 'browser' }).openedByPlayApp(), true);
+  assert.equal(doorCtx({ session: 'throw', display: 'browser' }).openedByPlayApp(), false, 'sessionStorage 가 던지면 「이번 실행 표식 없음」');
 });
 
 // referrer 줄(app.js 최상위) — 떼어 와 가짜 document.referrer 위에서 돌린다.
@@ -341,7 +303,7 @@ test('referrer 줄 — android-app://<패키지> 로 열리면 기기 표식과 
   assert.equal(blocked.sess['play-app-session'], '1', 'localStorage 가 막히면 이번 실행 표식도 못 남긴다');
 });
 
-test('clearPersonalData — sessionStorage 를 비워도 이번 실행 표식만은 다시 남긴다(앱에서 「내 정보 지우기」 뒤에도 숨게)', () => {
+test('clearPersonalData — sessionStorage 를 비워도 이번 실행 표식만은 다시 남긴다(앱에서 「내 정보 지우기」 뒤에도 앱인 줄 알게)', () => {
   const body = pickFn('clearPersonalData');
   // MIN_TESTER_KEY 는 스텁 대신 **진짜 값**을 넣는다 — 아래에서 ministry-tester::<uid> 가 지워지는지 본다.
   const keys = [...new Set(body.match(/\b[A-Z][A-Z0-9_]*_KEY\b/g) || [])]
@@ -415,20 +377,20 @@ function featCtx(opts) {
 }
 
 test('newestNewFeat — 문(ministryVisible)이 닫혀 사역 단추가 안 보이면 "ministry" 를 건너뛴다(다음으로 새것이 NEW)', () => {
-  // 플레이스토어 앱 숨김
-  assert.equal(featCtx({ hide: true, play: true, display: 'standalone' }).newestNewFeat(), 'song', '숨은 사역신청이 NEW 를 가져갔다');
-  assert.equal(featCtx({ hide: true, session: true, display: 'browser' }).newestNewFeat(), 'song', '맞춤 탭으로 열린 앱에서 숨은 사역신청이 NEW 를 가져갔다');
-  assert.equal(featCtx({ hide: true, play: true, display: 'browser' }).newestNewFeat(), 'ministry', '크롬 탭은 원래대로');
-  assert.equal(featCtx({ hide: true, play: false }).newestNewFeat(), 'ministry', '웹은 원래대로');
-  assert.equal(featCtx({ hide: false, play: true }).newestNewFeat(), 'ministry', '스위치를 끄면 원래대로');
-  // 기간 밖 — 플레이스토어와 상관없이 원래부터 문이 닫힌 경우
-  assert.equal(featCtx({ hide: false, period: null }).newestNewFeat(), 'song', '기간 정보가 없어 안 보이는 사역신청이 NEW 를 가져갔다');
-  assert.equal(featCtx({ hide: false, period: { open: '2000-01-01', close: '2000-01-02' } }).newestNewFeat(), 'song', '기간이 지나 안 보이는 사역신청이 NEW 를 가져갔다');
-  assert.equal(featCtx({ hide: false, period: null, tester: true }).newestNewFeat(), 'ministry', '시험 참여자는 기간 밖에도 보인다');
-  assert.equal(featCtx({ hide: false, period: null, preview: true }).newestNewFeat(), 'ministry', '관리자 미리보기는 보인다');
+  // 플레이스토어 앱도 웹과 같다(2026-10-12 스위치 걷음)
+  assert.equal(featCtx({ play: true, session: true, display: 'standalone' }).newestNewFeat(), 'ministry', '플레이 앱 창');
+  assert.equal(featCtx({ session: true, display: 'browser' }).newestNewFeat(), 'ministry', '맞춤 탭으로 열린 앱');
+  assert.equal(featCtx({ play: true, display: 'browser' }).newestNewFeat(), 'ministry', '크롬 탭');
+  assert.equal(featCtx({}).newestNewFeat(), 'ministry', '웹');
+  // 기간 밖 — 문이 닫힌 경우
+  assert.equal(featCtx({ period: null }).newestNewFeat(), 'song', '기간 정보가 없어 안 보이는 사역신청이 NEW 를 가져갔다');
+  assert.equal(featCtx({ period: { open: '2000-01-01', close: '2000-01-02' } }).newestNewFeat(), 'song', '기간이 지나 안 보이는 사역신청이 NEW 를 가져갔다');
+  assert.equal(featCtx({ play: true, session: true, period: null }).newestNewFeat(), 'song', '플레이 앱도 기간 밖이면 건너뛴다');
+  assert.equal(featCtx({ period: null, tester: true }).newestNewFeat(), 'ministry', '시험 참여자는 기간 밖에도 보인다');
+  assert.equal(featCtx({ period: null, preview: true }).newestNewFeat(), 'ministry', '관리자 미리보기는 보인다');
 });
 
-test('첫 화면의 사역 단추는 모두 문(ministryVisible) 뒤에 있다 — 새 단추가 문을 건너뛰면 플레이스토어 앱에 샌다', () => {
+test('첫 화면의 사역 단추는 모두 문(ministryVisible) 뒤에 있다 — 새 단추가 문을 건너뛰면 기간 밖에도 샌다', () => {
   const ids = ['id="open-ministry"', 'id="open-ministry-history"'];
   let n = 0;
   for (const id of ids) {
@@ -439,30 +401,24 @@ test('첫 화면의 사역 단추는 모두 문(ministryVisible) 뒤에 있다 �
         if (source[i] === '}') depth++;
         else if (source[i] === '{') { if (depth > 0) depth--; else { if (source[i - 1] === '$') open = i - 1; break; } }
       }
-      assert.ok(source.startsWith('${ministryVisible() && ', open), id + ' 가 ministryVisible() 조건 밖에 있다(' + source.slice(open, open + 40) + ')');
+      assert.ok(/^\$\{ministryVisible\(\) (\?|&&) /.test(source.slice(open, open + 30)), id + ' 가 ministryVisible() 조건 밖에 있다(' + source.slice(open, open + 40) + ')');
       n++;
     }
   }
-  assert.equal(n, 3, '사역 단추 수가 바뀌었다(사역현황 둘 + 「함께」 🤝 하나) — 이 검사를 함께 고칠 것');
+  assert.equal(n, 2, '사역 단추 수가 바뀌었다(「교회 생활」의 🤝·🗂️ 둘 · 「함께」의 🤝 는 MH_LIVE 와 함께 2026-10-12 걷었다) — 이 검사를 함께 고칠 것');
 });
 
-// 🎓 교육 문(eduVisible · 2026-10-05) — 「사역현황」과 같은 스위치로 플레이스토어 앱에서 숨는다(시험 참여자도).
-//   ⚠️ 스위치의 지금 값을 박지 않는다(위 doorCtx 와 같다).
+// 🎓 교육 문(eduVisible · 2026-10-05) — eduOpen 또는 시험 참여자. 플레이스토어 앱도 웹과 같다(2026-10-12 스위치 걷음).
 const eduExtra = () => [pickConst(/const EDU_PUB_KEY = "[^"]+";/, 'EDU_PUB_KEY'), pickFn('eduOpenCached'), pickFn('eduVisible')];
 const eduCtx = (o, eduOpen) => {
   const c = doorCtx({ period: null, ...o, extra: eduExtra() });
   if (eduOpen) c.localStorage.setItem('edu-open', '1');
   return c;
 };
-test('🎓 교육 — 플레이스토어 앱에서는 eduOpen 이 켜졌어도·시험 참여자여도 숨는다', () => {
-  assert.equal(eduCtx({ hide: true, play: true }, true).eduVisible(), false, '플레이스토어 앱에 🎓 교육이 보인다');
-  assert.equal(eduCtx({ hide: true, play: true, tester: true }).eduVisible(), false, '플레이스토어 앱 시험 참여자에게 🎓 교육이 보인다');
-  assert.equal(eduCtx({ hide: true, session: true, display: 'browser' }, true).eduVisible(), false, '맞춤 탭으로 열린 앱에 🎓 교육이 보인다');
-});
-test('🎓 교육 — 웹·아이폰은 그대로 · 스위치를 끄면 플레이스토어 앱에도 보인다 · 문이 닫혀 있으면 안 보인다', () => {
-  assert.equal(eduCtx({ hide: true }, true).eduVisible(), true, '웹에서 eduOpen 인데 안 보인다');
-  assert.equal(eduCtx({ hide: true, tester: true }).eduVisible(), true, '웹 시험 참여자에게 안 보인다');
-  assert.equal(eduCtx({ hide: true, play: true, display: 'browser' }, true).eduVisible(), true, '앱이 깔린 폰의 크롬 탭에서 숨었다');
-  assert.equal(eduCtx({ hide: false, play: true }, true).eduVisible(), true, '스위치를 껐는데 플레이스토어 앱에 안 보인다');
-  assert.equal(eduCtx({ hide: true }).eduVisible(), false, 'eduOpen 도 시험 참여자도 아닌데 보인다');
+test('🎓 교육 — 어느 창이든 eduOpen 이나 시험 참여자면 보이고 · 둘 다 아니면 안 보인다', () => {
+  for (const [name, w] of WINDOWS) {
+    assert.equal(eduCtx({ ...w }, true).eduVisible(), true, name + ' — eduOpen 인데 안 보인다');
+    assert.equal(eduCtx({ ...w, tester: true }).eduVisible(), true, name + ' — 시험 참여자에게 안 보인다');
+    assert.equal(eduCtx({ ...w }).eduVisible(), false, name + ' — eduOpen 도 시험 참여자도 아닌데 보인다');
+  }
 });

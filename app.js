@@ -223,12 +223,12 @@ function routeAfterLoad() {
     return;
   }
   // 🎓 교육 알림 딥링크(?edu=<강좌 id> · 4단계 2026-10-05) — 확정·개강 전날 알림을 누르면 그 강좌 자세히로.
-  //   로그인 안 했으면 평소 길(아래 · 로그인 화면) — 주소의 edu 만 지운다. 플레이 앱은 🎓 를 숨기므로(ministryHiddenOnPlay) 평소 길.
+  //   로그인 안 했으면 평소 길(아래 · 로그인 화면) — 주소의 edu 만 지운다.
   //   🎓 가 안 보이는 분(eduVisible — 교육이 열리기 전에는 시험 참여자만)도 평소 길(검토 반영 2026-10-06 · 서버도 그분들께는 안 보낸다).
   const _eduDeep = (typeof eduTakeDeepLink === "function") ? eduTakeDeepLink() : null;
-  if (_eduDeep && loadUser() && !ministryHiddenOnPlay() && eduVisible()) { renderEduCourse(_eduDeep); return; }
+  if (_eduDeep && loadUser() && eduVisible()) { renderEduCourse(_eduDeep); return; }
   // 🙋 봉사 당번 알림 딥링크(?duty=1 · 3단계 2026-10-06) — 확정·전날·담당자가 바꾼 알림을 누르면 당번 목록(내 당번이 맨 위)으로.
-  //   로그인 안 했거나 🙋 가 안 보이는 분(dutyVisible — 문이 열리기 전에는 시험 참여자만 · 플레이 앱 숨김 · 서버도 그분들께는 안 보낸다)은 평소 길 — 주소의 duty 만 지운다.
+  //   로그인 안 했거나 🙋 가 안 보이는 분(dutyVisible — 문이 열리기 전에는 시험 참여자만 · 서버도 그분들께는 안 보낸다)은 평소 길 — 주소의 duty 만 지운다.
   const _dutyDeep = (typeof dutyTakeDeepLink === "function") ? dutyTakeDeepLink() : false;
   if (_dutyDeep && loadUser() && dutyVisible() && typeof renderDutyList === "function") { renderDutyList({ stay: true }); return; }
   //   알림으로 왔는데 이 기기의 문 캐시가 「닫힘」이다 — 서버는 이분께 보냈다(문이 열렸거나 시험 참여자). 캐시가 뒤처진 것일 수 있어(문을 연 뒤·명단에 오른 뒤
@@ -399,7 +399,7 @@ try {
 // 알림 주소대로 화면을 연다(위 message 가 부른다) — 조건은 routeAfterLoad 와 같다.
 function fromPushOpen(e) {
   const eid = (typeof eduDeepLinkId === "function") ? eduDeepLinkId(e.data.url) : null;
-  if (eid && loadUser() && !ministryHiddenOnPlay() && eduVisible() && typeof renderEduCourse === "function") renderEduCourse(eid);
+  if (eid && loadUser() && eduVisible() && typeof renderEduCourse === "function") renderEduCourse(eid);
   // 🙋 봉사 당번 알림(?duty=1 · 3단계) — routeAfterLoad 와 같은 조건(dutyVisible)
   else if (typeof dutyDeepLink === "function" && dutyDeepLink(e.data.url) && loadUser() && dutyVisible() && typeof renderDutyList === "function") renderDutyList({ stay: true });
   //   문 캐시가 「닫힘」인 열린 창 — 문을 다시 확인해 보이게 되면 연다(routeAfterLoad 와 같다)
@@ -460,15 +460,12 @@ function refreshEduOpen() {
   if (!window.api || !api.getConfig) return;
   api.getConfig("eduOpen").then((d) => { try { localStorage.setItem(EDU_PUB_KEY, d && d.value === true ? "1" : "0"); } catch (e) {} }).catch(() => {});
 }
-// ⚠️ 플레이스토어 앱에서는 숨는다(시험 참여자도) — 심사 통과 때까지 새 기능을 안 보이고, 교육 개인정보 안내도 아직 안 넣었다(심사 뒤 과제 11).
-//    「사역현황」과 같은 스위치(MINISTRY_HIDE_ON_PLAY · ministryHiddenOnPlay)를 쓴다 — 심사 통과한 날 false 로 바꾸면 둘이 함께 열린다.
+//   플레이스토어 앱 숨김 스위치(MINISTRY_HIDE_ON_PLAY)는 2026-10-09 끄고 2026-10-12 걷었다 — 웹·아이폰·플레이 앱이 같은 문이다.
 function eduVisible() {
-  if (ministryHiddenOnPlay()) return false;
   return eduOpenCached() || ministryTesterCached();
 }
 // 🙋 봉사 당번(2026-10-06) — app_config('dutyOpen') 이 true 이거나 🧪 시험 참여자일 때만 첫 화면 단추(모르면 숨긴다 — 캐시가 없으면 안 보인다).
 //   ⚠️ 여기는 단추를 숨길 뿐이다 — 막는 것은 서버(api dutyGate: 읽기도 막는다 · 당번표에 선 분 이름이 나가므로).
-//   플레이스토어 앱에서는 교육·사역과 같은 스위치로 숨긴다(심사 통과 때까지 · 개인정보 안내도 아직 안 넣었다 — 4단계).
 const DUTY_PUB_KEY = "duty-open";
 function dutyOpenCached() { try { return localStorage.getItem(DUTY_PUB_KEY) === "1"; } catch (e) { return false; } }
 function refreshDutyOpen() {
@@ -487,7 +484,6 @@ function dutyOpenIfWanted() {
   if (typeof renderDutyList === "function") renderDutyList({ stay: true });
 }
 function dutyVisible() {
-  if (ministryHiddenOnPlay()) return false;
   // 서버 문(dutyGate)은 users 에 그 계정이 있어야 열린다 — 계정 번호를 받기 전(첫 로그인 직후 동기화 중 · 로그인 호출이 실패한 실행)에는
   //   단추를 두지 않는다. 동기화가 끝나면 enterAfterLogin 이 첫 화면을 다시 그려 단추가 나타난다(검토 반영 2026-10-06).
   const u = loadUser();
@@ -960,7 +956,6 @@ function ministryYear() {
 }
 function ministryVisible() {
   if (location.search.indexOf("preview=ministry") >= 0) return true;   // 관리자 미리보기
-  if (ministryHiddenOnPlay()) return false;                             // 플레이스토어 앱 — 심사 통과 때까지(아래 MINISTRY_HIDE_ON_PLAY)
   if (ministryTesterCached()) return true;                              // 시험 참여자(교회 어드민 명단 · 2026-09-30)
   const p = ministryPeriodCached();
   if (!p || !p.open || !p.close) return false;
@@ -968,30 +963,11 @@ function ministryVisible() {
   return today >= p.open && today <= p.close;
 }
 
-// 사역 이력 확인(2026-10-01) — 운영 서버(교회 어드민 내부 갈래·정정 신청 표)가 올라가기 전까지 운영 주소에서는 새 묶음을 숨긴다.
-//   ⚠️ main 은 여러 세션이 함께 푸시한다 — 이 스위치가 없으면 남의 푸시에 실려 운영 🧪 시험 참여자에게 누르면 오류가 나는 단추가 뜬다.
-//   개발·localhost(js/config.js 가 env "dev")에서는 늘 켜진다. 계획 Task 9(운영 반영)에서 `const MH_LIVE = true;` 로 바꾼다(EVENING_LIVE 와 같은 방식).
-const MH_LIVE = true;   // 2026-10-01 운영 반영(사역 이력 확인 · 정정 신청) — 운영 주소에서도 「사역현황」 묶음을 연다(문은 여전히 ministryVisible)
-
-// 플레이스토어 앱(TWA)에서는 「사역현황」 묶음을 통째로 숨긴다(2026-10-02 친구 요청 — 안드로이드 심사 통과 때까지).
-//   숨는 것: 묶음 제목 · 🤝 사역신청 · 🗂️ 사역 이력 확인(MH_LIVE 가 꺼졌을 때 「함께」에 서는 🤝 도). 시험 참여자도 숨는다.
-//   🎓 교육(eduVisible · 2026-10-05)도 이 스위치를 본다 — false 로 바꾸면 교육도 함께 열린다(그 전에 교육 개인정보 안내 · 교육 계획 과제 11 이 들어갔는지 볼 것).
-//   문(ministryVisible) 한 곳에서 막는다 — 두 화면은 첫 화면 단추로만 들어가고, 임명 알림도 첫 화면(/)을 연다.
-//   웹·아이폰 앱은 그대로다. 관리자 미리보기(?preview=ministry)는 문의 첫 줄이라 여기서도 열린다.
-//   「플레이스토어 앱」은 둘 중 하나면 그렇다고 본다(둘 다 실기기 미확인 — docs/notes/ministry-history-check.md):
-//     ① openedByPlayApp() — 이번 실행(이 창)이 앱에서 열렸다는 표식(sessionStorage · 아래 PLAY_SESSION_KEY).
-//        TWA 가 사이트 확인에 실패해 맞춤 탭으로 열려도(android-app/twa-manifest.json fallbackType "customtabs" —
-//        그때는 display 가 "browser" 로 보인다) 잡는다. 보통 크롬 탭은 android-app:// referrer 를 받지 않아 이 표식이 안 생긴다.
-//     ② isPlayStoreApp() && !isBrowserTab() — 기기에 적어 둔 표식 + 앱 창 모양(TWA 는 display "standalone").
-//        기기 표식은 TWA 가 크롬과 저장소를 같이 써서 그 폰의 **크롬 탭에서도** 보이고 앱을 지운 뒤에도 남는다 —
-//        그래서 크롬 탭(isBrowserTab)은 뺀다(「웹은 그대로」라는 결정대로). ①을 못 받은 앱 창(referrer 없이 새로 열린 창 등)의 받침이다.
-//   NEW 배지(newestNewFeat)는 문(ministryVisible)이 닫혀 있으면 "ministry" 를 세지 않는다 — 안 보이는 단추가 하나뿐인 NEW 를 가져가지 않게.
-//   ⏰ 심사가 통과한 날 false 로 바꾸고 bump → 푸시(CLAUDE.md 「플레이스토어 출시」 아래 ⏰ 줄 · 자료/store/README.md · docs/notes/ministry-history-check.md).
-const MINISTRY_HIDE_ON_PLAY = false;   // 2026-10-09 플레이 새 앱(kr.onlybible.gocheok) 출시 — 숨김 끝
-function ministryHiddenOnPlay() {
-  return MINISTRY_HIDE_ON_PLAY && (openedByPlayApp() || (isPlayStoreApp() && !isBrowserTab()));
-}
-// 브라우저(크롬 등)의 보통 탭으로 열렸나 — matchMedia 가 없거나 던지면 「탭이 아니다」로 본다(숨기는 쪽 — 심사에는 그쪽이 안전하다).
+// 걷은 스위치 둘(2026-10-12) — 동작은 그대로다(둘 다 이미 늘 같은 값이었다).
+//   · MH_LIVE(2026-10-01 운영 반영 뒤 늘 true) — 「교회 생활」 묶음의 🤝·🗂️ 는 문(ministryVisible) 하나만 본다.
+//   · MINISTRY_HIDE_ON_PLAY(2026-10-09 플레이 새 앱 출시 뒤 늘 false) · ministryHiddenOnPlay() — 플레이 앱도 웹·아이폰과 같은 문이다.
+//   다시 플레이 앱에서만 숨길 일이 생기면 git 기록(이 줄 앞 판)을 볼 것 · docs/notes/ministry-history-check.md 「플레이스토어 앱에서 숨김」.
+// 브라우저(크롬 등)의 보통 탭으로 열렸나 — matchMedia 가 없거나 던지면 「탭이 아니다」로 본다. 스토어 앱 안내(storeNudgeKind)가 쓴다.
 function isBrowserTab() {
   try { return !!(window.matchMedia && window.matchMedia("(display-mode: browser)").matches); } catch (e) { return false; }
 }
@@ -1411,7 +1387,7 @@ function clearPersonalData() {
     }
   } catch {}
   // 이번 실행이 플레이스토어 앱이라는 표식(PLAY_SESSION_KEY)만은 다시 남긴다 — 사람이 아니라 창 이야기다(2026-10-02).
-  //   안 남기면 맞춤 탭으로 열린 앱에서 「내 정보 지우기」 뒤 다음 분이 들어온 첫 화면에 「사역현황」이 샌다(MINISTRY_HIDE_ON_PLAY).
+  //   안 남기면 맞춤 탭으로 열린 앱에서 「내 정보 지우기」 뒤 다음 분이 들어온 첫 화면에 앱 안인데도 스토어 앱 안내(storeNudgeKind)가 뜰 수 있다.
   const playSession = openedByPlayApp();
   let playPkg = null; try { playPkg = sessionStorage.getItem(PLAY_PKG_KEY); } catch {}
   try { sessionStorage.clear(); } catch {}
@@ -3099,14 +3075,14 @@ function renderSummary() {
     <button class="summary-help" id="open-album">📖 나의 말씀 앨범</button>
     <button class="summary-help" id="open-ranking">🏆 도전 순위 보기</button>
     ${/* 사역현황(2026-10-01 친구 요청) — 사역신청과 사역 이력 확인을 한 묶음으로.
-          둘 다 사역신청과 같은 문(ministryVisible — 미리보기·시험 참여자·신청 기간 · 플레이스토어 앱은 심사 동안 숨김)이라 묶음 제목까지
+          둘 다 사역신청과 같은 문(ministryVisible — 미리보기·시험 참여자·신청 기간)이라 묶음 제목까지
           한 조건으로 감싼다(둘 다 숨는 날 제목만 남지 않게). 🗂️ — 📜 는 「내 안에 거하는 말씀」이 쓴다.
           설계 docs/superpowers/specs/2026-10-01-ministry-history-check-design.md §2 */""}
     ${/* 2026-10-05 친구 요청 — 묶음 이름 「사역현황」 → 「교회」, 🎓 교육 신청을 사역 이력 확인 아래로(「함께」에서 옮김).
           문은 단추마다 따로다(사역 둘 = ministryVisible · 교육 = eduVisible) — 제목은 하나라도 보이면 뜬다.
           2026-10-07 친구 요청 — 「교회」 → 「교회 생활」 · 「봉사 당번」 → 「봉사 당번 신청」(당번 화면 제목도 같은 이름). */""}
-    ${(ministryVisible() && MH_LIVE) || eduVisible() || dutyVisible() ? `<div class="grp-title">교회 생활</div>` : ""}
-    ${ministryVisible() && MH_LIVE ? `<button class="summary-help" id="open-ministry">🤝 ${ministryYear()}년 사역 신청${newBadge("ministry")}</button>
+    ${ministryVisible() || eduVisible() || dutyVisible() ? `<div class="grp-title">교회 생활</div>` : ""}
+    ${ministryVisible() ? `<button class="summary-help" id="open-ministry">🤝 ${ministryYear()}년 사역 신청${newBadge("ministry")}</button>
     <button class="summary-help" id="open-ministry-history">🗂️ 사역 이력 확인</button>` : ""}
     ${/* newBadge("edu") — FEAT_SINCE.edu 는 개시일에 적는다(없으면 NEW 가 안 뜬다) */""}
     ${eduVisible() ? `<button class="summary-help" id="open-edu">🎓 교육 신청${newBadge("edu")}</button>` : ""}
@@ -3130,8 +3106,6 @@ function renderSummary() {
          그림처럼 보여 「액자」 느낌이 되살아난다는 지적(2026-09-11)으로 다시 바꿨다.
          시편 23편이 "여호와는 나의 목자시니"로 시작하니, 장소(물가)보다 인도받아
          쉰다는 이 시편의 핵심에 더 가깝다. -->
-    ${/* MH_LIVE 가 꺼진 동안(운영 · 과제 9 전)은 🤝 를 원래 자리(「함께」)에 둔다 — 화면이 지금과 똑같게. 켜지면 위 「사역현황」 묶음으로 옮겨 간다. */""}
-    ${ministryVisible() && !MH_LIVE ? `<button class="summary-help" id="open-ministry">🤝 ${ministryYear()}년 사역 신청${newBadge("ministry")}</button>` : ""}
     ${passagesVisible() ? `<button class="summary-help" id="open-passages">📜 내 안에 거하는 말씀${newBadge("passages")}</button>` : ""}
     <!-- 「더 보기」 — 자주 누르지 않는 넷을 접어 둔다(연 상태는 기억한다).
          ⚠️ 순서와 모양은 성도님이 직접 정하셨다(2026-09-10): 필사 → 퀴즈 → 찬양 → 설교,
@@ -9090,9 +9064,9 @@ let _widgetPreview = false;
 //    그 폰의 크롬 탭에서도 보이고, **앱을 지운 뒤에도 남는다**(크롬 저장소에 있어서).
 //    위젯 안내(widgetGuideOn)·설명서의 「홈 화면에 앱 만들기」 빼기(manualInstalled)는 이것을 그대로 쓴다 — 대개는 앱이 깔린
 //    폰이라 맞고, 앱을 지운 폰에 남아도 안내 한 장이 더 보이거나 빠질 뿐이라 받아들인다.
-//    「사역현황」 숨김(MINISTRY_HIDE_ON_PLAY)은 그래서 기기 표식을 크롬 탭(isBrowserTab)에서는 안 본다 — 그 폰의 크롬 탭에서는 그대로 보인다.
+//    스토어 앱 안내(storeNudgeKind)는 그래서 기기 표식을 크롬 탭(isBrowserTab)에서는 안 본다 — 그 폰의 크롬 탭에서는 그대로 뜬다.
 // ⚠️ 이 줄이 나간 뒤 앱을 한 번도 안 연 분은 아직 모른다 — 위젯 안내는 모르면 안 보인다(없는 것을 안내하지 않는 쪽).
-// 「사역현황」 숨김도 두 표식을 본다. loadVerses() 는 이 줄보다 아래에서 불리고 서버를 기다린 뒤에야 첫 화면을 그리므로,
+// 스토어 앱 안내도 두 표식을 본다. loadVerses() 는 이 줄보다 아래에서 불리고 서버를 기다린 뒤에야 첫 화면을 그리므로,
 // 앱을 처음 여는 날도 이 줄이 먼저 돈다.
 const PLAY_APP_KEY = "play-store-app";
 const PLAY_SESSION_KEY = "play-app-session";

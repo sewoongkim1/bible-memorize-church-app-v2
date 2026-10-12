@@ -805,13 +805,13 @@ test('api 글자 검사 — 알림: 내부 액션 둘은 서비스 키 문이 �
 const APP = read(['app.js']), SW = read(['sw.js']), PUSH = read(['js', 'push.js']), DUTY_JS = read(['js', 'duty.js']);
 const cutFn = (src, head) => { const a = src.indexOf(head); assert.ok(a >= 0, head + ' 를 못 찾았다'); const e = src.indexOf('\n}\n', a); assert.ok(e > a); return src.slice(a, e + 2); };
 
-test('알림 주소 배선 — api 가 보내는 주소 = 앱이 읽는 주소 · routeAfterLoad·열린 창은 🙋 가 보이는 분만 · dutyVisible 세 조건 · 주소에서 duty 만 지운다', () => {
+test('알림 주소 배선 — api 가 보내는 주소 = 앱이 읽는 주소 · routeAfterLoad·열린 창은 🙋 가 보이는 분만 · dutyVisible 두 조건 · 주소에서 duty 만 지운다', () => {
   const url = /const DUTY_NOTIFY_URL = "([^"]+)";/.exec(API)[1];
   assert.equal(ctx.dutyDeepLink(url), true, 'api 의 알림 주소를 앱이 당번 알림으로 읽는다'); assert.equal(ctx.dutyDeepLink(url + '&from=push'), true);
   assert.ok(APP.includes('if (_dutyDeep && loadUser() && dutyVisible() && typeof renderDutyList === "function") { renderDutyList({ stay: true }); return; }'), 'routeAfterLoad');
   assert.ok(APP.includes('else if (typeof dutyDeepLink === "function" && dutyDeepLink(e.data.url) && loadUser() && dutyVisible() && typeof renderDutyList === "function") renderDutyList({ stay: true });'), '이미 열린 창(from-push)');
   const vis = cutFn(APP, 'function dutyVisible() {');
-  assert.ok(vis.includes('if (ministryHiddenOnPlay()) return false;') && vis.includes('if (!u || !u.user_id) return false;') && vis.includes('return dutyOpenCached() || ministryTesterCached();'), '플레이 앱 숨김 · 계정 번호 · 문 또는 시험 참여자');
+  assert.ok(!vis.includes('ministryHiddenOnPlay') && vis.includes('if (!u || !u.user_id) return false;') && vis.includes('return dutyOpenCached() || ministryTesterCached();'), '계정 번호 · 문 또는 시험 참여자(플레이 앱 숨김은 2026-10-12 걷었다)');
   // dutyTakeDeepLink — 읽고 duty 만 지운다(다른 파라미터는 둔다) · 알림 주소가 아니면 주소를 건드리지 않는다
   const take = (search) => {
     const calls = [], c = { dutyDeepLink: ctx.dutyDeepLink, URLSearchParams, location: { search, pathname: '/' }, history: { replaceState: (a, b, u) => calls.push(u) } };
@@ -1006,7 +1006,7 @@ test('문 확인의 답 → 캐시 → 🙋 보임 → 당번 목록 — 진짜 
     const later = (name) => new Promise((res) => { pend[name] = res; });
     const c = { console, Promise, JSON, Date: { now: () => t },
       localStorage: { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } },
-      loadUser: () => user, ministryHiddenOnPlay: () => !!x.play,
+      loadUser: () => user,
       document: { getElementById: (id) => (id === 'go-list' && !opened.length ? {} : null), querySelector: () => (opened.length ? null : {}) },
       renderDutyList: (a) => { opened.push(a); }, renderSummary: () => { drawn.push(1); }, refreshEventOpen: () => {},
       api: { getConfig: (k) => later('cfg:' + k), ministryTester: (uid) => later('tester:' + uid) } };
@@ -1028,9 +1028,8 @@ test('문 확인의 답 → 캐시 → 🙋 보임 → 당번 목록 — 진짜 
   w = mk({ store: { 'duty-open': '0' } }); w.c.dutyWantOpen(); w.c.refreshDutyOpen(); w.c.refreshMinistryTester();
   await w.answer('cfg:dutyOpen', OPEN); assert.deepEqual(pick(w.opened), [{ stay: true }]); assert.equal(w.store['duty-open'], '1');
   await w.answer('tester:U1', OUT); assert.equal(w.opened.length, 1);
-  // ④ 서버도 닫힘·시험 참여자도 아님 / 플레이 앱 / 계정 번호 없음 / 10초 뒤 / 알림으로 온 것이 아님 — 열지 않는다
+  // ④ 서버도 닫힘·시험 참여자도 아님 / 계정 번호 없음 / 10초 뒤 / 알림으로 온 것이 아님 — 열지 않는다(플레이 앱 숨김은 2026-10-12 걷었다)
   w = mk(); w.c.dutyWantOpen(); w.c.refreshDutyOpen(); w.c.refreshMinistryTester(); await w.answer('cfg:dutyOpen', SHUT); await w.answer('tester:U1', OUT); assert.deepEqual(w.opened, []);
-  w = mk({ play: true }); w.c.dutyWantOpen(); w.c.refreshDutyOpen(); w.c.refreshMinistryTester(); await w.answer('cfg:dutyOpen', OPEN); await w.answer('tester:U1', IN); assert.deepEqual(w.opened, [], '플레이 앱(숨김)');
   w = mk({ user: { name: '가' } }); w.c.dutyWantOpen(); w.c.refreshDutyOpen(); w.c.refreshMinistryTester(); assert.equal(w.pend['tester:undefined'], undefined, '계정 번호가 없으면 시험 참여자를 묻지 않는다');
   await w.answer('cfg:dutyOpen', OPEN); assert.deepEqual(w.opened, [], '계정 번호를 받기 전');
   w = mk(); w.c.dutyWantOpen(); w.c.refreshDutyOpen(); w.tick(10001); await w.answer('cfg:dutyOpen', OPEN); assert.deepEqual(w.opened, [], '10초가 지났다');
