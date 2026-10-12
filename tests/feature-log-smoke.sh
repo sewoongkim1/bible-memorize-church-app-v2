@@ -48,7 +48,8 @@ echo "■ 올바른 기록은 ok"
 #    FEATURES 를 늘리면 이 줄도 그 자리에서 함께 늘린다(통과 개수는 pass 가 세므로 손댈 것 없다).
 # ⚠️ song 은 일부러 없다 — FEATURES 를 거치지 않고 서버가 직접 v2_feature_log 를 부르는 값이라
 #    여기로 보내면 skipped 가 맞다(오류가 아니다). 그 경로는 오늘의 찬양 액션으로 시험한다.
-for F in psalm meditation meditation-widget meditation-auto album album-play guide push ranking-scope event; do
+#    2026-10-13 — edu·duty 가 빠져 있던 것을 채우고 navi(네비게이토)를 더했다.
+for F in psalm meditation meditation-widget meditation-auto album album-play guide push ranking-scope event edu duty navi; do
   R=$(call "{\"action\":\"featureLog\",\"user_id\":\"$TEST_UID\",\"feature\":\"$F\",\"item\":0}")
   chk "$F" "$(echo "$R" | grep -o '"ok":true')" '"ok":true'
 done

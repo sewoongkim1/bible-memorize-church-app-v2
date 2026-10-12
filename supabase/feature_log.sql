@@ -41,6 +41,8 @@
 --                                    (회차가 여럿이어도 회차 번호는 안 담는다 — 목록 화면 단위로 센다)
 --     edu                         = 0 고정 — 🎓 교육 화면(목록)을 연 것(js/edu.js 의 renderEduList · 2026-10-05).
 --     duty                        = 0 고정 — 🙋 봉사 당번 화면(목록)을 연 것(js/duty.js 의 renderDutyList · 2026-10-06).
+--     navi                        = 0 고정 — 📚 네비게이토 성경암송을 첫 화면 단추로 연 것(app.js 의 #open-navi 누름 · 2026-10-13 여는 날).
+--                                    묶음 목록으로 되돌아오는 것은 안 센다(연 자리에서 한 번 — album 과 같다).
 --                                    CHECK 제약은 없다(위 ⚠️) — 허용 목록은 index.ts FEATURES 한 곳.
 --     ranking-scope               = 숫자가 아니라 **깃발**이다 — 1=우리 교구 · 0=전체
 --                                    (app.js 의 logFeature("ranking-scope", v==="mine"?1:0))

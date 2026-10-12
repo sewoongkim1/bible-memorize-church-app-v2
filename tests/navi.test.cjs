@@ -189,3 +189,16 @@ test('④ 쓰는 말 — 마친 수만(전체 수 없음) · 앨범·복습 약�
   // 속성(last.verses · d.verses)은 빼고 맨 이름 verses 만 — 전역 verses(주간)에 넣거나 바꾸지 않는다
   assert.ok(!/(?<![.\w$])verses\s*\.\s*(push|concat|splice|unshift)\b|(?<![.\w$])verses\s*=(?!=)/.test(code), '전역 verses(주간)를 건드리지 않는다');
 });
+
+// ── ⑤ 열람 기록(2026-10-13 여는 날) ──
+test('⑤ 열람 기록 — FEATURES 에 navi · 스모크 목록이 FEATURES 와 같다 · 머리 표에 navi 줄', () => {
+  const blk = INDEX.slice(INDEX.indexOf('const FEATURES = new Set(['), INDEX.indexOf(']);', INDEX.indexOf('const FEATURES = new Set([')));
+  const feats = [...blk.matchAll(/^\s*"([a-z-]+)"/gm)].map((m) => m[1]);
+  assert.ok(feats.includes('navi'), 'FEATURES 에 navi 가 없다 — 앱이 보내는 logFeature("navi") 가 조용히 버려진다');
+  // tests/feature-log-smoke.sh 는 FEATURES 전부를 돌려야 한다(빠진 값은 시험되지 않는다 — edu·duty 가 그렇게 빠져 있었다)
+  const smoke = /^for F in ([^;]+); do/m.exec(read('tests', 'feature-log-smoke.sh'));
+  assert.ok(smoke, 'feature-log-smoke.sh 의 for 줄을 못 찾았다 — 이 검사가 낡았다');
+  assert.deepEqual(smoke[1].trim().split(/\s+/).sort(), feats.slice().sort(), 'feature-log-smoke.sh 목록 ≠ FEATURES');
+  assert.ok(/^--\s+navi\s+= 0 고정/m.test(read('supabase', 'feature_log.sql')), 'feature_log.sql 머리 표에 navi 줄');
+  assert.ok(/logFeature\("navi", 0\)/.test(APP), '앱은 단추 누름에서 navi 를 남긴다');
+});
