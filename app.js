@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261013i";
+const APP_BUILD = "20261013j";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -7101,6 +7101,84 @@ function scrollPastBtnRow() {
   };
   sync();
   new MutationObserver(sync).observe(appEl, { childList: true });
+})();
+
+// 📱 안드로이드 플레이 앱(TWA)의 위 띠(상태바) 색을 화면에 맞춘다(2026-10-13 친구 「위아래 검은 띠를 투명하게」 · docs/notes/android-app.md 「위아래 띠」).
+//   크롬 TWA 는 띠를 투명하게 해서 그 밑까지 그리지 못한다(크롬 코드: edge-to-edge 는 동영상 보기에만 · 투명 색은 검정으로 바꾼다).
+//   대신 확인된 TWA 에서는 **페이지 theme-color 로 위 띠를 칠하고 아이콘 밝기도 그 색으로 고른다** — 그래서 화면 맨 위에 실제로 깔린 색
+//   (로고 띠 남색 · 바탕 크림 · 어두운 모드 바탕 · 창이 뜨면 어두워진 색)을 재서 theme-color 로 넣으면 위 띠가 화면에 녹아 투명해 보인다.
+//   ⚠️ 아래 띠(내비게이션 바)는 페이지가 바꿀 수 없다 — 껍데기의 NAVIGATION_BAR_COLOR 뿐이고, 크롬 153~155 는 그것도 무시하는 버그가 있다.
+//   ⚠️ 플레이 앱(이번 실행이 TWA)에서만 — 보통 크롬 탭에서는 theme-color 가 주소창 색이라 내리면서 주소창이 바뀌면 이상하다. 아이폰은 상관없다.
+const STATUSBAR_FOLLOW_OPEN = false;   // false = 🧪 시험 참여자만(친구 실기기 확인 중) · true = 플레이 앱 모두
+function statusBarFollowOn() { return openedByPlayApp() && (STATUSBAR_FOLLOW_OPEN || ministryTesterCached()); }
+// ── 위 띠 색 — 순수 (여기부터) ──
+//   tests/statusbar-follow.test.cjs 가 이 구간만 잘라 node:vm 에서 돌린다 — DOM 을 쓰지 말 것.
+// CSS 색 글(getComputedStyle 이 주는 rgb()/rgba() · #hex · transparent) → [r, g, b, a] · 모르는 꼴은 null
+function sbParseColor(s) {
+  const t = String(s == null ? "" : s).trim().toLowerCase();
+  if (t === "transparent") return [0, 0, 0, 0];
+  let m = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)(?:\s*[,/]\s*([\d.]+%?))?\s*\)$/.exec(t);
+  if (m) {
+    let a = m[4] == null ? 1 : m[4].endsWith("%") ? parseFloat(m[4]) / 100 : parseFloat(m[4]);
+    if (!(a >= 0)) a = 1;
+    return [Math.round(+m[1]), Math.round(+m[2]), Math.round(+m[3]), Math.min(1, a)];
+  }
+  m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/.exec(t);
+  if (m) {
+    const h = m[1].length === 3 ? m[1].replace(/./g, "$&$&") : m[1];
+    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16), 1];
+  }
+  return null;
+}
+// 아래부터 위로 쌓인 색 층(맨 아래가 첫째 · [r,g,b,a])을 겹쳐 #rrggbb 하나로 — 맨 밑에는 바탕(base, 불투명)을 깐다.
+//   반투명 층(창 뒤 어둠막 등)은 그 아래 색과 섞는다 — 크롬은 theme-color 의 투명도를 버리므로 섞은 불투명 색을 줘야 한다.
+function sbBlend(layers, base) {
+  let r = base[0], g = base[1], b = base[2];
+  (layers || []).forEach((c) => {
+    if (!c) return;
+    const a = Math.max(0, Math.min(1, c[3] == null ? 1 : c[3]));
+    r = c[0] * a + r * (1 - a); g = c[1] * a + g * (1 - a); b = c[2] * a + b * (1 - a);
+  });
+  const hx = (v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0");
+  return "#" + hx(r) + hx(g) + hx(b);
+}
+// ── 위 띠 색 — 순수 (여기까지) ──
+// 화면 맨 위 왼쪽 끝(x 2 · y 1)에 쌓인 것들의 바탕색을 겹친다 — 가운데는 카드(흰색)·띠(베이지)를 지나며 깜빡여서 가장자리를 잰다.
+//   로고 띠(.page-header)는 그러데이션이라 바탕색이 비어 있다 — 지금까지 쓰던 theme-color 남색(#1a3a6b) 그대로 둔다.
+function statusBarColorNow() {
+  const stack = (document.elementsFromPoint && document.elementsFromPoint(2, 1)) || [];
+  const layers = [];
+  for (const el of stack) {   // 맨 위부터 온다
+    if (el.closest && el.closest(".page-header")) { layers.push([26, 58, 107, 1]); break; }
+    const c = sbParseColor(getComputedStyle(el).backgroundColor);
+    if (c && c[3] > 0) { layers.push(c); if (c[3] >= 1) break; }
+  }
+  layers.reverse();
+  const base = sbParseColor(getComputedStyle(document.body).backgroundColor) || [253, 248, 240, 1];
+  return sbBlend(layers, base[3] > 0 ? base : [253, 248, 240, 1]);
+}
+let _sbLast = "", _sbRaf = 0;
+function syncStatusBar() {
+  _sbRaf = 0;
+  if (!statusBarFollowOn()) return;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (!meta) return;
+  const c = statusBarColorNow();
+  if (c && c !== _sbLast) { _sbLast = c; meta.setAttribute("content", c); }
+}
+function syncStatusBarSoon() { if (!_sbRaf) _sbRaf = requestAnimationFrame(syncStatusBar); }
+(function watchStatusBarColor() {
+  try {
+    if (!openedByPlayApp()) return;   // 플레이 앱이 아닌 실행은 듣지도 않는다(문은 syncStatusBar 가 매번 다시 본다)
+    window.addEventListener("scroll", syncStatusBarSoon, { passive: true });
+    window.addEventListener("resize", syncStatusBarSoon);
+    const mo = new MutationObserver(syncStatusBarSoon);
+    const appEl = document.getElementById("app");
+    if (appEl) mo.observe(appEl, { childList: true });                                    // 화면이 바뀜
+    mo.observe(document.body, { childList: true });                                       // 창(어둠막)이 뜨고 닫힘
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });   // 앱 어두운 모드
+    setTimeout(syncStatusBarSoon, 400);
+  } catch (e) {}
 })();
 
 // 영어 관용 비교용 정규화 — 대소문자·문장부호·스마트따옴표 차이는 정답으로 인정

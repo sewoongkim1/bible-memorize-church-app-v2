@@ -155,6 +155,8 @@ PURE_TESTS += ["tests/navi.test.cjs"]
 # 첫 화면 A안 묶음표(HA_GROUPS)와 템플릿 단추가 짝이 맞는가(2026-10-13 「암송 과정」 옮김) — 빠지면 그 단추가 띠 밖에 옛 모양으로 남는다 ·
 #   묶음 차례 · 설명서 쉴만한 물가 줄의 두 꼴(docs/notes/home-screen.md)
 PURE_TESTS += ["tests/home-groups.test.cjs"]
+# 📱 안드로이드 플레이 앱 위 띠(상태바) 색 맞추기(2026-10-13) — 색 읽기·겹치기 순수 함수 · 문(플레이 앱에서만 · STATUSBAR_FOLLOW_OPEN) · theme-color 를 만지는 곳은 한 곳
+PURE_TESTS += ["tests/statusbar-follow.test.cjs"]
 
 print("\n[3] 순수 함수 검사 (node --test)")
 for t in PURE_TESTS:
