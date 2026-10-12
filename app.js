@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261013c";
+const APP_BUILD = "20261013d";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -366,7 +366,7 @@ function routeAfterLoad() {
   //    (?v=1&from=push 처럼 딥링크와 겹치는 경우가 실제로 그랬다). readPushMark 는
   //    from 파라미터만 지우고 v·lang 등 나머지는 그대로 두므로 먼저 불러도 안전하다.
   readPushMark();
-  readHomePreviewParam();   // 🧪 ?home=a · ?home=b · ?home=off — 첫 화면 A안 · B안 미리보기(이 기기에만)
+  readHomePreviewParam();   // ?home=old · ?home=b · ?home=off(· 롤백 뒤 ?home=a) — 이 기기에만(HOME_LAYOUT 위 주석)
   _passagesPreview = getPassagesPreview();
   _psalmPreview = getPsalmPreview();
   _songPreview = getSongPreview();
@@ -690,23 +690,34 @@ function songVisible() { return _songPreview || songPublicCached(); }
 //   문 = 이 기기의 localStorage 표식 하나 — 주소를 모르는 성도님은 지금 첫 화면 그대로다. 서버·기록과는 상관없다(배치만 바꾼다).
 //   배치는 CSS(.home-b — style.css 끝 덩이)가 바꾸고, 단추·id·연결 코드는 지금 첫 화면 그대로라 모든 단추가 똑같이 동작한다.
 //   ⚠️ 다른 미리보기(getPsalmPreview 등)는 주소의 ? 뒤를 통째로 지운다 — 이것은 home 하나만 지운다(다른 표식을 안 건드리게).
+// ── 첫 화면 꼴 스위치(2026-10-13 친구 — 「A안을 첫 화면으로 배포 · 기존 안은 롤백할 수 있게 보관」) ──────────
+//   "a"   = 시안 A — 템플릿(옛 첫 화면)을 그린 뒤 applyHomeA 가 「이번 주 말씀」 아래를 묶음 줄 목록으로 옮겨 담는다.
+//   "old" = 옛 첫 화면(10/13 이전 그대로) — 템플릿은 하나도 안 바꿨으니 applyHomeA 만 안 부르면 그 모습이다.
+//   ⚠️ 롤백: 아래 값을 "old" 로 → python tools/bump.py → 푸시(2~3분). 바꾸기 직전 판은 깃 태그 home-before-a-2026-10-13.
+//   한 기기만: ?home=old(옛 첫 화면 · 맨 위 「새 화면으로」) · ?home=b(B안 미리보기) · ?home=off(기본으로).
+//   읽을 것 docs/notes/home-screen.md 끝 「A안을 모두에게」
+const HOME_LAYOUT = "a";
 const HOME_B_KEY = "home-b-preview";
-const HOME_A_KEY = "home-a-preview";
+const HOME_A_KEY = "home-a-preview";   // 기본이 "old" 일 때(롤백 뒤)만 쓰는 A안 미리보기 표식(?home=a)
+const HOME_OLD_KEY = "home-old-view";  // 기본이 "a" 일 때 이 기기만 옛 첫 화면(?home=old)
 function readHomePreviewParam() {
   try {
     const url = new URL(location.href);
     const h = url.searchParams.get("home");
-    if (h !== "a" && h !== "b" && h !== "off" && h !== "0") return;
-    localStorage.removeItem(HOME_A_KEY);   // 둘 중 하나만 — 미리보기 표식은 늘 많아야 하나
-    localStorage.removeItem(HOME_B_KEY);
-    if (h === "a") localStorage.setItem(HOME_A_KEY, "1");
+    if (h !== "a" && h !== "b" && h !== "old" && h !== "off" && h !== "0") return;
+    [HOME_A_KEY, HOME_B_KEY, HOME_OLD_KEY].forEach((k) => localStorage.removeItem(k));   // 표식은 늘 하나만
+    if (h === "a" && HOME_LAYOUT !== "a") localStorage.setItem(HOME_A_KEY, "1");
     if (h === "b") localStorage.setItem(HOME_B_KEY, "1");
+    if (h === "old" && HOME_LAYOUT === "a") localStorage.setItem(HOME_OLD_KEY, "1");
     url.searchParams.delete("home");
     history.replaceState(null, "", url.pathname + url.search + url.hash);
   } catch (e) {}
 }
 function homeBPreview() { try { return localStorage.getItem(HOME_B_KEY) === "1"; } catch (e) { return false; } }
 function homeAPreview() { try { return localStorage.getItem(HOME_A_KEY) === "1"; } catch (e) { return false; } }
+function homeOldView() { try { return localStorage.getItem(HOME_OLD_KEY) === "1"; } catch (e) { return false; } }
+// 이 기기의 첫 화면이 지금 A안인가 — B안 미리보기가 먼저, 그다음 스위치(HOME_LAYOUT)와 이 기기 표식
+function homeAActive() { return !homeBPreview() && (HOME_LAYOUT === "a" ? !homeOldView() : homeAPreview()); }
 // B안 — 묶음 단추 맨 앞 그림 글자(이모지)를 떼어 타일 위쪽에 크게 놓고, 맨 위에 미리보기 표시 줄을 단다.
 //   단추 자신(id·연결)은 그대로 두고 안의 글만 나눈다. 성도님 화면(B 아님)에서는 부르지 않는다.
 function applyHomeB() {
@@ -727,7 +738,7 @@ function applyHomeB() {
   });
   const bar = document.createElement("div");
   bar.className = "hb-bar";
-  bar.innerHTML = `<span>🧪 첫 화면 B안 미리보기 · 이 기기에서만</span><button type="button" id="hb-off">원래 화면으로</button>`;
+  bar.innerHTML = `<span>🧪 첫 화면 B안 미리보기 · 이 기기에서만</span><button type="button" id="hb-off">기본 화면으로</button>`;
   card.appendChild(bar);   // 자리는 CSS order 가 정한다(인사 바로 아래)
   bar.querySelector("#hb-off").addEventListener("click", () => {
     try { localStorage.removeItem(HOME_B_KEY); } catch (e) {}
@@ -874,6 +885,7 @@ function applyHomeA() {
       }
     });
   }
+  if (HOME_LAYOUT === "a") return;   // 모두의 첫 화면(2026-10-13~) — 미리보기 표시 줄은 달지 않는다
   const bar = document.createElement("div");
   bar.className = "hb-bar ha-bar";
   bar.innerHTML = `<span>🧪 첫 화면 A안 미리보기 · 이 기기에서만</span><button type="button" id="ha-off">원래 화면으로</button>`;
@@ -881,6 +893,20 @@ function applyHomeA() {
   card.insertBefore(bar, head ? head.nextSibling : card.firstChild);
   bar.querySelector("#ha-off").addEventListener("click", () => {
     try { localStorage.removeItem(HOME_A_KEY); } catch (e) {}
+    renderSummary();
+  });
+}
+// 이 기기만 옛 첫 화면(?home=old · 기본이 A안일 때) — 맨 위 표시 줄과 「새 화면으로」. 견주어 보기용
+function applyHomeOldBar() {
+  const card = document.querySelector(".summary-screen .summary-card");
+  if (!card || card.querySelector(".ho-bar")) return;
+  const bar = document.createElement("div");
+  bar.className = "hb-bar ho-bar";
+  bar.innerHTML = `<span>🕰️ 옛 첫 화면 · 이 기기에서만</span><button type="button" id="ho-off">새 화면으로</button>`;
+  const head = card.querySelector(":scope > .summary-headrow");
+  card.insertBefore(bar, head ? head.nextSibling : card.firstChild);
+  bar.querySelector("#ho-off").addEventListener("click", () => {
+    try { localStorage.removeItem(HOME_OLD_KEY); } catch (e) {}
     renderSummary();
   });
 }
@@ -3438,7 +3464,7 @@ function renderSummary() {
 
   const appEl = document.getElementById("app");
   appEl.innerHTML = `
-<div class="summary-screen${homeBPreview() ? " home-b" : homeAPreview() ? " home-a" : ""}">
+<div class="summary-screen${homeBPreview() ? " home-b" : homeAActive() ? " home-a" : ""}">
   <div class="summary-card">
     <div class="summary-headrow">
       <div class="summary-hello"><span class="summary-affil">${u.type === "교구" ? `${u.gu}-${u.mok}` : `${u.bu}${u.grade ? " " + u.grade : ""}`}</span> <span class="summary-user">${u.name}</span> <span class="summary-honor">성도님</span><br>주님의 이름으로 환영합니다 🙌</div>
@@ -3643,7 +3669,8 @@ function renderSummary() {
     } catch (e) {}
   })();
   if (homeBPreview()) applyHomeB();   // 🧪 첫 화면 B안 미리보기(?home=b 로 연 기기만)
-  else if (homeAPreview()) applyHomeA();   // 🧪 첫 화면 A안 미리보기(?home=a 로 연 기기만 · 이번 주 말씀 아래만)
+  else if (homeAActive()) applyHomeA();   // 첫 화면 A안(2026-10-13~ 모두 · HOME_LAYOUT) — 이번 주 말씀 아래만
+  else if (HOME_LAYOUT === "a" && homeOldView()) applyHomeOldBar();   // 이 기기만 옛 첫 화면(?home=old)
   fitTodoSub();   // 「말씀 암송」 둘째 줄을 꼭 한 줄로
   try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitTodoSub); } catch (e) {}
   maybeAutumnPopup();   // 가을 말씀암송 동행 개시 1회 안내(열린 회차가 autumn-2026 이면 한 번만)
@@ -8741,7 +8768,7 @@ const MANUAL = [
     art: '<div class="mn-row"><span class="mn-btn">🔔 알림</span></div>',
     get steps() {
       return [
-        "첫 화면을 <b>맨 아래까지</b> 내리면 동그란 단추 줄이 있어요. 거기서 <b>🔔 알림</b>을 누르세요.",
+        "첫 화면을 <b>맨 아래까지</b> 내리면 <b>🔔 알림</b> 단추가 있어요. 그걸 누르세요.",
         "폰이 <b>「허용하시겠습니까?」</b> 하고 물어봐요.",
         "<b>「허용」</b>을 누르세요.",
         window.EVENING_LIVE
@@ -8955,7 +8982,9 @@ const MANUAL = [
     lead: "말씀을 손으로 따라 쓰는 노트예요.",
     art: '<div class="mn-row"><span class="mn-btn mn-btn-on">✍️ 성경필사 노트 신청</span></div>',
     steps: [
-      "첫 화면 아래 <b>더 보기 ▾</b>를 펴고 <b>✍️ 성경필사 노트 신청</b>을 누르세요.",
+      HOME_LAYOUT === "a"   // 2026-10-13 A안에는 「더 보기」가 없다 — 「함께」 묶음에 있다
+        ? "첫 화면 아래 <b>「함께」</b> 묶음의 <b>성경필사 노트 신청</b>을 누르세요."
+        : "첫 화면 아래 <b>더 보기 ▾</b>를 펴고 <b>✍️ 성경필사 노트 신청</b>을 누르세요.",
       "노트 크기와 <b>필사 유형</b>, 번역본을 고르세요.",
       "원하는 성경을 골라 담으세요. <b>한 분 5부까지</b>.",
       "휴대폰 번호를 남기시면 준비되는 대로 알려 드립니다.",
