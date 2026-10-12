@@ -43,7 +43,7 @@
 3. 플레이 심사 중이면 심사 뒤(새 화면 · 공지).
 4. 서버 `FEATURES` 에 `"navi"`(+ `supabase/feature_log.sql` 머리 표 한 줄 — 값만 늘리면 SQL 을 다시 넣을 일은 없다) → `python tools/deploy-fn.py api --dev` → `--prod`.
 5. 앱: `FEAT_SINCE.navi = "<여는 날>"` · 설명서(`MANUAL`)에 한 장(`when: () => naviVisible()` · 단추 자리는 A안이면 「암송 과정」) → bump → 푸시.
-6. 운영 `app_config`: `insert into app_config(key, value) values ('naviPublic', 'true'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();` — 켠 날 성도님은 앱을 한 번 닫았다 열어야 보인다.
+6. 운영 `app_config`: `insert into app_config(key, value) values ('naviPublic', 'true'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();` — 값이 바뀌면 `refreshNaviOpen` 이 첫 화면을 그 자리에서 다시 그려, 켠 날 앱을 연 그 실행부터 보인다(2026-10-13 · psalm·edu 는 다음 실행부터).
 7. 확인: 시험 참여자 **아닌** 계정으로 운영에서 단추 · `NAVI_ENV=prod PROD_ANON=… NAVI_EXPECT=73 bash tests/navi-smoke.sh`.
 
 ## 시험 · 확인
