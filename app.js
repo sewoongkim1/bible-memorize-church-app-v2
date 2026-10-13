@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261014c";
+const APP_BUILD = "20261014d";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9068,10 +9068,45 @@ function renderManageMenu(back) {
         </div>
         <p class="btn-sub" style="text-align:center;margin:0 0 14px;word-break:keep-all">담당자·관리자가 쓰는 페이지예요. 관리자 페이지는 암호가 필요해요.</p>
         ${MANAGE_LINKS.map((m) => `<a class="summary-install" href="${m.href}">${m.ic} ${m.title}</a>`).join("")}
+        ${memoPreviewBoxHtml()}
       </div>
     </div>`;
   window.scrollTo(0, 0);   // ⚠️ 설정 아래쪽에서 들어오므로 — 안 하면 화면 중간에서 열린다
   document.getElementById("manage-back").addEventListener("click", back);
+  setupMemoPreviewBox(() => renderManageMenu(back));
+}
+
+// 🧪 암송 화면 시안 미리보기 켜기 — 이 기기에서만(2026-10-14 친구 「PC 에서는 되는데 모바일 폰에서는 시안 화면이 안 떠요」).
+//   ?memo= 주소는 그 주소를 연 브라우저에만 표식을 남긴다 — 플레이 앱 · 아이폰 앱 · 카카오톡 안 브라우저 · 삼성 인터넷은 저장 공간이 따로라
+//   폰에서는 주소로 켠 표식이 앱에 안 닿는다. 그래서 어느 앱에서든 들어오는 이 메뉴(설정 → 🔒 관리 페이지)에서 켜고 끈다(표식은 같은 memo-preview · memo-font).
+//   입구가 모든 성도님께 보이지만 바뀌는 것은 누른 그 기기의 암송 화면뿐이고, 암송 화면 위 「원래」로도 끈다.
+function memoPreviewBoxHtml() {
+  const v = memoVariant(), f = memoFont();
+  const btn = (attr, val, label, on) => `<button type="button" ${attr}="${val}" aria-pressed="${on}">${label}</button>`;
+  return `
+        <div class="mg-pv">
+          <div class="mg-pv-t">🧪 암송 화면 시안 미리보기 <span>이 기기에서만</span></div>
+          <div class="mg-pv-row" role="group" aria-label="시안">${[["a", "A"], ["b", "B"], ["c", "C"]].map(([k, l]) => btn("data-pv", k, l, v === k)).join("")}${btn("data-pv", "", "끄기", !v)}</div>
+          <div class="mg-pv-row" role="group" aria-label="말씀 글꼴"><span class="mg-pv-l">글꼴</span>${[["ns", "고딕"], ["gb", "바탕"], ["mj", "명조"]].map(([k, l]) => btn("data-pf", k, l, f === k)).join("")}</div>
+          <button type="button" class="summary-install" id="mg-pv-open"${v ? "" : " disabled"}>📖 이번 주 말씀 암송 화면 열기</button>
+          <p class="btn-sub mg-pv-note">${v ? `지금 이 기기는 시안 ${v.toUpperCase()}로 보여요.` : "시안을 고르면 이 기기의 암송 화면만 그 모양으로 바뀌어요."} 다른 분 화면은 그대로예요.</p>
+        </div>`;
+}
+function setupMemoPreviewBox(rerender) {
+  document.querySelectorAll(".mg-pv [data-pv]").forEach((b) => b.addEventListener("click", () => {
+    try { if (b.dataset.pv) localStorage.setItem(MEMO_KEY, b.dataset.pv); else localStorage.removeItem(MEMO_KEY); } catch (e) {}
+    rerender();
+  }));
+  document.querySelectorAll(".mg-pv [data-pf]").forEach((b) => b.addEventListener("click", () => {
+    try { localStorage.setItem(MEMO_FONT_KEY, b.dataset.pf); } catch (e) {}
+    rerender();
+  }));
+  const open = document.getElementById("mg-pv-open");
+  if (open) open.addEventListener("click", () => {
+    const info = getWeeklyVerseInfo();
+    const v = (info && info.verse) || verses[verses.length - 1];
+    if (v) startTest(v);
+  });
 }
 
 function renderPrivacyInfo(back) {

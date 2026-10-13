@@ -6910,3 +6910,22 @@ html.dark:has(#app .test-screen.memo-c) body { background: #0e1116; }
 .test-screen[data-memo] .mm-fonts button.mm-f-ns { font-family: "Noto Sans KR", sans-serif; }
 .test-screen[data-memo] .mm-fonts button.mm-f-gb { font-family: "Gowun Batang", serif; }
 .test-screen[data-memo] .mm-fonts button.mm-f-mj { font-family: "Nanum Myeongjo", serif; }
+/* 🧪 설정 → 🔒 관리 페이지의 「암송 화면 시안 미리보기」(app.js memoPreviewBoxHtml — 폰에서는 ?memo= 주소가 앱에 안 닿는다) */
+.mg-pv { margin: 18px 0 0; padding: 12px 12px 10px; border: 1.5px dashed var(--gold); border-radius: 12px; background: #fffaf0; text-align: left; }
+.mg-pv-t { font-size: .95rem; font-weight: 800; color: #6b5a2a; margin: 0 0 8px; }
+.mg-pv-t span { font-size: .8rem; font-weight: 700; color: #8a7a4a; }
+.mg-pv-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 8px; }
+.mg-pv-l { font-size: .86rem; font-weight: 700; color: #6b5a2a; margin-right: 2px; }
+.mg-pv-row button {
+  min-width: 48px; min-height: 42px; padding: 0 12px; border: 1.5px solid var(--navy); border-radius: 10px;
+  background: #fff; color: var(--navy); font-family: inherit; font-size: .9rem; font-weight: 800; cursor: pointer;
+}
+.mg-pv-row button[aria-pressed="true"] { background: var(--navy); color: #fff; }
+.mg-pv .summary-install { margin-top: 4px; }
+.mg-pv .summary-install:disabled { opacity: .5; cursor: default; }
+.mg-pv-note { margin: 6px 0 0; text-align: left; word-break: keep-all; }
+.dark .mg-pv { background: #2b2717; border-color: #8d7531; }
+.dark .mg-pv-t, .dark .mg-pv-l { color: #e8d9a3; }
+.dark .mg-pv-t span { color: #cbb978; }
+.dark .mg-pv-row button { background: #232c3f; color: #cdd9f2; border-color: #3a4a68; }
+.dark .mg-pv-row button[aria-pressed="true"] { background: #9dbbea; border-color: #9dbbea; color: #0f1218; }
