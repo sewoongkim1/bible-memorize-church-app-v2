@@ -6349,35 +6349,44 @@ html[data-fs="xl"] .nv-ch-sub { font-size: 1.04rem; }
 .album-a .aa-n small { font-size: 1rem; font-weight: 800; color: #6e7787; }
 .album-a .aa-stat-l { font-size: .82rem; font-weight: 600; line-height: 1.35; color: #4a5468; word-break: keep-all; }
 /* 듣기 줄 — 「전부 듣기」가 주인공(남색 테두리) · 옆에 「골라 듣기」 · 아래 작은 칩(3분요약 · 고르기 중엔 전체 선택/해제) */
-.album-a .aa-play-row { display: flex; gap: 8px; }
+.album-a .aa-play-row { display: flex; flex-wrap: nowrap; gap: 8px; }
+.album-a .aa-play-row.aa-wrap { flex-wrap: wrap; }
 .album-a .aa-go {
-  flex: 1 1 auto; min-width: 0; min-height: 50px; margin: 0; padding: 6px 12px;
+  flex: 1 0 auto; min-height: 50px; margin: 0; padding: 6px 12px; white-space: nowrap;
   border: 1.5px solid #8da3c8; border-radius: 14px; background: #fff; color: #1e3a6b;
   display: flex; flex-wrap: wrap; align-items: center; justify-content: center; column-gap: 8px; row-gap: 0;
   font-family: inherit; font-size: 1.06rem; font-weight: 800; cursor: pointer;
 }
 .album-a .aa-go:hover { background: #eaf0f9; }
 .album-a .aa-play-ic { width: 16px; height: 16px; flex: none; }
-.album-a .aa-go .ab-dur { font-size: .94rem; font-weight: 500; opacity: 1; color: #4a5468; }
-.album-a .aa-pick {
-  flex: none; min-height: 50px; margin: 0; padding: 0 16px;
-  border: 1px solid #e5dfd4; border-radius: 14px; background: #fff; color: #1b2333;
-  font-family: inherit; font-size: .94rem; font-weight: 700; cursor: pointer; white-space: nowrap;
+/* ☐ 3분 요약 — 「전부 듣기」 옆 체크 상자(친구 2026-10-13). 켜면 전부 듣기에 설교 3분요약을 끼워 넣는다(albumWithSummary · 이것만 저장) */
+.album-a .aa-sum {
+  flex: none; min-height: 50px; margin: 0; padding: 0 6px 0 4px; border: 0; background: transparent; color: #1b2333;
+  display: inline-flex; align-items: center; gap: 8px; font-family: inherit; font-size: .94rem; font-weight: 700; cursor: pointer; white-space: nowrap;
 }
-.album-a .aa-play-opts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-.album-a .aa-opt {
-  min-height: 40px; margin: 0; padding: 0 12px; border: 1px solid #e5dfd4; border-radius: 999px; background: #fff; color: #4a5468;
-  display: inline-flex; align-items: center; gap: 4px; font-family: inherit; font-size: .88rem; font-weight: 700; cursor: pointer; white-space: nowrap;
+.album-a .aa-box {
+  flex: none; width: 24px; height: 24px; border: 2px solid #8da3c8; border-radius: 6px; background: #fff;
+  display: inline-flex; align-items: center; justify-content: center; color: #fff;
 }
+.album-a .aa-box svg { width: 16px; height: 16px; stroke-width: 3.2; }
+.album-a .aa-sum.on .aa-box { background: #1e3a6b; border-color: #1e3a6b; }
+.album-a .aa-play-row.aa-tight .aa-go { padding: 0 10px; }
+.album-a .aa-play-row.aa-tighter .aa-sum { gap: 6px; padding: 0 2px; }
 /* 「스스로 점검」 — 켜면 남색 + ✓ (켬/끔은 색만이 아니라 ✓ 로도 가른다) */
 .album-a .aa-sec-title { margin: 0 0 8px; padding: 0 2px; font-size: .88rem; font-weight: 800; color: #4a5468; }
-.album-a .aa-toggles { display: flex; flex-wrap: wrap; gap: 8px; }
+.album-a .aa-toggles { display: flex; flex-wrap: nowrap; gap: 8px; }
+.album-a .aa-toggles.aa-wrap { flex-wrap: wrap; }
+.album-a .aa-toggles .aa-tg { flex: none; }
+.album-a .aa-toggles.aa-tight { gap: 6px; }
+.album-a .aa-toggles.aa-tight .aa-tg { padding: 0 10px; }
+.album-a .aa-toggles.aa-tighter .aa-tg { padding: 0 7px; gap: 2px; font-size: .86rem; }
+.album-a .aa-toggles.aa-tighter .aa-tg svg { display: none; }   /* 켜짐은 바탕·테두리(밝기 차이)로도 보인다 */
 .album-a .aa-tg {
   min-height: 44px; margin: 0; padding: 0 14px; border: 1.5px solid #e5dfd4; border-radius: 999px; background: #fff; color: #1b2333;
   display: inline-flex; align-items: center; gap: 4px; font-family: inherit; font-size: .94rem; font-weight: 700; cursor: pointer; white-space: nowrap;
 }
-.album-a .aa-tg.on, .album-a .aa-pick.on, .album-a .aa-opt.on { border-color: #1e3a6b; background: #eaf0f9; color: #1e3a6b; }
-.album-a .aa-tg svg, .album-a .aa-opt svg { width: 15px; height: 15px; stroke-width: 3; flex: none; }
+.album-a .aa-tg.on { border-color: #1e3a6b; background: #eaf0f9; color: #1e3a6b; }
+.album-a .aa-tg svg { width: 15px; height: 15px; stroke-width: 3; flex: none; }
 .album-a .aa-hint { margin: 0; padding: 0 2px; font-size: .94rem; line-height: 1.5; color: #4a5468; word-break: keep-all; }
 /* 카드 */
 .album-a .album-grid { gap: 10px; margin: 0; }
@@ -6405,18 +6414,15 @@ html[data-fs="xl"] .nv-ch-sub { font-size: 1.04rem; }
 }
 /* 가린 곳 — 흐림 대신 점선 칸(시안 A). 카드를 누르거나(.peek) 확인하면(.checked) 다시 보인다 */
 .album-a .aa-ph { display: none; }
-.album-a .aa-ref-ph { width: 150px; max-width: 60%; height: 24px; border-radius: 6px; border: 1.5px dashed #6e7787; }
 .album-a .aa-text-ph {
   margin: 8px 16px 12px; min-height: 56px; padding: 6px 10px; border-radius: 10px; border: 1.5px dashed #6e7787;
   align-items: center; justify-content: center; text-align: center; font-size: .94rem; line-height: 1.5; color: #4a5468; word-break: keep-all;
 }
-.album-a .album-grid.hide-ref .album-card:not(.peek):not(.checked) .album-ref,
 .album-a .album-grid.hide-text .album-card:not(.peek):not(.checked) .album-text { display: none; }
-.album-a .album-grid.hide-ref .album-card:not(.peek):not(.checked) .aa-ref-ph { display: block; }
 .album-a .album-grid.hide-text .album-card:not(.peek):not(.checked) .aa-text-ph { display: flex; }
 /* 도구 줄 — 암송 · 듣기 · 풀이(글 단추) ……… 확인(알약) */
 .album-a .album-tools {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 2px;
+  display: flex; flex-wrap: nowrap; align-items: center; gap: 2px;
   margin: 0; padding: 6px 10px 10px; border-top: 1px solid #e5dfd4;
 }
 .album-a .album-go, .album-a .album-listen, .album-a .album-why {
@@ -6431,6 +6437,18 @@ html[data-fs="xl"] .nv-ch-sub { font-size: 1.04rem; }
   display: inline-flex; align-items: center; gap: 5px; font-size: .94rem; font-weight: 800; white-space: nowrap;
 }
 .album-a .album-check svg { width: 16px; height: 16px; stroke-width: 2.6; }
+.album-a .album-tools > span { flex: none; }
+/* 「확인함」·「확인」을 한 칸에 겹쳐 하나만 보인다 — 칩 폭이 늘 같다(눌러도 줄이 안 밀린다 · albumFitRow 가 첫 카드로 잰다) */
+.album-a .aa-ck-w { display: inline-grid; }
+.album-a .aa-ck-w > span { grid-area: 1 / 1; text-align: center; }
+.album-a .album-check:not(.on) .aa-ck-a, .album-a .album-check.on .aa-ck-b { visibility: hidden; }
+/* 자리가 모자라면(albumFitRow) — 암송·듣기·풀이 아이콘부터 빼고 → 글씨 한 단계 · 확인 아이콘 → 그래도면 접는다 */
+.album-a .album-grid.aa-tight .album-go svg, .album-a .album-grid.aa-tight .album-listen svg, .album-a .album-grid.aa-tight .album-why svg { display: none; }
+.album-a .album-grid.aa-tight .album-go, .album-a .album-grid.aa-tight .album-listen, .album-a .album-grid.aa-tight .album-why { padding: 0 6px; }
+.album-a .album-grid.aa-tighter .album-check svg { display: none; }
+.album-a .album-grid.aa-tighter .album-tools > span { font-size: .86rem; }
+.album-a .album-grid.aa-tighter .album-check { padding: 0 10px; }
+.album-a .album-grid.aa-wrap .album-tools { flex-wrap: wrap; }
 .album-a .album-check:hover { background: #f4efe6; }
 .album-a .album-check.on, .album-a .album-check.on:hover { border-color: #1f7a4d; background: #e6f4ec; color: #1f7a4d; }
 .album-a .album-why-body { margin: 0 16px 14px; }
@@ -6442,15 +6460,17 @@ html[data-fs="lg"] .album-a .album-ref, html[data-fs="lg"] .album-a .aa-go { fon
 html[data-fs="xl"] .album-a .album-ref, html[data-fs="xl"] .album-a .aa-go { font-size: 1.28rem; }
 html[data-fs="lg"] .album-a .aa-title { font-size: 1.3rem; }
 html[data-fs="xl"] .album-a .aa-title { font-size: 1.42rem; }
-html[data-fs="lg"] .album-a .aa-tg, html[data-fs="lg"] .album-a .aa-pick, html[data-fs="lg"] .album-a .album-tools > span,
+html[data-fs="lg"] .album-a .aa-tg, html[data-fs="lg"] .album-a .aa-sum, html[data-fs="lg"] .album-a .album-tools > span,
 html[data-fs="lg"] .album-a .aa-hint, html[data-fs="lg"] .album-a .aa-text-ph { font-size: 1.02rem; }
-html[data-fs="xl"] .album-a .aa-tg, html[data-fs="xl"] .album-a .aa-pick, html[data-fs="xl"] .album-a .album-tools > span,
+html[data-fs="xl"] .album-a .aa-tg, html[data-fs="xl"] .album-a .aa-sum, html[data-fs="xl"] .album-a .album-tools > span,
 html[data-fs="xl"] .album-a .aa-hint, html[data-fs="xl"] .album-a .aa-text-ph { font-size: 1.12rem; }
-html[data-fs="lg"] .album-a .aa-stat-l, html[data-fs="lg"] .album-a .aa-heart, html[data-fs="lg"] .album-a .aa-opt { font-size: .94rem; }
-html[data-fs="xl"] .album-a .aa-stat-l, html[data-fs="xl"] .album-a .aa-heart, html[data-fs="xl"] .album-a .aa-opt { font-size: 1.02rem; }
+html[data-fs="lg"] .album-a .aa-stat-l, html[data-fs="lg"] .album-a .aa-heart { font-size: .94rem; }
+html[data-fs="xl"] .album-a .aa-stat-l, html[data-fs="xl"] .album-a .aa-heart { font-size: 1.02rem; }
 /* 아주 크게 — 도구 줄 여백을 줄여 360px 에서도 「확인」이 한 줄에 남게 */
 html[data-fs="xl"] .album-a .album-go, html[data-fs="xl"] .album-a .album-listen, html[data-fs="xl"] .album-a .album-why { padding: 0 5px; gap: 4px; }
 html[data-fs="xl"] .album-a .album-check { padding: 0 11px; }
+html[data-fs="lg"] .album-a .aa-toggles.aa-tighter .aa-tg, html[data-fs="lg"] .album-a .album-grid.aa-tighter .album-tools > span { font-size: .94rem; }
+html[data-fs="xl"] .album-a .aa-toggles.aa-tighter .aa-tg, html[data-fs="xl"] .album-a .album-grid.aa-tighter .album-tools > span { font-size: 1.02rem; }
 html[data-fs="lg"] .album-a .aa-n { font-size: 1.65rem; }
 html[data-fs="xl"] .album-a .aa-n { font-size: 1.8rem; }
 /* 어두운 모드 — 시안 A 의 어두운 판(첫 화면 A안 .ha-* 와 같은 값) */
@@ -6465,10 +6485,11 @@ html[data-fs="xl"] .album-a .aa-n { font-size: 1.8rem; }
 .dark .album-a .aa-stat-l, .dark .album-a .aa-sec-title, .dark .album-a .aa-hint, .dark .album-a .album-empty { color: #b9c0cd; }
 .dark .album-a .aa-go { background: #212938; border-color: #4a6597; color: #9dbbea; }
 .dark .album-a .aa-go:hover { background: #22304a; }
-.dark .album-a .aa-go .ab-dur { color: #b9c0cd; }
-.dark .album-a .aa-pick, .dark .album-a .aa-tg { background: #212938; border-color: #313a4a; color: #f1eee7; }
-.dark .album-a .aa-opt { background: #212938; border-color: #313a4a; color: #b9c0cd; }
-.dark .album-a .aa-tg.on, .dark .album-a .aa-pick.on, .dark .album-a .aa-opt.on { background: #22304a; border-color: #9dbbea; color: #9dbbea; }
+.dark .album-a .aa-tg { background: #212938; border-color: #313a4a; color: #f1eee7; }
+.dark .album-a .aa-sum { color: #f1eee7; }
+.dark .album-a .aa-box { background: #212938; border-color: #4a6597; }
+.dark .album-a .aa-sum.on .aa-box { background: #9dbbea; border-color: #9dbbea; color: #0f1218; }
+.dark .album-a .aa-tg.on { background: #22304a; border-color: #9dbbea; color: #9dbbea; }
 .dark .album-a .album-card { background: #212938; border-color: #313a4a; color: #f1eee7; }
 .dark .album-a .album-card:hover { border-color: #46587c; }
 .dark .album-a .album-card.hearted { background: #212938; border-color: #5c4c22; }
@@ -6478,7 +6499,7 @@ html[data-fs="xl"] .album-a .aa-n { font-size: 1.8rem; }
 .dark .album-a .album-ref { color: #9dbbea; }
 .dark .album-a .album-text { color: #f1eee7; }
 .dark .album-a .aa-heart { color: #e9cd7e; }
-.dark .album-a .aa-ref-ph, .dark .album-a .aa-text-ph { border-color: #949dad; }
+.dark .album-a .aa-text-ph { border-color: #949dad; }
 .dark .album-a .aa-text-ph { color: #b9c0cd; }
 .dark .album-a .album-tools { border-top-color: #313a4a; }
 .dark .album-a .album-go, .dark .album-a .album-listen, .dark .album-a .album-why { background: transparent; color: #b9c0cd; }

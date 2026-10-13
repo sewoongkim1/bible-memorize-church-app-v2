@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261013x";
+const APP_BUILD = "20261013y";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9068,7 +9068,7 @@ const MANUAL = [
       "요절을 먼저 부르고, 잠깐 쉰 뒤 다음 말씀으로 넘어가요.",
       "듣는 동안 <b>화면이 저절로 꺼지지 않아요.</b>",
     ],
-    tip: "「나의 말씀 앨범」에서 <b>3분요약도 함께 듣기</b>를 켜면 설교 <b>3분요약</b>도 이어서 들려 드려요.",
+    tip: "「나의 말씀 앨범」에서 <b>전부 듣기</b> 옆 <b>3분 요약</b>에 체크하면 설교 <b>3분요약</b>도 이어서 들려 드려요.",
   },
   {
     icon: "🎤", title: "소리 내어 암송하기",
@@ -9100,7 +9100,7 @@ const MANUAL = [
     steps: [
       "<b>📖 말씀 암송</b>에서 3단계까지 마친 말씀은 첫 화면 <b>나의 말씀 앨범</b>에 모입니다.",
       "완전히 외우셨으면 3단계 화면의 <b>「이 말씀을 내 마음에 두었나이다」</b>에 체크하세요. <b>👑</b>가 달리고 다음부터 바로 3단계로 시작해요.",
-      "앨범의 <b>스스로 점검</b>에서 <b>구절 가리기 · 말씀 가리기</b>로 가리고 스스로 맞혀 볼 수 있어요. 맞혀 본 말씀은 <b>확인</b>을 누르세요.",
+      "앨범의 <b>스스로 점검</b>에서 <b>말씀 가리기</b>를 누르면 말씀을 가리고 스스로 맞혀 볼 수 있어요. 맞혀 본 말씀은 <b>확인</b>을 누르세요.",
     ],
     tip: "앨범에서도 <b>▶ 전부 듣기</b>로 이어서 들을 수 있어요.",
   },
@@ -10443,16 +10443,42 @@ function albumFind(no) {
   return verses.find((x) => x.no === no) || (psalmVerses || []).find((x) => x.no === no) || null;
 }
 
+// A안 — 단추 줄은 늘 한 줄(친구 2026-10-13 「버튼 한줄로 나오게」). 줄이 넘치면 차례로 줄인다:
+//   .aa-tight(여백·아이콘) → .aa-tighter(글씨 한 단계 · ✓ 아이콘) → .aa-wrap(그래도 넘치면 접는다 — 잘리는 것보다 낫다).
+//   폭은 기기·글씨 크기(설정)·글꼴이 들어온 때마다 달라 CSS 만으로는 못 맞춘다 — 그린 뒤에 실제로 잰다.
+function albumFitRow(row, holder) {
+  if (!row) return;
+  holder = holder || row;
+  holder.classList.remove("aa-tight", "aa-tighter", "aa-wrap");
+  const over = () => row.scrollWidth > row.clientWidth + 1;
+  ["aa-tight", "aa-tighter", "aa-wrap"].some((c) => { if (!over()) return true; holder.classList.add(c); return false; });
+}
+function albumFitAll() {
+  const scr = document.querySelector(".album-a");
+  if (!scr) return;
+  albumFitRow(scr.querySelector(".aa-play-row"));
+  albumFitRow(scr.querySelector(".aa-toggles"));
+  // 카드 도구 줄은 모두 같은 꼴(확인 칩 폭도 같다 — .aa-ck-w)이라 첫 줄로 재고 격자 전체에 같은 표를 단다
+  const grid = scr.querySelector(".album-grid");
+  albumFitRow(grid && grid.querySelector(".album-tools"), grid);
+}
+window.addEventListener("resize", albumFitAll);   // 폰을 돌리거나 창 폭이 바뀌면(앨범이 안 열려 있으면 아무것도 안 한다)
+
 function renderAlbum() {
   const u = loadUser();
   const appEl = document.getElementById("app");
   const done = verses.filter((v) => getPassedStage(v.no) >= 3);   // 주간 말씀만(위 albumUnseenOnly 아래 ⚠️ 「앨범은 주간 말씀만」)
   const hearted = done.filter((v) => isHearted(v.no));
+  const albumA = albumAActive();   // 시안 A 꼴(ALBUM_LAYOUT 위 주석) — 템플릿만 다르고 id·data-*·연결은 같다
+  // A안에서 뺀 셋(친구 2026-10-13 — 구절 가리기 · 첫 글자만 · 골라 듣기)은 늘 꺼 둔다(옛 앨범에서 켜 둔 값이 남지 않게)
+  if (albumA) { albumHideRef = false; albumHint = false; if (albumPickMode) { albumPickMode = false; albumPicks.clear(); } }
   const hiding = albumHideRef || albumHideText || albumHint;
   const checked = albumCheckedToday();
-  const albumA = albumAActive();   // 시안 A 꼴(ALBUM_LAYOUT 위 주석) — 템플릿만 다르고 id·data-*·연결은 같다
-  // 확인 칩 글 — 처음 그릴 때와 누를 때(applyChecked) 같은 것을 쓴다(A안은 선 아이콘이라 innerHTML)
-  const checkLabel = (on) => albumA ? haSvg("check") + (on ? "확인함" : "확인") : (on ? "✅ 확인함" : "✓ 확인");
+  // 확인 칩 글 — 처음 그릴 때와 누를 때(applyChecked) 같은 것을 쓴다.
+  //   A안은 「확인함」·「확인」을 한 칸에 겹쳐 두고 하나만 보인다(.aa-ck-w) — 칩 폭이 늘 「확인함」이라 눌러도 줄이 안 밀린다
+  const checkLabel = (on) => albumA
+    ? haSvg("check") + '<span class="aa-ck-w"><span class="aa-ck-a">확인함</span><span class="aa-ck-b">확인</span></span>'
+    : (on ? "✅ 확인함" : "✓ 확인");
 
   // 기본 정렬: 오늘 확인하지 않은 것 먼저 → 그 안에서 최신(구절 번호 큰 것) 먼저.
   // 아직 볼 것이 위로 모여 스크롤 없이 이어서 할 수 있다.
@@ -10489,7 +10515,6 @@ function renderAlbum() {
       <button class="album-card${heart ? " hearted" : ""}${isChecked ? " checked" : ""}" data-no="${v.no}">
         <span class="aa-card-top">
           <span class="album-ref">${ref}</span>
-          <span class="aa-ph aa-ref-ph" aria-hidden="true"></span>
           ${heart ? `<span class="aa-heart">${haSvg("crown")}마음에 둠</span>` : ""}
         </span>
         ${pickHtml}
@@ -10526,8 +10551,8 @@ function renderAlbum() {
   const playItems = albumItemsFor(list);
   const playLabel = (items) => {
     const d = albumDurText(items);
-    if (albumA) return '<svg class="aa-play-ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7 4v16l13-8z"/></svg>' +
-      (albumPickMode ? items.length + "개 듣기" : "전부 듣기") + (d ? ' <span class="ab-dur">' + d + "</span>" : "");
+    // A안 — 「약 N분」은 뺐다(친구 2026-10-13)
+    if (albumA) return '<svg class="aa-play-ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7 4v16l13-8z"/></svg>전부 듣기';
     return (albumPickMode ? "▶️ " + items.length + "개 듣기" : "▶️ 전부 듣기") +
            (d ? ' <span class="ab-dur">' + d + "</span>" : "");
   };
@@ -10554,17 +10579,14 @@ function renderAlbum() {
       <div class="aa-play" id="ab-play">
         <div class="aa-play-row">
           <button type="button" id="ab-play-go" class="aa-go">${playLabel(playItems)}</button>
-          <button type="button" data-p="pick" class="aa-pick${albumPickMode ? " on" : ""}" aria-pressed="${albumPickMode}">골라 듣기</button>
+          <button type="button" data-p="sum" class="aa-sum${sumOn ? " on" : ""}" role="checkbox" aria-checked="${sumOn}"><span class="aa-box" aria-hidden="true">${sumOn ? haSvg("check") : ""}</span>3분 요약</button>
         </div>
-        <div class="aa-play-opts">${albumPickMode
-          ? `<button type="button" data-p="all" class="aa-opt">전체 선택</button><button type="button" data-p="none" class="aa-opt">모두 해제</button>`
-          : `<button type="button" data-p="sum" class="aa-opt${sumOn ? " on" : ""}" aria-pressed="${sumOn}">${sumOn ? haSvg("check") : ""}3분요약도 함께 듣기</button>`}</div>
       </div>` : ""}
       ${done.length ? `
       <div class="aa-quiz">
         <div class="aa-sec-title">스스로 점검</div>
         <div class="aa-toggles" id="ab-quiz">
-          ${quizBtn("ref", albumHideRef, "구절 가리기")}${quizBtn("text", albumHideText, "말씀 가리기")}${quizBtn("hint", albumHint, "첫 글자만")}${quizBtn("shuffle", !!albumOrder, "섞기")}${quizBtn("unseen", albumUnseenOnly, "안 본 것만")}
+          ${quizBtn("text", albumHideText, "말씀 가리기")}${quizBtn("shuffle", !!albumOrder, "섞기")}${quizBtn("unseen", albumUnseenOnly, "안 본 것만")}
         </div>
       </div>` : ""}
       ${hiding && list.length ? `<p class="aa-hint">가린 곳을 떠올려 보고, 카드를 눌러 확인하세요</p>` : ""}
@@ -10607,6 +10629,11 @@ function renderAlbum() {
     <button class="home-fab" id="ab-back" aria-label="첫 화면으로">${homeFabLabel(u)}</button>`;
 
   window.scrollTo(0, 0); // 첫 화면에서 내려온 위치가 남아 중간부터 보이던 문제
+  if (albumA) {
+    albumFitAll();
+    // 글꼴(Noto Sans KR)은 늦게 들어온다(index.html media=print) — 들어오면 폭이 바뀌니 한 번 더 잰다
+    try { document.fonts.ready.then(albumFitAll); } catch (e) {}
+  }
   if (albumPlayer) albumPlayFocus((albumPlayer.items[albumPlayer.i] || {}).no);
   document.getElementById("ab-back").addEventListener("click", () => { albumPlayStop(); renderSummary(); });
   const aOff = document.getElementById("aa-off");   // A안 미리보기 끄기(이 기기만)
