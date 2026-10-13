@@ -77,6 +77,7 @@
 - 「그림」·「설교 영상」 도구는 원래 자리(도우미 줄의 🖼️ 그림 · 설교 상자의 영상보기)를 대신 누르는 단추다 — 그 자리가 없으면 숨는다. 도우미 줄의 🖼️ 그림은 시안에서 숨겼다(두 번 보이지 않게).
 - 처음 그릴 때 스크롤: 카드면 맨 위(키보드가 없어 다 보인다) · 쓰기면 말씀 첫 줄이 위 띠 바로 밑(`scrollPastBtnRow` 의 시안 갈래).
 - 걸린 것 셋(고침): ① 「보기」를 누르면 숨어야 하는데 시안의 `display` 가 `[hidden]` 을 이겼다 → `.test-screen[data-memo] [hidden] { display:none !important }` ② 「듣기」는 옛 id 규칙(`#listen-answer-btn` 남색 채움)이 이겨 아이콘이 묻혔다 → id 를 넣은 규칙으로 ③ 큰 글씨 잘림 막이(`.test-card .btn-row … { min-width: max-content }`)가 시안 칸 나눔과 부딪혀 320px 아주 크게에서 C 의 「키보드로 쓰기」가 화면 밖으로 → 시안에서는 `min-width: 0`(B 아래 줄 글은 두 줄로 꺾인다).
+- 같은 날 v3.622(친구 사진): A 도구 칸에 손을 올리면 **아래쪽 띠만 색이 안 바뀌었다** — 옛 단추 줄의 아래 여백 · 구분선(`.test-card .btn-row { padding-bottom:14px; border-bottom }` · 큰 글씨 16px — `html[data-fs] .test-card .btn-row` 가 (0,3,1) 이라 시안 규칙을 이겼다)이 칸 안에 남아서. → 시안에서는 `.test-screen[data-memo] .test-card .btn-row { padding:0 }`(칸 = 단추 · C 는 구분선도 뺌).
 - 고르면: 그 시안 덩이를 본 규칙으로 옮기고 다른 둘과 문(`MEMO_KEY` · `readMemoPreviewParam` · 표시 줄)을 걷는다. 도전 · 복습 화면(같은 단추 줄)은 따로 정한다 — 지금은 암송 화면만.
 
 ## 시안 — Design 캔버스(비공개)

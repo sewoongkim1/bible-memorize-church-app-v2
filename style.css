@@ -6892,3 +6892,8 @@ html.dark:has(#app .test-screen.memo-c) body { background: #0e1116; }
 /* 큰 글씨 잘림 막이(.test-card .btn-row … { min-width: max-content } · 2026-10-12)는 시안 칸 나눔(격자)과 부딪힌다 — 시안에서는 칸 폭을 따르고 글이 꺾인다 */
 .test-screen[data-memo] .btn-row .mm-tool { min-width: 0; }
 .test-screen.memo-b .mm-nav .btn-row .mm-tool { white-space: normal; line-height: 1.15; text-align: center; word-break: keep-all; overflow: visible; }
+/* 옛 단추 줄의 아래 여백 · 구분선(.test-card .btn-row { padding-bottom:14px … } · 큰 글씨 16px)이 시안 칸 안에 남아
+   칸 아래에 단추가 아닌 띠가 생겼다(손을 올리면 그 띠만 색이 안 바뀐다 — 친구 2026-10-14). 시안에서는 칸 = 단추 */
+.test-screen[data-memo] .test-card .btn-row { padding: 0; row-gap: 0; align-items: stretch; }
+.test-screen.memo-a .test-card .btn-row { margin-bottom: 14px; }
+.test-screen.memo-c .test-card .btn-row { margin: 18px 0 0; row-gap: 10px; border: 0; }
