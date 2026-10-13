@@ -9,6 +9,7 @@
 """
 import datetime as D
 import json
+import re
 import sys
 import time
 import urllib.request
@@ -27,6 +28,12 @@ def call(body):
         return json.loads(r.read().decode("utf-8"))
 
 
+def has_emoji(badge):
+    """머리말에 이모지가 있나 — 「새 말씀」·「N일째」만이면 없다(날짜 없는 구절은 「🐑」 하나뿐일 수 있다)."""
+    b = str(badge or "").strip()
+    return bool(b) and b != "새 말씀" and not re.fullmatch(r"\d+일째", b)
+
+
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
     today = D.datetime.now(KST).date()
@@ -37,7 +44,8 @@ def main():
     start = D.datetime.fromisoformat(raw).astimezone(KST).date() if raw else None
     print(f"[{'운영' if PROD else '개발'}] 이번 구절 {no} · 시작 {start} · badge {w.get('badge')!r} · badgeDate {w.get('badgeDate')!r}")
     bad = []
-    if w.get("badgeDate") != today.isoformat():
+    # 머리말이 없으면(날짜도 이모지도 없는 구절) 칸째 안 온다 — 그때는 badgeDate 도 없는 것이 맞다
+    if w.get("badge") and w.get("badgeDate") != today.isoformat():
         bad.append(f"① badgeDate {w.get('badgeDate')} ≠ 오늘 {today}")
     if start and start <= today:
         n = (today - start).days + 1
@@ -47,7 +55,7 @@ def main():
         first = call({"action": "getWeeklyVerse", "date": start.isoformat()})
         if first.get("no") == no and not str(first.get("badge", "")).endswith("새 말씀"):
             bad.append(f"② 시작일({start}) badge {first.get('badge')!r} — 「새 말씀」이 아니다")
-    if " " not in str(w.get("badge", "")):
+    if not has_emoji(w.get("badge")):
         print("③ 이모지 없음 — AI 채움 대기 · 15초 뒤 다시")
         time.sleep(15)
         again = call({"action": "getWeeklyVerse"})
