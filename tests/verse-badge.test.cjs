@@ -67,3 +67,17 @@ test('③ SQL — 칸은 if not exists · 41줄 · 모두 목록 안 · 빈 줄�
   const list = new Set(Array.from(P.VERSE_EMOJIS));
   for (const [no, e] of rows) assert.ok(list.has(e), no + '번 ' + e + ' — 목록에 없는 꼴(이체 선택자까지 같아야 한다)');
 });
+
+test('④ index.ts — emoji 칸을 읽는다 · badge/badgeDate · AI 채움은 date 입력 없을 때만', () => {
+  const INDEX = read('supabase', 'functions', 'api', 'index.ts');
+  assert.ok(/^import \{ widgetVerseBadge, queueVerseEmojiFill \} from "\.\/verse-emoji\.ts";/m.test(INDEX), 'import 줄');
+  const kst = slice(INDEX, 'async function weeklyVerseKst(', '\n}\n', 'weeklyVerseKst');
+  assert.ok(kst.includes('const COLS = "no,ref_short,ref_full,ref,text,date,emoji";'), 'emoji 칸을 읽는다');
+  assert.ok(kst.includes('startDay: x.v.date ? x.day : null'), '날짜 없는 구절은 며칠째를 쓰지 않는다');
+  const fn = slice(INDEX, 'async function getWeeklyVerseForWidget(', '\n}\n', 'getWeeklyVerseForWidget');
+  assert.ok(fn.includes('widgetVerseBadge(wk.meta.emoji, wk.meta.startDay, ymdDayNumber(ymd))'));
+  assert.ok(fn.includes('out.badgeDate = ymd'));
+  assert.ok(/if \(!\(b && b\.date\) && wk\.cur\.no != null && !wk\.meta\.emoji\) queueVerseEmojiFill\(/.test(fn),
+    'AI 채움은 date 입력 없는 요청 · 이모지가 빈 구절에서만');
+  assert.ok(!/\.\.\.wk\b(?!\.)/.test(fn), 'wk 를 통째로 펼치면 meta 가 응답에 실린다');
+});

@@ -12,6 +12,7 @@ import { getPsalmVerses, getTodayPsalm } from "./psalm.ts";
 import { getNaviVerses } from "./navi.ts";   // 📚 네비게이토 성경암송(2026-10-13 · getVerses track:"navi" · docs/notes/navigators.md)
 import { getBlessings, blessingLog, getTodayBlessing, blessingUsage } from "./blessing.ts";
 import { clientError } from "./client-errors.ts";   // 화면 오류 모으기(2026-10-12 · 문 errorLogOn · docs/notes/client-errors.md)
+import { widgetVerseBadge, queueVerseEmojiFill } from "./verse-emoji.ts";   // 이번주 말씀 위젯 머리말 「🐑 3일째」(2026-10-13)
 
 const VAPID_PUBLIC = Deno.env.get("VAPID_PUBLIC");
 const VAPID_PRIVATE = Deno.env.get("VAPID_PRIVATE");
@@ -913,6 +914,7 @@ async function latestVerse(): Promise<{ no: number | null; ref: string; text: st
 // 선택 입력 date("YYYY-MM-DD") 를 읽는 WIDGET_YMD_RE·widgetYmd·ymdDayNumber → _shared.ts (2026-10-12 · 축복 기도문 위젯도 쓴다)
 
 type WidgetVerse = { no: number | null; ref: string; text: string };
+type WidgetVerseMeta = { emoji: string | null; startDay: number | null };   // 위젯 머리말(badge)용 — 응답에 그대로 싣지 않는다
 
 // 이번 주 구절 — 앱 getWeeklyVerseInfo 와 같은 기준(한국 **날짜**).
 //   ⚠️ 2026-09-23 정정 — 「latestVerse() 는 UTC 자정으로 골라 앱과 달랐다」는 **틀린 말이었다**.
@@ -922,8 +924,8 @@ type WidgetVerse = { no: number | null; ref: string; text: string };
 //      읽을 것: docs/superpowers/specs/2026-09-23-evening-push-design.md 맨 앞 절.
 //   ⚠️ 날짜가 없는 구절은 **그날(ymd)로 본다** — 앱의 kstDayNumber(null) 이 「오늘」을 돌려주기 때문이다
 //      (날짜 없이 먼저 들어온 구절을 앱은 곧바로 이번 주 말씀으로 보인다 — 2026-09-20 에 38번이 그랬다). 앱과 같게.
-async function weeklyVerseKst(ymd: string): Promise<{ cur: WidgetVerse; prev: WidgetVerse | null } | null> {
-  const COLS = "no,ref_short,ref_full,ref,text,date";
+async function weeklyVerseKst(ymd: string): Promise<{ cur: WidgetVerse; prev: WidgetVerse | null; meta: WidgetVerseMeta } | null> {
+  const COLS = "no,ref_short,ref_full,ref,text,date,emoji";
   let { data, error } = await db.from("verses").select(COLS)
     .eq("is_active", true).eq("track", "weekly").order("no");   // getVerses 와 같은 순서(같은 날끼리의 차례)
   if (error) {                                                   // track 칸이 없는 DB — latestVerse 와 같은 폴백
@@ -947,15 +949,27 @@ async function weeklyVerseKst(ymd: string): Promise<{ cur: WidgetVerse; prev: Wi
     ref: x.v.ref_short || x.v.ref_full || x.v.ref || "",
     text: x.v.text || "",
   });
+  const metaOf = (x: any): WidgetVerseMeta => ({
+    emoji: x.v.emoji ?? null,
+    startDay: x.v.date ? x.day : null,   // 날짜 없는 구절은 dayOf 가 「오늘」로 보지만 며칠째는 쓰지 않는다(매일 「새 말씀」이 된다)
+  });
   let idx = -1;
   dated.forEach((x: any, i: number) => { if (x.day <= today) idx = i; });
-  if (idx < 0) return { cur: shape(dated[0]), prev: null };      // 앱의 「곧 시작할 말씀」
-  return { cur: shape(dated[idx]), prev: idx > 0 ? shape(dated[idx - 1]) : null };
+  if (idx < 0) return { cur: shape(dated[0]), prev: null, meta: metaOf(dated[0]) };      // 앱의 「곧 시작할 말씀」
+  return { cur: shape(dated[idx]), prev: idx > 0 ? shape(dated[idx - 1]) : null, meta: metaOf(dated[idx]) };
 }
 
 async function getWeeklyVerseForWidget(b: any) {
-  const wk = await weeklyVerseKst(widgetYmd(b));
-  return wk ? { ...wk.cur, prev: wk.prev } : {};
+  const ymd = widgetYmd(b);
+  const wk = await weeklyVerseKst(ymd);
+  if (!wk) return {};
+  const out: any = { ...wk.cur, prev: wk.prev };
+  // 머리말 「🐑 3일째」(2026-10-13) — badgeDate 로 위젯이 「오늘 셈한 것인가」를 본다(어제 받아 적어 둔 「3일째」를 숨기려고)
+  const badge = widgetVerseBadge(wk.meta.emoji, wk.meta.startDay, ymdDayNumber(ymd));
+  if (badge) { out.badge = badge; out.badgeDate = ymd; }
+  // 이모지가 빈 이번 구절 — 실제 오늘(date 입력 없음)에만 응답 뒤에 AI 로 채운다(시험판 date 로 앞날 구절의 AI 호출을 부르지 못하게)
+  if (!(b && b.date) && wk.cur.no != null && !wk.meta.emoji) queueVerseEmojiFill(wk.cur.no, wk.cur.ref, wk.cur.text);
+  return out;
 }
 
 // ---- 오늘의 묵상 ----
