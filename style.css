@@ -6331,23 +6331,10 @@ html[data-fs="xl"] .nv-ch-sub { font-size: 1.04rem; }
    색은 시안 A 판(밝게 / 어둡게) 그대로 · 글꼴은 지금 둘(Noto Sans KR · 본문만 Nanum Myeongjo).
    ⚠️ 글자색을 --navy 로 쓰지 않는다(어두운 모드에서 안 바뀐다) — 아래 .dark 짝이 값을 따로 쥔다.
    ===================================================================== */
-.album-screen.album-a {
-  display: flex; flex-direction: column; gap: 14px;
-  padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));   /* 아래 고정 「첫 화면으로」가 없다 — 재생 중(body.ab-playing)은 옛 규칙 200px 가 이긴다 */
-  color: #1b2333;
-}
-/* 머리 — 「‹ 첫 화면」 · 가운데 제목 · 오른쪽은 같은 폭의 빈 칸(.aa-ghost)이라 제목이 늘 가운데 */
-.album-a .aa-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 56px; }
-.album-a .aa-back {
-  min-height: 44px; margin: 0; padding: 0 4px 0 0; border: 0; background: transparent; color: #1e3a6b;
-  display: inline-flex; align-items: center; gap: 2px; font-family: inherit; font-size: 1.06rem; font-weight: 700; cursor: pointer; white-space: nowrap;
-}
-.album-a .aa-back svg { width: 22px; height: 22px; stroke-width: 2.2; flex: none; }
-.album-a .aa-ghost { visibility: hidden; pointer-events: none; }
-/* 좁은 폰 · 아주 큰 글씨면 빈 칸을 빼 제목에 자리를 준다(320px 「아주 크게」에서 「나의 / 말씀 / 앨범」 세 줄로 꺾였다) */
-@media (max-width: 360px) { .album-a .aa-ghost { display: none; } }
-html[data-fs="xl"] .album-a .aa-ghost { display: none; }
-.album-a .aa-title { margin: 0; text-align: center; font-size: 1.12rem; font-weight: 800; line-height: 1.35; color: #1b2333; word-break: keep-all; }
+/* 아래 여백은 옛 규칙(.album-screen 96px · 재생 중 200px)을 그대로 쓴다 — 「첫 화면으로」(.home-fab)가 늘 아래에 떠 있다(친구 2026-10-13) */
+.album-screen.album-a { display: flex; flex-direction: column; gap: 14px; color: #1b2333; }
+/* 제목 — 시안의 위 「‹ 첫 화면」은 두지 않는다(아래 고정 단추와 겹친다) */
+.album-a .aa-title { margin: 8px 0 0; text-align: center; font-size: 1.18rem; font-weight: 800; line-height: 1.35; color: #1b2333; word-break: keep-all; }
 .album-a .aa-bar { margin: 0; }
 /* 수 세 칸 — 다 마친 말씀 · 마음에 둔 말씀 · 오늘 확인 */
 .album-a .aa-stats {
@@ -6380,7 +6367,7 @@ html[data-fs="xl"] .album-a .aa-ghost { display: none; }
 .album-a .aa-play-opts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .album-a .aa-opt {
   min-height: 40px; margin: 0; padding: 0 12px; border: 1px solid #e5dfd4; border-radius: 999px; background: #fff; color: #4a5468;
-  display: inline-flex; align-items: center; gap: 4px; font-family: inherit; font-size: .88rem; font-weight: 700; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 4px; font-family: inherit; font-size: .88rem; font-weight: 700; cursor: pointer; white-space: nowrap;
 }
 /* 「스스로 점검」 — 켜면 남색 + ✓ (켬/끔은 색만이 아니라 ✓ 로도 가른다) */
 .album-a .aa-sec-title { margin: 0 0 8px; padding: 0 2px; font-size: .88rem; font-weight: 800; color: #4a5468; }
@@ -6451,10 +6438,10 @@ html[data-fs="xl"] .album-a .aa-ghost { display: none; }
 /* 큰 글씨(설정 → 크게 / 아주 크게) */
 html[data-fs="lg"] .album-a .album-text { font-size: 1.25rem; }
 html[data-fs="xl"] .album-a .album-text { font-size: 1.4rem; }
-html[data-fs="lg"] .album-a .album-ref, html[data-fs="lg"] .album-a .aa-back, html[data-fs="lg"] .album-a .aa-go { font-size: 1.16rem; }
-html[data-fs="xl"] .album-a .album-ref, html[data-fs="xl"] .album-a .aa-back, html[data-fs="xl"] .album-a .aa-go { font-size: 1.28rem; }
-html[data-fs="lg"] .album-a .aa-title { font-size: 1.22rem; }
-html[data-fs="xl"] .album-a .aa-title { font-size: 1.34rem; }
+html[data-fs="lg"] .album-a .album-ref, html[data-fs="lg"] .album-a .aa-go { font-size: 1.16rem; }
+html[data-fs="xl"] .album-a .album-ref, html[data-fs="xl"] .album-a .aa-go { font-size: 1.28rem; }
+html[data-fs="lg"] .album-a .aa-title { font-size: 1.3rem; }
+html[data-fs="xl"] .album-a .aa-title { font-size: 1.42rem; }
 html[data-fs="lg"] .album-a .aa-tg, html[data-fs="lg"] .album-a .aa-pick, html[data-fs="lg"] .album-a .album-tools > span,
 html[data-fs="lg"] .album-a .aa-hint, html[data-fs="lg"] .album-a .aa-text-ph { font-size: 1.02rem; }
 html[data-fs="xl"] .album-a .aa-tg, html[data-fs="xl"] .album-a .aa-pick, html[data-fs="xl"] .album-a .album-tools > span,
@@ -6468,7 +6455,6 @@ html[data-fs="lg"] .album-a .aa-n { font-size: 1.65rem; }
 html[data-fs="xl"] .album-a .aa-n { font-size: 1.8rem; }
 /* 어두운 모드 — 시안 A 의 어두운 판(첫 화면 A안 .ha-* 와 같은 값) */
 .dark .album-screen.album-a { color: #f1eee7; }
-.dark .album-a .aa-back { color: #9dbbea; }
 .dark .album-a .aa-title { color: #f1eee7; }
 .dark .album-a .aa-stats { background: #212938; border-color: #313a4a; }
 .dark .album-a .aa-stat + .aa-stat { border-left-color: #313a4a; }

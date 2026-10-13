@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261013v";
+const APP_BUILD = "20261013w";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -841,7 +841,6 @@ const HA_ICON = {
   cards: "M9 3h10a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM5 7v12a2 2 0 0 0 2 2h9",
   help: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17h.01",
   // 나의 말씀 앨범 A안(ALBUM_LAYOUT) — 시안 A(A-album.dc.html ICONS) 그대로
-  back: "M15 6l-6 6 6 6",
   check: "M5 12l5 5 9-10",
   crown: "M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z",
   speaker: "M11 5 6 9H3v6h3l5 4zM15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13",
@@ -10534,18 +10533,15 @@ function renderAlbum() {
 
   const bannerHtml = `<div class="ab-line"><b class="ab-num">${hearted.length}</b>구절을 마음에 두었습니다 👑</div>`;
 
-  // A안(시안 A) — 위 「‹ 첫 화면」 · 수 세 칸 · 듣기 줄 · 「스스로 점검」 · 카드. 아래 고정 「첫 화면으로」는 없다(시안 공통 — 위로 옮김).
+  // A안(시안 A) — 제목 · 수 세 칸 · 듣기 줄 · 「스스로 점검」 · 카드 · 아래 고정 「첫 화면으로」.
+  //   ⚠️ 「첫 화면으로」는 시안의 위 「‹ 첫 화면」이 아니라 지금처럼 **늘 아래에 떠 있게** 둔다(2026-10-13 친구 — 다른 화면과 같게).
   const checkedN = done.filter((v) => checked.includes(v.no)).length;
   const quizBtn = (h, on, label) =>
     `<button type="button" data-h="${h}" class="aa-tg${on ? " on" : ""}" aria-pressed="${on}">${on ? haSvg("check") : ""}${label}</button>`;
   const sumOn = albumWithSummary();
   const aHtml = `
     <div class="album-screen album-a">
-      <div class="aa-head">
-        <button type="button" class="aa-back" id="ab-back">${haSvg("back")}첫 화면</button>
-        <h2 class="aa-title">나의 말씀 앨범</h2>
-        <span class="aa-back aa-ghost" aria-hidden="true">${haSvg("back")}첫 화면</span>
-      </div>
+      <h2 class="aa-title">나의 말씀 앨범</h2>
       ${ALBUM_LAYOUT === "a" ? "" : `<div class="hb-bar aa-bar"><span>🧪 앨범 A안 미리보기 · 이 기기에서만</span><button type="button" id="aa-off">원래 화면으로</button></div>`}
       ${done.length ? `
       <div class="aa-stats">
@@ -10576,7 +10572,8 @@ function renderAlbum() {
         : `<p class="album-empty">${done.length
             ? "오늘 다 확인하셨어요.<br>「안 본 것만」을 끄면 다시 볼 수 있어요."
             : "아직 다 마친 말씀이 없어요.<br>말씀 암송에서 첫 말씀을 마쳐 보세요."}</p>`}
-    </div>`;
+    </div>
+    <button class="home-fab" id="ab-back" aria-label="첫 화면으로">${homeFabLabel(u)}</button>`;
 
   appEl.innerHTML = albumA ? aHtml : `
     <div class="album-screen">
