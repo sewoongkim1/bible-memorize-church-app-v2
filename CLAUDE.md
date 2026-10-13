@@ -99,7 +99,7 @@
 `gocheok.onlybible.kr/admin.html` = 허브(비번1개→authCheck→도구 버튼, sessionStorage `admin-pw` 공유):
 ⚠️ **관리 기능은 모두 교회 어드민(admin.onlybible.kr)으로 옮기고, 앱(이 저장소)에서는 관리 기능을 모두 뺀다(2026-10-08 친구 결정 · 추후 작업).** 그래서 **이 관리자 화면들에 새 기능을 더하지 말 것** — 새 관리 기능은 교회 어드민에 만든다. 옮길 목록·차례는 `docs/backlog.md` 4-5.
 - `admin-stats.html` — 성경암송 통계·알림발송·주간리포트·게시판
-- **걷은 것(2026-10-13 · 교회 어드민으로 옮긴 화면):** `admin-ministry.html`(사역신청 · 사역 암호 걷음 · 담당자용 사역 액션 얼림 — `docs/notes/ministry-2027.md` 끝 절) · `admin-praise.html`+`praise-api.js`·`praise-config.js`(찬양 아카이브) · `admin-event.html`(이벤트 명단 · 자격 인정은 친구 「나중에」) · `admin-sermon-chat.html`(말씀 질문 기록·색인). 허브에는 「🏛️ 교회 어드민」 타일(새 탭). 남은 화면 걷기는 `docs/notes/admin-migration.md` 끝
+- **걷은 것(2026-10-13 · 교회 어드민으로 옮긴 화면):** `admin-ministry.html`(사역신청 · 사역 암호 걷음 · 담당자용 사역 액션 얼림 — `docs/notes/ministry-2027.md` 끝 절) · `admin-praise.html`+`praise-api.js`·`praise-config.js`(찬양 아카이브) · `admin-event.html`(이벤트 명단 · 자격 인정은 친구 「나중에」) · `admin-sermon-chat.html`(말씀 질문 기록·색인). ⚠️ **교회 어드민으로 가는 타일·카드·단추는 두지 않는다**(2026-10-13 친구 · v3.614 — 담당자는 admin.onlybible.kr 로 직접 들어간다 · 허브·admin-stats·앱 「🔒 관리」 모두 걷음). 남은 화면 걷기는 `docs/notes/admin-migration.md` 끝
   ⚠ 찬양 한글 이름은 **완성형(NFC)으로 통일**한다(교회 어드민 🎵 찬양 아카이브에서도) — 맥에서 온 자모분리(NFD)가 섞여 찬양대가 콤보에 두 번 뜨고 48곡이 성도님 앱 필터·검색에서 빠졌다(`docs/analysis/2026-09-20-praise-choir-nfc-nfd-duplicate.md`)
 - `admin-sermon.html` → **설교·찬양 관리**(`admin-stats.html?only=sermon`) — 담당자 전용 암호 + 역할 `content`. ⚠️ 담당자 암호를 관리자 암호와 같게 넣으면 담당자가 관리자가 된다. 읽을 것 `docs/notes/sermon-staff-upload.md`
 - 확장: admin.html의 `TOOLS` 배열에 한 줄 추가

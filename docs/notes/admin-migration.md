@@ -40,6 +40,7 @@
 ## 2026-10-13 옮긴 화면 넷을 걷음(친구 「지워주세요」 → 「옮긴 것만 지금」 · v3.613 · 2c1871c)
 - 지움: `admin-ministry.html` · `admin-praise.html`(+`praise-api.js` · `praise-config.js`) · `admin-event.html` · `admin-sermon-chat.html` — 운영에서 모두 404 확인.
 - `admin-event.html` 의 🎉 자격 인정 화면도 함께 사라졌다 — 친구가 「나중에」로 정했다(쓴 적 0건 · 가을 동행은 줄이 없다). 다시 필요하면 교회 어드민에 사람 단위로 새로 만든다(옛 화면을 되살리지 않는다).
-- 허브(`admin.html`): 이벤트 · 찬양 · 내게 주시는 말씀 타일을 빼고 「🏛️ 교회 어드민」 타일(`ext:true` → 새 탭). `admin-stats.html` 의 찬양 카드는 교회 어드민을 연다.
+- 허브(`admin.html`): 이벤트 · 찬양 · 내게 주시는 말씀 타일을 뺐다.
+- **같은 날 v3.614(ef369ad · 친구 「admin.onlybible.kr 을 호출하는 부분은 모두 지워 주세요」):** 교회 어드민으로 가는 길을 모두 걷었다 — 허브의 「🏛️ 교회 어드민」 타일 · admin-stats 의 찬양 카드 · 🤝 사역신청 안내 카드 · `?only=ministry` 의 「교회 어드민 열기」 단추(`CHURCH_ADMIN_URL`) · 앱 「🔒 관리」 메뉴의 🤝 사역관리 줄. 담당자는 **admin.onlybible.kr 로 직접** 들어간다. ⚠️ 성경암송 쪽에 다시 교회 어드민 링크를 달지 말 것. (매일 점검 `monitor.yml` 의 `CA_SITE` · `tools/security-check.py` 의 사이트 목록은 살아 있나 보는 점검이라 그대로다.)
 - **남긴 것:** `admin-stats.html`(알림 손 발송 · 주간 리포트 손 보내기 — 친구 결정으로 성경암송에 둔 것) · `admin-sermon.html`(설교·찬양 관리 — 다음 주 설교·연상 그림 실전 확인 뒤). 그 뒤가 묶음 7(허브 · 「🔒 관리 페이지」 · 암호 액션 걷기).
 - `admin-stats.html` 안의 옛 사역 담당자 설정(`staffAdmins.ministry` 의 `page:"admin-ministry.html"`)은 이미 안 쓰는 길이라 그대로 두었다 — admin-stats 를 걷을 때 함께 사라진다.

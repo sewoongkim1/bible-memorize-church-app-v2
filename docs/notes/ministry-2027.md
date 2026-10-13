@@ -311,8 +311,8 @@
 ## 교회 어드민으로 갈아탐 (2026-10-13 · 친구 「진행하죠」)
 사역신청 관리는 이제 **교회 어드민(admin.onlybible.kr) 「사역 신청」 한 곳**이다. 성경암송 쪽 옛 담당자 화면·사역 암호는 걷었다.
 - **준비 확인:** 옛 등록 담당자(app_config `ministryAdmins`) 3명이 모두 교회 어드민 활성 회원이었다 — 사역 역할 1 · 총괄 2(총괄은 `canCall` 에서 모든 메뉴를 통과). 교회 어드민에서 사역 역할을 가진 분은 5명(이름 없이 건수로 맞댐).
-- **앱:** 설정 「🔒 관리 페이지」의 🤝 → 「사역관리 (교회 어드민)」 https://admin.onlybible.kr/ 를 `window.open(_blank)` 로 연다(`MANAGE_LINKS` 의 `ext`). 아이폰 앱은 Capacitor 가 사파리로, 플레이 앱은 크롬 새 탭으로 — 카카오 로그인은 앱 안 창이 아니라 브라우저에서 해야 한다.
-- **옛 화면:** `admin-stats.html?only=ministry`(= `admin-ministry.html` 이 넘기는 곳)는 로그인 대신 `renderMinistryMoved` 안내만 · 관리자 메뉴의 사역 카드 다섯(임명현황·종이 명단·사역팀 정보·신청 현황·담당자) → 「사역신청 관리 → 교회 어드민」 하나. `admin-ministry.html` 은 옛 북마크를 위해 남겼다.
+- **앱:** 설정 「🔒 관리 페이지」의 🤝 줄은 걷었다 — 처음(v3.611)엔 「사역관리 (교회 어드민)」 단추가 admin.onlybible.kr 을 브라우저로 열었으나, 2026-10-13 v3.614 에 친구 결정으로 뺐다(담당자는 그 주소로 직접 들어간다 · 성경암송 쪽에 교회 어드민으로 가는 단추·링크를 두지 않는다). ⚠️ 카카오 로그인은 앱 안 창이 아니라 브라우저에서 해야 한다(안내할 때 「크롬·사파리에서 주소를 열어 주세요」).
+- **옛 화면:** `admin-stats.html?only=ministry` 는 로그인 대신 `renderMinistryMoved` 안내 글만(단추 없음) · 관리자 메뉴의 사역 카드 다섯(임명현황·종이 명단·사역팀 정보·신청 현황·담당자)은 뺐다(잠시 둔 「사역신청 관리 → 교회 어드민」 카드도 v3.614 에 걷음). `admin-ministry.html` 은 2026-10-13 v3.613 에 지웠다.
 - **서버:** 담당자용 사역 액션 열(`ministryAuth`·`ministryList`·`ministryPaperCheck/Save`·`ministrySetStatus`·`ministryDelete`·`ministryCatalogSave/Order`·`ministryAdmins/Save`) → `moved-to-church-admin`(`MOVED_MINISTRY`) · `STAFF_ROLES` 에서 ministry 를 뺐다 · 시크릿 `MINISTRY_SECRET` 은 운영·개발에서 지웠다. 교회 어드민은 이 액션들을 부르지 않는다(자기 함수가 표를 다룬다 · `INTERNAL_ADMIN_OK` 에도 없다).
 - **그대로인 것:** 성도님 쪽(`ministryApply`·`Cancel`·`Mine`·`Catalog`·`Tester`·`History*`) · 임명 알림 `internalMinistryNotify` · 🧪 시험 참여자(app_config `ministryTesters`).
 - ⚠️ **되살리지 말 것** — 사역신청 관리를 고칠 때는 교회 어드민(`c:\Projects\church-admin`)에서. 위쪽 절들(담당자 화면 · 사역 암호 · 담당자 등록)은 지난 기록이다.
