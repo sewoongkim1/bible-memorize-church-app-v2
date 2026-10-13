@@ -1591,7 +1591,7 @@ function monitorStaleMail(ageH, lastAt, states) {
   L.push("  1) GitHub 저장소 " + MONITOR_REPO + " → Actions → 「장애 모니터」·「보안 점검」 → Enable workflow");
   L.push("     (또는 gh workflow enable monitor.yml -R " + MONITOR_REPO + " · security-check.yml 도 같이)");
   L.push("  2) 「장애 모니터」 → Run workflow 로 한 번 돌립니다 — 흔적이 새로 남아 이 메일이 그칩니다.");
-  L.push("  상태가 active 인데도 멈췄다면: Actions 의 실행 기록 · 시크릿 ADMIN_SECRET(틀리거나 비면 점검이 흔적을 못 남깁니다).");
+  L.push("  상태가 active 인데도 멈췄다면: Actions 의 실행 기록 · 환경(production) 시크릿 MONITOR_KEY(틀리거나 비면 점검이 흔적을 못 남깁니다 · 2026-10-13 관리자 암호에서 바꿈).");
   L.push("");
   L.push("이 메일은 멈춰 있는 동안 하루 한 번(낮 12시) 옵니다. 자세한 것은 docs/notes/monitor-guard.md");
   var text = L.join("\n");

@@ -92,5 +92,5 @@ test('monitor.yml — src "gha" 로 부른다 · 교회 어드민은 공개로�
   assert.ok(y.includes('CA_SITE: https://admin.onlybible.kr/') && y.includes('CA_FN: https://xnomlgydifiqiybervtf.supabase.co/functions/v1/church-admin'));
   assert.ok(y.includes(`grep -q '"error":"unauthenticated"'`) && y.includes('[ "$fcode" != "401" ]'));
   const ca = y.slice(y.indexOf('ca_check() {'), y.indexOf('# 3) '));
-  assert.equal(/ADMIN_SECRET|TG_TOKEN|apikey|Authorization|x-internal-key/.test(ca), false, '교회 어드민 점검에는 키를 싣지 않는다');
+  assert.equal(/ADMIN_SECRET|MONITOR_KEY|TG_TOKEN|apikey|Authorization|x-internal-key|x-machine-key/.test(ca), false, '교회 어드민 점검에는 키를 싣지 않는다');
 });
