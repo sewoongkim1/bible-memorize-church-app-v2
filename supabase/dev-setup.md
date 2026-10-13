@@ -203,13 +203,12 @@ gocheok.onlybible.kr  →  운영
 이게 없으면 **개발자가 로컬에서 관리자 화면을 열어 운영을 만지게** 된다 —
 알림 발송·글 삭제·필사 상태 변경까지 닿는 화면이라 가장 위험한 자리다.
 
-⚠️ **예외 셋** — 형제 앱은 아직 개발 프로젝트가 없어 운영을 그대로 본다.
+⚠️ **예외 둘** — 형제 앱은 아직 개발 프로젝트가 없어 운영을 그대로 본다.
+(`admin-sermon-chat.html`·`praise-config.js` 도 예외였으나 2026-10-13 교회 어드민으로 옮기며 걷었다.)
 
 | 파일 | 왜 |
 |---|---|
 | `admin-sermon.html` | 말씀 아카이브(sermon 함수) |
-| `admin-sermon-chat.html` | 설교 챗봇 — `sermon_chunks`가 운영에만 있다 |
-| `praise-config.js` | 찬양 아카이브(praise 함수) |
 | `admin-stats.html`의 `SERMON_FN` | 구절에 설교를 엮을 때만 쓴다 |
 
 그쪽이 각자 개발 프로젝트를 갖게 되면 이 예외를 지우면 된다.
