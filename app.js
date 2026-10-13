@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261013z";
+const APP_BUILD = "20261013aa";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -756,7 +756,7 @@ function readHomePreviewParam() {
 function homeBPreview() { try { return localStorage.getItem(HOME_B_KEY) === "1"; } catch (e) { return false; } }
 // ── 나의 말씀 앨범 꼴 스위치(2026-10-13 친구 「디자인 시안으로 나의 말씀 앨범 화면을 만들어 주세요」 · 시안 A · docs/notes/design-refresh.md) ──
 //   "old" = 지금 앨범 · "a" = 시안 A(모두의 앨범). 한 기기만: ?album=a(A안 미리보기 · 화면 위 「원래 화면으로」) · ?album=off(기본으로).
-//   renderAlbum 이 두 꼴의 템플릿을 고른다 — 단추 id·data-*·연결 코드는 같아서 가리기·확인·고르기·풀이·이어 듣기는 그대로 동작한다.
+//   renderAlbum 이 두 꼴의 템플릿을 고른다 — 단추 id·data-*·연결 코드는 같아서 가리기·확인·이어 듣기는 그대로 동작한다(A안은 고르기·풀이를 빼고 설교 영상 단추를 더했다 — 2026-10-13 친구).
 //   ✅ 2026-10-13 친구 「모두에게 열어 주세요」 — 모두의 앨범이 A안이다(v3.617). 롤백은 아래 값을 "old" 로 → bump.
 //      (이 기기만 옛 앨범을 볼 길 ?album=old 는 없다 — 필요하면 첫 화면(HOME_OLD_KEY)처럼 더한다.)
 const ALBUM_LAYOUT = "a";
@@ -10447,10 +10447,11 @@ function albumFind(no) {
 //   .aa-tight(여백·아이콘) → .aa-tighter(글씨 한 단계 · ✓ 아이콘) → .aa-wrap(그래도 넘치면 접는다 — 잘리는 것보다 낫다).
 //   폭은 기기·글씨 크기(설정)·글꼴이 들어온 때마다 달라 CSS 만으로는 못 맞춘다 — 그린 뒤에 실제로 잰다.
 function albumFitRow(row, holder) {
-  if (!row) return;
-  holder = holder || row;
+  const rows = (Array.isArray(row) ? row : [row]).filter(Boolean);
+  if (!rows.length) return;
+  holder = holder || rows[0];
   holder.classList.remove("aa-tight", "aa-tighter", "aa-wrap");
-  const over = () => row.scrollWidth > row.clientWidth + 1;
+  const over = () => rows.some((r) => r.scrollWidth > r.clientWidth + 1);
   ["aa-tight", "aa-tighter", "aa-wrap"].some((c) => { if (!over()) return true; holder.classList.add(c); return false; });
 }
 function albumFitAll() {
@@ -10458,9 +10459,9 @@ function albumFitAll() {
   if (!scr) return;
   albumFitRow(scr.querySelector(".aa-play-row"));
   albumFitRow(scr.querySelector(".aa-toggles"));
-  // 카드 도구 줄은 모두 같은 꼴(확인 칩 폭도 같다 — .aa-ck-w)이라 첫 줄로 재고 격자 전체에 같은 표를 단다
+  // 카드 도구 줄 — 모든 줄을 재서(설교 영상이 없는 말씀은 단추가 하나 적다) 격자 전체에 같은 표를 단다(확인 칩 폭은 늘 같다 — .aa-ck-w)
   const grid = scr.querySelector(".album-grid");
-  albumFitRow(grid && grid.querySelector(".album-tools"), grid);
+  if (grid) albumFitRow([...grid.querySelectorAll(".album-tools")], grid);
 }
 window.addEventListener("resize", albumFitAll);   // 폰을 돌리거나 창 폭이 바뀌면(앨범이 안 열려 있으면 아무것도 안 한다)
 
@@ -10510,7 +10511,9 @@ function renderAlbum() {
       : "";
     // 확인한 구절은 숨김·힌트와 무관하게 늘 전문을 보여준다
     const body = albumHint && !isChecked ? firstCharHint(verseText(v)) : verseText(v);
-    // A안 — 가린 곳은 흐림 대신 점선 칸(.aa-ph · CSS 가 .hide-ref/.hide-text 일 때만 보인다) · 👑 대신 「마음에 둠」 · 도구는 선 아이콘
+    // A안 — 가린 곳은 흐림 대신 점선 칸(.aa-ph · CSS 가 .hide-text 일 때만 보인다) · 👑 대신 「마음에 둠」 · 도구는 선 아이콘
+    //   도구는 설교 · 암송 · 듣기(친구 2026-10-13 — 처음의 「풀이」를 빼고 「설교」를 앞에). 설교는 그 말씀의 설교 영상(v.url —
+    //   첫 화면 「이번 주 말씀」의 「설교보기」와 같은 것). 모든 말씀에 설교가 있다(친구 2026-10-13) — url 이 비면 안 그리는 것은 만일을 위한 것.
     if (albumA) return `
       <button class="album-card${heart ? " hearted" : ""}${isChecked ? " checked" : ""}" data-no="${v.no}">
         <span class="aa-card-top">
@@ -10521,14 +10524,12 @@ function renderAlbum() {
         <span class="album-text">${body}</span>
         <span class="aa-ph aa-text-ph">말씀을 떠올려 보세요 · 누르면 보여요</span>
         <span class="album-tools">
+          ${v.url ? `<span class="album-sermon" data-sermon="${v.no}" role="button" tabindex="0" aria-label="${ref} 설교 영상 보기">${haSvg("tv")}설교</span>` : ""}
           <span class="album-go" data-go="${v.no}" role="button" tabindex="0" aria-label="${ref} 암송하기">${haSvg("book")}암송</span>
           <span class="album-listen" data-listen="${v.no}" role="button" tabindex="0" aria-label="${ref} 들어보기">${haSvg("speaker")}듣기</span>
-          <span class="album-why" data-why="${v.no}" role="button" tabindex="0"
-                aria-expanded="false" aria-label="${ref} 풀이 보기">${haSvg("bulb")}풀이</span>
           <span class="album-check${isChecked ? " on" : ""}" data-check="${v.no}" role="button" tabindex="0"
                 aria-pressed="${isChecked}" aria-label="${ref} 오늘 확인">${checkLabel(isChecked)}</span>
         </span>
-        <span class="album-why-body" data-body="${v.no}" hidden></span>
       </button>`;
     return `
       <button class="album-card${heart ? " hearted" : ""}${isChecked ? " checked" : ""}" data-no="${v.no}">
@@ -10696,6 +10697,16 @@ function renderAlbum() {
       s.setAttribute("aria-pressed", String(on));
       s.textContent = (on ? "⬤ " : "○ ") + (kind === "v" ? "말씀" : "📻 3분요약");
       refreshGo();
+    }));
+
+  // 🎬 설교 — 그 말씀의 설교 영상을 앱 밖(브라우저·유튜브)으로 연다. 듣던 것은 멈춘다(영상과 겹치지 않게)
+  appEl.querySelectorAll(".album-sermon").forEach((s) =>
+    s.addEventListener("click", (e) => {
+      e.stopPropagation(); // 카드 누름(확인)과 겹치지 않게
+      const v = albumFind(s.dataset.sermon);
+      if (!v || !v.url) return;
+      albumPlayStop();
+      window.open(v.url, "_blank", "noopener");
     }));
 
   appEl.querySelectorAll(".album-listen").forEach((s) =>
