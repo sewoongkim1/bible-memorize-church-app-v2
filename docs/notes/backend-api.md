@@ -69,6 +69,7 @@ python tools/deploy-fn.py api --prod --dry-run       #    검사만, 배포 명�
 |---|---|---|---|---|
 | 1 | 쉴만한 물가(시편 액자) | `psalm.ts` | `getPsalmVerses`(getVerses `track:"psalm"`) · `getTodayPsalm`(위젯) · `psalmConfig`·`psalmOpenCount` · 순수 `PSALM_DEFAULT`·`psalmCfgOf`·`psalmOpenOn` | 2026-10-12 |
 | 2 | 가정 축복 기도문 | `blessing.ts` | `getBlessings` · `blessingLog` · `getTodayBlessing`(위젯) · `blessingUsage`(관리자) · 순수 `BLESS_WIDGET_NAME`·`blessJong`·`blessFill` | 2026-10-12 |
+| — | 🐑 이번주 말씀 위젯 머리말(새로 · 옮긴 것 아님) | `verse-emoji.ts` | `getWeeklyVerse` 응답에 `badge`(「🐑 3일째」)·`badgeDate`(셈한 한국 날짜 — 위젯이 오늘인지 견준다 · 옛 위젯은 무시) · 이모지는 `verses.emoji`(`supabase/verse_emoji.sql`) · 빈 이번 구절은 응답 뒤 AI 채움(`queueVerseEmojiFill` · date 입력 없을 때만 · isolate 안 10분에 한 번) · 순수 `VERSE_EMOJIS`(40)·`verseEmojiOf`·`verseBadge` · 시험 `tests/verse-badge.test.cjs` · 스모크 `tests/verse-badge-smoke.py [--prod]` · 끄려면 badge 를 안 보내면 된다 · `docs/superpowers/specs/2026-10-13-verse-widget-badge-design.md` | 2026-10-13 |
 | — | 📚 네비게이토 성경암송(새로 · 옮긴 것 아님) | `navi.ts` | `getNaviVerses`(getVerses `track:"navi"` — 응답에 `navi:true` 표식 · 읽기 오류는 `ok:false`) · 순수 `naviVerseOf` · 시험 `tests/navi.test.cjs` ② · `docs/notes/navigators.md` | 2026-10-13 |
 
 `PSALM_NO_BASE`·`isPsalmNo`(복습에서 시편 빼기)는 로그인·진도 저장이 써서 `index.ts` 에 남겼다 — 2026-10-13 에 `isNonWeeklyNo`(1000 초과 · 물가·네비게이토를 복습에서 뺀다)로 이름을 바꿨다(서버의 두 자리가 모두 「복습에서 뺌」이라 · 「물가 화면으로 보냄」 `isPsalmNo` 는 이제 앱에만 · `docs/notes/navigators.md`). `index.ts` 9,183줄 → 9,105줄.
