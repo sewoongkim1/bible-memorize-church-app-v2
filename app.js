@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261013aa";
+const APP_BUILD = "20261014a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -377,6 +377,7 @@ function routeAfterLoad() {
   readPushMark();
   readHomePreviewParam();   // ?home=old · ?home=b · ?home=off(· 롤백 뒤 ?home=a) — 이 기기에만(HOME_LAYOUT 위 주석)
   readAlbumPreviewParam();  // ?album=a · ?album=off — 나의 말씀 앨범 A안 미리보기(ALBUM_LAYOUT 위 주석)
+  readMemoPreviewParam();   // ?memo=a|b|c · ?memo=off — 암송 화면 시안 미리보기(MEMO_KEY 위 주석)
   _naviPreview = getNaviPreview();   // ?navi=1 — 아래 passages·psalm 미리보기가 주소의 ? 뒤를 통째로 지우므로 그보다 먼저
   _passagesPreview = getPassagesPreview();
   _psalmPreview = getPsalmPreview();
@@ -774,6 +775,25 @@ function readAlbumPreviewParam() {
 function albumAActive() {
   if (ALBUM_LAYOUT === "a") return true;
   try { return localStorage.getItem(ALBUM_A_KEY) === "1"; } catch (e) { return false; }
+}
+// ── 🧪 암송 화면 시안 A·B·C 미리보기(2026-10-14 친구 「암송화면 시안A, 시안B, 시안C 모두 만들어 주세요」 · docs/notes/design-refresh.md) ──
+//   ?memo=a|b|c 로 연 기기에서만 그 시안 꼴(?memo=off 나 화면 위 「원래」로 되돌림 · 표식 memo-preview 하나 · 화면 위 줄에서 A·B·C 를 바로 바꿔 본다).
+//   renderTestScreen 이 옛 화면을 다 그린 뒤 applyMemoLayout 이 **옮겨 담는다**(첫 화면 A안과 같은 방식) —
+//   빈칸 · 카드 · 채점 · 음성 · 저장 · 단계 완료 창은 옛 코드 그대로다(docs/notes/memorize-flow.md 의 함정 자리를 안 건드린다).
+//   ⚠️ 위 구절 띠(.test-ref-sticky)에는 아무것도 넣지 않는다 — 아이폰 앱이 그 글자를 읽어 제 띠를 그린다(js/push.js). 그래서 「목록」은 띠 밑 첫 줄에.
+const MEMO_KEY = "memo-preview";
+function readMemoPreviewParam() {
+  try {
+    const url = new URL(location.href);
+    const m = url.searchParams.get("memo");
+    if (!["a", "b", "c", "off", "0"].includes(m)) return;
+    if (m === "a" || m === "b" || m === "c") localStorage.setItem(MEMO_KEY, m); else localStorage.removeItem(MEMO_KEY);
+    url.searchParams.delete("memo");
+    history.replaceState(null, "", url.pathname + url.search + url.hash);
+  } catch (e) {}
+}
+function memoVariant() {
+  try { const m = localStorage.getItem(MEMO_KEY); return m === "a" || m === "b" || m === "c" ? m : ""; } catch (e) { return ""; }
 }
 function homeAPreview() { try { return localStorage.getItem(HOME_A_KEY) === "1"; } catch (e) { return false; } }
 function homeOldView() { try { return localStorage.getItem(HOME_OLD_KEY) === "1"; } catch (e) { return false; } }
@@ -7112,6 +7132,16 @@ function initStickyRef() {
 // 포커스로 인한 브라우저 자체 스크롤과 순서가 꼬이지 않도록 살짝 지연 후 마지막에 실행한다.
 function scrollPastBtnRow() {
   setTimeout(() => {
+    // 🧪 암송 화면 시안(applyMemoLayout) — 도구가 다른 자리에 있다. 카드면 맨 위(키보드가 없어 다 보인다),
+    //    쓰기면 말씀 첫 줄이 위 띠 바로 밑에 오게(키보드가 아래를 덮는다)
+    const mm = document.querySelector("#app .test-screen[data-memo]");
+    if (mm) {
+      const sen = mm.querySelector(".test-sentence");
+      if (isCardMode() || !sen) { window.scrollTo(0, 0); return; }
+      const pad = parseFloat(getComputedStyle(mm.querySelector(".test-card")).paddingTop) || 50;
+      window.scrollTo(0, Math.max(0, sen.getBoundingClientRect().top + window.scrollY - pad - 8));
+      return;
+    }
     const btnRow = document.querySelector(".test-card .btn-row");
     if (!btnRow) return;
     const y = btnRow.getBoundingClientRect().bottom + window.scrollY;
@@ -7381,6 +7411,192 @@ function renderTestScreen(verse, stage) {
   setupAnswerToggle();
   setupAutoCheck(verse, stage);
   setupVoice(verse, stage);
+  if (memoVariant()) applyMemoLayout(verse, stage);   // 🧪 암송 화면 시안 미리보기(MEMO_KEY) — 이 기기만
+}
+
+// ── 🧪 암송 화면 시안 꼴로 옮겨 담기(위 MEMO_KEY 주석) ─────────────────────────────
+//   단추 자신(id · 연결)은 그대로 옮기기만 한다. 글자가 바뀌는 단추(🔊 듣기 ↔ ⏹ 정지 · 🎤 암송 ↔ ■ 종료)는 지켜보다가 아이콘·이름을 다시 그린다.
+//   그림 · 설교 영상 단추는 원래 자리(도우미 줄의 🖼️ 그림 · 설교 상자의 영상보기)를 대신 눌러 주는 단추다 — 그 자리가 없으면 숨는다.
+const MM_ICON = {
+  back: "M15 6l-6 6 6 6",
+  chev: "M9 6l6 6-6 6",
+  check: "M5 12l5 5 9-10",
+  eye: "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
+  speaker: "M11 5 6 9H3v6h3l5 4zM15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13",
+  mic: "M12 15a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v7a3 3 0 0 0 3 3zM19 11a7 7 0 0 1-14 0M12 18v3",
+  image: "M4 5h16v14H4zM4 16l5-5 5 5M14 14l2-2 4 4M15.5 9h.01",
+  tv: "M3 6h18v12H3zM10 9.5v5l4-2.5z",
+  keyboard: "M3 6h18v12H3zM7 10h.01M11 10h.01M15 10h.01M7 14h10",
+  cards: "M9 3h10a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM5 7v12a2 2 0 0 0 2 2h9",
+  stop: "M7 7h10v10H7z",
+};
+function mmSvg(name) {
+  return `<svg class="mm-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="${MM_ICON[name]}"/></svg>`;
+}
+const MM_LABEL = {
+  a: { show: "보기", listen: "듣기", voice: "말하기", img: "그림", sermon: "설교 영상" },
+  b: { show: "보기", listen: "듣기", voice: "말하기", img: "그림", sermon: "설교 영상" },
+  c: { show: "정답 보기", listen: "들어 보기", voice: "말로 하기", img: "그림 보기", sermon: "설교 영상" },
+};
+// 단계 안내 — 빈칸 비율(1단계 25% · 2단계 65% · 3단계 전부)과 맞는 말만(스킬 copy-truth)
+const MM_NOTE = {
+  a: { 1: "빈칸 맛보기 · 몇 낱말만 비어 있어요", 2: "빈칸이 많아졌어요 · 차례대로 채워 보세요", 3: "전체 암송 · 말씀 전부를 채워요" },
+  b: { 1: "빈칸 맛보기", 2: "빈칸이 많아졌어요", 3: "전체 암송" },
+  c: { 1: "빈칸 맛보기", 2: "빈칸이 많아졌어요", 3: "전부 외워 써요" },
+};
+// 옛 단추를 시안 꼴(선 아이콘 + 이름)로. 옛 코드가 글자를 바꾸면 따라간다(⚠️ 그 코드는 글자로 상태를 읽지 않는다 — setupVoice 는 class 로 가른다)
+function mmTool(btn, icon, label) {
+  if (!btn) return;
+  btn.classList.add("mm-tool");
+  const sync = () => {
+    const raw = btn.textContent;
+    if (btn.dataset.mmRaw === raw) return;   // 방금 여기서 그린 것
+    const stop = /정지|종료/.test(raw);
+    btn.classList.toggle("mm-stop", stop);
+    btn.innerHTML = mmSvg(stop ? "stop" : icon) + `<span class="mm-lb">${stop ? (raw.includes("종료") ? "종료" : "정지") : label}</span>`;
+    btn.dataset.mmRaw = btn.textContent;
+  };
+  sync();
+  new MutationObserver(sync).observe(btn, { childList: true, characterData: true, subtree: true });
+}
+function mmProxy(cls, icon, label, find, after) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "mm-tool " + cls;
+  b.innerHTML = mmSvg(icon) + `<span class="mm-lb">${label}</span>`;
+  b.addEventListener("click", () => { const t = find(); if (!t) return; t.click(); if (after) after(); });
+  b.hidden = !find();
+  return b;
+}
+function applyMemoLayout(verse, stage) {
+  const v = memoVariant();
+  const scr = document.querySelector("#app .test-screen");
+  const card = scr && scr.querySelector(".test-card");
+  if (!v || !card) return;
+  scr.dataset.memo = v;
+  scr.classList.add("memo-" + v);
+  const L = MM_LABEL[v];
+  const cardMode = isCardMode();
+  const sticky = card.querySelector(".test-ref-sticky");
+  const btnRow = card.querySelector(".btn-row");
+  const sentence = card.querySelector(".test-sentence");
+  const modeBtn = document.getElementById("mode-toggle");
+  const back = document.getElementById("back-to-list-btn");
+  if (!sticky || !btnRow || !sentence) return;
+
+  // 0) 미리보기 표시 줄 — 그 자리에서 A · B · C · 원래를 바꿔 본다
+  const bar = document.createElement("div");
+  bar.className = "hb-bar mm-bar";
+  bar.innerHTML = `<span>🧪 암송 화면 시안 · 이 기기에서만</span><span class="mm-pick" role="group" aria-label="시안 고르기">` +
+    ["a", "b", "c"].map((k) => `<button type="button" data-v="${k}" aria-pressed="${k === v}">${k.toUpperCase()}</button>`).join("") +
+    `<button type="button" data-v="">원래</button></span>`;
+  bar.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+    try { if (b.dataset.v) localStorage.setItem(MEMO_KEY, b.dataset.v); else localStorage.removeItem(MEMO_KEY); } catch (e) {}
+    renderTestScreen(verse, stage);
+  }));
+
+  // 1) 머리 — 「목록」 + 단계(B 는 한 줄 · A · C 는 두 줄)
+  const head = document.createElement("div");
+  head.className = "mm-head";
+  if (back) {
+    back.classList.add("mm-back");
+    back.innerHTML = mmSvg("back") + (v === "b" ? "" : `<span>${v === "c" ? "목록으로" : "목록"}</span>`);
+    if (v === "b") back.setAttribute("aria-label", "목록으로");
+    head.appendChild(back);
+  }
+  const steps = document.createElement("div");
+  steps.className = "mm-steps";
+  const note = MM_NOTE[v][stage] || "";
+  if (v === "a") {
+    steps.innerHTML = `<div class="mm-seg3">${[1, 2, 3].map((k) =>
+      `<span class="${k === stage ? "cur" : k < stage ? "past" : ""}">${k < stage ? mmSvg("check") : ""}${k}단계</span>`).join("")}</div>` +
+      `<div class="mm-note">${note}</div>`;
+  } else if (v === "b") {
+    steps.innerHTML = `<b class="mm-st">${stage}단계</b><span class="mm-dots" aria-hidden="true">${[1, 2, 3].map((k) =>
+      `<i class="${k <= stage ? "on" : ""}"></i>`).join("")}</span><span class="mm-note">${note}</span>`;
+  } else {
+    steps.innerHTML = `<div class="mm-steprow"><span class="mm-st">${stage}단계 <span>/ 3단계</span></span><span class="mm-note">${note}</span></div>` +
+      `<div class="mm-bars" aria-hidden="true">${[1, 2, 3].map((k) => `<i class="${k <= stage ? "on" : ""}"></i>`).join("")}</div>`;
+  }
+  sticky.after(bar);
+  bar.after(head);
+  if (v === "b") head.appendChild(steps); else head.after(steps);
+
+  // 2) 도구 — 보기 · 듣기 · 말하기(+ 그림 · 설교 영상 · 쓰기/카드)
+  mmTool(document.getElementById("show-answer-btn"), "eye", L.show);
+  mmTool(document.getElementById("listen-answer-btn"), "speaker", L.listen);
+  mmTool(document.getElementById("voice-toggle"), "mic", L.voice);
+  const imgFind = () => document.querySelector('#help-slot .help-btn[data-k="img"]');
+  const imgProxy = mmProxy("mm-img", "image", L.img, imgFind, () => setTimeout(() => {
+    const hb = document.getElementById("help-body");
+    if (hb && !hb.hidden) hb.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, 80));
+  const helpSlot = document.getElementById("help-slot");   // 도우미 줄은 늦게 채워진다(fillVerseHelp — 설교 자료를 받은 뒤)
+  if (helpSlot) new MutationObserver(() => { imgProxy.hidden = !imgFind(); }).observe(helpSlot, { childList: true });
+  const sermonProxy = mmProxy("mm-sermon", "tv", L.sermon, () => card.querySelector(".sermon-connect .sc-watch"));
+  btnRow.classList.add("mm-tools");
+  if (modeBtn) modeBtn.classList.add("mm-hide");   // A · B 는 빈칸 아래 「쓰기 / 카드」로 · C 는 아래에서 다시 보인다
+  if (v === "a") {
+    btnRow.appendChild(imgProxy);
+    steps.after(btnRow);
+  } else if (v === "b") {
+    btnRow.appendChild(imgProxy);
+    btnRow.appendChild(sermonProxy);
+    const nav = document.createElement("nav");
+    nav.className = "mm-nav";
+    nav.setAttribute("aria-label", "암송 도구");
+    nav.appendChild(btnRow);
+    scr.appendChild(nav);
+  } else {
+    const order = [document.getElementById("listen-answer-btn"), document.getElementById("show-answer-btn"),
+      document.getElementById("voice-toggle"), imgProxy, sermonProxy, modeBtn].filter(Boolean);
+    order.forEach((b) => btnRow.appendChild(b));
+    if (modeBtn) {
+      modeBtn.classList.remove("mm-hide");
+      modeBtn.classList.add("mm-tool");
+      modeBtn.innerHTML = mmSvg(cardMode ? "keyboard" : "cards") + `<span class="mm-lb">${cardMode ? "키보드로 쓰기" : "카드로 채우기"}</span>`;
+    }
+    const vr = document.getElementById("voice-result");
+    (vr || sentence).after(btnRow);
+  }
+
+  // 3) 쓰기 · 카드 고르기 — 빈칸 바로 아래(A 는 둘 중 하나 · B 는 다른 쪽으로 가는 단추 · C 는 아래 도구 칸)
+  if (v !== "c") {
+    const row = document.createElement("div");
+    row.className = "mm-inrow";
+    row.innerHTML = `<span class="mm-inlabel">${cardMode ? "낱말을 눌러 채워요" : "빈칸에 낱말을 써요"}</span>` + (v === "a"
+      ? `<span class="mm-seg" role="group" aria-label="입력 방법"><button type="button" data-m="0" aria-pressed="${!cardMode}">쓰기</button><button type="button" data-m="1" aria-pressed="${cardMode}">카드</button></span>`
+      : `<button type="button" class="mm-pill" data-m="${cardMode ? 0 : 1}">${cardMode ? "키보드로 쓰기" : "카드로 채우기"}</button>`);
+    row.querySelectorAll("button[data-m]").forEach((b) => b.addEventListener("click", () => {
+      if ((b.dataset.m === "1") !== isCardMode() && modeBtn) modeBtn.click();   // 옛 단추가 저장하고 다시 그린다
+    }));
+    sentence.after(row);
+  } else if (cardMode) {
+    const lab = document.createElement("div");
+    lab.className = "mm-inlabel mm-inlabel-c";
+    lab.textContent = "낱말을 차례대로 누르세요";
+    sentence.after(lab);
+  }
+
+  // 4) 3단계 — 「반복해서 쓰기」·「마음에 둠」을 한 상자에
+  const rep = document.getElementById("repeat-label");
+  const heart = document.getElementById("heart-label");
+  if (rep || heart) {
+    const box = document.createElement("div");
+    box.className = "mm-checks";
+    (rep || heart).before(box);
+    if (rep) box.appendChild(rep);
+    if (heart) box.appendChild(heart);
+    const rt = rep && rep.querySelector(".repeat-text");
+    if (rt) rt.textContent = "반복해서 쓰기";   // 🔁 는 뺀다(시안은 이모지 대신 선 아이콘 · 체크 상자가 뜻을 말한다)
+  }
+
+  // 5) 설교 영상 — A 는 줄 단추 하나로(B · C 는 도구 칸의 「설교 영상」이 대신하고 상자에는 제목 · 요약보기만 남는다)
+  const watch = card.querySelector(".sermon-connect .sc-watch");
+  if (v === "a" && watch) {
+    watch.classList.add("mm-row");
+    watch.innerHTML = mmSvg("tv") + `<span>이 말씀의 설교 영상</span>` + mmSvg("chev");
+  }
 }
 
 // ------------------------------------------------------------

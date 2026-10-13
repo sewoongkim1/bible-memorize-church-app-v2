@@ -6511,3 +6511,384 @@ html[data-fs="xl"] .album-a .aa-n { font-size: 1.8rem; }
 .dark .album-a .album-check { background: #212938; border-color: #313a4a; color: #b9c0cd; }
 .dark .album-a .album-check:hover { background: #283142; }
 .dark .album-a .album-check.on, .dark .album-a .album-check.on:hover { background: #173325; border-color: #6fcf97; color: #6fcf97; }
+
+/* =====================================================================
+   🧪 암송 화면 시안 A · B · C 미리보기(2026-10-14 친구 · app.js applyMemoLayout · ?memo=a|b|c)
+   옛 화면을 다 그린 뒤 옮겨 담는다 — 이 덩이는 .test-screen[data-memo] 아래만 걸려 성도님 화면(표식 없음)에는 하나도 안 걸린다.
+   색은 시안 판 그대로(A 지금 색 · B 종이와 포도주색 · C 흰 바탕 크게). 글꼴은 지금 넷 안에서(본문 명조 · 영어는 Lora).
+   ⚠️ 위 구절 띠(.test-ref-sticky)는 색·글꼴만 — 자리·크기·transform 은 그대로(아이폰 키보드 다시 그리기 · 앱의 네이티브 띠).
+   ⚠️ 옛 단추가 스스로 숨는 것(보기 → 정답이 열리면 hidden)을 지키려고 [hidden] 을 맨 앞에서 다시 숨긴다.
+   ===================================================================== */
+.test-screen[data-memo] [hidden] { display: none !important; }   /* 옛 코드의 숨김(보기 → 정답이 열리면 · 그림/설교가 없으면)이 시안의 display 를 늘 이긴다 */
+.test-screen[data-memo] .mm-hide, .test-screen[data-memo] .test-top { display: none; }
+.test-screen[data-memo] .test-card { background: transparent; border: 0; box-shadow: none; padding: 50px 0 24px; }
+.test-screen[data-memo] .mm-bar { margin: 6px 0 10px; }
+.test-screen[data-memo] .mm-pick { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.test-screen[data-memo] .mm-pick button { min-width: 44px; }
+.test-screen[data-memo] .mm-pick button[aria-pressed="true"] { background: #1e3a6b; border-color: #1e3a6b; color: #fff; }
+.test-screen[data-memo] .mm-head { display: flex; align-items: center; gap: 10px; min-height: 48px; margin: 0 0 6px; }
+.test-screen[data-memo] .mm-back {
+  min-height: 44px; margin: 0; padding: 0 6px 0 0; border: 0; border-radius: 10px; background: transparent;
+  display: inline-flex; align-items: center; gap: 2px; font-size: 1.06rem; font-weight: 700; flex: none;
+}
+.test-screen[data-memo] .mm-back:hover { background: transparent; }
+.test-screen[data-memo] .mm-back .mm-ic { width: 22px; height: 22px; stroke-width: 2.2; }
+.test-screen[data-memo] .mm-tool .mm-ic { width: 22px; height: 22px; flex: none; }
+.test-screen[data-memo] .mm-tool .mm-lb { min-width: 0; }
+.test-screen[data-memo] .mm-inrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin: 0 0 8px; }
+.test-screen[data-memo] .mm-inlabel { font-size: .94rem; font-weight: 700; }
+.test-screen[data-memo] .test-sentence { word-break: keep-all; }
+.test-screen[data-memo] .mm-checks { margin: 14px 0 0; overflow: hidden; }
+.test-screen[data-memo] .mm-checks .repeat-toggle,
+.test-screen[data-memo] .mm-checks .heart-check {
+  margin: 0; border: 0; border-radius: 0; background: transparent; padding: 14px 16px;
+  display: grid; grid-template-columns: 26px minmax(0, 1fr); column-gap: 12px; row-gap: 3px; align-items: start; cursor: pointer;
+}
+.test-screen[data-memo] .mm-checks .heart-row1 { display: contents; }
+.test-screen[data-memo] .mm-checks input[type="checkbox"] {
+  -webkit-appearance: none; appearance: none; grid-row: 1 / span 2; grid-column: 1;
+  width: 26px; height: 26px; margin: 1px 0 0; border: 2px solid #6e7787; border-radius: 7px; background: #fff center / 16px no-repeat; cursor: pointer;
+}
+.test-screen[data-memo] .mm-checks .repeat-text, .test-screen[data-memo] .mm-checks .heart-text {
+  grid-column: 2; font-size: 1.06rem; font-weight: 800; line-height: 1.4; white-space: normal; overflow: visible;
+}
+.test-screen[data-memo] .mm-checks .repeat-desc, .test-screen[data-memo] .mm-checks .heart-desc {
+  grid-column: 2; padding-left: 0; font-size: .88rem; line-height: 1.5;
+}
+.test-screen[data-memo].en .test-sentence, .test-screen[data-memo].en .word-input { font-family: "Lora", serif; }
+/* 체크 표시(흰 · 진한) — 체크 상자 안 ✓ */
+.test-screen[data-memo] .mm-checks .repeat-toggle input:checked {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5 9-10'/%3E%3C/svg%3E");
+}
+.test-screen[data-memo] .mm-checks .heart-check input:checked {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232a2210' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5 9-10'/%3E%3C/svg%3E");
+}
+
+/* ── A 정돈된 목록(지금 색) ───────────────────────────────── */
+.test-screen.memo-a .test-ref-sticky { border-color: #e5dfd4; background: #fff; font-family: "Noto Sans KR", sans-serif; font-size: 1.12rem; color: #1b2333; box-shadow: 0 2px 10px rgba(27, 35, 51, .08); }
+.test-screen.memo-a .mm-back { color: #1e3a6b; }
+.test-screen.memo-a .mm-steps { display: flex; flex-direction: column; gap: 8px; margin: 0 0 14px; }
+.test-screen.memo-a .mm-seg3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.test-screen.memo-a .mm-seg3 span {
+  min-height: 40px; border-radius: 10px; border: 1.5px solid #e5dfd4; color: #6e7787;
+  display: flex; align-items: center; justify-content: center; gap: 4px; font-size: .94rem; font-weight: 800;
+}
+.test-screen.memo-a .mm-seg3 span.cur { background: #1e3a6b; border-color: #1e3a6b; color: #fff; }
+.test-screen.memo-a .mm-seg3 span.past { background: #eaf0f9; border-color: #eaf0f9; color: #1e3a6b; }
+.test-screen.memo-a .mm-seg3 .mm-ic { width: 16px; height: 16px; stroke-width: 3; }
+.test-screen.memo-a .mm-note { padding: 0 2px; font-size: .94rem; color: #4a5468; word-break: keep-all; }
+.test-screen.memo-a .btn-row {
+  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0; margin: 0 0 14px;
+  background: #fff; border: 1px solid #e5dfd4; border-radius: 14px; overflow: hidden;
+}
+.test-screen.memo-a .btn-row .mm-tool {
+  max-width: none; min-height: 60px; margin: 0; padding: 6px 2px; border: 0; border-left: 1px solid #e5dfd4; border-radius: 0;
+  background: transparent; color: #1b2333; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  font-size: .88rem; font-weight: 700; white-space: nowrap; overflow: hidden;
+}
+.test-screen.memo-a .btn-row .mm-tool:first-child { border-left: 0; }
+.test-screen.memo-a .btn-row .mm-tool .mm-ic { color: #1e3a6b; }
+.test-screen.memo-a .btn-row .mm-tool:hover { background: #f7f4ee; color: #1b2333; }
+.test-screen.memo-a .btn-row .mm-tool.mm-stop, .test-screen.memo-a .btn-row .mm-tool.mm-stop .mm-ic { background: #fdecee; color: #b4232f; }
+.test-screen.memo-a .test-sentence {
+  margin: 0 0 12px; padding: 12px 16px 16px; background: #fff; border: 1px solid #e5dfd4; border-radius: 16px;
+  font-family: "Nanum Myeongjo", serif; font-weight: 800; font-size: 23px; line-height: 2.05; color: #1b2333;
+}
+.test-screen.memo-a .word-input {
+  font-family: "Nanum Myeongjo", serif; font-weight: 800; font-size: 23px; color: #1b2333;
+  border-bottom: 2px solid #6e7787; border-radius: 6px 6px 0 0; background: transparent;
+}
+.test-screen.memo-a .word-input:focus,
+.test-screen.memo-a .word-input[inputmode="none"]:not([disabled]) { background: #eaf0f9; border-bottom: 3px solid #1e3a6b; }
+.test-screen.memo-a .word-input[inputmode="none"]:not([disabled]) ~ .word-input:not([disabled]) { background: transparent; border-bottom: 2px solid #6e7787; }
+.test-screen.memo-a .word-input.correct { color: #1f7a4d; border-bottom-color: #1f7a4d; background: transparent; }
+.test-screen.memo-a .test-sentence .word-input.wrong[class] { color: #b4232f; border-bottom-color: #b4232f; background: #fdecee; }
+.test-screen.memo-a .mm-inlabel { color: #4a5468; }
+.test-screen.memo-a .mm-seg { display: inline-flex; padding: 3px; border-radius: 12px; background: #ece7dd; }
+.test-screen.memo-a .mm-seg button {
+  min-height: 38px; min-width: 64px; border: 0; border-radius: 9px; background: transparent; color: #4a5468;
+  font-family: inherit; font-size: .94rem; font-weight: 700; cursor: pointer;
+}
+.test-screen.memo-a .mm-seg button[aria-pressed="true"] { background: #fff; color: #1e3a6b; font-weight: 800; box-shadow: 0 1px 2px rgba(0, 0, 0, .12); }
+.test-screen.memo-a .card-tray { margin: 0 0 14px; padding: 14px; gap: 10px; background: #eef2f8; border: 0; border-radius: 16px; }
+.test-screen.memo-a .wcard {
+  min-height: 54px; padding: 0 18px; border: 1.5px solid #8da3c8; border-radius: 12px; background: #fff; color: #1b2333;
+  font-size: 1.25rem; font-weight: 800;
+}
+.test-screen.memo-a .wcard.used { opacity: 1; text-decoration: none; background: transparent; border-style: dashed; border-color: #d9d2c4; color: #6e7787; }
+.test-screen.memo-a .wcard.shake { border-color: #b4232f; color: #b4232f; }
+.test-screen.memo-a .mm-checks { background: #fff; border: 1px solid #e5dfd4; border-radius: 16px; }
+.test-screen.memo-a .mm-checks .heart-check { border-top: 1px solid #e5dfd4; }
+.test-screen.memo-a .mm-checks .repeat-text, .test-screen.memo-a .mm-checks .heart-text { color: #1b2333; }
+.test-screen.memo-a .mm-checks .repeat-desc, .test-screen.memo-a .mm-checks .heart-desc { color: #4a5468; }
+.test-screen.memo-a .mm-checks .repeat-toggle input:checked { background-color: #1e3a6b; border-color: #1e3a6b; }
+.test-screen.memo-a .mm-checks .heart-check input:checked { background-color: #d9b556; border-color: #d9b556; }
+.test-screen.memo-a .mm-checks .heart-check.on { background: #fbf1d6; border-color: #e5dfd4; }
+.test-screen.memo-a .sermon-connect { background: #fff; border: 1px solid #e5dfd4; border-radius: 14px; }
+.test-screen.memo-a .sermon-connect .sc-buttons { grid-template-columns: minmax(0, 1fr); }
+.test-screen.memo-a .sc-watch.mm-row {
+  display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 12px; border: 1px solid #e5dfd4; border-radius: 12px;
+  background: #fff; color: #1b2333; font-size: 1rem; font-weight: 700; text-align: left; text-decoration: none;
+}
+.test-screen.memo-a .sc-watch.mm-row span { flex: 1; }
+.test-screen.memo-a .sc-watch.mm-row .mm-ic { width: 22px; height: 22px; color: #4a5468; }
+.test-screen.memo-a .sc-watch.mm-row:hover { background: #f7f4ee; color: #1b2333; }
+html[data-fs="lg"] .test-screen.memo-a .test-sentence, html[data-fs="lg"] .test-screen.memo-a .word-input { font-size: 25px; }
+html[data-fs="xl"] .test-screen.memo-a .test-sentence, html[data-fs="xl"] .test-screen.memo-a .word-input { font-size: 28px; }
+
+/* ── B 말씀이 먼저(종이 · 포도주색 · 아래 도구 줄) ───────────── */
+html:has(#app .test-screen.memo-b) body { background: #f4eee2; }
+.test-screen.memo-b .test-card { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
+.test-screen.memo-b .test-ref-sticky { border-color: #e3d7c3; background: #fffcf6; font-size: 1.25rem; color: #7a3326; }
+.test-screen.memo-b .mm-head { gap: 8px; }
+.test-screen.memo-b .mm-back { width: 44px; justify-content: center; padding: 0; color: #2a2118; }
+.test-screen.memo-b .mm-back .mm-ic { width: 24px; height: 24px; }
+.test-screen.memo-b .mm-steps { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; row-gap: 4px; }
+.test-screen.memo-b .mm-st { font-size: 1rem; font-weight: 800; color: #2a2118; }
+.test-screen.memo-b .mm-dots { display: inline-flex; gap: 6px; }
+.test-screen.memo-b .mm-dots i { width: 10px; height: 10px; border-radius: 5px; border: 2px solid #857868; }
+.test-screen.memo-b .mm-dots i.on { background: #7a3326; border-color: #7a3326; }
+.test-screen.memo-b .mm-note { margin-left: auto; font-size: .88rem; color: #5b4f42; }
+.test-screen.memo-b .test-sentence {
+  margin: 4px 0 14px; padding: 12px 20px 16px; border: 1px solid #e3d7c3; border-radius: 6px 6px 20px 20px; color: #2a2118;
+  background-color: #fffcf6; background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(2.3em - 1px), #efe5d4 calc(2.3em - 1px), #efe5d4 2.3em);
+  background-origin: content-box; font-family: "Nanum Myeongjo", serif; font-weight: 800; font-size: 24px; line-height: 2.3;
+}
+.test-screen.memo-b .word-input {
+  height: 1.6em; font-family: "Nanum Myeongjo", serif; font-weight: 800; font-size: 24px; color: #2a2118;
+  border: 1.5px dashed #857868; border-radius: 8px; background: #f3e7e1; vertical-align: middle;
+}
+.test-screen.memo-b .word-input:focus,
+.test-screen.memo-b .word-input[inputmode="none"]:not([disabled]) { border: 2.5px solid #7a3326; background: #fffcf6; }
+.test-screen.memo-b .word-input[inputmode="none"]:not([disabled]) ~ .word-input:not([disabled]) { border: 1.5px dashed #857868; background: #f3e7e1; }
+.test-screen.memo-b .word-input.correct { color: #2e7650; border-color: transparent; background: transparent; }
+.test-screen.memo-b .test-sentence .word-input.wrong[class] { color: #b4232f; border: 2px solid #b4232f; background: #fdecee; }
+.test-screen.memo-b .mm-inlabel { color: #5b4f42; }
+.test-screen.memo-b .mm-pill {
+  min-height: 40px; padding: 0 14px; border: 1px solid #e3d7c3; border-radius: 999px; background: #fffcf6; color: #5b4f42;
+  font-family: inherit; font-size: .88rem; font-weight: 700; cursor: pointer;
+}
+.test-screen.memo-b .card-tray { margin: 0 0 14px; padding: 4px 0; gap: 10px; background: transparent; border: 0; }
+.test-screen.memo-b .wcard {
+  min-height: 56px; padding: 0 20px; border: 1.5px solid #e3d7c3; border-radius: 14px; background: #fffcf6; color: #2a2118;
+  font-family: "Nanum Myeongjo", serif; font-size: 1.3rem; font-weight: 800; box-shadow: 0 2px 0 #e3d7c3;
+}
+.test-screen.memo-b .wcard.used { opacity: 1; text-decoration: none; background: transparent; border-style: dashed; color: #857868; box-shadow: none; }
+.test-screen.memo-b .wcard.shake { border-color: #b4232f; color: #b4232f; }
+.test-screen.memo-b .mm-checks { border-top: 1px solid #e3d7c3; }
+.test-screen.memo-b .mm-checks .repeat-toggle, .test-screen.memo-b .mm-checks .heart-check {
+  grid-template-columns: minmax(0, 1fr) auto; padding: 14px 4px; border-bottom: 1px solid #e3d7c3;
+}
+.test-screen.memo-b .mm-checks input[type="checkbox"] { grid-column: 2; grid-row: 1 / span 2; }
+.test-screen.memo-b .mm-checks .repeat-text, .test-screen.memo-b .mm-checks .heart-text,
+.test-screen.memo-b .mm-checks .repeat-desc, .test-screen.memo-b .mm-checks .heart-desc { grid-column: 1; }
+.test-screen.memo-b .mm-checks .repeat-text, .test-screen.memo-b .mm-checks .heart-text { color: #2a2118; }
+.test-screen.memo-b .mm-checks .heart-text { font-family: "Nanum Myeongjo", serif; font-size: 1.12rem; }
+.test-screen.memo-b .mm-checks .repeat-desc, .test-screen.memo-b .mm-checks .heart-desc { color: #5b4f42; }
+/* 반복해서 쓰기 = 켜고 끄는 스위치(동그라미가 오른쪽이면 켜짐) */
+.test-screen.memo-b .mm-checks .repeat-toggle input {
+  width: 50px; height: 30px; margin-top: 2px; border: 0; border-radius: 15px;
+  background: #cfc4b2 radial-gradient(circle at 15px 50%, #fff 11px, transparent 12px) no-repeat;
+}
+.test-screen.memo-b .mm-checks .repeat-toggle input:checked { background: #7a3326 radial-gradient(circle at calc(100% - 15px) 50%, #fff 11px, transparent 12px) no-repeat; }
+.test-screen.memo-b .mm-checks .heart-check input { width: 28px; height: 28px; border-radius: 8px; border-color: #857868; background-color: #fffcf6; }
+.test-screen.memo-b .mm-checks .heart-check input:checked { background-color: #d3a645; border-color: #d3a645; }
+.test-screen.memo-b .mm-checks .heart-check.on { background: #fbf2dc; }
+.test-screen.memo-b .sermon-connect { background: #fffcf6; border-color: #e3d7c3; }
+.test-screen.memo-b .sermon-connect .sc-watch, .test-screen.memo-c .sermon-connect .sc-watch { display: none; }
+.test-screen.memo-b .sermon-connect .sc-buttons, .test-screen.memo-c .sermon-connect .sc-buttons { grid-template-columns: minmax(0, 1fr); }
+.test-screen.memo-b .sermon-connect .sc-buttons:not(:has(.sc-btn:not(.sc-watch))) { display: none; }
+.test-screen.memo-c .sermon-connect .sc-buttons:not(:has(.sc-btn:not(.sc-watch))) { display: none; }
+/* 아래 도구 줄 — 화면 맨 아래에 붙는다(키보드가 뜨면 그 밑에 가려진다 · 창들은 이 위에 뜬다) */
+.test-screen.memo-b .mm-nav {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+  padding: 6px 8px calc(8px + env(safe-area-inset-bottom, 0px)); background: #fffcf6; border-top: 1px solid #e3d7c3;
+}
+.test-screen.memo-b .mm-nav .btn-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0; max-width: 480px; margin: 0 auto; }
+.test-screen.memo-b .mm-nav .btn-row .mm-tool {
+  max-width: none; min-height: 60px; margin: 0; padding: 4px 2px; border: 0; border-radius: 12px; background: transparent; color: #2a2118;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: .82rem; font-weight: 700;
+  white-space: nowrap; overflow: hidden;
+}
+.test-screen.memo-b .mm-nav .btn-row .mm-tool .mm-ic { width: 24px; height: 24px; color: #7a3326; stroke-width: 1.8; }
+.test-screen.memo-b .mm-nav .btn-row .mm-tool:hover { background: #f4eee2; color: #2a2118; }
+.test-screen.memo-b .mm-nav .btn-row .mm-tool.mm-stop, .test-screen.memo-b .mm-nav .btn-row .mm-tool.mm-stop .mm-ic { color: #b4232f; }
+html[data-fs="lg"] .test-screen.memo-b .test-sentence, html[data-fs="lg"] .test-screen.memo-b .word-input { font-size: 26px; }
+html[data-fs="xl"] .test-screen.memo-b .test-sentence, html[data-fs="xl"] .test-screen.memo-b .word-input { font-size: 29px; }
+html[data-fs="lg"] .test-screen.memo-b .mm-nav .btn-row .mm-tool { font-size: .92rem; }
+html[data-fs="xl"] .test-screen.memo-b .mm-nav .btn-row .mm-tool { font-size: 1rem; }
+
+/* ── C 크게 · 단순하게(흰 바탕 · 큰 글씨 · 아래 두 줄 도구) ─────── */
+html:has(#app .test-screen.memo-c) body { background: #fff; }
+.test-screen.memo-c .test-ref-sticky { border: 2px solid #d5dae3; border-top: 0; background: #fff; font-family: "Noto Sans KR", sans-serif; font-size: 1.35rem; color: #111827; }
+.test-screen.memo-c .mm-back {
+  min-height: 52px; padding: 0 18px 0 12px; border: 2px solid #d5dae3; border-radius: 26px; color: #111827; font-size: 1.12rem; font-weight: 800;
+}
+.test-screen.memo-c .mm-back .mm-ic { width: 24px; height: 24px; stroke-width: 2.4; }
+.test-screen.memo-c .mm-steps { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 16px; }
+.test-screen.memo-c .mm-steprow { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.test-screen.memo-c .mm-st { font-size: 1.25rem; font-weight: 800; color: #1c3d7a; }
+.test-screen.memo-c .mm-st span { color: #5b6472; font-weight: 700; }
+.test-screen.memo-c .mm-note { font-size: 1.06rem; color: #374151; }
+.test-screen.memo-c .mm-bars { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.test-screen.memo-c .mm-bars i { height: 10px; border-radius: 5px; background: #e3e7ee; }
+.test-screen.memo-c .mm-bars i.on { background: #1c3d7a; }
+.test-screen.memo-c .test-sentence {
+  margin: 0 0 14px; padding: 14px 18px 18px; background: #f2f4f8; border-radius: 20px;
+  font-family: "Nanum Myeongjo", serif; font-weight: 800; font-size: 27px; line-height: 2.05; color: #111827;
+}
+.test-screen.memo-c .word-input {
+  font-family: "Nanum Myeongjo", serif; font-weight: 800; font-size: 27px; color: #111827;
+  border-bottom: 3px solid #5b6472; border-radius: 8px 8px 0 0; background: transparent;
+}
+.test-screen.memo-c .word-input:focus,
+.test-screen.memo-c .word-input[inputmode="none"]:not([disabled]) { background: #e6edf8; border-bottom: 4px solid #1c3d7a; }
+.test-screen.memo-c .word-input[inputmode="none"]:not([disabled]) ~ .word-input:not([disabled]) { background: transparent; border-bottom: 3px solid #5b6472; }
+.test-screen.memo-c .word-input.correct { color: #1b6e44; border-bottom-color: #1b6e44; background: transparent; }
+.test-screen.memo-c .test-sentence .word-input.wrong[class] { color: #b4232f; border-bottom-color: #b4232f; background: #fdecee; }
+.test-screen.memo-c .mm-inlabel-c { margin: 0 0 8px; font-size: 1.06rem; font-weight: 700; color: #374151; }
+.test-screen.memo-c .card-tray { justify-content: flex-start; margin: 0 0 14px; padding: 0; gap: 10px; background: transparent; border: 0; }
+.test-screen.memo-c .wcard {
+  min-height: 60px; padding: 0 18px; border: 2px solid #1c3d7a; border-radius: 14px; background: #fff; color: #111827;
+  font-size: 1.45rem; font-weight: 800;
+}
+.test-screen.memo-c .wcard.used { opacity: 1; text-decoration: none; background: transparent; border-style: dashed; border-color: #d5dae3; color: #5b6472; }
+.test-screen.memo-c .wcard.shake { border-color: #b4232f; color: #b4232f; }
+.test-screen.memo-c .mm-checks { border: 2px solid #d5dae3; border-radius: 18px; }
+.test-screen.memo-c .mm-checks .repeat-toggle, .test-screen.memo-c .mm-checks .heart-check { grid-template-columns: 32px minmax(0, 1fr); column-gap: 14px; padding: 16px 18px; }
+.test-screen.memo-c .mm-checks .heart-check { border-top: 2px solid #d5dae3; }
+.test-screen.memo-c .mm-checks input[type="checkbox"] { width: 32px; height: 32px; border-width: 2.5px; border-radius: 9px; border-color: #5b6472; background-size: 20px; }
+.test-screen.memo-c .mm-checks .repeat-text, .test-screen.memo-c .mm-checks .heart-text { font-size: 1.25rem; color: #111827; }
+.test-screen.memo-c .mm-checks .repeat-desc, .test-screen.memo-c .mm-checks .heart-desc { font-size: 1rem; color: #374151; }
+.test-screen.memo-c .mm-checks .repeat-toggle input:checked { background-color: #1c3d7a; border-color: #1c3d7a; }
+.test-screen.memo-c .mm-checks .heart-check input:checked { background-color: #e2b744; border-color: #e2b744; }
+.test-screen.memo-c .mm-checks .heart-check.on { background: #fff4d6; }
+.test-screen.memo-c .btn-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 18px 0 0; }
+.test-screen.memo-c .btn-row .mm-tool {
+  max-width: none; min-height: 58px; margin: 0; padding: 6px 8px; border: 2px solid #d5dae3; border-radius: 16px; background: #fff; color: #111827;
+  display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 8px;
+  font-size: 1.1rem; font-weight: 800; line-height: 1.25; white-space: normal; text-align: center; word-break: keep-all; overflow: visible;
+}
+.test-screen.memo-c .btn-row .mm-tool .mm-ic { width: 24px; height: 24px; color: #1c3d7a; stroke-width: 2; }
+.test-screen.memo-c .btn-row .mm-tool:hover { background: #f2f4f8; color: #111827; }
+.test-screen.memo-c .btn-row .mm-tool.mm-stop, .test-screen.memo-c .btn-row .mm-tool.mm-stop .mm-ic { color: #b4232f; border-color: #b4232f; background: #fdecee; }
+.test-screen.memo-c .sermon-connect { background: #f2f4f8; border: 0; border-radius: 16px; }
+html[data-fs="lg"] .test-screen.memo-c .test-sentence, html[data-fs="lg"] .test-screen.memo-c .word-input { font-size: 29px; }
+html[data-fs="xl"] .test-screen.memo-c .test-sentence, html[data-fs="xl"] .test-screen.memo-c .word-input { font-size: 31px; }
+html[data-fs="xl"] .test-screen.memo-c .btn-row .mm-tool { font-size: 1.16rem; }
+
+/* ── 어두운 모드 — 시안마다의 어두운 판 ─────────────────────── */
+.dark .test-screen[data-memo] .mm-checks input[type="checkbox"] { background-color: transparent; border-color: #949dad; }
+.dark .test-screen[data-memo] .mm-pick button[aria-pressed="true"] { background: #9dbbea; border-color: #9dbbea; color: #0f1218; }
+.dark .test-screen.memo-a .test-ref-sticky { background: #1a202b; border-color: #2c3442; color: #f1eee7; }
+.dark .test-screen.memo-a .mm-back { color: #9dbbea; }
+.dark .test-screen.memo-a .mm-seg3 span { border-color: #2c3442; color: #949dad; }
+.dark .test-screen.memo-a .mm-seg3 span.cur { background: #2f5596; border-color: #2f5596; color: #fff; }
+.dark .test-screen.memo-a .mm-seg3 span.past { background: #22304a; border-color: #22304a; color: #9dbbea; }
+.dark .test-screen.memo-a .mm-note, .dark .test-screen.memo-a .mm-inlabel { color: #b9c0cd; }
+.dark .test-screen.memo-a .btn-row { background: #1a202b; border-color: #2c3442; }
+.dark .test-screen.memo-a .btn-row .mm-tool { color: #f1eee7; border-left-color: #2c3442; }
+.dark .test-screen.memo-a .btn-row .mm-tool .mm-ic { color: #9dbbea; }
+.dark .test-screen.memo-a .btn-row .mm-tool:hover { background: #222a37; color: #f1eee7; }
+.dark .test-screen.memo-a .btn-row .mm-tool.mm-stop, .dark .test-screen.memo-a .btn-row .mm-tool.mm-stop .mm-ic { background: #3a1d22; color: #f07a82; }
+.dark .test-screen.memo-a .test-sentence { background: #1a202b; border-color: #2c3442; color: #f1eee7; }
+.dark .test-screen.memo-a .word-input { color: #f1eee7; border-bottom-color: #949dad; }
+.dark .test-screen.memo-a .word-input:focus,
+.dark .test-screen.memo-a .word-input[inputmode="none"]:not([disabled]) { background: #22304a; border-bottom-color: #9dbbea; }
+.dark .test-screen.memo-a .word-input[inputmode="none"]:not([disabled]) ~ .word-input:not([disabled]) { background: transparent; border-bottom-color: #949dad; }
+.dark .test-screen.memo-a .word-input.correct { color: #6fcf97; border-bottom-color: #6fcf97; }
+.dark .test-screen.memo-a .test-sentence .word-input.wrong[class] { color: #f07a82; border-bottom-color: #f07a82; background: #3a1d22; }
+.dark .test-screen.memo-a .mm-seg { background: #262d39; }
+.dark .test-screen.memo-a .mm-seg button { color: #b9c0cd; }
+.dark .test-screen.memo-a .mm-seg button[aria-pressed="true"] { background: #1a202b; color: #9dbbea; }
+.dark .test-screen.memo-a .card-tray { background: #161b24; }
+.dark .test-screen.memo-a .wcard { background: #1a202b; border-color: #4a6597; color: #f1eee7; }
+.dark .test-screen.memo-a .wcard.used { background: transparent; border-color: #2c3442; color: #949dad; }
+.dark .test-screen.memo-a .mm-checks { background: #1a202b; border-color: #2c3442; }
+.dark .test-screen.memo-a .mm-checks .heart-check { border-top-color: #2c3442; }
+.dark .test-screen.memo-a .mm-checks .repeat-text, .dark .test-screen.memo-a .mm-checks .heart-text { color: #f1eee7; }
+.dark .test-screen.memo-a .mm-checks .repeat-desc, .dark .test-screen.memo-a .mm-checks .heart-desc { color: #b9c0cd; }
+.dark .test-screen.memo-a .mm-checks .repeat-toggle input:checked { background-color: #2f5596; border-color: #2f5596; }
+.dark .test-screen.memo-a .mm-checks .heart-check.on { background: #3a3018; }
+.dark .test-screen.memo-a .sermon-connect { background: #1a202b; border-color: #2c3442; }
+.dark .test-screen.memo-a .sc-watch.mm-row { background: #1a202b; border-color: #2c3442; color: #f1eee7; }
+.dark .test-screen.memo-a .sc-watch.mm-row .mm-ic { color: #b9c0cd; }
+html.dark:has(#app .test-screen.memo-b) body { background: #16120e; }
+.dark .test-screen.memo-b .test-ref-sticky { background: #211b15; border-color: #382e24; color: #e8a694; }
+.dark .test-screen.memo-b .mm-back, .dark .test-screen.memo-b .mm-st { color: #f3ebdd; }
+.dark .test-screen.memo-b .mm-dots i { border-color: #a39684; }
+.dark .test-screen.memo-b .mm-dots i.on { background: #e8a694; border-color: #e8a694; }
+.dark .test-screen.memo-b .mm-note, .dark .test-screen.memo-b .mm-inlabel { color: #c9bca8; }
+.dark .test-screen.memo-b .test-sentence {
+  background-color: #211b15; border-color: #382e24; color: #f3ebdd;
+  background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(2.3em - 1px), #2c241c calc(2.3em - 1px), #2c241c 2.3em);
+}
+.dark .test-screen.memo-b .word-input { color: #f3ebdd; border-color: #a39684; background: #2e211b; }
+.dark .test-screen.memo-b .word-input:focus,
+.dark .test-screen.memo-b .word-input[inputmode="none"]:not([disabled]) { border-color: #e8a694; background: #211b15; }
+.dark .test-screen.memo-b .word-input[inputmode="none"]:not([disabled]) ~ .word-input:not([disabled]) { border-color: #a39684; background: #2e211b; }
+.dark .test-screen.memo-b .word-input.correct { color: #7fd3a1; border-color: transparent; background: transparent; }
+.dark .test-screen.memo-b .test-sentence .word-input.wrong[class] { color: #f07a82; border-color: #f07a82; background: #3a1d22; }
+.dark .test-screen.memo-b .mm-pill { background: #211b15; border-color: #382e24; color: #c9bca8; }
+.dark .test-screen.memo-b .wcard { background: #211b15; border-color: #382e24; color: #f3ebdd; box-shadow: 0 2px 0 #382e24; }
+.dark .test-screen.memo-b .wcard.used { background: transparent; color: #a39684; box-shadow: none; }
+.dark .test-screen.memo-b .mm-checks, .dark .test-screen.memo-b .mm-checks .repeat-toggle, .dark .test-screen.memo-b .mm-checks .heart-check { border-color: #382e24; }
+.dark .test-screen.memo-b .mm-checks .repeat-text, .dark .test-screen.memo-b .mm-checks .heart-text { color: #f3ebdd; }
+.dark .test-screen.memo-b .mm-checks .repeat-desc, .dark .test-screen.memo-b .mm-checks .heart-desc { color: #c9bca8; }
+.dark .test-screen.memo-b .mm-checks .repeat-toggle input { background: #4a3f33 radial-gradient(circle at 15px 50%, #f3ebdd 11px, transparent 12px) no-repeat; }
+.dark .test-screen.memo-b .mm-checks .repeat-toggle input:checked { background: #93412f radial-gradient(circle at calc(100% - 15px) 50%, #fff 11px, transparent 12px) no-repeat; }
+.dark .test-screen.memo-b .mm-checks .heart-check.on { background: #2a2216; }
+.dark .test-screen.memo-b .sermon-connect { background: #211b15; border-color: #382e24; }
+.dark .test-screen.memo-b .mm-nav { background: #211b15; border-top-color: #382e24; }
+.dark .test-screen.memo-b .mm-nav .btn-row .mm-tool { color: #f3ebdd; }
+.dark .test-screen.memo-b .mm-nav .btn-row .mm-tool .mm-ic { color: #e8a694; }
+.dark .test-screen.memo-b .mm-nav .btn-row .mm-tool:hover { background: #2e241b; color: #f3ebdd; }
+.dark .test-screen.memo-b .mm-nav .btn-row .mm-tool.mm-stop, .dark .test-screen.memo-b .mm-nav .btn-row .mm-tool.mm-stop .mm-ic { color: #f07a82; }
+html.dark:has(#app .test-screen.memo-c) body { background: #0e1116; }
+.dark .test-screen.memo-c .test-ref-sticky { background: #0e1116; border-color: #2e3542; color: #f5f6f8; }
+.dark .test-screen.memo-c .mm-back { border-color: #2e3542; color: #f5f6f8; }
+.dark .test-screen.memo-c .mm-st { color: #a9c4f0; }
+.dark .test-screen.memo-c .mm-st span { color: #9aa3b2; }
+.dark .test-screen.memo-c .mm-note, .dark .test-screen.memo-c .mm-inlabel-c { color: #d1d6de; }
+.dark .test-screen.memo-c .mm-bars i { background: #2e3542; }
+.dark .test-screen.memo-c .mm-bars i.on { background: #3360aa; }
+.dark .test-screen.memo-c .test-sentence { background: #1a1f28; color: #f5f6f8; }
+.dark .test-screen.memo-c .word-input { color: #f5f6f8; border-bottom-color: #9aa3b2; }
+.dark .test-screen.memo-c .word-input:focus,
+.dark .test-screen.memo-c .word-input[inputmode="none"]:not([disabled]) { background: #1f2b40; border-bottom-color: #a9c4f0; }
+.dark .test-screen.memo-c .word-input[inputmode="none"]:not([disabled]) ~ .word-input:not([disabled]) { background: transparent; border-bottom-color: #9aa3b2; }
+.dark .test-screen.memo-c .word-input.correct { color: #7fd3a1; border-bottom-color: #7fd3a1; }
+.dark .test-screen.memo-c .test-sentence .word-input.wrong[class] { color: #f07a82; border-bottom-color: #f07a82; background: #3a1d22; }
+.dark .test-screen.memo-c .wcard { background: #0e1116; border-color: #6f93d0; color: #f5f6f8; }
+.dark .test-screen.memo-c .wcard.used { background: transparent; border-color: #2e3542; color: #9aa3b2; }
+.dark .test-screen.memo-c .mm-checks, .dark .test-screen.memo-c .mm-checks .heart-check { border-color: #2e3542; }
+.dark .test-screen.memo-c .mm-checks .repeat-text, .dark .test-screen.memo-c .mm-checks .heart-text { color: #f5f6f8; }
+.dark .test-screen.memo-c .mm-checks .repeat-desc, .dark .test-screen.memo-c .mm-checks .heart-desc { color: #d1d6de; }
+.dark .test-screen.memo-c .mm-checks .repeat-toggle input:checked { background-color: #3360aa; border-color: #3360aa; }
+.dark .test-screen.memo-c .mm-checks .heart-check.on { background: #3a3018; }
+.dark .test-screen.memo-c .btn-row .mm-tool { background: #0e1116; border-color: #2e3542; color: #f5f6f8; }
+.dark .test-screen.memo-c .btn-row .mm-tool .mm-ic { color: #a9c4f0; }
+.dark .test-screen.memo-c .btn-row .mm-tool:hover { background: #1a1f28; color: #f5f6f8; }
+.dark .test-screen.memo-c .btn-row .mm-tool.mm-stop, .dark .test-screen.memo-c .btn-row .mm-tool.mm-stop .mm-ic { background: #3a1d22; border-color: #f07a82; color: #f07a82; }
+.dark .test-screen.memo-c .sermon-connect { background: #1a1f28; }
+/* 「듣기」는 옛 화면에서 id 규칙(#listen-answer-btn — 늘 남색으로 채움)이 걸려 있다 — 시안에서는 다른 도구와 같은 옷으로(id 를 넣어 이긴다) */
+.test-screen.memo-a .btn-row #listen-answer-btn.mm-tool { background: transparent; color: #1b2333; border-color: #e5dfd4; font-weight: 700; }
+.test-screen.memo-a .btn-row #listen-answer-btn.mm-tool:hover { background: #f7f4ee; color: #1b2333; }
+.test-screen.memo-b .mm-nav #listen-answer-btn.mm-tool { background: transparent; color: #2a2118; border-color: transparent; font-weight: 700; }
+.test-screen.memo-b .mm-nav #listen-answer-btn.mm-tool:hover { background: #f4eee2; color: #2a2118; }
+.test-screen.memo-c .btn-row #listen-answer-btn.mm-tool { background: #fff; color: #111827; border-color: #d5dae3; font-weight: 800; }
+.test-screen.memo-c .btn-row #listen-answer-btn.mm-tool:hover { background: #f2f4f8; color: #111827; }
+.test-screen.memo-a .btn-row #listen-answer-btn.mm-stop, .test-screen.memo-a .btn-row #listen-answer-btn.mm-stop:hover { background: #fdecee; color: #b4232f; }
+.test-screen.memo-b .mm-nav #listen-answer-btn.mm-stop, .test-screen.memo-b .mm-nav #listen-answer-btn.mm-stop:hover { background: transparent; color: #b4232f; }
+.test-screen.memo-c .btn-row #listen-answer-btn.mm-stop, .test-screen.memo-c .btn-row #listen-answer-btn.mm-stop:hover { background: #fdecee; color: #b4232f; border-color: #b4232f; }
+.dark .test-screen.memo-a .btn-row #listen-answer-btn.mm-tool, .dark .test-screen.memo-a .btn-row #listen-answer-btn.mm-tool:hover { background: transparent; color: #f1eee7; border-color: #2c3442; }
+.dark .test-screen.memo-b .mm-nav #listen-answer-btn.mm-tool, .dark .test-screen.memo-b .mm-nav #listen-answer-btn.mm-tool:hover { background: transparent; color: #f3ebdd; }
+.dark .test-screen.memo-c .btn-row #listen-answer-btn.mm-tool, .dark .test-screen.memo-c .btn-row #listen-answer-btn.mm-tool:hover { background: #0e1116; color: #f5f6f8; border-color: #2e3542; }
+.dark .test-screen.memo-a .btn-row #listen-answer-btn.mm-stop, .dark .test-screen.memo-c .btn-row #listen-answer-btn.mm-stop { background: #3a1d22; color: #f07a82; }
+.dark .test-screen.memo-b .mm-nav #listen-answer-btn.mm-stop { color: #f07a82; }
+/* 도우미 줄의 🖼️ 그림은 위 도구 칸 「그림」이 대신 누른다 — 두 번 보이지 않게(그림만 있던 줄은 줄째 숨는다) */
+.test-screen[data-memo] .help-btn[data-k="img"] { display: none; }
+.test-screen[data-memo] .help-tabs:not(:has(.help-btn:not([data-k="img"]))) { display: none; }
+/* 큰 글씨 잘림 막이(.test-card .btn-row … { min-width: max-content } · 2026-10-12)는 시안 칸 나눔(격자)과 부딪힌다 — 시안에서는 칸 폭을 따르고 글이 꺾인다 */
+.test-screen[data-memo] .btn-row .mm-tool { min-width: 0; }
+.test-screen.memo-b .mm-nav .btn-row .mm-tool { white-space: normal; line-height: 1.15; text-align: center; word-break: keep-all; overflow: visible; }
