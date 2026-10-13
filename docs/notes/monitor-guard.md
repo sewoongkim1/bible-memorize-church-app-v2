@@ -60,6 +60,6 @@ GitHub 은 **공개 저장소에 60일 동안 커밋이 없으면 예약 워크�
 | `POST …/functions/v1/church-admin` 에 `{"action":"me"}` (토큰 없이) | **HTTP 401 + `"error":"unauthenticated"`** — 함수 자신이 준 답이다(`index.ts` 의 토큰 검사) = 살아 있다 | `• 함수 church-admin 응답이 이상합니다 (HTTP 404 · {"code":"NOT_FOUND"…})` 꼴 — 부팅 실패(5xx)·삭제(404)·게이트웨이 오류는 다른 꼴로 온다 |
 
 - 한 번 빗나가면 **20초 뒤 한 번 더** 본다(순간 오류로 헛경보를 내지 않게). 둘째도 이상하면 성경암송 경보와 **같은 텔레그램 한 통**에 「🔴 교회 어드민」 묶음으로 붙는다.
-- 진단 모드(`weekly_test`·`diag_send`·`force_alert`)에서는 돌지 않는다 — 평소 점검(예약 실행 · 입력 없는 Run workflow)에서만.
+- 진단 모드(`weekly_test`·`force_alert` · `diag_send` 는 2026-10-13 뺌)에서는 돌지 않는다 — 평소 점검(예약 실행 · 입력 없는 Run workflow)에서만.
 - ⚠️ 교회 어드민이 토큰 없는 부름의 답을 바꾸면(`unauthenticated` 낱말 · 401) 이 점검이 매일 운다 — 그때는 `monitor.yml` 의 `ca_check` 를 함께 고친다.
 - 보지 않는 것: 로그인 뒤의 동작 · DB 권한(그것은 매주 보안 점검 · `docs/notes/security-check.md`).

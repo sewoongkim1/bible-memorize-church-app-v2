@@ -25,13 +25,34 @@ internalMonitorWatch(pg_cron `monitor-watch` 전용 · 2026-10-12 — 감시의 
 `no, week, ref, text, sermon_title, sermon_url, is_active, created_at, date, ref_short, ref_full, hint, pastor, text_en, ref_en, track, day_no, frame_art`.
 
 ## 시크릿
-ADMIN_SECRET(관리자 비번, 3앱 공통), ~~MINISTRY_SECRET~~(사역신청 담당자 암호 — **2026-10-13 운영·개발에서 지웠다** · 교회 어드민으로 갈아탐 · 담당자용 사역 액션은 moved-to-church-admin · docs/notes/ministry-2027.md 끝), VAPID_*(Web Push), RESEND_API_KEY·REPORT_FROM·REPORT_RECIPIENTS(주간 리포트 메일), ANTHROPIC_API_KEY(NIV 생성 등 AI 공용), TELEGRAM_*(모니터 경보)
+ADMIN_SECRET(관리자 비번, 3앱 공통 — 기계 호출자는 2026-10-13 에 뗐다 · 아래 「기계 호출자」), MONITOR_KEY(매일 점검 전용 키 · 2026-10-13), SERMON_JOB_KEY(설교 작업 전용 키 · 2026-10-13), ~~MINISTRY_SECRET~~(사역신청 담당자 암호 — **2026-10-13 운영·개발에서 지웠다** · 교회 어드민으로 갈아탐 · 담당자용 사역 액션은 moved-to-church-admin · docs/notes/ministry-2027.md 끝), VAPID_*(Web Push), RESEND_API_KEY·REPORT_FROM·REPORT_RECIPIENTS(주간 리포트 메일), ANTHROPIC_API_KEY(NIV 생성 등 AI 공용), TELEGRAM_*(모니터 경보)
 
 ## 통계 RPC
 `stats-rpc.sql`: v2_stats·v2_participants(security definer, PII 반환→service_role만 grant)
 
 ## 집계표 (`daily-activity.sql`, 2026-08-15)
 `daily_activity(day,user_id,mode,cnt)` — `challenge_log`에 INSERT·DELETE 트리거로 동기화(앱이 아니라 DB가 지킨다). `ranking`·`guRanking`·`mydays`가 로그 대신 이 표를 읽는다(`v2_ranking`·`v2_gu_ranking`·`v2_mydays`, 실패 시 `*Slow`로 폴백). **전체 기간 2,903ms → 516ms.** 로그 11,052행 = 집계 579행이고, 로그는 총 횟수만큼 늘지만 집계표는 참여자×활동일수만큼만 는다. `monitor`가 `v2_activity_drift()`로 매일 로그 행수 vs 집계 합계를 대조해 어긋나면 경보 — 틀어지면 백필(3번 블록)을 다시 실행하면 된다. 구절별 통계(`verseStats`·`verseCounts`)는 verse_no가 필요해 로그에 남는다.
+
+## 기계 호출자(2026-10-13 — 관리자 암호에서 뗌)
+10/25 관리자 암호 교체 전에 사람이 아닌 부름이 `ADMIN_SECRET` 에 매달리지 않게 했다. 키가 새도 **그 목록만** 열린다.
+
+| 부르는 곳 | 머리 | 열리는 액션 | 키가 있는 곳 |
+|---|---|---|---|
+| 크론 여섯(pg_cron) | `x-internal-key`(Vault `edu_remind_service_key` = 서비스 키) | sendPush · weeklyVersePush · weeklyReport(`cronOnly` 꼴) | DB Vault — 단계로 옮기는 중(`supabase/push_report_cron.sql`) |
+| `mcp` 함수(같은 프로젝트) | `x-internal-key`(함수에 저절로 있는 `SUPABASE_SERVICE_ROLE_KEY`) | findMember · memberParticipation(`INTERNAL_FN_OK`) | Supabase 밖으로 안 나간다 |
+| 교회 어드민 함수 | `x-internal-key` | `INTERNAL_ADMIN_OK` 46개(역할은 교회 어드민 `canCall`) | 〃 |
+| `.github/workflows/monitor.yml` | `x-machine-key` = `MONITOR_KEY` | monitor · weeklyReport(`cronOnly` 꼴 — 받는 곳 없음) | Supabase 시크릿(운영·개발) · GitHub v2 `production` 환경 · 로컬 `.env` `PROD_MONITOR_KEY` / `.env.dev` `MONITOR_KEY` |
+| gocheok-sermons `sermon-job.yml`(설교 파이프라인) | `x-machine-key` = `SERMON_JOB_KEY` | sermonJobGet · sermonJobUpdate | Supabase 시크릿(운영·개발) · GitHub gocheok-sermons `SERMON_JOB_KEY`·`DEV_SERMON_JOB_KEY` · 로컬 `.env` `PROD_SERMON_JOB_KEY` / `.env.dev` `SERMON_JOB_KEY` |
+
+- 전용 키는 **서비스 키(DB 전체)를 GitHub 에 두지 않으려고** 따로 만들었다. 표는 api `MACHINE_KEYS` 한 곳 — 액션을 더하려면 거기에 한 줄(크론 꼴이 필요한 액션이면 `cronOnly` 로 좁힌다).
+- 머리(`x-machine-key`)가 있는데 맞지 않거나 목록 밖이면 **암호 길로 새지 않고** `unauthorized`(403).
+- 키를 바꿀 때: 새 값을 Supabase 시크릿(운영·개발) · GitHub 시크릿 · 로컬 `.env` 세 곳에 함께(값은 찍지 않는다 — 2026-10-13 은 파이썬 한 번으로 넣었다).
+- 「발송 진단(diag_send)」 수동 버튼은 이때 뺐다 — 사람을 안 고르면 모든 구독자에게 실제로 보내는 버튼이었다.
+
+**아직 관리자 암호를 쓰는 곳(10/25 교체 날 볼 것):** 사람이 여는 관리자 화면(`admin-stats` 등 — 새 암호로 들어오면 된다) ·
+설교 아카이브 함수 `sermon` 의 관리 액션(손으로 돌리는 `add-local` → `5-migrate` 의 `importSermons` · `6-embed` 의 `embedSermons` — 로컬 `.env` 의 `SERMON_ADMIN` 을 새 암호로) ·
+gocheok-sermons `add-sermon.yml`(옛 길 · GitHub `SERMON_ADMIN`/`DEV_SERMON_ADMIN` — 옛 길을 치우거나 새 암호로) · 주일 말씀 크론(10/18 Vault 로 옮기기 전까지).
+찬양 함수는 2026-10-13 에 암호 길을 닫았다(내부 키 + 「암호 + 총괄」만 · praise-songs 6ff4948).
 
 ## 배포 가드(2026-10-12)
 Edge Function(`api`·`mcp`)은 **`tools/deploy-fn.py` 로만** 올린다. 판단 함수 시험은 `python tests/deploy-fn-guard.py`.

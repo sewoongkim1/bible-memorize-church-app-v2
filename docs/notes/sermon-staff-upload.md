@@ -63,7 +63,7 @@ AI 프롬프트를 못 쓰는 담당자가 매주 설교를 올리도록, 친구
 ## 개발 시험 순서(Phase A, 계획 Task 13 요약)
 
 개발 DB(`ktpwthwqzgcqcrmsafdo`)에 `dev-sermons-tables.sql` → `sermon_jobs.sql` · 개발 비밀값 `CONTENT_STAFF_SECRET`·`GH_DISPATCH_TOKEN`·
-`GH_DISPATCH_REF`(가지) · gocheok-sermons 비밀값 `DEV_SERMON_ADMIN`·`TELEGRAM_*` → localhost 에서 담당자로 ① → ② → 가지의 워크플로가 돈다.
+`GH_DISPATCH_REF`(가지) · gocheok-sermons 비밀값 `DEV_SERMON_JOB_KEY`(2026-10-13 까지는 `DEV_SERMON_ADMIN` — 설교 작업 전용 키로 바뀜 · `docs/notes/backend-api.md` 「기계 호출자」)·`TELEGRAM_*` → localhost 에서 담당자로 ① → ② → 가지의 워크플로가 돈다.
 권한 스모크 `tests/sermon-staff-smoke.py`(개발 전용 · 암호는 환경 변수로만).
 
 ---
