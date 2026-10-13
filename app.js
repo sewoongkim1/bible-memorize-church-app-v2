@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261014f";
+const APP_BUILD = "20261014g";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -7458,6 +7458,12 @@ const MM_ICON = {
   keyboard: "M3 6h18v12H3zM7 10h.01M11 10h.01M15 10h.01M7 14h10",
   cards: "M9 3h10a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM5 7v12a2 2 0 0 0 2 2h9",
   stop: "M7 7h10v10H7z",
+  // 말씀 도전 A안(applyChallengeA) — 시안 A-challenge.dc.html ICONS
+  flame: "M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-6 0 2 1 3 2 3 0-4-1-6 1-9z",
+  bulb: "M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z",
+  shuffle: "M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5",
+  book: "M2 4h6a4 4 0 0 1 4 4v12a3 3 0 0 0-3-3H2zM22 4h-6a4 4 0 0 0-4 4v12a3 3 0 0 1 3-3h7z",
+  trophy: "M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4",
 };
 function mmSvg(name) {
   return `<svg class="mm-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="${MM_ICON[name]}"/></svg>`;
@@ -7625,6 +7631,131 @@ function applyMemoLayout(verse, stage) {
   if (v === "a" && watch) {
     watch.classList.add("mm-row");
     watch.innerHTML = mmSvg("tv") + `<span>이 말씀의 설교 영상</span>` + mmSvg("chev");
+  }
+}
+
+// ── 🧪 말씀 도전 A안(2026-10-14 친구 「A 안으로 암송도전도 만들어 주세요」 · 시안 A-challenge.dc.html) ─────────────
+//   암송 화면 미리보기에서 A 를 고른 기기만(memoVariant() === "a" — 설정 → 🔒 관리 페이지 또는 ?memo=a). B · C 는 도전 시안이 없어 원래 화면.
+//   renderChallenge 가 다 그린 뒤 옮겨 담는다 — 힌트 · 다른 말씀 · 카드 · 채점 · 어려운 도전 · 구절 먼저 쓰기 · 기록은 옛 코드 그대로.
+//   옷은 암송 A 와 같은 규칙(.test-screen[data-memo="a"]) — 도구 칸 · 말씀 상자 · 쓰기|카드 · 마음에 둠 상자 · 설교 줄.
+//   ⚠️ 「구절 먼저 쓰기」를 켠 분은 구절 빈칸이 단계 표지(.test-top) 안에 있다 — 그 줄은 숨기지 않는다(.mm-ref).
+//   ⚠️ 어려운 도전(.hard-blank)은 밑줄 · 다음 칸 바탕을 지운다(A 의 「다음 빈칸」 칠하기가 빈칸 자리를 알려 주지 않게).
+function applyChallengeA(verse, hard) {
+  if (memoVariant() !== "a") return;
+  const scr = document.querySelector("#app .test-screen");
+  const card = scr && scr.querySelector(".test-card");
+  if (!card) return;
+  const sticky = card.querySelector(".test-ref-sticky");
+  const btnRow = card.querySelector(".btn-row");
+  const sentence = card.querySelector(".test-sentence");
+  const modeBtn = document.getElementById("ch-mode-toggle");
+  const exit = document.getElementById("ch-exit");
+  const remain = document.getElementById("ch-remain");
+  if (!sticky || !btnRow || !sentence) return;
+  scr.dataset.memo = "a";
+  scr.classList.add("memo-a", "mm-ch");
+  if (card.querySelector(".ref-input")) scr.classList.add("mm-ref");
+  const cardMode = isCardMode();
+
+  // 0) 미리보기 표시 줄
+  const bar = document.createElement("div");
+  bar.className = "hb-bar mm-bar";
+  bar.innerHTML = `<span>🧪 말씀 도전 시안 A · 이 기기에서만</span><span class="mm-pick"><button type="button" id="mm-ch-off">원래 화면으로</button></span>`;
+  bar.querySelector("#mm-ch-off").addEventListener("click", () => {
+    try { localStorage.removeItem(MEMO_KEY); } catch (e) {}
+    stopSpeaking();
+    renderChallenge(verse, hard);
+  });
+
+  // 1) 머리 — 「‹ 첫 화면」 · 🔥 말씀 도전(어려운 도전) · 남은 빈칸
+  const head = document.createElement("div");
+  head.className = "mm-head mm-ch-head";
+  if (exit) {
+    exit.classList.add("mm-back");
+    exit.innerHTML = mmSvg("back") + "<span>첫 화면</span>";   // 옛 「← 뒤로」도 첫 화면으로 간다(renderSummary)
+    head.appendChild(exit);
+  }
+  const title = document.createElement("div");
+  title.className = "mm-ch-title" + (hard ? " hard" : "");
+  title.innerHTML = mmSvg("flame") + `<span>${hard ? "어려운 도전" : "말씀 도전"}</span>`;
+  head.appendChild(title);
+  if (remain) head.appendChild(remain);
+  sticky.after(bar);
+  bar.after(head);
+
+  // 2) 도구 칸 — 힌트 · 다른 말씀 · 말하기 · 그림
+  mmTool(document.getElementById("hint-btn"), "bulb", "힌트");
+  mmTool(document.getElementById("ch-shuffle"), "shuffle", "다른 말씀");
+  mmTool(document.getElementById("voice-toggle"), "mic", "말하기");
+  const imgFind = () => document.querySelector('#help-slot .help-btn[data-k="img"]');
+  const imgProxy = mmProxy("mm-img", "image", "그림", imgFind, () => setTimeout(() => {
+    const hb = document.getElementById("help-body");
+    if (hb && !hb.hidden) hb.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, 80));
+  const helpSlot = document.getElementById("help-slot");
+  if (helpSlot) new MutationObserver(() => { imgProxy.hidden = !imgFind(); }).observe(helpSlot, { childList: true });
+  btnRow.removeAttribute("style");   // 옛 줄의 인라인 flex-wrap
+  btnRow.classList.add("mm-tools");
+  btnRow.appendChild(imgProxy);
+  if (modeBtn) modeBtn.classList.add("mm-hide");
+
+  // 3) 쓰기 | 카드 — 말씀 상자 바로 아래
+  const row = document.createElement("div");
+  row.className = "mm-inrow";
+  row.innerHTML = `<span class="mm-inlabel">${cardMode ? "낱말을 눌러 채워요" : "빈칸에 낱말을 써요"}</span>` +
+    `<span class="mm-seg" role="group" aria-label="입력 방법"><button type="button" data-m="0" aria-pressed="${!cardMode}">쓰기</button><button type="button" data-m="1" aria-pressed="${cardMode}">카드</button></span>`;
+  row.querySelectorAll("button[data-m]").forEach((b) => b.addEventListener("click", () => {
+    if ((b.dataset.m === "1") !== isCardMode() && modeBtn) modeBtn.click();   // 옛 단추가 저장하고 다시 그린다
+  }));
+  sentence.after(row);
+
+  // 4) 마음에 둠 — 한 상자
+  const heart = document.getElementById("heart-label");
+  if (heart) {
+    const box = document.createElement("div");
+    box.className = "mm-checks";
+    heart.before(box);
+    box.appendChild(heart);
+  }
+
+  // 5) 설교 영상 — 줄 단추
+  const watch = card.querySelector(".sermon-connect .sc-watch");
+  if (watch) {
+    watch.classList.add("mm-row");
+    watch.innerHTML = mmSvg("tv") + `<span>이 말씀의 설교 영상</span>` + mmSvg("chev");
+  }
+}
+
+// 도전 완료 화면 A안 — 단추·연결은 옛 화면 그대로, 모양만(불꽃 동그라미 · 금색 「한 번 더 도전」 · 자동 계속은 켜고 끄는 줄 · 순위는 줄 단추)
+function applyChallengeDoneA() {
+  if (memoVariant() !== "a") return;
+  const c = document.querySelector("#app .cd-card");
+  if (!c) return;
+  c.classList.add("cd-a");
+  const em = c.querySelector(".cd-emoji");
+  if (em) em.innerHTML = `<span class="cd-a-ic">${mmSvg("flame")}</span>`;
+  const help = c.querySelector(".cd-help-note");
+  if (help) help.innerHTML = "힌트를 보고 맞히셨네요.<br>한 번 더 익혀 두면 다음엔 힌트 없이 됩니다.";
+  const relearn = document.getElementById("cd-relearn");
+  if (relearn) relearn.innerHTML = mmSvg("book") + "<span>이 말씀 다시 암송하기</span>";
+  const again = document.getElementById("cd-again");
+  if (again) again.innerHTML = mmSvg("flame") + "<span>한 번 더 도전</span>";
+  const auto = document.getElementById("cd-auto-label");
+  const rank = document.getElementById("cd-rank");
+  if (auto) {
+    const box = document.createElement("div");
+    box.className = "cd-a-box";
+    auto.before(box);
+    box.appendChild(auto);
+    const t = auto.querySelector(".repeat-text");
+    if (t) t.textContent = "자동으로 계속 도전하기";
+    const d = auto.querySelector(".repeat-desc");
+    if (d) d.textContent = "켜면 이 화면 없이 바로 다음 도전으로 넘어가요";
+    if (rank) {
+      rank.classList.add("cd-a-row");
+      rank.innerHTML = mmSvg("trophy") + "<span>도전 순위 보기</span>" + mmSvg("chev");
+      box.appendChild(rank);
+    }
   }
 }
 
@@ -9959,6 +10090,7 @@ function renderChallenge(verse, hard) {
   setupHint();
   setupChallengeTyping(verse, (mode) => challengeComplete(verse, cardUsed ? "card" : mode));
   setupVoice(verse, 3, () => challengeComplete(verse, "voice"));
+  applyChallengeA(verse, hard);   // 🧪 말씀 도전 A안 — 미리보기 A 를 고른 기기만(MEMO_KEY)
   // ⚠️ 예전엔 여기서 "구절" 칸을 화면 렌더 250ms 뒤 무조건 scrollIntoView(block:"start")로
   // 맨 위까지 붙였다(2026-08-31 — 위쪽 고정 배너에 가려 안 보이던 문제 때문). 그런데 이
   // 타이머는 사용자가 그새 뭘 했는지 모른다 — 빠르게 타이핑해 이미 다음 칸으로 넘어간
@@ -10387,6 +10519,7 @@ function renderChallengeDone(verse, mode, todayCount, usedHelp) {
   document.getElementById("cd-auto-check").addEventListener("change", (e) => setAutoChallenge(e.target.checked));
   document.getElementById("cd-rank").addEventListener("click", () => renderRanking());
   document.getElementById("cd-home").addEventListener("click", renderSummary);
+  applyChallengeDoneA();   // 🧪 말씀 도전 A안 — 미리보기 A 를 고른 기기만
 }
 
 // ---- 순위 ----

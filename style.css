@@ -6939,3 +6939,81 @@ html[data-wf="gb"] .test-screen.memo-b .wcard { font-family: "Gowun Batang", ser
 .dark .mg-pv-t span { color: #cbb978; }
 .dark .mg-pv-row button { background: #232c3f; color: #cdd9f2; border-color: #3a4a68; }
 .dark .mg-pv-row button[aria-pressed="true"] { background: #9dbbea; border-color: #9dbbea; color: #0f1218; }
+
+/* ── 🧪 말씀 도전 A안(app.js applyChallengeA · 미리보기 A 를 고른 기기만 · 2026-10-14) ─────────────
+   도구 칸 · 말씀 상자 · 쓰기|카드 · 마음에 둠 상자 · 설교 줄은 위 암송 A 규칙(.test-screen.memo-a)을 그대로 쓴다. 여기는 도전만의 것. */
+.test-screen.mm-ch.mm-ref .test-top { display: flex; margin: 0 0 10px; }   /* 구절 먼저 쓰기 — 구절 빈칸이 이 줄 안에 있다 */
+.test-screen.mm-ch .mm-ch-head { flex-wrap: wrap; row-gap: 2px; }
+.test-screen.mm-ch .mm-ch-title {
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 6px;
+  font-size: 1.12rem; font-weight: 800; color: #1b2333; white-space: nowrap;
+}
+.test-screen.mm-ch .mm-ch-title .mm-ic { width: 20px; height: 20px; color: #7a5a12; }
+.test-screen.mm-ch .mm-ch-title.hard span { color: #7a5a12; }
+.test-screen.mm-ch .mm-ch-head .challenge-remain { flex: none; margin: 0 0 0 auto; font-size: .9rem; font-weight: 700; color: #4a5468; white-space: nowrap; text-align: right; }
+.test-screen.mm-ch .mm-ch-head .challenge-remain.clear { color: #1f7a4d; }
+.test-screen.mm-ch .mm-checks > .heart-check:first-child { border-top: 0; }
+/* 어려운 도전 — 밑줄도, 다음 칸 바탕도 지운다(옛 규칙 .word-input.hard-blank 와 같은 뜻 · A 의 「다음 빈칸」 칠하기보다 앞선다) */
+.test-screen.memo-a .test-sentence .word-input.hard-blank:not(.correct):not(.wrong) { border-bottom-color: transparent !important; background: transparent !important; }
+html[data-fs="lg"] .test-screen.mm-ch .mm-ch-title, html[data-fs="xl"] .test-screen.mm-ch .mm-ch-title { font-size: 1.22rem; }
+.dark .test-screen.mm-ch .mm-ch-title { color: #f1eee7; }
+.dark .test-screen.mm-ch .mm-ch-title .mm-ic, .dark .test-screen.mm-ch .mm-ch-title.hard span { color: #e9cd7e; }
+.dark .test-screen.mm-ch .mm-ch-head .challenge-remain { color: #b9c0cd; }
+.dark .test-screen.mm-ch .mm-ch-head .challenge-remain.clear { color: #6fcf97; }
+
+/* 도전 완료 A안(app.js applyChallengeDoneA) */
+.cd-card.cd-a .cd-a-ic { width: 68px; height: 68px; border-radius: 34px; background: #fbf1d6; color: #7a5a12; display: inline-flex; align-items: center; justify-content: center; }
+.cd-card.cd-a .cd-a-ic .mm-ic { width: 34px; height: 34px; }
+.cd-card.cd-a .cd-emoji { font-size: 0; margin-bottom: 8px; }
+.cd-card.cd-a .cd-title { font-family: "Noto Sans KR", sans-serif; font-size: 1.6rem; font-weight: 800; color: #1b2333; }
+.cd-card.cd-a .cd-sub { font-size: 1rem; color: #4a5468; }
+.cd-card.cd-a .cd-count { margin: 8px 0 18px; color: #4a5468; }
+.cd-card.cd-a .cd-count b { color: #7a5a12; }
+.cd-card.cd-a .cd-help-note { background: #fbf1d6; border: 0; border-radius: 14px; padding: 12px 14px; color: #1b2333; font-size: .94rem; text-align: left; }
+.cd-card.cd-a #cd-relearn, .cd-card.cd-a #cd-again {
+  min-height: 60px; border-radius: 14px; display: flex; align-items: center; justify-content: center; gap: 10px;
+  font-size: 1.12rem; font-weight: 800; box-shadow: none;
+}
+.cd-card.cd-a #cd-relearn { background: #1e3a6b; border-color: #1e3a6b; color: #fff; }
+.cd-card.cd-a #cd-again { background: #d9b556; border-color: #d9b556; color: #2a2210; }
+.cd-card.cd-a #cd-again:hover { background: #cfa944; color: #2a2210; }
+.cd-card.cd-a #cd-relearn .mm-ic, .cd-card.cd-a #cd-again .mm-ic { width: 22px; height: 22px; }
+.cd-card.cd-a .cd-a-box { margin: 14px 0 12px; background: #fff; border: 1px solid #e5dfd4; border-radius: 16px; overflow: hidden; text-align: left; }
+.cd-card.cd-a .cd-a-box .repeat-toggle {
+  margin: 0; border: 0; border-radius: 0; background: transparent; padding: 12px 16px;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; row-gap: 2px; align-items: center;
+}
+.cd-card.cd-a .cd-a-box .repeat-text { grid-column: 1; font-size: 1rem; font-weight: 700; color: #1b2333; }
+.cd-card.cd-a .cd-a-box .repeat-desc { grid-column: 1; padding-left: 0; font-size: .82rem; color: #4a5468; }
+/* 켜고 끄는 스위치(동그라미가 오른쪽이면 켜짐) */
+.cd-card.cd-a .cd-a-box .repeat-toggle input {
+  grid-column: 2; grid-row: 1 / span 2; -webkit-appearance: none; appearance: none; width: 50px; height: 30px; margin: 0;
+  border: 0; border-radius: 15px; cursor: pointer; background: #c9ced8 radial-gradient(circle at 15px 50%, #fff 11px, transparent 12px) no-repeat;
+}
+.cd-card.cd-a .cd-a-box .repeat-toggle input:checked { background: #1e3a6b radial-gradient(circle at calc(100% - 15px) 50%, #fff 11px, transparent 12px) no-repeat; }
+.cd-card.cd-a .cd-a-box .cd-a-row {
+  width: 100%; min-height: 56px; margin: 0; padding: 0 16px; border: 0; border-top: 1px solid #e5dfd4; border-radius: 0;
+  background: transparent; color: #1b2333; display: flex; align-items: center; gap: 12px; text-align: left;
+  font-family: inherit; font-size: 1rem; font-weight: 700; box-shadow: none;
+}
+.cd-card.cd-a .cd-a-box .cd-a-row span { flex: 1; }
+.cd-card.cd-a .cd-a-box .cd-a-row .mm-ic { width: 20px; height: 20px; color: #1e3a6b; }
+.cd-card.cd-a .cd-a-box .cd-a-row .mm-ic:last-child { color: #6e7787; }
+.cd-card.cd-a .cd-a-box .cd-a-row:hover { background: #f7f4ee; }
+.dark .cd-card.cd-a .cd-a-ic { background: #3a3018; color: #e9cd7e; }
+.dark .cd-card.cd-a .cd-title { color: #f1eee7; }
+.dark .cd-card.cd-a .cd-sub, .dark .cd-card.cd-a .cd-count { color: #b9c0cd; }
+.dark .cd-card.cd-a .cd-count b { color: #e9cd7e; }
+.dark .cd-card.cd-a .cd-help-note { background: #3a3018; color: #f1eee7; }
+.dark .cd-card.cd-a #cd-relearn { background: #2f5596; border-color: #2f5596; color: #fff; }
+.dark .cd-card.cd-a .cd-a-box { background: #1a202b; border-color: #2c3442; }
+.dark .cd-card.cd-a .cd-a-box .repeat-text { color: #f1eee7; }
+.dark .cd-card.cd-a .cd-a-box .repeat-desc { color: #b9c0cd; }
+.dark .cd-card.cd-a .cd-a-box .repeat-toggle input { background: #3a4252 radial-gradient(circle at 15px 50%, #f1eee7 11px, transparent 12px) no-repeat; }
+.dark .cd-card.cd-a .cd-a-box .repeat-toggle input:checked { background: #2f5596 radial-gradient(circle at calc(100% - 15px) 50%, #fff 11px, transparent 12px) no-repeat; }
+.dark .cd-card.cd-a .cd-a-box .cd-a-row { color: #f1eee7; border-top-color: #2c3442; }
+.dark .cd-card.cd-a .cd-a-box .cd-a-row .mm-ic { color: #9dbbea; }
+.dark .cd-card.cd-a .cd-a-box .cd-a-row:hover { background: #222a37; }
+/* A — 설교 줄이 상자 안의 상자로 보였다(테두리 두 겹) — 바깥 상자는 걷고 제목은 줄 위 글로 */
+.test-screen.memo-a .sermon-connect { background: transparent; border: 0; padding: 0; margin-top: 14px; }
+.dark .test-screen.memo-a .sermon-connect { background: transparent; }
