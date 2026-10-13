@@ -422,6 +422,13 @@ function psalmSetupCheck(verse, stage) {
 // 이 구절이 그분의 '첫 완주'인가 — saveProgress 보다 먼저 봐야 한다.
 // ⚠️ isFirstJourney() 는 전역 verses(주간 35구절)만 센다. 시편만 하시는 분은
 //    아무리 마쳐도 계속 true 라 축하 문구가 매번 뜬다 — 시편 쪽도 함께 본다.
+// 첫 완주 축하 — 주간 암송의 FIRST_DONE_HTML 에서 「📖 말씀 앨범에 담겼어요」 줄만 뺀 것.
+//   ⚠️ 2026-10-13 부터 앨범은 주간 말씀만 담고(v3.612) 쉴만한 물가는 복습에도 없다(isNonWeeklyNo) —
+//      「앨범에 담겼어요」·「복습이 예약됐어요」는 이 화면에서 거짓이다(스킬 copy-truth).
+const PSALM_FIRST_DONE_HTML = `
+  <div class="first-done">
+    <div class="fd-title">🎉 첫 말씀을 마음에 새기셨어요!</div>
+  </div>`;
 function psalmWasFirst() {
   return isFirstJourney() && psalmDoneCount() === 0;
 }
@@ -610,8 +617,8 @@ function renderPsalmDone(verse, wasFirst) {
       <div class="ps-done-icon">🎉</div>
       <div class="ps-done-t">다 외우셨어요!</div>
       <div class="ps-done-ref">${psalmEsc(verse.refFull)}</div>
-      ${wasFirst ? FIRST_DONE_HTML : `
-        <div class="ps-done-s">말씀 앨범에 담겼고, 복습이 예약됐어요</div>`}
+      ${wasFirst ? PSALM_FIRST_DONE_HTML : `
+        <div class="ps-done-s">「지난 말씀 보기」에서 언제든 다시 볼 수 있어요</div>`}
       ${heartCheckHtml(verse, "-m")}
       ${navHtml}
       ${next ? "" : `<div class="ps-done-wait">${psalmEsc(PSALM_TOMORROW_MSG)}</div>`}

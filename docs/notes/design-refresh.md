@@ -53,7 +53,9 @@
 - 도구 칸 「쓰기 ↔ 카드」 아이콘이 상태를 따라 바뀐다(키보드 ↔ 카드 두 장 · 친구 2026-10-13 「카드 아이콘이 안 바뀐다」) — 단추가 누를 때 제 글자(⌨️ · 👆)를 바꾸는 것을 `MutationObserver` 로 보고 아이콘을 다시 그린다. 「구절」은 아이콘 대신 칸 바탕(꺼짐 빨강 · 켜짐 파랑)이 상태를 말한다(원래 뜻 그대로).
 - ✅ **2026-10-13 친구가 A안을 골라 모두의 첫 화면이 됐다** — 스위치 `HOME_LAYOUT = "a"`(app.js) · 롤백은 그 값을 "old" 로(깃 태그 `home-before-a-2026-10-13`) · 상세와 견주어 보기 주소는 `docs/notes/home-screen.md` 끝. 옮겨 담기(applyHomeA)를 처음부터 그 꼴로 그리는 템플릿으로 바꾸는 일은 롤백 걱정이 없어진 뒤(몇 주) — 그때 옛 템플릿 · `.home-b`/`.home-a` 덩이 · 표식 셋을 함께 걷는다.
 
-## 🧪 나의 말씀 앨범 A안 미리보기 — `?album=a` (2026-10-13 · 친구 「디자인 시안으로 나의 말씀 앨범 화면을 만들어 주세요」)
+## 나의 말씀 앨범 A안 — 2026-10-13 모두에게 열림(v3.617 · 처음엔 미리보기 `?album=a` · 친구 「디자인 시안으로 나의 말씀 앨범 화면을 만들어 주세요」 → 「모두에게 열어 주세요」)
+- ✅ **2026-10-13 친구 「모두에게 열어 주세요」 — `ALBUM_LAYOUT = "a"`**(v3.617). 롤백은 그 값을 `"old"` 로 + bump(옛 템플릿은 `renderAlbum` 안에 그대로 있다). 미리보기 표시 줄은 이제 안 뜬다(`ALBUM_LAYOUT === "a"` 면 안 그린다). 같이 고친 말: 설명서(말씀 듣기 tip · 「마음에 둠 · 나의 말씀 앨범」 세 줄) · `guide/` ⑦(「마음에 둔 말씀이 모여요」 → 「3단계까지 마친 말씀이 모여요」 — 원래도 틀렸다) · `guide/shots/album.png` 새로 찍음(`tools/capture-guide-shots.py` 를 임시 폴더로 돌려 앨범 한 장만 옮김) · 쉴만한 물가 완료 화면(아래).
+- ⚠️ 쉴만한 물가 완료 화면의 「말씀 앨범에 담겼고, 복습이 예약됐어요」·첫 완주 「📖 말씀 앨범에 담겼어요」가 **거짓이 됐었다** — 앨범이 주간 말씀만 담게 된 v3.612 부터(물가는 복습에도 없다 · `isNonWeeklyNo`). → 「「지난 말씀 보기」에서 언제든 다시 볼 수 있어요」 · 첫 완주는 `PSALM_FIRST_DONE_HTML`(앨범 줄 뺀 것). 스토어 사진(`자료/store/` · `tools/capture-ios-shots.py`)의 앨범은 옛 모양 그대로다 — 다음에 스토어 사진을 갈 때 함께.
 - **https://gocheok.onlybible.kr/?album=a** 로 연 기기에서만 앨범이 시안 A 꼴이다(`?album=off` 나 화면 위 「원래 화면으로」로 되돌림 · localStorage 표식 `album-a-preview` 하나). 스위치는 `app.js` `ALBUM_LAYOUT = "old"` — 모두에게 열 때 `"a"` 로 + bump.
 - 첫 화면을 A안으로 골랐으니 앨범도 A(통일). 시안 원본은 캔버스의 `A-album.dc.html`.
 - **템플릿만 갈라 그린다**(`renderAlbum` 의 `albumA`) — 단추 id(`ab-back` · `ab-quiz` · `ab-play` · `ab-play-go`) · `data-h`/`data-p`/`data-go`/`data-listen`/`data-why`/`data-check` · 클래스(`.album-card` · `.album-ref` · `.album-text` · `.album-check` · `.album-why-body`)가 옛 앨범과 같아 가리기 · 확인 · 고르기 · 풀이 · 이어 듣기(`albumPlayFocus` 의 .playing)가 그대로 돈다. CSS 는 `style.css` 끝 「🧪 나의 말씀 앨범 A안」 덩이 — 모두 `.album-a` 아래라 옛 앨범에는 안 걸린다.
