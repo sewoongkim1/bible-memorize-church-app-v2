@@ -6897,23 +6897,29 @@ html.dark:has(#app .test-screen.memo-c) body { background: #0e1116; }
 .test-screen[data-memo] .test-card .btn-row { padding: 0; row-gap: 0; align-items: stretch; }
 .test-screen.memo-a .test-card .btn-row { margin-bottom: 14px; }
 .test-screen.memo-c .test-card .btn-row { margin: 18px 0 0; row-gap: 10px; border: 0; }
-/* 말씀 글꼴 고르기(app.js MEMO_FONT_KEY · 미리보기 줄 「글꼴」) — 말씀 본문 · 빈칸 · 정답 보기(B 는 낱말 카드도 명조라 함께).
-   영어(NIV)는 그대로 Lora. 이미 부르는 글꼴만 쓴다(Noto Sans KR 700 · 고운바탕 700 · 나눔명조 800) */
-.test-screen.mm-f-ns:not(.en) .test-sentence, .test-screen.mm-f-ns:not(.en) .word-input,
-.test-screen.mm-f-ns:not(.en) .answer-text, .test-screen.memo-b.mm-f-ns .wcard { font-family: "Noto Sans KR", sans-serif; font-weight: 700; }
-/* 고딕 본문은 500 + 글자 사이 조금(친구 2026-10-14 「고딕이 두꺼워서 글이 뭉쳐 보여요」 — 700 · 500 · 500+띄움 · 400+띄움을 찍어 견줘
-   500+.03em 이 또렷하면서 덜 뭉쳤다 · 400 은 가늘어 어르신께 흐리다). 낱말 카드(B)는 단추라 700 그대로 */
-.test-screen.mm-f-ns:not(.en) .test-sentence, .test-screen.mm-f-ns:not(.en) .word-input,
-.test-screen.mm-f-ns:not(.en) .answer-text { font-weight: 500; letter-spacing: .03em; }
-.test-screen.mm-f-gb:not(.en) .test-sentence, .test-screen.mm-f-gb:not(.en) .word-input,
-.test-screen.mm-f-gb:not(.en) .answer-text, .test-screen.memo-b.mm-f-gb .wcard { font-family: "Gowun Batang", serif; font-weight: 700; }
-.test-screen.mm-f-mj:not(.en) .answer-text { font-family: "Nanum Myeongjo", serif; font-weight: 800; }
-.test-screen[data-memo] .mm-bar { row-gap: 8px; }
-.test-screen[data-memo] .mm-fonts { align-items: center; }
-.test-screen[data-memo] .mm-pick-l { font-size: .86rem; font-weight: 700; margin-right: 2px; }
-.test-screen[data-memo] .mm-fonts button.mm-f-ns { font-family: "Noto Sans KR", sans-serif; }
-.test-screen[data-memo] .mm-fonts button.mm-f-gb { font-family: "Gowun Batang", serif; }
-.test-screen[data-memo] .mm-fonts button.mm-f-mj { font-family: "Nanum Myeongjo", serif; }
+/* ── ✍️ 말씀 글꼴(설정 · html[data-wf] · app.js setupWriteFont · 2026-10-14 친구 「기본 폰트는 고딕」) ─────────────
+   암송 · 도전 · 복습(.test-screen)의 말씀 · 빈칸 · 정답 보기. 영어(NIV)는 그대로 Lora. 쉴만한 물가 액자는 제 꼴(명조) 그대로.
+   고딕은 500 + 글자 사이 .03em — 700 은 뭉쳐 보였고 400 은 어르신께 흐렸다(4가지를 찍어 견줌). 바탕 · 명조는 그 글꼴의 원래 굵기.
+   ⚠️ data-wf 가 없거나 이상한 값이어도 고딕(기본)이 되게 :not() 으로 쓴다. 이미 부르는 글꼴만(새 한글 글꼴 금지 — 첫 실행 765KB 사건). */
+html:not([data-wf="gb"]):not([data-wf="mj"]) .test-screen:not(.en) .test-sentence,
+html:not([data-wf="gb"]):not([data-wf="mj"]) .test-screen:not(.en) .word-input,
+html:not([data-wf="gb"]):not([data-wf="mj"]) .test-screen:not(.en) .answer-text,
+html:not([data-wf="gb"]):not([data-wf="mj"]) .wf-sample { font-family: "Noto Sans KR", sans-serif; font-weight: 500; letter-spacing: .03em; }
+html[data-wf="gb"] .test-screen:not(.en) .test-sentence, html[data-wf="gb"] .test-screen:not(.en) .word-input,
+html[data-wf="gb"] .test-screen:not(.en) .answer-text, html[data-wf="gb"] .wf-sample { font-family: "Gowun Batang", serif; font-weight: 700; letter-spacing: normal; }
+html[data-wf="mj"] .test-screen:not(.en) .test-sentence, html[data-wf="mj"] .test-screen:not(.en) .word-input,
+html[data-wf="mj"] .test-screen:not(.en) .answer-text, html[data-wf="mj"] .wf-sample { font-family: "Nanum Myeongjo", serif; font-weight: 800; letter-spacing: normal; }
+/* 시안 B 의 낱말 카드는 명조로 그렸다 — 고딕 · 바탕을 고르면 카드도 따라간다(단추라 굵게) */
+html:not([data-wf="gb"]):not([data-wf="mj"]) .test-screen.memo-b .wcard { font-family: "Noto Sans KR", sans-serif; font-weight: 700; }
+html[data-wf="gb"] .test-screen.memo-b .wcard { font-family: "Gowun Batang", serif; font-weight: 700; }
+/* 설정 화면 — 단추 이름도 제 글꼴로 · 아래에 보기 글 한 줄 */
+#wfont-row .wf-ns { font-family: "Noto Sans KR", sans-serif; }
+#wfont-row .wf-gb { font-family: "Gowun Batang", serif; }
+#wfont-row .wf-mj { font-family: "Nanum Myeongjo", serif; }
+.wf-sample { margin: 10px 2px 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: #fff; font-size: 1.1rem; line-height: 1.7; color: #1b2333; word-break: keep-all; text-align: center; }
+.setting-sub { font-size: .8rem; font-weight: 600; color: #6b7280; }
+.dark .wf-sample { background: #1a202b; border-color: #2c3442; color: #f1eee7; }
+.dark .setting-sub { color: #aeb8c8; }
 /* 🧪 설정 → 🔒 관리 페이지의 「암송 화면 시안 미리보기」(app.js memoPreviewBoxHtml — 폰에서는 ?memo= 주소가 앱에 안 닿는다) */
 .mg-pv { margin: 18px 0 0; padding: 12px 12px 10px; border: 1.5px dashed var(--gold); border-radius: 12px; background: #fffaf0; text-align: left; }
 .mg-pv-t { font-size: .95rem; font-weight: 800; color: #6b5a2a; margin: 0 0 8px; }

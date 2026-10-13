@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261014e";
+const APP_BUILD = "20261014f";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -791,12 +791,6 @@ function readMemoPreviewParam() {
     url.searchParams.delete("memo");
     history.replaceState(null, "", url.pathname + url.search + url.hash);
   } catch (e) {}
-}
-// 말씀 글꼴 고르기(2026-10-14 친구 「더 선명한 폰트로 해볼 수 있을까요」) — 이미 부르는 글꼴 셋 안에서만(새 글꼴은 첫 실행을 무겁게 한다 · CLAUDE.md 「첫 실행 속도」).
-//   ns = 고딕(Noto Sans KR 700 · 가장 선명 · 처음 값) · gb = 바탕(고운바탕 — 지금 성도님 화면) · mj = 명조(나눔명조 — 시안 그대로)
-const MEMO_FONT_KEY = "memo-font";
-function memoFont() {
-  try { const f = localStorage.getItem(MEMO_FONT_KEY); return f === "gb" || f === "mj" ? f : "ns"; } catch (e) { return "ns"; }
 }
 function memoVariant() {
   try { const m = localStorage.getItem(MEMO_KEY); return m === "a" || m === "b" || m === "c" ? m : ""; } catch (e) { return ""; }
@@ -5302,6 +5296,15 @@ function renderSettings() {
           </div>
         </div>
         <div class="setting-block">
+          <div class="setting-label">✍️ 말씀 글꼴 <span class="setting-sub">암송 · 도전 · 복습 화면</span></div>
+          <div class="tts-rate-row" id="wfont-row">
+            <button data-wf="ns" class="wf-ns">고딕</button>
+            <button data-wf="gb" class="wf-gb">바탕</button>
+            <button data-wf="mj" class="wf-mj">명조</button>
+          </div>
+          <div class="wf-sample">주의 말씀은 내 발에 등이요 내 길에 빛이니이다</div>
+        </div>
+        <div class="setting-block">
           <div class="setting-label">✍️ 암송 입력 방법</div>
           <div class="tts-rate-row" id="cardstart-row">
             <button data-cs="0">⌨️ 쓰기</button>
@@ -5386,6 +5389,7 @@ function renderSettings() {
   setupSyncRetry();
   setupThemeSetting();
   setupFontSize();
+  setupWriteFont();
   setupCardStart();
   setupLangSetting();
   setupTtsRate();
@@ -5510,6 +5514,25 @@ function setupFontSize() {
       sync(v);
     });
   });
+}
+
+// 말씀 글꼴(2026-10-14 친구 「글쓰기 폰트는 설정으로 빼고 기본 폰트는 고딕으로」) — 암송 · 도전 · 복습 화면의 말씀 · 빈칸 · 정답.
+//   ns = 고딕(Noto Sans KR 500 · 기본) · gb = 바탕(고운바탕 — 10/14 전까지의 글꼴) · mj = 명조(나눔명조).
+//   html[data-wf] 하나로 가른다(index.html 이 그리기 전에 붙인다 · CSS 는 style.css 「말씀 글꼴」). 이미 부르는 글꼴만 — 새 한글 글꼴은 첫 실행을 무겁게 한다.
+const WRITE_FONT_KEY = "write-font";
+function setupWriteFont() {
+  const row = document.getElementById("wfont-row");
+  if (!row) return;
+  const btns = Array.from(row.querySelectorAll("button"));
+  const cur = document.documentElement.getAttribute("data-wf") || "ns";
+  const sync = (v) => btns.forEach((b) => b.classList.toggle("on", b.dataset.wf === v));
+  sync(cur);
+  btns.forEach((b) => b.addEventListener("click", () => {
+    const v = b.dataset.wf;
+    document.documentElement.setAttribute("data-wf", v);
+    try { if (v === "ns") localStorage.removeItem(WRITE_FONT_KEY); else localStorage.setItem(WRITE_FONT_KEY, v); } catch (e) {}
+    sync(v);
+  }));
 }
 
 // 암송 입력 방법 — 쓰기 / 카드.
@@ -7481,7 +7504,6 @@ function applyMemoLayout(verse, stage) {
   if (!v || !card) return;
   scr.dataset.memo = v;
   scr.classList.add("memo-" + v);
-  scr.classList.add("mm-f-" + memoFont());   // 말씀 글꼴(MEMO_FONT_KEY)
   const L = MM_LABEL[v];
   const cardMode = isCardMode();
   const sticky = card.querySelector(".test-ref-sticky");
@@ -7496,16 +7518,9 @@ function applyMemoLayout(verse, stage) {
   bar.className = "hb-bar mm-bar";
   bar.innerHTML = `<span>🧪 암송 화면 시안 · 이 기기에서만</span><span class="mm-pick" role="group" aria-label="시안 고르기">` +
     ["a", "b", "c"].map((k) => `<button type="button" data-v="${k}" aria-pressed="${k === v}">${k.toUpperCase()}</button>`).join("") +
-    `<button type="button" data-v="">원래</button></span>` +
-    `<span class="mm-pick mm-fonts" role="group" aria-label="말씀 글꼴"><span class="mm-pick-l">글꼴</span>` +
-    [["ns", "고딕"], ["gb", "바탕"], ["mj", "명조"]].map(([k, l]) =>
-      `<button type="button" data-f="${k}" class="mm-f-${k}" aria-pressed="${k === memoFont()}">${l}</button>`).join("") + `</span>`;
+    `<button type="button" data-v="">원래</button></span>`;
   bar.querySelectorAll("button[data-v]").forEach((b) => b.addEventListener("click", () => {
     try { if (b.dataset.v) localStorage.setItem(MEMO_KEY, b.dataset.v); else localStorage.removeItem(MEMO_KEY); } catch (e) {}
-    renderTestScreen(verse, stage);
-  }));
-  bar.querySelectorAll("button[data-f]").forEach((b) => b.addEventListener("click", () => {
-    try { localStorage.setItem(MEMO_FONT_KEY, b.dataset.f); } catch (e) {}
     renderTestScreen(verse, stage);
   }));
 
@@ -9081,13 +9096,12 @@ function renderManageMenu(back) {
 //   폰에서는 주소로 켠 표식이 앱에 안 닿는다. 그래서 어느 앱에서든 들어오는 이 메뉴(설정 → 🔒 관리 페이지)에서 켜고 끈다(표식은 같은 memo-preview · memo-font).
 //   입구가 모든 성도님께 보이지만 바뀌는 것은 누른 그 기기의 암송 화면뿐이고, 암송 화면 위 「원래」로도 끈다.
 function memoPreviewBoxHtml() {
-  const v = memoVariant(), f = memoFont();
+  const v = memoVariant();
   const btn = (attr, val, label, on) => `<button type="button" ${attr}="${val}" aria-pressed="${on}">${label}</button>`;
   return `
         <div class="mg-pv">
           <div class="mg-pv-t">🧪 암송 화면 시안 미리보기 <span>이 기기에서만</span></div>
           <div class="mg-pv-row" role="group" aria-label="시안">${[["a", "A"], ["b", "B"], ["c", "C"]].map(([k, l]) => btn("data-pv", k, l, v === k)).join("")}${btn("data-pv", "", "끄기", !v)}</div>
-          <div class="mg-pv-row" role="group" aria-label="말씀 글꼴"><span class="mg-pv-l">글꼴</span>${[["ns", "고딕"], ["gb", "바탕"], ["mj", "명조"]].map(([k, l]) => btn("data-pf", k, l, f === k)).join("")}</div>
           <button type="button" class="summary-install" id="mg-pv-open"${v ? "" : " disabled"}>📖 이번 주 말씀 암송 화면 열기</button>
           <p class="btn-sub mg-pv-note">${v ? `지금 이 기기는 시안 ${v.toUpperCase()}로 보여요.` : "시안을 고르면 이 기기의 암송 화면만 그 모양으로 바뀌어요."} 다른 분 화면은 그대로예요.</p>
         </div>`;
@@ -9095,10 +9109,6 @@ function memoPreviewBoxHtml() {
 function setupMemoPreviewBox(rerender) {
   document.querySelectorAll(".mg-pv [data-pv]").forEach((b) => b.addEventListener("click", () => {
     try { if (b.dataset.pv) localStorage.setItem(MEMO_KEY, b.dataset.pv); else localStorage.removeItem(MEMO_KEY); } catch (e) {}
-    rerender();
-  }));
-  document.querySelectorAll(".mg-pv [data-pf]").forEach((b) => b.addEventListener("click", () => {
-    try { localStorage.setItem(MEMO_FONT_KEY, b.dataset.pf); } catch (e) {}
     rerender();
   }));
   const open = document.getElementById("mg-pv-open");
