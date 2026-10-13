@@ -7,11 +7,12 @@
 //                                                       └─▶ 같은 프로젝트 api 함수 ─▶ DB
 //
 //   배포: supabase functions deploy mcp --no-verify-jwt
-//   시크릿(프로젝트 공용): ADMIN_SECRET(기존), MCP_HTTP_KEY(클라이언트 인증용 발급키)
+//   시크릿: MCP_HTTP_KEY(클라이언트 인증용 발급키) · api 는 내부 키(SUPABASE_SERVICE_ROLE_KEY — 함수에 저절로 있다)로 부른다
+//   (2026-10-13 관리자 암호에서 뗌 · api 의 INTERNAL_FN_OK — 그 키는 Supabase 밖으로 나가지 않는다)
 // ============================================================
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const ADMIN_SECRET = Deno.env.get("ADMIN_SECRET") ?? "";
+const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";   // api 의 내부 키 길(findMember · memberParticipation 만 열린다)
 const MCP_HTTP_KEY = Deno.env.get("MCP_HTTP_KEY") ?? ""; // 이 서버 호출에 필요한 발급 키
 
 const cors = {
@@ -56,8 +57,8 @@ const TOOLS = [
 async function callApi(action: string, extra: Record<string, unknown>) {
   const res = await fetch(`${SUPABASE_URL}/functions/v1/api`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action, pw: ADMIN_SECRET, ...extra }),
+    headers: { "Content-Type": "application/json", "x-internal-key": SERVICE_KEY },
+    body: JSON.stringify({ action, ...extra }),
   });
   const data = await res.json();
   if (!data.ok) throw new Error(data.error || "api 오류");

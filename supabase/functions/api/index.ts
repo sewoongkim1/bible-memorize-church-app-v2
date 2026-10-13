@@ -194,6 +194,21 @@ const INTERNAL_ADMIN_OK = new Set([
 //   ⚠️ 사람 발송(admin-stats 의 알림 보내기·리포트 보내기)을 교회 어드민으로 옮기는 날에는 크론과 교회 어드민이 같은 키로 같은 액션을 부르게 된다 —
 //      그때 크론 전용 비밀(Vault 새 이름)로 가른다(cronOnly 가 사람 발송까지 크론 꼴로 좁혀 버린다).
 const INTERNAL_CRON_OK = new Set(["sendPush", "weeklyVersePush", "weeklyReport"]);
+// 기계 호출자 — 관리자 암호 대신(2026-10-13 · 10/25 관리자 암호 교체 전에 떼어 둔다 · docs/notes/backend-api.md 「기계 호출자」)
+//   ① 같은 프로젝트의 함수(mcp)는 내부 키(x-internal-key = 서비스 키)로 — 그 키는 Supabase 밖으로 나가지 않는다.
+//   ② GitHub 에서 부르는 둘은 **그 일만 여는 전용 키**(x-machine-key · 시크릿 이름마다 액션 목록) — 서비스 키(DB 전체)를 GitHub 에 두지 않는다.
+//      키가 새도 열리는 것은 아래 목록뿐이다. 머리가 있는데 맞지 않으면 암호 길로 가지 않고 unauthorized.
+const INTERNAL_FN_OK = new Set(["findMember", "memberParticipation"]);   // mcp(조회 도구 둘)
+const MACHINE_KEYS: Record<string, string[]> = {
+  MONITOR_KEY: ["monitor", "weeklyReport"],              // .github/workflows/monitor.yml — 매일 점검 · 주간 리포트 시험 발송(cronOnly 꼴로 좁힌다)
+  SERMON_JOB_KEY: ["sermonJobGet", "sermonJobUpdate"],   // gocheok-sermons sermon-job.yml — 설교 작업 읽기·기록
+};
+function machineKeyOk(action: string, key: string): boolean {
+  for (const [name, acts] of Object.entries(MACHINE_KEYS)) {
+    if (acts.includes(action) && sameSecret(key, Deno.env.get(name) ?? "")) return true;
+  }
+  return false;
+}
 // ── 크론 길 본문 — 순수 함수 (여기부터) ──
 // ⚠️ 이 구간은 **타입 표기 없이** 쓴다 — tests/push-report-cron.test.cjs 가 두 표식 사이만 잘라 node:vm 으로 돌린다
 //    (주석에도 표기를 예로 적지 않는다 — 가드 정규식이 주석까지 본다 · 역슬래시도 쓰지 않는다).
@@ -475,6 +490,24 @@ Deno.serve(async (req) => {
     if (INTERNAL_CRON_OK.has(body.action) &&
         sameSecret(req.headers.get("x-internal-key") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "")) {
       const nb = cronOnly(body);
+      if (!nb) return json({ ok: false, error: "bad-args" });
+      for (const k of Object.keys(body)) delete (body as any)[k];
+      Object.assign(body, nb);
+      (body as any)[INTERNAL_OK] = true;
+    }
+    // 같은 프로젝트의 함수(mcp)가 내부 키로 부르는 조회 둘(2026-10-13 · 위 INTERNAL_FN_OK).
+    if (INTERNAL_FN_OK.has(body.action) &&
+        sameSecret(req.headers.get("x-internal-key") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "")) {
+      (body as any)[INTERNAL_OK] = true;
+    }
+    // GitHub 의 기계 호출자 — 전용 키(위 MACHINE_KEYS). 머리가 있으면 이 길로만 간다(틀리면 unauthorized · 암호 길로 새지 않는다).
+    const machineKey = req.headers.get("x-machine-key") ?? "";
+    if (machineKey) {
+      if (!machineKeyOk(String(body.action ?? ""), machineKey)) return json({ ok: false, error: "unauthorized" }, 403);
+      let nb: any;
+      if (body.action === "weeklyReport") nb = cronOnly(body);   // 크론과 같은 꼴 — 받는 곳(extra) 없음 · 기간만
+      else if (body.action === "monitor") nb = { action: "monitor", ...(body.src === "gha" ? { src: "gha" } : {}) };
+      else { nb = { ...body }; delete nb.pw; }                    // 설교 작업 둘 — 본문 그대로(암호 칸만 뺀다)
       if (!nb) return json({ ok: false, error: "bad-args" });
       for (const k of Object.keys(body)) delete (body as any)[k];
       Object.assign(body, nb);
