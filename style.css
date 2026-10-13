@@ -7017,3 +7017,19 @@ html[data-fs="lg"] .test-screen.mm-ch .mm-ch-title, html[data-fs="xl"] .test-scr
 /* A — 설교 줄이 상자 안의 상자로 보였다(테두리 두 겹) — 바깥 상자는 걷고 제목은 줄 위 글로 */
 .test-screen.memo-a .sermon-connect { background: transparent; border: 0; padding: 0; margin-top: 14px; }
 .dark .test-screen.memo-a .sermon-connect { background: transparent; }
+/* 낱말 카드를 줄였다(2026-10-14 친구 「카드 높이 폭을 조금 줄일 수 있을까요 — 칠 때마다 입력 화면으로 이동」).
+   쟁반이 길면 말씀 상자와 한 화면에 안 들어가, 카드를 누를 때마다 다음 빈칸 쪽으로 화면이 올라갔다 내려왔다.
+   높이 44px(손가락 최소) · 글씨 한 단계 · 간격 좁게. 글씨 크기 설정(크게 · 아주 크게)에서는 글씨만 조금 커진다. */
+.test-screen.memo-a .card-tray { padding: 10px; gap: 8px; }
+.test-screen.memo-a .wcard { min-height: 44px; padding: 0 13px; border-radius: 10px; font-size: 1.06rem; }
+.test-screen.memo-b .card-tray { gap: 8px; }
+.test-screen.memo-b .wcard { min-height: 44px; padding: 0 14px; border-radius: 12px; font-size: 1.12rem; }
+.test-screen.memo-c .card-tray { gap: 8px; }
+.test-screen.memo-c .wcard { min-height: 48px; padding: 0 14px; border-radius: 12px; font-size: 1.2rem; }
+html[data-fs="lg"] .test-screen[data-memo] .wcard { font-size: 1.16rem; }
+html[data-fs="xl"] .test-screen[data-memo] .wcard { font-size: 1.26rem; }
+/* 카드를 누르면 다음 빈칸이 보이게 화면이 따라가는데(scrollIntoView nearest), 위 띠(50px)에 가리지 않게 — 아이폰 앱은 위 90px 규칙이 따로 있다 */
+body:not(.native-app-hide-ref) .test-screen[data-memo] .word-input { scroll-margin-top: 64px; }
+/* 카드 모드에서 말씀이 길면 상자 안에서만 스크롤(app.js mmFitCardBox) — 화면(카드 쟁반)은 제자리 */
+.test-screen[data-memo] .test-sentence.mm-cardbox { overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.test-screen[data-memo] .test-sentence.mm-cardbox .word-input { scroll-margin-top: 8px; scroll-margin-bottom: 8px; }

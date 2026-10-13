@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261014g";
+const APP_BUILD = "20261014h";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -7161,12 +7161,13 @@ function initStickyRef() {
 // 포커스로 인한 브라우저 자체 스크롤과 순서가 꼬이지 않도록 살짝 지연 후 마지막에 실행한다.
 function scrollPastBtnRow() {
   setTimeout(() => {
-    // 🧪 암송 화면 시안(applyMemoLayout) — 도구가 다른 자리에 있다. 카드면 맨 위(키보드가 없어 다 보인다),
-    //    쓰기면 말씀 첫 줄이 위 띠 바로 밑에 오게(키보드가 아래를 덮는다)
+    // 🧪 암송 · 도전 시안(applyMemoLayout · applyChallengeA) — 말씀 첫 줄이 위 띠 바로 밑에 오게(쓰기 · 카드 모두).
+    //    ⚠️ 카드도 맨 위(0)로 두었더니 미리보기 줄 · 단계 · 도구 칸에 밀려 말씀과 카드 쟁반이 한 화면에 안 들어가,
+    //       카드를 누를 때마다 화면이 빈칸 쪽으로 올라갔다 내려왔다(친구 2026-10-14). 도구는 위로 올리면 보인다(옛 화면도 도구 줄을 지나 연다).
     const mm = document.querySelector("#app .test-screen[data-memo]");
     if (mm) {
       const sen = mm.querySelector(".test-sentence");
-      if (isCardMode() || !sen) { window.scrollTo(0, 0); return; }
+      if (!sen) { window.scrollTo(0, 0); return; }
       const pad = parseFloat(getComputedStyle(mm.querySelector(".test-card")).paddingTop) || 50;
       window.scrollTo(0, Math.max(0, sen.getBoundingClientRect().top + window.scrollY - pad - 8));
       return;
@@ -7503,6 +7504,34 @@ function mmProxy(cls, icon, label, find, after) {
   b.hidden = !find();
   return b;
 }
+// 카드로 채울 때 화면이 오르내리지 않게(2026-10-14 친구 「칠 때마다 입력 화면으로 이동이 되어서 화면 움직임이 많습니다」).
+//   말씀 상자 + 「쓰기|카드」 줄 + 카드 쟁반이 한 화면에 들어가도록 말씀 상자 높이를 줄이고 그 안에서만 스크롤한다 —
+//   다음 빈칸으로 넘어갈 때 옛 코드의 scrollIntoView(nearest)가 상자 안만 움직이고 창(카드 쟁반)은 제자리다.
+//   다 들어가면 아무것도 안 한다. 쓰기(키보드)는 그대로. 크기는 그린 뒤 실제로 잰다(폰 높이 · 글씨 크기 · 말씀 길이가 다 다르다).
+function mmFitCardBox() {
+  const scr = document.querySelector("#app .test-screen[data-memo]");
+  const sen = scr && scr.querySelector(".test-sentence");
+  if (!sen) return;
+  sen.classList.remove("mm-cardbox");
+  sen.style.maxHeight = "";
+  const tray = scr.querySelector("#card-tray");
+  if (!isCardMode() || !tray || !tray.children.length) return;
+  const card = scr.querySelector(".test-card");
+  const pad = parseFloat(getComputedStyle(card).paddingTop) || 50;   // 위 띠 자리(아이폰 앱 90)
+  const nav = scr.querySelector(".mm-nav");                          // B 의 아래 도구 줄
+  const avail = window.innerHeight - pad - 8 - (nav ? nav.offsetHeight : 0) - 8;
+  const r1 = sen.getBoundingClientRect(), r2 = tray.getBoundingClientRect();
+  const total = r2.bottom - r1.top;
+  if (total <= avail) return;
+  const lineH = parseFloat(getComputedStyle(sen).lineHeight) || 46;
+  const maxH = Math.max(Math.round(lineH * 2 + 28), Math.floor(r1.height - (total - avail)));
+  if (maxH >= r1.height) return;
+  sen.style.maxHeight = maxH + "px";
+  sen.classList.add("mm-cardbox");
+  const next = sen.querySelector(".word-input:not([disabled])");   // 이미 채운 뒤 다시 그려졌으면 다음 빈칸이 보이게
+  if (next) sen.scrollTop = Math.max(0, next.offsetTop - sen.offsetTop - 8);
+}
+window.addEventListener("resize", () => { if (document.querySelector("#app .test-screen[data-memo]")) mmFitCardBox(); });
 function applyMemoLayout(verse, stage) {
   const v = memoVariant();
   const scr = document.querySelector("#app .test-screen");
@@ -7632,6 +7661,8 @@ function applyMemoLayout(verse, stage) {
     watch.classList.add("mm-row");
     watch.innerHTML = mmSvg("tv") + `<span>이 말씀의 설교 영상</span>` + mmSvg("chev");
   }
+  mmFitCardBox();
+  try { document.fonts.ready.then(mmFitCardBox); } catch (e) {}
 }
 
 // ── 🧪 말씀 도전 A안(2026-10-14 친구 「A 안으로 암송도전도 만들어 주세요」 · 시안 A-challenge.dc.html) ─────────────
@@ -7724,6 +7755,8 @@ function applyChallengeA(verse, hard) {
     watch.classList.add("mm-row");
     watch.innerHTML = mmSvg("tv") + `<span>이 말씀의 설교 영상</span>` + mmSvg("chev");
   }
+  mmFitCardBox();
+  try { document.fonts.ready.then(mmFitCardBox); } catch (e) {}
 }
 
 // 도전 완료 화면 A안 — 단추·연결은 옛 화면 그대로, 모양만(불꽃 동그라미 · 금색 「한 번 더 도전」 · 자동 계속은 켜고 끄는 줄 · 순위는 줄 단추)
