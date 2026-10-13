@@ -94,3 +94,18 @@ test('⑤ 안드로이드 — 두 레이아웃에 widget_badge(처음엔 gone) �
   const vw = read('android-app', 'app', 'src', 'main', 'java', 'kr', 'onlybible', 'gocheok', 'memorize', 'widget', 'VerseWidget.java');
   assert.ok(vw.includes('setTextOrHide(v, R.id.widget_badge, WidgetLogic.verseBadge(json, System.currentTimeMillis()));'));
 });
+
+test('⑤ 아이폰 — 위젯 코드 두 벌이 같다 · badgeDate 를 장의 날짜(한국)와 견준다 · 자정에 장을 하나 더 깐다', () => {
+  for (const f of ['TodayVerseWidget.swift', 'WidgetShared.swift', 'TodayVerseWidgetBundle.swift', 'MeditationWidget.swift', 'BlessingWidget.swift']) {
+    assert.equal(read('ios-app', 'native', 'TodayVerseWidget', f), read('ios-app', 'ios', 'App', 'TodayVerseWidget', f),
+      f + ' — native/ 와 ios/App/ 이 다르다(두 벌을 같이 고친다)');
+  }
+  const sh = read('ios-app', 'native', 'TodayVerseWidget', 'WidgetShared.swift');
+  assert.ok(sh.includes('func kstYmd(_ date: Date) -> String'));
+  assert.ok(sh.includes('var trailing: String? = nil'), 'WidgetHeader 의 새 칸은 기본값 nil — 다른 위젯 호출이 그대로 컴파일된다');
+  const tv = read('ios-app', 'native', 'TodayVerseWidget', 'TodayVerseWidget.swift');
+  assert.ok(tv.includes('entry.badgeDate == kstYmd(entry.date)'), '오늘 셈한 머리말만');
+  assert.ok(tv.includes('Timeline(entries: [now, after], policy: .after(when))'), '자정에 머리말 없는 장');
+  assert.ok((tv.match(/trailing: badgeText/g) || []).length === 2, '중간·크게 두 곳');
+  assert.ok(!/accessory[A-Za-z]*:[\s\S]{0,400}trailing/.test(tv), '잠금 화면에는 넣지 않는다');
+});

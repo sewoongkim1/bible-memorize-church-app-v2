@@ -40,6 +40,16 @@ func nextKSTMidnight() -> Date {
     return cal.date(byAdding: .day, value: 1, to: startOfToday) ?? Date().addingTimeInterval(86400)
 }
 
+// 한국 날짜 「YYYY-MM-DD」 — 이번주 말씀 머리말의 badgeDate 와 견준다(2026-10-13).
+func kstYmd(_ date: Date) -> String {
+    let f = DateFormatter()
+    f.calendar = Calendar(identifier: .gregorian)
+    f.locale = Locale(identifier: "en_US_POSIX")
+    f.timeZone = TimeZone(identifier: "Asia/Seoul")
+    f.dateFormat = "yyyy-MM-dd"
+    return f.string(from: date)
+}
+
 // 마지막으로 성공한 응답을 위젯별로 적어 둔다 — 통신이 안 될 때 빈 위젯 대신 이것을 보인다.
 // 위젯 익스텐션 **자신의** UserDefaults 라 App Group 을 만들 필요가 없다(공개 정보뿐이라 나눠 쓸 이유도 없다).
 private func lastGoodKey(_ kind: String) -> String { "widget-last-" + kind }
@@ -83,6 +93,8 @@ func refreshDate(fresh: Bool, next: Date) -> Date {
 struct WidgetHeader: View {
     let title: String
     var large: Bool = false
+    // 오른쪽 끝 한 줄 — 이번주 말씀의 머리말 「🐑 3일째」(2026-10-13). 없으면 지금 모양 그대로(묵상·기도문·돌려 보기).
+    var trailing: String? = nil
 
     var body: some View {
         HStack(spacing: large ? 6 : 4) {
@@ -97,6 +109,13 @@ struct WidgetHeader: View {
                 .font(large ? .subheadline : .caption2)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+            if let trailing = trailing, !trailing.isEmpty {
+                Spacer(minLength: 8)
+                Text(trailing)
+                    .font(large ? .subheadline : .caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
         }
     }
 }

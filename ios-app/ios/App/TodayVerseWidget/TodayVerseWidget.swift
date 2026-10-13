@@ -11,6 +11,8 @@ struct VerseEntry: TimelineEntry {
     let no: Int?
     let reference: String
     let text: String
+    let badge: String       // 머리줄 오른쪽 「🐑 3일째」(2026-10-13) — badgeDate 가 이 장의 날짜(한국)와 같을 때만 보인다
+    let badgeDate: String
 }
 
 // ⚠️ 이 이름(kind)은 바꾸지 않는다 — 성도님이 이미 홈 화면에 놓은 위젯이 이 이름으로 이어진다.
@@ -20,20 +22,22 @@ private func verseIsValid(_ json: [String: Any]) -> Bool {
     ((json["text"] as? String) ?? "").isEmpty == false
 }
 
-private func verseEntry(from json: [String: Any]?) -> VerseEntry {
+private func verseEntry(from json: [String: Any]?, date: Date = Date()) -> VerseEntry {
     guard let json = json, let text = json["text"] as? String, !text.isEmpty else {
-        return VerseEntry(date: Date(), no: nil, reference: "", text: "말씀을 불러오지 못했습니다")
+        return VerseEntry(date: date, no: nil, reference: "", text: "말씀을 불러오지 못했습니다", badge: "", badgeDate: "")
     }
-    return VerseEntry(date: Date(),
+    return VerseEntry(date: date,
                       no: json["no"] as? Int,
                       reference: json["ref"] as? String ?? "",
-                      text: text)
+                      text: text,
+                      badge: json["badge"] as? String ?? "",
+                      badgeDate: json["badgeDate"] as? String ?? "")
 }
 
 struct Provider: TimelineProvider {
     func placeholder(in context: Context) -> VerseEntry {
         VerseEntry(date: Date(), no: nil, reference: "요한복음 3:16",
-                   text: "하나님이 세상을 이처럼 사랑하사 독생자를 주셨으니")
+                   text: "하나님이 세상을 이처럼 사랑하사 독생자를 주셨으니", badge: "", badgeDate: "")
     }
 
     func getSnapshot(in context: Context, completion: @escaping (VerseEntry) -> Void) {
@@ -48,9 +52,13 @@ struct Provider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<VerseEntry>) -> Void) {
         fetchWithFallback(kind: verseWidgetKind, action: "getWeeklyVerse", isValid: verseIsValid) { json, fresh in
-            let entry = verseEntry(from: json)
-            let when = refreshDate(fresh: fresh, next: nextKSTMidnight())
-            completion(Timeline(entries: [entry], policy: .after(when)))
+            let midnight = nextKSTMidnight()
+            let now = verseEntry(from: json)
+            // 자정에 같은 내용의 장을 하나 더 — 그 장은 날짜가 바뀌어 머리말이 숨는다.
+            // 시스템이 새로 받기를 미뤄도 어제의 「3일째」가 오늘 남지 않는다(2026-10-13).
+            let after = verseEntry(from: json, date: midnight)
+            let when = refreshDate(fresh: fresh, next: midnight)
+            completion(Timeline(entries: [now, after], policy: .after(when)))
         }
     }
 }
@@ -63,6 +71,12 @@ struct TodayVerseWidgetView: View {
     private var link: URL? {
         guard let no = entry.no else { return URL(string: "\(widgetScheme)://home") }
         return URL(string: "\(widgetScheme)://verse?no=\(no)")
+    }
+
+    // 머리말은 서버가 오늘 셈한 것만 — 적어 둔 어제 응답의 「3일째」는 사실이 아니게 된다
+    private var badgeText: String? {
+        guard !entry.badge.isEmpty, entry.badgeDate == kstYmd(entry.date) else { return nil }
+        return entry.badge
     }
 
     var body: some View {
@@ -96,7 +110,7 @@ struct TodayVerseWidgetView: View {
             // 구절 길이가 20~69자로 벌어져서, 긴 구절은 minimumScaleFactor 가 알아서 줄인다
             // (글씨 크기 설정을 「아주 큼」으로 쓰시는 분도 이 덕에 잘리지 않는다).
             VStack(alignment: .leading, spacing: 10) {
-                WidgetHeader(title: "이번주 말씀", large: true)
+                WidgetHeader(title: "이번주 말씀", large: true, trailing: badgeText)
                 Spacer(minLength: 0)
                 Text(entry.text)
                     .font(.system(.title, design: .serif))
@@ -119,7 +133,7 @@ struct TodayVerseWidgetView: View {
             //    69자라(삼상 26:24) 정사각형 폭으로는 어떻게 줄여도 뒤가 잘린다 — 「다 안 보이는 말씀」은
             //    안 보여 주느니만 못하다. 잘릴 일이 없으니 줄 수를 넉넉히 두고 축소도 덜 쓴다.
             VStack(alignment: .leading, spacing: 6) {
-                WidgetHeader(title: "이번주 말씀")
+                WidgetHeader(title: "이번주 말씀", trailing: badgeText)
                 Text(entry.text)
                     .font(.system(.footnote, design: .serif))
                     .lineLimit(5)
