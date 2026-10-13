@@ -20,7 +20,7 @@
 | 지나온 길 전체 · 남은 일 · 앞으로 계획(2026-09-24 정리) | `docs/backlog.md` |
 | 암송·도전·복습 화면, 카드 입력, 단계 완료 창 | `docs/notes/memorize-flow.md` |
 | 쉴만한 물가(시편·잠언·전도서 액자) | `docs/notes/psalm-still-waters.md` |
-| 📚 네비게이토 성경암송(2026-10-13 · 문 닫힘 — 🧪·`?navi=1` · 카드 73장 2001~ · `js/navi.js` 지연) · ⚠️ 구절 번호 판정 둘(`isPsalmNo` 1001~1999 = 물가 화면 / `isNonWeeklyNo` 1000 초과 = 복습에서 뺌) · 카드 줄은 켠 채라 문은 `naviVisible` 하나 | `docs/notes/navigators.md` |
+| 📚 네비게이토 성경암송 — 화면 이름 **「주제별 성경암송」**(2026-10-13 **열림** — `naviPublic` · 이름 허락 전 · 카드 73장 2001~ · `js/navi.js` 지연) · ⚠️ 구절 번호 판정 둘(`isPsalmNo` 1001~1999 = 물가 화면 / `isNonWeeklyNo` 1000 초과 = 복습에서 뺌) · 카드 줄은 켠 채라 문은 `naviVisible` 하나 | `docs/notes/navigators.md` |
 | 매일 묵상(무엇을 보여 줄지) | `docs/notes/meditation.md` |
 | 가정 축복 기도문 | `docs/notes/prayer-book.md` |
 | 첫 화면·묶음·색·아래 고정 단추 | `docs/notes/home-screen.md` |
@@ -174,7 +174,7 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
 > ⚠️ **`api`·`supabase/member_merge.sql` 을 운영에 낼 때는 origin/main 을 합친 트리에서만.** 낡은 체크아웃이면 봉사 당번·교육·가을 동행 액션이 조용히 빠진다(확인 스모크는 각 문서에).
 
 - [ ] 📱 **안드로이드 위아래 띠(2026-10-13 친구 「투명하게」)** — 투명은 크롬 TWA 가 아직 못 한다 · 위 띠 색 맞추기(웹 `STATUSBAR_FOLLOW_OPEN = true` — 2026-10-13 플레이 앱 모두 · v3.609) · 아래 띠 크림(B)은 1.1.1 로 출시 — 크롬 153~155 는 무시해 검정 · 156(10/20) 뒤 실기기로 크림인지 확인. 읽을 것 `docs/notes/android-app.md` 「위아래 띠」
-- [ ] 📚 **네비게이토 성경암송 — 2026-10-13 운영(문 닫힘 · 🧪 시험 참여자 · `?navi=1` 만).** 다음: 시험 참여자 실기기 확인(아이폰 앱 묶음 목록 위쪽 · 안드로이드 · 큰 글씨 · 어두운 모드) → 네비게이토 이름 허락(02-336-3387)·카드 실물 대조 → 여는 날 차례(`FEATURES` · `FEAT_SINCE` · 설명서 · `naviPublic`). 읽을 것 `docs/notes/navigators.md` 「여는 날」
+- [ ] 📚 **주제별 성경암송(네비게이토) — 2026-10-13 성도님께 열림**(`naviPublic` 운영 true · 스모크 11/0 · 화면 이름은 이름 허락 전이라 「주제별 성경암송」 — `tests/navi.test.cjs` ⑥). 남은 것: 네비게이토 이름 허락(02-336-3387) — 받으면 이름 되돌리기 · 카드 실물 대조 · 몇 주 뒤 문 걷기. 읽을 것 `docs/notes/navigators.md` 「여는 날」
 - [ ] 🎨 **디자인 개편 — 시안 A·B·C 의견 수렴 중(친구 · 2026-10-12).** 첫 화면·말씀 목록·암송·도전·앨범 다섯 줄. 고르면 4단계(부품 표) → 5단계(색 이름 붙이기 · 겉모습 그대로). 시안과 별개로 고칠 것 둘(목록 긴 구절 🔊 밀림 · 어두운 모드 첫 화면 이름 안 보임)은 친구 결정 대기. 읽을 것 `docs/notes/design-refresh.md`
 - [ ] 🏛️ **관리 기능을 모두 교회 어드민으로 · 앱에서는 관리 기능을 뺀다**(2026-10-08 친구 결정 · 추후). 옮긴 것: 이벤트 명단 · 사역신청 다섯 메뉴(갈아타기만 남음) · 성도 계정. ⚠️ 그때까지 관리자 화면에 새 기능 금지. 읽을 것 `docs/notes/admin-migration.md` · `docs/backlog.md` 4-5
 - [ ] 🔑 **크론 여섯 관리자 암호 걷기** — ✅ api 운영 반영 · 관문 통과(10/13 00:3x — 내부 키 길 리포트 누적 255 = 암호 길 · 머리 없음/틀린 키 unauthorized) · ✅ **1단계 daily-push-5 적용(10/13 00:4x · jobid 8 · 나머지 다섯은 옛 명령)** → ✅ **10/13 05:00 첫 실행 확인 끝**(succeeded · new_cmd · Vault 읽음 · push_log daily 05:00:02 total 0 — 어제 옛 길과 같은 꼴 · 응답 200 ok true) → ✅ **2단계 6 · 7 · 8 · 리포트 적용(10/13 09:50 · 점검만 통과 → 적용 · ② jobid 7·9·10·11 has_pw false · reads_vault true · cron_last_run 그대로)** → 10/14 08:05 뒤 push_log daily 넷 · 07:12 텔레그램 조용 → 10/16(금) 08:10 리포트 메일 → 주일 말씀(10/18 08:05 뒤) → 10/25 확인 → 실행 기록 가리기 → `ADMIN_SECRET` 교체(친구). 사본은 이름 박은 바꾸기로(v_url · v_only · v_apply 세 줄만 — diff 로 확인). 차례 · 확인 질의는 `supabase/push_report_cron.sql` 머리. ✅ 신고 숨기기 · 저녁 알림의 안쪽 부름은 10/13 고쳤다(`docs/notes/backend-api.md` 머리)
