@@ -1045,8 +1045,26 @@ async function callStats(from, to){
   return callApi({ action:"stats", pw:getPw(), from:from||"", to:to||"" });
 }
 
+// ---------- 🤝 사역신청 관리는 교회 어드민으로(2026-10-13 갈아타기) ----------
+// 옛 담당자 화면(admin-ministry.html → ?only=ministry)·사역 암호는 걷었다 — 서버의 담당자용 사역 액션은
+// moved-to-church-admin 을 돌려준다(되살리지 말 것). 아래 renderMinistry* 함수는 마지막 걷기(묶음 7)에 파일째 지운다.
+const CHURCH_ADMIN_URL = "https://admin.onlybible.kr/";
+function renderMinistryMoved(){
+  logoutBtn.hidden = true;
+  app.innerHTML = `
+    <div class="login-card">
+      <h2 style="word-break:keep-all">🤝 사역신청 관리는 교회 어드민으로 옮겼어요</h2>
+      <p style="word-break:keep-all">신청 현황 · 사역팀 정보 · 종이 명단 · 임명현황은 이제 <b>교회 어드민</b>의 「사역 신청」 메뉴에서 해요.
+        카카오로 로그인해 승인을 받고 사역 역할을 받으면 보여요. 사역신청 암호는 더 쓰지 않아요.</p>
+      <button id="go-church-admin">교회 어드민 열기</button>
+      <a class="home-link" href="index.html">← 첫 화면으로</a>
+    </div>`;
+  document.getElementById("go-church-admin").addEventListener("click", ()=>window.open(CHURCH_ADMIN_URL, "_blank", "noopener"));
+}
+
 // ---------- 로그인 ----------
 function renderLogin(){
+  if(MINISTRY_ONLY) return renderMinistryMoved();
   if(STAFF_MODE) return renderMinistryLogin();   // 사역신청 · 설교·찬양 담당자 — 문구는 STAFF_CFG
   logoutBtn.hidden = true;
   app.innerHTML = `
@@ -1991,7 +2009,7 @@ async function viHide(slot, btn){
 }
 
 function renderMenu(){
-  if(MINISTRY_ONLY) return renderMinistryMenu();
+  if(MINISTRY_ONLY) return renderMinistryMoved();
   if(SERMON_ONLY) return renderSermonMenu();
   logoutBtn.hidden = false;
   app.innerHTML = `
@@ -2152,43 +2170,11 @@ function renderMenu(){
         </div>
         <div class="rep-arrow">›</div>
       </div>
-      <div class="rep-card" id="rep-minappt">
-        <div class="ic">🎉</div>
-        <div class="rep-text">
-          <div class="ti">임명현황</div>
-          <div class="de">임명된 분만 — 부서별·교구별·사람별로 보고 내려받기</div>
-        </div>
-        <div class="rep-arrow">›</div>
-      </div>
-      <div class="rep-card" id="rep-minpaper">
-        <div class="ic">📋</div>
-        <div class="rep-text">
-          <div class="ti">종이 명단 올리기</div>
-          <div class="de">엑셀에서 붙여넣어 한꺼번에 — 종이는 정해진 명단이라 기본이 「임명」</div>
-        </div>
-        <div class="rep-arrow">›</div>
-      </div>
-      <div class="rep-card" id="rep-mincat">
-        <div class="ic">🗂️</div>
-        <div class="rep-text">
-          <div class="ti">사역팀 정보 (시간·하는 일)</div>
-          <div class="de">성도님 화면에 보이는 설명 — 비어 있으면 이름만 보인다</div>
-        </div>
-        <div class="rep-arrow">›</div>
-      </div>
-      <div class="rep-card" id="rep-ministry">
+      <div class="rep-card" id="rep-ministry-moved">
         <div class="ic">🤝</div>
         <div class="rep-text">
-          <div class="ti">사역신청 현황 (2027)</div>
-          <div class="de">신청 건(팀마다 한 건) · 접수로 잠그기 · 상태 변경(신청→접수→임명 / 취소)</div>
-        </div>
-        <div class="rep-arrow">›</div>
-      </div>
-      <div class="rep-card" id="rep-minadmins">
-        <div class="ic">🔑</div>
-        <div class="rep-text">
-          <div class="ti">사역신청 담당자</div>
-          <div class="de">사역신청 관리 화면에 들어올 분 등록 · 빼기</div>
+          <div class="ti">사역신청 관리 → 교회 어드민</div>
+          <div class="de">신청 현황 · 사역팀 정보 · 종이 명단 · 임명현황은 교회 어드민(admin.onlybible.kr) 「사역 신청」에서 · 담당자는 그곳의 역할로 — 2026-10-13 옮김</div>
         </div>
         <div class="rep-arrow">›</div>
       </div>
@@ -2211,11 +2197,7 @@ function renderMenu(){
   document.getElementById("rep-intro").addEventListener("click", renderIntroSlides);
   document.getElementById("rep-event").addEventListener("click", renderEventAdmin);
   document.getElementById("rep-pilsa").addEventListener("click", renderPilsaAdmin);
-  document.getElementById("rep-ministry").addEventListener("click", renderMinistryAdmin);
-  document.getElementById("rep-mincat").addEventListener("click", renderMinistryCatalog);
-  document.getElementById("rep-minpaper").addEventListener("click", renderMinistryPaper);
-  document.getElementById("rep-minappt").addEventListener("click", renderMinistryAppointed);
-  document.getElementById("rep-minadmins").addEventListener("click", renderMinistryAdmins);
+  document.getElementById("rep-ministry-moved").addEventListener("click", ()=>window.open(CHURCH_ADMIN_URL, "_blank", "noopener"));
   loadDashboard();
 }
 

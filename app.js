@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261013q";
+const APP_BUILD = "20261013r";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -8794,9 +8794,11 @@ function renderLoginHelp(back) {
 }
 
 // ── 관리 메뉴 — 설정의 「🔒 관리 페이지」에서 들어온다(2026-09-17) ──
-// 메뉴를 더하려면 **여기에 한 줄**. 입구는 모든 성도님께 보이므로, 각 페이지는 스스로 암호를 받아야 한다.
+// 메뉴를 더하려면 **여기에 한 줄**. 입구는 모든 성도님께 보이므로, 각 페이지는 스스로 암호(또는 로그인)를 받아야 한다.
+// ext: 앱 밖(브라우저)으로 연다 — 교회 어드민은 카카오 로그인이라 앱 안 창이 아니라 사파리·크롬에서(아카이브 단추와 같은 window.open).
+// 🤝 사역관리는 2026-10-13 교회 어드민으로 갈아탔다(옛 admin-ministry.html · 사역 암호는 걷음 · docs/notes/ministry-2027.md 끝).
 const MANAGE_LINKS = [
-  { ic: "🤝", title: "사역관리 페이지", href: "admin-ministry.html" },
+  { ic: "🤝", title: "사역관리 (교회 어드민)", href: "https://admin.onlybible.kr/", ext: true },
   { ic: "📊", title: "관리자 페이지", href: "admin.html" },
 ];
 function renderManageMenu(back) {
@@ -8808,12 +8810,16 @@ function renderManageMenu(back) {
           <h2 class="rank-title">🔒 관리</h2>
           <button class="settings-back-btn" id="manage-back">← 뒤로</button>
         </div>
-        <p class="btn-sub" style="text-align:center;margin:0 0 14px;word-break:keep-all">담당자·관리자가 쓰는 페이지예요. 들어가려면 암호가 필요해요.</p>
-        ${MANAGE_LINKS.map((m) => `<a class="summary-install" href="${m.href}">${m.ic} ${m.title}</a>`).join("")}
+        <p class="btn-sub" style="text-align:center;margin:0 0 14px;word-break:keep-all">담당자·관리자가 쓰는 페이지예요. 교회 어드민은 카카오 로그인, 관리자 페이지는 암호가 필요해요.</p>
+        ${MANAGE_LINKS.map((m) => `<a class="summary-install" href="${m.href}"${m.ext ? ' data-ext="1" target="_blank" rel="noopener"' : ""}>${m.ic} ${m.title}</a>`).join("")}
       </div>
     </div>`;
   window.scrollTo(0, 0);   // ⚠️ 설정 아래쪽에서 들어오므로 — 안 하면 화면 중간에서 열린다
   document.getElementById("manage-back").addEventListener("click", back);
+  appEl.querySelectorAll('a[data-ext="1"]').forEach((a) => a.addEventListener("click", (e) => {
+    e.preventDefault();
+    window.open(a.href, "_blank", "noopener");
+  }));
 }
 
 function renderPrivacyInfo(back) {
