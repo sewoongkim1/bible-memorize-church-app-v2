@@ -159,6 +159,8 @@ PURE_TESTS += ["tests/home-groups.test.cjs"]
 PURE_TESTS += ["tests/statusbar-follow.test.cjs"]
 # 🧩 돌려 보기 위젯(아이폰 1.1.1 · 안드로이드 versionCode 5 · 2026-10-13) — 두 폰 이름·설명·머리글·30분이 같은가 · 설명서 안드로이드 장은 스위치(ANDROID_ROTATE_GUIDE) 안에서만 말한다
 PURE_TESTS += ["tests/widget-rotate.test.cjs"]
+# 🐑 이번주 말씀 위젯 머리말(2026-10-13) — 머리말 셈·이모지 목록(서버 순수) · SQL 꼴 · index.ts 배선 · 위젯 두 폰(아이폰 두 벌이 같은가)
+PURE_TESTS += ["tests/verse-badge.test.cjs"]
 
 print("\n[3] 순수 함수 검사 (node --test)")
 for t in PURE_TESTS:
