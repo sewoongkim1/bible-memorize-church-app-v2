@@ -81,3 +81,16 @@ test('④ index.ts — emoji 칸을 읽는다 · badge/badgeDate · AI 채움은
     'AI 채움은 date 입력 없는 요청 · 이모지가 빈 구절에서만');
   assert.ok(!/\.\.\.wk\b(?!\.)/.test(fn), 'wk 를 통째로 펼치면 meta 가 응답에 실린다');
 });
+
+test('⑤ 안드로이드 — 두 레이아웃에 widget_badge(처음엔 gone) · VerseWidget 이 오늘 견준 값을 넣는다', () => {
+  const RES = ['android-app', 'app', 'src', 'main', 'res', 'layout'];
+  for (const f of ['widget_verse_medium.xml', 'widget_verse_large.xml']) {
+    const x = read(...RES, f);
+    const badge = slice(x, 'android:id="@+id/widget_badge"', '/>', f);
+    assert.ok(badge.includes('android:visibility="gone"'), f + ' — 처음엔 숨김');
+    assert.ok(badge.includes('android:maxLines="1"'), f + ' — 한 줄');
+    assert.ok(!/<View\b/.test(x), f + ' — RemoteViews 에 <View> 금지');
+  }
+  const vw = read('android-app', 'app', 'src', 'main', 'java', 'kr', 'onlybible', 'gocheok', 'memorize', 'widget', 'VerseWidget.java');
+  assert.ok(vw.includes('setTextOrHide(v, R.id.widget_badge, WidgetLogic.verseBadge(json, System.currentTimeMillis()));'));
+});

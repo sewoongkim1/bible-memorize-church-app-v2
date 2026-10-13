@@ -10,8 +10,9 @@
     android:orientation="vertical"
     android:padding="16dp">
 
+    <!-- 머리줄 — 마크 · 이름 · (오른쪽 끝) 머리말 「🐑 3일째」(2026-10-13 · 없으면 gone). 새 줄을 만들지 않는다 — 69자 구절이 잘린다. -->
     <LinearLayout
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal">
@@ -23,13 +24,24 @@
             android:src="@drawable/church_mark" />
         <TextView
             android:id="@+id/widget_title"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="4dp"
+            android:layout_weight="1"
+            android:ellipsize="end"
             android:maxLines="1"
             android:text="@string/widget_verse_name"
             android:textColor="@color/widget_secondary"
             android:textSize="11sp" />
+        <TextView
+            android:id="@+id/widget_badge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:maxLines="1"
+            android:textColor="@color/widget_secondary"
+            android:textSize="11sp"
+            android:visibility="gone" />
     </LinearLayout>
 
     <TextView

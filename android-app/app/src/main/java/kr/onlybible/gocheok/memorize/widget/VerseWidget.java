@@ -24,9 +24,11 @@ public class VerseWidget extends BaseWidgetProvider {
         if (WidgetLogic.verseValid(json)) {
             v.setTextViewText(R.id.widget_body, WidgetLogic.str(json, "text"));
             setTextOrHide(v, R.id.widget_ref, WidgetLogic.str(json, "ref"));
+            setTextOrHide(v, R.id.widget_badge, WidgetLogic.verseBadge(json, System.currentTimeMillis()));
         } else {
             v.setTextViewText(R.id.widget_body, c.getString(R.string.widget_verse_fail));
             setTextOrHide(v, R.id.widget_ref, "");
+            setTextOrHide(v, R.id.widget_badge, "");
         }
         v.setOnClickPendingIntent(R.id.widget_root, openApp(c, WidgetLogic.verseUrl(json)));
         return v;

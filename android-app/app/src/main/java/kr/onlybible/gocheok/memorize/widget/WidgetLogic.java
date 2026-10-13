@@ -93,6 +93,23 @@ public final class WidgetLogic {
         return SITE + "/";
     }
 
+    /** 한국 날짜 「YYYY-MM-DD」 — 서버 badgeDate 와 견준다. java.time 대신 SimpleDateFormat(안드로이드 8.0 미만에도 있다). */
+    public static String kstYmd(long nowMillis) {
+        java.text.SimpleDateFormat f = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
+        f.setTimeZone(java.util.TimeZone.getTimeZone("Asia/Seoul"));
+        return f.format(new java.util.Date(nowMillis));
+    }
+
+    /**
+     * 이번주 말씀 머리말 「🐑 3일째」(2026-10-13) — 서버가 셈한 날(badgeDate)이 오늘(한국)일 때만.
+     * 받기에 실패해 적어 둔 것으로 그릴 때 어제의 「3일째」가 오늘 남지 않게 한다.
+     */
+    public static String verseBadge(JSONObject j, long nowMillis) {
+        String badge = str(j, "badge").trim();
+        if (badge.isEmpty()) return "";
+        return str(j, "badgeDate").equals(kstYmd(nowMillis)) ? badge : "";
+    }
+
     // ── 돌려 보기 위젯(2026-10-13 · 아이폰 TodayVerseWidgetBundle.swift 의 RotateWidget 과 같은 규칙) ──
     //   이번주 말씀 → 오늘의 묵상 → 축복 기도문 → 쉴만한 물가가 30분마다 바뀐다. 쓸 수 없는 것은 그 장만 빠진다.
 

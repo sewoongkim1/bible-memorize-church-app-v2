@@ -222,4 +222,28 @@ public class WidgetLogicTest {
         assertEquals(0xFF30B0C7, WidgetLogic.rotateTint("psalm"));
         assertEquals(0xFF007AFF, WidgetLogic.rotateTint("모름"));
     }
+
+    // ── 이번주 말씀 머리말(2026-10-13) — badgeDate 가 오늘(한국)일 때만. 어제 받아 둔 「3일째」는 사실이 아니게 된다 ──
+    @Test public void kstYmd_aroundKstMidnight() {
+        assertEquals("2026-10-13", WidgetLogic.kstYmd(t("2026-10-13T14:59:59Z")));   // KST 23:59:59
+        assertEquals("2026-10-14", WidgetLogic.kstYmd(t("2026-10-13T15:00:00Z")));   // KST 다음 날 00:00
+    }
+
+    @Test public void verseBadge_shownOnSameKstDay() throws Exception {
+        JSONObject json = j("{\"text\":\"말씀\",\"badge\":\"🐑 3일째\",\"badgeDate\":\"2026-10-13\"}");
+        assertEquals("🐑 3일째", WidgetLogic.verseBadge(json, t("2026-10-12T15:00:00Z")));   // KST 10-13 00:00
+        assertEquals("🐑 3일째", WidgetLogic.verseBadge(json, t("2026-10-13T14:59:59Z")));   // KST 10-13 23:59:59
+    }
+
+    @Test public void verseBadge_hiddenAfterKstMidnight() throws Exception {
+        JSONObject json = j("{\"text\":\"말씀\",\"badge\":\"🐑 3일째\",\"badgeDate\":\"2026-10-13\"}");
+        assertEquals("", WidgetLogic.verseBadge(json, t("2026-10-13T15:00:00Z")));
+    }
+
+    @Test public void verseBadge_missingFieldsHide() throws Exception {
+        long now = t("2026-10-13T01:00:00Z");
+        assertEquals("", WidgetLogic.verseBadge(j("{\"text\":\"말씀\",\"badge\":\"🐑 3일째\"}"), now));
+        assertEquals("", WidgetLogic.verseBadge(j("{\"text\":\"말씀\",\"badgeDate\":\"2026-10-13\"}"), now));
+        assertEquals("", WidgetLogic.verseBadge(null, now));
+    }
 }
