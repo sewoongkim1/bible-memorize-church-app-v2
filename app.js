@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261014b";
+const APP_BUILD = "20261014c";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -791,6 +791,12 @@ function readMemoPreviewParam() {
     url.searchParams.delete("memo");
     history.replaceState(null, "", url.pathname + url.search + url.hash);
   } catch (e) {}
+}
+// 말씀 글꼴 고르기(2026-10-14 친구 「더 선명한 폰트로 해볼 수 있을까요」) — 이미 부르는 글꼴 셋 안에서만(새 글꼴은 첫 실행을 무겁게 한다 · CLAUDE.md 「첫 실행 속도」).
+//   ns = 고딕(Noto Sans KR 700 · 가장 선명 · 처음 값) · gb = 바탕(고운바탕 — 지금 성도님 화면) · mj = 명조(나눔명조 — 시안 그대로)
+const MEMO_FONT_KEY = "memo-font";
+function memoFont() {
+  try { const f = localStorage.getItem(MEMO_FONT_KEY); return f === "gb" || f === "mj" ? f : "ns"; } catch (e) { return "ns"; }
 }
 function memoVariant() {
   try { const m = localStorage.getItem(MEMO_KEY); return m === "a" || m === "b" || m === "c" ? m : ""; } catch (e) { return ""; }
@@ -7475,6 +7481,7 @@ function applyMemoLayout(verse, stage) {
   if (!v || !card) return;
   scr.dataset.memo = v;
   scr.classList.add("memo-" + v);
+  scr.classList.add("mm-f-" + memoFont());   // 말씀 글꼴(MEMO_FONT_KEY)
   const L = MM_LABEL[v];
   const cardMode = isCardMode();
   const sticky = card.querySelector(".test-ref-sticky");
@@ -7489,9 +7496,16 @@ function applyMemoLayout(verse, stage) {
   bar.className = "hb-bar mm-bar";
   bar.innerHTML = `<span>🧪 암송 화면 시안 · 이 기기에서만</span><span class="mm-pick" role="group" aria-label="시안 고르기">` +
     ["a", "b", "c"].map((k) => `<button type="button" data-v="${k}" aria-pressed="${k === v}">${k.toUpperCase()}</button>`).join("") +
-    `<button type="button" data-v="">원래</button></span>`;
-  bar.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+    `<button type="button" data-v="">원래</button></span>` +
+    `<span class="mm-pick mm-fonts" role="group" aria-label="말씀 글꼴"><span class="mm-pick-l">글꼴</span>` +
+    [["ns", "고딕"], ["gb", "바탕"], ["mj", "명조"]].map(([k, l]) =>
+      `<button type="button" data-f="${k}" class="mm-f-${k}" aria-pressed="${k === memoFont()}">${l}</button>`).join("") + `</span>`;
+  bar.querySelectorAll("button[data-v]").forEach((b) => b.addEventListener("click", () => {
     try { if (b.dataset.v) localStorage.setItem(MEMO_KEY, b.dataset.v); else localStorage.removeItem(MEMO_KEY); } catch (e) {}
+    renderTestScreen(verse, stage);
+  }));
+  bar.querySelectorAll("button[data-f]").forEach((b) => b.addEventListener("click", () => {
+    try { localStorage.setItem(MEMO_FONT_KEY, b.dataset.f); } catch (e) {}
     renderTestScreen(verse, stage);
   }));
 

@@ -6897,3 +6897,16 @@ html.dark:has(#app .test-screen.memo-c) body { background: #0e1116; }
 .test-screen[data-memo] .test-card .btn-row { padding: 0; row-gap: 0; align-items: stretch; }
 .test-screen.memo-a .test-card .btn-row { margin-bottom: 14px; }
 .test-screen.memo-c .test-card .btn-row { margin: 18px 0 0; row-gap: 10px; border: 0; }
+/* 말씀 글꼴 고르기(app.js MEMO_FONT_KEY · 미리보기 줄 「글꼴」) — 말씀 본문 · 빈칸 · 정답 보기(B 는 낱말 카드도 명조라 함께).
+   영어(NIV)는 그대로 Lora. 이미 부르는 글꼴만 쓴다(Noto Sans KR 700 · 고운바탕 700 · 나눔명조 800) */
+.test-screen.mm-f-ns:not(.en) .test-sentence, .test-screen.mm-f-ns:not(.en) .word-input,
+.test-screen.mm-f-ns:not(.en) .answer-text, .test-screen.memo-b.mm-f-ns .wcard { font-family: "Noto Sans KR", sans-serif; font-weight: 700; }
+.test-screen.mm-f-gb:not(.en) .test-sentence, .test-screen.mm-f-gb:not(.en) .word-input,
+.test-screen.mm-f-gb:not(.en) .answer-text, .test-screen.memo-b.mm-f-gb .wcard { font-family: "Gowun Batang", serif; font-weight: 700; }
+.test-screen.mm-f-mj:not(.en) .answer-text { font-family: "Nanum Myeongjo", serif; font-weight: 800; }
+.test-screen[data-memo] .mm-bar { row-gap: 8px; }
+.test-screen[data-memo] .mm-fonts { align-items: center; }
+.test-screen[data-memo] .mm-pick-l { font-size: .86rem; font-weight: 700; margin-right: 2px; }
+.test-screen[data-memo] .mm-fonts button.mm-f-ns { font-family: "Noto Sans KR", sans-serif; }
+.test-screen[data-memo] .mm-fonts button.mm-f-gb { font-family: "Gowun Batang", serif; }
+.test-screen[data-memo] .mm-fonts button.mm-f-mj { font-family: "Nanum Myeongjo", serif; }

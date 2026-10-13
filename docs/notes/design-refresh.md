@@ -78,6 +78,7 @@
 - 처음 그릴 때 스크롤: 카드면 맨 위(키보드가 없어 다 보인다) · 쓰기면 말씀 첫 줄이 위 띠 바로 밑(`scrollPastBtnRow` 의 시안 갈래).
 - 걸린 것 셋(고침): ① 「보기」를 누르면 숨어야 하는데 시안의 `display` 가 `[hidden]` 을 이겼다 → `.test-screen[data-memo] [hidden] { display:none !important }` ② 「듣기」는 옛 id 규칙(`#listen-answer-btn` 남색 채움)이 이겨 아이콘이 묻혔다 → id 를 넣은 규칙으로 ③ 큰 글씨 잘림 막이(`.test-card .btn-row … { min-width: max-content }`)가 시안 칸 나눔과 부딪혀 320px 아주 크게에서 C 의 「키보드로 쓰기」가 화면 밖으로 → 시안에서는 `min-width: 0`(B 아래 줄 글은 두 줄로 꺾인다).
 - 같은 날 v3.622(친구 사진): A 도구 칸에 손을 올리면 **아래쪽 띠만 색이 안 바뀌었다** — 옛 단추 줄의 아래 여백 · 구분선(`.test-card .btn-row { padding-bottom:14px; border-bottom }` · 큰 글씨 16px — `html[data-fs] .test-card .btn-row` 가 (0,3,1) 이라 시안 규칙을 이겼다)이 칸 안에 남아서. → 시안에서는 `.test-screen[data-memo] .test-card .btn-row { padding:0 }`(칸 = 단추 · C 는 구분선도 뺌).
+- **말씀 글꼴 고르기**(v3.623 · 친구 「더 선명한 폰트로 해볼 수 있을까요」) — 미리보기 줄 둘째 줄 「글꼴 고딕 · 바탕 · 명조」(`MEMO_FONT_KEY` = `memo-font` · 처음 값 고딕). 말씀 본문 · 빈칸 · 정답 보기(B 는 낱말 카드도)에 걸린다 · 영어는 그대로 Lora. **이미 부르는 글꼴 셋 안에서만** — 고딕 Noto Sans KR 700 · 바탕 고운바탕 700(지금 성도님 화면) · 명조 나눔명조 800(시안). 새 한글 글꼴은 부르지 않는다(첫 실행 765KB 사건 · CLAUDE.md 「첫 실행 속도」). 같은 말씀을 셋으로 찍어 보니 고딕이 가장 또렷했다(바탕은 획이 가늘고, 명조는 굵기 차이가 크다).
 - 고르면: 그 시안 덩이를 본 규칙으로 옮기고 다른 둘과 문(`MEMO_KEY` · `readMemoPreviewParam` · 표시 줄)을 걷는다. 도전 · 복습 화면(같은 단추 줄)은 따로 정한다 — 지금은 암송 화면만.
 
 ## 시안 — Design 캔버스(비공개)
