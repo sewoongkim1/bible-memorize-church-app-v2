@@ -6901,6 +6901,10 @@ html.dark:has(#app .test-screen.memo-c) body { background: #0e1116; }
    영어(NIV)는 그대로 Lora. 이미 부르는 글꼴만 쓴다(Noto Sans KR 700 · 고운바탕 700 · 나눔명조 800) */
 .test-screen.mm-f-ns:not(.en) .test-sentence, .test-screen.mm-f-ns:not(.en) .word-input,
 .test-screen.mm-f-ns:not(.en) .answer-text, .test-screen.memo-b.mm-f-ns .wcard { font-family: "Noto Sans KR", sans-serif; font-weight: 700; }
+/* 고딕 본문은 500 + 글자 사이 조금(친구 2026-10-14 「고딕이 두꺼워서 글이 뭉쳐 보여요」 — 700 · 500 · 500+띄움 · 400+띄움을 찍어 견줘
+   500+.03em 이 또렷하면서 덜 뭉쳤다 · 400 은 가늘어 어르신께 흐리다). 낱말 카드(B)는 단추라 700 그대로 */
+.test-screen.mm-f-ns:not(.en) .test-sentence, .test-screen.mm-f-ns:not(.en) .word-input,
+.test-screen.mm-f-ns:not(.en) .answer-text { font-weight: 500; letter-spacing: .03em; }
 .test-screen.mm-f-gb:not(.en) .test-sentence, .test-screen.mm-f-gb:not(.en) .word-input,
 .test-screen.mm-f-gb:not(.en) .answer-text, .test-screen.memo-b.mm-f-gb .wcard { font-family: "Gowun Batang", serif; font-weight: 700; }
 .test-screen.mm-f-mj:not(.en) .answer-text { font-family: "Nanum Myeongjo", serif; font-weight: 800; }
