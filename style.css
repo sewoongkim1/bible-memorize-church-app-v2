@@ -6422,16 +6422,17 @@ html[data-fs="xl"] .nv-ch-sub { font-size: 1.04rem; }
 .album-a .album-grid.hide-text .album-card:not(.peek):not(.checked) .aa-text-ph { display: flex; }
 /* 도구 줄 — 암송 · 듣기 · 풀이(글 단추) ……… 확인(알약) */
 .album-a .album-tools {
-  display: flex; flex-wrap: nowrap; align-items: center; gap: 2px;
+  display: flex; flex-wrap: nowrap; align-items: center; gap: 6px;
   margin: 0; padding: 6px 10px 10px; border-top: 1px solid #e5dfd4;
 }
+/* 암송 · 듣기 · 풀이 — 단추로 보이게 옅은 남색 바탕 + 테두리(친구 2026-10-13 「버튼인지 잘 모르겠어요」 — 처음엔 바탕 없는 글 단추였다) */
 .album-a .album-go, .album-a .album-listen, .album-a .album-why {
-  min-height: 44px; padding: 0 8px; border: 0; border-radius: 10px; background: transparent; color: #4a5468;
+  min-height: 44px; padding: 0 10px; border: 1px solid #c9d6ea; border-radius: 10px; background: #eef3fa; color: #1e3a6b;
   display: inline-flex; align-items: center; gap: 5px; font-size: .94rem; font-weight: 700; white-space: nowrap;
 }
-.album-a .album-go:hover, .album-a .album-listen:hover, .album-a .album-why:hover { background: #f4efe6; }
+.album-a .album-go:hover, .album-a .album-listen:hover, .album-a .album-why:hover { background: #e0e9f6; }
 .album-a .album-tools svg { width: 18px; height: 18px; flex: none; }
-.album-a .album-why.on { background: #fbf1d6; color: #7a5a12; border: 0; }
+.album-a .album-why.on { background: #fbf1d6; color: #7a5a12; border-color: #e6d29c; }
 .album-a .album-check {
   margin-left: auto; min-height: 44px; padding: 0 14px; border: 1.5px solid #e5dfd4; border-radius: 999px; background: #fff; color: #4a5468;
   display: inline-flex; align-items: center; gap: 5px; font-size: .94rem; font-weight: 800; white-space: nowrap;
@@ -6444,7 +6445,8 @@ html[data-fs="xl"] .nv-ch-sub { font-size: 1.04rem; }
 .album-a .album-check:not(.on) .aa-ck-a, .album-a .album-check.on .aa-ck-b { visibility: hidden; }
 /* 자리가 모자라면(albumFitRow) — 암송·듣기·풀이 아이콘부터 빼고 → 글씨 한 단계 · 확인 아이콘 → 그래도면 접는다 */
 .album-a .album-grid.aa-tight .album-go svg, .album-a .album-grid.aa-tight .album-listen svg, .album-a .album-grid.aa-tight .album-why svg { display: none; }
-.album-a .album-grid.aa-tight .album-go, .album-a .album-grid.aa-tight .album-listen, .album-a .album-grid.aa-tight .album-why { padding: 0 6px; }
+.album-a .album-grid.aa-tight .album-go, .album-a .album-grid.aa-tight .album-listen, .album-a .album-grid.aa-tight .album-why { padding: 0 8px; }
+.album-a .album-grid.aa-tight .album-tools { gap: 4px; }
 .album-a .album-grid.aa-tighter .album-check svg { display: none; }
 .album-a .album-grid.aa-tighter .album-tools > span { font-size: .86rem; }
 .album-a .album-grid.aa-tighter .album-check { padding: 0 10px; }
@@ -6502,9 +6504,9 @@ html[data-fs="xl"] .album-a .aa-n { font-size: 1.8rem; }
 .dark .album-a .aa-text-ph { border-color: #949dad; }
 .dark .album-a .aa-text-ph { color: #b9c0cd; }
 .dark .album-a .album-tools { border-top-color: #313a4a; }
-.dark .album-a .album-go, .dark .album-a .album-listen, .dark .album-a .album-why { background: transparent; color: #b9c0cd; }
-.dark .album-a .album-go:hover, .dark .album-a .album-listen:hover, .dark .album-a .album-why:hover { background: #283142; }
-.dark .album-a .album-why.on { background: #3a3018; color: #e9cd7e; }
+.dark .album-a .album-go, .dark .album-a .album-listen, .dark .album-a .album-why { background: #22304a; border-color: #3a5078; color: #9dbbea; }
+.dark .album-a .album-go:hover, .dark .album-a .album-listen:hover, .dark .album-a .album-why:hover { background: #2a3b5a; }
+.dark .album-a .album-why.on { background: #3a3018; border-color: #5c4c22; color: #e9cd7e; }
 .dark .album-a .album-check { background: #212938; border-color: #313a4a; color: #b9c0cd; }
 .dark .album-a .album-check:hover { background: #283142; }
 .dark .album-a .album-check.on, .dark .album-a .album-check.on:hover { background: #173325; border-color: #6fcf97; color: #6fcf97; }

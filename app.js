@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261013y";
+const APP_BUILD = "20261013z";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9068,7 +9068,7 @@ const MANUAL = [
       "요절을 먼저 부르고, 잠깐 쉰 뒤 다음 말씀으로 넘어가요.",
       "듣는 동안 <b>화면이 저절로 꺼지지 않아요.</b>",
     ],
-    tip: "「나의 말씀 앨범」에서 <b>전부 듣기</b> 옆 <b>3분 요약</b>에 체크하면 설교 <b>3분요약</b>도 이어서 들려 드려요.",
+    tip: "「나의 말씀 앨범」에서 맨 위 <b>▶ 듣기</b> 옆 <b>3분 요약</b>에 체크하면 설교 <b>3분요약</b>도 이어서 들려 드려요.",
   },
   {
     icon: "🎤", title: "소리 내어 암송하기",
@@ -9102,7 +9102,7 @@ const MANUAL = [
       "완전히 외우셨으면 3단계 화면의 <b>「이 말씀을 내 마음에 두었나이다」</b>에 체크하세요. <b>👑</b>가 달리고 다음부터 바로 3단계로 시작해요.",
       "앨범의 <b>스스로 점검</b>에서 <b>말씀 가리기</b>를 누르면 말씀을 가리고 스스로 맞혀 볼 수 있어요. 맞혀 본 말씀은 <b>확인</b>을 누르세요.",
     ],
-    tip: "앨범에서도 <b>▶ 전부 듣기</b>로 이어서 들을 수 있어요.",
+    tip: "앨범 맨 위 <b>▶ 듣기</b>를 누르면 앨범의 말씀을 이어서 들을 수 있어요.",
   },
   {
     icon: "🏆", title: "순위와 응원",
@@ -10551,8 +10551,8 @@ function renderAlbum() {
   const playItems = albumItemsFor(list);
   const playLabel = (items) => {
     const d = albumDurText(items);
-    // A안 — 「약 N분」은 뺐다(친구 2026-10-13)
-    if (albumA) return '<svg class="aa-play-ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7 4v16l13-8z"/></svg>전부 듣기';
+    // A안 — 「▶ 듣기」(친구 2026-10-13 — 「전부 듣기」 → 「듣기」 · 「약 N분」은 뺐다). 화면 읽기에는 무엇을 듣는지 aria-label 로
+    if (albumA) return '<svg class="aa-play-ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7 4v16l13-8z"/></svg>듣기';
     return (albumPickMode ? "▶️ " + items.length + "개 듣기" : "▶️ 전부 듣기") +
            (d ? ' <span class="ab-dur">' + d + "</span>" : "");
   };
@@ -10578,7 +10578,7 @@ function renderAlbum() {
       ${list.length ? `
       <div class="aa-play" id="ab-play">
         <div class="aa-play-row">
-          <button type="button" id="ab-play-go" class="aa-go">${playLabel(playItems)}</button>
+          <button type="button" id="ab-play-go" class="aa-go" aria-label="앨범 말씀 이어 듣기">${playLabel(playItems)}</button>
           <button type="button" data-p="sum" class="aa-sum${sumOn ? " on" : ""}" role="checkbox" aria-checked="${sumOn}"><span class="aa-box" aria-hidden="true">${sumOn ? haSvg("check") : ""}</span>3분 요약</button>
         </div>
       </div>` : ""}
