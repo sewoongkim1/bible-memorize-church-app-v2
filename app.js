@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261013n";
+const APP_BUILD = "20261013o";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9219,7 +9219,7 @@ function manualInstalled() {
 const WIDGET_GUIDE = { ios: true, android: true };   // 2026-10-09 안드로이드 위젯 판(1.1.0) 플레이스토어 출시
 // 안드로이드 넷째 위젯 「말씀 · 묵상 · 기도 돌려 보기」를 설명서에 말할지 — versionCode 5 가 플레이스토어 **프로덕션에 나간 날** true.
 //   그 전에 켜면 없는 위젯을 안내한다(내부 테스트만으로는 켜지 않는다). ?preview=widget 은 미리 보인다.
-const ANDROID_ROTATE_GUIDE = false;   // false = 아직 플레이스토어에 없음(versionCode 5 · 2026-10-13 만듦)
+const ANDROID_ROTATE_GUIDE = true;   // 2026-10-13 versionCode 5(1.1.1) 플레이스토어 프로덕션 확인(공개 페이지 「버전 1.1.1 · 업데이트 2026. 10. 13.」)
 function androidRotateGuideOn() { return _widgetPreview || ANDROID_ROTATE_GUIDE; }
 let _widgetPreview = false;
 
