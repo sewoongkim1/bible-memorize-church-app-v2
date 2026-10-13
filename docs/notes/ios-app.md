@@ -139,3 +139,11 @@
 
 ## CLAUDE.md 에서 옮김 2026-10-13 — 아이폰 1.1.1 줄(끝남)
 - [x] 📱 **아이폰 1.1.1 — 2026-10-13 출시(친구).** 남은 것: 실기기에서 설정 맨 아래 「📱 아이폰 앱 1.1.1 (빌드 N)」 · 「말씀 · 묵상 · 기도 돌려 보기」 위젯 확인(설명서 위젯 장은 1.1.1 폰에만 넷째 위젯을 말한다 — `iosAppAtLeast`). 위젯 함정(작게 다시 넣지 말 것 · `weeklyVerseKst` 금지)은 `docs/notes/ios-app.md` 끝 → **실기기 확인 끝(2026-10-13 친구)**
+
+## 이번주 말씀 머리말 「🐑 3일째」(2026-10-13 · 1.1.2 · 안드로이드 versionCode 6 과 함께)
+설계 `docs/superpowers/specs/2026-10-13-verse-widget-badge-design.md` · 계획 `docs/superpowers/plans/2026-10-13-verse-widget-badge.md`
+- 이번주 말씀 위젯 홈 **중간·크게** 머리줄 오른쪽에 서버 `badge` 를 그대로(`WidgetHeader(trailing:)` — 기본 nil 이라 묵상·기도문·돌려 보기는 그대로). 잠금 화면에는 넣지 않는다.
+- **`badgeDate == kstYmd(entry.date)` 일 때만** 보인다. 타임라인에 **다음 한국 자정의 같은 내용 장**을 하나 더 깔아, 시스템이 새로 받기를 미뤄도 어제의 「3일째」가 남지 않는다.
+- ⚠️ 위젯 코드 두 벌(`ios-app/native/TodayVerseWidget/` · `ios-app/ios/App/TodayVerseWidget/`)은 같아야 한다 — `tests/verse-badge.test.cjs` ⑤ 가 다섯 파일을 견준다(preflight).
+- ⚠️ **맥 컴파일 미확인** — Codemagic `ios-testflight` 첫 빌드 로그를 끝까지 본다. `MARKETING_VERSION = 1.1.2` 네 곳.
+- 문구·모양·끄기는 api 만(`supabase/functions/api/verse-emoji.ts`) — 스토어 판이 필요 없다.
