@@ -264,10 +264,12 @@ async function staffIsSuper(b: any): Promise<boolean> {
 // ⚠️ 관리자 비번은 그대로 통과한다(관리자는 모든 자료를 본다). authCheck(허브)에는 쓰지 말 것.
 // 담당자 역할 — 사역신청(2026-09-17) · 설교·찬양(2026-09-21). 역할마다 암호 하나 + 등록된 담당자 명단.
 // 설교·찬양 담당자는 설교를 올리고 암송구절·찬양을 고친다 — 관리자 암호를 드리면 알림 발송·성도 정보까지 열린다.
+// ⚠️ 사역신청(ministry · MINISTRY_SECRET)은 2026-10-13 교회 어드민으로 갈아타며 뺐다 — 그 역할의 액션은 MOVED_MINISTRY 를 돌려준다.
+//    역할이 없으면 staffRoleError 는 관리자 암호(adminError)로만 통과한다.
 const STAFF_ROLES: Record<string, { secret: string; list: string }> = {
-  ministry: { secret: "MINISTRY_SECRET", list: "ministryAdmins" },
   content:  { secret: "CONTENT_STAFF_SECRET", list: "contentAdmins" },
 };
+const MOVED_MINISTRY = { ok: false, error: "moved-to-church-admin" };
 // ⚠️ 제 칸만 역할로 친다 — STAFF_ROLES[role] 로 보면 「constructor」 같은 이름이 물려받은 칸으로 통과한다(2026-09-21 리뷰)
 const staffRole = (role: unknown) =>
   typeof role === "string" && Object.hasOwn(STAFF_ROLES, role) ? STAFF_ROLES[role] : null;
@@ -482,11 +484,8 @@ Deno.serve(async (req) => {
         const e = adminError(body);
         return json(e ? { ok: false, error: e } : { ok: true }, e ? 403 : 200);
       }
-      case "ministryAuth": {   // 사역신청 관리 화면 로그인 — 관리자 비번, 또는 사역 비번 + 등록된 담당자
-        const e = await ministryAdminError(body);
-        if (e) return json({ ok: false, error: e }, 403);
-        return json({ ok: true, role: adminError(body) ? "ministry" : "admin" });
-      }
+      case "ministryAuth":     // 옛 사역신청 관리 화면 로그인 — 2026-10-13 갈아타기로 얼림(아래 MOVED_MINISTRY)
+        return json(MOVED_MINISTRY);
       case "contentAuth": {    // 설교·찬양 관리 로그인 — 관리자 비번, 또는 설교·찬양 비번 + 등록된 담당자(2026-09-21)
         const e = await contentError(body);
         if (e) return json({ ok: false, error: e }, 403);
@@ -660,15 +659,18 @@ Deno.serve(async (req) => {
       case "internalDutyRemind": return json(await internalDutyRemind(req, body));         // 당번 전날 알림(3단계) — pg_cron 전용(x-internal-key)
       case "ministryApply":    return json(await ministryApply(body));
       case "ministryCancel":   return json(await ministryCancel(body));
-      case "ministryList":     return json(await ministryList(body));
-      case "ministryPaperCheck": return json(await ministryPaper(body, false));
-      case "ministryPaperSave":  return json(await ministryPaper(body, true));
-      case "ministrySetStatus":return json(await ministrySetStatus(body));
-      case "ministryDelete":   return json(await ministryDelete(body));
-      case "ministryCatalogSave": return json(await ministryCatalogSave(body));
-      case "ministryCatalogOrder": return json(await ministryCatalogOrder(body));
-      case "ministryAdmins":     return json(await staffAdmins({ ...body, role: "ministry" }));      // 담당자 명단(관리자만)
-      case "ministryAdminsSave": return json(await staffAdminsSave({ ...body, role: "ministry" }));  // 한 분씩 추가·빼기(관리자만)
+      // 🤝 사역신청 관리(담당자용) — 2026-10-13 교회 어드민으로 갈아탐. 교회 어드민은 자기 함수가 표를 직접 다룬다
+      //    (이 액션들을 부르지 않는다 · INTERNAL_ADMIN_OK 에도 없다). 옛 화면(admin-stats ?only=ministry)·사역 암호는 걷었다.
+      //    함수 본문은 마지막 걷기(묶음 7)에 지운다 — 되살리지 말 것. 성도님 쪽(ministryApply·Cancel·Mine·Catalog)은 그대로.
+      case "ministryList":
+      case "ministryPaperCheck":
+      case "ministryPaperSave":
+      case "ministrySetStatus":
+      case "ministryDelete":
+      case "ministryCatalogSave":
+      case "ministryCatalogOrder":
+      case "ministryAdmins":
+      case "ministryAdminsSave": return json(MOVED_MINISTRY);
       case "staffAdmins":        return json(await staffAdmins(body));       // 역할별 명단(관리자만 · role)
       case "staffAdminsSave":    return json(await staffAdminsSave(body));
       case "internalMinistryNotify": return json(await internalMinistryNotify(req, body));  // church-admin 전용(x-internal-key)

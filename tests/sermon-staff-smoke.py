@@ -49,10 +49,11 @@ for a, extra in [("authCheck", {}), ("stats", {}), ("sendPush", {"title": "x", "
                  ("saveVerse", {"verse": {"no": 9999}}), ("sermonDelete", {"id": "AAAAAAAAAAA"}),
                  ("sermonJobGet", {"id": 1}), ("sermonJobUpdate", {"id": 1, "step": "notes"}),
                  ("staffAdminsSave", {"role": "content", "op": "add", "key": ME_KEY}),
-                 ("ministryList", {}), ("adminFindMembers", {"query": "x"})]:
+                 ("adminFindMembers", {"query": "x"})]:
     chk(a, call(dict(S, action=a, **extra)).get("error"), "unauthorized")
-print("[3] 사역 암호와 섞이지 않는다")
-chk("설교 암호로 ministryAuth", call(dict(S, action="ministryAuth")).get("error"), "unauthorized")
+print("[3] 옛 사역 화면은 교회 어드민으로 갈아탔다(2026-10-13 · 사역 암호 걷음)")
+chk("ministryAuth 는 얼림", call(dict(S, action="ministryAuth")).get("error"), "moved-to-church-admin")
+chk("ministryList 는 얼림", call(dict(S, action="ministryList")).get("error"), "moved-to-church-admin")
 
 print("[4] 담당자에게 열린 것")
 r = call(dict(S, action="sermonStaffList"))
