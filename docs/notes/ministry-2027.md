@@ -308,6 +308,17 @@
 `?preview=ministry` 로 화면은 여전히 열리지만(관리자 미리보기) 비번이 없고 명단에도 없으면 저장에서 「신청 기간이 아닙니다」로 막힌다.
 ⚠️ 위에 적힌 「`?preview=ministry` 는 그대로 누구나 쓸 수 있다」·「12/13 전에 걷는다」는 이 날로 끝난 이야기다. 남은 것은 12/13 전 시험 행 지우기뿐.
 
+## 교회 어드민으로 갈아탐 (2026-10-13 · 친구 「진행하죠」)
+사역신청 관리는 이제 **교회 어드민(admin.onlybible.kr) 「사역 신청」 한 곳**이다. 성경암송 쪽 옛 담당자 화면·사역 암호는 걷었다.
+- **준비 확인:** 옛 등록 담당자(app_config `ministryAdmins`) 3명이 모두 교회 어드민 활성 회원이었다 — 사역 역할 1 · 총괄 2(총괄은 `canCall` 에서 모든 메뉴를 통과). 교회 어드민에서 사역 역할을 가진 분은 5명(이름 없이 건수로 맞댐).
+- **앱:** 설정 「🔒 관리 페이지」의 🤝 → 「사역관리 (교회 어드민)」 https://admin.onlybible.kr/ 를 `window.open(_blank)` 로 연다(`MANAGE_LINKS` 의 `ext`). 아이폰 앱은 Capacitor 가 사파리로, 플레이 앱은 크롬 새 탭으로 — 카카오 로그인은 앱 안 창이 아니라 브라우저에서 해야 한다.
+- **옛 화면:** `admin-stats.html?only=ministry`(= `admin-ministry.html` 이 넘기는 곳)는 로그인 대신 `renderMinistryMoved` 안내만 · 관리자 메뉴의 사역 카드 다섯(임명현황·종이 명단·사역팀 정보·신청 현황·담당자) → 「사역신청 관리 → 교회 어드민」 하나. `admin-ministry.html` 은 옛 북마크를 위해 남겼다.
+- **서버:** 담당자용 사역 액션 열(`ministryAuth`·`ministryList`·`ministryPaperCheck/Save`·`ministrySetStatus`·`ministryDelete`·`ministryCatalogSave/Order`·`ministryAdmins/Save`) → `moved-to-church-admin`(`MOVED_MINISTRY`) · `STAFF_ROLES` 에서 ministry 를 뺐다 · 시크릿 `MINISTRY_SECRET` 은 운영·개발에서 지웠다. 교회 어드민은 이 액션들을 부르지 않는다(자기 함수가 표를 다룬다 · `INTERNAL_ADMIN_OK` 에도 없다).
+- **그대로인 것:** 성도님 쪽(`ministryApply`·`Cancel`·`Mine`·`Catalog`·`Tester`·`History*`) · 임명 알림 `internalMinistryNotify` · 🧪 시험 참여자(app_config `ministryTesters`).
+- ⚠️ **되살리지 말 것** — 사역신청 관리를 고칠 때는 교회 어드민(`c:\Projects\church-admin`)에서. 위쪽 절들(담당자 화면 · 사역 암호 · 담당자 등록)은 지난 기록이다.
+- **마지막 걷기(묶음 7)에 지울 것:** `admin-stats.html` 의 `renderMinistry*` 본문 · api 의 함수 본문(`ministryList` 등 · `ministryAdminError`) · `admin-ministry.html` · app_config `ministryAdmins`(이제 읽는 곳 없음) · 로컬 `.env`·`.env.dev` 의 `PROD_MINISTRY_SECRET`(친구) · 옛 화면용 도구 `tools/ministry-admin-shots.py`·`tools/ministry-progress-docx.js`(지난 보고서).
+- **확인:** 개발 14/0(얼린 열 · 공개 사역 목록 · 설교·찬양 문은 그대로) · 운영 `ministryAuth`·`ministryList` → moved · 공개 사역 목록 94팀 · 화면 배포 v3.611(`20261013r`) · 운영 스모크 셋(당번 17 · 교육 13 · 가을 동행 39).
+
 ---
 
 ## CLAUDE.md 에서 옮김 2026-10-12

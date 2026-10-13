@@ -25,7 +25,7 @@ internalMonitorWatch(pg_cron `monitor-watch` 전용 · 2026-10-12 — 감시의 
 `no, week, ref, text, sermon_title, sermon_url, is_active, created_at, date, ref_short, ref_full, hint, pastor, text_en, ref_en, track, day_no, frame_art`.
 
 ## 시크릿
-ADMIN_SECRET(관리자 비번, 3앱 공통), MINISTRY_SECRET(사역신청 담당자 암호 — 사역 관리 액션 넷만 통과, docs/notes/ministry-2027.md), VAPID_*(Web Push), RESEND_API_KEY·REPORT_FROM·REPORT_RECIPIENTS(주간 리포트 메일), ANTHROPIC_API_KEY(NIV 생성 등 AI 공용), TELEGRAM_*(모니터 경보)
+ADMIN_SECRET(관리자 비번, 3앱 공통), ~~MINISTRY_SECRET~~(사역신청 담당자 암호 — **2026-10-13 운영·개발에서 지웠다** · 교회 어드민으로 갈아탐 · 담당자용 사역 액션은 moved-to-church-admin · docs/notes/ministry-2027.md 끝), VAPID_*(Web Push), RESEND_API_KEY·REPORT_FROM·REPORT_RECIPIENTS(주간 리포트 메일), ANTHROPIC_API_KEY(NIV 생성 등 AI 공용), TELEGRAM_*(모니터 경보)
 
 ## 통계 RPC
 `stats-rpc.sql`: v2_stats·v2_participants(security definer, PII 반환→service_role만 grant)
