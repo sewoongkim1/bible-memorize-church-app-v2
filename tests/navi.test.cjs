@@ -202,3 +202,16 @@ test('⑤ 열람 기록 — FEATURES 에 navi · 스모크 목록이 FEATURES �
   assert.ok(/^--\s+navi\s+= 0 고정/m.test(read('supabase', 'feature_log.sql')), 'feature_log.sql 머리 표에 navi 줄');
   assert.ok(/logFeature\("navi", 0\)/.test(APP), '앱은 단추 누름에서 navi 를 남긴다');
 });
+
+test('⑥ 화면 이름 — 「주제별 성경암송」(네비게이토 이름 사용 허락 전 · 친구 2026-10-13) · 화면에 나가는 글에 「네비게이토」가 없다', () => {
+  const NAVI_JS = read('js', 'navi.js');
+  assert.ok(APP.includes('id="open-navi">📚 주제별 성경암송'), '첫 화면 단추');
+  assert.ok(NAVI_JS.includes('<h2 class="nv-title">📚 주제별 성경암송</h2>'), '화면 제목');
+  assert.ok(APP.includes('icon: "📚", title: "주제별 성경암송",'), '설명서 제목');
+  // 주석(// · /* */ · 템플릿 안 ${/* */})을 걷은 뒤 남은 코드·글에 「네비게이토」가 없어야 — 허락을 받으면 이 검사와 함께 바꾼다(docs/notes/navigators.md 「여는 날」 1)
+  const strip = (t) => codeOnly(t.replace(/\/\*[\s\S]*?\*\//g, ''));
+  for (const [name, src] of [['app.js', APP], ['js/navi.js', NAVI_JS]]) {
+    const hits = strip(src).split('\n').filter((l) => l.includes('네비게이토'));
+    assert.deepEqual(hits, [], name + ' — 화면에 나갈 수 있는 「네비게이토」');
+  }
+});

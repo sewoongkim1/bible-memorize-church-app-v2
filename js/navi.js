@@ -130,7 +130,7 @@ function renderNaviHome() {
   app.innerHTML = `
     <div class="nv-screen">
       <div class="nv-head">
-        <h2 class="nv-title">📚 네비게이토 성경암송</h2>
+        <h2 class="nv-title">📚 주제별 성경암송</h2>
         <p class="nv-lead">${NV_MSG.lead}</p>
       </div>
       <div class="nv-chapters" id="nv-chapters"><p class="vl-empty">불러오는 중…</p></div>

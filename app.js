@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261013p";
+const APP_BUILD = "20261013q";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -281,7 +281,7 @@ function openMinistryHistory() {
 function openNavi() {
   withLazyJs("navi", () => {
     if (typeof renderNaviHome === "function") renderNaviHome();
-    else appAlert("네비게이토 성경암송 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
+    else appAlert("주제별 성경암송 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
   });
 }
 
@@ -3585,7 +3585,7 @@ function renderSummary() {
           지금 첫 화면(A안)은 HA_GROUPS 의 「암송 과정」이 넷을 옮겨 담는다(제목은 그쪽 것이 보인다 · 설명서 쉴만한 물가 줄도 HOME_LAYOUT 으로 갈라 쓴다).
           문은 naviVisible(app_config naviPublic · 🧪 시험 참여자 · ?navi=1) — 닫힌 동안은 제목째 없다. 화면 코드는 누를 때 받는다(openNavi). */""}
     ${naviVisible() ? `<div class="grp-title">암송 과정</div>
-    <button class="summary-help" id="open-navi">📚 네비게이토 성경암송${newBadge("navi")}</button>` : ""}
+    <button class="summary-help" id="open-navi">📚 주제별 성경암송${newBadge("navi")}</button>` : ""}
     <div class="grp-title">함께</div>
     <button class="summary-help" id="open-board">💬 응원·기도·공감</button>
     ${/* 2026-09-25 순서 바꿈(친구 요청) — 가정 축복 기도문이 쉴만한 물가보다 위. */""}
@@ -9143,15 +9143,16 @@ const MANUAL = [
     ],
     tip: "<b>매일 새 말씀이 하나씩</b> 열립니다. <b>🌿 매일 묵상</b> 창 아래 <b>🐑 쉴만한 물가</b>를 눌러도 오늘 말씀으로 바로 가요.",
   },
-  // 📚 네비게이토 성경암송(2026-10-13 열림 · docs/notes/navigators.md). 단추는 두 첫 화면(A안 · 옛 첫 화면) 모두 「암송 과정」 묶음에 있다.
+  // 📚 주제별 성경암송(= 네비게이토 · 2026-10-13 열림 · docs/notes/navigators.md). 단추는 두 첫 화면(A안 · 옛 첫 화면) 모두 「암송 과정」 묶음에 있다.
+  //   ⚠️ 화면 이름은 「주제별 성경암송」 — 네비게이토 이름 사용 허락 전이라(친구 2026-10-13). 허락을 받으면 이름 다섯 자리(단추 · 제목 · 알림 · 설명서 셋)를 함께.
   //   ⚠️ 「앨범에 담겨요」·「복습」을 쓰지 않는다 — 네비게이토는 둘 다 아니다. 순위에 세지는 것은 사실이다(순위가 암송 learn-* 를 함께 센다 · daily-activity.sql).
   {
-    icon: "📚", title: "네비게이토 성경암송",
+    icon: "📚", title: "주제별 성경암송",
     lead: "주제별로 묶은 암송 말씀을 묶음마다 외워요.",
     when: () => naviVisible(),   // 첫 화면 단추와 같은 문 — 단추가 없는데 안내만 있으면 안 된다
-    art: '<div class="mn-row"><span class="mn-btn mn-btn-on">📚 네비게이토 성경암송</span></div>',
+    art: '<div class="mn-row"><span class="mn-btn mn-btn-on">📚 주제별 성경암송</span></div>',
     steps: [
-      "첫 화면 <b>「암송 과정」</b>에서 <b>📚 네비게이토 성경암송</b>을 누르세요.",
+      "첫 화면 <b>「암송 과정」</b>에서 <b>📚 주제별 성경암송</b>을 누르세요.",
       "외우고 싶은 <b>묶음</b>을 고르세요. 어느 묶음부터 시작하셔도 돼요.",
       "구절을 누르면 <b>📖 말씀 암송</b>과 같은 세 단계로 외워요. <b>👆 카드</b>로 채워도 돼요.",
       "다 외우시면 <b>다음 말씀 ▶</b>으로 그 묶음의 다음 구절로 가요.",
