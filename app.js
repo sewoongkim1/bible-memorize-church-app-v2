@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261013r";
+const APP_BUILD = "20261013s";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -10134,7 +10134,8 @@ let albumHideText = false;
 let albumHint = false;      // 첫 글자 힌트(말씀 숨김과 배타 — 같은 것의 세기 차이라 동시에 켜면 헷갈린다)
 let albumOrder = null;      // 섞기 결과(구절 번호 배열). null이면 원래 순서
 let albumUnseenOnly = false; // 오늘 아직 확인하지 않은 구절만 보기
-let albumTrack = "weekly";  // "weekly" | "psalm" | "all" — 기본은 지금과 똑같다
+// ⚠️ 앨범은 주간 말씀만 담는다(2026-10-13 친구 — 「주간 말씀 · 쉴만한 물가 · 전부」 칩과 albumTrack 을 걷었다).
+//    쉴만한 물가(1001~)·네비게이토(2001~)는 각자 화면에서 본다 — 여기 다시 섞지 말 것.
 
 // ── 이어 듣기 ────────────────────────────────────────────────
 // 재생 목록은 '화면에 보이는 순서 그대로'다(섞기·미확인이 걸린 그 목록).
@@ -10423,11 +10424,7 @@ function albumFind(no) {
 function renderAlbum() {
   const u = loadUser();
   const appEl = document.getElementById("app");
-  if (!psalmVisible()) albumTrack = "weekly";   // 게이트가 꺼지면 되돌린다
-  const pool = albumTrack === "psalm" ? (psalmVerses || [])
-             : albumTrack === "all" ? verses.concat(psalmVerses || [])
-             : verses;
-  const done = pool.filter((v) => getPassedStage(v.no) >= 3);
+  const done = verses.filter((v) => getPassedStage(v.no) >= 3);   // 주간 말씀만(위 albumUnseenOnly 아래 ⚠️ 「앨범은 주간 말씀만」)
   const hearted = done.filter((v) => isHearted(v.no));
   const hiding = albumHideRef || albumHideText || albumHint;
   const checked = albumCheckedToday();
@@ -10487,21 +10484,7 @@ function renderAlbum() {
            (d ? ' <span class="ab-dur">' + d + "</span>" : "");
   };
 
-  // 게이트가 꺼져 있으면 칩 자체를 내지 않는다 — 눌러도 볼 것이 없다
-  const trackChips = !psalmVisible() ? "" : `
-    <div class="album-track">
-      ${[["weekly","주간 말씀"],["psalm","쉴만한 물가"],["all","전부"]].map(([k, label]) =>
-        `<button class="atk${albumTrack === k ? " on" : ""}" data-track="${k}">${label}</button>`).join("")}
-    </div>`;
-
-  // ⚠️ 시편에도 「마음에 둠」이 생겼다(2026-09-10 — renderPsalmBlank 3단계에 체크가 붙었다).
-  //    그전 주석은 「시편에는 구조적으로 없어 늘 0이다」였는데 이제 사실이 아니다.
-  //    그래도 배너는 「몇 편 마쳤어요」로 둔다 — 시편은 180편을 하루 한 편씩 여는 코너라
-  //    성도님이 궁금해하시는 숫자가 「오늘까지 몇 편」이고, 마음에 둔 편은 그 안의 부분집합이다.
-  //    (이번에 고친 것은 이 주석뿐이다 — 로직은 한 글자도 안 바뀌었다.)
-  const bannerHtml = albumTrack === "psalm"
-    ? `<div class="ab-line"><b class="ab-num">${done.length}</b>편 마쳤어요</div>`
-    : `<div class="ab-line"><b class="ab-num">${hearted.length}</b>구절을 마음에 두었습니다 👑</div>`;
+  const bannerHtml = `<div class="ab-line"><b class="ab-num">${hearted.length}</b>구절을 마음에 두었습니다 👑</div>`;
 
   appEl.innerHTML = `
     <div class="album-screen">
@@ -10509,7 +10492,6 @@ function renderAlbum() {
       <div class="album-banner">
         ${bannerHtml}
       </div>
-      ${trackChips}
       <div class="rank-filter album-quiz" id="ab-quiz">
         <button data-h="ref" class="${albumHideRef ? "on" : ""}">${albumHideRef ? "🙈" : "👁"} 요절 숨김</button>
         <button data-h="text" class="${albumHideText ? "on" : ""}">${albumHideText ? "🙈" : "👁"} 말씀 숨김</button>
@@ -10537,26 +10519,6 @@ function renderAlbum() {
   window.scrollTo(0, 0); // 첫 화면에서 내려온 위치가 남아 중간부터 보이던 문제
   if (albumPlayer) albumPlayFocus((albumPlayer.items[albumPlayer.i] || {}).no);
   document.getElementById("ab-back").addEventListener("click", () => { albumPlayStop(); renderSummary(); });
-  appEl.querySelectorAll(".atk").forEach((b) => b.addEventListener("click", async () => {
-    const k = b.dataset.track;
-    // 시편은 코너에 들어갈 때만 받는다 — 칩을 누르는 이 순간이 그 자리다
-    if (k !== "weekly" && !psalmLoaded) {
-      const label = b.textContent;
-      b.textContent = "불러오는 중…";
-      try { await loadPsalmVerses(); }
-      catch (e) {
-        // ⚠️ 실패를 조용히 삼키면 "0개"와 "못 받음"이 구분되지 않는다(2026-09-10 리뷰
-        //    지적) — 칩을 원래 문구로 되돌리고 안내한 뒤, 화면을 바꾸지 않고 멈춘다.
-        b.textContent = label;
-        appAlert("불러오지 못했어요. 잠시 뒤 다시 눌러 주세요.");
-        return;
-      }
-    }
-    albumTrack = k;
-    albumPicks.clear();
-    albumOrder = null;
-    renderAlbum();
-  }));
   document.getElementById("ab-quiz").querySelectorAll("button").forEach((b) =>
     b.addEventListener("click", () => {
       const h = b.dataset.h;
