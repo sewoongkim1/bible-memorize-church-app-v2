@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261013m";
+const APP_BUILD = "20261013n";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -813,6 +813,7 @@ const HA_ICON = {
   target: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 12h.01",
   music: "M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM20 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z",
   tv: "M3 6h18v12H3zM10 9.5v5l4-2.5z",
+  play: "M3 8a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3zM10 9v6l5-3z",   // 둥근 화면 + 재생 — 고척교회 유튜브(교회 사이트)
   bookmark: "M6 3h12v18l-6-4-6 4z",
   book: "M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2zM22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z",   // 펼친 책 — 📚 네비게이토(암송 과정)
   keyboard: "M3 6h18v12H3zM7 10h.01M11 10h.01M15 10h.01M7 14h10",
@@ -829,13 +830,13 @@ const HA_GROUPS = [
   //   단추마다 문이 따로라(psalmVisible · passagesVisible · naviVisible) 닫힌 단추는 줄째 빠진다 · 설명서의 자리 말(MANUAL)도 이 묶음을 가리킨다.
   { title: "암송 과정", ids: ["open-psalm", "open-passages", "open-navi", "open-quiz"] },
   { title: "함께", ids: ["open-board", "open-prayer", "open-pilsa"] },
-  { title: "교회 사이트", note: "앱 밖으로 나가요", ext: true, ids: ["open-praise", "open-sermon-archive"] },
+  { title: "교회 사이트", note: "앱 밖으로 나가요", ext: true, ids: ["open-praise", "open-sermon-archive", "open-youtube"] },
 ];
 const HA_ROW_ICON = {
   "open-sermon-chat": "message", "open-meditation": "leaf", "open-navi": "book", "open-event-list": "medal", "open-album": "album", "open-ranking": "trophy",
   "open-ministry": "users", "open-ministry-history": "folder", "open-edu": "cap", "open-duty": "calendar",
   "open-board": "heart", "open-prayer": "house", "open-psalm": "drop", "open-passages": "scroll", "open-pilsa": "pen", "open-quiz": "target",
-  "open-praise": "music", "open-sermon-archive": "tv",
+  "open-praise": "music", "open-sermon-archive": "tv", "open-youtube": "play",
 };
 const HA_TOOL_ICON = { "toggle-ref-first": "bookmark", "toggle-card-input": "keyboard", "open-help-summary": "help", "open-alarm": "bell", "open-settings": "gear" };
 function haSvg(name, cls) {
@@ -3617,6 +3618,7 @@ function renderSummary() {
       <button class="summary-help" id="open-quiz">🎯 성경말씀 암송 퀴즈</button>
       <button class="summary-help" id="open-praise">🎵 찬양 아카이브 <span class="ext-mark">↗</span></button>
       <button class="summary-help" id="open-sermon-archive">📺 말씀 아카이브 <span class="ext-mark">↗</span></button>
+      <button class="summary-help" id="open-youtube">▶️ 고척교회 유튜브 <span class="ext-mark">↗</span></button>
     </div>
     <div id="event-slot-bottom"></div>
     <div class="summary-icons summary-icons-bottom">
@@ -3656,6 +3658,8 @@ function renderSummary() {
   // 형제 앱(찬양·말씀 아카이브)으로 이동 — 새 탭이라 암송 진행 상태를 잃지 않는다
   document.getElementById("open-praise").addEventListener("click", () => window.open("https://worship.onlybible.kr/", "_blank", "noopener"));
   document.getElementById("open-sermon-archive").addEventListener("click", () => window.open("https://sermon.onlybible.kr/", "_blank", "noopener"));
+  // 고척교회 유튜브 채널(2026-10-13 친구) — 앱 밖(유튜브 앱·크롬)으로 나간다. 앱이 유튜브로 보내는 것은 없다(주소만 연다).
+  document.getElementById("open-youtube").addEventListener("click", () => window.open("https://www.youtube.com/@GocheokCh", "_blank", "noopener"));
   fillBoardBadge(); // 최근 1주 새 글/답글 있으면 게시판 버튼에 배지
   if (weeklyVerse) document.getElementById("weekly-start").addEventListener("click", () => startTest(weeklyVerse));
   { const b = document.getElementById("weekly-share");   // WEEKLY_SHARE 가 false 면 없다

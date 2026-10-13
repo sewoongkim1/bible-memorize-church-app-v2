@@ -49,6 +49,9 @@ test('A안 묶음 차례 — 「암송 과정」은 「함께」 바로 위 · �
   assert.deepEqual(groups.map((g) => g.title), ['말씀 묵상', '내 기록', '교회 생활', '암송 과정', '함께', '교회 사이트']);
   assert.deepEqual(groups.find((g) => g.title === '암송 과정').ids, ['open-psalm', 'open-passages', 'open-navi', 'open-quiz']);
   assert.deepEqual(groups.find((g) => g.title === '함께').ids, ['open-board', 'open-prayer', 'open-pilsa']);
+  // 교회 사이트 — 찬양 · 말씀 아카이브 아래 고척교회 유튜브(친구 2026-10-13)
+  assert.deepEqual(groups.find((g) => g.title === '교회 사이트').ids, ['open-praise', 'open-sermon-archive', 'open-youtube']);
+  assert.ok(APP.includes('window.open("https://www.youtube.com/@GocheokCh", "_blank", "noopener")'), '고척교회 유튜브 주소');
 });
 
 test('설명서 — 자리를 말하는 쉴만한 물가 줄은 첫 화면 꼴(HOME_LAYOUT)로 갈라 쓴다(A안 「암송 과정」 · 옛 첫 화면 「함께」)', () => {
