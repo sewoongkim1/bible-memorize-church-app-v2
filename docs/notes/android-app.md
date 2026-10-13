@@ -38,7 +38,7 @@
 크롬이 TWA 용을 검토 중이다(Gerrit 8455211 「support short-edges cutout mode for Trusted Web Activities」 · `enable_twa` 기본 꺼짐 · 빨라야 M158). 들어오면 껍데기를 안 고쳐도 웹(`viewport-fit=cover` · `env(safe-area-inset-*)`)이 그대로 쓴다 — 그때 걸릴 웹 자리(새 버전 띠·토스트·재생 중 여백·`scrollPastBtnRow` 등)는 이날 조사 기록에 있다.
 
 **한 것 — 위 띠 색 맞추기**(웹만 · 플레이 업데이트 없음): `app.js` `statusBarFollowOn` · `syncStatusBar` — 화면 맨 위 왼쪽 끝(x 2 · y 1)에 쌓인 바탕색(로고 띠 남색 · 바탕 크림 · 앱 어두운 모드 바탕 · 창의 어둠막 섞임)을 재서 theme-color 로 넣는다. 스크롤·화면 바뀜·창·어두운 모드 토글 때 다시 잰다. **플레이 앱 실행(`openedByPlayApp`)에서만**(크롬 탭에서는 주소창 색이라 안 한다 · 아이폰과 무관).
-- 문: `STATUSBAR_FOLLOW_OPEN = false` 면 🧪 시험 참여자만 · true 면 플레이 앱 모두. 시험 `tests/statusbar-follow.test.cjs`(preflight).
+- 문: `STATUSBAR_FOLLOW_OPEN` — **2026-10-13 true(플레이 앱 모두 · v3.609 · 친구 「위 띠 색 맞추 확인 했으니 모두 적용하죠」)** · false 로 돌리면 🧪 시험 참여자만. 시험 `tests/statusbar-follow.test.cjs`(preflight).
 - ⚠️ theme-color 를 바꾸는 곳은 `syncStatusBar` 한 곳뿐이다(시험이 센다) — 다른 곳에서 바꾸면 위 띠가 서로 다툰다.
 
 **남은 것:** 친구 실기기 확인 끝(2026-10-13 — v3.604 · 첫 화면 맨 위 남색 · 내리면 크림 · 암송 화면 크림 · adb 화면 찍기) → `STATUSBAR_FOLLOW_OPEN = true`(검토 뒤) · **B 아래 띠 크림 — 1.1.1(versionCode 4 · minSdk 24) 빌드 끝**(⚠️ 처음 만든 versionCode 3 · minSdk 23 판은 Play Console 이 「Play 자동 보호를 사용하려면 최소 SDK 버전이 24 이상」으로 막았다 — 2026-10-13 · 3 은 쓴 번호일 수 있어 4 로 건너뛰었다 · 24 = 안드로이드 7.0)(커밋 「안드로이드 1.1.1」 · `twaManifest.navigationColor(Dark)`·`navigationDividerColor(Dark)` = #FDF8F0 · `bundleProdRelease` · 업로드 키 3A:17 서명 · 위젯 단위 시험 통과 · 위젯 코드는 1.1.0 그대로). 올릴 파일은 저장소 밖 `C:\Projects\성경암송-1.1.1-아래띠크림\성경암송-1.1.1-versionCode4.aab` — **Play Console 업로드는 친구**(내부 테스트 → 프로덕션 · 스킬 store-release). 크롬 153~155 는 이 색을 무시하므로 156 이상에서만 보인다. 앱 어두운 모드(설정에서 켠 분)는 크림 띠 위로 어두운 화면이 된다(껍데기 색은 휴대폰 어두운 모드만 안다) · 크롬 TWA edge-to-edge 가 오면 다시 보기.

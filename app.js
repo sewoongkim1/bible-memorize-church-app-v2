@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261013o";
+const APP_BUILD = "20261013p";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -7123,7 +7123,7 @@ function scrollPastBtnRow() {
 //   (로고 띠 남색 · 바탕 크림 · 어두운 모드 바탕 · 창이 뜨면 어두워진 색)을 재서 theme-color 로 넣으면 위 띠가 화면에 녹아 투명해 보인다.
 //   ⚠️ 아래 띠(내비게이션 바)는 페이지가 바꿀 수 없다 — 껍데기의 NAVIGATION_BAR_COLOR 뿐이고, 크롬 153~155 는 그것도 무시하는 버그가 있다.
 //   ⚠️ 플레이 앱(이번 실행이 TWA)에서만 — 보통 크롬 탭에서는 theme-color 가 주소창 색이라 내리면서 주소창이 바뀌면 이상하다. 아이폰은 상관없다.
-const STATUSBAR_FOLLOW_OPEN = false;   // false = 🧪 시험 참여자만(친구 실기기 확인 중) · true = 플레이 앱 모두
+const STATUSBAR_FOLLOW_OPEN = true;   // 2026-10-13 플레이 앱 모두(친구 실기기 확인 끝 「모두 적용하죠」) · false 면 🧪 시험 참여자만
 function statusBarFollowOn() { return openedByPlayApp() && (STATUSBAR_FOLLOW_OPEN || ministryTesterCached()); }
 // ── 위 띠 색 — 순수 (여기부터) ──
 //   tests/statusbar-follow.test.cjs 가 이 구간만 잘라 node:vm 에서 돌린다 — DOM 을 쓰지 말 것.

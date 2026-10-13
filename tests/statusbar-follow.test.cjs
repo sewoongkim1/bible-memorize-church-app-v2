@@ -38,7 +38,7 @@ test('sbBlend — 맨 밑 바탕 위에 층을 겹쳐 불투명한 #rrggbb 하�
   assert.equal(SB.sbBlend([null, [15, 18, 24, 1]], cream), '#0f1218', '어두운 모드 바탕');
 });
 
-test('문 — 플레이 앱 실행에서만 · 지금은 🧪 시험 참여자만(STATUSBAR_FOLLOW_OPEN = false) · 보통 크롬 탭·아이폰은 건드리지 않는다', () => {
+test('문 — 플레이 앱 실행에서만 · STATUSBAR_FOLLOW_OPEN(2026-10-13 true = 플레이 앱 모두 · false 면 🧪 시험 참여자만) · 보통 크롬 탭·아이폰은 건드리지 않는다', () => {
   assert.ok(/^const STATUSBAR_FOLLOW_OPEN = (true|false);/m.test(APP), '스위치 줄(tools/status.py 가 _OPEN 꼴을 읽는다)');
   assert.ok(APP.includes('function statusBarFollowOn() { return openedByPlayApp() && (STATUSBAR_FOLLOW_OPEN || ministryTesterCached()); }'), '문의 꼴');
   const watch = APP.slice(APP.indexOf('(function watchStatusBarColor() {'), APP.indexOf('})();', APP.indexOf('(function watchStatusBarColor() {')));
