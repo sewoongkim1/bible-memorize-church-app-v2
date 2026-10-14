@@ -79,6 +79,42 @@ function renderPrayerBook(idx) {
   });
 }
 
+// ── 🙏 가정 축복 기도문 A안(2026-10-14 친구 「1안 — 짜임 그대로 · A 옷」 · 샘플 자료/design/2026-10-14-prayer-sample · 스위치 PRAY_LAYOUT(app.js)) ──
+//   drawPrayer 가 그릴 때마다 옷만 입힌다 — ⛶ · ⚙ · 들려주기 · 이름 · 이전/다음 · 말씀 펴 보기 · 주제 줄의 꺾쇠. 연결 · 기록 · 이어 듣기 · 이름 채우기는 그대로.
+//   ⚠️ 「들려주기」 이름은 재생 · 멈춤 때마다 여러 곳이 textContent 로 다시 쓴다(🔊 들려주기 ↔ ⏹ 그만듣기) — 지켜보다가 그림 글자를 선 아이콘으로 바꾼다.
+//   ⚠️ 연속 · 반복 · 배경음악은 코드가 체크를 직접 끄기도 한다(change 가 안 난다) — 칸 색이 아니라 체크 상자 자체로 켬/끔을 보인다(style.css).
+function prayApplyA() {
+  if (typeof PRAY_LAYOUT === "undefined" || PRAY_LAYOUT !== "a") return;
+  const wrap = document.querySelector("#app .pr-wrap");
+  if (!wrap) return;
+  wrap.classList.add("pr-a");
+  const big = document.getElementById("pr-big");
+  if (big) { big.innerHTML = haSvg("expand", "pra-ic"); big.setAttribute("aria-label", "크게 보기"); }
+  const cfg = document.getElementById("pr-cfg");
+  if (cfg) { cfg.innerHTML = haSvg("sliders", "pra-ic"); cfg.setAttribute("aria-label", "듣기 설정"); }
+  const sp = document.getElementById("pr-speak");
+  if (sp) {
+    const deco = () => {
+      if (sp.querySelector("svg")) return;
+      const stop = /그만/.test(sp.textContent);
+      setStripEmoji(sp);
+      sp.insertAdjacentHTML("afterbegin", haSvg(stop ? "stop" : "speaker", "pra-ic"));
+    };
+    deco();
+    new MutationObserver(deco).observe(sp, { childList: true, characterData: true, subtree: true });
+  }
+  const nm = document.getElementById("pr-name");
+  if (nm) { setStripEmoji(nm); nm.insertAdjacentHTML("afterbegin", haSvg("user", "pra-ic")); }
+  const pv = document.getElementById("pr-prev");
+  if (pv) pv.innerHTML = haSvg("back", "pra-ic") + "<span>이전</span>";
+  const nx = document.getElementById("pr-next");
+  if (nx) nx.innerHTML = "<span>다음</span>" + haSvg("chev", "pra-ic");
+  wrap.querySelectorAll(".pr-acc-caret").forEach((c) => { c.innerHTML = haSvg("down", "pra-caret"); });
+  const bgm = document.getElementById("pr-bgm-chk");
+  const bl = bgm && bgm.parentElement;
+  if (bl) [...bl.childNodes].forEach((n) => { if (n.nodeType === 3 && /배경음악/.test(n.data)) n.data = " 배경음악"; });
+}
+
 let prayLogged = null;   // 방금 기록한 편 — 이름 바꾸기 등으로 다시 그릴 때 두 번 세지 않게
 
 function drawPrayer(list, i) {
@@ -322,6 +358,7 @@ function drawPrayer(list, i) {
     setPrayPref(PRAY_BGM_KEY, e.target.checked);
     togglePrayBgMusic(e.target.checked);
   });
+  prayApplyA();   // 기도문 A안(PRAY_LAYOUT) — 연결을 다 단 뒤 옷만
 }
 
 // 주제 아코디언 한 칸을 펴거나 접는다.

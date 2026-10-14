@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261014y";
+const APP_BUILD = "20261014z";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -793,6 +793,8 @@ const BOARD_LAYOUT = "a";
 const MED_LAYOUT = "a";
 // 💬 내게 주시는 말씀 A안(2026-10-14 친구 「2안」 · applyScA — 묻는 칸 크게 · 주제 두 줄 타일) — 롤백은 "old" 한 줄 + bump
 const SC_LAYOUT = "a";
+// 🙏 가정 축복 기도문 A안(2026-10-14 친구 「1안」 · js/prayer.js prayApplyA) — 롤백은 "old" 한 줄 + bump
+const PRAY_LAYOUT = "a";
 const MEMO_KEY = "memo-preview";
 function readMemoPreviewParam() {
   try {
@@ -914,6 +916,10 @@ const HA_ICON = {
   doc: "M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5",                   // 🌿 묵상 A — 설교 요약
   search: "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3",       // 💬 내게 주시는 말씀 A — 질문
   flag: "M4 21V4M4 4h12l-2 4 2 4H4",                                   // 💬 내게 주시는 말씀 A — 이 답 알리기
+  expand: "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5",                    // 🙏 기도문 A — 크게 보기
+  sliders: "M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M14 4v4M8 10v4M16 16v4", // 🙏 기도문 A — 듣기 설정
+  down: "M6 9l6 6 6-6",                                                // 🙏 기도문 A — 펴기 꺾쇠
+  stop: "M7 7h10v10H7z",                                               // 🙏 기도문 A — 그만듣기
   gear: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3.1 15H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 4.1V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.7 1.7 0 0 0 20.9 10H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z",
 };
 const HA_GROUPS = [

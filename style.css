@@ -7681,3 +7681,71 @@ html[data-fs="xl"] .vl-a .vs-ic { width: 20px; height: 20px; }
 .dark .sc-a .sc-answer { background: #1a202b; border-color: #2c3442; color: #f1eee7; }
 .dark .sc-a .sc-src { background: #1a202b; border-color: #2c3442; }
 .dark .sc-a .sc-src-icon { background: #22304a; color: #9dbbea; }
+
+/* ── 🙏 가정 축복 기도문 A안(js/prayer.js prayApplyA · 2026-10-14 친구 「1안 — 짜임 그대로 · A 옷」) ─────────────────────────────
+   흰 카드 · 옅은 테두리(금색 테두리 대신) · 「오늘의 가정 축복 기도문」 옅은 금색 알약 · 기도문 본문 · 이름 금색 강조는 그대로 ·
+   ⛶ · ⚙ 테두리 네모 + 선 아이콘 · 들려주기 남색 + 선 아이콘 · 연속 · 반복 · 배경음악은 회색 판(켬/끔은 체크 상자) · 이전 · 이름 · 다음 테두리 ·
+   주제로 찾기는 흰 카드 하나에 줄(펼친 줄은 옅은 남색). */
+.pr-a .pr-card { background: #fff; border: 1px solid #e5dfd4; border-radius: 18px; box-shadow: none; }
+.pr-a .pr-kicker { display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px; border-radius: 999px; background: #fbf1d6; color: #7a5a12; font-size: .84rem; }
+.pr-a .pr-title { font-family: "Noto Sans KR", sans-serif; color: #1b2333; }
+.pr-a .pr-ref { color: #1e3a6b; font-weight: 700; }
+.pr-a .pra-ic { width: 20px; height: 20px; flex: none; }
+.pr-a .pr-verse-tog { display: inline-flex; align-items: center; justify-content: center; gap: 4px; border: 0; background: transparent; color: #1e3a6b; font-weight: 700; }
+.pr-a .pr-big, .pr-a .pr-cfg { display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid #8da3c8; border-radius: 14px; background: #fff; color: #1e3a6b; font-size: 0; }
+.pr-a .pr-big:hover, .pr-a .pr-cfg:hover, .pr-a .pr-cfg.open { background: #eaf0f9; color: #1e3a6b; }
+.pr-a .pr-speak { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 14px; background: #1e3a6b; }
+.pr-a .pr-speak:hover { background: #152b52; }
+.pr-a .pr-opts { display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: #ece7dd; }
+.pr-a .pr-opt-label { flex: 1 1 0; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 42px; border-radius: 9px; color: #1b2333; font-weight: 700; }
+.pr-a .pr-opt-label input[type="checkbox"] {
+  -webkit-appearance: none; appearance: none; width: 20px; height: 20px; margin: 0; flex: none; cursor: pointer;
+  border: 2px solid #6e7787; border-radius: 6px; background: #fff center / 13px no-repeat;
+}
+.pr-a .pr-opt-label input[type="checkbox"]:checked {
+  border-color: #1e3a6b; background-color: #1e3a6b;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5 9-10'/%3E%3C/svg%3E");
+}
+.pr-a .pr-nav .pr-arrow, .pr-a .pr-nav .pr-name { display: inline-flex; align-items: center; justify-content: center; gap: 4px; border: 1.5px solid #8da3c8; border-radius: 12px; background: #fff; color: #1e3a6b; }
+.pr-a .pr-nav .pr-arrow:hover, .pr-a .pr-nav .pr-name:hover { background: #eaf0f9; color: #1e3a6b; border-color: #8da3c8; }
+.pr-a .grp-title { text-align: left; color: #4a5468; }
+.pr-a .pr-acc { gap: 0; background: #fff; border: 1px solid #e5dfd4; border-radius: 16px; overflow: hidden; }
+.pr-a .pr-acc-item { border: 0; border-top: 1px solid #e5dfd4; border-radius: 0; }
+.pr-a .pr-acc-item:first-child { border-top: 0; }
+.pr-a .pr-acc-head { min-height: 54px; border: 0; background: #fff; color: #1b2333; }
+.pr-a .pr-acc-head b { color: #7a5a12; }
+.pr-a .pr-acc-item.open .pr-acc-head { background: #eaf0f9; color: #1e3a6b; }
+.pr-a .pr-acc-item.open .pr-acc-head b { color: #7a5a12; }
+.pr-a .pra-caret { width: 18px; height: 18px; color: #8a93a3; }
+.pr-a .pr-acc-body { background: #faf8f4; }
+.dark .pr-a .pr-card { background: #1a202b; border-color: #2c3442; }
+.dark .pr-a .pr-kicker { background: #3a3018; color: #e9cd7e; }
+.dark .pr-a .pr-title { color: #f1eee7; }
+.dark .pr-a .pr-ref, .dark .pr-a .pr-verse-tog { color: #9dbbea; }
+.dark .pr-a .pr-big, .dark .pr-a .pr-cfg { background: #1a202b; border-color: #4a6597; color: #9dbbea; }
+.dark .pr-a .pr-big:hover, .dark .pr-a .pr-cfg:hover, .dark .pr-a .pr-cfg.open { background: #22304a; color: #9dbbea; }
+.dark .pr-a .pr-speak { background: #2f5596; }
+.dark .pr-a .pr-opts { background: #262d39; }
+.dark .pr-a .pr-opt-label { color: #f1eee7; }
+.dark .pr-a .pr-opt-label input[type="checkbox"] { background-color: transparent; border-color: #949dad; }
+.dark .pr-a .pr-opt-label input[type="checkbox"]:checked { background-color: #2f5596; border-color: #2f5596; }
+.dark .pr-a .pr-nav .pr-arrow, .dark .pr-a .pr-nav .pr-name { background: #1a202b; border-color: #4a6597; color: #9dbbea; }
+.dark .pr-a .pr-nav .pr-arrow:hover, .dark .pr-a .pr-nav .pr-name:hover { background: #22304a; }
+.dark .pr-a .grp-title { color: #b9c0cd; }
+.dark .pr-a .pr-acc { background: #1a202b; border-color: #2c3442; }
+.dark .pr-a .pr-acc-item { border-top-color: #2c3442; }
+.dark .pr-a .pr-acc-head { background: #1a202b; color: #f1eee7; }
+.dark .pr-a .pr-acc-item.open .pr-acc-head { background: #22304a; color: #9dbbea; }
+.dark .pr-a .pr-acc-head b { color: #e9cd7e; }
+.dark .pr-a .pr-acc-body { background: #131925; }
+/* 기도문 A — 펼친 주제 안: 「▶ 이 주제 전체 듣기」는 남색 테두리 · 편마다 흰 줄(오늘 편은 옅은 금색) */
+.pr-a .pr-acc-body .summary-help { border: 1px solid #e5dfd4; border-radius: 12px; background: #fff; color: #1b2333; box-shadow: none; }
+.pr-a .pr-acc-body .summary-help:hover { background: #f7f4ee; color: #1b2333; }
+.pr-a .pr-acc-body .summary-help.pr-group-play { border: 1.5px solid #8da3c8; background: #fff; color: #1e3a6b; }
+.pr-a .pr-acc-body .summary-help.pr-group-play .pr-item-ref { color: #4a5468; }
+.pr-a .pr-acc-body .pr-item.on { border-color: #e6d29c; background: #fdf8ea; }
+.dark .pr-a .pr-acc-body .summary-help { background: #1a202b; border-color: #2c3442; color: #f1eee7; }
+.dark .pr-a .pr-acc-body .summary-help.pr-group-play { background: #1a202b; border-color: #4a6597; color: #9dbbea; }
+.dark .pr-a .pr-acc-body .summary-help.pr-group-play .pr-item-ref { color: #b9c0cd; }
+.dark .pr-a .pr-acc-body .pr-item.on { background: #221e14; border-color: #5c4c22; }
+
