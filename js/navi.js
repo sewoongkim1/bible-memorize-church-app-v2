@@ -335,6 +335,8 @@ function renderNaviTest(verse, stage) {
   setupAnswerToggle();
   // ⚠️ 카드 여부는 「카드 모드로 마쳤는가」(isCardMode)로 센다 — 주간 checkAllComplete·물가와 같은 뜻이다.
   setupAutoCheck(verse, stage, () => nvStageDone(verse, stage, isCardMode()));
+  // 주간 암송 화면과 같은 A안 옷(app.js applyMemoLayout · 스위치 MEMO_LAYOUT · 2026-10-14) — 다시 그리기는 이 화면 함수로(주간 함수는 못 부른다)
+  if (typeof applyMemoLayout === "function" && memoVariant()) applyMemoLayout(verse, stage, () => renderNaviTest(verse, stage));
 }
 
 // 빈칸을 다 채웠을 때 — 저장(주간과 같은 길: progress·challenge_log learn-typing/learn-typing-card → 오늘 N회·순위·도장)

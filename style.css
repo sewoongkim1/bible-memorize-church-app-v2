@@ -7123,3 +7123,10 @@ html[data-fs="xl"] .test-screen.memo-b .test-sentence, html[data-fs="xl"] .test-
 .test-screen.memo-c .test-sentence, .test-screen.memo-c .word-input { font-size: 24px; }
 html[data-fs="lg"] .test-screen.memo-c .test-sentence, html[data-fs="lg"] .test-screen.memo-c .word-input { font-size: 26px; }
 html[data-fs="xl"] .test-screen.memo-c .test-sentence, html[data-fs="xl"] .test-screen.memo-c .word-input { font-size: 28px; }
+
+/* ── 🔁 복습 화면 A안(app.js applyReviewA · 2026-10-14) — 머리 줄 · 도구 · 말씀 상자는 도전 A(.mm-ch) · 암송 A(.memo-a) 옷 그대로 ── */
+.test-screen.mm-rv .mm-ch-title .mm-ic { fill: none; color: #1e3a6b; }
+.dark .test-screen.mm-rv .mm-ch-title .mm-ic { fill: none; color: #9dbbea; }
+.test-screen.mm-rv .challenge-hint-line { display: none; }   /* 「복습 N / M · 다시 외워볼까요?」는 머리 줄로 옮겼다 */
+/* 주제별 성경암송(네비게이토) 3단계도 암송 A 옷(applyMemoLayout) — 묶음 · 주제 줄(.nv-tag)은 말씀 상자 위 그대로 */
+.test-screen.nv-test[data-memo] .nv-tag { margin: 0 2px 10px; }

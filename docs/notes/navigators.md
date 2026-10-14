@@ -34,6 +34,7 @@
 - **전체 수를 쓰지 않는다** — 묶음 줄은 「3구절 마침」 · 다 마치면 「🎉 다 마쳤어요」(첫 화면에서 전체 수를 뺀 것과 같은 까닭). 「앨범에 담겼어요」·「복습이 예약됐어요」를 쓰지 않는다(네비게이토는 둘 다 아니다 — 그래서 `FIRST_DONE_HTML` 도 안 쓴다).
 - 카드 번호(엑셀 F열 「A-1」)는 DB 에 담지 않았다 — 번호 매기는 법을 카드 실물과 대조 못 했다. 목록의 작은 수는 묶음 안 차례.
 - 지연 파일 — `LAZY_JS.navi`(`js/navi.js` · fn `renderNaviHome`) · 들어오는 길은 `openNavi()` 하나(첫 화면 단추). 미리 받지 않는다(열면 모두에게 보이는 단추). 맨 위 이름은 `nv`/`NV_` 머리(겹치면 받는 순간 SyntaxError — `tests/lazy-load.test.cjs`).
+- **화면 옷은 주간 암송과 같은 A안(2026-10-14 v3.635)** — `renderNaviTest` 끝에서 `applyMemoLayout(verse, stage, () => renderNaviTest(verse, stage))`. ⚠️ 세 번째 인자를 빼면 「옛 화면으로」가 `renderTestScreen`(주간)을 불러 주간 1번으로 튄다. 스위치 · 롤백은 `design-refresh.md` 「암송 · 말씀 도전 화면 A안을 모든 성도님께」.
 - 열람 기록: 단추 누름에서 `logFeature("navi", 0)` — 서버 `FEATURES` 에 아직 없어 조용히 건너뛴다(**여는 날 더한다**).
 
 ## 여는 날(친구가 정한다) — 차례

@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261014n";
+const APP_BUILD = "20261014o";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -7488,6 +7488,7 @@ const MM_ICON = {
   shuffle: "M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5",
   book: "M2 4h6a4 4 0 0 1 4 4v12a3 3 0 0 0-3-3H2zM22 4h-6a4 4 0 0 0-4 4v12a3 3 0 0 1 3-3h7z",
   trophy: "M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4",
+  repeat: "M17 2l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3",   // 🔁 복습
 };
 function mmSvg(name) {
   return `<svg class="mm-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="${MM_ICON[name]}"/></svg>`;
@@ -7590,7 +7591,9 @@ function mmFitCardBox() {
   if (next) sen.scrollTop = Math.max(0, next.offsetTop - sen.offsetTop - 8);
 }
 window.addEventListener("resize", () => { if (document.querySelector("#app .test-screen[data-memo]")) mmFitCardBox(); });
-function applyMemoLayout(verse, stage) {
+// rerender — 미리보기 줄의 「원래 화면으로」가 다시 그릴 함수(기본 renderTestScreen).
+//   ⚠️ 네비게이토(주제별 성경암송 · js/navi.js)는 자기 함수를 넘긴다 — 주간 화면 함수는 전역 verses(주간)에 묶여 있다(docs/notes/navigators.md)
+function applyMemoLayout(verse, stage, rerender) {
   const v = memoVariant();
   const scr = document.querySelector("#app .test-screen");
   const card = scr && scr.querySelector(".test-card");
@@ -7612,7 +7615,7 @@ function applyMemoLayout(verse, stage) {
   bar.innerHTML = `<span>🧪 새 암송 화면 미리보기 · 이 기기에서만</span><span class="mm-pick"><button type="button" data-v="">원래 화면으로</button></span>`;
   bar.querySelector("button[data-v]").addEventListener("click", () => {
     try { localStorage.removeItem(MEMO_KEY); } catch (e) {}
-    renderTestScreen(verse, stage);
+    if (rerender) rerender(); else renderTestScreen(verse, stage);
   });
 
   // 1) 머리 — 「목록」 + 단계(B 는 한 줄 · A · C 는 두 줄)
@@ -7765,17 +7768,7 @@ function applyChallengeA(verse, hard) {
   title.className = "mm-ch-title" + (hard ? " hard" : "");
   title.innerHTML = mmSvg("flame") + `<span>${hard ? "어려움" : "말씀"}</span>`;   // 한 줄로 「🔥 말씀 · 빈칸 N개」 · 어려운 도전은 「🔥 어려움」(「어려운 도전」은 폰에서 「어려운…」으로 잘렸다 — 친구 2026-10-14)
   head.appendChild(title);
-  if (remain) {
-    // 옛 코드가 「남은 빈칸 N개」·「모두 맞혔어요! 🎉」를 넣는다 — 머리 줄 한 줄에 들어가게 「빈칸 N개」·「다 맞혔어요」로 줄인다
-    const short = () => {
-      const t = remain.textContent;
-      const s = /남은 빈칸 (\d+)개/.test(t) ? t.replace(/남은 빈칸 (\d+)개/, "빈칸 $1개") : (/모두 맞혔어요/.test(t) ? "다 맞혔어요" : t);
-      if (s !== t) remain.textContent = s;
-    };
-    short();
-    new MutationObserver(short).observe(remain, { childList: true, characterData: true, subtree: true });
-    head.appendChild(remain);
-  }
+  if (remain) { mmShortRemain(remain); head.appendChild(remain); }
   if (memoPreviewing()) { sticky.after(bar); bar.after(head); } else sticky.after(head);
 
   // 2) 도구 칸 — 힌트 · 다른 말씀 · 말하기 · 그림
@@ -7814,6 +7807,99 @@ function applyChallengeA(verse, hard) {
   }
 
   // 5) 설교 영상 — 줄 단추
+  const watch = card.querySelector(".sermon-connect .sc-watch");
+  if (watch) {
+    watch.classList.add("mm-row");
+    watch.innerHTML = mmSvg("tv") + `<span>이 말씀의 설교 영상</span>` + mmSvg("chev");
+  }
+  mmTightBlanks(scr);
+  mmFitCardBox();
+  try { document.fonts.ready.then(mmFitCardBox); } catch (e) {}
+}
+
+// 옛 코드가 넣는 「남은 빈칸 N개」·「모두 맞혔어요! 🎉」를 머리 줄 한 줄에 들어가게 「빈칸 N개」·「다 맞혔어요」로(도전 · 복습)
+function mmShortRemain(remain) {
+  const short = () => {
+    const t = remain.textContent;
+    const s = /남은 빈칸 (\d+)개/.test(t) ? t.replace(/남은 빈칸 (\d+)개/, "빈칸 $1개") : (/모두 맞혔어요/.test(t) ? "다 맞혔어요" : t);
+    if (s !== t) remain.textContent = s;
+  };
+  short();
+  new MutationObserver(short).observe(remain, { childList: true, characterData: true, subtree: true });
+}
+
+// 🔁 복습 화면 A안(2026-10-14 친구 — 암송 · 도전과 같은 옷 · 같은 스위치 MEMO_LAYOUT) — renderReview 가 다 그린 뒤 옮겨 담는다.
+//   채점 · 카드 · 음성 · 기록(review-*) · 다음 구절로 넘어가기는 옛 코드 그대로(docs/notes/memorize-flow.md 「복습을 review- 로」).
+//   머리 줄은 도전 A 와 같다 — 왼쪽 「🔁 복습 1/3 · 빈칸 N개」(글) · 오른쪽 「‹ 첫 화면」(옛 「← 뒤로」도 첫 화면으로 갔다).
+function applyReviewA(queue, idx) {
+  if (!memoVariant()) return;
+  const scr = document.querySelector("#app .test-screen");
+  const card = scr && scr.querySelector(".test-card");
+  if (!card) return;
+  const sticky = card.querySelector(".test-ref-sticky");
+  const btnRow = card.querySelector(".btn-row");
+  const sentence = card.querySelector(".test-sentence");
+  const modeBtn = document.getElementById("rv-mode-toggle");
+  const exit = document.getElementById("rv-exit");
+  const remain = document.getElementById("ch-remain");
+  if (!sticky || !btnRow || !sentence) return;
+  scr.dataset.memo = "a";
+  scr.classList.add("memo-a", "mm-ch", "mm-rv");
+  const cardMode = isCardMode();
+
+  const bar = document.createElement("div");
+  bar.className = "hb-bar mm-bar";
+  bar.innerHTML = `<span>🧪 새 복습 화면 미리보기 · 이 기기에서만</span><span class="mm-pick"><button type="button" id="mm-rv-off">원래 화면으로</button></span>`;
+  bar.querySelector("#mm-rv-off").addEventListener("click", () => {
+    try { localStorage.removeItem(MEMO_KEY); } catch (e) {}
+    stopSpeaking();
+    renderReview(queue, idx);
+  });
+
+  const head = document.createElement("div");
+  head.className = "mm-head mm-ch-head";
+  if (exit) {
+    exit.classList.add("mm-back");
+    exit.innerHTML = mmSvg("back") + "<span>첫 화면</span>";
+    head.appendChild(exit);
+  }
+  const title = document.createElement("div");
+  title.className = "mm-ch-title";
+  title.innerHTML = mmSvg("repeat") + `<span>복습 ${idx + 1}/${queue.length}</span>`;
+  head.appendChild(title);
+  if (remain) { mmShortRemain(remain); head.appendChild(remain); }
+  if (memoPreviewing()) { sticky.after(bar); bar.after(head); } else sticky.after(head);
+
+  mmTool(document.getElementById("show-answer-btn"), "eye", "보기");
+  mmTool(document.getElementById("listen-answer-btn"), "speaker", "듣기");
+  mmTool(document.getElementById("voice-toggle"), "mic", "말하기");
+  const imgFind = () => document.querySelector('#help-slot .help-btn[data-k="img"]');
+  const imgProxy = mmProxy("mm-img", "image", "그림", imgFind, () => setTimeout(() => {
+    const hb = document.getElementById("help-body");
+    if (hb && !hb.hidden) hb.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, 80));
+  const helpSlot = document.getElementById("help-slot");
+  if (helpSlot) new MutationObserver(() => { imgProxy.hidden = !imgFind(); }).observe(helpSlot, { childList: true });
+  btnRow.classList.add("mm-tools");
+  btnRow.appendChild(imgProxy);
+  if (modeBtn) modeBtn.classList.add("mm-hide");
+
+  const row = document.createElement("div");
+  row.className = "mm-inrow";
+  row.innerHTML = `<span class="mm-inlabel">${cardMode ? "낱말을 눌러 채워요" : "빈칸에 낱말을 써요"}</span>` +
+    `<span class="mm-seg" role="group" aria-label="입력 방법"><button type="button" data-m="0" aria-pressed="${!cardMode}">쓰기</button><button type="button" data-m="1" aria-pressed="${cardMode}">카드</button></span>`;
+  row.querySelectorAll("button[data-m]").forEach((b) => b.addEventListener("click", () => {
+    if ((b.dataset.m === "1") !== isCardMode() && modeBtn) modeBtn.click();
+  }));
+  sentence.after(row);
+
+  const heart = document.getElementById("heart-label");
+  if (heart) {
+    const box = document.createElement("div");
+    box.className = "mm-checks";
+    heart.before(box);
+    box.appendChild(heart);
+  }
   const watch = card.querySelector(".sermon-connect .sc-watch");
   if (watch) {
     watch.classList.add("mm-row");
@@ -9688,7 +9774,7 @@ const MANUAL = [
     steps: [
       "첫 화면 <b>「암송 과정」</b>에서 <b>📚 주제별 성경암송</b>을 누르세요.",
       "외우고 싶은 <b>묶음</b>을 고르세요. 어느 묶음부터 시작하셔도 돼요.",
-      "구절을 누르면 <b>📖 말씀 암송</b>과 같은 세 단계로 외워요. <b>👆 카드</b>로 채워도 돼요.",
+      "구절을 누르면 <b>📖 말씀 암송</b>과 같은 세 단계로 외워요. 말씀 아래 <b>쓰기 | 카드</b>에서 <b>카드</b>로 채워도 돼요.",
       "다 외우시면 <b>다음 말씀 ▶</b>으로 그 묶음의 다음 구절로 가요.",
     ],
     tip: "외운 기록은 <b>📖 말씀 암송</b>과 똑같이 남아 <b>도전 순위</b>에도 함께 세져요. 묶음 목록에서 <b>몇 구절 마쳤는지</b> 볼 수 있어요.",
@@ -10346,6 +10432,7 @@ function renderReview(queue, idx) {
   };
   setupChallengeTyping(verse, onDone);
   setupVoice(verse, 3, onDone);
+  applyReviewA(queue, idx);   // 복습 A안(MEMO_LAYOUT)
 }
 
 function reviewNext(queue, idx) {
