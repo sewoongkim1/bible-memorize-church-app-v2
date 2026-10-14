@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261014z";
+const APP_BUILD = "20261014aa";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -795,6 +795,8 @@ const MED_LAYOUT = "a";
 const SC_LAYOUT = "a";
 // 🙏 가정 축복 기도문 A안(2026-10-14 친구 「1안」 · js/prayer.js prayApplyA) — 롤백은 "old" 한 줄 + bump
 const PRAY_LAYOUT = "a";
+// 🔑 로그인 A안(2026-10-14 친구 「2안」 + 「이름을 먼저」 · applyLoginA — 번호 붙은 칸 셋) — 롤백은 "old" 한 줄 + bump
+const LOGIN_LAYOUT = "a";
 const MEMO_KEY = "memo-preview";
 function readMemoPreviewParam() {
   try {
@@ -2654,6 +2656,45 @@ function renderGuardianCheck(required, next) {
   });
 }
 
+// ── 🔑 로그인 A안(2026-10-14 친구 「2안 — 세 칸으로 나눔」 + 「이름을 먼저」 · 샘플 자료/design/2026-10-14-login-sample · 스위치 LOGIN_LAYOUT) ──
+//   renderEntryScreen 이 그리고 연결을 다 단 뒤 옮겨 담는다 — 입력 칸 · 칩의 id · name · 연결 · 확인(시작하기) · 보호자 확인은 그대로.
+//   번호 붙은 흰 카드 셋: ① 이름 · ② 어디에 계세요?(구분 · 교구/부서 · 목장/학년) · ③ 안내 확인(개인정보 안내 · 동의 · 보호자 확인).
+//   ⚠️ 글자는 하나도 안 바꾼다 — 개인정보 안내 · 동의 · 보호자 확인은 스토어 심사 문장이다(docs/notes/store-review.md · 스킬 copy-truth).
+//   이름을 먼저 묻는 차례는 「로그인 방법」 안내(renderLoginHelp)도 같게 한다 · 시작하기의 확인도 이미 이름부터 본다.
+function applyLoginA() {
+  if (LOGIN_LAYOUT !== "a") return;
+  const scr = document.querySelector("#app .entry-screen");
+  const card = scr && scr.querySelector(".entry-card");
+  if (!card || card.querySelector(".lg-sec")) return;
+  scr.classList.add("lg-a");
+  const head = document.querySelector("#app .entry-header");
+  if (head) head.classList.add("lg-a");
+  const mt = head && head.querySelector(".entry-main-title");
+  if (mt) mt.insertAdjacentHTML("afterbegin", haSvg("book", "lga-tic"));
+  const help = document.getElementById("login-help");
+  if (help) { setStripEmoji(help); help.insertAdjacentHTML("afterbegin", haSvg("help", "lga-ic")); }
+  const pt = card.querySelector(".privacy-title");
+  if (pt) pt.insertAdjacentHTML("afterbegin", haSvg("shield", "lga-ic"));
+  const nameIn = document.getElementById("name");
+  const nameF = nameIn && nameIn.closest(".entry-field");
+  if (nameIn) nameIn.setAttribute("aria-label", "이름");   // 칸 제목 「이름」이 「성명」 라벨을 대신한다(라벨은 숨긴다)
+  const typeF = card.querySelector("#type-row") && card.querySelector("#type-row").closest(".entry-field");
+  const gu = document.getElementById("gu-fields"), school = document.getElementById("school-fields");
+  const priv = card.querySelector(".privacy-box");
+  const err = document.getElementById("entry-error");
+  if (!nameF || !typeF || !gu || !school || !priv || !err) return;
+  const sec = (n, t, cls) => {
+    const s = document.createElement("section");
+    s.className = "lg-sec" + (cls ? " " + cls : "");
+    s.innerHTML = `<div class="lg-st"><span class="lg-n">${n}</span>${t}</div>`;
+    return s;
+  };
+  const s1 = sec(1, "이름", "lg-name"), s2 = sec(2, "어디에 계세요?"), s3 = sec(3, "안내 확인");
+  s1.append(nameF);
+  s2.append(typeF, gu, school);
+  s3.append(priv);
+  err.before(s1, s2, s3);
+}
 function renderEntryScreen() {
   const u = loadUser() || { type: "교구" };
   const appEl = document.getElementById("app");
@@ -2776,6 +2817,7 @@ function renderEntryScreen() {
   document.querySelectorAll('input[name="bu"]').forEach((r) => r.addEventListener("change", applyGuardian));
   document.getElementById("grade").addEventListener("input", applyGuardian);
   applyType();
+  applyLoginA();   // 로그인 A안(LOGIN_LAYOUT) — 번호 붙은 칸 셋 · 이름부터
 
   document.getElementById("entry-submit").addEventListener("click", () => {
     const type = document.querySelector('input[name="type"]:checked').value;
@@ -9762,6 +9804,12 @@ function renderLoginHelp(back) {
       '맨 아래 <b>시작하기</b>를 누르면 끝이에요! 🙌',
     ],
   };
+  // 로그인 A안(LOGIN_LAYOUT) — 화면이 이름부터 묻는다(친구 2026-10-14) · 안내 차례도 같게(이름 줄을 맨 앞으로)
+  if (LOGIN_LAYOUT === "a") Object.keys(stepsFor).forEach((k) => {
+    const s = stepsFor[k];
+    const i = s.findIndex((t) => t.indexOf("<b>이름</b>") === 0);
+    if (i > 0) s.unshift(s.splice(i, 1)[0]);
+  });
   let tab = "교구";
 
   function draw() {

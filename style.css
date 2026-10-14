@@ -7749,3 +7749,48 @@ html[data-fs="xl"] .vl-a .vs-ic { width: 20px; height: 20px; }
 .dark .pr-a .pr-acc-body .summary-help.pr-group-play .pr-item-ref { color: #b9c0cd; }
 .dark .pr-a .pr-acc-body .pr-item.on { background: #221e14; border-color: #5c4c22; }
 
+/* ── 🔑 로그인 A안(app.js applyLoginA · 2026-10-14 친구 「2안 — 세 칸으로 나눔」 + 「이름을 먼저」) ──────────────────────────
+   큰 흰 카드를 걷고 번호 붙은 흰 카드 셋(① 이름 · ② 어디에 계세요? · ③ 안내 확인) · 칩은 흰 알약(고른 것 남색 채움 — 어르신이 바로 알아보게) ·
+   입력 칸 옅은 바탕 · 개인정보 안내 방패 아이콘 · 동의 줄 옅은 남색 · 시작하기 크게. 글자는 그대로(스토어 심사 문장). */
+.entry-header.lg-a .entry-main-title { display: inline-flex; align-items: center; gap: 8px; font-family: "Noto Sans KR", sans-serif; color: #1b2333; }
+.entry-header.lg-a .lga-tic { width: 26px; height: 26px; flex: none; color: #1e3a6b; }
+.lg-a .lga-ic { width: 18px; height: 18px; flex: none; }
+.lg-a .entry-card { background: transparent; border: 0; box-shadow: none; padding: 0; }
+.lg-a .login-help-row { margin-bottom: 8px; }
+.lg-a .login-help-btn { display: inline-flex; align-items: center; gap: 6px; border: 1.5px solid #8da3c8; border-radius: 10px; background: #fff; color: #1e3a6b; }
+.lg-a .lg-sec { margin: 0 0 12px; padding: 14px 16px; background: #fff; border: 1px solid #e5dfd4; border-radius: 16px; }
+.lg-a .lg-st { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 1.05rem; font-weight: 800; color: #1b2333; }
+.lg-a .lg-n { width: 26px; height: 26px; flex: none; border-radius: 13px; background: #1e3a6b; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: .9rem; font-weight: 800; }
+.lg-a .lg-name .entry-label { display: none; }
+.lg-a .lg-sec .entry-field:last-child { margin-bottom: 0; }
+.lg-a .entry-label { color: #1b2333; font-weight: 800; }
+.lg-a .radio-chip span { border: 1px solid #e5dfd4; background: #fff; color: #1b2333; }
+.lg-a .radio-chip input:checked + span { border-color: #1e3a6b; background: #1e3a6b; color: #fff; }
+.lg-a .entry-input { min-height: 46px; border: 1px solid #e5dfd4; border-radius: 12px; background: #faf8f4; color: #1b2333; font-size: 1rem; }
+.lg-a .entry-input:focus { border-color: #1e3a6b; background: #fff; }
+.lg-a .lg-sec .privacy-box { margin: 0; padding: 0; border: 0; background: transparent; }
+.lg-a .privacy-title { display: flex; align-items: center; gap: 6px; color: #1b2333; }
+.lg-a .privacy-title .lga-ic { color: #1e3a6b; }
+.lg-a .privacy-box p { color: #4a5468; }
+.lg-a .privacy-more { border: 1.5px solid #8da3c8; border-radius: 10px; background: #fff; color: #1e3a6b; }
+.lg-a .privacy-consent { margin-top: 4px; padding: 10px 12px; border-radius: 12px; background: #eaf0f9; color: #1b2333; }
+.lg-a .privacy-consent.guardian-consent { margin-top: 8px; background: #fbf1d6; }
+.lg-a .entry-submit { min-height: 56px; border-radius: 14px; background: #1e3a6b; font-size: 1.15rem; font-weight: 800; }
+.dark .entry-header.lg-a .entry-main-title { color: #f1eee7; }
+.dark .entry-header.lg-a .lga-tic { color: #9dbbea; }
+.dark .lg-a .entry-card { background: transparent; border: 0; }
+.dark .lg-a .login-help-btn { background: #1a202b; border-color: #4a6597; color: #9dbbea; }
+.dark .lg-a .lg-sec { background: #1a202b; border-color: #2c3442; }
+.dark .lg-a .lg-st, .dark .lg-a .entry-label { color: #f1eee7; }
+.dark .lg-a .lg-n { background: #2f5596; }
+.dark .lg-a .radio-chip span { background: #1a202b; border-color: #2c3442; color: #f1eee7; }
+.dark .lg-a .radio-chip input:checked + span { background: #2f5596; border-color: #2f5596; color: #fff; }
+.dark .lg-a .entry-input { background: #131925; border-color: #2c3442; color: #f1eee7; }
+.dark .lg-a .lg-sec .privacy-box { background: transparent; }
+.dark .lg-a .privacy-title { color: #f1eee7; }
+.dark .lg-a .privacy-title .lga-ic { color: #9dbbea; }
+.dark .lg-a .privacy-box p { color: #b9c0cd; }
+.dark .lg-a .privacy-more { background: #1a202b; border-color: #4a6597; color: #9dbbea; }
+.dark .lg-a .privacy-consent { background: #22304a; color: #f1eee7; }
+.dark .lg-a .privacy-consent.guardian-consent { background: #3a3018; }
+.dark .lg-a .entry-submit { background: #2f5596; }
