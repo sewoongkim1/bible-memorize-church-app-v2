@@ -7055,3 +7055,25 @@ body.native-app-hide-ref .test-screen[data-memo] .mm-head { top: calc(90px + var
 /* 쓰기(키보드)로 다음 칸에 갈 때 그 칸이 띠 · 머리 줄 밑에 가리지 않게 */
 body:not(.native-app-hide-ref) .test-screen[data-memo] .word-input { scroll-margin-top: calc(var(--ref-bottom, 50px) + 72px); }
 body.native-app-hide-ref .test-screen[data-memo] .word-input { scroll-margin-top: 160px; }
+/* 「‹ 목록으로」(도전은 「‹ 첫 화면」)를 머리 줄 오른쪽 끝에 · 단추로 보이게 테두리를(친구 2026-10-14 「오른쪽으로 해 주고 버튼으로 인식되게」) */
+.test-screen[data-memo] .mm-head .mm-back {
+  order: 9; margin-left: auto; min-height: 40px; padding: 0 12px 0 8px; border-radius: 10px;
+  font-size: .94rem; font-weight: 800;
+}
+.test-screen[data-memo] .mm-head .mm-back .mm-ic { width: 18px; height: 18px; stroke-width: 2.4; }
+.test-screen.memo-a .mm-head .mm-back { border: 1.5px solid #8da3c8; background: #fff; color: #1e3a6b; }
+.test-screen.memo-a .mm-head .mm-back:hover { background: #eaf0f9; }
+.test-screen.memo-b .mm-head .mm-back { border: 1.5px solid #c9b79e; background: #fffcf6; color: #7a3326; }
+.test-screen.memo-b .mm-head .mm-back:hover { background: #f4eee2; }
+.test-screen.memo-c .mm-head .mm-back { min-height: 48px; padding: 0 16px 0 10px; border: 2px solid #1c3d7a; border-radius: 24px; background: #fff; color: #1c3d7a; font-size: 1.06rem; }
+.test-screen.memo-c .mm-head .mm-back:hover { background: #e6edf8; }
+.dark .test-screen.memo-a .mm-head .mm-back { border-color: #4a6597; background: #1a202b; color: #9dbbea; }
+.dark .test-screen.memo-b .mm-head .mm-back { border-color: #5a4a3a; background: #211b15; color: #e8a694; }
+.dark .test-screen.memo-c .mm-head .mm-back { border-color: #6f93d0; background: #0e1116; color: #a9c4f0; }
+.dark .test-screen[data-memo] .mm-head .mm-back:hover { background: #222a37; }
+/* B 는 단계(3단계 ●●● · 안내)가 왼쪽 · 단추가 오른쪽 */
+.test-screen.memo-b .mm-steps { flex: 1 1 auto; }
+.test-screen.memo-b .mm-note { margin-left: 0; }
+/* 도전 A — 왼쪽 「🔥 말씀 도전 · 남은 빈칸」 · 오른쪽 「‹ 첫 화면」 */
+.test-screen.mm-ch .mm-ch-title { flex: 0 1 auto; justify-content: flex-start; }
+.test-screen.mm-ch .mm-ch-head .challenge-remain { margin: 0 0 0 10px; }
