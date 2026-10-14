@@ -22,6 +22,10 @@ function nativeAppInfo() {
 if (isNativeApp()) {
   document.addEventListener("DOMContentLoaded", () => document.body.classList.add("native-app-hide-ref"));
   if (document.body) document.body.classList.add("native-app-hide-ref");
+  // 상태바 몫의 위 여백을 웹이 한 번 더 주지 않게(style.css 의 var(--app-safe-top, env(safe-area-inset-top)) 자리들).
+  //   AppDelegate.configureNativeAppCss 도 같은 값을 심지만 앱을 켤 때 · 1초 · 3초 · 다시 열 때뿐이라, 배포 직후 웹이 스스로
+  //   새로고침하면(app.js APP_BUILD 안전장치) 값이 사라져 맨 위 띠 위가 상태바 높이만큼 비었다(2026-10-14 친구 실기기). 문서마다 여기서 다시 심는다.
+  try { document.documentElement.style.setProperty("--app-safe-top", "0px"); } catch (e) {}
 }
 
 // 저녁 알림(20시)이 실제로 나가기 시작한 날 true 로 바꾼다.

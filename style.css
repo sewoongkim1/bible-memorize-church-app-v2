@@ -979,6 +979,9 @@ body.native-app-hide-ref .word-input { scroll-margin-top: 90px; }
 }
 .word-input:focus { border-bottom-color: var(--navy); }
 .word-input.correct { border-bottom-color: var(--green); color: var(--green); }
+/* 채운 칸은 disabled 다 — 아이폰 사파리(WebKit)는 disabled 입력 칸을 제 색(-webkit-text-fill-color)과 흐림(opacity)으로 덮어
+   우리가 준 초록이 연하게 보였다(2026-10-14 친구 실기기 「글자 색이 너무 흐려요」 · 데스크톱 크롬은 그대로라 점검에서 안 잡혔다). */
+.word-input:disabled { -webkit-text-fill-color: currentColor; opacity: 1; }
 .word-input.wrong {
   border-bottom-color: var(--error);
   color: var(--error);

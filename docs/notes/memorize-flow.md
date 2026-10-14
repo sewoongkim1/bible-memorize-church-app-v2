@@ -36,3 +36,7 @@
 - **암송·도전 화면(2026-08~09)** — 힌트 뒤 다시 암송 · 도전에도 카드 · 카드 모드 유지 · 단계 완료 창 · 첫 구절 이정표 · 어려운 도전 · 복습을 `review-` 로. ⚠️ **이 화면들을 손대기 전에 `docs/notes/memorize-flow.md`** — `challenge_log.mode` CHECK 제약, 공용 `setupChallengeTyping`(4곳), `norm` 이 전역이 아닌 것 등 한 번씩 사고를 낸 자리가 모여 있다.
 - **2026-10-14 단계 완료 창 · 마친 뒤 줄의 A안(v3.636 · 스위치 `MEMO_LAYOUT`).** 완료 창은 **창 그대로** 옷만 A(`applyStageDoneA` — 주간 · 주제별 · 물가 창은 제외) · 마친 뒤 줄은 말씀 바로 아래 완료 카드(`mmDoneCard` — `#result-area` 를 쟁반 뒤로 옮기고 다 쓴 쟁반을 숨긴다). 시안은 창 대신 화면 안 카드였지만 이 문서의 「끝난 줄 모르고 앉아 계셨다」 때문에 창을 지켰다. 상세 `design-refresh.md` 「v3.636」.
 
+## 채운 빈칸이 아이폰에서 흐리게 보였다(2026-10-14)
+맞힌 칸은 `.correct` 와 함께 **`disabled`** 가 된다(`setupChallengeTyping` 등 `accept`). 아이폰 사파리(WebKit)는 disabled 입력 칸을 제 글자색(`-webkit-text-fill-color`)과
+흐림(`opacity`)으로 덮어, 우리가 준 초록(A안 #1f7a4d)이 연하게 보였다(친구 실기기 「글자 색이 너무 흐려요」). 데스크톱 크롬 · 윈도 WebKit 은 그 규칙이 없어 점검에서 안 잡혔다.
+→ `style.css` `.word-input:disabled { -webkit-text-fill-color: currentColor; opacity: 1; }` — 모든 채운 칸이 제 색 그대로. ⚠️ 채운 칸 색을 바꿀 때는 아이폰 실기기로 본다.
