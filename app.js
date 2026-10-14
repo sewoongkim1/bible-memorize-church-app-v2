@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261014x";
+const APP_BUILD = "20261014y";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -791,6 +791,8 @@ const SETTINGS_LAYOUT = "a";
 const BOARD_LAYOUT = "a";
 // 🌿 매일 묵상 A안(2026-10-14 친구 「2안」 · applyMedA — 아래에서 올라오는 넓은 판) — 롤백은 "old" 한 줄 + bump
 const MED_LAYOUT = "a";
+// 💬 내게 주시는 말씀 A안(2026-10-14 친구 「2안」 · applyScA — 묻는 칸 크게 · 주제 두 줄 타일) — 롤백은 "old" 한 줄 + bump
+const SC_LAYOUT = "a";
 const MEMO_KEY = "memo-preview";
 function readMemoPreviewParam() {
   try {
@@ -910,6 +912,8 @@ const HA_ICON = {
   image: "M4 5h16v14H4zM4 16l5-5 5 5M14 14l2-2 4 4M15.5 9h.01",   // 💬 게시판 A — 사진 넣기
   reply: "M9 14 4 9l5-5M4 9h10a6 6 0 0 1 6 6v4",                   // 💬 게시판 A — 답글 달기
   doc: "M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5",                   // 🌿 묵상 A — 설교 요약
+  search: "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3",       // 💬 내게 주시는 말씀 A — 질문
+  flag: "M4 21V4M4 4h12l-2 4 2 4H4",                                   // 💬 내게 주시는 말씀 A — 이 답 알리기
   gear: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3.1 15H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 4.1V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.7 1.7 0 0 0 20.9 10H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z",
 };
 const HA_GROUPS = [
@@ -4333,7 +4337,50 @@ function renderSermonChat() {
   document.getElementById("sc-send").addEventListener("click", scAsk);
   document.getElementById("sc-q").addEventListener("keydown", (e) => { if (e.key === "Enter") scAsk(); });
   scBuildCloud();
+  applyScA();   // 내게 주시는 말씀 A안(SC_LAYOUT)
 }
+
+// ── 💬 내게 주시는 말씀 A안(2026-10-14 친구 「2안 — 묻는 칸 크게 · 주제는 두 줄 타일」 · 샘플 자료/design/2026-10-14-sermonchat-sample · 스위치 SC_LAYOUT) ──
+//   renderSermonChat 이 그린 뒤 옮겨 담는다(질문 · 주제 · 예시 질문 · 답 · 설교 열기 · 🚩 알리기 연결 그대로).
+//   「무엇이 궁금하세요?」 카드 안에 큰 질문 칸과 넓은 「질문」 · 안내 상자는 한 줄(몇 초 걸려요 · 이어서 물어봐도 돼요 — 옛 두 줄의 뜻 그대로) ·
+//   「주제로 찾아보기」 두 줄 타일 · 예시 질문은 흰 카드 줄(›) · 답 아래 설교는 흰 카드 + 책 선 아이콘.
+//   예시 질문은 주제를 고를 때마다(scSelectTopic), 답 칸은 물을 때마다(scAsk) 다시 그려져 그 자리에서 다시 입힌다.
+function scSendLabel(btn) {
+  if (!btn) return;
+  if (SC_LAYOUT === "a") btn.innerHTML = haSvg("search", "sca-ic") + "<span>질문</span>";
+  else btn.textContent = "질문";
+}
+function applyScA() {
+  if (SC_LAYOUT !== "a") return;
+  const card = document.querySelector("#app .summary-card");
+  const head = card && card.querySelector(":scope > .settings-head");
+  if (!head || card.querySelector(".sca-asklbl")) return;
+  card.closest(".summary-screen").classList.add("sc-a");
+  const title = head.querySelector(".rank-title");
+  if (title) { setStripEmoji(title); title.insertAdjacentHTML("afterbegin", haSvg("message", "sca-tic")); }
+  const back = document.getElementById("sc-back");
+  if (back) back.innerHTML = haSvg("back", "sca-bic") + "<span>첫 화면</span>";
+  scSendLabel(document.getElementById("sc-send"));
+  const ask = card.querySelector(".sc-ask");
+  if (ask) ask.insertAdjacentHTML("afterbegin", `<div class="sca-asklbl">무엇이 궁금하세요?</div>`);
+  const hint = card.querySelector(".sc-hint");
+  if (hint) hint.innerHTML = haSvg("bulb", "sca-ic") + `<span>AI가 설교를 찾아 답을 만들어요 — <b>몇 초 걸릴 수 있어요</b> · 이어서 물어봐도 돼요</span>`;
+  const cloud = document.getElementById("sc-cloud");
+  if (cloud) cloud.insertAdjacentHTML("beforebegin", `<div class="sca-tl">주제로 찾아보기</div>`);
+  applyScTqsA();
+}
+function applyScTqsA() {
+  if (SC_LAYOUT !== "a") return;
+  document.querySelectorAll("#sc-tqs .sc-tq").forEach((b) => { if (!b.querySelector("svg")) b.insertAdjacentHTML("beforeend", haSvg("chev", "sca-chev")); });
+}
+function applyScOutA() {
+  if (SC_LAYOUT !== "a") return;
+  document.querySelectorAll("#sc-out .sc-src-icon").forEach((s) => { s.innerHTML = haSvg("book", "sca-ic"); });
+  document.querySelectorAll("#sc-out .sc-src-arrow").forEach((s) => { s.innerHTML = haSvg("chev", "sca-chev"); });
+  const fl = document.getElementById("sc-flag");
+  if (fl && !fl.querySelector("svg")) { setStripEmoji(fl); fl.insertAdjacentHTML("afterbegin", haSvg("flag", "sca-ic")); }
+}
+
 function scBuildCloud() {
   const cloud = document.getElementById("sc-cloud");
   cloud.innerHTML = SERMON_TOPICS.map((tp, i) => `<button data-i="${i}">${boardEsc(tp.t)}</button>`).join("");
@@ -4351,6 +4398,7 @@ function scSelectTopic(i, btn) {
     // 샘플 질문은 답변이 캐시돼 있어 바로 조회한다(입력창에도 채워 이어서 질문 가능).
     b.onclick = () => { document.getElementById("sc-q").value = qs[+b.dataset.q]; scAsk(); };
   });
+  applyScTqsA();   // A안 — 예시 질문 줄 끝 ›
 }
 async function scAsk() {
   const message = document.getElementById("sc-q").value.trim();
@@ -4388,10 +4436,11 @@ async function scAsk() {
     document.querySelectorAll("#sc-out .sc-src").forEach((b) => { b.onclick = () => scOpenSermon(scSources[+b.dataset.i]); });
     const flag = document.getElementById("sc-flag");
     if (flag) flag.onclick = () => openAnswerReport(message, j.answer, flag);
+    applyScOutA();   // A안 — 설교 줄 아이콘 · 알리기 깃발
   } catch (e) {
     out.innerHTML = `${qEcho}<div class="sc-empty">잠시 후 다시 시도해 주세요.</div>`;
   } finally {
-    btn.disabled = false; btn.textContent = "질문";
+    btn.disabled = false; scSendLabel(btn);
   }
 }
 // ── 「내게 주시는 말씀」 AI 답 알리기(🚩 · 2026-10-01) ─────────────

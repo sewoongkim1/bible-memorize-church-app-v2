@@ -7626,3 +7626,58 @@ html[data-fs="xl"] .vl-a .vs-ic { width: 20px; height: 20px; }
 .dark .md-a .md-row:hover { background: #222a37; }
 .dark .md-a .md-rbox { background: #22304a; color: #9dbbea; }
 .dark .md-a .md-rt span { color: #b9c0cd; }
+
+/* ── 💬 내게 주시는 말씀 A안(app.js applyScA · 2026-10-14 친구 「2안 — 묻는 칸 크게 · 주제는 두 줄 타일」) ─────────────────────
+   흰 큰 카드를 걷고 바탕 위에 — 「무엇이 궁금하세요?」 카드(큰 질문 칸 · 넓은 남색 「질문」) · 안내 한 줄 · 「주제로 찾아보기」 두 줄 타일(고른 것 남색 테두리) ·
+   예시 질문 흰 카드 줄(›) · 내 질문 옅은 남색 말풍선 · 답 흰 카드 · 설교 흰 카드 + 책 아이콘 · 🚩 알리기는 깃발 아이콘(자리 그대로). */
+.sc-a .summary-card { background: transparent; border: 0; box-shadow: none; padding: 0 4px 24px; text-align: left; }
+.sc-a .settings-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 4px 0 12px; }
+.sc-a .rank-title { display: flex; align-items: center; gap: 8px; margin: 0; font-family: "Noto Sans KR", sans-serif; font-size: 1.3rem; color: #1b2333; }
+.sc-a .sca-tic { width: 24px; height: 24px; flex: none; color: #1e3a6b; }
+.sc-a #sc-back { display: inline-flex; align-items: center; gap: 2px; min-height: 40px; padding: 0 12px 0 8px; border: 1.5px solid #8da3c8; border-radius: 10px; background: #fff; color: #1e3a6b; font-size: .94rem; font-weight: 800; }
+.sc-a #sc-back:hover { background: #eaf0f9; }
+.sc-a .sca-bic { width: 18px; height: 18px; stroke-width: 2.4; }
+.sc-a .sca-ic { width: 18px; height: 18px; flex: none; }
+.sc-a .sc-ask { flex-wrap: wrap; gap: 0; margin: 4px 0 8px; padding: 14px; background: #fff; border: 1px solid #e5dfd4; border-radius: 16px; }
+.sc-a .sca-asklbl { flex: 0 0 100%; margin: 0 0 8px; font-size: 1.05rem; font-weight: 800; color: #1b2333; }
+.sc-a .sc-ask input { flex: 0 0 100%; min-height: 54px; border: 1px solid #e5dfd4; border-radius: 12px; background: #faf8f4; font-size: 1.02rem; color: #1b2333; }
+.sc-a .sc-ask button { flex: 0 0 100%; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 52px; margin-top: 8px; border-radius: 12px; background: #1e3a6b; font-size: 1.05rem; font-weight: 800; }
+.sc-a .sc-hint { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 16px; padding: 0 4px; border: 0; background: transparent; color: #4a5468; font-size: .86rem; line-height: 1.55; }
+.sc-a .sc-hint b { color: #1b2333; }
+.sc-a .sca-tl { margin: 0 4px 8px; font-size: .92rem; font-weight: 800; color: #4a5468; }
+.sc-a .sc-cloud { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.sc-a .sc-cloud button { justify-content: flex-start; min-height: 48px; padding: 0 14px; border: 1px solid #e5dfd4; border-radius: 12px; background: #fff; color: #1b2333; }
+.sc-a .sc-cloud button.on { border: 1.5px solid #1e3a6b; background: #eaf0f9; color: #1e3a6b; font-weight: 800; }
+.sc-a .sc-tqs { gap: 0; margin-top: 12px; background: #fff; border: 1px solid #e5dfd4; border-radius: 16px; overflow: hidden; }
+.sc-a .sc-tqs:empty { display: none; }
+.sc-a .sc-tq { display: flex; align-items: center; gap: 10px; padding: 13px 14px 13px 16px; border: 0; border-top: 1px solid #e5dfd4; border-radius: 0; background: #fff; color: #1b2333; font-size: .98rem; }
+.sc-a .sc-tq:first-child { border-top: 0; }
+.sc-a .sc-tq:hover { background: #f7f4ee; border-color: #e5dfd4; }
+.sc-a .sca-chev { width: 18px; height: 18px; flex: none; margin-left: auto; color: #8a93a3; }
+.sc-a .sc-q-echo { background: #eaf0f9; color: #1e3a6b; }
+.sc-a .sc-answer { border: 1px solid #e5dfd4; border-radius: 16px; color: #1b2333; }
+.sc-a .sc-src { background: #fff; border: 1px solid #e5dfd4; border-radius: 14px; }
+.sc-a .sc-src:hover { background: #f7f4ee; }
+.sc-a .sc-src-icon { background: #eaf0f9; color: #1e3a6b; }
+.sc-a .sc-src-icon .sca-ic { width: 20px; height: 20px; }
+.sc-a .sc-flag { display: inline-flex; align-items: center; gap: 6px; }
+.dark .sc-a .summary-card { background: transparent; border: 0; }
+.dark .sc-a .rank-title { color: #f1eee7; }
+.dark .sc-a .sca-tic { color: #9dbbea; }
+.dark .sc-a #sc-back { background: #1a202b; border-color: #4a6597; color: #9dbbea; }
+.dark .sc-a .sc-ask { background: #1a202b; border-color: #2c3442; }
+.dark .sc-a .sca-asklbl { color: #f1eee7; }
+.dark .sc-a .sc-ask input { background: #131925; border-color: #2c3442; color: #f1eee7; }
+.dark .sc-a .sc-ask button { background: #2f5596; }
+.dark .sc-a .sc-hint { background: transparent; color: #b9c0cd; }
+.dark .sc-a .sc-hint b { color: #f1eee7; }
+.dark .sc-a .sca-tl { color: #b9c0cd; }
+.dark .sc-a .sc-cloud button { background: #1a202b; border-color: #2c3442; color: #f1eee7; }
+.dark .sc-a .sc-cloud button.on { background: #22304a; border-color: #9dbbea; color: #9dbbea; }
+.dark .sc-a .sc-tqs { background: #1a202b; border-color: #2c3442; }
+.dark .sc-a .sc-tq { background: #1a202b; border-top-color: #2c3442; color: #f1eee7; }
+.dark .sc-a .sc-tq:hover { background: #222a37; }
+.dark .sc-a .sc-q-echo { background: #22304a; color: #9dbbea; }
+.dark .sc-a .sc-answer { background: #1a202b; border-color: #2c3442; color: #f1eee7; }
+.dark .sc-a .sc-src { background: #1a202b; border-color: #2c3442; }
+.dark .sc-a .sc-src-icon { background: #22304a; color: #9dbbea; }
