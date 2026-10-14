@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261014t";
+const APP_BUILD = "20261014u";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -902,6 +902,7 @@ const HA_ICON = {
   cloud: "M18 10h-1.3A6 6 0 1 0 6 16h12a3 3 0 0 0 0-6z",
   flask: "M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3",
   back: "M15 6l-6 6 6 6",
+  church: "M12 2v4M10 4h4M5 21V11l7-5 7 5v10M9 21v-5h6v5",   // 🏆 순위 A — 교구 탭
   gear: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3.1 15H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 4.1V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.7 1.7 0 0 0 20.9 10H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z",
 };
 const HA_GROUPS = [
@@ -11664,6 +11665,7 @@ function renderAlbum() {
 
 function renderRanking(range) {
   const r = range || rankRangeFor("yday");
+  _myCheerersCache = null;   // 새로 들어오면 명단을 다시 받는다(그사이 응원이 늘었을 수 있다)
   const u = loadUser();
   const appEl = document.getElementById("app");
   // 기간 「전체」(전체기간 누적)는 뺐다 — 개인 순위 명단 수집 마찰(2026-10-09 친구). 서버도 무제한 범위를 거부한다.
@@ -11937,7 +11939,7 @@ function drawRankingBody(r, data) {
       <span class="rn-l"><b>🏆 횟수</b>는 암송 · 도전 · 복습을 <b>모두 합한 수</b>예요 (외운 구절 수가 아니에요)</span>
       <span class="rn-l"><b>👏</b> 다른 분 줄의 👏를 누르면 응원이 전해져요 — 하루에 한 분당 한 번, 다시 누르면 취소돼요</span>
       <span class="rn-l rn-sub">오늘 기록이 아직 없는 분의 👏는 흐리게 보여요</span>
-      ${u ? `<span class="rn-l rn-sub">맨 위 「내 이름」 줄의 👏를 누르면 나를 응원해 주신 분들 이름이 보여요</span>` : ""}
+      ${u ? `<span class="rn-l rn-sub">나를 응원해 주신 분들 이름은 맨 위 「내 이름」 줄 아래에 보여요 — 그 줄의 👏를 누르면 접혀요</span>` : ""}
       ${narrowOn
         ? `<span class="rn-l rn-sub">지금은 ${soName} 안에서만 보고 있어요${me ? ` — 전체에서는 <b>${me.rank}</b>위예요` : ""}. 👏 수는 전체에서 받은 것이에요</span>`
         : ""}
@@ -11955,6 +11957,9 @@ function drawRankingBody(r, data) {
     toggleRankCheer(view[+btn.dataset.rkact], btn, canGive)));
   const mrc = document.getElementById("mr-cheer");
   if (mrc) mrc.addEventListener("click", () => toggleMyCheerers(mrc, r));
+  // 나를 응원해 주신 분 명단은 처음부터 펼쳐 둔다(2026-10-14 친구 「본인을 응원한 사람은 기본으로 보여주는 게」) — 👏를 누르면 접힌다.
+  //   받은 응원이 없으면 단추가 꺼져 있어 펼칠 것이 없다. 범위 칩으로 다시 그릴 때는 받아 둔 명단을 쓴다(_myCheerersCache).
+  if (mrc && myCheers > 0) toggleMyCheerers(mrc, r);
   wireRankScope(r, data);
 }
 
@@ -11989,16 +11994,22 @@ function wireRankScope(r, data) {
 
 // 「내 순위」의 👏 = 나를 응원한 사람 명단(다시 누르면 접힘).
 // 서버는 부른 사람 본인 것만 돌려준다 — 남의 명단은 물어볼 길이 없다.
+// 받아 둔 명단 — 처음부터 펼쳐 두므로(drawRankingBody) 범위 칩으로 다시 그릴 때마다 서버를 다시 부르지 않게. 화면에 새로 들어오면(renderRanking) 비운다.
+let _myCheerersCache = null;   // { key: "사람|시작|끝", names }
 async function toggleMyCheerers(btn, r) {
   const box = document.getElementById("mr-names");
   if (!box) return;
   if (!box.hidden) { box.hidden = true; btn.classList.remove("open"); return; }
   box.hidden = false;
   btn.classList.add("open");
-  box.innerHTML = '<div class="rx-names-top"><span class="rx-names-msg">불러오는 중…</span></div>';
-  let names;
-  try { names = (await api.rankCheerers(myUserId(), r.from, r.to)).list || []; }
-  catch (e) { box.innerHTML = '<div class="rx-names-top"><span class="rx-names-msg">이름을 불러오지 못했어요.</span></div>'; return; }
+  const key = myUserId() + "|" + (r.from || "") + "|" + (r.to || "");
+  let names = _myCheerersCache && _myCheerersCache.key === key ? _myCheerersCache.names : null;
+  if (!names) {
+    box.innerHTML = '<div class="rx-names-top"><span class="rx-names-msg">불러오는 중…</span></div>';
+    try { names = (await api.rankCheerers(myUserId(), r.from, r.to)).list || []; }
+    catch (e) { box.innerHTML = '<div class="rx-names-top"><span class="rx-names-msg">이름을 불러오지 못했어요.</span></div>'; return; }
+    _myCheerersCache = { key, names };
+  }
   box.innerHTML = '<div class="rx-names-top"><span class="rx-names-e">👏</span>' +
     (names.length
       ? '<span class="rx-names-l">' + names.map((n) => boardEsc(n)).join(" · ") + '</span>'
@@ -12053,7 +12064,27 @@ function rankModeBar(active) {
     <button class="${active === "mine" ? "on" : ""}" data-m="mine">📅 내 참여</button>
   </div>`;
 }
+// ── 🏆 도전 순위 A안(2026-10-14 친구 「1안 — 짜임 그대로 · A 옷」 · 샘플 자료/design/2026-10-14-ranking-sample · 스위치 MEMO_LAYOUT —
+//   도전 바로 다음 화면이라 같은 문). 개인 · 교구 · 내 참여 세 탭이 함께(.rank-screen.rk-a) — 탭 줄 · 기간 칸 · 주간/월간은 회색 판 위 흰 칸 ·
+//   그림 글자 → 선 아이콘 · 제목 왼쪽 맞춤 · 내 순위는 흰 카드 남색 테두리 · 목록 줄은 흰 줄(1~3등 옅은 금색 · 내 줄 옅은 남색).
+//   목록 · 응원 · 범위 칩 · 기록 배선은 그대로(옷만). wireRankMode 가 세 화면 모두에서 부른다.
+const RK_MODE_ICON = { rank: "user", gu: "church", mine: "calendar" };
+function applyRankA() {
+  if (memoVariant() !== "a") return;
+  const scr = document.querySelector("#app .rank-screen");
+  if (!scr || scr.classList.contains("rk-a")) return;
+  scr.classList.add("rk-a");
+  let mode = "rank";
+  scr.querySelectorAll(".rank-mode button").forEach((b) => {
+    if (b.classList.contains("on")) mode = b.dataset.m;
+    setStripEmoji(b);
+    b.insertAdjacentHTML("afterbegin", haSvg(RK_MODE_ICON[b.dataset.m] || "user", "rk-ic"));
+  });
+  const t = scr.querySelector(".rank-title");
+  if (t) { setStripEmoji(t); t.insertAdjacentHTML("afterbegin", haSvg(mode === "rank" ? "trophy" : RK_MODE_ICON[mode], "rk-tic")); }
+}
 function wireRankMode() {
+  applyRankA();   // 순위 A안(위 주석) — 세 탭 모두 여기를 지난다
   document.querySelectorAll(".rank-mode button").forEach((b) =>
     b.addEventListener("click", () => {
       if (b.dataset.m === "mine") return renderMyRecord();

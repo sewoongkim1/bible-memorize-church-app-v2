@@ -7430,3 +7430,67 @@ html[data-fs="xl"] .vl-a .vs-ic { width: 20px; height: 20px; }
 .dark .st-a .st-row { color: #f1eee7; }
 .dark .st-a .st-row:hover { background: #222a37; }
 .dark .st-a #disable-push.st-row, .dark .st-a #clear-me.st-row, .dark .st-a #disable-push .st-ic, .dark .st-a #clear-me .st-ic { color: #f07a82; }
+
+/* ── 🏆 도전 순위 A안(app.js applyRankA · 2026-10-14 친구 「1안 — 짜임 그대로 · A 옷」) — 개인 · 교구 · 내 참여 세 탭(.rank-screen.rk-a) ───
+   탭 줄 · 기간 칸 · 주간/월간 · 범위 칩은 회색 판 위 흰 칸 · 제목 왼쪽 맞춤 + 선 아이콘 · 날짜 칸 · 조회는 테두리 ·
+   내 순위는 흰 카드 남색 테두리(옛 꼴은 크림 + 금색 띠) · 목록 줄은 흰 줄 · 1~3등 옅은 금색 · 내 줄 옅은 남색 + 왼쪽 띠 · 👏 는 테두리 알약(누른 것은 옅은 금색). */
+.rk-a .rank-mode { gap: 2px; padding: 3px; border-radius: 12px; background: #ece7dd; margin: 2px 0 16px; }
+.rk-a .rank-mode button { flex: 1 1 0; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; margin: 0; border: 0; border-radius: 9px; background: transparent; color: #4a5468; font-weight: 700; box-shadow: none; }
+.rk-a .rank-mode button.on { background: #fff; color: #1e3a6b; font-weight: 800; box-shadow: 0 1px 2px rgba(0, 0, 0, .14); }
+.rk-a .rank-mode button:hover { background: rgba(255, 255, 255, .6); color: #1e3a6b; }
+.rk-a .rank-mode button.on:hover { background: #fff; }
+.rk-a .rk-ic { width: 18px; height: 18px; flex: none; }
+.rk-a .rank-title { display: flex; align-items: center; gap: 8px; text-align: left; font-family: "Noto Sans KR", sans-serif; font-size: 1.3rem; color: #1b2333; margin: 0 0 12px; }
+.rk-a .rk-tic { width: 24px; height: 24px; flex: none; color: #7a5a12; }
+.rk-a .rank-filter { justify-content: flex-start; flex-wrap: nowrap; gap: 2px; padding: 3px; border-radius: 12px; background: #ece7dd; margin: 0 0 10px; }
+.rk-a .rank-filter button { flex: 1 1 0; min-height: 40px; margin: 0; padding: 0 6px; border: 0; border-radius: 9px; background: transparent; color: #4a5468; font-size: .92rem; white-space: nowrap; }
+.rk-a .rank-filter button.on { background: #fff; color: #1e3a6b; font-weight: 800; box-shadow: 0 1px 2px rgba(0, 0, 0, .14); }
+.rk-a .rank-dates input[type=date] { border: 1px solid #e5dfd4; border-radius: 10px; background: #fff; }
+.rk-a .rank-dates .rd-go { border: 1.5px solid #8da3c8; border-radius: 10px; background: #fff; color: #1e3a6b; font-weight: 800; }
+.rk-a .rank-scope .rs-seg { gap: 2px; padding: 3px; border: 0; border-radius: 10px; background: #ece7dd; }
+.rk-a .rank-scope .rs-seg button { border: 0; border-radius: 8px; background: transparent; color: #4a5468; }
+.rk-a .rank-scope .rs-seg button.on { background: #fff; color: #1e3a6b; font-weight: 800; box-shadow: 0 1px 2px rgba(0, 0, 0, .14); }
+.rk-a .myrec-toggle { gap: 2px; padding: 3px; border-radius: 10px; background: #ece7dd; }
+.rk-a .myrec-toggle button { border: 0; border-radius: 8px; background: transparent; color: #4a5468; }
+.rk-a .myrec-toggle button.on { background: #fff; color: #1e3a6b; font-weight: 800; box-shadow: 0 1px 2px rgba(0, 0, 0, .14); }
+.rk-a .my-rank { background: #fff; border: 1.5px solid #1e3a6b; border-radius: 16px; box-shadow: none; color: #1b2333; }
+.rk-a .my-rank .mr-cnt { color: #7a5a12; }
+.rk-a .my-rank .mr-cheer { border-color: #e5dfd4; background: #fff; color: #7a5a12; }
+.rk-a .my-rank .mr-cheer b { color: #7a5a12; }
+.rk-a .my-rank .mr-cheer.open { border-color: #e6d29c; background: #fbf1d6; color: #7a5a12; }
+.rk-a .my-rank .mr-cheer.open b { color: #7a5a12; }
+.rk-a .rk-names { background: #fbf1d6; border: 1px solid #e6d29c; border-radius: 12px; }
+.rk-a .rk-names .rx-names-l { color: #5c4510; font-weight: 700; }
+.rk-a .rank-list { gap: 0; background: #fff; border: 1px solid #e5dfd4; border-radius: 16px; overflow: hidden; }
+.rk-a .rank-row { border: 0; border-top: 1px solid #e5dfd4; border-radius: 0; background: #fff; box-shadow: none; }
+.rk-a .rank-list > .rank-row:first-child { border-top: 0; }
+.rk-a .rank-row.top { background: #fdf8ea; border-color: #e5dfd4; }
+.rk-a .rank-row.me { background: #eaf0f9; box-shadow: inset 3px 0 0 #1e3a6b; }
+.rk-a .rank-row .rk-name { color: #1b2333; }
+.rk-a .rk-cheer { border: 1px solid #e5dfd4; background: #fff; }
+.rk-a .rk-cheer.on { border-color: #e6d29c; background: #fbf1d6; color: #7a5a12; }
+.rk-a .rk-cheer.on b { color: #7a5a12; }
+.rk-a .rank-note { color: #4a5468; }
+.dark .rk-a .rank-mode, .dark .rk-a .rank-filter, .dark .rk-a .rank-scope .rs-seg, .dark .rk-a .myrec-toggle { background: #262d39; }
+.dark .rk-a .rank-mode button, .dark .rk-a .rank-filter button, .dark .rk-a .rank-scope .rs-seg button, .dark .rk-a .myrec-toggle button { background: transparent; border: 0; color: #b9c0cd; }
+.dark .rk-a .rank-mode button.on, .dark .rk-a .rank-filter button.on, .dark .rk-a .rank-scope .rs-seg button.on, .dark .rk-a .myrec-toggle button.on { background: #1a202b; color: #9dbbea; }
+.dark .rk-a .rank-title { color: #f1eee7; }
+.dark .rk-a .rk-tic { color: #e9cd7e; }
+.dark .rk-a .rank-dates input[type=date] { background: #1a202b; border-color: #2c3442; color: #f1eee7; }
+.dark .rk-a .rank-dates .rd-go { background: #1a202b; border-color: #4a6597; color: #9dbbea; }
+.dark .rk-a .my-rank { background: #1a202b; border-color: #9dbbea; color: #f1eee7; }
+.dark .rk-a .my-rank .mr-cnt { color: #e9cd7e; }
+.dark .rk-a .my-rank .mr-cheer, .dark .rk-a .my-rank .mr-cheer.open { background: #1a202b; border-color: #5c4c22; color: #e9cd7e; }
+.dark .rk-a .my-rank .mr-cheer b, .dark .rk-a .my-rank .mr-cheer.open b { color: #e9cd7e; }
+.dark .rk-a .rk-names { background: #3a3018; border-color: #5c4c22; }
+.dark .rk-a .rk-names .rx-names-l { color: #e9cd7e; }
+.dark .rk-a .rank-list { background: #1a202b; border-color: #2c3442; }
+.dark .rk-a .rank-row { background: #1a202b; border-top-color: #2c3442; }
+.dark .rk-a .rank-row.top { background: #221e14; }
+.dark .rk-a .rank-row.me { background: #22304a; box-shadow: inset 3px 0 0 #9dbbea; }
+.dark .rk-a .rank-row .rk-name { color: #f1eee7; }
+.dark .rk-a .rk-cheer { background: #1a202b; border-color: #2c3442; color: #b9c0cd; }
+.dark .rk-a .rk-cheer b { color: #b9c0cd; }
+.dark .rk-a .rk-cheer.on { background: #3a3018; border-color: #5c4c22; color: #e9cd7e; }
+.dark .rk-a .rk-cheer.on b { color: #e9cd7e; }
+.dark .rk-a .rank-note { color: #b9c0cd; }
