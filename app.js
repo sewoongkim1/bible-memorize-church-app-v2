@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261014ac";
+const APP_BUILD = "20261014ad";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -799,6 +799,8 @@ const PRAY_LAYOUT = "a";
 const LOGIN_LAYOUT = "a";
 // 📘 사용 설명서 · 도움말 묶음 A안(2026-10-14 친구 「2」 · applyManualA · applyHelpA — 목차는 묶음으로) — 롤백은 "old" 한 줄 + bump
 const HELP_LAYOUT = "a";
+// 📄 설교 요약 A안(2026-10-14 친구 「2」 · applySsA — 「3분 요약 듣기」를 제목 아래 큰 단추로) — 롤백은 "old" 한 줄 + bump
+const SS_LAYOUT = "a";
 const MEMO_KEY = "memo-preview";
 function readMemoPreviewParam() {
   try {
@@ -7401,6 +7403,7 @@ function renderSermonSummary(verse, sermon, onBack, backLabel) {
       </div>
     </div>`;
   document.getElementById("ss-back").addEventListener("click", onBack);
+  if (SS_LAYOUT === "a") applySsA(appEl);
 
   // 화면에 보이는 그대로(제목 → 요약 → 핵심 포인트) 읽어준다. **강조 별표**는 음성에서 제거.
   const readText = [
@@ -7415,29 +7418,53 @@ function renderSermonSummary(verse, sermon, onBack, backLabel) {
   const audioUrl = sermon.audio ? (SERMON_AUDIO_BASE + sermon.audio + "?v3") : null;
   const IDLE = "🔊 3분요약";    // 재생 전/일시정지 상태
   const PLAYING = "⏸ 멈춤";     // 재생 중
+  // A 는 큰 단추라 글 대신 아이콘 + 이름으로 바꿔 단다(ssReadA) — 옛 화면은 글 그대로
+  const setRead = (txt) => { if (SS_LAYOUT === "a") ssReadA(readBtn, txt === PLAYING); else readBtn.textContent = txt; };
   readBtn.addEventListener("click", () => {
     if (audioUrl) {
       // 3분 요약 MP3 — 멈춤(위치 유지)/이어재생 토글
       if (sermonAudio && sermonAudio.src && !sermonAudio.paused) {
-        stopSermonAudio(); readBtn.textContent = IDLE; return;   // 재생 중 → 멈춤(위치 유지)
+        stopSermonAudio(); setRead(IDLE); return;   // 재생 중 → 멈춤(위치 유지)
       }
-      readBtn.textContent = PLAYING;
-      playSermonAudio(audioUrl, () => { readBtn.textContent = IDLE; }); // 처음/이어재생
+      setRead(PLAYING);
+      playSermonAudio(audioUrl, () => { setRead(IDLE); }); // 처음/이어재생
     } else {
       // MP3 없는 설교는 브라우저 TTS 폴백 — 멈춤/이어읽기 토글
       const ss = window.speechSynthesis;
       if (ss && ss.speaking && !ss.paused) {   // 읽는 중 → 멈춤(일시정지)
         _ttsStopKeepAlive(); try { ss.pause(); } catch (e) {}
-        readBtn.textContent = IDLE; return;
+        setRead(IDLE); return;
       }
       if (ss && ss.paused) {                    // 멈춤 상태 → 이어읽기
         try { ss.resume(); } catch (e) {} _ttsStartKeepAlive();
-        readBtn.textContent = PLAYING; return;
+        setRead(PLAYING); return;
       }
-      readBtn.textContent = PLAYING;            // 처음부터
-      speakLong(readText, () => { readBtn.textContent = IDLE; });
+      setRead(PLAYING);            // 처음부터
+      speakLong(readText, () => { setRead(IDLE); });
     }
   });
+}
+
+// 📄 설교 요약 A안(2026-10-14 친구 「2」) — 옛 화면을 다 그린 뒤 **옮겨 담는다**(id · 연결 · 듣기 토글은 그대로).
+//   「3분 요약 듣기」는 제목 바로 아래 남색 큰 단추로 · 「뒤로」는 오른쪽 위 작게(받은 이름 그대로 — 「암송으로」 등) ·
+//   성경말씀 칸 앞에 책 아이콘 · 핵심 포인트 번호는 남색 동그라미 · 묶음 이름은 진한 고딕(CSS .ss-a).
+const SSA_PLAY_SVG = `<svg class="ssa-ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7 4v16l13-8z"/></svg>`;
+const SSA_PAUSE_SVG = `<svg class="ssa-ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>`;
+function ssReadA(btn, playing) {
+  btn.innerHTML = playing ? `${SSA_PAUSE_SVG}<span>멈춤</span>` : `${SSA_PLAY_SVG}<span>3분 요약 듣기</span>`;
+}
+function applySsA(appEl) {
+  const card = appEl.querySelector(".sermon-sum-card");
+  if (!card) return;
+  card.classList.add("ss-a");
+  const back = card.querySelector("#ss-back");
+  if (back) back.innerHTML = haSvg("back", "ssa-bic") + `<span>${boardEsc(back.textContent.replace(/^\s*[←‹]\s*/, "").trim() || "뒤로")}</span>`;
+  const read = card.querySelector("#ss-read"), head = card.querySelector(".ss-head");
+  if (read && head) { head.after(read); ssReadA(read, false); }
+  const sc = card.querySelector(".ss-scripture");
+  if (sc) sc.insertAdjacentHTML("afterbegin", `<span class="ssa-rbox" aria-hidden="true">${haSvg("book", "")}</span>`);
+  const ext = card.querySelector(".ss-scripture-ext");
+  if (ext) ext.innerHTML = "개역개정" + haSvg("ext", "ssa-ext");
 }
 
 // 3단계 '반복해서 쓰기' — 켜두면 정답을 맞힐 때마다 자동으로 새 3단계가 나온다(외울 때까지).

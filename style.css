@@ -7878,3 +7878,60 @@ html[data-fs="xl"] .vl-a .vs-ic { width: 20px; height: 20px; }
 .dark .iw-wrap.hp-a .iw-close { background: #1a202b; border-color: #4a6597; color: #9dbbea; }
 .dark .iw-wrap.hp-a .iw-block { border-color: #2c3442; }
 .dark .iw-wrap.hp-a .iw-ok { background: #2f5596; }
+
+/* ── 📄 설교 요약 A안(app.js applySsA · 2026-10-14 친구 「2」 — A 옷 · 「3분 요약 듣기」 크게) ─────────────────────────────
+   짜임은 그대로 · 듣기 단추만 제목 아래 남색 큰 단추로(#ss-read 를 .ss-head 뒤로 옮김) · 「뒤로」는 오른쪽 위 작게.
+   색은 이 화면 토큰(--ss-*)을 A 값으로 바꿔 단다 — 어두운 모드는 옛 토큰 그대로(아래 .dark 덩이). */
+.sermon-sum-card.ss-a {
+  --ss-ink: #1b2333; --ss-ink-soft: #4a5468; --ss-line: #e5dfd4;
+  --ss-surface: #fff; --ss-raise: #faf8f4; --ss-gold: #d9b556;
+  border-color: #e5dfd4; border-radius: 18px; box-shadow: none;
+}
+.ss-a .ss-top { justify-content: flex-end; margin-bottom: 4px; }
+.sermon-sum-card.ss-a .ss-top > #ss-back {
+  flex: 0 0 auto; gap: 2px; min-height: 40px; padding: 0 12px 0 8px;
+  border: 1.5px solid #8da3c8; border-radius: 10px; background: #fff; color: #1e3a6b; font-size: 14px; font-weight: 800;
+}
+.sermon-sum-card.ss-a .ss-top > #ss-back:hover { background: #eaf0f9; color: #1e3a6b; }
+.ss-a .ssa-bic { width: 18px; height: 18px; flex: none; stroke-width: 2.4; }
+.ss-a .ss-head { margin-bottom: 14px; }
+.sermon-sum-card.ss-a #ss-read {
+  display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 54px; margin: 0 0 22px; padding: 0 16px;
+  border: 0; border-radius: 14px; background: #1e3a6b; color: #fff; font-size: 1.06rem; font-weight: 800; letter-spacing: 0;
+}
+.sermon-sum-card.ss-a #ss-read:hover { background: #152b52; color: #fff; }
+.sermon-sum-card.ss-a #ss-read:focus { outline: none; }
+.sermon-sum-card.ss-a #ss-read:focus-visible { outline: 3px solid #8da3c8; outline-offset: 2px; }
+.ss-a .ssa-ic { width: 18px; height: 18px; flex: none; }
+.ss-a .ss-label { font-family: inherit; font-size: .8rem; font-weight: 800; color: var(--ss-ink-soft); letter-spacing: .02em; }
+.ss-a .ss-scripture { justify-content: flex-start; padding: 10px 12px; border-radius: 14px; }
+.ss-a .ssa-rbox { width: 36px; height: 36px; flex: none; border-radius: 10px; background: #eaf0f9; color: #1e3a6b; display: flex; align-items: center; justify-content: center; }
+.ss-a .ssa-rbox svg { width: 20px; height: 20px; }
+.ss-a .ss-scripture-ref { flex: 1; min-width: 0; font-weight: 800; }
+.ss-a .ss-scripture-ext { display: inline-flex; align-items: center; gap: 4px; padding: 0; border: 0; font-family: inherit; font-size: .86rem; font-weight: 700; color: var(--ss-ink-soft); }
+.ss-a .ssa-ext { width: 16px; height: 16px; }
+.ss-a .ss-summary { border: 0; border-left: 3px solid var(--ss-gold); border-radius: 0 12px 12px 0; color: var(--ss-ink); }
+.ss-a .ss-conclusion { background: #fbf1d6; }
+.ss-a .ss-points li { border-radius: 14px; }
+.ss-a .ss-point-top { align-items: center; }
+.ss-a .ss-point-no {
+  display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%;
+  background: #1e3a6b; color: #fff; font-family: inherit; font-size: .82rem;
+}
+.ss-a .ss-point-body { padding-left: 36px; }
+html[data-fs="lg"] .sermon-sum-card.ss-a .ss-top > #ss-back { font-size: 16px; min-height: 44px; }
+html[data-fs="xl"] .sermon-sum-card.ss-a .ss-top > #ss-back { font-size: 18px; min-height: 48px; }
+html[data-fs="lg"] .sermon-sum-card.ss-a #ss-read { font-size: 1.18rem; min-height: 58px; }
+html[data-fs="xl"] .sermon-sum-card.ss-a #ss-read { font-size: 1.3rem; min-height: 62px; }
+.dark .sermon-sum-card.ss-a {
+  --ss-ink: #e9ecf4; --ss-ink-soft: #aeb7ca; --ss-line: #25314a;
+  --ss-surface: #141d30; --ss-raise: #101828; --ss-gold: #d9b44d;
+  border-color: var(--border);
+}
+.dark .sermon-sum-card.ss-a .ss-top > #ss-back { background: transparent; border-color: #4a6597; color: #9dbbea; }
+.dark .sermon-sum-card.ss-a .ss-top > #ss-back:hover { background: #22304a; color: #cdd9f2; }
+.dark .sermon-sum-card.ss-a #ss-read { background: #2f5596; color: #fff; }
+.dark .sermon-sum-card.ss-a #ss-read:hover { background: #3a64aa; }
+.dark .ss-a .ssa-rbox { background: #22304a; color: #9dbbea; }
+.dark .ss-a .ss-conclusion { background: #2a2414; }
+.dark .ss-a .ss-point-no { background: #2f5596; color: #fff; }
