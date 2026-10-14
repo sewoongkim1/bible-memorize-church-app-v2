@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261014p";
+const APP_BUILD = "20261014q";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -947,20 +947,17 @@ function haRow(b, ext) {
   b.insertAdjacentHTML("afterbegin", `<span class="ha-ic${tone}" aria-hidden="true">${haSvg(HA_ROW_ICON[b.id], "")}</span>`);
   b.insertAdjacentHTML("beforeend", haSvg(ext ? "ext" : "chev", "ha-trail"));
 }
-// 맨 위(2026-10-14 친구 「시안 그대로 맨 위까지」 · 「A안 첫 줄에 고척교회 앞에 글씨 없는 로고」) — 시안 A(Main.dc.html) 머리 줄:
-//   [로고 표시만(img/logo-mark.png — logo-gocheok.png 에서 「고척교회」 글씨를 잘라 냄)][고척교회 / 오직 성경, 말씀이 답이다] … [🔔][⚙].
-//   로고 띠(.page-header)는 첫 화면 A 에서만 숨긴다(watchPageHeaderVsStickyRef 가 .home-a 를 본다 · 다른 화면은 그대로).
+// 위쪽(2026-10-14 친구 — 시안 A Main.dc.html) — 인사 줄 오른쪽에 [🔔][⚙] · 인사 · 두 단추 아이콘 · 이번 주 말씀 카드.
+//   맨 위 로고 띠(.page-header · 남색 띠 + 흰 상자 · 로고 · 「오직 성경, 말씀이 답이다!」 · 시편 119편 105절)는 **다른 화면과 같이 그대로 둔다**
+//   (친구 「내용은 그대로 두고 기존과 같이 청색으로」 — 같은 날 시안처럼 띠를 걷고 「로고 · 고척교회 / 오직 성경…」 머리 줄을 넣었다가 되돌렸다).
 //   🔔 알림 · ⚙️ 설정 단추는 아래 도구 칸에서 옮겨 온다 — id · 연결 · 종 강조(pulse) · 금색(알림)은 그대로. 도구 칸은 셋(구절 · 쓰기 · 도움말)이 된다.
 //   인사는 왼쪽 맞춤 큰 글씨 · 두 단추 그림 글자는 선 아이콘(자리 · 크기 · 색은 그대로 — 10/11 「늘 같은 자리」) · 이번 주 말씀은 본문 명조 · 구절은 따로 한 줄.
-//   ⚠️ 설명서의 「맨 아래 ⚙️ 설정 · 🔔 알림」 자리 말은 HOME_LAYOUT 을 따라 갈린다(copy-truth · MANUAL 「알림」 · 「글씨 크게 하기」).
+//   ⚠️ 설명서의 「맨 아래 ⚙️ 설정 · 🔔 알림」 자리 말은 HOME_LAYOUT 을 따라 갈린다(copy-truth · MANUAL 「알림」 · 「글씨 크게 하기」 · 「내 이름 오른쪽」).
 function haTop(card) {
-  const scr = card.closest(".summary-screen");
-  if (!scr || scr.querySelector(".ha-top")) return;
-  const top = document.createElement("div");
-  top.className = "ha-top";
-  top.innerHTML = `<img class="ha-logo" src="img/logo-mark.png" alt="" width="98" height="120">` +
-    `<div class="ha-brand"><b>고척교회</b><span>오직 성경, 말씀이 답이다</span></div><div class="ha-top-btns"></div>`;
-  const btns = top.querySelector(".ha-top-btns");
+  const head = card.querySelector(":scope > .summary-headrow");
+  if (!head || head.querySelector(".ha-top-btns")) return;
+  const btns = document.createElement("div");
+  btns.className = "ha-top-btns";
   [["open-alarm", "bell"], ["open-settings", "gear"]].forEach(([id, ic]) => {
     const b = document.getElementById(id);
     if (!b) return;
@@ -970,7 +967,7 @@ function haTop(card) {
     btns.appendChild(b);
     if (cap) cap.remove();
   });
-  scr.insertBefore(top, scr.firstChild);
+  head.appendChild(btns);
   // 인사 — 끝의 🙌 는 뺀다(이모지 대신 글로)
   const hello = card.querySelector(".summary-hello");
   const last = hello && hello.lastChild;
@@ -7258,7 +7255,6 @@ function scrollPastBtnRow() {
 //   .album-screen    — 구절을 길게 훑는 화면이라 위쪽 공간을 온전히 내준다
 //   .pr-wrap         — 축복 기도문. 소리 내어 읽는 화면이라 스크롤을 한 줄이라도 줄인다
 //   .min-screen      — 사역 신청. 위원회 아코디언을 길게 훑는 화면이라 위를 내준다
-//   .home-a          — 첫 화면 A안(2026-10-14 친구 「시안 그대로 맨 위까지」) — 머리 줄(로고 표시 · 고척교회 · 🔔 · ⚙)이 대신한다(app.js haTop)
 //   .ps-wrap         — 시편 말씀 액자. 액자 한 장이 주인공인 화면이라 위를 온전히 내준다
 //                      (성도님 제보 2026-09-10: 로고 배너가 액자를 눌러 화면 밖으로 밀었다)
 //   ⚠️ 오늘의 찬양은 2026-09-23 저녁부터 팝업(.cheer-overlay, document.body 에 붙는다)이라
@@ -7269,7 +7265,7 @@ function scrollPastBtnRow() {
   const header = document.querySelector(".page-header");
   if (!appEl || !header) return;
   const sync = () => {
-    const hide = !!appEl.querySelector(".test-ref-sticky, .album-screen, .pr-wrap, .min-screen, .ps-wrap, .summary-screen.home-a");
+    const hide = !!appEl.querySelector(".test-ref-sticky, .album-screen, .pr-wrap, .min-screen, .ps-wrap");
     header.style.display = hide ? "none" : "";
     // 로고 배너가 지던 상태바 여백을 #app 이 대신 진다(style.css body.no-page-header).
     // 쉴만한 물가(.ps-wrap)는 제 여백을 스스로 지므로 빼야 두 번 들어가지 않는다.
@@ -9659,9 +9655,9 @@ const MANUAL = [
     art: '<div class="mn-row"><span class="mn-btn">🔔 알림</span></div>',
     get steps() {
       return [
-        // 2026-10-14 첫 화면 A 는 🔔 · ⚙️ 를 맨 위 머리 줄로 옮겼다(haTop) — 롤백(HOME_LAYOUT "old")이면 옛 자리 그대로
+        // 2026-10-14 첫 화면 A 는 🔔 · ⚙️ 를 인사 줄 오른쪽으로 옮겼다(haTop) — 롤백(HOME_LAYOUT "old")이면 옛 자리 그대로
         HOME_LAYOUT === "a"
-          ? "첫 화면 <b>맨 위 오른쪽</b>에 <b>🔔</b> 단추가 있어요. 그걸 누르세요."
+          ? "첫 화면 <b>내 이름 오른쪽</b>에 <b>🔔</b> 단추가 있어요. 그걸 누르세요."
           : "첫 화면을 <b>맨 아래까지</b> 내리면 <b>🔔 알림</b> 단추가 있어요. 그걸 누르세요.",
         "폰이 <b>「허용하시겠습니까?」</b> 하고 물어봐요.",
         "<b>「허용」</b>을 누르세요.",
@@ -9930,8 +9926,8 @@ const MANUAL = [
     lead: "잘 안 보이시면 키우세요.",
     art: '<div class="mn-row"><span class="mn-btn">가</span><span class="mn-btn mn-btn-mid">가</span><span class="mn-btn mn-btn-on mn-btn-big">가</span></div>',
     steps: [
-      HOME_LAYOUT === "a"   // 첫 화면 A 는 ⚙️ 가 맨 위 머리 줄(haTop · 2026-10-14)
-        ? "첫 화면 <b>맨 위 오른쪽</b>의 <b>⚙️</b>(설정)을 누르세요."
+      HOME_LAYOUT === "a"   // 첫 화면 A 는 ⚙️ 가 인사 줄 오른쪽(haTop · 2026-10-14)
+        ? "첫 화면 <b>내 이름 오른쪽</b>의 <b>⚙️</b>(설정)을 누르세요."
         : "첫 화면을 <b>맨 아래까지</b> 내려 <b>⚙️ 설정</b>을 누르세요.",
       "<b>글씨 크기</b>에서 <b>크게</b>나 <b>아주 크게</b>를 고르세요.",
       "눈이 부시면 <b>화면 밝기</b>에서 <b>🌙 어둡게</b>를 고르세요.",
