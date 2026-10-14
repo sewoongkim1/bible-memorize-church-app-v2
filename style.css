@@ -7482,8 +7482,9 @@ html[data-fs="xl"] .vl-a .vs-ic { width: 20px; height: 20px; }
 .rk-a .rank-row.me { background: #eaf0f9; box-shadow: inset 3px 0 0 #1e3a6b; }
 .rk-a .rank-row .rk-name { color: #1b2333; }
 .rk-a .rk-cheer { border: 1px solid #e5dfd4; background: #fff; }
-.rk-a .rk-cheer.on { border-color: #e6d29c; background: #fbf1d6; color: #7a5a12; }
-.rk-a .rk-cheer.on b { color: #7a5a12; }
+/* 내가 응원한 칩은 파랑 채움 — 옛 화면과 같은 뜻(친구 2026-10-14 「내가 응원한 경우 파란색」 · A 첫 판은 옅은 금색이라 눈에 안 띄었다) */
+.rk-a .rk-cheer.on { border-color: #1e3a6b; background: #1e3a6b; color: #fff; }
+.rk-a .rk-cheer.on b { color: #fff; }
 .rk-a .rank-note { color: #4a5468; }
 .dark .rk-a .rank-mode, .dark .rk-a .rank-filter, .dark .rk-a .rank-scope .rs-seg, .dark .rk-a .myrec-toggle { background: #262d39; }
 .dark .rk-a .rank-mode button, .dark .rk-a .rank-filter button, .dark .rk-a .rank-scope .rs-seg button, .dark .rk-a .myrec-toggle button { background: transparent; border: 0; color: #b9c0cd; }
@@ -7505,8 +7506,8 @@ html[data-fs="xl"] .vl-a .vs-ic { width: 20px; height: 20px; }
 .dark .rk-a .rank-row .rk-name { color: #f1eee7; }
 .dark .rk-a .rk-cheer { background: #1a202b; border-color: #2c3442; color: #b9c0cd; }
 .dark .rk-a .rk-cheer b { color: #b9c0cd; }
-.dark .rk-a .rk-cheer.on { background: #3a3018; border-color: #5c4c22; color: #e9cd7e; }
-.dark .rk-a .rk-cheer.on b { color: #e9cd7e; }
+.dark .rk-a .rk-cheer.on { background: #2f5596; border-color: #4a6597; color: #fff; }
+.dark .rk-a .rk-cheer.on b { color: #fff; }
 .dark .rk-a .rank-note { color: #b9c0cd; }
 
 /* ── 💬 게시판 A안(app.js applyBoardA · 2026-10-14 친구 「2안」 + 「글쓰기 안내는 글쓰기 안으로」) ───────────────────────────
