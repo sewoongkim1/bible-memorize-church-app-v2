@@ -33,3 +33,7 @@
 - ⚠️ `tools/site.py` `SITE_DIRS` 에 `install` 이 있어야 운영에서 열린다(빼면 운영만 404).
 - 인쇄용 QR(같은 주소): `자료/marketing/qr-install.png`(남색 · 크게) · `qr-install.svg` · `qr-install-card.png`(「성경말씀 암송 앱 설치」 · 주소를 붙인 카드). 셋 다 해독 확인함.
 - 말은 참인 것만: 위젯은 두 앱 모두에 있다 · 소속 · 이름을 같게 넣으면 기록이 이어진다(서버 기록).
+- **현관 광고 A4 가로(2026-10-15)** — `자료/marketing/install-poster/`: `install-a4.pdf`(인쇄용) · `preview-yellow.png` · `preview-purple.png`(종이색 흉내) · `install-a4.png`(바탕 없음) · 만드는 코드 `poster.py`.
+  노란 · 엷은 보라 색지에 뽑는다 → **배경색 없음 · 글씨 · 선 · QR 모두 짙은 남색 하나**(흰색은 안 찍히고 금색 · 보라는 그 종이에서 사라진다). QR 은 벡터(SVG) · 같은 주소.
+  ⚠️ 본문 고딕(Noto Sans KR)은 크롬이 PDF 에 Type3 로 넣는다(웹폰트판 · 이 PC 에 깔린 가변 글꼴 둘 다) — 윤곽(벡터)이라 교회 · 사무실 프린터는 또렷하다.
+  인쇄소가 프리플라이트로 문제 삼으면 본문을 「Malgun Gothic」으로 바꾸면 Type0 로 들어간다(대신 글자가 넓어 부제가 두 줄 · 단계가 아래 선에 붙으니 글씨를 한 단계 줄일 것).
