@@ -7107,3 +7107,19 @@ html[data-fs="xl"] .test-screen.memo-b .test-sentence, html[data-fs="xl"] .test-
 .test-screen.memo-c .test-sentence { line-height: 1.85; padding: 12px 14px 14px; }
 html[data-fs="lg"] .test-screen.memo-c .test-sentence, html[data-fs="lg"] .test-screen.memo-c .word-input { font-size: 25px; }
 html[data-fs="xl"] .test-screen.memo-c .test-sentence, html[data-fs="xl"] .test-screen.memo-c .word-input { font-size: 27px; }
+/* 불꽃은 불꽃 색으로 채운다(친구 2026-10-14 「불꽃 색도 안 나와요」 — 갈색 선만 있어 색이 안 보였다). CSS fill 이 svg 의 fill="none" 을 이긴다 */
+.test-screen.mm-ch .mm-ch-title .mm-ic, .cd-card.cd-a .cd-a-ic .mm-ic { fill: #ffa12b; color: #e4570f; }
+.test-screen.mm-ch .mm-ch-title .mm-ic { width: 22px; height: 22px; }
+.dark .test-screen.mm-ch .mm-ch-title .mm-ic, .dark .cd-card.cd-a .cd-a-ic .mm-ic { fill: #ffb347; color: #ff7a1a; }
+.cd-card.cd-a .cd-a-ic { background: #fff1e0; }
+.dark .cd-card.cd-a .cd-a-ic { background: #3a2412; }
+/* 글씨를 조금만 다시 키웠다(친구 2026-10-14 「폰트를 조금만 더 키우면」 — 바로 앞 판에서 한 단계 줄인 것의 반) */
+.test-screen.memo-a .test-sentence, .test-screen.memo-a .word-input { font-size: 21px; }
+html[data-fs="lg"] .test-screen.memo-a .test-sentence, html[data-fs="lg"] .test-screen.memo-a .word-input { font-size: 23px; }
+html[data-fs="xl"] .test-screen.memo-a .test-sentence, html[data-fs="xl"] .test-screen.memo-a .word-input { font-size: 25px; }
+.test-screen.memo-b .test-sentence, .test-screen.memo-b .word-input { font-size: 22px; }
+html[data-fs="lg"] .test-screen.memo-b .test-sentence, html[data-fs="lg"] .test-screen.memo-b .word-input { font-size: 24px; }
+html[data-fs="xl"] .test-screen.memo-b .test-sentence, html[data-fs="xl"] .test-screen.memo-b .word-input { font-size: 26px; }
+.test-screen.memo-c .test-sentence, .test-screen.memo-c .word-input { font-size: 24px; }
+html[data-fs="lg"] .test-screen.memo-c .test-sentence, html[data-fs="lg"] .test-screen.memo-c .word-input { font-size: 26px; }
+html[data-fs="xl"] .test-screen.memo-c .test-sentence, html[data-fs="xl"] .test-screen.memo-c .word-input { font-size: 28px; }

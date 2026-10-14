@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261014l";
+const APP_BUILD = "20261014m";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -7749,7 +7749,7 @@ function applyChallengeA(verse, hard) {
   }
   const title = document.createElement("div");
   title.className = "mm-ch-title" + (hard ? " hard" : "");
-  title.innerHTML = mmSvg("flame") + `<span>${hard ? "어려운 도전" : "말씀"}</span>`;   // 한 줄로 「🔥 말씀 · 빈칸 N개」(친구 2026-10-14)
+  title.innerHTML = mmSvg("flame") + `<span>${hard ? "어려움" : "말씀"}</span>`;   // 한 줄로 「🔥 말씀 · 빈칸 N개」 · 어려운 도전은 「🔥 어려움」(「어려운 도전」은 폰에서 「어려운…」으로 잘렸다 — 친구 2026-10-14)
   head.appendChild(title);
   if (remain) {
     // 옛 코드가 「남은 빈칸 N개」·「모두 맞혔어요! 🎉」를 넣는다 — 머리 줄 한 줄에 들어가게 「빈칸 N개」·「다 맞혔어요」로 줄인다
