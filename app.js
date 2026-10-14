@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261014ag";
+const APP_BUILD = "20261014ah";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -8055,7 +8055,8 @@ function mmPlaceHead() {
   // 시안이 띠 글씨를 키웠을 수 있다(C) — 띠 아래 끝을 지금 다시 잰다(initStickyRef 는 그리기 전에 쟀다)
   const ref = scr.querySelector(".test-ref-sticky");
   if (ref && window.visualViewport) document.documentElement.style.setProperty("--ref-bottom", (ref.getBoundingClientRect().bottom - window.visualViewport.offsetTop) + "px");
-  const extra = Math.max(0, (ref ? ref.getBoundingClientRect().height : 0) - 44);   // 띠가 옛 높이(약 44px)보다 커진 만큼 더 비운다
+  // 띠가 옛 높이(약 44px)보다 커진 만큼 더 비운다 — 아이폰 앱은 띠를 앱이 그려(글씨 크기와 상관없이 같은 높이) 웹 띠 높이를 보지 않는다
+  const extra = document.body.classList.contains("native-app-hide-ref") ? 0 : Math.max(0, (ref ? ref.getBoundingClientRect().height : 0) - 44);
   card.style.paddingTop = (Number(card.dataset.basePad) + extra + head.offsetHeight + 8) + "px";
 }
 // 늘 보이는 머리 줄의 아래 끝(화면 위에서부터 px) — 처음 스크롤 · 카드 상자 맞추기가 이 아래부터 잰다. 머리 줄이 없으면 띠 자리

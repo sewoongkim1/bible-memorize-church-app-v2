@@ -7037,7 +7037,13 @@ body:not(.native-app-hide-ref) .test-screen[data-memo] .word-input { scroll-marg
   top: calc(var(--vv-top, 0px) + var(--ref-bottom, calc(env(safe-area-inset-top, 0px) + 48px)));
   width: min(calc(100% - 28px), 488px); box-sizing: border-box; margin: 0; padding: 4px 10px; background: var(--cream);
 }
-body.native-app-hide-ref .test-screen[data-memo] .mm-head { top: calc(90px + var(--vv-top, 0px)); }
+/* 아이폰 앱 — 띠는 앱이 그린다(AppDelegate · 안전 영역 맨 위 · 높이 약 42pt). 머리 줄은 그 바로 밑 46px 에(2026-10-14 친구 실기기 「윗 공간이」 —
+   옛 90px 은 옛 암송 화면의 카드 여백 값이라 띠 밑이 48pt 쯤 비었다). 카드 위 여백도 같은 46px 에서 잰다(app.js mmPlaceHead).
+   ⚠️ 앱(contentInset:automatic)은 화면보다 **긴** 페이지에만 상태바 몫을 준다(.ps-wrap 주석) — 짧은 암송 화면이면 기준점이 상태바만큼 올라가
+   머리 줄이 띠 밑에 깔린다. 그래서 이 화면들은 늘 한 화면보다 길게 둔다(min-height) — 기준점이 언제나 같다. */
+body.native-app-hide-ref .test-screen[data-memo] { min-height: 100vh; }
+body.native-app-hide-ref .test-screen[data-memo] .mm-head { top: calc(46px + var(--vv-top, 0px)); }
+body.native-app-hide-ref .test-screen[data-memo] .test-card.with-ref-banner { padding-top: 46px; }
 .test-screen.memo-b .mm-head { background: #f4eee2; }
 .test-screen.memo-c .mm-head { background: #fff; }
 .dark .test-screen.memo-a .mm-head { background: #0f1218; }
@@ -7047,7 +7053,7 @@ body.native-app-hide-ref .test-screen[data-memo] .mm-head { top: calc(90px + var
 .test-screen.memo-b .mm-back { width: auto; padding: 0 6px 0 0; justify-content: flex-start; gap: 2px; font-size: 1rem; }
 /* 쓰기(키보드)로 다음 칸에 갈 때 그 칸이 띠 · 머리 줄 밑에 가리지 않게 */
 body:not(.native-app-hide-ref) .test-screen[data-memo] .word-input { scroll-margin-top: calc(var(--ref-bottom, 50px) + 72px); }
-body.native-app-hide-ref .test-screen[data-memo] .word-input { scroll-margin-top: 160px; }
+body.native-app-hide-ref .test-screen[data-memo] .word-input { scroll-margin-top: 120px; }   /* 띠 46 + 머리 줄 약 56 + 여유 */
 /* 「‹ 목록으로」(도전은 「‹ 첫 화면」)를 머리 줄 오른쪽 끝에 · 단추로 보이게 테두리를(친구 2026-10-14 「오른쪽으로 해 주고 버튼으로 인식되게」) */
 .test-screen[data-memo] .mm-head .mm-back {
   order: 9; margin-left: auto; min-height: 40px; padding: 0 12px 0 8px; border-radius: 10px;
