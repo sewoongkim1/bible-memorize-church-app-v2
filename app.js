@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261014aa";
+const APP_BUILD = "20261014ab";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2667,10 +2667,17 @@ function applyLoginA() {
   const card = scr && scr.querySelector(".entry-card");
   if (!card || card.querySelector(".lg-sec")) return;
   scr.classList.add("lg-a");
+  // 맨 위 — 제목 「성경말씀 암송하기」는 빼고 **올해 표어 말씀 한 줄만**(친구 2026-10-14 「말씀만 시편 119편 105절로 · 올해 표어라서」).
+  //   맨 위 띠가 이미 무엇인지 말하고(로고 · 오직 성경, 말씀이 답이다!), 설정 → 로그인 정보변경에서도 같은 화면이 열린다.
+  //   ⚠️ 표어가 바뀌는 해에는 이 줄을 고친다(전에는 시 119:11 「내가 주의 말씀을 내 마음에 두었나이다」 — 옛 꼴 템플릿에는 그대로 있다).
   const head = document.querySelector("#app .entry-header");
-  if (head) head.classList.add("lg-a");
-  const mt = head && head.querySelector(".entry-main-title");
-  if (mt) mt.insertAdjacentHTML("afterbegin", haSvg("book", "lga-tic"));
+  if (head) {
+    head.classList.add("lg-a");
+    const mt = head.querySelector(".entry-main-title");
+    if (mt) mt.hidden = true;
+    const st = head.querySelector(".entry-sub-title");
+    if (st) st.innerHTML = `주의 말씀은 내 발에 등이요<br>내 길에 빛이니이다<span class="lga-ref">시편 119편 105절</span>`;   // 두 줄(옛 맨 위 띠와 같다 · 한 줄이면 320px 큰 글씨에서 잘렸다)
+  }
   const help = document.getElementById("login-help");
   if (help) { setStripEmoji(help); help.insertAdjacentHTML("afterbegin", haSvg("help", "lga-ic")); }
   const pt = card.querySelector(".privacy-title");

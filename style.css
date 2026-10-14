@@ -7752,8 +7752,10 @@ html[data-fs="xl"] .vl-a .vs-ic { width: 20px; height: 20px; }
 /* ── 🔑 로그인 A안(app.js applyLoginA · 2026-10-14 친구 「2안 — 세 칸으로 나눔」 + 「이름을 먼저」) ──────────────────────────
    큰 흰 카드를 걷고 번호 붙은 흰 카드 셋(① 이름 · ② 어디에 계세요? · ③ 안내 확인) · 칩은 흰 알약(고른 것 남색 채움 — 어르신이 바로 알아보게) ·
    입력 칸 옅은 바탕 · 개인정보 안내 방패 아이콘 · 동의 줄 옅은 남색 · 시작하기 크게. 글자는 그대로(스토어 심사 문장). */
-.entry-header.lg-a .entry-main-title { display: inline-flex; align-items: center; gap: 8px; font-family: "Noto Sans KR", sans-serif; color: #1b2333; }
-.entry-header.lg-a .lga-tic { width: 26px; height: 26px; flex: none; color: #1e3a6b; }
+/* 맨 위는 올해 표어 말씀 한 줄(시 119:105)만 — 제목은 숨긴다(친구 2026-10-14) */
+.entry-header.lg-a .entry-main-title[hidden] { display: none; }
+.entry-header.lg-a .entry-sub-title { margin: 8px 0 4px; white-space: normal; font-size: 1.08rem; line-height: 1.55; color: #1e3a6b; word-break: keep-all; }
+.entry-header.lg-a .lga-ref { display: block; margin-top: 2px; font-family: "Noto Sans KR", sans-serif; font-size: .8rem; font-weight: 600; color: #4a5468; }
 .lg-a .lga-ic { width: 18px; height: 18px; flex: none; }
 .lg-a .entry-card { background: transparent; border: 0; box-shadow: none; padding: 0; }
 .lg-a .login-help-row { margin-bottom: 8px; }
@@ -7776,8 +7778,8 @@ html[data-fs="xl"] .vl-a .vs-ic { width: 20px; height: 20px; }
 .lg-a .privacy-consent { margin-top: 4px; padding: 10px 12px; border-radius: 12px; background: #eaf0f9; color: #1b2333; }
 .lg-a .privacy-consent.guardian-consent { margin-top: 8px; background: #fbf1d6; }
 .lg-a .entry-submit { min-height: 56px; border-radius: 14px; background: #1e3a6b; font-size: 1.15rem; font-weight: 800; }
-.dark .entry-header.lg-a .entry-main-title { color: #f1eee7; }
-.dark .entry-header.lg-a .lga-tic { color: #9dbbea; }
+.dark .entry-header.lg-a .entry-sub-title { color: #9dbbea; }
+.dark .entry-header.lg-a .lga-ref { color: #b9c0cd; }
 .dark .lg-a .entry-card { background: transparent; border: 0; }
 .dark .lg-a .login-help-btn { background: #1a202b; border-color: #4a6597; color: #9dbbea; }
 .dark .lg-a .lg-sec { background: #1a202b; border-color: #2c3442; }
