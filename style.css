@@ -7373,3 +7373,60 @@ html[data-fs="xl"] .vl-a .vs-ic { width: 20px; height: 20px; }
 .dark .vl-a .vl-card .heart-ribbon { color: #e9cd7e; }
 .dark .vl-a .card-listen { background: #1a202b; border-color: #2c3442; color: #9dbbea; }
 .dark .vl-a .card-listen:hover { background: #222a37; }
+
+/* ── ⚙️ 설정 A안(app.js applySettingsA · 2026-10-14 친구 「2안」 — 묶음 제목 + 흰 카드 줄) ─────────────────────────────────
+   흰 큰 카드를 걷고 바탕 위에 묶음(화면 · 글씨 / 암송 / 알림 / 내 정보 · 앱 / 동기화)마다 흰 카드 하나 · 안은 줄(사이 선).
+   고르는 칸은 회색 판 위 흰 칸(「쓰기 | 카드」와 같은 꼴) · 단추는 [아이콘 · 이름 · ›] 줄 · 「알림 끄기」 · 「내 정보 지우기」만 빨강. */
+.st-a .summary-card { background: transparent; border: 0; box-shadow: none; padding: 0 4px 24px; text-align: left; }
+.st-a .settings-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 4px 0 14px; }
+.st-a .rank-title { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.3rem; color: #1b2333; }
+.st-a .st-tic { width: 24px; height: 24px; color: #1e3a6b; }
+.st-a #settings-back { display: inline-flex; align-items: center; gap: 2px; min-height: 40px; padding: 0 12px 0 8px; border: 1.5px solid #8da3c8; border-radius: 10px; background: #fff; color: #1e3a6b; font-size: .94rem; font-weight: 800; }
+.st-a #settings-back:hover { background: #eaf0f9; }
+.st-a .st-bic { width: 18px; height: 18px; stroke-width: 2.4; }
+.st-a .st-groups { display: flex; flex-direction: column; gap: 18px; }
+.st-a .st-gt { margin: 0 0 8px; padding: 0 4px; font-size: .92rem; font-weight: 800; color: #4a5468; }
+.st-a .st-card { background: #fff; border: 1px solid #e5dfd4; border-radius: 16px; overflow: hidden; }
+.st-a .st-card > * { margin: 0; border: 0; border-top: 1px solid #e5dfd4; border-radius: 0; background: transparent; box-shadow: none; }
+.st-a .st-card > :first-child { border-top: 0; }
+.st-a .st-card > [hidden] { display: none; }
+.st-a .st-card > .setting-block { padding: 14px 16px; }
+.st-a .st-card > .app-status { padding: 4px 16px 10px; border-top: 0; font-size: .82rem; text-align: left; }
+.st-a .st-card > .app-status:empty { display: none; }
+.st-a .setting-label { display: flex; align-items: center; gap: 8px; justify-content: flex-start; margin: 0 0 10px; text-align: left; font-size: 1rem; font-weight: 800; color: #1b2333; }
+.st-a .setting-sub { font-weight: 500; color: #6e7787; }
+.st-a .st-ic { width: 22px; height: 22px; flex: none; color: #1e3a6b; }
+.st-a .tts-rate-row { gap: 2px; padding: 3px; border-radius: 12px; background: #ece7dd; }
+.st-a .tts-rate-row button { margin: 0; border: 0; border-radius: 9px; background: transparent; color: #4a5468; font-weight: 600; box-shadow: none; }
+.st-a .tts-rate-row button.on { background: #fff; color: #1e3a6b; font-weight: 800; box-shadow: 0 1px 2px rgba(0, 0, 0, .14); }
+.st-a .setting-block .btn-sub { text-align: left !important; color: #4a5468; }
+.st-a .wf-sample { border: 1px solid #e5dfd4; border-radius: 12px; background: #faf8f4; }
+.st-a #tts-preview { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border: 1.5px solid #8da3c8; border-radius: 12px; background: #fff; color: #1e3a6b; font-weight: 800; }
+.st-a #tts-preview:hover { background: #eaf0f9; }
+.st-a .st-row {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 8px 14px 8px 16px;
+  text-align: left; font-family: inherit; font-size: 1rem; font-weight: 700; color: #1b2333; text-decoration: none; cursor: pointer;
+}
+.st-a .st-row:hover { background: #f7f4ee; }
+.st-a .st-row .st-lab { flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px; min-width: 0; word-break: keep-all; }   /* 「지우 / 기」처럼 낱말 가운데서 꺾이지 않게 */
+.st-a .st-row .btn-sub { font-size: .82rem; font-weight: 500; color: #4a5468; }
+.st-a .st-row .st-chev { width: 20px; height: 20px; flex: none; color: #8a93a3; }
+.st-a #disable-push.st-row, .st-a #clear-me.st-row, .st-a #disable-push .st-ic, .st-a #clear-me .st-ic { color: #b4232f; }
+.dark .st-a .summary-card { background: transparent; border: 0; }
+.dark .st-a .rank-title { color: #f1eee7; }
+.dark .st-a .st-tic, .dark .st-a .st-ic { color: #9dbbea; }
+.dark .st-a #settings-back { background: #1a202b; border-color: #4a6597; color: #9dbbea; }
+.dark .st-a #settings-back:hover { background: #222a37; }
+.dark .st-a .st-gt { color: #b9c0cd; }
+.dark .st-a .st-card { background: #1a202b; border-color: #2c3442; }
+.dark .st-a .st-card > * { border-top-color: #2c3442; background: transparent; }
+.dark .st-a .setting-label { color: #f1eee7; }
+.dark .st-a .setting-sub, .dark .st-a .setting-block .btn-sub, .dark .st-a .st-row .btn-sub { color: #b9c0cd; }
+.dark .st-a .tts-rate-row { background: #262d39; }
+.dark .st-a .tts-rate-row button { background: transparent; border: 0; color: #b9c0cd; }
+.dark .st-a .tts-rate-row button.on { background: #1a202b; color: #9dbbea; border: 0; }
+.dark .st-a .wf-sample { background: #131925; border-color: #2c3442; }
+.dark .st-a #tts-preview { background: #1a202b; border-color: #4a6597; color: #9dbbea; }
+.dark .st-a .st-row { color: #f1eee7; }
+.dark .st-a .st-row:hover { background: #222a37; }
+.dark .st-a #disable-push.st-row, .dark .st-a #clear-me.st-row, .dark .st-a #disable-push .st-ic, .dark .st-a #clear-me .st-ic { color: #f07a82; }

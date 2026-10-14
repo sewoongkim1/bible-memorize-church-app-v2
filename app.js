@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261014s";
+const APP_BUILD = "20261014t";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -785,6 +785,8 @@ function albumAActive() {
 //   (B · C 시안은 10/14 미리보기만 하고 걷었다 — 남은 b · c 표식은 A 로 본다 · style.css 의 .memo-b/.memo-c 덩이는 나중에 걷는다)
 //   ⚠️ 위 구절 띠(.test-ref-sticky)에는 아무것도 넣지 않는다 — 아이폰 앱이 그 글자를 읽어 제 띠를 그린다(js/push.js). 그래서 「목록으로」는 띠 밑 줄에.
 const MEMO_LAYOUT = "a";
+// ⚙️ 설정 화면 A안(2026-10-14 친구 「2안」 · applySettingsA) — 롤백은 "old" 한 줄 + bump(옮겨 담기라 옛 템플릿 그대로)
+const SETTINGS_LAYOUT = "a";
 const MEMO_KEY = "memo-preview";
 function readMemoPreviewParam() {
   try {
@@ -886,6 +888,20 @@ const HA_ICON = {
   speaker: "M11 5 6 9H3v6h3l5 4zM15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13",
   bulb: "M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z",
   bell: "M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21a2 2 0 0 0 4 0",
+  sun: "M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4",   // ⚙️ 설정 A(applySettingsA) ↓
+  moon: "M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z",
+  type: "M4 7V4h16v3M9 20h6M12 4v16",
+  globe: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18",
+  clock: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2",
+  belloff: "M8.7 3A6 6 0 0 1 18 8c0 3 .6 5 1.3 6.4M17 17H3s3-2 3-9c0-.8.1-1.5.4-2.2M3 3l18 18M10 21a2 2 0 0 0 4 0",
+  user: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
+  share: "M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13",
+  lock: "M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4",
+  shield: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
+  trash: "M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14",
+  cloud: "M18 10h-1.3A6 6 0 1 0 6 16h12a3 3 0 0 0 0-6z",
+  flask: "M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3",
+  back: "M15 6l-6 6 6 6",
   gear: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3.1 15H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 4.1V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.7 1.7 0 0 0 20.9 10H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z",
 };
 const HA_GROUPS = [
@@ -5473,6 +5489,80 @@ function renderSettings() {
   setupPushHour();
   setupPushEvening();
   setupInstallButton();
+  applySettingsA();   // 설정 A안(SETTINGS_LAYOUT) — 연결을 다 마친 뒤 옮겨 담는다
+}
+
+// ── ⚙️ 설정 A안(2026-10-14 친구 「2안」 — 묶음 제목 + 흰 카드 줄 · 샘플 자료/design/2026-10-14-settings-sample · 스위치 SETTINGS_LAYOUT) ──────
+//   renderSettings 가 옛 화면을 다 그리고 연결까지 마친 뒤 옮겨 담는다 — 단추 · 고르는 칸의 id · 연결 · 저장은 옛 코드 그대로.
+//   묶음: 화면 · 글씨(밝기 · 글씨 크기 · 말씀 글꼴) · 암송(입력 방법 · 언어 · 듣기 속도) · 알림(아침 시간 ~ 테스트 알림 — 사이에 있는 것은 모두 ·
+//   아이폰 앱은 안내 글 한 줄) · 내 정보 · 앱(로그인 정보변경 · 홈 화면에 추가 · 공유하기 · 개인정보 안내 · 관리 페이지 · 이 기기에서 내 정보 지우기) · 동기화.
+//   ⚠️ 「로그인 정보변경」 · 「홈 화면에 추가」가 맨 위에서 「내 정보 · 앱」으로 내려갔다(친구가 알고 고름 — 샘플 ①은 차례 그대로였다).
+//   그림 글자는 선 아이콘 · 고르는 칸은 회색 판 위 흰 칸 · 단추는 [아이콘 · 이름 · ›] 줄 · 「‹ 첫 화면」(옛 「← 뒤로」도 첫 화면으로 갔다).
+const SET_LABEL_ICON = { "theme-row": "sun", "fontsize-row": "type", "wfont-row": "pen", "cardstart-row": "keyboard", "lang-row": "globe",
+  "tts-rate-row": "speaker", "pushhour-row": "clock", "pushevening-row": "moon" };
+const SET_BTN_ICON = { "change-user": "user", "install-btn": "house", "enable-push": "bell", "test-push": "flask", "share-btn": "share",
+  "open-manage": "lock", "privacy-info": "shield", "disable-push": "belloff", "clear-me": "trash" };
+function setStripEmoji(el) {
+  const t = el && el.firstChild;
+  if (t && t.nodeType === 3) t.data = t.data.replace(/^\s*(\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic})*️?)\s*/u, "");
+}
+function applySettingsA() {
+  if (SETTINGS_LAYOUT !== "a") return;
+  const card = document.querySelector("#app .summary-card");
+  const head = card && card.querySelector(":scope > .settings-head");
+  if (!head || card.querySelector(".st-groups")) return;
+  card.closest(".summary-screen").classList.add("st-a");
+  const title = head.querySelector(".rank-title");
+  if (title) title.innerHTML = haSvg("gear", "st-tic") + "<span>설정</span>";
+  const back = document.getElementById("settings-back");
+  if (back) back.innerHTML = haSvg("back", "st-bic") + "<span>첫 화면</span>";
+  const blk = (id) => { const r = document.getElementById(id); return r ? r.closest(".setting-block") : null; };
+  Object.keys(SET_LABEL_ICON).forEach((id) => {
+    const l = blk(id) && blk(id).querySelector(".setting-label");
+    if (l) { setStripEmoji(l); l.insertAdjacentHTML("afterbegin", haSvg(SET_LABEL_ICON[id], "st-ic")); }
+  });
+  const sync = [...card.querySelectorAll(":scope > .setting-block")].find((b) => /동기화/.test(b.querySelector(".setting-label")?.textContent || ""));
+  if (sync) { const l = sync.querySelector(".setting-label"); setStripEmoji(l); l.insertAdjacentHTML("afterbegin", haSvg("cloud", "st-ic")); }
+  Object.keys(SET_BTN_ICON).forEach((id) => {
+    const b = document.getElementById(id);
+    if (!b) return;
+    setStripEmoji(b);
+    const br = b.querySelector("br");
+    if (br) br.remove();
+    const lab = document.createElement("span");
+    lab.className = "st-lab";
+    [...b.childNodes].forEach((n) => lab.appendChild(n));
+    b.appendChild(lab);
+    b.insertAdjacentHTML("afterbegin", haSvg(SET_BTN_ICON[id], "st-ic"));
+    b.insertAdjacentHTML("beforeend", haSvg("chev", "st-chev"));
+    b.classList.add("st-row");
+  });
+  const pv = document.getElementById("tts-preview");
+  if (pv) { setStripEmoji(pv); pv.insertAdjacentHTML("afterbegin", haSvg("speaker", "st-ic")); }
+  // 알림 — 아침 시간 칸부터 「테스트 알림」까지 사이에 있는 것 모두(저녁 알림 · 알림 받기 · 상태 글 · 끄기 · 아이폰 앱 안내)
+  const alarm = [];
+  const from = blk("pushhour-row"), to = document.getElementById("test-push");
+  if (from && to) { for (let el = from; el; el = el.nextElementSibling) { alarm.push(el); if (el === to) break; } }
+  const G = [
+    ["화면 · 글씨", [blk("theme-row"), blk("fontsize-row"), blk("wfont-row")]],
+    ["암송", [blk("cardstart-row"), blk("lang-row"), blk("tts-rate-row")]],
+    ["알림", alarm],
+    ["내 정보 · 앱", ["change-user", "install-btn", "share-btn", "privacy-info", "open-manage", "clear-me"].map((id) => document.getElementById(id))],
+    ["동기화", [sync]],
+  ];
+  const wrap = document.createElement("div");
+  wrap.className = "st-groups";
+  G.forEach(([t, items]) => {
+    const list = items.filter(Boolean);
+    if (!list.length) return;
+    const sec = document.createElement("section");
+    sec.className = "st-group";
+    sec.innerHTML = `<div class="st-gt">${t}</div><div class="st-card"></div>`;
+    const box = sec.querySelector(".st-card");
+    list.forEach((x) => box.appendChild(x));
+    wrap.appendChild(sec);
+  });
+  head.after(wrap);   // 남는 것(아이폰 앱 판 한 줄 등)은 그 아래 그대로
 }
 
 // 공용 기기(로비 지원용 태블릿 등)를 다음 사람에게 넘기기 전에 내 흔적을 지운다.
@@ -9043,7 +9133,7 @@ function maybeShowOldPlayAppNotice() {
         <div class="cheer-msg dmsg-body">지금 쓰시는 앱은 시험하던 옛 앱이에요.<br>플레이스토어에 정식 앱 <b>「성경말씀 암송 (고척교회)」</b>이 나왔어요.<br><br>
           ① 아래 「새 앱 받기」로 설치해 주세요.<br>
           ② 새 앱에서 같은 소속·이름으로 들어오시면 기록이 그대로 이어져요.<br>
-          ③ 설정에서 「🔔 매일 암송 알림 받기」를 한 번 다시 눌러 주세요(알림은 앱마다 따로 켜야 해요).<br>
+          ③ 설정에서 「매일 암송 알림 받기」를 한 번 다시 눌러 주세요(알림은 앱마다 따로 켜야 해요).<br>
           ④ 새 앱이 잘 열리면 이 옛 앱은 지우셔도 돼요.</div>
         <div class="song-modal-actions">
           <button class="summary-help" id="old-app-later">나중에</button>
@@ -9970,7 +10060,7 @@ const MANUAL = [
         : "첫 화면을 <b>맨 아래까지</b> 내려 <b>⚙️ 설정</b>을 누르세요.",
       "<b>글씨 크기</b>에서 <b>크게</b>나 <b>아주 크게</b>를 고르세요.",
       "눈이 부시면 <b>화면 밝기</b>에서 <b>🌙 어둡게</b>를 고르세요.",
-      "이름이나 목장이 바뀌었으면 <b>👤 로그인 정보변경</b>에서 고치세요.",
+      "이름이나 목장이 바뀌었으면 <b>로그인 정보변경</b>에서 고치세요.",
     ],
     tip: "<b>말씀 듣기 속도</b>도 여기서 느리게 할 수 있어요. 영어로 외우고 싶으시면 <b>암송 언어</b>에서 <b>English (NIV)</b>를 고르세요.",
   },
@@ -10198,7 +10288,7 @@ function renderHelp(onClose) {
 
         <section class="help-section">
           <h3>📲 공유 & 홈 화면 추가</h3>
-          <p><b>⚙️ 설정</b>의 <b>🔗 공유하기</b>로 가족·목장원들에게 링크를 보낼 수 있고, <b>⛪ 홈 화면에 추가</b>로 앱처럼 바로 열 수 있어요.</p>
+          <p><b>⚙️ 설정</b>의 <b>공유하기</b>로 가족·목장원들에게 링크를 보낼 수 있고, <b>홈 화면에 추가</b>로 앱처럼 바로 열 수 있어요.</p>
         </section>
 
         <section class="help-section">
