@@ -30,6 +30,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private let verseRefContainer = UIView()
     private let verseRefLabel = UILabel()
     private var verseRefTimer: Timer?
+    // 「‹ 목록으로」(도전 · 복습은 「‹ 첫 화면」) — 웹 머리 줄의 .mm-back 을 대신 눌러 주는 단추(2026-10-14 친구 실기기).
+    // 웹의 머리 줄도 position:fixed 라 위 배너와 똑같이 키보드가 뜨면 스크롤을 따라 사라졌다 — 그래서 이 띠 왼쪽에 둔다.
+    // 이름은 웹 단추의 글을 그대로 옮겨 온다(폴링). 이 단추가 있는 판은 표식(features:'refBack')으로 웹에 알려, 웹이 제 단추를 숨긴다.
+    private let verseRefBack = UIButton(type: .system)
+    private var verseRefLabelLeadingPlain: NSLayoutConstraint?
+    private var verseRefLabelLeadingBack: NSLayoutConstraint?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // ⚠️ WKWebView는 실시간으로 불러오는 gocheok.onlybible.kr의 app.js·style.css를
@@ -181,7 +187,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         verseRefContainer.layer.shadowOpacity = 0.15
         verseRefContainer.layer.shadowOffset = CGSize(width: 0, height: 4)
         verseRefContainer.layer.shadowRadius = 8
-        verseRefContainer.isUserInteractionEnabled = false
+        // 단추를 눌러야 해서 터치를 받는다 — 띠 밑 웹 자리는 보이지 않는 웹 띠(.test-ref-sticky)라 막혀도 잃는 것이 없다.
+        // 띠가 숨으면(isHidden) 터치도 웹으로 그대로 간다.
+        verseRefContainer.isUserInteractionEnabled = true
         verseRefContainer.isHidden = true
         verseRefContainer.translatesAutoresizingMaskIntoConstraints = false
 
@@ -193,8 +201,36 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         verseRefLabel.minimumScaleFactor = 0.7
         verseRefLabel.translatesAutoresizingMaskIntoConstraints = false
 
+        let navy = UIColor(red: 0.118, green: 0.227, blue: 0.420, alpha: 1)   // #1e3a6b
+        var backCfg = UIButton.Configuration.plain()
+        backCfg.image = UIImage(systemName: "chevron.left", withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .bold))
+        backCfg.imagePadding = 3
+        backCfg.contentInsets = NSDirectionalEdgeInsets(top: 5, leading: 7, bottom: 5, trailing: 9)
+        backCfg.baseForegroundColor = navy
+        backCfg.background.backgroundColor = .white
+        backCfg.background.strokeColor = UIColor(red: 0.553, green: 0.639, blue: 0.784, alpha: 1)   // #8da3c8 — 웹 「‹ 목록으로」 테두리와 같은 값
+        backCfg.background.strokeWidth = 1.5
+        backCfg.background.cornerRadius = 9
+        backCfg.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attrs in
+            var a = attrs
+            a.font = UIFont.boldSystemFont(ofSize: 14)
+            return a
+        }
+        verseRefBack.configuration = backCfg
+        verseRefBack.isHidden = true
+        verseRefBack.translatesAutoresizingMaskIntoConstraints = false
+        verseRefBack.setContentCompressionResistancePriority(.required, for: .horizontal)
+        verseRefBack.addTarget(self, action: #selector(verseRefBackTapped), for: .touchUpInside)
+
         verseRefContainer.addSubview(verseRefLabel)
+        verseRefContainer.addSubview(verseRefBack)
         window.addSubview(verseRefContainer)
+
+        // 단추가 보이면 글은 단추 오른쪽부터, 안 보이면 예전처럼 양옆 16 — 둘 중 하나만 켠다(setVerseRefBack)
+        let plain = verseRefLabel.leadingAnchor.constraint(equalTo: verseRefContainer.leadingAnchor, constant: 16)
+        let withBack = verseRefLabel.leadingAnchor.constraint(equalTo: verseRefBack.trailingAnchor, constant: 6)
+        verseRefLabelLeadingPlain = plain
+        verseRefLabelLeadingBack = withBack
 
         // ⚠️ leading/trailing을 >=/<=(최소 여백)로 두면 컨테이너가 글자 길이에 맞춰
         // 좁게 줄어들어, 웹의 .test-ref-sticky(가로로 넓게 퍼짐)와 다르게 보인다
@@ -207,9 +243,31 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
             verseRefLabel.topAnchor.constraint(equalTo: verseRefContainer.topAnchor, constant: 10),
             verseRefLabel.bottomAnchor.constraint(equalTo: verseRefContainer.bottomAnchor, constant: -10),
-            verseRefLabel.leadingAnchor.constraint(equalTo: verseRefContainer.leadingAnchor, constant: 16),
+            plain,
             verseRefLabel.trailingAnchor.constraint(equalTo: verseRefContainer.trailingAnchor, constant: -16),
+
+            verseRefBack.leadingAnchor.constraint(equalTo: verseRefContainer.leadingAnchor, constant: 6),
+            verseRefBack.centerYAnchor.constraint(equalTo: verseRefLabel.centerYAnchor),
         ])
+    }
+
+    // 웹 머리 줄에 「‹ 목록으로」가 있으면(글이 비지 않았으면) 띠 왼쪽에 보인다. 이름이 바뀔 때만 다시 쓴다.
+    private func setVerseRefBack(_ title: String) {
+        let show = !title.isEmpty
+        if verseRefBack.isHidden == show {
+            verseRefBack.isHidden = !show
+            // 둘이 동시에 켜지면 제약이 부딪힌다 — 먼저 끄고 켠다
+            if show { verseRefLabelLeadingPlain?.isActive = false; verseRefLabelLeadingBack?.isActive = true }
+            else { verseRefLabelLeadingBack?.isActive = false; verseRefLabelLeadingPlain?.isActive = true }
+        }
+        if show && verseRefBack.configuration?.title != title { verseRefBack.configuration?.title = title }
+    }
+
+    // 웹 단추를 그대로 누른다 — 어디로 가는지(목록 · 첫 화면 · 도전으로)는 웹이 정한다. 웹 단추가 숨어 있어도 click() 은 된다.
+    @objc private func verseRefBackTapped() {
+        guard let bridgeVC = window?.rootViewController as? CAPBridgeViewController,
+              let webView = bridgeVC.webView else { return }
+        webView.evaluateJavaScript("(function(){var b=document.querySelector('.test-screen[data-memo] .mm-head .mm-back');if(b)b.click();})()")
     }
 
     // 0.4초마다 웹의 .test-ref-sticky 글자를 읽어 온다 — 있으면(암송 화면이면) 네이티브
@@ -225,15 +283,24 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private func pollVerseRef() {
         guard let bridgeVC = window?.rootViewController as? CAPBridgeViewController,
               let webView = bridgeVC.webView else { return }
+        // 구절 글(t)과 웹 머리 줄 「‹ 목록으로」의 글(b)을 함께 읽는다 — JSON 한 줄로 받는다
         webView.evaluateJavaScript(
-            "(function(){var e=document.querySelector('.test-ref-sticky');return e?e.textContent:'';})()"
+            "(function(){var e=document.querySelector('.test-ref-sticky');var b=document.querySelector('.test-screen[data-memo] .mm-head .mm-back');"
+            + "return JSON.stringify({t:e?e.textContent:'',b:b?b.textContent:''});})()"
         ) { [weak self] result, _ in
             guard let self = self else { return }
-            let text = (result as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            var text = ""
+            var back = ""
+            if let raw = result as? String, let data = raw.data(using: .utf8),
+               let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
+                text = ((obj["t"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                back = ((obj["b"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            }
             if text.isEmpty {
                 self.verseRefContainer.isHidden = true
             } else {
                 if self.verseRefLabel.text != text { self.verseRefLabel.text = text }
+                self.setVerseRefBack(back)
                 self.verseRefContainer.isHidden = false
                 self.window?.bringSubviewToFront(self.verseRefContainer)
             }
@@ -271,7 +338,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
         let version = digitsOnly(info["CFBundleShortVersionString"])
         let build = digitsOnly(info["CFBundleVersion"])
-        let js = "window.GOCHEOK_APP={platform:'ios',version:'\(version)',build:'\(build)'};"
+        // features — 이 껍데기가 가진 네이티브 기능(웹이 판 번호 대신 이것으로 가른다). refBack = 구절 띠의 「‹ 목록으로」(2026-10-14)
+        let js = "window.GOCHEOK_APP={platform:'ios',version:'\(version)',build:'\(build)',features:['refBack']};"
             + "try{window.dispatchEvent(new Event('gocheok-app'))}catch(e){}"
         if !appInfoScriptInstalled {
             appInfoScriptInstalled = true

@@ -7044,6 +7044,11 @@ body:not(.native-app-hide-ref) .test-screen[data-memo] .word-input { scroll-marg
 body.native-app-hide-ref .test-screen[data-memo] { min-height: 100vh; }
 body.native-app-hide-ref .test-screen[data-memo] .mm-head { top: calc(46px + var(--vv-top, 0px)); }
 body.native-app-hide-ref .test-screen[data-memo] .test-card.with-ref-banner { padding-top: 46px; }
+/* 앱이 띠 왼쪽에 「‹ 목록으로」를 그리는 판(js/push.js body.native-ref-back — 표식 features:refBack)이면 웹의 같은 단추는 숨긴다.
+   암송 · 주제별 머리 줄은 그 단추 하나뿐이라 줄째 숨겨 말씀이 띠 바로 밑으로 올라온다. 도전 · 복습 머리 줄(.mm-ch-head)은 제목 · 남은 빈칸이 있어 단추만. */
+body.native-ref-back .test-screen[data-memo] .mm-head:not(.mm-ch-head) { display: none; }
+body.native-ref-back .test-screen[data-memo] .mm-ch-head .mm-back { display: none; }
+body.native-ref-back .test-screen[data-memo]:not(.mm-ch) .word-input { scroll-margin-top: 64px; }
 .test-screen.memo-b .mm-head { background: #f4eee2; }
 .test-screen.memo-c .mm-head { background: #fff; }
 .dark .test-screen.memo-a .mm-head { background: #0f1218; }
