@@ -25,6 +25,8 @@ const context = vm.createContext({});
 vm.runInContext(source.slice(start, end), context);
 const narrowRanking = context.narrowRanking;
 assert.equal(typeof narrowRanking, 'function', 'narrowRanking 을 못 떼어 냈다');
+const tieRanks = context.tieRanks;
+assert.equal(typeof tieRanks, 'function', 'tieRanks 를 못 떼어 냈다');
 
 // 서버 ranking 응답의 줄 모양 그대로 (index.ts 가 주는 칸들).
 const row = (rank, name, sosok, count, gubun = '교구') => ({
@@ -146,3 +148,24 @@ test('목록이 비어 있거나 배열이 아니어도 터지지 않는다', ()
     assert.equal(out.count, 0);
   }
 });
+
+// 같은 횟수면 같은 순위 — 올림픽 방식(2026-10-14 친구). 서버는 row_number 라 화면 번호만 이것으로 붙인다.
+test('같은 횟수면 같은 순위 — 1 · 2 · 2 · 4(올림픽 방식) · 빈 번호 다음은 건너뛴다', () => {
+  const c = (...ns) => ns.map((n, i) => ({ name: 'x' + i, count: n }));
+  assert.deepEqual([...tieRanks(c(142, 89, 89, 77))], [1, 2, 2, 4]);
+  assert.deepEqual([...tieRanks(c(50, 50, 50))], [1, 1, 1]);
+  assert.deepEqual([...tieRanks(c(9, 8, 8, 8, 3, 3))], [1, 2, 2, 2, 5, 5]);
+  assert.deepEqual([...tieRanks(c(7))], [1]);
+  assert.deepEqual([...tieRanks([])], []);
+  assert.deepEqual([...tieRanks(null)], []);
+});
+
+test('우리 교구로 좁힌 번호도 같은 횟수면 같다 — 금색 줄(ranks ≤ 3)이 공동 3위까지 붙는다', () => {
+  const list = [row(1, '가', '사랑', 40), row(2, '나', '사랑', 30), row(3, '다', '소망', 30), row(4, '라', '사랑', 30), row(5, '마', '사랑', 10)];
+  const out = narrowRanking(list, me('사랑'));
+  assert.deepEqual(out.list.map((x) => x.name), ['가', '나', '라', '마']);
+  assert.deepEqual([...out.ranks], [1, 2, 2, 4]);
+  // x.rank(서버 값)는 그대로다
+  assert.deepEqual(out.list.map((x) => x.rank), [1, 2, 4, 5]);
+});
+

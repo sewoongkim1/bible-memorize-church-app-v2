@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261014u";
+const APP_BUILD = "20261014v";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -11725,6 +11725,20 @@ let rankScope = null;   // "mine" | "all" | null(아직 안 정함 — 화면에
 
 const MIN_SCOPE_ROWS = 3; // 나 + 둘. 둘이라도 있어야 「순위」라는 말이 성립한다
 
+// 같은 횟수면 같은 순위 — 올림픽 방식(142 · 89 · 89 · 77 → 1 · 2 · 2 · 4 · 2026-10-14 친구 「기록이 같으면 순위가 같나요」).
+//   서버(v2_ranking · v2_gu_ranking)는 row_number 라 같은 횟수도 이름 가나다순으로 번호가 갈린다 — 줄 차례는 그대로 두고 **화면 번호만** 이것으로 붙인다.
+//   ⚠️ 순수 함수(tests/ranking-scope.test.cjs 가 떼어 내 돌린다) · 목록은 이미 횟수 많은 순이다(다시 정렬하지 않는다).
+//   ⚠️ x.rank 를 덮어쓰지 않는다 — 번호(🥇)와 금색 줄(.rank-row.top)은 둘 다 이 배열의 같은 값을 본다.
+function tieRanks(list) {
+  const rows = Array.isArray(list) ? list : [];
+  let last = 0;
+  return rows.map((x, i) => {
+    const prev = rows[i - 1];
+    last = i > 0 && x && prev && x.count === prev.count ? last : i + 1;
+    return last;
+  });
+}
+
 function narrowRanking(list, me) {
   const rows = Array.isArray(list) ? list : [];
   const gubun = me && me.gubun ? String(me.gubun) : "";
@@ -11736,7 +11750,7 @@ function narrowRanking(list, me) {
   if (mine.length < MIN_SCOPE_ROWS) {
     return { ok: false, reason: "too-few", list: [], ranks: [], count: mine.length };
   }
-  return { ok: true, reason: "", list: mine, ranks: mine.map((_, i) => i + 1), count: mine.length };
+  return { ok: true, reason: "", list: mine, ranks: tieRanks(mine), count: mine.length };
 }
 
 async function loadRankingBody(r) {
@@ -11841,9 +11855,11 @@ function drawRankingBody(r, data) {
   // 받은 응원은 '내 순위'에서만 이름까지 본다. 남의 줄은 숫자만 보이고 누가 눌렀는지는
   // 보이지 않는다 — 누가 누구를 응원했는지가 온 교회에 드러날 일은 아니다.
   const myCheers = (me && me.cheers) || 0;
+  // 내 순위 — 전체 목록에서 같은 횟수면 같은 순위(tieRanks · 서버 me.rank 는 row_number 라 쓰지 않는다)
+  const meRank = me ? tieRanks(list)[list.indexOf(me)] : 0;
   const myHtml = u
     ? `<div class="my-rank">
-         ${me ? `<span class="mr-rank">${medal(me.rank)}</span>` : ""}
+         ${me ? `<span class="mr-rank">${medal(meRank)}</span>` : ""}
          <span class="mr-name">${u.name}</span>
          <span class="mr-so">${mySo}</span>
          ${me
@@ -11904,9 +11920,10 @@ function drawRankingBody(r, data) {
   // ⚠️ 번호와 금색 줄(.rank-row.top)이 **같은 값**을 봐야 한다.
   //    번호만 고치면 🥇는 뜨는데 그 줄이 금색이 아닌 채로 남는다.
   // ⚠️ x.rank 를 덮어쓰지 않는다 — me 가 같은 객체라 「내 순위」 바의 전체 순위가 사라진다.
+  const viewRanks = tieRanks(view);   // 같은 횟수면 같은 번호(올림픽 방식) — 번호와 금색 줄이 같은 값을 본다
   const rows = view.map((x, i) => {
     const isMe = keyOf(x.gubun, x.sosok, x.sebu, x.name) === myKey;
-    const n = i + 1;
+    const n = viewRanks[i];
     return `<div class="rank-row ${n <= 3 ? "top" : ""} ${isMe ? "me" : ""} ${x.liveNow ? "live" : ""}">
       <span class="rk-no">${medal(n)}</span>
       <span class="rk-name">${x.liveNow ? `<i class="rk-dot" aria-label="지금 암송 중"></i>` : ""}${x.name}</span>
@@ -11941,7 +11958,7 @@ function drawRankingBody(r, data) {
       <span class="rn-l rn-sub">오늘 기록이 아직 없는 분의 👏는 흐리게 보여요</span>
       ${u ? `<span class="rn-l rn-sub">나를 응원해 주신 분들 이름은 맨 위 「내 이름」 줄 아래에 보여요 — 그 줄의 👏를 누르면 접혀요</span>` : ""}
       ${narrowOn
-        ? `<span class="rn-l rn-sub">지금은 ${soName} 안에서만 보고 있어요${me ? ` — 전체에서는 <b>${me.rank}</b>위예요` : ""}. 👏 수는 전체에서 받은 것이에요</span>`
+        ? `<span class="rn-l rn-sub">지금은 ${soName} 안에서만 보고 있어요${me ? ` — 전체에서는 <b>${meRank}</b>위예요` : ""}. 👏 수는 전체에서 받은 것이에요</span>`
         : ""}
     </p>`;
 
@@ -12145,9 +12162,10 @@ async function loadGuRankingBody(r) {
   const medal = (n) => (n === 1 ? "🥇" : n === 2 ? "🥈" : n === 3 ? "🥉" : n);
   const myGu = u && u.type === "교구" ? u.gu : null;
 
-  const rows = list.map((x) => `
-    <div class="rank-row ${x.rank <= 3 ? "top" : ""} ${x.gu === myGu ? "me" : ""}">
-      <span class="rk-no">${medal(x.rank)}</span>
+  const guRanks = tieRanks(list);   // 합계가 같으면 같은 순위(올림픽 방식 · 2026-10-14)
+  const rows = list.map((x, i) => `
+    <div class="rank-row ${guRanks[i] <= 3 ? "top" : ""} ${x.gu === myGu ? "me" : ""}">
+      <span class="rk-no">${medal(guRanks[i])}</span>
       <span class="rk-name">${x.gu}</span>
       <span class="rk-so">${x.people}명</span>
       <span class="rk-cnt">${x.count}회</span>
