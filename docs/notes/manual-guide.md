@@ -25,3 +25,11 @@
 - **홈 화면에 앱 만들기:** 안드로이드는 `beforeinstallprompt`를 잡아 두어 **📲 한 번이면 크롬이 설치창을 띄운다**. 아이폰 사파리에는 그 API가 없어 공유 시트를 거쳐야 하므로 `renderInstallGuide()`가 **어느 단추인지 그림으로 짚어** 준다(자기 폰 쪽이 펼쳐져 뜬다). **카카오톡 내부 브라우저에서는 어느 폰이든 설치가 안 된다** — 두 안내 모두에 적어 두었다.
 - **2026-10-14 설명서 목차를 묶음으로(v3.649 · `HELP_LAYOUT` · `applyManualA`)** — 시작하기 · 말씀 외우기 · 함께 · 말씀 묵상 · 설정. ⚠️ **MANUAL 에 장을 더하면 `MANUAL_GROUPS`(app.js) 의 한 묶음에도 그 이름을 넣는다**(안 넣으면 「그 밖에」로). 자세한 안내 · 로그인 방법 · 소개 · 홈 화면 안내도 같은 옷 — 글자는 그대로.
 
+## 앱 설치 안내 페이지 · QR (2026-10-15 · 친구 요청)
+- 주소 **https://gocheok.onlybible.kr/install/** (`install/index.html` · 로그인 없음 · 앱 본체를 안 부른다 — guide/ · quiz/ 와 같은 방침).
+  단추 셋: 안드로이드 · 갤럭시(구글 플레이 `kr.onlybible.gocheok`) · 아이폰(App Store `id6811724527`) · 설치 없이 바로 쓰기(gocheok.onlybible.kr).
+  휴대폰 종류를 읽어 맞는 줄에 「이 휴대폰」 표를 단다(순서는 그대로) · 컴퓨터로 열면 QR(`install/qr.png`)을 보인다.
+- ⚠️ 스토어 주소는 `app.js` 의 `IOS_APP_STORE_URL` · `NEW_APP_STORE_INTENT` 와 같은 값 — 바뀌면 두 곳을 함께.
+- ⚠️ `tools/site.py` `SITE_DIRS` 에 `install` 이 있어야 운영에서 열린다(빼면 운영만 404).
+- 인쇄용 QR(같은 주소): `자료/marketing/qr-install.png`(남색 · 크게) · `qr-install.svg` · `qr-install-card.png`(「성경말씀 암송 앱 설치」 · 주소를 붙인 카드). 셋 다 해독 확인함.
+- 말은 참인 것만: 위젯은 두 앱 모두에 있다 · 소속 · 이름을 같게 넣으면 기록이 이어진다(서버 기록).

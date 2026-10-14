@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>앱 설치 · 고척교회 성경말씀 암송</title>
+<meta name="description" content="고척교회 성경말씀 암송 앱 — 안드로이드(구글 플레이) · 아이폰(App Store)에서 받거나, 설치 없이 인터넷으로 바로 쓰세요." />
+<meta name="theme-color" content="#1a3a6b" />
+<link rel="icon" href="../favicon.png" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="성경말씀 암송 앱 설치 · 고척교회" />
+<meta property="og:description" content="안드로이드 · 아이폰 앱으로 받거나, 설치 없이 바로 쓰세요." />
+<meta property="og:image" content="https://gocheok.onlybible.kr/og-cover.png" />
+<meta property="og:url" content="https://gocheok.onlybible.kr/install/" />
+<meta property="og:site_name" content="고척교회 제자양육부 신앙운동팀" />
+
+<!--
+  앱 설치 안내(2026-10-15 친구 요청) — 안드로이드 · 아이폰 · 웹 세 단추 한 장. 주보 · 포스터의 QR 이 이 주소(/install/)를 가리킨다.
+  ■ 로그인 없이 열린다 · 앱 본체(app.js · style.css)를 부르지 않는다(guide/ · quiz/ 와 같은 방침) · 웹폰트 없음(첫 화면 속도).
+  ■ 스토어 주소는 app.js 와 같은 값이다 — IOS_APP_STORE_URL(id6811724527) · 플레이 kr.onlybible.gocheok. 바뀌면 두 곳을 함께.
+  ■ 말은 참인 것만(스킬 copy-truth): 기록은 서버에 있어 같은 소속 · 이름으로 들어오면 이어진다 · 위젯은 두 앱 모두에 있다.
+  ■ 화면이 부르는 파일이라 tools/site.py SITE_DIRS 에 install 이 있어야 운영에서 열린다.
+  ■ QR 그림(qr.png)은 컴퓨터로 열었을 때만 보인다 — 휴대폰으로 찍어 이 페이지를 열게. 인쇄용 큰 QR 은 자료/marketing/qr-install*.png.
+-->
+<style>
+:root{
+  --navy:#1e3a6b; --ink:#1b2333; --soft:#4a5468; --line:#e5dfd4; --bg:#fbf7f0; --card:#fff; --tint:#eaf0f9; --gold:#7a5a12; --goldbg:#fbf1d6;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --navy:#9dbbea; --ink:#f1eee7; --soft:#b9c0cd; --line:#2c3442; --bg:#0f1218; --card:#1a202b; --tint:#22304a; --gold:#e9cd7e; --goldbg:#3a3018; }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif;
+  -webkit-text-size-adjust:100%; word-break:keep-all;
+}
+.band{
+  background:linear-gradient(135deg,#0d1b3e 0%,#1a3a6b 40%,#0d4a7a 100%);
+  padding:calc(10px + env(safe-area-inset-top,0px)) 16px 10px;
+  display:flex; align-items:center; justify-content:center; gap:10px;
+}
+.band img{width:34px;height:auto;display:block}
+.band span{color:#fff;font-size:17px;font-weight:800;letter-spacing:-.2px}
+.wrap{max-width:560px;margin:0 auto;padding:22px 16px calc(36px + env(safe-area-inset-bottom,0px))}
+h1{font-size:1.55rem;font-weight:800;margin:4px 0 6px;color:var(--ink)}
+.sub{margin:0 0 18px;color:var(--soft);font-size:.98rem;line-height:1.6}
+.choices{display:flex;flex-direction:column;gap:12px}
+.choice{
+  display:flex;align-items:center;gap:14px;min-height:84px;padding:14px 16px;
+  background:var(--card);border:1.5px solid var(--line);border-radius:18px;
+  color:var(--ink);text-decoration:none;position:relative;
+}
+.choice:active{transform:scale(.99)}
+.choice .ic{width:52px;height:52px;flex:none;border-radius:14px;background:var(--tint);color:var(--navy);display:flex;align-items:center;justify-content:center}
+.choice .ic svg{width:28px;height:28px}
+.choice .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.choice .tx b{font-size:1.18rem;font-weight:800}
+.choice .tx small{font-size:.92rem;color:var(--soft);line-height:1.4}
+.choice .go{flex:none;width:22px;height:22px;color:var(--soft)}
+.badge{display:none;position:absolute;top:-10px;left:14px;padding:3px 10px;border-radius:999px;background:var(--navy);color:#fff;font-size:.78rem;font-weight:800}
+@media (prefers-color-scheme: dark){ .badge{color:#0f1218} }
+/* 이 휴대폰에 맞는 줄 — 테두리 남색 · 「이 휴대폰」 표 */
+.is-android .c-android, .is-ios .c-ios{border-color:var(--navy);box-shadow:0 0 0 2px var(--navy) inset}
+.is-android .c-android .badge, .is-ios .c-ios .badge{display:block}
+.note{margin:18px 0 0;padding:14px 16px;border-radius:14px;background:var(--goldbg);color:var(--ink);font-size:.95rem;line-height:1.65}
+.note b{color:var(--gold)}
+/* 컴퓨터로 열었을 때만 — 휴대폰 카메라로 찍어 이 페이지를 연다 */
+.qr{display:none;margin:22px 0 0;padding:18px;border:1.5px solid var(--line);border-radius:18px;background:var(--card);text-align:center}
+.is-desktop .qr{display:block}
+.qr img{width:200px;height:200px;display:block;margin:0 auto 10px;background:#fff;padding:8px;border-radius:10px}
+.qr p{margin:0;color:var(--soft);font-size:.95rem}
+footer{margin:26px 0 0;color:var(--soft);font-size:.86rem;line-height:1.7;text-align:center}
+footer a{color:var(--navy)}
+</style>
+</head>
+<body>
+<div class="band"><img src="../img/logo-mark.png" alt="고척교회" width="108" height="132" /><span>오직 성경, 말씀이 답이다!</span></div>
+
+<main class="wrap">
+  <h1>성경말씀 암송 앱 설치</h1>
+  <p class="sub">휴대폰 종류에 맞는 단추를 누르세요.<br />설치하지 않고 인터넷으로 바로 쓰셔도 됩니다.</p>
+
+  <div class="choices">
+    <a class="choice c-android" href="https://play.google.com/store/apps/details?id=kr.onlybible.gocheok">
+      <span class="badge">이 휴대폰</span>
+      <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM10 8.5v7l5.5-3.5z"/></svg></span>
+      <span class="tx"><b>안드로이드 · 갤럭시</b><small>구글 플레이에서 받기</small></span>
+      <svg class="go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+    </a>
+    <a class="choice c-ios" href="https://apps.apple.com/app/id6811724527">
+      <span class="badge">이 휴대폰</span>
+      <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM10.5 18.5h3"/></svg></span>
+      <span class="tx"><b>아이폰</b><small>App Store에서 받기</small></span>
+      <svg class="go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+    </a>
+    <a class="choice c-web" href="https://gocheok.onlybible.kr/">
+      <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg></span>
+      <span class="tx"><b>설치 없이 바로 쓰기</b><small>인터넷 창에서 열기 · gocheok.onlybible.kr</small></span>
+      <svg class="go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+    </a>
+  </div>
+
+  <p class="note">앱을 받으시면 휴대폰 첫 화면에 <b>이번 주 말씀 위젯</b>도 놓을 수 있어요.<br />
+    처음 들어오실 때 <b>소속과 이름</b>을 같게 넣으시면, 인터넷으로 하시던 기록이 그대로 이어져요.</p>
+
+  <div class="qr">
+    <img src="qr.png" alt="이 페이지로 가는 QR 코드" width="200" height="200" />
+    <p>휴대폰 카메라로 찍으면 이 페이지가 열려요.</p>
+  </div>
+
+  <footer>
+    고척교회 제자양육부 신앙운동팀 · 문의 교회 사무실 <span style="white-space:nowrap">02-2686-5871~3</span><br />
+    <a href="../privacy/">개인정보 수집·이용 안내</a>
+  </footer>
+</main>
+
+<script>
+// 이 휴대폰에 맞는 줄에 「이 휴대폰」 표를 단다(순서는 그대로 — 안내 말이 늘 같게). 컴퓨터면 QR 을 보인다.
+(function () {
+  var ua = navigator.userAgent || "";
+  var ios = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
+  var cls = /Android/i.test(ua) ? "is-android" : ios ? "is-ios" : "is-desktop";
+  document.body.classList.add(cls);
+})();
+</script>
+</body>
+</html>

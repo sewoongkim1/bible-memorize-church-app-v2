@@ -18,7 +18,7 @@ import os, shutil, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # 화면 폴더 — 통째로 나간다
-SITE_DIRS = ["js", "img", "music", "files", "guide", "privacy", "quiz", "cert", ".well-known"]
+SITE_DIRS = ["js", "img", "music", "files", "guide", "privacy", "quiz", "cert", "install", ".well-known"]   # install = 앱 설치 안내(2026-10-15 · QR 이 가리킨다)
 # 루트 파일 — 이 확장자만(CLAUDE.md·README.md·codemagic.yaml·.gitignore·.env.example 은 안 나간다)
 ROOT_EXT = (".html", ".js", ".css", ".json", ".png", ".jpg", ".ico", ".svg", ".ics", ".webmanifest")
 ROOT_NAMES = ("CNAME", ".nojekyll")
