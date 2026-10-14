@@ -31,11 +31,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private let verseRefLabel = UILabel()
     private var verseRefTimer: Timer?
     // 「‹ 목록으로」(도전 · 복습은 「‹ 첫 화면」) — 웹 머리 줄의 .mm-back 을 대신 눌러 주는 단추(2026-10-14 친구 실기기).
-    // 웹의 머리 줄도 position:fixed 라 위 배너와 똑같이 키보드가 뜨면 스크롤을 따라 사라졌다 — 그래서 이 띠 왼쪽에 둔다.
+    // 웹의 머리 줄도 position:fixed 라 위 배너와 똑같이 키보드가 뜨면 스크롤을 따라 사라졌다 — 그래서 이 띠 안에 둔다.
+    // 자리는 띠 **오른쪽** 끝(2026-10-15 친구 — 웹 A안의 「‹ 목록으로」도 머리 줄 오른쪽이다 · 처음엔 왼쪽이었다).
     // 이름은 웹 단추의 글을 그대로 옮겨 온다(폴링). 이 단추가 있는 판은 표식(features:'refBack')으로 웹에 알려, 웹이 제 단추를 숨긴다.
     private let verseRefBack = UIButton(type: .system)
-    private var verseRefLabelLeadingPlain: NSLayoutConstraint?
-    private var verseRefLabelLeadingBack: NSLayoutConstraint?
+    private var verseRefLabelTrailingPlain: NSLayoutConstraint?
+    private var verseRefLabelTrailingBack: NSLayoutConstraint?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // ⚠️ WKWebView는 실시간으로 불러오는 gocheok.onlybible.kr의 app.js·style.css를
@@ -226,11 +227,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         verseRefContainer.addSubview(verseRefBack)
         window.addSubview(verseRefContainer)
 
-        // 단추가 보이면 글은 단추 오른쪽부터, 안 보이면 예전처럼 양옆 16 — 둘 중 하나만 켠다(setVerseRefBack)
-        let plain = verseRefLabel.leadingAnchor.constraint(equalTo: verseRefContainer.leadingAnchor, constant: 16)
-        let withBack = verseRefLabel.leadingAnchor.constraint(equalTo: verseRefBack.trailingAnchor, constant: 6)
-        verseRefLabelLeadingPlain = plain
-        verseRefLabelLeadingBack = withBack
+        // 단추가 보이면 글은 단추 왼쪽까지, 안 보이면 예전처럼 양옆 16 — 둘 중 하나만 켠다(setVerseRefBack)
+        let plain = verseRefLabel.trailingAnchor.constraint(equalTo: verseRefContainer.trailingAnchor, constant: -16)
+        let withBack = verseRefLabel.trailingAnchor.constraint(equalTo: verseRefBack.leadingAnchor, constant: -6)
+        verseRefLabelTrailingPlain = plain
+        verseRefLabelTrailingBack = withBack
 
         // ⚠️ leading/trailing을 >=/<=(최소 여백)로 두면 컨테이너가 글자 길이에 맞춰
         // 좁게 줄어들어, 웹의 .test-ref-sticky(가로로 넓게 퍼짐)와 다르게 보인다
@@ -243,22 +244,22 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
             verseRefLabel.topAnchor.constraint(equalTo: verseRefContainer.topAnchor, constant: 10),
             verseRefLabel.bottomAnchor.constraint(equalTo: verseRefContainer.bottomAnchor, constant: -10),
+            verseRefLabel.leadingAnchor.constraint(equalTo: verseRefContainer.leadingAnchor, constant: 16),
             plain,
-            verseRefLabel.trailingAnchor.constraint(equalTo: verseRefContainer.trailingAnchor, constant: -16),
 
-            verseRefBack.leadingAnchor.constraint(equalTo: verseRefContainer.leadingAnchor, constant: 6),
+            verseRefBack.trailingAnchor.constraint(equalTo: verseRefContainer.trailingAnchor, constant: -6),
             verseRefBack.centerYAnchor.constraint(equalTo: verseRefLabel.centerYAnchor),
         ])
     }
 
-    // 웹 머리 줄에 「‹ 목록으로」가 있으면(글이 비지 않았으면) 띠 왼쪽에 보인다. 이름이 바뀔 때만 다시 쓴다.
+    // 웹 머리 줄에 「‹ 목록으로」가 있으면(글이 비지 않았으면) 띠 오른쪽에 보인다. 이름이 바뀔 때만 다시 쓴다.
     private func setVerseRefBack(_ title: String) {
         let show = !title.isEmpty
         if verseRefBack.isHidden == show {
             verseRefBack.isHidden = !show
             // 둘이 동시에 켜지면 제약이 부딪힌다 — 먼저 끄고 켠다
-            if show { verseRefLabelLeadingPlain?.isActive = false; verseRefLabelLeadingBack?.isActive = true }
-            else { verseRefLabelLeadingBack?.isActive = false; verseRefLabelLeadingPlain?.isActive = true }
+            if show { verseRefLabelTrailingPlain?.isActive = false; verseRefLabelTrailingBack?.isActive = true }
+            else { verseRefLabelTrailingBack?.isActive = false; verseRefLabelTrailingPlain?.isActive = true }
         }
         if show && verseRefBack.configuration?.title != title { verseRefBack.configuration?.title = title }
     }

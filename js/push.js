@@ -26,7 +26,7 @@ if (isNativeApp()) {
   //   AppDelegate.configureNativeAppCss 도 같은 값을 심지만 앱을 켤 때 · 1초 · 3초 · 다시 열 때뿐이라, 배포 직후 웹이 스스로
   //   새로고침하면(app.js APP_BUILD 안전장치) 값이 사라져 맨 위 띠 위가 상태바 높이만큼 비었다(2026-10-14 친구 실기기). 문서마다 여기서 다시 심는다.
   try { document.documentElement.style.setProperty("--app-safe-top", "0px"); } catch (e) {}
-  // 앱이 구절 띠 왼쪽에 「‹ 목록으로」를 그리는 판이면(표식 features 에 refBack · 2026-10-14 다음 빌드부터) 웹 머리 줄의 같은 단추를 숨긴다
+  // 앱이 구절 띠 오른쪽에 「‹ 목록으로」를 그리는 판이면(표식 features 에 refBack · 2026-10-14 다음 빌드부터) 웹 머리 줄의 같은 단추를 숨긴다
   //   (style.css body.native-ref-back). 옛 판은 표식이 없어 웹 단추가 그대로다. 표식이 늦게 심기면 gocheok-app 이벤트로 다시 본다.
   const syncNativeRefBack = () => {
     try {

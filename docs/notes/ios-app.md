@@ -47,7 +47,7 @@
 - 확인은 이 PC 에서 흉내로만(393 × 759 · `window.Capacitor` · 가짜 띠 41px — scratchpad `native_sweep.py` 꼴) — 짧은 구절 · 긴 구절 3단계 · 도전 · 아주 크게 모두 띠 41 · 머리 줄 46 · 단추 50. **실기기 확인은 친구.**
 - ⚠️ **그래도 키보드가 뜨면 머리 줄이 스크롤을 따라 사라졌다**(친구 실기기 「안드로이드는 목록으로까지 고정인데 아이폰은 스크롤된다」) — 위 「iOS 2단계」 절의
   구절 띠와 **같은 WebKit 한계**다(웹 position:fixed 는 키보드 중 못 버틴다 · GPU 승격(translateZ)은 스크롤을 따라간다). 웹만으로는 못 고친다.
-- → **앱 띠 왼쪽에 「‹ 목록으로」 네이티브 단추(2026-10-14 · 다음 App Store 빌드부터)** — `AppDelegate` `verseRefBack` · `setVerseRefBack` · `verseRefBackTapped`.
+- → **앱 띠 오른쪽 끝에 「‹ 목록으로」 네이티브 단추(2026-10-14 · 10-15 친구 「오른쪽으로」 — 웹 A안 머리 줄과 같은 자리 · 1.1.3 부터)** — `AppDelegate` `verseRefBack` · `setVerseRefBack` · `verseRefBackTapped`.
   폴링이 구절 글과 함께 웹 머리 줄 `.test-screen[data-memo] .mm-head .mm-back` 의 글(「목록으로」 · 도전 · 복습은 「첫 화면」)을 JSON 한 줄로 읽어 오고,
   누르면 그 웹 단추를 `click()` 한다(어디로 가는지는 웹이 정한다 · 숨은 단추도 click 은 된다). 띠는 이제 터치를 받는다(`isUserInteractionEnabled = true` — 띠가 숨으면 웹으로 간다).
 - 이 판은 표식에 `features:['refBack']` 를 싣는다 → `js/push.js` 가 `body.native-ref-back` → `style.css` 가 웹의 같은 단추를 숨긴다
