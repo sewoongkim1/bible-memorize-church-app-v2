@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261014r";
+const APP_BUILD = "20261014s";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -881,6 +881,7 @@ const HA_ICON = {
   help: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17h.01",
   // 나의 말씀 앨범 A안(ALBUM_LAYOUT) — 시안 A(A-album.dc.html ICONS) 그대로
   check: "M5 12l5 5 9-10",
+  checkc: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM8 12l3 3 5-6",   // 다 마침(말씀 목록 A)
   crown: "M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z",
   speaker: "M11 5 6 9H3v6h3l5 4zM15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13",
   bulb: "M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z",
@@ -5905,11 +5906,12 @@ function applyVerseCounts() {
   if (!verseCountCache) return;
   document.querySelectorAll("#verse-list .verse-status[data-no]").forEach((el) => {
     const base = el.dataset.base || el.textContent;
+    const tgt = el.querySelector(".vs-t") || el;   // A안은 점 · ✓ 옆 글 칸에만 쓴다(통째로 쓰면 점이 지워진다)
     // ⚠️ 「아직 안 함」 칩에는 횟수를 붙이지 않는다(2026-10-12 검토) — 횟수는 도전 등 모든 기록을 세는데,
     //    칩은 3단계 암송 진도만 본다. 「아직 안 함 · 5회」는 「안 했는데 다섯 번」으로 스스로 어긋났다.
-    if (el.classList.contains("status-none")) { el.textContent = base; return; }
+    if (el.classList.contains("status-none")) { tgt.textContent = base; return; }
     const n = verseCountCache[el.dataset.no] || 0;
-    el.textContent = n > 0 ? `${base} · ${n}회` : base;
+    tgt.textContent = n > 0 ? `${base} · ${n}회` : base;
   });
   // 성도님 이름 뒤 총 암송 횟수(모든 구절 합계)
   const totalEl = document.getElementById("nav-total");
@@ -5927,21 +5929,40 @@ function loadVerseCounts(u) {
     .catch(() => {});
 }
 
+// ── 말씀 목록 A안(2026-10-14 친구 「1안 — 카드 그대로 · A 옷」 · 샘플 자료/design/2026-10-14-list-sample · 스위치 MEMO_LAYOUT) ─────
+//   카드 구조(본문 두 줄 — 10/12 시안 B) · 클래스 · 연결은 그대로, 안의 그림만 A 꼴로: 상태 = 점 셋(마친 단계만큼 채움) + 글 · 다 마침은 ✓ 동그라미 ·
+//   마음에 둠 = 왕관 선 아이콘 + 글 · 🔊 = 선 아이콘 · 듣기 줄 「▶ 듣기」(약 N분 뺌 — 앨범 A 와 같다) · 거르기 칸은 「쓰기 | 카드」 같은 꼴.
+//   주제별 성경암송 구절 목록(js/navi.js nvCard)도 같은 함수를 쓴다.
+//   ⚠️ 상태 글은 .vs-t 칸에 — applyVerseCounts 가 「· N회」를 그 칸에만 쓴다(칩 전체 textContent 를 쓰면 점 · ✓ 가 지워진다).
+function vlAOn() { return memoVariant() === "a"; }
+function vlStatusInner(stage, text) {
+  if (!vlAOn()) return text;
+  const mark = stage >= 3 ? haSvg("checkc", "vs-ic")
+    : `<span class="vs-dots" aria-hidden="true">${[1, 2, 3].map((k) => `<i${k <= stage ? ' class="on"' : ""}></i>`).join("")}</span>`;
+  return mark + `<span class="vs-t">${text}</span>`;
+}
+function vlHeartHtml() {
+  return vlAOn() ? `<span class="heart-ribbon">${haSvg("crown", "vs-ic")}<span>마음에 둠</span></span>` : `<span class="heart-ribbon">👑 마음에 둠</span>`;
+}
+function vlListenInner() { return vlAOn() ? haSvg("speaker", "vs-spk") : "🔊"; }
+const VL_PLAY_SVG = `<svg class="vs-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7 4v16l13-8z"/></svg>`;
+
 function renderVerseList() {
   const u = loadUser();
   const appEl = document.getElementById("app");
+  const vlA = vlAOn() ? " vl-a" : "";   // 말씀 목록 A안(위 주석)
   // 보기 거르기 — 전체 · 진행 · 마침 · 마음에 둠 · 안 함(2026-10-12 · 시안 B · VL_FILTERS).
   //   ⚠️ 칸에 수를 달지 않는다 — 첫 화면에서 전체 수를 뺀 것(같은 날 친구 ②안)과 같은 까닭이다.
   //      「안 함 39」는 새로 오신 분께 다시 「아직 한참」으로 읽힌다.
-  const tabsHtml = `<div class="vl-tabs" role="tablist" aria-label="말씀 목록 보기">${VL_FILTERS.map((f) =>
+  const tabsHtml = `<div class="vl-tabs${vlA}" role="tablist" aria-label="말씀 목록 보기">${VL_FILTERS.map((f) =>
     `<button type="button" role="tab" class="vl-tab${verseListFilter === f.k ? " on" : ""}" data-f="${f.k}" aria-selected="${verseListFilter === f.k}">${f.short ? `<span class="vt-long">${f.label}</span><span class="vt-short">${f.short}</span>` : f.label}</button>`).join("")}</div>`;
 
   appEl.innerHTML = `
-    ${verses.length ? `<div class="rank-filter album-play vl-play" id="vl-play">
+    ${verses.length ? `<div class="rank-filter album-play vl-play${vlA}" id="vl-play">
       <button id="vl-play-go" class="ab-go"></button>
     </div>` : ""}
     ${verses.length ? tabsHtml : ""}
-    <div id="verse-list" class="verse-grid"></div>
+    <div id="verse-list" class="verse-grid${vlA}"></div>
     <button class="home-fab" id="to-summary" aria-label="첫 화면으로">${homeFabLabel(u, true)}</button>
   `;
 
@@ -5978,7 +5999,7 @@ function drawVerseCards() {
   listEl.innerHTML = "";
   const weeklyInfo = getWeeklyVerseInfo();
   const weeklyNo = weeklyInfo && weeklyInfo.verse ? weeklyInfo.verse.no : null;
-  const weeklyBadge = weeklyInfo ? weeklyInfo.label : "이번 주";
+  const weeklyBadge = weeklyInfo ? (vlAOn() && weeklyInfo.label === "이번주 말씀" ? "이번 주" : weeklyInfo.label) : "이번 주";
 
   const heartMap = loadHearted();
 
@@ -5991,7 +6012,10 @@ function drawVerseCards() {
   if (playRow && playGo) {
     playRow.hidden = !shown.length;
     const dur = albumDurText(verseItemsFor(shown));
-    playGo.innerHTML = `▶️ ${verseListFilter === "all" ? "전체 듣기" : "이 칸 듣기"}${dur ? ` <span class="ab-dur">${dur}</span>` : ""}`;
+    if (vlAOn()) {   // A안 — 앨범 A 의 「▶ 듣기」와 같은 꼴 · 「약 N분」은 뺀다(친구 2026-10-13 앨범)
+      playGo.innerHTML = VL_PLAY_SVG + (verseListFilter === "all" ? "듣기" : "이 칸 듣기");
+      playGo.setAttribute("aria-label", verseListFilter === "all" ? "말씀 이어 듣기" : "이 칸 말씀 이어 듣기");
+    } else playGo.innerHTML = `▶️ ${verseListFilter === "all" ? "전체 듣기" : "이 칸 듣기"}${dur ? ` <span class="ab-dur">${dur}</span>` : ""}`;
   }
   if (!shown.length && verses.length) {
     // 「마침」이 빈 까닭이 「아직 없음」인지 「모두 마음에 둠으로 옮겨 감」인지 가른다 — 둘을 한 말로 뭉개면 거짓이 된다.
@@ -6036,11 +6060,11 @@ function drawVerseCards() {
         <div class="vl-top">${isWeekly ? `<span class="weekly-list-badge vl-week">${weeklyBadge}</span>` : ""}<span class="vl-no">${v.no}</span><span class="verse-ref">${refShow}</span></div>
         <div class="vl-text${isHeart ? " vl-hint" : ""}">${body}</div>
         <div class="vl-state">
-          <span class="verse-status ${status.cls}" data-no="${v.no}" data-base="${status.text}">${status.text}</span>
-          ${isHeart ? `<span class="heart-ribbon">👑 마음에 둠</span>` : ""}
+          <span class="verse-status ${status.cls}" data-no="${v.no}" data-base="${status.text}">${vlStatusInner(passed, status.text)}</span>
+          ${isHeart ? vlHeartHtml() : ""}
         </div>
       </div>
-      <button class="card-listen" aria-label="${ref} 듣기" title="듣기">🔊</button>
+      <button class="card-listen" aria-label="${ref} 듣기" title="듣기">${vlListenInner()}</button>
     `;
     card.addEventListener("click", () => { albumPlayStop(); startTest(v); });
     // 듣기 버튼: 카드 클릭(테스트 시작)으로 번지지 않게 막고 본문을 읽어준다.
@@ -9779,11 +9803,14 @@ const MANUAL = [
   {
     icon: "🔊", title: "말씀 듣기",
     lead: "눈이 피로하실 땐 귀로 들으세요.",
-    art: '<div class="mn-row"><span class="mn-btn mn-btn-on">▶️ 전체 듣기</span><span class="mn-btn">🔊</span></div>',
+    art: MEMO_LAYOUT === "a" ? '<div class="mn-row"><span class="mn-btn mn-btn-on">▶ 듣기</span><span class="mn-btn">🔊</span></div>'
+      : '<div class="mn-row"><span class="mn-btn mn-btn-on">▶️ 전체 듣기</span><span class="mn-btn">🔊</span></div>',
     steps: [
       "<b>말씀 목록</b>에서 구절 옆 <b>🔊</b>를 누르면 그 말씀 하나를 읽어 줘요.",
       "<b>🔊</b>를 <b>빠르게 여러 번</b> 누르면 누른 만큼 되풀이해 읽어 줘요.",
-      "<b>말씀 목록</b> 맨 위 <b>▶️ 전체 듣기</b>를 누르면 처음부터 끝까지 이어서 읽어 줘요.",
+      MEMO_LAYOUT === "a"   // 말씀 목록 A안(2026-10-14) — 「▶ 듣기」
+        ? "<b>말씀 목록</b> 맨 위 <b>▶ 듣기</b>를 누르면 처음부터 끝까지 이어서 읽어 줘요."
+        : "<b>말씀 목록</b> 맨 위 <b>▶️ 전체 듣기</b>를 누르면 처음부터 끝까지 이어서 읽어 줘요.",
       "요절을 먼저 부르고, 잠깐 쉰 뒤 다음 말씀으로 넘어가요.",
       "듣는 동안 <b>화면이 저절로 꺼지지 않아요.</b>",
     ],
@@ -10156,7 +10183,7 @@ function renderHelp(onClose) {
 
         <section class="help-section">
           <h3>🔊 말씀 듣기</h3>
-          <p>말씀 목록의 <b>🔊</b>로 말씀을 들을 수 있어요. <b>빠르게 여러 번 누르면 그 횟수만큼 반복</b>해서 읽어줘요. 목록 맨 위 <b>▶️ 전체 듣기</b>는 처음부터 끝까지 이어서 읽어 주고, 암송 화면 도구 칸의 <b>듣기</b>는 한 번 더 누르면 멈춰요. 읽는 속도는 <b>⚙️ 설정</b>에서 바꿀 수 있어요.</p>
+          <p>말씀 목록의 <b>🔊</b>로 말씀을 들을 수 있어요. <b>빠르게 여러 번 누르면 그 횟수만큼 반복</b>해서 읽어줘요. 목록 맨 위 <b>${MEMO_LAYOUT === "a" ? "▶ 듣기" : "▶️ 전체 듣기"}</b>는 처음부터 끝까지 이어서 읽어 주고, 암송 화면 도구 칸의 <b>듣기</b>는 한 번 더 누르면 멈춰요. 읽는 속도는 <b>⚙️ 설정</b>에서 바꿀 수 있어요.</p>
         </section>
 
         <section class="help-section">

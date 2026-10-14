@@ -191,6 +191,7 @@ function renderNaviChapter(code) {
   document.getElementById("nv-back").addEventListener("click", () => { albumPlayStop(); renderNaviHome(); });
   if (typeof memoVariant === "function" && memoVariant() === "a") {   // A안 — 암송 화면 「‹ 목록으로」와 같은 테두리 단추
     app.querySelector(".nv-screen").classList.add("nv-a");
+    document.getElementById("nv-list").classList.add("vl-a");   // 구절 카드는 말씀 목록 A안과 같은 옷(app.js vlStatusInner …)
     document.getElementById("nv-back").innerHTML = mmSvg("back") + "<span>묶음 목록</span>";
   }
   document.getElementById("nv-home").addEventListener("click", () => { albumPlayStop(); renderSummary(); });
@@ -248,11 +249,11 @@ function nvCard(v, k, heartMap) {
         <div class="vl-top"><span class="vl-no">${k}</span><span class="verse-ref">${psalmEsc(refShow)}</span></div>
         <div class="vl-text${isHeart ? " vl-hint" : ""}">${psalmEsc(body)}</div>
         <div class="vl-state">
-          <span class="verse-status ${status.cls}">${status.text}</span>
-          ${isHeart ? `<span class="heart-ribbon">👑 마음에 둠</span>` : ""}
+          <span class="verse-status ${status.cls}">${vlStatusInner(passed, status.text)}</span>
+          ${isHeart ? vlHeartHtml() : ""}
         </div>
       </div>
-      <button class="card-listen" aria-label="${psalmEsc(v.refFull)} 듣기" title="듣기">🔊</button>`;
+      <button class="card-listen" aria-label="${psalmEsc(v.refFull)} 듣기" title="듣기">${vlListenInner()}</button>`;
   card.addEventListener("click", () => { albumPlayStop(); nvStart(v); });
   // 듣기 — 카드 누름(암송 시작)으로 번지지 않게 · 빠르게 N번 누르면 N번 읽는다(말씀 목록과 같다)
   const listenBtn = card.querySelector(".card-listen");
