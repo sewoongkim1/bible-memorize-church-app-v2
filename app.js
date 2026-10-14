@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261014w";
+const APP_BUILD = "20261014x";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -789,6 +789,8 @@ const MEMO_LAYOUT = "a";
 const SETTINGS_LAYOUT = "a";
 // 💬 게시판 A안(2026-10-14 친구 「2안」 + 「안내는 글쓰기 안으로」 · applyBoardA) — 롤백은 "old" 한 줄 + bump
 const BOARD_LAYOUT = "a";
+// 🌿 매일 묵상 A안(2026-10-14 친구 「2안」 · applyMedA — 아래에서 올라오는 넓은 판) — 롤백은 "old" 한 줄 + bump
+const MED_LAYOUT = "a";
 const MEMO_KEY = "memo-preview";
 function readMemoPreviewParam() {
   try {
@@ -907,6 +909,7 @@ const HA_ICON = {
   church: "M12 2v4M10 4h4M5 21V11l7-5 7 5v10M9 21v-5h6v5",   // 🏆 순위 A — 교구 탭
   image: "M4 5h16v14H4zM4 16l5-5 5 5M14 14l2-2 4 4M15.5 9h.01",   // 💬 게시판 A — 사진 넣기
   reply: "M9 14 4 9l5-5M4 9h10a6 6 0 0 1 6 6v4",                   // 💬 게시판 A — 답글 달기
+  doc: "M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5",                   // 🌿 묵상 A — 설교 요약
   gear: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3.1 15H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 4.1V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.7 1.7 0 0 0 20.9 10H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z",
 };
 const HA_GROUPS = [
@@ -9429,6 +9432,7 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev
         ${todayBless ? `<button class="med-pray-cta" id="med-pray">🙏 기도 · ${boardEsc(todayBless.title)}</button>` : ""}
         ${todaySong ? `<button class="med-song-cta" id="med-song">🎵 찬양 · ${boardEsc(todaySong.song)} <span class="ext-mark">↗</span></button>` : ""}
       </div>`;
+    applyMedA(wrap, todayPsalm, todayBless, todaySong);   // 묵상 A안(MED_LAYOUT) — 아래에서 올라오는 넓은 판
     document.body.appendChild(wrap);
     const card = wrap.querySelector(".dmsg-card");
     const toTop = () => { if (card) { card.scrollTop = 0; requestAnimationFrame(() => { card.scrollTop = 0; }); } };
@@ -9437,7 +9441,11 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev
       wrap.querySelector("#med-title").textContent = it.heading || "오늘의 묵상";
       wrap.querySelector("#med-body").innerHTML =
         `<div class="med-msg">${scEmphasis(it.message)}</div>` +
-        (it.question ? `<div class="med-q"><b>💬 오늘의 적용 질문</b><br>${scEmphasis(it.question)}</div>` : "");
+        (it.question
+          ? (MED_LAYOUT === "a"
+            ? `<div class="med-q"><b class="md-qh">${haSvg("message", "md-ic")}오늘의 적용 질문</b>${scEmphasis(it.question)}</div>`
+            : `<div class="med-q"><b>💬 오늘의 적용 질문</b><br>${scEmphasis(it.question)}</div>`)
+          : "");
       wrap.querySelectorAll(".med-tab").forEach((b) => b.classList.toggle("on", Number(b.dataset.i) === i));
       toTop();
     };
@@ -9474,6 +9482,41 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev
     wrap.addEventListener("click", (e) => { if (e.target === wrap) done(); });
   };
   open();
+}
+
+// ── 🌿 매일 묵상 A안(2026-10-14 친구 「2안 — A 옷 · 아래에서 올라오는 넓은 판」 · 샘플 자료/design/2026-10-14-meditation-sample · 스위치 MED_LAYOUT) ──
+//   showMeditationModal 이 창을 그린 뒤 옷만 갈아입힌다 — 요일 칸 · 설교 · 요약 · 확인 · 쉴만한 물가 · 기도 · 찬양의 연결은 그대로.
+//   화면 폭을 다 쓰는 판이 아래에서 올라온다(읽는 창이라 넓게) · 글은 왼쪽 맞춤 · 적용 질문은 옅은 초록 상자 · 설교 · 요약은 초록 테두리(이 묵상에 딸린 자료) ·
+//   쉴만한 물가 · 기도 · 찬양은 「오늘 함께」 줄(연한 남색 = 앱 안 기능 · 찬양은 ↗).
+//   ⚠️ 성도님이 정하신 두 가지를 지킨다(style.css .med-psalm-cta 주석) — 세 줄은 설교 · 요약 · 확인 **아래**(다 읽은 뒤의 덤 초대) · 초록과 남색을 섞지 않는다.
+function applyMedA(wrap, psalm, bless, song) {
+  if (MED_LAYOUT !== "a" || !wrap) return;
+  wrap.classList.add("md-a");
+  const badge = wrap.querySelector(".dmsg-badge");
+  if (badge) { setStripEmoji(badge); badge.insertAdjacentHTML("afterbegin", haSvg("leaf", "md-ic")); }
+  const w = wrap.querySelector("#med-watch");
+  if (w) w.innerHTML = haSvg("tv", "md-ic") + "<span>설교</span>";
+  const s = wrap.querySelector("#med-sermon");
+  if (s) s.innerHTML = haSvg("doc", "md-ic") + "<span>요약</span>";
+  const row = (id, ic, title, sub, trail) => {
+    const b = wrap.querySelector("#" + id);
+    if (!b) return null;
+    b.classList.add("md-row");
+    b.innerHTML = `<span class="md-rbox">${haSvg(ic, "md-ic")}</span><span class="md-rt"><b>${title}</b><span>${boardEsc(sub || "")}</span></span>` + haSvg(trail, "md-trail");
+    return b;
+  };
+  const rows = [
+    row("med-psalm", "drop", "쉴만한 물가", psalm && (psalm.refShort || psalm.refFull), "chev"),
+    row("med-pray", "house", "오늘의 기도", bless && bless.title, "chev"),
+    row("med-song", "music", "오늘의 찬양", song && song.song, "ext"),
+  ].filter(Boolean);
+  if (rows.length) {
+    const box = document.createElement("div");
+    box.className = "md-links";
+    box.innerHTML = `<div class="md-lt">오늘 함께</div>`;
+    rows[0].before(box);
+    rows.forEach((r) => box.appendChild(r));
+  }
 }
 
 // '내게 주시는 말씀' 홍보 팝업 — 평생 1회, 예시 질문을 탭하면 그 화면으로 이동해 바로 질문·답변까지 보여준다.

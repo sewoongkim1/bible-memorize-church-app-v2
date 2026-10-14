@@ -7564,3 +7564,65 @@ html[data-fs="xl"] .vl-a .vs-ic { width: 20px; height: 20px; }
 .dark .bd-a .board-reply.admin { background: #22304a; border-left-color: #9dbbea; }
 .dark .bd-a .bd-replybtn { background: #1a202b; border-color: #2c3442; color: #9dbbea; }
 .dark .bd-a .board-reply-btn { background: #1a202b; border-color: #4a6597; color: #9dbbea; }
+
+/* ── 🌿 매일 묵상 A안(app.js applyMedA · 2026-10-14 친구 「2안 — A 옷 · 아래에서 올라오는 넓은 판」) ─────────────────────────────
+   창(.cheer-overlay#daily-message.md-a)을 화면 아래에 붙인 넓은 판으로 — 위 손잡이 · 폭 전체(넓은 화면은 600px) · 아래에서 올라온다.
+   글은 왼쪽 맞춤 고딕 · 적용 질문은 옅은 초록 상자 · 설교 · 요약은 초록 테두리 · 확인은 남색 · 「오늘 함께」 줄은 연한 남색 아이콘 칸.
+   ⚠️ 쉴만한 물가 · 기도 · 찬양은 설교 · 요약 · 확인 **아래**, 색은 초록과 섞지 않는다(성도님 결정 · .med-psalm-cta 주석). */
+.cheer-overlay.md-a { align-items: flex-end; padding: 0; }
+.md-a .cheer-card.dmsg-card.med {
+  width: 100%; max-width: 600px; max-height: 92vh; margin: 0 auto;
+  padding: 10px 20px calc(24px + env(safe-area-inset-bottom, 0px)); text-align: left;
+  background: #fff; border: 1px solid #e5dfd4; border-bottom: 0; border-radius: 22px 22px 0 0;
+  box-shadow: 0 -8px 30px rgba(13, 27, 62, .18); transform: translateY(40px);
+}
+.cheer-overlay.md-a.show .cheer-card.dmsg-card.med { transform: none; }
+.md-a .cheer-card.dmsg-card.med::before { content: ""; display: block; width: 44px; height: 5px; margin: 0 auto 12px; border-radius: 3px; background: #d5d0c6; }
+.md-a .md-ic { width: 18px; height: 18px; flex: none; }
+.md-a .dmsg-badge { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 4px; padding: 5px 12px; border-radius: 999px; background: #e6f4ec; color: #1f7a4d; font-size: .86rem; }
+.md-a .med-prev-tag { margin-left: 2px; }
+.md-a .med-tabs { gap: 2px; padding: 3px; margin: 12px 0 14px; border-radius: 12px; background: #ece7dd; }
+.md-a .med-tab { min-height: 38px; border: 0; border-radius: 9px; background: transparent; color: #4a5468; font-weight: 700; }
+.md-a .med-tab.on { background: #fff; color: #1f7a4d; box-shadow: 0 1px 2px rgba(0, 0, 0, .14); }
+.md-a .cheer-card.med .dmsg-title { margin: 4px 0 10px; text-align: left; font-family: "Noto Sans KR", sans-serif; font-size: 1.15rem; font-weight: 800; color: #1b2333; }   /* 옛 .cheer-card.med .dmsg-title(초록 · 작게)보다 세게 */
+.md-a .dmsg-body { margin-bottom: 0; text-align: left; font-family: "Noto Sans KR", sans-serif; font-size: 1.04rem; color: #1b2333; }
+.md-a .dmsg-body .med-msg { line-height: 1.8; }
+.md-a .dmsg-body .med-q { margin-top: 16px; padding: 12px 14px; border: 0; border-radius: 12px; background: #e6f4ec; color: #1b2333; }
+.md-a .md-qh { display: flex; align-items: center; gap: 6px; margin: 0 0 4px; color: #1f7a4d; font-weight: 800; }
+.md-a .med-actions { gap: 8px; margin-top: 16px; }
+.md-a .med-actions .med-more { gap: 6px; min-height: 48px; border: 1.5px solid #1f7a4d; border-radius: 12px; background: #fff; color: #1f7a4d; }
+.md-a .med-actions .med-more:hover { background: #e6f4ec; color: #1f7a4d; }
+.md-a #dmsg-ok { min-height: 48px; border-radius: 12px; background: #1e3a6b; color: #fff; }
+.md-a #dmsg-ok:hover { filter: none; background: #152b52; }
+.md-a #dmsg-ok:focus { outline: none; }
+.md-a #dmsg-ok:focus-visible { outline: 3px solid #8da3c8; outline-offset: 2px; }
+.md-a .md-links { margin-top: 16px; padding-top: 12px; border-top: 1px solid #e5dfd4; }
+.md-a .md-lt { margin: 0 2px 8px; font-size: .86rem; font-weight: 800; color: #4a5468; }
+.md-a .md-row {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; margin: 0 0 8px; padding: 8px 12px;
+  border: 1px solid #e5dfd4; border-radius: 14px; background: #fff; color: #1b2333; text-align: left;
+}
+.md-a .md-row:hover { background: #f7f4ee; color: #1b2333; }
+.md-a .md-rbox { width: 36px; height: 36px; flex: none; border-radius: 10px; background: #eaf0f9; color: #1e3a6b; display: flex; align-items: center; justify-content: center; }
+.md-a .md-rt { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.md-a .md-rt b { font-size: .98rem; font-weight: 800; }
+.md-a .md-rt span { font-size: .86rem; font-weight: 500; color: #4a5468; word-break: keep-all; }
+.md-a .md-trail { width: 18px; height: 18px; flex: none; color: #8a93a3; }
+.dark .md-a .cheer-card.dmsg-card.med { background: #1a202b; border-color: #2c3442; }
+.dark .md-a .cheer-card.dmsg-card.med::before { background: #3a4252; }
+.dark .md-a .dmsg-badge { background: #173325; color: #6fcf97; }
+.dark .md-a .med-tabs { background: #262d39; }
+.dark .md-a .med-tab { background: transparent; color: #b9c0cd; }
+.dark .md-a .med-tab.on { background: #1a202b; color: #6fcf97; }
+.dark .md-a .cheer-card.med .dmsg-title, .dark .md-a .dmsg-body { color: #f1eee7; }
+.dark .md-a .dmsg-body .med-q { background: #173325; color: #f1eee7; }
+.dark .md-a .md-qh { color: #6fcf97; }
+.dark .md-a .med-actions .med-more { background: #1a202b; border-color: #6fcf97; color: #6fcf97; }
+.dark .md-a .med-actions .med-more:hover { background: #173325; }
+.dark .md-a #dmsg-ok { background: #2f5596; }
+.dark .md-a .md-links { border-top-color: #2c3442; }
+.dark .md-a .md-lt { color: #b9c0cd; }
+.dark .md-a .md-row { background: #1a202b; border-color: #2c3442; color: #f1eee7; }
+.dark .md-a .md-row:hover { background: #222a37; }
+.dark .md-a .md-rbox { background: #22304a; color: #9dbbea; }
+.dark .md-a .md-rt span { color: #b9c0cd; }
