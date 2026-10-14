@@ -7077,3 +7077,13 @@ body.native-app-hide-ref .test-screen[data-memo] .word-input { scroll-margin-top
 /* 도전 A — 왼쪽 「🔥 말씀 도전 · 남은 빈칸」 · 오른쪽 「‹ 첫 화면」 */
 .test-screen.mm-ch .mm-ch-title { flex: 0 1 auto; justify-content: flex-start; }
 .test-screen.mm-ch .mm-ch-head .challenge-remain { margin: 0 0 0 10px; }
+/* 도전 A 머리 줄은 한 줄(친구 2026-10-14) — 왼쪽 글 「🔥 말씀 · 빈칸 N개」(단추 아님) · 오른쪽 「‹ 첫 화면」 단추.
+   자리가 모자라면 꺾지 않고 왼쪽 이름이 「…」로 줄어든다(빈칸 수 · 단추는 늘 온전히) */
+.test-screen.mm-ch .mm-ch-head { flex-wrap: nowrap; }
+.test-screen.mm-ch .mm-ch-title { flex: 0 1 auto; min-width: 0; overflow: hidden; }
+.test-screen.mm-ch .mm-ch-title span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.test-screen.mm-ch .mm-ch-head .challenge-remain { flex: none; margin: 0 0 0 6px; font-size: 1rem; }
+.test-screen.mm-ch .mm-ch-head .challenge-remain::before { content: "·"; margin-right: 6px; color: #6e7787; }
+.test-screen.mm-ch .mm-ch-head .challenge-remain:empty { display: none; }
+.test-screen.mm-ch .mm-head .mm-back { flex: none; margin-left: auto; }
+.dark .test-screen.mm-ch .mm-ch-head .challenge-remain::before { color: #949dad; }
