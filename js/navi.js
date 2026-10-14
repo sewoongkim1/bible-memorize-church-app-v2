@@ -137,6 +137,13 @@ function renderNaviHome() {
       <button class="home-fab" id="nv-home" aria-label="첫 화면으로">${homeFabLabel(u, false)}</button>
     </div>`;
   window.scrollTo(0, 0);
+  // A안 옷(암송 A 와 같은 스위치 MEMO_LAYOUT · 2026-10-14 친구 「묶음은 줄 목록」) — 묶음들을 흰 카드 하나의 줄로(.nv-rows) · 제목 그림 글자는 선 아이콘.
+  //   ⚠️ 위 제목 줄(📚 …)은 그대로 둔다 — 시험(tests/navi.test.cjs ⑥)이 화면 이름을 그 글자로 지킨다. A 면 그린 뒤 바꾼다.
+  if (typeof memoVariant === "function" && memoVariant() === "a") {
+    app.querySelector(".nv-screen").classList.add("nv-a");
+    const tt = app.querySelector(".nv-title");
+    if (tt) tt.innerHTML = mmSvg("book") + "<span>주제별 성경암송</span>";
+  }
   document.getElementById("nv-home").addEventListener("click", () => { albumPlayStop(); renderSummary(); });
   nvLoad().then((state) => nvDrawChapters(state));
 }
@@ -160,6 +167,7 @@ function nvDrawChapters(state) {
         ${NV_CHEV}
       </button>`;
   }).join("");
+  box.classList.add("nv-rows");   // 묶음 줄이 그려졌다(A 는 흰 카드 하나로 묶는다 · 불러오는 중 · 오류 글은 안 묶는다)
   box.querySelectorAll(".nv-ch").forEach((b) => b.addEventListener("click", () => renderNaviChapter(b.dataset.ch)));
 }
 
@@ -181,6 +189,10 @@ function renderNaviChapter(code) {
     </div>`;
   window.scrollTo(0, 0);
   document.getElementById("nv-back").addEventListener("click", () => { albumPlayStop(); renderNaviHome(); });
+  if (typeof memoVariant === "function" && memoVariant() === "a") {   // A안 — 암송 화면 「‹ 목록으로」와 같은 테두리 단추
+    app.querySelector(".nv-screen").classList.add("nv-a");
+    document.getElementById("nv-back").innerHTML = mmSvg("back") + "<span>묶음 목록</span>";
+  }
   document.getElementById("nv-home").addEventListener("click", () => { albumPlayStop(); renderSummary(); });
   nvLoad().then((state) => nvDrawList(code, state));
 }
@@ -209,7 +221,10 @@ function nvDrawList(code, state) {
   const play = document.getElementById("nv-play"), go = document.getElementById("nv-play-go");
   if (play && go) {
     const dur = albumDurText(verseItemsFor(list));
-    go.innerHTML = `▶️ 이 묶음 듣기${dur ? ` <span class="ab-dur">${dur}</span>` : ""}`;
+    if (document.querySelector(".nv-screen.nv-a")) {   // A안 — 앨범 A 의 「▶ 듣기」와 같은 꼴 · 「약 N분」은 뺀다(친구 2026-10-13 앨범에서 뺐다)
+      go.innerHTML = `<svg class="nv-play-ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7 4v16l13-8z"/></svg>듣기`;
+      go.setAttribute("aria-label", "이 묶음 말씀 이어 듣기");
+    } else go.innerHTML = `▶️ 이 묶음 듣기${dur ? ` <span class="ab-dur">${dur}</span>` : ""}`;
     play.hidden = false;
     go.addEventListener("click", () => albumPlayStart(verseItemsFor(list)));
   }
@@ -407,6 +422,7 @@ function nvStageModal(verse, stage, wasFirst) {
         <button class="sd-btn" id="nv-sd-list">목록으로</button>
       </div>
     </div>`;
+  if (typeof applyStageDoneA === "function") applyStageDoneA(wrap, stage);   // 주간 완료 창과 같은 A안 옷(MEMO_LAYOUT · app.js)
   document.body.appendChild(wrap);
   requestAnimationFrame(() => wrap.classList.add("show"));
 

@@ -6550,10 +6550,10 @@ html[data-fs="xl"] .album-a .aa-n { font-size: 1.8rem; }
   width: 26px; height: 26px; margin: 1px 0 0; border: 2px solid #6e7787; border-radius: 7px; background: #fff center / 16px no-repeat; cursor: pointer;
 }
 .test-screen[data-memo] .mm-checks .repeat-text, .test-screen[data-memo] .mm-checks .heart-text {
-  grid-column: 2; font-size: 1.06rem; font-weight: 800; line-height: 1.4; white-space: normal; overflow: visible;
+  grid-column: 2; font-size: 1.06rem; font-weight: 800; line-height: 1.4; white-space: normal; overflow: visible; word-break: keep-all;
 }
 .test-screen[data-memo] .mm-checks .repeat-desc, .test-screen[data-memo] .mm-checks .heart-desc {
-  grid-column: 2; padding-left: 0; font-size: .88rem; line-height: 1.5;
+  grid-column: 2; padding-left: 0; font-size: .88rem; line-height: 1.5; word-break: keep-all;   /* 「두었나이 / 다」처럼 낱말 가운데서 꺾이지 않게 */
 }
 .test-screen[data-memo].en .test-sentence, .test-screen[data-memo].en .word-input { font-family: "Lora", serif; }
 /* 체크 표시(흰 · 진한) — 체크 상자 안 ✓ */
@@ -7130,3 +7130,203 @@ html[data-fs="xl"] .test-screen.memo-c .test-sentence, html[data-fs="xl"] .test-
 .test-screen.mm-rv .challenge-hint-line { display: none; }   /* 「복습 N / M · 다시 외워볼까요?」는 머리 줄로 옮겼다 */
 /* 주제별 성경암송(네비게이토) 3단계도 암송 A 옷(applyMemoLayout) — 묶음 · 주제 줄(.nv-tag)은 말씀 상자 위 그대로 */
 .test-screen.nv-test[data-memo] .nv-tag { margin: 0 2px 10px; }
+
+/* ── ✅ 단계 완료 창 A안(app.js applyStageDoneA · 2026-10-14 친구 「창은 그대로 · 옷만 A」) ─────────────────────────────
+   주간 · 주제별 창만(.sd-a) — 쉴만한 물가 창은 같은 .stage-done 이지만 안 붙는다. 창 · 단추 자리 · 조작은 그대로.
+   흰 카드 · 초록 ✓ · 남색 큰 단추(A 에서 남색 = 암송 · 금색 = 도전 · 마음에 둠) · 테두리 단추 · 마음에 둠은 금색 체크 줄. */
+.stage-done.sd-a .cheer-card { background: #fff; border: 1px solid #e5dfd4; border-radius: 20px; padding: 24px 20px 20px; }
+.stage-done.sd-a .cheer-icon { font-size: 0; margin-bottom: 10px; }
+.stage-done.sd-a .sd-a-ic { width: 64px; height: 64px; border-radius: 32px; background: #e6f4ec; color: #1f7a4d; display: inline-flex; align-items: center; justify-content: center; }
+.stage-done.sd-a .sd-a-ic .mm-ic { width: 34px; height: 34px; stroke-width: 2.6; }
+.stage-done.sd-a .cheer-ref { margin: 2px 0 4px; font-family: "Noto Sans KR", sans-serif; font-size: 1.35rem; color: #1b2333; }
+.stage-done.sd-a .cheer-msg { margin: 0 0 14px; font-family: "Noto Sans KR", sans-serif; font-size: 1rem; line-height: 1.6; color: #4a5468; }
+.stage-done.sd-a .cheer-ok {
+  min-height: 56px; margin-top: 6px; border-radius: 14px; background: #1e3a6b; color: #fff;
+  display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 1.12rem;
+}
+.stage-done.sd-a .cheer-ok .mm-ic { width: 20px; height: 20px; stroke-width: 2.4; flex: none; }
+.stage-done.sd-a .cheer-ok:hover { filter: none; background: #152b52; }
+.stage-done.sd-a .sd-btn { min-height: 48px; border-radius: 14px; border: 1.5px solid #8da3c8; background: #fff; color: #1e3a6b; font-weight: 800; }
+.stage-done.sd-a .sd-btn:hover { background: #eaf0f9; }
+.stage-done.sd-a .sd-challenge { position: relative; padding: 12px 14px 12px 46px; border-radius: 14px; border-color: #e6d29c; background: #fbf1d6; color: #5c4510; text-align: left; }
+.stage-done.sd-a .sd-challenge .mm-ic { position: absolute; left: 14px; top: 13px; width: 22px; height: 22px; color: #e8590c; fill: #ffb547; stroke-width: 1.7; }
+.stage-done.sd-a .first-done { margin: 0 0 6px; }
+/* 창 안 마음에 둠 — 암송 A 의 체크 상자와 같은 꼴(금색) */
+.stage-done.sd-a .heart-check {
+  margin: 6px 0 4px; padding: 12px 14px; border: 1px solid #e5dfd4; border-radius: 14px; background: #fff;
+  display: grid; grid-template-columns: 26px minmax(0, 1fr); column-gap: 12px; row-gap: 3px; align-items: start; text-align: left;
+}
+.stage-done.sd-a .heart-check .heart-row1 { display: contents; }
+.stage-done.sd-a .heart-check input[type="checkbox"] {
+  -webkit-appearance: none; appearance: none; grid-row: 1 / span 2; grid-column: 1;
+  width: 26px; height: 26px; margin: 1px 0 0; border: 2px solid #6e7787; border-radius: 7px; background: #fff center / 16px no-repeat; cursor: pointer;
+}
+.stage-done.sd-a .heart-check input:checked {
+  background-color: #d9b556; border-color: #d9b556;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232a2210' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5 9-10'/%3E%3C/svg%3E");
+}
+.stage-done.sd-a .heart-check .heart-text { grid-column: 2; font-size: 1rem; font-weight: 800; line-height: 1.4; color: #1b2333; white-space: normal; overflow: visible; word-break: keep-all; }
+.stage-done.sd-a .heart-check .heart-desc { grid-column: 2; padding-left: 0; font-size: .84rem; line-height: 1.5; color: #4a5468; word-break: keep-all; }
+/* 창이 뜨면 큰 단추에 초점이 간다(Enter 한 번) — 그 테두리를 남색 결로(기본 테두리는 금색으로 보여 남색 단추와 따로 놀았다) */
+.stage-done.sd-a .cheer-ok:focus { outline: none; }
+.stage-done.sd-a .cheer-ok:focus-visible { outline: 3px solid #8da3c8; outline-offset: 2px; }
+.dark .stage-done.sd-a .cheer-ok:focus-visible { outline-color: #4a6597; }
+.stage-done.sd-a .heart-check.on { background: #fbf1d6; border-color: #e6d29c; }
+.dark .stage-done.sd-a .cheer-card { background: #1a202b; border-color: #2c3442; }
+.dark .stage-done.sd-a .sd-a-ic { background: #173325; color: #6fcf97; }
+.dark .stage-done.sd-a .cheer-ref { color: #f1eee7; }
+.dark .stage-done.sd-a .cheer-msg { color: #b9c0cd; }
+.dark .stage-done.sd-a .cheer-ok { background: #2f5596; }
+.dark .stage-done.sd-a .cheer-ok:hover { background: #3a64aa; }
+.dark .stage-done.sd-a .sd-btn { background: #1a202b; border-color: #4a6597; color: #9dbbea; }
+.dark .stage-done.sd-a .sd-btn:hover { background: #222a37; }
+.dark .stage-done.sd-a .sd-challenge { background: #3a3018; border-color: #5c4c22; color: #e9cd7e; }
+.dark .stage-done.sd-a .heart-check { background: #1a202b; border-color: #2c3442; }
+.dark .stage-done.sd-a .heart-check input[type="checkbox"] { background-color: transparent; border-color: #949dad; }
+.dark .stage-done.sd-a .heart-check input:checked { background-color: #d9b556; border-color: #d9b556; }
+.dark .stage-done.sd-a .heart-check .heart-text { color: #f1eee7; }
+.dark .stage-done.sd-a .heart-check .heart-desc { color: #b9c0cd; }
+.dark .stage-done.sd-a .heart-check.on { background: #3a3018; border-color: #5c4c22; }
+
+/* ── 마친 뒤 완료 카드(app.js mmDoneCard · 2026-10-14 친구 「완료 카드로 묶기」) — 다 쓴 카드 쟁반 · 「쓰기 | 카드」 줄은 숨기고
+   결과 자리(#result-area)를 말씀 바로 아래 초록 테두리 카드로. 이전 · 다시 암송 · 다음은 테두리 단추 셋 · 말씀 나누기는 테두리 + 선 아이콘. */
+.test-screen.memo-a.mm-done #card-tray,
+.test-screen.memo-a.mm-done .mm-inrow { display: none; }
+.test-screen.memo-a #result-area.mm-donecard {
+  margin: 0 0 14px; padding: 16px; border: 1.5px solid #1f7a4d; border-radius: 16px; background: #fff;
+  display: flex; flex-direction: column; gap: 10px; text-align: left;
+}
+.test-screen.memo-a .mm-done-t { display: flex; align-items: center; gap: 8px; font-size: 1.2rem; font-weight: 800; color: #1f7a4d; }
+.test-screen.memo-a .mm-done-t .mm-ic { width: 26px; height: 26px; stroke-width: 2.6; flex: none; }
+.test-screen.memo-a #result-area.mm-donecard .step-cheer { margin: 0; font-size: .95rem; color: #4a5468; text-align: left; }
+.test-screen.memo-a #result-area.mm-donecard .first-done { margin: 0; }
+.test-screen.memo-a #result-area.mm-donecard .next-btn {
+  width: 100%; min-height: 56px; margin: 0; border: 0; border-radius: 14px; background: #1e3a6b; color: #fff;
+  display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 1.12rem; font-weight: 800;
+}
+.test-screen.memo-a #result-area.mm-donecard .next-btn .mm-ic { width: 20px; height: 20px; stroke-width: 2.4; }
+.test-screen.memo-a #result-area.mm-donecard .complete-nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.test-screen.memo-a #result-area.mm-donecard .nav3-btn {
+  min-width: 0; min-height: 50px; margin: 0; padding: 0 6px; border: 1.5px solid #8da3c8; border-radius: 12px; background: #fff; color: #1e3a6b;
+  display: flex; align-items: center; justify-content: center; gap: 2px; font-size: 1rem; font-weight: 800; white-space: nowrap; box-shadow: none;
+}
+.test-screen.memo-a #result-area.mm-donecard .nav3-btn .mm-ic { width: 18px; height: 18px; stroke-width: 2.4; flex: none; }
+.test-screen.memo-a #result-area.mm-donecard .nav3-btn:hover:not(:disabled) { background: #eaf0f9; }
+.test-screen.memo-a #result-area.mm-donecard .nav3-btn:disabled { border-color: #e5dfd4; color: #a3aab6; background: #fff; opacity: 1; }
+.test-screen.memo-a #result-area.mm-donecard .share-brag {
+  width: 100%; min-height: 50px; margin: 0; border: 1.5px solid #e5dfd4; border-radius: 12px; background: #fff; color: #1b2333;
+  display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 1rem; font-weight: 700; box-shadow: none;
+}
+.test-screen.memo-a #result-area.mm-donecard .share-brag .mm-ic { width: 20px; height: 20px; color: #1e3a6b; }
+.test-screen.memo-a #result-area.mm-donecard .share-brag:hover { background: #f7f4ee; }
+.dark .test-screen.memo-a #result-area.mm-donecard { background: #1a202b; border-color: #6fcf97; }
+.dark .test-screen.memo-a .mm-done-t { color: #6fcf97; }
+.dark .test-screen.memo-a #result-area.mm-donecard .step-cheer { color: #b9c0cd; }
+.dark .test-screen.memo-a #result-area.mm-donecard .next-btn { background: #2f5596; }
+.dark .test-screen.memo-a #result-area.mm-donecard .nav3-btn { background: #1a202b; border-color: #4a6597; color: #9dbbea; }
+.dark .test-screen.memo-a #result-area.mm-donecard .nav3-btn:hover:not(:disabled) { background: #222a37; }
+.dark .test-screen.memo-a #result-area.mm-donecard .nav3-btn:disabled { border-color: #2c3442; color: #6e7787; background: #1a202b; }
+.dark .test-screen.memo-a #result-area.mm-donecard .share-brag { background: #1a202b; border-color: #2c3442; color: #f1eee7; }
+.dark .test-screen.memo-a #result-area.mm-donecard .share-brag .mm-ic { color: #9dbbea; }
+.dark .test-screen.memo-a #result-area.mm-donecard .share-brag:hover { background: #222a37; }
+
+/* ── 📚 주제별 성경암송 목록 A안(js/navi.js · .nv-a · 2026-10-14 친구 「묶음은 줄 목록 · 구절은 지금 꼴」) ────────────────
+   묶음 목록 — 첫 화면 A 의 흰 카드 줄 목록처럼 한 카드에 줄로(이름 · N구절 마침 · ›) · 제목은 선 아이콘.
+   묶음 안 — 구절 카드는 말씀 목록 꼴 그대로 · 「‹ 묶음 목록」은 암송 화면 「‹ 목록으로」와 같은 테두리 단추 · 듣기는 앨범 A 의 「▶ 듣기」. */
+.nv-a .nv-title { display: flex; align-items: center; gap: 8px; color: #1b2333; }
+.nv-a .nv-title .mm-ic { width: 24px; height: 24px; flex: none; color: #1e3a6b; }
+.nv-a .nv-lead { color: #4a5468; }
+.nv-a .nv-chapters.nv-rows { gap: 0; background: #fff; border: 1px solid #e5dfd4; border-radius: 16px; overflow: hidden; }
+.nv-a .nv-chapters.nv-rows > button.verse-card.nv-ch {
+  margin: 0; min-height: 62px; border: 0; border-top: 1px solid #e5dfd4; border-radius: 0; background: transparent; box-shadow: none;
+}
+.nv-a .nv-chapters.nv-rows > button.verse-card.nv-ch:first-child { border-top: 0; }
+.nv-a .nv-chapters.nv-rows > button.verse-card.nv-ch:hover { background: #f7f4ee; transform: none; }
+.nv-a .nv-ch-name { color: #1b2333; font-weight: 700; }
+.nv-a .nv-ch-sub { color: #1e3a6b; font-weight: 600; }
+.nv-a .status-done .nv-ch-sub { color: #1f7a4d; }
+.nv-a .nv-back {
+  min-height: 40px; margin: 0 0 0 auto; padding: 0 12px 0 8px; border: 1.5px solid #8da3c8; border-radius: 10px; background: #fff; color: #1e3a6b;
+  display: inline-flex; align-items: center; gap: 2px; font-size: .94rem; font-weight: 800; flex: none;
+}
+.nv-a .nv-back .mm-ic { width: 18px; height: 18px; stroke-width: 2.4; }
+.nv-a .nv-back:hover { background: #eaf0f9; }
+.nv-a .rank-filter.album-play .ab-go {
+  flex: 1 1 auto; min-height: 50px; border: 1.5px solid #8da3c8; border-radius: 14px; background: #fff; color: #1e3a6b;
+  display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 1.06rem; font-weight: 800; box-shadow: none;
+}
+.nv-a .rank-filter.album-play .ab-go:hover { background: #eaf0f9; }
+.nv-a .nv-play-ic { width: 16px; height: 16px; flex: none; }
+.dark .nv-a .nv-title { color: #f1eee7; }
+.dark .nv-a .nv-title .mm-ic { color: #9dbbea; }
+.dark .nv-a .nv-lead { color: #b9c0cd; }
+.dark .nv-a .nv-chapters.nv-rows { background: #1a202b; border-color: #2c3442; }
+.dark .nv-a .nv-chapters.nv-rows > button.verse-card.nv-ch { border-top-color: #2c3442; background: transparent; }
+.dark .nv-a .nv-chapters.nv-rows > button.verse-card.nv-ch:first-child { border-top: 0; }
+.dark .nv-a .nv-chapters.nv-rows > button.verse-card.nv-ch:hover { background: #222a37; }
+.dark .nv-a .nv-ch-name { color: #f1eee7; }
+.dark .nv-a .nv-ch-sub { color: #9dbbea; }
+.dark .nv-a .status-done .nv-ch-sub { color: #6fcf97; }
+.dark .nv-a .nv-back { background: #1a202b; border-color: #4a6597; color: #9dbbea; }
+.dark .nv-a .nv-back:hover { background: #222a37; }
+.dark .nv-a .rank-filter.album-play .ab-go { background: #1a202b; border-color: #4a6597; color: #9dbbea; }
+.dark .nv-a .rank-filter.album-play .ab-go:hover { background: #222a37; }
+
+/* ── 첫 화면 A 맨 위(app.js haTop · 2026-10-14 친구 「시안 그대로 맨 위까지」 · 「고척교회 앞에 글씨 없는 로고」) ─────────────
+   로고 띠(.page-header)를 숨기고 크림 바탕 위에 [로고][고척교회 / 오직 성경, 말씀이 답이다] … [🔔][⚙] · 인사 · 두 단추 · 이번 주 말씀 카드 ·
+   묶음 · 도구 칸이 바로 놓인다(흰 큰 카드를 걷는다 — 시안 A 의 「바탕 위 흰 카드」). 두 단추의 자리 · 크기 · 색은 그대로. */
+.home-a .ha-top { max-width: 460px; margin: 0 auto 16px; padding: 6px 4px 0; display: flex; align-items: center; gap: 10px; }
+.home-a .ha-logo { width: 30px; height: auto; flex: none; }
+.home-a .ha-brand { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1 1 auto; text-align: left; }
+.home-a .ha-brand b { font-size: 1rem; font-weight: 800; line-height: 1.3; letter-spacing: .02em; color: #1e3a6b; }
+.home-a .ha-brand span { font-size: .84rem; font-weight: 500; line-height: 1.3; color: #4a5468; word-break: keep-all; }
+.home-a .ha-top-btns { display: flex; gap: 8px; flex: none; }
+.home-a .ha-top-btns .summary-icon.ha-round { width: 44px; height: 44px; border: 1px solid #e5dfd4; background: #fff; color: #1b2333; }
+.home-a .ha-top-btns .summary-icon.ha-round:hover { background: #f7f4ee; }
+.home-a .ha-top-btns .summary-icon.ha-round svg { width: 22px; height: 22px; }
+.home-a .ha-top-btns .summary-icon.icon-alarm.ha-round { background: #fff4dc; border-color: #ecd39a; color: #7a5a12; }   /* 알림의 금색은 원래 뜻 그대로 */
+.home-a .ha-top-btns .summary-icon.icon-alarm.ha-round:hover { background: #ffeec4; }
+/* 흰 큰 카드를 걷는다 — 인사 · 단추 · 카드가 바탕 위에 */
+.home-a .summary-card { background: transparent; border: 0; box-shadow: none; padding: 0 4px 8px; text-align: left; }
+.home-a .summary-headrow { position: static; margin: 0 0 14px; padding: 0 2px; background: transparent; border: 0; border-radius: 0; }
+.home-a .summary-hello { font-family: "Noto Sans KR", sans-serif; font-size: 1rem; line-height: 1.5; color: #4a5468; text-align: left; }
+.home-a .summary-hello .summary-affil,
+.home-a .summary-hello .summary-user,
+.home-a .summary-hello .summary-honor { font-size: 1.42rem; font-weight: 800; line-height: 1.35; letter-spacing: 0; color: #1b2333; }
+.home-a .ha-big-ic { width: 30px; height: 30px; display: block; }
+.home-a #go-challenge .ha-big-ic { width: 26px; height: 26px; }
+/* 묶음 띠 — 바탕이 이미 크림이라 띠는 걷는다(여백만) */
+.home-a .ha-zone { margin: 18px 0 0; padding: 0; background: transparent; border-top: 0; border-radius: 0; }
+/* 이번 주 말씀 — 흰 카드 · 금색 테두리 · 금색 알약 · 본문 명조 크게 · 구절은 따로 한 줄 · 단추 같은 폭 */
+.home-a .weekly-card { background: #fff; border: 1px solid #e6d29c; border-radius: 16px; padding: 18px; margin: 0 0 4px; }
+.home-a .weekly-kicker { background: #fbf1d6; color: #7a5a12; padding: 5px 10px; font-size: .82rem; }
+.home-a .weekly-title { margin-top: 0; font-size: .95rem; font-weight: 500; color: #4a5468; }
+.home-a .weekly-text { margin: 10px 0 4px; font-family: "Nanum Myeongjo", serif; font-size: 1.22rem; font-weight: 800; line-height: 1.7; color: #1b2333; word-break: keep-all; }
+.home-a .ha-wref { margin: 0 0 14px; font-size: .95rem; font-weight: 700; color: #1e3a6b; }
+.home-a .weekly-actions { gap: 10px; }
+.home-a .weekly-actions > #weekly-summary-slot:empty { display: none; }   /* 요약이 없는 말씀 — 빈 자리가 셋째 칸을 먹어 두 단추가 좁았다 */
+.home-a .weekly-actions .weekly-primary,
+.home-a .weekly-actions .weekly-secondary { min-height: 50px; border-radius: 12px; font-size: 1.02rem; font-weight: 700; }
+.home-a .weekly-actions .weekly-primary { background: #1e3a6b; border-color: #1e3a6b; color: #fff; }
+.home-a .weekly-actions .weekly-secondary { background: transparent; border-color: #8da3c8; color: #1e3a6b; }
+.home-a .weekly-actions .weekly-secondary:hover { background: #eaf0f9; }
+.dark .home-a .ha-brand b { color: #9dbbea; }
+.dark .home-a .ha-brand span { color: #b9c0cd; }
+.dark .home-a .ha-top-btns .summary-icon.ha-round { background: #1a202b; border-color: #2c3442; color: #f1eee7; }
+.dark .home-a .ha-top-btns .summary-icon.ha-round:hover { background: #222a37; }
+.dark .home-a .ha-top-btns .summary-icon.icon-alarm.ha-round { background: #3a3320; border-color: #5a4e2a; color: #eccf87; }
+.dark .home-a .summary-card { background: transparent; border: 0; }
+.dark .home-a .summary-headrow { background: transparent; border: 0; }
+.dark .home-a .summary-hello { color: #b9c0cd; }
+.dark .home-a .summary-hello .summary-affil,
+.dark .home-a .summary-hello .summary-user,
+.dark .home-a .summary-hello .summary-honor { color: #f1eee7; }
+.dark .home-a .ha-zone { background: transparent; }
+.dark .home-a .weekly-card { background: #1a202b; border-color: #5c4c22; }
+.dark .home-a .weekly-kicker { background: #3a3018; color: #e9cd7e; }
+.dark .home-a .weekly-title { color: #b9c0cd; }
+.dark .home-a .weekly-text { color: #f1eee7; }
+.dark .home-a .ha-wref { color: #9dbbea; }
+.dark .home-a .weekly-actions .weekly-primary { background: #2f5596; border-color: #2f5596; }
+.dark .home-a .weekly-actions .weekly-secondary { background: transparent; border-color: #4a6597; color: #9dbbea; }
+.dark .home-a .weekly-actions .weekly-secondary:hover { background: #222a37; }

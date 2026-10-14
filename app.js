@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261014o";
+const APP_BUILD = "20261014p";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -855,6 +855,7 @@ function applyHomeB() {
 const HA_ICON = {
   chev: "M9 6l6 6-6 6",
   ext: "M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5",
+  flame: "M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-6 0 2 1 3 2 3 0-4-1-6 1-9z",   // 🔥 말씀 도전(첫 화면 A 큰 단추)
   message: "M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z",
   leaf: "M11 20A7 7 0 0 1 4 13c0-6 5-9 16-10-1 11-4 16-9 17zM4 21c3-6 7-9 11-11",
   medal: "M12 22a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM8 11 5 2h4l3 6M16 11l3-9h-4l-3 6",
@@ -946,11 +947,60 @@ function haRow(b, ext) {
   b.insertAdjacentHTML("afterbegin", `<span class="ha-ic${tone}" aria-hidden="true">${haSvg(HA_ROW_ICON[b.id], "")}</span>`);
   b.insertAdjacentHTML("beforeend", haSvg(ext ? "ext" : "chev", "ha-trail"));
 }
+// 맨 위(2026-10-14 친구 「시안 그대로 맨 위까지」 · 「A안 첫 줄에 고척교회 앞에 글씨 없는 로고」) — 시안 A(Main.dc.html) 머리 줄:
+//   [로고 표시만(img/logo-mark.png — logo-gocheok.png 에서 「고척교회」 글씨를 잘라 냄)][고척교회 / 오직 성경, 말씀이 답이다] … [🔔][⚙].
+//   로고 띠(.page-header)는 첫 화면 A 에서만 숨긴다(watchPageHeaderVsStickyRef 가 .home-a 를 본다 · 다른 화면은 그대로).
+//   🔔 알림 · ⚙️ 설정 단추는 아래 도구 칸에서 옮겨 온다 — id · 연결 · 종 강조(pulse) · 금색(알림)은 그대로. 도구 칸은 셋(구절 · 쓰기 · 도움말)이 된다.
+//   인사는 왼쪽 맞춤 큰 글씨 · 두 단추 그림 글자는 선 아이콘(자리 · 크기 · 색은 그대로 — 10/11 「늘 같은 자리」) · 이번 주 말씀은 본문 명조 · 구절은 따로 한 줄.
+//   ⚠️ 설명서의 「맨 아래 ⚙️ 설정 · 🔔 알림」 자리 말은 HOME_LAYOUT 을 따라 갈린다(copy-truth · MANUAL 「알림」 · 「글씨 크게 하기」).
+function haTop(card) {
+  const scr = card.closest(".summary-screen");
+  if (!scr || scr.querySelector(".ha-top")) return;
+  const top = document.createElement("div");
+  top.className = "ha-top";
+  top.innerHTML = `<img class="ha-logo" src="img/logo-mark.png" alt="" width="98" height="120">` +
+    `<div class="ha-brand"><b>고척교회</b><span>오직 성경, 말씀이 답이다</span></div><div class="ha-top-btns"></div>`;
+  const btns = top.querySelector(".ha-top-btns");
+  [["open-alarm", "bell"], ["open-settings", "gear"]].forEach(([id, ic]) => {
+    const b = document.getElementById(id);
+    if (!b) return;
+    const cap = b.closest(".icon-cap");
+    b.classList.add("ha-round");
+    b.innerHTML = haSvg(ic, "");
+    btns.appendChild(b);
+    if (cap) cap.remove();
+  });
+  scr.insertBefore(top, scr.firstChild);
+  // 인사 — 끝의 🙌 는 뺀다(이모지 대신 글로)
+  const hello = card.querySelector(".summary-hello");
+  const last = hello && hello.lastChild;
+  if (last && last.nodeType === 3) last.data = last.data.replace(/\s*🙌\s*$/u, "");
+  // 두 단추 — 📖 · 🔥 → 선 아이콘 · 둘째 줄 끝 👏 · 🎉 는 뺀다(fitTodoSub 는 이 뒤에 돈다)
+  const ti = card.querySelector("#go-list .todo-ic");
+  if (ti) ti.innerHTML = haSvg("book", "ha-big-ic");
+  const ci = card.querySelector("#go-challenge .act-ic");
+  if (ci) ci.innerHTML = haSvg("flame", "ha-big-ic");
+  const sub = card.querySelector("#go-list .todo-sub");
+  if (sub) sub.innerHTML = sub.innerHTML.replace(/\s*(👏|🎉)\s*$/u, "");
+  // 이번 주 말씀 — 「이번주」 → 「이번 주」 · 구절은 본문 괄호에서 꺼내 따로 한 줄(.ha-wref)
+  const k = card.querySelector(".weekly-kicker");
+  if (k) k.textContent = k.textContent.replace("이번주", "이번 주");
+  const inref = card.querySelector(".weekly-inref");
+  if (inref) {
+    const wt = inref.closest(".weekly-text");
+    const r = document.createElement("div");
+    r.className = "ha-wref";
+    r.textContent = inref.textContent.replace(/^\s*\(|\)\s*$/g, "");
+    inref.remove();
+    if (wt) wt.after(r);
+  }
+}
 function applyHomeA() {
   const card = document.querySelector(".summary-screen.home-a .summary-card");
   if (!card || card.querySelector(".ha-groups")) return;
   const anchor = card.querySelector(":scope > .feat-actions");   // 이번 주 말씀 바로 아래 자리
   if (!anchor) return;
+  haTop(card);   // 맨 위 머리 줄 · 인사 · 두 단추 아이콘 · 이번 주 말씀(2026-10-14) — 🔔 · ⚙ 를 도구 칸에서 먼저 옮긴다
   const wrap = document.createElement("div");
   wrap.className = "ha-groups";
   HA_GROUPS.forEach((g) => {
@@ -6478,6 +6528,7 @@ function showStageDoneModal(verse, stage, wasFirst) {
         <button class="sd-btn" id="sd-list">목록으로</button>
       </div>
     </div>`;
+  applyStageDoneA(wrap, stage);   // A안 옷(MEMO_LAYOUT) — 창 · 단추 연결은 그대로
   document.body.appendChild(wrap);
   requestAnimationFrame(() => wrap.classList.add("show"));
 
@@ -7207,6 +7258,7 @@ function scrollPastBtnRow() {
 //   .album-screen    — 구절을 길게 훑는 화면이라 위쪽 공간을 온전히 내준다
 //   .pr-wrap         — 축복 기도문. 소리 내어 읽는 화면이라 스크롤을 한 줄이라도 줄인다
 //   .min-screen      — 사역 신청. 위원회 아코디언을 길게 훑는 화면이라 위를 내준다
+//   .home-a          — 첫 화면 A안(2026-10-14 친구 「시안 그대로 맨 위까지」) — 머리 줄(로고 표시 · 고척교회 · 🔔 · ⚙)이 대신한다(app.js haTop)
 //   .ps-wrap         — 시편 말씀 액자. 액자 한 장이 주인공인 화면이라 위를 온전히 내준다
 //                      (성도님 제보 2026-09-10: 로고 배너가 액자를 눌러 화면 밖으로 밀었다)
 //   ⚠️ 오늘의 찬양은 2026-09-23 저녁부터 팝업(.cheer-overlay, document.body 에 붙는다)이라
@@ -7217,7 +7269,7 @@ function scrollPastBtnRow() {
   const header = document.querySelector(".page-header");
   if (!appEl || !header) return;
   const sync = () => {
-    const hide = !!appEl.querySelector(".test-ref-sticky, .album-screen, .pr-wrap, .min-screen, .ps-wrap");
+    const hide = !!appEl.querySelector(".test-ref-sticky, .album-screen, .pr-wrap, .min-screen, .ps-wrap, .summary-screen.home-a");
     header.style.display = hide ? "none" : "";
     // 로고 배너가 지던 상태바 여백을 #app 이 대신 진다(style.css body.no-page-header).
     // 쉴만한 물가(.ps-wrap)는 제 여백을 스스로 지므로 빼야 두 번 들어가지 않는다.
@@ -7489,6 +7541,7 @@ const MM_ICON = {
   book: "M2 4h6a4 4 0 0 1 4 4v12a3 3 0 0 0-3-3H2zM22 4h-6a4 4 0 0 0-4 4v12a3 3 0 0 1 3-3h7z",
   trophy: "M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4",
   repeat: "M17 2l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3",   // 🔁 복습
+  share: "M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13",   // 말씀 나누기(완료 카드)
 };
 function mmSvg(name) {
   return `<svg class="mm-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="${MM_ICON[name]}"/></svg>`;
@@ -7575,6 +7628,7 @@ function mmFitCardBox() {
   sen.classList.remove("mm-cardbox");
   sen.style.maxHeight = "";
   const tray = scr.querySelector("#card-tray");
+  if (scr.classList.contains("mm-done")) return;   // 마친 뒤 — 쟁반은 숨었고 완료 카드가 그 자리에(mmDoneCard)
   if (!isCardMode() || !tray || !tray.children.length) return;
   const top = mmStickyBottom(scr);                                    // 위 띠 + 늘 보이는 머리 줄(「‹ 목록으로」)
   const nav = scr.querySelector(".mm-nav");                          // B 의 아래 도구 줄
@@ -7718,9 +7772,71 @@ function applyMemoLayout(verse, stage, rerender) {
     watch.classList.add("mm-row");
     watch.innerHTML = mmSvg("tv") + `<span>이 말씀의 설교 영상</span>` + mmSvg("chev");
   }
+  // 6) 마친 뒤 — 결과 자리(#result-area)를 쟁반 바로 뒤로(마치면 쟁반이 숨어 말씀 바로 아래가 된다) · 채워지면 완료 카드(mmDoneCard)
+  const rs = document.getElementById("result-area");
+  const tray = document.getElementById("card-tray");
+  if (v === "a" && rs && tray) {
+    tray.after(rs);
+    new MutationObserver(() => mmDoneCard(scr, rs, stage)).observe(rs, { childList: true });
+    mmDoneCard(scr, rs, stage);
+  }
   mmTightBlanks(scr);
   mmFitCardBox();
   try { document.fonts.ready.then(mmFitCardBox); } catch (e) {}
+}
+
+// ── ✅ 단계 완료 창 A안(2026-10-14 친구 「창은 그대로 · 옷만 A」) — 주간 showStageDoneModal · 주제별 nvStageModal 이 함께 쓴다.
+//   창(가운데 · Enter 한 번 · 바깥 탭 닫기)과 단추 id · 연결은 그대로 두고 그림 글자와 이름만 A 꼴로 바꾼다(스위치 MEMO_LAYOUT).
+//   ⚠️ 창을 화면 안 카드로 바꾸지 않는다 — 아래에 작은 단추만 뜨면 다 외우고도 끝난 줄 모르고 앉아 계셨다(docs/notes/memorize-flow.md).
+//   쉴만한 물가 창(js/psalm.js)은 같은 .stage-done 을 쓰지만 제 꼴이라 부르지 않는다.
+function applyStageDoneA(wrap, stage) {
+  if (memoVariant() !== "a" || !wrap) return;
+  wrap.classList.add("sd-a");
+  const ic = wrap.querySelector(".cheer-icon");
+  if (ic) ic.innerHTML = `<span class="sd-a-ic">${mmSvg("check")}</span>`;
+  const t = wrap.querySelector(".cheer-ref");
+  if (t && stage < 3) t.textContent = `${stage}단계를 마쳤어요`;   // 상태 이름 「1단계 마침」과 같은 결(옛 「1단계 완료!」)
+  const main = wrap.querySelector(".cheer-ok");
+  if (main) main.innerHTML = `<span>${boardEsc(main.textContent.replace(/^\s*↺\s*/, "").replace(/\s*▶\s*$/, ""))}</span>` + mmSvg("chev");
+  const ch = wrap.querySelector(".sd-challenge");
+  const t0 = ch && ch.firstChild;
+  if (t0 && t0.nodeType === 3) { t0.data = t0.data.replace(/^\s*🔥\s*/u, ""); ch.insertAdjacentHTML("afterbegin", mmSvg("flame")); }
+}
+
+// ── 3단계(또는 1 · 2단계)를 마친 뒤 화면에 남는 줄 — A 는 말씀 바로 아래 완료 카드로(2026-10-14 친구 「완료 카드로 묶기」).
+//   결과 자리(#result-area)는 옛 코드가 채운다(주간 checkAllComplete · renderCompleteNav · 음성 · 주제별 nvStageDone · nvCompleteNav) —
+//   어느 길로 채워지든 여기서 보고 옷만 입힌다: 다 쓴 카드 쟁반 · 「쓰기 | 카드」 줄은 숨기고(.mm-done) 초록 ✓ 제목을 단다.
+//   이전 · 다음의 뜻(목록 차례)과 단추 id · 연결은 그대로다.
+function mmDoneCard(scr, rs, stage) {
+  const done = !!rs.querySelector(".next-btn, .complete-nav");
+  scr.classList.toggle("mm-done", done);
+  rs.classList.toggle("mm-donecard", done);
+  if (!done) { const old = rs.querySelector(".mm-done-t"); if (old) old.remove(); return; }
+  let first = false;
+  if (!rs.querySelector(".mm-done-t")) {
+    const t = document.createElement("div");
+    t.className = "mm-done-t";
+    t.innerHTML = mmSvg("check") + `<span>${stage < 3 ? `${stage}단계를 마쳤어요` : "다 외우셨어요"}</span>`;
+    rs.prepend(t);
+    first = true;
+  }
+  rs.querySelectorAll(".next-btn:not(.mm-dd)").forEach((b) => {
+    b.classList.add("mm-dd");
+    b.innerHTML = `<span>${stage + 1}단계로 계속하기</span>` + mmSvg("chev");
+  });
+  rs.querySelectorAll(".complete-nav:not(.mm-dd)").forEach((nav) => {
+    nav.classList.add("mm-dd");
+    const bs = nav.querySelectorAll(".nav3-btn");
+    if (bs[0]) bs[0].innerHTML = mmSvg("back") + "<span>이전</span>";
+    if (bs[2]) bs[2].innerHTML = "<span>다음</span>" + mmSvg("chev");
+  });
+  rs.querySelectorAll(".share-brag:not(.mm-dd)").forEach((b) => {
+    b.classList.add("mm-dd");
+    b.innerHTML = mmSvg("share") + "<span>말씀 나누기</span>";
+  });
+  mmFitCardBox();
+  // 긴 말씀이면 카드 상자 제한이 풀리며 완료 카드가 화면 아래로 밀린다 — 창 뒤에서 미리 보이게 내려 둔다(창을 닫으면 바로 보인다)
+  if (first) requestAnimationFrame(() => { try { rs.scrollIntoView({ block: "nearest" }); } catch (e) {} });
 }
 
 // ── 🧪 말씀 도전 A안(2026-10-14 친구 「A 안으로 암송도전도 만들어 주세요」 · 시안 A-challenge.dc.html) ─────────────
@@ -9543,7 +9659,10 @@ const MANUAL = [
     art: '<div class="mn-row"><span class="mn-btn">🔔 알림</span></div>',
     get steps() {
       return [
-        "첫 화면을 <b>맨 아래까지</b> 내리면 <b>🔔 알림</b> 단추가 있어요. 그걸 누르세요.",
+        // 2026-10-14 첫 화면 A 는 🔔 · ⚙️ 를 맨 위 머리 줄로 옮겼다(haTop) — 롤백(HOME_LAYOUT "old")이면 옛 자리 그대로
+        HOME_LAYOUT === "a"
+          ? "첫 화면 <b>맨 위 오른쪽</b>에 <b>🔔</b> 단추가 있어요. 그걸 누르세요."
+          : "첫 화면을 <b>맨 아래까지</b> 내리면 <b>🔔 알림</b> 단추가 있어요. 그걸 누르세요.",
         "폰이 <b>「허용하시겠습니까?」</b> 하고 물어봐요.",
         "<b>「허용」</b>을 누르세요.",
         window.EVENING_LIVE
@@ -9811,7 +9930,9 @@ const MANUAL = [
     lead: "잘 안 보이시면 키우세요.",
     art: '<div class="mn-row"><span class="mn-btn">가</span><span class="mn-btn mn-btn-mid">가</span><span class="mn-btn mn-btn-on mn-btn-big">가</span></div>',
     steps: [
-      "첫 화면을 <b>맨 아래까지</b> 내려 <b>⚙️ 설정</b>을 누르세요.",
+      HOME_LAYOUT === "a"   // 첫 화면 A 는 ⚙️ 가 맨 위 머리 줄(haTop · 2026-10-14)
+        ? "첫 화면 <b>맨 위 오른쪽</b>의 <b>⚙️</b>(설정)을 누르세요."
+        : "첫 화면을 <b>맨 아래까지</b> 내려 <b>⚙️ 설정</b>을 누르세요.",
       "<b>글씨 크기</b>에서 <b>크게</b>나 <b>아주 크게</b>를 고르세요.",
       "눈이 부시면 <b>화면 밝기</b>에서 <b>🌙 어둡게</b>를 고르세요.",
       "이름이나 목장이 바뀌었으면 <b>👤 로그인 정보변경</b>에서 고치세요.",
