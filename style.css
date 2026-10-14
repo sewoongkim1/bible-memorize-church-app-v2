@@ -7796,3 +7796,85 @@ html[data-fs="xl"] .vl-a .vs-ic { width: 20px; height: 20px; }
 .dark .lg-a .privacy-consent { background: #22304a; color: #f1eee7; }
 .dark .lg-a .privacy-consent.guardian-consent { background: #3a3018; }
 .dark .lg-a .entry-submit { background: #2f5596; }
+
+/* ── 📘 사용 설명서 · 도움말 묶음 A안(app.js applyManualA · applyHelpA · 2026-10-14 친구 「2」) ────────────────────────────
+   목차는 묶음 제목 + 흰 카드 줄(번호 동그라미 · 그림 글자는 옅은 네모 칸 · ›) · 장 화면은 흰 카드 · 💡 옅은 금색 · 다음 남색 · 이전 테두리 ·
+   닫기 · 목차 테두리 단추 · 자세한 안내 · 로그인 방법 · 홈 화면에 추가 · 첫 실행 소개도 같은 옷. 글자는 그대로. */
+.hp-a .hpa-ic { width: 18px; height: 18px; flex: none; }
+.hp-a .hpa-tic { width: 24px; height: 24px; flex: none; color: #1e3a6b; }
+.hp-a .hpa-bic { width: 18px; height: 18px; flex: none; stroke-width: 2.2; }
+.hp-a .hpa-play { width: 16px; height: 16px; flex: none; }
+.hp-a .hpa-chev { width: 18px; height: 18px; color: #8a93a3; }
+.hp-a .mn-title, .hp-a .help-title { display: flex; align-items: center; gap: 8px; font-family: "Noto Sans KR", sans-serif; color: #1b2333; }
+.hp-a .mn-close, .hp-a .mn-back, .hp-a .help-close { display: inline-flex; align-items: center; gap: 4px; min-height: 40px; padding: 0 12px 0 10px; border: 1.5px solid #8da3c8; border-radius: 10px; background: #fff; color: #1e3a6b; font-weight: 800; }
+.hp-a .mn-close:hover, .hp-a .mn-back:hover, .hp-a .help-close:hover { background: #eaf0f9; color: #1e3a6b; border-color: #8da3c8; }
+.hp-a .mn-lead2 { color: #4a5468; }
+.hp-a .mn-watch { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; border: 1.5px solid #8da3c8; border-radius: 14px; background: #fff; color: #1e3a6b; font-weight: 800; text-decoration: none; box-shadow: none; }
+.hp-a .hpa-groups { display: flex; flex-direction: column; gap: 16px; }
+.hp-a .hpa-gt { margin: 0 4px 8px; font-size: .92rem; font-weight: 800; color: #4a5468; }
+.hp-a .hpa-card { background: #fff; border: 1px solid #e5dfd4; border-radius: 16px; overflow: hidden; }
+.hp-a .hpa-card > .mn-item { display: flex; align-items: center; gap: 12px; width: 100%; margin: 0; padding: 10px 14px; border: 0; border-top: 1px solid #e5dfd4; border-radius: 0; background: #fff; box-shadow: none; text-align: left; }
+.hp-a .hpa-card > .mn-item:first-child { border-top: 0; }
+.hp-a .hpa-card > .mn-item:hover { background: #f7f4ee; box-shadow: none; }
+.hp-a .mn-num { width: 26px; height: 26px; min-width: 26px; flex: none; border-radius: 13px; background: #eaf0f9; color: #1e3a6b; display: inline-flex; align-items: center; justify-content: center; font-size: .95rem; }
+.hp-a .mn-ic { width: 36px; height: 36px; min-width: 36px; flex: none; border-radius: 10px; background: #f4efe6; display: inline-flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+.hp-a .mn-tx { color: #1b2333; }
+.hp-a .mn-sub { color: #4a5468; }
+.hp-a #mn-more { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 50px; border: 1.5px solid #8da3c8; border-radius: 14px; background: #fff; color: #1e3a6b; font-weight: 800; }
+.hp-a .mn-card, .hp-a .help-card { background: #fff; border: 1px solid #e5dfd4; border-radius: 18px; box-shadow: none; }
+.hp-a .mn-big-ic { width: 64px; height: 64px; margin: 0 auto 8px; border-radius: 18px; background: #f4efe6; display: flex; align-items: center; justify-content: center; }
+.hp-a .mn-h3 { font-family: "Noto Sans KR", sans-serif; color: #1b2333; }
+.hp-a .mn-steps li::marker { color: #1e3a6b; font-weight: 800; }
+.hp-a .mn-tip { border: 0; border-radius: 12px; background: #fbf1d6; color: #5c4510; }
+.hp-a .mn-tip .hpa-ic { vertical-align: -3px; margin-right: 6px; color: #7a5a12; }
+.hp-a .mn-nav-btn { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 52px; border: 1.5px solid #8da3c8; border-radius: 14px; background: #fff; color: #1e3a6b; font-weight: 800; }
+.hp-a .mn-nav-btn.mn-nav-main { background: #1e3a6b; border-color: #1e3a6b; color: #fff; }
+.hp-a .help-section { border-bottom-color: #e5dfd4; }
+.hp-a .help-section h3 { font-family: "Noto Sans KR", sans-serif; color: #1b2333; }
+.hp-a .lh-tabs { gap: 2px; padding: 3px; border-radius: 12px; background: #ece7dd; }
+.hp-a .lh-tabs button { flex: 1 1 0; border: 0; border-radius: 9px; background: transparent; color: #4a5468; box-shadow: none; }
+.hp-a .lh-tabs button.on { background: #fff; color: #1e3a6b; font-weight: 800; box-shadow: 0 1px 2px rgba(0, 0, 0, .14); }
+.hp-a .lh-tabs button:hover { background: rgba(255, 255, 255, .6); color: #1e3a6b; }
+.hp-a .lh-tip { border: 0; border-radius: 12px; background: #fbf1d6; color: #5c4510; }
+.hp-a .help-go { min-height: 54px; border-radius: 14px; background: #1e3a6b; box-shadow: none; }
+/* 첫 실행 소개 · 홈 화면에 추가 안내 */
+.intro-screen.hp-a .intro-card { background: #fff; border: 1px solid #e5dfd4; border-radius: 20px; box-shadow: none; }
+.intro-screen.hp-a .intro-icon { width: 76px; height: 76px; margin: 0 auto 14px; border-radius: 20px; background: #f4efe6; display: flex; align-items: center; justify-content: center; font-size: 40px; }
+.intro-screen.hp-a .intro-title { font-family: "Noto Sans KR", sans-serif; color: #1b2333; }
+.intro-screen.hp-a .intro-body { color: #4a5468; }
+.intro-screen.hp-a .intro-next { border-radius: 14px; background: #1e3a6b; }
+.intro-screen.hp-a .intro-skip { border: 1.5px solid #8da3c8; border-radius: 14px; background: #fff; color: #1e3a6b; }
+.intro-screen.hp-a .intro-watch { border: 1.5px solid #8da3c8; border-radius: 14px; background: #fff; color: #1e3a6b; }
+.iw-wrap.hp-a .iw-card { border: 1px solid #e5dfd4; border-radius: 20px; box-shadow: 0 12px 40px rgba(13, 27, 62, .2); }
+.iw-wrap.hp-a .iw-title { font-family: "Noto Sans KR", sans-serif; color: #1b2333; }
+.iw-wrap.hp-a .iw-close { border: 1.5px solid #8da3c8; border-radius: 10px; background: #fff; color: #1e3a6b; }
+.iw-wrap.hp-a .iw-block { border: 1px solid #e5dfd4; }
+.iw-wrap.hp-a .iw-ok { border-radius: 14px; background: #1e3a6b; }
+.dark .hp-a .hpa-tic { color: #9dbbea; }
+.dark .hp-a .mn-title, .dark .hp-a .help-title, .dark .hp-a .mn-h3, .dark .hp-a .help-section h3, .dark .hp-a .mn-tx { color: #f1eee7; }
+.dark .hp-a .mn-close, .dark .hp-a .mn-back, .dark .hp-a .help-close, .dark .hp-a .mn-watch, .dark .hp-a #mn-more, .dark .hp-a .mn-nav-btn { background: #1a202b; border-color: #4a6597; color: #9dbbea; }
+.dark .hp-a .mn-nav-btn.mn-nav-main { background: #2f5596; border-color: #2f5596; color: #fff; }
+.dark .hp-a .mn-lead2, .dark .hp-a .mn-sub, .dark .hp-a .hpa-gt { color: #b9c0cd; }
+.dark .hp-a .hpa-card { background: #1a202b; border-color: #2c3442; }
+.dark .hp-a .hpa-card > .mn-item { background: #1a202b; border-top-color: #2c3442; }
+.dark .hp-a .hpa-card > .mn-item:hover { background: #222a37; }
+.dark .hp-a .mn-num { background: #22304a; color: #9dbbea; }
+.dark .hp-a .mn-ic, .dark .hp-a .mn-big-ic { background: #262c37; }
+.dark .hp-a .mn-card, .dark .hp-a .help-card { background: #1a202b; border-color: #2c3442; }
+.dark .hp-a .mn-tip, .dark .hp-a .lh-tip { background: #3a3018; color: #e9cd7e; }
+.dark .hp-a .help-section { border-bottom-color: #2c3442; }
+.dark .hp-a .lh-tabs { background: #262d39; }
+.dark .hp-a .lh-tabs button { background: transparent; color: #b9c0cd; }
+.dark .hp-a .lh-tabs button.on { background: #1a202b; color: #9dbbea; }
+.dark .hp-a .help-go { background: #2f5596; }
+.dark .intro-screen.hp-a .intro-card { background: #1a202b; border-color: #2c3442; }
+.dark .intro-screen.hp-a .intro-icon { background: #262c37; }
+.dark .intro-screen.hp-a .intro-title { color: #f1eee7; }
+.dark .intro-screen.hp-a .intro-body { color: #b9c0cd; }
+.dark .intro-screen.hp-a .intro-next { background: #2f5596; }
+.dark .intro-screen.hp-a .intro-skip, .dark .intro-screen.hp-a .intro-watch { background: #1a202b; border-color: #4a6597; color: #9dbbea; }
+.dark .iw-wrap.hp-a .iw-card { border-color: #2c3442; }
+.dark .iw-wrap.hp-a .iw-title { color: #f1eee7; }
+.dark .iw-wrap.hp-a .iw-close { background: #1a202b; border-color: #4a6597; color: #9dbbea; }
+.dark .iw-wrap.hp-a .iw-block { border-color: #2c3442; }
+.dark .iw-wrap.hp-a .iw-ok { background: #2f5596; }

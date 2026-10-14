@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261014ab";
+const APP_BUILD = "20261014ac";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -797,6 +797,8 @@ const SC_LAYOUT = "a";
 const PRAY_LAYOUT = "a";
 // 🔑 로그인 A안(2026-10-14 친구 「2안」 + 「이름을 먼저」 · applyLoginA — 번호 붙은 칸 셋) — 롤백은 "old" 한 줄 + bump
 const LOGIN_LAYOUT = "a";
+// 📘 사용 설명서 · 도움말 묶음 A안(2026-10-14 친구 「2」 · applyManualA · applyHelpA — 목차는 묶음으로) — 롤백은 "old" 한 줄 + bump
+const HELP_LAYOUT = "a";
 const MEMO_KEY = "memo-preview";
 function readMemoPreviewParam() {
   try {
@@ -913,6 +915,9 @@ const HA_ICON = {
   flask: "M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3",
   back: "M15 6l-6 6 6 6",
   church: "M12 2v4M10 4h4M5 21V11l7-5 7 5v10M9 21v-5h6v5",   // 🏆 순위 A — 교구 탭
+  x: "M6 6l12 12M18 6 6 18",                                  // 📘 도움말 A — 닫기
+  list: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",  // 📘 도움말 A — 목차
+  key: "M15 3a6 6 0 0 0-5.7 7.9L3 17.2V21h3.8l.9-.9v-2h2v-2h2l1.4-1.4A6 6 0 1 0 15 3zM16.5 8.5h.01",   // 📘 로그인 방법
   image: "M4 5h16v14H4zM4 16l5-5 5 5M14 14l2-2 4 4M15.5 9h.01",   // 💬 게시판 A — 사진 넣기
   reply: "M9 14 4 9l5-5M4 9h10a6 6 0 0 1 6 6v4",                   // 💬 게시판 A — 답글 달기
   doc: "M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5",                   // 🌿 묵상 A — 설교 요약
@@ -4227,7 +4232,7 @@ function renderInstallGuide() {
 
   const wrap = document.createElement("div");
   wrap.id = "iw-wrap";
-  wrap.className = "iw-wrap";
+  wrap.className = "iw-wrap" + (HELP_LAYOUT === "a" ? " hp-a" : "");   // 도움말 묶음 A안 — 옷만(style.css)
   wrap.innerHTML = `
     <div class="iw-card">
       <div class="iw-top">
@@ -9775,6 +9780,7 @@ function renderIntro(next) {
         </div>
       </div>
     </div>`;
+  if (HELP_LAYOUT === "a") appEl.querySelector(".intro-screen").classList.add("hp-a");   // 도움말 묶음 A안 — 옷만(style.css)
   const slideEls = appEl.querySelectorAll(".intro-slide");
   const dotEls = appEl.querySelectorAll(".intro-dot");
   const nextBtn = document.getElementById("intro-next");
@@ -9842,6 +9848,7 @@ function renderLoginHelp(back) {
       </div>`;
     document.getElementById("lh-close").addEventListener("click", back);
     document.getElementById("lh-go").addEventListener("click", back);
+    applyHelpA(appEl, "key");   // 도움말 묶음 A안(HELP_LAYOUT)
     appEl.querySelectorAll(".lh-tabs button").forEach((b) =>
       b.addEventListener("click", () => { tab = b.dataset.t; draw(); })
     );
@@ -10419,6 +10426,7 @@ function renderManual(onClose, idx) {
     document.getElementById("mn-more").addEventListener("click", () => renderHelp(() => renderManual(null, -1)));
     appEl.querySelectorAll(".mn-item").forEach((b) =>
       b.addEventListener("click", () => renderManual(null, Number(b.dataset.go))));
+    applyManualA(appEl);   // 도움말 묶음 A안(HELP_LAYOUT) — 목차는 묶음으로
     window.scrollTo(0, 0);
     return;
   }
@@ -10462,8 +10470,82 @@ function renderManual(onClose, idx) {
     if (m.act.id === "install") installToHome();
     else if (m.act.id === "alarm") alarmFromHome();
   });
+  applyManualA(appEl);   // 도움말 묶음 A안(HELP_LAYOUT)
   window.scrollTo(0, 0);
 }
+
+// ── 📘 사용 설명서 · 도움말 묶음 A안(2026-10-14 친구 「2」 — 목차는 묶음으로 · 샘플 자료/design/2026-10-14-manual-sample · 스위치 HELP_LAYOUT) ──
+//   설명서 목차 · 장 · 자세한 안내 · 로그인 방법 · 홈 화면에 추가 안내 · 첫 실행 소개를 그린 뒤 옷만 입힌다(글자 · 연결 그대로 — copy-truth).
+//   목차는 첫 화면처럼 묶음 제목 + 흰 카드 줄(번호 ①~⑲ 는 그대로 이어진다).
+//   ⚠️ MANUAL 에 장을 더하면 그 이름(title)을 아래 MANUAL_GROUPS 의 한 묶음에도 넣는다 — 안 넣으면 맨 끝 「그 밖에」로 간다.
+const MANUAL_GROUPS = [
+  { title: "시작하기", names: ["홈 화면에 앱 만들기", "알림 켜기", "바탕화면에 말씀 두기 (위젯)", "처음 시작하기"] },
+  { title: "말씀 외우기", names: ["말씀 암송", "카드로 채우기", "말씀 듣기", "소리 내어 암송하기", "말씀 도전", "마음에 둠 · 나의 말씀 앨범"] },
+  { title: "함께 · 말씀 묵상", names: ["순위와 응원", "응원·기도·공감 게시판", "내게 주시는 말씀", "매일 묵상", "쉴만한 물가", "주제별 성경암송", "가정 축복 기도문", "성경필사 노트 신청"] },
+  { title: "설정", names: ["글씨 크게 하기"] },
+];
+function hpClose(btn, label) {
+  if (btn) btn.innerHTML = haSvg("x", "hpa-bic") + `<span>${label || "닫기"}</span>`;
+}
+function applyManualA(appEl) {
+  if (HELP_LAYOUT !== "a") return;
+  const scr = appEl.querySelector(".mn-screen");
+  if (!scr) return;
+  scr.classList.add("hp-a");
+  const title = scr.querySelector(".mn-title");
+  if (title) { setStripEmoji(title); title.insertAdjacentHTML("afterbegin", haSvg("book", "hpa-tic")); }
+  hpClose(document.getElementById("mn-close"));
+  const toc = document.getElementById("mn-toc");
+  if (toc) toc.innerHTML = haSvg("list", "hpa-bic") + "<span>목차</span>";
+  const watch = scr.querySelector(".mn-watch");
+  if (watch) { setStripEmoji(watch); watch.insertAdjacentHTML("afterbegin", `<svg class="hpa-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7 4v16l13-8z"/></svg>`); }
+  const more = document.getElementById("mn-more");
+  if (more) { setStripEmoji(more); more.insertAdjacentHTML("afterbegin", haSvg("help", "hpa-ic")); }
+  scr.querySelectorAll(".mn-arrow").forEach((a) => { a.innerHTML = haSvg("chev", "hpa-chev"); });
+  const pv = document.getElementById("mn-prev");
+  if (pv) pv.innerHTML = haSvg("back", "hpa-bic") + "<span>이전</span>";
+  const nx = document.getElementById("mn-next");
+  if (nx) nx.innerHTML = "<span>다음</span>" + haSvg("chev", "hpa-bic");
+  const dn = document.getElementById("mn-done");
+  if (dn) dn.innerHTML = haSvg("check", "hpa-bic") + "<span>다 봤어요</span>";
+  const tip = scr.querySelector(".mn-tip");
+  const t0 = tip && tip.firstChild;
+  if (t0 && t0.nodeType === 3) { t0.data = t0.data.replace(/^\s*💡\s*/u, ""); tip.insertAdjacentHTML("afterbegin", haSvg("bulb", "hpa-ic")); }
+  // 목차 — 묶음 제목 + 흰 카드 줄
+  const tocEl = scr.querySelector(".mn-toc");
+  if (tocEl) {
+    const items = [...tocEl.querySelectorAll(".mn-item")];
+    const used = new Set();
+    const groups = MANUAL_GROUPS.map((g) => ({ title: g.title, rows: items.filter((b) => {
+      const n = (b.querySelector(".mn-tx b") || {}).textContent || "";
+      if (g.names.indexOf(n) < 0) return false;
+      used.add(b);
+      return true;
+    }) }));
+    const rest = items.filter((b) => !used.has(b));
+    if (rest.length) groups.push({ title: "그 밖에", rows: rest });
+    const wrap = document.createElement("div");
+    wrap.className = "hpa-groups";
+    groups.forEach((g) => {
+      if (!g.rows.length) return;
+      const sec = document.createElement("section");
+      sec.innerHTML = `<div class="hpa-gt">${g.title}</div><div class="hpa-card"></div>`;
+      g.rows.forEach((r) => sec.querySelector(".hpa-card").appendChild(r));
+      wrap.appendChild(sec);
+    });
+    tocEl.replaceWith(wrap);
+  }
+}
+function applyHelpA(appEl, icon) {
+  if (HELP_LAYOUT !== "a") return;
+  const scr = appEl.querySelector(".help-screen");
+  if (!scr) return;
+  scr.classList.add("hp-a");
+  const title = scr.querySelector(".help-title");
+  if (title) { setStripEmoji(title); title.insertAdjacentHTML("afterbegin", haSvg(icon || "help", "hpa-tic")); }
+  scr.querySelectorAll(".help-close").forEach((b) => hpClose(b));
+}
+
 
 // 도움말 전체 화면 (onClose: 닫을 때 돌아갈 처리 — 지금은 사용 설명서 목차에서만 들어온다)
 // ⚠️ 개인정보 칸은 privacy/index.html(공개 방침)·renderPrivacyInfo 와 **같은 것을 말해야 한다.**
@@ -10545,6 +10627,7 @@ function renderHelp(onClose) {
   document.getElementById("help-close").addEventListener("click", onClose);
   document.getElementById("help-go").addEventListener("click", onClose);
   window.scrollTo(0, 0);   // 설명서 목차 아래쪽에서 들어오므로 — 안 하면 중간부터 열린다
+  applyHelpA(appEl, "help");   // 도움말 묶음 A안(HELP_LAYOUT)
 }
 
 // ============================================================
