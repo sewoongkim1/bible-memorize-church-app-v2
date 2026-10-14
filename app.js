@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261015b";
+const APP_BUILD = "20261015c";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -7724,7 +7724,8 @@ function scrollPastBtnRow() {
 
 // 상단 로고 배너(.page-header)를 숨겨야 하는 화면이 있다.
 //   .test-ref-sticky — 요절 고정 배너가 top:0을 쓰므로 로고 배너와 겹친다(암송·도전·복습)
-//   .album-screen    — 구절을 길게 훑는 화면이라 위쪽 공간을 온전히 내준다
+//   (.album-screen 은 2026-10-15 뺐다 — 나의 말씀 앨범도 다른 화면처럼 맨 위 띠(교회 마크 · 「오직 성경, 말씀이 답이다!」)를 단다 · 친구.
+//    전에는 「구절을 길게 훑는 화면이라 위를 내준다」며 숨겼다. 다시 숨기려면 아래 querySelector 에 .album-screen 을 되돌린다)
 //   .pr-wrap         — 축복 기도문. 소리 내어 읽는 화면이라 스크롤을 한 줄이라도 줄인다
 //   .min-screen      — 사역 신청. 위원회 아코디언을 길게 훑는 화면이라 위를 내준다
 //   .ps-wrap         — 시편 말씀 액자. 액자 한 장이 주인공인 화면이라 위를 온전히 내준다
@@ -7737,7 +7738,7 @@ function scrollPastBtnRow() {
   const header = document.querySelector(".page-header");
   if (!appEl || !header) return;
   const sync = () => {
-    const hide = !!appEl.querySelector(".test-ref-sticky, .album-screen, .pr-wrap, .min-screen, .ps-wrap");
+    const hide = !!appEl.querySelector(".test-ref-sticky, .pr-wrap, .min-screen, .ps-wrap");
     header.style.display = hide ? "none" : "";
     // 로고 배너가 지던 상태바 여백을 #app 이 대신 진다(style.css body.no-page-header).
     // 쉴만한 물가(.ps-wrap)는 제 여백을 스스로 지므로 빼야 두 번 들어가지 않는다.
