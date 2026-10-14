@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261015a";
+const APP_BUILD = "20261015b";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -7658,7 +7658,22 @@ function verseTtsLang(verse) { return isEnMode(verse) ? "en-US" : "ko-KR"; }
 // 줄어드는데 일반 position:fixed는 이를 못 따라가므로, visualViewport API로 top만 보정한다.
 // (3단계·도전·복습 화면 공통 호출). 화면이 바뀔 때마다 이전 리스너는 정리하고 새로 붙인다.
 let _stickyRefOnVV = null;
+// 아이폰 앱 — 키보드가 뜨며 iOS 가 보이는 영역을 조금 위로 밀면 첫 줄 빈칸이 앱이 그리는 구절 띠(약 42pt) 밑에 깔렸다
+//   (2026-10-15 친구 실기기 「성경암송 화면 들어오면 윗쪽에 글쓰는 부분이 보이지 않아요」). 페이지 기준으로는 제자리라
+//   포커스 때 한 번 도는 scrollIntoCenter(250ms)가 모른다 — 키보드가 다 뜬 뒤(크기 바뀜이 멎으면) 지금 칸을 한 번 더 보이게 한다.
+//   style.css 의 앱 전용 scroll-margin-top 에 --vv-top(밀린 거리)을 더해 두어 띠 밑으로 내려온다.
+//   ⚠️ 크기 바뀜(키보드 뜸 · 내림)에만 — 손가락 스크롤(visualViewport scroll)에 부르면 보던 자리를 끌어당긴다.
+let _nativeKbTimer = null;
+function nativeKeepBlankVisible() {
+  clearTimeout(_nativeKbTimer);
+  _nativeKbTimer = setTimeout(() => {
+    const el = document.activeElement;
+    if (!el || !el.classList || !el.classList.contains("word-input") || !el.closest(".test-screen[data-memo]")) return;
+    try { el.scrollIntoView({ block: "nearest", behavior: "smooth" }); } catch (e) {}
+  }, 180);
+}
 function initStickyRef() {
+  if (window.visualViewport) window.visualViewport.removeEventListener("resize", nativeKeepBlankVisible);
   if (_stickyRefOnVV && window.visualViewport) {
     window.visualViewport.removeEventListener("resize", _stickyRefOnVV);
     window.visualViewport.removeEventListener("scroll", _stickyRefOnVV);
@@ -7680,6 +7695,7 @@ function initStickyRef() {
   update();
   window.visualViewport.addEventListener("resize", _stickyRefOnVV);
   window.visualViewport.addEventListener("scroll", _stickyRefOnVV);
+  if (document.body.classList.contains("native-app-hide-ref")) window.visualViewport.addEventListener("resize", nativeKeepBlankVisible);
 }
 
 // 암송화면은 내용이 길어 빈칸 자동 포커스 시 브라우저가 알아서 스크롤해 버튼 줄을 가려주지만,

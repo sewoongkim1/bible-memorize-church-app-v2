@@ -7048,7 +7048,7 @@ body.native-app-hide-ref .test-screen[data-memo] .test-card.with-ref-banner { pa
    암송 · 주제별 머리 줄은 그 단추 하나뿐이라 줄째 숨겨 말씀이 띠 바로 밑으로 올라온다. 도전 · 복습 머리 줄(.mm-ch-head)은 제목 · 남은 빈칸이 있어 단추만. */
 body.native-ref-back .test-screen[data-memo] .mm-head:not(.mm-ch-head) { display: none; }
 body.native-ref-back .test-screen[data-memo] .mm-ch-head .mm-back { display: none; }
-body.native-ref-back .test-screen[data-memo]:not(.mm-ch) .word-input { scroll-margin-top: 64px; }
+body.native-ref-back .test-screen[data-memo]:not(.mm-ch) .word-input { scroll-margin-top: calc(64px + var(--vv-top, 0px)); }
 .test-screen.memo-b .mm-head { background: #f4eee2; }
 .test-screen.memo-c .mm-head { background: #fff; }
 .dark .test-screen.memo-a .mm-head { background: #0f1218; }
@@ -7058,7 +7058,7 @@ body.native-ref-back .test-screen[data-memo]:not(.mm-ch) .word-input { scroll-ma
 .test-screen.memo-b .mm-back { width: auto; padding: 0 6px 0 0; justify-content: flex-start; gap: 2px; font-size: 1rem; }
 /* 쓰기(키보드)로 다음 칸에 갈 때 그 칸이 띠 · 머리 줄 밑에 가리지 않게 */
 body:not(.native-app-hide-ref) .test-screen[data-memo] .word-input { scroll-margin-top: calc(var(--ref-bottom, 50px) + 72px); }
-body.native-app-hide-ref .test-screen[data-memo] .word-input { scroll-margin-top: 120px; }   /* 띠 46 + 머리 줄 약 56 + 여유 */
+body.native-app-hide-ref .test-screen[data-memo] .word-input { scroll-margin-top: calc(120px + var(--vv-top, 0px)); }   /* 띠 46 + 머리 줄 약 56 + 여유 + 키보드가 밀어 올린 거리(app.js nativeKeepBlankVisible) */
 /* 「‹ 목록으로」(도전은 「‹ 첫 화면」)를 머리 줄 오른쪽 끝에 · 단추로 보이게 테두리를(친구 2026-10-14 「오른쪽으로 해 주고 버튼으로 인식되게」) */
 .test-screen[data-memo] .mm-head .mm-back {
   order: 9; margin-left: auto; min-height: 40px; padding: 0 12px 0 8px; border-radius: 10px;
