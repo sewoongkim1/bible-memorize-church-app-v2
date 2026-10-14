@@ -7985,3 +7985,38 @@ html[data-fs="xl"] .sg-a #song-play { font-size: 1.22rem; min-height: 56px; }
 .dark .sg-a #song-close, .dark .sg-a #song-replay { background: #2f5596; color: #fff; }
 .dark .sg-a #song-close:focus-visible { outline-color: #4a6597; }
 .dark .sg-a .song-ended { background: #232c3f; }
+
+/* ── 📜 내 안에 거하는 말씀 A안(app.js pgCardA · applyPassageA · applyPassageDoneA · 2026-10-14 친구 「네」) ─────────────────────
+   목록 = 말씀 목록 A 카드(#pg-list.verse-grid.vl-a — 위 .vl-a 덩이를 그대로 입는다) + 맨 위 제목 · 첫 마디는 한 줄만.
+   마디 · 전체 = 암송 A(.test-screen[data-memo].memo-a) 부품 — 머리 줄만 고정하지 않고(위 구절 띠가 없다) 카드 위 여백을 줄인다.
+   완주 = 도전 완료 A(.cd-card.cd-a) 옷 + 단추 둘. */
+.pga-title { display: flex; align-items: center; gap: 8px; margin: 4px 4px 14px; font-size: 1.3rem; font-weight: 800; color: #1b2333; }
+.pga-tic { width: 24px; height: 24px; flex: none; color: #1e3a6b; }
+.pga-list .pga-ref { font-size: .86rem; font-weight: 600; color: #6e7787; white-space: nowrap; }
+.pga-list .vl-text { -webkit-line-clamp: 1; line-clamp: 1; }
+.pg-a.test-screen[data-memo] .mm-head { position: static; transform: none; width: auto; padding: 0; background: transparent; align-items: flex-start; }
+.pg-a.test-screen[data-memo] .test-card { padding-top: 8px; }
+.pg-a .pga-tt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pg-a .pga-tt b { font-size: 1.15rem; font-weight: 800; color: #1b2333; word-break: keep-all; }
+.pg-a .pga-tt span { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 5px; font-size: .9rem; font-weight: 700; color: #4a5468; }
+.pg-a .pga-bk { width: 16px; height: 16px; flex: none; color: #1e3a6b; }
+.pg-a .pga-redo, .pga-done #pg-done-restart {
+  display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 48px; margin: 10px 0 0;
+  border: 1.5px solid #8da3c8; border-radius: 12px; background: #fff; color: #1e3a6b; font-weight: 800; box-shadow: none;
+}
+.pg-a .pga-redo:hover, .pga-done #pg-done-restart:hover { background: #eaf0f9; color: #1e3a6b; }
+.pg-a .pga-ic, .pga-done .pga-ic { width: 18px; height: 18px; flex: none; }
+.pga-done #pg-done-list {
+  display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 56px; border: 0; border-radius: 14px;
+  background: #1e3a6b; color: #fff; font-size: 1.08rem; font-weight: 800; box-shadow: none;
+}
+.pga-done #pg-done-list:hover { background: #152b52; }
+.dark .pga-title { color: #f1eee7; }
+.dark .pga-tic { color: #9dbbea; }
+.dark .pga-list .pga-ref { color: #949dad; }
+.dark .pg-a .pga-tt b { color: #f1eee7; }
+.dark .pg-a .pga-tt span { color: #b9c0cd; }
+.dark .pg-a .pga-bk { color: #9dbbea; }
+.dark .pg-a .pga-redo, .dark .pga-done #pg-done-restart { background: #1a202b; border-color: #4a6597; color: #9dbbea; }
+.dark .pg-a .pga-redo:hover, .dark .pga-done #pg-done-restart:hover { background: #22304a; }
+.dark .pga-done #pg-done-list { background: #2f5596; }

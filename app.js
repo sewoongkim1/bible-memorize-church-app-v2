@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261014ae";
+const APP_BUILD = "20261014af";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -6399,8 +6399,10 @@ function renderPassageList() {
   const u = loadUser();
   const appEl = document.getElementById("app");
   const backLabel = homeFabLabel(u, true);
+  const pgA = vlAOn();   // A — 말씀 목록 A 카드 + 맨 위 제목(아래 pgCardA)
   appEl.innerHTML = `
-    <div id="pg-list" class="pg-list"><div class="pg-empty">불러오는 중…</div></div>
+    ${pgA ? `<h2 class="pga-title">${haSvg("scroll", "pga-tic")}<span>내 안에 거하는 말씀</span></h2>` : ""}
+    <div id="pg-list" class="pg-list${pgA ? " verse-grid vl-a pga-list" : ""}"><div class="pg-empty">불러오는 중…</div></div>
     <button class="home-fab" id="pg-back" aria-label="첫 화면으로">${backLabel}</button>
   `;
   window.scrollTo(0, 0); // 이전 화면의 스크롤 위치가 남지 않도록
@@ -6418,15 +6420,17 @@ function renderPassageList() {
       const status = complete ? `<span class="pg-badge done">완료</span>`
         : done > 0 ? `<span class="pg-badge prog">${done}/${total}</span>`
         : `<span class="pg-badge">${total}마디</span>`;
-      const card = document.createElement("div");
-      card.className = `pg-card${complete ? " complete" : ""}`;
-      card.innerHTML = `
+      const card = pgA ? pgCardA(p) : document.createElement("div");
+      if (!pgA) {
+        card.className = `pg-card${complete ? " complete" : ""}`;
+        card.innerHTML = `
         ${complete ? `<div class="card-badges"><div class="heart-ribbon">👑 마음에 둠</div></div>` : ""}
         <div class="pg-card-main">
           <span class="pg-card-title">${p.title}</span>${p.ref ? ` <span class="pg-card-ref">${p.ref}</span>` : ""}
         </div>
         ${status}
         <button class="card-listen" aria-label="${p.title} 듣기" title="듣기">🔊</button>`;
+      }
       card.addEventListener("click", () => startPassage(p));
       // 듣기: 카드 클릭(암송 시작)으로 번지지 않게 막고 본문 전체를 읽어준다(연속 클릭 N번 → N번 반복).
       const listenBtn = card.querySelector(".card-listen");
@@ -6443,6 +6447,93 @@ function renderPassageList() {
       listEl.appendChild(card);
     });
   });
+}
+
+// 📜 내 안에 거하는 말씀 A안(2026-10-14 친구 「네」 — 말씀 목록 · 암송 A 와 같은 꼴 · 스위치는 암송과 같이 MEMO_LAYOUT · 한 기기 ?memo=old).
+//   목록은 말씀 목록 A 카드(.verse-card.vl-card) — 이름 · 성경 위치 · 첫 마디 한 줄 · 마디마다 점 하나(10마디 넘으면 글만) · 다 마치면 ✓ + 마음에 둠.
+//   마디 · 전체 화면은 옛 화면을 그린 뒤 암송 A 부품(mm-head · 단계 칸 · 도구 칸 · mm-checks)으로 옮겨 담는다(applyPassageA).
+//   ⚠️ 외우는 방식(빈칸 비율 · 마음에 둠을 눌러야 다음 마디 · 기록)과 단추 id · 연결은 그대로다.
+//   ⚠️ 머리 줄은 주간 암송처럼 화면 위에 고정하지 않는다(위 구절 띠가 없다 · 마디가 짧다) — mmPlaceHead 가 .pg-a 를 건너뛴다.
+function pgCardA(p) {
+  const chunks = passageChunks(p), total = chunks.length;
+  const doneArr = passageDone(p.id), done = doneArr.length, comp = passageCompleted(p.id);
+  const dots = total <= 10 ? `<span class="vs-dots" aria-hidden="true">${chunks.map((_, k) => `<i${doneArr.includes(k) ? ' class="on"' : ""}></i>`).join("")}</span>` : "";
+  const st = comp ? haSvg("checkc", "vs-ic") + `<span class="vs-t">다 마침</span>`
+    : dots + `<span class="vs-t">${done ? `${done}/${total}마디` : `아직 안 함 · ${total}마디`}</span>`;
+  const card = document.createElement("div");
+  card.className = "verse-card vl-card pg-card-a";
+  card.innerHTML = `
+    <div class="vl-main">
+      <div class="vl-top"><span class="verse-ref">${boardEsc(p.title || "")}</span>${p.ref ? ` <span class="pga-ref">${boardEsc(p.ref)}</span>` : ""}</div>
+      <div class="vl-text">${boardEsc(chunks[0] || "")}</div>
+      <div class="vl-state"><span class="verse-status${comp ? " status-done" : done ? " status-s1" : ""}">${st}</span>${comp ? vlHeartHtml() : ""}</div>
+    </div>
+    <button class="card-listen" aria-label="${boardEsc(p.title || "")} 듣기" title="듣기">${vlListenInner()}</button>`;
+  return card;
+}
+// stage 1~3 = 마디 화면 · 0 = 전체 이어서
+function applyPassageA(p, idx, total, stage) {
+  if (!vlAOn()) return;
+  const scr = document.querySelector("#app .test-screen");
+  const card = scr && scr.querySelector(".test-card");
+  const hd = card && card.querySelector(".pg-hd");
+  if (!hd) return;
+  scr.dataset.memo = "a";
+  scr.classList.add("memo-a", "pg-a");
+  const head = document.createElement("div");
+  head.className = "mm-head";
+  const tt = document.createElement("div");
+  tt.className = "pga-tt";
+  tt.innerHTML = `<b>${boardEsc(p.title || "")}</b><span>${p.ref ? haSvg("book", "pga-bk") + boardEsc(p.ref) + " · " : ""}${stage ? `${idx + 1}/${total}마디` : `전체 ${total}마디`}</span>`;
+  head.appendChild(tt);
+  const back = hd.querySelector(".back-btn");
+  if (back) { back.classList.add("mm-back"); back.innerHTML = mmSvg("back") + "<span>목록으로</span>"; head.appendChild(back); }
+  hd.replaceWith(head);
+  const steps = document.createElement("div");
+  steps.className = "mm-steps";
+  if (stage) {
+    const note = stage === 3 ? "전체 암송 · 이 마디를 전부 채워요" : MM_NOTE.a[stage];
+    steps.innerHTML = `<div class="mm-seg3">${[1, 2, 3].map((k) =>
+      `<span class="${k === stage ? "cur" : k < stage ? "past" : ""}">${k < stage ? mmSvg("check") : ""}${k}단계</span>`).join("")}</div><div class="mm-note">${note}</div>`;
+  } else {
+    const hint = card.querySelector(".pg-final-hint");   // 「처음부터 끝까지 이어서 외워보세요!」
+    steps.innerHTML = `<div class="mm-note">${hint ? boardEsc(hint.textContent) : ""}</div>`;
+    if (hint) hint.remove();
+  }
+  head.after(steps);
+  const btnRow = card.querySelector(".btn-row");
+  if (btnRow) { btnRow.classList.add("mm-tools"); steps.after(btnRow); }
+  mmTool(document.getElementById("show-answer-btn"), "eye", "보기");
+  mmTool(document.getElementById("listen-answer-btn"), "speaker", "듣기");
+  mmTool(document.getElementById("voice-toggle"), "mic", "말하기");
+  const heart = card.querySelector(".heart-check");
+  if (heart) {
+    const box = document.createElement("div");
+    box.className = "mm-checks";
+    heart.before(box);
+    box.appendChild(heart);
+  }
+  const redo = document.getElementById("pg-redo") || document.getElementById("pg-final-restart");
+  if (redo) {
+    redo.classList.add("pga-redo");
+    redo.removeAttribute("style");
+    redo.innerHTML = haSvg("replay", "pga-ic") + `<span>${stage ? "이 마디 다시 암송" : "처음 마디부터 다시"}</span>`;
+  }
+  mmTightBlanks(scr);
+}
+function applyPassageDoneA() {
+  if (!vlAOn()) return;
+  const c = document.querySelector("#app .cd-card");
+  if (!c) return;
+  c.classList.add("cd-a", "pga-done");
+  const em = c.querySelector(".cd-emoji");
+  if (em) em.innerHTML = `<span class="cd-a-ic">${haSvg("crown", "mm-ic")}</span>`;
+  const sub = c.querySelector(".cd-sub");
+  if (sub) sub.textContent = sub.textContent.replace(/\s*🙌\s*$/u, "");
+  const list = document.getElementById("pg-done-list");
+  if (list) list.innerHTML = "<span>다른 본문 보기</span>" + haSvg("chev", "pga-ic");
+  const re = document.getElementById("pg-done-restart");
+  if (re) re.innerHTML = haSvg("replay", "pga-ic") + "<span>처음 마디부터 다시</span>";
 }
 
 // 암송 마디 = 관리자가 입력한 '한 줄'. 관리자가 한 번에 외울 분량을 줄 단위로 직접 정한다.
@@ -6640,6 +6731,7 @@ function renderPassageChunk(p, idx, stage, heartReady) {
   });
   setupChallengeTyping(chunkVerse, onDone);
   setupVoice(chunkVerse, 3, onDone);
+  applyPassageA(p, idx, total, stage);
 }
 
 // 📜 전체 이어서 암송 — 모든 절을 이어붙여 100% 빈칸. 통과 시 완료 배지.
@@ -6737,6 +6829,7 @@ function renderPassageFinal(p) {
   });
   setupChallengeTyping(fullVerse, onDone);
   setupVoice(fullVerse, 3, onDone);
+  applyPassageA(p, 0, passageChunks(p).length, 0);
 }
 
 // 📜 완료 축하
@@ -6758,6 +6851,7 @@ function renderPassageDone(p) {
     if (!(await appConfirm("이 본문의 진행(마음에 둠·완주)을 지우고 처음 마디부터 다시 시작할까요?\n기록 통계에는 영향이 없어요.", { title: "↺ 처음부터 다시", okText: "다시 시작" }))) return;
     resetPassageProgress(p.id); renderPassageChunk(p, 0, 1);
   });
+  applyPassageDoneA();
 }
 
 // ------------------------------------------------------------
@@ -7956,7 +8050,7 @@ function mmPlaceHead() {
   const scr = document.querySelector("#app .test-screen[data-memo]");
   const head = scr && scr.querySelector(".mm-head");
   const card = scr && scr.querySelector(".test-card");
-  if (!head || !card) return;
+  if (!head || !card || scr.classList.contains("pg-a")) return;   // 내 안에 거하는 말씀 — 머리 줄을 고정하지 않는다(applyPassageA)
   if (!card.dataset.basePad) card.dataset.basePad = String(parseFloat(getComputedStyle(card).paddingTop) || 50);   // 위 띠 자리(아이폰 앱 90)
   // 시안이 띠 글씨를 키웠을 수 있다(C) — 띠 아래 끝을 지금 다시 잰다(initStickyRef 는 그리기 전에 쟀다)
   const ref = scr.querySelector(".test-ref-sticky");
