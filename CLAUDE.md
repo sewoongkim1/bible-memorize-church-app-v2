@@ -186,6 +186,7 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
 - [ ] **사역신청(2027) — 담당자 데이터 확정 대기(개발 착수 전).** 읽을 것 `docs/notes/ministry-2027.md` 끝
 - [ ] 🐑 **이번주 말씀 위젯 머리말 「🐑 3일째」 — 서버·SQL 운영(2026-10-13 · 운영 「🙏 3일째」 확인) · 아이폰 1.1.2 / 안드로이드 versionCode 6 빌드 끝 — 업로드는 친구**(.aab 저장소 밖 `C:\Projects\성경암송-1.1.2-위젯머리말` · 아이폰은 Codemagic `ios-testflight` — 맥 컴파일 미확인). 나간 뒤 실기기(머리말 · 69자 안 잘림 · 비행기 모드로 자정 넘기면 숨음 · 낮은 안드로이드에서 □ 아님) · 새 구절(42) 들어온 날 `python tests/verse-badge-smoke.py --prod` 로 AI 채움 확인. 읽을 것 `docs/superpowers/specs/2026-10-13-verse-widget-badge-design.md`
 - [ ] 🤖 **안드로이드 · 플레이스토어 — 새 앱 `kr.onlybible.gocheok` 2026-10-09 출시.** **1.1.1 = versionCode 5 — 2026-10-13 프로덕션 출시**(아래 띠 크림 + 「돌려 보기」 위젯 · 실기기 확인 · 설명서 `ANDROID_ROTATE_GUIDE = true` · v4 는 내부 테스트에만). 남은 것: 새 앱 안내 · 옛 앱 삭제 여부 · 해외 나라 · 위젯 비행기 모드 · 업로드 키 재설정(급하지 않음). ⚠️ `assetlinks.json` 의 옛 패키지 줄을 지우지 말 것 · 서명 키 커밋 금지. 읽을 것 `docs/notes/android-app.md`
+- [ ] 📸 **스토어 사진 새로 — 다음 마켓 배포 때(친구 2026-10-14)** — 디자인 A안으로 화면이 바뀌어 플레이 · 앱스토어 사진(옛 머리 띠 · 옛 첫 화면)이 실제와 다르다. 뽑는 법 · 차례는 `자료/store/README.md` 「스크린샷」
 - [ ] ⏰ **쉴만한 물가 — 2026-09-12 개시.** 남은 것: 실기기 확인 · 전환율(기준일 2026-10-07) · 본문이 다 들어온 뒤 셋. 읽을 것 `docs/notes/psalm-still-waters.md` 끝
 - [ ] **축복 기도문 — 주제 그룹 본문 갈아 끼우기만 남음**(성도님께는 이미 열림). 읽을 것 `docs/notes/prayer-book.md` 끝
 - [ ] 🎙️ **설교·찬양 담당자 — 2026-09-30 운영.** 다음: 담당자 등록 → 친구가 한 편 끝까지 → 첫 실전 → 옛 길 치우기. 읽을 것 `docs/notes/sermon-staff-upload.md` 끝
