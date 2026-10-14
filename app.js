@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261014h";
+const APP_BUILD = "20261014i";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -7148,7 +7148,13 @@ function initStickyRef() {
   // ⚠️ 인라인 top 에 상태바 높이(env)를 함께 넣는다 — 그냥 offsetTop 만 넣으면 CSS 의
   //    top:env(safe-area-inset-top) 을 덮어써 홈 화면 웹앱에서 배너가 상태바 밑에 깔린다
   //    (2026-09-20 화면 전수 점검). 사파리는 env 가 0 이고, 앱은 이 배너를 숨긴다.
-  const update = () => { ref.style.top = `calc(env(safe-area-inset-top, 0px) + ${window.visualViewport.offsetTop}px)`; };
+  const update = () => {
+    ref.style.top = `calc(env(safe-area-inset-top, 0px) + ${window.visualViewport.offsetTop}px)`;
+    // 🧪 암송 · 도전 시안의 머리 줄(.mm-head — 「‹ 목록으로」)이 이 띠 바로 밑에 붙어 따라오게(style.css 「늘 보이는 머리 줄」)
+    const rs = document.documentElement.style;
+    rs.setProperty("--vv-top", window.visualViewport.offsetTop + "px");
+    rs.setProperty("--ref-bottom", (ref.getBoundingClientRect().bottom - window.visualViewport.offsetTop) + "px");   // 띠 아래 끝(상태바 여백 포함)
+  };
   _stickyRefOnVV = update;
   update();
   window.visualViewport.addEventListener("resize", _stickyRefOnVV);
@@ -7168,8 +7174,8 @@ function scrollPastBtnRow() {
     if (mm) {
       const sen = mm.querySelector(".test-sentence");
       if (!sen) { window.scrollTo(0, 0); return; }
-      const pad = parseFloat(getComputedStyle(mm.querySelector(".test-card")).paddingTop) || 50;
-      window.scrollTo(0, Math.max(0, sen.getBoundingClientRect().top + window.scrollY - pad - 8));
+      // 「‹ 목록으로」 줄은 위 띠 밑에 붙어 늘 보인다(친구 2026-10-14 「전 화면으로의 버튼이 없다」 — 말씀부터 열면서 그 줄이 화면 밖으로 밀렸었다)
+      window.scrollTo(0, Math.max(0, sen.getBoundingClientRect().top + window.scrollY - mmStickyBottom(mm) - 8));
       return;
     }
     const btnRow = document.querySelector(".test-card .btn-row");
@@ -7504,11 +7510,38 @@ function mmProxy(cls, icon, label, find, after) {
   b.hidden = !find();
   return b;
 }
+// 시안의 머리 줄(.mm-head — 「‹ 목록으로」 · 도전은 「‹ 첫 화면 · 말씀 도전 · 남은 빈칸」)은 위 구절 띠 바로 밑에 고정한다.
+//   ⚠️ position: sticky 는 이 앱에서 안 먹는다 — html · body 의 overflow-x: hidden(아이폰 옆 튕김 막이)이 body 를 스크롤 상자로 만들어
+//      sticky 가 body 기준이 된다(2026-10-14 재 보니 머리 줄이 그대로 위로 사라졌다). 그래서 위 띠와 같은 방식 — position: fixed +
+//      그 높이만큼 카드 위 여백을 늘린다(높이는 글씨 크기 · 줄바꿈에 따라 달라 그린 뒤 잰다).
+function mmPlaceHead() {
+  const scr = document.querySelector("#app .test-screen[data-memo]");
+  const head = scr && scr.querySelector(".mm-head");
+  const card = scr && scr.querySelector(".test-card");
+  if (!head || !card) return;
+  if (!card.dataset.basePad) card.dataset.basePad = String(parseFloat(getComputedStyle(card).paddingTop) || 50);   // 위 띠 자리(아이폰 앱 90)
+  // 시안이 띠 글씨를 키웠을 수 있다(C) — 띠 아래 끝을 지금 다시 잰다(initStickyRef 는 그리기 전에 쟀다)
+  const ref = scr.querySelector(".test-ref-sticky");
+  if (ref && window.visualViewport) document.documentElement.style.setProperty("--ref-bottom", (ref.getBoundingClientRect().bottom - window.visualViewport.offsetTop) + "px");
+  const extra = Math.max(0, (ref ? ref.getBoundingClientRect().height : 0) - 44);   // 띠가 옛 높이(약 44px)보다 커진 만큼 더 비운다
+  card.style.paddingTop = (Number(card.dataset.basePad) + extra + head.offsetHeight + 8) + "px";
+}
+// 늘 보이는 머리 줄의 아래 끝(화면 위에서부터 px) — 처음 스크롤 · 카드 상자 맞추기가 이 아래부터 잰다. 머리 줄이 없으면 띠 자리
+function mmStickyBottom(scr) {
+  const head = scr && scr.querySelector(".mm-head");
+  if (head) {
+    const t = parseFloat(getComputedStyle(head).top);
+    if (Number.isFinite(t)) return t + head.offsetHeight;
+  }
+  const card = scr && scr.querySelector(".test-card");
+  return (card && parseFloat(getComputedStyle(card).paddingTop)) || 50;
+}
 // 카드로 채울 때 화면이 오르내리지 않게(2026-10-14 친구 「칠 때마다 입력 화면으로 이동이 되어서 화면 움직임이 많습니다」).
 //   말씀 상자 + 「쓰기|카드」 줄 + 카드 쟁반이 한 화면에 들어가도록 말씀 상자 높이를 줄이고 그 안에서만 스크롤한다 —
 //   다음 빈칸으로 넘어갈 때 옛 코드의 scrollIntoView(nearest)가 상자 안만 움직이고 창(카드 쟁반)은 제자리다.
 //   다 들어가면 아무것도 안 한다. 쓰기(키보드)는 그대로. 크기는 그린 뒤 실제로 잰다(폰 높이 · 글씨 크기 · 말씀 길이가 다 다르다).
 function mmFitCardBox() {
+  mmPlaceHead();
   const scr = document.querySelector("#app .test-screen[data-memo]");
   const sen = scr && scr.querySelector(".test-sentence");
   if (!sen) return;
@@ -7516,10 +7549,9 @@ function mmFitCardBox() {
   sen.style.maxHeight = "";
   const tray = scr.querySelector("#card-tray");
   if (!isCardMode() || !tray || !tray.children.length) return;
-  const card = scr.querySelector(".test-card");
-  const pad = parseFloat(getComputedStyle(card).paddingTop) || 50;   // 위 띠 자리(아이폰 앱 90)
+  const top = mmStickyBottom(scr);                                    // 위 띠 + 늘 보이는 머리 줄(「‹ 목록으로」)
   const nav = scr.querySelector(".mm-nav");                          // B 의 아래 도구 줄
-  const avail = window.innerHeight - pad - 8 - (nav ? nav.offsetHeight : 0) - 8;
+  const avail = window.innerHeight - top - 8 - (nav ? nav.offsetHeight : 0) - 8;
   const r1 = sen.getBoundingClientRect(), r2 = tray.getBoundingClientRect();
   const total = r2.bottom - r1.top;
   if (total <= avail) return;
@@ -7564,8 +7596,7 @@ function applyMemoLayout(verse, stage) {
   head.className = "mm-head";
   if (back) {
     back.classList.add("mm-back");
-    back.innerHTML = mmSvg("back") + (v === "b" ? "" : `<span>${v === "c" ? "목록으로" : "목록"}</span>`);
-    if (v === "b") back.setAttribute("aria-label", "목록으로");
+    back.innerHTML = mmSvg("back") + "<span>목록으로</span>";   // 셋 다 「목록으로」(친구 2026-10-14 — 처음엔 A 「목록」 · B 아이콘만)
     head.appendChild(back);
   }
   const steps = document.createElement("div");
