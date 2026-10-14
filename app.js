@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261014v";
+const APP_BUILD = "20261014w";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -787,6 +787,8 @@ function albumAActive() {
 const MEMO_LAYOUT = "a";
 // ⚙️ 설정 화면 A안(2026-10-14 친구 「2안」 · applySettingsA) — 롤백은 "old" 한 줄 + bump(옮겨 담기라 옛 템플릿 그대로)
 const SETTINGS_LAYOUT = "a";
+// 💬 게시판 A안(2026-10-14 친구 「2안」 + 「안내는 글쓰기 안으로」 · applyBoardA) — 롤백은 "old" 한 줄 + bump
+const BOARD_LAYOUT = "a";
 const MEMO_KEY = "memo-preview";
 function readMemoPreviewParam() {
   try {
@@ -903,6 +905,8 @@ const HA_ICON = {
   flask: "M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3",
   back: "M15 6l-6 6 6 6",
   church: "M12 2v4M10 4h4M5 21V11l7-5 7 5v10M9 21v-5h6v5",   // 🏆 순위 A — 교구 탭
+  image: "M4 5h16v14H4zM4 16l5-5 5 5M14 14l2-2 4 4M15.5 9h.01",   // 💬 게시판 A — 사진 넣기
+  reply: "M9 14 4 9l5-5M4 9h10a6 6 0 0 1 6 6v4",                   // 💬 게시판 A — 답글 달기
   gear: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3.1 15H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 4.1V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.7 1.7 0 0 0 20.9 10H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z",
 };
 const HA_GROUPS = [
@@ -4644,8 +4648,79 @@ function renderBoard() {
   };
   document.getElementById("bf-all").addEventListener("click", () => setFilter(false));
   document.getElementById("bf-mine").addEventListener("click", () => setFilter(true));
+  applyBoardA();   // 게시판 A안(BOARD_LAYOUT) — 연결을 다 마친 뒤 옮겨 담는다(setFilter 보다 먼저 — 「전체 · 내 글」 이름을 바꾼 뒤 on 을 단다)
   setFilter(boardMineOnly);
 }
+
+// ── 💬 게시판 A안(2026-10-14 친구 「2안 — 글 먼저 · 쓰기 · 답글은 접기」 + 「글쓰기 관련 안내는 글쓰기 안으로」 · 샘플 자료/design/2026-10-14-board-sample ·
+//   스위치 BOARD_LAYOUT) — renderBoard 가 옛 화면을 다 그리고 연결까지 마친 뒤 옮겨 담는다(id · 연결 · 규칙 동의 · 신고 · 가리기 그대로).
+//   글쓰기 칸(소개 · 안내 상자(이용 규칙 · 신고 · 가리기) · 이름 · 글 · 사진 · 글 남기기)은 큰 「글 쓰기」 단추 하나로 접고, 누르면 펼친다.
+//   ⚠️ 「모든 글과 답글은 공개됩니다」와 「📜 이용 규칙」은 단추 바로 아래 한 줄로 늘 보인다 — 규칙은 언제든 읽을 수 있어야 하고
+//      (docs/notes/store-review.md ②), 공개된다는 말은 글을 읽기만 하는 분께도 닿아야 한다. 올릴 때 확인 창도 같은 말을 한다.
+//   답글 칸은 글마다 「답글 달기」 단추로 접는다(loadBoard 가 목록을 그릴 때마다 applyBoardListA).
+function applyBoardA() {
+  if (BOARD_LAYOUT !== "a") return;
+  const card = document.querySelector("#app .summary-card");
+  const head = card && card.querySelector(":scope > .settings-head");
+  if (!head || card.querySelector(".bd-write")) return;
+  card.closest(".summary-screen").classList.add("bd-a");
+  const title = head.querySelector(".rank-title");
+  if (title) { setStripEmoji(title); title.insertAdjacentHTML("afterbegin", haSvg("message", "bd-tic")); }
+  const back = document.getElementById("board-back");
+  if (back) back.innerHTML = haSvg("back", "bd-bic") + "<span>첫 화면</span>";
+  const sb = document.getElementById("bp-submit");
+  if (sb) { setStripEmoji(sb); sb.insertAdjacentHTML("afterbegin", haSvg("pen", "bd-ic")); }
+  const all = document.getElementById("bf-all"), mine = document.getElementById("bf-mine");
+  if (all) all.textContent = "전체";
+  if (mine) mine.textContent = "내 글";
+  const filter = card.querySelector(".board-filter");
+  if (filter) filter.classList.add("bd-seg");
+  // 글 쓰기 — 접힌 상자(소개 · 안내 상자 · 쓰기 칸)
+  const box = document.createElement("div");
+  box.className = "bd-writebox";
+  box.id = "bd-writebox";
+  box.hidden = true;
+  [".board-intro", ".board-notice", ".board-form"].forEach((sel) => { const el = card.querySelector(":scope > " + sel); if (el) box.appendChild(el); });
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "bd-write";
+  btn.setAttribute("aria-expanded", "false");
+  btn.setAttribute("aria-controls", "bd-writebox");
+  btn.innerHTML = haSvg("pen", "bd-ic") + "<span>글 쓰기</span>" + haSvg("chev", "bd-caret");
+  const line = document.createElement("p");
+  line.className = "bd-open-line";
+  line.innerHTML = `모든 글과 답글은 공개됩니다 · <button type="button" class="bd-rules">📜 이용 규칙</button>`;
+  head.after(btn);
+  btn.after(line);
+  line.after(box);
+  btn.addEventListener("click", () => {
+    const open = box.hidden;
+    box.hidden = !open;
+    btn.classList.toggle("open", open);
+    btn.setAttribute("aria-expanded", String(open));
+    if (open) { const ta = document.getElementById("bp-content"); if (ta) ta.focus(); }
+  });
+  line.querySelector(".bd-rules").addEventListener("click", () => openBoardRules(false));
+}
+function applyBoardListA(listEl) {
+  if (BOARD_LAYOUT !== "a" || !listEl) return;
+  listEl.querySelectorAll(".board-reply-form").forEach((rf) => {
+    if (rf.previousElementSibling && rf.previousElementSibling.classList.contains("bd-replybtn")) return;
+    rf.hidden = true;
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "bd-replybtn";
+    b.innerHTML = haSvg("reply", "bd-ic") + "<span>답글 달기</span>";
+    rf.before(b);
+    b.addEventListener("click", () => {
+      rf.hidden = false;
+      b.hidden = true;
+      const ta = rf.querySelector(".br-content");
+      if (ta) ta.focus();
+    });
+  });
+}
+
 async function loadBoard() {
   const box = document.getElementById("board-list");
   let d;
@@ -4699,6 +4774,7 @@ async function loadBoard() {
     e.stopPropagation();
     showBoardReactors(btn.dataset.rx, btn.dataset.id, btn.dataset.emoji, btn);
   }));
+  applyBoardListA(box);   // 게시판 A안 — 글마다 답글 칸을 「답글 달기」로 접는다
 }
 // 글에 붙은 사진. 서버는 파일 이름만 저장하고 볼 수 있는 주소는 그때 만들어 준다.
 function boardPhotosHtml(p) {
@@ -4792,9 +4868,10 @@ function renderBoardPhotoTray() {
   const add = document.getElementById("bp-add-photo");
   if (add) {
     add.disabled = boardPhotos.length >= BOARD_PHOTO_MAX;
-    add.textContent = boardPhotos.length
-      ? `📷 사진 ${boardPhotos.length}/${BOARD_PHOTO_MAX}`
-      : "📷 사진 넣기";
+    const label = boardPhotos.length ? `사진 ${boardPhotos.length}/${BOARD_PHOTO_MAX}` : "사진 넣기";
+    // 게시판 A안(BOARD_LAYOUT)은 📷 대신 선 아이콘 — 사진을 고를 때마다 이 이름을 다시 쓰므로 아이콘도 여기서 함께 그린다
+    if (BOARD_LAYOUT === "a") add.innerHTML = haSvg("image", "bd-ic") + `<span>${label}</span>`;
+    else add.textContent = "📷 " + label;
   }
 }
 
@@ -9960,7 +10037,9 @@ const MANUAL = [
     art: '<div class="mn-row"><span class="mn-chip">👍</span><span class="mn-chip">🙏</span><span class="mn-chip">❤️</span></div>',
     steps: [
       "첫 화면 <b>「함께」</b>에서 <b>💬 응원·기도·공감</b>을 누르세요.",
-      "글을 남기거나 남의 글에 답글을 달 수 있어요. <b>사진</b>도 4장까지 올릴 수 있어요.",
+      BOARD_LAYOUT === "a"   // 게시판 A안(2026-10-14) — 쓰기 칸 · 답글 칸이 접혀 있다
+        ? "맨 위 <b>글 쓰기</b>를 누르면 글을 남길 수 있고, 글 아래 <b>답글 달기</b>로 답글을 달 수 있어요. <b>사진</b>도 4장까지 올릴 수 있어요."
+        : "글을 남기거나 남의 글에 답글을 달 수 있어요. <b>사진</b>도 4장까지 올릴 수 있어요.",
       "<b>👍 🙏 ❤️</b>를 눌러 마음을 표시할 수도 있어요.",
       "불편한 글이 보이면 글 옆 <b>🚩 신고</b>를 누르세요. 운영진이 살펴봐요(누가 신고했는지는 알리지 않아요).",
       "보고 싶지 않은 분의 글은 글 옆 <b>🙈 가리기</b>를 누르세요. <b>내 화면에서만</b> 안 보여요. 다시 보려면 <b>「🙈 가린 분」</b>에서 「다시 보기」.",

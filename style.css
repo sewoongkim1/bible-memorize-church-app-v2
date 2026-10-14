@@ -7494,3 +7494,73 @@ html[data-fs="xl"] .vl-a .vs-ic { width: 20px; height: 20px; }
 .dark .rk-a .rk-cheer.on { background: #3a3018; border-color: #5c4c22; color: #e9cd7e; }
 .dark .rk-a .rk-cheer.on b { color: #e9cd7e; }
 .dark .rk-a .rank-note { color: #b9c0cd; }
+
+/* ── 💬 게시판 A안(app.js applyBoardA · 2026-10-14 친구 「2안」 + 「글쓰기 안내는 글쓰기 안으로」) ───────────────────────────
+   흰 큰 카드를 걷고 바탕 위에 — 큰 남색 「글 쓰기」(누르면 소개 · 안내 상자 · 쓰기 칸이 펼쳐진다) · 그 아래 「모든 글과 답글은 공개됩니다 · 📜 이용 규칙」 ·
+   「전체 | 내 글」 회색 판 위 흰 칸 · 글은 흰 카드 · 공감 칩 테두리 알약(누른 것 옅은 금색) · 답글은 왼쪽 선 · 답글 칸은 「답글 달기」로 접힘. */
+.bd-a .summary-card { background: transparent; border: 0; box-shadow: none; padding: 0 4px 24px; text-align: left; }
+.bd-a .settings-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 4px 0 12px; }
+.bd-a .rank-title { display: flex; align-items: center; gap: 8px; margin: 0; font-family: "Noto Sans KR", sans-serif; font-size: 1.3rem; color: #1b2333; }
+.bd-a .bd-tic { width: 24px; height: 24px; flex: none; color: #1e3a6b; }
+.bd-a #board-back { display: inline-flex; align-items: center; gap: 2px; min-height: 40px; padding: 0 12px 0 8px; border: 1.5px solid #8da3c8; border-radius: 10px; background: #fff; color: #1e3a6b; font-size: .94rem; font-weight: 800; }
+.bd-a #board-back:hover { background: #eaf0f9; }
+.bd-a .bd-bic { width: 18px; height: 18px; stroke-width: 2.4; }
+.bd-a .bd-ic { width: 20px; height: 20px; flex: none; }
+.bd-a .bd-write { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 56px; margin: 0; border: 0; border-radius: 14px; background: #1e3a6b; color: #fff; font-family: inherit; font-size: 1.1rem; font-weight: 800; cursor: pointer; }
+.bd-a .bd-write:hover { background: #152b52; }
+.bd-a .bd-caret { width: 18px; height: 18px; transform: rotate(90deg); transition: transform .15s; }
+.bd-a .bd-write.open .bd-caret { transform: rotate(-90deg); }
+.bd-a .bd-open-line { margin: 8px 2px 0; font-size: .86rem; color: #4a5468; }
+.bd-a .bd-rules { margin: 0; padding: 0; border: 0; background: transparent; color: #1e3a6b; font-family: inherit; font-size: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
+.bd-a .bd-writebox { margin: 12px 0 0; padding: 14px 16px; background: #fff; border: 1px solid #e5dfd4; border-radius: 16px; }
+.bd-a .bd-writebox[hidden] { display: none; }
+.bd-a .bd-writebox .board-intro { margin: 0 0 10px; text-align: left; color: #4a5468; }
+.bd-a .bd-writebox .board-notice { margin: 0 0 12px; border: 0; border-radius: 12px; background: #fbf1d6; color: #5c4510; text-align: left; }
+.bd-a .bd-writebox .board-form { margin: 0; }
+.bd-a .board-in { border: 1px solid #e5dfd4; border-radius: 12px; background: #faf8f4; }
+.bd-a #bp-add-photo { display: flex; align-items: center; justify-content: center; gap: 8px; border: 1.5px solid #8da3c8; border-radius: 12px; background: #fff; color: #1e3a6b; }
+.bd-a #bp-submit { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; border: 0; border-radius: 14px; background: #1e3a6b; color: #fff; font-weight: 800; box-shadow: none; }
+.bd-a .board-filter.bd-seg { gap: 2px; padding: 3px; border-radius: 12px; background: #ece7dd; margin: 16px 0 12px; }
+.bd-a .board-filter.bd-seg .bf-btn { flex: 1 1 0; min-height: 42px; margin: 0; border: 0; border-radius: 9px; background: transparent; color: #4a5468; font-weight: 600; box-shadow: none; }
+.bd-a .board-filter.bd-seg .bf-btn.on { background: #fff; color: #1e3a6b; font-weight: 800; box-shadow: 0 1px 2px rgba(0, 0, 0, .14); }
+.bd-a .board-post { background: #fff; border: 1px solid #e5dfd4; border-radius: 16px; box-shadow: none; padding: 14px 16px; }
+.bd-a .board-meta { color: #6e7787; }
+.bd-a .board-meta b { color: #1b2333; }
+.bd-a .board-text { color: #1b2333; }
+.bd-a .rx-chip { border: 1px solid #e5dfd4; background: #fff; border-radius: 999px; }
+.bd-a .rx-chip.on { border-color: #e6d29c; background: #fbf1d6; color: #5c4510; }
+.bd-a .rx-chip.on b { color: #5c4510; }
+.bd-a .rx-add { border: 1px dashed #c9ced8; background: #fff; border-radius: 999px; color: #6e7787; }
+.bd-a .board-reply { background: #faf8f4; border: 0; border-left: 3px solid #e5dfd4; border-radius: 0 10px 10px 0; }
+.bd-a .board-reply.admin { background: #eaf0f9; border-left-color: #1e3a6b; }
+.bd-a .bd-replybtn { display: inline-flex; align-items: center; gap: 6px; margin: 10px 0 0; padding: 6px 12px; min-height: 36px; border: 1px solid #e5dfd4; border-radius: 999px; background: #fff; color: #1e3a6b; font-family: inherit; font-size: .9rem; font-weight: 700; cursor: pointer; }
+.bd-a .bd-replybtn .bd-ic { width: 16px; height: 16px; }
+.bd-a .bd-replybtn[hidden], .bd-a .board-reply-form[hidden] { display: none; }
+.bd-a .board-reply-btn { border: 1.5px solid #8da3c8; border-radius: 10px; background: #fff; color: #1e3a6b; font-weight: 800; box-shadow: none; }
+.dark .bd-a .summary-card { background: transparent; border: 0; }
+.dark .bd-a .rank-title { color: #f1eee7; }
+.dark .bd-a .bd-tic { color: #9dbbea; }
+.dark .bd-a #board-back { background: #1a202b; border-color: #4a6597; color: #9dbbea; }
+.dark .bd-a .bd-write { background: #2f5596; }
+.dark .bd-a .bd-open-line { color: #b9c0cd; }
+.dark .bd-a .bd-rules { color: #9dbbea; }
+.dark .bd-a .bd-writebox { background: #1a202b; border-color: #2c3442; }
+.dark .bd-a .bd-writebox .board-intro { color: #b9c0cd; }
+.dark .bd-a .bd-writebox .board-notice { background: #3a3018; color: #e9cd7e; }
+.dark .bd-a .board-in { background: #131925; border-color: #2c3442; color: #f1eee7; }
+.dark .bd-a #bp-add-photo { background: #1a202b; border-color: #4a6597; color: #9dbbea; }
+.dark .bd-a #bp-submit { background: #2f5596; }
+.dark .bd-a .board-filter.bd-seg { background: #262d39; }
+.dark .bd-a .board-filter.bd-seg .bf-btn { background: transparent; color: #b9c0cd; }
+.dark .bd-a .board-filter.bd-seg .bf-btn.on { background: #1a202b; color: #9dbbea; }
+.dark .bd-a .board-post { background: #1a202b; border-color: #2c3442; }
+.dark .bd-a .board-meta { color: #949dad; }
+.dark .bd-a .board-meta b, .dark .bd-a .board-text { color: #f1eee7; }
+.dark .bd-a .rx-chip { background: #1a202b; border-color: #2c3442; }
+.dark .bd-a .rx-chip.on { background: #3a3018; border-color: #5c4c22; color: #e9cd7e; }
+.dark .bd-a .rx-chip.on b { color: #e9cd7e; }
+.dark .bd-a .rx-add { background: #1a202b; border-color: #4a5468; color: #b9c0cd; }
+.dark .bd-a .board-reply { background: #131925; border-left-color: #2c3442; }
+.dark .bd-a .board-reply.admin { background: #22304a; border-left-color: #9dbbea; }
+.dark .bd-a .bd-replybtn { background: #1a202b; border-color: #2c3442; color: #9dbbea; }
+.dark .bd-a .board-reply-btn { background: #1a202b; border-color: #4a6597; color: #9dbbea; }
