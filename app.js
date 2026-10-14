@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261014ad";
+const APP_BUILD = "20261014ae";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -801,6 +801,8 @@ const LOGIN_LAYOUT = "a";
 const HELP_LAYOUT = "a";
 // 📄 설교 요약 A안(2026-10-14 친구 「2」 · applySsA — 「3분 요약 듣기」를 제목 아래 큰 단추로) — 롤백은 "old" 한 줄 + bump
 const SS_LAYOUT = "a";
+// 🎵 오늘의 찬양 창 A안(2026-10-14 친구 「2」 · applySongA — 묵상처럼 아래에서 올라오는 판) — 롤백은 "old" 한 줄 + bump
+const SONG_LAYOUT = "a";
 const MEMO_KEY = "memo-preview";
 function readMemoPreviewParam() {
   try {
@@ -929,6 +931,7 @@ const HA_ICON = {
   sliders: "M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M14 4v4M8 10v4M16 16v4", // 🙏 기도문 A — 듣기 설정
   down: "M6 9l6 6 6-6",                                                // 🙏 기도문 A — 펴기 꺾쇠
   stop: "M7 7h10v10H7z",                                               // 🙏 기도문 A — 그만듣기
+  replay: "M3 12a9 9 0 1 0 3-6.7M3 4v5h5",                             // 🎵 오늘의 찬양 A — 다시 듣기
   gear: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3.1 15H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 4.1V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.7 1.7 0 0 0 20.9 10H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z",
 };
 const HA_GROUPS = [
@@ -1248,6 +1251,7 @@ function openSongModal(song) {
         </div>
       </div>`;
     document.body.appendChild(wrap);
+    if (SONG_LAYOUT === "a") applySongA(wrap);
 
     // 섬네일이 안 오면 회색 바탕(.song-media 자체 배경)만 남기고 단추는 그대로 둔다
     const thumbImg = document.getElementById("song-thumb");
@@ -1294,6 +1298,20 @@ function openSongModal(song) {
     window.addEventListener("popstate", songPop);
   };
   open();
+}
+
+// 🎵 오늘의 찬양 창 A안(2026-10-14 친구 「2」) — 창을 붙인 뒤 **옷만** 바꾼다(id · 연결 · 파사드 · 나갈 때 세 단계는 그대로).
+//   매일 묵상 A 처럼 화면 아래에 붙은 넓은 판(손잡이 · 큰 그림) · 표는 음표 아이콘 · 「찬양 듣기」는 그림 한가운데 흰 알약 ·
+//   곡명 진한 고딕 왼쪽 맞춤 · 「유튜브로」 테두리(⚠️ 한 줄 — 아이콘은 글 뒤에 · .song-modal-actions 주석) · 「확인」 남색.
+//   ⚠️ 「▶ 찬양 듣기」라는 이름은 개인정보 안내 두 곳이 그대로 부른다 — 글은 「찬양 듣기」 그대로 두고 ▶ 만 그림으로.
+function applySongA(wrap) {
+  wrap.classList.add("sg-a");
+  const badge = wrap.querySelector(".dmsg-badge");
+  if (badge) badge.innerHTML = haSvg("music", "sg-ic") + "<span>오늘의 찬양</span>";
+  const play = wrap.querySelector("#song-play");
+  if (play) play.innerHTML = SSA_PLAY_SVG + "<span>찬양 듣기</span>";
+  const ext = wrap.querySelector("#song-ext");
+  if (ext) ext.innerHTML = "<span>유튜브로</span>" + haSvg("ext", "sg-ic");
 }
 
 // 「▶ 찬양 듣기」를 누른 그 순간에만 iframe 을 만든다 — 자동재생·느린 통신·구글로 나가는
@@ -1343,6 +1361,7 @@ function songShowEnded() {
      </div>`;
   const rp = document.getElementById("song-replay");
   if (rp) rp.addEventListener("click", songStartPlay);
+  if (rp && SONG_LAYOUT === "a") rp.innerHTML = haSvg("replay", "sg-ic") + "<span>다시 듣기</span>";
   const ec = document.getElementById("song-ended-close");
   // ⚠️ 팝업 자체를 닫아야 한다(옛 songClose(false) 대신 openSongModal 이 남겨 둔
   //    songModalClose — 같은 절차를 타야 나갈 때 세 단계·popstate 정리가 함께 된다).
@@ -9644,7 +9663,7 @@ function applyMedA(wrap, psalm, bless, song) {
   const rows = [
     row("med-psalm", "drop", "쉴만한 물가", psalm && (psalm.refShort || psalm.refFull), "chev"),
     row("med-pray", "house", "오늘의 기도", bless && bless.title, "chev"),
-    row("med-song", "music", "오늘의 찬양", song && song.song, "ext"),
+    row("med-song", "music", "오늘의 찬양", song && song.song, "chev"),   // 앱 안 창이 뜬다 — ↗(앱 밖) 대신 ›(친구 2026-10-14)
   ].filter(Boolean);
   if (rows.length) {
     const box = document.createElement("div");

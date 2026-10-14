@@ -7935,3 +7935,53 @@ html[data-fs="xl"] .sermon-sum-card.ss-a #ss-read { font-size: 1.3rem; min-heigh
 .dark .ss-a .ssa-rbox { background: #22304a; color: #9dbbea; }
 .dark .ss-a .ss-conclusion { background: #2a2414; }
 .dark .ss-a .ss-point-no { background: #2f5596; color: #fff; }
+
+/* ── 🎵 오늘의 찬양 창 A안(app.js applySongA · 2026-10-14 친구 「2 — 묵상처럼 아래에서 올라오는 판」) ──────────────────────
+   매일 묵상 A(.md-a)와 같은 판 — 화면 아래에 붙고 위 손잡이 · 폭 전체(넓은 화면은 600px) · 아래에서 올라온다.
+   그림 한가운데 흰 알약 「찬양 듣기」 · 곡명 진한 고딕 왼쪽 맞춤 · 「유튜브로」 테두리 · 「확인」 남색 · 끝난 뒤 「다시 듣기」 남색.
+   ⚠️ 「유튜브로」는 한 줄(.song-modal-actions 주석 — 성도님 결정) — 320px 아주 크게에서 재 볼 것. */
+.cheer-overlay.sg-a { align-items: flex-end; padding: 0; }
+.sg-a .cheer-card.dmsg-card {
+  width: 100%; max-width: 600px; max-height: 92vh; margin: 0 auto;
+  padding: 10px 20px calc(24px + env(safe-area-inset-bottom, 0px)); text-align: left;
+  background: #fff; border: 1px solid #e5dfd4; border-bottom: 0; border-radius: 22px 22px 0 0;
+  box-shadow: 0 -8px 30px rgba(13, 27, 62, .18); transform: translateY(40px);
+}
+.cheer-overlay.sg-a.show .cheer-card.dmsg-card { transform: none; }
+.sg-a .cheer-card.dmsg-card::before { content: ""; display: block; width: 44px; height: 5px; margin: 0 auto 12px; border-radius: 3px; background: #d5d0c6; }
+.sg-a .sg-ic, .sg-a .ssa-ic { width: 18px; height: 18px; flex: none; }
+.sg-a .dmsg-badge { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 12px; padding: 5px 12px; border-radius: 999px; background: #eaf0f9; color: #1e3a6b; font-size: .86rem; font-weight: 800; }
+.sg-a .song-media { border-radius: 14px; }
+.sg-a #song-play {
+  display: inline-flex; align-items: center; gap: 8px; bottom: 50%; transform: translate(-50%, 50%);
+  min-height: 48px; padding: 0 22px; border: 0; background: #fff; color: #1e3a6b; font-size: 1.02rem;
+  box-shadow: 0 6px 18px rgba(13, 27, 62, .35);
+}
+.sg-a #song-play:hover { background: #eaf0f9; color: #1e3a6b; }
+.sg-a .song-name { text-align: left; font-family: inherit; color: #1b2333; font-size: 1.2rem; word-break: keep-all; }
+.sg-a .song-meta { text-align: left; color: #4a5468; }
+.sg-a #song-ext {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 48px;
+  border: 1.5px solid #8da3c8; border-radius: 12px; background: #fff; color: #1e3a6b; font-weight: 800;
+}
+.sg-a #song-ext:hover { background: #eaf0f9; }
+.sg-a #song-close { min-height: 48px; border: 0; border-radius: 12px; background: #1e3a6b; color: #fff; font-weight: 800; }
+.sg-a #song-close:hover { filter: none; background: #152b52; }
+.sg-a #song-close:focus { outline: none; box-shadow: none; }
+.sg-a #song-close:focus-visible { outline: 3px solid #8da3c8; outline-offset: 2px; }
+.sg-a .song-ended { background: #f4f1ea; }
+.sg-a .song-ended .summary-help { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 46px; border-radius: 12px; font-weight: 800; }
+.sg-a #song-replay { border: 0; background: #1e3a6b; color: #fff; }
+.sg-a #song-ended-close { border: 1.5px solid #8da3c8; background: #fff; color: #1e3a6b; }
+html[data-fs="lg"] .sg-a #song-play { font-size: 1.12rem; min-height: 52px; }
+html[data-fs="xl"] .sg-a #song-play { font-size: 1.22rem; min-height: 56px; }
+.dark .sg-a .cheer-card.dmsg-card { background: #1a202b; border-color: #2c3442; }
+.dark .sg-a .cheer-card.dmsg-card::before { background: #3a4252; }
+.dark .sg-a .dmsg-badge { background: #22304a; color: #9dbbea; }
+.dark .sg-a .song-name { color: #f1eee7; }
+.dark .sg-a .song-meta { color: #b9c0cd; }
+.dark .sg-a #song-ext, .dark .sg-a #song-ended-close { background: #1a202b; border-color: #4a6597; color: #9dbbea; }
+.dark .sg-a #song-ext:hover { background: #22304a; }
+.dark .sg-a #song-close, .dark .sg-a #song-replay { background: #2f5596; color: #fff; }
+.dark .sg-a #song-close:focus-visible { outline-color: #4a6597; }
+.dark .sg-a .song-ended { background: #232c3f; }
