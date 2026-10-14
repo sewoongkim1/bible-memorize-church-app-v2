@@ -7087,3 +7087,23 @@ body.native-app-hide-ref .test-screen[data-memo] .word-input { scroll-margin-top
 .test-screen.mm-ch .mm-ch-head .challenge-remain:empty { display: none; }
 .test-screen.mm-ch .mm-head .mm-back { flex: none; margin-left: auto; }
 .dark .test-screen.mm-ch .mm-ch-head .challenge-remain::before { color: #949dad; }
+/* ── 말씀 상자 줄이기(2026-10-14 친구 「글자가 커서 한 줄에 단어가 하나밖에 안 들어가 너무 길어져요」) ───────────
+   19낱말 말씀이 시안 A 407px(원래 화면 279px) · B 527 · C 585px 이었다 — 글씨가 원래(19px)보다 크고 줄 간격도 넓었다.
+   글씨 한 단계 작게 · 줄 간격 좁게(빈칸 폭은 app.js mmTightBlanks 가 「글자 수 + 0.6」em 로). 큰 글씨 설정도 같은 비율로. */
+.test-screen.memo-a .test-sentence, .test-screen.memo-a .word-input { font-size: 20px; }
+.test-screen.memo-a .test-sentence { line-height: 1.85; padding: 10px 14px 14px; }
+html[data-fs="lg"] .test-screen.memo-a .test-sentence, html[data-fs="lg"] .test-screen.memo-a .word-input { font-size: 22px; }
+html[data-fs="xl"] .test-screen.memo-a .test-sentence, html[data-fs="xl"] .test-screen.memo-a .word-input { font-size: 24px; }
+.test-screen.memo-b .test-sentence, .test-screen.memo-b .word-input { font-size: 21px; }
+.test-screen.memo-b .test-sentence {
+  line-height: 2.05; padding: 10px 16px 14px;
+  background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(2.05em - 1px), #efe5d4 calc(2.05em - 1px), #efe5d4 2.05em);
+}
+.dark .test-screen.memo-b .test-sentence { background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(2.05em - 1px), #2c241c calc(2.05em - 1px), #2c241c 2.05em); }
+.test-screen.memo-b .word-input { height: 1.5em; }
+html[data-fs="lg"] .test-screen.memo-b .test-sentence, html[data-fs="lg"] .test-screen.memo-b .word-input { font-size: 23px; }
+html[data-fs="xl"] .test-screen.memo-b .test-sentence, html[data-fs="xl"] .test-screen.memo-b .word-input { font-size: 25px; }
+.test-screen.memo-c .test-sentence, .test-screen.memo-c .word-input { font-size: 23px; }
+.test-screen.memo-c .test-sentence { line-height: 1.85; padding: 12px 14px 14px; }
+html[data-fs="lg"] .test-screen.memo-c .test-sentence, html[data-fs="lg"] .test-screen.memo-c .word-input { font-size: 25px; }
+html[data-fs="xl"] .test-screen.memo-c .test-sentence, html[data-fs="xl"] .test-screen.memo-c .word-input { font-size: 27px; }

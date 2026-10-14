@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261014k";
+const APP_BUILD = "20261014l";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -7510,6 +7510,15 @@ function mmProxy(cls, icon, label, find, after) {
   b.hidden = !find();
   return b;
 }
+// 빈칸 폭을 조금 좁힌다(친구 2026-10-14 「글자가 커서 한 줄에 단어가 하나밖에 안 들어가 너무 길어져요」) — 옛 코드는 「글자 수 + 1」em.
+//   시안에서는 「+ 0.6」em(한글만 · 영어는 ch 단위 그대로 · 「구절 먼저 쓰기」 칸은 제 계산 그대로). 글씨 크기는 CSS(「말씀 상자 줄이기」)가 줄인다.
+function mmTightBlanks(scr) {
+  if (!scr || scr.classList.contains("en")) return;
+  scr.querySelectorAll(".test-sentence .word-input:not(.ref-input)").forEach((inp) => {
+    const n = Array.from(inp.dataset.answer || "").length;
+    if (n) inp.style.width = (n + 0.6) + "em";
+  });
+}
 // 시안의 머리 줄(.mm-head — 「‹ 목록으로」 · 도전은 「‹ 첫 화면 · 말씀 도전 · 남은 빈칸」)은 위 구절 띠 바로 밑에 고정한다.
 //   ⚠️ position: sticky 는 이 앱에서 안 먹는다 — html · body 의 overflow-x: hidden(아이폰 옆 튕김 막이)이 body 를 스크롤 상자로 만들어
 //      sticky 가 body 기준이 된다(2026-10-14 재 보니 머리 줄이 그대로 위로 사라졌다). 그래서 위 띠와 같은 방식 — position: fixed +
@@ -7692,6 +7701,7 @@ function applyMemoLayout(verse, stage) {
     watch.classList.add("mm-row");
     watch.innerHTML = mmSvg("tv") + `<span>이 말씀의 설교 영상</span>` + mmSvg("chev");
   }
+  mmTightBlanks(scr);
   mmFitCardBox();
   try { document.fonts.ready.then(mmFitCardBox); } catch (e) {}
 }
@@ -7796,6 +7806,7 @@ function applyChallengeA(verse, hard) {
     watch.classList.add("mm-row");
     watch.innerHTML = mmSvg("tv") + `<span>이 말씀의 설교 영상</span>` + mmSvg("chev");
   }
+  mmTightBlanks(scr);
   mmFitCardBox();
   try { document.fonts.ready.then(mmFitCardBox); } catch (e) {}
 }
