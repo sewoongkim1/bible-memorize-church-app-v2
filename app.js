@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261014q";
+const APP_BUILD = "20261014r";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -948,8 +948,9 @@ function haRow(b, ext) {
   b.insertAdjacentHTML("beforeend", haSvg(ext ? "ext" : "chev", "ha-trail"));
 }
 // 위쪽(2026-10-14 친구 — 시안 A Main.dc.html) — 인사 줄 오른쪽에 [🔔][⚙] · 인사 · 두 단추 아이콘 · 이번 주 말씀 카드.
-//   맨 위 로고 띠(.page-header · 남색 띠 + 흰 상자 · 로고 · 「오직 성경, 말씀이 답이다!」 · 시편 119편 105절)는 **다른 화면과 같이 그대로 둔다**
-//   (친구 「내용은 그대로 두고 기존과 같이 청색으로」 — 같은 날 시안처럼 띠를 걷고 「로고 · 고척교회 / 오직 성경…」 머리 줄을 넣었다가 되돌렸다).
+//   맨 위 로고 띠(.page-header · 남색 띠 · 글씨 없는 로고 + 「오직 성경, 말씀이 답이다!」)는 **다른 화면과 같이 그대로 둔다**
+//   (친구 「기존과 같이 청색으로」 — 같은 날 시안처럼 띠를 걷고 「로고 · 고척교회 / 오직 성경…」 머리 줄을 넣었다가 되돌렸다.
+//    띠 자체는 그 뒤 친구가 샘플 ③을 골라 흰 상자 · 네 줄 → 남색 띠에 로고 + 구호 한 줄로 바꿨다 · index.html · style.css .logo-wrap).
 //   🔔 알림 · ⚙️ 설정 단추는 아래 도구 칸에서 옮겨 온다 — id · 연결 · 종 강조(pulse) · 금색(알림)은 그대로. 도구 칸은 셋(구절 · 쓰기 · 도움말)이 된다.
 //   인사는 왼쪽 맞춤 큰 글씨 · 두 단추 그림 글자는 선 아이콘(자리 · 크기 · 색은 그대로 — 10/11 「늘 같은 자리」) · 이번 주 말씀은 본문 명조 · 구절은 따로 한 줄.
 //   ⚠️ 설명서의 「맨 아래 ⚙️ 설정 · 🔔 알림」 자리 말은 HOME_LAYOUT 을 따라 갈린다(copy-truth · MANUAL 「알림」 · 「글씨 크게 하기」 · 「내 이름 오른쪽」).
@@ -972,6 +973,17 @@ function haTop(card) {
   const hello = card.querySelector(".summary-hello");
   const last = hello && hello.lastChild;
   if (last && last.nodeType === 3) last.data = last.data.replace(/\s*🙌\s*$/u, "");
+  // 「주님의 이름으로 환영합니다」 — 🔔 · ⚙ 옆에 두면 폭이 좁아 두 줄로 꺾였다(친구 2026-10-14) →
+  //   이름 줄 아래로 꺼내 한 줄을 통째로 쓰게 한다(🔔 · ⚙ 는 이름 줄 오른쪽에만)
+  const br = hello && hello.querySelector("br");
+  if (br) {
+    const w = document.createElement("div");
+    w.className = "ha-welcome";
+    let n = br.nextSibling;
+    while (n) { const nx = n.nextSibling; w.appendChild(n); n = nx; }
+    br.remove();
+    head.appendChild(w);
+  }
   // 두 단추 — 📖 · 🔥 → 선 아이콘 · 둘째 줄 끝 👏 · 🎉 는 뺀다(fitTodoSub 는 이 뒤에 돈다)
   const ti = card.querySelector("#go-list .todo-ic");
   if (ti) ti.innerHTML = haSvg("book", "ha-big-ic");

@@ -63,28 +63,18 @@ body {
   padding: calc(6px + var(--app-safe-top, env(safe-area-inset-top, 0px))) 20px 6px;
   width: 100%;
 }
+/* 2026-10-14 친구(샘플 ③ · 자료/design/2026-10-14-header-sample) — 로고(교회 이름 글씨 없이 · img/logo-mark.png) + 「오직 성경, 말씀이 답이다!」 한 줄,
+   흰 상자 없이 남색 띠에 흰 글씨 · 가운데. 전에는 흰 상자(반투명 · 그림자) 안에 로고(「고척교회」 글씨 포함) · 구호 · 시편 119편 105절 네 줄이었다
+   — 띠 높이가 절반쯤으로 줄어 모든 화면의 내용이 그만큼 올라왔다. 어두운 모드도 같은 띠(남색 그러데이션)라 짝이 필요 없다. */
 .logo-wrap {
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  border-radius: 20px;
-  padding: 8px 24px;
-  margin-bottom: 0;
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
-  width: 100%;
-  max-width: 480px;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  width: 100%; max-width: 480px; padding: 6px 4px; margin-bottom: 0;
 }
-.logo-wrap img { width: 50px; height: auto; display: block; flex-shrink: 0; }
+.logo-wrap img { width: 34px; height: auto; display: block; flex-shrink: 0; }
 .logo-tagline { display: flex; flex-direction: column; gap: 2px; }
 .logo-tagline .tagline-main {
-  font-size: 13px; font-weight: 800; color: #0d1b3e;
-  letter-spacing: -0.3px; line-height: 1.3;
-}
-.logo-tagline .tagline-sub {
-  font-size: 12px; font-weight: 500; color: #1a5276; letter-spacing: 0.5px;
+  font-size: 17px; font-weight: 800; color: #fff;
+  letter-spacing: -0.2px; line-height: 1.3;
 }
 
 /* ---------- 본문 래퍼 ---------- */
@@ -7275,8 +7265,11 @@ html[data-fs="xl"] .test-screen.memo-c .test-sentence, html[data-fs="xl"] .test-
 /* ── 첫 화면 A 위쪽(app.js haTop · 2026-10-14 친구) — 맨 위 로고 띠(남색 띠 + 흰 상자)는 다른 화면과 같이 그대로(친구 「기존과 같이 청색으로」) ─────
    그 아래 크림 바탕 위에 인사(왼쪽) · [🔔][⚙](오른쪽) · 두 단추 · 이번 주 말씀 카드 · 묶음 · 도구 칸이 바로 놓인다(흰 큰 카드를 걷는다 — 시안 A 의
    「바탕 위 흰 카드」). 두 단추의 자리 · 크기 · 색은 그대로. */
-.home-a .summary-headrow { flex-direction: row; align-items: flex-start; gap: 10px; }
+.home-a .summary-headrow { flex-direction: row; flex-wrap: wrap; align-items: center; column-gap: 10px; row-gap: 2px; }
 .home-a .summary-headrow .summary-hello { min-width: 0; word-break: keep-all; }
+/* 「주님의 이름으로 환영합니다」 — 이름 줄 아래 한 줄을 통째로(🔔 · ⚙ 옆이면 좁아 두 줄로 꺾였다 · 친구 2026-10-14) */
+.home-a .ha-welcome { flex: 0 0 100%; font-size: 1rem; line-height: 1.5; color: #4a5468; text-align: left; word-break: keep-all; }
+.dark .home-a .ha-welcome { color: #b9c0cd; }
 .home-a .ha-top-btns { display: flex; gap: 8px; flex: none; margin-top: 2px; }
 .home-a .ha-top-btns .summary-icon.ha-round { width: 44px; height: 44px; border: 1px solid #e5dfd4; background: #fff; color: #1b2333; }
 .home-a .ha-top-btns .summary-icon.ha-round:hover { background: #f7f4ee; }
