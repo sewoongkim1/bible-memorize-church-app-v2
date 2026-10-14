@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261014m";
+const APP_BUILD = "20261014n";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -776,24 +776,41 @@ function albumAActive() {
   if (ALBUM_LAYOUT === "a") return true;
   try { return localStorage.getItem(ALBUM_A_KEY) === "1"; } catch (e) { return false; }
 }
-// ── 🧪 암송 화면 시안 A·B·C 미리보기(2026-10-14 친구 「암송화면 시안A, 시안B, 시안C 모두 만들어 주세요」 · docs/notes/design-refresh.md) ──
-//   ?memo=a|b|c 로 연 기기에서만 그 시안 꼴(?memo=off 나 화면 위 「원래」로 되돌림 · 표식 memo-preview 하나 · 화면 위 줄에서 A·B·C 를 바로 바꿔 본다).
-//   renderTestScreen 이 옛 화면을 다 그린 뒤 applyMemoLayout 이 **옮겨 담는다**(첫 화면 A안과 같은 방식) —
-//   빈칸 · 카드 · 채점 · 음성 · 저장 · 단계 완료 창은 옛 코드 그대로다(docs/notes/memorize-flow.md 의 함정 자리를 안 건드린다).
-//   ⚠️ 위 구절 띠(.test-ref-sticky)에는 아무것도 넣지 않는다 — 아이폰 앱이 그 글자를 읽어 제 띠를 그린다(js/push.js). 그래서 「목록」은 띠 밑 첫 줄에.
+// ── 암송 · 말씀 도전 화면 꼴 스위치(2026-10-14 친구 「이제 시안대로 적용」 — 시안 A 를 모든 성도님께 · docs/notes/design-refresh.md) ──
+//   "a"   = 시안 A — renderTestScreen · renderChallenge 가 옛 화면을 다 그린 뒤 applyMemoLayout · applyChallengeA 가 **옮겨 담는다**(첫 화면 A안과 같은 방식).
+//           빈칸 · 카드 · 채점 · 음성 · 저장 · 단계 완료 창은 옛 코드 그대로다(docs/notes/memorize-flow.md 의 함정 자리를 안 건드린다).
+//   "old" = 옛 화면(10/14 전 그대로) — 옮겨 담기만 안 부르면 그 모습이다.
+//   ⚠️ 롤백: 아래 값을 "old" 로 → python tools/bump.py → 푸시(2~3분). 바꾸기 직전 판은 깃 태그 memo-before-a-2026-10-14.
+//   한 기기만: ?memo=old(옛 화면 · 설정 → 🔒 관리 페이지에서도) · ?memo=a(A — 기본이 old 일 때 미리보기) · ?memo=off(기본으로). 표식 memo-preview 하나.
+//   (B · C 시안은 10/14 미리보기만 하고 걷었다 — 남은 b · c 표식은 A 로 본다 · style.css 의 .memo-b/.memo-c 덩이는 나중에 걷는다)
+//   ⚠️ 위 구절 띠(.test-ref-sticky)에는 아무것도 넣지 않는다 — 아이폰 앱이 그 글자를 읽어 제 띠를 그린다(js/push.js). 그래서 「목록으로」는 띠 밑 줄에.
+const MEMO_LAYOUT = "a";
 const MEMO_KEY = "memo-preview";
 function readMemoPreviewParam() {
   try {
     const url = new URL(location.href);
     const m = url.searchParams.get("memo");
-    if (!["a", "b", "c", "off", "0"].includes(m)) return;
-    if (m === "a" || m === "b" || m === "c") localStorage.setItem(MEMO_KEY, m); else localStorage.removeItem(MEMO_KEY);
+    if (!["a", "b", "c", "old", "off", "0"].includes(m)) return;
+    if (m === "old") localStorage.setItem(MEMO_KEY, "old");
+    else if (m === "off" || m === "0") localStorage.removeItem(MEMO_KEY);
+    else localStorage.setItem(MEMO_KEY, "a");
     url.searchParams.delete("memo");
     history.replaceState(null, "", url.pathname + url.search + url.hash);
   } catch (e) {}
 }
+// 이 기기의 암송 · 도전 화면 꼴 — "a" 또는 ""(옛 화면)
 function memoVariant() {
-  try { const m = localStorage.getItem(MEMO_KEY); return m === "a" || m === "b" || m === "c" ? m : ""; } catch (e) { return ""; }
+  let m = "";
+  try { m = localStorage.getItem(MEMO_KEY) || ""; } catch (e) {}
+  if (m === "old") return "";
+  if (m === "a" || m === "b" || m === "c") return "a";
+  return MEMO_LAYOUT === "a" ? "a" : "";
+}
+// 이 기기만 다르게 보고 있나(미리보기 · 옛 화면) — 그때만 화면 위에 표시 줄을 단다
+function memoPreviewing() {
+  let m = "";
+  try { m = localStorage.getItem(MEMO_KEY) || ""; } catch (e) {}
+  return MEMO_LAYOUT === "a" ? m === "old" : !!m && m !== "old";
 }
 function homeAPreview() { try { return localStorage.getItem(HOME_A_KEY) === "1"; } catch (e) { return false; } }
 function homeOldView() { try { return localStorage.getItem(HOME_OLD_KEY) === "1"; } catch (e) { return false; } }
@@ -7589,16 +7606,14 @@ function applyMemoLayout(verse, stage) {
   const back = document.getElementById("back-to-list-btn");
   if (!sticky || !btnRow || !sentence) return;
 
-  // 0) 미리보기 표시 줄 — 그 자리에서 A · B · C · 원래를 바꿔 본다
+  // 0) 미리보기 표시 줄 — 기본이 옛 화면(MEMO_LAYOUT "old")인데 이 기기만 A 를 볼 때만(모두의 화면에는 없다)
   const bar = document.createElement("div");
   bar.className = "hb-bar mm-bar";
-  bar.innerHTML = `<span>🧪 암송 화면 시안 · 이 기기에서만</span><span class="mm-pick" role="group" aria-label="시안 고르기">` +
-    ["a", "b", "c"].map((k) => `<button type="button" data-v="${k}" aria-pressed="${k === v}">${k.toUpperCase()}</button>`).join("") +
-    `<button type="button" data-v="">원래</button></span>`;
-  bar.querySelectorAll("button[data-v]").forEach((b) => b.addEventListener("click", () => {
-    try { if (b.dataset.v) localStorage.setItem(MEMO_KEY, b.dataset.v); else localStorage.removeItem(MEMO_KEY); } catch (e) {}
+  bar.innerHTML = `<span>🧪 새 암송 화면 미리보기 · 이 기기에서만</span><span class="mm-pick"><button type="button" data-v="">원래 화면으로</button></span>`;
+  bar.querySelector("button[data-v]").addEventListener("click", () => {
+    try { localStorage.removeItem(MEMO_KEY); } catch (e) {}
     renderTestScreen(verse, stage);
-  }));
+  });
 
   // 1) 머리 — 「목록」 + 단계(B 는 한 줄 · A · C 는 두 줄)
   const head = document.createElement("div");
@@ -7622,8 +7637,7 @@ function applyMemoLayout(verse, stage) {
     steps.innerHTML = `<div class="mm-steprow"><span class="mm-st">${stage}단계 <span>/ 3단계</span></span><span class="mm-note">${note}</span></div>` +
       `<div class="mm-bars" aria-hidden="true">${[1, 2, 3].map((k) => `<i class="${k <= stage ? "on" : ""}"></i>`).join("")}</div>`;
   }
-  sticky.after(bar);
-  bar.after(head);
+  if (memoPreviewing()) { sticky.after(bar); bar.after(head); } else sticky.after(head);
   if (v === "b") head.appendChild(steps); else head.after(steps);
 
   // 2) 도구 — 보기 · 듣기 · 말하기(+ 그림 · 설교 영상 · 쓰기/카드)
@@ -7729,10 +7743,10 @@ function applyChallengeA(verse, hard) {
   if (card.querySelector(".ref-input")) scr.classList.add("mm-ref");
   const cardMode = isCardMode();
 
-  // 0) 미리보기 표시 줄
+  // 0) 미리보기 표시 줄 — 이 기기만 A 를 볼 때만(모두의 화면이 A 면 없다)
   const bar = document.createElement("div");
   bar.className = "hb-bar mm-bar";
-  bar.innerHTML = `<span>🧪 말씀 도전 시안 A · 이 기기에서만</span><span class="mm-pick"><button type="button" id="mm-ch-off">원래 화면으로</button></span>`;
+  bar.innerHTML = `<span>🧪 새 도전 화면 미리보기 · 이 기기에서만</span><span class="mm-pick"><button type="button" id="mm-ch-off">원래 화면으로</button></span>`;
   bar.querySelector("#mm-ch-off").addEventListener("click", () => {
     try { localStorage.removeItem(MEMO_KEY); } catch (e) {}
     stopSpeaking();
@@ -7762,8 +7776,7 @@ function applyChallengeA(verse, hard) {
     new MutationObserver(short).observe(remain, { childList: true, characterData: true, subtree: true });
     head.appendChild(remain);
   }
-  sticky.after(bar);
-  bar.after(head);
+  if (memoPreviewing()) { sticky.after(bar); bar.after(head); } else sticky.after(head);
 
   // 2) 도구 칸 — 힌트 · 다른 말씀 · 말하기 · 그림
   mmTool(document.getElementById("hint-btn"), "bulb", "힌트");
@@ -9307,19 +9320,21 @@ function renderManageMenu(back) {
   setupMemoPreviewBox(() => renderManageMenu(back));
 }
 
-// 🧪 암송 화면 시안 미리보기 켜기 — 이 기기에서만(2026-10-14 친구 「PC 에서는 되는데 모바일 폰에서는 시안 화면이 안 떠요」).
+// 🧪 이 기기의 암송 · 도전 화면 — 새 화면(A) / 옛 화면(2026-10-14 · 견주어 보기 · 롤백 전 시험용).
 //   ?memo= 주소는 그 주소를 연 브라우저에만 표식을 남긴다 — 플레이 앱 · 아이폰 앱 · 카카오톡 안 브라우저 · 삼성 인터넷은 저장 공간이 따로라
-//   폰에서는 주소로 켠 표식이 앱에 안 닿는다. 그래서 어느 앱에서든 들어오는 이 메뉴(설정 → 🔒 관리 페이지)에서 켜고 끈다(표식은 같은 memo-preview · memo-font).
-//   입구가 모든 성도님께 보이지만 바뀌는 것은 누른 그 기기의 암송 화면뿐이고, 암송 화면 위 「원래」로도 끈다.
+//   폰에서는 주소로 켠 표식이 앱에 안 닿는다(친구 「모바일에서는 안 떠요」). 그래서 어느 앱에서든 들어오는 이 메뉴(설정 → 🔒 관리 페이지)에서 바꾼다.
+//   입구가 모든 성도님께 보이지만 바뀌는 것은 누른 그 기기뿐이다.
 function memoPreviewBoxHtml() {
   const v = memoVariant();
-  const btn = (attr, val, label, on) => `<button type="button" ${attr}="${val}" aria-pressed="${on}">${label}</button>`;
+  const btn = (val, label, on) => `<button type="button" data-pv="${val}" aria-pressed="${on}">${label}</button>`;
+  // 누르면 넣을 표식 — 기본(MEMO_LAYOUT)과 같은 꼴이면 표식을 지운다
+  const newVal = MEMO_LAYOUT === "a" ? "" : "a", oldVal = MEMO_LAYOUT === "a" ? "old" : "";
   return `
         <div class="mg-pv">
-          <div class="mg-pv-t">🧪 암송 화면 시안 미리보기 <span>이 기기에서만</span></div>
-          <div class="mg-pv-row" role="group" aria-label="시안">${[["a", "A"], ["b", "B"], ["c", "C"]].map(([k, l]) => btn("data-pv", k, l, v === k)).join("")}${btn("data-pv", "", "끄기", !v)}</div>
-          <button type="button" class="summary-install" id="mg-pv-open"${v ? "" : " disabled"}>📖 이번 주 말씀 암송 화면 열기</button>
-          <p class="btn-sub mg-pv-note">${v ? `지금 이 기기는 시안 ${v.toUpperCase()}로 보여요.` : "시안을 고르면 이 기기의 암송 화면만 그 모양으로 바뀌어요."} 다른 분 화면은 그대로예요.</p>
+          <div class="mg-pv-t">🧪 암송 · 도전 화면 <span>이 기기에서만</span></div>
+          <div class="mg-pv-row" role="group" aria-label="화면 꼴">${btn(newVal, "새 화면", v === "a")}${btn(oldVal, "옛 화면", v !== "a")}</div>
+          <button type="button" class="summary-install" id="mg-pv-open">📖 이번 주 말씀 암송 화면 열기</button>
+          <p class="btn-sub mg-pv-note">${MEMO_LAYOUT === "a" ? "모든 성도님은 새 화면이에요." : "모든 성도님은 옛 화면이에요."} 여기서 바꾸면 이 기기에서만 달라져요.</p>
         </div>`;
 }
 function setupMemoPreviewBox(rerender) {
@@ -9534,14 +9549,14 @@ const MANUAL = [
       "맞으면 <b>초록색</b>으로 바뀌고 다음 칸으로 넘어가요.",
       "틀리면 잠깐 <b>빨간색</b>이 되고, 다시 넣으면 돼요.",
     ],
-    tip: "막히면 위쪽 <b>보기</b>를 누르세요. 정답이 나와요. <b>이번주 말씀</b>은 첫 화면 가운데 카드의 <b>암송하기</b>로 바로 갈 수 있어요.",
+    tip: "막히면 말씀 위 도구 칸의 <b>보기</b>를 누르세요. 정답이 나와요. 다른 구절로 가시려면 위쪽 <b>‹ 목록으로</b>를 누르세요. <b>이번주 말씀</b>은 첫 화면 가운데 카드의 <b>암송하기</b>로 바로 갈 수 있어요.",
   },
   {
     icon: "👆", title: "카드로 채우기",
     lead: "자판이 어려우시면 낱말을 눌러서 채워요.",
     art: '<div class="mn-row"><span class="mn-chip">내</span><span class="mn-chip">말씀은</span><span class="mn-chip">발에</span><span class="mn-chip">주의</span></div>',
     steps: [
-      "<b>암송·도전</b> 어느 화면에서나 위쪽 <b>👆 카드</b>를 누르세요.",
+      "<b>암송·도전</b> 화면의 말씀 아래 <b>쓰기 | 카드</b>에서 <b>카드</b>를 누르세요.",
       "아래에 말씀의 <b>낱말 카드</b>가 섞여서 나와요.",
       "빈칸 <b>순서대로</b> 맞는 카드를 누르면 채워져요.",
       "틀린 카드는 흔들리기만 하고 넘어가지 않아요.",
@@ -9564,11 +9579,11 @@ const MANUAL = [
   {
     icon: "🎤", title: "소리 내어 암송하기",
     lead: "소리 내어 외우셔도 됩니다.",
-    art: '<div class="mn-row"><span class="mn-btn mn-btn-on">🎤 암송</span></div>',
+    art: '<div class="mn-row"><span class="mn-btn mn-btn-on">🎤 말하기</span></div>',
     steps: [
-      "암송 화면 위쪽 <b>🎤 암송</b>을 누르세요.",
+      "암송·도전 화면 도구 칸의 <b>말하기</b>(마이크)를 누르세요.",
       "말씀을 <b>소리 내어</b> 외우세요.",
-      "다 하시면 <b>■ 종료</b>를 누르세요.",
+      "다 하시면 같은 자리의 <b>종료</b>를 누르세요.",
       "얼마나 맞았는지 알려 줍니다. <b>85%</b> 넘게 맞으면 통과예요.",
     ],
     tip: "처음에 폰이 <b>마이크를 써도 되냐</b>고 물어봐요. <b>「허용」</b>을 누르세요.",
@@ -9579,8 +9594,8 @@ const MANUAL = [
     art: '<div class="mn-row"><span class="mn-btn mn-btn-on">🔥 말씀 도전</span></div>',
     steps: [
       "첫 화면 <b>🔥 말씀 도전</b>을 누르면 말씀 하나가 <b>무작위로</b> 나와요. 전부 빈칸이에요.",
-      "막히면 <b>💡 힌트</b>를 누르세요. 앞 글자부터 한 글자씩 보여 줍니다.",
-      "다른 말씀으로 하고 싶으시면 <b>🔀 다른말씀</b>을 누르세요.",
+      "막히면 도구 칸의 <b>힌트</b>를 누르세요. 앞 글자부터 한 글자씩 보여 줍니다.",
+      "다른 말씀으로 하고 싶으시면 <b>다른 말씀</b>을 누르세요. 위쪽에 <b>남은 빈칸</b> 수가 보여요.",
     ],
     tip: "암송·도전을 한 횟수가 모두 <b>🏆 도전 순위</b>에 올라가요. 첫 화면 맨 아래 <b>📕 구절</b>을 켜 두면 도전 때 <b>구절(예: 시 119:105)</b>도 함께 써요.",
   },
@@ -9915,23 +9930,23 @@ function renderHelp(onClose) {
             <li><b>2단계</b> 빈칸 늘리기 — 더 많은 빈칸 (약 65%)</li>
             <li><b>3단계</b> 전체 암송 — 출처만 보고 전체 입력</li>
           </ul>
-          <p>맞으면 초록색으로 잠기고 다음 칸으로 이동해요. 틀리면 잠깐 빨갛게 표시된 뒤 다시 입력할 수 있어요. 모든 칸을 맞히면 다음 단계로 넘어가요. 막히면 위쪽 <b>보기</b>로 정답을 볼 수 있어요.</p>
-          <p>자판이 번거로우시면 <b>👆 카드</b>를 누르세요. 낱말 카드를 순서대로 눌러 채워요. <b>암송·도전</b>에서 모두 쓸 수 있어요. 늘 카드로 하시려면 <b>⚙️ 설정 → 암송 입력 방법</b>(첫 화면 맨 아래 <b>⌨️ 쓰기</b> 단추와 같아요)에서 바꿔 두세요.</p>
+          <p>맞으면 초록색으로 잠기고 다음 칸으로 이동해요. 틀리면 잠깐 빨갛게 표시된 뒤 다시 입력할 수 있어요. 모든 칸을 맞히면 다음 단계로 넘어가요. 막히면 말씀 위 도구 칸의 <b>보기</b>로 정답을 볼 수 있어요.</p>
+          <p>자판이 번거로우시면 말씀 아래 <b>쓰기 | 카드</b>에서 <b>카드</b>를 누르세요. 낱말 카드를 순서대로 눌러 채워요. <b>암송·도전</b>에서 모두 쓸 수 있어요. 늘 카드로 하시려면 <b>⚙️ 설정 → 암송 입력 방법</b>(첫 화면 맨 아래 <b>⌨️ 쓰기</b> 단추와 같아요)에서 바꿔 두세요.</p>
         </section>
 
         <section class="help-section">
           <h3>🔥 말씀 도전</h3>
-          <p><b>말씀 도전</b>은 말씀 하나를 무작위로 골라 전부 빈칸으로 내 줘요. 막히면 <b>💡 힌트</b>가 앞 글자부터 한 글자씩 보여 줘요. 암송·도전 횟수는 모두 <b>도전 순위</b>에 더해져요.</p>
+          <p><b>말씀 도전</b>은 말씀 하나를 무작위로 골라 전부 빈칸으로 내 줘요. 막히면 도구 칸의 <b>힌트</b>가 앞 글자부터 한 글자씩 보여 줘요. 암송·도전 횟수는 모두 <b>도전 순위</b>에 더해져요.</p>
         </section>
 
         <section class="help-section">
           <h3>🔊 말씀 듣기</h3>
-          <p>말씀 목록의 <b>🔊</b>로 말씀을 들을 수 있어요. <b>빠르게 여러 번 누르면 그 횟수만큼 반복</b>해서 읽어줘요. 목록 맨 위 <b>▶️ 전체 듣기</b>는 처음부터 끝까지 이어서 읽어 주고, 암송 화면의 <b>🔊 듣기</b>는 한 번 더 누르면 멈춰요. 읽는 속도는 <b>⚙️ 설정</b>에서 바꿀 수 있어요.</p>
+          <p>말씀 목록의 <b>🔊</b>로 말씀을 들을 수 있어요. <b>빠르게 여러 번 누르면 그 횟수만큼 반복</b>해서 읽어줘요. 목록 맨 위 <b>▶️ 전체 듣기</b>는 처음부터 끝까지 이어서 읽어 주고, 암송 화면 도구 칸의 <b>듣기</b>는 한 번 더 누르면 멈춰요. 읽는 속도는 <b>⚙️ 설정</b>에서 바꿀 수 있어요.</p>
         </section>
 
         <section class="help-section">
           <h3>🎤 음성 암송</h3>
-          <p><b>🎤 암송</b>을 누르고 말씀을 소리 내어 외운 뒤 <b>■ 종료</b>를 누르면 정확도를 알려줘요 (<b>85%</b> 이상이면 통과). 크롬·사파리에서 마이크를 허용해 주세요.</p>
+          <p>도구 칸의 <b>말하기</b>를 누르고 말씀을 소리 내어 외운 뒤 <b>종료</b>를 누르면 정확도를 알려줘요 (<b>85%</b> 이상이면 통과). 크롬·사파리에서 마이크를 허용해 주세요.</p>
         </section>
 
         <section class="help-section">
