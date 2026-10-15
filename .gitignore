@@ -164,3 +164,6 @@ bible-note/.pytest_cache/
 # 소스 정리표(엑셀 — 제외된 파일 이름까지 적혀 있다) · tmp 에서 옮겨 둔 보관 자료 — 올리지 않는다(2026-10-08)
 자료/소스정리/
 자료/보관/
+
+# App Store 스크린샷 원본(2026-10-15 · 아이폰 실기기 — 실명 · 소속이 보인다). 올릴 것은 자료/store/screenshots-ios3-upload/(흐림 처리) · 만들기 자료/store/make-ios3-upload.py
+자료/store/screenshots-ios3/

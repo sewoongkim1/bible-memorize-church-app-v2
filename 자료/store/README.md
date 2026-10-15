@@ -464,7 +464,8 @@ iOS 2단계(위젯·네이티브 로그인 화면·네이티브 푸시)를 실�
 | 파일 | 쓰는 곳 |
 |---|---|
 | `listing-ios-ko.txt` | App Store Connect의 각 입력칸에 그대로 붙여넣는다(칸 이름이 각 항목 제목) |
-| `screenshots-ios/real-*.png` | **App Store Connect → 미디어 관리** (1242×2688, 9장 — 실기기/시뮬레이터로 직접 찍은 진짜 화면) |
+| `screenshots-ios3-upload/01~08` | **App Store Connect → 미디어 관리 — 2026-10-15 부터 이것**(디자인 A안 · 친구 실기기 · 1242×2688 · RGB · 이름 자리 흐림 · 만들기 `make-ios3-upload.py` · 원본 `screenshots-ios3/` 은 .gitignore) |
+| `screenshots-ios/real-*.png` | 옛 디자인(2026-09-16) — 이제 안 쓴다 (1242×2688, 9장 — 실기기/시뮬레이터로 직접 찍은 진짜 화면) |
 
 ⚠️ **크기는 1242×2688(또는 1284×2778)이 정답이다 — 1290×2796·1320×2868 아님.**
 처음엔 웹 화면을 흉내 낸 6.7인치(1290×2796) 스크린샷을 `tools/capture-ios-shots.py`로
