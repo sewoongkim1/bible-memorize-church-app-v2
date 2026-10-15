@@ -169,3 +169,6 @@ bible-note/.pytest_cache/
 자료/store/screenshots-ios3/
 # Google Play 스크린샷 원본(2026-10-15 · 안드로이드 실기기 — 실명 · 소속 · 상태바 알림). 올릴 것은 자료/store/screenshots-android3-upload/ · 만들기 자료/store/make-android3-upload.py
 자료/store/screenshots-android3/
+# 주제별 성경암송 도우미 · NIV 초안(2026-10-16) — NIV 본문을 공개 저장소에 올리지 않는다 · 만드는 코드는 자료/navi/make-help-drafts.py
+자료/navi/주제별_도우미_초안.json
+자료/navi/주제별_도우미_NIV_검토.xlsx
