@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 """App Store 스크린샷(2026-10-15 · 디자인 A안 · 친구가 아이폰 실기기로 찍은 여덟 장) → 올릴 사진.
    원본: 자료/store/screenshots-ios3/ (1125×2436 · RGBA · 실명 · 소속이 보인다 → .gitignore 로 막아 두었다 — 저장소에 올리지 말 것)
-   결과: 자료/store/screenshots-ios3-upload/01~08 (1242×2688 · RGB · 이름 자리 흐림)
-   ⚠️ App Store 가 받는 크기는 1242×2688(또는 1284×2778)뿐 — 1290×2796 · 1320×2868 은 거부됐다(README 「App Store 스크린샷」).
+   결과: 자료/store/screenshots-ios3-upload/01~08 (1179×2556 · RGB · 이름 자리 흐림)
+   ⚠️ 2026-10-15 App Store Connect 의 필수 칸이 「Dynamic Island 지원 iPhone (중형 디스플레이)」로 바뀌었다 — 받는 크기는
+      1179×2556 · 1206×2622(세로)뿐. 9월에 통과한 1242×2688(6.5형)은 이제 「파일 크기가 유효하지 않습니다」(친구 화면).
+      원본 1125×2436 과 비율이 거의 같은(0.1% 차이) 1179×2556 으로 키운다(1206×2622 보다 덜 키운다).
    ⚠️ 알파(투명 칸)가 있으면 App Store 가 받지 않는다 → RGB 로.
    ⚠️ 흐림은 원본 크기에서 먼저 건다(키운 뒤에 걸면 자리가 어긋난다) · 상자는 원본 픽셀."""
 import os
@@ -11,7 +13,7 @@ from PIL import Image, ImageFilter
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, "screenshots-ios3")
 OUT = os.path.join(HERE, "screenshots-ios3-upload")
-SIZE = (1242, 2688)
+SIZE = (1179, 2556)
 
 # (원본 파일, 올릴 이름, 흐릴 상자들) — 차례는 App Store 에 올릴 순서(앞의 세 장이 검색 결과에 보인다)
 SHOTS = [
