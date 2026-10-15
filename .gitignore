@@ -167,3 +167,5 @@ bible-note/.pytest_cache/
 
 # App Store 스크린샷 원본(2026-10-15 · 아이폰 실기기 — 실명 · 소속이 보인다). 올릴 것은 자료/store/screenshots-ios3-upload/(흐림 처리) · 만들기 자료/store/make-ios3-upload.py
 자료/store/screenshots-ios3/
+# Google Play 스크린샷 원본(2026-10-15 · 안드로이드 실기기 — 실명 · 소속 · 상태바 알림). 올릴 것은 자료/store/screenshots-android3-upload/ · 만들기 자료/store/make-android3-upload.py
+자료/store/screenshots-android3/

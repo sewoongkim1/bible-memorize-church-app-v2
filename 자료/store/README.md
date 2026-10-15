@@ -19,7 +19,8 @@
 |---|---|
 | `icon-512-play.png` | 스토어 등록정보 → **앱 아이콘** (512×512, 불투명) |
 | `feature-1024x500.png` | 스토어 등록정보 → **그래픽 이미지** |
-| `screenshots/*.png` | 스토어 등록정보 → **휴대전화 스크린샷** (1052×1880, 10장 중 최대 8장) |
+| `screenshots-android3-upload/01~09` | 스토어 등록정보 → **휴대전화 스크린샷 — 2026-10-15 부터 이것**(디자인 A안 · 친구 실기기 · 1080×2066 · 이름 흐림 · 상태바 · 단추 줄 잘라 냄 · 8장까지라 01~08 + 여분 09 · 만들기 `make-android3-upload.py` · 원본 `screenshots-android3/` 은 .gitignore) · ⚠️ 긴 변이 짧은 변의 2배를 넘으면 안 받는다 |
+| `screenshots/*.png` | 옛 디자인(2026-08-25) — 이제 안 쓴다 (1052×1880, 10장 중 최대 8장) |
 | `assetlinks.template.json` | 도메인 소유 증명 서식 — **아래 4단계에서 채운다** |
 
 전부 `python tools/store-assets.py` 로 다시 만들 수 있다.
