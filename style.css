@@ -7155,9 +7155,10 @@ html[data-fs="xl"] .test-screen.memo-c .test-sentence, html[data-fs="xl"] .test-
 .stage-done.sd-a .sd-challenge { position: relative; padding: 12px 14px 12px 46px; border-radius: 14px; border-color: #e6d29c; background: #fbf1d6; color: #5c4510; text-align: left; }
 .stage-done.sd-a .sd-challenge .mm-ic { position: absolute; left: 14px; top: 13px; width: 22px; height: 22px; color: #e8590c; fill: #ffb547; stroke-width: 1.7; }
 .stage-done.sd-a .first-done { margin: 0 0 6px; }
-/* 창 안 마음에 둠 — 암송 A 의 체크 상자와 같은 꼴(금색) */
+/* 창 안 마음에 둠 — 암송 A 의 체크 상자와 같은 꼴(금색)
+   바탕은 체크 전에도 금빛(2026-10-16 친구 「주제별 암송 창에 배경색」 — 체크 전엔 흰 바탕이라 주간 창(체크함)과 달라 보였다 · 주간 · 주제별 같은 규칙) */
 .stage-done.sd-a .heart-check {
-  margin: 6px 0 4px; padding: 12px 14px; border: 1px solid #e5dfd4; border-radius: 14px; background: #fff;
+  margin: 6px 0 4px; padding: 12px 14px; border: 1px solid #e6d29c; border-radius: 14px; background: #fbf1d6;
   display: grid; grid-template-columns: 26px minmax(0, 1fr); column-gap: 12px; row-gap: 3px; align-items: start; text-align: left;
 }
 .stage-done.sd-a .heart-check .heart-row1 { display: contents; }
@@ -7185,7 +7186,7 @@ html[data-fs="xl"] .test-screen.memo-c .test-sentence, html[data-fs="xl"] .test-
 .dark .stage-done.sd-a .sd-btn { background: #1a202b; border-color: #4a6597; color: #9dbbea; }
 .dark .stage-done.sd-a .sd-btn:hover { background: #222a37; }
 .dark .stage-done.sd-a .sd-challenge { background: #3a3018; border-color: #5c4c22; color: #e9cd7e; }
-.dark .stage-done.sd-a .heart-check { background: #1a202b; border-color: #2c3442; }
+.dark .stage-done.sd-a .heart-check { background: #3a3018; border-color: #5c4c22; }
 .dark .stage-done.sd-a .heart-check input[type="checkbox"] { background-color: transparent; border-color: #949dad; }
 .dark .stage-done.sd-a .heart-check input:checked { background-color: #d9b556; border-color: #d9b556; }
 .dark .stage-done.sd-a .heart-check .heart-text { color: #f1eee7; }
