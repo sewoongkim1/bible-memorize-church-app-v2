@@ -4,6 +4,8 @@
 > 담임목사님 · 교회의 결정(아래 「정할 것」)이 먼저다.
 > 화면 시안(캔버스 · 예시 자료 · 비공개): https://claude.ai/artifact/LpNKB372jaCEE5nei6fY8t
 > — ① 성도 묻기(PC) · ② 심방 준비 한 장(휴대폰)
+> 흐름도(질문 → Claude → 검사 · 번역 → DB → 화면 · 지금 「내게 주시는 말씀」과 비교): `자료/ai-ask/AI-성도조회-흐름도.html`
+> · 비공개 링크 https://claude.ai/artifact/HDVDbiXt7aShWCbA3cmdk4
 
 ## 왜
 

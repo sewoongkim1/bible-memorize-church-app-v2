@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI 성도 조회 흐름도</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* 한 기둥: 글은 720px 폭, 그림은 1000px까지 넓게 · 색은 교회 어드민의 남색 · 금색 · 크림 그대로 · AI 는 늘 파란 칸 */
+:root {
+  --bg: #fdf8f0;
+  --surface: #ffffff;
+  --ink: #1f2430;
+  --ink-2: #566074;
+  --line: #ddd6c8;
+  --accent: #1a3a6b;
+  --accent-ink: #ffffff;
+  --gold: #a8862a;
+  --ai-bg: #eaf1fb;
+  --ai-line: #a9c3e8;
+  --ai-zone: #f0f5fc;
+  --ai-ink: #2c4f86;
+  --code-bg: #f4f0e6;
+  --font-body: "IBM Plex Sans KR", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", "IBM Plex Sans KR", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10151e; --surface: #182030; --ink: #e8ebf1; --ink-2: #a6afc0; --line: #2d3748;
+    --accent: #8fb2ec; --accent-ink: #0d1b3e; --gold: #d9b95a;
+    --ai-bg: #182640; --ai-line: #3d5a8a; --ai-zone: #141e31; --ai-ink: #a9c4ef; --code-bg: #0c1119;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10151e; --surface: #182030; --ink: #e8ebf1; --ink-2: #a6afc0; --line: #2d3748;
+  --accent: #8fb2ec; --accent-ink: #0d1b3e; --gold: #d9b95a;
+  --ai-bg: #182640; --ai-line: #3d5a8a; --ai-zone: #141e31; --ai-ink: #a9c4ef; --code-bg: #0c1119;
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.7;
+  padding-inline: 16px;
+  padding-block: 40px 64px;
+}
+.wrap { max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 56px; }
+.prose { max-width: 720px; }
+a { color: var(--accent); }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+
+header { display: flex; flex-direction: column; gap: 12px; }
+.eyebrow { margin: 0; font-size: 13px; font-weight: 500; letter-spacing: .04em; color: var(--ink-2); }
+h1 { margin: 0; font-size: clamp(28px, 4.2vw, 40px); line-height: 1.25; letter-spacing: -0.015em; text-wrap: balance; }
+.lead { margin: 0; font-size: 18px; max-width: 680px; }
+.pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 0; padding: 0; list-style: none; }
+.pills li { font-size: 13px; padding: 3px 12px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink-2); background: var(--surface); }
+
+section { display: flex; flex-direction: column; gap: 14px; }
+h2 { margin: 0; font-size: 23px; line-height: 1.35; letter-spacing: -0.01em; text-wrap: balance; }
+h3 { margin: 0; font-size: 17px; line-height: 1.45; }
+p { margin: 0; }
+.muted { color: var(--ink-2); }
+
+figure { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.fig-box { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; overflow-x: auto; }
+figcaption { font-size: 14.5px; color: var(--ink-2); max-width: 780px; }
+
+/* 그림 1 · 2 공통 */
+.seq, .cmp { display: block; width: 100%; min-width: 760px; height: auto; color: var(--accent); font-family: var(--font-body); }
+.seq .zone { fill: var(--ai-zone); }
+.seq .head rect, .cmp .box rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.2; }
+.seq .head.ai rect, .cmp .box.ai rect { fill: var(--ai-bg); stroke: var(--ai-line); }
+.seq .h, .cmp .bt { fill: var(--ink); font-size: 15px; font-weight: 700; }
+.seq .s, .cmp .bs { fill: var(--ink-2); font-size: 12px; }
+.seq .life { stroke: var(--line); stroke-width: 1.2; stroke-dasharray: 3 5; }
+.seq .msg, .seq .ret, .cmp .msg, .cmp .ret { stroke: var(--accent); stroke-width: 1.8; fill: none; }
+.seq .ret, .cmp .ret { stroke-dasharray: 7 5; }
+.seq .data, .cmp .data { stroke: var(--gold); stroke-width: 2.6; }
+.seq .act { fill: var(--surface); stroke: var(--accent); stroke-width: 1.4; }
+.seq .lbl { fill: var(--ink); font-size: 13px; font-weight: 700; }
+.seq .sub, .cmp .al { fill: var(--ink-2); font-size: 11.5px; }
+.cmp .al.gold { fill: var(--gold); font-weight: 700; }
+.seq .zl { fill: var(--ai-ink); font-size: 12px; font-weight: 500; }
+.cmp .rt { fill: var(--ink); font-size: 13px; font-weight: 700; }
+.mk-gold { color: var(--gold); }
+
+/* 따라가기 */
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 22px; }
+.steps > li { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 12px; align-items: start; }
+.num { font-size: 27px; line-height: 1.1; color: var(--accent); font-weight: 500; text-align: center; }
+.num.ai { color: var(--ai-ink); }
+.step { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.where { font-size: 12.5px; font-weight: 500; color: var(--ink-2); letter-spacing: .02em; }
+.where.ai { color: var(--ai-ink); }
+pre {
+  margin: 0; background: var(--code-bg); border: 1px solid var(--line); border-radius: 10px;
+  padding: 12px 14px; overflow-x: auto; font-family: var(--font-mono); font-size: 13.5px; line-height: 1.6; color: var(--ink);
+}
+code { font-family: var(--font-mono); font-size: .9em; }
+p code, li code, td code { background: var(--code-bg); padding: 1px 5px; border-radius: 5px; }
+pre.ai { background: var(--ai-bg); border-color: var(--ai-line); }
+.tbl-box { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.tbl { border-collapse: collapse; width: 100%; font-size: 14px; }
+.tbl th, .tbl td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.tbl tr:last-child td { border-bottom: none; }
+.tbl th { font-size: 12.5px; font-weight: 500; color: var(--ink-2); background: var(--code-bg); }
+.tbl .n { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tbl-box.ai { background: var(--ai-bg); border-color: var(--ai-line); }
+.tbl-box.ai th { background: transparent; }
+.checks { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 14.5px; }
+.checks li { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 6px; }
+.checks .ok { color: var(--accent); font-weight: 700; }
+
+.mock { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.mock .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; border: 1.5px solid var(--accent); color: var(--accent); font-weight: 700; font-size: 14px; background: var(--surface); }
+.chip span { font-weight: 400; color: var(--ink-2); }
+.alt { font-size: 13.5px; color: var(--ink-2); }
+.alt b { color: var(--accent); }
+.count { font-size: 20px; font-weight: 700; }
+.logline { font-size: 12.5px; color: var(--ink-2); }
+
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.card.new { border: 1.5px dashed var(--gold); }
+.card ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+.tag { align-self: flex-start; font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: var(--code-bg); color: var(--ink-2); }
+.tag.new { color: var(--gold); border: 1px solid var(--gold); background: transparent; }
+
+footer { font-size: 13.5px; color: var(--ink-2); border-top: 1px solid var(--line); padding-top: 16px; display: flex; flex-direction: column; gap: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">교회 어드민 · 설계 초안 · 2026년 10월 15일</p>
+  <h1>AI 성도 조회 흐름도</h1>
+  <p class="lead">목사님이 말로 물으면 AI는 질문을 「조건」으로 바꾸기만 합니다. 명단은 서버가 DB에서 직접 꺼내 화면에 그리고, 이름은 AI에게 가지 않습니다.</p>
+  <ul class="pills">
+    <li>지금 성경암송 앱과 같은 Supabase 프로젝트</li>
+    <li>같은 Claude 키</li>
+    <li>아직 만들기 전 · 예시 자료</li>
+  </ul>
+</header>
+
+<section>
+  <h2>한눈에 보기</h2>
+  <figure>
+    <div class="fig-box">
+      <svg class="seq" viewBox="0 0 960 630" role="img" aria-label="질문이 화면에서 서버로 가고, 서버가 질문과 필드 목록을 Claude에 보내 조건 JSON을 돌려받은 뒤, 검사하고 SQL로 번역해 DB를 조회하고, 찾은 명단을 화면에 돌려주는 순서. 명단은 Claude를 거치지 않는다.">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="currentColor"></path>
+          </marker>
+          <marker id="ah-gold" class="mk-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="11" markerHeight="11" markerUnits="userSpaceOnUse" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="currentColor"></path>
+          </marker>
+        </defs>
+
+        <rect class="zone" x="730" y="6" width="220" height="616" rx="14"></rect>
+
+        <g class="head">
+          <rect x="10" y="16" width="200" height="64" rx="10"></rect>
+          <text class="h" x="110" y="43" text-anchor="middle">목사님 화면</text>
+          <text class="s" x="110" y="64" text-anchor="middle">교회 어드민 · 카카오 로그인</text>
+        </g>
+        <g class="head">
+          <rect x="250" y="16" width="200" height="64" rx="10"></rect>
+          <text class="h" x="350" y="43" text-anchor="middle">서버</text>
+          <text class="s" x="350" y="64" text-anchor="middle">Edge Function church-admin</text>
+        </g>
+        <g class="head">
+          <rect x="490" y="16" width="200" height="64" rx="10"></rect>
+          <text class="h" x="590" y="43" text-anchor="middle">DB</text>
+          <text class="s" x="590" y="64" text-anchor="middle">Supabase Postgres</text>
+        </g>
+        <g class="head ai">
+          <rect x="740" y="16" width="200" height="64" rx="10"></rect>
+          <text class="h" x="840" y="43" text-anchor="middle">Claude (AI)</text>
+          <text class="s" x="840" y="64" text-anchor="middle">Anthropic API</text>
+        </g>
+
+        <line class="life" x1="110" y1="80" x2="110" y2="592"></line>
+        <line class="life" x1="350" y1="80" x2="350" y2="592"></line>
+        <line class="life" x1="590" y1="80" x2="590" y2="228"></line>
+        <line class="life" x1="590" y1="340" x2="590" y2="592"></line>
+        <line class="life" x1="840" y1="80" x2="840" y2="592"></line>
+
+        <line class="msg" x1="112" y1="130" x2="347" y2="130" marker-end="url(#ah)"></line>
+        <text class="lbl" x="230" y="121" text-anchor="middle">① 질문</text>
+        <text class="sub" x="230" y="148" text-anchor="middle">질문 글 + 로그인 표</text>
+
+        <rect class="act" x="260" y="170" width="180" height="40" rx="8"></rect>
+        <text class="lbl" x="350" y="195" text-anchor="middle">② 담임목사 역할인가?</text>
+
+        <line class="msg" x1="352" y1="252" x2="837" y2="252" marker-end="url(#ah)"></line>
+        <text class="lbl" x="595" y="243" text-anchor="middle">③ 질문 + 필드 목록</text>
+        <text class="sub" x="595" y="270" text-anchor="middle">이름 · 명단은 보내지 않음</text>
+
+        <line class="ret" x1="838" y1="314" x2="353" y2="314" marker-end="url(#ah)"></line>
+        <text class="lbl" x="595" y="305" text-anchor="middle">④ 조건 트리 (JSON)</text>
+        <text class="sub" x="595" y="332" text-anchor="middle">섬긴 해 ≥ 10 · 올해 섬김 없음</text>
+
+        <rect class="act" x="250" y="356" width="200" height="48" rx="8"></rect>
+        <text class="lbl" x="350" y="377" text-anchor="middle">⑤ 검사 → SQL 번역</text>
+        <text class="sub" x="350" y="395" text-anchor="middle">필드 목록에 있는 것만</text>
+
+        <line class="msg" x1="352" y1="440" x2="587" y2="440" marker-end="url(#ah)"></line>
+        <text class="lbl" x="470" y="431" text-anchor="middle">⑥ SQL + 값</text>
+        <text class="sub" x="470" y="458" text-anchor="middle">[10, 2026] · 읽기 전용 역할</text>
+
+        <line class="ret data" x1="588" y1="502" x2="354" y2="502" marker-end="url(#ah-gold)"></line>
+        <text class="lbl" x="470" y="493" text-anchor="middle">⑦ 찾은 분들</text>
+        <text class="sub" x="470" y="520" text-anchor="middle">이름 · 직분 · 섬긴 해</text>
+
+        <line class="ret data" x1="348" y1="564" x2="114" y2="564" marker-end="url(#ah-gold)"></line>
+        <text class="lbl" x="230" y="555" text-anchor="middle">⑧ 조건 칩 + 명단</text>
+        <text class="sub" x="230" y="582" text-anchor="middle">물은 기록도 남김</text>
+
+        <text class="zl" x="840" y="612" text-anchor="middle">명단은 이 칸에 들어오지 않음</text>
+      </svg>
+    </div>
+    <figcaption>질문 하나가 ①부터 ⑧까지 지나는 길입니다. AI(오른쪽 파란 칸)는 ③에서 질문과 필드 목록을 받고 ④에서 조건만 돌려줍니다. 금색 선은 명단이 움직이는 길이고, AI 칸을 지나지 않습니다.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <div class="prose">
+    <h2>질문 하나 따라가기</h2>
+    <p class="muted">예: 「10년 동안 사역하신 분들 중에 올해는 안 하고 계신 분」</p>
+  </div>
+
+  <ol class="steps">
+    <li>
+      <div class="num" aria-hidden="true">①</div>
+      <div class="step">
+        <span class="where">목사님 화면 → 서버</span>
+        <h3>질문을 보낸다</h3>
+        <p>교회 어드민 「성도 묻기」 칸에 적은 글이 카카오 로그인 표와 함께 서버로 갑니다. 서버는 누가 물었는지 압니다.</p>
+      </div>
+    </li>
+
+    <li>
+      <div class="num" aria-hidden="true">②</div>
+      <div class="step">
+        <span class="where">서버</span>
+        <h3>역할을 확인한다</h3>
+        <p>담임목사 역할이 있는 분인지 봅니다. 교회 어드민의 다른 메뉴가 지금 쓰는 방식(역할 표 <code>admin_roles</code>) 그대로이고, 없으면 여기서 끝납니다.</p>
+      </div>
+    </li>
+
+    <li>
+      <div class="num ai" aria-hidden="true">③</div>
+      <div class="step">
+        <span class="where ai">서버 → Claude</span>
+        <h3>AI에게 질문과 필드 목록을 보낸다</h3>
+        <p>보내는 것은 셋입니다. 지시문, 물을 수 있는 것을 적은 필드 목록, 그리고 질문 글.</p>
+        <div class="tbl-box ai">
+          <table class="tbl">
+            <thead><tr><th scope="col">필드</th><th scope="col">뜻</th><th scope="col">비교</th></tr></thead>
+            <tbody>
+              <tr><td><code>served_years_count</code></td><td>섬긴 해 수 (서로 다른 해만 셈)</td><td>≥ · ≤ · =</td></tr>
+              <tr><td><code>served_years</code></td><td>섬긴 해 목록</td><td>들어 있음</td></tr>
+              <tr><td><code>served_streak_max</code></td><td>가장 길게 잇따라 섬긴 해 수</td><td>≥ · ≤</td></tr>
+              <tr><td><code>position</code></td><td>직분 (집사 · 권사 · 장로 …)</td><td>= · 여럿 중</td></tr>
+              <tr><td><code>gu</code></td><td>교구 (믿음 · 사랑 · 소망 …)</td><td>=</td></tr>
+              <tr><td><code>edu_done</code></td><td>받은 교육</td><td>들어 있음</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted">지시문은 짧습니다. 이 필드로만 조건을 만들 것. 날짜는 숫자로 셈하지 말고 <code>{"rel":"this_year"}</code>처럼 둘 것. 못 하는 조건은 <code>unsupported</code>에 적을 것. 이름이나 명단은 보내지 않고, AI는 DB의 표 이름도 모릅니다.</p>
+      </div>
+    </li>
+
+    <li>
+      <div class="num ai" aria-hidden="true">④</div>
+      <div class="step">
+        <span class="where ai">Claude → 서버</span>
+        <h3>AI는 조건 트리 한 덩이만 돌려준다</h3>
+<pre class="ai"><code>{
+  "and": [
+    { "field": "served_years_count", "op": ">=", "value": 10 },
+    { "not": { "field": "served_years", "op": "has",
+               "value": { "rel": "this_year" } } }
+  ],
+  "alternatives": [ "잇따라 10해 (served_streak_max >= 10)" ],
+  "unsupported": []
+}</code></pre>
+        <p>AI가 할 일은 여기서 끝납니다. 글이 아니라 정해진 꼴의 JSON이라 서버가 한 칸씩 검사할 수 있습니다. 「10년 동안」처럼 뜻이 갈리는 말은 다른 읽기(<code>alternatives</code>)를 함께 냅니다.</p>
+      </div>
+    </li>
+
+    <li>
+      <div class="num" aria-hidden="true">⑤</div>
+      <div class="step">
+        <span class="where">서버</span>
+        <h3>검사하고 SQL로 번역한다</h3>
+        <ul class="checks">
+          <li><span class="ok" aria-hidden="true">✓</span><span><code>served_years_count</code> 필드 목록에 있음 · ≥ 쓸 수 있음 · 10은 1~17 안</span></li>
+          <li><span class="ok" aria-hidden="true">✓</span><span><code>served_years</code> 필드 목록에 있음 · 「들어 있음」 쓸 수 있음</span></li>
+          <li><span class="ok" aria-hidden="true">✓</span><span><code>this_year</code> → 2026 (서버가 오늘 날짜로 바꿈)</span></li>
+        </ul>
+<pre><code>where served_years_count >= $1
+  and not (served_years @> array[$2])
+-- $1 = 10, $2 = 2026</code></pre>
+        <p>필드 목록에 없는 칸이나 비교가 오면 여기서 막고, 까닭을 붙여 AI에게 한 번 다시 묻습니다. 값은 언제나 <code>$1</code> · <code>$2</code> 자리로만 들어가 SQL 글에 섞이지 않습니다.</p>
+      </div>
+    </li>
+
+    <li>
+      <div class="num" aria-hidden="true">⑥</div>
+      <div class="step">
+        <span class="where">서버 → DB</span>
+        <h3>읽기 전용 역할로 한 번 묻는다</h3>
+<pre><code>begin;
+set local role ai_reader;             -- 요약 표만 읽을 수 있는 역할
+set local statement_timeout = '3s';
+select name, position, gu, served_years_count, last_served
+  from person_facts                   -- 교인 한 분 한 줄
+ where served_years_count >= $1
+   and not (served_years @> array[$2])
+ order by served_years_count desc
+ limit 200;
+commit;</code></pre>
+        <p><code>person_facts</code>는 교인명부 · 사역 이력 · 교육 · 성경필사를 교인 한 분에 한 줄로 모은 요약 표입니다. 「섬긴 해 수」 같은 셈은 여기서 미리, 서로 다른 해만 세는 식으로 해 둡니다. 밤마다, 그리고 명단을 새로 올린 뒤 다시 만듭니다.</p>
+      </div>
+    </li>
+
+    <li>
+      <div class="num" aria-hidden="true">⑦</div>
+      <div class="step">
+        <span class="where">DB → 서버</span>
+        <h3>찾은 분들이 돌아온다</h3>
+        <div class="tbl-box">
+          <table class="tbl">
+            <thead><tr><th scope="col">이름</th><th scope="col">직분</th><th scope="col">교구</th><th scope="col">섬긴 해</th><th scope="col">마지막 사역</th></tr></thead>
+            <tbody>
+              <tr><td>김○○</td><td>권사</td><td>화평</td><td class="n">14해</td><td class="n">2025</td></tr>
+              <tr><td>박○○</td><td>장로</td><td>소망</td><td class="n">12해</td><td class="n">2024</td></tr>
+              <tr><td>이○○</td><td>집사</td><td>믿음</td><td class="n">10해</td><td class="n">2025</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted">예시 자료입니다(이름은 가림). 이 결과는 Claude에게 가지 않습니다.</p>
+      </div>
+    </li>
+
+    <li>
+      <div class="num" aria-hidden="true">⑧</div>
+      <div class="step">
+        <span class="where">서버 → 목사님 화면</span>
+        <h3>조건 칩과 명단을 보여 준다</h3>
+        <div class="mock" aria-label="화면 예시">
+          <div class="row">
+            <span class="chip"><span>섬긴 해</span>10해 이상</span>
+            <span class="chip"><span>2026년 섬김</span>없음</span>
+          </div>
+          <p class="alt">이렇게도 읽을 수 있어요: <b>잇따라 10해</b></p>
+          <div class="row"><span class="count">12분</span><span class="muted">예시</span></div>
+          <p class="logline">이 질문은 기록에 남습니다 — 누가 · 언제 · 무엇을 물었는지</p>
+        </div>
+        <p>칩은 AI가 쓴 글이 아니라 ⑤에서 검사를 통과한 조건으로 서버가 만듭니다. 그래서 화면에 보이는 조건이 실제로 돈 조건입니다. 목사님이 칩을 고치면 ③④를 건너뛰고 ⑤부터 다시 돕니다.</p>
+        <p class="muted">덧붙이기(선택): 명단 위에 두세 줄 정리를 붙이고 싶으면, 서버가 숫자만(「12분 · 그중 8분은 작년까지 사역」) 다시 Claude에 보내 문장을 받습니다. 이름은 이때도 보내지 않습니다.</p>
+      </div>
+    </li>
+  </ol>
+</section>
+
+<section>
+  <div class="prose">
+    <h2>지금 앱의 「내게 주시는 말씀」과 비교</h2>
+    <p class="muted">성경암송 앱은 지금도 같은 Claude 키로 설교 질문에 답합니다. 다른 점은 DB에서 나온 자료가 어디로 가는가입니다.</p>
+  </div>
+  <figure>
+    <div class="fig-box">
+      <svg class="cmp" viewBox="0 0 960 296" role="img" aria-label="위는 지금의 말씀 질문: 화면, 서버, DB에서 비슷한 설교 찾기, Claude가 발췌로 답 쓰기, 답이 화면으로. 아래는 새 성도 조회: 화면, 서버, Claude가 조건 만들기, 서버가 검사와 번역, DB가 조건으로 찾기, 명단이 AI를 거치지 않고 화면으로.">
+        <defs>
+          <marker id="bh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="currentColor"></path>
+          </marker>
+          <marker id="bh-gold" class="mk-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="11" markerHeight="11" markerUnits="userSpaceOnUse" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="currentColor"></path>
+          </marker>
+        </defs>
+
+        <text class="rt" x="10" y="22">지금 · 성경암송 「내게 주시는 말씀」</text>
+        <g class="box"><rect x="10" y="36" width="150" height="58" rx="10"></rect>
+          <text class="bt" x="85" y="61" text-anchor="middle">화면</text><text class="bs" x="85" y="81" text-anchor="middle">성경암송 앱</text></g>
+        <g class="box"><rect x="205" y="36" width="150" height="58" rx="10"></rect>
+          <text class="bt" x="280" y="61" text-anchor="middle">서버</text><text class="bs" x="280" y="81" text-anchor="middle">api · sermonChat</text></g>
+        <g class="box"><rect x="400" y="36" width="150" height="58" rx="10"></rect>
+          <text class="bt" x="475" y="61" text-anchor="middle">DB</text><text class="bs" x="475" y="81" text-anchor="middle">비슷한 설교 찾기</text></g>
+        <g class="box ai"><rect x="595" y="36" width="150" height="58" rx="10"></rect>
+          <text class="bt" x="670" y="61" text-anchor="middle">Claude</text><text class="bs" x="670" y="81" text-anchor="middle">발췌로 답 쓰기</text></g>
+
+        <line class="msg" x1="162" y1="65" x2="202" y2="65" marker-end="url(#bh)"></line>
+        <text class="al" x="182" y="57" text-anchor="middle">질문</text>
+        <line class="msg" x1="357" y1="65" x2="397" y2="65" marker-end="url(#bh)"></line>
+        <text class="al" x="377" y="57" text-anchor="middle">질문</text>
+        <line class="msg data" x1="552" y1="65" x2="592" y2="65" marker-end="url(#bh-gold)"></line>
+        <text class="al gold" x="572" y="57" text-anchor="middle">발췌</text>
+        <path class="ret" d="M670,96 V114 H85 V99" marker-end="url(#bh)"></path>
+        <text class="al" x="378" y="132" text-anchor="middle">답 글 + 출처</text>
+
+        <text class="rt" x="10" y="170">새로 · 성도 조회</text>
+        <g class="box"><rect x="10" y="184" width="150" height="58" rx="10"></rect>
+          <text class="bt" x="85" y="209" text-anchor="middle">화면</text><text class="bs" x="85" y="229" text-anchor="middle">교회 어드민</text></g>
+        <g class="box"><rect x="205" y="184" width="150" height="58" rx="10"></rect>
+          <text class="bt" x="280" y="209" text-anchor="middle">서버</text><text class="bs" x="280" y="229" text-anchor="middle">askPeople (새로)</text></g>
+        <g class="box ai"><rect x="400" y="184" width="150" height="58" rx="10"></rect>
+          <text class="bt" x="475" y="209" text-anchor="middle">Claude</text><text class="bs" x="475" y="229" text-anchor="middle">조건 만들기</text></g>
+        <g class="box"><rect x="595" y="184" width="150" height="58" rx="10"></rect>
+          <text class="bt" x="670" y="209" text-anchor="middle">서버</text><text class="bs" x="670" y="229" text-anchor="middle">검사 · 번역 (새로)</text></g>
+        <g class="box"><rect x="790" y="184" width="150" height="58" rx="10"></rect>
+          <text class="bt" x="865" y="209" text-anchor="middle">DB</text><text class="bs" x="865" y="229" text-anchor="middle">조건으로 찾기</text></g>
+
+        <line class="msg" x1="162" y1="213" x2="202" y2="213" marker-end="url(#bh)"></line>
+        <text class="al" x="182" y="205" text-anchor="middle">질문</text>
+        <line class="msg" x1="357" y1="213" x2="397" y2="213" marker-end="url(#bh)"></line>
+        <text class="al" x="377" y="205" text-anchor="middle">질문</text>
+        <line class="ret" x1="552" y1="213" x2="592" y2="213" marker-end="url(#bh)"></line>
+        <text class="al" x="572" y="205" text-anchor="middle">조건</text>
+        <line class="msg" x1="747" y1="213" x2="787" y2="213" marker-end="url(#bh)"></line>
+        <text class="al" x="767" y="205" text-anchor="middle">SQL</text>
+        <path class="ret data" d="M865,244 V262 H85 V247" marker-end="url(#bh-gold)"></path>
+        <text class="al gold" x="475" y="282" text-anchor="middle">명단 — AI를 거치지 않음</text>
+      </svg>
+    </div>
+    <figcaption>금색 선은 DB에서 나온 자료가 가는 길입니다. 지금의 말씀 질문은 DB에서 찾은 설교 발췌를 AI에게 주고 AI가 답을 씁니다(설교라서 괜찮습니다). 성도 조회는 거꾸로, AI가 조건만 만들고 DB에서 나온 명단은 AI를 거치지 않고 화면으로 갑니다.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2>지금 있는 것 · 새로 만들 것</h2>
+  <div class="cols">
+    <div class="card">
+      <span class="tag">지금 있음</span>
+      <ul>
+        <li>Supabase 프로젝트 하나 — DB와 서버 함수가 한곳에</li>
+        <li>교회 어드민 화면 · 카카오 로그인 · 역할 표 <code>admin_roles</code></li>
+        <li>서버 함수 <code>church-admin</code>(교회 어드민) · <code>api</code>(성경암송)</li>
+        <li>Claude 키 <code>ANTHROPIC_API_KEY</code> — 「내게 주시는 말씀」과 영어 본문이 이미 씀</li>
+        <li>표: 교인명부 <code>church_people</code> · 사역 이력 <code>ministry_history</code> · 성경필사 <code>event_signups</code> · 잇기 <code>people_links</code> · 교육 · 봉사</li>
+      </ul>
+    </div>
+    <div class="card new">
+      <span class="tag new">새로 만듦</span>
+      <ul>
+        <li>화면 「성도 묻기」 · 역할 「담임목사」</li>
+        <li>서버 액션 <code>askPeople</code> — Claude 부르기 · 검사 · 번역 · 실행</li>
+        <li>필드 목록 — 물을 수 있는 것을 한곳에 (AI 양식 · 검사 · 칩 이름이 모두 여기서)</li>
+        <li>요약 표 <code>person_facts</code> — 교인 한 분 한 줄</li>
+        <li>읽기 전용 DB 역할 <code>ai_reader</code>와 그 역할로 SQL을 돌리는 길</li>
+        <li>물은 기록 <code>ai_ask_log</code></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>두 가지 원칙</h2>
+  <div class="cols">
+    <div class="card">
+      <h3>AI가 보지 않는 것</h3>
+      <ul>
+        <li>이름 · 연락처 · 주소 · 사진</li>
+        <li>찾은 명단</li>
+        <li>심방 메모</li>
+        <li>DB 표 구조 — AI는 필드 목록의 설명만 압니다</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>AI에게 SQL을 맡기지 않는 까닭</h3>
+      <ul>
+        <li>무엇을 돌렸는지 사람이 확인하기 어렵습니다. 여기서는 칩이 검사를 통과한 조건에서 나오니, 보이는 것이 곧 돈 것입니다.</li>
+        <li>「섬긴 해」를 그때그때 세면 한 해에 두 팀을 섬긴 분이 2해로 셀 수 있습니다. 요약 표에서 한 번, 사람이 정한 뜻으로 셉니다.</li>
+        <li>연락처 칸을 고를 길이 처음부터 없습니다. 필드 목록과 읽기 전용 역할, 두 겹으로 막습니다.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <span>설계 문서 <code>docs/superpowers/specs/2026-10-15-pastor-ai-ask-design.md</code> · <a href="https://claude.ai/artifact/LpNKB372jaCEE5nei6fY8t" target="_blank" rel="noopener">화면 시안</a></span>
+  <span>아직 만들기 전의 설계입니다. 표 · 명단의 이름과 숫자는 예시입니다.</span>
+</footer>
+
+</div>
+</body>
+</html>
