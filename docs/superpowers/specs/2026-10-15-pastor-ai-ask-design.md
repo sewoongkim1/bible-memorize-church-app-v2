@@ -107,7 +107,7 @@ AI 와 DB 사이에 **조건 트리**라는 중간 언어를 둔다. AI 는 DB �
 - ⚠️ **2021 이 459줄**로 앞뒤 해(1,000~1,300 · 2022 601)보다 훨씬 적다 — 코로나로 사역이 줄었는지 명단이 빠졌는지 확인 전.
   빠진 것이면 「잇따라 N해」가 2021 에서 끊겨 오래 섬긴 분이 빠진다 → 확인 전에는 「잇따라」 칸을 열지 않거나 2021 을 건너뛰고 센다고 칩에 적는다.
 
-- 모델: 조건 뽑기는 작은 모델로 충분 — 환경변수 `ASK_MODEL`(기본 `claude-haiku-5-5`). 정리 글은 `ASK_SUMMARY_MODEL`.
+- 모델: 환경변수 `ASK_MODEL`(기본 `claude-opus-5-5` · `output_config.effort: "low"` — 단순 추출). 비용 · 속도 때문에 Haiku 5.5 로 내릴지는 시험표로 재 보고 친구가 정한다(2026-10-15 고침 — 처음엔 Haiku 를 기본으로 적었다). 정리 글은 `ASK_SUMMARY_MODEL`.
 - 키: **같은 Supabase 프로젝트에 `ANTHROPIC_API_KEY` 가 이미 있다**(성경암송 `api` 가 말씀 질문 · NIV 등에 씀 · 시크릿은 프로젝트 공용). 브라우저에는 절대 안 간다.
 
 ### 필드 목록 규약 — 누가 · 어떻게 정하나 (2026-10-15 친구 질문)
@@ -124,6 +124,29 @@ AI 와 DB 사이에 **조건 트리**라는 중간 언어를 둔다. AI 는 DB �
   뜻이 갈리는 말은 필드 둘로 나눈다(섬긴 해 수 / 잇따라 섬긴 해).
 - **바꾸는 차례:** ① `ai_ask_log` 에서 `unsupported` 로 걸린 조건을 모은다 → ② 뜻을 교회가 정한다 → ③ person_facts 열 + 목록 한 줄 + 시험표 예 → ④ 시험 통과 뒤 배포.
   목록에 판(`version`)을 두고 물은 기록에 그 판을 함께 남긴다(옛 기록도 읽히게). `id` 는 바꾸지 않는다 — 뜻이 바뀌면 새 `id`.
+
+### Claude ↔ 서버 규약 · API (2026-10-15 친구 질문)
+
+규약은 **코드 파일 하나**(`ask-contract.ts` — 필드 목록과 같은 곳)에 둔다. Claude 에 줄 스키마 · 지시문 · 검사 · 번역 · 화면 응답 꼴이 모두 거기서 나온다.
+
+| 경계 | 무엇이 오가나 | 지키는 것 |
+|---|---|---|
+| 화면 → 서버 | `{action:"askPeople", question}` · 칩을 고치면 `{action:"searchPeople", conditions}`(AI 안 부름) | 카카오 로그인 · 역할 |
+| 서버 → Claude | Messages API · 구조화 출력(`output_config.format` = 조건 트리 스키마) · 지시문(오늘 날짜 · 필드 표) · 질문 | 스키마(꼴) |
+| Claude → 서버 | 스키마를 지킨 JSON — 조건 트리 · `alternatives` · `unsupported` | 서버 검사(뜻) |
+| 서버 → DB | 번역한 SQL + 값 배열 | 요약 표만 읽는 역할 · 시간 제한 · 상한 |
+| 서버 → 화면 | `{ok, contract, conditions, chips[], alternatives[], unsupported[], rows[], total, truncated}` | 칩은 검사한 트리에서 |
+
+- **잎에 매개변수:** 잎 = `{field, op, value, within?, dept?}`. 「10년 중 5번 이상」 = `{field:"served_years_count", op:">=", value:5, within:{last_years:10}}` ·
+  「찬양대에서 섬긴 분」 = `{field:"served_dept", op:"has", value:"찬양대"}` · 합쳐서 「최근 10년 중 찬양대에서 5해 이상」 = 앞의 잎에 `dept:"찬양대"`.
+  묶음은 `all`(그리고) · `any`(또는 — 한 단계) · `none`(아님).
+- **번역:** 매개변수 없는 잎은 `person_facts` 열 비교. `within` · `dept` 가 있는 잎은 사람 · 해 · 부서 한 줄 표(`person_service_years` · 부서 열쇠는 부서 이음표로 묶은 값)에 대한
+  `(select count(distinct year) from person_service_years s where s.person_id = p.person_id and s.year between $1 and $2 and s.dept_key = $3) >= $4` 꼴의 하위 질의로.
+- **구조화 출력의 한계:** 재귀 스키마와 `minimum` · `maximum` 같은 수 제약은 스키마에 못 넣는다 → 트리는 깊이를 펼쳐 두고, 범위와 「값이 명부에 있는가」는 **서버 검사**가 맡는다.
+  스키마는 꼴만 보장하고 뜻은 보장하지 않는다. 스키마가 바뀌면 첫 요청에 한 번 컴파일 시간이 든다(같은 스키마는 24시간 캐시) — 교구 · 부서 값이 바뀔 때만.
+- **응답 읽기:** `stop_reason` 을 먼저 본다 — `refusal`(안전 분류기 거절 · 드묾)이나 `max_tokens` 면 조건을 쓰지 않는다. 거절 대비 서버 쪽 대체(`fallbacks`)를 켜 둔다.
+  검사에서 걸리면 까닭을 붙여 **대화 뒤에 덧붙여** 한 번 다시 묻는다(앞 대화를 고치지 않는다).
+- **판:** 규약에 판 번호(`contract`) — 지시문 · 응답 · `ai_ask_log` 에 함께 싣는다.
 
 ## 2. DB 에 묻기 — RPC 하나
 
