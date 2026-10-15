@@ -113,6 +113,10 @@ pre.ai { background: var(--ai-bg); border-color: var(--ai-line); }
 .tbl .n { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .tbl-box.ai { background: var(--ai-bg); border-color: var(--ai-line); }
 .tbl-box.ai th { background: transparent; }
+.tbl.vs th[scope="row"] { font-size: 13.5px; font-weight: 700; color: var(--ink); background: transparent; white-space: nowrap; }
+.tbl.vs thead th { font-size: 13px; font-weight: 700; color: var(--ink); }
+.tbl.vs { min-width: 560px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .checks { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 14.5px; }
 .checks li { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 6px; }
 .checks .ok { color: var(--accent); font-weight: 700; }
@@ -375,12 +379,12 @@ commit;</code></pre>
 
 <section>
   <div class="prose">
-    <h2>지금 앱의 「내게 주시는 말씀」과 비교</h2>
-    <p class="muted">성경암송 앱은 지금도 같은 Claude 키로 설교 질문에 답합니다. 다른 점은 DB에서 나온 자료가 어디로 가는가입니다.</p>
+    <h2>지금 앱의 「내게 주시는 말씀」(RAG)과 비교</h2>
+    <p class="muted">「내게 주시는 말씀」은 RAG입니다. 뜻이 가까운 설교 조각을 찾아 AI에게 읽히고 답을 받습니다. 성도 조회는 RAG가 아니라 조건 검색입니다. 둘 다 같은 Supabase와 같은 Claude 키를 씁니다.</p>
   </div>
   <figure>
     <div class="fig-box">
-      <svg class="cmp" viewBox="0 0 960 296" role="img" aria-label="위는 지금의 말씀 질문: 화면, 서버, DB에서 비슷한 설교 찾기, Claude가 발췌로 답 쓰기, 답이 화면으로. 아래는 새 성도 조회: 화면, 서버, Claude가 조건 만들기, 서버가 검사와 번역, DB가 조건으로 찾기, 명단이 AI를 거치지 않고 화면으로.">
+      <svg class="cmp" viewBox="0 0 960 296" role="img" aria-label="위는 지금의 말씀 질문(RAG): 화면, 서버, Voyage가 질문을 벡터로 바꾸고, DB가 pgvector로 가까운 설교 조각 5개를 찾고, Claude가 조각을 읽고 답을 써 화면으로. 아래는 새 성도 조회(조건 검색): 화면, 서버, Claude가 조건 만들기, 서버가 검사와 번역, DB가 조건으로 찾기, 명단이 AI를 거치지 않고 화면으로.">
         <defs>
           <marker id="bh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto">
             <path d="M0,0 L10,5 L0,10 z" fill="currentColor"></path>
@@ -390,26 +394,30 @@ commit;</code></pre>
           </marker>
         </defs>
 
-        <text class="rt" x="10" y="22">지금 · 성경암송 「내게 주시는 말씀」</text>
+        <text class="rt" x="10" y="22">지금 · 「내게 주시는 말씀」 = RAG</text>
         <g class="box"><rect x="10" y="36" width="150" height="58" rx="10"></rect>
           <text class="bt" x="85" y="61" text-anchor="middle">화면</text><text class="bs" x="85" y="81" text-anchor="middle">성경암송 앱</text></g>
         <g class="box"><rect x="205" y="36" width="150" height="58" rx="10"></rect>
           <text class="bt" x="280" y="61" text-anchor="middle">서버</text><text class="bs" x="280" y="81" text-anchor="middle">api · sermonChat</text></g>
-        <g class="box"><rect x="400" y="36" width="150" height="58" rx="10"></rect>
-          <text class="bt" x="475" y="61" text-anchor="middle">DB</text><text class="bs" x="475" y="81" text-anchor="middle">비슷한 설교 찾기</text></g>
-        <g class="box ai"><rect x="595" y="36" width="150" height="58" rx="10"></rect>
-          <text class="bt" x="670" y="61" text-anchor="middle">Claude</text><text class="bs" x="670" y="81" text-anchor="middle">발췌로 답 쓰기</text></g>
+        <g class="box ai"><rect x="400" y="36" width="150" height="58" rx="10"></rect>
+          <text class="bt" x="475" y="61" text-anchor="middle">Voyage</text><text class="bs" x="475" y="81" text-anchor="middle">질문 → 벡터 1024</text></g>
+        <g class="box"><rect x="595" y="36" width="150" height="58" rx="10"></rect>
+          <text class="bt" x="670" y="61" text-anchor="middle">DB · pgvector</text><text class="bs" x="670" y="81" text-anchor="middle">가까운 조각 5개</text></g>
+        <g class="box ai"><rect x="790" y="36" width="150" height="58" rx="10"></rect>
+          <text class="bt" x="865" y="61" text-anchor="middle">Claude</text><text class="bs" x="865" y="81" text-anchor="middle">조각 읽고 답 쓰기</text></g>
 
         <line class="msg" x1="162" y1="65" x2="202" y2="65" marker-end="url(#bh)"></line>
         <text class="al" x="182" y="57" text-anchor="middle">질문</text>
         <line class="msg" x1="357" y1="65" x2="397" y2="65" marker-end="url(#bh)"></line>
         <text class="al" x="377" y="57" text-anchor="middle">질문</text>
-        <line class="msg data" x1="552" y1="65" x2="592" y2="65" marker-end="url(#bh-gold)"></line>
-        <text class="al gold" x="572" y="57" text-anchor="middle">발췌</text>
-        <path class="ret" d="M670,96 V114 H85 V99" marker-end="url(#bh)"></path>
-        <text class="al" x="378" y="132" text-anchor="middle">답 글 + 출처</text>
+        <line class="msg" x1="552" y1="65" x2="592" y2="65" marker-end="url(#bh)"></line>
+        <text class="al" x="572" y="57" text-anchor="middle">벡터</text>
+        <line class="msg data" x1="747" y1="65" x2="787" y2="65" marker-end="url(#bh-gold)"></line>
+        <text class="al gold" x="767" y="57" text-anchor="middle">발췌</text>
+        <path class="ret" d="M865,96 V114 H85 V99" marker-end="url(#bh)"></path>
+        <text class="al" x="475" y="132" text-anchor="middle">답 글 + 출처</text>
 
-        <text class="rt" x="10" y="170">새로 · 성도 조회</text>
+        <text class="rt" x="10" y="170">새로 · 성도 조회 = 조건 검색 (RAG 아님)</text>
         <g class="box"><rect x="10" y="184" width="150" height="58" rx="10"></rect>
           <text class="bt" x="85" y="209" text-anchor="middle">화면</text><text class="bs" x="85" y="229" text-anchor="middle">교회 어드민</text></g>
         <g class="box"><rect x="205" y="184" width="150" height="58" rx="10"></rect>
@@ -433,8 +441,22 @@ commit;</code></pre>
         <text class="al gold" x="475" y="282" text-anchor="middle">명단 — AI를 거치지 않음</text>
       </svg>
     </div>
-    <figcaption>금색 선은 DB에서 나온 자료가 가는 길입니다. 지금의 말씀 질문은 DB에서 찾은 설교 발췌를 AI에게 주고 AI가 답을 씁니다(설교라서 괜찮습니다). 성도 조회는 거꾸로, AI가 조건만 만들고 DB에서 나온 명단은 AI를 거치지 않고 화면으로 갑니다.</figcaption>
+    <figcaption>위는 RAG입니다. Voyage가 질문을 숫자 1,024개짜리 벡터로 바꾸고, DB(pgvector)가 뜻이 가까운 설교 조각 5개를 찾아(유사도 0.4 이상만) Claude에게 읽혀 답을 씁니다. 아래는 RAG가 아닙니다. AI는 조건만 만들고, DB가 조건에 맞는 분을 빠짐없이 찾습니다. 금색 선은 DB에서 나온 자료가 가는 길입니다(위는 AI로, 아래는 화면으로). 화살표는 자료가 흐르는 차례이고, 각 서비스를 실제로 부르는 것은 모두 서버입니다.</figcaption>
   </figure>
+  <div class="tbl-box">
+    <table class="tbl vs">
+      <thead><tr><th scope="col"><span class="sr">구분</span></th><th scope="col">말씀 질문 · RAG</th><th scope="col">성도 조회 · 조건 검색</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">다루는 자료</th><td>설교 글 — 긴 글 · 공개된 내용</td><td>교인 기록 — 칸이 정해진 표 · 개인정보</td></tr>
+        <tr><th scope="row">찾는 법</th><td>뜻이 가까운 조각 몇 개 (벡터 유사도)</td><td>조건에 맞는 사람 빠짐없이 (SQL)</td></tr>
+        <tr><th scope="row">AI가 하는 일</th><td>찾은 조각을 읽고 답을 씀</td><td>질문을 조건으로 바꿈</td></tr>
+        <tr><th scope="row">AI에게 가는 것</th><td>질문 · 설교 조각 5개</td><td>질문 · 필드 목록</td></tr>
+        <tr><th scope="row">부르는 AI</th><td>Voyage(벡터) · Claude(답)</td><td>Claude(조건)</td></tr>
+        <tr><th scope="row">결과</th><td>답 글 + 출처</td><td>명단 + 조건 칩</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="prose">성도 조회를 RAG로 하지 않는 까닭은 둘입니다. RAG는 「뜻이 비슷한 것 몇 개」를 가져오는 방법이라 「10해 이상」 · 「올해는 아님」처럼 세고 거르는 질문에 빠짐없는 답을 주지 못합니다. 그리고 찾은 자료를 AI에게 읽히는 방식이라, 성도 기록에 쓰면 명단이 AI로 갑니다.</p>
 </section>
 
 <section>
