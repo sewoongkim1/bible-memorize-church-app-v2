@@ -731,12 +731,12 @@ test('확정된 신청은 앱에서 취소하지 않는다(2026-10-16 친구) �
   assert.ok(/const canCancel = \["applied", "waitlisted"\]\.includes\(r\.status\)/.test(api), 'api canCancel 에 확정이 없어야 한다');
 });
 
-test('「내 강좌」 — 마친 강좌는 「완료」 · 자세히 「✅ 완료했어요」(취소 안내 없음) · 수료가 먼저(2026-10-16 친구)', () => {
-  assert.equal(ctx.eduStatusLine({ status: 'confirmed', statusLabel: '확정', finished: true }), '완료');
+test('「내 강좌」 — 마친 강좌는 「교육 완료」 · 자세히 「✅ 교육 완료」(취소 안내 없음) · 수료가 먼저(2026-10-16 친구)', () => {
+  assert.equal(ctx.eduStatusLine({ status: 'confirmed', statusLabel: '확정', finished: true }), '교육 완료');   // 「교육 완료」로 통일(2026-10-16)
   assert.equal(ctx.eduStatusLine({ status: 'confirmed', statusLabel: '확정', finished: false }), '확정');
   assert.equal(ctx.eduStatusLine({ status: 'applied', finished: true }), '확인 중');
   assert.deepEqual(pick(ctx.eduMineView({ status: 'confirmed', finished: true, canCancel: false })),
-    { tone: 'done', head: '✅ 완료했어요', lines: [], cancelLine: '', cancelBtn: null, cancelAsk: '' });
+    { tone: 'done', head: '✅ 교육 완료', lines: [], cancelLine: '', cancelBtn: null, cancelAsk: '' });
   assert.equal(ctx.eduMineView({ status: 'confirmed', finished: true, completed: true, certNo: '고척-2026-0001' }).head, '🎓 수료했어요');
 });
 

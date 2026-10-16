@@ -74,7 +74,7 @@ function eduMineView(m) {
     return { tone: 'ok', head: '🎓 수료했어요', lines: ['수료번호 ' + m.certNo], cancelLine: '', cancelBtn: null, cancelAsk: '', cert: true };
   }
   if (m.status === 'confirmed' && m.finished === true) {   // 마친 강좌(2026-10-16 친구) — 취소 안내 없이 「완료」
-    return { tone: 'done', head: '✅ 완료했어요', lines: [], cancelLine: '', cancelBtn: null, cancelAsk: '' };   // tone done — 확정(초록)과 다른 회청색(2026-10-16 친구 「완료는 색을 바꿔」)
+    return { tone: 'done', head: '✅ 교육 완료', lines: [], cancelLine: '', cancelBtn: null, cancelAsk: '' };   // 「교육 완료」로 통일(2026-10-16 친구)   // tone done — 확정(초록)과 다른 회청색(2026-10-16 친구 「완료는 색을 바꿔」)
   }
   if (m.status === 'declined') {   // 성도님 화면에 「반려」를 쓰지 않는다(친구 2026-10-05) — 「반려 유지」는 서버가 지킨다
     return { tone: 'soft', head: '이번 신청은 확정되지 않았어요', lines: ['궁금하시면 담당자에게 말씀해 주세요.'], cancelLine: '', cancelBtn: null, cancelAsk: '' };
@@ -110,7 +110,7 @@ function eduStatusLine(m) {   // 「내 강좌」 카드 칩 — 성도님 화�
   if (m.status === 'waitlisted') return '대기 ' + (m.waitNo || 1) + '번';
   if (m.status === 'declined') return '확정되지 않음';
   if (m.status === 'applied') return '확인 중';
-  if (m.status === 'confirmed' && m.finished === true) return '완료';   // 마친 강좌(2026-10-16 친구 「확정이 아닌 완료로」 · api eduMineOut finished)
+  if (m.status === 'confirmed' && m.finished === true) return '교육 완료';   // 마친 강좌(2026-10-16 친구 「확정이 아닌 완료로」 → 「교육 완료로 통일」 · api eduMineOut finished)
   return m.statusLabel;
 }
 function eduErrText(code) {
