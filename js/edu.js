@@ -343,6 +343,65 @@ function eduTakeDeepLink() {
   } catch (e) { return null; }
 }
 
+// ── 🎓 교육 화면 A안(2026-10-16 친구 「1안 — 짜임 그대로 · A 옷」 · 샘플 자료/design/2026-10-16-edu-sample · 스위치 EDU_LAYOUT(app.js)) ──
+//   그린 뒤 옷만 입힌다 — 차례 · id · 듣는 함수 · 글은 그대로(신청 칸은 제목 바로 아래 · 친구 2026-10-05). 롤백은 EDU_LAYOUT "old" 한 줄 + bump.
+//   그림 글자 → 선 아이콘(app.js haSvg · HA_ICON — 없으면 글만) · 탭은 회색 판 위 흰 칸 · 흰 카드 옅은 테두리 · 「‹ 교육」 테두리 단추.
+//   줄 이름(edu-dt 날짜 · edu-st 자리 · edu-tg 대상 · edu-tm 학기 · edu-nx 다음 시간)은 템플릿이 붙인다 — 글 모양으로 줄을 가르지 않는다.
+//   ⚠️ 새 글자색은 style.css 「교육 A안」 덩이에 .dark 짝과 함께.
+function eduAOn() { return typeof EDU_LAYOUT !== 'undefined' && EDU_LAYOUT === 'a'; }
+function eduIc(n, cls) { return typeof haSvg === 'function' ? haSvg(n, cls || 'ei') : ''; }
+function eduApplyListA(w, tab) {
+  if (!eduAOn() || !w) return;
+  w.classList.add('edu-a');
+  var t = w.querySelector('.edu-title'); if (t) t.innerHTML = eduIc('cap', 'edu-tic') + '교육';
+  w.querySelectorAll('.edu-card').forEach(function (c) {
+    var put = function (sel, ic, cls) { c.querySelectorAll(sel).forEach(function (s) { s.classList.add('edu-ln'); if (cls) s.classList.add(cls); s.insertAdjacentHTML('afterbegin', eduIc(ic)); }); };
+    put('.edu-dt', 'calendar'); put('.edu-nx', 'calendar'); put('.edu-tg', 'users', 'tg');
+    c.querySelectorAll('.edu-st').forEach(function (s) {   // 자리 줄 — 남음 초록 · 참 주황 · 마감 회색 · 그 밖(승인 · 정원 N명) 남색
+      var x = s.textContent;
+      s.classList.add('edu-ln', 'seat', c.classList.contains('edu-shut') || /마감|받지 않아요/.test(x) ? 'shut' : /찼어요/.test(x) ? 'full' : /남았어요|제한 없이/.test(x) ? 'left' : 'plain');
+      s.insertAdjacentHTML('afterbegin', eduIc('checkc'));
+    });
+    var att = c.querySelector('.edu-att'); if (att) { att.classList.add('edu-ln'); att.insertAdjacentHTML('afterbegin', eduIc('check')); }
+    var cert = c.querySelector('.edu-cert-k'); if (cert) { cert.classList.add('edu-ln'); cert.textContent = cert.textContent.replace(/^🎓\s*/, ''); cert.insertAdjacentHTML('afterbegin', eduIc('cap')); }
+    var ct = c.querySelector('.edu-ct'); if (ct) { var i0 = ct.querySelector('i'); if (i0) i0.outerHTML = eduIc('phone'); ct.classList.add('edu-ln'); }
+    if (tab === 'mine') {   // 내 강좌 칩 — 확정 초록 · 대기 금색 · 확인 중 남색 · 확정되지 않음 회색
+      var k = c.querySelector('.edu-k'), kx = k ? k.textContent : '';
+      var kc = /^대기/.test(kx) ? 'wait' : /확인 중/.test(kx) ? 'chk' : /확정되지/.test(kx) ? 'no' : /확정|수료/.test(kx) ? 'ok' : '';
+      if (k && kc) k.classList.add(kc);
+    }
+  });
+}
+// 자세히 회차 번호 — 「1회」 → 동그라미 안 「1」(읽기 도구는 「1회」)
+function eduDressSessA(w) {
+  w.querySelectorAll('.edu-ss-n').forEach(function (n) {
+    if (n.dataset.a) return;
+    n.dataset.a = '1'; n.setAttribute('aria-label', n.textContent); n.textContent = n.textContent.replace('회', '');
+  });
+}
+function eduApplyCourseA(w) {
+  if (!eduAOn() || !w) return;
+  w.classList.add('edu-a');
+  var bk = w.querySelector('#edu-back'); if (bk) bk.innerHTML = eduIc('back') + '교육';
+  var ap = w.querySelector('#edu-apply'); if (ap) ap.insertAdjacentHTML('beforeend', eduIc('chev'));
+  var seat = w.querySelector('.edu-seat');
+  if (seat && !seat.classList.contains('off')) { var sh = seat.querySelector('b'), sx = sh ? sh.textContent : ''; seat.classList.add(/찼어요/.test(sx) ? 'full' : /남았어요|제한 없이/.test(sx) ? 'left' : 'plain'); }
+  var st = w.querySelector('.edu-state');   // 내 신청 — 머리의 그림 글자를 선 아이콘 동그라미로(✅ 확정 · 📝 신청 · ⏳ 대기 · 🎓 수료)
+  if (st) {
+    var b = st.querySelector('b'), m = b ? /^(\S+)\s+/.exec(b.textContent) : null;
+    var ic = m ? { '✅': 'check', '📝': 'pen', '⏳': 'clock', '🎓': 'cap' }[m[1]] : '';
+    if (ic) { b.textContent = b.textContent.slice(m[0].length); b.insertAdjacentHTML('afterbegin', '<span class="edu-sic">' + eduIc(ic) + '</span>'); st.classList.add('s-' + ic); }
+  }
+  var GL = { '언제': 'calendar', '어디서': 'pin', '대상': 'users', '먼저 들으실 과정': 'list', '강사': 'user', '교재비': 'book', '문의': 'phone' };
+  w.querySelectorAll('.edu-gl').forEach(function (g) { var k = g.querySelector('.edu-gl-k'), i = g.querySelector('.edu-gl-i'); if (k && i && GL[k.textContent]) i.innerHTML = eduIc(GL[k.textContent]); });
+  w.querySelectorAll('.edu-about-h').forEach(function (h) {
+    var x = h.textContent.replace(/^\S+\s+/, '');
+    h.innerHTML = eduIc(/소개/.test(x) ? 'doc' : /일정/.test(x) ? 'calendar' : 'medal') + eduEsc(x);
+  });
+  eduDressSessA(w);
+  var more = w.querySelector('#edu-more'); if (more) more.addEventListener('click', function () { eduDressSessA(w); });   // 앞 연결이 회차를 다시 그린 뒤
+}
+
 function renderEduList(tab) {
   var u = loadUser();
   if (!u) { renderEntryScreen(); return; }
@@ -376,9 +435,9 @@ function eduDrawList(tab) {
   if (tab === 'mine') {
     body = eduState.mine.length ? eduState.mine.map(function (m, i) {
       return '<div class="edu-card" data-i="' + i + '"><span class="edu-k">' + eduEsc(eduStatusLine(m)) + '</span>' +
-        '<b>' + eduEsc(m.title) + '</b><span>' + eduEsc(m.term) + '</span>' +
+        '<b>' + eduEsc(m.title) + '</b><span class="edu-tm">' + eduEsc(m.term) + '</span>' +
         (m.target ? '<span class="edu-tg">대상 · ' + eduEsc(m.target) + '</span>' : '') +   // 대상(2026-10-16 친구 · api eduMineOut target · 옛 서버면 칸이 없어 안 그린다)
-        (m.nextSession ? '<span>다음 시간 · ' + eduEsc(eduMdw(m.nextSession.date)) + (m.nextSession.start ? ' ' + eduEsc(m.nextSession.start) : '') + '</span>' : '') +
+        (m.nextSession ? '<span class="edu-nx">다음 시간 · ' + eduEsc(eduMdw(m.nextSession.date)) + (m.nextSession.start ? ' ' + eduEsc(m.nextSession.start) : '') + '</span>' : '') +
         eduContactLine(m.contact) +
         (eduAttendLine(m.attend) ? '<span class="edu-att">' + eduEsc(eduAttendLine(m.attend)) + '</span>' : '') +   // 출석(2단계) — 체크한 칸이 있을 때만
         (eduCertLine(m) ? '<span class="edu-cert-k">' + eduEsc(eduCertLine(m)) + '</span>' : '') +   // 수료(3단계) — 「🎓 수료 · 고척-2026-0001」
@@ -390,9 +449,9 @@ function eduDrawList(tab) {
       return '<div class="edu-card' + (shut ? ' edu-shut' : '') + '" data-i="' + i + '">' +
         '<span class="edu-ks"><span class="edu-k">' + eduEsc(c.kindLabel) + '</span>' + (shut ? '<span class="edu-k shut">모집 끝</span>' : '') + '</span>' +
         '<b>' + eduEsc(c.title) + (c.term ? ' <small>(' + eduEsc(c.term) + ')</small>' : '') + '</b>' +
-        (c.firstDate ? '<span>' + eduEsc(eduMd(c.firstDate)) + (c.lastDate && c.lastDate !== c.firstDate ? ' ~ ' + eduEsc(eduMd(c.lastDate)) : '') + (c.sessionsCount ? ' · ' + c.sessionsCount + '회' : '') + '</span>' : '') +
+        (c.firstDate ? '<span class="edu-dt">' + eduEsc(eduMd(c.firstDate)) + (c.lastDate && c.lastDate !== c.firstDate ? ' ~ ' + eduEsc(eduMd(c.lastDate)) : '') + (c.sessionsCount ? ' · ' + c.sessionsCount + '회' : '') + '</span>' : '') +
         (c.target ? '<span class="edu-tg">대상 · ' + eduEsc(c.target) + '</span>' : '') +   // 대상(2026-10-16 친구 「대상이 누구인지도」) — 자세히 화면 「🙋 대상」과 같은 값
-        '<span>' + eduEsc(eduCardLine(c)) + '</span>' + eduContactLine(c.contact) + '</div>'; };
+        '<span class="edu-st">' + eduEsc(eduCardLine(c)) + '</span>' + eduContactLine(c.contact) + '</div>'; };
     if (tab === 'soon') body = soon.length ? soon.map(card).join('') : '<p class="edu-empty">곧 열릴 강좌가 없어요.</p>';
     else body = (open.length ? open.map(card).join('') : '<p class="edu-empty">지금 모집 중인 강좌가 없어요.</p>') +
       (closed.length ? '<p class="edu-sec">모집 끝</p>' + closed.map(function (c, j) { return card(c, open.length + j); }).join('') : '');
@@ -405,6 +464,7 @@ function eduDrawList(tab) {
   w.querySelectorAll('.edu-card').forEach(function (c) { c.addEventListener('click', function () {
     var row = rows[Number(c.dataset.i)]; if (row) renderEduCourse(tab === 'mine' ? row.courseId : row.id);
   }); });
+  eduApplyListA(w, tab);   // 교육 A안(EDU_LAYOUT) — 연결을 다 단 뒤 옷만
 }
 
 // 강좌 자세히(설계 docs/superpowers/specs/2026-10-05-edu-course-detail-redesign-design.md — A안 한눈에 카드)
@@ -479,6 +539,7 @@ function renderEduCourse(id, opt) {
     if (cb) cb.addEventListener('click', function () { renderEduCert(m.id, id); });
     var more = document.getElementById('edu-more');
     if (more) more.addEventListener('click', function () { document.getElementById('edu-sess').innerHTML = ss.map(sessLi).join(''); more.remove(); });
+    eduApplyCourseA(w);   // 교육 A안(EDU_LAYOUT) — 연결을 다 단 뒤 옷만(더 보기로 늘어난 회차도 다시 입힌다)
     if (opt.focus) { var box = document.getElementById('edu-act'); if (box && box.scrollIntoView) box.scrollIntoView({ block: 'center' }); }
     // ⚠️ api(supaCall)는 응답에 error 가 있으면 throw 한다 — 오류 말은 .catch 의 err.message(서버 오류 코드)로 고른다.
     var say = function (t) { var x = document.getElementById('edu-msg'); if (x) x.textContent = t; };

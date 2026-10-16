@@ -8053,3 +8053,123 @@ html[data-fs="xl"] .sg-a #song-play { font-size: 1.22rem; min-height: 56px; }
 .nv-wb { white-space: nowrap; }
 .nv-punct.post { margin-left: -2px; }
 .nv-punct.pre { margin-right: -2px; }
+
+/* ── 🎓 교육 화면 A안(2026-10-16 친구 「1안 — 짜임 그대로 · A 옷」 · js/edu.js eduApplyListA · eduApplyCourseA · 스위치 EDU_LAYOUT) ──
+   목록(모집 중 · 곧 열려요 · 내 강좌)과 강좌 자세히. 탭은 회색 판 위 흰 칸 · 흰 카드 옅은 테두리 · 줄마다 선 아이콘 · 「‹ 교육」 테두리 단추.
+   자리 줄 색 — 남음(left) 초록 · 참(full) 주황 · 마감(shut) 회색 · 그 밖(plain — 승인 · 정원 N명) 남색. 새 글자색은 .dark 짝과 함께. */
+.edu-wrap.edu-a .edu-title { display: flex; align-items: center; gap: 8px; font-size: 1.3rem; color: #1b2333; margin: 4px 0 12px; }
+.edu-wrap.edu-a .edu-tic { width: 24px; height: 24px; flex: none; color: #1e3a6b; }
+.edu-wrap.edu-a .edu-tabs { flex-wrap: nowrap; gap: 2px; padding: 3px; border-radius: 12px; background: #ece7dd; margin-bottom: 14px; }
+.edu-wrap.edu-a .edu-tab { flex: 1 1 0; min-width: max-content; border: 0; background: transparent; color: #4a5468; border-radius: 9px; padding: 9px 8px; font-weight: 600; }
+.edu-wrap.edu-a .edu-tab.on { background: #fff; color: #1e3a6b; font-weight: 800; box-shadow: 0 1px 2px rgba(0, 0, 0, .14); }
+.edu-wrap.edu-a .edu-sec { margin: 18px 4px 8px; font-size: .92rem; color: #4a5468; }
+.edu-wrap.edu-a .edu-card { gap: 6px; padding: 14px 16px; border-color: #e5dfd4; border-radius: 16px; background: #fff; }
+.edu-wrap.edu-a .edu-card b { font-size: 17px; font-weight: 800; color: #1b2333; }
+.edu-wrap.edu-a .edu-card b small { color: #6e7787; }
+.edu-wrap.edu-a .edu-card .edu-k { background: #f1ede5; color: #4a5468; }
+.edu-wrap.edu-a .edu-card .edu-k.ok { background: #e3f1e8; color: #1f7a4d; }
+.edu-wrap.edu-a .edu-card .edu-k.wait { background: #fbf1d6; color: #7a5a12; }
+.edu-wrap.edu-a .edu-card .edu-k.chk { background: #eaf0f9; color: #1e3a6b; }
+.edu-wrap.edu-a .edu-card.edu-shut { background: #faf8f4; }
+.edu-wrap.edu-a .edu-card.edu-shut b { color: #5d6b82; }
+.edu-wrap.edu-a .edu-ln { display: flex; align-items: center; gap: 7px; font-size: 14.5px; color: #4a5468; }
+.edu-wrap.edu-a .edu-ln .ei { width: 17px; height: 17px; flex: none; color: #6e7f9e; }
+.edu-wrap.edu-a .edu-ln.tg, .edu-wrap.edu-a .edu-ln.tg .ei { color: #1e3a6b; font-weight: 700; }
+.edu-wrap.edu-a .edu-ln.seat { font-weight: 800; }
+.edu-wrap.edu-a .edu-ln.seat.left, .edu-wrap.edu-a .edu-ln.seat.left .ei { color: #1f7a4d; }
+.edu-wrap.edu-a .edu-ln.seat.full, .edu-wrap.edu-a .edu-ln.seat.full .ei { color: #b25e09; }
+.edu-wrap.edu-a .edu-ln.seat.plain, .edu-wrap.edu-a .edu-ln.seat.plain .ei { color: #1e3a6b; }
+.edu-wrap.edu-a .edu-ln.seat.shut { color: #6e7787; font-weight: 700; }
+.edu-wrap.edu-a .edu-ln.seat.shut .ei { color: #8a93a3; }
+.edu-wrap.edu-a .edu-card .edu-att, .edu-wrap.edu-a .edu-card .edu-att .ei { color: #1f7a4d; }
+.edu-wrap.edu-a .edu-card .edu-cert-k, .edu-wrap.edu-a .edu-card .edu-cert-k .ei { color: #7a5a12; font-weight: 800; }
+.edu-wrap.edu-a .edu-card .edu-ct { margin-top: 4px; padding-top: 8px; border-top: 1px solid #efe9df; }
+.edu-wrap.edu-a .edu-card .edu-ct .ei { color: #6e7f9e; }
+/* 자세히 */
+.edu-wrap.edu-a .edu-top { margin: 0 0 10px; }
+.edu-wrap.edu-a .edu-chip { background: #f1ede5; color: #4a5468; }
+.edu-wrap.edu-a .edu-chip.on { background: #e3f1e8; color: #1f7a4d; }
+.edu-wrap.edu-a #edu-back { display: inline-flex; align-items: center; gap: 2px; min-height: 40px; padding: 0 12px 0 8px; border: 1.5px solid #8da3c8; border-radius: 10px; background: #fff; color: #1e3a6b; font-size: .94rem; font-weight: 800; box-shadow: none; }
+.edu-wrap.edu-a #edu-back .ei { width: 18px; height: 18px; stroke-width: 2.4; }
+.edu-wrap.edu-a .edu-sub { color: #6e7787; }
+.edu-wrap.edu-a .edu-seat { padding: 14px 16px; border: 1px solid #e5dfd4; border-radius: 16px; background: #fff; }
+.edu-wrap.edu-a .edu-seat b { font-size: 18px; color: #1e3a6b; }
+.edu-wrap.edu-a .edu-seat.left b { color: #1f7a4d; }
+.edu-wrap.edu-a .edu-seat.full b { color: #b25e09; }
+.edu-wrap.edu-a .edu-seat.off { background: #faf8f4; }
+.edu-wrap.edu-a .edu-seat.off b { color: #5d6b82; }
+.edu-wrap.edu-a .edu-seat span, .edu-wrap.edu-a .edu-how { color: #4a5468; }
+.edu-wrap.edu-a .edu-btn { display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 54px; border-radius: 14px; background: #1e3a6b; font-weight: 800; }
+.edu-wrap.edu-a .edu-btn .ei { width: 20px; height: 20px; stroke-width: 2.4; }
+.edu-wrap.edu-a .edu-btn.ghost { min-height: 46px; border: 1.5px solid #8da3c8; background: #fff; color: #1e3a6b; }
+.edu-wrap.edu-a .edu-btn.ghost.danger { border-color: #e7b3ad; color: #b4232f; }
+.edu-wrap.edu-a .edu-state { padding: 14px 16px; border: 1.5px solid #8da3c8; border-radius: 16px; background: #fff; }
+.edu-wrap.edu-a .edu-state b { display: flex; align-items: center; gap: 8px; color: #1e3a6b; }
+.edu-wrap.edu-a .edu-state > span { color: #4a5468; }   /* > — 머리의 동그라미(.edu-sic · span)까지 덮지 않게 */
+.edu-wrap.edu-a .edu-sic { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; flex: none; border-radius: 50%; background: #1e3a6b; color: #fff; }
+.edu-wrap.edu-a .edu-sic .ei { width: 17px; height: 17px; stroke-width: 2.4; }
+.edu-wrap.edu-a .edu-state.s-check, .edu-wrap.edu-a .edu-state.s-cap { border-color: #1f7a4d; }
+.edu-wrap.edu-a .edu-state.s-check b, .edu-wrap.edu-a .edu-state.s-cap b { color: #1f7a4d; }
+.edu-wrap.edu-a .edu-state.s-check .edu-sic, .edu-wrap.edu-a .edu-state.s-cap .edu-sic { background: #1f7a4d; }
+.edu-wrap.edu-a .edu-state.s-clock { border-color: #e6d29c; background: #fffaf0; }
+.edu-wrap.edu-a .edu-state.s-clock b { color: #7a5a12; }
+.edu-wrap.edu-a .edu-state.s-clock .edu-sic { background: #d9b556; color: #2a2210; }
+.edu-wrap.edu-a .edu-state.soft { border-color: #e5dfd4; background: #faf8f4; }
+.edu-wrap.edu-a .edu-state.soft b { color: #5d6b82; }
+.edu-wrap.edu-a .edu-glance, .edu-wrap.edu-a .edu-about { border-color: #e5dfd4; border-radius: 16px; background: #fff; }
+.edu-wrap.edu-a .edu-glance { padding: 4px 16px; }
+.edu-wrap.edu-a .edu-about { padding: 12px 16px 14px; }
+.edu-wrap.edu-a .edu-gl { align-items: center; padding: 11px 0; }
+.edu-wrap.edu-a .edu-gl + .edu-gl, .edu-wrap.edu-a .edu-ss + .edu-ss { border-top: 1px solid #efe9df; }
+.edu-wrap.edu-a .edu-gl-i .ei { display: block; width: 19px; height: 19px; color: #1e3a6b; }
+.edu-wrap.edu-a .edu-gl-k { color: #6e7787; }
+.edu-wrap.edu-a .edu-gl-v { color: #1b2333; font-weight: 700; }
+.edu-wrap.edu-a .edu-about-h { display: flex; align-items: center; gap: 7px; margin-bottom: 8px; font-size: .95rem; font-weight: 800; color: #1b2333; }
+.edu-wrap.edu-a .edu-about-h .ei { width: 19px; height: 19px; flex: none; color: #1e3a6b; }
+.edu-wrap.edu-a .edu-desc { color: #2a3140; }
+.edu-wrap.edu-a .edu-ss { align-items: center; }
+.edu-wrap.edu-a .edu-ss-n { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; min-width: 0; flex: none; border-radius: 50%; background: #eaf0f9; color: #1e3a6b; font-size: 13px; font-weight: 800; }
+.edu-wrap.edu-a .edu-ss-b b { color: #1b2333; font-weight: 700; }
+.edu-wrap.edu-a .edu-ss-b span { color: #4a5468; }
+.edu-wrap.edu-a .edu-myatt { color: #1e3a6b; border-bottom: 1px solid #efe9df; }
+.edu-wrap.edu-a .edu-more { border: 1.5px solid #8da3c8; border-radius: 10px; background: #fff; color: #1e3a6b; font-weight: 800; }
+/* 어두운 모드 짝 */
+.dark .edu-wrap.edu-a .edu-title { color: #f1eee7; }
+.dark .edu-wrap.edu-a .edu-tic, .dark .edu-wrap.edu-a .edu-gl-i .ei, .dark .edu-wrap.edu-a .edu-about-h .ei { color: #9dbbea; }
+.dark .edu-wrap.edu-a .edu-tabs { background: #262d39; }
+.dark .edu-wrap.edu-a .edu-tab { background: transparent; border: 0; color: #b9c0cd; }
+.dark .edu-wrap.edu-a .edu-tab.on { background: #1a202b; color: #9dbbea; }
+.dark .edu-wrap.edu-a .edu-sec { color: #b9c0cd; }
+.dark .edu-wrap.edu-a .edu-card, .dark .edu-wrap.edu-a .edu-glance, .dark .edu-wrap.edu-a .edu-about, .dark .edu-wrap.edu-a .edu-seat { background: #1a202b; border-color: #2c3442; }
+.dark .edu-wrap.edu-a .edu-card b, .dark .edu-wrap.edu-a .edu-gl-v, .dark .edu-wrap.edu-a .edu-about-h, .dark .edu-wrap.edu-a .edu-ss-b b { color: #f1eee7; }
+.dark .edu-wrap.edu-a .edu-card b small, .dark .edu-wrap.edu-a .edu-sub, .dark .edu-wrap.edu-a .edu-gl-k { color: #b9c0cd; }
+.dark .edu-wrap.edu-a .edu-card .edu-k, .dark .edu-wrap.edu-a .edu-chip { background: #262d39; color: #c3c9d4; }
+.dark .edu-wrap.edu-a .edu-card .edu-k.ok, .dark .edu-wrap.edu-a .edu-chip.on { background: #173325; color: #6fcf97; }
+.dark .edu-wrap.edu-a .edu-card .edu-k.wait { background: #3a3018; color: #e9cd7e; }
+.dark .edu-wrap.edu-a .edu-card .edu-k.chk { background: #1f2a40; color: #9dbbea; }
+.dark .edu-wrap.edu-a .edu-card.edu-shut, .dark .edu-wrap.edu-a .edu-seat.off { background: #151a23; }
+.dark .edu-wrap.edu-a .edu-card.edu-shut b, .dark .edu-wrap.edu-a .edu-seat.off b { color: #a9b6cc; }
+.dark .edu-wrap.edu-a .edu-ln, .dark .edu-wrap.edu-a .edu-seat span, .dark .edu-wrap.edu-a .edu-how, .dark .edu-wrap.edu-a .edu-state > span, .dark .edu-wrap.edu-a .edu-ss-b span { color: #b9c0cd; }
+.dark .edu-wrap.edu-a .edu-ln .ei, .dark .edu-wrap.edu-a .edu-card .edu-ct .ei { color: #93a3bf; }
+.dark .edu-wrap.edu-a .edu-ln.tg, .dark .edu-wrap.edu-a .edu-ln.tg .ei, .dark .edu-wrap.edu-a .edu-ln.seat.plain, .dark .edu-wrap.edu-a .edu-ln.seat.plain .ei, .dark .edu-wrap.edu-a .edu-seat b, .dark .edu-wrap.edu-a .edu-myatt { color: #9dbbea; }
+.dark .edu-wrap.edu-a .edu-ln.seat.left, .dark .edu-wrap.edu-a .edu-ln.seat.left .ei, .dark .edu-wrap.edu-a .edu-seat.left b, .dark .edu-wrap.edu-a .edu-card .edu-att, .dark .edu-wrap.edu-a .edu-card .edu-att .ei { color: #6fcf97; }
+.dark .edu-wrap.edu-a .edu-ln.seat.full, .dark .edu-wrap.edu-a .edu-ln.seat.full .ei, .dark .edu-wrap.edu-a .edu-seat.full b { color: #f0a85a; }
+.dark .edu-wrap.edu-a .edu-ln.seat.shut, .dark .edu-wrap.edu-a .edu-ln.seat.shut .ei { color: #9aa3b3; }
+.dark .edu-wrap.edu-a .edu-card .edu-cert-k, .dark .edu-wrap.edu-a .edu-card .edu-cert-k .ei { color: #e9cd7e; }
+.dark .edu-wrap.edu-a .edu-card .edu-ct { border-top-color: #2c3442; }
+.dark .edu-wrap.edu-a .edu-gl + .edu-gl, .dark .edu-wrap.edu-a .edu-ss + .edu-ss, .dark .edu-wrap.edu-a .edu-myatt { border-color: #2c3442; }
+.dark .edu-wrap.edu-a #edu-back, .dark .edu-wrap.edu-a .edu-btn.ghost, .dark .edu-wrap.edu-a .edu-more { background: #1a202b; border-color: #4a6597; color: #9dbbea; }
+.dark .edu-wrap.edu-a .edu-btn.ghost.danger { border-color: #7a3a3f; color: #f07a82; }
+.dark .edu-wrap.edu-a .edu-btn { background: #2f5596; }
+.dark .edu-wrap.edu-a .edu-state { background: #1a202b; border-color: #4a6597; }
+.dark .edu-wrap.edu-a .edu-state b { color: #9dbbea; }
+.dark .edu-wrap.edu-a .edu-sic { background: #2f5596; color: #fff; }
+.dark .edu-wrap.edu-a .edu-state.s-check, .dark .edu-wrap.edu-a .edu-state.s-cap { border-color: #2e7d55; }
+.dark .edu-wrap.edu-a .edu-state.s-check b, .dark .edu-wrap.edu-a .edu-state.s-cap b { color: #6fcf97; }
+.dark .edu-wrap.edu-a .edu-state.s-check .edu-sic, .dark .edu-wrap.edu-a .edu-state.s-cap .edu-sic { background: #2e7d55; }
+.dark .edu-wrap.edu-a .edu-state.s-clock { background: #2a2414; border-color: #5c4c22; }
+.dark .edu-wrap.edu-a .edu-state.s-clock b { color: #e9cd7e; }
+.dark .edu-wrap.edu-a .edu-state.soft { background: #151a23; border-color: #2c3442; }
+.dark .edu-wrap.edu-a .edu-state.soft b { color: #a9b6cc; }
+.dark .edu-wrap.edu-a .edu-desc { color: #dbe2ee; }
+.dark .edu-wrap.edu-a .edu-ss-n { background: #1f2a40; color: #9dbbea; }
