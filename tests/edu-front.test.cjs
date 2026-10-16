@@ -736,7 +736,7 @@ test('「내 강좌」 — 마친 강좌는 「완료」 · 자세히 「✅ 완
   assert.equal(ctx.eduStatusLine({ status: 'confirmed', statusLabel: '확정', finished: false }), '확정');
   assert.equal(ctx.eduStatusLine({ status: 'applied', finished: true }), '확인 중');
   assert.deepEqual(pick(ctx.eduMineView({ status: 'confirmed', finished: true, canCancel: false })),
-    { tone: 'ok', head: '✅ 완료했어요', lines: [], cancelLine: '', cancelBtn: null, cancelAsk: '' });
+    { tone: 'done', head: '✅ 완료했어요', lines: [], cancelLine: '', cancelBtn: null, cancelAsk: '' });
   assert.equal(ctx.eduMineView({ status: 'confirmed', finished: true, completed: true, certNo: '고척-2026-0001' }).head, '🎓 수료했어요');
 });
 

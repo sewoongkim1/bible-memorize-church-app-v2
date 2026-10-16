@@ -8173,3 +8173,15 @@ html[data-fs="xl"] .sg-a #song-play { font-size: 1.22rem; min-height: 56px; }
 .dark .edu-wrap.edu-a .edu-state.soft b { color: #a9b6cc; }
 .dark .edu-wrap.edu-a .edu-desc { color: #dbe2ee; }
 .dark .edu-wrap.edu-a .edu-ss-n { background: #1f2a40; color: #9dbbea; }
+/* 「완료」(마친 강좌 · 2026-10-16 친구 「완료는 색을 바꿔」) — 확정(초록)과 다른 회청색 · 칩(.edu-k.done) · 자세히 칸(.edu-state.done) · 옛 꼴에도 */
+.edu-card .edu-k.done, .edu-wrap.edu-a .edu-card .edu-k.done { background: #e6ebf3; color: #3d4b66; }
+.edu-state.done { border-color: #9aa8bf; background: #f6f8fb; }
+.edu-state.done b { color: #3d4b66; }
+.edu-wrap.edu-a .edu-state.done, .edu-wrap.edu-a .edu-state.done.s-check { border-color: #9aa8bf; background: #f6f8fb; }
+.edu-wrap.edu-a .edu-state.done b, .edu-wrap.edu-a .edu-state.done.s-check b { color: #3d4b66; }
+.edu-wrap.edu-a .edu-state.done .edu-sic, .edu-wrap.edu-a .edu-state.done.s-check .edu-sic { background: #5d6b85; }
+.dark .edu-card .edu-k.done, .dark .edu-wrap.edu-a .edu-card .edu-k.done { background: #252d3b; color: #b8c4da; }
+.dark .edu-state.done, .dark .edu-wrap.edu-a .edu-state.done, .dark .edu-wrap.edu-a .edu-state.done.s-check { border-color: #4b5873; background: #171d28; }
+.dark .edu-state.done b, .dark .edu-wrap.edu-a .edu-state.done b, .dark .edu-wrap.edu-a .edu-state.done.s-check b { color: #b8c4da; }
+.dark .edu-wrap.edu-a .edu-state.done .edu-sic, .dark .edu-wrap.edu-a .edu-state.done.s-check .edu-sic { background: #4b5873; }
+

@@ -62,7 +62,7 @@ function eduMineView(m) {
     return { tone: 'ok', head: '🎓 수료했어요', lines: ['수료번호 ' + m.certNo], cancelLine: '', cancelBtn: null, cancelAsk: '', cert: true };
   }
   if (m.status === 'confirmed' && m.finished === true) {   // 마친 강좌(2026-10-16 친구) — 취소 안내 없이 「완료」
-    return { tone: 'ok', head: '✅ 완료했어요', lines: [], cancelLine: '', cancelBtn: null, cancelAsk: '' };
+    return { tone: 'done', head: '✅ 완료했어요', lines: [], cancelLine: '', cancelBtn: null, cancelAsk: '' };   // tone done — 확정(초록)과 다른 회청색(2026-10-16 친구 「완료는 색을 바꿔」)
   }
   if (m.status === 'declined') {   // 성도님 화면에 「반려」를 쓰지 않는다(친구 2026-10-05) — 「반려 유지」는 서버가 지킨다
     return { tone: 'soft', head: '이번 신청은 확정되지 않았어요', lines: ['궁금하시면 담당자에게 말씀해 주세요.'], cancelLine: '', cancelBtn: null, cancelAsk: '' };
@@ -383,7 +383,7 @@ function eduApplyListA(w, tab) {
     var ct = c.querySelector('.edu-ct'); if (ct) { var i0 = ct.querySelector('i'); if (i0) i0.outerHTML = eduIc('phone'); ct.classList.add('edu-ln'); }
     if (tab === 'mine') {   // 내 강좌 칩 — 확정 초록 · 대기 금색 · 확인 중 남색 · 확정되지 않음 회색
       var k = c.querySelector('.edu-k'), kx = k ? k.textContent : '';
-      var kc = /^대기/.test(kx) ? 'wait' : /확인 중/.test(kx) ? 'chk' : /확정되지/.test(kx) ? 'no' : /확정|수료|완료/.test(kx) ? 'ok' : '';
+      var kc = /^대기/.test(kx) ? 'wait' : /확인 중/.test(kx) ? 'chk' : /확정되지/.test(kx) ? 'no' : /완료/.test(kx) ? 'done' : /확정|수료/.test(kx) ? 'ok' : '';   // 완료는 회청색(2026-10-16)
       if (k && kc) k.classList.add(kc);
     }
   });
