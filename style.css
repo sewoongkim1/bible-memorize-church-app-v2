@@ -8201,4 +8201,7 @@ html[data-fs="xl"] .sg-a #song-play { font-size: 1.22rem; min-height: 56px; }
 /* 수료증 화면 진위 확인 주소 — 누르는 링크(2026-10-16) */
 .edu-cert-link { color: var(--navy); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; word-break: break-all; }
 .dark .edu-cert-link { color: #9dbbea; }
+/* 「교육 완료」 칩(2026-10-16 · 끝난 강좌의 자세히 머리 칩 — 목록 꼬리표 .edu-k.done 과 같은 회청색) */
+.edu-chip.done, .edu-wrap.edu-a .edu-chip.done { background: #e6ebf3; color: #3d4b66; }
+.dark .edu-chip.done, .dark .edu-wrap.edu-a .edu-chip.done { background: #252d3b; color: #b8c4da; }
 

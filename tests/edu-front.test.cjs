@@ -758,3 +758,15 @@ test('수료증 화면 진위 확인 — 누르면 번호가 들어간 확인 �
   assert.ok(src.includes(`href="cert/?no=' + encodeURIComponent(cert.certNo) + '">gocheok.onlybible.kr/cert/</a>`), '주소가 누르는 링크(끝 / · 번호가 들어간다)');
 });
 
+test('끝난 강좌는 「교육 완료」(2026-10-16 친구 「모집 완료가 왜 뜨죠」) — 상태 끝 · 보관 · 마지막 날이 지남 · 아니면 모집 단계 칩', () => {
+  const T = '2026-10-16';
+  assert.equal(ctx.eduEnded({ status: 'open', lastDate: '2026-06-28' }, T), true);
+  assert.equal(ctx.eduEnded({ status: 'done' }, T), true);
+  assert.equal(ctx.eduEnded({ status: 'closed', lastDate: '2026-11-22' }, T), false);
+  assert.equal(ctx.eduEnded({ status: 'open', lastDate: T }, T), false);   // 마지막 날 당일은 아직
+  assert.equal(JSON.stringify(ctx.eduStageChip({ status: 'open', phase: 'closed', lastDate: '2026-06-28' }, T)), JSON.stringify({ text: '교육 완료', cls: 'done' }));
+  assert.equal(JSON.stringify(ctx.eduStageChip({ status: 'closed', phase: 'closed', lastDate: '2026-11-22' }, T)), JSON.stringify({ text: '모집 완료', cls: 'shut' }));
+  assert.equal(JSON.stringify(ctx.eduStageChip({ status: 'open', phase: 'open', lastDate: '2026-12-05' }, T)), JSON.stringify({ text: '모집 중', cls: 'on' }));
+  assert.equal(ctx.eduStageChip({ status: 'draft', phase: 'weird' }, T), null);
+});
+
