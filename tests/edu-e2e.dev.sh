@@ -156,7 +156,7 @@ SEQ_OLD=$(sq "select coalesce((select last::text from edu_cert_seq where year=$Y
 M3=$(call "{\"action\":\"eduMine\",\"user_id\":\"$U3\"}")
 chk "before: U3 completed/certNo" "$(jqn '[(m["completed"], m["certNo"]) for m in d["mine"] if m["courseId"]=="'$CID'"]' "$M3")" "[(False, None)]"
 CC='[m["canCancel"] for m in d["mine"] if m["courseId"]=="'$CID'"]'
-chk "before issue: U2 canCancel (first session is days away)" "$(jqn "$CC" "$(call "{\"action\":\"eduMine\",\"user_id\":\"$U2\"}")")" "[True]"
+chk "before issue: U2 canCancel false (confirmed — 2026-10-16 확정된 신청은 앱에서 취소 안 됨)" "$(jqn "$CC" "$(call "{\"action\":\"eduMine\",\"user_id\":\"$U2\"}")")" "[False]"
 chk "issue (new)" "$(sq "select edu_issue_certs('$CID', array[$E2]::bigint[], null)->'issued'->0->>'how'")" "new"
 chk "after issue: canCancel false (active certificate)" "$(jqn "$CC" "$(call "{\"action\":\"eduMine\",\"user_id\":\"$U2\"}")")" "[False]"
 chk "member cancel of an active certificate -> has-cert" "$(jqn 'd.get("error")' "$(call "{\"action\":\"eduCancel\",\"user_id\":\"$U2\",\"enrollment_id\":$E2}")")" "has-cert"
@@ -205,7 +205,7 @@ chk "after revoke: eduVerify masked name" "$(jqn 'd["name"]' "$V")" "$MASK"
 chk "after revoke: eduCert -> no-cert" "$(jqn 'd.get("error")' "$(call "{\"action\":\"eduCert\",\"user_id\":\"$U2\",\"enrollment_id\":$E2}")")" "no-cert"
 M2=$(call "{\"action\":\"eduMine\",\"user_id\":\"$U2\"}")
 chk "after revoke: eduMine completed/certNo" "$(jqn '[(m["completed"], m["certNo"]) for m in d["mine"] if m["courseId"]=="'$CID'"]' "$M2")" "[(False, None)]"
-chk "after revoke: canCancel back to true" "$(jqn "$CC" "$M2")" "[True]"
+chk "after revoke: canCancel still false (confirmed)" "$(jqn "$CC" "$M2")" "[False]"
 chk "restore keeps the number" "$(sq "select (r->'issued'->0->>'how')||' '||split_part(r->'issued'->0->>'certNo','-',2)||'-'||split_part(r->'issued'->0->>'certNo','-',3) from (select edu_issue_certs('$CID', array[$E2]::bigint[], null) as r) z")" "restored $NUM"
 chk "after restore: eduVerify valid" "$(jqn '(d.get("valid"), d.get("revoked"))' "$(call "{\"action\":\"eduVerify\",\"no\":\"$VNO\"}")")" "(True, False)"
 chk "after restore: canCancel false again" "$(jqn "$CC" "$(call "{\"action\":\"eduMine\",\"user_id\":\"$U2\"}")")" "[False]"
