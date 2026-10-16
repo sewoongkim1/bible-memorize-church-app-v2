@@ -8036,3 +8036,8 @@ html[data-fs="xl"] .sg-a #song-play { font-size: 1.22rem; min-height: 56px; }
 .dark .pg-a .pga-redo, .dark .pga-done #pg-done-restart { background: #1a202b; border-color: #4a6597; color: #9dbbea; }
 .dark .pg-a .pga-redo:hover, .dark .pga-done #pg-done-restart:hover { background: #22304a; }
 .dark .pga-done #pg-done-list { background: #2f5596; }
+/* 📚 주제별 성경암송 — 빈칸 앞뒤 문장부호(2026-10-16 친구 「암송 구절에 쉼표 등은 제외」 · js/navi.js nvWords)
+   부호는 빈칸 밖 글자로 둔다 — 빈칸 · 카드에는 들어가지 않는다. 빈칸과 한 덩어리로 묶어 쉼표만 다음 줄로 떨어지지 않게. */
+.nv-wb { white-space: nowrap; }
+.nv-punct.post { margin-left: -2px; }
+.nv-punct.pre { margin-right: -2px; }

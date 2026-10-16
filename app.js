@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261016a";
+const APP_BUILD = "20261016b";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -7316,8 +7316,11 @@ const VERSE_IMG_MORE = {
 //   암송 화면에서 접었다 펴는 형태로 보여준다(필요할 때만 펴니 화면을 차지하지 않음).
 function fillVerseHelp(verse, opts) {
   if (!document.getElementById("help-slot")) return;
-  loadSermons().then((sermons) => {
-    const s = (sermons || []).find(
+  // 📚 주제별 성경암송(js/navi.js)은 풀이 · 기억법이 구절에 실려 온다(verses.help_easy · help_tip · 2026-10-16) — 설교에 매이지 않은 구절이라
+  //   설교 자료를 받지 않는다. 주간 구절에는 이 두 칸이 없어 지금까지와 같다.
+  const own = verse && (verse.helpEasy || verse.helpTip) ? { easyExplain: verse.helpEasy, memoryTip: verse.helpTip } : null;
+  (own ? Promise.resolve([]) : loadSermons()).then((sermons) => {
+    const s = own || (sermons || []).find(
       (x) => x.memVerseNo === verse.no && (x.easyExplain || x.memoryTip));
     const el = document.getElementById("help-slot");
     if (!el) return;
@@ -10417,9 +10420,11 @@ const MANUAL = [
       "첫 화면 <b>「암송 과정」</b>에서 <b>📚 주제별 성경암송</b>을 누르세요.",
       "외우고 싶은 <b>묶음</b>을 고르세요. 어느 묶음부터 시작하셔도 돼요.",
       "구절을 누르면 <b>📖 말씀 암송</b>과 같은 세 단계로 외워요. 말씀 아래 <b>쓰기 | 카드</b>에서 <b>카드</b>로 채워도 돼요.",
+      "말씀 아래 <b>💡 풀이</b>를 누르면 쉬운 말로 푼 뜻을, <b>🧠 기억법</b>을 누르면 외우는 요령을 볼 수 있어요.",
       "다 외우시면 <b>다음 말씀 ▶</b>으로 그 묶음의 다음 구절로 가요.",
     ],
-    tip: "외운 기록은 <b>📖 말씀 암송</b>과 똑같이 남아 <b>도전 순위</b>에도 함께 세져요. 묶음 목록에서 <b>몇 구절 마쳤는지</b> 볼 수 있어요.",
+    tip: "외운 기록은 <b>📖 말씀 암송</b>과 똑같이 남아 <b>도전 순위</b>에도 함께 세져요. 묶음 목록에서 <b>몇 구절 마쳤는지</b> 볼 수 있어요. " +
+      "<b>⚙️ 설정 → 🌐 암송 언어</b>에서 <b>English (NIV)</b>를 고르면 영어로도 외울 수 있어요.",
   },
   {
     icon: "🙏", title: "가정 축복 기도문",

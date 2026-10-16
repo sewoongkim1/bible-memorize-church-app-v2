@@ -123,7 +123,7 @@ test('③ 시드 SQL — 73줄 · 2001~2112 · 모두 navi · 다시 돌려도 i
 const NAVI_JS = read('js', 'navi.js');
 const NV = (() => {
   const pure = slice(NAVI_JS, '// ── 네비게이토 순수 함수 (여기부터) ──', '// ── 네비게이토 순수 함수 (여기까지) ──', 'js/navi.js');
-  new vm.Script(pure + '\n;globalThis.__nv = { NV_CHAPTERS, nvChapterTitle, nvReadAnswer, nvByChapter, nvTopicGroups, nvDoneCount, nvPrevOf, nvNextOf, nvNextAfter, NV_MSG, nvChapterSub };').runInThisContext();
+  new vm.Script(pure + '\n;globalThis.__nv = { NV_CHAPTERS, nvChapterTitle, nvReadAnswer, nvByChapter, nvTopicGroups, nvDoneCount, nvPrevOf, nvNextOf, nvNextAfter, NV_MSG, nvChapterSub, nvWords };').runInThisContext();
   return globalThis.__nv;
 })();
 // 시드 SQL 에서 실제 카드를 꺼내 화면 함수에 넣는다 — 서버 답 꼴(naviVerseOf)과 같은 칸 이름
@@ -153,6 +153,36 @@ test('④ 세 값 — 받음 · 없음 · 모름(옛 서버는 주간 구절을 
     assert.equal(NV.nvReadAnswer(bad).state, 'unknown', JSON.stringify(bad));
   // 번호대 밖 · 모르는 묶음 · 빈 본문은 버린다(남는 것이 없으면 없음)
   assert.equal(NV.nvReadAnswer({ ok: true, navi: true, verses: [{ no: 38, chapter: 'A', text: 'x' }, { no: 2021, chapter: 'Z', text: 'x' }, { no: 2022, chapter: 'A', text: '  ' }] }).state, 'empty');
+});
+
+test('④ 영어(NIV) · 풀이 · 기억법 — 서버 칸을 그대로 넘긴다 · 옛 서버(칸 없음)는 빈 글자', () => {
+  const one = (v) => NV.nvReadAnswer({ ok: true, navi: true, verses: [Object.assign({ no: 2043, chapter: 'B', topic: '죄의 대가', refShort: '롬 6:23', refFull: '로마서 6장 23절', text: '죄의 삯은 사망이요' }, v)] }).verses[0];
+  const a = one({ textEn: ' For the wages of sin is death ', refEn: 'Rom 6:23', helpEasy: '풀이', helpTip: '기억법' });
+  assert.deepEqual([a.textEn, a.refEn, a.helpEasy, a.helpTip], ['For the wages of sin is death', 'Rom 6:23', '풀이', '기억법']);
+  const b = one({});
+  assert.deepEqual([b.textEn, b.refEn, b.helpEasy, b.helpTip], ['', '', '', ''], '옛 서버 — 한글만 · 도우미 탭 없음');
+});
+
+test('④ 빈칸 낱말(nvWords) — 앞뒤 문장부호는 빈칸 밖 · 낱말 안 부호는 그대로 · 줄표는 두 조각(붙여 그림)', () => {
+  const W = (t) => J(NV.nvWords(t));
+  assert.deepEqual(W('"Come, follow me," Jesus said'), [
+    { pre: '"', core: 'Come', post: ',', glue: false }, { pre: '', core: 'follow', post: '', glue: false },
+    { pre: '', core: 'me', post: ',"', glue: false }, { pre: '', core: 'Jesus', post: '', glue: false }, { pre: '', core: 'said', post: '', glue: false }]);
+  assert.deepEqual(W("God's temple Jesus' sake"), [
+    { pre: '', core: "God's", post: '', glue: false }, { pre: '', core: 'temple', post: '', glue: false },
+    { pre: '', core: 'Jesus', post: "'", glue: false }, { pre: '', core: 'sake', post: '', glue: false }]);
+  assert.deepEqual(W('God—this is'), [
+    { pre: '', core: 'God', post: '—', glue: false }, { pre: '', core: 'this', post: '', glue: true }, { pre: '', core: 'is', post: '', glue: false }]);
+  assert.deepEqual(W('a — b'), [
+    { pre: '', core: 'a', post: '', glue: false }, { pre: '—', core: '', post: '', glue: false }, { pre: '', core: 'b', post: '', glue: false }], '부호뿐인 조각은 core 가 빈다');
+  // 한글 — 부호가 없으면 낱말 그대로(지금까지와 같은 빈칸)
+  assert.deepEqual(NV.nvWords('  나는 포도나무요  너희는 가지라 ').map((w) => w.core), ['나는', '포도나무요', '너희는', '가지라']);
+  assert.ok(NV.nvWords('나는 포도나무요').every((w) => !w.pre && !w.post && !w.glue));
+  // 시드 73구절 모두 — 조각을 다시 붙이면 본문과 같다(빈칸 밖으로 뺀 부호를 잃지 않는다)
+  for (const v of SEED) {
+    const ws = NV.nvWords(v.text);
+    assert.equal(ws.map((w, i) => (i && !w.glue ? ' ' : '') + w.pre + w.core + w.post).join(''), v.text.trim().replace(/\s+/g, ' '), String(v.no));
+  }
 });
 
 test('④ 주제 칸 — A~E 는 두 구절씩 여섯 칸 · 확신·생활 지침은 한 구절씩', () => {
@@ -194,7 +224,9 @@ test('④ 쓰는 말 — 마친 수만(전체 수 없음) · 앨범·복습 약�
   for (const fn of ['startTest', 'renderTestScreen', 'showStageDoneModal', 'renderCompleteNav', 'renderVerseList', 'checkAllComplete'])
     assert.ok(!new RegExp('\\b' + fn + '\\(').test(code), fn + ' — 주간 화면 함수는 전역 verses(주간)에 묶여 있다');
   assert.ok(/setupAutoCheck\(verse, stage, \(\) => nvStageDone\(verse, stage, isCardMode\(\)\)\);/.test(code), '자기 완료 길(onDone)을 넘긴다 — 안 넘기면 주간 완료 길로 간다');
-  assert.ok(/saveProgress\(verse\.no, stage, cardUsed \? "card" : "typing"\);/.test(code), 'mode 는 typing/card(서버가 learn-* 로)');
+  assert.ok(/saveProgress\(verse\.no, stage, cardUsed \? "card" : "typing", nvLang\(verse\)\);/.test(code),
+    'mode 는 typing/card(서버가 learn-* 로) · 언어는 nvLang 으로 넘긴다(app.js verseLang 은 주제별 구절을 몰라 늘 ko)');
+  assert.ok(!/getPassedStage\(no\)/.test(code), '단계는 언어마다 — getPassedStage 에 nvLang 을 넘긴다');
   // 속성(last.verses · d.verses)은 빼고 맨 이름 verses 만 — 전역 verses(주간)에 넣거나 바꾸지 않는다
   assert.ok(!/(?<![.\w$])verses\s*\.\s*(push|concat|splice|unshift)\b|(?<![.\w$])verses\s*=(?!=)/.test(code), '전역 verses(주간)를 건드리지 않는다');
 });

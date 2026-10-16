@@ -11,7 +11,13 @@
 //      완료 이전/다음이 전역 verses(주간)에 묶여 있어, 네비게이토 구절을 넘기면 주간 1번으로 튄다(쉴만한 물가가 먼저 겪었다).
 //      생김새(.test-screen)와 공용 부품(pickBlankIndices · setupAutoCheck 의 onDone · 카드 · 반복해서 쓰기 · 마음에 둠)만 빌린다.
 //   ⚠️ 네비게이토는 전역 verses 에 넣지 않는다(첫 화면 「N구절 마쳤어요」·이번 주 말씀·다음 말씀·도전 풀·복습 대기열이 바뀐다).
-//   ⚠️ 복습·앨범·영어(NIV)·딥링크(?v=)는 1단계에서 네비게이토를 모른다 — 그래서 「앨범에 담겼어요」·「복습이 예약됐어요」를 쓰지 않는다.
+//   ⚠️ 복습·앨범·딥링크(?v=)는 네비게이토를 모른다 — 그래서 「앨범에 담겼어요」·「복습이 예약됐어요」를 쓰지 않는다.
+//   💡 풀이 · 🧠 기억법 · 영어(NIV) — 2026-10-16(친구 「그림은 빼고 나머지」 · 「모두 반영」). 구절에 helpEasy·helpTip·textEn·refEn 이 실려 온다
+//      (supabase/navi_help.sql · api navi.ts). 영어는 주간과 같은 길이다 — 설정 「암송 언어」(app.js getLang)가 English 이고 textEn 이 있으면
+//      isEnMode(verse) 가 참 → 본문 · 장절 · 듣기 · 진도(언어별)가 영어로. ⚠️ 진도 언어는 nvLang 으로 **꼭 넘긴다** —
+//      app.js verseLang(no) 는 전역 verses(주간)에서 찾아 주제별 구절이면 늘 ko 를 돌려준다.
+//   ⚠️ 빈칸 · 카드에는 문장부호를 넣지 않는다(친구 2026-10-16 「암송 구절에 쉼표 등은 제외」) — nvWords 가 낱말 앞뒤 부호를 떼어
+//      빈칸 밖에 글자로 둔다. 한글 본문은 넣을 때 이미 뺐다(tools/navi-fit.py) · 영어는 NIV 본문 그대로 보이고 쓰는 칸에만 없다.
 // ============================================================
 
 // ── 네비게이토 순수 함수 (여기부터) ──
@@ -46,6 +52,9 @@ function nvReadAnswer(d) {
     .map((v) => ({
       no: Number(v.no), chapter: v.chapter, topic: String(v.topic || ""),
       refShort: String(v.refShort || ""), refFull: String(v.refFull || v.refShort || ""), text: String(v.text).trim(),
+      // 영어(NIV) · 풀이 · 기억법(2026-10-16) — 옛 서버는 안 싣는다(빈 글자 → 한글만 · 도우미 탭 없음)
+      textEn: String(v.textEn || "").trim(), refEn: String(v.refEn || "").trim(),
+      helpEasy: String(v.helpEasy || "").trim(), helpTip: String(v.helpTip || "").trim(),
     }))
     .sort((a, b) => a.no - b.no);
   return cards.length ? { state: "ok", verses: cards } : { state: "empty", verses: [] };
@@ -83,6 +92,20 @@ const NV_MSG = {
   allDone: "🎉 다 마쳤어요",
 };
 function nvChapterSub(done, total) { return total > 0 && done >= total ? NV_MSG.allDone : done > 0 ? done + "구절 마침" : ""; }
+// 본문 → 낱말 조각 — 빈칸 · 카드에는 core(글자)만 넣고 앞뒤 문장부호(pre · post)는 빈칸 밖 글자로 둔다(친구 2026-10-16).
+//   「"Come,」 → pre 「"」 · core 「Come」 · post 「,」 · 「God's」 처럼 낱말 안의 부호는 core 에 남는다(영어 채점은 부호를 안 본다 — app.js easyEnNorm).
+//   줄표로 붙은 「God—this」 는 두 조각(「God—」 · 「this」) — glue 가 참이면 앞 조각과 띄우지 않고 붙여 그린다.
+//   부호뿐인 조각(따로 선 「—」)은 core 가 비어 빈칸이 되지 않는다.
+function nvWords(text) {
+  const out = [];
+  String(text || "").trim().split(/\s+/).filter(Boolean).forEach((tok) => {
+    tok.replace(/—(?=\S)/g, "—\u0000").split("\u0000").forEach((part, k) => {
+      const m = /^([^\p{L}\p{N}]*)(.*?)([^\p{L}\p{N}]*)$/u.exec(part);
+      out.push({ pre: m[1], core: m[2], post: m[3], glue: k > 0 });
+    });
+  });
+  return out;
+}
 // ── 네비게이토 순수 함수 (여기까지) ──
 
 let nvVerses = [];          // 받은 카드(번호순) — 전역 verses(주간)와 따로 둔다
@@ -110,7 +133,10 @@ function nvLoad(force) {
     });
   return nvLoadingP;
 }
-function nvPassed(no) { return getPassedStage(no); }
+// 이 구절을 지금 어느 언어로 외우나 — 영어 본문이 있고 설정이 English 면 en(주간 verseLang 과 같은 판단 · 전역 verses 를 안 본다)
+function nvLang(v) { return v && typeof isEnMode === "function" && isEnMode(v) ? "en" : "ko"; }
+// 단계는 언어마다 따로 센다(주간과 같다 — docs/notes/english-niv.md) · 받은 카드에 없는 번호는 한글로
+function nvPassed(no) { return getPassedStage(no, nvLang(nvVerses.find((x) => x.no === no))); }
 function nvMsgHtml(state) {
   if (state === "unknown") return `<p class="vl-empty">${NV_MSG.unknown}</p><div class="nv-retry-row"><button type="button" class="ps-tool" id="nv-retry">다시 불러오기</button></div>`;
   return `<p class="vl-empty">${NV_MSG.empty}</p>`;
@@ -239,8 +265,9 @@ function nvCard(v, k, heartMap) {
   const passed = nvPassed(v.no);
   const status = STATUS_LABEL[passed] || STATUS_LABEL[0];
   const isHeart = !!heartMap[v.no];
-  const refShow = String(v.refFull).replace(/(\d)-(\d)/g, "$1-⁠$2");   // 「11-12절」이 하이픈에서 꺾이지 않게(말씀 목록과 같다)
-  const body = isHeart ? vlAutoHint(v.text) : v.text;
+  const ref = verseRefFull(v), text = verseText(v);   // 영어 모드면 NIV 본문 · 「Rom 6:23」(주간 목록과 같다)
+  const refShow = String(ref).replace(/(\d)-(\d)/g, "$1-⁠$2");   // 「11-12절」이 하이픈에서 꺾이지 않게(말씀 목록과 같다)
+  const body = isHeart ? vlAutoHint(text) : text;
   const card = document.createElement("div");
   card.className = `verse-card vl-card nv-card ${status.cls}${isHeart ? " hearted-verse" : ""}`;
   card.dataset.no = v.no;
@@ -253,7 +280,7 @@ function nvCard(v, k, heartMap) {
           ${isHeart ? vlHeartHtml() : ""}
         </div>
       </div>
-      <button class="card-listen" aria-label="${psalmEsc(v.refFull)} 듣기" title="듣기">${vlListenInner()}</button>`;
+      <button class="card-listen" aria-label="${psalmEsc(ref)} 듣기" title="듣기">${vlListenInner()}</button>`;
   card.addEventListener("click", () => { albumPlayStop(); nvStart(v); });
   // 듣기 — 카드 누름(암송 시작)으로 번지지 않게 · 빠르게 N번 누르면 N번 읽는다(말씀 목록과 같다)
   const listenBtn = card.querySelector(".card-listen");
@@ -262,7 +289,7 @@ function nvCard(v, k, heartMap) {
     e.stopPropagation();
     clicks += 1;
     if (timer) clearTimeout(timer);
-    timer = setTimeout(() => { speakText(verseSpokenText(v), null, clicks, "ko-KR"); clicks = 0; }, 350);
+    timer = setTimeout(() => { speakText(verseSpokenText(v), null, clicks, verseTtsLang(v)); clicks = 0; }, 350);
   });
   return card;
 }
@@ -280,19 +307,28 @@ function nvStart(v) {
 // 첫 완주를 걷는 중인가 — 저장하기 전에 본다. isFirstJourney 는 주간만 세므로 네비게이토 마친 수도 함께 본다(물가와 같다).
 function nvWasFirst() { return isFirstJourney() && nvDoneCount(nvVerses, nvPassed) === 0; }
 
-// 생김새는 주간 암송 화면(.test-screen)과 같다 — 다만 🎤 소리 내어 암송·풀이·설교 연결은 1단계에서 뺐다(설계 §2-4).
+// 생김새는 주간 암송 화면(.test-screen)과 같다 — 다만 🎤 소리 내어 암송 · 설교 연결은 뺐다(설계 §2-4 · 설교에 매이지 않는 구절이다).
+//   💡 풀이 · 🧠 기억법 · 🌐 영어(반대쪽 언어 보기)는 주간과 같은 줄(app.js fillVerseHelp — 구절에 실린 helpEasy·helpTip 을 먼저 본다).
 function renderNaviTest(verse, stage) {
   stopSpeaking();
   const app = document.getElementById("app");
   const first = nvWasFirst();
-  const tokens = String(verse.text || "").trim().split(/\s+/);
+  const en = isEnMode(verse);
+  const words = nvWords(verseText(verse));
+  const cores = words.map((w) => w.core);
   const ratio = stage === 1 ? 0.25 : stage === 2 ? 0.65 : 1.0;
-  const flags = pickBlankIndices(tokens, ratio);
-  // ⚠️ 한글 칸 폭은 em(주간·물가와 같다 — ch 는 숫자 0 의 폭이라 네 글자 칸이 두 글자 반이 된다)
-  const wordsHtml = tokens.map((w, i) => flags[i]
-    ? `<input class="word-input" data-answer="${psalmEsc(w)}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="width:${Array.from(w).length + 1}em" />`
-    : `<span class="word-fixed">${psalmEsc(w)}</span>`).join(" ");
-  const answerHtml = tokens.map((w, i) => (flags[i] ? `<strong class="ans-word">${psalmEsc(w)}</strong>` : psalmEsc(w))).join(" ");
+  const flags = pickBlankIndices(cores, ratio).map((f, i) => f && !!cores[i]);   // 부호뿐인 조각은 빈칸이 되지 않는다
+  // ⚠️ 한글 칸 폭은 em(주간·물가와 같다 — ch 는 숫자 0 의 폭이라 네 글자 칸이 두 글자 반이 된다) · 영어는 ch(주간 영어와 같다)
+  const width = (w) => (en ? `${Array.from(w).length + 2}ch` : `${Array.from(w).length + 1}em`);
+  const punct = (p, cls) => (p ? `<span class="nv-punct ${cls}">${psalmEsc(p)}</span>` : "");
+  const joinWords = (parts) => parts.map((h, i) => (i && !words[i].glue ? " " : "") + h).join("");
+  // 빈칸과 그 앞뒤 부호는 한 덩어리로(.nv-wb — 쉼표만 다음 줄로 떨어지지 않게)
+  const wordsHtml = joinWords(words.map((w, i) => flags[i]
+    ? `<span class="nv-wb">${punct(w.pre, "pre")}<input class="word-input" data-answer="${psalmEsc(w.core)}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="width:${width(w.core)}" />${punct(w.post, "post")}</span>`
+    : `<span class="word-fixed">${psalmEsc(w.pre + w.core + w.post)}</span>`));
+  const answerHtml = joinWords(words.map((w, i) => (flags[i]
+    ? `${psalmEsc(w.pre)}<strong class="ans-word">${psalmEsc(w.core)}</strong>${psalmEsc(w.post)}`
+    : psalmEsc(w.pre + w.core + w.post))));
   const repeatHtml = stage === 3 ? `
         <label class="repeat-toggle" id="repeat-label">
           <input type="checkbox" id="repeat-check"${isRepeatPractice() ? " checked" : ""} />
@@ -302,9 +338,9 @@ function renderNaviTest(verse, stage) {
   const heartHtml = stage === 3 ? heartCheckHtml(verse) : "";
   const tag = [nvChapterTitle(verse.chapter), verse.topic].filter(Boolean).join(" · ");
   app.innerHTML = `
-    <div class="test-screen nv-test">
+    <div class="test-screen nv-test${en ? " en" : ""}">
       <div class="test-card with-ref-banner">
-        <div class="test-ref-sticky">${psalmEsc(verse.refFull)}</div>
+        <div class="test-ref-sticky">${psalmEsc(verseRefFull(verse))}</div>
         <div class="btn-row">
           <button class="answer-btn" id="show-answer-btn">보기</button>
           <button class="answer-btn" id="listen-answer-btn" aria-label="정답 음성으로 듣기">🔊 듣기</button>
@@ -325,9 +361,11 @@ function renderNaviTest(verse, stage) {
           <div class="answer-text">${answerHtml}</div>
           <button class="back-to-test-btn" id="back-to-test-btn">돌아가서 계속하기</button>
         </div>
+        <div id="help-slot" class="help-slot"></div>
         ${repeatHtml}
         <div id="result-area"></div>
         ${heartHtml}
+        ${nivAttributionHtml(verse)}
       </div>
     </div>`;
 
@@ -346,9 +384,10 @@ function renderNaviTest(verse, stage) {
       return;
     }
     listenBtn.textContent = "⏹ 정지";
-    speakText(verseSpokenText(verse), () => { listenBtn.textContent = "🔊 듣기"; }, 1, "ko-KR");
+    speakText(verseSpokenText(verse), () => { listenBtn.textContent = "🔊 듣기"; }, 1, verseTtsLang(verse));
   });
   setupAnswerToggle();
+  fillVerseHelp(verse);   // 💡 풀이 · 🧠 기억법 · 🌐 영어/🇰🇷 한글 — 실린 것이 없으면 줄이 비어 있다
   // ⚠️ 카드 여부는 「카드 모드로 마쳤는가」(isCardMode)로 센다 — 주간 checkAllComplete·물가와 같은 뜻이다.
   setupAutoCheck(verse, stage, () => nvStageDone(verse, stage, isCardMode()));
   // 주간 암송 화면과 같은 A안 옷(app.js applyMemoLayout · 스위치 MEMO_LAYOUT · 2026-10-14) — 다시 그리기는 이 화면 함수로(주간 함수는 못 부른다)
@@ -360,7 +399,7 @@ function renderNaviTest(verse, stage) {
 //   ⚠️ 복습은 예약되지 않는다 — saveProgress 의 ensureReviewScheduled 와 서버가 isNonWeeklyNo(1000 초과)로 뺀다.
 function nvStageDone(verse, stage, cardUsed) {
   const wasFirst = nvWasFirst();   // 저장하고 나면 이미 「한 구절 마친 분」이 된다
-  saveProgress(verse.no, stage, cardUsed ? "card" : "typing");
+  saveProgress(verse.no, stage, cardUsed ? "card" : "typing", nvLang(verse));   // ⚠️ 언어를 꼭 넘긴다(nvLang 머리 주석)
   const rs = document.getElementById("result-area");
   if (stage < 3) {
     // 창보다 먼저 화면에도 「N+1단계로」를 남긴다 — 창은 바깥 탭·Escape 로 닫힐 수 있다(그때 갈 길이 없으면 갇힌다 · 주간과 같다)
@@ -407,7 +446,7 @@ function nvStageModal(verse, stage, wasFirst) {
        ${wasFirst && STEP_CHEER[stage] ? `<div class="cheer-msg">${STEP_CHEER[stage]}</div>` : ""}`
     : `<div class="cheer-icon">🎉</div>
        <div class="cheer-ref">다 외우셨어요!</div>
-       <div class="cheer-msg">${psalmEsc(verse.refFull)}</div>`;
+       <div class="cheer-msg">${psalmEsc(verseRefFull(verse))}</div>`;
   const mainLabel = stage < 3 ? `${stage + 1}단계로 계속하기`
     : nx ? (nx.kind === "next" ? "다음 말씀 ▶" : "남은 말씀 ▶")
     : "묶음 목록으로";

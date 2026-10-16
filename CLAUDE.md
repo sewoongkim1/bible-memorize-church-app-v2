@@ -20,7 +20,7 @@
 | 지나온 길 전체 · 남은 일 · 앞으로 계획(2026-09-24 정리) | `docs/backlog.md` |
 | 암송·도전·복습 화면, 카드 입력, 단계 완료 창 | `docs/notes/memorize-flow.md` |
 | 쉴만한 물가(시편·잠언·전도서 액자) | `docs/notes/psalm-still-waters.md` |
-| 📚 네비게이토 성경암송 — 화면 이름 **「주제별 성경암송」**(2026-10-13 **열림** — `naviPublic` · 이름 허락 전 · 카드 73장 2001~ · `js/navi.js` 지연) · ⚠️ 구절 번호 판정 둘(`isPsalmNo` 1001~1999 = 물가 화면 / `isNonWeeklyNo` 1000 초과 = 복습에서 뺌) · 카드 줄은 켠 채라 문은 `naviVisible` 하나 | `docs/notes/navigators.md` |
+| 📚 네비게이토 성경암송 — 화면 이름 **「주제별 성경암송」**(2026-10-13 **열림** — `naviPublic` · 이름 허락 전 · 카드 73장 2001~ · `js/navi.js` 지연) · ⚠️ 구절 번호 판정 둘(`isPsalmNo` 1001~1999 = 물가 화면 / `isNonWeeklyNo` 1000 초과 = 복습에서 뺌) · 카드 줄은 켠 채라 문은 `naviVisible` 하나 · **💡 풀이 · 🧠 기억법 · 영어(NIV) 2026-10-16**(칸 `help_easy`·`help_tip` · NIV 데이터 SQL 은 .gitignore · ⚠️ 진도 언어는 `nvLang` 을 꼭 넘긴다 · 빈칸에 문장부호 없음) | `docs/notes/navigators.md` |
 | 매일 묵상(무엇을 보여 줄지) | `docs/notes/meditation.md` |
 | 가정 축복 기도문 | `docs/notes/prayer-book.md` |
 | 첫 화면·묶음·색·아래 고정 단추 | `docs/notes/home-screen.md` |
