@@ -749,3 +749,8 @@ test('시작일 역순(2026-10-16 친구 「앱에서 시작일자 역순」) �
   assert.ok(/firstDate: first, lastDate: last, finished/.test(api), 'api eduMineOut 이 firstDate · finished 를 싣는다');
 });
 
+test('마친 강좌는 문의 줄을 뺀다(2026-10-16 친구) — 「내 강좌」 카드 · 자세히 「문의」', () => {
+  assert.ok(src.includes("(m.finished === true ? '' : eduContactLine(m.contact))"), '내 강좌 카드');
+  assert.ok(src.includes("['📞', '문의', m && m.finished === true ? '' : c.contact]"), '자세히 문의 줄');
+});
+

@@ -455,7 +455,7 @@ function eduDrawList(tab) {
         '<b>' + eduEsc(m.title) + '</b><span class="edu-tm">' + eduEsc(m.term) + '</span>' +
         (m.target ? '<span class="edu-tg">대상 · ' + eduEsc(m.target) + '</span>' : '') +   // 대상(2026-10-16 친구 · api eduMineOut target · 옛 서버면 칸이 없어 안 그린다)
         (m.nextSession ? '<span class="edu-nx">다음 시간 · ' + eduEsc(eduMdw(m.nextSession.date)) + (m.nextSession.start ? ' ' + eduEsc(m.nextSession.start) : '') + '</span>' : '') +
-        eduContactLine(m.contact) +
+        (m.finished === true ? '' : eduContactLine(m.contact)) +   // 마친 강좌는 문의 줄을 뺀다(2026-10-16 친구 「교육 끝나서 연락할 필요가 없어요」)
         (eduAttendLine(m.attend) ? '<span class="edu-att">' + eduEsc(eduAttendLine(m.attend)) + '</span>' : '') +   // 출석(2단계) — 체크한 칸이 있을 때만
         (eduCertLine(m) ? '<span class="edu-cert-k">' + eduEsc(eduCertLine(m)) + '</span>' : '') +   // 수료(3단계) — 「🎓 수료 · 고척-2026-0001」
         '</div>'; }).join('') : '<p class="edu-empty">아직 신청한 강좌가 없어요.</p>';
@@ -506,7 +506,7 @@ function renderEduCourse(id, opt) {
       (chip ? '<span class="edu-chip' + (c.phase === 'open' ? ' on' : c.phase === 'closed' ? ' shut' : '') + '">' + eduEsc(chip) + '</span>' : '') + '</div>';   // shut — 모집 완료 눈에 띄게(2026-10-16)
     var gl = [['📅', '언제', eduWhenLine(c)], ['📍', '어디서', c.place], ['🙋', '대상', c.target],
       ['📚', '먼저 들으실 과정', c.prereq && c.prereq.length ? c.prereq.join(', ') : ''], ['👤', '강사', c.teacher], ['📘', '교재비', c.fee],
-      ['📞', '문의', c.contact]]   // 담당자가 적은 문의처 한 줄(모집 전·진행 중에도 보인다 · 친구 2026-10-06)
+      ['📞', '문의', m && m.finished === true ? '' : c.contact]]   // 담당자가 적은 문의처 한 줄(모집 전·진행 중에도 보인다 · 친구 2026-10-06) · 내가 마친 강좌는 뺀다(2026-10-16)
       .filter(function (x) { return x[2]; })
       .map(function (x) {
         var v = x[1] === '언제'   // 날짜 덩이가 중간에서 안 끊기게(「12월 / 13일」) — 줄은 덩이 사이(~ ·)에서만 바꾼다
