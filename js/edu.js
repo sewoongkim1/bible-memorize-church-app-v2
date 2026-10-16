@@ -61,6 +61,9 @@ function eduMineView(m) {
   if (m.status === 'confirmed' && m.completed === true && m.certNo) {
     return { tone: 'ok', head: '🎓 수료했어요', lines: ['수료번호 ' + m.certNo], cancelLine: '', cancelBtn: null, cancelAsk: '', cert: true };
   }
+  if (m.status === 'confirmed' && m.finished === true) {   // 마친 강좌(2026-10-16 친구) — 취소 안내 없이 「완료」
+    return { tone: 'ok', head: '✅ 완료했어요', lines: [], cancelLine: '', cancelBtn: null, cancelAsk: '' };
+  }
   if (m.status === 'declined') {   // 성도님 화면에 「반려」를 쓰지 않는다(친구 2026-10-05) — 「반려 유지」는 서버가 지킨다
     return { tone: 'soft', head: '이번 신청은 확정되지 않았어요', lines: ['궁금하시면 담당자에게 말씀해 주세요.'], cancelLine: '', cancelBtn: null, cancelAsk: '' };
   }
@@ -95,6 +98,7 @@ function eduStatusLine(m) {   // 「내 강좌」 카드 칩 — 성도님 화�
   if (m.status === 'waitlisted') return '대기 ' + (m.waitNo || 1) + '번';
   if (m.status === 'declined') return '확정되지 않음';
   if (m.status === 'applied') return '확인 중';
+  if (m.status === 'confirmed' && m.finished === true) return '완료';   // 마친 강좌(2026-10-16 친구 「확정이 아닌 완료로」 · api eduMineOut finished)
   return m.statusLabel;
 }
 function eduErrText(code) {
@@ -328,8 +332,15 @@ function eduDeepLinkId(href) {
 //   「모집 중」 탭 = 모집 중 강좌 + 그 아래 「모집 끝」 묶음(상태 모집 끝 · 신청 마감일이 지난 강좌 · 서버 eduPhase 'closed') · 「곧 열려요」 = 신청 전.
 //   진행 중(running)은 목록에 두지 않는다(그전처럼 — 「내 강좌」에서 본다).
 function eduListGroups(list) {
-  var by = function (p) { return (list || []).filter(function (c) { return c && c.phase === p; }); };
+  var by = function (p) { return eduDateDesc((list || []).filter(function (c) { return c && c.phase === p; }), function (c) { return c.firstDate; }); };
   return { open: by('open'), closed: by('closed'), soon: by('upcoming') };
+}
+// 교육 시작일 역순(2026-10-16 친구 「앱에서 시작일자 역순」 · 교회 어드민 강좌 목록과 같은 차례) — 날짜가 없는 것은 맨 아래 · 같은 날은 받은 차례.
+//   강좌 목록은 firstDate(api eduCourseOut — 시작일 · 없으면 첫 회차) · 「내 강좌」도 firstDate(api eduMineOut — 첫 회차 · 없으면 시작일).
+function eduDateDesc(list, keyOf) {
+  var k = (list || []).map(function (x, i) { return { x: x, i: i, d: String(keyOf(x) || '') }; });
+  k.sort(function (a, b) { return (!a.d !== !b.d) ? (a.d ? -1 : 1) : (a.d !== b.d ? (a.d < b.d ? 1 : -1) : a.i - b.i); });
+  return k.map(function (o) { return o.x; });
 }
 // ── 교육 순수 함수 (여기까지) ──
 
@@ -372,7 +383,7 @@ function eduApplyListA(w, tab) {
     var ct = c.querySelector('.edu-ct'); if (ct) { var i0 = ct.querySelector('i'); if (i0) i0.outerHTML = eduIc('phone'); ct.classList.add('edu-ln'); }
     if (tab === 'mine') {   // 내 강좌 칩 — 확정 초록 · 대기 금색 · 확인 중 남색 · 확정되지 않음 회색
       var k = c.querySelector('.edu-k'), kx = k ? k.textContent : '';
-      var kc = /^대기/.test(kx) ? 'wait' : /확인 중/.test(kx) ? 'chk' : /확정되지/.test(kx) ? 'no' : /확정|수료/.test(kx) ? 'ok' : '';
+      var kc = /^대기/.test(kx) ? 'wait' : /확인 중/.test(kx) ? 'chk' : /확정되지/.test(kx) ? 'no' : /확정|수료|완료/.test(kx) ? 'ok' : '';
       if (k && kc) k.classList.add(kc);
     }
   });
@@ -437,8 +448,9 @@ function eduDrawList(tab) {
   var head = '<h2 class="edu-title">🎓 교육</h2><div class="edu-tabs">' + tabs.map(function (t) {
     return '<button class="edu-tab' + (t[0] === tab ? ' on' : '') + '" data-tab="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>';
   var body;
+  var mineList = eduDateDesc(eduState.mine, function (m) { return m.firstDate; });   // 「내 강좌」도 시작일 역순(2026-10-16) — 누른 카드를 이 배열에서 꺼낸다
   if (tab === 'mine') {
-    body = eduState.mine.length ? eduState.mine.map(function (m, i) {
+    body = mineList.length ? mineList.map(function (m, i) {
       return '<div class="edu-card" data-i="' + i + '"><span class="edu-k">' + eduEsc(eduStatusLine(m)) + '</span>' +
         '<b>' + eduEsc(m.title) + '</b><span class="edu-tm">' + eduEsc(m.term) + '</span>' +
         (m.target ? '<span class="edu-tg">대상 · ' + eduEsc(m.target) + '</span>' : '') +   // 대상(2026-10-16 친구 · api eduMineOut target · 옛 서버면 칸이 없어 안 그린다)
@@ -464,7 +476,7 @@ function eduDrawList(tab) {
   var door = (!eduState.open && tab !== 'mine') ? '<p class="edu-empty">' + eduErrText('not-open') + '</p>' : '';
   w.innerHTML = head + door + '<div class="edu-list">' + body + '</div>';
   w.querySelectorAll('.edu-tab').forEach(function (b) { b.addEventListener('click', function () { eduDrawList(b.dataset.tab); }); });
-  var rows = tab === 'mine' ? eduState.mine : (tab === 'soon' ? soon : openTab);   // 강좌 번호는 화면 글자(data-*)에 싣지 않고 이 배열에서 꺼낸다
+  var rows = tab === 'mine' ? mineList : (tab === 'soon' ? soon : openTab);   // 강좌 번호는 화면 글자(data-*)에 싣지 않고 이 배열에서 꺼낸다
   w.querySelectorAll('.edu-tel').forEach(function (a) { a.addEventListener('click', function (e) { e.stopPropagation(); }); });
   w.querySelectorAll('.edu-card').forEach(function (c) { c.addEventListener('click', function () {
     var row = rows[Number(c.dataset.i)]; if (row) renderEduCourse(tab === 'mine' ? row.courseId : row.id);

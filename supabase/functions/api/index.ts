@@ -5552,8 +5552,8 @@ async function eduWaitNo(courseId: string, waitAt: string | null, id: number): P
 async function eduMineOut(rows: any[], today: string, att?: Map<number, Map<number, string>>) {
   const ids = [...new Set(rows.map((r) => r.course_id))];
   if (!ids.length) return [];
-  // target — 「내 강좌」 카드의 대상 줄(2026-10-16 친구 · 목록 카드 eduCourseOut 과 같은 값)
-  const { data: cs, error } = await db.from("edu_courses").select("id,title,term,starts_on,contact_note,target").in("id", ids);
+  // target — 「내 강좌」 카드의 대상 줄(2026-10-16 친구 · 목록 카드 eduCourseOut 과 같은 값) · status · ends_on — 끝났나(「완료」 · 2026-10-16)
+  const { data: cs, error } = await db.from("edu_courses").select("id,title,term,starts_on,ends_on,status,contact_note,target").in("id", ids);
   if (error) throw error;
   const cmap = new Map((cs ?? []).map((c: any) => [c.id, c]));
   const sess = await eduSessionsOf(ids);
@@ -5573,11 +5573,15 @@ async function eduMineOut(rows: any[], today: string, att?: Map<number, Map<numb
     const canCancel = ["applied", "waitlisted"].includes(r.status) && (cancelUntil === null || today <= cancelUntil) && !activeCert;
     // 수료(3단계) — completed 는 수료이고 취소되지 않았을 때만 true · certNo 도 그때만(취소된 번호는 내 화면에 싣지 않는다)
     const done = r.completed === true && activeCert;
+    // 마친 강좌(2026-10-16 친구 「확정이 아닌 완료로」) — 강좌가 끝 · 보관이거나 마지막 날(마지막 회차 · 없으면 교육 종료일)이 지났으면
+    const last = ss.length ? ss[ss.length - 1].on_date : (c.ends_on ?? null);
+    const finished = c.status === "done" || c.status === "archived" || (!!last && last < today);
     return { id: r.id, courseId: r.course_id, title: c.title, term: c.term || "", contact: c.contact_note || "", target: c.target || "", status: r.status,
       statusLabel: EDU_ENROLL_LABEL[r.status] || r.status, waitNo: waits[i], cancelUntil, canCancel,
       nextSession: next ? { no: next.no, date: next.on_date, start: next.start_time?.slice(0, 5) ?? null } : null,
       attend: eduAttendOut(attBy.get(Number(r.id))),
-      completed: done, certNo: done ? String(r.cert_no) : null };
+      completed: done, certNo: done ? String(r.cert_no) : null,
+      firstDate: first, lastDate: last, finished };   // 교육 날짜(앱이 「내 강좌」를 시작일 역순으로 세운다) · 끝났나
   });
   return out;
 }

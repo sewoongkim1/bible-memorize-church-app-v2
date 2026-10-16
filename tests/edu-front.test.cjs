@@ -730,3 +730,22 @@ test('확정된 신청은 앱에서 취소하지 않는다(2026-10-16 친구) �
   const api = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', 'api', 'index.ts'), 'utf8');
   assert.ok(/const canCancel = \["applied", "waitlisted"\]\.includes\(r\.status\)/.test(api), 'api canCancel 에 확정이 없어야 한다');
 });
+
+test('「내 강좌」 — 마친 강좌는 「완료」 · 자세히 「✅ 완료했어요」(취소 안내 없음) · 수료가 먼저(2026-10-16 친구)', () => {
+  assert.equal(ctx.eduStatusLine({ status: 'confirmed', statusLabel: '확정', finished: true }), '완료');
+  assert.equal(ctx.eduStatusLine({ status: 'confirmed', statusLabel: '확정', finished: false }), '확정');
+  assert.equal(ctx.eduStatusLine({ status: 'applied', finished: true }), '확인 중');
+  assert.deepEqual(pick(ctx.eduMineView({ status: 'confirmed', finished: true, canCancel: false })),
+    { tone: 'ok', head: '✅ 완료했어요', lines: [], cancelLine: '', cancelBtn: null, cancelAsk: '' });
+  assert.equal(ctx.eduMineView({ status: 'confirmed', finished: true, completed: true, certNo: '고척-2026-0001' }).head, '🎓 수료했어요');
+});
+
+test('시작일 역순(2026-10-16 친구 「앱에서 시작일자 역순」) — 강좌 목록 · 내 강좌 · 날짜 없는 것은 맨 아래 · 같은 날은 받은 차례', () => {
+  const L = [{ id: '1차', phase: 'closed', firstDate: '2026-04-12' }, { id: '3차', phase: 'closed', firstDate: '2026-11-08' },
+    { id: '없음', phase: 'closed', firstDate: null }, { id: '2차', phase: 'closed', firstDate: '2026-06-14' }, { id: '같은날', phase: 'closed', firstDate: '2026-06-14' }];
+  assert.equal(JSON.stringify(ctx.eduListGroups(L).closed.map((c) => c.id)), JSON.stringify(['3차', '2차', '같은날', '1차', '없음']));
+  assert.equal(JSON.stringify(ctx.eduDateDesc([{ n: 'a', d: '2026-06-14' }, { n: 'b', d: '2026-11-08' }], (x) => x.d).map((x) => x.n)), JSON.stringify(['b', 'a']));
+  const api = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', 'api', 'index.ts'), 'utf8');
+  assert.ok(/firstDate: first, lastDate: last, finished/.test(api), 'api eduMineOut 이 firstDate · finished 를 싣는다');
+});
+
