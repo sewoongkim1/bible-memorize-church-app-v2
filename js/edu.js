@@ -377,6 +377,7 @@ function eduDrawList(tab) {
     body = eduState.mine.length ? eduState.mine.map(function (m, i) {
       return '<div class="edu-card" data-i="' + i + '"><span class="edu-k">' + eduEsc(eduStatusLine(m)) + '</span>' +
         '<b>' + eduEsc(m.title) + '</b><span>' + eduEsc(m.term) + '</span>' +
+        (m.target ? '<span class="edu-tg">대상 · ' + eduEsc(m.target) + '</span>' : '') +   // 대상(2026-10-16 친구 · api eduMineOut target · 옛 서버면 칸이 없어 안 그린다)
         (m.nextSession ? '<span>다음 시간 · ' + eduEsc(eduMdw(m.nextSession.date)) + (m.nextSession.start ? ' ' + eduEsc(m.nextSession.start) : '') + '</span>' : '') +
         eduContactLine(m.contact) +
         (eduAttendLine(m.attend) ? '<span class="edu-att">' + eduEsc(eduAttendLine(m.attend)) + '</span>' : '') +   // 출석(2단계) — 체크한 칸이 있을 때만

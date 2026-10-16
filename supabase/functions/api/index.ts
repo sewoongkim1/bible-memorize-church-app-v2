@@ -5552,7 +5552,8 @@ async function eduWaitNo(courseId: string, waitAt: string | null, id: number): P
 async function eduMineOut(rows: any[], today: string, att?: Map<number, Map<number, string>>) {
   const ids = [...new Set(rows.map((r) => r.course_id))];
   if (!ids.length) return [];
-  const { data: cs, error } = await db.from("edu_courses").select("id,title,term,starts_on,contact_note").in("id", ids);
+  // target — 「내 강좌」 카드의 대상 줄(2026-10-16 친구 · 목록 카드 eduCourseOut 과 같은 값)
+  const { data: cs, error } = await db.from("edu_courses").select("id,title,term,starts_on,contact_note,target").in("id", ids);
   if (error) throw error;
   const cmap = new Map((cs ?? []).map((c: any) => [c.id, c]));
   const sess = await eduSessionsOf(ids);
@@ -5571,7 +5572,7 @@ async function eduMineOut(rows: any[], today: string, att?: Map<number, Map<numb
     const canCancel = ["applied", "confirmed", "waitlisted"].includes(r.status) && (cancelUntil === null || today <= cancelUntil) && !activeCert;
     // 수료(3단계) — completed 는 수료이고 취소되지 않았을 때만 true · certNo 도 그때만(취소된 번호는 내 화면에 싣지 않는다)
     const done = r.completed === true && activeCert;
-    return { id: r.id, courseId: r.course_id, title: c.title, term: c.term || "", contact: c.contact_note || "", status: r.status,
+    return { id: r.id, courseId: r.course_id, title: c.title, term: c.term || "", contact: c.contact_note || "", target: c.target || "", status: r.status,
       statusLabel: EDU_ENROLL_LABEL[r.status] || r.status, waitNo: waits[i], cancelUntil, canCancel,
       nextSession: next ? { no: next.no, date: next.on_date, start: next.start_time?.slice(0, 5) ?? null } : null,
       attend: eduAttendOut(attBy.get(Number(r.id))),
