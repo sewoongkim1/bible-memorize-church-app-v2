@@ -5574,6 +5574,16 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .edu-card span { font-size: 14px; color: var(--gray); }
 .edu-card .edu-k { align-self: flex-start; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--light); color: var(--navy); }
 .edu-empty { color: var(--gray); padding: 12px 0; line-height: 1.6; }
+/* 모집 끝 강좌(2026-10-16 친구) — 「모집 중」 탭 아래 묶음 · 꼬리표 · 흐린 카드(js/edu.js eduListGroups · eduDrawList) */
+.edu-sec { margin: 16px 0 8px; font-size: 14px; font-weight: 800; color: var(--gray); }
+.edu-card .edu-ks { display: flex; flex-wrap: wrap; gap: 6px; }
+.edu-card .edu-k.shut { background: #ececec; color: #555; }
+.edu-card.edu-shut { background: #f7f5f1; }
+.edu-card.edu-shut b { color: #5d6b82; }
+.dark .edu-sec { color: #b9c2d0; }
+.dark .edu-card .edu-k.shut { background: #2b303b; color: #c3c9d4; }
+.dark .edu-card.edu-shut { background: #121925; }
+.dark .edu-card.edu-shut b { color: #9fb2cf; }
 .edu-sub { color: var(--gray); margin-bottom: 10px; font-size: 15px; }
 .edu-desc { white-space: pre-line; line-height: 1.6; font-size: 15px; }
 .edu-sess { padding-left: 20px; line-height: 1.7; font-size: 15px; }

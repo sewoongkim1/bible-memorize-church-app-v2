@@ -319,6 +319,13 @@ function eduDeepLinkId(href) {
   }
   return null;
 }
+// 목록 탭 나누기(2026-10-16 친구 「마감한 강좌도 모두에게 「모집 끝」 꼬리표를 달아 목록에」) —
+//   「모집 중」 탭 = 모집 중 강좌 + 그 아래 「모집 끝」 묶음(상태 모집 끝 · 신청 마감일이 지난 강좌 · 서버 eduPhase 'closed') · 「곧 열려요」 = 신청 전.
+//   진행 중(running)은 목록에 두지 않는다(그전처럼 — 「내 강좌」에서 본다).
+function eduListGroups(list) {
+  var by = function (p) { return (list || []).filter(function (c) { return c && c.phase === p; }); };
+  return { open: by('open'), closed: by('closed'), soon: by('upcoming') };
+}
 // ── 교육 순수 함수 (여기까지) ──
 
 var eduState = { list: null, mine: [], open: true, tab: 'open', screen: 0, certUrl: '' };   // screen: 화면이 바뀔 때마다 올라가는 번호 — 늦게 온 응답이 다른 화면을 덮지 않게
@@ -360,8 +367,8 @@ function renderEduList(tab) {
 function eduDrawList(tab) {
   var w = document.querySelector('.edu-wrap'); if (!w) return;
   eduState.tab = tab;
-  var open = eduState.list.filter(function (c) { return c.phase === 'open'; });
-  var soon = eduState.list.filter(function (c) { return c.phase === 'upcoming'; });
+  var g = eduListGroups(eduState.list), open = g.open, soon = g.soon, closed = g.closed;
+  var openTab = open.concat(closed);   // 「모집 중」 탭의 카드 차례(모집 중 → 모집 끝) — 누른 카드를 이 배열에서 꺼낸다
   var tabs = [['open', '모집 중'], ['soon', '곧 열려요'], ['mine', '내 강좌']];
   var head = '<h2 class="edu-title">🎓 교육</h2><div class="edu-tabs">' + tabs.map(function (t) {
     return '<button class="edu-tab' + (t[0] === tab ? ' on' : '') + '" data-tab="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>';
@@ -376,18 +383,22 @@ function eduDrawList(tab) {
         (eduCertLine(m) ? '<span class="edu-cert-k">' + eduEsc(eduCertLine(m)) + '</span>' : '') +   // 수료(3단계) — 「🎓 수료 · 고척-2026-0001」
         '</div>'; }).join('') : '<p class="edu-empty">아직 신청한 강좌가 없어요.</p>';
   } else {
-    var list = tab === 'soon' ? soon : open;
-    body = list.length ? list.map(function (c, i) {
-      return '<div class="edu-card" data-i="' + i + '"><span class="edu-k">' + eduEsc(c.kindLabel) + '</span>' +
+    // 모집 끝 카드는 「모집 끝」 꼬리표 · 흐리게(.edu-shut) — 마지막 줄은 eduCardLine 이 「신청을 마감했어요」로 쓴다
+    var card = function (c, i) {
+      var shut = c.phase === 'closed';
+      return '<div class="edu-card' + (shut ? ' edu-shut' : '') + '" data-i="' + i + '">' +
+        '<span class="edu-ks"><span class="edu-k">' + eduEsc(c.kindLabel) + '</span>' + (shut ? '<span class="edu-k shut">모집 끝</span>' : '') + '</span>' +
         '<b>' + eduEsc(c.title) + (c.term ? ' <small>(' + eduEsc(c.term) + ')</small>' : '') + '</b>' +
         (c.firstDate ? '<span>' + eduEsc(eduMd(c.firstDate)) + (c.lastDate && c.lastDate !== c.firstDate ? ' ~ ' + eduEsc(eduMd(c.lastDate)) : '') + (c.sessionsCount ? ' · ' + c.sessionsCount + '회' : '') + '</span>' : '') +
-        '<span>' + eduEsc(eduCardLine(c)) + '</span>' + eduContactLine(c.contact) + '</div>'; }).join('')
-      : '<p class="edu-empty">' + (tab === 'soon' ? '곧 열릴 강좌가 없어요.' : '지금 모집 중인 강좌가 없어요.') + '</p>';
+        '<span>' + eduEsc(eduCardLine(c)) + '</span>' + eduContactLine(c.contact) + '</div>'; };
+    if (tab === 'soon') body = soon.length ? soon.map(card).join('') : '<p class="edu-empty">곧 열릴 강좌가 없어요.</p>';
+    else body = (open.length ? open.map(card).join('') : '<p class="edu-empty">지금 모집 중인 강좌가 없어요.</p>') +
+      (closed.length ? '<p class="edu-sec">모집 끝</p>' + closed.map(function (c, j) { return card(c, open.length + j); }).join('') : '');
   }
   var door = (!eduState.open && tab !== 'mine') ? '<p class="edu-empty">' + eduErrText('not-open') + '</p>' : '';
   w.innerHTML = head + door + '<div class="edu-list">' + body + '</div>';
   w.querySelectorAll('.edu-tab').forEach(function (b) { b.addEventListener('click', function () { eduDrawList(b.dataset.tab); }); });
-  var rows = tab === 'mine' ? eduState.mine : (tab === 'soon' ? soon : open);   // 강좌 번호는 화면 글자(data-*)에 싣지 않고 이 배열에서 꺼낸다
+  var rows = tab === 'mine' ? eduState.mine : (tab === 'soon' ? soon : openTab);   // 강좌 번호는 화면 글자(data-*)에 싣지 않고 이 배열에서 꺼낸다
   w.querySelectorAll('.edu-tel').forEach(function (a) { a.addEventListener('click', function (e) { e.stopPropagation(); }); });
   w.querySelectorAll('.edu-card').forEach(function (c) { c.addEventListener('click', function () {
     var row = rows[Number(c.dataset.i)]; if (row) renderEduCourse(tab === 'mine' ? row.courseId : row.id);

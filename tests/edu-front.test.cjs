@@ -706,3 +706,14 @@ test('eduStatusLine — 내 강좌 칩(「반려」를 쓰지 않는다)', () =>
   assert.equal(ctx.eduStatusLine({ status: 'applied', statusLabel: '신청' }), '확인 중');
   assert.equal(ctx.eduStatusLine({ status: 'declined', statusLabel: '반려' }), '확정되지 않음');
 });
+
+test('eduListGroups — 「모집 중」 탭 아래 「모집 끝」 묶음(2026-10-16) · 진행 중은 목록에 없음', () => {
+  const L = [{ id: 'a', phase: 'open' }, { id: 'b', phase: 'closed' }, { id: 'c', phase: 'upcoming' }, { id: 'd', phase: 'running' }, { id: 'e', phase: 'closed' }];
+  const g = ctx.eduListGroups(L);
+  assert.deepEqual(g.open.map((c) => c.id), ['a']);
+  assert.deepEqual(g.closed.map((c) => c.id), ['b', 'e']);
+  assert.deepEqual(g.soon.map((c) => c.id), ['c']);
+  assert.equal(JSON.stringify(ctx.eduListGroups(null)), JSON.stringify({ open: [], closed: [], soon: [] }));   // vm 안 배열이라 deepEqual 은 원형이 달라 어긋난다
+  // 모집 끝 카드의 마지막 줄 — 누를 것이 없으니 굵은 말만
+  assert.equal(ctx.eduCardLine({ phase: 'closed', mode: 'approve', capacity: 21, confirmed: 21 }), '신청을 마감했어요');
+});
