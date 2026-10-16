@@ -54,3 +54,4 @@
 
 - **2026-10-12 첫 화면 단추 이름 「🎓 교육 신청」 → 「🎓 교육·강좌 신청」(친구).** 교육 화면 제목(「🎓 교육」)·서버 알림 글은 그대로다 — 이 이름은 첫 화면 단추 한 곳뿐이었다(`app.js` renderSummary). 공개할 때 주보·안내 글도 이 이름으로.
 - **화면 A안(2026-10-16 v3.665 · 친구 「1안」)** — 목록 · 자세히 · 내 강좌에 A 옷(`eduApplyListA` · `eduApplyCourseA` · 스위치 `EDU_LAYOUT`). 상세 `docs/notes/design-refresh.md` 「교육 화면 A안」.
+- **확정된 신청은 성도님이 앱에서 취소하지 못한다(2026-10-16 친구 「모든 강좌」)** — SQL `edu_cancel` 의 `confirmed`(차례 not-active → too-late → has-cert → confirmed · 담당자 p_staff 는 그대로) · api `eduMineOut` canCancel 은 승인 기다림 · 대기만 · 앱은 확정이면 단추 없이 「확정된 뒤에는 앱에서 취소할 수 없어요. 못 오시게 되면 담당자에게」 · 선착순 신청 확인 창도 미리 알린다. 그래서 **성도님 취소로 대기 첫 분이 오르는 길은 없어졌다** — 담당자 취소(교회 어드민 eduEnrollSet)가 올리고 알림을 부탁한다(api `eduCancel` 의 올림 알림 코드는 승인 기다림 줄엔 안 돌지만 남겨 둠). 운영 반영은 `supabase/edu_cancel_confirmed.sql`(edu.sql 의 그 함수 사본 · 시험이 같은지 본다) — 개발 · 운영 적용 기록 있음.
