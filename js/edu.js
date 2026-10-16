@@ -37,12 +37,12 @@ function eduSeatView(c, gateOpen) {
   if (gateOpen === false) return off('아직 신청을 받지 않아요', '');
   var until = eduMdw(c.applyTo) ? eduMdw(c.applyTo) + '까지 신청' : '';
   var join = function (a) { return a.filter(Boolean).join(' · '); };
-  var NOW = '누르시면 바로 확정돼요. 첫 시간 전날까지 앱에서 취소할 수 있어요.';
+  var NOW = '누르시면 바로 확정돼요. 확정된 뒤에는 앱에서 취소할 수 없어요.';   // 2026-10-16 친구 「확정되면 본인이 취소를 못하게」
   var on = function (head, sub, how, btn, ask) { return { off: false, head: head, sub: sub, how: how, btn: btn, ask: ask }; };
-  var askNow = { title: '🎓 신청할까요?', line: '선착순이라 누르시면 바로 확정돼요.', ok: '신청하기' };
+  var askNow = { title: '🎓 신청할까요?', line: '선착순이라 누르시면 바로 확정돼요. 확정된 뒤에는 앱에서 취소할 수 없으니 담당자에게 말씀해 주세요.', ok: '신청하기' };
   if (c.mode === 'approve') {   // edu_apply 는 approve 면 정원과 상관없이 applied — 「남은 자리」는 확정된 분만 세어 많아 보이므로 정원만
     return on(c.capacity == null ? '인원 제한 없이 받아요' : '정원 ' + c.capacity + '명', join([until, '담당자 확정']),
-      '신청하시면 담당자가 확인한 뒤 확정해요.', '신청하기', { title: '🎓 신청할까요?', line: '담당자가 확인한 뒤 확정해요.', ok: '신청하기' });
+      '신청하시면 담당자가 확인한 뒤 확정해요. 확정 전까지만 앱에서 취소할 수 있어요.', '신청하기', { title: '🎓 신청할까요?', line: '담당자가 확인한 뒤 확정해요. 확정 전까지만 앱에서 취소할 수 있어요.', ok: '신청하기' });
   }
   if (c.capacity == null) return on('인원 제한 없이 받아요', until, NOW, '신청하기', askNow);
   var left = c.capacity - (c.confirmed || 0);
@@ -71,6 +71,10 @@ function eduMineView(m) {
   var lines = V[2].slice(), ns = m.nextSession;
   if (m.status === 'confirmed' && ns && eduMdw(ns.date)) lines.push((ns.no === 1 ? '첫 시간' : '다음 시간') + ' · ' + eduMdw(ns.date) + (ns.start ? ' ' + ns.start : ''));
   var wait = m.status === 'waitlisted';
+  // 확정된 신청은 앱에서 취소하지 않는다(2026-10-16 친구 · 서버 SQL edu_cancel 의 confirmed) — 단추 없이 「담당자에게」 한 줄
+  if (m.status === 'confirmed') {
+    return { tone: V[0], head: V[1], lines: lines, cancelLine: '확정된 뒤에는 앱에서 취소할 수 없어요. 못 오시게 되면 담당자에게 말씀해 주세요.', cancelBtn: null, cancelAsk: '' };
+  }
   return { tone: V[0], head: V[1], lines: lines,
     cancelLine: m.canCancel ? (eduMdw(m.cancelUntil) ? eduMdw(m.cancelUntil) + '까지' : '첫 시간 전날까지') + ' 앱에서 취소할 수 있어요.' : '시작한 뒤에는 취소를 담당자에게 말씀해 주세요.',
     cancelBtn: m.canCancel ? (wait ? '대기 취소' : '신청 취소') : null,
@@ -95,6 +99,7 @@ function eduStatusLine(m) {   // 「내 강좌」 카드 칩 — 성도님 화�
 }
 function eduErrText(code) {
   var W = { 'full': '정원이 찼어요.', 'too-late': '시작한 뒤에는 앱에서 취소할 수 없어요. 담당자에게 말씀해 주세요.',
+    'confirmed': '확정된 뒤에는 앱에서 취소할 수 없어요. 담당자에게 말씀해 주세요.',   // 2026-10-16 · SQL edu_cancel
     'not-open': '아직 신청을 받지 않아요.', 'not-yet': '아직 신청 기간이 아니에요.', 'closed-period': '신청 기간이 지났어요.',
     'not-found': '강좌를 찾을 수 없어요.', 'no-user': '로그인한 뒤에 신청할 수 있어요.',
     'not-active': '이미 처리된 신청이에요.' };   // 담당자가 먼저 취소·반려했다(edu_cancel) — 화면을 지금 상태로 다시 그린다
@@ -570,7 +575,7 @@ function renderEduCourse(id, opt) {
         cn.disabled = true;
         // 담당자가 먼저 처리했거나(not-active) 그새 시작했으면(too-late) 알리고 지금 상태로 다시 그린다
         var failed = function (code) {
-          if (code === 'not-active' || code === 'too-late') { appAlert(eduErrText(code)); renderEduCourse(id, { focus: true }); return; }
+          if (code === 'not-active' || code === 'too-late' || code === 'confirmed') { appAlert(eduErrText(code)); renderEduCourse(id, { focus: true }); return; }
           say(eduErrText(code)); cn.disabled = false;
         };
         return api.eduCancel(m.id, u.user_id || '').then(function (x) {

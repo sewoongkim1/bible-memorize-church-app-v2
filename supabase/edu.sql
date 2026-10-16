@@ -317,6 +317,11 @@ begin
   --   합치기는 번호가 있는 취소 겹침 줄을 지우지 않고 멈춘다(member_merge.sql). 칸 제약 edu_enrollments_cert_check 도 같은 규칙.
   --   성도님은 첫 날 전에만 취소하므로 보통 위 too-late 가 먼저 걸린다(번호는 그 뒤에 생긴다).
   if e.cert_no is not null and not e.cert_revoked then return jsonb_build_object('ok',false,'error','has-cert'); end if;
+  -- **확정된 줄은 성도님이 앱에서 취소하지 못한다**(2026-10-16 친구 「교육이 확정되면 본인이 취소를 못하게」 · 모든 강좌 — 선착순은 누르는 순간 확정이라
+  --   신청 확인 창이 미리 알린다). 담당자(p_staff)는 그대로 취소한다 → 그때 대기 첫 분이 오른다(교회 어드민이 알림).
+  --   차례는 not-active → too-late → has-cert → confirmed(앞의 말이 더 맞는 까닭이면 그 말 · 시험 기대값도 이 차례).
+  --   승인 기다림 · 대기는 지금처럼 첫 날 전날까지 앱에서 취소된다. 앱 화면은 api eduMineOut 의 canCancel 이 같은 셈을 한다.
+  if not p_staff and e.status = 'confirmed' then return jsonb_build_object('ok',false,'error','confirmed'); end if;
   was_confirmed := e.status = 'confirmed';
   update public.edu_enrollments set status = 'cancelled', cancelled_at = now(), updated_at = now() where id = e.id;
   if was_confirmed then p := edu_promote(cid); end if;

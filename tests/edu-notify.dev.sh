@@ -215,10 +215,13 @@ R=$(icall "$SK" "{\"action\":\"internalEduNotify\",\"kind\":\"confirmed\",\"enro
 chk "waitlisted / no-account / already (same id twice counts once) -> skipped" "$(jqn '(d.get("ok"), d.get("sent"), d.get("skipped"))' "$R")" "(True, 0, 4)"
 chk "no log for waitlisted / staff rows" "$(sq "select count(*) from edu_notify_log where enrollment_id in ($ES,$E2,$E3)")" "0"
 
-echo "3) 성도님 취소로 대기 첫 분(U2)이 올라감 -> api 안에서 「자리가 나서」 알림(응답 뒤에 돈다)"
+echo "3) 확정 줄은 성도님이 앱에서 취소 못 함(2026-10-16) · 담당자 취소로 대기 첫 분(U2)이 올라감 -> 교회 어드민이 부탁하는 「자리가 나서」 알림"
 C=$(call "{\"action\":\"eduCancel\",\"user_id\":\"$U1\",\"enrollment_id\":$E1}")
-chk "eduCancel ok/promoted" "$(jqn '(d.get("ok"), d.get("promoted"))' "$C")" "(True, True)"
-chk "eduCancel response keys" "$(jqn 'sorted(d.keys())' "$C")" "['ok', 'promoted']"
+chk "member eduCancel of confirmed -> confirmed" "$(jqn 'd.get("error")' "$C")" "confirmed"
+chk "E1 still confirmed" "$(sq "select status from edu_enrollments where id=$E1")" "confirmed"
+chk "staff cancel promotes E2" "$(sq "select ((public.edu_cancel($E1, true))->>'promoted')::text")" "$E2"
+R=$(icall "$SK" "{\"action\":\"internalEduNotify\",\"kind\":\"confirmed\",\"enrollment_ids\":[$E2],\"promoted\":true}")   # 교회 어드민 eduEnrollSet(cancel) 이 하는 부탁과 같은 꼴
+chk "promoted notify sent" "$(jqn '(d.get("ok"), d.get("sent"))' "$R")" "(True, 1)"
 chk "E2 confirmed" "$(sq "select status from edu_enrollments where id=$E2")" "confirmed"
 chk "E2 confirmed log row (after the response)" "$(poll "select count(*)||':'||min(kind) from edu_notify_log where enrollment_id=$E2" "1:confirmed")" "1:confirmed"
 chk "push_log edu-confirmed rows" "$(poll "select count(*) from push_log where id > $PL1 and mode='edu-confirmed'" "2")" "2"

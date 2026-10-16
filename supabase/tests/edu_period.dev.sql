@@ -34,7 +34,8 @@ begin
   r := edu_apply(cid, aid, jsonb_build_object('name', tag));
   if r->>'status' is distinct from 'confirmed' then raise exception '신청2: %', r; end if;
   select id into e2 from public.edu_enrollments where course_id = cid and user_id = aid;
-  r := edu_cancel(e2, false); if (r->>'ok')::boolean is not true then raise exception '시작일 +3 취소: %', r; end if;
+  r := edu_cancel(e2, false); if r->>'error' is distinct from 'confirmed' then raise exception '시작일 +3 — 확정 줄은 성도님 취소 안 됨: %', r; end if;   -- 2026-10-16
+  r := edu_cancel(e2, true);  if (r->>'ok')::boolean is not true then raise exception '시작일 +3 담당자 취소: %', r; end if;
 
   -- ④ 회차가 있으면 회차가 먼저 — 시작일은 멀어도 첫 회차가 오늘이면 too-late
   insert into public.edu_courses(title, kind, status, starts_on) values ('회차 먼저 ' || tag, 'regular', 'open', edu_today() + 10) returning id into cid;
@@ -48,7 +49,8 @@ begin
   insert into public.edu_courses(title, kind, status) values ('날짜 없음 ' || tag, 'regular', 'open') returning id into cid;
   r := edu_apply(cid, aid, jsonb_build_object('name', tag));
   select id into e1 from public.edu_enrollments where course_id = cid and user_id = aid;
-  r := edu_cancel(e1, false); if (r->>'ok')::boolean is not true then raise exception '날짜 없음 취소: %', r; end if;
+  r := edu_cancel(e1, false); if r->>'error' is distinct from 'confirmed' then raise exception '날짜 없음 — 확정 줄은 성도님 취소 안 됨: %', r; end if;   -- 2026-10-16
+  r := edu_cancel(e1, true);  if (r->>'ok')::boolean is not true then raise exception '날짜 없음 담당자 취소: %', r; end if;
 end $$;
 select '통과' as result;
 rollback;

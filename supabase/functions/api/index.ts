@@ -5569,7 +5569,8 @@ async function eduMineOut(rows: any[], today: string, att?: Map<number, Map<numb
     // 살아 있는 수료(번호 있고 취소 아님) — edu_cancel 이 has-cert 로 막는 줄(검토 반영 2026-10-05)
     const activeCert = !!r.cert_no && r.cert_revoked !== true;
     // edu_cancel 규칙과 같다: 첫 날(첫 회차, 없으면 교육 시작일) 전날까지(둘 다 없으면 막지 않는다) · 살아 있는 수료 줄은 못 한다
-    const canCancel = ["applied", "confirmed", "waitlisted"].includes(r.status) && (cancelUntil === null || today <= cancelUntil) && !activeCert;
+    // 확정된 줄은 앱에서 취소하지 못한다(2026-10-16 친구 · SQL edu_cancel 의 confirmed 와 같은 셈) — 승인 기다림 · 대기만
+    const canCancel = ["applied", "waitlisted"].includes(r.status) && (cancelUntil === null || today <= cancelUntil) && !activeCert;
     // 수료(3단계) — completed 는 수료이고 취소되지 않았을 때만 true · certNo 도 그때만(취소된 번호는 내 화면에 싣지 않는다)
     const done = r.completed === true && activeCert;
     return { id: r.id, courseId: r.course_id, title: c.title, term: c.term || "", contact: c.contact_note || "", target: c.target || "", status: r.status,

@@ -108,19 +108,18 @@ E3=$(sq "select id from edu_enrollments where course_id='$CID' and user_id='$U3'
 echo "5) cancel U1's row as U2"
 chk "not-found" "$(jqn 'd.get("error")' "$(call "{\"action\":\"eduCancel\",\"user_id\":\"$U2\",\"enrollment_id\":$E1}")")" "not-found"
 
-echo "6) cancel own row"
+echo "6) cancel own confirmed row -> confirmed(2026-10-16 확정된 신청은 앱에서 취소 안 됨) · 담당자 취소(SQL p_staff)로 대기 첫 분이 오른다"
 C1=$(call "{\"action\":\"eduCancel\",\"user_id\":\"$U1\",\"enrollment_id\":$E1}")
-chk "ok" "$(jqn 'd.get("ok")' "$C1")" "True"
-chk "promoted" "$(jqn 'd.get("promoted")' "$C1")" "True"
+chk "member cancel of confirmed -> confirmed" "$(jqn 'd.get("error")' "$C1")" "confirmed"
+M1=$(call "{\"action\":\"eduMine\",\"user_id\":\"$U1\"}")
+chk "U1 canCancel false (confirmed)" "$(jqn '[m["canCancel"] for m in d["mine"] if m["courseId"]=="'$CID'"]' "$M1")" "[False]"
+chk "staff cancel promotes" "$(sq "select ((public.edu_cancel($E1, true))->>'promoted' is not null)::text")" "true"
 M2=$(call "{\"action\":\"eduMine\",\"user_id\":\"$U2\"}")
 chk "U2 confirmed" "$(jqn '[m["status"] for m in d["mine"] if m["courseId"]=="'$CID'"]' "$M2")" "['confirmed']"
 M3=$(call "{\"action\":\"eduMine\",\"user_id\":\"$U3\"}")
 chk "U3 waitNo" "$(jqn '[m["waitNo"] for m in d["mine"] if m["courseId"]=="'$CID'"]' "$M3")" "[1]"
-# 4단계 — 올라간 U2 께 「자리가 나서 … 확정」 알림이 api 안에서 한 번(기록 한 줄 · push_log 한 줄 · U1 의 즉시 확정은 알림 없음)
-#   응답 뒤에 돈다(검토 반영 2026-10-06) — 기다려 본다. eduOpen 을 위에서 켰으니 시험 참여자가 아닌 U2 께도 간다(문은 api eduNotifySend).
-chk "U2 promoted -> confirmed notify log" "$(poll "select count(*)||':'||min(kind) from edu_notify_log where enrollment_id=(select id from edu_enrollments where course_id='$CID' and user_id='$U2')" "1:confirmed")" "1:confirmed"
+# 담당자 취소의 「자리가 나서」 알림은 교회 어드민이 부탁한다(eduEnrollSet → internalEduNotify) — 여기(SQL 직접)는 알림이 없다. 알림 길은 edu-notify.dev.sh ③
 chk "U1 (instant confirm) no notify log" "$(sq "select count(*) from edu_notify_log where enrollment_id=$E1")" "0"
-chk "one edu-confirmed push_log row for this course" "$(poll "select count(*) from push_log where mode='edu-confirmed' and body like '%$TAG%'" "1")" "1"
 
 echo "6b) attendance — SQL edu_attendance_set -> eduMine attend · eduCourse myState (own row only)"
 S1=$(sq "select id from edu_sessions where course_id='$CID' and no=1")

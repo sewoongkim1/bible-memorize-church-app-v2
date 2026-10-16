@@ -59,8 +59,8 @@ const pick = (v) => JSON.parse(JSON.stringify(v));   // vm 안 객체를 밖의 
 
 test('eduSeatView ① 선착순 · 자리 있음', () => {
   assert.deepEqual(pick(ctx.eduSeatView(OPEN, true)), { off: false, head: '24자리 남았어요', sub: '10월 18일(일)까지 신청 · 선착순',
-    how: '누르시면 바로 확정돼요. 첫 시간 전날까지 앱에서 취소할 수 있어요.', btn: '신청하기',
-    ask: { title: '🎓 신청할까요?', line: '선착순이라 누르시면 바로 확정돼요.', ok: '신청하기' } });
+    how: '누르시면 바로 확정돼요. 확정된 뒤에는 앱에서 취소할 수 없어요.', btn: '신청하기',
+    ask: { title: '🎓 신청할까요?', line: '선착순이라 누르시면 바로 확정돼요. 확정된 뒤에는 앱에서 취소할 수 없으니 담당자에게 말씀해 주세요.', ok: '신청하기' } });
   assert.equal(ctx.eduSeatView({ ...OPEN, confirmed: 21 }, true).head, '3자리 남았어요');
   assert.equal(ctx.eduSeatView({ ...OPEN, applyTo: null }, true).sub, '선착순');   // 마감일 없으면 뺀다
 });
@@ -69,9 +69,9 @@ test('eduSeatView ② 담당자 확정 — 정원만', () => {
   const v = pick(ctx.eduSeatView({ ...OPEN, mode: 'approve', confirmed: 30 }, true));
   assert.equal(v.head, '정원 24명');
   assert.equal(v.sub, '10월 18일(일)까지 신청 · 담당자 확정');
-  assert.equal(v.how, '신청하시면 담당자가 확인한 뒤 확정해요.');
+  assert.equal(v.how, '신청하시면 담당자가 확인한 뒤 확정해요. 확정 전까지만 앱에서 취소할 수 있어요.');
   assert.equal(v.btn, '신청하기');
-  assert.deepEqual(v.ask, { title: '🎓 신청할까요?', line: '담당자가 확인한 뒤 확정해요.', ok: '신청하기' });
+  assert.deepEqual(v.ask, { title: '🎓 신청할까요?', line: '담당자가 확인한 뒤 확정해요. 확정 전까지만 앱에서 취소할 수 있어요.', ok: '신청하기' });
   assert.equal(ctx.eduSeatView({ ...OPEN, mode: 'approve', capacity: null }, true).head, '인원 제한 없이 받아요');
 });
 
@@ -109,13 +109,16 @@ test('eduSeatView ⑤⑥⑦·문 닫힘 — 누를 단추가 없다', () => {
 });
 
 test('eduMineView ⑧~⑫ — 신청한 뒤', () => {
+  // 확정된 신청은 앱에서 취소하지 않는다(2026-10-16 친구) — 서버가 canCancel 을 잘못 true 로 줘도 단추를 그리지 않는다
   const ok = pick(ctx.eduMineView({ status: 'confirmed', canCancel: true, cancelUntil: '2026-10-24', nextSession: { no: 1, date: '2026-10-25', start: '14:30' } }));
   assert.deepEqual(ok, { tone: 'ok', head: '✅ 확정됐어요', lines: ['첫 시간 · 10월 25일(일) 14:30'],
-    cancelLine: '10월 24일(토)까지 앱에서 취소할 수 있어요.', cancelBtn: '신청 취소', cancelAsk: '신청을 취소할까요?' });
+    cancelLine: '확정된 뒤에는 앱에서 취소할 수 없어요. 못 오시게 되면 담당자에게 말씀해 주세요.', cancelBtn: null, cancelAsk: '' });
+  assert.equal(ctx.eduErrText('confirmed'), '확정된 뒤에는 앱에서 취소할 수 없어요. 담당자에게 말씀해 주세요.');
   assert.deepEqual(pick(ctx.eduMineView({ status: 'confirmed', canCancel: false, nextSession: { no: 3, date: '2026-11-08', start: null } })).lines, ['다음 시간 · 11월 8일(일)']);
   const late = ctx.eduMineView({ status: 'confirmed', canCancel: false, nextSession: null });
   assert.equal(late.lines.length, 0); assert.equal(late.cancelBtn, null);
-  assert.equal(late.cancelLine, '시작한 뒤에는 취소를 담당자에게 말씀해 주세요.');
+  assert.equal(late.cancelLine, '확정된 뒤에는 앱에서 취소할 수 없어요. 못 오시게 되면 담당자에게 말씀해 주세요.');
+  assert.equal(ctx.eduMineView({ status: 'applied', canCancel: false }).cancelLine, '시작한 뒤에는 취소를 담당자에게 말씀해 주세요.');   // 승인 기다림이 시작을 넘김
   const ap = ctx.eduMineView({ status: 'applied', canCancel: true, cancelUntil: null });
   assert.equal(ap.tone, 'on'); assert.equal(ap.head, '📝 신청했어요');
   assert.equal(ap.lines[0], '담당자가 확인하고 있어요. 확정되면 「내 강좌」에 「확정」으로 바뀌어요.');
@@ -716,4 +719,14 @@ test('eduListGroups — 「모집 중」 탭 아래 「모집 끝」 묶음(2026
   assert.equal(JSON.stringify(ctx.eduListGroups(null)), JSON.stringify({ open: [], closed: [], soon: [] }));   // vm 안 배열이라 deepEqual 은 원형이 달라 어긋난다
   // 모집 끝 카드의 마지막 줄 — 누를 것이 없으니 굵은 말만
   assert.equal(ctx.eduCardLine({ phase: 'closed', mode: 'approve', capacity: 21, confirmed: 21 }), '신청을 마감했어요');
+});
+
+test('확정된 신청은 앱에서 취소하지 않는다(2026-10-16 친구) — SQL edu_cancel · api canCancel 이 같은 셈', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'edu.sql'), 'utf8');
+  assert.ok(sql.includes("if not p_staff and e.status = 'confirmed' then return jsonb_build_object('ok',false,'error','confirmed'); end if;"), 'edu.sql 에 확정 막기');
+  const one = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'edu_cancel_confirmed.sql'), 'utf8');
+  const fnOf = (s) => s.slice(s.indexOf('create or replace function public.edu_cancel('), s.indexOf('end $$;', s.indexOf('create or replace function public.edu_cancel(')));
+  assert.equal(fnOf(one), fnOf(sql), 'edu_cancel_confirmed.sql 은 edu.sql 의 edu_cancel 과 같아야 한다');
+  const api = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', 'api', 'index.ts'), 'utf8');
+  assert.ok(/const canCancel = \["applied", "waitlisted"\]\.includes\(r\.status\)/.test(api), 'api canCancel 에 확정이 없어야 한다');
 });

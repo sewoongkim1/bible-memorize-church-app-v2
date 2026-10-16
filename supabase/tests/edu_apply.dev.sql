@@ -28,8 +28,9 @@ begin
   select id into e3 from public.edu_enrollments where course_id = cid and user_id = u[3];
   select id into e4 from public.edu_enrollments where course_id = cid and user_id = u[4];
 
-  -- 확정 한 분 취소 → 대기 첫 분(시험3) 확정
-  r := edu_cancel(e1, false);
+  -- 확정 줄은 성도님이 앱에서 취소하지 못한다(2026-10-16) → 담당자 취소로 대기 첫 분(시험3) 확정
+  r := edu_cancel(e1, false); if r->>'error' is distinct from 'confirmed' then raise exception '확정 줄 성도님 취소: %', r; end if;
+  r := edu_cancel(e1, true);
   if r->>'ok' is distinct from 'true' or (r->>'promoted')::bigint is distinct from e3 then raise exception '대기 올림: %', r; end if;
   if (select status from public.edu_enrollments where id = e3) is distinct from 'confirmed' then raise exception '대기 올림 상태'; end if;
   if (select status from public.edu_enrollments where id = e4) is distinct from 'waitlisted' then raise exception '둘째 대기는 그대로'; end if;
@@ -41,7 +42,7 @@ begin
   -- 대기 순서는 waitlist_at 을 따른다(id 가 아니라). 같은 트랜잭션은 now() 가 같으니 시험4 를 1분 앞당긴다.
   -- 지금 확정 시험2·시험3 · 대기 시험4(id 큼)·시험1(id 작음). id 순이면 시험1, 시각 순이면 시험4.
   update public.edu_enrollments set waitlist_at = now() - interval '1 minute' where id = e4;
-  r := edu_cancel(e2, false);
+  r := edu_cancel(e2, true);
   if (r->>'promoted')::bigint is distinct from e4 then raise exception '대기 순서(waitlist_at): %', r; end if;
   if (select status from public.edu_enrollments where id = e1) is distinct from 'waitlisted' then raise exception '시험1 은 대기 그대로'; end if;
 
