@@ -64,9 +64,16 @@ test('② 서버 — getVerses(track:"navi") 갈래 · navi:true 표식 · naviP
   assert.ok(!/:\s*(any|string|number|boolean|Record|Set|Promise)\b/.test(pure), 'navi.ts 순수 구간에 타입 표기 — node:vm 이 못 돌린다');
   const naviVerseOf = vm.runInContext(pure + '\n;naviVerseOf', vm.createContext({}));
   assert.deepEqual(J(naviVerseOf({ no: 2021, chapter: 'A', topic: '중심되신 그리스도', ref_short: '고후 5:17', ref_full: '고린도후서 5장 17절', ref: 'x', text: '그런즉 …' })),
-    { no: 2021, chapter: 'A', topic: '중심되신 그리스도', refShort: '고후 5:17', refFull: '고린도후서 5장 17절', text: '그런즉 …' });
+    { no: 2021, chapter: 'A', topic: '중심되신 그리스도', refShort: '고후 5:17', refFull: '고린도후서 5장 17절', text: '그런즉 …',
+      textEn: '', refEn: '', helpEasy: '', helpTip: '' });
   assert.deepEqual(J(naviVerseOf({ no: 2001, ref: '요일 5:11-12' })),
-    { no: 2001, chapter: '', topic: '', refShort: '요일 5:11-12', refFull: '요일 5:11-12', text: '' }, '빈 칸은 빈 글자로');
+    { no: 2001, chapter: '', topic: '', refShort: '요일 5:11-12', refFull: '요일 5:11-12', text: '',
+      textEn: '', refEn: '', helpEasy: '', helpTip: '' }, '빈 칸은 빈 글자로');
+  // 영어(NIV) · 풀이 · 기억법(2026-10-16) — 영어는 주간과 같은 이름(textEn·refEn)이라야 app.js hasEn · isEnMode 가 그대로 먹는다
+  assert.deepEqual(J(naviVerseOf({ no: 2043, text_en: 'For the wages …', ref_en: 'Rom 6:23', help_easy: '풀이', help_tip: '기억법' })),
+    { no: 2043, chapter: '', topic: '', refShort: '', refFull: '', text: '',
+      textEn: 'For the wages …', refEn: 'Rom 6:23', helpEasy: '풀이', helpTip: '기억법' });
+  assert.ok(/\.select\("no,chapter,topic,ref_short,ref_full,ref,text,text_en,ref_en,help_easy,help_tip"\)/.test(NAVI), '새 칸 넷을 읽는다');
   // 응답 — 성공은 navi:true · 오류는 빈 목록이 아니라 ok:false(앱이 「모름」으로)
   assert.ok(/return \{ ok: true, navi: true, verses: \(data \?\? \[\]\)\.map\(naviVerseOf\) \};/.test(NAVI), 'navi:true 표식');
   assert.ok(/if \(error\) \{[\s\S]*?return \{ ok: false, error: "navi-unavailable" \};/.test(NAVI), '오류는 ok:false');
@@ -108,6 +115,8 @@ test('③ 시드 SQL — 73줄 · 2001~2112 · 모두 navi · 다시 돌려도 i
   const texts = [...sql.matchAll(/^\s*\(\d+, 'navi', (?:'(?:[^']|'')*', ){5}'((?:[^']|'')*)', null, (true|false)\)/gm)].map((m) => m[1]);
   assert.equal(texts.length, 73, '본문 칸을 못 읽었다');
   for (const t of texts) assert.ok(t.length > 10 && !/[0-9A-Za-z()\[\]<>]/.test(t), '본문 꼴: ' + t.slice(0, 20));
+  // 문장부호도 없다(2026-10-16 친구 「암송 구절에 쉼표 등은 제외」 — 빈칸 · 카드에 「안에,」로 붙어 나왔다 · tools/navi-fit.py 가 뺀다)
+  for (const t of texts) assert.ok(!/[,.;:!?·…"“”‘’「」『』]/.test(t), '본문에 문장부호: ' + t.slice(0, 20));
 });
 
 // ── ④ 화면 순수 함수(js/navi.js) ──

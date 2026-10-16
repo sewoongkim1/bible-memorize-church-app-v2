@@ -3,6 +3,7 @@
 
   python 자료/navi/make-help-drafts.py            # 없는 구절만 만든다(중단돼도 이어서) → 엑셀을 다시 쓴다
   python 자료/navi/make-help-drafts.py --excel    # AI 를 부르지 않고 모아 둔 초안으로 엑셀만 다시
+  python 자료/navi/make-help-drafts.py --sql      # 모아 둔 초안 → 넣을 SQL(자료/navi/navi_help_data.sql · .gitignore — NIV 본문이 들어 있다)
 
 ■ 근거 — 주간 말씀 도우미(말씀 아카이브 scripts/4b-versehelp.mjs)와 같은 원칙
   · 그 구절이 우리 교회 설교 본문에 들어 있으면(말씀 아카이브 sermons.json 의 scripture) 그 설교의 요약 · 핵심 · 맺음말을 근거로 —
@@ -20,6 +21,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 HERE = os.path.dirname(os.path.abspath(__file__))
 DRAFTS = os.path.join(HERE, "주제별_도우미_초안.json")
 XLSX = os.path.join(HERE, "주제별_도우미_NIV_검토.xlsx")
+DATA_SQL = os.path.join(HERE, "navi_help_data.sql")
 SERMONS = r"C:/Projects/gocheok-sermons/src/data/sermons.json"
 API = "https://xnomlgydifiqiybervtf.supabase.co/functions/v1/api"
 ANON = "sb_publishable_oLtieT_jw7Gjb8etEsy0jw_thBaDjl-"   # 운영 공개 키(앱 코드에 있는 것과 같다 · 읽기만)
@@ -188,7 +190,48 @@ def write_excel(verses, drafts, sermons):
     print("엑셀:", XLSX, f"({r - 5}줄)")
 
 
+def sql_str(s):
+    s = str(s or "").strip()
+    return "null" if not s else "'" + s.replace("'", "''") + "'"
+
+
+def niv_clean(t):
+    """NIV 본문은 그대로 둔다 — 단 문단마다 되풀이되는 여는 따옴표(레 19:11 「'Do not steal. 'Do not lie. …」)만 뺀다.
+       앞 절에서 시작한 인용이 이어진다는 표시라 한 구절만 떼어 외울 때는 짝 없는 따옴표가 된다. 「God's」 같은 낱말 안 것은 그대로."""
+    return re.sub(r"(^|\s)'(?=[A-Z])", r"\1", str(t or "").strip())
+
+
+def write_sql(verses, drafts):
+    """주제별 73구절에 💡 풀이 · 🧠 기억법 · 영어(NIV) 본문 · 영어 장절을 넣는 SQL. 칸은 supabase/navi_help.sql 이 먼저 만든다."""
+    lines = [
+        "-- 주제별 성경암송 — 💡 풀이 · 🧠 기억법 · 영어(NIV) 넣기(자료/navi/make-help-drafts.py --sql 이 만든 파일 · 손으로 고치지 말 것)",
+        "-- ⚠️ NIV 본문이 들어 있어 공개 저장소에 올리지 않는다(.gitignore) — 다시 만들려면 이 PC 의 초안 JSON 으로 --sql",
+        "-- 차례: supabase/navi_help.sql(칸 둘) → 이 파일 — 개발(ktpwthwqzgcqcrmsafdo) 먼저 → 운영(xnomlgydifiqiybervtf) · 여러 번 돌려도 같다",
+        "-- 되돌리기: update public.verses set text_en = null, ref_en = null, help_easy = null, help_tip = null where track = 'navi';",
+        "begin;",
+        "set local lock_timeout = '5s';",
+    ]
+    n = 0
+    for v in verses:
+        d = drafts.get(str(v["no"]))
+        if not d:
+            continue
+        lines.append(
+            f"update public.verses set text_en = {sql_str(niv_clean(d.get('nivText')))}, ref_en = {sql_str(d.get('nivRef'))}, "
+            f"help_easy = {sql_str(d.get('easyExplain'))}, help_tip = {sql_str(d.get('memoryTip'))} "
+            f"where no = {int(v['no'])} and track = 'navi';")
+        n += 1
+    lines += ["commit;", "",
+              "select count(*) as 줄, count(text_en) as 영어, count(help_easy) as 풀이, count(help_tip) as 기억법",
+              "  from public.verses where track = 'navi';", ""]
+    open(DATA_SQL, "w", encoding="utf-8").write("\n".join(lines))
+    print("SQL:", DATA_SQL, f"({n}구절)")
+
+
 def main():
+    if "--sql" in sys.argv:
+        drafts = json.load(open(DRAFTS, encoding="utf-8"))
+        return write_sql(navi_verses(), drafts)
     verses = navi_verses()
     sermons = json.load(open(SERMONS, encoding="utf-8"))
     drafts = json.load(open(DRAFTS, encoding="utf-8")) if os.path.exists(DRAFTS) else {}

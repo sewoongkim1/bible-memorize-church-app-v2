@@ -6,8 +6,9 @@
        A 순번 · B 번호 · C 묶음 코드 · D 묶음 · E 주제 · F 카드 번호 · G 장절(짧게) · H 장절(풀어) · I 본문 · M 메모
 출력: supabase/navi_verses.sql (--sql 일 때만) — 표 칸 둘(chapter·topic) + 카드 줄
 
-⚠️ 본문은 사람이 붙여 넣은 원문(대한성서공회 개역개정 4판) 그대로다 — 이 도구는 **공백만** 다듬는다(앞뒤 · 줄바꿈 · 겹공백 · NBSP).
-   글자를 바꾸지 않는다. 숫자·괄호·영문이 들어 있으면 고치지 않고 멈춘다(붙여 넣다 따라온 절 번호·각주일 수 있다).
+⚠️ 본문은 사람이 붙여 넣은 원문(대한성서공회 개역개정 4판) 그대로다 — 이 도구는 **공백과 문장부호만** 다듬는다(앞뒤 · 줄바꿈 · 겹공백 · NBSP ·
+   쉼표 같은 문장부호 — 2026-10-16 친구 「암송 구절에 쉼표 등은 제외」 · 주간 말씀 본문도 문장부호가 없다 · 빈칸·카드에 쉼표가 붙어 나왔다).
+   낱말은 바꾸지 않는다. 숫자·괄호·영문이 들어 있으면 고치지 않고 멈춘다(붙여 넣다 따라온 절 번호·각주일 수 있다).
 ⚠️ 번호(no)는 진도의 열쇠다 — 이미 만든 supabase/navi_verses.sql 과 견줘, 같은 번호가 다른 장절을 가리키게 되면 멈춘다(--force 로만 강행).
    운영에 들어간 뒤 번호를 바꾸면 이미 외운 분의 기록이 엉뚱한 구절에 붙는다(되돌릴 수 없다). 카드를 내릴 때는 M열 메모에 「빼기」.
 ⚠️ 시드는 줄을 **켠 채**로 넣고, 다시 돌려도 is_active 를 덮지 않는다 — 문은 앱의 naviVisible(app_config naviPublic)이다(docs/notes/navigators.md).
@@ -53,10 +54,16 @@ RE_SHORT = re.compile(r"^(\S+) (\d+):(\d+(?:-\d+)?(?:, ?\d+(?:-\d+)?)*)$")
 RE_BAD_TEXT = re.compile(r"[0-9０-９()\[\]{}<>（）【】A-Za-z]")
 
 
+RE_PUNCT = re.compile(r"[,.;:!?·…\"'“”‘’「」『』]")
+
+
 def clean_text(s):
-    """공백만 다듬는다. 반환: (다듬은 글, [무엇을 고쳤나])"""
+    """공백 · 문장부호만 다듬는다. 반환: (다듬은 글, [무엇을 고쳤나])"""
     fixes = []
     t = str(s or "")
+    if RE_PUNCT.search(t):
+        fixes.append("문장부호 " + "".join(sorted(set(RE_PUNCT.findall(t)))))
+        t = RE_PUNCT.sub("", t)
     if t != t.strip():
         fixes.append("앞뒤 공백")
     t = t.strip()
@@ -115,7 +122,7 @@ def build_sql(cards, today):
         "-- 📚 네비게이토 성경암송 — 표 칸 둘 + 카드 줄(2026-10-13 · 설계 docs/superpowers/specs/2026-10-13-navigators-design.md)",
         "-- tools/navi-fit.py 가 만든 파일이다. 손으로 고치지 말고 엑셀(자료/navi/네비게이토_구절입력_73.xlsx)을 고쳐 다시 돌린다.",
         f"-- 만든 날 {today} · 카드 {len(cards)}장(켬 {on} · 내림 {len(cards) - on}) · 번호 {cards[0]['no']}~{cards[-1]['no']}",
-        "-- 본문: 대한성서공회 개역개정 4판 원문(엑셀 I열 · 사람이 붙여 넣고 원문과 대조) — 도구는 공백만 다듬는다.",
+        "-- 본문: 대한성서공회 개역개정 4판 원문(엑셀 I열 · 사람이 붙여 넣고 원문과 대조) — 도구는 공백 · 문장부호(쉼표 등 — 2026-10-16 친구)만 다듬는다.",
         "--",
         "-- ⚠️ 개발 DB(ktpwthwqzgcqcrmsafdo)에서 먼저 돌린 뒤 운영(xnomlgydifiqiybervtf) · 넣은 뒤 python tools/sql-applied.py record supabase/navi_verses.sql --dev|--prod",
         "-- ⚠️ 차례: api(getVerses navi 갈래) → 앱 → 이 SQL. 거꾸로 돌아도 깨지지 않는다 — 주간을 읽는 곳은 모두 track='weekly' 로 거른다",

@@ -172,3 +172,4 @@ bible-note/.pytest_cache/
 # 주제별 성경암송 도우미 · NIV 초안(2026-10-16) — NIV 본문을 공개 저장소에 올리지 않는다 · 만드는 코드는 자료/navi/make-help-drafts.py
 자료/navi/주제별_도우미_초안.json
 자료/navi/주제별_도우미_NIV_검토.xlsx
+자료/navi/navi_help_data.sql
