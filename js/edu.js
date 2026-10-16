@@ -26,7 +26,7 @@ function eduWhenLine(c) {   // 📅 언제 — 서버가 고른 firstDate·lastD
   return a + (b ? ' ~ ' + b : '') + (n ? ' · ' + n : '');
 }
 function eduPhaseChip(phase) {   // 자세히 화면 머리 칩 — 숫자는 싣지 않는다(정원은 「자리·신청」 칸 한 곳에만)
-  return { open: '모집 중', upcoming: '곧 열려요', closed: '모집 끝', running: '진행 중' }[phase] || '';
+  return { open: '모집 중', upcoming: '곧 열려요', closed: '모집 완료', running: '진행 중' }[phase] || '';   // 「모집 끝」 → 「모집 완료」(2026-10-16 친구)
 }
 // 「자리·신청」 칸 — 신청 전(설계 §4 ①~⑦ · 문 닫힘). 서버가 준 값을 고르기만 한다(남은 자리는 뺄셈뿐).
 function eduSeatView(c, gateOpen) {
@@ -464,14 +464,14 @@ function eduDrawList(tab) {
     var card = function (c, i) {
       var shut = c.phase === 'closed';
       return '<div class="edu-card' + (shut ? ' edu-shut' : '') + '" data-i="' + i + '">' +
-        '<span class="edu-ks"><span class="edu-k">' + eduEsc(c.kindLabel) + '</span>' + (shut ? '<span class="edu-k shut">모집 끝</span>' : '') + '</span>' +
+        '<span class="edu-ks"><span class="edu-k">' + eduEsc(c.kindLabel) + '</span>' + (shut ? '<span class="edu-k shut">모집 완료</span>' : '') + '</span>' +
         '<b>' + eduEsc(c.title) + (c.term ? ' <small>(' + eduEsc(c.term) + ')</small>' : '') + '</b>' +
         (c.firstDate ? '<span class="edu-dt">' + eduEsc(eduMd(c.firstDate)) + (c.lastDate && c.lastDate !== c.firstDate ? ' ~ ' + eduEsc(eduMd(c.lastDate)) : '') + (c.sessionsCount ? ' · ' + c.sessionsCount + '회' : '') + '</span>' : '') +
         (c.target ? '<span class="edu-tg">대상 · ' + eduEsc(c.target) + '</span>' : '') +   // 대상(2026-10-16 친구 「대상이 누구인지도」) — 자세히 화면 「🙋 대상」과 같은 값
         '<span class="edu-st">' + eduEsc(eduCardLine(c)) + '</span>' + eduContactLine(c.contact) + '</div>'; };
     if (tab === 'soon') body = soon.length ? soon.map(card).join('') : '<p class="edu-empty">곧 열릴 강좌가 없어요.</p>';
     else body = (open.length ? open.map(card).join('') : '<p class="edu-empty">지금 모집 중인 강좌가 없어요.</p>') +
-      (closed.length ? '<p class="edu-sec">모집 끝</p>' + closed.map(function (c, j) { return card(c, open.length + j); }).join('') : '');
+      (closed.length ? '<p class="edu-sec">모집 완료</p>' + closed.map(function (c, j) { return card(c, open.length + j); }).join('') : '');
   }
   var door = (!eduState.open && tab !== 'mine') ? '<p class="edu-empty">' + eduErrText('not-open') + '</p>' : '';
   w.innerHTML = head + door + '<div class="edu-list">' + body + '</div>';
@@ -503,7 +503,7 @@ function renderEduCourse(id, opt) {
     var c = r.course, m = r.mine, mv = eduMineView(m), sv = mv ? null : eduSeatView(c, eduState.open);
     var chip = eduPhaseChip(c.phase);
     var chips = '<div class="edu-chips"><span class="edu-chip">' + eduEsc(c.kindLabel) + '</span>' +
-      (chip ? '<span class="edu-chip' + (c.phase === 'open' ? ' on' : '') + '">' + eduEsc(chip) + '</span>' : '') + '</div>';
+      (chip ? '<span class="edu-chip' + (c.phase === 'open' ? ' on' : c.phase === 'closed' ? ' shut' : '') + '">' + eduEsc(chip) + '</span>' : '') + '</div>';   // shut — 모집 완료 눈에 띄게(2026-10-16)
     var gl = [['📅', '언제', eduWhenLine(c)], ['📍', '어디서', c.place], ['🙋', '대상', c.target],
       ['📚', '먼저 들으실 과정', c.prereq && c.prereq.length ? c.prereq.join(', ') : ''], ['👤', '강사', c.teacher], ['📘', '교재비', c.fee],
       ['📞', '문의', c.contact]]   // 담당자가 적은 문의처 한 줄(모집 전·진행 중에도 보인다 · 친구 2026-10-06)

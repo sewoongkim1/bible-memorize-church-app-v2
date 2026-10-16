@@ -8184,4 +8184,18 @@ html[data-fs="xl"] .sg-a #song-play { font-size: 1.22rem; min-height: 56px; }
 .dark .edu-state.done, .dark .edu-wrap.edu-a .edu-state.done, .dark .edu-wrap.edu-a .edu-state.done.s-check { border-color: #4b5873; background: #171d28; }
 .dark .edu-state.done b, .dark .edu-wrap.edu-a .edu-state.done b, .dark .edu-wrap.edu-a .edu-state.done.s-check b { color: #b8c4da; }
 .dark .edu-wrap.edu-a .edu-state.done .edu-sic, .dark .edu-wrap.edu-a .edu-state.done.s-check .edu-sic { background: #4b5873; }
+/* 교육 — 카드를 바탕과 구분되게 · 「모집 완료」 눈에 띄게(2026-10-16 친구 「전체적으로 카드색을 배경색과 구분되게 · 모집 끝 → 모집 완료 컬러를 눈에 띄게」)
+   카드 · 칸은 모두 흰 바탕 + 조금 진한 테두리 + 옅은 그림자(모집 완료 카드도 흰색 — 꼬리표가 상태를 말한다) · 「모집 완료」 꼬리표 · 칩은 진한 빨강 바탕 흰 글씨. */
+.edu-wrap.edu-a .edu-card, .edu-wrap.edu-a .edu-glance, .edu-wrap.edu-a .edu-about, .edu-wrap.edu-a .edu-seat {
+  background: #fff; border-color: #ddd3c2; box-shadow: 0 1px 2px rgba(27, 35, 51, .06), 0 3px 10px rgba(27, 35, 51, .05);
+}
+.edu-wrap.edu-a .edu-state { box-shadow: 0 1px 2px rgba(27, 35, 51, .06), 0 3px 10px rgba(27, 35, 51, .05); }
+.edu-wrap.edu-a .edu-card.edu-shut, .edu-wrap.edu-a .edu-seat.off { background: #fff; }
+.edu-wrap.edu-a .edu-card.edu-shut b { color: #3d4b66; }
+.edu-card .edu-k.shut, .edu-wrap.edu-a .edu-card .edu-k.shut, .edu-chip.shut, .edu-wrap.edu-a .edu-chip.shut { background: #b4232f; color: #fff; }
+.dark .edu-wrap.edu-a .edu-card, .dark .edu-wrap.edu-a .edu-glance, .dark .edu-wrap.edu-a .edu-about, .dark .edu-wrap.edu-a .edu-seat { background: #1a202b; border-color: #36405a; box-shadow: none; }
+.dark .edu-wrap.edu-a .edu-state { box-shadow: none; }
+.dark .edu-wrap.edu-a .edu-card.edu-shut, .dark .edu-wrap.edu-a .edu-seat.off { background: #1a202b; }
+.dark .edu-wrap.edu-a .edu-card.edu-shut b { color: #c9d3e6; }
+.dark .edu-card .edu-k.shut, .dark .edu-wrap.edu-a .edu-card .edu-k.shut, .dark .edu-chip.shut, .dark .edu-wrap.edu-a .edu-chip.shut { background: #c0392b; color: #fff; }
 

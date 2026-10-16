@@ -49,7 +49,7 @@ test('eduWhenLine — 서버가 고른 시작·끝 + 회차 수', () => {
 test('eduPhaseChip — 칩에는 숫자가 없다', () => {
   assert.equal(ctx.eduPhaseChip('open'), '모집 중');
   assert.equal(ctx.eduPhaseChip('upcoming'), '곧 열려요');
-  assert.equal(ctx.eduPhaseChip('closed'), '모집 끝');
+  assert.equal(ctx.eduPhaseChip('closed'), '모집 완료');   // 2026-10-16 「모집 끝」 → 「모집 완료」
   assert.equal(ctx.eduPhaseChip('running'), '진행 중');
   assert.equal(ctx.eduPhaseChip('x'), '');
 });
