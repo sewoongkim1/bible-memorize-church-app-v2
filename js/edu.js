@@ -390,6 +390,7 @@ function eduDrawList(tab) {
         '<span class="edu-ks"><span class="edu-k">' + eduEsc(c.kindLabel) + '</span>' + (shut ? '<span class="edu-k shut">모집 끝</span>' : '') + '</span>' +
         '<b>' + eduEsc(c.title) + (c.term ? ' <small>(' + eduEsc(c.term) + ')</small>' : '') + '</b>' +
         (c.firstDate ? '<span>' + eduEsc(eduMd(c.firstDate)) + (c.lastDate && c.lastDate !== c.firstDate ? ' ~ ' + eduEsc(eduMd(c.lastDate)) : '') + (c.sessionsCount ? ' · ' + c.sessionsCount + '회' : '') + '</span>' : '') +
+        (c.target ? '<span class="edu-tg">대상 · ' + eduEsc(c.target) + '</span>' : '') +   // 대상(2026-10-16 친구 「대상이 누구인지도」) — 자세히 화면 「🙋 대상」과 같은 값
         '<span>' + eduEsc(eduCardLine(c)) + '</span>' + eduContactLine(c.contact) + '</div>'; };
     if (tab === 'soon') body = soon.length ? soon.map(card).join('') : '<p class="edu-empty">곧 열릴 강좌가 없어요.</p>';
     else body = (open.length ? open.map(card).join('') : '<p class="edu-empty">지금 모집 중인 강좌가 없어요.</p>') +

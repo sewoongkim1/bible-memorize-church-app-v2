@@ -5584,6 +5584,8 @@ body:has(#update-banner) .ps-wrap.ps-home{
 .dark .edu-card .edu-k.shut { background: #2b303b; color: #c3c9d4; }
 .dark .edu-card.edu-shut { background: #121925; }
 .dark .edu-card.edu-shut b { color: #9fb2cf; }
+.edu-card .edu-tg { color: var(--navy); font-weight: 700; }   /* 목록 카드의 대상 줄(2026-10-16) */
+.dark .edu-card .edu-tg { color: #cdd9f2; }
 .edu-sub { color: var(--gray); margin-bottom: 10px; font-size: 15px; }
 .edu-desc { white-space: pre-line; line-height: 1.6; font-size: 15px; }
 .edu-sess { padding-left: 20px; line-height: 1.7; font-size: 15px; }
