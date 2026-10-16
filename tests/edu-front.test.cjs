@@ -443,7 +443,7 @@ test('renderEduCert·eduCertDraw — 이름·명의·문안은 캔버스로만(i
   assert.ok(!/innerHTML/.test(d), '그리기에는 innerHTML 이 없다');
   assert.ok(/pic\.alt = /.test(r) && /pic\.src = url/.test(r), 'alt·src 는 속성으로');
   assert.ok(r.includes('navigator.canShare({ files: [file] })') && r.includes('navigator.share({ files: [file]') && r.includes('eduCertDownload(url, name)'));
-  assert.ok(r.includes('안 되면 그림을 길게 눌러 저장해 주세요') && r.includes('수료번호로 진위를 확인할 수 있어요: gocheok.onlybible.kr/cert'));
+  assert.ok(r.includes('안 되면 그림을 길게 눌러 저장해 주세요') && r.includes('수료번호로 진위를 확인할 수 있어요: <a class="edu-cert-link" href="cert/?no=') && r.includes('gocheok.onlybible.kr/cert/</a>'));
   assert.ok(r.includes('home-fab') && r.includes("renderEduCourse(courseId)"), '첫 화면 단추 · 뒤로(강좌)');
   assert.ok(/document\.fonts\.load/.test(d) && /'img\/logo-gocheok\.png'/.test(d));
   // 「수료증 보기」는 자세히의 내 칸(mv.cert)에서 · 내 강좌 카드는 eduCertLine
@@ -752,5 +752,9 @@ test('시작일 역순(2026-10-16 친구 「앱에서 시작일자 역순」) �
 test('마친 강좌는 문의 줄을 뺀다(2026-10-16 친구) — 「내 강좌」 카드 · 자세히 「문의」', () => {
   assert.ok(src.includes("(m.finished === true ? '' : eduContactLine(m.contact))"), '내 강좌 카드');
   assert.ok(src.includes("['📞', '문의', m && m.finished === true ? '' : c.contact]"), '자세히 문의 줄');
+});
+
+test('수료증 화면 진위 확인 — 누르면 번호가 들어간 확인 페이지(cert/?no=) · 글자뿐이던 것(2026-10-16 친구 「연결이 안돼요」)', () => {
+  assert.ok(src.includes(`href="cert/?no=' + encodeURIComponent(cert.certNo) + '">gocheok.onlybible.kr/cert/</a>`), '주소가 누르는 링크(끝 / · 번호가 들어간다)');
 });
 

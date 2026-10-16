@@ -678,7 +678,9 @@ function renderEduCert(eid, courseId) {
         '<p class="edu-how">안 되면 그림을 길게 눌러 저장해 주세요</p>' +
         '<p class="edu-note edu-cert-msg" id="edu-cert-msg" role="status"></p>' +
         '<div class="edu-about"><div class="edu-about-h">🔎 진위 확인</div><p class="edu-desc">수료번호 <b>' + eduEsc(cert.certNo) + '</b><br>' +
-        '수료번호로 진위를 확인할 수 있어요: gocheok.onlybible.kr/cert</p></div>';
+        // 주소는 누르는 링크(2026-10-16 친구 「연결이 안돼요」 — 전엔 글자뿐이었다 · 문장은 친구가 준 그대로 · 끝 「/」로 넘겨 주기 없이) —
+        //   이 번호가 들어간 확인 페이지(cert/?no= — 열자마자 확인한다 · 같은 창 — 앱 껍데기에서도 열리고 페이지 아래 「앱으로」로 돌아온다)
+        '수료번호로 진위를 확인할 수 있어요: <a class="edu-cert-link" href="cert/?no=' + encodeURIComponent(cert.certNo) + '">gocheok.onlybible.kr/cert/</a></p></div>';
       var pic = document.getElementById('edu-cert-pic');
       pic.alt = '수료증 — ' + String(cert.name || '') + ' · ' + String(cert.title || '');   // 속성으로(글자 그대로)
       pic.src = url;

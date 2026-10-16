@@ -8198,4 +8198,7 @@ html[data-fs="xl"] .sg-a #song-play { font-size: 1.22rem; min-height: 56px; }
 .dark .edu-wrap.edu-a .edu-card.edu-shut, .dark .edu-wrap.edu-a .edu-seat.off { background: #1a202b; }
 .dark .edu-wrap.edu-a .edu-card.edu-shut b { color: #c9d3e6; }
 .dark .edu-card .edu-k.shut, .dark .edu-wrap.edu-a .edu-card .edu-k.shut, .dark .edu-chip.shut, .dark .edu-wrap.edu-a .edu-chip.shut { background: #c0392b; color: #fff; }
+/* 수료증 화면 진위 확인 주소 — 누르는 링크(2026-10-16) */
+.edu-cert-link { color: var(--navy); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; word-break: break-all; }
+.dark .edu-cert-link { color: #9dbbea; }
 
