@@ -51,7 +51,10 @@ ADMIN_SECRET(관리자 비번, 3앱 공통 — 기계 호출자는 2026-10-13 �
 
 **아직 관리자 암호를 쓰는 곳(10/25 교체 날 볼 것):** 사람이 여는 관리자 화면(`admin-stats` 등 — 새 암호로 들어오면 된다) ·
 설교 아카이브 함수 `sermon` 의 관리 액션(손으로 돌리는 `add-local` → `5-migrate` 의 `importSermons` · `6-embed` 의 `embedSermons` — 로컬 `.env` 의 `SERMON_ADMIN` 을 새 암호로) ·
-gocheok-sermons `add-sermon.yml`(옛 길 · GitHub `SERMON_ADMIN`/`DEV_SERMON_ADMIN` — 옛 길을 치우거나 새 암호로) · 주일 말씀 크론(10/18 Vault 로 옮기기 전까지).
+gocheok-sermons `add-sermon.yml`(옛 길 · GitHub `SERMON_ADMIN`/`DEV_SERMON_ADMIN` — 옛 길을 치우거나 새 암호로) · 주일 말씀 크론(10/18 Vault 로 옮기기 전까지) ·
+⚠️ **gocheok-sermons `sermon-job.yml`(관리자 화면 설교 올리기)의 저장·챗봇 단계도 아직 `SERMON_ADMIN`/`DEV_SERMON_ADMIN`** — 10/13 에 작업 키로 바꾸며 이 둘까지 걷었다가
+2026-10-18 첫 실행(lV6AhR2irZM)이 저장을 조용히 건너뛰고 챗봇에서 멈춰 되살렸다(51e03f2). 작업 상태만 `SERMON_JOB_KEY` 다. 교체 날 이 두 시크릿도 새 암호로 —
+또는 그 전에 `importSermons`(sermon 함수)·`embedSermons`(api)를 작업 키로 열고 그 줄을 걷는다.
 찬양 함수는 2026-10-13 에 암호 길을 닫았다(내부 키 + 「암호 + 총괄」만 · praise-songs 6ff4948).
 
 ## 배포 가드(2026-10-12)
