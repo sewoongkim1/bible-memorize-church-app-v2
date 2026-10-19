@@ -730,11 +730,16 @@ function mhAsk(u, row, mode) {
     close();
     const y = window.scrollY;
     await mhLoad(u);
+    // 둘째부터 막혔으면 화면을 떠나셨어도 알린다 — 무엇이 들어갔는지 이름으로(다시 낼 때 들어간 것을 또 내지 않게)
+    const partial = done < list.length;
+    const named = function (f) { return [mhTidy(f.committee_text), mhTidy(f.team_text)].filter(Boolean).join(" "); };
+    const partialMsg = partial ? done + "건을 냈어요(" + list.slice(0, done).map(named).join(", ") + ").\n나머지 " +
+      (list.length - done) + "건(" + list.slice(done).map(named).join(", ") + ")은 내지 못했어요 — " + mhErrText(failCode) + "\n다시 내 주세요." : "";
     // 그사이 나가셨으면 다시 그리지 않는다(첫 화면을 덮지 않게 — 불러오는 중 갈래의 mh-loading 지킴이와 같은 까닭). 신청은 이미 들어갔다.
-    if (!document.querySelector("#app .mh-screen")) return;
+    if (!document.querySelector("#app .mh-screen")) { if (partial) minAlert(partialMsg); return; }
     renderMinistryHistory(y);
-    if (done < list.length) {
-      minAlert(done + "건을 냈어요.\n나머지 " + (list.length - done) + "건은 내지 못했어요 — " + mhErrText(failCode) + "\n다시 내 주세요.");
+    if (partial) {
+      minAlert(partialMsg);
     } else {
       minAlert((done > 1 ? "정정 신청 " + done + "건을 냈어요." : "정정 신청을 냈어요.") + "\n담당자가 확인한 뒤 바로잡아 드려요.");
     }

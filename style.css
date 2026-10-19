@@ -4736,7 +4736,7 @@ body.pr-full-on { overflow: hidden; }
 .min-alert-input.mh-in::placeholder, .mh-ta::placeholder { font-weight: 400; color: #9aa3af; }   /* 예시 글자 — 입력한 값과 헷갈리지 않게 보통 굵기 · 옅은 회색(2026-10-19) */
 .mh-set-h { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
 .mh-set-h .mh-l { margin: 0; }
-.mh-set-x { font: inherit; font-size: .95rem; line-height: 1; padding: 4px 8px; background: none; border: 0; color: inherit; opacity: .7; cursor: pointer; }
+.mh-set-x { font: inherit; font-size: .95rem; line-height: 1; min-width: 40px; min-height: 40px; padding: 8px; margin-right: -8px; background: none; border: 0; color: inherit; opacity: .7; cursor: pointer; }   /* 폰에서 누르기 쉽게 40px(2026-10-19 검토) */
 .mh-more { margin-top: 12px; font-size: .86rem; padding: 10px; }
 .mh-more[hidden] { display: none; }
 .mh-ta { display: block; width: 100%; font: inherit; font-size: .95rem; padding: 10px; resize: vertical;
