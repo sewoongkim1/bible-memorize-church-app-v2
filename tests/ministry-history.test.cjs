@@ -116,6 +116,15 @@ test('mhCheck 두 칸 — 부서나 팀 하나는 있어야 · 칸마다 100자 
   assert.equal(c({ kind: 'missing', year: '2023', committee_text: null, team_text: '찬양위원회 시온성가대' }), null);
 });
 
+test('mhCheck 연도 — 2000년부터 올해까지(2026-10-19 친구 · thisYear 를 넘겨 해가 바뀌어도 흔들리지 않게)', () => {
+  const c = fn('mhCheck');
+  const y = (year) => c({ kind: 'missing', year, committee_text: '찬양위원회', team_text: '시온성가대' }, 2026);
+  assert.equal(y('1999'), 'bad-year');
+  assert.equal(y('2000'), null);
+  assert.equal(y('2026'), null);
+  assert.equal(y('2027'), 'bad-year');
+});
+
 test('mhMissingText·목록 머리 — 두 칸은 「부서 · 팀」(빈 칸 뺌) · 옛 한 칸(committee_text null·칸 없음)은 team_text 그대로', () => {
   const t = fn('mhMissingText');
   assert.equal(t(req({ kind: 'missing', committee_text: '찬양위원회', team_text: '시온성가대' })), '찬양위원회 · 시온성가대');
@@ -144,21 +153,21 @@ test('정정 창 「빠진 사역」 — 연도·부서·팀 세 칸(부서 · �
     assert.ok(m, id + ' 칸이 없다');
     return m[0];
   };
-  const committee = input('mh-committee'), team = input('mh-team');
-  for (const [el, ph] of [[committee, '찬양위원회'], [team, '시온성가대']]) {
+  const committee = input('mh-committee-0'), team = input('mh-team-0');
+  for (const [el, ph] of [[committee, '예) 찬양위원회'], [team, '예) 시온성가대']]) {
     assert.ok(el.includes('class="min-alert-input mh-in"'), el);
     assert.ok(el.includes('maxlength="100"'), el);
     assert.ok(el.includes('placeholder="' + ph + '"'), el);
   }
-  assert.ok(html.includes('<label class="mh-l" for="mh-committee">부서</label>'));
-  assert.ok(html.includes('<label class="mh-l" for="mh-team">팀</label>'));
-  assert.ok(html.indexOf('id="mh-year"') < html.indexOf('id="mh-committee"') && html.indexOf('id="mh-committee"') < html.indexOf('id="mh-team"'), '칸 차례가 연도 · 부서 · 팀이 아니다');
+  assert.ok(html.includes('<label class="mh-l" for="mh-committee-0">부서</label>'));
+  assert.ok(html.includes('<label class="mh-l" for="mh-team-0">팀</label>'));
+  assert.ok(html.indexOf('id="mh-year"') < html.indexOf('id="mh-committee-0"') && html.indexOf('id="mh-committee-0"') < html.indexOf('id="mh-team-0"'), '칸 차례가 연도 · 부서 · 팀이 아니다');
   assert.ok(!html.includes('부서 · 팀'), '옛 한 칸 이름표가 남았다');
   // 창(mhAsk)은 이 칸들을 쓰고, 빠진 사역일 때 두 칸을 함께 보낸다
   const ask = pickFn('mhAsk', minSource, 'js/ministry.js');
   assert.ok(ask.includes('mhMissingFieldsHtml()'), '정정 창이 mhMissingFieldsHtml 을 쓰지 않는다');
-  assert.ok(/committee_text\s*=\s*box\.querySelector\("#mh-committee"\)\.value/.test(ask), '정정 창이 부서 칸을 committee_text 로 보내지 않는다');
-  assert.ok(ask.includes('box.querySelector("#mh-team").value'), '정정 창이 팀 칸을 보내지 않는다');
+  assert.ok(ask.includes('committee_text: c, team_text: t') && ask.includes('[id^=mh-committee-]'), '정정 창이 부서 칸을 committee_text 로 보내지 않는다');
+  assert.ok(ask.includes('[id^=mh-team-]'), '정정 창이 팀 칸을 보내지 않는다');
 });
 
 test('mhOpenCount·mhErrText — 끝나지 않은 것만 센다 · 모르는 오류는 「잠시 뒤」', () => {

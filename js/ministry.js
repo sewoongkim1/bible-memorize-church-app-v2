@@ -384,6 +384,7 @@ const MH_KIND_TEXT = {
 };
 const MH_OPEN = ["신청", "확인 중"];
 const MH_DETAIL_MAX = 200, MH_TEAM_MAX = 100, MH_OPEN_MAX = 20;
+const MH_YEAR_MIN = 2000, MH_MISSING_ROWS = 3;   // 빠진 사역 — 연도 2000~올해 · 한 창에 같은 해 3개까지(2026-10-19 친구)
 const MH_ERR = {
   closed: "아직 열리지 않았어요.",
   "no-user": "로그인 정보를 찾지 못했어요. 첫 화면에서 다시 로그인해 주세요.",
@@ -391,7 +392,7 @@ const MH_ERR = {
   "too-many": "확인을 기다리는 신청이 20건이에요. 담당자가 확인한 뒤 다시 내 주세요.",
   "need-detail": "어떤 점이 틀렸는지 한 줄로 적어 주세요.",
   "need-team": "부서나 팀 이름을 적어 주세요.",
-  "bad-year": "연도를 숫자 네 자리로 적어 주세요(예: 2024).",
+  "bad-year": "연도는 2000년부터 올해까지 적을 수 있어요(예: 2024).",
   "too-long": "글이 너무 길어요. 조금 줄여 주세요.",
   "not-yours": "이 기록은 지금 고칠 수 없어요. 화면을 다시 열어 주세요.",
   "not-found": "기록을 찾지 못해 이 신청은 낼 수 없어요.",
@@ -498,13 +499,22 @@ function mhBodyHtml(d) {
 
 // 정정 창 「빠진 사역」 칸 — 연도 · 부서 · 팀(2026-10-02 친구 요청 「네 두칸으로 해주세요」 · 그전에는 「부서 · 팀」 한 칸).
 //   부서는 committee_text, 팀은 team_text 로 보낸다(mhAsk). 둘 중 하나만 적어도 된다(mhCheck).
+function mhMissingRowHtml(i) {
+  return '<div class="mh-set" data-set="' + i + '">' +
+    (i > 0 ? '<div class="mh-set-h"><span class="mh-l mh-set-t">사역 ' + (i + 1) + '</span>' +
+      '<button type="button" class="mh-set-x" data-del aria-label="사역 ' + (i + 1) + ' 빼기">✕</button></div>' : "") +
+    '<label class="mh-l" for="mh-committee-' + i + '">부서</label>' +
+    '<input class="min-alert-input mh-in" id="mh-committee-' + i + '" maxlength="' + MH_TEAM_MAX + '" placeholder="예) 찬양위원회" autocomplete="off">' +
+    '<label class="mh-l" for="mh-team-' + i + '">팀</label>' +
+    '<input class="min-alert-input mh-in" id="mh-team-' + i + '" maxlength="' + MH_TEAM_MAX + '" placeholder="예) 시온성가대" autocomplete="off">' +
+    '</div>';
+}
+// 연도는 한 번 · 부서·팀 묶음은 MH_MISSING_ROWS 개까지(2026-10-19 친구 「한 창에서 같은 해 3개까지」)
 function mhMissingFieldsHtml() {
   return '<label class="mh-l" for="mh-year">연도</label>' +
-    '<input class="min-alert-input mh-in" id="mh-year" inputmode="numeric" maxlength="4" placeholder="2024" autocomplete="off">' +
-    '<label class="mh-l" for="mh-committee">부서</label>' +
-    '<input class="min-alert-input mh-in" id="mh-committee" maxlength="' + MH_TEAM_MAX + '" placeholder="찬양위원회" autocomplete="off">' +
-    '<label class="mh-l" for="mh-team">팀</label>' +
-    '<input class="min-alert-input mh-in" id="mh-team" maxlength="' + MH_TEAM_MAX + '" placeholder="시온성가대" autocomplete="off">';
+    '<input class="min-alert-input mh-in" id="mh-year" inputmode="numeric" maxlength="4" placeholder="예) 2024" autocomplete="off">' +
+    '<div id="mh-sets">' + mhMissingRowHtml(0) + '</div>' +
+    '<button type="button" class="min-ghost mh-more" id="mh-more">＋ 같은 해 사역 하나 더</button>';
 }
 
 // 서버 tidy 와 같다(NFC · 공백 덩어리는 한 칸 · 앞뒤 공백 뺌) — 두 칸 글자 수를 서버처럼 센다
@@ -512,13 +522,14 @@ function mhTidy(s) { return String(s == null ? "" : s).normalize("NFC").replace(
 
 // 보내기 전 검사 — 교회 어드민 parseRequest 와 같은 규칙(정하는 것은 서버다 · 여기는 미리 알릴 뿐)
 //   빠진 사역: committee_text 가 글자면 두 칸(부서나 팀 하나는 꼭 · 칸마다 100자) · 아니면 옛 한 칸(team_text 꼭)
-function mhCheck(f) {
+function mhCheck(f, thisYear) {
+  if (thisYear == null) thisYear = new Date().getFullYear();
   const detail = String(f.detail || "").trim();
   if (detail.length > MH_DETAIL_MAX) return "too-long";
   if (f.kind === "other" && !detail) return "need-detail";
   if (f.kind === "missing") {
     const y = Number(String(f.year || "").trim());
-    if (!Number.isInteger(y) || y < 1950 || y > 2100) return "bad-year";
+    if (!Number.isInteger(y) || y < MH_YEAR_MIN || y > thisYear) return "bad-year";
     if (typeof f.committee_text === "string") {
       const c = mhTidy(f.committee_text), t = mhTidy(f.team_text);
       if (!c && !t) return "need-team";
@@ -616,7 +627,7 @@ function mhAsk(u, row, mode) {
       (mode === "missing" ? mhMissingFieldsHtml() : "") +
       '<label class="mh-l" for="mh-detail">한 줄 설명 <span class="mh-opt">' +
         (mode === "line" ? "(「그 밖에」는 꼭 적어 주세요)" : "(적지 않으셔도 돼요)") + '</span></label>' +
-      '<textarea class="mh-ta" id="mh-detail" rows="3" maxlength="' + MH_DETAIL_MAX + '" placeholder="예: 그해에는 알토로 섬겼어요"></textarea>' +
+      '<textarea class="mh-ta" id="mh-detail" rows="3" maxlength="' + MH_DETAIL_MAX + '" placeholder="예) 그해에는 알토로 섬겼어요"></textarea>' +
       '<span class="min-alert-sub">건강·가정 형편 같은 사적인 사정은 적지 말아 주세요 — 같은 이름·소속으로 들어오면 보일 수 있어요.</span>' +
       '<p class="mh-err" id="mh-err" hidden></p>' +
     '</div>' +
@@ -645,24 +656,76 @@ function mhAsk(u, row, mode) {
       ok.disabled = false;
     });
   });
+  // 빠진 사역 — 부서·팀 묶음 더하기·빼기(최대 MH_MISSING_ROWS)
+  const setsEl = box.querySelector("#mh-sets"), moreBtn = box.querySelector("#mh-more");
+  const setCount = function () { return setsEl ? setsEl.querySelectorAll(".mh-set").length : 0; };
+  const syncSets = function () {
+    if (!setsEl) return;
+    setsEl.querySelectorAll(".mh-set").forEach(function (el, i) {
+      const t = el.querySelector(".mh-set-t"), x = el.querySelector("[data-del]");
+      if (t) t.textContent = "사역 " + (i + 1);
+      if (x) x.setAttribute("aria-label", "사역 " + (i + 1) + " 빼기");
+    });
+    moreBtn.hidden = setCount() >= MH_MISSING_ROWS;
+  };
+  if (moreBtn) {
+    moreBtn.addEventListener("click", function () {
+      if (setCount() >= MH_MISSING_ROWS) return;
+      // 칸 id 는 번호가 겹치지 않게 지금 있는 것의 다음 번호를 쓴다(중간을 빼도 id 가 겹치지 않는다)
+      let n = 0;
+      setsEl.querySelectorAll(".mh-set").forEach(function (el) { n = Math.max(n, Number(el.dataset.set) + 1); });
+      setsEl.insertAdjacentHTML("beforeend", mhMissingRowHtml(n));
+      syncSets();
+      const c = box.querySelector("#mh-committee-" + n); if (c) c.focus();
+    });
+    setsEl.addEventListener("click", function (e) {
+      const x = e.target.closest ? e.target.closest("[data-del]") : null;
+      if (!x) return;
+      const set = x.closest(".mh-set"); if (set) set.remove();
+      syncSets();
+    });
+  }
   ok.addEventListener("click", async function () {
-    const f = {
+    const base = {
       kind: kind, history_id: row ? row.id : null,
       detail: box.querySelector("#mh-detail").value,
       year: mode === "missing" ? box.querySelector("#mh-year").value : null,
-      team_text: mode === "missing" ? box.querySelector("#mh-team").value : "",
+      team_text: "",
     };
-    // 두 칸(2026-10-02) — 빠진 사역일 때만 부서를 싣는다(다른 종류는 칸 자체를 보내지 않는다 · api 는 글자일 때만 넘긴다)
-    if (mode === "missing") f.committee_text = box.querySelector("#mh-committee").value;
-    const bad = mhCheck(f);
-    if (bad) { showErr(bad); return; }
+    let list = [base];
+    if (mode === "missing") {
+      // 두 칸(2026-10-02) — 빠진 사역일 때만 부서를 싣는다(다른 종류는 칸 자체를 보내지 않는다 · api 는 글자일 때만 넘긴다)
+      list = [];
+      box.querySelectorAll(".mh-set").forEach(function (el, i) {
+        const c = el.querySelector("[id^=mh-committee-]").value, t = el.querySelector("[id^=mh-team-]").value;
+        if (i > 0 && !c.trim() && !t.trim()) return;   // 둘째부터 둘 다 빈 묶음은 버린다(첫 묶음은 비면 need-team)
+        list.push(Object.assign({}, base, { committee_text: c, team_text: t }));
+      });
+    }
+    for (let i = 0; i < list.length; i++) {
+      const bad = mhCheck(list[i]);
+      if (bad) { showErr(bad); return; }
+    }
+    if (mode === "missing") {
+      const open = mhOpenCount(mhData.requests);
+      if (open + list.length > MH_OPEN_MAX) {
+        errEl.textContent = "확인을 기다리는 신청이 " + open + "건이라 " + Math.max(0, MH_OPEN_MAX - open) + "건만 더 낼 수 있어요.";
+        errEl.hidden = false;
+        try { errEl.scrollIntoView({ block: "nearest" }); } catch (e) {}
+        return;
+      }
+    }
     ok.disabled = true;
-    try {
-      await api.ministryHistoryRequest(u.user_id, f, minPw());
-    } catch (e) {
-      ok.disabled = false;
-      showErr(e && e.message);
-      return;
+    let done = 0, failCode = "";
+    for (let i = 0; i < list.length; i++) {
+      try {
+        await api.ministryHistoryRequest(u.user_id, list[i], minPw());
+        done++;
+      } catch (e) {
+        failCode = (e && e.message) || "";
+        if (i === 0) { ok.disabled = false; showErr(failCode); return; }   // 첫 건 실패 — 아무것도 안 들어갔다
+        break;
+      }
     }
     close();
     const y = window.scrollY;
@@ -670,7 +733,11 @@ function mhAsk(u, row, mode) {
     // 그사이 나가셨으면 다시 그리지 않는다(첫 화면을 덮지 않게 — 불러오는 중 갈래의 mh-loading 지킴이와 같은 까닭). 신청은 이미 들어갔다.
     if (!document.querySelector("#app .mh-screen")) return;
     renderMinistryHistory(y);
-    minAlert("정정 신청을 냈어요.\n담당자가 확인한 뒤 바로잡아 드려요.");
+    if (done < list.length) {
+      minAlert(done + "건을 냈어요.\n나머지 " + (list.length - done) + "건은 내지 못했어요 — " + mhErrText(failCode) + "\n다시 내 주세요.");
+    } else {
+      minAlert((done > 1 ? "정정 신청 " + done + "건을 냈어요." : "정정 신청을 냈어요.") + "\n담당자가 확인한 뒤 바로잡아 드려요.");
+    }
   });
 }
 
