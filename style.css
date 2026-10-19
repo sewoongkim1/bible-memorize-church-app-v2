@@ -4734,8 +4734,14 @@ body.pr-full-on { overflow: hidden; }
 .mh-opt { font-weight: 500; }
 .min-alert-input.mh-in { margin-top: 0; text-align: left; }
 .min-alert-input.mh-in::placeholder, .mh-ta::placeholder { font-weight: 400; color: #9aa3af; }   /* 예시 글자 — 입력한 값과 헷갈리지 않게 보통 굵기 · 옅은 회색(2026-10-19) */
-.mh-set-h { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
+/* 사역 한 묶음 = 상자 하나(2026-10-19 친구 「사역으로 묶어서」) · 연도 안내 한 줄 */
+.mh-set { margin-top: 12px; padding: 6px 12px 12px; border: 1.5px solid var(--border); border-radius: 12px; }
+.dark .mh-set { border-color: #3a4a68; }
+.mh-set > .mh-set-h + .mh-l { margin-top: 2px; }
+.mh-hint { font-size: .8rem; color: var(--gray); margin: 6px 2px 0; }
+.mh-set-h { display: flex; align-items: center; justify-content: space-between; min-height: 40px; }
 .mh-set-h .mh-l { margin: 0; }
+.mh-set-h .mh-set-t { font-size: .92rem; color: inherit; }   /* 「사역 N」은 칸 이름(부서·팀)보다 한 단계 위 — 색은 상속(어두운 모드에서도 따라간다) */
 .mh-set-x { font: inherit; font-size: .95rem; line-height: 1; min-width: 40px; min-height: 40px; padding: 8px; margin-right: -8px; background: none; border: 0; color: inherit; opacity: .7; cursor: pointer; }   /* 폰에서 누르기 쉽게 40px(2026-10-19 검토) */
 .mh-more { margin-top: 12px; font-size: .86rem; padding: 10px; }
 .mh-more[hidden] { display: none; }

@@ -163,6 +163,16 @@ test('정정 창 「빠진 사역」 — 연도·부서·팀 세 칸(부서 · �
   assert.ok(html.includes('<label class="mh-l" for="mh-team-0">팀</label>'));
   assert.ok(html.indexOf('id="mh-year"') < html.indexOf('id="mh-committee-0"') && html.indexOf('id="mh-committee-0"') < html.indexOf('id="mh-team-0"'), '칸 차례가 연도 · 부서 · 팀이 아니다');
   assert.ok(!html.includes('부서 · 팀'), '옛 한 칸 이름표가 남았다');
+  // 2026-10-19 친구 「2000년 이후 입력 정보 · 사역으로 묶어서」 — 연도 아래 안내 한 줄(올해는 넘긴 해) · 사역마다 상자(첫 상자도 「사역 1」 · 빼기는 둘째부터)
+  const html26 = fn('mhMissingFieldsHtml')(2026);
+  assert.ok(html26.includes('<p class="mh-hint" id="mh-year-hint">2000년부터 올해(2026년)까지 적을 수 있어요.</p>'), '연도 안내 줄이 없다');
+  assert.ok(html26.includes('aria-describedby="mh-year-hint"'), '연도 칸이 안내 줄을 가리키지 않는다');
+  assert.ok(html26.indexOf('id="mh-year-hint"') < html26.indexOf('class="mh-set"'), '안내 줄이 연도 칸 아래(사역 상자 위)에 있지 않다');
+  const set0 = /<div class="mh-set" data-set="0">[\s\S]*?<\/div><\/div>|<div class="mh-set" data-set="0">[\s\S]*$/.exec(html26)[0];
+  assert.ok(set0.includes('<span class="mh-l mh-set-t">사역 1</span>'), '첫 상자에 「사역 1」이 없다');
+  assert.ok(!set0.includes('data-del'), '첫 상자는 뺄 수 없어야 한다');
+  const set1 = fn('mhMissingRowHtml')(1);
+  assert.ok(set1.includes('<span class="mh-l mh-set-t">사역 2</span>') && set1.includes('data-del'), '둘째 상자는 「사역 2」 · 빼기');
   // 창(mhAsk)은 이 칸들을 쓰고, 빠진 사역일 때 두 칸을 함께 보낸다
   const ask = pickFn('mhAsk', minSource, 'js/ministry.js');
   assert.ok(ask.includes('mhMissingFieldsHtml()'), '정정 창이 mhMissingFieldsHtml 을 쓰지 않는다');

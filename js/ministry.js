@@ -499,10 +499,11 @@ function mhBodyHtml(d) {
 
 // 정정 창 「빠진 사역」 칸 — 연도 · 부서 · 팀(2026-10-02 친구 요청 「네 두칸으로 해주세요」 · 그전에는 「부서 · 팀」 한 칸).
 //   부서는 committee_text, 팀은 team_text 로 보낸다(mhAsk). 둘 중 하나만 적어도 된다(mhCheck).
+// 사역 한 묶음 = 상자 하나(2026-10-19 친구 「사역으로 묶어서 쉽게 볼 수 있게」) — 첫 상자도 「사역 1」 · 빼기(✕)는 둘째부터
 function mhMissingRowHtml(i) {
   return '<div class="mh-set" data-set="' + i + '">' +
-    (i > 0 ? '<div class="mh-set-h"><span class="mh-l mh-set-t">사역 ' + (i + 1) + '</span>' +
-      '<button type="button" class="mh-set-x" data-del aria-label="사역 ' + (i + 1) + ' 빼기">✕</button></div>' : "") +
+    '<div class="mh-set-h"><span class="mh-l mh-set-t">사역 ' + (i + 1) + '</span>' +
+      (i > 0 ? '<button type="button" class="mh-set-x" data-del aria-label="사역 ' + (i + 1) + ' 빼기">✕</button>' : "") + '</div>' +
     '<label class="mh-l" for="mh-committee-' + i + '">부서</label>' +
     '<input class="min-alert-input mh-in" id="mh-committee-' + i + '" maxlength="' + MH_TEAM_MAX + '" placeholder="예) 찬양위원회" autocomplete="off">' +
     '<label class="mh-l" for="mh-team-' + i + '">팀</label>' +
@@ -510,9 +511,12 @@ function mhMissingRowHtml(i) {
     '</div>';
 }
 // 연도는 한 번 · 부서·팀 묶음은 MH_MISSING_ROWS 개까지(2026-10-19 친구 「한 창에서 같은 해 3개까지」)
-function mhMissingFieldsHtml() {
+//   연도 칸 아래 안내 한 줄 — 받는 해(2000~올해 · mhCheck 와 같은 규칙)를 미리 보인다(2026-10-19 친구)
+function mhMissingFieldsHtml(thisYear) {
+  if (thisYear == null) thisYear = new Date().getFullYear();
   return '<label class="mh-l" for="mh-year">연도</label>' +
-    '<input class="min-alert-input mh-in" id="mh-year" inputmode="numeric" maxlength="4" placeholder="예) 2024" autocomplete="off">' +
+    '<input class="min-alert-input mh-in" id="mh-year" inputmode="numeric" maxlength="4" placeholder="예) 2024" autocomplete="off" aria-describedby="mh-year-hint">' +
+    '<p class="mh-hint" id="mh-year-hint">' + MH_YEAR_MIN + '년부터 올해(' + thisYear + '년)까지 적을 수 있어요.</p>' +
     '<div id="mh-sets">' + mhMissingRowHtml(0) + '</div>' +
     '<button type="button" class="min-ghost mh-more" id="mh-more">＋ 같은 해 사역 하나 더</button>';
 }
