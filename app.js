@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261019b";
+const APP_BUILD = "20261024a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -941,7 +941,7 @@ const HA_ICON = {
 const HA_GROUPS = [
   { title: "말씀 묵상", ids: ["open-sermon-chat", "open-meditation"] },
   { title: "내 기록", ids: ["open-event-list", "open-album", "open-ranking"] },
-  { title: "교회 생활", ids: ["open-ministry", "open-ministry-history", "open-edu", "open-duty"] },
+  { title: "교회 생활 (시험 참여자용)", ids: ["open-ministry", "open-ministry-history", "open-edu", "open-duty"] },
   // 📚 암송 과정 — 「함께」 바로 위 · 외우는 것 넷을 이 차례로(친구 2026-10-13 · 쉴만한 물가·내 안에 거하는 말씀·퀴즈는 「함께」에서 옮김).
   //   단추마다 문이 따로라(psalmVisible · passagesVisible · naviVisible) 닫힌 단추는 줄째 빠진다 · 설명서의 자리 말(MANUAL)도 이 묶음을 가리킨다.
   { title: "암송 과정", ids: ["open-psalm", "open-passages", "open-navi", "open-quiz"] },
@@ -3809,7 +3809,7 @@ function renderSummary() {
     ${/* 2026-10-05 친구 요청 — 묶음 이름 「사역현황」 → 「교회」, 🎓 교육 신청을 사역 이력 확인 아래로(「함께」에서 옮김).
           문은 단추마다 따로다(사역 둘 = ministryVisible · 교육 = eduVisible) — 제목은 하나라도 보이면 뜬다.
           2026-10-07 친구 요청 — 「교회」 → 「교회 생활」 · 「봉사 당번」 → 「봉사 당번 신청」(당번 화면 제목도 같은 이름). */""}
-    ${ministryVisible() || eduVisible() || dutyVisible() ? `<div class="grp-title">교회 생활</div>` : ""}
+    ${ministryVisible() || eduVisible() || dutyVisible() ? `<div class="grp-title">교회 생활 (시험 참여자용)</div>` : ""}
     ${ministryVisible() ? `<button class="summary-help" id="open-ministry">🤝 ${ministryYear()}년 사역 신청${newBadge("ministry")}</button>
     <button class="summary-help" id="open-ministry-history">🗂️ 사역 이력 확인</button>` : ""}
     ${/* newBadge("edu") — FEAT_SINCE.edu 는 개시일에 적는다(없으면 NEW 가 안 뜬다)

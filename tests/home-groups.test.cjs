@@ -46,7 +46,7 @@ test('A안 묶음표 — 템플릿의 묶음 단추가 모두 정확히 한 번�
 });
 
 test('A안 묶음 차례 — 「암송 과정」은 「함께」 바로 위 · 쉴만한 물가 · 내 안에 거하는 말씀 · 네비게이토 · 퀴즈(친구 2026-10-13)', () => {
-  assert.deepEqual(groups.map((g) => g.title), ['말씀 묵상', '내 기록', '교회 생활', '암송 과정', '함께', '교회 사이트']);
+  assert.deepEqual(groups.map((g) => g.title), ['말씀 묵상', '내 기록', '교회 생활 (시험 참여자용)', '암송 과정', '함께', '교회 사이트']);
   assert.deepEqual(groups.find((g) => g.title === '암송 과정').ids, ['open-psalm', 'open-passages', 'open-navi', 'open-quiz']);
   assert.deepEqual(groups.find((g) => g.title === '함께').ids, ['open-board', 'open-prayer', 'open-pilsa']);
   // 교회 사이트 — 찬양 · 말씀 아카이브 아래 고척교회 유튜브(친구 2026-10-13)
