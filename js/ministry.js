@@ -1690,8 +1690,7 @@ function minErr(e, fallback) {
   return (m && m.indexOf("HTTP") !== 0 && m !== "Failed to fetch") ? m : fallback;
 }
 
-// 취소도 4자리로 한 번 확인한다 — 신청을 지우는 일이라 고치기와 같은 문턱을 둔다
-let minCancelPh = "";
+// 취소는 휴대폰 번호 없이 한 번만 묻는다(2026-10-25 친구 「신청취소시 휴대폰 번호를 넣는데 바로 삭제」) — 서버도 번호를 보지 않는다.
 async function minCancelAsk() {
   // ⚠️ 접수·임명된 건은 서버가 남긴다(ministryCancel) — 무엇이 지워지고 무엇이 남는지 창에서 말한다.
   //    「신청 취소」만 보면 접수된 사역까지 다 없어지는 줄 아신다(2026-09-18 성도님).
@@ -1699,16 +1698,11 @@ async function minCancelAsk() {
   const kept = items.filter(function (x) { return x.status === "접수완료" || x.status === "임명확정"; })
     .map(function (x) { return x.team; });
   const kill = items.filter(function (x) { return !x.locked; }).map(function (x) { return x.team; });
-  const raw = await minPromptPhone(
+  return minConfirm(
     (kill.length ? kill.join(", ") + " 신청을 취소합니다." : "아직 접수 전인 신청을 취소합니다.") +
       (kept.length ? "\n접수·임명된 " + minEunNeun(kept.join(", ")) + " 그대로 남아요." : "") +
-      "\n휴대폰 번호를 넣어 주세요.",
-    "(처음 신청하실 때 넣으신 번호입니다)");
-  if (raw == null) return false;                    // 취소·바깥 탭·esc — 아무 말 없이 그만둔다
-  const ph = pilsaPhoneFmt(raw || "");
-  if (!pilsaPhoneOk(ph)) { if (ph) minAlert("휴대폰 번호를 010-1234-5678 꼴로 넣어 주세요."); return false; }
-  minCancelPh = ph;
-  return true;
+      "\n취소할까요?",
+    "신청 취소", "그대로 두기");
 }
 
 function wireMinDone(u) {
@@ -1727,7 +1721,7 @@ function wireMinDone(u) {
     if (!(await minCancelAsk())) return;
     cancel.disabled = true;
     try {
-      const r = await api.ministryCancel(u.user_id, minPw(), minCancelPh, minPrev());
+      const r = await api.ministryCancel(u.user_id, minPw(), "", minPrev());
       if (!r || !r.ok) { minAlert((r && r.error) || "취소하지 못했어요."); cancel.disabled = false; return; }
       // ⚠️ 접수된 건은 취소해도 남는다 — 「전부 지웠다」로 치면 화면이 사실과 어긋난다.
       minMine = r.mine || null;
