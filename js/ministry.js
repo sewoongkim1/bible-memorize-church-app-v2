@@ -363,8 +363,8 @@ function renderMinistry(keepScroll) {
 // 사역신청 화면 다섯 곳(불러오는 중·오류·신청서·확인·신청현황)의 타이틀을
 // 한 자리에서 만든다 — 아이콘 배지·얼라인·글씨 크기가 화면마다 달라 보이던 것을
 // 고치며(성도님 지적), 다음에 화면을 늘려도 여기만 건드리면 다 같이 맞는다.
-function minTitleHtml(title, subtitleHtml) {
-  return '<div class="min-intro"><h2 class="rank-title">' + title + '</h2>' +
+function minTitleHtml(title, subtitleHtml, cls) {
+  return '<div class="min-intro' + (cls ? " " + cls : "") + '"><h2 class="rank-title">' + title + '</h2>' +
     (subtitleHtml || "") + '</div>';
 }
 
@@ -857,8 +857,8 @@ function minFilterHtml() {
   return '<details class="min-filter"' + (minFOn() ? " open" : "") + '>' +
     '<summary class="min-filter-h">' +
       '<span class="min-filter-ico" aria-hidden="true">⌕</span>' +
-      '<span class="min-filter-copy"><b>조건으로 빠르게 찾기</b>' +
-        '<small>이름·요일·시간으로 사역을 좁혀 보세요</small></span>' +
+      '<span class="min-filter-copy"><b>사역 이름 · 요일로 찾기</b></span>' +
+      '<span class="min-filter-cond">조건</span>' +
       '<span class="min-filter-arr" aria-hidden="true"></span>' +
     '</summary>' +
     '<div class="min-filter-b">' +
@@ -901,7 +901,7 @@ function minAccBuild() {
     const open = (minFOn() && shownAll <= 20) || minOpen === c;
     acc += '<div class="min-acc' + (open ? " open" : "") + '">' +
       '<button class="min-acc-h" data-acc="' + minEsc(c) + '" aria-expanded="' + open + '">' +
-        '<span>' + minEsc(c) + (got ? ' <span class="min-got">' + got + '개 선택</span>' : "") + '</span>' +
+        '<span>' + minEsc(c) + (got ? ' <span class="min-got" aria-label="' + got + '개 선택">' + got + '</span>' : "") + '</span>' +
         '<span class="min-n">' +
         (minFOn() && mine.length < all.length
           ? all.length + '팀 중 <b>' + mine.length + '팀</b>'
@@ -976,8 +976,8 @@ function minMeterInner() {
 // 아래 고정 줄 위쪽 한 줄 — 방금 고른 팀 이름(이미 결정된 것은 이름이 없으니 수만 센다)
 function minSumInner() {
   const names = minPicked.map(function (id) { const t = minTeam(id); return t ? t.team : ""; }).filter(Boolean);
-  return names.length ? '<b>' + names.length + '개 골랐어요</b> · ' + names.map(minEsc).join(" · ")
-    : '고른 사역이 아직 없어요';
+  return names.length ? '<b>' + names.length + '개 골랐어요</b><span>' + names.map(minEsc).join(" · ") + '</span>'
+    : '<b>고른 사역이 아직 없어요</b><span>' + MIN_MAX + '개까지 고를 수 있어요</span>';
 }
 
 function minPickHtml() {
@@ -985,11 +985,12 @@ function minPickHtml() {
   const openNow = minIsOpen();
   return minTitleHtml("사역 신청서",
       '<p class="min-sub min-verse">“각각 은사를 받은 대로 … 선한 청지기 같이 서로 봉사하라”' +
-        ' <span class="min-ref">벧전 4:10</span></p>') +
+        ' <span class="min-ref">벧전 4:10</span></p>', "left") +
     // ⚠️ 안내문(.min-policy)을 화면에 늘 펴 두지 않는다(성도님 요청) — 소속 옆
     //    작은 단추로 접어 팝업으로만 연다. 신청 화면은 부서 찾기에 바로 들어간다.
     '<div class="min-who-row"><span class="min-who">👤 ' + minEsc(minWhoText()) + '</span>' +
-      '<button class="min-policy-btn" id="min-policy-open">📌 신청안내</button></div>' +
+      '<span class="min-who-btns"><button class="min-policy-btn" id="min-exit">나가기</button>' +
+      '<button class="min-policy-btn" id="min-policy-open">📌 신청안내</button></span></div>' +
     (openNow || minPrev() ? "" :
       '<div class="min-closed">지금은 신청 기간이 아니에요. 목록만 살펴보실 수 있습니다.</div>') +
     minLockNoteHtml() +
@@ -1007,15 +1008,14 @@ function minPickHtml() {
     '<div class="min-acc-wrap" id="min-list">' + L.html + '</div>' +
     // 신청현황 화면과 **같은 자리·같은 모양** — 남색이 지금 할 일, 흰 바탕이 되돌아가기.
     // 이미 낸 것이 있으면 돌아갈 길을 둔다: 없으면 목록에 갇힌다.
-    '<div class="min-acts">' +
+    (openNow || minPrev() ? '<div class="min-acts min-bar">' : '') +
       (openNow || minPrev() ? '<div class="min-sum" id="min-sum">' + minSumInner() + '</div>' : "") +
       (openNow || minPrev()
         ? '<button class="min-cta" id="min-next"' + (minPicked.length ? "" : " disabled") + '>' +
           '신청하기' +
           '</button>'
         : "") +
-      '<button class="min-ghost" id="min-exit">나가기</button>' +
-    '</div>';
+    (openNow || minPrev() ? '</div>' : '');
 }
 
 // 켜진 칩을 하나씩 빼 보고 **1팀 이상 남는 것만** 단추로 만든다.
