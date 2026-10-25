@@ -993,8 +993,8 @@ function minPickHtml() {
   // ⚠️ 안내문(.min-policy)을 화면에 늘 펴 두지 않는다(성도님 요청) — 작은 단추로 접어 팝업으로만 연다. 신청 화면은 부서 찾기에 바로 들어간다.
   return minTitleHtml("사역 신청서",
       '<p class="min-sub min-who-line">👤 ' + minEsc(minWhoText()) + '</p>', "left",
-      '<span class="min-who-btns"><button class="min-policy-btn" id="min-exit">나가기</button>' +
-      '<button class="min-policy-btn" id="min-policy-open">📌 신청안내</button></span>') +
+      '<span class="min-who-btns"><button class="min-policy-btn" id="min-policy-open">📌 신청안내</button>' +
+      '<button class="min-policy-btn" id="min-exit">나가기</button></span>') +
     (openNow || minPrev() ? "" :
       '<div class="min-closed">지금은 신청 기간이 아니에요. 목록만 살펴보실 수 있습니다.</div>') +
     minLockNoteHtml() +
