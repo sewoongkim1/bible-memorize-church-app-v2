@@ -4845,9 +4845,14 @@ select.min-alert-input.mh-sel:disabled { opacity: .6; cursor: default; }
 .min-grp-b:not(.none) + .min-grp { margin-top: 4px; }
 
 /* 줄 = 상자, 그 안에 「고르기」와 「자세히」 두 단추 (단추 안 단추는 안 되므로) */
-.min-row { border: 1.5px solid var(--border); border-radius: 11px;
+.min-row { position: relative; border: 1.5px solid var(--border); border-radius: 11px;
   background: var(--white); overflow: hidden; }
-.min-row.on { border-color: var(--gold); background: #fffaf0; }
+/* 고른 팀이 한눈에 보이게(2026-10-24 친구) — 진한 금색 테두리 고리 + 왼쪽 굵은 띠 + 더 짙은 바탕 + 굵은 이름. 칸 크기는 그대로(고리는 box-shadow). */
+.min-row.on { border-color: var(--gold); background: #fff0c8;
+  box-shadow: 0 0 0 2px var(--gold), 0 4px 12px rgba(200, 168, 75, .32); }
+.min-row.on::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px; background: var(--gold); }
+.min-row.on .min-nm { font-weight: 800; color: #4a3600; }
+.min-row.on .min-chk { box-shadow: 0 0 0 3px rgba(200, 168, 75, .35); }
 .min-row.off { opacity: .55; }
 .min-team { display: flex; align-items: center; gap: 11px; width: 100%;
   padding: 11px 12px; border: none; border-radius: 0;
@@ -4902,7 +4907,10 @@ select.min-alert-input.mh-sel:disabled { opacity: .6; cursor: default; }
   cursor: pointer; padding: 4px 6px; flex: none; }
 
 /* 접수완료 = 잠긴 줄. 고를 수 없다는 것이 눌러 보기 **전에** 보여야 한다. */
-.min-row.lock { background: #f4f6fa; border-color: #b9c4d8; }
+.min-row.lock { background: #f4f6fa; border-color: #b9c4d8; box-shadow: none; }
+.min-row.lock::before { background: #7d8ba5; }
+.min-row.lock .min-nm { font-weight: 700; color: #222; }
+.min-row.lock .min-chk { box-shadow: none; }
 .min-row.lock .min-team { cursor: not-allowed; }
 .min-row.lock .min-chk { border-color: #7d8ba5; background: #7d8ba5; }
 .min-tag.lock { color: #fff; background: #7d8ba5; border-radius: 999px; padding: 1px 7px; }
@@ -5039,7 +5047,10 @@ body:has(#update-banner) .min-acts { bottom: calc(10px + 68px + env(safe-area-in
 .dark .min-acc { background: #232c3f; border-color: #4a6394; }
 .dark .min-acc-h { background: #232c3f; color: #cfe0ff; }
 .dark .min-row { background: #232c3f; border-color: #3a4a68; }
-.dark .min-row.on { background: #2b2717; border-color: #8d7531; }
+.dark .min-row.on { background: #3a3214; border-color: #c8a84b; box-shadow: 0 0 0 2px #c8a84b, 0 4px 12px rgba(0, 0, 0, .4); }
+.dark .min-row.on .min-nm { color: #ffe9a8; }
+.dark .min-row.lock { background: #1a2130; border-color: #46536b; box-shadow: none; }
+.dark .min-row.lock .min-nm { color: #e6e9f0; }
 .dark .min-more { color: #cfe0ff; border-top-color: #3a4a68; }
 .dark .min-d-box { background: #1b2331; }
 .dark .min-d-v { color: #e8ecf5; }
