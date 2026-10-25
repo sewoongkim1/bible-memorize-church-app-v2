@@ -13,7 +13,10 @@
     주일이 아닌 줄의 시각은 버리고 알린다 — 교회학교 전도 수요일 12~15시, 친구 「시각 칸을 지음」)
   · 요일은 「사역시간」 글자에서 읽는다(2026-10-25 친구) — 「(수)」·「수요」 → day_week(앱 필터 「수요일」) · 「(금)」·「금요」 → day_fri(「금요일」). 목·토·화는 필터 칩이 없어 읽지 않는다
   · SHEET_TIME_OVERRIDE — 시트 시각을 고쳐 싣는 줄(주일예배찬양 08:00~10:30 은 2부만 덮어 08:00~16:00 · 친구 「예」 · ⚠️ 시트도 같이 고쳐 두면 이 줄은 지워도 된다)
-  · 주기(freq)는 시트에 없다 → **모든 팀에 「매주」를 체크**한다(친구 2026-10-25 「매주에는 모두 check」 · 앱 필터 「얼마나 자주」와 값이 채워진 팀 비율 장치) · 격주·매달·그때그때는 false(전에 있던 예시 값은 비운다)
+  · 주기(freq)는 시트에 열이 없어 「사역시간」 글자에서 읽는다(친구 2026-10-25 · 앱 필터 「얼마나 자주」 + 값이 채워진 팀 비율 장치 — 모든 팀에 하나는 있어야 한다):
+      그때그때 = 「수시로·필요시·장례시」 + 「년 N회·상/하반기·하반기·봄/가을」(행사성 — 친구 「그때그때」) · 격주 = 「격주」 · 매주 = 그 밖 전부(임명직 줄 포함)
+      ⚠️ 그때그때인 팀은 매주를 **끈다**(친구 「네」) — 단 「주일·(수)·(금)·매주·예배」 같은 매주 글자가 함께 있으면(주차안내 「주일 및 필요시」) 둘 다 체크
+      매달은 읽지 않는다(글자가 없다). 전에 있던 예시 값은 비운다
   · 셀 안의 줄바꿈은 <br> (하는 일 칸은 HTML 을 받는다 — 새가족부 설명이 이미 그렇다)
   · sort_order = 시트 줄 차례(0부터)
   · ⚠️ 만든 SQL 은 반복해 돌려도 안전하다 — 신청(ministry_orders)은 건드리지 않고, 신청이 걸린 팀은 지우지 않는다
@@ -110,9 +113,14 @@ for r in ws.iter_rows(min_row=2, values_only=True):
     if sun and not (tf and tt):
         tf = tt = None   # 시각을 안 적은 주일 줄 — 시각 칸은 비운다
     plain = re.sub(r'<br>', ' ', when)
+    bi = '격주' in plain
+    ah = bool(re.search(r'수시로|필요시|장례시|년\s*\d|상/하반기|하반기|봄/가을', plain))
+    wk_mark = bool(re.search(r'주일|\(수\)|\(금\)|매주|예배', plain))
+    wk = (not ah and not bi) or (ah and wk_mark)   # 그때그때·격주가 아니면 매주 · 그때그때여도 매주 글자가 함께면 둘 다
     rows.append(dict(committee=com, group=grp.strip(), team=team.strip(), kind='appoint' if appoint else 'apply',
                      schedule='' if (appoint and when == '임명직') else when, desc=cell(col(r, '사역내용 및 소개')),
                      sun=sun, fri=bool(re.search(r'\(금\)|금요', plain)), week=bool(re.search(r'\(수\)|수요', plain)),
+                     wk=wk, bi=bi, ah=ah,
                      tf=tf, tt=tt, option=OPTION_NOTE.get(grp.strip(), '')))
 
 keys = [(r['committee'], r['group'], r['team']) for r in rows]
@@ -145,10 +153,10 @@ L.append("values")
 vals = []
 for i, r in enumerate(rows):
     b = lambda v: 'true' if v else 'false'
-    vals.append("  (%d, %s, %s, %s, %s, %s, %s, '', %s, %d, %s, %s, false, %s, %s, %s, true, false, false, false)" % (
+    vals.append("  (%d, %s, %s, %s, %s, %s, %s, '', %s, %d, %s, %s, false, %s, %s, %s, %s, %s, false, %s)" % (
         YEAR, q(r['committee']), q(r['group']), q(r['team']), q(r['kind']), q(r['schedule']), q(r['desc']),
         q(r['option']), i, b(r['sun']), b(r['fri']), b(r['week']),
-        q(r['tf']) if r['tf'] else 'null', q(r['tt']) if r['tt'] else 'null'))
+        q(r['tf']) if r['tf'] else 'null', q(r['tt']) if r['tt'] else 'null', b(r['wk']), b(r['bi']), b(r['ah'])))
 L.append(",\n".join(vals))
 prot = ", ".join("(%s, %s, %s)" % (q(c), q(g), q(t)) for c, g, t in PROTECT)
 L.append("on conflict (year, committee, group_name, team) do update set")
@@ -158,7 +166,7 @@ L.append("  schedule_note = case when (ministry_catalog.committee, ministry_cata
 L.append("  desc_note     = case when (ministry_catalog.committee, ministry_catalog.group_name, ministry_catalog.team) in (%s) then ministry_catalog.desc_note else excluded.desc_note end," % prot)
 L.append("  -- 요일·시각은 시트가 정한다(주일 열 · 사역시작·종료 시각 · 사역시간 글자의 수·금) — 전에 있던 예시 값은 여기서 지워진다. 토요일 칸·횟수는 시트에 없어 false")
 L.append("  day_sun = excluded.day_sun, day_fri = excluded.day_fri, day_sat = false, day_week = excluded.day_week, time_from = excluded.time_from, time_to = excluded.time_to,")
-L.append("  freq_weekly = excluded.freq_weekly, freq_biweekly = false, freq_monthly = false, freq_adhoc = false;")
+L.append("  freq_weekly = excluded.freq_weekly, freq_biweekly = excluded.freq_biweekly, freq_monthly = false, freq_adhoc = excluded.freq_adhoc;")
 L.append("")
 L.append("-- ③ 시트에 없는 팀 — 신청이 걸린 팀은 둔다")
 L.append("delete from public.ministry_catalog c")
@@ -175,13 +183,18 @@ L.append("-- 확인")
 L.append("--   select count(*) from ministry_catalog where year = %d;   -- %d 이어야 한다(신청이 걸린 옛 팀이 남아 있으면 그만큼 더)" % (YEAR, len(rows)))
 L.append("--   select kind, count(*) from ministry_catalog where year = %d group by 1;   -- appoint %d" % (YEAR, sum(1 for r in rows if r['kind'] == 'appoint')))
 L.append("--   select count(*) from ministry_catalog where year = %d and day_sun;   -- %d" % (YEAR, sum(1 for r in rows if r['sun'])))
-L.append("--   select count(*) filter (where freq_weekly) weekly from ministry_catalog where year = %d;   -- %d (전체)" % (YEAR, len(rows)))
+L.append("--   select count(*) filter (where freq_weekly) weekly, count(*) filter (where freq_biweekly) bi, count(*) filter (where freq_adhoc) adhoc, count(*) filter (where not (freq_weekly or freq_biweekly or freq_monthly or freq_adhoc)) none from ministry_catalog where year = %d;   -- %d · %d · %d · 0" % (
+    YEAR, sum(1 for r in rows if r['wk']), sum(1 for r in rows if r['bi']), sum(1 for r in rows if r['ah'])))
 L.append("--   select count(*) filter (where time_from is not null) tm, count(*) filter (where day_fri) fri, count(*) filter (where day_week) wed from ministry_catalog where year = %d;   -- %d · %d · %d" % (
     YEAR, sum(1 for r in rows if r['tf']), sum(1 for r in rows if r['fri']), sum(1 for r in rows if r['week'])))
 
 with io.open(OUT, 'w', encoding='utf-8', newline='\n') as f:
     f.write("\n".join(L) + "\n")
-print('%d팀 · 임명직 %d · 주일 %d · 시각 %d · 금 %d · 수 %d → %s' % (len(rows), sum(1 for r in rows if r['kind'] == 'appoint'),
-      sum(1 for r in rows if r['sun']), sum(1 for r in rows if r['tf']), sum(1 for r in rows if r['fri']), sum(1 for r in rows if r['week']), OUT))
+print('%d팀 · 임명직 %d · 주일 %d · 시각 %d · 금 %d · 수 %d · 매주 %d · 격주 %d · 그때그때 %d → %s' % (len(rows), sum(1 for r in rows if r['kind'] == 'appoint'),
+      sum(1 for r in rows if r['sun']), sum(1 for r in rows if r['tf']), sum(1 for r in rows if r['fri']), sum(1 for r in rows if r['week']),
+      sum(1 for r in rows if r['wk']), sum(1 for r in rows if r['bi']), sum(1 for r in rows if r['ah']), OUT))
+assert all(r['wk'] or r['bi'] or r['ah'] for r in rows), '주기가 하나도 없는 팀이 있다'
+print('  그때그때·매주 둘 다: %s' % [r['team'] for r in rows if r['ah'] and r['wk']])
+print('  격주: %s' % [r['team'] for r in rows if r['bi']])
 for d in dropped:
     print('  ⚠ 주일이 아니라 시각을 싣지 않았다: %s %s~%s' % d)
