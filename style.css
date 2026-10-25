@@ -4663,7 +4663,7 @@ body.pr-full-on { overflow: hidden; }
 .dark .min-policy-btn { background: #232c3f; border-color: #3a4a68; color: #cfe0ff; }
 
 .min-browse-h { display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  margin: 18px 2px 9px; }
+  margin: 14px 2px 8px; }
 .min-browse-h > span { display: flex; min-width: 0; flex-direction: column; gap: 1px; }
 .min-browse-h > span > b { color: var(--navy); font-size: 1rem; }
 .min-browse-h small { color: var(--gray); font-size: .74rem; font-weight: 600; }
@@ -4677,7 +4677,7 @@ body.pr-full-on { overflow: hidden; }
    ⚠️ 고르기 화면에서는 이 알약이 「사역 찾아보기」 줄 안에 든 조각이라 그때는 여백을 주지 않는다. */
 .min-screen > .min-count { display: block; margin: 12px 0 10px; }
 /* 고른 사역 막대(2026-10-25 친구가 고른 1안) — 네모 칸 셋이 고른 만큼 금색으로 찬다 */
-.min-meter { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; padding: 11px 14px;
+.min-meter { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; padding: 10px 14px;
   background: var(--white); border: 1.5px solid var(--border); border-radius: 14px; }
 .min-meter b { color: var(--navy); font-size: .95rem; font-weight: 800; }
 .min-meter.has { background: #fffaf0; border-color: #e3cb8b; }
@@ -4698,11 +4698,11 @@ body.pr-full-on { overflow: hidden; }
 .min-bar > .min-cta { flex: none; width: auto; padding: 14px 24px; font-size: 1rem; border-radius: 14px; }
 body:has(#update-banner) .min-acts.min-bar { bottom: 68px; }
 
-.min-acc-wrap { display: flex; flex-direction: column; gap: 9px; margin-bottom: 16px; }
+.min-acc-wrap { display: flex; flex-direction: column; gap: 7px; margin-bottom: 12px; }
 .min-acc { border: 1.5px solid var(--border); border-radius: 12px; overflow: hidden;
   background: var(--white); box-shadow: 0 2px 7px rgba(26,58,107,.045); }
 .min-acc-h { display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  width: 100%; padding: 13px 14px; font: inherit; font-size: .98rem; font-weight: 700;
+  width: 100%; padding: 11px 14px; font: inherit; font-size: .98rem; font-weight: 700;
   color: var(--navy); background: var(--white); border: none; cursor: pointer; text-align: left; }
 .min-acc.open { border-color: var(--navy); box-shadow: 0 5px 15px rgba(26,58,107,.1); }
 .min-acc.open .min-acc-h { background: var(--navy); color: #fff; }
@@ -4710,7 +4710,7 @@ body:has(#update-banner) .min-acts.min-bar { bottom: 68px; }
 .min-got { display: inline-block; min-width: 22px; margin-left: 8px; padding: 2px 8px; box-sizing: border-box; border-radius: 999px;
   background: var(--gold); color: #fff; font-size: .76rem; font-weight: 800; text-align: center; vertical-align: 2px; }
 .min-acc.open .min-got { color: #fff; }
-.min-acc-b { padding: 9px; display: flex; flex-direction: column; gap: 7px;
+.min-acc-b { padding: 8px; display: flex; flex-direction: column; gap: 6px;
   border-top: 1px solid var(--border); }
 /* 묶음 머리 — 이름은 제목, 안내는 그 아래 딱지. 한 줄에 이어 붙이면
    「사랑부·어와나 · 어와나 4개 중 하나만 신청」처럼 한 문장으로 읽힌다. */
@@ -4799,7 +4799,7 @@ select.min-alert-input.mh-sel:disabled { opacity: .6; cursor: default; }
 .dark .min-over b { color: #e2c98a; }
 
 /* 안내문(.min-policy)과 같은 이유로 배경을 cream으로 — 아래 부서 목록과 구분 */
-.min-filter { margin-bottom: 10px; border: 1.5px solid var(--border); border-radius: 12px;
+.min-filter { margin-bottom: 8px; border: 1.5px solid var(--border); border-radius: 12px;
   background: var(--cream); overflow: hidden; }
 .min-filter-h { display: flex; align-items: center; gap: 10px; padding: 12px 13px;
   color: var(--navy); cursor: pointer; list-style: none; user-select: none; }
@@ -4909,8 +4909,10 @@ select.min-alert-input.mh-sel:disabled { opacity: .6; cursor: default; }
 .min-row.off .min-chk { background: #ccc; border-color: #aaa; }
 
 /* 팀 카드 1안(2026-10-25 친구) — 「보기 ›」는 카드 아래 줄이 아니라 체크 칸 왼쪽, 카드는 한 줄 높이 */
-.min-row > .min-more { position: absolute; right: 51px; top: 50%; transform: translateY(-50%); width: auto; padding: 10px 6px; border-top: none; }
-.min-row:has(> .min-more) .min-info { padding-right: 58px; }
+.min-row { display: flex; align-items: center; }
+.min-row > .min-team { flex: 1 1 auto; min-width: 0; width: auto; padding: 11px 6px 11px 12px; }
+.min-row > .min-more { flex: none; width: auto; padding: 8px 2px 8px 6px; border: none; font-size: .78rem; color: #5b6b86; white-space: nowrap; }
+.min-row > .min-chk { margin: 0 12px 0 8px; cursor: pointer; }
 .min-more { display: block; width: 100%; padding: 7px 12px 8px; font: inherit;
   font-size: .78rem; font-weight: 700; color: var(--navy); background: none;
   border: none; border-top: 1px dashed var(--border); cursor: pointer; text-align: right; }

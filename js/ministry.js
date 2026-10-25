@@ -945,8 +945,11 @@ function minAccBuild() {
             : minSentIds.indexOf(t.id) >= 0 ? '<span class="min-tag sent">신청완료</span>'
             : "") + '</span>' +
           (meta ? '<span class="min-meta">' + meta + '</span>' : "") + '</span>' +
-          '<span class="min-chk">' + (on ? "✓" : "") + '</span></button>' +
-          minMoreBtn(t) + '</div>';
+          '</button>' +
+          // ⚠️ 「보기 ›」를 카드 위에 겹쳐 놓지 않는다(긴 이름이 겹쳤다 · 2026-10-25) — 이름 단추 · 보기 · 체크 칸을 한 줄에 나란히.
+          //    체크 칸도 누르면 고르는 곳이라 data-team 을 달았다(단추 안 단추는 안 되어 span · 소리로는 이름 단추가 읽는다).
+          minMoreBtn(t) +
+          '<span class="min-chk" data-team="' + t.id + '" aria-hidden="true">' + (on ? "✓" : "") + '</span></div>';
       }
       if (lastGrp !== null) acc += '</div>';            // 마지막 묶음 닫기
       acc += '</div>';
