@@ -13,7 +13,7 @@
     주일이 아닌 줄의 시각은 버리고 알린다 — 교회학교 전도 수요일 12~15시, 친구 「시각 칸을 지음」)
   · 요일은 「사역시간」 글자에서 읽는다(2026-10-25 친구) — 「(수)」·「수요」 → day_week(앱 필터 「수요일」) · 「(금)」·「금요」 → day_fri(「금요일」). 목·토·화는 필터 칩이 없어 읽지 않는다
   · SHEET_TIME_OVERRIDE — 시트 시각을 고쳐 싣는 줄(주일예배찬양 08:00~10:30 은 2부만 덮어 08:00~16:00 · 친구 「예」 · ⚠️ 시트도 같이 고쳐 두면 이 줄은 지워도 된다)
-  · 횟수(freq)는 시트에 없다 → 모두 false(전에 있던 예시 값은 비운다)
+  · 주기(freq)는 시트에 없다 → **모든 팀에 「매주」를 체크**한다(친구 2026-10-25 「매주에는 모두 check」 · 앱 필터 「얼마나 자주」와 값이 채워진 팀 비율 장치) · 격주·매달·그때그때는 false(전에 있던 예시 값은 비운다)
   · 셀 안의 줄바꿈은 <br> (하는 일 칸은 HTML 을 받는다 — 새가족부 설명이 이미 그렇다)
   · sort_order = 시트 줄 차례(0부터)
   · ⚠️ 만든 SQL 은 반복해 돌려도 안전하다 — 신청(ministry_orders)은 건드리지 않고, 신청이 걸린 팀은 지우지 않는다
@@ -145,7 +145,7 @@ L.append("values")
 vals = []
 for i, r in enumerate(rows):
     b = lambda v: 'true' if v else 'false'
-    vals.append("  (%d, %s, %s, %s, %s, %s, %s, '', %s, %d, %s, %s, false, %s, %s, %s, false, false, false, false)" % (
+    vals.append("  (%d, %s, %s, %s, %s, %s, %s, '', %s, %d, %s, %s, false, %s, %s, %s, true, false, false, false)" % (
         YEAR, q(r['committee']), q(r['group']), q(r['team']), q(r['kind']), q(r['schedule']), q(r['desc']),
         q(r['option']), i, b(r['sun']), b(r['fri']), b(r['week']),
         q(r['tf']) if r['tf'] else 'null', q(r['tt']) if r['tt'] else 'null'))
@@ -158,7 +158,7 @@ L.append("  schedule_note = case when (ministry_catalog.committee, ministry_cata
 L.append("  desc_note     = case when (ministry_catalog.committee, ministry_catalog.group_name, ministry_catalog.team) in (%s) then ministry_catalog.desc_note else excluded.desc_note end," % prot)
 L.append("  -- 요일·시각은 시트가 정한다(주일 열 · 사역시작·종료 시각 · 사역시간 글자의 수·금) — 전에 있던 예시 값은 여기서 지워진다. 토요일 칸·횟수는 시트에 없어 false")
 L.append("  day_sun = excluded.day_sun, day_fri = excluded.day_fri, day_sat = false, day_week = excluded.day_week, time_from = excluded.time_from, time_to = excluded.time_to,")
-L.append("  freq_weekly = false, freq_biweekly = false, freq_monthly = false, freq_adhoc = false;")
+L.append("  freq_weekly = excluded.freq_weekly, freq_biweekly = false, freq_monthly = false, freq_adhoc = false;")
 L.append("")
 L.append("-- ③ 시트에 없는 팀 — 신청이 걸린 팀은 둔다")
 L.append("delete from public.ministry_catalog c")
@@ -175,6 +175,7 @@ L.append("-- 확인")
 L.append("--   select count(*) from ministry_catalog where year = %d;   -- %d 이어야 한다(신청이 걸린 옛 팀이 남아 있으면 그만큼 더)" % (YEAR, len(rows)))
 L.append("--   select kind, count(*) from ministry_catalog where year = %d group by 1;   -- appoint %d" % (YEAR, sum(1 for r in rows if r['kind'] == 'appoint')))
 L.append("--   select count(*) from ministry_catalog where year = %d and day_sun;   -- %d" % (YEAR, sum(1 for r in rows if r['sun'])))
+L.append("--   select count(*) filter (where freq_weekly) weekly from ministry_catalog where year = %d;   -- %d (전체)" % (YEAR, len(rows)))
 L.append("--   select count(*) filter (where time_from is not null) tm, count(*) filter (where day_fri) fri, count(*) filter (where day_week) wed from ministry_catalog where year = %d;   -- %d · %d · %d" % (
     YEAR, sum(1 for r in rows if r['tf']), sum(1 for r in rows if r['fri']), sum(1 for r in rows if r['week'])))
 
