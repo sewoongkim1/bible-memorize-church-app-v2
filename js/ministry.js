@@ -500,24 +500,50 @@ function mhBodyHtml(d) {
 // 정정 창 「빠진 사역」 칸 — 연도 · 부서 · 팀(2026-10-02 친구 요청 「네 두칸으로 해주세요」 · 그전에는 「부서 · 팀」 한 칸).
 //   부서는 committee_text, 팀은 team_text 로 보낸다(mhAsk). 둘 중 하나만 적어도 된다(mhCheck).
 // 사역 한 묶음 = 상자 하나(2026-10-19 친구 「사역으로 묶어서 쉽게 볼 수 있게」) — 첫 상자도 「사역 1」 · 빼기(✕)는 둘째부터
-function mhMissingRowHtml(i) {
+// 부서 → 팀 고르기 목록(2026-10-24 친구 「부서도 콤보로 · 팀도 콤보 박스로」) — 사역신청 목록(ministryCatalog 의 list)에서 뽑는다.
+//   부서는 나온 차례 그대로 · 팀은 그 부서 안에서 겹침 없이. 목록이 비면 null(→ 글자 칸으로 받는다).
+//   ⚠️ 2027 목록이라 2025·2026 에만 있던 이름은 없다 — 그래서 콤보 끝에 「기타 (직접 입력)」을 둔다(MH_OTHER).
+const MH_OTHER = "__other";
+function mhCatalogTree(cat) {
+  const committees = [], teams = {};
+  ((cat && cat.list) || []).forEach(function (t) {
+    const c = mhTidy(t && t.committee), n = mhTidy(t && t.team);
+    if (!c) return;
+    if (!teams[c]) { teams[c] = []; committees.push(c); }
+    if (n && teams[c].indexOf(n) < 0) teams[c].push(n);
+  });
+  return committees.length ? { committees: committees, teams: teams } : null;
+}
+function mhOptionsHtml(first, list) {
+  return '<option value="">' + first + '</option>' + list.map(function (x) {
+    return '<option value="' + minEsc(x) + '">' + minEsc(x) + '</option>';
+  }).join("") + '<option value="' + MH_OTHER + '">기타 (직접 입력)</option>';
+}
+// 값은 아래 글자 칸(#mh-committee-N · #mh-team-N)이 들고 있다 — 고르면 그 칸에 적는다(보내기 코드는 그 칸만 읽는다).
+//   tree 가 있으면 글자 칸은 「기타」를 골랐을 때만 보인다(hidden).
+function mhMissingRowHtml(i, tree) {
+  const sel = !!tree;
   return '<div class="mh-set" data-set="' + i + '">' +
     '<div class="mh-set-h"><span class="mh-l mh-set-t">사역 ' + (i + 1) + '</span>' +
       (i > 0 ? '<button type="button" class="mh-set-x" data-del aria-label="사역 ' + (i + 1) + ' 빼기">✕</button>' : "") + '</div>' +
-    '<label class="mh-l" for="mh-committee-' + i + '">부서</label>' +
-    '<input class="min-alert-input mh-in" id="mh-committee-' + i + '" maxlength="' + MH_TEAM_MAX + '" placeholder="예) 찬양위원회" autocomplete="off">' +
-    '<label class="mh-l" for="mh-team-' + i + '">팀</label>' +
-    '<input class="min-alert-input mh-in" id="mh-team-' + i + '" maxlength="' + MH_TEAM_MAX + '" placeholder="예) 시온성가대" autocomplete="off">' +
+    '<label class="mh-l" for="' + (sel ? 'mh-sel-committee-' : 'mh-committee-') + i + '">부서</label>' +
+    (sel ? '<select class="min-alert-input mh-in mh-sel" id="mh-sel-committee-' + i + '">' + mhOptionsHtml("부서를 골라 주세요", tree.committees) + '</select>' : "") +
+    '<input class="min-alert-input mh-in" id="mh-committee-' + i + '" maxlength="' + MH_TEAM_MAX + '" placeholder="예) 찬양위원회" autocomplete="off"' + (sel ? ' hidden' : '') + '>' +
+    '<label class="mh-l" for="' + (sel ? 'mh-sel-team-' : 'mh-team-') + i + '">팀</label>' +
+    (sel ? '<select class="min-alert-input mh-in mh-sel" id="mh-sel-team-' + i + '" disabled><option value="">부서를 먼저 골라 주세요</option></select>' : "") +
+    '<input class="min-alert-input mh-in" id="mh-team-' + i + '" maxlength="' + MH_TEAM_MAX + '" placeholder="예) 시온성가대" autocomplete="off"' + (sel ? ' hidden' : '') + '>' +
     '</div>';
 }
 // 연도는 한 번 · 부서·팀 묶음은 MH_MISSING_ROWS 개까지(2026-10-19 친구 「한 창에서 같은 해 3개까지」)
 //   연도 칸 아래 안내 한 줄 — 받는 해(2000~올해 · mhCheck 와 같은 규칙)를 미리 보인다(2026-10-19 친구)
-function mhMissingFieldsHtml(thisYear) {
+function mhMissingFieldsHtml(thisYear, tree) {
   if (thisYear == null) thisYear = new Date().getFullYear();
+  let years = "";   // 연도는 고르기(2026-10-24 친구 — 2025·2026) · 값은 글자 그대로 #mh-year 의 value
+  for (let y = MH_YEAR_MIN; y <= thisYear; y++) years += '<option value="' + y + '">' + y + '년</option>';
   return '<label class="mh-l" for="mh-year">연도</label>' +
-    '<input class="min-alert-input mh-in" id="mh-year" inputmode="numeric" maxlength="4" placeholder="예) 2024" autocomplete="off" aria-describedby="mh-year-hint">' +
+    '<select class="min-alert-input mh-in mh-sel" id="mh-year" aria-describedby="mh-year-hint"><option value="">연도를 골라 주세요</option>' + years + '</select>' +
     '<p class="mh-hint" id="mh-year-hint">' + MH_YEAR_MIN + '년부터 올해(' + thisYear + '년)까지 적을 수 있어요.</p>' +
-    '<div id="mh-sets">' + mhMissingRowHtml(0) + '</div>' +
+    '<div id="mh-sets">' + mhMissingRowHtml(0, tree) + '</div>' +
     '<button type="button" class="min-ghost mh-more" id="mh-more">＋ 같은 해 사역 하나 더</button>';
 }
 
@@ -612,8 +638,22 @@ function wireMinistryHistory(u) {
 
 // 정정 창 — 고르기(줄 정정) + 한 줄 설명(+ 빠진 사역은 연도·부서·팀 세 칸 — mhMissingFieldsHtml). 사역신청 창(.min-d-*)과 같은 모양.
 // ⚠️ 브라우저 alert·prompt 를 쓰지 않는다. 오류는 창 안 한 줄(.mh-err)로 — 창 위에 창을 띄우지 않는다.
-function mhAsk(u, row, mode) {
+// 부서·팀 콤보 목록 — 사역신청 목록을 한 번 받아 둔다. 못 받으면 null(→ 글자 칸 그대로 · 아무것도 막지 않는다)
+let mhTree = null, mhTreeP = null;
+function mhEnsureTree() {
+  if (mhTree) return Promise.resolve();
+  if (typeof minCat !== "undefined" && minCat && minCat.list) { mhTree = mhCatalogTree(minCat); if (mhTree) return Promise.resolve(); }
+  if (!window.api || !api.ministryCatalog) return Promise.resolve();
+  if (!mhTreeP) {
+    mhTreeP = api.ministryCatalog().then(function (cat) { mhTree = mhCatalogTree(cat && cat.ok ? cat : null); })
+      .catch(function () {}).then(function () { mhTreeP = null; });
+  }
+  return mhTreeP;
+}
+
+async function mhAsk(u, row, mode) {
   if (!mhData) return;
+  if (mode === "missing") await Promise.race([mhEnsureTree(), new Promise(function (r) { setTimeout(r, 3000); })]);
   if (mode !== "find_me" && mhOpenCount(mhData.requests) >= MH_OPEN_MAX) { minAlert(mhErrText("too-many")); return; }
   const head = mode === "missing" ? "빠진 사역 추가하기"
     : mode === "find_me" ? "내 기록 찾아 주세요"
@@ -628,7 +668,7 @@ function mhAsk(u, row, mode) {
       (mode === "line" ? '<div class="mh-kinds">' + MH_LINE_KINDS.map(function (x) {
         return '<button type="button" class="mh-kind" aria-pressed="false" data-kind="' + x.k + '">' + minEsc(x.t) + '</button>';
       }).join("") + '</div>' : "") +
-      (mode === "missing" ? mhMissingFieldsHtml() : "") +
+      (mode === "missing" ? mhMissingFieldsHtml(undefined, mhTree) : "") +
       '<label class="mh-l" for="mh-detail">한 줄 설명 <span class="mh-opt">' +
         (mode === "line" ? "(「그 밖에」는 꼭 적어 주세요)" : "(적지 않으셔도 돼요)") + '</span></label>' +
       '<textarea class="mh-ta" id="mh-detail" rows="3" maxlength="' + MH_DETAIL_MAX + '" placeholder="예) 그해에는 알토로 섬겼어요"></textarea>' +
@@ -678,15 +718,44 @@ function mhAsk(u, row, mode) {
       // 칸 id 는 번호가 겹치지 않게 지금 있는 것의 다음 번호를 쓴다(중간을 빼도 id 가 겹치지 않는다)
       let n = 0;
       setsEl.querySelectorAll(".mh-set").forEach(function (el) { n = Math.max(n, Number(el.dataset.set) + 1); });
-      setsEl.insertAdjacentHTML("beforeend", mhMissingRowHtml(n));
+      setsEl.insertAdjacentHTML("beforeend", mhMissingRowHtml(n, mhTree));
       syncSets();
-      const c = box.querySelector("#mh-committee-" + n); if (c) c.focus();
+      const c = box.querySelector("#mh-sel-committee-" + n) || box.querySelector("#mh-committee-" + n); if (c) c.focus();
     });
     setsEl.addEventListener("click", function (e) {
       const x = e.target.closest ? e.target.closest("[data-del]") : null;
       if (!x) return;
       const set = x.closest(".mh-set"); if (set) set.remove();
       syncSets();
+    });
+  }
+  // 부서·팀 콤보 — 고른 값은 글자 칸에 적는다(「기타」면 그 칸을 보여 준다)
+  if (setsEl && mhTree) {
+    const setText = function (el, id, v, show) {
+      const inp = el.querySelector("#" + id); if (!inp) return null;
+      inp.value = v; inp.hidden = !show; return inp;
+    };
+    setsEl.addEventListener("change", function (e) {
+      const sel = e.target, set = sel.closest ? sel.closest(".mh-set") : null;
+      if (!set || !sel.id) return;
+      const i = set.dataset.set, v = sel.value, other = v === MH_OTHER;
+      if (sel.id === "mh-sel-committee-" + i) {
+        const tsel = set.querySelector("#mh-sel-team-" + i);
+        const cin = setText(set, "mh-committee-" + i, other || !v ? "" : v, other);
+        setText(set, "mh-team-" + i, "", false);
+        if (other) {   // 부서를 직접 적으면 팀도 직접 적는다
+          tsel.hidden = true; tsel.value = "";
+          const tin = set.querySelector("#mh-team-" + i); tin.hidden = false;
+          if (cin) cin.focus();
+        } else {
+          tsel.hidden = false; tsel.disabled = !v;
+          tsel.innerHTML = v ? mhOptionsHtml("팀을 골라 주세요 (부서만 있어도 돼요)", mhTree.teams[v] || [])
+            : '<option value="">부서를 먼저 골라 주세요</option>';
+        }
+      } else if (sel.id === "mh-sel-team-" + i) {
+        const tin = setText(set, "mh-team-" + i, other || !v ? "" : v, other);
+        if (other && tin) tin.focus();
+      }
     });
   }
   ok.addEventListener("click", async function () {

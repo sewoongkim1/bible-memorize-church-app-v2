@@ -175,7 +175,7 @@ test('정정 창 「빠진 사역」 — 연도·부서·팀 세 칸(부서 · �
   assert.ok(set1.includes('<span class="mh-l mh-set-t">사역 2</span>') && set1.includes('data-del'), '둘째 상자는 「사역 2」 · 빼기');
   // 창(mhAsk)은 이 칸들을 쓰고, 빠진 사역일 때 두 칸을 함께 보낸다
   const ask = pickFn('mhAsk', minSource, 'js/ministry.js');
-  assert.ok(ask.includes('mhMissingFieldsHtml()'), '정정 창이 mhMissingFieldsHtml 을 쓰지 않는다');
+  assert.ok(ask.includes('mhMissingFieldsHtml(undefined, mhTree)'), '정정 창이 mhMissingFieldsHtml 을 쓰지 않는다');
   assert.ok(ask.includes('committee_text: c, team_text: t') && ask.includes('[id^=mh-committee-]'), '정정 창이 부서 칸을 committee_text 로 보내지 않는다');
   assert.ok(ask.includes('[id^=mh-team-]'), '정정 창이 팀 칸을 보내지 않는다');
 });
@@ -443,4 +443,34 @@ test('🎓 교육 — 어느 창이든 eduOpen 이나 시험 참여자면 보이
     assert.equal(eduCtx({ ...w, tester: true }).eduVisible(), true, name + ' — 시험 참여자에게 안 보인다');
     assert.equal(eduCtx({ ...w }).eduVisible(), false, name + ' — eduOpen 도 시험 참여자도 아닌데 보인다');
   }
+});
+
+// 빠진 사역 연도·부서·팀 콤보(2026-10-24 친구 「연도 2025·2026 고르기 · 부서도 콤보 · 팀도 콤보」)
+test('mhCatalogTree — 부서는 나온 차례 · 팀은 부서 안에서 겹침 없이 · 비면 null', () => {
+  const t = fn('mhCatalogTree');
+  assert.equal(t(null), null);
+  assert.equal(t({ list: [] }), null);
+  const tree = t({ list: [
+    { committee: '찬양부', team: '시온 찬양대' }, { committee: '예배부', team: '운영' },
+    { committee: '찬양부', team: '가브리엘 찬양대' }, { committee: '찬양부', team: '시온 찬양대' }, { committee: '', team: '버림' },
+  ] });
+  assert.equal(JSON.stringify(tree.committees), JSON.stringify(['찬양부', '예배부']));
+  assert.equal(JSON.stringify(tree.teams['찬양부']), JSON.stringify(['시온 찬양대', '가브리엘 찬양대']));
+});
+
+test('연도 칸은 고르기(2025~올해) · 부서·팀은 콤보 + 「기타」 · 글자 칸은 숨겨 둔다(보내기 코드는 글자 칸만 읽는다)', () => {
+  const tree = fn('mhCatalogTree')({ list: [{ committee: '찬양부', team: '시온 찬양대' }, { committee: '<b>', team: '팀' }] });
+  const html = fn('mhMissingFieldsHtml')(2026, tree);
+  assert.match(html, /<select [^>]*id="mh-year"/);
+  assert.ok(html.includes('<option value="2025">2025년</option>') && html.includes('<option value="2026">2026년</option>'), '연도 고르기가 2025·2026 이 아니다');
+  assert.ok(!html.includes('<option value="2024"') && !html.includes('<option value="2027"'));
+  assert.match(html, /<select [^>]*id="mh-sel-committee-0"/);
+  assert.match(html, /<select [^>]*id="mh-sel-team-0"[^>]* disabled/);
+  assert.ok(html.includes('<option value="찬양부">찬양부</option>') && html.includes('<option value="__other">기타 (직접 입력)</option>'));
+  assert.ok(html.includes('&lt;b&gt;') && !html.includes('<option value="<b>"'), '부서 이름이 escape 되지 않았다');
+  assert.match(html, /<input [^>]*id="mh-committee-0"[^>]* hidden>/);
+  assert.match(html, /<input [^>]*id="mh-team-0"[^>]* hidden>/);
+  // 목록이 없으면(못 받았을 때) 예전 글자 칸 그대로 — 숨기지 않는다
+  const plain = fn('mhMissingRowHtml')(0, null);
+  assert.ok(!plain.includes('<select') && !/id="mh-committee-0"[^>]* hidden/.test(plain));
 });
