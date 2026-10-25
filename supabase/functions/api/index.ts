@@ -6750,10 +6750,8 @@ async function ministryApply(b: any) {
   if (phone && kept && kept !== phone) {
     return { ok: false, error: "휴대폰 번호가 처음 신청하실 때와 다릅니다" };
   }
-  const position = norm(b.position);
-  if (!MIN_POSITIONS.has(position)) {
-    return { ok: false, error: "직분을 골라 주세요" };
-  }
+  // 직분은 받지 않는다(2026-10-25 친구 — 교적에 있는 직분을 쓴다). 옛 앱이 보내면 목록에 있을 때만 받고, 없으면 비운다(null).
+  const position = MIN_POSITIONS.has(norm(b.position)) ? norm(b.position) : "";
 
   const me = await ministryWho(userId);   // 없으면(옛 기기 등) 앱이 보낸 값으로 채운다
   const name = (me && me.name) || norm(b.name) || null;
@@ -6795,7 +6793,7 @@ async function ministryApply(b: any) {
     const rows = toAdd.map((id: number) => {
       const t: any = byId.get(id);
       return {
-        year: cfg.year, user_id: userId, name, who, position, phone,
+        year: cfg.year, user_id: userId, name, who, position: position || null, phone,
         team_id: id, committee: t.committee, team: t.team,
         option: norm(opts[String(id)]) || "",
         status: "신청완료", updated_at: now,
@@ -6806,7 +6804,7 @@ async function ministryApply(b: any) {
   }
   if (toKeep.length) {                       // 직분·4자리를 새로 낸 값으로 맞춘다
     const { error: e3 } = await db.from("ministry_orders")
-      .update({ name, who, position, phone, updated_at: now })
+      .update({ name, who, ...(position ? { position } : {}), phone, updated_at: now })   // 직분을 안 보내면 전에 든 값을 지우지 않는다
       .in("id", toKeep.map((r) => r.id));
     if (e3) throw e3;
   }
