@@ -4592,7 +4592,7 @@ body.pr-full-on { overflow: hidden; }
    ⚠️ 새 색을 만들지 않는다. 첫 화면의 「색은 위계다」와 같은 토큰만 쓴다.
    ⚠️ 아코디언은 가정 축복 기도문(.pr-acc)과 같은 규칙 — 한 번에 하나만 열린다.
    ========================================================================== */
-.min-screen { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+.min-screen { padding-bottom: calc(124px + env(safe-area-inset-bottom, 0px)); }
 /* 아이콘 배지는 뺐다(성도님 요청) — 제목·부제만 가운데로. */
 .min-intro { margin: 2px 0 15px; }
 .min-intro .rank-title { margin: 0 0 2px; text-align: center; }
@@ -4672,6 +4672,18 @@ body.pr-full-on { overflow: hidden; }
 /* 「2 / 3 신청」 알약과 바로 아래 안내 상자가 딱 붙어 보였다(2026-09-18 성도님) — 사이를 띄운다.
    ⚠️ 고르기 화면에서는 이 알약이 「사역 찾아보기」 줄 안에 든 조각이라 그때는 여백을 주지 않는다. */
 .min-screen > .min-count { display: block; margin: 12px 0 10px; }
+/* 고른 사역 막대(2026-10-25 친구가 고른 1안) — 네모 칸 셋이 고른 만큼 금색으로 찬다 */
+.min-meter { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; padding: 11px 14px;
+  background: var(--white); border: 1.5px solid var(--border); border-radius: 14px; }
+.min-meter b { color: var(--navy); font-size: .95rem; font-weight: 800; }
+.min-meter.has { background: #fffaf0; border-color: #e3cb8b; }
+.min-slots { display: flex; gap: 7px; margin-left: auto; flex: none; }
+.min-slot { width: 26px; height: 26px; border-radius: 8px; border: 2px solid #d9d1c0; box-sizing: border-box;
+  display: flex; align-items: center; justify-content: center; font-style: normal; font-size: .8rem; font-weight: 800; color: transparent; }
+.min-slot.on { background: var(--gold); border-color: var(--gold); color: #fff; }
+.min-sum { flex: 1 0 100%; padding: 2px 6px 0; font-size: .82rem; color: var(--gray);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.min-sum b { color: var(--navy); font-weight: 800; }
 
 .min-acc-wrap { display: flex; flex-direction: column; gap: 9px; margin-bottom: 16px; }
 .min-acc { border: 1.5px solid var(--border); border-radius: 12px; overflow: hidden;
@@ -4875,7 +4887,7 @@ select.min-alert-input.mh-sel:disabled { opacity: .6; cursor: default; }
 .min-nm, .min-sent-n { word-break: keep-all; }
 .min-com { color: var(--gray); font-weight: 500; white-space: nowrap; }
 .min-tag { font-size: .7rem; color: var(--gray); margin-left: 6px; }
-.min-chk { flex: none; width: 28px; height: 28px; border-radius: 50%;
+.min-chk { flex: none; width: 28px; height: 28px; border-radius: 8px;
   border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center;
   font-size: .85rem; font-weight: 800; color: #fff; }
 .min-row.on .min-chk { border-color: var(--gold); background: var(--gold); }
@@ -4943,7 +4955,7 @@ select.min-alert-input.mh-sel:disabled { opacity: .6; cursor: default; }
    문서(html)가 한다 — sticky 는 그 body 를 기준으로 계산하니 움직일 일이 없다.
    그래서 첫 화면 고정 단추(.home-fab)와 같이 **position:fixed** 로 못 박는다.
    폭은 본문과 같게(#app 은 max-width 600 · 좌우 여백 20). 아래 여백은 .min-screen 이 이미 준다. */
-.min-acts { position: fixed; left: 50%; transform: translateX(-50%); z-index: 40;
+.min-acts { flex-wrap: wrap; position: fixed; left: 50%; transform: translateX(-50%); z-index: 40;
   bottom: calc(10px + env(safe-area-inset-bottom, 0px));
   width: min(560px, calc(100% - 40px));
   display: flex; gap: 8px; padding: 7px;
@@ -5030,6 +5042,12 @@ body:has(#update-banner) .min-acts { bottom: calc(10px + 68px + env(safe-area-in
 
 .dark .min-row.lock { background: #1a2130; border-color: #46536b; }
 .dark .min-count { background: #1e2637; border-color: #3a4a68; }
+.dark .min-meter { background: #232c3f; border-color: #3a4a68; }
+.dark .min-meter b, .dark .min-sum b { color: #cfe0ff; }
+.dark .min-meter.has { background: #33301f; border-color: #5c5330; }
+.dark .min-slot { border-color: #4a5a78; }
+.dark .min-slot.on { border-color: var(--gold); }
+.dark .min-sum { color: #aeb8cc; }
 .dark .min-policy-key b { color: #cfe0ff; }
 .dark .min-policy-key > span, .dark .min-policy-ol { background: #1e2637; }
 .dark .min-policy-ol { color: #b9c4d8; }

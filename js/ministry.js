@@ -962,6 +962,24 @@ function minAccBuild() {
   };
 }
 
+// 고른 사역 막대(2026-10-25 친구가 고른 1안) — 「3개까지 고를 수 있어요」 + 네모 칸 셋(고른 만큼 금색 ✓).
+//   이미 결정된 것(minHeld)도 센다 — 서버의 한도 계산과 같은 수(minLeft 와 같은 규칙).
+function minMeterInner() {
+  const n = minHeld() + minPicked.length;
+  const text = n === 0 ? MIN_MAX + "개까지 고를 수 있어요"
+    : n >= MIN_MAX ? MIN_MAX + "개를 다 골랐어요"
+    : n + "개 골랐어요 · " + (MIN_MAX - n) + "개 더 고를 수 있어요";
+  let slots = "";
+  for (let i = 0; i < MIN_MAX; i++) slots += '<i class="min-slot' + (i < n ? " on" : "") + '">✓</i>';
+  return '<b>' + text + '</b><span class="min-slots" aria-hidden="true">' + slots + '</span>';
+}
+// 아래 고정 줄 위쪽 한 줄 — 방금 고른 팀 이름(이미 결정된 것은 이름이 없으니 수만 센다)
+function minSumInner() {
+  const names = minPicked.map(function (id) { const t = minTeam(id); return t ? t.team : ""; }).filter(Boolean);
+  return names.length ? '<b>' + names.length + '개 골랐어요</b> · ' + names.map(minEsc).join(" · ")
+    : '고른 사역이 아직 없어요';
+}
+
 function minPickHtml() {
   const L = minAccBuild();
   const openNow = minIsOpen();
@@ -979,9 +997,8 @@ function minPickHtml() {
     minSentListHtml() +
     minOverHtml() +
     '<div class="min-browse-h"><span><b>사역 찾아보기</b>' +
-      '<small>부서를 눌러 사역을 살펴보세요</small></span>' +
-      '<div class="min-count' + (minPicked.length ? " has" : "") + '" id="min-count">' +
-        '선택 <b>' + (minHeld() + minPicked.length) + '</b> / ' + MIN_MAX + '</div></div>' +
+      '<small>부서를 눌러 사역을 살펴보세요</small></span></div>' +
+    '<div class="min-meter' + (minHeld() + minPicked.length ? " has" : "") + '" id="min-count">' + minMeterInner() + '</div>' +
     minFilterHtml() +
     // ⚠️ 이 셋은 **자리를 지킨다**(id 고정). 찾기를 칠 때 이 셋만 갈아 끼우고
     //    필터 상자는 손대지 않아야 한글 조합이 안 끊긴다.
@@ -991,6 +1008,7 @@ function minPickHtml() {
     // 신청현황 화면과 **같은 자리·같은 모양** — 남색이 지금 할 일, 흰 바탕이 되돌아가기.
     // 이미 낸 것이 있으면 돌아갈 길을 둔다: 없으면 목록에 갇힌다.
     '<div class="min-acts">' +
+      (openNow || minPrev() ? '<div class="min-sum" id="min-sum">' + minSumInner() + '</div>' : "") +
       (openNow || minPrev()
         ? '<button class="min-cta" id="min-next"' + (minPicked.length ? "" : " disabled") + '>' +
           '신청하기' +
@@ -1039,9 +1057,11 @@ function minRefreshList() {
   if (n) { n.hidden = !minFOn(); n.innerHTML = '지금 <b>' + L.shownN + '팀</b> 보임'; }
   const c = document.getElementById("min-count");
   if (c) {
-    c.className = "min-count" + (minPicked.length ? " has" : "");
-    c.innerHTML = "선택 <b>" + (minHeld() + minPicked.length) + "</b> / " + MIN_MAX;
+    c.className = "min-meter" + (minHeld() + minPicked.length ? " has" : "");
+    c.innerHTML = minMeterInner();
   }
+  const sm = document.getElementById("min-sum");
+  if (sm) sm.innerHTML = minSumInner();
   const cl = document.getElementById("min-fclear");
   if (cl) cl.hidden = !minFOn();
   minWireList();
