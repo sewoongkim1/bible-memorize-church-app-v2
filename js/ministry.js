@@ -363,8 +363,11 @@ function renderMinistry(keepScroll) {
 // 사역신청 화면 다섯 곳(불러오는 중·오류·신청서·확인·신청현황)의 타이틀을
 // 한 자리에서 만든다 — 아이콘 배지·얼라인·글씨 크기가 화면마다 달라 보이던 것을
 // 고치며(성도님 지적), 다음에 화면을 늘려도 여기만 건드리면 다 같이 맞는다.
-function minTitleHtml(title, subtitleHtml, cls) {
-  return '<div class="min-intro' + (cls ? " " + cls : "") + '"><h2 class="rank-title">' + title + '</h2>' +
+// rightHtml — 제목 줄 오른쪽에 둘 단추들(선택 화면의 나가기·신청안내 · 2026-10-25)
+function minTitleHtml(title, subtitleHtml, cls, rightHtml) {
+  const h = '<h2 class="rank-title">' + title + '</h2>';
+  return '<div class="min-intro' + (cls ? " " + cls : "") + '">' +
+    (rightHtml ? '<div class="min-title-row">' + h + rightHtml + '</div>' : h) +
     (subtitleHtml || "") + '</div>';
 }
 
@@ -986,14 +989,12 @@ function minSumInner() {
 function minPickHtml() {
   const L = minAccBuild();
   const openNow = minIsOpen();
+  // 성구 줄(벧전 4:10)은 뺐고 그 자리에 소속·이름을 둔다(친구 2026-10-25) · 나가기·신청안내는 제목 줄 오른쪽
+  // ⚠️ 안내문(.min-policy)을 화면에 늘 펴 두지 않는다(성도님 요청) — 작은 단추로 접어 팝업으로만 연다. 신청 화면은 부서 찾기에 바로 들어간다.
   return minTitleHtml("사역 신청서",
-      '<p class="min-sub min-verse">“각각 은사를 받은 대로 … 선한 청지기 같이 서로 봉사하라”' +
-        ' <span class="min-ref">벧전 4:10</span></p>', "left") +
-    // ⚠️ 안내문(.min-policy)을 화면에 늘 펴 두지 않는다(성도님 요청) — 소속 옆
-    //    작은 단추로 접어 팝업으로만 연다. 신청 화면은 부서 찾기에 바로 들어간다.
-    '<div class="min-who-row"><span class="min-who">👤 ' + minEsc(minWhoText()) + '</span>' +
+      '<p class="min-sub min-who-line">👤 ' + minEsc(minWhoText()) + '</p>', "left",
       '<span class="min-who-btns"><button class="min-policy-btn" id="min-exit">나가기</button>' +
-      '<button class="min-policy-btn" id="min-policy-open">📌 신청안내</button></span></div>' +
+      '<button class="min-policy-btn" id="min-policy-open">📌 신청안내</button></span>') +
     (openNow || minPrev() ? "" :
       '<div class="min-closed">지금은 신청 기간이 아니에요. 목록만 살펴보실 수 있습니다.</div>') +
     minLockNoteHtml() +

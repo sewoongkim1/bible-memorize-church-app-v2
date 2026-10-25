@@ -4601,6 +4601,10 @@ body.pr-full-on { overflow: hidden; }
 .min-intro.left .rank-title { text-align: left; margin: 4px 2px 3px; font-family: inherit; font-size: 1.55rem; font-weight: 800; color: var(--navy); }
 .min-intro.left .min-sub { text-align: left; margin: 0 2px; }
 .min-who-btns { display: flex; gap: 6px; flex: none; }
+.min-title-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.min-title-row .rank-title { min-width: 0; }
+.min-intro.left .min-who-line { margin: 0 2px; font-size: .95rem; font-weight: 800; color: var(--navy); }
+.dark .min-intro.left .min-who-line { color: #cfe0ff; }
 .min-sub { text-align: center; color: var(--gray); font-size: .92rem; margin: -4px 0 14px; line-height: 1.6; }
 .min-sub b { color: var(--navy); }
 /* 부제가 말씀일 때 — 인용은 줄여 쓰고, 출처는 아래에 금색 한 줄로 */
