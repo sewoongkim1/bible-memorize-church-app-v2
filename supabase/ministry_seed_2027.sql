@@ -1,3 +1,4 @@
+-- ⚠️ 2026-10-25 부터 쓰지 않는다 — 2027 사역 목록은 「사역소개(앱)」 시트에서 tools/ministry-sheet-sql.py → supabase/ministry_catalog_2027_sheet.sql 로 반영한다. 이 시드를 다시 돌리면 시트 목록이 옛 94팀으로 되돌아간다.
 -- 사역팀 목록 시드 (2027) — tools/ministry-seed-sql.py 가 만든다. 손으로 고치지 말 것.
 -- 자료: 자료/ministry/ministry_catalog_2027_draft.json
 -- ⚠️ 개발 DB 에 먼저 실행한 뒤 운영에 올린다.
