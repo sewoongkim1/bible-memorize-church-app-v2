@@ -992,7 +992,7 @@ function minPickHtml() {
   // 성구 줄(벧전 4:10)은 뺐고 그 자리에 소속·이름을 둔다(친구 2026-10-25) · 나가기·신청안내는 제목 줄 오른쪽
   // ⚠️ 안내문(.min-policy)을 화면에 늘 펴 두지 않는다(성도님 요청) — 작은 단추로 접어 팝업으로만 연다. 신청 화면은 부서 찾기에 바로 들어간다.
   return minTitleHtml("사역 신청서",
-      '<p class="min-sub min-who-line">👤 ' + minEsc(minWhoText()) + '</p>', "left",
+      '<div class="min-who-line"><span class="min-who">👤 ' + minEsc(minWhoText()) + '</span></div>', "left",
       '<span class="min-who-btns"><button class="min-policy-btn" id="min-policy-open">📌 신청안내</button>' +
       '<button class="min-policy-btn" id="min-exit">나가기</button></span>') +
     (openNow || minPrev() ? "" :
@@ -1427,23 +1427,16 @@ function minConfirmHtml() {
     '<div class="min-who">👤 ' + minEsc(minWhoText()) + '</div>' +
     minOverHtml() +
     rows +
-    '<div class="min-p4"><label for="min-pos">직분</label>' +
-      '<select id="min-pos" class="min-pos">' +
-        '<option value="">선택하세요</option>' +
-        MIN_POSITIONS.map(function (x) {
-          return '<option value="' + minEsc(x) + '"' +
-            (x === minPosVal ? " selected" : "") + '>' + minEsc(x) + '</option>';
-        }).join("") +
-      '</select></div>' +
+    // ⚠️ 직분은 받지 않는다(2026-10-25 친구 — 교적에 있는 직분을 쓴다). 서버도 비어 있어도 받는다(ministryApply).
     (lifeGateOn ? '' :
       '<div class="min-p4"><label for="min-phone">휴대폰</label>' +
         '<input id="min-phone" type="tel" inputmode="numeric" maxlength="13" placeholder="010-1234-5678"' +
         ' value="' + minEsc(pilsaPhoneFmt(minPhoneVal)) + '" autocomplete="off"></div>') +
     '<div class="min-note">' +
       (lifeGateOn
-        ? '직분은 <b>임명</b>에 씁니다. 연락처는 따로 받지 않고, 필요할 때만 한 번 여쭤봐요.'
+        ? '연락처는 따로 받지 않고, 필요할 때만 한 번 여쭤봐요.'
         : ((minMine ? '처음 신청하실 때 넣은 번호와 같아야 고쳐집니다. ' : '') +
-           '직분과 휴대폰 번호는 <b>본인 확인·교적 대조와 임명 뒤 연락</b>에 씁니다. ' +
+           '휴대폰 번호는 <b>본인 확인·교적 대조와 임명 뒤 연락</b>에 씁니다. ' +
            '번호는 임명·취소가 정해진 뒤 지울 수 있고, <b>늦어도 180일</b>이 지나면 저절로 지웁니다.')) +
       '</div>' +
     '<button class="min-cta" id="min-submit">제출하기<span class="min-cta-s">신청 후 임명을 받아야 시작할 수 있어요</span></button>' +
@@ -1471,8 +1464,6 @@ function wireMinConfirm(u) {
   document.getElementById("min-back").addEventListener("click", function () {
     minStep = "pick"; renderMinistry();
   });
-  const posel = document.getElementById("min-pos");
-  if (posel) posel.addEventListener("change", function () { minPosVal = this.value; });
   const phel = document.getElementById("min-phone");
   if (phel) phel.addEventListener("input", function () {
     this.value = pilsaPhoneFmt(this.value);        // 010-1234-5678 꼴로 자동 정리
@@ -1480,12 +1471,6 @@ function wireMinConfirm(u) {
   });
   const btn = document.getElementById("min-submit");
   btn.addEventListener("click", async function () {
-    minPosVal = posel ? posel.value : "";
-    if (MIN_POSITIONS.indexOf(minPosVal) < 0) {
-      minAlert("직분을 골라 주세요.");
-      if (posel) posel.focus();
-      return;
-    }
     minPhoneVal = phel ? pilsaPhoneFmt(phel.value) : "";
     if (!lifeGateOn && !pilsaPhoneOk(minPhoneVal)) {   // 확인 번호 켜진 분은 번호 칸이 없다(Plan 5)
       minAlert("휴대폰 번호를 010-1234-5678 꼴로 넣어 주세요.");
@@ -1499,7 +1484,7 @@ function wireMinConfirm(u) {
     try {
       const order = {
         user_id: u.user_id, name: u.name, who, choices: minPicked,
-        phone: minPhoneVal, position: minPosVal, pw: minPw(), preview: minPrev(),
+        phone: minPhoneVal, pw: minPw(), preview: minPrev(),
       };
       let r = await api.ministryApply(order);
       // 교적과 안 맞은 분: 연락처를 한 번 받고 다시 보낸다(확인 번호 문이 켜진 경우만 온다)
