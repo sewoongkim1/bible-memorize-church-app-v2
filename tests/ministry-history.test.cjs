@@ -458,19 +458,26 @@ test('mhCatalogTree — 부서는 나온 차례 · 팀은 부서 안에서 겹�
   assert.equal(JSON.stringify(tree.teams['찬양부']), JSON.stringify(['시온 찬양대', '가브리엘 찬양대']));
 });
 
-test('연도 칸은 고르기(2025~올해) · 부서·팀은 콤보 + 「기타」 · 글자 칸은 숨겨 둔다(보내기 코드는 글자 칸만 읽는다)', () => {
+test('연도·부서·팀은 앱 모양 고르기 단추(시스템 <select>·라디오 아님) · 값은 숨긴/글자 칸이 든다 · 목록이 없으면 글자 칸 그대로', () => {
   const tree = fn('mhCatalogTree')({ list: [{ committee: '찬양부', team: '시온 찬양대' }, { committee: '<b>', team: '팀' }] });
   const html = fn('mhMissingFieldsHtml')(2026, tree);
-  assert.match(html, /<select [^>]*id="mh-year"/);
-  assert.ok(html.includes('<option value="2025">2025년</option>') && html.includes('<option value="2026">2026년</option>'), '연도 고르기가 2025·2026 이 아니다');
-  assert.ok(!html.includes('<option value="2024"') && !html.includes('<option value="2027"'));
-  assert.match(html, /<select [^>]*id="mh-sel-committee-0"/);
-  assert.match(html, /<select [^>]*id="mh-sel-team-0"[^>]* disabled/);
-  assert.ok(html.includes('<option value="찬양부">찬양부</option>') && html.includes('<option value="__other">기타 (직접 입력)</option>'));
-  assert.ok(html.includes('&lt;b&gt;') && !html.includes('<option value="<b>"'), '부서 이름이 escape 되지 않았다');
+  assert.ok(!/<select/.test(html), '시스템 <select> 가 남았다(안드로이드에서 라디오 목록이 뜬다)');
+  assert.match(html, /<button type="button" class="[^"]*mh-pick"[^>]*id="mh-pick-year"/);
+  assert.match(html, /<input type="hidden" id="mh-year" value="">/);
+  assert.ok(html.includes('aria-describedby="mh-year-hint"'));
+  assert.match(html, /id="mh-pick-committee-0"/);
+  assert.match(html, /id="mh-pick-team-0"[^>]* disabled/);
   assert.match(html, /<input [^>]*id="mh-committee-0"[^>]* hidden>/);
   assert.match(html, /<input [^>]*id="mh-team-0"[^>]* hidden>/);
-  // 목록이 없으면(못 받았을 때) 예전 글자 칸 그대로 — 숨기지 않는다
+  assert.ok(html.indexOf('id="mh-pick-year"') < html.indexOf('id="mh-pick-committee-0"') && html.indexOf('id="mh-pick-committee-0"') < html.indexOf('id="mh-pick-team-0"'), '차례가 연도 · 부서 · 팀이 아니다');
+  // 목록이 없으면(못 받았을 때) 예전 글자 칸 그대로 — 부서·팀 고르기 단추도 숨김도 없다
   const plain = fn('mhMissingRowHtml')(0, null);
-  assert.ok(!plain.includes('<select') && !/id="mh-committee-0"[^>]* hidden/.test(plain));
+  assert.ok(!plain.includes('mh-pick') && !/id="mh-committee-0"[^>]* hidden/.test(plain));
+});
+
+test('고르기 목록(mhOpenSheet) — 선택 화면과 같은 금색 ✓ 네모 · 「기타」 줄 · 부서·팀 이름은 escape(데이터는 목록 만들 때 minEsc)', () => {
+  const src = minSource;
+  assert.ok(src.includes('function mhOpenSheet(') && src.includes('mh-ch') && src.includes('mh-sheet-wrap'));
+  assert.ok(/e\.key === "Escape"[\s\S]{0,80}stopPropagation/.test(src), 'Esc 가 밑의 정정 창까지 닫는다');
+  assert.ok(!src.includes('mhOptionsHtml'), '옛 <option> 도우미가 남았다');
 });

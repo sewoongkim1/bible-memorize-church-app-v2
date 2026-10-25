@@ -517,10 +517,12 @@ function mhCatalogTree(cat) {
   });
   return committees.length ? { committees: committees, teams: teams } : null;
 }
-function mhOptionsHtml(first, list) {
-  return '<option value="">' + first + '</option>' + list.map(function (x) {
-    return '<option value="' + minEsc(x) + '">' + minEsc(x) + '</option>';
-  }).join("") + '<option value="' + MH_OTHER + '">기타 (직접 입력)</option>';
+// 고르기 단추(2026-10-25 친구 「system 라디오 버튼을 빼고 디자인을」) — 안드로이드의 <select> 는 시스템 라디오 목록이 떠서 앱 모양과 다르다.
+//   값은 따로 숨긴 칸이 들고 있고, 이 단추는 보이는 글자만 든다. 누르면 아래에서 올라오는 목록(mhOpenSheet)이 열린다.
+function mhPickBtn(id, placeholder, disabled, describedBy) {
+  return '<button type="button" class="min-alert-input mh-in mh-pick" id="' + id + '" data-ph="' + minEsc(placeholder) + '"' +
+    (describedBy ? ' aria-describedby="' + describedBy + '"' : '') + (disabled ? ' disabled' : '') + '>' +
+    '<span class="mh-pick-v mh-ph">' + minEsc(placeholder) + '</span><span class="mh-pick-ar" aria-hidden="true">▾</span></button>';
 }
 // 값은 아래 글자 칸(#mh-committee-N · #mh-team-N)이 들고 있다 — 고르면 그 칸에 적는다(보내기 코드는 그 칸만 읽는다).
 //   tree 가 있으면 글자 칸은 「기타」를 골랐을 때만 보인다(hidden).
@@ -529,11 +531,11 @@ function mhMissingRowHtml(i, tree) {
   return '<div class="mh-set" data-set="' + i + '">' +
     '<div class="mh-set-h"><span class="mh-l mh-set-t">사역 ' + (i + 1) + '</span>' +
       (i > 0 ? '<button type="button" class="mh-set-x" data-del aria-label="사역 ' + (i + 1) + ' 빼기">✕</button>' : "") + '</div>' +
-    '<label class="mh-l" for="' + (sel ? 'mh-sel-committee-' : 'mh-committee-') + i + '">부서</label>' +
-    (sel ? '<select class="min-alert-input mh-in mh-sel" id="mh-sel-committee-' + i + '">' + mhOptionsHtml("부서를 골라 주세요", tree.committees) + '</select>' : "") +
+    '<label class="mh-l" for="' + (sel ? 'mh-pick-committee-' : 'mh-committee-') + i + '">부서</label>' +
+    (sel ? mhPickBtn('mh-pick-committee-' + i, "부서를 골라 주세요") : "") +
     '<input class="min-alert-input mh-in" id="mh-committee-' + i + '" maxlength="' + MH_TEAM_MAX + '" placeholder="예) 찬양위원회" autocomplete="off"' + (sel ? ' hidden' : '') + '>' +
-    '<label class="mh-l" for="' + (sel ? 'mh-sel-team-' : 'mh-team-') + i + '">팀</label>' +
-    (sel ? '<select class="min-alert-input mh-in mh-sel" id="mh-sel-team-' + i + '" disabled><option value="">부서를 먼저 골라 주세요</option></select>' : "") +
+    '<label class="mh-l" for="' + (sel ? 'mh-pick-team-' : 'mh-team-') + i + '">팀</label>' +
+    (sel ? mhPickBtn('mh-pick-team-' + i, "부서를 먼저 골라 주세요", true) : "") +
     '<input class="min-alert-input mh-in" id="mh-team-' + i + '" maxlength="' + MH_TEAM_MAX + '" placeholder="예) 시온성가대" autocomplete="off"' + (sel ? ' hidden' : '') + '>' +
     '</div>';
 }
@@ -541,10 +543,9 @@ function mhMissingRowHtml(i, tree) {
 //   연도 칸 아래 안내 한 줄 — 받는 해(2000~올해 · mhCheck 와 같은 규칙)를 미리 보인다(2026-10-19 친구)
 function mhMissingFieldsHtml(thisYear, tree) {
   if (thisYear == null) thisYear = new Date().getFullYear();
-  let years = "";   // 연도는 고르기(2026-10-24 친구 — 2025·2026) · 값은 글자 그대로 #mh-year 의 value
-  for (let y = MH_YEAR_MIN; y <= thisYear; y++) years += '<option value="' + y + '">' + y + '년</option>';
-  return '<label class="mh-l" for="mh-year">연도</label>' +
-    '<select class="min-alert-input mh-in mh-sel" id="mh-year" aria-describedby="mh-year-hint"><option value="">연도를 골라 주세요</option>' + years + '</select>' +
+  // 연도는 고르기(2026-10-24 친구 — 2025·2026) · 값은 숨긴 칸 #mh-year 가 든다(보내기 코드는 그 칸을 읽는다)
+  return '<label class="mh-l" for="mh-pick-year">연도</label>' +
+    mhPickBtn("mh-pick-year", "연도를 골라 주세요", false, "mh-year-hint") + '<input type="hidden" id="mh-year" value="">' +
     '<p class="mh-hint" id="mh-year-hint">' + MH_YEAR_MIN + '년부터 올해(' + thisYear + '년)까지 적을 수 있어요.</p>' +
     '<div id="mh-sets">' + mhMissingRowHtml(0, tree) + '</div>' +
     '<button type="button" class="min-ghost mh-more" id="mh-more">＋ 같은 해 사역 하나 더</button>';
@@ -654,6 +655,37 @@ function mhEnsureTree() {
   return mhTreeP;
 }
 
+// 아래에서 올라오는 고르기 목록(2026-10-25 친구) — 시스템 라디오 대신 앱 모양 · 고른 줄은 금색 ✓ 네모(선택 화면과 같은 꼴).
+//   options = [{ v, t, other? }] · current = 지금 값(v) · onPick(option)
+//   Esc 는 이 목록만 닫는다(창 위에 창 — 잡는 단계에서 막아 밑의 정정 창 Esc 가 같이 닫히지 않게).
+function mhOpenSheet(title, options, current, onPick) {
+  const wrap = document.createElement("div");
+  wrap.className = "mh-sheet-wrap";
+  wrap.innerHTML = '<div class="mh-sheet" role="dialog" aria-modal="true" aria-label="' + minEsc(title) + '">' +
+    '<div class="mh-sheet-h"><b>' + minEsc(title) + '</b><button type="button" class="mh-sheet-x" data-sx aria-label="닫기">✕</button></div>' +
+    '<div class="mh-sheet-b">' + options.map(function (o, i) {
+      return '<button type="button" class="mh-ch' + (o.v === current ? " on" : "") + (o.other ? " other" : "") + '" data-oi="' + i + '">' +
+        '<span>' + minEsc(o.t) + '</span><i aria-hidden="true">✓</i></button>';
+    }).join("") + '</div></div>';
+  document.body.appendChild(wrap);
+  const esc = function (e) { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); } };
+  const close = function () {
+    document.removeEventListener("keydown", esc, true);
+    if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
+  };
+  document.addEventListener("keydown", esc, true);
+  wrap.addEventListener("click", function (e) {
+    if (e.target === wrap || (e.target.closest && e.target.closest("[data-sx]"))) { close(); return; }
+    const b = e.target.closest ? e.target.closest("[data-oi]") : null;
+    if (!b) return;
+    const o = options[Number(b.dataset.oi)];
+    close();
+    onPick(o);
+  });
+  const on = wrap.querySelector(".mh-ch.on");
+  if (on && on.scrollIntoView) on.scrollIntoView({ block: "center" });
+}
+
 async function mhAsk(u, row, mode) {
   if (!mhData) return;
   if (mode === "missing") await Promise.race([mhEnsureTree(), new Promise(function (r) { setTimeout(r, 3000); })]);
@@ -723,7 +755,7 @@ async function mhAsk(u, row, mode) {
       setsEl.querySelectorAll(".mh-set").forEach(function (el) { n = Math.max(n, Number(el.dataset.set) + 1); });
       setsEl.insertAdjacentHTML("beforeend", mhMissingRowHtml(n, mhTree));
       syncSets();
-      const c = box.querySelector("#mh-sel-committee-" + n) || box.querySelector("#mh-committee-" + n); if (c) c.focus();
+      const c = box.querySelector("#mh-pick-committee-" + n) || box.querySelector("#mh-committee-" + n); if (c) c.focus();
     });
     setsEl.addEventListener("click", function (e) {
       const x = e.target.closest ? e.target.closest("[data-del]") : null;
@@ -732,35 +764,51 @@ async function mhAsk(u, row, mode) {
       syncSets();
     });
   }
-  // 부서·팀 콤보 — 고른 값은 글자 칸에 적는다(「기타」면 그 칸을 보여 준다)
-  if (setsEl && mhTree) {
-    const setText = function (el, id, v, show) {
-      const inp = el.querySelector("#" + id); if (!inp) return null;
-      inp.value = v; inp.hidden = !show; return inp;
-    };
-    setsEl.addEventListener("change", function (e) {
-      const sel = e.target, set = sel.closest ? sel.closest(".mh-set") : null;
-      if (!set || !sel.id) return;
-      const i = set.dataset.set, v = sel.value, other = v === MH_OTHER;
-      if (sel.id === "mh-sel-committee-" + i) {
-        const tsel = set.querySelector("#mh-sel-team-" + i);
-        const cin = setText(set, "mh-committee-" + i, other || !v ? "" : v, other);
-        setText(set, "mh-team-" + i, "", false);
-        if (other) {   // 부서를 직접 적으면 팀도 직접 적는다
-          tsel.hidden = true; tsel.value = "";
-          const tin = set.querySelector("#mh-team-" + i); tin.hidden = false;
-          if (cin) cin.focus();
-        } else {
-          tsel.hidden = false; tsel.disabled = !v;
-          tsel.innerHTML = v ? mhOptionsHtml("팀을 골라 주세요 (부서만 있어도 돼요)", mhTree.teams[v] || [])
-            : '<option value="">부서를 먼저 골라 주세요</option>';
-        }
-      } else if (sel.id === "mh-sel-team-" + i) {
-        const tin = setText(set, "mh-team-" + i, other || !v ? "" : v, other);
-        if (other && tin) tin.focus();
-      }
+  // 연도·부서·팀 고르기 — 고르기 단추(.mh-pick)를 누르면 목록이 올라오고, 고른 값은 숨긴/글자 칸에 적는다(보내기 코드는 그 칸만 읽는다)
+  const setPick = function (btn, text, has) {
+    const v = btn.querySelector(".mh-pick-v");
+    v.textContent = text; v.classList.toggle("mh-ph", !has);
+  };
+  const setText = function (el, id, v, show) {
+    const inp = el.querySelector("#" + id); if (!inp) return null;
+    inp.value = v; inp.hidden = !show; return inp;
+  };
+  const OTHER = { v: MH_OTHER, t: "기타 (직접 입력)", other: true };
+  box.addEventListener("click", function (e) {
+    const b = e.target.closest ? e.target.closest(".mh-pick") : null;
+    if (!b || b.disabled) return;
+    const m = /^mh-pick-(year|committee|team)(?:-(\d+))?$/.exec(b.id);
+    if (!m) return;
+    if (m[1] === "year") {
+      const yh = box.querySelector("#mh-year"), opts = [];
+      for (let y = MH_YEAR_MIN; y <= new Date().getFullYear(); y++) opts.push({ v: String(y), t: y + "년" });
+      mhOpenSheet("연도", opts, yh.value, function (o) { yh.value = o.v; setPick(b, o.t, true); });
+      return;
+    }
+    if (!mhTree) return;
+    const i = m[2], set = b.closest(".mh-set");
+    if (m[1] === "committee") {
+      const cin = box.querySelector("#mh-committee-" + i);
+      const opts = mhTree.committees.map(function (c) { return { v: c, t: c }; }).concat([OTHER]);
+      mhOpenSheet("부서", opts, cin.hidden ? cin.value : MH_OTHER, function (o) {
+        const other = o.v === MH_OTHER, tb = set.querySelector("#mh-pick-team-" + i);
+        const c2 = setText(set, "mh-committee-" + i, other ? "" : o.v, other);
+        setText(set, "mh-team-" + i, "", other);              // 부서를 직접 적으면 팀도 직접 적는다
+        setPick(b, o.t, true);
+        if (other) { tb.hidden = true; if (c2) c2.focus(); }
+        else { tb.hidden = false; tb.disabled = false; setPick(tb, "팀을 골라 주세요 (부서만 있어도 돼요)", false); }
+      });
+      return;
+    }
+    const cv = box.querySelector("#mh-committee-" + i).value, tin = box.querySelector("#mh-team-" + i);
+    const opts = [{ v: "", t: "팀 선택 안 함 (부서만)" }].concat((mhTree.teams[cv] || []).map(function (t) { return { v: t, t: t }; })).concat([OTHER]);
+    mhOpenSheet("팀", opts, tin.hidden ? tin.value : MH_OTHER, function (o) {
+      const other = o.v === MH_OTHER;
+      const t2 = setText(set, "mh-team-" + i, other ? "" : o.v, other);
+      setPick(b, o.t, o.v !== "");
+      if (other && t2) t2.focus();
     });
-  }
+  });
   ok.addEventListener("click", async function () {
     const base = {
       kind: kind, history_id: row ? row.id : null,
