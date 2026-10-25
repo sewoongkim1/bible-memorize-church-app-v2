@@ -670,6 +670,7 @@ Deno.serve(async (req) => {
       case "ministryMine":     return json(await ministryMine(body));
       case "ministryTester":   return json(await ministryTester(body));   // 시험 참여자인가(2026-09-30)
       case "ministryHistoryMine":    return json(await ministryHistoryMine(body));      // 사역 이력 확인(2026-10-01)
+      case "ministryHistoryCancel":  return json(await ministryHistoryCancel(body));   // 낸 정정 신청 취소(2026-10-25)
       case "ministryHistoryRequest": return json(await ministryHistoryRequest(body));   // 사역 이력 정정 신청(2026-10-01)
       // ---- 교육신청(2026-10-05) ----
       case "eduList":   return json(await eduList(body));
@@ -5265,7 +5266,7 @@ async function ministryTester(b: any) {
 const MH_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // 교회 어드민이 막은 까닭 — 그대로 화면에 넘긴다(그 밖의 실패는 upstream 으로 묶는다)
 const MH_PASS_ERRORS = ["bad-kind", "too-long", "no-row", "need-detail", "bad-year", "need-team",
-  "not-found", "already-found", "already-open", "not-yours", "too-many"];
+  "not-found", "already-found", "already-open", "not-yours", "too-many", "already-handled"];
 
 async function ministryHistoryOpen(b: any, userId: string): Promise<boolean> {
   if ((await ministryCfg()).isOpen) return true;
@@ -5333,6 +5334,18 @@ async function ministryHistoryRequest(b: any) {
   if (j && j.ok === true) return { ok: true };
   if (j && MH_PASS_ERRORS.includes(j.error)) return { ok: false, error: j.error };
   console.error("ministryHistoryRequest", j);
+  return { ok: false, error: "upstream" };
+}
+
+// 낸 정정 신청 취소(2026-10-25) — 본인 것 · 「신청」 상태일 때만 · 지운다(교회 어드민 internalHistoryCancel 이 정한다)
+async function ministryHistoryCancel(b: any) {
+  const le = await lifeError(b); if (le) return { ok: false, error: le };
+  const u = await ministryHistoryUser(b);
+  if ("error" in u) return { ok: false, error: u.error };
+  const j = await churchAdminInternal({ action: "internalHistoryCancel", who: u.who, user_id: u.userId, id: b.id });
+  if (j && j.ok === true) return { ok: true };
+  if (j && MH_PASS_ERRORS.includes(j.error)) return { ok: false, error: j.error };
+  console.error("ministryHistoryCancel", j);
   return { ok: false, error: "upstream" };
 }
 
