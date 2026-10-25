@@ -75,3 +75,10 @@
 - [ ] 🗂️ **첫 화면 「사역현황」 · 사역 이력 확인 · 정정 신청 — 2026-10-01 운영 개시**(v2 aad4625 · 판 20261001c · `MH_LIVE` 켬 · church-admin main d40cf75 · 운영 SQL 008 · 교회 어드민 「📮 정정 신청」). 문은 사역신청과 하나 — 지금은 🧪 시험 참여자만, 12/13~12/27 신청 기간에 모두.
       남은 것: ① 시험 참여자 계정으로 실기기 확인(「사역현황」 → 🗂️ → 기록 · 정정 한 번 → 교회 어드민 「📮 정정 신청」에서 처리) ② ~~member_merge 에 정정 신청 표~~ 2026-10-02 운영 반영 끝(겹치는 열린 신청은 옛 줄 지움 · `docs/member-profile-admin.md`) ③ 덤: `~/.church-admin/dev.env` `DEV_SERVICE_KEY` 를 새 secret 으로 → `tests/history-check.dev.test.mjs` ④ 공유 체크아웃 로컬 main 이 origin 뒤(남의 `자료/store/listing-ios-ko.txt` 수정 때문에 빨리 감기 못 함 — 그 파일 주인이 정리한 뒤 `git pull`).
       읽을 것 `docs/notes/ministry-history-check.md` · 계획 `docs/superpowers/plans/2026-10-01-ministry-history-check.md` · `…-requests-admin.md`
+
+## 2025~2026 사역만 보이고 고친다(2026-10-24 친구)
+
+- **무엇:** 성도님 앱 「사역 이력 확인」은 **2025년부터 올해까지**만 보이고 정정할 수 있다. 그 앞 해는 **서버가 보내지 않고**(`internalMyHistory` `gte year`), 정정 신청·빠진 사역 연도도 받지 않는다(`REQ_YEAR_MIN = 2025` · `bad-year`/`not-yours`) · 그 앞 해 줄에 걸린 옛 신청과 빠진 사역(그 앞 해)은 「내 신청」 목록에서도 뺀다. 교회 어드민 「📜 사역 이력」·DB 는 그대로다.
+- **세 곳이 같은 값:** 교회 어드민 `history-check.ts` `REQ_YEAR_MIN` · 앱 `js/ministry.js` `MH_YEAR_MIN` · 첫 화면 단추 이름 「사역 이력 확인 (25~26년)」(`app.js` — 새 첫 화면도 이 글자를 쓴다).
+- ⚠️ **2028 사역신청 때는 세 곳을 함께 올린다**(2026 · 「26~27년」). 해마다 따라가게 하지 않았다 — 친구가 「2025년, 2026년」으로 못 박았다.
+- **배포 순서:** 교회 어드민 함수 먼저 → 앱 화면. 앱을 먼저 올리면 옛 서버가 앞 해 줄을 그대로 보낸다.

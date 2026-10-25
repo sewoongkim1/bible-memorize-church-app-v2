@@ -55,7 +55,7 @@ test('mhHistoryHtml — 해마다 묶고, 열린 신청이 있는 줄은 「신�
   assert.ok(out.includes('data-fix="3"'), '끝난 신청 줄은 다시 정정할 수 있어야 한다');
   assert.ok(out.includes('유년부 교사'));
   assert.ok(out.includes('&lt;b&gt;') && !out.includes('<b>'));
-  assert.match(h([], []), /아직 올라온 사역 기록이 없어요/);
+  assert.match(h([], []), /2025년 이후 올라온 사역 기록이 없어요/);
 });
 
 test('mhRequestsHtml — 빠진 사역 · 찾아 주세요 · 줄 정정(빼 둔 줄은 「지난 기록」) · 담당자 말', () => {
@@ -89,9 +89,9 @@ test('mhCheck — 서버와 같은 규칙(그 밖에 설명 · 연도 · 부서�
   assert.equal(c({ kind: 'other', detail: ' ' }), 'need-detail');
   assert.equal(c({ kind: 'other', detail: '가'.repeat(201) }), 'too-long');
   assert.equal(c({ kind: 'missing', year: '20', team_text: '팀' }), 'bad-year');
-  assert.equal(c({ kind: 'missing', year: '2023', team_text: ' ' }), 'need-team');
-  assert.equal(c({ kind: 'missing', year: '2023', team_text: '가'.repeat(101) }), 'too-long');
-  assert.equal(c({ kind: 'missing', year: '2023', team_text: '시온성가대' }), null);
+  assert.equal(c({ kind: 'missing', year: '2025', team_text: ' ' }), 'need-team');
+  assert.equal(c({ kind: 'missing', year: '2025', team_text: '가'.repeat(101) }), 'too-long');
+  assert.equal(c({ kind: 'missing', year: '2025', team_text: '시온성가대' }), null);
   assert.equal(c({ kind: 'find_me', detail: '' }), null);
 });
 
@@ -99,7 +99,7 @@ test('mhCheck — 서버와 같은 규칙(그 밖에 설명 · 연도 · 부서�
 //   committee_text 가 글자면 두 칸(둘 중 하나만 있어도 된다 · 칸마다 100자) · 글자가 아니면 옛 한 칸(team_text 꼭)
 test('mhCheck 두 칸 — 부서나 팀 하나는 있어야 · 칸마다 100자 · 연도는 그대로 · 공백은 서버처럼 줄여 센다', () => {
   const c = fn('mhCheck');
-  const m = (committee_text, team_text, year = '2023') => c({ kind: 'missing', year, committee_text, team_text, detail: '' });
+  const m = (committee_text, team_text, year = '2025') => c({ kind: 'missing', year, committee_text, team_text, detail: '' });
   assert.equal(m('찬양위원회', '시온성가대'), null);
   assert.equal(m('찬양위원회', ''), null, '부서만 적어도 된다');
   assert.equal(m('', '시온성가대'), null, '팀만 적어도 된다');
@@ -112,15 +112,15 @@ test('mhCheck 두 칸 — 부서나 팀 하나는 있어야 · 칸마다 100자 
   assert.equal(m('찬양위원회', '시온성가대', '20'), 'bad-year');
   assert.equal(m('', '', '20'), 'bad-year', '연도를 먼저 본다(서버와 같은 차례)');
   // committee_text 가 글자가 아니면 옛 한 칸 — team_text 가 꼭 있어야 한다(옛 캐시 앱·서버 갈래와 같다)
-  assert.equal(c({ kind: 'missing', year: '2023', committee_text: null, team_text: '' }), 'need-team');
-  assert.equal(c({ kind: 'missing', year: '2023', committee_text: null, team_text: '찬양위원회 시온성가대' }), null);
+  assert.equal(c({ kind: 'missing', year: '2025', committee_text: null, team_text: '' }), 'need-team');
+  assert.equal(c({ kind: 'missing', year: '2025', committee_text: null, team_text: '찬양위원회 시온성가대' }), null);
 });
 
-test('mhCheck 연도 — 2000년부터 올해까지(2026-10-19 친구 · thisYear 를 넘겨 해가 바뀌어도 흔들리지 않게)', () => {
+test('mhCheck 연도 — 2025년부터 올해까지(2026-10-19 친구 · thisYear 를 넘겨 해가 바뀌어도 흔들리지 않게)', () => {
   const c = fn('mhCheck');
   const y = (year) => c({ kind: 'missing', year, committee_text: '찬양위원회', team_text: '시온성가대' }, 2026);
-  assert.equal(y('1999'), 'bad-year');
-  assert.equal(y('2000'), null);
+  assert.equal(y('2024'), 'bad-year');
+  assert.equal(y('2025'), null);
   assert.equal(y('2026'), null);
   assert.equal(y('2027'), 'bad-year');
 });
@@ -165,7 +165,7 @@ test('정정 창 「빠진 사역」 — 연도·부서·팀 세 칸(부서 · �
   assert.ok(!html.includes('부서 · 팀'), '옛 한 칸 이름표가 남았다');
   // 2026-10-19 친구 「2000년 이후 입력 정보 · 사역으로 묶어서」 — 연도 아래 안내 한 줄(올해는 넘긴 해) · 사역마다 상자(첫 상자도 「사역 1」 · 빼기는 둘째부터)
   const html26 = fn('mhMissingFieldsHtml')(2026);
-  assert.ok(html26.includes('<p class="mh-hint" id="mh-year-hint">2000년부터 올해(2026년)까지 적을 수 있어요.</p>'), '연도 안내 줄이 없다');
+  assert.ok(html26.includes('<p class="mh-hint" id="mh-year-hint">2025년부터 올해(2026년)까지 적을 수 있어요.</p>'), '연도 안내 줄이 없다');
   assert.ok(html26.includes('aria-describedby="mh-year-hint"'), '연도 칸이 안내 줄을 가리키지 않는다');
   assert.ok(html26.indexOf('id="mh-year-hint"') < html26.indexOf('class="mh-set"'), '안내 줄이 연도 칸 아래(사역 상자 위)에 있지 않다');
   const set0 = /<div class="mh-set" data-set="0">[\s\S]*?<\/div><\/div>|<div class="mh-set" data-set="0">[\s\S]*$/.exec(html26)[0];

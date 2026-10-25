@@ -384,7 +384,7 @@ const MH_KIND_TEXT = {
 };
 const MH_OPEN = ["신청", "확인 중"];
 const MH_DETAIL_MAX = 200, MH_TEAM_MAX = 100, MH_OPEN_MAX = 20;
-const MH_YEAR_MIN = 2000, MH_MISSING_ROWS = 3;   // 빠진 사역 — 연도 2000~올해 · 한 창에 같은 해 3개까지(2026-10-19 친구)
+const MH_YEAR_MIN = 2025, MH_MISSING_ROWS = 3;   // 확인·정정은 2025년~올해만(2026-10-24 친구 · 그 앞 해는 서버가 보내지도 받지도 않는다 — 교회 어드민 REQ_YEAR_MIN 과 같은 값 · 2028 신청 때 2026 으로) · 한 창에 같은 해 3개까지(2026-10-19)
 const MH_ERR = {
   closed: "아직 열리지 않았어요.",
   "no-user": "로그인 정보를 찾지 못했어요. 첫 화면에서 다시 로그인해 주세요.",
@@ -392,7 +392,7 @@ const MH_ERR = {
   "too-many": "확인을 기다리는 신청이 20건이에요. 담당자가 확인한 뒤 다시 내 주세요.",
   "need-detail": "어떤 점이 틀렸는지 한 줄로 적어 주세요.",
   "need-team": "부서나 팀 이름을 적어 주세요.",
-  "bad-year": "연도는 2000년부터 올해까지 적을 수 있어요(예: 2024).",
+  "bad-year": "연도는 2025년부터 올해까지 적을 수 있어요(예: 2025).",
   "too-long": "글이 너무 길어요. 조금 줄여 주세요.",
   "not-yours": "이 기록은 지금 고칠 수 없어요. 화면을 다시 열어 주세요.",
   "not-found": "기록을 찾지 못해 이 신청은 낼 수 없어요.",
@@ -434,7 +434,7 @@ function mhHasOpenFind(requests) {
 // 기록 줄 — 해마다 묶는다(서버가 연도 내림차순으로 준다). 줄 하나 = 부서 · 팀 직책 · 직분 + [정정]
 // ⚠️ 줄 열쇠는 기록 id 숫자뿐이다(교인ID·이름을 data-* 에 싣지 않는다).
 function mhHistoryHtml(rows, requests) {
-  if (!rows || !rows.length) return '<p class="mh-empty">아직 올라온 사역 기록이 없어요.</p>';
+  if (!rows || !rows.length) return '<p class="mh-empty">' + MH_YEAR_MIN + '년 이후 올라온 사역 기록이 없어요.</p>';
   const open = mhOpenIds(requests);
   let out = "", year = null;
   rows.forEach(function (r) {
@@ -492,7 +492,7 @@ function mhBodyHtml(d) {
       (mhHasOpenFind(d.requests) ? "" : '<button class="min-cta" id="mh-find">내 기록 찾아 주세요</button>') +
       mhRequestsHtml(d.requests, []) + exit;
   }
-  return mhHistoryHtml(d.rows, d.requests) +
+  return '<p class="mh-hint mh-years">' + MH_YEAR_MIN + '년부터 올해까지의 사역만 보여 드려요.</p>' + mhHistoryHtml(d.rows, d.requests) +
     '<button class="min-ghost mh-add" id="mh-missing">＋ 빠진 사역 추가하기</button>' +
     mhRequestsHtml(d.requests, d.rows) + exit;
 }
