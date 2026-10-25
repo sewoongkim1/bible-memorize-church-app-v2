@@ -481,3 +481,21 @@ test('고르기 목록(mhOpenSheet) — 선택 화면과 같은 금색 ✓ 네�
   assert.ok(/e\.key === "Escape"[\s\S]{0,80}stopPropagation/.test(src), 'Esc 가 밑의 정정 창까지 닫는다');
   assert.ok(!src.includes('mhOptionsHtml'), '옛 <option> 도우미가 남았다');
 });
+
+// 낸 정정 신청 취소(2026-10-25 친구 「빠진 사역 추가하기 신청 후 취소 할 수 있게」) — 「신청」 상태에만 취소 단추
+test('mhRequestsHtml — 취소 단추는 담당자가 안 집은 「신청」에만 · 확인 중·반영에는 없다', () => {
+  const h = fn('mhRequestsHtml');
+  const out = h([
+    req({ id: 11, kind: 'missing', year: 2025, committee_text: '찬양부', team_text: '시온 찬양대', status: '신청' }),
+    req({ id: 12, kind: 'missing', year: 2026, committee_text: '예배부', team_text: '', status: '확인 중' }),
+    req({ id: 13, kind: 'find_me', status: '반영' }),
+  ], []);
+  assert.ok(out.includes('data-reqx="11"'), '신청 상태에 취소 단추가 없다');
+  assert.ok(!out.includes('data-reqx="12"') && !out.includes('data-reqx="13"'), '확인 중·반영에 취소 단추가 있다');
+});
+
+test('취소 배선 — 한 번 묻고(minConfirm) api.ministryHistoryCancel · 이미 집었으면 까닭을 알린다', () => {
+  assert.ok(minSource.includes('api.ministryHistoryCancel(u.user_id, id, minPw())'));
+  assert.ok(minSource.includes('minConfirm("이 정정 신청을 취소할까요?'));
+  assert.match(fn('mhErrText')('already-handled'), /이미 확인하고 있어서 취소할 수 없어요/);
+});

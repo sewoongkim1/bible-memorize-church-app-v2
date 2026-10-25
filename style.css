@@ -4752,6 +4752,10 @@ body:has(#update-banner) .min-acts.min-bar { bottom: 68px; }
 .mh-req { margin-top: 8px; padding: 10px 12px; background: var(--white);
   border: 1.5px solid var(--border); border-radius: 10px; }
 .mh-req-h { font-size: .9rem; font-weight: 700; color: #222; margin-bottom: 4px; word-break: keep-all; }
+.mh-req-act { display: flex; justify-content: flex-end; margin-top: 8px; }
+.mh-req-x { min-height: 36px; padding: 0 14px; border: 1px solid #e7b3ad; border-radius: 10px; background: #fdeceb; color: #a33; font: inherit; font-size: .82rem; font-weight: 800; cursor: pointer; }
+.mh-req-x:disabled { opacity: .5; cursor: default; }
+.dark .mh-req-x { background: #3a2424; border-color: #7a4a46; color: #f0b4ae; }
 .mh-req-d { font-size: .84rem; color: var(--gray); margin-bottom: 8px; word-break: keep-all; }
 .mh-steps { margin: 6px 2px 2px; }
 .mh-ans { font-size: .84rem; color: #333; margin-top: 8px; word-break: keep-all; }

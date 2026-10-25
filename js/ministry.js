@@ -399,6 +399,8 @@ const MH_ERR = {
   "too-long": "글이 너무 길어요. 조금 줄여 주세요.",
   "not-yours": "이 기록은 지금 고칠 수 없어요. 화면을 다시 열어 주세요.",
   "not-found": "기록을 찾지 못해 이 신청은 낼 수 없어요.",
+  "no-row": "이 신청을 찾지 못했어요. 화면을 다시 열어 주세요.",
+  "already-handled": "담당자가 이미 확인하고 있어서 취소할 수 없어요.",
   "already-found": "기록을 이미 찾았어요. 줄마다 「정정」을 눌러 주세요.",
 };
 function mhErrText(code) { return MH_ERR[code] || "잠시 뒤 다시 해 주세요."; }
@@ -470,19 +472,26 @@ function mhMissingText(q) {
 }
 
 // 내 정정 신청 — 최근 것이 위(서버 차례 그대로). 담당자가 적은 말이 있으면 아래 한 줄(반영 안 함의 사유 등)
+// 신청 한 건의 머리 글(「빠진 사역(2025) — 부서 · 팀」 …) — 목록과 취소 확인 창이 같이 쓴다
+function mhRequestHead(q, byId) {
+  return q.kind === "missing" ? "빠진 사역(" + q.year + ") — " + mhMissingText(q)
+    : q.kind === "find_me" ? MH_KIND_TEXT.find_me
+    : mhRowLabel(q.history_id != null ? byId[q.history_id] : null) + " — " + (MH_KIND_TEXT[q.kind] || "");
+}
 function mhRequestsHtml(requests, rows) {
   if (!requests || !requests.length) return "";
   const byId = {};
   (rows || []).forEach(function (r) { byId[r.id] = r; });
   return '<div class="min-sent mh-reqs"><div class="min-sent-t">📋 내 정정 신청 <b>' + requests.length + '</b>건</div>' +
     requests.map(function (q) {
-      const head = q.kind === "missing" ? "빠진 사역(" + q.year + ") — " + mhMissingText(q)
-        : q.kind === "find_me" ? MH_KIND_TEXT.find_me
-        : mhRowLabel(q.history_id != null ? byId[q.history_id] : null) + " — " + (MH_KIND_TEXT[q.kind] || "");
+      const head = mhRequestHead(q, byId);
       return '<div class="mh-req"><div class="mh-req-h">' + minEsc(head) + '</div>' +
         (q.detail ? '<div class="mh-req-d">' + minEsc(q.detail) + '</div>' : "") +
         mhStepsHtml(q.status) +
-        (q.answer ? '<div class="mh-ans">💬 ' + minEsc(q.answer) + '</div>' : "") + '</div>';
+        (q.answer ? '<div class="mh-ans">💬 ' + minEsc(q.answer) + '</div>' : "") +
+        // 아직 담당자가 안 집은 「신청」만 취소할 수 있다(2026-10-25 친구) — 확인 중부터는 담당자가 다룬다
+        (q.status === "신청" && q.id != null ? '<div class="mh-req-act"><button type="button" class="mh-req-x" data-reqx="' + Number(q.id) + '">신청 취소</button></div>' : "") +
+        '</div>';
     }).join("") + '</div>';
 }
 
@@ -638,6 +647,29 @@ function wireMinistryHistory(u) {
   if (add) add.addEventListener("click", function () { mhAsk(u, null, "missing"); });
   const find = document.getElementById("mh-find");
   if (find) find.addEventListener("click", function () { mhAsk(u, null, "find_me"); });
+  // 낸 신청 취소 — 한 번 묻고 지운다(되돌릴 수 없다). 그사이 담당자가 집었으면(already-handled) 알리고 새로 불러온다
+  document.querySelectorAll("#app [data-reqx]").forEach(function (b) {
+    b.addEventListener("click", async function () {
+      const id = Number(b.dataset.reqx);
+      const q = (mhData.requests || []).find(function (x) { return Number(x.id) === id; });
+      const head = q ? (q.kind === "missing" ? "빠진 사역(" + q.year + ") — " + mhMissingText(q) : mhRequestHead(q, byId)) : "";
+      if (!(await minConfirm("이 정정 신청을 취소할까요?\n" + head + "\n취소하면 담당자께 가지 않고, 되돌릴 수 없어요.", "신청 취소", "그대로 두기"))) return;
+      b.disabled = true;
+      const y = window.scrollY;
+      try {
+        await api.ministryHistoryCancel(u.user_id, id, minPw());
+      } catch (e) {
+        b.disabled = false;
+        await mhLoad(u);
+        if (document.querySelector("#app .mh-screen")) renderMinistryHistory(y);
+        minAlert(mhErrText((e && e.message) || ""));
+        return;
+      }
+      await mhLoad(u);
+      if (document.querySelector("#app .mh-screen")) renderMinistryHistory(y);
+      minAlert("정정 신청을 취소했어요.");
+    });
+  });
 }
 
 // 정정 창 — 고르기(줄 정정) + 한 줄 설명(+ 빠진 사역은 연도·부서·팀 세 칸 — mhMissingFieldsHtml). 사역신청 창(.min-d-*)과 같은 모양.

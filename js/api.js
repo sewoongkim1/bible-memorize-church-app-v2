@@ -134,6 +134,7 @@ const api = {
   // 사역 이력 확인 · 정정 신청(2026-10-01) — pw 는 관리자 미리보기만(minPw). req = { kind, history_id, detail, year, team_text }
   ministryHistoryMine: (user_id, pw) => supaCall("ministryHistoryMine", { user_id, pw }),
   ministryHistoryRequest: (user_id, req, pw) => supaCall("ministryHistoryRequest", { ...req, user_id, pw }),
+  ministryHistoryCancel: (user_id, id, pw) => supaCall("ministryHistoryCancel", { id, user_id, pw }),   // 낸 정정 신청 취소(2026-10-25)
   ministryApply: (order) => supaCall("ministryApply", order),
   ministryCancel: (user_id, pw, phone, preview) => supaCall("ministryCancel", { user_id, pw, phone, preview }),
   ministryList: (pw) => supaCall("ministryList", { pw }),
