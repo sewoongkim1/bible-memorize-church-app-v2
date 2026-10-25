@@ -6848,12 +6848,9 @@ async function ministryCancel(b: any) {
   if (!open.length) {
     return { ok: false, error: "담당자 접수가 끝나 취소할 수 없습니다" };
   }
-  // 확인 번호 문이 켜진 분은 번호를 받지 않으니(Plan 5) 번호 검사를 건너뛴다 — 본인 확인은 확인 번호가 한다.
-  const active = await lifeActive(b);
-  const kept = mine.filter((r) => MINISTRY_DECIDED.indexOf(r.status) < 0).map((r) => norm(r.phone)).filter(Boolean)[0];
-  if (!active && kept && kept !== pilsaPhone(b.phone)) {
-    return { ok: false, error: "휴대폰 번호가 맞지 않습니다" };
-  }
+  // 취소에는 휴대폰 번호를 묻지 않는다(2026-10-25 친구 「신청취소시 휴대폰 번호를 넣는데 바로 삭제 할 수 있도록」) — 전에는 처음 넣은 번호와 같아야 지워졌다.
+  //   본인 확인은 로그인(user_id)이 하고, 접수·임명된 건은 어차피 남는다(아래 isLocked). 옛 앱이 phone 을 보내도 보지 않는다.
+  //   ⚠️ 신청을 **고치는** 길(ministryApply)의 번호 확인은 그대로다.
   // ⚠️ 잠긴 건은 남는다 — 「취소」는 아직 접수 안 된 것만 무르는 일이다
   const one = Number(b.team_id) || 0;
   const kill = one ? open.filter((r) => Number(r.team_id) === one) : open;
