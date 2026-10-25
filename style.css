@@ -6237,8 +6237,6 @@ html[data-fs="xl"] .home-b .summary-card > .summary-help.event-cta .ev-pill { ma
   display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; column-gap: 8px; row-gap: 5px;
 }
 .home-a .ha-label { flex: 0 1 auto; min-width: 0; word-break: keep-all; overflow-wrap: anywhere; }
-/* 「사역 이력 확인 (25~26년)」 — 길어서 두 줄이 되던 것을 한 줄로(2026-10-24 친구) · 이 줄만 글자를 줄인다 */
-.home-a #open-ministry-history .ha-label { font-size: .9rem; letter-spacing: -.02em; white-space: nowrap; }
 .home-a .ha-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .home-a .ha-sub:empty { display: none; }
 .home-a .ha-row .new-badge,
