@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261027c";
+const APP_BUILD = "20261027d";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5194,8 +5194,8 @@ function openLifeLocked(uid) {
     wrap.querySelector(".am-cancel").addEventListener("click", close);
     wrap.querySelector("#lp-reset").addEventListener("click", async () => {
       const errEl = wrap.querySelector(".lp-err");
-      try { await api.lifeResetRequest(uid); errEl.textContent = "담당자에게 알렸어요. 처리되면 다시 정하실 수 있어요."; errEl.hidden = false; }
-      catch (_) { errEl.textContent = "지금은 알리지 못했어요. 잠시 뒤 다시 눌러 주세요."; errEl.hidden = false; }
+      try { await api.lifeResetRequest(uid); errEl.classList.add("ok"); errEl.textContent = "담당자에게 알렸어요. (3일 이내 처리)\n처리되면 다시 정하실 수 있어요."; errEl.hidden = false; }
+      catch (_) { errEl.classList.remove("ok"); errEl.textContent = "지금은 알리지 못했어요. 잠시 뒤 다시 눌러 주세요."; errEl.hidden = false; }
     });
     document.body.appendChild(wrap);
     requestAnimationFrame(() => wrap.classList.add("show"));
@@ -5251,8 +5251,14 @@ function openLifePin(mode, user) {
     wrap.querySelector(".am-cancel").addEventListener("click", () => { if (!busy) close(false); });
     const forgot = wrap.querySelector("#lp-forgot");
     if (forgot) forgot.addEventListener("click", async () => {
-      try { await api.lifeResetRequest(uid); errEl.textContent = "담당자에게 알렸어요. 처리되면 다시 정하실 수 있어요."; errEl.hidden = false; }
-      catch (_) { errEl.textContent = "지금은 알리지 못했어요. 잠시 뒤 다시 눌러 주세요."; errEl.hidden = false; }
+      if (busy) return;
+      // 확인 한 번(친구 2026-10-27) — 누르자마자 알리지 않고 묻는다. 알린 뒤에는 처리 기한(3일)을 말하고 단추는 숨겨 거듭 누르지 않게 한다.
+      if (!(await appConfirm("번호를 다시 정하기 위해\n담당자에게 알릴까요?"))) return;
+      try {
+        await api.lifeResetRequest(uid);
+        errEl.classList.add("ok"); errEl.textContent = "담당자에게 알렸어요. (3일 이내 처리)\n처리되면 번호를 다시 정하실 수 있어요."; errEl.hidden = false;
+        forgot.hidden = true;
+      } catch (_) { errEl.classList.remove("ok"); errEl.textContent = "지금은 알리지 못했어요. 잠시 뒤 다시 눌러 주세요."; errEl.hidden = false; }
     });
     ok.addEventListener("click", async () => {
       if (busy || ok.disabled) return;

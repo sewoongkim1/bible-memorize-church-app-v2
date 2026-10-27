@@ -2153,7 +2153,9 @@ body.native-app-hide-ref .word-input { scroll-margin-top: 90px; }
 .lp-pin:focus { outline: none; border-color: var(--navy); }
 .lp-pin::placeholder { letter-spacing: normal; font-size: 1rem; color: #9aa3af; }
 .lp-sub { display: block; margin-top: 6px; font-size: .82rem; color: #6b7483; line-height: 1.5; }
-.lp-err { margin: 10px 4px 0; color: #c0392b; font-size: .9rem; }
+.lp-err { margin: 10px 4px 0; color: #c0392b; font-size: .9rem; white-space: pre-line; }
+.lp-err.ok { color: var(--navy); }
+.dark .lp-err.ok { color: #8fb3e0; }
 .lp-forgot { display: block; margin: 12px auto 0; background: none; border: none; color: var(--navy);
   font-size: .9rem; text-decoration: underline; cursor: pointer; font-family: inherit; }
 .dark .lp-pin { background: #2a332e; border-color: #3a4356; }
