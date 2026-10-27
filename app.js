@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261027b";
+const APP_BUILD = "20261027c";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -5233,7 +5233,7 @@ function openLifePin(mode, user) {
     p1.addEventListener("input", () => { onlyNum(p1); refresh(); });
     if (p2) p2.addEventListener("input", () => { onlyNum(p2); refresh(); });
     // 자판이 올라오면 창을 **보이는 높이 안에** 맞춘다(2026-10-27 친구 — 안드로이드 크롬은 자판이 떠도 화면 높이가 그대로라 창 아래(두 번째 칸·단추)가 자판에 가려졌다).
-    //   visualViewport 의 높이·위치로 창 겉(.am-overlay)을 줄이고, 낮으면(lp-kb) 큰 아이콘·보조 글을 접어 한 화면에 담는다.
+    //   visualViewport 의 높이·위치로 창 겉(.am-overlay)을 줄이고, 낮으면(lp-kb) 간격·글자를 조금 줄여 한 화면에 담는다(아이콘·보조 글은 그대로).
     const vv = window.visualViewport;
     const fitKb = () => {
       if (!vv) return;
