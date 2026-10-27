@@ -2670,7 +2670,7 @@ async function lifeResetRequest(b: any) {
 // 「번호를 잊으셨나요?」 요청이 새로 들어오면 담당자에게 Web Push(친구 2026-10-27).
 //   받는 사람: app_config `lifeResetAdmins`(identity_key 배열 — pilsaAdmins 와 같은 방식) · 비었으면 `pilsaAdmins` 로(운영에서 총괄 한 분).
 //   ⚠️ 쏟아지지 않게 10분에 한 번(push_log mode life-reset) · ⚠️ 본문에 요청한 분을 싣지 않는다(잠금 화면에 그대로 뜬다) ·
-//   ⚠️ 누르면 교회 어드민 「🔑 확인 번호 풀기」 — 요청은 거기 쌓이고, 앱은 「3일 이내 처리」라고 말해 두었다.
+//   ⚠️ 누르면 교회 어드민 「🔑 확인 번호 풀기」 — 요청은 거기 쌓이고, 앱은 「1일 이내 처리」라고 말해 두었다.
 async function lifeResetNotify() {
   const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
   const { data: recent } = await db.from("push_log").select("sent_at").eq("mode", "life-reset").gte("sent_at", since).limit(1);
@@ -2680,7 +2680,7 @@ async function lifeResetNotify() {
   if (!list.length) return { sent: 0, error: "no-admin" };
   const payload = JSON.stringify({
     title: "[확인 번호 풀기]",
-    body: "확인 번호를 잊은 분의 요청이 들어왔습니다 — 교회 어드민 「확인 번호 풀기」에서 확인해 주세요(3일 이내 처리).",
+    body: "확인 번호를 잊은 분의 요청이 들어왔습니다 — 교회 어드민 「확인 번호 풀기」에서 확인해 주세요(1일 이내 처리).",
     url: "https://admin.onlybible.kr/",
   });
   return await pushToSubs(list, payload, "life-reset", "확인 번호 풀기");
