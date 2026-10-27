@@ -3,6 +3,8 @@
 > **언제 읽나:** 앱 🎓 교육(`js/edu.js` · `eduVisible()`) · `api` `eduList`·`eduCourse`·`eduApply`·`eduCancel`·`eduMine` · `supabase/edu.sql` · 교회 어드민 📚 강좌 관리·📝 신청 현황(`edu-db.ts`·`edu-rules.ts`·`js/menus/education/`)을 손볼 때
 > 설계 `docs/superpowers/specs/2026-10-05-education-courses-design.md` · 계획 `docs/superpowers/plans/2026-10-05-education-stage1.md`(과제 10 운영 순서 · 과제 11 공개 전)
 
+**2026-10-27 성도님께 열림(친구)** — 운영 `app_config.eduOpen = true` · v3.692(개인정보 안내 세 자리 + 교회 어드민 `privacy.html` 11절 + `FEAT_SINCE.edu = 2026-10-27` + 묶음 이름 「교회 생활」). 열 때 강좌는 구원론 1·2차(마침) · 3차(신청 닫힘) 셋뿐 — 시험 강좌는 없었다. ⚠️ 아직 남은 것: **같은 분 두 자리 잇기**(아래 「알려진 구멍」 — 담당자가 「같은 분일 수 있어요」 표시로 한 줄 취소하는 지금 방식 그대로) · 닫으려면 운영 `eduOpen` 을 false 로(코드 배포 없이). 아래 「지금 상태」는 열기 전 기록이다.
+
 **지금 상태(2026-10-05):** 1단계(강좌·신청·대기·취소·대신 등록·엑셀) 운영 반영 · `eduOpen` 없음 → 🧪 시험 참여자만 웹·아이폰에서 🎓 · 플레이 앱은 숨김. 출석(2단계)·수료증(3단계)·알림(4단계)은 아직.
 
 - **강좌 자세히 화면(2026-10-05 다시 짬 · v3.520):** A안 「📝 강좌 소개」 카드(담당자가 쓴 설명) + 「한눈에 카드」 + 「자리·신청」 칸 상태 열두 가지 + 신청 전 확인 창(이름·소속). 무엇을 보일지는 순수 함수 `eduWhenLine`·`eduPhaseChip`·`eduSeatView`·`eduMineView`(시험 `tests/edu-front.test.cjs`)가 정하고 `renderEduCourse` 는 옮기기만 한다. ⚠️ **성도님 화면에 「반려」를 쓰지 않는다**(「이번 신청은 확정되지 않았어요」) · 정원이 찼는데 대기를 안 받으면 단추를 두지 않는다 · 신청·취소 뒤 알림 창 대신 그 칸으로 스크롤. 목록 카드 마지막 줄(`eduCardLine`)과 「내 강좌」 칩(`eduStatusLine` — 「확인 중」·「확정되지 않음」)도 같은 말로 맞췄다(2026-10-06). 설계 `docs/superpowers/specs/2026-10-05-edu-course-detail-redesign-design.md` · 계획 `docs/superpowers/plans/2026-10-05-edu-course-detail-redesign.md`
