@@ -417,6 +417,7 @@ const OUTBOUND_IN_POLICY = {
 };
 const OUTBOUND_NO_MEMBER_DATA = {
   'gocheok.onlybible.kr': '우리 주소(알림에 싣는 링크 글자)',
+  'admin.onlybible.kr': '교회 어드민 주소(담당자 알림에 싣는 링크 글자 — 요청이 아니다)',
   'esm.sh': '서버 모듈을 받아 오는 곳(import)',
   'www.youtube.com': '설교 영상 주소 글자(요청이 아니다)',
   'generativelanguage.googleapis.com': '말씀 그림(담당자 전용 · contentError) — 구절과 담당자가 쓴 장면만',

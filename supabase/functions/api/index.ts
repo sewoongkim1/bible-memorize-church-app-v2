@@ -680,6 +680,7 @@ Deno.serve(async (req) => {
       case "eduMine":   return json(await eduMine(body));
       case "eduCert":   return json(await eduCert(body));     // 내 수료증 자료(3단계) — 내 줄·수료·안 취소일 때만
       case "eduVerify": return json(await eduVerify(body));   // 수료번호 진위 확인(로그인 없이 · 가린 이름만)
+      case "internalLifeResetDone": return json(await internalLifeResetDone(req, body));   // 확인 번호가 풀렸다고 그분께 알림 — church-admin 전용(x-internal-key)
       case "internalEduNotify": return json(await internalEduNotify(req, body));   // 교육 확정 알림(4단계) — church-admin 전용(x-internal-key)
       case "internalEduRemind": return json(await internalEduRemind(req));         // 교육 개강 전날 알림(4단계) — pg_cron 전용(x-internal-key)
       // ---- 봉사 당번(2026-10-06 · 2단계 성도님 액션 · 3단계 알림) — 문(dutyOpen 또는 시험 참여자)은 읽기도 막는다(당번표에 이름이 나간다) ----
@@ -2665,6 +2666,21 @@ async function lifeResetRequest(b: any) {
   if (error) throw error;
   try { await lifeResetNotify(); } catch (_) { /* 알림 실패가 요청을 막지 않는다 */ }
   return { ok: true };
+}
+
+// 담당자가 번호를 풀었다고 **그 성도님께** 알린다(친구 2026-10-27 「풀리면 그 사람에게 push」) — 교회 어드민 「🔑 확인 번호 풀기」가 푼 **뒤에** 내부 키로 부른다.
+//   그분의 웹 푸시·아이폰 기기에만(알림을 켜지 않았으면 기기가 0 — 그래도 풀린 것은 그대로다) · 글에 이름·번호를 싣지 않는다 · 같은 요청을 두 번 눌러도 한 번 더 갈 뿐(담당자가 푼 횟수).
+//   응답에 user_id 를 싣지 않는다 — {ok, sent, devices}.
+async function internalLifeResetDone(req: Request, b: any) {
+  if (!sameSecret(req.headers.get("x-internal-key") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "")) {
+    return { ok: false, error: "unauthorized" };
+  }
+  const uid = storeUid(b?.user_id);
+  if (!uid) return { ok: false, error: "bad-args" };
+  const d = (await eduDevicesOf([uid])).get(uid);
+  if (!d || (!d.web.length && !d.ios.length)) return { ok: true, sent: 0, devices: 0 };
+  const r = await eduPushDevices(d.web, d.ios, "확인 번호", "확인 번호가 풀렸어요. 교회 생활 메뉴에 들어가실 때 새 번호를 정해 주세요.", "https://gocheok.onlybible.kr/", "life-reset-done");
+  return { ok: true, sent: r.sent, devices: r.total };
 }
 
 // 「번호를 잊으셨나요?」 요청이 새로 들어오면 담당자에게 Web Push(친구 2026-10-27).
