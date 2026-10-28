@@ -4,7 +4,16 @@
   "subtitle": "데살로니가전서 설교 요약",
   "dates": "2026. 10. 26(월) – 10. 31(토)",
   "preacher": "차동혁 위임목사",
-  "intro": "한 주간 데살로니가전서를 읽으며, 바울이 경험한 주님의 은혜를 날마다 두 가지씩 찾아봅니다. 그 은혜가 오늘 우리에게도 주어졌음을 감사로 고백합니다.",
+  "link_base": "https://gocheok.onlybible.kr/go/thanks",
+  "channel": "https://www.youtube.com/@GocheokCh/streams",
+  "pilsa": {
+    "file": "../2026추수감사절/감사의 새벽 은혜를 셉니다 (데살로니가전서).pdf",
+    "title": "데살로니가전서 필사 노트",
+    "sub": "1–5장 전체 · 15쪽",
+    "span": "1–5장"
+  },
+  "out_dir": "../2026추수감사절",
+  "intro": "한 주간 데살로니가전서를 읽으며, 바울이 경험한 은혜를 날마다 두 가지씩 찾아 감사로 고백합니다.",
   "closing": {
     "lines": [
       "항상 기뻐하라",
@@ -26,6 +35,7 @@
       "title": "너희 모두와 주를 본받음에 감사",
       "preacher": "차동혁 위임목사",
       "video": "OE9vy3t_QI8",
+      "start": 469,
       "thanks": [
         {
           "head": "너희 모두, 곧 교회 공동체를 주심에 감사",
@@ -49,6 +59,7 @@
       "title": "말씀을 받음과 고난을 받음에 감사",
       "preacher": "차동혁 위임목사",
       "video": "n3UDbfAqdoY",
+      "start": 21,
       "lead": "우리말은 밥도, 마음도, 나이도 ‘먹는다’고 하지요.",
       "thanks": [
         {
@@ -72,7 +83,8 @@
       "passage": "데살로니가전서 3:1–10",
       "title": "헛되지 않은 믿음과 간절한 마음에 감사",
       "preacher": "차동혁 위임목사",
-      "video": "BKupiWOPC9U"
+      "video": "BKupiWOPC9U",
+      "start": 1181
     },
     {
       "day": 4,
