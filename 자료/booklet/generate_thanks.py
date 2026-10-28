@@ -5,7 +5,8 @@
     python generate_thanks.py --html    HTML 만
 
 쪽 구성(날마다 쪽이 고정이라 차례 번호가 안 틀어진다):
-    1 표지 · 2 차례 · 3~8 1~6일차(한 날 한 쪽) · 9~23 데살로니가전서 필사(15쪽) · 24 뒷장 = 24쪽(중철 A4 6장)
+    1 표지 · 2 간지 · 3 차례 · 4~9 1~6일차(한 날 한 쪽) · 10~24 데살로니가전서 필사(15쪽) · 25~26 메모
+    · 27 간지 · 28 뒷장 = 28쪽(중철 A4 7장 — 4의 배수). 간지는 빈 쪽(친구 2026-10-28 「두번째 장 · 마지막 장 앞」).
 필사는 친구가 만든 A4 필사 노트 PDF("pilsa".file · 저장소 밖 자료라 커밋 안 함)를 크롬이 구운 책 사이에
 A5 로 줄여 끼운다(PyMuPDF · 벡터 그대로). 완성본은 "out_dir"(자료/2026추수감사절/)에 나온다.
 
@@ -24,7 +25,8 @@ A5 로 줄여 끼운다(PyMuPDF · 벡터 그대로). 완성본은 "out_dir"(자
 
 ⚠️ 컬러 프린터로 뽑는다 — 쪽 바탕색을 깔지 않는다(친구 2026-10-28). 색은 글자·가는 선·그림에만.
 ⚠️ **표지 그림은 단색 면만 쓴 벡터(SVG)다** — 저해상도 프린터에서도 또렷하게(친구 2026-10-28).
-   처음엔 썸네일 사진(글자를 지운 것)을 썼는데 흐린 사진이라 프린터에 따라 뭉개진다. 그라데이션·가는 선을 더하지 말 것.
+   처음엔 썸네일 사진(글자를 지운 것) → 십자가·성경 그림 → **추수감사 그림(밀 이삭·과일 바구니)** 으로 바뀌었다.
+   흐린 사진은 프린터에 따라 뭉개진다. 그라데이션·가는 선을 더하지 말 것.
 ⚠️ 넘친 글자는 경고 없이 잘린다 — 돌릴 때마다 크롬으로 재서 쪽마다 「남은 칸」을 찍는다. 음수면 넘친 것이다.
 ⚠️ 서체(Noto Serif KR 조각)에 ①·○·「」 가 없다 — 원고에 쓰면 다른 서체로 조용히 바뀐다.
    ‘ ’ “ ” · – … 는 있다.
@@ -41,30 +43,63 @@ OUT = '감사의새벽_2026추수감사_A5'
 CI = 'ci-h.png'
 ROOT = os.path.abspath(os.path.join('..', '..'))   # 자료/booklet → 저장소 뿌리(넘김 쪽을 쓰는 곳)
 
-# 표지 그림 — 십자가·덮인 성경·가을 잎(썸네일과 같은 소재). 단색 면만.
-COVER_ART = """<svg class="cv-art" viewBox="0 0 300 150" xmlns="http://www.w3.org/2000/svg">
-<defs>
-<path id="mp" d="M0,-48 L8,-30 L20,-37 L17,-18 L38,-25 L31,-9 L45,-3 L24,6 L28,19 L6,12 L2,20 L2,40 L-2,40 L-2,20 L-6,12 L-28,19 L-24,6 L-45,-3 L-31,-9 L-38,-25 L-17,-18 L-20,-37 L-8,-30 Z"/>
-<path id="al" d="M0,-30 C15,-16 15,14 0,30 C-15,14 -15,-16 0,-30 Z"/>
-</defs>
-<rect x="144.5" y="14" width="11" height="90" rx="1.2" fill="#6b3f24"/>
-<rect x="121" y="36" width="58" height="10.5" rx="1.2" fill="#6b3f24"/>
-<polygon points="70,99 230,99 235,105 65,105" fill="#3c4352"/>
-<rect x="66" y="105" width="168" height="11" fill="#efe5cf"/>
-<rect x="66" y="109" width="168" height="1.2" fill="#d9ccb0"/>
-<rect x="62" y="116" width="176" height="7" rx="1.5" fill="#3c4352"/>
-<path d="M178,110 L184,110 L184,131 L181,128 L178,131 Z" fill="#a0401f"/>
-<use href="#mp" transform="translate(64,121) rotate(-28) scale(.5)" fill="#b4441f"/>
-<use href="#al" transform="translate(38,127) rotate(-72) scale(.62)" fill="#d6a12e"/>
-<use href="#mp" transform="translate(100,131) rotate(12) scale(.36)" fill="#d97b29"/>
-<use href="#mp" transform="translate(238,119) rotate(26) scale(.55)" fill="#8e2c1d"/>
-<use href="#al" transform="translate(266,128) rotate(70) scale(.6)" fill="#d97b29"/>
-<use href="#mp" transform="translate(203,132) rotate(-14) scale(.34)" fill="#d6a12e"/>
-<use href="#al" transform="translate(92,46) rotate(32) scale(.42)" fill="#d6a12e"/>
-<use href="#mp" transform="translate(214,28) rotate(-22) scale(.3)" fill="#b4441f"/>
-</svg>"""
+# 표지 그림 — 추수감사: 밀 이삭 부채 · 과일 바구니(호박·사과·감·포도) · 바닥의 호박·잎(친구 2026-10-28).
+# 단색 면만 — 저해상도 프린터에서도 또렷하게. 그라데이션·가는 선(1 단위 ≈ 0.39mm 아래)을 더하지 말 것.
+def wheat():
+    g = ['<path d="M0,0 L0,-90" stroke="#b98a2e" stroke-width="1.8" fill="none" stroke-linecap="round"/>']
+    for k in range(6):
+        y = -62 - k * 5.4
+        g.append('<ellipse cx="-2.9" cy="%.1f" rx="2.5" ry="4.8" transform="rotate(-24 -2.9 %.1f)"/>' % (y, y))
+        g.append('<ellipse cx="2.9" cy="%.1f" rx="2.5" ry="4.8" transform="rotate(24 2.9 %.1f)"/>' % (y - 2.7, y - 2.7))
+    g.append('<ellipse cx="0" cy="-95" rx="2.4" ry="4.8"/>')
+    return '<g id="wh" fill="#d6a12e">%s</g>' % ''.join(g)
+
+def pumpkin(cx, cy, s, c1, c2, stem='#5b6b2e'):
+    return ('<g transform="translate(%g,%g) scale(%g)">'
+            '<rect x="-2" y="-19" width="4" height="8" rx="1.5" fill="%s"/>'
+            '<ellipse cx="-9" cy="0" rx="10" ry="13" fill="%s"/><ellipse cx="9" cy="0" rx="10" ry="13" fill="%s"/>'
+            '<ellipse cx="0" cy="0" rx="9" ry="14" fill="%s"/></g>') % (cx, cy, s, stem, c1, c1, c2)
+
+def cover_art():
+    o = ['<svg class="cv-art" viewBox="0 0 300 170" xmlns="http://www.w3.org/2000/svg"><defs>', wheat(),
+         '<path id="mp" d="M0,-48 L8,-30 L20,-37 L17,-18 L38,-25 L31,-9 L45,-3 L24,6 L28,19 L6,12 L2,20 L2,40 L-2,40 L-2,20 L-6,12 L-28,19 L-24,6 L-45,-3 L-31,-9 L-38,-25 L-17,-18 L-20,-37 L-8,-30 Z"/>',
+         '<path id="al" d="M0,-30 C15,-16 15,14 0,30 C-15,14 -15,-16 0,-30 Z"/>',
+         '<clipPath id="bk"><path d="M88,108 L212,108 L197,148 L103,148 Z"/></clipPath></defs>']
+    for a in (-50, -36, -22, -8, 8, 22, 36, 50):          # 밀 이삭 부채
+        o.append('<use href="#wh" transform="translate(150,114) rotate(%d)"/>' % a)
+    # 바구니 안 과일
+    o.append(pumpkin(117, 92, 1.0, '#cf6d27', '#e0893a'))
+    o.append('<circle cx="143" cy="91" r="11" fill="#b8382a"/>'
+             '<path d="M143,80 q1,-5 4,-7" stroke="#5b4026" stroke-width="1.6" fill="none" stroke-linecap="round"/>'
+             '<ellipse cx="150" cy="74" rx="5" ry="2.6" transform="rotate(-20 150 74)" fill="#6f8a3a"/>')
+    o.append('<ellipse cx="164" cy="95" rx="11.5" ry="9.5" fill="#e2672b"/>'
+             '<path d="M164,83 L167.5,85.5 L173,85 L168.5,88 L164,87 L159.5,88 L155,85 L160.5,85.5 Z" fill="#4f6a2c"/>'
+             '<rect x="163" y="80" width="2.2" height="4" rx="1" fill="#5b4026"/>')
+    # 바구니
+    o.append('<path d="M88,108 L212,108 L197,148 L103,148 Z" fill="#8f5b2c"/>'
+             '<g clip-path="url(#bk)" fill="#74461f"><rect x="80" y="118" width="140" height="4"/>'
+             '<rect x="80" y="129" width="140" height="4"/><rect x="80" y="140" width="140" height="4"/></g>'
+             '<rect x="82" y="100" width="136" height="11" rx="5.5" fill="#a8703a"/>')
+    # 테두리 넘어 늘어진 포도
+    o.append('<ellipse cx="181" cy="88" rx="6" ry="3.4" transform="rotate(-30 181 88)" fill="#6f8a3a"/>')
+    for i, (x, y) in enumerate([(182, 96), (191, 96), (200, 96), (186.5, 104), (195.5, 104), (204.5, 104),
+                                 (191, 112), (200, 112), (195.5, 120)]):
+        o.append('<circle cx="%g" cy="%g" r="4.9" fill="%s"/>' % (x, y, '#6a3b73' if i % 2 else '#7b4a85'))
+    # 바닥 — 호박 · 잎
+    o.append(pumpkin(62, 142, 1.25, '#cf6d27', '#e0893a'))
+    o.append(pumpkin(238, 147, 0.85, '#cf8f25', '#dea53a'))
+    o.append('<use href="#mp" transform="translate(30,152) rotate(-24) scale(.36)" fill="#b4441f"/>'
+             '<use href="#al" transform="translate(95,157) rotate(-80) scale(.42)" fill="#d6a12e"/>'
+             '<use href="#mp" transform="translate(268,151) rotate(20) scale(.34)" fill="#8e2c1d"/>'
+             '<use href="#al" transform="translate(208,158) rotate(78) scale(.4)" fill="#d97b29"/>')
+    o.append('</svg>')
+    return ''.join(o)
+
 BODY_PT = 13          # 본문 글씨(친구 「13 정도」)
-PAGE_OF_DAY1 = 3      # 1일차 쪽 — 표지·차례 다음
+TOC_PAGE = 3          # 차례 — 표지 · 간지 다음
+PAGE_OF_DAY1 = 4      # 1일차 쪽
+MEMO_PAGES = 2        # 필사 뒤 메모 쪽 수(친구 「2장」)
+MEMO_LINE_MM = 9.5    # 메모 줄 간격 — 기독교 고전 소책자에서 성도님들이 「넉넉하다」고 하신 값
 
 CHROME_CANDS = [
     r'C:\Program Files\Google\Chrome\Application\chrome.exe',
@@ -151,6 +186,12 @@ body { font-family:'BookKR', serif; color:var(--ink);
 .wait { margin-top:24mm; text-align:center; font-size:11.5pt; line-height:1.8; color:var(--soft); }
 .wait .ln { width:12mm; height:.4mm; background:var(--line); margin:0 auto 5mm; }
 
+/* 메모 — 줄은 낱개 div(그라데이션 괘선은 PDF 에서 뭉개진다 · print-layout-traps) */
+.memo-h { font-size:12pt; font-weight:700; color:var(--rust); letter-spacing:.2em; padding-bottom:2.5mm;
+          border-bottom:.4mm solid var(--gold); }
+.rls { display:flex; flex-direction:column; }
+.rl { flex:0 0 {MEMO}mm; border-bottom:.3mm solid #a8967a; }
+
 /* 뒷장 */
 .last .box { text-align:center; }
 .ls-v { margin-top:16mm; font-size:15.5pt; font-weight:700; line-height:1.95; }
@@ -191,7 +232,7 @@ document.fonts.ready.then(function () {
 
 
 def cover(b):
-    photo = COVER_ART
+    photo = cover_art()
     ci = ('<img class="cv-ci" src="%s" alt="고척교회">' % CI) if os.path.exists(CI) else ''
     t = esc(b['title']).replace(', ', ',<br>')
     who = ('<div class="cv-who">설교 %s</div>' % esc(b['preacher'])) if b.get('preacher') else ''
@@ -246,12 +287,29 @@ def toc(b):
     return ('<div class="page toc"><div class="box"><div class="in">'
             '<h1>차례</h1><p class="intro kp">%s</p>'
             '<p class="hint kp">오른쪽 QR을 휴대폰 카메라로 비추면 그날 설교 영상이 열립니다.</p>'
-            '<ol>%s</ol></div></div><div class="pno">2</div></div>'
-            % (esc(b['intro']), ''.join(rows)))
+            '<ol>%s</ol></div></div><div class="pno">%d</div></div>'
+            % (esc(b['intro']), ''.join(rows), TOC_PAGE))
 
 
 def pilsa_first_page(b):
     return PAGE_OF_DAY1 + len(b['days'])
+
+
+def pilsa_pages(b):
+    ps = b.get('pilsa')
+    if not ps or not os.path.exists(ps['file']):
+        return 0
+    import pymupdf
+    return pymupdf.open(ps['file']).page_count
+
+
+BLANK = '<div class="page blank"></div>'   # 간지 — 빈 쪽
+
+
+def memo(pno):
+    n = int((182 - 14) // MEMO_LINE_MM)        # 쪽 상자 182mm 에서 머리 14mm 를 뺀 만큼
+    return ('<div class="page memo"><div class="box"><div class="memo-h">메모</div><div class="rls">%s</div></div>'
+            '<div class="pno">%d</div></div>' % ('<div class="rl"></div>' * n, pno))
 
 
 def day(d, preacher=''):
@@ -297,10 +355,12 @@ def app_ad(b):
 
 
 def build(b, measure=False):
-    pages = [cover(b), toc(b)] + [day(d, b.get('preacher', '')) for d in b['days']] + [last(b)]
+    first_memo = pilsa_first_page(b) + pilsa_pages(b)
+    pages = ([cover(b), BLANK, toc(b)] + [day(d, b.get('preacher', '')) for d in b['days']]
+             + [memo(first_memo + i) for i in range(MEMO_PAGES)] + [BLANK, last(b)])
     return ('<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>%s</title>'
             '<style>%s</style></head><body>%s%s</body></html>'
-            % (esc(b['title']), CSS.replace('{BODY}', '%g' % BODY_PT), ''.join(pages), FIT_JS if measure else ''))
+            % (esc(b['title']), CSS.replace('{BODY}', '%g' % BODY_PT).replace('{MEMO}', '%g' % MEMO_LINE_MM), ''.join(pages), FIT_JS if measure else ''))
 
 
 def chrome_url(p):
