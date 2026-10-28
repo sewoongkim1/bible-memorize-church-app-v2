@@ -22,6 +22,8 @@ chk() { # 이름, 실제, 기대
   if [ "$2" = "$3" ]; then echo "  o $1 = $2"; pass=$((pass+1));
   else echo "  X $1 = $2  (기대 $3)"; fail=$((fail+1)); fi
 }
+# 확인 번호(lifePin)가 켜진 서버는 user_id 를 받는 액션을 인자 검사 앞에서 pin-needed 로 막는다(2026-10-27 운영에 켬) — 그 대답도 통과로 본다.
+chkp() { if [ "$2" = "pin-needed" ]; then chk "$1 (확인 번호가 먼저 막음)" "$3" "$3"; else chk "$1" "$2" "$3"; fi; }
 sk() { echo "  - $1 ... 건너뜀 ($2)"; skip=$((skip+1)); }
 
 # 파이썬 표현식을 sys.argv[1]로 넘긴다(코드 문자열에 갖다 붙이지 않는다) —
@@ -41,17 +43,17 @@ chk "no user_id" "$(jqn '"user_id" not in json.dumps(d) and "ident_key" not in j
 chk "no draft" "$(jqn 'all(c["status"] in ("open","closed","running") for c in d.get("courses",[]))' "$L")" "True"
 echo "2) eduApply - 신원·인자"
 chk "no-user" "$(jqn 'd.get("error")' "$(call '{"action":"eduApply","id":"x"}')")" "no-user"
-chk "bad-args" "$(jqn 'd.get("error")' "$(call "{\"action\":\"eduApply\",\"user_id\":\"$NONUSER\",\"id\":\"x\"}")")" "bad-args"
+chkp "bad-args" "$(jqn 'd.get("error")' "$(call "{\"action\":\"eduApply\",\"user_id\":\"$NONUSER\",\"id\":\"x\"}")")" "bad-args"
 echo "3) eduCourse - 없는 강좌"
 chk "not-found" "$(jqn 'd.get("error")' "$(call "{\"action\":\"eduCourse\",\"id\":\"$NONUSER\"}")")" "not-found"
 echo "4) eduCancel - 남의 줄은 없는 줄"
-chk "not-found" "$(jqn 'd.get("error")' "$(call "{\"action\":\"eduCancel\",\"user_id\":\"$NONUSER\",\"enrollment_id\":1}")")" "not-found"
+chkp "not-found" "$(jqn 'd.get("error")' "$(call "{\"action\":\"eduCancel\",\"user_id\":\"$NONUSER\",\"enrollment_id\":1}")")" "not-found"
 echo "5) eduMine - 신원 없으면 거절"
 chk "no-user" "$(jqn 'd.get("error")' "$(call '{"action":"eduMine"}')")" "no-user"
 echo "6) eduCert(3단계) - 신원·인자 · 남의 줄은 없는 줄"
 chk "no-user" "$(jqn 'd.get("error")' "$(call '{"action":"eduCert","enrollment_id":1}')")" "no-user"
-chk "bad-args" "$(jqn 'd.get("error")' "$(call "{\"action\":\"eduCert\",\"user_id\":\"$NONUSER\",\"enrollment_id\":\"x\"}")")" "bad-args"
-chk "not-found" "$(jqn 'd.get("error")' "$(call "{\"action\":\"eduCert\",\"user_id\":\"$NONUSER\",\"enrollment_id\":1}")")" "not-found"
+chkp "bad-args" "$(jqn 'd.get("error")' "$(call "{\"action\":\"eduCert\",\"user_id\":\"$NONUSER\",\"enrollment_id\":\"x\"}")")" "bad-args"
+chkp "not-found" "$(jqn 'd.get("error")' "$(call "{\"action\":\"eduCert\",\"user_id\":\"$NONUSER\",\"enrollment_id\":1}")")" "not-found"
 echo "7) eduVerify(3단계) - 꼴이 틀리면 bad-no · 없는 번호는 valid false 만"
 GC="\\uace0\\ucc99"   # JSON 안의 「고척」(백슬래시 u 이스케이프 — 한글 글자를 curl 에 넘기지 않는다)
 chk "bad-no" "$(jqn 'd.get("error")' "$(call '{"action":"eduVerify","no":"1999-0001"}')")" "bad-no"
