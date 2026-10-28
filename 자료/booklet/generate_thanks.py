@@ -43,6 +43,9 @@ sys.stdout.reconfigure(encoding='utf-8')
 SRC = 'thanks2026.json'
 OUT = '감사의새벽_2026추수감사_A5'
 CI = 'ci-h.png'
+BOOK_VER = 'V1.0'
+# 판 번호 — 뒷장 맨 아래 오른쪽에 「팀 이름 + 판」으로 작게 찍힌다(기독교 고전 소책자와 같은 꼴 · 친구 2026-10-28).
+# **판을 올릴 때 이 한 줄만 고친다.** 팀 이름은 원고의 "team".
 ROOT = os.path.abspath(os.path.join('..', '..'))   # 자료/booklet → 저장소 뿌리(넘김 쪽을 쓰는 곳)
 
 # 표지 그림 — 추수감사: 밀 이삭 부채 · 과일 바구니(호박·사과·감·포도) · 바닥의 호박·잎(친구 2026-10-28).
@@ -213,6 +216,11 @@ body { font-family:'BookKR', serif; color:var(--ink);
 .ls-foot .e { font-size:9.5pt; color:var(--soft); letter-spacing:.06em; }
 .ls-foot .t { font-size:12pt; font-weight:700; margin-top:1.2mm; }
 .ls-foot img { display:block; height:9mm; margin:6mm auto 0; }
+/* 판 표기 — 쪽 맨 아래 오른쪽에 조용히(기독교 고전 소책자 .bk-v 와 같은 꼴). 만든 팀과 판을 밝히는 줄.
+   ⚠️ .box 밖(쪽 기준)에 못박는다 — 상자 안에 두면 아래 교회 마크와 겹친다.
+   ⚠️ 자간 때문에 오른쪽 끝이 한 글자 폭만큼 떠 보이므로 margin-right 로 되돌린다. */
+.ls-ver { position:absolute; left:0; right:14mm; bottom:7mm; text-align:right;
+          font-size:8.4pt; letter-spacing:.12em; margin-right:-.12em; color:#8b8178; }
 """
 
 # 크롬이 그린 뒤 쪽마다 남은 칸(mm)을 제목에 적는다 — `--dump-dom` 으로 읽는다
@@ -367,9 +375,11 @@ def last(b):
     ci = ('<img src="%s" alt="고척교회">' % CI) if os.path.exists(CI) else '<div class="t">고척교회</div>'
     return ('<div class="page last"><div class="box"><div class="in">'
             '<div class="ls-v">%s</div><div class="ls-v2">%s</div><div class="ls-ref">%s</div>%s</div>'
-            '<div class="ls-foot"><div class="e">%s</div><div class="t">%s</div>%s</div></div></div>'
+            '<div class="ls-foot"><div class="e">%s</div><div class="t">%s</div>%s</div></div>'
+            '<div class="ls-ver">%s</div></div>'
             % ('<br>'.join(map(esc, c['lines'])), '<br>'.join(map(esc, c['after'])), esc(c['ref']),
-               app_ad(b), esc(b['event']), esc(b['title']), ci))
+               app_ad(b), esc(b['event']), esc(b['title']), ci,
+               esc(' '.join(x for x in (b.get('team'), BOOK_VER) if x))))
 
 
 def app_ad(b):
