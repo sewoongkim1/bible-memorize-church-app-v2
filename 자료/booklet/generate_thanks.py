@@ -98,7 +98,6 @@ def cover_art():
     return ''.join(o)
 
 BODY_PT = 13          # 본문 글씨(친구 「13 정도」)
-TOC_PAGE = 3          # 차례 — 표지 · 간지 다음
 PAGE_OF_DAY1 = 4      # 1일차 쪽
 MEMO_PAGES = 2        # 필사 뒤 메모 쪽 수(친구 「2장」)
 MEMO_LINE_MM = 9.5    # 메모 줄 간격 — 기독교 고전 소책자에서 성도님들이 「넉넉하다」고 하신 값
@@ -140,14 +139,14 @@ body { font-family:'BookKR', serif; color:var(--ink);
 .kp { word-break:keep-all; overflow-wrap:break-word; }
 
 /* 표지 */
-.cover .box { left:16mm; right:16mm; top:25mm; bottom:15mm; text-align:center; }
+.cover .box { left:16mm; right:16mm; top:30mm; bottom:15mm; text-align:center; }
 .cv-ev { font-size:11pt; font-weight:700; color:var(--rust); letter-spacing:.14em; }
-.cv-t { font-size:29pt; font-weight:700; line-height:1.32; margin-top:4.5mm; }
+.cv-t { font-size:25pt; font-weight:700; line-height:1.32; margin-top:4.5mm; white-space:nowrap; }   /* 한 줄(친구) */
 .cv-rule { width:16mm; height:.5mm; background:var(--gold); margin:6mm auto 0; }
-.cv-sub { font-size:11.5pt; color:var(--soft); margin-top:4mm; letter-spacing:.04em; }
+.cv-sub { font-size:14pt; font-weight:700; color:var(--verse); margin-top:4.5mm; }   /* 잘 보이게(친구) */
 .cv-art { display:block; width:100%; height:auto; margin-top:9mm; }
-.cv-img { display:block; width:100%; height:auto; margin-top:7mm; }
-.cv-who { font-size:10.5pt; color:var(--soft); margin-top:9mm; }
+.cv-img { display:block; width:100%; height:auto; margin-top:9mm; }
+.cv-who { font-size:13pt; font-weight:700; color:var(--ink); margin-top:10mm; }   /* 잘 보이게(친구) */
 .cv-ci { position:absolute; left:50%; bottom:0; transform:translateX(-50%); height:10mm; }
 
 /* 차례 */
@@ -162,7 +161,6 @@ body { font-family:'BookKR', serif; color:var(--ink);
 .toc .m { flex:1; min-width:0; }
 .toc .m b { display:block; font-size:11.5pt; font-weight:700; line-height:1.42; }
 .toc .m span { display:block; font-size:9.3pt; color:var(--soft); margin-top:.7mm; }
-.toc .p { flex:none; width:6mm; text-align:right; font-size:11pt; color:var(--soft); }
 .toc .q { flex:none; width:16mm; height:16mm; }
 .toc .q svg { display:block; width:100%; height:100%; }
 .toc li.ps { padding:2.6mm 0; }
@@ -268,7 +266,7 @@ def cover(b):
     img = cover_image(b)
     photo = ('<img class="cv-img" src="%s" alt="">' % img) if img else cover_art()
     ci = ('<img class="cv-ci" src="%s" alt="고척교회">' % CI) if os.path.exists(CI) else ''
-    t = esc(b['title']).replace(', ', ',<br>')
+    t = esc(b['title'])
     who = ('<div class="cv-who">설교 %s</div>' % esc(b['preacher'])) if b.get('preacher') else ''
     return ('<div class="page cover"><div class="box"><div class="in">'
             '<div class="cv-ev">%s</div><div class="cv-t">%s</div><div class="cv-rule"></div>'
@@ -308,20 +306,20 @@ def toc(b):
     for d in b['days']:
         rows.append('<li><div class="d"><b>%d일차</b></div>'
                     '<div class="m"><b class="kp">%s</b><span>%s</span></div>'
-                    '<div class="p">%d</div><div class="q">%s</div></li>'
+                    '<div class="q">%s</div></li>'
                     % (d['day'], esc(d['title']), esc(d['passage']),
-                       PAGE_OF_DAY1 + d['day'] - 1, qr_svg(link_url(b, d))))
+                       qr_svg(link_url(b, d))))
     ps = b.get('pilsa')
     if ps and os.path.exists(ps['file']):
         rows.append('<li class="ps"><div class="d"><b>필사</b></div>'
                     '<div class="m"><b class="kp">%s</b><span>%s</span></div>'
-                    '<div class="p">%d</div><div class="q"></div></li>'
-                    % (esc(ps['title']), esc(ps['sub']), pilsa_first_page(b)))
+                    '<div class="q"></div></li>'
+                    % (esc(ps['title']), esc(ps['sub'])))
     return ('<div class="page toc"><div class="box"><div class="in">'
             '<h1>차례</h1><p class="intro kp">%s</p>'
             '<p class="hint kp">오른쪽 QR을 휴대폰 카메라로 비추면 그날 설교 영상이 열립니다.</p>'
-            '<ol>%s</ol></div></div><div class="pno">%d</div></div>'
-            % (esc(b['intro']), ''.join(rows), TOC_PAGE))
+            '<ol>%s</ol></div></div></div>'   # 차례에는 쪽 번호를 싣지 않는다(친구 2026-10-28)
+            % (esc(b['intro']), ''.join(rows)))
 
 
 def pilsa_first_page(b):
