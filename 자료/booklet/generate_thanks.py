@@ -88,7 +88,8 @@ def esc(t):
 CSS = """
 @font-face { font-family:'BookKR'; src:url('fonts/NotoSerifKR-400.woff') format('woff'); font-weight:400; }
 @font-face { font-family:'BookKR'; src:url('fonts/NotoSerifKR-700.woff') format('woff'); font-weight:700; }
-:root { --ink:#2b2522; --soft:#6f6258; --rust:#a0401f; --gold:#b07d24; --verse:#5b4430; --line:#dccbae; }
+:root { --ink:#2b2522; --soft:#6f6258; --rust:#a0401f; --gold:#b07d24; --verse:#5b4430; --line:#dccbae;
+        --app:#12294f; }
 @page { size:148mm 210mm; margin:0; }
 * { box-sizing:border-box; margin:0; padding:0; }
 html, body { background:#fff; }
@@ -152,7 +153,21 @@ body { font-family:'BookKR', serif; color:var(--ink);
 
 /* 뒷장 */
 .last .box { text-align:center; }
-.ls-v { margin-top:44mm; font-size:15.5pt; font-weight:700; line-height:1.95; }
+.ls-v { margin-top:16mm; font-size:15.5pt; font-weight:700; line-height:1.95; }
+/* 암송 앱 설치 광고 — 바탕 없이 남색 테두리만(앱 색). 문구는 현관 포스터(2026-10-15)와 같다 */
+.ad { margin-top:14mm; display:flex; align-items:center; gap:5mm; text-align:left;
+      border:.35mm solid var(--app); border-radius:3mm; padding:5mm 5mm 5mm 6mm; }
+.ad-t { flex:1; min-width:0; }
+.ad-k { font-size:9pt; font-weight:700; color:var(--app); letter-spacing:.08em; }
+.ad-h { font-size:14.5pt; font-weight:700; line-height:1.38; color:var(--app); margin-top:1.4mm; }
+.ad-s { font-size:10pt; line-height:1.55; color:var(--ink); margin-top:2mm; }
+.ad ol { list-style:none; counter-reset:st; margin-top:2.4mm; }
+.ad li { counter-increment:st; font-size:9.5pt; line-height:1.6; color:var(--soft); }
+.ad li::before { content:counter(st) ". "; font-weight:700; color:var(--app); }
+.ad-q { flex:none; width:26mm; text-align:center; }
+.ad-q svg { display:block; width:26mm; height:26mm; }
+.ad-q .c { font-size:8.5pt; color:var(--app); margin-top:1.2mm; }
+.ad-q .k { font-size:7.8pt; color:var(--soft); margin-top:.6mm; }
 .ls-v2 { margin-top:4.5mm; font-size:12pt; line-height:1.75; color:var(--soft); }
 .ls-ref { margin-top:4mm; font-size:10pt; color:var(--gold); letter-spacing:.06em; }
 .ls-foot { position:absolute; left:0; right:0; bottom:0; }
@@ -262,10 +277,23 @@ def last(b):
     c = b['closing']
     ci = ('<img src="%s" alt="고척교회">' % CI) if os.path.exists(CI) else '<div class="t">고척교회</div>'
     return ('<div class="page last"><div class="box"><div class="in">'
-            '<div class="ls-v">%s</div><div class="ls-v2">%s</div><div class="ls-ref">%s</div></div>'
+            '<div class="ls-v">%s</div><div class="ls-v2">%s</div><div class="ls-ref">%s</div>%s</div>'
             '<div class="ls-foot"><div class="e">%s</div><div class="t">%s</div>%s</div></div></div>'
             % ('<br>'.join(map(esc, c['lines'])), '<br>'.join(map(esc, c['after'])), esc(c['ref']),
-               esc(b['event']), esc(b['title']), ci))
+               app_ad(b), esc(b['event']), esc(b['title']), ci))
+
+
+def app_ad(b):
+    """뒷장의 성경말씀 암송 앱 설치 광고 — QR 은 설치 안내 쪽(/install/ · 휴대폰 종류에 맞는 단추)."""
+    a = b.get('app_ad')
+    if not a:
+        return ''
+    return ('<div class="ad"><div class="ad-t"><div class="ad-k">%s</div><div class="ad-h kp">%s</div>'
+            '<div class="ad-s kp">%s</div><ol>%s</ol></div>'
+            '<div class="ad-q">%s<div class="c">%s</div><div class="k">%s</div></div></div>'
+            % (esc(a['kicker']), '<br>'.join(map(esc, a['head'])), esc(a['sub']),
+               ''.join('<li class="kp">%s</li>' % esc(s) for s in a['steps']),
+               qr_svg(a['url']), esc(a['cap']), '<br>'.join(map(esc, a['kinds']))))
 
 
 def build(b, measure=False):
