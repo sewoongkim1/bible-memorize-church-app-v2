@@ -2,6 +2,16 @@
   "event": "2026 추수감사 특별새벽기도회",
   "title": "감사의 새벽, 은혜를 셉니다",
   "subtitle": "데살로니가전서 설교 요약 + 성경 필사",
+  "cover_image": {
+    "file": "../2026추수감사절/thanksgiving-basket-harvest-fruits.jpg",
+    "crop": [
+      0.26,
+      0.12,
+      1.0,
+      0.97
+    ],
+    "feather": 0.08
+  },
   "preacher": "차동혁 위임목사",
   "link_base": "https://gocheok.onlybible.kr/go/thanks",
   "channel": "https://www.youtube.com/@GocheokCh/streams",

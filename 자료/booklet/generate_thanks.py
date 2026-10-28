@@ -27,6 +27,7 @@ A5 로 줄여 끼운다(PyMuPDF · 벡터 그대로). 완성본은 "out_dir"(자
 ⚠️ 컬러 프린터로 뽑는다 — 쪽 바탕색을 깔지 않는다(친구 2026-10-28). 색은 글자·가는 선·그림에만.
 ⚠️ **표지 그림은 단색 면만 쓴 벡터(SVG)다** — 저해상도 프린터에서도 또렷하게(친구 2026-10-28).
    처음엔 썸네일 사진(글자를 지운 것) → 십자가·성경 그림 → **추수감사 그림(밀 이삭·과일 바구니)** 으로 바뀌었다.
+   **지금은 친구가 준 수채화(과일 바구니)를 쓴다**(`cover_image` — 원고의 "cover_image"). 단색 그림은 그 파일이 없을 때만.
    흐린 사진은 프린터에 따라 뭉개진다. 그라데이션·가는 선을 더하지 말 것.
 ⚠️ 넘친 글자는 경고 없이 잘린다 — 돌릴 때마다 크롬으로 재서 쪽마다 「남은 칸」을 찍는다. 음수면 넘친 것이다.
 ⚠️ 서체(Noto Serif KR 조각)에 ①·○·「」 가 없다 — 원고에 쓰면 다른 서체로 조용히 바뀐다.
@@ -145,6 +146,7 @@ body { font-family:'BookKR', serif; color:var(--ink);
 .cv-rule { width:16mm; height:.5mm; background:var(--gold); margin:6mm auto 0; }
 .cv-sub { font-size:11.5pt; color:var(--soft); margin-top:4mm; letter-spacing:.04em; }
 .cv-art { display:block; width:100%; height:auto; margin-top:9mm; }
+.cv-img { display:block; width:100%; height:auto; margin-top:7mm; }
 .cv-who { font-size:10.5pt; color:var(--soft); margin-top:9mm; }
 .cv-ci { position:absolute; left:50%; bottom:0; transform:translateX(-50%); height:10mm; }
 
@@ -229,8 +231,42 @@ document.fonts.ready.then(function () {
 </script>"""
 
 
+def cover_image(b):
+    """표지 그림 — 친구가 준 수채화("cover_image".file)를 잘라 네 가장자리를 흰 종이로 번지게 한다(사각 테두리 없이).
+
+    원본(5376×3072 · 9MB)은 저장소 밖 자료라 커밋하지 않는다 — 없으면 단색 그림(cover_art)으로 되돌아간다.
+    가로 1800px 로 줄인다(116mm 폭에 약 390dpi — 인쇄에 넉넉하고 PDF 는 가볍다).
+    번짐은 가로·세로 경사를 **곱해서** 만든다 — 네 변까지의 거리 중 작은 값을 쓰면 모서리에 대각선 주름이 진다.
+    """
+    c = b.get('cover_image')
+    if not c or not os.path.exists(c['file']):
+        return None
+    import numpy as np
+    from PIL import Image
+    im = Image.open(c['file']).convert('RGB')
+    W, H = im.size
+    x0, y0, x1, y1 = c['crop']
+    im = im.crop((int(W * x0), int(H * y0), int(W * x1), int(H * y1)))
+    w = 1800
+    im = im.resize((w, round(im.height * w / im.width)), Image.LANCZOS)
+    a = np.asarray(im).astype(np.float32)
+    h, w = a.shape[:2]
+    f = c.get('feather', 0.08) * min(w, h)
+
+    def ramp(n):
+        t = np.arange(n, dtype=np.float32)
+        d = np.clip(np.minimum(t, n - 1 - t) / f, 0, 1)
+        return 0.5 - 0.5 * np.cos(np.pi * d)
+
+    m = (ramp(h)[:, None] * ramp(w)[None, :])[..., None]
+    out = '_thanks_cover.jpg'
+    Image.fromarray((a * m + 255 * (1 - m)).astype(np.uint8)).save(out, quality=90)
+    return out
+
+
 def cover(b):
-    photo = cover_art()
+    img = cover_image(b)
+    photo = ('<img class="cv-img" src="%s" alt="">' % img) if img else cover_art()
     ci = ('<img class="cv-ci" src="%s" alt="고척교회">' % CI) if os.path.exists(CI) else ''
     t = esc(b['title']).replace(', ', ',<br>')
     who = ('<div class="cv-who">설교 %s</div>' % esc(b['preacher'])) if b.get('preacher') else ''
