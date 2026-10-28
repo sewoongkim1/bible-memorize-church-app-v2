@@ -5678,6 +5678,18 @@ async function eduCourse(b: any) {
     mine };
 }
 
+// 계정 없는 「person|교인ID」 대신 등록 줄이 이 강좌에 살아 있을 때만 교회 어드민에 묻는다(없으면 물을 까닭이 없다 — 교인명부를 괜히 읽지 않는다).
+//   돌려주는 것은 「person|N」 꼴 열쇠 하나뿐 · 아니거나 못 물으면 "" (이어 붙이지 않는다).
+async function eduLinkKeyOf(courseId: string, userId: string, u: any): Promise<string> {
+  const { data: staffRows, error } = await db.from("edu_enrollments").select("id").eq("course_id", courseId).is("user_id", null)
+    .like("ident_key", "person|%").in("status", ["applied", "confirmed", "waitlisted", "declined"]).limit(1);
+  if (error) { console.error("eduLinkKeyOf", error); return ""; }
+  if (!(staffRows ?? []).length) return "";
+  const j = await churchAdminInternal({ action: "internalEduFindPerson", user_id: userId,
+    who: { type: u.type, gu: u.gu ?? "", mok: u.mok ?? "", bu: u.bu ?? "", grade: u.grade ?? "", name: u.name } });
+  return j && j.ok === true && typeof j.link_key === "string" && /^person\|[0-9]+$/.test(j.link_key) ? j.link_key : "";
+}
+
 async function eduApply(b: any) {
   const le = await lifeError(b); if (le) return { ok: false, error: le };
   const userId = eduUid(b.user_id);
@@ -5689,7 +5701,13 @@ async function eduApply(b: any) {
   if (error) throw error;
   if (!u) return { ok: false, error: "no-user" };
   const isGu = u.type === "교구";
-  const ident = { name: norm(u.name), who_type: u.type, group_name: isGu ? norm(u.gu) : norm(u.bu), sub_name: isGu ? norm(u.mok) : norm(u.grade), ident_key: identityKey(u) };
+  const ident: Record<string, string> = { name: norm(u.name), who_type: u.type, group_name: isGu ? norm(u.gu) : norm(u.bu), sub_name: isGu ? norm(u.mok) : norm(u.grade), ident_key: identityKey(u) };
+  // 교적ID 가 같은 「대신 등록」 줄에 이어 붙이기(2026-10-28 친구 「교적ID가 같으면 한 건으로」) — 이 강좌에 계정 없는 「person|교인ID」 줄이 있을 때만
+  //   교회 어드민에 이 계정이 명부의 **한 분**인지 묻고(internalEduFindPerson — 사역 이력 확인과 같은 규칙 · 명부는 이 서버로 오지 않는다),
+  //   맞으면 p_ident.link_key 로 SQL edu_apply 에 넘긴다(같은 교적ID 의 줄이면 새 줄 대신 그 줄에 계정을 잇는다). 화면이 보낸 값이 아니다.
+  //   못 물어도(교회 어드민이 멈춤) 신청은 그대로 된다 — 이어 붙이기만 건너뛴다(신청 현황의 「같은 분일 수 있어요」 표시가 남아 있다).
+  const linkKey = await eduLinkKeyOf(id, userId, u);
+  if (linkKey) ident.link_key = linkKey;
   const { data: r, error: e2 } = await db.rpc("edu_apply", { p_course: id, p_user: userId, p_ident: ident, p_staff: false });
   if (e2) throw e2;
   if (!r) return { ok: false, error: "server" };

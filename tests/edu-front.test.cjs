@@ -731,6 +731,27 @@ test('확정된 신청은 앱에서 취소하지 않는다(2026-10-16 친구) �
   assert.ok(/const canCancel = \["applied", "waitlisted"\]\.includes\(r\.status\)/.test(api), 'api canCancel 에 확정이 없어야 한다');
 });
 
+test('교적ID 가 같으면 한 건으로(2026-10-28 친구) — SQL edu_apply 이어 붙이기 · 한 함수 사본 · api 는 서버가 묻은 열쇠만', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'edu.sql'), 'utf8');
+  const fnOf = (s) => s.slice(s.indexOf('create or replace function public.edu_apply('), s.indexOf('end $$;', s.indexOf('create or replace function public.edu_apply(')));
+  const one = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'edu_link_by_person.sql'), 'utf8');
+  assert.equal(fnOf(one), fnOf(sql), 'edu_link_by_person.sql 은 edu.sql 의 edu_apply 와 같아야 한다');
+  const fn = fnOf(sql);
+  // 성도님 앱 신청(p_staff 아님) · 이 계정의 줄이 없을 때 · 계정 없는 같은 열쇠의 줄(취소 제외)에만 잇는다
+  assert.ok(fn.includes("v_link text := coalesce(p_ident->>'link_key','')"), 'link_key 를 p_ident 에서 읽는다');
+  assert.ok(fn.includes("if e.id is null and not p_staff and v_link ~ '^person\\|[0-9]+$' then"), '앱 신청 · 줄이 없을 때 · person|숫자 꼴만');
+  assert.ok(fn.includes("user_id is null and ident_key = v_link and status in ('applied','confirmed','waitlisted','declined')"), '취소 줄은 잇지 않는다');
+  assert.ok(fn.includes("update public.edu_enrollments set user_id = p_user"), '새 줄이 아니라 그 줄에 계정을 잇는다');
+  assert.ok(fn.includes("'already',true,'linked',v_linked"), '이어 붙인 줄은 already 로 돌려준다(반려도 그대로)');
+  const api = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', 'api', 'index.ts'), 'utf8');
+  const apply = api.slice(api.indexOf('async function eduApply('), api.indexOf('async function eduCancel('));
+  assert.ok(apply.includes('const linkKey = await eduLinkKeyOf(id, userId, u);') && apply.includes('ident.link_key = linkKey'), 'link_key 는 서버가 묻은 값만 싣는다');
+  assert.ok(!/b\.link_key|b\?\.link_key/.test(api), '화면이 보낸 link_key 를 읽지 않는다');
+  const helper = api.slice(api.indexOf('async function eduLinkKeyOf('), api.indexOf('async function eduApply('));
+  assert.ok(helper.includes('"internalEduFindPerson"') && helper.includes('/^person\\|[0-9]+$/.test(j.link_key)'), '교회 어드민 내부 갈래 · 꼴 검사');
+  assert.ok(helper.includes('.is("user_id", null)') && helper.includes('.like("ident_key", "person|%")'), '계정 없는 person| 줄이 있을 때만 묻는다');
+});
+
 test('「내 강좌」 — 마친 강좌는 「교육 완료」 · 자세히 「✅ 교육 완료」(취소 안내 없음) · 수료가 먼저(2026-10-16 친구)', () => {
   assert.equal(ctx.eduStatusLine({ status: 'confirmed', statusLabel: '확정', finished: true }), '교육 완료');   // 「교육 완료」로 통일(2026-10-16)
   assert.equal(ctx.eduStatusLine({ status: 'confirmed', statusLabel: '확정', finished: false }), '확정');

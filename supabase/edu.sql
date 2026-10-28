@@ -217,6 +217,8 @@ declare
   st text;
   v_name text := btrim(coalesce(p_ident->>'name',''));
   v_key  text := coalesce(p_ident->>'ident_key','');
+  v_link text := coalesce(p_ident->>'link_key','');
+  v_linked boolean := false;
 begin
   p_staff := coalesce(p_staff, false);          -- null 이 담당자 길로 새지 않게
   if v_name = '' or char_length(v_name) > 40 then return jsonb_build_object('ok',false,'error','bad-ident'); end if;
@@ -235,16 +237,29 @@ begin
   -- 같은 분의 줄 — 앱 계정이면 계정으로, 대신 등록(계정 없음)이면 신원 키로
   if p_user is not null then
     select * into e from public.edu_enrollments where course_id = p_course and user_id = p_user for update;
+    -- 교적ID 가 같은 대신 등록 줄에 이어 붙인다(2026-10-28 친구 「교적ID가 같으면 한 건으로」) — 성도님 앱 신청일 때만, 이 계정의 줄이 없을 때만.
+    --   p_ident.link_key = 「person|교인ID」 — 성경암송 api eduApply 가 교회 어드민에 물어(internalEduFindPerson) 한 분으로 맞을 때만 싣는다
+    --   (화면이 보낸 값이 아니다). 그 교적ID 의 대신 등록 줄(계정 없음 · 취소 아님)을 이 계정의 것으로 바꾸고, 새 줄을 만들지 않는다 —
+    --   정원은 한 자리, 반려는 그대로 따라간다(아래 반려 유지). 취소한 줄은 잇지 않는다(새로 신청하면 새 줄 · 살아 있는 줄이 아니라 겹치지 않는다).
+    if e.id is null and not p_staff and v_link ~ '^person\|[0-9]+$' then
+      select * into e from public.edu_enrollments
+        where course_id = p_course and user_id is null and ident_key = v_link and status in ('applied','confirmed','waitlisted','declined')
+        order by id desc limit 1 for update;
+      if e.id is not null then
+        update public.edu_enrollments set user_id = p_user, updated_at = now() where id = e.id;
+        v_linked := true;
+      end if;
+    end if;
   elsif v_key <> '' then
     select * into e from public.edu_enrollments where course_id = p_course and user_id is null and ident_key = v_key
       order by id desc limit 1 for update;
   end if;
   if e.id is not null and e.status in ('applied','confirmed','waitlisted') then
-    return jsonb_build_object('ok',true,'id',e.id,'status',e.status,'already',true);
+    return jsonb_build_object('ok',true,'id',e.id,'status',e.status,'already',true,'linked',v_linked);
   end if;
   -- 반려 유지(친구 결정 2026-10-05) — 성도님이 다시 신청해도 되살리지 않는다. 담당자는 edu_staff_set 으로 「다시 받기」.
   if e.id is not null and e.status = 'declined' and not p_staff then
-    return jsonb_build_object('ok',true,'id',e.id,'status','declined','already',true);
+    return jsonb_build_object('ok',true,'id',e.id,'status','declined','already',true,'linked',v_linked);
   end if;
 
   if c.mode = 'approve' and not p_staff then

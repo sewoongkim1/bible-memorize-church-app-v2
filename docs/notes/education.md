@@ -3,7 +3,7 @@
 > **언제 읽나:** 앱 🎓 교육(`js/edu.js` · `eduVisible()`) · `api` `eduList`·`eduCourse`·`eduApply`·`eduCancel`·`eduMine` · `supabase/edu.sql` · 교회 어드민 📚 강좌 관리·📝 신청 현황(`edu-db.ts`·`edu-rules.ts`·`js/menus/education/`)을 손볼 때
 > 설계 `docs/superpowers/specs/2026-10-05-education-courses-design.md` · 계획 `docs/superpowers/plans/2026-10-05-education-stage1.md`(과제 10 운영 순서 · 과제 11 공개 전)
 
-**2026-10-27 성도님께 열림(친구)** — 운영 `app_config.eduOpen = true` · v3.692(개인정보 안내 세 자리 + 교회 어드민 `privacy.html` 11절 + `FEAT_SINCE.edu = 2026-10-27` + 묶음 이름 「교회 생활」). 열 때 강좌는 구원론 1·2차(마침) · 3차(신청 닫힘) 셋뿐 — 시험 강좌는 없었다. ⚠️ 아직 남은 것: **같은 분 두 자리 잇기**(아래 「알려진 구멍」 — 담당자가 「같은 분일 수 있어요」 표시로 한 줄 취소하는 지금 방식 그대로) · 닫으려면 운영 `eduOpen` 을 false 로(코드 배포 없이). 아래 「지금 상태」는 열기 전 기록이다.
+**2026-10-27 성도님께 열림(친구)** — 운영 `app_config.eduOpen = true` · v3.692(개인정보 안내 세 자리 + 교회 어드민 `privacy.html` 11절 + `FEAT_SINCE.edu = 2026-10-27` + 묶음 이름 「교회 생활」). 열 때 강좌는 구원론 1·2차(마침) · 3차(신청 닫힘) 셋뿐 — 시험 강좌는 없었다. **2026-10-28 같은 분 두 자리 잇기 반영(친구 「교적ID가 같으면 한 건으로」 · 아래 「같은 분 두 자리」)** · 닫으려면 운영 `eduOpen` 을 false 로(코드 배포 없이). 아래 「지금 상태」는 열기 전 기록이다.
 
 **지금 상태(2026-10-05):** 1단계(강좌·신청·대기·취소·대신 등록·엑셀) 운영 반영 · `eduOpen` 없음 → 🧪 시험 참여자만 웹·아이폰에서 🎓 · 플레이 앱은 숨김. 출석(2단계)·수료증(3단계)·알림(4단계)은 아직.
 
@@ -17,7 +17,12 @@
 - **교육 기간 `starts_on`·`ends_on`(2026-10-05 · 신청 기간 `apply_from/to` 와 별개 · 비어도 됨).** 목록·상세 날짜(`firstDate`/`lastDate`)는 기간을 먼저, 없으면 회차에서. ⚠️ **취소 마감의 첫 날 = `coalesce(첫 회차 날, starts_on)`** — SQL `edu_cancel` 과 api `eduMineOut`(`cancelUntil`/`canCancel`) 두 곳이 같아야 한다. 시험 `supabase/tests/edu_period.dev.sql`.
 - **수는 `edu_course_counts(uuid[])` RPC 로만** — 신청 줄을 받아 세지 말 것(PostgREST 가 1,000줄에서 조용히 자른다). 명단·엑셀은 `allRows`/`fetchAllRows` 쪽 넘기기.
 - **응답에 `user_id`·`ident_key`·교인ID 를 싣지 않는다.** 대신 등록(명부)은 화면이 `{name, pick, check:{who_type, group, sub, church_mok, position}}` 를 보내고 서버가 **같은 찾기를 다시 돌려** 맞춘다(틀리면 `changed`). 명부 줄의 신원 키는 `person|<교인ID>`(서버 안에서만).
-- **같은 분 두 자리(알려진 구멍 · 공개 전에 막을 것):** 대신 등록한 줄(`user_id` 없음)과 그분이 나중에 앱으로 낸 줄이 따로 정원을 차지하고 반려도 비켜 간다 · 앱 「내 강좌」에 대신 등록 줄이 안 보인다. 1단계는 신청 현황에 **「같은 분일 수 있어요」** 표시만(살아 있는 줄 가운데 이름이 같고 앱/담당자가 섞인 묶음) → 담당자가 한 줄 취소. 근본(앱 계정과 잇기)은 계획 과제 11 Step 2-1.
+- **같은 분 두 자리(2026-10-28 잇기 반영 · 친구 「교적ID가 같으면 한 건으로」):** 대신 등록한 줄(`user_id` 없음)과 그분이 앱으로 낸 줄이 따로 정원을 차지하고 반려도 비켜 가던 구멍. 이제 **교적ID 가 같으면 한 줄**이다 — 「같은 교적ID」는 교인명부 「🎓 교육」 탭과 같은 규칙(`matchLoginPerson`: 앱 로그인의 소속·이름으로 명부를 찾아 같은 소속에 같은 이름 **한 분**일 때만 그분 · 동명이인·목장 모름·명부에 없음은 잇지 않는다). 두 길:
+  ① **앱 신청 → 대신 등록 줄에 잇기:** api `eduApply` 가 이 강좌에 계정 없는 `person|교인ID` 줄이 살아 있을 때만(`eduLinkKeyOf`) 교회 어드민 내부 갈래 `internalEduFindPerson`(x-internal-key · 사역 이력 확인과 같은 길 · 명부는 이 서버로 오지 않는다)에 묻고, 한 분이면 `p_ident.link_key = person|N` 으로 SQL `edu_apply` 에 넘긴다 → 이 계정의 줄이 없고 앱 신청이면, 같은 열쇠의 계정 없는 줄(신청·확정·대기·**반려** — 취소 제외)에 `user_id` 를 이어 붙이고 `already:true, linked:true` 로 돌려준다(새 줄 없음 · 정원 한 자리 · 반려는 그대로 따라가 「반려 유지」도 지켜진다). 화면이 보낸 `link_key` 는 읽지 않는다(서버가 묻은 값만). 못 물어도(교회 어드민 멈춤) 신청은 그대로 되고 이어 붙이기만 건너뛴다.
+  ② **대신 등록 → 이미 앱으로 신청한 분:** 교회 어드민 `eduEnrollAdd` 가 명부에서 고른 분에게 앱 계정을 못 찾았으면 `findAppUserOfPerson`(`edu-db.ts` · `eduLinkedUserIds` 로 이 강좌의 앱 신청 계정만 맞대 본다)으로 같은 교적ID 의 앱 신청(취소·반려 포함)을 찾아 그 계정으로 `edu_apply(p_staff)` 를 부른다 → 이미 있으면 「이미 명단에 있어요」, 취소·반려였으면 기존 규칙(취소는 되살림 · 반려는 `was-declined` → 확인 → force).
+  SQL 은 `supabase/edu.sql` 의 `edu_apply` + 한 함수 사본 `supabase/edu_link_by_person.sql`(같은 글자 — `tests/edu-front.test.cjs` 가 맞댄다) · 시험 `supabase/tests/edu_link_person.dev.sql` · 교회 어드민 `tests/edu-link-person.test.mjs`. 배포 차례: **SQL → 교회 어드민 → 성경암송 api**(SQL 만 먼저 나가도 옛 api 는 `link_key` 를 안 보내 옛 동작).
+  ⚠️ 남는 것: ① **이미 있는 두 줄은 합치지 않는다**(새로 들어오는 신청부터) — 신청 현황 「같은 분일 수 있어요」 표시와 담당자 한 줄 취소는 그대로 쓴다. ② 이름·소속이 명부와 다르거나 동명이인·새가족(직접 입력 `staff|…`)은 교적ID 로 못 맞춘다 → 같은 표시로. ③ 한 분이 앱 계정 둘이면 첫 계정에만 붙는다(둘째 계정은 계정 합치기 몫).
+  앱 「내 강좌」에 대신 등록 줄이 안 보이던 것은 이어 붙인 줄부터 보인다.
 - **게이트:** 서버 `eduGateOpen` = `app_config.eduOpen === true` 또는 🧪 `ministryTesters`. 앱 `eduVisible()` = `eduOpenCached()`(같은 `=== true`) 또는 시험 참여자. (플레이 앱 숨김 `ministryHiddenOnPlay()` 은 2026-10-09 끄고 2026-10-12 걷었다 — 플레이 앱 시험 참여자에게도 🎓 가 보인다.)
 - ⚠️ **`eduOpen` 을 켜기 전에(과제 11):** 개인정보 안내 세 곳(`privacy/`·앱 안 두 화면 — 같은 커밋) + 교회 어드민 `privacy.html`(교육 역할이 명부를 이름으로 찾는 것도) · `FEAT_SINCE.edu` · 같은 분 잇기. 플레이 심사 중에는 방침에 손대지 않는다.
 - **기록 합치기:** `edu_enrollments` 는 `member_merge.sql` 네 곳(옮기기·허용 목록·기록 수·트리거)에 들어 있다. 같은 강좌에 양쪽이 살아 있거나 반려면 `merge-edu-conflict` 로 멈추고, 취소 줄만 지운다(납부·메모는 남는 줄로 옮김 · 500자). edu 표를 다시 만들면 `member_merge.sql` 을 다시 돌린다.
