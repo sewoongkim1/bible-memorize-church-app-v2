@@ -23,6 +23,7 @@ A5 로 줄여 끼운다(PyMuPDF · 벡터 그대로). 완성본은 "out_dir"(자
 이미 뽑아 둔 책의 QR 이 그 영상으로 넘어간다. "video" 가 빈 날은 「아직 연결 전 · 채널 열기」 쪽이다.
 ⚠️ QR 에는 끝 「/」 까지 넣는다(`go/README.md`).
 
+⚠️ **날짜는 어디에도 싣지 않는다**(표지 기간 · 차례 · 쪽 머리 · QR 넘김 쪽 — 친구 2026-10-28). 「N일차」만.
 ⚠️ 컬러 프린터로 뽑는다 — 쪽 바탕색을 깔지 않는다(친구 2026-10-28). 색은 글자·가는 선·그림에만.
 ⚠️ **표지 그림은 단색 면만 쓴 벡터(SVG)다** — 저해상도 프린터에서도 또렷하게(친구 2026-10-28).
    처음엔 썸네일 사진(글자를 지운 것) → 십자가·성경 그림 → **추수감사 그림(밀 이삭·과일 바구니)** 으로 바뀌었다.
@@ -144,8 +145,7 @@ body { font-family:'BookKR', serif; color:var(--ink);
 .cv-rule { width:16mm; height:.5mm; background:var(--gold); margin:6mm auto 0; }
 .cv-sub { font-size:11.5pt; color:var(--soft); margin-top:4mm; letter-spacing:.04em; }
 .cv-art { display:block; width:100%; height:auto; margin-top:9mm; }
-.cv-date { font-size:11pt; margin-top:9mm; letter-spacing:.05em; }
-.cv-who { font-size:10.5pt; color:var(--soft); margin-top:2.2mm; }
+.cv-who { font-size:10.5pt; color:var(--soft); margin-top:9mm; }
 .cv-ci { position:absolute; left:50%; bottom:0; transform:translateX(-50%); height:10mm; }
 
 /* 차례 */
@@ -155,9 +155,8 @@ body { font-family:'BookKR', serif; color:var(--ink);
 .toc .hint { font-size:9.5pt; color:var(--gold); margin-top:2.6mm; }
 .toc ol { list-style:none; margin-top:4.5mm; border-top:.3mm solid var(--line); }
 .toc li { display:flex; align-items:center; gap:3mm; padding:1.7mm 0; border-bottom:.3mm solid var(--line); }
-.toc .d { flex:none; width:17mm; }
+.toc .d { flex:none; width:13mm; }
 .toc .d b { display:block; font-size:11.5pt; font-weight:700; color:var(--rust); }
-.toc .d span { display:block; font-size:8.8pt; color:var(--soft); margin-top:.7mm; }
 .toc .m { flex:1; min-width:0; }
 .toc .m b { display:block; font-size:11.5pt; font-weight:700; line-height:1.42; }
 .toc .m span { display:block; font-size:9.3pt; color:var(--soft); margin-top:.7mm; }
@@ -171,7 +170,6 @@ body { font-family:'BookKR', serif; color:var(--ink);
 .dh { display:flex; align-items:baseline; justify-content:space-between; gap:3mm;
       padding-bottom:2.2mm; border-bottom:.3mm solid var(--line); }
 .dh .dn { font-size:11pt; font-weight:700; color:var(--rust); letter-spacing:.04em; }
-.dh .dd { font-size:10pt; color:var(--soft); margin-left:1.6mm; }
 .dh .dp { font-size:10pt; color:var(--soft); white-space:nowrap; }
 .dt { font-size:17pt; font-weight:700; line-height:1.4; margin-top:4mm; }
 .who { font-size:9.5pt; color:var(--soft); margin-top:1.2mm; }
@@ -238,9 +236,8 @@ def cover(b):
     who = ('<div class="cv-who">설교 %s</div>' % esc(b['preacher'])) if b.get('preacher') else ''
     return ('<div class="page cover"><div class="box"><div class="in">'
             '<div class="cv-ev">%s</div><div class="cv-t">%s</div><div class="cv-rule"></div>'
-            '<div class="cv-sub">%s</div>%s<div class="cv-date">%s</div>%s'
-            '</div>%s</div></div>') % (esc(b['event']), t, esc(b['subtitle']), photo,
-                                       esc(b['dates']), who, ci)
+            '<div class="cv-sub">%s</div>%s%s'
+            '</div>%s</div></div>') % (esc(b['event']), t, esc(b['subtitle']), photo, who, ci)
 
 
 def qr_svg(url):
@@ -273,17 +270,17 @@ def link_url(b, d):
 def toc(b):
     rows = []
     for d in b['days']:
-        rows.append('<li><div class="d"><b>%d일차</b><span>%s</span></div>'
+        rows.append('<li><div class="d"><b>%d일차</b></div>'
                     '<div class="m"><b class="kp">%s</b><span>%s</span></div>'
                     '<div class="p">%d</div><div class="q">%s</div></li>'
-                    % (d['day'], esc(d['short']), esc(d['title']), esc(d['passage']),
+                    % (d['day'], esc(d['title']), esc(d['passage']),
                        PAGE_OF_DAY1 + d['day'] - 1, qr_svg(link_url(b, d))))
     ps = b.get('pilsa')
     if ps and os.path.exists(ps['file']):
-        rows.append('<li class="ps"><div class="d"><b>필사</b><span>%s</span></div>'
+        rows.append('<li class="ps"><div class="d"><b>필사</b></div>'
                     '<div class="m"><b class="kp">%s</b><span>%s</span></div>'
                     '<div class="p">%d</div><div class="q"></div></li>'
-                    % (esc(ps['span']), esc(ps['title']), esc(ps['sub']), pilsa_first_page(b)))
+                    % (esc(ps['title']), esc(ps['sub']), pilsa_first_page(b)))
     return ('<div class="page toc"><div class="box"><div class="in">'
             '<h1>차례</h1><p class="intro kp">%s</p>'
             '<p class="hint kp">오른쪽 QR을 휴대폰 카메라로 비추면 그날 설교 영상이 열립니다.</p>'
@@ -313,9 +310,9 @@ def memo(pno):
 
 
 def day(d, preacher=''):
-    head = ('<div class="dh"><div><span class="dn">%d일차</span><span class="dd">%s</span></div>'
+    head = ('<div class="dh"><span class="dn">%d일차</span>'
             '<span class="dp">%s</span></div><h2 class="dt kp">%s</h2>'
-            % (d['day'], esc(d['date']), esc(d['passage']), esc(d['title'])))
+            % (d['day'], esc(d['passage']), esc(d['title'])))
     if d.get('preacher') and d['preacher'] != preacher:   # 표지와 다른 분일 때만
         head += '<div class="who">설교 %s</div>' % esc(d['preacher'])
     th = d.get('thanks') or []
@@ -420,7 +417,7 @@ a.b { display:inline-block; padding:14px 24px; border-radius:12px; background:va
 <body>
 <div class="k">%(event)s · %(n)d일차</div>
 <h1>%(title)s</h1>
-<div class="p">%(date)s · %(passage)s</div>
+<div class="p">%(passage)s</div>
 <p class="m">%(msg)s</p>
 <a class="b" href="%(href)s">%(btn)s</a>%(script)s
 </body>
@@ -437,7 +434,7 @@ def video_url(d):
 def link_page(b, d):
     url = video_url(d)
     v = dict(n=d['day'], book=esc(b['title']), event=esc(b['event']), title=esc(d['title']),
-             date=esc(d['date']), passage=esc(d['passage']))
+             passage=esc(d['passage']))
     if url:
         v.update(refresh='\n<meta http-equiv="refresh" content="0; url=%s">' % esc(url),
                  msg='설교 영상으로 넘어갑니다…', href=esc(url), btn='영상 바로 보기',
