@@ -5,7 +5,7 @@
 // 왜: A안은 템플릿이 그린 단추를 id 로 찾아 「묶음 제목 + 흰 카드 줄」로 옮겨 담는다(app.js applyHomeA).
 //   ⚠️ 템플릿 단추 id 가 HA_GROUPS 에서 빠지면 그 단추는 옮겨지지 않고 바탕 띠(.ha-zone) 뒤에 옛 모양으로 남아
 //      띠의 음수 아래 여백·둥근 모서리와 겹친다(「더 보기」 안이면 숨은 채 사라진다). 두 번 쓰면 앞 묶음이 빈 카드로 남는다.
-//   묶음을 옮기는 일(2026-10-13 「암송 과정」을 「함께」 위로 · 넷을 옮김)마다 눈으로만 보던 자리라 글자로 지킨다.
+//   묶음을 옮기는 일(2026-10-13 「암송 과정」을 「함께」 위로 · 넷을 옮김 · 2026-10-29 「함께」 아래로)마다 눈으로만 보던 자리라 글자로 지킨다.
 //   읽을 것: docs/notes/home-screen.md 「암송 과정」 · docs/notes/design-refresh.md
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
@@ -45,8 +45,8 @@ test('A안 묶음표 — 템플릿의 묶음 단추가 모두 정확히 한 번�
   for (const id of haIds) assert.ok(rowIcon.includes('"' + id + '":'), id + ' — HA_ROW_ICON 에 아이콘이 없다');
 });
 
-test('A안 묶음 차례 — 「암송 과정」은 「함께」 바로 위 · 쉴만한 물가 · 내 안에 거하는 말씀 · 네비게이토 · 퀴즈(친구 2026-10-13)', () => {
-  assert.deepEqual(groups.map((g) => g.title), ['말씀 묵상', '내 기록', '교회 생활', '암송 과정', '함께', '교회 사이트']);
+test('A안 묶음 차례 — 「암송 과정」은 「함께」 바로 아래(친구 2026-10-29) · 쉴만한 물가 · 내 안에 거하는 말씀 · 네비게이토 · 퀴즈(친구 2026-10-13)', () => {
+  assert.deepEqual(groups.map((g) => g.title), ['말씀 묵상', '내 기록', '교회 생활', '함께', '암송 과정', '교회 사이트']);
   assert.deepEqual(groups.find((g) => g.title === '암송 과정').ids, ['open-psalm', 'open-passages', 'open-navi', 'open-quiz']);
   assert.deepEqual(groups.find((g) => g.title === '함께').ids, ['open-board', 'open-prayer', 'open-pilsa']);
   // 교회 사이트 — 찬양 · 말씀 아카이브 아래 고척교회 유튜브(친구 2026-10-13)

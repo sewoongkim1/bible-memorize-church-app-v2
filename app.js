@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261027f";
+const APP_BUILD = "20261029a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -942,10 +942,10 @@ const HA_GROUPS = [
   { title: "말씀 묵상", ids: ["open-sermon-chat", "open-meditation"] },
   { title: "내 기록", ids: ["open-event-list", "open-album", "open-ranking"] },
   { title: "교회 생활", ids: ["open-ministry", "open-ministry-history", "open-edu", "open-duty"] },
-  // 📚 암송 과정 — 「함께」 바로 위 · 외우는 것 넷을 이 차례로(친구 2026-10-13 · 쉴만한 물가·내 안에 거하는 말씀·퀴즈는 「함께」에서 옮김).
+  { title: "함께", ids: ["open-board", "open-prayer", "open-pilsa"] },
+  // 📚 암송 과정 — 「함께」 바로 아래(친구 2026-10-29 · 10-13 에는 「함께」 위였다) · 외우는 것 넷을 이 차례로(쉴만한 물가·내 안에 거하는 말씀·퀴즈는 「함께」에서 옮김).
   //   단추마다 문이 따로라(psalmVisible · passagesVisible · naviVisible) 닫힌 단추는 줄째 빠진다 · 설명서의 자리 말(MANUAL)도 이 묶음을 가리킨다.
   { title: "암송 과정", ids: ["open-psalm", "open-passages", "open-navi", "open-quiz"] },
-  { title: "함께", ids: ["open-board", "open-prayer", "open-pilsa"] },
   { title: "교회 사이트", note: "앱 밖으로 나가요", ext: true, ids: ["open-praise", "open-sermon-archive", "open-youtube"] },
 ];
 const HA_ROW_ICON = {
