@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261029a";
+const APP_BUILD = "20261101a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -8594,6 +8594,36 @@ function volLabel(v) {
   return "크게";
 }
 
+// ── 읽어 줄 숫자 — 순수 (여기부터) ──
+// 기기 음성이 「누가복음 17장」을 「열일곱 장」으로 읽었다 — 「장」은 「종이 한 장」처럼 고유어 수와 붙는 셈이라서다
+//   (2026-11-01 친구 「열 일곱장 → 십칠장」). 성경의 장·편·절은 한자어 수로 읽으므로, 음성에 넘기기 전에 숫자를 한글로 적어 준다
+//   — 그러면 기기·음성과 상관없이 늘 「십칠장 십육절」이다. 범위(「5장 16-18절」)는 「오장 십육절에서 십팔절」.
+//   한국어 음성에만 쓴다(speakText · speakLong) — 영어(en-US)는 「Luke 17:16」 그대로. 시험 tests/tts-ko-num.test.cjs
+// 1~9999 → 「일」「십칠」「백십구」「백오」 (십·백·천 앞의 「일」은 빼고 읽는다). 그 밖은 받은 그대로.
+function koSinoNum(n) {
+  const s = String(n == null ? "" : n);
+  if (!/^\d{1,4}$/.test(s)) return s;
+  const ds = String(parseInt(s, 10));
+  if (ds === "0") return "영";
+  const D = ["", "일", "이", "삼", "사", "오", "육", "칠", "팔", "구"], U = ["", "십", "백", "천"];
+  let out = "";
+  for (let i = 0; i < ds.length; i++) {
+    const d = +ds[i], pos = ds.length - 1 - i;
+    if (d) out += (d === 1 && pos > 0 ? "" : D[d]) + U[pos];
+  }
+  return out;
+}
+// 글 속의 「17장」·「119편」·「16절」·「16-18절」만 바꾼다(숫자 바로 뒤에 장·편·절이 올 때). 다섯 자리 넘는 수는 건드리지 않는다.
+// ※ lookbehind(?<=)는 사파리 16.4 미만에서 앱이 죽으므로 앞 글자를 잡아 되돌려 놓는다.
+function ttsKoRefs(text) {
+  return String(text == null ? "" : text)
+    .replace(/(^|\D)(\d{1,4})\s*[-~–]\s*(\d{1,4})\s*(장|편|절)/g,
+      (m, pre, a, b, u) => pre + koSinoNum(a) + u + "에서 " + koSinoNum(b) + u)
+    .replace(/(^|\D)(\d{1,4})\s*(장|편|절)/g, (m, pre, a, u) => pre + koSinoNum(a) + u);
+}
+// ── 읽어 줄 숫자 — 순수 (여기까지) ──
+function ttsSaid(text, lang) { return /^ko/i.test(String(lang || "")) ? ttsKoRefs(text) : String(text == null ? "" : text); }
+
 // text 를 times 번 연속해서 읽어준다. (빠르게 N번 클릭하면 N번 반복)
 function speakText(text, onEnd, times = 1, lang = "ko-KR") {
   if (!("speechSynthesis" in window)) {
@@ -8602,9 +8632,10 @@ function speakText(text, onEnd, times = 1, lang = "ko-KR") {
     return;
   }
   window.speechSynthesis.cancel(); // 중복 재생 방지
+  const said = ttsSaid(text, lang);  // 「17장」 → 「십칠장」
   const n = Math.max(1, times);
   for (let i = 0; i < n; i++) {
-    const ut = new SpeechSynthesisUtterance(text);
+    const ut = new SpeechSynthesisUtterance(said);
     ut.lang = lang;
     ut.rate = getSpeakRate();
     ut.volume = getSpeakVol();
@@ -8679,7 +8710,7 @@ function speakLong(text, onEnd, lang = "ko-KR") {
     if (onEnd) onEnd();
     return;
   }
-  const parts = splitForSpeech(text);
+  const parts = splitForSpeech(ttsSaid(text, lang));  // 「17장」 → 「십칠장」
   if (!parts.length) { if (onEnd) onEnd(); return; }
   window.speechSynthesis.cancel();
   _ttsStopKeepAlive();

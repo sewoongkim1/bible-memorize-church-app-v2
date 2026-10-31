@@ -161,6 +161,8 @@ PURE_TESTS += ["tests/statusbar-follow.test.cjs"]
 PURE_TESTS += ["tests/widget-rotate.test.cjs"]
 # 🐑 이번주 말씀 위젯 머리말(2026-10-13) — 머리말 셈·이모지 목록(서버 순수) · SQL 꼴 · index.ts 배선 · 위젯 두 폰(아이폰 두 벌이 같은가)
 PURE_TESTS += ["tests/verse-badge.test.cjs"]
+# 🔊 듣기 숫자(2026-11-01) — 「17장」을 「열일곱 장」이 아니라 「십칠장」으로 · 한국어 음성에만 · 음성을 만드는 곳은 speakText · speakLong 둘
+PURE_TESTS += ["tests/tts-ko-num.test.cjs"]
 
 print("\n[3] 순수 함수 검사 (node --test)")
 for t in PURE_TESTS:
