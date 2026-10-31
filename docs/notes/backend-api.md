@@ -40,7 +40,7 @@ ADMIN_SECRET(관리자 비번, 3앱 공통 — 기계 호출자는 2026-10-13 �
 |---|---|---|---|
 | 크론 여섯(pg_cron) | `x-internal-key`(Vault `edu_remind_service_key` = 서비스 키) | sendPush · weeklyVersePush · weeklyReport(`cronOnly` 꼴) | DB Vault — 단계로 옮기는 중(`supabase/push_report_cron.sql`) |
 | `mcp` 함수(같은 프로젝트) | `x-internal-key`(함수에 저절로 있는 `SUPABASE_SERVICE_ROLE_KEY`) | findMember · memberParticipation(`INTERNAL_FN_OK`) | Supabase 밖으로 안 나간다 |
-| 교회 어드민 함수 | `x-internal-key` | `INTERNAL_ADMIN_OK` 46개(역할은 교회 어드민 `canCall`) | 〃 |
+| 교회 어드민 함수 | `x-internal-key` | `INTERNAL_ADMIN_OK` 47개(역할은 교회 어드민 `canCall` · 2026-10-31 공지 사진 `boardUpload` 더함) | 〃 |
 | `.github/workflows/monitor.yml` | `x-machine-key` = `MONITOR_KEY` | monitor · weeklyReport(`cronOnly` 꼴 — 받는 곳 없음) | Supabase 시크릿(운영·개발) · GitHub v2 `production` 환경 · 로컬 `.env` `PROD_MONITOR_KEY` / `.env.dev` `MONITOR_KEY` |
 | gocheok-sermons `sermon-job.yml`(설교 파이프라인) | `x-machine-key` = `SERMON_JOB_KEY` | sermonJobGet · sermonJobUpdate | Supabase 시크릿(운영·개발) · GitHub gocheok-sermons `SERMON_JOB_KEY`·`DEV_SERMON_JOB_KEY` · 로컬 `.env` `PROD_SERMON_JOB_KEY` / `.env.dev` `SERMON_JOB_KEY` |
 

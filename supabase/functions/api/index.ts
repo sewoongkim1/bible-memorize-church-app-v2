@@ -172,6 +172,7 @@ function json(obj: unknown, status = 200) {
 const INTERNAL_ADMIN_OK = new Set([
   "stats", "participants", "verses", "blessingUsage", "ranking",
   "boardList", "boardModerate", "boardReply", "boardPost",
+  "boardUpload",   // 📢 공지 사진(2026-10-31) — 관리자면 하루 장수를 세지 않는다 · 글에 안 붙은 사진은 하루 뒤 치운다(boardSweepUploads)
   "boardReports", "boardReportResolve", "sermonAnswerReports", "sermonAnswerReportResolve",
   "getConfig", "saveConfig", "eventEntrants", "getPassages", "savePassage", "deletePassage",
   "pilsaList", "pilsaSetStatus",
