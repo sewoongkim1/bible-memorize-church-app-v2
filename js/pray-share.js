@@ -38,9 +38,9 @@ const PRAY_SHARE_PHOTOS = [   // 2026-11-04 · Gemini 로 열두 장 그려 여�
 ];
 function prayShareChoices() {
   const out = [
+    { key: "night", style: "night", label: "밤하늘" },   // 맨 왼쪽 · 처음 고른 것(친구 2026-11-04 「밤하늘이 기본으로 왼쪽으로」 — 기도문 · 묵상 같은 차례)
     { key: "frame", style: "frame", label: "액자" },
     { key: "leaf", style: "leaf", label: "잎" },
-    { key: "night", style: "night", label: "밤하늘" },
   ];
   PRAY_SHARE_PHOTOS.forEach((p) => out.push({ key: "photo:" + p.id, style: "photo", label: p.label,
     src: "img/share/" + p.id + ".webp", thumb: "img/share/" + p.id + "-t.webp" }));
@@ -198,8 +198,9 @@ function praySharePlan(b, name, styleKey, measure) {
     });
   });
 }
-// 🌿 오늘의 묵상(2026-11-04 친구 「그림 한 장 · 적용 질문 · 설교 제목 · 말씀」) — m = { heading, message, question, sermonTitle, verseRef }
-//   「오늘의 묵상」(작게 · 강조색) · 제목 · (장식) · 묵상 글(문장마다 · **강조** 는 강조색) · 「오늘의 적용 질문」 + 질문(강조) · 맨 아래 설교 제목 · 말씀 자리(작게).
+// 🌿 오늘의 묵상(2026-11-04 친구 「그림 한 장 · 적용 질문 · 설교 제목 · 말씀 · 목사님 설교 일자」) — m = { heading, message, question, sermonTitle, verseRef, preacher, sermonDate }
+//   「오늘의 묵상」(작게 · 강조색) · 제목 · (장식) · 묵상 글(문장마다 · **강조** 는 강조색) · 「오늘의 적용 질문」 + 질문(강조) ·
+//   맨 아래 작게 두 줄 — 설교 제목 · 말씀 자리 / 설교하신 분 · 설교 날짜.
 //   묵상 글은 설교 아카이브의 요일 묵상(784편 · 2026-11-04 · 셋을 합쳐 가장 긴 것 206자) — 「이번 주」라고 쓰지 않는다(지난주 것을 보여 줄 때가 있다).
 const MED_KICKER = "오늘의 묵상", MED_QLABEL = "오늘의 적용 질문";
 function medShareRuns(t) {   // **…** → 강조 토막(scEmphasis 와 같은 표식) · 짝 없는 ** 는 걷는다
@@ -229,6 +230,15 @@ function medShareFoot(m) {
   const a = String((m && m.sermonTitle) || "").trim(), b = String((m && m.verseRef) || "").trim();
   return [a ? "설교 「" + a + "」" : "", b].filter(Boolean).join(" · ");
 }
+// 맨 아래 둘째 줄 — 설교하신 분 · 설교 날짜(친구 2026-11-04 「목사님 설교 일자도」) · 설교자 이름은 자료 그대로(위임목사 · 담임목사)
+function medShareDate(d) {   // 「2026-11-01」 → 「2026년 11월 1일」 · 못 읽으면 빈 값
+  const x = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d == null ? "" : d));
+  return x ? x[1] + "년 " + Number(x[2]) + "월 " + Number(x[3]) + "일" : "";
+}
+function medShareByline(m) {
+  const p = String((m && m.preacher) || "").trim(), d = medShareDate(m && m.sermonDate);
+  return [p, d].filter(Boolean).join(" · ");
+}
 function medSharePlan(m, styleKey, measure) {
   return pshPlan(styleKey, measure, (size, c) => {
     const st = c.st;
@@ -241,8 +251,9 @@ function medSharePlan(m, styleKey, measure) {
       c.add([{ s: MED_QLABEL, a: true }], Math.round(size * 0.78), 1.5, true, st.accent, Math.round(size * 1.1));
       c.add([{ s: q, a: true }], size, PSH_LH, false, st.ink, Math.round(size * 0.15));
     }
-    const foot = medShareFoot(m);
+    const foot = medShareFoot(m), by = medShareByline(m);
     if (foot) c.add([{ s: foot, a: false }], Math.round(size * 0.68), 1.5, false, st.sub, Math.round(size * 1.1));
+    if (by) c.add([{ s: by, a: false }], Math.round(size * 0.68), 1.5, false, st.sub, foot ? 0 : Math.round(size * 1.1));
   });
 }
 // ── 기도문 그림 — 순수 (여기까지) ──
@@ -327,7 +338,7 @@ function medShareDoc(m) {
   const no = Number(m && m.no) || 0, idx = Number(m && m.idx) || 0;
   const head = String((m && m.heading) || "").replace(/\*\*/g, "").trim() || MED_KICKER;
   return { plan: (style, measure) => medSharePlan(m, style, measure),
-           text: [MED_KICKER, head, m && m.message, MED_QLABEL, m && m.question, medShareFoot(m)].join(" ").replace(/\*\*/g, ""),
+           text: [MED_KICKER, head, m && m.message, MED_QLABEL, m && m.question, medShareFoot(m), medShareByline(m)].join(" ").replace(/\*\*/g, ""),
            seed: no * 7 + idx + 1, file: "meditation-" + no + "-" + (idx + 1) + ".jpg", alt: "보낼 그림 — 오늘의 묵상 · " + head };
 }
 function prayShareDraw(b, name, choice, leafNo) { return pshDraw(prayShareDoc(b, name), choice, leafNo); }
@@ -381,7 +392,7 @@ function pshDraw(doc, choice, leafNo) {
 
 // ── 판(아래에서 올라온다) ──
 // b · name = 기도문(이름 칸이 있다) · med = 오늘의 묵상(이름 자리가 없다 · 그때 b 는 null) · file = 지금 그림의 파일 이름
-const pshState = { gen: 0, blob: null, url: null, key: "frame", leaf: 1, b: null, name: "", med: null, file: "", timer: null, pop: null, esc: null };
+const pshState = { gen: 0, blob: null, url: null, key: "night", leaf: 1, b: null, name: "", med: null, file: "", timer: null, pop: null, esc: null };
 const PSH_TITLE_PRAY = "📤 가정 축복 기도문 보내기", PSH_TITLE_MED = "📤 오늘의 묵상 보내기";
 function pshSay(t) { const m = document.getElementById("psh-msg"); if (m) m.textContent = t; }
 function pshSendLabel(busy) {
@@ -467,7 +478,7 @@ function openMedShare(m) {
 function pshOpen(title, withName, name) {
   pshState.leaf = Math.min(12, 1 + Math.floor(Math.random() * 12));
   const choices = prayShareChoices();
-  if (!choices.some((c) => c.key === pshState.key)) pshState.key = "frame";
+  if (!choices.some((c) => c.key === pshState.key)) pshState.key = choices[0].key;   // 처음엔 맨 왼쪽(밤하늘) · 이 화면을 쓰는 동안은 마지막에 고른 배경을 기억한다
   const thumb = (c) => {
     const inner = c.style === "photo" ? `<img src="${prayEsc(c.thumb)}?v=${prayEsc(String(APP_BUILD))}" alt="">`
       : c.style === "night" ? "" : `<img class="psh-leaf" src="${pshLeafSrc()}" alt="">`;

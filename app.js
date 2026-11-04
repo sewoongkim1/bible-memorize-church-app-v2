@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261104d";
+const APP_BUILD = "20261104e";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9819,7 +9819,8 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev
     if (mShare) mShare.addEventListener("click", () => {
       const it = items[cur] || {};
       const m = { heading: it.heading || "", message: it.message || "", question: it.question || "",
-                  sermonTitle: (sermon && sermon.title) || "", verseRef: (verse && (verse.refFull || verse.refShort)) || "", no: (verse && verse.no) || 0, idx: cur };   // 「누가복음 17장 16절」(짧은 표기 「눅 17:16」은 받는 분께 낯설다)
+                  sermonTitle: (sermon && sermon.title) || "", verseRef: (verse && (verse.refFull || verse.refShort)) || "", no: (verse && verse.no) || 0, idx: cur,   // 「누가복음 17장 16절」(짧은 표기 「눅 17:16」은 받는 분께 낯설다)
+                  preacher: (sermon && sermon.preacher) || "", sermonDate: (sermon && sermon.date) || "" };   // 맨 아래 「차동혁 위임목사 · 2026년 11월 1일」(친구 「목사님 설교 일자도」)
       done();
       setTimeout(() => withLazyJs("prayShare", () => {
         if (typeof openMedShare === "function") openMedShare(m);
