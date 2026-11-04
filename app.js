@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261104c";
+const APP_BUILD = "20261104d";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -4115,6 +4115,10 @@ function fetchTodayBlessing() {
 //      「이미 선언됨」으로 그 파일을 통째로 깨뜨린다. 함수(prayShareVisible)는 다시 선언돼도 괜찮다 · 새 prayer.js 는 typeof 로 본다(옛 app.js 와 만날 때).
 const PRAY_SHARE_OPEN = true;   // 2026-11-04 모두에게 열었다(친구 「게시해 주세요」 — 게시판 공지와 함께) · 닫으려면 false 한 줄 + bump
 function prayShareVisible() { return PRAY_SHARE_OPEN || (typeof ministryTesterCached === "function" && ministryTesterCached()); }
+// 🌿 오늘의 묵상 보내기(2026-11-04 친구 「그림 한 장 · 적용 질문 · 설교 제목 · 말씀」 · 같은 판 js/pray-share.js openMedShare) — 먼저 🧪 시험 참여자에게만.
+//   친구가 시안을 보고 나면 true 한 줄 + bump · 설명서 한 줄(docs/notes/prayer-book.md 「2026-11 보내기」 끝).
+const MED_SHARE_OPEN = false;
+function medShareVisible() { return MED_SHARE_OPEN || (typeof ministryTesterCached === "function" && ministryTesterCached()); }
 // 「🙏 오늘의 기도」 전용 팝업 — 위젯과 같은 편(제목·말씀·기도문). 이름 자리는 **로그인 이름**으로 채운다
 //   (2026-09-26 성도님 요청 — 서버가 준 tpl 원문을 prayFill. 옛 서버라 tpl 이 없으면 위젯 글 그대로).
 //   ⚠️ 「확인」은 덮개만 걷는다 — renderSummary() 를 부르지 않는다(뒤 화면이 튕긴다 · today-song.md).
@@ -9773,6 +9777,7 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev
           : ""}
         <div class="dmsg-title" id="med-title"></div>
         <div class="cheer-msg dmsg-body" id="med-body"></div>
+        ${sermon && medShareVisible() ? `<button class="pr-share" id="med-share">${haSvg("share", "pra-ic")}카톡·문자로 보내기</button>` : ""}
         <div class="med-actions">
           ${verse && verse.url ? `<a class="med-more" id="med-watch" href="${verse.url}" target="_blank" rel="noopener">설교</a>` : ""}
           ${sermon ? `<button class="med-more" id="med-sermon">요약</button>` : ""}
@@ -9786,8 +9791,10 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev
     document.body.appendChild(wrap);
     const card = wrap.querySelector(".dmsg-card");
     const toTop = () => { if (card) { card.scrollTop = 0; requestAnimationFrame(() => { card.scrollTop = 0; }); } };
+    let cur = startIdx;   // 지금 보고 있는 요일 — 📤 보내기가 이 묵상을 그린다
     const render = (i) => {
       const it = items[i];
+      cur = i;
       wrap.querySelector("#med-title").textContent = it.heading || "오늘의 묵상";
       wrap.querySelector("#med-body").innerHTML =
         `<div class="med-msg">${scEmphasis(it.message)}</div>` +
@@ -9806,6 +9813,19 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev
     const close = () => { wrap.classList.remove("show"); setTimeout(() => wrap.remove(), 250); };
     const ok = wrap.querySelector("#dmsg-ok");
     const done = wireModalConfirm(ok, close);
+    // 📤 묵상 → 카톡·문자로(2026-11-04 친구) — 「🙏 오늘의 기도」 창처럼 이 창을 먼저 걷고 판을 연다
+    //   (겹치면 이 창의 Esc · Enter 받이 wireModalConfirm 이 판보다 먼저 잡는다) · 「준비하고 있어요」 안내 자리(설교 없음)에는 단추가 없다.
+    const mShare = wrap.querySelector("#med-share");
+    if (mShare) mShare.addEventListener("click", () => {
+      const it = items[cur] || {};
+      const m = { heading: it.heading || "", message: it.message || "", question: it.question || "",
+                  sermonTitle: (sermon && sermon.title) || "", verseRef: (verse && (verse.refFull || verse.refShort)) || "", no: (verse && verse.no) || 0, idx: cur };   // 「누가복음 17장 16절」(짧은 표기 「눅 17:16」은 받는 분께 낯설다)
+      done();
+      setTimeout(() => withLazyJs("prayShare", () => {
+        if (typeof openMedShare === "function") openMedShare(m);
+        else appAlert("보내기 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
+      }), 260);
+    });
     const sBtn = wrap.querySelector("#med-sermon");   // 묵상 → 설교 요약으로 이동
     if (sBtn) sBtn.addEventListener("click", () => {
       done();

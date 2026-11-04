@@ -1,5 +1,6 @@
-// 📤 가정 축복 기도문 — 카톡·문자로 보내기(2026-11-04 친구 · 설계 docs/superpowers/specs/2026-11-04-prayer-share-design.md)
-//   기도문 화면(js/prayer.js)의 「📤 카톡·문자로 보내기」를 누를 때 받는다(app.js LAZY_JS.prayShare — 기도문 화면이 무거워지지 않게).
+// 📤 가정 축복 기도문 · 🌿 오늘의 묵상 — 카톡·문자로 보내기(2026-11-04 친구 · 설계 docs/superpowers/specs/2026-11-04-prayer-share-design.md)
+//   기도문 화면(js/prayer.js) · 「🙏 오늘의 기도」 창 · 「🌿 오늘의 묵상」 창(app.js)의 「카톡·문자로 보내기」를 누를 때 받는다
+//   (app.js LAZY_JS.prayShare — 처음 화면이 무거워지지 않게). 기도문은 openPrayShare · 묵상은 openMedShare — 판 · 배경 · 그리기는 하나다.
 //   그림은 이 폰 안에서만 만든다(캔버스) → 폰 공유 창(navigator.share files). 서버로 아무것도 가지 않는다 — 판에서 바꾼 이름도 그림에만 쓴다.
 //   ⚠️ 이름 채우기는 app.js prayFill(받침 · ㄹ 받침 규칙) — 따로 치환하지 말 것(docs/notes/prayer-book.md).
 //   ⚠️ 공유는 「보내기」를 누른 그 탭 안에서 — 그래서 그림은 미리보기를 그릴 때 이미 만들어 둔다(pshState.blob).
@@ -119,32 +120,25 @@ function prayShareHalves(s) {
   for (let k = 0; k < t.length; k++) if (t[k] === " " && (best < 0 || Math.abs(k - mid) < Math.abs(best - mid))) best = k;
   return best < 0 ? [t] : [t.slice(0, best), t.slice(best + 1)];
 }
-// 그릴 것 목록 — measure(s, font) → 폭(px). 기도문 글씨는 PSH_MAX 에서 PSH_STEP 씩 줄여 상자에 들어갈 때까지(PSH_MIN 까지) ·
+// 글 덩이 배치 — 기도문(praySharePlan) · 오늘의 묵상(medSharePlan)이 함께 쓴다. measure(s, font) → 폭(px).
+//   rowsOf(size, c) 가 줄을 차례로 더한다 — c.add(runs, 크기, 줄높이, 굵게, 색, 앞 간격) · c.body() = 여기부터 몸글(장식 orn · bar 가 그 위에 온다) ·
+//   c.st(배경 값) · c.font(크기, 굵게) · c.ornGap. 글씨 size 는 PSH_MAX 에서 PSH_STEP 씩 줄여 상자에 들어갈 때까지(PSH_MIN 까지) ·
 //   글 토막이 오른쪽 위 마크 둘레(keep)에 닿으면 글 덩이를 그 아래로 내린다(긴 제목 · 긴 편) · PSH_MIN 으로도 넘치면 바닥을 PSH_FLOOR 까지 내린다.
 //   돌려주는 것: { size, fit, top(글 첫머리), bottom(글 끝), limit(넘으면 안 되는 바닥), box, rects(글 토막 자리 — 배경이 피한다), keep, ops: [text · orn · bar · mark] }
 //   — 글은 textBaseline "middle" 의 y.
-function praySharePlan(b, name, styleKey, measure) {
+function pshPlan(styleKey, measure, rowsOf) {
   const st = PRAY_SHARE_STYLES[styleKey] || PRAY_SHARE_STYLES.frame;
-  const nm = prayShareName(name);
   const font = (size, bold) => (bold ? st.wBold : st.wBody) + " " + size + "px " + st.family;
   const mk = prayShareMark(), K = mk.keep;
-  const chunks = prayChunks(b && b.prayer);   // 끝에 맺음말(PRAY_AMEN)이 붙어 온다
   const lay = (size) => {
     const rows = [];
+    let bodyStart = -1;
     const add = (runs, sz, lh, bold, color, gap) => {
       const m = (s, a) => measure(s, font(sz, bold || a));
       prayShareWrap(runs, st.box.w, m).forEach((pieces, k) => rows.push({ pieces, size: sz, lh, bold, color, gap: k === 0 ? gap : 0 }));
     };
-    add([{ s: String((b && b.title) || ""), a: false }], Math.round(size * 1.45), 1.3, true, st.ink, 0);
-    add([{ s: String((b && b.ref) || ""), a: false }], Math.round(size * 0.8), 1.5, false, st.sub, Math.round(size * 0.2));
-    const bodyStart = rows.length;
     const ornGap = (st.orn || st.bar) ? Math.round(size * 1.6) : Math.round(size * 0.9);
-    chunks.forEach((c, k) => {
-      const gap = k === 0 ? ornGap : Math.round(size * 0.5);
-      if (k < chunks.length - 1) { add(prayShareRuns(c, nm), size, PSH_LH, false, st.ink, gap); return; }
-      const parts = measure(c, font(size, true)) <= st.box.w ? [c] : prayShareHalves(c);   // 맺음말
-      parts.forEach((t, j) => add([{ s: t, a: true }], size, PSH_LH, false, st.ink, j === 0 ? gap : 0));
-    });
+    rowsOf(size, { st, font, ornGap, add, body: () => { bodyStart = rows.length; } });
     const h = rows.reduce((t, r) => t + r.gap + r.size * r.lh, 0);
     return { rows, h, bodyStart, ornGap };
   };
@@ -186,6 +180,70 @@ function praySharePlan(b, name, styleKey, measure) {
   if (P.bottom > limit + 0.5) { limit = PSH_FLOOR; P = put(L, size, limit); }   // PSH_MIN 으로도 넘친다 — 바닥을 내린다
   P.ops.push({ k: "mark", x: mk.x, y: mk.y, w: mk.w, h: mk.h, cx: mk.cx, cy: mk.cy, r: mk.r, disc: !!st.disc });
   return { size, fit: P.bottom <= limit + 0.5, top: P.top, bottom: P.bottom, limit, box: st.box, rects: P.rects, keep: K, ops: P.ops };
+}
+// 기도문 — 제목 · 말씀 자리 · (장식) · 이름 든 기도문(문장마다) · 맺음말(강조 · 한 줄에 안 들면 가운데에서 둘로)
+function praySharePlan(b, name, styleKey, measure) {
+  const nm = prayShareName(name);
+  const chunks = prayChunks(b && b.prayer);   // 끝에 맺음말(PRAY_AMEN)이 붙어 온다
+  return pshPlan(styleKey, measure, (size, c) => {
+    const st = c.st;
+    c.add([{ s: String((b && b.title) || ""), a: false }], Math.round(size * 1.45), 1.3, true, st.ink, 0);
+    c.add([{ s: String((b && b.ref) || ""), a: false }], Math.round(size * 0.8), 1.5, false, st.sub, Math.round(size * 0.2));
+    c.body();
+    chunks.forEach((t, k) => {
+      const gap = k === 0 ? c.ornGap : Math.round(size * 0.5);
+      if (k < chunks.length - 1) { c.add(prayShareRuns(t, nm), size, PSH_LH, false, st.ink, gap); return; }
+      const parts = measure(t, c.font(size, true)) <= st.box.w ? [t] : prayShareHalves(t);   // 맺음말
+      parts.forEach((x, j) => c.add([{ s: x, a: true }], size, PSH_LH, false, st.ink, j === 0 ? gap : 0));
+    });
+  });
+}
+// 🌿 오늘의 묵상(2026-11-04 친구 「그림 한 장 · 적용 질문 · 설교 제목 · 말씀」) — m = { heading, message, question, sermonTitle, verseRef }
+//   「오늘의 묵상」(작게 · 강조색) · 제목 · (장식) · 묵상 글(문장마다 · **강조** 는 강조색) · 「오늘의 적용 질문」 + 질문(강조) · 맨 아래 설교 제목 · 말씀 자리(작게).
+//   묵상 글은 설교 아카이브의 요일 묵상(784편 · 2026-11-04 · 셋을 합쳐 가장 긴 것 206자) — 「이번 주」라고 쓰지 않는다(지난주 것을 보여 줄 때가 있다).
+const MED_KICKER = "오늘의 묵상", MED_QLABEL = "오늘의 적용 질문";
+function medShareRuns(t) {   // **…** → 강조 토막(scEmphasis 와 같은 표식) · 짝 없는 ** 는 걷는다
+  const out = [];
+  String(t == null ? "" : t).split(/(\*\*[^*]+\*\*)/).forEach((seg) => {
+    const m = /^\*\*([^*]+)\*\*$/.exec(seg);
+    const s = m ? m[1] : seg.replace(/\*\*/g, "");
+    if (s) out.push({ s, a: !!m });
+  });
+  return out;
+}
+function medShareParas(t) {   // 문장마다 한 덩이(prayChunks 와 같은 자리에서 끊되 맺음말은 없다) · 강조는 문장을 넘어도 이어진다
+  const paras = [[]];
+  let endS = false;   // 앞 토막이 문장 끝으로 끝났나 — 「**…다.** 다음」처럼 끝(.)과 띄어쓰기가 서로 다른 토막에 걸릴 때도 끊는다
+  medShareRuns(String(t == null ? "" : t).trim()).forEach((r) => {
+    let s = r.s;
+    if (endS && /^\s/.test(s)) { paras.push([]); s = s.replace(/^\s+/, ""); }
+    s.replace(/([.!?])\s+/g, "$1\u0001").split("\u0001").forEach((piece, k) => {
+      if (k > 0) paras.push([]);
+      if (piece) paras[paras.length - 1].push({ s: piece, a: r.a });
+    });
+    endS = /[.!?]$/.test(r.s);
+  });
+  return paras.filter((p) => p.some((x) => x.s.trim()));
+}
+function medShareFoot(m) {
+  const a = String((m && m.sermonTitle) || "").trim(), b = String((m && m.verseRef) || "").trim();
+  return [a ? "설교 「" + a + "」" : "", b].filter(Boolean).join(" · ");
+}
+function medSharePlan(m, styleKey, measure) {
+  return pshPlan(styleKey, measure, (size, c) => {
+    const st = c.st;
+    c.add([{ s: MED_KICKER, a: true }], Math.round(size * 0.78), 1.5, true, st.accent, 0);
+    c.add([{ s: String((m && m.heading) || "").replace(/\*\*/g, "").trim() || MED_KICKER, a: false }], Math.round(size * 1.45), 1.3, true, st.ink, Math.round(size * 0.15));
+    c.body();
+    medShareParas(m && m.message).forEach((p, k) => c.add(p, size, PSH_LH, false, st.ink, k === 0 ? c.ornGap : Math.round(size * 0.5)));
+    const q = String((m && m.question) || "").replace(/\*\*/g, "").trim();
+    if (q) {
+      c.add([{ s: MED_QLABEL, a: true }], Math.round(size * 0.78), 1.5, true, st.accent, Math.round(size * 1.1));
+      c.add([{ s: q, a: true }], size, PSH_LH, false, st.ink, Math.round(size * 0.15));
+    }
+    const foot = medShareFoot(m);
+    if (foot) c.add([{ s: foot, a: false }], Math.round(size * 0.68), 1.5, false, st.sub, Math.round(size * 1.1));
+  });
 }
 // ── 기도문 그림 — 순수 (여기까지) ──
 
@@ -259,14 +317,27 @@ function pshBg(ctx, style, img, seed, plan) {
   g.addColorStop(0, "rgba(18, 14, 26, 0)"); g.addColorStop(1, "rgba(18, 14, 26, 0.72)");
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
 }
-// 그림 한 장(JPEG Blob). choice = prayShareChoices() 의 한 칸 · leafNo = 1~12(액자 · 잎).
-function prayShareDraw(b, name, choice, leafNo) {
+// 그림에 쓸 글 한 벌 — { plan(배경, measure), text(글꼴 조각을 받을 글자), seed(별 자리), file(파일 이름), alt(미리보기 설명) }
+function prayShareDoc(b, name) {
+  const nm = prayShareName(name), no = Number(b && b.no) || 0;
+  return { plan: (style, measure) => praySharePlan(b, nm, style, measure), text: [b.title, b.ref, prayFill(b.prayer, nm), PRAY_AMEN].join(" "),
+           seed: no || 1, file: "blessing-" + no + ".jpg", alt: "보낼 그림 — " + String(b.title || "") + " · " + nm };
+}
+function medShareDoc(m) {
+  const no = Number(m && m.no) || 0, idx = Number(m && m.idx) || 0;
+  const head = String((m && m.heading) || "").replace(/\*\*/g, "").trim() || MED_KICKER;
+  return { plan: (style, measure) => medSharePlan(m, style, measure),
+           text: [MED_KICKER, head, m && m.message, MED_QLABEL, m && m.question, medShareFoot(m)].join(" ").replace(/\*\*/g, ""),
+           seed: no * 7 + idx + 1, file: "meditation-" + no + "-" + (idx + 1) + ".jpg", alt: "보낼 그림 — 오늘의 묵상 · " + head };
+}
+function prayShareDraw(b, name, choice, leafNo) { return pshDraw(prayShareDoc(b, name), choice, leafNo); }
+// 그림 한 장(JPEG Blob). doc = prayShareDoc · medShareDoc 의 한 벌 · choice = prayShareChoices() 의 한 칸 · leafNo = 1~12(액자 · 잎).
+function pshDraw(doc, choice, leafNo) {
   const st = PRAY_SHARE_STYLES[choice.style] || PRAY_SHARE_STYLES.frame;
-  const nm = prayShareName(name);
   const v = "?v=" + (typeof APP_BUILD === "string" ? APP_BUILD : "");
   // 글꼴 — 앱이 미뤄 부른 한글 웹폰트에서 이 그림에 쓰는 글자의 조각만 받는다(5초 안 오면 기기 글꼴 · 교육 수료증과 같은 꼴)
   const fam = st.family.split(",")[0].replace(/"/g, "");
-  const all = [b.title, b.ref, prayFill(b.prayer, nm), PRAY_AMEN].join(" ");
+  const all = doc.text;
   const fonts = (document.fonts && document.fonts.load)
     ? Promise.all([st.wBody, st.wBold].map((w) => document.fonts.load(w + ' 40px "' + fam + '"', all).catch(() => null)))
     : Promise.resolve();
@@ -277,8 +348,8 @@ function prayShareDraw(b, name, choice, leafNo) {
     const bg = got[1], mark = got[2];
     const cv = document.createElement("canvas"); cv.width = PSH_W; cv.height = PSH_H;
     const ctx = cv.getContext("2d");
-    const plan = praySharePlan(b, nm, choice.style, (s, f) => { ctx.font = f; return ctx.measureText(s).width; });
-    pshBg(ctx, choice.style, bg, Number(b.no) || 1, plan);   // 배치를 먼저 — 배경이 글 자리를 피한다
+    const plan = doc.plan(choice.style, (s, f) => { ctx.font = f; return ctx.measureText(s).width; });
+    pshBg(ctx, choice.style, bg, doc.seed, plan);   // 배치를 먼저 — 배경이 글 자리를 피한다
     ctx.textBaseline = "middle"; ctx.textAlign = "left";
     plan.ops.forEach((o) => {
       if (o.k === "text") {
@@ -309,7 +380,9 @@ function prayShareDraw(b, name, choice, leafNo) {
 }
 
 // ── 판(아래에서 올라온다) ──
-const pshState = { gen: 0, blob: null, url: null, key: "frame", leaf: 1, b: null, name: "", timer: null, pop: null, esc: null };
+// b · name = 기도문(이름 칸이 있다) · med = 오늘의 묵상(이름 자리가 없다 · 그때 b 는 null) · file = 지금 그림의 파일 이름
+const pshState = { gen: 0, blob: null, url: null, key: "frame", leaf: 1, b: null, name: "", med: null, file: "", timer: null, pop: null, esc: null };
+const PSH_TITLE_PRAY = "📤 가정 축복 기도문 보내기", PSH_TITLE_MED = "📤 오늘의 묵상 보내기";
 function pshSay(t) { const m = document.getElementById("psh-msg"); if (m) m.textContent = t; }
 function pshSendLabel(busy) {
   const s = document.getElementById("psh-send");
@@ -324,12 +397,13 @@ function pshRedraw() {
   pshSendLabel(true); pshSay("");
   const all = prayShareChoices();
   const ch = all.find((c) => c.key === pshState.key) || all[0];
-  prayShareDraw(pshState.b, pshState.name, ch, pshState.leaf).then((blob) => {
+  const doc = pshState.med ? medShareDoc(pshState.med) : prayShareDoc(pshState.b, pshState.name);
+  pshDraw(doc, ch, pshState.leaf).then((blob) => {
     if (my !== pshState.gen) return;   // 그사이 이름 · 배경이 또 바뀌었다
     if (pshState.url) { try { URL.revokeObjectURL(pshState.url); } catch (e) {} }
-    pshState.blob = blob; pshState.url = URL.createObjectURL(blob);
+    pshState.blob = blob; pshState.url = URL.createObjectURL(blob); pshState.file = doc.file;
     const img = document.getElementById("psh-img");
-    if (img) { img.src = pshState.url; img.alt = "보낼 그림 — " + String(pshState.b.title || "") + " · " + pshState.name; }
+    if (img) { img.src = pshState.url; img.alt = doc.alt; }
     pshSendLabel(false);
   }).catch(() => {
     if (my !== pshState.gen) return;
@@ -340,7 +414,7 @@ function pshRedraw() {
 function pshDownload() {
   if (!pshState.url) return;
   const a = document.createElement("a");
-  a.href = pshState.url; a.download = "blessing-" + (Number(pshState.b && pshState.b.no) || 0) + ".jpg"; a.rel = "noopener";
+  a.href = pshState.url; a.download = pshState.file || "blessing.jpg"; a.rel = "noopener";
   document.body.appendChild(a); a.click(); a.remove();
   pshSay("그림 파일 내려받기를 시작했어요.");   // 되었는지는 알 수 없다 — 「시작했어요」까지만(교육 수료증과 같은 말)
 }
@@ -349,7 +423,7 @@ function pshSend() {
   const blob = pshState.blob;
   if (!blob) return;
   let file = null;
-  try { file = new File([blob], "blessing-" + (Number(pshState.b && pshState.b.no) || 0) + ".jpg", { type: "image/jpeg" }); } catch (e) {}
+  try { file = new File([blob], pshState.file || "blessing.jpg", { type: "image/jpeg" }); } catch (e) {}
   let can = false;
   try { can = !!(file && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })); } catch (e) {}
   if (can) {
@@ -375,11 +449,22 @@ function prayShareClose(fromPop) {
   document.body.classList.remove("psh-on");
   if (w) w.remove();
 }
+// 기도문 화면 · 「🙏 오늘의 기도」 창이 부른다 — 이름 칸이 있다(처음 값 name)
 function openPrayShare(b, name) {
   if (!b) return;
   prayShareClose();
-  pshState.b = b;
+  pshState.b = b; pshState.med = null;
   pshState.name = prayShareName(name);
+  pshOpen(PSH_TITLE_PRAY, true, name);
+}
+// 「🌿 오늘의 묵상」 창이 부른다(2026-11-04 친구) — m = { heading, message, question, sermonTitle, verseRef, no(구절), idx(요일) } · 이름 칸 없음
+function openMedShare(m) {
+  if (!m || !(m.message || m.question)) return;
+  prayShareClose();
+  pshState.b = null; pshState.med = m; pshState.name = "";
+  pshOpen(PSH_TITLE_MED, false, "");
+}
+function pshOpen(title, withName, name) {
   pshState.leaf = Math.min(12, 1 + Math.floor(Math.random() * 12));
   const choices = prayShareChoices();
   if (!choices.some((c) => c.key === pshState.key)) pshState.key = "frame";
@@ -393,9 +478,9 @@ function openPrayShare(b, name) {
   wrap.innerHTML = `
     <div class="psh-sheet" role="dialog" aria-modal="true" aria-labelledby="psh-h">
       <div class="psh-grab" aria-hidden="true"></div>
-      <div class="psh-top"><b id="psh-h">📤 가정 축복 기도문 보내기</b><button type="button" class="psh-x" aria-label="닫기">✕</button></div>
-      <label class="psh-lbl" for="psh-name">누구를 위한 기도인가요?</label>
-      <input id="psh-name" class="psh-name" type="text" maxlength="12" autocomplete="off">
+      <div class="psh-top"><b id="psh-h">${prayEsc(title)}</b><button type="button" class="psh-x" aria-label="닫기">✕</button></div>
+      ${withName ? `<label class="psh-lbl" for="psh-name">누구를 위한 기도인가요?</label>
+      <input id="psh-name" class="psh-name" type="text" maxlength="12" autocomplete="off">` : ""}
       <div class="psh-lbl" id="psh-bg-l">배경 고르기</div>
       <div class="psh-thumbs" role="radiogroup" aria-labelledby="psh-bg-l">${choices.map(thumb).join("")}</div>
       <div class="psh-pv"><img id="psh-img" alt=""></div>
@@ -408,12 +493,14 @@ function openPrayShare(b, name) {
   requestAnimationFrame(() => wrap.classList.add("show"));
   wrap.querySelectorAll(".psh-t img").forEach((im) => { im.onerror = () => { im.style.display = "none"; }; });
   const inp = wrap.querySelector("#psh-name");
-  inp.value = pshState.name === "우리 가정" && !String(name || "").trim() ? "" : pshState.name;   // 글자 그대로(속성에 넣지 않는다)
-  inp.addEventListener("input", () => {
-    clearTimeout(pshState.timer);
-    pshState.gen++; pshState.blob = null; pshSendLabel(true);   // 다 치기 전에 옛 이름 그림이 나가지 않게
-    pshState.timer = setTimeout(() => { pshState.name = prayShareName(inp.value); pshRedraw(); }, 300);
-  });
+  if (inp) {
+    inp.value = pshState.name === "우리 가정" && !String(name || "").trim() ? "" : pshState.name;   // 글자 그대로(속성에 넣지 않는다)
+    inp.addEventListener("input", () => {
+      clearTimeout(pshState.timer);
+      pshState.gen++; pshState.blob = null; pshSendLabel(true);   // 다 치기 전에 옛 이름 그림이 나가지 않게
+      pshState.timer = setTimeout(() => { pshState.name = prayShareName(inp.value); pshRedraw(); }, 300);
+    });
+  }
   wrap.querySelectorAll(".psh-t").forEach((t) => t.addEventListener("click", () => {
     const k = t.dataset.k;
     // 액자 · 잎을 다시 누르면 다른 잎가지(12가지)

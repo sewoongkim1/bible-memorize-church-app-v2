@@ -8327,6 +8327,7 @@ html[data-fs="xl"] .sg-a #song-play { font-size: 1.22rem; min-height: 56px; }
 }
 .pr-share .pra-ic { width: 20px; height: 20px; flex: none; }   /* 선 아이콘 — 「🙏 오늘의 기도」 창(.pr-a 밖)에서도 같은 크기 */
 .cheer-card.bless .pr-share { margin-top: 14px; }   /* 「🙏 오늘의 기도」 창 — 기도문 아래 · 「축복 기도문 · 확인」 위(친구 2026-11-04) */
+.cheer-card.med .pr-share { margin: 14px 0 2px; }   /* 「🌿 오늘의 묵상」 창 — 적용 질문 아래 · 「설교 · 요약 · 확인」 위(같은 날 · 초록 · 남색 줄과 섞이지 않는 금색) */
 .pr-share:hover { background: linear-gradient(180deg, #f3c552, #e2aa31); color: #1b2a4a; }
 .pr-share:active { transform: translateY(1px); box-shadow: 0 1px 4px rgba(196, 140, 30, .35); }
 .dark .pr-share { background: linear-gradient(180deg, #e8bd55, #d6a43a); color: #1a1406; box-shadow: none; }

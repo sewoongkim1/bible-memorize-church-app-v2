@@ -19,7 +19,7 @@ const cut = (src, a, b) => {
 // 화면과 같은 이름 채우기 · 문장 나누기(app.js) — 그림도 이 둘을 그대로 쓴다
 const FILL = cut(APP, 'function prayJong(', '// 이름을 눈에 띄게') + '\n' + cut(APP, 'const PRAY_AMEN', 'function prayFillHtml(') + '\n' + cut(APP, 'function prayFill(', '// 오늘 몇 번째 편인가');
 const PURE = cut(PS, '// ── 기도문 그림 — 순수 (여기부터) ──', '// ── 기도문 그림 — 순수 (여기까지) ──');
-const T = vm.runInContext(FILL + '\n' + PURE + '\n;({ prayFill, prayChunks, PRAY_AMEN, prayShareName, prayShareRuns, prayShareWrap, praySharePlan, prayShareChoices, prayShareMark, PRAY_SHARE_STYLES, PRAY_SHARE_PHOTOS, PSH_MARK, PSH_FLOOR, PSH_MIN, PSH_MAX, PSH_W, PSH_H })', vm.createContext({}));
+const T = vm.runInContext(FILL + '\n' + PURE + '\n;({ prayFill, prayChunks, PRAY_AMEN, prayShareName, prayShareRuns, prayShareWrap, praySharePlan, prayShareChoices, prayShareMark, PRAY_SHARE_STYLES, PRAY_SHARE_PHOTOS, PSH_MARK, PSH_FLOOR, PSH_MIN, PSH_MAX, PSH_W, PSH_H, medShareRuns, medShareParas, medShareFoot, medSharePlan, MED_KICKER, MED_QLABEL })', vm.createContext({}));
 
 // 가짜 폭 — 한글 1em · 띄어쓰기 0.3em · 그 밖 0.55em · 800 굵기 1.04배(나눔명조 · Noto 실측보다 조금 넓게 — 넉넉히 잰다)
 const px = (font) => Number(/(\d+)px/.exec(font)[1]);
@@ -195,7 +195,9 @@ test('배선 — 지연 모듈(LAZY_JS.prayShare · index.html 에 없음) · �
   const iv = card.indexOf('id="pr-verse"'), is = card.indexOf('id="pr-share"'), ia = card.indexOf('class="pr-acts"');
   assert.ok(iv >= 0 && is > iv && ia > is, '단추 자리: 말씀 펴 보기 → 보내기 → 들려주기');
   assert.equal(card.split('id="pr-share"').length - 1, 1, '단추는 하나');
-  assert.match(PS, /<b id="psh-h">📤 가정 축복 기도문 보내기<\/b>/, '판 제목(친구 2026-11-04)');
+  assert.match(PS, /const PSH_TITLE_PRAY = "📤 가정 축복 기도문 보내기", PSH_TITLE_MED = "📤 오늘의 묵상 보내기";/, '판 제목(친구 2026-11-04)');
+  assert.match(PS, /<b id="psh-h">\$\{prayEsc\(title\)\}<\/b>/);
+  assert.match(PS, /\$\{withName \? `<label class="psh-lbl" for="psh-name">/, '이름 칸은 기도문에만(묵상에는 이름 자리가 없다)');
   // 「🙏 오늘의 기도」 창(app.js openBlessingModal · 친구 2026-11-04) — 머리 「오늘의 기도」 · 보내기 단추는 문 안 + 원문(tpl)이 있을 때만 ·
   //   창을 먼저 걷고(done) 판을 연다 · 판에는 원문(이름 토큰 그대로)을 넘긴다(위젯 글 prayer 는 「우리 가족」으로 이미 채워져 있다)
   const bm = cut(APP, 'function openBlessingModal(b) {', '\n}\n');
@@ -209,6 +211,79 @@ test('배선 — 지연 모듈(LAZY_JS.prayShare · index.html 에 없음) · �
   const send = cut(PS, 'function pshSend() {', '\n}\n');
   assert.match(send, /pshState\.blob/);
   assert.match(send, /navigator\.share\(\{ files: \[file\] \}\)/);
-  assert.doesNotMatch(send, /prayShareDraw\(/, '보내기 탭 안에서 그림을 새로 만들면 공유가 막힌다');
+  assert.doesNotMatch(send, /prayShareDraw\(|pshDraw\(/, '보내기 탭 안에서 그림을 새로 만들면 공유가 막힌다');
+  assert.match(send, /pshState\.file/, '파일 이름은 그린 글 한 벌(doc.file)에서 — 기도문 blessing-N · 묵상 meditation-N-요일');
   assert.doesNotMatch(PS, /\(\?<[=!]/, 'lookbehind 금지(사파리 16.4 미만)');
+});
+
+// ── 🌿 오늘의 묵상 보내기(2026-11-04 친구 「그림 한 장 · 적용 질문 · 설교 제목 · 말씀」) ──
+//   실제 묵상(설교 아카이브 요일 묵상 784편)은 저장소에 없다 — 가장 긴 길이(제목 19 · 글 152 · 질문 63자)에 맞춘 본보기를 지어 넣는다.
+const MEDS = [
+  { heading: '날마다 새로 발견하는 감사의 길', message: '감사는 **환경이 바뀔 때** 생기지 않습니다. 같은 하루 속에서도 하나님이 이미 주신 것을 **새롭게 보는 눈**이 열릴 때 시작됩니다. 오늘 내가 당연하게 여긴 숨결과 밥상과 이웃의 얼굴을 다시 바라보십시오. 그 안에 숨어 있던 은혜가 보이기 시작할 것입니다. **감사는 발견입니다.**',
+    question: '오늘 하루 당연하게 여겼던 것 가운데 하나님께 감사로 올려 드릴 것 세 가지는 무엇이며, 누구와 그 감사를 나누겠습니까?', sermonTitle: '감사는 발견입니다', verseRef: '누가복음 17:15-16' },
+  { heading: '돌아온 한 사람', message: '열 명이 고침을 받았지만 **한 사람만** 돌아왔습니다. 감사는 받은 은혜를 기억하는 데서 자랍니다.', question: '나는 무엇을 기억하며 돌아가겠습니까?', sermonTitle: '감사는 발견입니다', verseRef: '누가복음 17:15-16' },
+  { heading: '', message: '**사랑합니다. 감사합니다.** 오늘도 이 두 마디로 하루를 여십시오.', question: '', sermonTitle: '', verseRef: '' },
+  { heading: '말씀 앞에 서는 아침', message: '짧은 묵상.', question: '오늘 붙들 말씀 한 구절은 무엇입니까?', sermonTitle: '아주 긴 설교 제목이 들어오면 맨 아래 줄은 어떻게 접히는가', verseRef: '데살로니가전서 5:16-18' },
+];
+const medFlat = (m) => flat(T.MED_KICKER) + flat(String(m.heading || '').replace(/\*\*/g, '') || T.MED_KICKER) + flat(m.message.replace(/\*\*/g, '')) +
+  (m.question ? flat(T.MED_QLABEL) + flat(m.question) : '') + flat(T.medShareFoot(m));
+
+test('medShareRuns · medShareParas — **강조** 는 강조 토막 · 짝 없는 ** 는 걷는다 · 문장마다 끊되 강조가 문장을 넘어도 이어진다', () => {
+  assert.deepEqual(JSON.parse(JSON.stringify(T.medShareRuns('가 **나다** 라'))), [{ s: '가 ', a: false }, { s: '나다', a: true }, { s: ' 라', a: false }]);
+  assert.deepEqual(JSON.parse(JSON.stringify(T.medShareRuns('가**나'))), [{ s: '가나', a: false }]);
+  const ps = T.medShareParas(MEDS[2].message);
+  assert.equal(ps.length, 3, '문장 셋');
+  assert.deepEqual(JSON.parse(JSON.stringify(ps[0])), [{ s: '사랑합니다.', a: true }]);
+  assert.deepEqual(JSON.parse(JSON.stringify(ps[1])), [{ s: '감사합니다.', a: true }], '강조가 다음 문장에도 이어진다');
+  for (const m of MEDS) assert.equal(flat(T.medShareParas(m.message).map((p) => p.map((x) => x.s).join('')).join('')), flat(m.message.replace(/\*\*/g, '')), '글자를 잃지 않는다');
+});
+
+test('medShareFoot — 「설교 「제목」 · 구절」 · 있는 것만 · 「이번 주」 라고 쓰지 않는다(지난주 것을 보여 줄 때가 있다)', () => {
+  assert.equal(T.medShareFoot(MEDS[0]), '설교 「감사는 발견입니다」 · 누가복음 17:15-16');
+  assert.equal(T.medShareFoot({ sermonTitle: '', verseRef: '시편 23:1' }), '시편 23:1');
+  assert.equal(T.medShareFoot({ sermonTitle: '제목', verseRef: '' }), '설교 「제목」');
+  assert.equal(T.medShareFoot({}), '');
+  assert.doesNotMatch(PS.slice(PS.indexOf('function medShareFoot'), PS.indexOf('function medSharePlan')), /이번 주/);
+});
+
+test('medSharePlan — 본보기 묵상 × 배경 넷: 상자 안 · 글자를 잃지 않는다 · 마크 둘레를 피한다 · 강조는 강조색 · 질문 · 맨 아래 줄은 있을 때만', () => {
+  const K = T.prayShareMark().keep;
+  const meet = (q, z) => q.x < z.x + z.w && q.x + q.w > z.x && q.y < z.y + z.h && q.y + q.h > z.y;
+  for (const st of STYLES) {
+    const S = T.PRAY_SHARE_STYLES[st];
+    for (const [k, m] of MEDS.entries()) {
+      const p = T.medSharePlan(m, st, measure);
+      const at = st + ' 묵상' + k;
+      assert.ok(p.size >= T.PSH_MIN && p.size <= T.PSH_MAX, at + ' 크기 ' + p.size);
+      assert.ok(p.fit && p.bottom <= p.limit + 0.5, at + ' 넘침');
+      const tx = p.ops.filter((o) => o.k === 'text');
+      for (const o of tx) assert.ok(o.x >= S.box.x - 0.5 && o.x + o.w <= S.box.x + S.box.w + 0.5, at + ' 가로 넘침: ' + o.s);
+      for (const q of p.rects) assert.ok(!meet(q, K), at + ' 글이 마크 둘레에 닿는다');
+      assert.equal(flat(tx.map((o) => o.s).join('')), medFlat(m), at + ' 글자');
+      assert.equal(tx[0].s, T.MED_KICKER, at + ' 맨 위는 「오늘의 묵상」');
+      assert.equal(tx[0].color, S.accent, at + ' 「오늘의 묵상」은 강조색');
+      assert.equal(tx.some((o) => o.s === T.MED_QLABEL), !!m.question, at + ' 적용 질문 이름은 질문이 있을 때만');
+      if (T.medShareFoot(m)) assert.equal(tx[tx.length - 1].color, S.sub, at + ' 맨 아래는 설교 · 말씀(작은 옅은 글씨)');
+      for (const em of (m.message.match(/\*\*([^*]+)\*\*/g) || []).map((x) => x.slice(2, -2))) {
+        const first = flat(em).slice(0, 2);
+        assert.ok(tx.some((o) => o.color === S.accent && flat(o.s).includes(first)), at + ' 강조가 강조색이 아니다: ' + em);
+      }
+      assert.equal(p.ops.filter((o) => o.k === 'mark').length, 1, at + ' 마크 하나');
+    }
+  }
+});
+
+test('배선 — 「🌿 오늘의 묵상」 창: 문은 app.js(MED_SHARE_OPEN · 시험 참여자 먼저) · 설교가 있을 때만 단추 · 지금 보는 요일을 · 창을 먼저 걷고 판을 연다', () => {
+  assert.match(APP, /const MED_SHARE_OPEN = (true|false);/);
+  assert.match(APP, /function medShareVisible\(\) \{ return MED_SHARE_OPEN \|\| \(typeof ministryTesterCached === "function" && ministryTesterCached\(\)\); \}/);
+  const mm = cut(APP, 'function showMeditationModal(', '\n}\n');
+  assert.match(mm, /\$\{sermon && medShareVisible\(\) \? `<button class="pr-share" id="med-share">/, '「준비하고 있어요」 자리(설교 없음)에는 단추가 없다');
+  assert.match(mm, /cur = i;/, '탭을 넘기면 그 요일을 보낸다');
+  const tap = cut(mm, 'mShare.addEventListener("click"', '});\n');
+  assert.ok(tap.indexOf('done();') >= 0 && tap.indexOf('done();') < tap.indexOf('withLazyJs("prayShare"'), '창을 먼저 걷고 판을 연다');
+  assert.match(tap, /items\[cur\]/);
+  assert.match(tap, /openMedShare\(m\)/);
+  assert.match(tap, /verseRef: \(verse && \(verse\.refFull \|\| verse\.refShort\)\)/, '구절은 긴 한국어 표기(「누가복음 17장 16절」) — 영어 모드와 상관없이 · 줄임말(「눅」)은 받는 분께 낯설다');
+  assert.match(PS, /function openMedShare\(m\) \{/);
+  assert.match(PS, /pshOpen\(PSH_TITLE_MED, false, ""\)/, '묵상 판은 이름 칸 없이');
 });
