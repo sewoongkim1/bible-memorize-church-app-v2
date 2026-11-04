@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261104g";
+const APP_BUILD = "20261104h";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -4157,6 +4157,8 @@ function openBlessingModal(b) {
     });
     const share = document.getElementById("bless-share");
     if (share) share.addEventListener("click", () => {
+      if (share.disabled) return;   // 한 번만 — 창이 걷히는 250ms 동안에도 탭이 들어와 판을 두 번 열면 첫 판의 「뒤로」가 둘째 판을 닫았다(2026-11-04 검토)
+      share.disabled = true;
       done();
       setTimeout(() => withLazyJs("prayShare", () => {
         if (typeof openPrayShare === "function") openPrayShare({ no: b.no, title: b.title, ref: b.ref, prayer: b.tpl }, (u && u.name) || "");
@@ -9817,6 +9819,8 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev
     //   (겹치면 이 창의 Esc · Enter 받이 wireModalConfirm 이 판보다 먼저 잡는다) · 「준비하고 있어요」 안내 자리(설교 없음)에는 단추가 없다.
     const mShare = wrap.querySelector("#med-share");
     if (mShare) mShare.addEventListener("click", () => {
+      if (mShare.disabled) return;   // 한 번만 — 창이 걷히는 250ms 동안에도 탭이 들어와 판을 두 번 열면 첫 판의 「뒤로」가 둘째 판을 닫았다(2026-11-04 검토)
+      mShare.disabled = true;
       const it = items[cur] || {};
       const m = { heading: it.heading || "", message: it.message || "", question: it.question || "",
                   sermonTitle: (sermon && sermon.title) || "", verseRef: (verse && (verse.refFull || verse.refShort)) || "", no: (verse && verse.no) || 0, idx: cur,   // 「누가복음 17장 16절」(짧은 표기 「눅 17:16」은 받는 분께 낯설다)
@@ -9824,7 +9828,8 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev
       done();
       setTimeout(() => withLazyJs("prayShare", () => {
         if (typeof openMedShare === "function") openMedShare(m);
-        else appAlert("보내기 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
+        // 받기는 됐는데 묵상 판이 없다 = 앱을 켜 둔 채 배포를 넘겨 옛 js/pray-share.js(v3.702 이전)가 실려 있다 — 다시 눌러도 같다
+        else appAlert(typeof openPrayShare === "function" ? "앱이 새 판으로 바뀌었어요. 앱을 껐다가 다시 열어 주세요." : "보내기 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
       }), 260);
     });
     const sBtn = wrap.querySelector("#med-sermon");   // 묵상 → 설교 요약으로 이동

@@ -411,7 +411,7 @@ function pshDraw(doc, choice, leafNo) {
 
 // ── 판(아래에서 올라온다) ──
 // b · name = 기도문(이름 칸이 있다) · med = 오늘의 묵상(이름 자리가 없다 · 그때 b 는 null) · file = 지금 그림의 파일 이름
-const pshState = { gen: 0, blob: null, url: null, key: "night", leaf: 1, b: null, name: "", med: null, file: "", timer: null, pop: null, esc: null };
+const pshState = { gen: 0, blob: null, url: null, key: "night", leaf: 1, b: null, name: "", med: null, file: "", timer: null, pop: null, esc: null, sharing: false };
 const PSH_TITLE_PRAY = "📤 가정 축복 기도문 보내기", PSH_TITLE_MED = "📤 오늘의 묵상 보내기";
 function pshSay(t) { const m = document.getElementById("psh-msg"); if (m) m.textContent = t; }
 function pshSendLabel(busy) {
@@ -457,10 +457,13 @@ function pshSend() {
   let can = false;
   try { can = !!(file && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })); } catch (e) {}
   if (can) {
+    // 공유 창이 뜨는 사이 한 번 더 누르면 두 번째 share 가 InvalidStateError 로 끝난다 — 그걸 「공유를 못 한다」로 보고 내려받기로 가지 않게(2026-11-04 검토)
+    if (pshState.sharing) return;
+    pshState.sharing = true;
     navigator.share({ files: [file] }).catch((err) => {
-      if (err && err.name === "AbortError") return;   // 성도님이 공유 창을 닫았다
+      if (err && (err.name === "AbortError" || err.name === "InvalidStateError")) return;   // 성도님이 공유 창을 닫았다 · 이미 떠 있다
       pshDownload();
-    });
+    }).finally(() => { pshState.sharing = false; });
     return;
   }
   pshDownload();
@@ -482,6 +485,7 @@ function prayShareClose(fromPop) {
 // 기도문 화면 · 「🙏 오늘의 기도」 창이 부른다 — 이름 칸이 있다(처음 값 name)
 function openPrayShare(b, name) {
   if (!b) return;
+  if (pshReuse("pray")) { pshState.b = b; pshState.med = null; pshRedraw(); return; }   // 단추를 두 번 눌러 또 불렸다 — 열린 판을 그대로
   prayShareClose();
   pshState.b = b; pshState.med = null;
   pshState.name = prayShareName(name);
@@ -490,10 +494,14 @@ function openPrayShare(b, name) {
 // 「🌿 오늘의 묵상」 창이 부른다(2026-11-04 친구) — m = { heading, message, question, sermonTitle, verseRef, no(구절), idx(요일) } · 이름 칸 없음
 function openMedShare(m) {
   if (!m || !(m.message || m.question)) return;
+  if (pshReuse("med")) { pshState.b = null; pshState.med = m; pshRedraw(); return; }
   prayShareClose();
   pshState.b = null; pshState.med = m; pshState.name = "";
   pshOpen(PSH_TITLE_MED, false, "");
 }
+// 같은 판이 이미 열려 있나(2026-11-04 검토) — 열린 판을 닫고 다시 열면 prayShareClose 의 history.back() 이 늦게 도착해
+//   pshOpen 이 막 단 popstate 받이가 그걸 받고 새 판을 닫는다(빠르게 두 번 누를 때 · 판이 떴다가 사라진다). 그래서 닫지 않고 내용만 바꾼다.
+function pshReuse(kind) { const w = document.getElementById("psh"); return !!(w && w.dataset.kind === kind && pshState.pop); }
 function pshOpen(title, withName, name) {
   pshState.leaf = Math.min(12, 1 + Math.floor(Math.random() * 12));
   const choices = prayShareChoices();
@@ -504,7 +512,7 @@ function pshOpen(title, withName, name) {
     return `<button type="button" class="psh-t psh-t-${c.style}" role="radio" aria-checked="${c.key === pshState.key}" data-k="${prayEsc(c.key)}" aria-label="${prayEsc(c.label)}">${inner}<i>${prayEsc(c.label)}</i></button>`;
   };
   const wrap = document.createElement("div");
-  wrap.className = "psh-dim"; wrap.id = "psh";
+  wrap.className = "psh-dim"; wrap.id = "psh"; wrap.dataset.kind = withName ? "pray" : "med";
   wrap.innerHTML = `
     <div class="psh-sheet" role="dialog" aria-modal="true" aria-labelledby="psh-h">
       <div class="psh-grab" aria-hidden="true"></div>

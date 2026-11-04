@@ -19,7 +19,9 @@ const cut = (src, a, b) => {
 // 화면과 같은 이름 채우기 · 문장 나누기(app.js) — 그림도 이 둘을 그대로 쓴다
 const FILL = cut(APP, 'function prayJong(', '// 이름을 눈에 띄게') + '\n' + cut(APP, 'const PRAY_AMEN', 'function prayFillHtml(') + '\n' + cut(APP, 'function prayFill(', '// 오늘 몇 번째 편인가');
 const PURE = cut(PS, '// ── 기도문 그림 — 순수 (여기부터) ──', '// ── 기도문 그림 — 순수 (여기까지) ──');
-const T = vm.runInContext(FILL + '\n' + PURE + '\n;({ prayFill, prayChunks, PRAY_AMEN, prayShareName, prayShareRuns, prayShareWrap, praySharePlan, prayShareChoices, prayShareMark, PRAY_SHARE_STYLES, PRAY_SHARE_PHOTOS, PSH_MARK, PSH_FLOOR, PSH_MIN, PSH_MAX, PSH_W, PSH_H, medShareRuns, medShareParas, medShareFoot, medShareDate, medShareByline, medSharePlan, MED_KICKER, MED_QLABEL })', vm.createContext({}));
+// 그릴 글 한 벌(prayShareDoc · medShareDoc — DOM 없음)도 싣는다 · 판이 묵상 · 기도문 중 무엇을 그릴지 고르는 길(2026-11-04 검토)
+const DOCS = cut(PS, 'function prayShareDoc(', 'function prayShareDraw(');
+const T = vm.runInContext(FILL + '\n' + PURE + '\n' + DOCS + '\n;({ prayShareDoc, medShareDoc, prayFill, prayChunks, PRAY_AMEN, prayShareName, prayShareRuns, prayShareWrap, praySharePlan, prayShareChoices, prayShareMark, PRAY_SHARE_STYLES, PRAY_SHARE_PHOTOS, PSH_MARK, PSH_FLOOR, PSH_MIN, PSH_MAX, PSH_W, PSH_H, medShareRuns, medShareParas, medShareFoot, medShareDate, medShareByline, medSharePlan, MED_KICKER, MED_QLABEL })', vm.createContext({}));
 
 // 가짜 폭 — 한글 1em · 띄어쓰기 0.3em · 그 밖 0.55em · 800 굵기 1.04배(나눔명조 · Noto 실측보다 조금 넓게 — 넉넉히 잰다)
 const px = (font) => Number(/(\d+)px/.exec(font)[1]);
@@ -311,4 +313,64 @@ test('보내기 판 — 폰에서 「보내기」가 아래로 숨지 않는다(
   // 단추 자리는 미리보기 바로 다음(sticky 가 붙을 자리) — 판 짜임이 바뀌면 이 시험도 함께
   const pv = PS.indexOf('<div class="psh-pv">'), send = PS.indexOf('id="psh-send"');
   assert.ok(pv > 0 && send > pv && send - pv < 120, '보내기는 미리보기 바로 아래');
+});
+
+// ── 2026-11-04 검토(review-share-v3) — 두 번 누름 · 묵상 판 그리기 길 · 기도문 판 되돌림 · typeof 지킴이 ──
+test('글 한 벌 — medShareDoc(파일 이름 · 설명 · 글꼴 받을 글자) · prayShareDoc · 판이 묵상 · 기도문을 가른다', () => {
+  const md0 = Object.assign({}, MEDS[0], { no: 44, idx: 4 }), md = T.medShareDoc(md0);
+  assert.equal(md.file, 'meditation-44-5.jpg', '파일 이름 = 구절 · 요일(1부터)');
+  assert.equal(md.alt, '보낼 그림 — 오늘의 묵상 · ' + MEDS[0].heading);
+  for (const piece of [T.MED_KICKER, T.MED_QLABEL, T.medShareFoot(md0), T.medShareByline(md0)]) assert.ok(md.text.includes(piece), '글꼴 받을 글자에 ' + piece);
+  assert.ok(!md.text.includes('**'), '강조 표식은 글꼴 글자에서 뺀다');
+  assert.equal(JSON.stringify(md.plan('night', measure)), JSON.stringify(T.medSharePlan(md0, 'night', measure)), '한 벌의 plan = medSharePlan');
+  const pd = T.prayShareDoc(LIST[0], '김세웅');
+  assert.equal(pd.file, 'blessing-' + LIST[0].no + '.jpg');
+  assert.equal(JSON.stringify(pd.plan('frame', measure)), JSON.stringify(T.praySharePlan(LIST[0], '김세웅', 'frame', measure)));
+  assert.match(PS, /const doc = pshState\.med \? medShareDoc\(pshState\.med\) : prayShareDoc\(pshState\.b, pshState\.name\);/, '판은 med 가 있으면 묵상을');
+  const op = cut(PS, 'function openPrayShare(b, name) {', '\n}\n'), om = cut(PS, 'function openMedShare(m) {', '\n}\n');
+  assert.match(op, /prayShareClose\(\);\n  pshState\.b = b; pshState\.med = null;/, '묵상을 보낸 뒤에도 기도문 판은 기도문을(prayShareClose 는 med 를 안 지운다)');
+  assert.match(op, /pshOpen\(PSH_TITLE_PRAY, true, name\);/, '기도문 판 — 제목 · 이름 칸');
+  assert.match(om, /pshState\.b = null; pshState\.med = m;/);
+  assert.match(cut(PS, 'function pshOpen(', '\n}\n'), /const inp = wrap\.querySelector\("#psh-name"\);\n  if \(inp\) \{/, '이름 칸 없는 묵상 판에서 넘어지지 않게');
+});
+
+test('두 번 누름 — 판이 열렸다가 스스로 닫히지 않는다(열린 같은 판은 다시 쓴다) · 창 단추는 한 번만 · 공유 중 또 누르면 내려받기로 가지 않는다', () => {
+  const op = cut(PS, 'function openPrayShare(b, name) {', '\n}\n'), om = cut(PS, 'function openMedShare(m) {', '\n}\n');
+  assert.ok(op.indexOf('pshReuse("pray")') >= 0 && op.indexOf('pshReuse("pray")') < op.indexOf('prayShareClose()'), '기도문 — 닫기(history.back) 전에 다시 쓰기');
+  assert.ok(om.indexOf('pshReuse("med")') >= 0 && om.indexOf('pshReuse("med")') < om.indexOf('prayShareClose()'), '묵상 — 닫기 전에 다시 쓰기');
+  assert.match(PS, /wrap\.dataset\.kind = withName \? "pray" : "med";/, '판 종류 표식');
+  assert.match(PS, /function pshReuse\(kind\) \{ const w = document\.getElementById\("psh"\); return !!\(w && w\.dataset\.kind === kind && pshState\.pop\); \}/);
+  const bm = cut(APP, 'function openBlessingModal(b) {', '\n}\n'), mm = cut(APP, 'function showMeditationModal(', '\n}\n');
+  const t1 = cut(bm, 'share.addEventListener("click"', '});'), t2 = cut(mm, 'mShare.addEventListener("click"', '});\n');
+  for (const [t, nm] of [[t1, 'share'], [t2, 'mShare']]) {
+    const g = t.indexOf('if (' + nm + '.disabled) return;'), d = t.indexOf(nm + '.disabled = true;');
+    assert.ok(g >= 0 && d > g && d < t.indexOf('done();'), nm + ' 은 한 번만(창이 걷히는 동안의 둘째 탭)');
+  }
+  const send = cut(PS, 'function pshSend() {', '\n}\n');
+  assert.ok(send.indexOf('if (pshState.sharing) return;') >= 0 && send.indexOf('if (pshState.sharing) return;') < send.indexOf('navigator.share('), '공유 창이 떠 있는 동안 또 누르면 아무것도 안 한다');
+  assert.match(send, /err\.name === "AbortError" \|\| err\.name === "InvalidStateError"/, '이미 떠 있다(InvalidStateError)는 내려받기로 가지 않는다');
+  assert.match(send, /\.finally\(\(\) => \{ pshState\.sharing = false; \}\)/);
+});
+
+test('typeof 지킴이 · 묵상 단추가 넘기는 칸 — 옛 판과 엇갈려도 깨지지 않는다 · 지금 요일 · 설교 제목', () => {
+  const all = (PR.match(/\bprayShareVisible\(/g) || []).length, safe = (PR.match(/typeof prayShareVisible === "function" && prayShareVisible\(/g) || []).length;
+  assert.ok(all > 0 && all === safe, 'js/prayer.js 의 prayShareVisible() 는 모두 typeof 뒤에서 — 옛 app.js(v3.700~701)에는 이 함수가 없다');
+  const mm = cut(APP, 'function showMeditationModal(', '\n}\n'), bm = cut(APP, 'function openBlessingModal(b) {', '\n}\n');
+  const tap = cut(mm, 'mShare.addEventListener("click"', '});\n');
+  assert.match(tap, /if \(typeof openMedShare === "function"\) openMedShare\(m\);/, '받기에 실패해도 withLazyJs 는 부른다');
+  assert.match(tap, /typeof openPrayShare === "function" \? "앱이 새 판으로 바뀌었어요\. 앱을 껐다가 다시 열어 주세요\."/, '옛 pray-share.js 가 실려 있으면 다시 눌러도 같다 — 껐다 켜기로');
+  assert.match(cut(bm, 'share.addEventListener("click"', '});'), /if \(typeof openPrayShare === "function"\) openPrayShare\(\{ no: b\.no/);
+  assert.match(PR, /if \(typeof openPrayShare === "function"\) openPrayShare\(list\[i\], prayName\);/);
+  assert.match(tap, /sermonTitle: \(sermon && sermon\.title\) \|\| ""/, '맨 아래 「설교 「제목」」');
+  assert.match(tap, /idx: cur\b/, '파일 이름 · 별 자리도 지금 요일');
+  assert.match(mm, /let cur = startIdx;[\s\S]*?const render = \(i\) => \{\s*const it = items\[i\];\s*cur = i;/, '탭을 넘기면 그 요일을(let · render 안에서)');
+  // 반대쪽 문장 경계 — 「…것입니다. **감사는 발견입니다.**」 끝이 앞 토막에 있고 다음 문장이 강조로 시작해도 끊는다
+  const p0 = T.medShareParas(MEDS[0].message);
+  assert.equal(p0.length, 5);
+  assert.deepEqual(JSON.parse(JSON.stringify(p0[4])), [{ s: '감사는 발견입니다.', a: true }]);
+  assert.deepEqual(JSON.parse(JSON.stringify(T.medShareParas('가 **나다** 라. 마'))), [[{ s: '가 ', a: false }, { s: '나다', a: true }, { s: ' 라.', a: false }], [{ s: '마', a: false }]]);
+  // 질문은 강조색(맺음말처럼)
+  const pl = T.medSharePlan(MEDS[0], 'frame', measure), tx = pl.ops.filter((o) => o.k === 'text');
+  const qi = tx.findIndex((o) => o.s === T.MED_QLABEL);
+  assert.ok(qi > 0 && tx[qi + 1].color === T.PRAY_SHARE_STYLES.frame.accent, '적용 질문은 강조색');
 });
