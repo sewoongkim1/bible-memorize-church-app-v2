@@ -29,7 +29,7 @@ const measure = (s, font) => {
   return w * (/^800 /.test(font) ? 1.04 : 1);
 };
 const NAMES = ['김세웅', '김윤월', '가나다라마바사아자차카타'];
-const STYLES = ['frame', 'leaf', 'night', 'photo'];
+const STYLES = ['frame', 'leaf', 'night', 'photo', 'veil'];   // veil = 밝은 사진(옅은 판 + 진한 글씨 · 2026-11-04)
 const flat = (s) => String(s).replace(/\s+/g, '');
 
 test('prayShareName — 12자까지 · <> 걷기 · 빈 값은 「우리 가정」', () => {
@@ -172,8 +172,11 @@ test('prayShareChoices — 밤하늘 · 액자 · 잎 다음에 풍경 사진(im
   assert.equal(c.length, 3 + T.PRAY_SHARE_PHOTOS.length);
   // 추수감사 둘은 사진 맨 앞(친구 2026-11-04 「추수감사절 배경 이미지로 2개 추가」 — 철이 지나 차례를 바꾸면 이 줄도 함께)
   assert.deepEqual(JSON.parse(JSON.stringify(T.PRAY_SHARE_PHOTOS.slice(0, 2).map((p) => p.id))), ['bg-basket', 'bg-persimmon']);
+  // 친구가 준 추수감사 그림 셋(같은 날) — 감나무 다음 · 밝은 둘은 veil(흰 글씨가 안 읽혔다)
+  assert.deepEqual(JSON.parse(JSON.stringify(T.PRAY_SHARE_PHOTOS.slice(2, 5).map((p) => [p.id, p.style || 'photo']))),
+    [['bg-maple', 'photo'], ['bg-harvest', 'veil'], ['bg-watercolor', 'veil']]);
   for (const p of c.slice(3)) {
-    assert.equal(p.style, 'photo');
+    assert.ok(p.style === 'photo' || p.style === 'veil', p.key + ' 꼴 ' + p.style);
     assert.match(p.src, /^img\/share\/[a-z0-9-]+\.webp$/);
     assert.ok(fs.existsSync(path.join(__dirname, '..', p.src)), p.src + ' 가 없다');
     assert.ok(fs.existsSync(path.join(__dirname, '..', p.thumb)), p.thumb + ' 가 없다');
@@ -298,4 +301,14 @@ test('배선 — 「🌿 오늘의 묵상」 창: 문은 app.js(MED_SHARE_OPEN �
   assert.match(tap, /verseRef: \(verse && \(verse\.refFull \|\| verse\.refShort\)\)/, '구절은 긴 한국어 표기(「누가복음 17장 16절」) — 영어 모드와 상관없이 · 줄임말(「눅」)은 받는 분께 낯설다');
   assert.match(PS, /function openMedShare\(m\) \{/);
   assert.match(PS, /pshOpen\(PSH_TITLE_MED, false, ""\)/, '묵상 판은 이름 칸 없이');
+});
+
+test('보내기 판 — 폰에서 「보내기」가 아래로 숨지 않는다(친구 2026-11-04 · 갤럭시) — 미리보기는 화면 높이에 맞춰 줄고 · 단추는 판 아래에 붙는다', () => {
+  const CSS = read('style.css');
+  assert.match(CSS, /\.psh-send \{ position: sticky; bottom: 0;/, '단추가 판 아래에 붙는다(sticky)');
+  assert.match(CSS, /\.psh-pv \{ width: min\(100%, 300px, max\(180px, calc\(\(100vh - 420px\) \* \.8\)\)\); \}/, '미리보기 폭이 화면 높이를 따른다');
+  assert.match(CSS, /@supports \(height: 100dvh\) \{\n  \.psh-sheet \{ max-height: 94dvh; \}/, '주소창이 있는 브라우저 — dvh');
+  // 단추 자리는 미리보기 바로 다음(sticky 가 붙을 자리) — 판 짜임이 바뀌면 이 시험도 함께
+  const pv = PS.indexOf('<div class="psh-pv">'), send = PS.indexOf('id="psh-send"');
+  assert.ok(pv > 0 && send > pv && send - pv < 120, '보내기는 미리보기 바로 아래');
 });

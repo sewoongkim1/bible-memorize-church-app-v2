@@ -38,4 +38,15 @@
 | `bg-basket` | 열매 | A harvest still life: a woven wicker basket overflowing with grapes, red apples, pears, pomegranates and a small pumpkin, golden wheat ears beside it, on a rustic dark wooden table, warm soft window light from the left, dark warm brown background. |
 | `bg-persimmon` | 감나무 | Ripe orange persimmons hanging on bare persimmon tree branches against a clear deep blue autumn sky, a softly blurred golden rice field far below, Korean countryside in harvest season, warm late afternoon light. |
 
+## 친구가 준 추수감사 그림 셋(2026-11-04 · 「3개의 그림을 넣어주세요」)
+
+AI 그림이 아니다 — 친구가 소책자 · 광고에 쓰던 그림(`자료/2026추수감사절/` · 원본은 커밋 안 함). 공개 저장소 · 웹에 원본이 올라간다고 알린 뒤
+친구가 「넣어 주세요」(웹에 올려도 되는 허락이 있는 것으로 확인). 가로 그림이라 세로 4:5 로 잘랐다(높이는 그대로 · 폭만 · 1080×1350 WebP q80).
+
+| 파일 | 이름 | 원본 | 자른 자리 | 꼴 |
+|---|---|---|---|---|
+| `bg-maple` | 단풍길 | `Background 3.png`(1024×768) | 가운데 · 작아 키우면 거칠어 흐림 0.6 | photo(흰 글씨) |
+| `bg-harvest` | 풍성 | `—Pngtree—happy thanksgiving background_15997619.jpg`(4368×2448) | 왼쪽 끝(바구니가 왼쪽) | veil(옅은 판 + 진한 글씨 — 흰 글씨가 바구니 위에서 어지러웠다) |
+| `bg-watercolor` | 수채화 | `thanksgiving-basket-harvest-fruits.jpg`(5376×3072) | 오른쪽 끝(바구니가 오른쪽) | veil(바탕이 밝아 흰 글씨가 안 읽혔다) |
+
 ⚠️ 사진을 더하거나 빼면 `PRAY_SHARE_PHOTOS` 와 이 표를 함께 — `tests/pray-share.test.cjs` 가 파일(큰 그림 · 작은 그림)이 있는지 본다.

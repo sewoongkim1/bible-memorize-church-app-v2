@@ -24,6 +24,9 @@ const PRAY_SHARE_STYLES = {
            orn: "#d9bd72", bar: null, disc: true, box: { x: 130, y: 150, w: 820, bottom: 1150 }, wBody: 700, wBold: 800 },
   photo: { label: "사진", family: PSH_SANS, align: "left", valign: "bottom", ink: "#ffffff", accent: "#ffe08a", sub: "#f1ece4",
            orn: null, bar: null, disc: true, shadow: true, box: { x: 110, y: 380, w: 860, bottom: 1160 }, wBody: 500, wBold: 800 },
+  // 밝은 사진(수채화 · 밝은 나무 탁자 — 흰 글씨가 안 읽힌다) — 사진 위에 옅은 막(veil) · 글 뒤에 둥근 판(panel) · 글은 액자처럼 진하게(2026-11-04)
+  veil:  { label: "사진", family: PSH_SERIF, align: "center", valign: "center", ink: "#1e3264", accent: "#9a6a17", sub: "#4f5f80",
+           orn: "#b08a3e", bar: null, disc: true, veil: 0.28, panel: 0.8, box: { x: 150, y: 190, w: 780, bottom: 1170 }, wBody: 700, wBold: 800 },
 };
 // 마크 자리 — { x, y, w, h(그림) · cx, cy, r(동그라미) · keep(글 · 별이 피할 곳) }
 function prayShareMark() {
@@ -33,6 +36,8 @@ function prayShareMark() {
 // 풍경 사진(AI 그림 · 친구가 고른 것) — img/share/<id>.webp(1080×1350) + <id>-t.webp(작은 그림). 더하면 시험이 파일이 있는지 본다.
 const PRAY_SHARE_PHOTOS = [   // 2026-11-04 · Gemini 로 열두 장 그려 여섯을 골랐다 · 같은 날 추수감사 둘을 맨 앞에(여섯 장 그려 둘 · 만든 말은 img/share/prompts.md)
   { id: "bg-basket", label: "열매" }, { id: "bg-persimmon", label: "감나무" },
+  // 친구가 준 추수감사 그림 셋(같은 날 「넣어 주세요」 · 웹에 올릴 허락은 친구가 확인 · 세로 4:5 로 자름 — prompts.md) · 밝은 둘은 veil(옅은 판 + 진한 글씨)
+  { id: "bg-maple", label: "단풍길" }, { id: "bg-harvest", label: "풍성", style: "veil" }, { id: "bg-watercolor", label: "수채화", style: "veil" },
   { id: "bg-dawn", label: "새벽" }, { id: "bg-wheat", label: "들판" }, { id: "bg-sea", label: "바다" },
   { id: "bg-blossom", label: "꽃길" }, { id: "bg-lavender", label: "라벤더" }, { id: "bg-lake", label: "호수" },
 ];
@@ -42,7 +47,7 @@ function prayShareChoices() {
     { key: "frame", style: "frame", label: "액자" },
     { key: "leaf", style: "leaf", label: "잎" },
   ];
-  PRAY_SHARE_PHOTOS.forEach((p) => out.push({ key: "photo:" + p.id, style: "photo", label: p.label,
+  PRAY_SHARE_PHOTOS.forEach((p) => out.push({ key: "photo:" + p.id, style: p.style || "photo", label: p.label,
     src: "img/share/" + p.id + ".webp", thumb: "img/share/" + p.id + "-t.webp" }));
   return out;
 }
@@ -318,6 +323,20 @@ function pshBg(ctx, style, img, seed, plan) {
     ctx.globalAlpha = 1;
     return;
   }
+  if (style === "veil") {   // 밝은 사진 — 꽉 채우고 옅은 막 · 글 덩이 뒤에 둥근 판(진한 글씨가 읽히게). 그림을 못 받으면 액자 바탕색.
+    const S = PRAY_SHARE_STYLES.veil;
+    if (!img) { ctx.fillStyle = "#fdf8ef"; ctx.fillRect(0, 0, W, H); return; }
+    const sc = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+    const dw = img.naturalWidth * sc, dh = img.naturalHeight * sc;
+    ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    ctx.fillStyle = "rgba(255, 251, 244, " + S.veil + ")"; ctx.fillRect(0, 0, W, H);
+    const x = plan.box.x - 50, y = plan.top - 46, w = plan.box.w + 100, h = plan.bottom - plan.top + 90, r = 30;
+    ctx.fillStyle = "rgba(255, 251, 244, " + S.panel + ")";
+    ctx.beginPath();   // 둥근 판 — ctx.roundRect 는 사파리 16 미만에 없어 손으로 그린다
+    ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); ctx.fill();
+    return;
+  }
   // photo — 그림을 꽉 채우고(잘라서) 글이 올라갈 아래쪽을 어둡게. 그림을 못 받으면 남색 하늘로.
   if (!img) { pshNight(ctx); return; }
   const sc = Math.max(W / img.naturalWidth, H / img.naturalHeight);
@@ -480,7 +499,7 @@ function pshOpen(title, withName, name) {
   const choices = prayShareChoices();
   if (!choices.some((c) => c.key === pshState.key)) pshState.key = choices[0].key;   // 처음엔 맨 왼쪽(밤하늘) · 이 화면을 쓰는 동안은 마지막에 고른 배경을 기억한다
   const thumb = (c) => {
-    const inner = c.style === "photo" ? `<img src="${prayEsc(c.thumb)}?v=${prayEsc(String(APP_BUILD))}" alt="">`
+    const inner = c.thumb ? `<img src="${prayEsc(c.thumb)}?v=${prayEsc(String(APP_BUILD))}" alt="">`   // 사진(photo · veil)은 작은 그림
       : c.style === "night" ? "" : `<img class="psh-leaf" src="${pshLeafSrc()}" alt="">`;
     return `<button type="button" class="psh-t psh-t-${c.style}" role="radio" aria-checked="${c.key === pshState.key}" data-k="${prayEsc(c.key)}" aria-label="${prayEsc(c.label)}">${inner}<i>${prayEsc(c.label)}</i></button>`;
   };
