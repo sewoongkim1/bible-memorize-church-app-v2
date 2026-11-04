@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261104f";
+const APP_BUILD = "20261104g";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -4117,7 +4117,7 @@ const PRAY_SHARE_OPEN = true;   // 2026-11-04 모두에게 열었다(친구 「�
 function prayShareVisible() { return PRAY_SHARE_OPEN || (typeof ministryTesterCached === "function" && ministryTesterCached()); }
 // 🌿 오늘의 묵상 보내기(2026-11-04 친구 「그림 한 장 · 적용 질문 · 설교 제목 · 말씀」 · 같은 판 js/pray-share.js openMedShare) — 먼저 🧪 시험 참여자에게만.
 //   친구가 시안을 보고 나면 true 한 줄 + bump · 설명서 한 줄(docs/notes/prayer-book.md 「2026-11 보내기」 끝).
-const MED_SHARE_OPEN = false;
+const MED_SHARE_OPEN = true;   // 2026-11-04 모두에게 열었다(친구가 갤럭시에서 써 본 뒤 「열어주세요」 · 설명서 매일 묵상 장에 한 줄) · 닫으려면 false 한 줄 + bump
 function medShareVisible() { return MED_SHARE_OPEN || (typeof ministryTesterCached === "function" && ministryTesterCached()); }
 // 「🙏 오늘의 기도」 전용 팝업 — 위젯과 같은 편(제목·말씀·기도문). 이름 자리는 **로그인 이름**으로 채운다
 //   (2026-09-26 성도님 요청 — 서버가 준 tpl 원문을 prayFill. 옛 서버라 tpl 이 없으면 위젯 글 그대로).
@@ -10492,6 +10492,7 @@ const MANUAL = [
       "첫 화면 <b>🌿 매일 묵상</b>을 누르세요.",
       "그 주 설교가 <b>요일별로 한 조각씩</b> 나뉘어 있어요.",
       "요일 단추를 눌러 다른 날 것도 볼 수 있어요.",
+      "금색 <b>카톡·문자로 보내기</b>를 누르면, 지금 보고 있는 요일의 묵상을 <b>그림 한 장</b>으로 카카오톡이나 문자로 보낼 수 있어요.",
     ],
     tip: "짧아서 아침에 한 번 읽기 좋습니다.",
   },
