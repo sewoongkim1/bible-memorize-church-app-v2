@@ -76,7 +76,7 @@
 - [ ] **축복 기도문 — 주제 그룹만 남았다**(성도님께는 **2026-09-03 에 이미 열렸다** · 커밋 `11a1bea`): ① `자료/marketing/가정축복기도문_수정.xlsx` D열 「그룹」을 담당자가 손보면 ② `supabase/blessings.sql`·`blessings.json`을 다시 만들어 개발→운영 순으로 반영한다. ⚠️ 여기 적혀 있던 ③ 「첫 화면에 한 줄 더하기」는 **만든 날 이미 끝난 일**이었다(2026-09-24 정정) — 첫 화면 단추에 게이트가 없다. 즉 남은 것은 **여는 일이 아니라 본문 갈아 끼우기**다.
 - **2026-10-14 기도문 화면 A안(v3.646 · `PRAY_LAYOUT` · js/prayer.js `prayApplyA` · 상세 `design-refresh.md` 「v3.646」)** — 짜임 그대로 옷만. ⚠️ 「들려주기」 이름을 바꾸는 여섯 곳은 그대로 두고 아이콘은 지켜보다 다시 붙인다 · 연속 · 반복 · 배경음악의 켬/끔은 체크 상자로(코드가 체크를 직접 끈다). 크게 보기 덮개(`.pr-full`)와 액자는 손대지 않았다.
 
-## 2026-11 보내기 — 카톡·문자로(2026-11-04 · 🧪 시험 참여자만)
+## 2026-11 보내기 — 카톡·문자로(2026-11-04 · 같은 날 모두에게 열림 · 게시판 공지)
 
 친구 요청 「이름을 수정해서 카톡, sms 공유 · 디자인을 골라 배경을」. 설계 `docs/superpowers/specs/2026-11-04-prayer-share-design.md` · 계획 `docs/superpowers/plans/2026-11-04-prayer-share.md`.
 
@@ -91,8 +91,14 @@
   작은 그림 CSS 도 `scaleX(-1)`). 별도 마크 둘레에 안 찍는다. 28px 로도 넘칠 때 내려가는 바닥은 `PSH_FLOOR`(1258 — 예전엔 아래 마크 위 1192).
 - **파일:** `js/pray-share.js`(지연 — `LAZY_JS.prayShare` · 기도문 화면도 지연이라 그 안에서 `withLazyJs`) · 단추와 문은 `js/prayer.js` · 옷은 `style.css` 끝 `.pr-share` · `.psh-*` ·
   사진은 `img/share/bg-*.webp` + 작은 그림 `*-t.webp`(만든 말 · 버린 것 `img/share/prompts.md`) · 시험 `tests/pray-share.test.cjs`(preflight).
-- **문:** `PRAY_SHARE_PUBLIC = false`(js/prayer.js 머리) · `PRAY_SHARE_PUBLIC || ministryTesterCached()` 일 때만 단추를 **그린다**. 시험 참여자 캐시는 앱이 켜질 때
-  서버(`ministryTester`)로 다시 맞춘다 — 명단에서 빠지면 단추도 사라진다. 모두에게 열 때 `true` 한 줄 + bump · 설명서 기도문 장에 한 줄(그때 스킬 `copy-truth`).
+- **문:** `PRAY_SHARE_OPEN`(**app.js** · `prayShareVisible()` 바로 위) — **2026-11-04 `true` 로 모두에게 열었다**(친구 「게시해 주세요」 · 설명서 기도문 장에 한 줄). 닫으려면 `false` 한 줄 + bump —
+  그러면 🧪 시험 참여자(`ministryTesterCached` · 앱이 켜질 때 서버 `ministryTester` 로 다시 맞춘다)에게만 보인다.
+  처음(v3.700~701)엔 `js/prayer.js` 의 `PRAY_SHARE_PUBLIC` 이었다 — 「🙏 오늘의 기도」 창(app.js)도 같은 문을 보게 app.js 로 옮겼다.
+  ⚠️ **app.js 상수 이름을 옛 이름과 다르게 둔 까닭:** 배포 직후 CDN 이 옛 `js/prayer.js` 를 주면, 같은 이름의 `const` 가 「이미 선언됨」으로 그 파일을 통째로 깨뜨린다.
+  거꾸로 앱을 켜 둔 채 배포를 넘긴 분은 옛 app.js 에 새 `js/prayer.js` 가 실린다(`?v=` 는 내용을 고르지 않는다) — 그래서 prayer.js 는 `typeof prayShareVisible` 로 부른다(없으면 단추만 안 보임).
+- **「🙏 오늘의 기도」 창에도 단추(친구 2026-11-04 · 같은 날 창 머리 「🙏 기도」 → 「🙏 오늘의 기도」):** `openBlessingModal` — 서버 `getTodayBlessing` 의 원문(`tpl`)이 있을 때만
+  (위젯 글 `prayer` 는 「우리 가족」으로 이미 채워져 있어 판에서 이름을 다시 못 채운다 · 옛 서버면 단추 없음). 누르면 **이 창을 먼저 걷고** 판을 연다 —
+  겹치면 이 창의 Esc · Enter 받이(`wireModalConfirm` · 캡처 단계)가 판보다 먼저 잡는다. 이름 칸 처음 값은 로그인 이름.
 - ⚠️ **공유는 「보내기」를 누른 그 탭 안에서** — 그림은 미리보기를 그릴 때 이미 만든 `pshState.blob` 을 쓴다. 탭 안에서 새로 그리면(글꼴 · 그림을 기다리는 동안)
   사용자 동작이 식어 `share` 가 막힌다. 이름을 치는 중(0.3초 뒤 다시 그림) · 배경을 바꾸는 중에는 단추가 「그리는 중…」으로 잠긴다(옛 이름 그림이 나가지 않게).
   `title` · `text` 는 넣지 않는다(카톡이 그림과 글을 함께 받으면 글을 따로 보내거나 빼는 판이 있다 — 「그림 한 장」).
@@ -109,8 +115,8 @@
   (`channel="chrome"` · 그림은 dataURL 을 textarea 에 담아 꺼낸다). 앱 화면 확인은 supabase 로 가는 요청을 브라우저 안에서 가짜로 답하고(가짜 성도 · 시험 참여자 표식) ·
   `navigator.share` 를 가짜로 바꿔 넘어간 파일만 적는다. ⚠️ **저절로 뜨는 창을 DOM 에서 지우지 말 것** — 그 창의 Esc 받이(`wireModalConfirm` · 캡처 단계)가 남아 첫 Esc 를
   먹어 「Esc 로 안 닫힌다」로 오진한다. `tools/capture-ios-shots.py` 처럼 창 띄우는 함수를 빈 함수로 바꾼다.
-- **남은 것:** 친구 폰(🧪)에서 카톡 · 문자로 보내 보기 — 아이폰 사파리 · **아이폰 앱(WKWebView — 공유 창이 안 뜨면 길게 눌러 저장 안내가 길)** · 플레이 앱(TWA) · 삼성 인터넷.
-  보고 나면 `PRAY_SHARE_PUBLIC = true`. 예비 사진(강가)은 저장소 밖에 있다 — 바꾸고 싶으면 `PRAY_SHARE_PHOTOS` · `img/share/` · `prompts.md` 를 함께.
+- **남은 것:** 실기기에서 카톡 · 문자로 보내 보기(열기 전엔 친구가 PC 화면으로만 봤다) — 아이폰 사파리 · **아이폰 앱(Capacitor · WKWebView — 공유 기능을 따로 넣지 않았다 ·
+  공유 창이 안 뜨면 길게 눌러 저장 안내가 길)** · 플레이 앱(TWA) · 삼성 인터넷. 예비 사진(강가)은 저장소 밖에 있다 — 바꾸고 싶으면 `PRAY_SHARE_PHOTOS` · `img/share/` · `prompts.md` 를 함께.
 - **게시판 공지(친구 2026-11-04 「화면 및 카톡 이미지도」 · 올리기 전에 미리보기):** 글과 사진 넷은 `자료/2026추수감사절/게시판/기도문보내기/`(커밋 안 함 —
   글 `기도문보내기.txt` · ① 기도문 화면 ② 보내기 판(번호 ①②③) ③·④ 카톡으로 받는 그림(열매 · 감나무) · `미리보기.png`). 사진은 localhost 에서 가짜 성도 「홍길동」으로 찍고
   「개발 DB」 띠 · 아래 고정 단추는 사진에서만 가린다(⚠️ 스플래시가 다 걷힌 뒤에 찍을 것 — 사라지는 중에 찍으면 로고 · 판 번호가 겹친다).

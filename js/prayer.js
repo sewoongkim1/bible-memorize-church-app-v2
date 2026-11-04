@@ -10,9 +10,9 @@ let prayGroup = null;      // 어느 주제 목록에서 들어왔나 — 돌아
 let prayAutoPlay = false;  // 연속듣기 모드 — TTS 끝나면 다음 편으로 자동 이동
 let prayRepeat  = false;  // 반복듣기 모드 — TTS 끝나면 같은 편 다시 재생
 // 📤 카톡·문자로 보내기(2026-11-04 · js/pray-share.js 지연 · 설계 docs/superpowers/specs/2026-11-04-prayer-share-design.md)
-//   먼저 🧪 시험 참여자에게만 — 친구 폰에서 카톡 · 문자 · 아이폰 앱 · 플레이 앱을 본 뒤 true 한 줄 + bump 로 모두에게.
-const PRAY_SHARE_PUBLIC = false;
-function prayShareVisible() { return PRAY_SHARE_PUBLIC || (typeof ministryTesterCached === "function" && ministryTesterCached()); }
+//   문(PRAY_SHARE_OPEN · prayShareVisible)은 app.js 에 있다 — 「🙏 오늘의 기도」 창도 같은 문을 본다.
+//   ⚠️ 여기서 다시 const 로 선언하지 말 것(이 파일을 불러올 때 「이미 선언됨」으로 통째로 실패한다) ·
+//      부를 때는 typeof 로 — 앱을 켜 둔 채 배포를 넘긴 분은 옛 app.js(이 함수 없음)에 새 이 파일이 실린다.
 // 연속듣기·배경음악 체크박스 — **처음엔 켜져 있다**(2026-09-25 친구 요청).
 // ⚠️ 체크박스는 「지금 재생 중인가」(prayAutoPlay·prayBgAudio.paused)가 아니라 **고른 설정**을 비춘다.
 //    전에는 재생 상태를 그대로 비춰, 기본을 켜 둬도 멈춤·이전·다음 한 번에 체크가 풀렸다.
@@ -151,7 +151,7 @@ function drawPrayer(list, i) {
       <div class="pr-prayer">${prayer}</div>
       <button class="pr-verse-tog" id="pr-vtog" aria-expanded="${prayOpenVerse}">${prayOpenVerse ? "▴ 말씀 접기" : "▾ 말씀 펴 보기"}</button>
       <div class="pr-verse" id="pr-verse" ${prayOpenVerse ? "" : "hidden"}>${prayEsc(b.verse)}</div>
-      ${prayShareVisible() ? `<button class="pr-share" id="pr-share">📤 카톡·문자로 보내기</button>` : ""}
+      ${typeof prayShareVisible === "function" && prayShareVisible() ? `<button class="pr-share" id="pr-share">📤 카톡·문자로 보내기</button>` : ""}
       <div class="pr-acts">
         <button class="pr-big" id="pr-big" title="크게 보기">⛶</button>
         <button class="pr-speak" id="pr-speak">🔊 들려주기</button>

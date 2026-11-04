@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261104b";
+const APP_BUILD = "20261104c";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -4108,14 +4108,24 @@ function fetchTodayBlessing() {
     .catch(() => null);
 }
 
-// 「🙏 기도」 전용 팝업 — 위젯과 같은 편(제목·말씀·기도문). 이름 자리는 **로그인 이름**으로 채운다
+// 📤 기도문 보내기의 문(2026-11-04 · js/pray-share.js) — 기도문 화면(js/prayer.js · 지연)과 아래 「🙏 오늘의 기도」 창이 함께 본다.
+//   그래서 늘 있는 app.js 에 둔다(기도문 화면보다 이 창이 먼저 뜰 수 있다). false 동안은 🧪 시험 참여자에게만 단추를 그린다 —
+//   모두에게 열 때 true 한 줄 + bump · 설명서 한 줄(docs/notes/prayer-book.md 「2026-11 보내기」).
+//   ⚠️ 이름을 v3.700~701 의 js/prayer.js 상수(PRAY_SHARE_PUBLIC)와 다르게 — 배포 직후 CDN 이 옛 prayer.js 를 주면 같은 이름의 const 가
+//      「이미 선언됨」으로 그 파일을 통째로 깨뜨린다. 함수(prayShareVisible)는 다시 선언돼도 괜찮다 · 새 prayer.js 는 typeof 로 본다(옛 app.js 와 만날 때).
+const PRAY_SHARE_OPEN = true;   // 2026-11-04 모두에게 열었다(친구 「게시해 주세요」 — 게시판 공지와 함께) · 닫으려면 false 한 줄 + bump
+function prayShareVisible() { return PRAY_SHARE_OPEN || (typeof ministryTesterCached === "function" && ministryTesterCached()); }
+// 「🙏 오늘의 기도」 전용 팝업 — 위젯과 같은 편(제목·말씀·기도문). 이름 자리는 **로그인 이름**으로 채운다
 //   (2026-09-26 성도님 요청 — 서버가 준 tpl 원문을 prayFill. 옛 서버라 tpl 이 없으면 위젯 글 그대로).
 //   ⚠️ 「확인」은 덮개만 걷는다 — renderSummary() 를 부르지 않는다(뒤 화면이 튕긴다 · today-song.md).
 //   「축복 기도문」만 화면을 바꾼다(오늘 한 편 = 같은 편, 거기선 내 이름으로 읽힌다).
+//   📤 「카톡·문자로 보내기」(2026-11-04 친구) — 원문(tpl)이 있어야 판에서 이름을 다시 채운다(옛 서버면 단추 없음).
+//      이 창을 먼저 걷고 판을 연다 — 겹치면 이 창의 Esc · Enter 받이(wireModalConfirm · 캡처 단계)가 판보다 먼저 잡는다.
 function openBlessingModal(b) {
   if (!b) return;
   const u = loadUser();
   const body = b.tpl ? prayFillHtml(b.tpl, (u && u.name) || "우리 가정") : boardEsc(b.prayer || "");
+  const canShare = !!b.tpl && prayShareVisible();
   const open = () => {
     if (document.querySelector(".cheer-overlay")) { setTimeout(open, 300); return; }
     const wrap = document.createElement("div");
@@ -4123,10 +4133,11 @@ function openBlessingModal(b) {
     wrap.className = "cheer-overlay";
     wrap.innerHTML = `
       <div class="cheer-card dmsg-card bless" role="dialog" aria-modal="true">
-        <div class="cheer-ref dmsg-badge">🙏 기도</div>
+        <div class="cheer-ref dmsg-badge">🙏 오늘의 기도</div>
         <div class="dmsg-title">${boardEsc(b.title || "")}</div>
         ${b.ref ? `<div class="bless-ref">${boardEsc(b.ref)}</div>` : ""}
         <div class="cheer-msg dmsg-body bless-body">${body}</div>
+        ${canShare ? `<button class="pr-share" id="bless-share">${haSvg("share", "pra-ic")}카톡·문자로 보내기</button>` : ""}
         <div class="song-modal-actions">
           <button class="summary-help" id="bless-more">축복 기도문</button>
           <button class="cheer-ok" id="bless-close">확인</button>
@@ -4139,6 +4150,14 @@ function openBlessingModal(b) {
     document.getElementById("bless-more").addEventListener("click", () => {
       done();
       setTimeout(() => openPrayerBook(), 260);
+    });
+    const share = document.getElementById("bless-share");
+    if (share) share.addEventListener("click", () => {
+      done();
+      setTimeout(() => withLazyJs("prayShare", () => {
+        if (typeof openPrayShare === "function") openPrayShare({ no: b.no, title: b.title, ref: b.ref, prayer: b.tpl }, (u && u.name) || "");
+        else appAlert("보내기 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
+      }), 260);
     });
     wrap.addEventListener("click", (e) => { if (e.target === wrap) done(); });
   };
@@ -10499,6 +10518,7 @@ const MANUAL = [
       "<b>오늘의 기도문</b> 한 편이 <b>내 이름</b>을 넣어 나와요.",
       "<b>🔊 들려주기</b>를 누르면 소리 내어 읽어 드려요.",
       "가족을 위해 기도하시려면 이름이 적힌 <b>🙍</b> 단추를 눌러 이름을 바꾸세요.",
+      "기도문 아래 금색 <b>카톡·문자로 보내기</b>를 누르면, 이름을 넣은 기도문을 <b>그림 한 장</b>으로 카카오톡이나 문자로 보낼 수 있어요.",
       "아래 <b>주제로 찾기</b>에서 다른 기도문도 고를 수 있어요.",
     ],
     tip: "<b>연속듣기</b>를 켜면 다음 기도문으로 이어서, <b>🎵배경음악</b>을 켜면 잔잔한 음악과 함께 들려 드려요.",

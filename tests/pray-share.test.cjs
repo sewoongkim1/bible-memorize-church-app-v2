@@ -182,15 +182,29 @@ test('prayShareChoices — 액자 · 잎 · 밤하늘 다음에 풍경 사진(im
 test('배선 — 지연 모듈(LAZY_JS.prayShare · index.html 에 없음) · 단추는 문 안에만 · 보내기는 미리 만든 Blob 으로', () => {
   assert.match(APP, /prayShare: \{ src: "js\/pray-share\.js", fn: "openPrayShare" \}/);
   assert.ok(!INDEX.includes('js/pray-share.js'), 'index.html 이 처음부터 부르면 안 된다');
-  assert.match(PR, /const PRAY_SHARE_PUBLIC = (true|false);/);
-  assert.match(PR, /function prayShareVisible\(\) \{ return PRAY_SHARE_PUBLIC \|\| \(typeof ministryTesterCached === "function" && ministryTesterCached\(\)\); \}/);
-  assert.match(PR, /\$\{prayShareVisible\(\) \? `<button class="pr-share" id="pr-share">/, '단추는 문 안에서만 그린다');
+  // 문은 app.js 한 곳(2026-11-04 — 「🙏 오늘의 기도」 창도 본다 · js/prayer.js 는 지연이라 그 창이 먼저 뜰 수 있다)
+  assert.match(APP, /const PRAY_SHARE_OPEN = (true|false);/);
+  assert.match(APP, /function prayShareVisible\(\) \{ return PRAY_SHARE_OPEN \|\| \(typeof ministryTesterCached === "function" && ministryTesterCached\(\)\); \}/);
+  // ⚠️ 판이 엇갈려도 깨지지 않게 — 배포 직후 CDN 이 옛 prayer.js(const PRAY_SHARE_PUBLIC)를 주면 app.js 의 같은 이름 const 가 그 파일을 「이미 선언됨」으로 깨뜨린다 ·
+  //    켜 둔 앱(옛 app.js)에 새 prayer.js 가 실리면 prayShareVisible 이 없다 — 그래서 typeof 로 부른다
+  assert.doesNotMatch(APP, /(const|let|var)\s+PRAY_SHARE_PUBLIC\b/, 'app.js 에 옛 상수 이름을 선언하지 않는다');
+  assert.doesNotMatch(PR, /^\s*(const|let|var)\s+PRAY_SHARE_\w+/m, 'js/prayer.js 는 문을 다시 선언하지 않는다');
+  assert.match(PR, /\$\{typeof prayShareVisible === "function" && prayShareVisible\(\) \? `<button class="pr-share" id="pr-share">/, '단추는 문 안에서만 · typeof 로');
   // 「말씀 펴 보기」 바로 아래 · 들려주기 줄 위(친구 2026-11-04 — 카드 맨 아래에서는 눈에 안 띄었다)
   const card = cut(PR, 'id="pr-vtog"', 'class="grp-title"');
   const iv = card.indexOf('id="pr-verse"'), is = card.indexOf('id="pr-share"'), ia = card.indexOf('class="pr-acts"');
   assert.ok(iv >= 0 && is > iv && ia > is, '단추 자리: 말씀 펴 보기 → 보내기 → 들려주기');
   assert.equal(card.split('id="pr-share"').length - 1, 1, '단추는 하나');
   assert.match(PS, /<b id="psh-h">📤 가정 축복 기도문 보내기<\/b>/, '판 제목(친구 2026-11-04)');
+  // 「🙏 오늘의 기도」 창(app.js openBlessingModal · 친구 2026-11-04) — 머리 「오늘의 기도」 · 보내기 단추는 문 안 + 원문(tpl)이 있을 때만 ·
+  //   창을 먼저 걷고(done) 판을 연다 · 판에는 원문(이름 토큰 그대로)을 넘긴다(위젯 글 prayer 는 「우리 가족」으로 이미 채워져 있다)
+  const bm = cut(APP, 'function openBlessingModal(b) {', '\n}\n');
+  assert.match(bm, /<div class="cheer-ref dmsg-badge">🙏 오늘의 기도<\/div>/);
+  assert.match(bm, /const canShare = !!b\.tpl && prayShareVisible\(\);/);
+  assert.match(bm, /\$\{canShare \? `<button class="pr-share" id="bless-share">/);
+  const tap = cut(bm, 'share.addEventListener("click"', '});');
+  assert.ok(tap.indexOf('done();') >= 0 && tap.indexOf('done();') < tap.indexOf('withLazyJs("prayShare"'), '창을 먼저 걷고 판을 연다');
+  assert.match(tap, /openPrayShare\(\{ no: b\.no, title: b\.title, ref: b\.ref, prayer: b\.tpl \}/, '판에는 원문(tpl)');
   assert.match(PR, /withLazyJs\("prayShare"/);
   const send = cut(PS, 'function pshSend() {', '\n}\n');
   assert.match(send, /pshState\.blob/);
