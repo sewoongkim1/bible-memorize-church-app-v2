@@ -96,6 +96,18 @@ test('praySharePlan — 짧은 편은 큰 글씨 · 긴 편은 작은 글씨(가
   assert.ok(T.praySharePlan(long, '가나다라마바사아자차카타', 'frame', measure).size < T.PSH_MAX);
 });
 
+test('praySharePlan — 맺음말이 한 줄에 안 들면 가운데에서 둘로(「아멘!」 홀로 남지 않게) · 글 자리(top · rects)를 돌려준다(배경이 피한다)', () => {
+  const short = LIST.reduce((a, b) => (b.prayer.length < a.prayer.length ? b : a));
+  for (const st of STYLES) {
+    const p = T.praySharePlan(short, '김세웅', st, measure);
+    const tx = p.ops.filter((o) => o.k === 'text');
+    const amen = tx.filter((o) => o.color === T.PRAY_SHARE_STYLES[st].accent && o.s !== '김세웅').map((o) => o.s);
+    assert.deepEqual(JSON.parse(JSON.stringify(amen)), ['예수님의 이름으로 축복하며', '기도합니다. 아멘!'], st);
+    assert.equal(p.rects.length, tx.length, st + ' 글 토막마다 자리');
+    assert.ok(p.top >= T.PRAY_SHARE_STYLES[st].box.y && p.top < p.bottom, st + ' top');
+  }
+});
+
 test('prayShareChoices — 액자 · 잎 · 밤하늘 다음에 풍경 사진(img/share/<id>.webp · 작은 그림 <id>-t.webp)', () => {
   const c = T.prayShareChoices();
   assert.deepEqual(JSON.parse(JSON.stringify(c.slice(0, 3).map((x) => x.key))), ['frame', 'leaf', 'night']);
@@ -106,4 +118,18 @@ test('prayShareChoices — 액자 · 잎 · 밤하늘 다음에 풍경 사진(im
     assert.ok(fs.existsSync(path.join(__dirname, '..', p.src)), p.src + ' 가 없다');
     assert.ok(fs.existsSync(path.join(__dirname, '..', p.thumb)), p.thumb + ' 가 없다');
   }
+});
+
+test('배선 — 지연 모듈(LAZY_JS.prayShare · index.html 에 없음) · 단추는 문 안에만 · 보내기는 미리 만든 Blob 으로', () => {
+  assert.match(APP, /prayShare: \{ src: "js\/pray-share\.js", fn: "openPrayShare" \}/);
+  assert.ok(!INDEX.includes('js/pray-share.js'), 'index.html 이 처음부터 부르면 안 된다');
+  assert.match(PR, /const PRAY_SHARE_PUBLIC = (true|false);/);
+  assert.match(PR, /function prayShareVisible\(\) \{ return PRAY_SHARE_PUBLIC \|\| \(typeof ministryTesterCached === "function" && ministryTesterCached\(\)\); \}/);
+  assert.match(PR, /\$\{prayShareVisible\(\) \? `<button class="pr-share" id="pr-share">/, '단추는 문 안에서만 그린다');
+  assert.match(PR, /withLazyJs\("prayShare"/);
+  const send = cut(PS, 'function pshSend() {', '\n}\n');
+  assert.match(send, /pshState\.blob/);
+  assert.match(send, /navigator\.share\(\{ files: \[file\] \}\)/);
+  assert.doesNotMatch(send, /prayShareDraw\(/, '보내기 탭 안에서 그림을 새로 만들면 공유가 막힌다');
+  assert.doesNotMatch(PS, /\(\?<[=!]/, 'lookbehind 금지(사파리 16.4 미만)');
 });

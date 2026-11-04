@@ -9,6 +9,10 @@ let prayOpenVerse = false; // 말씀을 펴 뒀나 — 이전/다음에도 이�
 let prayGroup = null;      // 어느 주제 목록에서 들어왔나 — 돌아갈 길을 남긴다
 let prayAutoPlay = false;  // 연속듣기 모드 — TTS 끝나면 다음 편으로 자동 이동
 let prayRepeat  = false;  // 반복듣기 모드 — TTS 끝나면 같은 편 다시 재생
+// 📤 카톡·문자로 보내기(2026-11-04 · js/pray-share.js 지연 · 설계 docs/superpowers/specs/2026-11-04-prayer-share-design.md)
+//   먼저 🧪 시험 참여자에게만 — 친구 폰에서 카톡 · 문자 · 아이폰 앱 · 플레이 앱을 본 뒤 true 한 줄 + bump 로 모두에게.
+const PRAY_SHARE_PUBLIC = false;
+function prayShareVisible() { return PRAY_SHARE_PUBLIC || (typeof ministryTesterCached === "function" && ministryTesterCached()); }
 // 연속듣기·배경음악 체크박스 — **처음엔 켜져 있다**(2026-09-25 친구 요청).
 // ⚠️ 체크박스는 「지금 재생 중인가」(prayAutoPlay·prayBgAudio.paused)가 아니라 **고른 설정**을 비춘다.
 //    전에는 재생 상태를 그대로 비춰, 기본을 켜 둬도 멈춤·이전·다음 한 번에 체크가 풀렸다.
@@ -63,6 +67,7 @@ function togglePrayBgMusic(on) {
 
 function renderPrayerBook(idx) {
   prayFullClose();          // 다른 화면에서 돌아올 때 덮개가 남아 있지 않게
+  if (typeof prayShareClose === "function") prayShareClose();   // 보내기 판이 남아 있지 않게
   const u = loadUser();
   if (!prayName) prayName = (u && u.name) || "우리 가정";
   const app = document.getElementById("app");
@@ -105,6 +110,8 @@ function prayApplyA() {
   }
   const nm = document.getElementById("pr-name");
   if (nm) { setStripEmoji(nm); nm.insertAdjacentHTML("afterbegin", haSvg("user", "pra-ic")); }
+  const sh = document.getElementById("pr-share");   // 📤 보내기(2026-11-04) — 다른 단추처럼 선 아이콘
+  if (sh) { setStripEmoji(sh); sh.insertAdjacentHTML("afterbegin", haSvg("share", "pra-ic")); }
   const pv = document.getElementById("pr-prev");
   if (pv) pv.innerHTML = haSvg("back", "pra-ic") + "<span>이전</span>";
   const nx = document.getElementById("pr-next");
@@ -177,6 +184,7 @@ function drawPrayer(list, i) {
         <button class="pr-name" id="pr-name">🙍 ${prayEsc(prayName)}</button>
         <button class="pr-arrow" id="pr-next">다음 →</button>
       </div>
+      ${prayShareVisible() ? `<button class="pr-share" id="pr-share">📤 카톡·문자로 보내기</button>` : ""}
     </div>
     <div class="grp-title">주제로 찾기</div>
     <div class="pr-acc" id="pr-acc">
@@ -200,6 +208,11 @@ function drawPrayer(list, i) {
   document.getElementById("pr-prev").addEventListener("click", () => { prayAutoPlay = false; prayQueue = null; prayRepeat = false; stopSpeaking(); prayGroup = null; drawPrayer(list, (i - 1 + list.length) % list.length); window.scrollTo(0,0); });
   document.getElementById("pr-next").addEventListener("click", () => { prayAutoPlay = false; prayQueue = null; prayRepeat = false; stopSpeaking(); prayGroup = null; drawPrayer(list, (i + 1) % list.length); window.scrollTo(0,0); });
   document.getElementById("pr-name").addEventListener("click", () => askPrayName(list, i));
+  const shareBtn = document.getElementById("pr-share");
+  if (shareBtn) shareBtn.addEventListener("click", () => withLazyJs("prayShare", () => {
+    if (typeof openPrayShare === "function") openPrayShare(list[i], prayName);
+    else appAlert("보내기 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
+  }));
   const toList = document.getElementById("pr-tolist");
   if (toList) toList.addEventListener("click", () => { prayAutoPlay = false; prayQueue = null; stopSpeaking(); renderPrayerGroup(list, prayGroup); });
   document.getElementById("pr-big").addEventListener("click", () => { stopSpeaking(); prayFullOpen(list, i); });

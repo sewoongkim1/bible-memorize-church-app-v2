@@ -195,6 +195,7 @@ var LAZY_JS = {
   pilsa: { src: "js/pilsa.js", fn: "renderPilsaApply" },     // ✍️ 성경필사 노트 신청(2026-10-12 · 「더 보기」 안 · 확인 번호 문을 묻는 동안 받는다)
   ministry: { src: "js/ministry.js", fn: "renderMinistry" },  // 🤝 사역신청 · 🗂️ 사역 이력 확인(2026-10-12 · 한 파일 · 신청 기간엔 모두에게 보이니 미리 받지 않고 확인 번호 문을 묻는 동안)
   navi: { src: "js/navi.js", fn: "renderNaviHome" },          // 📚 네비게이토 성경암송(2026-10-13 · 문 naviVisible 은 이 파일에 · 열면 모두에게 보이니 미리 받지 않고 누를 때)
+  prayShare: { src: "js/pray-share.js", fn: "openPrayShare" },   // 📤 기도문 보내기(2026-11-04 · 기도문 화면의 단추를 누를 때 — js/prayer.js 안에서 부른다)
 };
 var _lazyJsP = {};
 function lazyJsTag() {
