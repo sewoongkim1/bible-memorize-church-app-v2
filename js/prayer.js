@@ -151,6 +151,7 @@ function drawPrayer(list, i) {
       <div class="pr-prayer">${prayer}</div>
       <button class="pr-verse-tog" id="pr-vtog" aria-expanded="${prayOpenVerse}">${prayOpenVerse ? "▴ 말씀 접기" : "▾ 말씀 펴 보기"}</button>
       <div class="pr-verse" id="pr-verse" ${prayOpenVerse ? "" : "hidden"}>${prayEsc(b.verse)}</div>
+      ${prayShareVisible() ? `<button class="pr-share" id="pr-share">📤 카톡·문자로 보내기</button>` : ""}
       <div class="pr-acts">
         <button class="pr-big" id="pr-big" title="크게 보기">⛶</button>
         <button class="pr-speak" id="pr-speak">🔊 들려주기</button>
@@ -184,7 +185,6 @@ function drawPrayer(list, i) {
         <button class="pr-name" id="pr-name">🙍 ${prayEsc(prayName)}</button>
         <button class="pr-arrow" id="pr-next">다음 →</button>
       </div>
-      ${prayShareVisible() ? `<button class="pr-share" id="pr-share">📤 카톡·문자로 보내기</button>` : ""}
     </div>
     <div class="grp-title">주제로 찾기</div>
     <div class="pr-acc" id="pr-acc">

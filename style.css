@@ -8318,14 +8318,17 @@ html[data-fs="xl"] .sg-a #song-play { font-size: 1.22rem; min-height: 56px; }
 .dark .edu-chip.done, .dark .edu-wrap.edu-a .edu-chip.done { background: #252d3b; color: #b8c4da; }
 
 /* ── 📤 가정 축복 기도문 보내기(2026-11-04 · js/pray-share.js · 설계 docs/superpowers/specs/2026-11-04-prayer-share-design.md) ──
-   기도문 카드 맨 아래 금색 테두리 단추 · 누르면 아래에서 올라오는 판(묵상 A 판과 같은 꼴) — 이름 · 배경 · 미리보기 · 보내기. */
+   「말씀 펴 보기」 바로 아래 금색으로 칠한 단추(친구 2026-11-04 「잘 눈에 띄게」 — 처음엔 카드 맨 아래 옅은 테두리 단추) ·
+   누르면 아래에서 올라오는 판(묵상 A 판과 같은 꼴) — 이름 · 배경 · 미리보기 · 보내기. 글씨는 남색(금색 바탕 위 흰 글씨는 대비가 모자란다). */
 .pr-share {
-  display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 48px; margin-top: 10px;
-  border: 1.5px solid #c9a04a; border-radius: 12px; background: #fffaf0; color: #7a5a12; font-size: 1rem; font-weight: 800;
+  display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 52px; margin-top: 12px;
+  border: 0; border-radius: 14px; background: linear-gradient(180deg, #f7cf63, #eab53f); color: #1b2a4a;
+  font-size: 1.05rem; font-weight: 800; font-family: inherit; cursor: pointer; box-shadow: 0 3px 10px rgba(196, 140, 30, .35);
 }
-.pr-share:hover { background: #fbf0d9; color: #7a5a12; }
-.dark .pr-share { background: #2a2416; border-color: #8a6f33; color: #f0d48a; }
-.dark .pr-share:hover { background: #352c19; color: #f0d48a; }
+.pr-share:hover { background: linear-gradient(180deg, #f3c552, #e2aa31); color: #1b2a4a; }
+.pr-share:active { transform: translateY(1px); box-shadow: 0 1px 4px rgba(196, 140, 30, .35); }
+.dark .pr-share { background: linear-gradient(180deg, #e8bd55, #d6a43a); color: #1a1406; box-shadow: none; }
+.dark .pr-share:hover { background: linear-gradient(180deg, #e2b448, #cc9a30); color: #1a1406; }
 body.psh-on { overflow: hidden; }
 .psh-dim {
   position: fixed; inset: 0; z-index: 9500; display: flex; align-items: flex-end; justify-content: center;
@@ -8341,6 +8344,8 @@ body.psh-on { overflow: hidden; }
 .psh-dim.show .psh-sheet { transform: none; }
 .psh-grab { width: 44px; height: 5px; margin: 0 auto 10px; border-radius: 3px; background: #d5d0c6; }
 .psh-top { display: flex; align-items: center; justify-content: space-between; font-size: 1.1rem; color: #1b2333; }
+.psh-top b { word-break: keep-all; }   /* 좁은 폰 · 아주 큰 글씨에서 「보내 / 기」로 끊기지 않게 — 낱말 사이에서만 접는다 */
+.psh-sheet button, .psh-sheet input { font-family: inherit; }   /* 단추 · 칸은 글꼴을 안 물려받는다(이 파일에 전체 규칙이 없다) */
 .psh-x { width: 44px; height: 44px; padding: 0; border: 0; border-radius: 10px; background: transparent; color: #6b6355; font-size: 1.2rem; }
 .psh-lbl { display: block; margin: 12px 2px 6px; font-size: .9rem; font-weight: 800; color: #4a5468; }
 .psh-name {
@@ -8361,7 +8366,7 @@ body.psh-on { overflow: hidden; }
 .psh-t-frame::before { content: ""; position: absolute; inset: 4px; border: 1.5px solid #b08a3e; }
 .psh-t-frame img { position: absolute; left: 3px; bottom: 16px; width: 45%; }
 .psh-t-leaf { background: linear-gradient(160deg, #f6f3ea, #e8efe4); }
-.psh-t-leaf img { position: absolute; top: -6px; right: -12px; width: 80%; transform: rotate(18deg); }
+.psh-t-leaf img { position: absolute; top: -6px; left: -12px; width: 80%; transform: scaleX(-1) rotate(18deg); }   /* 그림과 같이 왼쪽 위(오른쪽 위는 마크 자리) */
 .psh-t-night { background: radial-gradient(120% 90% at 50% 0%, #2a4a8a, #15264f 55%, #0c1734); }
 .psh-t-photo img { width: 100%; height: 100%; object-fit: cover; }
 .psh-pv {

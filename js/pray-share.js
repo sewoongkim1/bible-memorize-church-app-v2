@@ -8,7 +8,10 @@
 const PSH_W = 1080, PSH_H = 1350;
 const PSH_MAX = 46, PSH_MIN = 28, PSH_STEP = 2, PSH_LH = 1.7;   // 기도문 글씨(1080 폭 기준) — 큰 데서 줄여 내려간다
 const PSH_SERIF = '"Nanum Myeongjo", serif', PSH_SANS = '"Noto Sans KR", sans-serif';
-const PSH_MARK = { w: 59, h: 72, bottom: 62 };   // 교회 마크(img/logo-mark.png 108×132) — 맨 아래 가운데 · 글씨 없음(친구)
+// 교회 마크(img/logo-mark.png 108×132) — 오른쪽 위 · 글씨 없음(친구 2026-11-04 「오른쪽 위로 · 조금 크게」 — 처음엔 맨 아래 가운데 59×72).
+//   어두운 바탕(disc)에서는 흰 동그라미(반지름 disc) 위에 놓는다. 글 · 별은 동그라미 둘레 + pad 안에 들어가지 않는다.
+const PSH_MARK = { w: 82, h: 100, right: 92, top: 88, disc: 68, pad: 16 };
+const PSH_FLOOR = PSH_H - 92;   // PSH_MIN 으로도 상자에 안 들 때 글이 내려갈 수 있는 바닥(액자 안쪽 테두리 1288 보다 30 위)
 // 배경 넷 — box 는 글 상자(1080×1350 위의 자리). valign: 글 덩이를 상자 가운데(center) / 아래(bottom).
 //   액자는 아래 두 귀퉁이에 잎가지가 있어 상자 바닥을 올렸다. 사진은 글을 아래쪽 어두운 막 위에 둔다.
 const PRAY_SHARE_STYLES = {
@@ -17,12 +20,18 @@ const PRAY_SHARE_STYLES = {
   leaf:  { label: "잎", family: PSH_SANS, align: "left", valign: "center", ink: "#263a2c", accent: "#8a6a1f", sub: "#4d6a55",
            orn: null, bar: "#8a6a1f", box: { x: 120, y: 330, w: 840, bottom: 1150 }, wBody: 500, wBold: 800 },
   night: { label: "밤하늘", family: PSH_SERIF, align: "center", valign: "center", ink: "#f4ecd8", accent: "#f0d48a", sub: "#c9d3ea",
-           orn: "#d9bd72", bar: null, box: { x: 130, y: 150, w: 820, bottom: 1150 }, wBody: 700, wBold: 800 },
+           orn: "#d9bd72", bar: null, disc: true, box: { x: 130, y: 150, w: 820, bottom: 1150 }, wBody: 700, wBold: 800 },
   photo: { label: "사진", family: PSH_SANS, align: "left", valign: "bottom", ink: "#ffffff", accent: "#ffe08a", sub: "#f1ece4",
-           orn: null, bar: null, shadow: true, box: { x: 110, y: 380, w: 860, bottom: 1160 }, wBody: 500, wBold: 800 },
+           orn: null, bar: null, disc: true, shadow: true, box: { x: 110, y: 380, w: 860, bottom: 1160 }, wBody: 500, wBold: 800 },
 };
+// 마크 자리 — { x, y, w, h(그림) · cx, cy, r(동그라미) · keep(글 · 별이 피할 곳) }
+function prayShareMark() {
+  const m = PSH_MARK, x = PSH_W - m.right - m.w, y = m.top, cx = x + m.w / 2, cy = y + m.h / 2, k = m.disc + m.pad;
+  return { x, y, w: m.w, h: m.h, cx, cy, r: m.disc, keep: { x: cx - k, y: cy - k, w: k * 2, h: k * 2 } };
+}
 // 풍경 사진(AI 그림 · 친구가 고른 것) — img/share/<id>.webp(1080×1350) + <id>-t.webp(작은 그림). 더하면 시험이 파일이 있는지 본다.
-const PRAY_SHARE_PHOTOS = [   // 2026-11-04 · Gemini 로 열두 장 그려 여섯을 골랐다(만든 말은 img/share/prompts.md)
+const PRAY_SHARE_PHOTOS = [   // 2026-11-04 · Gemini 로 열두 장 그려 여섯을 골랐다 · 같은 날 추수감사 둘을 맨 앞에(여섯 장 그려 둘 · 만든 말은 img/share/prompts.md)
+  { id: "bg-basket", label: "열매" }, { id: "bg-persimmon", label: "감나무" },
   { id: "bg-dawn", label: "새벽" }, { id: "bg-wheat", label: "들판" }, { id: "bg-sea", label: "바다" },
   { id: "bg-blossom", label: "꽃길" }, { id: "bg-lavender", label: "라벤더" }, { id: "bg-lake", label: "호수" },
 ];
@@ -111,14 +120,14 @@ function prayShareHalves(s) {
   return best < 0 ? [t] : [t.slice(0, best), t.slice(best + 1)];
 }
 // 그릴 것 목록 — measure(s, font) → 폭(px). 기도문 글씨는 PSH_MAX 에서 PSH_STEP 씩 줄여 상자에 들어갈 때까지(PSH_MIN 까지) ·
-//   PSH_MIN 으로도 넘치면 상자 바닥을 마크 위까지 내린다. 돌려주는 것:
-//   { size, fit, top(글 첫머리), bottom(글 끝), limit(넘으면 안 되는 바닥), box, rects(글 토막 자리 — 배경이 피한다), ops: [text · orn · bar · mark] }
+//   글 토막이 오른쪽 위 마크 둘레(keep)에 닿으면 글 덩이를 그 아래로 내린다(긴 제목 · 긴 편) · PSH_MIN 으로도 넘치면 바닥을 PSH_FLOOR 까지 내린다.
+//   돌려주는 것: { size, fit, top(글 첫머리), bottom(글 끝), limit(넘으면 안 되는 바닥), box, rects(글 토막 자리 — 배경이 피한다), keep, ops: [text · orn · bar · mark] }
 //   — 글은 textBaseline "middle" 의 y.
 function praySharePlan(b, name, styleKey, measure) {
   const st = PRAY_SHARE_STYLES[styleKey] || PRAY_SHARE_STYLES.frame;
   const nm = prayShareName(name);
   const font = (size, bold) => (bold ? st.wBold : st.wBody) + " " + size + "px " + st.family;
-  const markTop = PSH_H - PSH_MARK.bottom - PSH_MARK.h;
+  const mk = prayShareMark(), K = mk.keep;
   const chunks = prayChunks(b && b.prayer);   // 끝에 맺음말(PRAY_AMEN)이 붙어 온다
   const lay = (size) => {
     const rows = [];
@@ -139,33 +148,44 @@ function praySharePlan(b, name, styleKey, measure) {
     const h = rows.reduce((t, r) => t + r.gap + r.size * r.lh, 0);
     return { rows, h, bodyStart, ornGap };
   };
-  let size = PSH_MAX, L = lay(size);
-  const boxH = st.box.bottom - st.box.y;
-  while (L.h > boxH && size > PSH_MIN) { size -= PSH_STEP; L = lay(size); }
-  const limit = L.h <= boxH ? st.box.bottom : markTop - 24;
-  const room = limit - st.box.y;
-  let y = st.valign === "bottom" ? limit - L.h : st.box.y + (room - L.h) / 2;
-  if (L.h > room) y = st.box.y;
-  const ops = [], rects = [];
-  let top = null;
-  L.rows.forEach((r, k) => {
-    y += r.gap;
-    if (top === null) top = y;
-    if (k === L.bodyStart && st.orn) ops.push({ k: "orn", x: PSH_W / 2, y: Math.round(y - L.ornGap / 2), w: Math.round(size * 3.2), color: st.orn });
-    if (k === L.bodyStart && st.bar) ops.push({ k: "bar", x: st.box.x, y: Math.round(y - L.ornGap / 2), w: Math.round(size * 1.3), color: st.bar });
-    const lineH = r.size * r.lh, cy = y + lineH / 2;
-    const ws = r.pieces.map((p) => measure(p.s, font(r.size, r.bold || p.a)));
-    const tw = ws.reduce((t, w) => t + w, 0);
-    let x = st.align === "center" ? st.box.x + (st.box.w - tw) / 2 : st.box.x;
-    r.pieces.forEach((p, j) => {
-      ops.push({ k: "text", s: p.s, x, y: Math.round(cy), w: ws[j], font: font(r.size, r.bold || p.a), color: p.a ? st.accent : r.color });
-      rects.push({ x, y, w: ws[j], h: lineH });
-      x += ws[j];
+  // 글 덩이를 y0 에서부터 줄줄이 놓는다 — hit: 글 토막 하나라도 마크 둘레(K)에 닿았나
+  const place = (L, size, y0) => {
+    const ops = [], rects = [];
+    let y = y0, top = null, hit = false;
+    L.rows.forEach((r, k) => {
+      y += r.gap;
+      if (top === null) top = y;
+      if (k === L.bodyStart && st.orn) ops.push({ k: "orn", x: PSH_W / 2, y: Math.round(y - L.ornGap / 2), w: Math.round(size * 3.2), color: st.orn });
+      if (k === L.bodyStart && st.bar) ops.push({ k: "bar", x: st.box.x, y: Math.round(y - L.ornGap / 2), w: Math.round(size * 1.3), color: st.bar });
+      const lineH = r.size * r.lh, cy = y + lineH / 2;
+      const ws = r.pieces.map((p) => measure(p.s, font(r.size, r.bold || p.a)));
+      const tw = ws.reduce((t, w) => t + w, 0);
+      let x = st.align === "center" ? st.box.x + (st.box.w - tw) / 2 : st.box.x;
+      r.pieces.forEach((p, j) => {
+        ops.push({ k: "text", s: p.s, x, y: Math.round(cy), w: ws[j], font: font(r.size, r.bold || p.a), color: p.a ? st.accent : r.color });
+        rects.push({ x, y, w: ws[j], h: lineH });
+        if (x < K.x + K.w && x + ws[j] > K.x && y < K.y + K.h && y + lineH > K.y) hit = true;
+        x += ws[j];
+      });
+      y += lineH;
     });
-    y += lineH;
-  });
-  ops.push({ k: "mark", x: (PSH_W - PSH_MARK.w) / 2, y: markTop, w: PSH_MARK.w, h: PSH_MARK.h });
-  return { size, fit: y <= limit + 0.5, top: top === null ? st.box.y : top, bottom: y, limit, box: st.box, rects, ops };
+    return { ops, rects, top: top === null ? y0 : top, bottom: y, hit };
+  };
+  // from~limit 사이에 — 가운데(center) 또는 아래(bottom) · 안 들면 from 부터
+  const at = (L, from, limit) => {
+    const room = limit - from;
+    if (L.h > room) return from;
+    return st.valign === "bottom" ? limit - L.h : from + (room - L.h) / 2;
+  };
+  const put = (L, size, limit) => {
+    const P = place(L, size, at(L, st.box.y, limit));
+    return P.hit ? place(L, size, at(L, Math.max(st.box.y, K.y + K.h), limit)) : P;   // 마크에 닿으면 마크 둘레 아래에서 다시
+  };
+  let size = PSH_MAX, L = lay(size), limit = st.box.bottom, P = put(L, size, limit);
+  while (P.bottom > limit + 0.5 && size > PSH_MIN) { size -= PSH_STEP; L = lay(size); P = put(L, size, limit); }
+  if (P.bottom > limit + 0.5) { limit = PSH_FLOOR; P = put(L, size, limit); }   // PSH_MIN 으로도 넘친다 — 바닥을 내린다
+  P.ops.push({ k: "mark", x: mk.x, y: mk.y, w: mk.w, h: mk.h, cx: mk.cx, cy: mk.cy, r: mk.r, disc: !!st.disc });
+  return { size, fit: P.bottom <= limit + 0.5, top: P.top, bottom: P.bottom, limit, box: st.box, rects: P.rects, keep: K, ops: P.ops };
 }
 // ── 기도문 그림 — 순수 (여기까지) ──
 
@@ -181,8 +201,9 @@ function pshNight(ctx) {
   g.addColorStop(0, "#2a4a8a"); g.addColorStop(0.55, "#15264f"); g.addColorStop(1, "#0c1734");
   ctx.fillStyle = g; ctx.fillRect(0, 0, PSH_W, PSH_H);
 }
-// plan(praySharePlan) 을 받아 글을 피한다 — 액자 잎가지는 글 끝 아래로만 · 잎 한 가지는 글 첫머리 위로만 · 별은 글 토막 위에 찍지 않는다
+// plan(praySharePlan) 을 받아 글을 피한다 — 액자 잎가지는 글 끝 아래로만 · 잎 한 가지는 글 첫머리 위로만 · 별은 글 토막 · 마크 둘레에 찍지 않는다
 //   (2026-11-04 그려 보니 긴 편에서 잎가지가 첫 줄을 가로질렀고, 글 옆 별 하나가 마침표처럼 읽혔다 — 「좌로나.」).
+//   잎 한 가지는 왼쪽 위 — 오른쪽 위는 교회 마크 자리다(같은 날 마크를 옮겼다).
 function pshBg(ctx, style, img, seed, plan) {
   const W = PSH_W, H = PSH_H;
   if (style === "frame") {
@@ -204,13 +225,13 @@ function pshBg(ctx, style, img, seed, plan) {
     g.addColorStop(0, "#f6f3ea"); g.addColorStop(1, "#e8efe4");
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     if (img) {
-      // 오른쪽 위 — 18° 기울인 잎가지의 바깥 상자 바닥이 글 첫머리보다 24px 위 · 상자의 4분의 1까지만 위로 잘려 나가게 크기를 줄인다
+      // 왼쪽 위(좌우를 뒤집어) — 18° 기울인 잎가지의 바깥 상자 바닥이 글 첫머리보다 24px 위 · 상자의 4분의 1까지만 위로 잘려 나가게 크기를 줄인다
       const ratio = img.naturalHeight / img.naturalWidth, th = 18 * Math.PI / 180;
       let lw = Math.min(560, 640 / ratio), lh = lw * ratio;
       const hb = lw * Math.sin(th) + lh * Math.cos(th), wb = lw * Math.cos(th) + lh * Math.sin(th);
       const bottom = Math.min(plan.top - 24, 620), sc = Math.min(1, bottom / (hb * 0.75));
       lw *= sc; lh *= sc;
-      ctx.save(); ctx.globalAlpha = 0.9; ctx.translate(W - (wb * sc) / 2 + 20, bottom - (hb * sc) / 2); ctx.rotate(th);
+      ctx.save(); ctx.globalAlpha = 0.9; ctx.translate((wb * sc) / 2 - 20, bottom - (hb * sc) / 2); ctx.scale(-1, 1); ctx.rotate(th);
       ctx.drawImage(img, -lw / 2, -lh / 2, lw, lh); ctx.restore();
     }
     return;
@@ -218,7 +239,7 @@ function pshBg(ctx, style, img, seed, plan) {
   if (style === "night") {
     pshNight(ctx);
     const r = pshRand(seed * 7919), pad = 16;
-    const onText = (x, y) => plan.rects.some((q) => x > q.x - pad && x < q.x + q.w + pad && y > q.y - pad && y < q.y + q.h + pad);
+    const onText = (x, y) => plan.rects.concat([plan.keep]).some((q) => x > q.x - pad && x < q.x + q.w + pad && y > q.y - pad && y < q.y + q.h + pad);
     for (let k = 0; k < 110; k++) {
       const x = r() * W, y = r() * H * 0.84, rad = 0.8 + r() * 1.8, a = 0.35 + r() * 0.55;
       if (onText(x, y)) continue;
@@ -276,9 +297,9 @@ function prayShareDraw(b, name, choice, leafNo) {
       }
       if (o.k === "bar") { ctx.fillStyle = o.color; ctx.fillRect(o.x, o.y - 3, o.w, 6); return; }
       if (o.k === "mark" && mark) {
-        if (choice.style === "night" || choice.style === "photo") {   // 어두운 바탕 — 마크(남색 · 주황)가 묻히지 않게 흰 동그라미 위에
+        if (o.disc) {   // 어두운 바탕 — 마크(남색 · 주황)가 묻히지 않게 흰 동그라미 위에
           ctx.globalAlpha = 0.92; ctx.fillStyle = "#ffffff";
-          ctx.beginPath(); ctx.arc(o.x + o.w / 2, o.y + o.h / 2, 50, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(o.cx, o.cy, o.r, 0, Math.PI * 2); ctx.fill();
         }
         ctx.globalAlpha = 0.95; ctx.drawImage(mark, o.x, o.y, o.w, o.h); ctx.globalAlpha = 1;
       }
@@ -372,7 +393,7 @@ function openPrayShare(b, name) {
   wrap.innerHTML = `
     <div class="psh-sheet" role="dialog" aria-modal="true" aria-labelledby="psh-h">
       <div class="psh-grab" aria-hidden="true"></div>
-      <div class="psh-top"><b id="psh-h">📤 기도문 보내기</b><button type="button" class="psh-x" aria-label="닫기">✕</button></div>
+      <div class="psh-top"><b id="psh-h">📤 가정 축복 기도문 보내기</b><button type="button" class="psh-x" aria-label="닫기">✕</button></div>
       <label class="psh-lbl" for="psh-name">누구를 위한 기도인가요?</label>
       <input id="psh-name" class="psh-name" type="text" maxlength="12" autocomplete="off">
       <div class="psh-lbl" id="psh-bg-l">배경 고르기</div>
