@@ -22,7 +22,10 @@ const PRAY_SHARE_STYLES = {
            orn: null, bar: null, shadow: true, box: { x: 110, y: 380, w: 860, bottom: 1160 }, wBody: 500, wBold: 800 },
 };
 // 풍경 사진(AI 그림 · 친구가 고른 것) — img/share/<id>.webp(1080×1350) + <id>-t.webp(작은 그림). 더하면 시험이 파일이 있는지 본다.
-const PRAY_SHARE_PHOTOS = [];
+const PRAY_SHARE_PHOTOS = [   // 2026-11-04 · Gemini 로 열두 장 그려 여섯을 골랐다(만든 말은 img/share/prompts.md)
+  { id: "bg-dawn", label: "새벽" }, { id: "bg-wheat", label: "들판" }, { id: "bg-sea", label: "바다" },
+  { id: "bg-blossom", label: "꽃길" }, { id: "bg-lavender", label: "라벤더" }, { id: "bg-lake", label: "호수" },
+];
 function prayShareChoices() {
   const out = [
     { key: "frame", style: "frame", label: "액자" },
@@ -376,7 +379,7 @@ function openPrayShare(b, name) {
       <div class="psh-thumbs" role="radiogroup" aria-labelledby="psh-bg-l">${choices.map(thumb).join("")}</div>
       <div class="psh-pv"><img id="psh-img" alt=""></div>
       <button type="button" class="psh-send" id="psh-send" disabled>그리는 중…</button>
-      <p class="psh-hint">폰의 공유 창에서 카카오톡이나 메시지를 골라 주세요. 안 되면 위 그림을 길게 눌러 저장해 주세요.</p>
+      <p class="psh-hint">폰의 공유 창에서 카카오톡이나 메시지를 골라 주세요. 안&nbsp;되면 위 그림을 길게 눌러 저장해 주세요.</p>
       <p class="psh-msg" id="psh-msg" role="status"></p>
     </div>`;
   document.body.appendChild(wrap);

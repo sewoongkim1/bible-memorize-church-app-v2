@@ -22,7 +22,7 @@
 | 쉴만한 물가(시편·잠언·전도서 액자) | `docs/notes/psalm-still-waters.md` |
 | 📚 네비게이토 성경암송 — 화면 이름 **「주제별 성경암송」**(2026-10-13 **열림** — `naviPublic` · 이름 허락 전 · 카드 73장 2001~ · `js/navi.js` 지연) · ⚠️ 구절 번호 판정 둘(`isPsalmNo` 1001~1999 = 물가 화면 / `isNonWeeklyNo` 1000 초과 = 복습에서 뺌) · 카드 줄은 켠 채라 문은 `naviVisible` 하나 · **💡 풀이 · 🧠 기억법 · 영어(NIV) 2026-10-16**(칸 `help_easy`·`help_tip` · NIV 데이터 SQL 은 .gitignore · ⚠️ 진도 언어는 `nvLang` 을 꼭 넘긴다 · 빈칸에 문장부호 없음) | `docs/notes/navigators.md` |
 | 매일 묵상(무엇을 보여 줄지) | `docs/notes/meditation.md` |
-| 가정 축복 기도문 | `docs/notes/prayer-book.md` |
+| 가정 축복 기도문 · **📤 카톡·문자로 보내기**(2026-11-04 · 🧪 시험 참여자만 · 문 `PRAY_SHARE_PUBLIC` · `js/pray-share.js` 지연 · ⚠️ 공유는 미리 만든 Blob 으로) | `docs/notes/prayer-book.md` 끝 「2026-11 보내기」 |
 | 첫 화면·묶음·색·아래 고정 단추 | `docs/notes/home-screen.md` |
 | 게시판 글·답글·사진 | `docs/notes/board.md` |
 | 구글 출시 심사 전 고친 것(2026-10-01) — 어린 부서 **보호자 확인** · 게시판 **이용 규칙**·**🙈 가리기** · AI **답 알리기** · 방침의 유튜브 문구 | `docs/notes/store-review.md` · 결정 근거 `자료/store/README.md` 「구글 출시 심사 전 결정」 |
@@ -188,6 +188,7 @@ curl -s "https://gocheok.onlybible.kr/app.js?v=$V" | grep -o 'APP_BUILD = "[0-9a
 - [ ] 🤖 **안드로이드 · 플레이스토어 — 새 앱 `kr.onlybible.gocheok` 2026-10-09 출시.** **1.1.1 = versionCode 5 — 2026-10-13 프로덕션 출시**(아래 띠 크림 + 「돌려 보기」 위젯 · 실기기 확인 · 설명서 `ANDROID_ROTATE_GUIDE = true` · v4 는 내부 테스트에만). 남은 것: 새 앱 안내 · 옛 앱 삭제 여부 · 해외 나라 · 위젯 비행기 모드 · 업로드 키 재설정(급하지 않음). ⚠️ `assetlinks.json` 의 옛 패키지 줄을 지우지 말 것 · 서명 키 커밋 금지. 읽을 것 `docs/notes/android-app.md`
 - [ ] 📸 **스토어 사진 새로 — 다음 마켓 배포 때(친구 2026-10-14)** — 디자인 A안으로 화면이 바뀌어 플레이 · 앱스토어 사진(옛 머리 띠 · 옛 첫 화면)이 실제와 다르다. 뽑는 법 · 차례는 `자료/store/README.md` 「스크린샷」
 - [ ] ⏰ **쉴만한 물가 — 2026-09-12 개시.** 남은 것: 실기기 확인 · 전환율(기준일 2026-10-07) · 본문이 다 들어온 뒤 셋. 읽을 것 `docs/notes/psalm-still-waters.md` 끝
+- [ ] 📤 **기도문 보내기(카톡·문자) — 2026-11-04 🧪 시험 참여자에게만.** 친구 폰에서 카톡 · 문자 · 아이폰 앱 · 플레이 앱으로 보내 본 뒤 `PRAY_SHARE_PUBLIC = true`(js/prayer.js) 한 줄 + bump · 설명서 한 줄. 읽을 것 `docs/notes/prayer-book.md` 끝
 - [ ] **축복 기도문 — 주제 그룹 본문 갈아 끼우기만 남음**(성도님께는 이미 열림). 읽을 것 `docs/notes/prayer-book.md` 끝
 - [ ] 🎙️ **설교·찬양 담당자 — 2026-09-30 운영.** 다음: 담당자 등록 → 친구가 한 편 끝까지 → 첫 실전 → 옛 길 치우기. 읽을 것 `docs/notes/sermon-staff-upload.md` 끝
 - [ ] **영어(NIV) 본문 두 곳 손보기**(`no=31`·`no=30`). 읽을 것 `docs/notes/english-niv.md` 끝
