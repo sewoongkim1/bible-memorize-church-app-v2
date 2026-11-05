@@ -50,3 +50,21 @@ AI 그림이 아니다 — 친구가 소책자 · 광고에 쓰던 그림(`자�
 | `bg-watercolor` | 수채화 | `thanksgiving-basket-harvest-fruits.jpg`(5376×3072) | 오른쪽 끝(바구니가 오른쪽) | veil(바탕이 밝아 흰 글씨가 안 읽혔다) |
 
 ⚠️ 사진을 더하거나 빼면 `PRAY_SHARE_PHOTOS` 와 이 표를 함께 — `tests/pray-share.test.cjs` 가 파일(큰 그림 · 작은 그림)이 있는지 본다.
+
+## 📖 말씀 액자 다섯(2026-11-05 · 친구 「이미지는 기존에 없던 것으로 · 말씀 액자이니 너무 크지 않게」)
+
+첫 화면 「이번 주 말씀」 보내기 전용(`VERSE_FRAMES` · 기도문 · 묵상 판에는 안 나온다). Gemini `gemini-3-pro-image` · `aspectRatio 1:1` · `2K`(2048×2048) → 1080×1080 WebP q82.
+여섯 장을 그려 다섯을 골랐다. 버린 것: 올리브(흰 테 · 연두 매트 — 안쪽 창이 너무 작아 글이 답답하다). 원본은 저장소 밖.
+⚠️ 글 자리(`box`)와 마크 자리(`mark`)는 그림마다 눈금을 그려 잰 값이다 — 그림을 바꾸면 다시 잰다.
+
+  > Square 1:1 image, straight-on front view, perfectly centered and symmetrical, an empty picture frame for displaying a Bible verse.
+  > The inside area (the mat or paper) is completely plain and empty - no text, no letters, no symbols, no pattern in the center - and covers roughly the central 66 percent of the image.
+  > Realistic, soft even lighting, high detail. No people, no text, no letters, no logo, no cross or religious symbols, no watermark.
+
+| 파일 | 이름 | 장면 말 |
+|---|---|---|
+| `vf-hanji` | 한지 | A slim dark walnut wooden frame holding warm ivory Korean hanji mulberry paper with a subtle natural fiber texture, hanging on a light plaster wall. |
+| `vf-gold` | 금테 | An elegant thin antique gold frame with fine carved edges holding soft cream cotton paper, on a warm off-white wall. |
+| `vf-oak` | 원목 | A natural light oak wooden frame with a wide off-white linen mat, minimal Scandinavian style, on a soft beige wall. |
+| `vf-wreath` | 꽃테 | No frame: a delicate watercolor wreath of small wildflowers and green leaves painted around the edges of white textured watercolor paper, soft pastel colors, the center left blank. |
+| `vf-navy` | 남색 | A slim gold frame with a deep navy blue velvet mat, elegant and calm. |

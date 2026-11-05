@@ -1,6 +1,6 @@
-// 📤 가정 축복 기도문 · 🌿 오늘의 묵상 — 카톡·문자로 보내기(2026-11-04 친구 · 설계 docs/superpowers/specs/2026-11-04-prayer-share-design.md)
-//   기도문 화면(js/prayer.js) · 「🙏 오늘의 기도」 창 · 「🌿 오늘의 묵상」 창(app.js)의 「카톡·문자로 보내기」를 누를 때 받는다
-//   (app.js LAZY_JS.prayShare — 처음 화면이 무거워지지 않게). 기도문은 openPrayShare · 묵상은 openMedShare — 판 · 배경 · 그리기는 하나다.
+// 📤 가정 축복 기도문 · 🌿 오늘의 묵상 · 📖 이번 주 말씀 — 카톡·문자로 보내기(2026-11-04~05 친구 · 설계 docs/superpowers/specs/2026-11-04-prayer-share-design.md)
+//   기도문 화면(js/prayer.js) · 「🙏 오늘의 기도」 창 · 「🌿 오늘의 묵상」 창 · 첫 화면 「이번 주 말씀」 아이콘(app.js)을 누를 때 받는다
+//   (app.js LAZY_JS.prayShare — 처음 화면이 무거워지지 않게). 기도문 openPrayShare · 묵상 openMedShare · 말씀 openVerseShare — 판 · 배경 · 그리기는 하나다.
 //   그림은 이 폰 안에서만 만든다(캔버스) → 폰 공유 창(navigator.share files). 서버로 아무것도 가지 않는다 — 판에서 바꾼 이름도 그림에만 쓴다.
 //   ⚠️ 이름 채우기는 app.js prayFill(받침 · ㄹ 받침 규칙) — 따로 치환하지 말 것(docs/notes/prayer-book.md).
 //   ⚠️ 공유는 「보내기」를 누른 그 탭 안에서 — 그래서 그림은 미리보기를 그릴 때 이미 만들어 둔다(pshState.blob).
@@ -29,8 +29,9 @@ const PRAY_SHARE_STYLES = {
            orn: "#b08a3e", bar: null, disc: true, veil: 0.28, panel: 0.8, box: { x: 150, y: 190, w: 780, bottom: 1170 }, wBody: 700, wBold: 800 },
 };
 // 마크 자리 — { x, y, w, h(그림) · cx, cy, r(동그라미) · keep(글 · 별이 피할 곳) }
-function prayShareMark() {
-  const m = PSH_MARK, x = PSH_W - m.right - m.w, y = m.top, cx = x + m.w / 2, cy = y + m.h / 2, k = m.disc + m.pad;
+//   W · spec — 바탕 폭과 마크 자리(말씀 액자는 정사각형 · 액자 안쪽 오른쪽 위 · 2026-11-05) · 안 넘기면 기도문 · 묵상의 자리
+function prayShareMark(W, spec) {
+  const m = spec || PSH_MARK, x = (W || PSH_W) - m.right - m.w, y = m.top, cx = x + m.w / 2, cy = y + m.h / 2, k = m.disc + m.pad;
   return { x, y, w: m.w, h: m.h, cx, cy, r: m.disc, keep: { x: cx - k, y: cy - k, w: k * 2, h: k * 2 } };
 }
 // 풍경 사진(AI 그림 · 친구가 고른 것) — img/share/<id>.webp(1080×1350) + <id>-t.webp(작은 그림). 더하면 시험이 파일이 있는지 본다.
@@ -131,10 +132,12 @@ function prayShareHalves(s) {
 //   글 토막이 오른쪽 위 마크 둘레(keep)에 닿으면 글 덩이를 그 아래로 내린다(긴 제목 · 긴 편) · PSH_MIN 으로도 넘치면 바닥을 PSH_FLOOR 까지 내린다.
 //   돌려주는 것: { size, fit, top(글 첫머리), bottom(글 끝), limit(넘으면 안 되는 바닥), box, rects(글 토막 자리 — 배경이 피한다), keep, ops: [text · orn · bar · mark] }
 //   — 글은 textBaseline "middle" 의 y.
+//   styleKey 는 PRAY_SHARE_STYLES 의 이름 또는 꼴 값 그대로(말씀 액자 — W · H · box · mark · max · min · floor 를 저마다 가진다 · 2026-11-05).
 function pshPlan(styleKey, measure, rowsOf) {
-  const st = PRAY_SHARE_STYLES[styleKey] || PRAY_SHARE_STYLES.frame;
+  const st = (styleKey && typeof styleKey === "object") ? styleKey : (PRAY_SHARE_STYLES[styleKey] || PRAY_SHARE_STYLES.frame);
+  const W = st.W || PSH_W, MAX = st.max || PSH_MAX, MIN = st.min || PSH_MIN, FLOOR = st.floor || ((st.H || PSH_H) - 92);
   const font = (size, bold) => (bold ? st.wBold : st.wBody) + " " + size + "px " + st.family;
-  const mk = prayShareMark(), K = mk.keep;
+  const mk = prayShareMark(W, st.mark), K = mk.keep;
   const lay = (size) => {
     const rows = [];
     let bodyStart = -1;
@@ -154,7 +157,7 @@ function pshPlan(styleKey, measure, rowsOf) {
     L.rows.forEach((r, k) => {
       y += r.gap;
       if (top === null) top = y;
-      if (k === L.bodyStart && st.orn) ops.push({ k: "orn", x: PSH_W / 2, y: Math.round(y - L.ornGap / 2), w: Math.round(size * 3.2), color: st.orn });
+      if (k === L.bodyStart && st.orn) ops.push({ k: "orn", x: st.box.x + st.box.w / 2, y: Math.round(y - L.ornGap / 2), w: Math.round(size * 3.2), color: st.orn });
       if (k === L.bodyStart && st.bar) ops.push({ k: "bar", x: st.box.x, y: Math.round(y - L.ornGap / 2), w: Math.round(size * 1.3), color: st.bar });
       const lineH = r.size * r.lh, cy = y + lineH / 2;
       const ws = r.pieces.map((p) => measure(p.s, font(r.size, r.bold || p.a)));
@@ -180,9 +183,9 @@ function pshPlan(styleKey, measure, rowsOf) {
     const P = place(L, size, at(L, st.box.y, limit));
     return P.hit ? place(L, size, at(L, Math.max(st.box.y, K.y + K.h), limit)) : P;   // 마크에 닿으면 마크 둘레 아래에서 다시
   };
-  let size = PSH_MAX, L = lay(size), limit = st.box.bottom, P = put(L, size, limit);
-  while (P.bottom > limit + 0.5 && size > PSH_MIN) { size -= PSH_STEP; L = lay(size); P = put(L, size, limit); }
-  if (P.bottom > limit + 0.5) { limit = PSH_FLOOR; P = put(L, size, limit); }   // PSH_MIN 으로도 넘친다 — 바닥을 내린다
+  let size = MAX, L = lay(size), limit = st.box.bottom, P = put(L, size, limit);
+  while (P.bottom > limit + 0.5 && size > MIN) { size -= PSH_STEP; L = lay(size); P = put(L, size, limit); }
+  if (P.bottom > limit + 0.5) { limit = FLOOR; P = put(L, size, limit); }   // 가장 작은 글씨로도 넘친다 — 바닥을 내린다
   P.ops.push({ k: "mark", x: mk.x, y: mk.y, w: mk.w, h: mk.h, cx: mk.cx, cy: mk.cy, r: mk.r, disc: !!st.disc });
   return { size, fit: P.bottom <= limit + 0.5, top: P.top, bottom: P.bottom, limit, box: st.box, rects: P.rects, keep: K, ops: P.ops };
 }
@@ -261,6 +264,50 @@ function medSharePlan(m, styleKey, measure) {
     if (by) c.add([{ s: by, a: false }], Math.round(size * 0.68), 1.5, false, st.sub, foot ? 0 : Math.round(size * 1.1));
   });
 }
+// 📖 말씀 액자(2026-11-05 친구 「이미지는 기존에 없던 것으로 · 말씀 액자이니 너무 크지 않게」) — Gemini 정사각형 여섯 장 중 다섯(만든 말 img/share/prompts.md).
+//   정사각형 1080×1080 · 글은 액자 안쪽 바탕(box — 그림마다 눈금으로 잰 자리에서 여백을 둔 곳)에만 · 글씨 40px → 24px · 마크는 그 안 오른쪽 위에 작게(56×68).
+//   ⚠️ 그림을 바꾸면 box · mark 를 다시 잴 것(그림마다 액자 두께 · 안쪽 창 자리가 다르다).
+const VERSE_FRAMES = [
+  { id: "vf-hanji", label: "한지", ink: "#2b2620", accent: "#8a4f1a", sub: "#6b6250", orn: "#8a6a3a", box: { x: 265, y: 255, w: 550, bottom: 830 }, mark: { right: 225, top: 214 } },
+  { id: "vf-gold", label: "금테", ink: "#3a2c18", accent: "#9a6a17", sub: "#6b5a3a", orn: "#b08a3e", box: { x: 330, y: 318, w: 420, bottom: 775 }, mark: { right: 305, top: 292 } },
+  { id: "vf-oak", label: "원목", ink: "#2f3440", accent: "#7a5a2a", sub: "#5f6672", orn: "#a07a4a", box: { x: 322, y: 340, w: 436, bottom: 792 }, mark: { right: 308, top: 322 } },
+  { id: "vf-wreath", label: "꽃테", ink: "#33402f", accent: "#a0566a", sub: "#6b7a68", orn: "#8aa07a", box: { x: 270, y: 268, w: 540, bottom: 812 }, mark: { right: 286, top: 258 } },
+  { id: "vf-navy", label: "남색", ink: "#f4ecd8", accent: "#f0d48a", sub: "#c9d3ea", orn: "#d9bd72", disc: true, box: { x: 332, y: 330, w: 416, bottom: 762 }, mark: { right: 316, top: 306 } },
+];
+function verseFrameStyle(f) {
+  return { label: f.label, family: PSH_SERIF, align: "center", valign: "center", ink: f.ink, accent: f.accent, sub: f.sub, orn: f.orn, bar: null,
+           disc: !!f.disc, W: 1080, H: 1080, max: 40, min: 24, floor: f.box.bottom + 40, box: f.box,
+           mark: { w: 56, h: 68, right: f.mark.right, top: f.mark.top, disc: 42, pad: 10 }, wBody: 700, wBold: 800 };
+}
+function verseFrameChoices() {
+  return VERSE_FRAMES.map((f) => ({ key: "vf:" + f.id, style: verseFrameStyle(f), label: f.label, src: "img/share/" + f.id + ".webp", thumb: "img/share/" + f.id + "-t.webp" }));
+}
+// 📖 이번 주 말씀(2026-11-05 친구 「첫 화면 이번 주 말씀도 카톡 공유 · 오른쪽 위 작은 아이콘」 · 그림 + 주소 단추) — v = { no, text, refFull, refShort, sermonTitle, pastor, date }
+//   「이번 주 말씀」(작게 · 강조색) · 구절 자리(큰 글씨) · (장식) · 말씀(문장마다) · 맨 아래 작게 「설교 「제목」」 / 「설교하신 분 · 날짜」(묵상과 같은 꼴).
+//   구절 본문은 20~69자(운영 44구절 · 2026-11-05) — 짧아서 큰 글씨로 든다. verses.date 는 UTC(그 주일 0시 KST = 토 15:00Z) — 한국 날짜로 바꿔 쓴다.
+const VERSE_KICKER = "이번 주 말씀";
+function verseShareDate(d) {   // 「2026-06-27T15:00:00.000Z」 → 「2026-06-28」(KST) · 시각이 없으면 그대로 · 못 읽으면 빈 값
+  const s = String(d == null ? "" : d).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const t = Date.parse(s);
+  return isNaN(t) ? "" : new Date(t + 9 * 3600 * 1000).toISOString().slice(0, 10);
+}
+function verseShareFoot(v) { const t = String((v && v.sermonTitle) || "").trim(); return t ? "설교 「" + t + "」" : ""; }
+function verseShareByline(v) { return medShareByline({ preacher: v && v.pastor, sermonDate: verseShareDate(v && v.date) }); }
+//   말씀 액자답게 말씀이 먼저 · 구절 자리는 그 아래 강조색(안쪽이 420px 쯤이라 큰 제목으로 두면 「디모데전서 1장 11절」이 두 줄로 꺾였다).
+function verseSharePlan(v, styleKey, measure) {
+  return pshPlan(styleKey, measure, (size, c) => {
+    const st = c.st;
+    c.add([{ s: VERSE_KICKER, a: true }], Math.round(size * 0.78), 1.5, true, st.accent, 0);
+    c.body();
+    medShareParas(v && v.text).forEach((p, k) => c.add(p, size, PSH_LH, false, st.ink, k === 0 ? c.ornGap : Math.round(size * 0.35)));
+    const ref = String((v && (v.refFull || v.refShort)) || "").trim();
+    if (ref) c.add([{ s: ref, a: true }], Math.round(size * 0.86), 1.5, true, st.accent, Math.round(size * 0.6));
+    const foot = verseShareFoot(v), by = verseShareByline(v);
+    if (foot) c.add([{ s: foot, a: false }], Math.round(size * 0.68), 1.5, false, st.sub, Math.round(size * 1.1));
+    if (by) c.add([{ s: by, a: false }], Math.round(size * 0.68), 1.5, false, st.sub, foot ? 0 : Math.round(size * 1.1));
+  });
+}
 // ── 기도문 그림 — 순수 (여기까지) ──
 
 // ── 그리기 ──
@@ -279,7 +326,14 @@ function pshNight(ctx) {
 //   (2026-11-04 그려 보니 긴 편에서 잎가지가 첫 줄을 가로질렀고, 글 옆 별 하나가 마침표처럼 읽혔다 — 「좌로나.」).
 //   잎 한 가지는 왼쪽 위 — 오른쪽 위는 교회 마크 자리다(같은 날 마크를 옮겼다).
 function pshBg(ctx, style, img, seed, plan) {
-  const W = PSH_W, H = PSH_H;
+  const W = (ctx.canvas && ctx.canvas.width) || PSH_W, H = (ctx.canvas && ctx.canvas.height) || PSH_H;
+  if (style && typeof style === "object") {   // 📖 말씀 액자(2026-11-05) — 액자 그림을 바탕 가득(정사각형 그림 · 글은 그 안쪽 바탕에). 그림을 못 받으면 미색 바탕.
+    if (!img) { ctx.fillStyle = "#fbf7ee"; ctx.fillRect(0, 0, W, H); return; }
+    const sc = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+    const dw = img.naturalWidth * sc, dh = img.naturalHeight * sc;
+    ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    return;
+  }
   if (style === "frame") {
     ctx.fillStyle = "#fdf8ef"; ctx.fillRect(0, 0, W, H);
     if (img) {
@@ -360,10 +414,16 @@ function medShareDoc(m) {
            text: [MED_KICKER, head, m && m.message, MED_QLABEL, m && m.question, medShareFoot(m), medShareByline(m)].join(" ").replace(/\*\*/g, ""),
            seed: no * 7 + idx + 1, file: "meditation-" + no + "-" + (idx + 1) + ".jpg", alt: "보낼 그림 — 오늘의 묵상 · " + head };
 }
+function verseShareDoc(v) {
+  const no = Number(v && v.no) || 0, ref = String((v && (v.refFull || v.refShort)) || "").trim();
+  return { plan: (style, measure) => verseSharePlan(v, style, measure),
+           text: [VERSE_KICKER, ref, v && v.text, verseShareFoot(v), verseShareByline(v)].join(" ").replace(/\*\*/g, ""),
+           seed: no * 13 + 5, file: "verse-" + no + ".jpg", alt: "보낼 그림 — 이번 주 말씀 · " + (ref || VERSE_KICKER) };
+}
 function prayShareDraw(b, name, choice, leafNo) { return pshDraw(prayShareDoc(b, name), choice, leafNo); }
 // 그림 한 장(JPEG Blob). doc = prayShareDoc · medShareDoc 의 한 벌 · choice = prayShareChoices() 의 한 칸 · leafNo = 1~12(액자 · 잎).
 function pshDraw(doc, choice, leafNo) {
-  const st = PRAY_SHARE_STYLES[choice.style] || PRAY_SHARE_STYLES.frame;
+  const st = (choice.style && typeof choice.style === "object") ? choice.style : (PRAY_SHARE_STYLES[choice.style] || PRAY_SHARE_STYLES.frame);
   const v = "?v=" + (typeof APP_BUILD === "string" ? APP_BUILD : "");
   // 글꼴 — 앱이 미뤄 부른 한글 웹폰트에서 이 그림에 쓰는 글자의 조각만 받는다(5초 안 오면 기기 글꼴 · 교육 수료증과 같은 꼴)
   const fam = st.family.split(",")[0].replace(/"/g, "");
@@ -376,7 +436,7 @@ function pshDraw(doc, choice, leafNo) {
     : choice.src ? choice.src + v : null;
   return Promise.all([late(fonts, 5000), pshImg(bgSrc), pshImg("img/logo-mark.png" + v)]).then((got) => {
     const bg = got[1], mark = got[2];
-    const cv = document.createElement("canvas"); cv.width = PSH_W; cv.height = PSH_H;
+    const cv = document.createElement("canvas"); cv.width = st.W || PSH_W; cv.height = st.H || PSH_H;   // 말씀 액자는 정사각형
     const ctx = cv.getContext("2d");
     const plan = doc.plan(choice.style, (s, f) => { ctx.font = f; return ctx.measureText(s).width; });
     pshBg(ctx, choice.style, bg, doc.seed, plan);   // 배치를 먼저 — 배경이 글 자리를 피한다
@@ -410,9 +470,16 @@ function pshDraw(doc, choice, leafNo) {
 }
 
 // ── 판(아래에서 올라온다) ──
-// b · name = 기도문(이름 칸이 있다) · med = 오늘의 묵상(이름 자리가 없다 · 그때 b 는 null) · file = 지금 그림의 파일 이름
-const pshState = { gen: 0, blob: null, url: null, key: "night", leaf: 1, b: null, name: "", med: null, file: "", timer: null, pop: null, esc: null, sharing: false };
+// b · name = 기도문(이름 칸이 있다) · med = 오늘의 묵상 · verse = 이번 주 말씀(이름 자리가 없다) — 한 번에 하나만 차 있다 · file = 지금 그림의 파일 이름
+const pshState = { gen: 0, blob: null, url: null, key: "night", vkey: "", leaf: 1, b: null, name: "", med: null, verse: null, file: "", timer: null, pop: null, esc: null, sharing: false };
 const PSH_TITLE_PRAY = "📤 가정 축복 기도문 보내기", PSH_TITLE_MED = "📤 오늘의 묵상 보내기";
+const PSH_TITLE_VERSE = "📤 이번 주 말씀 보내기";
+// 판이 그릴 글 한 벌 — 묵상 · 말씀 · 기도문 가운데 지금 찬 것
+function pshDoc() { return pshState.med ? medShareDoc(pshState.med) : pshState.verse ? verseShareDoc(pshState.verse) : prayShareDoc(pshState.b, pshState.name); }
+// 배경 목록 · 고른 배경 — 말씀 판은 말씀 액자만(친구 2026-11-05 「기존에 없던 것으로」) · 고른 것도 따로 기억한다(기도문 · 묵상은 「밤하늘 먼저」를 함께 쓴다)
+function pshChoices() { return pshState.verse ? verseFrameChoices() : prayShareChoices(); }
+function pshKeyGet() { return pshState.verse ? pshState.vkey : pshState.key; }
+function pshKeySet(k) { if (pshState.verse) pshState.vkey = k; else pshState.key = k; }
 function pshSay(t) { const m = document.getElementById("psh-msg"); if (m) m.textContent = t; }
 function pshSendLabel(busy) {
   const s = document.getElementById("psh-send");
@@ -425,9 +492,9 @@ function pshRedraw() {
   const my = ++pshState.gen;
   pshState.blob = null;
   pshSendLabel(true); pshSay("");
-  const all = prayShareChoices();
-  const ch = all.find((c) => c.key === pshState.key) || all[0];
-  const doc = pshState.med ? medShareDoc(pshState.med) : prayShareDoc(pshState.b, pshState.name);
+  const all = pshChoices();
+  const ch = all.find((c) => c.key === pshKeyGet()) || all[0];
+  const doc = pshDoc();
   pshDraw(doc, ch, pshState.leaf).then((blob) => {
     if (my !== pshState.gen) return;   // 그사이 이름 · 배경이 또 바뀌었다
     if (pshState.url) { try { URL.revokeObjectURL(pshState.url); } catch (e) {} }
@@ -485,34 +552,44 @@ function prayShareClose(fromPop) {
 // 기도문 화면 · 「🙏 오늘의 기도」 창이 부른다 — 이름 칸이 있다(처음 값 name)
 function openPrayShare(b, name) {
   if (!b) return;
-  if (pshReuse("pray")) { pshState.b = b; pshState.med = null; pshRedraw(); return; }   // 단추를 두 번 눌러 또 불렸다 — 열린 판을 그대로
+  if (pshReuse("pray")) { pshState.b = b; pshState.med = null; pshState.verse = null; pshRedraw(); return; }   // 단추를 두 번 눌러 또 불렸다 — 열린 판을 그대로
   prayShareClose();
-  pshState.b = b; pshState.med = null;
+  pshState.b = b; pshState.med = null; pshState.verse = null;
   pshState.name = prayShareName(name);
-  pshOpen(PSH_TITLE_PRAY, true, name);
+  pshOpen(PSH_TITLE_PRAY, true, name, "pray");
 }
 // 「🌿 오늘의 묵상」 창이 부른다(2026-11-04 친구) — m = { heading, message, question, sermonTitle, verseRef, no(구절), idx(요일) } · 이름 칸 없음
 function openMedShare(m) {
   if (!m || !(m.message || m.question)) return;
-  if (pshReuse("med")) { pshState.b = null; pshState.med = m; pshRedraw(); return; }
+  if (pshReuse("med")) { pshState.b = null; pshState.med = m; pshState.verse = null; pshRedraw(); return; }
   prayShareClose();
-  pshState.b = null; pshState.med = m; pshState.name = "";
-  pshOpen(PSH_TITLE_MED, false, "");
+  pshState.b = null; pshState.med = m; pshState.verse = null; pshState.name = "";
+  pshOpen(PSH_TITLE_MED, false, "", "med");
+}
+// 첫 화면 「이번 주 말씀」 카드의 작은 아이콘이 부른다(2026-11-05 친구) — v = 이번 주 구절({ no, text, refFull, refShort, sermonTitle, pastor, date }) ·
+//   이름 칸 없음 · 판 아래 「🔗 주소로 보내기」(app.js shareWeeklyVerse — 받은 분이 눌러 로그인 없이 바로 외워 본다)
+function openVerseShare(v) {
+  if (!v || !String(v.text || "").trim()) return;
+  if (pshReuse("verse")) { pshState.b = null; pshState.med = null; pshState.verse = v; pshRedraw(); return; }
+  prayShareClose();
+  pshState.b = null; pshState.med = null; pshState.verse = v; pshState.name = "";
+  pshOpen(PSH_TITLE_VERSE, false, "", "verse");
 }
 // 같은 판이 이미 열려 있나(2026-11-04 검토) — 열린 판을 닫고 다시 열면 prayShareClose 의 history.back() 이 늦게 도착해
 //   pshOpen 이 막 단 popstate 받이가 그걸 받고 새 판을 닫는다(빠르게 두 번 누를 때 · 판이 떴다가 사라진다). 그래서 닫지 않고 내용만 바꾼다.
 function pshReuse(kind) { const w = document.getElementById("psh"); return !!(w && w.dataset.kind === kind && pshState.pop); }
-function pshOpen(title, withName, name) {
+// kind = "pray" · "med" · "verse"(판 종류 표식 — pshReuse 가 본다) · 말씀 판에만 「🔗 주소로 보내기」
+function pshOpen(title, withName, name, kind) {
   pshState.leaf = Math.min(12, 1 + Math.floor(Math.random() * 12));
-  const choices = prayShareChoices();
-  if (!choices.some((c) => c.key === pshState.key)) pshState.key = choices[0].key;   // 처음엔 맨 왼쪽(밤하늘) · 이 화면을 쓰는 동안은 마지막에 고른 배경을 기억한다
+  const choices = pshChoices();
+  if (!choices.some((c) => c.key === pshKeyGet())) pshKeySet(choices[0].key);   // 처음엔 맨 왼쪽(밤하늘) · 이 화면을 쓰는 동안은 마지막에 고른 배경을 기억한다
   const thumb = (c) => {
     const inner = c.thumb ? `<img src="${prayEsc(c.thumb)}?v=${prayEsc(String(APP_BUILD))}" alt="">`   // 사진(photo · veil)은 작은 그림
       : c.style === "night" ? "" : `<img class="psh-leaf" src="${pshLeafSrc()}" alt="">`;
-    return `<button type="button" class="psh-t psh-t-${c.style}" role="radio" aria-checked="${c.key === pshState.key}" data-k="${prayEsc(c.key)}" aria-label="${prayEsc(c.label)}">${inner}<i>${prayEsc(c.label)}</i></button>`;
+    return `<button type="button" class="psh-t psh-t-${typeof c.style === "string" ? c.style : "vframe"}" role="radio" aria-checked="${c.key === pshKeyGet()}" data-k="${prayEsc(c.key)}" aria-label="${prayEsc(c.label)}">${inner}<i>${prayEsc(c.label)}</i></button>`;
   };
   const wrap = document.createElement("div");
-  wrap.className = "psh-dim"; wrap.id = "psh"; wrap.dataset.kind = withName ? "pray" : "med";
+  wrap.className = "psh-dim"; wrap.id = "psh"; wrap.dataset.kind = kind || (withName ? "pray" : "med");
   wrap.innerHTML = `
     <div class="psh-sheet" role="dialog" aria-modal="true" aria-labelledby="psh-h">
       <div class="psh-grab" aria-hidden="true"></div>
@@ -524,6 +601,8 @@ function pshOpen(title, withName, name) {
       <div class="psh-pv"><img id="psh-img" alt=""></div>
       <button type="button" class="psh-send" id="psh-send" disabled>그리는 중…</button>
       <p class="psh-hint">폰의 공유 창에서 카카오톡이나 메시지를 골라 주세요. 안&nbsp;되면 위 그림을 길게 눌러 저장해 주세요.</p>
+      ${kind === "verse" ? `<button type="button" class="psh-link" id="psh-link">🔗 주소로 보내기</button>
+      <p class="psh-hint">주소를 받은 분은 눌러서 로그인 없이 바로 외워 볼 수 있어요.</p>` : ""}
       <p class="psh-msg" id="psh-msg" role="status"></p>
     </div>`;
   document.body.appendChild(wrap);
@@ -542,17 +621,22 @@ function pshOpen(title, withName, name) {
   wrap.querySelectorAll(".psh-t").forEach((t) => t.addEventListener("click", () => {
     const k = t.dataset.k;
     // 액자 · 잎을 다시 누르면 다른 잎가지(12가지)
-    if (k === pshState.key && (k === "frame" || k === "leaf")) {
+    if (k === pshKeyGet() && (k === "frame" || k === "leaf")) {
       pshState.leaf = pshState.leaf % 12 + 1;
       wrap.querySelectorAll(".psh-leaf").forEach((im) => { im.style.display = ""; im.src = pshLeafSrc(); });
     }
-    pshState.key = k;
+    pshKeySet(k);
     wrap.querySelectorAll(".psh-t").forEach((x) => x.setAttribute("aria-checked", x.dataset.k === k ? "true" : "false"));
     pshRedraw();
   }));
   wrap.querySelector(".psh-x").addEventListener("click", () => prayShareClose());
   wrap.addEventListener("click", (e) => { if (e.target === wrap) prayShareClose(); });
   wrap.querySelector("#psh-send").addEventListener("click", pshSend);
+  const link = wrap.querySelector("#psh-link");   // 말씀 판 — 글 + 암송 화면 주소(app.js shareWeeklyVerse · 「로그인 없이 바로 외워볼 수 있어요」)
+  if (link) link.addEventListener("click", () => {
+    const v = pshState.verse;
+    if (v && typeof shareWeeklyVerse === "function") shareWeeklyVerse({ no: v.no, refShort: v.refShort || v.refFull, text: v.text });
+  });
   pshState.esc = (e) => { if (e.key === "Escape") prayShareClose(); };
   document.addEventListener("keydown", pshState.esc);
   try { history.pushState({ psh: 1 }, ""); } catch (e) {}   // 안드로이드 「뒤로 가기」로 닫히게

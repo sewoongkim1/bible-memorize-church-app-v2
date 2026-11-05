@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261104h";
+const APP_BUILD = "20261105a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -3739,6 +3739,7 @@ function renderSummary() {
           ${weeklyHeart ? `<div class="heart-ribbon">👑 마음에 둠</div>` : ""}
         </div>
         ${weeklyHeart ? "" : `<div class="weekly-state ${weeklyStatus.cls}">${weeklyStatus.text}</div>`}
+        ${verseShareVisible() ? `<button type="button" class="weekly-share-ic" id="weekly-share-ic" aria-label="이번 주 말씀 카톡·문자로 보내기" title="카톡·문자로 보내기">${haSvg("share", "wsi-ic")}</button>` : ""}
       </div>
       <div class="weekly-title">${weeklyVerse.sermonTitle || weeklyVerse.refFull || ""}</div>
       <div class="weekly-text">${weeklyVerse.text} <span class="weekly-inref">(${weeklyVerse.refShort})</span></div>
@@ -3903,6 +3904,14 @@ function renderSummary() {
   if (weeklyVerse) document.getElementById("weekly-start").addEventListener("click", () => startTest(weeklyVerse));
   { const b = document.getElementById("weekly-share");   // WEEKLY_SHARE 가 false 면 없다
     if (b && weeklyVerse) b.addEventListener("click", () => shareWeeklyVerse(weeklyVerse)); }
+  // 📤 오른쪽 위 작은 아이콘(2026-11-05 친구) — 그림 한 장 판(js/pray-share.js openVerseShare) · 판 아래 「🔗 주소로 보내기」는 위 shareWeeklyVerse
+  //   두 번 눌러도 판은 하나(openVerseShare 가 열린 판을 다시 쓴다) · 첫 화면은 그대로 남으니 창 걷기는 없다
+  { const ic = document.getElementById("weekly-share-ic");
+    if (ic && weeklyVerse) ic.addEventListener("click", () => withLazyJs("prayShare", () => {
+      if (typeof openVerseShare === "function") openVerseShare({ no: weeklyVerse.no, text: weeklyVerse.text, refFull: weeklyVerse.refFull, refShort: weeklyVerse.refShort,
+                                                                  sermonTitle: weeklyVerse.sermonTitle, pastor: weeklyVerse.pastor, date: weeklyVerse.date });
+      else appAlert(typeof openPrayShare === "function" ? "앱이 새 판으로 바뀌었어요. 앱을 껐다가 다시 열어 주세요." : "보내기 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
+    })); }
   fillWeeklySummaryBtn(weeklyVerse); // 요약이 있으면 '설교보기' 옆에 요약보기 버튼 추가
   // 🔁 복습 단추는 2026-10-11 첫 화면에서 뺐다(위 TODO 주석) — 되살리면 여기도 함께.
   document.getElementById("go-challenge").addEventListener("click", startChallenge);
@@ -4119,6 +4128,10 @@ function prayShareVisible() { return PRAY_SHARE_OPEN || (typeof ministryTesterCa
 //   친구가 시안을 보고 나면 true 한 줄 + bump · 설명서 한 줄(docs/notes/prayer-book.md 「2026-11 보내기」 끝).
 const MED_SHARE_OPEN = true;   // 2026-11-04 모두에게 열었다(친구가 갤럭시에서 써 본 뒤 「열어주세요」 · 설명서 매일 묵상 장에 한 줄) · 닫으려면 false 한 줄 + bump
 function medShareVisible() { return MED_SHARE_OPEN || (typeof ministryTesterCached === "function" && ministryTesterCached()); }
+// 📖 이번 주 말씀 보내기(2026-11-05 친구 「첫 화면 이번 주 말씀도 · 오른쪽 위 작은 아이콘」 · 그림 + 주소 단추 · js/pray-share.js openVerseShare) — 먼저 🧪 시험 참여자에게만.
+//   친구가 보고 나면 true 한 줄 + bump · 설명서 한 줄(docs/notes/prayer-book.md 끝 「📖 이번 주 말씀도 보내기」).
+const VERSE_SHARE_OPEN = false;
+function verseShareVisible() { return VERSE_SHARE_OPEN || (typeof ministryTesterCached === "function" && ministryTesterCached()); }
 // 「🙏 오늘의 기도」 전용 팝업 — 위젯과 같은 편(제목·말씀·기도문). 이름 자리는 **로그인 이름**으로 채운다
 //   (2026-09-26 성도님 요청 — 서버가 준 tpl 원문을 prayFill. 옛 서버라 tpl 이 없으면 위젯 글 그대로).
 //   ⚠️ 「확인」은 덮개만 걷는다 — renderSummary() 를 부르지 않는다(뒤 화면이 튕긴다 · today-song.md).
