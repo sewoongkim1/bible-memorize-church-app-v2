@@ -667,10 +667,13 @@ function pshKakaoLoad() {   // SDK 는 한 번만(못 받았으면 다음에 다
 //   「설치 주소도 보내기」(withLink)를 켜면 설치 안내(「앱 설치」) · 끄면 그 구절 바로가기(「말씀 외워 보기」 — 로그인 없이 암송 화면 ?v=번호)
 //   (친구 2026-11-05 「체크하지 않아도 설치 주소가 나갑니다」 — 카톡 카드엔 단추가 꼭 하나 있어 끄면 바로가기로)
 const KAKAO_SITE = "https://gocheok.onlybible.kr/";
+//   폰(mobileWebUrl)은 표 kk=1 을 붙인 우리 쪽으로 — 앱이 깔려 있으면 앱이 그 자리(구절 · 첫 화면)로 열고 카톡 창은 닫힌다 · 없으면 설치 안내(app.js routeKakaoCard ·
+//   친구 2026-11-06 「카카오톡에서도 페이지가 열리는데 안 열리게」 · 「앱이 없으면 설치 페이지로」) · PC 카카오톡(webUrl)은 그대로(설치 안내 · 구절 바로가기).
 function pshKakaoTemplate(v, imageUrl, withLink) {
   const ref = String((v && (v.refFull || v.refShort)) || "").trim(), no = Number(v && v.no) || 0;
   const url = withLink ? KAKAO_INSTALL : KAKAO_SITE + (no ? "?v=" + no : "");
-  const link = { mobileWebUrl: url, webUrl: url };
+  const mobile = KAKAO_SITE + (withLink || !no ? "?kk=1" : "?v=" + no + "&kk=1");
+  const link = { mobileWebUrl: mobile, webUrl: url };
   return {
     objectType: "feed",
     content: { title: ref ? VERSE_KICKER + " · " + ref : VERSE_KICKER, description: withLink ? "성경암송 앱을 설치하고 함께 외워 보세요" : "눌러서 이 말씀을 함께 외워 보세요",

@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261106c";
+const APP_BUILD = "20261106d";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9415,6 +9415,42 @@ function showShareToast(msg) {
 //   안드로이드: 자동 전환(세션당 1회). 아이폰: 자동이 막히면 배너 버튼으로.
 // ------------------------------------------------------------
 const PLAY_APP_ID = "kr.onlybible.gocheok";   // 플레이 앱(TWA) — 카톡 안 브라우저에서 깔린 앱으로 넘길 때
+// 카톡 안 브라우저에서 앱 · 브라우저로 넘긴 뒤 — 이 창이 가려지면(다른 쪽이 열렸다) 카톡 창을 닫는다(친구 2026-11-06 「카카오톡에서도 페이지가 열리는데 안 열리게」).
+//   닫는 주소는 교회 어드민 js/core/inapp.js closeUrl 과 같다(아이폰 kakaoweb://closeBrowser · 안드로이드 kakaotalk://inappbrowser/close).
+//   가려진 동안 타이머가 멈추는 카톡이면 돌아오는 순간 닫힌다(대화방이 보인다). 넘기기가 아무 일도 안 했으면(창이 그대로 보이면) 닫지 않는다.
+function kakaoCloseWhenHidden(ua) {
+  if (!/KAKAOTALK/i.test(ua)) return;
+  const close = /iphone|ipad|ipod/i.test(ua) ? "kakaoweb://closeBrowser" : "kakaotalk://inappbrowser/close";
+  const h = () => {
+    if (document.visibilityState !== "hidden") return;
+    document.removeEventListener("visibilitychange", h);
+    setTimeout(() => { location.href = close; }, 300);
+  };
+  document.addEventListener("visibilitychange", h);
+}
+// 📖 카톡 카드(이번 주 말씀 보내기)에서 온 길(?kk=1 · js/pray-share.js pshKakaoTemplate) — 친구 2026-11-06 「앱이 없으면 설치 페이지로」.
+//   안드로이드(카톡 안 · 크롬 모두): 플레이 앱을 콕 집어 그 자리(구절 ?v= · 첫 화면)로 — 없으면 설치 안내(/install/ · S.browser_fallback_url) ·
+//   2.5초가 지나도 창이 보이면(아무 일도 안 됐다) 설치 안내로 · 카톡 안이면 넘긴 뒤 카톡 창을 닫는다.
+//   아이폰: 앱이 깔렸는지 알 길이 없다(유니버설 링크 없음) — 「앱 설치」(구절 없음)는 설치 안내로 · 「말씀 외워 보기」는 아래 promptOpenExternal(사파리)로.
+//   ⚠️ loadVerses(→ ?v= 를 읽어 지움)보다 먼저 — 표 kk 만 떼고 ?v= 는 남긴다.
+function routeKakaoCard() {
+  let u;
+  try { u = new URL(location.href); } catch (e) { return false; }
+  if (u.searchParams.get("kk") !== "1") return false;
+  u.searchParams.delete("kk");
+  try { history.replaceState(null, "", u.pathname + u.search + u.hash); } catch (e) {}
+  const ua = navigator.userAgent || "";
+  const install = u.origin + "/install/";
+  if (/android/i.test(ua)) {
+    location.href = "intent://" + u.toString().replace(/^https?:\/\//, "") + "#Intent;scheme=https;package=" + PLAY_APP_ID +
+      ";S.browser_fallback_url=" + encodeURIComponent(install) + ";end";
+    setTimeout(() => { if (document.visibilityState === "visible") location.replace(install); }, 2500);
+    kakaoCloseWhenHidden(ua);
+    return true;
+  }
+  if (/iphone|ipad|ipod/i.test(ua) && !u.searchParams.get("v")) { location.replace(install); return true; }
+  return false;
+}
 function promptOpenExternal() {
   const ua = navigator.userAgent || "";
   if (!/KAKAOTALK/i.test(ua)) return; // 카톡 인앱 브라우저일 때만
@@ -9457,8 +9493,10 @@ function promptOpenExternal() {
   if (isAndroid && !backFromApp && once("kakaoExtApp")) {
     location.href = appIntent;
     setTimeout(() => { if (document.visibilityState === "visible" && once("kakaoExtTried2")) location.href = ext; }, 2500);
+    kakaoCloseWhenHidden(ua);
   } else if (once("kakaoExtTried2")) {
     location.href = ext;
+    kakaoCloseWhenHidden(ua);
   }
 
   // 2) 상단 안내 배너(자동 전환이 막힌 경우 수동 버튼/가이드)
@@ -13014,5 +13052,5 @@ function showUpdateBanner(fresh) {
 setTimeout(checkForUpdate, 4000); // 시작 몇 초 뒤 1회
 document.addEventListener("visibilitychange", () => { if (!document.hidden) checkForUpdate(); }); // 앱 복귀 시
 
-promptOpenExternal();
+if (!routeKakaoCard()) promptOpenExternal();   // 카톡 카드에서 온 길(?kk=1)이 먼저 — 아니면 카톡 안 브라우저 넘기기
 loadVerses();
