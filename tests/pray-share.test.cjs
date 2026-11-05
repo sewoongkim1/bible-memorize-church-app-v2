@@ -433,8 +433,7 @@ test('배선 — 첫 화면 「이번 주 말씀」 오른쪽 위 아이콘: 문
   assert.match(ov, /pshOpen\(PSH_TITLE_VERSE, false, "", "verse"\);/);
   assert.match(PS, /const PSH_TITLE_VERSE = "📤 이번 주 말씀 보내기";/);
   const po = cut(PS, 'function pshOpen(', '\n}\n');
-  assert.match(po, /\$\{kind === "verse" \? `<button type="button" class="psh-link" id="psh-link">🔗 주소로 보내기<\/button>/, '주소 단추는 말씀 판에만');
-  assert.match(po, /if \(v && typeof shareWeeklyVerse === "function"\) shareWeeklyVerse\(\{ no: v\.no, refShort: v\.refShort \|\| v\.refFull, text: v\.text \}\);/, '주소는 app.js shareWeeklyVerse(딥링크 ?v=구절)');
+  assert.ok(!/psh-link|주소로 보내기<\/button>/.test(po), '「🔗 주소로 보내기」는 뺐다(친구 2026-11-05 — 카톡이 큰 미리보기 상자를 붙였다 · 설치 주소는 그림 아래 한 줄)');
   assert.match(APP, /function shareWeeklyVerse\(verse\) \{/, 'shareWeeklyVerse 는 app.js 에 그대로 있다(WEEKLY_SHARE 를 내려도 지우지 말 것)');
   const CSS = read('style.css');
   assert.match(CSS, /\.weekly-topline \.weekly-kicks \{ margin-right: auto; \}/, '진행 표시 · 아이콘이 오른쪽에 나란히');
@@ -451,7 +450,7 @@ test('📖 말씀 액자(친구 2026-11-05 「기존에 없던 것으로 · 너�
     for (const f of [c.src, c.thumb]) assert.ok(fs.existsSync(path.join(__dirname, '..', f)), f + ' 가 없다');
     const st = c.style;
     assert.equal(st.W, 1080); assert.equal(st.H, 1080, '정사각형');
-    assert.ok(st.max <= 40 && st.min >= 24, '너무 크지 않게');
+    assert.ok(st.max <= 48 && st.min >= 28, '글씨 28~48px(같은 날 「글자도 키워」)');
     assert.ok(st.box.x > 0 && st.box.x + st.box.w < st.W && st.box.y > 0 && st.box.bottom < st.H, c.key + ' 글 자리가 그림 안');
     const mk = T.prayShareMark(st.W, st.mark);
     assert.ok(mk.x > st.box.x && mk.x + mk.w < st.W && mk.y > 0 && mk.y < st.box.y + 80, c.key + ' 마크는 안쪽 오른쪽 위');
@@ -467,7 +466,12 @@ test('📖 말씀 액자(친구 2026-11-05 「기존에 없던 것으로 · 너�
       const want = flat(T.VERSE_KICKER) + flat(v.text) + flat(v.refFull || v.refShort) + flat(T.verseShareFoot(v)) + flat(T.verseShareByline(v));
       assert.equal(flat(tx.map((o) => o.s).join('')), want, at + ' 글자');
       const mo = p.ops.find((o) => o.k === 'mark');
-      assert.equal(mo.x, mk.x); assert.equal(mo.w, 56, '마크는 작게');
+      assert.equal(mo.x, mk.x); assert.equal(mo.w, 62, '마크는 작게(62×76)');
+      const no = p.ops.filter((o) => o.k === 'note');
+      assert.equal(no.length, 1, at + ' 액자 아래 설치 주소 한 줄');
+      assert.ok(/gocheok\.onlybible\.kr\/install/.test(no[0].s), at + ' 설치 주소');
+      assert.ok(no[0].y > st.box.bottom && no[0].y < st.H, at + ' 글 자리 아래 · 그림 안');
+      assert.ok(Math.abs(no[0].x + no[0].w / 2 - st.W / 2) <= 1 && no[0].w <= st.W - 120, at + ' 가운데 · 폭 안');
       assert.equal(mo.disc, !!st.disc);
     }
   }
