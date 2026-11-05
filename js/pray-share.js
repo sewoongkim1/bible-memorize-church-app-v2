@@ -292,6 +292,9 @@ function verseFrameChoices() {
 //   「이번 주 말씀」(작게 · 강조색) · 구절 자리(큰 글씨) · (장식) · 말씀(문장마다) · 맨 아래 작게 「설교 「제목」」 / 「설교하신 분 · 날짜」(묵상과 같은 꼴).
 //   구절 본문은 20~69자(운영 44구절 · 2026-11-05) — 짧아서 큰 글씨로 든다. verses.date 는 UTC(그 주일 0시 KST = 토 15:00Z) — 한국 날짜로 바꿔 쓴다.
 const VERSE_KICKER = "이번 주 말씀";
+// 말씀 액자에 교회 마크를 넣나 — 친구 2026-11-05 「우선 교회마크를 빼주세요」. 다시 넣으려면 true(「이번 주 말씀」 바로 오른쪽 · 묶음을 가운데로).
+//   기도문 · 묵상 그림의 오른쪽 위 마크와는 따로다(그쪽은 그대로).
+const VERSE_MARK = false;
 function verseShareDate(d) {   // 「2026-06-27T15:00:00.000Z」 → 「2026-06-28」(KST) · 시각이 없으면 그대로 · 못 읽으면 빈 값
   const s = String(d == null ? "" : d).trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
@@ -317,7 +320,7 @@ function verseSharePlan(v, styleKey, measure) {
   //   「글자 + 틈 + 마크」 묶음이 가운데에 오게 글자를 왼쪽으로 반만큼 옮긴다 · 마크 높이 = 그 글자 크기의 1.45배.
   const st = (styleKey && typeof styleKey === "object") ? styleKey : null;
   const ki = plan.ops.findIndex((o) => o.k === "text" && o.s === VERSE_KICKER);
-  if (st && st.markInline && ki >= 0) {
+  if (st && st.markInline && VERSE_MARK && ki >= 0) {
     const ko = plan.ops[ki], kz = Number(/(\d+)px/.exec(ko.font)[1]);
     const h = Math.round(kz * 1.45), w = Math.round(h * 108 / 132), gap = Math.round(kz * 0.35);
     const shift = (gap + w) / 2;

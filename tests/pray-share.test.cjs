@@ -21,7 +21,7 @@ const FILL = cut(APP, 'function prayJong(', '// 이름을 눈에 띄게') + '\n'
 const PURE = cut(PS, '// ── 기도문 그림 — 순수 (여기부터) ──', '// ── 기도문 그림 — 순수 (여기까지) ──');
 // 그릴 글 한 벌(prayShareDoc · medShareDoc — DOM 없음)도 싣는다 · 판이 묵상 · 기도문 중 무엇을 그릴지 고르는 길(2026-11-04 검토)
 const DOCS = cut(PS, 'function prayShareDoc(', 'function prayShareDraw(');
-const T = vm.runInContext(FILL + '\n' + PURE + '\n' + DOCS + '\n;({ VERSE_FRAMES, verseFrameChoices, verseFrameStyle, prayShareDoc, medShareDoc, verseShareDoc, verseSharePlan, verseShareDate, verseShareFoot, verseShareByline, VERSE_KICKER, prayFill, prayChunks, PRAY_AMEN, prayShareName, prayShareRuns, prayShareWrap, praySharePlan, prayShareChoices, prayShareMark, PRAY_SHARE_STYLES, PRAY_SHARE_PHOTOS, PSH_MARK, PSH_FLOOR, PSH_MIN, PSH_MAX, PSH_W, PSH_H, medShareRuns, medShareParas, medShareFoot, medShareDate, medShareByline, medSharePlan, MED_KICKER, MED_QLABEL })', vm.createContext({}));
+const T = vm.runInContext(FILL + '\n' + PURE + '\n' + DOCS + '\n;({ VERSE_MARK, VERSE_FRAMES, verseFrameChoices, verseFrameStyle, prayShareDoc, medShareDoc, verseShareDoc, verseSharePlan, verseShareDate, verseShareFoot, verseShareByline, VERSE_KICKER, prayFill, prayChunks, PRAY_AMEN, prayShareName, prayShareRuns, prayShareWrap, praySharePlan, prayShareChoices, prayShareMark, PRAY_SHARE_STYLES, PRAY_SHARE_PHOTOS, PSH_MARK, PSH_FLOOR, PSH_MIN, PSH_MAX, PSH_W, PSH_H, medShareRuns, medShareParas, medShareFoot, medShareDate, medShareByline, medSharePlan, MED_KICKER, MED_QLABEL })', vm.createContext({}));
 
 // 가짜 폭 — 한글 1em · 띄어쓰기 0.3em · 그 밖 0.55em · 800 굵기 1.04배(나눔명조 · Noto 실측보다 조금 넓게 — 넉넉히 잰다)
 const px = (font) => Number(/(\d+)px/.exec(font)[1]);
@@ -468,12 +468,17 @@ test('📖 말씀 액자(친구 2026-11-05 「기존에 없던 것으로 · 너�
       const want = flat(T.VERSE_KICKER) + flat(v.text) + flat(v.refFull || v.refShort) + flat(T.verseShareFoot(v)) + flat(T.verseShareByline(v));
       assert.equal(flat(tx.map((o) => o.s).join('')), want, at + ' 글자');
       const mo = p.ops.find((o) => o.k === 'mark'), ko = tx[0];
-      assert.equal(p.ops.filter((o) => o.k === 'mark').length, 1);
-      assert.ok(Math.abs(mo.cy - ko.y) < 1 && mo.x > ko.x + ko.w, at + ' 마크는 「이번 주 말씀」 바로 오른쪽(같은 줄 · 친구 2026-11-05)');
-      assert.ok(Math.abs((ko.x + mo.x + mo.w) / 2 - (st.box.x + st.box.w / 2)) < 1.5, at + ' 「글자 + 마크」 묶음이 가운데');
-      assert.ok(mo.x + mo.w <= st.box.x + st.box.w && mo.h < 80, at + ' 마크도 글 자리 안 · 작게');
+      if (T.VERSE_MARK) {   // 다시 켜면 — 「이번 주 말씀」 바로 오른쪽(같은 줄 · 묶음을 가운데로)
+        assert.equal(p.ops.filter((o) => o.k === 'mark').length, 1);
+        assert.ok(Math.abs(mo.cy - ko.y) < 1 && mo.x > ko.x + ko.w, at + ' 마크는 「이번 주 말씀」 바로 오른쪽(같은 줄 · 친구 2026-11-05)');
+        assert.ok(Math.abs((ko.x + mo.x + mo.w) / 2 - (st.box.x + st.box.w / 2)) < 1.5, at + ' 「글자 + 마크」 묶음이 가운데');
+        assert.ok(mo.x + mo.w <= st.box.x + st.box.w && mo.h < 80, at + ' 마크도 글 자리 안 · 작게');
+        assert.equal(mo.disc, !!st.disc);
+      } else {
+        assert.ok(!mo, at + ' 말씀 액자에는 교회 마크가 없다(친구 2026-11-05 「우선 교회마크를 빼주세요」)');
+        assert.ok(Math.abs(ko.x + ko.w / 2 - (st.box.x + st.box.w / 2)) < 1.5, at + ' 「이번 주 말씀」은 가운데(마크 자리만큼 비켜 두지 않는다)');
+      }
       assert.ok(!p.ops.some((o) => o.k === 'note'), at + ' 설치 주소는 그림에 넣지 않는다(친구 — 보내기 글로)');
-      assert.equal(mo.disc, !!st.disc);
     }
   }
   // 판 — 말씀은 말씀 액자만 · 고른 액자는 따로 기억(기도문 · 묵상의 「밤하늘 먼저」와 섞이지 않게)
@@ -495,7 +500,7 @@ test('말씀 보내기 글 — 짧은 주소 go/app/(대표 그림 없음 → �
   assert.match(read('tools', 'site.py'), /SITE_DIRS = \[[^\]]*"go"/, 'go/ 는 사이트로 나간다');
 });
 
-test('말씀 액자 — 아주 긴 구절(138자)도 바닥 안 · 글자를 잃지 않는다 · 마크는 「이번 주 말씀」 오른쪽', () => {
+test('말씀 액자 — 아주 긴 구절(138자)도 바닥 안 · 글자를 잃지 않는다 · 마크는 끄거나(VERSE_MARK) 「이번 주 말씀」 오른쪽', () => {
   const long = { no: 99, refFull: '갈라디아서 2장 20절', text: '내가 그리스도와 함께 십자가에 못 박혔나니 그런즉 이제는 내가 사는 것이 아니요 오직 내 안에 그리스도께서 사시는 것이라 이제 내가 육체 가운데 사는 것은 나를 사랑하사 나를 위하여 자기 자신을 버리신 하나님의 아들을 믿는 믿음 안에서 사는 것이라',
                  sermonTitle: '그리스도와 함께', pastor: '차동혁 위임목사', date: '2026-04-18T15:00:00.000Z' };
   assert.ok(long.text.length >= 130);
@@ -505,13 +510,14 @@ test('말씀 액자 — 아주 긴 구절(138자)도 바닥 안 · 글자를 잃
     const tx = p.ops.filter((o) => o.k === 'text');
     assert.equal(flat(tx.map((o) => o.s).join('')), flat(T.VERSE_KICKER) + flat(long.text) + flat(long.refFull) + flat(T.verseShareFoot(long)) + flat(T.verseShareByline(long)), c.label + ' 글자');
     const mo = p.ops.find((o) => o.k === 'mark');
-    assert.ok(Math.abs(mo.cy - tx[0].y) < 1 && mo.x > tx[0].x + tx[0].w, c.label + ' 긴 구절에서도 마크는 「이번 주 말씀」 오른쪽');
+    if (T.VERSE_MARK) assert.ok(Math.abs(mo.cy - tx[0].y) < 1 && mo.x > tx[0].x + tx[0].w, c.label + ' 긴 구절에서도 마크는 「이번 주 말씀」 오른쪽');
+    else assert.ok(!mo, c.label + ' 마크 없음');
   }
   const navy = T.VERSE_FRAMES.find((f) => f.id === 'vf-navy');
   assert.ok(navy.box.w >= 700, '남색은 창 없는 새 그림 — 글 자리가 넓다(「글자가 작아요」)');
 });
 
-test('pshDraw — 가짜 캔버스: 말씀 액자는 1080×1080 · 액자 그림을 바탕 가득 · 마크는 계획 자리 · 기도문은 1080×1350 · 그림 못 받으면 액자마다 바탕색', async () => {
+test('pshDraw — 가짜 캔버스: 말씀 액자는 1080×1080 · 액자 그림을 바탕 가득 · 마크는 계획 자리(없으면 안 그림) · 기도문은 1080×1350 · 그림 못 받으면 액자마다 바탕색', async () => {
   const DRAW = cut(PS, '// ── 그리기 ──', '// ── 판(아래에서 올라온다) ──');
   const made = [];
   const mkCtx = (cv) => new Proxy({ canvas: cv, font: '700 30px x', calls: [], measureText(t) { return { width: measure(t, this.font) }; },
@@ -533,7 +539,8 @@ test('pshDraw — 가짜 캔버스: 말씀 액자는 1080×1080 · 액자 그림
   assert.deepEqual(bg.slice(2).map(Math.round), [0, 0, 1080, 1080], '바탕 가득');
   const plan = D.verseShareDoc(VERSES[0]).plan(vf.style, (t, f) => measure(t, f)), mk = plan.ops.find((o) => o.k === 'mark');
   const logo = imgs.find((c) => /logo-mark\.png/.test(c[1]._src));
-  assert.deepEqual(logo.slice(2), [mk.x, mk.y, mk.w, mk.h], '마크는 계획 자리');
+  if (mk) assert.deepEqual(logo.slice(2), [mk.x, mk.y, mk.w, mk.h], '마크는 계획 자리');
+  else assert.ok(!logo, '마크가 없는 꼴이면 마크를 그리지 않는다');
   assert.ok(!cv.ctx.calls.some((c) => c[0] === 'fillRect' && c[3] === 0 && c[4] === 1080 && c[5] === 1080 && cv.ctx.calls.indexOf(c) > cv.ctx.calls.indexOf(bg)), '액자 위에 막을 덮지 않는다');
   assert.ok(cv.ctx.calls.filter((c) => c[0] === 'fillText').length >= 4, '글을 쓴다');
   await D.pshDraw(D.prayShareDoc(LIST[0], '김세웅'), D.prayShareChoices()[0], 1);
