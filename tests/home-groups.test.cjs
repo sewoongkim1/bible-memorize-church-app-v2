@@ -54,6 +54,37 @@ test('A안 묶음 차례 — 「암송 과정」은 「함께」 바로 아래(�
   assert.ok(APP.includes('window.open("https://www.youtube.com/@GocheokCh", "_blank", "noopener")'), '고척교회 유튜브 주소');
 });
 
+test('💬 응원·기도·공감 한 주간 맨 위(친구 2026-11-06) — 11/12(목)까지 이번 주 말씀 바로 아래 「새 소식」 · 11/13 부터 저절로 「함께」 첫 줄', () => {
+  const vm = require('node:vm');
+  const cut = (head) => {
+    const a = APP.indexOf(head);
+    const b = APP.indexOf('\n}\n', a);
+    assert.ok(a >= 0 && b > a, head + ' 를 못 찾았다 — 이 검사가 낡았다');
+    return APP.slice(a, b + 3);
+  };
+  const until = /const BOARD_TOP_UNTIL = "(\d{4}-\d{2}-\d{2})";/.exec(APP);
+  assert.ok(until, 'BOARD_TOP_UNTIL 을 못 찾았다');
+  assert.equal(until[1], '2026-11-12', '기간 끝 — 공지 #62 「11월 12일(목)까지」와 같은 날');
+  const src = HA + '];\n' + until[0] + '\n' + cut('function kstDateParts(raw) {') + cut('function boardTopOn(raw) {') + cut('function haGroupsFor(raw) {');
+  const ctx = vm.runInNewContext(src + '\n({ HA_GROUPS, boardTopOn, haGroupsFor })');
+  const plain = (gs) => JSON.parse(JSON.stringify(gs.map((g) => ({ title: g.title, ids: g.ids }))));
+  const ids = (gs) => gs.flatMap((g) => g.ids).slice().sort();
+  for (const at of ['2026-11-06T02:00:00+09:00', '2026-11-12T23:59:00+09:00']) {
+    const gs = plain(ctx.haGroupsFor(at));
+    assert.deepEqual(gs[0], { title: '새 소식', ids: ['open-board'] }, at + ' — 맨 위가 「새 소식」 한 줄이 아니다');
+    assert.deepEqual(gs.find((g) => g.title === '함께').ids, ['open-prayer', 'open-pilsa'], at + ' — 「함께」에 게시판이 남았다(두 번)');
+    assert.deepEqual(ids(gs), ids(plain(ctx.HA_GROUPS)), at + ' — 단추가 빠지거나 늘었다');
+  }
+  // 11/13 0시(KST · UTC 로는 11/12 15시) — 원래 묶음표 그대로
+  assert.equal(ctx.haGroupsFor('2026-11-12T15:00:00Z'), ctx.HA_GROUPS, '11/13(KST)인데 아직 맨 위다');
+  assert.equal(ctx.boardTopOn('2026-11-12T14:59:00Z'), true, '11/12 23:59(KST)인데 벌써 내려갔다');
+  // 조립은 오늘 날짜의 묶음표로 · 설명서 첫 걸음도 같은 문으로 갈라 쓴다
+  assert.match(APP, /haGroupsFor\(\)\.forEach\(\(g\) => \{/, 'applyHomeA 가 haGroupsFor() 를 쓰지 않는다');
+  assert.ok(!/\n\s*HA_GROUPS\.forEach\(/.test(APP), 'HA_GROUPS 를 바로 도는 곳이 남았다(한 주간 자리가 안 바뀐다)');
+  assert.ok(/HOME_LAYOUT === "a" && boardTopOn\(\)[^\n]*\n\s*\? "첫 화면 <b>「이번 주 말씀」<\/b> 바로 아래 <b>「새 소식」<\/b>에서 <b>💬 응원·기도·공감<\/b>을 누르세요\."\n\s*: "첫 화면 <b>「함께」<\/b>에서 <b>💬 응원·기도·공감<\/b>을 누르세요\."/.test(APP),
+    '설명서 게시판 첫 걸음이 한 주간 자리와 갈라져 있지 않다');
+});
+
 test('설명서 — 자리를 말하는 쉴만한 물가 줄은 첫 화면 꼴(HOME_LAYOUT)로 갈라 쓴다(A안 「암송 과정」 · 옛 첫 화면 「함께」)', () => {
   assert.ok(/HOME_LAYOUT === "a"[^\n]*\n\s*\? "첫 화면 <b>「암송 과정」<\/b>에서 <b>🐑 쉴만한 물가<\/b>를 누르세요\."\n\s*: "첫 화면 <b>「함께」<\/b>에서 <b>🐑 쉴만한 물가<\/b>를 누르세요\."/.test(APP),
     '설명서 쉴만한 물가 첫 걸음이 두 꼴로 갈라져 있지 않다');

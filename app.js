@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261106f";
+const APP_BUILD = "20261106g";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -949,6 +949,21 @@ const HA_GROUPS = [
   { title: "암송 과정", ids: ["open-psalm", "open-passages", "open-navi", "open-quiz"] },
   { title: "교회 사이트", note: "앱 밖으로 나가요", ext: true, ids: ["open-praise", "open-sermon-archive", "open-youtube"] },
 ];
+// 💬 응원·기도·공감 한 주간 맨 위로(친구 2026-11-06 「화면 아래에 있어서 보이지 않는다」 → 「이번 주 말씀 바로 아래」 · 공지 #62 「가족·목장 식구를 초대해 주세요」와 함께)
+//   이번 주 말씀 바로 아래 「새 소식」 한 줄로 옮기고 「함께」에서는 뺀다(단추는 하나 — 옮겨 담기만 한다 · 「새글 N」 배지도 따라간다).
+//   11/12(목)까지(KST — 공지의 「11월 12일(목)까지 시작하시면」과 같은 날) · 11/13 부터는 다시 배포하지 않아도 저절로 「함께」 첫 줄로 돌아간다.
+//   ⚠️ 설명서 게시판 장의 첫 걸음도 boardTopOn() 으로 갈라 쓴다. 기간이 지나면 이 넷(상수 · 두 함수 · 설명서 줄)을 걷어도 된다.
+const BOARD_TOP_UNTIL = "2026-11-12";
+function boardTopOn(raw) {
+  const p = kstDateParts(raw);
+  if (!p) return false;
+  return p.y + "-" + String(p.m).padStart(2, "0") + "-" + String(p.d).padStart(2, "0") <= BOARD_TOP_UNTIL;
+}
+function haGroupsFor(raw) {
+  if (!boardTopOn(raw)) return HA_GROUPS;
+  return [{ title: "새 소식", ids: ["open-board"] }]
+    .concat(HA_GROUPS.map((g) => (g.ids.includes("open-board") ? Object.assign({}, g, { ids: g.ids.filter((id) => id !== "open-board") }) : g)));
+}
 const HA_ROW_ICON = {
   "open-sermon-chat": "message", "open-meditation": "leaf", "open-navi": "book", "open-event-list": "medal", "open-album": "album", "open-ranking": "trophy",
   "open-ministry": "users", "open-ministry-history": "folder", "open-edu": "cap", "open-duty": "calendar",
@@ -1064,7 +1079,7 @@ function applyHomeA() {
   haTop(card);   // 맨 위 머리 줄 · 인사 · 두 단추 아이콘 · 이번 주 말씀(2026-10-14) — 🔔 · ⚙ 를 도구 칸에서 먼저 옮긴다
   const wrap = document.createElement("div");
   wrap.className = "ha-groups";
-  HA_GROUPS.forEach((g) => {
+  haGroupsFor().forEach((g) => {   // 2026-11-06~12 한 주간은 맨 위에 「새 소식」(💬 응원·기도·공감) — 위 BOARD_TOP_UNTIL
     const rows = g.ids.map((id) => document.getElementById(id)).filter(Boolean);
     if (!rows.length) return;   // 문이 닫힌 묶음(교회 생활 등)은 제목째 없다
     const sec = document.createElement("section");
@@ -10548,7 +10563,9 @@ const MANUAL = [
     lead: "서로 격려하는 자리예요.",
     art: '<div class="mn-row"><span class="mn-chip">👍</span><span class="mn-chip">🙏</span><span class="mn-chip">❤️</span></div>',
     steps: [
-      "첫 화면 <b>「함께」</b>에서 <b>💬 응원·기도·공감</b>을 누르세요.",
+      HOME_LAYOUT === "a" && boardTopOn()   // 2026-11-06~12 한 주간은 이번 주 말씀 바로 아래(haGroupsFor)
+        ? "첫 화면 <b>「이번 주 말씀」</b> 바로 아래 <b>「새 소식」</b>에서 <b>💬 응원·기도·공감</b>을 누르세요."
+        : "첫 화면 <b>「함께」</b>에서 <b>💬 응원·기도·공감</b>을 누르세요.",
       BOARD_LAYOUT === "a"   // 게시판 A안(2026-10-14) — 쓰기 칸 · 답글 칸이 접혀 있다
         ? "맨 위 <b>글 쓰기</b>를 누르면 글을 남길 수 있고, 글 아래 <b>답글 달기</b>로 답글을 달 수 있어요. <b>사진</b>도 4장까지 올릴 수 있어요."
         : "글을 남기거나 남의 글에 답글을 달 수 있어요. <b>사진</b>도 4장까지 올릴 수 있어요.",
