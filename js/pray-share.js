@@ -137,7 +137,8 @@ function pshPlan(styleKey, measure, rowsOf) {
   const st = (styleKey && typeof styleKey === "object") ? styleKey : (PRAY_SHARE_STYLES[styleKey] || PRAY_SHARE_STYLES.frame);
   const W = st.W || PSH_W, MAX = st.max || PSH_MAX, MIN = st.min || PSH_MIN, FLOOR = st.floor || ((st.H || PSH_H) - 92);
   const font = (size, bold) => (bold ? st.wBold : st.wBody) + " " + size + "px " + st.family;
-  const mk = prayShareMark(W, st.mark), K = mk.keep;
+  // markInline(말씀 액자) — 마크는 글 덩이 안(「이번 주 말씀」 오른쪽 · verseSharePlan 이 놓는다)이라 오른쪽 위 피하기가 없다
+  const mk = st.markInline ? null : prayShareMark(W, st.mark), K = mk ? mk.keep : { x: -1e4, y: -1e4, w: 0, h: 0 };
   const lay = (size) => {
     const rows = [];
     let bodyStart = -1;
@@ -186,7 +187,7 @@ function pshPlan(styleKey, measure, rowsOf) {
   let size = MAX, L = lay(size), limit = st.box.bottom, P = put(L, size, limit);
   while (P.bottom > limit + 0.5 && size > MIN) { size -= PSH_STEP; L = lay(size); P = put(L, size, limit); }
   if (P.bottom > limit + 0.5) { limit = FLOOR; P = put(L, size, limit); }   // 가장 작은 글씨로도 넘친다 — 바닥을 내린다
-  P.ops.push({ k: "mark", x: mk.x, y: mk.y, w: mk.w, h: mk.h, cx: mk.cx, cy: mk.cy, r: mk.r, disc: !!st.disc });
+  if (mk) P.ops.push({ k: "mark", x: mk.x, y: mk.y, w: mk.w, h: mk.h, cx: mk.cx, cy: mk.cy, r: mk.r, disc: !!st.disc });
   return { size, fit: P.bottom <= limit + 0.5, top: P.top, bottom: P.bottom, limit, box: st.box, rects: P.rects, keep: K, ops: P.ops };
 }
 // 기도문 — 제목 · 말씀 자리 · (장식) · 이름 든 기도문(문장마다) · 맺음말(강조 · 한 줄에 안 들면 가운데에서 둘로)
@@ -265,22 +266,24 @@ function medSharePlan(m, styleKey, measure) {
   });
 }
 // 📖 말씀 액자(2026-11-05 친구 「이미지는 기존에 없던 것으로 · 말씀 액자이니 너무 크지 않게」) — Gemini 정사각형 여섯 장 중 다섯(만든 말 img/share/prompts.md).
-//   정사각형 1080×1080 · 액자가 그림 폭의 89%(긴 변 960px)를 채우게 벽 여백을 잘라 냈다(같은 날 친구 「액자 밖 여백이 너무 많아요 · 액자를 크게 · 글자도 키워」) ·
-//   글은 액자 안쪽 바탕(box — 그림마다 눈금으로 잰 자리에서 여백을 둔 곳)에만 · 글씨 48px → 28px · 마크는 그 안 오른쪽 위에 작게(62×76) ·
-//   액자 아래 여백(약 90px)에 설치 주소 한 줄(note — 그림 속 글자라 카톡에 큰 미리보기 상자가 안 생긴다 · 대신 눌러지지 않는다).
-//   ⚠️ 그림을 바꾸면 box · mark · note 를 다시 잴 것(그림마다 액자 두께 · 안쪽 창 자리가 다르다).
-const VERSE_NOTE = "성경암송 앱 설치 · gocheok.onlybible.kr/install";
-const VERSE_FRAMES = [
-  { id: "vf-hanji", label: "한지", ink: "#2b2620", accent: "#8a4f1a", sub: "#6b6250", orn: "#8a6a3a", box: { x: 144, y: 118, w: 747, bottom: 860 }, mark: { right: 159, top: 74 }, note: { y: 1036, color: "#5b554b" } },
-  { id: "vf-gold", label: "금테", ink: "#3a2c18", accent: "#9a6a17", sub: "#6b5a3a", orn: "#b08a3e", box: { x: 215, y: 180, w: 638, bottom: 840 }, mark: { right: 201, top: 141 }, note: { y: 1036, color: "#6b5a3a" } },
-  { id: "vf-oak", label: "원목", ink: "#2f3440", accent: "#7a5a2a", sub: "#5f6672", orn: "#a07a4a", box: { x: 290, y: 270, w: 494, bottom: 785 }, mark: { right: 279, top: 250 }, note: { y: 1036, color: "#5f5446" } },
-  { id: "vf-wreath", label: "꽃테", ink: "#33402f", accent: "#a0566a", sub: "#6b7a68", orn: "#8aa07a", box: { x: 262, y: 240, w: 566, bottom: 835 }, mark: { right: 263, top: 229 }, note: { y: 1046, color: "#6b7a68" } },
-  { id: "vf-navy", label: "남색", ink: "#f4ecd8", accent: "#f0d48a", sub: "#c9d3ea", orn: "#d9bd72", disc: true, box: { x: 290, y: 255, w: 516, bottom: 785 }, mark: { right: 261, top: 235 }, note: { y: 1036, color: "#4f4a44" } },
+//   정사각형 1080×1080 · 액자 긴 변 960px 을 가운데에(같은 날 친구 「액자 밖 여백이 너무 많아요 · 액자를 크게 · 글자도 키워」 · 한지는 오른쪽 그림자까지 넣어 가운데 —
+//   「오른쪽 여백을 좀 더」) · 글은 액자 안쪽 바탕(box — 그림마다 눈금으로 잰 자리에서 여백을 둔 곳)에만 · 글씨 48px → 24px ·
+//   마크는 안쪽 바탕 오른쪽 위 모서리에서 22px(62×76 · 「교회 마크를 오른쪽 위로」) · 남색은 창 없는 새 그림(「글자가 작아요」 — 안쪽 창이 글 자리를 좁혔다).
+//   설치 주소는 그림에 넣지 않는다 — 보내기 글(VERSE_SHARE_TEXT)로. ⚠️ 그림을 바꾸면 box · floor · mark 를 다시 잴 것.
+// 말씀 보내기는 그림과 함께 이 글을 보낸다(친구 2026-11-05 「설치는 그림 말고 액자 아래 · 누르면 연결 · URL 박스가 크지 않게」) —
+//   주소는 대표 그림(og:image)이 없는 짧은 주소 go/app/ → /install/ 이라 카톡 미리보기가 작은 상자(제목 · 주소)가 된다.
+const VERSE_SHARE_TEXT = "성경암송 앱 설치 https://gocheok.onlybible.kr/go/app/";
+const VERSE_FRAMES = [   // floor = 안쪽 바탕 끝에서 18px 안(가장 작은 글씨로도 넘칠 때 내려갈 바닥 — 2026-11-05 검토: 같은 +40 이면 원목 · 남색 창 밖으로 나갔다) · bg = 그림을 못 받았을 때 바탕
+  { id: "vf-hanji", label: "한지", ink: "#2b2620", accent: "#8a4f1a", sub: "#6b6250", orn: "#8a6a3a", bg: "#f3ead8", box: { x: 126, y: 145, w: 748, bottom: 895 }, floor: 952 },
+  { id: "vf-gold", label: "금테", ink: "#3a2c18", accent: "#9a6a17", sub: "#6b5a3a", orn: "#b08a3e", bg: "#f5ecdd", box: { x: 215, y: 211, w: 638, bottom: 866 }, floor: 916 },
+  { id: "vf-oak", label: "원목", ink: "#2f3440", accent: "#7a5a2a", sub: "#5f6672", orn: "#a07a4a", bg: "#ece8e2", box: { x: 290, y: 301, w: 493, bottom: 811 }, floor: 838 },
+  { id: "vf-wreath", label: "꽃테", ink: "#33402f", accent: "#a0566a", sub: "#6b7a68", orn: "#8aa07a", bg: "#f4f1ea", box: { x: 262, y: 246, w: 565, bottom: 842 }, floor: 859 },
+  { id: "vf-navy", label: "남색", ink: "#f4ecd8", accent: "#f0d48a", sub: "#c9d3ea", orn: "#d9bd72", bg: "#0c1734", disc: true, box: { x: 160, y: 164, w: 760, bottom: 916 }, floor: 973 },
 ];
 function verseFrameStyle(f) {
   return { label: f.label, family: PSH_SERIF, align: "center", valign: "center", ink: f.ink, accent: f.accent, sub: f.sub, orn: f.orn, bar: null,
-           disc: !!f.disc, W: 1080, H: 1080, max: 48, min: 28, floor: f.box.bottom + 30, box: f.box, note: f.note,
-           mark: { w: 62, h: 76, right: f.mark.right, top: f.mark.top, disc: 50, pad: 10 }, wBody: 700, wBold: 800 };
+           disc: !!f.disc, W: 1080, H: 1080, max: 48, min: 24, floor: f.floor, bg: f.bg, box: f.box,
+           markInline: true, wBody: 700, wBold: 800 };
 }
 function verseFrameChoices() {
   return VERSE_FRAMES.map((f) => ({ key: "vf:" + f.id, style: verseFrameStyle(f), label: f.label, src: "img/share/" + f.id + ".webp", thumb: "img/share/" + f.id + "-t.webp" }));
@@ -310,12 +313,19 @@ function verseSharePlan(v, styleKey, measure) {
     if (foot) c.add([{ s: foot, a: false }], Math.round(size * 0.68), 1.5, false, st.sub, Math.round(size * 1.1));
     if (by) c.add([{ s: by, a: false }], Math.round(size * 0.68), 1.5, false, st.sub, foot ? 0 : Math.round(size * 1.1));
   });
-  // 액자 아래 여백 — 설치 주소 한 줄(말씀 액자만 · 글 상자 밖 · 가운데). 폭이 넘치면 글씨를 줄인다.
+  // 말씀 액자 — 교회 마크를 「이번 주 말씀」 바로 오른쪽에(친구 2026-11-05 「마크의 위치가 좀 이상해요」 — 안쪽 바탕 모서리에서는 따로 떨어져 보였다).
+  //   「글자 + 틈 + 마크」 묶음이 가운데에 오게 글자를 왼쪽으로 반만큼 옮긴다 · 마크 높이 = 그 글자 크기의 1.45배.
   const st = (styleKey && typeof styleKey === "object") ? styleKey : null;
-  if (st && st.note) {
-    let z = 26, font = "600 26px " + PSH_SANS, w = measure(VERSE_NOTE, font);
-    while (w > (st.W || PSH_W) - 120 && z > 16) { z -= 2; font = "600 " + z + "px " + PSH_SANS; w = measure(VERSE_NOTE, font); }
-    plan.ops.push({ k: "note", s: VERSE_NOTE, x: Math.round(((st.W || PSH_W) - w) / 2), y: st.note.y, w, font, color: st.note.color });
+  const ki = plan.ops.findIndex((o) => o.k === "text" && o.s === VERSE_KICKER);
+  if (st && st.markInline && ki >= 0) {
+    const ko = plan.ops[ki], kz = Number(/(\d+)px/.exec(ko.font)[1]);
+    const h = Math.round(kz * 1.45), w = Math.round(h * 108 / 132), gap = Math.round(kz * 0.35);
+    const shift = (gap + w) / 2;
+    ko.x -= shift;
+    const ri = plan.rects.findIndex((q) => Math.abs(q.x - (ko.x + shift)) < 0.5 && Math.abs(q.w - ko.w) < 0.5);
+    if (ri >= 0) plan.rects[ri].x -= shift;
+    const x = Math.round(ko.x + ko.w + gap), y = Math.round(ko.y - h / 2);
+    plan.ops.push({ k: "mark", x, y, w, h, cx: x + w / 2, cy: ko.y, r: Math.round(h * 0.6), disc: !!st.disc });
   }
   return plan;
 }
@@ -339,7 +349,7 @@ function pshNight(ctx) {
 function pshBg(ctx, style, img, seed, plan) {
   const W = (ctx.canvas && ctx.canvas.width) || PSH_W, H = (ctx.canvas && ctx.canvas.height) || PSH_H;
   if (style && typeof style === "object") {   // 📖 말씀 액자(2026-11-05) — 액자 그림을 바탕 가득(정사각형 그림 · 글은 그 안쪽 바탕에). 그림을 못 받으면 미색 바탕.
-    if (!img) { ctx.fillStyle = "#fbf7ee"; ctx.fillRect(0, 0, W, H); return; }
+    if (!img) { ctx.fillStyle = style.bg || "#fbf7ee"; ctx.fillRect(0, 0, W, H); return; }   // 액자마다 글씨에 맞춘 바탕(남색은 어둡게 — 밝은 글씨가 묻히지 않게)
     const sc = Math.max(W / img.naturalWidth, H / img.naturalHeight);
     const dw = img.naturalWidth * sc, dh = img.naturalHeight * sc;
     ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
@@ -440,8 +450,7 @@ function pshDraw(doc, choice, leafNo) {
   const fam = st.family.split(",")[0].replace(/"/g, "");
   const all = doc.text;
   const fonts = (document.fonts && document.fonts.load)
-    ? Promise.all([st.wBody, st.wBold].map((w) => document.fonts.load(w + ' 40px "' + fam + '"', all).catch(() => null))
-        .concat(st.note ? [document.fonts.load('600 26px "Noto Sans KR"', VERSE_NOTE).catch(() => null)] : []))   // 말씀 액자 아래 설치 주소 줄(고딕)
+    ? Promise.all([st.wBody, st.wBold].map((w) => document.fonts.load(w + ' 40px "' + fam + '"', all).catch(() => null)))
     : Promise.resolve();
   const late = (p, ms) => Promise.race([p, new Promise((ok) => setTimeout(ok, ms))]);
   const bgSrc = (choice.style === "frame" || choice.style === "leaf") ? "img/frame/leaf" + leafNo + ".webp" + v
@@ -469,7 +478,6 @@ function pshDraw(doc, choice, leafNo) {
         return;
       }
       if (o.k === "bar") { ctx.fillStyle = o.color; ctx.fillRect(o.x, o.y - 3, o.w, 6); return; }
-      if (o.k === "note") { ctx.font = o.font; ctx.fillStyle = o.color; ctx.fillText(o.s, o.x, o.y); return; }   // 말씀 액자 아래 설치 주소 한 줄
       if (o.k === "mark" && mark) {
         if (o.disc) {   // 어두운 바탕 — 마크(남색 · 주황)가 묻히지 않게 흰 동그라미 위에
           ctx.globalAlpha = 0.92; ctx.fillStyle = "#ffffff";
@@ -534,13 +542,17 @@ function pshSend() {
   if (!blob) return;
   let file = null;
   try { file = new File([blob], pshState.file || "blessing.jpg", { type: "image/jpeg" }); } catch (e) {}
+  // 말씀 판은 설치 주소 글을 함께(VERSE_SHARE_TEXT) — 공유 창이 글을 못 받으면 그림만
+  const data = { files: [file] };
+  if (pshState.verse) data.text = VERSE_SHARE_TEXT;
   let can = false;
-  try { can = !!(file && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })); } catch (e) {}
+  try { can = !!(file && navigator.share && navigator.canShare && navigator.canShare(data)); } catch (e) {}
+  if (!can && data.text) { delete data.text; try { can = !!(file && navigator.share && navigator.canShare && navigator.canShare(data)); } catch (e) {} }
   if (can) {
     // 공유 창이 뜨는 사이 한 번 더 누르면 두 번째 share 가 InvalidStateError 로 끝난다 — 그걸 「공유를 못 한다」로 보고 내려받기로 가지 않게(2026-11-04 검토)
     if (pshState.sharing) return;
     pshState.sharing = true;
-    navigator.share({ files: [file] }).catch((err) => {
+    navigator.share(data).catch((err) => {
       if (err && (err.name === "AbortError" || err.name === "InvalidStateError")) return;   // 성도님이 공유 창을 닫았다 · 이미 떠 있다
       pshDownload();
     }).finally(() => { pshState.sharing = false; });

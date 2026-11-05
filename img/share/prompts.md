@@ -68,4 +68,6 @@ AI 그림이 아니다 — 친구가 소책자 · 광고에 쓰던 그림(`자�
 | `vf-gold` | 금테 | An elegant thin antique gold frame with fine carved edges holding soft cream cotton paper, on a warm off-white wall. |
 | `vf-oak` | 원목 | A natural light oak wooden frame with a wide off-white linen mat, minimal Scandinavian style, on a soft beige wall. |
 | `vf-wreath` | 꽃테 | No frame: a delicate watercolor wreath of small wildflowers and green leaves painted around the edges of white textured watercolor paper, soft pastel colors, the center left blank. |
-| `vf-navy` | 남색 | A slim gold frame with a deep navy blue velvet mat, elegant and calm. |
+| `vf-navy` | 남색 | (첫 그림 — 안쪽 창이 있어 글 자리가 좁았다 「글자가 작아요」) → 바꿈: A slim gold frame holding one single deep navy blue velvet mat that fills the whole inside of the frame edge to edge, with no inner window, no bevel and no second border - one flat calm navy surface, elegant. |
+
+같은 날 셋째 판 — 다섯 장 모두 액자 긴 변 960px 을 위아래 가운데(60px)로 다시 잘랐다(아래 설치 줄 자리가 없어져서) · 한지는 오른쪽 그림자까지 넣어 가운데(「오른쪽 여백을 좀 더」).

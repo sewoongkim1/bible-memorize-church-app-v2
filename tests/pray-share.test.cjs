@@ -216,7 +216,9 @@ test('배선 — 지연 모듈(LAZY_JS.prayShare · index.html 에 없음) · �
   assert.match(PR, /withLazyJs\("prayShare"/);
   const send = cut(PS, 'function pshSend() {', '\n}\n');
   assert.match(send, /pshState\.blob/);
-  assert.match(send, /navigator\.share\(\{ files: \[file\] \}\)/);
+  assert.match(send, /const data = \{ files: \[file\] \};\n  if \(pshState\.verse\) data\.text = VERSE_SHARE_TEXT;/, '말씀만 설치 주소 글을 함께 · 기도문 · 묵상은 그림 한 장');
+  assert.match(send, /if \(!can && data\.text\) \{ delete data\.text;/, '공유 창이 글을 못 받으면 그림만');
+  assert.match(send, /navigator\.share\(data\)/);
   assert.doesNotMatch(send, /prayShareDraw\(|pshDraw\(/, '보내기 탭 안에서 그림을 새로 만들면 공유가 막힌다');
   assert.match(send, /pshState\.file/, '파일 이름은 그린 글 한 벌(doc.file)에서 — 기도문 blessing-N · 묵상 meditation-N-요일');
   assert.doesNotMatch(PS, /\(\?<[=!]/, 'lookbehind 금지(사파리 16.4 미만)');
@@ -450,10 +452,10 @@ test('📖 말씀 액자(친구 2026-11-05 「기존에 없던 것으로 · 너�
     for (const f of [c.src, c.thumb]) assert.ok(fs.existsSync(path.join(__dirname, '..', f)), f + ' 가 없다');
     const st = c.style;
     assert.equal(st.W, 1080); assert.equal(st.H, 1080, '정사각형');
-    assert.ok(st.max <= 48 && st.min >= 28, '글씨 28~48px(같은 날 「글자도 키워」)');
+    assert.ok(st.max === 48 && st.min >= 24, '글씨 24~48px(같은 날 「글자도 키워」)');
+    assert.ok(st.floor > st.box.bottom && st.floor < st.H - 40, c.key + ' 바닥은 글 자리 아래 · 액자 안(그림마다 잰 값 — 같은 +40 이면 원목 · 남색 창 밖이었다)');
+    assert.ok(st.bg && /^#[0-9a-f]{6}$/i.test(st.bg), c.key + ' 그림을 못 받았을 때 바탕');
     assert.ok(st.box.x > 0 && st.box.x + st.box.w < st.W && st.box.y > 0 && st.box.bottom < st.H, c.key + ' 글 자리가 그림 안');
-    const mk = T.prayShareMark(st.W, st.mark);
-    assert.ok(mk.x > st.box.x && mk.x + mk.w < st.W && mk.y > 0 && mk.y < st.box.y + 80, c.key + ' 마크는 안쪽 오른쪽 위');
     for (const v of VERSES) {
       const p = T.verseSharePlan(v, st, measure), at = c.label + ' 구절' + v.no;
       assert.ok(p.fit && p.bottom <= p.limit + 0.5, at + ' 넘침 ' + p.bottom + ' > ' + p.limit);
@@ -465,13 +467,12 @@ test('📖 말씀 액자(친구 2026-11-05 「기존에 없던 것으로 · 너�
       for (const q of p.rects) assert.ok(!meet(q, p.keep), at + ' 글이 마크 둘레에 닿는다');
       const want = flat(T.VERSE_KICKER) + flat(v.text) + flat(v.refFull || v.refShort) + flat(T.verseShareFoot(v)) + flat(T.verseShareByline(v));
       assert.equal(flat(tx.map((o) => o.s).join('')), want, at + ' 글자');
-      const mo = p.ops.find((o) => o.k === 'mark');
-      assert.equal(mo.x, mk.x); assert.equal(mo.w, 62, '마크는 작게(62×76)');
-      const no = p.ops.filter((o) => o.k === 'note');
-      assert.equal(no.length, 1, at + ' 액자 아래 설치 주소 한 줄');
-      assert.ok(/gocheok\.onlybible\.kr\/install/.test(no[0].s), at + ' 설치 주소');
-      assert.ok(no[0].y > st.box.bottom && no[0].y < st.H, at + ' 글 자리 아래 · 그림 안');
-      assert.ok(Math.abs(no[0].x + no[0].w / 2 - st.W / 2) <= 1 && no[0].w <= st.W - 120, at + ' 가운데 · 폭 안');
+      const mo = p.ops.find((o) => o.k === 'mark'), ko = tx[0];
+      assert.equal(p.ops.filter((o) => o.k === 'mark').length, 1);
+      assert.ok(Math.abs(mo.cy - ko.y) < 1 && mo.x > ko.x + ko.w, at + ' 마크는 「이번 주 말씀」 바로 오른쪽(같은 줄 · 친구 2026-11-05)');
+      assert.ok(Math.abs((ko.x + mo.x + mo.w) / 2 - (st.box.x + st.box.w / 2)) < 1.5, at + ' 「글자 + 마크」 묶음이 가운데');
+      assert.ok(mo.x + mo.w <= st.box.x + st.box.w && mo.h < 80, at + ' 마크도 글 자리 안 · 작게');
+      assert.ok(!p.ops.some((o) => o.k === 'note'), at + ' 설치 주소는 그림에 넣지 않는다(친구 — 보내기 글로)');
       assert.equal(mo.disc, !!st.disc);
     }
   }
@@ -480,4 +481,83 @@ test('📖 말씀 액자(친구 2026-11-05 「기존에 없던 것으로 · 너�
   assert.match(PS, /function pshKeyGet\(\) \{ return pshState\.verse \? pshState\.vkey : pshState\.key; \}/);
   assert.match(PS, /if \(style && typeof style === "object"\) \{/, '액자 그림을 바탕 가득');
   assert.match(PS, /cv\.width = st\.W \|\| PSH_W; cv\.height = st\.H \|\| PSH_H;/, '정사각형 바탕');
+});
+
+// ── 말씀 액자 둘째 판(2026-11-05 친구 「설치는 그림 말고 액자 아래 · 누르면 연결 · URL 박스가 크지 않게」 · 「남색 글자가 작아요」 · 「마크를 오른쪽 위로」) ──
+test('말씀 보내기 글 — 짧은 주소 go/app/(대표 그림 없음 → 카톡 작은 상자) → /install/', () => {
+  const t = cut(PS, 'const VERSE_SHARE_TEXT = "', '";');
+  assert.match(t, /성경암송 앱 설치 https:\/\/gocheok\.onlybible\.kr\/go\/app\/$/);
+  const G = read('go', 'app', 'index.html');
+  assert.ok(!/property="og:image"/.test(G), 'og:image 가 있으면 카톡이 큰 상자를 만든다');
+  assert.match(G, /<meta property="og:url" content="https:\/\/gocheok\.onlybible\.kr\/go\/app\/">/, 'og:url 은 이 쪽 자신(설치 안내의 대표 그림을 다시 읽지 않게)');
+  assert.match(G, /<meta http-equiv="refresh" content="0; url=\/install\/">/);
+  assert.match(G, /<a class="b" href="\/install\/">/, '넘기지 못해도 누를 곳');
+  assert.match(read('tools', 'site.py'), /SITE_DIRS = \[[^\]]*"go"/, 'go/ 는 사이트로 나간다');
+});
+
+test('말씀 액자 — 아주 긴 구절(138자)도 바닥 안 · 글자를 잃지 않는다 · 마크는 「이번 주 말씀」 오른쪽', () => {
+  const long = { no: 99, refFull: '갈라디아서 2장 20절', text: '내가 그리스도와 함께 십자가에 못 박혔나니 그런즉 이제는 내가 사는 것이 아니요 오직 내 안에 그리스도께서 사시는 것이라 이제 내가 육체 가운데 사는 것은 나를 사랑하사 나를 위하여 자기 자신을 버리신 하나님의 아들을 믿는 믿음 안에서 사는 것이라',
+                 sermonTitle: '그리스도와 함께', pastor: '차동혁 위임목사', date: '2026-04-18T15:00:00.000Z' };
+  assert.ok(long.text.length >= 130);
+  for (const c of T.verseFrameChoices()) {
+    const st = c.style, p = T.verseSharePlan(long, st, measure);
+    assert.ok(p.fit && p.bottom <= st.floor + 0.5, c.label + ' 긴 구절이 바닥 밖 ' + Math.round(p.bottom) + ' > ' + st.floor);
+    const tx = p.ops.filter((o) => o.k === 'text');
+    assert.equal(flat(tx.map((o) => o.s).join('')), flat(T.VERSE_KICKER) + flat(long.text) + flat(long.refFull) + flat(T.verseShareFoot(long)) + flat(T.verseShareByline(long)), c.label + ' 글자');
+    const mo = p.ops.find((o) => o.k === 'mark');
+    assert.ok(Math.abs(mo.cy - tx[0].y) < 1 && mo.x > tx[0].x + tx[0].w, c.label + ' 긴 구절에서도 마크는 「이번 주 말씀」 오른쪽');
+  }
+  const navy = T.VERSE_FRAMES.find((f) => f.id === 'vf-navy');
+  assert.ok(navy.box.w >= 700, '남색은 창 없는 새 그림 — 글 자리가 넓다(「글자가 작아요」)');
+});
+
+test('pshDraw — 가짜 캔버스: 말씀 액자는 1080×1080 · 액자 그림을 바탕 가득 · 마크는 계획 자리 · 기도문은 1080×1350 · 그림 못 받으면 액자마다 바탕색', async () => {
+  const DRAW = cut(PS, '// ── 그리기 ──', '// ── 판(아래에서 올라온다) ──');
+  const made = [];
+  const mkCtx = (cv) => new Proxy({ canvas: cv, font: '700 30px x', calls: [], measureText(t) { return { width: measure(t, this.font) }; },
+    createRadialGradient: () => ({ addColorStop() {} }), createLinearGradient: () => ({ addColorStop() {} }) },
+    { get: (t, k) => (k in t ? t[k] : (...a) => { t.calls.push([k, ...a]); }), set: (t, k, v) => { t[k] = v; if (k === 'fillStyle') t.calls.push(['fillStyle', v]); return true; } });
+  const document = { createElement: () => { const cv = { width: 0, height: 0, toBlob: (cb) => cb({ size: 1 }) }; cv.getContext = () => (cv.ctx = cv.ctx || mkCtx(cv)); made.push(cv); return cv; },
+                     fonts: { load: () => Promise.resolve() } };
+  let fail = false;
+  class Image { set src(v) { this._src = v; this.naturalWidth = 1080; this.naturalHeight = /vf-/.test(v) ? 1080 : 1350; setTimeout(() => (fail && /vf-/.test(v) ? this.onerror && this.onerror() : this.onload && this.onload()), 0); } get src() { return this._src; } }
+  const quick = (fn, ms) => (ms >= 1000 ? 0 : setTimeout(fn, ms));   // 글꼴 5초 기다림은 건너뛴다(시험이 5초 멈추지 않게)
+  const D = vm.runInContext(FILL + '\n' + PURE + '\n' + DRAW + '\n;({ pshDraw, verseShareDoc, prayShareDoc, verseFrameChoices, prayShareChoices })', vm.createContext({ document, Image, setTimeout: quick, Promise, APP_BUILD: 'T' }));
+  const vf = D.verseFrameChoices()[0];
+  await D.pshDraw(D.verseShareDoc(VERSES[0]), vf, 1);
+  let cv = made[made.length - 1];
+  assert.deepEqual([cv.width, cv.height], [1080, 1080], '말씀 액자는 정사각형');
+  const imgs = cv.ctx.calls.filter((c) => c[0] === 'drawImage');
+  const bg = imgs.find((c) => /vf-hanji\.webp/.test(c[1]._src));
+  assert.ok(bg, '액자 그림을 그린다');
+  assert.deepEqual(bg.slice(2).map(Math.round), [0, 0, 1080, 1080], '바탕 가득');
+  const plan = D.verseShareDoc(VERSES[0]).plan(vf.style, (t, f) => measure(t, f)), mk = plan.ops.find((o) => o.k === 'mark');
+  const logo = imgs.find((c) => /logo-mark\.png/.test(c[1]._src));
+  assert.deepEqual(logo.slice(2), [mk.x, mk.y, mk.w, mk.h], '마크는 계획 자리');
+  assert.ok(!cv.ctx.calls.some((c) => c[0] === 'fillRect' && c[3] === 0 && c[4] === 1080 && c[5] === 1080 && cv.ctx.calls.indexOf(c) > cv.ctx.calls.indexOf(bg)), '액자 위에 막을 덮지 않는다');
+  assert.ok(cv.ctx.calls.filter((c) => c[0] === 'fillText').length >= 4, '글을 쓴다');
+  await D.pshDraw(D.prayShareDoc(LIST[0], '김세웅'), D.prayShareChoices()[0], 1);
+  cv = made[made.length - 1];
+  assert.deepEqual([cv.width, cv.height], [1080, 1350], '기도문 · 묵상은 그대로 1080×1350');
+  fail = true;   // 남색 그림을 못 받으면 — 밝은 글씨가 묻히지 않게 어두운 바탕
+  const navy = D.verseFrameChoices().find((c) => c.key === 'vf:vf-navy');
+  await D.pshDraw(D.verseShareDoc(VERSES[0]), navy, 1);
+  cv = made[made.length - 1];
+  assert.ok(cv.ctx.calls.some((c) => c[0] === 'fillStyle' && c[1] === navy.style.bg), '그림을 못 받으면 액자 바탕색(' + navy.style.bg + ')');
+});
+
+test('말씀 판 — 배경은 액자만 · 고른 액자는 따로 기억(기도문 · 묵상의 「밤하늘 먼저」와 안 섞인다) · 정사각형 미리보기', () => {
+  const HEAD = cut(PS, 'const pshState = {', 'function pshSay(');
+  const S = vm.runInContext(FILL + '\n' + PURE + '\n' + DOCS + '\n' + HEAD + '\n;({ pshState, pshChoices, pshKeyGet, pshKeySet })', vm.createContext({}));
+  assert.equal(S.pshKeyGet(), 'night', '기도문 · 묵상 처음 값');
+  S.pshState.verse = { no: 1, text: '말씀' };
+  assert.ok(S.pshChoices().every((c) => /^vf:/.test(c.key)), '말씀 판은 액자만');
+  S.pshKeySet('vf:vf-gold');
+  assert.equal(S.pshState.vkey, 'vf:vf-gold'); assert.equal(S.pshState.key, 'night', '말씀에서 고른 액자가 기도문 배경으로 새지 않는다');
+  S.pshState.verse = null;
+  assert.equal(S.pshKeyGet(), 'night'); assert.ok(S.pshChoices().some((c) => c.key === 'night'));
+  const CSS = read('style.css');
+  assert.match(CSS, /\.psh-dim\[data-kind="verse"\] \.psh-pv \{ aspect-ratio: 1 \/ 1; \}/, '말씀 미리보기는 정사각형');
+  assert.match(CSS, /\.psh-pv img \{ display: block; width: 100%; height: 100%; object-fit: contain; \}/, '미리보기를 늘이지 않는다');
+  assert.match(CSS, /\.psh-t-vframe img \{ width: 100%; height: 100%; object-fit: cover; \}/, '액자 작은 그림');
 });
