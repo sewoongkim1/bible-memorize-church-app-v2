@@ -877,3 +877,54 @@ test('카톡 안 브라우저 → 밖으로 — 안드로이드는 패키지를 
   const AL = JSON.parse(read('.well-known', 'assetlinks.json'));
   assert.ok(AL.some((x) => x.target.package_name === 'kr.onlybible.gocheok' && x.relation.includes('delegate_permission/common.handle_all_urls')), 'assetlinks 에 새 앱 — 앱 링크 확인');
 });
+
+// 같은 날 둘째 판(친구 「갤럭시에서 열었는데 브라우저에서 열려요」) — 패키지 없는 intent 는 카톡 · 폰이 브라우저를 골랐다(앱 링크 확인 파일은 멀쩡했다 —
+//   assetlinks 200 · 구글 확인 API 에 새 앱 지문). 그래서 ① 플레이 앱을 콕 집어 → 없으면 카톡이 fallback(같은 주소 + kx=1)을 이 창에 → ② 패키지 없는 intent(기본 브라우저).
+test('카톡 안 브라우저 → 밖으로(둘째 판) — 실제로 돌려 본다: ① 앱 먼저 · 2.5초 뒤에도 보이면 브라우저 · ② 돌아온 길(kx=1)은 표를 떼고 브라우저 · 한 번씩만 · 아이폰은 사파리', () => {
+  const f = cut(APP, 'function promptOpenExternal() {', '\n}\n') + '\n}\n';
+  assert.match(APP, /const PLAY_APP_ID = "kr\.onlybible\.gocheok";/);
+  const ANDROID = 'Mozilla/5.0 (Linux; Android 14; SM-S918N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36 KAKAOTALK 10.8.0';
+  const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 KAKAOTALK 10.8.0';
+  const sim = (href, ua, store) => {
+    const loc = { href }, hist = [], timers = [];
+    let bar = null;
+    const doc = { visibilityState: 'visible', body: { prepend(b) { bar = b; } },
+      createElement: () => ({ className: '', innerHTML: '', querySelector: () => ({ addEventListener() {} }), remove() {} }) };
+    const ctx = vm.createContext({ navigator: { userAgent: ua }, location: loc, URL, encodeURIComponent, document: doc,
+      history: { replaceState(a, b, u) { hist.push(u); loc.href = new URL(u, loc.href).toString(); } },
+      sessionStorage: { getItem: (k) => store[k] || null, setItem: (k, v) => { store[k] = v; } },
+      setTimeout: (fn, ms) => timers.push([fn, ms]) });
+    vm.runInContext('const PLAY_APP_ID = "kr.onlybible.gocheok";\n' + f + 'promptOpenExternal();', ctx);
+    return { loc, hist, timers, doc, bar: () => bar };
+  };
+  const V = 'https://gocheok.onlybible.kr/?v=44';
+  const browserIntent = 'intent://gocheok.onlybible.kr/?v=44#Intent;scheme=https;S.browser_fallback_url=' + encodeURIComponent(V) + ';end';
+  // ① 처음 — 플레이 앱을 콕 집는다 · 앱이 없을 때 돌아올 주소는 같은 구절 + kx=1
+  const s1 = {}, a = sim(V, ANDROID, s1);
+  assert.equal(a.loc.href, 'intent://gocheok.onlybible.kr/?v=44#Intent;scheme=https;package=kr.onlybible.gocheok;S.browser_fallback_url=' + encodeURIComponent(V + '&kx=1') + ';end', '깔린 앱을 콕 집는다(?v= 구절 그대로)');
+  assert.equal(s1.kakaoExtApp, '1'); assert.ok(!s1.kakaoExtTried2, '브라우저는 아직');
+  assert.equal(a.timers.length, 1); assert.equal(a.timers[0][1], 2500);
+  a.doc.visibilityState = 'hidden'; a.timers[0][0]();
+  assert.ok(a.loc.href.includes('package=kr.onlybible.gocheok'), '앱이 열려 이 창이 가려졌으면 브라우저로 안 간다');
+  const s1b = {}, a2 = sim(V, ANDROID, s1b); a2.timers[0][0]();
+  assert.equal(a2.loc.href, browserIntent, '2.5초 뒤에도 보이면(앱도 fallback 도 안 됐다) 기본 브라우저로');
+  assert.equal(s1b.kakaoExtTried2, '1');
+  // ② 앱이 없어 카톡이 fallback 을 이 창에 연 길 — 표를 떼고(?v= 는 남긴다) 브라우저로 · 앱은 다시 안 부른다
+  const s2 = { kakaoExtApp: '1' }, b = sim(V + '&kx=1', ANDROID, s2);
+  assert.deepEqual(b.hist, ['/?v=44'], '주소에서 kx 표만 뗀다(구절 바로가기는 loadVerses 가 읽는다)');
+  assert.equal(b.loc.href, browserIntent, '기본 브라우저로 — kx 표 없이 · ?v= 그대로');
+  assert.equal(b.timers.length, 0);
+  assert.ok(b.bar() && b.bar().innerHTML.includes('href="' + browserIntent + '"'), '띠 단추는 브라우저 쪽');
+  // 세션 저장이 안 되는 창 — 돌아온 길(kx=1)에서 앱을 또 부르면 앱 ↔ fallback 이 끝없이 돈다 → 표(kx)만 보고 브라우저로
+  const n = sim(V + '&kx=1', ANDROID, null);
+  assert.equal(n.loc.href, browserIntent, '세션 저장이 없어도 돌아온 길은 브라우저로(끝없는 넘김 없음)');
+  // 같은 창에서 또 — 자동 전환은 한 번씩만(무한 넘김 막기) · 띠만
+  const c = sim(V, ANDROID, { kakaoExtApp: '1', kakaoExtTried2: '1' });
+  assert.equal(c.loc.href, V, '이미 둘 다 해 봤으면 다시 넘기지 않는다'); assert.ok(c.bar());
+  // 아이폰 — 카카오 외부 열기(사파리 · 아이폰 앱은 유니버설 링크가 없다)
+  const d = sim(V, IPHONE, {});
+  assert.equal(d.loc.href, 'kakaotalk://web/openExternal?url=' + encodeURIComponent(V)); assert.equal(d.timers.length, 0);
+  // 카톡 밖이면 아무것도
+  const e = sim(V, 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36', {});
+  assert.equal(e.loc.href, V); assert.equal(e.bar(), null);
+});

@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261106b";
+const APP_BUILD = "20261106c";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9414,34 +9414,50 @@ function showShareToast(msg) {
 // 카카오톡 인앱 브라우저 → 기본(외부) 브라우저로 열기 유도
 //   안드로이드: 자동 전환(세션당 1회). 아이폰: 자동이 막히면 배너 버튼으로.
 // ------------------------------------------------------------
+const PLAY_APP_ID = "kr.onlybible.gocheok";   // 플레이 앱(TWA) — 카톡 안 브라우저에서 깔린 앱으로 넘길 때
 function promptOpenExternal() {
   const ua = navigator.userAgent || "";
   if (!/KAKAOTALK/i.test(ua)) return; // 카톡 인앱 브라우저일 때만
 
-  const url = location.href;
   const isIOS = /iphone|ipad|ipod/i.test(ua);
   const isAndroid = /android/i.test(ua);
+  // ⚠️ 이 넘김은 loadVerses(→ ?v= 를 읽어 지움)보다 먼저다 — 넘기는 주소에 구절 바로가기(?v=)가 남아 있어야 한다(맨 아래 시작 차례).
+  // 앱이 없어 카톡이 아래 ①의 fallback 주소(표 kx=1)를 이 창에 다시 연 길이면 — 표를 떼고(?v= 는 남긴다) ② 브라우저 쪽으로
+  let url = location.href, backFromApp = false;
+  try {
+    const u = new URL(url);
+    if (u.searchParams.get("kx") === "1") {
+      backFromApp = true; u.searchParams.delete("kx"); url = u.toString();
+      history.replaceState(null, "", u.pathname + u.search + u.hash);
+    }
+  } catch (e) {}
+  const hostPath = url.replace(/^https?:\/\//, "");
+  let backUrl = url;
+  try { const b = new URL(url); b.searchParams.set("kx", "1"); backUrl = b.toString(); } catch (e) {}
 
-  // 안드로이드: 패키지를 정하지 않은 https intent — 플레이 앱이 깔려 있으면 앱 링크(AndroidManifest autoVerify · .well-known/assetlinks.json)로 앱이,
-  //   없으면 기본 브라우저가 연다(2026-11-06 친구 「설치된 앱으로 안 가고 브라우저에서 열리네요」 — 예전엔 크롬을 콕 집어 깔린 앱으로 안 갔다).
-  //   ⚠️ 이 넘김은 loadVerses(→ ?v= 를 읽어 지움)보다 먼저다 — 넘기는 주소에 구절 바로가기(?v=)가 남아 있어야 한다(맨 아래 시작 차례).
+  // 안드로이드 ① 플레이 앱을 콕 집어(package) — 깔려 있으면 앱이 그 주소(?v= 구절)로 연다. 앱 링크 확인과 상관없다
+  //   (2026-11-06 친구 「갤럭시에서 열었는데 브라우저에서 열려요」 — 패키지 없는 intent 는 카톡 · 폰이 브라우저를 골랐다).
+  //   앱이 없으면 카톡이 S.browser_fallback_url(같은 주소 + kx=1)을 이 창에 연다(카카오 웹뷰 예제와 같은 꼴) → 다시 이 함수가 ②로.
+  const appIntent =
+    "intent://" + hostPath + "#Intent;scheme=https;package=" + PLAY_APP_ID + ";S.browser_fallback_url=" + encodeURIComponent(backUrl) + ";end";
+  // 안드로이드 ② 패키지를 정하지 않은 https intent — 기본 브라우저(앱 링크가 확인된 폰이면 앱 · 예전엔 크롬을 콕 집어 깔린 앱으로 안 갔다)
   const androidIntent =
     "intent://" +
-    url.replace(/^https?:\/\//, "") +
+    hostPath +
     "#Intent;scheme=https;S.browser_fallback_url=" +
     encodeURIComponent(url) +
     ";end";
-  // iOS·기타: 카카오 공식 외부 열기 스킴(기본 브라우저)
+  // iOS·기타: 카카오 공식 외부 열기 스킴(기본 브라우저 — 아이폰 앱은 유니버설 링크가 없어 사파리로 간다)
   const kakaoExt = "kakaotalk://web/openExternal?url=" + encodeURIComponent(url);
   const ext = isAndroid ? androidIntent : kakaoExt;
 
-  // 1) 세션당 1회 자동 전환 시도(실패 시 무한 리다이렉트 방지)
-  try {
-    if (!sessionStorage.getItem("kakaoExtTried2")) {
-      sessionStorage.setItem("kakaoExtTried2", "1");
-      location.href = ext;
-    }
-  } catch {
+  // 1) 세션당 한 번씩 자동 전환(실패 시 무한 리다이렉트 방지) — 안드로이드는 앱 먼저(앱에서 돌아온 길이면 건너뛴다) → 브라우저.
+  //   앱을 부른 뒤 2.5초가 지나도 이 창이 보이면(앱도 fallback 도 안 됐다) 브라우저로.
+  const once = (k) => { try { if (sessionStorage.getItem(k)) return false; sessionStorage.setItem(k, "1"); } catch (e) {} return true; };
+  if (isAndroid && !backFromApp && once("kakaoExtApp")) {
+    location.href = appIntent;
+    setTimeout(() => { if (document.visibilityState === "visible" && once("kakaoExtTried2")) location.href = ext; }, 2500);
+  } else if (once("kakaoExtTried2")) {
     location.href = ext;
   }
 
