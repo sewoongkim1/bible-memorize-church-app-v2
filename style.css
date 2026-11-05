@@ -8399,6 +8399,16 @@ body.psh-on { overflow: hidden; }
 .dark .psh-chk { color: #f1eee7; }
 .dark .psh-chk input { accent-color: #9dbbea; }
 .dark .psh-send.next { background: linear-gradient(180deg, #e8bd55, #d6a43a); color: #1a1406; }
+/* 📖 카카오톡으로 보내기(2026-11-05 친구 「URL에 그림도 같이 나오게」) — 카카오 노란색 · 검은 글씨 · 말풍선 표시(카카오 디자인 가이드 꼴 · 어두운 모드에서도 같은 색) ·
+   올리기가 늦어 한 번 더 누를 차례(.next)는 남색 테두리 */
+.psh-kakao {
+  display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 52px; margin-top: 12px; border: 0; border-radius: 12px;
+  background: #fee500; color: #191919; font-size: 1.05rem; font-weight: 800;
+}
+.psh-kakao-ic { flex: none; width: 22px; height: 22px; fill: #191919; }
+.psh-kakao:disabled { opacity: .6; }
+.psh-kakao.next { box-shadow: 0 0 0 3px #1e3a6b; }
+.dark .psh-kakao.next { box-shadow: 0 0 0 3px #9dbbea; }
 /* 📖 첫 화면 「이번 주 말씀」 오른쪽 위 작은 보내기 아이콘(2026-11-05 친구) — 다른 보내기 단추와 같은 금색 동그라미 · 남색 선 아이콘 */
 .weekly-topline .weekly-kicks { margin-right: auto; }   /* 진행 표시 · 아이콘을 오른쪽에 나란히(양 끝 정렬만으로는 둘째 칸이 가운데로 간다) */
 .weekly-share-ic {
@@ -8426,11 +8436,13 @@ body.psh-on { overflow: hidden; }
 /* 글씨 크기 「크게 · 아주 크게」(html[data-fs]) — 이 앱은 뿌리 글씨를 안 바꾸고 자리마다 키운다(위 「고령 성도 배려」 절과 같은 꼴) */
 html[data-fs="lg"] .pr-share, html[data-fs="lg"] .psh-send { font-size: 1.15rem; }
 html[data-fs="lg"] .psh-chk { font-size: 1.1rem; }
+html[data-fs="lg"] .psh-kakao { font-size: 1.15rem; }
 html[data-fs="lg"] .psh-lbl { font-size: 1rem; }
 html[data-fs="lg"] .psh-name { font-size: 1.15rem; }
 html[data-fs="lg"] .psh-hint, html[data-fs="lg"] .psh-msg { font-size: .98rem; }
 html[data-fs="xl"] .pr-share, html[data-fs="xl"] .psh-send { font-size: 1.28rem; }
 html[data-fs="xl"] .psh-chk { font-size: 1.22rem; }
+html[data-fs="xl"] .psh-kakao { font-size: 1.28rem; }
 html[data-fs="xl"] .psh-top { font-size: 1.25rem; }
 html[data-fs="xl"] .psh-lbl { font-size: 1.12rem; }
 html[data-fs="xl"] .psh-name { font-size: 1.28rem; min-height: 52px; }

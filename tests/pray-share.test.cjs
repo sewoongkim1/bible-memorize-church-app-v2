@@ -235,9 +235,9 @@ test('배선 — 지연 모듈(LAZY_JS.prayShare · index.html 에 없음) · �
   assert.match(lab, /const next = !busy && pshState\.linkNext;/);
   assert.match(lab, /s\.disabled = !next && \(!!busy \|\| !pshState\.blob\);/, '금색 차례에는 그림이 없어도 누를 수 있다');
   assert.match(lab, /s\.classList\.toggle\("next", next\);/);
-  assert.match(lab, /next \? "이어서 설치 주소 보내기" : "보내기 \(카톡 · 문자\)"/, '같은 자리 단추 이름이 바뀐다(엄지가 옮겨 가지 않게)');
+  assert.match(lab, /next \? "이어서 설치 주소 보내기" : pshKakaoOn\(\) \? "문자 · 다른 앱으로 보내기" : "보내기 \(카톡 · 문자\)"/, '같은 자리 단추 이름이 바뀐다(엄지가 옮겨 가지 않게) · 카카오 단추가 있으면 「문자 · 다른 앱」');
   assert.match(cut(PS, 'function pshRedraw() {', '\n}\n'), /pshState\.blob = null; pshState\.linkNext = false;/, '그림이 바뀌면 다시 그림부터');
-  assert.match(PS, /sharing: false, withLink: true, linkNext: false \};/, '체크는 처음에 켜져 있다');
+  assert.match(PS, /sharing: false, withLink: true, linkNext: false,\n\s+kakaoUp: \{\}, kakaoReady: "", kakaoBusy: null, kakaoT: 0 \};/, '체크는 처음에 켜져 있다');
   assert.doesNotMatch(send, /prayShareDraw\(|pshDraw\(/, '보내기 탭 안에서 그림을 새로 만들면 공유가 막힌다');
   assert.match(send, /pshState\.file/, '파일 이름은 그린 글 한 벌(doc.file)에서 — 기도문 blessing-N · 묵상 meditation-N-요일');
   assert.doesNotMatch(PS, /\(\?<[=!]/, 'lookbehind 금지(사파리 16.4 미만)');
@@ -334,7 +334,7 @@ test('보내기 판 — 폰에서 「보내기」가 아래로 숨지 않는다(
   assert.match(CSS, /\.psh-pv \{ width: min\(100%, 300px, max\(180px, calc\(\(100vh - 420px\) \* \.8\)\)\); \}/, '미리보기 폭이 화면 높이를 따른다');
   assert.match(CSS, /@supports \(height: 100dvh\) \{\n  \.psh-sheet \{ max-height: 94dvh; \}/, '주소창이 있는 브라우저 — dvh');
   // 단추 자리는 미리보기 바로 다음(sticky 가 붙을 자리) — 판 짜임이 바뀌면 이 시험도 함께
-  assert.match(PS, /<div class="psh-pv"><img id="psh-img" alt=""><\/div>\n      <div class="psh-acts">\$\{kind === "verse" \? `<label class="psh-chk"><input type="checkbox" id="psh-withlink"\$\{pshState\.withLink \? " checked" : ""\}> 설치 주소도 보내기<\/label>` : ""\}\n        <button type="button" class="psh-send" id="psh-send" disabled>/, '미리보기 바로 아래 덩어리 — 말씀 판만 체크 · 그 아래 보내기');
+  assert.match(PS, /<div class="psh-pv"><img id="psh-img" alt=""><\/div>\n      <div class="psh-acts">\$\{kakao \? `<button type="button" class="psh-kakao" id="psh-kakao">\$\{PSH_KAKAO_IC\}<span class="psh-kakao-t">카카오톡으로 보내기<\/span><\/button>` : ""\}\$\{kind === "verse" \? `<label class="psh-chk"><input type="checkbox" id="psh-withlink"\$\{pshState\.withLink \? " checked" : ""\}> 설치 주소도 보내기<\/label>` : ""\}\n        <button type="button" class="psh-send" id="psh-send" disabled>/, '미리보기 바로 아래 덩어리 — (말씀 판 · 키가 있으면) 카카오 단추 · 말씀 판만 체크 · 그 아래 보내기');
   assert.ok(!/psh-link/.test(PS), '따로 선 ② 단추는 없다(친구 「check box로」)');
   assert.match(CSS, /\.psh-send\.next \{ background: linear-gradient/, '그림 다음 차례는 금색');
   assert.match(CSS, /\.dark \.psh-send\.next \{/, '금색 어두운 모드 짝');
@@ -474,7 +474,10 @@ test('배선 — 첫 화면 「이번 주 말씀」 오른쪽 위 아이콘: 문
   assert.ok(!/주소로 보내기<\/button>|shareWeeklyVerse/.test(po), '구절 바로가기 「🔗 주소로 보내기」는 뺐다(친구 2026-11-05 — 카톡이 큰 미리보기 상자를 붙였다)');
   assert.match(po, /const wl = wrap\.querySelector\("#psh-withlink"\);\n  if \(wl\) wl\.addEventListener\("change", \(\) => \{/, '「설치 주소도 보내기」 체크(말씀 판에만 있다)');
   assert.match(po, /pshState\.withLink = wl\.checked;\n    if \(!wl\.checked && pshState\.linkNext\) \{ pshLinkDone\(\); pshSay\(""\); \}/, '끄면 금색 차례도 거둔다');
-  assert.match(po, /\$\{kind === "verse" \? "「설치 주소도 보내기」를 켜 두면 그림을 보낸 뒤 단추가 금색으로 바뀌어요\. 한 번 더 눌러 같은 대화방에 보내 주세요\."/, '말씀 판 안내 — 켜 두면 두 번에 나눠 보낸다(참인 말)');
+  assert.match(po, /<p class="psh-hint" id="psh-hint">\$\{pshHintText\(kind, kakao\)\}<\/p>/, '판 아래 안내는 한 곳(pshHintText)');
+  const hint = cut(PS, 'function pshHintText(kind, kakao) {', '\n}\n');
+  assert.match(hint, /"「설치 주소도 보내기」를 켜 두면 그림을 보낸 뒤 단추가 금색으로 바뀌어요\. 한 번 더 눌러 같은 대화방에 보내 주세요\."/, '말씀 판 안내 — 켜 두면 두 번에 나눠 보낸다(참인 말)');
+  assert.match(hint, /if \(kind !== "verse"\) return "폰의 공유 창에서 카카오톡이나 메시지를 골라 주세요\." \+ tail;/, '기도문 · 묵상 안내는 그대로');
   assert.match(APP, /function shareWeeklyVerse\(verse\) \{/, 'shareWeeklyVerse 는 app.js 에 그대로 있다(WEEKLY_SHARE 를 내려도 지우지 말 것)');
   const CSS = read('style.css');
   assert.match(CSS, /\.weekly-topline \.weekly-kicks \{ margin-right: auto; \}/, '진행 표시 · 아이콘이 오른쪽에 나란히');
@@ -620,4 +623,223 @@ test('말씀 액자 — 글 자리 가운데가 그림 가운데에서 5px 안(�
   assert.ok(Math.abs(hanji.box.x + hanji.box.w / 2 - 540) <= 1 && Math.abs((hanji.box.y + hanji.box.bottom) / 2 - 540) <= 1, '한지는 위아래 · 좌우 가운데');
   assert.ok(Math.abs(navy.box.x + navy.box.w / 2 - 541) <= 1, '남색 안쪽(102~980) 가운데');
   assert.ok(navy.floor <= 983 - 18, '남색 바닥은 안쪽(아래 끝 983) 안');
+});
+
+// ── 📖 카카오톡으로 보내기(2026-11-05 친구 「URL에 그림도 같이 나오게」 · 카드 맨 아래 이름은 「지금 이름을 그대로」) ──
+//   공유 창 길로는 카톡이 그림에 붙인 글을 버린다 → 카카오 JavaScript SDK 피드 메시지(그림 + 「앱 설치」 단추 한 통). 키가 비면 단추가 없다.
+//   같은 날 검토(review-kakao-share)로 고친 것: 공유 창 잠금과 따로 쓰는 표(kakaoBusy) · 20초 한도 · 카톡 앱으로 여는 기기만 · 끊긴 통신 · 늦은 응답 · 개인정보 문장.
+// config.js 를 실제로 돌려 본다(글자 꼴로 찾으면 조금만 바뀌어도 개발 빈 키를 잡고 조용히 지나간다 — 같은 날 검토)
+const runCfg = (host) => {
+  const w = {};
+  vm.runInContext(read('js', 'config.js'), vm.createContext({ window: w, location: { hostname: host }, document: { body: null, addEventListener() {}, getElementById() { return null; } } }));
+  return w;
+};
+
+test('카카오톡으로 보내기 — 배선: 말씀 판 · 키 · 카톡 앱 기기만 · 덩어리 맨 위 노란 단추 · SDK 를 못 받으면 (그 판만) 거둔다 · 운영 키는 config.js', () => {
+  assert.match(PS, /const KAKAO_SDK = \{ src: "https:\/\/t1\.kakaocdn\.net\/kakao_js_sdk\/2\.8\.4\/kakao\.min\.js", integrity: "sha384-BGX7Wb16GmRFagri4bLJV2DgipVZaU2AI812GZtHtHzzDQJnfHasDXN5houxv45w" \};/,
+    'SDK 판 · SRI 는 카카오 문서 값(파일을 받아 sha384 를 다시 계산해 같았다) — 판을 바꾸면 둘을 함께');
+  assert.match(PS, /const KAKAO_INSTALL = "https:\/\/gocheok\.onlybible\.kr\/install\/";/, '그림 · 단추 모두 설치 안내로(카카오 콘솔 웹 도메인에 등록한 주소)');
+  assert.match(PS, /const KAKAO_WAIT = 2000;/, '올리기 문턱 2초(크롬 5초 − SDK 가 묻는 두 번)');
+  assert.match(PS, /const KAKAO_LIMIT = 20000;/, 'SDK 받기 · 올리기 한도 20초');
+  const po = cut(PS, 'function pshOpen(', '\n}\n');
+  assert.match(po, /const kakao = kind === "verse" && !!pshKakaoKey\(\) && pshKakaoTalkDevice\(\);/, '말씀 판 · 키가 있고 · 카톡 앱으로 여는 기기만');
+  assert.match(po, /const kk = wrap\.querySelector\("#psh-kakao"\);\n  if \(kk\) \{\n    kk\.addEventListener\("click", pshKakaoSend\);\n    pshKakaoLoad\(\)\.catch\(\(\) => \{/, '판을 열 때 SDK 를 미리 받는다(누르는 순간엔 준비돼 있게)');
+  assert.match(po, /if \(!wrap\.isConnected\) return;\n      kk\.remove\(\);\n      const h = wrap\.querySelector\("#psh-hint"\); if \(h\) h\.innerHTML = pshHintText\("verse", false\);\n      const s = wrap\.querySelector\("#psh-send"\); if \(s && !s\.disabled\) pshSendLabel\(false\);/,
+    '못 받으면 그 판이 아직 열려 있을 때만 — 단추를 거두고 안내 · 다른 단추 이름도 공유 창 길로(다른 판 글을 덮지 않게)');
+  assert.match(cut(PS, 'function pshHintText(kind, kakao) {', '\n}\n'), /\(kakao \? "카카오톡으로 보내면 그림과 「앱 설치」 단추가 한 통으로 가요\. 문자 · 다른 앱은 " : ""\)/, '카카오 단추가 있을 때만 그 말');
+  assert.match(cut(PS, 'function pshRedraw() {', '\n}\n'), /pshState\.kakaoReady = ""; pshState\.kakaoBusy = null;/, '그림이 바뀌면 「카카오톡 열기」 차례 · 올리던 표를 버린다');
+  const close = cut(PS, 'function prayShareClose(fromPop) {', '\n}\n');
+  assert.match(close, /pshState\.kakaoReady = ""; pshState\.kakaoBusy = null; clearTimeout\(pshState\.kakaoT\);/, '판을 닫으면 차례 · 표 · 타이머를 거둔다');
+  assert.doesNotMatch(close, /kakaoUp = /, '올린 그림 주소는 남긴다(다시 열어 같은 그림이면 또 올리지 않게)');
+  assert.match(cut(PS, 'function pshSendLabel(busy) {', '\n}\n'), /pshKakaoBtn\(pshState\.kakaoBusy \? "busy" : pshState\.kakaoReady \? "open" : ""\);/, '노란 단추도 그림을 따른다');
+  const ks = cut(PS, 'function pshKakaoSend() {', '\n}\n');
+  assert.doesNotMatch(ks, /pshState\.sharing = /, '공유 창 잠금(sharing)을 쥐지 않는다 — 올리는 동안에도 다른 단추 · 다른 판이 눌린다');
+  assert.match(PS, /kakaoUp: \{\}, kakaoReady: "", kakaoBusy: null, kakaoT: 0 \};/, '올린 그림 주소 · 열 차례 · 표 · 타이머');
+  const CSS = read('style.css');
+  assert.match(CSS, /\.psh-kakao \{\n[^}]*background: #fee500; color: #191919;/, '카카오 노란색 · 검은 글씨(카카오 디자인 가이드)');
+  assert.match(CSS, /\.dark \.psh-kakao\.next \{/, '「카카오톡 열기」 차례 어두운 모드 짝');
+  assert.match(CSS, /html\[data-fs="xl"\] \.psh-kakao \{ font-size: 1\.28rem; \}/, '아주 큰 글씨');
+  // 운영 주소 → 운영 키 · 그 밖 → 빈 값(콘솔에 등록하지 않았다) — config.js 를 실제로 돌린다
+  const p = runCfg('gocheok.onlybible.kr'), d = runCfg('localhost'), g = runCfg('sewoongkim1.github.io');
+  assert.equal(p.KAKAO_JS_KEY, p.SUPA_PROD.KAKAO, '운영 주소 → 운영 키');
+  assert.equal(d.KAKAO_JS_KEY, '', 'localhost → 빈 값(단추 없음)');
+  assert.equal(g.KAKAO_JS_KEY, '', '미리보기 주소 → 빈 값');
+  if (p.KAKAO_JS_KEY) assert.match(p.KAKAO_JS_KEY, /^[0-9a-f]{32}$/, 'JavaScript 키 꼴(32자) — 네이티브 앱 키(kakao…)가 아니다(친구가 처음에 네이티브 키를 보냈다)');
+});
+
+test('카카오톡으로 보내기 — 카톡 앱으로 여는 기기만(SDK 판별 그대로 · 안드로이드 태블릿 · PC 는 카카오 웹 로그인 창이 떠서 뺀다)', () => {
+  const DEV = cut(PS, 'function pshKakaoTalkDevice() {', '\n}\n') + '\n}\n';
+  const on = (ua, tp) => vm.runInContext(DEV + ';pshKakaoTalkDevice()', vm.createContext({ navigator: { userAgent: ua, maxTouchPoints: tp || 0 } }));
+  assert.equal(on('Mozilla/5.0 (Linux; Android 14; SM-S918N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36'), true, '안드로이드 폰(크롬 · TWA)');
+  assert.equal(on('Mozilla/5.0 (Linux; Android 14; SM-S918N) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/26.0 Chrome/122.0 Mobile Safari/537.36'), true, '안드로이드 폰(삼성 인터넷)');
+  assert.equal(on('Mozilla/5.0 (Linux; Android 14; SM-X910) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36'), false, '안드로이드 태블릿(Mobile 없음)');
+  assert.equal(on('Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148'), true, '아이폰 앱(WKWebView)');
+  assert.equal(on('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15', 5), true, '아이패드(데스크톱 UA + 터치)');
+  assert.equal(on('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15', 0), false, '맥');
+  assert.equal(on('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36'), false, 'PC');
+  assert.equal(on('Mozilla/5.0 (Linux; Android 14; SM-S918N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36 KAKAOTALK 10.8.0'), true, '카톡 안 브라우저');
+  assert.equal(on('Mozilla/5.0 (Linux; Android 14; SM-X910) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36 KAKAOTALK 10.8.0'), true, '태블릿이라도 카톡 안 브라우저면(SDK 가 카톡 길로 간다)');
+  assert.equal(on('Mozilla/5.0 (Linux; Android 12; NOH-AN00) AppleWebKit/537.36 (KHTML, like Gecko) HuaweiBrowser/13.0 Chrome/99.0 Mobile Safari/537.36'), false, '화웨이 브라우저(SDK 가 웹 길로 보낸다)');
+  assert.equal(on('Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36 OPR/85.0'), false, '오페라');
+  assert.equal(vm.runInContext(DEV + ';pshKakaoTalkDevice()', vm.createContext({})), false, 'navigator 가 없으면 아니다');
+});
+
+test('카카오톡으로 보내기 — SDK 한 번만 · 그림 올리고 카드 · 같은 그림은 한 번만 · 2초 문턱 · 표(늦은 응답 · 바뀐 그림 · 닫힘) · 20초 한도 · 끊긴 통신 · 안 열렸으면', async () => {
+  const KB = cut(PS, '// 📖 카카오톡으로 보내기(', 'function prayShareClose(');
+  const tick = () => new Promise((r) => setTimeout(r, 5));
+  const said = [], scripts = [], ups = [], sent = [];
+  let clock = 1000, upDelay = 0, upFail = false, upHold = false, longMs = null, frame = 'vf:vf-hanji';
+  const held = [];
+  const btn = { disabled: false, cls: new Set(), t: { textContent: '카카오톡으로 보내기' },
+    classList: { toggle(c, on) { if (on) btn.cls.add(c); else btn.cls.delete(c); } }, querySelector: () => btn.t };
+  const doc = { visibilityState: 'hidden', getElementById: (id) => (id === 'psh-kakao' ? btn : null), createElement: () => { const s = {}; scripts.push(s); return s; }, head: { appendChild() {} } };
+  const Kakao = { n: 0, key: '', isInitialized() { return this.n > 0; }, init(k) { this.n++; this.key = k; },
+    Share: { uploadImage(a) { ups.push(a); if (upHold) return new Promise((ok) => held.push(ok));
+               return new Promise((ok, no) => setTimeout(() => { clock += upDelay; if (upFail) no(new Error('x')); else ok({ infos: { original: { url: 'https://k.kakaocdn.net/u' + ups.length + '.jpg' } } }); }, 0)); },
+             sendDefault(t) { sent.push(t); } } };
+  const win = {};
+  class File { constructor(parts, name, o) { this.parts = parts; this.name = name; this.type = o.type; } }
+  // 1초 넘는 타이머(20초 한도 · 6초 「안 열렸으면」)는 longMs 가 null 이면 안 울린다 · 숫자면 그만큼 뒤에 울린다
+  const st = (fn, ms) => (ms >= 1000 ? (longMs === null ? 0 : setTimeout(fn, longMs)) : setTimeout(fn, ms));
+  const ct = (t) => { if (t) clearTimeout(t); };
+  const nav = { onLine: true };
+  const ctx = vm.createContext({ window: win, document: doc, navigator: nav, KAKAO_JS_KEY: ' test-key ', File, setTimeout: st, clearTimeout: ct, Promise, Date: { now: () => clock },
+    VERSE_KICKER: '이번 주 말씀', pshSay: (t) => said.push(t), pshKeyGet: () => frame,
+    pshState: { gen: 1, blob: { size: 123 }, verse: { no: 44, refFull: '누가복음 17장 16절', text: '말씀' }, file: 'verse-44.jpg', sharing: false, kakaoUp: {}, kakaoReady: '', kakaoBusy: null, kakaoT: 0 } });
+  vm.runInContext(KB, ctx);
+  const K = (s) => vm.runInContext(s, ctx);
+  const p1 = K('pshKakaoLoad()'), p2 = K('pshKakaoLoad()');
+  assert.equal(p1, p2, 'SDK 는 한 번만 받는다');
+  assert.equal(scripts.length, 1);
+  assert.equal(scripts[0].src, 'https://t1.kakaocdn.net/kakao_js_sdk/2.8.4/kakao.min.js');
+  assert.equal(scripts[0].integrity, 'sha384-BGX7Wb16GmRFagri4bLJV2DgipVZaU2AI812GZtHtHzzDQJnfHasDXN5houxv45w');
+  assert.equal(scripts[0].crossOrigin, 'anonymous');
+  win.Kakao = Kakao; scripts[0].onload();
+  await p1;
+  assert.equal(Kakao.key, 'test-key', '키 앞뒤 빈칸은 뗀다'); assert.equal(Kakao.n, 1);
+  // 빠를 때 — 올리고 곧바로 카드
+  K('pshKakaoSend()'); await tick();
+  assert.equal(ups.length, 1);
+  assert.ok(ups[0].file[0] instanceof File && ups[0].file[0].type === 'image/jpeg' && ups[0].file[0].name === 'verse-44.jpg', '그림은 File 로 [file]');
+  assert.equal(sent.length, 1);
+  const t = sent[0], link = { mobileWebUrl: 'https://gocheok.onlybible.kr/install/', webUrl: 'https://gocheok.onlybible.kr/install/' };
+  assert.equal(t.objectType, 'feed');
+  assert.equal(t.content.imageUrl, 'https://k.kakaocdn.net/u1.jpg');
+  assert.equal(t.content.imageWidth, 1080); assert.equal(t.content.imageHeight, 1080, '정사각 크기를 알려 줘야 잘리지 않는다');
+  assert.equal(t.content.title, '이번 주 말씀 · 누가복음 17장 16절');
+  assert.equal(t.content.description, '성경암송 앱을 설치하고 함께 외워 보세요');
+  assert.deepEqual(JSON.parse(JSON.stringify(t.content.link)), link, '그림을 눌러도 설치 안내');
+  assert.equal(t.buttons.length, 1); assert.equal(t.buttons[0].title, '앱 설치');
+  assert.deepEqual(JSON.parse(JSON.stringify(t.buttons[0].link)), link);
+  assert.equal(K('pshKakaoTemplate({ refShort: "눅 17:16" }, "u")').content.title, '이번 주 말씀 · 눅 17:16', '긴 이름이 없으면 짧은 이름');
+  assert.equal(K('pshKakaoTemplate({}, "u")').content.title, '이번 주 말씀', '구절 이름이 없으면 「이번 주 말씀」만');
+  assert.equal(btn.t.textContent, '카카오톡으로 보내기'); assert.equal(btn.disabled, false); assert.equal(K('pshState.kakaoBusy'), null);
+  assert.equal(K('pshState.sharing'), false, '공유 창 잠금은 건드리지 않는다');
+  // 같은 그림 — 다시 올리지 않는다 · 액자나 파일이 다르면 크기가 같아도 다시
+  K('pshKakaoSend()'); await tick();
+  assert.equal(ups.length, 1, '같은 그림은 한 번만 올린다'); assert.equal(sent.length, 2);
+  frame = 'vf:vf-gold'; K('pshKakaoSend()'); await tick();
+  assert.equal(ups.length, 2, '다른 액자 · 같은 크기 → 다시 올린다');
+  frame = 'vf:vf-hanji'; K('pshState.file = "verse-45.jpg"'); K('pshKakaoSend()'); await tick();
+  assert.equal(ups.length, 3, '다른 구절 · 같은 액자 · 같은 크기 → 다시 올린다');
+  K('pshState.file = "verse-44.jpg"'); assert.equal(sent.length, 4);
+  // 2초 문턱 — 안이면 곧바로 · 넘으면 「카카오톡 열기」
+  K('pshState.blob = { size: 2001 }'); upDelay = 1900; K('pshKakaoSend()'); await tick();
+  assert.equal(sent.length, 5, '2초 안 → 곧바로 연다');
+  K('pshState.blob = { size: 2002 }'); upDelay = 2100; K('pshKakaoSend()');
+  assert.equal(btn.disabled, true, '올리는 동안 잠금'); assert.equal(btn.t.textContent, '카카오톡 준비 중…');
+  K('pshKakaoSend()');   // 그사이 또 누름
+  await tick();
+  assert.equal(ups.length, 5, '두 번 눌러도 한 번만 올린다');
+  assert.equal(sent.length, 5, '늦었으니 곧바로 열지 않는다');
+  assert.ok(btn.cls.has('next')); assert.equal(btn.t.textContent, '카카오톡 열기'); assert.equal(btn.disabled, false);
+  assert.equal(K('pshState.kakaoReady'), 'https://k.kakaocdn.net/u5.jpg');
+  assert.match(said[said.length - 1], /「카카오톡 열기」를 눌러 주세요/);
+  K('pshKakaoSend()');
+  assert.equal(sent.length, 6); assert.equal(sent[5].content.imageUrl, 'https://k.kakaocdn.net/u5.jpg', '한 번 더 누르면 곧바로(올리지 않고)');
+  assert.equal(ups.length, 5); assert.equal(K('pshState.kakaoReady'), ''); assert.ok(!btn.cls.has('next'));
+  // 다른 공유 창이 떠 있는 사이에 올라왔다 — 곧바로 열지 않고 한 번 더
+  upDelay = 0; K('pshState.blob = { size: 3000 }'); K('pshKakaoSend()'); K('pshState.sharing = true');
+  await tick();
+  assert.equal(sent.length, 6, '공유 창이 떠 있으면 열지 않는다'); assert.ok(btn.cls.has('next'));
+  K('pshState.sharing = false; pshState.kakaoReady = ""'); btn.cls.clear();
+  // 표 — 올리는 사이 액자를 바꿨다(pshRedraw 가 표를 버린다) → 새 그림은 새로 올리고, 늦게 온 옛 결과는 아무것도 안 바꾼다
+  upHold = true; K('pshState.blob = { size: 4000 }'); K('pshKakaoSend()'); await tick();
+  assert.equal(held.length, 1); assert.ok(K('pshState.kakaoBusy'), '올리는 중');
+  assert.equal(K('pshState.sharing'), false, '카카오가 올리는 동안에도 공유 창 잠금은 풀려 있다(다른 단추 · 다른 판이 눌린다)');
+  K('pshState.kakaoReady = ""; pshState.kakaoBusy = null; pshState.blob = { size: 4001 }');   // = pshRedraw · prayShareClose 가 하는 일(위 배선 시험이 본다)
+  upHold = false; K('pshKakaoSend()'); await tick();
+  assert.equal(ups.length, 8, '새 그림은 새로 올린다(옛 차례에 막히지 않는다)'); assert.equal(sent.length, 7);
+  const n7 = said.length;
+  held[0]({ infos: { original: { url: 'https://k.kakaocdn.net/old.jpg' } } }); await tick();
+  assert.equal(sent.length, 7, '늦게 온 옛 결과로는 보내지 않는다'); assert.equal(said.length, n7, '옛 결과는 말도 안 한다');
+  assert.equal(K('pshState.kakaoReady'), ''); assert.equal(K('pshState.kakaoBusy'), null);
+  // 늦게 온 옛 실패도 아무것도 안 바꾼다
+  upHold = true; K('pshState.blob = { size: 4002 }'); K('pshKakaoSend()'); await tick();
+  assert.equal(held.length, 2);
+  K('pshState.kakaoBusy = null');
+  upHold = false; upFail = true; const n8 = said.length;
+  held[1](Promise.reject(new Error('x'))); await tick();
+  assert.equal(said.length, n8, '옛 실패는 말하지 않는다(다른 판 · 새 그림에 엉뚱한 말이 뜨지 않게)');
+  // 실패 — 말하고 · 기억하지 않는다(다시 누르면 다시 올린다)
+  K('pshState.blob = { size: 5000 }');
+  K('pshKakaoSend()'); await tick();
+  assert.equal(sent.length, 7); assert.match(said[said.length - 1], /카카오톡으로 보내지 못했어요/);
+  assert.equal(K('pshState.kakaoBusy'), null); assert.equal(btn.disabled, false);
+  upFail = false; K('pshKakaoSend()'); await tick();
+  assert.equal(sent.length, 8, '실패한 그림은 기억하지 않는다');
+  // 20초 한도 — 올리기가 멈추면 「준비 중」으로 굳지 않고 말한다
+  upHold = true; longMs = 1; K('pshState.blob = { size: 6000 }'); K('pshKakaoSend()');
+  await tick(); await tick();
+  assert.match(said[said.length - 1], /카카오톡으로 보내지 못했어요/, '멈춘 올리기는 한도에서 끊는다');
+  assert.equal(K('pshState.kakaoBusy'), null); assert.equal(btn.t.textContent, '카카오톡으로 보내기');
+  upHold = false; longMs = null;
+  // 통신이 끊겼으면 SDK 를 부르지 않는다(실패하면 SDK 가 화면을 카카오 오류 쪽으로 옮긴다)
+  nav.onLine = false; K('pshState.blob = { size: 123 }; pshState.file = "verse-44.jpg"'); frame = 'vf:vf-hanji';
+  K('pshKakaoSend()'); await tick();
+  assert.equal(sent.length, 8, '끊긴 통신 → 부르지 않는다'); assert.match(said[said.length - 1], /인터넷에 연결되지 않았어요/);
+  nav.onLine = true;
+  // 카드를 못 열었다(sendDefault 가 던짐) — 말한다
+  const sd = Kakao.Share.sendDefault; Kakao.Share.sendDefault = () => { throw new Error('x'); };
+  K('pshKakaoSend()'); await tick();
+  assert.match(said[said.length - 1], /카카오톡을 열지 못했어요/);
+  Kakao.Share.sendDefault = sd;
+  // 6초 뒤에도 판이 보이면 — 「열리지 않았으면」(카톡이 열려 화면이 가려졌으면 말하지 않는다)
+  longMs = 1; doc.visibilityState = 'visible'; K('pshKakaoSend()'); await tick(); await tick();
+  assert.match(said[said.length - 1], /카카오톡이 열리지 않았으면 한 번 더 눌러 주세요/);
+  const n9 = said.length; doc.visibilityState = 'hidden'; K('pshKakaoSend()'); await tick(); await tick();
+  assert.equal(said.length, n9 + 1, '가려졌으면(카톡이 열렸다) 그 말은 없다 — 보내기 전 비우는 말 하나뿐');
+  longMs = null;
+  // 그림이 없으면(그리는 중) 노란 단추를 잠근다
+  K('pshState.blob = null; pshKakaoBtn("")');
+  assert.equal(btn.disabled, true, '그리는 동안 잠금');
+  // 키가 없으면 SDK 를 받지 않는다
+  const n0 = scripts.length;
+  const ctx2 = vm.createContext({ window: {}, document: doc, KAKAO_JS_KEY: '', Promise, setTimeout: st, clearTimeout: ct });
+  vm.runInContext(KB, ctx2);
+  await assert.rejects(vm.runInContext('pshKakaoLoad()', ctx2));
+  assert.equal(scripts.length, n0, '키가 없으면 스크립트를 붙이지 않는다');
+  // 못 받았으면 다음에 다시 · 멈춘 받기도 한도에서 끊고 다음에 다시
+  const ctx3 = vm.createContext({ window: {}, document: doc, KAKAO_JS_KEY: 'k', Promise, setTimeout: st, clearTimeout: ct });
+  vm.runInContext(KB, ctx3);
+  const e1 = vm.runInContext('pshKakaoLoad()', ctx3);
+  scripts[scripts.length - 1].onerror();
+  await assert.rejects(e1);
+  longMs = 1;
+  const e2 = vm.runInContext('pshKakaoLoad()', ctx3);
+  assert.equal(scripts.length, n0 + 2, 'SDK 를 못 받았으면 다음에 다시 붙인다');
+  await assert.rejects(e2, /timeout/, '멈춘 받기는 한도에서 끊는다');
+  longMs = null;   // 마지막 받기는 끝까지 기다리게(한도 타이머 없음 — 처리 안 된 거절을 남기지 않게)
+  vm.runInContext('pshKakaoLoad()', ctx3);
+  assert.equal(scripts.length, n0 + 3, '끊긴 뒤에도 다음에 다시');
+});
+
+test('카카오톡 키를 넣는 커밋에 — 개인정보 안내 세 자리에 카카오 줄(새 외부 서비스 · copy-truth) — 무엇이 · 어디로 · 얼마나', () => {
+  if (!runCfg('gocheok.onlybible.kr').KAKAO_JS_KEY) return;   // 운영 키가 비어 있다 — 단추가 안 보이고 카카오로 아무것도 가지 않는다
+  const P = read('privacy', 'index.html'), PI = cut(APP, 'function renderPrivacyInfo(', '\n}\n'), H = cut(APP, 'function renderHelp(', '\n}\n');
+  assert.match(P, /<td>카카오<br>\(카카오톡 공유\)<\/td>[\s\S]*?카카오톡으로 보내기[\s\S]*?설교하신 목사님 성함[\s\S]*?보내시는 분의 이름·소속 같은 개인정보는 없습니다[\s\S]*?카카오 서버에 최대 100일 보관[\s\S]*?접속 IP[\s\S]*?<\/tr>/, 'privacy/ 2항 표 줄');
+  assert.match(PI, /<h3>「이번 주 말씀」 카카오톡으로 보내기<\/h3>\s*<ul>[\s\S]*?<b>카카오 서버<\/b>에 올라가 최대 100일[\s\S]*?설교하신 목사님 성함[\s\S]*?보내시는 분의 이름·소속 같은 개인정보는 없어요[\s\S]*?접속 기록\(IP·기기 정보\)[\s\S]*?<\/ul>/, 'renderPrivacyInfo 절');
+  assert.match(H, /<b>「이번 주 말씀」을 카카오톡으로 보내기<\/b>를 누르시면[^<]*<b>카카오 서버<\/b>에 올라가 최대 100일 보관됩니다\(그림에는 설교하신 목사님 성함이 들어가고 보내시는 분의 이름·소속 같은 개인정보는 없습니다/, 'renderHelp 🔒 문장');
+  for (const [n, s] of [['privacy/', P], ['renderPrivacyInfo', PI], ['renderHelp', H]]) assert.doesNotMatch(s, /이름 같은 개인정보는 없/, n + ' — 「이름 같은 개인정보는 없다」는 틀렸다(목사님 성함이 들어간다 · 같은 날 검토)');
+  assert.match(P, /마지막 수정: 2026년 11월 5일/, '방침을 고친 날');
 });

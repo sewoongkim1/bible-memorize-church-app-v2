@@ -12,13 +12,18 @@
 //
 //    개발 쪽일 때는 화면 구석에 띠가 하나 뜬다(아래). 빈 목록을 보고 고장으로 오해하지 않도록.
 (function () {
+  // KAKAO = 카카오 JavaScript 키(공개용 — 카카오 콘솔 「JavaScript SDK 도메인」에 등록한 주소에서만 쓰인다) · 📖 이번 주 말씀 「카카오톡으로 보내기」
+  //   (js/pray-share.js · 2026-11-05). 비면 단추가 안 보인다. 개발 주소는 콘솔에 등록하지 않아 빈 값.
+  //   ⚠️ 운영 키를 넣는 커밋에 개인정보 안내 세 자리(privacy/ · renderPrivacyInfo · renderHelp)의 카카오 줄을 함께 — 시험이 본다.
   var PROD = {
     URL: "https://xnomlgydifiqiybervtf.supabase.co",
     ANON: "sb_publishable_oLtieT_jw7Gjb8etEsy0jw_thBaDjl-",
+    KAKAO: "9ff74120d4eb45b4a44ff8c64d7b7ebe",
   };
   var DEV = {
     URL: "https://ktpwthwqzgcqcrmsafdo.supabase.co",
     ANON: "sb_publishable_eJKP6u95IU9_DBXTvnvYBA_-yGCf-0Y",
+    KAKAO: "",
   };
 
   var isProd = location.hostname === "gocheok.onlybible.kr";
@@ -32,6 +37,8 @@
   // 아직 개발 프로젝트가 없는 형제 앱(말씀 아카이브 sermon 함수)을 부를 때 쓴다.
   // 그쪽이 개발 프로젝트를 갖게 되면 이 예외를 지운다.
   window.SUPA_PROD = PROD;
+
+  window.KAKAO_JS_KEY = isProd ? PROD.KAKAO : DEV.KAKAO;
 
   if (isProd) return;
 
