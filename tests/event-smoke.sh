@@ -7,6 +7,8 @@
 # 가을 회차 perDay 값까지 보려면(6-2 · 운영 자료 SQL 뒤):
 #   EVT_ENV=prod EXPECT_PER_DAY=3 bash tests/event-smoke.sh
 #   ⚠️ EVT_ENV=prod 를 빼면 개발을 본다 — 개발은 이미 3 이라 운영이 1 로 돌아가 있어도 통과한다.
+# 가을 회차 「여덟 주 가운데 네 주」까지(6-2 · event_autumn_2026_need4.sql 뒤 · 2026-11-06):
+#   EVT_ENV=prod EXPECT_PER_DAY=3 EXPECT_NEED=4 bash tests/event-smoke.sh
 # 「자동 대상」(needs.auto) 거절·빈 명단까지 보려면(6-3 · 자료 SQL supabase/event_autumn_2026_auto.sql 뒤):
 #   EXPECT_AUTO=1 bash tests/event-smoke.sh
 #   시험 회차까지(시험 참여자 계정의 user_id — 저장소에 적지 않는다):
@@ -172,6 +174,13 @@ if [ -n "${EXPECT_PER_DAY:-}" ]; then
 else
   sk "rule.perDay 값" "EXPECT_PER_DAY 환경변수가 없습니다(운영 자료 SQL 뒤에는 EVT_ENV=prod EXPECT_PER_DAY=3)"
 fi
+# need 와 minNeed 는 한 UPDATE 로 함께 바뀐다 — minNeed 가 need 보다 크면 evtRule 이 null(도장판 멈춤)이라 둘 다 본다.
+if [ -n "${EXPECT_NEED:-}" ]; then
+  chk "rule.need == $EXPECT_NEED" "$(jqn '(d.get("rule") or {}).get("need")' "$PS")" "$EXPECT_NEED"
+  chk "rule.minNeed <= need" "$(jqn '((d.get("rule") or {}).get("minNeed") or 99) <= ((d.get("rule") or {}).get("need") or 0)' "$PS")" "True"
+else
+  sk "rule.need 값" "EXPECT_NEED 환경변수가 없습니다(need4 SQL 뒤에는 EVT_ENV=prod EXPECT_NEED=4)"
+fi
 
 echo "6-3) 자동 대상(needs.auto) - 신청도 공개 명단도 없다(2026-10-03 · 설계 §9 · 읽기·거절만)"
 # ⚠️ 쓰기는 하지 않는다 — 거절되어야 하는 요청과 읽기만 던진다.
@@ -186,7 +195,8 @@ else
   A1=$(call "{\"action\":\"eventSignup\",\"user_id\":\"$NONTESTER_UID\",\"event_id\":\"autumn-2026\"}")
   chk "autumn-2026 eventSignup auto-event (draft 여도 성도님 갈래)" "$(jqn 'd.get("error")' "$A1")" "auto-event"
   A2=$(call "{\"action\":\"eventRosterPublic\",\"event_id\":\"autumn-2026\",\"user_id\":\"$NONTESTER_UID\"}")
-  chk "autumn-2026 eventRosterPublic not-found (draft 라 그대로)" "$(jqn 'd.get("error")' "$A2")" "not-found"
+  # 연 뒤(2026-10-10 운영 open)에는 not-found 가 아니라 이름 0줄이 맞다 — 지키는 것은 「공개 키로 이름이 새지 않는다」 하나.
+  chk "autumn-2026 eventRosterPublic 이름 0줄 (draft 면 not-found · 연 뒤 ok·total 0·groups 빈 칸)" "$(jqn 'd.get("error") == "not-found" or (d.get("ok") is True and d.get("total") == 0 and d.get("groups") == [])' "$A2")" "True"
   # 비테스터에게 시험 회차는 여전히 없는 회차다 — auto-event 로 「있다」가 새지 않는다(6-1 과 같은 답)
   A3=$(call "{\"action\":\"eventSignup\",\"user_id\":\"$NONTESTER_UID\",\"event_id\":\"autumn-2026-test\"}")
   chk "비테스터 시험 회차 eventSignup 은 여전히 not-found" "$(jqn 'd.get("error")' "$A3")" "not-found"

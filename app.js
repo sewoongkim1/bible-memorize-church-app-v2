@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261106e";
+const APP_BUILD = "20261106f";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -1512,7 +1512,8 @@ function eventVisible() { return eventOpenCached(); }
 // ── 가을 말씀암송 동행 — 개시 1회 안내 팝업(2026-10-10 · 친구) ──────────────
 // 열린 자격(도장) 회차가 autumn-2026 이고, 아직 이 안내를 못 보신 분께 **첫 화면에서 한 번만**
 //   무엇인지 알린다. 🏅 단추·NEW 배지와는 별도(처음 여는 분을 위한 한 번의 안내 창).
-// ⚠️ 성도님께 하는 말은 어느 경우에도 참인 말만 — 하루 3번·한 주 3일·8주 중 5주·측정 10/11~12/5.
+// ⚠️ 성도님께 하는 말은 어느 경우에도 참인 말만 — 하루 3번·한 주 3일·8주 중 4주(2026-11-06 친구 · 5 → 4 · need4.sql)·측정 10/11~12/5.
+//    날짜에 기대는 말(「지금 시작해도 늦지 않아요 · 11/12까지」)은 넣지 않는다 — 이 창은 아무 날에나 처음 여시는 분께 뜬다.
 // ⚠️ 전체 푸시 알림은 아니다(친구: 「알림은 나중에」) — 앱을 여신 분께만 보인다.
 function autumnPopupSeen() { try { return localStorage.getItem("autumn-2026-popup") === "1"; } catch (e) { return false; } }
 function markAutumnPopupSeen() { try { localStorage.setItem("autumn-2026-popup", "1"); } catch (e) {} }
@@ -1532,7 +1533,7 @@ function maybeAutumnPopup() {
       <div class="autumn-pop-body">
         <p>올해 받은 말씀을 기억하고, 말씀 앞에 머무는 시간이에요.</p>
         <p><b>하루 3번</b> 말씀을 암송하면 그날 한 칸, <b>한 주에 3일</b>이면 그 주가 채워져요.
-           <b>8주 가운데 5주</b>를 채워 함께하신 분께는 모두 <b>소정의 선물</b>을 드려요(세 주는 쉬어도 괜찮아요).</p>
+           <b>8주 가운데 4주</b>를 채워 함께하신 분께는 모두 <b>소정의 선물</b>을 드려요(네 주는 쉬어도 괜찮아요).</p>
         <p class="autumn-pop-when">10월 11일(주일)부터 12월 5일(토)까지 · 따로 신청하지 않으셔도 돼요</p>
       </div>
       <div class="song-modal-actions">
@@ -4130,7 +4131,7 @@ const MED_SHARE_OPEN = true;   // 2026-11-04 모두에게 열었다(친구가 �
 function medShareVisible() { return MED_SHARE_OPEN || (typeof ministryTesterCached === "function" && ministryTesterCached()); }
 // 📖 이번 주 말씀 보내기(2026-11-05 친구 「첫 화면 이번 주 말씀도 · 오른쪽 위 작은 아이콘」 · 그림 + 주소 단추 · js/pray-share.js openVerseShare) — 먼저 🧪 시험 참여자에게만.
 //   친구가 보고 나면 true 한 줄 + bump · 설명서 한 줄(docs/notes/prayer-book.md 끝 「📖 이번 주 말씀도 보내기」).
-const VERSE_SHARE_OPEN = false;
+const VERSE_SHARE_OPEN = true;   // 2026-11-06 모두에게 열었다(친구 「올려주세요」 — 게시판 공지 「가족·목장 식구를 초대해 주세요」와 함께 · 설명서 말씀 암송 장에 한 줄) · 닫으려면 false 한 줄 + bump
 function verseShareVisible() { return VERSE_SHARE_OPEN || (typeof ministryTesterCached === "function" && ministryTesterCached()); }
 // 첫 화면 아이콘 = 카카오톡 말풍선(친구 2026-11-05 「첫화면 아이콘을 카카오톡 아이콘으로」 — 판의 노란 「카카오톡으로 보내기」와 같은 꼴 · 노란 동그라미는 style.css)
 const KAKAO_TALK_IC = '<svg class="wsi-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 3.5c-5.25 0-9.5 3.33-9.5 7.44 0 2.66 1.78 4.99 4.46 6.31-.15.52-.94 3.27-.97 3.49 0 0-.02.16.09.22.1.06.23.01.23.01.3-.04 3.5-2.29 4.05-2.68.53.08 1.08.12 1.64.12 5.25 0 9.5-3.33 9.5-7.44S17.25 3.5 12 3.5z"/></svg>';
@@ -9322,12 +9323,13 @@ const SHARE_TITLE = "[고척교회]  오직 성경, 말씀이 답이다!";
 // ⚠️ url 에 ?from=autumn 을 붙인다 — 카카오톡은 주소마다 카드(OG)를 캐시해 둬서, 전에 공유된
 //    gocheok.onlybible.kr/ 는 옛 카드가 뜰 수 있다. 쿼리만 달라도 카톡이 새 카드(가을 포스터)를 새로 읽어 온다
 //    (앱은 모르는 ?from 을 무시한다). 이벤트가 끝나면 OG 를 되돌린다(index.html · og-cover.png).
+//    2026-11-06 「8주 중 4주」로 바꾸며 ?from=autumn4 · og-autumn-4w.png — 옛 주소(?from=autumn)의 카드는 「5주」로 캐시돼 있다.
 const EVENT_SHARE_TEXT =
   "🍂 가을 말씀암송 동행 (10/11~12/5)\n" +
-  "하루 3번·한 주 3일 암송하면 도장이 채워져요. 8주 중 5주 함께하시면 소정의 선물! 신청 안 해도 돼요.\n" +
+  "하루 3번·한 주 3일 암송하면 도장이 채워져요. 8주 중 4주 함께하시면 소정의 선물! 신청 안 해도 돼요.\n" +
   "앱 첫 화면 🏅 단추에서 시작 → 꾸준히 함께해요 🙏\n" +
   "📱 앱 설치: 플레이스토어·앱스토어 \"고척교회 암송\" 검색";
-function shareEvent() { shareLink(EVENT_SHARE_TEXT, SHARE_HOME + "?from=autumn"); }
+function shareEvent() { shareLink(EVENT_SHARE_TEXT, SHARE_HOME + "?from=autumn4"); }
 
 // 구절 딥링크 — 받는 사람이 로그인 없이 그 구절 암송 화면으로 바로 들어간다.
 function verseShareUrl(no) {
@@ -10462,6 +10464,7 @@ const MANUAL = [
       "<b>3단계</b> — 전부 빈칸",
       "맞으면 <b>초록색</b>으로 바뀌고 다음 칸으로 넘어가요.",
       "틀리면 잠깐 <b>빨간색</b>이 되고, 다시 넣으면 돼요.",
+      "첫 화면 <b>이번 주 말씀</b> 카드 오른쪽 위 <b>노란 카카오톡 단추</b>를 누르면, 이번 주 말씀을 <b>그림</b>으로 가족·목장 단톡방에 보낼 수 있어요.",
     ],
     tip: "막히면 말씀 위 도구 칸의 <b>보기</b>를 누르세요. 정답이 나와요. 다른 구절로 가시려면 위쪽 <b>‹ 목록으로</b>를 누르세요. <b>이번주 말씀</b>은 첫 화면 가운데 카드의 <b>암송하기</b>로 바로 갈 수 있어요.",
   },
