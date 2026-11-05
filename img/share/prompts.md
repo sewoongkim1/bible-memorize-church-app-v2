@@ -71,3 +71,6 @@ AI 그림이 아니다 — 친구가 소책자 · 광고에 쓰던 그림(`자�
 | `vf-navy` | 남색 | (첫 그림 — 안쪽 창이 있어 글 자리가 좁았다 「글자가 작아요」) → 바꿈: A slim gold frame holding one single deep navy blue velvet mat that fills the whole inside of the frame edge to edge, with no inner window, no bevel and no second border - one flat calm navy surface, elegant. |
 
 같은 날 셋째 판 — 다섯 장 모두 액자 긴 변 960px 을 위아래 가운데(60px)로 다시 잘랐다(아래 설치 줄 자리가 없어져서) · 한지는 오른쪽 그림자까지 넣어 가운데(「오른쪽 여백을 좀 더」).
+같은 날 다섯째 판 — ⚠️ 그림자를 넣어 재니 한지 · 남색이 왼쪽 위로 밀렸다(친구 「첫번째 액자가 왼쪽으로 치우쳤어요」 · 「청색 글씨가 오른쪽으로」). 둘 다 **테두리 바깥 끝**(한지 호두나무 · 남색 금테 — 원본 2048 에서
+한지 303~1745 · 남색 389~1657, 원본은 정확히 가운데)의 가운데로 다시 잘라 액자 긴 변 960 · 둘레 60. 작은 그림은 큰 그림 가운데를 4:5 로 잘라 128×160.
+⚠️ 다시 자를 때 안쪽 바탕 끝을 자동으로 재지 말 것 — 테두리가 바탕에 그림자를 드리워 왼쪽 끝이 안으로 잡힌다. 글 자리(`box`)는 테두리 가운데에 맞춘다.

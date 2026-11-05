@@ -21,7 +21,7 @@ const FILL = cut(APP, 'function prayJong(', '// 이름을 눈에 띄게') + '\n'
 const PURE = cut(PS, '// ── 기도문 그림 — 순수 (여기부터) ──', '// ── 기도문 그림 — 순수 (여기까지) ──');
 // 그릴 글 한 벌(prayShareDoc · medShareDoc — DOM 없음)도 싣는다 · 판이 묵상 · 기도문 중 무엇을 그릴지 고르는 길(2026-11-04 검토)
 const DOCS = cut(PS, 'function prayShareDoc(', 'function prayShareDraw(');
-const T = vm.runInContext(FILL + '\n' + PURE + '\n' + DOCS + '\n;({ VERSE_MARK, VERSE_FRAMES, verseFrameChoices, verseFrameStyle, prayShareDoc, medShareDoc, verseShareDoc, verseSharePlan, verseShareDate, verseShareFoot, verseShareByline, VERSE_KICKER, prayFill, prayChunks, PRAY_AMEN, prayShareName, prayShareRuns, prayShareWrap, praySharePlan, prayShareChoices, prayShareMark, PRAY_SHARE_STYLES, PRAY_SHARE_PHOTOS, PSH_MARK, PSH_FLOOR, PSH_MIN, PSH_MAX, PSH_W, PSH_H, medShareRuns, medShareParas, medShareFoot, medShareDate, medShareByline, medSharePlan, MED_KICKER, MED_QLABEL })', vm.createContext({}));
+const T = vm.runInContext(FILL + '\n' + PURE + '\n' + DOCS + '\n;({ VERSE_MARK, VERSE_FRAMES, verseFrameChoices, verseFrameStyle, prayShareDoc, medShareDoc, verseShareDoc, verseSharePlan, verseShareDate, verseShareFoot, verseShareByline, verseSharePastor, VERSE_PASTOR, VERSE_KICKER, prayFill, prayChunks, PRAY_AMEN, prayShareName, prayShareRuns, prayShareWrap, praySharePlan, prayShareChoices, prayShareMark, PRAY_SHARE_STYLES, PRAY_SHARE_PHOTOS, PSH_MARK, PSH_FLOOR, PSH_MIN, PSH_MAX, PSH_W, PSH_H, medShareRuns, medShareParas, medShareFoot, medShareDate, medShareByline, medSharePlan, MED_KICKER, MED_QLABEL })', vm.createContext({}));
 
 // 가짜 폭 — 한글 1em · 띄어쓰기 0.3em · 그 밖 0.55em · 800 굵기 1.04배(나눔명조 · Noto 실측보다 조금 넓게 — 넉넉히 잰다)
 const px = (font) => Number(/(\d+)px/.exec(font)[1]);
@@ -216,9 +216,28 @@ test('배선 — 지연 모듈(LAZY_JS.prayShare · index.html 에 없음) · �
   assert.match(PR, /withLazyJs\("prayShare"/);
   const send = cut(PS, 'function pshSend() {', '\n}\n');
   assert.match(send, /pshState\.blob/);
-  assert.match(send, /const data = \{ files: \[file\] \};\n  if \(pshState\.verse\) data\.text = VERSE_SHARE_TEXT;/, '말씀만 설치 주소 글을 함께 · 기도문 · 묵상은 그림 한 장');
-  assert.match(send, /if \(!can && data\.text\) \{ delete data\.text;/, '공유 창이 글을 못 받으면 그림만');
-  assert.match(send, /navigator\.share\(data\)/);
+  assert.match(send, /const data = \{ files: \[file\] \};\n/, '그림 한 장만(기도문 · 묵상 · 말씀 모두)');
+  assert.doesNotMatch(send, /data\.text|VERSE_SHARE_TEXT/, '그림에 글을 붙이지 않는다 — 카톡이 그림에 붙인 글을 버렸다(친구 2026-11-05 「설치 URL은 연결 해달라고 했는데 없네요」)');
+  assert.match(send, /navigator\.share\(data\)\.then\(\(\) => \{ if \(pshState\.verse && pshState\.withLink\) pshLinkNext\(\); \}\)/, '말씀 판 · 체크가 켜져 있으면 그림 다음 차례는 설치 주소');
+  assert.match(send, /^function pshSend\(\) \{\n  if \(pshState\.verse && pshState\.linkNext\) \{ pshSendLink\(\); return; \}/, '그 차례에는 같은 단추가 설치 주소를(그림을 또 보내지 않는다)');
+  const link = cut(PS, 'function pshSendLink() {', '\n}\n');
+  assert.match(link, /const data = \{ text: VERSE_SHARE_TEXT \};/, '설치 주소는 글만(주소가 눌리는 글 · 작은 상자)');
+  assert.ok(!/files/.test(link), '설치 주소에는 그림이 없다');
+  assert.match(link, /if \(pshState\.sharing\) return;/, '공유 창이 떠 있을 때 또 누르면 무시');
+  assert.match(link, /pshCopyLink\(\);/, '공유 창이 없으면 복사');
+  assert.match(cut(PS, 'function pshCopyLink() {', '\n}\n'), /navigator\.clipboard\.writeText\(VERSE_SHARE_TEXT\)\.then\(\(\) => pshSay\("설치 주소를 복사했어요\./, '복사가 된 뒤에만 「복사했어요」');
+  const ln = cut(PS, 'function pshLinkNext() {', '\n}\n');
+  assert.match(ln, /pshState\.linkNext = true; pshSendLabel\(false\);/);
+  assert.match(ln, /pshSay\("이어서 설치 주소도 같은 대화방에 보내 주세요\."\)/, '「보냈어요」라고 하지 않는다(어디로 갔는지 모른다)');
+  assert.match(link, /navigator\.share\(data\)\.then\(\(\) => \{ pshLinkDone\(\); pshSay\(""\); \}\)/, '보낸 뒤 단추는 다시 「그림 보내기」');
+  assert.match(cut(PS, 'function pshCopyLink() {', '\n}\n'), /^function pshCopyLink\(\) \{\n  pshLinkDone\(\);/, '복사로 끝나도 차례를 거둔다');
+  const lab = cut(PS, 'function pshSendLabel(busy) {', '\n}\n');
+  assert.match(lab, /const next = !busy && pshState\.linkNext;/);
+  assert.match(lab, /s\.disabled = !next && \(!!busy \|\| !pshState\.blob\);/, '금색 차례에는 그림이 없어도 누를 수 있다');
+  assert.match(lab, /s\.classList\.toggle\("next", next\);/);
+  assert.match(lab, /next \? "이어서 설치 주소 보내기" : "보내기 \(카톡 · 문자\)"/, '같은 자리 단추 이름이 바뀐다(엄지가 옮겨 가지 않게)');
+  assert.match(cut(PS, 'function pshRedraw() {', '\n}\n'), /pshState\.blob = null; pshState\.linkNext = false;/, '그림이 바뀌면 다시 그림부터');
+  assert.match(PS, /sharing: false, withLink: true, linkNext: false \};/, '체크는 처음에 켜져 있다');
   assert.doesNotMatch(send, /prayShareDraw\(|pshDraw\(/, '보내기 탭 안에서 그림을 새로 만들면 공유가 막힌다');
   assert.match(send, /pshState\.file/, '파일 이름은 그린 글 한 벌(doc.file)에서 — 기도문 blessing-N · 묵상 meditation-N-요일');
   assert.doesNotMatch(PS, /\(\?<[=!]/, 'lookbehind 금지(사파리 16.4 미만)');
@@ -309,12 +328,18 @@ test('배선 — 「🌿 오늘의 묵상」 창: 문은 app.js(MED_SHARE_OPEN �
 
 test('보내기 판 — 폰에서 「보내기」가 아래로 숨지 않는다(친구 2026-11-04 · 갤럭시) — 미리보기는 화면 높이에 맞춰 줄고 · 단추는 판 아래에 붙는다', () => {
   const CSS = read('style.css');
-  assert.match(CSS, /\.psh-send \{ position: sticky; bottom: 0;/, '단추가 판 아래에 붙는다(sticky)');
+  assert.match(CSS, /\.psh-acts \{ position: sticky; bottom: 0; z-index: 1; background: #fdf8f0;/, '단추 덩어리가 판 아래에 붙는다(sticky · 말씀 판은 체크도 함께)');
+  assert.match(CSS, /\.dark \.psh-acts \{ background: #1a202b;/, '어두운 모드 짝');
+  assert.doesNotMatch(CSS, /\.psh-send \{ position: sticky/, '단추 하나만 붙이면 체크가 아래로 숨는다');
   assert.match(CSS, /\.psh-pv \{ width: min\(100%, 300px, max\(180px, calc\(\(100vh - 420px\) \* \.8\)\)\); \}/, '미리보기 폭이 화면 높이를 따른다');
   assert.match(CSS, /@supports \(height: 100dvh\) \{\n  \.psh-sheet \{ max-height: 94dvh; \}/, '주소창이 있는 브라우저 — dvh');
   // 단추 자리는 미리보기 바로 다음(sticky 가 붙을 자리) — 판 짜임이 바뀌면 이 시험도 함께
-  const pv = PS.indexOf('<div class="psh-pv">'), send = PS.indexOf('id="psh-send"');
-  assert.ok(pv > 0 && send > pv && send - pv < 120, '보내기는 미리보기 바로 아래');
+  assert.match(PS, /<div class="psh-pv"><img id="psh-img" alt=""><\/div>\n      <div class="psh-acts">\$\{kind === "verse" \? `<label class="psh-chk"><input type="checkbox" id="psh-withlink"\$\{pshState\.withLink \? " checked" : ""\}> 설치 주소도 보내기<\/label>` : ""\}\n        <button type="button" class="psh-send" id="psh-send" disabled>/, '미리보기 바로 아래 덩어리 — 말씀 판만 체크 · 그 아래 보내기');
+  assert.ok(!/psh-link/.test(PS), '따로 선 ② 단추는 없다(친구 「check box로」)');
+  assert.match(CSS, /\.psh-send\.next \{ background: linear-gradient/, '그림 다음 차례는 금색');
+  assert.match(CSS, /\.dark \.psh-send\.next \{/, '금색 어두운 모드 짝');
+  assert.match(CSS, /\.dark \.psh-chk \{ color: #f1eee7; \}/, '체크 어두운 모드 짝');
+  assert.match(CSS, /html\[data-fs="xl"\] \.psh-chk \{ font-size: 1\.22rem; \}/, '아주 큰 글씨');
 });
 
 // ── 2026-11-04 검토(review-share-v3) — 두 번 누름 · 묵상 판 그리기 길 · 기도문 판 되돌림 · typeof 지킴이 ──
@@ -387,7 +412,16 @@ test('verseShareDate · byline — verses.date 는 UTC(그 주일 0시 KST) → 
   assert.equal(T.verseShareDate('2026-11-01'), '2026-11-01');
   assert.equal(T.verseShareDate(''), '');
   assert.equal(T.verseShareDate('이번 주'), '', '못 읽으면 빈 값(지어내지 않는다)');
-  assert.equal(T.verseShareByline({ pastor: '차동혁 담임목사', date: '2026-10-31T15:00:00+00:00' }), '차동혁 담임목사 · 2026년 11월 1일');
+  assert.equal(T.verseShareByline({ pastor: '차동혁 담임목사', date: '2026-10-31T15:00:00+00:00' }), '2026년 11월 1일', '맨 끝은 날짜만(설교하신 분은 그 위 한 줄)');
+  assert.equal(T.verseShareByline({ date: '' }), '');
+  // 친구 2026-11-05 「날짜 위에 "고척교회 차동혁 목사"」 · 「고척교회 목사님이예요」(권영준 · 한충성)
+  assert.equal(T.verseSharePastor({ pastor: '' }), '고척교회 차동혁 목사', '칸이 비면 차동혁 목사(이번 주 44번)');
+  assert.equal(T.verseSharePastor({}), '고척교회 차동혁 목사');
+  assert.equal(T.verseSharePastor({ pastor: '차동혁 담임목사' }), '고척교회 차동혁 목사');
+  assert.equal(T.verseSharePastor({ pastor: '차동혁 위임목사' }), '고척교회 차동혁 목사');
+  assert.equal(T.verseSharePastor({ pastor: '권영준 목사' }), '고척교회 권영준 목사');
+  assert.equal(T.verseSharePastor({ pastor: '한충성  담임 목사' }), '고척교회 한충성 목사', '띄어쓰기가 달라도');
+  assert.equal(T.verseSharePastor({ pastor: '김요한 목사(새빛교회)' }), '김요한 목사(새빛교회)', '교회 이름이 든 칸은 그대로(손님 설교)');
   assert.equal(T.verseShareFoot({ sermonTitle: '감사는 발견입니다' }), '설교 「감사는 발견입니다」');
   assert.equal(T.verseShareFoot({}), '');
 });
@@ -404,10 +438,12 @@ test('verseSharePlan — verses.json 전부 × 배경 다섯: 상자 안 · 글�
       const tx = p.ops.filter((o) => o.k === 'text');
       for (const o of tx) assert.ok(o.x >= S.box.x - 0.5 && o.x + o.w <= S.box.x + S.box.w + 0.5, at + ' 가로 넘침: ' + o.s);
       for (const q of p.rects) assert.ok(!meet(q, K), at + ' 글이 마크 둘레에 닿는다');
-      const want = flat(T.VERSE_KICKER) + flat(v.text) + flat(v.refFull || v.refShort) + flat(T.verseShareFoot(v)) + flat(T.verseShareByline(v));   // 말씀이 먼저 · 구절 자리는 그 아래
+      const want = flat(T.VERSE_KICKER) + flat(v.text) + flat(v.refFull || v.refShort) + flat(T.verseShareFoot(v)) + flat(T.verseSharePastor(v)) + flat(T.verseShareByline(v));   // 말씀이 먼저 · 구절 자리는 그 아래
       assert.equal(flat(tx.map((o) => o.s).join('')), want, at + ' 글자');
       assert.equal(tx[0].s, T.VERSE_KICKER); assert.equal(tx[0].color, S.accent, at + ' 「이번 주 말씀」은 강조색');
-      assert.ok(flat(tx.map((o) => o.s).join('')).endsWith(flat(T.verseShareByline(v))) && tx[tx.length - 1].color === S.sub, at + ' 맨 끝은 설교하신 분 · 날짜');
+      assert.ok(flat(tx.map((o) => o.s).join('')).endsWith(flat(T.verseSharePastor(v)) + flat(T.verseShareByline(v))) && tx[tx.length - 1].color === S.sub, at + ' 맨 끝은 「고척교회 ○○○ 목사」 · 날짜');
+      const wi = tx.findIndex((o) => o.s === T.verseSharePastor(v));
+      assert.ok(wi > 0 && (!T.verseShareByline(v) || (tx[wi + 1].s === T.verseShareByline(v) && tx[wi + 1].y > tx[wi].y)), at + ' 설교하신 분은 날짜 바로 위 한 줄');
       assert.equal(p.ops.filter((o) => o.k === 'mark').length, 1);
     }
   }
@@ -435,7 +471,10 @@ test('배선 — 첫 화면 「이번 주 말씀」 오른쪽 위 아이콘: 문
   assert.match(ov, /pshOpen\(PSH_TITLE_VERSE, false, "", "verse"\);/);
   assert.match(PS, /const PSH_TITLE_VERSE = "📤 이번 주 말씀 보내기";/);
   const po = cut(PS, 'function pshOpen(', '\n}\n');
-  assert.ok(!/psh-link|주소로 보내기<\/button>/.test(po), '「🔗 주소로 보내기」는 뺐다(친구 2026-11-05 — 카톡이 큰 미리보기 상자를 붙였다 · 설치 주소는 그림 아래 한 줄)');
+  assert.ok(!/주소로 보내기<\/button>|shareWeeklyVerse/.test(po), '구절 바로가기 「🔗 주소로 보내기」는 뺐다(친구 2026-11-05 — 카톡이 큰 미리보기 상자를 붙였다)');
+  assert.match(po, /const wl = wrap\.querySelector\("#psh-withlink"\);\n  if \(wl\) wl\.addEventListener\("change", \(\) => \{/, '「설치 주소도 보내기」 체크(말씀 판에만 있다)');
+  assert.match(po, /pshState\.withLink = wl\.checked;\n    if \(!wl\.checked && pshState\.linkNext\) \{ pshLinkDone\(\); pshSay\(""\); \}/, '끄면 금색 차례도 거둔다');
+  assert.match(po, /\$\{kind === "verse" \? "「설치 주소도 보내기」를 켜 두면 그림을 보낸 뒤 단추가 금색으로 바뀌어요\. 한 번 더 눌러 같은 대화방에 보내 주세요\."/, '말씀 판 안내 — 켜 두면 두 번에 나눠 보낸다(참인 말)');
   assert.match(APP, /function shareWeeklyVerse\(verse\) \{/, 'shareWeeklyVerse 는 app.js 에 그대로 있다(WEEKLY_SHARE 를 내려도 지우지 말 것)');
   const CSS = read('style.css');
   assert.match(CSS, /\.weekly-topline \.weekly-kicks \{ margin-right: auto; \}/, '진행 표시 · 아이콘이 오른쪽에 나란히');
@@ -465,7 +504,7 @@ test('📖 말씀 액자(친구 2026-11-05 「기존에 없던 것으로 · 너�
       const tx = p.ops.filter((o) => o.k === 'text');
       for (const o of tx) assert.ok(o.x >= st.box.x - 0.5 && o.x + o.w <= st.box.x + st.box.w + 0.5, at + ' 가로 넘침: ' + o.s);
       for (const q of p.rects) assert.ok(!meet(q, p.keep), at + ' 글이 마크 둘레에 닿는다');
-      const want = flat(T.VERSE_KICKER) + flat(v.text) + flat(v.refFull || v.refShort) + flat(T.verseShareFoot(v)) + flat(T.verseShareByline(v));
+      const want = flat(T.VERSE_KICKER) + flat(v.text) + flat(v.refFull || v.refShort) + flat(T.verseShareFoot(v)) + flat(T.verseSharePastor(v)) + flat(T.verseShareByline(v));
       assert.equal(flat(tx.map((o) => o.s).join('')), want, at + ' 글자');
       const mo = p.ops.find((o) => o.k === 'mark'), ko = tx[0];
       if (T.VERSE_MARK) {   // 다시 켜면 — 「이번 주 말씀」 바로 오른쪽(같은 줄 · 묶음을 가운데로)
@@ -508,7 +547,7 @@ test('말씀 액자 — 아주 긴 구절(138자)도 바닥 안 · 글자를 잃
     const st = c.style, p = T.verseSharePlan(long, st, measure);
     assert.ok(p.fit && p.bottom <= st.floor + 0.5, c.label + ' 긴 구절이 바닥 밖 ' + Math.round(p.bottom) + ' > ' + st.floor);
     const tx = p.ops.filter((o) => o.k === 'text');
-    assert.equal(flat(tx.map((o) => o.s).join('')), flat(T.VERSE_KICKER) + flat(long.text) + flat(long.refFull) + flat(T.verseShareFoot(long)) + flat(T.verseShareByline(long)), c.label + ' 글자');
+    assert.equal(flat(tx.map((o) => o.s).join('')), flat(T.VERSE_KICKER) + flat(long.text) + flat(long.refFull) + flat(T.verseShareFoot(long)) + flat(T.verseSharePastor(long)) + flat(T.verseShareByline(long)), c.label + ' 글자');
     const mo = p.ops.find((o) => o.k === 'mark');
     if (T.VERSE_MARK) assert.ok(Math.abs(mo.cy - tx[0].y) < 1 && mo.x > tx[0].x + tx[0].w, c.label + ' 긴 구절에서도 마크는 「이번 주 말씀」 오른쪽');
     else assert.ok(!mo, c.label + ' 마크 없음');
@@ -567,4 +606,18 @@ test('말씀 판 — 배경은 액자만 · 고른 액자는 따로 기억(기�
   assert.match(CSS, /\.psh-dim\[data-kind="verse"\] \.psh-pv \{ aspect-ratio: 1 \/ 1; \}/, '말씀 미리보기는 정사각형');
   assert.match(CSS, /\.psh-pv img \{ display: block; width: 100%; height: 100%; object-fit: contain; \}/, '미리보기를 늘이지 않는다');
   assert.match(CSS, /\.psh-t-vframe img \{ width: 100%; height: 100%; object-fit: cover; \}/, '액자 작은 그림');
+});
+
+// ── 말씀 액자 다섯째 판(2026-11-05 친구 「첫번째 액자가 왼쪽으로 치우쳤어요」 · 「청색 글씨가 오른쪽으로 치우쳤어요」) ──
+//   한지 · 남색은 그림자까지 넣어 잰 테두리로 잘라 액자가 왼쪽 위로 밀렸다(한지 여백 왼 28 · 오른 104 / 남색 안쪽 가운데 510 · 글 자리 540) —
+//   테두리 자신의 가운데로 다시 잘랐다. 그림 속 테두리는 이 시험이 못 잰다(PIL 로 잰 값은 docs/notes/prayer-book.md) — 글 자리만 본다.
+test('말씀 액자 — 글 자리 가운데가 그림 가운데에서 5px 안(액자를 테두리 가운데로 잘랐다) · 좌우 여백이 같다', () => {
+  for (const f of T.VERSE_FRAMES) {
+    const cx = f.box.x + f.box.w / 2;
+    assert.ok(Math.abs(cx - 540) <= 5, f.label + ' 글 자리 가운데 ' + cx);
+  }
+  const hanji = T.VERSE_FRAMES.find((f) => f.id === 'vf-hanji'), navy = T.VERSE_FRAMES.find((f) => f.id === 'vf-navy');
+  assert.ok(Math.abs(hanji.box.x + hanji.box.w / 2 - 540) <= 1 && Math.abs((hanji.box.y + hanji.box.bottom) / 2 - 540) <= 1, '한지는 위아래 · 좌우 가운데');
+  assert.ok(Math.abs(navy.box.x + navy.box.w / 2 - 541) <= 1, '남색 안쪽(102~980) 가운데');
+  assert.ok(navy.floor <= 983 - 18, '남색 바닥은 안쪽(아래 끝 983) 안');
 });

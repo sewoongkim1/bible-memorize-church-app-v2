@@ -113,5 +113,5 @@
 친구 요청 — 「첫 화면 순서를 바꿔 주세요 "암송 과정" 과 "함께" → "함께" 다음에 "암송 과정" 순으로」. A안 묶음 차례: 말씀 묵상 → 내 기록 → 교회 생활 → **함께** → **암송 과정** → 교회 사이트(10-13 에는 암송 과정이 함께 위였다). 바꾼 곳은 `app.js` `HA_GROUPS` 의 두 줄 차례뿐 — 묶음 안 단추 · 문(psalmVisible · passagesVisible · naviVisible) · 설명서 자리 말(「「암송 과정」에서 …」 · 「「함께」 묶음의 …」 — 차례를 말하지 않는다)은 그대로 참이다. 옛 첫 화면(롤백 템플릿 · `HOME_LAYOUT = "old"`)은 손대지 않았다(그쪽은 「암송 과정」 제목이 여전히 「함께」 위). 시험 `tests/home-groups.test.cjs` 가 새 차례를 글자로 지킨다.
 
 ## 2026-11 📤 「이번 주 말씀」 카드 오른쪽 위 보내기 아이콘(🧪 시험 참여자 먼저)
-카드 위 줄 오른쪽 끝(진행 표시 옆) 금색 동그라미 38px — 누르면 말씀 액자 그림 한 장 판 + 「🔗 주소로 보내기」(js/pray-share.js `openVerseShare`). 문 `VERSE_SHARE_OPEN`(app.js).
+카드 위 줄 오른쪽 끝(진행 표시 옆) 금색 동그라미 38px — 누르면 말씀 액자 그림 한 장 판(js/pray-share.js `openVerseShare`) · 「☑ 설치 주소도 보내기」 체크를 켜 두면 그림 다음에 같은 단추가 설치 주소를 글로(2026-11-05 — 옛 「🔗 주소로 보내기」 구절 바로가기는 뺐다). 문 `VERSE_SHARE_OPEN`(app.js).
 ⚠️ 위 줄은 양 끝 정렬이라 셋째 칸이 생기면 둘째 칸이 가운데로 간다 — `.weekly-topline .weekly-kicks { margin-right: auto; }`. 상세 `docs/notes/prayer-book.md` 끝 「📖 이번 주 말씀도 보내기」.

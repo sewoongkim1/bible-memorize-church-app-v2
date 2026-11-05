@@ -8390,8 +8390,15 @@ body.psh-on { overflow: hidden; }
   .psh-sheet { max-height: 94dvh; }   /* 주소창이 있는 브라우저에서 vh 는 주소창을 뺀 높이보다 크다 */
   .psh-pv { width: min(100%, 300px, max(180px, calc((100dvh - 420px) * .8))); }
 }
-.psh-send { position: sticky; bottom: 0; z-index: 1; box-shadow: 0 -12px 14px -2px #fdf8f0; }   /* 위 그림자 = 판 바탕색 — 밀려 올라가는 미리보기를 단추 위에서 덮는다 */
-.dark .psh-send { box-shadow: 0 -12px 14px -2px #1a202b; }
+.psh-acts { position: sticky; bottom: 0; z-index: 1; background: #fdf8f0; box-shadow: 0 -12px 14px -2px #fdf8f0; }   /* 위 그림자 = 판 바탕색 — 밀려 올라가는 미리보기를 단추 위에서 덮는다 · 말씀 판은 체크도 이 안에(2026-11-05) */
+.dark .psh-acts { background: #1a202b; box-shadow: 0 -12px 14px -2px #1a202b; }
+/* 📖 말씀 판 「설치 주소도 보내기」 체크(2026-11-05 친구 「설치주소 보내기를 check box로」) — 켜 두면 그림을 보낸 뒤 같은 단추가 금색 「이어서 설치 주소 보내기」 */
+.psh-chk { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; margin-top: 10px; font-size: .98rem; font-weight: 800; color: #1b2333; cursor: pointer; }
+.psh-chk input { flex: none; width: 22px; height: 22px; margin: 0; accent-color: #1e3a6b; }
+.psh-send.next { background: linear-gradient(180deg, #f7cf63, #eab53f); color: #1b2a4a; }
+.dark .psh-chk { color: #f1eee7; }
+.dark .psh-chk input { accent-color: #9dbbea; }
+.dark .psh-send.next { background: linear-gradient(180deg, #e8bd55, #d6a43a); color: #1a1406; }
 /* 📖 첫 화면 「이번 주 말씀」 오른쪽 위 작은 보내기 아이콘(2026-11-05 친구) — 다른 보내기 단추와 같은 금색 동그라미 · 남색 선 아이콘 */
 .weekly-topline .weekly-kicks { margin-right: auto; }   /* 진행 표시 · 아이콘을 오른쪽에 나란히(양 끝 정렬만으로는 둘째 칸이 가운데로 간다) */
 .weekly-share-ic {
@@ -8418,10 +8425,12 @@ body.psh-on { overflow: hidden; }
 .dark .psh-msg { color: #9dbbea; }
 /* 글씨 크기 「크게 · 아주 크게」(html[data-fs]) — 이 앱은 뿌리 글씨를 안 바꾸고 자리마다 키운다(위 「고령 성도 배려」 절과 같은 꼴) */
 html[data-fs="lg"] .pr-share, html[data-fs="lg"] .psh-send { font-size: 1.15rem; }
+html[data-fs="lg"] .psh-chk { font-size: 1.1rem; }
 html[data-fs="lg"] .psh-lbl { font-size: 1rem; }
 html[data-fs="lg"] .psh-name { font-size: 1.15rem; }
 html[data-fs="lg"] .psh-hint, html[data-fs="lg"] .psh-msg { font-size: .98rem; }
 html[data-fs="xl"] .pr-share, html[data-fs="xl"] .psh-send { font-size: 1.28rem; }
+html[data-fs="xl"] .psh-chk { font-size: 1.22rem; }
 html[data-fs="xl"] .psh-top { font-size: 1.25rem; }
 html[data-fs="xl"] .psh-lbl { font-size: 1.12rem; }
 html[data-fs="xl"] .psh-name { font-size: 1.28rem; min-height: 52px; }

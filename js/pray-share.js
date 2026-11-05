@@ -266,19 +266,21 @@ function medSharePlan(m, styleKey, measure) {
   });
 }
 // 📖 말씀 액자(2026-11-05 친구 「이미지는 기존에 없던 것으로 · 말씀 액자이니 너무 크지 않게」) — Gemini 정사각형 여섯 장 중 다섯(만든 말 img/share/prompts.md).
-//   정사각형 1080×1080 · 액자 긴 변 960px 을 가운데에(같은 날 친구 「액자 밖 여백이 너무 많아요 · 액자를 크게 · 글자도 키워」 · 한지는 오른쪽 그림자까지 넣어 가운데 —
-//   「오른쪽 여백을 좀 더」) · 글은 액자 안쪽 바탕(box — 그림마다 눈금으로 잰 자리에서 여백을 둔 곳)에만 · 글씨 48px → 24px ·
-//   마크는 안쪽 바탕 오른쪽 위 모서리에서 22px(62×76 · 「교회 마크를 오른쪽 위로」) · 남색은 창 없는 새 그림(「글자가 작아요」 — 안쪽 창이 글 자리를 좁혔다).
-//   설치 주소는 그림에 넣지 않는다 — 보내기 글(VERSE_SHARE_TEXT)로. ⚠️ 그림을 바꾸면 box · floor · mark 를 다시 잴 것.
-// 말씀 보내기는 그림과 함께 이 글을 보낸다(친구 2026-11-05 「설치는 그림 말고 액자 아래 · 누르면 연결 · URL 박스가 크지 않게」) —
+//   정사각형 1080×1080 · 액자 긴 변 960px 을 가운데에(같은 날 친구 「액자 밖 여백이 너무 많아요 · 액자를 크게 · 글자도 키워」) ·
+//   ⚠️ 가운데는 테두리 자신의 바깥 끝으로 잰다 — 그림자까지 넣어 재면 액자가 왼쪽 위로 밀린다(한지 · 남색이 그랬다 · 친구 「첫번째 액자가 왼쪽으로 치우쳤어요」 ·
+//   「청색 글씨가 오른쪽으로 치우쳤어요」 — 글 자리는 그림 가운데인데 남색 안쪽은 30px 왼쪽이었다) · 글은 액자 안쪽 바탕(box — 테두리 가운데에 맞춘 자리)에만 · 글씨 48px → 24px ·
+//   남색은 창 없는 새 그림(「글자가 작아요」 — 안쪽 창이 글 자리를 좁혔다).
+//   설치 주소는 그림에 넣지 않는다 — 판의 「설치 주소도 보내기」 체크가 그림 다음에 글로 따로(VERSE_SHARE_TEXT). ⚠️ 그림을 바꾸면 box · floor 를 다시 잴 것.
+// 그림 다음에 보내는 설치 주소 글(친구 2026-11-05 「설치는 그림 말고 액자 아래 · 누르면 연결 · URL 박스가 크지 않게」) —
 //   주소는 대표 그림(og:image)이 없는 짧은 주소 go/app/ → /install/ 이라 카톡 미리보기가 작은 상자(제목 · 주소)가 된다.
+//   그림과 한 번에 보내지 않는 까닭: 카톡이 그림에 붙인 글을 버렸다(친구 폰 · 같은 날 「설치 URL은 연결 해달라고 했는데 없네요」).
 const VERSE_SHARE_TEXT = "성경암송 앱 설치 https://gocheok.onlybible.kr/go/app/";
-const VERSE_FRAMES = [   // floor = 안쪽 바탕 끝에서 18px 안(가장 작은 글씨로도 넘칠 때 내려갈 바닥 — 2026-11-05 검토: 같은 +40 이면 원목 · 남색 창 밖으로 나갔다) · bg = 그림을 못 받았을 때 바탕
-  { id: "vf-hanji", label: "한지", ink: "#2b2620", accent: "#8a4f1a", sub: "#6b6250", orn: "#8a6a3a", bg: "#f3ead8", box: { x: 126, y: 145, w: 748, bottom: 895 }, floor: 952 },
-  { id: "vf-gold", label: "금테", ink: "#3a2c18", accent: "#9a6a17", sub: "#6b5a3a", orn: "#b08a3e", bg: "#f5ecdd", box: { x: 215, y: 211, w: 638, bottom: 866 }, floor: 916 },
+const VERSE_FRAMES = [   // floor = 안쪽 바탕 끝에서 18~20px 안(가장 작은 글씨로도 넘칠 때 내려갈 바닥 — 2026-11-05 검토: 같은 +40 이면 원목 · 남색 창 밖으로 나갔다) · bg = 그림을 못 받았을 때 바탕
+  { id: "vf-hanji", label: "한지", ink: "#2b2620", accent: "#8a4f1a", sub: "#6b6250", orn: "#8a6a3a", bg: "#f3ead8", box: { x: 162, y: 162, w: 756, bottom: 919 }, floor: 977 },
+  { id: "vf-gold", label: "금테", ink: "#3a2c18", accent: "#9a6a17", sub: "#6b5a3a", orn: "#b08a3e", bg: "#f5ecdd", box: { x: 220, y: 204, w: 638, bottom: 859 }, floor: 909 },
   { id: "vf-oak", label: "원목", ink: "#2f3440", accent: "#7a5a2a", sub: "#5f6672", orn: "#a07a4a", bg: "#ece8e2", box: { x: 290, y: 301, w: 493, bottom: 811 }, floor: 838 },
   { id: "vf-wreath", label: "꽃테", ink: "#33402f", accent: "#a0566a", sub: "#6b7a68", orn: "#8aa07a", bg: "#f4f1ea", box: { x: 262, y: 246, w: 565, bottom: 842 }, floor: 859 },
-  { id: "vf-navy", label: "남색", ink: "#f4ecd8", accent: "#f0d48a", sub: "#c9d3ea", orn: "#d9bd72", bg: "#0c1734", disc: true, box: { x: 160, y: 164, w: 760, bottom: 916 }, floor: 973 },
+  { id: "vf-navy", label: "남색", ink: "#f4ecd8", accent: "#f0d48a", sub: "#c9d3ea", orn: "#d9bd72", bg: "#0c1734", disc: true, box: { x: 161, y: 164, w: 760, bottom: 916 }, floor: 965 },
 ];
 function verseFrameStyle(f) {
   return { label: f.label, family: PSH_SERIF, align: "center", valign: "center", ink: f.ink, accent: f.accent, sub: f.sub, orn: f.orn, bar: null,
@@ -289,7 +291,7 @@ function verseFrameChoices() {
   return VERSE_FRAMES.map((f) => ({ key: "vf:" + f.id, style: verseFrameStyle(f), label: f.label, src: "img/share/" + f.id + ".webp", thumb: "img/share/" + f.id + "-t.webp" }));
 }
 // 📖 이번 주 말씀(2026-11-05 친구 「첫 화면 이번 주 말씀도 카톡 공유 · 오른쪽 위 작은 아이콘」 · 그림 + 주소 단추) — v = { no, text, refFull, refShort, sermonTitle, pastor, date }
-//   「이번 주 말씀」(작게 · 강조색) · 구절 자리(큰 글씨) · (장식) · 말씀(문장마다) · 맨 아래 작게 「설교 「제목」」 / 「설교하신 분 · 날짜」(묵상과 같은 꼴).
+//   「이번 주 말씀」(작게 · 강조색) · (장식) · 말씀(문장마다) · 구절 자리 · 맨 아래 작게 「설교 「제목」」 / 「고척교회 ○○○ 목사」 / 「날짜」(한 줄씩).
 //   구절 본문은 20~69자(운영 44구절 · 2026-11-05) — 짧아서 큰 글씨로 든다. verses.date 는 UTC(그 주일 0시 KST = 토 15:00Z) — 한국 날짜로 바꿔 쓴다.
 const VERSE_KICKER = "이번 주 말씀";
 // 말씀 액자에 교회 마크를 넣나 — 친구 2026-11-05 「우선 교회마크를 빼주세요」. 다시 넣으려면 true(「이번 주 말씀」 바로 오른쪽 · 묶음을 가운데로).
@@ -302,7 +304,16 @@ function verseShareDate(d) {   // 「2026-06-27T15:00:00.000Z」 → 「2026-06-
   return isNaN(t) ? "" : new Date(t + 9 * 3600 * 1000).toISOString().slice(0, 10);
 }
 function verseShareFoot(v) { const t = String((v && v.sermonTitle) || "").trim(); return t ? "설교 「" + t + "」" : ""; }
-function verseShareByline(v) { return medShareByline({ preacher: v && v.pastor, sermonDate: verseShareDate(v && v.date) }); }
+// 설교하신 분 — 날짜 위 한 줄(친구 2026-11-05 「날짜 위에 "고척교회 차동혁 목사"」) · 「담임목사 · 위임목사」는 「목사」로 ·
+//   설교자 칸이 비면 차동혁 목사(운영 44구절 중 41 · 이번 주 44번이 빈 칸) · 다른 분도 고척교회 목사님(친구 — 권영준 · 한충성) ·
+//   칸에 교회 이름이 이미 들었으면(손님 설교) 그대로.
+const VERSE_PASTOR = "차동혁 목사";
+function verseSharePastor(v) {
+  let p = String((v && v.pastor) || "").replace(/\s+/g, " ").trim().replace(/(담임|위임)\s*목사/g, "목사");
+  if (!p || /차동혁/.test(p)) p = VERSE_PASTOR;
+  return /교회/.test(p) ? p : "고척교회 " + p;
+}
+function verseShareByline(v) { return medShareDate(verseShareDate(v && v.date)); }   // 맨 끝 — 설교 날짜만(「2026년 11월 1일」)
 //   말씀 액자답게 말씀이 먼저 · 구절 자리는 그 아래 강조색(안쪽이 420px 쯤이라 큰 제목으로 두면 「디모데전서 1장 11절」이 두 줄로 꺾였다).
 function verseSharePlan(v, styleKey, measure) {
   const plan = pshPlan(styleKey, measure, (size, c) => {
@@ -312,9 +323,10 @@ function verseSharePlan(v, styleKey, measure) {
     medShareParas(v && v.text).forEach((p, k) => c.add(p, size, PSH_LH, false, st.ink, k === 0 ? c.ornGap : Math.round(size * 0.35)));
     const ref = String((v && (v.refFull || v.refShort)) || "").trim();
     if (ref) c.add([{ s: ref, a: true }], Math.round(size * 0.86), 1.5, true, st.accent, Math.round(size * 0.6));
-    const foot = verseShareFoot(v), by = verseShareByline(v);
+    const foot = verseShareFoot(v), who = verseSharePastor(v), by = verseShareByline(v);
     if (foot) c.add([{ s: foot, a: false }], Math.round(size * 0.68), 1.5, false, st.sub, Math.round(size * 1.1));
-    if (by) c.add([{ s: by, a: false }], Math.round(size * 0.68), 1.5, false, st.sub, foot ? 0 : Math.round(size * 1.1));
+    c.add([{ s: who, a: false }], Math.round(size * 0.68), 1.5, false, st.sub, foot ? 0 : Math.round(size * 1.1));
+    if (by) c.add([{ s: by, a: false }], Math.round(size * 0.68), 1.5, false, st.sub, 0);
   });
   // 말씀 액자 — 교회 마크를 「이번 주 말씀」 바로 오른쪽에(친구 2026-11-05 「마크의 위치가 좀 이상해요」 — 안쪽 바탕 모서리에서는 따로 떨어져 보였다).
   //   「글자 + 틈 + 마크」 묶음이 가운데에 오게 글자를 왼쪽으로 반만큼 옮긴다 · 마크 높이 = 그 글자 크기의 1.45배.
@@ -441,7 +453,7 @@ function medShareDoc(m) {
 function verseShareDoc(v) {
   const no = Number(v && v.no) || 0, ref = String((v && (v.refFull || v.refShort)) || "").trim();
   return { plan: (style, measure) => verseSharePlan(v, style, measure),
-           text: [VERSE_KICKER, ref, v && v.text, verseShareFoot(v), verseShareByline(v)].join(" ").replace(/\*\*/g, ""),
+           text: [VERSE_KICKER, ref, v && v.text, verseShareFoot(v), verseSharePastor(v), verseShareByline(v)].join(" ").replace(/\*\*/g, ""),
            seed: no * 13 + 5, file: "verse-" + no + ".jpg", alt: "보낼 그림 — 이번 주 말씀 · " + (ref || VERSE_KICKER) };
 }
 function prayShareDraw(b, name, choice, leafNo) { return pshDraw(prayShareDoc(b, name), choice, leafNo); }
@@ -495,7 +507,8 @@ function pshDraw(doc, choice, leafNo) {
 
 // ── 판(아래에서 올라온다) ──
 // b · name = 기도문(이름 칸이 있다) · med = 오늘의 묵상 · verse = 이번 주 말씀(이름 자리가 없다) — 한 번에 하나만 차 있다 · file = 지금 그림의 파일 이름
-const pshState = { gen: 0, blob: null, url: null, key: "night", vkey: "", leaf: 1, b: null, name: "", med: null, verse: null, file: "", timer: null, pop: null, esc: null, sharing: false };
+// withLink = 말씀 판 「설치 주소도 보내기」 체크(처음엔 켬) · linkNext = 그림을 보낸 뒤라 같은 단추가 설치 주소를 보낼 차례
+const pshState = { gen: 0, blob: null, url: null, key: "night", vkey: "", leaf: 1, b: null, name: "", med: null, verse: null, file: "", timer: null, pop: null, esc: null, sharing: false, withLink: true, linkNext: false };
 const PSH_TITLE_PRAY = "📤 가정 축복 기도문 보내기", PSH_TITLE_MED = "📤 오늘의 묵상 보내기";
 const PSH_TITLE_VERSE = "📤 이번 주 말씀 보내기";
 // 판이 그릴 글 한 벌 — 묵상 · 말씀 · 기도문 가운데 지금 찬 것
@@ -508,13 +521,15 @@ function pshSay(t) { const m = document.getElementById("psh-msg"); if (m) m.text
 function pshSendLabel(busy) {
   const s = document.getElementById("psh-send");
   if (!s) return;
-  s.disabled = !!busy || !pshState.blob;
-  s.textContent = busy ? "그리는 중…" : "보내기 (카톡 · 문자)";
+  const next = !busy && pshState.linkNext;   // 📖 그림을 보낸 뒤 — 같은 자리 금색 단추가 설치 주소를(엄지가 옮겨 가지 않게)
+  s.disabled = !next && (!!busy || !pshState.blob);
+  s.classList.toggle("next", next);
+  s.textContent = busy ? "그리는 중…" : next ? "이어서 설치 주소 보내기" : "보내기 (카톡 · 문자)";
 }
 function pshLeafSrc() { return "img/frame/leaf" + pshState.leaf + ".webp?v=" + (typeof APP_BUILD === "string" ? APP_BUILD : ""); }
 function pshRedraw() {
   const my = ++pshState.gen;
-  pshState.blob = null;
+  pshState.blob = null; pshState.linkNext = false;   // 그림이 바뀌면 단추는 다시 「그림 보내기」
   pshSendLabel(true); pshSay("");
   const all = pshChoices();
   const ch = all.find((c) => c.key === pshKeyGet()) || all[0];
@@ -541,27 +556,62 @@ function pshDownload() {
 }
 // ⚠️ 누른 그 탭 안에서 share — 그림은 미리보기 때 만든 pshState.blob(여기서 새로 그리면 사용자 동작이 식어 막힌다)
 function pshSend() {
+  if (pshState.verse && pshState.linkNext) { pshSendLink(); return; }   // 그림 다음 — 같은 단추가 설치 주소를
   const blob = pshState.blob;
   if (!blob) return;
   let file = null;
   try { file = new File([blob], pshState.file || "blessing.jpg", { type: "image/jpeg" }); } catch (e) {}
-  // 말씀 판은 설치 주소 글을 함께(VERSE_SHARE_TEXT) — 공유 창이 글을 못 받으면 그림만
+  // 그림 한 장만 — 말씀 판의 설치 주소는 그다음 같은 단추로 글만 따로(카톡이 그림에 붙인 글을 버렸다 · 친구 2026-11-05)
   const data = { files: [file] };
-  if (pshState.verse) data.text = VERSE_SHARE_TEXT;
   let can = false;
   try { can = !!(file && navigator.share && navigator.canShare && navigator.canShare(data)); } catch (e) {}
-  if (!can && data.text) { delete data.text; try { can = !!(file && navigator.share && navigator.canShare && navigator.canShare(data)); } catch (e) {} }
   if (can) {
     // 공유 창이 뜨는 사이 한 번 더 누르면 두 번째 share 가 InvalidStateError 로 끝난다 — 그걸 「공유를 못 한다」로 보고 내려받기로 가지 않게(2026-11-04 검토)
     if (pshState.sharing) return;
     pshState.sharing = true;
-    navigator.share(data).catch((err) => {
+    navigator.share(data).then(() => { if (pshState.verse && pshState.withLink) pshLinkNext(); }).catch((err) => {
       if (err && (err.name === "AbortError" || err.name === "InvalidStateError")) return;   // 성도님이 공유 창을 닫았다 · 이미 떠 있다
       pshDownload();
     }).finally(() => { pshState.sharing = false; });
     return;
   }
   pshDownload();
+}
+// 📖 말씀 판 「설치 주소도 보내기」(친구 2026-11-05 「설치 URL은 연결 해달라고 했는데 없네요」 → 「설치주소 보내기를 check box로」) —
+//   켜 두면 그림을 보낸 뒤 같은 단추가 금색 「이어서 설치 주소 보내기」가 되고, 누르면 글만 보낸다. 한 번에 못 보내는 까닭: 카톡이 그림에 붙인 글을
+//   버렸고(친구 폰) · 폰은 누를 때마다 공유 창을 하나만 연다(두 번째 share 는 새로 눌러야 한다). 글만 보내면 카톡에서 주소가 눌리는 글이 되고
+//   go/app/ 은 대표 그림이 없어 미리보기가 작은 상자다(「URL 박스가 크지 않게」). 공유 창이 없으면 복사해 둔다.
+function pshLinkNext() {   // 그림을 보낸 뒤 — 어디로 갔는지는 알 수 없다(「보냈어요」라고 하지 않는다)
+  pshState.linkNext = true; pshSendLabel(false);
+  pshSay("이어서 설치 주소도 같은 대화방에 보내 주세요.");
+}
+function pshLinkDone() { pshState.linkNext = false; pshSendLabel(false); }
+function pshSendLink() {
+  const data = { text: VERSE_SHARE_TEXT };
+  let can = false;
+  try { can = !!(navigator.share && (!navigator.canShare || navigator.canShare(data))); } catch (e) {}
+  if (can) {
+    if (pshState.sharing) return;
+    pshState.sharing = true;
+    navigator.share(data).then(() => { pshLinkDone(); pshSay(""); }).catch((err) => {
+      if (err && (err.name === "AbortError" || err.name === "InvalidStateError")) return;   // 닫았다 — 금색 단추 그대로(다시 누를 수 있게)
+      pshCopyLink();
+    }).finally(() => { pshState.sharing = false; });
+    return;
+  }
+  pshCopyLink();
+}
+function pshCopyLink() {
+  pshLinkDone();
+  const url = VERSE_SHARE_TEXT.slice(VERSE_SHARE_TEXT.indexOf("https://"));
+  const say = () => pshSay("설치 주소: " + url);   // 복사도 못 하면 눈으로 옮겨 적게
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(VERSE_SHARE_TEXT).then(() => pshSay("설치 주소를 복사했어요. 대화방에 붙여 넣어 주세요."), say);
+      return;
+    }
+  } catch (e) {}
+  say();
 }
 function prayShareClose(fromPop) {
   const w = document.getElementById("psh");
@@ -595,7 +645,7 @@ function openMedShare(m) {
   pshOpen(PSH_TITLE_MED, false, "", "med");
 }
 // 첫 화면 「이번 주 말씀」 카드의 작은 아이콘이 부른다(2026-11-05 친구) — v = 이번 주 구절({ no, text, refFull, refShort, sermonTitle, pastor, date }) ·
-//   이름 칸 없음 · 그림은 말씀 액자(VERSE_FRAMES) · 액자 아래에 설치 주소 한 줄
+//   이름 칸 없음 · 그림은 말씀 액자(VERSE_FRAMES) · 설치 주소는 그림 다음에 글로 따로(「설치 주소도 보내기」 체크)
 function openVerseShare(v) {
   if (!v || !String(v.text || "").trim()) return;
   if (pshReuse("verse")) { pshState.b = null; pshState.med = null; pshState.verse = v; pshRedraw(); return; }
@@ -607,7 +657,8 @@ function openVerseShare(v) {
 //   pshOpen 이 막 단 popstate 받이가 그걸 받고 새 판을 닫는다(빠르게 두 번 누를 때 · 판이 떴다가 사라진다). 그래서 닫지 않고 내용만 바꾼다.
 function pshReuse(kind) { const w = document.getElementById("psh"); return !!(w && w.dataset.kind === kind && pshState.pop); }
 // kind = "pray" · "med" · "verse"(판 종류 표식 — pshReuse 가 본다 · 말씀 판은 미리보기 칸이 정사각형)
-//   「🔗 주소로 보내기」는 뺐다(친구 2026-11-05 — 카톡이 큰 미리보기 상자를 붙였다 · 설치 주소는 말씀 액자 그림 아래 한 줄로)
+//   「🔗 주소로 보내기」(구절 바로가기)는 뺐다(친구 2026-11-05 — 카톡이 큰 미리보기 상자를 붙였다) · 말씀 판에는 대신 「설치 주소도 보내기」 체크(위 pshSendLink) —
+//   체크와 단추는 한 덩어리(.psh-acts)로 판 아래에 붙는다(갤럭시에서 아래로 숨지 않게)
 function pshOpen(title, withName, name, kind) {
   pshState.leaf = Math.min(12, 1 + Math.floor(Math.random() * 12));
   const choices = pshChoices();
@@ -628,8 +679,9 @@ function pshOpen(title, withName, name, kind) {
       <div class="psh-lbl" id="psh-bg-l">배경 고르기</div>
       <div class="psh-thumbs" role="radiogroup" aria-labelledby="psh-bg-l">${choices.map(thumb).join("")}</div>
       <div class="psh-pv"><img id="psh-img" alt=""></div>
-      <button type="button" class="psh-send" id="psh-send" disabled>그리는 중…</button>
-      <p class="psh-hint">폰의 공유 창에서 카카오톡이나 메시지를 골라 주세요. 안&nbsp;되면 위 그림을 길게 눌러 저장해 주세요.</p>
+      <div class="psh-acts">${kind === "verse" ? `<label class="psh-chk"><input type="checkbox" id="psh-withlink"${pshState.withLink ? " checked" : ""}> 설치 주소도 보내기</label>` : ""}
+        <button type="button" class="psh-send" id="psh-send" disabled>그리는 중…</button></div>
+      <p class="psh-hint">${kind === "verse" ? "「설치 주소도 보내기」를 켜 두면 그림을 보낸 뒤 단추가 금색으로 바뀌어요. 한 번 더 눌러 같은 대화방에 보내 주세요." : "폰의 공유 창에서 카카오톡이나 메시지를 골라 주세요."} 안&nbsp;되면 위 그림을 길게 눌러 저장해 주세요.</p>
       <p class="psh-msg" id="psh-msg" role="status"></p>
     </div>`;
   document.body.appendChild(wrap);
@@ -659,6 +711,11 @@ function pshOpen(title, withName, name, kind) {
   wrap.querySelector(".psh-x").addEventListener("click", () => prayShareClose());
   wrap.addEventListener("click", (e) => { if (e.target === wrap) prayShareClose(); });
   wrap.querySelector("#psh-send").addEventListener("click", pshSend);
+  const wl = wrap.querySelector("#psh-withlink");
+  if (wl) wl.addEventListener("change", () => {   // 끄면 금색 차례도 거둔다
+    pshState.withLink = wl.checked;
+    if (!wl.checked && pshState.linkNext) { pshLinkDone(); pshSay(""); }
+  });
   pshState.esc = (e) => { if (e.key === "Escape") prayShareClose(); };
   document.addEventListener("keydown", pshState.esc);
   try { history.pushState({ psh: 1 }, ""); } catch (e) {}   // 안드로이드 「뒤로 가기」로 닫히게
