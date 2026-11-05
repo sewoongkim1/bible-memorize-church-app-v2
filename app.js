@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261106d";
+const APP_BUILD = "20261106e";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9428,11 +9428,12 @@ function kakaoCloseWhenHidden(ua) {
   };
   document.addEventListener("visibilitychange", h);
 }
-// 📖 카톡 카드(이번 주 말씀 보내기)에서 온 길(?kk=1 · js/pray-share.js pshKakaoTemplate) — 친구 2026-11-06 「앱이 없으면 설치 페이지로」.
-//   안드로이드(카톡 안 · 크롬 모두): 플레이 앱을 콕 집어 그 자리(구절 ?v= · 첫 화면)로 — 없으면 설치 안내(/install/ · S.browser_fallback_url) ·
+// 📖 카톡 카드(이번 주 말씀 보내기)의 「말씀 외워 보기」에서 온 길(?kk=1 · js/pray-share.js pshKakaoTemplate) — 친구 2026-11-06
+//   「안드로이드: 앱이 깔려 있으면 첫화면, 앱이 없으면 설치 안내」 · 「아이폰은 무조건 앱 설치로」.
+//   안드로이드(카톡 안 · 크롬 모두): 플레이 앱을 콕 집어 첫 화면으로 — 없으면 설치 안내(/install/ · S.browser_fallback_url) ·
 //   2.5초가 지나도 창이 보이면(아무 일도 안 됐다) 설치 안내로 · 카톡 안이면 넘긴 뒤 카톡 창을 닫는다.
-//   아이폰: 앱이 깔렸는지 알 길이 없다(유니버설 링크 없음) — 「앱 설치」(구절 없음)는 설치 안내로 · 「말씀 외워 보기」는 아래 promptOpenExternal(사파리)로.
-//   ⚠️ loadVerses(→ ?v= 를 읽어 지움)보다 먼저 — 표 kk 만 떼고 ?v= 는 남긴다.
+//   아이폰 · 아이패드: 늘 설치 안내(앱이 깔렸는지 알 길이 없다 — 유니버설 링크 없음). PC 는 아무것도 안 한다(카드의 PC 주소는 처음부터 설치 안내).
+//   (그 전 카드의 「말씀 외워 보기」 ?v=번호&kk=1 도 같은 길 — 구절이 아니라 첫 화면 · 설치 안내로)
 function routeKakaoCard() {
   let u;
   try { u = new URL(location.href); } catch (e) { return false; }
@@ -9442,13 +9443,13 @@ function routeKakaoCard() {
   const ua = navigator.userAgent || "";
   const install = u.origin + "/install/";
   if (/android/i.test(ua)) {
-    location.href = "intent://" + u.toString().replace(/^https?:\/\//, "") + "#Intent;scheme=https;package=" + PLAY_APP_ID +
+    location.href = "intent://" + u.host + "/#Intent;scheme=https;package=" + PLAY_APP_ID +
       ";S.browser_fallback_url=" + encodeURIComponent(install) + ";end";
     setTimeout(() => { if (document.visibilityState === "visible") location.replace(install); }, 2500);
     kakaoCloseWhenHidden(ua);
     return true;
   }
-  if (/iphone|ipad|ipod/i.test(ua) && !u.searchParams.get("v")) { location.replace(install); return true; }
+  if (/iphone|ipad|ipod/i.test(ua) || (/macintosh/i.test(ua) && navigator.maxTouchPoints > 1)) { location.replace(install); return true; }
   return false;
 }
 function promptOpenExternal() {

@@ -334,12 +334,11 @@ test('보내기 판 — 폰에서 「보내기」가 아래로 숨지 않는다(
   assert.match(CSS, /\.psh-pv \{ width: min\(100%, 300px, max\(180px, calc\(\(100vh - 420px\) \* \.8\)\)\); \}/, '미리보기 폭이 화면 높이를 따른다');
   assert.match(CSS, /@supports \(height: 100dvh\) \{\n  \.psh-sheet \{ max-height: 94dvh; \}/, '주소창이 있는 브라우저 — dvh');
   // 단추 자리는 미리보기 바로 다음(sticky 가 붙을 자리) — 판 짜임이 바뀌면 이 시험도 함께
-  assert.match(PS, /<div class="psh-pv"><img id="psh-img" alt=""><\/div>\n      <div class="psh-acts">\$\{kakao \? `<button type="button" class="psh-kakao" id="psh-kakao">\$\{PSH_KAKAO_IC\}<span class="psh-kakao-t">카카오톡으로 보내기<\/span><\/button>` : ""\}\$\{kind === "verse" \? `<label class="psh-chk"><input type="checkbox" id="psh-withlink"\$\{pshState\.withLink \? " checked" : ""\}> 설치 주소도 보내기<\/label>` : ""\}\n        <button type="button" class="psh-send" id="psh-send"\$\{kakao \? " hidden" : ""\} disabled>/, '미리보기 바로 아래 덩어리 — (말씀 판 · 키가 있으면) 카카오 단추 · 그 바로 아래 체크(친구 「카카오톡으로 보내기 아래에」) · 그 아래 보내기(카카오면 숨김)');
+  assert.match(PS, /<div class="psh-pv"><img id="psh-img" alt=""><\/div>\n      <div class="psh-acts">\$\{kakao \? `<button type="button" class="psh-kakao" id="psh-kakao">\$\{PSH_KAKAO_IC\}<span class="psh-kakao-t">카카오톡으로 보내기<\/span><\/button>` : ""\}\n        <button type="button" class="psh-send" id="psh-send"\$\{kakao \? " hidden" : ""\} disabled>/, '미리보기 바로 아래 덩어리 — (말씀 판 · 키가 있으면) 카카오 단추 · 그 아래 보내기(카카오면 숨김) · 체크 칸은 없다(친구 2026-11-06 「체크박스 컨트롤 삭제」)');
   assert.ok(!/psh-link/.test(PS), '따로 선 ② 단추는 없다(친구 「check box로」)');
   assert.match(CSS, /\.psh-send\.next \{ background: linear-gradient/, '그림 다음 차례는 금색');
   assert.match(CSS, /\.dark \.psh-send\.next \{/, '금색 어두운 모드 짝');
-  assert.match(CSS, /\.dark \.psh-chk \{ color: #f1eee7; \}/, '체크 어두운 모드 짝');
-  assert.match(CSS, /html\[data-fs="xl"\] \.psh-chk \{ font-size: 1\.22rem; \}/, '아주 큰 글씨');
+  assert.ok(!/psh-withlink|psh-chk/.test(PS) && !/\.psh-chk/.test(CSS), '「설치 주소도 보내기」 체크 칸은 판에도 CSS 에도 없다(친구 2026-11-06)');
 });
 
 // ── 2026-11-04 검토(review-share-v3) — 두 번 누름 · 묵상 판 그리기 길 · 기도문 판 되돌림 · typeof 지킴이 ──
@@ -474,11 +473,10 @@ test('배선 — 첫 화면 「이번 주 말씀」 오른쪽 위 아이콘: 문
   assert.match(PS, /const PSH_TITLE_VERSE = "📤 이번 주 말씀 보내기";/);
   const po = cut(PS, 'function pshOpen(', '\n}\n');
   assert.ok(!/주소로 보내기<\/button>|shareWeeklyVerse/.test(po), '구절 바로가기 「🔗 주소로 보내기」는 뺐다(친구 2026-11-05 — 카톡이 큰 미리보기 상자를 붙였다)');
-  assert.match(po, /const wl = wrap\.querySelector\("#psh-withlink"\);\n  if \(wl\) wl\.addEventListener\("change", \(\) => \{/, '「설치 주소도 보내기」 체크(말씀 판에만 있다)');
-  assert.match(po, /pshState\.withLink = wl\.checked;\n    if \(!wl\.checked && pshState\.linkNext\) \{ pshLinkDone\(\); pshSay\(""\); \}/, '끄면 금색 차례도 거둔다');
+  assert.ok(!/#psh-withlink/.test(po), '체크 받이도 없다 — 공유 창 길은 늘 그림 다음에 설치 주소(withLink 늘 켬)');
   assert.match(po, /<p class="psh-hint" id="psh-hint">\$\{pshHintText\(kind, kakao\)\}<\/p>/, '판 아래 안내는 한 곳(pshHintText)');
   const hint = cut(PS, 'function pshHintText(kind, kakao) {', '\n}\n');
-  assert.match(hint, /"「설치 주소도 보내기」를 켜 두면 그림을 보낸 뒤 단추가 금색으로 바뀌어요\. 한 번 더 눌러 같은 대화방에 보내 주세요\."/, '말씀 판 안내 — 켜 두면 두 번에 나눠 보낸다(참인 말)');
+  assert.match(hint, /return "그림을 보낸 뒤 한 번 더 누르면 설치 주소도 가요\.";/, '말씀 판(카카오 없음) 안내 — 짧게(친구 「아래 안내는 간단하게」 · 참인 말)');
   assert.match(hint, /if \(kind !== "verse"\) return "폰의 공유 창에서 카카오톡이나 메시지를 골라 주세요\." \+ tail;/, '기도문 · 묵상 안내는 그대로');
   assert.match(APP, /function shareWeeklyVerse\(verse\) \{/, 'shareWeeklyVerse 는 app.js 에 그대로 있다(WEEKLY_SHARE 를 내려도 지우지 말 것)');
   const CSS = read('style.css');
@@ -651,7 +649,7 @@ test('카카오톡으로 보내기 — 배선: 말씀 판 · 키 · 카톡 앱 �
   assert.match(PS, /<button type="button" class="psh-send" id="psh-send"\$\{kakao \? " hidden" : ""\} disabled>/, '카카오 단추가 있으면 「카카오톡으로 보내기」만(친구 2026-11-05 「문자 다른 앱으로 보내기는 숨겨 주세요」)');
   assert.match(read('style.css'), /\.psh-send\[hidden\] \{ display: none; \}/, '숨김이 실제로 숨는다');
   assert.match(cut(PS, 'function pshKakaoFallback(msg) {', '\n}\n'), /const s = document\.getElementById\("psh-send"\);\n  if \(s\) s\.hidden = false;\n  pshSay\(msg\);/, '카카오로 못 보냈을 때만 숨긴 단추를 꺼낸다');
-  assert.match(cut(PS, 'function pshHintText(kind, kakao) {', '\n}\n'), /if \(kakao\) return "카카오톡 한 통에 그림과 단추가 함께 가요 — 「설치 주소도 보내기」를 켜면 「앱 설치」, 끄면 「말씀 외워 보기」 단추예요\." \+ tail;/, '카카오 판 안내 — 체크가 무엇을 바꾸는지(참인 말)');
+  assert.match(cut(PS, 'function pshHintText(kind, kakao) {', '\n}\n'), /if \(kakao\) return "말씀 그림과 「말씀 외워 보기」 단추가 함께 가요\.";/, '카카오 판 안내 — 한 줄(친구 2026-11-06 「아래 안내는 간단하게」)');
   assert.match(cut(PS, 'function pshRedraw() {', '\n}\n'), /pshState\.kakaoReady = ""; pshState\.kakaoBusy = null;/, '그림이 바뀌면 「카카오톡 열기」 차례 · 올리던 표를 버린다');
   const close = cut(PS, 'function prayShareClose(fromPop) {', '\n}\n');
   assert.match(close, /pshState\.kakaoReady = ""; pshState\.kakaoBusy = null; clearTimeout\(pshState\.kakaoT\);/, '판을 닫으면 차례 · 표 · 타이머를 거둔다');
@@ -736,22 +734,16 @@ test('카카오톡으로 보내기 — SDK 한 번만 · 그림 올리고 카드
   assert.equal(t.content.title, '이번 주 말씀 · 누가복음 17장 16절');
   assert.equal(t.content.description, '성경암송 앱을 설치하고 함께 외워 보세요');
   assert.deepEqual(JSON.parse(JSON.stringify(t.content.link)), link, '그림을 눌러도 설치 안내');
-  assert.equal(t.buttons.length, 1); assert.equal(t.buttons[0].title, '앱 설치');
+  assert.equal(t.buttons.length, 1); assert.equal(t.buttons[0].title, '말씀 외워 보기', '카톡 카드 단추 이름(친구 2026-11-06 「카카오톡: 말씀 외워 보기」)');
   assert.deepEqual(JSON.parse(JSON.stringify(t.buttons[0].link)), link);
   assert.equal(K('pshKakaoTemplate({ refShort: "눅 17:16" }, "u", true)').content.title, '이번 주 말씀 · 눅 17:16', '긴 이름이 없으면 짧은 이름');
   assert.equal(K('pshKakaoTemplate({}, "u", true)').content.title, '이번 주 말씀', '구절 이름이 없으면 「이번 주 말씀」만');
-  // 「설치 주소도 보내기」를 끄면 — 설치 주소는 안 나간다(친구 2026-11-05 「체크하지 않아도 설치 주소가 나갑니다」) · 그 구절 바로가기 「말씀 외워 보기」
-  K('pshState.withLink = false'); K('pshKakaoSend()'); await tick();
-  const t2 = sent[sent.length - 1], vlink = { mobileWebUrl: 'https://gocheok.onlybible.kr/?v=44&kk=1', webUrl: 'https://gocheok.onlybible.kr/?v=44' };
-  assert.equal(t2.buttons.length, 1); assert.equal(t2.buttons[0].title, '말씀 외워 보기');
-  assert.deepEqual(JSON.parse(JSON.stringify(t2.buttons[0].link)), vlink, '끄면 구절 바로가기(로그인 없이 암송 화면)');
-  assert.deepEqual(JSON.parse(JSON.stringify(t2.content.link)), vlink, '그림을 눌러도 바로가기');
-  assert.equal(t2.content.description, '눌러서 이 말씀을 함께 외워 보세요');
-  assert.ok(!JSON.stringify(t2).includes('/install/'), '끄면 카드 어디에도 설치 주소가 없다');
-  assert.equal(t2.content.imageUrl, 'https://k.kakaocdn.net/u1.jpg', '같은 그림 — 다시 올리지 않는다');
-  assert.equal(K('pshKakaoTemplate({}, "u", false)').buttons[0].link.webUrl, 'https://gocheok.onlybible.kr/', '구절 번호가 없으면 첫 화면');
-  assert.equal(K('pshKakaoTemplate({}, "u", false)').buttons[0].link.mobileWebUrl, 'https://gocheok.onlybible.kr/?kk=1', '구절 번호가 없으면 폰은 표만(?kk=1)');
-  K('pshState.withLink = true'); sent.pop();
+  // 카드 단추는 늘 「앱 설치」 하나(친구 2026-11-06 「설치 주소도 보내기 체크박스 컨트롤 삭제」 — 그 전엔 끄면 「말씀 외워 보기」)
+  const tt = K('pshKakaoTemplate({ no: 44, refFull: "누가복음 17장 16절" }, "u")');
+  assert.equal(tt.buttons.length, 1); assert.equal(tt.buttons[0].title, '말씀 외워 보기');
+  assert.deepEqual(JSON.parse(JSON.stringify(tt.buttons[0].link)), link, '폰은 ?kk=1(앱 첫 화면 · 없으면 설치 안내 — routeKakaoCard) · PC 는 설치 안내');
+  assert.ok(!JSON.stringify(tt).includes('?v='), '카드에 구절 바로가기는 없다(첫 화면 · 설치 안내만)');
+  assert.ok(!/withLink \? "앱 설치"/.test(PS), '체크로 단추를 가르던 갈래는 걷었다(이름은 늘 「말씀 외워 보기」)');
   assert.equal(btn.t.textContent, '카카오톡으로 보내기'); assert.equal(btn.disabled, false); assert.equal(K('pshState.kakaoBusy'), null);
   assert.equal(K('pshState.sharing'), false, '공유 창 잠금은 건드리지 않는다');
   // 같은 그림 — 다시 올리지 않는다 · 액자나 파일이 다르면 크기가 같아도 다시
@@ -950,10 +942,10 @@ test('카톡 카드에서 온 길(?kk=1 · routeKakaoCard) — 안드로이드: 
   const CHROME_AND = 'Mozilla/5.0 (Linux; Android 14; SM-S918N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36';
   const KAKAO_IOS = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 KAKAOTALK 10.8.0';
   const PC = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36';
-  const sim = (href, ua) => {
+  const sim = (href, ua, tp) => {
     const loc = { href, replaced: '', replace(u) { this.replaced = u; } }, hist = [], timers = [], listeners = [];
     const doc = { visibilityState: 'visible', addEventListener: (t, fn) => listeners.push([t, fn]), removeEventListener: (t, fn) => { const i = listeners.findIndex((x) => x[1] === fn); if (i >= 0) listeners.splice(i, 1); } };
-    const ctx = vm.createContext({ navigator: { userAgent: ua }, location: loc, URL, encodeURIComponent, document: doc,
+    const ctx = vm.createContext({ navigator: { userAgent: ua, maxTouchPoints: tp || 0 }, location: loc, URL, encodeURIComponent, document: doc,
       history: { replaceState(a, b, u) { hist.push(u); loc.href = new URL(u, loc.href).toString(); } }, setTimeout: (fn, ms) => timers.push([fn, ms]) });
     const r = vm.runInContext('const PLAY_APP_ID = "kr.onlybible.gocheok";\n' + f + 'routeKakaoCard();', ctx);
     return { r, loc, hist, timers, listeners, doc };
@@ -964,7 +956,7 @@ test('카톡 카드에서 온 길(?kk=1 · routeKakaoCard) — 안드로이드: 
   const a = sim('https://gocheok.onlybible.kr/?v=44&kk=1', KAKAO_AND);
   assert.equal(a.r, true, '카드 길이면 여기서 끝(아래 promptOpenExternal 은 안 탄다)');
   assert.deepEqual(a.hist, ['/?v=44'], '표 kk 만 뗀다(?v= 는 loadVerses 가 읽는다)');
-  assert.equal(a.loc.href, appTo('/?v=44'), '깔린 앱을 콕 집어 그 구절로 · 없으면 설치 안내(카톡이 fallback 을 이 창에)');
+  assert.equal(a.loc.href, appTo('/'), '깔린 앱을 콕 집어 첫 화면으로(친구 2026-11-06 「앱이 깔려 있으면 첫화면」 · 옛 카드의 구절 주소도) · 없으면 설치 안내');
   assert.equal(a.timers[0][1], 2500); a.timers[0][0]();
   assert.equal(a.loc.replaced, INSTALL, '2.5초가 지나도 창이 보이면(아무 일도 안 됐다) 설치 안내로');
   assert.equal(a.listeners.length, 1, '카톡 안이면 — 가려지면 카톡 창을 닫으려고 기다린다');
@@ -979,12 +971,14 @@ test('카톡 카드에서 온 길(?kk=1 · routeKakaoCard) — 안드로이드: 
   assert.equal(b2.loc.replaced, '', '앱이 열려 창이 가려졌으면 설치 안내로 안 간다');
   // 안드로이드 크롬(카톡 밖) — 같은 길 · 카톡 창이 없으니 닫기는 없다
   const c = sim('https://gocheok.onlybible.kr/?v=44&kk=1', CHROME_AND);
-  assert.equal(c.r, true); assert.equal(c.loc.href, appTo('/?v=44')); assert.equal(c.listeners.length, 0, '카톡 밖이면 닫을 창이 없다');
+  assert.equal(c.r, true); assert.equal(c.loc.href, appTo('/')); assert.equal(c.listeners.length, 0, '카톡 밖이면 닫을 창이 없다');
   // 아이폰 카톡 — 앱이 깔렸는지 알 길이 없다: 「앱 설치」는 설치 안내 · 「말씀 외워 보기」는 promptOpenExternal(사파리)로 넘긴다
   const d = sim('https://gocheok.onlybible.kr/?kk=1', KAKAO_IOS);
   assert.equal(d.r, true); assert.equal(d.loc.replaced, INSTALL, '「앱 설치」 → 설치 안내');
   const e = sim('https://gocheok.onlybible.kr/?v=44&kk=1', KAKAO_IOS);
-  assert.equal(e.r, false, '「말씀 외워 보기」 → 아래 카톡 넘기기(사파리)로'); assert.deepEqual(e.hist, ['/?v=44'], '표는 뗀다');
+  assert.equal(e.r, true); assert.equal(e.loc.replaced, INSTALL, '아이폰은 무조건 설치 안내(친구 2026-11-06 — 옛 카드의 구절 주소도)');
+  const ipad = sim('https://gocheok.onlybible.kr/?kk=1', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15', 5);
+  assert.equal(ipad.r, true); assert.equal(ipad.loc.replaced, INSTALL, '아이패드(데스크톱 UA + 터치)도 설치 안내');
   // PC · 표 없음 — 아무것도 안 한다
   const g = sim('https://gocheok.onlybible.kr/?v=44&kk=1', PC);
   assert.equal(g.r, false); assert.equal(g.loc.replaced, ''); assert.ok(!g.loc.href.startsWith('intent:'));
