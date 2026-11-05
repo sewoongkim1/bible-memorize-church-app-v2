@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261105f";
+const APP_BUILD = "20261106a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -3739,7 +3739,7 @@ function renderSummary() {
           ${weeklyHeart ? `<div class="heart-ribbon">👑 마음에 둠</div>` : ""}
         </div>
         ${weeklyHeart ? "" : `<div class="weekly-state ${weeklyStatus.cls}">${weeklyStatus.text}</div>`}
-        ${verseShareVisible() ? `<button type="button" class="weekly-share-ic" id="weekly-share-ic" aria-label="이번 주 말씀 카톡·문자로 보내기" title="카톡·문자로 보내기">${haSvg("share", "wsi-ic")}</button>` : ""}
+        ${verseShareVisible() ? `<button type="button" class="weekly-share-ic" id="weekly-share-ic" aria-label="이번 주 말씀 카카오톡으로 보내기" title="카카오톡으로 보내기">${KAKAO_TALK_IC}</button>` : ""}
       </div>
       <div class="weekly-title">${weeklyVerse.sermonTitle || weeklyVerse.refFull || ""}</div>
       <div class="weekly-text">${weeklyVerse.text} <span class="weekly-inref">(${weeklyVerse.refShort})</span></div>
@@ -4132,6 +4132,8 @@ function medShareVisible() { return MED_SHARE_OPEN || (typeof ministryTesterCach
 //   친구가 보고 나면 true 한 줄 + bump · 설명서 한 줄(docs/notes/prayer-book.md 끝 「📖 이번 주 말씀도 보내기」).
 const VERSE_SHARE_OPEN = false;
 function verseShareVisible() { return VERSE_SHARE_OPEN || (typeof ministryTesterCached === "function" && ministryTesterCached()); }
+// 첫 화면 아이콘 = 카카오톡 말풍선(친구 2026-11-05 「첫화면 아이콘을 카카오톡 아이콘으로」 — 판의 노란 「카카오톡으로 보내기」와 같은 꼴 · 노란 동그라미는 style.css)
+const KAKAO_TALK_IC = '<svg class="wsi-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 3.5c-5.25 0-9.5 3.33-9.5 7.44 0 2.66 1.78 4.99 4.46 6.31-.15.52-.94 3.27-.97 3.49 0 0-.02.16.09.22.1.06.23.01.23.01.3-.04 3.5-2.29 4.05-2.68.53.08 1.08.12 1.64.12 5.25 0 9.5-3.33 9.5-7.44S17.25 3.5 12 3.5z"/></svg>';
 // 「🙏 오늘의 기도」 전용 팝업 — 위젯과 같은 편(제목·말씀·기도문). 이름 자리는 **로그인 이름**으로 채운다
 //   (2026-09-26 성도님 요청 — 서버가 준 tpl 원문을 prayFill. 옛 서버라 tpl 이 없으면 위젯 글 그대로).
 //   ⚠️ 「확인」은 덮개만 걷는다 — renderSummary() 를 부르지 않는다(뒤 화면이 튕긴다 · today-song.md).

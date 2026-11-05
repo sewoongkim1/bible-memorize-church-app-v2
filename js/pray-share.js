@@ -663,15 +663,26 @@ function pshKakaoLoad() {   // SDK 는 한 번만(못 받았으면 다음에 다
   }), KAKAO_LIMIT).catch((e) => { pshKakaoP = null; throw e; });
   return pshKakaoP;
 }
-// 카드 — 그림(1080 정사각 · 크기를 알려 줘야 잘리지 않는다) · 제목 「이번 주 말씀 · 누가복음 17장 16절」 · 그림을 눌러도 단추를 눌러도 설치 안내
-function pshKakaoTemplate(v, imageUrl) {
-  const ref = String((v && (v.refFull || v.refShort)) || "").trim();
-  const link = { mobileWebUrl: KAKAO_INSTALL, webUrl: KAKAO_INSTALL };
+// 카드 — 그림(1080 정사각 · 크기를 알려 줘야 잘리지 않는다) · 제목 「이번 주 말씀 · 누가복음 17장 16절」 · 그림을 눌러도 단추를 눌러도 같은 곳.
+//   「설치 주소도 보내기」(withLink)를 켜면 설치 안내(「앱 설치」) · 끄면 그 구절 바로가기(「말씀 외워 보기」 — 로그인 없이 암송 화면 ?v=번호)
+//   (친구 2026-11-05 「체크하지 않아도 설치 주소가 나갑니다」 — 카톡 카드엔 단추가 꼭 하나 있어 끄면 바로가기로)
+const KAKAO_SITE = "https://gocheok.onlybible.kr/";
+function pshKakaoTemplate(v, imageUrl, withLink) {
+  const ref = String((v && (v.refFull || v.refShort)) || "").trim(), no = Number(v && v.no) || 0;
+  const url = withLink ? KAKAO_INSTALL : KAKAO_SITE + (no ? "?v=" + no : "");
+  const link = { mobileWebUrl: url, webUrl: url };
   return {
     objectType: "feed",
-    content: { title: ref ? VERSE_KICKER + " · " + ref : VERSE_KICKER, description: "성경암송 앱을 설치하고 함께 외워 보세요", imageUrl, imageWidth: 1080, imageHeight: 1080, link },
-    buttons: [{ title: "앱 설치", link }],
+    content: { title: ref ? VERSE_KICKER + " · " + ref : VERSE_KICKER, description: withLink ? "성경암송 앱을 설치하고 함께 외워 보세요" : "눌러서 이 말씀을 함께 외워 보세요",
+               imageUrl, imageWidth: 1080, imageHeight: 1080, link },
+    buttons: [{ title: withLink ? "앱 설치" : "말씀 외워 보기", link }],
   };
+}
+// 카카오로 못 보냈다 — 숨겨 둔 「문자 · 다른 앱으로 보내기」를 꺼내 보낼 길을 남긴다(친구 2026-11-05 「카카오톡으로 보내기만 남겨 주세요」 — 평소엔 숨김)
+function pshKakaoFallback(msg) {
+  const s = document.getElementById("psh-send");
+  if (s) s.hidden = false;
+  pshSay(msg);
 }
 function pshKakaoBtn(st) {   // "" = 보통 · busy = 올리는 중(잠금) · open = 늦었으니 한 번 더 · 그림이 없으면(그리는 중) 잠근다
   const b = document.getElementById("psh-kakao");
@@ -685,8 +696,8 @@ function pshKakaoBtn(st) {   // "" = 보통 · busy = 올리는 중(잠금) · o
 //   SDK 가 이 화면을 sharer.kakao.com/picker/failed 로 옮긴다(2.8.4 소스 · 2026-11-05 검토) — 그래서 통신이 끊겼으면 부르지 않는다.
 function pshKakaoGo(url) {
   if (typeof navigator !== "undefined" && navigator.onLine === false) { pshSay("인터넷에 연결되지 않았어요. 연결된 뒤 다시 눌러 주세요."); return; }
-  try { window.Kakao.Share.sendDefault(pshKakaoTemplate(pshState.verse, url)); }
-  catch (e) { pshSay("카카오톡을 열지 못했어요. 아래 단추로 문자 · 다른 앱에 보내 주세요."); return; }
+  try { window.Kakao.Share.sendDefault(pshKakaoTemplate(pshState.verse, url, pshState.withLink)); }
+  catch (e) { pshKakaoFallback("카카오톡을 열지 못했어요. 아래 「문자 · 다른 앱으로 보내기」로 보내 주세요."); return; }
   // 카카오톡이 열리면 이 화면은 가려진다 — 6초 뒤에도 판이 보이면 안 열렸을 수 있다(누른 동작이 식었다 · 「열리지 않았으면」까지만 말한다)
   clearTimeout(pshState.kakaoT);
   pshState.kakaoT = setTimeout(() => {
@@ -722,7 +733,7 @@ function pshKakaoSend() {
   }).catch(() => {
     if (pshState.kakaoBusy !== tok) return;
     pshState.kakaoBusy = null; pshKakaoBtn("");
-    pshSay("카카오톡으로 보내지 못했어요. 아래 단추로 문자 · 다른 앱에 보내 주세요.");
+    pshKakaoFallback("카카오톡으로 보내지 못했어요. 아래 「문자 · 다른 앱으로 보내기」로 보내 주세요.");
   });
 }
 function prayShareClose(fromPop) {
@@ -770,13 +781,14 @@ function openVerseShare(v) {
 function pshReuse(kind) { const w = document.getElementById("psh"); return !!(w && w.dataset.kind === kind && pshState.pop); }
 // kind = "pray" · "med" · "verse"(판 종류 표식 — pshReuse 가 본다 · 말씀 판은 미리보기 칸이 정사각형)
 //   「🔗 주소로 보내기」(구절 바로가기)는 뺐다(친구 2026-11-05 — 카톡이 큰 미리보기 상자를 붙였다) · 말씀 판에는 대신 「설치 주소도 보내기」 체크(위 pshSendLink) —
-//   체크와 단추는 한 덩어리(.psh-acts)로 판 아래에 붙는다(갤럭시에서 아래로 숨지 않게) · 키가 있으면 그 맨 위에 노란 「카카오톡으로 보내기」(위 pshKakaoSend)
+//   체크와 단추는 한 덩어리(.psh-acts)로 판 아래에 붙는다(갤럭시에서 아래로 숨지 않게) · 키가 있으면 그 맨 위에 노란 「카카오톡으로 보내기」(위 pshKakaoSend) —
+//   그때는 「카카오톡으로 보내기」 하나만(친구 2026-11-05) · 「문자 · 다른 앱으로 보내기」는 숨겨 두고 카카오로 못 보냈을 때만 꺼낸다(pshKakaoFallback)
 // 판 아래 안내 — 말씀 판은 카카오 단추가 있느냐에 따라 · 그 밖은 공유 창 한 줄
 function pshHintText(kind, kakao) {
   const tail = " 안&nbsp;되면 위 그림을 길게 눌러 저장해 주세요.";
   if (kind !== "verse") return "폰의 공유 창에서 카카오톡이나 메시지를 골라 주세요." + tail;
-  return (kakao ? "카카오톡으로 보내면 그림과 「앱 설치」 단추가 한 통으로 가요. 문자 · 다른 앱은 " : "")
-    + "「설치 주소도 보내기」를 켜 두면 그림을 보낸 뒤 단추가 금색으로 바뀌어요. 한 번 더 눌러 같은 대화방에 보내 주세요." + tail;
+  if (kakao) return "카카오톡 한 통에 그림과 단추가 함께 가요 — 「설치 주소도 보내기」를 켜면 「앱 설치」, 끄면 「말씀 외워 보기」 단추예요." + tail;
+  return "「설치 주소도 보내기」를 켜 두면 그림을 보낸 뒤 단추가 금색으로 바뀌어요. 한 번 더 눌러 같은 대화방에 보내 주세요." + tail;
 }
 function pshOpen(title, withName, name, kind) {
   pshState.leaf = Math.min(12, 1 + Math.floor(Math.random() * 12));
@@ -800,7 +812,7 @@ function pshOpen(title, withName, name, kind) {
       <div class="psh-thumbs" role="radiogroup" aria-labelledby="psh-bg-l">${choices.map(thumb).join("")}</div>
       <div class="psh-pv"><img id="psh-img" alt=""></div>
       <div class="psh-acts">${kakao ? `<button type="button" class="psh-kakao" id="psh-kakao">${PSH_KAKAO_IC}<span class="psh-kakao-t">카카오톡으로 보내기</span></button>` : ""}${kind === "verse" ? `<label class="psh-chk"><input type="checkbox" id="psh-withlink"${pshState.withLink ? " checked" : ""}> 설치 주소도 보내기</label>` : ""}
-        <button type="button" class="psh-send" id="psh-send" disabled>그리는 중…</button></div>
+        <button type="button" class="psh-send" id="psh-send"${kakao ? " hidden" : ""} disabled>그리는 중…</button></div>
       <p class="psh-hint" id="psh-hint">${pshHintText(kind, kakao)}</p>
       <p class="psh-msg" id="psh-msg" role="status"></p>
     </div>`;
@@ -838,7 +850,7 @@ function pshOpen(title, withName, name, kind) {
       if (!wrap.isConnected) return;
       kk.remove();
       const h = wrap.querySelector("#psh-hint"); if (h) h.innerHTML = pshHintText("verse", false);
-      const s = wrap.querySelector("#psh-send"); if (s && !s.disabled) pshSendLabel(false);
+      const s = wrap.querySelector("#psh-send"); if (s) { s.hidden = false; if (!s.disabled) pshSendLabel(false); }   // 숨겨 둔 공유 창 단추를 꺼낸다
     });
   }
   const wl = wrap.querySelector("#psh-withlink");
