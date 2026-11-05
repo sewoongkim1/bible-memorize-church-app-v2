@@ -177,7 +177,9 @@ fi
 # need 와 minNeed 는 한 UPDATE 로 함께 바뀐다 — minNeed 가 need 보다 크면 evtRule 이 null(도장판 멈춤)이라 둘 다 본다.
 if [ -n "${EXPECT_NEED:-}" ]; then
   chk "rule.need == $EXPECT_NEED" "$(jqn '(d.get("rule") or {}).get("need")' "$PS")" "$EXPECT_NEED"
-  chk "rule.minNeed <= need" "$(jqn '((d.get("rule") or {}).get("minNeed") or 99) <= ((d.get("rule") or {}).get("need") or 0)' "$PS")" "True"
+  chk "rule.minNeed == $EXPECT_NEED" "$(jqn '(d.get("rule") or {}).get("minNeed")' "$PS")" "$EXPECT_NEED"
+  # 영 uuid 는 첫날이 없어 이분께 필요한 주 = rule.need
+  chk "need == $EXPECT_NEED" "$(jqn 'd.get("need")' "$PS")" "$EXPECT_NEED"
 else
   sk "rule.need 값" "EXPECT_NEED 환경변수가 없습니다(need4 SQL 뒤에는 EVT_ENV=prod EXPECT_NEED=4)"
 fi

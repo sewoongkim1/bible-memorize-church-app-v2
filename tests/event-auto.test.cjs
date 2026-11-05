@@ -124,6 +124,15 @@ test('① 앞으로 며칠(evtDaysToGo) — 기준에 닿는 가장 적은 날 �
   assert.deepEqual(go(wk(), NaN), { days: 9, thisWeek: 0 });
   // 시험 회차(주 1일 · 한 주) — 둘째 주 첫날 0일이면 오늘 하루
   assert.deepEqual(go(wk(), 7, { r: RT, need: 1 }), { days: 1, thisWeek: 1 });
+  // 진짜 회차 8주 중 4주(2026-11-06 친구 「8주에서 4주」) — 늦어도 11/12(목 · 다섯째 주)에 시작하면 닿고 11/13(금)이면 못 닿는다
+  const R84 = { start: '2026-10-11', weeks: 8, perWeek: 3, need: 4, minNeed: 4, perDay: 3 };
+  const w8 = () => [0, 0, 0, 0, 0, 0, 0, 0];
+  assert.deepEqual(evtDaysToGo(w8(), R84, 4, 26, false), { days: 12, thisWeek: 0 });    // 11/6(금) — 다음 주부터 네 주
+  assert.deepEqual(evtDaysToGo(w8(), R84, 4, 32, false), { days: 12, thisWeek: 3 });    // 11/12(목) — 마지막 시작 날
+  assert.deepEqual(evtDaysToGo(w8(), R84, 4, 33, false), { days: null, thisWeek: 0 });  // 11/13(금) — 못 닿는다
+  //    옛 기준(need 5)이면 11/5(목)이 마지막이고 11/6 부터는 못 닿았다
+  assert.deepEqual(evtDaysToGo(w8(), R84, 5, 25, false), { days: 15, thisWeek: 3 });
+  assert.deepEqual(evtDaysToGo(w8(), R84, 5, 26, false), { days: null, thisWeek: 0 });
 });
 
 test('② 함께한 날 = 도장 찍힌 날 합 · 오늘 살아 있는 +1(첫 화면 알약과 같은 규칙)', () => {
@@ -466,4 +475,23 @@ test('⑬ 자료 SQL — 부제·시험 회차 안내에 「선물 대상」이 
     for (const v of values(src)) assert.ok(!v.includes('선물 대상'), where + ' 의 값에 「선물 대상」이 남았다: ' + v);
   }
   assert.ok(record.includes("'" + NEW_SUB + "'"), 'event_stamp_2026.sql 기록의 부제가 새 값이 아니다');
+  // 8주 중 4주(2026-11-06 친구 「8주에서 4주」) — 운영에 넣은 need4.sql 과 기록 둘(perday.sql · event_stamp_2026.sql)이 같은 숫자 · 같은 글자
+  const need4 = read('supabase/event_autumn_2026_need4.sql');
+  assert.match(perday, /v_need\s+int := 4;/, 'perday.sql v_need 가 4 가 아니다');
+  assert.match(perday, /v_min\s+int := 4;/, 'perday.sql v_min 이 4 가 아니다');
+  assert.match(record, /'need',\s+4,/, 'event_stamp_2026.sql 기록의 need 가 4 가 아니다');
+  assert.match(record, /'minNeed',\s+4,/, 'event_stamp_2026.sql 기록의 minNeed 가 4 가 아니다');
+  assert.match(record, /'auto',\s+true/, 'event_stamp_2026.sql 기록에 auto 가 없다 — on conflict 가 needs 를 통째로 덮어 자동 대상이 풀린다');
+  for (const [where, src] of [['perday.sql', perday], ['event_stamp_2026.sql(기록)', record]]) {
+    assert.ok(src.includes("'여덟 주 가운데 네 주를 채워 참여하신 분께는 모두 소정의 선물을 드려요.'"), where + ' 안내가 「여덟 주 가운데 네 주」가 아니다');
+    assert.ok(src.includes("'네 주는 쉬어도 괜찮아요.'"), where + ' 에 「네 주는 쉬어도 괜찮아요.」가 없다');
+    assert.ok(!values(src).some((v) => v.includes('다섯 주를 채워') || v.includes('세 주는 쉬어도')), where + ' 값에 옛 기준(다섯 주) 글자가 남았다');
+  }
+  // need4.sql — need · minNeed 를 한 jsonb_set 사슬에서 함께(따로 바꾸면 minNeed > need 인 순간 evtRule 이 null) · 새 글자 · 바꾼 뒤 확인
+  assert.match(need4, /v_need\s+int\s+:= 4;/);
+  assert.match(need4, /v_min\s+int\s+:= 4;/);
+  assert.match(need4, /jsonb_set\(jsonb_set\(needs,\s*'\{eligibility,need\}',\s*to_jsonb\(v_need\)\),\s*'\{eligibility,minNeed\}',\s*to_jsonb\(v_min\)\)/,
+    'need4.sql 이 need · minNeed 를 한 사슬에서 바꾸지 않는다');
+  assert.ok(need4.includes("'여덟 주 가운데 네 주를 채워'") && need4.includes("'네 주는 쉬어도 괜찮아요.'"), 'need4.sql 새 글자가 기록과 다르다');
+  assert.match(need4, /is not true then/, 'need4.sql 의 need · minNeed 가드가 NULL 을 그냥 지나보낸다');
 });
