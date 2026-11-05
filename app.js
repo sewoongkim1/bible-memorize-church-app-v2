@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261106a";
+const APP_BUILD = "20261106b";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -9422,11 +9422,13 @@ function promptOpenExternal() {
   const isIOS = /iphone|ipad|ipod/i.test(ua);
   const isAndroid = /android/i.test(ua);
 
-  // 안드로이드: 크롬 intent 스킴(자동 전환 성공률 높음, 미설치 시 fallback)
+  // 안드로이드: 패키지를 정하지 않은 https intent — 플레이 앱이 깔려 있으면 앱 링크(AndroidManifest autoVerify · .well-known/assetlinks.json)로 앱이,
+  //   없으면 기본 브라우저가 연다(2026-11-06 친구 「설치된 앱으로 안 가고 브라우저에서 열리네요」 — 예전엔 크롬을 콕 집어 깔린 앱으로 안 갔다).
+  //   ⚠️ 이 넘김은 loadVerses(→ ?v= 를 읽어 지움)보다 먼저다 — 넘기는 주소에 구절 바로가기(?v=)가 남아 있어야 한다(맨 아래 시작 차례).
   const androidIntent =
     "intent://" +
     url.replace(/^https?:\/\//, "") +
-    "#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=" +
+    "#Intent;scheme=https;S.browser_fallback_url=" +
     encodeURIComponent(url) +
     ";end";
   // iOS·기타: 카카오 공식 외부 열기 스킴(기본 브라우저)
@@ -9448,7 +9450,7 @@ function promptOpenExternal() {
   bar.className = "kakao-ext-bar";
   bar.innerHTML = `
     <span class="kakao-ext-msg">카카오톡에서는 음성 암송 등 일부 기능이 제한돼요.</span>
-    <a class="kakao-ext-open" href="${ext}">기본 브라우저로 열기</a>
+    <a class="kakao-ext-open" href="${ext}">${isAndroid ? "앱 · 기본 브라우저로 열기" : "기본 브라우저로 열기"}</a>
     <button type="button" class="kakao-ext-close" aria-label="닫기">✕</button>
     <span class="kakao-ext-hint">안 열리면 우측 ${isIOS ? "하단 공유 → ‘Safari로 열기’" : "⋮ → ‘다른 브라우저로 열기’"}</span>`;
   document.body.prepend(bar);

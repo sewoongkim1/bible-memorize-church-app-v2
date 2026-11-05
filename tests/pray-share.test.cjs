@@ -862,3 +862,18 @@ test('카카오톡 키를 넣는 커밋에 — 개인정보 안내 세 자리에
   for (const [n, s] of [['privacy/', P], ['renderPrivacyInfo', PI], ['renderHelp', H]]) assert.doesNotMatch(s, /이름 같은 개인정보는 없/, n + ' — 「이름 같은 개인정보는 없다」는 틀렸다(목사님 성함이 들어간다 · 같은 날 검토)');
   assert.match(P, /마지막 수정: 2026년 11월 5일/, '방침을 고친 날');
 });
+
+// ── 카톡 카드 단추를 누르면 — 카톡 안 브라우저 → 밖으로(2026-11-06 친구 「설치된 앱으로 안 가고 브라우저에서 열리네요」) ──
+//   예전엔 안드로이드에서 크롬을 콕 집어(package=com.android.chrome) 깔린 플레이 앱으로 안 갔다. 패키지를 비우면 안드로이드가 고른다 —
+//   앱 링크(autoVerify · assetlinks)로 플레이 앱이 깔려 있으면 앱, 없으면 기본 브라우저. 아이폰 앱은 유니버설 링크가 없어 사파리로 간다(앱 새 판이 있어야 한다).
+test('카톡 안 브라우저 → 밖으로 — 안드로이드는 패키지를 정하지 않은 intent(깔린 앱 · 없으면 기본 브라우저) · 넘기는 주소에 ?v= 가 남는다', () => {
+  const f = cut(APP, 'function promptOpenExternal() {', '\n}\n');
+  assert.doesNotMatch(f, /package=com\.android\.chrome/, '크롬을 콕 집으면 깔린 앱으로 안 간다');
+  assert.match(f, /"#Intent;scheme=https;S\.browser_fallback_url=" \+\n    encodeURIComponent\(url\) \+\n    ";end";/, '패키지 없는 https intent · 앱도 브라우저도 없으면 그 주소로');
+  assert.match(f, /\$\{isAndroid \? "앱 · 기본 브라우저로 열기" : "기본 브라우저로 열기"\}/, '안내 단추 이름도 사실대로(안드로이드는 깔린 앱이 열 수 있다)');
+  assert.ok(APP.indexOf('\npromptOpenExternal();\nloadVerses();') > 0, '밖으로 넘기기가 ?v= 를 읽어 지우기(loadVerses → getDeepLinkVerseNo)보다 먼저 — 넘기는 주소에 구절 바로가기가 남는다');
+  const M = read('android-app', 'app', 'src', 'main', 'AndroidManifest.xml');
+  assert.match(M, /<intent-filter android:autoVerify="true">[\s\S]*?android:scheme="https"[\s\S]*?android:host="@string\/hostName"/, '플레이 앱이 우리 주소를 받는다(앱 링크)');
+  const AL = JSON.parse(read('.well-known', 'assetlinks.json'));
+  assert.ok(AL.some((x) => x.target.package_name === 'kr.onlybible.gocheok' && x.relation.includes('delegate_permission/common.handle_all_urls')), 'assetlinks 에 새 앱 — 앱 링크 확인');
+});
