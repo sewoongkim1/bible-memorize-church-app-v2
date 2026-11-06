@@ -182,6 +182,9 @@ test('교육 수료증 — 공유 창으로 넘기면 share-sheet 7 · 내려받
   assert.deepEqual(r.logs, [['share-sheet', 7]], '공유 창으로 넘겼다'); assert.equal(r.downs.length, 0);
   r = await run({ ...can, share: () => Promise.reject(err('AbortError')) });
   assert.deepEqual(r.logs, [], '닫음은 안 센다'); assert.equal(r.downs.length, 0, '닫으면 내려받지도 않는다(지금 그대로)');
+  // 두 번 누름 — 둘째 share 는 InvalidStateError(이미 떠 있음) · 내려받기로 새지 않고 세지도 않는다(pray-share pshSend 와 같다 · 2026-11-06 검토)
+  r = await run({ ...can, share: () => Promise.reject(err('InvalidStateError')) });
+  assert.deepEqual(r.logs, [], '이미 떠 있음은 안 센다'); assert.equal(r.downs.length, 0, '이미 떠 있으면 내려받지 않는다');
   r = await run({ ...can, share: () => Promise.reject(err('NotAllowedError')) });
   assert.deepEqual(r.logs, [['share-save', 7]], '공유가 실패해 내려받기로'); assert.equal(r.downs.length, 1);
   r = await run({});
