@@ -26,7 +26,7 @@
 --      직접 부르는 값(예: song)은 이 관문을 거치지 않는다.
 --
 -- ■ item 의 뜻은 기능마다 다르다 — **표 전체를 관통하는 단일한 뜻은 없다**
---   (2026-09-23 저녁 기준 열한 값. 앞 열은 FEATURES(index.ts)가 거르는 값, song 만 서버 안쪽 호출)
+--   (2026-11-06 기준 — FEATURES(index.ts)가 거르는 열여덟 값 + 서버 안쪽 호출 song 하나. 앞 열이 값 이름이다)
 --     psalm                       = 구절 번호 no (= 1000 + day_no · js/psalm.js 150행)
 --     meditation                  = 그 주 구절 번호 — 첫 화면 「오늘의 묵상」 단추로 연 것
 --     meditation-widget           = 그 주 구절 번호 — 아이폰 위젯(잠금화면)을 눌러 연 것(?w=meditation).
@@ -44,11 +44,25 @@
 --     navi                        = 0 고정 — 📚 네비게이토 성경암송을 첫 화면 단추로 연 것(app.js 의 #open-navi 누름 · 2026-10-13 여는 날).
 --                                    묶음 목록으로 되돌아오는 것은 안 센다(연 자리에서 한 번 — album 과 같다).
 --                                    CHECK 제약은 없다(위 ⚠️) — 허용 목록은 index.ts FEATURES 한 곳.
+--     board                       = 0 고정 — 💬 게시판 화면을 연 것(app.js 의 renderBoard 첫 줄 · 2026-11-06).
+--                                    글쓰기 · 공감 · 가리기 뒤에 다시 부르는 loadBoard · 서버 boardList 에는 안 넣는다(교회 어드민도 부른다).
+--     share-open                  = 종류 코드 1·2·3 — 📤 보내기 판(js/pray-share.js 의 pshOpen)을 **새로** 연 것(2026-11-06).
+--                                    다시 쓰는 판(pshReuse) · 관리자 묵상 미리보기에서 연 판은 안 남는다.
+--     share-kakao                 = 3 — 카카오톡을 연 것(pshKakaoGo 에서 Kakao.Share.sendDefault 가 예외 없이 끝난 다음 줄).
+--     share-sheet                 = 종류 코드 — 공유 창으로 넘긴 것(navigator.share 가 resolve · 닫음(AbortError)은 안 센다).
+--     share-save                  = 종류 코드 — 그림 내려받기를 시작했거나 글 · 주소 복사가 끝난 것.
+--                                    종류 코드: 1 가정 축복 기도문(그림) · 2 오늘의 묵상(그림) · 3 이번 주 말씀(그림 · 카카오 카드) ·
+--                                    4 가을 말씀암송 동행 안내(글) · 5 앱 소개(글) · 6 외운 말씀(글) · 7 교육 수료증(그림) ·
+--                                    8 앱 설치 주소(글) · 9 이번 주 말씀 주소(글 · 지금 숨김). 이름은 index.ts 의 SHARE_KINDS 한 곳.
+--                                    ⚠️ 다섯 값 모두 「보냈다」가 아니다 — 받는 분 · 고른 앱 · 실제로 보냈는지는 앱이 알 수 없다.
+--                                    ⚠️ 만 14세 미만 어린 부서(needsGuardian)는 앱 · 서버(featureLog) 둘 다 남기지 않는다.
+--                                    「누가」는 교회 어드민 📊 성경암송 통계 「📤 보내기 · 💬 게시판」 탭(api featureUsage) · 아래 ⑨.
+--                                    설계 docs/superpowers/specs/2026-11-06-share-board-usage-log-design.md
 --     ranking-scope               = 숫자가 아니라 **깃발**이다 — 1=우리 교구 · 0=전체
 --                                    (app.js 의 logFeature("ranking-scope", v==="mine"?1:0))
 --     song("오늘의 찬양")           = 0 고정 — index.ts 의 logSongClick 이 FEATURES 를 거치지
 --                                    않고 직접 v2_feature_log 를 부른다(서버 안쪽 호출이라
---                                    허용 목록 밖이다. index.ts 861행 근처)
+--                                    허용 목록 밖이다. index.ts 의 async function logSongClick — 줄 번호는 낡으니 이름으로 찾는다)
 --
 -- ⚠️ **feature 값을 늘리거나(FEATURES 에 추가) 서버가 스스로 새 값을 쓰기 시작하면,
 --    이 머리 주석도 그 자리에서 함께 고친다.** 안 고치면 이 목록이 다시 낡고, 다음에
@@ -215,3 +229,19 @@ left join lateral (
 ) w on true
 group by d.day, w.no, w.ref_full, w.ref
 order by d.day desc;
+
+-- ⑨ 보내기 · 게시판 — 누가 얼마나 (2026-11-06 · ⚠️ 관리자만 · 이름이 나오므로 밖으로 내보내지 말 것)
+--    ⑥ 과 같은 꼴을 다섯 값만으로 — 교회 어드민 📊 성경암송 통계 「📤 보내기 · 💬 게시판」 탭(api featureUsage)이 같은 줄을 읽는다.
+--    item 은 종류 코드(위 머리 표 · board 는 0). ⚠️ 「보냈다」가 아니다 — share-kakao 는 카카오톡을 연 것 · share-sheet 는
+--    공유 창으로 넘긴 것 · share-save 는 내려받기 · 복사다. ⚠️ 만 14세 미만 어린 부서는 앱 · 서버가 남기지 않는다 —
+--    여기 그런 줄이 보이면 거르기가 샌 것이다(featureUsage 는 읽을 때 한 번 더 뺀다 · 이 질의는 빼지 않고 그대로 보인다).
+--    ⚠️ 이 파일을 통째로 돌리면 마지막 결과인 이 표(이름)가 화면에 남는다 — 표를 다시 만들 때는 위 만들기 부분만 돌린다.
+select u.type as 구분,
+       coalesce(nullif(u.gu, ''), u.bu)     as 소속,
+       coalesce(nullif(u.mok, ''), u.grade) as 세부,
+       u.name, f.feature, f.item,
+       count(distinct f.day) as 날수, sum(f.cnt) as 횟수, max(f.day) as 마지막
+from public.feature_log f join public.users u on u.id = f.user_id
+where f.feature in ('board', 'share-open', 'share-kakao', 'share-sheet', 'share-save')
+group by u.type, coalesce(nullif(u.gu, ''), u.bu), coalesce(nullif(u.mok, ''), u.grade), u.name, f.feature, f.item
+order by 횟수 desc limit 100;

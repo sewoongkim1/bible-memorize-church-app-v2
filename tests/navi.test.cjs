@@ -244,6 +244,27 @@ test('⑤ 열람 기록 — FEATURES 에 navi · 스모크 목록이 FEATURES �
   assert.ok(/logFeature\("navi", 0\)/.test(APP), '앱은 단추 누름에서 navi 를 남긴다');
 });
 
+// ── ⑤-2 보내기 · 게시판 다섯 값(2026-11-06 · docs/superpowers/specs/2026-11-06-share-board-usage-log-design.md 2-1) ──
+test('⑤-2 열람 기록 — 보내기 · 게시판 다섯 값이 네 곳(FEATURES · USAGE_FEATURES · 스모크 목록 · feature_log.sql 머리 표)에 다 있다', () => {
+  const FIVE = ['board', 'share-open', 'share-kakao', 'share-sheet', 'share-save'];
+  const blk = slice(INDEX, 'const FEATURES = new Set([', ']);', 'index.ts FEATURES');
+  const feats = [...blk.matchAll(/^\s*"([a-z-]+)"/gm)].map((m) => m[1]);
+  const usage = /^const USAGE_FEATURES = new Set\(\[([^\]]*)\]\);$/m.exec(INDEX);
+  assert.ok(usage, 'index.ts 에 USAGE_FEATURES 한 줄(Set)이 없다 — FEATURES 바로 아래');
+  assert.deepEqual([...usage[1].matchAll(/"([a-z-]+)"/g)].map((m) => m[1]).sort(), FIVE.slice().sort(), 'USAGE_FEATURES 는 정확히 다섯');
+  const smoke = /^for F in ([^;]+); do/m.exec(read('tests', 'feature-log-smoke.sh'));
+  assert.ok(smoke, 'feature-log-smoke.sh 의 for 줄을 못 찾았다 — 이 검사가 낡았다');
+  const sql = read('supabase', 'feature_log.sql');
+  for (const f of FIVE) {
+    assert.ok(feats.includes(f), 'FEATURES 에 ' + f + ' 가 없다 — 앱이 보내는 logFeature("' + f + '") 가 조용히 버려진다');
+    assert.ok(smoke[1].trim().split(/\s+/).includes(f), 'feature-log-smoke.sh 목록에 ' + f + ' 가 없다');
+    assert.ok(new RegExp('^--\\s+' + f + '\\s+=', 'm').test(sql), 'feature_log.sql 머리 표에 ' + f + ' 줄이 없다');
+  }
+  assert.ok(!sql.includes('index.ts 861행'), 'feature_log.sql 머리에 낡은 줄 번호(index.ts 861행)가 남았다 — logSongClick 은 이름으로 가리킨다');
+  assert.ok(/^-- ⑨ /m.test(sql) && sql.includes("where f.feature in ('board', 'share-open', 'share-kakao', 'share-sheet', 'share-save')"),
+    'feature_log.sql 보는 법 ⑨(누가 · 다섯 값만)가 없다');
+});
+
 test('⑥ 화면 이름 — 「주제별 성경암송」(네비게이토 이름 사용 허락 전 · 친구 2026-10-13) · 화면에 나가는 글에 「네비게이토」가 없다', () => {
   const NAVI_JS = read('js', 'navi.js');
   assert.ok(APP.includes('id="open-navi">📚 주제별 성경암송'), '첫 화면 단추');

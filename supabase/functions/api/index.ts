@@ -1911,6 +1911,9 @@ async function seedVerses(b: any) {
 // ⚠️ 실패해도 조용히 넘긴다. 기록 때문에 시편 액자가 안 열리면 본말이 뒤집힌다.
 // ⚠️ 표(feature_log.sql)를 아직 안 만든 판에서도 앱은 그대로 돌아야 한다.
 // ⚠️ 응답에 user_id 를 싣지 않는다 — 이 API 에는 JWT 가 없다.
+// ── 열람 기록 — vm 시험 구간 (여기부터) ──
+//   tests/feature-usage.test.cjs 가 여기부터 「여기까지」를 잘라 node:vm 에서 가짜 db 로 돌린다 — 타입 표기 · import 를 넣지 말 것.
+//   구간 밖에서 가져다 쓰는 이름: db · needsGuardian(스토어 심사 순수 구간) — 시험이 같은 이름으로 넣어 준다.
 const FEATURES = new Set([
   "psalm",            // 시편 액자 한 편을 펼쳐 봄 (item = 구절 번호)
   "meditation",         // 첫 화면 「오늘의 묵상」 단추로 연 묵상 (item = 그 주 구절 번호)
@@ -1925,10 +1928,31 @@ const FEATURES = new Set([
   "edu",              // 🎓 교육 화면(목록)을 엶 — item = 0 고정 (2026-10-05)
   "duty",             // 🙋 봉사 당번 화면(목록)을 엶 — item = 0 고정 (2026-10-06)
   "navi",             // 📚 네비게이토 성경암송 — 첫 화면 단추로 엶(묶음 목록으로 되돌아오는 것은 안 센다) — item = 0 고정 (2026-10-13 여는 날)
+  "board",            // 💬 게시판 화면을 엶(app.js renderBoard 첫 줄) — item = 0 고정 (2026-11-06 · 아래 USAGE_FEATURES)
+  "share-open",       // 📤 보내기 판(js/pray-share.js pshOpen)을 새로 엶 — item = 종류 코드 1·2·3 (2026-11-06)
+  "share-kakao",      // 📤 카카오톡을 엶(pshKakaoGo — sendDefault 가 예외 없이 끝남) — item = 3 (2026-11-06)
+  "share-sheet",      // 📤 공유 창으로 넘김(navigator.share 가 resolve) — item = 종류 코드 (2026-11-06)
+  "share-save",       // 📤 그림 내려받기 시작 · 글 · 주소 복사 끝 — item = 종류 코드 (2026-11-06)
 ]);
+// 「누가」를 보는 다섯 값(2026-11-06 · 설계 docs/superpowers/specs/2026-11-06-share-board-usage-log-design.md) —
+//   만 14세 미만 어린 부서(needsGuardian)는 남기지 않는다: 앱 logFeature · 아래 featureLog · 읽기 featureUsage 세 겹.
+//   ⚠️ app.js 의 같은 이름 목록(logFeature 바로 위)과 같아야 한다 — 다르면 앱과 서버의 거르기가 갈린다.
+//   ⚠️ 한 줄 Set 으로 둔다 — tests/navi.test.cjs ⑤-2 가 정규식으로 읽는다.
+const USAGE_FEATURES = new Set(["board", "share-open", "share-kakao", "share-sheet", "share-save"]);
 
-async function featureLog(b: any) {
+async function featureLog(b) {
   if (!b.user_id || !FEATURES.has(String(b.feature))) return { ok: true, skipped: true };
+  // 다섯 값 — 부서를 서버 행(users)으로 보고 어린 부서면 남기지 않는다(앱이 보낸 칸은 믿지 않는다 · login 의 보호자 확인과 같다).
+  //   ⚠️ 행 없음 · 읽기 오류 · 예외도 남기지 않는다(모르면 안 남긴다) · 그래도 늘 ok(기록 때문에 화면이 막히면 안 된다).
+  if (USAGE_FEATURES.has(String(b.feature))) {
+    try {
+      const { data: who, error: we } = await db.from("users").select("type,bu,grade").eq("id", b.user_id).maybeSingle();
+      if (we || !who) return { ok: true, skipped: "guardian-check" };
+      if (needsGuardian(who)) return { ok: true, skipped: "guardian" };
+    } catch (_e) {
+      return { ok: true, skipped: "guardian-check" };
+    }
+  }
   try {
     const { error } = await db.rpc("v2_feature_log", {
       uid: b.user_id, f: String(b.feature), n: Number(b.item) || 0,
@@ -1944,6 +1968,7 @@ async function featureLog(b: any) {
   }
   return { ok: true };
 }
+// ── 열람 기록 — vm 시험 구간 (여기까지) ──
 
 // ---- 가정 축복 기도문 목록(getBlessings) → blessing.ts (2026-10-12 파일 나누기 2단계) ----
 

@@ -165,6 +165,8 @@ PURE_TESTS += ["tests/verse-badge.test.cjs"]
 PURE_TESTS += ["tests/tts-ko-num.test.cjs"]
 # 📤 가정 축복 기도문 보내기(2026-11-04) — 그림 배치(104편 × 배경 넷 × 이름 셋 · 상자 안 · 조사 · 글자 안 잃기) · 배선(지연 · 문 · 미리 만든 Blob)
 PURE_TESTS += ["tests/pray-share.test.cjs"]
+# 📤💬 보내기 · 게시판 이용 기록(누가 · 2026-11-06) — api featureLog 어린 부서 거르기(rpc 앞 · 모르면 안 남김) · featureUsage(관리자 문 · 다섯 값만 · user_id 없음 · 어린 부서 뺌 · 차례 · 빈 결과)
+PURE_TESTS += ["tests/feature-usage.test.cjs"]
 
 print("\n[3] 순수 함수 검사 (node --test)")
 for t in PURE_TESTS:
