@@ -171,6 +171,7 @@ function json(obj: unknown, status = 200) {
 //   내부 키 = service_role 는 이미 DB 전권이라 추가 노출은 없지만, 화이트리스트로 명확히 제한한다.
 const INTERNAL_ADMIN_OK = new Set([
   "stats", "participants", "verses", "blessingUsage", "ranking",
+  "featureUsage",   // 📤 보내기 · 💬 게시판 이용(누가 · 2026-11-06) — 읽기만 · 교회 어드민 📊 성경암송 통계 다섯째 탭(역할 memorizeadmin)
   "boardList", "boardModerate", "boardReply", "boardPost",
   "boardUpload",   // 📢 공지 사진(2026-10-31) — 관리자면 하루 장수를 세지 않는다 · 글에 안 붙은 사진은 하루 뒤 치운다(boardSweepUploads)
   "boardReports", "boardReportResolve", "sermonAnswerReports", "sermonAnswerReportResolve",
@@ -600,6 +601,7 @@ Deno.serve(async (req) => {
       case "getBlessings":        return json(await getBlessings());
       case "blessingLog":         return json(await blessingLog(body));
       case "featureLog":          return json(await featureLog(body));
+      case "featureUsage":        return json(await featureUsage(body));   // 관리자 — 보내기 · 게시판 이용(누가 · 2026-11-06 · 교회 어드민 📊 통계 탭)
       case "getPassages":         return json(await getPassages());
       case "savePassage":         return json(await savePassage(body));
       case "deletePassage":       return json(await deletePassage(body));
@@ -1913,7 +1915,7 @@ async function seedVerses(b: any) {
 // ⚠️ 응답에 user_id 를 싣지 않는다 — 이 API 에는 JWT 가 없다.
 // ── 열람 기록 — vm 시험 구간 (여기부터) ──
 //   tests/feature-usage.test.cjs 가 여기부터 「여기까지」를 잘라 node:vm 에서 가짜 db 로 돌린다 — 타입 표기 · import 를 넣지 말 것.
-//   구간 밖에서 가져다 쓰는 이름: db · needsGuardian(스토어 심사 순수 구간) — 시험이 같은 이름으로 넣어 준다.
+//   구간 밖에서 가져다 쓰는 이름: db · needsGuardian(스토어 심사 순수 구간) · adminError · fetchAllRows · WIDGET_YMD_RE(_shared.ts) — 시험이 같은 이름으로 넣어 준다.
 const FEATURES = new Set([
   "psalm",            // 시편 액자 한 편을 펼쳐 봄 (item = 구절 번호)
   "meditation",         // 첫 화면 「오늘의 묵상」 단추로 연 묵상 (item = 그 주 구절 번호)
@@ -1967,6 +1969,75 @@ async function featureLog(b) {
     return { ok: true, skipped: "error" };
   }
   return { ok: true };
+}
+
+// 보내기 종류 코드(item) → 이름(2026-11-06 · 설계 2-2). ⚠️ 이름은 이 한 곳 — 교회 어드민 화면은 응답의 label 을 그대로 쓴다.
+//   코드를 보내는 곳: js/pray-share.js pshKind()(1·2·3) · pshSendLink · pshCopyLink(8) · app.js shareLink 셋째 인자(4·5·6·9) · js/edu.js(7).
+const SHARE_KINDS = { 1: "가정 축복 기도문", 2: "오늘의 묵상", 3: "이번 주 말씀", 4: "가을 말씀암송 동행 안내", 5: "앱 소개", 6: "외운 말씀", 7: "교육 수료증", 8: "앱 설치 주소", 9: "이번 주 말씀 주소" };
+
+// ---------- featureUsage: 보내기 · 게시판 이용(누가) — 관리자 전용(2026-11-06) ----------
+//   교회 어드민 📊 성경암송 통계 「📤 보내기 · 💬 게시판」 탭이 내부 키로 부른다(INTERNAL_ADMIN_OK · 역할 memorizeadmin).
+//   본보기 blessingUsage(blessing.ts) — adminError 먼저 · fetchAllRows(1,000줄 쪽 넘기기) · users 잇기 · 기간 from/to(한국 날짜 · day) ·
+//   표가 없는 DB 에서도 빈 결과(관리자가 「기록 없음」으로 보게 — 오류로 보지 않게).
+//   ⚠️ 읽는 값은 USAGE_FEATURES 다섯뿐 — 시편 · 묵상 같은 다른 열람 기록을 이름째 열지 않는다.
+//   ⚠️ 응답에 user_id 를 싣지 않는다(JWT 없음 — 남의 user_id 하나면 그 사람 행세가 된다) · 사람은 안에서만 user_id 로 묶는다.
+//   ⚠️ 만 14세 미만(needsGuardian) 줄과 사람을 알 수 없는 줄(users 가 비어 옴)은 뺀다 — 앱 · featureLog 에 이어 세 겹째.
+//   ⚠️ 쪽 넘기기는 기본 키 차례로 — 차례 없이 range 로 나눠 받으면 쪽 사이에서 줄이 빠지거나 겹칠 수 있다.
+//   ⚠️ 「보냈다」가 아니다 — kakao = 카카오톡을 열었다 · sheet = 공유 창으로 넘겼다 · save = 내려받았다/복사했다.
+async function featureUsage(b) {
+  const err = adminError(b); if (err) return { ok: false, error: err };
+  const ymdOk = (v) => !v || WIDGET_YMD_RE.test(String(v));
+  if (!ymdOk(b.from) || !ymdOk(b.to)) return { ok: false, error: "bad-args" };
+  const EMPTY = { ok: true, summary: { board: { people: 0, count: 0 }, share: { people: 0, count: 0 } }, byKind: [], byUser: [] };
+  let rows;
+  try {
+    rows = await fetchAllRows(() => {
+      let q = db.from("feature_log")
+        .select("user_id, day, feature, item, cnt, users(type,gu,mok,bu,grade,name)")
+        .in("feature", [...USAGE_FEATURES]);
+      if (b.from) q = q.gte("day", String(b.from));
+      if (b.to)   q = q.lte("day", String(b.to));
+      return q.order("user_id").order("day").order("feature").order("item");
+    });
+  } catch (e) {
+    if (/does not exist|schema cache/i.test(String((e && e.message) || ""))) return EMPTY;
+    throw e;
+  }
+
+  const boardPeople = new Set(), sharePeople = new Set();
+  let boardCount = 0, shareCount = 0;
+  const kinds = new Map(), people = new Map();
+  for (const row of rows) {
+    const f = String(row.feature || ""), u = row.users;
+    if (!USAGE_FEATURES.has(f) || !u || needsGuardian(u)) continue;
+    const id = row.user_id, day = String(row.day || ""), n = Number(row.item) || 0, c = Number(row.cnt) || 0;
+    const pe = people.get(id) || { gubun: u.type || "", sosok: u.gu || u.bu || "", sebu: u.mok || u.grade || "", name: u.name || "",
+      days: new Set(), boardCount: 0, open: 0, kakao: 0, sheet: 0, save: 0, last: day };
+    if (day > pe.last) pe.last = day;
+    if (f === "board") {
+      boardPeople.add(id); boardCount += c; pe.days.add(day); pe.boardCount += c;
+    } else {
+      const ke = kinds.get(n) || { item: n, label: SHARE_KINDS[n] || ("종류 " + n), open: 0, kakao: 0, sheet: 0, save: 0, people: new Set() };
+      if (f === "share-open") { ke.open += c; pe.open += c; }          // 판 열기는 「보내기 쓴 분」에 안 넣는다(열고 안 보낸 분을 가르려고)
+      else {
+        if (f === "share-kakao") { ke.kakao += c; pe.kakao += c; }
+        else if (f === "share-sheet") { ke.sheet += c; pe.sheet += c; }
+        else { ke.save += c; pe.save += c; }
+        ke.people.add(id); sharePeople.add(id); shareCount += c;
+      }
+      kinds.set(n, ke);
+    }
+    people.set(id, pe);
+  }
+
+  const byKind = [...kinds.values()].sort((x, y) => x.item - y.item)
+    .map((k) => ({ item: k.item, label: k.label, open: k.open, kakao: k.kakao, sheet: k.sheet, save: k.save, people: k.people.size }));
+  const sum = (p) => p.boardCount + p.open + p.kakao + p.sheet + p.save;
+  const byUser = [...people.values()]
+    .sort((x, y) => sum(y) - sum(x) || (x.last < y.last ? 1 : x.last > y.last ? -1 : 0))
+    .map((p) => ({ gubun: p.gubun, sosok: p.sosok, sebu: p.sebu, name: p.name, boardDays: p.days.size,
+      boardCount: p.boardCount, open: p.open, kakao: p.kakao, sheet: p.sheet, save: p.save, last: p.last }));
+  return { ok: true, summary: { board: { people: boardPeople.size, count: boardCount }, share: { people: sharePeople.size, count: shareCount } }, byKind, byUser };
 }
 // ── 열람 기록 — vm 시험 구간 (여기까지) ──
 
