@@ -370,6 +370,7 @@ test('sermonReportErrorMsg — 서버 코드를 그대로 보여 드리지 않�
 // 「새로 모으기 시작한 것은 privacy/ 와 앱 안 두 곳에 같은 날」(CLAUDE.md 「개인정보」). 하나라도 빠지면 배포가 멈춘다.
 const PRIVACY_ITEMS = {
   '열람 기록': ['열람 기록'],
+  '보내기 기록(2026-11-06 — 보내기 판 · 카카오톡 열기 · 공유 창 · 내려받기·복사)': ['보내기 기록'],
   '공감 · 순위 응원': ['공감', '순위 응원'],
   '이벤트 신청': ['이벤트 신청'],
   '음성 인식(소리는 서버로 안 온다)': ['음성 인식'],
@@ -403,6 +404,55 @@ test('개인정보 — 새로 모으는 것 · 유튜브 문구가 privacy/ 와 
     }
     for (const href of PRIVACY_LINKS) assert.ok(raw.includes('href="' + href + '"'), where + ' 에 링크 ' + href + ' 가 없다');
   }
+});
+
+// 2026-11-06 — 게시판을 연 날·횟수(feature_log 값 board)도 열람 기록이다. 세 자리의 「열람 기록」 줄이 게시판을 말하는가.
+//   privacy/ 는 1항 표의 그 <tr> · renderPrivacyInfo 는 그 <li> · renderHelp 🔒 는 「그 밖에 남는 것」 <li> 안의 그 마디(쉼표 사이).
+test('개인정보 — 「열람 기록」 줄에 게시판이 있다(privacy/ 1항 표 · renderPrivacyInfo · renderHelp 🔒)', () => {
+  const spots = privacySpots();
+  const items = (raw, re) => [...raw.matchAll(re)].map((x) => textOf(x[0]).trim());
+  const p1 = cut(spots['privacy/index.html'], '<h2>1. 무엇을 모으나</h2>', '<h2>2. 어디에 보관하나</h2>', 'privacy/index.html');
+  const row = items(p1, /<tr>[\s\S]*?<\/tr>/g).find((t) => t.startsWith('열람 기록'));
+  const li = items(spots['renderPrivacyInfo'], /<li>[\s\S]*?<\/li>/g).find((t) => t.startsWith('열람 기록'));
+  const other = items(spots['renderHelp 🔒'], /<li>[\s\S]*?<\/li>/g).find((t) => t.startsWith('그 밖에 남는 것'));
+  const clause = other && other.split(', ').find((c) => c.includes('열람 기록'));
+  for (const [where, t] of [['privacy/ 1항 표', row], ['renderPrivacyInfo', li], ['renderHelp 🔒 「그 밖에 남는 것」', clause]]) {
+    assert.ok(t, where + ' 에서 「열람 기록」 줄을 못 찾았다 — 이 검사가 낡았다');
+    assert.ok(t.includes('게시판'), where + ' 의 열람 기록 줄에 게시판이 없다: ' + t);
+  }
+});
+
+// 2026-11-06 — 보내기 기록(feature_log 값 share-open · share-kakao · share-sheet · share-save). 「보냈다」는 어느 길로도 알 수 없다(설계 2-1 —
+//   카카오는 결과를 돌려주지 않고, 공유 창은 고른 앱도 보냈는지도 알려 주지 않는다). 그래서 세 자리 모두 남지 않는 것을 말하고 「보낸 기록」이라 쓰지 않는다.
+//   어린이 부서(needsGuardian)는 두 기록을 남기지 않는다(설계 2-4) · 게시판을 누가 열었는지는 운영진만 본다.
+test('개인정보 — 보내기 기록: 세 자리가 남지 않는 것 · 어린이 부서 · 게시판을 누가 열었는지 안 보임을 말하고, 「보냈다」고 쓰지 않는다', () => {
+  for (const [where, raw] of Object.entries(privacySpots())) {
+    const t = textOf(raw);
+    for (const w of ['실제로 보내셨는지', '고르신 앱', '게시판을 여신 기록과 보내기 기록을 남기지 않',
+      '게시판을 누가 여셨는지는 글쓴 분과 다른 성도님께 보이지 않']) {
+      assert.ok(t.includes(w), where + ' 에 「' + w + '」가 없다');
+    }
+    for (const bad of ['보낸 기록', '보내신 기록', '보내신 날']) {
+      assert.ok(!t.includes(bad), where + ' 에 「' + bad + '」 — 보냈는지는 앱이 알 수 없다(설계 2-1)');
+    }
+  }
+});
+
+// 2026-11-06 — privacy/ 3항(보관) · 4항(누가 보나 — event-auto ⑪ 처럼 첫 </ul> 까지) · 6항(어린이)도 보내기 기록을 말하고, 고친 날을 올렸는가
+test('개인정보 — privacy/ 3항 · 4항 · 6항이 보내기 기록을 말하고, 마지막 수정이 2026-11-06 뒤다', () => {
+  const p3 = textOf(cut(PRIVACY, '<h2>3. 얼마나 보관하나</h2>', '<h2>4. 누가 볼 수 있나</h2>', 'privacy/index.html'));
+  assert.ok(p3.includes('보내기 기록은 암송 프로그램을 운영하는 동안 보관하고, 계정을 지우면 함께 지워집니다'),
+    'privacy/ 3항에 보내기 기록의 보관(운영하는 동안 · 계정을 지우면 함께)이 없다');
+  const p4 = textOf(cut(PRIVACY, '<h2>4. 누가 볼 수 있나</h2>', '</ul>', 'privacy/index.html'));
+  for (const w of ['보내기 기록', '성경암송 담당자', '게시판을 누가 여셨는지는 글쓴 분과 다른 성도님께 보이지 않습니다']) {
+    assert.ok(p4.includes(w), 'privacy/ 4항에 「' + w + '」가 없다');
+  }
+  const p6 = textOf(cut(PRIVACY, '<h2 id="children">', '<h2>7. 문의</h2>', 'privacy/index.html'));
+  assert.ok(p6.includes('게시판을 여신 기록과 보내기 기록'), 'privacy/ 6항에 「어린이 부서는 두 기록을 남기지 않는다」가 없다');
+  const m = PRIVACY.match(/마지막 수정: (\d{4})년 (\d{1,2})월 (\d{1,2})일/);
+  assert.ok(m, 'privacy/ 에 「마지막 수정: YYYY년 M월 D일」이 없다');
+  assert.ok(Number(m[1]) * 10000 + Number(m[2]) * 100 + Number(m[3]) >= 20261106,
+    '보내기 기록을 넣은 방침의 마지막 수정이 2026년 11월 6일 앞이다: ' + m[0]);
 });
 
 // 2026-10-01 검토 F3 — 서버가 바깥으로 부르는 주소가 방침 2항 「아래 서비스가 기능 수행에 관여」 표에 다 있는가.
@@ -443,7 +493,7 @@ test('개인정보 2항 — 서버가 성도님 정보를 보내는 바깥 서�
 test('개인정보 5항 — 「지워지는 것」에 빠진 것이 없다', () => {
   const p5 = textOf(cut(PRIVACY, '<h3 class="sub-h">삭제하면 무엇이 지워지고', '<h2 id="children">', 'privacy/index.html'));
   for (const w of ['게시판 글', '사진', '공감', '순위 응원', '게시판 신고', '가린 분 목록', '이용 규칙 동의',
-    '질문 기록', 'AI 답 알림', '열람 기록', '이벤트 신청', '사역 신청', '보호자 확인', '알림 등록 정보', '성경필사']) {
+    '질문 기록', 'AI 답 알림', '열람 기록', '보내기 기록', '이벤트 신청', '사역 신청', '보호자 확인', '알림 등록 정보', '성경필사']) {
     assert.ok(p5.includes(w), 'privacy/ 5항 「지워지는 것」에 「' + w + '」가 없다');
   }
 });
