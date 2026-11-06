@@ -1,7 +1,10 @@
 // 📤 가정 축복 기도문 · 🌿 오늘의 묵상 · 📖 이번 주 말씀 — 카톡·문자로 보내기(2026-11-04~05 친구 · 설계 docs/superpowers/specs/2026-11-04-prayer-share-design.md)
 //   기도문 화면(js/prayer.js) · 「🙏 오늘의 기도」 창 · 「🌿 오늘의 묵상」 창 · 첫 화면 「이번 주 말씀」 아이콘(app.js)을 누를 때 받는다
 //   (app.js LAZY_JS.prayShare — 처음 화면이 무거워지지 않게). 기도문 openPrayShare · 묵상 openMedShare · 말씀 openVerseShare — 판 · 배경 · 그리기는 하나다.
-//   그림은 이 폰 안에서만 만든다(캔버스) → 폰 공유 창(navigator.share files). 서버로 아무것도 가지 않는다 — 판에서 바꾼 이름도 그림에만 쓴다.
+//   그림은 이 폰 안에서만 만든다(캔버스) → 폰 공유 창(navigator.share files) · 말씀 판의 「카카오톡으로 보내기」만 그림을 카카오 서버에 올린다(pshKakaoSend).
+//   우리 서버로 가는 것은 이용 기록뿐이다(pshLog → app.js logFeature → feature_log: 누가 · 무엇을 눌렀나 · 종류 코드 · 그날 횟수 — 2026-11-06 설계
+//   docs/superpowers/specs/2026-11-06-share-board-usage-log-design.md) · 판에서 바꾼 이름 · 글 · 받는 분 · 고른 앱은 싣지 않는다(이름은 그림에만 쓴다) ·
+//   관리자 묵상 미리보기 판(pshState.noLog)은 남기지 않는다 · 어린 부서(만 14세 미만)는 app.js logFeature 가 거른다.
 //   ⚠️ 이름 채우기는 app.js prayFill(받침 · ㄹ 받침 규칙) — 따로 치환하지 말 것(docs/notes/prayer-book.md).
 //   ⚠️ 공유는 「보내기」를 누른 그 탭 안에서 — 그래서 그림은 미리보기를 그릴 때 이미 만들어 둔다(pshState.blob).
 
@@ -510,12 +513,18 @@ function pshDraw(doc, choice, leafNo) {
 // withLink = 말씀 판 「설치 주소도 보내기」 체크(처음엔 켬) · linkNext = 그림을 보낸 뒤라 같은 단추가 설치 주소를 보낼 차례
 // kakaoUp = 카카오 서버에 올린 그림 주소(액자 · 파일 · 크기 → 주소 — 같은 그림은 한 번만) · kakaoReady = 올리기가 늦어 「카카오톡 열기」를 한 번 더 누를 차례의 주소 ·
 // kakaoBusy = 지금 올리는 차례의 표(공유 창 잠금 sharing 과 따로 — 액자를 바꾸거나 판을 닫으면 버린다) · kakaoT = 「카카오톡이 안 열렸으면」 타이머
-const pshState = { gen: 0, blob: null, url: null, key: "night", vkey: "", leaf: 1, b: null, name: "", med: null, verse: null, file: "", timer: null, pop: null, esc: null, sharing: false, withLink: true, linkNext: false,
+// noLog = 이 판에서 일어난 일을 이용 기록에 남기지 않는다(관리자 묵상 미리보기 — pshOpen 의 opts.noLog · 다시 쓰는 판은 여는 쪽이 덮어쓴다 · 2026-11-06)
+const pshState = { gen: 0, blob: null, url: null, key: "night", vkey: "", leaf: 1, b: null, name: "", med: null, verse: null, file: "", timer: null, pop: null, esc: null, noLog: false, sharing: false, withLink: true, linkNext: false,
                    kakaoUp: {}, kakaoReady: "", kakaoBusy: null, kakaoT: 0 };
 const PSH_TITLE_PRAY = "📤 가정 축복 기도문 보내기", PSH_TITLE_MED = "📤 오늘의 묵상 보내기";
 const PSH_TITLE_VERSE = "📤 이번 주 말씀 보내기";
 // 판이 그릴 글 한 벌 — 묵상 · 말씀 · 기도문 가운데 지금 찬 것
 function pshDoc() { return pshState.med ? medShareDoc(pshState.med) : pshState.verse ? verseShareDoc(pshState.verse) : prayShareDoc(pshState.b, pshState.name); }
+// 📊 이용 기록(2026-11-06 설계 docs/superpowers/specs/2026-11-06-share-board-usage-log-design.md 2-2) — 종류 코드 1 기도문 · 2 묵상 · 3 이번 주 말씀(pshDoc 과 같은 가름)
+function pshKind() { return pshState.med ? 2 : pshState.verse ? 3 : 1; }
+// 남기는 것은 (값, 종류 코드) 둘뿐 — 이름 칸 값(pshState.name) · 글 · 파일 이름은 넘기지 않는다 · 미리보기 판(noLog)은 남기지 않는다 ·
+//   logFeature 는 app.js 것(로그인 전 · 어린 부서는 거기서 빠진다 · 60초 안 같은 값은 한 번) — 옛 app.js · vm 에는 없을 수 있어 typeof 로
+function pshLog(feature, item) { if (pshState.noLog) return; if (typeof logFeature === "function") logFeature(feature, item); }
 // 배경 목록 · 고른 배경 — 말씀 판은 말씀 액자만(친구 2026-11-05 「기존에 없던 것으로」) · 고른 것도 따로 기억한다(기도문 · 묵상은 「밤하늘 먼저」를 함께 쓴다)
 function pshChoices() { return pshState.verse ? verseFrameChoices() : prayShareChoices(); }
 function pshKeyGet() { return pshState.verse ? pshState.vkey : pshState.key; }
@@ -753,25 +762,27 @@ function prayShareClose(fromPop) {
 // 기도문 화면 · 「🙏 오늘의 기도」 창이 부른다 — 이름 칸이 있다(처음 값 name)
 function openPrayShare(b, name) {
   if (!b) return;
-  if (pshReuse("pray")) { pshState.b = b; pshState.med = null; pshState.verse = null; pshRedraw(); return; }   // 단추를 두 번 눌러 또 불렸다 — 열린 판을 그대로
+  if (pshReuse("pray")) { pshState.b = b; pshState.med = null; pshState.verse = null; pshState.noLog = false; pshRedraw(); return; }   // 단추를 두 번 눌러 또 불렸다 — 열린 판을 그대로
   prayShareClose();
   pshState.b = b; pshState.med = null; pshState.verse = null;
   pshState.name = prayShareName(name);
   pshOpen(PSH_TITLE_PRAY, true, name, "pray");
 }
 // 「🌿 오늘의 묵상」 창이 부른다(2026-11-04 친구) — m = { heading, message, question, sermonTitle, verseRef, no(구절), idx(요일) } · 이름 칸 없음
-function openMedShare(m) {
+//   opts.preview = 관리자 묵상 미리보기(?preview=daily → app.js showMeditationModal 의 source "preview")에서 연 판 — 이 판에서 일어난 일은 이용 기록에 남기지 않는다(2026-11-06)
+function openMedShare(m, opts) {
   if (!m || !(m.message || m.question)) return;
-  if (pshReuse("med")) { pshState.b = null; pshState.med = m; pshState.verse = null; pshRedraw(); return; }
+  const noLog = !!(opts && opts.preview);
+  if (pshReuse("med")) { pshState.b = null; pshState.med = m; pshState.verse = null; pshState.noLog = noLog; pshRedraw(); return; }
   prayShareClose();
   pshState.b = null; pshState.med = m; pshState.verse = null; pshState.name = "";
-  pshOpen(PSH_TITLE_MED, false, "", "med");
+  pshOpen(PSH_TITLE_MED, false, "", "med", { noLog });
 }
 // 첫 화면 「이번 주 말씀」 카드의 작은 아이콘이 부른다(2026-11-05 친구) — v = 이번 주 구절({ no, text, refFull, refShort, sermonTitle, pastor, date }) ·
 //   이름 칸 없음 · 그림은 말씀 액자(VERSE_FRAMES) · 설치 주소는 그림 다음에 글로 따로(「설치 주소도 보내기」 체크)
 function openVerseShare(v) {
   if (!v || !String(v.text || "").trim()) return;
-  if (pshReuse("verse")) { pshState.b = null; pshState.med = null; pshState.verse = v; pshRedraw(); return; }
+  if (pshReuse("verse")) { pshState.b = null; pshState.med = null; pshState.verse = v; pshState.noLog = false; pshRedraw(); return; }
   prayShareClose();
   pshState.b = null; pshState.med = null; pshState.verse = v; pshState.name = "";
   pshOpen(PSH_TITLE_VERSE, false, "", "verse");
@@ -790,7 +801,8 @@ function pshHintText(kind, kakao) {
   if (kakao) return "말씀 그림과 「말씀 외워 보기」 단추가 함께 가요.";
   return "그림을 보낸 뒤 한 번 더 누르면 설치 주소도 가요.";
 }
-function pshOpen(title, withName, name, kind) {
+function pshOpen(title, withName, name, kind, opts) {
+  pshState.noLog = !!(opts && opts.noLog);   // 📊 opts.noLog = 미리보기 판(openMedShare) — 이 판에서 일어난 일은 남기지 않는다
   pshState.leaf = Math.min(12, 1 + Math.floor(Math.random() * 12));
   const kakao = kind === "verse" && !!pshKakaoKey() && pshKakaoTalkDevice();   // 📖 카카오톡으로 보내기 — 말씀 판 · 키가 있고 · 카카오톡 앱으로 여는 기기만
   const choices = pshChoices();
@@ -859,4 +871,5 @@ function pshOpen(title, withName, name, kind) {
   pshState.pop = () => prayShareClose(true);
   window.addEventListener("popstate", pshState.pop);
   pshRedraw();
+  pshLog("share-open", pshKind());   // 📊 새 판만 — 다시 쓰는 판은 여는 쪽(pshReuse)에서 돌아가 여기를 지나지 않는다
 }

@@ -322,8 +322,8 @@ test('배선 — 「🌿 오늘의 묵상」 창: 문은 app.js(MED_SHARE_OPEN �
   assert.match(tap, /openMedShare\(m, opts\)/);
   assert.match(tap, /preacher: \(sermon && sermon\.preacher\) \|\| "", sermonDate: \(sermon && sermon\.date\) \|\| ""/, '맨 아래 둘째 줄 — 설교하신 분 · 설교 날짜');
   assert.match(tap, /verseRef: \(verse && \(verse\.refFull \|\| verse\.refShort\)\)/, '구절은 긴 한국어 표기(「누가복음 17장 16절」) — 영어 모드와 상관없이 · 줄임말(「눅」)은 받는 분께 낯설다');
-  assert.match(PS, /function openMedShare\(m\) \{/);
-  assert.match(PS, /pshOpen\(PSH_TITLE_MED, false, "", "med"\)/, '묵상 판은 이름 칸 없이');
+  assert.match(PS, /function openMedShare\(m, opts\) \{/, '미리보기 판을 가르는 opts(2026-11-06 · 이용 기록)');
+  assert.match(PS, /pshOpen\(PSH_TITLE_MED, false, "", "med", \{ noLog \}\)/, '묵상 판은 이름 칸 없이 · 미리보기 판이면 이용 기록을 남기지 않는다');
 });
 
 test('보내기 판 — 폰에서 「보내기」가 아래로 숨지 않는다(친구 2026-11-04 · 갤럭시) — 미리보기는 화면 높이에 맞춰 줄고 · 단추는 판 아래에 붙는다', () => {
@@ -354,7 +354,7 @@ test('글 한 벌 — medShareDoc(파일 이름 · 설명 · 글꼴 받을 글�
   assert.equal(JSON.stringify(pd.plan('frame', measure)), JSON.stringify(T.praySharePlan(LIST[0], '김세웅', 'frame', measure)));
   assert.match(PS, /const doc = pshDoc\(\);/);
   assert.match(PS, /function pshDoc\(\) \{ return pshState\.med \? medShareDoc\(pshState\.med\) : pshState\.verse \? verseShareDoc\(pshState\.verse\) : prayShareDoc\(pshState\.b, pshState\.name\); \}/, '판은 묵상 · 말씀 · 기도문 가운데 찬 것을');
-  const op = cut(PS, 'function openPrayShare(b, name) {', '\n}\n'), om = cut(PS, 'function openMedShare(m) {', '\n}\n');
+  const op = cut(PS, 'function openPrayShare(b, name) {', '\n}\n'), om = cut(PS, 'function openMedShare(m, opts) {', '\n}\n');
   assert.match(op, /prayShareClose\(\);\n  pshState\.b = b; pshState\.med = null;/, '묵상을 보낸 뒤에도 기도문 판은 기도문을(prayShareClose 는 med 를 안 지운다)');
   assert.match(op, /pshOpen\(PSH_TITLE_PRAY, true, name, "pray"\);/, '기도문 판 — 제목 · 이름 칸');
   assert.match(op, /pshState\.b = b; pshState\.med = null; pshState\.verse = null;/, '말씀을 보낸 뒤에도 기도문 판은 기도문을');
@@ -363,7 +363,7 @@ test('글 한 벌 — medShareDoc(파일 이름 · 설명 · 글꼴 받을 글�
 });
 
 test('두 번 누름 — 판이 열렸다가 스스로 닫히지 않는다(열린 같은 판은 다시 쓴다) · 창 단추는 한 번만 · 공유 중 또 누르면 내려받기로 가지 않는다', () => {
-  const op = cut(PS, 'function openPrayShare(b, name) {', '\n}\n'), om = cut(PS, 'function openMedShare(m) {', '\n}\n');
+  const op = cut(PS, 'function openPrayShare(b, name) {', '\n}\n'), om = cut(PS, 'function openMedShare(m, opts) {', '\n}\n');
   assert.ok(op.indexOf('pshReuse("pray")') >= 0 && op.indexOf('pshReuse("pray")') < op.indexOf('prayShareClose()'), '기도문 — 닫기(history.back) 전에 다시 쓰기');
   assert.ok(om.indexOf('pshReuse("med")') >= 0 && om.indexOf('pshReuse("med")') < om.indexOf('prayShareClose()'), '묵상 — 닫기 전에 다시 쓰기');
   assert.match(PS, /wrap\.dataset\.kind = kind \|\| \(withName \? "pray" : "med"\);/, '판 종류 표식');
@@ -984,4 +984,98 @@ test('카톡 카드에서 온 길(?kk=1 · routeKakaoCard) — 안드로이드: 
   assert.equal(g.r, false); assert.equal(g.loc.replaced, ''); assert.ok(!g.loc.href.startsWith('intent:'));
   const h = sim('https://gocheok.onlybible.kr/?v=44', KAKAO_AND);
   assert.equal(h.r, false); assert.deepEqual(h.hist, [], '카드 표가 없으면 주소도 안 건드린다');
+});
+
+// ── 📊 이용 기록(2026-11-06 친구 「카카오 등의 공유를 누가 사용하는지」 · 설계 docs/superpowers/specs/2026-11-06-share-board-usage-log-design.md) ──
+//   판 전체(「// ── 판(아래에서 올라온다) ──」부터 파일 끝)를 가짜 화면에 싣는다 — 그림은 그리지 않는다(pshDraw 가짜 · 판이 그린 셈).
+//   logFeature 는 가짜(부른 그대로 적는다) · withLog: false 면 아예 없다(옛 app.js · vm) · 공유 창 · 복사 · 카카오도 가짜.
+const PAN = (() => {
+  const i = PS.indexOf('// ── 판(아래에서 올라온다) ──');
+  assert.ok(i > 0, '판 머리를 못 찾았다 — 이 검사가 낡았다');
+  return PS.slice(i);
+})();
+const usageTick = () => new Promise((r) => setTimeout(r, 5));
+const usagePan = (o = {}) => {
+  const logs = [], downloads = [], kakaoSent = [], els = {};
+  const mk = (id) => {
+    const el = { id, hidden: false, disabled: false, textContent: '', innerHTML: '', value: '', src: '', alt: '', dataset: {}, style: {}, isConnected: true, on: {},
+      classList: { add() {}, remove() {}, toggle() {} },
+      addEventListener(ev, fn) { el.on[ev] = fn; }, removeEventListener() {}, setAttribute() {},
+      querySelector: (sel) => (sel[0] === '#' ? els[sel.slice(1)] || null : sel === '.psh-x' ? mk('psh-x') : null),
+      querySelectorAll: () => [],
+      click() { if (el.download) downloads.push(el.download); },
+      remove() { el.isConnected = false; if (el.id === 'psh') for (const k of Object.keys(els)) delete els[k]; } };
+    return el;
+  };
+  const doc = {
+    visibilityState: 'hidden', head: { appendChild() {} }, addEventListener() {}, removeEventListener() {},
+    createElement: () => mk(''),
+    getElementById: (id) => els[id] || null,
+    // 판(id="psh")이 붙으면 그 안의 id 칸을 만든다 — innerHTML 에 있는 것만(이름 칸은 기도문 · 카카오 단추는 말씀 판 + 키 + 카톡 기기)
+    body: { classList: { add() {}, remove() {} }, appendChild(w) {
+      if (w.id !== 'psh') return;
+      els.psh = w;
+      for (const id of ['psh-name', 'psh-img', 'psh-kakao', 'psh-send', 'psh-hint', 'psh-msg']) if (w.innerHTML.includes('id="' + id + '"')) els[id] = mk(id);
+    } },
+  };
+  const nav = { userAgent: o.kakao ? 'Mozilla/5.0 (Linux; Android 14; SM-S918N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36'
+                                   : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36',
+    maxTouchPoints: 0, onLine: true, can: true, next: 'ok', clip: 'ok', shared: [], copied: [],
+    canShare: () => nav.can,
+    share: (d) => { nav.shared.push(d); return nav.next === 'ok' ? Promise.resolve() : Promise.reject(Object.assign(new Error('x'), { name: nav.next })); },
+    clipboard: { writeText: (t) => { nav.copied.push(t); return nav.clip === 'ok' ? Promise.resolve() : Promise.reject(new Error('x')); } } };
+  const Kakao = { fail: false, upFail: false, isInitialized: () => true, init() {},
+    Share: { uploadImage: () => (Kakao.upFail ? Promise.reject(new Error('x')) : Promise.resolve({ infos: { original: { url: 'https://k.kakaocdn.net/u.jpg' } } })),
+             sendDefault: (t) => { if (Kakao.fail) throw new Error('x'); kakaoSent.push(t); } } };
+  class File { constructor(parts, name, opt) { this.parts = parts; this.name = name; this.type = opt.type; } }
+  const VERSE_SHARE_TEXT = '성경암송 앱 설치 https://gocheok.onlybible.kr/go/app/';
+  const g = { document: doc, navigator: nav, File, VERSE_SHARE_TEXT, APP_BUILD: 'T', KAKAO_JS_KEY: o.kakao ? 'k' : '',
+    window: { Kakao: o.kakao ? Kakao : undefined, addEventListener() {}, removeEventListener() {} },
+    history: { state: null, pushState(s) { this.state = s; }, back() { this.state = null; } },
+    requestAnimationFrame: () => 0, URL: { createObjectURL: () => 'blob:psh', revokeObjectURL() {} },
+    setTimeout: (fn, ms) => (ms >= 1000 ? 0 : setTimeout(fn, ms)),   // 1초 넘는 타이머(20초 한도 · 6초 「안 열렸으면」)는 울리지 않는다
+    clearTimeout: (t) => { if (t) clearTimeout(t); },
+    prayEsc: (s) => String(s), pshDraw: () => Promise.resolve({ size: 10 }) };
+  if (o.withLog !== false) g.logFeature = (...a) => { logs.push(a); };
+  const S = vm.runInContext(FILL + '\n' + PURE + '\n' + DOCS + '\n' + PAN +
+    '\n;({ pshState, pshKind, openPrayShare, openMedShare, openVerseShare, prayShareClose, pshSend, pshSendLink, pshCopyLink, pshDownload, pshKakaoSend })', vm.createContext(g));
+  return { S, logs, downloads, kakaoSent, els, nav, Kakao, VERSE_SHARE_TEXT };
+};
+
+test('📊 이용 기록 ① 판 열기(share-open) — 새 판만(다시 쓰는 판은 안 셈) · 종류 코드 1 기도문 · 2 묵상 · 3 말씀 · 묵상 미리보기(noLog)는 안 셈 · 이름 칸 값은 안 실림 · logFeature 가 없어도', async () => {
+  const md = Object.assign({}, MEDS[0], { no: 44, idx: 2 }), vv = VERSES.find((v) => String(v.text || '').trim());
+  const P = usagePan();
+  P.S.openPrayShare(LIST[0], '김세웅');
+  assert.deepEqual(P.logs, [['share-open', 1]], '기도문 판을 새로 열었다');
+  P.S.openPrayShare(LIST[0], '김세웅');   // 두 번 누름 — 열린 판을 다시 쓴다(pshReuse)
+  assert.equal(P.logs.length, 1, '다시 쓰는 판은 세지 않는다');
+  P.S.openMedShare(md); P.S.openMedShare(md);   // 다른 판이라 닫고 새로 · 그다음은 다시 쓰기
+  P.S.openVerseShare(vv); P.S.openVerseShare(vv);
+  assert.deepEqual(P.logs, [['share-open', 1], ['share-open', 2], ['share-open', 3]], '새로 연 판마다 한 번 · 종류 코드 1 · 2 · 3');
+  // 관리자 묵상 미리보기(app.js showMeditationModal 의 source "preview" → openMedShare(m, { preview: true })) — 새로 열어도 · 다시 써도 남기지 않는다
+  P.S.prayShareClose();
+  P.S.openMedShare(md, { preview: true });
+  assert.equal(P.S.pshState.noLog, true, '미리보기 판 표식');
+  assert.equal(P.logs.length, 3, '미리보기 판 열기는 안 셈');
+  P.S.openMedShare(md);
+  assert.equal(P.S.pshState.noLog, false, '다시 쓸 때도 여는 쪽 규칙으로 덮어쓴다');
+  P.S.openMedShare(md, { preview: true });
+  assert.equal(P.S.pshState.noLog, true);
+  assert.equal(P.logs.length, 3, '다시 쓰는 판은 미리보기가 아니어도 판 열기로 안 셈');
+  P.S.openPrayShare(LIST[0], '김세웅');
+  assert.equal(P.S.pshState.noLog, false, '미리보기 다음에 새로 연 기도문 판에는 표식이 없다');
+  assert.deepEqual(P.logs.slice(3), [['share-open', 1]]);
+  for (const a of P.logs) assert.equal(a.length, 2, '(값, 종류 코드) 둘만');
+  assert.ok(!JSON.stringify(P.logs).includes('김세웅'), '이름 칸 값은 싣지 않는다');
+  // pshKind — pshDoc 과 같은 가름(묵상 → 말씀 → 기도문)
+  P.S.pshState.med = md; P.S.pshState.verse = vv; assert.equal(P.S.pshKind(), 2);
+  P.S.pshState.med = null; assert.equal(P.S.pshKind(), 3);
+  P.S.pshState.verse = null; assert.equal(P.S.pshKind(), 1);
+  assert.match(PS, /function pshLog\(feature, item\) \{ if \(pshState\.noLog\) return; if \(typeof logFeature === "function"\) logFeature\(feature, item\); \}/, 'logFeature 는 typeof 뒤에서(옛 app.js · vm 에는 없다)');
+  assert.ok(!/서버로 아무것도 가지 않는다/.test(PS), '머리 주석 — 이용 기록이 서버로 간다(사실대로)');
+  // logFeature 가 없는 화면(옛 app.js · vm)에서도 판은 열린다
+  const Q = usagePan({ withLog: false });
+  assert.doesNotThrow(() => { Q.S.openPrayShare(LIST[0], '김세웅'); Q.S.openMedShare(md); Q.S.openVerseShare(vv); });
+  assert.equal(Q.els.psh.dataset.kind, 'verse', '판이 떠 있다');
+  await usageTick();
 });
