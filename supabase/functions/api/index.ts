@@ -1982,11 +1982,19 @@ const SHARE_KINDS = { 1: "가정 축복 기도문", 2: "오늘의 묵상", 3: "�
 //   ⚠️ 읽는 값은 USAGE_FEATURES 다섯뿐 — 시편 · 묵상 같은 다른 열람 기록을 이름째 열지 않는다.
 //   ⚠️ 응답에 user_id 를 싣지 않는다(JWT 없음 — 남의 user_id 하나면 그 사람 행세가 된다) · 사람은 안에서만 user_id 로 묶는다.
 //   ⚠️ 만 14세 미만(needsGuardian) 줄과 사람을 알 수 없는 줄(users 가 비어 옴)은 뺀다 — 앱 · featureLog 에 이어 세 겹째.
-//   ⚠️ 쪽 넘기기는 기본 키 차례로 — 차례 없이 range 로 나눠 받으면 쪽 사이에서 줄이 빠지거나 겹칠 수 있다.
+//   ⚠️ 쪽 넘기기는 기본 키 네 칸 차례로, 날짜를 맨 앞에 — 차례 없이 range 로 나눠 받으면 쪽 사이에서 줄이 빠지거나 겹칠 수 있고,
+//      user_id 를 맨 앞에 두면 읽는 동안 들어온 새 줄(오늘)이 앞 쪽에 끼어 한 줄이 두 번 세일 수 있다.
 //   ⚠️ 「보냈다」가 아니다 — kakao = 카카오톡을 열었다 · sheet = 공유 창으로 넘겼다 · save = 내려받았다/복사했다.
 async function featureUsage(b) {
   const err = adminError(b); if (err) return { ok: false, error: err };
-  const ymdOk = (v) => !v || WIDGET_YMD_RE.test(String(v));
+  //   꼴만 보면 2026-02-30 · 2026-13-01 이 DB 까지 가서 Postgres 가 out of range 로 500 을 낸다 — 있는 날짜인지 되돌려 맞춰 본다(2026-11-06 검토)
+  const ymdOk = (v) => {
+    if (!v) return true;
+    const s = String(v);
+    if (!WIDGET_YMD_RE.test(s)) return false;
+    const t = Date.parse(s + "T00:00:00Z");
+    return Number.isFinite(t) && new Date(t).toISOString().slice(0, 10) === s;
+  };
   if (!ymdOk(b.from) || !ymdOk(b.to)) return { ok: false, error: "bad-args" };
   const EMPTY = { ok: true, summary: { board: { people: 0, count: 0 }, share: { people: 0, count: 0 } }, byKind: [], byUser: [] };
   let rows;
@@ -1997,7 +2005,7 @@ async function featureUsage(b) {
         .in("feature", [...USAGE_FEATURES]);
       if (b.from) q = q.gte("day", String(b.from));
       if (b.to)   q = q.lte("day", String(b.to));
-      return q.order("user_id").order("day").order("feature").order("item");
+      return q.order("day").order("user_id").order("feature").order("item");   // 날짜 먼저 — 새 줄(늘 오늘)은 맨 끝에만 끼어 읽는 동안 앞 쪽이 밀리지 않는다
     });
   } catch (e) {
     if (/does not exist|schema cache/i.test(String((e && e.message) || ""))) return EMPTY;

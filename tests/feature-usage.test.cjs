@@ -225,10 +225,12 @@ test('③ featureUsage 질의 — 다섯 값만 · 기간은 한국 날짜 day �
   assert.deepEqual(op('in').map((o) => [o[1], o[2].slice().sort()]), [['feature', FIVE.slice().sort()]], '다섯 값만 읽는다(다른 열람 기록을 이름째 열지 않는다)');
   assert.deepEqual(op('gte'), [['gte', 'day', '2026-11-01']]);
   assert.deepEqual(op('lte'), [['lte', 'day', '2026-11-06']]);
-  assert.deepEqual(op('order').map((o) => o[1]), ['user_id', 'day', 'feature', 'item'], '쪽 넘기기는 기본 키 차례로');
+  // 날짜를 맨 앞에(2026-11-06 검토) — 새 줄은 늘 오늘 날짜라 맨 끝 묶음에만 들어가 읽는 동안 앞 쪽이 밀리지 않는다(user_id 가 맨 앞이면 한 줄이 두 번 세일 수 있다)
+  assert.deepEqual(op('order').map((o) => o[1]), ['day', 'user_id', 'feature', 'item'], '쪽 넘기기는 날짜 먼저 · 기본 키 네 칸 차례로');
   const all = await runUsage({ from: '', to: '' }, { rows: [] });
   assert.deepEqual(all.q.ops.filter((o) => o[0] === 'gte' || o[0] === 'lte'), [], '기간이 비면 제한 없음(blessingUsage 와 같다)');
-  for (const body of [{ from: '2026/11/01' }, { to: '2026-11-06 or 1=1' }, { from: 20261101 }]) {
+  // 꼴은 맞아도 없는 날짜(2026-02-30 · 2026-13-01)도 bad-args — DB 로 보내면 Postgres 가 out of range 로 500 을 낸다(2026-11-06 검토)
+  for (const body of [{ from: '2026/11/01' }, { to: '2026-11-06 or 1=1' }, { from: 20261101 }, { from: '2026-02-30' }, { to: '2026-13-01' }]) {
     const bad = await runUsage(body, { rows: ROWS });
     assert.deepEqual(bad.r, { ok: false, error: 'bad-args' }, JSON.stringify(body));
     assert.equal(bad.built, 0, JSON.stringify(body) + ' — 틀린 날짜를 DB 에 보냈다');
