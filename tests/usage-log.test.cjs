@@ -147,3 +147,48 @@ test('shareLink 를 부르는 넷 — 종류 코드(가을 동행 안내 4 · �
   const callers = codeOnly(APP).split('\n').filter((l) => /\bshareLink\(/.test(l) && !/function shareLink\(/.test(l));
   assert.equal(callers.length, 4, 'shareLink 를 새로 부르면 셋째 인자(종류 코드)를 함께 넘기고 이 시험 · 설계서 2-2 · 서버 SHARE_KINDS 에 더한다: ' + callers.map((l) => l.trim()).join(' / '));
 });
+
+// ── 묵상 미리보기(설계 2-2 끝) · 교육 수료증(종류 7) ──
+test('묵상 미리보기 — 관리자 미리보기(source "preview")에서 연 창의 보내기 판은 기록을 남기지 않게 표식(preview)이 openMedShare 까지 간다', () => {
+  assert.match(fnAt(APP, 'function previewDailyMessage() {'), /maybeShowWeeklyMeditation\(true, false, "preview"\);/, '미리보기는 source "preview" 로 연다');
+  const mw = fnAt(APP, 'function maybeShowWeeklyMeditation(');
+  assert.match(mw, /showMeditationModal\(items, pick, verse, sermon, !!withTabs, usingPrev, \{ psalm: todayPsalm, song: todaySong, blessing: todayBless, preview: source === "preview" \}\);/, '창에 표식을 넘긴다(미리보기일 때만 true)');
+  const tap = cut(fnAt(APP, 'function showMeditationModal('), 'mShare.addEventListener("click"', '});\n');
+  assert.match(tap, /const opts = \{ preview: !!\(extra && extra\.preview\) \};/, '단추가 표식을 판의 opts 로');
+  assert.match(tap, /if \(typeof openMedShare === "function"\) openMedShare\(m, opts\);/, '판에 넘긴다(typeof 지킴이 그대로)');
+  assert.ok(tap.indexOf('const opts = ') < tap.indexOf('withLazyJs("prayShare"'), '판을 받기 전에 정한다');
+});
+
+test('교육 수료증 — 공유 창으로 넘기면 share-sheet 7 · 내려받기로 가면 share-save 7 · 닫음(AbortError)은 안 센다 · typeof 로 지킨다', async () => {
+  const EDU = read('js', 'edu.js');
+  const HEAD = "document.getElementById('edu-cert-save').addEventListener('click', ";
+  const i = EDU.indexOf(HEAD), j = EDU.indexOf('\n      });\n', i);
+  assert.ok(i > 0 && j > i, '수료증 「저장·공유」 단추를 못 찾았다 — 이 검사가 낡았다');
+  const handler = EDU.slice(i + HEAD.length, j + '\n      }'.length);
+  const run = async (nav, withLog = true) => {
+    const logs = [], downs = [];
+    const g = {
+      navigator: nav, blob: {}, url: 'blob:cert', name: 'cert.png',
+      File: function File(parts, n) { this.name = n; },
+      eduCertDownload: (u, n) => downs.push(n), say: () => {},
+    };
+    if (withLog) g.logFeature = (f, k) => logs.push([f, k]);
+    vm.runInContext('(' + handler + ')()', vm.createContext(g));
+    await flush();
+    return { logs, downs };
+  };
+  const can = { canShare: () => true };
+  let r = await run({ ...can, share: () => Promise.resolve() });
+  assert.deepEqual(r.logs, [['share-sheet', 7]], '공유 창으로 넘겼다'); assert.equal(r.downs.length, 0);
+  r = await run({ ...can, share: () => Promise.reject(err('AbortError')) });
+  assert.deepEqual(r.logs, [], '닫음은 안 센다'); assert.equal(r.downs.length, 0, '닫으면 내려받지도 않는다(지금 그대로)');
+  r = await run({ ...can, share: () => Promise.reject(err('NotAllowedError')) });
+  assert.deepEqual(r.logs, [['share-save', 7]], '공유가 실패해 내려받기로'); assert.equal(r.downs.length, 1);
+  r = await run({});
+  assert.deepEqual(r.logs, [['share-save', 7]], '공유 창이 없는 기기 — 바로 내려받기'); assert.equal(r.downs.length, 1);
+  r = await run({ ...can, share: () => Promise.resolve() }, false);
+  assert.deepEqual(r.logs, [], 'logFeature 가 없어도(옛 app.js) 넘어지지 않는다');
+  const all = (EDU.match(/\blogFeature\(/g) || []).length;
+  const safe = (EDU.match(/typeof logFeature === 'function'\) logFeature\(/g) || []).length;
+  assert.ok(all >= 4 && all === safe, 'js/edu.js 의 logFeature 는 모두 typeof 뒤에서(' + safe + '/' + all + ')');
+});

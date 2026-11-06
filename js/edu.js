@@ -703,13 +703,19 @@ function renderEduCert(eid, courseId) {
         var share = false;
         try { share = !!(file && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })); } catch (e) {}
         if (share) {   // 폰 — 공유 시트(사진에 저장·카톡 보내기)
-          navigator.share({ files: [file], title: '수료증' }).catch(function (err) {
+          // 📤 보내기 기록(2026-11-06 · 종류 7 교육 수료증) — 공유 창으로 넘기면 share-sheet · 내려받기를 시작하면 share-save · 닫음(AbortError)은 안 센다 ·
+          //   어느 앱을 골랐는지 · 실제로 보냈는지는 모른다 · 옛 app.js 와 엇갈려도 넘어지지 않게 typeof 뒤에서
+          navigator.share({ files: [file], title: '수료증' }).then(function () {
+            if (typeof logFeature === 'function') logFeature('share-sheet', 7);
+          }, function (err) {
             if (err && err.name === 'AbortError') return;   // 성도님이 닫았다
             eduCertDownload(url, name); say('그림 파일 내려받기를 시작했어요.');
+            if (typeof logFeature === 'function') logFeature('share-save', 7);
           });
           return;
         }
         eduCertDownload(url, name); say('그림 파일 내려받기를 시작했어요.');
+        if (typeof logFeature === 'function') logFeature('share-save', 7);
       });
     });
   }).catch(function (err) { fail(err && err.message); });

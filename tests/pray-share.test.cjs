@@ -319,7 +319,7 @@ test('배선 — 「🌿 오늘의 묵상」 창: 문은 app.js(MED_SHARE_OPEN �
   const tap = cut(mm, 'mShare.addEventListener("click"', '});\n');
   assert.ok(tap.indexOf('done();') >= 0 && tap.indexOf('done();') < tap.indexOf('withLazyJs("prayShare"'), '창을 먼저 걷고 판을 연다');
   assert.match(tap, /items\[cur\]/);
-  assert.match(tap, /openMedShare\(m\)/);
+  assert.match(tap, /openMedShare\(m, opts\)/);
   assert.match(tap, /preacher: \(sermon && sermon\.preacher\) \|\| "", sermonDate: \(sermon && sermon\.date\) \|\| ""/, '맨 아래 둘째 줄 — 설교하신 분 · 설교 날짜');
   assert.match(tap, /verseRef: \(verse && \(verse\.refFull \|\| verse\.refShort\)\)/, '구절은 긴 한국어 표기(「누가복음 17장 16절」) — 영어 모드와 상관없이 · 줄임말(「눅」)은 받는 분께 낯설다');
   assert.match(PS, /function openMedShare\(m\) \{/);
@@ -385,7 +385,7 @@ test('typeof 지킴이 · 묵상 단추가 넘기는 칸 — 옛 판과 엇갈�
   assert.ok(all > 0 && all === safe, 'js/prayer.js 의 prayShareVisible() 는 모두 typeof 뒤에서 — 옛 app.js(v3.700~701)에는 이 함수가 없다');
   const mm = cut(APP, 'function showMeditationModal(', '\n}\n'), bm = cut(APP, 'function openBlessingModal(b) {', '\n}\n');
   const tap = cut(mm, 'mShare.addEventListener("click"', '});\n');
-  assert.match(tap, /if \(typeof openMedShare === "function"\) openMedShare\(m\);/, '받기에 실패해도 withLazyJs 는 부른다');
+  assert.match(tap, /if \(typeof openMedShare === "function"\) openMedShare\(m, opts\);/, '받기에 실패해도 withLazyJs 는 부른다');
   assert.match(tap, /typeof openPrayShare === "function" \? "앱이 새 판으로 바뀌었어요\. 앱을 껐다가 다시 열어 주세요\."/, '옛 pray-share.js 가 실려 있으면 다시 눌러도 같다 — 껐다 켜기로');
   assert.match(cut(bm, 'share.addEventListener("click"', '});'), /if \(typeof openPrayShare === "function"\) openPrayShare\(\{ no: b\.no/);
   assert.match(PR, /if \(typeof openPrayShare === "function"\) openPrayShare\(list\[i\], prayName\);/);

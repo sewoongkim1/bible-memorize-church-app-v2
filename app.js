@@ -9856,7 +9856,8 @@ function maybeShowWeeklyMeditation(force, withTabs, source) {
                                        : (force ? "meditation" : "meditation-auto"), info.verse.no);
       }
       // 자동 팝업·어드민 미리보기는 '오늘 것 하나만'. 요일 탭은 매일 묵상 버튼으로 열 때만.
-      showMeditationModal(items, pick, verse, sermon, !!withTabs, usingPrev, { psalm: todayPsalm, song: todaySong, blessing: todayBless });
+      // preview — 관리자 미리보기(source "preview")에서 연 창이라는 표식 · 그 창에서 연 「카톡·문자로 보내기」 판은 기록을 남기지 않는다(2026-11-06 · openMedShare 의 opts.preview → pshState.noLog)
+      showMeditationModal(items, pick, verse, sermon, !!withTabs, usingPrev, { psalm: todayPsalm, song: todaySong, blessing: todayBless, preview: source === "preview" });
     });
   }).catch(() => {});
 }
@@ -9866,6 +9867,7 @@ function maybeShowWeeklyMeditation(force, withTabs, source) {
 // extra.psalm: 시편 게이트가 켜져 있고 오늘 열린 편이 있을 때만 온다(그 밖엔 null) —
 // extra.song: 찬양 게이트가 켜져 있고 오늘의 찬양이 있을 때만 온다(그 밖엔 null) —
 // 여기서는 그 값만 보고 배너를 그릴지 말지 정한다(게이트·시작일 판단을 다시 하지 않는다).
+// extra.preview: 관리자 미리보기(previewDailyMessage → source "preview")에서 연 창일 때만 true — 「카톡·문자로 보내기」 판에 넘겨 그 판의 기록을 안 남긴다(2026-11-06).
 function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev, extra) {
   const todayPsalm = extra && extra.psalm;
   const todaySong = extra && extra.song;
@@ -9934,9 +9936,12 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev
       const m = { heading: it.heading || "", message: it.message || "", question: it.question || "",
                   sermonTitle: (sermon && sermon.title) || "", verseRef: (verse && (verse.refFull || verse.refShort)) || "", no: (verse && verse.no) || 0, idx: cur,   // 「누가복음 17장 16절」(짧은 표기 「눅 17:16」은 받는 분께 낯설다)
                   preacher: (sermon && sermon.preacher) || "", sermonDate: (sermon && sermon.date) || "" };   // 맨 아래 「차동혁 위임목사 · 2026년 11월 1일」(친구 「목사님 설교 일자도」)
+      // 관리자 미리보기(?preview=daily)에서 연 창이면 판도 기록을 남기지 않는다(2026-11-06 · opts.preview → pshState.noLog) ·
+      //   ⚠️ 판 부르기 줄에 객체를 바로 쓰지 말 것 — tests/pray-share.test.cjs 가 이 받이를 「닫는 중괄호 · 괄호 · 세미콜론 · 줄바꿈」이 처음 나오는 자리에서 잘라 읽는다
+      const opts = { preview: !!(extra && extra.preview) };
       done();
       setTimeout(() => withLazyJs("prayShare", () => {
-        if (typeof openMedShare === "function") openMedShare(m);
+        if (typeof openMedShare === "function") openMedShare(m, opts);
         // 받기는 됐는데 묵상 판이 없다 = 앱을 켜 둔 채 배포를 넘겨 옛 js/pray-share.js(v3.702 이전)가 실려 있다 — 다시 눌러도 같다
         else appAlert(typeof openPrayShare === "function" ? "앱이 새 판으로 바뀌었어요. 앱을 껐다가 다시 열어 주세요." : "보내기 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
       }), 260);
