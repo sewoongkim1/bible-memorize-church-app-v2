@@ -4209,10 +4209,16 @@ function openBlessingModal(b) {
 //    사람이 다시 들어오는 것을 가른다. 하루로 막으면 cnt 가 1 에 고정돼 뜻이 사라지고,
 //    아예 안 막으면 재렌더마다 가짜로 오른다. 60초가 그 사이를 가른다.
 const featSent = {};                       // 창을 닫으면 사라진다(메모리만 · localStorage 를 쓰지 않는다)
+// 📤 보내기 · 💬 게시판 이용 기록(2026-11-06 · docs/superpowers/specs/2026-11-06-share-board-usage-log-design.md) — 이 다섯은 교회 어드민에서
+//    「누가」(이름 · 소속)를 보는 값이라 만 14세 미만 어린 부서(needsGuardian — 보호자 확인과 같은 판정)는 아예 보내지 않는다.
+//    서버 featureLog 도 같은 다섯(같은 이름 USAGE_FEATURES · index.ts)을 한 번 더 거른다 · 다른 열람 기록(psalm · meditation …)은 지금 그대로.
+//    ⚠️ 전역 const 다 — js/*.js 에서 같은 이름을 다시 선언하면 뒤에 실린 파일이 SyntaxError 로 통째로 안 실린다.
+const USAGE_FEATURES = new Set(["board", "share-open", "share-kakao", "share-sheet", "share-save"]);
 function logFeature(feature, item) {
   try {
     const u = loadUser();
     if (!u || !u.user_id) return;          // 로그인 전이면 아무것도 안 한다
+    if (USAGE_FEATURES.has(feature) && needsGuardian(u)) return;   // 어린 부서 — 보내기 · 게시판 기록은 남기지 않는다(u = loadUser())
     const k = feature + ":" + (item || 0), now = Date.now();
     if (featSent[k] && now - featSent[k] < 60000) return;
     featSent[k] = now;
@@ -4793,6 +4799,7 @@ async function showBoardReactors(kind, id, emoji, chip) {
 }
 
 function renderBoard() {
+  logFeature("board", 0);   // 💬 게시판을 연 날 · 횟수(2026-11-06 · 어린 부서는 logFeature 가 거른다) — loadBoard · 서버 boardList 에는 넣지 않는다(글쓰기 · 공감 · 가리기 뒤마다 다시 불리고 교회 어드민도 부른다)
   markBoardSeen(); // 게시판을 열면 첫 화면 '새글' 배지 소멸
   const appEl = document.getElementById("app");
   appEl.innerHTML = `

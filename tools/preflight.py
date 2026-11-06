@@ -165,6 +165,8 @@ PURE_TESTS += ["tests/verse-badge.test.cjs"]
 PURE_TESTS += ["tests/tts-ko-num.test.cjs"]
 # 📤 가정 축복 기도문 보내기(2026-11-04) — 그림 배치(104편 × 배경 넷 × 이름 셋 · 상자 안 · 조사 · 글자 안 잃기) · 배선(지연 · 문 · 미리 만든 Blob)
 PURE_TESTS += ["tests/pray-share.test.cjs"]
+# 📤 보내기 · 💬 게시판 이용 기록(2026-11-06) — logFeature 어린 부서 거르기 · 게시판 한 줄 · shareLink 종류 코드(공유 창 · 복사) · 묵상 미리보기 표식 · 교육 수료증
+PURE_TESTS += ["tests/usage-log.test.cjs"]
 # 📤💬 보내기 · 게시판 이용 기록(누가 · 2026-11-06) — api featureLog 어린 부서 거르기(rpc 앞 · 모르면 안 남김) · featureUsage(관리자 문 · 다섯 값만 · user_id 없음 · 어린 부서 뺌 · 차례 · 빈 결과)
 PURE_TESTS += ["tests/feature-usage.test.cjs"]
 
