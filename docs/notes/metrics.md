@@ -18,7 +18,7 @@
 - **액션** `featureLog` — 허용 목록은 `supabase/functions/api/index.ts` 의 `FEATURES` **한 곳**
 - **설계** `docs/superpowers/specs/2026-09-23-feature-log-design.md`
 
-`feature` 값(2026-09-23 배포 시점. **늘어난다** — 지금 값은
+`feature` 값(2026-09-23 배포 시점 + 그 뒤에 더한 값은 날짜를 붙였다 · 2026-11-06 맞춤. **늘어난다** — 지금 값은
 `select distinct feature from public.feature_log` 로 본다):
 
 | `feature` | 언제 | `item` |
@@ -33,6 +33,21 @@
 | `ranking-scope` | 순위 범위 칩 | **깃발**이다 — 1=우리 교구 · 0=전체 |
 | `event` | 이벤트 화면을 엶 | 0 |
 | `song` | 오늘의 찬양을 엶 | 0 — ⚠️ **서버 안쪽 호출**이라 `FEATURES` 관문을 안 거친다(`index.ts` 의 `logSongClick`) |
+| `edu` | 🎓 교육 화면(목록)을 엶(`js/edu.js` 의 `renderEduList` · 2026-10-05) | 0 |
+| `duty` | 🙋 봉사 당번 화면(목록)을 엶(`js/duty.js` 의 `renderDutyList` · 2026-10-06) | 0 |
+| `navi` | 📚 주제별 성경암송을 첫 화면 단추로 엶(묶음 목록으로 되돌아오는 것은 안 센다 · 2026-10-13) | 0 |
+| `board` | 💬 게시판을 엶(`renderBoard` 첫 줄 — 글쓰기 · 공감 · 가리기 뒤 다시 읽는 `loadBoard` 는 안 센다 · 2026-11-06) | 0 |
+| `share-open` | 📤 보내기 판을 **새로** 엶(다시 쓰는 판 · 관리자 묵상 미리보기 판은 안 센다 · 2026-11-06) | 종류 코드 1 가정 축복 기도문 · 2 오늘의 묵상 · 3 이번 주 말씀 |
+| `share-kakao` | 카카오톡을 연 순간(`Kakao.Share.sendDefault` 가 예외 없이 끝남 · 2026-11-06) | 3 |
+| `share-sheet` | 공유 창으로 넘김(`navigator.share` 가 resolve — 닫음은 안 센다 · 2026-11-06) | 종류 코드 1~9 |
+| `share-save` | 그림 내려받기를 시작함 · 글 · 주소 복사가 끝남(2026-11-06) | 종류 코드 1~9 |
+
+- **다섯 값(`board` · `share-*`)은 2026-11-06 부터** 쌓인다 — 그 앞 날짜가 비어 있는 것은 쓰임이 없던 것이 아니라 기록이 없는 것이다(아래 ⚠️ 1 과 같은 일).
+- 종류 코드: 1 가정 축복 기도문 · 2 오늘의 묵상 · 3 이번 주 말씀 · 4 가을 말씀암송 동행 안내 · 5 앱 소개 · 6 외운 말씀 · 7 교육 수료증 · 8 앱 설치 주소 · 9 이번 주 말씀 주소(이름은 `index.ts` 의 `SHARE_KINDS` 한 곳).
+- ⚠️ 다섯 값 모두 「보냈다」가 아니다 — 카카오톡을 열었다 · 공유 창으로 넘겼다 · 내려받았다/복사했다 까지다.
+- ⚠️ 만 14세 미만 어린 부서(`needsGuardian`)는 남기지 않는다 — 앱 `logFeature` · 서버 `featureLog` · 읽기 `featureUsage` 세 겹.
+- 보는 곳은 교회 어드민 📊 성경암송 통계 「📤 보내기 · 💬 게시판」 탭(api `featureUsage` — 이름 · 소속별 · 질의는 `supabase/feature_log.sql` ⑨) ·
+  설계 `docs/superpowers/specs/2026-11-06-share-board-usage-log-design.md`.
 
 **보는 법은 손으로 짜지 말 것** — 질의는 두 파일에 박아 두었다.
 `supabase/feature_log.sql`(기능별 한눈에 · 날짜별 추이 · 능동 대 수동 · 앨범 새는 자리 ·

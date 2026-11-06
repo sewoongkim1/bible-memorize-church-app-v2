@@ -41,7 +41,7 @@
 | 관리자 통계 '카드' 열 | `docs/notes/stats-admin.md` |
 | 설교·찬양 관리(담당자 — 설교 올리기 · 찬양 · 2026-09-30 운영) | `docs/notes/sermon-staff-upload.md` |
 | 연상 그림(담당자 ③ · Gemini · DB 그림이 옛 파일보다 앞섬) | `docs/notes/verse-image-staff.md` |
-| 측정(카드 쓰임·전환율·열람 기록) | `docs/notes/metrics.md` |
+| 측정(카드 쓰임·전환율·열람 기록) · **보내기 · 게시판 이용 기록(2026-11-06 · feature_log 값 다섯 · 어린 부서 제외 · 교회 어드민 📊 통계 탭)** | `docs/notes/metrics.md` · `docs/superpowers/specs/2026-11-06-share-board-usage-log-design.md` |
 | 액션·테이블·시크릿 목록 | `docs/notes/backend-api.md` |
 | 보안 점검(매주 자동 · 매달 손으로 — `tools/security-check.py` · 결과는 **저장소 밖** `C:\Projects\보안점검`) | `docs/notes/security-check.md` |
 | 백업(`tools/backup-db.py --prod` · 운영 DB + Storage 유일본 → 7-Zip AES-256 · **저장소 밖** `C:\Projects\백업` · 자동 백업은 7일·통째 복원·Storage 없음 · **매주 금 12:00 작업 스케줄러 `gocheok-weekly-backup`**) | `docs/notes/backup.md` |
