@@ -87,3 +87,63 @@ test('게시판 — renderBoard 첫 줄이 logFeature("board", 0)(markBoardSeen 
   assert.equal((code.match(/\brenderBoard\(/g) || []).length, 1, 'renderBoard 를 괄호로 부르는 곳이 없다(첫 화면 #open-board 가 이름으로 넘긴다) — 다시 그리는 곳이 생기면 게시판 연 횟수가 부푼다');
   assert.ok(APP.includes('document.getElementById("open-board").addEventListener("click", renderBoard);'), '들어오는 길은 첫 화면 단추 하나');
 });
+
+// ── shareLink — 글 · 주소 보내기의 종류 코드(설계 2-2: 4 · 5 · 6 · 9) ──
+const flush = () => new Promise((r) => setImmediate(r));
+const err = (n) => Object.assign(new Error(n), { name: n });
+const COPIED = '공유 문구가 복사되었습니다! 붙여넣기 해주세요 📋';
+const mkShare = (nav, o = {}) => {
+  const logs = [], toasts = [];
+  const doc = {
+    createElement: () => ({ style: {}, focus() {}, select() {} }),
+    body: { appendChild() {}, removeChild() {} },
+    execCommand: () => { if (o.exec === 'throw') throw new Error('copy'); return o.exec; },
+  };
+  const ctx = vm.createContext({ navigator: nav, document: doc, SHARE_TITLE: '[고척교회]', showShareToast: (m) => toasts.push(m), logFeature: (f, k) => logs.push([f, k]) });
+  vm.runInContext(fnAt(APP, 'function shareLink('), ctx);
+  return { shareLink: ctx.shareLink, logs, toasts };
+};
+
+test('shareLink — 공유 창으로 넘기면(resolve) share-sheet · 복사가 끝나면 share-save · 닫음 · 실패 · 종류 없음은 안 센다 · 안내 글은 지금 그대로', async () => {
+  const U = 'https://gocheok.onlybible.kr/?v=44';
+  const CASES = [
+    ['공유 창 — 앱을 골랐다', { share: () => Promise.resolve() }, {}, 6, [['share-sheet', 6]]],
+    ['공유 창 — 닫음(AbortError)', { share: () => Promise.reject(err('AbortError')) }, {}, 6, []],
+    ['공유 창 — 이미 떠 있음(InvalidStateError)', { share: () => Promise.reject(err('InvalidStateError')) }, {}, 6, []],
+    ['공유 창 — 종류 없이 부름', { share: () => Promise.resolve() }, {}, undefined, []],
+    ['복사 — 됨', { clipboard: { writeText: () => Promise.resolve() } }, {}, 5, [['share-save', 5]]],
+    ['복사 — 막힘', { clipboard: { writeText: () => Promise.reject(err('NotAllowedError')) } }, {}, 5, []],
+    ['옛 복사 — execCommand true', {}, { exec: true }, 4, [['share-save', 4]]],
+    ['옛 복사 — execCommand false', {}, { exec: false }, 4, []],
+    ['옛 복사 — execCommand 예외', {}, { exec: 'throw' }, 4, []],
+    ['옛 복사 — 종류 없이 부름', {}, { exec: true }, undefined, []],
+  ];
+  for (const [name, nav, o, kind, want] of CASES) {
+    const r = mkShare(nav, o);
+    r.shareLink('글', U, kind);
+    await flush();
+    assert.deepEqual(r.logs, want, name);
+  }
+  let r = mkShare({ clipboard: { writeText: () => Promise.resolve() } });
+  r.shareLink('글', U, 5); await flush();
+  assert.deepEqual(r.toasts, [COPIED], '복사됨 안내');
+  r = mkShare({ clipboard: { writeText: () => Promise.reject(err('NotAllowedError')) } });
+  r.shareLink('글', U, 5); await flush();
+  assert.deepEqual(r.toasts, [U], '복사가 막히면 주소를 보여 준다');
+  r = mkShare({}, { exec: 'throw' });
+  r.shareLink('글', U, 4); await flush();
+  assert.deepEqual(r.toasts, [U], '옛 복사가 넘어지면 주소');
+});
+
+test('shareLink 를 부르는 넷 — 종류 코드(가을 동행 안내 4 · 앱 소개 5 · 이번 주 말씀 주소 9 · 외운 말씀 6) · 그 밖에 부르는 곳이 없다', () => {
+  const src = cut(APP, 'function shareEvent() {', '\n') + '\n' + fnAt(APP, 'function shareApp() {') + fnAt(APP, 'function shareWeeklyVerse(verse) {') + fnAt(APP, 'function shareMyVerse(verse) {');
+  const calls = [];
+  const HOME = 'https://gocheok.onlybible.kr/';
+  const ctx = vm.createContext({ EVENT_SHARE_TEXT: '안내', SHARE_HOME: HOME, verseShareUrl: (no) => HOME + '?v=' + no, shareLink: (t, u, k) => calls.push([u, k]) });
+  vm.runInContext(src, ctx);
+  const v = { no: 44, refShort: '눅 17:16', text: '본문' };
+  ctx.shareEvent(); ctx.shareApp(); ctx.shareWeeklyVerse(v); ctx.shareMyVerse(v);
+  assert.deepEqual(calls, [[HOME + '?from=autumn4', 4], [HOME, 5], [HOME + '?v=44', 9], [HOME + '?v=44', 6]]);
+  const callers = codeOnly(APP).split('\n').filter((l) => /\bshareLink\(/.test(l) && !/function shareLink\(/.test(l));
+  assert.equal(callers.length, 4, 'shareLink 를 새로 부르면 셋째 인자(종류 코드)를 함께 넘기고 이 시험 · 설계서 2-2 · 서버 SHARE_KINDS 에 더한다: ' + callers.map((l) => l.trim()).join(' / '));
+});

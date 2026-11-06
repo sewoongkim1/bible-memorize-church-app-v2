@@ -9351,7 +9351,7 @@ const EVENT_SHARE_TEXT =
   "하루 3번·한 주 3일 암송하면 도장이 채워져요. 8주 중 4주 함께하시면 소정의 선물! 신청 안 해도 돼요.\n" +
   "앱 첫 화면 🏅 단추에서 시작 → 꾸준히 함께해요 🙏\n" +
   "📱 앱 설치: 플레이스토어·앱스토어 \"고척교회 암송\" 검색";
-function shareEvent() { shareLink(EVENT_SHARE_TEXT, SHARE_HOME + "?from=autumn4"); }
+function shareEvent() { shareLink(EVENT_SHARE_TEXT, SHARE_HOME + "?from=autumn4", 4); }
 
 // 구절 딥링크 — 받는 사람이 로그인 없이 그 구절 암송 화면으로 바로 들어간다.
 function verseShareUrl(no) {
@@ -9360,15 +9360,21 @@ function verseShareUrl(no) {
 
 // 공유 공통 — Web Share API(모바일) 우선, 미지원 시 문구+링크를 클립보드로.
 // 폴백에서도 문구를 함께 복사해야 카톡에 붙여넣었을 때 메시지가 완성된다.
-function shareLink(text, url) {
+// kind — 보내기 기록의 종류 코드(2026-11-06 · 4 가을 동행 안내 · 5 앱 소개 · 6 외운 말씀 · 9 이번 주 말씀 주소 — 이름은 서버 SHARE_KINDS 한 곳).
+//   공유 창으로 넘겼을 때(resolve)만 share-sheet · 복사가 끝났을 때만 share-save — 닫음(AbortError) · 실패는 안 센다 · kind 가 없으면 남기지 않는다.
+//   어느 앱을 골랐는지 · 실제로 보냈는지는 알 수 없다(공유 창이 알려 주지 않는다) — 글 · 주소도 싣지 않는다.
+function shareLink(text, url, kind) {
   if (navigator.share) {
-    navigator.share({ title: SHARE_TITLE, text, url }).catch(function() {});
+    navigator.share({ title: SHARE_TITLE, text, url }).then(function() {
+      if (kind) logFeature("share-sheet", kind);
+    }).catch(function() {});
     return;
   }
   const full = text ? text + "\n" + url : url;
 
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(full).then(function() {
+      if (kind) logFeature("share-save", kind);
       showShareToast("공유 문구가 복사되었습니다! 붙여넣기 해주세요 📋");
     }).catch(function() {
       showShareToast(url);
@@ -9383,7 +9389,11 @@ function shareLink(text, url) {
   document.body.appendChild(ta);
   ta.focus();
   ta.select();
-  try { document.execCommand("copy"); showShareToast("공유 문구가 복사되었습니다! 붙여넣기 해주세요 📋"); }
+  try {
+    const copied = document.execCommand("copy");
+    if (copied === true && kind) logFeature("share-save", kind);   // false = 복사를 못 했다(안내 글은 지금처럼)
+    showShareToast("공유 문구가 복사되었습니다! 붙여넣기 해주세요 📋");
+  }
   catch (e) { showShareToast(url); }
   document.body.removeChild(ta);
 }
@@ -9394,7 +9404,8 @@ function shareApp() {
     "고척교회 성경말씀 암송이에요 📖\n" +
     "매주 말씀을 단계별 빈칸으로 채우며 마음에 새길 수 있어요.\n" +
     "로그인 없이 바로 체험해볼 수 있습니다. 함께해요! 🙌",
-    SHARE_HOME
+    SHARE_HOME,
+    5   // 보내기 기록 종류 — 앱 소개(글)
   );
 }
 
@@ -9404,7 +9415,8 @@ function shareWeeklyVerse(verse) {
     `[고척교회] 이번주 말씀 · ${verse.refShort}\n` +
     `"${verse.text}"\n\n` +
     "로그인 없이 바로 외워볼 수 있어요. 함께해요! 🙌",
-    verseShareUrl(verse.no)
+    verseShareUrl(verse.no),
+    9   // 보내기 기록 종류 — 이번 주 말씀 주소(글 · 지금 숨김 WEEKLY_SHARE=false — 켜면 그대로 세진다)
   );
 }
 
@@ -9414,7 +9426,8 @@ function shareMyVerse(verse) {
     `저는 오늘 ${verse.refShort} 말씀을 마음에 새겼어요 🙌\n` +
     `"${verse.text}"\n\n` +
     "함께 말씀 암송해요! 로그인 없이 바로 시작할 수 있어요.",
-    verseShareUrl(verse.no)
+    verseShareUrl(verse.no),
+    6   // 보내기 기록 종류 — 외운 말씀(글)
   );
 }
 
