@@ -708,7 +708,7 @@ function renderEduCert(eid, courseId) {
           navigator.share({ files: [file], title: '수료증' }).then(function () {
             if (typeof logFeature === 'function') logFeature('share-sheet', 7);
           }, function (err) {
-            if (err && err.name === 'AbortError') return;   // 성도님이 닫았다
+            if (err && (err.name === 'AbortError' || err.name === 'InvalidStateError')) return;   // 닫았다 · 두 번 눌러 이미 떠 있다(pray-share 와 같다)
             eduCertDownload(url, name); say('그림 파일 내려받기를 시작했어요.');
             if (typeof logFeature === 'function') logFeature('share-save', 7);
           });
