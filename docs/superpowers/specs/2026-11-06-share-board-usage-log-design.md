@@ -35,6 +35,7 @@
 | 9 | 이번 주 말씀 주소(글) | 첫 화면 옛 단추 `shareWeeklyVerse`(지금 숨김 `WEEKLY_SHARE=false` — 켜면 그대로 세진다) |
 
 - 관리자 묵상 미리보기(`?preview=daily` → `previewDailyMessage` → `showMeditationModal` 의 source `"preview"`)에서 연 판은 **그 판에서 일어난 일을 하나도 남기지 않는다**(판 열기 · 카톡 · 공유 창 · 저장 모두) — 판 상태에 표식(`pshState.noLog`)을 둔다.
+  범위는 **묵상 판만**이다(2026-11-06 검토): 미리보기 창의 「🙏 기도」 단추 → 「오늘의 기도」 창 → 기도문 판은 표식을 넘기지 않아 남는다 — 관리자 본인이 두 번 더 눌러야 하는 좁은 길이라 그대로 둔다(교회 어드민 탭에 그 관리자 줄이 보이면 이 까닭).
 - 복사 성공은 `navigator.clipboard.writeText` 가 resolve 했을 때, 또는 옛 길 `document.execCommand("copy")` 가 `true` 를 돌려줬을 때.
 
 ### 2-3. 남기지 않는 것
