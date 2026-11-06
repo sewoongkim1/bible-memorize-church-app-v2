@@ -218,18 +218,18 @@ test('배선 — 지연 모듈(LAZY_JS.prayShare · index.html 에 없음) · �
   assert.match(send, /pshState\.blob/);
   assert.match(send, /const data = \{ files: \[file\] \};\n/, '그림 한 장만(기도문 · 묵상 · 말씀 모두)');
   assert.doesNotMatch(send, /data\.text|VERSE_SHARE_TEXT/, '그림에 글을 붙이지 않는다 — 카톡이 그림에 붙인 글을 버렸다(친구 2026-11-05 「설치 URL은 연결 해달라고 했는데 없네요」)');
-  assert.match(send, /navigator\.share\(data\)\.then\(\(\) => \{ if \(pshState\.verse && pshState\.withLink\) pshLinkNext\(\); \}\)/, '말씀 판 · 체크가 켜져 있으면 그림 다음 차례는 설치 주소');
+  assert.match(send, /navigator\.share\(data\)\.then\(\(\) => \{ pshLog\("share-sheet", pshKind\(\)\); if \(pshState\.verse && pshState\.withLink\) pshLinkNext\(\); \}\)/, '앱을 골랐다(resolve)에만 share-sheet · 말씀 판 · 체크가 켜져 있으면 그림 다음 차례는 설치 주소');
   assert.match(send, /^function pshSend\(\) \{\n  if \(pshState\.verse && pshState\.linkNext\) \{ pshSendLink\(\); return; \}/, '그 차례에는 같은 단추가 설치 주소를(그림을 또 보내지 않는다)');
   const link = cut(PS, 'function pshSendLink() {', '\n}\n');
   assert.match(link, /const data = \{ text: VERSE_SHARE_TEXT \};/, '설치 주소는 글만(주소가 눌리는 글 · 작은 상자)');
   assert.ok(!/files/.test(link), '설치 주소에는 그림이 없다');
   assert.match(link, /if \(pshState\.sharing\) return;/, '공유 창이 떠 있을 때 또 누르면 무시');
   assert.match(link, /pshCopyLink\(\);/, '공유 창이 없으면 복사');
-  assert.match(cut(PS, 'function pshCopyLink() {', '\n}\n'), /navigator\.clipboard\.writeText\(VERSE_SHARE_TEXT\)\.then\(\(\) => pshSay\("설치 주소를 복사했어요\./, '복사가 된 뒤에만 「복사했어요」');
+  assert.match(cut(PS, 'function pshCopyLink() {', '\n}\n'), /navigator\.clipboard\.writeText\(VERSE_SHARE_TEXT\)\.then\(\(\) => \{ pshLog\("share-save", 8\); pshSay\("설치 주소를 복사했어요\./, '복사가 된 뒤에만 「복사했어요」 · share-save 8');
   const ln = cut(PS, 'function pshLinkNext() {', '\n}\n');
   assert.match(ln, /pshState\.linkNext = true; pshSendLabel\(false\);/);
   assert.match(ln, /pshSay\("이어서 설치 주소도 같은 대화방에 보내 주세요\."\)/, '「보냈어요」라고 하지 않는다(어디로 갔는지 모른다)');
-  assert.match(link, /navigator\.share\(data\)\.then\(\(\) => \{ pshLinkDone\(\); pshSay\(""\); \}\)/, '보낸 뒤 단추는 다시 「그림 보내기」');
+  assert.match(link, /navigator\.share\(data\)\.then\(\(\) => \{ pshLog\("share-sheet", 8\); pshLinkDone\(\); pshSay\(""\); \}\)/, '보낸 뒤 단추는 다시 「그림 보내기」 · 설치 주소는 share-sheet 8');
   assert.match(cut(PS, 'function pshCopyLink() {', '\n}\n'), /^function pshCopyLink\(\) \{\n  pshLinkDone\(\);/, '복사로 끝나도 차례를 거둔다');
   const lab = cut(PS, 'function pshSendLabel(busy) {', '\n}\n');
   assert.match(lab, /const next = !busy && pshState\.linkNext;/);
@@ -690,7 +690,7 @@ test('카카오톡으로 보내기 — 카톡 앱으로 여는 기기만(SDK 판
 test('카카오톡으로 보내기 — SDK 한 번만 · 그림 올리고 카드 · 같은 그림은 한 번만 · 2초 문턱 · 표(늦은 응답 · 바뀐 그림 · 닫힘) · 20초 한도 · 끊긴 통신 · 안 열렸으면', async () => {
   const KB = cut(PS, '// 📖 카카오톡으로 보내기(', 'function prayShareClose(');
   const tick = () => new Promise((r) => setTimeout(r, 5));
-  const said = [], scripts = [], ups = [], sent = [];
+  const said = [], scripts = [], ups = [], sent = [], logged = [];   // logged = pshLog 가 받은 것(📊 이용 기록 — 진짜 pshLog 는 판 머리에 있어 KB 에 안 실린다)
   let clock = 1000, upDelay = 0, upFail = false, upHold = false, longMs = null, frame = 'vf:vf-hanji';
   const held = [];
   const btn = { disabled: false, cls: new Set(), t: { textContent: '카카오톡으로 보내기' },
@@ -708,7 +708,7 @@ test('카카오톡으로 보내기 — SDK 한 번만 · 그림 올리고 카드
   const ct = (t) => { if (t) clearTimeout(t); };
   const nav = { onLine: true };
   const ctx = vm.createContext({ window: win, document: doc, navigator: nav, KAKAO_JS_KEY: ' test-key ', File, setTimeout: st, clearTimeout: ct, Promise, Date: { now: () => clock },
-    VERSE_KICKER: '이번 주 말씀', pshSay: (t) => said.push(t), pshKeyGet: () => frame,
+    VERSE_KICKER: '이번 주 말씀', pshSay: (t) => said.push(t), pshKeyGet: () => frame, pshLog: (f, i) => logged.push([f, i]),
     pshState: { gen: 1, blob: { size: 123 }, verse: { no: 44, refFull: '누가복음 17장 16절', text: '말씀' }, file: 'verse-44.jpg', sharing: false, withLink: true, kakaoUp: {}, kakaoReady: '', kakaoBusy: null, kakaoT: 0 } });
   vm.runInContext(KB, ctx);
   const K = (s) => vm.runInContext(s, ctx);
@@ -726,6 +726,7 @@ test('카카오톡으로 보내기 — SDK 한 번만 · 그림 올리고 카드
   assert.equal(ups.length, 1);
   assert.ok(ups[0].file[0] instanceof File && ups[0].file[0].type === 'image/jpeg' && ups[0].file[0].name === 'verse-44.jpg', '그림은 File 로 [file]');
   assert.equal(sent.length, 1);
+  assert.deepEqual(logged, [['share-kakao', 3]], '카카오톡을 열었다 — sendDefault 가 던지지 않은 다음 줄에서 한 번(📊 이용 기록)');
   // 폰은 표 kk=1 을 붙인 우리 쪽(깔린 앱 · 없으면 설치 안내 — app.js routeKakaoCard) · PC 카카오톡은 설치 안내 그대로
   const t = sent[0], link = { mobileWebUrl: 'https://gocheok.onlybible.kr/?kk=1', webUrl: 'https://gocheok.onlybible.kr/install/' };
   assert.equal(t.objectType, 'feed');
@@ -823,6 +824,9 @@ test('카카오톡으로 보내기 — SDK 한 번만 · 그림 올리고 카드
   const n9 = said.length; doc.visibilityState = 'hidden'; K('pshKakaoSend()'); await tick(); await tick();
   assert.equal(said.length, n9 + 1, '가려졌으면(카톡이 열렸다) 그 말은 없다 — 보내기 전 비우는 말 하나뿐');
   longMs = null;
+  // 📊 카카오톡을 연 만큼만 남는다 — 던짐 · 끊긴 통신 · 올리기 실패 · 늦게 온 옛 결과는 안 셈
+  assert.equal(logged.length, sent.length, '카카오톡 열기 = sendDefault 가 끝난 횟수');
+  assert.ok(logged.every((a) => a[0] === 'share-kakao' && a[1] === 3), '값 share-kakao · 종류 3(이번 주 말씀)');
   // 그림이 없으면(그리는 중) 노란 단추를 잠근다
   K('pshState.blob = null; pshKakaoBtn("")');
   assert.equal(btn.disabled, true, '그리는 동안 잠금');
@@ -1078,4 +1082,101 @@ test('📊 이용 기록 ① 판 열기(share-open) — 새 판만(다시 쓰는
   assert.doesNotThrow(() => { Q.S.openPrayShare(LIST[0], '김세웅'); Q.S.openMedShare(md); Q.S.openVerseShare(vv); });
   assert.equal(Q.els.psh.dataset.kind, 'verse', '판이 떠 있다');
   await usageTick();
+});
+
+test('📊 이용 기록 ② 보내기(share-kakao · share-sheet · share-save) — 카톡은 sendDefault 다음 줄에서만 · 공유 창은 resolve 만(닫음 · 이미 떠 있음은 안 셈) · 내려받기 · 설치 주소 보내기 · 복사 · 미리보기는 하나도 · 이름 칸 값은 안 실림 · logFeature 가 없어도', async () => {
+  const md = Object.assign({}, MEDS[0], { no: 44, idx: 2 }), vv = VERSES.find((v) => String(v.text || '').trim());
+  // ⓐ 기도문 — 공유 창 · 닫음 · 실패하면 내려받기
+  const P = usagePan();
+  const acts = () => P.logs.filter((a) => a[0] !== 'share-open');
+  P.S.openPrayShare(LIST[0], '김세웅'); await usageTick();
+  assert.ok(P.S.pshState.blob, '그림이 준비됐다(가짜 pshDraw)');
+  P.S.pshSend(); await usageTick();
+  assert.deepEqual(acts(), [['share-sheet', 1]], '공유 창에서 앱을 골랐다(resolve) — 보냈는지는 모른다');
+  P.nav.next = 'AbortError'; P.S.pshSend(); await usageTick();
+  P.nav.next = 'InvalidStateError'; P.S.pshSend(); await usageTick();
+  assert.equal(acts().length, 1, '닫음(AbortError) · 이미 떠 있음(InvalidStateError)은 안 셈');
+  assert.deepEqual(P.downloads, [], '닫았으면 내려받기로 가지 않는다(그대로)');
+  P.nav.next = 'NotAllowedError'; P.S.pshSend(); await usageTick();
+  assert.deepEqual(acts().slice(1), [['share-save', 1]], '공유 창이 실패해 내려받기를 시작했다');
+  assert.deepEqual(P.downloads, ['blessing-' + LIST[0].no + '.jpg']);
+  P.nav.can = false; P.S.pshSend(); await usageTick(); P.nav.can = true;
+  assert.deepEqual(acts().slice(2), [['share-save', 1]], '공유 창이 없는 기기 — 곧바로 내려받기');
+  // ⓑ 묵상 — 종류 2
+  P.nav.next = 'ok';
+  P.S.openMedShare(md); await usageTick();
+  P.S.pshSend(); await usageTick();
+  assert.deepEqual(acts().slice(3), [['share-sheet', 2]], '묵상 그림');
+  // ⓒ 이번 주 말씀(공유 창 길 — 카카오 단추가 없는 기기) — 그림 3 · 이어서 설치 주소 8
+  P.S.openVerseShare(vv); await usageTick();
+  P.S.pshSend(); await usageTick();
+  assert.deepEqual(acts().slice(4), [['share-sheet', 3]], '말씀 그림');
+  assert.equal(P.S.pshState.linkNext, true, '그림 다음 차례는 설치 주소(그대로)');
+  P.S.pshSend(); await usageTick();
+  assert.deepEqual(acts().slice(5), [['share-sheet', 8]], '설치 주소를 공유 창으로');
+  assert.deepEqual(JSON.parse(JSON.stringify(P.nav.shared[P.nav.shared.length - 1])), { text: P.VERSE_SHARE_TEXT }, '설치 주소는 글만(그대로)');
+  P.nav.next = 'AbortError'; P.S.pshSendLink(); await usageTick();
+  assert.equal(acts().length, 6, '설치 주소 공유 창을 닫았다 — 안 셈');
+  assert.deepEqual(P.nav.copied, [], '닫았으면 복사로 가지 않는다(그대로)');
+  P.nav.next = 'NotAllowedError'; P.S.pshSendLink(); await usageTick();
+  assert.deepEqual(acts().slice(6), [['share-save', 8]], '공유 창이 실패해 복사했다(writeText resolve)');
+  P.nav.clip = 'fail'; P.S.pshCopyLink(); await usageTick();
+  assert.equal(acts().length, 7, '복사를 못 했으면 안 셈(주소를 눈으로 옮겨 적게 할 뿐)');
+  const cb = P.nav.clipboard; P.nav.clipboard = undefined; P.S.pshCopyLink(); await usageTick(); P.nav.clipboard = cb;
+  assert.equal(acts().length, 7, '복사 길이 없는 기기 — 안 셈');
+  // ⓓ 카카오톡(말씀 판 · 키 · 카톡 앱 기기) — sendDefault 가 던지지 않은 다음 줄에서만 · 첫 누름 · 늦게 뜬 「카카오톡 열기」 모두
+  const K = usagePan({ kakao: true });
+  K.S.openVerseShare(vv); await usageTick();
+  assert.ok(K.els['psh-kakao'], '카카오 단추가 있다');
+  K.S.pshKakaoSend(); await usageTick();
+  assert.equal(K.kakaoSent.length, 1);
+  assert.deepEqual(K.logs, [['share-open', 3], ['share-kakao', 3]], '카카오톡을 열었다(보냈는지는 모른다)');
+  K.S.pshState.kakaoReady = 'https://k.kakaocdn.net/late.jpg'; K.S.pshKakaoSend();
+  assert.equal(K.kakaoSent.length, 2); assert.deepEqual(K.logs.slice(2), [['share-kakao', 3]], '늦게 뜬 「카카오톡 열기」도 같은 자리');
+  K.Kakao.fail = true; K.S.pshKakaoSend(); await usageTick(); K.Kakao.fail = false;
+  assert.equal(K.logs.length, 3, 'SDK 가 던지면 안 셈');
+  K.nav.onLine = false; K.S.pshKakaoSend(); await usageTick(); K.nav.onLine = true;
+  assert.equal(K.logs.length, 3, '끊긴 통신이면 부르지도 · 세지도 않는다');
+  K.Kakao.upFail = true; K.S.pshState.blob = { size: 77 }; K.S.pshKakaoSend(); await usageTick(); K.Kakao.upFail = false;
+  assert.equal(K.logs.length, 3, '그림 올리기에 실패하면 안 셈');
+  assert.equal(K.kakaoSent.length, 2);
+  // ⓔ 관리자 묵상 미리보기 — 판에서 일어난 일을 하나도 남기지 않는다(내려받기는 그대로 된다)
+  const V = usagePan();
+  V.S.openMedShare(md, { preview: true }); await usageTick();
+  V.S.pshSend(); await usageTick();
+  V.nav.next = 'NotAllowedError'; V.S.pshSend(); await usageTick();
+  V.S.pshDownload();
+  assert.equal(V.downloads.length, 2, '미리보기에서도 내려받기는 된다');
+  assert.deepEqual(V.logs, [], '미리보기 판은 열기 · 공유 창 · 내려받기 모두 안 셈');
+  // ⓕ 무엇을 싣나 — (값, 종류 코드) 둘뿐 · 이름 칸 값은 어디에도 없다 · 값은 이름 표의 넷
+  for (const a of [...P.logs, ...K.logs]) { assert.equal(a.length, 2, '(값, 종류 코드) 둘만'); assert.ok([1, 2, 3, 8].includes(a[1]), a.join(':')); }
+  assert.ok(!JSON.stringify([P.logs, K.logs]).includes('김세웅'), '이름 칸 값은 싣지 않는다');
+  const calls = [...PS.matchAll(/\bpshLog\("([a-z-]+)", (pshKind\(\)|\d)\)/g)];
+  assert.equal(calls.length, (PS.match(/\bpshLog\(/g) || []).length - 1, 'pshLog 는 늘 (글자 그대로의 값, pshKind() 또는 숫자 하나) — 이름 · 글을 넘기는 부름이 없다');
+  const vals = [...new Set(calls.map((m) => m[1]))].sort();
+  assert.deepEqual(vals, ['share-kakao', 'share-open', 'share-save', 'share-sheet']);
+  // 이름 표(구역 1 서버 · 구역 2 화면) — 서버가 받는 값 · 화면이 어린 부서를 거르는 값에 다 있다(없으면 서버가 조용히 버리거나 · 어린 부서가 남는다)
+  const svr = /const USAGE_FEATURES = new Set\(\[([^\]]*)\]\)/.exec(read('supabase', 'functions', 'api', 'index.ts'));
+  const scr = /const USAGE_FEATURES = new Set\(\[([^\]]*)\]\)/.exec(APP);
+  assert.ok(svr && scr, 'USAGE_FEATURES(서버 index.ts · 화면 app.js)를 못 찾았다 — 구역 1 · 2 가 먼저 들어와 있어야 한다');
+  for (const [m, where] of [[svr, '서버'], [scr, '화면']]) {
+    const set = [...m[1].matchAll(/"([a-z-]+)"/g)].map((x) => x[1]);
+    for (const f of vals) assert.ok(set.includes(f), f + ' 가 ' + where + ' USAGE_FEATURES 에 없다');
+  }
+  // ⓖ logFeature 가 없는 화면(옛 app.js · vm)에서도 보내기 길이 죽지 않는다 — 기록이 넘어져 내려받기 · 복사로 새지도 않는다
+  const Q = usagePan({ withLog: false, kakao: true });
+  Q.S.openVerseShare(vv); await usageTick();
+  Q.S.pshKakaoSend(); await usageTick();
+  assert.equal(Q.kakaoSent.length, 1, '카카오톡은 열린다');
+  Q.S.pshState.kakaoReady = 'https://k.kakaocdn.net/late.jpg';
+  assert.doesNotThrow(() => Q.S.pshKakaoSend());
+  assert.equal(Q.kakaoSent.length, 2);
+  Q.S.pshSend(); await usageTick();
+  assert.deepEqual(Q.downloads, [], '공유 창 resolve 뒤 기록이 넘어져 내려받기로 새지 않는다');
+  Q.S.pshSend(); await usageTick();
+  assert.deepEqual(Q.nav.copied, [], '설치 주소 resolve 뒤 기록이 넘어져 복사로 새지 않는다');
+  Q.S.pshCopyLink(); await usageTick();
+  assert.equal(Q.nav.copied.length, 1);
+  assert.doesNotThrow(() => Q.S.pshDownload());
+  assert.equal(Q.downloads.length, 1);
 });

@@ -566,6 +566,7 @@ function pshDownload() {
   const a = document.createElement("a");
   a.href = pshState.url; a.download = pshState.file || "blessing.jpg"; a.rel = "noopener";
   document.body.appendChild(a); a.click(); a.remove();
+  pshLog("share-save", pshKind());   // 📊 내려받기를 시작했다(되었는지는 모른다 — 아래 말과 같다)
   pshSay("그림 파일 내려받기를 시작했어요.");   // 되었는지는 알 수 없다 — 「시작했어요」까지만(교육 수료증과 같은 말)
 }
 // ⚠️ 누른 그 탭 안에서 share — 그림은 미리보기 때 만든 pshState.blob(여기서 새로 그리면 사용자 동작이 식어 막힌다)
@@ -583,7 +584,8 @@ function pshSend() {
     // 공유 창이 뜨는 사이 한 번 더 누르면 두 번째 share 가 InvalidStateError 로 끝난다 — 그걸 「공유를 못 한다」로 보고 내려받기로 가지 않게(2026-11-04 검토)
     if (pshState.sharing) return;
     pshState.sharing = true;
-    navigator.share(data).then(() => { if (pshState.verse && pshState.withLink) pshLinkNext(); }).catch((err) => {
+    // 📊 공유 창에서 앱을 골랐다(resolve)에만 share-sheet — 보냈는지는 모른다 · 닫음(AbortError) · 이미 떠 있음(InvalidStateError)은 세지 않는다
+    navigator.share(data).then(() => { pshLog("share-sheet", pshKind()); if (pshState.verse && pshState.withLink) pshLinkNext(); }).catch((err) => {
       if (err && (err.name === "AbortError" || err.name === "InvalidStateError")) return;   // 성도님이 공유 창을 닫았다 · 이미 떠 있다
       pshDownload();
     }).finally(() => { pshState.sharing = false; });
@@ -607,7 +609,7 @@ function pshSendLink() {
   if (can) {
     if (pshState.sharing) return;
     pshState.sharing = true;
-    navigator.share(data).then(() => { pshLinkDone(); pshSay(""); }).catch((err) => {
+    navigator.share(data).then(() => { pshLog("share-sheet", 8); pshLinkDone(); pshSay(""); }).catch((err) => {   // 📊 8 = 앱 설치 주소
       if (err && (err.name === "AbortError" || err.name === "InvalidStateError")) return;   // 닫았다 — 금색 단추 그대로(다시 누를 수 있게)
       pshCopyLink();
     }).finally(() => { pshState.sharing = false; });
@@ -621,7 +623,7 @@ function pshCopyLink() {
   const say = () => pshSay("설치 주소: " + url);   // 복사도 못 하면 눈으로 옮겨 적게
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(VERSE_SHARE_TEXT).then(() => pshSay("설치 주소를 복사했어요. 대화방에 붙여 넣어 주세요."), say);
+      navigator.clipboard.writeText(VERSE_SHARE_TEXT).then(() => { pshLog("share-save", 8); pshSay("설치 주소를 복사했어요. 대화방에 붙여 넣어 주세요."); }, say);   // 📊 복사가 끝났을 때만
       return;
     }
   } catch (e) {}
@@ -707,6 +709,7 @@ function pshKakaoGo(url) {
   if (typeof navigator !== "undefined" && navigator.onLine === false) { pshSay("인터넷에 연결되지 않았어요. 연결된 뒤 다시 눌러 주세요."); return; }
   try { window.Kakao.Share.sendDefault(pshKakaoTemplate(pshState.verse, url)); }
   catch (e) { pshKakaoFallback("카카오톡을 열지 못했어요. 아래 「문자 · 다른 앱으로 보내기」로 보내 주세요."); return; }
+  pshLog("share-kakao", 3);   // 📊 sendDefault 가 던지지 않았다 = 카카오톡을 열었다(보냈는지는 모른다 · 첫 누름 · 늦게 뜬 「카카오톡 열기」 둘 다 여기)
   // 카카오톡이 열리면 이 화면은 가려진다 — 6초 뒤에도 판이 보이면 안 열렸을 수 있다(누른 동작이 식었다 · 「열리지 않았으면」까지만 말한다)
   clearTimeout(pshState.kakaoT);
   pshState.kakaoT = setTimeout(() => {
