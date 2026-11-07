@@ -1373,7 +1373,10 @@ test('🎓 pshDraw — 카드 두 짜임(가짜 캔버스): 던지지 않는다 
       assert.ok(find(calls, 0, 'shadowColor', 'rgba(40, 30, 10, 0.18)') > paper, '띠 그림자');
       const clip = calls.map((c) => c[0]).lastIndexOf('clip', bg), mv = find(calls, 0, 'moveTo', B.x + B.r, B.y);
       assert.ok(clip > mv && mv > paper, '둥근 띠로 자른 뒤 그린다');
-      assert.deepEqual(calls[bg].slice(2).map(Math.round), [40, -305, 1000, 1250], '4:5 그림을 띠 폭에 맞춰 덮고 · focus 0.5 = 세로 가운데');
+      // focus = 사진마다 정한 세로 자리(그 지점이 띠 가운데에 온다 · 띠 밖으로 비지 않게 막는다 — pshCover) · 0.5 면 -305(그림 가운데)
+      const fy = S.focus == null ? 0.5 : S.focus, dy = Math.min(B.y, Math.max(B.y + B.h - 1250, B.y + B.h / 2 - fy * 1250));
+      assert.equal(Math.round(Math.min(B.y, Math.max(B.y + B.h - 1250, B.y + B.h / 2 - 0.5 * 1250))), -305, 'focus 0.5 = 그림 가운데');
+      assert.deepEqual(calls[bg].slice(2).map(Math.round), [40, Math.round(dy), 1000, 1250], '4:5 그림을 띠 폭에 맞춰 덮고 · 사진의 focus 자리가 띠 가운데(' + fy + ')');
     } else {
       assert.deepEqual(calls[bg].slice(2).map(Math.round), [0, 0, 1080, 1350], '그림이 바탕 가득');
       const P = D.cardPanel(S, plan), f = find(calls, bg, 'fillStyle', S.panel.fill), mv = find(calls, f, 'moveTo', P.x + P.r, P.y);
@@ -1439,8 +1442,9 @@ test('🎓 카드 본문 두 가지 — 응원 글: 이름을 쳤을 때만 맨 
     const named = P('김지훈', 'cheer'), t = texts(named);
     assert.equal(t[0], '김지훈에게', '맨 위 「이름에게」(받침과 상관없이 그대로)');
     assert.equal(named.ops.find((o) => o.k === 'text').color, ch.style.accent, '「…에게」는 강조색');
-    const empty = texts(P('', 'cheer'));
-    assert.ok(!empty.some((x) => /에게$/.test(x)), '이름이 비면 「…에게」 줄 없음');
+    // 맨 윗줄만 본다 — 본문(응원 글 · 맺는 한 줄)에도 「…에게」가 든다(「구하는 너에게」 · 「사랑하는 사람에게」 — 확정 글 2026-11-07)
+    const emptyPl = P('', 'cheer'), empty = texts(emptyPl), first = emptyPl.ops.find((o) => o.k === 'text');
+    assert.ok(!/에게$/.test(empty[0]) && first.color !== ch.style.accent, '이름이 비면 맨 위 「…에게」 줄 없음');
     assert.ok(!empty.join('').includes(set.defaultName), '응원 글은 defaultName 을 쓰지 않는다');
     for (const pl of [named, P('', 'cheer'), P('가나다라마바사아자차카타', 'cheer')]) {
       const all = flat(texts(pl).join(''));

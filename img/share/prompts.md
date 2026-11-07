@@ -74,3 +74,25 @@ AI 그림이 아니다 — 친구가 소책자 · 광고에 쓰던 그림(`자�
 같은 날 다섯째 판 — ⚠️ 그림자를 넣어 재니 한지 · 남색이 왼쪽 위로 밀렸다(친구 「첫번째 액자가 왼쪽으로 치우쳤어요」 · 「청색 글씨가 오른쪽으로」). 둘 다 **테두리 바깥 끝**(한지 호두나무 · 남색 금테 — 원본 2048 에서
 한지 303~1745 · 남색 389~1657, 원본은 정확히 가운데)의 가운데로 다시 잘라 액자 긴 변 960 · 둘레 60. 작은 그림은 큰 그림 가운데를 4:5 로 잘라 128×160.
 ⚠️ 다시 자를 때 안쪽 바탕 끝을 자동으로 재지 말 것 — 테두리가 바탕에 그림자를 드리워 왼쪽 끝이 안으로 잡힌다. 글 자리(`box`)는 테두리 가운데에 맞춘다.
+
+## 🎓 수험생 응원기도카드 다섯(2026-11-07 · 친구 「수능 이미지는 5개」)
+
+`js/pray-share.js` `CARD_SETS.suneung.photos` — 카드 판에만 나온다(기도문 · 묵상 · 말씀 판에는 안 나온다). 말씀마다 첫 배경은 자료 `entries[i].photo`.
+Gemini `gemini-3-pro-image` · `aspectRatio 4:5` · `2K`(1856×2304) → 가운데 4:5 → 1080×1350 WebP q80(잔무늬가 많은 은행잎은 흐림 0.8 · q68, 들녘은 흐림 0.6 · q72 — 150KB 안팎) · 작은 그림 128×160.
+「그림 밖」 짜임은 같은 그림의 가운데 가로 띠(1000×560)를 잘라 쓴다(사진마다 `focus`) — 그래서 장면을 가운데 가로 띠에 두게 그렸다.
+장면마다 두 장씩 그려 하나를 골랐다. 버린 것: 해돋이 b(여러 칸 콜라주로 나왔다 — 그 뒤 꼬리말에 「no collage」를 더했다) · 독수리 a(어둡고 오른쪽 위에 이음 자국) · 은행잎 b · 들녘 a · 물줄기 b. 원본은 저장소 밖.
+해돋이에만 언덕 위 작은 나무 십자가가 있다(친구가 보여 준 참조 카드의 결 — 세 장 중 한 장 정도로).
+
+꼬리말(장면 말 뒤에 그대로):
+
+  > Vertical 4:5 landscape photograph, bright and hopeful, warm golden sunrise light, natural colors, high detail, professional photography.  No people, no text, no letters, no numbers, no watermark, no logo, no buildings, no city.  Keep the main scene in the central horizontal band of the frame, and keep the top right corner as plain sky.  One single continuous photograph — no collage, no panels, no inset pictures, no borders, no frames.
+
+| 파일 | 이름 | 첫 배경으로 쓰는 말씀 | 고른 장 | 장면 말 |
+|---|---|---|---|---|
+| `card-suneung-1` | 해돋이 | 1 · 3 | 1a | A bright sunrise over soft green mountains and a calm lake, golden rays spreading across a pale blue sky with a few tiny birds far off, and a wildflower path winding up a gentle rocky hill to a small, plain, empty wooden cross with no figure on it. The main scene sits in the middle horizontal band of the portrait frame, with a soft meadow in the foreground. |
+| `card-suneung-2` | 은행잎 | 2 · 4 | 2a | A quiet path carpeted with fallen golden ginkgo leaves beneath tall ginkgo trees, a few leaves still on the branches, with soft late-autumn morning light glowing toward a bright open sky. The path and trees sit in the middle horizontal band of the portrait frame. |
+| `card-suneung-3` | 독수리 | 6 · 7 | 3b | A single small eagle soaring high and far away above layered misty mountain ridges at dawn, warm golden light touching the peaks in the middle horizontal band of the portrait frame. The valleys below fall into deep blue shadow toward the bottom. |
+| `card-suneung-4` | 들녘 | 8 · 9 | 4b | Wide harvested rice paddies in mid-November, golden stubble divided by low earthen ridges, with bundled rice-straw sheaves standing in neat rows across the middle band of the portrait frame and gentle hazy hills beyond, under a bright, clear pale-blue sky with a few tiny birds far away. |
+| `card-suneung-5` | 물줄기 | 5 · 10 | 5a | Several small streams winding down from late-autumn hills and joining into one wide, calm river that shines in warm late-afternoon light across the middle band of the portrait frame, with a few tiny birds high in the sky. The near slopes and riverbank in the lower third fall into deep shadow. |
+
+⚠️ 그림을 바꾸면 `CARD_SETS.suneung.photos` · 이 표 · 시험(파일이 있는지)을 함께.

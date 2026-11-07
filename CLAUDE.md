@@ -24,6 +24,7 @@
 | 매일 묵상(무엇을 보여 줄지) · **📤 카톡·문자로 보내기**(2026-11-04 **모두에게 열림** · 문 `MED_SHARE_OPEN`(app.js) · 판은 기도문과 같은 `js/pray-share.js` `openMedShare`) | `docs/notes/meditation.md` · `docs/notes/prayer-book.md` 끝 「🌿 오늘의 묵상도 보내기」 |
 | 가정 축복 기도문 · **📤 카톡·문자로 보내기**(2026-11-04 **모두에게 열림** · 문 `PRAY_SHARE_OPEN`(app.js — 「🙏 오늘의 기도」 창도 본다 · ⚠️ 옛 이름 `PRAY_SHARE_PUBLIC` 으로 되돌리지 말 것) · `js/pray-share.js` 지연 · ⚠️ 공유는 미리 만든 Blob 으로) | `docs/notes/prayer-book.md` 끝 「2026-11 보내기」 |
 | 첫 화면·묶음·색·아래 고정 단추 · **📤 「이번 주 말씀」 오른쪽 위 보내기 아이콘**(2026-11-05 · **2026-11-06 모두에게 열림 v3.719** · 문 `VERSE_SHARE_OPEN` · 말씀 액자 다섯 · **「카카오톡으로 보내기」 = 카카오 SDK 한 통에 그림 + 「말씀 외워 보기」 단추**(키 `js/config.js` `PROD.KAKAO` · 개인정보 세 자리에 카카오 줄 · 카드 단추는 `routeKakaoCard` — 아이폰 설치 안내 · 안드로이드 깔린 앱 · 카톡 창 닫기) · ⚠️ 액자 가운데는 그림자 빼고 테두리로 잰다) · **💬 응원·기도·공감 한 주간 맨 위(11/6~12 · 「새 소식」 · `BOARD_TOP_UNTIL` — 11/13 저절로 「함께」 · 그 뒤 걷기)** | `docs/notes/home-screen.md` · `docs/notes/prayer-book.md` 끝 「📖 이번 주 말씀도 보내기」 |
+| 🎓 **기념일 말씀카드 · 수험생 응원기도카드**(2026-11-07 · 🧪 시험 참여자 먼저 · 문 `CARD_SHARE_OPEN` · 첫 화면 「새 소식」 맨 위 · 12/11 까지 · 말씀 10 · 그림 5 · 기도문/응원 글 · 그림 밖/안 · 받는 사람마다 ✓(이 폰에만) · ⚠️ 이용 기록 종류 **10**(4~9 는 다른 보내기) · 자료 덩이 `// ⟪card-data⟫` 는 통째로 갈아 끼운다) · 다음: 기념일 열다섯 | `docs/notes/occasion-card.md` |
 | 게시판 글·답글·사진 | `docs/notes/board.md` |
 | 구글 출시 심사 전 고친 것(2026-10-01) — 어린 부서 **보호자 확인** · 게시판 **이용 규칙**·**🙈 가리기** · AI **답 알리기** · 방침의 유튜브 문구 | `docs/notes/store-review.md` · 결정 근거 `자료/store/README.md` 「구글 출시 심사 전 결정」 |
 | 앨범 이어 듣기·TTS | `docs/notes/album-audio.md` |
