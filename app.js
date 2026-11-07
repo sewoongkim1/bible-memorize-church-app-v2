@@ -938,12 +938,13 @@ const HA_ICON = {
   gear: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3.1 15H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 4.1V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.7 1.7 0 0 0 20.9 10H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z",
   pin: "M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11zM12 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4z",   // 🎓 교육 A — 어디서
   phone: "M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z",   // 🎓 교육 A — 문의
+  mail: "M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM3 7l9 6 9-6",   // 💌 말씀카드(「함께」 · 2026-11-07)
 };
 const HA_GROUPS = [
   { title: "말씀 묵상", ids: ["open-sermon-chat", "open-meditation"] },
   { title: "내 기록", ids: ["open-event-list", "open-album", "open-ranking"] },
   { title: "교회 생활", ids: ["open-ministry", "open-ministry-history", "open-edu", "open-duty"] },
-  { title: "함께", ids: ["open-board", "open-prayer", "open-pilsa"] },
+  { title: "함께", ids: ["open-board", "open-prayer", "open-cards", "open-pilsa"] },   // 💌 말씀카드는 가정 축복 기도문 바로 아래(2026-11-07 · 문 cardMoreVisible)
   // 📚 암송 과정 — 「함께」 바로 아래(친구 2026-10-29 · 10-13 에는 「함께」 위였다) · 외우는 것 넷을 이 차례로(쉴만한 물가·내 안에 거하는 말씀·퀴즈는 「함께」에서 옮김).
   //   단추마다 문이 따로라(psalmVisible · passagesVisible · naviVisible) 닫힌 단추는 줄째 빠진다 · 설명서의 자리 말(MANUAL)도 이 묶음을 가리킨다.
   { title: "암송 과정", ids: ["open-psalm", "open-passages", "open-navi", "open-quiz"] },
@@ -970,7 +971,7 @@ function haGroupsFor(raw) {
 const HA_ROW_ICON = {
   "open-sermon-chat": "message", "open-meditation": "leaf", "open-navi": "book", "open-event-list": "medal", "open-album": "album", "open-ranking": "trophy",
   "open-ministry": "users", "open-ministry-history": "folder", "open-edu": "cap", "open-duty": "calendar",
-  "open-card-suneung": "cap", "open-board": "heart", "open-prayer": "house", "open-psalm": "drop", "open-passages": "scroll", "open-pilsa": "pen", "open-quiz": "target",
+  "open-card-suneung": "cap", "open-board": "heart", "open-prayer": "house", "open-cards": "mail", "open-psalm": "drop", "open-passages": "scroll", "open-pilsa": "pen", "open-quiz": "target",
   "open-praise": "music", "open-sermon-archive": "tv", "open-youtube": "play",
 };
 const HA_TOOL_ICON = { "toggle-ref-first": "bookmark", "toggle-card-input": "keyboard", "open-help-summary": "help", "open-alarm": "bell", "open-settings": "gear" };
@@ -3852,6 +3853,8 @@ function renderSummary() {
     <button class="summary-help" id="open-board">💬 응원·기도·공감</button>
     ${/* 2026-09-25 순서 바꿈(친구 요청) — 가정 축복 기도문이 쉴만한 물가보다 위. */""}
     <button class="summary-help" id="open-prayer">🙏 가정 축복 기도문${newBadge("prayer")}</button>
+    ${/* 💌 말씀카드(2026-11-07 친구 「늘 쓰는 축하, 위로만 먼저」) — 문(cardMoreVisible · 🧪 시험 참여자 먼저) 안에만. 판은 js/pray-share.js openCardPick(맨 위에서 카드 고르기) */""}
+    ${cardMoreVisible() ? `<button class="summary-help" id="open-cards">💌 말씀카드</button>` : ""}
     ${psalmVisible() ? `<button class="summary-help" id="open-psalm">🐑 쉴만한 물가${newBadge("psalm")}</button>` : ""}
     ${/* ⚠️ 2026-09-23 첫 화면 단추를 뺀다(성도님 결정) — 「🎵 찬양 · 곡명 ↗」은
           **매일 묵상 창 맨 아래 줄**에만 둔다. 게이트(app_config.songPublic)는 켜진 채라
@@ -3906,6 +3909,12 @@ function renderSummary() {
   { const b = document.getElementById("open-card-suneung");   // 문 · 기간 밖에는 없다
     if (b) b.addEventListener("click", () => withLazyJs("prayShare", () => {
       if (typeof openCardShare === "function") openCardShare("suneung");
+      else appAlert(typeof openPrayShare === "function" ? "앱이 새 판으로 바뀌었어요. 앱을 껐다가 다시 열어 주세요." : "보내기 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
+    })); }
+  // 💌 말씀카드 — 판은 누를 때 받는다(js/pray-share.js) · 맨 위에서 카드를 고른다(openCardPick · 수험생 카드는 기간 안에만 맨 앞) · 두 번 눌러도 판은 하나
+  { const b = document.getElementById("open-cards");   // 문(cardMoreVisible) 밖에는 없다
+    if (b) b.addEventListener("click", () => withLazyJs("prayShare", () => {
+      if (typeof openCardPick === "function") openCardPick(cardSuneungOn());
       else appAlert(typeof openPrayShare === "function" ? "앱이 새 판으로 바뀌었어요. 앱을 껐다가 다시 열어 주세요." : "보내기 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
     })); }
   document.getElementById("open-prayer").addEventListener("click", () => openPrayerBook());   // 화면 코드는 누를 때 받는다(js/prayer.js)
@@ -4167,6 +4176,11 @@ const CARD_SHARE_OPEN = true;   // 2026-11-07 모두에게 열었다(친구 「�
 function cardShareVisible() { return CARD_SHARE_OPEN || (typeof ministryTesterCached === "function" && ministryTesterCached()); }
 const CARD_SUNEUNG_UNTIL = "2026-12-11";
 function cardSuneungOn() { return cardShareVisible() && todayYmd() <= CARD_SUNEUNG_UNTIL; }
+// 💌 말씀카드(2026-11-07 친구 「늘 쓰는 축하, 위로만 먼저」 — 생일 · 결혼기념일 · 새 출발 · 위로 · 병문안 · 날짜를 타지 않는다) — 첫 화면 「함께」 한 줄(가정 축복 기도문 아래) ·
+//   판 맨 위에서 카드를 고른다(js/pray-share.js openCardPick · 🎓 수험생 카드는 cardSuneungOn() 일 때만 맨 앞) · 설명서 「가정 축복 기도문」 장에 한 걸음.
+//   ⚠️ 이름은 옛 파일에 없던 것(CDN 옛 파일과 「이미 선언됨」 — prayer-book.md) · 모두에게 열 때는 true 한 줄 + bump(게시판 공지 = 문 열기).
+const CARD_MORE_OPEN = false;   // 2026-11-07 🧪 시험 참여자 먼저
+function cardMoreVisible() { return CARD_MORE_OPEN || (typeof ministryTesterCached === "function" && ministryTesterCached()); }
 // 첫 화면 아이콘 = 카카오톡 말풍선(친구 2026-11-05 「첫화면 아이콘을 카카오톡 아이콘으로」 — 판의 노란 「카카오톡으로 보내기」와 같은 꼴 · 노란 동그라미는 style.css)
 const KAKAO_TALK_IC = '<svg class="wsi-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 3.5c-5.25 0-9.5 3.33-9.5 7.44 0 2.66 1.78 4.99 4.46 6.31-.15.52-.94 3.27-.97 3.49 0 0-.02.16.09.22.1.06.23.01.23.01.3-.04 3.5-2.29 4.05-2.68.53.08 1.08.12 1.64.12 5.25 0 9.5-3.33 9.5-7.44S17.25 3.5 12 3.5z"/></svg>';
 // 「🙏 오늘의 기도」 전용 팝업 — 위젯과 같은 편(제목·말씀·기도문). 이름 자리는 **로그인 이름**으로 채운다
@@ -10687,7 +10701,8 @@ const MANUAL = [
     icon: "🙏", title: "가정 축복 기도문",
     lead: "날마다 한 편, 내 이름이 들어간 기도문이에요.",
     art: '<div class="mn-row"><span class="mn-btn mn-btn-on">🔊 들려주기</span><span class="mn-btn">🙍 이름</span></div>',
-    steps: [
+    get steps() {   // 문 · 기간은 설명서를 펼 때 본다(🎓 cardSuneungOn · 💌 cardMoreVisible — 앱을 켠 뒤 🧪 시험 참여자가 되거나 12/11 이 지나도 맞게)
+      return [
       "첫 화면 <b>「함께」</b>에서 <b>🙏 가정 축복 기도문</b>을 누르세요.",
       "<b>오늘의 기도문</b> 한 편이 <b>내 이름</b>을 넣어 나와요.",
       "<b>🔊 들려주기</b>를 누르면 소리 내어 읽어 드려요.",
@@ -10695,8 +10710,11 @@ const MANUAL = [
       "기도문 아래 금색 <b>카톡·문자로 보내기</b>를 누르면, 이름을 넣은 기도문을 <b>그림 한 장</b>으로 카카오톡이나 문자로 보낼 수 있어요.",
       // 🎓 수험생 응원기도카드가 보이는 동안만(12/11 까지 · cardSuneungOn — 지난 메뉴를 가리키지 않게)
       ...(cardSuneungOn() ? ["수능을 앞둔 학생에게는 첫 화면 <b>「새 소식」</b> 맨 위 <b>🎓 수험생 응원기도카드</b>로, 이름을 넣은 응원 기도를 <b>그림 한 장</b>으로 보낼 수 있어요(12월 11일까지)."] : []),
+      // 💌 말씀카드가 보이는 동안만(cardMoreVisible — 🧪 시험 참여자 먼저 · 모두에게 열면 그대로)
+      ...(cardMoreVisible() ? ["첫 화면 <b>「함께」</b>의 <b>💌 말씀카드</b>에서 생일 · 결혼기념일 · 새 출발 · 위로 · 병문안 카드를 이름을 넣어 <b>그림 한 장</b>으로 보낼 수 있어요."] : []),
       "아래 <b>주제로 찾기</b>에서 다른 기도문도 고를 수 있어요.",
-    ],
+      ];
+    },
     tip: "<b>연속듣기</b>를 켜면 다음 기도문으로 이어서, <b>🎵배경음악</b>을 켜면 잔잔한 음악과 함께 들려 드려요.",
   },
   {

@@ -8497,3 +8497,15 @@ html[data-fs="xl"] .psh-card-vinfo { font-size: 1.2rem; }
 .dark .psh-card-sent { color: #8fd6a6; }
 html[data-fs="lg"] .psh-card-sent { font-size: .88rem; }
 html[data-fs="xl"] .psh-card-sent { font-size: .98rem; }
+/* 💌 카드 고르기(2026-11-07 · 말씀카드 판 맨 위 · js/pray-share.js pshCardMenuHtml) — 아이콘 + 짧은 이름 알약 · 고른 칸은 남색(말씀 단추와 같은 꼴) ·
+   큰 글씨에서는 줄을 바꿔 감싼다(글자가 잘리지 않게). 글자색은 .dark 짝 */
+.psh-card-kinds { display: flex; flex-wrap: wrap; gap: 6px; }
+.psh-card-kind {
+  display: inline-flex; align-items: center; gap: 5px; min-height: 42px; padding: 6px 13px; border: 1.5px solid #d9d1c2; border-radius: 999px;
+  background: #fff; color: #1b2333; font-size: .95rem; font-weight: 800; white-space: nowrap;
+}
+.psh-card-kind[aria-checked="true"] { border-color: #1e3a6b; background: #1e3a6b; color: #fff; box-shadow: 0 1px 4px rgba(13, 27, 62, .25); }
+.dark .psh-card-kind { background: #11161f; border-color: #3a4252; color: #f1eee7; }
+.dark .psh-card-kind[aria-checked="true"] { background: #3b5a94; border-color: #9dbbea; color: #fff; }
+html[data-fs="lg"] .psh-card-kind { font-size: 1.05rem; }
+html[data-fs="xl"] .psh-card-kind { font-size: 1.15rem; }

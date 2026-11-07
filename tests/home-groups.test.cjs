@@ -52,7 +52,7 @@ test('A안 묶음표 — 템플릿의 묶음 단추가 모두 정확히 한 번�
 test('A안 묶음 차례 — 「암송 과정」은 「함께」 바로 아래(친구 2026-10-29) · 쉴만한 물가 · 내 안에 거하는 말씀 · 네비게이토 · 퀴즈(친구 2026-10-13)', () => {
   assert.deepEqual(groups.map((g) => g.title), ['말씀 묵상', '내 기록', '교회 생활', '함께', '암송 과정', '교회 사이트']);
   assert.deepEqual(groups.find((g) => g.title === '암송 과정').ids, ['open-psalm', 'open-passages', 'open-navi', 'open-quiz']);
-  assert.deepEqual(groups.find((g) => g.title === '함께').ids, ['open-board', 'open-prayer', 'open-pilsa']);
+  assert.deepEqual(groups.find((g) => g.title === '함께').ids, ['open-board', 'open-prayer', 'open-cards', 'open-pilsa']);   // 💌 말씀카드는 가정 축복 기도문 바로 아래(2026-11-07)
   // 교회 사이트 — 찬양 · 말씀 아카이브 아래 고척교회 유튜브(친구 2026-10-13)
   assert.deepEqual(groups.find((g) => g.title === '교회 사이트').ids, ['open-praise', 'open-sermon-archive', 'open-youtube']);
   assert.ok(APP.includes('window.open("https://www.youtube.com/@GocheokCh", "_blank", "noopener")'), '고척교회 유튜브 주소');
@@ -76,7 +76,7 @@ test('💬 응원·기도·공감 한 주간 맨 위(친구 2026-11-06) — 11/1
   for (const at of ['2026-11-06T02:00:00+09:00', '2026-11-12T23:59:00+09:00']) {
     const gs = plain(ctx.haGroupsFor(at));
     assert.deepEqual(gs[0], { title: '새 소식', ids: ['open-card-suneung', 'open-board'] }, at + ' — 맨 위 「새 소식」이 🎓 카드 · 💬 게시판이 아니다');
-    assert.deepEqual(gs.find((g) => g.title === '함께').ids, ['open-prayer', 'open-pilsa'], at + ' — 「함께」에 게시판이 남았다(두 번)');
+    assert.deepEqual(gs.find((g) => g.title === '함께').ids, ['open-prayer', 'open-cards', 'open-pilsa'], at + ' — 「함께」에 게시판이 남았다(두 번)');
     assert.deepEqual(ids(gs), ids(plain(ctx.HA_GROUPS)).concat(newsIds).sort(), at + ' — 단추가 빠지거나 늘었다');
   }
   // 11/13 0시(KST · UTC 로는 11/12 15시) — 원래 묶음표 그대로
@@ -112,4 +112,22 @@ test('🎓 수험생 응원기도카드(친구 2026-11-07) — 「새 소식」 
   for (const nm of ['CARD_SHARE_OPEN', 'cardShareVisible', 'CARD_SUNEUNG_UNTIL', 'cardSuneungOn', 'HA_NEWS']) {
     assert.ok(!new RegExp('(const|let|var|function) ' + nm + '\\b').test(others), nm + ' 를 다른 화면 파일이 선언한다');
   }
+});
+
+test('💌 말씀카드(친구 2026-11-07 「늘 쓰는 축하, 위로만 먼저」) — 「함께」 가정 축복 기도문 바로 아래 · 문(🧪 시험 참여자 먼저) 안에만 · 옛 첫 화면에도 · 지연 모듈 · 옛 pray-share.js 면 껐다 켜기 · 설명서 한 걸음', () => {
+  assert.match(APP, /const CARD_MORE_OPEN = false;/, '🧪 시험 참여자 먼저(모두에게는 true 한 줄 + bump)');
+  assert.match(APP, /function cardMoreVisible\(\) \{ return CARD_MORE_OPEN \|\| \(typeof ministryTesterCached === "function" && ministryTesterCached\(\)\); \}/);
+  assert.match(RS, /<button class="summary-help" id="open-prayer">[^\n]*\n[^\n]*\n\s*\$\{cardMoreVisible\(\) \? `<button class="summary-help" id="open-cards">💌 말씀카드<\/button>` : ""\}/, '옛 첫 화면 — 「함께」 가정 축복 기도문 바로 아래 · 문 안에만 그린다');
+  const together = groups.find((g) => g.title === '함께').ids;
+  assert.equal(together.indexOf('open-cards'), together.indexOf('open-prayer') + 1, 'A안 — 「함께」 가정 축복 기도문 바로 아래');
+  assert.match(APP, /"open-cards": "mail"/); assert.match(APP, /\n  mail: "M[^"]+",/, '편지 아이콘');
+  assert.match(APP, /const b = document\.getElementById\("open-cards"\);[^\n]*\n\s*if \(b\) b\.addEventListener\("click", \(\) => withLazyJs\("prayShare", \(\) => \{\n\s*if \(typeof openCardPick === "function"\) openCardPick\(cardSuneungOn\(\)\);\n\s*else appAlert\(typeof openPrayShare === "function" \? "앱이 새 판으로 바뀌었어요\. 앱을 껐다가 다시 열어 주세요\." : /,
+    '단추 — js/pray-share.js 를 받아 openCardPick(수험생은 기간 안에만 맨 앞) · 옛 파일이면 껐다 켜기 안내');
+  const a = APP.indexOf('icon: "🙏", title: "가정 축복 기도문"'), man = APP.slice(a, APP.indexOf('tip:', a));
+  assert.ok(a > 0 && /get steps\(\) \{/.test(man), '설명서 — 문 · 기간은 펼 때 본다(getter)');
+  assert.ok(man.includes('...(cardMoreVisible() ? ["첫 화면 <b>「함께」</b>의 <b>💌 말씀카드</b>에서 생일 · 결혼기념일 · 새 출발 · 위로 · 병문안 카드를 이름을 넣어 <b>그림 한 장</b>으로 보낼 수 있어요."] : []),'), '설명서 「가정 축복 기도문」 장 — 💌 걸음(문 안에만)');
+  assert.ok(man.indexOf('cardMoreVisible()') > man.indexOf('cardSuneungOn()'), '수험생 걸음 곁(아래)');
+  const others = ['js/pray-share.js', 'js/prayer.js'].map((f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')).join('\n');
+  for (const nm of ['CARD_MORE_OPEN', 'cardMoreVisible']) assert.ok(!new RegExp('(const|let|var|function) ' + nm + '\\b').test(others), nm + ' 를 다른 화면 파일이 선언한다');
+  for (const nm of ['openCardPick', 'CARD_MENU', 'pshCardSwap', 'pshCardUse', 'cardTitle', 'cardSetKey', 'pshThumbHtml', 'pshThumbsWire']) assert.ok(!new RegExp('(const|let|var|function) ' + nm + '\\b').test(APP), nm + ' 를 app.js 가 선언한다(판 파일과 「이미 선언됨」)');
 });

@@ -367,11 +367,15 @@ function verseSharePlan(v, styleKey, measure) {
 //   groups: [{ key, label }], photos: [{ id, label, focus }], entries: [{ no, group, title, en, prayer, quote, verse, ref, closing }] }.
 //   사진은 img/share/<id>.webp(1080×1350) + <id>-t.webp(128×160) · focus = 그림 밖 띠에 보일 세로 자리(0 위 ~ 1 아래 · 띠 가운데에 온다).
 //   수능 묶음(열 편): A 1·2 · B 3·4 · C 5·6·7 · D 8·9·10 — 지금은 임시 두 편(초안 1 · 3)과 임시 그림 셋(수능 그림이 아직 없다).
-// ⟪card-data⟫ 기념일 말씀카드 자료 — 수능(2026-11-07 · 친구 「수험생에게 힘과 용기를 주는 성경 말씀 10선」 · 차례 · 묶음 그대로)
-//   말씀(verse · quote)은 개역개정 원문과 대조했다(bible/*.txt — 저장소 밖) · 고칠 때는 이 덩이를 통째로 다시 만든다(임시 도구 make_card_data.py)
+// ⟪card-data⟫ 기념일 말씀카드 자료 — 수험생(2026-11-07 · 친구 「말씀 10선」) + 늘 쓰는 다섯(생일 · 결혼기념일 · 새 출발 · 위로 · 병문안 · 친구 11/07 「늘 쓰는 축하, 위로만 먼저」)
+//   말씀(verse · quote)은 개역개정 원문과 대조했다(bible/*.txt — 저장소 밖) · 원고는 자료/card/ · 고칠 때는 이 덩이를 통째로 다시 만든다(build_cards.py)
+//   kind = 이용 기록 종류 코드(서버 SHARE_KINDS 와 같게 — 10 수험생 · 11 생일 · 12 결혼기념일 · 13 새 출발 · 14 위로 · 15 병문안 · 1~9 는 다른 보내기)
 const CARD_SETS = {
   "suneung": {
     "label": "수험생 응원기도카드",
+    "icon": "🎓",
+    "kind": 10,
+    "nameLabel": "받는 학생 이름",
     "amen": "예수님의 이름으로 축복하며 기도합니다. 아멘!",
     "defaultName": "우리 수험생",
     "nameHint": "이름이나 부르는 말(예: 지훈 · 우리 지훈이 · 사랑하는 손녀 — 「지훈아」 말고) · 비우면 「우리 수험생」",
@@ -591,6 +595,446 @@ const CARD_SETS = {
         "photo": "card-suneung-5"
       }
     ]
+  },
+  "birthday": {
+    "label": "생일 축복기도카드",
+    "icon": "🎂",
+    "kind": 11,
+    "nameLabel": "받는 분 이름",
+    "amen": "예수님의 이름으로 생일을 축복하며 기도합니다. 아멘!",
+    "defaultName": "생일을 맞은 분",
+    "nameHint": "이름이나 부르는 말(예: 지훈 · 사랑하는 아내 · 김영희 권사님 · 우리 하은이 — 「지훈아」 말고) · 비우면 「생일을 맞은 분」",
+    "photos": [
+      {
+        "id": "bg-dawn",
+        "label": "새벽",
+        "focus": 0.5
+      },
+      {
+        "id": "bg-lake",
+        "label": "호수",
+        "focus": 0.5
+      },
+      {
+        "id": "bg-blossom",
+        "label": "꽃길",
+        "focus": 0.5
+      }
+    ],
+    "entries": [
+      {
+        "no": 1,
+        "title": "참 귀하게 지으셨어요",
+        "en": "Fearfully and Wonderfully Made!",
+        "prayer": "하나님, {이름}{을} 모태에서 지으시고 심히 기묘하게 만드셨사오니 {이름}{이} 날마다 주께 감사하게 하옵소서. {이름}의 영혼이 주께서 하시는 일이 기이함을 더욱 잘 알게 하옵소서.",
+        "cheer": "생일 정말 축하해요. 하나님께서 모태에서부터 정성껏 지으신, 참 귀하고 놀라운 존재예요. 이 생명을 주신 하나님께 함께 감사드리며, 새로 맞는 한 해도 날마다 기쁘길 기도해요.",
+        "quote": "내가 주께 감사하옴은 나를 지으심이 심히 기묘하심이라 주께서 하시는 일이 기이함을 내 영혼이 잘 아나이다",
+        "verse": "주께서 내 내장을 지으시며 나의 모태에서 나를 만드셨나이다 내가 주께 감사하옴은 나를 지으심이 심히 기묘하심이라 주께서 하시는 일이 기이함을 내 영혼이 잘 아나이다",
+        "ref": "시편 139:13-14",
+        "closing": "태어난 날을 함께 감사해요!",
+        "photo": "bg-dawn"
+      },
+      {
+        "no": 2,
+        "title": "하나님의 큰 기쁨이에요",
+        "en": "He Rejoices over You with Singing!",
+        "prayer": "하나님, {이름}{으로} 말미암아 구원의 전능자이신 주께서 기쁨을 이기지 못하시며 잠잠히 사랑하시오니 {이름}{이} 그 사랑을 날마다 알게 하옵소서. {이름}의 마음에 즐거이 부르며 기뻐하시는 주님의 노래가 새 한 해 내내 울리게 하옵소서.",
+        "cheer": "생일 정말 축하해요. 하나님께서 오늘도 잠잠히 사랑하시며, 기쁨을 이기지 못해 노래하며 기뻐하신다고 말씀하셨어요. 그 큰 사랑을 마음껏 누리는 새 한 해가 되길 기도해요.",
+        "quote": "그가 너로 말미암아 기쁨을 이기지 못하시며 너를 잠잠히 사랑하시며 너로 말미암아 즐거이 부르며 기뻐하시리라",
+        "verse": "너의 하나님 여호와가 너의 가운데에 계시니 그는 구원을 베푸실 전능자이시라 그가 너로 말미암아 기쁨을 이기지 못하시며 너를 잠잠히 사랑하시며 너로 말미암아 즐거이 부르며 기뻐하시리라 하리라",
+        "ref": "스바냐 3:17",
+        "closing": "하나님이 노래하며 기뻐하세요!",
+        "photo": "bg-lake"
+      },
+      {
+        "no": 3,
+        "title": "새 한 해도 주님 손안에",
+        "en": "My Times Are in Your Hands",
+        "prayer": "하나님, {이름}의 앞날이 주의 손에 있사오니 새로 맞는 한 해의 모든 날을 주께서 지키시고 인도하여 주옵소서. {이름}{이} 그 손을 믿고 어려운 날에도 평안히 걸어가게 하옵소서.",
+        "cheer": "생일 축하해요. 지나온 날들처럼 새로 맞는 한 해의 모든 날도 하나님의 손안에 있어요. 걱정은 그 든든한 손에 맡기고, 하루하루 평안하고 기쁘게 걸어가길 기도해요.",
+        "quote": "나의 앞날이 주의 손에 있사오니",
+        "verse": "나의 앞날이 주의 손에 있사오니 내 원수들과 나를 핍박하는 자들의 손에서 나를 건져 주소서",
+        "ref": "시편 31:15",
+        "closing": "모든 날이 주님 손안에 있어요!",
+        "photo": "bg-blossom"
+      },
+      {
+        "no": 4,
+        "title": "평생 품어 주실 거예요",
+        "en": "I Made You and I Will Carry You!",
+        "prayer": "하나님, {이름}{이} 태어날 때부터 안아 주시고 업어 주셨사오니 {이름}{을} 노년에 이르기까지, 백발이 되기까지 품어 주옵소서. {이름}{을} 지으신 주께서 끝까지 업으시고 품으시며 건져 주옵소서.",
+        "cheer": "생일 축하해요. 하나님께서는 태어나던 날부터 안아 주셨고, 머리가 하얗게 센 뒤에도 품고 업어 주시겠다고 말씀하셨어요. 지나온 날들처럼 앞으로의 날들도 그 품 안에서 평안하길 기도해요.",
+        "quote": "백발이 되기까지 내가 너희를 품을 것이라 내가 지었은즉 내가 업을 것이요 내가 품고 구하여 내리라",
+        "verse": "야곱의 집이여 이스라엘 집에 남은 모든 자여 내게 들을지어다 배에서 태어남으로부터 내게 안겼고 태에서 남으로부터 내게 업힌 너희여 너희가 노년에 이르기까지 내가 그리하겠고 백발이 되기까지 내가 너희를 품을 것이라 내가 지었은즉 내가 업을 것이요 내가 품고 구하여 내리라",
+        "ref": "이사야 46:3-4",
+        "closing": "백발이 되기까지 품으시는 하나님!",
+        "photo": "bg-dawn"
+      },
+      {
+        "no": 5,
+        "title": "아침마다 기쁨이 가득하길",
+        "en": "Be Glad All Your Days!",
+        "prayer": "하나님, {이름}{을} 아침마다 주의 인자하심으로 만족하게 하사 {이름}{이} 일생 동안 즐거워하며 기뻐하게 하옵소서. 새로 맞는 한 해의 하루하루도 주의 사랑으로 채워 주옵소서.",
+        "cheer": "생일 축하해요. 새로 시작하는 한 해의 아침마다 하나님의 인자하심이 마음을 가득 채워 주시길 바라요. 그 사랑 안에서 웃을 일이 많고, 즐겁고 기쁜 날들이 오래오래 이어지길 기도해요.",
+        "quote": "아침에 주의 인자하심이 우리를 만족하게 하사 우리를 일생 동안 즐겁고 기쁘게 하소서",
+        "verse": "아침에 주의 인자하심이 우리를 만족하게 하사 우리를 일생 동안 즐겁고 기쁘게 하소서",
+        "ref": "시편 90:14",
+        "closing": "날마다 주님 안에서 기뻐해요!",
+        "photo": "bg-lake"
+      }
+    ]
+  },
+  "wedding": {
+    "label": "결혼기념일 축복기도카드",
+    "icon": "💍",
+    "kind": 12,
+    "nameLabel": "받는 부부",
+    "amen": "예수님의 이름으로 이 가정을 축복하며 기도합니다. 아멘!",
+    "defaultName": "두 분",
+    "nameHint": "부부를 함께 부르는 말(예: 우리 부부 · 철수 영희 · 부모님 · 이영희 집사님 부부 · 사랑하는 아들 내외) · 한 분 이름만 넣으면 기도문이 어색해요(배우자에게는 「우리 부부」) · 비우면 「두 분」",
+    "photos": [
+      {
+        "id": "bg-dawn",
+        "label": "새벽",
+        "focus": 0.5
+      },
+      {
+        "id": "bg-lake",
+        "label": "호수",
+        "focus": 0.5
+      },
+      {
+        "id": "bg-blossom",
+        "label": "꽃길",
+        "focus": 0.5
+      }
+    ],
+    "entries": [
+      {
+        "no": 1,
+        "title": "하나님이 맺어 주신 짝이에요",
+        "en": "What God Has Joined Together",
+        "prayer": "하나님, {이름}{을} 짝지어 주시어 이제 둘이 아니요 한 몸 되게 하셨사오니 {이름}{이} 날마다 그 은혜에 감사하게 하옵소서. {이름}의 가정을 지켜 주시어 주께서 맺어 주신 이 사랑을 누구도 나누지 못하게 하옵소서.",
+        "cheer": "결혼기념일을 축하해요. 하나님께서 짝지어 주셔서 둘이 아니라 한 몸이 되어 걸어온 모든 날이 은혜였어요. 앞으로도 처음 마음 그대로 서로 아끼며, 주님 안에서 함께 걸어가길 기도해요.",
+        "quote": "그런즉 이제 둘이 아니요 한 몸이니 그러므로 하나님이 짝지어 주신 것을 사람이 나누지 못할지니라",
+        "verse": "그런즉 이제 둘이 아니요 한 몸이니 그러므로 하나님이 짝지어 주신 것을 사람이 나누지 못할지니라 하시니",
+        "ref": "마태복음 19:6",
+        "closing": "둘이 아니요 한 몸이에요!",
+        "photo": "bg-dawn"
+      },
+      {
+        "no": 2,
+        "title": "세 겹 줄처럼 단단하게",
+        "en": "A Cord of Three Strands!",
+        "prayer": "하나님, {이름}{이} 넘어질 때마다 서로 붙들어 일으키고, 서로 기대어 따뜻하며, 어려움 앞에서는 함께 맞서게 하옵소서. {이름}의 사랑이 주님 안에서 세 겹 줄처럼 쉽게 끊어지지 않게 하옵소서.",
+        "cheer": "결혼기념일을 축하해요. 넘어질 때는 붙들어 일으켜 주고 추운 날엔 서로 기대어 따뜻하게, 여기까지 함께 걸어왔어요. 앞으로도 주님 안에서 세 겹 줄처럼 쉽게 끊어지지 않는 가정이 되길 기도해요.",
+        "quote": "두 사람이면 맞설 수 있나니 세 겹 줄은 쉽게 끊어지지 아니하느니라",
+        "verse": "두 사람이 한 사람보다 나음은 그들이 수고함으로 좋은 상을 얻을 것임이라 혹시 그들이 넘어지면 하나가 그 동무를 붙들어 일으키려니와 홀로 있어 넘어지고 붙들어 일으킬 자가 없는 자에게는 화가 있으리라 또 두 사람이 함께 누우면 따뜻하거니와 한 사람이면 어찌 따뜻하랴 한 사람이면 패하겠거니와 두 사람이면 맞설 수 있나니 세 겹 줄은 쉽게 끊어지지 아니하느니라",
+        "ref": "전도서 4:9-12",
+        "closing": "넘어져도 서로 일으키는 사랑!",
+        "photo": "bg-lake"
+      },
+      {
+        "no": 3,
+        "title": "오래 참는 사랑이 아름다워요",
+        "en": "Love Is Patient, Love Is Kind",
+        "prayer": "하나님, {이름}{이} 서로 오래 참고 온유하며, 자기의 유익보다 서로의 유익을 먼저 구하게 하옵소서. {이름}의 사랑이 모든 것을 참으며 믿으며 바라며 견디는 사랑으로 해마다 깊어지게 하옵소서.",
+        "cheer": "결혼기념일을 축하해요. 서로의 부족함을 오래 참아 주고 온유하게 감싸 주며 지켜 온 사랑이 참 아름다워요. 모든 것을 참고 믿고 바라고 견디는 그 사랑이 해마다 더 깊어지길 기도해요.",
+        "quote": "사랑은 오래 참고 사랑은 온유하며 시기하지 아니하며 사랑은 자랑하지 아니하며 교만하지 아니하며",
+        "verse": "사랑은 오래 참고 사랑은 온유하며 시기하지 아니하며 사랑은 자랑하지 아니하며 교만하지 아니하며 무례히 행하지 아니하며 자기의 유익을 구하지 아니하며 성내지 아니하며 악한 것을 생각하지 아니하며 불의를 기뻐하지 아니하며 진리와 함께 기뻐하고 모든 것을 참으며 모든 것을 믿으며 모든 것을 바라며 모든 것을 견디느니라",
+        "ref": "고린도전서 13:4-7",
+        "closing": "해마다 더 깊어지는 사랑!",
+        "photo": "bg-blossom"
+      },
+      {
+        "no": 4,
+        "title": "많은 물도 못 끄는 사랑이에요",
+        "en": "Many Waters Cannot Quench Love",
+        "prayer": "하나님, {이름}의 사랑을 많은 물도 끄지 못하고 홍수라도 삼키지 못하게 지켜 주옵소서. {이름}{이} 온 가산과도 바꿀 수 없는 이 사랑을 서로 귀히 여기며, 함께할 앞날에도 변함없이 사랑하게 하옵소서.",
+        "cheer": "결혼기념일을 축하해요. 많은 물도 끄지 못하고 홍수도 삼키지 못하는 사랑, 세상 무엇과도 바꿀 수 없는 그 사랑이 참 귀해요. 하나님께서 앞으로도 그 사랑을 지켜 주시길 기도해요.",
+        "quote": "많은 물도 이 사랑을 끄지 못하겠고 홍수라도 삼키지 못하나니",
+        "verse": "많은 물도 이 사랑을 끄지 못하겠고 홍수라도 삼키지 못하나니 사람이 그의 온 가산을 다 주고 사랑과 바꾸려 할지라도 오히려 멸시를 받으리라",
+        "ref": "아가 8:7",
+        "closing": "무엇과도 바꿀 수 없는 사랑!",
+        "photo": "bg-dawn"
+      },
+      {
+        "no": 5,
+        "title": "주님을 섬기는 가정이 되길",
+        "en": "We Will Serve the Lord!",
+        "prayer": "하나님, {이름}{이} 오늘 다시 주님을 택하여 주님만 섬기게 하옵소서. {이름}의 가정에 오직 나와 내 집은 여호와를 섬기겠노라 하는 고백이 평생 흔들리지 않게 하옵소서.",
+        "cheer": "결혼기념일을 축하해요. 주님 안에서 한 가정을 이루어 함께 걸어온 시간이 참 귀해요. 앞으로도 날마다 주님을 택하고, 오직 주님을 섬기는 믿음의 가정으로 든든히 서 가길 기도해요.",
+        "quote": "오직 나와 내 집은 여호와를 섬기겠노라",
+        "verse": "만일 여호와를 섬기는 것이 너희에게 좋지 않게 보이거든 너희 조상들이 강 저쪽에서 섬기던 신들이든지 또는 너희가 거주하는 땅에 있는 아모리 족속의 신들이든지 너희가 섬길 자를 오늘 택하라 오직 나와 내 집은 여호와를 섬기겠노라 하니",
+        "ref": "여호수아 24:15",
+        "closing": "날마다 주님을 택하는 가정!",
+        "photo": "bg-lake"
+      }
+    ]
+  },
+  "newstart": {
+    "label": "새 출발 축복기도카드",
+    "icon": "🌱",
+    "kind": 13,
+    "nameLabel": "받는 분 이름",
+    "amen": "예수님의 이름으로 새 출발을 축복하며 기도합니다. 아멘!",
+    "defaultName": "우리 새내기",
+    "nameHint": "이름이나 부르는 말(예: 지훈 · 우리 하은이 · 사랑하는 아들 · 박민수 형제 — 「지훈아」 말고) · 비우면 「우리 새내기」",
+    "photos": [
+      {
+        "id": "bg-dawn",
+        "label": "새벽",
+        "focus": 0.5
+      },
+      {
+        "id": "bg-lake",
+        "label": "호수",
+        "focus": 0.5
+      },
+      {
+        "id": "bg-blossom",
+        "label": "꽃길",
+        "focus": 0.5
+      }
+    ],
+    "entries": [
+      {
+        "no": 1,
+        "title": "처음 가는 길도 주님과 함께",
+        "en": "The Lord Goes Before You!",
+        "prayer": "하나님, {이름}{이} 새 자리로 나아갈 때 주께서 앞서 가시며 함께하여 주옵소서. {이름}{을} 떠나지 아니하시고 버리지 아니하시는 주님을 의지하여 두려워하거나 놀라지 않게 하옵소서.",
+        "cheer": "새 출발을 진심으로 축하해요. 처음 가는 길이라 설레면서도 조금 떨리겠지만, 하나님께서 앞서 가시며 곁에서 함께하신다고 하셨어요. 낯선 자리에서도 주님을 의지하며 한 걸음씩 힘차게 나아가길 기도해요.",
+        "quote": "여호와 그가 네 앞에서 가시며 너와 함께 하사 너를 떠나지 아니하시며 버리지 아니하시리니",
+        "verse": "그리하면 여호와 그가 네 앞에서 가시며 너와 함께 하사 너를 떠나지 아니하시며 버리지 아니하시리니 너는 두려워하지 말라 놀라지 말라",
+        "ref": "신명기 31:8",
+        "closing": "주님이 먼저 가 계세요!",
+        "photo": "bg-dawn"
+      },
+      {
+        "no": 2,
+        "title": "마음을 다해 주님을 신뢰해요",
+        "en": "Trust in the Lord with All Your Heart!",
+        "prayer": "하나님, {이름}{이} 마음을 다하여 주님을 신뢰하고 자기 명철을 의지하지 않게 하옵소서. {이름}{이} 범사에 주님을 인정하게 하시고, 새로 걷는 그 길을 지도하여 주옵소서.",
+        "cheer": "새 출발을 축하해요. 앞으로 크고 작은 선택이 많겠지만, 자기 생각만 의지하기보다 마음을 다해 하나님께 묻고 맡겨 보아요. 범사에 주님을 인정하는 사람의 길을 하나님께서 지도해 주신다고 하셨어요.",
+        "quote": "너는 마음을 다하여 여호와를 신뢰하고 네 명철을 의지하지 말라 너는 범사에 그를 인정하라 그리하면 네 길을 지도하시리라",
+        "verse": "너는 마음을 다하여 여호와를 신뢰하고 네 명철을 의지하지 말라 너는 범사에 그를 인정하라 그리하면 네 길을 지도하시리라",
+        "ref": "잠언 3:5-6",
+        "closing": "주님께 묻고 맡기며 가요!",
+        "photo": "bg-lake"
+      },
+      {
+        "no": 3,
+        "title": "넘어져도 붙드실 거예요",
+        "en": "Though You Stumble, He Holds Your Hand",
+        "prayer": "하나님, {이름}의 걸음을 주께서 정하시고 그 길을 기뻐하여 주옵소서. {이름}{이} 새 자리에서 넘어질 때에도 아주 엎드러지지 않게 주의 손으로 붙들어 주옵소서.",
+        "cheer": "새 출발을 축하해요. 처음엔 서툴고 넘어지는 날도 있겠지만, 하나님께서 걸음을 정하시고 그 손으로 붙들어 주신다고 하셨어요. 실수해도 괜찮으니, 다시 일어나 한 걸음씩 기쁘게 걸어가길 기도해요.",
+        "quote": "여호와께서 사람의 걸음을 정하시고 그의 길을 기뻐하시나니 그는 넘어지나 아주 엎드러지지 아니함은 여호와께서 그의 손으로 붙드심이로다",
+        "verse": "여호와께서 사람의 걸음을 정하시고 그의 길을 기뻐하시나니 그는 넘어지나 아주 엎드러지지 아니함은 여호와께서 그의 손으로 붙드심이로다",
+        "ref": "시편 37:23-24",
+        "closing": "그 손으로 붙드시는 하나님!",
+        "photo": "bg-blossom"
+      },
+      {
+        "no": 4,
+        "title": "무슨 일이든 주께 하듯 해요",
+        "en": "Whatever You Do, Do It for the Lord",
+        "prayer": "하나님, {이름}{이} 어디서 무슨 일을 하든지 마음을 다하여 주께 하듯 하게 하옵소서. {이름}{이} 사람의 눈보다 주님을 바라보며, 배움과 일로 주님을 섬기는 기쁨을 누리게 하옵소서.",
+        "cheer": "새 출발을 축하해요. 새 자리에서 배우는 일도 맡은 일도, 사람의 눈치보다 주님께 하듯 마음을 다하면 그걸로 충분해요. 작은 일 하나에도 정성을 담는 그 마음이 곧 주님을 섬기는 일이에요.",
+        "quote": "무슨 일을 하든지 마음을 다하여 주께 하듯 하고 사람에게 하듯 하지 말라",
+        "verse": "무슨 일을 하든지 마음을 다하여 주께 하듯 하고 사람에게 하듯 하지 말라",
+        "ref": "골로새서 3:23",
+        "closing": "작은 일로도 주님을 섬겨요!",
+        "photo": "bg-dawn"
+      },
+      {
+        "no": 5,
+        "title": "선한 일을 이루실 거예요",
+        "en": "He Who Began a Good Work in You",
+        "prayer": "하나님, {이름}{이} 지나온 날을 돌아보며 자기 안에 착한 일을 시작하신 주께서 그리스도 예수의 날까지 이루실 줄을 확신하게 하옵소서. {이름}의 믿음이 새 자리에서도 날마다 자라게 하옵소서.",
+        "cheer": "새 출발을 축하해요. 지금까지 이끌어 오신 하나님께서 시작하신 선한 일을 끝까지 이루어 가실 거예요. 조급해하지 말고, 새로운 자리에서도 주님 안에서 하루하루 자라 가는 기쁨을 누리길 기도해요.",
+        "quote": "너희 안에서 착한 일을 시작하신 이가 그리스도 예수의 날까지 이루실 줄을 우리는 확신하노라",
+        "verse": "너희 안에서 착한 일을 시작하신 이가 그리스도 예수의 날까지 이루실 줄을 우리는 확신하노라",
+        "ref": "빌립보서 1:6",
+        "closing": "날마다 주님 안에서 자라 가요!",
+        "photo": "bg-lake"
+      }
+    ]
+  },
+  "comfort": {
+    "label": "위로 기도카드",
+    "icon": "🕊️",
+    "kind": 14,
+    "nameLabel": "받는 분 이름",
+    "amen": "예수님의 이름으로 함께 기도합니다. 아멘.",
+    "defaultName": "이 가정",
+    "nameHint": "이름이나 부르는 말(예: 김영희 권사님 · 박민수 집사님 가정 · 유가족 — 「권사님께」처럼 조사는 빼고) · 비우면 「이 가정」",
+    "photos": [
+      {
+        "id": "bg-dawn",
+        "label": "새벽",
+        "focus": 0.5
+      },
+      {
+        "id": "bg-lake",
+        "label": "호수",
+        "focus": 0.5
+      },
+      {
+        "id": "bg-blossom",
+        "label": "꽃길",
+        "focus": 0.5
+      }
+    ],
+    "entries": [
+      {
+        "no": 1,
+        "title": "하나님의 위로를 전합니다",
+        "en": "The God of All Comfort",
+        "prayer": "하나님, 주는 자비의 아버지시요 모든 위로의 하나님이시오니 {이름}{을} 모든 환난 중에서 위로하여 주옵소서. {이름}{이} 주께 받는 위로로 이 슬픔의 시간을 견디게 하옵소서.",
+        "cheer": "어떤 말로도 이 슬픔을 다 덜어 드릴 수 없음을 압니다. 그래서 모든 위로의 하나님께 마음을 모아 기도합니다. 하나님께서 주시는 위로가 지친 마음을 조용히 감싸 주기를 바랍니다.",
+        "quote": "모든 위로의 하나님이시며 우리의 모든 환난 중에서 우리를 위로하사 우리로 하여금 하나님께 받는 위로로써 모든 환난 중에 있는 자들을 능히 위로하게 하시는 이시로다",
+        "verse": "찬송하리로다 그는 우리 주 예수 그리스도의 하나님이시요 자비의 아버지시요 모든 위로의 하나님이시며 우리의 모든 환난 중에서 우리를 위로하사 우리로 하여금 하나님께 받는 위로로써 모든 환난 중에 있는 자들을 능히 위로하게 하시는 이시로다",
+        "ref": "고린도후서 1:3-4",
+        "closing": "모든 위로의 하나님께서 곁에 계시기를",
+        "photo": "bg-dawn"
+      },
+      {
+        "no": 2,
+        "title": "예수님도 우셨습니다",
+        "en": "Jesus Wept",
+        "prayer": "하나님, 예수님께서 우는 이들을 보시고 비통히 여기시며 눈물을 흘리셨사오니 {이름}의 눈물도 보아 주옵소서. {이름}{이} 슬픔을 감추지 않고 주님 앞에 내어놓게 하시며, 주께서 불쌍히 여기사 함께하여 주옵소서.",
+        "cheer": "예수님께서도 우는 이들 곁에서 함께 눈물을 흘리셨습니다. 그러니 지금은 흐르는 눈물을 억지로 참지 않으셔도 괜찮습니다. 슬퍼하시는 그 마음을 주님께서 어루만져 주시기를 기도합니다.",
+        "quote": "예수께서 눈물을 흘리시더라",
+        "verse": "예수께서 눈물을 흘리시더라",
+        "ref": "요한복음 11:35",
+        "closing": "그 눈물을 주님께서 다 아십니다",
+        "photo": "bg-lake"
+      },
+      {
+        "no": 3,
+        "title": "골짜기에서도 함께하십니다",
+        "en": "You Are with Me",
+        "prayer": "하나님, {이름}{이} 음침한 골짜기를 지날 때에도 주께서 함께하여 주옵소서. 주의 지팡이와 막대기로 {이름}{을} 안위하시고, 한 걸음 한 걸음 인도하여 주옵소서.",
+        "cheer": "지금 지나시는 길이 얼마나 어둡고 길게 느껴지실지 감히 다 헤아릴 수 없습니다. 그 골짜기에서도 주님께서 한 걸음 한 걸음 함께 걸어 주시고, 지친 마음을 안위해 주시기를 기도합니다.",
+        "quote": "주께서 나와 함께 하심이라 주의 지팡이와 막대기가 나를 안위하시나이다",
+        "verse": "내가 사망의 음침한 골짜기로 다닐지라도 해를 두려워하지 않을 것은 주께서 나와 함께 하심이라 주의 지팡이와 막대기가 나를 안위하시나이다",
+        "ref": "시편 23:4",
+        "closing": "주의 지팡이와 막대기가 안위하시기를",
+        "photo": "bg-blossom"
+      },
+      {
+        "no": 4,
+        "title": "주님의 평안을 빕니다",
+        "en": "My Peace I Give You",
+        "prayer": "하나님, 예수님께서 끼치신 평안, 세상이 주는 것과 같지 아니한 그 평안을 {이름}의 마음에 주옵소서. 근심과 두려움이 밀려올 때에도 {이름}{이} 주님의 평안 안에 머물게 하옵소서.",
+        "cheer": "지금은 어떤 말도 마음에 잘 닿지 않으실 것 같아, 말보다 기도로 곁에 있고 싶습니다. 세상이 줄 수 없는 주님의 평안이 그 슬픔 가운데에도 조용히 머물기를 기도합니다.",
+        "quote": "평안을 너희에게 끼치노니 곧 나의 평안을 너희에게 주노라 내가 너희에게 주는 것은 세상이 주는 것과 같지 아니하니라",
+        "verse": "평안을 너희에게 끼치노니 곧 나의 평안을 너희에게 주노라 내가 너희에게 주는 것은 세상이 주는 것과 같지 아니하니라 너희는 마음에 근심하지도 말고 두려워하지도 말라",
+        "ref": "요한복음 14:27",
+        "closing": "세상이 줄 수 없는 평안이 함께하시기를",
+        "photo": "bg-dawn"
+      },
+      {
+        "no": 5,
+        "title": "아침마다 새 긍휼을 빕니다",
+        "en": "His Mercies Are New Every Morning",
+        "prayer": "하나님, 주의 무궁한 인자와 긍휼로 {이름}{이} 깊은 슬픔에 삼켜지지 않게 하옵소서. 아침마다 새로운 주의 긍휼로 {이름}의 하루하루를 채우시고, 주의 크신 성실하심을 의지하게 하옵소서.",
+        "cheer": "슬픔은 하루아침에 지나가는 것이 아니기에, 서두르지 않고 오래도록 함께 기도하겠습니다. 아침이 올 때마다 하나님의 긍휼이 새롭게 찾아와 늘 곁에 머물기를 바랍니다.",
+        "quote": "여호와의 인자와 긍휼이 무궁하시므로 우리가 진멸되지 아니함이니이다 이것들이 아침마다 새로우니 주의 성실하심이 크시도소이다",
+        "verse": "여호와의 인자와 긍휼이 무궁하시므로 우리가 진멸되지 아니함이니이다 이것들이 아침마다 새로우니 주의 성실하심이 크시도소이다",
+        "ref": "예레미야애가 3:22-23",
+        "closing": "주의 성실하심이 크십니다",
+        "photo": "bg-lake"
+      }
+    ]
+  },
+  "healing": {
+    "label": "병문안 기도카드",
+    "icon": "🙏",
+    "kind": 15,
+    "nameLabel": "받는 분 이름",
+    "amen": "예수님의 이름으로 간절히 기도합니다. 아멘.",
+    "defaultName": "환우",
+    "nameHint": "이름이나 부르는 말(예: 김영희 권사님 · 박민수 집사님 · 사랑하는 아버지 — 「권사님께」처럼 조사는 빼고) · 비우면 「환우」",
+    "photos": [
+      {
+        "id": "bg-dawn",
+        "label": "새벽",
+        "focus": 0.5
+      },
+      {
+        "id": "bg-lake",
+        "label": "호수",
+        "focus": 0.5
+      },
+      {
+        "id": "bg-blossom",
+        "label": "꽃길",
+        "focus": 0.5
+      }
+    ],
+    "entries": [
+      {
+        "no": 1,
+        "title": "병상에서도 붙드시기를",
+        "en": "May the Lord Sustain You on Your Sickbed",
+        "prayer": "하나님, {이름}{을} 병상에서 붙드시고 누워 있을 때마다 그 병을 고쳐 주옵소서. 잠 못 드는 긴 밤에도 주께서 {이름}의 곁을 지키시며 평안히 쉬게 하옵소서.",
+        "cheer": "아프시다는 소식을 듣고 마음이 무거웠습니다. 누워 계신 날마다 하나님께서 붙드시고 고쳐 주시기를 기도하겠습니다. 다른 걱정은 잠시 내려놓고 편히 쉬시면 좋겠습니다.",
+        "quote": "여호와께서 그를 병상에서 붙드시고 그가 누워 있을 때마다 그의 병을 고쳐 주시나이다",
+        "verse": "여호와께서 그를 병상에서 붙드시고 그가 누워 있을 때마다 그의 병을 고쳐 주시나이다",
+        "ref": "시편 41:3",
+        "closing": "평안히 쉬시기를 기도합니다",
+        "photo": "bg-dawn"
+      },
+      {
+        "no": 2,
+        "title": "새 살이 돋아나기를",
+        "en": "May God Heal Your Wounds",
+        "prayer": "하나님, {이름}의 상처로부터 새 살이 돋아나게 하시고 그 몸을 고쳐 주옵소서. 치료하는 의료진의 손길에 지혜와 세심함을 더하시고, {이름}{이} 치료받는 날들을 주께 맡기게 하옵소서.",
+        "cheer": "아프신 몸으로 얼마나 힘드실지 마음이 쓰입니다. 상처가 잘 아물고 새 살이 돋아나기를, 치료하시는 분들의 손길에도 지혜가 함께하기를 기도합니다. 회복을 서두르지 않으셔도 괜찮습니다.",
+        "quote": "내가 너의 상처로부터 새 살이 돋아나게 하여 너를 고쳐 주리라",
+        "verse": "여호와의 말씀이니라 그들이 쫓겨난 자라 하매 시온을 찾는 자가 없은즉 내가 너의 상처로부터 새 살이 돋아나게 하여 너를 고쳐 주리라",
+        "ref": "예레미야 30:17",
+        "closing": "주님의 손길로 아물기를 빕니다",
+        "photo": "bg-lake"
+      },
+      {
+        "no": 3,
+        "title": "주님이 피난처가 되시기를",
+        "en": "God Is Our Refuge and Strength",
+        "prayer": "하나님, 주는 우리의 피난처시요 힘이시오니 {이름}에게 환난 중에 만날 큰 도움이 되어 주옵소서. {이름}{과} 그 곁을 지키는 가족이 지칠 때마다 주께 피하여 힘을 얻게 하옵소서.",
+        "cheer": "치료받는 날들은 아픈 분에게도, 곁을 지키는 가족에게도 무겁고 길게 느껴집니다. 하나님께서 모두에게 피난처와 힘이 되어 주시기를 기도합니다. 힘드실 때는 언제든 기도를 부탁해 주세요.",
+        "quote": "하나님은 우리의 피난처시요 힘이시니 환난 중에 만날 큰 도움이시라",
+        "verse": "하나님은 우리의 피난처시요 힘이시니 환난 중에 만날 큰 도움이시라",
+        "ref": "시편 46:1",
+        "closing": "가족 모두에게 큰 도움이 되시기를",
+        "photo": "bg-blossom"
+      },
+      {
+        "no": 4,
+        "title": "주님의 은혜가 족하기를",
+        "en": "My Grace Is Sufficient for You",
+        "prayer": "하나님, 몸과 마음이 약하여진 이때에 주의 은혜가 {이름}에게 족하게 하옵소서. 주의 능력은 약한 데서 온전하여지오니, 그리스도의 능력이 {이름}에게 머물게 하옵소서.",
+        "cheer": "몸이 약해지면 마음까지 작아지기 쉽습니다. 그래도 주님은 약한 데서 그 능력이 온전하여진다고 하셨습니다. 오늘 하루도 주님의 은혜 안에서 넉넉히 견디시기를 기도합니다.",
+        "quote": "내 은혜가 네게 족하도다 이는 내 능력이 약한 데서 온전하여짐이라",
+        "verse": "나에게 이르시기를 내 은혜가 네게 족하도다 이는 내 능력이 약한 데서 온전하여짐이라 하신지라 그러므로 도리어 크게 기뻐함으로 나의 여러 약한 것들에 대하여 자랑하리니 이는 그리스도의 능력이 내게 머물게 하려 함이라",
+        "ref": "고린도후서 12:9",
+        "closing": "약할 때에도 주님의 능력이 머물기를",
+        "photo": "bg-dawn"
+      },
+      {
+        "no": 5,
+        "title": "강건하시기를 기도합니다",
+        "en": "I Pray That You May Enjoy Good Health",
+        "prayer": "하나님, {이름}의 영혼이 잘됨 같이 몸도 강건하게 하여 주옵소서. 마음 모아 드리는 이 간구를 들으시고, {이름}{이} 다시 평안한 일상의 걸음을 걷게 하옵소서.",
+        "cheer": "마음을 다해 기도하고 있습니다. 영혼이 잘됨 같이 몸도 강건해지시기를, 다시 웃으며 인사 나눌 날이 오기를 간절히 바랍니다. 무엇보다 오늘 하루가 평안하시기를 빕니다.",
+        "quote": "사랑하는 자여 네 영혼이 잘됨 같이 네가 범사에 잘되고 강건하기를 내가 간구하노라",
+        "verse": "사랑하는 자여 네 영혼이 잘됨 같이 네가 범사에 잘되고 강건하기를 내가 간구하노라",
+        "ref": "요한삼서 1:2",
+        "closing": "영혼도 몸도 강건하시기를",
+        "photo": "bg-lake"
+      }
+    ]
   }
 };
 // ⟪/card-data⟫
@@ -629,6 +1073,8 @@ function cardRefShort(ref) {
 }
 // 받는 분 이름 — 기도문 판과 같은 다듬기(12자 · <> 걷기) · 비면 그 카드의 defaultName(수능 「우리 수험생」)
 function cardShareName(set, n) { return prayShareName(n, set && set.defaultName); }
+// 카드 키 — CARD_SETS 에서 그 칸의 이름(「suneung」 · 「birthday」 …) · 모르는 칸이면 ""(파일 이름 card-<키>-<번호>.jpg)
+function cardSetKey(set) { return Object.keys(CARD_SETS).find((k) => CARD_SETS[k] === set) || ""; }
 // 받는 분 이름 — 친 그대로(같은 다듬기) · 비면 ""(응원 글 맨 위 「{이름}에게」 줄은 친 이름이 있을 때만 — defaultName 을 쓰지 않는다)
 function cardRawName(n) { const s = prayShareName(n, " "); return s === " " ? "" : s; }
 // 본문 두 가지(친구 2026-11-07 저녁 — 교회에 안 다니는 학생에게도 보내기 쉽게) — 기도문(이름 든 기도 + 맺음말) | 응원 글(entries[i].cheer · 반말 · 자리표 없음)
@@ -895,12 +1341,12 @@ function verseShareDoc(v) {
 //   lay = "out" | "in" — 그림 칸(cardShareChoices)의 꼴 값이 오면 그것을, 꼴 이름 · 빈 값이 오면 이 짜임을 쓴다.
 //   body = "pray"(빈 값) | "cheer"(응원 글 — 이름이 비면 「…에게」 줄 없이 · 기도문 · 맺음말 대신 cheer)
 function cardShareDoc(set, entry, name, lay, body) {
-  const e = entry || {}, nm = cardShareName(set, name), no = Number(e.no) || 0, L = CARD_STYLES[lay] ? lay : "out";
+  const e = entry || {}, nm = cardShareName(set, name), no = Number(e.no) || 0, L = CARD_STYLES[lay] ? lay : "out", sk = cardSetKey(set);
   const cheer = body === "cheer", to = cheer ? cardRawName(name) : "";
   return { plan: (style, measure) => cardSharePlan(set, e, name, (style && typeof style === "object") ? style : CARD_STYLES[L], measure, cheer ? "cheer" : "pray"),
            text: (cheer ? [to ? to + "에게" : "", e.title, e.cheer] : [e.title, prayFill(e.prayer, nm), set && set.amen])
              .concat(["“" + String(e.quote || "") + "”", cardRefLabel(e.ref), e.closing]).join(" "),
-           seed: no || 1, file: "card-" + no + ".jpg",
+           seed: no || 1, file: "card-" + (sk ? sk + "-" : "") + no + ".jpg",   // 카드마다 다른 이름(💌 2026-11-07 — 생일 1번과 수험생 1번이 같은 이름이 되지 않게)
            alt: "보낼 그림 — " + String((set && set.label) || "") + " · " + String(e.title || "") + (cheer ? (to ? " · " + to : "") : " · " + nm) };
 }
 function prayShareDraw(b, name, choice, leafNo) { return pshDraw(prayShareDoc(b, name), choice, leafNo); }
@@ -964,8 +1410,10 @@ function pshDraw(doc, choice, leafNo) {
 //   cbody 본문(pray | cheer) · cno 지금 말씀 번호 · cnoPick 보내는 분이 고른 말씀(0 = 안 고름 → 열 때마다 날짜에 맞춘 편) · clay 짜임(out | in) ·
 //   ckey 고른 배경("card:<id>") · cpick 보내는 분이 배경을 직접 골랐다(말씀을 바꿔도 지킨다) ·
 //   cfor 지금 말씀을 골라 둔 받는 사람(cardSentName — 이름 칸이 다른 사람이 되면 그 사람 기준으로 다시 고른다 · pshCardName)
+// 💌 cset 위 고른 것(cnoPick · ckey · cpick)이 어느 카드 것인가 · cmem 카드마다 맡겨 둔 고른 것(다른 카드로 바꾸면 맡겼다가 돌아오면 꺼낸다 — pshCardUse) ·
+//   cmenu 판 맨 위 카드 고르기 칸의 카드들(빈 배열 = 「새 소식」 🎓 처럼 한 카드로 바로 연 판) · clast 고르기 칸에서 마지막으로 고른 카드(앱을 쓰는 동안)
 const pshState = { gen: 0, blob: null, url: null, key: "night", vkey: "", leaf: 1, b: null, name: "", med: null, verse: null,
-                   card: "", cname: "", cbody: "pray", cno: 0, cnoPick: 0, clay: "out", ckey: "", cpick: false, cfor: "", file: "", timer: null, pop: null, esc: null, noLog: false, sharing: false, withLink: true, linkNext: false,
+                   card: "", cname: "", cbody: "pray", cno: 0, cnoPick: 0, clay: "out", ckey: "", cpick: false, cfor: "", cset: "", cmem: {}, cmenu: [], clast: "", file: "", timer: null, pop: null, esc: null, noLog: false, sharing: false, withLink: true, linkNext: false,
                    kakaoUp: {}, kakaoReady: "", kakaoBusy: null, kakaoT: 0 };
 const PSH_TITLE_PRAY = "📤 가정 축복 기도문 보내기", PSH_TITLE_MED = "📤 오늘의 묵상 보내기";
 const PSH_TITLE_VERSE = "📤 이번 주 말씀 보내기";
@@ -978,7 +1426,8 @@ function pshCardDoc() {
 }
 // 📊 이용 기록(2026-11-06 설계 docs/superpowers/specs/2026-11-06-share-board-usage-log-design.md 2-2) — 종류 코드 1 기도문 · 2 묵상 · 3 이번 주 말씀(pshDoc 과 같은 가름) ·
 //   10 🎓 기념일 말씀카드(수험생 응원기도카드 · 기도문 · 응원 글 모두 — 2026-11-07 · 4~9 는 다른 보내기가 쓴다 · 이름은 api SHARE_KINDS)
-function pshKind() { return pshState.card ? 10 : pshState.med ? 2 : pshState.verse ? 3 : 1; }
+//   💌 그 밖의 카드는 자료의 kind(11 생일 · 12 결혼기념일 · 13 새 출발 · 14 위로 · 15 병문안 — 2026-11-07 · 이름은 같은 SHARE_KINDS)
+function pshKind() { return pshState.card ? (Number((CARD_SETS[pshState.card] || {}).kind) || 10) : pshState.med ? 2 : pshState.verse ? 3 : 1; }
 // 남기는 것은 (값, 종류 코드) 둘뿐 — 이름 칸 값(pshState.name) · 글 · 파일 이름은 넘기지 않는다 · 미리보기 판(noLog)은 남기지 않는다 ·
 //   logFeature 는 app.js 것(로그인 전 · 어린 부서는 거기서 빠진다 · 60초 안 같은 값은 한 번) — 옛 app.js · vm 에는 없을 수 있어 typeof 로
 function pshLog(feature, item) { if (pshState.noLog) return; if (typeof logFeature === "function") logFeature(feature, item); }
@@ -1262,16 +1711,66 @@ function openVerseShare(v) {
 //   보내기는 기도문 판과 같은 공유 창 길(누른 탭 안에서 미리 만든 Blob · 공유 창이 없으면 내려받기) — 카카오 SDK 길은 붙이지 않는다.
 //   고른 것은 앱을 쓰는 동안 기억한다(pshState.c*) · 말씀은 보내는 분이 고른 적이 없으면 열 때마다 날짜에 맞춘 편(cardDefaultNo) ·
 //   배경은 그 말씀의 photo — 보내는 분이 배경을 직접 고른 뒤(cpick)에는 말씀을 바꿔도 그 배경(cardPhotoId).
-const CARD_TITLES = { suneung: "🎓 수험생 응원기도카드" };
+// 판 제목 = 그 카드의 아이콘 + 이름(「🎓 수험생 응원기도카드」 · 「🎂 생일 축복기도카드」 …)
+function cardTitle(set) { return (String((set && set.icon) || "🎓") + " " + String((set && set.label) || "")).trim(); }
 const CARD_CHEER_HINT = "이름을 넣으면 맨 위에 「(이름)에게」 한 줄이 들어가요. 비우면 그 줄 없이 보내요.";
 function openCardShare(setKey) {
   const set = CARD_SETS[setKey];
   if (!set || !(set.entries || []).length) return;
   if (pshReuse("card") && pshState.card === setKey) return;   // 두 번 누름 — 열린 판을 그대로(닫고 다시 열면 늦게 온 history.back 이 새 판을 닫는다)
   prayShareClose();
-  pshState.b = null; pshState.med = null; pshState.verse = null; pshState.card = setKey; pshState.name = "";
+  pshState.b = null; pshState.med = null; pshState.verse = null; pshState.name = ""; pshState.cmenu = [];   // 한 카드로 바로 연 판 — 고르기 칸 없음
+  pshCardUse(setKey);
   pshCardPrep(set);
-  pshOpen(CARD_TITLES[setKey] || "🎓 " + String(set.label || ""), false, "", "card");
+  pshOpen(cardTitle(set), false, "", "card");
+}
+// 💌 말씀카드(2026-11-07 친구 「늘 쓰는 축하, 위로만 먼저」 · 첫 화면 「함께」 — 문은 app.js CARD_MORE_OPEN) — 판 맨 위 카드 고르기 칸에서 고른다.
+//   차례 = CARD_MENU · 🎓 수험생은 withSuneung(app.js 가 cardSuneungOn() 을 넘긴다)일 때만 맨 앞 · 처음 카드 = 앱을 쓰는 동안 마지막으로 고른 카드(clast) · 없으면 생일.
+//   카드를 바꾸면 같은 판 안에서 내용만 다시 그린다(pshCardSwap — 새 덮개 · 새 history 기록을 만들지 않는다).
+const CARD_MENU = [["suneung", "수험생"], ["birthday", "생일"], ["wedding", "결혼기념일"], ["newstart", "새 출발"], ["comfort", "위로"], ["healing", "병문안"]];
+function openCardPick(withSuneung) {
+  const keys = CARD_MENU.map((m) => m[0]).filter((k) => (k !== "suneung" || !!withSuneung) && CARD_SETS[k] && (CARD_SETS[k].entries || []).length);
+  if (!keys.length) return;
+  if (pshReuse("card")) return;   // 두 번 누름 — 열린 판을 그대로(닫고 다시 열면 늦게 온 history.back 이 새 판을 닫는다)
+  const key = keys.includes(pshState.clast) ? pshState.clast : keys.includes("birthday") ? "birthday" : keys[0];
+  prayShareClose();
+  pshState.b = null; pshState.med = null; pshState.verse = null; pshState.name = ""; pshState.cmenu = keys;
+  pshCardUse(key);
+  pshCardPrep(CARD_SETS[key]);
+  pshOpen(cardTitle(CARD_SETS[key]), false, "", "card");
+}
+// 카드를 정한다 — 고른 말씀 · 배경(cnoPick · ckey · cpick)은 카드마다 따로 맡겨 둔다(번호 · 그림 id 는 카드마다 뜻이 달라 다른 카드로 들고 가지 않는다)
+function pshCardUse(key) {
+  if (pshState.cset !== key) {
+    if (pshState.cset) pshState.cmem[pshState.cset] = { no: pshState.cnoPick, k: pshState.ckey, p: pshState.cpick };
+    const m = pshState.cmem[key] || { no: 0, k: "", p: false };
+    pshState.cset = key; pshState.cnoPick = m.no; pshState.ckey = m.k; pshState.cpick = m.p;
+  }
+  pshState.card = key;
+}
+// 💌 고르기 칸에서 카드를 바꿨다 — 같은 판 안에서 제목 · 카드 칸 · 배경 그림만 다시 그린다. 판을 닫고 다시 열지 않는다(prayer-book.md 「두 번 누름」 —
+//   history.back 은 비동기라 닫고 바로 열면 늦게 온 popstate 가 새 판을 닫는다) · 치던 이름은 들고 간다 · 그 카드의 판 열기를 남긴다(종류 코드가 바뀐다)
+function pshCardSwap(key) {
+  const set = CARD_SETS[key], w = document.getElementById("psh");
+  if (!set || !w || !(pshState.cmenu || []).includes(key) || key === pshState.card) return;
+  const ci = document.getElementById("psh-cname");
+  clearTimeout(pshState.timer);
+  if (ci) pshState.cname = ci.value;   // 0.3초 늦춤 중이던 이름도 그대로
+  pshState.clast = key;
+  pshCardUse(key); pshCardPrep(set);
+  const h = document.getElementById("psh-h");
+  if (h) h.textContent = cardTitle(set);
+  w.querySelectorAll(".psh-card-kind").forEach((x) => x.setAttribute("aria-checked", x.dataset.card === key ? "true" : "false"));
+  const box = document.getElementById("psh-cbox");
+  if (box) box.innerHTML = pshCardFields();
+  pshCardWire(w);
+  const ch = pshChoices();
+  if (!ch.some((c) => c.key === pshKeyGet())) pshKeySet(ch[0].key);
+  const th = document.getElementById("psh-thumbs");
+  if (th) th.innerHTML = ch.map(pshThumbHtml).join("");
+  pshThumbsWire(w);
+  pshRedraw();
+  pshLog("share-open", pshKind());   // 📊 고른 카드의 판 열기(종류 코드 = 그 카드 kind) — 바꾸기만 하고 안 보내도 「열기」는 남는다
 }
 // 열 때 — 말씀(고른 것 · 없으면 날짜에 맞춘 편) · 배경(직접 고른 것 · 없으면 그 말씀의 것) · 짜임 · 본문을 맞춘다
 function pshCardPrep(set) {
@@ -1299,7 +1798,7 @@ function pshCardSent(s) {
     if (!s || !s.no || !CARD_SETS[s.card]) return;
     const ls = pshLs();
     cardSentSave(ls, cardSentAdd(cardSentAll(ls), s.card, s.name, s.no, Date.now()));
-    if (pshState.cnoPick === s.no) pshState.cnoPick = 0;
+    if (pshState.cset === s.card && pshState.cnoPick === s.no) pshState.cnoPick = 0;   // 그 카드에서 직접 누른 말씀이었으면(카드마다 따로 — pshCardUse)
     pshCardMarks();
   } catch (e) {}
 }
@@ -1355,18 +1854,30 @@ function pshCardName(v) {
   }
   pshCardMarks();
 }
-// 카드 판의 칸 — 이름(id psh-cname — 기도문 판의 psh-name 받이와 따로) · 본문 · 말씀 · 짜임(배경 고르기 위)
-function pshCardHtml() {
+// 카드 판의 칸 — 💌 카드 고르기(고르기 칸으로 연 판만 · 맨 위) + 카드 칸 덩이(#psh-cbox — 카드를 바꾸면 이 덩이만 다시 그린다 · pshCardSwap)
+function pshCardHtml() { return pshCardMenuHtml() + '<div id="psh-cbox">' + pshCardFields() + "</div>"; }
+// 💌 카드 고르기 칸 — 아이콘 + 짧은 이름(CARD_MENU) · 판 제목은 그 카드의 label
+function pshCardMenuHtml() {
+  const ks = pshState.cmenu || [];
+  if (!ks.length) return "";
+  const short = (k) => (CARD_MENU.find((m) => m[0] === k) || [k, String((CARD_SETS[k] || {}).label || k)])[1];
+  return `<div class="psh-lbl" id="psh-cards-l">카드 고르기</div>
+      <div class="psh-card-kinds" role="radiogroup" aria-labelledby="psh-cards-l">${ks.map((k) =>
+        `<button type="button" class="psh-card-kind" role="radio" data-card="${prayEsc(k)}" aria-checked="${k === pshState.card}"><span aria-hidden="true">${prayEsc(String((CARD_SETS[k] || {}).icon || ""))}</span>${prayEsc(short(k))}</button>`).join("")}</div>`;
+}
+function pshCardMenuWire(wrap) { wrap.querySelectorAll(".psh-card-kind").forEach((b) => b.addEventListener("click", () => pshCardSwap(b.dataset.card))); }
+// 카드 칸 — 이름(id psh-cname — 기도문 판의 psh-name 받이와 따로 · 칸 제목은 그 카드의 nameLabel) · 본문 · 말씀(묶음이 없는 카드는 머리 없이 차례로) · 짜임(배경 고르기 위)
+function pshCardFields() {
   const set = CARD_SETS[pshState.card] || {}, es = set.entries || [], got = pshCardGot(set);
   const seg = (name, label, opts, cur) => `<div class="psh-lbl" id="psh-${name}-l">${label}</div>
       <div class="psh-card-seg" role="radiogroup" aria-labelledby="psh-${name}-l">${opts.map(([k, t]) =>
         `<button type="button" class="psh-card-opt" role="radio" data-${name}="${prayEsc(k)}" aria-checked="${k === cur}">${prayEsc(t)}</button>`).join("")}</div>`;
-  const groups = (set.groups || []).map((g) => {
+  const vbtn = (e) => `<button type="button" class="psh-card-v" role="radio" data-no="${Number(e.no)}" aria-checked="${e.no === pshState.cno}" aria-label="${pshCardVLabel(e, got.includes(e.no))}">${pshCardVInner(e, got.includes(e.no))}</button>`;
+  const groups = (set.groups || []).length ? set.groups.map((g) => {
     const mine = es.filter((e) => e.group === g.key);
-    return mine.length ? `<div class="psh-card-gh">${prayEsc(g.key)} · ${prayEsc(g.label)}</div><div class="psh-card-vs">${mine.map((e) =>
-      `<button type="button" class="psh-card-v" role="radio" data-no="${Number(e.no)}" aria-checked="${e.no === pshState.cno}" aria-label="${pshCardVLabel(e, got.includes(e.no))}">${pshCardVInner(e, got.includes(e.no))}</button>`).join("")}</div>` : "";
-  }).join("");
-  return `<label class="psh-lbl" for="psh-cname">받는 학생 이름</label>
+    return mine.length ? `<div class="psh-card-gh">${prayEsc(g.key)} · ${prayEsc(g.label)}</div><div class="psh-card-vs">${mine.map(vbtn).join("")}</div>` : "";
+  }).join("") : `<div class="psh-card-vs">${es.map(vbtn).join("")}</div>`;   // 💌 묶음이 없는 카드(생일 · 위로 …) — 머리 없이 차례로
+  return `<label class="psh-lbl" for="psh-cname">${prayEsc(String(set.nameLabel || "받는 분 이름"))}</label>
       <input id="psh-cname" class="psh-name" type="text" maxlength="12" autocomplete="off">
       <p class="psh-card-hint" id="psh-cname-h"></p>
       ${CARD_BODY_PICK ? seg("body", "본문 고르기", Object.keys(CARD_BODIES).map((k) => [k, CARD_BODIES[k]]), pshState.cbody) : ""}
@@ -1424,47 +1935,15 @@ function pshHintText(kind, kakao) {
   if (kakao) return "말씀 그림과 「말씀 외워 보기」 단추가 함께 가요.";
   return "그림을 보낸 뒤 한 번 더 누르면 설치 주소도 가요.";
 }
-function pshOpen(title, withName, name, kind, opts) {
-  pshState.noLog = !!(opts && opts.noLog);   // 📊 opts.noLog = 미리보기 판(openMedShare) — 이 판에서 일어난 일은 남기지 않는다
-  pshState.leaf = Math.min(12, 1 + Math.floor(Math.random() * 12));
-  const kakao = kind === "verse" && !!pshKakaoKey() && pshKakaoTalkDevice();   // 📖 카카오톡으로 보내기 — 말씀 판 · 키가 있고 · 카카오톡 앱으로 여는 기기만
-  const choices = pshChoices();
-  if (!choices.some((c) => c.key === pshKeyGet())) pshKeySet(choices[0].key);   // 처음엔 맨 왼쪽(밤하늘) · 이 화면을 쓰는 동안은 마지막에 고른 배경을 기억한다
-  const thumb = (c) => {
-    const inner = c.thumb ? `<img src="${prayEsc(c.thumb)}?v=${prayEsc(String(APP_BUILD))}" alt="">`   // 사진(photo · veil)은 작은 그림
-      : c.style === "night" ? "" : `<img class="psh-leaf" src="${pshLeafSrc()}" alt="">`;
-    return `<button type="button" class="psh-t psh-t-${typeof c.style === "string" ? c.style : c.style.card ? "card" : "vframe"}" role="radio" aria-checked="${c.key === pshKeyGet()}" data-k="${prayEsc(c.key)}" aria-label="${prayEsc(c.label)}">${inner}<i>${prayEsc(c.label)}</i></button>`;
-  };
-  const wrap = document.createElement("div");
-  wrap.className = "psh-dim"; wrap.id = "psh"; wrap.dataset.kind = kind || (withName ? "pray" : "med");
-  wrap.innerHTML = `
-    <div class="psh-sheet" role="dialog" aria-modal="true" aria-labelledby="psh-h">
-      <div class="psh-grab" aria-hidden="true"></div>
-      <div class="psh-top"><b id="psh-h">${prayEsc(title)}</b><button type="button" class="psh-x" aria-label="닫기">✕</button></div>
-      ${withName ? `<label class="psh-lbl" for="psh-name">누구를 위한 기도인가요?</label>
-      <input id="psh-name" class="psh-name" type="text" maxlength="12" autocomplete="off">` : ""}
-      ${kind === "card" ? pshCardHtml() : ""}
-      <div class="psh-lbl" id="psh-bg-l">배경 고르기</div>
-      <div class="psh-thumbs" role="radiogroup" aria-labelledby="psh-bg-l">${choices.map(thumb).join("")}</div>
-      <div class="psh-pv"><img id="psh-img" alt=""></div>
-      <div class="psh-acts">${kakao ? `<button type="button" class="psh-kakao" id="psh-kakao">${PSH_KAKAO_IC}<span class="psh-kakao-t">카카오톡으로 보내기</span></button>` : ""}
-        <button type="button" class="psh-send" id="psh-send"${kakao ? " hidden" : ""} disabled>그리는 중…</button></div>
-      <p class="psh-hint" id="psh-hint">${pshHintText(kind, kakao)}</p>
-      <p class="psh-msg" id="psh-msg" role="status"></p>
-    </div>`;
-  document.body.appendChild(wrap);
-  document.body.classList.add("psh-on");
-  requestAnimationFrame(() => wrap.classList.add("show"));
+// 배경 고르기 칸 하나(작은 그림) — pshOpen 과 카드 바꾸기(pshCardSwap)가 함께 쓴다
+function pshThumbHtml(c) {
+  const inner = c.thumb ? `<img src="${prayEsc(c.thumb)}?v=${prayEsc(String(APP_BUILD))}" alt="">`   // 사진(photo · veil)은 작은 그림
+    : c.style === "night" ? "" : `<img class="psh-leaf" src="${pshLeafSrc()}" alt="">`;
+  return `<button type="button" class="psh-t psh-t-${typeof c.style === "string" ? c.style : c.style.card ? "card" : "vframe"}" role="radio" aria-checked="${c.key === pshKeyGet()}" data-k="${prayEsc(c.key)}" aria-label="${prayEsc(c.label)}">${inner}<i>${prayEsc(c.label)}</i></button>`;
+}
+// 배경 고르기 칸 받이 — 못 받은 작은 그림은 숨기고 · 누르면 그 배경으로(액자 · 잎을 다시 누르면 다른 잎가지)
+function pshThumbsWire(wrap) {
   wrap.querySelectorAll(".psh-t img").forEach((im) => { im.onerror = () => { im.style.display = "none"; }; });
-  const inp = wrap.querySelector("#psh-name");
-  if (inp) {
-    inp.value = pshState.name === "우리 가정" && !String(name || "").trim() ? "" : pshState.name;   // 글자 그대로(속성에 넣지 않는다)
-    inp.addEventListener("input", () => {
-      clearTimeout(pshState.timer);
-      pshState.gen++; pshState.blob = null; pshSendLabel(true);   // 다 치기 전에 옛 이름 그림이 나가지 않게
-      pshState.timer = setTimeout(() => { pshState.name = prayShareName(inp.value); pshRedraw(); }, 300);
-    });
-  }
   wrap.querySelectorAll(".psh-t").forEach((t) => t.addEventListener("click", () => {
     const k = t.dataset.k;
     // 액자 · 잎을 다시 누르면 다른 잎가지(12가지)
@@ -1477,7 +1956,44 @@ function pshOpen(title, withName, name, kind, opts) {
     wrap.querySelectorAll(".psh-t").forEach((x) => x.setAttribute("aria-checked", x.dataset.k === k ? "true" : "false"));
     pshRedraw();
   }));
-  if (kind === "card") pshCardWire(wrap);   // 🎓 이름 · 본문 · 말씀 · 짜임
+}
+function pshOpen(title, withName, name, kind, opts) {
+  pshState.noLog = !!(opts && opts.noLog);   // 📊 opts.noLog = 미리보기 판(openMedShare) — 이 판에서 일어난 일은 남기지 않는다
+  pshState.leaf = Math.min(12, 1 + Math.floor(Math.random() * 12));
+  const kakao = kind === "verse" && !!pshKakaoKey() && pshKakaoTalkDevice();   // 📖 카카오톡으로 보내기 — 말씀 판 · 키가 있고 · 카카오톡 앱으로 여는 기기만
+  const choices = pshChoices();
+  if (!choices.some((c) => c.key === pshKeyGet())) pshKeySet(choices[0].key);   // 처음엔 맨 왼쪽(밤하늘) · 이 화면을 쓰는 동안은 마지막에 고른 배경을 기억한다
+  const wrap = document.createElement("div");
+  wrap.className = "psh-dim"; wrap.id = "psh"; wrap.dataset.kind = kind || (withName ? "pray" : "med");
+  wrap.innerHTML = `
+    <div class="psh-sheet" role="dialog" aria-modal="true" aria-labelledby="psh-h">
+      <div class="psh-grab" aria-hidden="true"></div>
+      <div class="psh-top"><b id="psh-h">${prayEsc(title)}</b><button type="button" class="psh-x" aria-label="닫기">✕</button></div>
+      ${withName ? `<label class="psh-lbl" for="psh-name">누구를 위한 기도인가요?</label>
+      <input id="psh-name" class="psh-name" type="text" maxlength="12" autocomplete="off">` : ""}
+      ${kind === "card" ? pshCardHtml() : ""}
+      <div class="psh-lbl" id="psh-bg-l">배경 고르기</div>
+      <div class="psh-thumbs" id="psh-thumbs" role="radiogroup" aria-labelledby="psh-bg-l">${choices.map(pshThumbHtml).join("")}</div>
+      <div class="psh-pv"><img id="psh-img" alt=""></div>
+      <div class="psh-acts">${kakao ? `<button type="button" class="psh-kakao" id="psh-kakao">${PSH_KAKAO_IC}<span class="psh-kakao-t">카카오톡으로 보내기</span></button>` : ""}
+        <button type="button" class="psh-send" id="psh-send"${kakao ? " hidden" : ""} disabled>그리는 중…</button></div>
+      <p class="psh-hint" id="psh-hint">${pshHintText(kind, kakao)}</p>
+      <p class="psh-msg" id="psh-msg" role="status"></p>
+    </div>`;
+  document.body.appendChild(wrap);
+  document.body.classList.add("psh-on");
+  requestAnimationFrame(() => wrap.classList.add("show"));
+  const inp = wrap.querySelector("#psh-name");
+  if (inp) {
+    inp.value = pshState.name === "우리 가정" && !String(name || "").trim() ? "" : pshState.name;   // 글자 그대로(속성에 넣지 않는다)
+    inp.addEventListener("input", () => {
+      clearTimeout(pshState.timer);
+      pshState.gen++; pshState.blob = null; pshSendLabel(true);   // 다 치기 전에 옛 이름 그림이 나가지 않게
+      pshState.timer = setTimeout(() => { pshState.name = prayShareName(inp.value); pshRedraw(); }, 300);
+    });
+  }
+  pshThumbsWire(wrap);   // 배경 고르기
+  if (kind === "card") { pshCardMenuWire(wrap); pshCardWire(wrap); }   // 💌 카드 고르기 · 🎓 이름 · 본문 · 말씀 · 짜임
   wrap.querySelector(".psh-x").addEventListener("click", () => prayShareClose());
   wrap.addEventListener("click", (e) => { if (e.target === wrap) prayShareClose(); });
   wrap.querySelector("#psh-send").addEventListener("click", pshSend);
