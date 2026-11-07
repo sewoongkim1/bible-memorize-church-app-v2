@@ -606,18 +606,18 @@ const CARD_SETS = {
     "nameHint": "이름이나 부르는 말(예: 지훈 · 사랑하는 아내 · 김영희 권사님 · 우리 하은이 — 「지훈아」 말고) · 비우면 「생일을 맞은 분」",
     "photos": [
       {
-        "id": "bg-dawn",
-        "label": "새벽",
-        "focus": 0.5
+        "id": "card-birthday-1",
+        "label": "꽃밭",
+        "focus": 0.52
       },
       {
-        "id": "bg-lake",
-        "label": "호수",
-        "focus": 0.5
+        "id": "card-birthday-2",
+        "label": "아침해",
+        "focus": 0.55
       },
       {
-        "id": "bg-blossom",
-        "label": "꽃길",
+        "id": "card-birthday-3",
+        "label": "풍선",
         "focus": 0.5
       }
     ],
@@ -632,7 +632,7 @@ const CARD_SETS = {
         "verse": "주께서 내 내장을 지으시며 나의 모태에서 나를 만드셨나이다 내가 주께 감사하옴은 나를 지으심이 심히 기묘하심이라 주께서 하시는 일이 기이함을 내 영혼이 잘 아나이다",
         "ref": "시편 139:13-14",
         "closing": "태어난 날을 함께 감사해요!",
-        "photo": "bg-dawn"
+        "photo": "card-birthday-1"
       },
       {
         "no": 2,
@@ -644,7 +644,7 @@ const CARD_SETS = {
         "verse": "너의 하나님 여호와가 너의 가운데에 계시니 그는 구원을 베푸실 전능자이시라 그가 너로 말미암아 기쁨을 이기지 못하시며 너를 잠잠히 사랑하시며 너로 말미암아 즐거이 부르며 기뻐하시리라 하리라",
         "ref": "스바냐 3:17",
         "closing": "하나님이 노래하며 기뻐하세요!",
-        "photo": "bg-lake"
+        "photo": "card-birthday-2"
       },
       {
         "no": 3,
@@ -656,7 +656,7 @@ const CARD_SETS = {
         "verse": "나의 앞날이 주의 손에 있사오니 내 원수들과 나를 핍박하는 자들의 손에서 나를 건져 주소서",
         "ref": "시편 31:15",
         "closing": "모든 날이 주님 손안에 있어요!",
-        "photo": "bg-blossom"
+        "photo": "card-birthday-3"
       },
       {
         "no": 4,
@@ -668,7 +668,7 @@ const CARD_SETS = {
         "verse": "야곱의 집이여 이스라엘 집에 남은 모든 자여 내게 들을지어다 배에서 태어남으로부터 내게 안겼고 태에서 남으로부터 내게 업힌 너희여 너희가 노년에 이르기까지 내가 그리하겠고 백발이 되기까지 내가 너희를 품을 것이라 내가 지었은즉 내가 업을 것이요 내가 품고 구하여 내리라",
         "ref": "이사야 46:3-4",
         "closing": "백발이 되기까지 품으시는 하나님!",
-        "photo": "bg-dawn"
+        "photo": "card-birthday-1"
       },
       {
         "no": 5,
@@ -680,7 +680,7 @@ const CARD_SETS = {
         "verse": "아침에 주의 인자하심이 우리를 만족하게 하사 우리를 일생 동안 즐겁고 기쁘게 하소서",
         "ref": "시편 90:14",
         "closing": "날마다 주님 안에서 기뻐해요!",
-        "photo": "bg-lake"
+        "photo": "card-birthday-2"
       }
     ]
   },
@@ -694,19 +694,19 @@ const CARD_SETS = {
     "nameHint": "부부를 함께 부르는 말(예: 우리 부부 · 철수 영희 · 부모님 · 이영희 집사님 부부 · 사랑하는 아들 내외) · 한 분 이름만 넣으면 기도문이 어색해요(배우자에게는 「우리 부부」) · 비우면 「두 분」",
     "photos": [
       {
-        "id": "bg-dawn",
-        "label": "새벽",
+        "id": "card-wedding-1",
+        "label": "장미길",
+        "focus": 0.58
+      },
+      {
+        "id": "card-wedding-2",
+        "label": "두 나무",
         "focus": 0.5
       },
       {
-        "id": "bg-lake",
-        "label": "호수",
-        "focus": 0.5
-      },
-      {
-        "id": "bg-blossom",
-        "label": "꽃길",
-        "focus": 0.5
+        "id": "card-wedding-3",
+        "label": "백조",
+        "focus": 0.46
       }
     ],
     "entries": [
@@ -720,7 +720,7 @@ const CARD_SETS = {
         "verse": "그런즉 이제 둘이 아니요 한 몸이니 그러므로 하나님이 짝지어 주신 것을 사람이 나누지 못할지니라 하시니",
         "ref": "마태복음 19:6",
         "closing": "둘이 아니요 한 몸이에요!",
-        "photo": "bg-dawn"
+        "photo": "card-wedding-1"
       },
       {
         "no": 2,
@@ -732,7 +732,7 @@ const CARD_SETS = {
         "verse": "두 사람이 한 사람보다 나음은 그들이 수고함으로 좋은 상을 얻을 것임이라 혹시 그들이 넘어지면 하나가 그 동무를 붙들어 일으키려니와 홀로 있어 넘어지고 붙들어 일으킬 자가 없는 자에게는 화가 있으리라 또 두 사람이 함께 누우면 따뜻하거니와 한 사람이면 어찌 따뜻하랴 한 사람이면 패하겠거니와 두 사람이면 맞설 수 있나니 세 겹 줄은 쉽게 끊어지지 아니하느니라",
         "ref": "전도서 4:9-12",
         "closing": "넘어져도 서로 일으키는 사랑!",
-        "photo": "bg-lake"
+        "photo": "card-wedding-2"
       },
       {
         "no": 3,
@@ -744,7 +744,7 @@ const CARD_SETS = {
         "verse": "사랑은 오래 참고 사랑은 온유하며 시기하지 아니하며 사랑은 자랑하지 아니하며 교만하지 아니하며 무례히 행하지 아니하며 자기의 유익을 구하지 아니하며 성내지 아니하며 악한 것을 생각하지 아니하며 불의를 기뻐하지 아니하며 진리와 함께 기뻐하고 모든 것을 참으며 모든 것을 믿으며 모든 것을 바라며 모든 것을 견디느니라",
         "ref": "고린도전서 13:4-7",
         "closing": "해마다 더 깊어지는 사랑!",
-        "photo": "bg-blossom"
+        "photo": "card-wedding-3"
       },
       {
         "no": 4,
@@ -756,7 +756,7 @@ const CARD_SETS = {
         "verse": "많은 물도 이 사랑을 끄지 못하겠고 홍수라도 삼키지 못하나니 사람이 그의 온 가산을 다 주고 사랑과 바꾸려 할지라도 오히려 멸시를 받으리라",
         "ref": "아가 8:7",
         "closing": "무엇과도 바꿀 수 없는 사랑!",
-        "photo": "bg-dawn"
+        "photo": "card-wedding-1"
       },
       {
         "no": 5,
@@ -768,7 +768,7 @@ const CARD_SETS = {
         "verse": "만일 여호와를 섬기는 것이 너희에게 좋지 않게 보이거든 너희 조상들이 강 저쪽에서 섬기던 신들이든지 또는 너희가 거주하는 땅에 있는 아모리 족속의 신들이든지 너희가 섬길 자를 오늘 택하라 오직 나와 내 집은 여호와를 섬기겠노라 하니",
         "ref": "여호수아 24:15",
         "closing": "날마다 주님을 택하는 가정!",
-        "photo": "bg-lake"
+        "photo": "card-wedding-2"
       }
     ]
   },
@@ -782,18 +782,18 @@ const CARD_SETS = {
     "nameHint": "이름이나 부르는 말(예: 지훈 · 우리 하은이 · 사랑하는 아들 · 박민수 형제 — 「지훈아」 말고) · 비우면 「우리 새내기」",
     "photos": [
       {
-        "id": "bg-dawn",
-        "label": "새벽",
+        "id": "card-newstart-1",
+        "label": "새싹",
         "focus": 0.5
       },
       {
-        "id": "bg-lake",
-        "label": "호수",
-        "focus": 0.5
+        "id": "card-newstart-2",
+        "label": "오솔길",
+        "focus": 0.56
       },
       {
-        "id": "bg-blossom",
-        "label": "꽃길",
+        "id": "card-newstart-3",
+        "label": "매화",
         "focus": 0.5
       }
     ],
@@ -808,7 +808,7 @@ const CARD_SETS = {
         "verse": "그리하면 여호와 그가 네 앞에서 가시며 너와 함께 하사 너를 떠나지 아니하시며 버리지 아니하시리니 너는 두려워하지 말라 놀라지 말라",
         "ref": "신명기 31:8",
         "closing": "주님이 먼저 가 계세요!",
-        "photo": "bg-dawn"
+        "photo": "card-newstart-1"
       },
       {
         "no": 2,
@@ -820,7 +820,7 @@ const CARD_SETS = {
         "verse": "너는 마음을 다하여 여호와를 신뢰하고 네 명철을 의지하지 말라 너는 범사에 그를 인정하라 그리하면 네 길을 지도하시리라",
         "ref": "잠언 3:5-6",
         "closing": "주님께 묻고 맡기며 가요!",
-        "photo": "bg-lake"
+        "photo": "card-newstart-2"
       },
       {
         "no": 3,
@@ -832,7 +832,7 @@ const CARD_SETS = {
         "verse": "여호와께서 사람의 걸음을 정하시고 그의 길을 기뻐하시나니 그는 넘어지나 아주 엎드러지지 아니함은 여호와께서 그의 손으로 붙드심이로다",
         "ref": "시편 37:23-24",
         "closing": "그 손으로 붙드시는 하나님!",
-        "photo": "bg-blossom"
+        "photo": "card-newstart-3"
       },
       {
         "no": 4,
@@ -844,7 +844,7 @@ const CARD_SETS = {
         "verse": "무슨 일을 하든지 마음을 다하여 주께 하듯 하고 사람에게 하듯 하지 말라",
         "ref": "골로새서 3:23",
         "closing": "작은 일로도 주님을 섬겨요!",
-        "photo": "bg-dawn"
+        "photo": "card-newstart-1"
       },
       {
         "no": 5,
@@ -856,7 +856,7 @@ const CARD_SETS = {
         "verse": "너희 안에서 착한 일을 시작하신 이가 그리스도 예수의 날까지 이루실 줄을 우리는 확신하노라",
         "ref": "빌립보서 1:6",
         "closing": "날마다 주님 안에서 자라 가요!",
-        "photo": "bg-lake"
+        "photo": "card-newstart-2"
       }
     ]
   },
@@ -870,19 +870,19 @@ const CARD_SETS = {
     "nameHint": "이름이나 부르는 말(예: 김영희 권사님 · 박민수 집사님 가정 · 유가족 — 「권사님께」처럼 조사는 빼고) · 비우면 「이 가정」",
     "photos": [
       {
-        "id": "bg-dawn",
-        "label": "새벽",
-        "focus": 0.5
+        "id": "card-comfort-1",
+        "label": "물안개",
+        "focus": 0.56
       },
       {
-        "id": "bg-lake",
-        "label": "호수",
-        "focus": 0.5
+        "id": "card-comfort-2",
+        "label": "골짜기",
+        "focus": 0.55
       },
       {
-        "id": "bg-blossom",
-        "label": "꽃길",
-        "focus": 0.5
+        "id": "card-comfort-3",
+        "label": "들꽃",
+        "focus": 0.56
       }
     ],
     "entries": [
@@ -896,7 +896,7 @@ const CARD_SETS = {
         "verse": "찬송하리로다 그는 우리 주 예수 그리스도의 하나님이시요 자비의 아버지시요 모든 위로의 하나님이시며 우리의 모든 환난 중에서 우리를 위로하사 우리로 하여금 하나님께 받는 위로로써 모든 환난 중에 있는 자들을 능히 위로하게 하시는 이시로다",
         "ref": "고린도후서 1:3-4",
         "closing": "모든 위로의 하나님께서 곁에 계시기를",
-        "photo": "bg-dawn"
+        "photo": "card-comfort-1"
       },
       {
         "no": 2,
@@ -908,7 +908,7 @@ const CARD_SETS = {
         "verse": "예수께서 눈물을 흘리시더라",
         "ref": "요한복음 11:35",
         "closing": "그 눈물을 주님께서 다 아십니다",
-        "photo": "bg-lake"
+        "photo": "card-comfort-2"
       },
       {
         "no": 3,
@@ -920,7 +920,7 @@ const CARD_SETS = {
         "verse": "내가 사망의 음침한 골짜기로 다닐지라도 해를 두려워하지 않을 것은 주께서 나와 함께 하심이라 주의 지팡이와 막대기가 나를 안위하시나이다",
         "ref": "시편 23:4",
         "closing": "주의 지팡이와 막대기가 안위하시기를",
-        "photo": "bg-blossom"
+        "photo": "card-comfort-3"
       },
       {
         "no": 4,
@@ -932,7 +932,7 @@ const CARD_SETS = {
         "verse": "평안을 너희에게 끼치노니 곧 나의 평안을 너희에게 주노라 내가 너희에게 주는 것은 세상이 주는 것과 같지 아니하니라 너희는 마음에 근심하지도 말고 두려워하지도 말라",
         "ref": "요한복음 14:27",
         "closing": "세상이 줄 수 없는 평안이 함께하시기를",
-        "photo": "bg-dawn"
+        "photo": "card-comfort-1"
       },
       {
         "no": 5,
@@ -944,7 +944,7 @@ const CARD_SETS = {
         "verse": "여호와의 인자와 긍휼이 무궁하시므로 우리가 진멸되지 아니함이니이다 이것들이 아침마다 새로우니 주의 성실하심이 크시도소이다",
         "ref": "예레미야애가 3:22-23",
         "closing": "주의 성실하심이 크십니다",
-        "photo": "bg-lake"
+        "photo": "card-comfort-2"
       }
     ]
   },
@@ -958,19 +958,19 @@ const CARD_SETS = {
     "nameHint": "이름이나 부르는 말(예: 김영희 권사님 · 박민수 집사님 · 사랑하는 아버지 — 「권사님께」처럼 조사는 빼고) · 비우면 「환우」",
     "photos": [
       {
-        "id": "bg-dawn",
-        "label": "새벽",
+        "id": "card-healing-1",
+        "label": "숲볕",
         "focus": 0.5
       },
       {
-        "id": "bg-lake",
-        "label": "호수",
-        "focus": 0.5
+        "id": "card-healing-2",
+        "label": "창가",
+        "focus": 0.56
       },
       {
-        "id": "bg-blossom",
-        "label": "꽃길",
-        "focus": 0.5
+        "id": "card-healing-3",
+        "label": "들길",
+        "focus": 0.55
       }
     ],
     "entries": [
@@ -984,7 +984,7 @@ const CARD_SETS = {
         "verse": "여호와께서 그를 병상에서 붙드시고 그가 누워 있을 때마다 그의 병을 고쳐 주시나이다",
         "ref": "시편 41:3",
         "closing": "평안히 쉬시기를 기도합니다",
-        "photo": "bg-dawn"
+        "photo": "card-healing-1"
       },
       {
         "no": 2,
@@ -996,7 +996,7 @@ const CARD_SETS = {
         "verse": "여호와의 말씀이니라 그들이 쫓겨난 자라 하매 시온을 찾는 자가 없은즉 내가 너의 상처로부터 새 살이 돋아나게 하여 너를 고쳐 주리라",
         "ref": "예레미야 30:17",
         "closing": "주님의 손길로 아물기를 빕니다",
-        "photo": "bg-lake"
+        "photo": "card-healing-2"
       },
       {
         "no": 3,
@@ -1008,7 +1008,7 @@ const CARD_SETS = {
         "verse": "하나님은 우리의 피난처시요 힘이시니 환난 중에 만날 큰 도움이시라",
         "ref": "시편 46:1",
         "closing": "가족 모두에게 큰 도움이 되시기를",
-        "photo": "bg-blossom"
+        "photo": "card-healing-3"
       },
       {
         "no": 4,
@@ -1020,7 +1020,7 @@ const CARD_SETS = {
         "verse": "나에게 이르시기를 내 은혜가 네게 족하도다 이는 내 능력이 약한 데서 온전하여짐이라 하신지라 그러므로 도리어 크게 기뻐함으로 나의 여러 약한 것들에 대하여 자랑하리니 이는 그리스도의 능력이 내게 머물게 하려 함이라",
         "ref": "고린도후서 12:9",
         "closing": "약할 때에도 주님의 능력이 머물기를",
-        "photo": "bg-dawn"
+        "photo": "card-healing-1"
       },
       {
         "no": 5,
@@ -1032,7 +1032,7 @@ const CARD_SETS = {
         "verse": "사랑하는 자여 네 영혼이 잘됨 같이 네가 범사에 잘되고 강건하기를 내가 간구하노라",
         "ref": "요한삼서 1:2",
         "closing": "영혼도 몸도 강건하시기를",
-        "photo": "bg-lake"
+        "photo": "card-healing-2"
       }
     ]
   }
