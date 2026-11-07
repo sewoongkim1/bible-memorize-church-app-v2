@@ -1049,7 +1049,7 @@ const usagePan = (o = {}) => {
   if (o.lsThrow) Object.defineProperty(g, 'localStorage', { get() { throw Object.assign(new Error('blocked'), { name: 'SecurityError' }); } });
   if (o.now) g.Date = class extends Date { static now() { return o.now; } };
   const S = vm.runInContext(FILL + '\n' + PURE + '\n' + DOCS + '\n' + PAN +
-    '\n;({ pshState, pshKind, openPrayShare, openMedShare, openVerseShare, prayShareClose, pshSend, pshSendLink, pshCopyLink, pshDownload, pshKakaoSend, openCardShare, pshDoc, pshChoices, pshKeyGet, pshRedraw })', vm.createContext(g));
+    '\n;({ pshState, pshKind, openPrayShare, openMedShare, openVerseShare, prayShareClose, pshSend, pshSendLink, pshCopyLink, pshDownload, pshKakaoSend, openCardShare, pshDoc, pshChoices, pshKeyGet, pshRedraw, cardRefShort })', vm.createContext(g));
   return { S, logs, downloads, kakaoSent, els, nav, Kakao, VERSE_SHARE_TEXT };
 };
 
@@ -1189,7 +1189,7 @@ test('📊 이용 기록 ② 보내기(share-kakao · share-sheet · share-save)
 });
 
 // ── 🎓 기념일 말씀카드(2026-11-07 친구 · 첫 개시 수능) — 그리기 엔진(짜임 둘 · 자료 덩이). 판(이름 칸 · 말씀 · 그림 · 짜임 고르기)은 다음 단계 ──
-const CARD = vm.runInContext(FILL + '\n' + PURE + '\n' + DOCS + '\n;({ CARD_SETS, CARD_STYLES, CARD_FONTS, cardRefLabel, cardShareName, cardStyle, cardShareChoices, cardPanel, cardSharePlan, cardShareDoc, prayShareMark, prayFill, cardRawName, cardDefaultNo, cardPhotoId, CARD_BODIES, cardDefaultAt, cardOrder, cardPickNo, cardSentName, cardSentAll, cardSentNos, cardSentAdd, cardSentSave, CARD_SENT_KEY, CARD_SENT_MAX })', vm.createContext({}));
+const CARD = vm.runInContext(FILL + '\n' + PURE + '\n' + DOCS + '\n;({ CARD_SETS, CARD_STYLES, CARD_FONTS, cardRefLabel, cardShareName, cardStyle, cardShareChoices, cardPanel, cardSharePlan, cardShareDoc, prayShareMark, prayFill, cardRawName, cardDefaultNo, cardPhotoId, CARD_BODIES, cardDefaultAt, cardOrder, cardPickNo, cardSentName, cardSentAll, cardSentNos, cardSentAdd, cardSentSave, CARD_SENT_KEY, CARD_SENT_MAX, cardRefShort })', vm.createContext({}));
 const CARD_NAMES = ['김지훈', '가나다라마바사아자차카타', ''];   // 빈 이름 → 그 카드의 defaultName(수능 「우리 수험생」)
 const CARD_SLOTS = ['{이름}', '{이}', '{을}', '{은}', '{과}', '{으로}'];   // app.js prayFill 이 채우는 여섯
 const CARD_GROUP_NOS = { A: [1, 2], B: [3, 4], C: [5, 6, 7], D: [8, 9, 10] };   // 수능 열 편 · 묶음 넷(친구 2026-11-07)
@@ -1490,12 +1490,17 @@ test('🎓 카드 판 — 종류 코드 10(판 열기 · 공유 창 · 내려받
   assert.equal(S.pshKind(), 10);
   const h = P.els.psh.innerHTML;
   assert.ok(h.includes('🎓 수험생 응원기도카드'), '판 제목');
-  const order = ['id="psh-cname"', 'data-body="pray"', 'data-body="cheer"', 'id="psh-vs-l"', 'data-lay="out"', 'data-lay="in"', 'id="psh-bg-l"', 'id="psh-img"', 'id="psh-send"'].map((x) => h.indexOf(x));
-  assert.ok(order.every((x, i) => x > 0 && (!i || x > order[i - 1])), '이름 → 본문 → 말씀 → 짜임 → 배경 → 미리보기 → 보내기(' + order + ')');
+  assert.ok(!h.includes('data-body='), '본문 고르기 칸은 숨김(친구 2026-11-07 · CARD_BODY_PICK = false)');
+  const order = ['id="psh-cname"', 'id="psh-vs-l"', 'data-lay="out"', 'data-lay="in"', 'id="psh-bg-l"', 'id="psh-img"', 'id="psh-send"'].map((x) => h.indexOf(x));
+  assert.ok(order.every((x, i) => x > 0 && (!i || x > order[i - 1])), '이름 → 말씀 → 짜임 → 배경 → 미리보기 → 보내기(' + order + ')');
   assert.ok(!h.includes('id="psh-name"') && !h.includes('psh-kakao'), '기도문 판 이름 받이 · 카카오 단추 없음');
   for (const g of set.groups) assert.equal(h.includes(g.label), set.entries.some((e) => e.group === g.key), g.key + ' 묶음 머리는 편이 있을 때만');
-  for (const e of set.entries) assert.ok(h.includes('data-no="' + e.no + '"') && h.includes('>' + e.no + ' ' + e.ref + '<'), e.no + ' 말씀 단추 「번호 자리」');
-  assert.ok(/data-body="pray" aria-checked="true"/.test(h) && /data-lay="out" aria-checked="true"/.test(h), '처음은 기도문 · 그림 밖');
+  for (const e of set.entries) assert.ok(h.includes('data-no="' + e.no + '"') && h.includes(' aria-label="' + e.no + ' ' + e.ref + '">' + e.no + ' ' + S.cardRefShort(e.ref) + '<'), e.no + ' 말씀 단추 「번호 줄임말」 · 읽는 이름은 온전히');
+  // 줄임말(친구 2026-11-07 「이사야 → 사」) — 개역개정 원문 파일의 66권 줄임말
+  for (const [a, b] of [['이사야 41:10', '사 41:10'], ['여호수아 1:9', '수 1:9'], ['야고보서 1:5', '약 1:5'], ['잠언 16:3', '잠 16:3'], ['빌립보서 4:6-7', '빌 4:6-7'],
+    ['시편 121:2', '시 121:2'], ['갈라디아서 6:9', '갈 6:9'], ['로마서 8:28', '롬 8:28'], ['요한일서 4:9', '요일 4:9'], ['예레미야애가 3:22-23', '애 3:22-23'], ['모르는책 1:1', '모르는책 1:1']])
+    assert.equal(S.cardRefShort(a), b, a + ' → ' + b);
+  assert.ok(S.pshState.cbody === 'pray' && /data-lay="out" aria-checked="true"/.test(h), '처음은 기도문 · 그림 밖');
   assert.equal(S.pshState.cno, CARD.cardDefaultNo(set, Date.now()), '처음 말씀은 날짜에 맞춘 편');
   assert.equal(S.pshKeyGet(), 'card:' + set.entries.find((e) => e.no === S.pshState.cno).photo, '처음 배경은 그 말씀의 것');
   assert.ok(S.pshChoices().every((c) => /^card:/.test(c.key) && c.style.card === 'out'), '배경은 그 카드의 사진 · 짜임 꼴');
@@ -1526,10 +1531,11 @@ test('🎓 카드 판 — 종류 코드 10(판 열기 · 공유 창 · 내려받
   S.prayShareClose(); S.openCardShare('suneung');
   assert.equal(S.pshState.cno, S.pshState.cnoPick, '고른 말씀');
   assert.equal(S.pshKeyGet(), 'card:' + set.entries[set.entries.length - 1].photo, '배경을 고른 적이 없으면 그 말씀의 것');
-  assert.ok(/data-body="cheer" aria-checked="true"/.test(P.els.psh.innerHTML) && /data-lay="in" aria-checked="true"/.test(P.els.psh.innerHTML));
+  assert.equal(S.pshState.cbody, 'pray', '본문 고르기를 숨긴 동안은 응원 글을 골라 두었어도 늘 기도문');
+  assert.ok(/data-lay="in" aria-checked="true"/.test(P.els.psh.innerHTML), '고른 짜임');
   assert.equal(P.els['psh-cname'].value, '박민지', '이름 기억');
-  assert.equal(P.els['psh-cname-h'].textContent.includes('에게'), true, '응원 글 안내 — 비우면 「…에게」 줄 없이');
-  assert.equal(P.els['psh-cname'].placeholder, '', '응원 글은 비워도 이름을 대신 넣지 않는다');
+  assert.equal(P.els['psh-cname-h'].textContent, set.nameHint, '이름 칸 안내 — 기도문(본문 고르기 숨김)');
+  assert.equal(P.els['psh-cname'].placeholder, set.defaultName, '비우면 defaultName 으로 그린다');
   assert.ok(S.pshChoices().every((c) => c.style.card === 'in'));
   S.pshState.cpick = true; S.pshState.ckey = 'card:' + set.photos[set.photos.length - 1].id; S.pshState.cnoPick = set.entries[0].no;
   S.prayShareClose(); S.openCardShare('suneung');
@@ -1650,8 +1656,8 @@ test('🎓 매일 하나씩 판 — 보내면 그 받는 사람에게 ✓(닫음
   assert.equal(S.pshState.cno, n2, '다시 열면 그 사람이 아직 안 받은 다음 말씀');
   assert.equal(S.pshKeyGet(), 'card:' + set.entries.find((e) => e.no === n2).photo, '배경은 말씀을 따라간다');
   const h = P.els.psh.innerHTML;
-  assert.ok(h.includes(`data-no="${n1}" aria-checked="false" aria-label="${n1} ${e1.ref} 보냄">${n1} ${e1.ref}<span class="psh-card-ck" aria-hidden="true">✓</span></button>`), '보낸 말씀 단추 — 작은 ✓ · 「보냄」');
-  assert.ok(new RegExp(`data-no="${n2}" aria-checked="true">${n2} `).test(h), '안 보낸 말씀은 ✓ 없음');
+  assert.ok(h.includes(`data-no="${n1}" aria-checked="false" aria-label="${n1} ${e1.ref} 보냄">${n1} ${S.cardRefShort(e1.ref)}<span class="psh-card-ck" aria-hidden="true">✓</span></button>`), '보낸 말씀 단추 — 작은 ✓ · 「보냄」');
+  assert.ok(new RegExp(`data-no="${n2}" aria-checked="true" aria-label="${n2} [^"]+(?<! 보냄)">${n2} [^<]+</button>`).test(h), '안 보낸 말씀은 ✓ 없음');
   assert.ok(h.includes('id="psh-vs-s">✓ 이 이름으로 보낸 말씀</span>'), '말씀 고르기 머리 옆 안내');
   await type('이서아');
   assert.equal(S.pshState.cno, n1, '다른 학생은 1부터');

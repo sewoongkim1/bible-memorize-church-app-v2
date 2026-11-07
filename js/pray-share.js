@@ -595,12 +595,22 @@ function cardRefLabel(ref) {
   if (m[4]) return m[1] + " " + m[2] + u + " " + m[3] + "절~" + m[4] + u + " " + m[5] + "절";
   return m[1] + " " + m[2] + u + " " + m[3] + (m[5] ? "~" + m[5] : "") + "절";
 }
+// 말씀 고르기 단추에 쓰는 줄임말(친구 2026-11-07 「이사야 → 사 약자로」) — 개역개정 원문 파일(bible/*.txt)이 쓰는 66권 줄임말 그대로.
+//   「이사야 41:10」 → 「사 41:10」 · 모르는 이름은 그대로 둔다. 카드 그림 속 말씀 자리(cardRefLabel)와 화면 읽기 이름(aria-label)은 온전한 이름.
+const BIBLE_ABBR = { "창세기": "창", "출애굽기": "출", "레위기": "레", "민수기": "민", "신명기": "신", "여호수아": "수", "사사기": "삿", "룻기": "룻", "사무엘상": "삼상", "사무엘하": "삼하", "열왕기상": "왕상", "열왕기하": "왕하", "역대상": "대상", "역대하": "대하", "에스라": "스", "느헤미야": "느", "에스더": "에", "욥기": "욥", "시편": "시", "잠언": "잠", "전도서": "전", "아가": "아", "이사야": "사", "예레미야": "렘", "예레미야애가": "애", "에스겔": "겔", "다니엘": "단", "호세아": "호", "요엘": "욜", "아모스": "암", "오바댜": "옵", "요나": "욘", "미가": "미", "나훔": "나", "하박국": "합", "스바냐": "습", "학개": "학", "스가랴": "슥", "말라기": "말", "마태복음": "마", "마가복음": "막", "누가복음": "눅", "요한복음": "요", "사도행전": "행", "로마서": "롬", "고린도전서": "고전", "고린도후서": "고후", "갈라디아서": "갈", "에베소서": "엡", "빌립보서": "빌", "골로새서": "골", "데살로니가전서": "살전", "데살로니가후서": "살후", "디모데전서": "딤전", "디모데후서": "딤후", "디도서": "딛", "빌레몬서": "몬", "히브리서": "히", "야고보서": "약", "베드로전서": "벧전", "베드로후서": "벧후", "요한일서": "요일", "요한이서": "요이", "요한삼서": "요삼", "유다서": "유", "요한계시록": "계" };
+function cardRefShort(ref) {
+  const s = String(ref == null ? "" : ref).replace(/\s+/g, " ").trim(), m = /^(\S+) (.+)$/.exec(s);
+  return m && Object.prototype.hasOwnProperty.call(BIBLE_ABBR, m[1]) ? BIBLE_ABBR[m[1]] + " " + m[2] : s;
+}
 // 받는 분 이름 — 기도문 판과 같은 다듬기(12자 · <> 걷기) · 비면 그 카드의 defaultName(수능 「우리 수험생」)
 function cardShareName(set, n) { return prayShareName(n, set && set.defaultName); }
 // 받는 분 이름 — 친 그대로(같은 다듬기) · 비면 ""(응원 글 맨 위 「{이름}에게」 줄은 친 이름이 있을 때만 — defaultName 을 쓰지 않는다)
 function cardRawName(n) { const s = prayShareName(n, " "); return s === " " ? "" : s; }
 // 본문 두 가지(친구 2026-11-07 저녁 — 교회에 안 다니는 학생에게도 보내기 쉽게) — 기도문(이름 든 기도 + 맺음말) | 응원 글(entries[i].cheer · 반말 · 자리표 없음)
 const CARD_BODIES = { pray: "기도문", cheer: "응원 글" };
+// 본문 고르기(기도문 | 응원 글) — 친구 2026-11-07 「우선 본문 고르기는 숨겨주세요」: false 면 판에 칸이 없고 늘 기도문으로 그린다.
+//   응원 글(entries[i].cheer) 자료 · 그리기(cardShareDoc 의 body "cheer")는 그대로 둔다 — 다시 보이려면 true 한 줄 + bump(게시판 공지 · 설명서 문구도 함께).
+const CARD_BODY_PICK = false;
 // 지금 때(set.defaults 의 한 줄) — 차례로 보아 until 전이면 그 줄 · until 없으면 늘 · 없으면 null · now = Date 또는 ms
 function cardDefaultAt(set, now) {
   const t = now instanceof Date ? now.getTime() : Number(now);
@@ -1241,7 +1251,7 @@ function pshCardPrep(set) {
   pshState.cno = cardPickNo(set, cardSentNos(cardSentAll(pshLs()), pshState.card, pshState.cfor), Date.now(), pshState.cnoPick);
   pshState.ckey = "card:" + cardPhotoId(set, es.find((e) => e.no === pshState.cno), pshState.cpick ? String(pshState.ckey).slice(5) : "");
   if (!CARD_STYLES[pshState.clay]) pshState.clay = "out";
-  if (pshState.cbody !== "cheer") pshState.cbody = "pray";
+  if (!CARD_BODY_PICK || pshState.cbody !== "cheer") pshState.cbody = "pray";   // 본문 고르기를 숨긴 동안은 늘 기도문
 }
 // ✓ 받는 사람마다 보낸 말씀(이 폰에만 — cardSent*) ─────────────────────────────
 // 저장소 — 꺼내다 던지는 브라우저(막힌 저장소)도 있어 try 안에서 · 없으면 null(읽기는 「보낸 것 없음」 · 쓰기는 조용히 못 적음)
@@ -1265,8 +1275,9 @@ function pshCardSent(s) {
   } catch (e) {}
 }
 // 말씀 단추 글 — 「번호 자리」 + 보낸 말씀이면 작은 ✓(읽어 주는 기능에는 aria-label 「… 보냄」)
-function pshCardVInner(e, sent) { return Number(e.no) + " " + prayEsc(e.ref) + (sent ? '<span class="psh-card-ck" aria-hidden="true">✓</span>' : ""); }
-function pshCardVLabel(e) { return Number(e.no) + " " + prayEsc(e.ref) + " 보냄"; }
+function pshCardVInner(e, sent) { return Number(e.no) + " " + prayEsc(cardRefShort(e.ref)) + (sent ? '<span class="psh-card-ck" aria-hidden="true">✓</span>' : ""); }
+// 화면 읽기 이름은 늘 온전한 이름(단추 글은 줄임말) · 보낸 말씀이면 「보냄」
+function pshCardVLabel(e, sent) { return Number(e.no) + " " + prayEsc(e.ref) + (sent ? " 보냄" : ""); }
 // 열린 판의 ✓ 를 지금 받는 사람 기준으로 고친다(단추 글 · aria-label · 말씀 고르기 머리 옆 안내)
 function pshCardMarks() {
   const set = CARD_SETS[pshState.card], w = document.getElementById("psh");
@@ -1277,7 +1288,7 @@ function pshCardMarks() {
     if (!e) return;
     const on = got.includes(e.no);
     b.innerHTML = pshCardVInner(e, on);
-    if (on) b.setAttribute("aria-label", pshCardVLabel(e)); else b.removeAttribute("aria-label");
+    b.setAttribute("aria-label", pshCardVLabel(e, on));
   });
   const n = w.querySelector("#psh-vs-s");
   if (n) n.hidden = !cardOrder(set).some((e) => got.includes(e.no));
@@ -1314,12 +1325,12 @@ function pshCardHtml() {
   const groups = (set.groups || []).map((g) => {
     const mine = es.filter((e) => e.group === g.key);
     return mine.length ? `<div class="psh-card-gh">${prayEsc(g.key)} · ${prayEsc(g.label)}</div><div class="psh-card-vs">${mine.map((e) =>
-      `<button type="button" class="psh-card-v" role="radio" data-no="${Number(e.no)}" aria-checked="${e.no === pshState.cno}"${got.includes(e.no) ? ` aria-label="${pshCardVLabel(e)}"` : ""}>${pshCardVInner(e, got.includes(e.no))}</button>`).join("")}</div>` : "";
+      `<button type="button" class="psh-card-v" role="radio" data-no="${Number(e.no)}" aria-checked="${e.no === pshState.cno}" aria-label="${pshCardVLabel(e, got.includes(e.no))}">${pshCardVInner(e, got.includes(e.no))}</button>`).join("")}</div>` : "";
   }).join("");
   return `<label class="psh-lbl" for="psh-cname">받는 학생 이름</label>
       <input id="psh-cname" class="psh-name" type="text" maxlength="12" autocomplete="off">
       <p class="psh-card-hint" id="psh-cname-h"></p>
-      ${seg("body", "본문 고르기", Object.keys(CARD_BODIES).map((k) => [k, CARD_BODIES[k]]), pshState.cbody)}
+      ${CARD_BODY_PICK ? seg("body", "본문 고르기", Object.keys(CARD_BODIES).map((k) => [k, CARD_BODIES[k]]), pshState.cbody) : ""}
       <div class="psh-lbl" id="psh-vs-l">말씀 고르기 <span class="psh-card-sent" id="psh-vs-s"${cardOrder(set).some((e) => got.includes(e.no)) ? "" : " hidden"}>✓ 이 이름으로 보낸 말씀</span></div>
       <div class="psh-card-verses" role="radiogroup" aria-labelledby="psh-vs-l">${groups}</div>
       ${seg("lay", "짜임 고르기", Object.keys(CARD_STYLES).map((k) => [k, CARD_STYLES[k].label]), pshState.clay)}`;
