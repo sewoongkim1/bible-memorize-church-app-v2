@@ -4163,7 +4163,7 @@ function verseShareVisible() { return VERSE_SHARE_OPEN || (typeof ministryTester
 // 🎓 수험생 응원기도카드(2026-11-07 친구 · 기념일 말씀카드 첫 개시 — 수능 11/19 · 성적 통지 12/11 · 판은 js/pray-share.js openCardShare) — 먼저 🧪 시험 참여자에게만.
 //   첫 화면 「새 소식」 맨 위 한 줄(haGroupsFor · HA_NEWS) · CARD_SUNEUNG_UNTIL(KST · 그날까지)이 지나면 배포 없이 저절로 없어진다.
 //   ⚠️ 새 이름은 옛 파일에 없던 것으로 — 다른 파일에 같은 이름의 const 가 있으면 배포 직후 CDN 옛 파일과 「이미 선언됨」으로 깨진다(prayer-book.md)
-const CARD_SHARE_OPEN = false;   // 모두에게 열려면 true 한 줄 + bump(설명서 한 줄과 함께)
+const CARD_SHARE_OPEN = true;   // 2026-11-07 모두에게 열었다(친구 「모두 열어 주세요」 — 게시판 공지와 함께 · 설명서 「가정 축복 기도문」 장에 한 걸음) · 닫으려면 false 한 줄 + bump
 function cardShareVisible() { return CARD_SHARE_OPEN || (typeof ministryTesterCached === "function" && ministryTesterCached()); }
 const CARD_SUNEUNG_UNTIL = "2026-12-11";
 function cardSuneungOn() { return cardShareVisible() && todayYmd() <= CARD_SUNEUNG_UNTIL; }
@@ -10693,6 +10693,8 @@ const MANUAL = [
       "<b>🔊 들려주기</b>를 누르면 소리 내어 읽어 드려요.",
       "가족을 위해 기도하시려면 이름이 적힌 <b>🙍</b> 단추를 눌러 이름을 바꾸세요.",
       "기도문 아래 금색 <b>카톡·문자로 보내기</b>를 누르면, 이름을 넣은 기도문을 <b>그림 한 장</b>으로 카카오톡이나 문자로 보낼 수 있어요.",
+      // 🎓 수험생 응원기도카드가 보이는 동안만(12/11 까지 · cardSuneungOn — 지난 메뉴를 가리키지 않게)
+      ...(cardSuneungOn() ? ["수능을 앞둔 학생에게는 첫 화면 <b>「새 소식」</b> 맨 위 <b>🎓 수험생 응원기도카드</b>로, 이름을 넣은 응원 기도를 <b>그림 한 장</b>으로 보낼 수 있어요(12월 11일까지)."] : []),
       "아래 <b>주제로 찾기</b>에서 다른 기도문도 고를 수 있어요.",
     ],
     tip: "<b>연속듣기</b>를 켜면 다음 기도문으로 이어서, <b>🎵배경음악</b>을 켜면 잔잔한 음악과 함께 들려 드려요.",

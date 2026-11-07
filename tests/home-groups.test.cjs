@@ -101,7 +101,7 @@ test('설명서 — 자리를 말하는 쉴만한 물가 줄은 첫 화면 꼴(H
 
 test('🎓 수험생 응원기도카드(친구 2026-11-07) — 「새 소식」 맨 위 · 문(🧪 시험 참여자 먼저) · 기간(12/11 까지) 안에만 단추 · 단추가 없으면 묶음째 없다', () => {
   assert.deepEqual(newsIds, ['open-card-suneung'], '「새 소식」 맨 위는 카드 한 줄(게시판 한 주간은 그 아래)');
-  assert.match(APP, /const CARD_SHARE_OPEN = false;/, '처음엔 🧪 시험 참여자만(모두에게는 true 한 줄 + bump)');
+  assert.match(APP, /const CARD_SHARE_OPEN = true;/, '2026-11-07 모두에게 열었다(친구 「모두 열어 주세요」 · 닫으려면 false 한 줄 + bump — 그러면 🧪 시험 참여자만)');
   assert.match(APP, /function cardShareVisible\(\) \{ return CARD_SHARE_OPEN \|\| \(typeof ministryTesterCached === "function" && ministryTesterCached\(\)\); \}/);
   assert.match(APP, /const CARD_SUNEUNG_UNTIL = "2026-12-11";/, '성적 통지 날까지');
   assert.match(APP, /function cardSuneungOn\(\) \{ return cardShareVisible\(\) && todayYmd\(\) <= CARD_SUNEUNG_UNTIL; \}/, '문 · 기간(KST 날짜)');
