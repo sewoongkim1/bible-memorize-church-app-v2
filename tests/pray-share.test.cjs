@@ -1547,5 +1547,8 @@ test('🎓 카드 판 배선 — 첫 화면 단추는 지연 모듈로(옛 pray-
   assert.match(cut(PS, 'function openCardShare(setKey) {', '\n}\n'), /if \(pshReuse\("card"\) && pshState\.card === setKey\) return;[^\n]*\n  prayShareClose\(\);/, '두 번 누름 — 닫기(history.back) 전에 다시 쓰기');
   const CSS = read('style.css');
   for (const c of ['psh-card-hint', 'psh-card-seg', 'psh-card-opt', 'psh-card-gh', 'psh-card-v']) assert.ok(CSS.includes('.dark .' + c + ' '), c + ' — 어두운 모드 짝');
+  // 큰 글씨 — 글자가 있는 칸은 lg · xl 짝을 둔다(검토 2026-11-07 — 묶음 머리가 아주 큰 글씨에서 12.8px 로 남았다)
+  for (const c of ['psh-card-hint', 'psh-card-opt', 'psh-card-gh', 'psh-card-v']) for (const fs of ['lg', 'xl'])
+    assert.match(CSS, new RegExp('html\\[data-fs="' + fs + '"\\] \\.' + c + '[ ,]'), c + ' — 큰 글씨(' + fs + ') 짝');
   assert.match(CSS, /\.psh-t-card img \{ width: 100%; height: 100%; object-fit: cover; \}/, '카드 작은 그림(4:5)');
 });

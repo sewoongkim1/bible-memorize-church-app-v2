@@ -8474,3 +8474,6 @@ html[data-fs="lg"] .psh-card-opt, html[data-fs="lg"] .psh-card-v { font-size: 1.
 html[data-fs="lg"] .psh-card-hint { font-size: .92rem; }
 html[data-fs="xl"] .psh-card-opt, html[data-fs="xl"] .psh-card-v { font-size: 1.15rem; }
 html[data-fs="xl"] .psh-card-hint { font-size: 1rem; }
+/* 묶음 머리(「A · 두려움을 이기는 말씀」)도 큰 글씨를 따른다 — 검토(2026-11-07)에서 아주 큰 글씨 360px 에 12.8px 로 남아 있었다(칸 이름은 17.9px) */
+html[data-fs="lg"] .psh-card-gh { font-size: .9rem; }
+html[data-fs="xl"] .psh-card-gh { font-size: 1rem; }
