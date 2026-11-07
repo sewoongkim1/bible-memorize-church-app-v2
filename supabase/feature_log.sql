@@ -48,6 +48,8 @@
 --                                    글쓰기 · 공감 · 가리기 뒤에 다시 부르는 loadBoard · 서버 boardList 에는 안 넣는다(교회 어드민도 부른다).
 --     share-open                  = 종류 코드 1·2·3·10~15 — 📤 보내기 판(js/pray-share.js 의 pshOpen)을 **새로** 연 것(2026-11-06).
 --                                    다시 쓰는 판(pshReuse) · 관리자 묵상 미리보기에서 연 판은 안 남는다.
+--                                    💌 말씀카드 판에서 카드를 바꾼 것(pshCardSwap — 같은 판 안)도 바꾼 카드의 종류 코드로 남는다(2026-11-07 ·
+--                                    바꾸고 바로 보내도 「열기 없이 보냄」이 안 생기게 · 넘겨 보기만 해도 그만큼 는다 · 60초 안 같은 값은 한 번).
 --     share-kakao                 = 3 — 카카오톡을 연 것(pshKakaoGo 에서 Kakao.Share.sendDefault 가 예외 없이 끝난 다음 줄).
 --     share-sheet                 = 종류 코드 — 공유 창으로 넘긴 것(navigator.share 가 resolve · 닫음(AbortError)은 안 센다).
 --     share-save                  = 종류 코드 — 그림 내려받기를 시작했거나 글 · 주소 복사가 끝난 것.

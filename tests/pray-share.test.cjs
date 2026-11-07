@@ -1585,7 +1585,7 @@ test('🎓 카드 판 배선 — 첫 화면 단추는 지연 모듈로(옛 pray-
   assert.ok(!/prayShareClose|pshOpen|pushState/.test(cut(PS, 'function pshCardSwap(key) {', '\n}\n')), '카드 바꾸기는 판을 닫거나 새로 열지 않는다(history.back 비동기)');
   assert.match(po, /const kakao = kind === "verse" && /, '카카오 단추는 말씀 판만(카드에는 없다)');
   assert.match(cut(PS, 'function pshCardWire(wrap) {', '\n}\n'), /if \(!pshState\.cpick\) \{ pshState\.ckey = "card:" \+ cardPhotoId\(set, e, ""\);/, '말씀을 바꾸면 그 말씀 배경 — 직접 고른 배경은 지킨다');
-  assert.match(cut(PS, 'function openCardShare(setKey) {', '\n}\n'), /if \(pshReuse\("card"\) && pshState\.card === setKey\) return;[^\n]*\n  prayShareClose\(\);/, '두 번 누름 — 닫기(history.back) 전에 다시 쓰기');
+  assert.match(cut(PS, 'function openCardShare(setKey) {', '\n}\n'), /\n  if \(pshReuse\("card"\)\) \{ if \(pshState\.card !== setKey\) pshCardSwap\(setKey\); return; \}\n  prayShareClose\(\);/, '두 번 누름 · 💌 판이 열려 있으면 — 닫기(history.back) 전에 다시 쓰기(카드가 다르면 같은 판에서 바꾸기)');
   const CSS = read('style.css');
   for (const c of ['psh-card-hint', 'psh-card-seg', 'psh-card-opt', 'psh-card-gh', 'psh-card-v', 'psh-card-vinfo', 'psh-card-vr', 'psh-card-kind']) assert.ok(CSS.includes('.dark .' + c + ' '), c + ' — 어두운 모드 짝');
   // 큰 글씨 — 글자가 있는 칸은 lg · xl 짝을 둔다(검토 2026-11-07 — 묶음 머리가 아주 큰 글씨에서 12.8px 로 남았다)
@@ -1653,6 +1653,27 @@ test('💌 말씀카드 판(친구 2026-11-07 「늘 쓰는 축하, 위로만 �
   S.prayShareClose(); S.openCardShare('suneung');
   assert.ok(!P.els.psh.innerHTML.includes('psh-card-kind') && P.els.psh.innerHTML.includes('<b id="psh-h">🎓 수험생 응원기도카드</b>'), '「새 소식」 🎓 — 고르기 칸 없이 수험생 판');
   assert.equal(S.pshKind(), 10);
+  await usageTick();
+});
+
+test('💌 판이 열린 채 「새 소식」 🎓 가 불렸다(판 파일을 받는 사이 💌 다음 🎓 — 두 부름이 차례로 온다 · 검토 2026-11-07 브라우저에서 판이 떴다가 사라졌다) — 닫고 다시 열지 않는다', async () => {
+  const P = usagePan(), S = P.S;
+  S.openCardPick(true);
+  const w = P.els.psh, pop = S.pshState.pop;
+  S.openCardShare('suneung');
+  assert.equal(P.els.psh, w, '같은 덮개'); assert.equal(S.pshState.pop, pop, 'popstate 받이 그대로 — prayShareClose(history.back) · pshOpen 을 지나지 않았다');
+  assert.equal(S.pshState.card, 'suneung', '고르기 칸에 있는 수험생으로 같은 판에서 바꾼다'); assert.equal(S.pshKind(), 10);
+  assert.equal(P.els['psh-h'].textContent, '🎓 수험생 응원기도카드');
+  assert.ok(P.els['psh-cbox'].innerHTML.includes('psh-card-gh'), '수험생 칸(묶음 머리)으로 다시 그렸다');
+  assert.deepEqual(P.logs.map((x) => x[1]), [11, 10], '판 열기 — 생일(새 판) · 수험생(바꿈)');
+  S.openCardShare('suneung');
+  assert.equal(P.els.psh, w); assert.equal(P.logs.length, 2, '같은 카드로 또 불리면 그대로(세지 않는다)');
+  S.prayShareClose(); S.openCardPick(false);   // 수험생 기간 밖 — 고르기 칸에 수험생이 없다
+  const w2 = P.els.psh, pop2 = S.pshState.pop;
+  assert.equal(S.pshState.card, 'birthday', '마지막으로 고른 수험생이 고르기 칸에 없으면 생일');
+  S.openCardShare('suneung');
+  assert.equal(P.els.psh, w2); assert.equal(S.pshState.pop, pop2, '닫고 다시 열지 않는다');
+  assert.equal(S.pshState.card, 'birthday', '고르기 칸에 없는 카드로는 안 바뀐다 — 열린 판 그대로');
   await usageTick();
 });
 

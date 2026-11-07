@@ -1717,7 +1717,9 @@ const CARD_CHEER_HINT = "이름을 넣으면 맨 위에 「(이름)에게」 한
 function openCardShare(setKey) {
   const set = CARD_SETS[setKey];
   if (!set || !(set.entries || []).length) return;
-  if (pshReuse("card") && pshState.card === setKey) return;   // 두 번 누름 — 열린 판을 그대로(닫고 다시 열면 늦게 온 history.back 이 새 판을 닫는다)
+  // 두 번 누름 · 💌 고르기 판이 이미 열려 있다(판 파일을 받는 사이 💌 다음 🎓 를 눌러 두 부름이 차례로 왔다) — 닫고 다시 열지 않는다(늦게 온 history.back 이
+  //   새 판을 닫아 판이 떴다가 사라진다 · 2026-11-07 검토에서 브라우저로 봄) · 고르기 칸에 이 카드가 있으면 같은 판에서 이 카드로(pshCardSwap) · 없으면 열린 판 그대로
+  if (pshReuse("card")) { if (pshState.card !== setKey) pshCardSwap(setKey); return; }
   prayShareClose();
   pshState.b = null; pshState.med = null; pshState.verse = null; pshState.name = ""; pshState.cmenu = [];   // 한 카드로 바로 연 판 — 고르기 칸 없음
   pshCardUse(setKey);
