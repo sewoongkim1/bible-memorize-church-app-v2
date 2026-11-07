@@ -123,3 +123,9 @@
 - `app.js` `haGroupsFor()` — 11/12(KST)까지 맨 위에 `{ title: "새 소식", ids: ["open-board"] }` 를 두고 「함께」에서는 뺀다(단추는 하나 — 옮겨 담기만 · 「새글 N」 배지도 따라간다). `HA_GROUPS` 는 그대로.
 - **끝:** `BOARD_TOP_UNTIL = "2026-11-12"` — 11/13 0시(KST)부터 배포 없이 원래 자리. 설명서 게시판 장 첫 걸음도 `boardTopOn()` 으로 갈라 쓴다(그 주엔 「이번 주 말씀 바로 아래 새 소식」).
 - **걷기(11/13 뒤 아무 때나):** 상수 · `boardTopOn` · `haGroupsFor`(→ `HA_GROUPS.forEach` 로) · 설명서 갈래 · `tests/home-groups.test.cjs` 「한 주간 맨 위」 시험을 함께. 다시 쓰고 싶으면 날짜만 바꾼다.
+
+## 2026-11-07 🎓 수험생 응원기도카드 — 「새 소식」 맨 위(🧪 시험 참여자 먼저 · 12/11 까지)
+- `haGroupsFor()` 는 이제 늘 맨 앞에 `{ title: "새 소식", ids: HA_NEWS }`(게시판 한 주간이면 그 뒤에 `"open-board"`)를 둔다 — 단추가 하나도 없으면 묶음째 없다(applyHomeA 가 건너뛴다). `HA_NEWS = ["open-card-suneung"]` · 아이콘 학사모(`cap`).
+- 단추는 `cardSuneungOn()` — 문(`CARD_SHARE_OPEN` 또는 🧪 시험 참여자) **이고** `todayYmd() <= CARD_SUNEUNG_UNTIL`("2026-12-11")일 때만 템플릿이 그린다 → 11/13 부터는 카드 한 줄 · 12/12 부터는 묶음째 없음(배포 없이). 옛 첫 화면(롤백)에서는 「함께」 맨 위.
+- 누르면 `withLazyJs("prayShare")` → `openCardShare("suneung")`(js/pray-share.js · 옛 파일이 실린 앱이면 「앱이 새 판으로…」). 설명서 게시판 첫 걸음(「새 소식」에서 💬)은 그대로 참이다.
+- 모두에게 열 때: `CARD_SHARE_OPEN = true` 한 줄 + bump · 설명서 한 줄. 시험 `tests/home-groups.test.cjs`(새 소식 차례 · 문 · 기간) · `tests/pray-share.test.cjs`(판).

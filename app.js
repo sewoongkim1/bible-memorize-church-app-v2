@@ -959,15 +959,18 @@ function boardTopOn(raw) {
   if (!p) return false;
   return p.y + "-" + String(p.m).padStart(2, "0") + "-" + String(p.d).padStart(2, "0") <= BOARD_TOP_UNTIL;
 }
+// 「새 소식」 맨 위 줄(2026-11-07 친구) — 🎓 수험생 응원기도카드(단추는 문 · 기간 안에만 그린다 — cardSuneungOn) · 그 아래 한 주간 💬 게시판.
+//   단추가 하나도 없으면 묶음째 없다(applyHomeA 가 단추 없는 묶음을 건너뛴다) — 11/13 부터는 카드 한 줄뿐 · 12/12 부터(또는 문 밖)는 묶음째 없다.
+const HA_NEWS = ["open-card-suneung"];
 function haGroupsFor(raw) {
-  if (!boardTopOn(raw)) return HA_GROUPS;
-  return [{ title: "새 소식", ids: ["open-board"] }]
+  if (!boardTopOn(raw)) return [{ title: "새 소식", ids: HA_NEWS }].concat(HA_GROUPS);
+  return [{ title: "새 소식", ids: HA_NEWS.concat(["open-board"]) }]
     .concat(HA_GROUPS.map((g) => (g.ids.includes("open-board") ? Object.assign({}, g, { ids: g.ids.filter((id) => id !== "open-board") }) : g)));
 }
 const HA_ROW_ICON = {
   "open-sermon-chat": "message", "open-meditation": "leaf", "open-navi": "book", "open-event-list": "medal", "open-album": "album", "open-ranking": "trophy",
   "open-ministry": "users", "open-ministry-history": "folder", "open-edu": "cap", "open-duty": "calendar",
-  "open-board": "heart", "open-prayer": "house", "open-psalm": "drop", "open-passages": "scroll", "open-pilsa": "pen", "open-quiz": "target",
+  "open-card-suneung": "cap", "open-board": "heart", "open-prayer": "house", "open-psalm": "drop", "open-passages": "scroll", "open-pilsa": "pen", "open-quiz": "target",
   "open-praise": "music", "open-sermon-archive": "tv", "open-youtube": "play",
 };
 const HA_TOOL_ICON = { "toggle-ref-first": "bookmark", "toggle-card-input": "keyboard", "open-help-summary": "help", "open-alarm": "bell", "open-settings": "gear" };
@@ -3843,6 +3846,8 @@ function renderSummary() {
     ${naviVisible() ? `<div class="grp-title">암송 과정</div>
     <button class="summary-help" id="open-navi">📚 주제별 성경암송${newBadge("navi")}</button>` : ""}
     <div class="grp-title">함께</div>
+    ${/* 🎓 수험생 응원기도카드(2026-11-07) — 문(cardShareVisible · 🧪 시험 참여자 먼저) · 기간(CARD_SUNEUNG_UNTIL) 안에만. A안은 「새 소식」 맨 위로 옮겨 담는다(HA_NEWS) */""}
+    ${cardSuneungOn() ? `<button class="summary-help" id="open-card-suneung">🎓 수험생 응원기도카드</button>` : ""}
     <button class="summary-help" id="open-board">💬 응원·기도·공감</button>
     ${/* 2026-09-25 순서 바꿈(친구 요청) — 가정 축복 기도문이 쉴만한 물가보다 위. */""}
     <button class="summary-help" id="open-prayer">🙏 가정 축복 기도문${newBadge("prayer")}</button>
@@ -3896,6 +3901,12 @@ function renderSummary() {
   renderStoreNudge();   // 웹으로 오신 분께 스토어 앱 안내 한 줄(2026-10-09)
   loadEventState();     // 서버에서 설정·응모여부 갱신 후 다시 표시
   document.getElementById("open-board").addEventListener("click", renderBoard);
+  // 🎓 수험생 응원기도카드 — 판은 누를 때 받는다(js/pray-share.js) · 두 번 눌러도 판은 하나(openCardShare 가 열린 판을 그대로 둔다)
+  { const b = document.getElementById("open-card-suneung");   // 문 · 기간 밖에는 없다
+    if (b) b.addEventListener("click", () => withLazyJs("prayShare", () => {
+      if (typeof openCardShare === "function") openCardShare("suneung");
+      else appAlert(typeof openPrayShare === "function" ? "앱이 새 판으로 바뀌었어요. 앱을 껐다가 다시 열어 주세요." : "보내기 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
+    })); }
   document.getElementById("open-prayer").addEventListener("click", () => openPrayerBook());   // 화면 코드는 누를 때 받는다(js/prayer.js)
   const minBtn = document.getElementById("open-ministry");   // 기간 밖에는 아예 없다
   if (minBtn) minBtn.addEventListener("click", () => {
@@ -4148,6 +4159,13 @@ function medShareVisible() { return MED_SHARE_OPEN || (typeof ministryTesterCach
 //   친구가 보고 나면 true 한 줄 + bump · 설명서 한 줄(docs/notes/prayer-book.md 끝 「📖 이번 주 말씀도 보내기」).
 const VERSE_SHARE_OPEN = true;   // 2026-11-06 모두에게 열었다(친구 「올려주세요」 — 게시판 공지 「가족·목장 식구를 초대해 주세요」와 함께 · 설명서 말씀 암송 장에 한 줄) · 닫으려면 false 한 줄 + bump
 function verseShareVisible() { return VERSE_SHARE_OPEN || (typeof ministryTesterCached === "function" && ministryTesterCached()); }
+// 🎓 수험생 응원기도카드(2026-11-07 친구 · 기념일 말씀카드 첫 개시 — 수능 11/19 · 성적 통지 12/11 · 판은 js/pray-share.js openCardShare) — 먼저 🧪 시험 참여자에게만.
+//   첫 화면 「새 소식」 맨 위 한 줄(haGroupsFor · HA_NEWS) · CARD_SUNEUNG_UNTIL(KST · 그날까지)이 지나면 배포 없이 저절로 없어진다.
+//   ⚠️ 새 이름은 옛 파일에 없던 것으로 — 다른 파일에 같은 이름의 const 가 있으면 배포 직후 CDN 옛 파일과 「이미 선언됨」으로 깨진다(prayer-book.md)
+const CARD_SHARE_OPEN = false;   // 모두에게 열려면 true 한 줄 + bump(설명서 한 줄과 함께)
+function cardShareVisible() { return CARD_SHARE_OPEN || (typeof ministryTesterCached === "function" && ministryTesterCached()); }
+const CARD_SUNEUNG_UNTIL = "2026-12-11";
+function cardSuneungOn() { return cardShareVisible() && todayYmd() <= CARD_SUNEUNG_UNTIL; }
 // 첫 화면 아이콘 = 카카오톡 말풍선(친구 2026-11-05 「첫화면 아이콘을 카카오톡 아이콘으로」 — 판의 노란 「카카오톡으로 보내기」와 같은 꼴 · 노란 동그라미는 style.css)
 const KAKAO_TALK_IC = '<svg class="wsi-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 3.5c-5.25 0-9.5 3.33-9.5 7.44 0 2.66 1.78 4.99 4.46 6.31-.15.52-.94 3.27-.97 3.49 0 0-.02.16.09.22.1.06.23.01.23.01.3-.04 3.5-2.29 4.05-2.68.53.08 1.08.12 1.64.12 5.25 0 9.5-3.33 9.5-7.44S17.25 3.5 12 3.5z"/></svg>';
 // 「🙏 오늘의 기도」 전용 팝업 — 위젯과 같은 편(제목·말씀·기도문). 이름 자리는 **로그인 이름**으로 채운다

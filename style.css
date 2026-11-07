@@ -8444,3 +8444,33 @@ html[data-fs="xl"] .psh-lbl { font-size: 1.12rem; }
 html[data-fs="xl"] .psh-name { font-size: 1.28rem; min-height: 52px; }
 html[data-fs="xl"] .psh-hint, html[data-fs="xl"] .psh-msg { font-size: 1.08rem; }
 html[data-fs="xl"] .psh-t i { font-size: .82rem; }
+/* 🎓 기념일 말씀카드 판(2026-11-07 · 수험생 응원기도카드 · js/pray-share.js pshCardHtml) — 이름 칸 아래 안내 · 두 칸 고르기(본문 · 짜임) ·
+   말씀 고르기(묶음 머리 + 작은 단추) · 작은 그림(4:5). 글자색은 모두 .dark 짝을 둔다(판 바탕 #1a202b). */
+.psh-card-hint { margin: 6px 2px 0; font-size: .82rem; line-height: 1.45; color: #5b6478; word-break: keep-all; }
+.psh-card-seg { display: flex; gap: 4px; padding: 3px; border-radius: 12px; background: #efe9de; }
+.psh-card-opt {
+  flex: 1 1 0; min-height: 42px; padding: 6px 8px; border: 0; border-radius: 9px;
+  background: transparent; color: #4a5468; font-size: .95rem; font-weight: 800; word-break: keep-all;
+}
+.psh-card-opt[aria-checked="true"] { background: #1e3a6b; color: #fff; box-shadow: 0 1px 4px rgba(13, 27, 62, .25); }
+.psh-card-verses { display: flex; flex-direction: column; gap: 4px; }
+.psh-card-gh { margin: 4px 2px 2px; font-size: .8rem; font-weight: 800; color: #8a6a2a; word-break: keep-all; }
+.psh-card-vs { display: flex; flex-wrap: wrap; gap: 6px; }
+.psh-card-v {
+  min-height: 40px; padding: 6px 12px; border: 1.5px solid #d9d1c2; border-radius: 999px;
+  background: #fff; color: #1b2333; font-size: .9rem; font-weight: 700; white-space: nowrap;
+}
+.psh-card-v[aria-checked="true"] { border-color: #1e3a6b; background: #1e3a6b; color: #fff; }
+.psh-t-card img { width: 100%; height: 100%; object-fit: cover; }
+.dark .psh-card-hint { color: #b9c0cd; }
+.dark .psh-card-seg { background: #262d39; }
+.dark .psh-card-opt { color: #b9c0cd; }
+.dark .psh-card-opt[aria-checked="true"] { background: #3b5a94; color: #fff; }
+.dark .psh-card-gh { color: #e0c27a; }
+.dark .psh-card-v { background: #11161f; border-color: #3a4252; color: #f1eee7; }
+.dark .psh-card-v[aria-checked="true"] { background: #3b5a94; border-color: #9dbbea; color: #fff; }
+.dark .psh-name::placeholder { color: #7f8899; }
+html[data-fs="lg"] .psh-card-opt, html[data-fs="lg"] .psh-card-v { font-size: 1.05rem; }
+html[data-fs="lg"] .psh-card-hint { font-size: .92rem; }
+html[data-fs="xl"] .psh-card-opt, html[data-fs="xl"] .psh-card-v { font-size: 1.15rem; }
+html[data-fs="xl"] .psh-card-hint { font-size: 1rem; }

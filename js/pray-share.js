@@ -374,6 +374,9 @@ const CARD_SETS = {
     amen: "예수님의 이름으로 응원하며 기도합니다. 아멘!",
     defaultName: "우리 수험생",
     nameHint: "이름이나 부르는 말(예: 지훈 · 우리 지훈이 · 사랑하는 손녀) — 비우면 「우리 수험생」",
+    // 판을 처음 열 때 골라 둘 말씀(cardDefaultNo) — 차례로 보아 until(그 시각 전까지) 안이면 그 번호 · until 없는 마지막 줄은 그 뒤 늘 ·
+    //   그 번호의 편이 자료에 없으면 첫 편. 수능 전 → 1 · 전날 저녁부터 시험 날 → 7 · 시험이 끝난 뒤 → 10(친구 2026-11-07)
+    defaults: [{ until: "2026-11-18T18:00:00+09:00", no: 1 }, { until: "2026-11-19T18:00:00+09:00", no: 7 }, { no: 10 }],
     groups: [
       { key: "A", label: "두려움을 이기는 말씀" },
       { key: "B", label: "지혜와 집중력을 구하는 말씀" },
@@ -385,13 +388,15 @@ const CARD_SETS = {
       { id: "bg-sea", label: "바다", focus: 0.5 },
       { id: "bg-lake", label: "호수", focus: 0.5 },
     ],
-    entries: [   // 임시 두 편(초안 1 · 3) — 열 편이 다듬어지면 덩이째 바꾼다
-      { no: 1, group: "A", title: "너는 혼자가 아니야!", en: "Fear Not, for I Am with You!",
+    entries: [   // 임시 두 편(초안 1 · 3) — 열 편이 다듬어지면 덩이째 바꾼다 · photo = 그 말씀의 첫 배경(photos 의 id) · cheer = 응원 글 본문(반말 · 자리표 없음)
+      { no: 1, group: "A", photo: "bg-dawn", title: "너는 혼자가 아니야!", en: "Fear Not, for I Am with You!",
+        cheer: "시험을 앞두고 마음이 자꾸 떨리지? 그래도 두려워하지 마. 하나님이 너와 함께 계시고, 네 하나님이 되어 주셔. 떨리는 마음은 굳세게 하시고, 막막한 순간에는 참으로 도와주실 거야.",
         prayer: "하나님, 시험을 앞둔 {이름}{과} 함께 하시고 {이름}의 하나님이 되어 주시어 두려워하지 않고 놀라지 않게 하옵소서. {이름}{을} 굳세게 하시고 참으로 도와 주시며, 주의 의로운 오른손으로 붙들어 주옵소서.",
         quote: "두려워하지 말라 내가 너와 함께 함이라 놀라지 말라 나는 네 하나님이 됨이라",
         verse: "두려워하지 말라 내가 너와 함께 함이라 놀라지 말라 나는 네 하나님이 됨이라 내가 너를 굳세게 하리라 참으로 너를 도와 주리라 참으로 나의 의로운 오른손으로 너를 붙들리라",
         ref: "이사야 41:10", closing: "하나님이 너를 꼭 붙드신다!" },
-      { no: 2, group: "A", title: "시험장에도 함께 가셔!", en: "Be Strong and Courageous!",
+      { no: 2, group: "A", photo: "bg-lake", title: "시험장에도 함께 가셔!", en: "Be Strong and Courageous!",
+        cheer: "시험장 문을 열고 들어설 때 혼자라는 느낌이 들 수도 있어. 그래도 놀라지 마. 하나님이 강하고 담대하라고 하신 건, 네가 어디로 가든지 함께 가 주시겠다는 약속이야. 아는 문제부터 하나씩 차분히 풀어 가자.",
         prayer: "하나님, 주께서 명령하신 대로 {이름}{이} 강하고 담대하게 하시고, 두려워하지 말며 놀라지 말게 하옵소서. {이름}{이} 어디로 가든지, 시험장에 들어설 때에도 {이름}의 하나님 여호와께서 함께 하여 주옵소서.",
         quote: "강하고 담대하라 두려워하지 말며 놀라지 말라 네가 어디로 가든지 네 하나님 여호와가 너와 함께 하느니라",
         verse: "내가 네게 명령한 것이 아니냐 강하고 담대하라 두려워하지 말며 놀라지 말라 네가 어디로 가든지 네 하나님 여호와가 너와 함께 하느니라 하시니라",
@@ -428,6 +433,23 @@ function cardRefLabel(ref) {
 }
 // 받는 분 이름 — 기도문 판과 같은 다듬기(12자 · <> 걷기) · 비면 그 카드의 defaultName(수능 「우리 수험생」)
 function cardShareName(set, n) { return prayShareName(n, set && set.defaultName); }
+// 받는 분 이름 — 친 그대로(같은 다듬기) · 비면 ""(응원 글 맨 위 「{이름}에게」 줄은 친 이름이 있을 때만 — defaultName 을 쓰지 않는다)
+function cardRawName(n) { const s = prayShareName(n, " "); return s === " " ? "" : s; }
+// 본문 두 가지(친구 2026-11-07 저녁 — 교회에 안 다니는 학생에게도 보내기 쉽게) — 기도문(이름 든 기도 + 맺음말) | 응원 글(entries[i].cheer · 반말 · 자리표 없음)
+const CARD_BODIES = { pray: "기도문", cheer: "응원 글" };
+// 판을 처음 열 때 골라 둘 말씀 번호 — set.defaults 를 차례로(until 전이면 그 번호 · until 없으면 늘) · 그 번호의 편이 없으면 첫 편 · now = Date 또는 ms
+function cardDefaultNo(set, now) {
+  const es = (set && set.entries) || [], t = now instanceof Date ? now.getTime() : Number(now);
+  const d = ((set && set.defaults) || []).find((x) => !x.until || t < Date.parse(x.until));
+  const no = d ? Number(d.no) : 0;
+  return es.some((e) => e.no === no) ? no : (es[0] ? es[0].no : 0);
+}
+// 배경 사진 id — 보내는 분이 직접 고른 그림(picked)이 있으면 그것(말씀을 바꿔도 지킨다) · 없으면 그 말씀의 photo · 모르는 id 면 첫 그림
+function cardPhotoId(set, entry, picked) {
+  const ids = ((set && set.photos) || []).map((p) => p.id), p = entry && entry.photo;
+  if (picked && ids.includes(picked)) return picked;
+  return p && ids.includes(p) ? p : (ids[0] || "");
+}
 // 그림 한 칸의 꼴 값 — 짜임(out · in)에 그 사진의 focus 를 더한 것(pshBg 가 띠 · 바탕에 맞춰 자른다)
 function cardStyle(lay, photo) {
   const f = Number(photo && photo.focus);
@@ -444,17 +466,24 @@ function cardPanel(st, plan) {
   return { x: P.x, y, w: P.w, h: Math.round(plan.bottom + P.pad.b) - y, r: P.r };
 }
 // 카드 글 덩이 — 줄만 정하고 배치는 pshPlan(기도문 · 묵상 · 말씀과 같은 엔진 · 글꼴은 줄마다 o) · 기도문은 한 문단(시안 그대로 — 문장마다 끊지 않는다)
-function cardSharePlan(set, entry, name, styleKey, measure) {
+//   body = "cheer" 면 응원 글 — 이름을 쳤으면 맨 위에 작게 「{이름}에게」(받침과 상관없는 조사라 그대로 붙인다) · 기도문 · 맺음말 대신 entries[i].cheer ·
+//   그 밖(빈 값 · "pray")은 기도문 — 1단계 그림과 바이트까지 같다(시험)
+function cardSharePlan(set, entry, name, styleKey, measure, body) {
   const e = entry || {}, nm = cardShareName(set, name), amen = String((set && set.amen) || "");
+  const cheer = body === "cheer", to = cheer ? cardRawName(name) : "";
   const sans = (wb) => ({ fam: PSH_SANS, wb }), serif = (w, wb) => ({ fam: PSH_SERIF, w, wb });
   return pshPlan(styleKey, measure, (size, c) => {
     const st = c.st;
-    c.add([{ s: String(e.title || ""), a: false }], Math.round(size * 1.45), 1.3, true, st.title, 0, sans(800));
+    if (to) c.add([{ s: to + "에게", a: false }], Math.round(size * 0.8), 1.3, true, st.accent, 0, sans(700));
+    c.add([{ s: String(e.title || ""), a: false }], Math.round(size * 1.45), 1.3, true, st.title, to ? Math.round(size * 0.3) : 0, sans(800));
     if (e.en) c.add([{ s: String(e.en), a: false }], Math.round(size * 0.82), 1.3, true, st.green, Math.round(size * 0.35), { fam: CARD_EN, wb: 700, it: true });
-    c.add(prayShareRuns(String(e.prayer || ""), nm), size, 1.65, false, st.ink, Math.round(size * 0.8), serif(500, 800));   // 이름만 굵게 · 강조색
-    const az = Math.round(size * 0.9), ao = serif(700, 700);
-    const parts = measure(amen, c.font(az, true, ao)) <= st.box.w ? [amen] : prayShareHalves(amen);   // 한 줄에 안 들면 가운데에서 둘로(「아멘!」 홀로 남지 않게)
-    parts.forEach((x, j) => c.add([{ s: x, a: false }], az, 1.5, true, st.accent, j === 0 ? Math.round(size * 0.45) : 0, ao));
+    if (cheer) c.add([{ s: String(e.cheer || ""), a: false }], size, 1.65, false, st.ink, Math.round(size * 0.8), serif(500, 800));
+    else {
+      c.add(prayShareRuns(String(e.prayer || ""), nm), size, 1.65, false, st.ink, Math.round(size * 0.8), serif(500, 800));   // 이름만 굵게 · 강조색
+      const az = Math.round(size * 0.9), ao = serif(700, 700);
+      const parts = measure(amen, c.font(az, true, ao)) <= st.box.w ? [amen] : prayShareHalves(amen);   // 한 줄에 안 들면 가운데에서 둘로(「아멘!」 홀로 남지 않게)
+      parts.forEach((x, j) => c.add([{ s: x, a: false }], az, 1.5, true, st.accent, j === 0 ? Math.round(size * 0.45) : 0, ao));
+    }
     c.add([{ s: "“" + String(e.quote || "") + "”", a: false }], Math.round(size * 0.95), 1.6, true, st.title, Math.round(size * 0.8), serif(800, 800));
     c.add([{ s: cardRefLabel(e.ref), a: false }], Math.round(size * 0.78), 1.4, true, st.sub, Math.round(size * 0.4), sans(700));
     c.rule(Math.round(size * 0.7), st.rule, 0.8);
@@ -611,11 +640,15 @@ function verseShareDoc(v) {
 }
 // 🎓 기념일 말씀카드 한 벌 — set = CARD_SETS 의 한 칸 · entry = 그 카드의 한 편 · name = 판에서 친 이름(비면 defaultName) ·
 //   lay = "out" | "in" — 그림 칸(cardShareChoices)의 꼴 값이 오면 그것을, 꼴 이름 · 빈 값이 오면 이 짜임을 쓴다.
-function cardShareDoc(set, entry, name, lay) {
+//   body = "pray"(빈 값) | "cheer"(응원 글 — 이름이 비면 「…에게」 줄 없이 · 기도문 · 맺음말 대신 cheer)
+function cardShareDoc(set, entry, name, lay, body) {
   const e = entry || {}, nm = cardShareName(set, name), no = Number(e.no) || 0, L = CARD_STYLES[lay] ? lay : "out";
-  return { plan: (style, measure) => cardSharePlan(set, e, nm, (style && typeof style === "object") ? style : CARD_STYLES[L], measure),
-           text: [e.title, prayFill(e.prayer, nm), set && set.amen, "“" + String(e.quote || "") + "”", cardRefLabel(e.ref), e.closing].join(" "),
-           seed: no || 1, file: "card-" + no + ".jpg", alt: "보낼 그림 — " + String((set && set.label) || "") + " · " + String(e.title || "") + " · " + nm };
+  const cheer = body === "cheer", to = cheer ? cardRawName(name) : "";
+  return { plan: (style, measure) => cardSharePlan(set, e, name, (style && typeof style === "object") ? style : CARD_STYLES[L], measure, cheer ? "cheer" : "pray"),
+           text: (cheer ? [to ? to + "에게" : "", e.title, e.cheer] : [e.title, prayFill(e.prayer, nm), set && set.amen])
+             .concat(["“" + String(e.quote || "") + "”", cardRefLabel(e.ref), e.closing]).join(" "),
+           seed: no || 1, file: "card-" + no + ".jpg",
+           alt: "보낼 그림 — " + String((set && set.label) || "") + " · " + String(e.title || "") + (cheer ? (to ? " · " + to : "") : " · " + nm) };
 }
 function prayShareDraw(b, name, choice, leafNo) { return pshDraw(prayShareDoc(b, name), choice, leafNo); }
 // 그림 한 장(JPEG Blob). doc = prayShareDoc · medShareDoc 의 한 벌 · choice = prayShareChoices() 의 한 칸 · leafNo = 1~12(액자 · 잎).
@@ -674,21 +707,32 @@ function pshDraw(doc, choice, leafNo) {
 // kakaoUp = 카카오 서버에 올린 그림 주소(액자 · 파일 · 크기 → 주소 — 같은 그림은 한 번만) · kakaoReady = 올리기가 늦어 「카카오톡 열기」를 한 번 더 누를 차례의 주소 ·
 // kakaoBusy = 지금 올리는 차례의 표(공유 창 잠금 sharing 과 따로 — 액자를 바꾸거나 판을 닫으면 버린다) · kakaoT = 「카카오톡이 안 열렸으면」 타이머
 // noLog = 이 판에서 일어난 일을 이용 기록에 남기지 않는다(관리자 묵상 미리보기 — pshOpen 의 opts.noLog · 다시 쓰는 판은 여는 쪽이 덮어쓴다 · 2026-11-06)
-const pshState = { gen: 0, blob: null, url: null, key: "night", vkey: "", leaf: 1, b: null, name: "", med: null, verse: null, file: "", timer: null, pop: null, esc: null, noLog: false, sharing: false, withLink: true, linkNext: false,
+// card = 🎓 기념일 말씀카드 판(CARD_SETS 의 키 · 비면 다른 판) · 그 판에서 고른 것(앱을 쓰는 동안 기억 — prayShareClose 가 안 지운다): cname 받는 분 이름(친 그대로) ·
+//   cbody 본문(pray | cheer) · cno 지금 말씀 번호 · cnoPick 보내는 분이 고른 말씀(0 = 안 고름 → 열 때마다 날짜에 맞춘 편) · clay 짜임(out | in) ·
+//   ckey 고른 배경("card:<id>") · cpick 보내는 분이 배경을 직접 골랐다(말씀을 바꿔도 지킨다)
+const pshState = { gen: 0, blob: null, url: null, key: "night", vkey: "", leaf: 1, b: null, name: "", med: null, verse: null,
+                   card: "", cname: "", cbody: "pray", cno: 0, cnoPick: 0, clay: "out", ckey: "", cpick: false, file: "", timer: null, pop: null, esc: null, noLog: false, sharing: false, withLink: true, linkNext: false,
                    kakaoUp: {}, kakaoReady: "", kakaoBusy: null, kakaoT: 0 };
 const PSH_TITLE_PRAY = "📤 가정 축복 기도문 보내기", PSH_TITLE_MED = "📤 오늘의 묵상 보내기";
 const PSH_TITLE_VERSE = "📤 이번 주 말씀 보내기";
 // 판이 그릴 글 한 벌 — 묵상 · 말씀 · 기도문 가운데 지금 찬 것
-function pshDoc() { return pshState.med ? medShareDoc(pshState.med) : pshState.verse ? verseShareDoc(pshState.verse) : prayShareDoc(pshState.b, pshState.name); }
-// 📊 이용 기록(2026-11-06 설계 docs/superpowers/specs/2026-11-06-share-board-usage-log-design.md 2-2) — 종류 코드 1 기도문 · 2 묵상 · 3 이번 주 말씀(pshDoc 과 같은 가름)
-function pshKind() { return pshState.med ? 2 : pshState.verse ? 3 : 1; }
+function pshDoc() { return pshState.card ? pshCardDoc() : pshState.med ? medShareDoc(pshState.med) : pshState.verse ? verseShareDoc(pshState.verse) : prayShareDoc(pshState.b, pshState.name); }
+// 🎓 카드 판이 그릴 한 편 — 고른 말씀(없으면 첫 편) · 받는 분 이름(친 그대로 — 비면 기도문은 defaultName · 응원 글은 「…에게」 줄 없음) · 짜임 · 본문
+function pshCardDoc() {
+  const set = CARD_SETS[pshState.card] || {}, es = set.entries || [];
+  return cardShareDoc(set, es.find((e) => e.no === pshState.cno) || es[0], pshState.cname, pshState.clay, pshState.cbody);
+}
+// 📊 이용 기록(2026-11-06 설계 docs/superpowers/specs/2026-11-06-share-board-usage-log-design.md 2-2) — 종류 코드 1 기도문 · 2 묵상 · 3 이번 주 말씀(pshDoc 과 같은 가름) ·
+//   10 🎓 기념일 말씀카드(수험생 응원기도카드 · 기도문 · 응원 글 모두 — 2026-11-07 · 4~9 는 다른 보내기가 쓴다 · 이름은 api SHARE_KINDS)
+function pshKind() { return pshState.card ? 10 : pshState.med ? 2 : pshState.verse ? 3 : 1; }
 // 남기는 것은 (값, 종류 코드) 둘뿐 — 이름 칸 값(pshState.name) · 글 · 파일 이름은 넘기지 않는다 · 미리보기 판(noLog)은 남기지 않는다 ·
 //   logFeature 는 app.js 것(로그인 전 · 어린 부서는 거기서 빠진다 · 60초 안 같은 값은 한 번) — 옛 app.js · vm 에는 없을 수 있어 typeof 로
 function pshLog(feature, item) { if (pshState.noLog) return; if (typeof logFeature === "function") logFeature(feature, item); }
 // 배경 목록 · 고른 배경 — 말씀 판은 말씀 액자만(친구 2026-11-05 「기존에 없던 것으로」) · 고른 것도 따로 기억한다(기도문 · 묵상은 「밤하늘 먼저」를 함께 쓴다)
-function pshChoices() { return pshState.verse ? verseFrameChoices() : prayShareChoices(); }
-function pshKeyGet() { return pshState.verse ? pshState.vkey : pshState.key; }
-function pshKeySet(k) { if (pshState.verse) pshState.vkey = k; else pshState.key = k; }
+//   🎓 카드 판은 그 카드의 사진만(짜임에 맞춘 꼴 값 — cardShareChoices) · 고른 것도 따로(ckey)
+function pshChoices() { return pshState.card ? cardShareChoices(CARD_SETS[pshState.card], pshState.clay) : pshState.verse ? verseFrameChoices() : prayShareChoices(); }
+function pshKeyGet() { return pshState.card ? pshState.ckey : pshState.verse ? pshState.vkey : pshState.key; }
+function pshKeySet(k) { if (pshState.card) pshState.ckey = k; else if (pshState.verse) pshState.vkey = k; else pshState.key = k; }
 function pshSay(t) { const m = document.getElementById("psh-msg"); if (m) m.textContent = t; }
 function pshSendLabel(busy) {
   const s = document.getElementById("psh-send");
@@ -705,6 +749,10 @@ function pshRedraw() {
   pshState.blob = null; pshState.linkNext = false;   // 그림이 바뀌면 단추는 다시 「그림 보내기」
   pshState.kakaoReady = ""; pshState.kakaoBusy = null;   // 올리던 옛 그림은 버린다(늦게 와도 표가 달라 무시된다)
   pshSendLabel(true); pshSay("");
+  if (pshState.card) {   // 🎓 이름을 치다가(0.3초 안) 말씀 · 본문 · 짜임 · 배경을 바꿨다 — 지금 칸 값으로 그린다(옛 이름 그림이 나가지 않게)
+    const ci = document.getElementById("psh-cname");
+    if (ci) { clearTimeout(pshState.timer); pshState.cname = ci.value; }
+  }
   const all = pshChoices();
   const ch = all.find((c) => c.key === pshKeyGet()) || all[0];
   const doc = pshDoc();
@@ -925,9 +973,9 @@ function prayShareClose(fromPop) {
 // 기도문 화면 · 「🙏 오늘의 기도」 창이 부른다 — 이름 칸이 있다(처음 값 name)
 function openPrayShare(b, name) {
   if (!b) return;
-  if (pshReuse("pray")) { pshState.b = b; pshState.med = null; pshState.verse = null; pshState.noLog = false; pshRedraw(); return; }   // 단추를 두 번 눌러 또 불렸다 — 열린 판을 그대로
+  if (pshReuse("pray")) { pshState.b = b; pshState.med = null; pshState.verse = null; pshState.card = ""; pshState.noLog = false; pshRedraw(); return; }   // 단추를 두 번 눌러 또 불렸다 — 열린 판을 그대로
   prayShareClose();
-  pshState.b = b; pshState.med = null; pshState.verse = null;
+  pshState.b = b; pshState.med = null; pshState.verse = null; pshState.card = "";   // 🎓 카드 판 표식도 비운다(안 비우면 기도문 판에 카드가 그려진다)
   pshState.name = prayShareName(name);
   pshOpen(PSH_TITLE_PRAY, true, name, "pray");
 }
@@ -936,19 +984,97 @@ function openPrayShare(b, name) {
 function openMedShare(m, opts) {
   if (!m || !(m.message || m.question)) return;
   const noLog = !!(opts && opts.preview);
-  if (pshReuse("med")) { pshState.b = null; pshState.med = m; pshState.verse = null; pshState.noLog = noLog; pshRedraw(); return; }
+  if (pshReuse("med")) { pshState.b = null; pshState.med = m; pshState.verse = null; pshState.card = ""; pshState.noLog = noLog; pshRedraw(); return; }
   prayShareClose();
-  pshState.b = null; pshState.med = m; pshState.verse = null; pshState.name = "";
+  pshState.b = null; pshState.med = m; pshState.verse = null; pshState.card = ""; pshState.name = "";
   pshOpen(PSH_TITLE_MED, false, "", "med", { noLog });
 }
 // 첫 화면 「이번 주 말씀」 카드의 작은 아이콘이 부른다(2026-11-05 친구) — v = 이번 주 구절({ no, text, refFull, refShort, sermonTitle, pastor, date }) ·
 //   이름 칸 없음 · 그림은 말씀 액자(VERSE_FRAMES) · 설치 주소는 그림 다음에 글로 따로(「설치 주소도 보내기」 체크)
 function openVerseShare(v) {
   if (!v || !String(v.text || "").trim()) return;
-  if (pshReuse("verse")) { pshState.b = null; pshState.med = null; pshState.verse = v; pshState.noLog = false; pshRedraw(); return; }
+  if (pshReuse("verse")) { pshState.b = null; pshState.med = null; pshState.verse = v; pshState.card = ""; pshState.noLog = false; pshRedraw(); return; }
   prayShareClose();
-  pshState.b = null; pshState.med = null; pshState.verse = v; pshState.name = "";
+  pshState.b = null; pshState.med = null; pshState.verse = v; pshState.card = ""; pshState.name = "";
   pshOpen(PSH_TITLE_VERSE, false, "", "verse");
+}
+// 🎓 첫 화면 「새 소식」의 「🎓 수험생 응원기도카드」가 부른다(2026-11-07 친구 · 기념일 말씀카드) — setKey = CARD_SETS 의 키(수능 "suneung").
+//   판(위에서 아래로): 받는 학생 이름 · 본문(기도문 | 응원 글) · 말씀(묶음 머리 아래 작은 단추) · 짜임(그림 밖 | 그림 안) · 배경(그 카드의 사진) · 미리보기 · 보내기.
+//   보내기는 기도문 판과 같은 공유 창 길(누른 탭 안에서 미리 만든 Blob · 공유 창이 없으면 내려받기) — 카카오 SDK 길은 붙이지 않는다.
+//   고른 것은 앱을 쓰는 동안 기억한다(pshState.c*) · 말씀은 보내는 분이 고른 적이 없으면 열 때마다 날짜에 맞춘 편(cardDefaultNo) ·
+//   배경은 그 말씀의 photo — 보내는 분이 배경을 직접 고른 뒤(cpick)에는 말씀을 바꿔도 그 배경(cardPhotoId).
+const CARD_TITLES = { suneung: "🎓 수험생 응원기도카드" };
+const CARD_CHEER_HINT = "이름을 넣으면 맨 위에 「(이름)에게」 한 줄이 들어가요. 비우면 그 줄 없이 보내요.";
+function openCardShare(setKey) {
+  const set = CARD_SETS[setKey];
+  if (!set || !(set.entries || []).length) return;
+  if (pshReuse("card") && pshState.card === setKey) return;   // 두 번 누름 — 열린 판을 그대로(닫고 다시 열면 늦게 온 history.back 이 새 판을 닫는다)
+  prayShareClose();
+  pshState.b = null; pshState.med = null; pshState.verse = null; pshState.card = setKey; pshState.name = "";
+  pshCardPrep(set);
+  pshOpen(CARD_TITLES[setKey] || "🎓 " + String(set.label || ""), false, "", "card");
+}
+// 열 때 — 말씀(고른 것 · 없으면 날짜에 맞춘 편) · 배경(직접 고른 것 · 없으면 그 말씀의 것) · 짜임 · 본문을 맞춘다
+function pshCardPrep(set) {
+  const es = set.entries || [];
+  pshState.cno = es.some((e) => e.no === pshState.cnoPick) ? pshState.cnoPick : cardDefaultNo(set, Date.now());
+  pshState.ckey = "card:" + cardPhotoId(set, es.find((e) => e.no === pshState.cno), pshState.cpick ? String(pshState.ckey).slice(5) : "");
+  if (!CARD_STYLES[pshState.clay]) pshState.clay = "out";
+  if (pshState.cbody !== "cheer") pshState.cbody = "pray";
+}
+// 카드 판의 칸 — 이름(id psh-cname — 기도문 판의 psh-name 받이와 따로) · 본문 · 말씀 · 짜임(배경 고르기 위)
+function pshCardHtml() {
+  const set = CARD_SETS[pshState.card] || {}, es = set.entries || [];
+  const seg = (name, label, opts, cur) => `<div class="psh-lbl" id="psh-${name}-l">${label}</div>
+      <div class="psh-card-seg" role="radiogroup" aria-labelledby="psh-${name}-l">${opts.map(([k, t]) =>
+        `<button type="button" class="psh-card-opt" role="radio" data-${name}="${prayEsc(k)}" aria-checked="${k === cur}">${prayEsc(t)}</button>`).join("")}</div>`;
+  const groups = (set.groups || []).map((g) => {
+    const mine = es.filter((e) => e.group === g.key);
+    return mine.length ? `<div class="psh-card-gh">${prayEsc(g.key)} · ${prayEsc(g.label)}</div><div class="psh-card-vs">${mine.map((e) =>
+      `<button type="button" class="psh-card-v" role="radio" data-no="${Number(e.no)}" aria-checked="${e.no === pshState.cno}">${Number(e.no)} ${prayEsc(e.ref)}</button>`).join("")}</div>` : "";
+  }).join("");
+  return `<label class="psh-lbl" for="psh-cname">받는 학생 이름</label>
+      <input id="psh-cname" class="psh-name" type="text" maxlength="12" autocomplete="off">
+      <p class="psh-card-hint" id="psh-cname-h"></p>
+      ${seg("body", "본문 고르기", Object.keys(CARD_BODIES).map((k) => [k, CARD_BODIES[k]]), pshState.cbody)}
+      <div class="psh-lbl" id="psh-vs-l">말씀 고르기</div>
+      <div class="psh-card-verses" role="radiogroup" aria-labelledby="psh-vs-l">${groups}</div>
+      ${seg("lay", "짜임 고르기", Object.keys(CARD_STYLES).map((k) => [k, CARD_STYLES[k].label]), pshState.clay)}`;
+}
+function pshCardWire(wrap) {
+  const set = CARD_SETS[pshState.card];
+  if (!set) return;
+  const inp = wrap.querySelector("#psh-cname"), hint = wrap.querySelector("#psh-cname-h");
+  const check = (sel, key, v) => wrap.querySelectorAll(sel).forEach((x) => x.setAttribute("aria-checked", x.dataset[key] === String(v) ? "true" : "false"));
+  const say = () => {   // 이름 칸 안내 — 기도문은 비우면 defaultName(「우리 수험생」) · 응원 글은 비우면 「…에게」 줄이 없다
+    const cheer = pshState.cbody === "cheer";
+    if (inp) inp.placeholder = cheer ? "" : String(set.defaultName || "");
+    if (hint) hint.textContent = cheer ? CARD_CHEER_HINT : String(set.nameHint || "");
+  };
+  say();
+  if (inp) {
+    inp.value = pshState.cname;   // 글자 그대로(속성에 넣지 않는다)
+    inp.addEventListener("input", () => {
+      clearTimeout(pshState.timer);
+      pshState.gen++; pshState.blob = null; pshSendLabel(true);   // 다 치기 전에 옛 이름 그림이 나가지 않게(기도문 판과 같다)
+      pshState.timer = setTimeout(() => { pshState.cname = inp.value; pshRedraw(); }, 300);
+    });
+  }
+  wrap.querySelectorAll(".psh-card-opt[data-body]").forEach((b) => b.addEventListener("click", () => {
+    pshState.cbody = b.dataset.body === "cheer" ? "cheer" : "pray";
+    check(".psh-card-opt[data-body]", "body", pshState.cbody); say(); pshRedraw();
+  }));
+  wrap.querySelectorAll(".psh-card-opt[data-lay]").forEach((b) => b.addEventListener("click", () => {
+    pshState.clay = CARD_STYLES[b.dataset.lay] ? b.dataset.lay : "out";
+    check(".psh-card-opt[data-lay]", "lay", pshState.clay); pshRedraw();
+  }));
+  wrap.querySelectorAll(".psh-card-v").forEach((b) => b.addEventListener("click", () => {
+    const no = Number(b.dataset.no), e = (set.entries || []).find((x) => x.no === no);
+    if (!e) return;
+    pshState.cno = no; pshState.cnoPick = no;
+    if (!pshState.cpick) { pshState.ckey = "card:" + cardPhotoId(set, e, ""); check(".psh-t", "k", pshState.ckey); }   // 배경을 직접 고른 적이 없으면 그 말씀의 그림으로
+    check(".psh-card-v", "no", no); pshRedraw();
+  }));
 }
 // 같은 판이 이미 열려 있나(2026-11-04 검토) — 열린 판을 닫고 다시 열면 prayShareClose 의 history.back() 이 늦게 도착해
 //   pshOpen 이 막 단 popstate 받이가 그걸 받고 새 판을 닫는다(빠르게 두 번 누를 때 · 판이 떴다가 사라진다). 그래서 닫지 않고 내용만 바꾼다.
@@ -973,7 +1099,7 @@ function pshOpen(title, withName, name, kind, opts) {
   const thumb = (c) => {
     const inner = c.thumb ? `<img src="${prayEsc(c.thumb)}?v=${prayEsc(String(APP_BUILD))}" alt="">`   // 사진(photo · veil)은 작은 그림
       : c.style === "night" ? "" : `<img class="psh-leaf" src="${pshLeafSrc()}" alt="">`;
-    return `<button type="button" class="psh-t psh-t-${typeof c.style === "string" ? c.style : "vframe"}" role="radio" aria-checked="${c.key === pshKeyGet()}" data-k="${prayEsc(c.key)}" aria-label="${prayEsc(c.label)}">${inner}<i>${prayEsc(c.label)}</i></button>`;
+    return `<button type="button" class="psh-t psh-t-${typeof c.style === "string" ? c.style : c.style.card ? "card" : "vframe"}" role="radio" aria-checked="${c.key === pshKeyGet()}" data-k="${prayEsc(c.key)}" aria-label="${prayEsc(c.label)}">${inner}<i>${prayEsc(c.label)}</i></button>`;
   };
   const wrap = document.createElement("div");
   wrap.className = "psh-dim"; wrap.id = "psh"; wrap.dataset.kind = kind || (withName ? "pray" : "med");
@@ -983,6 +1109,7 @@ function pshOpen(title, withName, name, kind, opts) {
       <div class="psh-top"><b id="psh-h">${prayEsc(title)}</b><button type="button" class="psh-x" aria-label="닫기">✕</button></div>
       ${withName ? `<label class="psh-lbl" for="psh-name">누구를 위한 기도인가요?</label>
       <input id="psh-name" class="psh-name" type="text" maxlength="12" autocomplete="off">` : ""}
+      ${kind === "card" ? pshCardHtml() : ""}
       <div class="psh-lbl" id="psh-bg-l">배경 고르기</div>
       <div class="psh-thumbs" role="radiogroup" aria-labelledby="psh-bg-l">${choices.map(thumb).join("")}</div>
       <div class="psh-pv"><img id="psh-img" alt=""></div>
@@ -1011,10 +1138,12 @@ function pshOpen(title, withName, name, kind, opts) {
       pshState.leaf = pshState.leaf % 12 + 1;
       wrap.querySelectorAll(".psh-leaf").forEach((im) => { im.style.display = ""; im.src = pshLeafSrc(); });
     }
+    if (pshState.card) pshState.cpick = true;   // 🎓 보내는 분이 직접 고른 배경 — 말씀을 바꿔도 지킨다
     pshKeySet(k);
     wrap.querySelectorAll(".psh-t").forEach((x) => x.setAttribute("aria-checked", x.dataset.k === k ? "true" : "false"));
     pshRedraw();
   }));
+  if (kind === "card") pshCardWire(wrap);   // 🎓 이름 · 본문 · 말씀 · 짜임
   wrap.querySelector(".psh-x").addEventListener("click", () => prayShareClose());
   wrap.addEventListener("click", (e) => { if (e.target === wrap) prayShareClose(); });
   wrap.querySelector("#psh-send").addEventListener("click", pshSend);

@@ -26,7 +26,11 @@ const HA = (() => {
 })();
 const groups = [...HA.matchAll(/\{ title: "([^"]+)"[^\n]*?ids: \[([^\]]*)\]/g)]
   .map((m) => ({ title: m[1], ids: [...m[2].matchAll(/"([^"]+)"/g)].map((x) => x[1]) }));
-const haIds = groups.flatMap((g) => g.ids);
+// 「새 소식」 맨 위 줄(HA_NEWS · 2026-11-07 🎓 수험생 응원기도카드) — HA_GROUPS 밖에서 haGroupsFor 가 맨 앞에 붙인다(단추가 없으면 묶음째 없다)
+const newsM = /const HA_NEWS = \[([^\]]*)\];/.exec(APP);
+assert.ok(newsM, 'HA_NEWS 를 못 찾았다 — 이 검사가 낡았다');
+const newsIds = [...newsM[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]);
+const haIds = groups.flatMap((g) => g.ids).concat(newsIds);
 // 묶음에 들어가는 단추 — 「함께」 꼴(.summary-help)과 「말씀 묵상」 둘(.feat-actions 의 .summary-go). 위쪽 큰 단추(말씀 암송·도전 — ${s.id})는 묶음 밖이다.
 const tplHelp = [...RS.matchAll(/<button class="summary-help[^"]*" id="([^"]+)"/g)].map((m) => m[1]);
 const featBox = RS.slice(RS.indexOf('<div class="summary-actions feat-actions">'), RS.indexOf('</div>', RS.indexOf('<div class="summary-actions feat-actions">')));
@@ -65,18 +69,20 @@ test('💬 응원·기도·공감 한 주간 맨 위(친구 2026-11-06) — 11/1
   const until = /const BOARD_TOP_UNTIL = "(\d{4}-\d{2}-\d{2})";/.exec(APP);
   assert.ok(until, 'BOARD_TOP_UNTIL 을 못 찾았다');
   assert.equal(until[1], '2026-11-12', '기간 끝 — 공지 #62 「11월 12일(목)까지」와 같은 날');
-  const src = HA + '];\n' + until[0] + '\n' + cut('function kstDateParts(raw) {') + cut('function boardTopOn(raw) {') + cut('function haGroupsFor(raw) {');
+  const src = HA + '];\n' + newsM[0] + '\n' + until[0] + '\n' + cut('function kstDateParts(raw) {') + cut('function boardTopOn(raw) {') + cut('function haGroupsFor(raw) {');
   const ctx = vm.runInNewContext(src + '\n({ HA_GROUPS, boardTopOn, haGroupsFor })');
   const plain = (gs) => JSON.parse(JSON.stringify(gs.map((g) => ({ title: g.title, ids: g.ids }))));
   const ids = (gs) => gs.flatMap((g) => g.ids).slice().sort();
   for (const at of ['2026-11-06T02:00:00+09:00', '2026-11-12T23:59:00+09:00']) {
     const gs = plain(ctx.haGroupsFor(at));
-    assert.deepEqual(gs[0], { title: '새 소식', ids: ['open-board'] }, at + ' — 맨 위가 「새 소식」 한 줄이 아니다');
+    assert.deepEqual(gs[0], { title: '새 소식', ids: ['open-card-suneung', 'open-board'] }, at + ' — 맨 위 「새 소식」이 🎓 카드 · 💬 게시판이 아니다');
     assert.deepEqual(gs.find((g) => g.title === '함께').ids, ['open-prayer', 'open-pilsa'], at + ' — 「함께」에 게시판이 남았다(두 번)');
-    assert.deepEqual(ids(gs), ids(plain(ctx.HA_GROUPS)), at + ' — 단추가 빠지거나 늘었다');
+    assert.deepEqual(ids(gs), ids(plain(ctx.HA_GROUPS)).concat(newsIds).sort(), at + ' — 단추가 빠지거나 늘었다');
   }
   // 11/13 0시(KST · UTC 로는 11/12 15시) — 원래 묶음표 그대로
-  assert.equal(ctx.haGroupsFor('2026-11-12T15:00:00Z'), ctx.HA_GROUPS, '11/13(KST)인데 아직 맨 위다');
+  const after = plain(ctx.haGroupsFor('2026-11-12T15:00:00Z'));
+  assert.deepEqual(after[0], { title: '새 소식', ids: ['open-card-suneung'] }, '11/13(KST) — 「새 소식」은 🎓 카드 한 줄뿐');
+  assert.deepEqual(after.slice(1), plain(ctx.HA_GROUPS), '11/13(KST)인데 아직 게시판이 맨 위다');
   assert.equal(ctx.boardTopOn('2026-11-12T14:59:00Z'), true, '11/12 23:59(KST)인데 벌써 내려갔다');
   // 조립은 오늘 날짜의 묶음표로 · 설명서 첫 걸음도 같은 문으로 갈라 쓴다
   assert.match(APP, /haGroupsFor\(\)\.forEach\(\(g\) => \{/, 'applyHomeA 가 haGroupsFor() 를 쓰지 않는다');
@@ -91,4 +97,19 @@ test('설명서 — 자리를 말하는 쉴만한 물가 줄은 첫 화면 꼴(H
   // 옛 첫 화면(롤백 템플릿)에서 물가는 「함께」 덩이에 있다 — 그래서 옛 말이 참이다
   const together = RS.slice(RS.indexOf('<div class="grp-title">함께</div>'), RS.indexOf('id="more-toggle"'));
   assert.ok(together.includes('id="open-psalm"'), '옛 첫 화면 「함께」에 쉴만한 물가가 없다 — 설명서 옛 말을 고칠 것');
+});
+
+test('🎓 수험생 응원기도카드(친구 2026-11-07) — 「새 소식」 맨 위 · 문(🧪 시험 참여자 먼저) · 기간(12/11 까지) 안에만 단추 · 단추가 없으면 묶음째 없다', () => {
+  assert.deepEqual(newsIds, ['open-card-suneung'], '「새 소식」 맨 위는 카드 한 줄(게시판 한 주간은 그 아래)');
+  assert.match(APP, /const CARD_SHARE_OPEN = false;/, '처음엔 🧪 시험 참여자만(모두에게는 true 한 줄 + bump)');
+  assert.match(APP, /function cardShareVisible\(\) \{ return CARD_SHARE_OPEN \|\| \(typeof ministryTesterCached === "function" && ministryTesterCached\(\)\); \}/);
+  assert.match(APP, /const CARD_SUNEUNG_UNTIL = "2026-12-11";/, '성적 통지 날까지');
+  assert.match(APP, /function cardSuneungOn\(\) \{ return cardShareVisible\(\) && todayYmd\(\) <= CARD_SUNEUNG_UNTIL; \}/, '문 · 기간(KST 날짜)');
+  assert.match(RS, /\$\{cardSuneungOn\(\) \? `<button class="summary-help" id="open-card-suneung">🎓 수험생 응원기도카드<\/button>` : ""\}/, '단추는 문 · 기간 안에만 그린다');
+  assert.match(APP, /const rows = g\.ids\.map\(\(id\) => document\.getElementById\(id\)\)\.filter\(Boolean\);\n\s*if \(!rows\.length\) return;/, '단추가 없는 묶음(「새 소식」)은 제목째 없다');
+  // 옛 파일에 없던 이름 — 다른 화면 파일이 같은 이름을 선언하면 CDN 옛 파일과 「이미 선언됨」으로 깨진다(prayer-book.md)
+  const others = ['js/pray-share.js', 'js/prayer.js'].map((f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')).join('\n');
+  for (const nm of ['CARD_SHARE_OPEN', 'cardShareVisible', 'CARD_SUNEUNG_UNTIL', 'cardSuneungOn', 'HA_NEWS']) {
+    assert.ok(!new RegExp('(const|let|var|function) ' + nm + '\\b').test(others), nm + ' 를 다른 화면 파일이 선언한다');
+  }
 });

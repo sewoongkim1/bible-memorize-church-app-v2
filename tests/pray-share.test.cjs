@@ -353,7 +353,7 @@ test('글 한 벌 — medShareDoc(파일 이름 · 설명 · 글꼴 받을 글�
   assert.equal(pd.file, 'blessing-' + LIST[0].no + '.jpg');
   assert.equal(JSON.stringify(pd.plan('frame', measure)), JSON.stringify(T.praySharePlan(LIST[0], '김세웅', 'frame', measure)));
   assert.match(PS, /const doc = pshDoc\(\);/);
-  assert.match(PS, /function pshDoc\(\) \{ return pshState\.med \? medShareDoc\(pshState\.med\) : pshState\.verse \? verseShareDoc\(pshState\.verse\) : prayShareDoc\(pshState\.b, pshState\.name\); \}/, '판은 묵상 · 말씀 · 기도문 가운데 찬 것을');
+  assert.match(PS, /function pshDoc\(\) \{ return pshState\.card \? pshCardDoc\(\) : pshState\.med \? medShareDoc\(pshState\.med\) : pshState\.verse \? verseShareDoc\(pshState\.verse\) : prayShareDoc\(pshState\.b, pshState\.name\); \}/, '판은 (🎓 카드 ·) 묵상 · 말씀 · 기도문 가운데 찬 것을');
   const op = cut(PS, 'function openPrayShare(b, name) {', '\n}\n'), om = cut(PS, 'function openMedShare(m, opts) {', '\n}\n');
   assert.match(op, /prayShareClose\(\);\n  pshState\.b = b; pshState\.med = null;/, '묵상을 보낸 뒤에도 기도문 판은 기도문을(prayShareClose 는 med 를 안 지운다)');
   assert.match(op, /pshOpen\(PSH_TITLE_PRAY, true, name, "pray"\);/, '기도문 판 — 제목 · 이름 칸');
@@ -524,8 +524,8 @@ test('📖 말씀 액자(친구 2026-11-05 「기존에 없던 것으로 · 너�
     }
   }
   // 판 — 말씀은 말씀 액자만 · 고른 액자는 따로 기억(기도문 · 묵상의 「밤하늘 먼저」와 섞이지 않게)
-  assert.match(PS, /function pshChoices\(\) \{ return pshState\.verse \? verseFrameChoices\(\) : prayShareChoices\(\); \}/);
-  assert.match(PS, /function pshKeyGet\(\) \{ return pshState\.verse \? pshState\.vkey : pshState\.key; \}/);
+  assert.match(PS, /function pshChoices\(\) \{ return pshState\.card \? cardShareChoices\(CARD_SETS\[pshState\.card\], pshState\.clay\) : pshState\.verse \? verseFrameChoices\(\) : prayShareChoices\(\); \}/);
+  assert.match(PS, /function pshKeyGet\(\) \{ return pshState\.card \? pshState\.ckey : pshState\.verse \? pshState\.vkey : pshState\.key; \}/);
   assert.match(PS, /if \(style && typeof style === "object"\) \{/, '액자 그림을 바탕 가득');
   assert.match(PS, /cv\.width = st\.W \|\| PSH_W; cv\.height = st\.H \|\| PSH_H;/, '정사각형 바탕');
 });
@@ -1022,7 +1022,7 @@ const usagePan = (o = {}) => {
     body: { classList: { add() {}, remove() {} }, appendChild(w) {
       if (w.id !== 'psh') return;
       els.psh = w;
-      for (const id of ['psh-name', 'psh-img', 'psh-kakao', 'psh-send', 'psh-hint', 'psh-msg']) if (w.innerHTML.includes('id="' + id + '"')) els[id] = mk(id);
+      for (const id of ['psh-name', 'psh-img', 'psh-kakao', 'psh-send', 'psh-hint', 'psh-msg', 'psh-cname', 'psh-cname-h']) if (w.innerHTML.includes('id="' + id + '"')) els[id] = mk(id);
     } },
   };
   const nav = { userAgent: o.kakao ? 'Mozilla/5.0 (Linux; Android 14; SM-S918N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36'
@@ -1045,7 +1045,7 @@ const usagePan = (o = {}) => {
     prayEsc: (s) => String(s), pshDraw: () => Promise.resolve({ size: 10 }) };
   if (o.withLog !== false) g.logFeature = (...a) => { logs.push(a); };
   const S = vm.runInContext(FILL + '\n' + PURE + '\n' + DOCS + '\n' + PAN +
-    '\n;({ pshState, pshKind, openPrayShare, openMedShare, openVerseShare, prayShareClose, pshSend, pshSendLink, pshCopyLink, pshDownload, pshKakaoSend })', vm.createContext(g));
+    '\n;({ pshState, pshKind, openPrayShare, openMedShare, openVerseShare, prayShareClose, pshSend, pshSendLink, pshCopyLink, pshDownload, pshKakaoSend, openCardShare, pshDoc, pshChoices, pshKeyGet, pshRedraw })', vm.createContext(g));
   return { S, logs, downloads, kakaoSent, els, nav, Kakao, VERSE_SHARE_TEXT };
 };
 
@@ -1185,7 +1185,7 @@ test('📊 이용 기록 ② 보내기(share-kakao · share-sheet · share-save)
 });
 
 // ── 🎓 기념일 말씀카드(2026-11-07 친구 · 첫 개시 수능) — 그리기 엔진(짜임 둘 · 자료 덩이). 판(이름 칸 · 말씀 · 그림 · 짜임 고르기)은 다음 단계 ──
-const CARD = vm.runInContext(FILL + '\n' + PURE + '\n' + DOCS + '\n;({ CARD_SETS, CARD_STYLES, CARD_FONTS, cardRefLabel, cardShareName, cardStyle, cardShareChoices, cardPanel, cardSharePlan, cardShareDoc, prayShareMark, prayFill })', vm.createContext({}));
+const CARD = vm.runInContext(FILL + '\n' + PURE + '\n' + DOCS + '\n;({ CARD_SETS, CARD_STYLES, CARD_FONTS, cardRefLabel, cardShareName, cardStyle, cardShareChoices, cardPanel, cardSharePlan, cardShareDoc, prayShareMark, prayFill, cardRawName, cardDefaultNo, cardPhotoId, CARD_BODIES })', vm.createContext({}));
 const CARD_NAMES = ['김지훈', '가나다라마바사아자차카타', ''];   // 빈 이름 → 그 카드의 defaultName(수능 「우리 수험생」)
 const CARD_SLOTS = ['{이름}', '{이}', '{을}', '{은}', '{과}', '{으로}'];   // app.js prayFill 이 채우는 여섯
 const CARD_GROUP_NOS = { A: [1, 2], B: [3, 4], C: [5, 6, 7], D: [8, 9, 10] };   // 수능 열 편 · 묶음 넷(친구 2026-11-07)
@@ -1396,4 +1396,156 @@ test('🎓 pshDraw — 카드 두 짜임(가짜 캔버스): 던지지 않는다 
     else assert.ok(b >= 0 && calls[b + 1][0] === 'fillRect', '바탕은 빈 색');
     assert.ok(flat(calls.filter((c) => c[0] === 'fillText').map((c) => c[1]).join('')).includes(flat(set.defaultName)), lay + ' 빈 이름은 defaultName');
   }
+});
+
+// ── 🎓 카드 둘째 단계(2026-11-07 · 보내기 판) — 본문 두 가지(기도문 | 응원 글) · 날짜에 맞춘 첫 말씀 · 말씀마다 첫 배경 · 판 · 종류 코드 10 ──
+test('🎓 카드 판 순수 — 날짜에 맞춘 첫 말씀(cardDefaultNo 경계) · 말씀마다 첫 배경 · 직접 고른 배경 지킴(cardPhotoId) · 친 이름 그대로(cardRawName)', () => {
+  const set = CARD.CARD_SETS.suneung;
+  const full = { defaults: set.defaults, entries: [1, 7, 10].map((no) => ({ no })) };
+  const at = (t) => CARD.cardDefaultNo(full, new Date(t));
+  assert.equal(at('2026-11-07T12:00:00+09:00'), 1, '수능 전 — 1(이사야 41:10)');
+  assert.equal(at('2026-11-18T17:59:59+09:00'), 1, '전날 저녁 전까지 1');
+  assert.equal(at('2026-11-18T18:00:00+09:00'), 7, '전날 저녁부터 — 7(시편 121:2)');
+  assert.equal(at('2026-11-19T17:59:59+09:00'), 7, '시험 날 저녁 전까지 7');
+  assert.equal(at('2026-11-19T18:00:00+09:00'), 10, '시험이 끝난 뒤 — 10(로마서 8:28)');
+  assert.equal(at('2026-12-20T09:00:00+09:00'), 10, '그 뒤 늘');
+  assert.equal(CARD.cardDefaultNo(full, Date.parse('2026-11-18T09:00:00Z')), 7, 'ms 도 받는다(UTC 09시 = KST 18시)');
+  assert.equal(CARD.cardDefaultNo({ defaults: set.defaults, entries: [{ no: 2 }, { no: 3 }] }, new Date('2026-11-19T12:00:00+09:00')), 2, '그 번호의 편이 없으면 첫 편(임시 자료)');
+  assert.equal(CARD.cardDefaultNo({ entries: [{ no: 4 }] }, Date.now()), 4, 'defaults 가 없어도 첫 편');
+  assert.ok(set.entries.some((e) => e.no === CARD.cardDefaultNo(set, Date.now())), '지금 자료로도 있는 편');
+  const ids = set.photos.map((x) => x.id), e0 = set.entries[0], other = ids.find((x) => x !== e0.photo);
+  assert.equal(CARD.cardPhotoId(set, e0, ''), e0.photo, '고른 적 없으면 그 말씀의 그림');
+  assert.equal(CARD.cardPhotoId(set, e0, other), other, '직접 고른 그림은 말씀을 바꿔도 지킨다');
+  assert.equal(CARD.cardPhotoId(set, e0, 'nope'), e0.photo, '모르는 그림이면 그 말씀의 것');
+  assert.equal(CARD.cardPhotoId(set, { photo: 'nope' }, ''), ids[0], '말씀 그림도 모르면 첫 그림');
+  assert.equal(CARD.cardRawName(''), ''); assert.equal(CARD.cardRawName('   '), ''); assert.equal(CARD.cardRawName(null), '');
+  assert.equal(CARD.cardRawName('  우리  지훈이 '), '우리 지훈이');
+  assert.equal(CARD.cardRawName('<b>지훈</b>'), 'b지훈/b', '이름 표식과 겹치지 않게 <> 걷기(prayShareName 과 같다)');
+  assert.equal(CARD.cardRawName('가나다라마바사아자차카타파하'), '가나다라마바사아자차카타', '12자');
+  assert.equal(CARD.cardShareName(set, ''), set.defaultName, '기도문은 비면 defaultName');
+  assert.deepEqual(cardPlain(CARD.CARD_BODIES), { pray: '기도문', cheer: '응원 글' }, '본문 두 칸(처음은 기도문)');
+});
+
+test('🎓 카드 본문 두 가지 — 응원 글: 이름을 쳤을 때만 맨 위 「…에게」 · 기도문 · 맺음말 대신 cheer · 상자 안 / 기도문(빈 값 · "pray")은 1단계 그대로', () => {
+  const set = CARD.CARD_SETS.suneung;
+  const texts = (pl) => pl.ops.filter((o) => o.k === 'text').map((o) => o.s);
+  for (const e of set.entries) for (const lay of ['out', 'in']) for (const ch of CARD.cardShareChoices(set, lay)) {
+    const P = (nm, body) => cardPlain(CARD.cardShareDoc(set, e, nm, lay, body).plan(ch.style, measure));
+    assert.deepEqual(P('김지훈', 'pray'), P('김지훈'), '「pray」 = 빈 값(1단계 그림 그대로)');
+    const named = P('김지훈', 'cheer'), t = texts(named);
+    assert.equal(t[0], '김지훈에게', '맨 위 「이름에게」(받침과 상관없이 그대로)');
+    assert.equal(named.ops.find((o) => o.k === 'text').color, ch.style.accent, '「…에게」는 강조색');
+    const empty = texts(P('', 'cheer'));
+    assert.ok(!empty.some((x) => /에게$/.test(x)), '이름이 비면 「…에게」 줄 없음');
+    assert.ok(!empty.join('').includes(set.defaultName), '응원 글은 defaultName 을 쓰지 않는다');
+    for (const pl of [named, P('', 'cheer'), P('가나다라마바사아자차카타', 'cheer')]) {
+      const all = flat(texts(pl).join(''));
+      assert.ok(all.includes(flat(e.cheer)), e.no + ' 응원 글을 다 쓴다');
+      assert.ok(!all.includes('아멘') && !all.includes(flat(e.prayer.slice(0, 12))), e.no + ' 기도문 · 맺음말 없음');
+      for (const k of ['title', 'quote', 'closing']) assert.ok(all.includes(flat(e[k])), e.no + ' ' + k + ' 그대로');
+      assert.ok(pl.fit && pl.size >= 26 && pl.bottom <= pl.box.bottom + 0.5, e.no + ' ' + lay + ' 상자 안(' + pl.size + 'px)');
+    }
+  }
+  const d = CARD.cardShareDoc(set, set.entries[0], '김지훈', 'out', 'cheer');
+  assert.ok(d.text.startsWith('김지훈에게 ') && d.text.includes(set.entries[0].cheer) && !d.text.includes('아멘'), '글꼴 받을 글자 — 응원 글');
+  assert.equal(d.file, 'card-' + set.entries[0].no + '.jpg');
+});
+
+test('🎓 카드 자료(둘째 단계) — 편마다 응원 글(cheer · 자리표 없음) · 첫 배경(photo) · 날짜에 맞춘 첫 말씀(defaults)', () => {
+  for (const [key, set] of Object.entries(CARD.CARD_SETS)) {
+    const ids = set.photos.map((x) => x.id);
+    for (const e of set.entries) {
+      assert.ok(String(e.cheer || '').trim().length > 10, key + ' ' + e.no + ' 응원 글이 없다');
+      assert.ok(!/[{}]/.test(e.cheer), key + ' ' + e.no + ' 응원 글에는 자리표가 없다(이름은 맨 위 「…에게」 줄만)');
+      assert.ok(ids.includes(e.photo), key + ' ' + e.no + ' photo 는 photos 의 id');
+    }
+    const ds = set.defaults || [];
+    assert.ok(ds.length >= 1 && !ds[ds.length - 1].until, key + ' defaults 마지막 줄은 until 없이(그 뒤 늘)');
+    ds.slice(0, -1).forEach((x, i) => {
+      assert.ok(/\+09:00$/.test(x.until) && !Number.isNaN(Date.parse(x.until)), key + ' until 은 KST 시각');
+      if (i) assert.ok(Date.parse(x.until) > Date.parse(ds[i - 1].until), key + ' until 은 차례대로');
+    });
+    if (set.entries.length === 10) for (const x of ds) assert.ok(set.entries.some((e) => e.no === x.no), key + ' 첫 말씀 ' + x.no + ' 이 자료에 없다');
+  }
+  assert.deepEqual(cardPlain(CARD.CARD_SETS.suneung.defaults), [{ until: '2026-11-18T18:00:00+09:00', no: 1 }, { until: '2026-11-19T18:00:00+09:00', no: 7 }, { no: 10 }],
+    '수능 전 1 · 전날 저녁부터 7 · 끝난 뒤 10(친구 2026-11-07)');
+});
+
+test('🎓 카드 판 — 종류 코드 10(판 열기 · 공유 창 · 내려받기) · 칸 차례 · 다른 판 셋을 열면 카드 표식을 비운다 · 두 번 눌러도 판 하나 · 고른 것 기억 · 치던 이름으로 그린다', async () => {
+  const set = CARD.CARD_SETS.suneung, md = Object.assign({}, MEDS[0], { no: 44, idx: 2 }), vv = VERSES.find((v) => String(v.text || '').trim());
+  const P = usagePan(), S = P.S;
+  S.openCardShare('nope');
+  assert.equal(P.els.psh, undefined, '모르는 카드는 판을 안 연다');
+  S.openCardShare('suneung');
+  assert.equal(P.els.psh.dataset.kind, 'card');
+  assert.deepEqual(P.logs, [['share-open', 10]], '판 열기 — 종류 코드 10(4~9 는 다른 보내기)');
+  assert.equal(S.pshKind(), 10);
+  const h = P.els.psh.innerHTML;
+  assert.ok(h.includes('🎓 수험생 응원기도카드'), '판 제목');
+  const order = ['id="psh-cname"', 'data-body="pray"', 'data-body="cheer"', 'id="psh-vs-l"', 'data-lay="out"', 'data-lay="in"', 'id="psh-bg-l"', 'id="psh-img"', 'id="psh-send"'].map((x) => h.indexOf(x));
+  assert.ok(order.every((x, i) => x > 0 && (!i || x > order[i - 1])), '이름 → 본문 → 말씀 → 짜임 → 배경 → 미리보기 → 보내기(' + order + ')');
+  assert.ok(!h.includes('id="psh-name"') && !h.includes('psh-kakao'), '기도문 판 이름 받이 · 카카오 단추 없음');
+  for (const g of set.groups) assert.equal(h.includes(g.label), set.entries.some((e) => e.group === g.key), g.key + ' 묶음 머리는 편이 있을 때만');
+  for (const e of set.entries) assert.ok(h.includes('data-no="' + e.no + '"') && h.includes('>' + e.no + ' ' + e.ref + '<'), e.no + ' 말씀 단추 「번호 자리」');
+  assert.ok(/data-body="pray" aria-checked="true"/.test(h) && /data-lay="out" aria-checked="true"/.test(h), '처음은 기도문 · 그림 밖');
+  assert.equal(S.pshState.cno, CARD.cardDefaultNo(set, Date.now()), '처음 말씀은 날짜에 맞춘 편');
+  assert.equal(S.pshKeyGet(), 'card:' + set.entries.find((e) => e.no === S.pshState.cno).photo, '처음 배경은 그 말씀의 것');
+  assert.ok(S.pshChoices().every((c) => /^card:/.test(c.key) && c.style.card === 'out'), '배경은 그 카드의 사진 · 짜임 꼴');
+  assert.equal(P.els['psh-cname'].value, '', '이름 칸 처음 값은 빈칸');
+  assert.equal(P.els['psh-cname'].placeholder, set.defaultName, '비우면 그릴 이름을 보인다');
+  assert.equal(P.els['psh-cname-h'].textContent, set.nameHint, '안내 = nameHint');
+  await usageTick();
+  S.openCardShare('suneung');   // 두 번 누름 — 열린 판을 그대로
+  assert.equal(P.logs.length, 1, '다시 쓰는 판은 세지 않는다');
+  // 이름 — 0.3초 뒤 그리고 · 그사이 다른 것을 바꾸면 지금 칸 값으로
+  P.els['psh-cname'].value = '김지훈'; P.els['psh-cname'].on.input();
+  assert.equal(P.els['psh-send'].disabled, true, '치는 동안 보내기 잠금');
+  await new Promise((r) => setTimeout(r, 350));
+  assert.equal(S.pshState.cname, '김지훈');
+  P.els['psh-cname'].value = '박민지'; P.els['psh-cname'].on.input(); S.pshRedraw();
+  assert.equal(S.pshState.cname, '박민지', '치던 이름으로 그린다(옛 이름 그림이 나가지 않게)');
+  assert.ok(S.pshDoc().alt.includes('박민지'));
+  await usageTick();
+  // 보내기 — 공유 창(그림 한 장 · 글 없음) · 없으면 내려받기
+  S.pshSend(); await usageTick();
+  assert.equal(P.nav.shared.length, 1); assert.deepEqual(Object.keys(P.nav.shared[0]), ['files'], '그림 한 장만(글 · 주소 없음)');
+  assert.equal(P.nav.shared[0].files[0].type, 'image/jpeg'); assert.equal(P.nav.shared[0].files[0].name, 'card-' + S.pshState.cno + '.jpg');
+  P.nav.can = false; S.pshSend();
+  assert.deepEqual(P.logs.slice(1), [['share-sheet', 10], ['share-save', 10]], '공유 창 · 내려받기도 10');
+  assert.ok(!JSON.stringify(P.logs).includes('민지'), '이름 칸 값은 싣지 않는다');
+  // 고른 것 기억(앱을 쓰는 동안) — 본문 · 짜임 · 말씀 · 배경 · 이름
+  S.pshState.cbody = 'cheer'; S.pshState.clay = 'in'; S.pshState.cnoPick = set.entries[set.entries.length - 1].no;
+  S.prayShareClose(); S.openCardShare('suneung');
+  assert.equal(S.pshState.cno, S.pshState.cnoPick, '고른 말씀');
+  assert.equal(S.pshKeyGet(), 'card:' + set.entries[set.entries.length - 1].photo, '배경을 고른 적이 없으면 그 말씀의 것');
+  assert.ok(/data-body="cheer" aria-checked="true"/.test(P.els.psh.innerHTML) && /data-lay="in" aria-checked="true"/.test(P.els.psh.innerHTML));
+  assert.equal(P.els['psh-cname'].value, '박민지', '이름 기억');
+  assert.equal(P.els['psh-cname-h'].textContent.includes('에게'), true, '응원 글 안내 — 비우면 「…에게」 줄 없이');
+  assert.equal(P.els['psh-cname'].placeholder, '', '응원 글은 비워도 이름을 대신 넣지 않는다');
+  assert.ok(S.pshChoices().every((c) => c.style.card === 'in'));
+  S.pshState.cpick = true; S.pshState.ckey = 'card:' + set.photos[set.photos.length - 1].id; S.pshState.cnoPick = set.entries[0].no;
+  S.prayShareClose(); S.openCardShare('suneung');
+  assert.equal(S.pshKeyGet(), 'card:' + set.photos[set.photos.length - 1].id, '직접 고른 배경은 말씀을 바꿔도 지킨다');
+  // 다른 판 셋(새로 · 다시 쓰기) — 카드 표식을 비운다(안 비우면 그 판에 카드가 그려진다)
+  S.openPrayShare(LIST[0], '김세웅'); assert.equal(S.pshState.card, ''); assert.equal(S.pshKind(), 1); assert.ok(/^blessing-/.test(S.pshDoc().file));
+  S.openCardShare('suneung'); S.openMedShare(md); assert.equal(S.pshState.card, ''); assert.equal(S.pshKind(), 2);
+  S.openCardShare('suneung'); S.openVerseShare(vv); assert.equal(S.pshState.card, ''); assert.equal(S.pshKind(), 3);
+  for (const f of ['openPrayShare(b, name)', 'openMedShare(m, opts)', 'openVerseShare(v)']) {
+    const src = cut(PS, 'function ' + f + ' {', '\n}\n');
+    assert.equal(src.split('pshState.card = "";').length - 1, 2, f + ' — 다시 쓰기 · 새로 열기 둘 다 카드 표식을 비운다');
+  }
+  await usageTick();
+});
+
+test('🎓 카드 판 배선 — 첫 화면 단추는 지연 모듈로(옛 pray-share.js 면 껐다 켜기) · 직접 고른 배경 표시 · 말씀을 바꾸면 그 말씀 배경 · 카카오 길 없음 · 어두운 모드 짝', () => {
+  assert.match(APP, /const b = document\.getElementById\("open-card-suneung"\);[^\n]*\n\s*if \(b\) b\.addEventListener\("click", \(\) => withLazyJs\("prayShare", \(\) => \{\n\s*if \(typeof openCardShare === "function"\) openCardShare\("suneung"\);\n\s*else appAlert\(typeof openPrayShare === "function" \? "앱이 새 판으로 바뀌었어요\. 앱을 껐다가 다시 열어 주세요\."/,
+    '단추 — js/pray-share.js 를 받아 openCardShare · 옛 파일이면 껐다 켜기 안내');
+  const po = cut(PS, 'function pshOpen(', '\n}\n');
+  assert.ok(po.indexOf('if (pshState.card) pshState.cpick = true;') >= 0 && po.indexOf('if (pshState.card) pshState.cpick = true;') < po.indexOf('pshKeySet(k);'), '배경을 직접 고르면 표시(cpick)');
+  assert.match(po, /const kakao = kind === "verse" && /, '카카오 단추는 말씀 판만(카드에는 없다)');
+  assert.match(cut(PS, 'function pshCardWire(wrap) {', '\n}\n'), /if \(!pshState\.cpick\) \{ pshState\.ckey = "card:" \+ cardPhotoId\(set, e, ""\);/, '말씀을 바꾸면 그 말씀 배경 — 직접 고른 배경은 지킨다');
+  assert.match(cut(PS, 'function openCardShare(setKey) {', '\n}\n'), /if \(pshReuse\("card"\) && pshState\.card === setKey\) return;[^\n]*\n  prayShareClose\(\);/, '두 번 누름 — 닫기(history.back) 전에 다시 쓰기');
+  const CSS = read('style.css');
+  for (const c of ['psh-card-hint', 'psh-card-seg', 'psh-card-opt', 'psh-card-gh', 'psh-card-v']) assert.ok(CSS.includes('.dark .' + c + ' '), c + ' — 어두운 모드 짝');
+  assert.match(CSS, /\.psh-t-card img \{ width: 100%; height: 100%; object-fit: cover; \}/, '카드 작은 그림(4:5)');
 });
