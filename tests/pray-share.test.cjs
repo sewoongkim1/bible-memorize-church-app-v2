@@ -1491,8 +1491,8 @@ test('🎓 카드 판 — 종류 코드 10(판 열기 · 공유 창 · 내려받
   const h = P.els.psh.innerHTML;
   assert.ok(h.includes('🎓 수험생 응원기도카드'), '판 제목');
   assert.ok(!h.includes('data-body='), '본문 고르기 칸은 숨김(친구 2026-11-07 · CARD_BODY_PICK = false)');
-  const order = ['id="psh-cname"', 'id="psh-vs-l"', 'data-lay="out"', 'data-lay="in"', 'id="psh-bg-l"', 'id="psh-img"', 'id="psh-send"'].map((x) => h.indexOf(x));
-  assert.ok(order.every((x, i) => x > 0 && (!i || x > order[i - 1])), '이름 → 말씀 → 짜임 → 배경 → 미리보기 → 보내기(' + order + ')');
+  const order = ['id="psh-cname"', 'id="psh-vs-l"', 'id="psh-vinfo"', 'data-lay="out"', 'data-lay="in"', 'id="psh-bg-l"', 'id="psh-img"', 'id="psh-send"'].map((x) => h.indexOf(x));
+  assert.ok(order.every((x, i) => x > 0 && (!i || x > order[i - 1])), '이름 → 말씀 → 고른 말씀 알림 → 짜임 → 배경 → 미리보기 → 보내기(' + order + ')');
   assert.ok(!h.includes('id="psh-name"') && !h.includes('psh-kakao'), '기도문 판 이름 받이 · 카카오 단추 없음');
   for (const g of set.groups) assert.equal(h.includes(g.label), set.entries.some((e) => e.group === g.key), g.key + ' 묶음 머리는 편이 있을 때만');
   for (const e of set.entries) assert.ok(h.includes('data-no="' + e.no + '"') && h.includes(' aria-label="' + e.no + ' ' + e.ref + '">' + e.no + ' ' + S.cardRefShort(e.ref) + '<'), e.no + ' 말씀 단추 「번호 줄임말」 · 읽는 이름은 온전히');
@@ -1501,6 +1501,8 @@ test('🎓 카드 판 — 종류 코드 10(판 열기 · 공유 창 · 내려받
     ['시편 121:2', '시 121:2'], ['갈라디아서 6:9', '갈 6:9'], ['로마서 8:28', '롬 8:28'], ['요한일서 4:9', '요일 4:9'], ['예레미야애가 3:22-23', '애 3:22-23'], ['모르는책 1:1', '모르는책 1:1']])
     assert.equal(S.cardRefShort(a), b, a + ' → ' + b);
   assert.ok(S.pshState.cbody === 'pray' && /data-lay="out" aria-checked="true"/.test(h), '처음은 기도문 · 그림 밖');
+  { const e0 = set.entries.find((e) => e.no === S.pshState.cno);
+    assert.ok(h.includes('<b class="psh-card-vt">' + e0.title + '</b><span class="psh-card-vq">“' + e0.quote + '”</span><span class="psh-card-vr">' + CARD.cardRefLabel(e0.ref) + '</span>'), '고른 말씀 알림 — 제목 · 말씀 토막 · 온전한 자리(그림 안 글이 작아서 · 친구 11/07)'); }
   assert.equal(S.pshState.cno, CARD.cardDefaultNo(set, Date.now()), '처음 말씀은 날짜에 맞춘 편');
   assert.equal(S.pshKeyGet(), 'card:' + set.entries.find((e) => e.no === S.pshState.cno).photo, '처음 배경은 그 말씀의 것');
   assert.ok(S.pshChoices().every((c) => /^card:/.test(c.key) && c.style.card === 'out'), '배경은 그 카드의 사진 · 짜임 꼴');
@@ -1530,6 +1532,7 @@ test('🎓 카드 판 — 종류 코드 10(판 열기 · 공유 창 · 내려받
   S.pshState.cbody = 'cheer'; S.pshState.clay = 'in'; S.pshState.cnoPick = set.entries[set.entries.length - 1].no;
   S.prayShareClose(); S.openCardShare('suneung');
   assert.equal(S.pshState.cno, S.pshState.cnoPick, '고른 말씀');
+  assert.ok(P.els.psh.innerHTML.includes('<b class="psh-card-vt">' + set.entries[set.entries.length - 1].title + '</b>'), '다시 열면 알림도 고른 말씀');
   assert.equal(S.pshKeyGet(), 'card:' + set.entries[set.entries.length - 1].photo, '배경을 고른 적이 없으면 그 말씀의 것');
   assert.equal(S.pshState.cbody, 'pray', '본문 고르기를 숨긴 동안은 응원 글을 골라 두었어도 늘 기도문');
   assert.ok(/data-lay="in" aria-checked="true"/.test(P.els.psh.innerHTML), '고른 짜임');
@@ -1560,9 +1563,9 @@ test('🎓 카드 판 배선 — 첫 화면 단추는 지연 모듈로(옛 pray-
   assert.match(cut(PS, 'function pshCardWire(wrap) {', '\n}\n'), /if \(!pshState\.cpick\) \{ pshState\.ckey = "card:" \+ cardPhotoId\(set, e, ""\);/, '말씀을 바꾸면 그 말씀 배경 — 직접 고른 배경은 지킨다');
   assert.match(cut(PS, 'function openCardShare(setKey) {', '\n}\n'), /if \(pshReuse\("card"\) && pshState\.card === setKey\) return;[^\n]*\n  prayShareClose\(\);/, '두 번 누름 — 닫기(history.back) 전에 다시 쓰기');
   const CSS = read('style.css');
-  for (const c of ['psh-card-hint', 'psh-card-seg', 'psh-card-opt', 'psh-card-gh', 'psh-card-v']) assert.ok(CSS.includes('.dark .' + c + ' '), c + ' — 어두운 모드 짝');
+  for (const c of ['psh-card-hint', 'psh-card-seg', 'psh-card-opt', 'psh-card-gh', 'psh-card-v', 'psh-card-vinfo', 'psh-card-vr']) assert.ok(CSS.includes('.dark .' + c + ' '), c + ' — 어두운 모드 짝');
   // 큰 글씨 — 글자가 있는 칸은 lg · xl 짝을 둔다(검토 2026-11-07 — 묶음 머리가 아주 큰 글씨에서 12.8px 로 남았다)
-  for (const c of ['psh-card-hint', 'psh-card-opt', 'psh-card-gh', 'psh-card-v']) for (const fs of ['lg', 'xl'])
+  for (const c of ['psh-card-hint', 'psh-card-opt', 'psh-card-gh', 'psh-card-v', 'psh-card-vinfo']) for (const fs of ['lg', 'xl'])
     assert.match(CSS, new RegExp('html\\[data-fs="' + fs + '"\\] \\.' + c + '[ ,]'), c + ' — 큰 글씨(' + fs + ') 짝');
   assert.match(CSS, /\.psh-t-card img \{ width: 100%; height: 100%; object-fit: cover; \}/, '카드 작은 그림(4:5)');
 });

@@ -8477,6 +8477,16 @@ html[data-fs="xl"] .psh-card-hint { font-size: 1rem; }
 /* 묶음 머리(「A · 두려움을 이기는 말씀」)도 큰 글씨를 따른다 — 검토(2026-11-07)에서 아주 큰 글씨 360px 에 12.8px 로 남아 있었다(칸 이름은 17.9px) */
 html[data-fs="lg"] .psh-card-gh { font-size: .9rem; }
 html[data-fs="xl"] .psh-card-gh { font-size: 1rem; }
+/* 고른 말씀 알림(친구 2026-11-07 「말씀 선택하면 어떤 말씀인지」) — 말씀 단추 아래 · 보통 글씨 */
+.psh-card-vinfo { margin: 10px 0 2px; padding: 12px 14px; border-radius: 14px; background: #f3efe4; color: #1e3264; line-height: 1.55; word-break: keep-all; }
+.psh-card-vinfo:empty { display: none; }
+.psh-card-vt { display: block; font-size: .98rem; font-weight: 800; }
+.psh-card-vq { display: block; margin-top: 4px; font-size: .92rem; }
+.psh-card-vr { display: block; margin-top: 4px; font-size: .82rem; font-weight: 700; color: #5b6b8c; }
+.dark .psh-card-vinfo { background: #252b3b; color: #e8ecf6; }
+.dark .psh-card-vr { color: #aab6d3; }
+html[data-fs="lg"] .psh-card-vinfo { font-size: 1.08rem; }
+html[data-fs="xl"] .psh-card-vinfo { font-size: 1.2rem; }
 /* ✓ 이 이름으로 보낸 말씀(2026-11-07 밤 · 「수능 날까지 매일 하나씩」 · 기록은 이 폰에만 — js/pray-share.js pshCardMarks) — 말씀 단추 뒤 작은 ✓ ·
    말씀 고르기 머리 옆 안내. 글자색은 .dark 짝 · 고른 단추(남색 바탕) 위 ✓ 는 옅게 */
 .psh-card-ck { margin-left: 5px; font-size: .85em; font-weight: 900; color: #2f7d4f; }

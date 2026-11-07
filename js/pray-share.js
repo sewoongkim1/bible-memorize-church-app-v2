@@ -978,6 +978,7 @@ function pshRedraw() {
   if (pshState.card) {   // 🎓 이름을 치다가(0.3초 안) 말씀 · 본문 · 짜임 · 배경을 바꿨다 — 지금 칸 값으로 그린다(옛 이름 그림이 나가지 않게)
     const ci = document.getElementById("psh-cname");
     if (ci) { clearTimeout(pshState.timer); pshCardName(ci.value); }   // 받는 사람이 바뀌었으면 그 사람 기준 말씀 · ✓
+    pshCardInfo();   // 고른 말씀 알림(제목 · 말씀 · 자리)
   }
   const all = pshChoices();
   const ch = all.find((c) => c.key === pshKeyGet()) || all[0];
@@ -1276,6 +1277,16 @@ function pshCardSent(s) {
 }
 // 말씀 단추 글 — 「번호 자리」 + 보낸 말씀이면 작은 ✓(읽어 주는 기능에는 aria-label 「… 보냄」)
 function pshCardVInner(e, sent) { return Number(e.no) + " " + prayEsc(cardRefShort(e.ref)) + (sent ? '<span class="psh-card-ck" aria-hidden="true">✓</span>' : ""); }
+// 고른 말씀 알림(친구 2026-11-07 「말씀 선택하면 어떤 말씀인지 알았으면 — 그림 안 글이 작아 확인이 어렵다」) — 말씀 단추 바로 아래 보통 글씨로
+//   제목 · 말씀 토막 · 온전한 말씀 자리. 단추를 누르거나 받는 사람이 바뀌어 다시 고르면 pshRedraw 가 고친다.
+function pshCardInfoHtml(e) {
+  if (!e) return "";
+  return '<b class="psh-card-vt">' + prayEsc(e.title) + '</b><span class="psh-card-vq">“' + prayEsc(e.quote || e.verse) + '”</span><span class="psh-card-vr">' + prayEsc(cardRefLabel(e.ref)) + "</span>";
+}
+function pshCardInfo() {
+  const set = CARD_SETS[pshState.card], box = document.getElementById("psh-vinfo");
+  if (set && box) box.innerHTML = pshCardInfoHtml((set.entries || []).find((e) => e.no === pshState.cno));
+}
 // 화면 읽기 이름은 늘 온전한 이름(단추 글은 줄임말) · 보낸 말씀이면 「보냄」
 function pshCardVLabel(e, sent) { return Number(e.no) + " " + prayEsc(e.ref) + (sent ? " 보냄" : ""); }
 // 열린 판의 ✓ 를 지금 받는 사람 기준으로 고친다(단추 글 · aria-label · 말씀 고르기 머리 옆 안내)
@@ -1333,6 +1344,7 @@ function pshCardHtml() {
       ${CARD_BODY_PICK ? seg("body", "본문 고르기", Object.keys(CARD_BODIES).map((k) => [k, CARD_BODIES[k]]), pshState.cbody) : ""}
       <div class="psh-lbl" id="psh-vs-l">말씀 고르기 <span class="psh-card-sent" id="psh-vs-s"${cardOrder(set).some((e) => got.includes(e.no)) ? "" : " hidden"}>✓ 이 이름으로 보낸 말씀</span></div>
       <div class="psh-card-verses" role="radiogroup" aria-labelledby="psh-vs-l">${groups}</div>
+      <div class="psh-card-vinfo" id="psh-vinfo" aria-live="polite">${pshCardInfoHtml(es.find((e) => e.no === pshState.cno))}</div>
       ${seg("lay", "짜임 고르기", Object.keys(CARD_STYLES).map((k) => [k, CARD_STYLES[k].label]), pshState.clay)}`;
 }
 function pshCardWire(wrap) {
