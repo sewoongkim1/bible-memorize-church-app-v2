@@ -8477,3 +8477,13 @@ html[data-fs="xl"] .psh-card-hint { font-size: 1rem; }
 /* 묶음 머리(「A · 두려움을 이기는 말씀」)도 큰 글씨를 따른다 — 검토(2026-11-07)에서 아주 큰 글씨 360px 에 12.8px 로 남아 있었다(칸 이름은 17.9px) */
 html[data-fs="lg"] .psh-card-gh { font-size: .9rem; }
 html[data-fs="xl"] .psh-card-gh { font-size: 1rem; }
+/* ✓ 이 이름으로 보낸 말씀(2026-11-07 밤 · 「수능 날까지 매일 하나씩」 · 기록은 이 폰에만 — js/pray-share.js pshCardMarks) — 말씀 단추 뒤 작은 ✓ ·
+   말씀 고르기 머리 옆 안내. 글자색은 .dark 짝 · 고른 단추(남색 바탕) 위 ✓ 는 옅게 */
+.psh-card-ck { margin-left: 5px; font-size: .85em; font-weight: 900; color: #2f7d4f; }
+.psh-card-v[aria-checked="true"] .psh-card-ck { color: #bfe8cc; }
+.psh-card-sent { margin-left: 6px; font-size: .78rem; font-weight: 700; color: #2f7d4f; white-space: nowrap; }
+.dark .psh-card-ck { color: #8fd6a6; }
+.dark .psh-card-v[aria-checked="true"] .psh-card-ck { color: #d6f5e0; }
+.dark .psh-card-sent { color: #8fd6a6; }
+html[data-fs="lg"] .psh-card-sent { font-size: .88rem; }
+html[data-fs="xl"] .psh-card-sent { font-size: .98rem; }

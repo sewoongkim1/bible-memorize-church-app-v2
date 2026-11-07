@@ -218,7 +218,7 @@ test('배선 — 지연 모듈(LAZY_JS.prayShare · index.html 에 없음) · �
   assert.match(send, /pshState\.blob/);
   assert.match(send, /const data = \{ files: \[file\] \};\n/, '그림 한 장만(기도문 · 묵상 · 말씀 모두)');
   assert.doesNotMatch(send, /data\.text|VERSE_SHARE_TEXT/, '그림에 글을 붙이지 않는다 — 카톡이 그림에 붙인 글을 버렸다(친구 2026-11-05 「설치 URL은 연결 해달라고 했는데 없네요」)');
-  assert.match(send, /navigator\.share\(data\)\.then\(\(\) => \{ pshLog\("share-sheet", pshKind\(\)\); if \(pshState\.verse && pshState\.withLink\) pshLinkNext\(\); \}\)/, '앱을 골랐다(resolve)에만 share-sheet · 말씀 판 · 체크가 켜져 있으면 그림 다음 차례는 설치 주소');
+  assert.match(send, /navigator\.share\(data\)\.then\(\(\) => \{ pshLog\("share-sheet", pshKind\(\)\); if \(pshState\.verse && pshState\.withLink\) pshLinkNext\(\); pshCardSent\(sent\); \}\)/, '앱을 골랐다(resolve)에만 share-sheet · 말씀 판 · 체크가 켜져 있으면 그림 다음 차례는 설치 주소 · 카드는 그때 ✓ 를 적는다');
   assert.match(send, /^function pshSend\(\) \{\n  if \(pshState\.verse && pshState\.linkNext\) \{ pshSendLink\(\); return; \}/, '그 차례에는 같은 단추가 설치 주소를(그림을 또 보내지 않는다)');
   const link = cut(PS, 'function pshSendLink() {', '\n}\n');
   assert.match(link, /const data = \{ text: VERSE_SHARE_TEXT \};/, '설치 주소는 글만(주소가 눌리는 글 · 작은 상자)');
@@ -1022,7 +1022,7 @@ const usagePan = (o = {}) => {
     body: { classList: { add() {}, remove() {} }, appendChild(w) {
       if (w.id !== 'psh') return;
       els.psh = w;
-      for (const id of ['psh-name', 'psh-img', 'psh-kakao', 'psh-send', 'psh-hint', 'psh-msg', 'psh-cname', 'psh-cname-h']) if (w.innerHTML.includes('id="' + id + '"')) els[id] = mk(id);
+      for (const id of ['psh-name', 'psh-img', 'psh-kakao', 'psh-send', 'psh-hint', 'psh-msg', 'psh-cname', 'psh-cname-h', 'psh-vs-s']) if (w.innerHTML.includes('id="' + id + '"')) els[id] = mk(id);
     } },
   };
   const nav = { userAgent: o.kakao ? 'Mozilla/5.0 (Linux; Android 14; SM-S918N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36'
@@ -1044,6 +1044,10 @@ const usagePan = (o = {}) => {
     clearTimeout: (t) => { if (t) clearTimeout(t); },
     prayEsc: (s) => String(s), pshDraw: () => Promise.resolve({ size: 10 }) };
   if (o.withLog !== false) g.logFeature = (...a) => { logs.push(a); };
+  // ✓ 카드 기록 — o.ls = 가짜 저장소 · o.lsThrow = 꺼내기만 해도 던지는 저장소(막힌 사이트 데이터) · o.now = 시계(ms · 날짜에 따라 고르는 말씀)
+  if (o.ls) g.localStorage = o.ls;
+  if (o.lsThrow) Object.defineProperty(g, 'localStorage', { get() { throw Object.assign(new Error('blocked'), { name: 'SecurityError' }); } });
+  if (o.now) g.Date = class extends Date { static now() { return o.now; } };
   const S = vm.runInContext(FILL + '\n' + PURE + '\n' + DOCS + '\n' + PAN +
     '\n;({ pshState, pshKind, openPrayShare, openMedShare, openVerseShare, prayShareClose, pshSend, pshSendLink, pshCopyLink, pshDownload, pshKakaoSend, openCardShare, pshDoc, pshChoices, pshKeyGet, pshRedraw })', vm.createContext(g));
   return { S, logs, downloads, kakaoSent, els, nav, Kakao, VERSE_SHARE_TEXT };
@@ -1185,7 +1189,7 @@ test('📊 이용 기록 ② 보내기(share-kakao · share-sheet · share-save)
 });
 
 // ── 🎓 기념일 말씀카드(2026-11-07 친구 · 첫 개시 수능) — 그리기 엔진(짜임 둘 · 자료 덩이). 판(이름 칸 · 말씀 · 그림 · 짜임 고르기)은 다음 단계 ──
-const CARD = vm.runInContext(FILL + '\n' + PURE + '\n' + DOCS + '\n;({ CARD_SETS, CARD_STYLES, CARD_FONTS, cardRefLabel, cardShareName, cardStyle, cardShareChoices, cardPanel, cardSharePlan, cardShareDoc, prayShareMark, prayFill, cardRawName, cardDefaultNo, cardPhotoId, CARD_BODIES })', vm.createContext({}));
+const CARD = vm.runInContext(FILL + '\n' + PURE + '\n' + DOCS + '\n;({ CARD_SETS, CARD_STYLES, CARD_FONTS, cardRefLabel, cardShareName, cardStyle, cardShareChoices, cardPanel, cardSharePlan, cardShareDoc, prayShareMark, prayFill, cardRawName, cardDefaultNo, cardPhotoId, CARD_BODIES, cardDefaultAt, cardOrder, cardPickNo, cardSentName, cardSentAll, cardSentNos, cardSentAdd, cardSentSave, CARD_SENT_KEY, CARD_SENT_MAX })', vm.createContext({}));
 const CARD_NAMES = ['김지훈', '가나다라마바사아자차카타', ''];   // 빈 이름 → 그 카드의 defaultName(수능 「우리 수험생」)
 const CARD_SLOTS = ['{이름}', '{이}', '{을}', '{은}', '{과}', '{으로}'];   // app.js prayFill 이 채우는 여섯
 const CARD_GROUP_NOS = { A: [1, 2], B: [3, 4], C: [5, 6, 7], D: [8, 9, 10] };   // 수능 열 편 · 묶음 넷(친구 2026-11-07)
@@ -1467,8 +1471,8 @@ test('🎓 카드 자료(둘째 단계) — 편마다 응원 글(cheer · 자리
     });
     if (set.entries.length === 10) for (const x of ds) assert.ok(set.entries.some((e) => e.no === x.no), key + ' 첫 말씀 ' + x.no + ' 이 자료에 없다');
   }
-  assert.deepEqual(cardPlain(CARD.CARD_SETS.suneung.defaults), [{ until: '2026-11-18T18:00:00+09:00', no: 1 }, { until: '2026-11-19T18:00:00+09:00', no: 7 }, { no: 10 }],
-    '수능 전 1 · 전날 저녁부터 7 · 끝난 뒤 10(친구 2026-11-07)');
+  assert.deepEqual(cardPlain(CARD.CARD_SETS.suneung.defaults), [{ until: '2026-11-18T18:00:00+09:00', no: 1, next: true }, { until: '2026-11-19T18:00:00+09:00', no: 7 }, { no: 10 }],
+    '수능 전 1(next — 그 받는 사람이 아직 안 받은 다음 말씀) · 전날 저녁부터 7 · 끝난 뒤 10(친구 2026-11-07)');
 });
 
 test('🎓 카드 판 — 종류 코드 10(판 열기 · 공유 창 · 내려받기) · 칸 차례 · 다른 판 셋을 열면 카드 표식을 비운다 · 두 번 눌러도 판 하나 · 고른 것 기억 · 치던 이름으로 그린다', async () => {
@@ -1551,4 +1555,142 @@ test('🎓 카드 판 배선 — 첫 화면 단추는 지연 모듈로(옛 pray-
   for (const c of ['psh-card-hint', 'psh-card-opt', 'psh-card-gh', 'psh-card-v']) for (const fs of ['lg', 'xl'])
     assert.match(CSS, new RegExp('html\\[data-fs="' + fs + '"\\] \\.' + c + '[ ,]'), c + ' — 큰 글씨(' + fs + ') 짝');
   assert.match(CSS, /\.psh-t-card img \{ width: 100%; height: 100%; object-fit: cover; \}/, '카드 작은 그림(4:5)');
+});
+
+// ── 🎓 카드 셋째 단계(2026-11-07 밤 · 친구) — 「수능 날까지 매일 하나씩」: 받는 사람마다 이 폰에서 보낸 말씀 ✓ · 다음 말씀 먼저 · 기록은 이 폰에만 ──
+test('🎓 매일 하나씩 순수 — cardPickNo(때 셋 · next · 다 받음 · 직접 누름) · 보여 주는 차례 · 받는 사람 열쇠 · 60명 넘으면 오래된 것부터 · 막힌 저장소', () => {
+  const set = CARD.CARD_SETS.suneung;
+  const full = { defaults: set.defaults, groups: set.groups, entries: [['A', 1], ['A', 2], ['B', 3], ['C', 7], ['D', 10]].map(([group, no]) => ({ no, group })) };
+  const before = Date.parse('2026-11-10T12:00:00+09:00'), day = Date.parse('2026-11-19T12:00:00+09:00'), after = Date.parse('2026-11-20T09:00:00+09:00');
+  const pick = (sent, t, c) => CARD.cardPickNo(full, sent, t, c);
+  assert.equal(pick([], before, 0), 1, '수능 전 · 받은 것 없음 → 1');
+  assert.equal(pick([1], before, 0), 2, '1을 받았으면 2');
+  assert.equal(pick([1, 2], before, 0), 3, '보여 주는 차례로 다음');
+  assert.equal(pick([2], before, 0), 1, '건너뛴 앞 말씀부터');
+  assert.equal(pick([1, 2, 3, 7, 10], before, 0), 1, '다 받았으면 그 때의 번호');
+  assert.equal(pick(null, new Date(before), 0), 1, '기록이 없어도 · Date 도 받는다');
+  assert.equal(pick([1], Date.parse('2026-11-18T17:59:59+09:00'), 0), 2, '전날 저녁 전까지는 next');
+  assert.equal(pick([1, 2, 3], day, 0), 7, '전날 저녁~시험 날은 받은 것과 상관없이 7');
+  assert.equal(pick([7], day, 0), 7, '7을 받았어도 7');
+  assert.equal(pick([10], after, 0), 10, '끝난 뒤는 10');
+  assert.equal(pick([1], before, 3), 3, '직접 누른 말씀이 먼저');
+  assert.equal(pick([1], day, 2), 2, '직접 누른 말씀은 때와 상관없이');
+  assert.equal(pick([1], before, '1'), 1, '받은 말씀이라도 직접 누르면 그것');
+  assert.equal(pick([], before, 99), 1, '자료에 없는 번호는 안 누른 것');
+  assert.equal(CARD.cardDefaultNo(full, before), 1, 'cardDefaultNo 는 그대로(next 를 안 본다)');
+  assert.equal(CARD.cardDefaultAt(full, after).no, 10);
+  assert.equal(CARD.cardDefaultAt({}, before), null, 'defaults 가 없으면 null');
+  // 보여 주는 차례 = 판의 말씀 단추 차례(묶음 차례 → 묶음 안 자료 차례)
+  const mixed = { defaults: [{ no: 1, next: true }], groups: [{ key: 'A' }, { key: 'B' }], entries: [{ no: 5, group: 'B' }, { no: 1, group: 'A' }, { no: 4, group: 'A' }] };
+  assert.deepEqual(cardPlain(CARD.cardOrder(mixed).map((e) => e.no)), [1, 4, 5]);
+  assert.equal(CARD.cardPickNo(mixed, [1], before, 0), 4, '묶음 차례로 다음(자료 차례의 5 가 아니라)');
+  assert.deepEqual(cardPlain(CARD.cardOrder({ entries: [{ no: 3 }, { no: 2 }] }).map((e) => e.no)), [3, 2], '묶음이 없으면 자료 차례');
+  assert.equal(CARD.cardPickNo({ defaults: [{ no: 3 }], entries: [{ no: 3 }, { no: 4 }] }, [3], before, 0), 3, 'next 없는 때는 그 번호');
+  assert.equal(CARD.cardPickNo({ defaults: [{ no: 9, next: true }], entries: [{ no: 3 }] }, [3], before, 0), 3, '다 받았고 그 번호의 편도 없으면 첫 편');
+  // 받는 사람 열쇠 — 그림에 들어간 이름(앞뒤 빈칸 정리 · 비면 defaultName)
+  assert.equal(CARD.cardSentName(set, '  김지훈 '), '김지훈');
+  assert.equal(CARD.cardSentName(set, ''), set.defaultName, '빈 이름 → 「우리 수험생」');
+  assert.equal(CARD.cardSentName(set, '   '), set.defaultName, '빈칸만 → defaultName');
+  assert.equal(CARD.cardSentName(set, null), set.defaultName);
+  assert.equal(CARD.cardSentName(set, '<김지훈>'), CARD.cardShareName(set, '<김지훈>'), '그림과 같은 다듬기');
+  // 더하기 — 같은 번호는 한 번 · t 는 마지막 보낸 때 · 받은 기록은 안 바꾼다
+  const a0 = {}, a1 = CARD.cardSentAdd(a0, 'suneung', '김지훈', 1, 100), a2 = CARD.cardSentAdd(a1, 'suneung', '김지훈', 1, 200);
+  assert.deepEqual(cardPlain(a0), {}, '받은 기록은 그대로');
+  assert.deepEqual(cardPlain(a2), { suneung: { 김지훈: { nos: [1], t: 200 } } });
+  assert.deepEqual(cardPlain(CARD.cardSentAdd(a2, 'suneung', '김지훈', 2, 300).suneung.김지훈), { nos: [1, 2], t: 300 });
+  assert.deepEqual(cardPlain(CARD.cardSentAdd({ suneung: 5 }, 'suneung', '가', 1, 1)), { suneung: { 가: { nos: [1], t: 1 } } }, '깨진 칸 위에도');
+  // 60명 — 넘으면 t 가 오래된 것부터
+  assert.equal(CARD.CARD_SENT_MAX, 60);
+  let all = {};
+  for (let i = 0; i < 62; i++) all = CARD.cardSentAdd(all, 'suneung', '학생' + i, 1, 1000 + i);
+  const names = Object.keys(all.suneung);
+  assert.equal(names.length, 60, '60명까지');
+  assert.ok(!names.includes('학생0') && !names.includes('학생1') && names.includes('학생2') && names.includes('학생61'), '가장 오래된 둘을 버린다');
+  all = CARD.cardSentAdd(all, 'suneung', '학생2', 2, 9999);
+  all = CARD.cardSentAdd(all, 'suneung', '학생62', 1, 10000);
+  assert.ok(all.suneung.학생2 && !all.suneung.학생3, '다시 보낸 사람은 새것 — 그다음 오래된 사람을 버린다');
+  // 저장소 — 열쇠 하나 · 던지거나 깨졌으면 조용히 「보낸 것 없음」
+  const m = {}, ls = { getItem: (k) => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); } };
+  assert.deepEqual(cardPlain(CARD.cardSentAll(ls)), {});
+  assert.equal(CARD.cardSentSave(ls, a2), true);
+  assert.deepEqual(Object.keys(m), ['cardSent:v1'], '열쇠 하나');
+  assert.equal(CARD.CARD_SENT_KEY, 'cardSent:v1');
+  assert.match(cut(APP, 'function clearPersonalData(', '\n}\n'), new RegExp('"' + CARD.CARD_SENT_KEY + '"'), '넘겨주기(공용 기기)에서 받는 사람 기록도 지운다(app.js 는 같은 열쇠를 글자로)');
+  assert.deepEqual(cardPlain(CARD.cardSentNos(CARD.cardSentAll(ls), 'suneung', '김지훈')), [1]);
+  const bad = { getItem() { throw new Error('SecurityError'); }, setItem() { throw new Error('QuotaExceededError'); } };
+  assert.deepEqual(cardPlain(CARD.cardSentAll(bad)), {}); assert.equal(CARD.cardSentSave(bad, a2), false);
+  assert.deepEqual(cardPlain(CARD.cardSentAll(null)), {}); assert.equal(CARD.cardSentSave(null, a2), false);
+  for (const junk of ['{', '[]', 'null', '"x"', '{"suneung":5}', '{"suneung":{"김지훈":{"nos":"1"}}}', '{"suneung":{"김지훈":null}}'])
+    assert.deepEqual(cardPlain(CARD.cardSentNos(CARD.cardSentAll({ getItem: () => junk }), 'suneung', '김지훈')), [], junk);
+});
+
+test('🎓 매일 하나씩 판 — 보내면 그 받는 사람에게 ✓(닫음 · 이미 떠 있음은 안 적음) · 다시 열면 다음 말씀 · 이름마다 따로 · 직접 누른 말씀은 보낸 뒤 지움 · 카드만 · 막힌 저장소에서도 판은 돈다', async () => {
+  const set = CARD.CARD_SETS.suneung, [n1, n2] = CARD.cardOrder(set).map((e) => e.no), e1 = set.entries.find((e) => e.no === n1);
+  const m = {}, ls = { getItem: (k) => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); } };
+  const now = Date.parse('2026-11-10T12:00:00+09:00'), rec = () => JSON.parse(m['cardSent:v1'] || '{}').suneung || {};
+  const P = usagePan({ ls, now }), S = P.S, wait = () => new Promise((r) => setTimeout(r, 350));
+  const type = async (v) => { P.els['psh-cname'].value = v; P.els['psh-cname'].on.input(); await wait(); await usageTick(); };
+  S.openCardShare('suneung');
+  assert.equal(S.pshState.cno, n1, '처음 — 1');
+  assert.ok(!P.els.psh.innerHTML.includes('psh-card-ck') && P.els.psh.innerHTML.includes('id="psh-vs-s" hidden>'), '보낸 것이 없으면 ✓ · 안내 없음');
+  await type(' 김지훈 ');
+  P.nav.next = 'AbortError'; S.pshSend(); await usageTick();
+  P.nav.next = 'InvalidStateError'; S.pshSend(); await usageTick();
+  assert.deepEqual(Object.keys(m), [], '공유 창을 닫음 · 이미 떠 있음은 적지 않는다');
+  P.nav.next = 'ok'; S.pshSend(); await usageTick();
+  assert.deepEqual(rec(), { 김지훈: { nos: [n1], t: now } }, '공유 창 resolve — 그림에 들어간 이름(앞뒤 빈칸 정리)으로 · 서버로는 안 간다');
+  assert.ok(!JSON.stringify(P.logs).includes('김지훈'), '이용 기록 값은 그대로(이름 없음)');
+  assert.equal(P.els['psh-vs-s'].hidden, false, '보내자마자 안내가 보인다');
+  assert.equal(S.pshState.cno, n1, '보낸 뒤에도 판의 말씀은 그대로(다음 말씀은 다시 열 때)');
+  S.prayShareClose(); S.openCardShare('suneung');
+  assert.equal(S.pshState.cno, n2, '다시 열면 그 사람이 아직 안 받은 다음 말씀');
+  assert.equal(S.pshKeyGet(), 'card:' + set.entries.find((e) => e.no === n2).photo, '배경은 말씀을 따라간다');
+  const h = P.els.psh.innerHTML;
+  assert.ok(h.includes(`data-no="${n1}" aria-checked="false" aria-label="${n1} ${e1.ref} 보냄">${n1} ${e1.ref}<span class="psh-card-ck" aria-hidden="true">✓</span></button>`), '보낸 말씀 단추 — 작은 ✓ · 「보냄」');
+  assert.ok(new RegExp(`data-no="${n2}" aria-checked="true">${n2} `).test(h), '안 보낸 말씀은 ✓ 없음');
+  assert.ok(h.includes('id="psh-vs-s">✓ 이 이름으로 보낸 말씀</span>'), '말씀 고르기 머리 옆 안내');
+  await type('이서아');
+  assert.equal(S.pshState.cno, n1, '다른 학생은 1부터');
+  assert.equal(P.els['psh-vs-s'].hidden, true, '그 이름으로 보낸 것이 없으면 안내 숨김');
+  assert.equal(S.pshKeyGet(), 'card:' + e1.photo, '배경도 그 말씀의 것');
+  await type('김지훈');
+  assert.equal(S.pshState.cno, n2, '되돌리면 다시 다음 말씀'); assert.equal(P.els['psh-vs-s'].hidden, false);
+  S.pshState.cpick = true; S.pshState.ckey = 'card:' + set.photos[set.photos.length - 1].id;
+  await type('최하늘');
+  assert.equal(S.pshState.cno, n1); assert.equal(S.pshKeyGet(), 'card:' + set.photos[set.photos.length - 1].id, '직접 고른 배경은 지킨다');
+  S.pshState.cpick = false;
+  // 직접 누른 말씀 — 이름을 바꿔도 그대로 · 보낸 뒤 지운다(내려받기도 보낸 것)
+  S.pshState.cnoPick = n1; S.prayShareClose(); S.openCardShare('suneung');
+  await type('박민지');
+  assert.equal(S.pshState.cno, n1, '직접 누른 말씀은 이름을 바꿔도 그대로');
+  P.nav.can = false; S.pshSend();
+  assert.deepEqual(rec().박민지.nos, [n1], '공유 창이 없어 내려받기 — 그것도 적는다');
+  assert.equal(S.pshState.cnoPick, 0, '그 말씀을 보낸 뒤에는 지운다');
+  S.prayShareClose(); S.openCardShare('suneung');
+  assert.equal(S.pshState.cno, n2, '다음에 열면 다음 말씀');
+  // 빈 이름 = defaultName 의 기록
+  await type('');
+  P.nav.can = true; S.pshSend(); await usageTick();
+  assert.deepEqual(rec()[set.defaultName].nos, [n1], '빈 이름은 「우리 수험생」으로');
+  // 날짜 — 수능 날은 ✓ 와 상관없이 그 때의 번호
+  const D = usagePan({ ls, now: Date.parse('2026-11-19T12:00:00+09:00') });
+  D.S.pshState.cname = '김지훈'; D.S.openCardShare('suneung');
+  assert.equal(D.S.pshState.cno, CARD.cardDefaultNo(set, Date.parse('2026-11-19T12:00:00+09:00')), '수능 날 — 받은 것과 상관없이 그 때의 번호(7 · 임시 자료면 첫 편)');
+  // 카드가 아니면 적지 않는다
+  const before = m['cardSent:v1'];
+  S.openPrayShare(LIST[0], '김지훈'); await usageTick(); S.pshSend(); await usageTick();
+  assert.equal(m['cardSent:v1'], before, '기도문 판에서 보낸 것은 적지 않는다');
+  // 막힌 저장소 — 꺼내기만 해도 던짐 · 쓰기가 던짐 — 판은 그대로(공유 · 내려받기로 새지 않음)
+  for (const o of [{ lsThrow: true }, { ls: { getItem() { throw new Error('x'); }, setItem() { throw new Error('x'); } } }]) {
+    const Q = usagePan(Object.assign({ now }, o));
+    Q.S.openCardShare('suneung');
+    assert.equal(Q.S.pshState.cno, n1);
+    Q.els['psh-cname'].value = '김지훈'; Q.els['psh-cname'].on.input(); await wait(); await usageTick();
+    assert.doesNotThrow(() => Q.S.pshSend()); await usageTick();
+    assert.equal(Q.nav.shared.length, 1, '공유는 그대로'); assert.equal(Q.downloads.length, 0, '적지 못해도 내려받기로 새지 않는다');
+    assert.deepEqual(Q.logs.map((x) => x[0]), ['share-open', 'share-sheet']);
+  }
+  const CSS = read('style.css');
+  for (const c of ['psh-card-ck', 'psh-card-sent']) assert.ok(CSS.includes('.dark .' + c + ' '), c + ' — 어두운 모드 짝');
+  for (const fs of ['lg', 'xl']) assert.match(CSS, new RegExp('html\\[data-fs="' + fs + '"\\] \\.psh-card-sent[ ,]'), '안내 — 큰 글씨(' + fs + ') 짝');
 });

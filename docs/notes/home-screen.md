@@ -128,4 +128,9 @@
 - `haGroupsFor()` 는 이제 늘 맨 앞에 `{ title: "새 소식", ids: HA_NEWS }`(게시판 한 주간이면 그 뒤에 `"open-board"`)를 둔다 — 단추가 하나도 없으면 묶음째 없다(applyHomeA 가 건너뛴다). `HA_NEWS = ["open-card-suneung"]` · 아이콘 학사모(`cap`).
 - 단추는 `cardSuneungOn()` — 문(`CARD_SHARE_OPEN` 또는 🧪 시험 참여자) **이고** `todayYmd() <= CARD_SUNEUNG_UNTIL`("2026-12-11")일 때만 템플릿이 그린다 → 11/13 부터는 카드 한 줄 · 12/12 부터는 묶음째 없음(배포 없이). 옛 첫 화면(롤백)에서는 「함께」 맨 위.
 - 누르면 `withLazyJs("prayShare")` → `openCardShare("suneung")`(js/pray-share.js · 옛 파일이 실린 앱이면 「앱이 새 판으로…」). 설명서 게시판 첫 걸음(「새 소식」에서 💬)은 그대로 참이다.
+- **매일 하나씩(2026-11-07 밤 · 친구)** — 받는 사람(이름 칸 — 그림에 들어간 이름 · 비면 「우리 수험생」)마다 **이 폰에서** 보낸 말씀에 작은 ✓(aria-label 「… 보냄」) · 말씀 고르기 머리 옆 「✓ 이 이름으로 보낸 말씀」.
+  판을 열면(이름을 다른 사람으로 바꾸면) 그 사람이 아직 안 받은 첫 말씀(보여 주는 차례)이 골라져 있다 — `cardPickNo(set, sentNos, now, chosenNo)`: ① 직접 누른 말씀(`cnoPick` · **보낸 뒤 지운다**) ② 자료 `defaults` 의 그 때에 `next: true` 가 있으면 다음 말씀(다 받았으면 그 때의 no) · 없으면(수능 전날 저녁~ 7 · 끝난 뒤 10) 그 no 그대로.
+  같은 사람이면 보낸 뒤에도 고른 말씀이 저절로 넘어가지 않는다(다음 말씀은 다시 열 때).
+  기록은 localStorage 열쇠 하나 `cardSent:v1` = `{ suneung: { <이름>: { nos, t } } }` — 서버로 안 간다(이용 기록 값 · 종류 코드 10 그대로) · 60명 넘으면 t 가 오래된 것부터 · 넘겨주기(`clearPersonalData`)에서 지운다 · 막힌 저장소면 조용히 없는 것처럼.
+  적는 때: 공유 창 resolve · 내려받기 시작(카드일 때만 — 닫음 · 이미 떠 있음은 안 적음). ⚠️ 자료 덩이를 통째로 갈 때 `defaults` 첫 줄에 `next: true` 를 넣을 것(빠지면 늘 1번).
 - 모두에게 열 때: `CARD_SHARE_OPEN = true` 한 줄 + bump · 설명서 한 줄. 시험 `tests/home-groups.test.cjs`(새 소식 차례 · 문 · 기간) · `tests/pray-share.test.cjs`(판).

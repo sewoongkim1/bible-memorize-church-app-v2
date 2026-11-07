@@ -2013,6 +2013,7 @@ function clearPersonalData() {
     USER_KEY, PRIVACY_CONSENT_KEY, PROGRESS_KEY, PROGRESS_KEY + "-en", SYNC_STATUS_KEY, REVIEW_KEY,
     HEART_KEY, PASSAGE_KEY, DAILY_MILESTONE_KEY, BLESS_KEY, EVENT_ENTERED_KEY,
     "board-seen", "album-checked", RANK_SCOPE_KEY,
+    "cardSent:v1",   // 🎓 카드를 보낸 받는 사람 이름 · 말씀(js/pray-share.js CARD_SENT_KEY — 그 파일은 늦게 실려 이름을 글자로 적는다)
   ].forEach((k) => { try { localStorage.removeItem(k); } catch {} });
   // 가을 말씀 동행(이벤트 플랫폼) 기기 공용 캐시(EVENT_OPEN/LABEL/STAMP_ID 키·stampCache·
   //   todayCountCache/Day·js/events.js 전역)는 resetEventDeviceCache() 하나로 비운다

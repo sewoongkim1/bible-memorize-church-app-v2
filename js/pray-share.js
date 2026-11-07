@@ -376,7 +376,8 @@ const CARD_SETS = {
     nameHint: "이름이나 부르는 말(예: 지훈 · 우리 지훈이 · 사랑하는 손녀) — 비우면 「우리 수험생」",
     // 판을 처음 열 때 골라 둘 말씀(cardDefaultNo) — 차례로 보아 until(그 시각 전까지) 안이면 그 번호 · until 없는 마지막 줄은 그 뒤 늘 ·
     //   그 번호의 편이 자료에 없으면 첫 편. 수능 전 → 1 · 전날 저녁부터 시험 날 → 7 · 시험이 끝난 뒤 → 10(친구 2026-11-07)
-    defaults: [{ until: "2026-11-18T18:00:00+09:00", no: 1 }, { until: "2026-11-19T18:00:00+09:00", no: 7 }, { no: 10 }],
+    //   next: true 인 때는 그 받는 사람이 이 폰에서 아직 안 받은 첫 말씀(보여 주는 차례 · 다 받았으면 no — cardPickNo · 「수능 날까지 매일 하나씩」 친구 2026-11-07 밤)
+    defaults: [{ until: "2026-11-18T18:00:00+09:00", no: 1, next: true }, { until: "2026-11-19T18:00:00+09:00", no: 7 }, { no: 10 }],
     groups: [
       { key: "A", label: "두려움을 이기는 말씀" },
       { key: "B", label: "지혜와 집중력을 구하는 말씀" },
@@ -437,13 +438,64 @@ function cardShareName(set, n) { return prayShareName(n, set && set.defaultName)
 function cardRawName(n) { const s = prayShareName(n, " "); return s === " " ? "" : s; }
 // 본문 두 가지(친구 2026-11-07 저녁 — 교회에 안 다니는 학생에게도 보내기 쉽게) — 기도문(이름 든 기도 + 맺음말) | 응원 글(entries[i].cheer · 반말 · 자리표 없음)
 const CARD_BODIES = { pray: "기도문", cheer: "응원 글" };
-// 판을 처음 열 때 골라 둘 말씀 번호 — set.defaults 를 차례로(until 전이면 그 번호 · until 없으면 늘) · 그 번호의 편이 없으면 첫 편 · now = Date 또는 ms
+// 지금 때(set.defaults 의 한 줄) — 차례로 보아 until 전이면 그 줄 · until 없으면 늘 · 없으면 null · now = Date 또는 ms
+function cardDefaultAt(set, now) {
+  const t = now instanceof Date ? now.getTime() : Number(now);
+  return ((set && set.defaults) || []).find((x) => !x.until || t < Date.parse(x.until)) || null;
+}
+// 판을 처음 열 때 골라 둘 말씀 번호 — 그 때의 번호 · 그 번호의 편이 없으면 첫 편
 function cardDefaultNo(set, now) {
-  const es = (set && set.entries) || [], t = now instanceof Date ? now.getTime() : Number(now);
-  const d = ((set && set.defaults) || []).find((x) => !x.until || t < Date.parse(x.until));
+  const es = (set && set.entries) || [], d = cardDefaultAt(set, now);
   const no = d ? Number(d.no) : 0;
   return es.some((e) => e.no === no) ? no : (es[0] ? es[0].no : 0);
 }
+// 말씀을 보여 주는 차례 — 판의 말씀 단추와 같다(묶음 차례 → 묶음 안 자료 차례 · 묶음이 없으면 자료 차례)
+function cardOrder(set) {
+  const es = (set && set.entries) || [], gs = (set && set.groups) || [];
+  return gs.length ? gs.reduce((a, g) => a.concat(es.filter((e) => e.group === g.key)), []) : es.slice();
+}
+// ✓ 판을 열 때(받는 사람을 바꿀 때) 골라 둘 말씀 — 「수능 날까지 매일 하나씩」(친구 2026-11-07 밤)
+//   ① 보내는 분이 이 판에서 직접 누른 말씀(chosenNo · 그 말씀을 보내면 판이 지운다) ② 아니면 그 때의 번호(cardDefaultNo) —
+//   그 때에 next 가 있으면 이 받는 사람이 아직 안 받은 첫 말씀(sentNos = 이 폰에서 그 사람에게 보낸 번호 · 보여 주는 차례) · 다 받았으면 그 때의 번호.
+//   next 가 없는 때(수능 전날 저녁~당일 7 · 끝난 뒤 10)는 받은 것과 상관없이 그 번호.
+function cardPickNo(set, sentNos, now, chosenNo) {
+  const es = (set && set.entries) || [], c = Number(chosenNo) || 0;
+  if (c && es.some((e) => e.no === c)) return c;
+  const d = cardDefaultAt(set, now);
+  if (d && d.next) {
+    const got = (sentNos || []).map(Number), e = cardOrder(set).find((x) => !got.includes(x.no));
+    if (e) return e.no;
+  }
+  return cardDefaultNo(set, now);
+}
+// ✓ 이 폰에서 보낸 말씀(받는 사람마다) — 이 폰(localStorage 열쇠 하나)에만 · 서버로 보내지 않는다(이용 기록은 종류 코드 그대로).
+//   꼴: { <카드 키>: { <받는 사람>: { nos: [보낸 번호…], t: 마지막 보낸 때(ms) } } } · 한 카드에 받는 사람이 CARD_SENT_MAX 를 넘으면 t 가 오래된 것부터 버린다.
+//   읽기 · 쓰기는 모두 try/catch — 사생활 보호 창 · 막힌 저장소 · 깨진 값이면 조용히 「보낸 것 없음」(판은 그대로 돈다).
+const CARD_SENT_KEY = "cardSent:v1", CARD_SENT_MAX = 60;
+// 받는 사람 열쇠 — 그림에 들어간 이름(판 이름 칸을 기도문 판과 같이 다듬은 값 · 비면 defaultName) · 앞뒤 빈칸만 정리
+function cardSentName(set, n) { return String(cardShareName(set, n)).trim(); }
+// ls = 저장소(localStorage 꼴 · null 이어도 된다) → 기록 전체(없거나 깨졌으면 {})
+function cardSentAll(ls) {
+  try { const o = JSON.parse(ls.getItem(CARD_SENT_KEY) || "{}"); return o && typeof o === "object" && !Array.isArray(o) ? o : {}; } catch (e) { return {}; }
+}
+// 그 받는 사람에게 보낸 번호들(깨진 값은 건너뛴다)
+function cardSentNos(all, setKey, name) {
+  const s = all && all[setKey], r = s && typeof s === "object" ? s[name] : null;
+  return r && Array.isArray(r.nos) ? r.nos.map(Number).filter((x) => x > 0) : [];
+}
+// 보낸 번호 하나를 더한 새 기록(받은 기록은 그대로 둔다) · t = now · 받는 사람이 CARD_SENT_MAX 를 넘으면 t 가 오래된 것부터 버린다
+function cardSentAdd(all, setKey, name, no, now) {
+  const o = Object.assign({}, all && typeof all === "object" ? all : {});
+  const s = Object.assign({}, o[setKey] && typeof o[setKey] === "object" ? o[setKey] : {}), nos = cardSentNos(o, setKey, name);
+  if (!nos.includes(Number(no))) nos.push(Number(no));
+  s[name] = { nos, t: Number(now) || 0 };
+  const tt = (k) => (s[k] && Number(s[k].t)) || 0, ks = Object.keys(s);
+  if (ks.length > CARD_SENT_MAX) ks.sort((a, b) => tt(b) - tt(a)).slice(CARD_SENT_MAX).forEach((k) => { delete s[k]; });
+  o[setKey] = s;
+  return o;
+}
+// 기록을 적는다 — 못 적으면 false(조용히)
+function cardSentSave(ls, all) { try { ls.setItem(CARD_SENT_KEY, JSON.stringify(all)); return true; } catch (e) { return false; } }
 // 배경 사진 id — 보내는 분이 직접 고른 그림(picked)이 있으면 그것(말씀을 바꿔도 지킨다) · 없으면 그 말씀의 photo · 모르는 id 면 첫 그림
 function cardPhotoId(set, entry, picked) {
   const ids = ((set && set.photos) || []).map((p) => p.id), p = entry && entry.photo;
@@ -709,9 +761,10 @@ function pshDraw(doc, choice, leafNo) {
 // noLog = 이 판에서 일어난 일을 이용 기록에 남기지 않는다(관리자 묵상 미리보기 — pshOpen 의 opts.noLog · 다시 쓰는 판은 여는 쪽이 덮어쓴다 · 2026-11-06)
 // card = 🎓 기념일 말씀카드 판(CARD_SETS 의 키 · 비면 다른 판) · 그 판에서 고른 것(앱을 쓰는 동안 기억 — prayShareClose 가 안 지운다): cname 받는 분 이름(친 그대로) ·
 //   cbody 본문(pray | cheer) · cno 지금 말씀 번호 · cnoPick 보내는 분이 고른 말씀(0 = 안 고름 → 열 때마다 날짜에 맞춘 편) · clay 짜임(out | in) ·
-//   ckey 고른 배경("card:<id>") · cpick 보내는 분이 배경을 직접 골랐다(말씀을 바꿔도 지킨다)
+//   ckey 고른 배경("card:<id>") · cpick 보내는 분이 배경을 직접 골랐다(말씀을 바꿔도 지킨다) ·
+//   cfor 지금 말씀을 골라 둔 받는 사람(cardSentName — 이름 칸이 다른 사람이 되면 그 사람 기준으로 다시 고른다 · pshCardName)
 const pshState = { gen: 0, blob: null, url: null, key: "night", vkey: "", leaf: 1, b: null, name: "", med: null, verse: null,
-                   card: "", cname: "", cbody: "pray", cno: 0, cnoPick: 0, clay: "out", ckey: "", cpick: false, file: "", timer: null, pop: null, esc: null, noLog: false, sharing: false, withLink: true, linkNext: false,
+                   card: "", cname: "", cbody: "pray", cno: 0, cnoPick: 0, clay: "out", ckey: "", cpick: false, cfor: "", file: "", timer: null, pop: null, esc: null, noLog: false, sharing: false, withLink: true, linkNext: false,
                    kakaoUp: {}, kakaoReady: "", kakaoBusy: null, kakaoT: 0 };
 const PSH_TITLE_PRAY = "📤 가정 축복 기도문 보내기", PSH_TITLE_MED = "📤 오늘의 묵상 보내기";
 const PSH_TITLE_VERSE = "📤 이번 주 말씀 보내기";
@@ -751,7 +804,7 @@ function pshRedraw() {
   pshSendLabel(true); pshSay("");
   if (pshState.card) {   // 🎓 이름을 치다가(0.3초 안) 말씀 · 본문 · 짜임 · 배경을 바꿨다 — 지금 칸 값으로 그린다(옛 이름 그림이 나가지 않게)
     const ci = document.getElementById("psh-cname");
-    if (ci) { clearTimeout(pshState.timer); pshState.cname = ci.value; }
+    if (ci) { clearTimeout(pshState.timer); pshCardName(ci.value); }   // 받는 사람이 바뀌었으면 그 사람 기준 말씀 · ✓
   }
   const all = pshChoices();
   const ch = all.find((c) => c.key === pshKeyGet()) || all[0];
@@ -769,12 +822,14 @@ function pshRedraw() {
     pshSay("그림을 만들지 못했어요. 잠시 뒤 다시 열어 주세요.");
   });
 }
-function pshDownload() {
+// s = 보내기를 누른 그때의 카드 받는 사람 · 말씀(pshCardNow · 안 주면 지금 것) — 카드면 내려받기를 시작한 것을 이 폰에 적는다(✓)
+function pshDownload(s) {
   if (!pshState.url) return;
   const a = document.createElement("a");
   a.href = pshState.url; a.download = pshState.file || "blessing.jpg"; a.rel = "noopener";
   document.body.appendChild(a); a.click(); a.remove();
   pshLog("share-save", pshKind());   // 📊 내려받기를 시작했다(되었는지는 모른다 — 아래 말과 같다)
+  pshCardSent(s === undefined ? pshCardNow() : s);   // ✓ 카드만
   pshSay("그림 파일 내려받기를 시작했어요.");   // 되었는지는 알 수 없다 — 「시작했어요」까지만(교육 수료증과 같은 말)
 }
 // ⚠️ 누른 그 탭 안에서 share — 그림은 미리보기 때 만든 pshState.blob(여기서 새로 그리면 사용자 동작이 식어 막힌다)
@@ -782,6 +837,7 @@ function pshSend() {
   if (pshState.verse && pshState.linkNext) { pshSendLink(); return; }   // 그림 다음 — 같은 단추가 설치 주소를
   const blob = pshState.blob;
   if (!blob) return;
+  const sent = pshCardNow();   // ✓ 카드 — 누른 그때의 받는 사람 · 말씀(공유 창이 끝난 뒤가 아니라 — 그 그림의 것을 적는다)
   let file = null;
   try { file = new File([blob], pshState.file || "blessing.jpg", { type: "image/jpeg" }); } catch (e) {}
   // 그림 한 장만 — 말씀 판의 설치 주소는 그다음 같은 단추로 글만 따로(카톡이 그림에 붙인 글을 버렸다 · 친구 2026-11-05)
@@ -793,13 +849,14 @@ function pshSend() {
     if (pshState.sharing) return;
     pshState.sharing = true;
     // 📊 공유 창에서 앱을 골랐다(resolve)에만 share-sheet — 보냈는지는 모른다 · 닫음(AbortError) · 이미 떠 있음(InvalidStateError)은 세지 않는다
-    navigator.share(data).then(() => { pshLog("share-sheet", pshKind()); if (pshState.verse && pshState.withLink) pshLinkNext(); }).catch((err) => {
+    //   ✓ 카드는 그때 받는 사람에게 보낸 것으로 적는다(이 폰에만) — 닫음 · 이미 떠 있음은 적지 않는다
+    navigator.share(data).then(() => { pshLog("share-sheet", pshKind()); if (pshState.verse && pshState.withLink) pshLinkNext(); pshCardSent(sent); }).catch((err) => {
       if (err && (err.name === "AbortError" || err.name === "InvalidStateError")) return;   // 성도님이 공유 창을 닫았다 · 이미 떠 있다
-      pshDownload();
+      pshDownload(sent);
     }).finally(() => { pshState.sharing = false; });
     return;
   }
-  pshDownload();
+  pshDownload(sent);
 }
 // 📖 말씀 판 「설치 주소도 보내기」(친구 2026-11-05 「설치 URL은 연결 해달라고 했는데 없네요」 → 「설치주소 보내기를 check box로」) —
 //   켜 두면 그림을 보낸 뒤 같은 단추가 금색 「이어서 설치 주소 보내기」가 되고, 누르면 글만 보낸다. 한 번에 못 보내는 까닭: 카톡이 그림에 붙인 글을
@@ -1017,27 +1074,90 @@ function openCardShare(setKey) {
 // 열 때 — 말씀(고른 것 · 없으면 날짜에 맞춘 편) · 배경(직접 고른 것 · 없으면 그 말씀의 것) · 짜임 · 본문을 맞춘다
 function pshCardPrep(set) {
   const es = set.entries || [];
-  pshState.cno = es.some((e) => e.no === pshState.cnoPick) ? pshState.cnoPick : cardDefaultNo(set, Date.now());
+  pshState.cfor = cardSentName(set, pshState.cname);   // ✓ 직접 누른 말씀 · 없으면 그 때의 말씀(수능 전엔 이 받는 사람이 아직 안 받은 다음 말씀)
+  pshState.cno = cardPickNo(set, cardSentNos(cardSentAll(pshLs()), pshState.card, pshState.cfor), Date.now(), pshState.cnoPick);
   pshState.ckey = "card:" + cardPhotoId(set, es.find((e) => e.no === pshState.cno), pshState.cpick ? String(pshState.ckey).slice(5) : "");
   if (!CARD_STYLES[pshState.clay]) pshState.clay = "out";
   if (pshState.cbody !== "cheer") pshState.cbody = "pray";
 }
+// ✓ 받는 사람마다 보낸 말씀(이 폰에만 — cardSent*) ─────────────────────────────
+// 저장소 — 꺼내다 던지는 브라우저(막힌 저장소)도 있어 try 안에서 · 없으면 null(읽기는 「보낸 것 없음」 · 쓰기는 조용히 못 적음)
+function pshLs() { try { return typeof localStorage !== "undefined" ? localStorage : null; } catch (e) { return null; } }
+// 지금 이름 칸의 받는 사람에게 이 폰에서 보낸 번호들
+function pshCardGot(set) { return set ? cardSentNos(cardSentAll(pshLs()), pshState.card, cardSentName(set, pshState.cname)) : []; }
+// 보내기를 누른 그때의 카드 받는 사람 · 말씀 — 카드 판이 아니면 null
+function pshCardNow() {
+  const set = CARD_SETS[pshState.card];
+  return set ? { card: pshState.card, name: cardSentName(set, pshState.cname), no: pshState.cno } : null;
+}
+// 보냈다(공유 창에서 앱을 골랐다 · 내려받기를 시작했다) — 이 폰에 적고 · 그 말씀을 직접 누른 것이었으면 지운다(다음에 열면 다음 말씀) · ✓ 를 바로 고친다.
+//   공유 창 .then 안에서 부르므로 절대 던지지 않는다(던지면 catch 가 내려받기로 샌다)
+function pshCardSent(s) {
+  try {
+    if (!s || !s.no || !CARD_SETS[s.card]) return;
+    const ls = pshLs();
+    cardSentSave(ls, cardSentAdd(cardSentAll(ls), s.card, s.name, s.no, Date.now()));
+    if (pshState.cnoPick === s.no) pshState.cnoPick = 0;
+    pshCardMarks();
+  } catch (e) {}
+}
+// 말씀 단추 글 — 「번호 자리」 + 보낸 말씀이면 작은 ✓(읽어 주는 기능에는 aria-label 「… 보냄」)
+function pshCardVInner(e, sent) { return Number(e.no) + " " + prayEsc(e.ref) + (sent ? '<span class="psh-card-ck" aria-hidden="true">✓</span>' : ""); }
+function pshCardVLabel(e) { return Number(e.no) + " " + prayEsc(e.ref) + " 보냄"; }
+// 열린 판의 ✓ 를 지금 받는 사람 기준으로 고친다(단추 글 · aria-label · 말씀 고르기 머리 옆 안내)
+function pshCardMarks() {
+  const set = CARD_SETS[pshState.card], w = document.getElementById("psh");
+  if (!set || !w) return;
+  const got = pshCardGot(set), es = set.entries || [];
+  w.querySelectorAll(".psh-card-v").forEach((b) => {
+    const e = es.find((x) => x.no === Number(b.dataset.no));
+    if (!e) return;
+    const on = got.includes(e.no);
+    b.innerHTML = pshCardVInner(e, on);
+    if (on) b.setAttribute("aria-label", pshCardVLabel(e)); else b.removeAttribute("aria-label");
+  });
+  const n = w.querySelector("#psh-vs-s");
+  if (n) n.hidden = !cardOrder(set).some((e) => got.includes(e.no));
+}
+// 이름 칸 값이 정해졌다(0.3초 늦춤 뒤 · 다른 칸을 눌러 바로 그릴 때 — pshRedraw) — 받는 사람이 바뀌었으면 그 사람 기준으로:
+//   직접 누른 말씀이 없으면 다음 말씀을 다시 고르고(배경은 말씀을 따라 — 직접 고른 배경은 지킨다) · ✓ 를 고친다.
+//   같은 사람이면 그대로(보낸 뒤에 고른 말씀이 저절로 넘어가지 않게 — 다음 말씀은 판을 다시 열 때)
+function pshCardName(v) {
+  pshState.cname = v;
+  const set = CARD_SETS[pshState.card];
+  if (!set) return;
+  const key = cardSentName(set, v);
+  if (key === pshState.cfor) return;
+  pshState.cfor = key;
+  if (!pshState.cnoPick) {
+    const no = cardPickNo(set, pshCardGot(set), Date.now(), 0), w = document.getElementById("psh");
+    if (no !== pshState.cno) {
+      pshState.cno = no;
+      if (!pshState.cpick) pshState.ckey = "card:" + cardPhotoId(set, (set.entries || []).find((x) => x.no === no), "");
+      if (w) {
+        w.querySelectorAll(".psh-card-v").forEach((x) => x.setAttribute("aria-checked", x.dataset.no === String(no) ? "true" : "false"));
+        w.querySelectorAll(".psh-t").forEach((x) => x.setAttribute("aria-checked", x.dataset.k === pshState.ckey ? "true" : "false"));
+      }
+    }
+  }
+  pshCardMarks();
+}
 // 카드 판의 칸 — 이름(id psh-cname — 기도문 판의 psh-name 받이와 따로) · 본문 · 말씀 · 짜임(배경 고르기 위)
 function pshCardHtml() {
-  const set = CARD_SETS[pshState.card] || {}, es = set.entries || [];
+  const set = CARD_SETS[pshState.card] || {}, es = set.entries || [], got = pshCardGot(set);
   const seg = (name, label, opts, cur) => `<div class="psh-lbl" id="psh-${name}-l">${label}</div>
       <div class="psh-card-seg" role="radiogroup" aria-labelledby="psh-${name}-l">${opts.map(([k, t]) =>
         `<button type="button" class="psh-card-opt" role="radio" data-${name}="${prayEsc(k)}" aria-checked="${k === cur}">${prayEsc(t)}</button>`).join("")}</div>`;
   const groups = (set.groups || []).map((g) => {
     const mine = es.filter((e) => e.group === g.key);
     return mine.length ? `<div class="psh-card-gh">${prayEsc(g.key)} · ${prayEsc(g.label)}</div><div class="psh-card-vs">${mine.map((e) =>
-      `<button type="button" class="psh-card-v" role="radio" data-no="${Number(e.no)}" aria-checked="${e.no === pshState.cno}">${Number(e.no)} ${prayEsc(e.ref)}</button>`).join("")}</div>` : "";
+      `<button type="button" class="psh-card-v" role="radio" data-no="${Number(e.no)}" aria-checked="${e.no === pshState.cno}"${got.includes(e.no) ? ` aria-label="${pshCardVLabel(e)}"` : ""}>${pshCardVInner(e, got.includes(e.no))}</button>`).join("")}</div>` : "";
   }).join("");
   return `<label class="psh-lbl" for="psh-cname">받는 학생 이름</label>
       <input id="psh-cname" class="psh-name" type="text" maxlength="12" autocomplete="off">
       <p class="psh-card-hint" id="psh-cname-h"></p>
       ${seg("body", "본문 고르기", Object.keys(CARD_BODIES).map((k) => [k, CARD_BODIES[k]]), pshState.cbody)}
-      <div class="psh-lbl" id="psh-vs-l">말씀 고르기</div>
+      <div class="psh-lbl" id="psh-vs-l">말씀 고르기 <span class="psh-card-sent" id="psh-vs-s"${cardOrder(set).some((e) => got.includes(e.no)) ? "" : " hidden"}>✓ 이 이름으로 보낸 말씀</span></div>
       <div class="psh-card-verses" role="radiogroup" aria-labelledby="psh-vs-l">${groups}</div>
       ${seg("lay", "짜임 고르기", Object.keys(CARD_STYLES).map((k) => [k, CARD_STYLES[k].label]), pshState.clay)}`;
 }
