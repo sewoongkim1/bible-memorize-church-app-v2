@@ -279,9 +279,9 @@ test('③ featureUsage — 응답에 user_id 가 없다(JWT 없음) · 어린 �
     ['boardCount', 'boardDays', 'gubun', 'kakao', 'last', 'name', 'open', 'save', 'sebu', 'sheet', 'sosok']);
 });
 
-test('③ SHARE_KINDS — 종류 코드 1~9 이름(설계 2-2 · 이름은 서버 한 곳) · 모르는 코드는 「종류 N」으로 드러난다', async () => {
+test('③ SHARE_KINDS — 종류 코드 1~10 이름(설계 2-2 · 이름은 서버 한 곳) · 모르는 코드는 「종류 N」으로 드러난다', async () => {
   assert.deepEqual(J(S.SHARE_KINDS), { 1: '가정 축복 기도문', 2: '오늘의 묵상', 3: '이번 주 말씀', 4: '가을 말씀암송 동행 안내',
-    5: '앱 소개', 6: '외운 말씀', 7: '교육 수료증', 8: '앱 설치 주소', 9: '이번 주 말씀 주소' });
+    5: '앱 소개', 6: '외운 말씀', 7: '교육 수료증', 8: '앱 설치 주소', 9: '이번 주 말씀 주소', 10: '수험생 응원기도카드' });   // 10 = 🎓 기념일 말씀카드(2026-11-07)
   const { r } = await runUsage({}, { rows: [row('a', '2026-11-02', 'share-sheet', 12, 1)] });
   assert.deepEqual(r.byKind.map((k) => [k.item, k.label]), [[12, '종류 12']]);
 });

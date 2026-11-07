@@ -1931,7 +1931,7 @@ const FEATURES = new Set([
   "duty",             // 🙋 봉사 당번 화면(목록)을 엶 — item = 0 고정 (2026-10-06)
   "navi",             // 📚 네비게이토 성경암송 — 첫 화면 단추로 엶(묶음 목록으로 되돌아오는 것은 안 센다) — item = 0 고정 (2026-10-13 여는 날)
   "board",            // 💬 게시판 화면을 엶(app.js renderBoard 첫 줄) — item = 0 고정 (2026-11-06 · 아래 USAGE_FEATURES)
-  "share-open",       // 📤 보내기 판(js/pray-share.js pshOpen)을 새로 엶 — item = 종류 코드 1·2·3 (2026-11-06)
+  "share-open",       // 📤 보내기 판(js/pray-share.js pshOpen)을 새로 엶 — item = 종류 코드 1·2·3 · 10 (2026-11-06 · 10 은 11-07 🎓 카드)
   "share-kakao",      // 📤 카카오톡을 엶(pshKakaoGo — sendDefault 가 예외 없이 끝남) — item = 3 (2026-11-06)
   "share-sheet",      // 📤 공유 창으로 넘김(navigator.share 가 resolve) — item = 종류 코드 (2026-11-06)
   "share-save",       // 📤 그림 내려받기 시작 · 글 · 주소 복사 끝 — item = 종류 코드 (2026-11-06)
@@ -1972,8 +1972,8 @@ async function featureLog(b) {
 }
 
 // 보내기 종류 코드(item) → 이름(2026-11-06 · 설계 2-2). ⚠️ 이름은 이 한 곳 — 교회 어드민 화면은 응답의 label 을 그대로 쓴다.
-//   코드를 보내는 곳: js/pray-share.js pshKind()(1·2·3) · pshSendLink · pshCopyLink(8) · app.js shareLink 셋째 인자(4·5·6·9) · js/edu.js(7).
-const SHARE_KINDS = { 1: "가정 축복 기도문", 2: "오늘의 묵상", 3: "이번 주 말씀", 4: "가을 말씀암송 동행 안내", 5: "앱 소개", 6: "외운 말씀", 7: "교육 수료증", 8: "앱 설치 주소", 9: "이번 주 말씀 주소" };
+//   코드를 보내는 곳: js/pray-share.js pshKind()(1·2·3 · 10 = 🎓 기념일 말씀카드 — 수험생 응원기도카드 · 2026-11-07) · pshSendLink · pshCopyLink(8) · app.js shareLink 셋째 인자(4·5·6·9) · js/edu.js(7).
+const SHARE_KINDS = { 1: "가정 축복 기도문", 2: "오늘의 묵상", 3: "이번 주 말씀", 4: "가을 말씀암송 동행 안내", 5: "앱 소개", 6: "외운 말씀", 7: "교육 수료증", 8: "앱 설치 주소", 9: "이번 주 말씀 주소", 10: "수험생 응원기도카드" };
 
 // ---------- featureUsage: 보내기 · 게시판 이용(누가) — 관리자 전용(2026-11-06) ----------
 //   교회 어드민 📊 성경암송 통계 「📤 보내기 · 💬 게시판」 탭이 내부 키로 부른다(INTERNAL_ADMIN_OK · 역할 memorizeadmin).
