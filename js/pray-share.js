@@ -432,6 +432,31 @@ const CARD_SETS = {
         "id": "card-suneung-5",
         "label": "물줄기",
         "focus": 0.6
+      },
+      {
+        "id": "card-suneung-6",
+        "label": "찻잔",
+        "focus": 0.52
+      },
+      {
+        "id": "card-suneung-7",
+        "label": "담요",
+        "focus": 0.55
+      },
+      {
+        "id": "card-suneung-8",
+        "label": "노을",
+        "focus": 0.6
+      },
+      {
+        "id": "card-suneung-9",
+        "label": "첫눈",
+        "focus": 0.55
+      },
+      {
+        "id": "card-suneung-10",
+        "label": "촛불",
+        "focus": 0.55
       }
     ],
     "entries": [
