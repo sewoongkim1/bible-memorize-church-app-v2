@@ -1583,9 +1583,11 @@ test('🎓 매일 하나씩 순수 — cardPickNo(때 셋 · next · 다 받음 
   assert.equal(pick([1, 2, 3, 7, 10], before, 0), 1, '다 받았으면 그 때의 번호');
   assert.equal(pick(null, new Date(before), 0), 1, '기록이 없어도 · Date 도 받는다');
   assert.equal(pick([1], Date.parse('2026-11-18T17:59:59+09:00'), 0), 2, '전날 저녁 전까지는 next');
-  assert.equal(pick([1, 2, 3], day, 0), 7, '전날 저녁~시험 날은 받은 것과 상관없이 7');
-  assert.equal(pick([7], day, 0), 7, '7을 받았어도 7');
-  assert.equal(pick([10], after, 0), 10, '끝난 뒤는 10');
+  assert.equal(pick([1, 2, 3], day, 0), 7, '전날 저녁~시험 날은 7(아직 안 받았으면)');
+  assert.equal(pick([7], day, 0), 10, '7을 이미 받았으면 그 다음부터 돌아서 안 받은 말씀(공지 「아직 받지 않은 말씀이 먼저」 — 친구 11/07)');
+  assert.equal(pick([1, 2, 3, 7, 10], day, 0), 7, '다 받았으면 그 때의 번호');
+  assert.equal(pick([], after, 0), 10, '끝난 뒤는 10');
+  assert.equal(pick([10], after, 0), 1, '끝난 뒤 10을 이미 받았으면 돌아서 처음 안 받은 말씀');
   assert.equal(pick([1], before, 3), 3, '직접 누른 말씀이 먼저');
   assert.equal(pick([1], day, 2), 2, '직접 누른 말씀은 때와 상관없이');
   assert.equal(pick([1], before, '1'), 1, '받은 말씀이라도 직접 누르면 그것');
@@ -1598,7 +1600,8 @@ test('🎓 매일 하나씩 순수 — cardPickNo(때 셋 · next · 다 받음 
   assert.deepEqual(cardPlain(CARD.cardOrder(mixed).map((e) => e.no)), [1, 4, 5]);
   assert.equal(CARD.cardPickNo(mixed, [1], before, 0), 4, '묶음 차례로 다음(자료 차례의 5 가 아니라)');
   assert.deepEqual(cardPlain(CARD.cardOrder({ entries: [{ no: 3 }, { no: 2 }] }).map((e) => e.no)), [3, 2], '묶음이 없으면 자료 차례');
-  assert.equal(CARD.cardPickNo({ defaults: [{ no: 3 }], entries: [{ no: 3 }, { no: 4 }] }, [3], before, 0), 3, 'next 없는 때는 그 번호');
+  assert.equal(CARD.cardPickNo({ defaults: [{ no: 3 }], entries: [{ no: 3 }, { no: 4 }] }, [3], before, 0), 4, 'next 없는 때도 이미 받은 번호면 그 다음 안 받은 말씀');
+  assert.equal(CARD.cardPickNo({ defaults: [{ no: 3 }], entries: [{ no: 3 }, { no: 4 }] }, [], before, 0), 3, 'next 없는 때 · 안 받았으면 그 번호');
   assert.equal(CARD.cardPickNo({ defaults: [{ no: 9, next: true }], entries: [{ no: 3 }] }, [3], before, 0), 3, '다 받았고 그 번호의 편도 없으면 첫 편');
   // 받는 사람 열쇠 — 그림에 들어간 이름(앞뒤 빈칸 정리 · 비면 defaultName)
   assert.equal(CARD.cardSentName(set, '  김지훈 '), '김지훈');

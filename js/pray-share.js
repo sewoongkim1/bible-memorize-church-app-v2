@@ -630,16 +630,19 @@ function cardOrder(set) {
 // ✓ 판을 열 때(받는 사람을 바꿀 때) 골라 둘 말씀 — 「수능 날까지 매일 하나씩」(친구 2026-11-07 밤)
 //   ① 보내는 분이 이 판에서 직접 누른 말씀(chosenNo · 그 말씀을 보내면 판이 지운다) ② 아니면 그 때의 번호(cardDefaultNo) —
 //   그 때에 next 가 있으면 이 받는 사람이 아직 안 받은 첫 말씀(sentNos = 이 폰에서 그 사람에게 보낸 번호 · 보여 주는 차례) · 다 받았으면 그 때의 번호.
-//   next 가 없는 때(수능 전날 저녁~당일 7 · 끝난 뒤 10)는 받은 것과 상관없이 그 번호.
+//   next 가 없는 때(수능 전날 저녁~당일 7 · 끝난 뒤 10)는 그 번호 — 단, 그 받는 사람이 이미 받은 번호면 그 번호 다음부터 돌아서 아직 안 받은 말씀
+//   (친구 2026-11-07 게시판 공지 「다음에 열면 그 학생이 아직 받지 않은 말씀이 먼저 골라져 있어요」가 어느 날이든 참이게) · 다 받았으면 그 번호.
 function cardPickNo(set, sentNos, now, chosenNo) {
   const es = (set && set.entries) || [], c = Number(chosenNo) || 0;
   if (c && es.some((e) => e.no === c)) return c;
-  const d = cardDefaultAt(set, now);
+  const d = cardDefaultAt(set, now), dn = cardDefaultNo(set, now), got = (sentNos || []).map(Number), order = cardOrder(set);
   if (d && d.next) {
-    const got = (sentNos || []).map(Number), e = cardOrder(set).find((x) => !got.includes(x.no));
-    if (e) return e.no;
+    const e = order.find((x) => !got.includes(x.no));
+    return e ? e.no : dn;
   }
-  return cardDefaultNo(set, now);
+  if (!got.includes(dn)) return dn;
+  const k = Math.max(0, order.findIndex((x) => x.no === dn)), e = order.slice(k + 1).concat(order.slice(0, k + 1)).find((x) => !got.includes(x.no));
+  return e ? e.no : dn;
 }
 // ✓ 이 폰에서 보낸 말씀(받는 사람마다) — 이 폰(localStorage 열쇠 하나)에만 · 서버로 보내지 않는다(이용 기록은 종류 코드 그대로).
 //   꼴: { <카드 키>: { <받는 사람>: { nos: [보낸 번호…], t: 마지막 보낸 때(ms) } } } · 한 카드에 받는 사람이 CARD_SENT_MAX 를 넘으면 t 가 오래된 것부터 버린다.
