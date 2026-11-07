@@ -56,9 +56,10 @@ function prayShareChoices() {
   return out;
 }
 // 판에서 친 이름 — 12자(👤 이름 칸 askPrayName 과 같다) · <> 는 걷는다(이름 표식과 겹치지 않게) · 비면 「우리 가정」(renderPrayerBook 과 같다)
-function prayShareName(n) {
+//   fb — 비었을 때 쓸 이름(🎓 기념일 카드 · 2026-11-07 — 수능 「우리 수험생」) · 안 넘기면 「우리 가정」 그대로
+function prayShareName(n, fb) {
   const s = String(n == null ? "" : n).replace(/[<>\u0001\u0002]/g, "").replace(/\s+/g, " ").trim().slice(0, 12).trim();
-  return s || "우리 가정";
+  return s || fb || "우리 가정";
 }
 // 한 문장 → [{ s, a }] 토막(a = 이름 자리 · 강조). 이름 둘레에 태그 꼴 표식을 넣어 prayFill 에 넘기면
 //   prayJong 이 태그를 걷어 내고 진짜 이름의 끝 글자로 받침을 본다(prayFillHtml 과 같은 길) — 조사가 화면과 같다.
@@ -136,21 +137,26 @@ function prayShareHalves(s) {
 //   돌려주는 것: { size, fit, top(글 첫머리), bottom(글 끝), limit(넘으면 안 되는 바닥), box, rects(글 토막 자리 — 배경이 피한다), keep, ops: [text · orn · bar · mark] }
 //   — 글은 textBaseline "middle" 의 y.
 //   styleKey 는 PRAY_SHARE_STYLES 의 이름 또는 꼴 값 그대로(말씀 액자 — W · H · box · mark · max · min · floor 를 저마다 가진다 · 2026-11-05).
+//   🎓 기념일 카드(2026-11-07)만 쓰는 것 — 꼴 값 step(글씨를 줄이는 폭) · c.add 의 일곱째 o = { fam(글꼴) · w(보통 굵기) · wb(굵게 · 강조 굵기) · it(기울임) } ·
+//   c.rule(앞 간격, 색, 폭 비율) = 가는 가로줄(ops 의 k "rule"). 셋 다 안 쓰면 글자 하나 안 바뀐다(기도문 · 묵상 · 말씀 그림 그대로).
 function pshPlan(styleKey, measure, rowsOf) {
   const st = (styleKey && typeof styleKey === "object") ? styleKey : (PRAY_SHARE_STYLES[styleKey] || PRAY_SHARE_STYLES.frame);
-  const W = st.W || PSH_W, MAX = st.max || PSH_MAX, MIN = st.min || PSH_MIN, FLOOR = st.floor || ((st.H || PSH_H) - 92);
-  const font = (size, bold) => (bold ? st.wBold : st.wBody) + " " + size + "px " + st.family;
+  const W = st.W || PSH_W, MAX = st.max || PSH_MAX, MIN = st.min || PSH_MIN, FLOOR = st.floor || ((st.H || PSH_H) - 92), STEP = st.step || PSH_STEP;
+  const font = (size, bold, o) => o
+    ? (o.it ? "italic " : "") + (bold ? (o.wb || st.wBold) : (o.w || st.wBody)) + " " + size + "px " + (o.fam || st.family)
+    : (bold ? st.wBold : st.wBody) + " " + size + "px " + st.family;
   // markInline(말씀 액자) — 마크는 글 덩이 안(「이번 주 말씀」 오른쪽 · verseSharePlan 이 놓는다)이라 오른쪽 위 피하기가 없다
   const mk = st.markInline ? null : prayShareMark(W, st.mark), K = mk ? mk.keep : { x: -1e4, y: -1e4, w: 0, h: 0 };
   const lay = (size) => {
     const rows = [];
     let bodyStart = -1;
-    const add = (runs, sz, lh, bold, color, gap) => {
-      const m = (s, a) => measure(s, font(sz, bold || a));
-      prayShareWrap(runs, st.box.w, m).forEach((pieces, k) => rows.push({ pieces, size: sz, lh, bold, color, gap: k === 0 ? gap : 0 }));
+    const add = (runs, sz, lh, bold, color, gap, o) => {
+      const m = (s, a) => measure(s, font(sz, bold || a, o));
+      prayShareWrap(runs, st.box.w, m).forEach((pieces, k) => rows.push({ pieces, size: sz, lh, bold, color, gap: k === 0 ? gap : 0, o }));
     };
+    const rule = (gap, color, frac) => rows.push({ pieces: [], size: 2, lh: 1, bold: false, color, gap, rule: frac || 0.8 });   // 두께 2 · 글 상자 폭의 frac
     const ornGap = (st.orn || st.bar) ? Math.round(size * 1.6) : Math.round(size * 0.9);
-    rowsOf(size, { st, font, ornGap, add, body: () => { bodyStart = rows.length; } });
+    rowsOf(size, { st, font, ornGap, add, rule, body: () => { bodyStart = rows.length; } });
     const h = rows.reduce((t, r) => t + r.gap + r.size * r.lh, 0);
     return { rows, h, bodyStart, ornGap };
   };
@@ -164,11 +170,17 @@ function pshPlan(styleKey, measure, rowsOf) {
       if (k === L.bodyStart && st.orn) ops.push({ k: "orn", x: st.box.x + st.box.w / 2, y: Math.round(y - L.ornGap / 2), w: Math.round(size * 3.2), color: st.orn });
       if (k === L.bodyStart && st.bar) ops.push({ k: "bar", x: st.box.x, y: Math.round(y - L.ornGap / 2), w: Math.round(size * 1.3), color: st.bar });
       const lineH = r.size * r.lh, cy = y + lineH / 2;
-      const ws = r.pieces.map((p) => measure(p.s, font(r.size, r.bold || p.a)));
+      if (r.rule) {   // 가는 가로줄(카드) — 글 상자 가운데 · 글 토막이 아니라 rects 에 안 넣는다
+        const rw = Math.round(st.box.w * r.rule);
+        ops.push({ k: "rule", x: Math.round(st.box.x + (st.box.w - rw) / 2), y: Math.round(y), w: rw, h: r.size, color: r.color });
+        y += lineH;
+        return;
+      }
+      const ws = r.pieces.map((p) => measure(p.s, font(r.size, r.bold || p.a, r.o)));
       const tw = ws.reduce((t, w) => t + w, 0);
       let x = st.align === "center" ? st.box.x + (st.box.w - tw) / 2 : st.box.x;
       r.pieces.forEach((p, j) => {
-        ops.push({ k: "text", s: p.s, x, y: Math.round(cy), w: ws[j], font: font(r.size, r.bold || p.a), color: p.a ? st.accent : r.color });
+        ops.push({ k: "text", s: p.s, x, y: Math.round(cy), w: ws[j], font: font(r.size, r.bold || p.a, r.o), color: p.a ? st.accent : r.color });
         rects.push({ x, y, w: ws[j], h: lineH });
         if (x < K.x + K.w && x + ws[j] > K.x && y < K.y + K.h && y + lineH > K.y) hit = true;
         x += ws[j];
@@ -188,7 +200,7 @@ function pshPlan(styleKey, measure, rowsOf) {
     return P.hit ? place(L, size, at(L, Math.max(st.box.y, K.y + K.h), limit)) : P;   // 마크에 닿으면 마크 둘레 아래에서 다시
   };
   let size = MAX, L = lay(size), limit = st.box.bottom, P = put(L, size, limit);
-  while (P.bottom > limit + 0.5 && size > MIN) { size -= PSH_STEP; L = lay(size); P = put(L, size, limit); }
+  while (P.bottom > limit + 0.5 && size > MIN) { size -= STEP; L = lay(size); P = put(L, size, limit); }
   if (P.bottom > limit + 0.5) { limit = FLOOR; P = put(L, size, limit); }   // 가장 작은 글씨로도 넘친다 — 바닥을 내린다
   if (mk) P.ops.push({ k: "mark", x: mk.x, y: mk.y, w: mk.w, h: mk.h, cx: mk.cx, cy: mk.cy, r: mk.r, disc: !!st.disc });
   return { size, fit: P.bottom <= limit + 0.5, top: P.top, bottom: P.bottom, limit, box: st.box, rects: P.rects, keep: K, ops: P.ops };
@@ -347,6 +359,108 @@ function verseSharePlan(v, styleKey, measure) {
   }
   return plan;
 }
+// 🎓 기념일 말씀카드(2026-11-07 친구 · 첫 개시 수능 2026-11-19 · 성적 통지 12-11) — 보내는 분이 받는 분 이름 · 말씀 · 그림 · 짜임(그림 밖 / 그림 안)을 골라 그림 한 장으로.
+//   카드 글(「풍성」 — 위에서 아래로): 제목(반말 한마디) · 영어 한 줄(기울임) · 이름 든 기도문 + 맺음말 · 말씀 토막(“ ”) · 말씀 자리(「이사야 41장 10절」) ·
+//   가는 가로줄 · 맺는 한 줄 · 교회 마크(오른쪽 위). 판(이름 칸 · 말씀 · 그림 · 짜임 고르기)은 다음 단계 — 여기는 그리기 엔진과 자료만.
+//   ⚠️ 이름 채우기는 기도문과 같다(prayShareRuns → app.js prayFill) · 자리표는 {이름} {이} {을} {은} {과} {으로} 여섯뿐 · 기도문에 「아멘」을 넣지 않는다(맺음말은 amen) — 시험이 본다.
+//   자료 덩이는 아래 표식 줄 둘 사이 — 글을 다듬는 작업이 덩이째 갈아 끼운다. 꼴: CARD_SETS.<키> = { label, amen, defaultName, nameHint,
+//   groups: [{ key, label }], photos: [{ id, label, focus }], entries: [{ no, group, title, en, prayer, quote, verse, ref, closing }] }.
+//   사진은 img/share/<id>.webp(1080×1350) + <id>-t.webp(128×160) · focus = 그림 밖 띠에 보일 세로 자리(0 위 ~ 1 아래 · 띠 가운데에 온다).
+//   수능 묶음(열 편): A 1·2 · B 3·4 · C 5·6·7 · D 8·9·10 — 지금은 임시 두 편(초안 1 · 3)과 임시 그림 셋(수능 그림이 아직 없다).
+// ⟪card-data⟫
+const CARD_SETS = {
+  suneung: {
+    label: "수능 응원 기도 카드",
+    amen: "예수님의 이름으로 응원하며 기도합니다. 아멘!",
+    defaultName: "우리 수험생",
+    nameHint: "이름이나 부르는 말(예: 지훈 · 우리 지훈이 · 사랑하는 손녀) — 비우면 「우리 수험생」",
+    groups: [
+      { key: "A", label: "두려움을 이기는 말씀" },
+      { key: "B", label: "지혜와 집중력을 구하는 말씀" },
+      { key: "C", label: "지치고 힘들 때 위로가 되는 말씀" },
+      { key: "D", label: "노력과 결과를 하나님께 맡기는 말씀" },
+    ],
+    photos: [   // 임시 — 수능 그림이 아직 없다(기도문 판의 사진 셋 · 수능 그림이 오면 바꾼다)
+      { id: "bg-dawn", label: "새벽", focus: 0.5 },
+      { id: "bg-sea", label: "바다", focus: 0.5 },
+      { id: "bg-lake", label: "호수", focus: 0.5 },
+    ],
+    entries: [   // 임시 두 편(초안 1 · 3) — 열 편이 다듬어지면 덩이째 바꾼다
+      { no: 1, group: "A", title: "너는 혼자가 아니야!", en: "Fear Not, for I Am with You!",
+        prayer: "하나님, 시험을 앞둔 {이름}{과} 함께 하시고 {이름}의 하나님이 되어 주시어 두려워하지 않고 놀라지 않게 하옵소서. {이름}{을} 굳세게 하시고 참으로 도와 주시며, 주의 의로운 오른손으로 붙들어 주옵소서.",
+        quote: "두려워하지 말라 내가 너와 함께 함이라 놀라지 말라 나는 네 하나님이 됨이라",
+        verse: "두려워하지 말라 내가 너와 함께 함이라 놀라지 말라 나는 네 하나님이 됨이라 내가 너를 굳세게 하리라 참으로 너를 도와 주리라 참으로 나의 의로운 오른손으로 너를 붙들리라",
+        ref: "이사야 41:10", closing: "하나님이 너를 꼭 붙드신다!" },
+      { no: 2, group: "A", title: "시험장에도 함께 가셔!", en: "Be Strong and Courageous!",
+        prayer: "하나님, 주께서 명령하신 대로 {이름}{이} 강하고 담대하게 하시고, 두려워하지 말며 놀라지 말게 하옵소서. {이름}{이} 어디로 가든지, 시험장에 들어설 때에도 {이름}의 하나님 여호와께서 함께 하여 주옵소서.",
+        quote: "강하고 담대하라 두려워하지 말며 놀라지 말라 네가 어디로 가든지 네 하나님 여호와가 너와 함께 하느니라",
+        verse: "내가 네게 명령한 것이 아니냐 강하고 담대하라 두려워하지 말며 놀라지 말라 네가 어디로 가든지 네 하나님 여호와가 너와 함께 하느니라 하시니라",
+        ref: "여호수아 1:9", closing: "하나님께서 너와 함께하신다!" },
+    ],
+  },
+};
+// ⟪/card-data⟫
+// 짜임 둘(친구가 고른 시안 「풍성」) — pshPlan 이 받는 꼴 값. 글씨는 44px 에서 1px 씩 26px 까지(상자에 들 때까지) · 글꼴 · 굵기는 줄마다(cardSharePlan).
+//   out(그림 밖): 밝은 바탕 + 위 둥근 그림 띠(band — 4:5 그림을 덮어 잘라 넣음 · 옅은 그림자) · 글 상자는 띠 아래 · 세로 가운데.
+//   in(그림 안): 그림이 바탕 전체 · 아래 둥근 판(panel — 높이는 글에 맞춘다 · 판 위끝이 panel.top 보다 올라가면 글씨를 줄인다) · 글 상자 = 판 안쪽.
+//   마크는 둘 다 오른쪽 위 PSH_MARK 자리 · 흰 동그라미(그림 밖은 띠 안에 앉는다). floor = 26px 로도 안 들 때만 내려가는 바닥(시험은 안 타는지 본다).
+const CARD_EN = 'Georgia, "Times New Roman", serif';   // 영어 한 줄(기울임) — 기기 글꼴(웹 글꼴을 더 받지 않는다 · 없으면 기기 명조)
+const CARD_FONTS = ['500 40px "Nanum Myeongjo"', '700 40px "Nanum Myeongjo"', '800 40px "Nanum Myeongjo"', '700 40px "Noto Sans KR"', '800 40px "Noto Sans KR"'];   // pshDraw 가 받을 글꼴
+const CARD_STYLES = {
+  out: { label: "그림 밖", card: "out", family: PSH_SERIF, align: "center", valign: "center", W: 1080, H: 1350, max: 44, min: 26, step: 1, floor: 1330,
+         ink: "#1e3264", accent: "#a0701c", sub: "#5b6b8c", title: "#14284f", green: "#2e7d4f", rule: "rgba(30, 50, 100, 0.15)",
+         orn: null, bar: null, disc: true, wBody: 500, wBold: 800, fonts: CARD_FONTS, paper: "#fbf8f1", blank: "#e6dfd0",
+         band: { x: 40, y: 40, w: 1000, h: 560, r: 36 }, box: { x: 70, y: 640, w: 940, bottom: 1300 } },
+  in:  { label: "그림 안", card: "in", family: PSH_SERIF, align: "center", valign: "bottom", W: 1080, H: 1350, max: 44, min: 26, step: 1, floor: 1268,
+         ink: "#1e3264", accent: "#a0701c", sub: "#5b6b8c", title: "#14284f", green: "#2e7d4f", rule: "rgba(30, 50, 100, 0.15)",
+         orn: null, bar: null, disc: true, wBody: 500, wBold: 800, fonts: CARD_FONTS, blank: "#e6dfd0",
+         panel: { x: 60, w: 960, top: 430, bottom: 1290, r: 36, pad: { t: 46, s: 48, b: 42 }, fill: "rgba(255, 252, 245, 0.86)" },
+         box: { x: 108, y: 476, w: 864, bottom: 1248 } },   // box = 판 안쪽(60+48 · 960−96 · 430+46 · 1290−42) — 글은 판 아래끝에 붙는다(valign bottom)
+};
+// 말씀 자리 — 「이사야 41:10」 → 「이사야 41장 10절」 · 시편은 「편」(「시편 121:2」 → 「시편 121편 2절」) · 「빌립보서 4:6-7」 → 「빌립보서 4장 6~7절」 · 못 읽으면 그대로
+function cardRefLabel(ref) {
+  const s = String(ref == null ? "" : ref).replace(/\s+/g, " ").trim();
+  const m = /^(.+?) ?(\d+):(\d+)(?: ?[-~–] ?(?:(\d+):)?(\d+))?$/.exec(s);
+  if (!m) return s;
+  const u = /^시편?$/.test(m[1]) ? "편" : "장";
+  if (m[4]) return m[1] + " " + m[2] + u + " " + m[3] + "절~" + m[4] + u + " " + m[5] + "절";
+  return m[1] + " " + m[2] + u + " " + m[3] + (m[5] ? "~" + m[5] : "") + "절";
+}
+// 받는 분 이름 — 기도문 판과 같은 다듬기(12자 · <> 걷기) · 비면 그 카드의 defaultName(수능 「우리 수험생」)
+function cardShareName(set, n) { return prayShareName(n, set && set.defaultName); }
+// 그림 한 칸의 꼴 값 — 짜임(out · in)에 그 사진의 focus 를 더한 것(pshBg 가 띠 · 바탕에 맞춰 자른다)
+function cardStyle(lay, photo) {
+  const f = Number(photo && photo.focus);
+  return Object.assign({}, CARD_STYLES[lay] || CARD_STYLES.out, { focus: f >= 0 && f <= 1 ? f : 0.5 });
+}
+// 그림 고르기 칸 — 그 카드의 사진마다 한 칸(prayShareChoices · verseFrameChoices 와 같은 꼴 · 짜임을 바꾸면 다시 부른다)
+function cardShareChoices(set, lay) {
+  return ((set && set.photos) || []).map((p) => ({ key: "card:" + p.id, style: cardStyle(lay, p), label: p.label,
+    src: "img/share/" + p.id + ".webp", thumb: "img/share/" + p.id + "-t.webp" }));
+}
+// 그림 안 — 글 뒤 둥근 판 자리(글 높이에 맞춘다 · 안쪽 여백 위 pad.t · 아래 pad.b) · pshBg 와 시험이 같은 셈을 쓴다
+function cardPanel(st, plan) {
+  const P = st.panel, y = Math.round(plan.top - P.pad.t);
+  return { x: P.x, y, w: P.w, h: Math.round(plan.bottom + P.pad.b) - y, r: P.r };
+}
+// 카드 글 덩이 — 줄만 정하고 배치는 pshPlan(기도문 · 묵상 · 말씀과 같은 엔진 · 글꼴은 줄마다 o) · 기도문은 한 문단(시안 그대로 — 문장마다 끊지 않는다)
+function cardSharePlan(set, entry, name, styleKey, measure) {
+  const e = entry || {}, nm = cardShareName(set, name), amen = String((set && set.amen) || "");
+  const sans = (wb) => ({ fam: PSH_SANS, wb }), serif = (w, wb) => ({ fam: PSH_SERIF, w, wb });
+  return pshPlan(styleKey, measure, (size, c) => {
+    const st = c.st;
+    c.add([{ s: String(e.title || ""), a: false }], Math.round(size * 1.45), 1.3, true, st.title, 0, sans(800));
+    if (e.en) c.add([{ s: String(e.en), a: false }], Math.round(size * 0.82), 1.3, true, st.green, Math.round(size * 0.35), { fam: CARD_EN, wb: 700, it: true });
+    c.add(prayShareRuns(String(e.prayer || ""), nm), size, 1.65, false, st.ink, Math.round(size * 0.8), serif(500, 800));   // 이름만 굵게 · 강조색
+    const az = Math.round(size * 0.9), ao = serif(700, 700);
+    const parts = measure(amen, c.font(az, true, ao)) <= st.box.w ? [amen] : prayShareHalves(amen);   // 한 줄에 안 들면 가운데에서 둘로(「아멘!」 홀로 남지 않게)
+    parts.forEach((x, j) => c.add([{ s: x, a: false }], az, 1.5, true, st.accent, j === 0 ? Math.round(size * 0.45) : 0, ao));
+    c.add([{ s: "“" + String(e.quote || "") + "”", a: false }], Math.round(size * 0.95), 1.6, true, st.title, Math.round(size * 0.8), serif(800, 800));
+    c.add([{ s: cardRefLabel(e.ref), a: false }], Math.round(size * 0.78), 1.4, true, st.sub, Math.round(size * 0.4), sans(700));
+    c.rule(Math.round(size * 0.7), st.rule, 0.8);
+    c.add([{ s: String(e.closing || ""), a: false }], size, 1.4, true, st.green, Math.round(size * 0.6), sans(800));
+  });
+}
 // ── 기도문 그림 — 순수 (여기까지) ──
 
 // ── 그리기 ──
@@ -361,12 +475,48 @@ function pshNight(ctx) {
   g.addColorStop(0, "#2a4a8a"); g.addColorStop(0.55, "#15264f"); g.addColorStop(1, "#0c1734");
   ctx.fillStyle = g; ctx.fillRect(0, 0, PSH_W, PSH_H);
 }
+// 🎓 기념일 말씀카드 바탕(2026-11-07) — out: 밝은 바탕 + 위 둥근 그림 띠(옅은 그림자 · 덮어 자르기) · in: 그림을 바탕 가득 + 글 뒤 둥근 판(cardPanel — 글 높이에 맞춘다).
+//   그림을 못 받으면 띠 · 바탕을 옅은 빈 색(blank)으로. 둥근 길은 arcTo 손그림(ctx.roundRect 는 사파리 16 미만에 없다 — veil 판과 같다).
+function pshRoundPath(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+// 덮어 자르기 — 가로는 가운데 · 세로는 그림의 focus(0 위 ~ 1 아래)가 칸 가운데에 오게(그림 끝이 칸 안으로 들어오지 않게 붙든다)
+function pshCover(ctx, img, x, y, w, h, focus) {
+  const sc = Math.max(w / img.naturalWidth, h / img.naturalHeight), dw = img.naturalWidth * sc, dh = img.naturalHeight * sc;
+  const f = focus == null ? 0.5 : focus, dy = Math.min(y, Math.max(y + h - dh, y + h / 2 - f * dh));
+  ctx.drawImage(img, x + (w - dw) / 2, dy, dw, dh);
+}
+function pshCardBg(ctx, st, img, plan, W, H) {
+  if (st.card === "in") {
+    if (img) pshCover(ctx, img, 0, 0, W, H, st.focus);
+    else { ctx.fillStyle = st.blank; ctx.fillRect(0, 0, W, H); }
+    const p = cardPanel(st, plan);
+    ctx.save();   // 판 그림자 — 판이 86% 라 판 안쪽으로 비치는 몫은 2% 남짓
+    ctx.shadowColor = "rgba(20, 20, 40, 0.18)"; ctx.shadowBlur = 24; ctx.shadowOffsetY = 8;
+    ctx.fillStyle = st.panel.fill; pshRoundPath(ctx, p.x, p.y, p.w, p.h, p.r); ctx.fill();
+    ctx.restore();
+    return;
+  }
+  const b = st.band;
+  ctx.fillStyle = st.paper; ctx.fillRect(0, 0, W, H);
+  ctx.save();   // 옅은 그림자 — 띠를 빈 색으로 한 번 칠해 그림자를 얻는다(그림이 그 위를 덮는다)
+  ctx.shadowColor = "rgba(40, 30, 10, 0.18)"; ctx.shadowBlur = 18; ctx.shadowOffsetY = 6;
+  ctx.fillStyle = st.blank; pshRoundPath(ctx, b.x, b.y, b.w, b.h, b.r); ctx.fill();
+  ctx.restore();
+  if (!img) return;
+  ctx.save(); pshRoundPath(ctx, b.x, b.y, b.w, b.h, b.r); ctx.clip();
+  pshCover(ctx, img, b.x, b.y, b.w, b.h, st.focus);
+  ctx.restore();
+}
 // plan(praySharePlan) 을 받아 글을 피한다 — 액자 잎가지는 글 끝 아래로만 · 잎 한 가지는 글 첫머리 위로만 · 별은 글 토막 · 마크 둘레에 찍지 않는다
 //   (2026-11-04 그려 보니 긴 편에서 잎가지가 첫 줄을 가로질렀고, 글 옆 별 하나가 마침표처럼 읽혔다 — 「좌로나.」).
 //   잎 한 가지는 왼쪽 위 — 오른쪽 위는 교회 마크 자리다(같은 날 마크를 옮겼다).
 function pshBg(ctx, style, img, seed, plan) {
   const W = (ctx.canvas && ctx.canvas.width) || PSH_W, H = (ctx.canvas && ctx.canvas.height) || PSH_H;
   if (style && typeof style === "object") {   // 📖 말씀 액자(2026-11-05) — 액자 그림을 바탕 가득(정사각형 그림 · 글은 그 안쪽 바탕에). 그림을 못 받으면 미색 바탕.
+    if (style.card) { pshCardBg(ctx, style, img, plan, W, H); return; }   // 🎓 기념일 말씀카드(2026-11-07) — 그림 띠 · 둥근 판
     if (!img) { ctx.fillStyle = style.bg || "#fbf7ee"; ctx.fillRect(0, 0, W, H); return; }   // 액자마다 글씨에 맞춘 바탕(남색은 어둡게 — 밝은 글씨가 묻히지 않게)
     const sc = Math.max(W / img.naturalWidth, H / img.naturalHeight);
     const dw = img.naturalWidth * sc, dh = img.naturalHeight * sc;
@@ -459,6 +609,14 @@ function verseShareDoc(v) {
            text: [VERSE_KICKER, ref, v && v.text, verseShareFoot(v), verseSharePastor(v), verseShareByline(v)].join(" ").replace(/\*\*/g, ""),
            seed: no * 13 + 5, file: "verse-" + no + ".jpg", alt: "보낼 그림 — 이번 주 말씀 · " + (ref || VERSE_KICKER) };
 }
+// 🎓 기념일 말씀카드 한 벌 — set = CARD_SETS 의 한 칸 · entry = 그 카드의 한 편 · name = 판에서 친 이름(비면 defaultName) ·
+//   lay = "out" | "in" — 그림 칸(cardShareChoices)의 꼴 값이 오면 그것을, 꼴 이름 · 빈 값이 오면 이 짜임을 쓴다.
+function cardShareDoc(set, entry, name, lay) {
+  const e = entry || {}, nm = cardShareName(set, name), no = Number(e.no) || 0, L = CARD_STYLES[lay] ? lay : "out";
+  return { plan: (style, measure) => cardSharePlan(set, e, nm, (style && typeof style === "object") ? style : CARD_STYLES[L], measure),
+           text: [e.title, prayFill(e.prayer, nm), set && set.amen, "“" + String(e.quote || "") + "”", cardRefLabel(e.ref), e.closing].join(" "),
+           seed: no || 1, file: "card-" + no + ".jpg", alt: "보낼 그림 — " + String((set && set.label) || "") + " · " + String(e.title || "") + " · " + nm };
+}
 function prayShareDraw(b, name, choice, leafNo) { return pshDraw(prayShareDoc(b, name), choice, leafNo); }
 // 그림 한 장(JPEG Blob). doc = prayShareDoc · medShareDoc 의 한 벌 · choice = prayShareChoices() 의 한 칸 · leafNo = 1~12(액자 · 잎).
 function pshDraw(doc, choice, leafNo) {
@@ -467,8 +625,9 @@ function pshDraw(doc, choice, leafNo) {
   // 글꼴 — 앱이 미뤄 부른 한글 웹폰트에서 이 그림에 쓰는 글자의 조각만 받는다(5초 안 오면 기기 글꼴 · 교육 수료증과 같은 꼴)
   const fam = st.family.split(",")[0].replace(/"/g, "");
   const all = doc.text;
+  const want = st.fonts || [st.wBody, st.wBold].map((w) => w + ' 40px "' + fam + '"');   // 카드는 줄마다 글꼴 · 굵기가 달라 꼴 값이 목록을 준다(CARD_FONTS)
   const fonts = (document.fonts && document.fonts.load)
-    ? Promise.all([st.wBody, st.wBold].map((w) => document.fonts.load(w + ' 40px "' + fam + '"', all).catch(() => null)))
+    ? Promise.all(want.map((f) => document.fonts.load(f, all).catch(() => null)))
     : Promise.resolve();
   const late = (p, ms) => Promise.race([p, new Promise((ok) => setTimeout(ok, ms))]);
   const bgSrc = (choice.style === "frame" || choice.style === "leaf") ? "img/frame/leaf" + leafNo + ".webp" + v
@@ -496,6 +655,7 @@ function pshDraw(doc, choice, leafNo) {
         return;
       }
       if (o.k === "bar") { ctx.fillStyle = o.color; ctx.fillRect(o.x, o.y - 3, o.w, 6); return; }
+      if (o.k === "rule") { ctx.fillStyle = o.color; ctx.fillRect(o.x, o.y, o.w, o.h); return; }   // 가는 가로줄(카드 — 맺는 한 줄 위)
       if (o.k === "mark" && mark) {
         if (o.disc) {   // 어두운 바탕 — 마크(남색 · 주황)가 묻히지 않게 흰 동그라미 위에
           ctx.globalAlpha = 0.92; ctx.fillStyle = "#ffffff";

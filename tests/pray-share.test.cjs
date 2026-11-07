@@ -1183,3 +1183,217 @@ test('📊 이용 기록 ② 보내기(share-kakao · share-sheet · share-save)
   assert.doesNotThrow(() => Q.S.pshDownload());
   assert.equal(Q.downloads.length, 1);
 });
+
+// ── 🎓 기념일 말씀카드(2026-11-07 친구 · 첫 개시 수능) — 그리기 엔진(짜임 둘 · 자료 덩이). 판(이름 칸 · 말씀 · 그림 · 짜임 고르기)은 다음 단계 ──
+const CARD = vm.runInContext(FILL + '\n' + PURE + '\n' + DOCS + '\n;({ CARD_SETS, CARD_STYLES, CARD_FONTS, cardRefLabel, cardShareName, cardStyle, cardShareChoices, cardPanel, cardSharePlan, cardShareDoc, prayShareMark, prayFill })', vm.createContext({}));
+const CARD_NAMES = ['김지훈', '가나다라마바사아자차카타', ''];   // 빈 이름 → 그 카드의 defaultName(수능 「우리 수험생」)
+const CARD_SLOTS = ['{이름}', '{이}', '{을}', '{은}', '{과}', '{으로}'];   // app.js prayFill 이 채우는 여섯
+const CARD_GROUP_NOS = { A: [1, 2], B: [3, 4], C: [5, 6, 7], D: [8, 9, 10] };   // 수능 열 편 · 묶음 넷(친구 2026-11-07)
+const cardPlain = (o) => JSON.parse(JSON.stringify(o));   // vm 안 객체를 견주기 쉽게
+
+test('🎓 카드 자료 — 표식 줄 사이(덩이째 갈아 끼운다) · 칸 · 자리표는 여섯뿐 · 토막은 말씀 안에 그대로 · 기도문에 「아멘」 없음 · 사진(큰 · 작은) · 번호와 묶음', () => {
+  const A = '// ⟪card-data⟫', B = '// ⟪/card-data⟫', a = PS.indexOf(A), b = PS.indexOf(B);
+  assert.ok(a > 0 && b > a && PS.indexOf(A, a + 1) < 0 && PS.indexOf(B, b + 1) < 0, '표식 줄이 한 번씩 · 차례대로');
+  assert.ok(PURE.includes(PS.slice(a, b + B.length)), '자료 덩이는 순수 구간 안(시험 · 그리기가 vm 으로 읽는다)');
+  assert.match(PS.slice(a, b), /\nconst CARD_SETS = \{/, 'CARD_SETS 는 표식 사이에서 정한다');
+  const sets = Object.entries(CARD.CARD_SETS);
+  assert.ok(sets.length >= 1, '카드가 하나도 없다');
+  for (const [key, set] of sets) {
+    for (const k of ['label', 'amen', 'defaultName', 'nameHint']) assert.ok(typeof set[k] === 'string' && set[k].trim(), key + '.' + k);
+    assert.match(set.amen, /아멘!$/, key + ' 맺음말은 「아멘!」으로 끝난다');
+    assert.equal(CARD.cardShareName(set, ''), set.defaultName, key + ' 빈 이름은 defaultName');
+    assert.equal(CARD.cardShareName(set, '   '), set.defaultName, key + ' 띄어쓰기만 친 이름도');
+    assert.ok([...set.defaultName].length <= 12, key + ' defaultName 12자 안');
+    const gk = [...set.groups.map((g) => g.key)];
+    assert.equal(new Set(gk).size, gk.length, key + ' 묶음 키 겹침');
+    for (const g of set.groups) assert.ok(g.key && g.label, key + ' 묶음 칸');
+    if (key === 'suneung') assert.deepEqual(gk, ['A', 'B', 'C', 'D'], '수능 묶음 넷');
+    assert.ok(set.photos.length >= 1, key + ' 사진');
+    for (const p of set.photos) {
+      assert.match(p.id, /^[a-z0-9-]+$/, key + ' 사진 id ' + p.id);
+      assert.ok(p.label && typeof p.focus === 'number' && p.focus >= 0 && p.focus <= 1, key + ' ' + p.id + ' label · focus(0~1)');
+      for (const f of [p.id + '.webp', p.id + '-t.webp']) assert.ok(fs.existsSync(path.join(__dirname, '..', 'img', 'share', f)), 'img/share/' + f + ' 가 없다');
+    }
+    const nos = [...set.entries.map((e) => e.no)];
+    assert.ok(nos.length >= 1 && nos.length <= 10, key + ' 편 수 ' + nos.length);
+    assert.deepEqual(nos, [...nos].sort((x, y) => x - y), key + ' 번호 차례');
+    assert.equal(new Set(nos).size, nos.length, key + ' 번호 겹침');
+    for (const e of set.entries) {
+      const at = key + ' #' + e.no;
+      assert.ok(Number.isInteger(e.no) && e.no >= 1 && e.no <= 10, at + ' 번호 1~10');
+      assert.ok(gk.includes(e.group), at + ' 없는 묶음 ' + e.group);
+      if (key === 'suneung') assert.ok(CARD_GROUP_NOS[e.group].includes(e.no), at + ' 묶음 ' + e.group + ' 에 맞지 않는 번호');
+      for (const k of ['title', 'en', 'prayer', 'quote', 'verse', 'ref', 'closing']) assert.ok(typeof e[k] === 'string' && e[k] && e[k] === e[k].trim(), at + ' 칸 ' + k);
+      const slots = e.prayer.match(/\{[^{}]*\}/g) || [];
+      assert.ok(slots.includes('{이름}'), at + ' 기도문에 {이름} 이 없다');
+      for (const s of slots) assert.ok(CARD_SLOTS.includes(s), at + ' 모르는 자리표 ' + s);
+      assert.ok(!/[{}]/.test(e.prayer.replace(/\{[^{}]*\}/g, '')), at + ' 짝 없는 괄호');
+      for (const k of ['title', 'en', 'quote', 'verse', 'ref', 'closing']) assert.ok(!/[{}]/.test(e[k]), at + ' ' + k + ' 에 자리표(이름은 기도문에만)');
+      assert.ok(e.verse.includes(e.quote), at + ' 말씀 토막이 말씀 안에 그대로 있지 않다');
+      assert.ok(!/아멘/.test(e.prayer), at + ' 기도문에 「아멘」(맺음말은 amen 이 붙인다)');
+      assert.ok(!/[“”"]/.test(e.quote), at + ' 토막에 따옴표(그림이 붙인다)');
+      assert.notEqual(CARD.cardRefLabel(e.ref), e.ref, at + ' 말씀 자리를 못 읽는다: ' + e.ref);
+    }
+  }
+});
+
+test('🎓 카드 배치 — 모든 편 × 두 짜임 × 이름 셋: 글이 상자 · 판 안 · 글씨 26~44(바닥을 안 내린다) · 글자를 잃지 않는다 · 이름 강조 · 줄마다 글꼴 · 영어만 기울임 · 가는 줄 · 마크', () => {
+  const O = CARD.CARD_STYLES.out, I = CARD.CARD_STYLES.in, M = CARD.prayShareMark();
+  // 친구가 고른 시안의 자리(2026-11-07) — 바꾸면 이 줄과 눈 확인을 함께
+  assert.deepEqual(cardPlain([O.band, O.box, O.paper, O.valign, I.valign]), [{ x: 40, y: 40, w: 1000, h: 560, r: 36 }, { x: 70, y: 640, w: 940, bottom: 1300 }, '#fbf8f1', 'center', 'bottom']);
+  assert.deepEqual(cardPlain([I.panel.x, I.panel.w, I.panel.top, I.panel.bottom, I.panel.r, I.panel.pad, I.panel.fill]), [60, 960, 430, 1290, 36, { t: 46, s: 48, b: 42 }, 'rgba(255, 252, 245, 0.86)']);
+  assert.deepEqual(cardPlain(I.box), { x: I.panel.x + I.panel.pad.s, y: I.panel.top + I.panel.pad.t, w: I.panel.w - 2 * I.panel.pad.s, bottom: I.panel.bottom - I.panel.pad.b }, '그림 안 글 상자 = 판 안쪽');
+  for (const S of [O, I]) assert.deepEqual([S.W, S.H, S.max, S.min, S.step, S.disc], [1080, 1350, 44, 26, 1, true]);
+  // 옛 꼴(기도문 · 묵상 · 말씀 액자)은 카드 갈래를 안 탄다 — 이 값이 생기면 그 그림이 바뀐다
+  for (const S of Object.values(T.PRAY_SHARE_STYLES).concat(T.VERSE_FRAMES.map((f) => T.verseFrameStyle(f))))
+    for (const k of ['card', 'step', 'fonts']) assert.ok(!(k in S), '옛 꼴에 카드 값 ' + k);
+  // 마크(오른쪽 위 · 흰 동그라미)는 그림 밖이면 띠 안 · 그림 안이면 판 위끝보다 위
+  assert.ok(M.cx - M.r >= O.band.x && M.cx + M.r <= O.band.x + O.band.w && M.cy - M.r >= O.band.y && M.cy + M.r <= O.band.y + O.band.h, '마크 동그라미가 띠 안');
+  assert.ok(M.cy + M.r < I.panel.top, '마크 동그라미가 판 위끝보다 위');
+  let lo = 99, hi = 0, n = 0;
+  for (const [key, set] of Object.entries(CARD.CARD_SETS)) for (const lay of ['out', 'in']) {
+    const S = CARD.CARD_STYLES[lay];
+    for (const e of set.entries) for (const nm0 of CARD_NAMES) {
+      const nm = CARD.cardShareName(set, nm0), at = key + ' ' + lay + ' #' + e.no + ' ' + (nm0 || '(빈 이름)');
+      const p = CARD.cardSharePlan(set, e, nm0, S, measure);
+      n++; lo = Math.min(lo, p.size); hi = Math.max(hi, p.size);
+      assert.ok(p.size >= S.min && p.size <= S.max, at + ' 크기 ' + p.size);
+      assert.ok(p.fit && p.limit === S.box.bottom, at + ' 26px 로도 안 들어 바닥을 내렸다');
+      assert.ok(p.top >= S.box.y - 0.5 && p.bottom <= S.box.bottom + 0.5, at + ' 상자 밖 ' + p.top + '~' + p.bottom);
+      const tx = p.ops.filter((o) => o.k === 'text');
+      for (const o of tx) assert.ok(o.x >= S.box.x - 0.5 && o.x + o.w <= S.box.x + S.box.w + 0.5, at + ' 가로 넘침: ' + o.s);
+      const refL = CARD.cardRefLabel(e.ref);
+      const want = [e.title, e.en, CARD.prayFill(e.prayer, nm), set.amen, '“' + e.quote + '”', refL, e.closing].map(flat).join('');
+      assert.equal(flat(tx.map((o) => o.s).join('')), want, at + ' 글자');
+      // 이름 — 굵게(800) · 강조색 · {이름} 자리 수만큼(맺음말도 강조색이지만 700)
+      const named = tx.filter((o) => o.color === S.accent && /^800 /.test(o.font)).map((o) => o.s).join('');
+      assert.equal(flat(named), flat(nm).repeat((e.prayer.match(/\{이름\}/g) || []).length), at + ' 이름 강조');
+      const it = tx.filter((o) => /^italic /.test(o.font));
+      assert.equal(flat(it.map((o) => o.s).join('')), flat(e.en), at + ' 영어 한 줄만 기울임');
+      assert.ok(it.every((o) => /^italic 700 \d+px Georgia/.test(o.font) && o.color === S.green), at + ' 영어 Georgia 700 · 초록');
+      for (const o of tx) assert.match(o.font, /^(italic )?(500|700|800) \d+px ("Noto Sans KR"|"Nanum Myeongjo"|Georgia)/, at + ' 글꼴 ' + o.font);
+      assert.ok(/^800 \d+px "Noto Sans KR"/.test(tx[0].font) && tx[0].color === S.title, at + ' 제목 고딕 800');
+      // 가는 줄 — 하나 · 상자 폭의 80% · 가운데 · 앞은 말씀 자리(고딕 700) · 뒤는 맺는 한 줄(고딕 800 · 초록)
+      const ri = p.ops.findIndex((o) => o.k === 'rule'), rl = p.ops[ri];
+      assert.equal(p.ops.filter((o) => o.k === 'rule').length, 1, at + ' 가는 줄 하나');
+      assert.deepEqual([rl.w, rl.h, rl.color], [Math.round(S.box.w * 0.8), 2, S.rule], at + ' 가는 줄 폭 80% · 두께 2');
+      assert.ok(Math.abs(rl.x + rl.w / 2 - (S.box.x + S.box.w / 2)) <= 1, at + ' 가는 줄 가운데');
+      const before = p.ops.slice(0, ri).filter((o) => o.k === 'text'), after = p.ops.slice(ri + 1).filter((o) => o.k === 'text');
+      assert.equal(flat(after.map((o) => o.s).join('')), flat(e.closing), at + ' 가는 줄 다음은 맺는 한 줄');
+      assert.ok(after.every((o) => /^800 \d+px "Noto Sans KR"/.test(o.font) && o.color === S.green), at + ' 맺는 줄 고딕 800 · 초록');
+      assert.ok(flat(before.map((o) => o.s).join('')).endsWith(flat(refL)), at + ' 가는 줄 앞은 말씀 자리');
+      const last = before[before.length - 1];
+      assert.ok(/^700 \d+px "Noto Sans KR"/.test(last.font) && last.color === S.sub, at + ' 말씀 자리 고딕 700');
+      assert.ok(rl.y > last.y && rl.y < after[0].y, at + ' 가는 줄 자리');
+      const mk = p.ops.filter((o) => o.k === 'mark');
+      assert.equal(mk.length, 1, at + ' 마크 하나');
+      assert.deepEqual([mk[0].x, mk[0].y, mk[0].w, mk[0].h, mk[0].disc], [M.x, M.y, M.w, M.h, true], at + ' 마크는 오른쪽 위 · 흰 동그라미');
+      if (lay === 'out') assert.ok(p.top >= S.band.y + S.band.h, at + ' 글이 그림 띠에 닿는다');
+      else {
+        const P = CARD.cardPanel(S, p);
+        assert.ok(P.y >= S.panel.top, at + ' 판 위끝 ' + P.y + ' < ' + S.panel.top);
+        assert.equal(P.y + P.h, S.panel.bottom, at + ' 판 아래끝');
+        assert.deepEqual([P.x, P.w, P.r], [S.panel.x, S.panel.w, S.panel.r], at + ' 판 자리');
+      }
+    }
+  }
+  assert.ok(n >= 12, '센 경우 ' + n);
+  console.log('# 카드 배치 ' + n + '가지 · 글씨 ' + lo + '~' + hi + 'px(가짜 폭 — 실제 글꼴은 더 좁아 같거나 크다)');
+});
+
+test('🎓 cardRefLabel — 「이사야 41:10」 → 「이사야 41장 10절」 · 시편은 「편」 · 이어진 절 · 못 읽으면 그대로', () => {
+  assert.equal(CARD.cardRefLabel('이사야 41:10'), '이사야 41장 10절');
+  assert.equal(CARD.cardRefLabel('여호수아 1:9'), '여호수아 1장 9절');
+  assert.equal(CARD.cardRefLabel('시편 121:2'), '시편 121편 2절');
+  assert.equal(CARD.cardRefLabel('시편 23:1-2'), '시편 23편 1~2절');
+  assert.equal(CARD.cardRefLabel('빌립보서 4:6-7'), '빌립보서 4장 6~7절');
+  assert.equal(CARD.cardRefLabel('요한일서 4:18'), '요한일서 4장 18절');
+  assert.equal(CARD.cardRefLabel('요한1서 2:3'), '요한1서 2장 3절');
+  assert.equal(CARD.cardRefLabel('  잠언  16:3 '), '잠언 16장 3절');
+  assert.equal(CARD.cardRefLabel('이사야 41장 10절'), '이사야 41장 10절');
+  assert.equal(CARD.cardRefLabel(''), '');
+  assert.equal(CARD.cardRefLabel(null), '');
+});
+
+test('🎓 cardShareDoc · cardShareChoices — 그림 칸은 그 카드의 사진마다(짜임 꼴 값 + focus) · 한 벌은 꼴 값이 오면 그것을, 아니면 짜임을 · 글꼴 받을 글자 · 파일 이름', () => {
+  const set = CARD.CARD_SETS.suneung, e = set.entries[0];
+  for (const lay of ['out', 'in']) {
+    const cs = CARD.cardShareChoices(set, lay);
+    assert.deepEqual(cs.map((c) => c.key).join(), set.photos.map((p) => 'card:' + p.id).join(), lay + ' 사진마다 한 칸');
+    cs.forEach((c, k) => {
+      const ph = set.photos[k];
+      assert.deepEqual([c.style.card, c.style.focus, c.label, c.src, c.thumb], [lay, ph.focus, ph.label, 'img/share/' + ph.id + '.webp', 'img/share/' + ph.id + '-t.webp'], lay + ' ' + c.key);
+    });
+    const doc = CARD.cardShareDoc(set, e, '김지훈', lay);
+    assert.equal(JSON.stringify(doc.plan(cs[0].style, measure)), JSON.stringify(CARD.cardSharePlan(set, e, '김지훈', CARD.CARD_STYLES[lay], measure)), lay + ' focus 는 배치를 안 바꾼다');
+    assert.equal(JSON.stringify(doc.plan('night', measure)), JSON.stringify(doc.plan(CARD.CARD_STYLES[lay], measure)), lay + ' 꼴 이름이 오면 이 짜임으로');
+  }
+  assert.equal(CARD.cardStyle('in', { focus: 2 }).focus, 0.5, 'focus 는 0~1 — 벗어나면 가운데');
+  assert.equal(CARD.cardStyle('zz', {}).card, 'out', '모르는 짜임은 그림 밖');
+  const doc = CARD.cardShareDoc(set, e, '', 'zz');
+  assert.equal(doc.file, 'card-' + e.no + '.jpg');
+  assert.ok(doc.alt.includes(set.defaultName) && doc.alt.includes(e.title), doc.alt);
+  for (const s of [e.title, CARD.prayFill(e.prayer, set.defaultName), set.amen, e.quote, CARD.cardRefLabel(e.ref), e.closing]) assert.ok(doc.text.includes(s), '글꼴 받을 글자: ' + s);
+  assert.equal(CARD.cardShareName(set, '<b>지훈</b>'), 'b지훈/b', '기도문 판과 같은 다듬기');
+});
+
+test('🎓 pshDraw — 카드 두 짜임(가짜 캔버스): 던지지 않는다 · 1080×1350 · 그림 밖은 밝은 바탕 + 둥근 띠(그림자 · 띠에 맞춰 잘라 넣음) · 그림 안은 그림 가득 + 글에 맞춘 둥근 판 · 가는 줄 · 마크 · 기울임 · 그림을 못 받아도', async () => {
+  const DRAW = cut(PS, '// ── 그리기 ──', '// ── 판(아래에서 올라온다) ──');
+  const made = [], loads = [];
+  const mkCtx = (cv) => new Proxy({ canvas: cv, font: '700 30px x', calls: [], measureText(t) { return { width: measure(t, this.font) }; },
+    createRadialGradient: () => ({ addColorStop() {} }), createLinearGradient: () => ({ addColorStop() {} }) },
+    { get: (t, k) => (k in t ? t[k] : (...a) => { t.calls.push([k, ...a]); }),
+      set: (t, k, v) => { t[k] = v; if (k === 'fillStyle' || k === 'font' || k === 'shadowColor') t.calls.push([k, v]); return true; } });
+  const document = { createElement: () => { const cv = { width: 0, height: 0, toBlob: (cb) => cb({ size: 1 }) }; cv.getContext = () => (cv.ctx = cv.ctx || mkCtx(cv)); made.push(cv); return cv; },
+                     fonts: { load: (f) => { loads.push(f); return Promise.resolve(); } } };
+  let fail = false;
+  class Image { set src(v) { this._src = v; this.naturalWidth = 1080; this.naturalHeight = 1350; setTimeout(() => (fail && /img\/share\//.test(v) ? this.onerror && this.onerror() : this.onload && this.onload()), 0); } get src() { return this._src; } }
+  const quick = (fn, ms) => (ms >= 1000 ? 0 : setTimeout(fn, ms));   // 글꼴 5초 기다림은 건너뛴다
+  const D = vm.runInContext(FILL + '\n' + PURE + '\n' + DRAW + '\n;({ pshDraw, cardShareDoc, cardShareChoices, cardPanel, CARD_SETS, CARD_FONTS })', vm.createContext({ document, Image, setTimeout: quick, Promise, APP_BUILD: 'T' }));
+  const set = D.CARD_SETS.suneung, e = set.entries[0];
+  const find = (calls, from, name, ...args) => calls.findIndex((c, i) => i >= from && c[0] === name && args.every((a, j) => (typeof a === 'function' ? a(c[j + 1]) : c[j + 1] === a)));
+  for (const lay of ['out', 'in']) {
+    const ch = D.cardShareChoices(set, lay)[0], S = ch.style, doc = D.cardShareDoc(set, e, '김지훈', lay);
+    loads.length = 0;
+    const blob = await D.pshDraw(doc, ch, 1);
+    assert.ok(blob && blob.size, lay + ' 그림을 만든다');
+    const cv = made[made.length - 1], calls = cv.ctx.calls;
+    assert.deepEqual([cv.width, cv.height], [1080, 1350], lay + ' 1080×1350');
+    assert.deepEqual([...loads].sort(), [...D.CARD_FONTS].sort(), lay + ' 줄마다 쓰는 글꼴을 받는다');
+    const plan = doc.plan(S, measure);
+    const bg = find(calls, 0, 'drawImage', (im) => !!im && im._src === ch.src + '?v=T');
+    assert.ok(bg >= 0, lay + ' 사진을 그린다');
+    if (lay === 'out') {
+      const B = S.band, paper = find(calls, 0, 'fillStyle', S.paper);
+      assert.ok(paper >= 0 && find(calls, paper, 'fillRect', 0, 0, 1080, 1350) === paper + 1, '밝은 바탕');
+      assert.ok(find(calls, 0, 'shadowColor', 'rgba(40, 30, 10, 0.18)') > paper, '띠 그림자');
+      const clip = calls.map((c) => c[0]).lastIndexOf('clip', bg), mv = find(calls, 0, 'moveTo', B.x + B.r, B.y);
+      assert.ok(clip > mv && mv > paper, '둥근 띠로 자른 뒤 그린다');
+      assert.deepEqual(calls[bg].slice(2).map(Math.round), [40, -305, 1000, 1250], '4:5 그림을 띠 폭에 맞춰 덮고 · focus 0.5 = 세로 가운데');
+    } else {
+      assert.deepEqual(calls[bg].slice(2).map(Math.round), [0, 0, 1080, 1350], '그림이 바탕 가득');
+      const P = D.cardPanel(S, plan), f = find(calls, bg, 'fillStyle', S.panel.fill), mv = find(calls, f, 'moveTo', P.x + P.r, P.y);
+      assert.ok(f > bg && mv > f && find(calls, mv, 'fill') > mv && find(calls, mv, 'fill') < find(calls, 0, 'fillText'), '그림 위 · 글 아래에 둥근 판');
+      assert.ok(P.y >= S.panel.top && P.y + P.h === S.panel.bottom, '판은 글에 맞춘다(' + P.y + '~' + (P.y + P.h) + ')');
+    }
+    const rule = plan.ops.find((o) => o.k === 'rule'), ri = find(calls, 0, 'fillRect', rule.x, rule.y, rule.w, rule.h);
+    assert.ok(ri > 0 && calls[ri - 1][0] === 'fillStyle' && calls[ri - 1][1] === S.rule, lay + ' 가는 줄');
+    const mk = plan.ops.find((o) => o.k === 'mark');
+    assert.ok(find(calls, 0, 'drawImage', (im) => !!im && /logo-mark\.png/.test(im._src), mk.x, mk.y, mk.w, mk.h) > bg, lay + ' 마크는 계획 자리 · 바탕 위');
+    assert.ok(find(calls, 0, 'arc', mk.cx, mk.cy, mk.r) > bg, lay + ' 흰 동그라미');
+    assert.equal(calls.filter((c) => c[0] === 'fillText').length, plan.ops.filter((o) => o.k === 'text').length, lay + ' 글을 다 쓴다');
+    const en = find(calls, 0, 'fillText', e.en);
+    assert.ok(en > 0 && /^italic 700 /.test(calls.slice(0, en).reverse().find((c) => c[0] === 'font')[1]), lay + ' 영어는 기울임');
+  }
+  fail = true;   // 사진을 못 받으면 — 띠 · 바탕은 빈 색 · 글은 그대로
+  for (const lay of ['out', 'in']) {
+    const ch = D.cardShareChoices(set, lay)[0];
+    await D.pshDraw(D.cardShareDoc(set, e, '', lay), ch, 1);
+    const calls = made[made.length - 1].ctx.calls;
+    assert.ok(find(calls, 0, 'drawImage', (im) => !!im && /img\/share\//.test(im._src)) < 0, lay + ' 못 받은 사진은 안 그린다');
+    const b = find(calls, 0, 'fillStyle', ch.style.blank);
+    if (lay === 'out') assert.ok(b >= 0 && find(calls, 0, 'clip') < 0, '띠는 빈 색 · 자르지 않는다');
+    else assert.ok(b >= 0 && calls[b + 1][0] === 'fillRect', '바탕은 빈 색');
+    assert.ok(flat(calls.filter((c) => c[0] === 'fillText').map((c) => c[1]).join('')).includes(flat(set.defaultName)), lay + ' 빈 이름은 defaultName');
+  }
+});
