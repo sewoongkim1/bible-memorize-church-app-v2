@@ -115,13 +115,13 @@ test('🎓 수험생 응원기도카드(친구 2026-11-07) — 「새 소식」 
 });
 
 test('💌 말씀카드(친구 2026-11-07 「늘 쓰는 축하, 위로만 먼저」) — 「함께」 가정 축복 기도문 바로 아래 · 문(🧪 시험 참여자 먼저) 안에만 · 옛 첫 화면에도 · 지연 모듈 · 옛 pray-share.js 면 껐다 켜기 · 설명서 한 걸음', () => {
-  assert.match(APP, /const CARD_MORE_OPEN = false;/, '🧪 시험 참여자 먼저(모두에게는 true 한 줄 + bump)');
+  assert.match(APP, /const CARD_MORE_OPEN = true;/, '2026-11-08 모두에게(닫으려면 false 한 줄 + bump)');
   assert.match(APP, /function cardMoreVisible\(\) \{ return CARD_MORE_OPEN \|\| \(typeof ministryTesterCached === "function" && ministryTesterCached\(\)\); \}/);
-  assert.match(RS, /<button class="summary-help" id="open-prayer">[^\n]*\n[^\n]*\n\s*\$\{cardMoreVisible\(\) \? `<button class="summary-help" id="open-cards">💌 말씀카드<\/button>` : ""\}/, '옛 첫 화면 — 「함께」 가정 축복 기도문 바로 아래 · 문 안에만 그린다');
+  assert.match(RS, /<button class="summary-help" id="open-prayer">[^\n]*\n[^\n]*\n\s*\$\{cardMoreVisible\(\) \? `<button class="summary-help" id="open-cards">💌 말씀카드\$\{newBadge\("cards"\)\}<\/button>` : ""\}/, '옛 첫 화면 — 「함께」 가정 축복 기도문 바로 아래 · 문 안에만 그린다');
   const together = groups.find((g) => g.title === '함께').ids;
   assert.equal(together.indexOf('open-cards'), together.indexOf('open-prayer') + 1, 'A안 — 「함께」 가정 축복 기도문 바로 아래');
   assert.match(APP, /"open-cards": "mail"/); assert.match(APP, /\n  mail: "M[^"]+",/, '편지 아이콘');
-  assert.match(APP, /const b = document\.getElementById\("open-cards"\);[^\n]*\n\s*if \(b\) b\.addEventListener\("click", \(\) => withLazyJs\("prayShare", \(\) => \{\n\s*if \(typeof openCardPick === "function"\) openCardPick\(cardSuneungOn\(\)\);\n\s*else appAlert\(typeof openPrayShare === "function" \? "앱이 새 판으로 바뀌었어요\. 앱을 껐다가 다시 열어 주세요\." : /,
+  assert.match(APP, /const b = document\.getElementById\("open-cards"\);[^\n]*\n\s*if \(b\) b\.addEventListener\("click", \(\) => \{ markFeatSeen\("cards"\); scRemoveBadge\("open-cards"\); withLazyJs\("prayShare", \(\) => \{\n\s*if \(typeof openCardPick === "function"\) openCardPick\(cardSuneungOn\(\)\);\n\s*else appAlert\(typeof openPrayShare === "function" \? "앱이 새 판으로 바뀌었어요\. 앱을 껐다가 다시 열어 주세요\." : /,
     '단추 — js/pray-share.js 를 받아 openCardPick(수험생은 기간 안에만 맨 앞) · 옛 파일이면 껐다 켜기 안내');
   const a = APP.indexOf('icon: "🙏", title: "가정 축복 기도문"'), man = APP.slice(a, APP.indexOf('tip:', a));
   assert.ok(a > 0 && /get steps\(\) \{/.test(man), '설명서 — 문 · 기간은 펼 때 본다(getter)');

@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261107g";
+const APP_BUILD = "20261108a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -2958,6 +2958,7 @@ const FEAT_SINCE = {
   // ⚠️ 「event」키를 다시 쓰면 안 된다 — 9월에 썸머 명단을 눌러 본 분은
   //    feat-seen-event 가 이미 1 이라(featIsNew 첫 줄) 영영 안 뜬다.
   //    ⚠️ 개시일을 옮기면 supabase/event_stamp_2026.sql 과 함께 옮긴다.
+  cards: "2026-11-08",       // 💌 말씀카드(늘 쓰는 다섯) — 문(CARD_MORE_OPEN)을 연 날(친구 2026-11-08). 가장 최근이라 이 단추가 NEW 를 가져간다
   edu: "2026-10-27",         // 🎓 교육·강좌 신청 — 문(eduOpen)을 여는 날(친구 2026-10-27). 가장 최근이라 이 단추가 NEW 를 가져간다
   navi: "2026-10-13",         // 📚 네비게이토 성경암송 — 문(naviPublic)을 연 날(친구 2026-10-13).
   stamp: "2026-10-11",        // 가을 말씀암송 동행 — 도장 시작일(측정 start)과 같은 날부터 NEW(2026-10-10 친구: 10/11 개시·8주)
@@ -2985,6 +2986,7 @@ function newestNewFeat() {
     if (k === "ministry" && !ministryVisible()) return;   // 문이 닫혀 단추가 안 보이면(기간 밖 · 플레이스토어 앱 숨김) — 안 보이는 단추가 NEW 를 가져가지 않게
     if (k === "edu" && !eduVisible()) return;             // 🎓 교육도 같다(FEAT_SINCE.edu 는 개시일에 적는다 · 플레이스토어 앱 숨김)
     if (k === "duty" && !dutyVisible()) return;           // 🙋 봉사 당번도 같다(FEAT_SINCE.duty 는 개시일에 적는다)
+    if (k === "cards" && !cardMoreVisible()) return;     // 💌 말씀카드도 같다(FEAT_SINCE.cards 는 여는 날 적는다)
     if (k === "navi" && !naviVisible()) return;           // 📚 네비게이토도 같다(FEAT_SINCE.navi 는 여는 날 적는다 · k 를 먼저 — tests/ministry-history 의 featCtx 에 naviVisible 이 없다)
     if (!best || kstDayNumber(FEAT_SINCE[k]) > kstDayNumber(FEAT_SINCE[best])) best = k;
   });
@@ -3854,7 +3856,7 @@ function renderSummary() {
     ${/* 2026-09-25 순서 바꿈(친구 요청) — 가정 축복 기도문이 쉴만한 물가보다 위. */""}
     <button class="summary-help" id="open-prayer">🙏 가정 축복 기도문${newBadge("prayer")}</button>
     ${/* 💌 말씀카드(2026-11-07 친구 「늘 쓰는 축하, 위로만 먼저」) — 문(cardMoreVisible · 🧪 시험 참여자 먼저) 안에만. 판은 js/pray-share.js openCardPick(맨 위에서 카드 고르기) */""}
-    ${cardMoreVisible() ? `<button class="summary-help" id="open-cards">💌 말씀카드</button>` : ""}
+    ${cardMoreVisible() ? `<button class="summary-help" id="open-cards">💌 말씀카드${newBadge("cards")}</button>` : ""}
     ${psalmVisible() ? `<button class="summary-help" id="open-psalm">🐑 쉴만한 물가${newBadge("psalm")}</button>` : ""}
     ${/* ⚠️ 2026-09-23 첫 화면 단추를 뺀다(성도님 결정) — 「🎵 찬양 · 곡명 ↗」은
           **매일 묵상 창 맨 아래 줄**에만 둔다. 게이트(app_config.songPublic)는 켜진 채라
@@ -3913,10 +3915,10 @@ function renderSummary() {
     })); }
   // 💌 말씀카드 — 판은 누를 때 받는다(js/pray-share.js) · 맨 위에서 카드를 고른다(openCardPick · 수험생 카드는 기간 안에만 맨 앞) · 두 번 눌러도 판은 하나
   { const b = document.getElementById("open-cards");   // 문(cardMoreVisible) 밖에는 없다
-    if (b) b.addEventListener("click", () => withLazyJs("prayShare", () => {
+    if (b) b.addEventListener("click", () => { markFeatSeen("cards"); scRemoveBadge("open-cards"); withLazyJs("prayShare", () => {
       if (typeof openCardPick === "function") openCardPick(cardSuneungOn());
       else appAlert(typeof openPrayShare === "function" ? "앱이 새 판으로 바뀌었어요. 앱을 껐다가 다시 열어 주세요." : "보내기 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
-    })); }
+    }); }); }
   document.getElementById("open-prayer").addEventListener("click", () => openPrayerBook());   // 화면 코드는 누를 때 받는다(js/prayer.js)
   const minBtn = document.getElementById("open-ministry");   // 기간 밖에는 아예 없다
   if (minBtn) minBtn.addEventListener("click", () => {
@@ -4179,7 +4181,7 @@ function cardSuneungOn() { return cardShareVisible() && todayYmd() <= CARD_SUNEU
 // 💌 말씀카드(2026-11-07 친구 「늘 쓰는 축하, 위로만 먼저」 — 생일 · 결혼기념일 · 새 출발 · 위로 · 병문안 · 날짜를 타지 않는다) — 첫 화면 「함께」 한 줄(가정 축복 기도문 아래) ·
 //   판 맨 위에서 카드를 고른다(js/pray-share.js openCardPick · 🎓 수험생 카드는 cardSuneungOn() 일 때만 맨 앞) · 설명서 「가정 축복 기도문」 장에 한 걸음.
 //   ⚠️ 이름은 옛 파일에 없던 것(CDN 옛 파일과 「이미 선언됨」 — prayer-book.md) · 모두에게 열 때는 true 한 줄 + bump(게시판 공지 = 문 열기).
-const CARD_MORE_OPEN = false;   // 2026-11-07 🧪 시험 참여자 먼저
+const CARD_MORE_OPEN = true;   // 2026-11-08 모두에게 열었다(친구 「모두 오픈해주세요」 · 11-07 은 🧪 시험 참여자 먼저) · 닫으려면 false 한 줄 + bump
 function cardMoreVisible() { return CARD_MORE_OPEN || (typeof ministryTesterCached === "function" && ministryTesterCached()); }
 // 첫 화면 아이콘 = 카카오톡 말풍선(친구 2026-11-05 「첫화면 아이콘을 카카오톡 아이콘으로」 — 판의 노란 「카카오톡으로 보내기」와 같은 꼴 · 노란 동그라미는 style.css)
 const KAKAO_TALK_IC = '<svg class="wsi-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 3.5c-5.25 0-9.5 3.33-9.5 7.44 0 2.66 1.78 4.99 4.46 6.31-.15.52-.94 3.27-.97 3.49 0 0-.02.16.09.22.1.06.23.01.23.01.3-.04 3.5-2.29 4.05-2.68.53.08 1.08.12 1.64.12 5.25 0 9.5-3.33 9.5-7.44S17.25 3.5 12 3.5z"/></svg>';
