@@ -17,6 +17,11 @@ Gemini(`gemini-3-pro-image` · 4:3)로 그린다 → 담당자가 확인표로 �
 - **비용 안전장치** — 한 구절 하루(24시간) **15장**(`VIMG_DAILY`) + 모든 구절 합쳐 하루 **60장**(`VIMG_DAILY_ALL`, 최종 검토 뒤 더함).
   성공한 생성만 `verse_image_gens` 에 적어 센다. ⚠️ 시간 초과된 호출은 우리가 안 세도 구글이 청구할 수 있다 —
   그래서 **Google Cloud 쪽 예산 알림·하루 요청 한도**가 따로 필요하다(친구 몫).
+- **선불 충전금이 바닥나면 그림만 안 된다(2026-11-08 · 45번 신 33:29)** — Gemini 가 `402 RESOURCE_EXHAUSTED`
+  「Your prepayment credits are depleted」를 0.3초 만에 돌려준다. 장면 제안(Claude)은 그대로 되니 「그리기」에서만 막힌다.
+  api 는 `error:"gen"` + `detail:"Gemini 402: …"` 로 답하지만 교회 어드민 화면은 「처리하지 못했어요」만 보인다(코드 표에 `gen` 없음).
+  고치는 법은 **AI Studio(https://ai.studio/projects) 에서 충전**(친구 몫). 실패한 시도는 `verse_image_gens` 에 안 남아 하루 15장 한도를 먹지 않는다.
+  확인은 `.env` 의 `GEMINI_API_KEY`(운영 시크릿과 지문 같음 — `supabase secrets list` 앞 12자리)로 그림 한 장을 직접 불러 보는 것이 가장 빠르다.
 - **그림 크기 1K** — `VERSE_IMG_SIZE` 는 두지 않는다(기본 `1K`, 계획 Task 3 에서 실제 크기를 재 충분하다고 정했다). 한 장 500KB 한도.
 - **DB 그림이 옛 그림 파일보다 앞선다** — 같은 번호에 둘 다 있으면 DB 것. **내리기**(숨김 · 되돌리기 가능)하면 옛 파일로 돌아가고,
   옛 파일도 없으면 🖼️ 탭이 사라진다. 1~38번 옛 그림(`app.js` `VERSE_IMG`)은 ③ 에서 **보이기만** 하고 고치지 않는다 —
