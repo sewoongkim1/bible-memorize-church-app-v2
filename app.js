@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261108a";
+const APP_BUILD = "20261109a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -3856,7 +3856,7 @@ function renderSummary() {
     ${/* 2026-09-25 순서 바꿈(친구 요청) — 가정 축복 기도문이 쉴만한 물가보다 위. */""}
     <button class="summary-help" id="open-prayer">🙏 가정 축복 기도문${newBadge("prayer")}</button>
     ${/* 💌 말씀카드(2026-11-07 친구 「늘 쓰는 축하, 위로만 먼저」) — 문(cardMoreVisible · 🧪 시험 참여자 먼저) 안에만. 판은 js/pray-share.js openCardPick(맨 위에서 카드 고르기) */""}
-    ${cardMoreVisible() ? `<button class="summary-help" id="open-cards">💌 말씀카드${newBadge("cards")}</button>` : ""}
+    ${cardMoreVisible() ? `<button class="summary-help" id="open-cards">💌 기도 말씀카드${newBadge("cards")}</button>` : ""}
     ${psalmVisible() ? `<button class="summary-help" id="open-psalm">🐑 쉴만한 물가${newBadge("psalm")}</button>` : ""}
     ${/* ⚠️ 2026-09-23 첫 화면 단추를 뺀다(성도님 결정) — 「🎵 찬양 · 곡명 ↗」은
           **매일 묵상 창 맨 아래 줄**에만 둔다. 게이트(app_config.songPublic)는 켜진 채라
@@ -10713,7 +10713,7 @@ const MANUAL = [
       // 🎓 수험생 응원기도카드가 보이는 동안만(12/11 까지 · cardSuneungOn — 지난 메뉴를 가리키지 않게)
       ...(cardSuneungOn() ? ["수능을 앞둔 학생에게는 첫 화면 <b>「새 소식」</b> 맨 위 <b>🎓 수험생 응원기도카드</b>로, 이름을 넣은 응원 기도를 <b>그림 한 장</b>으로 보낼 수 있어요(12월 11일까지)."] : []),
       // 💌 말씀카드가 보이는 동안만(cardMoreVisible — 🧪 시험 참여자 먼저 · 모두에게 열면 그대로)
-      ...(cardMoreVisible() ? ["첫 화면 <b>「함께」</b>의 <b>💌 말씀카드</b>에서 생일 · 결혼기념일 · 새 출발 · 위로 · 병문안 카드를 이름을 넣어 <b>그림 한 장</b>으로 보낼 수 있어요."] : []),
+      ...(cardMoreVisible() ? ["첫 화면 <b>「함께」</b>의 <b>💌 기도 말씀카드</b>에서 생일 · 결혼기념일 · 새 출발 · 위로 · 병문안 카드를 이름을 넣어 <b>그림 한 장</b>으로 보낼 수 있어요."] : []),
       "아래 <b>주제로 찾기</b>에서 다른 기도문도 고를 수 있어요.",
       ];
     },

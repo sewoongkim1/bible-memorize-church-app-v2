@@ -117,7 +117,7 @@ test('🎓 수험생 응원기도카드(친구 2026-11-07) — 「새 소식」 
 test('💌 말씀카드(친구 2026-11-07 「늘 쓰는 축하, 위로만 먼저」) — 「함께」 가정 축복 기도문 바로 아래 · 문(🧪 시험 참여자 먼저) 안에만 · 옛 첫 화면에도 · 지연 모듈 · 옛 pray-share.js 면 껐다 켜기 · 설명서 한 걸음', () => {
   assert.match(APP, /const CARD_MORE_OPEN = true;/, '2026-11-08 모두에게(닫으려면 false 한 줄 + bump)');
   assert.match(APP, /function cardMoreVisible\(\) \{ return CARD_MORE_OPEN \|\| \(typeof ministryTesterCached === "function" && ministryTesterCached\(\)\); \}/);
-  assert.match(RS, /<button class="summary-help" id="open-prayer">[^\n]*\n[^\n]*\n\s*\$\{cardMoreVisible\(\) \? `<button class="summary-help" id="open-cards">💌 말씀카드\$\{newBadge\("cards"\)\}<\/button>` : ""\}/, '옛 첫 화면 — 「함께」 가정 축복 기도문 바로 아래 · 문 안에만 그린다');
+  assert.match(RS, /<button class="summary-help" id="open-prayer">[^\n]*\n[^\n]*\n\s*\$\{cardMoreVisible\(\) \? `<button class="summary-help" id="open-cards">💌 기도 말씀카드\$\{newBadge\("cards"\)\}<\/button>` : ""\}/, '옛 첫 화면 — 「함께」 가정 축복 기도문 바로 아래 · 문 안에만 그린다');
   const together = groups.find((g) => g.title === '함께').ids;
   assert.equal(together.indexOf('open-cards'), together.indexOf('open-prayer') + 1, 'A안 — 「함께」 가정 축복 기도문 바로 아래');
   assert.match(APP, /"open-cards": "mail"/); assert.match(APP, /\n  mail: "M[^"]+",/, '편지 아이콘');
@@ -125,7 +125,7 @@ test('💌 말씀카드(친구 2026-11-07 「늘 쓰는 축하, 위로만 먼저
     '단추 — js/pray-share.js 를 받아 openCardPick(수험생은 기간 안에만 맨 앞) · 옛 파일이면 껐다 켜기 안내');
   const a = APP.indexOf('icon: "🙏", title: "가정 축복 기도문"'), man = APP.slice(a, APP.indexOf('tip:', a));
   assert.ok(a > 0 && /get steps\(\) \{/.test(man), '설명서 — 문 · 기간은 펼 때 본다(getter)');
-  assert.ok(man.includes('...(cardMoreVisible() ? ["첫 화면 <b>「함께」</b>의 <b>💌 말씀카드</b>에서 생일 · 결혼기념일 · 새 출발 · 위로 · 병문안 카드를 이름을 넣어 <b>그림 한 장</b>으로 보낼 수 있어요."] : []),'), '설명서 「가정 축복 기도문」 장 — 💌 걸음(문 안에만)');
+  assert.ok(man.includes('...(cardMoreVisible() ? ["첫 화면 <b>「함께」</b>의 <b>💌 기도 말씀카드</b>에서 생일 · 결혼기념일 · 새 출발 · 위로 · 병문안 카드를 이름을 넣어 <b>그림 한 장</b>으로 보낼 수 있어요."] : []),'), '설명서 「가정 축복 기도문」 장 — 💌 걸음(문 안에만)');
   assert.ok(man.indexOf('cardMoreVisible()') > man.indexOf('cardSuneungOn()'), '수험생 걸음 곁(아래)');
   const others = ['js/pray-share.js', 'js/prayer.js'].map((f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')).join('\n');
   for (const nm of ['CARD_MORE_OPEN', 'cardMoreVisible']) assert.ok(!new RegExp('(const|let|var|function) ' + nm + '\\b').test(others), nm + ' 를 다른 화면 파일이 선언한다');

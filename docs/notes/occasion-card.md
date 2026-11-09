@@ -58,7 +58,7 @@
 
 ## 💌 늘 쓰는 기념일 다섯(2026-11-07 밤 · 친구 「늘 쓰는 축하, 위로만 먼저 진행」 · 🧪 시험 참여자 먼저)
 - 🎂 생일(birthday · 11) · 💍 결혼기념일(wedding · 12) · 🌱 새 출발(newstart · 13) · 🕊️ 위로(comfort · 14) · 🙏 병문안(healing · 15) — 숫자는 이용 기록 종류 코드(서버 `SHARE_KINDS` 이름표 · 운영 api 배포는 친구가 돌린다 — 자동 권한 검사가 운영 배포를 막는다).
-- **들어가는 문:** 첫 화면 「함께」 가정 축복 기도문 바로 아래 「💌 말씀카드」(`open-cards` · 아이콘 mail · 옛 첫 화면에도) — 문 `CARD_MORE_OPEN`(false = 🧪) · `cardMoreVisible()` · 누르면 `openCardPick(cardSuneungOn())` → 판 맨 위 **카드 고르기**(수험생은 12/11 까지 맨 앞 · 처음은 앱을 쓰는 동안 마지막으로 고른 카드 · 없으면 생일).
+- **들어가는 문:** 첫 화면 「함께」 가정 축복 기도문 바로 아래 「💌 기도 말씀카드」(2026-11-09 친구 — 「말씀카드」에서 이름을 바꿈 · 단추 글자와 설명서 한 걸음 · `open-cards` · 아이콘 mail · 옛 첫 화면에도) — 문 `CARD_MORE_OPEN`(false = 🧪) · `cardMoreVisible()` · 누르면 `openCardPick(cardSuneungOn())` → 판 맨 위 **카드 고르기**(수험생은 12/11 까지 맨 앞 · 처음은 앱을 쓰는 동안 마지막으로 고른 카드 · 없으면 생일).
   카드를 바꾸면 **같은 판 안에서** 다시 그린다(`pshCardSwap` · 덮개 · history 가 늘지 않는다 — prayer-book.md 의 history.back 사고). 「새 소식」의 🎓 는 그대로 수험생 판을 바로 연다(고르기 칸 없이).
   ⚠️ 판이 열린 채 다른 카드 단추가 불리면 닫고 다시 열지 않는다(검토에서 찾음 — 💌 → 🎓 를 빠르게 누르면 판이 떴다가 사라졌다 · 시험).
 - **자료:** `CARD_SETS` 여섯(수험생 + 다섯 · 말씀 35) — 카드마다 label · icon · kind · nameLabel(결혼기념일만 「받는 부부」) · amen(위로 · 병문안은 「아멘.」) · defaultName · nameHint · photos 셋 · entries 다섯(묶음 · 날짜 없음).
