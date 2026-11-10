@@ -411,6 +411,10 @@ const CARD_SETS = {
         "label": "노력과 결과를 하나님께 맡기는 말씀"
       }
     ],
+    "season": {
+      "from": "2026-11-07",
+      "to": "2026-12-11"
+    },
     "after": {
       "label": "시험·취업 응원기도카드",
       "nameLabel": "받는 분 이름",
@@ -1406,7 +1410,7 @@ function cardTopicName(key, sunOn) { return key === "suneung" && !sunOn ? "시�
 //   always 「늘 쓰는 카드」(다섯 + 수험생 기간이 끝나면 「시험·취업 준비」로 맨 끝 — 기간 안에는 「지금 이때」에만) · 말씀이 없는 카드는 뺀다
 function cardTopicGroups(today, cfg, sunOn) {
   const ok = (k) => !!(CARD_SETS[k] && (CARD_SETS[k].entries || []).length);
-  const now = Object.keys(CARD_SETS).filter((k) => CARD_SETS[k].season && ok(k) && cardSeasonOn(k, today, cfg))
+  const now = Object.keys(CARD_SETS).filter((k) => k !== "suneung" && CARD_SETS[k].season && ok(k) && cardSeasonOn(k, today, cfg))   // 수험생은 아래 sunOn 으로(기간 밖에도 「늘」에 남는다)
     .sort((a, b) => { const x = cardSeasonWin(a, cfg).from, y = cardSeasonWin(b, cfg).from; return x < y ? -1 : x > y ? 1 : 0; });
   if (sunOn && ok("suneung")) now.unshift("suneung");
   const always = CARD_ALWAYS.filter(ok);
@@ -2018,11 +2022,15 @@ function pshCardSwap(key) {
 //   「탭 없이 쌓은 기록」으로 보고 뒤로 가기에서 건너뛸 수 있다). 뒤로 가기: 카드 판 → 주제 고르기(psh: 1 로 돌아온 popstate) → 닫힘(psh 없는 popstate).
 //   ✕ · 바깥 누름 · Esc 는 통째로 닫는다(prayShareClose 가 쌓은 기록 수만큼 되돌린다). 주제 고르기 쪽은 이용 기록을 남기지 않는다(카드 판을 열 때만 share-open).
 //   sunOn = app.js cardSuneungOn() · cfg = 철마다 기간(app.js cardSeasonsCached — 모르면 null → 자료의 기본 기간) · 서버 값은 나중에 pshTopicsUpdate 로 온다.
-// 🎓 수험생 카드는 기간(12/11)이 끝나면 「시험·취업 준비」로 늘 쓴다(친구 11/07 · 기도문 열 장에 「수험생」 낱말은 없다) —
-//   이름 칸 제목 · 비웠을 때 그림에 들어가는 이름 · 풀이 · 판 이름(그림 대체 글)을 자료의 after 로 덮어쓴다. 한 번만 · 날짜는 뒤로 가지 않으니 되돌리지 않는다.
-function cardSunAfter(sets) {
+// 🎓 수험생 카드는 수험생 철(기간 · 교회 어드민 「💌 말씀카드 기간」 — 없으면 자료 season) 밖에서는 「시험·취업 준비」로 늘 쓴다(친구 11/07 · 기도문 열 장에 「수험생」 낱말은 없다) —
+//   after = true 면 이름 칸 제목 · 비웠을 때 그림에 들어가는 이름 · 풀이 · 판 이름(그림 대체 글)을 자료의 after 로, false 면 처음 값(before)으로 되돌린다.
+//   되돌리기가 있는 까닭 — 담당자가 기간을 고치면 같은 앱 안에서도 수험생 철로 돌아올 수 있다(2026-11-10 친구 「수험생 넣는 기간도」).
+function cardSunMode(after, sets) {
   const s = (sets || CARD_SETS).suneung;
-  if (s && s.after && !s.afterOn) { Object.assign(s, s.after); s.afterOn = true; }
+  if (!s || !s.after) return s;
+  if (!s.before) { s.before = {}; Object.keys(s.after).forEach((k) => { s.before[k] = s[k]; }); }
+  Object.assign(s, after ? s.after : s.before);
+  s.afterOn = !!after;
   return s;
 }
 function openCardTopics(sunOn, cfg) {
@@ -2030,7 +2038,7 @@ function openCardTopics(sunOn, cfg) {
   prayShareClose();
   pshState.b = null; pshState.med = null; pshState.verse = null; pshState.name = ""; pshState.cmenu = [];   // 카드 고르기 칸 없음 — 주제 고르기가 대신한다
   pshState.ctopic = true; pshState.csun = !!sunOn; pshState.ccfg = cfg && typeof cfg === "object" ? cfg : null; pshState.noLog = false;
-  if (!pshState.csun) cardSunAfter();   // 수험생 기간이 끝났으면 「시험·취업 준비」 이름 칸 · 비웠을 때 이름으로
+  cardSunMode(!pshState.csun);   // 수험생 철 밖이면 「시험·취업 준비」 이름 칸 · 비웠을 때 이름으로(철 안이면 처음 값)
   const wrap = document.createElement("div");
   wrap.className = "psh-dim"; wrap.id = "psh";
   pshTopicsFill(wrap);
@@ -2137,6 +2145,9 @@ function pshTopicsUpdate(cfg) {
   pshState.ccfg = cfg && typeof cfg === "object" ? cfg : pshState.ccfg;
   const box = document.getElementById("psh-tp-box");
   if (!pshState.ctopic || pshState.cview !== "topics" || !box) return;
+  // 수험생 철도 서버 값으로 다시 본다(app.js cardSuneungOn 과 같은 셈 — 둔 값 · 자료 season) · 바뀌면 이름 칸 · 판 이름도
+  const sun = cardSeasonOn("suneung", cardKstYmd(Date.now()), pshState.ccfg);
+  if (sun !== pshState.csun) { pshState.csun = sun; cardSunMode(!sun); }
   const g = pshTopicGroupsNow();
   if (JSON.stringify(g) === before) return;
   box.innerHTML = pshTopicListHtml(g);

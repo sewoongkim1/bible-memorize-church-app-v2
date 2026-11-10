@@ -103,12 +103,12 @@ test('🎓 수험생 응원기도카드(친구 2026-11-07 · 2026-11-10 첫 화�
   assert.ok(!APP.includes('open-card-suneung'), '첫 화면 🎓 단추 · 배선 · 아이콘이 남았다(2026-11-10 친구 「수험생 응원기도카드는 없애 주세요」)');
   assert.match(APP, /const CARD_SHARE_OPEN = true;/, '2026-11-07 모두에게 열었다(친구 「모두 열어 주세요」 · 닫으려면 false 한 줄 + bump — 그러면 🧪 시험 참여자만)');
   assert.match(APP, /function cardShareVisible\(\) \{ return CARD_SHARE_OPEN \|\| \(typeof ministryTesterCached === "function" && ministryTesterCached\(\)\); \}/);
-  assert.match(APP, /const CARD_SUNEUNG_UNTIL = "2026-12-11";/, '성적 통지 날까지');
-  assert.match(APP, /function cardSuneungOn\(\) \{ return cardShareVisible\(\) && todayYmd\(\) <= CARD_SUNEUNG_UNTIL; \}/, '문 · 기간(KST 날짜)');
+  assert.match(APP, /const CARD_SUNEUNG_SEASON = \{ from: "2026-11-07", to: "2026-12-11" \};/, '기본 수험생 철 — 성적 통지 날까지(교회 어드민 「💌 말씀카드 기간」이 앞선다)');
+  assert.match(APP, /function cardSuneungOn\(\) \{ const w = cardSuneungSeason\(\), t = todayYmd\(\); return cardShareVisible\(\) && w\.from <= t && t <= w\.to; \}/, '문 · 기간(KST 날짜 · 두 끝 포함)');
   assert.match(APP, /const rows = g\.ids\.map\(\(id\) => document\.getElementById\(id\)\)\.filter\(Boolean\);\n\s*if \(!rows\.length\) return;/, '단추가 없는 묶음(「새 소식」)은 제목째 없다');
   // 옛 파일에 없던 이름 — 다른 화면 파일이 같은 이름을 선언하면 CDN 옛 파일과 「이미 선언됨」으로 깨진다(prayer-book.md)
   const others = ['js/pray-share.js', 'js/prayer.js'].map((f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')).join('\n');
-  for (const nm of ['CARD_SHARE_OPEN', 'cardShareVisible', 'CARD_SUNEUNG_UNTIL', 'cardSuneungOn', 'HA_NEWS']) {
+  for (const nm of ['CARD_SHARE_OPEN', 'cardShareVisible', 'CARD_SUNEUNG_SEASON', 'cardSuneungSeason', 'cardSuneungOn', 'HA_NEWS']) {
     assert.ok(!new RegExp('(const|let|var|function) ' + nm + '\\b').test(others), nm + ' 를 다른 화면 파일이 선언한다');
   }
 });

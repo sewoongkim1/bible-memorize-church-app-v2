@@ -1253,7 +1253,7 @@ test('🎓 카드 자료 — 표식 줄 사이(덩이째 갈아 끼운다) · �
     assert.ok(Number.isInteger(set.kind) && set.kind >= 10 && set.kind <= 17, key + ' 종류 코드 10~17(1~9 는 다른 보내기와 겹친다)');
     // 철마다 카드(성탄 · 새해)만 기본 기간(season — 교회 어드민 cardSeasons 가 없거나 틀릴 때) · 한국 날짜 「YYYY-MM-DD」 · from ≤ to
     const ymd = /^\d{4}-\d{2}-\d{2}$/;
-    if (['christmas', 'newyear'].includes(key)) assert.ok(set.season && ymd.test(set.season.from) && ymd.test(set.season.to) && set.season.from <= set.season.to, key + ' 기본 기간 from ≤ to');
+    if (['christmas', 'newyear', 'suneung'].includes(key)) assert.ok(set.season && ymd.test(set.season.from) && ymd.test(set.season.to) && set.season.from <= set.season.to, key + ' 기본 기간 from ≤ to');
     else assert.equal(set.season, undefined, key + ' — 늘 쓰는 카드에 기간 칸');
     assert.ok(TS.includes(set.kind + ': "' + set.label + '"'), key + ' — api SHARE_KINDS 의 ' + set.kind + ' 이름이 카드 이름과 같다(교회 어드민 통계 탭)');
     if (key === 'suneung') continue;
@@ -1687,7 +1687,7 @@ test('🎓 수험생 판은 💌 다섯을 더해도 그대로 — 배치 · 그
     out.push(JSON.stringify(CARD.cardSharePlan(set, e, nm, CARD.CARD_STYLES[lay], measure, body)));
     const d = CARD.cardShareDoc(set, e, nm, lay, body); out.push(JSON.stringify([d.text, d.seed, d.alt]));
   }
-  const data = cardPlain(set); delete data.icon; delete data.kind; delete data.nameLabel; delete data.after;   // after = 12/11 뒤 「시험·취업 준비」 칸(11-10 · 기간 안 판은 쓰지 않는다)
+  const data = cardPlain(set); delete data.icon; delete data.kind; delete data.nameLabel; delete data.after; delete data.season;   // after = 12/11 뒤 「시험·취업 준비」 칸(11-10 · 기간 안 판은 쓰지 않는다)
   const hx = (s) => crypto.createHash('sha256').update(s).digest('hex').slice(0, 16);
   assert.equal(hx(out.join('\n')), '400634e8eee7e343', '수험생 카드 배치 · 글이 바뀌었다(v3.727 해시 — 일부러 바꿨으면 새 해시로)');
   assert.equal(hx(JSON.stringify(data)), 'cbba16945b46f581', '수험생 카드 자료가 바뀌었다(v3.727 — 새 칸 icon · kind · nameLabel · after 만 더함)');
@@ -1920,7 +1920,7 @@ test('💌 주제 고르기 배선 — 문(CARD_TOPICS_OPEN = false · 🧪 먼�
   for (const fz of ['lg', 'xl']) assert.ok(CSS.includes('html[data-fs="' + fz + '"] .psh-tp-t b'), '큰 글씨(' + fz + ') 짝');
 });
 
-test('🎓 수험생 카드 12/11 뒤 — cardSunAfter 가 자료의 after(이름 칸 · 비웠을 때 이름 · 판 이름)로 덮어쓴다 · 한 번만 · 기도문에 「수험생」 낱말 없음', () => {
+test('🎓 수험생 카드 철 밖 — cardSunMode 가 자료의 after(이름 칸 · 비웠을 때 이름 · 판 이름)로 덮어쓰고 철 안이면 처음 값으로 되돌린다 · 기도문에 「수험생」 낱말 없음 · 기본 기간 세 곳', () => {
   const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'pray-share.js'), 'utf8');
   const i = src.indexOf('const CARD_SETS = ') + 18, j = src.indexOf('// ⟪/card-data⟫');
   const sets = JSON.parse(src.slice(i, j).trim().replace(/;\s*$/, ''));
@@ -1928,11 +1928,33 @@ test('🎓 수험생 카드 12/11 뒤 — cardSunAfter 가 자료의 after(이�
   assert.deepEqual(Object.keys(a).sort(), ['defaultName', 'label', 'nameHint', 'nameLabel']);
   assert.equal(a.nameLabel, '받는 분 이름'); assert.equal(a.defaultName, '꿈을 준비하는 분'); assert.equal(a.label, '시험·취업 응원기도카드');
   for (const e of sets.suneung.entries) assert.ok(!/수험생|수능/.test(e.prayer + e.title + e.closing), e.no + ' 기도문에 수험생 · 수능');
-  const m = /function cardSunAfter\(sets\) \{[\s\S]*?\r?\n\}/.exec(src); assert.ok(m, 'cardSunAfter 가 없다');
-  const fn = new Function('CARD_SETS', m[0] + '; return cardSunAfter;')(sets);
-  const s = fn(sets); assert.equal(s.nameLabel, '받는 분 이름'); assert.equal(s.defaultName, '꿈을 준비하는 분'); assert.equal(s.afterOn, true);
-  s.nameLabel = 'x'; fn(sets); assert.equal(s.nameLabel, 'x', '두 번째 부름은 덮어쓰지 않는다');
-  assert.match(src, /pshState\.csun = !!sunOn;[^\n]*\n\s*if \(!pshState\.csun\) cardSunAfter\(\);/, '주제 고르기를 열 때 기간이 끝났으면 부른다');
+  const m = /function cardSunMode\(after, sets\) \{[\s\S]*?\r?\n\}/.exec(src); assert.ok(m, 'cardSunMode 가 없다');
+  const fn = new Function('CARD_SETS', m[0] + '; return cardSunMode;')(sets);
+  const first = { label: sets.suneung.label, nameLabel: sets.suneung.nameLabel, defaultName: sets.suneung.defaultName, nameHint: sets.suneung.nameHint };
+  let s = fn(true, sets); assert.equal(s.nameLabel, '받는 분 이름'); assert.equal(s.defaultName, '꿈을 준비하는 분'); assert.equal(s.label, '시험·취업 응원기도카드'); assert.equal(s.afterOn, true);
+  fn(true, sets); assert.equal(s.nameLabel, '받는 분 이름', '두 번 불러도 같다');
+  s = fn(false, sets); assert.deepEqual({ label: s.label, nameLabel: s.nameLabel, defaultName: s.defaultName, nameHint: s.nameHint }, first, '철로 돌아오면 처음 값');
+  assert.equal(s.afterOn, false);
+  assert.match(src, /pshState\.csun = !!sunOn;[^\n]*\n\s*cardSunMode\(!pshState\.csun\);/, '주제 고르기를 열 때 철에 맞춘다');
+  assert.match(src, /const sun = cardSeasonOn\("suneung", cardKstYmd\(Date\.now\(\)\), pshState\.ccfg\);\s*\n\s*if \(sun !== pshState\.csun\) \{ pshState\.csun = sun; cardSunMode\(!sun\); \}/, '서버 기간이 오면 수험생 철도 다시 본다');
+  // 기본 기간 세 곳 — 자료 season · app.js CARD_SUNEUNG_SEASON(교회 어드민 SEASONS 는 그 저장소 시험이 본다)
+  const app = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  const am = /const CARD_SUNEUNG_SEASON = \{ from: "(\d{4}-\d{2}-\d{2})", to: "(\d{4}-\d{2}-\d{2})" \};/.exec(app); assert.ok(am, 'app.js CARD_SUNEUNG_SEASON');
+  assert.deepEqual(sets.suneung.season, { from: am[1], to: am[2] }, '자료 season 과 app.js 기본 기간이 같다');
+  assert.ok(!/CARD_SUNEUNG_UNTIL/.test(app), '박아 둔 끝날(CARD_SUNEUNG_UNTIL)은 걷었다');
+  // app.js cardSuneungOn — 둔 값(cardSeasons.suneung)이 앞서고 틀린 꼴이면 기본 기간
+  const pick = (name) => { const k = app.indexOf('function ' + name + '('); const e = /\r?\n\}|\}\r?\n/.exec(app.slice(k)); return app.slice(k, k + e.index + e[0].length); };
+  const on = (cached, today) => new Function('cardSeasonsCached', 'todayYmd', 'cardShareVisible', am[0] + '\n' + pick('cardSuneungSeason') + '\n' + pick('cardSuneungOn') + '\nreturn cardSuneungOn();')(() => cached, () => today, () => true);
+  assert.equal(on(null, '2026-12-11'), true); assert.equal(on(null, '2026-12-12'), false); assert.equal(on(null, '2026-11-06'), false);
+  assert.equal(on({ suneung: { from: '2027-11-01', to: '2027-12-10' } }, '2027-11-20'), true, '내년 수능 철');
+  assert.equal(on({ suneung: { from: '2027-11-01', to: '2027-12-10' } }, '2026-12-01'), false, '등록한 기간이 앞선다');
+  assert.equal(on({ suneung: { from: '2026-12-20', to: '2026-12-01' } }, '2026-12-01'), true, '틀린 꼴(from > to)은 기본 기간');
+  assert.equal(on({ christmas: { from: '2026-11-01', to: '2026-11-30' } }, '2026-12-01'), true, '다른 카드 칸만 있으면 기본 기간');
+});
+
+test('💌 주제 목록 — 수험생은 철 안이면 「지금 이때」 맨 앞에만 · 철 밖이면 「늘」 끝에만(자료에 season 이 생겨도 두 번 나오지 않는다)', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'pray-share.js'), 'utf8');
+  assert.match(src, /const now = Object\.keys\(CARD_SETS\)\.filter\(\(k\) => k !== "suneung" && CARD_SETS\[k\]\.season/, '철마다 목록에서 수험생은 뺀다(sunOn 으로 따로)');
 });
 
 test('💌 주제 고르기 — 옛 판이 남긴 기록(표식 pt 가 다름)은 이 판 것이 아니라 닫는다 · 닫을 때 되돌릴 수도 표식이 맞을 때만 psh 만큼 · 판이 바뀐 직후 누름 막기', () => {

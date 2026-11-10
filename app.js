@@ -389,6 +389,7 @@ function routeAfterLoad() {
   refreshEduOpen();
   refreshDutyOpen();
   refreshSongPublic();
+  refreshCardSeasons();   // 💌 카드 기간(수험생 철 · 성탄 · 새해 — 교회 어드민) — 첫 화면 · 설명서 · 옛 판이 둔 값을 본다
   refreshMinistryPeriod();
   refreshEventOpen();
   // 어드민 테스트 진입(?passages=1): 홈을 거치지 않고 곧바로 핵심 암송 목록으로.
@@ -4169,12 +4170,19 @@ function medShareVisible() { return MED_SHARE_OPEN || (typeof ministryTesterCach
 const VERSE_SHARE_OPEN = true;   // 2026-11-06 모두에게 열었다(친구 「올려주세요」 — 게시판 공지 「가족·목장 식구를 초대해 주세요」와 함께 · 설명서 말씀 암송 장에 한 줄) · 닫으려면 false 한 줄 + bump
 function verseShareVisible() { return VERSE_SHARE_OPEN || (typeof ministryTesterCached === "function" && ministryTesterCached()); }
 // 🎓 수험생 응원기도카드(2026-11-07 친구 · 기념일 말씀카드 첫 개시 — 수능 11/19 · 성적 통지 12/11 · 판은 js/pray-share.js openCardShare) — 먼저 🧪 시험 참여자에게만.
-//   2026-11-10 친구 — 첫 화면 🎓 단추는 걷었다(💌 축복기도 말씀카드가 그 자리로) · 이제 💌 판 맨 위 카드 고르기에서만(cardSuneungOn 일 때 맨 앞) · CARD_SUNEUNG_UNTIL(KST · 그날까지)이 지나면 배포 없이 저절로 없어진다.
+//   2026-11-10 친구 — 첫 화면 🎓 단추는 걷었다(💌 축복기도 말씀카드가 그 자리로) · 이제 💌 판 맨 위 카드 고르기에서만(cardSuneungOn 일 때 맨 앞) · 수험생 철(cardSuneungSeason — 교회 어드민 「💌 말씀카드 기간」 · 없으면 CARD_SUNEUNG_SEASON · KST · 두 끝 포함)이 지나면 배포 없이 저절로 빠진다(주제 고르기 판은 「시험·취업 준비」로 늘).
 //   ⚠️ 새 이름은 옛 파일에 없던 것으로 — 다른 파일에 같은 이름의 const 가 있으면 배포 직후 CDN 옛 파일과 「이미 선언됨」으로 깨진다(prayer-book.md)
 const CARD_SHARE_OPEN = true;   // 2026-11-07 모두에게 열었다(친구 「모두 열어 주세요」 — 게시판 공지와 함께 · 설명서 「가정 축복 기도문」 장에 한 걸음) · 닫으려면 false 한 줄 + bump
 function cardShareVisible() { return CARD_SHARE_OPEN || (typeof ministryTesterCached === "function" && ministryTesterCached()); }
-const CARD_SUNEUNG_UNTIL = "2026-12-11";
-function cardSuneungOn() { return cardShareVisible() && todayYmd() <= CARD_SUNEUNG_UNTIL; }
+// 수험생 철(「지금 이때」에 수험생으로 · 옛 판은 카드 고르기 맨 앞) — 교회 어드민 「💌 말씀카드 기간」이 적은 cardSeasons.suneung(이 폰에 둔 값) · 없거나 틀린 꼴이면 기본 기간
+//   ⚠️ 기본 기간은 세 곳이 같아야 한다 — 여기 · js/pray-share.js CARD_SETS.suneung.season(자료 덩이 · build_cards.py) · 교회 어드민 card-seasons-logic.js SEASONS
+//   (2026-11-10 친구 「수험생 넣는 기간도」 — 그 전에는 끝날 12/11 이 이 자리에 박혀 있었다)
+const CARD_SUNEUNG_SEASON = { from: "2026-11-07", to: "2026-12-11" };
+function cardSuneungSeason() {
+  const c = (cardSeasonsCached() || {}).suneung, ymd = /^\d{4}-\d{2}-\d{2}$/;
+  return c && typeof c === "object" && ymd.test(String(c.from)) && ymd.test(String(c.to)) && c.from <= c.to ? { from: c.from, to: c.to } : CARD_SUNEUNG_SEASON;
+}
+function cardSuneungOn() { const w = cardSuneungSeason(), t = todayYmd(); return cardShareVisible() && w.from <= t && t <= w.to; }
 // 💌 축복기도 말씀카드(2026-11-07 친구 「늘 쓰는 축하, 위로만 먼저」 — 생일 · 결혼기념일 · 새 출발 · 위로 · 병문안 · 날짜를 타지 않는다) — 첫 화면 「새 소식」 맨 위 한 줄(2026-11-10 · 처음엔 「함께」 가정 축복 기도문 아래) ·
 //   판 맨 위에서 카드를 고른다(js/pray-share.js openCardPick · 🎓 수험생 카드는 cardSuneungOn() 일 때만 맨 앞) · 설명서 「가정 축복 기도문」 장에 한 걸음.
 //   ⚠️ 이름은 옛 파일에 없던 것(CDN 옛 파일과 「이미 선언됨」 — prayer-book.md) · 모두에게 열 때는 true 한 줄 + bump(게시판 공지 = 문 열기).
