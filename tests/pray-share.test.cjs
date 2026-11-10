@@ -1880,8 +1880,8 @@ test('💌 주제 목록(cardTopicGroups) — 날짜마다 「지금 이때」 �
   assert.equal(C.cardTopicName('birthday', false), '생일');
 });
 
-test('💌 주제 고르기 배선 — 문(CARD_TOPICS_OPEN = false · 🧪 먼저) · 문 밖은 지금 판 그대로 · 기간은 둔 값 → 서버 값 · 쪽을 바꿀 때 덮개를 닫지 않는다 · 기록은 누른 탭 안에서만 · ✕ 는 쌓은 만큼 되돌린다', () => {
-  assert.ok(APP.includes('const CARD_TOPICS_OPEN = false;'), '문은 닫아 둔다(친구가 본 뒤 true 한 줄 + bump)');
+test('💌 주제 고르기 배선 — 문(CARD_TOPICS_OPEN = true · 11-10 모두에게) · 문 밖은 지금 판 그대로 · 기간은 둔 값 → 서버 값 · 쪽을 바꿀 때 덮개를 닫지 않는다 · 기록은 누른 탭 안에서만 · ✕ 는 쌓은 만큼 되돌린다', () => {
+  assert.ok(APP.includes('const CARD_TOPICS_OPEN = true;'), '2026-11-10 모두에게 열었다(닫으려면 false 한 줄 + bump)');
   assert.ok(APP.includes('function cardTopicsVisible() { return CARD_TOPICS_OPEN || (typeof ministryTesterCached === "function" && ministryTesterCached()); }'));
   const h = cut(APP, 'const b = document.getElementById("open-cards");', '}); }); }');
   assert.ok(h.includes('if (cardTopicsVisible() && typeof openCardTopics === "function") {') && h.includes('openCardTopics(cardSuneungOn(), cardSeasonsCached());'), '문 안 — 주제 고르기(둔 기간으로 바로)');

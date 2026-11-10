@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261110c";
+const APP_BUILD = "20261110d";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -4190,7 +4190,7 @@ const CARD_MORE_OPEN = true;   // 2026-11-08 모두에게 열었다(친구 「�
 function cardMoreVisible() { return CARD_MORE_OPEN || (typeof ministryTesterCached === "function" && ministryTesterCached()); }
 // 💌 주제 고르기(2026-11-10 친구 「축복기도 말씀카드를 누르면 주제 고르기 → 그 카드 판」 · 철마다 카드 성탄 · 송구영신·새해 — js/pray-share.js openCardTopics) — 먼저 🧪 시험 참여자에게만.
 //   문 밖에서는 지금 판 그대로(openCardPick — 판 맨 위 카드 고르기 칸 · 철마다 카드 없음). 모두에게 열 때는 true 한 줄 + bump(docs/notes/occasion-card.md 끝 절).
-const CARD_TOPICS_OPEN = false;
+const CARD_TOPICS_OPEN = true;   // 2026-11-10 모두에게 열었다(친구 「다 보일 수 있게 배포해 주세요」 · 그 전엔 🧪 시험 참여자 먼저) · 닫으려면 false 한 줄 + bump(그러면 옛 카드 고르기 판)
 function cardTopicsVisible() { return CARD_TOPICS_OPEN || (typeof ministryTesterCached === "function" && ministryTesterCached()); }
 // 철마다 카드의 개시 기간 — 교회 어드민이 app_config cardSeasons 에 적는다({ christmas: { from, to }, newyear: { … } } · 한국 날짜 · 두 끝 모두 든다).
 //   주제 고르기를 열 때 받아(기다리지 않는다) 이 폰에 둔다 · 판은 둔 값 → 없으면 자료의 기본 기간(CARD_SETS.<키>.season)으로 바로 그린다.
