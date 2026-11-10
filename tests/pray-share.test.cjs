@@ -1575,8 +1575,8 @@ test('🎓 카드 판 — 종류 코드 10(판 열기 · 공유 창 · 내려받
 });
 
 test('🎓 카드 판 배선 — 첫 화면 단추는 지연 모듈로(옛 pray-share.js 면 껐다 켜기) · 직접 고른 배경 표시 · 말씀을 바꾸면 그 말씀 배경 · 카카오 길 없음 · 어두운 모드 짝', () => {
-  assert.match(APP, /const b = document\.getElementById\("open-card-suneung"\);[^\n]*\n\s*if \(b\) b\.addEventListener\("click", \(\) => withLazyJs\("prayShare", \(\) => \{\n\s*if \(typeof openCardShare === "function"\) openCardShare\("suneung"\);\n\s*else appAlert\(typeof openPrayShare === "function" \? "앱이 새 판으로 바뀌었어요\. 앱을 껐다가 다시 열어 주세요\."/,
-    '단추 — js/pray-share.js 를 받아 openCardShare · 옛 파일이면 껐다 켜기 안내');
+  assert.ok(!APP.includes('getElementById("open-card-suneung")'), '🎓 단추 배선은 2026-11-10 걷었다(친구 — 💌 축복기도 말씀카드가 그 자리로 · 수험생은 💌 판 안에서)');
+  assert.match(PS, /function openCardShare\(/, '판 함수는 남긴다 — 배포 직후 CDN 옛 app.js 가 🎓 단추로 부를 수 있다');
   const po = cut(PS, 'function pshOpen(', '\n}\n');
   const tw = cut(PS, 'function pshThumbsWire(wrap) {', '\n}\n');   // 배경 받이는 판 · 카드 바꾸기(💌 pshCardSwap)가 함께 쓴다
   assert.ok(tw.indexOf('if (pshState.card) pshState.cpick = true;') >= 0 && tw.indexOf('if (pshState.card) pshState.cpick = true;') < tw.indexOf('pshKeySet(k);'), '배경을 직접 고르면 표시(cpick)');

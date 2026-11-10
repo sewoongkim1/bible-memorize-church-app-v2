@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261109a";
+const APP_BUILD = "20261110a";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -944,7 +944,7 @@ const HA_GROUPS = [
   { title: "말씀 묵상", ids: ["open-sermon-chat", "open-meditation"] },
   { title: "내 기록", ids: ["open-event-list", "open-album", "open-ranking"] },
   { title: "교회 생활", ids: ["open-ministry", "open-ministry-history", "open-edu", "open-duty"] },
-  { title: "함께", ids: ["open-board", "open-prayer", "open-cards", "open-pilsa"] },   // 💌 말씀카드는 가정 축복 기도문 바로 아래(2026-11-07 · 문 cardMoreVisible)
+  { title: "함께", ids: ["open-board", "open-prayer", "open-pilsa"] },   // 💌 축복기도 말씀카드는 2026-11-10 「새 소식」 맨 위로 옮겼다(HA_NEWS · 친구)
   // 📚 암송 과정 — 「함께」 바로 아래(친구 2026-10-29 · 10-13 에는 「함께」 위였다) · 외우는 것 넷을 이 차례로(쉴만한 물가·내 안에 거하는 말씀·퀴즈는 「함께」에서 옮김).
   //   단추마다 문이 따로라(psalmVisible · passagesVisible · naviVisible) 닫힌 단추는 줄째 빠진다 · 설명서의 자리 말(MANUAL)도 이 묶음을 가리킨다.
   { title: "암송 과정", ids: ["open-psalm", "open-passages", "open-navi", "open-quiz"] },
@@ -960,9 +960,9 @@ function boardTopOn(raw) {
   if (!p) return false;
   return p.y + "-" + String(p.m).padStart(2, "0") + "-" + String(p.d).padStart(2, "0") <= BOARD_TOP_UNTIL;
 }
-// 「새 소식」 맨 위 줄(2026-11-07 친구) — 🎓 수험생 응원기도카드(단추는 문 · 기간 안에만 그린다 — cardSuneungOn) · 그 아래 한 주간 💬 게시판.
-//   단추가 하나도 없으면 묶음째 없다(applyHomeA 가 단추 없는 묶음을 건너뛴다) — 11/13 부터는 카드 한 줄뿐 · 12/12 부터(또는 문 밖)는 묶음째 없다.
-const HA_NEWS = ["open-card-suneung"];
+// 「새 소식」 맨 위 줄 — 💌 축복기도 말씀카드(2026-11-10 친구 「수험생 응원기도카드 자리로 · 수험생 단추는 없애기」 · 문 cardMoreVisible) · 그 아래 한 주간 💬 게시판.
+//   🎓 수험생 카드는 따로 단추 없이 💌 판 맨 위 카드 고르기에서 고른다(12/11 까지 맨 앞 · cardSuneungOn). 단추가 하나도 없으면 묶음째 없다(applyHomeA 가 단추 없는 묶음을 건너뛴다).
+const HA_NEWS = ["open-cards"];
 function haGroupsFor(raw) {
   if (!boardTopOn(raw)) return [{ title: "새 소식", ids: HA_NEWS }].concat(HA_GROUPS);
   return [{ title: "새 소식", ids: HA_NEWS.concat(["open-board"]) }]
@@ -971,7 +971,7 @@ function haGroupsFor(raw) {
 const HA_ROW_ICON = {
   "open-sermon-chat": "message", "open-meditation": "leaf", "open-navi": "book", "open-event-list": "medal", "open-album": "album", "open-ranking": "trophy",
   "open-ministry": "users", "open-ministry-history": "folder", "open-edu": "cap", "open-duty": "calendar",
-  "open-card-suneung": "cap", "open-board": "heart", "open-prayer": "house", "open-cards": "mail", "open-psalm": "drop", "open-passages": "scroll", "open-pilsa": "pen", "open-quiz": "target",
+  "open-board": "heart", "open-prayer": "house", "open-cards": "mail", "open-psalm": "drop", "open-passages": "scroll", "open-pilsa": "pen", "open-quiz": "target",
   "open-praise": "music", "open-sermon-archive": "tv", "open-youtube": "play",
 };
 const HA_TOOL_ICON = { "toggle-ref-first": "bookmark", "toggle-card-input": "keyboard", "open-help-summary": "help", "open-alarm": "bell", "open-settings": "gear" };
@@ -3850,13 +3850,12 @@ function renderSummary() {
     ${naviVisible() ? `<div class="grp-title">암송 과정</div>
     <button class="summary-help" id="open-navi">📚 주제별 성경암송${newBadge("navi")}</button>` : ""}
     <div class="grp-title">함께</div>
-    ${/* 🎓 수험생 응원기도카드(2026-11-07) — 문(cardShareVisible · 🧪 시험 참여자 먼저) · 기간(CARD_SUNEUNG_UNTIL) 안에만. A안은 「새 소식」 맨 위로 옮겨 담는다(HA_NEWS) */""}
-    ${cardSuneungOn() ? `<button class="summary-help" id="open-card-suneung">🎓 수험생 응원기도카드</button>` : ""}
+    ${/* 💌 축복기도 말씀카드(2026-11-07 · 11-10 친구 — 🎓 수험생 응원기도카드 자리로 옮기고 🎓 단추는 걷음) — 문(cardMoreVisible · 🧪 시험 참여자 먼저) 안에만.
+          판은 js/pray-share.js openCardPick(맨 위에서 카드 고르기 · 🎓 수험생은 12/11 까지 맨 앞). A안은 「새 소식」 맨 위로 옮겨 담는다(HA_NEWS) */""}
+    ${cardMoreVisible() ? `<button class="summary-help" id="open-cards">💌 축복기도 말씀카드${newBadge("cards")}</button>` : ""}
     <button class="summary-help" id="open-board">💬 응원·기도·공감</button>
     ${/* 2026-09-25 순서 바꿈(친구 요청) — 가정 축복 기도문이 쉴만한 물가보다 위. */""}
     <button class="summary-help" id="open-prayer">🙏 가정 축복 기도문${newBadge("prayer")}</button>
-    ${/* 💌 말씀카드(2026-11-07 친구 「늘 쓰는 축하, 위로만 먼저」) — 문(cardMoreVisible · 🧪 시험 참여자 먼저) 안에만. 판은 js/pray-share.js openCardPick(맨 위에서 카드 고르기) */""}
-    ${cardMoreVisible() ? `<button class="summary-help" id="open-cards">💌 기도 말씀카드${newBadge("cards")}</button>` : ""}
     ${psalmVisible() ? `<button class="summary-help" id="open-psalm">🐑 쉴만한 물가${newBadge("psalm")}</button>` : ""}
     ${/* ⚠️ 2026-09-23 첫 화면 단추를 뺀다(성도님 결정) — 「🎵 찬양 · 곡명 ↗」은
           **매일 묵상 창 맨 아래 줄**에만 둔다. 게이트(app_config.songPublic)는 켜진 채라
@@ -3907,13 +3906,7 @@ function renderSummary() {
   renderStoreNudge();   // 웹으로 오신 분께 스토어 앱 안내 한 줄(2026-10-09)
   loadEventState();     // 서버에서 설정·응모여부 갱신 후 다시 표시
   document.getElementById("open-board").addEventListener("click", renderBoard);
-  // 🎓 수험생 응원기도카드 — 판은 누를 때 받는다(js/pray-share.js) · 두 번 눌러도 판은 하나(openCardShare 가 열린 판을 그대로 둔다)
-  { const b = document.getElementById("open-card-suneung");   // 문 · 기간 밖에는 없다
-    if (b) b.addEventListener("click", () => withLazyJs("prayShare", () => {
-      if (typeof openCardShare === "function") openCardShare("suneung");
-      else appAlert(typeof openPrayShare === "function" ? "앱이 새 판으로 바뀌었어요. 앱을 껐다가 다시 열어 주세요." : "보내기 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
-    })); }
-  // 💌 말씀카드 — 판은 누를 때 받는다(js/pray-share.js) · 맨 위에서 카드를 고른다(openCardPick · 수험생 카드는 기간 안에만 맨 앞) · 두 번 눌러도 판은 하나
+  // 💌 축복기도 말씀카드 — 판은 누를 때 받는다(js/pray-share.js) · 맨 위에서 카드를 고른다(openCardPick · 수험생 카드는 기간 안에만 맨 앞) · 두 번 눌러도 판은 하나
   { const b = document.getElementById("open-cards");   // 문(cardMoreVisible) 밖에는 없다
     if (b) b.addEventListener("click", () => { markFeatSeen("cards"); scRemoveBadge("open-cards"); withLazyJs("prayShare", () => {
       if (typeof openCardPick === "function") openCardPick(cardSuneungOn());
@@ -4172,13 +4165,13 @@ function medShareVisible() { return MED_SHARE_OPEN || (typeof ministryTesterCach
 const VERSE_SHARE_OPEN = true;   // 2026-11-06 모두에게 열었다(친구 「올려주세요」 — 게시판 공지 「가족·목장 식구를 초대해 주세요」와 함께 · 설명서 말씀 암송 장에 한 줄) · 닫으려면 false 한 줄 + bump
 function verseShareVisible() { return VERSE_SHARE_OPEN || (typeof ministryTesterCached === "function" && ministryTesterCached()); }
 // 🎓 수험생 응원기도카드(2026-11-07 친구 · 기념일 말씀카드 첫 개시 — 수능 11/19 · 성적 통지 12/11 · 판은 js/pray-share.js openCardShare) — 먼저 🧪 시험 참여자에게만.
-//   첫 화면 「새 소식」 맨 위 한 줄(haGroupsFor · HA_NEWS) · CARD_SUNEUNG_UNTIL(KST · 그날까지)이 지나면 배포 없이 저절로 없어진다.
+//   2026-11-10 친구 — 첫 화면 🎓 단추는 걷었다(💌 축복기도 말씀카드가 그 자리로) · 이제 💌 판 맨 위 카드 고르기에서만(cardSuneungOn 일 때 맨 앞) · CARD_SUNEUNG_UNTIL(KST · 그날까지)이 지나면 배포 없이 저절로 없어진다.
 //   ⚠️ 새 이름은 옛 파일에 없던 것으로 — 다른 파일에 같은 이름의 const 가 있으면 배포 직후 CDN 옛 파일과 「이미 선언됨」으로 깨진다(prayer-book.md)
 const CARD_SHARE_OPEN = true;   // 2026-11-07 모두에게 열었다(친구 「모두 열어 주세요」 — 게시판 공지와 함께 · 설명서 「가정 축복 기도문」 장에 한 걸음) · 닫으려면 false 한 줄 + bump
 function cardShareVisible() { return CARD_SHARE_OPEN || (typeof ministryTesterCached === "function" && ministryTesterCached()); }
 const CARD_SUNEUNG_UNTIL = "2026-12-11";
 function cardSuneungOn() { return cardShareVisible() && todayYmd() <= CARD_SUNEUNG_UNTIL; }
-// 💌 말씀카드(2026-11-07 친구 「늘 쓰는 축하, 위로만 먼저」 — 생일 · 결혼기념일 · 새 출발 · 위로 · 병문안 · 날짜를 타지 않는다) — 첫 화면 「함께」 한 줄(가정 축복 기도문 아래) ·
+// 💌 축복기도 말씀카드(2026-11-07 친구 「늘 쓰는 축하, 위로만 먼저」 — 생일 · 결혼기념일 · 새 출발 · 위로 · 병문안 · 날짜를 타지 않는다) — 첫 화면 「새 소식」 맨 위 한 줄(2026-11-10 · 처음엔 「함께」 가정 축복 기도문 아래) ·
 //   판 맨 위에서 카드를 고른다(js/pray-share.js openCardPick · 🎓 수험생 카드는 cardSuneungOn() 일 때만 맨 앞) · 설명서 「가정 축복 기도문」 장에 한 걸음.
 //   ⚠️ 이름은 옛 파일에 없던 것(CDN 옛 파일과 「이미 선언됨」 — prayer-book.md) · 모두에게 열 때는 true 한 줄 + bump(게시판 공지 = 문 열기).
 const CARD_MORE_OPEN = true;   // 2026-11-08 모두에게 열었다(친구 「모두 오픈해주세요」 · 11-07 은 🧪 시험 참여자 먼저) · 닫으려면 false 한 줄 + bump
@@ -10710,10 +10703,10 @@ const MANUAL = [
       "<b>🔊 들려주기</b>를 누르면 소리 내어 읽어 드려요.",
       "가족을 위해 기도하시려면 이름이 적힌 <b>🙍</b> 단추를 눌러 이름을 바꾸세요.",
       "기도문 아래 금색 <b>카톡·문자로 보내기</b>를 누르면, 이름을 넣은 기도문을 <b>그림 한 장</b>으로 카카오톡이나 문자로 보낼 수 있어요.",
-      // 🎓 수험생 응원기도카드가 보이는 동안만(12/11 까지 · cardSuneungOn — 지난 메뉴를 가리키지 않게)
-      ...(cardSuneungOn() ? ["수능을 앞둔 학생에게는 첫 화면 <b>「새 소식」</b> 맨 위 <b>🎓 수험생 응원기도카드</b>로, 이름을 넣은 응원 기도를 <b>그림 한 장</b>으로 보낼 수 있어요(12월 11일까지)."] : []),
-      // 💌 말씀카드가 보이는 동안만(cardMoreVisible — 🧪 시험 참여자 먼저 · 모두에게 열면 그대로)
-      ...(cardMoreVisible() ? ["첫 화면 <b>「함께」</b>의 <b>💌 기도 말씀카드</b>에서 생일 · 결혼기념일 · 새 출발 · 위로 · 병문안 카드를 이름을 넣어 <b>그림 한 장</b>으로 보낼 수 있어요."] : []),
+      // 💌 축복기도 말씀카드가 보이는 동안만(cardMoreVisible — 🧪 시험 참여자 먼저 · 모두에게 열면 그대로) · 자리는 첫 화면 꼴로(A안 「새 소식」 맨 위 · 옛 첫 화면 「함께」 맨 위)
+      ...(cardMoreVisible() ? [(HOME_LAYOUT === "a" ? "첫 화면 <b>「새 소식」</b> 맨 위" : "첫 화면 <b>「함께」</b> 맨 위") + "의 <b>💌 축복기도 말씀카드</b>에서 생일 · 결혼기념일 · 새 출발 · 위로 · 병문안 카드를 이름을 넣어 <b>그림 한 장</b>으로 보낼 수 있어요."] : []),
+      // 🎓 수험생 카드는 💌 판 안에서만(12/11 까지 · cardSuneungOn — 지난 카드를 가리키지 않게 · 💌 가 닫혀 있으면 들어갈 길이 없다)
+      ...(cardMoreVisible() && cardSuneungOn() ? ["수능을 앞둔 학생에게는 <b>💌 축복기도 말씀카드</b> 맨 위 카드 고르기의 <b>🎓 수험생</b>으로, 이름을 넣은 응원 기도를 <b>그림 한 장</b>으로 보낼 수 있어요(12월 11일까지)."] : []),
       "아래 <b>주제로 찾기</b>에서 다른 기도문도 고를 수 있어요.",
       ];
     },
