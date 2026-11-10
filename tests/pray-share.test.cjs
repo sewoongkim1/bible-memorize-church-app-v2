@@ -1898,17 +1898,17 @@ test('💌 주제 고르기 배선 — 문(CARD_TOPICS_OPEN = false · 🧪 먼�
   // 판 — 주제 고르기는 덮개 하나 · 기록 psh:1 · 두 번 누름은 그대로
   const oc = cut(PS, 'function openCardTopics(sunOn, cfg) {', '\n}\n');
   assert.ok(oc.indexOf('if (pshReuse("card")) return;') >= 0 && oc.indexOf('if (pshReuse("card")) return;') < oc.indexOf('prayShareClose();'), '두 번 누름 — 닫기(history.back) 전에 그대로');
-  assert.ok(oc.includes('history.pushState({ psh: 1 }, "")') && oc.includes('pshState.pop = pshTopicPop;') && oc.includes('pshState.cmenu = [];'), '기록 하나 · 뒤로 가기 받이 · 카드 고르기 칸 없음');
+  assert.ok(oc.includes('history.pushState({ psh: 1, pt: pshState.ptok }, "")') && oc.includes('pshState.ptok = ') && oc.includes('wrap.addEventListener("click", pshTapGuard, true);') && oc.includes('pshState.pop = pshTopicPop;') && oc.includes('pshState.cmenu = [];'), '기록 하나 · 뒤로 가기 받이 · 카드 고르기 칸 없음');
   assert.ok(!oc.includes('pshLog('), '주제 고르기 쪽은 이용 기록을 남기지 않는다');
   const pk = cut(PS, 'function pshTopicPick(key) {', '\n}\n');
   assert.ok(pk.includes('pshState.cview !== "topics"') && pk.indexOf('pshState.cview = "card"') < pk.indexOf('pshOpen('), '두 번 누름 — 첫 누름에 쪽을 바꿔 둘째 누름은 돌아간다');
-  assert.ok(pk.includes('history.pushState({ psh: 2 }, "")') && pk.includes('{ into: w }') && !pk.includes('prayShareClose'), '같은 덮개 안 카드 판 · 기록은 누른 탭 안에서 하나 더');
+  assert.ok(pk.includes('history.pushState({ psh: 2, pt: pshState.ptok }, "")') && pk.includes('pshState.cswAt = Date.now();') && pk.includes('{ into: w }') && !pk.includes('prayShareClose'), '같은 덮개 안 카드 판 · 기록은 누른 탭 안에서 하나 더');
   for (const f of ['pshTopicShow()', 'pshTopicBack()', 'pshTopicPop()', 'pshTopicsUpdate(cfg)'])
     assert.ok(!/prayShareClose\(\)|pshOpen\(|pushState/.test(cut(PS, 'function ' + f + ' {', '\n}\n')), f + ' — 쪽을 바꿀 때 덮개를 닫거나 기록을 쌓지 않는다(history.back 비동기 · 크롬은 탭 없이 쌓은 기록을 건너뛴다)');
   const pp = cut(PS, 'function pshTopicPop() {', '\n}\n');
   assert.ok(pp.includes('st.psh === 1) { pshTopicShow(); return; }') && pp.includes('prayShareClose(true);'), '뒤로 가기 — 카드 판 → 주제 고르기 → 닫힘');
   const cl = cut(PS, 'function prayShareClose(fromPop) {', '\n}\n');
-  assert.ok(cl.includes('const n = (Number(history.state.psh) || 1) - (pshState.cback ? 1 : 0);') && cl.includes('if (n > 1) history.go(-n); else if (n === 1) history.back();'), '✕ — 쌓은 기록만큼 한 번에(되돌리는 중이면 그만큼 덜)');
+  assert.ok(cl.includes('const n = (pshState.ctopic && st.pt !== pshState.ptok ? 1 : (Number(st.psh) || 1)) - (pshState.cback ? 1 : 0);') && cl.includes('if (n > 1) history.go(-n); else if (n === 1) history.back();'), '✕ — 쌓은 기록만큼 한 번에(되돌리는 중이면 그만큼 덜)');
   assert.ok(cl.includes('pshState.ctopic = false; pshState.cview = ""; pshState.cback = false;'), '닫으면 주제 고르기 표식을 비운다');
   const po = cut(PS, 'function pshOpen(', '\n}\n');
   assert.ok(po.includes('if (!into) wrap.addEventListener("click"') && po.includes('if (!into) {\n    pshState.esc ='), '카드 판(into)은 덮개 받이 · 기록을 다시 달지 않는다');
@@ -1933,4 +1933,28 @@ test('🎓 수험생 카드 12/11 뒤 — cardSunAfter 가 자료의 after(이�
   const s = fn(sets); assert.equal(s.nameLabel, '받는 분 이름'); assert.equal(s.defaultName, '꿈을 준비하는 분'); assert.equal(s.afterOn, true);
   s.nameLabel = 'x'; fn(sets); assert.equal(s.nameLabel, 'x', '두 번째 부름은 덮어쓰지 않는다');
   assert.match(src, /pshState\.csun = !!sunOn;[^\n]*\n\s*if \(!pshState\.csun\) cardSunAfter\(\);/, '주제 고르기를 열 때 기간이 끝났으면 부른다');
+});
+
+test('💌 주제 고르기 — 옛 판이 남긴 기록(표식 pt 가 다름)은 이 판 것이 아니라 닫는다 · 닫을 때 되돌릴 수도 표식이 맞을 때만 psh 만큼 · 판이 바뀐 직후 누름 막기', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'pray-share.js'), 'utf8');
+  const fnSrc = (name) => { const i = src.indexOf('function ' + name + '('); assert.ok(i >= 0, name); const m = /\r?\n\}/.exec(src.slice(i)); return src.slice(i, i + m.index + m[0].length); };
+  const pop = fnSrc('pshTopicPop');
+  assert.ok(pop.includes('st.pt === pshState.ptok'), '표식을 견준다');
+  // 판 흉내 — 표식이 다르면 닫힘 · 같으면 psh: 1 은 주제로 · psh: 2 는 그대로
+  const run = (state, ptok) => { const calls = []; const ctx = { pshState: { ctopic: true, ptok }, history: { state }, pshTopicShow: () => calls.push('show'), prayShareClose: (f) => calls.push('close:' + f) };
+    new Function('ctx', 'with (ctx) { ' + pop + '; pshTopicPop(); }')(ctx); return calls.join(','); };
+  assert.equal(run({ psh: 1, pt: 'a' }, 'a'), 'show');
+  assert.equal(run({ psh: 2, pt: 'a' }, 'a'), '');
+  assert.equal(run({ psh: 2, pt: 'old' }, 'a'), 'close:true', '옛 판의 카드 기록');
+  assert.equal(run({ psh: 1 }, 'a'), 'close:true', '표식 없는 옛 기록');
+  assert.equal(run(null, 'a'), 'close:true');
+  const close = fnSrc('prayShareClose');
+  assert.ok(close.includes('pshState.ctopic && st.pt !== pshState.ptok ? 1 : (Number(st.psh) || 1)'), '표식이 다르면 하나만 되돌린다');
+  assert.ok(fnSrc('pshTopicBack').includes('st.psh === 2 && st.pt === pshState.ptok'), '「‹ 다른 카드」도 이 판의 기록일 때만 되돌린다');
+  const g = fnSrc('pshTapGuard');
+  const ev = () => { const e = { n: 0, stopImmediatePropagation() { this.n++; }, preventDefault() { this.n++; } }; return e; };
+  const guard = (at, now) => { const e = ev(); new Function('ctx', 'with (ctx) { ' + g + '; pshTapGuard(e); }')({ pshState: { cswAt: at }, PSH_TAP_GUARD_MS: 450, Date: { now: () => now }, e }); return e.n; };
+  assert.equal(guard(1000, 1200), 2, '0.2초 뒤 누름은 버린다');
+  assert.equal(guard(1000, 1500), 0, '0.5초 뒤 누름은 그대로');
+  for (const f of ['pshTopicShow', 'pshTopicPick', 'pshTopicsUpdate']) assert.ok(fnSrc(f).includes('pshState.cswAt = Date.now();'), f + ' 가 바뀐 때를 적는다');
 });

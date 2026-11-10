@@ -1901,8 +1901,9 @@ function prayShareClose(fromPop) {
     //   「‹ 다른 카드」가 하나를 되돌리는 중(cback)이면 그만큼 덜 되돌린다(더 되돌리면 앱 앞 화면으로 넘어간다)
     if (!fromPop && w) {
       try {
-        if (history.state && history.state.psh) {
-          const n = (Number(history.state.psh) || 1) - (pshState.cback ? 1 : 0);
+        const st = history.state;
+        if (st && st.psh) {
+          const n = (pshState.ctopic && st.pt !== pshState.ptok ? 1 : (Number(st.psh) || 1)) - (pshState.cback ? 1 : 0);
           if (n > 1) history.go(-n); else if (n === 1) history.back();
         }
       } catch (e) {}
@@ -2033,22 +2034,33 @@ function openCardTopics(sunOn, cfg) {
   const wrap = document.createElement("div");
   wrap.className = "psh-dim"; wrap.id = "psh";
   pshTopicsFill(wrap);
+  pshState.cswAt = Date.now();   // 첫 화면 💌 를 두 번 눌러도 두 번째가 주제 줄에 닿지 않게
   document.body.appendChild(wrap);
   document.body.classList.add("psh-on");
   requestAnimationFrame(() => wrap.classList.add("show"));
+  wrap.addEventListener("click", pshTapGuard, true);   // 판이 바뀐 직후의 누름은 버린다(두 번 누름이 바뀐 판에 닿는다 · 2026-11-10 검토) — 바깥 누름 손잡이보다 먼저 단다
   wrap.addEventListener("click", (e) => { if (e.target === wrap) prayShareClose(); });   // 바깥 누름 — 두 쪽 모두 통째로 닫는다(덮개는 쪽을 바꿔도 그대로라 한 번만 단다)
   pshState.esc = (e) => { if (e.key === "Escape") prayShareClose(); };
   document.addEventListener("keydown", pshState.esc);
-  try { history.pushState({ psh: 1 }, ""); } catch (e) {}   // 안드로이드 「뒤로 가기」로 닫히게
+  // 기록 표식(pt) — 이 판을 열 때마다 새 값. 앱이 꺼졌다 다시 열리면(카톡에 다녀오는 사이 안드로이드가 정리) 옛 { psh } 기록이 아래에 남는다 —
+  //   표식이 다른 기록은 이 판 것이 아니라 닫는다(안 그러면 뒤로 가기가 두세 번 헛돈다 · 2026-11-10 검토)
+  pshState.ptok = String(Date.now()) + "-" + String(Math.random()).slice(2, 8);
+  try { history.pushState({ psh: 1, pt: pshState.ptok }, ""); } catch (e) {}   // 안드로이드 「뒤로 가기」로 닫히게
   pshState.pop = pshTopicPop;
   window.addEventListener("popstate", pshState.pop);
 }
 // 뒤로 가기(popstate) — psh: 1 로 돌아왔으면 카드 판 → 주제 고르기 · 기록이 아직 우리 것(psh: 2 — 앞으로 가기)이면 그대로 · 그 밖은 닫힘
+// 판(주제 ↔ 카드 · 목록 다시 그림)이 바뀐 뒤 0.45초 안의 누름은 버린다 — 첫 누름의 두 번째 손가락이 새 판의 말씀 · 배경 · 바깥(닫힘)에 닿지 않게
+const PSH_TAP_GUARD_MS = 450;
+function pshTapGuard(e) {
+  if (Date.now() - (pshState.cswAt || 0) < PSH_TAP_GUARD_MS) { e.stopImmediatePropagation(); e.preventDefault(); }
+}
 function pshTopicPop() {
   let st = null;
   try { st = history.state; } catch (e) {}
-  if (pshState.ctopic && st && st.psh === 1) { pshTopicShow(); return; }
-  if (pshState.ctopic && st && st.psh) return;
+  const mine = !!(pshState.ctopic && st && st.psh && st.pt === pshState.ptok);   // 이 판이 쌓은 기록인가(옛 판이 남긴 기록이면 닫는다)
+  if (mine && st.psh === 1) { pshTopicShow(); return; }
+  if (mine) return;   // 앞으로 가기로 이 판의 psh: 2 에 왔다 — 그대로
   prayShareClose(true);
 }
 // 「‹ 다른 카드」 — 뒤로 가기와 한 길(쌓은 psh: 2 를 되돌리고 popstate 가 쪽을 바꾼다 · 기록이 남지 않는다) · 기록을 못 쌓은 브라우저면 바로 바꾼다
@@ -2056,7 +2068,7 @@ function pshTopicBack() {
   if (!pshState.ctopic || pshState.cview !== "card" || pshState.cback) return;   // 두 번 누름 — 되돌리는 중
   let st = null;
   try { st = history.state; } catch (e) {}
-  if (st && st.psh === 2) {
+  if (st && st.psh === 2 && st.pt === pshState.ptok) {
     pshState.cback = true;
     try { history.back(); return; } catch (e) { pshState.cback = false; }
   }
@@ -2073,6 +2085,7 @@ function pshTopicShow() {
   if (pshState.url) { try { URL.revokeObjectURL(pshState.url); } catch (e) {} pshState.url = null; }
   pshState.blob = null; pshState.kakaoReady = ""; pshState.kakaoBusy = null; clearTimeout(pshState.kakaoT);
   pshTopicsFill(w);
+  pshState.cswAt = Date.now();
 }
 // 주제를 골랐다 — 같은 덮개 안에서 그 카드 판으로(pshOpen 의 into) · 고른 말씀 · 배경 · ✓ 는 카드마다(pshCardUse) · 그 카드의 판 열기를 남긴다(pshOpen)
 function pshTopicPick(key) {
@@ -2080,7 +2093,8 @@ function pshTopicPick(key) {
   if (!w || !pshState.ctopic || pshState.cview !== "topics" || !set || !(set.entries || []).length) return;   // 두 번 누름 — 이미 카드 판으로 바뀌었다
   pshState.cview = "card"; pshState.clast = key;
   pshCardUse(key); pshCardPrep(set);
-  try { history.pushState({ psh: 2 }, ""); } catch (e) {}   // 「뒤로 가기」는 주제 고르기로 — 누른 탭 안에서 쌓는다
+  try { history.pushState({ psh: 2, pt: pshState.ptok }, ""); } catch (e) {}   // 「뒤로 가기」는 주제 고르기로 — 누른 탭 안에서 쌓는다
+  pshState.cswAt = Date.now();   // 바뀐 판에 두 번째 누름이 닿지 않게(pshTapGuard)
   pshOpen(pshTopicTitle(key), false, "", "card", { into: w });
 }
 // 카드 판 제목 — 수험생 카드는 기간(csun)이 끝나면 「🎓 시험·취업 응원기도카드」(친구 11/07 — 취업 준비하는 분께도) · 그 밖은 cardTitle
@@ -2127,6 +2141,7 @@ function pshTopicsUpdate(cfg) {
   if (JSON.stringify(g) === before) return;
   box.innerHTML = pshTopicListHtml(g);
   pshTopicImgs(box);
+  pshState.cswAt = Date.now();   // 줄이 밀렸다 — 그 순간의 누름이 다른 카드를 열지 않게
 }
 // 열 때 — 말씀(고른 것 · 없으면 날짜에 맞춘 편) · 배경(직접 고른 것 · 없으면 그 말씀의 것) · 짜임 · 본문을 맞춘다
 function pshCardPrep(set) {
