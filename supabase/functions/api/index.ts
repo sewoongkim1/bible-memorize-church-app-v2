@@ -3001,17 +3001,21 @@ async function login(b: any) {
 // ---------- app_config: 관리자가 배포 없이 편집하는 설정(키-값) ----------
 // 공개로 읽어도 되는 키만 화이트리스트로 허용(임의 키 노출 방지).
 const PUBLIC_CONFIG_KEYS = new Set(["heartMessages", "dailyMessage", "introSlides", "milestoneMessages", "passagesPublic", "psalmPublic", "songPublic", "event", "ministry", "eduOpen", "dutyOpen", "errorLogOn", "naviPublic", "cardSeasons"]);
+const STRICT_CONFIG_KEYS = new Set(["cardSeasons"]);   // 읽기 오류를 null 로 뭉개지 않는 키(getConfig) — 담당자 화면이 읽은 값 위에 덮어쓰는 키
 
 async function getConfig(b: any) {
   const key = String(b.key || "");
   // 관리자 전용 설정은 비번이 맞을 때만 읽힌다(틀리면 「없는 키」와 같은 답 — 있다는 것도 안 알린다)
   if (ADMIN_CONFIG_KEYS.has(key) ? !!adminError(b) : !PUBLIC_CONFIG_KEYS.has(key)) return { ok: false, error: "허용되지 않은 키" };
   // 테이블 미생성(마이그레이션 전)이어도 앱이 안 깨지게 조용히 null 반환
+  //   ⚠️ STRICT_CONFIG_KEYS 는 읽기 오류를 ok:false 로 알린다 — 교회 어드민이 null(없음)을 믿고 그 위에 한 칸만 써서
+  //      다른 칸을 지우지 않게(💌 말씀카드 기간 cardSeasons · 2026-11-10 검토). 앱도 ok:false 를 「모름」으로 본다.
+  const strict = STRICT_CONFIG_KEYS.has(key);
   try {
     const { data, error } = await db.from("app_config").select("value").eq("key", key).maybeSingle();
-    if (error) return { ok: true, value: null };
+    if (error) return strict ? { ok: false, error: "server" } : { ok: true, value: null };
     return { ok: true, value: data?.value ?? null };
-  } catch { return { ok: true, value: null }; }
+  } catch { return strict ? { ok: false, error: "server" } : { ok: true, value: null }; }
 }
 
 async function saveConfig(b: any) {
