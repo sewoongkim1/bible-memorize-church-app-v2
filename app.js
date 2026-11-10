@@ -3907,9 +3907,13 @@ function renderSummary() {
   loadEventState();     // 서버에서 설정·응모여부 갱신 후 다시 표시
   document.getElementById("open-board").addEventListener("click", renderBoard);
   // 💌 축복기도 말씀카드 — 판은 누를 때 받는다(js/pray-share.js) · 맨 위에서 카드를 고른다(openCardPick · 수험생 카드는 기간 안에만 맨 앞) · 두 번 눌러도 판은 하나
+  //   💌 주제 고르기(문 cardTopicsVisible · 🧪 먼저) — 주제를 고르면 그 카드 판 · 철마다 기간은 둔 값으로 바로 그리고 서버 값은 오면 고친다(옛 pray-share.js 면 지금 판으로)
   { const b = document.getElementById("open-cards");   // 문(cardMoreVisible) 밖에는 없다
     if (b) b.addEventListener("click", () => { markFeatSeen("cards"); scRemoveBadge("open-cards"); withLazyJs("prayShare", () => {
-      if (typeof openCardPick === "function") openCardPick(cardSuneungOn());
+      if (cardTopicsVisible() && typeof openCardTopics === "function") {
+        openCardTopics(cardSuneungOn(), cardSeasonsCached());
+        refreshCardSeasons((v) => { if (typeof pshTopicsUpdate === "function") pshTopicsUpdate(v); });
+      } else if (typeof openCardPick === "function") openCardPick(cardSuneungOn());
       else appAlert(typeof openPrayShare === "function" ? "앱이 새 판으로 바뀌었어요. 앱을 껐다가 다시 열어 주세요." : "보내기 화면을 아직 못 불러왔어요. 잠시 뒤 다시 눌러 주세요.");
     }); }); }
   document.getElementById("open-prayer").addEventListener("click", () => openPrayerBook());   // 화면 코드는 누를 때 받는다(js/prayer.js)
@@ -4176,6 +4180,25 @@ function cardSuneungOn() { return cardShareVisible() && todayYmd() <= CARD_SUNEU
 //   ⚠️ 이름은 옛 파일에 없던 것(CDN 옛 파일과 「이미 선언됨」 — prayer-book.md) · 모두에게 열 때는 true 한 줄 + bump(게시판 공지 = 문 열기).
 const CARD_MORE_OPEN = true;   // 2026-11-08 모두에게 열었다(친구 「모두 오픈해주세요」 · 11-07 은 🧪 시험 참여자 먼저) · 닫으려면 false 한 줄 + bump
 function cardMoreVisible() { return CARD_MORE_OPEN || (typeof ministryTesterCached === "function" && ministryTesterCached()); }
+// 💌 주제 고르기(2026-11-10 친구 「축복기도 말씀카드를 누르면 주제 고르기 → 그 카드 판」 · 철마다 카드 성탄 · 송구영신·새해 — js/pray-share.js openCardTopics) — 먼저 🧪 시험 참여자에게만.
+//   문 밖에서는 지금 판 그대로(openCardPick — 판 맨 위 카드 고르기 칸 · 철마다 카드 없음). 모두에게 열 때는 true 한 줄 + bump(docs/notes/occasion-card.md 끝 절).
+const CARD_TOPICS_OPEN = false;
+function cardTopicsVisible() { return CARD_TOPICS_OPEN || (typeof ministryTesterCached === "function" && ministryTesterCached()); }
+// 철마다 카드의 개시 기간 — 교회 어드민이 app_config cardSeasons 에 적는다({ christmas: { from, to }, newyear: { … } } · 한국 날짜 · 두 끝 모두 든다).
+//   주제 고르기를 열 때 받아(기다리지 않는다) 이 폰에 둔다 · 판은 둔 값 → 없으면 자료의 기본 기간(CARD_SETS.<키>.season)으로 바로 그린다.
+//   모름(통신 · ok:false · 옛 서버 「허용되지 않은 키」 · 빈 값)은 둔 값을 그대로 — 「닫힘」으로 보지 않는다(gate-three-states).
+const CARD_SEASONS_KEY = "card-seasons";
+function cardSeasonsCached() {
+  try { const v = JSON.parse(localStorage.getItem(CARD_SEASONS_KEY) || "null"); return v && typeof v === "object" && !Array.isArray(v) ? v : null; } catch (e) { return null; }
+}
+function refreshCardSeasons(then) {
+  if (!window.api || !api.getConfig) return;
+  api.getConfig("cardSeasons").then((d) => {
+    if (!(d && d.ok && d.value && typeof d.value === "object")) return;
+    try { localStorage.setItem(CARD_SEASONS_KEY, JSON.stringify(d.value)); } catch (e) {}
+    if (then) then(d.value);
+  }).catch(() => {});
+}
 // 첫 화면 아이콘 = 카카오톡 말풍선(친구 2026-11-05 「첫화면 아이콘을 카카오톡 아이콘으로」 — 판의 노란 「카카오톡으로 보내기」와 같은 꼴 · 노란 동그라미는 style.css)
 const KAKAO_TALK_IC = '<svg class="wsi-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 3.5c-5.25 0-9.5 3.33-9.5 7.44 0 2.66 1.78 4.99 4.46 6.31-.15.52-.94 3.27-.97 3.49 0 0-.02.16.09.22.1.06.23.01.23.01.3-.04 3.5-2.29 4.05-2.68.53.08 1.08.12 1.64.12 5.25 0 9.5-3.33 9.5-7.44S17.25 3.5 12 3.5z"/></svg>';
 // 「🙏 오늘의 기도」 전용 팝업 — 위젯과 같은 편(제목·말씀·기도문). 이름 자리는 **로그인 이름**으로 채운다
@@ -10696,7 +10719,9 @@ const MANUAL = [
     icon: "🙏", title: "가정 축복 기도문",
     lead: "날마다 한 편, 내 이름이 들어간 기도문이에요.",
     art: '<div class="mn-row"><span class="mn-btn mn-btn-on">🔊 들려주기</span><span class="mn-btn">🙍 이름</span></div>',
-    get steps() {   // 문 · 기간은 설명서를 펼 때 본다(🎓 cardSuneungOn · 💌 cardMoreVisible — 앱을 켠 뒤 🧪 시험 참여자가 되거나 12/11 이 지나도 맞게)
+    get steps() {   // 문 · 기간은 설명서를 펼 때 본다(🎓 cardSuneungOn · 💌 cardMoreVisible · cardTopicsVisible — 앱을 켠 뒤 🧪 시험 참여자가 되거나 12/11 이 지나도 맞게)
+      const cardOld = cardMoreVisible() && !cardTopicsVisible(), cardTopics = cardMoreVisible() && cardTopicsVisible();   // 💌 지금 판(카드 고르기 칸) | 주제 고르기(2026-11-10 · 🧪 먼저)
+      const cardAt = HOME_LAYOUT === "a" ? "첫 화면 <b>「새 소식」</b> 맨 위" : "첫 화면 <b>「함께」</b> 맨 위";
       return [
       "첫 화면 <b>「함께」</b>에서 <b>🙏 가정 축복 기도문</b>을 누르세요.",
       "<b>오늘의 기도문</b> 한 편이 <b>내 이름</b>을 넣어 나와요.",
@@ -10704,9 +10729,11 @@ const MANUAL = [
       "가족을 위해 기도하시려면 이름이 적힌 <b>🙍</b> 단추를 눌러 이름을 바꾸세요.",
       "기도문 아래 금색 <b>카톡·문자로 보내기</b>를 누르면, 이름을 넣은 기도문을 <b>그림 한 장</b>으로 카카오톡이나 문자로 보낼 수 있어요.",
       // 💌 축복기도 말씀카드가 보이는 동안만(cardMoreVisible — 🧪 시험 참여자 먼저 · 모두에게 열면 그대로) · 자리는 첫 화면 꼴로(A안 「새 소식」 맨 위 · 옛 첫 화면 「함께」 맨 위)
-      ...(cardMoreVisible() ? [(HOME_LAYOUT === "a" ? "첫 화면 <b>「새 소식」</b> 맨 위" : "첫 화면 <b>「함께」</b> 맨 위") + "의 <b>💌 축복기도 말씀카드</b>에서 생일 · 결혼기념일 · 새 출발 · 위로 · 병문안 카드를 이름을 넣어 <b>그림 한 장</b>으로 보낼 수 있어요."] : []),
-      // 🎓 수험생 카드는 💌 판 안에서만(12/11 까지 · cardSuneungOn — 지난 카드를 가리키지 않게 · 💌 가 닫혀 있으면 들어갈 길이 없다)
-      ...(cardMoreVisible() && cardSuneungOn() ? ["수능을 앞둔 학생에게는 <b>💌 축복기도 말씀카드</b> 맨 위 카드 고르기의 <b>🎓 수험생</b>으로, 이름을 넣은 응원 기도를 <b>그림 한 장</b>으로 보낼 수 있어요(12월 11일까지)."] : []),
+      ...(cardOld ? [cardAt + "의 <b>💌 축복기도 말씀카드</b>에서 생일 · 결혼기념일 · 새 출발 · 위로 · 병문안 카드를 이름을 넣어 <b>그림 한 장</b>으로 보낼 수 있어요."] : []),
+      // 💌 주제 고르기 — 카드를 고른 뒤 말씀 · 배경(성탄 · 새해 · 수험생처럼 때가 있는 카드는 그 기간에만 「지금 이때」에 — 날마다 참이게 「그 기간에만」으로 쓴다)
+      ...(cardTopics ? [cardAt + "의 <b>💌 축복기도 말씀카드</b>에서 보낼 카드(생일 · 위로 · 병문안 …)를 고른 뒤, 말씀과 배경을 골라 이름을 넣은 <b>그림 한 장</b>으로 보낼 수 있어요. 성탄처럼 때가 있는 카드는 그 기간에만 맨 위 <b>「지금 이때」</b>에 나와요."] : []),
+      // 🎓 수험생 카드는 💌 판 안에서만(12/11 까지 · cardSuneungOn — 지난 카드를 가리키지 않게 · 💌 가 닫혀 있으면 들어갈 길이 없다) · 주제 고르기에서는 「지금 이때」(위 걸음)
+      ...(cardOld && cardSuneungOn() ? ["수능을 앞둔 학생에게는 <b>💌 축복기도 말씀카드</b> 맨 위 카드 고르기의 <b>🎓 수험생</b>으로, 이름을 넣은 응원 기도를 <b>그림 한 장</b>으로 보낼 수 있어요(12월 11일까지)."] : []),
       "아래 <b>주제로 찾기</b>에서 다른 기도문도 고를 수 있어요.",
       ];
     },

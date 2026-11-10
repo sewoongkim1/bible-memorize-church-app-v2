@@ -121,13 +121,15 @@ test('💌 축복기도 말씀카드(친구 2026-11-07 「늘 쓰는 축하, 위
   assert.ok(!groups.some((g) => g.ids.includes('open-cards')), 'A안 — 「함께」 같은 다른 묶음에 두 번 들어 있다');
   assert.equal(RS.split('id="open-cards"').length - 1, 1, '옛 첫 화면에 💌 단추가 두 번 있다');
   assert.match(APP, /"open-cards": "mail"/); assert.match(APP, /\n  mail: "M[^"]+",/, '편지 아이콘');
-  assert.match(APP, /const b = document\.getElementById\("open-cards"\);[^\n]*\n\s*if \(b\) b\.addEventListener\("click", \(\) => \{ markFeatSeen\("cards"\); scRemoveBadge\("open-cards"\); withLazyJs\("prayShare", \(\) => \{\n\s*if \(typeof openCardPick === "function"\) openCardPick\(cardSuneungOn\(\)\);\n\s*else appAlert\(typeof openPrayShare === "function" \? "앱이 새 판으로 바뀌었어요\. 앱을 껐다가 다시 열어 주세요\." : /,
-    '단추 — js/pray-share.js 를 받아 openCardPick(수험생은 기간 안에만 맨 앞) · 옛 파일이면 껐다 켜기 안내');
+  assert.match(APP, /const b = document\.getElementById\("open-cards"\);[^\n]*\n\s*if \(b\) b\.addEventListener\("click", \(\) => \{ markFeatSeen\("cards"\); scRemoveBadge\("open-cards"\); withLazyJs\("prayShare", \(\) => \{\n\s*if \(cardTopicsVisible\(\) && typeof openCardTopics === "function"\) \{\n\s*openCardTopics\(cardSuneungOn\(\), cardSeasonsCached\(\)\);\n\s*refreshCardSeasons\([^\n]*\n\s*\} else if \(typeof openCardPick === "function"\) openCardPick\(cardSuneungOn\(\)\);\n\s*else appAlert\(typeof openPrayShare === "function" \? "앱이 새 판으로 바뀌었어요\. 앱을 껐다가 다시 열어 주세요\." : /,
+    '단추 — js/pray-share.js 를 받아 주제 고르기(문 안 · 2026-11-10) 아니면 openCardPick(수험생은 기간 안에만 맨 앞) · 옛 파일이면 껐다 켜기 안내');
   const a = APP.indexOf('icon: "🙏", title: "가정 축복 기도문"'), man = APP.slice(a, APP.indexOf('tip:', a));
   assert.ok(a > 0 && /get steps\(\) \{/.test(man), '설명서 — 문 · 기간은 펼 때 본다(getter)');
-  assert.ok(man.includes('...(cardMoreVisible() ? [(HOME_LAYOUT === "a" ? "첫 화면 <b>「새 소식」</b> 맨 위" : "첫 화면 <b>「함께」</b> 맨 위") + "의 <b>💌 축복기도 말씀카드</b>에서 생일 · 결혼기념일 · 새 출발 · 위로 · 병문안 카드를 이름을 넣어 <b>그림 한 장</b>으로 보낼 수 있어요."] : []),'), '설명서 「가정 축복 기도문」 장 — 💌 걸음(문 안에만 · 자리는 첫 화면 꼴로)');
-  assert.ok(man.includes('...(cardMoreVisible() && cardSuneungOn() ? ["수능을 앞둔 학생에게는 <b>💌 축복기도 말씀카드</b> 맨 위 카드 고르기의 <b>🎓 수험생</b>으로, 이름을 넣은 응원 기도를 <b>그림 한 장</b>으로 보낼 수 있어요(12월 11일까지)."] : []),'), '설명서 — 🎓 는 💌 판 안에서(둘 다 참일 때만)');
-  assert.ok(man.indexOf('cardMoreVisible() && cardSuneungOn()') > man.indexOf('cardMoreVisible() ? ['), '수험생 걸음은 💌 걸음 아래');
+  assert.ok(man.includes('const cardOld = cardMoreVisible() && !cardTopicsVisible(), cardTopics = cardMoreVisible() && cardTopicsVisible();') && man.includes('const cardAt = HOME_LAYOUT === "a" ? "첫 화면 <b>「새 소식」</b> 맨 위" : "첫 화면 <b>「함께」</b> 맨 위";'), '설명서 — 💌 지금 판 | 주제 고르기(2026-11-10) · 자리는 첫 화면 꼴로');
+  assert.ok(man.includes('...(cardOld ? [cardAt + "의 <b>💌 축복기도 말씀카드</b>에서 생일 · 결혼기념일 · 새 출발 · 위로 · 병문안 카드를 이름을 넣어 <b>그림 한 장</b>으로 보낼 수 있어요."] : []),'), '설명서 「가정 축복 기도문」 장 — 💌 걸음(문 안에만 · 지금 판)');
+  assert.ok(man.includes('...(cardTopics ? [cardAt + "의 <b>💌 축복기도 말씀카드</b>에서 보낼 카드(생일 · 위로 · 병문안 …)를 고른 뒤, 말씀과 배경을 골라 이름을 넣은 <b>그림 한 장</b>으로 보낼 수 있어요. 성탄처럼 때가 있는 카드는 그 기간에만 맨 위 <b>「지금 이때」</b>에 나와요."] : []),'), '설명서 — 주제 고르기 한 걸음(문 안 · 철마다 카드는 「그 기간에만」이라 날마다 참)');
+  assert.ok(man.includes('...(cardOld && cardSuneungOn() ? ["수능을 앞둔 학생에게는 <b>💌 축복기도 말씀카드</b> 맨 위 카드 고르기의 <b>🎓 수험생</b>으로, 이름을 넣은 응원 기도를 <b>그림 한 장</b>으로 보낼 수 있어요(12월 11일까지)."] : []),'), '설명서 — 🎓 는 💌 판 안에서(둘 다 참일 때만)');
+  assert.ok(man.indexOf('cardOld && cardSuneungOn()') > man.indexOf('...(cardOld ? ['), '수험생 걸음은 💌 걸음 아래(지금 판 · 주제 고르기에서는 「지금 이때」에 있어 따로 안 쓴다)');
   assert.ok(!man.includes('🎓 수험생 응원기도카드</b>로'), '설명서가 걷은 🎓 단추를 가리킨다');
   const others = ['js/pray-share.js', 'js/prayer.js'].map((f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')).join('\n');
   for (const nm of ['CARD_MORE_OPEN', 'cardMoreVisible']) assert.ok(!new RegExp('(const|let|var|function) ' + nm + '\\b').test(others), nm + ' 를 다른 화면 파일이 선언한다');

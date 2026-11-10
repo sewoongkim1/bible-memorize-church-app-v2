@@ -1373,6 +1373,40 @@ function cardSharePlan(set, entry, name, styleKey, measure, body) {
     c.add([{ s: String(e.closing || ""), a: false }], size, 1.4, true, st.green, Math.round(size * 0.6), sans(800));
   });
 }
+// 💌 주제 고르기(2026-11-10 친구 「축복기도 말씀카드 → 주제 고르기 → 그 카드 판」) — 철마다 카드의 개시 기간 · 주제 목록(순수 — 시험이 날짜별로 본다)
+//   철마다 카드 = CARD_SETS 에 season 칸이 있는 카드(성탄 · 새해). 기간은 교회 어드민이 app_config cardSeasons 에 적는다 —
+//   꼴 { "christmas": { "from": "YYYY-MM-DD", "to": "YYYY-MM-DD" }, … }(한국 날짜 · 두 끝 모두 든다) · 칸이 없거나 틀린 꼴이면 자료의 기본 기간(season).
+//   서버 값을 모르면(통신 · 옛 서버) 저장해 둔 값 · 없으면 기본 기간 — 「모름」을 「닫힘」으로 보지 않는다(app.js cardSeasonsCached).
+const CARD_YMD = /^\d{4}-\d{2}-\d{2}$/;
+function cardSeasonWin(key, cfg) {
+  const c = cfg && typeof cfg === "object" ? cfg[key] : null;
+  if (c && typeof c === "object" && CARD_YMD.test(String(c.from)) && CARD_YMD.test(String(c.to)) && c.from <= c.to) return { from: c.from, to: c.to };
+  const d = (CARD_SETS[key] || {}).season;
+  return d && CARD_YMD.test(String(d.from)) && CARD_YMD.test(String(d.to)) && d.from <= d.to ? { from: d.from, to: d.to } : null;
+}
+// today = 한국 날짜 「YYYY-MM-DD」 — from ≤ today ≤ to 이면 열림
+function cardSeasonOn(key, today, cfg) { const w = cardSeasonWin(key, cfg); return !!w && w.from <= today && today <= w.to; }
+// 지금 한국 날짜(ms → 「YYYY-MM-DD」) — 폰 시간대와 상관없이
+function cardKstYmd(ms) { return new Date(Number(ms) + 9 * 3600e3).toISOString().slice(0, 10); }
+// 주제 줄 글 — [짧은 이름, 한 줄 풀이](친구 2026-11-10 문구 그대로) · 수험생은 기간이 끝나면 「시험·취업 준비」(친구 11/07 — 글에 「수능」이 없어 취업 준비하는 분께도 쓴다)
+const CARD_TOPIC_TEXT = {
+  suneung: ["수험생", "수능 · 시험 · 취업을 준비하는 분께"], birthday: ["생일", "생일을 맞은 분께"], wedding: ["결혼기념일", "결혼기념일을 맞은 부부께"],
+  newstart: ["새 출발", "입학 · 졸업 · 첫 출근 — 새 길에 선 분께"], comfort: ["위로", "슬픔 중에 있는 분 · 상을 당한 가정께"], healing: ["병문안", "입원 · 수술 · 투병 중인 분과 가족께"],
+  christmas: ["성탄", "성탄의 기쁨을 함께 나눌 분께"], newyear: ["송구영신 · 새해", "한 해를 보내고 새해를 맞는 분께"],
+};
+const CARD_ALWAYS = ["birthday", "wedding", "newstart", "comfort", "healing"];   // 「늘 쓰는 카드」 차례
+function cardTopicName(key, sunOn) { return key === "suneung" && !sunOn ? "시험·취업 준비" : (CARD_TOPIC_TEXT[key] || [String((CARD_SETS[key] || {}).label || key)])[0]; }
+// 주제 목록 — now 「지금 이때」(수험생은 sunOn(app.js cardSuneungOn) 동안 맨 앞 — 11/07 에 열려 철마다 카드보다 먼저 · 그 뒤 철마다 카드는 기간 시작 차례) ·
+//   always 「늘 쓰는 카드」(다섯 + 수험생 기간이 끝나면 「시험·취업 준비」로 맨 끝 — 기간 안에는 「지금 이때」에만) · 말씀이 없는 카드는 뺀다
+function cardTopicGroups(today, cfg, sunOn) {
+  const ok = (k) => !!(CARD_SETS[k] && (CARD_SETS[k].entries || []).length);
+  const now = Object.keys(CARD_SETS).filter((k) => CARD_SETS[k].season && ok(k) && cardSeasonOn(k, today, cfg))
+    .sort((a, b) => { const x = cardSeasonWin(a, cfg).from, y = cardSeasonWin(b, cfg).from; return x < y ? -1 : x > y ? 1 : 0; });
+  if (sunOn && ok("suneung")) now.unshift("suneung");
+  const always = CARD_ALWAYS.filter(ok);
+  if (!sunOn && ok("suneung")) always.push("suneung");
+  return { now, always };
+}
 // ── 기도문 그림 — 순수 (여기까지) ──
 
 // ── 그리기 ──
@@ -1596,8 +1630,10 @@ function pshDraw(doc, choice, leafNo) {
 //   cfor 지금 말씀을 골라 둔 받는 사람(cardSentName — 이름 칸이 다른 사람이 되면 그 사람 기준으로 다시 고른다 · pshCardName)
 // 💌 cset 위 고른 것(cnoPick · ckey · cpick)이 어느 카드 것인가 · cmem 카드마다 맡겨 둔 고른 것(다른 카드로 바꾸면 맡겼다가 돌아오면 꺼낸다 — pshCardUse) ·
 //   cmenu 판 맨 위 카드 고르기 칸의 카드들(빈 배열 = 「새 소식」 🎓 처럼 한 카드로 바로 연 판) · clast 고르기 칸에서 마지막으로 고른 카드(앱을 쓰는 동안)
+// 💌 주제 고르기(2026-11-10 · openCardTopics) — ctopic 주제 고르기로 연 판 · cview 지금 보이는 쪽("topics" | "card") · csun 수험생 기간(app.js cardSuneungOn) ·
+//   ccfg 철마다 기간(app_config cardSeasons — 모르면 null) · cback 「‹ 다른 카드」가 history.back 을 보내 놓고 popstate 를 기다리는 중
 const pshState = { gen: 0, blob: null, url: null, key: "night", vkey: "", leaf: 1, b: null, name: "", med: null, verse: null,
-                   card: "", cname: "", cbody: "pray", cno: 0, cnoPick: 0, clay: "out", ckey: "", cpick: false, cfor: "", cset: "", cmem: {}, cmenu: [], clast: "", file: "", timer: null, pop: null, esc: null, noLog: false, sharing: false, withLink: true, linkNext: false,
+                   card: "", cname: "", cbody: "pray", cno: 0, cnoPick: 0, clay: "out", ckey: "", cpick: false, cfor: "", cset: "", cmem: {}, cmenu: [], clast: "", ctopic: false, cview: "", csun: false, ccfg: null, cback: false, file: "", timer: null, pop: null, esc: null, noLog: false, sharing: false, withLink: true, linkNext: false,
                    kakaoUp: {}, kakaoReady: "", kakaoBusy: null, kakaoT: 0 };
 const PSH_TITLE_PRAY = "📤 가정 축복 기도문 보내기", PSH_TITLE_MED = "📤 오늘의 묵상 보내기";
 const PSH_TITLE_VERSE = "📤 이번 주 말씀 보내기";
@@ -1855,8 +1891,18 @@ function prayShareClose(fromPop) {
   if (pshState.pop) {
     window.removeEventListener("popstate", pshState.pop); pshState.pop = null;
     // 뒤로 가기로 닫힌 것이 아니면 열 때 쌓은 기록을 되돌린다(안 그러면 뒤로 가기가 한 번 헛돈다 · prayFullClose 와 같다)
-    if (!fromPop && w) { try { if (history.state && history.state.psh) history.back(); } catch (e) {} }
+    //   💌 주제 고르기에서 카드를 고른 판은 기록이 둘(psh: 2 — pshTopicPick) — 둘 다 한 번에(history.go 한 번 = popstate 한 번) ·
+    //   「‹ 다른 카드」가 하나를 되돌리는 중(cback)이면 그만큼 덜 되돌린다(더 되돌리면 앱 앞 화면으로 넘어간다)
+    if (!fromPop && w) {
+      try {
+        if (history.state && history.state.psh) {
+          const n = (Number(history.state.psh) || 1) - (pshState.cback ? 1 : 0);
+          if (n > 1) history.go(-n); else if (n === 1) history.back();
+        }
+      } catch (e) {}
+    }
   }
+  pshState.ctopic = false; pshState.cview = ""; pshState.cback = false;   // 💌 주제 고르기 판 표식(다른 판이 열릴 때 남지 않게)
   if (pshState.url) { try { URL.revokeObjectURL(pshState.url); } catch (e) {} pshState.url = null; }
   pshState.blob = null; pshState.kakaoReady = ""; pshState.kakaoBusy = null; clearTimeout(pshState.kakaoT);   // 올린 그림 주소(kakaoUp)는 남긴다 — 다시 열어 같은 그림이면 또 올리지 않게
   document.body.classList.remove("psh-on");
@@ -1957,6 +2003,116 @@ function pshCardSwap(key) {
   pshThumbsWire(w);
   pshRedraw();
   pshLog("share-open", pshKind());   // 📊 고른 카드의 판 열기(종류 코드 = 그 카드 kind) — 바꾸기만 하고 안 보내도 「열기」는 남는다
+}
+// 💌 주제 고르기(2026-11-10 친구 「축복기도 말씀카드 → 주제 고르기 → 그 카드 판(이름 · 말씀 · 배경)」 · 문은 app.js CARD_TOPICS_OPEN · 🧪 먼저) ─────────
+//   덮개 하나에 두 쪽 — 주제 고르기(cview "topics") ↔ 카드 판(cview "card" · 판 맨 위 「‹ 다른 카드」 · 카드 고르기 칸 없음). 쪽을 바꿀 때 덮개를 닫고 다시 열지 않는다
+//   (prayer-book.md 「두 번 누름」 — history.back 은 비동기라 늦게 온 popstate 가 새 판을 닫는다).
+//   기록(history): 주제 고르기를 열 때 { psh: 1 } · 카드를 고를 때 { psh: 2 } — 둘 다 누른 탭 안에서 쌓는다(popstate 안에서 다시 쌓으면 크롬이
+//   「탭 없이 쌓은 기록」으로 보고 뒤로 가기에서 건너뛸 수 있다). 뒤로 가기: 카드 판 → 주제 고르기(psh: 1 로 돌아온 popstate) → 닫힘(psh 없는 popstate).
+//   ✕ · 바깥 누름 · Esc 는 통째로 닫는다(prayShareClose 가 쌓은 기록 수만큼 되돌린다). 주제 고르기 쪽은 이용 기록을 남기지 않는다(카드 판을 열 때만 share-open).
+//   sunOn = app.js cardSuneungOn() · cfg = 철마다 기간(app.js cardSeasonsCached — 모르면 null → 자료의 기본 기간) · 서버 값은 나중에 pshTopicsUpdate 로 온다.
+function openCardTopics(sunOn, cfg) {
+  if (pshReuse("card")) return;   // 두 번 누름 — 열린 판 그대로(닫고 다시 열면 늦게 온 history.back 이 새 판을 닫는다)
+  prayShareClose();
+  pshState.b = null; pshState.med = null; pshState.verse = null; pshState.name = ""; pshState.cmenu = [];   // 카드 고르기 칸 없음 — 주제 고르기가 대신한다
+  pshState.ctopic = true; pshState.csun = !!sunOn; pshState.ccfg = cfg && typeof cfg === "object" ? cfg : null; pshState.noLog = false;
+  const wrap = document.createElement("div");
+  wrap.className = "psh-dim"; wrap.id = "psh";
+  pshTopicsFill(wrap);
+  document.body.appendChild(wrap);
+  document.body.classList.add("psh-on");
+  requestAnimationFrame(() => wrap.classList.add("show"));
+  wrap.addEventListener("click", (e) => { if (e.target === wrap) prayShareClose(); });   // 바깥 누름 — 두 쪽 모두 통째로 닫는다(덮개는 쪽을 바꿔도 그대로라 한 번만 단다)
+  pshState.esc = (e) => { if (e.key === "Escape") prayShareClose(); };
+  document.addEventListener("keydown", pshState.esc);
+  try { history.pushState({ psh: 1 }, ""); } catch (e) {}   // 안드로이드 「뒤로 가기」로 닫히게
+  pshState.pop = pshTopicPop;
+  window.addEventListener("popstate", pshState.pop);
+}
+// 뒤로 가기(popstate) — psh: 1 로 돌아왔으면 카드 판 → 주제 고르기 · 기록이 아직 우리 것(psh: 2 — 앞으로 가기)이면 그대로 · 그 밖은 닫힘
+function pshTopicPop() {
+  let st = null;
+  try { st = history.state; } catch (e) {}
+  if (pshState.ctopic && st && st.psh === 1) { pshTopicShow(); return; }
+  if (pshState.ctopic && st && st.psh) return;
+  prayShareClose(true);
+}
+// 「‹ 다른 카드」 — 뒤로 가기와 한 길(쌓은 psh: 2 를 되돌리고 popstate 가 쪽을 바꾼다 · 기록이 남지 않는다) · 기록을 못 쌓은 브라우저면 바로 바꾼다
+function pshTopicBack() {
+  if (!pshState.ctopic || pshState.cview !== "card" || pshState.cback) return;   // 두 번 누름 — 되돌리는 중
+  let st = null;
+  try { st = history.state; } catch (e) {}
+  if (st && st.psh === 2) {
+    pshState.cback = true;
+    try { history.back(); return; } catch (e) { pshState.cback = false; }
+  }
+  pshTopicShow();
+}
+// 주제 고르기 쪽으로 — 치던 이름은 들고 간다(다른 카드에서도 그대로 · pshCardSwap 과 같다) · 그리던 그림 · 늦춤 · 카카오 차례는 버린다(gen)
+function pshTopicShow() {
+  const w = document.getElementById("psh");
+  pshState.cback = false;
+  if (!w || !pshState.ctopic) return;
+  const ci = document.getElementById("psh-cname");
+  if (ci) pshState.cname = ci.value;
+  clearTimeout(pshState.timer); pshState.gen++;
+  if (pshState.url) { try { URL.revokeObjectURL(pshState.url); } catch (e) {} pshState.url = null; }
+  pshState.blob = null; pshState.kakaoReady = ""; pshState.kakaoBusy = null; clearTimeout(pshState.kakaoT);
+  pshTopicsFill(w);
+}
+// 주제를 골랐다 — 같은 덮개 안에서 그 카드 판으로(pshOpen 의 into) · 고른 말씀 · 배경 · ✓ 는 카드마다(pshCardUse) · 그 카드의 판 열기를 남긴다(pshOpen)
+function pshTopicPick(key) {
+  const w = document.getElementById("psh"), set = CARD_SETS[key];
+  if (!w || !pshState.ctopic || pshState.cview !== "topics" || !set || !(set.entries || []).length) return;   // 두 번 누름 — 이미 카드 판으로 바뀌었다
+  pshState.cview = "card"; pshState.clast = key;
+  pshCardUse(key); pshCardPrep(set);
+  try { history.pushState({ psh: 2 }, ""); } catch (e) {}   // 「뒤로 가기」는 주제 고르기로 — 누른 탭 안에서 쌓는다
+  pshOpen(pshTopicTitle(key), false, "", "card", { into: w });
+}
+// 카드 판 제목 — 수험생 카드는 기간(csun)이 끝나면 「🎓 시험·취업 응원기도카드」(친구 11/07 — 취업 준비하는 분께도) · 그 밖은 cardTitle
+function pshTopicTitle(key) { return key === "suneung" && !pshState.csun ? "🎓 시험·취업 응원기도카드" : cardTitle(CARD_SETS[key]); }
+const PSH_TOPIC_TITLE = "💌 축복기도 말씀카드", PSH_TOPIC_LEAD = "누구에게 보낼까요? 카드를 고르면 말씀과 배경을 고를 수 있어요.";
+function pshTopicGroupsNow() { return cardTopicGroups(cardKstYmd(Date.now()), pshState.ccfg, pshState.csun); }
+// 주제 목록 — 묶음 둘(「지금 이때」는 빈 날 없음) · 줄마다 작은 그림(그 카드의 첫 사진) · 아이콘 + 짧은 이름 · 한 줄 풀이 · ›
+function pshTopicListHtml(g) {
+  const row = (k) => {
+    const set = CARD_SETS[k], p = (set.photos || [])[0];
+    return `<button type="button" class="psh-tp" data-card="${prayEsc(k)}">` +
+      (p ? `<img class="psh-tp-im" src="img/share/${prayEsc(p.id)}-t.webp?v=${prayEsc(String(APP_BUILD))}" alt="">` : '<span class="psh-tp-im"></span>') +
+      `<span class="psh-tp-t"><b><span aria-hidden="true">${prayEsc(String(set.icon || ""))}</span> ${prayEsc(cardTopicName(k, pshState.csun))}</b>` +
+      `<span class="psh-tp-s">${prayEsc((CARD_TOPIC_TEXT[k] || ["", ""])[1])}</span></span><span class="psh-tp-go" aria-hidden="true">›</span></button>`;
+  };
+  const part = (id, label, ks) => (ks.length ? `<div class="psh-lbl" id="psh-tp-${id}">${label}</div><div class="psh-tp-list" role="group" aria-labelledby="psh-tp-${id}">${ks.map(row).join("")}</div>` : "");
+  return part("now", "지금 이때", g.now) + part("always", "늘 쓰는 카드", g.always);
+}
+// 못 받은 작은 그림은 숨긴다(자리는 남는다)
+function pshTopicImgs(box) { box.querySelectorAll(".psh-tp-im").forEach((im) => { im.onerror = () => { im.style.visibility = "hidden"; }; }); }
+// 덮개 안을 주제 고르기 쪽으로 채운다(처음 열 때 · 카드 판에서 돌아올 때)
+function pshTopicsFill(w) {
+  pshState.cview = "topics";
+  w.dataset.kind = "card";
+  w.innerHTML = `
+    <div class="psh-sheet psh-tp-sheet" role="dialog" aria-modal="true" aria-labelledby="psh-h">
+      <div class="psh-grab" aria-hidden="true"></div>
+      <div class="psh-top"><b id="psh-h">${prayEsc(PSH_TOPIC_TITLE)}</b><button type="button" class="psh-x" aria-label="닫기">✕</button></div>
+      <p class="psh-tp-lead">${prayEsc(PSH_TOPIC_LEAD)}</p>
+      <div id="psh-tp-box">${pshTopicListHtml(pshTopicGroupsNow())}</div>
+    </div>`;
+  w.querySelector(".psh-x").addEventListener("click", () => prayShareClose());
+  const box = w.querySelector("#psh-tp-box");
+  box.addEventListener("click", (e) => { const b = e.target && e.target.closest ? e.target.closest(".psh-tp") : null; if (b) pshTopicPick(b.dataset.card); });
+  pshTopicImgs(box);
+}
+// 서버에서 철마다 기간이 왔다(app.js refreshCardSeasons) — 기억해 두고 · 주제 고르기 쪽이 열려 있고 보이는 목록이 달라질 때만 목록을 다시 그린다
+function pshTopicsUpdate(cfg) {
+  const before = JSON.stringify(pshTopicGroupsNow());
+  pshState.ccfg = cfg && typeof cfg === "object" ? cfg : pshState.ccfg;
+  const box = document.getElementById("psh-tp-box");
+  if (!pshState.ctopic || pshState.cview !== "topics" || !box) return;
+  const g = pshTopicGroupsNow();
+  if (JSON.stringify(g) === before) return;
+  box.innerHTML = pshTopicListHtml(g);
+  pshTopicImgs(box);
 }
 // 열 때 — 말씀(고른 것 · 없으면 날짜에 맞춘 편) · 배경(직접 고른 것 · 없으면 그 말씀의 것) · 짜임 · 본문을 맞춘다
 function pshCardPrep(set) {
@@ -2149,11 +2305,15 @@ function pshOpen(title, withName, name, kind, opts) {
   const kakao = kind === "verse" && !!pshKakaoKey() && pshKakaoTalkDevice();   // 📖 카카오톡으로 보내기 — 말씀 판 · 키가 있고 · 카카오톡 앱으로 여는 기기만
   const choices = pshChoices();
   if (!choices.some((c) => c.key === pshKeyGet())) pshKeySet(choices[0].key);   // 처음엔 맨 왼쪽(밤하늘) · 이 화면을 쓰는 동안은 마지막에 고른 배경을 기억한다
-  const wrap = document.createElement("div");
-  wrap.className = "psh-dim"; wrap.id = "psh"; wrap.dataset.kind = kind || (withName ? "pray" : "med");
+  // 💌 opts.into = 주제 고르기에서 고른 카드(pshTopicPick) — 열린 덮개 안의 판 속만 카드 칸으로 바꾼다(덮개 · history 기록 · 바깥 누름 · Esc · popstate 받이는 주제 고르기가 단 것 그대로)
+  const into = opts && opts.into;
+  const wrap = into || document.createElement("div");
+  if (!into) { wrap.className = "psh-dim"; wrap.id = "psh"; }
+  wrap.dataset.kind = kind || (withName ? "pray" : "med");
   wrap.innerHTML = `
     <div class="psh-sheet" role="dialog" aria-modal="true" aria-labelledby="psh-h">
       <div class="psh-grab" aria-hidden="true"></div>
+      ${into ? '<button type="button" class="psh-tp-back" id="psh-tp-back">‹ 다른 카드</button>' : ""}
       <div class="psh-top"><b id="psh-h">${prayEsc(title)}</b><button type="button" class="psh-x" aria-label="닫기">✕</button></div>
       ${withName ? `<label class="psh-lbl" for="psh-name">누구를 위한 기도인가요?</label>
       <input id="psh-name" class="psh-name" type="text" maxlength="12" autocomplete="off">` : ""}
@@ -2166,9 +2326,11 @@ function pshOpen(title, withName, name, kind, opts) {
       <p class="psh-hint" id="psh-hint">${pshHintText(kind, kakao)}</p>
       <p class="psh-msg" id="psh-msg" role="status"></p>
     </div>`;
-  document.body.appendChild(wrap);
-  document.body.classList.add("psh-on");
-  requestAnimationFrame(() => wrap.classList.add("show"));
+  if (!into) {
+    document.body.appendChild(wrap);
+    document.body.classList.add("psh-on");
+    requestAnimationFrame(() => wrap.classList.add("show"));
+  }
   const inp = wrap.querySelector("#psh-name");
   if (inp) {
     inp.value = pshState.name === "우리 가정" && !String(name || "").trim() ? "" : pshState.name;   // 글자 그대로(속성에 넣지 않는다)
@@ -2181,7 +2343,9 @@ function pshOpen(title, withName, name, kind, opts) {
   pshThumbsWire(wrap);   // 배경 고르기
   if (kind === "card") { pshCardMenuWire(wrap); pshCardWire(wrap); }   // 💌 카드 고르기 · 🎓 이름 · 본문 · 말씀 · 짜임
   wrap.querySelector(".psh-x").addEventListener("click", () => prayShareClose());
-  wrap.addEventListener("click", (e) => { if (e.target === wrap) prayShareClose(); });
+  if (!into) wrap.addEventListener("click", (e) => { if (e.target === wrap) prayShareClose(); });
+  const tb = wrap.querySelector("#psh-tp-back");
+  if (tb) tb.addEventListener("click", pshTopicBack);   // 💌 ‹ 다른 카드 — 주제 고르기로(안드로이드 「뒤로 가기」와 같은 길)
   wrap.querySelector("#psh-send").addEventListener("click", pshSend);
   const kk = wrap.querySelector("#psh-kakao");
   if (kk) {
@@ -2193,11 +2357,13 @@ function pshOpen(title, withName, name, kind, opts) {
       const s = wrap.querySelector("#psh-send"); if (s) { s.hidden = false; if (!s.disabled) pshSendLabel(false); }   // 숨겨 둔 공유 창 단추를 꺼낸다
     });
   }
-  pshState.esc = (e) => { if (e.key === "Escape") prayShareClose(); };
-  document.addEventListener("keydown", pshState.esc);
-  try { history.pushState({ psh: 1 }, ""); } catch (e) {}   // 안드로이드 「뒤로 가기」로 닫히게
-  pshState.pop = () => prayShareClose(true);
-  window.addEventListener("popstate", pshState.pop);
+  if (!into) {
+    pshState.esc = (e) => { if (e.key === "Escape") prayShareClose(); };
+    document.addEventListener("keydown", pshState.esc);
+    try { history.pushState({ psh: 1 }, ""); } catch (e) {}   // 안드로이드 「뒤로 가기」로 닫히게
+    pshState.pop = () => prayShareClose(true);
+    window.addEventListener("popstate", pshState.pop);
+  }
   pshRedraw();
   pshLog("share-open", pshKind());   // 📊 새 판만 — 다시 쓰는 판은 여는 쪽(pshReuse)에서 돌아가 여기를 지나지 않는다
 }

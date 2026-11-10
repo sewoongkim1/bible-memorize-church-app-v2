@@ -8509,3 +8509,33 @@ html[data-fs="xl"] .psh-card-sent { font-size: .98rem; }
 .dark .psh-card-kind[aria-checked="true"] { background: #3b5a94; border-color: #9dbbea; color: #fff; }
 html[data-fs="lg"] .psh-card-kind { font-size: 1.05rem; }
 html[data-fs="xl"] .psh-card-kind { font-size: 1.15rem; }
+/* 💌 주제 고르기(2026-11-10 친구 · js/pray-share.js openCardTopics) — 한 줄에 카드 하나(작은 그림 · 아이콘 + 짧은 이름 · 한 줄 풀이 · ›) ·
+   어르신도 누르기 쉽게 줄을 크게(76px 이상) · 좁은 폰 · 큰 글씨에서는 글이 줄을 바꾼다(가로로 밀리지 않게 min-width: 0) ·
+   카드 판 맨 위 「‹ 다른 카드」 알약 · 글자색은 모두 .dark 짝 */
+.psh-tp-lead { margin: 2px 2px 4px; font-size: .95rem; line-height: 1.5; color: #4a5468; word-break: keep-all; }
+.psh-tp-list { display: flex; flex-direction: column; gap: 8px; }
+.psh-tp {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 76px; margin: 0; padding: 8px 8px 8px 8px; box-sizing: border-box;
+  border: 1.5px solid #e4dccd; border-radius: 14px; background: #fff; color: #1b2333; font: inherit; text-align: left; cursor: pointer;
+}
+.psh-tp:active { background: #f3ecdf; }
+.psh-tp-im { flex: none; width: 48px; height: 60px; border-radius: 8px; object-fit: cover; background: #eee6d6; }
+.psh-tp-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.psh-tp-t b { font-size: 1.05rem; font-weight: 800; line-height: 1.35; word-break: keep-all; }
+.psh-tp-s { font-size: .9rem; line-height: 1.4; color: #5b6476; word-break: keep-all; }
+.psh-tp-go { flex: none; padding: 0 4px; font-size: 1.6rem; line-height: 1; color: #a0701c; }
+.psh-tp-back {
+  display: inline-flex; align-items: center; min-height: 44px; margin: 0 0 6px; padding: 6px 16px; border: 1.5px solid #d9d1c2; border-radius: 999px;
+  background: #fff; color: #1e3a6b; font: inherit; font-size: 1rem; font-weight: 800; cursor: pointer;
+}
+.dark .psh-tp-lead { color: #b9c0cd; }
+.dark .psh-tp { background: #11161f; border-color: #3a4252; color: #f1eee7; }
+.dark .psh-tp:active { background: #1d2532; }
+.dark .psh-tp-im { background: #2a3140; }
+.dark .psh-tp-s { color: #b9c0cd; }
+.dark .psh-tp-go { color: #e3c47a; }
+.dark .psh-tp-back { background: #11161f; border-color: #3a4252; color: #c9d8f5; }
+html[data-fs="lg"] .psh-tp-lead, html[data-fs="lg"] .psh-tp-s { font-size: 1rem; }
+html[data-fs="lg"] .psh-tp-t b, html[data-fs="lg"] .psh-tp-back { font-size: 1.15rem; }
+html[data-fs="xl"] .psh-tp-lead, html[data-fs="xl"] .psh-tp-s { font-size: 1.1rem; }
+html[data-fs="xl"] .psh-tp-t b, html[data-fs="xl"] .psh-tp-back { font-size: 1.25rem; }

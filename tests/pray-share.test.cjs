@@ -1189,12 +1189,12 @@ test('📊 이용 기록 ② 보내기(share-kakao · share-sheet · share-save)
 });
 
 // ── 🎓 기념일 말씀카드(2026-11-07 친구 · 첫 개시 수능) — 그리기 엔진(짜임 둘 · 자료 덩이). 판(이름 칸 · 말씀 · 그림 · 짜임 고르기)은 다음 단계 ──
-const CARD = vm.runInContext(FILL + '\n' + PURE + '\n' + DOCS + '\n;({ CARD_SETS, CARD_STYLES, CARD_FONTS, cardRefLabel, cardShareName, cardStyle, cardShareChoices, cardPanel, cardSharePlan, cardShareDoc, prayShareMark, prayFill, cardRawName, cardDefaultNo, cardPhotoId, CARD_BODIES, cardDefaultAt, cardOrder, cardPickNo, cardSentName, cardSentAll, cardSentNos, cardSentAdd, cardSentSave, CARD_SENT_KEY, CARD_SENT_MAX, cardRefShort })', vm.createContext({}));
+const CARD = vm.runInContext(FILL + '\n' + PURE + '\n' + DOCS + '\n;({ CARD_SETS, CARD_STYLES, CARD_FONTS, cardRefLabel, cardShareName, cardStyle, cardShareChoices, cardPanel, cardSharePlan, cardShareDoc, prayShareMark, prayFill, cardRawName, cardDefaultNo, cardPhotoId, CARD_BODIES, cardDefaultAt, cardOrder, cardPickNo, cardSentName, cardSentAll, cardSentNos, cardSentAdd, cardSentSave, CARD_SENT_KEY, CARD_SENT_MAX, cardRefShort, cardSeasonWin, cardSeasonOn, cardKstYmd, cardTopicGroups, cardTopicName, CARD_TOPIC_TEXT, CARD_ALWAYS })', vm.createContext({}));
 const CARD_NAMES = ['김지훈', '가나다라마바사아자차카타', ''];   // 빈 이름 → 그 카드의 defaultName(수능 「우리 수험생」)
 const CARD_SLOTS = ['{이름}', '{이}', '{을}', '{은}', '{과}', '{으로}'];   // app.js prayFill 이 채우는 여섯
 const CARD_GROUP_NOS = { A: [1, 2], B: [3, 4], C: [5, 6, 7], D: [8, 9, 10] };   // 수능 열 편 · 묶음 넷(친구 2026-11-07)
-const CARD_KEYS = ['suneung', 'birthday', 'wedding', 'newstart', 'comfort', 'healing'];   // 💌 카드 여섯(자료 차례 = 판의 고르기 칸 차례 · 친구 2026-11-07)
-const CARD_KINDS = { suneung: 10, birthday: 11, wedding: 12, newstart: 13, comfort: 14, healing: 15 };   // 이용 기록 종류 코드(1~9 는 다른 보내기 · 이름은 api SHARE_KINDS)
+const CARD_KEYS = ['suneung', 'birthday', 'wedding', 'newstart', 'comfort', 'healing', 'christmas', 'newyear'];   // 💌 카드 여덟(자료 차례 = 판의 고르기 칸 차례 · 친구 2026-11-07 · 철마다 성탄 · 새해 2026-11-10)
+const CARD_KINDS = { suneung: 10, birthday: 11, wedding: 12, newstart: 13, comfort: 14, healing: 15, christmas: 16, newyear: 17 };   // 이용 기록 종류 코드(1~9 는 다른 보내기 · 이름은 api SHARE_KINDS)
 const CARD_QUIET = ['comfort', 'healing'];   // 위로 · 병문안 — 맺음말에 느낌표 없음
 const cardPlain = (o) => JSON.parse(JSON.stringify(o));   // vm 안 객체를 견주기 쉽게
 
@@ -1242,15 +1242,19 @@ test('🎓 카드 자료 — 표식 줄 사이(덩이째 갈아 끼운다) · �
       assert.notEqual(CARD.cardRefLabel(e.ref), e.ref, at + ' 말씀 자리를 못 읽는다: ' + e.ref);
     }
   }
-  // 💌 늘 쓰는 다섯(친구 2026-11-07 「늘 쓰는 축하, 위로만 먼저」) — 카드 여섯 · 종류 코드는 서로 다르고 10~15(1~9 는 다른 보내기) · 묶음 · 날짜는 수험생만
-  assert.deepEqual(sets.map(([k]) => k), CARD_KEYS, '카드 여섯 · 차례');
-  assert.deepEqual(Object.fromEntries(sets.map(([k, s]) => [k, s.kind])), CARD_KINDS, '종류 코드 — 10 수험생 · 11 생일 · 12 결혼기념일 · 13 새 출발 · 14 위로 · 15 병문안');
+  // 💌 늘 쓰는 다섯(친구 2026-11-07 「늘 쓰는 축하, 위로만 먼저」) + 철마다 둘(성탄 · 새해 · 2026-11-10) — 카드 여덟 · 종류 코드는 서로 다르고 10~17(1~9 는 다른 보내기) · 묶음 · 날짜는 수험생만
+  assert.deepEqual(sets.map(([k]) => k), CARD_KEYS, '카드 여덟 · 차례');
+  assert.deepEqual(Object.fromEntries(sets.map(([k, s]) => [k, s.kind])), CARD_KINDS, '종류 코드 — 10 수험생 · 11 생일 · 12 결혼기념일 · 13 새 출발 · 14 위로 · 15 병문안 · 16 성탄 · 17 새해');
   assert.equal(new Set(sets.map(([, s]) => s.kind)).size, sets.length, '종류 코드 겹침');
-  assert.deepEqual(sets.map(([, s]) => s.icon.replace(/\uFE0F/g, '')), ['🎓', '🎂', '💍', '🌱', '\u{1F54A}', '🙏'], '아이콘(판 제목 · 고르기 칸)');
-  assert.deepEqual(sets.map(([, s]) => s.nameLabel), ['받는 학생 이름', '받는 분 이름', '받는 부부', '받는 분 이름', '받는 분 이름', '받는 분 이름'], '이름 칸 제목');
+  assert.deepEqual(sets.map(([, s]) => s.icon.replace(/\uFE0F/g, '')), ['🎓', '🎂', '💍', '🌱', '\u{1F54A}', '🙏', '🎄', '🌅'], '아이콘(판 제목 · 고르기 칸 · 주제 고르기 줄)');
+  assert.deepEqual(sets.map(([, s]) => s.nameLabel), ['받는 학생 이름', '받는 분 이름', '받는 부부', '받는 분 이름', '받는 분 이름', '받는 분 이름', '받는 분 이름', '받는 분 이름'], '이름 칸 제목');
   const TS = read('supabase', 'functions', 'api', 'index.ts');
   for (const [key, set] of sets) {
-    assert.ok(Number.isInteger(set.kind) && set.kind >= 10 && set.kind <= 15, key + ' 종류 코드 10~15(1~9 는 다른 보내기와 겹친다)');
+    assert.ok(Number.isInteger(set.kind) && set.kind >= 10 && set.kind <= 17, key + ' 종류 코드 10~17(1~9 는 다른 보내기와 겹친다)');
+    // 철마다 카드(성탄 · 새해)만 기본 기간(season — 교회 어드민 cardSeasons 가 없거나 틀릴 때) · 한국 날짜 「YYYY-MM-DD」 · from ≤ to
+    const ymd = /^\d{4}-\d{2}-\d{2}$/;
+    if (['christmas', 'newyear'].includes(key)) assert.ok(set.season && ymd.test(set.season.from) && ymd.test(set.season.to) && set.season.from <= set.season.to, key + ' 기본 기간 from ≤ to');
+    else assert.equal(set.season, undefined, key + ' — 늘 쓰는 카드에 기간 칸');
     assert.ok(TS.includes(set.kind + ': "' + set.label + '"'), key + ' — api SHARE_KINDS 의 ' + set.kind + ' 이름이 카드 이름과 같다(교회 어드민 통계 탭)');
     if (key === 'suneung') continue;
     assert.ok(!set.groups && !set.defaults && set.entries.length === 5, key + ' — 묶음 · 날짜 없이 말씀 다섯');
@@ -1828,4 +1832,90 @@ test('🎓 매일 하나씩 판 — 보내면 그 받는 사람에게 ✓(닫음
   const CSS = read('style.css');
   for (const c of ['psh-card-ck', 'psh-card-sent']) assert.ok(CSS.includes('.dark .' + c + ' '), c + ' — 어두운 모드 짝');
   for (const fs of ['lg', 'xl']) assert.match(CSS, new RegExp('html\\[data-fs="' + fs + '"\\] \\.psh-card-sent[ ,]'), '안내 — 큰 글씨(' + fs + ') 짝');
+});
+
+// ── 💌 주제 고르기 · 철마다 기간(2026-11-10 친구 「축복기도 말씀카드 → 주제 고르기 → 그 카드 판」 · 성탄 · 송구영신·새해) ──
+test('💌 cardSeasonOn — 교회 어드민 기간(cardSeasons)이 앞선다 · 틀린 꼴(날짜 꼴 · from > to · 빈 칸)은 자료의 기본 기간 · 두 끝 모두 든다 · 늘 쓰는 카드는 기간이 없다', () => {
+  const C = CARD;
+  // 기본 기간(자료 season) — 성탄 2026-11-29 ~ 2026-12-26 · 새해 2026-12-26 ~ 2027-01-15
+  assert.deepEqual(cardPlain(C.cardSeasonWin('christmas', null)), { from: '2026-11-29', to: '2026-12-26' });
+  for (const [d, on] of [['2026-11-28', false], ['2026-11-29', true], ['2026-12-26', true], ['2026-12-27', false]]) assert.equal(C.cardSeasonOn('christmas', d, null), on, '성탄 기본 ' + d);
+  for (const [d, on] of [['2026-12-25', false], ['2026-12-26', true], ['2027-01-15', true], ['2027-01-16', false]]) assert.equal(C.cardSeasonOn('newyear', d, null), on, '새해 기본 ' + d);
+  // 어드민 값이 앞선다(두 끝 포함)
+  const cfg = { christmas: { from: '2026-12-01', to: '2026-12-25' } };
+  for (const [d, on] of [['2026-11-30', false], ['2026-12-01', true], ['2026-12-25', true], ['2026-12-26', false]]) assert.equal(C.cardSeasonOn('christmas', d, cfg), on, '어드민 성탄 ' + d);
+  assert.equal(C.cardSeasonOn('newyear', '2026-12-26', cfg), true, '칸이 없는 카드는 기본 기간');
+  // 틀린 꼴 → 기본 기간(닫힘이 아니다)
+  for (const bad of [{ from: '2026-12-30', to: '2026-12-01' }, { from: '2026-12-1', to: '2026-12-25' }, { from: '', to: '' }, { from: 20261201, to: 20261225 }, 'x', null, []]) {
+    assert.deepEqual(cardPlain(C.cardSeasonWin('christmas', { christmas: bad })), { from: '2026-11-29', to: '2026-12-26' }, '틀린 꼴 ' + JSON.stringify(bad) + ' → 기본 기간');
+  }
+  for (const cfgBad of [null, undefined, 'x', 3, [], {}]) assert.equal(C.cardSeasonOn('christmas', '2026-12-01', cfgBad), true, '설정을 모름(' + JSON.stringify(cfgBad) + ') → 기본 기간 · 닫힘으로 보지 않는다');
+  assert.deepEqual(cardPlain(C.cardTopicGroups('2026-12-01', { birthday: { from: '2026-01-01', to: '2027-12-31' } }, true)).now, ['suneung', 'christmas'], '기간 칸은 철마다 카드(season)만 — 늘 쓰는 카드에 기간을 적어도 「지금 이때」로 옮기지 않는다');
+  // 한국 날짜 — UTC 15:00 = 한국 다음 날 0시
+  assert.equal(C.cardKstYmd(Date.parse('2026-12-25T14:59:59Z')), '2026-12-25');
+  assert.equal(C.cardKstYmd(Date.parse('2026-12-25T15:00:00Z')), '2026-12-26');
+});
+
+test('💌 주제 목록(cardTopicGroups) — 날짜마다 「지금 이때」 · 「늘 쓰는 카드」 · 수험생은 기간 안 「지금 이때」 맨 앞 → 끝나면 「시험·취업 준비」로 늘 쓰는 카드 맨 끝 · 문구', () => {
+  const C = CARD, sun = (d) => d <= '2026-12-11';   // app.js cardSuneungOn(CARD_SUNEUNG_UNTIL) 과 같은 셈
+  const at = (d, cfg) => cardPlain(C.cardTopicGroups(d, cfg || null, sun(d)));
+  const ALWAYS = ['birthday', 'wedding', 'newstart', 'comfort', 'healing'];
+  assert.deepEqual(at('2026-11-10'), { now: ['suneung'], always: ALWAYS }, '11-10 — 수험생만 「지금 이때」');
+  assert.deepEqual(at('2026-12-01'), { now: ['suneung', 'christmas'], always: ALWAYS }, '12-01 — 수험생 · 성탄');
+  assert.deepEqual(at('2026-12-11'), { now: ['suneung', 'christmas'], always: ALWAYS }, '12-11 — 수험생 마지막 날');
+  assert.deepEqual(at('2026-12-12'), { now: ['christmas'], always: ALWAYS.concat('suneung') }, '12-12 — 수험생은 늘 쓰는 카드 맨 끝(시험·취업 준비)');
+  assert.deepEqual(at('2026-12-26'), { now: ['christmas', 'newyear'], always: ALWAYS.concat('suneung') }, '12-26 — 성탄 · 새해(기간 시작 차례)');
+  assert.deepEqual(at('2027-01-20'), { now: [], always: ALWAYS.concat('suneung') }, '01-20 — 「지금 이때」 비움(화면은 묶음째 뺀다)');
+  // 기간 시작 차례 — 어드민이 새해를 먼저 열면 새해가 앞
+  assert.deepEqual(at('2026-12-20', { newyear: { from: '2026-11-20', to: '2027-01-10' } }).now, ['newyear', 'christmas'], '시작이 이른 카드가 앞');
+  // 문구(친구 2026-11-10 그대로)
+  const T = cardPlain(C.CARD_TOPIC_TEXT);
+  assert.deepEqual(T, {
+    suneung: ['수험생', '수능 · 시험 · 취업을 준비하는 분께'], birthday: ['생일', '생일을 맞은 분께'], wedding: ['결혼기념일', '결혼기념일을 맞은 부부께'],
+    newstart: ['새 출발', '입학 · 졸업 · 첫 출근 — 새 길에 선 분께'], comfort: ['위로', '슬픔 중에 있는 분 · 상을 당한 가정께'], healing: ['병문안', '입원 · 수술 · 투병 중인 분과 가족께'],
+    christmas: ['성탄', '성탄의 기쁨을 함께 나눌 분께'], newyear: ['송구영신 · 새해', '한 해를 보내고 새해를 맞는 분께'] });
+  for (const k of CARD_KEYS) assert.ok(T[k], k + ' — 주제 줄 글이 없다(새 카드를 더하면 CARD_TOPIC_TEXT 에도)');
+  assert.equal(C.cardTopicName('suneung', true), '수험생');
+  assert.equal(C.cardTopicName('suneung', false), '시험·취업 준비', '기간이 끝나면 — 글에 「수능」이 없어 취업 준비하는 분께도(친구 11/07)');
+  assert.equal(C.cardTopicName('birthday', false), '생일');
+});
+
+test('💌 주제 고르기 배선 — 문(CARD_TOPICS_OPEN = false · 🧪 먼저) · 문 밖은 지금 판 그대로 · 기간은 둔 값 → 서버 값 · 쪽을 바꿀 때 덮개를 닫지 않는다 · 기록은 누른 탭 안에서만 · ✕ 는 쌓은 만큼 되돌린다', () => {
+  assert.ok(APP.includes('const CARD_TOPICS_OPEN = false;'), '문은 닫아 둔다(친구가 본 뒤 true 한 줄 + bump)');
+  assert.ok(APP.includes('function cardTopicsVisible() { return CARD_TOPICS_OPEN || (typeof ministryTesterCached === "function" && ministryTesterCached()); }'));
+  const h = cut(APP, 'const b = document.getElementById("open-cards");', '}); }); }');
+  assert.ok(h.includes('if (cardTopicsVisible() && typeof openCardTopics === "function") {') && h.includes('openCardTopics(cardSuneungOn(), cardSeasonsCached());'), '문 안 — 주제 고르기(둔 기간으로 바로)');
+  assert.ok(h.includes('refreshCardSeasons((v) => { if (typeof pshTopicsUpdate === "function") pshTopicsUpdate(v); });'), '서버 기간은 오면 고친다(기다리지 않는다)');
+  assert.ok(h.includes('} else if (typeof openCardPick === "function") openCardPick(cardSuneungOn());'), '문 밖 · 옛 pray-share.js — 지금 판 그대로');
+  const rf = cut(APP, 'function refreshCardSeasons(then) {', '\n}\n');
+  assert.ok(rf.includes('api.getConfig("cardSeasons")') && rf.includes('if (!(d && d.ok && d.value && typeof d.value === "object")) return;'), '모름(통신 · ok:false · 옛 서버) · 빈 값은 둔 값 그대로');
+  assert.ok(read('supabase', 'functions', 'api', 'index.ts').includes('"naviPublic", "cardSeasons"]);'), 'api 공개 설정 목록에 cardSeasons(교회 어드민이 쓰고 앱이 읽는다)');
+  const others = ['js/pray-share.js', 'js/prayer.js'].map((f) => read(...f.split('/'))).join('\n');
+  for (const nm of ['CARD_TOPICS_OPEN', 'cardTopicsVisible', 'CARD_SEASONS_KEY', 'cardSeasonsCached', 'refreshCardSeasons']) assert.ok(!others.includes('const ' + nm + ' ') && !others.includes('function ' + nm + '('), nm + ' 를 다른 화면 파일이 선언한다');
+  for (const nm of ['openCardTopics', 'pshTopicPick', 'pshTopicBack', 'pshTopicPop', 'pshTopicShow', 'pshTopicsUpdate', 'cardSeasonOn', 'cardSeasonWin', 'cardTopicGroups', 'cardTopicName', 'cardKstYmd', 'pshTopicTitle', 'pshTopicListHtml', 'pshTopicsFill', 'pshTopicImgs', 'pshTopicGroupsNow'])
+    assert.ok(!APP.includes('function ' + nm + '('), nm + ' 를 app.js 가 선언한다(판 파일과 「이미 선언됨」)');
+  for (const nm of ['CARD_YMD', 'CARD_TOPIC_TEXT', 'CARD_ALWAYS', 'PSH_TOPIC_TITLE']) assert.ok(!APP.includes('const ' + nm + ' ') && !APP.includes(' ' + nm + ' = '), nm + ' 를 app.js 가 선언한다');
+  // 판 — 주제 고르기는 덮개 하나 · 기록 psh:1 · 두 번 누름은 그대로
+  const oc = cut(PS, 'function openCardTopics(sunOn, cfg) {', '\n}\n');
+  assert.ok(oc.indexOf('if (pshReuse("card")) return;') >= 0 && oc.indexOf('if (pshReuse("card")) return;') < oc.indexOf('prayShareClose();'), '두 번 누름 — 닫기(history.back) 전에 그대로');
+  assert.ok(oc.includes('history.pushState({ psh: 1 }, "")') && oc.includes('pshState.pop = pshTopicPop;') && oc.includes('pshState.cmenu = [];'), '기록 하나 · 뒤로 가기 받이 · 카드 고르기 칸 없음');
+  assert.ok(!oc.includes('pshLog('), '주제 고르기 쪽은 이용 기록을 남기지 않는다');
+  const pk = cut(PS, 'function pshTopicPick(key) {', '\n}\n');
+  assert.ok(pk.includes('pshState.cview !== "topics"') && pk.indexOf('pshState.cview = "card"') < pk.indexOf('pshOpen('), '두 번 누름 — 첫 누름에 쪽을 바꿔 둘째 누름은 돌아간다');
+  assert.ok(pk.includes('history.pushState({ psh: 2 }, "")') && pk.includes('{ into: w }') && !pk.includes('prayShareClose'), '같은 덮개 안 카드 판 · 기록은 누른 탭 안에서 하나 더');
+  for (const f of ['pshTopicShow()', 'pshTopicBack()', 'pshTopicPop()', 'pshTopicsUpdate(cfg)'])
+    assert.ok(!/prayShareClose\(\)|pshOpen\(|pushState/.test(cut(PS, 'function ' + f + ' {', '\n}\n')), f + ' — 쪽을 바꿀 때 덮개를 닫거나 기록을 쌓지 않는다(history.back 비동기 · 크롬은 탭 없이 쌓은 기록을 건너뛴다)');
+  const pp = cut(PS, 'function pshTopicPop() {', '\n}\n');
+  assert.ok(pp.includes('st.psh === 1) { pshTopicShow(); return; }') && pp.includes('prayShareClose(true);'), '뒤로 가기 — 카드 판 → 주제 고르기 → 닫힘');
+  const cl = cut(PS, 'function prayShareClose(fromPop) {', '\n}\n');
+  assert.ok(cl.includes('const n = (Number(history.state.psh) || 1) - (pshState.cback ? 1 : 0);') && cl.includes('if (n > 1) history.go(-n); else if (n === 1) history.back();'), '✕ — 쌓은 기록만큼 한 번에(되돌리는 중이면 그만큼 덜)');
+  assert.ok(cl.includes('pshState.ctopic = false; pshState.cview = ""; pshState.cback = false;'), '닫으면 주제 고르기 표식을 비운다');
+  const po = cut(PS, 'function pshOpen(', '\n}\n');
+  assert.ok(po.includes('if (!into) wrap.addEventListener("click"') && po.includes('if (!into) {\n    pshState.esc ='), '카드 판(into)은 덮개 받이 · 기록을 다시 달지 않는다');
+  assert.ok(po.includes("'<button type=\"button\" class=\"psh-tp-back\" id=\"psh-tp-back\">‹ 다른 카드</button>'"), '카드 판 맨 위 「‹ 다른 카드」(주제 고르기에서 연 판만)');
+  assert.ok(PS.includes('const PSH_TOPIC_TITLE = "💌 축복기도 말씀카드", PSH_TOPIC_LEAD = "누구에게 보낼까요? 카드를 고르면 말씀과 배경을 고를 수 있어요.";'), '제목 · 안내 한 줄');
+  assert.ok(PS.includes('"🎓 시험·취업 응원기도카드"'), '수험생 기간이 끝난 뒤 판 제목');
+  const CSS = read('style.css');
+  for (const c of ['psh-tp', 'psh-tp-lead', 'psh-tp-s', 'psh-tp-go', 'psh-tp-back']) assert.ok(CSS.includes('.dark .' + c + ' '), c + ' — 어두운 모드 짝');
+  for (const fz of ['lg', 'xl']) assert.ok(CSS.includes('html[data-fs="' + fz + '"] .psh-tp-t b'), '큰 글씨(' + fz + ') 짝');
 });
