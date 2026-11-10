@@ -1687,10 +1687,10 @@ test('🎓 수험생 판은 💌 다섯을 더해도 그대로 — 배치 · 그
     out.push(JSON.stringify(CARD.cardSharePlan(set, e, nm, CARD.CARD_STYLES[lay], measure, body)));
     const d = CARD.cardShareDoc(set, e, nm, lay, body); out.push(JSON.stringify([d.text, d.seed, d.alt]));
   }
-  const data = cardPlain(set); delete data.icon; delete data.kind; delete data.nameLabel;
+  const data = cardPlain(set); delete data.icon; delete data.kind; delete data.nameLabel; delete data.after;   // after = 12/11 뒤 「시험·취업 준비」 칸(11-10 · 기간 안 판은 쓰지 않는다)
   const hx = (s) => crypto.createHash('sha256').update(s).digest('hex').slice(0, 16);
   assert.equal(hx(out.join('\n')), '400634e8eee7e343', '수험생 카드 배치 · 글이 바뀌었다(v3.727 해시 — 일부러 바꿨으면 새 해시로)');
-  assert.equal(hx(JSON.stringify(data)), 'cbba16945b46f581', '수험생 카드 자료가 바뀌었다(v3.727 — 새 칸 icon · kind · nameLabel 만 더함)');
+  assert.equal(hx(JSON.stringify(data)), 'cbba16945b46f581', '수험생 카드 자료가 바뀌었다(v3.727 — 새 칸 icon · kind · nameLabel · after 만 더함)');
 });
 
 // ── 🎓 카드 셋째 단계(2026-11-07 밤 · 친구) — 「수능 날까지 매일 하나씩」: 받는 사람마다 이 폰에서 보낸 말씀 ✓ · 다음 말씀 먼저 · 기록은 이 폰에만 ──
@@ -1918,4 +1918,19 @@ test('💌 주제 고르기 배선 — 문(CARD_TOPICS_OPEN = false · 🧪 먼�
   const CSS = read('style.css');
   for (const c of ['psh-tp', 'psh-tp-lead', 'psh-tp-s', 'psh-tp-go', 'psh-tp-back']) assert.ok(CSS.includes('.dark .' + c + ' '), c + ' — 어두운 모드 짝');
   for (const fz of ['lg', 'xl']) assert.ok(CSS.includes('html[data-fs="' + fz + '"] .psh-tp-t b'), '큰 글씨(' + fz + ') 짝');
+});
+
+test('🎓 수험생 카드 12/11 뒤 — cardSunAfter 가 자료의 after(이름 칸 · 비웠을 때 이름 · 판 이름)로 덮어쓴다 · 한 번만 · 기도문에 「수험생」 낱말 없음', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'pray-share.js'), 'utf8');
+  const i = src.indexOf('const CARD_SETS = ') + 18, j = src.indexOf('// ⟪/card-data⟫');
+  const sets = JSON.parse(src.slice(i, j).trim().replace(/;\s*$/, ''));
+  const a = sets.suneung.after;
+  assert.deepEqual(Object.keys(a).sort(), ['defaultName', 'label', 'nameHint', 'nameLabel']);
+  assert.equal(a.nameLabel, '받는 분 이름'); assert.equal(a.defaultName, '꿈을 준비하는 분'); assert.equal(a.label, '시험·취업 응원기도카드');
+  for (const e of sets.suneung.entries) assert.ok(!/수험생|수능/.test(e.prayer + e.title + e.closing), e.no + ' 기도문에 수험생 · 수능');
+  const m = /function cardSunAfter\(sets\) \{[\s\S]*?\r?\n\}/.exec(src); assert.ok(m, 'cardSunAfter 가 없다');
+  const fn = new Function('CARD_SETS', m[0] + '; return cardSunAfter;')(sets);
+  const s = fn(sets); assert.equal(s.nameLabel, '받는 분 이름'); assert.equal(s.defaultName, '꿈을 준비하는 분'); assert.equal(s.afterOn, true);
+  s.nameLabel = 'x'; fn(sets); assert.equal(s.nameLabel, 'x', '두 번째 부름은 덮어쓰지 않는다');
+  assert.match(src, /pshState\.csun = !!sunOn;[^\n]*\n\s*if \(!pshState\.csun\) cardSunAfter\(\);/, '주제 고르기를 열 때 기간이 끝났으면 부른다');
 });

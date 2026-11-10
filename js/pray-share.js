@@ -411,6 +411,12 @@ const CARD_SETS = {
         "label": "노력과 결과를 하나님께 맡기는 말씀"
       }
     ],
+    "after": {
+      "label": "시험·취업 응원기도카드",
+      "nameLabel": "받는 분 이름",
+      "defaultName": "꿈을 준비하는 분",
+      "nameHint": "이름이나 부르는 말(예: 지훈 · 우리 지훈이 · 사랑하는 손녀 — 「지훈아」 말고) · 비우면 「꿈을 준비하는 분」"
+    },
     "photos": [
       {
         "id": "card-suneung-1",
@@ -1047,18 +1053,18 @@ const CARD_SETS = {
     "photos": [
       {
         "id": "card-christmas-1",
-        "label": "별빛",
-        "focus": 0.55
+        "label": "눈 언덕",
+        "focus": 0.5
       },
       {
         "id": "card-christmas-2",
         "label": "눈숲",
-        "focus": 0.55
+        "focus": 0.62
       },
       {
         "id": "card-christmas-3",
         "label": "설경",
-        "focus": 0.55
+        "focus": 0.5
       }
     ],
     "entries": [
@@ -1140,7 +1146,7 @@ const CARD_SETS = {
       {
         "id": "card-newyear-1",
         "label": "해돋이",
-        "focus": 0.55
+        "focus": 0.5
       },
       {
         "id": "card-newyear-2",
@@ -2011,11 +2017,19 @@ function pshCardSwap(key) {
 //   「탭 없이 쌓은 기록」으로 보고 뒤로 가기에서 건너뛸 수 있다). 뒤로 가기: 카드 판 → 주제 고르기(psh: 1 로 돌아온 popstate) → 닫힘(psh 없는 popstate).
 //   ✕ · 바깥 누름 · Esc 는 통째로 닫는다(prayShareClose 가 쌓은 기록 수만큼 되돌린다). 주제 고르기 쪽은 이용 기록을 남기지 않는다(카드 판을 열 때만 share-open).
 //   sunOn = app.js cardSuneungOn() · cfg = 철마다 기간(app.js cardSeasonsCached — 모르면 null → 자료의 기본 기간) · 서버 값은 나중에 pshTopicsUpdate 로 온다.
+// 🎓 수험생 카드는 기간(12/11)이 끝나면 「시험·취업 준비」로 늘 쓴다(친구 11/07 · 기도문 열 장에 「수험생」 낱말은 없다) —
+//   이름 칸 제목 · 비웠을 때 그림에 들어가는 이름 · 풀이 · 판 이름(그림 대체 글)을 자료의 after 로 덮어쓴다. 한 번만 · 날짜는 뒤로 가지 않으니 되돌리지 않는다.
+function cardSunAfter(sets) {
+  const s = (sets || CARD_SETS).suneung;
+  if (s && s.after && !s.afterOn) { Object.assign(s, s.after); s.afterOn = true; }
+  return s;
+}
 function openCardTopics(sunOn, cfg) {
   if (pshReuse("card")) return;   // 두 번 누름 — 열린 판 그대로(닫고 다시 열면 늦게 온 history.back 이 새 판을 닫는다)
   prayShareClose();
   pshState.b = null; pshState.med = null; pshState.verse = null; pshState.name = ""; pshState.cmenu = [];   // 카드 고르기 칸 없음 — 주제 고르기가 대신한다
   pshState.ctopic = true; pshState.csun = !!sunOn; pshState.ccfg = cfg && typeof cfg === "object" ? cfg : null; pshState.noLog = false;
+  if (!pshState.csun) cardSunAfter();   // 수험생 기간이 끝났으면 「시험·취업 준비」 이름 칸 · 비웠을 때 이름으로
   const wrap = document.createElement("div");
   wrap.className = "psh-dim"; wrap.id = "psh";
   pshTopicsFill(wrap);

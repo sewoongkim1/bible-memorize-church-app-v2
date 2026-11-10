@@ -135,3 +135,16 @@ Gemini `gemini-3-pro-image` · `aspectRatio 4:5` · `2K`(1856×2304) → 가운�
 | `card-healing-3` | 병문안 | 들길 | 3a | A narrow footpath of soft earth winding gently through a fresh green meadow with small scattered wildflowers toward soft rolling hills under a clear, bright morning sky, the path and hills in the middle horizontal band of the portrait frame. Warm early light across the grass. The sky is one seamless continuous gradient, and the upper right sky is left plain and empty. Hopeful, peaceful and open. No animals, no fences, no signs, no poles. |
 
 ⚠️ 그림을 바꾸면 `자료/card/tools/build_cards.py` 의 사진 목록(photos.json) · 이 표 · 시험(파일이 있는지)을 함께.
+
+## 🎄 철마다 — 성탄 · 새해(2026-11-10 · 친구 「성탄절, 송구영신·새해」 · gemini-3-pro-image 4:5 2K → 1080×1350 WebP · 꼬리말은 gen_img.py 와 같음)
+
+| 파일 | 이름 | 고른 것 | 장면(영어 그대로) | 버린 것 |
+|---|---|---|---|---|
+| `card-christmas-1` | 눈 언덕 | 1a | A calm winter night over gentle snow-covered hills, with one bright star shining low above the horizon and its soft glow lighting the snow across the middle band. Deep blue sky, quiet and peaceful; keep the upper-right corner plain and uncluttered. | 1b 는 오른쪽 위에 네모 얼룩 |
+| `card-christmas-2` | 눈숲 | 2b | Snow-covered pine trees in a quiet forest at dusk, lit only by the low setting sun glowing golden between the trunks across the middle band while gentle snowflakes fall; keep the upper-right corner plain and uncluttered. | 2a 는 오른쪽 위에 네모 얼룩 |
+| `card-christmas-3` | 설경 | 3h | A bright snowy meadow on a clear winter morning, a few frosted evergreen trees with small clusters of red winter berries, soft warm sunlight, pale blue sky, fresh untouched snow, calm and joyful Christmas mood. One natural upright portrait photograph filling the whole frame, horizon level. | 3a · 3d · 3g 는 옆으로 누움 · 3b · 3c · 3e · 3f 는 가운데·옆에 네모 칸 — 장면 말에서 「across the middle band」를 빼고 다시 그림 |
+| `card-newyear-1` | 해돋이 | 1a | The first sunrise of the year rising over a calm winter sea, the golden sun just above the horizon in the middle band with a shimmering path of light on the water; keep the upper-right corner plain and uncluttered. | 1b 도 깨끗함(바닷가 모래) — 겨울 바위가 든 1a |
+| `card-newyear-2` | 새길 | 2b | A snow-covered path winding through a quiet open field toward distant hills under a soft pink and lavender sky just before sunrise, fresh snow, the path and the glowing horizon in the middle band; keep the upper-right corner plain and uncluttered. | 2a 는 여러 칸 콜라주 |
+| `card-newyear-3` | 눈꽃 | 3b | Bright frost-covered tree branches sparkling across the middle band against a clear pale-blue winter sky in fresh morning light, white and silver tones; keep the upper-right corner plain and uncluttered. | 3a 는 옆으로 누움 |
+
+⚠️ 장면 말에 「across the middle band」를 넣으면 모델이 가운데에 따로 그린 네모 칸을 끼우거나 그림을 옆으로 눕히는 일이 잦았다(성탄 셋째 여덟 장 중 일곱 장) — 「한 장의 사진 · 수평선 수평」으로 쓰면 깨끗했다.
