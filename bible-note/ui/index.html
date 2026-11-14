@@ -104,6 +104,7 @@ input[type=color] { width:38px; height:30px; padding:0 2px; border:1px solid var
 .spin { width:16px; height:16px; border-radius:50%; border:2.5px solid #cfd8e4; border-top-color:var(--navy); animation:sp .8s linear infinite; }
 @keyframes sp { to { transform:rotate(360deg); } }
 .err { background:#fbe9e7; color:var(--red); border:1px solid #f1c5bf; border-radius:10px; padding:9px 12px; font-weight:600; white-space:pre-wrap; }
+.warn { background:#fdf3dc; color:var(--amber); border:1px solid #f0dcaa; border-radius:10px; padding:8px 12px; font-size:12.5px; white-space:pre-wrap; }
 .result { background:var(--card); border:1px solid var(--line); border-left:4px solid var(--green); border-radius:10px; padding:10px 14px;
   display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
 .result .name { font-weight:800; margin-right:6px; word-break:break-all; }
@@ -201,8 +202,8 @@ input[type=color] { width:38px; height:30px; padding:0 2px; border:1px solid var
       <div class="row"><input type="number" data-k="font_pt" step="0.5" min="8" max="28"><span class="unit">pt</span><span class="steps" id="sizeSteps"></span></div>
       <p class="hint">단추는 글자와 줄 높이를 함께 바꿉니다.</p></div>
     <div class="field"><label>글자 간격</label>
-      <div class="row"><input type="range" data-k="letter_spacing_em" min="-0.05" max="0.2" step="0.005">
-        <input type="number" class="narrow" data-k="letter_spacing_em" step="0.005" min="-0.1" max="0.5"><span class="unit">em</span>
+      <div class="row"><input type="range" data-k="letter_spacing_em" min="-0.05" max="0.2" step="0.01">
+        <input type="number" class="narrow" data-k="letter_spacing_em" step="0.01" min="-0.1" max="0.5"><span class="unit">em</span>
         <button class="mini" type="button" data-set="letter_spacing_em" data-val="0">기본</button></div></div>
     <div class="field"><label>원문 농도</label>
       <div class="row"><span class="swatches" id="swatches"></span><input type="color" data-k="text_color" aria-label="원문 색 직접 고르기"></div>
@@ -314,6 +315,7 @@ input[type=color] { width:38px; height:30px; padding:0 2px; border:1px solid var
 <section class="stage">
   <div class="status" id="status"><span id="statusText">왼쪽에서 고른 뒤 「미리보기」로 확인하고 「만들기」를 누르세요.</span><span class="badge" id="staleBadge" hidden>설정이 바뀌었습니다</span></div>
   <div class="err" id="errBox" hidden></div>
+  <div class="warn" id="warnBox" hidden></div>
   <div class="result" id="result" hidden>
     <span class="name" id="resName"></span><span class="meta" id="resMeta"></span>
     <a class="mini" id="resOpen" target="_blank" rel="noopener">HTML 열기</a>
@@ -337,11 +339,13 @@ const PAGE_W = 1123 + 40;            // A4 가로 297mm(96dpi) + 미리보기 �
 const SAMPLE = { ko: '태초에 하나님이 천지를 창조하시니라 땅이 혼돈하고 공허하며', en: 'In the beginning God created the heavens and the earth.' };
 const SWATCHES = [['검정', '#111111'], ['진회색', '#555555'], ['회색', '#808080'], ['연회색', '#a8a8a8']];
 
-let ST = null;        // 서버 상태(번역본 · 서체 · 기본값 …)
-let S = {};           // 지금 설정
+let ST = null;          // 서버 상태(번역본 · 서체 · 기본값 …)
+let S = {};             // 지금 설정
 let chapters = 0;
-let job = null;
-let lastShown = null; // 마지막으로 보여 준 결과(미리보기 · 만든 것)
+let chapReq = 0;        // 장 수 물음 번호 — 늦게 온 옛 답은 버린다
+let job = null;         // {id, preview, snap — 누를 때의 설정}
+let lastShown = null;   // 마지막으로 보여 준 결과(미리보기 · 만든 것)
+let stepsLayout = null; // 크기 단추를 마지막으로 그린 꼴 — 꼴이 바뀔 때만 다시 만든다(검토 js-1)
 
 async function api(path, body) {
   const opt = body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
@@ -362,36 +366,79 @@ function el(tag, attrs, text) {
   return e;
 }
 
-const curTr = () => (ST.translations || []).find((t) => t.id === S.translation);
+const curTr = () => ((ST && ST.translations) || []).find((t) => t.id === S.translation);
 const curBook = () => { const t = curTr(); return t ? t.books.find((b) => b.file === S.book) : null; };
+const snapOf = () => JSON.stringify(S);
+
+// 파일 이름 — notebook.safe_file_name 과 같은 규칙이어야 자리표시와 실제 이름이 같다(검토 nb-3)
+function safeFileName(name) {
+  name = name.replace(/[\\/:*?"<>|\x00-\x1f]/g, '_').trim().replace(/[. ]+$/, '');
+  const i = name.indexOf('.');
+  const stem = i < 0 ? name : name.slice(0, i), rest = i < 0 ? '' : name.slice(i);
+  if (/^(con|prn|aux|nul|com[0-9]|lpt[0-9])$/i.test(stem)) name = stem + '_' + rest;
+  return name || '필사노트';
+}
 
 // ── 처음 · 선택 맞추기 ─────────────────────────────────────────
 async function load(keepSettings) {
-  ST = await api('/api/state');
-  if (ST.error) { showErr(ST.error); return; }
+  const st = await api('/api/state');
+  if (st.error) {
+    showErr(st.error);
+    // 상태 전체가 안 와도 환경 칸만은 채워 화면에서 고칠 수 있게(검토 sv-4)
+    const e = await api('/api/env');
+    if (!e.error) { fillEnv(e.env, e.env_status); $('#envCard').open = true; showWarnings(e.warnings); }
+    return;
+  }
+  ST = st;
   if (!keepSettings) {
     S = Object.assign({}, ST.defaults, ST.last || {});
     for (const k of Object.keys(S)) if (!(k in ST.defaults)) delete S[k];
   }
   fixSelection();
   buildStatic();
+  showWarnings(ST.warnings);
   render();
   await refreshChapters();
+  if (ST.running && !job) resume(ST.running);   // 새로 고침 전에 시작한 만들기를 이어서 본다(검토 js-8)
+}
+
+// 서체 칸에 낼 것 — fonts/ 에 있는 것 + 아직 없지만 만들 때 저절로 받는 기본 본명조(새 PC · 검토 js-3)
+function fontChoices() {
+  const list = ST.fonts.slice();
+  const have = new Set(list.map((f) => f.path));
+  for (const k of ['body_font', 'bold_font']) {
+    const p = ST.defaults[k];
+    if (p && !have.has(p)) {
+      list.push({ path: p, name: (k === 'bold_font' ? '본명조 굵게' : '본명조') + ' — 만들 때 받습니다' });
+      have.add(p);
+    }
+  }
+  return list;
 }
 
 function fixSelection() {
   const trs = ST.translations || [];
   $('#noBible').hidden = trs.length > 0;
-  if (!trs.length) return;
-  if (!curTr()) S.translation = (trs.find((t) => t.lang === 'ko') || trs[0]).id;
-  const tr = curTr();
-  if (!curBook()) {
-    const prov = tr.books.find((b) => b.name === '잠언');
-    S.book = (prov || tr.books[0]).file;
+  if (trs.length) {
+    if (!curTr()) S.translation = (trs.find((t) => t.lang === 'ko') || trs[0]).id;
+    const tr = curTr();
+    if (!curBook()) {
+      const prov = tr.books.find((b) => b.name === '잠언');
+      S.book = (prov || tr.books[0]).file;
+    }
   }
-  const paths = ST.fonts.map((f) => f.path);
-  for (const k of ['body_font', 'bold_font']) if (!paths.includes(S[k])) S[k] = paths.includes(ST.defaults[k]) ? ST.defaults[k] : (paths[0] || '');
-  for (const k of ['header_font', 'footer_font']) if (S[k] && !paths.includes(S[k])) S[k] = '';
+  const ok = fontChoices().map((f) => f.path);
+  for (const k of ['body_font', 'bold_font']) if (!ok.includes(S[k])) S[k] = ok.includes(ST.defaults[k]) ? ST.defaults[k] : (ok[0] || '');
+  for (const k of ['header_font', 'footer_font']) if (S[k] && !ok.includes(S[k])) S[k] = '';
+}
+
+function fillEnv(env, es) {
+  $('#envBible').value = env.bible_dir; $('#envOut').value = env.out_dir; $('#envChrome').value = env.chrome;
+  setSt('#stBible', es.bible_dir, es.bible_dir ? '✓ 있음' + (ST ? ' · 번역본 ' + (ST.translations || []).length + '개' : '') : '✗ 폴더가 없습니다');
+  setSt('#stOut', es.out_dir, es.out_dir ? '✓ 저장할 수 있음' : '✗ 폴더가 없습니다(위 폴더까지는 있어야 합니다)');
+  setSt('#stChrome', es.chrome, es.chrome ? '✓ ' + es.chrome_path : '✗ 크롬을 못 찾았습니다 — chrome.exe 경로를 적어 주세요');
+  if (!es.bible_dir || !es.chrome) $('#envCard').open = true;
+  $('#outDirShow').textContent = env.out_dir;
 }
 
 function buildStatic() {
@@ -404,10 +451,15 @@ function buildStatic() {
   }
   buildBooks();
   // 서체
+  const choices = fontChoices();
   for (const sel of $$('.fontSel')) {
     sel.textContent = '';
     if (sel.dataset.same) sel.append(el('option', { value: '' }, '본문 서체와 같게'));
-    for (const f of ST.fonts) sel.append(el('option', { value: f.path }, f.name));
+    for (const f of choices) sel.append(el('option', { value: f.path }, f.name));
+  }
+  if (!ST.fonts.length) {
+    $('#fontCard').open = true;
+    setStatus('서체가 아직 없습니다 — 본명조는 처음 만들 때 저절로 받습니다(인터넷 필요). 다른 서체는 왼쪽 「서체 받기」에서.');
   }
   // 농도
   const sw = $('#swatches'); sw.textContent = '';
@@ -416,20 +468,14 @@ function buildStatic() {
     b.style.background = c; sw.append(b);
   }
   buildPresets();
-  // 환경
-  $('#envBible').value = ST.env.bible_dir; $('#envOut').value = ST.env.out_dir; $('#envChrome').value = ST.env.chrome;
-  const es = ST.env_status;
-  setSt('#stBible', es.bible_dir, es.bible_dir ? '✓ 있음 · 번역본 ' + (ST.translations || []).length + '개' : '✗ 폴더가 없습니다');
-  setSt('#stOut', es.out_dir, es.out_dir ? '✓ 저장할 수 있음' : '✗ 폴더가 없습니다(위 폴더까지는 있어야 합니다)');
-  setSt('#stChrome', es.chrome, es.chrome ? '✓ ' + es.chrome_path : '✗ 크롬을 못 찾았습니다 — chrome.exe 경로를 적어 주세요');
-  if (!es.bible_dir || !es.chrome) $('#envCard').open = true;
-  $('#outDirShow').textContent = ST.env.out_dir;
+  fillEnv(ST.env, ST.env_status);
   buildCatalog();
   // 규칙
   const rs = $('#rulesSource'); rs.textContent = '';
   for (const r of ST.rules.source) rs.append(el('li', {}, r.trim()));
   const ro = $('#rulesOther'); ro.textContent = '';
   for (const r of ST.rules.other_pc) ro.append(el('li', {}, r));
+  stepsLayout = null;
 }
 
 function setSt(sel, ok, text) { const e = $(sel); e.textContent = text; e.className = 'envst ' + (ok ? 'ok' : 'bad'); }
@@ -464,6 +510,11 @@ function buildCatalog() {
 }
 
 // ── 그리기 ─────────────────────────────────────────────────────
+// 지금 값이 그 꼴의 크기 단추 하나와 같으면 그 단추(소수는 오차를 두고 견준다)
+function stepOf(layout) {
+  return ST.size_steps[layout].find((st) => Object.entries(st).every(([k, v]) => k === 'name' || Math.abs(Number(S[k]) - v) < 1e-6)) || null;
+}
+
 function render() {
   if (!ST) return;
   const active = document.activeElement;
@@ -483,13 +534,15 @@ function render() {
   $('#chCount').textContent = chapters ? `이 책은 ${chapters}${$('#chUnit').textContent}까지 있습니다.` : '';
   for (const b of $$('.lay')) b.classList.toggle('on', b.dataset.layout === S.layout);
   for (const e of $$('[data-only]')) e.hidden = e.dataset.only !== S.layout;
-  // 크기 단추
-  const steps = $('#sizeSteps'); steps.textContent = '';
-  for (const st of ST.size_steps[S.layout]) {
-    const on = Object.entries(st).every(([k, v]) => k === 'name' || Number(S[k]) === v);
-    const b = el('button', { type: 'button', class: 'mini' + (on ? ' on' : ''), 'data-step': st.name }, st.name);
-    steps.append(b);
+  // 크기 단추 — 누르는 도중에 지우고 새로 만들면 그 누름이 사라진다(검토 js-1). 꼴이 바뀔 때만 다시 만든다.
+  const steps = $('#sizeSteps');
+  if (stepsLayout !== S.layout) {
+    steps.textContent = '';
+    for (const st of ST.size_steps[S.layout]) steps.append(el('button', { type: 'button', class: 'mini', 'data-step': st.name }, st.name));
+    stepsLayout = S.layout;
   }
+  const cur = stepOf(S.layout);
+  for (const b of steps.children) b.classList.toggle('on', !!cur && b.dataset.step === cur.name);
   for (const b of $$('.sw')) b.classList.toggle('on', b.dataset.color.toLowerCase() === String(S.text_color).toLowerCase());
   $('#pctLabel').textContent = `원문 ${Math.round(S.orig_pct)} : 필사 ${100 - Math.round(S.orig_pct)}`;
   $('#datePrefixField').hidden = !S.show_date;
@@ -505,7 +558,8 @@ function fontFamily(path) {
   const fam = 'pv' + Object.keys(fontFams).length;
   fontFams[path] = fam;
   const url = '/files/note/' + path.split('/').map(encodeURIComponent).join('/');
-  const ff = new FontFace(fam, `url(${url})`);
+  // 따옴표로 감싼다 — 「나눔명조 (1).ttf」 처럼 괄호가 든 이름은 따옴표 없는 url() 에서 문법 오류였다(검토 js-11)
+  const ff = new FontFace(fam, `url("${url}")`);
   ff.load().then((f) => { document.fonts.add(f); }).catch(() => {});
   return fam;
 }
@@ -533,18 +587,20 @@ function autoName() {
   if (S.range_mode === 'chapter') parts.push(S.ch_from + unit);
   else if (S.range_mode === 'chapters') parts.push(`${Math.min(S.ch_from, S.ch_to)}-${Math.max(S.ch_from, S.ch_to)}${unit}`);
   parts.push(S.layout === 'right' ? '오른쪽' : '아래쪽');
-  return parts.join('_') + '.html';
+  return safeFileName(parts.join('_')) + '.html';
 }
 
 async function refreshChapters() {
+  const my = ++chapReq;           // 책을 빨리 바꿔도 마지막 물음의 답만 쓴다
   chapters = 0;
   if (!curTr() || !curBook()) { render(); return; }
   const r = await api(`/api/chapters?tr=${encodeURIComponent(S.translation)}&book=${encodeURIComponent(S.book)}`);
+  if (my !== chapReq) return;
   if (r.error) { showErr(r.error); return; }
   chapters = r.chapters || 0;
   if (chapters) {
-    if (S.ch_from > chapters) S.ch_from = 1;
-    if (S.ch_to > chapters || S.ch_to < 1) S.ch_to = chapters;
+    if (!(S.ch_from >= 1) || S.ch_from > chapters) S.ch_from = 1;
+    if (!(S.ch_to >= 1) || S.ch_to > chapters) S.ch_to = chapters;
   }
   for (const k of ['ch_from', 'ch_to']) { const i = document.querySelector(`[data-k="${k}"]`); if (i) i.max = chapters || 200; }
   render();
@@ -559,54 +615,79 @@ function changed() {
   saveT = setTimeout(() => api('/api/last', { settings: S }), 600);
 }
 
+// 책 · 범위가 바뀌면 적어 둔 파일 이름을 비운다 — 다른 책의 노트가 옛 이름 파일을 덮었다(검토 js-5)
+function clearOutName() {
+  if (S.out_name) {
+    S.out_name = '';
+    setStatus('책이나 범위가 바뀌어 파일 이름 칸을 비웠습니다 — 자동 이름으로 저장합니다.');
+  }
+}
+
 function readInput(inp) {
   if (inp.type === 'checkbox') return ('invert' in inp.dataset) ? !inp.checked : inp.checked;
   if (inp.type === 'number' || inp.type === 'range') { const n = parseFloat(inp.value); return Number.isNaN(n) ? inp.value : n; }
   return inp.value;
 }
 
-$('#form').addEventListener('input', (e) => {
+function onInput(e) {
   const inp = e.target.closest('[data-k]');
   if (!inp) return;
-  S[inp.dataset.k] = readInput(inp);
+  const k = inp.dataset.k, v = readInput(inp);
+  if (S[k] === v) return;
+  S[k] = v;
+  if (k === 'ch_from' || k === 'ch_to') clearOutName();
   changed();
-});
-$('#form').addEventListener('change', (e) => {
-  const inp = e.target.closest('[data-k]');
-  if (inp) { S[inp.dataset.k] = readInput(inp); changed(); }
-});
+}
+$('#form').addEventListener('input', onInput);
+$('#form').addEventListener('change', onInput);
 $('#form').addEventListener('focusout', () => setTimeout(render, 0));
 
 $('#trSeg').addEventListener('click', async (e) => {
-  const b = e.target.closest('button'); if (!b) return;
+  const b = e.target.closest('button'); if (!b || !ST) return;
+  if (b.dataset.v === S.translation) return;
   const prev = curBook();
   S.translation = b.dataset.v;
   buildBooks();
   const tr = curTr();
   const same = prev && tr.books.find((x) => x.name === prev.name);
   S.book = (same || tr.books[0]).file;
+  clearOutName();
   changed(); await refreshChapters();
 });
-$('#bookSel').addEventListener('change', async () => { S.book = $('#bookSel').value; changed(); await refreshChapters(); });
+$('#bookSel').addEventListener('change', async () => {
+  S.book = $('#bookSel').value; clearOutName(); changed(); await refreshChapters();
+});
 $('#rangeSeg').addEventListener('click', (e) => {
-  const b = e.target.closest('button'); if (!b) return;
+  const b = e.target.closest('button'); if (!b || !ST) return;
+  if (b.dataset.v === S.range_mode) return;
   S.range_mode = b.dataset.v;
-  if (S.range_mode === 'chapters' && S.ch_to <= S.ch_from) S.ch_to = Math.min(chapters || S.ch_from + 1, S.ch_from + 9);
+  if (S.range_mode === 'chapters' && !(S.ch_to > S.ch_from)) S.ch_to = Math.min(chapters || S.ch_from + 1, S.ch_from + 9);
+  clearOutName();
   changed();
 });
 $$('.lay').forEach((b) => b.addEventListener('click', () => {
+  if (!ST) return;
   const from = S.layout, to = b.dataset.layout;
   if (from === to) return;
-  const LD = ST.layout_defaults;   // 손대지 않은 값만 새 꼴의 기본값으로
-  for (const k of ['font_pt', 'header_pt', 'date_pt']) {
-    if (LD[from][k] !== undefined && Number(S[k]) === LD[from][k] && LD[to][k] !== undefined) S[k] = LD[to][k];
-  }
+  const LD = ST.layout_defaults;
+  const step = stepOf(from);
   S.layout = to;
+  if (step) {
+    // 크기 단추로 고른 크기면 새 꼴의 같은 이름 단추로 — 오갈 때 「아주 크게」가 말없이 바뀌었다(검토 js-7)
+    const twin = ST.size_steps[to].find((x) => x.name === step.name);
+    if (twin) for (const [k, v] of Object.entries(twin)) if (k !== 'name') S[k] = v;
+  } else if (Number(S.font_pt) === LD[from].font_pt) {
+    S.font_pt = LD[to].font_pt;          // 손대지 않은 글자 크기만 새 꼴의 기본값으로
+  }
+  for (const k of ['header_pt', 'date_pt']) {
+    if (LD[from][k] !== undefined && LD[to][k] !== undefined && Number(S[k]) === LD[from][k]) S[k] = LD[to][k];
+  }
   changed();
 }));
 $('#sizeSteps').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-step]'); if (!b) return;
+  const b = e.target.closest('[data-step]'); if (!b || !ST) return;
   const st = ST.size_steps[S.layout].find((x) => x.name === b.dataset.step);
+  if (!st) return;
   for (const [k, v] of Object.entries(st)) if (k !== 'name') S[k] = v;
   changed();
 });
@@ -620,18 +701,25 @@ document.addEventListener('click', async (e) => {
   const op = e.target.closest('[data-open]');
   if (op) { const r = await api('/api/open', { what: op.dataset.open }); if (r.error) showErr(r.error); return; }
   const fb = e.target.closest('[data-font]');
-  if (fb) {
+  if (fb && ST) {
     fb.disabled = true; fb.textContent = '받는 중…';
     const r = await api('/api/fonts/download', { key: fb.dataset.font });
     if (r.error) { showErr(r.error); fb.disabled = false; fb.textContent = '받기'; return; }
     ST.fonts = r.fonts; ST.catalog = r.catalog;
-    fixSelection(); buildStatic(); render();
+    reselect();
   }
 });
 
+// 서버 상태가 바뀐 뒤(환경 저장 · 서체 받기) — 고른 것이 바뀌었으면 「바뀜」으로 친다(검토 js-6)
+function reselect() {
+  const before = snapOf();
+  fixSelection(); buildStatic();
+  if (snapOf() !== before) changed(); else render();
+}
+
 // 설정 묶음
 $('#presetLoad').addEventListener('click', () => {
-  const n = $('#presetSel').value; const p = (ST.presets || {})[n];
+  const n = $('#presetSel').value; const p = ST && (ST.presets || {})[n];
   if (!p) return;
   for (const [k, v] of Object.entries(p)) if (k in ST.defaults && !ST.look_excluded.includes(k)) S[k] = v;
   fixSelection(); changed();
@@ -646,14 +734,16 @@ $('#presetSave').addEventListener('click', async () => {
   setStatus(`「${name}」 으로 저장했습니다.`);
 });
 $('#presetDel').addEventListener('click', async () => {
-  const n = $('#presetSel').value; if (!n) return;
+  const n = $('#presetSel').value; if (!n || !ST) return;
   if (!confirm(`「${n}」 설정을 지울까요?`)) return;
   const r = await api('/api/presets/delete', { name: n });
   if (r.error) { showErr(r.error); return; }
   ST.presets = r.presets; buildPresets();
 });
 $('#resetAll').addEventListener('click', () => {
-  const keep = { translation: S.translation, book: S.book, range_mode: S.range_mode, ch_from: S.ch_from, ch_to: S.ch_to };
+  if (!ST) return;
+  const num = (v, d) => (Number.isFinite(Number(v)) && Number(v) >= 1 ? Number(v) : d);
+  const keep = { translation: S.translation, book: S.book, range_mode: S.range_mode, ch_from: num(S.ch_from, 1), ch_to: num(S.ch_to, 1) };
   S = Object.assign({}, ST.defaults, keep);
   fixSelection(); changed();
 });
@@ -662,7 +752,11 @@ $('#resetAll').addEventListener('click', () => {
 $('#envSave').addEventListener('click', async () => {
   const r = await api('/api/env', { bible_dir: $('#envBible').value, out_dir: $('#envOut').value, chrome: $('#envChrome').value });
   if (r.error) { showErr(r.error); return; }
-  ST = r; fixSelection(); buildStatic(); render(); await refreshChapters();
+  const first = !ST;
+  ST = r;
+  if (first) { await load(false); setStatus('이 PC 환경을 저장했습니다.'); return; }
+  showWarnings(ST.warnings);
+  reselect(); await refreshChapters();
   setStatus('이 PC 환경을 저장했습니다.');
 });
 
@@ -674,8 +768,14 @@ function setStatus(text, spinning) {
   $('#statusText').textContent = text;
 }
 function showErr(msg) { const b = $('#errBox'); b.textContent = msg; b.hidden = !msg; if (msg) b.scrollIntoView({ block: 'nearest' }); }
+function showWarnings(list) {
+  const b = $('#warnBox');
+  b.textContent = (list || []).map((w) => '⚠ ' + w).join('\n');
+  b.hidden = !(list && list.length);
+}
 function busy(on) {
-  $('#btnPreview').disabled = on; $('#btnBuild').disabled = on; $('#btnCancel').hidden = !on;
+  // 만드는 중에는 환경도 못 바꾼다 — 바꾸면 결과 주소 · 저장 자리가 갈렸다(검토 sv-7)
+  $('#btnPreview').disabled = on; $('#btnBuild').disabled = on; $('#envSave').disabled = on; $('#btnCancel').hidden = !on;
 }
 function showLog(lines) {
   const pre = $('#log'); pre.textContent = '';
@@ -686,12 +786,24 @@ function showLog(lines) {
   pre.scrollTop = pre.scrollHeight;
 }
 
+function resume(run) {
+  job = { id: run.id, preview: run.preview, snap: null };
+  busy(true);
+  setStatus('앞서 시작한 만들기를 이어서 봅니다…', true);
+  poll();
+}
+
 async function start(preview) {
   showErr('');
+  if (!ST) { showErr('화면을 아직 읽지 못했습니다 — 새로 고쳐 주세요(F5)'); return; }
   if (!curBook()) { showErr('책을 골라 주세요'); return; }
+  const snap = snapOf();
   const r = await api('/api/build', { settings: S, preview });
-  if (r.error) { showErr(r.error); return; }
-  job = { id: r.id, preview };
+  if (r.error) {
+    if (r.running && !job) { resume(r.running); return; }
+    showErr(r.error); return;
+  }
+  job = { id: r.id, preview, snap };
   busy(true);
   if (!preview) $('#result').hidden = true;
   setStatus(preview ? '미리보기를 만드는 중…' : '만드는 중… 한 권은 1분쯤 걸립니다', true);
@@ -699,16 +811,18 @@ async function start(preview) {
 }
 
 async function poll() {
+  if (!job) return;
   const j = await api('/api/job?id=' + job.id);
-  if (j.error) { busy(false); setStatus(''); showErr(j.error); return; }
+  if (j.error) { busy(false); setStatus(''); showErr(j.error); job = null; return; }
   showLog(j.log || []);
   if (j.status === 'running') {
     setStatus(`${job.preview ? '미리보기를 만드는 중' : '만드는 중'}… ${j.seconds}초`, true);
     setTimeout(poll, 700);
     return;
   }
+  const mine = job; job = null;
   busy(false);
-  if (j.status === 'done') { done(j.result, job.preview, j.seconds); return; }
+  if (j.status === 'done') { done(j.result, mine, j.seconds); return; }
   if (j.status === 'cancelled') { setStatus('멈췄습니다.'); return; }
   setStatus('만들지 못했습니다.');
   const errs = (j.log || []).filter((l) => l.startsWith('!!'));
@@ -716,11 +830,12 @@ async function poll() {
   $('#logBox').open = true;
 }
 
-function done(res, preview, secs) {
+function done(res, mine, secs) {
   lastShown = res;
-  $('#staleBadge').hidden = true;
+  // 만드는 동안 왼쪽 칸을 바꿨으면 「설정이 바뀌었습니다」를 남긴다(검토 js-6)
+  $('#staleBadge').hidden = !mine.snap || mine.snap === snapOf();
   if (res.url) showFrame(res.url);
-  if (preview) {
+  if (mine.preview) {
     setStatus(`미리보기 — 첫 장 ${res.pages}쪽 (${secs}초) · 마음에 들면 「만들기」를 누르세요.`);
     return;
   }
@@ -729,9 +844,10 @@ function done(res, preview, secs) {
   $('#resName').textContent = res.html.split(/[\\/]/).pop();
   $('#resMeta').textContent = `${res.pages}쪽 · ${res.verses}절${res.pdf ? ' · PDF 함께' : ''}`;
   const open = $('#resOpen');
-  if (res.url) { open.href = res.url; open.hidden = false; } else open.hidden = true;
+  if (res.url) { open.href = res.url; open.hidden = false; } else { open.removeAttribute('href'); open.hidden = true; }
   const pdf = $('#resPdf');
-  if (res.pdf_url) { pdf.href = res.pdf_url; pdf.hidden = false; } else pdf.hidden = true;
+  if (res.pdf_url) { pdf.href = res.pdf_url; pdf.hidden = false; } else { pdf.removeAttribute('href'); pdf.hidden = true; }
+  $('#resPrint').hidden = !res.url;
 }
 
 const frame = $('#frame');
@@ -750,20 +866,35 @@ frame.addEventListener('load', () => {
 });
 function fitFrame() {
   const box = $('#frameBox');
+  if (!box.clientWidth || !box.clientHeight) return;
   const k = Math.min(1, box.clientWidth / PAGE_W);
   frame.style.width = PAGE_W + 'px';
   frame.style.height = (box.clientHeight / k) + 'px';
   frame.style.transform = `scale(${k})`;
 }
+// 결과 줄 · 오류 상자 · 기록이 열리면 미리보기 상자가 줄어든다 — 창 크기만 보면 아래가 잘렸다(검토 js-10)
+if (window.ResizeObserver) new ResizeObserver(fitFrame).observe($('#frameBox'));
 window.addEventListener('resize', fitFrame);
 
 $('#btnPreview').addEventListener('click', () => start(true));
 $('#btnBuild').addEventListener('click', () => start(false));
 $('#btnCancel').addEventListener('click', async () => { if (job) await api('/api/cancel', { id: job.id }); });
 $('#resPrint').addEventListener('click', () => {
-  const url = $('#resOpen').href; if (!url) return;
-  const w = window.open(url, '_blank');
-  if (w) w.addEventListener('load', () => w.document.fonts.ready.then(() => setTimeout(() => w.print(), 300)));
+  const url = $('#resOpen').getAttribute('href'); if (!url) return;
+  const w = window.open(url, '_blank'); if (!w) return;
+  // 새 창이 다 읽히고 서체까지 준비되면 인쇄 — load 를 놓쳐도 되게 상태를 몇 번 들여다본다
+  let tries = 0;
+  const go = () => {
+    try {
+      if (w.closed) return;
+      if (w.location.href !== 'about:blank' && w.document.readyState === 'complete') {
+        w.document.fonts.ready.then(() => setTimeout(() => w.print(), 300));
+        return;
+      }
+    } catch (e) { return; }
+    if (++tries < 100) setTimeout(go, 200);
+  };
+  go();
 });
 
 load(false);

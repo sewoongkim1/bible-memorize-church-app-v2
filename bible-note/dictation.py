@@ -20,8 +20,10 @@ generate.py(오른쪽 필사형 — 왼쪽 원문 / 오른쪽 필사줄)와 다�
 import argparse
 import io
 import os
+import pathlib
 import re
 import shutil
+import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -156,7 +158,8 @@ def build_paragraphs(pieces):
         if real_start or VERSE_BREAK:
             paras.append({'heads': heads, 'tokens': []})
         toks = paras[-1]['tokens']
-        body = v['body'].strip()
+        # 공백 여럿 · 탭은 한 칸으로 — 1차(white-space:normal)는 접어서 재고, 끝 맞춤 칸(pre)은 다 그려 줄이 넘쳤다(검토 dc-1).
+        body = re.sub(r'\s+', ' ', v['body']).strip()
         if not body:
             continue
         label = v['label'] if 'label' in v else str(v['verse'])
@@ -311,6 +314,9 @@ def build_items(paras, breaks, lang='ko', heads=None):
                 toks = toks[:-1]
             while toks and toks[0]['space']:
                 toks = toks[1:]
+            # 이어진 빈칸은 하나만 — 두 칸 띄어쓰기(누가복음 20:42)를 1차는 한 칸 폭으로 재는데 끝 맞춤 칸은 둘 다 폭을
+            # 차지해 줄이 넘쳤다(검토 dc-1). 토큰을 따로 짜는 dictation_enko 도 여기를 지난다.
+            toks = [t for i, t in enumerate(toks) if not (t['space'] and i and toks[i - 1]['space'])]
             if not toks:
                 continue
             items.append({'kind': 'line', 'html': _line_html(toks, JUSTIFY and not is_last, lang),
@@ -344,15 +350,25 @@ def paginate_items(items, cap_mm):
 
 
 # ── 2차(인쇄) ─────────────────────────────────────────────────────────
-def page_css():
+def footer_has_text(total=None):
+    """바닥글에 한 글자라도 찍히는 쪽이 있나 — total 이 없으면(옛 부름) 홀 · 짝 두 쪽으로 본다."""
+    return R.footer_has_text(total if total else 2)
+
+
+def page_css(total=None):
+    """2차(인쇄) 쪽 규칙. total(전체 쪽 수)을 주면 바닥글에 글이 하나도 안 찍힐 때 바닥글 서체를 싣지 않는다 —
+    안 쓰는 서체는 unloaded 로 남아 자체 확인이 FONT 로 멈췄다(검토 dc-2 · render 의 empty_slots 와 같은 규칙).
+    ⚠️ 인자 없는 옛 부름(dictation_enko.py 의 D.page_css())도 그대로 된다."""
     faces = ''   # 굵은 서체(NSKB)는 text_css 가 싣는다(1차 · 2차 같이)
     hd_rule = ft_rule = ''
     if HEADER_FONT and HEADER_FONT != BODY_FONT:
         faces += _face('NSKH', HEADER_FONT)
         hd_rule = " font-family:'NSKH','NSK',serif;"
+    has_text = footer_has_text(total)
     if FOOTER_FONT and FOOTER_FONT != BODY_FONT:
-        faces += _face('NSKF', FOOTER_FONT)
-        ft_rule = " font-family:'NSKF','NSK',serif;"
+        if has_text:
+            faces += _face('NSKF', FOOTER_FONT)
+            ft_rule = " font-family:'NSKF','NSK',serif;"
     elif FOOTER_LIKE_SUB:
         ft_rule = " font-family:'NSKB',serif;"
     ft_pt, ft_color = (HEAD_PT, '#111') if FOOTER_LIKE_SUB else (R.FOOTER_PT, '#555')
@@ -414,16 +430,18 @@ def _page_html(page, book, page_no, total, lang):
 
 def build_final_html(pages, book, lang='ko'):
     total = len(pages)
-    # 굵은 서체를 쓰는 칸 — 머리 칸 · 날짜 칸 · 소제목 같은 바닥글. 하나도 없으면 싣지 않는다(서체 실패로 오인).
-    bold = SHOW_DATE or (FOOTER_LIKE_SUB and not FOOTER_FONT) or any(
+    # 굵은 서체를 쓰는 칸 — 머리 칸 · 날짜 칸 · 글이 있는 소제목 같은 바닥글. 하나도 없으면 싣지 않는다(서체 실패로 오인).
+    bold = SHOW_DATE or (FOOTER_LIKE_SUB and not FOOTER_FONT and footer_has_text(total)) or any(
         it['kind'] != 'line' for pg in pages for it in pg)
     return ('<!doctype html><html lang="%s"><head><meta charset="utf-8">'
             '<title>%s 필사노트(아래쪽 필사형)</title><style>%s%s</style></head><body>%s%s</body></html>'
-            % (lang, esc(book), text_css(lang, bold), page_css(), R.FONT_WARN_HTML,
+            % (lang, esc(book), text_css(lang, bold), page_css(total), R.FONT_WARN_HTML,
                ''.join(_page_html(pg, book, i + 1, total, lang) for i, pg in enumerate(pages))))
 
 
-# 인쇄본 확인 — 줄이 폭을 넘지 않는지 · 쪽 안이 넘치지 않는지.
+# 인쇄본 확인 — 줄이 폭을 넘지 않는지 · 쪽 안이 넘치지 않는지 · 머리글 · 바닥글이 잘리지 않는지.
+# ⚠️ 머리글은 align-items:flex-end 라 넘친 글이 위로 자란다 — scrollHeight 로는 못 잡아 칸 높이와 직접 견준다(verify 와 같은 방법).
+#    바닥글은 grid 1fr auto 1fr 이라 가운데 글이 길면 양옆 칸(쪽 번호)이 잘린 채 「통과」했다(검토 dc-3).
 CHECK_PROBE = """<script>
 document.fonts.ready.then(function(){
   var bad = [];
@@ -434,6 +452,24 @@ document.fonts.ready.then(function(){
       if (l.scrollWidth > l.clientWidth + 1) bad.push('WIDE' + (i + 1));
       if (l.scrollHeight > l.clientHeight + 1) bad.push('HIGH' + (i + 1));
     });
+  });
+  document.querySelectorAll('.page').forEach(function(pg, i){
+    var hd = pg.querySelector('.hd');
+    if (hd) {
+      var over = hd.scrollWidth > hd.clientWidth + 1;
+      hd.querySelectorAll(':scope > span').forEach(function(sp){
+        if (sp.getBoundingClientRect().height > hd.clientHeight + 1) over = true;
+      });
+      if (over) bad.push('HEAD' + (i + 1));
+    }
+    var ft = pg.querySelector('.ft');
+    if (ft) {
+      var fb = ft.getBoundingClientRect().bottom, cut = false;
+      ft.querySelectorAll(':scope > span').forEach(function(sp){
+        if (sp.scrollWidth > sp.clientWidth + 1 || sp.getBoundingClientRect().bottom > fb + 1) cut = true;
+      });
+      if (cut) bad.push('FOOT' + (i + 1));
+    }
   });
   document.title = 'CHECK|' + document.querySelectorAll('.page').length + '|' + bad.join(',');
 });
@@ -482,10 +518,30 @@ def build(pieces, title, out_path, chrome, max_pages=None):
     if max_pages:
         pages = pages[:max_pages]
     copy_fonts_beside(out_path)
-    with io.open(out_path, 'w', encoding='utf-8') as f:
-        f.write(build_final_html(pages, title, lang))
-    check_final(out_path, chrome, len(pages))
+    # 확인을 통과한 뒤에만 진짜 이름으로 — 걸린 인쇄본이 전에 잘 만든 같은 이름 파일을 덮었다(검토 dc-4).
+    # 임시 이름은 「_」 로 시작해 bible-note 안이면 .gitignore 에 걸린다(실패해도 finally 에서 지운다).
+    work = G._temp_beside(out_path, '_dict_out_', '.html')
+    try:
+        with io.open(work, 'w', encoding='utf-8') as f:
+            f.write(build_final_html(pages, title, lang))
+        check_final(work, chrome, len(pages))
+        os.replace(work, out_path)
+    finally:
+        G._remove_temp(work)
     return len(pages), sum(1 for it in items if it['kind'] == 'line')
+
+
+def _chrome_uri(chrome, flags, target_path):
+    """generate._chrome 과 같되 주소를 퍼센트 인코딩한다 — 'file:///' + 경로면 폴더 이름의 「#」 뒤가 주소 조각이 되고
+    「%41」 이 다른 글자로 풀려 실측이 늘 실패했다(검토 dc-5). 명령줄(generate)에서만 끼운다 — 화면(notebook.py)은
+    제 _chrome_runner(같은 인코딩 · 멈추기 · 자식까지 끄기)를 끼운다."""
+    try:
+        return subprocess.run([chrome, '--headless', '--disable-gpu'] + flags +
+                              [pathlib.Path(os.path.abspath(target_path)).as_uri()],
+                              capture_output=True, timeout=G.CHROME_TIMEOUT_SEC)
+    except subprocess.TimeoutExpired:
+        raise SystemExit('!! 크롬이 %d초 안에 끝나지 않았습니다(멈췄을 수 있습니다) — %s'
+                         % (G.CHROME_TIMEOUT_SEC, target_path))
 
 
 def generate(book_name, chapter=None, out_path=None):
@@ -500,6 +556,7 @@ def generate(book_name, chapter=None, out_path=None):
     chrome = G.find_chrome()
     if not chrome:
         raise SystemExit('!! 크롬을 못 찾았습니다 — 헤드리스 실측에 필요합니다.')
+    G._chrome = _chrome_uri      # 이 명령줄 프로세스에서만(다른 생성기는 저마다 따로 돈다)
     pieces = parse_book(load_book_file(G.find_book_file(book_name)), book_name, chapter=chapter)
     if not pieces:
         raise SystemExit('!! "%s"에서 절을 찾지 못했습니다' % book_name)

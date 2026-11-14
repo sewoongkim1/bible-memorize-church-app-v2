@@ -19,6 +19,7 @@
 import io
 import json
 import os
+import pathlib
 import re
 import subprocess
 import sys
@@ -79,9 +80,9 @@ RULES = {
         '  영어 꼴: 「권 번호 01~66」-「영어 이름」 (「한글 이름」) → 20-Proverbs (잠언).txt. '
         '첫 줄에 책 이름이 있어도 되고, 줄은 「1:1 본문」.',
         '글자 꼴(인코딩)은 UTF-8 이나 CP949(메모장의 ANSI). 장:절 번호가 없는 줄이 있으면 틀린 채 찍지 않고 멈춘다.',
-        '필요하면 번역본 폴더에 번역본.json 을 둔다 — {"이름": "개역개정 4판", "언어": "ko"}. '
-        '이름은 화면 · 파일 이름에, 언어(ko · en)는 「1 장」/「Chapter 1」 · 머리글 책 이름에 쓴다. '
-        '없으면 폴더 이름 · 파일 꼴(한글 꼴 = ko, 영어 꼴 = en)로 정한다.',
+        '필요하면 번역본 폴더에 번역본.json 을 둔다(UTF-8) — {"이름": "개역개정 4판", "언어": "ko"}. '
+        '이름은 화면 · 파일 이름에 쓴다. 「언어」는 영어 꼴 파일에만 먹는다 — 영어 꼴 파일 이름에 한글 본문을 넣었으면 "ko" '
+        '(「1 장」 · 머리글 한글 책 이름). 없으면 폴더 이름 · 파일 꼴(한글 꼴 = 한글, 영어 꼴 = 영어)로 정한다.',
         '성경 본문 · 만든 HTML · PDF 는 저작권 때문에 git 에 올리지 않는다 '
         '(bible/ · bible-note 아래 *.html · *.pdf · fonts/ 는 .gitignore 에 막혀 있다).',
     ],
@@ -122,22 +123,39 @@ def say(msg):
 
 # ── 이 PC 환경 · 저장 ──────────────────────────────────────────────────
 def load_json(path, default):
+    """⚠️ 틀린 파일(메모장 ANSI 저장 · git 충돌 표시 · 반쯤 쓴 파일)은 UserError — 글에 폴더 이름까지 넣는다
+    (번역본.json 은 폴더마다 있어 이름만으로는 어느 것인지 모른다 · 2026-11-14 검토 js-2)."""
     try:
         with io.open(path, encoding='utf-8-sig') as f:
             return json.load(f)
     except FileNotFoundError:
         return default
-    except ValueError as e:
-        raise UserError('%s 을 읽지 못했습니다(JSON 꼴이 틀림) — %s' % (os.path.basename(path), e))
+    except ValueError as e:     # JSON 오류 · UnicodeDecodeError 둘 다
+        where = os.path.join(os.path.basename(os.path.dirname(path)), os.path.basename(path))
+        raise UserError('%s 을 읽지 못했습니다(UTF-8 JSON 이 아님) — %s' % (where, e))
 
 
 def save_json(path, data):
-    with io.open(path, 'w', encoding='utf-8') as f:
+    """임시 파일(「_」 로 시작 — bible-note 안에서 git 에 안 걸린다)에 다 쓴 뒤 바꿔 끼운다.
+    통째로 덮어쓰면 쓰는 도중 끊겼을 때 반쯤 쓴 파일이 남아 화면이 서지 못했다(검토 sv-4)."""
+    tmp = os.path.join(os.path.dirname(path), '_' + os.path.basename(path) + '.tmp')
+    with io.open(tmp, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, path)
 
 
-def get_env():
-    e = load_json(ENV_PATH, {})
+def get_env(warnings=None):
+    """이 PC 환경. warnings 를 주면(화면) _환경.json 이 틀려도 멈추지 않고 기본값으로 · 경고를 담는다.
+    만들기(build)는 warnings 없이 불러 틀리면 멈춘다."""
+    try:
+        e = load_json(ENV_PATH, {})
+    except UserError as err:
+        if warnings is None:
+            raise
+        warnings.append('%s — 기본값으로 엽니다(「이 PC 환경」을 다시 저장하면 고쳐집니다)' % err)
+        e = {}
+    if not isinstance(e, dict):
+        e = {}
     return {
         'bible_dir': e.get('bible_dir') or os.path.normpath(os.path.join(HERE, '..', 'bible')),
         'out_dir': e.get('out_dir') or os.path.join(HERE, '인쇄용'),
@@ -156,16 +174,24 @@ def env_status(env):
     }
 
 
+CHROME_NAMES = {'chrome.exe', 'msedge.exe', 'chromium.exe', 'chrome', 'chromium', 'chromium-browser',
+                'google-chrome', 'google-chrome-stable', 'microsoft-edge', 'google chrome', 'microsoft edge'}
+
+
 def save_env(data):
     out = {}
     for k in ('bible_dir', 'out_dir', 'chrome'):
-        v = (data.get(k) or '').strip().strip('"')
+        v = str(data.get(k) or '').strip().strip('"')
         if v:
             out[k] = os.path.normpath(v)
     if out.get('bible_dir') and not os.path.isdir(out['bible_dir']):
         raise UserError('성경 폴더가 없습니다: %s' % out['bible_dir'])
-    if out.get('chrome') and not os.path.exists(out['chrome']):
-        raise UserError('크롬 파일이 없습니다: %s' % out['chrome'])
+    if out.get('chrome'):
+        # ⚠️ 크롬 · 엣지 실행 파일만 — 이 경로는 만들 때마다 그대로 실행된다(검토 sv-1: 아무 프로그램이나 띄울 수 있었다).
+        if os.path.basename(out['chrome']).lower() not in CHROME_NAMES:
+            raise UserError('크롬 경로는 chrome.exe(또는 msedge.exe) 파일이어야 합니다: %s' % out['chrome'])
+        if not os.path.isfile(out['chrome']):
+            raise UserError('크롬 파일이 없습니다: %s' % out['chrome'])
     save_json(ENV_PATH, out)
     return get_env()
 
@@ -203,23 +229,58 @@ def scan_books(folder):
     return books
 
 
-def translations(env):
+LANG_WORDS = {'en': 'en', 'eng': 'en', 'english': 'en', '영어': 'en',
+              'ko': 'ko', 'kor': 'ko', 'korean': 'ko', '한글': 'ko', '한국어': 'ko'}
+
+
+def translations(env, warnings=None):
+    """번역본 목록. 못 여는 하위 폴더(문서의 'My Music' · 드라이브 맨 위의 'System Volume Information')나
+    틀린 번역본.json 하나 때문에 목록 전체가 멈추지 않게 그 폴더만 건너뛴다(검토 sv-4 · js-2).
+    warnings(목록)를 주면 건너뛴 까닭을 담는다.
+
+    「언어」는 영어 꼴 파일(20-Proverbs (잠언).txt)에만 먹는다 — 한글 꼴 파일은 늘 한글이다(검토 nb-5).
+    값은 대소문자 · 한글 이름도 받는다(EN · 영어 · 한국어). 모르는 값이면 파일 꼴대로 두고 알린다."""
+    warn = warnings.append if warnings is not None else (lambda _m: None)
     root = env['bible_dir']
     if not os.path.isdir(root):
         return []
+    try:
+        names = sorted(os.listdir(root))
+    except OSError as e:
+        warn('성경 폴더를 읽지 못했습니다 — %s' % e)
+        return []
     out = []
-    for d in sorted(os.listdir(root)):
+    for d in names:
         folder = os.path.join(root, d)
         if d.startswith(('_', '.')) or not os.path.isdir(folder):
             continue
-        books = scan_books(folder)
+        try:
+            books = scan_books(folder)
+        except OSError as e:
+            warn('「%s」 폴더를 읽지 못해 건너뜁니다 — %s' % (d, e.strerror or e))
+            continue
         if not books:
             continue
-        info = load_json(os.path.join(folder, '번역본.json'), {})
+        try:
+            info = load_json(os.path.join(folder, '번역본.json'), {})
+        except UserError as e:
+            warn('%s — 폴더 이름 · 파일 꼴로 엽니다' % e)
+            info = {}
+        if not isinstance(info, dict):
+            info = {}
         fmts = {b['fmt'] for b in books}
-        lang = info.get('언어') or info.get('lang') or ('en' if fmts == {'en'} else 'ko')
-        out.append({'id': d, 'name': info.get('이름') or info.get('name') or d,
-                    'lang': 'en' if lang == 'en' else 'ko', 'books': books})
+        lang = 'en' if fmts == {'en'} else 'ko'
+        raw = info.get('언어', info.get('lang'))
+        if raw is not None and str(raw).strip():
+            want = LANG_WORDS.get(str(raw).strip().lower())
+            if want is None:
+                warn('「%s」 번역본.json 의 「언어」 %r 를 모릅니다(ko · en) — 파일 꼴대로 엽니다' % (d, raw))
+            elif want == 'en' and 'en' not in fmts:
+                warn('「%s」 은 한글 꼴 파일이라 「언어」 en 을 쓰지 않습니다 — 영어 본문은 영어 꼴 파일 이름으로 넣어 주세요' % d)
+            elif 'en' in fmts:
+                lang = want
+        out.append({'id': d, 'name': str(info.get('이름') or info.get('name') or d),
+                    'lang': lang, 'books': books})
     return out
 
 
@@ -392,21 +453,51 @@ def _font_ok(path):
             and os.path.splitext(path)[1].lower() in FONT_EXTS)
 
 
+def _used_numbers(s):
+    """지금 고른 꼴 · 범위 · 켬/끔에서 실제로 쓰는 숫자 칸. 쓰지 않는 칸(화면에서 숨기거나 막아 둔 칸)의 틀린 값은
+    멈추지 않고 기본값으로 둔다 — 보이지 않는 칸 때문에 만들기 · 설정 저장이 막혔다(검토 js-4)."""
+    used = {'font_pt', 'letter_spacing_em', 'header_pt', 'bind_top_mm', 'bind_left_mm'}
+    used |= {'line_mm', 'orig_pct'} if s['layout'] == 'right' else {'text_mm', 'write_mm', 'head_pt'}
+    if s['range_mode'] in ('chapter', 'chapters'):
+        used.add('ch_from')
+    if s['range_mode'] == 'chapters':
+        used.add('ch_to')
+    if s['show_date']:
+        used.add('date_pt')
+    if not s['footer_like_sub']:
+        used.add('footer_pt')
+    return used
+
+
 def normalize(raw):
-    s = defaults()
-    for k, v in (raw or {}).items():
+    base = defaults()
+    s = dict(base)
+    for k, v in (raw or {}).items() if isinstance(raw, dict) else ():
         if k in s:
             s[k] = v
+    if s['layout'] not in ('right', 'below'):
+        raise UserError('필사형을 골라 주세요')
+    if s['range_mode'] not in ('book', 'chapter', 'chapters'):
+        raise UserError('범위를 골라 주세요')
+    for k in BOOL_KEYS:
+        s[k] = bool(s[k])
+    used = _used_numbers(s)
     for k, (lo, hi, label) in NUM_RULES.items():
         try:
             v = float(s[k])
+            ok = v == v and lo <= v <= hi          # v == v — NaN 거르기
         except (TypeError, ValueError):
-            raise UserError('%s 값이 숫자가 아닙니다: %r' % (label, s[k]))
-        if not lo <= v <= hi:
-            raise UserError('%s은(는) %s ~ %s 사이로 정해 주세요(지금 %s)' % (label, lo, hi, s[k]))
+            v, ok = None, False
+        if not ok:
+            if k not in used:
+                v = float(base[k])
+            elif v is None:
+                raise UserError('%s 값이 숫자가 아닙니다: %r' % (label, s[k]))
+            else:
+                raise UserError('%s은(는) %s ~ %s 사이로 정해 주세요(지금 %s)' % (label, lo, hi, s[k]))
         s[k] = int(v) if k in ('ch_from', 'ch_to') else v
-    for k in BOOL_KEYS:
-        s[k] = bool(s[k])
+    # 인쇄는 render/dictation 의 _mm(소수 둘째 자리)로 적는다 — 저장 · 견본 · 인쇄가 같은 값이게(검토 nb-6).
+    s['letter_spacing_em'] = round(s['letter_spacing_em'], 2)
     for k in TEXT_KEYS:
         s[k] = str(s[k] or '')
         if len(s[k]) > 120:
@@ -416,11 +507,7 @@ def normalize(raw):
         if s[k] and not _font_ok(s[k]):
             raise UserError('서체는 bible-note/fonts/ 안의 파일만 고를 수 있습니다: %s' % s[k])
     if not s['body_font'] or not s['bold_font']:
-        raise UserError('본문 서체 · 굵은 서체를 골라 주세요')
-    if s['layout'] not in ('right', 'below'):
-        raise UserError('필사형을 골라 주세요')
-    if s['range_mode'] not in ('book', 'chapter', 'chapters'):
-        raise UserError('범위를 골라 주세요')
+        raise UserError('본문 서체 · 굵은 서체를 골라 주세요(목록이 비었으면 「서체 받기」에서 본명조를 받아 주세요)')
     if not re.match(r'^#[0-9a-fA-F]{6}$', str(s['text_color'])):
         raise UserError('원문 색이 잘못됐습니다: %s' % s['text_color'])
     glyph_mm = s['font_pt'] * 0.3528
@@ -431,9 +518,20 @@ def normalize(raw):
     return s
 
 
+def safe_file_name(name):
+    """윈도에서 파일 이름으로 못 쓰는 것을 고친다 — \\ / : * ? " < > | · 제어 문자 → _ · 끝의 점 · 빈칸 빼기 ·
+    CON · PRN · AUX · NUL · COM1~9 · LPT1~9 는 뒤에 _. 자동 이름(번역본.json 「이름」이 들어간다)에도 쓴다(검토 nb-3).
+    ⚠️ index.html 의 safeFileName 과 같은 규칙이어야 화면에 보이는 이름과 실제 이름이 같다."""
+    name = re.sub(r'[\\/:*?"<>|\x00-\x1f]', '_', name).strip().rstrip('. ')
+    stem, dot, ext = name.partition('.')
+    if re.fullmatch(r'(?i)con|prn|aux|nul|com[0-9]|lpt[0-9]', stem):
+        name = stem + '_' + dot + ext
+    return name or '필사노트'
+
+
 def out_file_name(s, tr, bk):
     if s['out_name'].strip():
-        name = re.sub(r'[\\/:*?"<>|]', '_', s['out_name'].strip())
+        name = s['out_name'].strip()
     else:
         unit = R.chapter_unit(bk['name'])
         parts = [bk['name'], tr['name']]
@@ -444,9 +542,9 @@ def out_file_name(s, tr, bk):
             parts.append('%d-%d%s' % (a, b, unit))
         parts.append('오른쪽' if s['layout'] == 'right' else '아래쪽')
         name = '_'.join(parts)
-    if not name.lower().endswith('.html'):
-        name += '.html'
-    return name
+    if name.lower().endswith('.html'):
+        name = name[:-5]
+    return safe_file_name(name) + '.html'
 
 
 def load_presets():
@@ -521,14 +619,19 @@ def _patch_right(s):
     body, bold, color = s['body_font'], s['bold_font'], s['text_color']
     orig_base_css = R.base_css
 
+    swap = {NOTO_400: body, NOTO_700: bold}
+    src_re = re.compile(r"url\('(%s|%s)'\) format\('woff'\)" % (re.escape(NOTO_400), re.escape(NOTO_700)))
+
     def base_css():
+        # ⚠️ 두 자리를 한 번에 바꾼다 — 차례로 str.replace 하면 본문을 「본명조 굵게(700)」로 고른 뒤 700 자리를
+        #    바꿀 때 본문 자리까지 바뀌었다(검토 nb-1). 자리마다 꼭 한 번 — 못 찾으면 멈춘다.
         css = orig_base_css()
-        for old, new in ((NOTO_400, body), (NOTO_700, bold)):
-            src = "url('%s') format('woff')" % old
-            if old != new:
-                if src not in css:
-                    raise UserError('render.py 의 서체 줄(%s)을 못 찾아 서체를 바꿀 수 없습니다' % old)
-                css = css.replace(src, "url('%s') format('%s')" % (new, R.font_format(new)))
+        found = set(src_re.findall(css))
+        if found != set(swap):
+            raise UserError('render.py 의 서체 줄(%s)을 못 찾아 서체를 바꿀 수 없습니다'
+                            % ', '.join(sorted(set(swap) - found)))
+        css = src_re.sub(lambda m: "url('%s') format('%s')" % (swap[m.group(1)], R.font_format(swap[m.group(1)])),
+                         css)
         return css + '.orig-col { color:%s; }\n' % color
     R.base_css = base_css
 
@@ -618,28 +721,36 @@ def _kill_tree(pid):
             pass
 
 
+def file_uri(path):
+    """크롬에 넘길 file 주소 — 퍼센트 인코딩한다. 'file:///' + 경로로 붙이면 폴더 이름의 「#」 뒤가 주소 조각(fragment)이
+    되고 「%41」 이 다른 글자로 풀려, 실측 · 확인이 늘 「다시 돌려 보세요」로 멈췄다(검토 dc-5 · 다른 PC 의 폴더 이름)."""
+    return pathlib.Path(os.path.abspath(path)).as_uri()
+
+
 def _chrome_runner(chrome, flags, target_path):
-    """generate._chrome 과 같은 부름 · 같은 멈춤 문구 — 다른 것은 둘.
+    """generate._chrome 과 같은 부름 · 같은 멈춤 문구 — 다른 것은 셋.
     ① 출력을 파이프가 아니라 임시 파일로 받고 크롬 본 프로세스가 끝나기만 기다린다(파이프면 크롬이 남긴 자식
-      프로세스가 파이프를 쥐고 있는 동안 끝난 줄 모른다). ② 시간을 넘기면 그 크롬을 자식까지 끈다(남는 크롬 없게).
+      프로세스가 파이프를 쥐고 있는 동안 끝난 줄 모른다). ② 시간을 넘기거나 멈추기 · Ctrl+C 로 빠질 때 그 크롬을
+      자식까지 끈다(남는 크롬 없게 · 검토 sv-8). ③ 주소를 퍼센트 인코딩한다(file_uri).
     build() 가 generate · verify 의 _chrome 자리에 끼운다(새 프로세스 한 번만 쓰므로 되돌리지 않는다)."""
-    args = [chrome, '--headless', '--disable-gpu'] + flags + [
-        'file:///' + os.path.abspath(target_path).replace(os.sep, '/')]
+    args = [chrome, '--headless', '--disable-gpu'] + flags + [file_uri(target_path)]
     with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
         p = subprocess.Popen(args, stdout=out, stderr=err)
         deadline = time.time() + G.CHROME_TIMEOUT_SEC
-        while True:     # 0.5초마다 — 끝났나 · 「멈추기」를 눌렀나 · 시간을 넘겼나
-            try:
-                rc = p.wait(timeout=0.5)
-                break
-            except subprocess.TimeoutExpired:
-                if CANCEL_FILE and os.path.exists(CANCEL_FILE):
-                    _kill_tree(p.pid)
-                    raise Cancelled()       # 위의 finally 들이 임시 파일(_dict_draft_ …)을 지운다
-                if time.time() > deadline:
-                    _kill_tree(p.pid)
-                    raise SystemExit('!! 크롬이 %d초 안에 끝나지 않았습니다(멈췄을 수 있습니다) — %s'
-                                     % (G.CHROME_TIMEOUT_SEC, target_path))
+        try:
+            while True:     # 0.5초마다 — 끝났나 · 「멈추기」를 눌렀나 · 시간을 넘겼나
+                try:
+                    rc = p.wait(timeout=0.5)
+                    break
+                except subprocess.TimeoutExpired:
+                    if CANCEL_FILE and os.path.exists(CANCEL_FILE):
+                        raise Cancelled()       # 위의 finally 들이 임시 파일(_dict_draft_ …)을 지운다
+                    if time.time() > deadline:
+                        raise SystemExit('!! 크롬이 %d초 안에 끝나지 않았습니다(멈췄을 수 있습니다) — %s'
+                                         % (G.CHROME_TIMEOUT_SEC, target_path))
+        except BaseException:
+            _kill_tree(p.pid)
+            raise
         out.seek(0)
         err.seek(0)
         return subprocess.CompletedProcess(args, rc, out.read(), err.read())
@@ -669,6 +780,36 @@ def _make_pdf(html_path, pdf_path, chrome):
                         % r.stderr.decode('utf-8', 'replace').strip()[:200])
 
 
+WORK_PREFIX = '_만드는중_'   # 「_」 로 시작 — bible-note 안이면 .gitignore 의 bible-note/**/_* 에 걸린다
+
+
+def _work_path(final_path, ext):
+    """확인을 통과하기 전까지 쓰는 자리 — 진짜 이름 옆(서체 fonts/ 를 같이 쓴다)."""
+    d, n = os.path.split(final_path)
+    return os.path.join(d, WORK_PREFIX + os.path.splitext(n)[0] + ext)
+
+
+def _check_writable(path):
+    """이미 있는 파일을 바꿔 끼울 수 있나 — PDF 보기(Acrobat 등)가 열어 두면 윈도는 쓰기를 막는다.
+    긴 실측을 다 마친 뒤가 아니라 처음에 알린다(검토 nb-4)."""
+    if not os.path.exists(path):
+        return
+    try:
+        with open(path, 'r+b'):
+            pass
+    except PermissionError:
+        raise UserError('「%s」 이(가) 다른 프로그램에 열려 있습니다 — 그 창을 닫고 다시 눌러 주세요'
+                        % os.path.basename(path))
+
+
+def _swap_in(work, final):
+    try:
+        os.replace(work, final)
+    except PermissionError:
+        raise UserError('「%s」 이(가) 다른 프로그램에 열려 있어 바꾸지 못했습니다 — 그 창을 닫고 다시 눌러 주세요'
+                        % os.path.basename(final))
+
+
 def build(raw, preview=False):
     s = normalize(raw)
     env = get_env()
@@ -683,11 +824,18 @@ def build(raw, preview=False):
     os.makedirs(out_dir, exist_ok=True)
     out_path = os.path.join(out_dir, '미리보기.html' if preview else out_file_name(s, tr, bk))
     pdf_path = os.path.splitext(out_path)[0] + '.pdf' if (s['make_pdf'] and not preview) else None
+    # ⚠️ 확인을 통과하기 전에는 진짜 이름에 쓰지 않는다 — 걸리거나 멈추면 틀어진 HTML 이 전에 잘 만든 같은 이름 파일을
+    #    덮고 옛 PDF 는 그 옆에 남았다(검토 nb-2 · dc-4). 임시 이름에 HTML(· PDF)을 다 만든 뒤 PDF → HTML 차례로 바꾼다.
+    work_html = _work_path(out_path, '.html')
+    work_pdf = _work_path(out_path, '.pdf') if pdf_path else None
 
     _apply_common(s)
-    G.ensure_out_path_safe(out_path)          # 저장소 안이면 커밋에서 빠지는 자리만
+    for p in (out_path, work_html, pdf_path, work_pdf):
+        if p:
+            G.ensure_out_path_safe(p)          # 저장소 안이면 커밋에서 빠지는 자리만
     if pdf_path:
-        G.ensure_out_path_safe(pdf_path)
+        _check_writable(pdf_path)
+    _check_writable(out_path)
     G.ensure_fonts()
     for p in (s['body_font'], s['bold_font'], s['header_font'], s['footer_font']):
         if p and not os.path.exists(os.path.join(HERE, p)):
@@ -706,16 +854,28 @@ def build(raw, preview=False):
     # 크롬은 드물게 아예 멈추므로(_retry) 너무 길게 잡지 않되, 느린 PC 를 생각해 절 수만큼 넉넉히(시편 약 4분).
     G.CHROME_TIMEOUT_SEC = 60 if preview else int(90 + 0.06 * G.verse_count(pieces))
     G._chrome = _chrome_runner
-    if s['layout'] == 'right':
-        _patch_right(s)
-        n_pages = _retry(lambda: _build_right(pieces, title, out_path, chrome, max_pages), '줄 재기')
-    else:
-        _apply_below(s)
-        n_pages, _n_lines = _retry(lambda: D.build(pieces, title, out_path, chrome, max_pages), '줄 재기')
-    if pdf_path:
+    try:
+        if s['layout'] == 'right':
+            _patch_right(s)
+            n_pages = _retry(lambda: _build_right(pieces, title, work_html, chrome, max_pages), '줄 재기')
+        else:
+            _apply_below(s)
+            n_pages, _n_lines = _retry(lambda: D.build(pieces, title, work_html, chrome, max_pages), '줄 재기')
+        if pdf_path:
+            _check_cancel()
+            say('PDF 를 만드는 중…')
+            _retry(lambda: _make_pdf(work_html, work_pdf, chrome), 'PDF')
         _check_cancel()
-        say('PDF 를 만드는 중…')
-        _retry(lambda: _make_pdf(out_path, pdf_path, chrome), 'PDF')
+        if pdf_path:
+            _swap_in(work_pdf, pdf_path)   # PDF 가 열려 있으면 여기서 멈춘다 — 그때는 옛 HTML · PDF 짝이 그대로다
+        _swap_in(work_html, out_path)
+    finally:
+        for p in (work_html, work_pdf):
+            if p and os.path.exists(p):
+                try:
+                    os.remove(p)
+                except OSError:
+                    pass
     say('완료 — %d쪽 · %s' % (n_pages, os.path.basename(out_path)))
     return {'html': out_path, 'pdf': pdf_path, 'pages': n_pages, 'verses': G.verse_count(pieces),
             'preview': preview, 'out_dir': env['out_dir']}
@@ -743,6 +903,9 @@ def main():
         sys.exit(2)
     except (UserError, P.SourceTextError, R.FontSettingError, ValueError) as e:
         print('!! %s' % e, flush=True)
+        sys.exit(1)
+    except OSError as e:     # 열린 파일 · 빠진 USB · 권한 — 트레이스백 대신 한 줄로(검토 nb-4)
+        print('!! 파일을 읽거나 쓰지 못했습니다 — %s(%s)' % (e.filename or '', e.strerror or e), flush=True)
         sys.exit(1)
     except SystemExit as e:
         if e.code not in (None, 0):
