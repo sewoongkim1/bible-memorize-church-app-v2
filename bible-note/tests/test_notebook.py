@@ -111,6 +111,50 @@ def test_save_json_is_atomic(tmp_path):
     assert not (tmp_path / '_x.json.tmp').exists()
 
 
+def test_save_json_concurrent_writers(tmp_path):
+    """화면의 /api/last 와 만들기의 save_last 가 같은 파일을 함께 써도 서로를 깨뜨리지 않는다(검토 nb-n1 · sv-n3)."""
+    import threading
+    p = str(tmp_path / '_마지막설정.json')
+    errors = []
+
+    def writer(n):
+        for i in range(40):
+            try:
+                NB.save_json(p, {'who': n, 'i': i})
+            except Exception as e:      # noqa: BLE001 — 무엇이든 실패면 실패
+                errors.append(e)
+    ts = [threading.Thread(target=writer, args=(n,)) for n in range(3)]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join()
+    assert not errors
+    assert json.loads(open(p, encoding='utf-8').read())['i'] == 39
+    assert [f for f in os.listdir(str(tmp_path)) if f != '_마지막설정.json'] == []   # 임시 파일이 안 남는다
+
+
+def test_swap_pair_keeps_old_pair_when_html_fails(tmp_path):
+    """HTML 을 바꾸지 못하면 PDF 도 옛것으로 되돌린다 — 「새 PDF + 옛 HTML」 짝이 남았다(검토 nb-n2)."""
+    out_html = tmp_path / '잠언.html'
+    out_html.mkdir()                                  # 디렉터리라 바꿔 끼우기가 실패한다
+    pdf = tmp_path / '잠언.pdf'
+    pdf.write_bytes(b'OLD')
+    work_html = tmp_path / '_만드는중_잠언.html'
+    work_html.write_text('new', encoding='utf-8')
+    work_pdf = tmp_path / '_만드는중_잠언.pdf'
+    work_pdf.write_bytes(b'NEW')
+    with pytest.raises(NB.UserError):
+        NB._swap_pair(str(work_html), str(out_html), str(work_pdf), str(pdf))
+    assert pdf.read_bytes() == b'OLD'
+    assert not [f for f in os.listdir(str(tmp_path)) if '옛것' in f]
+    ok_html = tmp_path / '전도서.html'
+    ok_html.write_text('old', encoding='utf-8')
+    w2 = tmp_path / '_만드는중_전도서.html'
+    w2.write_text('new', encoding='utf-8')
+    NB._swap_pair(str(w2), str(ok_html), None, None)  # PDF 없이 — HTML 만
+    assert ok_html.read_text(encoding='utf-8') == 'new'
+
+
 def test_save_env_accepts_only_chrome_or_edge(tmp_path, monkeypatch):
     monkeypatch.setattr(NB, 'ENV_PATH', str(tmp_path / '_환경.json'))
     other = tmp_path / 'cmd.exe'
@@ -274,6 +318,13 @@ def test_build_items_old_call_still_works(monkeypatch):
     assert new[0]['mm'] == D.HEAD_MM * 2
 
 
+def test_footer_check_is_horizontal_only():
+    """바닥글은 가로 잘림만 — 16pt 이상 바닥글 글씨가 칸보다 커도 잘리지 않으니 막지 않는다(검토 dc-n1)."""
+    probe = D.CHECK_PROBE
+    assert "bad.push('FOOT'" in probe and 'scrollWidth > sp.clientWidth' in probe
+    assert 'bottom > fb' not in probe
+
+
 def test_footer_font_not_loaded_when_footer_empty(monkeypatch):
     """바닥글 글이 하나도 없으면 바닥글 서체를 싣지 않는다 — 안 쓰는 서체는 FONT 로 멈췄다(검토 dc-2)."""
     monkeypatch.setattr(D, 'FOOTER_FONT', 'fonts/NanumGothic-400.woff')
@@ -292,6 +343,15 @@ def test_safe_parts_blocks_escapes():
     for bad in ('fonts/..\\ui\\index.html', '\\\\attacker\\s\\x.pdf', '//h/s/x.pdf', 'C:/x.pdf', 'c:x.pdf',
                 '../x.html', 'a//b.html', './a.html', ''):
         assert ui.safe_parts(bad) is None, bad
+
+
+def test_cookie_value_survives_odd_cookies():
+    """127.0.0.1 의 다른 도구가 남긴 이상한 쿠키 하나 때문에 비밀값을 못 찾지 않는다(검토 sv-n1)."""
+    import ui
+    for header in ('abc; nbui_8770=T', 'nbui_8770=T; abc', 'x={"a":1}; nbui_8770=T', 'a=b c; nbui_8770=T',
+                   'path=/x; nbui_8770=T', 'lang=한; nbui_8770=T', 'nbui_8771=U; nbui_8770=T'):
+        assert ui.cookie_value(header, 'nbui_8770') == 'T', header
+    assert ui.cookie_value('', 'nbui_8770') == '' and ui.cookie_value(None, 'nbui_8770') == ''
 
 
 def test_resolve_inside_and_job_url(tmp_path):

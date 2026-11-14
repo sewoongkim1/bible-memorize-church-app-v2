@@ -137,11 +137,29 @@ def load_json(path, default):
 
 def save_json(path, data):
     """임시 파일(「_」 로 시작 — bible-note 안에서 git 에 안 걸린다)에 다 쓴 뒤 바꿔 끼운다.
-    통째로 덮어쓰면 쓰는 도중 끊겼을 때 반쯤 쓴 파일이 남아 화면이 서지 못했다(검토 sv-4)."""
-    tmp = os.path.join(os.path.dirname(path), '_' + os.path.basename(path) + '.tmp')
-    with io.open(tmp, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    os.replace(tmp, path)
+    통째로 덮어쓰면 쓰는 도중 끊겼을 때 반쯤 쓴 파일이 남아 화면이 서지 못했다(검토 sv-4).
+    ⚠️ 임시 이름은 부를 때마다 다르게(mkstemp) — 화면의 /api/last 와 만들기의 save_last 가 같은 파일을 함께 쓸 수 있어,
+       고정 이름이면 서로의 임시 파일을 옮기거나 지웠다. 윈도는 상대가 그 파일을 연 순간 바꿔 끼우기를 막으므로
+       짧게 몇 번 다시 해 본다(검토 nb-n1 · sv-n3)."""
+    d = os.path.dirname(path) or '.'
+    fd, tmp = tempfile.mkstemp(dir=d, prefix='_' + os.path.basename(path) + '.', suffix='.tmp')
+    try:
+        with io.open(fd, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        for attempt in range(10):
+            try:
+                os.replace(tmp, path)
+                return
+            except PermissionError:
+                if attempt == 9:
+                    raise
+                time.sleep(0.05)
+    finally:
+        if os.path.exists(tmp):
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
 
 
 def get_env(warnings=None):
@@ -805,9 +823,42 @@ def _check_writable(path):
 def _swap_in(work, final):
     try:
         os.replace(work, final)
-    except PermissionError:
-        raise UserError('「%s」 이(가) 다른 프로그램에 열려 있어 바꾸지 못했습니다 — 그 창을 닫고 다시 눌러 주세요'
-                        % os.path.basename(final))
+    except OSError as e:
+        raise UserError('「%s」 이(가) 다른 프로그램에 열려 있어 바꾸지 못했습니다 — 그 창을 닫고 다시 눌러 주세요(%s)'
+                        % (os.path.basename(final), e.strerror or e))
+
+
+def _swap_pair(work_html, out_path, work_pdf, pdf_path):
+    """새 HTML(· PDF)을 진짜 이름으로 — 둘 다 바뀌거나 둘 다 옛것 그대로.
+    PDF 를 먼저 바꾼 뒤 HTML 바꾸기가 실패하면 「새 PDF + 옛 HTML」 짝이 남았다(검토 nb-n2) — 옛 PDF 를 옆으로 비켜 두었다가
+    HTML 이 실패하면 새 PDF 를 치우고 옛 PDF 를 제자리로 되돌린다."""
+    backup = None
+    if work_pdf:
+        if os.path.exists(pdf_path):
+            backup = _work_path(pdf_path, '.옛것.pdf')
+            _swap_in(pdf_path, backup)           # PDF 가 열려 있으면 여기서 멈춘다 — 아직 아무것도 안 바뀌었다
+        try:
+            _swap_in(work_pdf, pdf_path)
+        except UserError:
+            if backup:
+                os.replace(backup, pdf_path)
+            raise
+    try:
+        _swap_in(work_html, out_path)
+    except UserError as e:
+        if work_pdf:
+            try:
+                os.remove(pdf_path)
+                if backup:
+                    os.replace(backup, pdf_path)
+            except OSError:
+                raise UserError('%s — ⚠ PDF 를 옛것으로 되돌리지 못했습니다: %s 를 확인해 주세요' % (e, os.path.basename(pdf_path)))
+        raise
+    if backup:
+        try:
+            os.remove(backup)
+        except OSError:
+            pass
 
 
 def build(raw, preview=False):
@@ -815,7 +866,10 @@ def build(raw, preview=False):
     env = get_env()
     os.chdir(HERE)
     if not preview:
-        save_last(raw)
+        try:            # 꼭 해야 하는 저장이 아니다 — 실패해도 만들기는 이어 간다(검토 nb-n1)
+            save_last(raw)
+        except OSError as e:
+            say('⚠ 마지막 설정을 저장하지 못했습니다(만들기는 이어 갑니다) — %s' % (e.strerror or e))
     tr, bk, pieces, title, lang = load_pieces(env, s)
     if preview:
         first = pieces[0]['chapter']
@@ -866,9 +920,7 @@ def build(raw, preview=False):
             say('PDF 를 만드는 중…')
             _retry(lambda: _make_pdf(work_html, work_pdf, chrome), 'PDF')
         _check_cancel()
-        if pdf_path:
-            _swap_in(work_pdf, pdf_path)   # PDF 가 열려 있으면 여기서 멈춘다 — 그때는 옛 HTML · PDF 짝이 그대로다
-        _swap_in(work_html, out_path)
+        _swap_pair(work_html, out_path, work_pdf, pdf_path)   # 둘 다 바뀌거나 둘 다 옛것 그대로
     finally:
         for p in (work_html, work_pdf):
             if p and os.path.exists(p):

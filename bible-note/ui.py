@@ -16,7 +16,6 @@ dictation 의 모듈 값을 바꿔 넣으므로, 이 서버 안에서 부르면 
 ⚠️ 끄기는 이 창을 닫거나 Ctrl+C — 만드는 중이던 작업은 멈춤 표시 파일로 스스로 정리하게 하고, 안 끝나면 PID 째 끈다.
 """
 import hmac
-import http.cookies
 import http.server
 import json
 import os
@@ -43,16 +42,30 @@ JOB_DIR = os.path.join(HERE, '_작업')
 FONT_TYPES = {'.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf', '.otf': 'font/otf'}
 FILE_TYPES = dict(FONT_TYPES, **{'.html': 'text/html; charset=utf-8', '.pdf': 'application/pdf'})
 TOKEN = secrets.token_urlsafe(24)       # 켤 때마다 새로
-COOKIE = 'nbui'
+COOKIE = 'nbui'                         # 켤 때 'nbui_<포트>' 로 — 쿠키는 포트를 가르지 않아 두 서버가 서로 덮었다(검토 sv-n2)
 HOSTS = set()                           # 켤 때 채운다 — '127.0.0.1:<포트>' · 'localhost:<포트>'
 MAX_BODY = 1 << 20
-NEW_GROUP = getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0)
+# 자식(notebook build)은 새 프로세스 그룹 · 콘솔 없이 — Ctrl+C 도 창 닫기 신호도 자식에게 바로 가지 않는다. 그러면 자식은 멈춤 표시
+# 파일을 보거나(서버가 정리할 틈이 있을 때) 서버가 죽어 출력 파이프가 끊긴 것을 보고 스스로 크롬을 끄고 임시 파일을 지운다(검토 sv-8).
+CHILD_FLAGS = getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0) | getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+
+
+def cookie_value(header, name):
+    """Cookie 머리에서 그 이름의 값 — 손으로 나눈다. http.cookies.SimpleCookie 는 같은 머리에 이름 없는 쿠키 · 빈칸 든 값 ·
+    JSON · 한글 · 예약어 이름(path 등) 쿠키가 하나만 있어도 전체나 그 뒤를 버려, 127.0.0.1 의 다른 도구가 남긴 쿠키 하나로
+    화면 전체가 403 에 갇혔다(검토 sv-n1 · 쿠키는 포트를 가르지 않는다)."""
+    for part in (header or '').split(';'):
+        k, sep, v = part.strip().partition('=')
+        if sep and k.strip() == name:
+            return v.strip()
+    return ''
 
 
 class Job:
-    def __init__(self, preview):
+    def __init__(self, preview, settings=None):
         self.id = uuid.uuid4().hex[:12]
         self.preview = preview
+        self.settings = settings if isinstance(settings, dict) else {}
         self.log = []
         self.status = 'running'
         self.result = None
@@ -123,7 +136,7 @@ def run_job(job, settings):
         env = dict(os.environ, PYTHONIOENCODING='utf-8', PYTHONUTF8='1')
         # 새 프로세스 그룹 — 콘솔의 Ctrl+C 가 자식에게 바로 가지 않게(자식은 멈춤 표시 파일을 보고 스스로 정리한다 · 검토 sv-8)
         job.proc = subprocess.Popen(cmd, cwd=HERE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env,
-                                    creationflags=NEW_GROUP)
+                                    creationflags=CHILD_FLAGS)
         if job.cancelled:
             open(job.cancel_path, 'w').close()
         for raw in job.proc.stdout:
@@ -207,10 +220,13 @@ def shutdown_jobs(grace):
 
 
 def running_job():
+    """돌고 있는 작업 — 설정까지 싣는다. 새로 고친 화면 · 다른 탭이 이어 볼 때, 끝난 결과가 지금 왼쪽 칸과 다른지 견주게
+    (검토 js-n2 — 모르면 「같다」로 보아 「설정이 바뀌었습니다」를 숨겼다)."""
     with JOBS_LOCK:
         for j in JOBS.values():
             if j.status == 'running':
-                return {'id': j.id, 'preview': j.preview, 'seconds': round(time.time() - j.started)}
+                return {'id': j.id, 'preview': j.preview, 'seconds': round(time.time() - j.started),
+                        'settings': j.settings}
     return None
 
 
@@ -282,13 +298,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if not (self.headers.get('Content-Type') or '').lower().startswith('application/json'):
                 return self._deny('JSON 요청만 받습니다')
         if token:
-            jar = http.cookies.SimpleCookie()
-            try:
-                jar.load(self.headers.get('Cookie') or '')
-            except http.cookies.CookieError:
-                pass
-            got = jar[COOKIE].value if COOKIE in jar else ''
-            if not hmac.compare_digest(got, TOKEN):
+            got = cookie_value(self.headers.get('Cookie'), COOKIE)
+            if not hmac.compare_digest(got.encode('utf-8', 'replace'), TOKEN.encode('ascii')):
                 return self._deny('화면 서버가 다시 켜졌습니다 — 화면을 새로 고쳐 주세요(F5)', reload=True)
         return True
 
@@ -385,8 +396,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     busy = next((j for j in JOBS.values() if j.status == 'running'), None)
                     if busy:
                         return self._json({'error': '만드는 중인 것이 있습니다 — 끝나거나 멈춘 뒤에 눌러 주세요',
-                                           'running': {'id': busy.id, 'preview': busy.preview}}, 409)
-                    job = Job(bool(data.get('preview')))
+                                           'running': {'id': busy.id, 'preview': busy.preview,
+                                                       'settings': busy.settings}}, 409)
+                    job = Job(bool(data.get('preview')), data.get('settings'))
                     JOBS[job.id] = job
                     old = sorted((j for j in JOBS.values() if j.status != 'running'), key=lambda j: j.started)
                     for j in old[:-50]:          # 끝난 작업은 50개까지만 둔다
@@ -456,6 +468,44 @@ def already_running(port):
         return False
 
 
+PORT_FILE = os.path.join(JOB_DIR, 'ui.port')
+_MUTEX = None
+
+
+def _single_instance():
+    """같은 폴더의 화면 서버는 하나만 — .bat 을 거의 동시에 두 번 켜면 둘 다 「아무도 없다」고 보고 8770 · 8771 에 따로 떠
+    작업 · 마지막 설정 · 미리보기 파일을 함께 썼다(검토 sv-6). 윈도 이름 붙은 뮤텍스(폴더마다 다른 이름)를 쥔다.
+    이미 누가 쥐고 있으면 False. 윈도가 아니면 늘 True(포트 핑으로만 가린다)."""
+    global _MUTEX
+    if os.name != 'nt':
+        return True
+    try:
+        import ctypes
+        import hashlib
+        k32 = ctypes.WinDLL('kernel32', use_last_error=True)
+        k32.CreateMutexW.restype = ctypes.c_void_p
+        name = 'Local\\bible-note-ui-' + hashlib.sha1(os.path.normcase(HERE).encode('utf-8')).hexdigest()[:16]
+        _MUTEX = k32.CreateMutexW(None, False, name)    # 이 프로세스가 끝날 때까지 쥔다
+        return ctypes.get_last_error() != 183           # ERROR_ALREADY_EXISTS
+    except Exception:
+        return True
+
+
+def _wait_other(seconds=10):
+    """먼저 켜진 같은 폴더 서버가 뜰 때까지 기다려 그 포트를 돌려준다(_작업/ui.port 를 본다). 못 찾으면 None."""
+    deadline = time.time() + seconds
+    while time.time() < deadline:
+        try:
+            with open(PORT_FILE, encoding='utf-8') as f:
+                port = int(f.read().strip())
+            if already_running(port):
+                return port
+        except (OSError, ValueError):
+            pass
+        time.sleep(0.25)
+    return None
+
+
 _CTRL_HANDLER = None
 
 
@@ -482,18 +532,28 @@ def _install_close_handler():
 
 
 def main():
+    global COOKIE
     try:
         sys.stdout.reconfigure(encoding='utf-8', errors='replace')
     except Exception:
         pass
+    no_browser = '--no-browser' in sys.argv
+
+    def show(port, msg):
+        url = 'http://127.0.0.1:%d/' % port
+        print('%s — %s' % (msg, url))
+        if not no_browser:
+            webbrowser.open(url)
+
+    if not _single_instance():               # 같은 폴더 서버가 이미 있거나 켜지는 중
+        port = _wait_other()
+        if port:
+            return show(port, '이미 열려 있습니다')
+        raise SystemExit('!! 같은 폴더의 화면 서버가 이미 켜져 있는 것 같은데 대답이 없습니다 — 그 창을 닫고 다시 켜 주세요')
     server = None
     for port in range(PORT, PORT + 10):
-        if already_running(port):
-            url = 'http://127.0.0.1:%d/' % port
-            print('이미 열려 있습니다 — %s' % url)
-            if '--no-browser' not in sys.argv:
-                webbrowser.open(url)
-            return
+        if os.name != 'nt' and already_running(port):     # 윈도는 뮤텍스가 가렸다
+            return show(port, '이미 열려 있습니다')
         try:
             server = Server(('127.0.0.1', port), Handler)
             break
@@ -503,11 +563,25 @@ def main():
         raise SystemExit('!! 빈 포트를 못 찾았습니다(%d~%d)' % (PORT, PORT + 9))
     port = server.server_address[1]
     HOSTS.update({'127.0.0.1:%d' % port, 'localhost:%d' % port})
+    COOKIE = 'nbui_%d' % port
+    try:
+        os.makedirs(JOB_DIR, exist_ok=True)
+        # 지난번 서버가 갑자기 꺼져 남은 작업 설정 · 멈춤 표시 · 포트 파일 — 같은 폴더 서버는 뮤텍스로 하나뿐이라 지워도 된다
+        for fn in os.listdir(JOB_DIR):
+            if fn.endswith(('.json', '.cancel', '.port')):
+                try:
+                    os.remove(os.path.join(JOB_DIR, fn))
+                except OSError:
+                    pass
+        with open(PORT_FILE, 'w', encoding='utf-8') as f:
+            f.write(str(port))
+    except OSError:
+        pass
     _install_close_handler()
     url = 'http://127.0.0.1:%d/' % port
     print('필사노트 만들기 화면 — %s' % url)
     print('끄려면 이 창을 닫거나 Ctrl+C')
-    if '--no-browser' not in sys.argv:
+    if not no_browser:
         threading.Timer(0.6, lambda: webbrowser.open(url)).start()
     try:
         server.serve_forever()
@@ -515,6 +589,10 @@ def main():
         pass
     finally:
         shutdown_jobs(grace=8)
+        try:
+            os.remove(PORT_FILE)
+        except OSError:
+            pass
 
 
 if __name__ == '__main__':

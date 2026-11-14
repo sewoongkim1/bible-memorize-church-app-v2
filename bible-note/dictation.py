@@ -441,7 +441,7 @@ def build_final_html(pages, book, lang='ko'):
 
 # 인쇄본 확인 — 줄이 폭을 넘지 않는지 · 쪽 안이 넘치지 않는지 · 머리글 · 바닥글이 잘리지 않는지.
 # ⚠️ 머리글은 align-items:flex-end 라 넘친 글이 위로 자란다 — scrollHeight 로는 못 잡아 칸 높이와 직접 견준다(verify 와 같은 방법).
-#    바닥글은 grid 1fr auto 1fr 이라 가운데 글이 길면 양옆 칸(쪽 번호)이 잘린 채 「통과」했다(검토 dc-3).
+#    바닥글은 grid 1fr auto 1fr 이라 가운데 글이 길면 양옆 칸(쪽 번호)이 잘린 채 「통과」했다(검토 dc-3) — 칸마다 가로 잘림만 본다.
 CHECK_PROBE = """<script>
 document.fonts.ready.then(function(){
   var bad = [];
@@ -462,14 +462,11 @@ document.fonts.ready.then(function(){
       });
       if (over) bad.push('HEAD' + (i + 1));
     }
-    var ft = pg.querySelector('.ft');
-    if (ft) {
-      var fb = ft.getBoundingClientRect().bottom, cut = false;
-      ft.querySelectorAll(':scope > span').forEach(function(sp){
-        if (sp.scrollWidth > sp.clientWidth + 1 || sp.getBoundingClientRect().bottom > fb + 1) cut = true;
-      });
-      if (cut) bad.push('FOOT' + (i + 1));
-    }
+    // 바닥글은 가로 잘림만 본다 — .ft 는 넘친 것을 자르지 않고 그 아래는 쪽 여백이라, 세로로 칸보다 큰 글(16pt 이상)을
+    // FOOT 으로 막으면 잘린 데 없는 인쇄본이 멈췄다(검토 dc-n1).
+    pg.querySelectorAll('.ft > span').forEach(function(sp){
+      if (sp.scrollWidth > sp.clientWidth + 1) bad.push('FOOT' + (i + 1));
+    });
   });
   document.title = 'CHECK|' + document.querySelectorAll('.page').length + '|' + bad.join(',');
 });

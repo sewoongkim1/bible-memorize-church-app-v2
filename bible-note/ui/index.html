@@ -104,7 +104,7 @@ input[type=color] { width:38px; height:30px; padding:0 2px; border:1px solid var
 .spin { width:16px; height:16px; border-radius:50%; border:2.5px solid #cfd8e4; border-top-color:var(--navy); animation:sp .8s linear infinite; }
 @keyframes sp { to { transform:rotate(360deg); } }
 .err { background:#fbe9e7; color:var(--red); border:1px solid #f1c5bf; border-radius:10px; padding:9px 12px; font-weight:600; white-space:pre-wrap; }
-.warn { background:#fdf3dc; color:var(--amber); border:1px solid #f0dcaa; border-radius:10px; padding:8px 12px; font-size:12.5px; white-space:pre-wrap; }
+.warnbox { background:#fdf3dc; color:var(--amber); border:1px solid #f0dcaa; border-radius:10px; padding:8px 12px; font-size:12.5px; white-space:pre-wrap; }
 .result { background:var(--card); border:1px solid var(--line); border-left:4px solid var(--green); border-radius:10px; padding:10px 14px;
   display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
 .result .name { font-weight:800; margin-right:6px; word-break:break-all; }
@@ -315,7 +315,7 @@ input[type=color] { width:38px; height:30px; padding:0 2px; border:1px solid var
 <section class="stage">
   <div class="status" id="status"><span id="statusText">왼쪽에서 고른 뒤 「미리보기」로 확인하고 「만들기」를 누르세요.</span><span class="badge" id="staleBadge" hidden>설정이 바뀌었습니다</span></div>
   <div class="err" id="errBox" hidden></div>
-  <div class="warn" id="warnBox" hidden></div>
+  <div class="warnbox" id="warnBox" hidden></div>
   <div class="result" id="result" hidden>
     <span class="name" id="resName"></span><span class="meta" id="resMeta"></span>
     <a class="mini" id="resOpen" target="_blank" rel="noopener">HTML 열기</a>
@@ -368,7 +368,13 @@ function el(tag, attrs, text) {
 
 const curTr = () => ((ST && ST.translations) || []).find((t) => t.id === S.translation);
 const curBook = () => { const t = curTr(); return t ? t.books.find((b) => b.file === S.book) : null; };
-const snapOf = () => JSON.stringify(S);
+// 설정 비교용 — 키 차례와 상관없게(서버를 한 바퀴 돈 설정과도 견준다 · 검토 js-n2)
+const canon = (o) => JSON.stringify(Object.keys(o || {}).sort().map((k) => [k, o[k]]));
+const snapOf = () => canon(S);
+// 글자 간격은 인쇄처럼 소수 둘째 자리(notebook.normalize 와 같다 · 검토 nb-6)
+const round2 = (v) => (Number.isFinite(Number(v)) ? Math.round(Number(v) * 100) / 100 : v);
+const layoutMemo = {};   // 꼴마다 마지막 크기 · 줄 높이 — 오갈 때 되살린다(검토 js-7 · js-n1)
+const LAYOUT_KEYS = { right: ['font_pt', 'line_mm', 'orig_pct'], below: ['font_pt', 'text_mm', 'write_mm', 'head_pt'] };
 
 // 파일 이름 — notebook.safe_file_name 과 같은 규칙이어야 자리표시와 실제 이름이 같다(검토 nb-3)
 function safeFileName(name) {
@@ -393,6 +399,7 @@ async function load(keepSettings) {
   if (!keepSettings) {
     S = Object.assign({}, ST.defaults, ST.last || {});
     for (const k of Object.keys(S)) if (!(k in ST.defaults)) delete S[k];
+    S.letter_spacing_em = round2(S.letter_spacing_em);
   }
   fixSelection();
   buildStatic();
@@ -551,16 +558,17 @@ function render() {
   renderSample();
 }
 
-const fontFams = {};
+const fontFams = {};      // 경로 → 견본 글꼴 이름 · 못 불렀으면 null(서체 목록이 바뀔 때 다시 해 본다 · 검토 js-n3)
+let famCount = 0;
 function fontFamily(path) {
   if (!path) return null;
-  if (fontFams[path]) return fontFams[path];
-  const fam = 'pv' + Object.keys(fontFams).length;
+  if (path in fontFams) return fontFams[path];
+  const fam = 'pv' + (famCount++);
   fontFams[path] = fam;
   const url = '/files/note/' + path.split('/').map(encodeURIComponent).join('/');
   // 따옴표로 감싼다 — 「나눔명조 (1).ttf」 처럼 괄호가 든 이름은 따옴표 없는 url() 에서 문법 오류였다(검토 js-11)
   const ff = new FontFace(fam, `url("${url}")`);
-  ff.load().then((f) => { document.fonts.add(f); }).catch(() => {});
+  ff.load().then((f) => { document.fonts.add(f); }).catch(() => { fontFams[path] = null; renderSample(); });
   return fam;
 }
 
@@ -625,7 +633,11 @@ function clearOutName() {
 
 function readInput(inp) {
   if (inp.type === 'checkbox') return ('invert' in inp.dataset) ? !inp.checked : inp.checked;
-  if (inp.type === 'number' || inp.type === 'range') { const n = parseFloat(inp.value); return Number.isNaN(n) ? inp.value : n; }
+  if (inp.type === 'number' || inp.type === 'range') {
+    const n = parseFloat(inp.value);
+    if (Number.isNaN(n)) return inp.value;
+    return inp.dataset.k === 'letter_spacing_em' ? round2(n) : n;
+  }
   return inp.value;
 }
 
@@ -671,8 +683,15 @@ $$('.lay').forEach((b) => b.addEventListener('click', () => {
   if (from === to) return;
   const LD = ST.layout_defaults;
   const step = stepOf(from);
+  // 떠나는 꼴의 크기 · 줄 높이를 기억해 두고, 다시 오면 그대로 되살린다 — 직접 친 값 · 손본 줄 높이가 오갈 때
+  // 말없이 단추 값으로 돌아갔다(검토 js-7 · js-n1). 처음 가는 꼴만 아래 규칙으로 정한다.
+  // 크기 단추로 고른 크기(named)는 꼴을 넘어 이어 가고, 손본 값은 그 꼴에 돌아왔을 때 그대로 되살린다.
+  layoutMemo[from] = { vals: Object.fromEntries(LAYOUT_KEYS[from].map((k) => [k, S[k]])), named: !!step };
   S.layout = to;
-  if (step) {
+  const memo = layoutMemo[to];
+  if (memo && !(memo.named && step)) {
+    Object.assign(S, memo.vals);
+  } else if (step) {
     // 크기 단추로 고른 크기면 새 꼴의 같은 이름 단추로 — 오갈 때 「아주 크게」가 말없이 바뀌었다(검토 js-7)
     const twin = ST.size_steps[to].find((x) => x.name === step.name);
     if (twin) for (const [k, v] of Object.entries(twin)) if (k !== 'name') S[k] = v;
@@ -713,6 +732,7 @@ document.addEventListener('click', async (e) => {
 // 서버 상태가 바뀐 뒤(환경 저장 · 서체 받기) — 고른 것이 바뀌었으면 「바뀜」으로 친다(검토 js-6)
 function reselect() {
   const before = snapOf();
+  for (const k of Object.keys(fontFams)) if (fontFams[k] === null) delete fontFams[k];   // 못 불렀던 견본은 다시 해 본다
   fixSelection(); buildStatic();
   if (snapOf() !== before) changed(); else render();
 }
@@ -722,6 +742,8 @@ $('#presetLoad').addEventListener('click', () => {
   const n = $('#presetSel').value; const p = ST && (ST.presets || {})[n];
   if (!p) return;
   for (const [k, v] of Object.entries(p)) if (k in ST.defaults && !ST.look_excluded.includes(k)) S[k] = v;
+  S.letter_spacing_em = round2(S.letter_spacing_em);
+  for (const k of Object.keys(layoutMemo)) delete layoutMemo[k];   // 기억해 둔 옛 꼴 값이 묶음 값을 덮지 않게
   fixSelection(); changed();
   setStatus(`「${n}」 설정을 불러왔습니다.`);
 });
@@ -745,6 +767,7 @@ $('#resetAll').addEventListener('click', () => {
   const num = (v, d) => (Number.isFinite(Number(v)) && Number(v) >= 1 ? Number(v) : d);
   const keep = { translation: S.translation, book: S.book, range_mode: S.range_mode, ch_from: num(S.ch_from, 1), ch_to: num(S.ch_to, 1) };
   S = Object.assign({}, ST.defaults, keep);
+  for (const k of Object.keys(layoutMemo)) delete layoutMemo[k];
   fixSelection(); changed();
 });
 
@@ -786,10 +809,11 @@ function showLog(lines) {
   pre.scrollTop = pre.scrollHeight;
 }
 
-function resume(run) {
-  job = { id: run.id, preview: run.preview, snap: null };
+function resume(run, why) {
+  // 그 작업의 설정으로 견준다 — 모르면 「같다」로 보아 「설정이 바뀌었습니다」를 숨겼다(검토 js-n2)
+  job = { id: run.id, preview: run.preview, snap: run.settings ? canon(run.settings) : '?', why };
   busy(true);
-  setStatus('앞서 시작한 만들기를 이어서 봅니다…', true);
+  setStatus(why || '앞서 시작한 만들기를 이어서 봅니다…', true);
   poll();
 }
 
@@ -800,7 +824,12 @@ async function start(preview) {
   const snap = snapOf();
   const r = await api('/api/build', { settings: S, preview });
   if (r.error) {
-    if (r.running && !job) { resume(r.running); return; }
+    if (r.running && !job) {
+      // 다른 탭이 시작한 만들기가 돌고 있다 — 누른 것은 만들지 않았다고 분명히 알리고 그 작업을 보여 준다
+      showErr('다른 창에서 시작한 만들기가 돌고 있어 그것을 보여 줍니다 — 끝난 뒤 다시 눌러 주세요(누른 것은 만들지 않았습니다).');
+      resume(r.running, '다른 창에서 시작한 만들기를 보여 주는 중…');
+      return;
+    }
     showErr(r.error); return;
   }
   job = { id: r.id, preview, snap };
@@ -816,7 +845,7 @@ async function poll() {
   if (j.error) { busy(false); setStatus(''); showErr(j.error); job = null; return; }
   showLog(j.log || []);
   if (j.status === 'running') {
-    setStatus(`${job.preview ? '미리보기를 만드는 중' : '만드는 중'}… ${j.seconds}초`, true);
+    setStatus(`${job.why ? job.why.replace(/…$/, '') + ' — ' : ''}${job.preview ? '미리보기를 만드는 중' : '만드는 중'}… ${j.seconds}초`, true);
     setTimeout(poll, 700);
     return;
   }
@@ -832,8 +861,11 @@ async function poll() {
 
 function done(res, mine, secs) {
   lastShown = res;
-  // 만드는 동안 왼쪽 칸을 바꿨으면 「설정이 바뀌었습니다」를 남긴다(검토 js-6)
-  $('#staleBadge').hidden = !mine.snap || mine.snap === snapOf();
+  // 만들기가 기본 서체를 저절로 받았을 수 있다 — 못 불렀던 견본을 다시 해 본다(검토 js-n3)
+  for (const k of Object.keys(fontFams)) if (fontFams[k] === null) delete fontFams[k];
+  renderSample();
+  // 만드는 동안 왼쪽 칸을 바꿨으면(또는 남의 설정으로 만든 결과면) 「설정이 바뀌었습니다」를 남긴다(검토 js-6 · js-n2)
+  $('#staleBadge').hidden = mine.snap === snapOf();
   if (res.url) showFrame(res.url);
   if (mine.preview) {
     setStatus(`미리보기 — 첫 장 ${res.pages}쪽 (${secs}초) · 마음에 들면 「만들기」를 누르세요.`);
