@@ -133,6 +133,9 @@ bible-note/**/_*
 bible-note/.pytest_cache/
 # 사용 가이드는 본문이 없는 설명서라 올린다(2026-09-22). _샘플/ 은 원문이라 위 `_*` 로 막힌다.
 !bible-note/필사노트_만들기.html
+# 만들기 화면(ui.py 가 띄운다 · 본문 없음 · 2026-11-14) · 화면이 함께 만드는 PDF 는 본문이 있어 막는다.
+!bible-note/ui/index.html
+bible-note/**/*.pdf
 
 # tools/site.py 가 배포용으로 모으는 폴더(손으로 돌렸을 때 남는다)
 /_site/

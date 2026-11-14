@@ -38,7 +38,7 @@
 | 사역신청 **관리 화면**(단추·여백·구조 표준) | `docs/notes/ministry-admin-ui.md` |
 | 첫 화면 「사역현황」 · 사역 이력 확인 · 정정 신청(2026-10-01 · 문은 사역신청과 하나) | `docs/notes/ministry-history-check.md` |
 | 기독교 고전 소책자(2026-09-14 완료 · 다시 뽑을 때만) | `docs/notes/classics-booklet.md` |
-| 성경 필사노트 가로형(`bible-note/` · 만든 HTML·원문은 커밋 금지) | `docs/notes/bible-note.md` |
+| 성경 필사노트 가로형(`bible-note/` · 만든 HTML·PDF·원문은 커밋 금지) · **만들기 화면 `필사노트_화면.bat`**(2026-11-14 · `ui.py` → `notebook.py` 새 프로세스 · 오른쪽/아래쪽 필사형 · 번역본 = `bible/` 아래 폴더 하나 · ⚠️ render·generate 는 안 고치고 값을 바꿔 넣는다) | `docs/notes/bible-note.md` 끝 「만들기 화면」 |
 | 관리자 통계 '카드' 열 | `docs/notes/stats-admin.md` |
 | 설교·찬양 관리(담당자 — 설교 올리기 · 찬양 · 2026-09-30 운영) | `docs/notes/sermon-staff-upload.md` |
 | 연상 그림(담당자 ③ · Gemini · DB 그림이 옛 파일보다 앞섬) | `docs/notes/verse-image-staff.md` |
