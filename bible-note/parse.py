@@ -56,6 +56,10 @@ MERGED_RE = re.compile(r'^' + ABBR + r'(\d+):(\d+)-(\d+)\s*(?:<([^>]*)>)?\s*(.*)
 VERSE_RE = re.compile(r'^' + ABBR + r'(\d+):(\d+)\s*(?:<([^>]*)>)?\s*(.*)$')
 CONT_RE = re.compile(r'^' + ABBR + r'(\d+):([^\s<]*)\s*(?:<([^>]*)>)?\s*(.*)$')
 FILENAME_RE = re.compile(r'^\d+-\d+(.+)\.txt$')
+# 영어(NIV) 원문 — `bible/NIV/20-Proverbs (잠언).txt`(2026-11-14). UTF-8 · 첫 줄은 책 이름(「Proverbs」) ·
+# 그 아래 한 줄에 한 절 `1:1 The proverbs of …`(약자 · 소제목 · 끊긴 줄 없음 — 잠언 915줄 확인).
+NIV_FILENAME_RE = re.compile(r'^\d+-(.+?) \((.+)\)\.txt$')
+EN_VERSE_RE = re.compile(r'^(\d+):(\d+)\s+(.*\S)\s*$')
 
 
 class SourceTextError(ValueError):
@@ -90,6 +94,57 @@ def book_name_from_filename(path):
     if not m:
         raise ValueError('책 이름을 뽑을 수 없습니다: %s' % base)
     return m.group(1)
+
+
+def niv_names_from_filename(path):
+    """'bible/NIV/20-Proverbs (잠언).txt' -> ('Proverbs', '잠언')"""
+    m = NIV_FILENAME_RE.match(os.path.basename(path))
+    if not m:
+        raise ValueError('영어(NIV) 책 이름을 뽑을 수 없습니다: %s' % os.path.basename(path))
+    return m.group(1), m.group(2)
+
+
+def parse_book_en(text, book_name, chapter=None):
+    """영어(NIV) 원문 → 조각 목록(parse_book 과 같은 키 + lang 'en' · book 은 영어 이름).
+
+    첫 줄이 책 이름(book_name)이면 건너뛴다. 그 밖에 `장:절 본문` 꼴이 아닌 줄은 멈춘다 —
+    한글과 같은 원칙(틀린 채 인쇄하느니 멈춘다). 원문의 `--` 는 인쇄된 NIV 처럼 줄표(—)로 찍는다
+    (텍스트 파일이 ASCII 라 줄표를 하이픈 둘로 적었다).
+    """
+    pieces, started, seen = [], set(), False
+
+    def stop(lineno, why, line):
+        raise SourceTextError('%s %d번째 줄: %s — %s' % (book_name, lineno, why, line[:40]))
+
+    for lineno, line in enumerate(text.splitlines(), 1):
+        line = line.strip()
+        if not line:
+            continue
+        m = EN_VERSE_RE.match(line)
+        if not m:
+            if not seen and line == book_name:
+                seen = True
+                continue
+            stop(lineno, '장·절 번호가 없는 줄이라 어느 절인지 알 수 없습니다', line)
+        seen = True
+        ch, vs, body = int(m.group(1)), int(m.group(2)), m.group(3)
+        if chapter is not None and ch != chapter:
+            continue
+        pieces.append({
+            'book': book_name,
+            'chapter': ch,
+            'verse': vs,
+            'subtitle': None,
+            'body': body.replace('--', '\u2014'),
+            'part': 0,
+            'verse_end': None,
+            'heading': None,
+            'label': str(vs),
+            'chapter_start': ch not in started,
+            'lang': 'en',
+        })
+        started.add(ch)
+    return pieces
 
 
 def _classify(line):

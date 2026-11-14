@@ -22,7 +22,8 @@ import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from parse import parse_book, load_book_file, book_name_from_filename, SourceTextError
+from parse import (parse_book, parse_book_en, load_book_file, book_name_from_filename,
+                   niv_names_from_filename, SourceTextError)
 from paginate import paginate
 from render import (build_draft_html, build_final_html, lines_per_page, all_font_urls,
                     chapter_unit, piece_blocks, FontSettingError)
@@ -257,6 +258,51 @@ def _copy_fonts_beside(out_path):
     print('  서체 폴더를 함께 두었습니다 — %s' % dst_fonts)
 
 
+def _bible_files(bible_dir=None):
+    """원문 폴더의 .txt — [(폴더, 파일 이름)]. bible/ 바로 아래를 먼저, 그다음 그 아래 폴더들(이름 차례).
+
+    2026-11-14 원문이 하위 폴더(`bible/개정개역4/` 한글 · `bible/NIV/` 영어)로 나뉘었다 — 예전처럼
+    bible/ 바로 아래만 보면 「못 찾았습니다」로 멈췄다(친구 결정: 생성기가 하위 폴더도 찾는다).
+    한 단계 아래까지만 본다. 같은 책이 두 곳에 있으면 bible/ 바로 아래 것이 먼저다.
+    """
+    if bible_dir is None:
+        bible_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'bible')
+    folders = [bible_dir] + [os.path.join(bible_dir, d) for d in sorted(os.listdir(bible_dir))
+                             if os.path.isdir(os.path.join(bible_dir, d))]
+    return [(folder, fn) for folder in folders for fn in sorted(os.listdir(folder)) if fn.endswith('.txt')]
+
+
+def find_niv_file(book_name, bible_dir=None):
+    """영어(NIV) 원문 파일 — (경로, 영어 책 이름). 한글 이름(「잠언」)이나 영어 이름(「Proverbs」 ·
+    대소문자 무관)으로 찾는다. 파일 이름 꼴은 `20-Proverbs (잠언).txt`(parse.niv_names_from_filename)."""
+    for folder, fn in _bible_files(bible_dir):
+        try:
+            en, ko = niv_names_from_filename(fn)
+        except ValueError:
+            continue
+        if book_name == ko or book_name.lower() == en.lower():
+            return os.path.join(folder, fn), en
+    raise SystemExit('!! bible/ 에서 영어(NIV) "%s"를 못 찾았습니다 — 파일 이름은 '
+                     '「20-Proverbs (잠언).txt」 꼴이어야 합니다' % book_name)
+
+
+def verses_missing_from(ko_pieces, en_pieces):
+    """한글 조각에는 있고 영어 조각에는 없는 (장, 절) — 차례대로. 합쳐진 절(「롬9:1-2」)은 펼쳐 센다.
+
+    ⚠️ 번역마다 절 나눔이 조금 달라(요한삼서 · 고린도후서 13장 등) 여기 나온다고 다 틀린 것은 아니다 —
+    그래서 멈추지 않고 알리기만 한다. 2026-11-14 bible/NIV/ 66권 가운데 64권이 각 권의 **마지막 절**이
+    빠진 채 나뉘어 있었는데(잠언 31:31), 생성기 · verify 모두 조용히 「완료 · 모두 통과」였다.
+    """
+    have = {(p['chapter'], p['verse']) for p in en_pieces}
+    want = []
+    for p in ko_pieces:
+        for vs in range(p['verse'], (p.get('verse_end') or p['verse']) + 1):
+            key = (p['chapter'], vs)
+            if key not in have and key not in want:
+                want.append(key)
+    return want
+
+
 def find_book_file(book_name, bible_dir=None):
     """bible/ 폴더에서 이 책과 이름이 정확히 같은 파일을 찾는다.
 
@@ -265,18 +311,14 @@ def find_book_file(book_name, bible_dir=None):
     파일명에서 뽑은 책 이름(parse.book_name_from_filename)이 딱 같은 것만 찾고,
     없으면 비슷한 이름 후보를 보여 주고 멈춘다.
     """
-    if bible_dir is None:
-        bible_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'bible')
     candidates = []
-    for fn in sorted(os.listdir(bible_dir)):
-        if not fn.endswith('.txt'):
-            continue
+    for folder, fn in _bible_files(bible_dir):
         try:
             name = book_name_from_filename(fn)
         except ValueError:
             continue
         if name == book_name:
-            return os.path.join(bible_dir, fn)
+            return os.path.join(folder, fn)
         if book_name in name or name in book_name:
             candidates.append(name)
     msg = '!! bible/ 에서 "%s"를 못 찾았습니다' % book_name
@@ -357,10 +399,12 @@ def apply_line_counts(pieces, lines_map):
         v['lines'] = body_n + sum(counts.values())
 
 
-def default_out_name(book_name, chapter):
+def default_out_name(book_name, chapter, lang='ko'):
     """기본 출력 파일 이름 — 「유다서.html」 · 「요한복음_1장.html」 · 「시편_1편.html」.
     단위 글자는 render.chapter_unit 한 곳에서 정한다(장 표시와 같은 글자)."""
     suffix = '_%d%s' % (chapter, chapter_unit(book_name)) if chapter else ''
+    if lang == 'en':
+        suffix = '_NIV' + suffix   # 「잠언_NIV.html」 — 한글판(「잠언.html」)을 덮지 않게
     return '%s%s.html' % (book_name, suffix)
 
 
@@ -370,14 +414,27 @@ def verse_count(pieces):
                for v in pieces if v.get('part', 0) == 0)
 
 
-def generate(book_name, chapter=None, out_path=None):
+def _warn_missing_en(ko_name, en_verses, chapter):
+    """같은 책 한글 원문과 견줘 영어에 없는 절을 알린다(한글 원문이 없으면 건너뛴다)."""
+    try:
+        ko = parse_book(load_book_file(find_book_file(ko_name)), ko_name, chapter=chapter)
+    except (SystemExit, SourceTextError):
+        return
+    miss = verses_missing_from(ko, en_verses)
+    if miss:
+        print('⚠ 한글(개역개정)에는 있고 영어 원문에는 없는 절 %d개: %s'
+              % (len(miss), ', '.join('%d:%d' % m for m in miss[:20]) + (' …' if len(miss) > 20 else '')))
+        print('  번역마다 절 나눔이 달라 그럴 수도 있지만, 빠진 절이면 원문 파일을 고친 뒤 다시 만드세요.')
+
+
+def generate(book_name, chapter=None, out_path=None, lang='ko'):
     if out_path:
         # chdir 전에 미리 절대경로로 풀어 둔다 — 안 그러면 상대 --out 이 부른 사람의
         # 폴더가 아니라 bible-note/ 기준으로 풀린다(2026-09-22 최종 검토 Important 1 원인).
         out_path = os.path.abspath(out_path)
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     if not out_path:
-        out_path = default_out_name(book_name, chapter)
+        out_path = default_out_name(book_name, chapter, lang)
     # 막힐 자리면 서체를 받고 크롬으로 다 잰 뒤가 아니라 처음에 멈춘다
     # (2026-09-22 최종 검토 r2 Minor — 예전엔 이 확인이 맨 끝에 있었다).
     ensure_out_path_safe(out_path)
@@ -386,8 +443,13 @@ def generate(book_name, chapter=None, out_path=None):
     if not chrome:
         raise SystemExit('!! 크롬을 못 찾았습니다 — 헤드리스 실측에 필요합니다.')
 
-    text = load_book_file(find_book_file(book_name))
-    verses = parse_book(text, book_name, chapter=chapter)
+    if lang == 'en':
+        path, title = find_niv_file(book_name)
+        verses = parse_book_en(load_book_file(path), title, chapter=chapter)
+        _warn_missing_en(niv_names_from_filename(path)[1], verses, chapter)
+    else:
+        title = book_name
+        verses = parse_book(load_book_file(find_book_file(book_name)), book_name, chapter=chapter)
     if not verses:
         raise SystemExit('!! "%s"(%s)에서 절을 찾지 못했습니다'
                          % (book_name, '%d%s' % (chapter, chapter_unit(book_name))
@@ -402,7 +464,7 @@ def generate(book_name, chapter=None, out_path=None):
     pages = paginate(verses, lines_per_page())
     _copy_fonts_beside(out_path)
     with io.open(out_path, 'w', encoding='utf-8') as f:
-        f.write(build_final_html(pages, book_name))
+        f.write(build_final_html(pages, title))
 
     print('완료: %s (%d쪽 · %d절)' % (out_path, len(pages), verse_count(verses)))
     return out_path
@@ -413,9 +475,11 @@ def main():
     ap.add_argument('book', help='책 이름(예: 유다서, 요한복음)')
     ap.add_argument('--chapter', type=int, default=None, help='특정 장만(예: 1)')
     ap.add_argument('--out', default=None, help='출력 파일명')
+    ap.add_argument('--lang', choices=('ko', 'en'), default='ko',
+                    help='en = 영어(NIV · bible/NIV/「20-Proverbs (잠언).txt」 꼴)')
     args = ap.parse_args()
     try:
-        generate(args.book, chapter=args.chapter, out_path=args.out)
+        generate(args.book, chapter=args.chapter, out_path=args.out, lang=args.lang)
     except (FontSettingError, SourceTextError) as e:
         # 서체 설정·원문 줄 문제는 성도님이 고칠 수 있는 것이다 — 파이썬 트레이스백 대신 다른 멈춤과
         # 같은 `!! …` 한 줄로 보인다. 메시지 본문은 그대로(가이드가 인용한다). 그 밖의 오류는

@@ -49,6 +49,20 @@ python verify.py 유다서.html             # 「모두 통과했습니다.」
 - 크롬이 가끔 한 번 헛돌아 `PRINT_FAILED` 를 낸다 — 파일을 바꾸지 말고 다시 돌려 본다.
 - 테스트: `cd bible-note && python -m pytest tests -q`. 한글 출력은 Git Bash 에서 `PYTHONIOENCODING=utf-8`.
 
+## 2026-11-14 하위 폴더 · 영어(NIV)
+- 원문이 `bible/개정개역4/`(한글 66권 · 예전 `bible/*.txt` 와 같은 꼴) · `bible/NIV/`(`20-Proverbs (잠언).txt` 꼴) ·
+  `bible/개역개정4판.txt`(한 파일 합본)로 나뉘었다(친구 · 같은 날). 생성기는 `bible/` 바로 아래를 먼저, 그다음 **한 단계 아래 폴더**를
+  이름 차례로 본다(`generate._bible_files` · 친구 결정 「1번」). 시험의 실제 원문 경로도 `개정개역4/` 를 본다(`tests/test_parse.py` 머리).
+- **영어:** `python generate.py 잠언 --lang en` → `잠언_NIV.html`. `parse.parse_book_en`(첫 줄 책 이름 건너뜀 · `장:절 본문` 아닌 줄은 멈춤 ·
+  `--` → 줄표 —) · 장 표시 「Chapter N」/「Psalm N」 · 머리글 범위 「Proverbs 1:1 – 1:8」(en dash) · `<html lang="en">`(1차 실측과 2차 인쇄가 같은 값).
+  서체는 그대로 Noto Serif KR — 받아 둔 `korean` 조각에 라틴 글자 · 숫자 · 줄표 · 곧은 따옴표가 다 들어 있다(잠언 NIV 글자 전부 확인).
+  날짜 칸 「년 월 일」 · 바닥글은 한글판과 같다.
+- ⚠️ **`bible/NIV/` 66권 가운데 64권이 각 권의 마지막 절이 빠져 있다**(잠언 31:31 · 창 50:26 · 마 28:20 · 계 22:21 … — 나누는 과정에서 한 줄씩).
+  생성기 · verify 는 조용히 「완료 · 모두 통과」였다 → 영어로 만들 때 같은 책 한글 원문과 견줘 **영어에 없는 절을 `⚠` 줄로 알린다**
+  (`verses_missing_from` · 번역마다 절 나눔이 달라 멈추지는 않는다). 원문 파일을 고치기 전까지 영어판은 마지막 절이 없다.
+- 잠언 NIV 원문은 1:4 「for giving prudence to the simple」로 보아 1984년판 NIV 로 보인다(확인 필요 — 2011년판은 「to those who are simple」).
+  ⚠️ NIV 는 Biblica 저작물이다 — 출판사의 인용 허용 범위를 넘는 책 한 권 전체를 성도님께 나눠 드리려면 허락이 필요할 수 있다(친구 확인).
+
 ## 남은 것 (2026-09-22 Minor 수정 뒤)
 최종 검토 r5 의 Minor 9개와 가이드 대조에서 나온 「본문 속 `3:16` 을 절로 읽음」은 같은 날 고쳤다(성도님 요청).
 아직 남은 것 — 모두 드문 경우다.

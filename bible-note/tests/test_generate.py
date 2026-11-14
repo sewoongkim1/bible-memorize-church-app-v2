@@ -500,3 +500,46 @@ def test_ensure_out_path_safe_checks_footer_font(monkeypatch):
     monkeypatch.setattr(generate, '_is_git_ignored', fake_ignored)
     ensure_out_path_safe(os.path.join(ROOT, '자료', 'marketing', '유다서.html'))
     assert 'Footer-400.woff' in {os.path.basename(p) for p in checked}
+
+
+# ── 2026-11-14 bible/ 가 하위 폴더(개정개역4/ · NIV/)로 나뉨 ──────────────
+
+def test_find_book_file_looks_in_subfolders(tmp_path):
+    sub = tmp_path / '개정개역4'
+    sub.mkdir()
+    (sub / '1-20잠언.txt').write_text('잠1:1 x', encoding='utf-8')
+    assert find_book_file('잠언', bible_dir=str(tmp_path)) == str(sub / '1-20잠언.txt')
+
+
+def test_find_book_file_prefers_top_folder(tmp_path):
+    sub = tmp_path / '개정개역4'
+    sub.mkdir()
+    (sub / '1-20잠언.txt').write_text('잠1:1 x', encoding='utf-8')
+    (tmp_path / '1-20잠언.txt').write_text('잠1:1 y', encoding='utf-8')
+    assert find_book_file('잠언', bible_dir=str(tmp_path)) == str(tmp_path / '1-20잠언.txt')
+
+
+def test_find_niv_file_by_korean_or_english_name(tmp_path):
+    from generate import find_niv_file
+    sub = tmp_path / 'NIV'
+    sub.mkdir()
+    (sub / '20-Proverbs (잠언).txt').write_text('Proverbs\n1:1 x', encoding='utf-8')
+    path = str(sub / '20-Proverbs (잠언).txt')
+    assert find_niv_file('잠언', bible_dir=str(tmp_path)) == (path, 'Proverbs')
+    assert find_niv_file('proverbs', bible_dir=str(tmp_path)) == (path, 'Proverbs')
+    with pytest.raises(SystemExit) as e:
+        find_niv_file('시편', bible_dir=str(tmp_path))
+    assert str(e.value).startswith('!! ')
+
+
+def test_default_out_name_english():
+    assert generate.default_out_name('잠언', None, lang='en') == '잠언_NIV.html'
+    assert generate.default_out_name('잠언', 3, lang='en') == '잠언_NIV_3장.html'
+
+
+def test_verses_missing_from_lists_korean_verses_absent_in_english():
+    ko = [{'chapter': 31, 'verse': 30}, {'chapter': 31, 'verse': 31},
+          {'chapter': 9, 'verse': 1, 'verse_end': 2}]
+    en = [{'chapter': 31, 'verse': 30}, {'chapter': 9, 'verse': 1}]
+    assert generate.verses_missing_from(ko, en) == [(31, 31), (9, 2)]
+    assert generate.verses_missing_from(ko[:1], en) == []

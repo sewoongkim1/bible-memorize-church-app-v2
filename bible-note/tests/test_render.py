@@ -766,3 +766,22 @@ def test_bad_body_lines_message_names_the_piece():
     with pytest.raises(ValueError) as e:
         build_final_html([[piece]], '요한복음')
     assert '5:9(조각 1)' in str(e.value)
+
+
+# ── 영어(NIV) — 2026-11-14 ─────────────────────────────────────────────
+
+def test_chapter_mark_english():
+    from render import chapter_mark
+    assert chapter_mark({'book': 'Proverbs', 'chapter': 3, 'lang': 'en'}) == 'Chapter 3'
+    assert chapter_mark({'book': 'Psalms', 'chapter': 23, 'lang': 'en'}) == 'Psalm 23'
+    assert chapter_mark({'book': '잠언', 'chapter': 3}) == '3장'
+
+
+def test_english_pages_use_en_lang_and_dash_range():
+    v1 = dict(_v(1), book='Proverbs', lang='en', chapter=1)
+    v2 = dict(_v(2), book='Proverbs', lang='en', chapter=1)
+    html = build_final_html([[v1, v2]], 'Proverbs')
+    assert '<html lang="en">' in html
+    assert 'Proverbs 1:1 – 1:2' in html
+    assert '<html lang="en">' in build_draft_html([v1, v2])   # 1차 · 2차 같은 lang(줄바꿈이 같게)
+    assert '<html lang="ko">' in build_final_html([[_v(1)]], '유다서')

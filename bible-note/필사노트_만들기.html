@@ -266,6 +266,7 @@ python generate.py 시편 --chapter 1</code></pre>
           <li><code>--chapter 1</code> 은 「1장만」(시편은 「1편만」)이라는 뜻입니다. 빼면 그 책 전체를 만들고, 장이 바뀔 때마다 새 쪽에서 시작합니다.</li>
           <li>끝나면 <code>완료: 유다서.html (5쪽 · 25절)</code> 처럼 나옵니다. 파일은 <code>bible-note</code> 폴더에 생깁니다(<code>유다서.html</code> · <code>요한복음_1장.html</code> · <code>시편_1편.html</code>).</li>
           <li>바탕화면에 바로 만들려면 끝에 <code>--out C:\Users\sewki\Desktop\유다서.html</code> 을 붙입니다. 서체 폴더도 함께 복사됩니다.</li>
+          <li><b>영어(NIV)로:</b> <code>python generate.py 잠언 --lang en</code> → <code>잠언_NIV.html</code>(장 표시 「Chapter 1」 · 시편 「Psalm 1」). 원문은 <code>bible\NIV\20-Proverbs (잠언).txt</code> 꼴(첫 줄 책 이름 · 한 줄에 <code>1:1 본문</code> · <code>--</code> 은 줄표 「—」). 같은 책 한글 원문과 견줘 영어에 없는 절이 있으면 <code>⚠ …</code> 줄로 알려 줍니다 — 빠진 절이면 원문 파일을 고친 뒤 다시 만드세요.</li>
         </ul>
         <p class="muted">Git Bash 를 쓰신다면 명령 앞에 <code>PYTHONIOENCODING=utf-8</code> 을 붙이세요. 까만 명령 창(cmd)에서는 필요 없습니다.</p>
       </div>
@@ -323,7 +324,7 @@ Jude1:3 Dear friends, although I was very eager to write to you …</code></pre>
       </tbody>
     </table>
   </div>
-  <p class="muted">본보기는 모양을 보여 주려는 것입니다. 도구는 <code>bible</code> 폴더에서만 원문을 찾습니다. <code>_샘플</code> 폴더는 개역개정 본문이라 인터넷 저장소에 올라가지 않습니다.</p>
+  <p class="muted">본보기는 모양을 보여 주려는 것입니다. 도구는 <code>bible</code> 폴더와 그 바로 아래 폴더(<code>bible\개정개역4</code> · <code>bible\NIV</code> 등)에서만 원문을 찾습니다. <code>_샘플</code> 폴더는 개역개정 본문이라 인터넷 저장소에 올라가지 않습니다.</p>
 
   <h3>이런 줄도 그대로 찍습니다</h3>
   <p>원문에는 「한 줄에 한 절」에서 벗어난 줄이 세 가지 있습니다. 인쇄 성경처럼 찍으니 <strong>고치지 않아도 됩니다.</strong></p>

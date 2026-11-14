@@ -13,6 +13,10 @@ from parse import parse_book, book_name_from_filename, load_book_file
 
 ROOT = os.path.join(os.path.dirname(__file__), '..', '..')
 BIBLE = os.path.join(ROOT, 'bible')
+# 2026-11-14 원문이 하위 폴더(bible/개정개역4/)로 나뉨 — 생성기(generate._bible_files)처럼 거기도 본다
+if (not os.path.exists(os.path.join(BIBLE, '2-26유다서.txt'))
+        and os.path.exists(os.path.join(BIBLE, '개정개역4', '2-26유다서.txt'))):
+    BIBLE = os.path.join(BIBLE, '개정개역4')
 JUDE = os.path.join(BIBLE, '2-26유다서.txt')
 JOHN = os.path.join(BIBLE, '2-04요한복음.txt')
 PSALMS = os.path.join(BIBLE, '1-19시편.txt')
@@ -576,3 +580,45 @@ def test_parse_preserves_every_character_of_every_book():
             got.update(_chars((p['heading'] or '') + (p['subtitle'] or '') + p['body']))
             assert '<' not in p['body'] and '>' not in p['body'], (name, p['chapter'], p['verse'])
         assert got == src, name
+
+
+# ── 영어(NIV) 원문 — 2026-11-14 bible/NIV/20-Proverbs (잠언).txt ─────────────
+# UTF-8 · 첫 줄은 책 이름 · 그 아래 한 줄에 한 절 `1:1 …`(약자 · 소제목 없음).
+
+from parse import parse_book_en, niv_names_from_filename
+
+
+def test_niv_names_from_filename():
+    assert niv_names_from_filename('bible/NIV/20-Proverbs (잠언).txt') == ('Proverbs', '잠언')
+    assert niv_names_from_filename('09-1 Samuel (사무엘상).txt') == ('1 Samuel', '사무엘상')
+    with pytest.raises(ValueError):
+        niv_names_from_filename('1-20잠언.txt')
+
+
+def test_parse_book_en_skips_title_and_reads_verses():
+    text = 'Proverbs \n1:1 The proverbs of Solomon son of David, king of Israel:\n1:2 for attaining wisdom\n2:1 My son,\n'
+    ps = parse_book_en(text, 'Proverbs')
+    assert [(p['chapter'], p['verse'], p['label']) for p in ps] == [(1, 1, '1'), (1, 2, '2'), (2, 1, '1')]
+    assert ps[0]['body'] == 'The proverbs of Solomon son of David, king of Israel:'
+    assert [p['chapter_start'] for p in ps] == [True, False, True]
+    assert all(p['lang'] == 'en' and p['book'] == 'Proverbs' and p['subtitle'] is None and p['part'] == 0
+               for p in ps)
+
+
+def test_parse_book_en_prints_double_hyphen_as_em_dash():
+    ps = parse_book_en('1:4 knowledge and discretion to the young--\n', 'Proverbs')
+    assert ps[0]['body'] == 'knowledge and discretion to the young—'
+
+
+def test_parse_book_en_keeps_one_chapter():
+    ps = parse_book_en('Proverbs\n1:1 a\n2:1 b\n2:2 c\n', 'Proverbs', chapter=2)
+    assert [(p['chapter'], p['verse'], p['chapter_start']) for p in ps] == [(2, 1, True), (2, 2, False)]
+
+
+def test_parse_book_en_stops_on_line_without_verse_number():
+    from parse import SourceTextError
+    with pytest.raises(SourceTextError) as e:
+        parse_book_en('Proverbs\n1:1 a\nstray line\n', 'Proverbs')
+    assert '3번째 줄' in str(e.value)
+    with pytest.raises(SourceTextError):          # 책 이름이 아닌 첫 줄도 멈춘다
+        parse_book_en('Psalms\n1:1 a\n', 'Proverbs')

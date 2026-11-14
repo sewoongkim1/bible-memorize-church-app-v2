@@ -271,7 +271,9 @@ def chapter_unit(book):
 
 
 def chapter_mark(v):
-    """장 표시 글 — 「1장」 · 「1편」."""
+    """장 표시 글 — 「1장」 · 「1편」 · 영어(NIV) 「Chapter 1」 · 「Psalm 1」."""
+    if v.get('lang') == 'en':
+        return ('Psalm %d' if v['book'] == 'Psalms' else 'Chapter %d') % v['chapter']
     return '%d%s' % (v['chapter'], chapter_unit(v['book']))
 
 
@@ -296,6 +298,11 @@ def _block_lines(v, role):
     return v.get('%s_lines' % role, 1)
 
 
+def _doc_lang(verses):
+    """<html lang> — 영어(NIV) 조각이면 en. ⚠️ 1차(실측)와 2차(인쇄)가 같은 값을 써야 줄바꿈이 같다."""
+    return 'en' if verses and verses[0].get('lang') == 'en' else 'ko'
+
+
 def build_draft_html(verses):
     """1차 그리기 — 페이지를 나누지 않고 원문 열만 그린다.
 
@@ -313,10 +320,10 @@ def build_draft_html(verses):
             '<span class="num">%s</span><span class="txt">%s</span></p>'
             % (key, esc(_num_text(v)), esc(v['body'])))
     return (
-        '<!doctype html><html lang="ko"><head><meta charset="utf-8">'
+        '<!doctype html><html lang="%s"><head><meta charset="utf-8">'
         '<style>%s%s</style></head>'
         '<body><div class="orig-col">%s</div></body></html>'
-        % (base_css(), num_col_css(num_digits(verses)), ''.join(parts))
+        % (_doc_lang(verses), base_css(), num_col_css(num_digits(verses)), ''.join(parts))
     )
 
 
@@ -382,7 +389,8 @@ def _page_html(page_verses, book, page_no, total):
         # (2026-09-22 최종 검토 Minor — 장 바뀜 규칙이 생겨 장 끝에서 더 자주 나온다).
         rng = '%s %d:%d' % (book, first['chapter'], first['verse'])
     else:
-        rng = '%s %d:%d ~ %d:%d' % (book, first['chapter'], first['verse'],
+        sep = '\u2013' if first.get('lang') == 'en' else '~'   # 영어는 「Proverbs 1:1 – 1:10」
+        rng = '%s %d:%d %s %d:%d' % (book, first['chapter'], first['verse'], sep,
                                      last['chapter'], last_verse)
     orig_parts = []
     write_parts = []
@@ -466,9 +474,9 @@ def build_final_html(pages, book):
     empty_slots = () if footer_has_text(total) else ('ft',)
     page_divs = [_page_html(pg, book, i + 1, total) for i, pg in enumerate(pages)]
     return (
-        '<!doctype html><html lang="ko"><head><meta charset="utf-8">'
+        '<!doctype html><html lang="%s"><head><meta charset="utf-8">'
         '<title>%s 필사노트</title>'
         '<style>%s%s%s</style></head><body>%s%s</body></html>'
-        % (esc(book), base_css(), num_css, page_css(empty_slots), FONT_WARN_HTML,
+        % (_doc_lang(all_verses), esc(book), base_css(), num_css, page_css(empty_slots), FONT_WARN_HTML,
            ''.join(page_divs))
     )
