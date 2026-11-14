@@ -65,7 +65,8 @@ def test_draft_html_part_attribute_keeps_two_pieces_of_one_verse_apart():
     assert 'data-ch="5" data-vs="9" data-pt="1" data-role="body"' in html
 
 
-def test_draft_html_roles_head_chap_sub_body():
+def test_draft_html_roles_head_chap_sub_body(monkeypatch):
+    monkeypatch.setattr(render, 'CHAP_SUB_INLINE', False)   # 소제목을 따로 두는 꼴(예전 꼴)
     html = build_draft_html([_v(1, book='시편', heading='제일권', chapter_start=True,
                                 subtitle='소제목', body='복 있는 사람은', label='1', part=0)])
     for role in ('head', 'chap', 'sub', 'body'):
@@ -337,7 +338,8 @@ def test_header_and_footer_font_sizes_default():
     hd = css.split('.hd {')[1].split('}')[0]
     ft = css.split('.ft {')[1].split('}')[0]
     assert 'font-size:19pt' in hd
-    assert 'font-size:9pt' in ft
+    assert 'font-size:12pt' in ft            # 2026-11-14 소제목과 같은 글씨(FONT_PT)
+    assert "font-family:'NSKB',serif" in ft and 'color:#111' in ft
     assert 'NSKH' not in css
 
 
@@ -354,6 +356,7 @@ def test_header_footer_rules_match_dictation():
 
 
 def test_header_and_footer_font_sizes_configurable(monkeypatch):
+    monkeypatch.setattr(render, 'FOOTER_LIKE_SUBTITLE', False)   # 끄면 FOOTER_PT · 회색
     monkeypatch.setattr(render, 'HEADER_PT', 14)
     monkeypatch.setattr(render, 'FOOTER_PT', 10)
     css = page_css()
@@ -500,7 +503,8 @@ def test_book_heading_both_sides_with_pinned_height():
     assert html.count('class="ln"') == 3
 
 
-def test_heading_above_chapter_mark_above_subtitle_above_body():
+def test_heading_above_chapter_mark_above_subtitle_above_body(monkeypatch):
+    monkeypatch.setattr(render, 'CHAP_SUB_INLINE', False)   # 소제목을 따로 두는 꼴(예전 꼴)
     piece = _v(1, book='시편', lines=6, heading='제이권', chapter_start=True,
                subtitle='고라 자손의 마스길', sub_lines=1)
     orig, write = _orig_and_write(build_final_html([[piece]], '시편'))
@@ -798,3 +802,40 @@ def test_english_pages_use_en_lang_and_dash_range():
     assert 'Proverbs 1:1 – 1:2' in html
     assert '<html lang="en">' in build_draft_html([v1, v2])   # 1차 · 2차 같은 lang(줄바꿈이 같게)
     assert '<html lang="ko">' in build_final_html([[_v(1)]], '유다서')
+
+
+# ── 장 첫머리 소제목을 「1장」 같은 줄에 — 2026-11-14 친구 ─────────────────
+
+def test_chapter_start_subtitle_goes_on_chapter_line():
+    from render import piece_blocks
+    v = _v(1, book='잠언', chapter_start=True, subtitle='솔로몬의 잠언', lines=4, chap_lines=1)
+    assert piece_blocks(v) == [('chap', ('1장', '솔로몬의 잠언'))]
+    draft = build_draft_html([v])
+    assert 'data-role="chap"' in draft and 'data-role="sub"' not in draft
+    assert '1장<span class="cs">솔로몬의 잠언</span></div>' in draft
+    final = build_final_html([[v]], '잠언')
+    orig, write = _orig_and_write(final)
+    for side in (orig, write):
+        assert '1장<span class="cs">솔로몬의 잠언</span></div>' in side
+        assert 'class="sub"' not in side
+    assert final.count('class="ln"') == 3          # 4줄 - 장 표시(소제목 함께) 1줄
+    assert '.chap .cs { margin-left:8mm; }' in render.base_css()   # 1차 · 2차가 같은 규칙
+
+
+def test_heading_then_chapter_line_with_subtitle():
+    from render import piece_blocks
+    v = _v(1, book='시편', chapter=42, heading='제이권', chapter_start=True, subtitle='고라 자손의 마스길')
+    assert piece_blocks(v) == [('head', '제이권'), ('chap', ('42편', '고라 자손의 마스길'))]
+
+
+def test_subtitle_in_middle_of_chapter_stays_on_own_line():
+    from render import piece_blocks
+    v = _v(7, subtitle='젊은이에게 주는 교훈')
+    assert piece_blocks(v) == [('sub', '젊은이에게 주는 교훈')]
+    assert piece_blocks(_v(1, chapter_start=True)) == [('chap', '1장')]
+
+
+def test_footer_like_subtitle_off_uses_footer_pt_and_grey(monkeypatch):
+    monkeypatch.setattr(render, 'FOOTER_LIKE_SUBTITLE', False)
+    ft = page_css().split('.ft {')[1].split('}')[0]
+    assert 'font-size:9pt' in ft and 'color:#555' in ft and 'NSKB' not in ft

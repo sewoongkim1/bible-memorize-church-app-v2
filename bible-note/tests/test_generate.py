@@ -191,7 +191,8 @@ def _piece(verse, part=0, **extra):
     return d
 
 
-def test_apply_line_counts_sums_head_chap_sub_body():
+def test_apply_line_counts_sums_head_chap_sub_body(monkeypatch):
+    monkeypatch.setattr('render.CHAP_SUB_INLINE', False)   # 소제목을 따로 두는 꼴(예전 꼴)
     pieces = [_piece(1, heading='제일권', chapter_start=True, subtitle='소제목')]
     generate.apply_line_counts(pieces, {
         (1, 1, 0, 'head'): 1, (1, 1, 0, 'chap'): 1, (1, 1, 0, 'sub'): 2, (1, 1, 0, 'body'): 3})
@@ -543,3 +544,11 @@ def test_verses_missing_from_lists_korean_verses_absent_in_english():
     en = [{'chapter': 31, 'verse': 30}, {'chapter': 9, 'verse': 1}]
     assert generate.verses_missing_from(ko, en) == [(31, 31), (9, 2)]
     assert generate.verses_missing_from(ko[:1], en) == []
+
+
+def test_apply_line_counts_inline_chapter_subtitle():
+    # 2026-11-14 — 장 첫머리 소제목이 「1장」 줄에 들어가면 sub 칸은 재지 않는다
+    pieces = [_piece(1, book='잠언', chapter_start=True, subtitle='솔로몬의 잠언')]
+    generate.apply_line_counts(pieces, {(1, 1, 0, 'chap'): 1, (1, 1, 0, 'body'): 1})
+    p = pieces[0]
+    assert (p['chap_lines'], p['sub_lines'], p['lines']) == (1, 0, 2)

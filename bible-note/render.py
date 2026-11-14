@@ -52,14 +52,20 @@ LETTER_SPACING_EM = 0
 HEADER_PT = 19
 # 머리글 날짜 칸(「년 월 일」) 글자 크기 — 굵은 서체(NSKB)로 찍는다.
 DATE_PT = 13
+# 장이 시작하는 자리의 소제목을 「1장」 오른쪽 같은 줄에(2026-11-14 친구 · 받아쓰기 dictation.py 와 같게).
+# False 면 예전처럼 「1장」 아래 줄에 따로.
+CHAP_SUB_INLINE = True
 # 머리글 서체 파일. 비우면({}) 원문 서체를 그대로 쓴다. 넣으면 처음 한 번 받아 fonts/ 에 둔다.
 # 예: {'fonts/GowunDodum-400.woff':
 #      'https://cdn.jsdelivr.net/npm/@fontsource/gowun-dodum/files/gowun-dodum-korean-400-normal.woff'}
 # 내 PC 서체: 파일을 fonts/ 에 복사하고 주소는 비운다 — {'fonts/BMJUA_ttf.ttf': ''}
 #   (.ttf · .otf · .woff · .woff2 가 된다. .ttc 는 브라우저가 못 읽는다.)
 HEADER_FONT_URL = {}
-# 바닥글 글씨 크기.
+# 바닥글 글씨 크기(FOOTER_LIKE_SUBTITLE 이 False 일 때). ⚠️ 받아쓰기(dictation.py)도 이 값을 빌려 쓴다.
 FOOTER_PT = 9
+# 바닥글을 소제목과 같은 글씨로 — 크기 FONT_PT · 굵은 서체(NSKB) · 검정(2026-11-14 친구).
+# False 면 예전처럼 FOOTER_PT · 원문 서체 · 회색. 바닥글 서체 파일(FOOTER_FONT_URL)을 넣으면 서체는 그것이 이긴다.
+FOOTER_LIKE_SUBTITLE = True
 # 바닥글 서체 파일 — 머리글 서체(HEADER_FONT_URL)와 규칙이 똑같다(비우면 원문 서체, 한 벌만,
 # 내 PC 서체는 주소 ''). 머리글과 같은 파일을 넣어도 한 번만 받고 한 번만 복사한다.
 FOOTER_FONT_URL = {}
@@ -233,6 +239,7 @@ body { font-family:'NSK',serif; color:#111; }
 }
 .orig-col .head, .write-col .head { text-align:center; font-family:'NSKB',serif; font-weight:400; }
 .orig-col .chap, .write-col .chap { text-align:left; }
+.orig-col .chap .cs, .write-col .chap .cs { margin-left:8mm; }
 .orig-col .chap, .write-col .chap, .orig-col .sub, .write-col .sub { font-family:'NSKB',serif; font-weight:400; }
 .orig-col p { display:flex; }
 .orig-col .num { flex:0 0 auto; font-family:'NSKB',serif; font-weight:400; }
@@ -291,10 +298,22 @@ def piece_blocks(v):
     if v.get('heading'):
         blocks.append(('head', v['heading']))
     if v.get('chapter_start'):
+        if CHAP_SUB_INLINE and v.get('subtitle'):
+            # 「1장   솔로몬의 잠언」 — 장 표시 칸 하나에 소제목을 함께(글은 (장 표시, 소제목) 짝 · block_inner 가 그린다)
+            blocks.append(('chap', (chapter_mark(v), v['subtitle'])))
+            return blocks
         blocks.append(('chap', chapter_mark(v)))
     if v.get('subtitle'):
         blocks.append(('sub', v['subtitle']))
     return blocks
+
+
+def block_inner(text):
+    """칸 안 HTML — 보통은 글 그대로(esc), 장 표시 옆 소제목(짝)이면 「1장」 뒤에 <span class="cs">소제목</span>.
+    1차(실측) · 2차(인쇄) 원문 · 필사 칸이 모두 이 함수 하나로 그린다(줄 수가 같게)."""
+    if isinstance(text, tuple):
+        return '%s<span class="cs">%s</span>' % (esc(text[0]), esc(text[1]))
+    return esc(text)
 
 
 def _block_lines(v, role):
@@ -318,7 +337,7 @@ def build_draft_html(verses):
     for v in verses:
         key = 'data-ch="%d" data-vs="%d" data-pt="%d"' % (v['chapter'], v['verse'], v.get('part', 0))
         for role, text in piece_blocks(v):
-            parts.append('<div class="%s" %s data-role="%s">%s</div>' % (role, key, role, esc(text)))
+            parts.append('<div class="%s" %s data-role="%s">%s</div>' % (role, key, role, block_inner(text)))
         parts.append(
             '<p %s data-role="body">'
             '<span class="num">%s</span><span class="txt">%s</span></p>'
@@ -354,8 +373,11 @@ def page_css(empty_slots=()):
         fields['%s_font_rule' % key] = rule
     fields.update({'slot_font_faces': ''.join(faces), 'w': PAGE_W_MM, 'h': PAGE_H_MM,
                    'm': MARGIN_MM, 'hh': HEADER_MM, 'hpt': HEADER_PT, 'dpt': DATE_PT, 'rh': usable_body_mm(),
-                   'fh': FOOTER_MM, 'fpt': FOOTER_PT, 'line': LINE_MM,
+                   'fh': FOOTER_MM, 'fpt': FONT_PT if FOOTER_LIKE_SUBTITLE else FOOTER_PT,
+                   'fcolor': '#111' if FOOTER_LIKE_SUBTITLE else '#555', 'line': LINE_MM,
                    'ww': write_width_mm(), 'pad': COL_PAD_MM})
+    if FOOTER_LIKE_SUBTITLE and not fields['ft_font_rule']:
+        fields['ft_font_rule'] = " font-family:'NSKB',serif;"   # 소제목과 같은 굵은 서체(base_css 의 @font-face)
     return ("""
 %(slot_font_faces)s@page { size: A4 landscape; margin: 0; }
 .page { width:%(w)smm; height:%(h)smm; padding:%(m)smm; background:#fff; }
@@ -376,7 +398,7 @@ def page_css(empty_slots=()):
              border-left:0.75pt solid #ccc; overflow:hidden; }
 .write-col .ln { height:%(line)smm; border-bottom:0.5pt solid #888; }
 .ft { height:%(fh)smm; display:grid; grid-template-columns:1fr auto 1fr; align-items:center;
-      column-gap:6mm; font-size:%(fpt)spt;%(ft_font_rule)s color:#555; border-top:1.5pt solid #111; }
+      column-gap:6mm; font-size:%(fpt)spt;%(ft_font_rule)s color:%(fcolor)s; border-top:1.5pt solid #111; }
 .ft span { white-space:nowrap; overflow:hidden; }
 .ft .fl { text-align:left; }
 .ft .fc { text-align:center; }
@@ -403,12 +425,12 @@ def _page_html(page_verses, book, page_no, total):
         for role, text in piece_blocks(v):
             n = _block_lines(v, role)
             fixed_lines += n
-            orig_parts.append('<div class="%s">%s</div>' % (role, esc(text)))
+            orig_parts.append('<div class="%s">%s</div>' % (role, block_inner(text)))
             # 필사 열은 폭이 원문 열과 다를 수 있어(ORIG_PCT) 같은 글이 다른 줄 수로 끝날 수
             # 있다 — 높이를 원문 쪽 실측 줄 수에 못박아야 아래 필사줄이 원문 줄과 같은 높이에서
             # 시작한다(권 제목·장 표시·소제목 모두).
             write_parts.append('<div class="%s" style="height:%smm">%s</div>'
-                               % (role, _mm(n * LINE_MM), esc(text)))
+                               % (role, _mm(n * LINE_MM), block_inner(text)))
         orig_parts.append(
             '<p><span class="num">%s</span><span class="txt">%s</span></p>'
             % (esc(_num_text(v)), esc(v['body'])))
