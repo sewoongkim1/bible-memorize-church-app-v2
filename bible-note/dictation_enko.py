@@ -114,7 +114,7 @@ def build_final_html(pages, book):
     total = len(pages)
     return ('<!doctype html><html lang="ko"><head><meta charset="utf-8">'
             '<title>%s %s</title><style>%s%s</style></head><body>%s%s</body></html>'
-            % (esc(book), TITLE_SUFFIX, D.text_css('ko'), D.page_css(), D.R.FONT_WARN_HTML,
+            % (esc(book), TITLE_SUFFIX, D.text_css('ko'), D.page_css(total), D.R.FONT_WARN_HTML,
                ''.join(D._page_html(pg, book, i + 1, total, 'ko') for i, pg in enumerate(pages))))
 
 
@@ -134,9 +134,16 @@ def build(ko_pieces, en_pieces, book, out_path, chrome):
     items = [it for u in units for it in u]
     pages = paginate_units(units, D.body_mm())
     D.copy_fonts_beside(out_path)
-    with io.open(out_path, 'w', encoding='utf-8') as f:
-        f.write(build_final_html(pages, book))
-    D.check_final(out_path, chrome, len(pages))
+    # 확인을 통과한 뒤에만 진짜 이름으로 바꿔 끼운다(dictation.build 와 같게 · 걸린 인쇄본이 전에 잘 만든 파일을 덮지 않게).
+    # 임시 이름은 「_」 로 시작해 bible-note 안이면 .gitignore 에 걸린다(실패해도 finally 에서 지운다).
+    work = G._temp_beside(out_path, '_dict_out_', '.html')
+    try:
+        with io.open(work, 'w', encoding='utf-8') as f:
+            f.write(build_final_html(pages, book))
+        D.check_final(work, chrome, len(pages))
+        os.replace(work, out_path)
+    finally:
+        G._remove_temp(work)
     return len(pages), sum(1 for it in items if it['kind'] == 'line'), missing, extra
 
 
@@ -152,6 +159,7 @@ def generate(book_name, chapter=None, out_path=None):
     chrome = G.find_chrome()
     if not chrome:
         raise SystemExit('!! 크롬을 못 찾았습니다 — 헤드리스 실측에 필요합니다.')
+    G._chrome = D._chrome_uri    # 폴더 이름에 # · % 가 있어도 주소가 깨지지 않게(dictation.generate 와 같게 · 이 명령줄 프로세스에서만)
     ko = parse_book(load_book_file(G.find_book_file(book_name)), book_name, chapter=chapter)
     path, en_title = G.find_niv_file(book_name)
     en = parse_book_en(load_book_file(path), en_title, chapter=chapter)
