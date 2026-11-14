@@ -359,35 +359,6 @@ def _read_range(env, tr, bk, s):
 
 PAIRS = {'koen': '한영', 'enko': '영한'}   # 두 번역 함께 — 절마다 한글 → 영어 / 영어 → 한글(오른쪽 필사형만)
 
-# 두 번역의 절 나눔이 다른 장 — 영어(NIV 꼴) 절 번호 → 한글(개역개정) 절 번호. 한글 절이 바로 앞 영어 절과 같으면 그 끝에 잇는다.
-# 고린도후서 13장: 개역개정은 11절 끝에 「거룩하게 입맞춤으로 서로 문안하라」를 붙여 13절에서 끝나고, NIV 는 그것을 12절로 떼어
-# 14절(축도)까지 간다 — 그대로 두면 12 · 13절 짝이 어긋나고 축도가 빠졌다(2026-11-14 검토 pn-2 · 66권에서 이 한 곳).
-# ⚠️ 영어 쪽 그 장의 끝 절이 한글보다 클 때만 옮긴다(다른 영어 번역본이 한글처럼 나눴으면 그대로 둔다).
-VERSE_REMAP = {('고린도후서', 13): {12: 11, 13: 12, 14: 13}}
-
-
-def _last_verses(pieces):
-    last = {}
-    for p in pieces:
-        last[p['chapter']] = max(last.get(p['chapter'], 0), p.get('verse_end') or p['verse'])
-    return last
-
-
-def _remap_en(book_name, ko, en):
-    ko_last, en_last = _last_verses(ko), _last_verses(en)
-    out = []
-    for p in en:
-        table = VERSE_REMAP.get((book_name, p['chapter']))
-        if table and p['verse'] in table and en_last.get(p['chapter'], 0) > ko_last.get(p['chapter'], 0):
-            to = table[p['verse']]
-            if out and (out[-1]['chapter'], out[-1]['verse']) == (p['chapter'], to):
-                out[-1] = dict(out[-1], body=out[-1]['body'] + ' ' + p['body'])
-                continue
-            p = dict(p, verse=to, label=str(to))
-        out.append(p)
-    return out
-
-
 def load_pair_pieces(env, s):
     """한영 · 영한(2026-11-14 친구) — 한글 번역본(s['translation'])과 영어 번역본(s['pair_translation'])의 같은 책 · 같은 범위를
     generate.enko_pieces 로 절마다 짝지운다(남의 파일 · 읽기만).
@@ -404,9 +375,9 @@ def load_pair_pieces(env, s):
              or next((b for b in en_tr['books'] if b.get('canon') == bk.get('canon')), None))
     if en_bk is None:
         raise UserError('영어 번역본 「%s」에 「%s」가 없습니다' % (en_tr['name'], bk['name']))
-    en = _remap_en(bk['name'], ko, _read_range(env, en_tr, en_bk, s))
-    covered = {(p['chapter'], v) for p in ko for v in range(p['verse'], (p.get('verse_end') or p['verse']) + 1)}
-    extra = sorted({(p['chapter'], p['verse']) for p in en} - covered)
+    # 절 나눔이 다른 장(고린도후서 13장 — NIV 12 → 11절 끝 · 13 → 12 · 14 → 13)을 한글 번호로 옮기고, 그래도 한글에 없는 영어 절을 받는다.
+    # 표와 옮기기는 generate.EN_VERSE_REMAP · remap_en_verses 한 곳(1f · df98716 — 명령줄 enko/koen · dictation_enko 와 같은 것).
+    en, extra = G.remap_en_verses(bk['name'], ko, _read_range(env, en_tr, en_bk, s))
     pieces, missing = G.enko_pieces(ko, en, ko_first=(s['pair'] == 'koen'))
     return tr, en_tr, bk, pieces, missing, extra
 
@@ -746,9 +717,8 @@ def _patch_right(s):
         return h
     R._page_html = page_html
 
-    # 바닥글 한 줄의 줄 높이를 조인다 — 「소제목 같은 바닥글」(render.FOOTER_LIKE_SUBTITLE)은 본문 크기 굵은 글씨라 16pt(「아주 크게」)
-    # 부터 줄 상자(1.44em)가 8mm 칸보다 커서 verify 가 FOOTER_OVERFLOW 로 멈췄다(2026-11-14 · 잘린 데는 없다). 한 줄이라 모양은 그대로.
-    extra = ['.ft span { line-height:1.15; }']
+    # (바닥글 줄 높이 1.15 — 16pt 「소제목 같은 바닥글」이 칸 밖으로 나가던 것 — 는 render.page_css 가 직접 싣는다 · 1f df98716)
+    extra = []
     bt, bl = s['bind_top_mm'], s['bind_left_mm']
     if bt or bl:
         orig_usable, orig_avail = R.usable_body_mm, R._avail_width_mm

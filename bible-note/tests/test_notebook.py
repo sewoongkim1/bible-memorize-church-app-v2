@@ -312,7 +312,7 @@ def test_patch_right_fonts_color_bind(restore_render):
     assert '.orig-col { color:#808080; }' in css
     assert R.usable_body_mm() == before - 10
     assert 'padding-top:23mm; padding-left:18mm;' in R.page_css()
-    assert '.ft span { line-height:1.15; }' in R.page_css()     # 16pt 소제목 같은 바닥글이 칸 밖으로 안 나가게
+    assert 'line-height:1.15' in R.page_css()     # 16pt 소제목 같은 바닥글이 칸 밖으로 안 나가게(render 가 싣는다)
 
 
 @pytest.mark.parametrize('body,bold', [
