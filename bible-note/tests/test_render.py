@@ -22,8 +22,9 @@ def _v(verse, lines=1, subtitle=None, body='본문', **extra):
     return d
 
 
-def test_usable_body_mm_is_164():
-    assert usable_body_mm() == 164
+def test_usable_body_mm_is_162():
+    # 2026-11-14 머리글 12 → 14mm(받아쓰기와 같게) — 쪽당 17줄은 그대로(162 / 9.5 = 17.05)
+    assert usable_body_mm() == 162
 
 
 def test_lines_per_page_is_17():
@@ -257,7 +258,7 @@ def test_hanging_indent_css():
 
 def test_footer_has_top_rule():
     ft = page_css().split('.ft {')[1].split('}')[0]
-    assert 'border-top:0.75pt solid #333' in ft
+    assert 'border-top:1.5pt solid #111' in ft   # 2026-11-14 받아쓰기와 같게(전 0.75pt #333)
 
 
 def test_footer_css_is_grid_with_three_columns():
@@ -335,9 +336,21 @@ def test_header_and_footer_font_sizes_default():
     css = page_css()
     hd = css.split('.hd {')[1].split('}')[0]
     ft = css.split('.ft {')[1].split('}')[0]
-    assert 'font-size:11pt' in hd
+    assert 'font-size:19pt' in hd
     assert 'font-size:9pt' in ft
     assert 'NSKH' not in css
+
+
+def test_header_footer_rules_match_dictation():
+    # 2026-11-14 친구 — 아래쪽 필사형(dictation.py)과 같은 줄 굵기 · 날짜 서체
+    css = page_css()
+    hd = css.split('.hd {')[1].split('}')[0]
+    ft = css.split('.ft {')[1].split('}')[0]
+    assert 'border-bottom:1.5pt solid #111' in hd
+    assert 'border-top:1.5pt solid #111' in ft
+    date = css.split('.hd .date {')[1].split('}')[0]
+    assert 'font-size:13pt' in date and "font-family:'NSKB'" in date
+    assert 'border-bottom:0.5pt solid #888' in css.split('.write-col .ln {')[1].split('}')[0]
 
 
 def test_header_and_footer_font_sizes_configurable(monkeypatch):

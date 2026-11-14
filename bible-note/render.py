@@ -25,7 +25,7 @@ import os
 PAGE_W_MM = 297
 PAGE_H_MM = 210
 MARGIN_MM = 13
-HEADER_MM = 12
+HEADER_MM = 14     # 2026-11-14 12 → 14 — 받아쓰기(아래쪽 필사형 · dictation.py)와 같은 머리글(쪽당 17줄은 그대로)
 FOOTER_MM = 8
 LINE_MM = 9.5
 ORIG_PCT = 50      # 원문 열이 가용폭에서 차지하는 비율(퍼센트) — 2026-09-22 성도님 결정 50:50(처음엔 38:62)
@@ -47,7 +47,11 @@ FONT_URL = {
 LETTER_SPACING_EM = 0
 
 # 머리글(책·절 범위 · 날짜) — 원문과 따로 정한다.
-HEADER_PT = 11
+# 2026-11-14 친구 「머리글 · 바닥글을 아래쪽 필사형과 같은 서체 · 줄 굵기로」 — 받아쓰기(dictation.py)의
+# HEADER_PT 19 · DATE_PT 13(굵게) · 위아래 줄 1.5pt 검정 · 필사줄 0.5pt #888 을 그대로 따른다(전에는 11pt · 0.75pt #333).
+HEADER_PT = 19
+# 머리글 날짜 칸(「년 월 일」) 글자 크기 — 굵은 서체(NSKB)로 찍는다.
+DATE_PT = 13
 # 머리글 서체 파일. 비우면({}) 원문 서체를 그대로 쓴다. 넣으면 처음 한 번 받아 fonts/ 에 둔다.
 # 예: {'fonts/GowunDodum-400.woff':
 #      'https://cdn.jsdelivr.net/npm/@fontsource/gowun-dodum/files/gowun-dodum-korean-400-normal.woff'}
@@ -349,7 +353,7 @@ def page_css(empty_slots=()):
         faces.append(face)
         fields['%s_font_rule' % key] = rule
     fields.update({'slot_font_faces': ''.join(faces), 'w': PAGE_W_MM, 'h': PAGE_H_MM,
-                   'm': MARGIN_MM, 'hh': HEADER_MM, 'hpt': HEADER_PT, 'rh': usable_body_mm(),
+                   'm': MARGIN_MM, 'hh': HEADER_MM, 'hpt': HEADER_PT, 'dpt': DATE_PT, 'rh': usable_body_mm(),
                    'fh': FOOTER_MM, 'fpt': FOOTER_PT, 'line': LINE_MM,
                    'ww': write_width_mm(), 'pad': COL_PAD_MM})
     return ("""
@@ -360,9 +364,9 @@ def page_css(empty_slots=()):
   .page:last-of-type { page-break-after:auto; }
 }
 .hd { height:%(hh)smm; display:flex; justify-content:space-between; align-items:flex-end;
-      padding-bottom:1.5mm; border-bottom:0.75pt solid #333; font-size:%(hpt)spt;%(hd_font_rule)s
-      overflow:hidden; }
-.hd .date { color:#555; letter-spacing:.05em; }
+      padding-bottom:1.5mm; border-bottom:1.5pt solid #111; font-size:%(hpt)spt; line-height:1;%(hd_font_rule)s
+      overflow:hidden; white-space:nowrap; }
+.hd .date { font-size:%(dpt)spt; line-height:1; font-family:'NSKB',serif; }
 .hd .date .blank { display:inline-block; }
 .hd .date .by { width:20mm; }
 .hd .date .bm, .hd .date .bd { width:12mm; }
@@ -370,9 +374,9 @@ def page_css(empty_slots=()):
 .orig-col { flex:0 0 auto; overflow:hidden; }
 .write-col { flex:0 0 auto; width:%(ww)smm; padding-left:%(pad)smm;
              border-left:0.75pt solid #ccc; overflow:hidden; }
-.write-col .ln { height:%(line)smm; border-bottom:0.5pt solid #999; }
+.write-col .ln { height:%(line)smm; border-bottom:0.5pt solid #888; }
 .ft { height:%(fh)smm; display:grid; grid-template-columns:1fr auto 1fr; align-items:center;
-      column-gap:6mm; font-size:%(fpt)spt;%(ft_font_rule)s color:#555; border-top:0.75pt solid #333; }
+      column-gap:6mm; font-size:%(fpt)spt;%(ft_font_rule)s color:#555; border-top:1.5pt solid #111; }
 .ft span { white-space:nowrap; overflow:hidden; }
 .ft .fl { text-align:left; }
 .ft .fc { text-align:center; }
