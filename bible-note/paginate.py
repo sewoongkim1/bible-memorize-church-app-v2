@@ -43,11 +43,10 @@ def _verse_label(v):
 
 
 def paginate(verses, lines_per_page):
+    """⚠️ 'keep_with_next' 가 참인 조각은 바로 다음 조각과 한 묶음으로 같은 쪽에 둔다(2026-11-14 영한 —
+    한 절의 영어 · 한글이 다른 쪽으로 갈라지지 않게). 묶음이 한 쪽보다 길면 예전처럼 조각마다 채운다."""
     if not isinstance(lines_per_page, int) or lines_per_page < 1:
         raise ValueError('페이지당 줄 수가 잘못됐습니다: %r' % (lines_per_page,))
-    pages = []
-    current = []
-    remaining = lines_per_page
     for v in verses:
         need = v['lines']
         if not isinstance(need, int) or need < 1:
@@ -55,12 +54,27 @@ def paginate(verses, lines_per_page):
         if need > lines_per_page:
             raise ValueError('%s이 %d줄이라 한 쪽(%d줄)에 들어가지 않습니다 — 절을 쪽 중간에서 자를 수 없습니다'
                              % (_verse_label(v), need, lines_per_page))
-        chapter_changed = current and v.get('chapter') != current[-1].get('chapter')
+    groups, i = [], 0
+    while i < len(verses):
+        g = [verses[i]]
+        while g[-1].get('keep_with_next') and i + len(g) < len(verses):
+            g.append(verses[i + len(g)])
+        if sum(v['lines'] for v in g) > lines_per_page:
+            groups += [[v] for v in g]          # 한 쪽에 안 드는 묶음 — 조각마다
+        else:
+            groups.append(g)
+        i += len(g)
+    pages = []
+    current = []
+    remaining = lines_per_page
+    for g in groups:
+        need = sum(v['lines'] for v in g)
+        chapter_changed = current and g[0].get('chapter') != current[-1].get('chapter')
         if current and (need > remaining or chapter_changed):
             pages.append(current)
             current = []
             remaining = lines_per_page
-        current.append(v)
+        current += g
         remaining -= need
     if current:
         pages.append(current)

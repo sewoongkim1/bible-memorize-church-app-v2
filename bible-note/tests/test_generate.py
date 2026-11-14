@@ -552,3 +552,32 @@ def test_apply_line_counts_inline_chapter_subtitle():
     generate.apply_line_counts(pieces, {(1, 1, 0, 'chap'): 1, (1, 1, 0, 'body'): 1})
     p = pieces[0]
     assert (p['chap_lines'], p['sub_lines'], p['lines']) == (1, 0, 2)
+
+
+# ── 영한(오른쪽 필사형) — 2026-11-14 ──────────────────────────────────────
+
+def test_enko_pieces_interleave_english_then_korean():
+    ko = [_piece(1, book='잠언', chapter_start=True, subtitle='솔로몬의 잠언', body='다윗의 아들'),
+          _piece(2, book='잠언', body='이는 지혜와')]
+    en = [{'chapter': 1, 'verse': 1, 'body': 'The proverbs'}, {'chapter': 1, 'verse': 2, 'body': 'for attaining'}]
+    out, missing = generate.enko_pieces(ko, en)
+    assert [(p['verse'], p['part'], p['body']) for p in out] == [
+        (1, 0, 'The proverbs'), (1, 1, '다윗의 아들'), (2, 0, 'for attaining'), (2, 1, '이는 지혜와')]
+    assert out[0]['chapter_start'] and out[0]['subtitle'] == '솔로몬의 잠언' and out[0]['keep_with_next']
+    assert not out[1]['chapter_start'] and out[1]['subtitle'] is None and not out[1].get('keep_with_next')
+    assert 'lang' not in out[0]          # 장 표시는 한글 꼴 「1장」
+    assert missing == []
+
+
+def test_enko_pieces_joins_korean_continuation_and_reports_missing_english():
+    ko = [_piece(1, book='잠언', body='솔로몬의 잠언이라'), _piece(1, part=1, label='', book='잠언', body='지혜로운 아들은'),
+          _piece(2, book='잠언', body='불의의 재물은')]
+    en = [{'chapter': 1, 'verse': 1, 'body': 'The proverbs of Solomon'}]
+    out, missing = generate.enko_pieces(ko, en)
+    assert [(p['verse'], p['part'], p['body']) for p in out] == [
+        (1, 0, 'The proverbs of Solomon'), (1, 1, '솔로몬의 잠언이라 지혜로운 아들은'), (2, 0, '불의의 재물은')]
+    assert missing == [(1, 2)]
+
+
+def test_default_out_name_enko():
+    assert generate.default_out_name('잠언', None, lang='enko') == '잠언_영한.html'

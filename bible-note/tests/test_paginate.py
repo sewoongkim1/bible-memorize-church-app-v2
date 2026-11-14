@@ -135,3 +135,20 @@ def test_paginate_messages_first_piece_keep_verse_form():
         paginate([{'verse': 9, 'chapter': 5, 'part': 0, 'lines': 30}], lines_per_page=17)
     assert str(e.value) == ('5:9절이 30줄이라 한 쪽(17줄)에 들어가지 않습니다 — '
                             '절을 쪽 중간에서 자를 수 없습니다')
+
+
+# ── keep_with_next — 영한(2026-11-14): 한 절의 영어 · 한글을 같은 쪽에 ─────────────
+
+def test_keep_with_next_moves_pair_to_next_page():
+    vs = [{'verse': 1, 'chapter': 1, 'lines': 14},
+          {'verse': 2, 'chapter': 1, 'part': 0, 'lines': 2, 'keep_with_next': True},
+          {'verse': 2, 'chapter': 1, 'part': 1, 'lines': 2}]
+    pages = paginate(vs, lines_per_page=17)
+    assert [[(v['verse'], v.get('part', 0)) for v in p] for p in pages] == [[(1, 0)], [(2, 0), (2, 1)]]
+
+
+def test_keep_with_next_pair_too_long_falls_back_to_pieces():
+    vs = [{'verse': 1, 'chapter': 1, 'part': 0, 'lines': 10, 'keep_with_next': True},
+          {'verse': 1, 'chapter': 1, 'part': 1, 'lines': 10}]
+    pages = paginate(vs, lines_per_page=17)
+    assert [len(p) for p in pages] == [1, 1]
