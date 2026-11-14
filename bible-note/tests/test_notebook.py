@@ -237,11 +237,11 @@ def test_load_pair_pieces(tmp_path):
     _touch(os.path.join(root, 'NIV'), '01-Genesis (창세기).txt', 'Genesis\n1:1 In the beginning\n')
     env = {'bible_dir': root}
     base = {'layout': 'right', 'translation': '개역', 'book': '1-20잠언.txt', 'pair_translation': 'NIV'}
-    tr, en_tr, bk, pieces, missing = NB.load_pair_pieces(env, NB.normalize(dict(base, pair='koen')))
+    tr, en_tr, bk, pieces, missing, extra = NB.load_pair_pieces(env, NB.normalize(dict(base, pair='koen')))
     assert (tr['id'], en_tr['id'], bk['name']) == ('개역', 'NIV', '잠언')
     assert [(p['verse'], p['part'], p['body'][:3]) for p in pieces] == [(1, 0, '가나다'), (1, 1, 'The'), (2, 0, '라마바')]
-    assert pieces[0].get('keep_with_next') and missing == [(1, 2)]
-    _t, _e, _b, enko, _m = NB.load_pair_pieces(env, NB.normalize(dict(base, pair='enko')))
+    assert pieces[0].get('keep_with_next') and missing == [(1, 2)] and extra == []
+    _t, _e, _b, enko, _m, _x = NB.load_pair_pieces(env, NB.normalize(dict(base, pair='enko')))
     assert enko[0]['body'].startswith('The') and enko[1]['body'] == '가나다'
     assert enko[0]['subtitle'] == '솔로몬의 잠언' and not enko[1].get('subtitle')   # 소제목은 앞 조각 위에
     with pytest.raises(NB.UserError):       # 영어 번역본에 그 책이 없다
@@ -249,6 +249,34 @@ def test_load_pair_pieces(tmp_path):
         NB.load_pair_pieces(env, NB.normalize(dict(base, pair='koen', book='1-21전도서.txt')))
     with pytest.raises(NB.UserError):       # 한글 번역본이 아니다
         NB.load_pair_pieces(env, NB.normalize(dict(base, pair='koen', translation='NIV', book='20-Proverbs (잠언).txt')))
+
+
+def test_pair_book_by_canon_remap_and_extra(tmp_path):
+    """이름이 다른 책은 권 번호로(아가 · 아가서 — 검토 pn-1) · 고린도후서 13장 NIV 절 나눔 바로잡기(pn-2) ·
+    영어에만 있는 절은 알림(pn-2) · 영어 쪽 범위가 비어도 멈추지 않음(pn-3)."""
+    root = str(tmp_path)
+    ko, en = os.path.join(root, '개역'), os.path.join(root, 'NIV')
+    _touch(ko, '1-22아가.txt', '아1:1 노래\n')
+    _touch(en, '22-Song of Songs (아가서).txt', 'Song of Songs\n1:1 Song\n')
+    _touch(ko, '2-08고린도후서.txt', '고후13:11 평안하라 입맞춤하라\n고후13:12 문안하라\n고후13:13 은혜가\n')
+    _touch(en, '47-2 Corinthians (고린도후서).txt',
+           '2 Corinthians\n13:11 Finally\n13:12 Greet with a kiss.\n13:13 All the saints\n13:14 May the grace\n')
+    _touch(ko, '1-20잠언.txt', '잠1:1 가\n잠1:2 나\n잠2:1 다\n')
+    _touch(en, '20-Proverbs (잠언).txt', 'Proverbs\n1:1 A\n1:2 B\n1:3 C\n')            # 1:3 은 영어에만 · 2장은 영어에 없다
+    env = {'bible_dir': root}
+    base = {'layout': 'right', 'translation': '개역', 'pair_translation': 'NIV', 'pair': 'koen'}
+    _t, en_tr, _b, pieces, missing, extra = NB.load_pair_pieces(env, NB.normalize(dict(base, book='1-22아가.txt')))
+    assert [p['body'] for p in pieces] == ['노래', 'Song'] and not missing and not extra
+    _t, _e, _b, pieces, missing, extra = NB.load_pair_pieces(env, NB.normalize(dict(base, book='2-08고린도후서.txt')))
+    pairs = [(p['verse'], p['body']) for p in pieces]
+    assert pairs == [(11, '평안하라 입맞춤하라'), (11, 'Finally Greet with a kiss.'), (12, '문안하라'), (12, 'All the saints'),
+                     (13, '은혜가'), (13, 'May the grace')]
+    assert not missing and not extra
+    _t, _e, _b, pieces, missing, extra = NB.load_pair_pieces(env, NB.normalize(dict(base, book='1-20잠언.txt')))
+    assert extra == [(1, 3)] and missing == [(2, 1)]
+    _t, _e, _b, pieces, missing, extra = NB.load_pair_pieces(               # 영어에 2장이 통째로 없다 — 한글만
+        env, NB.normalize(dict(base, book='1-20잠언.txt', range_mode='chapter', ch_from=2)))
+    assert [p['body'] for p in pieces] == ['다'] and missing == [(2, 1)]
 
 
 def test_preset_keeps_look_only(tmp_path, monkeypatch):
@@ -284,6 +312,7 @@ def test_patch_right_fonts_color_bind(restore_render):
     assert '.orig-col { color:#808080; }' in css
     assert R.usable_body_mm() == before - 10
     assert 'padding-top:23mm; padding-left:18mm;' in R.page_css()
+    assert '.ft span { line-height:1.15; }' in R.page_css()     # 16pt 소제목 같은 바닥글이 칸 밖으로 안 나가게
 
 
 @pytest.mark.parametrize('body,bold', [

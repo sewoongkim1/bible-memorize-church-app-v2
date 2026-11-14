@@ -375,6 +375,9 @@ function el(tag, attrs, text) {
   return e;
 }
 
+// 다른 번역본의 같은 책 — 같은 한글 이름, 없으면 같은 정경 권 번호(한글 「아가」 · NIV 「아가서」 · 검토 pu-2)
+const sameBook = (books, prev) => (prev ? books.find((x) => x.name === prev.name)
+  || books.find((x) => prev.canon && x.canon === prev.canon) || null : null);
 const curTr = () => ((ST && ST.translations) || []).find((t) => t.id === S.translation);
 const curBook = () => { const t = curTr(); return t ? t.books.find((b) => b.file === S.book) : null; };
 // 설정 비교용 — 키 차례와 상관없게(서버를 한 바퀴 돈 설정과도 견준다 · 검토 js-n2)
@@ -440,17 +443,17 @@ function fixSelection() {
   if (!['none', 'koen', 'enko'].includes(S.pair) || !kos.length || !ens.length) S.pair = 'none';
   if (!ens.some((t) => t.id === S.pair_translation)) S.pair_translation = ens.length ? ens[0].id : '';
   if (trs.length) {
-    const prevName = (curBook() || {}).name;
+    const prev = curBook();
     if (S.pair !== 'none' && !kos.some((t) => t.id === S.translation)) S.translation = kos[0].id;
     if (!curTr()) S.translation = (kos[0] || trs[0]).id;
     const tr = curTr();
     if (!curBook()) {
-      const keep = prevName && tr.books.find((b) => b.name === prevName);
       const prov = tr.books.find((b) => b.name === '잠언');
-      S.book = (keep || prov || tr.books[0]).file;
+      S.book = (sameBook(tr.books, prev) || prov || tr.books[0]).file;
     }
   }
-  if (S.pair !== 'none') S.layout = 'right';
+  // 꼴만 바꾸지 않고 크기까지 옮긴다 — 처음 값 · 아래쪽 설정 묶음의 16~20pt 가 오른쪽에 그대로 남았다(검토 pu-1)
+  if (S.pair !== 'none' && S.layout !== 'right') switchLayout('right');
   const ok = fontChoices().map((f) => f.path);
   for (const k of ['body_font', 'bold_font']) if (!ok.includes(S[k])) S[k] = ok.includes(ST.defaults[k]) ? ST.defaults[k] : (ok[0] || '');
   for (const k of ['header_font', 'footer_font']) if (S[k] && !ok.includes(S[k])) S[k] = '';
@@ -631,8 +634,9 @@ function autoName() {
   // notebook.out_file_name 과 같은 규칙 — 한영 · 영한이면 「잠언_개정개역4+NIV_한영_…」
   const enTr = S.pair !== 'none' ? (ST.translations || []).find((t) => t.id === S.pair_translation) : null;
   const parts = enTr ? [bk.name, `${tr.name}+${enTr.name}`, S.pair === 'koen' ? '한영' : '영한'] : [bk.name, tr.name];
-  if (S.range_mode === 'chapter') parts.push(S.ch_from + unit);
-  else if (S.range_mode === 'chapters') parts.push(`${Math.min(S.ch_from, S.ch_to)}-${Math.max(S.ch_from, S.ch_to)}${unit}`);
+  const a = Math.trunc(Number(S.ch_from)), b = Math.trunc(Number(S.ch_to));   // 서버 int() 와 같게(검토 pu-4)
+  if (S.range_mode === 'chapter') parts.push(a + unit);
+  else if (S.range_mode === 'chapters') parts.push(`${Math.min(a, b)}-${Math.max(a, b)}${unit}`);
   parts.push(S.layout === 'right' ? '오른쪽' : '아래쪽');
   return safeFileName(parts.join('_')) + '.html';
 }
@@ -684,6 +688,7 @@ function readInput(inp) {
   if (inp.type === 'number' || inp.type === 'range') {
     const n = parseFloat(inp.value);
     if (Number.isNaN(n)) return inp.value;
+    if (inp.dataset.k === 'ch_from' || inp.dataset.k === 'ch_to') return Math.trunc(n);   // 서버(int)와 같게 — 검토 pu-4
     return inp.dataset.k === 'letter_spacing_em' ? round2(n) : n;
   }
   return inp.value;
@@ -709,8 +714,7 @@ $('#trSeg').addEventListener('click', async (e) => {
   S.translation = b.dataset.v;
   buildBooks();
   const tr = curTr();
-  const same = prev && tr.books.find((x) => x.name === prev.name);
-  S.book = (same || tr.books[0]).file;
+  S.book = (sameBook(tr.books, prev) || tr.books[0]).file;
   clearOutName();
   changed(); await refreshChapters();
 });
@@ -774,8 +778,7 @@ $('#pairSeg').addEventListener('click', async (e) => {
       const ko = ST.translations.find((t) => t.lang === 'ko');
       S.translation = ko.id;
       buildBooks();
-      const same = prev && ko.books.find((x) => x.name === prev.name);
-      S.book = (same || ko.books[0]).file;
+      S.book = (sameBook(ko.books, prev) || ko.books[0]).file;
       moved = true;
     }
     const ens = ST.translations.filter((t) => t.lang === 'en');
@@ -937,7 +940,13 @@ async function poll() {
   }
   const mine = job; job = null;
   busy(false);
-  if (j.status === 'done') { done(j.result, mine, j.seconds); return; }
+  if (j.status === 'done') {
+    done(j.result, mine, j.seconds);
+    // ⚠ 줄(영어에 없는 절 · 절 나눔이 다른 장 등)은 접힌 기록 안에만 있었다 — 결과와 함께 보여 준다(검토 pu-3)
+    const warns = (j.log || []).filter((l) => l.startsWith('⚠')).map((l) => l.replace(/^⚠\s*/, ''));
+    showWarnings([...((ST && ST.warnings) || []), ...warns]);
+    return;
+  }
   if (j.status === 'cancelled') { setStatus('멈췄습니다.'); return; }
   setStatus('만들지 못했습니다.');
   const errs = (j.log || []).filter((l) => l.startsWith('!!'));

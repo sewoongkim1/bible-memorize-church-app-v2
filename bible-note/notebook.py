@@ -80,8 +80,9 @@ RULES = {
         '  영어 꼴: 「권 번호 01~66」-「영어 이름」 (「한글 이름」) → 20-Proverbs (잠언).txt. '
         '첫 줄에 책 이름이 있어도 되고, 줄은 「1:1 본문」.',
         '글자 꼴(인코딩)은 UTF-8 이나 CP949(메모장의 ANSI). 장:절 번호가 없는 줄이 있으면 틀린 채 찍지 않고 멈춘다.',
-        '두 번역 함께(한영 · 영한 · 오른쪽 필사형)는 한글 번역본의 책과 같은 한글 이름의 책이 영어 번역본 폴더에 있어야 한다 '
-        '(영어 꼴 파일 이름의 괄호 속 한글 이름 — 20-Proverbs (잠언).txt). 영어에 없는 절은 한글만 찍고 알린다.',
+        '두 번역 함께(한영 · 영한 · 오른쪽 필사형)는 한글 번역본의 책과 같은 책을 영어 번역본 폴더에서 찾는다 — 괄호 속 한글 이름이 같은 책 '
+        '(20-Proverbs (잠언).txt), 없으면 같은 권 번호(22-Song of Songs (아가서).txt ↔ 1-22아가.txt). 영어에 없는 절은 한글만 찍고, '
+        '영어에만 있는 절은 찍지 않고 알린다(고린도후서 13장 NIV 의 절 나눔은 바로잡아 짝짓는다).',
         '필요하면 번역본 폴더에 번역본.json 을 둔다(UTF-8) — {"이름": "개역개정 4판", "언어": "ko"}. '
         '이름은 화면 · 파일 이름에 쓴다. 「언어」는 영어 꼴 파일에만 먹는다 — 영어 꼴 파일 이름에 한글 본문을 넣었으면 "ko" '
         '(「1 장」 · 머리글 한글 책 이름). 없으면 폴더 이름 · 파일 꼴(한글 꼴 = 한글, 영어 꼴 = 영어)로 정한다.',
@@ -234,17 +235,19 @@ def scan_books(folder):
         if not fn.lower().endswith('.txt'):
             continue
         # ⚠️ 영어 꼴을 먼저 본다 — 「09-1 Samuel (사무엘상).txt」 는 한글 꼴(숫자-숫자 이름)에도 걸린다.
+        # canon = 정경 권 번호(창세기 1 ~ 요한계시록 66) — 두 번역 함께에서 이름이 다른 책(아가 · 아가서)을 잇는다.
         m = EN_FILE_RE.match(fn)
         if m:
             n = int(m.group(1))
             books.append({'file': fn, 'fmt': 'en', 'name': m.group(3).strip(), 'title': m.group(2).strip(),
-                          'order': n, 'testament': 'old' if n <= 39 else 'new'})
+                          'order': n, 'canon': n, 'testament': 'old' if n <= 39 else 'new'})
             continue
         m = KO_FILE_RE.match(fn)
         if m:
             t, n, name = int(m.group(1)), int(m.group(2)), m.group(3).strip()
             books.append({'file': fn, 'fmt': 'ko', 'name': name, 'title': name,
-                          'order': t * 100 + n, 'testament': 'old' if t == 1 else 'new'})
+                          'order': t * 100 + n, 'canon': n if t == 1 else 39 + n,
+                          'testament': 'old' if t == 1 else 'new'})
     books.sort(key=lambda b: b['order'])
     return books
 
@@ -327,16 +330,7 @@ def chapter_count(env, tr_id, book_file):
 
 def load_pieces(env, s):
     tr, bk = find_book(env, s['translation'], s['book'])
-    text = P.load_book_file(os.path.join(env['bible_dir'], tr['id'], bk['file']))
-    mode, a, b = s['range_mode'], s['ch_from'], s['ch_to']
-    single = a if mode == 'chapter' else None
-    if bk['fmt'] == 'ko':
-        pieces = P.parse_book(text, bk['name'], chapter=single)
-    else:
-        pieces = P.parse_book_en(text, bk['title'], chapter=single)
-    if mode == 'chapters':
-        a, b = min(a, b), max(a, b)
-        pieces = [p for p in pieces if a <= p['chapter'] <= b]
+    pieces = _read_range(env, tr, bk, s)
     lang = tr['lang']
     if bk['fmt'] == 'en' and lang == 'ko':      # 영어 꼴 파일에 한글 본문(번역본.json 「언어」 ko)
         for p in pieces:
@@ -348,25 +342,73 @@ def load_pieces(env, s):
     return tr, bk, pieces, title, lang
 
 
+def _read_range(env, tr, bk, s):
+    """그 책에서 고른 범위의 조각들 — 비어 있어도 그대로 돌려준다(빈 것을 막는 것은 부른 쪽)."""
+    text = P.load_book_file(os.path.join(env['bible_dir'], tr['id'], bk['file']))
+    mode, a, b = s['range_mode'], s['ch_from'], s['ch_to']
+    single = a if mode == 'chapter' else None
+    if bk['fmt'] == 'ko':
+        pieces = P.parse_book(text, bk['name'], chapter=single)
+    else:
+        pieces = P.parse_book_en(text, bk['title'], chapter=single)
+    if mode == 'chapters':
+        a, b = min(a, b), max(a, b)
+        pieces = [p for p in pieces if a <= p['chapter'] <= b]
+    return pieces
+
+
 PAIRS = {'koen': '한영', 'enko': '영한'}   # 두 번역 함께 — 절마다 한글 → 영어 / 영어 → 한글(오른쪽 필사형만)
+
+# 두 번역의 절 나눔이 다른 장 — 영어(NIV 꼴) 절 번호 → 한글(개역개정) 절 번호. 한글 절이 바로 앞 영어 절과 같으면 그 끝에 잇는다.
+# 고린도후서 13장: 개역개정은 11절 끝에 「거룩하게 입맞춤으로 서로 문안하라」를 붙여 13절에서 끝나고, NIV 는 그것을 12절로 떼어
+# 14절(축도)까지 간다 — 그대로 두면 12 · 13절 짝이 어긋나고 축도가 빠졌다(2026-11-14 검토 pn-2 · 66권에서 이 한 곳).
+# ⚠️ 영어 쪽 그 장의 끝 절이 한글보다 클 때만 옮긴다(다른 영어 번역본이 한글처럼 나눴으면 그대로 둔다).
+VERSE_REMAP = {('고린도후서', 13): {12: 11, 13: 12, 14: 13}}
+
+
+def _last_verses(pieces):
+    last = {}
+    for p in pieces:
+        last[p['chapter']] = max(last.get(p['chapter'], 0), p.get('verse_end') or p['verse'])
+    return last
+
+
+def _remap_en(book_name, ko, en):
+    ko_last, en_last = _last_verses(ko), _last_verses(en)
+    out = []
+    for p in en:
+        table = VERSE_REMAP.get((book_name, p['chapter']))
+        if table and p['verse'] in table and en_last.get(p['chapter'], 0) > ko_last.get(p['chapter'], 0):
+            to = table[p['verse']]
+            if out and (out[-1]['chapter'], out[-1]['verse']) == (p['chapter'], to):
+                out[-1] = dict(out[-1], body=out[-1]['body'] + ' ' + p['body'])
+                continue
+            p = dict(p, verse=to, label=str(to))
+        out.append(p)
+    return out
 
 
 def load_pair_pieces(env, s):
     """한영 · 영한(2026-11-14 친구) — 한글 번역본(s['translation'])과 영어 번역본(s['pair_translation'])의 같은 책 · 같은 범위를
-    generate.enko_pieces 로 절마다 짝지운다(남의 파일 · 읽기만). 영어 책은 같은 한글 이름으로 찾는다.
-    돌려주는 것: (한글 번역본, 영어 번역본, 한글 책, 조각들, 영어에 없는 절)."""
+    generate.enko_pieces 로 절마다 짝지운다(남의 파일 · 읽기만).
+    영어 책은 같은 한글 이름으로, 없으면 같은 정경 권 번호로 찾는다(한글 「아가」 · NIV 「아가서」 · 검토 pn-1).
+    영어 쪽 범위가 비어도 멈추지 않는다 — 모두 한글만 찍고 빠진 절로 알린다(검토 pn-3).
+    돌려주는 것: (한글 번역본, 영어 번역본, 한글 책, 조각들, 영어에 없는 절, 한글에 없는 영어 절(찍히지 않음))."""
     tr, bk, ko, _title, lang = load_pieces(env, s)
     if lang != 'ko':
         raise UserError('한영 · 영한은 한글 번역본(예: 개정개역4)을 고른 뒤에 만들 수 있습니다')
     en_tr = next((t for t in translations(env) if t['id'] == s['pair_translation']), None)
     if en_tr is None or en_tr['lang'] != 'en':
         raise UserError('영어 번역본을 골라 주세요(예: NIV)')
-    en_bk = next((b for b in en_tr['books'] if b['name'] == bk['name']), None)
+    en_bk = (next((b for b in en_tr['books'] if b['name'] == bk['name']), None)
+             or next((b for b in en_tr['books'] if b.get('canon') == bk.get('canon')), None))
     if en_bk is None:
         raise UserError('영어 번역본 「%s」에 「%s」가 없습니다' % (en_tr['name'], bk['name']))
-    _t, _b, en, _ti, _l = load_pieces(env, dict(s, translation=en_tr['id'], book=en_bk['file']))
+    en = _remap_en(bk['name'], ko, _read_range(env, en_tr, en_bk, s))
+    covered = {(p['chapter'], v) for p in ko for v in range(p['verse'], (p.get('verse_end') or p['verse']) + 1)}
+    extra = sorted({(p['chapter'], p['verse']) for p in en} - covered)
     pieces, missing = G.enko_pieces(ko, en, ko_first=(s['pair'] == 'koen'))
-    return tr, en_tr, bk, pieces, missing
+    return tr, en_tr, bk, pieces, missing, extra
 
 
 def warn_missing(env, tr, bk, pieces, s):
@@ -704,16 +746,21 @@ def _patch_right(s):
         return h
     R._page_html = page_html
 
+    # 바닥글 한 줄의 줄 높이를 조인다 — 「소제목 같은 바닥글」(render.FOOTER_LIKE_SUBTITLE)은 본문 크기 굵은 글씨라 16pt(「아주 크게」)
+    # 부터 줄 상자(1.44em)가 8mm 칸보다 커서 verify 가 FOOTER_OVERFLOW 로 멈췄다(2026-11-14 · 잘린 데는 없다). 한 줄이라 모양은 그대로.
+    extra = ['.ft span { line-height:1.15; }']
     bt, bl = s['bind_top_mm'], s['bind_left_mm']
     if bt or bl:
-        orig_usable, orig_avail, orig_page_css = R.usable_body_mm, R._avail_width_mm, R.page_css
+        orig_usable, orig_avail = R.usable_body_mm, R._avail_width_mm
         R.usable_body_mm = lambda: orig_usable() - bt
         R._avail_width_mm = lambda: orig_avail() - bl
+        extra.append('.page { padding-top:%smm; padding-left:%smm; }' % (
+            R._mm(R.MARGIN_MM + bt), R._mm(R.MARGIN_MM + bl)))
+    orig_page_css = R.page_css
 
-        def page_css(*a, **k):
-            return orig_page_css(*a, **k) + '.page { padding-top:%smm; padding-left:%smm; }\n' % (
-                R._mm(R.MARGIN_MM + bt), R._mm(R.MARGIN_MM + bl))
-        R.page_css = page_css
+    def page_css(*a, **k):
+        return orig_page_css(*a, **k) + '\n'.join(extra) + '\n'
+    R.page_css = page_css
 
 
 def _apply_below(s):
@@ -749,6 +796,10 @@ def _build_right(pieces, title, out_path, chrome, max_pages):
     G.apply_line_counts(pieces, lines_map)
     pages = paginate(pieces, R.lines_per_page())
     if max_pages:
+        # ⚠️ 번호 칸 폭은 1차(실측)가 쓴 모든 조각으로 정한다 — 미리보기로 앞 2쪽만 넘기면 build_final_html 이 그 2쪽의 절 번호로
+        #    번호 칸을 좁혀(아가 1장: 1~8절 한 자리 · 실측은 17절까지 두 자리) 줄이 덜 바뀌고 자체 확인이 LINE_MISMATCH 로 멈췄다.
+        digits = R.num_digits(pieces)
+        R.num_digits = lambda _verses: digits
         pages = pages[:max_pages]
     G._copy_fonts_beside(out_path)
     with io.open(out_path, 'w', encoding='utf-8') as f:
@@ -904,9 +955,9 @@ def build(raw, preview=False):
             save_last(raw)
         except OSError as e:
             say('⚠ 마지막 설정을 저장하지 못했습니다(만들기는 이어 갑니다) — %s' % (e.strerror or e))
-    en_tr, missing = None, []
+    en_tr, missing, extra = None, [], []
     if s['pair'] != 'none':      # 한영 · 영한 — 오른쪽 필사형 · 머리글 책 이름 · 「1장」은 한글로(enko_pieces 가 lang 을 안 단다)
-        tr, en_tr, bk, pieces, missing = load_pair_pieces(env, s)
+        tr, en_tr, bk, pieces, missing, extra = load_pair_pieces(env, s)
         title, lang = bk['name'], 'ko'
     else:
         tr, bk, pieces, title, lang = load_pieces(env, s)
@@ -914,6 +965,7 @@ def build(raw, preview=False):
         first = pieces[0]['chapter']
         pieces = [p for p in pieces if p['chapter'] == first]
         missing = [m for m in missing if m[0] == first]
+        extra = [m for m in extra if m[0] == first]
     out_dir = os.path.join(env['out_dir'], '_미리보기') if preview else env['out_dir']
     os.makedirs(out_dir, exist_ok=True)
     out_path = os.path.join(out_dir, '미리보기.html' if preview else out_file_name(s, tr, bk, en_tr))
@@ -944,6 +996,9 @@ def build(raw, preview=False):
     if missing:     # 번역마다 절 나눔이 달라 그럴 수 있다 — 멈추지 않고 그 절은 한글만 찍는다
         say('⚠ 영어 번역본 「%s」에 없는 절 %d개(한글만 찍음): %s%s' % (
             en_tr['name'], len(missing), ', '.join('%d:%d' % m for m in missing[:12]), ' …' if len(missing) > 12 else ''))
+    if extra:       # 영어에만 있는 절 — 찍히지 않는다. 그 장은 두 번역의 절 나눔이 달라 앞 절들의 짝이 어긋났을 수 있다
+        say('⚠ 한글 번역본 「%s」에 없는 영어 절 %d개(찍히지 않음): %s — 그 장은 절 나눔이 달라 짝이 어긋났을 수 있습니다' % (
+            tr['name'], len(extra), ', '.join('%d:%d' % m for m in extra[:12]) + (' …' if len(extra) > 12 else '')))
     if lang == 'en' and not preview:
         warn_missing(env, tr, bk, pieces, s)
     say('줄을 재고 쪽을 나누는 중(크롬)…')
