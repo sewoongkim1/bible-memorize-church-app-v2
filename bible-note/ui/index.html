@@ -77,6 +77,8 @@ input[type=color] { width:38px; height:30px; padding:0 2px; border:1px solid var
 .lay b { display:block; font-size:13.5px; }
 .lay small { color:var(--sub); font-size:12px; }
 .lay.on { border-color:var(--navy); background:var(--navy-bg); box-shadow:0 0 0 1px var(--navy) inset; }
+.lay:disabled { opacity:.4; cursor:not-allowed; }
+.seg button:disabled { opacity:.4; cursor:not-allowed; }
 
 .sample { border:1px dashed var(--field); border-radius:9px; padding:10px 12px; margin:2px 0 12px; background:#fff; overflow:hidden; }
 .sample .sb { font-size:13px; margin-bottom:4px; }
@@ -155,7 +157,14 @@ input[type=color] { width:38px; height:30px; padding:0 2px; border:1px solid var
   <section class="card">
     <h2>성경</h2>
     <div id="noBible" class="err" hidden>성경 폴더에서 번역본을 못 찾았습니다 — 아래 「이 PC 환경」에서 성경 폴더를 정하고, 「번역본 넣는 규칙」을 확인해 주세요.</div>
-    <div class="field"><span class="lbl">번역본</span><div class="seg" id="trSeg"></div></div>
+    <div class="field"><span class="lbl" id="trLabel">번역본</span><div class="seg" id="trSeg"></div></div>
+    <div class="field" id="pairField"><span class="lbl">두 번역 함께 <small>오른쪽 필사형 · 절마다 차례로</small></span>
+      <div class="seg" id="pairSeg">
+        <button type="button" data-v="none">하나만</button><button type="button" data-v="koen">한영<small>한글 → 영어</small></button><button type="button" data-v="enko">영한<small>영어 → 한글</small></button>
+      </div>
+      <div class="row" id="pairEnRow" style="margin-top:8px"><span class="unit">영어 번역본</span><select id="pairEnSel" style="flex:1"></select></div>
+      <p class="hint" id="pairHint"></p>
+    </div>
     <div class="field"><label for="bookSel">책</label><select id="bookSel"></select></div>
     <div class="field"><span class="lbl">범위</span>
       <div class="seg" id="rangeSeg">
@@ -425,15 +434,23 @@ function fontChoices() {
 
 function fixSelection() {
   const trs = ST.translations || [];
+  const kos = trs.filter((t) => t.lang === 'ko'), ens = trs.filter((t) => t.lang === 'en');
   $('#noBible').hidden = trs.length > 0;
+  // 두 번역 함께 — 한글 · 영어 번역본이 둘 다 있어야 · 한글 번역본을 보고 · 오른쪽 필사형
+  if (!['none', 'koen', 'enko'].includes(S.pair) || !kos.length || !ens.length) S.pair = 'none';
+  if (!ens.some((t) => t.id === S.pair_translation)) S.pair_translation = ens.length ? ens[0].id : '';
   if (trs.length) {
-    if (!curTr()) S.translation = (trs.find((t) => t.lang === 'ko') || trs[0]).id;
+    const prevName = (curBook() || {}).name;
+    if (S.pair !== 'none' && !kos.some((t) => t.id === S.translation)) S.translation = kos[0].id;
+    if (!curTr()) S.translation = (kos[0] || trs[0]).id;
     const tr = curTr();
     if (!curBook()) {
+      const keep = prevName && tr.books.find((b) => b.name === prevName);
       const prov = tr.books.find((b) => b.name === '잠언');
-      S.book = (prov || tr.books[0]).file;
+      S.book = (keep || prov || tr.books[0]).file;
     }
   }
+  if (S.pair !== 'none') S.layout = 'right';
   const ok = fontChoices().map((f) => f.path);
   for (const k of ['body_font', 'bold_font']) if (!ok.includes(S[k])) S[k] = ok.includes(ST.defaults[k]) ? ST.defaults[k] : (ok[0] || '');
   for (const k of ['header_font', 'footer_font']) if (S[k] && !ok.includes(S[k])) S[k] = '';
@@ -456,6 +473,8 @@ function buildStatic() {
     b.append(el('small', {}, t.lang === 'en' ? '영어' : '한글'));
     seg.append(b);
   }
+  const ps = $('#pairEnSel'); ps.textContent = '';
+  for (const t of (ST.translations || []).filter((x) => x.lang === 'en')) ps.append(el('option', { value: t.id }, t.name));
   buildBooks();
   // 서체
   const choices = fontChoices();
@@ -539,6 +558,24 @@ function render() {
   const bk = curBook();
   $('#chUnit').textContent = bk && bk.name === '시편' ? '편' : '장';
   $('#chCount').textContent = chapters ? `이 책은 ${chapters}${$('#chUnit').textContent}까지 있습니다.` : '';
+  // 두 번역 함께
+  const trs = ST.translations || [];
+  const canPair = trs.some((t) => t.lang === 'ko') && trs.some((t) => t.lang === 'en');
+  const pairOn = S.pair !== 'none';
+  for (const b of $$('#pairSeg button')) {
+    b.classList.toggle('on', b.dataset.v === S.pair);
+    b.disabled = !canPair && b.dataset.v !== 'none';
+  }
+  $('#pairEnRow').hidden = !pairOn;
+  if ($('#pairEnSel').value !== S.pair_translation) $('#pairEnSel').value = S.pair_translation;
+  $('#pairHint').textContent = !canPair ? '한글 번역본과 영어 번역본 폴더가 둘 다 있어야 고를 수 있습니다.'
+    : (pairOn ? '책 · 범위는 한글 번역본에서 고릅니다(영어 책은 같은 이름으로 찾습니다) · 오른쪽 필사형만 됩니다.' : '');
+  $('#trLabel').textContent = pairOn ? '한글 번역본' : '번역본';
+  for (const b of $$('#trSeg button')) {
+    const t = trs.find((x) => x.id === b.dataset.v);
+    b.hidden = pairOn && !!t && t.lang !== 'ko';
+  }
+  $('.lay[data-layout="below"]').disabled = pairOn;
   for (const b of $$('.lay')) b.classList.toggle('on', b.dataset.layout === S.layout);
   for (const e of $$('[data-only]')) e.hidden = e.dataset.only !== S.layout;
   // 크기 단추 — 누르는 도중에 지우고 새로 만들면 그 누름이 사라진다(검토 js-1). 꼴이 바뀔 때만 다시 만든다.
@@ -591,7 +628,9 @@ function autoName() {
   const tr = curTr(), bk = curBook();
   if (!tr || !bk) return '';
   const unit = bk.name === '시편' ? '편' : '장';
-  const parts = [bk.name, tr.name];
+  // notebook.out_file_name 과 같은 규칙 — 한영 · 영한이면 「잠언_개정개역4+NIV_한영_…」
+  const enTr = S.pair !== 'none' ? (ST.translations || []).find((t) => t.id === S.pair_translation) : null;
+  const parts = enTr ? [bk.name, `${tr.name}+${enTr.name}`, S.pair === 'koen' ? '한영' : '영한'] : [bk.name, tr.name];
   if (S.range_mode === 'chapter') parts.push(S.ch_from + unit);
   else if (S.range_mode === 'chapters') parts.push(`${Math.min(S.ch_from, S.ch_to)}-${Math.max(S.ch_from, S.ch_to)}${unit}`);
   parts.push(S.layout === 'right' ? '오른쪽' : '아래쪽');
@@ -620,8 +659,17 @@ function changed() {
   render();
   if (lastShown) $('#staleBadge').hidden = false;
   clearTimeout(saveT);
-  saveT = setTimeout(() => api('/api/last', { settings: S }), 600);
+  saveT = setTimeout(() => { saveT = null; api('/api/last', { settings: S }); }, 600);
 }
+// 바꾸고 0.6초 안에 탭을 닫으면 그 바꿈이 저장되지 않았다 — 닫힐 때 남은 저장을 바로 보낸다(keepalive · 같은 출처 JSON)
+window.addEventListener('pagehide', () => {
+  if (!saveT) return;
+  clearTimeout(saveT); saveT = null;
+  try {
+    fetch('/api/last', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' },
+                         body: JSON.stringify({ settings: S }) }).catch(() => {});
+  } catch (e) { /* 닫히는 중 */ }
+});
 
 // 책 · 범위가 바뀌면 적어 둔 파일 이름을 비운다 — 다른 책의 노트가 옛 이름 파일을 덮었다(검토 js-5)
 function clearOutName() {
@@ -677,9 +725,9 @@ $('#rangeSeg').addEventListener('click', (e) => {
   clearOutName();
   changed();
 });
-$$('.lay').forEach((b) => b.addEventListener('click', () => {
-  if (!ST) return;
-  const from = S.layout, to = b.dataset.layout;
+// 꼴 바꾸기 — 꼴 카드와 「두 번역 함께」(오른쪽으로 맞춤)가 같이 쓴다. 부른 쪽이 changed() 를 부른다.
+function switchLayout(to) {
+  const from = S.layout;
   if (from === to) return;
   const LD = ST.layout_defaults;
   const step = stepOf(from);
@@ -701,8 +749,45 @@ $$('.lay').forEach((b) => b.addEventListener('click', () => {
   for (const k of ['header_pt', 'date_pt']) {
     if (LD[from][k] !== undefined && LD[to][k] !== undefined && Number(S[k]) === LD[from][k]) S[k] = LD[to][k];
   }
+}
+$$('.lay').forEach((b) => b.addEventListener('click', () => {
+  if (!ST || b.disabled || b.dataset.layout === S.layout) return;
+  if (S.pair !== 'none' && b.dataset.layout !== 'right') {
+    setStatus('한영 · 영한은 오른쪽 필사형만 됩니다 — 「하나만」을 고르면 아래쪽도 됩니다.');
+    return;
+  }
+  switchLayout(b.dataset.layout);
   changed();
 }));
+
+// 두 번역 함께(한영 · 영한) — 한글 번역본의 책 목록 · 영어 책은 같은 한글 이름으로(notebook.load_pair_pieces) · 오른쪽 필사형만
+$('#pairSeg').addEventListener('click', async (e) => {
+  const b = e.target.closest('button'); if (!b || !ST || b.disabled) return;
+  if (b.dataset.v === S.pair) return;
+  S.pair = b.dataset.v;
+  let moved = false;
+  if (S.pair !== 'none') {
+    if (S.layout !== 'right') switchLayout('right');
+    const tr = curTr();
+    if (!tr || tr.lang !== 'ko') {          // 영어 번역본을 보고 있었으면 한글 번역본의 같은 책으로
+      const prev = curBook();
+      const ko = ST.translations.find((t) => t.lang === 'ko');
+      S.translation = ko.id;
+      buildBooks();
+      const same = prev && ko.books.find((x) => x.name === prev.name);
+      S.book = (same || ko.books[0]).file;
+      moved = true;
+    }
+    const ens = ST.translations.filter((t) => t.lang === 'en');
+    if (!ens.some((t) => t.id === S.pair_translation)) S.pair_translation = ens.length ? ens[0].id : '';
+  }
+  clearOutName();
+  changed();
+  if (moved) await refreshChapters();
+});
+$('#pairEnSel').addEventListener('change', () => {
+  S.pair_translation = $('#pairEnSel').value; clearOutName(); changed();
+});
 $('#sizeSteps').addEventListener('click', (e) => {
   const b = e.target.closest('[data-step]'); if (!b || !ST) return;
   const st = ST.size_steps[S.layout].find((x) => x.name === b.dataset.step);
@@ -765,7 +850,8 @@ $('#presetDel').addEventListener('click', async () => {
 $('#resetAll').addEventListener('click', () => {
   if (!ST) return;
   const num = (v, d) => (Number.isFinite(Number(v)) && Number(v) >= 1 ? Number(v) : d);
-  const keep = { translation: S.translation, book: S.book, range_mode: S.range_mode, ch_from: num(S.ch_from, 1), ch_to: num(S.ch_to, 1) };
+  const keep = { translation: S.translation, book: S.book, range_mode: S.range_mode, ch_from: num(S.ch_from, 1), ch_to: num(S.ch_to, 1),
+                 pair: S.pair, pair_translation: S.pair_translation };   // 무엇을 찍을지는 그대로 — 모양만 처음 값으로
   S = Object.assign({}, ST.defaults, keep);
   for (const k of Object.keys(layoutMemo)) delete layoutMemo[k];
   fixSelection(); changed();

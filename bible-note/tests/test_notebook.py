@@ -218,6 +218,39 @@ def test_auto_name_is_cleaned_too():
     assert NB.safe_file_name('...') == '필사노트'
 
 
+def test_pair_settings_and_name():
+    """한영 · 영한은 오른쪽 필사형만 · 이름은 「책_한글+영어_한영_…」(2026-11-14 친구)."""
+    with pytest.raises(NB.UserError):
+        NB.normalize({'pair': 'koen', 'layout': 'below'})
+    with pytest.raises(NB.UserError):
+        NB.normalize({'pair': 'kojp', 'layout': 'right'})
+    s = NB.normalize({'pair': 'enko', 'layout': 'right', 'range_mode': 'chapter', 'ch_from': 3})
+    name = NB.out_file_name(s, {'name': '개정개역4'}, {'name': '잠언'}, {'name': 'NIV'})
+    assert name == '잠언_개정개역4+NIV_영한_3장_오른쪽.html'
+    assert 'pair' in NB.LOOK_KEYS_EXCLUDED and 'pair_translation' in NB.LOOK_KEYS_EXCLUDED
+
+
+def test_load_pair_pieces(tmp_path):
+    root = str(tmp_path)
+    _touch(os.path.join(root, '개역'), '1-20잠언.txt', '잠1:1 <솔로몬의 잠언> 가나다\n잠1:2 라마바\n')
+    _touch(os.path.join(root, 'NIV'), '20-Proverbs (잠언).txt', 'Proverbs\n1:1 The proverbs\n')    # 1:2 가 없다
+    _touch(os.path.join(root, 'NIV'), '01-Genesis (창세기).txt', 'Genesis\n1:1 In the beginning\n')
+    env = {'bible_dir': root}
+    base = {'layout': 'right', 'translation': '개역', 'book': '1-20잠언.txt', 'pair_translation': 'NIV'}
+    tr, en_tr, bk, pieces, missing = NB.load_pair_pieces(env, NB.normalize(dict(base, pair='koen')))
+    assert (tr['id'], en_tr['id'], bk['name']) == ('개역', 'NIV', '잠언')
+    assert [(p['verse'], p['part'], p['body'][:3]) for p in pieces] == [(1, 0, '가나다'), (1, 1, 'The'), (2, 0, '라마바')]
+    assert pieces[0].get('keep_with_next') and missing == [(1, 2)]
+    _t, _e, _b, enko, _m = NB.load_pair_pieces(env, NB.normalize(dict(base, pair='enko')))
+    assert enko[0]['body'].startswith('The') and enko[1]['body'] == '가나다'
+    assert enko[0]['subtitle'] == '솔로몬의 잠언' and not enko[1].get('subtitle')   # 소제목은 앞 조각 위에
+    with pytest.raises(NB.UserError):       # 영어 번역본에 그 책이 없다
+        _touch(os.path.join(root, '개역'), '1-21전도서.txt', '전1:1 가\n')
+        NB.load_pair_pieces(env, NB.normalize(dict(base, pair='koen', book='1-21전도서.txt')))
+    with pytest.raises(NB.UserError):       # 한글 번역본이 아니다
+        NB.load_pair_pieces(env, NB.normalize(dict(base, pair='koen', translation='NIV', book='20-Proverbs (잠언).txt')))
+
+
 def test_preset_keeps_look_only(tmp_path, monkeypatch):
     monkeypatch.setattr(NB, 'PRESET_PATH', str(tmp_path / '설정묶음.json'))
     data = NB.save_preset('큰 글씨', {'font_pt': 18, 'book': '1-20잠언.txt', 'out_name': 'x'})

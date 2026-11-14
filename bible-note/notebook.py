@@ -80,6 +80,8 @@ RULES = {
         '  영어 꼴: 「권 번호 01~66」-「영어 이름」 (「한글 이름」) → 20-Proverbs (잠언).txt. '
         '첫 줄에 책 이름이 있어도 되고, 줄은 「1:1 본문」.',
         '글자 꼴(인코딩)은 UTF-8 이나 CP949(메모장의 ANSI). 장:절 번호가 없는 줄이 있으면 틀린 채 찍지 않고 멈춘다.',
+        '두 번역 함께(한영 · 영한 · 오른쪽 필사형)는 한글 번역본의 책과 같은 한글 이름의 책이 영어 번역본 폴더에 있어야 한다 '
+        '(영어 꼴 파일 이름의 괄호 속 한글 이름 — 20-Proverbs (잠언).txt). 영어에 없는 절은 한글만 찍고 알린다.',
         '필요하면 번역본 폴더에 번역본.json 을 둔다(UTF-8) — {"이름": "개역개정 4판", "언어": "ko"}. '
         '이름은 화면 · 파일 이름에 쓴다. 「언어」는 영어 꼴 파일에만 먹는다 — 영어 꼴 파일 이름에 한글 본문을 넣었으면 "ko" '
         '(「1 장」 · 머리글 한글 책 이름). 없으면 폴더 이름 · 파일 꼴(한글 꼴 = 한글, 영어 꼴 = 영어)로 정한다.',
@@ -346,6 +348,27 @@ def load_pieces(env, s):
     return tr, bk, pieces, title, lang
 
 
+PAIRS = {'koen': '한영', 'enko': '영한'}   # 두 번역 함께 — 절마다 한글 → 영어 / 영어 → 한글(오른쪽 필사형만)
+
+
+def load_pair_pieces(env, s):
+    """한영 · 영한(2026-11-14 친구) — 한글 번역본(s['translation'])과 영어 번역본(s['pair_translation'])의 같은 책 · 같은 범위를
+    generate.enko_pieces 로 절마다 짝지운다(남의 파일 · 읽기만). 영어 책은 같은 한글 이름으로 찾는다.
+    돌려주는 것: (한글 번역본, 영어 번역본, 한글 책, 조각들, 영어에 없는 절)."""
+    tr, bk, ko, _title, lang = load_pieces(env, s)
+    if lang != 'ko':
+        raise UserError('한영 · 영한은 한글 번역본(예: 개정개역4)을 고른 뒤에 만들 수 있습니다')
+    en_tr = next((t for t in translations(env) if t['id'] == s['pair_translation']), None)
+    if en_tr is None or en_tr['lang'] != 'en':
+        raise UserError('영어 번역본을 골라 주세요(예: NIV)')
+    en_bk = next((b for b in en_tr['books'] if b['name'] == bk['name']), None)
+    if en_bk is None:
+        raise UserError('영어 번역본 「%s」에 「%s」가 없습니다' % (en_tr['name'], bk['name']))
+    _t, _b, en, _ti, _l = load_pieces(env, dict(s, translation=en_tr['id'], book=en_bk['file']))
+    pieces, missing = G.enko_pieces(ko, en, ko_first=(s['pair'] == 'koen'))
+    return tr, en_tr, bk, pieces, missing
+
+
 def warn_missing(env, tr, bk, pieces, s):
     """영어 본문이면 같은 책 한글 본문과 견줘 빠진 절을 알린다(멈추지 않는다 — 번역마다 절 나눔이 다르다)."""
     for other in translations(env):
@@ -431,6 +454,7 @@ def defaults():
     ld = layout_defaults()
     d = {
         'translation': '', 'book': '', 'range_mode': 'book', 'ch_from': 1, 'ch_to': 1,
+        'pair': 'none', 'pair_translation': '',
         'layout': 'below',
         'body_font': NOTO_400, 'bold_font': NOTO_700,
         'font_pt': ld['below']['font_pt'], 'letter_spacing_em': 0, 'text_color': '#111111',
@@ -463,7 +487,8 @@ BOOL_KEYS = ('justify', 'keep_words', 'para_mark', 'chap_sub_inline', 'verse_bre
              'footer_like_sub')
 TEXT_KEYS = ('footer_left', 'footer_center_odd', 'footer_center_even', 'footer_right', 'date_prefix', 'out_name')
 FONT_KEYS = ('body_font', 'bold_font', 'header_font', 'footer_font')
-LOOK_KEYS_EXCLUDED = ('translation', 'book', 'range_mode', 'ch_from', 'ch_to', 'out_name')   # 설정 묶음에 안 넣는 것
+LOOK_KEYS_EXCLUDED = ('translation', 'book', 'range_mode', 'ch_from', 'ch_to', 'out_name',
+                      'pair', 'pair_translation')   # 설정 묶음에 안 넣는 것(무엇을 찍을지 — 모양이 아니다)
 
 
 def _font_ok(path):
@@ -497,6 +522,11 @@ def normalize(raw):
         raise UserError('필사형을 골라 주세요')
     if s['range_mode'] not in ('book', 'chapter', 'chapters'):
         raise UserError('범위를 골라 주세요')
+    if s['pair'] not in ('none',) + tuple(PAIRS):
+        raise UserError('두 번역 함께(한영 · 영한)를 다시 골라 주세요')
+    s['pair_translation'] = str(s['pair_translation'] or '')
+    if s['pair'] != 'none' and s['layout'] != 'right':
+        raise UserError('한영 · 영한은 오른쪽 필사형에서만 만들 수 있습니다')
     for k in BOOL_KEYS:
         s[k] = bool(s[k])
     used = _used_numbers(s)
@@ -547,12 +577,16 @@ def safe_file_name(name):
     return name or '필사노트'
 
 
-def out_file_name(s, tr, bk):
+def out_file_name(s, tr, bk, en_tr=None):
+    """자동 이름 — 「잠언_개정개역4_3장_아래쪽」 · 한영/영한이면 「잠언_개정개역4+NIV_한영_오른쪽」.
+    ⚠️ index.html 의 autoName 과 같은 규칙."""
     if s['out_name'].strip():
         name = s['out_name'].strip()
     else:
         unit = R.chapter_unit(bk['name'])
         parts = [bk['name'], tr['name']]
+        if s.get('pair', 'none') != 'none' and en_tr:
+            parts = [bk['name'], '%s+%s' % (tr['name'], en_tr['name']), PAIRS[s['pair']]]
         if s['range_mode'] == 'chapter':
             parts.append('%d%s' % (s['ch_from'], unit))
         elif s['range_mode'] == 'chapters':
@@ -870,13 +904,19 @@ def build(raw, preview=False):
             save_last(raw)
         except OSError as e:
             say('⚠ 마지막 설정을 저장하지 못했습니다(만들기는 이어 갑니다) — %s' % (e.strerror or e))
-    tr, bk, pieces, title, lang = load_pieces(env, s)
+    en_tr, missing = None, []
+    if s['pair'] != 'none':      # 한영 · 영한 — 오른쪽 필사형 · 머리글 책 이름 · 「1장」은 한글로(enko_pieces 가 lang 을 안 단다)
+        tr, en_tr, bk, pieces, missing = load_pair_pieces(env, s)
+        title, lang = bk['name'], 'ko'
+    else:
+        tr, bk, pieces, title, lang = load_pieces(env, s)
     if preview:
         first = pieces[0]['chapter']
         pieces = [p for p in pieces if p['chapter'] == first]
+        missing = [m for m in missing if m[0] == first]
     out_dir = os.path.join(env['out_dir'], '_미리보기') if preview else env['out_dir']
     os.makedirs(out_dir, exist_ok=True)
-    out_path = os.path.join(out_dir, '미리보기.html' if preview else out_file_name(s, tr, bk))
+    out_path = os.path.join(out_dir, '미리보기.html' if preview else out_file_name(s, tr, bk, en_tr))
     pdf_path = os.path.splitext(out_path)[0] + '.pdf' if (s['make_pdf'] and not preview) else None
     # ⚠️ 확인을 통과하기 전에는 진짜 이름에 쓰지 않는다 — 걸리거나 멈추면 틀어진 HTML 이 전에 잘 만든 같은 이름 파일을
     #    덮고 옛 PDF 는 그 옆에 남았다(검토 nb-2 · dc-4). 임시 이름에 HTML(· PDF)을 다 만든 뒤 PDF → HTML 차례로 바꾼다.
@@ -898,8 +938,12 @@ def build(raw, preview=False):
     unit = R.chapter_unit(bk['name'])
     rng = {'book': '전체', 'chapter': '%d%s' % (s['ch_from'], unit),
            'chapters': '%d~%d%s' % (min(s['ch_from'], s['ch_to']), max(s['ch_from'], s['ch_to']), unit)}[s['range_mode']]
-    say('%s · %s %s · %d절%s' % (tr['name'], bk['name'], rng, G.verse_count(pieces),
+    which = '%s+%s %s' % (tr['name'], en_tr['name'], PAIRS[s['pair']]) if en_tr else tr['name']
+    say('%s · %s %s · %d절%s' % (which, bk['name'], rng, G.verse_count(pieces),
                                 ' (미리보기 — 첫 장 · 2쪽까지)' if preview else ''))
+    if missing:     # 번역마다 절 나눔이 달라 그럴 수 있다 — 멈추지 않고 그 절은 한글만 찍는다
+        say('⚠ 영어 번역본 「%s」에 없는 절 %d개(한글만 찍음): %s%s' % (
+            en_tr['name'], len(missing), ', '.join('%d:%d' % m for m in missing[:12]), ' …' if len(missing) > 12 else ''))
     if lang == 'en' and not preview:
         warn_missing(env, tr, bk, pieces, s)
     say('줄을 재고 쪽을 나누는 중(크롬)…')
