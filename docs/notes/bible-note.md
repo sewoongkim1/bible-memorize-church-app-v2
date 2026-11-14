@@ -88,7 +88,11 @@ python verify.py 유다서.html             # 「모두 통과했습니다.」
   잠언: 225쪽 · 915절 · verify 통과 · 인쇄 PDF 왼쪽 칸 글자 = 원문(93,256자) · 짝 갈라진 쪽 0. (조각 키 (장, 절, part) 가 영어 0 · 한글 1 로 겹치지 않는다.)
 - **한영 `--lang koen`**(친구) — 같은 `enko_pieces(…, ko_first=True)` · 한글(part 0 · 장 표시 · 소제목 · keep_with_next) → 영어(part 1).
   잠언: 225쪽 · 915절 · verify 통과 · PDF 왼쪽 칸 = 원문 · 짝 갈라진 쪽 0.
-- 영한 **아래쪽** 필사형은 `dictation_enko.py`(받아쓰기 `dictation.py` 의 부품을 빌려 씀 — 그 파일이 저장소에 오르기 전이라 아직 커밋 안 함).
+- **영한 아래쪽 필사형 `dictation_enko.py`** — `python dictation_enko.py 잠언` → `인쇄용/잠언_영한_필사본.html`(270쪽 · 915절). 받아쓰기 `dictation.py` 의
+  부품(measure · build_items · paginate_items · text_css · page_css · _page_html · check_final …)을 빌려 쓰고 문단 짜기만 한다 — 절마다 영어 문단 → 한글 문단
+  (절은 늘 새 줄 · ○ 없음 · 장 표시 · 소제목은 한글 것). 한 절의 영어 · 한글은 같은 쪽(paginate_units · 한 쪽보다 길면 줄 단위).
+  ⚠️ dictation.py 부품 이름 · 인자를 바꾸면 이 파일이 깨진다 — 그 세션이 「바꿀 땐 미리 알리겠다」고 했다(2026-11-14). 머리 칸 줄 수는 `measure` 의 heads 를
+  문단마다 (0, 칸) 키로 넘긴다(시편 18편 두 줄 소제목 확인). 확인: 잠언 글자 대조 92,341자 같음 · 짝 갈라진 쪽 0.
 
 ## 2026-11-14 받아쓰기 꼴 (`dictation.py` · 아래쪽 필사형)
 - `python dictation.py 잠언 [--chapter 1]` → `잠언_받아쓰기.html`. 원문 한 줄 아래에 빈 필사줄 한 줄, 절은 이어 쓰고 번호는
