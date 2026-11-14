@@ -399,7 +399,7 @@ def page_css(empty_slots=()):
 .write-col .ln { height:%(line)smm; border-bottom:0.5pt solid #888; }
 .ft { height:%(fh)smm; display:grid; grid-template-columns:1fr auto 1fr; align-items:center;
       column-gap:6mm; font-size:%(fpt)spt;%(ft_font_rule)s color:%(fcolor)s; border-top:1.5pt solid #111; }
-.ft span { white-space:nowrap; overflow:hidden; }
+.ft span { white-space:nowrap; overflow:hidden; line-height:1.15; }
 .ft .fl { text-align:left; }
 .ft .fc { text-align:center; }
 .ft .fr { text-align:right; }

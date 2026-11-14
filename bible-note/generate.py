@@ -282,6 +282,23 @@ def find_niv_file(book_name, bible_dir=None):
             continue
         if book_name == ko or book_name.lower() == en.lower():
             return os.path.join(folder, fn), en
+    # 이름이 안 맞으면 한글 원문 파일의 정경 권 번호로 잇는다 — 아가: 한글 「1-22아가」 · 영어 「22-Song of Songs (아가서)」
+    # (66권에서 이 하나 · 2026-11-14 다른 세션 검토). 한글 「구분-순번」 → 구약 순번 · 신약 39+순번 = 영어 앞 번호.
+    try:
+        ko_fn = os.path.basename(find_book_file(book_name, bible_dir))
+    except SystemExit:
+        ko_fn = None
+    if ko_fn:
+        t, n = (int(x) for x in re.match(r'^(\d+)-(\d+)', ko_fn).groups())
+        canon = n if t == 1 else 39 + n
+        for folder, fn in _bible_files(bible_dir):
+            m = re.match(r'^(\d+)-', fn)
+            try:
+                en, _ko = niv_names_from_filename(fn)
+            except ValueError:
+                continue
+            if m and int(m.group(1)) == canon:
+                return os.path.join(folder, fn), en
     raise SystemExit('!! bible/ 에서 영어(NIV) "%s"를 못 찾았습니다 — 파일 이름은 '
                      '「20-Proverbs (잠언).txt」 꼴이어야 합니다' % book_name)
 
@@ -418,6 +435,41 @@ def verse_count(pieces):
                for v in pieces if v.get('part', 0) == 0)
 
 
+# 영어(NIV)와 한글(개역개정)의 절 나눔이 다른 곳 — 영어 절 번호를 한글 번호로 옮긴다(2026-11-14 다른 세션 검토).
+#   고린도후서 13장: NIV 12절(거룩한 입맞춤으로 문안)은 개역개정 11절 끝에 들어 있고, NIV 13 · 14절이 개역개정 12 · 13절이다.
+#   그대로 두면 영한에서 12 · 13절 짝이 어긋나고 NIV 13:14(축도)가 조용히 빠졌다. 66권에서 영어에만 있는 절 번호는 이 장뿐(확인).
+#   값: 영어 절 → 한글 절 · ('+', 절) 이면 그 한글 절의 영어 끝에 잇는다.
+EN_VERSE_REMAP = {('고린도후서', 13): {12: ('+', 11), 13: 12, 14: 13}}
+
+
+def remap_en_verses(ko_name, ko_pieces, en_pieces):
+    """영어 조각의 절 번호를 한글 번호로(EN_VERSE_REMAP) → (새 영어 조각들, 한글에 없는 영어 절 [(장, 절)]).
+
+    그 장의 영어 끝 절이 한글 끝 절보다 클 때만 옮긴다(이미 옮긴 목록을 또 옮기지 않게). 표에 없는 어긋남은 고치지 않고
+    「한글에 없는 영어 절」로 돌려준다 — 영한에서 찍히지 않으니 ⚠ 로 알린다(조용히 빠지지 않게). 입력은 바꾸지 않는다."""
+    ko_last, ko_have = {}, set()
+    for p in ko_pieces:
+        for vs in range(p['verse'], (p.get('verse_end') or p['verse']) + 1):
+            ko_have.add((p['chapter'], vs))
+            ko_last[p['chapter']] = max(ko_last.get(p['chapter'], 0), vs)
+    en_last = {}
+    for p in en_pieces:
+        en_last[p['chapter']] = max(en_last.get(p['chapter'], 0), p['verse'])
+    out = []
+    for p in en_pieces:
+        rule = EN_VERSE_REMAP.get((ko_name, p['chapter']))
+        if rule and p['verse'] in rule and en_last[p['chapter']] > ko_last.get(p['chapter'], 0):
+            to = rule[p['verse']]
+            if isinstance(to, tuple):
+                tgt = next(q for q in reversed(out) if (q['chapter'], q['verse']) == (p['chapter'], to[1]))
+                tgt['body'] = tgt['body'] + ' ' + p['body']
+                continue
+            p = dict(p, verse=to, label=str(to))
+        out.append(dict(p))
+    extra = [(p['chapter'], p['verse']) for p in out if (p['chapter'], p['verse']) not in ko_have]
+    return out, extra
+
+
 def enko_pieces(ko_pieces, en_pieces, ko_first=False):
     """영한 — 절마다 영어 조각(part 0) → 한글 조각(part 1). (조각들, 영어에 없는 절).
     ko_first=True 면 한영 — 한글(part 0) → 영어(part 1)(--lang koen). 장 표시 · 소제목은 어느 쪽이든 앞 조각 위에.
@@ -498,8 +550,11 @@ def generate(book_name, chapter=None, out_path=None, lang='ko'):
         title = book_name
         ko = parse_book(load_book_file(find_book_file(book_name)), book_name, chapter=chapter)
         path, en_title = find_niv_file(book_name)
-        verses, missing = enko_pieces(ko, parse_book_en(load_book_file(path), en_title, chapter=chapter),
-                                      ko_first=(lang == 'koen'))
+        en, extra = remap_en_verses(book_name, ko, parse_book_en(load_book_file(path), en_title, chapter=chapter))
+        verses, missing = enko_pieces(ko, en, ko_first=(lang == 'koen'))
+        if extra:
+            print('⚠ 한글 원문에 없는 영어 절 %d개(찍지 않음 — 절 나눔이 다른 곳): %s'
+                  % (len(extra), ', '.join('%d:%d' % m for m in extra[:20])))
         if missing:
             print('⚠ 영어 원문에 없는 절 %d개(한글만 찍음): %s'
                   % (len(missing), ', '.join('%d:%d' % m for m in missing[:20])))

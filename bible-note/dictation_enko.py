@@ -162,7 +162,7 @@ def generate(book_name, chapter=None, out_path=None):
     G._chrome = D._chrome_uri    # 폴더 이름에 # · % 가 있어도 주소가 깨지지 않게(dictation.generate 와 같게 · 이 명령줄 프로세스에서만)
     ko = parse_book(load_book_file(G.find_book_file(book_name)), book_name, chapter=chapter)
     path, en_title = G.find_niv_file(book_name)
-    en = parse_book_en(load_book_file(path), en_title, chapter=chapter)
+    en, _extra = G.remap_en_verses(book_name, ko, parse_book_en(load_book_file(path), en_title, chapter=chapter))   # 고린도후서 13장 절 나눔(남는 영어 절은 build 가 ⚠)
     if not ko:
         raise SystemExit('!! "%s"에서 절을 찾지 못했습니다' % book_name)
     n_pages, n_lines, missing, extra = build(ko, en, book_name, out_path, chrome)

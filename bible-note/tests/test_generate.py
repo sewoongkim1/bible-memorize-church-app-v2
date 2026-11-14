@@ -594,3 +594,37 @@ def test_koen_pieces_put_korean_first_with_heads():
 
 def test_default_out_name_koen():
     assert generate.default_out_name('잠언', None, lang='koen') == '잠언_한영.html'
+
+
+# ── 2026-11-14 다른 세션 검토 — 아가 영어 파일 · 고린도후서 13장 절 나눔 ──────────────
+
+def test_find_niv_file_by_canon_number_when_names_differ(tmp_path):
+    from generate import find_niv_file
+    (tmp_path / '개정개역4').mkdir()
+    (tmp_path / '개정개역4' / '1-22아가.txt').write_text('아1:1 x', encoding='utf-8')
+    (tmp_path / '개정개역4' / '2-08고린도후서.txt').write_text('고후1:1 x', encoding='utf-8')
+    (tmp_path / 'NIV').mkdir()
+    (tmp_path / 'NIV' / '22-Song of Songs (아가서).txt').write_text('Song of Songs\n1:1 x', encoding='utf-8')
+    (tmp_path / 'NIV' / '47-2 Corinthians (고린도후서).txt').write_text('2 Corinthians\n1:1 x', encoding='utf-8')
+    assert find_niv_file('아가', bible_dir=str(tmp_path))[1] == 'Song of Songs'
+    assert find_niv_file('고린도후서', bible_dir=str(tmp_path))[1] == '2 Corinthians'
+
+
+def test_remap_en_verses_second_corinthians_13():
+    ko = [_piece(v, book='고린도후서', chapter=13) for v in range(1, 14)]
+    en = [{'chapter': 13, 'verse': v, 'body': 'e%d' % v, 'label': str(v)} for v in range(1, 15)]
+    out, extra = generate.remap_en_verses('고린도후서', ko, en)
+    assert [p['verse'] for p in out] == list(range(1, 14))
+    assert out[10]['body'] == 'e11 e12'          # 영어 12절은 한글 11절 끝에
+    assert (out[11]['body'], out[12]['body']) == ('e13', 'e14')
+    assert extra == []
+    assert en[10]['body'] == 'e11'               # 입력은 그대로
+    again, _ = generate.remap_en_verses('고린도후서', ko, out)   # 이미 옮긴 것은 또 옮기지 않는다
+    assert [p['body'] for p in again] == [p['body'] for p in out]
+
+
+def test_remap_en_verses_reports_unmatched_english_verse():
+    ko = [_piece(1, book='시편'), _piece(2, book='시편')]
+    en = [{'chapter': 1, 'verse': v, 'body': 'e', 'label': str(v)} for v in (1, 2, 3)]
+    out, extra = generate.remap_en_verses('시편', ko, en)
+    assert extra == [(1, 3)]

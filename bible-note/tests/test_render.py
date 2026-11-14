@@ -839,3 +839,9 @@ def test_footer_like_subtitle_off_uses_footer_pt_and_grey(monkeypatch):
     monkeypatch.setattr(render, 'FOOTER_LIKE_SUBTITLE', False)
     ft = page_css().split('.ft {')[1].split('}')[0]
     assert 'font-size:9pt' in ft and 'color:#555' in ft and 'NSKB' not in ft
+
+
+def test_footer_spans_have_tight_line_height():
+    # 2026-11-14 — 바닥글을 소제목 글씨로 키워도(16pt 이상) 줄 상자가 8mm 칸을 넘지 않게
+    css = page_css()
+    assert 'line-height:1.15' in css.split('.ft span {')[1].split('}')[0]
