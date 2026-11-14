@@ -91,7 +91,9 @@ python verify.py 유다서.html             # 「모두 통과했습니다.」
 - **영어 · 한글 절 나눔이 다른 곳(2026-11-14 다른 세션 검토)** — ① 아가: 영어 파일 이름이 「아가서」라 `find_niv_file` 이 이름으로 못 찾던 것을
   한글 원문 파일의 정경 권 번호(구약 순번 · 신약 39+순번)로 잇는다. ② 고린도후서 13장: NIV 12절은 개역개정 11절 끝 · NIV 13 · 14 = 개역개정 12 · 13 —
   `EN_VERSE_REMAP` · `remap_en_verses` 가 enko_pieces **앞에서** 옮긴다(그 장 영어 끝 절이 한글보다 클 때만 · enko_pieces 모양은 그대로 — 화면이 직접 부른다).
-  표에 없는 어긋남은 「한글에 없는 영어 절」 ⚠ 로 알린다 — 66권에서 옮긴 뒤 0. ③ 바닥글 `.ft span` 줄 높이 1.15 — 소제목 글씨 바닥글을 16pt 이상으로 키워도 8mm 칸 안.
+  표에 없는 어긋남은 「한글에 없는 영어 절」 ⚠ 로 알린다 — 66권에서 옮긴 뒤 0.
+  ⚠️ **만들기 화면(`notebook.py` · bb31bc4)이 `generate.enko_pieces` · `generate.remap_en_verses` · `render.page_css` 의 `.ft span` 줄 높이에 기댄다** —
+  이 셋의 이름 · 인자 · 돌려주는 모양을 바꾸면 화면이 깨진다(바꿀 땐 화면 세션에 먼저 알리기로 함 · 2026-11-14). ③ 바닥글 `.ft span` 줄 높이 1.15 — 소제목 글씨 바닥글을 16pt 이상으로 키워도 8mm 칸 안.
 - **영한 아래쪽 필사형 `dictation_enko.py`** — `python dictation_enko.py 잠언` → `인쇄용/잠언_영한_필사본.html`(270쪽 · 915절). 받아쓰기 `dictation.py` 의
   부품(measure · build_items · paginate_items · text_css · page_css · _page_html · check_final …)을 빌려 쓰고 문단 짜기만 한다 — 절마다 영어 문단 → 한글 문단
   (절은 늘 새 줄 · ○ 없음 · 장 표시 · 소제목은 한글 것). 한 절의 영어 · 한글은 같은 쪽(paginate_units · 한 쪽보다 길면 줄 단위).
