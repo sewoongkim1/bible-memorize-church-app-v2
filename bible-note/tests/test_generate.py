@@ -581,3 +581,16 @@ def test_enko_pieces_joins_korean_continuation_and_reports_missing_english():
 
 def test_default_out_name_enko():
     assert generate.default_out_name('잠언', None, lang='enko') == '잠언_영한.html'
+
+
+def test_koen_pieces_put_korean_first_with_heads():
+    ko = [_piece(1, book='잠언', chapter_start=True, subtitle='솔로몬의 잠언', body='다윗의 아들')]
+    en = [{'chapter': 1, 'verse': 1, 'body': 'The proverbs'}]
+    out, _ = generate.enko_pieces(ko, en, ko_first=True)
+    assert [(p['part'], p['body']) for p in out] == [(0, '다윗의 아들'), (1, 'The proverbs')]
+    assert out[0]['chapter_start'] and out[0]['subtitle'] == '솔로몬의 잠언' and out[0]['keep_with_next']
+    assert not out[1]['chapter_start'] and out[1]['subtitle'] is None
+
+
+def test_default_out_name_koen():
+    assert generate.default_out_name('잠언', None, lang='koen') == '잠언_한영.html'

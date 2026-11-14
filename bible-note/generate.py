@@ -407,6 +407,8 @@ def default_out_name(book_name, chapter, lang='ko'):
         suffix = '_NIV' + suffix   # 「잠언_NIV.html」 — 한글판(「잠언.html」)을 덮지 않게
     elif lang == 'enko':
         suffix = '_영한' + suffix
+    elif lang == 'koen':
+        suffix = '_한영' + suffix
     return '%s%s.html' % (book_name, suffix)
 
 
@@ -416,8 +418,9 @@ def verse_count(pieces):
                for v in pieces if v.get('part', 0) == 0)
 
 
-def enko_pieces(ko_pieces, en_pieces):
+def enko_pieces(ko_pieces, en_pieces, ko_first=False):
     """영한 — 절마다 영어 조각(part 0) → 한글 조각(part 1). (조각들, 영어에 없는 절).
+    ko_first=True 면 한영 — 한글(part 0) → 영어(part 1)(--lang koen). 장 표시 · 소제목은 어느 쪽이든 앞 조각 위에.
 
     · 장 표시 · 권 제목 · 소제목은 한글 것을 영어 조각 위에(장 표시 「1장」 — 영어 조각에 lang 을 달지 않아 한글 꼴로 찍힌다).
     · 영어 조각은 keep_with_next — 같은 절의 한글과 같은 쪽에(paginate).
@@ -448,8 +451,11 @@ def enko_pieces(ko_pieces, en_pieces):
         base = {'book': u['book'], 'chapter': u['chapter'], 'verse': u['verse'], 'verse_end': u['verse_end'],
                 'label': u['label'] or str(u['verse'])}
         if en_body and len(en_body) == ve - u['verse'] + 1:
-            out.append(dict(base, **head, part=0, body=' '.join(en_body), keep_with_next=True))
-            out.append(dict(base, heading=None, subtitle=None, chapter_start=False, part=1, body=u['body']))
+            bodies = [' '.join(en_body), u['body']]
+            if ko_first:
+                bodies.reverse()
+            out.append(dict(base, **head, part=0, body=bodies[0], keep_with_next=True))
+            out.append(dict(base, heading=None, subtitle=None, chapter_start=False, part=1, body=bodies[1]))
         else:
             out.append(dict(base, **head, part=0, body=u['body']))
     return out, missing
@@ -488,11 +494,12 @@ def generate(book_name, chapter=None, out_path=None, lang='ko'):
         path, title = find_niv_file(book_name)
         verses = parse_book_en(load_book_file(path), title, chapter=chapter)
         _warn_missing_en(niv_names_from_filename(path)[1], verses, chapter)
-    elif lang == 'enko':
+    elif lang in ('enko', 'koen'):
         title = book_name
         ko = parse_book(load_book_file(find_book_file(book_name)), book_name, chapter=chapter)
         path, en_title = find_niv_file(book_name)
-        verses, missing = enko_pieces(ko, parse_book_en(load_book_file(path), en_title, chapter=chapter))
+        verses, missing = enko_pieces(ko, parse_book_en(load_book_file(path), en_title, chapter=chapter),
+                                      ko_first=(lang == 'koen'))
         if missing:
             print('⚠ 영어 원문에 없는 절 %d개(한글만 찍음): %s'
                   % (len(missing), ', '.join('%d:%d' % m for m in missing[:20])))
@@ -524,8 +531,9 @@ def main():
     ap.add_argument('book', help='책 이름(예: 유다서, 요한복음)')
     ap.add_argument('--chapter', type=int, default=None, help='특정 장만(예: 1)')
     ap.add_argument('--out', default=None, help='출력 파일명')
-    ap.add_argument('--lang', choices=('ko', 'en', 'enko'), default='ko',
-                    help='en = 영어(NIV · bible/NIV/「20-Proverbs (잠언).txt」 꼴) · enko = 절마다 영어 → 한글')
+    ap.add_argument('--lang', choices=('ko', 'en', 'enko', 'koen'), default='ko',
+                    help='en = 영어(NIV · bible/NIV/「20-Proverbs (잠언).txt」 꼴) · enko = 절마다 영어 → 한글 · '
+                         'koen = 절마다 한글 → 영어')
     args = ap.parse_args()
     try:
         generate(args.book, chapter=args.chapter, out_path=args.out, lang=args.lang)
