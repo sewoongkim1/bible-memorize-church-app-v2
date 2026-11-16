@@ -419,6 +419,112 @@ def test_apply_below_sets_chapter_new_page(monkeypatch):
     assert D.CHAPTER_NEW_PAGE is False
 
 
+def test_booklet_sides_order():
+    """가운데 접어 철하는 책의 면 차례 — 종이 s 의 앞면 (끝-2s, 1+2s) · 뒷면 (2+2s, 끝-1-2s) · 모자라는 쪽은 빈 쪽(None)."""
+    import booklet as BK
+    assert BK.sides(8) == [(8, 1), (2, 7), (6, 3), (4, 5)]
+    assert BK.sides(4) == [(4, 1), (2, 3)]
+    assert BK.sides(5) == [(None, 1), (2, None), (None, 3), (4, 5)]
+    assert BK.sides(1) == [(None, 1), (None, None)]
+    for n in range(1, 30):
+        got = [x for side in BK.sides(n) for x in side if x]
+        assert sorted(got) == list(range(1, n + 1))            # 모든 쪽이 꼭 한 번
+        assert all((l is None or l % 2 == 0) and (r is None or r % 2 == 1) for l, r in BK.sides(n))  # 왼쪽 면 = 짝수 쪽
+
+
+def _fake_print(n):
+    pages = ''.join('<div class="page"><div class="hd">P%d</div></div>' % i for i in range(1, n + 1))
+    return ('<!doctype html><html lang="ko"><head><meta charset="utf-8"><style>@page { size: A4 portrait; margin: 0; }'
+            '</style></head><body><div id="font-warn"></div>%s</body></html>' % pages)
+
+
+def test_booklet_html_imposes_pages():
+    import re
+    import booklet as BK
+    out, n, sides = BK.booklet_html(_fake_print(5), 'A4', 0)
+    assert (n, sides) == (5, 4)
+    assert out.count('<div class="sheet">') == 4 and '<div id="font-warn">' in out
+    order = [re.findall(r'P(\d)', s) for s in out.split('<div class="sheet">')[1:]]
+    assert order == [['1'], ['2'], ['3'], ['4', '5']]          # (빈, 1) (2, 빈) (빈, 3) (4, 5)
+    assert '@page { size: A4 landscape' in out and 'scale(0.70707)' in out
+    assert 'translateX' not in out                              # 제본 여백이 없으면 옮기지 않는다
+    out3, _n, _s = BK.booklet_html(_fake_print(4), 'A3', 10)
+    assert '@page { size: A3 landscape' in out3 and 'scale(1)' in out3
+    assert '.slot.even > .page { transform:scale(1) translateX(-10mm)' in out3   # 왼쪽 면(짝수 쪽)은 안쪽이 오른쪽
+    assert out3.index('class="slot even"') < out3.index('P4')
+    with pytest.raises(SystemExit):
+        BK.booklet_html('<html><body>쪽 없음</body></html>', 'A4', 0)
+
+
+def test_booklet_pdf_check(tmp_path):
+    import booklet as BK
+    p = tmp_path / 'b.pdf'
+    page = b'<< /Type /Page /MediaBox [0 0 841.91998 594.95996] >>'
+    p.write_bytes(b'%PDF-1.4 << /Type /Pages /Count 2 >> ' + page + page)
+    assert BK.pdf_sides(str(p)) == (2, [(841.91998, 594.95996)] * 2)
+    BK.check_pdf(str(p), 'A4', 2)
+    with pytest.raises(SystemExit):
+        BK.check_pdf(str(p), 'A4', 4)                           # 면 수가 다르면 멈춘다
+    with pytest.raises(SystemExit):
+        BK.check_pdf(str(p), 'A3', 2)                           # 종이 크기가 다르면 멈춘다
+
+
+def test_booklet_settings_and_name():
+    s = NB.normalize({})
+    assert s['make_booklet'] is False and s['booklet_paper'] == 'A4'
+    assert NB.normalize({'make_booklet': True, 'orient': 'landscape'})['make_booklet'] is False   # 세로만
+    s = NB.normalize({'make_booklet': True, 'orient': 'portrait', 'booklet_paper': 'A3'})
+    assert s['make_booklet'] is True and s['booklet_paper'] == 'A3'
+    with pytest.raises(NB.UserError):
+        NB.normalize({'make_booklet': True, 'orient': 'portrait', 'booklet_paper': 'B5'})
+    assert NB.normalize({'make_booklet': False, 'booklet_paper': 'B5'})['booklet_paper'] == 'A4'  # 안 쓰는 칸은 막지 않는다
+    assert NB.booklet_path(r'C:\x\잠언_개정개역4_아래쪽_세로.html', 'A4').endswith('잠언_개정개역4_아래쪽_세로_소책자.pdf')
+    assert NB.booklet_path(r'C:\x\잠언.html', 'A3').endswith('잠언_소책자_A3.pdf')
+
+
+def test_typed_name_cannot_end_like_booklet():
+    """직접 적은 이름이 「_소책자」로 끝나면 그 보통 PDF 가 다른 날 만든 소책자 PDF 와 같은 이름이 되어 말없이 덮었다(2026-11-16 검토)."""
+    base = NB.normalize({'layout': 'below', 'orient': 'portrait'})
+    tr, bk = {'name': '개정개역4'}, {'name': '잠언'}
+    for bad in ('잠언_소책자', '잠언_소책자.html', '잠언_소책자_A3', '잠언_소책자_a3 ', '잠언_소책자. '):
+        with pytest.raises(NB.UserError):
+            NB.out_file_name(dict(base, out_name=bad), tr, bk)
+    assert NB.out_file_name(dict(base, out_name='소책자'), tr, bk) == '소책자.html'
+    assert NB.out_file_name(dict(base, out_name='잠언_소책자용'), tr, bk) == '잠언_소책자용.html'
+    assert NB.out_file_name(base, tr, bk) == '잠언_개정개역4_아래쪽_세로.html'      # 자동 이름은 늘 꼴 · 방향으로 끝난다
+    assert all(NB.booklet_path(r'C:\x\a.html', p).endswith(('_소책자.pdf', '_소책자_A3.pdf')) for p in ('A4', 'A3'))
+
+
+def test_swap_files_rolls_back_every_pdf(tmp_path, monkeypatch):
+    """HTML · PDF · 소책자 PDF — 모두 바뀌거나 모두 옛것. 소책자 넣기가 실패하면 앞서 바꾼 PDF 도 옛것으로."""
+    html, pdf, bk = tmp_path / '잠언.html', tmp_path / '잠언.pdf', tmp_path / '잠언_소책자.pdf'
+    html.write_text('old', encoding='utf-8')
+    pdf.write_bytes(b'OLD')
+    bk.write_bytes(b'OLDB')
+    wh, wp, wb = tmp_path / '_w.html', tmp_path / '_w.pdf', tmp_path / '_wb.pdf'
+    wh.write_text('new', encoding='utf-8')
+    wp.write_bytes(b'NEW')
+    wb.write_bytes(b'NEWB')
+    real = NB._swap_in
+
+    def flaky(src, dst):                             # 소책자 자리에 넣을 때만 실패(PDF 보기가 열어 둔 것 흉내)
+        if dst == str(bk):
+            raise NB.UserError('잠김')
+        return real(src, dst)
+    monkeypatch.setattr(NB, '_swap_in', flaky)
+    with pytest.raises(NB.UserError):
+        NB._swap_files(str(wh), str(html), [(str(wp), str(pdf)), (str(wb), str(bk))])
+    assert (html.read_text(encoding='utf-8'), pdf.read_bytes(), bk.read_bytes()) == ('old', b'OLD', b'OLDB')
+    assert not [f for f in os.listdir(str(tmp_path)) if '옛것' in f]
+    monkeypatch.setattr(NB, '_swap_in', real)
+    wh.write_text('new', encoding='utf-8')           # 되돌릴 때 넣었던 새 PDF 는 치운다 — 만들기는 실패하면 작업 파일을 어차피 지운다
+    wp.write_bytes(b'NEW')
+    wb.write_bytes(b'NEWB')
+    NB._swap_files(str(wh), str(html), [(str(wp), str(pdf)), (str(wb), str(bk))])
+    assert (html.read_text(encoding='utf-8'), pdf.read_bytes(), bk.read_bytes()) == ('new', b'NEW', b'NEWB')
+    assert not [f for f in os.listdir(str(tmp_path)) if '옛것' in f or f.startswith('_w')]
+
+
 def test_preview_takes_following_chapters_when_short():
     """미리보기(앞 2쪽)는 첫 장이 짧으면 다음 장까지 — 장 나눔(다음 쪽에서 · 이어서)이 미리보기에서 보이게."""
     n = NB.PREVIEW_PIECES
@@ -549,8 +655,8 @@ def test_stale_server_warns_after_code_changes(tmp_path, monkeypatch):
     오른쪽도 「이어서」로 굳었다(2026-11-16 검토)."""
     import ui
     # 진짜 목록 — 화면(index.html) · 서버 · 설정 · 두 꼴 파일이 다 든다
-    assert {'ui.py', 'notebook.py', 'dictation.py', 'render.py', 'paginate.py', os.path.join('ui', 'index.html')} \
-        <= set(ui.CODE_FILES)
+    assert {'ui.py', 'notebook.py', 'dictation.py', 'booklet.py', 'render.py', 'paginate.py',
+            os.path.join('ui', 'index.html')} <= set(ui.CODE_FILES)
     assert ui.code_signature() == ui.STARTED_SIG                       # 켠 뒤 안 바뀌었으면 경고 없음
     f = tmp_path / 'notebook.py'
     f.write_text('a', encoding='utf-8')

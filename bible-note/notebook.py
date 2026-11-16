@@ -33,6 +33,7 @@ import parse as P
 import render as R
 import generate as G
 import dictation as D
+import booklet as BK
 from paginate import paginate
 
 ENV_PATH = os.path.join(HERE, '_환경.json')        # 이 PC 의 폴더 · 크롬 — git 에 안 올라간다(_ 로 시작)
@@ -486,6 +487,8 @@ def defaults():
         'footer_like_sub': bool(getattr(R, 'FOOTER_LIKE_SUBTITLE', False)),
         'bind_top_mm': 0, 'bind_left_mm': 0,
         'out_name': '', 'make_pdf': False,
+        # 소책자 PDF(가운데 접어 철하는 책 · A4 세로만 · 2026-11-16 친구) — 종이 A4 = A5 크기 책(0.707 배) · A3 = A4 크기 책
+        'make_booklet': False, 'booklet_paper': 'A4',
     }
     return d
 
@@ -500,7 +503,7 @@ NUM_RULES = {
     'ch_from': (1, 200, '시작 장'), 'ch_to': (1, 200, '끝 장'),
 }
 BOOL_KEYS = ('justify', 'keep_words', 'para_mark', 'chap_sub_inline', 'verse_break', 'show_date', 'make_pdf',
-             'footer_like_sub', 'chap_new_page_right', 'chap_new_page_below')
+             'footer_like_sub', 'chap_new_page_right', 'chap_new_page_below', 'make_booklet')
 TEXT_KEYS = ('footer_left', 'footer_center_odd', 'footer_center_even', 'footer_right', 'date_prefix', 'out_name')
 FONT_KEYS = ('body_font', 'bold_font', 'header_font', 'footer_font')
 LOOK_KEYS_EXCLUDED = ('translation', 'book', 'range_mode', 'ch_from', 'ch_to', 'out_name',
@@ -536,7 +539,7 @@ def normalize(raw):
             s[k] = v
     if s['layout'] not in ('right', 'below'):
         raise UserError('필사형을 골라 주세요')
-    if s['orient'] not in ORIENTS:
+    if s['orient'] not in tuple(ORIENTS):
         raise UserError('종이 방향(A4 가로 · 세로)을 골라 주세요')
     if s['range_mode'] not in ('book', 'chapter', 'chapters'):
         raise UserError('범위를 골라 주세요')
@@ -547,6 +550,12 @@ def normalize(raw):
         raise UserError('한영 · 영한은 오른쪽 필사형에서만 만들 수 있습니다')
     for k in BOOL_KEYS:
         s[k] = bool(s[k])
+    if s['orient'] != 'portrait':
+        s['make_booklet'] = False          # 소책자는 A4 세로만 — 가로 쪽 둘을 겹치면 위로 넘기는 책이 된다(화면도 칸을 숨긴다)
+    if s['booklet_paper'] not in tuple(BK.PAPERS):     # 튜플과 견준다 — dict 에 목록 값을 넣으면 해시 오류로 죽는다
+        if s['make_booklet']:
+            raise UserError('소책자 종이(A4 · A3)를 골라 주세요')
+        s['booklet_paper'] = base['booklet_paper']   # 안 쓰는 칸의 틀린 값은 막지 않는다(검토 js-4 와 같은 규칙)
     used = _used_numbers(s)
     for k, (lo, hi, label) in NUM_RULES.items():
         try:
@@ -616,7 +625,22 @@ def out_file_name(s, tr, bk, en_tr=None):
         name = '_'.join(parts)
     if name.lower().endswith('.html'):
         name = name[:-5]
-    return safe_file_name(name) + '.html'
+    name = safe_file_name(name)
+    # 직접 적은 이름이 소책자 꼬리(「_소책자」 · 「_소책자_A3」)로 끝나면 그 보통 PDF 가 다른 날 만든 소책자 PDF 와 같은 이름이 되어
+    # 한쪽이 말없이 덮였다(2026-11-16 검토). 자동 이름은 늘 꼴 · 방향으로 끝나 걸리지 않는다. 윈도는 대소문자를 가리지 않는다.
+    if s['out_name'].strip() and name.lower().endswith(tuple(x.lower() for x in BOOKLET_SUFFIXES)):
+        raise UserError('파일 이름 끝의 「%s」는 소책자 PDF 에 저절로 붙는 이름이라 쓸 수 없습니다 — 다른 노트의 소책자를 덮을 수 '
+                        '있습니다. 끝을 바꿔 적어 주세요(「잠언」으로 적으면 소책자는 「잠언_소책자.pdf」).'
+                        % next(x for x in BOOKLET_SUFFIXES if name.lower().endswith(x.lower())))
+    return name + '.html'
+
+
+BOOKLET_SUFFIXES = tuple('_소책자' if p == 'A4' else '_소책자_%s' % p for p in BK.PAPERS)   # out_file_name 이 직접 적은 이름에서 막는다
+
+
+def booklet_path(out_path, paper):
+    """소책자 PDF 자리 — 인쇄본 이름 뒤에 「_소책자」(A3 종이면 「_소책자_A3」 — A4 종이 판을 덮지 않게)."""
+    return os.path.splitext(out_path)[0] + ('_소책자' if paper == 'A4' else '_소책자_%s' % paper) + '.pdf'
 
 
 def load_presets():
@@ -892,6 +916,7 @@ def _make_pdf(html_path, pdf_path, chrome):
 
 
 WORK_PREFIX = '_만드는중_'   # 「_」 로 시작 — bible-note 안이면 .gitignore 의 bible-note/**/_* 에 걸린다
+BOOKLET_THICK_PAGES = 60     # 이보다 많으면(종이 15장 넘게) 가운데 접어 철하기에 두껍다고 알린다 — 멈추지는 않는다
 
 # 미리보기는 앞 2쪽 — 예전엔 첫 장만 재서, 첫 장이 짧으면(시편 · 잠언 끝 장들) 2쪽째가 비거나 다음 장이 안 보여 「장이 바뀌면
 # 다음 쪽에서 · 이어서」를 미리보기로 견줄 수 없었다(2026-11-16). 첫 장부터 조각이 이만큼 찰 때까지 장을 더한다 — 가장 작은
@@ -938,37 +963,48 @@ def _swap_in(work, final):
                         % (os.path.basename(final), e.strerror or e))
 
 
-def _swap_pair(work_html, out_path, work_pdf, pdf_path):
-    """새 HTML(· PDF)을 진짜 이름으로 — 둘 다 바뀌거나 둘 다 옛것 그대로.
-    PDF 를 먼저 바꾼 뒤 HTML 바꾸기가 실패하면 「새 PDF + 옛 HTML」 짝이 남았다(검토 nb-n2) — 옛 PDF 를 옆으로 비켜 두었다가
-    HTML 이 실패하면 새 PDF 를 치우고 옛 PDF 를 제자리로 되돌린다."""
-    backup = None
-    if work_pdf:
-        if os.path.exists(pdf_path):
-            backup = _work_path(pdf_path, '.옛것.pdf')
-            _swap_in(pdf_path, backup)           # PDF 가 열려 있으면 여기서 멈춘다 — 아직 아무것도 안 바뀌었다
-        try:
-            _swap_in(work_pdf, pdf_path)
-        except UserError:
-            if backup:
-                os.replace(backup, pdf_path)
-            raise
+def _swap_files(work_html, out_path, extras):
+    """새 HTML 과 PDF 들(extras = [(만든 자리, 진짜 이름)] — PDF · 소책자 PDF)을 진짜 이름으로 — 모두 바뀌거나 모두 옛것 그대로.
+    PDF 를 먼저 바꾼 뒤 HTML 바꾸기가 실패하면 「새 PDF + 옛 HTML」 짝이 남았다(검토 nb-n2) — 옛 PDF 는 옆으로 비켜 두었다가
+    어디서든 실패하면 이미 넣은 새 PDF 를 치우고 옛것을 제자리로 되돌린다(2026-11-16 소책자 PDF 가 셋째로 붙었다)."""
+    done = []          # [(진짜 이름, 비켜 둔 옛것 또는 None)]
     try:
+        for work, final in extras:
+            backup = None
+            if os.path.exists(final):
+                backup = _work_path(final, '.옛것.pdf')
+                _swap_in(final, backup)          # PDF 가 열려 있으면 여기서 멈춘다 — 이 파일은 아직 안 바뀌었다
+            try:
+                _swap_in(work, final)
+            except UserError:
+                if backup:
+                    os.replace(backup, final)
+                raise
+            done.append((final, backup))
         _swap_in(work_html, out_path)
     except UserError as e:
-        if work_pdf:
+        stuck = []
+        for final, backup in reversed(done):
             try:
-                os.remove(pdf_path)
+                os.remove(final)
                 if backup:
-                    os.replace(backup, pdf_path)
+                    os.replace(backup, final)
             except OSError:
-                raise UserError('%s — ⚠ PDF 를 옛것으로 되돌리지 못했습니다: %s 를 확인해 주세요' % (e, os.path.basename(pdf_path)))
+                stuck.append(os.path.basename(final))
+        if stuck:
+            raise UserError('%s — ⚠ PDF 를 옛것으로 되돌리지 못했습니다: %s 를 확인해 주세요' % (e, ', '.join(stuck)))
         raise
-    if backup:
-        try:
-            os.remove(backup)
-        except OSError:
-            pass
+    for _final, backup in done:
+        if backup:
+            try:
+                os.remove(backup)
+            except OSError:
+                pass
+
+
+def _swap_pair(work_html, out_path, work_pdf, pdf_path):
+    """HTML(· PDF) 둘만 — 옛 부름(시험)."""
+    _swap_files(work_html, out_path, [(work_pdf, pdf_path)] if work_pdf else [])
 
 
 def build(raw, preview=False):
@@ -995,17 +1031,20 @@ def build(raw, preview=False):
     os.makedirs(out_dir, exist_ok=True)
     out_path = os.path.join(out_dir, '미리보기.html' if preview else out_file_name(s, tr, bk, en_tr))
     pdf_path = os.path.splitext(out_path)[0] + '.pdf' if (s['make_pdf'] and not preview) else None
+    bk_path = booklet_path(out_path, s['booklet_paper']) if (s['make_booklet'] and not preview) else None
     # ⚠️ 확인을 통과하기 전에는 진짜 이름에 쓰지 않는다 — 걸리거나 멈추면 틀어진 HTML 이 전에 잘 만든 같은 이름 파일을
-    #    덮고 옛 PDF 는 그 옆에 남았다(검토 nb-2 · dc-4). 임시 이름에 HTML(· PDF)을 다 만든 뒤 PDF → HTML 차례로 바꾼다.
+    #    덮고 옛 PDF 는 그 옆에 남았다(검토 nb-2 · dc-4). 임시 이름에 HTML(· PDF · 소책자)을 다 만든 뒤 PDF 들 → HTML 차례로 바꾼다.
     work_html = _work_path(out_path, '.html')
     work_pdf = _work_path(out_path, '.pdf') if pdf_path else None
+    work_bk = _work_path(out_path, '.소책자.pdf') if bk_path else None
 
     _apply_common(s)
-    for p in (out_path, work_html, pdf_path, work_pdf):
+    for p in (out_path, work_html, pdf_path, work_pdf, bk_path, work_bk):
         if p:
             G.ensure_out_path_safe(p)          # 저장소 안이면 커밋에서 빠지는 자리만
-    if pdf_path:
-        _check_writable(pdf_path)
+    for p in (pdf_path, bk_path):
+        if p:
+            _check_writable(p)
     _check_writable(out_path)
     G.ensure_fonts()
     for p in (s['body_font'], s['bold_font'], s['header_font'], s['footer_font']):
@@ -1044,18 +1083,35 @@ def build(raw, preview=False):
             _check_cancel()
             say('PDF 를 만드는 중…')
             _retry(lambda: _make_pdf(work_html, work_pdf, chrome), 'PDF')
+        bk_info = None
+        if bk_path:      # 자체 확인을 통과한 인쇄본(work_html)의 쪽을 그대로 옮겨 놓는다 — 옆의 fonts/ 를 같이 쓴다
+            _check_cancel()
+            say('소책자 PDF 를 만드는 중…')
+            bk_info = _retry(lambda: BK.make(work_html, work_bk, chrome, s['booklet_paper'], s['bind_left_mm']), '소책자')
         _check_cancel()
-        _swap_pair(work_html, out_path, work_pdf, pdf_path)   # 둘 다 바뀌거나 둘 다 옛것 그대로
+        # 모두 바뀌거나 모두 옛것 그대로
+        _swap_files(work_html, out_path, [(w, f) for w, f in ((work_pdf, pdf_path), (work_bk, bk_path)) if w])
     finally:
-        for p in (work_html, work_pdf):
+        for p in (work_html, work_pdf, work_bk):
             if p and os.path.exists(p):
                 try:
                     os.remove(p)
                 except OSError:
                     pass
     say('완료 — %d쪽 · %s' % (n_pages, os.path.basename(out_path)))
-    return {'html': out_path, 'pdf': pdf_path, 'pages': n_pages, 'verses': G.verse_count(pieces),
-            'preview': preview, 'out_dir': env['out_dir']}
+    sheets = None
+    if bk_info:
+        _n, n_sides, verified = bk_info
+        sheets = n_sides // 2
+        say('소책자 — 종이 %d장(%s · 양면 인쇄는 「짧은 쪽으로 넘기기」) · %s' % (
+            sheets, 'A4 종이 → A5 크기 책' if s['booklet_paper'] == 'A4' else 'A3 종이 → A4 크기 책', os.path.basename(bk_path)))
+        if not verified:
+            say('⚠ 소책자 PDF 의 면 수를 확인하지 못했습니다(크롬이 PDF 를 쓰는 꼴이 바뀜) — 처음 한 장을 시험 인쇄해 보세요')
+        if n_pages > BOOKLET_THICK_PAGES:
+            say('⚠ %d쪽(종이 %d장)은 가운데를 접어 철하기에 두껍습니다 — 「여러 장」으로 나눠 한 권에 %d쪽쯤씩 만드는 것을 권합니다'
+                % (n_pages, sheets, BOOKLET_THICK_PAGES))
+    return {'html': out_path, 'pdf': pdf_path, 'booklet': bk_path, 'booklet_sheets': sheets, 'pages': n_pages,
+            'verses': G.verse_count(pieces), 'preview': preview, 'out_dir': env['out_dir']}
 
 
 def main():

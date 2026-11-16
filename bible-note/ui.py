@@ -53,8 +53,8 @@ CHILD_FLAGS = getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0) | getattr(subpr
 # 읽지만 기본값 · 규칙은 이 프로세스가 켤 때 읽은 notebook 에서 온다. 둘이 어긋나면 새로 생긴 설정 칸이 「모름」이 되어 엉뚱한 값으로
 # 저장됐다(2026-11-16 검토 — 「장이 바뀌면」 칸이 옛 서버에서 오른쪽도 「이어서」로 굳었다 · bat 을 다시 눌러도 떠 있는 서버를 연다).
 # 바뀌었으면 화면 경고 상자에 「다시 열어 주세요」를 띄운다. 만들기는 늘 디스크의 notebook.py 를 새 프로세스로 부른다.
-CODE_FILES = ('ui.py', 'notebook.py', 'dictation.py', 'render.py', 'generate.py', 'parse.py', 'paginate.py', 'verify.py',
-              os.path.join('ui', 'index.html'))
+CODE_FILES = ('ui.py', 'notebook.py', 'dictation.py', 'booklet.py', 'render.py', 'generate.py', 'parse.py', 'paginate.py',
+              'verify.py', os.path.join('ui', 'index.html'))
 STALE_WARNING = ('필사노트 프로그램이 이 화면 서버를 켠 뒤에 바뀌었습니다(새 판) — 검은 창(화면 서버)을 닫고 필사노트_화면.bat 을 '
                  '다시 열어 주세요. 그대로 쓰면 새로 생긴 설정이 옛 값으로 보이거나 저장될 수 있습니다.')
 
@@ -170,6 +170,7 @@ def run_job(job, settings):
                     res = json.loads(line[7:])
                     res['url'] = job_url(job.id, res['out_dir'], res['html'])
                     res['pdf_url'] = job_url(job.id, res['out_dir'], res['pdf']) if res.get('pdf') else None
+                    res['booklet_url'] = job_url(job.id, res['out_dir'], res['booklet']) if res.get('booklet') else None
                     job.result = res
                 except (ValueError, KeyError, TypeError) as e:
                     job.log.append('!! 만든 결과를 읽지 못했습니다 — %s' % e)

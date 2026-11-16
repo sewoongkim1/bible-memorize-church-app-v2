@@ -288,13 +288,22 @@ input[type=color] { width:38px; height:30px; padding:0 2px; border:1px solid var
       <div><label class="lbl">위에 더</label><div class="row"><input type="number" data-k="bind_top_mm" step="1" min="0" max="30"><span class="unit">mm</span></div></div>
       <div><label class="lbl">왼쪽에 더</label><div class="row"><input type="number" data-k="bind_left_mm" step="1" min="0" max="30"><span class="unit">mm</span></div></div>
     </div>
-    <p class="hint">스프링 · 제본하는 쪽에 여백을 더 둡니다. 그만큼 한 쪽에 들어가는 줄이 줄 수 있습니다.</p>
+    <p class="hint">스프링 · 제본하는 쪽에 여백을 더 둡니다. 그만큼 한 쪽에 들어가는 줄이 줄 수 있습니다. 소책자 PDF 에서 「왼쪽에 더」는 안쪽(접는 쪽)으로 갑니다.</p>
   </section>
 
   <section class="card">
     <h2>내보내기</h2>
     <div class="field"><label>파일 이름</label><input type="text" data-k="out_name" id="outName"></div>
     <label class="tog"><input type="checkbox" data-k="make_pdf"><div><span>PDF 로도 저장</span><small>인쇄소 · 담당자에게 보낼 때 — 서체 폴더 없이 파일 하나로 갑니다</small></div></label>
+    <div id="bookletBox">
+      <label class="tog"><input type="checkbox" data-k="make_booklet"><div><span>소책자 PDF 도 만들기</span><small>한 면에 두 쪽씩 접는 차례대로 — 양면 인쇄(짧은 쪽으로 넘기기)로 찍어 나온 차례 그대로 겹쳐 가운데를 접어 철합니다</small></div></label>
+      <div class="field" id="bookletPaperField"><span class="lbl">소책자 종이</span>
+        <div class="seg" id="bookletSeg">
+          <button type="button" data-v="A4">A4 종이<small>A5 책 · 71%</small></button><button type="button" data-v="A3">A3 종이<small>A4 책 · 그대로</small></button>
+        </div>
+      </div>
+    </div>
+    <p class="hint" id="bookletOff">소책자 PDF 는 「종이 방향 — A4 세로」에서 만들 수 있습니다.</p>
     <div class="field"><span class="lbl">저장 폴더</span>
       <div class="row"><code id="outDirShow" style="word-break:break-all"></code><button class="mini" type="button" data-open="out_dir">폴더 열기</button></div></div>
   </section>
@@ -341,6 +350,7 @@ input[type=color] { width:38px; height:30px; padding:0 2px; border:1px solid var
     <a class="mini" id="resOpen" target="_blank" rel="noopener">HTML 열기</a>
     <button class="mini" type="button" id="resPrint">인쇄하기</button>
     <a class="mini" id="resPdf" target="_blank" rel="noopener" hidden>PDF 열기</a>
+    <a class="mini" id="resBooklet" target="_blank" rel="noopener" hidden>소책자 PDF 열기</a>
     <button class="mini" type="button" data-open="out_dir">폴더 열기</button>
   </div>
   <div class="viewer">
@@ -459,6 +469,8 @@ function fixSelection() {
   for (const [k, d] of Object.entries(CHAP_PAGE_DEF)) {
     if (typeof S[k] !== 'boolean') S[k] = typeof ST.defaults[k] === 'boolean' ? ST.defaults[k] : d;
   }
+  if (typeof S.make_booklet !== 'boolean') S.make_booklet = false;
+  if (!['A4', 'A3'].includes(S.booklet_paper)) S.booklet_paper = 'A4';
   if (!ens.some((t) => t.id === S.pair_translation)) S.pair_translation = ens.length ? ens[0].id : '';
   if (trs.length) {
     const prev = curBook();
@@ -604,6 +616,12 @@ function render() {
   for (const b of $$('#chapPageSeg button')) b.classList.toggle('on', (b.dataset.v === 'new') === newPage);
   $('#chapPageWho').textContent = `${S.layout === 'right' ? '오른쪽' : '아래쪽'} 필사형 · 꼴마다 따로`;
   $('#chapPageHint').hidden = S.range_mode !== 'chapter';
+  // 소책자 — A4 세로만(가로면 안내 한 줄 · notebook.normalize 도 끈다)
+  const portrait = S.orient === 'portrait';
+  $('#bookletBox').hidden = !portrait;
+  $('#bookletOff').hidden = portrait;
+  $('#bookletPaperField').hidden = !S.make_booklet;
+  for (const b of $$('#bookletSeg button')) b.classList.toggle('on', b.dataset.v === S.booklet_paper);
   for (const e of $$('[data-only]')) e.hidden = e.dataset.only !== S.layout;
   // 크기 단추 — 누르는 도중에 지우고 새로 만들면 그 누름이 사라진다(검토 js-1). 꼴이 바뀔 때만 다시 만든다.
   const steps = $('#sizeSteps');
@@ -827,6 +845,12 @@ $('#chapPageSeg').addEventListener('click', (e) => {
   S[k] = v;
   changed();
 });
+// 소책자 종이 — A4(→ A5 크기 책 · 0.707 배) · A3(→ A4 크기 책 · 그대로). notebook booklet_paper · booklet.PAPERS
+$('#bookletSeg').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b || !ST || b.dataset.v === S.booklet_paper) return;
+  S.booklet_paper = b.dataset.v;
+  changed();
+});
 $('#pairEnSel').addEventListener('change', () => {
   S.pair_translation = $('#pairEnSel').value; clearOutName(); changed();
 });
@@ -1008,7 +1032,10 @@ function done(res, mine, secs) {
   setStatus(`다 만들었습니다 (${secs}초).`);
   $('#result').hidden = false;
   $('#resName').textContent = res.html.split(/[\\/]/).pop();
-  $('#resMeta').textContent = `${res.pages}쪽 · ${res.verses}절${res.pdf ? ' · PDF 함께' : ''}`;
+  $('#resMeta').textContent = `${res.pages}쪽 · ${res.verses}절${res.pdf ? ' · PDF 함께' : ''}`
+    + (res.booklet ? ` · 소책자 종이 ${res.booklet_sheets}장` : '');
+  const bkl = $('#resBooklet');
+  if (res.booklet_url) { bkl.href = res.booklet_url; bkl.hidden = false; } else { bkl.removeAttribute('href'); bkl.hidden = true; }
   const open = $('#resOpen');
   if (res.url) { open.href = res.url; open.hidden = false; } else { open.removeAttribute('href'); open.hidden = true; }
   const pdf = $('#resPdf');
