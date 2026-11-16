@@ -475,6 +475,9 @@ def defaults():
         'text_mm': ld['below']['text_mm'], 'write_mm': ld['below']['write_mm'], 'head_pt': D.HEAD_PT,
         'justify': D.JUSTIFY, 'keep_words': D.KEEP_WORDS, 'para_mark': bool(D.PARA_MARK),
         'chap_sub_inline': D.CHAP_SUB_INLINE, 'verse_break': D.VERSE_BREAK,
+        # 장이 바뀌면 다음 쪽에서(True) · 이어서(False) — 꼴마다 따로(2026-11-16 친구). 기본은 지금까지 모양 그대로:
+        # 오른쪽은 paginate(1f)가 늘 새 쪽(설계 §7) · 아래쪽은 받아쓰기 처음부터 이어서(dictation.CHAPTER_NEW_PAGE).
+        'chap_new_page_right': True, 'chap_new_page_below': D.CHAPTER_NEW_PAGE,
         'header_font': '', 'header_pt': ld['below']['header_pt'], 'show_date': True,
         'date_prefix': D.DATE_PREFIX, 'date_pt': ld['below']['date_pt'],
         'footer_left': R.FOOTER_LEFT, 'footer_center_odd': R.FOOTER_CENTER,
@@ -497,7 +500,7 @@ NUM_RULES = {
     'ch_from': (1, 200, '시작 장'), 'ch_to': (1, 200, '끝 장'),
 }
 BOOL_KEYS = ('justify', 'keep_words', 'para_mark', 'chap_sub_inline', 'verse_break', 'show_date', 'make_pdf',
-             'footer_like_sub')
+             'footer_like_sub', 'chap_new_page_right', 'chap_new_page_below')
 TEXT_KEYS = ('footer_left', 'footer_center_odd', 'footer_center_even', 'footer_right', 'date_prefix', 'out_name')
 FONT_KEYS = ('body_font', 'bold_font', 'header_font', 'footer_font')
 LOOK_KEYS_EXCLUDED = ('translation', 'book', 'range_mode', 'ch_from', 'ch_to', 'out_name',
@@ -768,6 +771,7 @@ def _apply_below(s):
     D.KEEP_WORDS = s['keep_words']
     D.CHAP_SUB_INLINE = s['chap_sub_inline']
     D.VERSE_BREAK = s['verse_break']
+    D.CHAPTER_NEW_PAGE = s['chap_new_page_below']
     D.TEXT_COLOR = s['text_color']
     D.BIND_TOP_MM = s['bind_top_mm']
     D.BIND_LEFT_MM = s['bind_left_mm']
@@ -778,12 +782,27 @@ def _apply_below(s):
     D.FOOTER_LIKE_SUB = s['footer_like_sub']
 
 
-def _build_right(pieces, title, out_path, chrome, max_pages):
+def paginate_right(pieces, lines_per_page, new_page=True):
+    """오른쪽 필사형 쪽 나누기 — 장이 바뀌면 다음 쪽에서(new_page · paginate 그대로) 또는 남은 자리에 이어서(2026-11-16 친구).
+    paginate(1f · 고치지 않는다)는 장이 바뀌면 늘 새 쪽이다(설계 §7). 이어서는 'chapter' 를 뺀 사본으로 부른다 — paginate 머리
+    주석대로 'chapter' 키가 없는 조각은 줄 수만 본다(한 절의 짝 keep_with_next · 한 쪽보다 긴 조각에서 멈추기는 그대로).
+    ⚠️ 원래 조각으로 먼저 한 번 부른다 — 멈출 일(줄 수 · 한 쪽보다 긴 조각)이면 「2:1절」처럼 장:절 이름으로 멈추게(사본은 장
+       번호가 없어 「1절」로만 적힌다). 쪽에는 원래 조각을 돌려준다 — 쪽 중간에서 시작하는 장의 「2장」 표시(chapter_start)와
+       머리글 범위(「잠언 1:30 ~ 2:5」)가 장 번호를 쓴다."""
+    pages = paginate(pieces, lines_per_page)
+    if new_page:
+        return pages
+    bare = [{k: v for k, v in p.items() if k != 'chapter'} for p in pieces]
+    back = {id(b): p for b, p in zip(bare, pieces)}
+    return [[back[id(b)] for b in pg] for pg in paginate(bare, lines_per_page)]
+
+
+def _build_right(pieces, title, out_path, chrome, max_pages, new_page=True):
     lines_map = G.measure_draft(pieces, chrome)
     if lines_map is None:
         raise UserError('줄 수를 재지 못했습니다 — 다시 눌러 보세요')
     G.apply_line_counts(pieces, lines_map)
-    pages = paginate(pieces, R.lines_per_page())
+    pages = paginate_right(pieces, R.lines_per_page(), new_page)
     if max_pages:
         # ⚠️ 번호 칸 폭은 1차(실측)가 쓴 모든 조각으로 정한다 — 미리보기로 앞 2쪽만 넘기면 build_final_html 이 그 2쪽의 절 번호로
         #    번호 칸을 좁혀(아가 1장: 1~8절 한 자리 · 실측은 17절까지 두 자리) 줄이 덜 바뀌고 자체 확인이 LINE_MISMATCH 로 멈췄다.
@@ -874,6 +893,23 @@ def _make_pdf(html_path, pdf_path, chrome):
 
 WORK_PREFIX = '_만드는중_'   # 「_」 로 시작 — bible-note 안이면 .gitignore 의 bible-note/**/_* 에 걸린다
 
+# 미리보기는 앞 2쪽 — 예전엔 첫 장만 재서, 첫 장이 짧으면(시편 · 잠언 끝 장들) 2쪽째가 비거나 다음 장이 안 보여 「장이 바뀌면
+# 다음 쪽에서 · 이어서」를 미리보기로 견줄 수 없었다(2026-11-16). 첫 장부터 조각이 이만큼 찰 때까지 장을 더한다 — 가장 작은
+# 글씨(8pt · 줄 6mm)의 두 쪽보다 넉넉하고, 실측은 크롬 한 번이라 조각 수가 늘어도 몇 초 안이다.
+PREVIEW_PIECES = 100
+
+
+def preview_chapters(pieces):
+    """미리보기에 넣을 장 번호들 — 첫 장은 늘 · 그다음 장은 앞까지 모은 조각이 PREVIEW_PIECES 개 아래일 때만."""
+    keep, n = [], 0
+    for p in pieces:
+        if not keep or p['chapter'] != keep[-1]:
+            if keep and n >= PREVIEW_PIECES:
+                break
+            keep.append(p['chapter'])
+        n += 1
+    return set(keep)
+
 
 def _work_path(final_path, ext):
     """확인을 통과하기 전까지 쓰는 자리 — 진짜 이름 옆(서체 fonts/ 를 같이 쓴다)."""
@@ -951,10 +987,10 @@ def build(raw, preview=False):
     else:
         tr, bk, pieces, title, lang = load_pieces(env, s)
     if preview:
-        first = pieces[0]['chapter']
-        pieces = [p for p in pieces if p['chapter'] == first]
-        missing = [m for m in missing if m[0] == first]
-        extra = [m for m in extra if m[0] == first]
+        keep = preview_chapters(pieces)
+        pieces = [p for p in pieces if p['chapter'] in keep]
+        missing = [m for m in missing if m[0] in keep]
+        extra = [m for m in extra if m[0] in keep]
     out_dir = os.path.join(env['out_dir'], '_미리보기') if preview else env['out_dir']
     os.makedirs(out_dir, exist_ok=True)
     out_path = os.path.join(out_dir, '미리보기.html' if preview else out_file_name(s, tr, bk, en_tr))
@@ -981,7 +1017,7 @@ def build(raw, preview=False):
            'chapters': '%d~%d%s' % (min(s['ch_from'], s['ch_to']), max(s['ch_from'], s['ch_to']), unit)}[s['range_mode']]
     which = '%s+%s %s' % (tr['name'], en_tr['name'], PAIRS[s['pair']]) if en_tr else tr['name']
     say('%s · %s %s · %d절%s' % (which, bk['name'], rng, G.verse_count(pieces),
-                                ' (미리보기 — 첫 장 · 2쪽까지)' if preview else ''))
+                                ' (미리보기 — 앞 2쪽까지)' if preview else ''))
     if missing:     # 번역마다 절 나눔이 달라 그럴 수 있다 — 멈추지 않고 그 절은 한글만 찍는다
         say('⚠ 영어 번역본 「%s」에 없는 절 %d개(한글만 찍음): %s%s' % (
             en_tr['name'], len(missing), ', '.join('%d:%d' % m for m in missing[:12]), ' …' if len(missing) > 12 else ''))
@@ -999,7 +1035,8 @@ def build(raw, preview=False):
     try:
         if s['layout'] == 'right':
             _patch_right(s)
-            n_pages = _retry(lambda: _build_right(pieces, title, work_html, chrome, max_pages), '줄 재기')
+            n_pages = _retry(lambda: _build_right(pieces, title, work_html, chrome, max_pages, s['chap_new_page_right']),
+                             '줄 재기')
         else:
             _apply_below(s)
             n_pages, _n_lines = _retry(lambda: D.build(pieces, title, work_html, chrome, max_pages), '줄 재기')

@@ -330,6 +330,105 @@ def restore_render(monkeypatch):
             monkeypatch.setattr(R, name, getattr(R, name))
 
 
+# ── 장이 바뀌면 — 다음 쪽에서 · 이어서(2026-11-16 친구) ─────────────────
+def test_chapter_page_setting_per_layout():
+    """꼴마다 따로 기억 — 기본은 지금까지 모양 그대로(오른쪽 = 다음 쪽에서 · 아래쪽 = 이어서)."""
+    s = NB.normalize({})
+    assert s['chap_new_page_right'] is True and s['chap_new_page_below'] is False
+    s = NB.normalize({'chap_new_page_right': 0, 'chap_new_page_below': 'yes'})
+    assert s['chap_new_page_right'] is False and s['chap_new_page_below'] is True
+    assert not {'chap_new_page_right', 'chap_new_page_below'} & set(NB.LOOK_KEYS_EXCLUDED)   # 설정 묶음에 함께 간다
+
+
+def _rp(ch, vs, lines, **kw):
+    return dict({'chapter': ch, 'verse': vs, 'part': 0, 'lines': lines}, **kw)
+
+
+def _cv(pages):
+    return [[(p['chapter'], p['verse'], p['part']) for p in pg] for pg in pages]
+
+
+def test_paginate_right_new_page_or_continue():
+    ps = [_rp(1, 1, 5), _rp(1, 2, 5), _rp(2, 1, 5), _rp(2, 2, 5)]
+    assert _cv(NB.paginate_right(ps, 17, True)) == [[(1, 1, 0), (1, 2, 0)], [(2, 1, 0), (2, 2, 0)]]
+    cont = NB.paginate_right(ps, 17, False)
+    assert _cv(cont) == [[(1, 1, 0), (1, 2, 0), (2, 1, 0)], [(2, 2, 0)]]
+    # 쪽에는 원래 조각 그대로 — 장 표시 · 머리글 범위(「잠언 1:1 ~ 2:1」)가 장 번호를 쓴다
+    assert all(any(p is q for q in ps) for pg in cont for p in pg)
+
+
+def test_paginate_right_continue_keeps_pairs_and_names():
+    """한영 · 영한 — 이어서여도 한 절의 짝(keep_with_next)은 한 쪽에 · 멈출 때 이름은 「장:절」 그대로."""
+    a = [_rp(1, 1, 4, keep_with_next=True), _rp(1, 1, 4, part=1), _rp(2, 1, 4, keep_with_next=True), _rp(2, 1, 4, part=1)]
+    assert [len(pg) for pg in NB.paginate_right(a, 17, False)] == [4]
+    assert [len(pg) for pg in NB.paginate_right(a, 17, True)] == [2, 2]
+    b = [_rp(1, 1, 6, keep_with_next=True), _rp(1, 1, 6, part=1), _rp(2, 1, 4, keep_with_next=True), _rp(2, 1, 4, part=1)]
+    assert _cv(NB.paginate_right(b, 17, False)) == [[(1, 1, 0), (1, 1, 1)], [(2, 1, 0), (2, 1, 1)]]   # 남은 5줄에 짝 8줄 — 함께
+    with pytest.raises(ValueError, match='2:1절'):
+        NB.paginate_right([_rp(1, 1, 3), _rp(2, 1, 30)], 17, False)
+
+
+def _it(kind, mm=10):
+    return {'kind': kind, 'mm': mm, 'html': kind}
+
+
+def test_paginate_items_chapter_new_page():
+    items = [_it('chap'), _it('line'), _it('line'), _it('chap'), _it('line'), _it('line')]
+    assert [len(pg) for pg in D.paginate_items(items, 100)] == [6]           # 옛 부름(dictation_enko) — 늘 이어서
+    pages = D.paginate_items(items, 100, True)                               # 장마다 새 쪽 — 「2 장」이 맨 위
+    assert [len(pg) for pg in pages] == [3, 3] and pages[1][0]['kind'] == 'chap'
+    assert len(D.paginate_items(items[:3], 100, True)) == 1                   # 첫 장 앞에 빈 쪽을 만들지 않는다
+    ps = [_it('head'), _it('chap'), _it('line'), _it('sub'), _it('line'), _it('head'), _it('chap'), _it('line')]
+    pages = D.paginate_items(ps, 200, True)                                  # 시편 권 제목도 장과 함께 · 장 안 소제목은 그대로
+    assert [[it['kind'] for it in pg] for pg in pages] == [['head', 'chap', 'line', 'sub', 'line'], ['head', 'chap', 'line']]
+
+
+class _Stop(Exception):
+    pass
+
+
+def test_dictation_build_uses_chapter_new_page(monkeypatch):
+    seen = []
+
+    def fake_paginate(items, cap_mm, new_page=False):
+        seen.append(new_page)
+        raise _Stop()
+    monkeypatch.setattr(D, 'fonts_used', lambda: [])
+    monkeypatch.setattr(D, 'measure', lambda paras, chrome, lang='ko': (
+        {i: [0] for i in range(len(paras))},
+        {(i, h): 1 for i, p in enumerate(paras) for h in range(len(D.head_blocks(p)))}))
+    monkeypatch.setattr(D, 'paginate_items', fake_paginate)
+    for flag in (True, False):
+        monkeypatch.setattr(D, 'CHAPTER_NEW_PAGE', flag)
+        with pytest.raises(_Stop):
+            D.build([_piece(1, 1, '가나', chapter_start=True)], '잠언', 'x.html', 'chrome')
+    assert seen == [True, False]
+
+
+def test_apply_below_sets_chapter_new_page(monkeypatch):
+    for name in ('FONT_PT', 'LETTER_SPACING_EM', 'TEXT_MM', 'WRITE_MM', 'HEAD_PT', 'HEAD_MM', 'HEADER_PT', 'DATE_PT',
+                 'SHOW_DATE', 'DATE_PREFIX', 'PARA_MARK', 'JUSTIFY', 'KEEP_WORDS', 'CHAP_SUB_INLINE', 'VERSE_BREAK',
+                 'TEXT_COLOR', 'BIND_TOP_MM', 'BIND_LEFT_MM', 'BODY_FONT', 'BOLD_FONT', 'HEADER_FONT', 'FOOTER_FONT',
+                 'FOOTER_LIKE_SUB', 'CHAPTER_NEW_PAGE'):
+        monkeypatch.setattr(D, name, getattr(D, name))        # 끝나면 되돌린다
+    assert D.CHAPTER_NEW_PAGE is False                         # 받아쓰기 처음부터의 모양(이어서)
+    NB._apply_below(NB.normalize({'layout': 'below', 'chap_new_page_below': True}))
+    assert D.CHAPTER_NEW_PAGE is True
+    # (기본값은 defaults() 가 D.CHAPTER_NEW_PAGE 를 그때 읽는다 — 만들기는 늘 새 프로세스라 바뀐 값이 남지 않는다)
+    NB._apply_below(NB.normalize({'layout': 'below', 'chap_new_page_below': False}))
+    assert D.CHAPTER_NEW_PAGE is False
+
+
+def test_preview_takes_following_chapters_when_short():
+    """미리보기(앞 2쪽)는 첫 장이 짧으면 다음 장까지 — 장 나눔(다음 쪽에서 · 이어서)이 미리보기에서 보이게."""
+    n = NB.PREVIEW_PIECES
+    ps = ([_rp(1, v, 1) for v in range(1, 6)] + [_rp(2, v, 1) for v in range(1, n - 9)]
+          + [_rp(3, v, 1) for v in range(1, 11)] + [_rp(4, v, 1) for v in range(1, 6)])
+    assert NB.preview_chapters(ps) == {1, 2, 3}               # 3장에 들어설 때 아직 n 개 아래 · 4장 앞에서 넘는다
+    assert NB.preview_chapters([_rp(1, v, 1) for v in range(1, n + 5)] + [_rp(2, 1, 1)]) == {1}
+    assert NB.preview_chapters([_rp(7, 1, 1)]) == {7}
+
+
 def test_patch_right_fonts_color_bind(restore_render):
     before = R.usable_body_mm()
     s = NB.normalize({'layout': 'right', 'font_pt': 12, 'body_font': 'fonts/NanumMyeongjo-400.woff',
@@ -443,6 +542,27 @@ def test_cookie_value_survives_odd_cookies():
                    'path=/x; nbui_8770=T', 'lang=한; nbui_8770=T', 'nbui_8771=U; nbui_8770=T'):
         assert ui.cookie_value(header, 'nbui_8770') == 'T', header
     assert ui.cookie_value('', 'nbui_8770') == '' and ui.cookie_value(None, 'nbui_8770') == ''
+
+
+def test_stale_server_warns_after_code_changes(tmp_path, monkeypatch):
+    """서버를 켠 뒤 프로그램 파일이 바뀌면 화면에 「다시 열어 주세요」 — 옛 서버 기본값에 새 설정 칸이 없어 「장이 바뀌면」이
+    오른쪽도 「이어서」로 굳었다(2026-11-16 검토)."""
+    import ui
+    # 진짜 목록 — 화면(index.html) · 서버 · 설정 · 두 꼴 파일이 다 든다
+    assert {'ui.py', 'notebook.py', 'dictation.py', 'render.py', 'paginate.py', os.path.join('ui', 'index.html')} \
+        <= set(ui.CODE_FILES)
+    assert ui.code_signature() == ui.STARTED_SIG                       # 켠 뒤 안 바뀌었으면 경고 없음
+    f = tmp_path / 'notebook.py'
+    f.write_text('a', encoding='utf-8')
+    monkeypatch.setattr(ui, 'HERE', str(tmp_path))
+    monkeypatch.setattr(ui, 'CODE_FILES', ('notebook.py', 'ui.py'))      # ui.py 는 없는 파일 — 그래도 멈추지 않는다
+    before = ui.code_signature()
+    f.write_text('ab', encoding='utf-8')
+    assert ui.code_signature() != before
+    monkeypatch.setattr(ui, 'STARTED_SIG', before)
+    assert ui.STALE_WARNING in ui.state()['warnings']
+    monkeypatch.setattr(ui, 'STARTED_SIG', ui.code_signature())
+    assert ui.STALE_WARNING not in ui.state()['warnings']
 
 
 def test_resolve_inside_and_job_url(tmp_path):

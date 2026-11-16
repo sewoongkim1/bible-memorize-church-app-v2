@@ -49,6 +49,30 @@ MAX_BODY = 1 << 20
 # 파일을 보거나(서버가 정리할 틈이 있을 때) 서버가 죽어 출력 파이프가 끊긴 것을 보고 스스로 크롬을 끄고 임시 파일을 지운다(검토 sv-8).
 CHILD_FLAGS = getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0) | getattr(subprocess, 'CREATE_NO_WINDOW', 0)
 
+# 서버를 켠 뒤에 프로그램 파일이 바뀌었나(새 판을 받았는데 옛 서버가 떠 있는 채) — 화면(ui/index.html)은 요청마다 디스크에서 새로
+# 읽지만 기본값 · 규칙은 이 프로세스가 켤 때 읽은 notebook 에서 온다. 둘이 어긋나면 새로 생긴 설정 칸이 「모름」이 되어 엉뚱한 값으로
+# 저장됐다(2026-11-16 검토 — 「장이 바뀌면」 칸이 옛 서버에서 오른쪽도 「이어서」로 굳었다 · bat 을 다시 눌러도 떠 있는 서버를 연다).
+# 바뀌었으면 화면 경고 상자에 「다시 열어 주세요」를 띄운다. 만들기는 늘 디스크의 notebook.py 를 새 프로세스로 부른다.
+CODE_FILES = ('ui.py', 'notebook.py', 'dictation.py', 'render.py', 'generate.py', 'parse.py', 'paginate.py', 'verify.py',
+              os.path.join('ui', 'index.html'))
+STALE_WARNING = ('필사노트 프로그램이 이 화면 서버를 켠 뒤에 바뀌었습니다(새 판) — 검은 창(화면 서버)을 닫고 필사노트_화면.bat 을 '
+                 '다시 열어 주세요. 그대로 쓰면 새로 생긴 설정이 옛 값으로 보이거나 저장될 수 있습니다.')
+
+
+def code_signature():
+    """프로그램 파일들의 (이름, 바뀐 때, 크기) — 켤 때 한 번 적어 두고 화면을 열 때마다 견준다."""
+    sig = []
+    for name in CODE_FILES:
+        try:
+            st = os.stat(os.path.join(HERE, name))
+            sig.append((name, st.st_mtime_ns, st.st_size))
+        except OSError:
+            sig.append((name, None, None))
+    return tuple(sig)
+
+
+STARTED_SIG = code_signature()
+
 
 def cookie_value(header, name):
     """Cookie 머리에서 그 이름의 값 — 손으로 나눈다. http.cookies.SimpleCookie 는 같은 머리에 이름 없는 쿠키 · 빈칸 든 값 ·
@@ -234,6 +258,8 @@ def state():
     """화면 처음 · 환경 저장 뒤. ⚠️ 한 조각(_환경.json · 번역본.json · 설정묶음.json · _마지막설정.json)이 틀려도 화면 전체가
     멈추지 않게 조각마다 받고, 틀린 것은 warnings 로 알린다(검토 js-2 · sv-4)."""
     warnings = []
+    if code_signature() != STARTED_SIG:
+        warnings.append(STALE_WARNING)
     env = NB.get_env(warnings)
     trs = NB.translations(env, warnings)
     try:

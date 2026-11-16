@@ -50,6 +50,7 @@ JUSTIFY = True        # 줄마다 오른쪽 끝을 맞춘다(문단 마지막 �
 KEEP_WORDS = False    # True 면 낱말 가운데서 줄을 바꾸지 않는다(한글 · 영어는 늘 낱말 단위)
 CHAP_SUB_INLINE = True  # 장이 시작하는 자리의 소제목을 「1 장」 오른쪽 같은 줄에
 VERSE_BREAK = False   # True 면 절마다 줄을 바꾼다(False = 이어 쓴다)
+CHAPTER_NEW_PAGE = False  # True 면 장이 바뀔 때 다음 쪽에서 시작(False = 남은 자리에 이어서 · 처음부터의 모양) — 2026-11-16 친구
 TEXT_COLOR = '#111'   # 원문 글자 색(회색으로 하면 내 글씨가 돋보인다)
 BIND_TOP_MM = 0       # 제본 여백 — 위쪽에 더
 BIND_LEFT_MM = 0      # 제본 여백 — 왼쪽에 더
@@ -337,8 +338,11 @@ def build_items(paras, breaks, lang='ko', heads=None):
     return items
 
 
-def paginate_items(items, cap_mm):
-    """머리 칸(장 표시 · 소제목)은 바로 다음 본문 줄과 같은 쪽에 둔다."""
+def paginate_items(items, cap_mm, new_page=False):
+    """머리 칸(장 표시 · 소제목)은 바로 다음 본문 줄과 같은 쪽에 둔다.
+    new_page 면 장 표시(chap)가 든 덩이는 다음 쪽 맨 위에서(시편 권 제목은 그 장 표시와 한 덩이라 함께 넘어간다).
+    ⚠️ 기본은 이어서 — dictation_enko.py(다른 세션)가 한 쪽보다 긴 절 묶음을 줄 단위로 나눌 때 이 이름 · 이 모양으로 부른다.
+    build() 는 CHAPTER_NEW_PAGE 를 넘긴다."""
     blocks, cur = [], []
     for it in items:
         cur.append(it)
@@ -352,7 +356,8 @@ def paginate_items(items, cap_mm):
         need = sum(it['mm'] for it in blk)
         if need > cap_mm:
             raise SystemExit('!! 한 쪽에 한 줄도 들어가지 않습니다 — 줄 높이나 여백을 줄여 주세요')
-        if page and used + need > cap_mm + 1e-6:
+        chapter_starts = new_page and any(it['kind'] == 'chap' for it in blk)
+        if page and (chapter_starts or used + need > cap_mm + 1e-6):
             pages.append(page)
             page, used = [], 0.0
         page.extend(blk)
@@ -525,7 +530,7 @@ def build(pieces, title, out_path, chrome, max_pages=None):
     paras = build_paragraphs(pieces)
     breaks, heads = measure(paras, chrome, lang)
     items = build_items(paras, breaks, lang, heads)
-    pages = paginate_items(items, body_mm())
+    pages = paginate_items(items, body_mm(), CHAPTER_NEW_PAGE)
     if max_pages:
         pages = pages[:max_pages]
     copy_fonts_beside(out_path)
