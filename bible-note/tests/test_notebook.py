@@ -291,7 +291,36 @@ def test_preset_keeps_look_only(tmp_path, monkeypatch):
 
 # ── 오른쪽 필사형에 값 바꿔 넣기(render 는 고치지 않는다) ─────────────
 PATCHED = ('FONT_PT', 'LETTER_SPACING_EM', 'LINE_MM', 'ORIG_PCT', 'HEADER_PT', 'DATE_PT', 'CHAP_SUB_INLINE',
-           'base_css', '_page_html', 'usable_body_mm', '_avail_width_mm', 'page_css')
+           'base_css', '_page_html', 'usable_body_mm', '_avail_width_mm', 'page_css', 'PAGE_W_MM', 'PAGE_H_MM')
+
+
+def test_orient_setting_and_name():
+    """A4 세로(좁은 쪽 · 2026-11-16 친구) — 두 필사형 모두 · 이름에 「_세로」(가로판을 덮지 않게)."""
+    assert NB.normalize({})['orient'] == 'landscape'
+    with pytest.raises(NB.UserError):
+        NB.normalize({'orient': 'square'})
+    s = NB.normalize({'layout': 'below', 'orient': 'portrait', 'range_mode': 'chapter', 'ch_from': 1})
+    assert NB.out_file_name(s, {'name': '개정개역4'}, {'name': '잠언'}) == '잠언_개정개역4_1장_아래쪽_세로.html'
+    assert NB.ORIENTS['portrait'] == (210, 297)
+
+
+def test_dictation_page_follows_paper_size(monkeypatch):
+    assert 'size: A4 landscape' in D.page_css() and D.page_orient() == 'landscape'
+    monkeypatch.setattr(R, 'PAGE_W_MM', 210)
+    monkeypatch.setattr(R, 'PAGE_H_MM', 297)
+    css = D.page_css()
+    assert D.page_orient() == 'portrait' and 'size: A4 portrait' in css and 'width:210mm; height:297mm' in css
+    assert D.width_mm() == 210 - 2 * R.MARGIN_MM
+
+
+def test_patch_right_portrait(restore_render):
+    s = NB.normalize({'layout': 'right', 'font_pt': 12, 'orient': 'portrait'})
+    R.PAGE_W_MM, R.PAGE_H_MM = NB.ORIENTS['portrait']       # _apply_common 이 하는 일
+    NB._patch_right(s)
+    css = R.page_css()
+    assert '@page { size: A4 portrait;' in css and 'size: A4 landscape' not in css
+    assert 'width:210mm; height:297mm' in css
+    assert R.orig_width_mm() == round((210 - 2 * R.MARGIN_MM) * R.ORIG_PCT / 100.0, 2)
 
 
 @pytest.fixture

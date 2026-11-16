@@ -143,7 +143,7 @@ input[type=color] { width:38px; height:30px; padding:0 2px; border:1px solid var
 </head>
 <body>
 <header class="top">
-  <div class="brand"><span class="mark">✎</span>필사노트 만들기 <small>가로형 · A4</small></div>
+  <div class="brand"><span class="mark">✎</span>필사노트 만들기 <small>A4 가로 · 세로</small></div>
   <div class="actions">
     <button class="btn" id="btnPreview" title="고른 범위의 첫 장을 2쪽까지만 만들어 봅니다">미리보기<small>첫 2쪽</small></button>
     <button class="btn primary" id="btnBuild">만들기</button>
@@ -199,6 +199,11 @@ input[type=color] { width:38px; height:30px; padding:0 2px; border:1px solid var
           <line x1="8" y1="70" x2="112" y2="70" stroke="#1e2430" stroke-width="1.3"/></svg>
         <b>아래쪽 필사형</b><small>원문 한 줄 아래 필사줄</small>
       </button>
+    </div>
+    <div class="field" style="margin-top:12px"><span class="lbl">종이 방향 <small>두 필사형 모두</small></span>
+      <div class="seg" id="orientSeg">
+        <button type="button" data-v="landscape">A4 가로<small>넓은 쪽이 위</small></button><button type="button" data-v="portrait">A4 세로<small>좁은 쪽이 위</small></button>
+      </div>
     </div>
   </section>
 
@@ -344,7 +349,7 @@ input[type=color] { width:38px; height:30px; padding:0 2px; border:1px solid var
 'use strict';
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
-const PAGE_W = 1123 + 40;            // A4 가로 297mm(96dpi) + 미리보기 바깥 여백
+let PAGE_W = 1123 + 40;              // 미리보기 틀 폭 — 쪽 폭(A4 가로 297mm = 1123px · 세로 210mm = 794px) + 바깥 여백 · 읽힌 쪽에서 다시 잰다
 const SAMPLE = { ko: '태초에 하나님이 천지를 창조하시니라 땅이 혼돈하고 공허하며', en: 'In the beginning God created the heavens and the earth.' };
 const SWATCHES = [['검정', '#111111'], ['진회색', '#555555'], ['회색', '#808080'], ['연회색', '#a8a8a8']];
 
@@ -441,6 +446,7 @@ function fixSelection() {
   $('#noBible').hidden = trs.length > 0;
   // 두 번역 함께 — 한글 · 영어 번역본이 둘 다 있어야 · 한글 번역본을 보고 · 오른쪽 필사형
   if (!['none', 'koen', 'enko'].includes(S.pair) || !kos.length || !ens.length) S.pair = 'none';
+  if (!['landscape', 'portrait'].includes(S.orient)) S.orient = 'landscape';
   if (!ens.some((t) => t.id === S.pair_translation)) S.pair_translation = ens.length ? ens[0].id : '';
   if (trs.length) {
     const prev = curBook();
@@ -580,6 +586,7 @@ function render() {
   }
   $('.lay[data-layout="below"]').disabled = pairOn;
   for (const b of $$('.lay')) b.classList.toggle('on', b.dataset.layout === S.layout);
+  for (const b of $$('#orientSeg button')) b.classList.toggle('on', b.dataset.v === S.orient);
   for (const e of $$('[data-only]')) e.hidden = e.dataset.only !== S.layout;
   // 크기 단추 — 누르는 도중에 지우고 새로 만들면 그 누름이 사라진다(검토 js-1). 꼴이 바뀔 때만 다시 만든다.
   const steps = $('#sizeSteps');
@@ -638,6 +645,7 @@ function autoName() {
   if (S.range_mode === 'chapter') parts.push(a + unit);
   else if (S.range_mode === 'chapters') parts.push(`${Math.min(a, b)}-${Math.max(a, b)}${unit}`);
   parts.push(S.layout === 'right' ? '오른쪽' : '아래쪽');
+  if (S.orient === 'portrait') parts.push('세로');      // notebook.out_file_name 과 같게 — 가로판을 덮지 않게
   return safeFileName(parts.join('_')) + '.html';
 }
 
@@ -787,6 +795,12 @@ $('#pairSeg').addEventListener('click', async (e) => {
   clearOutName();
   changed();
   if (moved) await refreshChapters();
+});
+// 종이 방향 — A4 가로(넓은 쪽 · 기본) · 세로(좁은 쪽). 두 필사형 모두(notebook.ORIENTS)
+$('#orientSeg').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b || !ST || b.dataset.v === S.orient) return;
+  S.orient = b.dataset.v;
+  changed();
 });
 $('#pairEnSel').addEventListener('change', () => {
   S.pair_translation = $('#pairEnSel').value; clearOutName(); changed();
@@ -989,6 +1003,8 @@ frame.addEventListener('load', () => {
     const st = d.createElement('style');
     st.textContent = 'html,body{background:#d9d4c7 !important} body{padding:20px 0} .page{margin:0 auto 20px;box-shadow:0 2px 12px rgba(0,0,0,.2)}';
     d.head.append(st);
+    const pg = d.querySelector('.page');      // 세로 쪽이면 틀을 그 폭에 맞춘다(크게 보이게)
+    if (pg) { PAGE_W = Math.ceil(pg.getBoundingClientRect().width) + 40; fitFrame(); }
   } catch (e) { /* 다른 주소면 그대로 */ }
 });
 function fitFrame() {

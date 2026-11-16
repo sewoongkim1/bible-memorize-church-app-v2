@@ -468,7 +468,7 @@ def defaults():
     d = {
         'translation': '', 'book': '', 'range_mode': 'book', 'ch_from': 1, 'ch_to': 1,
         'pair': 'none', 'pair_translation': '',
-        'layout': 'below',
+        'layout': 'below', 'orient': 'landscape',
         'body_font': NOTO_400, 'bold_font': NOTO_700,
         'font_pt': ld['below']['font_pt'], 'letter_spacing_em': 0, 'text_color': '#111111',
         'line_mm': ld['right']['line_mm'], 'orig_pct': ld['right']['orig_pct'],
@@ -533,6 +533,8 @@ def normalize(raw):
             s[k] = v
     if s['layout'] not in ('right', 'below'):
         raise UserError('필사형을 골라 주세요')
+    if s['orient'] not in ORIENTS:
+        raise UserError('종이 방향(A4 가로 · 세로)을 골라 주세요')
     if s['range_mode'] not in ('book', 'chapter', 'chapters'):
         raise UserError('범위를 골라 주세요')
     if s['pair'] not in ('none',) + tuple(PAIRS):
@@ -606,6 +608,8 @@ def out_file_name(s, tr, bk, en_tr=None):
             a, b = sorted((s['ch_from'], s['ch_to']))
             parts.append('%d-%d%s' % (a, b, unit))
         parts.append('오른쪽' if s['layout'] == 'right' else '아래쪽')
+        if s.get('orient') == 'portrait':
+            parts.append('세로')          # 가로판과 이름이 겹쳐 덮지 않게
         name = '_'.join(parts)
     if name.lower().endswith('.html'):
         name = name[:-5]
@@ -644,8 +648,14 @@ def save_last(settings):
 
 
 # ── 꼴마다 값 넣기 ──────────────────────────────────────────────────────
+ORIENTS = {'landscape': (297, 210), 'portrait': (210, 297)}   # A4 가로(넓은 쪽 · 기본) · 세로(좁은 쪽 · 2026-11-16 친구)
+
+
 def _apply_common(s):
-    """두 꼴이 함께 보는 render 값 — 서체 목록(받기 · 복사 · 저장 자리 검사) · 바닥글."""
+    """두 꼴이 함께 보는 render 값 — 종이 크기 · 서체 목록(받기 · 복사 · 저장 자리 검사) · 바닥글.
+    ⚠️ 쪽 크기는 render.PAGE_W_MM · PAGE_H_MM 두 값에서만 나온다(render 의 쓸 높이 · 너비 · .page · dictation 의 줄 폭 · 쪽 높이 ·
+       @page 방향). 그래서 세로는 이 두 값을 바꿔 넣는 것으로 두 꼴이 다 된다 — 오른쪽 꼴의 @page 한 줄만 _patch_right 가 바꾼다."""
+    R.PAGE_W_MM, R.PAGE_H_MM = ORIENTS[s['orient']]
     fu = {}
     for p in (s['body_font'], s['bold_font']):
         fu[p] = ORIG_FONT_URL.get(p, '')
@@ -719,6 +729,10 @@ def _patch_right(s):
 
     # (바닥글 줄 높이 1.15 — 16pt 「소제목 같은 바닥글」이 칸 밖으로 나가던 것 — 는 render.page_css 가 직접 싣는다 · 1f df98716)
     extra = []
+    portrait = s['orient'] == 'portrait'
+    if portrait:      # 바닥글 글씨를 좁은 폭에 맞춰 줄인다(dictation.footer_scale 과 같은 배율) — render 의 .ft 크기를 뒤에서 덮는다
+        base = s['font_pt'] if (s['footer_like_sub'] and hasattr(R, 'FOOTER_LIKE_SUBTITLE')) else s['footer_pt']
+        extra.append('.ft { font-size:%spt; }' % R._mm(round(base * D.footer_scale(), 1)))
     bt, bl = s['bind_top_mm'], s['bind_left_mm']
     if bt or bl:
         orig_usable, orig_avail = R.usable_body_mm, R._avail_width_mm
@@ -729,7 +743,12 @@ def _patch_right(s):
     orig_page_css = R.page_css
 
     def page_css(*a, **k):
-        return orig_page_css(*a, **k) + '\n'.join(extra) + '\n'
+        css = orig_page_css(*a, **k)
+        if portrait:      # render 는 @page 를 가로로 박아 둔다 — 세로면 이 한 줄만 바꾼다(못 찾으면 멈춘다)
+            if '@page { size: A4 landscape;' not in css:
+                raise UserError('render.py 의 @page 줄을 못 찾아 세로로 만들 수 없습니다')
+            css = css.replace('@page { size: A4 landscape;', '@page { size: A4 portrait;')
+        return css + '\n'.join(extra) + '\n'
     R.page_css = page_css
 
 

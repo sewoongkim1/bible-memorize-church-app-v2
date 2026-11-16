@@ -62,6 +62,19 @@ FOOTER_FONT = ''      # 바닥글 — 비우면 본문 서체
 FOOTER_LIKE_SUB = getattr(R, 'FOOTER_LIKE_SUBTITLE', False)
 
 
+def page_orient():
+    """종이 방향 — render.PAGE_W_MM · PAGE_H_MM 에서(넓으면 landscape · 좁으면 portrait). 기본은 A4 가로(297×210).
+    화면(notebook)이 「A4 세로(좁은 쪽)」를 고르면 두 값을 210 · 297 로 바꿔 넣는다(2026-11-16 친구)."""
+    return 'portrait' if R.PAGE_H_MM > R.PAGE_W_MM else 'landscape'
+
+
+def footer_scale():
+    """좁은 종이(A4 세로)면 바닥글 글씨를 줄 폭에 맞춰 줄이는 배율 — 가로(쓸 폭 271mm)에 맞춘 바닥글이 세로(184mm)에서는
+    짝수 쪽 가운데 영어 표어 때문에 양옆 칸(God is Love · 쪽 번호)이 잘려 자체 확인이 FOOT 으로 멈췄다(2026-11-16).
+    가로면 1. 오른쪽 필사형도 같은 배율을 쓴다(notebook._patch_right)."""
+    return min(1.0, (R.PAGE_W_MM - 2 * R.MARGIN_MM) / (297.0 - 2 * R.MARGIN_MM))
+
+
 def body_mm():
     return R.PAGE_H_MM - 2 * R.MARGIN_MM - HEADER_MM - R.FOOTER_MM - BIND_TOP_MM
 
@@ -372,8 +385,9 @@ def page_css(total=None):
     elif FOOTER_LIKE_SUB:
         ft_rule = " font-family:'NSKB',serif;"
     ft_pt, ft_color = (HEAD_PT, '#111') if FOOTER_LIKE_SUB else (R.FOOTER_PT, '#555')
+    ft_pt = round(ft_pt * footer_scale(), 1)       # 세로(좁은 쪽)면 줄인다 — 가로는 그대로
     return faces + """
-@page { size: A4 landscape; margin: 0; }
+@page { size: A4 %(orient)s; margin: 0; }
 .page { width:%(w)smm; height:%(h)smm; padding:%(m)smm; padding-top:%(mt)smm; padding-left:%(ml)smm;
         background:#fff; overflow:hidden; }
 @media print {
@@ -395,7 +409,7 @@ def page_css(total=None):
       column-gap:6mm; font-size:%(fpt)spt; color:%(fcolor)s; border-top:1.5pt solid #111;%(ft_rule)s }
 .ft span { white-space:nowrap; overflow:hidden; }
 .ft .fl { text-align:left; } .ft .fc { text-align:center; } .ft .fr { text-align:right; }
-""" % {'w': R.PAGE_W_MM, 'h': R.PAGE_H_MM, 'm': R.MARGIN_MM, 'mt': _mm(R.MARGIN_MM + BIND_TOP_MM),
+""" % {'orient': page_orient(), 'w': R.PAGE_W_MM, 'h': R.PAGE_H_MM, 'm': R.MARGIN_MM, 'mt': _mm(R.MARGIN_MM + BIND_TOP_MM),
        'ml': _mm(R.MARGIN_MM + BIND_LEFT_MM), 'hh': _mm(HEADER_MM), 'hpt': _mm(HEADER_PT),
        'dpt': _mm(DATE_PT), 'bh': _mm(body_mm()),
        'th': _mm(TEXT_MM), 'wh': _mm(WRITE_MM), 'fh': _mm(R.FOOTER_MM), 'fpt': _mm(ft_pt),
