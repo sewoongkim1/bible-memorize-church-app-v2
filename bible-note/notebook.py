@@ -489,6 +489,8 @@ def defaults():
         'out_name': '', 'make_pdf': False,
         # 소책자 PDF(가운데 접어 철하는 책 · A4 세로만 · 2026-11-16 친구) — 종이 A4 = A5 크기 책(0.707 배) · A3 = A4 크기 책
         'make_booklet': False, 'booklet_paper': 'A4',
+        # 제본 — 중철(saddle · 위 종이) · 와이어(wire · 가운데를 잘라 겹치는 A5 책이나 한 쪽씩 A4 책 — 2026-11-16 친구)
+        'booklet_bind': 'saddle', 'wire_size': 'A5',
     }
     return d
 
@@ -552,10 +554,20 @@ def normalize(raw):
         s[k] = bool(s[k])
     if s['orient'] != 'portrait':
         s['make_booklet'] = False          # 소책자는 A4 세로만 — 가로 쪽 둘을 겹치면 위로 넘기는 책이 된다(화면도 칸을 숨긴다)
-    if s['booklet_paper'] not in tuple(BK.PAPERS):     # 튜플과 견준다 — dict 에 목록 값을 넣으면 해시 오류로 죽는다
+    # 안 쓰는 칸의 틀린 값은 막지 않고 기본값으로(검토 js-4 와 같은 규칙) — 튜플과 견준다(dict 에 목록 값이면 해시 오류로 죽는다)
+    if s['booklet_bind'] not in ('saddle', 'wire'):
         if s['make_booklet']:
+            raise UserError('소책자 제본(중철 · 와이어)을 골라 주세요')
+        s['booklet_bind'] = base['booklet_bind']
+    saddle = s['booklet_bind'] == 'saddle'
+    if s['booklet_paper'] not in tuple(BK.PAPERS):
+        if s['make_booklet'] and saddle:
             raise UserError('소책자 종이(A4 · A3)를 골라 주세요')
-        s['booklet_paper'] = base['booklet_paper']   # 안 쓰는 칸의 틀린 값은 막지 않는다(검토 js-4 와 같은 규칙)
+        s['booklet_paper'] = base['booklet_paper']
+    if s['wire_size'] not in BK.WIRE_SIZES:
+        if s['make_booklet'] and not saddle:
+            raise UserError('와이어 책 크기(A5 · A4)를 골라 주세요')
+        s['wire_size'] = base['wire_size']
     used = _used_numbers(s)
     for k, (lo, hi, label) in NUM_RULES.items():
         try:
@@ -635,12 +647,19 @@ def out_file_name(s, tr, bk, en_tr=None):
     return name + '.html'
 
 
-BOOKLET_SUFFIXES = tuple('_소책자' if p == 'A4' else '_소책자_%s' % p for p in BK.PAPERS)   # out_file_name 이 직접 적은 이름에서 막는다
+# 소책자 PDF 이름 꼬리 — 꼴(booklet.KINDS)마다 달라 서로 덮지 않는다. out_file_name 이 직접 적은 이름에서 막는다.
+BOOKLET_SUFFIX = {'A4': '_소책자', 'A3': '_소책자_A3', 'wire-A5': '_소책자_와이어', 'wire-A4': '_소책자_와이어_A4'}
+BOOKLET_SUFFIXES = tuple(BOOKLET_SUFFIX.values())
 
 
-def booklet_path(out_path, paper):
-    """소책자 PDF 자리 — 인쇄본 이름 뒤에 「_소책자」(A3 종이면 「_소책자_A3」 — A4 종이 판을 덮지 않게)."""
-    return os.path.splitext(out_path)[0] + ('_소책자' if paper == 'A4' else '_소책자_%s' % paper) + '.pdf'
+def booklet_kind(s):
+    """설정 → booklet 꼴 — 중철이면 종이(A4 · A3) · 와이어면 'wire-' + 책 크기(A5 · A4)."""
+    return s['booklet_paper'] if s['booklet_bind'] == 'saddle' else 'wire-' + s['wire_size']
+
+
+def booklet_path(out_path, kind):
+    """소책자 PDF 자리 — 인쇄본 이름 뒤에 꼴마다의 꼬리(BOOKLET_SUFFIX — 중철 A4 「_소책자」 · 와이어 A5 「_소책자_와이어」 …)."""
+    return os.path.splitext(out_path)[0] + BOOKLET_SUFFIX[kind] + '.pdf'
 
 
 def load_presets():
@@ -916,7 +935,14 @@ def _make_pdf(html_path, pdf_path, chrome):
 
 
 WORK_PREFIX = '_만드는중_'   # 「_」 로 시작 — bible-note 안이면 .gitignore 의 bible-note/**/_* 에 걸린다
-BOOKLET_THICK_PAGES = 60     # 이보다 많으면(종이 15장 넘게) 가운데 접어 철하기에 두껍다고 알린다 — 멈추지는 않는다
+BOOKLET_THICK_PAGES = 60     # 중철 — 이보다 많으면(종이 15장 넘게) 가운데 접어 철하기에 두껍다고 알린다 — 멈추지는 않는다
+WIRE_MIN_BIND_MM = 5         # 와이어 — 제본 여백(왼쪽에 더)이 이보다 작으면 구멍 자리를 알린다(바깥 여백 13mm 에 더해 5~10mm 권장)
+BOOKLET_HOWTO = {            # 다 만든 뒤 알리는 찍는 법(화면 index.html 의 bookletHowto 와 같은 뜻)
+    'A4': 'A4 종이 → A5 크기 책 · 양면 인쇄 「짧은 쪽으로 넘기기」 → 나온 차례대로 겹쳐 가운데를 접어 스테이플',
+    'A3': 'A3 종이 → A4 크기 책 · 양면 인쇄 「짧은 쪽으로 넘기기」 → 나온 차례대로 겹쳐 가운데를 접어 스테이플',
+    'wire-A5': 'A4 종이 → A5 크기 책 · 양면 인쇄 「짧은 쪽으로 넘기기」 → 가운데 금을 따라 잘라 1쪽이 맨 위인 묶음을 위에 얹고 왼쪽에 와이어',
+    'wire-A4': 'A4 종이 한 쪽씩 → A4 크기 책 · 양면 인쇄 「긴 쪽으로 넘기기」 → 왼쪽에 와이어',
+}
 
 # 미리보기는 앞 2쪽 — 예전엔 첫 장만 재서, 첫 장이 짧으면(시편 · 잠언 끝 장들) 2쪽째가 비거나 다음 장이 안 보여 「장이 바뀌면
 # 다음 쪽에서 · 이어서」를 미리보기로 견줄 수 없었다(2026-11-16). 첫 장부터 조각이 이만큼 찰 때까지 장을 더한다 — 가장 작은
@@ -1031,7 +1057,8 @@ def build(raw, preview=False):
     os.makedirs(out_dir, exist_ok=True)
     out_path = os.path.join(out_dir, '미리보기.html' if preview else out_file_name(s, tr, bk, en_tr))
     pdf_path = os.path.splitext(out_path)[0] + '.pdf' if (s['make_pdf'] and not preview) else None
-    bk_path = booklet_path(out_path, s['booklet_paper']) if (s['make_booklet'] and not preview) else None
+    bk_kind = booklet_kind(s)
+    bk_path = booklet_path(out_path, bk_kind) if (s['make_booklet'] and not preview) else None
     # ⚠️ 확인을 통과하기 전에는 진짜 이름에 쓰지 않는다 — 걸리거나 멈추면 틀어진 HTML 이 전에 잘 만든 같은 이름 파일을
     #    덮고 옛 PDF 는 그 옆에 남았다(검토 nb-2 · dc-4). 임시 이름에 HTML(· PDF · 소책자)을 다 만든 뒤 PDF 들 → HTML 차례로 바꾼다.
     work_html = _work_path(out_path, '.html')
@@ -1087,7 +1114,7 @@ def build(raw, preview=False):
         if bk_path:      # 자체 확인을 통과한 인쇄본(work_html)의 쪽을 그대로 옮겨 놓는다 — 옆의 fonts/ 를 같이 쓴다
             _check_cancel()
             say('소책자 PDF 를 만드는 중…')
-            bk_info = _retry(lambda: BK.make(work_html, work_bk, chrome, s['booklet_paper'], s['bind_left_mm']), '소책자')
+            bk_info = _retry(lambda: BK.make(work_html, work_bk, chrome, bk_kind, s['bind_left_mm']), '소책자')
         _check_cancel()
         # 모두 바뀌거나 모두 옛것 그대로
         _swap_files(work_html, out_path, [(w, f) for w, f in ((work_pdf, pdf_path), (work_bk, bk_path)) if w])
@@ -1103,14 +1130,18 @@ def build(raw, preview=False):
     if bk_info:
         _n, n_sides, verified = bk_info
         sheets = n_sides // 2
-        say('소책자 — 종이 %d장(%s · 양면 인쇄는 「짧은 쪽으로 넘기기」) · %s' % (
-            sheets, 'A4 종이 → A5 크기 책' if s['booklet_paper'] == 'A4' else 'A3 종이 → A4 크기 책', os.path.basename(bk_path)))
+        say('%s — 종이 %d장 · %s · %s' % ('와이어 소책자' if bk_kind.startswith('wire') else '소책자', sheets,
+                                       BOOKLET_HOWTO[bk_kind], os.path.basename(bk_path)))
         if not verified:
             say('⚠ 소책자 PDF 의 면 수를 확인하지 못했습니다(크롬이 PDF 를 쓰는 꼴이 바뀜) — 처음 한 장을 시험 인쇄해 보세요')
-        if n_pages > BOOKLET_THICK_PAGES:
-            say('⚠ %d쪽(종이 %d장)은 가운데를 접어 철하기에 두껍습니다 — 「여러 장」으로 나눠 한 권에 %d쪽쯤씩 만드는 것을 권합니다'
-                % (n_pages, sheets, BOOKLET_THICK_PAGES))
-    return {'html': out_path, 'pdf': pdf_path, 'booklet': bk_path, 'booklet_sheets': sheets, 'pages': n_pages,
+        if bk_kind in BK.PAPERS and n_pages > BOOKLET_THICK_PAGES:
+            say('⚠ %d쪽(종이 %d장)은 가운데를 접어 철하기에 두껍습니다 — 「여러 장」으로 나눠 한 권에 %d쪽쯤씩 만들거나 '
+                '「와이어」로 묶는 것을 권합니다' % (n_pages, sheets, BOOKLET_THICK_PAGES))
+        if bk_kind.startswith('wire') and s['bind_left_mm'] < WIRE_MIN_BIND_MM:
+            say('⚠ 와이어는 구멍 자리가 있어 「제본 여백 — 왼쪽에 더」를 %d~10mm 주는 것을 권합니다(지금 %smm) — 바꾸면 다시 만들어 주세요'
+                % (WIRE_MIN_BIND_MM, R._mm(s['bind_left_mm'])))
+    return {'html': out_path, 'pdf': pdf_path, 'booklet': bk_path, 'booklet_sheets': sheets,
+            'booklet_kind': bk_kind if bk_path else None, 'pages': n_pages,
             'verses': G.verse_count(pieces), 'preview': preview, 'out_dir': env['out_dir']}
 
 

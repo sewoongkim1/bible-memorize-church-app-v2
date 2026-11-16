@@ -456,6 +456,45 @@ def test_booklet_html_imposes_pages():
         BK.booklet_html('<html><body>쪽 없음</body></html>', 'A4', 0)
 
 
+def test_wire_orders():
+    """와이어 — A5 는 A4 한 면에 두 쪽 · 다 찍어 가운데를 잘라 왼쪽 묶음을 오른쪽 묶음 위에 얹으면 1쪽부터(cut & stack).
+    종이 i 앞면 (2i+1, 2(S+i)+1) · 뒷면 (2(S+i)+2, 2i+2) — 짧은 쪽으로 넘기면 앞면 왼쪽 반의 뒤가 뒷면 오른쪽 반.
+    A4 는 한 면에 한 쪽 · 읽는 차례(양면이라 짝수로 채운다)."""
+    import booklet as BK
+    assert BK.impose(8, 'wire-A5') == [(1, 5), (6, 2), (3, 7), (8, 4)]
+    assert BK.impose(5, 'wire-A5') == [(1, 5), (None, 2), (3, None), (None, 4)]
+    assert BK.impose(3, 'wire-A4') == [(1,), (2,), (3,), (None,)]
+    assert BK.impose(8, 'A4') == BK.sides(8) and BK.impose(8, 'A3') == BK.sides(8)
+    for n in range(1, 40):
+        sd = BK.impose(n, 'wire-A5')
+        assert sorted(x for side in sd for x in side if x) == list(range(1, n + 1))
+        assert all(all(x is None or x % 2 == 1 for x in side) for side in sd[0::2])     # 앞면은 홀수 쪽
+        assert all(all(x is None or x % 2 == 0 for x in side) for side in sd[1::2])     # 뒷면은 짝수 쪽
+        left = [(sd[2 * i][0], sd[2 * i + 1][1]) for i in range(len(sd) // 2)]            # 왼쪽 반 낱장(앞, 뒤)
+        right = [(sd[2 * i][1], sd[2 * i + 1][0]) for i in range(len(sd) // 2)]           # 오른쪽 반 낱장
+        flat = [x for leaf in left + right for x in leaf if x]                              # 왼쪽 묶음 위에 오른쪽 묶음
+        assert flat == list(range(1, n + 1))
+
+
+def test_wire_booklet_html():
+    import re
+    import booklet as BK
+    out, n, sides = BK.booklet_html(_fake_print(3), 'wire-A4', 7)
+    assert (n, sides) == (3, 4) and '@page { size: A4 portrait' in out and 'scale(1)' in out
+    assert [re.findall(r'P(\d)', s) for s in out.split('<div class="sheet">')[1:]] == [['1'], ['2'], ['3'], []]
+    assert '.slot.even > .page { transform:scale(1) translateX(-7mm)' in out
+    assert out.count('class="slot even"') == 1 and out.count('class="slot odd"') == 2   # 쪽 번호로 안쪽을 가른다(자리가 아니라)
+    out5, n5, s5 = BK.booklet_html(_fake_print(8), 'wire-A5', 0)
+    assert '@page { size: A4 landscape' in out5 and 'scale(0.70707)' in out5 and s5 == 4
+    assert [re.findall(r'P(\d)', s) for s in out5.split('<div class="sheet">')[1:]] == [['1', '5'], ['6', '2'], ['3', '7'], ['8', '4']]
+    assert '.sheet::before' in out5                    # 가운데 자를 자리 표시(와이어 A5 만)
+    cut_rule = out5[out5.index('.sheet::before, .sheet::after'):].split('}')[0]
+    assert 'z-index:1' in cut_rule                     # 쪽(흰 바탕 · transform 이라 따로 쌓임) 위에 — 없으면 위 금이 오른쪽 쪽 밑에 깔렸다(검토)
+    assert '.sheet::before' not in BK.booklet_html(_fake_print(8), 'A4', 0)[0]
+    with pytest.raises(SystemExit):
+        BK.booklet_html(_fake_print(2), 'B5', 0)
+
+
 def test_booklet_pdf_check(tmp_path):
     import booklet as BK
     p = tmp_path / 'b.pdf'
@@ -480,13 +519,27 @@ def test_booklet_settings_and_name():
     assert NB.normalize({'make_booklet': False, 'booklet_paper': 'B5'})['booklet_paper'] == 'A4'  # 안 쓰는 칸은 막지 않는다
     assert NB.booklet_path(r'C:\x\잠언_개정개역4_아래쪽_세로.html', 'A4').endswith('잠언_개정개역4_아래쪽_세로_소책자.pdf')
     assert NB.booklet_path(r'C:\x\잠언.html', 'A3').endswith('잠언_소책자_A3.pdf')
+    # 와이어(2026-11-16) — 제본 칸 · 와이어 책 크기 · 꼴 이름 · 파일 이름
+    s = NB.normalize({})
+    assert (s['booklet_bind'], s['wire_size']) == ('saddle', 'A5')
+    on = {'make_booklet': True, 'orient': 'portrait'}
+    assert NB.booklet_kind(NB.normalize(dict(on, booklet_paper='A3'))) == 'A3'
+    assert NB.booklet_kind(NB.normalize(dict(on, booklet_bind='wire'))) == 'wire-A5'
+    assert NB.booklet_kind(NB.normalize(dict(on, booklet_bind='wire', wire_size='A4', booklet_paper='B5'))) == 'wire-A4'
+    for bad in ({'booklet_bind': 'glue'}, {'booklet_bind': 'wire', 'wire_size': 'B6'}):
+        with pytest.raises(NB.UserError):
+            NB.normalize(dict(on, **bad))
+    assert NB.normalize({'booklet_bind': 'glue', 'wire_size': 'B6'})['booklet_bind'] == 'saddle'  # 끈 채면 막지 않는다
+    assert NB.booklet_path(r'C:\x\잠언.html', 'wire-A5').endswith('잠언_소책자_와이어.pdf')
+    assert NB.booklet_path(r'C:\x\잠언.html', 'wire-A4').endswith('잠언_소책자_와이어_A4.pdf')
 
 
 def test_typed_name_cannot_end_like_booklet():
     """직접 적은 이름이 「_소책자」로 끝나면 그 보통 PDF 가 다른 날 만든 소책자 PDF 와 같은 이름이 되어 말없이 덮었다(2026-11-16 검토)."""
     base = NB.normalize({'layout': 'below', 'orient': 'portrait'})
     tr, bk = {'name': '개정개역4'}, {'name': '잠언'}
-    for bad in ('잠언_소책자', '잠언_소책자.html', '잠언_소책자_A3', '잠언_소책자_a3 ', '잠언_소책자. '):
+    for bad in ('잠언_소책자', '잠언_소책자.html', '잠언_소책자_A3', '잠언_소책자_a3 ', '잠언_소책자. ',
+                '잠언_소책자_와이어', '잠언_소책자_와이어_A4'):
         with pytest.raises(NB.UserError):
             NB.out_file_name(dict(base, out_name=bad), tr, bk)
     assert NB.out_file_name(dict(base, out_name='소책자'), tr, bk) == '소책자.html'
