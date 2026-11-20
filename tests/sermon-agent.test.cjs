@@ -206,7 +206,7 @@ test('⑩ 되묻기 — 번호로 DB 에서 다시 꺼내고 · 기록은 「↪
   assert.match(run, /if \(f && !chip\) \{ send\(\{ t: "fallback", reason: "bad-follow" \}\); return; \}/);
   assert.match(run, /const question = chip \? "↪ " \+ chip : message;/);
   assert.match(run, /const prevNote: string = f \? await agentPrevNote\(deps, f, tracks\) : "";/);
-  assert.equal((run.match(/if \(!f\) \{/g) || []).length, 2, '저장된 답 읽기 · 쓰기는 첫 질문만(두 곳)');
+  assert.equal((run.match(/if \(!f\) \{/g) || []).length + (run.match(/if \(!f && g\.cacheable\) \{/g) || []).length, 2, '저장된 답 읽기 · 쓰기는 첫 질문만(두 곳 · 쓰기는 저장할 만한 답만)');
   const prev = fnOf(SRC, 'agentPrevNote');
   assert.match(prev, /from\("verses"\)\.select\("no, track, ref, text"\)\.in\("no", nos\)/);
   assert.match(prev, /tracks\.includes\(v\.track\)/, '지금 안 보이는 묶음의 번호는 버린다');
@@ -562,4 +562,99 @@ test('⑩ 답 알리기 · 답 지우기 · 캐시 비우기 — chat 과 agent 
   });
 
   // ── 화면 구역 끝 (Task 7 · 8 시험은 이 줄 위에 더한다) ──
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// ── 최종 검토 고침(2026-11-20) — 근거 없는 답 막기 · 바깥 signal · 서버 cancel · aria-live ──
+// ════════════════════════════════════════════════════════════════════════
+{
+  const { test } = require('node:test');
+  const assert = require('node:assert/strict');
+  const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
+  const root = path.resolve(__dirname, '..');
+  const read = (...f) => fs.readFileSync(path.join(root, ...f), 'utf8').replace(/\r\n/g, '\n');
+  const J = (x) => JSON.parse(JSON.stringify(x));
+  const SRC2 = read('supabase', 'functions', 'api', 'sermon-agent.ts');
+  const s2 = SRC2.indexOf('// ── 에이전트 — 순수 함수 (여기부터) ──'), e2 = SRC2.indexOf('// ── 에이전트 — 순수 함수 (여기까지) ──');
+  const pure2 = SRC2.slice(s2, e2).replace(/^export /gm, '');
+
+  test('최종 · agentGroundAnswer — 설교 발췌가 0 이면 정해진 한 문장 · sermon 없음 · 구절은 남김 · 저장 안 함', () => {
+    const G = vm.runInContext(pure2 + '\n;agentGroundAnswer', vm.createContext({}));
+    const ans = { answer: '지어낸 답', verses: [{ no: 3, why: '까닭' }], sermon: { sermon_id: 'a', why: 'x' }, chips: ['🔁 다른 구절로'] };
+    const r = J(G(ans, 0, false));
+    assert.equal(r.answer, '그 주제로 하신 설교를 찾지 못했습니다.');
+    assert.equal(r.sermon, null);
+    assert.deepEqual(r.verses, ans.verses);
+    assert.deepEqual(r.chips, ans.chips);
+    assert.equal(r.cacheable, false);
+    // sermonChat 과 같은 글자
+    assert.ok(read('supabase', 'functions', 'api', 'index.ts').includes('answer: "그 주제로 하신 설교를 찾지 못했습니다."'));
+  });
+  test('최종 · agentGroundAnswer — 발췌는 있는데 도구가 한 번이라도 실패했으면 답 그대로 · 저장 안 함', () => {
+    const G = vm.runInContext(pure2 + '\n;agentGroundAnswer', vm.createContext({}));
+    const ans = { answer: '답', verses: [], sermon: { sermon_id: 'a', why: 'x' }, chips: [] };
+    const r = J(G(ans, 2, true));
+    assert.equal(r.answer, '답'); assert.deepEqual(r.sermon, ans.sermon); assert.equal(r.cacheable, false);
+  });
+  test('최종 · agentGroundAnswer — 발췌 있고 실패 없으면 답 그대로 · 저장한다', () => {
+    const G = vm.runInContext(pure2 + '\n;agentGroundAnswer', vm.createContext({}));
+    const ans = { answer: '답', verses: [], sermon: null, chips: [] };
+    const r = J(G(ans, 1, false));
+    assert.equal(r.answer, '답'); assert.equal(r.cacheable, true);
+  });
+  test('최종 · 돌림이 agentGroundAnswer 로 답을 거르고 저장 여부를 따른다 · 도구 실패를 센다', () => {
+    assert.match(SRC2, /agentGroundAnswer\(clean, run\.hits\.size, run\.toolFailed\)/);
+    assert.match(SRC2, /run\.toolFailed = true/);
+    assert.match(SRC2, /if \(!f && g\.cacheable\)/);
+  });
+
+  test('최종 · supaStream — 바깥 signal 이 abort 되면 던지고 시계를 치운다(60초 시계는 그대로)', async () => {
+    const api = read('js', 'api.js');
+    const a = api.indexOf('async function supaStream('), b = api.indexOf('\n}\n', a) + 3;
+    const timers = [];
+    const outer = new AbortController();
+    const ctx = vm.createContext({
+      TextDecoder, AbortController, setTimeout: (f, ms) => { timers.push(ms); return 1; }, clearTimeout: () => timers.push('clear'),
+      localStorage: { getItem: () => null }, scAgentParseChunk: () => ({ events: [], rest: '' }),
+      fetch: (url, init) => new Promise((_, rej) => {
+        init.signal.addEventListener('abort', () => rej(new Error('aborted')));
+        setTimeout2(() => outer.abort());
+      }),
+    });
+    const setTimeout2 = (f) => Promise.resolve().then(f);
+    ctx.window = ctx; ctx.SUPA = { URL: 'https://x', ANON: 'k' };
+    vm.runInContext(api.slice(a, b), ctx);
+    await assert.rejects(ctx.supaStream('sermonAgent', {}, () => {}, outer.signal), /aborted/);
+    assert.deepEqual(timers, [60000, 'clear']);
+    // 이미 abort 된 signal 도 바로 끊긴다
+    const done = new AbortController(); done.abort();
+    const ctx2 = vm.createContext({
+      TextDecoder, AbortController, setTimeout: () => 1, clearTimeout: () => {},
+      localStorage: { getItem: () => null }, scAgentParseChunk: () => ({ events: [], rest: '' }),
+      fetch: (url, init) => init.signal.aborted ? Promise.reject(new Error('aborted')) : Promise.resolve({}),
+    });
+    ctx2.window = ctx2; ctx2.SUPA = { URL: 'https://x', ANON: 'k' };
+    vm.runInContext(api.slice(a, b), ctx2);
+    await assert.rejects(ctx2.supaStream('sermonAgent', {}, () => {}, done.signal), /aborted/);
+  });
+  test('최종 · 화면 — 새로 물어보기가 흐르는 줄을 끊는다(signal 을 supaStream 에 넘기고 reset 에서 abort)', () => {
+    const sc = read('js', 'sc-agent.js');
+    assert.match(sc, /supaStream\("sermonAgent", body, \(ev\) => \{[\s\S]*?\}, scAgentCtl\.signal\)/);
+    const r = sc.slice(sc.indexOf('function scAgentReset()'));
+    assert.match(r.slice(0, r.indexOf('\n}\n')), /scAgentCtl\.abort\(\)/);
+  });
+  test('최종 · 서버 — 받는 쪽이 끊으면(cancel) 새 AI · 도구 부름을 시작하지 않는다', () => {
+    assert.match(SRC2, /cancel\(\) \{\s*cancelled = true/);
+    assert.match(SRC2, /while \(run\.aiCalls < AGENT_LIMITS\.ai\) \{\s*(\/\/[^\n]*\n\s*)*if \(deps\.cancelled\?\.\(\)\) \{ why = "cancelled"; break; \}/);
+  });
+  test('최종 · 화면 — aria-live 칸은 그대로 두고 안쪽 글만 바꾼다', () => {
+    const sc = read('js', 'sc-agent.js');
+    assert.ok(!/class="scg-steps" aria-live/.test(sc), '다시 만들어지는 칸에 aria-live 가 남았다');
+    assert.match(sc, /id="scg-live"[^>]*aria-live="polite"/);
+    const r = sc.slice(sc.indexOf('function scAgentRender()'));
+    const body = r.slice(0, r.indexOf('\n}\n'));
+    assert.equal((body.match(/out\.innerHTML\s*=/g) || []).length, 1, 'out 을 갈아 끼우는 곳은 live 칸이 없을 때 한 곳뿐');
+    assert.match(body, /if \(!live \|\| !body\) \{\s*out\.innerHTML/);
+    assert.match(body, /scg-live/);
+  });
 }

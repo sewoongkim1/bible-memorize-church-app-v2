@@ -100,6 +100,14 @@ export function agentUserText(message, chip, prevNote) {
   }
   return parts.join("\n\n");
 }
+// 근거 없는 답 막기(최종 검토 · 친구 결정) — sermonChat 과 같다: 설교 발췌(유사도 0.4 이상)를 하나도 못 찾았으면 AI 의 글 대신 정해진 한 문장.
+//   📖 구절 카드(서버가 검증한 앱 구절)와 단추는 남긴다 · sermon 은 없앤다 · 저장하지 않는다.
+//   도구가 한 번이라도 실패한 돌림의 답도 저장하지 않는다(일시 오류가 답으로 굳지 않게).
+export const AGENT_NO_SERMON = "그 주제로 하신 설교를 찾지 못했습니다.";
+export function agentGroundAnswer(clean, hitCount, anyToolFailed) {
+  if (!(hitCount > 0)) return { ...clean, answer: AGENT_NO_SERMON, sermon: null, cacheable: false };
+  return { ...clean, cacheable: !anyToolFailed };
+}
 // ── 에이전트 — 순수 함수 (여기까지) ──
 
 // ---------- 형 ----------
@@ -107,6 +115,7 @@ export function agentUserText(message, chip, prevNote) {
 //   ⚠️ "db" 는 따옴표로 둔다 — tests/api-split.test.cjs ⑤ 가 맨 이름 db 를 _shared.ts 의 것으로 보고 「들여오지 않았다」로 막는다. 늘 deps.db 로 부른다.
 type AgentDeps = {
   "db": any;
+  cancelled?: () => boolean;   // sermonAgentStream 이 채운다 — 받는 쪽이 끊으면 참
   embedVoyage: (texts: string[], inputType: "document" | "query") => Promise<number[][]>;
   sermonQuestionKey: (m: unknown) => string;
   kstDayStartIso: () => string;
@@ -122,7 +131,7 @@ type AgentRun = {
   verseInfo: Map<number, AgentVerse>;    // find_verses 가 돌려준 구절(답 줄의 ref · text · track)
   visible: Map<number, AgentVerse> | null;   // 이 성도님께 보이는 구절(한 번만 읽는다)
   tracks: string[];
-  toolCalls: number; aiCalls: number; inTok: number; outTok: number; stepId: number;
+  toolFailed: boolean; toolCalls: number; aiCalls: number; inTok: number; outTok: number; stepId: number;
   sermonDone: boolean; verseDone: boolean;
 };
 type AgentSend = (obj: Record<string, unknown>) => void;
@@ -247,6 +256,7 @@ async function agentRunTool(deps: AgentDeps, run: AgentRun, tu: any, send: Agent
     return { type: "tool_result", tool_use_id: tu.id, content: r.content };
   } catch (e) {
     console.error("sermonAgent tool", name, String((e as Error)?.message ?? e).slice(0, 200));
+    run.toolFailed = true;
     send({ t: "step", id, kind, q, state: "fail" });
     return bad("찾기에 실패했다. 이 도구 없이 지금까지 찾은 것으로 계속하라.");
   }
@@ -487,12 +497,13 @@ async function agentRun(b: any, deps: AgentDeps, send: AgentSend): Promise<void>
   const run: AgentRun = {
     seen: { verseNos: new Set<number>(), sermonIds: new Set<string>() },
     hits: new Map(), verseInfo: new Map(), visible: null, tracks,
-    toolCalls: 0, aiCalls: 0, inTok: 0, outTok: 0, stepId: 0, sermonDone: false, verseDone: false,
+    toolFailed: false, toolCalls: 0, aiCalls: 0, inTok: 0, outTok: 0, stepId: 0, sermonDone: false, verseDone: false,
   };
   const model = Deno.env.get("SERMON_CHAT_MODEL") || "claude-opus-4-8";
   const messages: any[] = [{ role: "user", content: agentUserText(message, chip, prevNote) }];
   let final: any = null, why = "no-answer", writeId = 0;
   while (run.aiCalls < AGENT_LIMITS.ai) {
+    if (deps.cancelled?.()) { why = "cancelled"; break; }   // 받는 쪽이 끊었다 — 새 AI · 도구 부름을 시작하지 않는다
     // 도구 안에서 쓴 시간(첫 임베딩 채우기 등)도 55초에 든다 — 남은 시간이 3초 아래면 새 AI 부름을 시작하지 않는다(스트림이 55초를 넘기지 않게)
     if (AGENT_HARD_MS - (Date.now() - t0) < 3000) { why = "ai-error"; break; }
     const last = run.aiCalls === AGENT_LIMITS.ai - 1 || run.toolCalls >= AGENT_LIMITS.tools ||
@@ -566,15 +577,16 @@ async function agentRun(b: any, deps: AgentDeps, send: AgentSend): Promise<void>
     const i = run.verseInfo.get(v.no)!;
     return { no: i.no, track: i.track, ref: i.ref, text: i.text, why: v.why };
   });
-  const sermon = clean.sermon
-    ? { ...srcOf(clean.sermon.sermon_id), sermon_id: clean.sermon.sermon_id, why: clean.sermon.why }
+  const g = agentGroundAnswer(clean, run.hits.size, run.toolFailed);
+  const sermon = g.sermon
+    ? { ...srcOf(g.sermon.sermon_id), sermon_id: g.sermon.sermon_id, why: g.sermon.why }
     : null;
   const chips = turn >= 2 ? [] : clean.chips;   // 되묻기는 두 번까지 — 두 번째 답에는 단추를 싣지 않는다
-  send({ t: "answer", answer: clean.answer, sources, verses, sermon, chips, turn });
-  if (!f) {
+  send({ t: "answer", answer: g.answer, sources, verses, sermon, chips, turn });
+  if (!f && g.cacheable) {
     try {
       await deps.db.from("sermon_ai_cache").upsert(
-        { kind: "agent", cache_key: qkey, answer: clean.answer, sources: { sources, verses, sermon, chips } },
+        { kind: "agent", cache_key: qkey, answer: g.answer, sources: { sources, verses, sermon, chips } },
         { onConflict: "kind,cache_key" });
     } catch (_) { /* 저장 실패는 답을 막지 않는다 */ }
   }
@@ -586,7 +598,9 @@ async function agentRun(b: any, deps: AgentDeps, send: AgentSend): Promise<void>
 // 어떤 오류든 되돌림 줄 하나로 끝낸다(빈 화면을 남기지 않는다) — 단, 답 줄을 이미 보냈으면 되돌리지 않는다(화면이 두 번 묻지 않게).
 export async function sermonAgentStream(body: any, deps: AgentDeps): Promise<Response> {
   const enc = new TextEncoder();
+  let cancelled = false;   // 받는 쪽이 끊으면 돌림이 다음 차례 앞에서 멈춘다
   const stream = new ReadableStream({
+    cancel() { cancelled = true; },
     async start(controller) {
       let answered = false;
       const send: AgentSend = (obj) => {
@@ -594,7 +608,7 @@ export async function sermonAgentStream(body: any, deps: AgentDeps): Promise<Res
         try { controller.enqueue(enc.encode(ndjsonLine(obj))); } catch (_) { /* 받는 쪽이 끊었다 */ }
       };
       try {
-        await agentRun(body, deps, send);
+        await agentRun(body, { ...deps, cancelled: () => cancelled }, send);
       } catch (e) {
         console.error("sermonAgent", String((e as Error)?.message ?? e).slice(0, 300));
         if (!answered) send({ t: "fallback", reason: "error" });
