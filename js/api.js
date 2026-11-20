@@ -22,6 +22,61 @@ async function supaCall(action, payload = {}) {
   return data;
 }
 
+// 흘려받기(2026-11-20 · 💬 「내게 주시는 말씀」 에이전트 — docs/superpowers/specs/2026-11-20-sermon-agent-design.md §1)
+//   서버가 한 줄에 JSON 하나씩(NDJSON · content-type application/x-ndjson) 흘려보내면 받는 대로 onEvent(줄) — 끝나면 { ok:true }.
+//   머리 · 기기 토큰은 supaCall 과 같다. HTTP 오류 · 흘려보내지 않은 응답(옛 서버의 { error })은 supaCall 처럼 던진다 → 부르는 쪽이 지금 길로.
+//   흘려받기를 못 하는 기기(res.body.getReader 없음)는 끝까지 받은 뒤 한꺼번에 푼다(단계 줄만 늦게 뜨고 답은 같다).
+//   줄 풀기는 js/sc-agent.js 의 scAgentParseChunk 하나 — 이 함수를 부르는 것은 그 파일뿐이라(받은 뒤에만 불린다) 늘 있다.
+//   onEvent 가 던져도 다음 줄은 계속 받는다. ⚠️ 60초가 넘으면 끊는다(서버는 55초 안에 끝낸다 — AGENT_HARD_MS) — 통신이 멈춰도 「찾는 중…」에 갇히지 않게.
+async function supaStream(action, payload = {}, onEvent) {
+  if (typeof scAgentParseChunk !== "function") throw new Error("no-parser");
+  let device = "";
+  try { device = localStorage.getItem("life-device") || ""; } catch (_) {}
+  const ctl = typeof AbortController === "function" ? new AbortController() : null;
+  const timer = setTimeout(() => { try { if (ctl) ctl.abort(); } catch (_) {} }, 60000);
+  const emit = (list) => {
+    for (const ev of list) { try { if (onEvent) onEvent(ev); } catch (_) {} }
+  };
+  try {
+    const res = await fetch(`${window.SUPA.URL}/functions/v1/api`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${window.SUPA.ANON}`,
+        "apikey": window.SUPA.ANON,
+      },
+      body: JSON.stringify({ action, ...(device ? { device } : {}), ...payload }),
+      ...(ctl ? { signal: ctl.signal } : {}),
+    });
+    const ct = String((res.headers && res.headers.get && res.headers.get("content-type")) || "");
+    if (!res.ok || !/ndjson/i.test(ct)) {
+      let data = {};
+      try { data = JSON.parse(await res.text()) || {}; } catch (_) {}
+      const e = new Error(data.error || (res.ok ? "not-stream" : `HTTP ${res.status}`));
+      e.data = data;
+      throw e;
+    }
+    let rest = "";
+    if (res.body && typeof res.body.getReader === "function") {
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      for (;;) {
+        const step = await reader.read();
+        if (step.done) break;
+        const got = scAgentParseChunk(rest, dec.decode(step.value, { stream: true }));
+        rest = got.rest;
+        emit(got.events);
+      }
+      emit(scAgentParseChunk(rest, dec.decode() + "\n").events);
+    } else {
+      emit(scAgentParseChunk("", (await res.text()) + "\n").events);
+    }
+    return { ok: true };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // 말씀 아카이브(형제 앱) Edge Function 'sermon' 호출 — 설교 요약 참조용(읽기 전용).
 async function sermonCall(action, payload = {}) {
   const res = await fetch(`${window.SUPA.URL}/functions/v1/sermon`, {

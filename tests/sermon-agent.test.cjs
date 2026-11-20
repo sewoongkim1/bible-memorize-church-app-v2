@@ -223,3 +223,134 @@ test('⑩ 답 알리기 · 답 지우기 · 캐시 비우기 — chat 과 agent 
   }
   assert.match(fnOf(INDEX, 'sermonAnswerReport', 'index.ts'), /b\.agent === true \? "agent" : "chat"/);
 });
+
+// ════════════════════════════════════════════════════════════════════════
+// ── 화면(js/api.js supaStream · js/sc-agent.js · app.js 배선) — 계획 Part 2 · Task 6~8 ──
+//   위(서버) 구역과 이름이 겹치지 않게 블록 { } 안에 둔다 — 블록 안의 const 는 바깥 이름을 가린다.
+//   파일은 시험마다 읽는다(아직 없는 파일 때문에 서버 구역 시험까지 함께 쓰러지지 않게).
+// ════════════════════════════════════════════════════════════════════════
+{
+  const { test } = require('node:test');
+  const assert = require('node:assert/strict');
+  const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
+  const root = path.resolve(__dirname, '..');
+  const read = (...f) => fs.readFileSync(path.join(root, ...f), 'utf8').replace(/\r\n/g, '\n');
+  const J = (x) => JSON.parse(JSON.stringify(x));   // vm 안에서 만든 값은 realm 이 달라 deepEqual 이 떨어진다
+  const slice = (src, a, b, what) => {
+    const s = src.indexOf(a), e = src.indexOf(b, s + a.length);
+    assert.ok(s >= 0 && e > s, what + ' — 표식을 못 찾았다(이 검사가 낡았다)');
+    return src.slice(s, e);
+  };
+  const declOf = (t) => (t.match(/^(?:async )?function [A-Za-z0-9_$]+|^(?:var|let|const|class) [A-Za-z0-9_$]+/gm) || []).map((x) => x.split(' ').pop());
+  const codeOnly = (t) => t.split('\n').map((l) => l.replace(/(^|\s)\/\/.*$/, '')).join('\n');
+  const wordRe = (n) => new RegExp('(?<![A-Za-z0-9_$."\'])' + n.replace(/\$/g, '\\$') + '(?![A-Za-z0-9_$:"\'])');
+  const scgPure = () => slice(read('js', 'sc-agent.js'), '// ── 에이전트 화면 — 순수 (여기부터) ──', '// ── 에이전트 화면 — 순수 (여기까지) ──', 'js/sc-agent.js');
+  const pure = () => { const ctx = vm.createContext({}); vm.runInContext(scgPure(), ctx); return ctx; };
+  const streamSrc = () => slice(read('js', 'api.js'), 'async function supaStream(', '\n}\n', 'js/api.js supaStream') + '\n}\n';
+
+  // ── Task 6 · 줄 풀기 ──
+  test('화면 · scAgentParseChunk — 줄이 조각나 와도 · 한 조각에 여러 줄 · 덜 온 끝줄은 rest 에 남는다', () => {
+    const P = pure();
+    let r = P.scAgentParseChunk('', '{"t":"step","id":1,"st');
+    assert.deepEqual(J(r), { events: [], rest: '{"t":"step","id":1,"st' });
+    r = P.scAgentParseChunk(r.rest, 'ate":"start"}\n{"t":"step","id":1,"state":"done","n":3}\n{"t":"ans');
+    assert.deepEqual(J(r.events), [{ t: 'step', id: 1, state: 'start' }, { t: 'step', id: 1, state: 'done', n: 3 }]);
+    assert.equal(r.rest, '{"t":"ans');
+    r = P.scAgentParseChunk(r.rest, 'wer","answer":"평안"}');
+    assert.deepEqual(J(r.events), [], '줄바꿈이 오기 전에는 풀지 않는다');
+    r = P.scAgentParseChunk(r.rest, '\n');   // 끝맺기 — supaStream 이 마지막에 "\n" 을 한 번 더 넣는다
+    assert.deepEqual(J(r), { events: [{ t: 'answer', answer: '평안' }], rest: '' });
+  });
+
+  test('화면 · scAgentParseChunk — 빈 줄 · 깨진 JSON · 객체가 아닌 줄은 버린다 · \\r\\n 도 받는다 · null 도 던지지 않는다', () => {
+    const P = pure();
+    const r = P.scAgentParseChunk('', '\n\n   \n{"t":"step"\n{broken}\nnull\n[1,2]\n"글"\n42\n{"t":"fallback","reason":"x"}\r\n{"t":"answer","answer":"가"}\r\n');
+    assert.deepEqual(J(r), { events: [{ t: 'fallback', reason: 'x' }, { t: 'answer', answer: '가' }], rest: '' });
+    assert.deepEqual(J(P.scAgentParseChunk(null, undefined)), { events: [], rest: '' });
+    assert.deepEqual(J(P.scAgentParseChunk('{"t":"step","id":2}', null)), { events: [], rest: '{"t":"step","id":2}' });
+  });
+
+  // ── Task 6 · 흘려받기(js/api.js) — 가짜 fetch · 가짜 읽개로 ──
+  const LINES = '{"t":"step","id":1,"kind":"sermon","q":"염려와 평안","state":"start"}\n'
+    + '{"t":"step","id":1,"kind":"sermon","state":"done","n":3}\n\n'
+    + '{"t":"answer","answer":"두려워 말라 **평안**","sources":[]}';   // 끝줄에 줄바꿈이 없다 — 끝맺을 때 풀려야 한다
+  const WANT = [
+    { t: 'step', id: 1, kind: 'sermon', q: '염려와 평안', state: 'start' },
+    { t: 'step', id: 1, kind: 'sermon', state: 'done', n: 3 },
+    { t: 'answer', answer: '두려워 말라 **평안**', sources: [] },
+  ];
+  const hdr = (ct) => ({ get: (h) => (String(h).toLowerCase() === 'content-type' ? ct : null) });
+  const streamRes = (text, cut) => {   // cut 바이트씩 잘라 보낸다 — 1 이면 한글 한 자가 세 조각으로 갈린다
+    const bytes = new TextEncoder().encode(text);
+    const parts = [];
+    for (let i = 0; i < bytes.length; i += cut) parts.push(bytes.slice(i, i + cut));
+    let k = 0;
+    return { ok: true, status: 200, headers: hdr('application/x-ndjson'),
+      body: { getReader: () => ({ read: async () => (k < parts.length ? { done: false, value: parts[k++] } : { done: true, value: undefined }) }) } };
+  };
+  const textRes = (text, status, ct) => ({ ok: status < 400, status, headers: hdr(ct), body: null, text: async () => text });
+  const streamCtx = (res, opt) => {
+    const o = Object.assign({ device: '', parser: true }, opt);
+    const calls = [], timers = [];
+    const ctx = vm.createContext({
+      TextDecoder, AbortController,
+      setTimeout: (f, ms) => { timers.push(ms); return 1; }, clearTimeout: () => { timers.push('clear'); },
+      localStorage: { getItem: (k) => (k === 'life-device' ? (o.device || null) : null) },
+      fetch: async (url, init) => { calls.push({ url, init }); return res; },
+    });
+    ctx.window = ctx; ctx.SUPA = { URL: 'https://x.supabase.co', ANON: 'anon-key' };
+    if (o.parser) vm.runInContext(scgPure(), ctx);
+    vm.runInContext(streamSrc(), ctx);
+    return { ctx, calls, timers };
+  };
+
+  test('화면 · supaStream — 받는 대로 줄마다 onEvent · 어떻게 잘려 와도(한글 바이트가 갈려도) 같은 줄 · 끝줄도 푼다', async () => {
+    for (const cut of [1, 2, 3, 5, 7, 64, 100000]) {
+      const { ctx } = streamCtx(streamRes(LINES, cut));
+      const got = [];
+      const r = await ctx.supaStream('sermonAgent', { message: 'q' }, (ev) => got.push(ev));
+      assert.deepEqual(J(got), WANT, 'cut ' + cut);
+      assert.deepEqual(J(r), { ok: true });
+    }
+  });
+
+  test('화면 · supaStream — supaCall 과 같은 머리 · 기기 토큰 · 60초 넘기면 끊고 끝나면 시계를 치운다', async () => {
+    let s = streamCtx(streamRes(LINES, 9), { device: 'dev-1' });
+    await s.ctx.supaStream('sermonAgent', { message: '걱정', user_id: 'u1' }, () => {});
+    assert.equal(s.calls.length, 1);
+    assert.equal(s.calls[0].url, 'https://x.supabase.co/functions/v1/api');
+    assert.equal(s.calls[0].init.method, 'POST');
+    assert.deepEqual(J(s.calls[0].init.headers), { 'Content-Type': 'application/json', Authorization: 'Bearer anon-key', apikey: 'anon-key' });
+    assert.deepEqual(JSON.parse(s.calls[0].init.body), { action: 'sermonAgent', device: 'dev-1', message: '걱정', user_id: 'u1' });
+    assert.ok(s.calls[0].init.signal, '끊을 수 있게 signal 을 단다');
+    assert.deepEqual(s.timers, [60000, 'clear']);
+    s = streamCtx(streamRes(LINES, 9));
+    await s.ctx.supaStream('sermonAgent', { message: '걱정' }, () => {});
+    assert.ok(!('device' in JSON.parse(s.calls[0].init.body)), '기기 토큰이 없으면 안 싣는다');
+  });
+
+  test('화면 · supaStream — 흘려받기를 못 하면(body.getReader 없음) 끝까지 받아 한꺼번에 푼다', async () => {
+    const { ctx } = streamCtx(textRes(LINES, 200, 'application/x-ndjson; charset=utf-8'));
+    const got = [];
+    assert.deepEqual(J(await ctx.supaStream('sermonAgent', {}, (ev) => got.push(ev))), { ok: true });
+    assert.deepEqual(J(got), WANT);
+  });
+
+  test('화면 · supaStream — HTTP 오류 · 흘려보내지 않은 응답(옛 서버)은 supaCall 처럼 던진다 → 부르는 쪽이 지금 길로', async () => {
+    const run = (res) => streamCtx(res).ctx.supaStream('sermonAgent', {}, () => {});
+    await assert.rejects(run(textRes('{"error":"boom"}', 500, 'application/json')), /boom/);
+    await assert.rejects(run(textRes('Bad gateway', 502, 'text/html')), /HTTP 502/);
+    await assert.rejects(run(textRes('{"ok":false,"error":"unknown action"}', 200, 'application/json')), /unknown action/);
+    await assert.rejects(run(textRes('{"ok":true}', 200, 'application/json')), /not-stream/);
+    await assert.rejects(streamCtx(streamRes(LINES, 9), { parser: false }).ctx.supaStream('sermonAgent', {}, () => {}), /no-parser/);
+  });
+
+  test('화면 · supaStream — onEvent 가 던져도 나머지 줄은 계속 받는다(한 줄 그리기 실패가 답을 막지 않게)', async () => {
+    const { ctx } = streamCtx(streamRes(LINES, 4));
+    const got = [];
+    await ctx.supaStream('sermonAgent', {}, (ev) => { got.push(ev); if (got.length === 1) throw new Error('그리기 실패'); });
+    assert.equal(got.length, 3);
+  });
+
+  // ── 화면 구역 끝 (Task 7 · 8 시험은 이 줄 위에 더한다) ──
+}
