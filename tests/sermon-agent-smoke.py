@@ -157,12 +157,21 @@ KNOWN = {"weekly": nos_of(api("getVerses")),
          "psalm": nos_of(api("getVerses", track="psalm"))}   # 물가는 열린 날만 온다 — 안 열린 날 구절을 권하면 여기서 걸린다
 
 
-def answer_checks(label, lines, info, turn, cached):
+def no_leak(label, uid, info):
+    """응답 원문(답 · 단계 · 오류 · 저장된 답 · 문 닫힘 fallback 전부)에 user_id 글자도, 요청한 uid 값도 없는지.
+    uid 값은 찍지 않는다 — 결과 줄에는 라벨만 남는다."""
+    raw = info.get("raw", "")
+    k = check(label + " 응답에 user_id 글자 없음", "user_id" not in raw, "user_id 글자")
+    v = check(label + " 응답에 uid 값 없음", not uid or str(uid) not in raw, "uid 값")
+    return k and v
+
+
+def answer_checks(label, lines, info, uid, turn, cached):
     """답 줄 하나를 꼼꼼히 본다 → (답, 단계 줄들, 첫 줄 초, 답 줄 초) · 답이 없으면 None."""
     ts = [o.get("t") for _, o in lines]
     check(label + " HTTP 200 · NDJSON", info["http"] == 200 and "ndjson" in info["ctype"], [info["http"], info["ctype"]])
     check(label + " 깨진 줄 없음", info["broken"] == 0, info["broken"])
-    check(label + " 응답에 user_id 글자 없음", "user_id" not in info["raw"], "user_id")
+    no_leak(label, uid, info)   # 답이 없어도(fallback · 오류) 먼저 본다
     if not check(label + " 답 줄 하나 · fallback 없음", ts.count("answer") == 1 and "fallback" not in ts, ts):
         return None
     ia = ts.index("answer")
@@ -214,6 +223,7 @@ def fallback_only(label, uid, msg):
     ts = [o.get("t") for _, o in lines]
     reason_ok = bool(lines) and isinstance(lines[0][1].get("reason"), str)
     check(label + " → fallback 한 줄뿐", info["http"] == 200 and ts == ["fallback"] and reason_ok, [info["http"], ts])
+    no_leak(label, uid, info)
 
 
 TAG = str(int(time.time()))[-6:]
@@ -242,7 +252,7 @@ def run():
         msg = "%s #%s" % (q, TAG)
         lines, info = ask(uid, msg)
         STATE["asked"] += 1
-        res = answer_checks("Q%d" % i, lines, info, turn=0, cached=False)
+        res = answer_checks("Q%d" % i, lines, info, uid, turn=0, cached=False)
         if not res:
             print("  Q%d 답 없음 · %.1f초" % (i, info["secs"]))
             continue
@@ -263,7 +273,7 @@ def run():
               "turn": 1}
     lines, info = ask(uid, msg, follow)
     STATE["asked"] += 1
-    res = answer_checks("↪ 되묻기", lines, info, turn=1, cached=False)
+    res = answer_checks("↪ 되묻기", lines, info, uid, turn=1, cached=False)
     if res:
         STATE["runs"] += 1
         print("  ↪ 되묻기 단계 %d · 구절 %d · 답 %.1f초%s" % (
@@ -271,21 +281,33 @@ def run():
             " · ⚠ 설교 카드에 sermon_id 가 없어 prev_sermon 을 비워 보냈다" if sm and not sm.get("sermon_id") else ""))
     lines, info = ask(uid, msg, timeout=40)
     STATE["asked"] += 1
-    res = answer_checks("📚 같은 질문 다시", lines, info, turn=0, cached=True)
+    res = answer_checks("📚 같은 질문 다시", lines, info, uid, turn=0, cached=True)
     if res:
         print("  📚 저장된 답 %.1f초" % res[3])
     if args.limit:
-        while STATE["asked"] < PER_DAY:
-            ask(uid, msg, timeout=40)   # 저장된 답 — AI 0번
+        # 저장된 답(cached:true)이 아니면 즉시 멈춘다 — 캐시가 깨졌으면 한 번마다 AI 2~5번이 나간다.
+        stopped = False
+        while STATE["asked"] < PER_DAY and not stopped:
+            lines, info = ask(uid, msg, timeout=40)   # 저장된 답 — AI 0번
             STATE["asked"] += 1
-        lines, info = ask(uid, "한도 확인용 새 질문이에요 #" + TAG, timeout=60)
-        ts = [o.get("t") for _, o in lines]
-        last = lines[-1][1] if lines else {}
-        if not check("한도 — %d번째 새 질문은 limited" % (PER_DAY + 1),
-                     ts[-1:] == ["answer"] and last.get("limited") is True, ts):
-            STATE["runs"] += 1   # 한도에 안 걸렸으면 에이전트가 돌았다(AI 부름이 났다)
-        else:
-            print("  ⛔ 한도 %d번째에서 limited" % (PER_DAY + 1))
+            no_leak("한도 채우기 %d번째" % STATE["asked"], uid, info)
+            last = lines[-1][1] if lines else {}
+            if not check("한도 채우기 %d번째 — 저장된 답(cached:true)" % STATE["asked"],
+                         last.get("t") == "answer" and last.get("cached") is True,
+                         [o.get("t") for _, o in lines]):
+                stopped = True
+                print("  ⛔ 저장된 답이 아니어서 한도 채우기를 멈춘다(AI 부름이 났을 수 있다)")
+                STATE["runs"] += 1   # 새로 돌았을 수 있으니 셈에 넣는다
+        if not stopped:
+            lines, info = ask(uid, "한도 확인용 새 질문이에요 #" + TAG, timeout=60)
+            ts = [o.get("t") for _, o in lines]
+            last = lines[-1][1] if lines else {}
+            no_leak("한도 확인", uid, info)
+            if not check("한도 — %d번째 새 질문은 limited" % (PER_DAY + 1),
+                         ts[-1:] == ["answer"] and last.get("limited") is True, ts):
+                STATE["runs"] += 1   # 한도에 안 걸렸으면 에이전트가 돌았다(AI 부름이 났다)
+            else:
+                print("  ⛔ 한도 %d번째에서 limited" % (PER_DAY + 1))
     gate("test")
     uid2 = login("비시험" + TAG)
     fallback_only("문 test · 시험 참여자 아닌 계정", uid2, msg)
