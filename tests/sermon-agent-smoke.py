@@ -35,6 +35,8 @@ except Exception:
 URL = "https://ktpwthwqzgcqcrmsafdo.supabase.co/functions/v1/api"   # 개발만 — 운영 주소는 이 파일에 두지 않는다
 ANON = "sb_publishable_eJKP6u95IU9_DBXTvnvYBA_-yGCf-0Y"              # 개발 공개 키(js/config.js 와 같다)
 HEAD = {"apikey": ANON, "Authorization": "Bearer " + ANON, "Content-Type": "application/json"}
+# 설교 발췌를 못 찾은 답은 정해진 한 문장이고 **저장하지 않는다**(최종 검토 · sermonChat 과 같다) — 개발 DB 에는 설교가 없어 개발 답은 늘 이 문장이다.
+NO_SERMON = "그 주제로 하신 설교를 찾지 못했습니다."
 STEP_KINDS = {"sermon", "verse", "write", "cache"}
 STEP_STATES = {"start", "done", "fail"}
 MAX_VERSES, MAX_CHIPS, CHIP_LEN, WHY_LEN = 2, 3, 30, 60   # sermon-agent.ts AGENT_LIMITS(verses · chips · chipLen · whyLen)와 같아야 한다
@@ -281,10 +283,22 @@ def run():
             " · ⚠ 설교 카드에 sermon_id 가 없어 prev_sermon 을 비워 보냈다" if sm and not sm.get("sermon_id") else ""))
     lines, info = ask(uid, msg, timeout=40)
     STATE["asked"] += 1
-    res = answer_checks("📚 같은 질문 다시", lines, info, uid, turn=0, cached=True)
-    if res:
-        print("  📚 저장된 답 %.1f초" % res[3])
-    if args.limit:
+    uncacheable = str(a.get("answer", "")).strip() == NO_SERMON
+    if uncacheable:
+        # 새 규칙 — 설교를 못 찾은 답은 저장하지 않으니 다시 물으면 새로 돈다(cached 아님 · 다시 AI 를 부른다)
+        res = answer_checks("📚 같은 질문 다시(설교 없음 — 저장 안 함)", lines, info, uid, turn=0, cached=False)
+        if res:
+            STATE["runs"] += 1
+            check("📚 같은 질문 다시 — 설교 없는 답은 저장되지 않는다(cached 아님)", res[0].get("cached") is not True, res[0].get("cached"))
+            print("  📚 설교 없는 답은 저장하지 않는다 — 새로 돌았다 %.1f초" % res[3])
+    else:
+        res = answer_checks("📚 같은 질문 다시", lines, info, uid, turn=0, cached=True)
+        if res:
+            print("  📚 저장된 답 %.1f초" % res[3])
+    if args.limit and uncacheable:
+        # 저장된 답이 없으면 한도를 채우는 한 번마다 AI 2~5번이 나간다 — 반복하지 않고 바로 멈춘다
+        print("  ⛔ 설교 없는 답은 저장되지 않아 --limit 한도 채우기를 하지 않는다(AI 폭주 방지 · 설교가 있는 DB 에서 다시)")
+    elif args.limit:
         # 저장된 답(cached:true)이 아니면 즉시 멈춘다 — 캐시가 깨졌으면 한 번마다 AI 2~5번이 나간다.
         stopped = False
         while STATE["asked"] < PER_DAY and not stopped:
