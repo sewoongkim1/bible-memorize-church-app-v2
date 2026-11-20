@@ -352,5 +352,107 @@ test('⑩ 답 알리기 · 답 지우기 · 캐시 비우기 — chat 과 agent 
     assert.equal(got.length, 3);
   });
 
+  // ── Task 7 · 화면 순수 함수(js/sc-agent.js) ──
+  test('화면 · scAgentStepText — 단계 줄 글(설계 §1-1 그대로) · 「」 안은 AI 가 넘긴 찾을 말 · 지난 일은 「…중」이 아니다', () => {
+    const P = pure();
+    const T = (s, f) => P.scAgentStepText(s, f);
+    assert.equal(T({ kind: 'sermon', q: '염려와 평안', state: 'start' }), '🔎 설교에서 「염려와 평안」 찾는 중…');
+    assert.equal(T({ kind: 'sermon', q: '염려와 평안', state: 'done', n: 3 }), '✓ 설교 3편을 찾았어요');
+    assert.equal(T({ kind: 'verse', q: '두려워 말라', state: 'start' }), '📖 「두려워 말라」 구절 찾는 중…');
+    assert.equal(T({ kind: 'verse', q: '두려워 말라', state: 'done', n: 2 }), '✓ 외울 만한 구절 2개');
+    assert.equal(T({ kind: 'write', state: 'start' }), '✍️ 답을 쓰는 중…');
+    assert.equal(T({ kind: 'write', state: 'start' }, true), '✍️ 답을 썼어요');
+    assert.equal(T({ kind: 'cache', state: 'done' }), '📚 전에 같은 질문으로 찾은 답이에요');
+    assert.equal(T({ kind: 'sermon', q: 'x', state: 'fail' }), '⚠ 찾지 못했어요');
+    assert.equal(T({ kind: 'verse', q: 'x', state: 'fail' }), '⚠ 찾지 못했어요');
+    assert.equal(T({ kind: 'sermon', q: 'x', state: 'done', n: 0 }), '⚠ 찾지 못했어요', '0편은 「찾지 못했어요」');
+    assert.equal(T({ kind: 'sermon', state: 'start' }), '🔎 설교를 찾는 중…', '찾을 말이 비면 빈 「」 대신');
+    assert.equal(T({ kind: 'nope', state: 'start' }), '');
+    assert.equal(P.scAgentStepClass({ kind: 'sermon', state: 'done', n: 3 }), 'done');
+    assert.equal(P.scAgentStepClass({ kind: 'verse', state: 'done', n: 0 }), 'fail');
+    assert.equal(P.scAgentStepClass({ kind: 'sermon', state: 'fail' }), 'fail');
+    assert.equal(P.scAgentStepClass({ kind: 'write', state: 'start' }), 'start');
+    assert.equal(P.scAgentFoldText(3), 'AI가 한 일 3가지');
+  });
+
+  test('화면 · scAgentMergeStep — 같은 id 의 줄은 그 자리에서 고친다(kind 없이 와도) · 모르는 갈래 · step 아닌 줄은 버린다', () => {
+    const P = pure();
+    const steps = [];
+    P.scAgentMergeStep(steps, { t: 'step', id: 1, kind: 'sermon', q: '염려', state: 'start' });
+    P.scAgentMergeStep(steps, { t: 'step', id: 2, kind: 'verse', q: '평안', state: 'start' });
+    P.scAgentMergeStep(steps, { t: 'step', id: 1, state: 'done', n: '3' });
+    P.scAgentMergeStep(steps, { t: 'step', id: 9, kind: 'nope', state: 'start' });
+    P.scAgentMergeStep(steps, { t: 'answer', answer: 'x' });
+    P.scAgentMergeStep(steps, null);
+    assert.deepEqual(J(steps), [{ id: 1, kind: 'sermon', q: '염려', state: 'done', n: 3 }, { id: 2, kind: 'verse', q: '평안', state: 'start' }]);
+  });
+
+  test('화면 · scAgentVerseLabels — 주간·주제별은 「외워 볼 말씀」 · 쉴만한 물가는 「외운다」를 쓰지 않는다', () => {
+    const P = pure();
+    assert.deepEqual(J(P.scAgentVerseLabels('weekly')), { kind: '📖 외워 볼 말씀', go: '바로 외워 보기' });
+    assert.deepEqual(J(P.scAgentVerseLabels('navi')), { kind: '📖 외워 볼 말씀', go: '바로 외워 보기' });
+    const ps = P.scAgentVerseLabels('psalm');
+    assert.deepEqual(J(ps), { kind: '🌿 마음에 담을 말씀', go: '바로 열어 보기' });
+    assert.ok(!/외우|외워|암송/.test(ps.kind + ps.go), 'docs/notes/psalm-still-waters.md 「외운다」를 쓰지 않는다');
+  });
+
+  test('화면 · scAgentFollow — 되묻기는 두 번까지 · 앞 차례의 구절 번호·설교 id 만 보낸다(앞 답 글은 안 보낸다)', () => {
+    const P = pure();
+    const st = { q: '걱정이 많아요', used: 0, awayAt: 0, turns: [{ chip: null, steps: [], result: {
+      answer: '첫 답', verses: [{ no: 12 }, { no: 2014 }], sermon: { sermon_id: 's9', youtube_id: 'yt1', title: '염려를 맡기라' },
+      chips: ['🔁 다른 구절로', '✂️ 더 짧은 구절로'] } }] };
+    assert.deepEqual(J(P.scAgentFollow(st, 1)), { chip: '✂️ 더 짧은 구절로', prev_verses: [12, 2014], prev_sermon: 's9', turn: 1 });
+    st.turns[0].result.sermon = { youtube_id: 'yt1', title: 't' };
+    assert.equal(P.scAgentFollow(st, 0).prev_sermon, null, 'sermon_id 만 보낸다(youtube_id 로 대신하지 않는다)');
+    st.turns[0].result.sermon = null;
+    assert.equal(P.scAgentFollow(st, 0).prev_sermon, null);
+    st.used = 1; assert.equal(P.scAgentFollow(st, 0).turn, 2);
+    st.used = 2; assert.equal(P.scAgentFollow(st, 0), null, '두 번 쓰면 끝');
+    st.used = 0;
+    assert.equal(P.scAgentFollow(st, 5), null, '없는 단추');
+    st.turns[0].result.chips = ['  '];
+    assert.equal(P.scAgentFollow(st, 0), null, '빈 단추 글');
+    st.turns[0].result = { answer: '오늘은 질문을 많이 하셨어요', limited: true, chips: ['🔁 다른 구절로'] };
+    assert.equal(P.scAgentFollow(st, 0), null, '한도 답에는 되묻기가 없다');
+    st.turns[0].result = null;
+    assert.equal(P.scAgentFollow(st, 0), null);
+    assert.equal(P.scAgentFollow(null, 0), null);
+  });
+
+  test('화면 · scAgentReportArgs — 🚩 알릴 질문·답 · 되묻기 차례는 「첫 질문 ↪ 단추」 · 추천 말씀·설교는 답 앞에(1200자에 잘려도 남게)', () => {
+    const P = pure();
+    const st = { q: '걱정이 많아요', used: 1, awayAt: 0, turns: [
+      { chip: null, steps: [], result: { answer: '첫 답', verses: [{ no: 12, ref: '빌 4:6' }, { no: 2014, ref: '사 41:10' }], sermon: { title: '염려를 맡기라', svc_date: '2026-10-05' } } },
+      { chip: '🔁 다른 구절로', steps: [], result: { answer: '둘째 답', verses: [], sermon: null } },
+      { chip: '✂️ 더 짧은 구절로', steps: [], result: null },
+    ] };
+    assert.deepEqual(J(P.scAgentReportArgs(st, 0)), { question: '걱정이 많아요',
+      answer: '[추천 말씀] 빌 4:6 (12) · 사 41:10 (2014)\n[추천 설교] 염려를 맡기라 (2026-10-05)\n\n첫 답' });
+    assert.deepEqual(J(P.scAgentReportArgs(st, 1)), { question: '걱정이 많아요 ↪ 🔁 다른 구절로', answer: '둘째 답' });
+    assert.equal(P.scAgentReportArgs(st, 2), null, '아직 답이 없는 차례');
+    assert.equal(P.scAgentReportArgs(st, 9), null);
+  });
+
+  test('화면 · js/sc-agent.js 이름 — 모두 scAgent·SCG_ 머리 · app.js·다른 js 와 겹치지 않는다(겹치면 받는 순간 SyntaxError)', () => {
+    const mine = declOf(read('js', 'sc-agent.js'));
+    for (const nm of ['scAgentParseChunk', 'scAgentState', 'scAgentAsk', 'scAgentRender', 'scAgentOpenVerse', 'scAgentRestore'])
+      assert.ok(mine.includes(nm), nm + ' 이 없다(이름 표)');
+    for (const nm of mine) assert.match(nm, /^(scAgent|SCG_)/, nm + ' — 머리가 scAgent·SCG_ 가 아니다');
+    const others = ['app.js', 'js/config.js', 'js/api.js', 'js/push.js', 'js/psalm.js', 'js/events.js', 'js/edu.js', 'js/duty.js',
+      'js/prayer.js', 'js/pilsa.js', 'js/ministry.js', 'js/navi.js', 'js/pray-share.js'].filter((f) => fs.existsSync(path.join(root, f)));
+    for (const f of others) {
+      const theirs = new Set(declOf(read(...f.split('/'))));
+      for (const nm of mine) assert.ok(!theirs.has(nm), nm + ' — ' + f + ' 에도 있다');
+    }
+  });
+
+  test('화면 · js/sc-agent.js — 속성(="…") 안에는 번호·정해 둔 값만(boardEsc 는 따옴표를 안 바꾼다)', () => {
+    const src = read('js', 'sc-agent.js');
+    const ALLOWED = ['i', 'open', 'cls', 'ci', 'Number(v.no)'];
+    const found = [...src.matchAll(/[a-z-]+="[^"]*?\$\{([^}]+)\}/g)].map((m) => m[1].trim());
+    assert.ok(found.length >= 5, '검사가 낡았다 — 속성 자리를 못 찾았다');
+    for (const x of found) assert.ok(ALLOWED.includes(x), '속성에 넣은 값: ${' + x + '}');
+  });
+
   // ── 화면 구역 끝 (Task 7 · 8 시험은 이 줄 위에 더한다) ──
 }
