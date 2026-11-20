@@ -4567,6 +4567,7 @@ function scEmphasis(raw) {
   }).join("");
 }
 function renderSermonChat() {
+  if (typeof scAgentLeave === "function") scAgentLeave();   // 받는 중에 떠났다 돌아왔으면 옛 줄을 끊는다(js/sc-agent.js)
   stopSpeaking();
   document.getElementById("app").innerHTML = `
     <div class="summary-screen"><div class="summary-card">
@@ -4587,7 +4588,7 @@ function renderSermonChat() {
       <div class="sc-tqs" id="sc-tqs"></div>
       <div id="sc-out"><div class="sc-empty">궁금한 것을 물어보세요. 담임목사님 설교에서 답해드립니다.</div></div>
     </div></div>`;
-  document.getElementById("sc-back").addEventListener("click", renderSummary);
+  document.getElementById("sc-back").addEventListener("click", () => { if (typeof scAgentLeave === "function") scAgentLeave(); renderSummary(); });
   document.getElementById("sc-send").addEventListener("click", scAsk);
   document.getElementById("sc-q").addEventListener("keydown", (e) => { if (e.key === "Enter") scAsk(); });
   scBuildCloud();

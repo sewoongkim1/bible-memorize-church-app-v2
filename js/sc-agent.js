@@ -365,6 +365,22 @@ function scAgentReset() {
   if (q) setTimeout(() => { try { q.focus(); } catch (_) {} }, 300);
 }
 
+// 화면을 떠날 때(← 뒤로 · renderSermonChat 첫머리) — 받는 중이면 끊고 끝나지 않은 차례를 버린다.
+//   끊으면 scAsk 의 질문 단추 지킴(scAgentAsking)이 바로 풀리고 서버도 멈춘다. 끝난 차례가 남으면 돌아왔을 때 그것만 다시 그린다(scAgentRestore).
+//   받는 중이 아니면(바로 외워 보기 · 3분 요약 듣기에 다녀오는 길) 아무것도 안 한다.
+function scAgentLeave() {
+  if (!scAgentBusy) return;
+  scAgentRun++;   // 끊긴 묻기의 늦은 줄 · 마무리가 아무것도 그리지 않게
+  try { scAgentCtl.abort(); } catch (_) {}
+  scAgentBusy = false;
+  const st = scAgentState;
+  if (st) {
+    st.turns = st.turns.filter((t) => t.result);
+    if (st.turns.length) st.awayAt = Date.now();
+    else scAgentState = null;
+  }
+}
+
 // 구절의 갈래 — 서버가 실어 준 track 을 먼저 · 없으면 번호대(js/psalm.js isPsalmNo · isNonWeeklyNo 한 곳)
 function scAgentTrack(v) {
   const t = v && v.track;

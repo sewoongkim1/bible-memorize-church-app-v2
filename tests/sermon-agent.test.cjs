@@ -701,3 +701,71 @@ test('⑪ 서버 — 도구 부름 앞에서도 끊김을 본다(cancelled 로 �
   assert.match(m[1], /deps\.cancelled\?\.\(\)\) \{ why = "cancelled"; cut = true; break; \}/);
   assert.match(SRC, /if \(cut\) break;/);
 });
+
+// ── 화면을 떠나면 흐르는 줄을 끊는다(Task B · 2026-11-20) ──
+{
+  const { test } = require('node:test');
+  const assert = require('node:assert/strict');
+  const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
+  const root = path.resolve(__dirname, '..');
+  const read = (...f) => fs.readFileSync(path.join(root, ...f), 'utf8').replace(/\r\n/g, '\n');
+  // js/sc-agent.js 통째를 가짜 화면 · 가짜 supaStream 으로 돌린다.
+  const mk = () => {
+    const kids = {};
+    const out = { innerHTML: '', querySelectorAll: () => [], querySelector: (sel) => (out.innerHTML.includes('scg-live') ? (kids[sel] = kids[sel] || { innerHTML: '', textContent: '' }) : null) };
+    const el = { disabled: false, textContent: '', value: '', focus() {}, classList: { remove() {} } };
+    const streams = [];
+    const ctx = vm.createContext({
+      document: { getElementById: (id) => (id === 'sc-out' ? out : id === 'sc-send' || id === 'sc-q' || id === 'sc-tqs' ? el : null), querySelectorAll: () => [] },
+      window: { scrollTo() {} }, setTimeout, boardEsc: String, scEmphasis: String, scSourcesHtml: () => '', scSources: [], myUserId: () => 'u', AbortController,
+      supaStream: (a, b, on, signal) => new Promise((res) => { const s = { on, signal, res }; streams.push(s); signal && signal.addEventListener('abort', () => res()); }),
+    });
+    vm.runInContext(read('js', 'sc-agent.js'), ctx);
+    return { ctx, streams, out };
+  };
+  const ev = (s, o) => s.on(o);
+  const flush = () => new Promise((r) => setImmediate(r));
+
+  test('떠나기 — 흐르는 첫 질문을 끊고 · 끝나지 않은 차례는 버린다(상태 없음)', async () => {
+    const { ctx, streams } = mk();
+    const p = vm.runInContext('scAgentAsk("용서")', ctx);
+    ev(streams[0], { t: 'step', id: 1, kind: 'sermon', q: '용서', state: 'start' });
+    assert.equal(vm.runInContext('scAgentBusy', ctx), true);
+    vm.runInContext('scAgentLeave()', ctx);
+    assert.equal(streams[0].signal.aborted, true);
+    assert.equal(vm.runInContext('scAgentBusy', ctx), false);
+    assert.equal(vm.runInContext('scAgentState', ctx), null);
+    await p;   // 끊긴 묻기는 바로 끝난다(scAgentAsking 이 풀린다)
+    assert.equal(vm.runInContext('scAgentRestore()', ctx), false);
+  });
+  test('떠나기 — 되묻기 중이면 끝난 차례만 남겨 돌아오면 그 차례들만 그린다 · 늦은 줄은 안 그린다', async () => {
+    const { ctx, streams, out } = mk();
+    const p1 = vm.runInContext('scAgentAsk("용서")', ctx);
+    ev(streams[0], { t: 'answer', answer: '첫 답' }); streams[0].res(); await p1;
+    vm.runInContext('scAgentAsk("용서", { chip: "더", prev_verses: [], prev_sermon: null, turn: 1 })', ctx);
+    ev(streams[1], { t: 'step', id: 1, kind: 'sermon', q: 'x', state: 'start' });
+    vm.runInContext('scAgentLeave()', ctx);
+    assert.equal(streams[1].signal.aborted, true);
+    assert.equal(vm.runInContext('scAgentState.turns.length', ctx), 1);
+    ev(streams[1], { t: 'answer', answer: '늦은 답' });   // 끊긴 뒤에 온 줄
+    assert.equal(vm.runInContext('scAgentState.turns.length', ctx), 1);
+    assert.equal(vm.runInContext('scAgentState.turns[0].result.answer', ctx), '첫 답');
+    assert.equal(vm.runInContext('scAgentRestore()', ctx), true);
+    assert.ok(!out.querySelector('#scg-body').innerHTML.includes('늦은 답'));
+  });
+  test('떠나기 — 받는 중이 아니면 아무것도 안 한다(암송 · 요약에 다녀온 답은 그대로)', async () => {
+    const { ctx, streams } = mk();
+    const p = vm.runInContext('scAgentAsk("용서")', ctx);
+    streams[0].on({ t: 'answer', answer: '답' }); streams[0].res(); await p;
+    vm.runInContext('scAgentState.awayAt = Date.now()', ctx);
+    vm.runInContext('scAgentLeave()', ctx);
+    assert.equal(streams[0].signal.aborted, false);
+    assert.equal(vm.runInContext('scAgentRestore()', ctx), true);
+  });
+  test('배선 — 뒤로 단추와 renderSermonChat 이 scAgentLeave 를 부른다', () => {
+    const app = read('app.js');
+    const m = app.match(/function renderSermonChat\(\) \{\n([\s\S]*?)\n  document\.getElementById\("app"\)/);
+    assert.ok(m && /typeof scAgentLeave === "function"\) scAgentLeave\(\)/.test(m[1]), 'renderSermonChat 첫머리');
+    assert.match(app, /getElementById\("sc-back"\)\.addEventListener\("click", \(\) => \{ if \(typeof scAgentLeave === "function"\) scAgentLeave\(\); renderSummary\(\); \}\);/);
+  });
+}
