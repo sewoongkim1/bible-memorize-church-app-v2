@@ -1,4 +1,4 @@
-# 💬 「내게 주시는 말씀」 AI 에이전트(2026-11 · 문 `scAgent` = `"test"` — 🧪 시험 참여자만)
+# 💬 「내게 주시는 말씀」 AI 에이전트(2026-11 · **모두에게 열림** — 문 `scAgent` = `"on"` · NEW `FEAT_SINCE.scAgent`)
 
 > **언제 읽나:** `supabase/functions/api/sermon-agent.ts` · 액션 `sermonAgent` · `js/sc-agent.js` · `app.js` 의 `scAsk` 갈래 · `scAgentCached`/`refreshScAgent` ·
 > `supabase/sermon_agent.sql`(`verse_embed` · `sermon_agent_run` · `match_verse_embed`) · `sermon_ai_cache` 의 `kind:"agent"` · 문 `scAgent` 를 손댈 때. 그리고 **문을 여는 날 · AI 를 부르는 시험을 돌리기 전**.
@@ -121,3 +121,4 @@ SQL 운영 적용(`vector` 는 `extensions` 스키마) · `api` 배포(v3.735) �
 | 날 | 무엇 |
 |---|---|
 | 2026-11-20 | 문 `"test"` — 🧪 시험 참여자만(운영 app_config · v3.735) |
+| 2026-11-20 | **모두에게 열림** — 문 `"on"`(v3.736 · 운영 api 배포). 프롬프트 캐시를 더했다(개발 확인: AI 3번 · 캐시 읽기 5580 / 쓰기 3281 · 캐시 안 된 입력 6) · 받는 중 취소하면 도구 부름도 멈춤 · 화면을 떠나면 흐르는 줄을 끊음(`scAgentLeave`) · `sermon_agent_run` 에 캐시 토큰 두 칸(`cache_read_tokens` · `cache_write_tokens` · `supabase/sermon_agent_cache_cols.sql` 운영 적용) · 닫으려면 `"test"` 나 빈 값 |
