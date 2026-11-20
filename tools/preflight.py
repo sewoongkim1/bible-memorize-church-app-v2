@@ -169,6 +169,8 @@ PURE_TESTS += ["tests/pray-share.test.cjs"]
 PURE_TESTS += ["tests/usage-log.test.cjs"]
 # 📤💬 보내기 · 게시판 이용 기록(누가 · 2026-11-06) — api featureLog 어린 부서 거르기(rpc 앞 · 모르면 안 남김) · featureUsage(관리자 문 · 다섯 값만 · user_id 없음 · 어린 부서 뺌 · 차례 · 빈 결과)
 PURE_TESTS += ["tests/feature-usage.test.cjs"]
+# 💬 「내게 주시는 말씀」 에이전트(2026-11-20) — 서버 순수 규칙(상한 · 문 세 값 · 보이는 묶음 · give_answer 검증 · 억지 고르기) · 도구 · index.ts 이음
+PURE_TESTS += ["tests/sermon-agent.test.cjs"]
 
 print("\n[3] 순수 함수 검사 (node --test)")
 for t in PURE_TESTS:
