@@ -371,7 +371,7 @@ function renderNaviTest(verse, stage) {
 
   initStickyRef();
   scrollPastBtnRow();
-  document.getElementById("back-to-list-btn").addEventListener("click", () => { stopSpeaking(); renderNaviChapter(verse.chapter); });
+  document.getElementById("back-to-list-btn").addEventListener("click", () => { stopSpeaking(); if (typeof scAgentBackTo === "function" && scAgentBackTo(verse.no)) return; renderNaviChapter(verse.chapter); });   // 💬 에이전트에서 온 구절이면 답 화면으로(app.js)
   document.getElementById("mode-toggle").addEventListener("click", () => { setCardMode(!isCardMode()); renderNaviTest(verse, stage); });
   const repeatInput = document.getElementById("repeat-check");
   if (repeatInput) repeatInput.addEventListener("change", () => setRepeatPractice(repeatInput.checked));

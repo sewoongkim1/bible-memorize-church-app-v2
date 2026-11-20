@@ -31,7 +31,7 @@ function mk(opt) {
 
 test('index.html 은 교육·당번 화면 코드를 처음부터 부르지 않는다 · 첫 화면이 쓰는 psalm·events 는 그대로', () => {
   assert.ok(SEG.length > 200, '로더 구간을 못 찾았다');
-  for (const f of ['edu', 'duty', 'prayer', 'pilsa', 'ministry', 'navi']) assert.ok(!INDEX.includes('src="js/' + f + '.js'), f);
+  for (const f of ['edu', 'duty', 'prayer', 'pilsa', 'ministry', 'navi', 'sc-agent']) assert.ok(!INDEX.includes('src="js/' + f + '.js'), f);
   for (const f of ['js/config.js', 'js/api.js', 'js/push.js', 'js/psalm.js', 'js/events.js', 'app.js']) assert.ok(INDEX.includes('src="' + f + '?v='), f);
 });
 
@@ -201,7 +201,7 @@ test('기도문·필사 — 떼어 낸 파일의 전역은 app.js 가 typeof 로
 
 test('지연 파일 넷 — 서로·처음부터 실리는 js 와 이름이 겹치지 않는다(겹치면 받는 순간 SyntaxError · 함수끼리면 조용히 덮는다)', () => {
   const owner = new Map();
-  for (const f of ['app.js', 'js/config.js', 'js/api.js', 'js/push.js', 'js/psalm.js', 'js/events.js', 'js/edu.js', 'js/duty.js', 'js/prayer.js', 'js/pilsa.js', 'js/ministry.js', 'js/navi.js'])
+  for (const f of ['app.js', 'js/config.js', 'js/api.js', 'js/push.js', 'js/psalm.js', 'js/events.js', 'js/edu.js', 'js/duty.js', 'js/prayer.js', 'js/pilsa.js', 'js/ministry.js', 'js/navi.js', 'js/sc-agent.js'])
     for (const nm of new Set(declOf(read(...f.split('/'))))) {
       if (owner.has(nm)) assert.fail(nm + ' — ' + owner.get(nm) + ' 와 ' + f + ' 에 둘 다 있다');
       owner.set(nm, f);

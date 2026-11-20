@@ -454,5 +454,112 @@ test('⑩ 답 알리기 · 답 지우기 · 캐시 비우기 — chat 과 agent 
     for (const x of found) assert.ok(ALLOWED.includes(x), '속성에 넣은 값: ${' + x + '}');
   });
 
+  // ── Task 8 · app.js 문 · 돌아갈 곳 · 배선 · 옷 ──
+  const gateCtx = (stored, tester, search) => {
+    const store = new Map(stored == null ? [] : [['scAgent:v1', stored]]);
+    const ctx = vm.createContext({
+      URL, localStorage: { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)) },
+      ministryTesterCached: () => !!tester, location: { href: 'http://127.0.0.1:8123/' + (search || '') },
+      history: { replaceState: () => {} }, renderSermonChat: () => { ctx.back = (ctx.back || 0) + 1; },
+    });
+    ctx.window = ctx;
+    const seg = slice(read('app.js'), '// ── 💬 에이전트 문 (여기부터) ──', '// ── 💬 에이전트 문 (여기까지) ──', 'app.js 에이전트 문');
+    vm.runInContext(seg + '\n;_scAgentPreview = getScAgentPreview();', ctx);
+    return { ctx, store };
+  };
+
+  test('화면 · 문 — "on" 은 모두 · "test" 는 🧪 시험 참여자만 · 그 밖(비어 있음 · true · "off" · 모름)은 닫힘 · ?scagent=1 은 이 기기만', () => {
+    assert.equal(gateCtx('on').ctx.scAgentVisible(), true);
+    assert.equal(gateCtx('test', true).ctx.scAgentVisible(), true);
+    assert.equal(gateCtx('test', false).ctx.scAgentVisible(), false);
+    for (const v of [null, '', 'true', 'off', 'ON']) assert.equal(gateCtx(v, true).ctx.scAgentVisible(), false, String(v));
+    assert.equal(gateCtx(null, false, '?scagent=1').ctx.scAgentVisible(), true, '미리보기');
+    assert.equal(gateCtx(null, false, '?scagent=2').ctx.scAgentVisible(), false);
+    assert.equal(gateCtx('on').ctx.scAgentCached(), 'on');
+    assert.equal(gateCtx('weird').ctx.scAgentCached(), '');
+  });
+
+  test('화면 · refreshScAgent — "on"·"test" 만 담는다 · 다른 값은 닫힘("") · 못 받으면 캐시를 그대로(「모름」을 「닫힘」으로 안 바꾼다)', async () => {
+    const run = async (value, fail, before) => {
+      const { ctx, store } = gateCtx(before);
+      ctx.api = { getConfig: async (k) => { assert.equal(k, 'scAgent'); if (fail) throw new Error('net'); return { ok: true, value }; } };
+      ctx.refreshScAgent();
+      await new Promise((ok) => setTimeout(ok, 5));
+      return store.has('scAgent:v1') ? store.get('scAgent:v1') : null;
+    };
+    assert.equal(await run('on'), 'on');
+    assert.equal(await run('test'), 'test');
+    for (const v of [true, 'false', null, 'yes']) assert.equal(await run(v, false, 'on'), '', String(v));
+    assert.equal(await run('on', true, 'test'), 'test', '못 받으면 그대로');
+    assert.equal(await run('on', true, null), null, '못 받고 캐시도 없으면 안 쓴다');
+  });
+
+  test('화면 · 돌아갈 곳 — 「바로 외워 보기」로 연 그 구절에서만 답 화면으로 · 한 번 쓰면 잊는다', () => {
+    const { ctx } = gateCtx('on');
+    assert.equal(ctx.scAgentBackIs(12), false);
+    assert.equal(ctx.scAgentBackTo(12), false);
+    vm.runInContext('scAgentReturnNo = 12;', ctx);   // js/sc-agent.js scAgentOpenVerse 가 하는 일
+    assert.equal(ctx.scAgentBackIs(12), true);
+    assert.equal(ctx.scAgentBackIs('12'), true);
+    assert.equal(ctx.scAgentBackIs(13), false);
+    assert.equal(ctx.scAgentBackTo(13), false);
+    assert.equal(ctx.back, undefined);
+    assert.equal(ctx.scAgentBackTo(12), true);
+    assert.equal(ctx.back, 1, 'renderSermonChat 한 번');
+    assert.equal(ctx.scAgentBackIs(12), false, '한 번 쓰면 잊는다');
+  });
+
+  test('화면 · 배선 — LAZY_JS · scAsk 갈래(받기 실패면 지금 길) · 다시 그리기 · 「뒤로」 세 곳 · 첫 화면·목록에서 잊기 · typeof', () => {
+    const APP = read('app.js');
+    assert.ok(APP.includes('scAgent: { src: "js/sc-agent.js", fn: "scAgentAsk" },'), 'LAZY_JS');
+    const ask = slice(APP, 'async function scAsk() {', '\n}\n', 'scAsk');
+    assert.ok(ask.includes('if (scAgentVisible()) {') && ask.includes('loadLazyJs("scAgent").then(() => true, () => false)')
+      && ask.includes('if (ok && typeof scAgentAsk === "function") return await scAgentAsk(message);')
+      && ask.includes('return scAskClassic(message);'), 'scAsk 갈래');
+    assert.ok(ask.includes('if (scAgentAsking) return;') && ask.includes('scAgentAsking = true;') && ask.includes('scAgentAsking = false;'), 'scAsk 다시 누름 막기(받는 동안 두 번째 질문을 안 보낸다)');
+    const classic = slice(APP, 'async function scAskClassic(message) {', '\n}\n', 'scAskClassic');
+    assert.ok(classic.includes('const srcHtml = scSourcesHtml(scSources);') && classic.includes('api.sermonChat(message, myUserId())'), '지금 길 그대로');
+    assert.ok(APP.includes('function scSourcesHtml(list) {'));
+    const chat = slice(APP, 'function renderSermonChat() {', '\n}\n', 'renderSermonChat');
+    assert.ok(chat.includes('if (typeof scAgentRestore === "function") scAgentRestore();'), '다녀오면 다시 그리기');
+    assert.ok(APP.includes('\n  _scAgentPreview = getScAgentPreview();') && APP.includes('\n  refreshScAgent();'), '첫 실행');   // 두 줄 다 끝에 주석이 붙는다(8-5)
+    assert.ok(APP.includes('.addEventListener("click", () => { stopSpeaking(); if (scAgentBackTo(verse.no)) return; renderVerseList(); });'), '주간 암송 뒤로');
+    assert.ok(APP.includes('id="back-to-list-btn">${scAgentBackIs(verse.no) ? "← 답으로" : "← 목록으로"}</button>'), '옛 화면 이름');
+    assert.ok(APP.includes('"<span>" + (scAgentBackIs(verse && verse.no) ? "답으로" : "목록으로") + "</span>"'), 'A 머리 줄 이름(아이폰 띠 단추도 읽는다)');
+    assert.ok(read('js', 'navi.js').includes('if (typeof scAgentBackTo === "function" && scAgentBackTo(verse.no)) return; renderNaviChapter(verse.chapter);'), '주제별 뒤로');
+    assert.ok(read('js', 'psalm.js').includes('if (typeof scAgentBackTo === "function" && scAgentBackTo(verse.no)) return; renderPsalmHome(verse.dayNo);'), '물가 뒤로');
+    assert.ok(APP.includes('relearnBackToChallenge = false;   // 홈으로 나갔으면 도전 복귀도 없다\n  scAgentReturnNo = null;'), '첫 화면에서 잊기');
+    assert.ok(APP.includes('function renderVerseList() {\n  scAgentReturnNo = null;'), '목록에서 잊기');
+    assert.ok(APP.includes('function openAnswerReport(question, answer, btn, opts) {')
+      && APP.includes('await api.sermonAnswerReport(uid, question, answer, reason, note, !!(opts && opts.agent));'), '🚩 알리기 — agent 표식을 넘긴다');
+    assert.ok(read('js', 'sc-agent.js').includes('openAnswerReport(a.question, a.answer, b, { agent: true })'), '에이전트 답은 agent:true 로 알린다');
+    assert.ok(APP.includes('flag.onclick = () => openAnswerReport(message, j.answer, flag);'), '지금 길은 그대로(agent 없이)');
+    // js/sc-agent.js 의 이름을 app.js 가 부르면 typeof 로만(받기 전 · 받기 실패 — docs/notes/lazy-load.md)
+    const code = codeOnly(APP).split('\n');
+    for (const nm of declOf(read('js', 'sc-agent.js'))) for (const l of code)
+      if (wordRe(nm).test(l) && !l.includes('fn: "' + nm + '"')) assert.ok(l.includes('typeof ' + nm + ' === "function"'), nm + ' — typeof 없이: ' + l.trim());
+  });
+
+  test('화면 · api.sermonAnswerReport — agent 가 참이면 본문에 agent:true · 아니면 지금과 똑같은 본문', () => {
+    const src = slice(read('js', 'api.js'), 'const api = {', '\n};\n', 'js/api.js api 객체') + '\n};\n;api';
+    const A = vm.runInContext(src, vm.createContext({ supaCall: (a, p) => ({ a, p }), sermonCall: () => null }));
+    assert.deepEqual(J(A.sermonAnswerReport('u1', 'q', 'ans', 'wrong', 'n')),
+      { a: 'sermonAnswerReport', p: { user_id: 'u1', question: 'q', answer: 'ans', reason: 'wrong', note: 'n' } });
+    assert.deepEqual(J(A.sermonAnswerReport('u1', 'q', 'ans', 'wrong', 'n', true)),
+      { a: 'sermonAnswerReport', p: { user_id: 'u1', question: 'q', answer: 'ans', reason: 'wrong', note: 'n', agent: true } });
+    assert.ok(!('agent' in J(A.sermonAnswerReport('u1', 'q', 'ans', 'wrong', 'n', false)).p));
+  });
+
+  test('화면 · 옷 — .scg- 글자색에는 .dark 짝이 있다(CLAUDE.md — 어두운 모드에서 글씨가 묻히지 않게)', () => {
+    const CSS = read('style.css');
+    const rules = [...CSS.matchAll(/^(\.scg-[^{,]+?)\s*\{([^}]*)\}/gm)].filter((m) => /(^|[;{\s])color\s*:/.test(m[2]));
+    assert.ok(rules.length >= 10, '.scg- 덩이를 못 찾았다');
+    for (const m of rules) {
+      const sel = m[1].trim();
+      assert.ok(new RegExp('\\.dark ' + sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\w-])').test(CSS), sel + ' — .dark 짝이 없다');
+    }
+    assert.ok(CSS.includes('.scg-steps[hidden] { display: none; }'), '[hidden] 은 display 를 못 이긴다');
+  });
+
   // ── 화면 구역 끝 (Task 7 · 8 시험은 이 줄 위에 더한다) ──
 }

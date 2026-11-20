@@ -196,6 +196,7 @@ var LAZY_JS = {
   ministry: { src: "js/ministry.js", fn: "renderMinistry" },  // 🤝 사역신청 · 🗂️ 사역 이력 확인(2026-10-12 · 한 파일 · 신청 기간엔 모두에게 보이니 미리 받지 않고 확인 번호 문을 묻는 동안)
   navi: { src: "js/navi.js", fn: "renderNaviHome" },          // 📚 네비게이토 성경암송(2026-10-13 · 문 naviVisible 은 이 파일에 · 열면 모두에게 보이니 미리 받지 않고 누를 때)
   prayShare: { src: "js/pray-share.js", fn: "openPrayShare" },   // 📤 기도문 보내기(2026-11-04 · 기도문 화면의 단추를 누를 때 — js/prayer.js 안에서 부른다)
+  scAgent: { src: "js/sc-agent.js", fn: "scAgentAsk" },     // 💬 내게 주시는 말씀 에이전트(2026-11-20 · 문 scAgentVisible 은 이 파일에 · 질문을 누를 때 받는다 — 미리 받지 않는다)
 };
 var _lazyJsP = {};
 function lazyJsTag() {
@@ -380,12 +381,14 @@ function routeAfterLoad() {
   readAlbumPreviewParam();  // ?album=a · ?album=off — 나의 말씀 앨범 A안 미리보기(ALBUM_LAYOUT 위 주석)
   readMemoPreviewParam();   // ?memo=a|b|c · ?memo=off — 암송 화면 시안 미리보기(MEMO_KEY 위 주석)
   _naviPreview = getNaviPreview();   // ?navi=1 — 아래 passages·psalm 미리보기가 주소의 ? 뒤를 통째로 지우므로 그보다 먼저
+  _scAgentPreview = getScAgentPreview();   // ?scagent=1 — 💬 에이전트 미리보기(이 기기만 · 아래 passages·psalm 미리보기가 주소를 지우므로 그보다 먼저)
   _passagesPreview = getPassagesPreview();
   _psalmPreview = getPsalmPreview();
   _songPreview = getSongPreview();
   refreshPassagesPublic();
   refreshPsalmPublic();
   refreshNaviOpen();
+  refreshScAgent();   // 💬 에이전트 문(app_config scAgent) — 질문할 때 본다(첫 화면은 그대로라 다시 그리지 않는다)
   refreshEduOpen();
   refreshDutyOpen();
   refreshSongPublic();
@@ -664,6 +667,48 @@ function refreshNaviOpen() {   // 값은 === true 로만(문자열 "false" 는 �
   }).catch(() => {});   // 못 받으면 캐시를 그대로 둔다(통신이 잠깐 끊긴 것을 「닫힘」으로 바꾸지 않는다)
 }
 function naviVisible() { return _naviPreview || naviOpenCached() || ministryTesterCached(); }
+// 💬 「내게 주시는 말씀」 에이전트(2026-11-20 · 설계 docs/superpowers/specs/2026-11-20-sermon-agent-design.md §3) — app_config('scAgent'):
+//   비어 있음 = 닫힘 · "test" = 🧪 시험 참여자 · "on" = 모두(그 밖의 값은 닫힘 — 문자열 "true" 도). 화면 코드는 js/sc-agent.js(지연 · LAZY_JS.scAgent).
+//   막는 것은 서버다 — sermonAgent 가 같은 문을 보고, 닫혔으면 fallback 줄 → 화면은 지금 길(scAskClassic · sermonChat). 「모름」(캐시 없음 · 못 받음)은 닫힘 쪽.
+//   미리보기 ?scagent=1 — 이 기기 화면만 새 길로(서버 문이 닫혔으면 fallback 으로 지금 길이 된다 · 개발 DB 확인용).
+//   돌아갈 곳 — 에이전트 답의 「바로 외워 보기」로 연 구절은 그 화면의 「뒤로」가 답 화면으로 온다(js/sc-agent.js scAgentOpenVerse 가 scAgentReturnNo 를 놓는다 ·
+//     주간 renderTestScreen · 주제별 js/navi.js · 물가 js/psalm.js 의 뒤로가 scAgentBackTo 를 먼저 본다). 첫 화면 · 말씀 목록에 가면 잊는다.
+// ── 💬 에이전트 문 (여기부터) ──
+//   tests/sermon-agent.test.cjs 가 이 구간만 잘라 돌린다(localStorage · ministryTesterCached · renderSermonChat 만 쓴다).
+let _scAgentPreview = false;
+function getScAgentPreview() {   // ?scagent=1 — 그 칸만 지운다(getNaviPreview 와 같은 꼴)
+  try {
+    const url = new URL(location.href);
+    if (url.searchParams.get("scagent") !== "1") return false;
+    url.searchParams.delete("scagent");
+    history.replaceState(null, "", url.pathname + url.search + url.hash);
+    return true;
+  } catch (e) { return false; }
+}
+const SC_AGENT_KEY = "scAgent:v1";
+function scAgentCached() {
+  try { const v = localStorage.getItem(SC_AGENT_KEY); return v === "on" || v === "test" ? v : ""; } catch (e) { return ""; }
+}
+function refreshScAgent() {   // 값은 "on" · "test" 만 담는다(스킬 gated-feature ② — 다른 값을 참으로 읽지 않게)
+  if (!window.api || !api.getConfig) return;
+  api.getConfig("scAgent").then((d) => {
+    const v = d && (d.value === "on" || d.value === "test") ? d.value : "";
+    try { localStorage.setItem(SC_AGENT_KEY, v); } catch (e) {}
+  }).catch(() => {});   // 못 받으면 캐시를 그대로 둔다(통신이 잠깐 끊긴 것을 「닫힘」으로 바꾸지 않는다)
+}
+function scAgentVisible() {
+  const v = scAgentCached();
+  return _scAgentPreview || v === "on" || (v === "test" && ministryTesterCached());
+}
+let scAgentReturnNo = null;   // 「바로 외워 보기」로 연 구절 번호(js/sc-agent.js 가 놓는다) — 그 구절 화면의 「뒤로」가 답으로
+function scAgentBackIs(no) { return scAgentReturnNo != null && scAgentReturnNo === Number(no); }
+function scAgentBackTo(no) {
+  if (!scAgentBackIs(no)) return false;
+  scAgentReturnNo = null;
+  renderSermonChat();   // 그 끝에서 scAgentRestore 가 답을 다시 그린다
+  return true;
+}
+// ── 💬 에이전트 문 (여기까지) ──
 // 🎓 교육(2026-10-05) — app_config('eduOpen') 이 true 이거나 🧪 시험 참여자일 때만 첫 화면 단추. 막는 것은 서버(eduApply not-open).
 const EDU_PUB_KEY = "edu-open";
 function eduOpenCached() { try { return localStorage.getItem(EDU_PUB_KEY) === "1"; } catch (e) { return false; } }
@@ -3687,6 +3732,7 @@ const WEEKLY_SHARE = false;
 
 function renderSummary() {
   relearnBackToChallenge = false;   // 홈으로 나갔으면 도전 복귀도 없다
+  scAgentReturnNo = null;           // 💬 에이전트에서 연 구절의 「답으로」도 첫 화면으로 나가면 잊는다
   stopSpeaking(); // 화면 전환 시 읽어주기 정지
   const u = loadUser();
   if (!u) return renderEntryScreen();
@@ -4546,6 +4592,7 @@ function renderSermonChat() {
   document.getElementById("sc-q").addEventListener("keydown", (e) => { if (e.key === "Enter") scAsk(); });
   scBuildCloud();
   applyScA();   // 내게 주시는 말씀 A안(SC_LAYOUT)
+  if (typeof scAgentRestore === "function") scAgentRestore();   // 💬 에이전트 답에서 암송 · 설교 요약에 다녀왔으면 그 답을 다시 그린다(js/sc-agent.js)
 }
 
 // ── 💬 내게 주시는 말씀 A안(2026-10-14 친구 「2안 — 묻는 칸 크게 · 주제는 두 줄 타일」 · 샘플 자료/design/2026-10-14-sermonchat-sample · 스위치 SC_LAYOUT) ──
@@ -4608,9 +4655,39 @@ function scSelectTopic(i, btn) {
   });
   applyScTqsA();   // A안 — 예시 질문 줄 끝 ›
 }
+// 출처 설교 줄(답 아래) — 지금 길(scAskClassic)과 에이전트(js/sc-agent.js)가 같이 쓴다. 누르면 scOpenSermon(그 줄) 은 부르는 쪽이 단다(data-i = 목록 번호).
+function scSourcesHtml(list) {
+  return (Array.isArray(list) ? list : []).map((s0, i) => {
+    const s = s0 || {};
+    return `
+      <button class="sc-src" data-i="${i}">
+        <span class="sc-src-icon">📖</span>
+        <span class="sc-src-body">
+          <span class="sc-src-title">${boardEsc(s.title)}</span>
+          ${s.scripture ? `<span class="sc-src-scripture">${boardEsc(s.scripture)}</span>` : ""}
+          ${s.svc_date ? `<span class="sc-src-date">${boardEsc(s.svc_date)}</span>` : ""}
+        </span>
+        <span class="sc-src-arrow">›</span>
+      </button>`;
+  }).join("");
+}
+let scAgentAsking = false;   // 에이전트 답을 받는 중 — 그동안 질문 단추 · Enter 를 또 눌러도 두 번째 서버 부름을 보내지 않는다(옛 흐름이 하루 한도를 계속 쓴다)
 async function scAsk() {
   const message = document.getElementById("sc-q").value.trim();
   if (!message) return;
+  // 💬 에이전트 문(scAgentVisible)이 열렸으면 새 길(js/sc-agent.js · 지연) — 받기에 실패하면 지금 길(빈 화면을 보이지 않는다)
+  if (scAgentVisible()) {
+    if (scAgentAsking) return;
+    scAgentAsking = true;
+    try {
+      const ok = await loadLazyJs("scAgent").then(() => true, () => false);
+      if (ok && typeof scAgentAsk === "function") return await scAgentAsk(message);
+    } finally { scAgentAsking = false; }
+  }
+  return scAskClassic(message);
+}
+// 지금 길 — 설교 검색 답(sermonChat · 한 번에 받는다). 문이 닫힌 분 · 에이전트 받기 실패 · 에이전트가 첫 질문에 답을 못 냈을 때(js/sc-agent.js 가 부른다).
+async function scAskClassic(message) {
   // 예제 목록을 접어 답변이 밀리지 않게 하고, 답변 영역으로 스크롤한다.
   document.getElementById("sc-tqs").innerHTML = "";
   document.querySelectorAll("#sc-cloud button.on").forEach((b) => b.classList.remove("on"));
@@ -4624,16 +4701,7 @@ async function scAsk() {
   try {
     const j = await api.sermonChat(message, myUserId());
     scSources = j.sources || [];
-    const srcHtml = scSources.map((s, i) => `
-      <button class="sc-src" data-i="${i}">
-        <span class="sc-src-icon">📖</span>
-        <span class="sc-src-body">
-          <span class="sc-src-title">${boardEsc(s.title)}</span>
-          ${s.scripture ? `<span class="sc-src-scripture">${boardEsc(s.scripture)}</span>` : ""}
-          ${s.svc_date ? `<span class="sc-src-date">${boardEsc(s.svc_date)}</span>` : ""}
-        </span>
-        <span class="sc-src-arrow">›</span>
-      </button>`).join("");
+    const srcHtml = scSourcesHtml(scSources);
     out.innerHTML = `
       ${qEcho}
       <div class="sc-answer">${scEmphasis(j.answer)}</div>
@@ -4674,7 +4742,7 @@ function sermonReportErrorMsg(code) {
 }
 // ── AI 답 알리기 — 순수 (여기까지) ──
 
-function openAnswerReport(question, answer, btn) {
+function openAnswerReport(question, answer, btn, opts) {   // opts.agent — 💬 에이전트 답(js/sc-agent.js) · 서버가 캐시 kind "agent" 를 먼저 찾는다
   const uid = myUserId();
   if (!uid) { appAlert(sermonReportErrorMsg("no-user")); return; }
   const old = document.getElementById("ar-modal"); if (old) old.remove();
@@ -4722,7 +4790,7 @@ function openAnswerReport(question, answer, btn) {
     busy = true; send.disabled = true; send.textContent = "보내는 중…";
     const note = wrap.querySelector(".rp-note").value.trim();
     try {
-      await api.sermonAnswerReport(uid, question, answer, reason, note);   // 이미 알린 질문도 { ok, already } — 같은 인사
+      await api.sermonAnswerReport(uid, question, answer, reason, note, !!(opts && opts.agent));   // 이미 알린 질문도 { ok, already } — 같은 인사
     } catch (e) {
       busy = false; send.disabled = false; send.textContent = "알리기";
       errEl.textContent = sermonReportErrorMsg(e && e.message);
@@ -6401,6 +6469,7 @@ function vlListenInner() { return vlAOn() ? haSvg("speaker", "vs-spk") : "🔊";
 const VL_PLAY_SVG = `<svg class="vs-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7 4v16l13-8z"/></svg>`;
 
 function renderVerseList() {
+  scAgentReturnNo = null;   // 목록으로 왔으면 💬 에이전트 답으로 돌아갈 길은 끝(scAgentBackTo)
   const u = loadUser();
   const appEl = document.getElementById("app");
   const vlA = vlAOn() ? " vl-a" : "";   // 말씀 목록 A안(위 주석)
@@ -8065,7 +8134,7 @@ function renderTestScreen(verse, stage) {
           <div class="test-head">
             <div class="test-stage">${stage}단계${firstJourney ? stepDots(stage) : ""}</div>
           </div>
-          <button class="back-btn" id="back-to-list-btn">← 목록으로</button>
+          <button class="back-btn" id="back-to-list-btn">${scAgentBackIs(verse.no) ? "← 답으로" : "← 목록으로"}</button>
         </div>
         ${firstJourney && stage === 1 ? `<div class="first-guide">세 걸음이면 이 말씀을 외우게 돼요</div>` : ""}
         <div class="test-sentence">${wordsHtml}</div>
@@ -8096,7 +8165,7 @@ function renderTestScreen(verse, stage) {
   scrollPastBtnRow();
   document
     .getElementById("back-to-list-btn")
-    .addEventListener("click", () => { stopSpeaking(); renderVerseList(); });
+    .addEventListener("click", () => { stopSpeaking(); if (scAgentBackTo(verse.no)) return; renderVerseList(); });   // 💬 에이전트 「바로 외워 보기」로 온 구절이면 답 화면으로
 
   // 이 구절에 대응하는 설교 요약이 있으면 배너 아래에 '설교 요약 보기' 버튼을 채운다.
   fillSermonSummaryBtn(verse, stage);
@@ -8302,7 +8371,7 @@ function applyMemoLayout(verse, stage, rerender) {
   head.className = "mm-head";
   if (back) {
     back.classList.add("mm-back");
-    back.innerHTML = mmSvg("back") + "<span>목록으로</span>";   // 셋 다 「목록으로」(친구 2026-10-14 — 처음엔 A 「목록」 · B 아이콘만)
+    back.innerHTML = mmSvg("back") + "<span>" + (scAgentBackIs(verse && verse.no) ? "답으로" : "목록으로") + "</span>";   // 셋 다 「목록으로」(친구 2026-10-14 — 처음엔 A 「목록」 · B 아이콘만) · 💬 에이전트에서 온 구절이면 「답으로」(아이폰 띠 단추도 이 글을 읽는다)
     head.appendChild(back);
   }
   const steps = document.createElement("div");

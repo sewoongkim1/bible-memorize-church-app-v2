@@ -149,8 +149,9 @@ const api = {
   boardBlock: (kind, id, user_id) => supaCall("boardBlock", { kind, id, user_id }),
   boardBlocks: (user_id) => supaCall("boardBlocks", { user_id }),           // { ok, list:[{ id, name, created_at }] }
   boardUnblock: (user_id, block_id) => supaCall("boardUnblock", { user_id, block_id }),
-  sermonAnswerReport: (user_id, question, answer, reason, note) =>
-    supaCall("sermonAnswerReport", { user_id, question, answer, reason, note }),
+  // agent — 💬 에이전트 답이면 true(2026-11-20 · 서버가 sermon_ai_cache kind "agent" 를 먼저 찾는다) · 아니면 본문이 전과 똑같다
+  sermonAnswerReport: (user_id, question, answer, reason, note, agent) =>
+    supaCall("sermonAnswerReport", { user_id, question, answer, reason, note, ...(agent ? { agent: true } : {}) }),
   // track 을 안 주면 지금과 똑같이 주간 35구절. "psalm" 이면 시편 말씀 액자(열린 것만).
   getVerses: (track) => supaCall("getVerses", track ? { track } : {}),
   getSermons: () => sermonCall("getSermons"),   // 말씀 아카이브 설교 목록 { ok, sermons:[{memVerseNo,scripture,summary,title,...}] }

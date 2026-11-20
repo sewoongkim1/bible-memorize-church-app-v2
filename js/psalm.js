@@ -305,7 +305,7 @@ function renderPsalmStage(verse, stage) {
     </div>`;
   window.scrollTo(0, 0);
 
-  document.getElementById("ps-back").addEventListener("click", () => { psalmReviewCtx = null; stopSpeaking(); renderPsalmHome(verse.dayNo); });
+  document.getElementById("ps-back").addEventListener("click", () => { psalmReviewCtx = null; stopSpeaking(); if (typeof scAgentBackTo === "function" && scAgentBackTo(verse.no)) return; renderPsalmHome(verse.dayNo); });   // 💬 에이전트에서 온 구절이면 답 화면으로(app.js)
   document.getElementById("ps-next").addEventListener("click", () => psalmStartMemorize(verse));
 
   // 낭독은 「요절 → (쉼) → 말씀」 — 앨범·말씀 목록과 같은 순서다.
@@ -382,7 +382,7 @@ function renderPsalmBlank(verse, stage) {
   // ⚠️ 이 화면은 복습(renderPsalmReview)도 함께 쓴다 — 여기서 나가면(복습 중이든 아니든)
   //    깃발을 반드시 내린다. 안 내리면 다음에 여는 아무 시편 구절이나 「복습」으로 찍히고,
   //    그 구절을 정상으로 마쳤을 때 saveProgress 가 건너뛰어진다(2026-09-10 리뷰 지적).
-  document.getElementById("ps-back").addEventListener("click", () => { psalmReviewCtx = null; stopSpeaking(); renderPsalmHome(verse.dayNo); });
+  document.getElementById("ps-back").addEventListener("click", () => { psalmReviewCtx = null; stopSpeaking(); if (typeof scAgentBackTo === "function" && scAgentBackTo(verse.no)) return; renderPsalmHome(verse.dayNo); });   // 💬 에이전트에서 온 구절이면 답 화면으로(app.js)
   document.getElementById("ps-listen").addEventListener("click", () => speakText(verseSpokenText(verse)));
 
   const ap = document.getElementById("ps-answer-panel");
