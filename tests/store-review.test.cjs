@@ -37,6 +37,10 @@ const textOf = (html) => String(html).replace(/<[^>]*>/g, '').replace(/&nbsp;/g,
 
 const APP = read('app.js');
 const TS = read('supabase/functions/api/index.ts');
+// api 함수의 모든 .ts(영역 파일 — psalm · blessing · navi · verse-emoji · sermon-agent …) — 바깥 주소 검사만 이것을 읽는다.
+// index.ts 만 읽으면 새 영역 파일이 부르는 바깥 서비스를 못 본다(2026-11 「내게 주시는 말씀」 에이전트 sermon-agent.ts).
+const TS_ALL = fs.readdirSync(path.join(root, 'supabase/functions/api')).filter((f) => f.endsWith('.ts')).sort()
+  .map((f) => read('supabase/functions/api/' + f)).join('\n');
 const PRIVACY = read('privacy/index.html');
 
 // ── 서버(index.ts) 순수 구간 ──
@@ -458,7 +462,7 @@ test('개인정보 — privacy/ 3항 · 4항 · 6항이 보내기 기록을 말�
 });
 
 // 2026-10-01 검토 F3 — 서버가 바깥으로 부르는 주소가 방침 2항 「아래 서비스가 기능 수행에 관여」 표에 다 있는가.
-// Voyage AI(질문 글 → 설교 검색용 숫자)와 Resend(주간 보고 메일 — 참여자 이름·소속)가 빠져 있었다.
+// Voyage AI(질문 글 → 설교 · 구절 검색용 숫자)와 Resend(주간 보고 메일 — 참여자 이름·소속)가 빠져 있었다.
 // 새 주소가 생기면 여기서 멈춘다: 성도님 정보가 가면 2항 표에 한 줄 + OUTBOUND_IN_POLICY,
 // 안 가면 OUTBOUND_NO_MEMBER_DATA 에 까닭과 함께. (웹 푸시 주소는 기기마다 달라 코드에 글자로 없다 — 표의 「Google / Apple 푸시」)
 const OUTBOUND_IN_POLICY = {
@@ -479,10 +483,10 @@ const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 test('개인정보 2항 — 서버가 성도님 정보를 보내는 바깥 서비스가 표에 모두 있고, 무엇이 가는지도 적혀 있다', () => {
   const p2raw = cut(PRIVACY, '<h2>2. 어디에 보관하나</h2>', '<h2>3. 얼마나 보관하나</h2>', 'privacy/index.html');
   const rows = [...p2raw.matchAll(/<tr>[\s\S]*?<\/tr>/g)].map((x) => textOf(x[0]));
-  const hosts = new Set([...TS.matchAll(/https:\/\/([a-z0-9.-]+)/gi)].map((x) => x[1].toLowerCase()));
+  const hosts = new Set([...TS_ALL.matchAll(/https:\/\/([a-z0-9.-]+)/gi)].map((x) => x[1].toLowerCase()));
   for (const h of hosts) {
     if (own(OUTBOUND_NO_MEMBER_DATA, h)) continue;
-    assert.ok(own(OUTBOUND_IN_POLICY, h), 'index.ts 가 새 바깥 주소 ' + h + ' 를 부른다 — 성도님 정보가 가면 privacy/ 2항 표에 적고 ' +
+    assert.ok(own(OUTBOUND_IN_POLICY, h), 'api 함수(supabase/functions/api/*.ts)가 새 바깥 주소 ' + h + ' 를 부른다 — 성도님 정보가 가면 privacy/ 2항 표에 적고 ' +
       'OUTBOUND_IN_POLICY 에, 안 가면 OUTBOUND_NO_MEMBER_DATA 에 까닭과 함께 더하라');
     const { name, sends } = OUTBOUND_IN_POLICY[h];
     const row = rows.find((r) => r.includes(name));
@@ -490,6 +494,17 @@ test('개인정보 2항 — 서버가 성도님 정보를 보내는 바깥 서�
     assert.ok(row.includes(sends), 'privacy/ 2항 ' + name + ' 줄에 전달되는 것(' + sends + ')이 없다: ' + row);
   }
   assert.ok(rows.find((r) => r.includes('Resend')).includes('운영진'), 'Resend 줄이 운영진에게만 가는 메일이라는 것을 안 적었다');
+});
+
+// 2026-11 「내게 주시는 말씀」 에이전트 — 질문뿐 아니라 앱의 암송 구절도 Voyage 로 검색용 숫자로 바꾼다(verse_embed · find_verses).
+// 방침 2항 Voyage 줄이 그것을 말하나. 앱 안 두 곳(renderPrivacyInfo · renderHelp)은 「답을 찾는/만드는 AI 에 전달」이라 그대로 사실이다
+// (docs/notes/sermon-agent.md 「개인정보」). 전달되는 것(입력한 질문 글)은 바뀌지 않았다 — 스토어 신고도 그대로.
+test('개인정보 2항 — Voyage AI 줄이 설교 · 구절 검색을 함께 말한다', () => {
+  const p2raw = cut(PRIVACY, '<h2>2. 어디에 보관하나</h2>', '<h2>3. 얼마나 보관하나</h2>', 'privacy/index.html');
+  const row = [...p2raw.matchAll(/<tr>[\s\S]*?<\/tr>/g)].map((x) => textOf(x[0])).find((r) => r.includes('Voyage AI'));
+  assert.ok(row, 'privacy/ 2항 표에 Voyage AI 줄이 없다');
+  assert.ok(row.includes('설교 · 구절 검색용'), 'privacy/ 2항 Voyage AI 줄이 「설교 · 구절 검색용」을 말하지 않는다: ' + row);
+  assert.ok(row.includes('입력한 질문 글'), 'privacy/ 2항 Voyage AI 줄의 「전달되는 것」이 바뀌었다: ' + row);
 });
 
 test('개인정보 5항 — 「지워지는 것」에 빠진 것이 없다', () => {
