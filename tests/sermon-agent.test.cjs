@@ -122,3 +122,31 @@ test('⑦ agentUserText — 질문은 꺾쇠를 걷어 <질문> 안에 · 되묻
   assert.ok(c.includes('[앞에서 권한 것은 다시 찾지 못했다]'));
   assert.ok(!c.includes('<b>'));
 });
+
+// ── ⑧ 도구 — 설교 찾기는 sermonChat 과 같은 길 · 구절 찾기는 보이는 묶음만 · 돌려준 것만 seen 에 ──
+// 함수 몸통 — 「async function 이름(」부터 첫 「\n}\n」(줄 머리의 닫는 괄호)까지
+const fnOf = (src, name, file) => {
+  const s = src.indexOf('async function ' + name + '(');
+  assert.ok(s >= 0, (file || 'sermon-agent.ts') + ' 에 ' + name + ' 이 없다');
+  return src.slice(s, src.indexOf('\n}\n', s));
+};
+
+test('⑧ 도구 — search_sermons · find_verses 의 길', () => {
+  assert.match(SRC, /^import \{ getPsalmVerses \} from "\.\/psalm\.ts";/m, '물가 잠금은 psalm.ts 의 판정을 쓴다');
+  const ss = fnOf(SRC, 'agentSearchSermons');
+  assert.match(ss, /deps\.embedVoyage\(\[query\], "query"\)/);
+  assert.match(ss, /rpc\("match_sermon_chunks", \{ query_embedding: qvec, match_count: AGENT_LIMITS\.sermonHits \}\)/);
+  assert.match(ss, /similarity >= AGENT_LIMITS\.minSim/);
+  assert.match(ss, /run\.seen\.sermonIds\.add\(/);
+  const vis = fnOf(SRC, 'agentVisibleVerses');
+  assert.match(vis, /\.eq\("is_active", true\)\.in\("track", run\.tracks\)/);
+  assert.match(vis, /await getPsalmVerses\(\)/);
+  assert.match(fnOf(SRC, 'agentFillVerseEmbeds'), /deps\.embedVoyage\(.*"document"\)/);
+  const fv = fnOf(SRC, 'agentFindVerses');
+  assert.match(fv, /rpc\("match_verse_embed", \{/);
+  assert.match(fv, /visible\.has\(Number\(r\.no\)\)/, '표에 남은 옛 줄을 보이는 묶음으로 다시 거른다');
+  assert.match(fv, /run\.seen\.verseNos\.add\(/);
+  const rt = fnOf(SRC, 'agentRunTool');
+  for (const st of ['"start"', '"done"', '"fail"']) assert.ok(rt.includes('state: ' + st), 'step 줄 ' + st);
+  assert.match(rt, /run\.toolCalls >= AGENT_LIMITS\.tools/);
+});

@@ -6,6 +6,7 @@
 //   ⚠️ index.ts 를 들여오지 않는다(들머리와 고리) — index.ts 의 도우미는 deps(AGENT_DEPS)로 받는다.
 //   ⚠️ sermonChat(index.ts)은 손대지 않는다 — 문(scAgent)이 닫힌 분과 되돌림(fallback)이 그 길을 쓴다.
 // ============================================================
+import { getPsalmVerses } from "./psalm.ts";   // 쉴만한 물가 잠금 — 안 열린 편은 안 내려보낸다(같은 판정을 쓴다)
 
 // ── 에이전트 — 순수 함수 (여기부터) ──
 //   tests/sermon-agent.test.cjs 가 이 구간만 잘라(export 를 떼고) node:vm 에서 돌린다 — 타입 표기 · import 를 넣지 말 것.
@@ -100,3 +101,153 @@ export function agentUserText(message, chip, prevNote) {
   return parts.join("\n\n");
 }
 // ── 에이전트 — 순수 함수 (여기까지) ──
+
+// ---------- 형 ----------
+// deps 의 꼴 — index.ts 의 AGENT_DEPS 가 채운다.
+//   ⚠️ "db" 는 따옴표로 둔다 — tests/api-split.test.cjs ⑤ 가 맨 이름 db 를 _shared.ts 의 것으로 보고 「들여오지 않았다」로 막는다. 늘 deps.db 로 부른다.
+type AgentDeps = {
+  "db": any;
+  embedVoyage: (texts: string[], inputType: "document" | "query") => Promise<number[][]>;
+  sermonQuestionKey: (m: unknown) => string;
+  kstDayStartIso: () => string;
+  ministryIsTester: (userId: string) => Promise<boolean>;
+  readConfig: (key: string) => Promise<any>;
+  cors: Record<string, string>;
+  chat: { maxChars: number; perDay: number; allPerDay: number };
+};
+type AgentVerse = { no: number; track: string; ref: string; text: string };
+type AgentRun = {
+  seen: { verseNos: Set<number>; sermonIds: Set<string> };   // 도구가 실제로 돌려준 것 — sanitizeAgentAnswer 가 본다
+  hits: Map<string, any>;                // sermon_id → 처음 잡힌 발췌 줄(출처 칸을 만든다)
+  verseInfo: Map<number, AgentVerse>;    // find_verses 가 돌려준 구절(답 줄의 ref · text · track)
+  visible: Map<number, AgentVerse> | null;   // 이 성도님께 보이는 구절(한 번만 읽는다)
+  tracks: string[];
+  toolCalls: number; aiCalls: number; inTok: number; outTok: number; stepId: number;
+  sermonDone: boolean; verseDone: boolean;
+};
+type AgentSend = (obj: Record<string, unknown>) => void;
+
+// ---------- 도구 ① search_sermons — sermonChat 과 같은 길(Voyage → match_sermon_chunks 5개 → 유사도 0.4 이상) ----------
+async function agentSearchSermons(deps: AgentDeps, run: AgentRun, query: string): Promise<{ n: number; content: string }> {
+  const [qvec] = await deps.embedVoyage([query], "query");
+  const { data, error } = await deps.db.rpc("match_sermon_chunks", { query_embedding: qvec, match_count: AGENT_LIMITS.sermonHits });
+  if (error) throw error;
+  const hits = (data ?? []).filter((m: any) => m.similarity >= AGENT_LIMITS.minSim);
+  const ids = new Set<string>();
+  for (const m of hits) {
+    const sid = String(m.sermon_id);
+    ids.add(sid);
+    run.seen.sermonIds.add(sid);
+    if (!run.hits.has(sid)) run.hits.set(sid, m);
+  }
+  if (!hits.length) return { n: 0, content: "이 찾을 말로는 유사도 0.4 이상인 설교 발췌가 없다." };
+  const content = hits.map((m: any, i: number) =>
+    `[발췌 ${i + 1}] sermon_id=${m.sermon_id} · ${m.title} (${m.svc_date ?? "날짜미상"} · ${m.scripture ?? ""})\n${m.content}`
+  ).join("\n\n");
+  return { n: ids.size, content };
+}
+
+// ---------- 도구 ② find_verses — 이 성도님께 보이는 묶음의 구절만 ----------
+// 보이는 구절 — 주간: 아직 오지 않은 주(date 가 지금 뒤)는 뺀다 · 물가: getPsalmVerses() 가 돌려준(열린) 편만 · navi: tracks 에 있을 때 전부.
+async function agentVisibleVerses(deps: AgentDeps, run: AgentRun): Promise<Map<number, AgentVerse>> {
+  if (run.visible) return run.visible;
+  const { data, error } = await deps.db.from("verses").select("no, track, ref, text, date")
+    .eq("is_active", true).in("track", run.tracks);
+  if (error) throw error;
+  let psalmOpen: Set<number> | null = null;
+  if (run.tracks.includes("psalm")) {
+    const p: any = await getPsalmVerses();
+    psalmOpen = new Set((p?.verses ?? []).map((v: any) => Number(v.no)));
+  }
+  // 한국 날짜 번호 — 화면 getWeeklyVerseInfo(kstDayNumber)와 같은 셈: 날짜가 오늘(한국) 이전인 주만 「온 주」다
+  const kd = (ms: number) => Math.floor((ms + 9 * 3600 * 1000) / 86400000);
+  const today = kd(Date.now());
+  const map = new Map<number, AgentVerse>();
+  for (const v of data ?? []) {
+    const no = Number(v.no);
+    if (!v.text) continue;
+    if (v.track === "psalm" && !(psalmOpen && psalmOpen.has(no))) continue;
+    if (v.track === "weekly" && v.date && kd(Date.parse(v.date)) > today) continue;   // 아직 오지 않은 주(날짜를 못 읽으면 NaN → 남긴다)
+    map.set(no, { no, track: String(v.track), ref: String(v.ref ?? ""), text: String(v.text) });
+  }
+  run.visible = map;
+  return map;
+}
+
+// 본문 해시 — 모델 이름을 함께 넣는다(임베딩 모델이 바뀌면 모두 다시 채운다). index.ts embedVoyage 의 모델과 같다.
+const AGENT_EMBED_MODEL = "voyage-3-large";
+async function agentHashText(s: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(AGENT_EMBED_MODEL + "\n" + s));
+  return Array.from(new Uint8Array(buf)).map((x) => x.toString(16).padStart(2, "0")).join("");
+}
+
+// 임베딩이 없거나 본문이 바뀐 구절만 찾기 **직전에** 채운다(설계 §2-2) — 새 주간 구절이 들어온 첫 질문만 조금 느리다.
+//   64개씩 Voyage(document) → verse_embed upsert. 둘이 동시에 채워도 같은 값으로 덮을 뿐이다.
+async function agentFillVerseEmbeds(deps: AgentDeps, visible: Map<number, AgentVerse>): Promise<number> {
+  const tracks = [...new Set([...visible.values()].map((v) => v.track))];
+  const { data, error } = await deps.db.from("verse_embed").select("track, no, text_hash").in("track", tracks);
+  if (error) throw error;
+  const have = new Map<string, string>((data ?? []).map((r: any) => [r.track + ":" + r.no, String(r.text_hash)]));
+  const stale: { v: AgentVerse; input: string; hash: string }[] = [];
+  for (const v of visible.values()) {
+    const input = `${v.ref} ${v.text}`;
+    const hash = await agentHashText(input);
+    if (have.get(v.track + ":" + v.no) !== hash) stale.push({ v, input, hash });
+  }
+  for (let i = 0; i < stale.length; i += 64) {
+    const part = stale.slice(i, i + 64);
+    const vecs = await deps.embedVoyage(part.map((x) => x.input), "document");
+    const at = new Date().toISOString();
+    const rows = part.map((x, j) => ({ track: x.v.track, no: x.v.no, text_hash: x.hash, embedding: vecs[j], updated_at: at }));
+    const { error: e2 } = await deps.db.from("verse_embed").upsert(rows, { onConflict: "track,no" });
+    if (e2) throw e2;
+  }
+  return stale.length;
+}
+
+async function agentFindVerses(deps: AgentDeps, run: AgentRun, topic: string): Promise<{ n: number; content: string }> {
+  const visible = await agentVisibleVerses(deps, run);
+  if (!visible.size) return { n: 0, content: "지금 이 성도님께 보이는 암송 구절이 없다." };
+  await agentFillVerseEmbeds(deps, visible);
+  const [qvec] = await deps.embedVoyage([topic], "query");
+  const { data, error } = await deps.db.rpc("match_verse_embed", {
+    query_embedding: qvec, tracks: run.tracks, match_count: AGENT_LIMITS.verseHits * 2,
+  });
+  if (error) throw error;
+  // 표에 남은 옛 줄(그사이 꺼지거나 잠긴 구절)은 보이는 묶음으로 한 번 더 거른다 — 밖의 것은 AI 에게도 안 보인다
+  const rows = (data ?? []).filter((r: any) => visible.has(Number(r.no))).slice(0, AGENT_LIMITS.verseHits);
+  const found: AgentVerse[] = rows.map((r: any) => visible.get(Number(r.no))!);
+  for (const v of found) {
+    run.seen.verseNos.add(v.no);
+    run.verseInfo.set(v.no, v);
+  }
+  if (!found.length) return { n: 0, content: "맞는 암송 구절을 찾지 못했다." };
+  return { n: found.length, content: found.map((v) => `no=${v.no} · ${v.ref}\n${v.text}`).join("\n\n") };
+}
+
+// ---------- 도구 부름 하나 → step 줄 + tool_result ----------
+// step 줄은 도구를 부르기 **직전**(start · q = AI 가 넘긴 찾을 말 그대로)과 결과를 받은 **직후**(done · n / fail)에 보낸다.
+//   정해 둔 문구를 시간 맞춰 띄우지 않는다(설계 §1-1). 한도를 넘은 부름 · 모르는 도구 · 빈 찾을 말은 줄 없이 오류 결과만.
+async function agentRunTool(deps: AgentDeps, run: AgentRun, tu: any, send: AgentSend): Promise<any> {
+  const name = String(tu?.name ?? "");
+  const input = tu?.input && typeof tu.input === "object" ? tu.input : {};
+  const bad = (msg: string) => ({ type: "tool_result", tool_use_id: tu?.id, is_error: true, content: msg });
+  const kind = name === "search_sermons" ? "sermon" : name === "find_verses" ? "verse" : "";
+  if (!kind) return bad("없는 도구다. search_sermons · find_verses · give_answer 만 쓸 수 있다.");
+  if (run.toolCalls >= AGENT_LIMITS.tools) return bad("도구 한도(4번)를 다 썼다. 지금까지 찾은 것으로 give_answer 를 불러라.");
+  const q = agentClip(kind === "sermon" ? input.query : input.topic, 60);
+  if (!q) return bad((kind === "sermon" ? "query" : "topic") + " 가 비었다.");
+  run.toolCalls++;
+  const id = ++run.stepId;
+  send({ t: "step", id, kind, q, state: "start" });
+  try {
+    const r = kind === "sermon" ? await agentSearchSermons(deps, run, q) : await agentFindVerses(deps, run, q);
+    if (kind === "sermon") run.sermonDone = true; else run.verseDone = true;
+    send({ t: "step", id, kind, q, state: "done", n: r.n });
+    return { type: "tool_result", tool_use_id: tu.id, content: r.content };
+  } catch (e) {
+    console.error("sermonAgent tool", name, String((e as Error)?.message ?? e).slice(0, 200));
+    send({ t: "step", id, kind, q, state: "fail" });
+    return bad("찾기에 실패했다. 이 도구 없이 지금까지 찾은 것으로 계속하라.");
+  }
+}
