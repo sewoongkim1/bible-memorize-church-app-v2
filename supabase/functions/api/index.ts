@@ -12,6 +12,7 @@ import { getPsalmVerses, getTodayPsalm } from "./psalm.ts";
 import { getNaviVerses } from "./navi.ts";   // 📚 네비게이토 성경암송(2026-10-13 · getVerses track:"navi" · docs/notes/navigators.md)
 import { getBlessings, blessingLog, getTodayBlessing, blessingUsage } from "./blessing.ts";
 import { clientError } from "./client-errors.ts";   // 화면 오류 모으기(2026-10-12 · 문 errorLogOn · docs/notes/client-errors.md)
+import { sermonAgentStream } from "./sermon-agent.ts";   // 💬 내게 주시는 말씀 에이전트(2026-11-20 · 문 scAgent · NDJSON 흐름 · docs/superpowers/specs/2026-11-20-sermon-agent-design.md)
 import { widgetVerseBadge, queueVerseEmojiFill } from "./verse-emoji.ts";   // 이번주 말씀 위젯 머리말 「🐑 3일째」(2026-10-13)
 
 const VAPID_PUBLIC = Deno.env.get("VAPID_PUBLIC");
@@ -516,6 +517,7 @@ Deno.serve(async (req) => {
       (body as any)[INTERNAL_OK] = true;
     }
     switch (body.action) {
+      case "sermonAgent": return await sermonAgentStream(body, AGENT_DEPS);   // 성도 — 💬 내게 주시는 말씀 에이전트(json 이 아니라 NDJSON 흐름 · 문 scAgent · 닫히면 fallback 줄)
       case "authCheck": {   // 관리자 비번 검증(허브 로그인용)
         const e = adminError(body);
         return json(e ? { ok: false, error: e } : { ok: true }, e ? 403 : 200);
@@ -3000,7 +3002,7 @@ async function login(b: any) {
 
 // ---------- app_config: 관리자가 배포 없이 편집하는 설정(키-값) ----------
 // 공개로 읽어도 되는 키만 화이트리스트로 허용(임의 키 노출 방지).
-const PUBLIC_CONFIG_KEYS = new Set(["heartMessages", "dailyMessage", "introSlides", "milestoneMessages", "passagesPublic", "psalmPublic", "songPublic", "event", "ministry", "eduOpen", "dutyOpen", "errorLogOn", "naviPublic", "cardSeasons"]);
+const PUBLIC_CONFIG_KEYS = new Set(["heartMessages", "dailyMessage", "introSlides", "milestoneMessages", "passagesPublic", "psalmPublic", "songPublic", "event", "ministry", "eduOpen", "dutyOpen", "errorLogOn", "naviPublic", "cardSeasons", "scAgent"]);
 const STRICT_CONFIG_KEYS = new Set(["cardSeasons"]);   // 읽기 오류를 null 로 뭉개지 않는 키(getConfig) — 담당자 화면이 읽은 값 위에 덮어쓰는 키
 
 async function getConfig(b: any) {
@@ -4598,6 +4600,19 @@ const kstDayStartIso = () => {
   const k = new Date(Date.now() + 9 * 3600 * 1000);
   k.setUTCHours(0, 0, 0, 0);
   return new Date(k.getTime() - 9 * 3600 * 1000).toISOString();
+};
+
+// 💬 「내게 주시는 말씀」 에이전트(sermon-agent.ts)에 넘기는 index.ts 의 도우미 — 영역 파일은 index.ts 를 들여오지 않는다(고리).
+//   ⚠️ 이 자리(kstDayStartIso 아래)에 둔다 — const 를 그 선언보다 위에서 담으면 모듈을 읽는 순간 ReferenceError 로 함수가 통째로 죽는다.
+//   app_config 한 값 — 읽기 오류는 던진다(받는 쪽이 「닫힘」 · 「꺼짐」으로 본다).
+async function agentReadConfig(key: string) {
+  const { data, error } = await db.from("app_config").select("value").eq("key", key).maybeSingle();
+  if (error) throw error;
+  return data?.value ?? null;
+}
+const AGENT_DEPS = {
+  db, embedVoyage, sermonQuestionKey, kstDayStartIso, ministryIsTester, readConfig: agentReadConfig, cors,
+  chat: { maxChars: SERMON_CHAT_MAX_CHARS, perDay: SERMON_CHAT_PER_DAY, allPerDay: SERMON_CHAT_ALL_PER_DAY },
 };
 
 // 하루 지난 주인 없는 사진 치우기 — 올릴 때마다 조금씩(열 장). 표가 없으면(SQL 전) 아무것도 안 한다.

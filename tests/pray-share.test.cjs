@@ -1889,7 +1889,7 @@ test('💌 주제 고르기 배선 — 문(CARD_TOPICS_OPEN = true · 11-10 모�
   assert.ok(h.includes('} else if (typeof openCardPick === "function") openCardPick(cardSuneungOn());'), '문 밖 · 옛 pray-share.js — 지금 판 그대로');
   const rf = cut(APP, 'function refreshCardSeasons(then) {', '\n}\n');
   assert.ok(rf.includes('api.getConfig("cardSeasons")') && rf.includes('if (!(d && d.ok && d.value && typeof d.value === "object")) return;'), '모름(통신 · ok:false · 옛 서버) · 빈 값은 둔 값 그대로');
-  assert.ok(read('supabase', 'functions', 'api', 'index.ts').includes('"naviPublic", "cardSeasons"]);'), 'api 공개 설정 목록에 cardSeasons(교회 어드민이 쓰고 앱이 읽는다)');
+  assert.ok(read('supabase', 'functions', 'api', 'index.ts').includes('"naviPublic", "cardSeasons"'), 'api 공개 설정 목록에 cardSeasons(교회 어드민이 쓰고 앱이 읽는다)');
   const others = ['js/pray-share.js', 'js/prayer.js'].map((f) => read(...f.split('/'))).join('\n');
   for (const nm of ['CARD_TOPICS_OPEN', 'cardTopicsVisible', 'CARD_SEASONS_KEY', 'cardSeasonsCached', 'refreshCardSeasons']) assert.ok(!others.includes('const ' + nm + ' ') && !others.includes('function ' + nm + '('), nm + ' 를 다른 화면 파일이 선언한다');
   for (const nm of ['openCardTopics', 'pshTopicPick', 'pshTopicBack', 'pshTopicPop', 'pshTopicShow', 'pshTopicsUpdate', 'cardSeasonOn', 'cardSeasonWin', 'cardTopicGroups', 'cardTopicName', 'cardKstYmd', 'pshTopicTitle', 'pshTopicListHtml', 'pshTopicsFill', 'pshTopicImgs', 'pshTopicGroupsNow'])

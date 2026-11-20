@@ -150,3 +150,49 @@ test('⑧ 도구 — search_sermons · find_verses 의 길', () => {
   for (const st of ['"start"', '"done"', '"fail"']) assert.ok(rt.includes('state: ' + st), 'step 줄 ' + st);
   assert.match(rt, /run\.toolCalls >= AGENT_LIMITS\.tools/);
 });
+
+// ── ⑨ 흐름과 index.ts 이음 ──
+const INDEX = fs.readFileSync(path.join(DIR, 'index.ts'), 'utf8').replace(/\r\n/g, '\n');
+
+test('⑨ index.ts — 들여오기 · case(배포 가드가 센다) · AGENT_DEPS 자리 · 공개 설정 키', () => {
+  assert.match(INDEX, /^import \{ sermonAgentStream \} from "\.\/sermon-agent\.ts";/m);
+  assert.match(INDEX, /switch \(body\.action\) \{\n\s*case "sermonAgent": return await sermonAgentStream\(body, AGENT_DEPS\);/,
+    'case "sermonAgent" 는 switch 의 첫 갈래로(이름 표와 다른 점 2)');
+  const kst = INDEX.indexOf('const kstDayStartIso = ');
+  const dep = INDEX.indexOf('const AGENT_DEPS = {');
+  assert.ok(kst > 0 && dep > kst, 'AGENT_DEPS 는 kstDayStartIso 선언 **아래**에 — 위에 두면 모듈을 읽는 순간 ReferenceError 로 함수가 통째로 죽는다');
+  const body = INDEX.slice(dep, INDEX.indexOf('};', dep));
+  for (const k of ['db', 'embedVoyage', 'sermonQuestionKey', 'kstDayStartIso', 'ministryIsTester', 'readConfig', 'cors', 'chat'])
+    assert.ok(new RegExp('\\b' + k + '\\b').test(body), 'AGENT_DEPS 에 ' + k + ' 가 없다');
+  assert.match(body, /maxChars: SERMON_CHAT_MAX_CHARS, perDay: SERMON_CHAT_PER_DAY, allPerDay: SERMON_CHAT_ALL_PER_DAY/);
+  const pub = INDEX.match(/const PUBLIC_CONFIG_KEYS = new Set\(\[([^\]]*)\]\)/);
+  assert.ok(pub && /"scAgent"/.test(pub[1]), 'PUBLIC_CONFIG_KEYS 에 scAgent 가 없다 — 화면이 문을 못 읽는다');
+});
+
+test('⑨ 흐름 — NDJSON 머리 · 모델 기본값 · 지킴이 문장 그대로 · 기록에 사람 없음 · 저장 kind agent · 문', () => {
+  assert.match(SRC, /export async function sermonAgentStream\(/);
+  assert.match(SRC, /"content-type": "application\/x-ndjson; charset=utf-8"/);
+  assert.match(SRC, /"cache-control": "no-store"/);
+  const m1 = INDEX.match(/SERMON_CHAT_MODEL"\) \|\| "([^"]+)"/), m2 = SRC.match(/SERMON_CHAT_MODEL"\) \|\| "([^"]+)"/);
+  assert.ok(m1 && m2, '모델 기본값을 못 찾았다');
+  assert.equal(m2[1], m1[1], '모델 기본값이 sermonChat 과 다르다');
+  const chat = fnOf(INDEX, 'sermonChat', 'index.ts');
+  const sys = chat.slice(chat.indexOf('const system = ['), chat.indexOf('].join("\\n");'));
+  const lits = sys.match(/"(?:[^"\\\n]|\\.)*"/g) || [];
+  assert.ok(lits.length >= 7, 'sermonChat 지시문을 못 찾았다 — 이 검사가 낡았다');
+  for (const l of lits) assert.ok(SRC.includes(l), 'sermonChat 지킴이 문장이 글자 그대로 옮겨지지 않았다: ' + l.slice(0, 40));
+  const rec = fnOf(SRC, 'agentRecord');
+  assert.ok(!/\b(user_id|name|gu|mok)\b/.test(rec), 'sermon_agent_run 에 사람을 싣지 않는다');
+  assert.match(rec, /\.lt\("created_at", new Date\(Date\.now\(\) - 90 \* 86400000\)/);
+  const run = fnOf(SRC, 'agentRun');
+  assert.match(run, /scAgentGate\(gate, tester\)/);
+  const iGate = run.indexOf('deps.readConfig("scAgent")'), iUser = run.indexOf('from("users")'),
+    iLog = run.indexOf('from("sermon_chat_log")'), iCache = run.indexOf('from("sermon_ai_cache")');
+  assert.ok(iGate >= 0 && iGate < iUser && iUser < iLog && iLog < iCache,
+    '차례: 문 → 사람 → 기록 → 저장된 답(닫힌 문은 아무것도 안 읽고 · sermonChat 처럼 기록이 먼저라 저장된 답도 하루 수에 든다)');
+  assert.match(run, /deps\.sermonQuestionKey\(message\)/);
+  assert.match(run, /\.eq\("kind", "agent"\)\.eq\("cache_key", qkey\)/);
+  assert.match(run, /kind: "agent", cache_key: qkey/);
+  assert.match(run, /agentFinalChoice\(model\)/);
+  assert.match(run, /from\("sermon_chat_log"\)\.insert\(/, '하루 한도는 sermon_chat_log 가 센다');
+});
