@@ -210,7 +210,7 @@ test('⑩ 되묻기 — 번호로 DB 에서 다시 꺼내고 · 기록은 「↪
   const prev = fnOf(SRC, 'agentPrevNote');
   assert.match(prev, /from\("verses"\)\.select\("no, track, ref, text"\)\.in\("no", nos\)/);
   assert.match(prev, /tracks\.includes\(v\.track\)/, '지금 안 보이는 묶음의 번호는 버린다');
-  assert.match(prev, /from\("sermons"\)/);
+  assert.match(prev, /from\("sermons"\)\.select\("title, svc_date, summary"\)\.eq\("id", sid\)\.eq\("hidden", false\)/, '숨긴 설교는 빼고(index.ts 와 같은 hidden=false) 필요한 칸만 읽는다');
   assert.ok(!/prev_answer|f\.answer/.test(prev), '화면이 보낸 앞의 답 글은 받지 않는다');
   assert.ok(prev.includes('다시 꺼낸 것]'+'\\n" + lines.join("'+'\\n")'), '줄바꿈은 글자 \\n 으로 적는다(진짜 줄바꿈이면 번들이 깨진다)');
 });

@@ -385,7 +385,7 @@ async function agentPrevNote(deps: AgentDeps, f: any, tracks: string[]): Promise
     }
     const sid = f.prev_sermon == null ? "" : String(f.prev_sermon).slice(0, 100);
     if (sid) {
-      const { data: s } = await deps.db.from("sermons").select("*").eq("id", sid).maybeSingle();
+      const { data: s } = await deps.db.from("sermons").select("title, svc_date, summary").eq("id", sid).eq("hidden", false).maybeSingle();
       if (s) lines.push(`- 설교: '${s.title ?? ""}' (${s.svc_date ?? "날짜미상"}) — ${String(s.summary ?? "").slice(0, 300)}`);
     }
   } catch (_) { /* 못 읽어도 답은 한다 */ }
