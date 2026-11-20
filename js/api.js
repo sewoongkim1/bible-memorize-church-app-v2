@@ -28,12 +28,17 @@ async function supaCall(action, payload = {}) {
 //   흘려받기를 못 하는 기기(res.body.getReader 없음)는 끝까지 받은 뒤 한꺼번에 푼다(단계 줄만 늦게 뜨고 답은 같다).
 //   줄 풀기는 js/sc-agent.js 의 scAgentParseChunk 하나 — 이 함수를 부르는 것은 그 파일뿐이라(받은 뒤에만 불린다) 늘 있다.
 //   onEvent 가 던져도 다음 줄은 계속 받는다. ⚠️ 60초가 넘으면 끊는다(서버는 55초 안에 끝낸다 — AGENT_HARD_MS) — 통신이 멈춰도 「찾는 중…」에 갇히지 않게.
-async function supaStream(action, payload = {}, onEvent) {
+async function supaStream(action, payload = {}, onEvent, outerSignal) {
   if (typeof scAgentParseChunk !== "function") throw new Error("no-parser");
   let device = "";
   try { device = localStorage.getItem("life-device") || ""; } catch (_) {}
   const ctl = typeof AbortController === "function" ? new AbortController() : null;
   const timer = setTimeout(() => { try { if (ctl) ctl.abort(); } catch (_) {} }, 60000);
+  // 바깥 signal(「새로 물어보기」) — 60초 시계와 함께, 어느 쪽이든 먼저 오면 끊는다
+  if (ctl && outerSignal) {
+    if (outerSignal.aborted) { try { ctl.abort(); } catch (_) {} }
+    else if (outerSignal.addEventListener) outerSignal.addEventListener("abort", () => { try { ctl.abort(); } catch (_) {} }, { once: true });
+  }
   const emit = (list) => {
     for (const ev of list) { try { if (onEvent) onEvent(ev); } catch (_) {} }
   };

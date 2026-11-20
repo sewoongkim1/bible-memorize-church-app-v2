@@ -115,6 +115,7 @@ function scAgentReportArgs(state, i) {
 
 var scAgentState = null;   // { q, turns:[{ chip, steps, result }], used, awayAt } — 암송 · 설교 요약에 다녀오면 이 값으로 다시 그린다
 let scAgentRun = 0;        // 묻기마다 하나씩 — 늦게 온 줄(앞 질문 · 「새로 물어보기」 전)이 지금 화면을 덮지 않게
+let scAgentCtl = { abort() {}, signal: undefined };   // 흐르는 줄 하나의 끊개 — 「새로 물어보기」가 끊어 질문 단추 지킴(scAgentAsking)을 바로 푼다
 let scAgentBusy = false;   // 지금 받는 중(되묻기 단추 · 「새로 물어보기」를 숨긴다)
 let scAgentFolds = {};     // 펼친 「AI가 한 일」(차례 번호 → true) — 줄이 올 때마다 다시 그려도 펼친 채
 const SCG_KEEP_MS = 60 * 60 * 1000;   // 다녀온 뒤 다시 그려 주는 시간(한 시간 — 그보다 오래면 새로 묻게)
@@ -154,6 +155,8 @@ async function scAgentAsk(message, follow) {
   st.turns.push(turn);
   const idx = st.turns.length - 1;
   const run = ++scAgentRun;
+  try { if (scAgentCtl) scAgentCtl.abort(); } catch (_) {}
+  scAgentCtl = typeof AbortController === "function" ? new AbortController() : { abort() {}, signal: undefined };
   scAgentBusy = true;
   scAgentSendBtn(true);
   scAgentRender();
@@ -167,7 +170,7 @@ async function scAgentAsk(message, follow) {
       if (ev.t === "step") { scAgentMergeStep(turn.steps, ev); scAgentRender(); }
       else if (ev.t === "answer" && String(ev.answer || "").trim()) { turn.result = ev; answered = true; }
       // fallback 줄은 볼 것이 없다 — 답이 없으니 아래에서 지금 길로 간다
-    });
+    }, scAgentCtl.signal);
   } catch (_) { /* 통신 실패 · 옛 서버 · 60초 넘김 — 아래에서 지금 길로 */ }
   if (run !== scAgentRun) return;   // 그사이 새로 물었거나 「새로 물어보기」를 눌렀다
   scAgentBusy = false;
@@ -195,9 +198,18 @@ function scAgentRender() {
   const out = document.getElementById("sc-out");
   const st = scAgentState;
   if (!out || !st) return;
-  out.innerHTML = `<div class="sc-q-echo">${boardEsc(st.q)}</div>`
+  // 스크린리더 알림 칸(#scg-live)은 한 번 만들고 그대로 둔다 — 그리기마다 새로 만들면 알려 주지 않는다. 몸(#scg-body)만 갈아 끼우고 live 칸은 글만 바꾼다.
+  let live = out.querySelector("#scg-live"), body = out.querySelector("#scg-body");
+  if (!live || !body) {
+    out.innerHTML = `<div id="scg-live" class="scg-live" aria-live="polite" aria-atomic="true"></div><div id="scg-body"></div>`;
+    live = out.querySelector("#scg-live"); body = out.querySelector("#scg-body");
+  }
+  body.innerHTML = `<div class="sc-q-echo">${boardEsc(st.q)}</div>`
     + st.turns.map((t, i) => scAgentTurnHtml(t, i)).join("")
     + (scAgentBusy ? "" : scAgentTailHtml(st.turns[st.turns.length - 1]));
+  const lt = st.turns[st.turns.length - 1];
+  const ls = lt && !lt.result ? lt.steps.filter((x) => x.kind !== "cache") : [];
+  live.textContent = ls.length ? scAgentStepText(ls[ls.length - 1], false) : "";
   scAgentBind(out);
   if (typeof applyScOutA === "function") applyScOutA();   // A안 — 출처 설교 줄 아이콘(지금 길과 같은 옷)
   scAgentFlagIcons(out);
@@ -218,7 +230,7 @@ function scAgentTurnHtml(t, i) {
   if (cached) {
     h += `<div class="scg-cache">${boardEsc(scAgentStepText({ kind: "cache" }))}</div>`;
   } else if (!r) {
-    h += `<div class="scg-steps" aria-live="polite">`
+    h += `<div class="scg-steps">`
       + (steps.length ? steps.map((s) => scAgentStepHtml(s, false)).join("")
         : `<div class="scg-step start scg-wait">🤔 무엇을 찾아볼지 생각하는 중…</div>`)
       + `</div>`;
@@ -339,6 +351,7 @@ function scAgentChip(ci) {
 // 「새로 물어보기」 — 받는 중이던 것도 버린다(scAgentRun) · 첫 화면 꼴로(주제 · 예시 질문)
 function scAgentReset() {
   scAgentRun++;
+  try { scAgentCtl.abort(); } catch (_) {}   // 흐르는 줄을 끊는다 — 질문 단추가 60초 막히지 않게
   scAgentBusy = false;
   scAgentState = null;
   scAgentFolds = {};

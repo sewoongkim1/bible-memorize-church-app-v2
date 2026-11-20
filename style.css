@@ -7829,6 +7829,7 @@ html[data-fs="xl"] .vl-a .vs-ic { width: 20px; height: 20px; }
 .scg-chip-echo { margin-top: 18px; }
 .scg-steps { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; padding: 10px 14px; background: #faf8f4; border: 1px solid #e5dfd4; border-radius: 12px; text-align: left; }
 .scg-steps[hidden] { display: none; }
+.scg-live { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .scg-step { font-size: 14px; line-height: 1.55; color: #33405a; }
 .scg-step.done { color: #1f6b3a; }
 .scg-step.fail { color: #9a4a12; }
