@@ -389,9 +389,7 @@ async function agentPrevNote(deps: AgentDeps, f: any, tracks: string[]): Promise
       if (s) lines.push(`- 설교: '${s.title ?? ""}' (${s.svc_date ?? "날짜미상"}) — ${String(s.summary ?? "").slice(0, 300)}`);
     }
   } catch (_) { /* 못 읽어도 답은 한다 */ }
-  return lines.length ? "[앞에서 이것을 권했다 — 교회 자료에서 다시 꺼낸 것]
-" + lines.join("
-") : "";
+  return lines.length ? "[앞에서 이것을 권했다 — 교회 자료에서 다시 꺼낸 것]\n" + lines.join("\n") : "";
 }
 
 // ---------- 돌림 기록(sermon_agent_run) — 한 질문에 도구 · AI 몇 번 · 토큰 · 시간 · 끝 ----------
