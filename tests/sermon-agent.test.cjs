@@ -196,3 +196,29 @@ test('⑨ 흐름 — NDJSON 머리 · 모델 기본값 · 지킴이 문장 그�
   assert.match(run, /agentFinalChoice\(model\)/);
   assert.match(run, /from\("sermon_chat_log"\)\.insert\(/, '하루 한도는 sermon_chat_log 가 센다');
 });
+
+// ── ⑩ 되묻기 · 답 알리기 ──
+test('⑩ 되묻기 — 번호로 DB 에서 다시 꺼내고 · 기록은 「↪ 단추」 · 저장은 첫 질문만', () => {
+  assert.ok(!/follow-not-ready/.test(SRC), '되묻기 막음 줄이 남았다');
+  const run = fnOf(SRC, 'agentRun');
+  assert.match(run, /const turn: number = f \? \(Number\(f\.turn\) === 2 \? 2 : 1\) : 0;/);
+  assert.match(run, /const chip: string = f \? agentClip\(f\.chip, AGENT_LIMITS\.chipLen\) : "";/);
+  assert.match(run, /if \(f && !chip\) \{ send\(\{ t: "fallback", reason: "bad-follow" \}\); return; \}/);
+  assert.match(run, /const question = chip \? "↪ " \+ chip : message;/);
+  assert.match(run, /const prevNote: string = f \? await agentPrevNote\(deps, f, tracks\) : "";/);
+  assert.equal((run.match(/if \(!f\) \{/g) || []).length, 2, '저장된 답 읽기 · 쓰기는 첫 질문만(두 곳)');
+  const prev = fnOf(SRC, 'agentPrevNote');
+  assert.match(prev, /from\("verses"\)\.select\("no, track, ref, text"\)\.in\("no", nos\)/);
+  assert.match(prev, /tracks\.includes\(v\.track\)/, '지금 안 보이는 묶음의 번호는 버린다');
+  assert.match(prev, /from\("sermons"\)/);
+  assert.ok(!/prev_answer|f\.answer/.test(prev), '화면이 보낸 앞의 답 글은 받지 않는다');
+});
+
+test('⑩ 답 알리기 · 답 지우기 · 캐시 비우기 — chat 과 agent 를 함께 본다', () => {
+  for (const name of ['sermonAnswerReport', 'sermonAnswerReportResolve', 'clearChatCache']) {
+    const body = fnOf(INDEX, name, 'index.ts');
+    assert.match(body, /\.in\("kind", \["chat", "agent"\]\)/, name);
+    assert.ok(!/\.eq\("kind", "chat"\)/.test(body), name + ' 에 옛 .eq("kind", "chat") 이 남았다');
+  }
+  assert.match(fnOf(INDEX, 'sermonAnswerReport', 'index.ts'), /b\.agent === true \? "agent" : "chat"/);
+});

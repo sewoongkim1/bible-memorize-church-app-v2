@@ -372,6 +372,28 @@ async function agentLimited(deps: AgentDeps, u: any): Promise<string> {
   return "";
 }
 
+// ---------- 되묻기 — 앞에서 권한 구절(번호) · 설교(sermon_id)를 교회 자료에서 다시 꺼낸다 ----------
+//   지금 보이는 묶음(tracks) 밖의 번호는 버린다 · 못 읽으면 빈 글(그래도 답은 한다 — agentUserText 가 「다시 찾지 못했다」로 적는다).
+async function agentPrevNote(deps: AgentDeps, f: any, tracks: string[]): Promise<string> {
+  const lines: string[] = [];
+  try {
+    const nos = (Array.isArray(f.prev_verses) ? f.prev_verses : []).map(Number)
+      .filter((n: number) => Number.isInteger(n)).slice(0, AGENT_LIMITS.verses);
+    if (nos.length) {
+      const { data } = await deps.db.from("verses").select("no, track, ref, text").in("no", nos).eq("is_active", true);
+      for (const v of data ?? []) if (tracks.includes(v.track)) lines.push(`- 구절 no=${v.no} · ${v.ref}: ${v.text}`);
+    }
+    const sid = f.prev_sermon == null ? "" : String(f.prev_sermon).slice(0, 100);
+    if (sid) {
+      const { data: s } = await deps.db.from("sermons").select("*").eq("id", sid).maybeSingle();
+      if (s) lines.push(`- 설교: '${s.title ?? ""}' (${s.svc_date ?? "날짜미상"}) — ${String(s.summary ?? "").slice(0, 300)}`);
+    }
+  } catch (_) { /* 못 읽어도 답은 한다 */ }
+  return lines.length ? "[앞에서 이것을 권했다 — 교회 자료에서 다시 꺼낸 것]
+" + lines.join("
+") : "";
+}
+
 // ---------- 돌림 기록(sermon_agent_run) — 한 질문에 도구 · AI 몇 번 · 토큰 · 시간 · 끝 ----------
 //   사람(이름 · 소속 · 계정 번호)은 처음부터 싣지 않는다. 90일 넘은 줄은 같은 부름에서 지운다.
 function agentRunRow(run: AgentRun | null, turn: number, t0: number, outcome: string) {
@@ -411,11 +433,12 @@ async function agentRun(b: any, deps: AgentDeps, send: AgentSend): Promise<void>
   const { data: u, error: ue } = await deps.db.from("users").select("name, gu, mok").eq("id", uid).maybeSingle();
   if (ue || !u) { send({ t: "fallback", reason: "unauthorized" }); return; }
 
-  // ③ 되묻기 — 아직 받지 않는다(화면이 sermonChat 으로 다시 묻는다)
+  // ③ 되묻기 — 화면이 보내는 것은 누른 단추 글과 앞에서 받은 번호뿐이다(앞의 답 글은 받지 않는다 · 설계 §2-4).
+  //    turn 은 화면이 센다 — 속여도 하루 한도(⑦)에 걸린다.
   const f = b?.follow && typeof b.follow === "object" ? b.follow : null;
-  if (f) { send({ t: "fallback", reason: "follow-not-ready" }); return; }
-  const turn: number = 0;
-  const chip: string = "";
+  const turn: number = f ? (Number(f.turn) === 2 ? 2 : 1) : 0;
+  const chip: string = f ? agentClip(f.chip, AGENT_LIMITS.chipLen) : "";
+  if (f && !chip) { send({ t: "fallback", reason: "bad-follow" }); return; }
 
   // ④ 사용 기록 — sermonChat 과 같은 표 · 같은 칸(하루 한도가 이 줄을 센다 · 되묻기는 「↪ 단추 글」)
   const question = chip ? "↪ " + chip : message;
@@ -457,8 +480,8 @@ async function agentRun(b: any, deps: AgentDeps, send: AgentSend): Promise<void>
     return;
   }
 
-  // ⑧ 되묻기의 앞 이야기 — 아직 없음
-  const prevNote: string = "";
+  // ⑧ 되묻기면 앞에서 권한 것을 번호로 DB 에서 다시 꺼낸다 — 화면이 보낸 글을 「AI 가 했던 말」로 믿지 않는다
+  const prevNote: string = f ? await agentPrevNote(deps, f, tracks) : "";
 
   // ⑨ AI 가 도구를 골라 쓰는 돌림 — 상한 AGENT_LIMITS(도구 4 · AI 5 · 40초).
   //    마지막 차례(AI 5번째 · 도구 다 씀 · 40초 지남)에는 「지금까지 찾은 것으로 give_answer」를 이르고, 그래도 없으면 fallback.

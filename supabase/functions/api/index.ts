@@ -2599,7 +2599,7 @@ async function clearSummaryCache(b: any) {
 // ---------- clearChatCache: 질문 답변 캐시 비우기 (관리자, 명시 요청 시에만) ----------
 async function clearChatCache(b: any) {
   const err = adminError(b); if (err) return { ok: false, error: err };
-  const { data, error } = await db.from("sermon_ai_cache").delete().eq("kind", "chat").select("cache_key");
+  const { data, error } = await db.from("sermon_ai_cache").delete().in("kind", ["chat", "agent"]).select("cache_key");   // 에이전트 답도(2026-11-20)
   if (error) throw error;
   return { ok: true, cleared: (data ?? []).length };
 }
@@ -5253,8 +5253,12 @@ async function sermonAnswerReport(b: any) {
   if (v.error) return { ok: false, error: v.error };
   let answer = v.answer, fromCache = false;
   try {
-    const { data: c } = await db.from("sermon_ai_cache").select("answer")
-      .eq("kind", "chat").eq("cache_key", v.question).maybeSingle();
+    // 에이전트 답(kind "agent" · 2026-11-20)도 같은 열쇠로 찾는다 — 앱이 알린 쪽(agent:true → "agent" · 없으면 "chat")만 쓴다.
+    //   ⚠️ 다른 kind 로 넘어가지 않는다: 성도님이 본 것은 그 길의 답이다. 그 kind 가 없으면 앱이 보낸 답 그대로(from_cache false).
+    const { data: cs } = await db.from("sermon_ai_cache").select("kind, answer")
+      .in("kind", ["chat", "agent"]).eq("cache_key", v.question);
+    const want = b && b.agent === true ? "agent" : "chat";
+    const c: any = (cs ?? []).find((r: any) => r.kind === want);
     if (c && c.answer) {
       answer = Array.from(String(c.answer)).slice(0, SERMON_REPORT_ANSWER_MAX).join("");
       fromCache = true;
@@ -5316,7 +5320,7 @@ async function sermonAnswerReportResolve(b: any) {
   let uncached = 0;
   if (op === "uncache") {
     const { data: gone, error: e2 } = await db.from("sermon_ai_cache").delete()
-      .eq("kind", "chat").eq("cache_key", row.question).select("cache_key");
+      .in("kind", ["chat", "agent"]).eq("cache_key", row.question).select("cache_key");   // 에이전트 답도 함께 지운다(2026-11-20)
     if (e2) throw e2;
     uncached = (gone ?? []).length;
   }
