@@ -460,7 +460,7 @@ function routeAfterLoad() {
     // 홍보 카드·NEW 배지를 이 기기에서 초기화해 다시 표시(다른 상태는 불변)
     try {
       localStorage.removeItem(PROMO_KEY);
-      ["sermon", "meditation", "passages"].forEach((k) => localStorage.removeItem("feat-seen-" + k));
+      ["sermon", "scAgent", "meditation", "passages"].forEach((k) => localStorage.removeItem("feat-seen-" + k));
     } catch (e) {}
     if (loadUser()) enterAfterLogin(); else renderEntryScreen();
     return;
@@ -2997,6 +2997,7 @@ function markFeatSeen(k) { try { localStorage.setItem("feat-seen-" + k, "1"); } 
 // 새 기능을 넣으면 **여기에 나온 날을 적는다.** 안 적으면 NEW가 아예 안 뜬다
 //    (영원히 붙어 있느니 안 뜨는 편이 낫다).
 const FEAT_SINCE = {
+  scAgent: "2026-11-20",     // 🤖 「내게 주시는 말씀」 AI 에이전트 — 문(scAgent)을 "on" 으로 연 날(친구 확인). ⚠️ 옛 키 sermon 을 다시 쓰지 않는다 — 2026-07 부터 「💬」 를 눌러 본 분께는 영영 안 뜬다
   // ⚠️ 사역 신청은 기간(12/13~12/27)에만 첫 화면에 뜬다 — 그때가 곧 '새 기능'인 날이라
   //    NEW 는 신청 시작일부터 센다. 지금 날짜를 적으면 성도님이 보기도 전에 사라진다.
   ministry: "2026-12-13",
@@ -3034,6 +3035,7 @@ function newestNewFeat() {
     if (k === "duty" && !dutyVisible()) return;           // 🙋 봉사 당번도 같다(FEAT_SINCE.duty 는 개시일에 적는다)
     if (k === "cards" && !cardMoreVisible()) return;     // 💌 말씀카드도 같다(FEAT_SINCE.cards 는 여는 날 적는다)
     if (k === "navi" && !naviVisible()) return;           // 📚 네비게이토도 같다(FEAT_SINCE.navi 는 여는 날 적는다 · k 를 먼저 — tests/ministry-history 의 featCtx 에 naviVisible 이 없다)
+    if (k === "scAgent" && scAgentCached() !== "on") return;   // 🤖 에이전트는 문이 "on" 일 때만 NEW(시험 참여자 기간에는 안 단다 · k 를 먼저 — tests/ministry-history 의 featCtx 에 scAgentCached 가 없다)
     if (!best || kstDayNumber(FEAT_SINCE[k]) > kstDayNumber(FEAT_SINCE[best])) best = k;
   });
   return best;
@@ -3858,7 +3860,7 @@ function renderSummary() {
          셋이 한 줄에 있으면 「같은 종류」라는 뜻이 되어 버린다 → 아래 목록으로 옮겼다.
          ⚠️ 여기에 셋째를 더할 때는 **설교에서 나온 것인지** 먼저 볼 것. -->
     <div class="summary-actions feat-actions">
-      <button class="summary-go sermon-act act-btn" id="open-sermon-chat"><span class="act-ic">💬</span><span class="act-tx">내게 주시는<br>말씀</span>${newBadge("sermon")}</button>
+      <button class="summary-go sermon-act act-btn" id="open-sermon-chat"><span class="act-ic">💬</span><span class="act-tx">내게 주시는<br>말씀</span>${newBadge("sermon")}${newBadge("scAgent")}</button>
       <button class="summary-go med-act act-btn" id="open-meditation"><span class="act-ic">🌿</span><span class="act-tx">매일<br>묵상</span>${newBadge("meditation")}</button>
     </div>
     <!-- 성격별로 묶는다 (2026-09-02) — 전에는 일곱 줄이 같은 모양·다른 색으로 나열돼
@@ -3999,7 +4001,7 @@ function renderSummary() {
   // 🔁 복습 단추는 2026-10-11 첫 화면에서 뺐다(위 TODO 주석) — 되살리면 여기도 함께.
   document.getElementById("go-challenge").addEventListener("click", startChallenge);
   document.getElementById("open-meditation").addEventListener("click", () => { markFeatSeen("meditation"); scRemoveBadge("open-meditation"); maybeShowWeeklyMeditation(true, true); });
-  document.getElementById("open-sermon-chat").addEventListener("click", () => { markFeatSeen("sermon"); renderSermonChat(); });
+  document.getElementById("open-sermon-chat").addEventListener("click", () => { markFeatSeen("sermon"); markFeatSeen("scAgent"); renderSermonChat(); });
   // ⚠️ logFeature("album",0) 은 여기(연 자리)에 둔다 — renderAlbum() 안에 두면 그 화면 안
   //    갈래 칩·가리기·섞기·고르기 같은 칩을 누를 때마다 renderAlbum() 이 다시 불려 "다시 그림"을
   //    "다시 엶"으로 잘못 센다(2026-09-23 리뷰). renderAlbum() 은 이 단추 말고 자기 자신 안에서만
