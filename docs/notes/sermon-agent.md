@@ -6,7 +6,7 @@
 
 ## 무엇
 고민이나 궁금한 것을 적으면 AI 가 **스스로 찾을 말을 정해** 설교와 앱의 암송 구절을 찾아 보고, 답과 함께 「이렇게 해 보세요」를 내민다 —
-📖 외워 볼 말씀 1~2장(**바로 외워 보기**) · 🎧 들어 볼 설교 1장(**3분 요약 듣기** · 영상) · 되묻기 단추 2~3개(한 질문에 2번까지).
+📖 외워 볼 말씀 1~2장(**바로 외워 보기**) · 🎧 들어 볼 설교 1장(**3분 요약 듣기** · 영상) · 되묻기 단추 최대 3개 · 두 번째 되묻기 답에는 없음(한 질문에 2번까지).
 AI 가 하는 일을 **실제로 하는 그때** 단계 줄로 보여 준다(「」 안은 AI 가 도구에 실제로 넘긴 찾을 말 — 정해 둔 문구를 시간 맞춰 띄우지 않는다). 답이 오면 「AI가 한 일 N가지 ▾」로 접힌다.
 하지 않는 것: 카드 · 기도문 쓰기 · 알림 예약 · 글로 이어 묻기 · 성도님 기록 · 이름 · 소속을 AI 에 보내기(다음 단계 「암송 코치」의 몫).
 
@@ -28,14 +28,14 @@ AI 가 하는 일을 **실제로 하는 그때** 단계 줄로 보여 준다(「
 - 여닫기는 운영 `app_config` 한 줄(코드 배포 없음 · 친구 확인 뒤 · 스킬 `gated-feature` ⑤4 의 link 폴더 SQL):
   `insert into app_config(key, value) values ('scAgent', '"test"'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();` (닫기 `'null'` · 모두 `'"on"'`)
 - 어린 부서도 같다(지금 「내게 주시는 말씀」이 모두에게 열려 있고, 새로 모으거나 AI 에 보내는 개인 정보가 없다).
-- NEW 배지는 새 키 `FEAT_SINCE.scAgent`(문이 `"on"` 일 때만 · `newestNewFeat`). ⚠️ 옛 키 `sermon` 을 다시 쓰지 않는다 — 2026-07 부터 「💬」 를 눌러 본 분께는 영영 안 뜬다.
+- NEW 배지는 아직 없다 — `"on"` 으로 열 때 새 키 `FEAT_SINCE.scAgent` 를 더하고 `newestNewFeat` 에서 문이 열린 분께만 보이게 거른다(계획 Task 11 Step 19). ⚠️ 옛 키 `sermon` 은 다시 쓰지 않는다 — 2026-07 부터 「💬」 를 눌러 본 분께는 영영 안 뜬다.
 
 ## 흘려보내는 줄(NDJSON · `application/x-ndjson`)
 | 줄 | 꼴 |
 |---|---|
-| 단계 | `{t:"step", id, kind:"sermon"\|"verse"\|"write"\|"cache", q?, state:"start"\|"done"\|"fail", n?}` — 도구를 부르기 **직전**(start) · 결과 **직후**(done · n) · 「답을 쓰는 중」(write)은 마지막 AI 부름 직전 · 저장된 답이면 cache 한 줄 |
+| 단계 | `{t:"step", id, kind:"sermon"\|"verse"\|"write"\|"cache", q?, state:"start"\|"done"\|"fail", n?}` — 도구를 부르기 **직전**(start) · 결과 **직후**(done · n) · 「답을 쓰는 중」(write)은 두 찾기를 다 했거나 마지막 차례일 때 그 AI 부름 직전 · 그보다 일찍 답이 오면 답 직전 · 저장된 답이면 cache 한 줄 |
 | 답 | `{t:"answer", answer, sources, verses:[{no,track,ref,text,why}], sermon\|null, chips, turn, cached?, limited?}` — 늘 마지막 줄 · `sources` 는 `sermonChat` 꼴 그대로 · `sermon` 은 그 한 칸 꼴(title · svc_date · scripture · youtube_id · preacher · summary) + `sermon_id` + `why` |
-| 되돌림 | `{t:"fallback", reason}` — 문 닫힘 · 답이 비었음 · 상한을 넘고도 답이 없음 |
+| 되돌림 | `{t:"fallback", reason}` — 문 닫힘 · 답이 비었음 · 상한을 넘고도 답이 없음 · 그 밖에 입력 · 인증 문제(`message-required` · `unauthorized` · `bad-follow` · `no-key` · `error`) |
 | 요청 | `{action:"sermonAgent", user_id, message, follow?:{chip, prev_verses, prev_sermon, turn:1\|2}}` |
 
 ## 도구 셋 · 상한
@@ -53,7 +53,7 @@ AI 가 하는 일을 **실제로 하는 그때** 단계 줄로 보여 준다(「
 - **셈**: 질문 · 되묻기 모두 `sermon_chat_log` 에 한 줄(되묻기는 `question` = `"↪ " + chip`) → 지금의 하루 한도(한 분 20 · 모두 300)가 그대로 센다. 기록이 캐시보다 먼저라 저장된 답(📚)도 하루 수에 든다(`sermonChat` 과 같다). `turn` 은 화면이 세지만 속여도 이 한도에 걸린다.
 - **기록**: 한 번 돌 때 `sermon_agent_run` 한 줄(도구 · AI 부름 수 · 토큰 · ms · outcome — 이름 · `user_id` 없음).
 - **🚩 AI 답 알림**: 화면은 에이전트 답을 알릴 때 `agent: true` 를 싣는다(`openAnswerReport` 넷째 인자 `{agent:true}` → `api.sermonAnswerReport` 여섯째 인자 · 지금 길은 본문이 전과 같다). 되묻기 차례는 질문 「첫 질문 ↪ 단추」 · 답 앞에 `[추천 말씀]` · `[추천 설교]` 줄.
-  서버 `sermonAnswerReport` · 관리자 「답 지우기」(`sermonAnswerReportResolve` uncache) · 「질문 답변 캐시 비우기」(`clearChatCache`)는 `kind` `"chat"` 과 `"agent"` 를 함께 본다(`agent: true` 면 `agent` 먼저 — 그때 답은 캐시 글로 바뀌어 앱이 붙인 추천 줄은 빠진다 · 추천은 캐시 `sources` jsonb 에).
+  서버 `sermonAnswerReport` 는 알린 kind 하나만 찾는다 — `agent: true` 면 `kind:"agent"` 만, 아니면 `"chat"` 만 찾는다(다른 kind 로 넘어가지 않는다 — 없으면 앱이 보낸 답 그대로 · `from_cache` false). 관리자 「답 지우기」(`sermonAnswerReportResolve` uncache) · 「질문 답변 캐시 비우기」(`clearChatCache`)는 `kind` `"chat"` 과 `"agent"` 를 함께 본다. 찾은 캐시 글이면 그 답으로 바뀌어 앱이 붙인 추천 줄은 빠진다 · 추천은 캐시 `sources` jsonb 에.
 
 ## 표(`supabase/sermon_agent.sql` · 개발 → 운영 · `tools/sql-applied.py` 기록)
 - `verse_embed(track, no, text_hash, embedding vector(1024), updated_at)` — 기본 열쇠 `(track, no)` · `voyage-3-large` 1024 차원(설교와 같다).
@@ -95,6 +95,12 @@ outcome 별 수 · 🚩 `sermon_answer_reports` 까닭별 처리 안 된 수 · 
 7. 관리자 「질문 답변 캐시 비우기」(`clearChatCache`)는 `"chat"` 과 `"agent"` 를 함께 지운다.
 8. **설교 발췌가 하나도 없으면(유사도 0.4 이상 0건) 답을 바꿔 친다**(순수 `agentGroundAnswer`) — 답은 `sermonChat` 과 같은 문장 「그 주제로 하신 설교를 찾지 못했습니다.」, `sermon` 은 null, 📖 구절 카드와 되묻기 단추는 그대로(친구 2026-11-20) · **저장하지 않는다.** 도구가 하나라도 실패한 돌림의 답도 저장하지 않는다. 되묻기 차례가 스스로 설교를 못 찾아도 같은 문장이 뜬다.
 9. `sermon_agent_run.outcome` 에 `"cancelled"` 가 있다(화면이 끊음 → `ReadableStream` cancel → 돌림이 차례 맨 앞에서 멈춤). 「새로 물어보기」는 흐르는 줄을 끊는다(바깥 `AbortSignal` → `supaStream`) · 스크린리더 칸은 고정 요소 `#scg-live`.
+10. ⚠️ `sermon_agent_run.outcome` 값은 아홉이다: `answer` · `cache` · `limited` · `ai-error` · `refusal` · `max-tokens` · `no-answer` · `empty-answer` · `cancelled`. SQL 칸 주석은 `cancelled` 를 빠뜨렸는데, 주석 때문에 SQL 파일을 고치면 `sql-applied` 가 다르다고 찍으니 그대로 둔다.
+11. ⚠️ 개발 스모크 `tests/sermon-agent-smoke.py` 는 `ADMIN_SECRET` 과 `SMOKE_SUPER` 가 필요하다 — 주 체크아웃에서 `set -a; . ./.env.dev; set +a` 로 불러온 뒤 돌린다(문을 saveConfig 로 여닫기 때문).
+12. ⚠️ `AGENT_SYSTEM` 의 규칙 줄은 `sermonChat` 의 것과 글자 하나 다르지 않아야 한다 — 시험 ⑨ 가 두 쪽을 견준다.
+13. ⚠️ 기본 모델은 `sermonChat` 기본값(`claude-opus-4-8`, 4세대)이다(`SERMON_CHAT_MODEL` 이 없을 때) — 그래서 운영에서는 `agentFinalChoice` 의 억지 `give_answer` 길이 돈다. 비밀값을 5세대 모델로 바꾸면 그 길이 바뀐다.
+14. ⚠️ 캐시된 답은 하루 한도 검사 전에 돌려준다(`sermonChat` 과 같다) — 한도에 걸린 성도도 캐시된 답은 받는다.
+15. ⚠️ 끊김 검사는 AI 차례 맨 위(`deps.cancelled`)에서만 한다 — 도는 차례가 이미 받은 도구 부름(첫 구절 임베딩 채우기 포함)은 화면을 떠난 뒤에도 끝까지 간다.
 
 
 ## 시험의 한계(개발)
