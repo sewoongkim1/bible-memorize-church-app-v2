@@ -27,7 +27,7 @@ assert.ok(S >= 0 && E > S, 'sermon-agent.ts 에서 순수 구간 표식을 못 �
 const pure = SRC.slice(S, E).replace(/^export /gm, '');
 let P;
 try {
-  P = vm.runInContext(pure + '\n;({ AGENT_LIMITS, ndjsonLine, agentTracksFor, sanitizeAgentAnswer, scAgentGate, agentFinalChoice, agentUserText })',
+  P = vm.runInContext(pure + '\n;({ AGENT_LIMITS, ndjsonLine, agentTracksFor, sanitizeAgentAnswer, scAgentGate, agentFinalChoice, agentUserText, agentCacheSystem, agentWithCache, agentAddUsage })',
     vm.createContext({}));
 } catch (e) {
   throw new Error('sermon-agent.ts 순수 구간을 node:vm 이 못 돌린다(타입 표기 · import 가 들어왔나?) — ' + e.message);
@@ -658,3 +658,46 @@ test('⑩ 답 알리기 · 답 지우기 · 캐시 비우기 — chat 과 agent 
     assert.match(body, /scg-live/);
   });
 }
+
+// ⑪ 프롬프트 캐시 · 캐시 토큰 셈 · 끊긴 뒤 도구 안 돌림(2026-11-20 Task A)
+test('⑪ agentCacheSystem — 시스템 글을 블록 하나로 · 끝 블록에 ephemeral(도구 + 시스템이 함께 캐시)', () => {
+  const r = J(P.agentCacheSystem('시스템 글'));
+  assert.deepEqual(r, [{ type: 'text', text: '시스템 글', cache_control: { type: 'ephemeral' } }]);
+});
+test('⑪ agentWithCache — 마지막 메시지의 마지막 블록에만 표식 · 원본은 건드리지 않는다', () => {
+  const msgs = [
+    { role: 'user', content: '질문' },
+    { role: 'assistant', content: [{ type: 'tool_use', id: 'a', name: 'x', input: {} }] },
+    { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'a', content: 'r1' }, { type: 'tool_result', tool_use_id: 'b', content: 'r2' }] },
+  ];
+  const before = JSON.stringify(msgs);
+  const out = J(P.agentWithCache(msgs));
+  assert.equal(JSON.stringify(msgs), before, '원본이 바뀌었다');
+  assert.equal(out[2].content[1].cache_control.type, 'ephemeral');
+  assert.equal(out[2].content[0].cache_control, undefined);
+  assert.equal(out[0].cache_control, undefined);
+  assert.equal(JSON.stringify(out).split('cache_control').length - 1, 1, '표식은 한 곳');
+  const one = J(P.agentWithCache([{ role: 'user', content: '질문' }]));
+  assert.deepEqual(one, [{ role: 'user', content: [{ type: 'text', text: '질문', cache_control: { type: 'ephemeral' } }] }]);
+  assert.deepEqual(J(P.agentWithCache([])), []);
+});
+test('⑪ agentAddUsage — 네 토큰을 쌓는다(없는 칸은 0)', () => {
+  const run = { inTok: 1, outTok: 2, cacheRead: 3, cacheWrite: 4 };
+  P.agentAddUsage(run, { input_tokens: 10, output_tokens: 20, cache_read_input_tokens: 30, cache_creation_input_tokens: 40 });
+  P.agentAddUsage(run, { input_tokens: 5 });
+  P.agentAddUsage(run, undefined);
+  assert.deepEqual(J(run), { inTok: 16, outTok: 22, cacheRead: 33, cacheWrite: 44 });
+});
+test('⑪ 서버 — 요청이 캐시 도우미를 쓰고 · 기록에 두 값을 싣는다', () => {
+  assert.match(SRC, /system: agentCacheSystem\(AGENT_SYSTEM\)/);
+  assert.match(SRC, /messages: agentWithCache\(messages\)/);
+  assert.match(SRC, /agentAddUsage\(run, d\?\.usage\)/);
+  assert.match(SRC, /cache_read_tokens: run \? run\.cacheRead : 0/);
+  assert.match(SRC, /cache_write_tokens: run \? run\.cacheWrite : 0/);
+});
+test('⑪ 서버 — 도구 부름 앞에서도 끊김을 본다(cancelled 로 끝)', () => {
+  const m = SRC.match(/for \(const tu of uses\) \{([\s\S]*?)\n    \}/);
+  assert.ok(m, '도구 반복문을 못 찾았다');
+  assert.match(m[1], /deps\.cancelled\?\.\(\)\) \{ why = "cancelled"; cut = true; break; \}/);
+  assert.match(SRC, /if \(cut\) break;/);
+});

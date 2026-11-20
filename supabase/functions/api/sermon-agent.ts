@@ -108,6 +108,30 @@ export function agentGroundAnswer(clean, hitCount, anyToolFailed) {
   if (!(hitCount > 0)) return { ...clean, answer: AGENT_NO_SERMON, sermon: null, cacheable: false };
   return { ...clean, cacheable: !anyToolFailed };
 }
+// 프롬프트 캐시(2026-11-20 · 스킬 claude-api prompt-caching) — 렌더 순서는 tools → system → messages.
+//   ① 시스템 글 끝 블록에 표식 한 개 = 도구 정의 + 시스템 글이 함께 캐시된다(모든 질문이 같은 앞부분).
+//   ② 마지막 메시지의 마지막 블록에 표식 한 개 = 한 질문 안의 2~5번 부름이 앞 대화를 읽는다(표식 둘 · 상한 4 안).
+//   원본 messages 는 건드리지 않는다(agentNudge 가 마지막 메시지 끝에 글을 덧붙이므로 표식이 남으면 안 된다).
+export function agentCacheSystem(text) {
+  return [{ type: "text", text, cache_control: { type: "ephemeral" } }];
+}
+export function agentWithCache(messages) {
+  const out = messages.map((m) => ({ ...m }));
+  const m = out[out.length - 1];
+  if (!m) return out;
+  const blocks = typeof m.content === "string" ? [{ type: "text", text: m.content }] : m.content.map((b) => ({ ...b }));
+  if (blocks.length) blocks[blocks.length - 1] = { ...blocks[blocks.length - 1], cache_control: { type: "ephemeral" } };
+  m.content = blocks;
+  return out;
+}
+// 부름 한 번의 usage 를 쌓는다 — 캐시 읽기 · 쓰기는 input_tokens 와 따로 온다(없으면 0).
+export function agentAddUsage(run, usage) {
+  run.inTok += Number(usage?.input_tokens) || 0;
+  run.outTok += Number(usage?.output_tokens) || 0;
+  run.cacheRead += Number(usage?.cache_read_input_tokens) || 0;
+  run.cacheWrite += Number(usage?.cache_creation_input_tokens) || 0;
+}
+
 // ── 에이전트 — 순수 함수 (여기까지) ──
 
 // ---------- 형 ----------
@@ -131,7 +155,7 @@ type AgentRun = {
   verseInfo: Map<number, AgentVerse>;    // find_verses 가 돌려준 구절(답 줄의 ref · text · track)
   visible: Map<number, AgentVerse> | null;   // 이 성도님께 보이는 구절(한 번만 읽는다)
   tracks: string[];
-  toolFailed: boolean; toolCalls: number; aiCalls: number; inTok: number; outTok: number; stepId: number;
+  toolFailed: boolean; toolCalls: number; aiCalls: number; inTok: number; outTok: number; cacheRead: number; cacheWrite: number; stepId: number;
   sermonDone: boolean; verseDone: boolean;
 };
 type AgentSend = (obj: Record<string, unknown>) => void;
@@ -346,7 +370,7 @@ async function agentCallClaude(apiKey: string, model: string, messages: any[], t
       headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
       // max_tokens 4096 — 답(한글 2~4문단 · 4000자까지 받는다) + verses · chips JSON 이 한 번에 들어가게. 생각이 켜지는 모델(SERMON_CHAT_MODEL
       //   로 5세대를 고른 경우)은 생각도 이 안에서 쓴다. 잘리면(stop_reason "max_tokens") 아래 돌림이 그 차례를 버린다. 값은 쓴 만큼만 낸다.
-      body: JSON.stringify({ model, max_tokens: 4096, system: AGENT_SYSTEM, tools: AGENT_TOOLS, tool_choice: toolChoice, messages }),
+      body: JSON.stringify({ model, max_tokens: 4096, system: agentCacheSystem(AGENT_SYSTEM), tools: AGENT_TOOLS, tool_choice: toolChoice, messages: agentWithCache(messages) }),
     });
     if (!res.ok) throw new Error(`anthropic-${res.status}: ${(await res.text()).slice(0, 200)}`);
     return await res.json();
@@ -407,7 +431,8 @@ async function agentPrevNote(deps: AgentDeps, f: any, tracks: string[]): Promise
 function agentRunRow(run: AgentRun | null, turn: number, t0: number, outcome: string) {
   return {
     turn, tool_calls: run ? run.toolCalls : 0, ai_calls: run ? run.aiCalls : 0,
-    in_tokens: run ? run.inTok : 0, out_tokens: run ? run.outTok : 0, ms: Date.now() - t0, outcome,
+    in_tokens: run ? run.inTok : 0, out_tokens: run ? run.outTok : 0,
+    cache_read_tokens: run ? run.cacheRead : 0, cache_write_tokens: run ? run.cacheWrite : 0, ms: Date.now() - t0, outcome,
   };
 }
 async function agentRecord(deps: AgentDeps, row: Record<string, unknown>): Promise<void> {
@@ -497,7 +522,7 @@ async function agentRun(b: any, deps: AgentDeps, send: AgentSend): Promise<void>
   const run: AgentRun = {
     seen: { verseNos: new Set<number>(), sermonIds: new Set<string>() },
     hits: new Map(), verseInfo: new Map(), visible: null, tracks,
-    toolFailed: false, toolCalls: 0, aiCalls: 0, inTok: 0, outTok: 0, stepId: 0, sermonDone: false, verseDone: false,
+    toolFailed: false, toolCalls: 0, aiCalls: 0, inTok: 0, outTok: 0, cacheRead: 0, cacheWrite: 0, stepId: 0, sermonDone: false, verseDone: false,
   };
   const model = Deno.env.get("SERMON_CHAT_MODEL") || "claude-opus-4-8";
   const messages: any[] = [{ role: "user", content: agentUserText(message, chip, prevNote) }];
@@ -523,8 +548,7 @@ async function agentRun(b: any, deps: AgentDeps, send: AgentSend): Promise<void>
       break;
     }
     run.aiCalls++;
-    run.inTok += Number(d?.usage?.input_tokens) || 0;
-    run.outTok += Number(d?.usage?.output_tokens) || 0;
+    agentAddUsage(run, d?.usage);
     if (d?.stop_reason === "refusal") { why = "refusal"; break; }
     // 잘린 차례 — tool_use 의 input 이 덜 찼을 수 있다(give_answer 든 찾기든 믿지 않는다) → 되돌림
     if (d?.stop_reason === "max_tokens") { why = "max-tokens"; break; }
@@ -539,7 +563,13 @@ async function agentRun(b: any, deps: AgentDeps, send: AgentSend): Promise<void>
       continue;
     }
     const results: any[] = [];
-    for (const tu of uses) results.push(await agentRunTool(deps, run, tu, send));
+    let cut = false;
+    for (const tu of uses) {
+      // 이미 받은 도구 부름도 끊긴 뒤에는 돌리지 않는다(첫 임베딩 채우기처럼 긴 일이 끊긴 뒤 이어지지 않게)
+      if (deps.cancelled?.()) { why = "cancelled"; cut = true; break; }
+      results.push(await agentRunTool(deps, run, tu, send));
+    }
+    if (cut) break;
     messages.push({ role: "user", content: results });   // tool_result 는 한 user 메시지에 모두
   }
 
