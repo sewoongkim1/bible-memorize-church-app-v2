@@ -71,6 +71,12 @@ COMMITTEE_RENAMES = [('L-12부', '목양부')]   # 2026-11-22 친구 「L-12부 
 SHEET_SKIP = {('L-12부', '소그룹 리더교육'), ('총무부', '상담실'), ('시설부', '안전관리')}   # 2026-11-22 친구 「소그룹 리더교육은 삭제」 · 「총무부 상담실 삭제」 · 「시설부 안전관리 삭제」
 # 팀 하나를 다른 부서로 옮기는 것 — (시트 부서, 시트 팀명) → 새 부서 · 같은 줄(id · 신청 그대로) · 없는 부서면 새 부서가 된다
 TEAM_MOVES = {('M-12부', '주차안내'): '차량부'}   # 2026-11-22 친구 「M-12 의 주차안내를 차량부로 빼주세요」
+# 시트에 없는 팀을 더하는 것 — (이 팀 바로 뒤에 (부서, 묶음, 팀), 새 줄) · 엑셀에 넣으면 이 줄은 지운다
+SHEET_ADD = [
+    (('희망의복지재단', '복지재단', '고척 재미난 지역아동센터'),
+     dict(committee='희망의복지재단', group='복지재단', team='카페운영', kind='apply', schedule='필요시', desc='카페운영에 관한 제반활동',
+          sun=False, fri=False, week=False, wk=False, bi=False, ah=True, tf=None, tt=None, option='')),
+]   # 2026-11-22 친구 「희망의 복지재단 → 복지재단 → 카페운영 추가」(내용은 옛 교회봉사부 카페운영 것)
 OPTION_NOTE = {'어와나': '어와나 4개 중 하나만 신청'}   # 묶음 → 안내(전에 있던 것 그대로)
 SHEET_TIME_OVERRIDE = {('찬양부', '', '주일예배찬양'): ('08:00', '16:00')}   # 2부·3부·오후찬양 — 시트의 08:00~10:30 은 2부만 덮는다
 
@@ -147,6 +153,9 @@ for r in ws.iter_rows(min_row=2, values_only=True):
                      wk=wk, bi=bi, ah=ah,
                      tf=tf, tt=tt, option=OPTION_NOTE.get(grp.strip(), '')))
 
+for after, nr in SHEET_ADD:
+    at = next(k for k, r_ in enumerate(rows) if (r_['committee'], r_['group'], r_['team']) == after)
+    rows.insert(at + 1, nr)
 keys = [(r['committee'], r['group'], r['team']) for r in rows]
 assert len(keys) == len(set(keys)), '같은 팀이 두 줄이다: %s' % [k for k in keys if keys.count(k) > 1]
 for k in PROTECT:
