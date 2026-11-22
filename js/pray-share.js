@@ -1069,6 +1069,41 @@ const CARD_SETS = {
         "id": "card-christmas-3",
         "label": "설경",
         "focus": 0.5
+      },
+      {
+        "id": "card-christmas-4",
+        "label": "트리",
+        "focus": 0.5
+      },
+      {
+        "id": "card-christmas-5",
+        "label": "촛불",
+        "focus": 0.47
+      },
+      {
+        "id": "card-christmas-6",
+        "label": "별빛 트리",
+        "focus": 0.55
+      },
+      {
+        "id": "card-christmas-7",
+        "label": "오너먼트",
+        "focus": 0.6
+      },
+      {
+        "id": "card-christmas-8",
+        "label": "구유",
+        "focus": 0.62
+      },
+      {
+        "id": "card-christmas-9",
+        "label": "창가",
+        "focus": 0.65
+      },
+      {
+        "id": "card-christmas-10",
+        "label": "리스",
+        "focus": 0.5
       }
     ],
     "entries": [

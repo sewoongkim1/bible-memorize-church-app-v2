@@ -148,3 +148,24 @@ Gemini `gemini-3-pro-image` · `aspectRatio 4:5` · `2K`(1856×2304) → 가운�
 | `card-newyear-3` | 눈꽃 | 3b | Bright frost-covered tree branches sparkling across the middle band against a clear pale-blue winter sky in fresh morning light, white and silver tones; keep the upper-right corner plain and uncluttered. | 3a 는 옆으로 누움 |
 
 ⚠️ 장면 말에 「across the middle band」를 넣으면 모델이 가운데에 따로 그린 네모 칸을 끼우거나 그림을 옆으로 눕히는 일이 잦았다(성탄 셋째 여덟 장 중 일곱 장) — 「한 장의 사진 · 수평선 수평」으로 쓰면 깨끗했다.
+
+## 🎄 성탄 일곱 더(2026-11-23 · 친구 「따뜻한 성탄, 크리스마스 트리 등 예쁜 이미지」 · gemini-3-pro-image 4:5 2K → 1080×1350 WebP q80 + 128×160)
+
+꼬리말은 성탄용으로 바꿨다(해돋이 빛 대신) — 그대로:
+
+> Vertical 4:5 photograph, warm and cozy Christmas atmosphere, soft warm golden light, gentle bokeh, natural colors, high detail, professional photography.
+> No people, no faces, no hands, no animals, no text, no letters, no numbers, no watermark, no logo, no Santa Claus.
+> Keep the main subject in the central part of the frame, and keep the top right corner simple and uncluttered (soft dark or softly blurred background).
+> One single continuous upright photograph — no collage, no panels, no inset pictures, no borders, no frames.
+
+| 파일 | 이름 | 고른 것 | 장면(영어 그대로) | 버린 것 |
+|---|---|---|---|---|
+| `card-christmas-4` | 트리 | 4a | A beautifully decorated Christmas tree glowing with warm white fairy lights and gold and red ornaments in a softly lit cozy living room at night, a few wrapped gifts beneath it, warm bokeh lights in the background. | — |
+| `card-christmas-5` | 촛불 | 5a | Four lit advent candles in a ring of fresh evergreen branches with small red berries and pine cones on a rustic wooden table, warm candlelight glowing, soft dark background with gentle golden bokeh. | — (focus 0.47 — 띠에서 불꽃이 잘리지 않게) |
+| `card-christmas-6` | 별빛 트리 | 6b | A single evergreen tree decorated with warm glowing string lights standing alone in a snowy field at night under a deep blue starry sky with one bright star above it, gentle snowfall, peaceful and holy. | 6a 는 오른쪽 위에 네모 칸 |
+| `card-christmas-7` | 오너먼트 | 7a | Close-up of shiny red and gold Christmas ornaments and a small golden star hanging on snowy fir branches, warm twinkling lights blurred into soft golden bokeh behind. | — |
+| `card-christmas-8` | 구유 | 8a | A simple wooden manger filled with soft golden straw in a quiet humble stable at night, gently lit by the warm glow of a single bright star shining from above, peaceful and holy, empty of figures. | — |
+| `card-christmas-9` | 창가 | 9a | A frosted window at night with a glowing candle lantern, evergreen sprigs and pine cones on the windowsill, snow gently falling outside against a deep blue sky, warm golden light inside. | — |
+| `card-christmas-10` | 리스 | 10b | A festive evergreen Christmas wreath with red berries, pine cones and a red velvet ribbon, wrapped in warm glowing fairy lights, resting on soft fresh snow at dusk with gentle golden bokeh. | 10a 는 오른쪽 위에 검은 얼룩 |
+
+만든 도구(저장소 밖 스크래치 · 자료/card/tools/gen_img.py 와 같은 길 · 꼬리말만 위) — 원본 PNG 도 저장소 밖.
