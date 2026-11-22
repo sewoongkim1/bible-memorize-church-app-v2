@@ -962,9 +962,20 @@ function minFilterHtml() {
 
 /* ── ① 부서 고르기 ─────────────────────────────────────────── */
 // 목록만 만든다 — 다시 그릴 때 필터 상자를 건드리지 않으려고 떼어 두었다.
+// 부서(위원회) 줄의 차례 — 교육위원회 · 찬양부를 맨 앞에, 나머지는 가나다순(친구 2026-11-22).
+// ⚠️ 위원회 줄의 차례만 바꾼다. 위원회 안의 팀 차례는 DB sort_order 그대로(관리 화면 「차례 바꾸기」).
+const MIN_COMMITTEE_FIRST = ["교육위원회", "찬양부"];
+function minCommitteeOrder(names) {
+  const first = MIN_COMMITTEE_FIRST.filter(function (c) { return names.indexOf(c) >= 0; });
+  const rest = names.filter(function (c) { return first.indexOf(c) < 0; })
+    .sort(function (a, b) { return a.localeCompare(b, "ko"); });
+  return first.concat(rest);
+}
+
 function minAccBuild() {
-  const committees = [];
-  for (const t of minCat.list) if (committees.indexOf(t.committee) < 0) committees.push(t.committee);
+  const seen = [];
+  for (const t of minCat.list) if (seen.indexOf(t.committee) < 0) seen.push(t.committee);
+  const committees = minCommitteeOrder(seen);
 
   // 먼저 몇 팀이 남는지 세어 둔다 — 그 수로 「펼칠지」를 정한다
   const shownAll = minFOn()
