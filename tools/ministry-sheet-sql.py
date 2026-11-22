@@ -56,6 +56,10 @@ RENAMES = [
 # 시트(엑셀)의 팀명을 고쳐 읽는 줄 — 엑셀은 친구 파일이라 손대지 않고 여기서 바꾼다. (부서, 시트 팀명) → 새 팀명
 #   ⚠️ 엑셀도 같은 이름으로 고쳐 두면 이 줄은 지운다(안 지워도 결과는 같다).
 SHEET_TEAM_OVERRIDE = {('교회봉사부', '카페운영'): '데코팀'}   # 2026-11-22 친구
+# 부서 이름이 바뀌는 것 — (옛 부서, 새 부서) · 그 부서의 팀을 모두 옮긴다(id · 신청 그대로) · 시트도 새 부서로 고쳐 읽는다
+COMMITTEE_RENAMES = [('L-12부', '목양지원')]   # 2026-11-22 친구 「L-12부 → 목양지원」
+# 시트(엑셀)에서 읽지 않는 팀 — 시트에 없으면 ③ 에서 지워진다(신청이 걸린 팀은 남는다) · (시트 부서, 시트 팀명)
+SHEET_SKIP = {('L-12부', '소그룹 리더교육')}   # 2026-11-22 친구 「소그룹 리더교육은 삭제」
 OPTION_NOTE = {'어와나': '어와나 4개 중 하나만 신청'}   # 묶음 → 안내(전에 있던 것 그대로)
 SHEET_TIME_OVERRIDE = {('찬양부', '', '주일예배찬양'): ('08:00', '16:00')}   # 2부·3부·오후찬양 — 시트의 08:00~10:30 은 2부만 덮는다
 
@@ -100,7 +104,10 @@ for r in ws.iter_rows(min_row=2, values_only=True):
     com, name = str(col(r, '부서') or '').strip(), str(col(r, '팀명') or '').strip()
     if not com or not name:
         continue
+    if (com, name) in SHEET_SKIP:
+        continue
     name = SHEET_TEAM_OVERRIDE.get((com, name), name)
+    com = dict(COMMITTEE_RENAMES).get(com, com)
     grp, team = name.split('-', 1) if '-' in name else ('', name)
     appoint = str(col(r, '임명직') or '').strip() == '임명직'
     when = cell(col(r, '사역시간'))
@@ -146,6 +153,8 @@ L.append("begin;")
 L.append("set local lock_timeout = '5s';")
 L.append("")
 L.append("-- ① 이름만 바뀌는 줄")
+for oc, nc in COMMITTEE_RENAMES:
+    L.append("update public.ministry_catalog set committee = %s where year = %d and committee = %s;" % (q(nc), YEAR, q(oc)))
 for (c, g, t), (ng, nt) in RENAMES:
     L.append("update public.ministry_catalog set group_name = %s, team = %s where year = %d and committee = %s and group_name = %s and team = %s;"
              % (q(ng), q(nt), YEAR, q(c), q(g), q(t)))
