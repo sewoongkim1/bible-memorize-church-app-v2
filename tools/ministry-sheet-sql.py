@@ -60,6 +60,8 @@ SHEET_TEAM_OVERRIDE = {('교회봉사부', '카페운영'): '데코팀'}   # 202
 COMMITTEE_RENAMES = [('L-12부', '목양부')]   # 2026-11-22 친구 「L-12부 → 목양부」(처음엔 「목양지원」으로 받았다가 바로잡음)
 # 시트(엑셀)에서 읽지 않는 팀 — 시트에 없으면 ③ 에서 지워진다(신청이 걸린 팀은 남는다) · (시트 부서, 시트 팀명)
 SHEET_SKIP = {('L-12부', '소그룹 리더교육')}   # 2026-11-22 친구 「소그룹 리더교육은 삭제」
+# 팀 하나를 다른 부서로 옮기는 것 — (시트 부서, 시트 팀명) → 새 부서 · 같은 줄(id · 신청 그대로) · 없는 부서면 새 부서가 된다
+TEAM_MOVES = {('M-12부', '주차안내'): '차량부'}   # 2026-11-22 친구 「M-12 의 주차안내를 차량부로 빼주세요」
 OPTION_NOTE = {'어와나': '어와나 4개 중 하나만 신청'}   # 묶음 → 안내(전에 있던 것 그대로)
 SHEET_TIME_OVERRIDE = {('찬양부', '', '주일예배찬양'): ('08:00', '16:00')}   # 2부·3부·오후찬양 — 시트의 08:00~10:30 은 2부만 덮는다
 
@@ -106,8 +108,9 @@ for r in ws.iter_rows(min_row=2, values_only=True):
         continue
     if (com, name) in SHEET_SKIP:
         continue
+    moved = TEAM_MOVES.get((com, name))
     name = SHEET_TEAM_OVERRIDE.get((com, name), name)
-    com = dict(COMMITTEE_RENAMES).get(com, com)
+    com = moved or dict(COMMITTEE_RENAMES).get(com, com)
     grp, team = name.split('-', 1) if '-' in name else ('', name)
     appoint = str(col(r, '임명직') or '').strip() == '임명직'
     when = cell(col(r, '사역시간'))
@@ -155,6 +158,10 @@ L.append("")
 L.append("-- ① 이름만 바뀌는 줄")
 for oc, nc in COMMITTEE_RENAMES:
     L.append("update public.ministry_catalog set committee = %s where year = %d and committee = %s;" % (q(nc), YEAR, q(oc)))
+for (oc, nm), nc in TEAM_MOVES.items():
+    og, ot = nm.split('-', 1) if '-' in nm else ('', nm)
+    L.append("update public.ministry_catalog set committee = %s where year = %d and committee = %s and group_name = %s and team = %s;"
+             % (q(nc), YEAR, q(oc), q(og.strip()), q(ot.strip())))
 for (c, g, t), (ng, nt) in RENAMES:
     L.append("update public.ministry_catalog set group_name = %s, team = %s where year = %d and committee = %s and group_name = %s and team = %s;"
              % (q(ng), q(nt), YEAR, q(c), q(g), q(t)))
