@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261123a";
+const APP_BUILD = "20261123b";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -4213,6 +4213,81 @@ function prayShareVisible() { return PRAY_SHARE_OPEN || (typeof ministryTesterCa
 //   친구가 시안을 보고 나면 true 한 줄 + bump · 설명서 한 줄(docs/notes/prayer-book.md 「2026-11 보내기」 끝).
 const MED_SHARE_OPEN = true;   // 2026-11-04 모두에게 열었다(친구가 갤럭시에서 써 본 뒤 「열어주세요」 · 설명서 매일 묵상 장에 한 줄) · 닫으려면 false 한 줄 + bump
 function medShareVisible() { return MED_SHARE_OPEN || (typeof ministryTesterCached === "function" && ministryTesterCached()); }
+// 🌿 오늘의 묵상 창 — 날마다 바뀌는 배경 사진 · 제목 글꼴(2026-11-23 친구 「배경 이미지 및 폰트들을 매일 바꿔서」 · 「추천해 주시면 따르겠습니다」).
+//   사진은 새로 그리지 않고 img/share 에 있는 보내기 · 말씀카드 그림 가운데 45장을 철마다 묶었다(풍성 · 수채화(그림풍) · 풍선 · 백조(행사 느낌)는 뺐다).
+//   글자는 그림에 넣지 않는다 — 묵상 글은 DB 그대로 · 큰 글씨 · 어두운 모드 · 읽어 주기가 그대로다. 사진은 창 위쪽에만 깔고 제목 자리에서 판 색으로 스민다.
+//   제목 글꼴은 여섯(일곱 요일과 엇갈려 같은 요일에 같은 글꼴로 굳지 않는다) — 새 글꼴은 그 제목 글자만 받는다(구글 글꼴 text= · 15~65KB · unicode-range 라 여러 번 받아도 합쳐진다).
+//   ⚠️ 본문 글꼴은 그대로(읽기 쉬운 고딕) — 손글씨 꼴은 짧은 제목에만. 읽을 것 docs/notes/meditation.md 끝 「날마다 바뀌는 배경 · 제목 글꼴」.
+const MED_BG_OPEN = false;   // 먼저 🧪 시험 참여자에게만 — 친구가 폰에서 본 뒤 true 한 줄 + bump
+function medBgVisible() { return MED_LAYOUT === "a" && (MED_BG_OPEN || (typeof ministryTesterCached === "function" && ministryTesterCached())); }
+const MED_BG = {
+  all: ["bg-dawn", "card-suneung-1", "bg-sea", "card-suneung-3", "bg-lake", "card-suneung-5", "card-suneung-6", "card-suneung-8",
+        "card-birthday-2", "card-wedding-2", "card-comfort-1", "card-newyear-1"],   // 사계절 — 새벽 · 해돋이 · 바다 · 독수리 · 호수 · 물줄기 · 찻잔 · 노을 · 아침해 · 두 나무 · 물안개 · 해돋이(바다)
+  spring: ["bg-blossom", "card-newstart-3", "card-birthday-1", "card-newstart-1", "card-wedding-1", "card-comfort-3", "card-healing-2"],   // 3~5월 꽃길 · 매화 · 꽃밭 · 새싹 · 장미길 · 들꽃 · 창가
+  summer: ["bg-lavender", "card-healing-1", "card-newstart-2", "card-comfort-2", "card-healing-3", "card-healing-2"],   // 6~8월 라벤더 · 숲볕 · 오솔길 · 골짜기 · 들길 · 창가
+  autumn: ["bg-maple", "bg-persimmon", "card-suneung-2", "bg-wheat", "bg-basket", "card-suneung-4"],   // 9~11월 단풍길 · 감나무 · 은행잎 · 들판 · 열매 · 들녘
+  winter: ["card-suneung-9", "card-christmas-2", "card-suneung-7", "card-christmas-3", "card-newyear-3", "card-christmas-1", "card-suneung-10", "card-newyear-2"],   // 12~2월 첫눈 · 눈숲 · 담요 · 설경 · 눈꽃 · 눈 언덕 · 촛불 · 새길
+  christmas: ["card-christmas-4", "card-christmas-6", "card-christmas-8", "card-christmas-5", "card-christmas-9", "card-christmas-7", "card-christmas-10"],   // 12/1~25 트리 · 별빛 트리 · 구유 · 촛불 · 창가 · 오너먼트 · 리스
+};
+// g = 구글 글꼴 family 값(없으면 이미 부르는 글꼴) · s = 글자가 작은 손글씨 꼴의 크기 배율
+const MED_FONTS = [
+  { f: "Nanum Myeongjo", w: 800 },
+  { f: "Song Myung", w: 400, g: "Song+Myung" },
+  { f: "Nanum Brush Script", w: 400, g: "Nanum+Brush+Script", s: 1.3 },
+  { f: "Gowun Batang", w: 700 },
+  { f: "Yeon Sung", w: 400, g: "Yeon+Sung", s: 1.08 },
+  { f: "Nanum Pen Script", w: 400, g: "Nanum+Pen+Script", s: 1.3 },
+];
+// 그 날(kstDayNumber 값)의 사진 · 글꼴 — 순수 함수(tests/med-look.test.cjs). 철 사진과 사계절 사진을 번갈아 · 12/1~25 는 성탄과 겨울만.
+function medDayLook(day) {
+  const zip = (a, b) => { const out = []; for (let i = 0; i < Math.max(a.length, b.length); i++) { if (i < a.length) out.push(a[i]); if (i < b.length) out.push(b[i]); } return out; };
+  const poolOf = (x) => {
+    const dt = new Date(x * 86400000), m = dt.getUTCMonth() + 1, d = dt.getUTCDate();
+    return (m === 12 && d <= 25) ? zip(MED_BG.christmas, MED_BG.winter)
+      : zip(m >= 3 && m <= 5 ? MED_BG.spring : m >= 6 && m <= 8 ? MED_BG.summer : m >= 9 && m <= 11 ? MED_BG.autumn : MED_BG.winter, MED_BG.all);
+  };
+  const at = (n, x) => ((x % n) + n) % n;
+  const p = poolOf(day), q = poolOf(day - 1);
+  let i = at(p.length, day);
+  if (p[i] === q[at(q.length, day - 1)]) i = at(p.length, i - 1);   // 철이 바뀐 첫날 — 어제와 같은 사진이 걸리면 하나 앞(뒤로 가면 다음 날과 겹친다)
+  return { bg: p[i], font: MED_FONTS[at(MED_FONTS.length, day)] };
+}
+const medFontAsked = {};
+function medLoadFont(ft, text) {
+  if (!ft || !ft.g || !text || !document.fonts || !document.fonts.load) return Promise.resolve();
+  const key = ft.g + "|" + text;
+  if (!medFontAsked[key]) {
+    const l = document.createElement("link");
+    l.rel = "stylesheet";
+    l.href = "https://fonts.googleapis.com/css2?family=" + ft.g + "&text=" + encodeURIComponent(text) + "&display=swap";
+    medFontAsked[key] = new Promise((ok) => { l.onload = ok; l.onerror = ok; setTimeout(ok, 4000); })
+      .then(() => document.fonts.load(`${ft.w} 1em "${ft.f}"`, text)).catch(() => null);
+    document.head.appendChild(l);
+  }
+  return medFontAsked[key];
+}
+// 창에 그 날의 사진 · 제목 글꼴을 입힌다 — 사진은 받은 뒤에 스며 나온다(못 받으면 지금처럼 흰 판) · 사진 높이는 제목 아래까지.
+function medApplyLook(wrap, day) {
+  const hero = wrap && wrap.querySelector(".med-hero"), title = wrap && wrap.querySelector("#med-title");
+  if (!hero || !title || day == null) return;
+  const look = medDayLook(day), ft = look.font;
+  title.style.fontFamily = `"${ft.f}", "Nanum Myeongjo", serif`;
+  title.style.fontWeight = String(ft.w);
+  title.style.fontSize = (1.45 * (ft.s || 1)).toFixed(2) + "rem";
+  const fit = () => {
+    hero.style.height = (title.offsetTop + title.offsetHeight + 26) + "px";
+    hero.style.setProperty("--med-fade", (title.offsetHeight + 84) + "px");
+  };
+  fit();
+  medLoadFont(ft, title.textContent).then(fit);
+  const url = "img/share/" + look.bg + ".webp";
+  if (hero.dataset.bg === url) return;
+  hero.dataset.bg = url;
+  hero.classList.remove("on");
+  const im = new Image();
+  im.onload = () => { if (hero.dataset.bg !== url) return; hero.style.setProperty("--med-bg", `url("${url}")`); hero.classList.add("on"); };
+  im.src = url;
+}
 // 📖 이번 주 말씀 보내기(2026-11-05 친구 「첫 화면 이번 주 말씀도 · 오른쪽 위 작은 아이콘」 · 그림 + 주소 단추 · js/pray-share.js openVerseShare) — 먼저 🧪 시험 참여자에게만.
 //   친구가 보고 나면 true 한 줄 + bump · 설명서 한 줄(docs/notes/prayer-book.md 끝 「📖 이번 주 말씀도 보내기」).
 const VERSE_SHARE_OPEN = true;   // 2026-11-06 모두에게 열었다(친구 「올려주세요」 — 게시판 공지 「가족·목장 식구를 초대해 주세요」와 함께 · 설명서 말씀 암송 장에 한 줄) · 닫으려면 false 한 줄 + bump
@@ -10012,8 +10087,11 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev
     const wrap = document.createElement("div");
     wrap.id = "daily-message";
     wrap.className = "cheer-overlay";
+    const look = medBgVisible();   // 🌿 날마다 바뀌는 배경 · 제목 글꼴(MED_BG_OPEN) — 탭 i 는 오늘에서 (i - startIdx) 날 떨어진 날의 꼴
+    const lookDay = look ? kstDayNumber() : null;
     wrap.innerHTML = `
-      <div class="cheer-card dmsg-card med" role="dialog" aria-modal="true">
+      <div class="cheer-card dmsg-card med${look ? " has-bg" : ""}" role="dialog" aria-modal="true">
+        ${look ? '<div class="med-hero" aria-hidden="true"></div>' : ""}
         <div class="cheer-ref dmsg-badge">🌿 오늘의 묵상${usingPrev ? ' <span class="med-prev-tag">지난주</span>' : ""}</div>
         ${showTabs && items.length > 1
           ? `<div class="med-tabs">${items.map((it, i) =>
@@ -10048,6 +10126,7 @@ function showMeditationModal(items, startIdx, verse, sermon, showTabs, usingPrev
             : `<div class="med-q"><b>💬 오늘의 적용 질문</b><br>${scEmphasis(it.question)}</div>`)
           : "");
       wrap.querySelectorAll(".med-tab").forEach((b) => b.classList.toggle("on", Number(b.dataset.i) === i));
+      if (look && lookDay != null) medApplyLook(wrap, lookDay + (i - startIdx));
       toTop();
     };
     render(startIdx);

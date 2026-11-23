@@ -171,6 +171,8 @@ PURE_TESTS += ["tests/usage-log.test.cjs"]
 PURE_TESTS += ["tests/feature-usage.test.cjs"]
 # 💬 「내게 주시는 말씀」 에이전트(2026-11-20) — 서버 순수 규칙(상한 · 문 세 값 · 보이는 묶음 · give_answer 검증 · 억지 고르기) · 도구 · index.ts 이음
 PURE_TESTS += ["tests/sermon-agent.test.cjs"]
+# 🌿 묵상 창 날마다 바뀌는 배경 · 제목 글꼴(2026-11-23) — 사진 파일이 다 있는가 · 철 · 이틀 잇달아 같지 않게 · 글꼴이 요일에 굳지 않게 · 문 · 어두운 모드 짝
+PURE_TESTS += ["tests/med-look.test.cjs"]
 
 print("\n[3] 순수 함수 검사 (node --test)")
 for t in PURE_TESTS:
