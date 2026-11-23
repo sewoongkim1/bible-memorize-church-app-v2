@@ -8481,6 +8481,19 @@ body.psh-on { overflow: hidden; }
 }
 .psh-acts { position: sticky; bottom: 0; z-index: 1; background: #fdf8f0; box-shadow: 0 -12px 14px -2px #fdf8f0; }   /* 위 그림자 = 판 바탕색 — 밀려 올라가는 미리보기를 단추 위에서 덮는다 · 말씀 판은 체크도 이 안에(2026-11-05) */
 .dark .psh-acts { background: #1a202b; box-shadow: 0 -12px 14px -2px #1a202b; }
+/* 「나가기」(2026-11-23 친구 「축복기도 말씀카드에 나가기 버튼이 없어요 · 버튼으로」) — 위 ✕ 는 판을 내리면 화면 위로 사라져, 늘 보이는 아래 줄(.psh-acts)에 둔다.
+   보내기 판은 「나가기 | 보내기」 한 줄(나가기는 왼쪽 · 작게 · 테두리만 — 마크업은 보내기 뒤라 order 로 왼쪽에) · 카드 고르기 목록은 한 줄 가득. ✕ 와 같은 길(prayShareClose). */
+.psh-acts { display: flex; gap: 8px; align-items: stretch; }
+.psh-acts > .psh-send, .psh-acts > .psh-kakao { flex: 1; width: auto; min-width: 0; }
+.psh-out {
+  order: -1; flex: none; min-width: 88px; min-height: 52px; margin-top: 12px; padding: 0 16px; border: 1.5px solid #b9b0a0; border-radius: 12px;
+  background: #fff; color: #3a4252; font-size: 1.05rem; font-weight: 800; font-family: inherit;
+}
+.psh-tp-acts { bottom: calc(-18px - env(safe-area-inset-bottom, 0px)); padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px)); margin-bottom: calc(-18px - env(safe-area-inset-bottom, 0px)); }   /* 판 아래 안쪽 여백까지 덮어 목록 글씨가 단추 밑으로 비치지 않게 */
+.psh-tp-acts > .psh-out { flex: 1; }
+.dark .psh-out { background: #11161f; border-color: #4a5468; color: #e6e9ef; }
+html[data-fs="lg"] .psh-out { font-size: 1.15rem; }
+html[data-fs="xl"] .psh-out { font-size: 1.28rem; }
 /* 📖 말씀 판 공유 창 길 — 그림을 보낸 뒤 같은 단추가 금색 「이어서 설치 주소 보내기」(체크 칸은 2026-11-06 친구 「체크박스 컨트롤 삭제」로 뺐다 · 늘 켬) */
 .psh-send.next { background: linear-gradient(180deg, #f7cf63, #eab53f); color: #1b2a4a; }
 .dark .psh-send.next { background: linear-gradient(180deg, #e8bd55, #d6a43a); color: #1a1406; }

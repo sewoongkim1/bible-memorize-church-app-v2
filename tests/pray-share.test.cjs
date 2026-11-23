@@ -1980,3 +1980,15 @@ test('💌 주제 고르기 — 옛 판이 남긴 기록(표식 pt 가 다름)�
   assert.equal(guard(1000, 1500), 0, '0.5초 뒤 누름은 그대로');
   for (const f of ['pshTopicShow', 'pshTopicPick', 'pshTopicsUpdate']) assert.ok(fnSrc(f).includes('pshState.cswAt = Date.now();'), f + ' 가 바뀐 때를 적는다');
 });
+
+test('「나가기」(2026-11-23 친구 「축복기도 말씀카드에 나가기 버튼이 없어요 · 버튼으로」) — 늘 보이는 아래 줄에 · 카드 고르기 목록에도 · ✕ 와 같은 길 · 어두운 모드 짝', () => {
+  const CSS = read('style.css');
+  assert.match(PS, /<button type="button" class="psh-send" id="psh-send"\$\{kakao \? " hidden" : ""\} disabled>그리는 중…<\/button>\n        <button type="button" class="psh-out" id="psh-out">나가기<\/button><\/div>/, '보내기 판 — 아래 줄(.psh-acts) 안');
+  assert.match(PS, /const out = wrap\.querySelector\("#psh-out"\);\n  if \(out\) out\.addEventListener\("click", \(\) => prayShareClose\(\)\);/, '✕ 와 같은 길 · 없으면 넘어간다');
+  const tf = cut(PS, 'function pshTopicsFill(w) {', '\n}\n');
+  assert.match(tf, /<div class="psh-acts psh-tp-acts"><button type="button" class="psh-out" id="psh-tp-out">나가기<\/button><\/div>/, '카드 고르기 목록 맨 아래');
+  assert.match(tf, /const out = w\.querySelector\("#psh-tp-out"\);\n  if \(out\) out\.addEventListener\("click", \(\) => prayShareClose\(\)\);/);
+  assert.match(CSS, /\.psh-out \{\n  order: -1;/, '마크업은 보내기 뒤 · 보이기는 왼쪽');
+  assert.ok(CSS.includes('.dark .psh-out {'), '어두운 모드 짝');
+  assert.match(CSS, /html\[data-fs="xl"\] \.psh-out \{/, '아주 큰 글씨');
+});

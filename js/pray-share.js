@@ -2168,8 +2168,11 @@ function pshTopicsFill(w) {
       <div class="psh-top"><b id="psh-h">${prayEsc(PSH_TOPIC_TITLE)}</b><button type="button" class="psh-x" aria-label="닫기">✕</button></div>
       <p class="psh-tp-lead">${prayEsc(PSH_TOPIC_LEAD)}</p>
       <div id="psh-tp-box">${pshTopicListHtml(pshTopicGroupsNow())}</div>
+      <div class="psh-acts psh-tp-acts"><button type="button" class="psh-out" id="psh-tp-out">나가기</button></div>
     </div>`;
   w.querySelector(".psh-x").addEventListener("click", () => prayShareClose());
+  const out = w.querySelector("#psh-tp-out");
+  if (out) out.addEventListener("click", () => prayShareClose());
   const box = w.querySelector("#psh-tp-box");
   box.addEventListener("click", (e) => { const b = e.target && e.target.closest ? e.target.closest(".psh-tp") : null; if (b) pshTopicPick(b.dataset.card); });
   pshTopicImgs(box);
@@ -2397,7 +2400,8 @@ function pshOpen(title, withName, name, kind, opts) {
       <div class="psh-thumbs" id="psh-thumbs" role="radiogroup" aria-labelledby="psh-bg-l">${choices.map(pshThumbHtml).join("")}</div>
       <div class="psh-pv"><img id="psh-img" alt=""></div>
       <div class="psh-acts">${kakao ? `<button type="button" class="psh-kakao" id="psh-kakao">${PSH_KAKAO_IC}<span class="psh-kakao-t">카카오톡으로 보내기</span></button>` : ""}
-        <button type="button" class="psh-send" id="psh-send"${kakao ? " hidden" : ""} disabled>그리는 중…</button></div>
+        <button type="button" class="psh-send" id="psh-send"${kakao ? " hidden" : ""} disabled>그리는 중…</button>
+        <button type="button" class="psh-out" id="psh-out">나가기</button></div>
       <p class="psh-hint" id="psh-hint">${pshHintText(kind, kakao)}</p>
       <p class="psh-msg" id="psh-msg" role="status"></p>
     </div>`;
@@ -2418,6 +2422,9 @@ function pshOpen(title, withName, name, kind, opts) {
   pshThumbsWire(wrap);   // 배경 고르기
   if (kind === "card") { pshCardMenuWire(wrap); pshCardWire(wrap); }   // 💌 카드 고르기 · 🎓 이름 · 본문 · 말씀 · 짜임
   wrap.querySelector(".psh-x").addEventListener("click", () => prayShareClose());
+  // 「나가기」(친구 2026-11-23 「축복기도 말씀카드에 나가기 버튼이 없어요 · 버튼으로」) — 위 ✕ 는 판을 내리면 화면 위로 사라진다 · 늘 보이는 아래 줄에 · ✕ 와 같은 길
+  const out = wrap.querySelector("#psh-out");
+  if (out) out.addEventListener("click", () => prayShareClose());
   if (!into) wrap.addEventListener("click", (e) => { if (e.target === wrap) prayShareClose(); });
   const tb = wrap.querySelector("#psh-tp-back");
   if (tb) tb.addEventListener("click", pshTopicBack);   // 💌 ‹ 다른 카드 — 주제 고르기로(안드로이드 「뒤로 가기」와 같은 길)
