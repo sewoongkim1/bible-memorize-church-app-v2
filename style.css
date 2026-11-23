@@ -8489,7 +8489,7 @@ body.psh-on { overflow: hidden; }
   order: -1; flex: none; min-width: 88px; min-height: 52px; margin-top: 12px; padding: 0 16px; border: 1.5px solid #b9b0a0; border-radius: 12px;
   background: #fff; color: #3a4252; font-size: 1.05rem; font-weight: 800; font-family: inherit;
 }
-.psh-tp-acts { bottom: calc(-18px - env(safe-area-inset-bottom, 0px)); padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px)); margin-bottom: calc(-18px - env(safe-area-inset-bottom, 0px)); }   /* 판 아래 안쪽 여백까지 덮어 목록 글씨가 단추 밑으로 비치지 않게 */
+.psh-tp-acts { margin-top: 26px; bottom: calc(-18px - env(safe-area-inset-bottom, 0px)); padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px)); margin-bottom: calc(-18px - env(safe-area-inset-bottom, 0px)); }   /* 판 아래 안쪽 여백까지 덮어 목록 글씨가 단추 밑으로 비치지 않게 · 위 26px = 끝까지 내렸을 때 위 흐림(그림자 약 24px)이 마지막 카드(병문안) 아래 줄을 덮지 않게(친구 2026-11-23) */
 .psh-tp-acts > .psh-out { flex: 1; }
 .dark .psh-out { background: #11161f; border-color: #4a5468; color: #e6e9ef; }
 html[data-fs="lg"] .psh-out { font-size: 1.15rem; }

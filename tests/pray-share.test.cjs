@@ -1991,4 +1991,5 @@ test('「나가기」(2026-11-23 친구 「축복기도 말씀카드에 나가�
   assert.match(CSS, /\.psh-out \{\n  order: -1;/, '마크업은 보내기 뒤 · 보이기는 왼쪽');
   assert.ok(CSS.includes('.dark .psh-out {'), '어두운 모드 짝');
   assert.match(CSS, /html\[data-fs="xl"\] \.psh-out \{/, '아주 큰 글씨');
+  assert.match(CSS, /\.psh-tp-acts \{ margin-top: 26px;/, '끝까지 내렸을 때 위 흐림이 마지막 카드(병문안) 아래 줄을 덮지 않게(친구 2026-11-23)');
 });
