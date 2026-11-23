@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261123c";
+const APP_BUILD = "20261123d";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -4218,7 +4218,7 @@ function medShareVisible() { return MED_SHARE_OPEN || (typeof ministryTesterCach
 //   글자는 그림에 넣지 않는다 — 묵상 글은 DB 그대로 · 큰 글씨 · 어두운 모드 · 읽어 주기가 그대로다. 사진은 창 위쪽에만 깔고 제목 자리에서 판 색으로 스민다.
 //   제목 글꼴은 여섯(일곱 요일과 엇갈려 같은 요일에 같은 글꼴로 굳지 않는다) — 새 글꼴은 그 제목 글자만 받는다(구글 글꼴 text= · 15~65KB · unicode-range 라 여러 번 받아도 합쳐진다).
 //   ⚠️ 본문 글꼴은 그대로(읽기 쉬운 고딕) — 손글씨 꼴은 짧은 제목에만. 읽을 것 docs/notes/meditation.md 끝 「날마다 바뀌는 배경 · 제목 글꼴」.
-const MED_BG_OPEN = false;   // 먼저 🧪 시험 참여자에게만 — 친구가 폰에서 본 뒤 true 한 줄 + bump
+const MED_BG_OPEN = true;   // 2026-11-23 모두에게 열었다(친구가 폰에서 본 뒤 「네 열어주세요」) · 닫으려면 false 한 줄 + bump
 function medBgVisible() { return MED_LAYOUT === "a" && (MED_BG_OPEN || (typeof ministryTesterCached === "function" && ministryTesterCached())); }
 const MED_BG = {
   all: ["bg-dawn", "card-suneung-1", "bg-sea", "card-suneung-3", "bg-lake", "card-suneung-5", "card-suneung-6", "card-suneung-8",
