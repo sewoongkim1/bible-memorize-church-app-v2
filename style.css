@@ -7781,7 +7781,18 @@ html[data-fs="xl"] .vl-a .vs-ic { width: 20px; height: 20px; }
 }
 .md-a .med-hero.on { opacity: 1; }
 .md-a .has-bg .med-tabs { background: rgba(236, 231, 221, .92); }
-.md-a .cheer-card.med.has-bg .dmsg-title { margin-top: clamp(88px, 27vw, 140px); line-height: 1.3; letter-spacing: 0; text-shadow: 0 0 12px rgba(255, 255, 255, .95), 0 0 3px rgba(255, 255, 255, .9); }
+/* 제목 위 띄움 — 요일 칸이 있으면 바로 아래(20px) · 없으면(매일 저절로 뜨는 창) 60px. 둘 다 사진이 없던 때와 거의 같은 높이라
+   확인 단추가 밀려나지 않는다(친구 2026-11-23 「버튼이 보이지 않아요」 — 처음 판은 27vw ≈ 100px 띄워 360×740 에서 51px 가렸다). */
+.md-a .cheer-card.med.has-bg .med-tabs + .dmsg-title { margin-top: 20px; }
+/* 「설교 · 요약 · 확인」 줄은 판 아래에 붙는다(sticky) — 작은 폰(360×640) · 긴 묵상에서도 늘 보인다(보내기 판 .psh-acts 와 같은 꼴).
+   bottom 을 판의 아래 안쪽 여백만큼 내려 판 끝에 닿게 · 그 여백 자리는 이 줄의 흰 바탕이 덮는다. 끝까지 내리면 제자리(아래에 「오늘 함께」 줄). */
+.md-a .cheer-card.med.has-bg > .med-actions {
+  position: sticky; bottom: calc(-24px - env(safe-area-inset-bottom, 0px)); z-index: 2;
+  margin-left: -20px; margin-right: -20px; padding: 10px 20px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: #fff; box-shadow: 0 -10px 12px -10px rgba(13, 27, 62, .22);
+}
+.dark .md-a .cheer-card.med.has-bg > .med-actions { background: #1a202b; box-shadow: 0 -10px 12px -10px rgba(0, 0, 0, .6); }
+.md-a .cheer-card.med.has-bg .dmsg-title { margin-top: 60px; line-height: 1.3; letter-spacing: 0; text-shadow: 0 0 12px rgba(255, 255, 255, .95), 0 0 3px rgba(255, 255, 255, .9); }
 .dark .md-a .has-bg::before { background: rgba(26, 32, 43, .8); }
 .dark .md-a .med-hero {
   background:

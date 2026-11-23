@@ -6,7 +6,7 @@
 
 // 이 파일의 빌드 번호 — index.html의 app.js?v= 와 반드시 같아야 한다.
 // (tools/bump.py가 둘을 함께 올린다)
-const APP_BUILD = "20261123b";
+const APP_BUILD = "20261123c";
 
 // 배포 직후 CDN이 아직 옛 app.js를 내보내면, 브라우저는 그 옛 내용을 '새 주소'
 // 아래 캐시해 버린다. 주소가 다시 바뀌기 전까지(최대 10분) 옛 화면이 남는 이유다.
@@ -4227,7 +4227,9 @@ const MED_BG = {
   summer: ["bg-lavender", "card-healing-1", "card-newstart-2", "card-comfort-2", "card-healing-3", "card-healing-2"],   // 6~8월 라벤더 · 숲볕 · 오솔길 · 골짜기 · 들길 · 창가
   autumn: ["bg-maple", "bg-persimmon", "card-suneung-2", "bg-wheat", "bg-basket", "card-suneung-4"],   // 9~11월 단풍길 · 감나무 · 은행잎 · 들판 · 열매 · 들녘
   winter: ["card-suneung-9", "card-christmas-2", "card-suneung-7", "card-christmas-3", "card-newyear-3", "card-christmas-1", "card-suneung-10", "card-newyear-2"],   // 12~2월 첫눈 · 눈숲 · 담요 · 설경 · 눈꽃 · 눈 언덕 · 촛불 · 새길
-  christmas: ["card-christmas-4", "card-christmas-6", "card-christmas-8", "card-christmas-5", "card-christmas-9", "card-christmas-7", "card-christmas-10"],   // 12/1~25 트리 · 별빛 트리 · 구유 · 촛불 · 창가 · 오너먼트 · 리스
+  // 11/23~12/31 은 성탄 카드 그림 열만(친구 2026-11-23 「이번주부터 크리스마스 12월 말까지 이미지로」) — 트리 · 눈 언덕 · 별빛 트리 · 눈숲 · 구유 · 설경 · 촛불 · 창가 · 오너먼트 · 리스
+  christmas: ["card-christmas-4", "card-christmas-1", "card-christmas-6", "card-christmas-2", "card-christmas-8", "card-christmas-3",
+              "card-christmas-5", "card-christmas-9", "card-christmas-7", "card-christmas-10"],
 };
 // g = 구글 글꼴 family 값(없으면 이미 부르는 글꼴) · s = 글자가 작은 손글씨 꼴의 크기 배율
 const MED_FONTS = [
@@ -4238,12 +4240,12 @@ const MED_FONTS = [
   { f: "Yeon Sung", w: 400, g: "Yeon+Sung", s: 1.08 },
   { f: "Nanum Pen Script", w: 400, g: "Nanum+Pen+Script", s: 1.3 },
 ];
-// 그 날(kstDayNumber 값)의 사진 · 글꼴 — 순수 함수(tests/med-look.test.cjs). 철 사진과 사계절 사진을 번갈아 · 12/1~25 는 성탄과 겨울만.
+// 그 날(kstDayNumber 값)의 사진 · 글꼴 — 순수 함수(tests/med-look.test.cjs). 철 사진과 사계절 사진을 번갈아 · 11/23~12/31 은 성탄 그림만.
 function medDayLook(day) {
   const zip = (a, b) => { const out = []; for (let i = 0; i < Math.max(a.length, b.length); i++) { if (i < a.length) out.push(a[i]); if (i < b.length) out.push(b[i]); } return out; };
   const poolOf = (x) => {
     const dt = new Date(x * 86400000), m = dt.getUTCMonth() + 1, d = dt.getUTCDate();
-    return (m === 12 && d <= 25) ? zip(MED_BG.christmas, MED_BG.winter)
+    return ((m === 11 && d >= 23) || m === 12) ? MED_BG.christmas
       : zip(m >= 3 && m <= 5 ? MED_BG.spring : m >= 6 && m <= 8 ? MED_BG.summer : m >= 9 && m <= 11 ? MED_BG.autumn : MED_BG.winter, MED_BG.all);
   };
   const at = (n, x) => ((x % n) + n) % n;
@@ -4273,7 +4275,7 @@ function medApplyLook(wrap, day) {
   const look = medDayLook(day), ft = look.font;
   title.style.fontFamily = `"${ft.f}", "Nanum Myeongjo", serif`;
   title.style.fontWeight = String(ft.w);
-  title.style.fontSize = (1.45 * (ft.s || 1)).toFixed(2) + "rem";
+  title.style.fontSize = (1.25 * (ft.s || 1)).toFixed(2) + "rem";   // 1.45 → 1.25(친구 2026-11-23 「버튼이 보이지 않아요」 — 사진이 없던 때 1.15)
   const fit = () => {
     hero.style.height = (title.offsetTop + title.offsetHeight + 26) + "px";
     hero.style.setProperty("--med-fade", (title.offsetHeight + 84) + "px");

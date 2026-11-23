@@ -25,19 +25,21 @@ test('사진 — 이름마다 img/share 에 파일이 있다 · 한 철 안에 �
   for (const id of all) assert.ok(fs.existsSync(path.join(ROOT, 'img', 'share', id + '.webp')), id + '.webp 가 없다 — 그 날만 흰 판이 된다');
   for (const [k, list] of Object.entries(MED_BG)) assert.equal(new Set(list).size, list.length, k + ' 안에 같은 사진이 두 번');
   for (const id of ['bg-harvest', 'bg-watercolor', 'card-birthday-3', 'card-wedding-3']) assert.ok(!all.includes(id), id + ' 는 뺐다(그림풍 · 행사 느낌)');
-  assert.equal(new Set(all).size, 45, '45장(창가 card-healing-2 는 봄 · 여름 둘에)');
+  assert.equal(new Set(all).size, 45, '45장(창가 card-healing-2 는 봄 · 여름 둘에 · 성탄 눈 사진 셋은 겨울에도)');
+  assert.equal(MED_BG.christmas.length, 10, '성탄 카드 그림 열 모두');
+  for (let n = 1; n <= 10; n++) assert.ok(MED_BG.christmas.includes('card-christmas-' + n), 'card-christmas-' + n);
 });
 
-test('철 — 7월엔 여름 · 4월엔 봄 · 10월엔 가을 · 1월엔 겨울(사계절과 번갈아) · 12/1~25 는 성탄과 겨울만 · 12/26 부터는 성탄 장식 없음', () => {
+test('철 — 7월엔 여름 · 4월엔 봄 · 10월엔 가을 · 1월엔 겨울(사계절과 번갈아) · 11/23~12/31 은 성탄 그림만(친구 2026-11-23)', () => {
   const span = (from, n) => Array.from({ length: n }, (_, i) => medDayLook(dayOf(from) + i).bg);
   const only = (bgs, ok, msg) => bgs.forEach((b) => assert.ok(ok.includes(b), msg + ' — ' + b));
   only(span('2027-07-01', 31), MED_BG.summer.concat(MED_BG.all), '7월');
   only(span('2027-04-01', 30), MED_BG.spring.concat(MED_BG.all), '4월');
   only(span('2026-10-01', 31), MED_BG.autumn.concat(MED_BG.all), '10월');
+  only(span('2026-11-01', 22), MED_BG.autumn.concat(MED_BG.all), '11/1~22');
   only(span('2027-01-01', 31), MED_BG.winter.concat(MED_BG.all), '1월');
-  only(span('2026-12-01', 25), MED_BG.christmas.concat(MED_BG.winter), '12/1~25');
-  only(span('2026-12-26', 6), MED_BG.winter.concat(MED_BG.all), '12/26~31');
-  assert.ok(span('2026-12-01', 25).some((b) => MED_BG.christmas.includes(b)), '대림절엔 성탄 사진이 나온다');
+  only(span('2026-11-23', 39), MED_BG.christmas, '11/23~12/31');
+  assert.equal(new Set(span('2026-11-23', 39)).size, 10, '그 동안 성탄 그림 열이 다 나온다');
   assert.ok(span('2027-07-01', 31).some((b) => MED_BG.summer.includes(b)) && span('2027-07-01', 31).some((b) => MED_BG.all.includes(b)), '철 사진과 사계절 사진이 섞인다');
 });
 
@@ -76,6 +78,10 @@ test('배선 — 문(MED_BG_OPEN · 시험 참여자 먼저 · A안에서만) ·
   const ap = cut(APP, 'function medApplyLook(wrap, day) {', '\n}\n');
   assert.match(ap, /im\.onload = \(\) => \{ if \(hero\.dataset\.bg !== url\) return;/, '빨리 탭을 넘기면 늦게 온 앞 사진이 덮지 않는다');
   assert.ok(!/onerror/.test(ap), '사진을 못 받으면 아무것도 안 한다(흰 판 그대로)');
+  assert.match(CSS, /\.md-a \.cheer-card\.med\.has-bg \.med-tabs \+ \.dmsg-title \{ margin-top: 20px; \}/, '요일 칸이 있으면 제목은 바로 아래 — 확인 단추가 밀려나지 않게(친구 2026-11-23)');
+  assert.match(CSS, /\.md-a \.cheer-card\.med\.has-bg \.dmsg-title \{ margin-top: 60px;/, '요일 칸이 없으면 60px — 요일 칸 있는 창보다 짧다');
+  assert.match(CSS, /\.md-a \.cheer-card\.med\.has-bg > \.med-actions \{\n  position: sticky; bottom: calc\(-24px - env\(safe-area-inset-bottom, 0px\)\);/, '「설교 · 요약 · 확인」 줄은 판 아래에 붙는다 — 작은 폰 · 긴 묵상에서도 보인다');
+  assert.ok(CSS.includes('.dark .md-a .cheer-card.med.has-bg > .med-actions {'), '붙은 줄 어두운 모드 짝');
   for (const sel of ['.md-a .med-hero {', '.md-a .has-bg::before {', '.md-a .has-bg .med-tabs {', '.md-a .cheer-card.med.has-bg .dmsg-title {'])
     assert.ok(CSS.includes('.dark ' + sel), sel + ' 어두운 모드 짝');
   assert.match(CSS, /\.md-a \.med-hero \{[^}]*pointer-events: none;/, '사진 칸이 탭을 가로채지 않는다');
